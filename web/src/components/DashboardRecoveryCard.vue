@@ -28,7 +28,7 @@ defineEmits<{
 </script>
 
 <template>
-  <a-card :bordered="false">
+  <a-card :bordered="false" class="dashboard-recovery-card">
     <template #title>
       <div class="card-header">
         <span>恢复兼容性</span>
@@ -101,12 +101,45 @@ defineEmits<{
 </template>
 
 <style scoped lang="scss">
+.dashboard-recovery-card {
+  border-radius: var(--radius-xl);
+  border: 1px solid var(--border);
+  background: var(--surface-strong);
+  box-shadow: var(--shadow-xs);
+  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+
+  &:hover {
+    box-shadow: var(--shadow-elevated);
+    border-color: var(--border-accent);
+  }
+}
+
+.dashboard-recovery-card :deep(.ant-card-body) {
+  padding: var(--space-lg);
+}
+
+.card-header {
+  span {
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: var(--text);
+  }
+}
+
 .readiness-note {
   margin-top: 14px;
-  padding: 10px 12px;
+  padding: 12px 16px;
   border-radius: var(--radius-lg);
-  background: rgba(15, 23, 42, 0.04);
-  border: 1px solid rgba(148, 163, 184, 0.18);
+  background: var(--surface-soft);
+  border: 1px solid var(--border);
   line-height: 1.5;
+  color: var(--muted);
+  font-weight: 500;
+}
+
+.table-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 </style>

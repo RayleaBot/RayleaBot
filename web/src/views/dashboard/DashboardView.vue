@@ -440,13 +440,18 @@ function getProtocolIssueTagColor(status: typeof protocolIssueStatusType.value) 
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  gap: 10px;
+  gap: 12px;
   flex-wrap: wrap;
 }
 
 .dashboard-page__refresh-meta {
   color: var(--muted);
-  font-size: 0.8rem;
+  font-size: 0.78rem;
+  background: var(--surface-soft);
+  padding: 4px 10px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  font-weight: 500;
 }
 
 .dashboard-page__refresh-toggle {
@@ -455,12 +460,21 @@ function getProtocolIssueTagColor(status: typeof protocolIssueStatusType.value) 
   gap: 8px;
   color: var(--muted);
   font-size: 0.8rem;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: var(--radius-sm);
+  transition: background-color 0.2s ease;
+
+  &:hover {
+    background: var(--surface-soft);
+  }
 }
 
 .dashboard-main-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1.12fr) minmax(340px, 0.88fr);
+  grid-template-columns: minmax(0, 1.15fr) minmax(340px, 0.85fr);
   gap: var(--space-lg);
+  margin-bottom: var(--space-lg);
 }
 
 .dashboard-bottom-grid {
@@ -469,37 +483,82 @@ function getProtocolIssueTagColor(status: typeof protocolIssueStatusType.value) 
   gap: var(--space-lg);
 }
 
+.dashboard-activity-card {
+  border-radius: var(--radius-xl);
+  border: 1px solid var(--border);
+  background: var(--surface-strong);
+  box-shadow: var(--shadow-xs);
+  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+
+  &:hover {
+    box-shadow: var(--shadow-elevated);
+    border-color: var(--border-accent);
+  }
+}
+
 .dashboard-activity-card :deep(.ant-card-body) {
-  padding-top: 10px;
+  padding: var(--space-lg);
+  padding-top: 6px;
 }
 
 .dashboard-activity-card :deep(.ant-tabs-nav) {
-  margin-bottom: 14px;
+  margin-bottom: 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.dashboard-activity-card :deep(.ant-tabs-tab) {
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--muted);
+  transition: all 0.2s ease;
+
+  &:hover {
+    color: var(--accent);
+  }
+}
+
+.dashboard-activity-card :deep(.ant-tabs-tab-active) {
+  font-weight: 700;
+
+  .ant-tabs-tab-btn {
+    color: var(--accent) !important;
+  }
 }
 
 .dashboard-reason-codes {
   margin-top: 14px;
+  padding: 6px 12px;
+  background: var(--surface-soft);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
 
   small {
     color: var(--muted);
+    font-weight: 500;
   }
 }
 
 .dashboard-runtime-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: var(--app-layout-gap);
+  gap: var(--space-md);
 }
 
 .dashboard-protocol-alert {
   display: grid;
   gap: 12px;
-  margin-top: 14px;
-  padding: 14px;
+  margin-top: 16px;
+  padding: 16px;
   border-radius: var(--radius-lg);
-  border: 1px solid color-mix(in srgb, var(--warning) 28%, var(--border));
-  background: color-mix(in srgb, var(--warning) 8%, var(--surface-soft));
-  box-shadow: var(--shadow-xs);
+  border: 1px solid color-mix(in srgb, var(--warning) 30%, var(--border));
+  background: color-mix(in srgb, var(--warning) 6%, var(--surface-soft));
+  box-shadow: var(--shadow-sm);
+  transition: all 0.24s ease;
+
+  &:hover {
+    border-color: var(--warning);
+    box-shadow: var(--shadow-elevated);
+  }
 }
 
 .dashboard-protocol-alert__header {
@@ -511,16 +570,19 @@ function getProtocolIssueTagColor(status: typeof protocolIssueStatusType.value) 
 
 .dashboard-protocol-alert__heading {
   display: grid;
-  gap: 6px;
+  gap: 4px;
 
   span {
     color: var(--muted);
-    font-size: 0.8rem;
+    font-size: 0.76rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
   }
 
   strong {
-    font-size: 0.95rem;
-    line-height: 1.45;
+    font-size: 0.92rem;
+    line-height: 1.4;
     color: var(--text);
   }
 }
@@ -528,7 +590,7 @@ function getProtocolIssueTagColor(status: typeof protocolIssueStatusType.value) 
 .dashboard-protocol-alert__actions {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   flex-wrap: wrap;
   justify-content: flex-end;
 }
@@ -542,6 +604,7 @@ function getProtocolIssueTagColor(status: typeof protocolIssueStatusType.value) 
   small {
     color: var(--muted);
     line-height: 1.4;
+    font-weight: 500;
   }
 }
 
@@ -560,7 +623,7 @@ function getProtocolIssueTagColor(status: typeof protocolIssueStatusType.value) 
 }
 
 .events-timeline-wrapper--collapsed {
-  max-height: 320px;
+  max-height: 330px;
   overflow: hidden;
   position: relative;
 }
@@ -571,96 +634,133 @@ function getProtocolIssueTagColor(status: typeof protocolIssueStatusType.value) 
   left: 0;
   right: 0;
   bottom: 0;
-  height: 48px;
-  background: linear-gradient(transparent, var(--surface-soft));
+  height: 60px;
+  background: linear-gradient(transparent, var(--surface-strong));
   pointer-events: none;
 }
 
 .events-toggle {
-  margin-top: 10px;
+  margin-top: 14px;
   text-align: center;
 }
 
 .events-timeline {
-  padding-top: 4px;
+  padding-top: 6px;
 }
 
 .events-timeline :deep(.ant-timeline-item-tail) {
-  inset-inline-start: 9px;
+  inset-inline-start: 13px;
+  border-inline-start: 2px solid var(--border);
 }
 
 .events-timeline :deep(.ant-timeline-item-head) {
-  inset-inline-start: 0;
-  width: 18px;
-  height: 18px;
-  background: transparent;
+  inset-inline-start: 4px;
+  width: 20px;
+  height: 20px;
+  background: var(--surface-strong);
   border: 0;
 }
 
 .events-timeline__dot-icon {
-  font-size: 1rem;
+  font-size: 1.15rem;
   line-height: 1;
 }
 
 .events-timeline__dot {
   display: block;
-  width: 8px;
-  height: 8px;
+  width: 10px;
+  height: 10px;
   border-radius: 999px;
-  background: var(--accent);
+  background: var(--border-accent);
   margin: 5px;
+  border: 2px solid var(--surface-strong);
+  box-shadow: 0 0 0 1px var(--border);
 }
 
 .events-timeline__item {
   display: grid;
-  gap: 8px;
+  gap: var(--space-xs);
   min-width: 0;
+  padding: var(--space-sm) var(--space-md);
+  border-radius: var(--radius-md);
+  border: 1px solid transparent;
+  background: transparent;
+  transition: all 0.24s ease;
+
+  &:hover {
+    background: var(--surface-soft);
+    border-color: var(--border);
+    transform: translateX(4px);
+    box-shadow: var(--shadow-xs);
+  }
 }
 
 .events-timeline__summary {
-  font-size: 0.92rem;
-  line-height: 1.4;
+  font-size: 0.9rem;
+  font-weight: 700;
+  line-height: 1.45;
   color: var(--text);
 }
 
 .events-timeline__time {
   flex-shrink: 0;
   color: var(--muted);
-  font-size: 0.78rem;
+  font-size: 0.76rem;
+  font-weight: 500;
   white-space: nowrap;
 }
 
 .events-timeline__actions {
-  margin-top: 2px;
+  margin-top: 4px;
 }
 
 .readiness-checks {
   display: grid;
-  gap: 8px;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: var(--space-md);
 }
 
 .readiness-check {
   display: grid;
   gap: 6px;
-  padding: 10px 12px;
-  border-radius: var(--radius-sm);
+  padding: 14px;
+  border-radius: var(--radius-lg);
   border: 1px solid var(--border);
   background: var(--surface-soft);
+  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-sm);
+    border-color: var(--border-accent);
+  }
 }
 
 .readiness-check--success {
   border-color: var(--border-success);
   background: var(--surface-success);
+  &:hover {
+    border-color: var(--success);
+    box-shadow: 0 4px 12px -4px color-mix(in srgb, var(--success) 20%, transparent);
+  }
 }
 
 .readiness-check--warning {
   border-color: var(--border-warning);
   background: var(--surface-warning);
+  &:hover {
+    border-color: var(--warning);
+    box-shadow: 0 4px 12px -4px color-mix(in srgb, var(--warning) 20%, transparent);
+  }
 }
 
 .readiness-check--danger {
   border-color: var(--border-danger);
   background: var(--surface-danger);
+  &:hover {
+    border-color: var(--danger);
+    box-shadow: 0 4px 12px -4px color-mix(in srgb, var(--danger) 20%, transparent);
+  }
 }
 
 .readiness-check__header {
@@ -670,27 +770,31 @@ function getProtocolIssueTagColor(status: typeof protocolIssueStatusType.value) 
 }
 
 .readiness-check__icon {
-  font-size: 1rem;
+  font-size: 1.1rem;
+  line-height: 1;
 }
 
 .readiness-check__name {
-  font-weight: 600;
-  font-size: 0.92rem;
+  font-weight: 700;
+  font-size: 0.9rem;
+  color: var(--text);
 }
 
 .readiness-check__value {
-  font-size: 0.86rem;
+  font-size: 0.84rem;
   color: var(--muted);
+  font-weight: 500;
+  line-height: 1.4;
 }
 
 .issues-list {
   display: grid;
-  gap: 10px;
+  gap: 12px;
   margin-top: 16px;
 }
 
 .issues-list--collapsed {
-  max-height: 220px;
+  max-height: 240px;
   overflow: hidden;
   position: relative;
 }
@@ -702,42 +806,52 @@ function getProtocolIssueTagColor(status: typeof protocolIssueStatusType.value) 
   right: 0;
   bottom: 0;
   height: 60px;
-  background: linear-gradient(transparent, var(--surface-soft));
+  background: linear-gradient(transparent, var(--surface-strong));
   pointer-events: none;
 }
 
 .issues-toggle {
-  margin-top: 10px;
+  margin-top: 14px;
   text-align: center;
 }
 
 .issue-alert-card {
   display: grid;
-  gap: 10px;
+  gap: 8px;
   padding: 14px;
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-lg);
   border: 1px solid var(--border);
-  background: color-mix(in srgb, var(--danger) 6%, transparent);
+  background: color-mix(in srgb, var(--danger) 5%, var(--surface-soft));
   box-shadow: var(--shadow-xs);
   position: relative;
   overflow: hidden;
-}
+  transition: all 0.24s ease;
 
-.issue-alert-card::before {
-  content: '';
-  position: absolute;
-  inset: 0 0 auto;
-  height: 3px;
-  background: var(--danger);
-  border-radius: var(--radius-md) var(--radius-md) 0 0;
+  &::before {
+    content: '';
+    position: absolute;
+    inset: 0 auto 0 0;
+    width: 4px;
+    background: var(--danger);
+  }
+
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-sm);
+    border-color: color-mix(in srgb, var(--danger) 30%, var(--border));
+  }
 }
 
 .issue-alert-card--warning {
-  background: color-mix(in srgb, var(--warning) 6%, transparent);
-}
+  background: color-mix(in srgb, var(--warning) 5%, var(--surface-soft));
 
-.issue-alert-card--warning::before {
-  background: var(--warning);
+  &::before {
+    background: var(--warning);
+  }
+
+  &:hover {
+    border-color: color-mix(in srgb, var(--warning) 30%, var(--border));
+  }
 }
 
 .issue-alert-card__header {
@@ -748,50 +862,93 @@ function getProtocolIssueTagColor(status: typeof protocolIssueStatusType.value) 
 
 .issue-alert-card__summary {
   flex: 1;
-  font-weight: 600;
+  font-weight: 700;
+  font-size: 0.9rem;
+  color: var(--text);
 }
 
 .issue-alert-card__remediation {
-  font-size: 0.88rem;
+  font-size: 0.84rem;
   color: var(--muted);
   line-height: 1.5;
+  padding-left: 2px;
+}
+
+.dashboard-runtime-card {
+  border-radius: var(--radius-xl);
+  border: 1px solid var(--border);
+  background: var(--surface-strong);
+  box-shadow: var(--shadow-xs);
+  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+
+  &:hover {
+    box-shadow: var(--shadow-elevated);
+    border-color: var(--border-accent);
+  }
 }
 
 .dashboard-runtime-item {
+  position: relative;
   display: grid;
   gap: 4px;
-  padding: 12px;
-  border-radius: var(--radius-md);
+  padding: 14px;
+  border-radius: var(--radius-lg);
   border: 1px solid var(--border);
   background: var(--surface-soft);
   box-shadow: var(--shadow-xs);
+  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+  overflow: hidden;
+
+  &::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 3px;
+    height: 100%;
+    background: var(--border-accent);
+    opacity: 0.7;
+  }
+
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-sm);
+    border-color: var(--border-accent);
+  }
 
   span {
     color: var(--muted);
-    font-size: 0.8rem;
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
   }
 
   strong {
     font-size: 1rem;
-    line-height: 1.3;
+    font-weight: 800;
+    line-height: 1.35;
+    color: var(--text);
   }
 
   small {
     color: var(--muted);
     line-height: 1.45;
+    font-size: 0.78rem;
+    font-weight: 500;
   }
 }
 
 .text-success {
-  color: #1f7a43;
+  color: var(--text-success) !important;
 }
 
 .text-warning {
-  color: #8a5a00;
+  color: var(--text-warning) !important;
 }
 
 .text-danger {
-  color: #b4232d;
+  color: var(--text-danger) !important;
 }
 
 @media (max-width: 1200px) {

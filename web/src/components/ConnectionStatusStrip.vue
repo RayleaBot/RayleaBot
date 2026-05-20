@@ -109,6 +109,37 @@ function getPulseClass(status: ConnectionStatus) {
 </template>
 
 <style scoped lang="scss">
+.connection-card {
+  border-radius: var(--radius-xl);
+  border: 1px solid var(--border);
+  background: var(--surface-strong);
+  box-shadow: var(--shadow-xs);
+  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+
+  &:hover {
+    box-shadow: var(--shadow-elevated);
+    border-color: var(--border-accent);
+  }
+}
+
+.connection-card :deep(.ant-card-body) {
+  padding: var(--space-lg);
+}
+
+.card-header {
+  span {
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: var(--text);
+  }
+  p {
+    font-size: 0.78rem;
+    color: var(--muted);
+    margin: 2px 0 0;
+    font-weight: 500;
+  }
+}
+
 .connection-card__grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
@@ -122,6 +153,13 @@ function getPulseClass(status: ConnectionStatus) {
   background: var(--surface-soft);
   display: grid;
   gap: 6px;
+  transition: all 0.24s cubic-bezier(0.25, 0.8, 0.25, 1);
+
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-sm);
+    border-color: var(--border-accent);
+  }
 }
 
 .connection-card__row {
@@ -132,16 +170,56 @@ function getPulseClass(status: ConnectionStatus) {
 }
 
 .connection-card__label {
-  font-weight: 600;
+  font-weight: 700;
+  font-size: 0.88rem;
+  color: var(--text);
 }
 
 .connection-card__meta {
   color: var(--muted);
   line-height: 1.4;
+  font-size: 0.78rem;
+  font-weight: 500;
 }
 
 .connection-card__badge-wrap {
   display: inline-flex;
   border-radius: 999px;
+  padding: 2px 6px;
+  background: var(--surface-strong);
+  border: 1px solid var(--border);
+}
+
+/* breathing status badge animations */
+.status-pulse--success :deep(.ant-badge-status-dot) {
+  animation: status-pulse-glow 2s infinite;
+}
+
+.status-pulse--processing :deep(.ant-badge-status-dot) {
+  animation: status-pulse-glow-processing 2s infinite;
+}
+
+@keyframes status-pulse-glow {
+  0% {
+    box-shadow: 0 0 0 0 rgba(63, 190, 115, 0.65);
+  }
+  70% {
+    box-shadow: 0 0 0 6px rgba(63, 190, 115, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(63, 190, 115, 0);
+  }
+}
+
+@keyframes status-pulse-glow-processing {
+  0% {
+    box-shadow: 0 0 0 0 rgba(22, 104, 220, 0.65);
+  }
+  70% {
+    box-shadow: 0 0 0 6px rgba(22, 104, 220, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(22, 104, 220, 0);
+  }
 }
 </style>
