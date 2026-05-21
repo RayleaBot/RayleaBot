@@ -1,10 +1,10 @@
 <script setup lang="ts">
-import { 
-  ClearOutlined, 
-  ReloadOutlined, 
-  CalendarOutlined, 
-  ClockCircleOutlined, 
-  SafetyCertificateOutlined 
+import {
+  CalendarOutlined,
+  ClearOutlined,
+  ClockCircleOutlined,
+  ReloadOutlined,
+  SafetyCertificateOutlined,
 } from '@ant-design/icons-vue'
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
@@ -465,6 +465,18 @@ function getGrantedAt(capability: string) {
   return grantRecordsByCapability.value.get(capability)?.granted_at ?? undefined
 }
 
+function getPermissionTimeFallbackLabel(permission: PluginPermissionSummary) {
+  if (permission.status !== 'granted') {
+    return t('display.empty')
+  }
+
+  if (permission.source === 'builtin_auto' || permission.source === 'config_auto') {
+    return getPermissionSourceLabel(permission.source)
+  }
+
+  return t('display.empty')
+}
+
 function getConsoleStatusColor(status: string) {
   if (status === 'authenticated') return 'success'
   if (status === 'reconnecting' || status === 'connecting') return 'warning'
@@ -765,7 +777,7 @@ watch(
                     <div v-else class="permission-list">
                       <article v-for="permission in currentPermissions" :key="permission.capability" class="permission-item">
                         <div class="permission-item__status-bar" :class="permission.status === 'granted' ? 'is-granted' : 'is-pending'"></div>
-                        
+
                         <div class="permission-item__capability">
                           <strong
                             :title="getPluginCapabilityRawTitle(permission.capability)"
@@ -799,7 +811,7 @@ watch(
                           <template v-else>
                             <span class="time-row-empty">
                               <SafetyCertificateOutlined class="meta-icon" />
-                              <span class="meta-val">永久有效 · 自动授权</span>
+                              <span class="meta-val">{{ getPermissionTimeFallbackLabel(permission) }}</span>
                             </span>
                           </template>
                         </div>
