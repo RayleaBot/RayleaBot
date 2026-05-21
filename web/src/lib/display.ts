@@ -22,6 +22,17 @@ function translated(key: string, raw?: string) {
   return i18n.global.te(key) ? t(key) : fallback(raw)
 }
 
+export function getPluginCapabilityLabel(capability: string) {
+  const labels = i18n.global.tm('plugins.capabilityLabels') as Record<string, unknown>
+  const label = labels[capability]
+
+  return typeof label === 'string' && label.trim() ? label : capability
+}
+
+export function getPluginCapabilityRawTitle(capability: string) {
+  return t('plugins.capabilityRawTitle', { capability })
+}
+
 export function getConnectionChannelLabel(channel: 'events' | 'tasks' | 'logs' | 'pluginConsole') {
   return t(`display.connectionChannels.${channel}`)
 }

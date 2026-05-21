@@ -17,6 +17,7 @@
 | `role` | `builtin` / `user` / `example` / `dev` |
 | `default_config` | 插件默认配置 |
 | `management_ui` | 插件详情页内置管理页入口 |
+| `capabilities` | 插件声明的完整平台能力画像 |
 | `permissions` | capability 与作用域声明 |
 | `commands` | 插件命令声明 |
 | `dependencies` | 语言级依赖说明 |
@@ -25,6 +26,77 @@
 ## 正式 capability 集合
 
 `capabilities`、`permissions.required` 和 `permissions.optional` 共用同一套正式 capability 名称。
+
+机器可读的完整枚举以 `contracts/plugin-info.schema.json` 的 `capability_name` 定义为准。本页列出面向插件开发者的常用分类；local action 的请求结构和返回结构见 [Protocol](./protocol.md)，SDK helper 覆盖范围见 [Plugin SDK Docs](./sdk/README.md)。
+
+## 声明能力与授权口径
+
+`capabilities` 表示插件可能使用的平台能力集合，用于安装校验、兼容性判断和管理面展示。
+
+`permissions.required` 和 `permissions.optional` 表示进入授权模型的 capability 需求。管理面“权限与授权”列表来自这两个字段，显示必需/可选、已授权/未授权、授权来源和有效期。
+
+两者数量可以不同：
+
+- `capabilities` 可以包含不需要单独授权决策的能力，例如 `event.subscribe`
+- 只写入 `capabilities` 不会生成授权记录，也不会进入管理面的“权限与授权”列表
+- 需要平台授予、运行时拦截、撤销或作用域限制的能力应放入 `permissions.required` 或 `permissions.optional`
+- `permissions.required` 缺少有效授权时，插件启用、重载、恢复和崩溃恢复会返回 `plugin.permission_pending`
+- `permissions.optional` 默认不阻止插件启用，插件使用对应能力前仍需要有效授权
+- `permissions.scopes` 只约束进入授权模型的能力，当前覆盖 `http.request`、`storage.file` 和 `event.expose_webhook`
+
+管理面中的“声明能力”显示 `capabilities`；“权限与授权”显示 `permissions.required` 与 `permissions.optional` 的授权摘要。
+
+## 插件开发者声明规则
+
+`capabilities` 写入插件会使用的完整平台能力集合。插件代码、SDK helper、local action、OneBot 单动作、provider 扩展动作和高敏事件字段都会映射到正式 capability 名称。
+
+`permissions.required` 和 `permissions.optional` 只写入需要授权的能力。当前正式能力里，`event.subscribe` 只用于事件订阅画像，通常只写入 `capabilities`；其余能力一旦要在运行时真正使用，都应进入 `permissions.required` 或 `permissions.optional`：
+
+- 插件核心功能离不开的能力写入 `permissions.required`
+- 缺少后仍可运行、只影响增强功能或可延后开启的能力写入 `permissions.optional`
+- 仅用于说明插件参与平台事件流、但没有独立授权决策的能力只写入 `capabilities`
+- 需要授权的能力如果只写入 `capabilities`，插件可通过 manifest 校验，但运行时使用该能力会被 `permission.scope_violation` 拒绝，除非该能力通过配置自动授权或手动 grant 获得有效授权
+- `permissions.required` 和 `permissions.optional` 中的能力同时保留在 `capabilities`，让插件详情页展示完整能力画像
+
+声明规则：
+
+| 插件行为 | capability | `capabilities` | `permissions.required / optional` |
+| --- | --- | --- | --- |
+| 接收平台分发的常规事件 | `event.subscribe` | 需要 | 通常不需要 |
+| 读取原始事件载荷 | `event.raw_payload` | 需要 | 需要；按功能重要性放入 `required` 或 `optional` |
+| 发送或回复消息 | `message.send` / `message.reply` | 需要 | 需要；核心回复能力通常放入 `required` |
+| 调用通用 local action | action kind，例如 `logger.write`、`storage.kv`、`config.read` | 需要 | 需要；按功能重要性放入 `required` 或 `optional` |
+| 调用 OneBot 单动作 | action kind，例如 `message.history.get`、`group.member.list` | 需要 | 需要；按功能重要性放入 `required` 或 `optional` |
+| 调用 provider 扩展动作 | provider action kind | 需要 | 需要；按功能重要性放入 `required` 或 `optional` |
+| 发起 HTTP 请求 | `http.request` | 需要 | 需要，并声明 `permissions.scopes.http_hosts` |
+| 读写插件文件 | `storage.file` | 需要 | 需要，并声明 `permissions.scopes.storage_roots` |
+| 暴露 Webhook 入口 | `event.expose_webhook` | 需要 | 需要，并声明 `permissions.scopes.webhooks` |
+| 只声明命令、帮助、依赖、截图、管理页等元数据 | 无 | 不需要 | 不需要 |
+
+示例：
+
+```json
+{
+  "capabilities": [
+    "event.subscribe",
+    "message.send",
+    "http.request"
+  ],
+  "permissions": {
+    "required": [
+      "message.send"
+    ],
+    "optional": [
+      "http.request"
+    ],
+    "scopes": {
+      "http_hosts": [
+        "api.example.com"
+      ]
+    }
+  }
+}
+```
 
 ### 基础 capability
 

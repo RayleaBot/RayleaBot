@@ -11,9 +11,12 @@ import PluginManagementUIHost from '@/components/plugins/PluginManagementUIHost.
 import PluginPowerButton from '@/components/PluginPowerButton.vue'
 import PluginCommandsPanel from '@/components/PluginCommandsPanel.vue'
 import RetryPanel from '@/components/RetryPanel.vue'
+import VirtualDataViewport from '@/components/VirtualDataViewport.vue'
 import { getPrimaryCommandPrefix } from '@/lib/command-usage'
 import {
   getConnectionStatusLabel,
+  getPluginCapabilityLabel,
+  getPluginCapabilityRawTitle,
   getPluginDisplayStateLabel,
   getPluginDesiredStateLabel,
   getPluginRegistrationStateLabel,
@@ -38,8 +41,11 @@ import { usePluginConsoleStore, type ConsoleFrame } from '@/stores/plugin-consol
 import { usePluginsStore } from '@/stores/plugins'
 import { useSocketStore } from '@/stores/sockets'
 import type { PluginDetail, PluginPermissionSummary } from '@/types/api'
+import { useReadyToRenderHeavyContent } from '@/layouts/usePageTransitionStage'
 
 type PermissionDialogMode = 'grant' | 'pending' | 'scope_changed'
+type PluginDetailInnerTab = 'commands' | 'permissions' | 'console'
+const CONSOLE_ROW_ESTIMATED_HEIGHT = 84
 
 const route = useRoute()
 const router = useRouter()
@@ -59,9 +65,15 @@ const currentGrants = computed(() => pluginsStore.getGrants(pluginId.value))
 const currentPermissions = computed(() => currentPlugin.value?.permissions ?? [])
 const consoleSnapshot = computed(() => socketStore.snapshots.pluginConsole)
 const grantBusy = computed(() => grantsLoading.value[pluginId.value] ?? false)
+const readyToRenderHeavyContent = useReadyToRenderHeavyContent()
 const loadError = ref<string | null>(null)
 const operationError = ref<string | null>(null)
-const consoleScroller = ref<HTMLElement | null>(null)
+const consoleViewportRef = ref<{
+  scrollToBottom: () => void
+  scrollToOffset: (offset: number) => void
+} | null>(null)
+const consoleFollowBottom = ref(true)
+const activeDetailTab = ref<PluginDetailInnerTab>('commands')
 const permissionDialogVisible = ref(false)
 const uninstallDialogVisible = ref(false)
 const selectedCapabilities = ref<string[]>([])
@@ -70,6 +82,7 @@ const permissionDialogAvailableCapabilities = ref<string[]>([])
 const resumeEnableAfterGrant = ref(false)
 let detailLoadVersion = 0
 let pageActive = true
+let consoleBottomSyncToken = 0
 
 const commandPrefix = computed(() => getPrimaryCommandPrefix(configDocument.value?.command?.prefixes))
 const requestedPanel = computed(() => readPluginDetailPanel(route.query))
@@ -354,6 +367,13 @@ function clearConsole() {
   pluginConsoleStore.clearConsole(pluginId.value)
 }
 
+function onConsoleViewportBottomChange(nextAtBottom: boolean) {
+  consoleFollowBottom.value = nextAtBottom
+  if (!nextAtBottom) {
+    consoleBottomSyncToken += 1
+  }
+}
+
 function getConsoleFrameKey(frame: ConsoleFrame, index: number) {
   if (frame.stream === 'outbound') {
     return frame.log_id
@@ -499,16 +519,56 @@ async function setActivePanel(nextPanel: PluginDetailPanel) {
   await syncPanelQuery(nextPanel)
 }
 
-watch(
-  () => consoleFrames.value.length,
-  async () => {
-    await scrollConsoleToBottom()
-  },
-)
+function setActiveDetailTab(nextTab: PluginDetailInnerTab) {
+  activeDetailTab.value = nextTab
+  if (nextTab === 'console') {
+    void syncConsoleViewportToBottom()
+  }
+}
+
+async function syncConsoleViewportToBottom() {
+  const syncToken = ++consoleBottomSyncToken
+  consoleFollowBottom.value = true
+  await nextTick()
+  for (let attempt = 0; attempt < 4; attempt += 1) {
+    if (syncToken !== consoleBottomSyncToken || activeDetailTab.value !== 'console') {
+      return
+    }
+
+    await waitForAnimationFrame()
+    if (syncToken !== consoleBottomSyncToken || activeDetailTab.value !== 'console') {
+      return
+    }
+
+    consoleViewportRef.value?.scrollToBottom()
+    await nextTick()
+  }
+}
+
+async function waitForAnimationFrame() {
+  if (typeof window === 'undefined' || typeof window.requestAnimationFrame !== 'function') {
+    await nextTick()
+    return
+  }
+
+  await new Promise<void>((resolve) => {
+    window.requestAnimationFrame(() => resolve())
+  })
+}
 
 watch(pluginId, () => {
   void loadDetail()
 })
+
+watch(
+  () => consoleFrames.value.length,
+  async () => {
+    if (activeDetailTab.value === 'console' && consoleFollowBottom.value) {
+      await nextTick()
+      consoleViewportRef.value?.scrollToBottom()
+    }
+  },
+)
 
 watch(
   [requestedPanel, currentPlugin],
@@ -530,21 +590,22 @@ onMounted(() => {
 
 onUnmounted(() => {
   pageActive = false
+  consoleBottomSyncToken += 1
   detailLoadVersion += 1
   socketStore.setConsolePlugin(null)
 })
 
-async function scrollConsoleToBottom() {
-  await nextTick()
-  if (!consoleScroller.value) {
-    return
-  }
+watch(
+  readyToRenderHeavyContent,
+  (ready) => {
+    if (!ready || activeDetailTab.value !== 'console') {
+      return
+    }
 
-  consoleScroller.value.scrollTo({
-    top: consoleScroller.value.scrollHeight,
-    behavior: 'smooth',
-  })
-}
+    void syncConsoleViewportToBottom()
+  },
+  { immediate: true },
+)
 </script>
 
 <template>
@@ -635,7 +696,12 @@ async function scrollConsoleToBottom() {
       <div class="plugin-detail-workspace">
         <main class="plugin-detail-main-column">
           <a-card :bordered="false" class="plugin-detail-tab-card">
-            <a-tabs default-active-key="commands" :destroy-inactive-tab-pane="false" class="premium-detail-tabs">
+            <a-tabs
+              :active-key="activeDetailTab"
+              :destroy-inactive-tab-pane="false"
+              class="premium-detail-tabs"
+              @change="setActiveDetailTab($event as PluginDetailInnerTab)"
+            >
               <!-- TAB 1: Commands -->
               <a-tab-pane key="commands" force-render>
                 <template #tab>
@@ -693,7 +759,12 @@ async function scrollConsoleToBottom() {
                     <div v-else class="permission-list">
                       <article v-for="permission in currentPermissions" :key="permission.capability" class="permission-item">
                         <div class="permission-item__capability">
-                          <strong>{{ permission.capability }}</strong>
+                          <strong
+                            :title="getPluginCapabilityRawTitle(permission.capability)"
+                            :aria-label="getPluginCapabilityRawTitle(permission.capability)"
+                          >
+                            {{ getPluginCapabilityLabel(permission.capability) }}
+                          </strong>
                           <div class="permission-item__tags">
                             <a-tag color="blue" class="tag-compact">{{ getPermissionRequirementLabel(permission.requirement) }}</a-tag>
                             <a-tag :color="permission.status === 'granted' ? 'success' : 'warning'" class="tag-compact">{{ getPermissionStatusLabel(permission.status) }}</a-tag>
@@ -795,25 +866,46 @@ async function scrollConsoleToBottom() {
                       <span>{{ t('plugins.empty.console') }}</span>
                     </div>
 
-                    <div v-else ref="consoleScroller" class="console-terminal" :aria-label="t('plugins.console.ariaLabel')">
-                      <article
-                        v-for="(frame, index) in consoleFrames"
-                        :key="getConsoleFrameKey(frame, index)"
-                        class="console-terminal-line"
-                      >
-                        <div class="console-terminal-line__meta">
-                          <time :datetime="frame.timestamp">{{ formatDateTime(frame.timestamp) }}</time>
-                          <div class="console-terminal-line__badges">
-                            <a-tag :color="getConsoleStreamColor(frame.stream)" class="stream-badge">{{ getConsoleStreamLabel(frame.stream) }}</a-tag>
-                            <a-tag v-if="frame.stream === 'outbound'" :color="getConsoleLevelColor(getConsoleLevel(frame))" class="level-badge">
-                              {{ getConsoleLevelLabel(getConsoleLevel(frame)) }}
-                            </a-tag>
-                            <span v-if="getConsoleRequestId(frame)" class="console-request-id">{{ getConsoleRequestId(frame) }}</span>
+                    <a-skeleton
+                      v-else-if="!readyToRenderHeavyContent"
+                      class="console-terminal-skeleton"
+                      active
+                      :paragraph="{ rows: 6 }"
+                    />
+
+                    <VirtualDataViewport
+                      v-else
+                      ref="consoleViewportRef"
+                      class="console-terminal"
+                      :aria-label="t('plugins.console.ariaLabel')"
+                      :items="consoleFrames"
+                      :item-height="CONSOLE_ROW_ESTIMATED_HEIGHT"
+                      :dynamic-item-height="true"
+                      :overscan="6"
+                      :follow-bottom="consoleFollowBottom"
+                      viewport-height="clamp(260px, 48vh, 550px)"
+                      :empty-label="t('plugins.empty.console')"
+                      :get-item-key="getConsoleFrameKey"
+                      @at-bottom-change="onConsoleViewportBottomChange"
+                    >
+                      <template #default="{ item: frame, index }">
+                        <article
+                          class="console-terminal-line"
+                        >
+                          <div class="console-terminal-line__meta">
+                            <time :datetime="frame.timestamp">{{ formatDateTime(frame.timestamp) }}</time>
+                            <div class="console-terminal-line__badges">
+                              <a-tag :color="getConsoleStreamColor(frame.stream)" class="stream-badge">{{ getConsoleStreamLabel(frame.stream) }}</a-tag>
+                              <a-tag v-if="frame.stream === 'outbound'" :color="getConsoleLevelColor(getConsoleLevel(frame))" class="level-badge">
+                                {{ getConsoleLevelLabel(getConsoleLevel(frame)) }}
+                              </a-tag>
+                              <span v-if="getConsoleRequestId(frame)" class="console-request-id">{{ getConsoleRequestId(frame) }}</span>
+                            </div>
                           </div>
-                        </div>
-                        <pre class="console-terminal-line__text">{{ escapeUnsafeDisplayText(frame.text) }}</pre>
-                      </article>
-                    </div>
+                          <pre class="console-terminal-line__text">{{ escapeUnsafeDisplayText(frame.text) }}</pre>
+                        </article>
+                      </template>
+                    </VirtualDataViewport>
                   </div>
                 </div>
               </a-tab-pane>
@@ -861,7 +953,14 @@ async function scrollConsoleToBottom() {
                 <div class="metadata-section">
                   <strong>{{ t('plugins.fields.declaredCapabilities') }}</strong>
                   <div v-if="hasItems(currentPlugin?.declared_capabilities)" class="tag-list">
-                    <a-tag v-for="capability in currentPlugin?.declared_capabilities" :key="capability" class="cap-tag">{{ capability }}</a-tag>
+                    <a-tag
+                      v-for="capability in currentPlugin?.declared_capabilities"
+                      :key="capability"
+                      class="cap-tag"
+                      :title="getPluginCapabilityRawTitle(capability)"
+                    >
+                      {{ getPluginCapabilityLabel(capability) }}
+                    </a-tag>
                   </div>
                   <p v-else class="empty-val">{{ t('display.empty') }}</p>
                 </div>
@@ -1005,7 +1104,12 @@ async function scrollConsoleToBottom() {
         :value="permission.capability"
       >
         <div class="permission-dialog-item">
-          <strong>{{ permission.capability }}</strong>
+          <strong
+            :title="getPluginCapabilityRawTitle(permission.capability)"
+            :aria-label="getPluginCapabilityRawTitle(permission.capability)"
+          >
+            {{ getPluginCapabilityLabel(permission.capability) }}
+          </strong>
           <small>
             {{ getPermissionRequirementLabel(permission.requirement) }} ·
             {{ getPermissionStatusLabel(permission.status) }} ·
@@ -1361,7 +1465,6 @@ async function scrollConsoleToBottom() {
 }
 
 .cap-tag {
-  font-family: var(--font-mono);
   font-size: 0.76rem;
   border-radius: 4px;
   margin-block: 2px;
@@ -1526,7 +1629,6 @@ async function scrollConsoleToBottom() {
   strong {
     overflow: hidden;
     color: var(--text);
-    font-family: var(--font-mono);
     font-size: 0.88rem;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -1682,10 +1784,23 @@ async function scrollConsoleToBottom() {
   font-weight: bold;
 }
 
+.console-terminal-skeleton {
+  padding: 16px;
+}
+
 .console-terminal {
-  max-height: clamp(260px, 48vh, 550px);
-  overflow: auto;
-  padding-block: 4px;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.console-terminal :deep(.data-viewport__scroller) {
+  scrollbar-gutter: stable;
+}
+
+.console-terminal :deep(.data-viewport__empty) {
+  display: none;
 }
 
 .console-terminal-line {

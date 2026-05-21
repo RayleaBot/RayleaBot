@@ -155,6 +155,8 @@ describe('PluginSettingsPage', () => {
     expect(wrapper.text()).toContain('当前表示')
     expect(wrapper.text()).not.toContain('插件消息速率限制')
     expect(wrapper.text()).toContain('插件工作目录软上限')
+    expect(wrapper.text()).toContain('每行一个正式能力值')
+    expect(wrapper.text()).toContain('常用示例：message.send、http.request、render.image')
     expect(wrapper.text()).not.toContain('格式使用')
     expect(wrapper.find('.plugin-settings-nav-item').exists()).toBe(false)
     expect(wrapper.findAll('.plugin-settings-setting-row')).toHaveLength(5)

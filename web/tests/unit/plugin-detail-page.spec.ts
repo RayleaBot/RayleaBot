@@ -1,10 +1,12 @@
 import Antd from 'ant-design-vue'
+import { nextTick } from 'vue'
 import { createPinia, setActivePinia } from 'pinia'
 import { flushPromises, mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMemoryHistory, createRouter } from 'vue-router'
 
 import { ApiError } from '@/lib/http'
+import VirtualDataViewport from '@/components/VirtualDataViewport.vue'
 import PluginDetailPage from '@/views/plugins/PluginDetailView.vue'
 import { useConfigStore } from '@/stores/config'
 import { usePluginConsoleStore } from '@/stores/plugin-console'
@@ -94,6 +96,52 @@ function createFixtureConfig(prefixes: string[]): ConfigDocument {
     http: { timeout_seconds: 10, max_retries: 2, allow_private_hosts: [] },
     web: { exposure_mode: 'localhost_only', setup_local_only: true },
     backup: { default_consistency: 'offline' },
+  }
+}
+
+function mockScrollerMetrics(wrapper: ReturnType<typeof mount>, clientHeight: number) {
+  const scroller = wrapper.get('.plugin-console-panel .data-viewport__scroller').element as HTMLElement
+  let internalScrollTop = 0
+
+  Object.defineProperty(scroller, 'clientHeight', {
+    configurable: true,
+    value: clientHeight,
+  })
+  Object.defineProperty(scroller, 'scrollTop', {
+    configurable: true,
+    get: () => internalScrollTop,
+    set: (value: number) => {
+      internalScrollTop = Math.floor(value)
+    },
+  })
+  Object.defineProperty(scroller, 'scrollHeight', {
+    configurable: true,
+    get: () => {
+      const style = wrapper.get('.plugin-console-panel .data-viewport__canvas').attributes('style')
+      const matched = /height:\s*(\d+)px/.exec(style)
+      return matched ? Number(matched[1]) : 0
+    },
+  })
+
+  return scroller
+}
+
+function getViewportMetrics(wrapper: ReturnType<typeof mount>) {
+  return wrapper.findComponent(VirtualDataViewport).vm.getScrollMetrics()
+}
+
+async function openConsoleTab(wrapper: ReturnType<typeof mount>) {
+  const consoleTab = wrapper.findAll('[role="tab"]').find((candidate) => candidate.text().includes('实时控制台'))
+  expect(consoleTab).toBeTruthy()
+  await consoleTab!.trigger('click')
+  await nextTick()
+  await flushPromises()
+}
+
+async function waitForConsoleBottomSync() {
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    await nextTick()
+    await flushPromises()
   }
 }
 
@@ -283,7 +331,12 @@ describe('PluginDetailPage', () => {
     expect(wrapper.text()).toContain('forecast_days')
     expect(wrapper.text()).toContain('assets/overview.svg')
     expect(wrapper.text()).toContain('天气总览卡片')
-    expect(wrapper.text()).toContain('http.request')
+    expect(wrapper.text()).toContain('发起 HTTP 请求')
+    expect(wrapper.text()).toContain('写入插件日志')
+    expect(wrapper.text()).toContain('生成渲染图片')
+    expect(wrapper.find('[title="原始能力：http.request"]').exists()).toBe(true)
+    expect(wrapper.find('[title="原始能力：logger.write"]').exists()).toBe(true)
+    expect(wrapper.find('[title="原始能力：render.image"]').exists()).toBe(true)
     expect(wrapper.text()).toContain('手动授权')
     expect(wrapper.text()).toContain('查看今日运势')
     expect(wrapper.text()).toContain('所有成员')
@@ -308,9 +361,21 @@ describe('PluginDetailPage', () => {
     expect(wrapper.text()).toContain('我的运势')
     expect(wrapper.text()).not.toContain('fortune')
     expect(wrapper.find('.console-terminal').exists()).toBe(true)
+    expect(wrapper.findComponent(VirtualDataViewport).exists()).toBe(true)
+    expect(wrapper.findComponent(VirtualDataViewport).props('dynamicItemHeight')).toBe(true)
+    expect(wrapper.findComponent(VirtualDataViewport).props('itemHeight')).toBe(84)
+    expect(wrapper.findComponent(VirtualDataViewport).props('overscan')).toBe(6)
+    expect(wrapper.findComponent(VirtualDataViewport).props('viewportHeight')).toBe('clamp(260px, 48vh, 550px)')
     expect(wrapper.findAll('.console-terminal-line')).toHaveLength(4)
     expect(wrapper.findAll('.plugin-holo-button')).toHaveLength(1)
     expect(wrapper.findComponent({ name: 'PluginCommandsPanel' }).exists()).toBe(true)
+    expect(wrapper.find('[role="tab"][aria-selected="true"]').text()).toContain('插件指令')
+    mockScrollerMetrics(wrapper, 346)
+    await openConsoleTab(wrapper)
+    await waitForConsoleBottomSync()
+    expect(getViewportMetrics(wrapper).scrollTop).toBeGreaterThanOrEqual(
+      getViewportMetrics(wrapper).scrollHeight - getViewportMetrics(wrapper).clientHeight - 1,
+    )
 
     const reconnectButton = wrapper.findAll('button').find((candidate) => candidate.attributes('aria-label') === '重新连接')
     expect(reconnectButton).toBeTruthy()
@@ -318,6 +383,145 @@ describe('PluginDetailPage', () => {
 
     expect(historySpy).toHaveBeenCalledWith('weather')
     expect(reconnectSpy).toHaveBeenCalledTimes(1)
+  })
+
+  it('keeps the console anchored to the bottom after the page transition settles', async () => {
+    const router = createPluginRouter()
+    await router.push('/plugins/weather')
+    await router.isReady()
+
+    const pluginsStore = usePluginsStore()
+    const pluginConsoleStore = usePluginConsoleStore()
+    const socketStore = useSocketStore()
+
+    pluginsStore.current = {
+      id: 'weather',
+      name: 'Weather',
+      role: 'user',
+      registration_state: 'installed',
+      desired_state: 'enabled',
+      runtime_state: 'running',
+      display_state: 'discovered',
+      source: {
+        root: 'plugins/installed',
+        package_source_type: 'local_zip',
+        package_source_ref: 'C:/plugins/weather.zip',
+        verified: false,
+      },
+      trust: {
+        level: 'unverified',
+        label: '未验证来源',
+      },
+      commands: [],
+      command_conflicts: [],
+      permissions: [],
+    }
+    pluginConsoleStore.appendConsole({
+      plugin_id: 'weather',
+      stream: 'stdout',
+      text: 'worker ready',
+      timestamp: '2026-03-22T10:00:00Z',
+    })
+
+    vi.spyOn(pluginsStore, 'fetchDetail').mockResolvedValue(pluginsStore.current)
+    vi.spyOn(pluginsStore, 'fetchGrants').mockResolvedValue([])
+    vi.spyOn(pluginConsoleStore, 'fetchOutboundConsoleHistory').mockResolvedValue([])
+    vi.spyOn(socketStore, 'setConsolePlugin').mockImplementation(() => undefined)
+
+    const wrapper = mount(PluginDetailPage, {
+      global: {
+        plugins: [Antd, router],
+      },
+    })
+
+    await flushPromises()
+    expect(wrapper.findComponent(VirtualDataViewport).exists()).toBe(true)
+    expect(wrapper.find('.console-terminal-line').text()).toContain('worker ready')
+    await openConsoleTab(wrapper)
+    expect(wrapper.findComponent(VirtualDataViewport).vm.isAtBottom()).toBe(true)
+  })
+
+  it('pauses bottom follow after the user scrolls away from the latest row', async () => {
+    const router = createPluginRouter()
+    await router.push('/plugins/weather')
+    await router.isReady()
+
+    const pluginsStore = usePluginsStore()
+    const pluginConsoleStore = usePluginConsoleStore()
+    const socketStore = useSocketStore()
+
+    pluginsStore.current = {
+      id: 'weather',
+      name: 'Weather',
+      role: 'user',
+      registration_state: 'installed',
+      desired_state: 'enabled',
+      runtime_state: 'running',
+      display_state: 'discovered',
+      source: {
+        root: 'plugins/installed',
+        package_source_type: 'local_zip',
+        package_source_ref: 'C:/plugins/weather.zip',
+        verified: false,
+      },
+      trust: {
+        level: 'unverified',
+        label: '未验证来源',
+      },
+      commands: [],
+      command_conflicts: [],
+      permissions: [],
+    }
+
+    pluginConsoleStore.appendConsole({
+      plugin_id: 'weather',
+      stream: 'stdout',
+      text: 'worker ready',
+      timestamp: '2026-03-22T10:00:00Z',
+    })
+    for (let index = 1; index <= 12; index += 1) {
+      pluginConsoleStore.appendConsole({
+        plugin_id: 'weather',
+        stream: index % 2 === 0 ? 'stderr' : 'system',
+        text: `trace line ${index}`,
+        timestamp: `2026-03-22T10:00:${String(index).padStart(2, '0')}Z`,
+      })
+    }
+
+    vi.spyOn(pluginsStore, 'fetchDetail').mockResolvedValue(pluginsStore.current)
+    vi.spyOn(pluginsStore, 'fetchGrants').mockResolvedValue([])
+    vi.spyOn(pluginConsoleStore, 'fetchOutboundConsoleHistory').mockResolvedValue([])
+    vi.spyOn(socketStore, 'setConsolePlugin').mockImplementation(() => undefined)
+
+    const wrapper = mount(PluginDetailPage, {
+      global: {
+        plugins: [Antd, router],
+      },
+    })
+
+    await flushPromises()
+    const scroller = mockScrollerMetrics(wrapper, 346)
+    await openConsoleTab(wrapper)
+    await waitForConsoleBottomSync()
+    expect(getViewportMetrics(wrapper).scrollTop).toBeGreaterThan(0)
+
+    scroller.scrollTop = 0
+    await wrapper.get('.plugin-console-panel .data-viewport__scroller').trigger('scroll')
+    await nextTick()
+    await flushPromises()
+
+    expect(getViewportMetrics(wrapper).scrollTop).toBe(0)
+
+    pluginConsoleStore.appendConsole({
+      plugin_id: 'weather',
+      stream: 'system',
+      text: 'new line after scroll',
+      timestamp: '2026-03-22T10:00:02Z',
+    })
+    await nextTick()
+    await flushPromises()
+
+    expect(getViewportMetrics(wrapper).scrollTop).toBe(0)
   })
 
   it('reconfirms persisted grants when enabling requires scope review', async () => {
@@ -423,7 +627,8 @@ describe('PluginDetailPage', () => {
 
     expect(wrapper.text()).toContain('重新确认插件权限')
     expect(wrapper.text()).toContain('作用域发生变化')
-    expect(wrapper.text()).toContain('http.request')
+    expect(wrapper.text()).toContain('发起 HTTP 请求')
+    expect(wrapper.find('[title="原始能力：http.request"]').exists()).toBe(true)
     expect(wrapper.text()).not.toContain('当前未声明权限')
 
     const confirmButton = wrapper.findAll('button').find((candidate) => candidate.text().includes('重新确认选中项'))

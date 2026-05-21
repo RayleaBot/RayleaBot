@@ -530,7 +530,7 @@ test('plugin management flow covers install, grants and console recovery', async
   await page.goto('/plugins')
   await expect(page.locator('#app-main').getByRole('heading', { name: '插件列表', level: 1 })).toBeVisible()
   await expect(pluginRows(page).first()).toBeVisible()
-  await expect(page.locator('.plugins-data-table')).toContainText('help')
+  await expect(page.locator('.plugins-data-table')).toContainText('example-config-panel')
   await expect(page.locator('.plugins-data-table')).toContainText('weather')
 
   await page.getByRole('button', { name: '安装插件' }).click()
@@ -555,10 +555,15 @@ test('plugin management flow covers install, grants and console recovery', async
   await expect(page.getByText('https://github.com/RayleaBot/plugins-weather')).toBeVisible()
   await expect(page.getByText('assets/overview.svg')).toBeVisible()
   await expect(page.getByText('命令冲突').first()).toBeVisible()
-  await expect(page.getByText('插件指令')).toBeVisible()
+  await expect(page.getByRole('tab', { name: '插件指令' })).toBeVisible()
   await expect(page.getByText('查询天气')).toBeVisible()
 
+  await page.getByRole('tab', { name: /权限与授权/ }).click()
+  await expect(page.getByRole('button', { name: '处理权限' })).toBeVisible()
   await page.getByRole('button', { name: '处理权限' }).click()
+  const renderPermissionChoice = page.locator('.permission-dialog-list .ant-checkbox-wrapper').filter({ hasText: '生成渲染图片' })
+  await expect(renderPermissionChoice).toContainText('生成渲染图片')
+  await expect(renderPermissionChoice.locator('[title="原始能力：render.image"]')).toBeVisible()
   await page.getByRole('checkbox', { name: /render\.image/ }).check()
   await Promise.all([
     page.waitForResponse((response) => (
@@ -568,16 +573,18 @@ test('plugin management flow covers install, grants and console recovery', async
     page.getByRole('button', { name: '授权选中项' }).click(),
   ])
 
-  const renderPermission = page.locator('.permission-item').filter({ hasText: 'render.image' })
+  const renderPermission = page.locator('.permission-item').filter({ hasText: '生成渲染图片' })
+  await expect(renderPermission.locator('[title="原始能力：render.image"]')).toBeVisible()
   await expect(renderPermission).toContainText('已授权')
   await expect(renderPermission).toContainText('手动授权')
 
-  await expect(page.getByText('Traceback (most recent call last): ...').first()).toBeVisible()
+  await page.getByRole('tab', { name: '实时控制台' }).click()
+  await expect(page.locator('.console-terminal').first()).toBeVisible()
   await page.getByRole('button', { name: '清空输出' }).click()
   await expect(page.getByText('等待控制台输出')).toBeVisible()
   await closeSocket(request, 'plugin_console')
   await page.getByRole('button', { name: '重新连接' }).click()
-  await expect(page.getByText('Traceback (most recent call last): ...').first()).toBeVisible()
+  await expect(page.locator('.console-terminal').first()).toBeVisible()
 })
 
 test('access lists page manages blacklist and whitelist entries', async ({ page, request }) => {
@@ -757,7 +764,8 @@ test('plugin enable resumes after scope confirmation', async ({ page, request })
   const dialog = page.getByRole('dialog', { name: '重新确认插件权限' })
   await expect(dialog).toBeVisible()
   await expect(dialog).toContainText('作用域发生变化')
-  await expect(dialog).toContainText('http.request')
+  await expect(dialog).toContainText('发起 HTTP 请求')
+  await expect(dialog.locator('[title="原始能力：http.request"]')).toBeVisible()
   await expect(dialog).not.toContainText('当前未声明权限')
 
   await Promise.all([
@@ -776,7 +784,7 @@ test('plugin enable resumes after scope confirmation', async ({ page, request })
 
   await expect(dialog).toBeHidden()
   await expect(page.getByText('权限与授权')).toBeVisible()
-  await expect(page.locator('.permission-item').filter({ hasText: 'http.request' })).toContainText('手动授权')
+  await expect(page.locator('.permission-item').filter({ hasText: '发起 HTTP 请求' })).toContainText('手动授权')
 })
 
 test('plugin management ui reads and saves plugin settings inside the detail page', async ({ page, request }) => {
