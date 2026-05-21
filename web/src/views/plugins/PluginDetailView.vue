@@ -1,5 +1,11 @@
 <script setup lang="ts">
-import { ClearOutlined, ReloadOutlined } from '@ant-design/icons-vue'
+import { 
+  ClearOutlined, 
+  ReloadOutlined, 
+  CalendarOutlined, 
+  ClockCircleOutlined, 
+  SafetyCertificateOutlined 
+} from '@ant-design/icons-vue'
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useRoute, useRouter } from 'vue-router'
@@ -758,6 +764,8 @@ watch(
 
                     <div v-else class="permission-list">
                       <article v-for="permission in currentPermissions" :key="permission.capability" class="permission-item">
+                        <div class="permission-item__status-bar" :class="permission.status === 'granted' ? 'is-granted' : 'is-pending'"></div>
+                        
                         <div class="permission-item__capability">
                           <strong
                             :title="getPluginCapabilityRawTitle(permission.capability)"
@@ -767,20 +775,33 @@ watch(
                           </strong>
                           <div class="permission-item__tags">
                             <a-tag color="blue" class="tag-compact">{{ getPermissionRequirementLabel(permission.requirement) }}</a-tag>
-                            <a-tag :color="permission.status === 'granted' ? 'success' : 'warning'" class="tag-compact">{{ getPermissionStatusLabel(permission.status) }}</a-tag>
+                            <a-tag :color="permission.status === 'granted' ? 'success' : 'warning'" class="tag-compact">
+                              <span class="status-dot" :class="permission.status === 'granted' ? 'is-granted' : 'is-pending'"></span>
+                              {{ getPermissionStatusLabel(permission.status) }}
+                            </a-tag>
                             <a-tag class="tag-compact">{{ getPermissionSourceLabel(permission.source) }}</a-tag>
                           </div>
                         </div>
 
                         <div class="permission-item__time">
-                          <span class="time-row">
-                            <small>{{ t('plugins.fields.grantedAt') }}</small>
-                            {{ formatDateTime(getGrantedAt(permission.capability)) }}
-                          </span>
-                          <span class="time-row">
-                            <small>{{ t('plugins.fields.expiresAt') }}</small>
-                            {{ formatDateTime(permission.expires_at ?? undefined) }}
-                          </span>
+                          <template v-if="getGrantedAt(permission.capability) || permission.expires_at">
+                            <span v-if="getGrantedAt(permission.capability)" class="time-row">
+                              <CalendarOutlined class="meta-icon" />
+                              <span class="meta-text">{{ t('plugins.fields.grantedAt') }}</span>
+                              <span class="meta-val">{{ formatDateTime(getGrantedAt(permission.capability)) }}</span>
+                            </span>
+                            <span v-if="permission.expires_at" class="time-row">
+                              <ClockCircleOutlined class="meta-icon" />
+                              <span class="meta-text">{{ t('plugins.fields.expiresAt') }}</span>
+                              <span class="meta-val">{{ formatDateTime(permission.expires_at ?? undefined) }}</span>
+                            </span>
+                          </template>
+                          <template v-else>
+                            <span class="time-row-empty">
+                              <SafetyCertificateOutlined class="meta-icon" />
+                              <span class="meta-val">永久有效 · 自动授权</span>
+                            </span>
+                          </template>
                         </div>
 
                         <div class="permission-item__actions">
@@ -788,6 +809,7 @@ watch(
                             v-if="canGrantPermission(permission)"
                             size="small"
                             type="primary"
+                            class="grant-btn"
                             @click="openPermissionDialog({ available: [permission.capability], prefill: [permission.capability] })"
                           >
                             {{ t('plugins.actions.grantPermission') }}
@@ -796,6 +818,7 @@ watch(
                             v-if="canRevokePermission(permission)"
                             size="small"
                             danger
+                            class="revoke-btn"
                             @click="revokeGrant(permission.capability)"
                           >
                             {{ t('plugins.actions.revokeGrant') }}
@@ -1600,36 +1623,62 @@ watch(
 
 .permission-list {
   display: grid;
-  gap: 10px;
+  gap: 12px;
 }
 
 .permission-item {
+  position: relative;
   display: grid;
-  grid-template-columns: minmax(200px, 1.2fr) minmax(220px, 1fr) auto;
+  grid-template-columns: minmax(180px, 1.2fr) minmax(220px, 1.1fr) auto;
   align-items: center;
-  gap: 14px;
-  padding: 12px 16px;
+  gap: 16px;
+  padding: 10px 16px 10px 24px;
   border-radius: var(--radius-md);
   border: 1px solid var(--border);
   background: var(--surface-soft);
-  transition: all 0.2s ease;
+  min-height: 58px;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  overflow: hidden;
 
   &:hover {
     border-color: var(--border-accent);
-    background: var(--surface);
-    box-shadow: var(--shadow-xs);
+    background: color-mix(in srgb, var(--surface) 96%, var(--accent));
+    box-shadow: 0 4px 12px rgba(99, 102, 241, 0.05);
+    transform: translateY(-1px);
+
+    .permission-item__status-bar {
+      width: 6px;
+    }
+  }
+}
+
+.permission-item__status-bar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: 4px;
+  transition: width 0.2s ease;
+
+  &.is-granted {
+    background: linear-gradient(180deg, #10b981 0%, #059669 100%);
+  }
+
+  &.is-pending {
+    background: linear-gradient(180deg, #f59e0b 0%, #d97706 100%);
   }
 }
 
 .permission-item__capability {
   display: grid;
   min-width: 0;
-  gap: 6px;
+  gap: 4px;
 
   strong {
     overflow: hidden;
     color: var(--text);
     font-size: 0.88rem;
+    font-weight: 600;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
@@ -1639,41 +1688,191 @@ watch(
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 4px;
+  gap: 6px;
 }
 
 .tag-compact {
   font-size: 0.72rem;
   margin-inline-end: 0 !important;
+  border-radius: 4px;
+  font-weight: 550;
+  display: inline-flex;
+  align-items: center;
+
+  &.ant-tag-blue {
+    background: color-mix(in srgb, var(--accent) 8%, transparent);
+    color: var(--accent);
+    border: 1px solid color-mix(in srgb, var(--accent) 15%, transparent);
+  }
+
+  &.ant-tag-success {
+    background: color-mix(in srgb, #10b981 8%, transparent);
+    color: #10b981;
+    border: 1px solid color-mix(in srgb, #10b981 15%, transparent);
+  }
+
+  &.ant-tag-warning {
+    background: color-mix(in srgb, #f59e0b 8%, transparent);
+    color: #f59e0b;
+    border: 1px solid color-mix(in srgb, #f59e0b 15%, transparent);
+  }
+
+  &:not(.ant-tag-blue):not(.ant-tag-success):not(.ant-tag-warning) {
+    background: color-mix(in srgb, var(--muted) 8%, transparent);
+    color: var(--muted);
+    border: 1px solid color-mix(in srgb, var(--muted) 15%, transparent);
+  }
+}
+
+.status-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  margin-right: 6px;
+  vertical-align: middle;
+
+  &.is-granted {
+    background-color: #10b981;
+    box-shadow: 0 0 8px rgba(16, 185, 129, 0.6);
+    animation: status-breath-green 2s infinite ease-in-out;
+  }
+
+  &.is-pending {
+    background-color: #f59e0b;
+    box-shadow: 0 0 8px rgba(245, 158, 11, 0.6);
+    animation: status-breath-amber 2s infinite ease-in-out;
+  }
+}
+
+@keyframes status-breath-green {
+  0%, 100% {
+    transform: scale(0.95);
+    box-shadow: 0 0 4px rgba(16, 185, 129, 0.4);
+  }
+  50% {
+    transform: scale(1.2);
+    box-shadow: 0 0 10px rgba(16, 185, 129, 0.8);
+  }
+}
+
+@keyframes status-breath-amber {
+  0%, 100% {
+    transform: scale(0.95);
+    box-shadow: 0 0 4px rgba(245, 158, 11, 0.4);
+  }
+  50% {
+    transform: scale(1.2);
+    box-shadow: 0 0 10px rgba(245, 158, 11, 0.8);
+  }
 }
 
 .permission-item__time {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
   min-width: 0;
-}
+  justify-content: center;
 
-.time-row {
-  display: grid;
-  min-width: 0;
-  gap: 2px;
-  color: var(--text);
-  font-size: 0.8rem;
-
-  small {
+  .time-row {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.76rem;
     color: var(--muted);
-    font-size: 0.72rem;
-    font-weight: 500;
+    line-height: 1.25;
+
+    .meta-icon {
+      font-size: 0.8rem;
+      color: var(--muted);
+      opacity: 0.7;
+    }
+
+    .meta-text {
+      color: var(--muted);
+      font-weight: 500;
+      opacity: 0.85;
+
+      &::after {
+        content: ":";
+      }
+    }
+
+    .meta-val {
+      font-family: var(--font-mono);
+      font-weight: 550;
+      color: var(--text);
+    }
+  }
+
+  .time-row-empty {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.76rem;
+    color: color-mix(in srgb, var(--success) 85%, var(--text));
+    line-height: 1.2;
+    background: color-mix(in srgb, var(--success) 6%, transparent);
+    padding: 4px 10px;
+    border-radius: 4px;
+    border: 1px dashed color-mix(in srgb, var(--success) 20%, transparent);
+    width: fit-content;
+
+    .meta-icon {
+      font-size: 0.84rem;
+      color: var(--success);
+    }
+
+    .meta-val {
+      font-weight: 600;
+    }
   }
 }
 
 .permission-item__actions {
   display: flex;
   align-items: center;
+  gap: 8px;
   justify-content: flex-end;
-  gap: 6px;
+
+  .grant-btn, .revoke-btn {
+    border-radius: 6px;
+    font-weight: 600;
+    font-size: 0.78rem;
+    height: 28px;
+    padding: 0 12px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .grant-btn {
+    background: linear-gradient(135deg, var(--accent) 0%, color-mix(in srgb, var(--accent) 85%, #000) 100%);
+    border: none;
+    color: #fff;
+    box-shadow: 0 2px 6px rgba(99, 102, 241, 0.15);
+
+    &:hover {
+      background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 90%, #fff) 0%, var(--accent) 100%);
+      box-shadow: 0 4px 10px rgba(99, 102, 241, 0.3);
+      transform: translateY(-1px);
+    }
+  }
+
+  .revoke-btn {
+    background: transparent;
+    border: 1px solid color-mix(in srgb, var(--danger) 30%, transparent);
+    color: var(--danger);
+
+    &:hover {
+      background: color-mix(in srgb, var(--danger) 8%, transparent);
+      border-color: var(--danger);
+      transform: translateY(-1px);
+    }
+  }
 }
+
 
 /* Console tab layout styling */
 .plugin-console-header {
