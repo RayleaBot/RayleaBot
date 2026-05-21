@@ -271,6 +271,77 @@ describe('PluginsPage', () => {
     expect(wrapper.find('.plugin-health-notices').exists()).toBe(true)
   })
 
+  it('keeps verified third-party plugins in the community source filter', async () => {
+    const router = createRouter({
+      history: createMemoryHistory(),
+      routes: [{ path: '/', component: { template: '<div />' } }],
+    })
+    const store = usePluginsStore()
+    store.items = [
+      {
+        id: 'builtin-help',
+        name: 'Builtin Help',
+        role: 'builtin',
+        registration_state: 'installed',
+        desired_state: 'enabled',
+        runtime_state: 'running',
+        display_state: 'running',
+        source: {
+          root: 'plugins/builtin/help',
+          verified: true,
+        },
+        trust: {
+          level: 'official',
+          label: '官方插件',
+        },
+        commands: [],
+        command_conflicts: [],
+      },
+      {
+        id: 'verified-third-party',
+        name: 'Verified Third Party',
+        role: 'user',
+        registration_state: 'installed',
+        desired_state: 'enabled',
+        runtime_state: 'running',
+        display_state: 'running',
+        source: {
+          root: 'plugins/installed/verified-third-party',
+          verified: true,
+        },
+        trust: {
+          level: 'third_party',
+          label: '已验证第三方',
+        },
+        commands: [],
+        command_conflicts: [],
+      },
+    ]
+
+    vi.spyOn(store, 'fetchList').mockResolvedValue(undefined)
+
+    const wrapper = mount(PluginsPage, {
+      global: {
+        plugins: [Antd, router],
+      },
+    })
+
+    await flushPromises()
+
+    const sourceFilter = wrapper.getComponent('.filter-select')
+    sourceFilter.vm.$emit('update:value', 'community')
+    await flushPromises()
+
+    expect(wrapper.find('.plugins-data-table').text()).toContain('Verified Third Party')
+    expect(wrapper.find('.plugins-data-table').text()).not.toContain('Builtin Help')
+
+    sourceFilter.vm.$emit('update:value', 'official')
+    await flushPromises()
+
+    expect(wrapper.find('.plugins-data-table').text()).toContain('Builtin Help')
+    expect(wrapper.find('.plugins-data-table').text()).not.toContain('Verified Third Party')
+  })
+
   it('expands and collapses overflow plugin commands in the list', async () => {
     const router = createRouter({
       history: createMemoryHistory(),

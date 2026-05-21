@@ -4,6 +4,23 @@ export const plugins = {
   refresh: '刷新列表',
   detailTitle: '插件详情',
   installDialogTitle: '安装插件',
+  stats: {
+    total: '全部插件',
+    running: '运行中',
+    stopped: '已停止',
+    alert: '异常 / 冲突',
+  },
+  layout: {
+    grid: '网格视图',
+    list: '列表视图',
+  },
+  filter: {
+    searchPlaceholder: '搜索插件名称、ID或描述...',
+    stateAll: '全部状态',
+    sourceAll: '全部来源',
+    sourceOfficial: '官方 / 内置',
+    sourceCommunity: '第三方 / 社区',
+  },
   sourceType: '来源类型',
   settings: {
     title: '插件设置',
