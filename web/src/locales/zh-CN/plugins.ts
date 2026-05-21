@@ -67,7 +67,7 @@ export const plugins = {
     commands: '插件指令',
     conflicts: '命令冲突',
     registration: '注册状态',
-    desired: '期望状态',
+    desired: '启用状态',
     runtime: '运行状态',
     display: '显示状态',
     actions: '操作',

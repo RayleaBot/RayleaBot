@@ -561,6 +561,17 @@ async function submitInstall() {
                     <template #icon><SettingOutlined /></template>
                     {{ t('plugins.actions.detail') }}
                   </a-button>
+                  <a-button
+                    size="small"
+                    type="text"
+                    class="btn-action"
+                    :data-testid="`plugin-reload-button-${item.id}`"
+                    :loading="actionPending[item.id] === 'reload'"
+                    @click="reloadPlugin(item.id)"
+                  >
+                    <template #icon><ReloadOutlined /></template>
+                    {{ t('plugins.actions.reload') }}
+                  </a-button>
                 </div>
 
                 <div class="action-controls-group">
@@ -573,16 +584,6 @@ async function submitInstall() {
                     :unchecked-label="t('plugins.actions.disable')"
                     @click="pluginsStore.executeAction(item.id, getToggleAction(item.desired_state))"
                   />
-                  <a-button
-                    size="small"
-                    shape="circle"
-                    class="btn-reload"
-                    :data-testid="`plugin-reload-button-${item.id}`"
-                    :loading="actionPending[item.id] === 'reload'"
-                    @click="reloadPlugin(item.id)"
-                  >
-                    <template #icon><ReloadOutlined /></template>
-                  </a-button>
                 </div>
               </div>
             </div>
@@ -1241,15 +1242,14 @@ async function submitInstall() {
 
 .grid-plugin-states {
   display: flex;
-  flex-direction: column;
-  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
 }
 
 .state-badges,
 .grid-notices {
-  display: flex;
-  gap: 6px;
-  flex-wrap: wrap;
+  display: contents;
 }
 
 .grid-plugin-commands {
@@ -1267,10 +1267,10 @@ async function submitInstall() {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 14px 20px;
+  padding: 12px 16px;
   border-top: 1px solid var(--border);
   background: var(--surface-soft);
-  gap: 8px;
+  gap: 6px;
 }
 
 .action-buttons-group {
@@ -1286,37 +1286,42 @@ async function submitInstall() {
   display: flex;
   align-items: center;
   gap: 4px;
-  border-radius: 4px !important;
+  border-radius: 6px !important;
+  transition: background-color 0.25s ease, color 0.25s ease, transform 0.25s cubic-bezier(0.25, 0.8, 0.25, 1);
+  font-weight: 500;
+
+  .anticon {
+    font-size: 13px;
+    transition: transform 0.35s cubic-bezier(0.25, 0.8, 0.25, 1);
+  }
 
   &:hover {
     color: var(--accent);
     background: var(--surface-accent) !important;
+    transform: translateY(-1px);
+
+    .anticon-eye {
+      transform: scale(1.12);
+    }
+
+    .anticon-setting {
+      transform: rotate(45deg);
+    }
+
+    .anticon-reload {
+      transform: rotate(180deg);
+    }
+  }
+
+  &:active {
+    transform: translateY(0) scale(0.97);
   }
 }
 
 .action-controls-group {
   display: flex;
   align-items: center;
-  gap: 8px;
-}
-
-.btn-reload {
-  width: 28px;
-  height: 28px;
-  min-width: 28px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0;
-  border: 1px solid var(--border);
-  background: var(--surface);
-  color: var(--muted);
-  transition: all 0.2s ease;
-
-  &:hover {
-    border-color: var(--border-accent);
-    color: var(--accent);
-  }
+  gap: 6px;
 }
 
 .empty-container {
