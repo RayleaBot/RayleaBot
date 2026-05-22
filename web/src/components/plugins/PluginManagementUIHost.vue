@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 
 import RetryPanel from '@/components/RetryPanel.vue'
@@ -99,6 +99,7 @@ const router = useRouter()
 
 const iframeRef = ref<HTMLIFrameElement | null>(null)
 const iframeNonce = ref(0)
+const iframeSessionId = `${Date.now()}-${Math.random().toString(36).slice(2)}`
 const confirmed = ref(false)
 const waitingForReady = ref(false)
 const fatalError = ref<string | null>(null)
@@ -109,7 +110,12 @@ const requiresConfirmation = computed(() => props.plugin.trust?.level === 'unver
 const confirmationStorageKey = computed(() => (
   `rayleabot.plugin-management-ui.confirmed:${props.plugin.id}:${props.plugin.version ?? ''}:${props.plugin.source?.package_source_type ?? ''}:${props.plugin.source?.package_source_ref ?? ''}`
 ))
-const frameSrc = computed(() => buildPluginManagementUISrc(props.plugin.id, managementEntry.value))
+const frameSrc = computed(() => buildPluginManagementUISrc(props.plugin.id, managementEntry.value, {
+  version: props.plugin.version ?? '',
+  sourceRef: props.plugin.source?.package_source_ref ?? props.plugin.source?.root ?? '',
+  nonce: iframeNonce.value,
+  session: iframeSessionId,
+}))
 const canRenderIframe = computed(() => Boolean(frameSrc.value) && (!requiresConfirmation.value || confirmed.value))
 const busy = computed(() => (
   waitingForReady.value
@@ -140,7 +146,16 @@ let loadInitTimer: ReturnType<typeof setTimeout> | null = null
 let requestCounter = 0
 let acceptedOpaqueOrigin = false
 
-function buildPluginManagementUISrc(pluginId: string, entry: string) {
+function buildPluginManagementUISrc(
+  pluginId: string,
+  entry: string,
+  cacheKey: {
+    version: string
+    sourceRef: string
+    nonce: number
+    session: string
+  },
+) {
   const normalizedPluginId = pluginId.trim()
   const normalizedEntry = entry.trim()
   if (!normalizedPluginId || !normalizedEntry) {
@@ -153,7 +168,15 @@ function buildPluginManagementUISrc(pluginId: string, entry: string) {
     .map((segment) => encodeURIComponent(segment))
     .join('/')
 
-  const routePath = `/plugin-ui/${encodeURIComponent(normalizedPluginId)}/${encodedEntry}`
+  const query = new URLSearchParams({
+    plugin_id: normalizedPluginId,
+    version: cacheKey.version.trim(),
+    entry: normalizedEntry,
+    source_ref: cacheKey.sourceRef.trim(),
+    nonce: String(cacheKey.nonce),
+    session: cacheKey.session,
+  })
+  const routePath = `/plugin-ui/${encodeURIComponent(normalizedPluginId)}/${encodedEntry}?${query.toString()}`
   const backendTarget = typeof import.meta.env.VITE_BACKEND_TARGET === 'string'
     ? import.meta.env.VITE_BACKEND_TARGET.trim()
     : ''
@@ -736,6 +759,10 @@ function handleBridgeMessage(event: MessageEvent) {
   }
 }
 
+if (typeof window !== 'undefined') {
+  window.addEventListener('message', handleBridgeMessage)
+}
+
 watch(
   [
     () => props.plugin.id,
@@ -752,14 +779,12 @@ watch(
   { immediate: true },
 )
 
-onMounted(() => {
-  window.addEventListener('message', handleBridgeMessage)
-})
-
 onBeforeUnmount(() => {
   clearLoadInitTimer()
   clearReadyTimer()
-  window.removeEventListener('message', handleBridgeMessage)
+  if (typeof window !== 'undefined') {
+    window.removeEventListener('message', handleBridgeMessage)
+  }
 })
 </script>
 

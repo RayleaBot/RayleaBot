@@ -140,8 +140,16 @@ func (h *Handlers) HandlePluginManagementUIStatic() http.HandlerFunc {
 			return
 		}
 
+		writeNoStoreHeaders(w)
 		http.ServeContent(w, r, info.Name(), info.ModTime(), file)
 	}
+}
+
+func writeNoStoreHeaders(w http.ResponseWriter) {
+	header := w.Header()
+	header.Set("Cache-Control", "no-store, max-age=0")
+	header.Set("Pragma", "no-cache")
+	header.Set("Expires", "0")
 }
 
 func (h *Handlers) HandlePluginSettingsGet() http.HandlerFunc {

@@ -64,6 +64,11 @@ function dispatchBridgeMessage(source: MessageEventSource | null, data: unknown)
   window.dispatchEvent(new MessageEvent('message', { data, source }))
 }
 
+function parseFrameSrc(wrapper: ReturnType<typeof mount>) {
+  const src = wrapper.get('[data-testid="plugin-management-ui-frame"]').attributes('src') ?? ''
+  return new URL(src, 'https://rayleabot.local')
+}
+
 describe('PluginManagementUIHost', () => {
   beforeEach(() => {
     window.localStorage.clear()
@@ -109,6 +114,70 @@ describe('PluginManagementUIHost', () => {
     expect(window.localStorage.getItem(
       'rayleabot.plugin-management-ui.confirmed:example-config-panel:0.1.0:local_zip:examples/plugins/example-config-panel.zip',
     )).toBe('1')
+  })
+
+  it('adds cache-busting metadata to the iframe src and changes it when the frame reloads', async () => {
+    const pluginsStore = usePluginsStore()
+    vi.spyOn(pluginsStore, 'fetchSettings').mockResolvedValue({
+      plugin_id: 'example-config-panel',
+      values: {
+        default_city: '上海',
+        unit: 'fahrenheit',
+      },
+    })
+    vi.spyOn(pluginsStore, 'fetchSecrets').mockResolvedValue({
+      plugin_id: 'example-config-panel',
+      values: {},
+    })
+
+    const plugin = buildPlugin({
+      source: {
+        root: 'examples/plugins',
+        package_source_type: 'local_directory',
+        package_source_ref: 'examples/plugins/example-config-panel',
+        verified: true,
+      },
+      trust: {
+        level: 'third_party',
+        label: '示例',
+      },
+    })
+    const wrapper = mount(PluginManagementUIHost, {
+      props: {
+        plugin,
+        title: '配置页面',
+      },
+      global: {
+        plugins: [Antd],
+      },
+    })
+
+    await flushPromises()
+
+    const initialSrc = parseFrameSrc(wrapper)
+    expect(initialSrc.pathname).toBe('/plugin-ui/example-config-panel/web/index.html')
+    expect(initialSrc.searchParams.get('plugin_id')).toBe('example-config-panel')
+    expect(initialSrc.searchParams.get('version')).toBe('0.1.0')
+    expect(initialSrc.searchParams.get('entry')).toBe('web/index.html')
+    expect(initialSrc.searchParams.get('source_ref')).toBe('examples/plugins/example-config-panel')
+    const initialNonce = initialSrc.searchParams.get('nonce')
+    expect(initialNonce).toBeTruthy()
+    const initialSession = initialSrc.searchParams.get('session')
+    expect(initialSession).toBeTruthy()
+
+    await wrapper.setProps({
+      plugin: {
+        ...plugin,
+        version: '0.1.1',
+      },
+    })
+    await flushPromises()
+
+    const retrySrc = parseFrameSrc(wrapper)
+    expect(retrySrc.pathname).toBe('/plugin-ui/example-config-panel/web/index.html')
+    expect(retrySrc.searchParams.get('version')).toBe('0.1.1')
+    expect(retrySrc.searchParams.get('nonce')).not.toBe(initialNonce)
+    expect(retrySrc.searchParams.get('session')).toBe(initialSession)
   })
 
   it('initializes, reloads, and saves settings through the bridge', async () => {

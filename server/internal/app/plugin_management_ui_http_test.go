@@ -110,6 +110,7 @@ func TestHandlePluginManagementUIStaticServesScopedAssets(t *testing.T) {
 	if body := entryRecorder.Body.String(); body != "<!doctype html><title>Config Panel</title>" {
 		t.Fatalf("unexpected entry body: %q", body)
 	}
+	assertPluginUIStaticNoStoreHeaders(t, entryRecorder.Header())
 
 	assetRequest := httptest.NewRequest(http.MethodGet, "/plugin-ui/example-config-panel/web/app.js", nil)
 	assetRecorder := httptest.NewRecorder()
@@ -120,6 +121,21 @@ func TestHandlePluginManagementUIStaticServesScopedAssets(t *testing.T) {
 	}
 	if body := assetRecorder.Body.String(); body != "console.log('config panel')" {
 		t.Fatalf("unexpected asset body: %q", body)
+	}
+	assertPluginUIStaticNoStoreHeaders(t, assetRecorder.Header())
+}
+
+func assertPluginUIStaticNoStoreHeaders(t *testing.T, header http.Header) {
+	t.Helper()
+
+	if got := header.Get("Cache-Control"); got != "no-store, max-age=0" {
+		t.Fatalf("Cache-Control = %q, want no-store, max-age=0", got)
+	}
+	if got := header.Get("Pragma"); got != "no-cache" {
+		t.Fatalf("Pragma = %q, want no-cache", got)
+	}
+	if got := header.Get("Expires"); got != "0" {
+		t.Fatalf("Expires = %q, want 0", got)
 	}
 }
 
