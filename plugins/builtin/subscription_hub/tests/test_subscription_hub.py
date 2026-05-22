@@ -69,6 +69,28 @@ class SubscriptionHubTests(unittest.TestCase):
             }),
         }
 
+    def user_info_response(self, uid="123456", name="测试 UP", code=0, message=""):
+        return {
+            "status_code": 200,
+            "body_text": json.dumps({
+                "code": code,
+                "message": message,
+                "data": {"mid": uid, "name": name},
+            }),
+        }
+
+    def user_search_response(self, results=None, code=0, message=""):
+        return {
+            "status_code": 200,
+            "body_text": json.dumps({
+                "code": code,
+                "message": message,
+                "data": {"result": results if results is not None else [
+                    {"mid": "123456", "uname": "测试 UP", "fans": 1000},
+                ]},
+            }),
+        }
+
     def video_item(self, dynamic_id, title, pub_ts=None):
         pub_ts = int(pub_ts or time.time())
         return {
@@ -102,8 +124,8 @@ class SubscriptionHubTests(unittest.TestCase):
         ], [item.get("name") for item in manifest.get("commands") or []])
         self.assertEqual("super_admin", manifest["commands"][1]["permission"])
         self.assertEqual("super_admin", manifest["commands"][2]["permission"])
-        self.assertEqual("/订阅b站推送 [直播|视频|图文|文章|转发] UID", manifest["commands"][1]["usage"])
-        self.assertEqual("/取消b站推送 [直播|视频|图文|文章|转发] UID", manifest["commands"][2]["usage"])
+        self.assertEqual("/订阅b站推送 [直播|视频|图文|文章|转发] UID或昵称", manifest["commands"][1]["usage"])
+        self.assertEqual("/取消b站推送 [直播|视频|图文|文章|转发] UID或昵称", manifest["commands"][2]["usage"])
         self.assertIn("类型可选", manifest["commands"][1]["description"])
         self.assertIn("类型可选", manifest["commands"][2]["description"])
         self.assertEqual("super_admin", manifest["commands"][5]["permission"])
@@ -118,8 +140,8 @@ class SubscriptionHubTests(unittest.TestCase):
             "配置说明",
         ], [group.get("title") for group in manifest["help"].get("groups") or []])
         operation_items = manifest["help"]["groups"][0]["items"]
-        self.assertEqual("/订阅b站推送 [直播|视频|图文|文章|转发] UID", operation_items[1]["usage"])
-        self.assertEqual("/取消b站推送 [直播|视频|图文|文章|转发] UID", operation_items[2]["usage"])
+        self.assertEqual("/订阅b站推送 [直播|视频|图文|文章|转发] UID或昵称", operation_items[1]["usage"])
+        self.assertEqual("/取消b站推送 [直播|视频|图文|文章|转发] UID或昵称", operation_items[2]["usage"])
         self.assertIn("不填表示全部类型", operation_items[1]["description"])
         self.assertIn("不填表示全部类型", operation_items[2]["description"])
         self.assertNotIn("dynamic_commands", manifest)
@@ -254,9 +276,10 @@ class SubscriptionHubTests(unittest.TestCase):
         self.assertEqual(data["original"]["images"], [{"url": "https://i0.hdslb.com/orig.jpg"}])
 
     def test_parse_bilibili_command_args_defaults_to_all(self):
-        self.assertEqual(parse_bilibili_command_args(["123456"]), {"services": ["all"], "uid": "123456", "error": False})
-        self.assertEqual(parse_bilibili_command_args(["图文", "123456"]), {"services": ["image_text"], "uid": "123456", "error": False})
-        self.assertEqual(parse_bilibili_command_args(["番剧", "123456"]), {"services": [], "uid": "123456", "error": True})
+        self.assertEqual(parse_bilibili_command_args(["123456"]), {"services": ["all"], "uid": "123456", "query": "123456", "error": False})
+        self.assertEqual(parse_bilibili_command_args(["图文", "123456"]), {"services": ["image_text"], "uid": "123456", "query": "123456", "error": False})
+        self.assertEqual(parse_bilibili_command_args(["崩坏星穹铁道"]), {"services": ["all"], "uid": "", "query": "崩坏星穹铁道", "error": False})
+        self.assertEqual(parse_bilibili_command_args(["番剧", "123456"]), {"services": [], "uid": "123456", "query": "123456", "error": True})
 
     def test_bilibili_subscription_usage_message_for_invalid_type(self):
         settings = merge_settings({}, {})
@@ -270,17 +293,37 @@ class SubscriptionHubTests(unittest.TestCase):
 
     def test_add_bilibili_subscription_binds_current_target_and_subscriber(self):
         settings = merge_settings({}, {})
-        result = add_bilibili_subscription(settings, FakeContext(args=["图文", "123456"]))
+        result = add_bilibili_subscription(settings, FakeContext(args=["图文", "123456"], http_responses=[self.user_info_response()]))
         self.assertTrue(result["ok"])
         self.assertEqual(len(settings["subscriptions"]), 1)
         subscription = settings["subscriptions"][0]
         self.assertEqual(subscription["id"], "bilibili-123456-group-10000")
+        self.assertEqual(subscription["name"], "测试 UP")
         self.assertEqual(subscription["services"], ["image_text"])
         self.assertEqual(subscription["subscribers"], [{"id": "42", "nickname": "订阅人"}])
+        self.assertIn("测试 UP（UID 123456）", result["message"])
+
+    def test_add_bilibili_subscription_resolves_nickname(self):
+        settings = merge_settings({}, {})
+        ctx = FakeContext(args=["视频", "崩坏星穹铁道"], http_responses=[self.user_search_response([
+            {"mid": "111111", "uname": "崩坏星穹铁道二创", "fans": 10},
+            {"mid": "3537126822012013", "uname": "崩坏星穹铁道", "fans": 5000000},
+        ])])
+
+        result = add_bilibili_subscription(settings, ctx)
+
+        self.assertTrue(result["ok"])
+        subscription = settings["subscriptions"][0]
+        self.assertEqual(subscription["uid"], "3537126822012013")
+        self.assertEqual(subscription["name"], "崩坏星穹铁道")
+        self.assertEqual(subscription["services"], ["video"])
+        self.assertIn("崩坏星穹铁道（UID 3537126822012013）", result["message"])
+        self.assertIn("search/type", ctx.http_requests[0]["url"])
 
     def test_add_bilibili_subscription_merges_services_and_subscribers(self):
         settings = merge_settings({}, {
             "subscriptions": [{
+                "id": "custom-subscription-id",
                 "uid": "123456",
                 "target_type": "group",
                 "target_id": "10000",
@@ -288,13 +331,36 @@ class SubscriptionHubTests(unittest.TestCase):
                 "subscribers": [{"id": "42", "nickname": "旧昵称"}],
             }],
         })
-        result = add_bilibili_subscription(settings, FakeContext(args=["直播", "123456"], actor={"id": "43", "nickname": "新订阅人"}))
+        result = add_bilibili_subscription(settings, FakeContext(
+            args=["直播", "123456"],
+            actor={"id": "43", "nickname": "新订阅人"},
+            http_responses=[self.user_info_response()],
+        ))
         self.assertTrue(result["ok"])
+        self.assertEqual(len(settings["subscriptions"]), 1)
+        self.assertEqual(settings["subscriptions"][0]["id"], "custom-subscription-id")
         self.assertEqual(settings["subscriptions"][0]["services"], ["video", "live"])
+        self.assertEqual(settings["subscriptions"][0]["name"], "测试 UP")
         self.assertEqual(settings["subscriptions"][0]["subscribers"], [
             {"id": "42", "nickname": "旧昵称"},
             {"id": "43", "nickname": "新订阅人"},
         ])
+
+    def test_add_bilibili_subscription_rejects_empty_search_result(self):
+        settings = merge_settings({}, {})
+        result = add_bilibili_subscription(settings, FakeContext(args=["未知昵称"], http_responses=[self.user_search_response([])]))
+
+        self.assertFalse(result["ok"])
+        self.assertEqual(settings["subscriptions"], [])
+        self.assertIn("没有搜索到 Bilibili 用户", result["message"])
+
+    def test_add_bilibili_subscription_reports_blocked_search(self):
+        settings = merge_settings({}, {})
+        result = add_bilibili_subscription(settings, FakeContext(args=["昵称"], http_responses=[self.user_search_response(code=-412)]))
+
+        self.assertFalse(result["ok"])
+        self.assertEqual(settings["subscriptions"], [])
+        self.assertIn("风控拦截", result["message"])
 
     def test_remove_bilibili_subscription_removes_service_or_item(self):
         settings = merge_settings({}, {
@@ -313,6 +379,24 @@ class SubscriptionHubTests(unittest.TestCase):
         self.assertTrue(result["ok"])
         self.assertEqual(settings["subscriptions"], [])
 
+    def test_remove_bilibili_subscription_resolves_nickname(self):
+        settings = merge_settings({}, {
+            "subscriptions": [{
+                "id": "custom-subscription-id",
+                "uid": "123456",
+                "name": "测试 UP",
+                "target_type": "group",
+                "target_id": "10000",
+                "services": ["video"],
+            }],
+        })
+
+        result = remove_bilibili_subscription(settings, FakeContext(args=["测试 UP"]))
+
+        self.assertTrue(result["ok"])
+        self.assertEqual(settings["subscriptions"], [])
+        self.assertIn("测试 UP（UID 123456）", result["message"])
+
     def test_format_subscription_list_can_filter_current_target_and_platform(self):
         settings = merge_settings({}, {
             "subscriptions": [
@@ -322,13 +406,14 @@ class SubscriptionHubTests(unittest.TestCase):
         })
         text = format_subscription_list(settings, {"target_type": "group", "target_id": "10000"}, platform="bilibili", title="Bilibili 订阅列表")
         self.assertIn("Bilibili 123456", text)
+        self.assertIn("订阅人", text)
         self.assertNotIn("654321", text)
 
     def test_subscribe_command_registers_scheduler_after_saving(self):
         plugin = SubscriptionHubPlugin()
         plugin._settings_loaded = True
         plugin._settings = merge_settings(plugin._default_settings, {"poll_cron": "*/7 * * * *"})
-        ctx = FakeContext(args=["视频", "123456"])
+        ctx = FakeContext(args=["视频", "123456"], http_responses=[self.user_info_response()])
 
         plugin.handle_subscribe_bilibili(ctx)
 
@@ -373,7 +458,7 @@ class SubscriptionHubTests(unittest.TestCase):
         plugin.handle_subscription_list(list_ctx)
 
         self.assertEqual(list_ctx.scheduler_creates[0]["task_id"], "subscription-hub-poll")
-        self.assertIn("Bilibili 123456", list_ctx.texts[0])
+        self.assertIn("Bilibili 测试 UP（UID 123456）", list_ctx.texts[0])
 
     def test_bilibili_http_failure_does_not_push_or_mark_seen(self):
         plugin = SubscriptionHubPlugin()

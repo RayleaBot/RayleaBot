@@ -61,14 +61,14 @@
     },
     {
       "name": "订阅b站推送",
-      "description": "订阅当前群聊或私聊的指定 UID Bilibili 更新，类型可选，不填表示全部类型",
-      "usage": "/订阅b站推送 [直播|视频|图文|文章|转发] UID",
+      "description": "订阅当前群聊或私聊的指定 Bilibili 用户更新，类型可选，不填表示全部类型",
+      "usage": "/订阅b站推送 [直播|视频|图文|文章|转发] UID或昵称",
       "permission": "super_admin"
     },
     {
       "name": "取消b站推送",
-      "description": "取消当前群聊或私聊的指定 UID Bilibili 订阅，类型可选，不填表示全部类型",
-      "usage": "/取消b站推送 [直播|视频|图文|文章|转发] UID",
+      "description": "取消当前群聊或私聊的指定 Bilibili 用户订阅，类型可选，不填表示全部类型",
+      "usage": "/取消b站推送 [直播|视频|图文|文章|转发] UID或昵称",
       "permission": "super_admin"
     },
     {
@@ -123,14 +123,14 @@
           },
           {
             "title": "订阅 Bilibili",
-            "description": "为当前群聊或私聊订阅指定 UID 的 Bilibili 更新，类型可选，不填表示全部类型。",
-            "usage": "/订阅b站推送 [直播|视频|图文|文章|转发] UID",
+            "description": "为当前群聊或私聊订阅指定 Bilibili 用户的更新，类型可选，不填表示全部类型。",
+            "usage": "/订阅b站推送 [直播|视频|图文|文章|转发] UID或昵称",
             "command": "订阅b站推送"
           },
           {
             "title": "取消 Bilibili",
-            "description": "取消当前群聊或私聊的指定 UID Bilibili 订阅，类型可选，不填表示全部类型。",
-            "usage": "/取消b站推送 [直播|视频|图文|文章|转发] UID",
+            "description": "取消当前群聊或私聊的指定 Bilibili 用户订阅，类型可选，不填表示全部类型。",
+            "usage": "/取消b站推送 [直播|视频|图文|文章|转发] UID或昵称",
             "command": "取消b站推送"
           }
         ]

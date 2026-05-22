@@ -518,9 +518,9 @@
       const firstChar = escapeHtml((item.name || item.uid || 'B').trim().charAt(0).toUpperCase())
       title.innerHTML = `
         <span class="subscription-avatar">${firstChar}</span>
-        <span class="subscription-card__info">
-          <span class="subscription-card__title">${escapeHtml(item.name || `Bilibili ${item.uid}`)}</span>
-          <span class="subscription-card__meta">${escapeHtml(item.uid || '未填写 UID')} · ${targetLabel(item.target_type)} ${escapeHtml(item.target_id || '未填写目标')}</span>
+          <span class="subscription-card__info">
+            <span class="subscription-card__title">${escapeHtml(item.name || `Bilibili ${item.uid}`)}</span>
+          <span class="subscription-card__meta">${escapeHtml(item.uid ? `UID ${item.uid}` : '未填写 UID')} · ${targetLabel(item.target_type)} ${escapeHtml(item.target_id || '未填写目标')}</span>
         </span>
       `
       card.appendChild(title)
@@ -534,6 +534,15 @@
         chips.appendChild(chip)
       })
       card.appendChild(chips)
+
+      const subscribers = subscriberNames(item.subscribers)
+      const subscriberRow = document.createElement('div')
+      subscriberRow.className = 'subscription-subscribers'
+      subscriberRow.innerHTML = `
+        <span class="subscription-subscribers__label">订阅人</span>
+        <span class="subscription-subscribers__names">${escapeHtml(subscribers || '未记录')}</span>
+      `
+      card.appendChild(subscriberRow)
 
       const actions = document.createElement('div')
       actions.className = 'row-actions'
@@ -583,7 +592,7 @@
       }
       markChanged(false)
     }, { inputmode: 'numeric', spellcheck: false }))
-    grid.appendChild(fieldInput('subscription-name', '显示名称', item.name, (value) => {
+    grid.appendChild(fieldInput('subscription-name', 'Bilibili 用户名', item.name, (value) => {
       item.name = value
       markChanged(false)
     }))
@@ -831,6 +840,13 @@
     return (TARGET_OPTIONS.find((item) => item.value === value) || { label: value }).label
   }
 
+  function subscriberNames(value) {
+    return normalizeSubscribers(value)
+      .map((item) => item.nickname || item.id)
+      .filter(Boolean)
+      .join('、')
+  }
+
   function getFilteredSubscriptions() {
     const query = elements.subscriptionSearchInput.value.trim().toLowerCase()
     const status = elements.statusFilterInput.value
@@ -838,7 +854,7 @@
     return draft.subscriptions
       .map((item, index) => ({ item, index }))
       .filter(({ item }) => {
-        const searchText = `${item.uid} ${item.name} ${item.target_id}`.toLowerCase()
+        const searchText = `${item.uid} ${item.name} ${item.target_id} ${subscriberNames(item.subscribers)}`.toLowerCase()
         const statusMatches = status === 'all' || (status === 'enabled' ? item.enabled !== false : item.enabled === false)
         const services = normalizeServices(item.services)
         const serviceMatches = service === 'all' || services.includes(service) || services.includes('all')
@@ -1146,6 +1162,8 @@
     buildPayload: () => buildPayloadFromDraft(draft),
     validate: validateDraft,
     importRawJson,
+    getFilteredSubscriptions: () => getFilteredSubscriptions().map(({ item, index }) => ({ item, index })),
+    subscriberNames,
     getDraft: () => JSON.parse(JSON.stringify(draft)),
     readyAttempts: () => readyAttempts,
   }

@@ -20,15 +20,19 @@ from bilibili import (
     build_cookie_headers,
     dynamic_updates,
     live_update,
+    normalize_user_info,
+    normalize_user_search,
     parse_json_response,
+    user_info_url,
+    user_search_url,
 )
 from rendering import build_fallback_text, build_render_data
 from settings import SETTINGS_KEYS, merge_settings, normalize_settings
 
 
 DEFAULT_SETTINGS_PATH = os.path.join(PLUGIN_DIR, "default_config.json")
-SUBSCRIBE_BILIBILI_USAGE = "用法：/订阅b站推送 [直播|视频|图文|文章|转发] UID；类型可选，不填表示全部类型。"
-UNSUBSCRIBE_BILIBILI_USAGE = "用法：/取消b站推送 [直播|视频|图文|文章|转发] UID；类型可选，不填表示全部类型。"
+SUBSCRIBE_BILIBILI_USAGE = "用法：/订阅b站推送 [直播|视频|图文|文章|转发] UID或昵称；类型可选，不填表示全部类型。"
+UNSUBSCRIBE_BILIBILI_USAGE = "用法：/取消b站推送 [直播|视频|图文|文章|转发] UID或昵称；类型可选，不填表示全部类型。"
 
 
 def load_default_settings(path=DEFAULT_SETTINGS_PATH):
@@ -562,21 +566,24 @@ def sample_update(service):
 
 def add_bilibili_subscription(settings, ctx):
     parsed = parse_bilibili_command_args(ctx.args)
-    if parsed["error"] or not parsed["uid"]:
+    if parsed["error"] or not parsed["query"]:
         return {"ok": False, "message": SUBSCRIBE_BILIBILI_USAGE}
     target = current_target(ctx)
     if not target["target_id"]:
         return {"ok": False, "message": "当前会话无法绑定订阅目标。"}
+    user = resolve_bilibili_user(settings, ctx, parsed["query"])
+    if not user["ok"]:
+        return {"ok": False, "message": user["message"]}
 
-    subscription_id = subscription_id_for("bilibili", parsed["uid"], target["target_type"], target["target_id"])
     subscriptions = list(settings.get("subscriptions") or [])
-    subscription = next((item for item in subscriptions if item.get("id") == subscription_id), None)
+    subscription = find_bilibili_subscription({"subscriptions": subscriptions}, user["uid"], target)
     if not subscription:
+        subscription_id = subscription_id_for("bilibili", user["uid"], target["target_type"], target["target_id"])
         subscription = {
             "id": subscription_id,
             "platform": "bilibili",
-            "uid": parsed["uid"],
-            "name": parsed["uid"],
+            "uid": user["uid"],
+            "name": user["name"],
             "target_type": target["target_type"],
             "target_id": target["target_id"],
             "services": [],
@@ -586,34 +593,37 @@ def add_bilibili_subscription(settings, ctx):
         subscriptions.append(subscription)
 
     subscription["platform"] = "bilibili"
-    subscription["uid"] = parsed["uid"]
+    subscription["uid"] = user["uid"]
+    subscription["name"] = user["name"]
     subscription["target_type"] = target["target_type"]
     subscription["target_id"] = target["target_id"]
     subscription["enabled"] = True
     subscription["services"] = merge_services(subscription.get("services"), parsed["services"])
     subscription["subscribers"] = merge_subscriber(subscription.get("subscribers"), current_subscriber(ctx))
     settings["subscriptions"] = subscriptions
-    return {"ok": True, "message": f"已订阅 Bilibili {parsed['uid']}：{services_text(subscription['services'])}"}
+    return {"ok": True, "message": f"已订阅 Bilibili {user_label(user)}：{services_text(subscription['services'])}"}
 
 
 def remove_bilibili_subscription(settings, ctx):
     parsed = parse_bilibili_command_args(ctx.args)
-    if parsed["error"] or not parsed["uid"]:
+    if parsed["error"] or not parsed["query"]:
         return {"ok": False, "message": UNSUBSCRIBE_BILIBILI_USAGE}
     target = current_target(ctx)
-    subscription_id = subscription_id_for("bilibili", parsed["uid"], target["target_type"], target["target_id"])
+    user = resolve_bilibili_user_for_removal(settings, ctx, parsed["query"], target)
+    if not user["ok"]:
+        return {"ok": False, "message": user["message"]}
     subscriptions = list(settings.get("subscriptions") or [])
-    subscription = next((item for item in subscriptions if item.get("id") == subscription_id), None)
+    subscription = find_bilibili_subscription({"subscriptions": subscriptions}, user["uid"], target)
     if not subscription:
-        return {"ok": False, "message": f"当前会话没有订阅 Bilibili {parsed['uid']}。"}
+        return {"ok": False, "message": f"当前会话没有订阅 Bilibili {user_label(user)}。"}
 
     remaining = remove_services(subscription.get("services"), parsed["services"])
     if remaining:
         subscription["services"] = remaining
-        message = f"已取消 Bilibili {parsed['uid']}：{services_text(parsed['services'])}"
+        message = f"已取消 Bilibili {user_label(user)}：{services_text(parsed['services'])}"
     else:
-        subscriptions = [item for item in subscriptions if item.get("id") != subscription_id]
-        message = f"已取消 Bilibili {parsed['uid']} 的当前会话订阅。"
+        subscriptions = [item for item in subscriptions if item is not subscription]
+        message = f"已取消 Bilibili {user_label(user)} 的当前会话订阅。"
     settings["subscriptions"] = subscriptions
     return {"ok": True, "message": message}
 
@@ -621,17 +631,106 @@ def remove_bilibili_subscription(settings, ctx):
 def parse_bilibili_command_args(args):
     values = [str(item or "").strip() for item in args or [] if str(item or "").strip()]
     service = "all"
-    uid = ""
+    query = ""
     error = False
     if len(values) == 1:
-        uid = digits(values[0])
+        query = values[0]
     elif len(values) >= 2:
         service = normalize_service_token(values[0])
-        uid = digits(values[1])
+        query = values[1]
         error = not service
     if not service and not error:
         service = "all"
-    return {"services": [service] if service else [], "uid": uid, "error": error}
+    uid = digits(query)
+    return {"services": [service] if service else [], "uid": uid, "query": query, "error": error}
+
+
+def resolve_bilibili_user(settings, ctx, query):
+    text = str(query or "").strip()
+    if not text:
+        return {"ok": False, "message": "请填写 Bilibili UID 或昵称。"}
+    token = first_available_token(settings, ctx)
+    headers = build_cookie_headers(token, text if text.isdigit() else None)
+    timeout_seconds = int(settings.get("poll_timeout_seconds") or 12)
+    if text.isdigit():
+        response = ctx.http_request("GET", user_info_url(text), headers=headers, timeout_seconds=timeout_seconds)
+        result = normalize_user_info(parse_json_response(response))
+    else:
+        response = ctx.http_request("GET", user_search_url(text), headers=headers, timeout_seconds=timeout_seconds)
+        result = normalize_user_search(parse_json_response(response), text)
+    if result.get("ok"):
+        return result
+    return {"ok": False, "message": result.get("message") or "Bilibili 用户信息读取失败。"}
+
+
+def resolve_bilibili_user_for_removal(settings, ctx, query, target):
+    text = str(query or "").strip()
+    if text.isdigit():
+        subscription = find_bilibili_subscription(settings, text, target)
+        if subscription:
+            return {
+                "ok": True,
+                "uid": text,
+                "name": str(subscription.get("name") or text).strip() or text,
+            }
+    else:
+        subscription = find_bilibili_subscription_by_name(settings, text, target)
+        if subscription:
+            uid = str(subscription.get("uid") or "").strip()
+            if uid:
+                return {
+                    "ok": True,
+                    "uid": uid,
+                    "name": str(subscription.get("name") or uid).strip() or uid,
+                }
+    return resolve_bilibili_user(settings, ctx, text)
+
+
+def find_bilibili_subscription(settings, uid, target):
+    subscription_id = subscription_id_for("bilibili", uid, target["target_type"], target["target_id"])
+    return next((
+        item for item in settings.get("subscriptions") or []
+        if item.get("id") == subscription_id
+        or (
+            item.get("platform") == "bilibili"
+            and str(item.get("uid") or "").strip() == str(uid or "").strip()
+            and item.get("target_type") == target["target_type"]
+            and item.get("target_id") == target["target_id"]
+        )
+    ), None)
+
+
+def find_bilibili_subscription_by_name(settings, name, target):
+    text = str(name or "").strip()
+    if not text:
+        return None
+    return next((
+        item for item in settings.get("subscriptions") or []
+        if item.get("platform") == "bilibili"
+        and item.get("target_type") == target["target_type"]
+        and item.get("target_id") == target["target_id"]
+        and str(item.get("name") or "").strip() == text
+    ), None)
+
+
+def first_available_token(settings, ctx):
+    for item in settings.get("tokens") or []:
+        if item.get("enabled", True) is False:
+            continue
+        try:
+            result = ctx.secret_read(item["secret_key"])
+            value = str(result.get("value") or "").strip() if isinstance(result, dict) else ""
+            if value:
+                return value
+        except Exception:
+            continue
+    return ""
+
+
+def user_label(user):
+    name = str(user.get("name") or "").strip()
+    uid = str(user.get("uid") or "").strip()
+    return f"{name}（UID {uid}）" if name and uid and name != uid else uid or name
 
 
 def normalize_service_token(value):
@@ -701,7 +800,10 @@ def format_subscription_list(settings, target, platform=None, title="订阅列�
     lines = [title]
     for item in items:
         target_label = "私聊" if item.get("target_type") == "private" else "群聊"
-        lines.append(f"{target_label} {item.get('target_id')} · Bilibili {item.get('uid')} · {services_text(item.get('services'))} · 订阅人：{subscribers_text(item)}")
+        name = str(item.get("name") or item.get("uid") or "").strip()
+        uid = str(item.get("uid") or "").strip()
+        subject = f"{name}（UID {uid}）" if name and uid and name != uid else uid or name
+        lines.append(f"{target_label} {item.get('target_id')} · Bilibili {subject} · {services_text(item.get('services'))} · 订阅人：{subscribers_text(item)}")
     return "\n".join(lines)
 
 

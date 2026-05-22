@@ -1,11 +1,14 @@
 import json
 from datetime import datetime, timezone
 from html import unescape
+from urllib.parse import urlencode
 
 
 DYNAMIC_URL = "https://api.bilibili.com/x/polymer/web-dynamic/v1/feed/space?host_mid={uid}&timezone_offset=-480&platform=web&web_location=333.1365&features=itemOpusStyle,listOnlyfans,opusBigCover,onlyfansVote,decorationCard,onlyfansAssetsV2,forwardListHidden,ugcDelete"
 LIVE_URL = "https://api.live.bilibili.com/room/v1/Room/get_status_info_by_uids?uids[]={uid}"
 NAV_URL = "https://api.bilibili.com/x/web-interface/nav"
+USER_INFO_URL = "https://api.bilibili.com/x/space/acc/info?mid={uid}&jsonp=jsonp"
+USER_SEARCH_URL = "https://api.bilibili.com/x/web-interface/search/type?{query}"
 
 
 def build_cookie_headers(token, uid=None):
@@ -31,6 +34,72 @@ def parse_json_response(response):
         return json.loads(body)
     except json.JSONDecodeError:
         return {}
+
+
+def user_info_url(uid):
+    return USER_INFO_URL.format(uid=uid)
+
+
+def user_search_url(keyword):
+    query = urlencode({
+        "keyword": keyword,
+        "page": 1,
+        "search_type": "bili_user",
+        "order": "totalrank",
+        "pagesize": 5,
+    })
+    return USER_SEARCH_URL.format(query=query)
+
+
+def bilibili_document_error(document):
+    if not isinstance(document, dict):
+        return {"kind": "invalid", "message": "Bilibili 响应格式不正确。"}
+    code = document.get("code")
+    if code == 0:
+        return None
+    message = str(document.get("message") or document.get("msg") or "").strip()
+    if code == -412:
+        return {"kind": "blocked", "message": "Bilibili 请求被风控拦截，请配置可用 Cookie 后再试。"}
+    if code == -404:
+        return {"kind": "not_found", "message": "没有找到这个 Bilibili 用户。"}
+    return {"kind": "api_error", "message": message or "Bilibili 用户信息读取失败。", "code": code}
+
+
+def normalize_user_info(document):
+    error = bilibili_document_error(document)
+    if error:
+        return {"ok": False, **error}
+    data = document.get("data") if isinstance(document, dict) else {}
+    if not isinstance(data, dict):
+        return {"ok": False, "kind": "invalid", "message": "Bilibili 用户信息格式不正确。"}
+    uid = str(data.get("mid") or "").strip()
+    name = clean_text(data.get("name") or data.get("uname") or "")
+    if not uid.isdigit() or not name:
+        return {"ok": False, "kind": "not_found", "message": "没有找到这个 Bilibili 用户。"}
+    return {"ok": True, "uid": uid, "name": name}
+
+
+def normalize_user_search(document, keyword):
+    error = bilibili_document_error(document)
+    if error:
+        return {"ok": False, **error}
+    data = document.get("data") if isinstance(document, dict) else {}
+    result = data.get("result") if isinstance(data, dict) else []
+    if not isinstance(result, list) or not result:
+        return {"ok": False, "kind": "not_found", "message": f"没有搜索到 Bilibili 用户：{keyword}"}
+    candidates = []
+    for item in result:
+        if not isinstance(item, dict):
+            continue
+        uid = str(item.get("mid") or "").strip()
+        name = clean_text(item.get("uname") or item.get("name") or "")
+        if uid.isdigit() and name:
+            candidates.append({"uid": uid, "name": name})
+    if not candidates:
+        return {"ok": False, "kind": "invalid", "message": "Bilibili 用户搜索结果格式不正确。"}
+    keyword_text = clean_text(keyword)
+    exact = next((item for item in candidates if item["name"] == keyword_text), None)
+    return {"ok": True, **(exact or candidates[0])}
 
 
 def dynamic_updates(document):
