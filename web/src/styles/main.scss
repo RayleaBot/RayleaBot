@@ -800,6 +800,20 @@ textarea:focus-visible,
   letter-spacing: -0.02em;
 }
 
+.app-page__title-slot-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.app-page__title-slot-wrapper h1 {
+  margin: 0;
+  font-size: clamp(1.12rem, 1.38vw, 1.32rem);
+  line-height: 1.25;
+  letter-spacing: -0.02em;
+}
+
 .app-page__heading p {
   margin: 0;
   color: var(--muted);

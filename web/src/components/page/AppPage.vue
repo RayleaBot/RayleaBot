@@ -23,7 +23,10 @@ defineProps<{
     <header class="app-page__header">
       <div class="app-page__heading">
         <span v-if="eyebrow" class="page-eyebrow">{{ eyebrow }}</span>
-        <h1>{{ title }}</h1>
+        <h1 v-if="!$slots.title">{{ title }}</h1>
+        <div v-else class="app-page__title-slot-wrapper">
+          <slot name="title" />
+        </div>
         <p v-if="description">{{ description }}</p>
       </div>
 
