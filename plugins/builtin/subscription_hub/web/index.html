@@ -3,73 +3,175 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#f6f8fb" />
     <title>订阅设置</title>
     <link rel="stylesheet" href="./app.css" />
   </head>
   <body>
-    <main class="page-shell">
+    <a class="skip-link" href="#main-content">跳到主要内容</a>
+    <main id="main-content" class="page-shell">
       <header class="page-header">
-        <div>
+        <div class="page-heading">
+          <p class="eyebrow" translate="no">raylea.subscription-hub</p>
           <h1 id="page-title">订阅设置</h1>
           <p id="page-subtitle">管理 Bilibili 订阅、轮询和 Cookie</p>
         </div>
-        <div class="status-pill" id="status-text">正在等待宿主初始化</div>
+        <div class="status-pill" id="status-text" aria-live="polite">正在等待宿主初始化…</div>
       </header>
 
-      <section class="settings-grid">
-        <label class="switch panel">
-          <input id="enabled-input" type="checkbox" />
-          <span>启用订阅轮询</span>
-        </label>
-        <label class="panel">
-          <span>轮询 Cron</span>
-          <input id="poll-cron-input" type="text" placeholder="*/5 * * * *" />
-        </label>
-        <label class="panel">
-          <span>请求超时秒数</span>
-          <input id="poll-timeout-input" type="number" min="5" max="60" />
-        </label>
-        <label class="panel">
-          <span>动态有效时间秒数</span>
-          <input id="dynamic-time-range-input" type="number" min="60" max="604800" />
-        </label>
-        <label class="panel">
-          <span>单轮最多推送</span>
-          <input id="max-updates-input" type="number" min="1" max="20" />
-        </label>
+      <section class="overview-grid" aria-label="订阅中心概览">
+        <article class="metric">
+          <span class="metric__label">状态</span>
+          <strong id="metric-enabled">未载入</strong>
+        </article>
+        <article class="metric">
+          <span class="metric__label">订阅</span>
+          <strong id="metric-subscriptions">0 / 0</strong>
+        </article>
+        <article class="metric">
+          <span class="metric__label">Cookie</span>
+          <strong id="metric-cookies">0 / 0</strong>
+        </article>
+        <article class="metric">
+          <span class="metric__label">轮询</span>
+          <strong id="metric-cron">*/5 * * * *</strong>
+        </article>
+        <article class="metric">
+          <span class="metric__label">校验</span>
+          <strong id="metric-validation">未校验</strong>
+        </article>
       </section>
 
-      <section class="editor-grid">
-        <div class="panel panel--wide">
-          <div class="section-title">
-            <div class="section-title__heading">
-              <h2>Bilibili Cookie</h2>
-              <span
-                class="help-tip"
-                tabindex="0"
-                aria-label="Bilibili Cookie 从登录后的浏览器请求中复制。可直接粘贴完整 Cookie，至少包含 SESSDATA=...。Cookie 属于登录凭据，保存后使用插件密钥存储。配置多个 Cookie 时，轮询会随机选择一个。"
-                data-tooltip="Bilibili Cookie 从登录后的浏览器请求中复制。可直接粘贴完整 Cookie，至少包含 SESSDATA=...。Cookie 属于登录凭据，保存后使用插件密钥存储。配置多个 Cookie 时，轮询会随机选择一个。"
-              >?</span>
+      <section class="layout-grid">
+        <aside class="side-stack" aria-label="轮询与 Cookie 设置">
+          <section class="panel">
+            <div class="section-title">
+              <h2>轮询设置</h2>
+              <p>控制订阅扫描节奏和单轮推送上限。</p>
             </div>
-          </div>
-          <textarea id="tokens-input" class="code-input" rows="10" spellcheck="false"></textarea>
-        </div>
 
-        <div class="panel panel--wide">
-          <div class="section-title">
-            <h2>订阅列表</h2>
-            <p>services 支持 live、video、image_text、article、repost、all。</p>
-          </div>
-          <textarea id="subscriptions-input" class="code-input" rows="14" spellcheck="false"></textarea>
-        </div>
+            <label class="toggle-row" for="enabled-input">
+              <input id="enabled-input" name="enabled" type="checkbox" autocomplete="off" />
+              <span>
+                <strong>启用订阅轮询</strong>
+                <small>关闭后保留配置，但不自动检查。</small>
+              </span>
+            </label>
+
+            <label class="field" for="poll-cron-input">
+              <span>轮询 Cron</span>
+              <input id="poll-cron-input" name="poll_cron" type="text" inputmode="text" autocomplete="off" placeholder="*/5 * * * *" spellcheck="false" />
+              <small id="poll-cron-error" class="field-error"></small>
+            </label>
+
+            <div class="field-pair">
+              <label class="field" for="poll-timeout-input">
+                <span>请求超时</span>
+                <input id="poll-timeout-input" name="poll_timeout_seconds" type="number" min="5" max="60" inputmode="numeric" autocomplete="off" />
+                <small id="poll-timeout-error" class="field-hint">5 - 60 秒</small>
+              </label>
+              <label class="field" for="max-updates-input">
+                <span>单轮最多推送</span>
+                <input id="max-updates-input" name="max_updates_per_poll" type="number" min="1" max="20" inputmode="numeric" autocomplete="off" />
+                <small id="max-updates-error" class="field-hint">1 - 20 条</small>
+              </label>
+            </div>
+
+            <label class="field" for="dynamic-time-range-input">
+              <span>动态有效时间</span>
+              <input id="dynamic-time-range-input" name="dynamic_time_range_seconds" type="number" min="60" max="604800" inputmode="numeric" autocomplete="off" />
+              <small id="dynamic-time-range-error" class="field-hint">60 - 604800 秒</small>
+            </label>
+          </section>
+
+          <section class="panel">
+            <div class="section-title section-title--inline">
+              <div>
+                <h2>Bilibili Cookie</h2>
+                <p>敏感值保存到插件密钥存储。</p>
+              </div>
+              <button type="button" id="add-cookie-button" class="button button--small">添加 Cookie</button>
+            </div>
+            <div id="cookie-list" class="cookie-list"></div>
+          </section>
+        </aside>
+
+        <section class="workspace-stack">
+          <section class="panel">
+            <div class="section-title section-title--inline">
+              <div>
+                <h2>订阅管理</h2>
+                <p>按 UID、目标和推送类型管理订阅。</p>
+              </div>
+              <button type="button" id="add-subscription-button" class="button button--primary-accent">添加订阅</button>
+            </div>
+
+            <div class="toolbar" role="search">
+              <label class="field field--search" for="subscription-search-input">
+                <span>搜索</span>
+                <input id="subscription-search-input" name="subscription_search" type="search" autocomplete="off" placeholder="搜索 UID、名称或目标…" />
+              </label>
+              <label class="field" for="status-filter-input">
+                <span>状态</span>
+                <select id="status-filter-input" name="status_filter" autocomplete="off">
+                  <option value="all">全部</option>
+                  <option value="enabled">启用</option>
+                  <option value="disabled">停用</option>
+                </select>
+              </label>
+              <label class="field" for="service-filter-input">
+                <span>类型</span>
+                <select id="service-filter-input" name="service_filter" autocomplete="off">
+                  <option value="all">全部类型</option>
+                  <option value="live">直播</option>
+                  <option value="video">视频</option>
+                  <option value="image_text">图文</option>
+                  <option value="article">文章</option>
+                  <option value="repost">转发</option>
+                </select>
+              </label>
+            </div>
+
+            <div id="subscription-list" class="subscription-list"></div>
+          </section>
+
+          <section class="panel editor-panel" id="subscription-editor-panel">
+            <div class="section-title section-title--inline">
+              <div>
+                <h2 id="subscription-editor-title">订阅编辑</h2>
+                <p id="subscription-editor-subtitle">选择一条订阅，或新建订阅。</p>
+              </div>
+              <button type="button" id="close-editor-button" class="button button--small">收起</button>
+            </div>
+
+            <div id="subscription-editor" class="subscription-editor"></div>
+          </section>
+
+          <details class="panel advanced-panel">
+            <summary>高级配置</summary>
+            <p>用于批量迁移、排障和保留原始结构。保存仍会走上方结构化校验。</p>
+            <div class="advanced-actions">
+              <button type="button" id="export-json-button" class="button button--small">刷新预览</button>
+              <button type="button" id="import-json-button" class="button button--small">导入 JSON</button>
+            </div>
+            <label class="field" for="raw-json-input">
+              <span>原始配置</span>
+              <textarea id="raw-json-input" name="raw_json" rows="12" spellcheck="false" autocomplete="off"></textarea>
+              <small id="raw-json-error" class="field-error"></small>
+            </label>
+          </details>
+        </section>
       </section>
 
       <footer class="actions">
-        <button type="button" id="reload-button" class="button">重新载入</button>
-        <button type="button" id="reset-button" class="button">恢复默认</button>
-        <button type="button" id="manual-check-button" class="button">立即检查</button>
-        <button type="button" id="preview-button" class="button">打开卡片预览</button>
-        <button type="button" id="save-button" class="button button--primary">保存设置</button>
+        <div id="dirty-state" class="dirty-state" aria-live="polite">等待载入</div>
+        <div class="footer-buttons">
+          <button type="button" id="reload-button" class="button">重新载入</button>
+          <button type="button" id="reset-button" class="button">恢复默认</button>
+          <button type="button" id="manual-check-button" class="button">立即检查</button>
+          <button type="button" id="preview-button" class="button">打开卡片预览</button>
+          <button type="button" id="save-button" class="button button--primary">保存设置</button>
+        </div>
       </footer>
     </main>
     <script src="./app.js"></script>
