@@ -255,7 +255,31 @@ def normalize_special_dates(value):
 
 
 def is_special_date_key(value):
-    return bool(re.fullmatch(r"\d{4}-\d{2}-\d{2}", value) or re.fullmatch(r"\d{2}-\d{2}", value))
+    if not isinstance(value, str):
+        return False
+    if re.fullmatch(r"\d{4}-\d{2}-\d{2}", value):
+        parts = value.split("-")
+        try:
+            y = int(parts[0])
+            m = int(parts[1])
+            d = int(parts[2])
+            from datetime import date
+            date(y, m, d)
+            return True
+        except ValueError:
+            return False
+    elif re.fullmatch(r"\d{2}-\d{2}", value):
+        parts = value.split("-")
+        try:
+            m = int(parts[0])
+            d = int(parts[1])
+            from datetime import date
+            # Use 2024 (a leap year) to allow 02-29, but block 02-30, 02-31 etc.
+            date(2024, m, d)
+            return True
+        except ValueError:
+            return False
+    return False
 
 
 def stored_fortunes_are_legacy_defaults(value):

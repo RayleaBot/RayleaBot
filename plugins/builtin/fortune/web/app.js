@@ -53,6 +53,7 @@
     goodActionsList: document.getElementById('good-actions-list'),
     badActionsList: document.getElementById('bad-actions-list'),
     fortuneFilterInput: document.getElementById('fortune-filter-input'),
+    fortuneTypeFilter: document.getElementById('fortune-type-filter'),
     fortuneTableBody: document.getElementById('fortune-table-body'),
     specialDateTableBody: document.getElementById('special-date-table-body'),
     addFortuneButton: document.getElementById('add-fortune-button'),
@@ -68,6 +69,8 @@
   let validation = { errors: [] }
   let readyTimer = null
   let readyAttempts = 0
+  let currentPage = 1
+  const pageSize = 10
 
   function emptyDraft() {
     return {
@@ -249,7 +252,7 @@
 
     draft.special_dates.forEach((item, index) => {
       if (!isSpecialDateKey(item.date)) {
-        errors.push({ scope: `special-${index}`, message: '日期格式应为 YYYY-MM-DD 或 MM-DD' })
+        errors.push({ scope: `special-${index}`, message: '日期格式应为 YYYY-MM-DD 或 MM-DD，且须为真实有效日期' })
       }
       if (!item.fortune_name) {
         errors.push({ scope: `special-${index}`, message: '特殊日期需要指定运势' })
@@ -271,7 +274,23 @@
   }
 
   function isSpecialDateKey(value) {
-    return /^\d{4}-\d{2}-\d{2}$/.test(value) || /^\d{2}-\d{2}$/.test(value)
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(value) && !/^\d{2}-\d{2}$/.test(value)) {
+      return false
+    }
+    const parts = value.split('-')
+    if (parts.length === 3) {
+      const y = Number(parts[0])
+      const m = Number(parts[1])
+      const d = Number(parts[2])
+      const date = new Date(y, m - 1, d)
+      return date.getFullYear() === y && date.getMonth() === m - 1 && date.getDate() === d
+    } else if (parts.length === 2) {
+      const m = Number(parts[0])
+      const d = Number(parts[1])
+      const date = new Date(2024, m - 1, d)
+      return date.getFullYear() === 2024 && date.getMonth() === m - 1 && date.getDate() === d
+    }
+    return false
   }
 
   function isSupportedTimezoneInput(value) {
@@ -362,39 +381,92 @@
     })
   }
 
-  function renderFortunes() {
+  function getFilteredFortunes() {
     const filter = elements.fortuneFilterInput.value.trim().toLowerCase()
-    elements.fortuneTableBody.innerHTML = ''
-
+    const typeFilter = elements.fortuneTypeFilter ? elements.fortuneTypeFilter.value : ''
+    const result = []
     draft.fortunes.forEach((fortune, index) => {
-      const searchable = `${fortune.name} ${fortune.sign} ${fortune.explanation}`.toLowerCase()
-      if (filter && !searchable.includes(filter)) {
+      if (typeFilter && fortune.name !== typeFilter) {
         return
       }
+      const searchable = `${fortune.name} ${fortune.sign} ${fortune.explanation}`.toLowerCase()
+      if (!filter || searchable.includes(filter)) {
+        result.push({ fortune, originalIndex: index })
+      }
+    })
+    return result
+  }
 
+  function updatePaginationUI(totalItems, start, end, totalPages) {
+    const info = document.getElementById('pagination-info')
+    const current = document.getElementById('pagination-current')
+    const prevBtn = document.getElementById('pagination-prev')
+    const nextBtn = document.getElementById('pagination-next')
+
+    if (!info || !current || !prevBtn || !nextBtn) {
+      return
+    }
+
+    if (totalItems === 0) {
+      info.textContent = '共 0 条运势'
+      current.textContent = '第 1 / 1 页'
+      prevBtn.disabled = true
+      nextBtn.disabled = true
+      return
+    }
+
+    info.textContent = `显示第 ${start + 1} - ${end} 条，共 ${totalItems} 条`
+    current.textContent = `第 ${currentPage} / ${totalPages} 页`
+    prevBtn.disabled = currentPage === 1
+    nextBtn.disabled = currentPage === totalPages
+  }
+
+  function renderFortunes() {
+    const filtered = getFilteredFortunes()
+    const totalItems = filtered.length
+    const totalPages = Math.ceil(totalItems / pageSize) || 1
+
+    if (currentPage > totalPages) {
+      currentPage = totalPages
+    }
+    if (currentPage < 1) {
+      currentPage = 1
+    }
+
+    const start = (currentPage - 1) * pageSize
+    const end = Math.min(start + pageSize, totalItems)
+    const pageItems = filtered.slice(start, end)
+
+    elements.fortuneTableBody.innerHTML = ''
+
+    pageItems.forEach(({ fortune, originalIndex }) => {
       const row = document.createElement('tr')
-      row.className = hasError(`fortune-${index}`) ? 'has-error' : ''
+      row.setAttribute('data-original-index', originalIndex)
+      row.className = hasError(`fortune-${originalIndex}`) ? 'has-error' : ''
 
-      row.appendChild(cell(selectForFortuneName(fortune, index)))
-      row.appendChild(cell(selectForStars(fortune, index)))
-      row.appendChild(cell(textareaForFortune(index, 'sign', '签文')))
-      row.appendChild(cell(textareaForFortune(index, 'explanation', '解签')))
+      row.appendChild(cell(selectForFortuneName(fortune, originalIndex)))
+      row.appendChild(cell(selectForStars(fortune, originalIndex)))
+      row.appendChild(cell(textareaForFortune(originalIndex, 'sign', '签文')))
+      row.appendChild(cell(textareaForFortune(originalIndex, 'explanation', '解签')))
       row.appendChild(actionCell([
-        actionButton('复制', () => duplicateFortune(index)),
-        actionButton('删除', () => removeFortune(index), 'button--danger'),
-      ], errorText(`fortune-${index}`)))
+        actionButton('复制', () => duplicateFortune(originalIndex)),
+        actionButton('删除', () => removeFortune(originalIndex), 'button--danger'),
+      ], errorText(`fortune-${originalIndex}`)))
 
       elements.fortuneTableBody.appendChild(row)
     })
 
-    if (elements.fortuneTableBody.children.length === 0) {
+    if (totalItems === 0) {
       elements.fortuneTableBody.appendChild(emptyRow(5, '没有符合条件的运势'))
     }
+
+    updatePaginationUI(totalItems, start, end, totalPages)
   }
 
   function selectForFortuneName(fortune, index) {
     const select = document.createElement('select')
     select.setAttribute('aria-label', '运势名')
+    select.className = `fortune-select fortune-select--${fortune.name}`
     FORTUNE_NAMES.forEach((name) => {
       const option = document.createElement('option')
       option.value = name
@@ -405,6 +477,7 @@
     select.addEventListener('change', () => {
       draft.fortunes[index].name = select.value
       draft.fortunes[index].stars = firstStarsForName(select.value)
+      select.className = `fortune-select fortune-select--${select.value}`
       markChanged()
     })
     return select
@@ -442,6 +515,25 @@
     textarea.addEventListener('input', () => {
       draft.fortunes[index][key] = textarea.value
       refreshStatusOnly()
+
+      const row = elements.fortuneTableBody.querySelector(`tr[data-original-index="${index}"]`)
+      if (row) {
+        const error = errorText(`fortune-${index}`)
+        row.classList.toggle('has-error', Boolean(error))
+
+        let errorMsgEl = row.querySelector('.field-error')
+        if (errorMsgEl) {
+          errorMsgEl.textContent = error
+        } else if (error) {
+          const actionTd = row.querySelector('td:last-child')
+          if (actionTd) {
+            errorMsgEl = document.createElement('small')
+            errorMsgEl.className = 'field-error'
+            errorMsgEl.textContent = error
+            actionTd.appendChild(errorMsgEl)
+          }
+        }
+      }
     })
     return textarea
   }
@@ -460,6 +552,7 @@
     elements.specialDateTableBody.innerHTML = ''
     draft.special_dates.forEach((item, index) => {
       const row = document.createElement('tr')
+      row.setAttribute('data-original-index', index)
       row.className = hasError(`special-${index}`) ? 'has-error' : ''
 
       row.appendChild(cell(inputForSpecialDate(index)))
@@ -468,7 +561,7 @@
       row.appendChild(actionCell([
         actionButton('复制', () => duplicateSpecialDate(index)),
         actionButton('删除', () => removeSpecialDate(index), 'button--danger'),
-      ], errorText(`special-${index}`)))
+      ]))
 
       elements.specialDateTableBody.appendChild(row)
     })
@@ -486,7 +579,22 @@
     input.setAttribute('aria-label', '特殊日期')
     input.addEventListener('input', () => {
       draft.special_dates[index].date = input.value.trim()
-      markChanged()
+
+      validation = validateDraft()
+      renderOverview()
+      renderFooter()
+
+      const row = elements.specialDateTableBody.querySelector(`tr[data-original-index="${index}"]`)
+      if (row) {
+        const error = errorText(`special-${index}`)
+        row.classList.toggle('has-error', Boolean(error))
+
+        const statusSpan = row.querySelector('.row-status')
+        if (statusSpan) {
+          statusSpan.className = error ? 'row-status is-error' : 'row-status'
+          statusSpan.textContent = error || '有效'
+        }
+      }
     })
     return input
   }
@@ -494,6 +602,7 @@
   function selectForSpecialFortune(index) {
     const select = document.createElement('select')
     select.setAttribute('aria-label', '指定运势')
+    select.className = `fortune-select fortune-select--${draft.special_dates[index].fortune_name}`
     const names = Array.from(new Set(draft.fortunes.map((fortune) => fortune.name).filter(Boolean)))
     if (!names.includes(draft.special_dates[index].fortune_name) && draft.special_dates[index].fortune_name) {
       names.push(draft.special_dates[index].fortune_name)
@@ -507,6 +616,7 @@
     select.value = draft.special_dates[index].fortune_name
     select.addEventListener('change', () => {
       draft.special_dates[index].fortune_name = select.value
+      select.className = `fortune-select fortune-select--${select.value}`
       markChanged()
     })
     return select
@@ -583,6 +693,8 @@
     const hasErrors = validation.errors.length > 0
     elements.dirtyState.textContent = hasErrors ? '存在未修正问题' : dirty ? '有未保存更改' : '设置已同步'
     elements.dirtyState.classList.toggle('is-error', hasErrors)
+    elements.dirtyState.classList.toggle('is-dirty', dirty && !hasErrors)
+    elements.dirtyState.classList.toggle('is-synced', !dirty && !hasErrors)
     elements.saveButton.disabled = hasErrors || !dirty
   }
 
@@ -597,12 +709,13 @@
   }
 
   function addFortune() {
-    draft.fortunes.push({
+    draft.fortunes.unshift({
       name: '大吉',
       stars: '★★★★★★★',
       sign: '',
       explanation: '',
     })
+    currentPage = 1
     markChanged()
   }
 
@@ -654,7 +767,36 @@
       draft.timezone = elements.timezoneInput.value.trim()
       markChanged()
     })
-    elements.fortuneFilterInput.addEventListener('input', renderFortunes)
+    elements.fortuneFilterInput.addEventListener('input', () => {
+      currentPage = 1
+      renderFortunes()
+    })
+    if (elements.fortuneTypeFilter) {
+      elements.fortuneTypeFilter.addEventListener('change', () => {
+        currentPage = 1
+        renderFortunes()
+      })
+    }
+
+    const prevBtn = document.getElementById('pagination-prev')
+    const nextBtn = document.getElementById('pagination-next')
+    if (prevBtn && nextBtn) {
+      prevBtn.addEventListener('click', () => {
+        if (currentPage > 1) {
+          currentPage -= 1
+          renderFortunes()
+        }
+      })
+      nextBtn.addEventListener('click', () => {
+        const filtered = getFilteredFortunes()
+        const totalPages = Math.ceil(filtered.length / pageSize) || 1
+        if (currentPage < totalPages) {
+          currentPage += 1
+          renderFortunes()
+        }
+      })
+    }
+
     elements.addFortuneButton.addEventListener('click', addFortune)
     elements.addSpecialDateButton.addEventListener('click', addSpecialDate)
     elements.reloadButton.addEventListener('click', reloadSettings)

@@ -18,138 +18,179 @@
 
       <section class="overview-grid" aria-label="配置概览">
         <article class="metric">
-          <span>运势条目</span>
-          <strong id="fortune-count">0</strong>
+          <div class="metric-icon">🔮</div>
+          <div class="metric-content">
+            <span>运势条目</span>
+            <strong id="fortune-count">0</strong>
+          </div>
         </article>
         <article class="metric">
-          <span>特殊日期</span>
-          <strong id="special-date-count">0</strong>
+          <div class="metric-icon">📅</div>
+          <div class="metric-content">
+            <span>特殊日期</span>
+            <strong id="special-date-count">0</strong>
+          </div>
         </article>
         <article class="metric">
-          <span>触发词</span>
-          <strong id="trigger-count">0</strong>
+          <div class="metric-icon">🔑</div>
+          <div class="metric-content">
+            <span>触发词</span>
+            <strong id="trigger-count">0</strong>
+          </div>
         </article>
-        <article class="metric metric--wide">
-          <span>当前时区</span>
-          <strong id="timezone-summary">Asia/Shanghai</strong>
+        <article class="metric">
+          <div class="metric-icon">🌐</div>
+          <div class="metric-content">
+            <span>当前时区</span>
+            <strong id="timezone-summary">Asia/Shanghai</strong>
+          </div>
         </article>
-        <article class="metric metric--wide">
-          <span>校验状态</span>
-          <strong id="validation-summary">等待载入</strong>
+        <article class="metric">
+          <div class="metric-icon">🛡️</div>
+          <div class="metric-content">
+            <span>校验状态</span>
+            <strong id="validation-summary">等待载入</strong>
+          </div>
         </article>
       </section>
 
-      <section class="settings-grid">
-        <section class="panel">
-          <div class="section-title">
-            <h2>触发词</h2>
-            <p>输入内容后按 Enter 添加。</p>
-          </div>
-          <div class="chip-editor" data-chip-list="trigger_commands">
-            <label for="fortune-trigger-input">运势触发词</label>
-            <div class="chip-list" id="fortune-trigger-list"></div>
-            <input id="fortune-trigger-input" type="text" placeholder="例如：我的运势" autocomplete="off" />
-          </div>
-          <div class="chip-editor" data-chip-list="stats_trigger_commands">
-            <label for="stats-trigger-input">统计触发词</label>
-            <div class="chip-list" id="stats-trigger-list"></div>
-            <input id="stats-trigger-input" type="text" placeholder="例如：运势统计" autocomplete="off" />
-          </div>
-        </section>
+      <div class="dashboard-grid">
+        <!-- Sidebar Config Panels (Left) -->
+        <aside class="config-sidebar">
+          <section class="panel">
+            <div class="section-title">
+              <h2>触发词设置</h2>
+              <p>配置用户在群聊或私聊中触发运势查询的关键词。</p>
+            </div>
+            <div class="chip-editor" data-chip-list="trigger_commands">
+              <label for="fortune-trigger-input">运势触发词</label>
+              <div class="chip-list" id="fortune-trigger-list"></div>
+              <input id="fortune-trigger-input" type="text" placeholder="添加触发词后回车..." autocomplete="off" />
+            </div>
+            <div class="chip-editor" data-chip-list="stats_trigger_commands">
+              <label for="stats-trigger-input">统计触发词</label>
+              <div class="chip-list" id="stats-trigger-list"></div>
+              <input id="stats-trigger-input" type="text" placeholder="添加统计词后回车..." autocomplete="off" />
+            </div>
+          </section>
 
-        <section class="panel">
-          <div class="section-title">
-            <h2>时区</h2>
-            <p>支持常用时区、UTC 偏移和 IANA 时区名称。</p>
-          </div>
-          <label class="field">
-            <span>时区名称</span>
-            <input id="timezone-input" list="timezone-options" type="text" placeholder="Asia/Shanghai" autocomplete="off" />
-          </label>
-          <datalist id="timezone-options"></datalist>
-          <div class="timezone-list" id="timezone-list"></div>
-        </section>
-      </section>
+          <section class="panel">
+            <div class="section-title">
+              <h2>时区设置</h2>
+              <p>配置机器人刷新每日运势数据所采用的参考时区。</p>
+            </div>
+            <label class="field">
+              <span>时区名称</span>
+              <input id="timezone-input" list="timezone-options" type="text" placeholder="Asia/Shanghai" autocomplete="off" />
+            </label>
+            <datalist id="timezone-options"></datalist>
+            <div class="timezone-list" id="timezone-list"></div>
+          </section>
+        </aside>
 
-      <section class="panel">
-        <div class="section-title section-title--inline">
-          <div>
-            <h2>运势库</h2>
-            <p>星级由运势名决定，签文和解签可直接编辑。</p>
-          </div>
-          <div class="toolbar">
-            <input id="fortune-filter-input" class="toolbar-input" type="search" placeholder="筛选运势名或签文" />
-            <button type="button" id="add-fortune-button" class="button">新增运势</button>
-          </div>
-        </div>
-        <div class="table-wrap">
-          <table class="data-table" aria-label="运势库">
-            <thead>
-              <tr>
-                <th>运势名</th>
-                <th>星级</th>
-                <th>签文</th>
-                <th>解签</th>
-                <th>操作</th>
-              </tr>
-            </thead>
-            <tbody id="fortune-table-body"></tbody>
-          </table>
-        </div>
-      </section>
+        <!-- Main Workspace Panels (Right) -->
+        <main class="workspace-content">
+          <section class="panel">
+            <div class="section-title section-title--inline">
+              <div>
+                <h2>运势库</h2>
+                <p>配置运势库的主签与解签。星级由运势名决定，可直接在表格中编辑内容。</p>
+              </div>
+              <div class="toolbar">
+                <input id="fortune-filter-input" class="toolbar-input" type="search" placeholder="输入关键字筛选..." />
+                <select id="fortune-type-filter" class="toolbar-select" aria-label="按运势类型筛选">
+                  <option value="">全部运势</option>
+                  <option value="大吉">大吉</option>
+                  <option value="吉">吉</option>
+                  <option value="中吉">中吉</option>
+                  <option value="小吉">小吉</option>
+                  <option value="末吉">末吉</option>
+                  <option value="吉凶未定">吉凶未定</option>
+                  <option value="凶">凶</option>
+                  <option value="大凶">大凶</option>
+                </select>
+                <button type="button" id="add-fortune-button" class="button button--primary-accent">新增运势</button>
+              </div>
+            </div>
+            <div class="table-wrap">
+              <table class="data-table" aria-label="运势库">
+                <thead>
+                  <tr>
+                    <th>运势名</th>
+                    <th>星级</th>
+                    <th>签文</th>
+                    <th>解签</th>
+                    <th>操作</th>
+                  </tr>
+                </thead>
+                <tbody id="fortune-table-body"></tbody>
+              </table>
+            </div>
+            <div class="pagination" id="fortune-pagination">
+              <span class="pagination-info" id="pagination-info">显示第 1 - 10 条，共 0 条</span>
+              <div class="pagination-controls">
+                <button type="button" class="button button--small" id="pagination-prev" disabled>上一页</button>
+                <span class="pagination-current" id="pagination-current">第 1 / 1 页</span>
+                <button type="button" class="button button--small" id="pagination-next" disabled>下一页</button>
+              </div>
+            </div>
+          </section>
 
-      <section class="panel">
-        <div class="section-title section-title--inline">
-          <div>
-            <h2>特殊日期</h2>
-            <p>同一日期可以添加多条记录；支持 YYYY-MM-DD 和 MM-DD。</p>
-          </div>
-          <button type="button" id="add-special-date-button" class="button">新增日期</button>
-        </div>
-        <div class="table-wrap">
-          <table class="data-table data-table--compact" aria-label="特殊日期">
-            <thead>
-              <tr>
-                <th>日期</th>
-                <th>指定运势</th>
-                <th>状态</th>
-                <th>操作</th>
-              </tr>
-            </thead>
-            <tbody id="special-date-table-body"></tbody>
-          </table>
-        </div>
-      </section>
+          <section class="panel">
+            <div class="section-title section-title--inline">
+              <div>
+                <h2>特殊日期设定</h2>
+                <p>在指定日期（如节日或特殊纪念日）固定抽取的运势结果。</p>
+              </div>
+              <button type="button" id="add-special-date-button" class="button button--primary-accent">新增日期</button>
+            </div>
+            <div class="table-wrap">
+              <table class="data-table data-table--compact" aria-label="特殊日期">
+                <thead>
+                  <tr>
+                    <th>日期</th>
+                    <th>指定运势</th>
+                    <th>状态</th>
+                    <th>操作</th>
+                  </tr>
+                </thead>
+                <tbody id="special-date-table-body"></tbody>
+              </table>
+            </div>
+          </section>
 
-      <section class="actions-grid">
-        <section class="panel">
-          <div class="section-title">
-            <h2>今日宜</h2>
-            <p>输入后按 Enter 添加。</p>
-          </div>
-          <div class="chip-editor" data-chip-list="good_actions">
-            <div class="chip-list" id="good-actions-list"></div>
-            <input id="good-actions-input" type="text" placeholder="例如：整理计划" autocomplete="off" />
-          </div>
-        </section>
-
-        <section class="panel">
-          <div class="section-title">
-            <h2>今日忌</h2>
-            <p>输入后按 Enter 添加。</p>
-          </div>
-          <div class="chip-editor" data-chip-list="bad_actions">
-            <div class="chip-list" id="bad-actions-list"></div>
-            <input id="bad-actions-input" type="text" placeholder="例如：熬夜" autocomplete="off" />
-          </div>
-        </section>
-      </section>
+          <section class="panel">
+            <div class="section-title">
+              <h2>每日宜忌设定</h2>
+              <p>设定从每日运势中随机推荐的今日适宜与忌讳活动，支持添加多项内容。</p>
+            </div>
+            <div class="actions-grid">
+              <div class="chip-editor" data-chip-list="good_actions">
+                <label for="good-actions-input">
+                  <span class="action-icon action-icon--good">👍</span> 今日宜
+                </label>
+                <div class="chip-list" id="good-actions-list"></div>
+                <input id="good-actions-input" type="text" placeholder="添加适宜活动后回车..." autocomplete="off" />
+              </div>
+              <div class="chip-editor" data-chip-list="bad_actions">
+                <label for="bad-actions-input">
+                  <span class="action-icon action-icon--bad">👎</span> 今日忌
+                </label>
+                <div class="chip-list" id="bad-actions-list"></div>
+                <input id="bad-actions-input" type="text" placeholder="添加忌讳活动后回车..." autocomplete="off" />
+              </div>
+            </div>
+          </section>
+        </main>
+      </div>
 
       <footer class="actions">
         <span id="dirty-state" class="dirty-state">等待载入</span>
-        <button type="button" id="reload-button" class="button">重新载入</button>
-        <button type="button" id="reset-button" class="button">恢复默认</button>
-        <button type="button" id="save-button" class="button button--primary">保存设置</button>
+        <div class="footer-buttons">
+          <button type="button" id="reload-button" class="button">重新载入</button>
+          <button type="button" id="reset-button" class="button">恢复默认</button>
+          <button type="button" id="save-button" class="button button--primary">保存设置</button>
+        </div>
       </footer>
     </main>
     <script src="./app.js"></script>

@@ -202,11 +202,11 @@ test('supports fortune table add duplicate and delete operations', () => {
   let rows = document.querySelectorAll('#fortune-table-body tr')
   assert.equal(rows.length, 3)
 
-  rows[2].querySelector('textarea[aria-label="签文"]').value = '新增签文'
-  rows[2].querySelector('textarea[aria-label="签文"]').dispatchEvent(new dom.window.Event('input', { bubbles: true }))
-  rows[2].querySelector('textarea[aria-label="解签"]').value = '新增解签'
-  rows[2].querySelector('textarea[aria-label="解签"]').dispatchEvent(new dom.window.Event('input', { bubbles: true }))
-  rows[2].querySelector('button').click()
+  rows[0].querySelector('textarea[aria-label="签文"]').value = '新增签文'
+  rows[0].querySelector('textarea[aria-label="签文"]').dispatchEvent(new dom.window.Event('input', { bubbles: true }))
+  rows[0].querySelector('textarea[aria-label="解签"]').value = '新增解签'
+  rows[0].querySelector('textarea[aria-label="解签"]').dispatchEvent(new dom.window.Event('input', { bubbles: true }))
+  rows[0].querySelector('button').click()
   rows = document.querySelectorAll('#fortune-table-body tr')
   assert.equal(rows.length, 4)
 
@@ -217,7 +217,7 @@ test('supports fortune table add duplicate and delete operations', () => {
   document.querySelector('#save-button').click()
   const values = saveMessage(messages).payload.values
   assert.equal(values.fortunes.length, 3)
-  assert.equal(values.fortunes.at(-1).sign, '新增签文')
+  assert.equal(values.fortunes[0].sign, '新增签文')
 })
 
 test('blocks save when fortune and special date rows are invalid', () => {
@@ -233,6 +233,21 @@ test('blocks save when fortune and special date rows are invalid', () => {
 
   assert.equal(saveMessage(messages), undefined)
   assert.match(document.querySelector('#validation-summary').textContent, /个问题/)
+})
+
+test('validates calendar date correctness for special dates', () => {
+  const { dom } = createPage({
+    ...defaultSettings,
+    special_dates: [
+      { date: '02-29', fortune_name: '大吉' }, // Valid
+      { date: '02-31', fortune_name: '大吉' }, // Invalid calendar date
+      { date: '2026-02-29', fortune_name: '大吉' }, // Invalid (2026 is non-leap year)
+    ],
+  })
+  const document = dom.window.document
+
+  assert.equal(document.querySelector('#save-button').disabled, true)
+  assert.equal(document.querySelector('#validation-summary').textContent, '2 个问题')
 })
 
 test('accepts preset and custom timezone values in save payload', () => {

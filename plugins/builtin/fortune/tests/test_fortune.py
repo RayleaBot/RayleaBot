@@ -158,6 +158,22 @@ class FortuneLogicTests(unittest.TestCase):
         self.assertTrue(special)
         self.assertEqual(result["name"], "大吉")
 
+    def test_special_date_validation_removes_invalid_dates(self):
+        settings = {
+            "special_dates": [
+                {"date": "02-29", "fortune_name": "大吉"},      # Valid (2024 is leap year)
+                {"date": "02-31", "fortune_name": "中吉"},      # Invalid (no Feb 31st)
+                {"date": "2026-02-29", "fortune_name": "大吉"}, # Invalid (2026 is non-leap year)
+                {"date": "05-04", "fortune_name": "吉"},        # Valid
+            ]
+        }
+        validated = fortune.validate_settings(settings)
+        dates = [item["date"] for item in validated["special_dates"]]
+        self.assertIn("02-29", dates)
+        self.assertIn("05-04", dates)
+        self.assertNotIn("02-31", dates)
+        self.assertNotIn("2026-02-29", dates)
+
     def test_daily_record_is_stable_for_same_user_and_day(self):
         settings = fortune.load_default_settings(PLUGIN_ROOT / "fortunes.json")
 
