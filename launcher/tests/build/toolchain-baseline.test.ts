@@ -32,7 +32,7 @@ describe("launcher toolchain baseline", () => {
   });
 
   test("pins semver as a direct runtime dependency for release metadata comparison", () => {
-    expect(launcherPackage.dependencies?.semver).toBe("7.7.4");
+    expect(launcherPackage.dependencies?.semver).toBe("7.8.1");
   });
 
   test("does not keep an unused concurrently dependency in the launcher toolchain", () => {

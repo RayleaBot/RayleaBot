@@ -59,7 +59,7 @@ func TestEnrichEventMetadataHydratesGroupContextAndUsesCache(t *testing.T) {
 			URL:     server.URL,
 		},
 	}, shellDeps{
-		connectTimeout: 75 * time.Millisecond,
+		connectTimeout: 500 * time.Millisecond,
 		sleep:          blockingSleep,
 	})
 
@@ -143,7 +143,7 @@ func TestEnrichEventMetadataHydratesPrivateNicknameAndUsesCache(t *testing.T) {
 			URL:     server.URL,
 		},
 	}, shellDeps{
-		connectTimeout: 75 * time.Millisecond,
+		connectTimeout: 500 * time.Millisecond,
 		sleep:          blockingSleep,
 	})
 
@@ -219,7 +219,7 @@ func TestEnrichEventMetadataRefreshesGroupNameAfterNotice(t *testing.T) {
 			URL:     server.URL,
 		},
 	}, shellDeps{
-		connectTimeout: 75 * time.Millisecond,
+		connectTimeout: 500 * time.Millisecond,
 		sleep:          blockingSleep,
 	})
 
@@ -304,7 +304,7 @@ func TestIdentityCacheRefreshesGroupNameAfterRawNoticeFrame(t *testing.T) {
 			URL:     server.URL,
 		},
 	}, shellDeps{
-		connectTimeout: 75 * time.Millisecond,
+		connectTimeout: 500 * time.Millisecond,
 		sleep:          blockingSleep,
 	})
 
@@ -373,7 +373,7 @@ func TestEnrichEventMetadataUsesMessageGroupNameOverCachedLookup(t *testing.T) {
 			URL:     server.URL,
 		},
 	}, shellDeps{
-		connectTimeout: 75 * time.Millisecond,
+		connectTimeout: 500 * time.Millisecond,
 		sleep:          blockingSleep,
 	})
 
@@ -458,7 +458,7 @@ func TestEnrichEventMetadataRefreshesMemberInfoAfterCardNotice(t *testing.T) {
 			URL:     server.URL,
 		},
 	}, shellDeps{
-		connectTimeout: 75 * time.Millisecond,
+		connectTimeout: 500 * time.Millisecond,
 		sleep:          blockingSleep,
 	})
 

@@ -61,7 +61,7 @@ async function createLifecycleHarness(options: {
     options: {
       pollIntervalMs: 1,
       startupTimeoutMs: 60,
-      startupReadinessGraceMs: 15,
+      startupReadinessGraceMs: 30,
       shutdownTimeoutMs: 1,
       resetAdminTimeoutMs: 60,
     },

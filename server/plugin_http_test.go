@@ -126,6 +126,9 @@ func TestListPluginsReturnsContractShape(t *testing.T) {
 		allowed := map[string]bool{
 			"id":                 true,
 			"name":               true,
+			"version":            true,
+			"description":        true,
+			"author":             true,
 			"role":               true,
 			"registration_state": true,
 			"desired_state":      true,
@@ -136,6 +139,7 @@ func TestListPluginsReturnsContractShape(t *testing.T) {
 			"commands":           true,
 			"help":               true,
 			"command_conflicts":  true,
+			"dead_letter":        true,
 		}
 		for key := range itemMap {
 			if !allowed[key] {
