@@ -6,6 +6,7 @@ export const dashboard = {
   service: '服务状态',
   adapter: '适配器状态',
   activePlugins: '启用插件',
+  openPluginList: '查看插件列表',
   uptime: '运行时长',
   readinessSection: '就绪检查',
   recentEvents: '近期变化',

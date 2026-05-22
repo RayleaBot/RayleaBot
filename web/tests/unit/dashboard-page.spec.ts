@@ -44,6 +44,7 @@ function createDashboardRouter() {
       { path: '/tasks', name: 'tasks', component: { template: '<div>tasks</div>' } },
       { path: '/protocols', name: 'protocols', component: { template: '<div>protocols</div>' } },
       { path: '/logs', name: 'logs', component: { template: '<div>logs</div>' } },
+      { path: '/plugins', name: 'plugins', component: { template: '<div>plugins</div>' } },
       { path: '/plugins/:id', name: 'plugin-detail', component: { template: '<div>plugin</div>' } },
       { path: '/render/templates/:templateId?', name: 'render-templates', component: { template: '<div>template</div>' } },
     ],
@@ -93,6 +94,7 @@ describe('DashboardPage', () => {
     expect(wrapper.text()).toContain('就绪检查')
     expect(wrapper.find('[data-testid="dashboard-connection-card"]').exists()).toBe(true)
     expect(wrapper.find('[data-testid="dashboard-overview-grid"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="dashboard-active-plugins-card"]').exists()).toBe(true)
     expect(wrapper.findAll('.dashboard-overview-grid .stat-card')).toHaveLength(4)
     expect(wrapper.find('.dashboard-main-grid .ant-tabs').exists()).toBe(true)
     expect(wrapper.findAll('.dashboard-bottom-grid > .ant-card')).toHaveLength(3)
@@ -106,6 +108,36 @@ describe('DashboardPage', () => {
 
     expect(createBackupSpy).toHaveBeenCalledTimes(1)
     expect(exportDiagnosticsSpy).toHaveBeenCalledTimes(1)
+  })
+
+  it('opens the plugin list from the active plugins card', async () => {
+    const router = createDashboardRouter()
+    await router.push('/')
+    await router.isReady()
+
+    const { protocolsStore, systemStore: store } = mockDashboardRefreshes()
+    store.health = { status: 'ok' }
+    store.readiness = { status: 'ready' }
+    store.system = {
+      status: 'running',
+      adapter_state: 'connected',
+      active_plugins: 2,
+      uptime_seconds: 120,
+    }
+    protocolsStore.snapshot = createProtocolSnapshot()
+
+    const wrapper = mount(DashboardPage, {
+      global: {
+        plugins: [Antd, router],
+      },
+    })
+
+    await flushPromises()
+    await wrapper.get('[data-testid="dashboard-active-plugins-card"]').trigger('click')
+    await flushPromises()
+
+    expect(router.currentRoute.value.name).toBe('plugins')
+    expect(router.currentRoute.value.path).toBe('/plugins')
   })
 
   it('submits render preview requests from the tools section', async () => {

@@ -209,6 +209,8 @@ function getProtocolIssueTagColor(status: typeof protocolIssueStatusType.value) 
       :readiness-detail-text="readinessDetailText"
       :active-plugins-label="t('dashboard.activePlugins')"
       :active-plugins-count="system?.active_plugins ?? 0"
+      :active-plugins-to="{ name: 'plugins' }"
+      :active-plugins-aria-label="t('dashboard.openPluginList')"
       :uptime-label="t('dashboard.uptime')"
       :uptime-text="formatDurationSeconds(system?.uptime_seconds)"
     />

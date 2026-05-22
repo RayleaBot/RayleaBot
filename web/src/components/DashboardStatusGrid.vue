@@ -5,6 +5,7 @@ import {
   HeartOutlined,
   SafetyOutlined,
 } from '@ant-design/icons-vue'
+import type { RouteLocationRaw } from 'vue-router'
 
 import type { StatusType } from '@/lib/display'
 
@@ -26,6 +27,8 @@ defineProps<{
   readinessDetailText: string
   activePluginsLabel: string
   activePluginsCount: number
+  activePluginsTo: RouteLocationRaw
+  activePluginsAriaLabel: string
   uptimeLabel: string
   uptimeText: string
 }>()
@@ -60,7 +63,12 @@ defineProps<{
     </div>
 
     <!-- Active Plugins Card -->
-    <div class="custom-stat-card stat-card custom-stat-card--primary stat-card--primary">
+    <RouterLink
+      :to="activePluginsTo"
+      class="custom-stat-card stat-card custom-stat-card--primary stat-card--primary custom-stat-card--link"
+      data-testid="dashboard-active-plugins-card"
+      :aria-label="activePluginsAriaLabel"
+    >
       <div class="custom-stat-card__icon-container">
         <component :is="iconMap.plugins" class="custom-stat-card__icon" />
       </div>
@@ -69,7 +77,7 @@ defineProps<{
         <strong class="custom-stat-card__value">{{ activePluginsCount }}</strong>
       </div>
       <div class="custom-stat-card__shine" />
-    </div>
+    </RouterLink>
 
     <!-- Uptime Card -->
     <div class="custom-stat-card stat-card custom-stat-card--info stat-card--info">
@@ -118,6 +126,18 @@ defineProps<{
     -webkit-mask-composite: xor;
     mask-composite: exclude;
     pointer-events: none;
+  }
+}
+
+.custom-stat-card--link {
+  color: inherit;
+  cursor: pointer;
+  text-decoration: none;
+
+  &:focus-visible {
+    border-color: var(--card-color, var(--border-accent));
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--card-color, var(--accent)) 22%, transparent);
+    outline: none;
   }
 }
 
