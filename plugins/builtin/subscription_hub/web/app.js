@@ -515,9 +515,13 @@
       title.type = 'button'
       title.className = 'subscription-card__main'
       title.addEventListener('click', () => selectSubscription(item.id))
+      const firstChar = escapeHtml((item.name || item.uid || 'B').trim().charAt(0).toUpperCase())
       title.innerHTML = `
-        <span class="subscription-card__title">${escapeHtml(item.name || `Bilibili ${item.uid}`)}</span>
-        <span class="subscription-card__meta">${escapeHtml(item.uid || '未填写 UID')} · ${targetLabel(item.target_type)} ${escapeHtml(item.target_id || '未填写目标')}</span>
+        <span class="subscription-avatar">${firstChar}</span>
+        <span class="subscription-card__info">
+          <span class="subscription-card__title">${escapeHtml(item.name || `Bilibili ${item.uid}`)}</span>
+          <span class="subscription-card__meta">${escapeHtml(item.uid || '未填写 UID')} · ${targetLabel(item.target_type)} ${escapeHtml(item.target_id || '未填写目标')}</span>
+        </span>
       `
       card.appendChild(title)
 
