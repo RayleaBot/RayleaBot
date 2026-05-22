@@ -9,59 +9,144 @@
   <body>
     <main class="page-shell">
       <header class="page-header">
-        <div>
+        <div class="page-heading">
           <h1 id="page-title">运势设置</h1>
-          <p id="page-subtitle">设置触发词、时区、特殊日期和运势库</p>
+          <p id="page-subtitle">管理触发词、时区、特殊日期和运势库</p>
         </div>
-        <div class="status-pill" id="status-text">正在等待宿主初始化</div>
+        <div class="status-pill" id="status-text" aria-live="polite">正在等待宿主初始化</div>
       </header>
 
+      <section class="overview-grid" aria-label="配置概览">
+        <article class="metric">
+          <span>运势条目</span>
+          <strong id="fortune-count">0</strong>
+        </article>
+        <article class="metric">
+          <span>特殊日期</span>
+          <strong id="special-date-count">0</strong>
+        </article>
+        <article class="metric">
+          <span>触发词</span>
+          <strong id="trigger-count">0</strong>
+        </article>
+        <article class="metric metric--wide">
+          <span>当前时区</span>
+          <strong id="timezone-summary">Asia/Shanghai</strong>
+        </article>
+        <article class="metric metric--wide">
+          <span>校验状态</span>
+          <strong id="validation-summary">等待载入</strong>
+        </article>
+      </section>
+
       <section class="settings-grid">
-        <div class="panel panel--compact">
-          <label>
-            <span>触发词</span>
-            <textarea id="trigger-commands-input" rows="3" placeholder="每行一个触发词"></textarea>
+        <section class="panel">
+          <div class="section-title">
+            <h2>触发词</h2>
+            <p>输入内容后按 Enter 添加。</p>
+          </div>
+          <div class="chip-editor" data-chip-list="trigger_commands">
+            <label for="fortune-trigger-input">运势触发词</label>
+            <div class="chip-list" id="fortune-trigger-list"></div>
+            <input id="fortune-trigger-input" type="text" placeholder="例如：我的运势" autocomplete="off" />
+          </div>
+          <div class="chip-editor" data-chip-list="stats_trigger_commands">
+            <label for="stats-trigger-input">统计触发词</label>
+            <div class="chip-list" id="stats-trigger-list"></div>
+            <input id="stats-trigger-input" type="text" placeholder="例如：运势统计" autocomplete="off" />
+          </div>
+        </section>
+
+        <section class="panel">
+          <div class="section-title">
+            <h2>时区</h2>
+            <p>支持常用时区、UTC 偏移和 IANA 时区名称。</p>
+          </div>
+          <label class="field">
+            <span>时区名称</span>
+            <input id="timezone-input" list="timezone-options" type="text" placeholder="Asia/Shanghai" autocomplete="off" />
           </label>
+          <datalist id="timezone-options"></datalist>
+          <div class="timezone-list" id="timezone-list"></div>
+        </section>
+      </section>
+
+      <section class="panel">
+        <div class="section-title section-title--inline">
+          <div>
+            <h2>运势库</h2>
+            <p>星级由运势名决定，签文和解签可直接编辑。</p>
+          </div>
+          <div class="toolbar">
+            <input id="fortune-filter-input" class="toolbar-input" type="search" placeholder="筛选运势名或签文" />
+            <button type="button" id="add-fortune-button" class="button">新增运势</button>
+          </div>
         </div>
-        <div class="panel panel--compact">
-          <label>
-            <span>时区</span>
-            <input id="timezone-input" type="text" placeholder="Asia/Shanghai" />
-          </label>
-        </div>
-        <div class="panel panel--compact">
-          <label>
-            <span>今日宜</span>
-            <textarea id="good-actions-input" rows="4" placeholder="每行一项"></textarea>
-          </label>
-        </div>
-        <div class="panel panel--compact">
-          <label>
-            <span>今日忌</span>
-            <textarea id="bad-actions-input" rows="4" placeholder="每行一项"></textarea>
-          </label>
+        <div class="table-wrap">
+          <table class="data-table" aria-label="运势库">
+            <thead>
+              <tr>
+                <th>运势名</th>
+                <th>星级</th>
+                <th>签文</th>
+                <th>解签</th>
+                <th>操作</th>
+              </tr>
+            </thead>
+            <tbody id="fortune-table-body"></tbody>
+          </table>
         </div>
       </section>
 
-      <section class="editor-grid">
-        <div class="panel">
-          <div class="section-title">
+      <section class="panel">
+        <div class="section-title section-title--inline">
+          <div>
             <h2>特殊日期</h2>
-            <p>支持 YYYY-MM-DD 和 MM-DD，精确日期优先。</p>
+            <p>同一日期可以添加多条记录；支持 YYYY-MM-DD 和 MM-DD。</p>
           </div>
-          <textarea id="special-dates-input" class="code-input" rows="10" spellcheck="false"></textarea>
+          <button type="button" id="add-special-date-button" class="button">新增日期</button>
         </div>
+        <div class="table-wrap">
+          <table class="data-table data-table--compact" aria-label="特殊日期">
+            <thead>
+              <tr>
+                <th>日期</th>
+                <th>指定运势</th>
+                <th>状态</th>
+                <th>操作</th>
+              </tr>
+            </thead>
+            <tbody id="special-date-table-body"></tbody>
+          </table>
+        </div>
+      </section>
 
-        <div class="panel panel--wide">
+      <section class="actions-grid">
+        <section class="panel">
           <div class="section-title">
-            <h2>运势库</h2>
-            <p>星级固定七位，吉凶未定使用七个问号。</p>
+            <h2>今日宜</h2>
+            <p>输入后按 Enter 添加。</p>
           </div>
-          <textarea id="fortunes-input" class="code-input" rows="10" spellcheck="false"></textarea>
-        </div>
+          <div class="chip-editor" data-chip-list="good_actions">
+            <div class="chip-list" id="good-actions-list"></div>
+            <input id="good-actions-input" type="text" placeholder="例如：整理计划" autocomplete="off" />
+          </div>
+        </section>
+
+        <section class="panel">
+          <div class="section-title">
+            <h2>今日忌</h2>
+            <p>输入后按 Enter 添加。</p>
+          </div>
+          <div class="chip-editor" data-chip-list="bad_actions">
+            <div class="chip-list" id="bad-actions-list"></div>
+            <input id="bad-actions-input" type="text" placeholder="例如：熬夜" autocomplete="off" />
+          </div>
+        </section>
       </section>
 
       <footer class="actions">
+        <span id="dirty-state" class="dirty-state">等待载入</span>
         <button type="button" id="reload-button" class="button">重新载入</button>
         <button type="button" id="reset-button" class="button">恢复默认</button>
         <button type="button" id="save-button" class="button button--primary">保存设置</button>
