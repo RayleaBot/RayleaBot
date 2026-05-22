@@ -38,12 +38,32 @@ const blacklistMutating = ref(false)
 const whitelistMutating = ref(false)
 const whitelistConfirmVisible = ref(false)
 
-const addModalVisible = ref(false)
-const addModalTarget = ref<'whitelist' | 'blacklist'>('blacklist')
-const addModalError = ref<string | null>(null)
-const addModalMutating = ref(false)
-const addModalDraft = reactive({
+// Search filters
+const whitelistSearchQuery = ref('')
+const blacklistSearchQuery = ref('')
+
+// Inline Whitelist adding state
+const isAddingWhitelist = ref(false)
+const whitelistAdding = ref(false)
+const whitelistDraft = reactive({
   entry_type: 'user' as GovernanceEntryType,
+  target_id: '',
+  reason: '',
+})
+const whitelistDraftErrors = reactive({
+  target_id: '',
+  reason: '',
+})
+
+// Inline Blacklist adding state
+const isAddingBlacklist = ref(false)
+const blacklistAdding = ref(false)
+const blacklistDraft = reactive({
+  entry_type: 'user' as GovernanceEntryType,
+  target_id: '',
+  reason: '',
+})
+const blacklistDraftErrors = reactive({
   target_id: '',
   reason: '',
 })
@@ -77,21 +97,66 @@ function sortEntries(entries: BlacklistEntry[]) {
 }
 
 const filteredBlacklistEntries = computed(() => {
-  const entries = blacklistScopeFilter.value === 'all'
+  let entries = blacklistScopeFilter.value === 'all'
     ? [...userBlacklistEntries.value, ...groupBlacklistEntries.value]
     : blacklistScopeFilter.value === 'user'
       ? userBlacklistEntries.value
       : groupBlacklistEntries.value
+
+  if (blacklistSearchQuery.value.trim()) {
+    const query = blacklistSearchQuery.value.trim().toLowerCase()
+    entries = entries.filter(e =>
+      e.target_id.toLowerCase().includes(query) ||
+      (e.reason && e.reason.toLowerCase().includes(query))
+    )
+  }
   return sortEntries(entries)
 })
 
 const filteredWhitelistEntries = computed(() => {
-  const entries = whitelistScopeFilter.value === 'all'
+  let entries = whitelistScopeFilter.value === 'all'
     ? [...userWhitelistEntries.value, ...groupWhitelistEntries.value]
     : whitelistScopeFilter.value === 'user'
       ? userWhitelistEntries.value
       : groupWhitelistEntries.value
+
+  if (whitelistSearchQuery.value.trim()) {
+    const query = whitelistSearchQuery.value.trim().toLowerCase()
+    entries = entries.filter(e =>
+      e.target_id.toLowerCase().includes(query) ||
+      (e.reason && e.reason.toLowerCase().includes(query))
+    )
+  }
   return sortEntries(entries)
+})
+
+// Data sources including inline draft rows
+const whitelistTableData = computed(() => {
+  const list = [...filteredWhitelistEntries.value]
+  if (isAddingWhitelist.value) {
+    list.unshift({
+      entry_type: whitelistDraft.entry_type,
+      target_id: '__whitelist_draft__',
+      reason: whitelistDraft.reason,
+      created_at: '',
+      isDraft: true,
+    } as any)
+  }
+  return list
+})
+
+const blacklistTableData = computed(() => {
+  const list = [...filteredBlacklistEntries.value]
+  if (isAddingBlacklist.value) {
+    list.unshift({
+      entry_type: blacklistDraft.entry_type,
+      target_id: '__blacklist_draft__',
+      reason: blacklistDraft.reason,
+      created_at: '',
+      isDraft: true,
+    } as any)
+  }
+  return list
 })
 
 const scopeOptions = computed(() => [
@@ -107,10 +172,10 @@ const scopeFilterOptions = computed(() => [
 
 const tableColumns = computed(() => [
   { title: t('accessLists.table.columns.type'), key: 'type', dataIndex: 'entry_type', width: 90, align: 'center' as const },
-  { title: t('accessLists.table.columns.targetId'), key: 'targetId', dataIndex: 'target_id', width: 200 },
+  { title: t('accessLists.table.columns.targetId'), key: 'targetId', dataIndex: 'target_id', width: 180 },
   { title: t('accessLists.table.columns.reason'), key: 'reason', dataIndex: 'reason' },
   { title: t('accessLists.table.columns.createdAt'), key: 'createdAt', dataIndex: 'created_at', width: 170 },
-  { title: t('accessLists.table.columns.actions'), key: 'actions', width: 100, align: 'center' as const, fixed: 'right' as const },
+  { title: t('accessLists.table.columns.actions'), key: 'actions', width: 120, align: 'center' as const, fixed: 'right' as const },
 ])
 
 function cardMotion(delay: number) {
@@ -197,60 +262,109 @@ async function confirmEmptyWhitelistEnable() {
   await applyWhitelistEnabled(true)
 }
 
-function openAddModal(target: 'whitelist' | 'blacklist') {
-  addModalTarget.value = target
-  addModalError.value = null
-  const scopeFilter = target === 'blacklist' ? blacklistScopeFilter.value : whitelistScopeFilter.value
-  addModalDraft.entry_type = scopeFilter === 'all' ? 'user' : scopeFilter
-  addModalDraft.target_id = ''
-  addModalDraft.reason = ''
-  addModalVisible.value = true
+// Inline Whitelist controls
+function startAddWhitelist() {
+  isAddingWhitelist.value = true
+  const scopeFilter = whitelistScopeFilter.value
+  whitelistDraft.entry_type = scopeFilter === 'all' ? 'user' : scopeFilter
+  whitelistDraft.target_id = ''
+  whitelistDraft.reason = ''
+  whitelistDraftErrors.target_id = ''
+  whitelistDraftErrors.reason = ''
 }
 
-function closeAddModal() {
-  addModalVisible.value = false
+function cancelWhitelistInline() {
+  isAddingWhitelist.value = false
+  whitelistDraft.target_id = ''
+  whitelistDraft.reason = ''
+  whitelistDraftErrors.target_id = ''
+  whitelistDraftErrors.reason = ''
 }
 
-function resetAddModalDraft() {
-  addModalDraft.entry_type = 'user'
-  addModalDraft.target_id = ''
-  addModalDraft.reason = ''
-}
+async function saveWhitelistInline() {
+  const targetId = whitelistDraft.target_id.trim()
+  const reason = whitelistDraft.reason.trim()
 
-async function submitAddModal() {
-  const targetId = addModalDraft.target_id.trim()
-  const reason = addModalDraft.reason.trim()
-
-  if (!targetId || !reason) {
-    addModalError.value = t('accessLists.validation.entryRequired')
-    return
+  let hasError = false
+  if (!targetId) {
+    whitelistDraftErrors.target_id = t('accessLists.validation.entryRequired')
+    hasError = true
+  }
+  if (!reason) {
+    whitelistDraftErrors.reason = t('accessLists.validation.entryRequired')
+    hasError = true
   }
 
-  addModalMutating.value = true
-  addModalError.value = null
+  if (hasError) return
 
-  const payload = {
-    entry_type: addModalDraft.entry_type,
-    target_id: targetId,
-    reason,
-  }
+  whitelistAdding.value = true
+  whitelistActionError.value = null
 
   try {
-    if (addModalTarget.value === 'blacklist') {
-      await governanceStore.addBlacklistEntry(payload)
-      blacklistActionError.value = null
-      notifySuccess(t('accessLists.feedback.blacklistSaved'))
-    } else {
-      await governanceStore.addWhitelistEntry(payload)
-      whitelistActionError.value = null
-      notifySuccess(t('accessLists.feedback.whitelistSaved'))
-    }
-    closeAddModal()
-    resetAddModalDraft()
+    await governanceStore.addWhitelistEntry({
+      entry_type: whitelistDraft.entry_type,
+      target_id: targetId,
+      reason,
+    })
+    cancelWhitelistInline()
+    notifySuccess(t('accessLists.feedback.whitelistSaved'))
   } catch (error) {
-    addModalError.value = getDisplayErrorMessage(error)
+    whitelistActionError.value = getDisplayErrorMessage(error)
   } finally {
-    addModalMutating.value = false
+    whitelistAdding.value = false
+  }
+}
+
+// Inline Blacklist controls
+function startAddBlacklist() {
+  isAddingBlacklist.value = true
+  const scopeFilter = blacklistScopeFilter.value
+  blacklistDraft.entry_type = scopeFilter === 'all' ? 'user' : scopeFilter
+  blacklistDraft.target_id = ''
+  blacklistDraft.reason = ''
+  blacklistDraftErrors.target_id = ''
+  blacklistDraftErrors.reason = ''
+}
+
+function cancelBlacklistInline() {
+  isAddingBlacklist.value = false
+  blacklistDraft.target_id = ''
+  blacklistDraft.reason = ''
+  blacklistDraftErrors.target_id = ''
+  blacklistDraftErrors.reason = ''
+}
+
+async function saveBlacklistInline() {
+  const targetId = blacklistDraft.target_id.trim()
+  const reason = blacklistDraft.reason.trim()
+
+  let hasError = false
+  if (!targetId) {
+    blacklistDraftErrors.target_id = t('accessLists.validation.entryRequired')
+    hasError = true
+  }
+  if (!reason) {
+    blacklistDraftErrors.reason = t('accessLists.validation.entryRequired')
+    hasError = true
+  }
+
+  if (hasError) return
+
+  blacklistAdding.value = true
+  blacklistActionError.value = null
+
+  try {
+    await governanceStore.addBlacklistEntry({
+      entry_type: blacklistDraft.entry_type,
+      target_id: targetId,
+      reason,
+    })
+    cancelBlacklistInline()
+    notifySuccess(t('accessLists.feedback.blacklistSaved'))
+  } catch (error) {
+    blacklistActionError.value = getDisplayErrorMessage(error)
+  } finally {
+    blacklistAdding.value = false
   }
 }
 
@@ -289,12 +403,12 @@ onMounted(() => {
       @retry="loadAccessLists()"
     />
 
-    <div v-else class="access-lists-page__stack">
+    <div v-else class="access-lists-page__grid">
       <!-- Whitelist Card -->
       <AppCard
         v-motion="cardMotion(0)"
         borderless
-        class="access-lists-card"
+        class="access-lists-card whitelist-card-premium"
         :loading="whitelistLoading && !whitelist"
       >
         <div data-testid="access-lists-whitelist-card" class="access-lists-card-content">
@@ -341,15 +455,31 @@ onMounted(() => {
 
           <div class="access-lists-toolbar">
             <div class="access-lists-toolbar__row">
-              <a-select
-                v-model:value="whitelistScopeFilter"
-                :options="scopeFilterOptions"
-                class="access-lists-toolbar__filter"
-                :aria-label="t('accessLists.filters.all')"
-              />
+              <div class="toolbar-left-group">
+                <a-select
+                  v-model:value="whitelistScopeFilter"
+                  :options="scopeFilterOptions"
+                  class="access-lists-toolbar__filter"
+                  :aria-label="t('accessLists.filters.all')"
+                />
+                <a-input
+                  v-model:value="whitelistSearchQuery"
+                  :placeholder="t('accessLists.entryForm.searchPlaceholder')"
+                  class="access-lists-toolbar__search"
+                  allow-clear
+                  data-testid="whitelist-search-input"
+                >
+                  <template #prefix>
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-muted-svg">
+                      <circle cx="11" cy="11" r="8"></circle>
+                      <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                    </svg>
+                  </template>
+                </a-input>
+              </div>
               <div class="access-lists-toolbar__actions">
                 <span class="access-lists-toolbar__count">{{ t('accessLists.table.total', { total: filteredWhitelistEntries.length }) }}</span>
-                <a-button type="primary" data-testid="access-lists-whitelist-add-btn" @click="openAddModal('whitelist')">
+                <a-button type="primary" data-testid="access-lists-whitelist-add-btn" :disabled="isAddingWhitelist" @click="startAddWhitelist">
                   {{ t('accessLists.actions.addEntry') }}
                 </a-button>
               </div>
@@ -359,50 +489,141 @@ onMounted(() => {
           <a-table
             class="access-lists-data-table app-data-table"
             :columns="tableColumns"
-            :data-source="filteredWhitelistEntries"
+            :data-source="whitelistTableData"
             :pagination="false"
-            :row-key="(row: BlacklistEntry) => `${row.entry_type}-${row.target_id}`"
+            :row-key="(row: any) => row.isDraft ? 'draft-whitelist' : `${row.entry_type}-${row.target_id}`"
             :loading="whitelistLoading && !whitelist"
           >
             <template #emptyText>
-              <div class="access-lists-empty-hint">
-                <p>{{ t('accessLists.empty.whitelistTitle') }}</p>
-                <span>{{ t('accessLists.empty.whitelistDescription') }}</span>
+              <div class="access-lists-empty-container">
+                <div class="empty-graphic">
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="42" height="42" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <line x1="12" y1="8" x2="12" y2="12"></line>
+                    <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                  </svg>
+                </div>
+                <p class="empty-title">{{ t('accessLists.empty.whitelistTitle') }}</p>
+                <p class="empty-desc">{{ t('accessLists.empty.whitelistDescription') }}</p>
               </div>
             </template>
 
             <template #bodyCell="{ column, record }">
-              <template v-if="column.key === 'type'">
-                <a-tag :color="getEntryTypeTagColor(record.entry_type)">
-                  {{ getEntryTypeLabel(record.entry_type) }}
-                </a-tag>
+              <template v-if="record.isDraft">
+                <template v-if="column.key === 'type'">
+                  <a-select
+                    v-model:value="whitelistDraft.entry_type"
+                    :options="scopeOptions"
+                    size="small"
+                    style="width: 100%"
+                    data-testid="whitelist-draft-type"
+                  />
+                </template>
+
+                <template v-else-if="column.key === 'targetId'">
+                  <div class="inline-edit-cell">
+                    <a-input
+                      v-model:value="whitelistDraft.target_id"
+                      :placeholder="t('accessLists.entryForm.placeholderTargetId')"
+                      size="small"
+                      :status="whitelistDraftErrors.target_id ? 'error' : ''"
+                      data-testid="whitelist-draft-target-id"
+                      @input="whitelistDraftErrors.target_id = ''"
+                    />
+                    <div v-if="whitelistDraftErrors.target_id" class="inline-error-text">
+                      {{ whitelistDraftErrors.target_id }}
+                    </div>
+                  </div>
+                </template>
+
+                <template v-else-if="column.key === 'reason'">
+                  <div class="inline-edit-cell">
+                    <a-input
+                      v-model:value="whitelistDraft.reason"
+                      :placeholder="t('accessLists.entryForm.placeholderReason')"
+                      size="small"
+                      :status="whitelistDraftErrors.reason ? 'error' : ''"
+                      data-testid="whitelist-draft-reason"
+                      @input="whitelistDraftErrors.reason = ''"
+                    />
+                    <div v-if="whitelistDraftErrors.reason" class="inline-error-text">
+                      {{ whitelistDraftErrors.reason }}
+                    </div>
+                  </div>
+                </template>
+
+                <template v-else-if="column.key === 'createdAt'">
+                  <span class="text-muted-inline">-</span>
+                </template>
+
+                <template v-else-if="column.key === 'actions'">
+                  <div class="inline-actions">
+                    <a-button
+                      type="link"
+                      size="small"
+                      :loading="whitelistAdding"
+                      data-testid="whitelist-draft-save"
+                      @click="saveWhitelistInline"
+                    >
+                      {{ t('accessLists.modal.save') }}
+                    </a-button>
+                    <a-button
+                      type="link"
+                      size="small"
+                      class="text-muted-btn"
+                      data-testid="whitelist-draft-cancel"
+                      @click="cancelWhitelistInline"
+                    >
+                      {{ t('accessLists.modal.cancel') }}
+                    </a-button>
+                  </div>
+                </template>
               </template>
 
-              <template v-else-if="column.key === 'targetId'">
-                <button
-                  type="button"
-                  class="mono-text copyable-text"
-                  :aria-label="`${t('accessLists.actions.copyTargetId')} ${record.target_id}`"
-                  @click="copyTargetId(record.target_id)"
-                >
-                  {{ record.target_id }}
-                </button>
-              </template>
+              <template v-else>
+                <template v-if="column.key === 'type'">
+                  <a-tag :color="getEntryTypeTagColor(record.entry_type)">
+                    {{ getEntryTypeLabel(record.entry_type) }}
+                  </a-tag>
+                </template>
 
-              <template v-else-if="column.key === 'createdAt'">
-                <span>{{ formatDateTime(record.created_at) }}</span>
-              </template>
+                <template v-else-if="column.key === 'targetId'">
+                  <button
+                    type="button"
+                    class="target-id-chip copyable-text mono-text"
+                    :aria-label="`${t('accessLists.actions.copyTargetId')} ${record.target_id}`"
+                    @click="copyTargetId(record.target_id)"
+                  >
+                    <span class="chip-dot font-dot-success"></span>
+                    <span class="chip-text">{{ record.target_id }}</span>
+                    <span class="copy-icon-hover">
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                        <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                      </svg>
+                    </span>
+                  </button>
+                </template>
 
-              <template v-else-if="column.key === 'actions'">
-                <a-popconfirm
-                  :title="t('accessLists.confirm.removeTitle')"
-                  :description="t('accessLists.confirm.removeDescription')"
-                  @confirm="removeWhitelistEntry(record)"
-                >
-                  <a-button type="link" danger size="small">
-                    {{ t('accessLists.entryForm.remove') }}
-                  </a-button>
-                </a-popconfirm>
+                <template v-else-if="column.key === 'reason'">
+                  <span class="cell-reason">{{ record.reason }}</span>
+                </template>
+
+                <template v-else-if="column.key === 'createdAt'">
+                  <span>{{ formatDateTime(record.created_at) }}</span>
+                </template>
+
+                <template v-else-if="column.key === 'actions'">
+                  <a-popconfirm
+                    :title="t('accessLists.confirm.removeTitle')"
+                    :description="t('accessLists.confirm.removeDescription')"
+                    @confirm="removeWhitelistEntry(record)"
+                  >
+                    <a-button type="link" danger size="small" class="remove-btn">
+                      {{ t('accessLists.entryForm.remove') }}
+                    </a-button>
+                  </a-popconfirm>
+                </template>
               </template>
             </template>
           </a-table>
@@ -413,7 +634,7 @@ onMounted(() => {
       <AppCard
         v-motion="cardMotion(1)"
         borderless
-        class="access-lists-card"
+        class="access-lists-card blacklist-card-premium"
         :loading="blacklistLoading && !blacklist"
       >
         <div data-testid="access-lists-blacklist-card" class="access-lists-card-content">
@@ -442,15 +663,31 @@ onMounted(() => {
 
           <div class="access-lists-toolbar">
             <div class="access-lists-toolbar__row">
-              <a-select
-                v-model:value="blacklistScopeFilter"
-                :options="scopeFilterOptions"
-                class="access-lists-toolbar__filter"
-                :aria-label="t('accessLists.filters.all')"
-              />
+              <div class="toolbar-left-group">
+                <a-select
+                  v-model:value="blacklistScopeFilter"
+                  :options="scopeFilterOptions"
+                  class="access-lists-toolbar__filter"
+                  :aria-label="t('accessLists.filters.all')"
+                />
+                <a-input
+                  v-model:value="blacklistSearchQuery"
+                  :placeholder="t('accessLists.entryForm.searchPlaceholder')"
+                  class="access-lists-toolbar__search"
+                  allow-clear
+                  data-testid="blacklist-search-input"
+                >
+                  <template #prefix>
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-muted-svg">
+                      <circle cx="11" cy="11" r="8"></circle>
+                      <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                    </svg>
+                  </template>
+                </a-input>
+              </div>
               <div class="access-lists-toolbar__actions">
                 <span class="access-lists-toolbar__count">{{ t('accessLists.table.total', { total: filteredBlacklistEntries.length }) }}</span>
-                <a-button type="primary" data-testid="access-lists-blacklist-add-btn" @click="openAddModal('blacklist')">
+                <a-button type="primary" data-testid="access-lists-blacklist-add-btn" :disabled="isAddingBlacklist" @click="startAddBlacklist">
                   {{ t('accessLists.actions.addEntry') }}
                 </a-button>
               </div>
@@ -460,99 +697,147 @@ onMounted(() => {
           <a-table
             class="access-lists-data-table app-data-table"
             :columns="tableColumns"
-            :data-source="filteredBlacklistEntries"
+            :data-source="blacklistTableData"
             :pagination="false"
-            :row-key="(row: BlacklistEntry) => `${row.entry_type}-${row.target_id}`"
+            :row-key="(row: any) => row.isDraft ? 'draft-blacklist' : `${row.entry_type}-${row.target_id}`"
             :loading="blacklistLoading && !blacklist"
           >
             <template #emptyText>
-              <div class="access-lists-empty-hint">
-                <p>{{ t('accessLists.empty.blacklistTitle') }}</p>
-                <span>{{ t('accessLists.empty.blacklistDescription') }}</span>
+              <div class="access-lists-empty-container">
+                <div class="empty-graphic">
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="42" height="42" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <line x1="12" y1="8" x2="12" y2="12"></line>
+                    <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                  </svg>
+                </div>
+                <p class="empty-title">{{ t('accessLists.empty.blacklistTitle') }}</p>
+                <p class="empty-desc">{{ t('accessLists.empty.blacklistDescription') }}</p>
               </div>
             </template>
 
             <template #bodyCell="{ column, record }">
-              <template v-if="column.key === 'type'">
-                <a-tag :color="getEntryTypeTagColor(record.entry_type)">
-                  {{ getEntryTypeLabel(record.entry_type) }}
-                </a-tag>
+              <template v-if="record.isDraft">
+                <template v-if="column.key === 'type'">
+                  <a-select
+                    v-model:value="blacklistDraft.entry_type"
+                    :options="scopeOptions"
+                    size="small"
+                    style="width: 100%"
+                    data-testid="blacklist-draft-type"
+                  />
+                </template>
+
+                <template v-else-if="column.key === 'targetId'">
+                  <div class="inline-edit-cell">
+                    <a-input
+                      v-model:value="blacklistDraft.target_id"
+                      :placeholder="t('accessLists.entryForm.placeholderTargetId')"
+                      size="small"
+                      :status="blacklistDraftErrors.target_id ? 'error' : ''"
+                      data-testid="blacklist-draft-target-id"
+                      @input="blacklistDraftErrors.target_id = ''"
+                    />
+                    <div v-if="blacklistDraftErrors.target_id" class="inline-error-text">
+                      {{ blacklistDraftErrors.target_id }}
+                    </div>
+                  </div>
+                </template>
+
+                <template v-else-if="column.key === 'reason'">
+                  <div class="inline-edit-cell">
+                    <a-input
+                      v-model:value="blacklistDraft.reason"
+                      :placeholder="t('accessLists.entryForm.placeholderReason')"
+                      size="small"
+                      :status="blacklistDraftErrors.reason ? 'error' : ''"
+                      data-testid="blacklist-draft-reason"
+                      @input="blacklistDraftErrors.reason = ''"
+                    />
+                    <div v-if="blacklistDraftErrors.reason" class="inline-error-text">
+                      {{ blacklistDraftErrors.reason }}
+                    </div>
+                  </div>
+                </template>
+
+                <template v-else-if="column.key === 'createdAt'">
+                  <span class="text-muted-inline">-</span>
+                </template>
+
+                <template v-else-if="column.key === 'actions'">
+                  <div class="inline-actions">
+                    <a-button
+                      type="link"
+                      size="small"
+                      :loading="blacklistAdding"
+                      data-testid="blacklist-draft-save"
+                      @click="saveBlacklistInline"
+                    >
+                      {{ t('accessLists.modal.save') }}
+                    </a-button>
+                    <a-button
+                      type="link"
+                      size="small"
+                      class="text-muted-btn"
+                      data-testid="blacklist-draft-cancel"
+                      @click="cancelBlacklistInline"
+                    >
+                      {{ t('accessLists.modal.cancel') }}
+                    </a-button>
+                  </div>
+                </template>
               </template>
 
-              <template v-else-if="column.key === 'targetId'">
-                <button
-                  type="button"
-                  class="mono-text copyable-text"
-                  :aria-label="`${t('accessLists.actions.copyTargetId')} ${record.target_id}`"
-                  @click="copyTargetId(record.target_id)"
-                >
-                  {{ record.target_id }}
-                </button>
-              </template>
+              <template v-else>
+                <template v-if="column.key === 'type'">
+                  <a-tag :color="getEntryTypeTagColor(record.entry_type)">
+                    {{ getEntryTypeLabel(record.entry_type) }}
+                  </a-tag>
+                </template>
 
-              <template v-else-if="column.key === 'createdAt'">
-                <span>{{ formatDateTime(record.created_at) }}</span>
-              </template>
+                <template v-else-if="column.key === 'targetId'">
+                  <button
+                    type="button"
+                    class="target-id-chip copyable-text mono-text"
+                    :aria-label="`${t('accessLists.actions.copyTargetId')} ${record.target_id}`"
+                    @click="copyTargetId(record.target_id)"
+                  >
+                    <span class="chip-dot font-dot-danger"></span>
+                    <span class="chip-text">{{ record.target_id }}</span>
+                    <span class="copy-icon-hover">
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                        <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                      </svg>
+                    </span>
+                  </button>
+                </template>
 
-              <template v-else-if="column.key === 'actions'">
-                <a-popconfirm
-                  :title="t('accessLists.confirm.removeTitle')"
-                  :description="t('accessLists.confirm.removeDescription')"
-                  @confirm="removeBlacklistEntry(record)"
-                >
-                  <a-button type="link" danger size="small">
-                    {{ t('accessLists.entryForm.remove') }}
-                  </a-button>
-                </a-popconfirm>
+                <template v-else-if="column.key === 'reason'">
+                  <span class="cell-reason">{{ record.reason }}</span>
+                </template>
+
+                <template v-else-if="column.key === 'createdAt'">
+                  <span>{{ formatDateTime(record.created_at) }}</span>
+                </template>
+
+                <template v-else-if="column.key === 'actions'">
+                  <a-popconfirm
+                    :title="t('accessLists.confirm.removeTitle')"
+                    :description="t('accessLists.confirm.removeDescription')"
+                    @confirm="removeBlacklistEntry(record)"
+                  >
+                    <a-button type="link" danger size="small" class="remove-btn">
+                      {{ t('accessLists.entryForm.remove') }}
+                    </a-button>
+                  </a-popconfirm>
+                </template>
               </template>
             </template>
           </a-table>
         </div>
       </AppCard>
     </div>
-
-    <a-modal
-      v-model:open="addModalVisible"
-      :title="t('accessLists.modal.addTitle', {
-        target: addModalTarget === 'whitelist'
-          ? t('accessLists.modal.addTargetWhitelist')
-          : t('accessLists.modal.addTargetBlacklist'),
-      })"
-      :confirm-loading="addModalMutating"
-      :ok-text="t('accessLists.modal.save')"
-      :cancel-text="t('accessLists.modal.cancel')"
-      @ok="submitAddModal"
-      @cancel="closeAddModal"
-    >
-      <a-alert
-        v-if="addModalError"
-        :message="t('errors.common.actionFailed')"
-        type="warning"
-        :description="addModalError"
-        show-icon
-        class="section-gap"
-      />
-
-      <a-form layout="vertical" class="add-modal-form">
-        <a-form-item :label="t('accessLists.entryForm.scope')">
-          <a-select v-model:value="addModalDraft.entry_type" :options="scopeOptions" :aria-label="t('accessLists.entryForm.scope')" />
-        </a-form-item>
-        <a-form-item :label="t('accessLists.entryForm.targetId')">
-          <a-input
-            v-model:value="addModalDraft.target_id"
-            :placeholder="t('accessLists.entryForm.placeholderTargetId')"
-            :aria-label="t('accessLists.entryForm.targetId')"
-          />
-        </a-form-item>
-        <a-form-item :label="t('accessLists.entryForm.reason')">
-          <a-input
-            v-model:value="addModalDraft.reason"
-            :placeholder="t('accessLists.entryForm.placeholderReason')"
-            :aria-label="t('accessLists.entryForm.reason')"
-          />
-        </a-form-item>
-      </a-form>
-    </a-modal>
 
     <a-modal
       v-model:open="whitelistConfirmVisible"
@@ -568,34 +853,62 @@ onMounted(() => {
 </template>
 
 <style scoped lang="scss">
-.access-lists-page__stack {
+.access-lists-page__grid {
   display: grid;
-  gap: 20px;
+  grid-template-columns: repeat(1, minmax(0, 1fr));
+  gap: 24px;
+}
+
+@media (min-width: 1024px) {
+  .access-lists-page__grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 .access-lists-card {
   border-radius: var(--radius-lg);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
 :deep(.access-lists-card) {
   box-shadow: var(--shadow-xs);
 }
 
+.whitelist-card-premium {
+  border-top: 4px solid var(--accent, #3b82f6) !important;
+
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.06) !important;
+  }
+}
+
+.blacklist-card-premium {
+  border-top: 4px solid #f43f5e !important;
+
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.06) !important;
+  }
+}
+
 .access-lists-card-content {
   display: grid;
-  gap: 16px;
+  gap: 20px;
 }
 
 .access-lists-card-header {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
   gap: 12px;
 }
 
 .access-lists-card-header__copy {
   display: grid;
-  gap: 6px;
+  gap: 4px;
 }
 
 .access-lists-card-header__title-row {
@@ -605,8 +918,10 @@ onMounted(() => {
 }
 
 .access-lists-card-header__copy strong {
-  font-size: 1.05rem;
-  line-height: 1.3;
+  font-size: 1.15rem;
+  font-weight: 700;
+  line-height: 1.2;
+  color: var(--fg);
 }
 
 .access-lists-help-badge {
@@ -642,14 +957,14 @@ onMounted(() => {
 .access-lists-card-header__meta {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   flex-wrap: wrap;
   flex-shrink: 0;
 }
 
 .access-lists-card-header__count {
-  font-size: 1.5rem;
-  font-weight: 700;
+  font-size: 1.65rem;
+  font-weight: 800;
   line-height: 1;
   color: var(--fg);
   letter-spacing: -0.02em;
@@ -658,15 +973,16 @@ onMounted(() => {
 .access-lists-risk-banner {
   padding: 14px;
   border-radius: var(--radius-lg);
-  background: color-mix(in srgb, var(--warning) 12%, var(--surface));
-  border: 1px solid color-mix(in srgb, var(--warning) 22%, var(--border));
+  background: color-mix(in srgb, var(--warning) 10%, var(--surface));
+  border: 1px solid color-mix(in srgb, var(--warning) 20%, var(--border));
   display: grid;
-  gap: 8px;
+  gap: 6px;
+  font-size: 0.85rem;
 }
 
 .access-lists-risk-banner__header {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
   gap: 12px;
 }
@@ -674,31 +990,43 @@ onMounted(() => {
 .access-lists-risk-banner p {
   margin: 0;
   color: var(--muted);
+  line-height: 1.4;
 }
 
 .access-lists-toolbar {
   display: grid;
   gap: 12px;
-  padding-bottom: 16px;
-  border-bottom: 1px solid var(--border);
 }
 
 .access-lists-toolbar__row {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 16px;
+}
+
+.toolbar-left-group {
+  display: flex;
+  align-items: center;
   gap: 12px;
+  flex: 1;
+  max-width: 400px;
 }
 
 .access-lists-toolbar__filter {
-  width: 120px;
+  width: 110px;
+  flex-shrink: 0;
+}
+
+.access-lists-toolbar__search {
+  flex: 1;
 }
 
 .access-lists-toolbar__actions {
   display: flex;
   align-items: center;
   gap: 12px;
-  flex-wrap: wrap;
+  flex-shrink: 0;
 }
 
 .access-lists-toolbar__count {
@@ -707,63 +1035,192 @@ onMounted(() => {
 }
 
 .access-lists-data-table {
-  border-radius: var(--app-card-radius);
+  border-radius: var(--radius-lg);
   overflow: hidden;
+  border: 1px solid var(--border);
+}
+
+.access-lists-data-table :deep(.ant-table-thead > tr > th) {
+  background: color-mix(in srgb, var(--surface-accent) 25%, var(--surface));
+  font-weight: 600;
+  font-size: 0.85rem;
+  color: var(--fg);
+  border-bottom: 1px solid var(--border);
 }
 
 .access-lists-data-table :deep(.ant-table-row:hover > td) {
   background: var(--surface-accent) !important;
 }
 
-.access-lists-empty-hint {
-  padding: var(--space-xl) var(--space-md);
-  text-align: center;
-}
-
-.access-lists-empty-hint p {
-  margin: 0 0 4px;
-  font-size: 0.95rem;
+.target-id-chip {
+  appearance: none;
+  border: 1px solid color-mix(in srgb, var(--accent) 15%, var(--border));
+  background: color-mix(in srgb, var(--accent) 5%, var(--surface));
+  padding: 4px 10px;
+  border-radius: 20px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--fg);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  font-size: 0.85rem;
   font-weight: 600;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+
+  .chip-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+  }
+
+  .font-dot-success {
+    background-color: var(--accent, #3b82f6);
+    box-shadow: 0 0 8px var(--accent);
+  }
+
+  .font-dot-danger {
+    background-color: #f43f5e;
+    box-shadow: 0 0 8px #f43f5e;
+  }
+
+  .chip-text {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .copy-icon-hover {
+    color: var(--muted);
+    opacity: 0;
+    width: 0;
+    transition: opacity 0.15s ease, width 0.15s ease;
+    display: inline-flex;
+    align-items: center;
+  }
+
+  &:hover {
+    border-color: var(--accent);
+    background: color-mix(in srgb, var(--accent) 12%, var(--surface));
+    transform: scale(1.02);
+
+    .copy-icon-hover {
+      opacity: 1;
+      width: 12px;
+      margin-left: 2px;
+    }
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+}
+
+.cell-reason {
+  font-size: 0.88rem;
+  color: var(--fg-light, var(--fg));
+}
+
+.remove-btn {
+  font-size: 0.85rem;
+  font-weight: 500;
+  padding: 0 4px;
+
+  &:hover {
+    color: #ef4444 !important;
+  }
+}
+
+.inline-edit-cell {
+  display: grid;
+  gap: 4px;
+  width: 100%;
+}
+
+.inline-error-text {
+  font-size: 0.78rem;
+  color: #ef4444;
+  text-align: left;
+  line-height: 1.2;
+}
+
+.inline-actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.text-muted-btn {
+  color: var(--muted) !important;
+
+  &:hover {
+    color: var(--fg) !important;
+  }
+}
+
+.text-muted-inline {
   color: var(--muted);
 }
 
-.access-lists-empty-hint span {
-  font-size: 0.82rem;
+.text-muted-svg {
   color: var(--muted);
+  opacity: 0.7;
+}
+
+.access-lists-empty-container {
+  padding: 44px 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  background: color-mix(in srgb, var(--surface-accent) 15%, transparent);
+  border-radius: var(--radius-lg);
+  border: 1px dashed var(--border);
+  margin: 12px 0;
+
+  .empty-graphic {
+    color: var(--muted);
+    opacity: 0.45;
+    margin-bottom: 12px;
+    transition: transform 0.25s ease, color 0.25s ease;
+  }
+
+  &:hover .empty-graphic {
+    transform: scale(1.1) rotate(5deg);
+    color: var(--accent);
+    opacity: 0.8;
+  }
+
+  .empty-title {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--fg);
+    margin: 0 0 4px;
+  }
+
+  .empty-desc {
+    font-size: 0.82rem;
+    color: var(--muted);
+    margin: 0;
+    max-width: 280px;
+  }
 }
 
 .mono-text {
   font-family: var(--font-mono);
-  font-size: 0.88rem;
-}
-
-.copyable-text {
-  appearance: none;
-  border: 0;
-  background: transparent;
-  padding: 0;
-  cursor: pointer;
-  transition: color 0.15s ease;
-  text-align: left;
-}
-
-.copyable-text:hover {
-  color: var(--accent);
-}
-
-.copyable-text:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
-  border-radius: 4px;
-}
-
-.add-modal-form {
-  margin-top: 8px;
 }
 
 @media (max-width: 768px) {
   .access-lists-card-header {
     flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
   }
 
   .access-lists-card-header__meta {
@@ -773,15 +1230,17 @@ onMounted(() => {
   .access-lists-toolbar__row {
     flex-direction: column;
     align-items: flex-start;
+    gap: 12px;
+  }
+
+  .toolbar-left-group {
+    width: 100%;
+    max-width: 100%;
   }
 
   .access-lists-toolbar__actions {
     width: 100%;
     justify-content: space-between;
-  }
-
-  .access-lists-toolbar__count {
-    text-align: right;
   }
 }
 </style>

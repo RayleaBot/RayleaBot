@@ -188,22 +188,19 @@ describe('AccessListsPage', () => {
 
     await flushPromises()
 
-    // --- Whitelist: add via modal ---
+    // --- Whitelist: add via inline table edit ---
     // Default entry_type follows scopeFilter ('all' -> 'user')
     await wrapper.get('[data-testid="access-lists-whitelist-add-btn"]').trigger('click')
     await flushPromises()
 
-    expect(wrapper.vm.addModalVisible).toBe(true)
-    expect(wrapper.vm.addModalTarget).toBe('whitelist')
-    expect(wrapper.vm.addModalDraft.entry_type).toBe('user')
+    expect(wrapper.vm.isAddingWhitelist).toBe(true)
+    expect(wrapper.vm.whitelistDraft.entry_type).toBe('user')
 
-    wrapper.vm.addModalDraft.target_id = '30003'
-    wrapper.vm.addModalDraft.reason = '临时放行'
+    await wrapper.get('[data-testid="whitelist-draft-target-id"]').setValue('30003')
+    await wrapper.get('[data-testid="whitelist-draft-reason"]').setValue('临时放行')
     await flushPromises()
 
-    const addModal = wrapper.findAllComponents({ name: 'AModal' }).find(m => m.props('open') === true)
-    expect(addModal).toBeDefined()
-    await addModal!.vm.$emit('ok')
+    await wrapper.get('[data-testid="whitelist-draft-save"]').trigger('click')
     await flushPromises()
 
     expect(wrapper.get('[data-testid="access-lists-whitelist-card"]').text()).toContain('30003')
@@ -216,24 +213,21 @@ describe('AccessListsPage', () => {
 
     expect(wrapper.get('[data-testid="access-lists-whitelist-card"]').text()).not.toContain('30003')
 
-    // --- Blacklist (always visible): add via modal ---
+    // --- Blacklist (always visible): add via inline table edit ---
     wrapper.vm.blacklistScopeFilter = 'group'
     await flushPromises()
 
     await wrapper.get('[data-testid="access-lists-blacklist-add-btn"]').trigger('click')
     await flushPromises()
 
-    expect(wrapper.vm.addModalVisible).toBe(true)
-    expect(wrapper.vm.addModalTarget).toBe('blacklist')
-    expect(wrapper.vm.addModalDraft.entry_type).toBe('group')
+    expect(wrapper.vm.isAddingBlacklist).toBe(true)
+    expect(wrapper.vm.blacklistDraft.entry_type).toBe('group')
 
-    wrapper.vm.addModalDraft.target_id = '30003'
-    wrapper.vm.addModalDraft.reason = '临时封禁'
+    await wrapper.get('[data-testid="blacklist-draft-target-id"]').setValue('30003')
+    await wrapper.get('[data-testid="blacklist-draft-reason"]').setValue('临时封禁')
     await flushPromises()
 
-    const blacklistAddModal = wrapper.findAllComponents({ name: 'AModal' }).find(m => m.props('open') === true)
-    expect(blacklistAddModal).toBeDefined()
-    await blacklistAddModal!.vm.$emit('ok')
+    await wrapper.get('[data-testid="blacklist-draft-save"]').trigger('click')
     await flushPromises()
 
     expect(wrapper.get('[data-testid="access-lists-blacklist-card"]').text()).toContain('30003')
@@ -368,12 +362,12 @@ describe('AccessListsPage', () => {
     // We need an entry to remove; add one first
     await wrapper.get('[data-testid="access-lists-blacklist-add-btn"]').trigger('click')
     await flushPromises()
-    wrapper.vm.addModalDraft.target_id = '10001'
-    wrapper.vm.addModalDraft.reason = '测试'
+
+    await wrapper.get('[data-testid="blacklist-draft-target-id"]').setValue('10001')
+    await wrapper.get('[data-testid="blacklist-draft-reason"]').setValue('测试')
     await flushPromises()
 
-    const addModal = wrapper.findAllComponents({ name: 'AModal' }).find(m => m.props('open') === true)
-    await addModal!.vm.$emit('ok')
+    await wrapper.get('[data-testid="blacklist-draft-save"]').trigger('click')
     await flushPromises()
 
     expect(blacklistCard.text()).toContain('10001')
@@ -388,12 +382,12 @@ describe('AccessListsPage', () => {
     // Add another entry successfully; the old error should be cleared
     await wrapper.get('[data-testid="access-lists-blacklist-add-btn"]').trigger('click')
     await flushPromises()
-    wrapper.vm.addModalDraft.target_id = '10002'
-    wrapper.vm.addModalDraft.reason = '测试2'
+
+    await wrapper.get('[data-testid="blacklist-draft-target-id"]').setValue('10002')
+    await wrapper.get('[data-testid="blacklist-draft-reason"]').setValue('测试2')
     await flushPromises()
 
-    const addModal2 = wrapper.findAllComponents({ name: 'AModal' }).find(m => m.props('open') === true)
-    await addModal2!.vm.$emit('ok')
+    await wrapper.get('[data-testid="blacklist-draft-save"]').trigger('click')
     await flushPromises()
 
     expect(wrapper.vm.blacklistActionError).toBeNull()

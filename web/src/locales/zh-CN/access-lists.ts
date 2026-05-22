@@ -32,6 +32,7 @@ export const accessLists = {
     placeholderTargetId: '输入用户 ID 或群 ID',
     placeholderReason: '填写原因',
     scope: '类型',
+    searchPlaceholder: '搜索目标 ID 或原因',
   },
   table: {
     columns: {
