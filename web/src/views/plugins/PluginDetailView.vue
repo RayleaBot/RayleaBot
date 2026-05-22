@@ -627,7 +627,7 @@ watch(
 </script>
 
 <template>
-  <AppPage :title="pluginId">
+  <AppPage :title="pluginId" :full-height="activePanel === 'management-ui'">
     <template #extra>
       <div class="table-actions plugin-detail-actions">
         <PluginPowerButton
@@ -651,9 +651,23 @@ watch(
       @retry="loadDetail()"
     />
 
-    <a-alert v-else-if="loadError" :message="t('errors.common.loadFailed')" type="error" :description="loadError" show-icon />
+    <a-alert
+      v-else-if="loadError"
+      class="plugin-detail-page-alert"
+      :message="t('errors.common.loadFailed')"
+      type="error"
+      :description="loadError"
+      show-icon
+    />
 
-    <a-alert v-if="operationError" :message="t('errors.common.actionFailed')" type="error" :description="operationError" show-icon />
+    <a-alert
+      v-if="operationError"
+      class="plugin-detail-page-alert"
+      :message="t('errors.common.actionFailed')"
+      type="error"
+      :description="operationError"
+      show-icon
+    />
 
     <a-card
       v-if="panelOptions.length > 1"
@@ -1182,6 +1196,11 @@ watch(
   :deep(.ant-card-body) {
     padding: 0;
   }
+}
+
+.plugin-detail-panel-switch,
+.plugin-detail-page-alert {
+  flex: 0 0 auto;
 }
 
 .premium-detail-tabs {

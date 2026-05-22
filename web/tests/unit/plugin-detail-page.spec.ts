@@ -841,7 +841,14 @@ describe('PluginDetailPage', () => {
 
     expect(wrapper.text()).toContain('概览')
     expect(wrapper.text()).toContain('配置页面')
+    expect(wrapper.find('.app-page').classes()).toContain('app-page--full-height')
+    expect(wrapper.find('.plugin-detail-panel-switch').exists()).toBe(true)
     expect(wrapper.find('[data-testid="plugin-management-ui-host"]').exists()).toBe(true)
     expect(wrapper.find('.console-terminal').exists()).toBe(false)
+
+    await router.push('/plugins/example-config-panel')
+    await flushPromises()
+
+    expect(wrapper.find('.app-page').classes()).not.toContain('app-page--full-height')
   })
 })
