@@ -66,7 +66,10 @@ class FakePluginContext:
             "timeout_seconds": timeout_seconds,
         })
         if self.http_responses:
-            return self.http_responses.pop(0)
+            response = self.http_responses.pop(0)
+            if isinstance(response, Exception):
+                raise response
+            return response
         return {"status_code": 200, "body_text": json.dumps({"code": 0, "data": {"items": []}})}
 
     def secret_read(self, secret_key):

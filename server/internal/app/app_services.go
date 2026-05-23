@@ -223,6 +223,7 @@ type pluginLifecycleDeps struct {
 	adapter          *adapter.Shell
 	webhooks         *pluginwebhook.Registry
 	onRecoveryChange func(string)
+	refreshManifest  func(context.Context, string) (plugins.Snapshot, error)
 }
 
 type eventMetadataEnricher interface {

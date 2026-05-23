@@ -29,6 +29,7 @@ type pluginLifecycleController struct {
 	adapter          *adapter.Shell
 	webhooks         *pluginwebhook.Registry
 	onRecoveryChange func(string)
+	refreshManifest  func(context.Context, string) (plugins.Snapshot, error)
 
 	identityMu       sync.Mutex
 	identityByPlugin map[string]string
@@ -46,6 +47,7 @@ func newPluginLifecycleController(deps pluginLifecycleDeps) *pluginLifecycleCont
 		adapter:          deps.adapter,
 		webhooks:         deps.webhooks,
 		onRecoveryChange: deps.onRecoveryChange,
+		refreshManifest:  deps.refreshManifest,
 	}
 }
 
@@ -116,6 +118,17 @@ func (c *pluginLifecycleController) Reload(ctx context.Context, pluginID string)
 	}
 	if snapshot.RegistrationState != "installed" || snapshot.DesiredState != "enabled" {
 		return plugins.Snapshot{}, plugins.ErrStateConflict
+	}
+
+	if c.refreshManifest != nil {
+		refreshed, err := c.refreshManifest(ctx, pluginID)
+		if err != nil {
+			return plugins.Snapshot{}, err
+		}
+		snapshot = refreshed
+		if snapshot.RegistrationState != "installed" || snapshot.DesiredState != "enabled" {
+			return plugins.Snapshot{}, plugins.ErrStateConflict
+		}
 	}
 
 	if _, err := c.validateActivation(ctx, snapshot); err != nil {

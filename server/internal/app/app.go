@@ -272,6 +272,27 @@ func New(options Options) (*App, error) {
 		adapter:          pluginState.Adapter,
 		webhooks:         pluginState.webhooks,
 		onRecoveryChange: systemService.ReconcileRecoverySummaryBestEffort,
+		refreshManifest: func(ctx context.Context, pluginID string) (plugins.Snapshot, error) {
+			return refreshPluginManifest(ctx, pluginState.Plugins, pluginState.pluginConfig, pluginID, func() ([]plugins.Snapshot, error) {
+				snapshots, _, err := plugins.Discover(plugins.DiscoverOptions{
+					Validator: buildState.pluginValidator,
+					Roots:     buildState.discoverySpec.roots,
+					RepoRoot:  buildState.discoverySpec.repoRoot,
+					Logger:    state.Logger,
+				})
+				if err != nil {
+					return nil, err
+				}
+				if packageLoader, ok := any(pluginState.pluginRepository).(plugins.PackageMetadataLoader); ok {
+					packageMetadata, err := packageLoader.LoadAllPackageMetadata(ctx)
+					if err != nil {
+						return nil, err
+					}
+					snapshots = plugins.ApplyPackageMetadata(snapshots, packageMetadata)
+				}
+				return snapshots, nil
+			})
+		},
 	})
 	menuService := menuext.New(menuext.Deps{
 		CurrentConfig: func() config.Config { return state.Config },
@@ -316,43 +337,43 @@ func New(options Options) (*App, error) {
 	localActions.SetWebhookGateway(pluginWebhooks)
 
 	application := &App{
-		state:             state,
-		auth:              platformState.Auth,
-		storage:           platformState.Storage,
-		secrets:           platformState.Secrets,
-		tasks:             platformState.Tasks,
-		taskExecutor:      platformState.taskExecutor,
-		scheduler:         platformState.Scheduler,
-		logs:              platformState.Logs,
-		logRepository:     platformState.LogRepository,
-		console:           platformState.Console,
-		loginFailures:     platformState.loginFailures,
-		plugins:           pluginState.Plugins,
-		adapter:           pluginState.Adapter,
-		bridge:            pluginState.Bridge,
-		dispatcher:        pluginState.Dispatcher,
-		runtimes:          runtimeRegistry,
-		replyTargets:      pluginState.replyTargets,
-		outboundSender:    pluginState.outboundSender,
-		pluginInstaller:   pluginState.PluginInstaller,
-		pluginUninstaller: pluginState.PluginUninstaller,
-		pluginRepository:  pluginState.pluginRepository,
-		pluginConfig:      pluginState.pluginConfig,
-		pluginFiles:       pluginState.pluginFiles,
-		pluginKV:          pluginState.pluginKV,
-		grantRepository:   pluginState.grantRepository,
-		blacklistRepo:     pluginState.blacklistRepo,
-		whitelistRepo:     pluginState.whitelistRepo,
-		whitelistState:    pluginState.whitelistState,
-		renderer:          pluginState.renderer,
-		webhookRegistry:   pluginState.webhooks,
-		pluginLogLimiter:  pluginState.pluginLogLimiter,
-		outboundLimiter:   pluginState.outboundLimiter,
-		localActions:      localActions,
-		pluginLifecycle:   lifecycle,
-		eventIngress:      eventIngress,
-		protocol:          protocolService,
-		pluginWebhooks:    pluginWebhooks,
+		state:                   state,
+		auth:                    platformState.Auth,
+		storage:                 platformState.Storage,
+		secrets:                 platformState.Secrets,
+		tasks:                   platformState.Tasks,
+		taskExecutor:            platformState.taskExecutor,
+		scheduler:               platformState.Scheduler,
+		logs:                    platformState.Logs,
+		logRepository:           platformState.LogRepository,
+		console:                 platformState.Console,
+		loginFailures:           platformState.loginFailures,
+		plugins:                 pluginState.Plugins,
+		adapter:                 pluginState.Adapter,
+		bridge:                  pluginState.Bridge,
+		dispatcher:              pluginState.Dispatcher,
+		runtimes:                runtimeRegistry,
+		replyTargets:            pluginState.replyTargets,
+		outboundSender:          pluginState.outboundSender,
+		pluginInstaller:         pluginState.PluginInstaller,
+		pluginUninstaller:       pluginState.PluginUninstaller,
+		pluginRepository:        pluginState.pluginRepository,
+		pluginConfig:            pluginState.pluginConfig,
+		pluginFiles:             pluginState.pluginFiles,
+		pluginKV:                pluginState.pluginKV,
+		grantRepository:         pluginState.grantRepository,
+		blacklistRepo:           pluginState.blacklistRepo,
+		whitelistRepo:           pluginState.whitelistRepo,
+		whitelistState:          pluginState.whitelistState,
+		renderer:                pluginState.renderer,
+		webhookRegistry:         pluginState.webhooks,
+		pluginLogLimiter:        pluginState.pluginLogLimiter,
+		outboundLimiter:         pluginState.outboundLimiter,
+		localActions:            localActions,
+		pluginLifecycle:         lifecycle,
+		eventIngress:            eventIngress,
+		protocol:                protocolService,
+		pluginWebhooks:          pluginWebhooks,
 		governance:              governanceService,
 		governanceEvents:        governanceEvents,
 		logService:              logService,

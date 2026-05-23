@@ -12,6 +12,7 @@ sys.path.insert(0, PLUGIN_DIR)
 sys.path.insert(0, os.path.join(PLUGIN_DIR, "..", "..", "..", "sdk", "python"))
 
 from rayleabot import RayleaBotPlugin, command, event_handler
+from rayleabot.protocol import ActionError
 
 from bilibili import (
     DYNAMIC_URL,
@@ -652,15 +653,30 @@ def resolve_bilibili_user(settings, ctx, query):
     token = first_available_token(settings, ctx)
     headers = build_cookie_headers(token, text if text.isdigit() else None)
     timeout_seconds = int(settings.get("poll_timeout_seconds") or 12)
-    if text.isdigit():
-        response = ctx.http_request("GET", user_info_url(text), headers=headers, timeout_seconds=timeout_seconds)
-        result = normalize_user_info(parse_json_response(response))
-    else:
-        response = ctx.http_request("GET", user_search_url(text), headers=headers, timeout_seconds=timeout_seconds)
-        result = normalize_user_search(parse_json_response(response), text)
+    try:
+        if text.isdigit():
+            response = ctx.http_request("GET", user_info_url(text), headers=headers, timeout_seconds=timeout_seconds)
+            result = normalize_user_info(parse_json_response(response))
+        else:
+            response = ctx.http_request("GET", user_search_url(text), headers=headers, timeout_seconds=timeout_seconds)
+            result = normalize_user_search(parse_json_response(response), text)
+    except ActionError as exc:
+        if is_http_permission_error(exc):
+            return {"ok": False, "message": "Bilibili 用户信息读取失败：请授予订阅中心 HTTP 请求权限，并重载插件后再试。"}
+        return {"ok": False, "message": "Bilibili 用户信息读取失败。"}
+    except Exception:
+        return {"ok": False, "message": "Bilibili 用户信息读取失败。"}
     if result.get("ok"):
         return result
     return {"ok": False, "message": result.get("message") or "Bilibili 用户信息读取失败。"}
+
+
+def is_http_permission_error(exc):
+    code = str(getattr(exc, "code", "") or "").lower()
+    message = str(exc or "").lower()
+    details = str(getattr(exc, "details", "") or "").lower()
+    combined = " ".join([code, message, details])
+    return "permission" in combined or "scope" in combined or "granted" in combined
 
 
 def resolve_bilibili_user_for_removal(settings, ctx, query, target):

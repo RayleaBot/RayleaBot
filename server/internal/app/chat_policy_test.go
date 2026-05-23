@@ -2,8 +2,10 @@ package app
 
 import (
 	"context"
+	"encoding/json"
 	"io"
 	"log/slog"
+	"os"
 	"path/filepath"
 	"reflect"
 	"slices"
@@ -20,6 +22,7 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/permission"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	"github.com/RayleaBot/RayleaBot/server/internal/runtime"
+	"github.com/RayleaBot/RayleaBot/server/internal/schema"
 )
 
 func TestCommandInfoForEventUsesDefaultLevelForOmittedPermission(t *testing.T) {
@@ -2009,6 +2012,162 @@ func TestReloadReturnsPermissionPendingWhenGrantScopeChanged(t *testing.T) {
 	}
 }
 
+func TestReloadRefreshesManifestCommandsAndScopes(t *testing.T) {
+	t.Parallel()
+
+	catalog := plugins.NewCatalog([]plugins.Snapshot{{
+		PluginID:            "raylea.subscription-hub",
+		Name:                "Subscription Hub",
+		Valid:               true,
+		SourceRoot:          "plugins/builtin",
+		RegistrationState:   "installed",
+		DesiredState:        "enabled",
+		RuntimeState:        "running",
+		RequiredPermissions: []string{"http.request"},
+		ScopeHTTPHosts:      []string{"old.example"},
+		Commands: []plugins.Command{{
+			Name:          "订阅b站推送",
+			Usage:         "/订阅b站推送 UID",
+			CommandSource: plugins.CommandSourceManifest,
+		}},
+		Help: &plugins.Help{
+			Title: "订阅中心",
+			Groups: []plugins.HelpGroup{{
+				Title: "订阅操作",
+				Items: []plugins.HelpItem{{
+					Title: "订阅 Bilibili 推送",
+					Usage: "/订阅b站推送 UID",
+				}},
+			}},
+		},
+	}})
+	app := newTestAppState(config.Config{}, slog.Default())
+	app.setTestLifecycle(
+		catalog,
+		nil,
+		nil,
+		newRuntimeRegistry(slog.Default(), runtime.Options{}),
+		dispatch.New(slog.Default(), nil, nil, 16),
+		nil,
+		nil,
+		newPluginWebhookRegistry(),
+	)
+	app.pluginLifecycle.refreshManifest = func(ctx context.Context, pluginID string) (plugins.Snapshot, error) {
+		return refreshPluginManifest(ctx, catalog, nil, pluginID, func() ([]plugins.Snapshot, error) {
+			return []plugins.Snapshot{{
+				PluginID:            "raylea.subscription-hub",
+				Name:                "Subscription Hub",
+				Valid:               true,
+				SourceRoot:          "plugins/builtin",
+				RegistrationState:   "installed",
+				DesiredState:        "enabled",
+				RuntimeState:        "stopped",
+				RequiredPermissions: []string{"http.request"},
+				ScopeHTTPHosts:      []string{"api.bilibili.com", "api.live.bilibili.com"},
+				ManifestCommands: []plugins.Command{{
+					Name:          "订阅b站推送",
+					Usage:         "/订阅b站推送 UID或昵称",
+					CommandSource: plugins.CommandSourceManifest,
+				}},
+				Commands: []plugins.Command{{
+					Name:          "订阅b站推送",
+					Usage:         "/订阅b站推送 UID或昵称",
+					CommandSource: plugins.CommandSourceManifest,
+				}},
+				Help: &plugins.Help{
+					Title: "订阅中心",
+					Groups: []plugins.HelpGroup{{
+						Title: "订阅操作",
+						Items: []plugins.HelpItem{{
+							Title: "订阅 Bilibili 推送",
+							Usage: "/订阅b站推送 UID或昵称",
+						}},
+					}},
+				},
+			}}, nil
+		})
+	}
+
+	updated, err := app.pluginLifecycle.Reload(context.Background(), "raylea.subscription-hub")
+	if err != nil {
+		t.Fatalf("Reload returned error: %v", err)
+	}
+	if updated.RuntimeState != "starting" {
+		t.Fatalf("runtime_state = %q, want starting", updated.RuntimeState)
+	}
+	snapshot, ok := catalog.Get("raylea.subscription-hub")
+	if !ok {
+		t.Fatal("plugin missing from catalog")
+	}
+	if snapshot.DesiredState != "enabled" || snapshot.RuntimeState != "starting" {
+		t.Fatalf("state = desired %q runtime %q, want enabled/starting", snapshot.DesiredState, snapshot.RuntimeState)
+	}
+	if got := snapshot.Commands[0].Usage; got != "/订阅b站推送 UID或昵称" {
+		t.Fatalf("command usage = %q, want UID或昵称", got)
+	}
+	if got := snapshot.Help.Groups[0].Items[0].Usage; got != "/订阅b站推送 UID或昵称" {
+		t.Fatalf("help usage = %q, want UID或昵称", got)
+	}
+	hosts := app.pluginLifecycle.grants.GrantedHTTPHosts(context.Background(), "raylea.subscription-hub")
+	if !reflect.DeepEqual(hosts, []string{"api.bilibili.com", "api.live.bilibili.com"}) {
+		t.Fatalf("http hosts = %#v, want Bilibili hosts", hosts)
+	}
+}
+
+func TestRefreshPluginManifestReadsUpdatedManifestFile(t *testing.T) {
+	t.Parallel()
+
+	repoRoot := t.TempDir()
+	pluginDir := filepath.Join(repoRoot, "plugins", "builtin", "subscription_hub")
+	if err := os.MkdirAll(pluginDir, 0o755); err != nil {
+		t.Fatalf("MkdirAll: %v", err)
+	}
+	manifestPath := filepath.Join(pluginDir, "info.json")
+	writeLifecyclePluginManifest(t, manifestPath, "/订阅b站推送 UID", "old.example")
+
+	validator := compilePluginValidatorForLifecycleTest(t)
+	snapshots, _, err := plugins.Discover(plugins.DiscoverOptions{
+		Validator: validator,
+		Roots: []plugins.ScanRoot{{
+			Label: "plugins/builtin",
+			Path:  filepath.Join(repoRoot, "plugins", "builtin"),
+		}},
+		RepoRoot: repoRoot,
+	})
+	if err != nil {
+		t.Fatalf("Discover initial: %v", err)
+	}
+	catalog := plugins.NewCatalog(snapshots)
+	if updated, err := catalog.SetRuntimeState("raylea.subscription-hub", "running"); err != nil || updated.RuntimeState != "running" {
+		t.Fatalf("SetRuntimeState: snapshot=%+v err=%v", updated, err)
+	}
+
+	writeLifecyclePluginManifest(t, manifestPath, "/订阅b站推送 UID或昵称", "api.bilibili.com")
+	refreshed, err := refreshPluginManifest(context.Background(), catalog, nil, "raylea.subscription-hub", func() ([]plugins.Snapshot, error) {
+		snapshots, _, err := plugins.Discover(plugins.DiscoverOptions{
+			Validator: validator,
+			Roots: []plugins.ScanRoot{{
+				Label: "plugins/builtin",
+				Path:  filepath.Join(repoRoot, "plugins", "builtin"),
+			}},
+			RepoRoot: repoRoot,
+		})
+		return snapshots, err
+	})
+	if err != nil {
+		t.Fatalf("refreshPluginManifest: %v", err)
+	}
+	if refreshed.RuntimeState != "running" {
+		t.Fatalf("refreshed runtime_state = %q, want running", refreshed.RuntimeState)
+	}
+	if got := refreshed.Commands[0].Usage; got != "/订阅b站推送 UID或昵称" {
+		t.Fatalf("command usage = %q, want UID或昵称", got)
+	}
+	if got := refreshed.ScopeHTTPHosts; !reflect.DeepEqual(got, []string{"api.bilibili.com"}) {
+		t.Fatalf("http hosts = %#v, want api.bilibili.com", got)
+	}
+}
+
 func TestReconcileRuntimeDisablesPluginWhenGrantExpired(t *testing.T) {
 	t.Parallel()
 
@@ -2052,6 +2211,78 @@ func TestStartRuntimeDisablesPluginWhenGrantExpired(t *testing.T) {
 	if snapshot.DesiredState != "disabled" {
 		t.Fatalf("desired_state = %q, want disabled", snapshot.DesiredState)
 	}
+}
+
+func compilePluginValidatorForLifecycleTest(t *testing.T) *schema.Validator {
+	t.Helper()
+
+	repoRoot, err := filepath.Abs(filepath.Join("..", "..", ".."))
+	if err != nil {
+		t.Fatalf("resolve repo root: %v", err)
+	}
+	validator, err := schema.Compile(filepath.Join(repoRoot, "contracts", "plugin-info.schema.json"))
+	if err != nil {
+		t.Fatalf("compile plugin manifest schema: %v", err)
+	}
+	return validator
+}
+
+func writeLifecyclePluginManifest(t *testing.T, path, usage, host string) {
+	t.Helper()
+
+	content := `{
+  "id": "raylea.subscription-hub",
+  "name": "Subscription Hub",
+  "version": "0.1.0",
+  "manifest_version": "1",
+  "plugin_protocol_version": "1",
+  "type": "managed_runtime",
+  "runtime": "python",
+  "entry": "main.py",
+  "license": "MIT",
+  "description": "Subscription hub",
+  "author": "raylea",
+  "permissions": {
+    "required": ["http.request"],
+    "optional": [],
+    "scopes": {
+      "http_hosts": [` + quoteLifecycleJSON(host) + `]
+    }
+  },
+  "commands": [
+    {
+      "name": "订阅b站推送",
+      "description": "订阅 Bilibili 推送",
+      "usage": ` + quoteLifecycleJSON(usage) + `,
+      "permission": "super_admin"
+    }
+  ],
+  "help": {
+    "title": "订阅中心",
+    "groups": [
+      {
+        "title": "订阅操作",
+        "items": [
+          {
+            "title": "订阅 Bilibili 推送",
+            "description": "指定 Bilibili 用户",
+            "usage": ` + quoteLifecycleJSON(usage) + `,
+            "command": "订阅b站推送",
+            "permission": "super_admin"
+          }
+        ]
+      }
+    ]
+  }
+}`
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+		t.Fatalf("write manifest: %v", err)
+	}
+}
+
+func quoteLifecycleJSON(value string) string {
+	data, _ := json.Marshal(value)
+	return string(data)
 }
 
 func newLifecycleControllerForGrantTests(t *testing.T, grants []plugins.PluginGrant) (*pluginLifecycleController, *plugins.Catalog) {

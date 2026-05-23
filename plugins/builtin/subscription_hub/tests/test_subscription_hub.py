@@ -24,6 +24,7 @@ from main import (
 from rendering import build_render_data
 from settings import merge_settings
 from testkit import FakePluginContext as FakeContext
+from rayleabot.protocol import ActionError
 
 
 class SubscriptionHubTests(unittest.TestCase):
@@ -361,6 +362,17 @@ class SubscriptionHubTests(unittest.TestCase):
         self.assertFalse(result["ok"])
         self.assertEqual(settings["subscriptions"], [])
         self.assertIn("风控拦截", result["message"])
+
+    def test_add_bilibili_subscription_reports_http_permission_error(self):
+        settings = merge_settings({}, {})
+        result = add_bilibili_subscription(settings, FakeContext(
+            args=["崩坏星穹铁道"],
+            http_responses=[ActionError("plugin.internal_error", "http.request target is outside the granted scope")],
+        ))
+
+        self.assertFalse(result["ok"])
+        self.assertEqual(settings["subscriptions"], [])
+        self.assertIn("HTTP 请求权限", result["message"])
 
     def test_remove_bilibili_subscription_removes_service_or_item(self):
         settings = merge_settings({}, {
