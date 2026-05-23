@@ -6,6 +6,7 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"net/netip"
 	"net/url"
 	"sync/atomic"
 	"testing"
@@ -69,6 +70,14 @@ func TestClientRejectsPrivateHostWithoutAllowlist(t *testing.T) {
 	}, []string{"internal.test"})
 	if !errors.Is(err, ErrScopeViolation) {
 		t.Fatalf("Do private request error = %v, want ErrScopeViolation", err)
+	}
+}
+
+func TestAuthorizeResolvedAddrsAllowsCarrierNATFakeIP(t *testing.T) {
+	t.Parallel()
+
+	if err := authorizeResolvedAddrs([]netip.Addr{netip.MustParseAddr("198.18.0.112")}, false); err != nil {
+		t.Fatalf("authorizeResolvedAddrs returned error for carrier-grade NAT fake-ip: %v", err)
 	}
 }
 

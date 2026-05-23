@@ -497,6 +497,28 @@ class SubscriptionHubTests(unittest.TestCase):
         self.assertEqual(ctx.storage_sets, [])
         self.assertTrue(any(log["message"] == "Bilibili 风控拦截" and log["fields"].get("status_code") == 412 for log in ctx.logs))
 
+    def test_scheduler_trigger_handles_http_action_error(self):
+        plugin = SubscriptionHubPlugin()
+        settings = self.subscription_settings(tokens=[{
+            "id": "primary",
+            "label": "主 Cookie",
+            "secret_key": "bili.primary",
+            "enabled": True,
+        }])
+        ctx = FakeContext(
+            config_values=settings,
+            http_responses=[ActionError("permission.scope_violation", "http.request target is outside the granted scope")],
+            secrets={"bili.primary": "SESSDATA=token"},
+        )
+
+        plugin.handle_scheduler_trigger(ctx)
+
+        self.assertEqual(ctx.results[-1], {"handled": True, "sent": 0})
+        self.assertEqual(ctx.render_calls, [])
+        self.assertEqual(ctx.messages, [])
+        self.assertEqual(ctx.storage_sets, [])
+        self.assertTrue(any(log["message"] == "Bilibili 请求失败" for log in ctx.logs))
+
     def test_bilibili_json_error_does_not_push_or_mark_seen(self):
         plugin = SubscriptionHubPlugin()
         settings = self.subscription_settings(tokens=[{

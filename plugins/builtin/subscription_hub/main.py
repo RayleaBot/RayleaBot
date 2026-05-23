@@ -240,7 +240,7 @@ class SubscriptionHubPlugin(RayleaBotPlugin):
         updates = []
         services = set(subscription.get("services") or ["all"])
         if "all" in services or any(service in services for service in {"video", "image_text", "article", "repost"}):
-            response = ctx.http_request(
+            response = self.bilibili_http_request(ctx,
                 "GET",
                 DYNAMIC_URL.format(uid=subscription["uid"]),
                 headers=headers,
@@ -250,7 +250,7 @@ class SubscriptionHubPlugin(RayleaBotPlugin):
             if document:
                 updates.extend(self.filter_dynamic_updates(ctx, settings, subscription, dynamic_updates(document)))
         if "all" in services or "live" in services:
-            response = ctx.http_request(
+            response = self.bilibili_http_request(ctx,
                 "GET",
                 LIVE_URL.format(uid=subscription["uid"]),
                 headers=headers,
@@ -297,7 +297,7 @@ class SubscriptionHubPlugin(RayleaBotPlugin):
         return result
 
     def bilibili_cookie_available(self, ctx, settings, headers):
-        response = ctx.http_request(
+        response = self.bilibili_http_request(ctx,
             "GET",
             NAV_URL,
             headers=headers,
@@ -311,6 +311,13 @@ class SubscriptionHubPlugin(RayleaBotPlugin):
             self.try_log(ctx, "warn", "Bilibili Cookie 无效或已过期")
             return False
         return True
+
+    def bilibili_http_request(self, ctx, method, url, headers=None, timeout_seconds=30):
+        try:
+            return ctx.http_request(method, url, headers=headers, timeout_seconds=timeout_seconds)
+        except Exception as exc:
+            self.try_log(ctx, "warn", "Bilibili 请求失败", {"error": str(exc)})
+            return {}
 
     def bilibili_response_document(self, ctx, response, uid, endpoint):
         status_code = response.get("status_code") if isinstance(response, dict) else None
