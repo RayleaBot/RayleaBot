@@ -76,8 +76,32 @@ func TestClientRejectsPrivateHostWithoutAllowlist(t *testing.T) {
 func TestAuthorizeResolvedAddrsAllowsCarrierNATFakeIP(t *testing.T) {
 	t.Parallel()
 
-	if err := authorizeResolvedAddrs([]netip.Addr{netip.MustParseAddr("198.18.0.112")}, false); err != nil {
+	if err := authorizeResolvedAddrs([]netip.Addr{netip.MustParseAddr("198.18.0.112")}, false, true); err != nil {
 		t.Fatalf("authorizeResolvedAddrs returned error for carrier-grade NAT fake-ip: %v", err)
+	}
+}
+
+func TestAuthorizeResolvedAddrsRejectsPrivateDNSResult(t *testing.T) {
+	t.Parallel()
+
+	if err := authorizeResolvedAddrs([]netip.Addr{netip.MustParseAddr("10.0.0.1")}, false, true); !errors.Is(err, ErrScopeViolation) {
+		t.Fatalf("authorizeResolvedAddrs private DNS result error = %v, want ErrScopeViolation", err)
+	}
+}
+
+func TestClientRejectsLiteralCarrierNATFakeIPWithoutAllowlist(t *testing.T) {
+	t.Parallel()
+
+	client := New(Config{
+		Timeout: 5 * time.Second,
+	})
+
+	_, err := client.Do(context.Background(), Request{
+		Method: "GET",
+		URL:    "https://198.18.0.112/resource",
+	}, []string{"198.18.0.112"})
+	if !errors.Is(err, ErrScopeViolation) {
+		t.Fatalf("Do literal fake-ip request error = %v, want ErrScopeViolation", err)
 	}
 }
 

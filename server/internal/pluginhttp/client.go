@@ -91,7 +91,7 @@ func (c *Client) Do(ctx context.Context, req Request, scopeHosts []string) (Resp
 		}
 		return Response{}, err
 	}
-	if err := authorizeResolvedAddrs(preflightIPs, allowPrivateHost); err != nil {
+	if err := authorizeResolvedAddrs(preflightIPs, allowPrivateHost, hostUsesFakeIPDNS(host)); err != nil {
 		return Response{}, err
 	}
 	if parsedURL.Scheme == "http" && !allowPrivateHost && !containsBogon(preflightIPs) {
@@ -249,18 +249,26 @@ func (c *Client) resolveAndAuthorize(ctx context.Context, host string, allowPriv
 	if err != nil {
 		return nil, err
 	}
-	if err := authorizeResolvedAddrs(ips, allowPrivateHost); err != nil {
+	if err := authorizeResolvedAddrs(ips, allowPrivateHost, hostUsesFakeIPDNS(host)); err != nil {
 		return nil, err
 	}
 	return ips, nil
 }
 
-func authorizeResolvedAddrs(ips []netip.Addr, allowPrivateHost bool) error {
+func hostUsesFakeIPDNS(host string) bool {
+	_, err := netip.ParseAddr(host)
+	return err != nil
+}
+
+func authorizeResolvedAddrs(ips []netip.Addr, allowPrivateHost bool, allowFakeIPDNS bool) error {
 	if len(ips) == 0 {
 		return ErrInvalidRequest
 	}
 	for _, ip := range ips {
 		if isBogon(ip) && !allowPrivateHost {
+			if allowFakeIPDNS && isFakeIPDNSAddr(ip) {
+				continue
+			}
 			return ErrScopeViolation
 		}
 	}
@@ -365,6 +373,7 @@ func init() {
 		"192.0.0.0/24",
 		"192.0.2.0/24",
 		"192.168.0.0/16",
+		"198.18.0.0/15",
 		"198.51.100.0/24",
 		"203.0.113.0/24",
 		"224.0.0.0/4",
@@ -410,4 +419,8 @@ func isBogon(ip netip.Addr) bool {
 		}
 	}
 	return false
+}
+
+func isFakeIPDNSAddr(ip netip.Addr) bool {
+	return netip.MustParsePrefix("198.18.0.0/15").Contains(ip)
 }
