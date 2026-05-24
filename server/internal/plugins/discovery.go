@@ -146,6 +146,9 @@ func discoverRoot(root ScanRoot, validator *schema.Validator, repoRoot string, m
 		if !dirEntry.IsDir() {
 			continue
 		}
+		if shouldSkipPluginDiscoveryDir(dirEntry.Name()) {
+			continue
+		}
 
 		pluginDir := filepath.Join(root.Path, dirEntry.Name())
 		infoPath := filepath.Join(pluginDir, "info.json")
@@ -318,6 +321,15 @@ func buildConflictSnapshot(pluginID string, group []Snapshot) Snapshot {
 		RuntimeState:      stateStopped,
 		DisplayState:      displayConflict,
 		ConflictPaths:     conflictPaths,
+	}
+}
+
+func shouldSkipPluginDiscoveryDir(name string) bool {
+	switch strings.TrimSpace(name) {
+	case "__pycache__", ".pytest_cache", ".mypy_cache", ".ruff_cache":
+		return true
+	default:
+		return false
 	}
 }
 
