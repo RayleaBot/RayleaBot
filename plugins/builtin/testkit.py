@@ -44,8 +44,8 @@ class FakePluginContext:
         self.config_writes.append(values)
         return {"changed_keys": sorted(values.keys())}
 
-    def scheduler_create(self, task_id, cron, payload=None):
-        self.scheduler_creates.append({"task_id": task_id, "cron": cron, "payload": payload})
+    def scheduler_create(self, task_id, cron, payload=None, log_label=None):
+        self.scheduler_creates.append({"task_id": task_id, "cron": cron, "payload": payload, "log_label": log_label})
         return {"task_id": task_id}
 
     def send_text(self, text):

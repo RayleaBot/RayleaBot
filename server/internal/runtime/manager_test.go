@@ -1079,6 +1079,7 @@ func TestParseSchedulerCreateAction(t *testing.T) {
 
 	action, err := parseSchedulerCreateAction(json.RawMessage(`{
 		"task_id": "daily_report",
+		"log_label": "每日早报",
 		"cron": "0 8 * * *",
 		"event_type": "scheduler.trigger",
 		"payload": {
@@ -1090,6 +1091,9 @@ func TestParseSchedulerCreateAction(t *testing.T) {
 	}
 	if action.Kind != "scheduler.create" || action.SchedulerTaskID != "daily_report" || action.SchedulerCron != "0 8 * * *" {
 		t.Fatalf("unexpected scheduler.create action: %#v", action)
+	}
+	if action.SchedulerLogLabel != "每日早报" {
+		t.Fatalf("SchedulerLogLabel = %q, want 每日早报", action.SchedulerLogLabel)
 	}
 }
 

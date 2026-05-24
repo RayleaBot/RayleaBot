@@ -464,6 +464,7 @@ func parseSchedulerCreateAction(raw json.RawMessage) (*Action, error) {
 	return &Action{
 		Kind:               "scheduler.create",
 		SchedulerTaskID:    taskID,
+		SchedulerLogLabel:  strings.TrimSpace(frame.LogLabel),
 		SchedulerCron:      cronExpr,
 		SchedulerEventType: eventType,
 		SchedulerPayload:   payload,

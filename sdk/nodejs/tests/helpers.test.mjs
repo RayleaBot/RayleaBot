@@ -204,6 +204,21 @@ test('governance helpers emit the frozen action names', async () => {
   assert.deepEqual(result.actionFrame.data, {});
 });
 
+test('schedulerCreate accepts logLabel', async () => {
+  const { actionFrame } = await invokeHelper(
+    "plugin.schedulerCreate('evt-scheduler', 'daily_report', '0 8 * * *', { payload: { topic: 'daily' }, logLabel: '每日早报', timeoutMs: 1000 })",
+  );
+
+  assert.equal(actionFrame.action, 'scheduler.create');
+  assert.deepEqual(actionFrame.data, {
+    task_id: 'daily_report',
+    cron: '0 8 * * *',
+    event_type: 'scheduler.trigger',
+    log_label: '每日早报',
+    payload: { topic: 'daily' },
+  });
+});
+
 test('fileGroupFsDelete rejects when both folderId and fileId are missing', async () => {
   const error = await invokeHelperError(
     "plugin.fileGroupFsDelete('evt-7', 'group-10001')",

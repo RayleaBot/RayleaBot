@@ -289,6 +289,20 @@ func (c *pluginLifecycleController) HandleSchedulerTrigger(ctx context.Context, 
 		return
 	}
 
+	pluginName := schedulerPluginDisplayName(snapshot, pluginID)
+	taskName := strings.TrimSpace(job.JobID)
+	logLabel := scheduler.DisplayLabel(job.LogLabel)
+	startedAt := time.Now()
+	c.state.Logger.Info(
+		scheduler.DisplayMessage(pluginName, taskName, logLabel, "开始处理"),
+		"component", "scheduler",
+		"plugin_id", pluginID,
+		"plugin_name", pluginName,
+		"job_id", job.JobID,
+		"log_label", logLabel,
+		"cron_expr", job.CronExpr,
+	)
+
 	result := c.dispatcher.DispatchToPlugin(ctx, pluginID, runtime.Event{
 		EventID:        fmt.Sprintf("scheduler-%s-%d", job.JobID, time.Now().UnixNano()),
 		SourceProtocol: "scheduler",
@@ -296,17 +310,37 @@ func (c *pluginLifecycleController) HandleSchedulerTrigger(ctx context.Context, 
 		EventType:      "scheduler.trigger",
 		Timestamp:      time.Now().Unix(),
 		PayloadFields:  schedulerPayloadFields(job),
+		SchedulerLog: &runtime.SchedulerLogContext{
+			PluginName: pluginName,
+			TaskName:   taskName,
+			LogLabel:   logLabel,
+			StartedAt:  startedAt,
+		},
 	})
 	if result.Outcome != dispatch.OutcomeDelivered {
+		duration := time.Since(startedAt)
 		c.state.Logger.Warn(
-			"scheduler trigger was not queued for plugin runtime",
-			"component", "app",
+			scheduler.DisplayMessage(pluginName, taskName, logLabel, "处理失败")+"耗时 "+scheduler.FormatDuration(duration),
+			"component", "scheduler",
 			"plugin_id", pluginID,
+			"plugin_name", pluginName,
 			"job_id", job.JobID,
+			"log_label", logLabel,
+			"duration_ms", duration.Milliseconds(),
 			"outcome", string(result.Outcome),
 			"error_code", result.ErrorCode,
 		)
 	}
+}
+
+func schedulerPluginDisplayName(snapshot plugins.Snapshot, pluginID string) string {
+	if name := strings.TrimSpace(snapshot.Name); name != "" {
+		return name
+	}
+	if pluginID = strings.TrimSpace(pluginID); pluginID != "" {
+		return pluginID
+	}
+	return "未知插件"
 }
 
 func schedulerPayloadFields(job scheduler.Job) map[string]any {

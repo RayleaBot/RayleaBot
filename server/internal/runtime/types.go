@@ -51,6 +51,14 @@ type Event struct {
 	PayloadFields  map[string]any
 	MessageID      string
 	RawPayload     any
+	SchedulerLog   *SchedulerLogContext
+}
+
+type SchedulerLogContext struct {
+	PluginName string
+	TaskName   string
+	LogLabel   string
+	StartedAt  time.Time
 }
 
 type EventActor struct {
@@ -113,6 +121,7 @@ type Action struct {
 	HTTPTimeoutSeconds      int
 	HTTPBody                []byte
 	SchedulerTaskID         string
+	SchedulerLogLabel       string
 	SchedulerCron           string
 	SchedulerEventType      string
 	SchedulerPayload        map[string]any

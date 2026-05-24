@@ -47,6 +47,7 @@ func TestOpenBootstrapsSQLiteWithExpectedPragmas(t *testing.T) {
 	assertColumnExists(t, store.Read, "management_logs", "log_id")
 	assertColumnExists(t, store.Read, "management_logs", "details_json")
 	assertColumnExists(t, store.Read, "management_logs", "boot_id")
+	assertColumnExists(t, store.Read, "scheduler_jobs", "log_label")
 	assertColumnExists(t, store.Read, "render_template_revisions", "source_digest")
 	assertColumnExists(t, store.Read, "render_template_states", "validation_issue_count")
 	assertColumnExists(t, store.Read, "render_template_states", "source_type")
@@ -83,8 +84,8 @@ func TestOpenAppliesMigrationsOnlyOnce(t *testing.T) {
 	if err := second.Read.QueryRow(`SELECT COUNT(*) FROM schema_migrations`).Scan(&count); err != nil {
 		t.Fatalf("count schema_migrations rows: %v", err)
 	}
-	if count != 20 {
-		t.Fatalf("unexpected migration count: got %d want 20", count)
+	if count != 21 {
+		t.Fatalf("unexpected migration count: got %d want 21", count)
 	}
 }
 
@@ -195,8 +196,8 @@ func TestOpenUpgradesExistingAuthDatabaseToPluginStateTables(t *testing.T) {
 	if err := upgraded.Read.QueryRow(`SELECT COUNT(*) FROM schema_migrations`).Scan(&migrationCount); err != nil {
 		t.Fatalf("count schema_migrations rows: %v", err)
 	}
-	if migrationCount != 20 {
-		t.Fatalf("unexpected migration count after upgrade: got %d want 20", migrationCount)
+	if migrationCount != 21 {
+		t.Fatalf("unexpected migration count after upgrade: got %d want 21", migrationCount)
 	}
 
 	var bootstrapCount int

@@ -57,6 +57,7 @@ func (r *SQLiteRepository) SaveJob(ctx context.Context, job Job) error {
 	if err := r.writeQ.SaveJob(ctx, sqlcgen.SaveJobParams{
 		JobID:     job.JobID,
 		PluginID:  job.PluginID,
+		LogLabel:  job.LogLabel,
 		CronExpr:  job.CronExpr,
 		Payload:   payload,
 		Enabled:   enabled,
@@ -82,6 +83,7 @@ func (r *SQLiteRepository) LoadJobs(ctx context.Context) ([]Job, error) {
 		j := Job{
 			JobID:    row.JobID,
 			PluginID: row.PluginID,
+			LogLabel: row.LogLabel,
 			CronExpr: row.CronExpr,
 			Payload:  json.RawMessage(row.Payload),
 			Enabled:  row.Enabled != 0,

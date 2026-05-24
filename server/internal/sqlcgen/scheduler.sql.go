@@ -29,22 +29,36 @@ func (q *Queries) DeleteJobsByPlugin(ctx context.Context, pluginID string) error
 }
 
 const loadJobs = `-- name: LoadJobs :many
-SELECT job_id, plugin_id, cron_expr, payload, enabled, next_run, last_run, created_at, updated_at
+SELECT job_id, plugin_id, log_label, cron_expr, payload, enabled, next_run, last_run, created_at, updated_at
 FROM scheduler_jobs ORDER BY created_at ASC
 `
 
-func (q *Queries) LoadJobs(ctx context.Context) ([]SchedulerJob, error) {
+type LoadJobsRow struct {
+	JobID     string
+	PluginID  string
+	LogLabel  string
+	CronExpr  string
+	Payload   string
+	Enabled   int64
+	NextRun   string
+	LastRun   sql.NullString
+	CreatedAt string
+	UpdatedAt string
+}
+
+func (q *Queries) LoadJobs(ctx context.Context) ([]LoadJobsRow, error) {
 	rows, err := q.db.QueryContext(ctx, loadJobs)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	items := []SchedulerJob{}
+	items := []LoadJobsRow{}
 	for rows.Next() {
-		var i SchedulerJob
+		var i LoadJobsRow
 		if err := rows.Scan(
 			&i.JobID,
 			&i.PluginID,
+			&i.LogLabel,
 			&i.CronExpr,
 			&i.Payload,
 			&i.Enabled,
@@ -67,9 +81,10 @@ func (q *Queries) LoadJobs(ctx context.Context) ([]SchedulerJob, error) {
 }
 
 const saveJob = `-- name: SaveJob :exec
-INSERT INTO scheduler_jobs (job_id, plugin_id, cron_expr, payload, enabled, next_run, last_run, created_at, updated_at)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+INSERT INTO scheduler_jobs (job_id, plugin_id, log_label, cron_expr, payload, enabled, next_run, last_run, created_at, updated_at)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT(job_id) DO UPDATE SET
+    log_label = excluded.log_label,
     cron_expr = excluded.cron_expr,
     payload = excluded.payload,
     enabled = excluded.enabled,
@@ -81,6 +96,7 @@ ON CONFLICT(job_id) DO UPDATE SET
 type SaveJobParams struct {
 	JobID     string
 	PluginID  string
+	LogLabel  string
 	CronExpr  string
 	Payload   string
 	Enabled   int64
@@ -94,6 +110,7 @@ func (q *Queries) SaveJob(ctx context.Context, arg SaveJobParams) error {
 	_, err := q.db.ExecContext(ctx, saveJob,
 		arg.JobID,
 		arg.PluginID,
+		arg.LogLabel,
 		arg.CronExpr,
 		arg.Payload,
 		arg.Enabled,

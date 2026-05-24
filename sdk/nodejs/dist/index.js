@@ -536,12 +536,15 @@ function createPluginRuntime(owner) {
             return await requestLocalAction(pluginId, requestId, 'governance.command_policy.read', {}, { timeoutMs });
         },
         async schedulerCreate(requestId, taskId, cron, options = {}) {
-            const { payload, timeoutMs = 30000 } = options;
+            const { payload, logLabel, timeoutMs = 30000 } = options;
             const data = {
                 task_id: taskId,
                 cron,
                 event_type: 'scheduler.trigger',
             };
+            if (logLabel !== undefined) {
+                data.log_label = logLabel;
+            }
             if (payload !== undefined) {
                 data.payload = payload;
             }

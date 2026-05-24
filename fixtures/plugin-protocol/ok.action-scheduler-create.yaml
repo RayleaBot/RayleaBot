@@ -9,6 +9,7 @@ frames:
     action: scheduler.create
     data:
       task_id: daily_morning_report
+      log_label: 每日早报
       cron: "0 8 * * *"
       event_type: scheduler.trigger
       payload:
@@ -17,3 +18,4 @@ expect:
   valid: true
   notes:
     - scheduler.create uses plugin-provided task_id as the idempotent upsert key.
+    - log_label provides the human-readable scheduler log label.

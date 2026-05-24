@@ -1013,6 +1013,7 @@ func TestExecuteGovernanceWritePublishesGovernanceChanged(t *testing.T) {
 func TestExecuteSchedulerCreateUpsert(t *testing.T) {
 	t.Parallel()
 
+	buffer := &bytes.Buffer{}
 	store, err := storage.Open(filepath.Join(t.TempDir(), "state.db"))
 	if err != nil {
 		t.Fatalf("storage.Open: %v", err)
@@ -1035,7 +1036,13 @@ func TestExecuteSchedulerCreateUpsert(t *testing.T) {
 		Auth: config.AuthConfig{
 			AutoGrantCapabilities: []string{"scheduler.create"},
 		},
-	}, slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)))
+	}, slog.New(slog.NewTextHandler(buffer, nil)))
+	application.plugins = plugins.NewCatalog([]plugins.Snapshot{{
+		PluginID:          "weather",
+		Name:              "天气插件",
+		Valid:             true,
+		RegistrationState: "installed",
+	}})
 	application.setTestLocalActions(
 		&stubLifecycleGrantRepository{grants: map[string][]plugins.PluginGrant{}},
 		nil,
@@ -1052,6 +1059,7 @@ func TestExecuteSchedulerCreateUpsert(t *testing.T) {
 	first, err := application.executeLocalAction(context.Background(), "weather", "req_sched_1", runtime.Action{
 		Kind:               "scheduler.create",
 		SchedulerTaskID:    "daily_report",
+		SchedulerLogLabel:  "每日早报",
 		SchedulerCron:      "0 8 * * *",
 		SchedulerEventType: "scheduler.trigger",
 		SchedulerPayload: map[string]any{
@@ -1071,6 +1079,7 @@ func TestExecuteSchedulerCreateUpsert(t *testing.T) {
 	second, err := application.executeLocalAction(context.Background(), "weather", "req_sched_2", runtime.Action{
 		Kind:               "scheduler.create",
 		SchedulerTaskID:    "daily_report",
+		SchedulerLogLabel:  "新版早报",
 		SchedulerCron:      "30 9 * * *",
 		SchedulerEventType: "scheduler.trigger",
 		SchedulerPayload: map[string]any{
@@ -1090,6 +1099,16 @@ func TestExecuteSchedulerCreateUpsert(t *testing.T) {
 	}
 	if jobs[0].JobID != "daily_report" || jobs[0].CronExpr != "30 9 * * *" {
 		t.Fatalf("unexpected upserted job: %#v", jobs[0])
+	}
+	if jobs[0].LogLabel != "新版早报" {
+		t.Fatalf("LogLabel = %q, want 新版早报", jobs[0].LogLabel)
+	}
+	logs := buffer.String()
+	if !strings.Contains(logs, "【天气插件｜daily_report｜每日早报｜定时任务已注册】下次执行：") {
+		t.Fatalf("registration log missing readable message:\n%s", logs)
+	}
+	if !strings.Contains(logs, "【天气插件｜daily_report｜新版早报｜定时任务已注册】下次执行：") {
+		t.Fatalf("upsert log missing readable message:\n%s", logs)
 	}
 }
 

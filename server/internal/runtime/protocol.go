@@ -216,19 +216,20 @@ type protocolActionHTTPRequestFrame struct {
 
 type protocolActionSchedulerCreateFrame struct {
 	TaskID    string          `json:"task_id"`
+	LogLabel  string          `json:"log_label,omitempty"`
 	Cron      string          `json:"cron"`
 	EventType string          `json:"event_type"`
 	Payload   json.RawMessage `json:"payload,omitempty"`
 }
 
 type protocolActionEventExposeWebhookFrame struct {
-	Route            string                                 `json:"route"`
-	Methods          []string                               `json:"methods"`
-	AuthStrategy     string                                 `json:"auth_strategy"`
-	Header           string                                 `json:"header"`
-	SecretRef        string                                 `json:"secret_ref"`
-	SignaturePrefix  string                                 `json:"signature_prefix,omitempty"`
-	SourceIPs        []string                               `json:"source_ips,omitempty"`
+	Route            string                                `json:"route"`
+	Methods          []string                              `json:"methods"`
+	AuthStrategy     string                                `json:"auth_strategy"`
+	Header           string                                `json:"header"`
+	SecretRef        string                                `json:"secret_ref"`
+	SignaturePrefix  string                                `json:"signature_prefix,omitempty"`
+	SourceIPs        []string                              `json:"source_ips,omitempty"`
 	ReplayProtection *protocolWebhookReplayProtectionFrame `json:"replay_protection,omitempty"`
 }
 

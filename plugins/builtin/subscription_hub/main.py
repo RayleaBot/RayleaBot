@@ -209,6 +209,7 @@ class SubscriptionHubPlugin(RayleaBotPlugin):
                 task_id,
                 cron,
                 payload={"kind": "subscription_poll"},
+                log_label="Bilibili 推送轮询",
             )
         except Exception as exc:
             self.try_log(ctx, "warn", "订阅轮询任务注册失败", {

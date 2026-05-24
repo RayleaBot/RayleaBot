@@ -198,7 +198,7 @@ export interface RayleaBotPluginRuntime {
     requestId: string,
     taskId: string,
     cron: string,
-    options?: ActionOptions & { payload?: Record<string, unknown> },
+    options?: ActionOptions & { payload?: Record<string, unknown>; logLabel?: string },
   ): Promise<Record<string, unknown>>;
   exposeWebhook(
     requestId: string,
@@ -675,7 +675,7 @@ export class PluginEventContext {
   schedulerCreate(
     taskId: string,
     cron: string,
-    options: ActionOptions & { payload?: Record<string, unknown> } = {},
+    options: ActionOptions & { payload?: Record<string, unknown>; logLabel?: string } = {},
   ): Promise<Record<string, unknown>> {
     return this.plugin.schedulerCreate(this.requestId, taskId, cron, options);
   }
@@ -1428,14 +1428,17 @@ function createPluginRuntime(owner?: RayleaBotPlugin): RayleaBotPluginRuntime {
       requestId: string,
       taskId: string,
       cron: string,
-      options: ActionOptions & { payload?: Record<string, unknown> } = {},
+      options: ActionOptions & { payload?: Record<string, unknown>; logLabel?: string } = {},
     ): Promise<Record<string, unknown>> {
-      const { payload, timeoutMs = 30000 } = options;
+      const { payload, logLabel, timeoutMs = 30000 } = options;
       const data: Record<string, unknown> = {
         task_id: taskId,
         cron,
         event_type: 'scheduler.trigger',
       };
+      if (logLabel !== undefined) {
+        data.log_label = logLabel;
+      }
       if (payload !== undefined) {
         data.payload = payload;
       }

@@ -444,6 +444,7 @@ class SubscriptionHubTests(unittest.TestCase):
             "task_id": "subscription-hub-poll",
             "cron": "*/7 * * * *",
             "payload": {"kind": "subscription_poll"},
+            "log_label": "Bilibili 推送轮询",
         }])
         self.assertEqual(ctx.results[-1], {"handled": True})
 

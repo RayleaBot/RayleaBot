@@ -20,6 +20,7 @@ class SchedulerPlugin(RayleaBotPlugin):
             "daily_morning_report",
             "0 8 * * *",
             {"report_type": "daily"},
+            log_label="每日早报",
         )
         ctx.send_result({"scheduled": result})
 

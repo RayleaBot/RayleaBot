@@ -39,6 +39,7 @@ func TestSQLiteRepository_SaveAndLoad(t *testing.T) {
 	job := Job{
 		JobID:     "sched_abc123",
 		PluginID:  "hello-python",
+		LogLabel:  "示例任务",
 		CronExpr:  "*/30 * * * *",
 		Payload:   json.RawMessage(`{"key":"value"}`),
 		Enabled:   true,
@@ -65,6 +66,9 @@ func TestSQLiteRepository_SaveAndLoad(t *testing.T) {
 	}
 	if got.PluginID != job.PluginID {
 		t.Errorf("PluginID = %q, want %q", got.PluginID, job.PluginID)
+	}
+	if got.LogLabel != job.LogLabel {
+		t.Errorf("LogLabel = %q, want %q", got.LogLabel, job.LogLabel)
 	}
 	if got.CronExpr != job.CronExpr {
 		t.Errorf("CronExpr = %q, want %q", got.CronExpr, job.CronExpr)
@@ -326,11 +330,11 @@ func TestEngine_UpsertTask(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	first, err := engine.UpsertTask(ctx, "weather", "daily_report", "0 8 * * *", json.RawMessage(`{"topic":"daily_report"}`))
+	first, err := engine.UpsertTaskWithLabel(ctx, "weather", "daily_report", "每日早报", "0 8 * * *", json.RawMessage(`{"topic":"daily_report"}`))
 	if err != nil {
 		t.Fatalf("first UpsertTask: %v", err)
 	}
-	second, err := engine.UpsertTask(ctx, "weather", "daily_report", "30 9 * * *", json.RawMessage(`{"topic":"daily_report_v2"}`))
+	second, err := engine.UpsertTaskWithLabel(ctx, "weather", "daily_report", "新版早报", "30 9 * * *", json.RawMessage(`{"topic":"daily_report_v2"}`))
 	if err != nil {
 		t.Fatalf("second UpsertTask: %v", err)
 	}
@@ -347,6 +351,9 @@ func TestEngine_UpsertTask(t *testing.T) {
 	}
 	if jobs[0].CronExpr != "30 9 * * *" {
 		t.Fatalf("CronExpr = %q, want 30 9 * * *", jobs[0].CronExpr)
+	}
+	if jobs[0].LogLabel != "新版早报" {
+		t.Fatalf("LogLabel = %q, want 新版早报", jobs[0].LogLabel)
 	}
 }
 

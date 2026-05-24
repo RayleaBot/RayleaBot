@@ -456,13 +456,15 @@ class RayleaBotPlugin:
             timeout_seconds=timeout_seconds,
         )
 
-    def scheduler_create(self, request_id, task_id, cron, payload=None, timeout_seconds=30):
+    def scheduler_create(self, request_id, task_id, cron, payload=None, log_label=None, timeout_seconds=30):
         """Create or update one scheduler.trigger task through scheduler.create."""
         data = {
             "task_id": task_id,
             "cron": cron,
             "event_type": "scheduler.trigger",
         }
+        if log_label is not None:
+            data["log_label"] = log_label
         if payload is not None:
             data["payload"] = payload
         return protocol.request_local_action(

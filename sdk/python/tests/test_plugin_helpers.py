@@ -159,6 +159,27 @@ class PluginHelperTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             plugin.governance_whitelist_write("evt-9", "set_enabled")
 
+    def test_scheduler_create_accepts_log_label(self):
+        sent = self._invoke_local_action(
+            lambda plugin: plugin.scheduler_create(
+                "evt-scheduler",
+                "daily_report",
+                "0 8 * * *",
+                payload={"topic": "daily"},
+                log_label="每日早报",
+                timeout_seconds=1,
+            ),
+        )
+
+        self.assertEqual("scheduler.create", sent["action"])
+        self.assertEqual({
+            "task_id": "daily_report",
+            "cron": "0 8 * * *",
+            "event_type": "scheduler.trigger",
+            "log_label": "每日早报",
+            "payload": {"topic": "daily"},
+        }, sent["data"])
+
     def test_runtime_context_properties_return_copies(self):
         plugin = self.plugin_module.RayleaBotPlugin()
         plugin._bot_id = "bot-10001"

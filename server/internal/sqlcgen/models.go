@@ -41,6 +41,7 @@ type ManagementLog struct {
 	RequestID   string
 	LogID       string
 	DetailsJson string
+	BootID      string
 }
 
 type PluginGrant struct {
@@ -75,6 +76,32 @@ type PluginPackage struct {
 	InstalledAt  string
 }
 
+type RenderTemplateRevision struct {
+	RevisionID      string
+	TemplateID      string
+	TemplateVersion string
+	Kind            string
+	Message         sql.NullString
+	SavedAt         string
+	SourceDigest    string
+	ManifestJson    string
+	Html            string
+	Stylesheet      string
+	InputSchemaJson sql.NullString
+}
+
+type RenderTemplateState struct {
+	TemplateID           string
+	CurrentRevisionID    string
+	UpdatedAt            string
+	ValidationValid      int64
+	ValidationCheckedAt  string
+	ValidationIssueCount int64
+	SourceType           string
+	SourcePluginID       sql.NullString
+	SourceLocalID        sql.NullString
+}
+
 type SchedulerJob struct {
 	JobID     string
 	PluginID  string
@@ -85,6 +112,7 @@ type SchedulerJob struct {
 	LastRun   sql.NullString
 	CreatedAt string
 	UpdatedAt string
+	LogLabel  string
 }
 
 type SecretStore struct {
@@ -112,4 +140,18 @@ type Task struct {
 	ResultJson sql.NullString
 	ErrorJson  sql.NullString
 	CreatedAt  string
+}
+
+type WhitelistEntry struct {
+	ID        int64
+	EntryType string
+	TargetID  string
+	Reason    string
+	CreatedAt string
+}
+
+type WhitelistState struct {
+	SingletonID int64
+	Enabled     int64
+	UpdatedAt   string
 }

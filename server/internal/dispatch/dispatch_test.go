@@ -5,6 +5,7 @@ import (
 	"context"
 	"io"
 	"log/slog"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -233,6 +234,44 @@ func TestDispatchFanOutToMultiplePlugins(t *testing.T) {
 
 	if rt1.eventCount() != 1 || rt2.eventCount() != 1 {
 		t.Errorf("expected 1 event each, got plugin-a=%d, plugin-b=%d", rt1.eventCount(), rt2.eventCount())
+	}
+}
+
+func TestDispatchLogsSchedulerCompletionAfterRuntimeReturns(t *testing.T) {
+	t.Parallel()
+
+	logger, stream := newDispatchTestLogger()
+	d := New(logger, nil, nil, 1)
+	defer d.Close()
+
+	rt := &fakeDeliverer{delivery: runtime.Delivery{Result: map[string]any{"handled": true}}}
+	d.Register("weather", rt, []string{"scheduler.trigger"}, nil, 1)
+
+	result := d.DispatchToPlugin(context.Background(), "weather", runtime.Event{
+		EventID:        "scheduler-daily_report-1",
+		SourceProtocol: "scheduler",
+		SourceAdapter:  "scheduler.internal",
+		EventType:      "scheduler.trigger",
+		Timestamp:      time.Now().Unix(),
+		SchedulerLog: &runtime.SchedulerLogContext{
+			PluginName: "天气插件",
+			TaskName:   "daily_report",
+			LogLabel:   "每日早报",
+			StartedAt:  time.Now().Add(-150 * time.Millisecond),
+		},
+	})
+	if result.Outcome != OutcomeDelivered {
+		t.Fatalf("DispatchToPlugin outcome = %s, want delivered", result.Outcome)
+	}
+
+	summary := waitForDispatchLog(t, stream, func(summary logging.Summary) bool {
+		return strings.Contains(summary.Message, "【天气插件｜daily_report｜每日早报｜处理完成】耗时 ")
+	})
+	if summary.Source != "scheduler" {
+		t.Fatalf("completion log source = %q, want scheduler", summary.Source)
+	}
+	if summary.PluginID != "weather" {
+		t.Fatalf("completion log plugin_id = %q, want weather", summary.PluginID)
 	}
 }
 
@@ -1106,7 +1145,6 @@ func (p *recordingRuntimePublisher) Snapshots() []DispatcherWindowSnapshot {
 	copy(out, p.snapshots)
 	return out
 }
-
 
 // recordingDispatchMetrics captures dispatcher metric callbacks so the
 // outbound-instrumentation test can assert IncOutboundSend and

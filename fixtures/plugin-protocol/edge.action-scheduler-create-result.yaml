@@ -9,6 +9,7 @@ frames:
     action: scheduler.create
     data:
       task_id: daily_morning_report
+      log_label: 每日早报
       cron: "0 8 * * *"
       event_type: scheduler.trigger
       payload:

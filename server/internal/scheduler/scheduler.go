@@ -21,6 +21,7 @@ var ErrJobNotFound = errors.New("scheduler job not found")
 type Job struct {
 	JobID     string          `json:"job_id"`
 	PluginID  string          `json:"plugin_id"`
+	LogLabel  string          `json:"log_label,omitempty"`
 	CronExpr  string          `json:"cron_expr"`
 	Payload   json.RawMessage `json:"payload"`
 	Enabled   bool            `json:"enabled"`
@@ -127,6 +128,10 @@ func (e *Engine) Stop() {
 
 // Register creates a new scheduled job and persists it.
 func (e *Engine) Register(ctx context.Context, pluginID, cronExpr string, payload json.RawMessage) (Job, error) {
+	return e.RegisterWithLabel(ctx, pluginID, "", cronExpr, payload)
+}
+
+func (e *Engine) RegisterWithLabel(ctx context.Context, pluginID, logLabel, cronExpr string, payload json.RawMessage) (Job, error) {
 	now := e.now().UTC()
 
 	nextRun, err := nextCronTime(cronExpr, now, e.location)
@@ -146,6 +151,7 @@ func (e *Engine) Register(ctx context.Context, pluginID, cronExpr string, payloa
 	job := Job{
 		JobID:     jobID,
 		PluginID:  pluginID,
+		LogLabel:  logLabel,
 		CronExpr:  cronExpr,
 		Payload:   payload,
 		Enabled:   true,
@@ -162,12 +168,13 @@ func (e *Engine) Register(ctx context.Context, pluginID, cronExpr string, payloa
 	e.jobs[job.JobID] = job
 	e.mu.Unlock()
 
-	e.logger.Info("scheduler job registered",
+	e.logger.Info(DisplayMessage(pluginID, job.JobID, logLabel, "定时任务已注册")+"下次执行："+nextRun.UTC().Format(time.RFC3339),
 		"component", "scheduler",
 		"job_id", job.JobID,
 		"plugin_id", pluginID,
+		"log_label", logLabel,
 		"cron_expr", cronExpr,
-		"next_run", nextRun.Format(time.RFC3339),
+		"next_run", nextRun.UTC().Format(time.RFC3339),
 	)
 
 	return job, nil
@@ -177,6 +184,10 @@ func (e *Engine) Register(ctx context.Context, pluginID, cronExpr string, payloa
 // For plugin-created jobs the task_id is the persisted job_id, making the
 // operation idempotent across repeated scheduler.create calls.
 func (e *Engine) UpsertTask(ctx context.Context, pluginID, taskID, cronExpr string, payload json.RawMessage) (Job, error) {
+	return e.UpsertTaskWithLabel(ctx, pluginID, taskID, "", cronExpr, payload)
+}
+
+func (e *Engine) UpsertTaskWithLabel(ctx context.Context, pluginID, taskID, logLabel, cronExpr string, payload json.RawMessage) (Job, error) {
 	now := e.now().UTC()
 
 	nextRun, err := nextCronTime(cronExpr, now, e.location)
@@ -190,6 +201,7 @@ func (e *Engine) UpsertTask(ctx context.Context, pluginID, taskID, cronExpr stri
 	job := Job{
 		JobID:     taskID,
 		PluginID:  pluginID,
+		LogLabel:  logLabel,
 		CronExpr:  cronExpr,
 		Payload:   payload,
 		Enabled:   true,
@@ -215,14 +227,6 @@ func (e *Engine) UpsertTask(ctx context.Context, pluginID, taskID, cronExpr stri
 	e.mu.Lock()
 	e.jobs[job.JobID] = job
 	e.mu.Unlock()
-
-	e.logger.Info("scheduler task upserted",
-		"component", "scheduler",
-		"job_id", job.JobID,
-		"plugin_id", pluginID,
-		"cron_expr", cronExpr,
-		"next_run", nextRun.Format(time.RFC3339),
-	)
 
 	return job, nil
 }

@@ -91,6 +91,7 @@ export interface RayleaBotPluginRuntime {
     governanceCommandPolicyRead(requestId: string, options?: ActionOptions): Promise<Record<string, unknown>>;
     schedulerCreate(requestId: string, taskId: string, cron: string, options?: ActionOptions & {
         payload?: Record<string, unknown>;
+        logLabel?: string;
     }): Promise<Record<string, unknown>>;
     exposeWebhook(requestId: string, route: string, options?: ActionOptions & {
         methods?: string[];
@@ -230,6 +231,7 @@ export declare class PluginEventContext {
     governanceCommandPolicyRead(options?: ActionOptions): Promise<Record<string, unknown>>;
     schedulerCreate(taskId: string, cron: string, options?: ActionOptions & {
         payload?: Record<string, unknown>;
+        logLabel?: string;
     }): Promise<Record<string, unknown>>;
     exposeWebhook(route: string, options: ActionOptions & {
         methods?: string[];

@@ -86,7 +86,7 @@
 - `governance.whitelist.read`
 - `governance.whitelist.write`
 - `governance.command_policy.read`
-- `scheduler.create`
+- `scheduler.create`：`task_id` 是插件内幂等任务名；`cron` 使用五段 cron；`event_type` 固定为 `scheduler.trigger`；`payload` 会随触发事件进入插件；`log_label` 可选，用于管理日志中的中文任务说明。
 - `event.expose_webhook`
 - `render.image`
 - OneBot family actions:

@@ -12,6 +12,7 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/adapter"
 	"github.com/RayleaBot/RayleaBot/server/internal/outbound"
 	"github.com/RayleaBot/RayleaBot/server/internal/runtime"
+	"github.com/RayleaBot/RayleaBot/server/internal/scheduler"
 )
 
 // runtimeDeliverer is the interface a plugin runtime must satisfy for dispatch.
@@ -546,6 +547,9 @@ func (d *Dispatcher) worker(pluginID string, slot *pluginSlot) {
 
 				go func(laneKey string, item dispatchItem) {
 					if !slotIsDeliverable(slot) {
+						d.logSchedulerCompletion(pluginID, item.event, "处理失败", schedulerElapsed(item.event), map[string]any{
+							"error": "plugin runtime is not deliverable",
+						})
 						completions <- laneCompletion{laneKey: laneKey}
 						return
 					}
@@ -558,6 +562,9 @@ func (d *Dispatcher) worker(pluginID string, slot *pluginSlot) {
 							"lane_key", laneKey,
 							"err", err.Error(),
 						)
+						d.logSchedulerCompletion(pluginID, item.event, "处理失败", schedulerElapsed(item.event), map[string]any{
+							"error": err.Error(),
+						})
 						completions <- laneCompletion{laneKey: laneKey}
 						return
 					}
@@ -565,6 +572,7 @@ func (d *Dispatcher) worker(pluginID string, slot *pluginSlot) {
 					if delivery.Action != nil {
 						d.executeAction(item.ctx, pluginID, delivery.RequestID, item.event, *delivery.Action)
 					}
+					d.logSchedulerCompletion(pluginID, item.event, "处理完成", schedulerElapsed(item.event), nil)
 					completions <- laneCompletion{laneKey: laneKey}
 				}(laneKey, item)
 			}
@@ -607,6 +615,41 @@ func (d *Dispatcher) worker(pluginID string, slot *pluginSlot) {
 			}
 		}
 	}
+}
+
+func schedulerElapsed(event runtime.Event) time.Duration {
+	if event.SchedulerLog == nil {
+		return 0
+	}
+	return time.Since(event.SchedulerLog.StartedAt)
+}
+
+func (d *Dispatcher) logSchedulerCompletion(pluginID string, event runtime.Event, status string, duration time.Duration, extra map[string]any) {
+	if d == nil || d.logger == nil || event.SchedulerLog == nil {
+		return
+	}
+	ctx := event.SchedulerLog
+	attrs := []any{
+		"component", "scheduler",
+		"plugin_id", pluginID,
+		"plugin_name", ctx.PluginName,
+		"job_id", ctx.TaskName,
+		"log_label", ctx.LogLabel,
+		"duration_ms", duration.Milliseconds(),
+	}
+	for key, value := range extra {
+		attrs = append(attrs, key, value)
+	}
+	message := schedulerCompletionMessage(ctx.PluginName, ctx.TaskName, ctx.LogLabel, status, duration)
+	if status == "处理失败" {
+		d.logger.Warn(message, attrs...)
+		return
+	}
+	d.logger.Info(message, attrs...)
+}
+
+func schedulerCompletionMessage(pluginName, taskName, logLabel, status string, duration time.Duration) string {
+	return scheduler.DisplayMessage(pluginName, taskName, logLabel, status) + "耗时 " + scheduler.FormatDuration(duration)
 }
 
 func (d *Dispatcher) executeAction(ctx context.Context, pluginID string, requestID string, event runtime.Event, action runtime.Action) {
