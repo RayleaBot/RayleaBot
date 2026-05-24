@@ -91,7 +91,7 @@ func TestNormalizeSummarySanitizesOneBotMessageAndDetails(t *testing.T) {
 
 	summary := NormalizeSummary(Summary{
 		Source:  "bridge",
-		Message: "runtime bridge queued for dispatcher group message: 群星怒\u2066~喵",
+		Message: "1145141919: [终末地摸鱼群(553855023)][管理员]群星怒/没错，是魔法！(1358252269): 除了战猎这种抓不到加费就完全没法打的角色",
 		Level:   "info",
 		Details: map[string]any{
 			"plain_text": "hello\u202eworld",
@@ -101,7 +101,7 @@ func TestNormalizeSummarySanitizesOneBotMessageAndDetails(t *testing.T) {
 		},
 	})
 
-	if summary.Message != "runtime bridge queued for dispatcher group message: 群星怒~喵" {
+	if summary.Message != "1145141919: [终末地摸鱼群(553855023)][管理员]群星怒/没错，是魔法！(1358252269): 除了战猎这种抓不到加费就完全没法打的角色" {
 		t.Fatalf("unexpected sanitized summary message: %#v", summary.Message)
 	}
 	if got := summary.Details["plain_text"]; got != "helloworld" {

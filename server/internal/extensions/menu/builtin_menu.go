@@ -12,6 +12,7 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/command"
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/localaction"
+	"github.com/RayleaBot/RayleaBot/server/internal/logging"
 	"github.com/RayleaBot/RayleaBot/server/internal/outbound"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	"github.com/RayleaBot/RayleaBot/server/internal/render"
@@ -82,15 +83,16 @@ func (s *Service) Handle(ctx context.Context, event adapter.NormalizedEvent) boo
 	if len(payload.Data) == 0 {
 		return true
 	}
+	s.logBuiltinMenuTrigger(ctx, event, request)
 
 	result, err := s.renderBuiltinMenu(ctx, payload)
 	if err != nil || strings.TrimSpace(result.ImagePath) == "" {
 		s.logBuiltinMenuError(err)
-		s.sendBuiltinMenuText(ctx, event, builtinMenuFallback)
+		s.sendBuiltinMenuText(ctx, event, request.Command, builtinMenuFallback)
 		return true
 	}
 
-	s.sendBuiltinMenuImage(ctx, event, result.ImagePath)
+	s.sendBuiltinMenuImage(ctx, event, request.Command, result.ImagePath)
 	return true
 }
 
@@ -784,23 +786,23 @@ func (s *Service) renderBuiltinMenu(ctx context.Context, payload builtinMenuRend
 	})
 }
 
-func (s *Service) sendBuiltinMenuImage(ctx context.Context, event adapter.NormalizedEvent, imagePath string) {
+func (s *Service) sendBuiltinMenuImage(ctx context.Context, event adapter.NormalizedEvent, commandName string, imagePath string) {
 	segments := []adapter.OutboundMessageSegment{{
 		Type: "image",
 		Data: map[string]any{"file": imagePath},
 	}}
-	s.sendBuiltinMenuSegments(ctx, event, segments)
+	s.sendBuiltinMenuSegments(ctx, event, commandName, segments)
 }
 
-func (s *Service) sendBuiltinMenuText(ctx context.Context, event adapter.NormalizedEvent, text string) {
+func (s *Service) sendBuiltinMenuText(ctx context.Context, event adapter.NormalizedEvent, commandName string, text string) {
 	segments := []adapter.OutboundMessageSegment{{
 		Type: "text",
 		Data: map[string]any{"text": text},
 	}}
-	s.sendBuiltinMenuSegments(ctx, event, segments)
+	s.sendBuiltinMenuSegments(ctx, event, commandName, segments)
 }
 
-func (s *Service) sendBuiltinMenuSegments(ctx context.Context, event adapter.NormalizedEvent, segments []adapter.OutboundMessageSegment) {
+func (s *Service) sendBuiltinMenuSegments(ctx context.Context, event adapter.NormalizedEvent, commandName string, segments []adapter.OutboundMessageSegment) {
 	if s == nil || s.sender == nil {
 		return
 	}
@@ -815,31 +817,68 @@ func (s *Service) sendBuiltinMenuSegments(ctx context.Context, event adapter.Nor
 	if targetType != "group" && targetType != "private" {
 		return
 	}
+	label := s.builtinMenuTargetLabel(ctx, event)
+	commandName = strings.TrimSpace(commandName)
+	attempt := outbound.SendAttempt{
+		ActionKind: "message.reply",
+		TargetType: targetType,
+		TargetID:   targetID,
+		Segments:   segments,
+	}
+	if targetType != "group" || strings.TrimSpace(event.MessageID) == "" {
+		attempt.ActionKind = "message.send"
+	}
+	logOutcome := func(result outbound.SendResult, err error) {
+		if s.logger == nil {
+			return
+		}
+		outbound.LogSendOutcome(s.logger, outbound.SendLogContext{
+			TargetLabel: label,
+			CommandName: commandName,
+		}, attempt, result, err)
+	}
 	if err := s.waitLimit(ctx, outbound.MessageLimitRequest{
 		TargetType: targetType,
 		TargetID:   targetID,
 	}); err != nil {
 		s.logBuiltinMenuError(err)
+		logOutcome(outbound.SendResult{
+			DeliveryKind: strings.TrimSpace(attempt.ActionKind),
+			TargetType:   targetType,
+			TargetID:     targetID,
+		}, err)
 		return
 	}
 	sendCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 	if targetType == "group" && strings.TrimSpace(event.MessageID) != "" {
-		_, err := s.sender.SendReply(sendCtx, adapter.OutboundMessageReply{
+		result, err := s.sender.SendReply(sendCtx, adapter.OutboundMessageReply{
 			TargetType:       targetType,
 			TargetID:         targetID,
 			ReplyToMessageID: strings.TrimSpace(event.MessageID),
 			Segments:         segments,
 		})
 		s.logBuiltinMenuError(err)
+		logOutcome(outbound.SendResult{
+			MessageID:    result.MessageID,
+			DeliveryKind: "message.reply",
+			TargetType:   targetType,
+			TargetID:     targetID,
+		}, err)
 		return
 	}
-	_, err := s.sender.SendMessage(sendCtx, adapter.OutboundMessageSend{
+	result, err := s.sender.SendMessage(sendCtx, adapter.OutboundMessageSend{
 		TargetType: targetType,
 		TargetID:   targetID,
 		Segments:   segments,
 	})
 	s.logBuiltinMenuError(err)
+	logOutcome(outbound.SendResult{
+		MessageID:    result.MessageID,
+		DeliveryKind: "message.send",
+		TargetType:   targetType,
+		TargetID:     targetID,
+	}, err)
 }
 
 func (s *Service) waitLimit(ctx context.Context, request outbound.MessageLimitRequest) error {
@@ -854,6 +893,52 @@ func (s *Service) logBuiltinMenuError(err error) {
 		return
 	}
 	s.logger.Warn("builtin menu response failed", "component", "app", "error", err)
+}
+
+func (s *Service) logBuiltinMenuTrigger(_ context.Context, event adapter.NormalizedEvent, request Request) {
+	if s == nil || s.logger == nil {
+		return
+	}
+	summary, ok := logging.OneBotInboundMessageSummary(logging.OneBotInboundMessageSummaryInput{
+		SourceProtocol:   event.SourceProtocol,
+		BotID:            event.BotID,
+		EventType:        event.EventType,
+		ConversationType: event.ConversationType,
+		ConversationID:   event.ConversationID,
+		SenderID:         event.SenderID,
+		TargetName:       event.TargetName,
+		ActorNickname:    event.ActorNickname,
+		PlainText:        event.PlainText,
+		PayloadFields:    event.PayloadFields,
+	})
+	if !ok {
+		summary = "builtin menu command received"
+	}
+	fields := []any{
+		"component", "bridge",
+		"protocol", logging.ProtocolOneBot11,
+		"event_id", strings.TrimSpace(event.EventID),
+		"command_name", strings.TrimSpace(request.Command),
+		"target_type", strings.TrimSpace(event.ConversationType),
+		"target_id", strings.TrimSpace(event.ConversationID),
+		"sender_id", strings.TrimSpace(event.SenderID),
+		"plain_text", strings.TrimSpace(event.PlainText),
+		"builtin_menu", true,
+	}
+	s.logger.Info(summary, fields...)
+}
+
+func (s *Service) builtinMenuTargetLabel(ctx context.Context, event adapter.NormalizedEvent) string {
+	targetType := strings.TrimSpace(event.ConversationType)
+	targetID := strings.TrimSpace(event.ConversationID)
+	targetName := strings.TrimSpace(event.TargetName)
+	actorID := strings.TrimSpace(event.SenderID)
+	actorNickname := strings.TrimSpace(event.ActorNickname)
+	var resolver outbound.TargetDisplayResolver
+	if candidate, ok := any(s.sender).(outbound.TargetDisplayResolver); ok {
+		resolver = candidate
+	}
+	return outbound.BuildTargetLabel(ctx, targetType, targetID, targetName, actorID, actorNickname, resolver)
 }
 
 func stringValueFromMap(item map[string]any, key string) string {

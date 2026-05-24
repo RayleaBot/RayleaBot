@@ -955,6 +955,7 @@ func TestApplyChatPolicyUsesCanonicalPermissionAndSuperAdmin(t *testing.T) {
 func TestHandleAdapterEventSendsBuiltinMenuImageWithoutPluginDispatch(t *testing.T) {
 	t.Parallel()
 
+	logger, stream := newAppTestLogger()
 	sender := &recordingOutboundSender{}
 	dispatcher := &recordingDispatcherClient{}
 	runner := &captureRenderRunner{}
@@ -970,7 +971,7 @@ func TestHandleAdapterEventSendsBuiltinMenuImageWithoutPluginDispatch(t *testing
 			Commands: []string{"help", "帮助"},
 		}},
 		Permission: config.PermissionConfig{DefaultLevel: "everyone"},
-	}, nil)
+	}, logger)
 	application.renderer = newRenderServiceForRepo(t, repoRoot, renderRoot, runner)
 	application.setTestEventIngress(plugins.NewCatalog([]plugins.Snapshot{{
 		PluginID:          "weather",
@@ -991,6 +992,7 @@ func TestHandleAdapterEventSendsBuiltinMenuImageWithoutPluginDispatch(t *testing
 	application.handleAdapterEvent(context.Background(), adapter.NormalizedEvent{
 		Kind:             adapter.EventKindMessage,
 		EventID:          "evt-builtin-menu",
+		BotID:            "1145141919",
 		SourceProtocol:   "onebot11",
 		SourceAdapter:    "adapter.onebot11",
 		EventType:        "message.group",
@@ -1021,6 +1023,30 @@ func TestHandleAdapterEventSendsBuiltinMenuImageWithoutPluginDispatch(t *testing
 	}
 	if dispatcher.deliverCount != 0 {
 		t.Fatalf("builtin menu dispatched to plugins %d times", dispatcher.deliverCount)
+	}
+	summary := waitForAppLog(t, stream, func(summary logging.Summary) bool {
+		return summary.Message == "1145141919: [测试群(20001)]群名片/普通昵称(10002): /help"
+	})
+	if summary.Level != "info" || summary.Source != "bridge" || summary.Protocol != logging.ProtocolOneBot11 {
+		t.Fatalf("unexpected builtin menu trigger log: %+v", summary)
+	}
+	if summary.Details["event_id"] != "evt-builtin-menu" || summary.Details["command_name"] != "help" {
+		t.Fatalf("unexpected builtin menu trigger details: %#v", summary.Details)
+	}
+	if summary.Details["builtin_menu"] != true || summary.Details["plain_text"] != "/help" {
+		t.Fatalf("unexpected builtin menu marker details: %#v", summary.Details)
+	}
+	summary = waitForAppLog(t, stream, func(summary logging.Summary) bool {
+		return summary.Source == "adapter.onebot11" && summary.Details["command_name"] == "help"
+	})
+	if summary.Level != "info" {
+		t.Fatalf("unexpected builtin menu response level: %+v", summary)
+	}
+	if summary.Details["action_kind"] != "message.reply" || summary.Details["delivery_kind"] != "message.reply" {
+		t.Fatalf("unexpected builtin menu response action details: %#v", summary.Details)
+	}
+	if summary.Details["plain_text"] != "[图片]" || summary.Details["message_id"] != "msg-2" {
+		t.Fatalf("unexpected builtin menu response message details: %#v", summary.Details)
 	}
 	html := runner.lastHTML()
 	for _, want := range []string{"群名片", "ID 10002", "测试群", "超级管理员", "nk=10002"} {

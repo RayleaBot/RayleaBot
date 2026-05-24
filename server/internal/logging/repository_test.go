@@ -478,7 +478,7 @@ func TestSQLiteRepositorySanitizesStoredOneBotTextOnRead(t *testing.T) {
 		"2026-03-20T10:00:02Z",
 		"info",
 		"bridge",
-		"runtime bridge queued for dispatcher group message: 群星怒\u2066~喵",
+		"1145141919: [终末地摸鱼群(553855023)][管理员]群星怒/没错，是魔法！(1358252269): 除了战猎这种抓不到加费就完全没法打的角色",
 		"",
 		"",
 		`{
@@ -493,7 +493,7 @@ func TestSQLiteRepositorySanitizesStoredOneBotTextOnRead(t *testing.T) {
 	if err != nil {
 		t.Fatalf("get detail summary: %v", err)
 	}
-	if item.Message != "runtime bridge queued for dispatcher group message: 群星怒~喵" {
+	if item.Message != "1145141919: [终末地摸鱼群(553855023)][管理员]群星怒/没错，是魔法！(1358252269): 除了战猎这种抓不到加费就完全没法打的角色" {
 		t.Fatalf("unexpected sanitized message: %#v", item.Message)
 	}
 	if got := item.Details["plain_text"]; got != "helloworld" {

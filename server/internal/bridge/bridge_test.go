@@ -5,6 +5,7 @@ import (
 	"io"
 	"log/slog"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 
@@ -480,6 +481,80 @@ func TestBridgeEventSummaryFormatsPrivateMessageContext(t *testing.T) {
 
 	if summary != "1145141919: 乔温迪乔斯达(3599026669): 你好" {
 		t.Fatalf("unexpected private summary: %#v", summary)
+	}
+}
+
+func TestBridgeEventSummaryFormatsFallbackVariants(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		name  string
+		event adapter.NormalizedEvent
+		want  string
+	}{
+		{
+			name: "group missing group name title and card",
+			event: adapter.NormalizedEvent{
+				BotID:          "1145141919",
+				SourceProtocol: "onebot11",
+				EventType:      "message.group",
+				ConversationID: "553855023",
+				SenderID:       "1358252269",
+				PlainText:      "删了",
+				PayloadFields: map[string]any{
+					"onebot": map[string]any{
+						"sender": map[string]any{
+							"nickname": "bronya-icu",
+						},
+					},
+				},
+			},
+			want: "1145141919: [553855023]bronya-icu(1358252269): 删了",
+		},
+		{
+			name: "private missing nickname",
+			event: adapter.NormalizedEvent{
+				BotID:          "1145141919",
+				SourceProtocol: "onebot11",
+				EventType:      "message.private",
+				SenderID:       "3599026669",
+				PlainText:      "你好",
+			},
+			want: "1145141919: 3599026669(3599026669): 你好",
+		},
+		{
+			name: "message text truncated",
+			event: adapter.NormalizedEvent{
+				BotID:          "1145141919",
+				SourceProtocol: "onebot11",
+				EventType:      "message.private",
+				SenderID:       "3599026669",
+				PlainText:      strings.Repeat("终末地", 100),
+			},
+			want: "1145141919: 3599026669(3599026669): " + strings.Repeat("终末地", 53) + "终...",
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			got, ok := logging.OneBotInboundMessageSummary(logging.OneBotInboundMessageSummaryInput{
+				SourceProtocol: tc.event.SourceProtocol,
+				BotID:          tc.event.BotID,
+				EventType:      tc.event.EventType,
+				ConversationID: tc.event.ConversationID,
+				SenderID:       tc.event.SenderID,
+				PlainText:      tc.event.PlainText,
+				PayloadFields:  tc.event.PayloadFields,
+			})
+			if !ok {
+				t.Fatalf("summary should be formatted: %#v", tc.event)
+			}
+			if got != tc.want {
+				t.Fatalf("unexpected summary: got %q want %q", got, tc.want)
+			}
+		})
 	}
 }
 
