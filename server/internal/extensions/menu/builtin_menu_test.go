@@ -155,7 +155,7 @@ func TestBuiltinPluginMenuDataDoesNotTreatHelpTitleAsCommand(t *testing.T) {
 					Permission:  "everyone",
 				}},
 			}},
-		}),
+		}, nil, config.Config{}),
 	}, config.Config{
 		Command: &config.CommandConfig{Prefixes: []string{"/"}},
 		Builtin: config.BuiltinConfig{Menu: config.BuiltinMenuConfig{
@@ -223,7 +223,7 @@ func TestBuiltinPluginMenuDataOmitsCommandsCoveredByHelp(t *testing.T) {
 					Permission:  "super_admin",
 				}},
 			}},
-		}),
+		}, nil, config.Config{}),
 	}, config.Config{
 		Command: &config.CommandConfig{Prefixes: []string{"/"}},
 		Builtin: config.BuiltinConfig{Menu: config.BuiltinMenuConfig{
@@ -255,5 +255,89 @@ func TestBuiltinPluginMenuDataOmitsCommandsCoveredByHelp(t *testing.T) {
 	items, _ := groups[1]["items"].([]map[string]any)
 	if got := items[0]["usage_args"]; got != "[当前|全部]" {
 		t.Fatalf("usage_args = %#v, want [当前|全部]", got)
+	}
+}
+
+func TestVisibleBuiltinHelpInheritsCommandPermission(t *testing.T) {
+	t.Parallel()
+
+	cfg := config.Config{Builtin: config.BuiltinConfig{Menu: config.BuiltinMenuConfig{Prefixes: []string{"#"}}}}
+	commands := []plugins.CommandView{{
+		Name:        "订阅状态",
+		Description: "查看订阅状态",
+		Permission:  "everyone",
+	}, {
+		Name:        "立即检查订阅",
+		Description: "立即检查当前会话或全部订阅",
+		Permission:  "super_admin",
+	}}
+	help := &plugins.HelpView{
+		Groups: []plugins.HelpGroupView{{
+			Title: "订阅操作",
+			Items: []plugins.HelpItemView{{
+				Title:       "订阅状态",
+				Description: "查看启用状态。",
+				Command:     "订阅状态",
+				Usage:       "/订阅状态",
+			}, {
+				Title:       "立即检查订阅",
+				Description: "立即检查当前会话或全部订阅。",
+				Command:     "立即检查订阅",
+				Usage:       "/立即检查订阅 [当前|全部]",
+			}, {
+				Title:       "动态有效时间",
+				Description: "动态只在设置的时间窗口内推送。",
+				Permission:  "super_admin",
+			}},
+		}},
+	}
+
+	memberEvent := runtimeEventFromAdapter(adapter.NormalizedEvent{ActorRole: "member"})
+	memberCommands := visibleBuiltinCommands(commands, cfg, memberEvent)
+	memberHelp := visibleBuiltinHelp(help, commands, memberCommands, cfg, memberEvent)
+	memberMenu := buildBuiltinHelp(memberHelp, commands, cfg)
+	memberGroups, ok := memberMenu["groups"].([]map[string]any)
+	if !ok || len(memberGroups) != 1 {
+		t.Fatalf("unexpected member help groups: %#v", memberMenu["groups"])
+	}
+	memberItems, ok := memberGroups[0]["items"].([]map[string]any)
+	if !ok || len(memberItems) != 1 {
+		t.Fatalf("unexpected member help items: %#v", memberGroups[0]["items"])
+	}
+	if got := memberItems[0]["name"]; got != "订阅状态" {
+		t.Fatalf("member help item name = %#v, want 订阅状态", got)
+	}
+	if got := memberItems[0]["permission"]; got != "everyone" {
+		t.Fatalf("member command permission = %#v, want everyone", got)
+	}
+	if got := memberItems[0]["permission_label"]; got != "所有人" {
+		t.Fatalf("member command permission_label = %#v, want 所有人", got)
+	}
+
+	superEvent := runtimeEventFromAdapter(adapter.NormalizedEvent{
+		SenderID:  "10001",
+		ActorRole: "member",
+	})
+	superCfg := cfg
+	superCfg.Admin.SuperAdmins = []string{"10001"}
+	superCommands := visibleBuiltinCommands(commands, superCfg, superEvent)
+	superHelp := visibleBuiltinHelp(help, commands, superCommands, superCfg, superEvent)
+	superMenu := buildBuiltinHelp(superHelp, commands, superCfg)
+	superGroups, ok := superMenu["groups"].([]map[string]any)
+	if !ok || len(superGroups) != 1 {
+		t.Fatalf("unexpected super admin help groups: %#v", superMenu["groups"])
+	}
+	superItems, ok := superGroups[0]["items"].([]map[string]any)
+	if !ok || len(superItems) != 3 {
+		t.Fatalf("unexpected super admin help items: %#v", superGroups[0]["items"])
+	}
+	if got := superItems[1]["permission"]; got != "super_admin" {
+		t.Fatalf("super admin command permission = %#v, want super_admin", got)
+	}
+	if got := superItems[1]["permission_label"]; got != "超级管理员" {
+		t.Fatalf("super admin command permission_label = %#v, want 超级管理员", got)
+	}
+	if got := superItems[2]["permission"]; got != "super_admin" {
+		t.Fatalf("explicit help permission = %#v, want super_admin", got)
 	}
 }

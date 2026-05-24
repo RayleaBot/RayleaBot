@@ -284,7 +284,7 @@ func (s *Service) visibleBuiltinMenuItems(event adapter.NormalizedEvent) []map[s
 			"commands":       buildBuiltinCommands(commands, cfg),
 		}
 		if help != nil {
-			item["help"] = buildBuiltinHelp(help)
+			item["help"] = buildBuiltinHelp(help, view.Commands, cfg)
 		}
 		items = append(items, item)
 	}
@@ -357,6 +357,7 @@ func visibleBuiltinHelp(help *plugins.HelpView, allCommands []plugins.CommandVie
 	}
 	visibleTokens := builtinMenuCommandTokenSet(visibleCommands)
 	allTokens := builtinMenuCommandTokenSet(allCommands)
+	commandPermissions := builtinMenuCommandPermissionSet(allCommands, cfg)
 	callerRank := builtinMenuCallerPermissionRank(cfg, event)
 	filtered := &plugins.HelpView{
 		Title:   help.Title,
@@ -373,10 +374,8 @@ func visibleBuiltinHelp(help *plugins.HelpView, allCommands []plugins.CommandVie
 				if _, commandVisible := visibleTokens[commandToken]; !commandVisible {
 					continue
 				}
-				filteredGroup.Items = append(filteredGroup.Items, item)
-				continue
 			}
-			level := builtinMenuEffectiveHelpPermission(item.Permission)
+			level := builtinMenuEffectiveHelpItemPermission(item, commandPermissions)
 			if callerRank >= builtinMenuPermissionRank(level) {
 				filteredGroup.Items = append(filteredGroup.Items, item)
 			}
@@ -413,7 +412,7 @@ func buildBuiltinCommands(commands []plugins.CommandView, cfg config.Config) []m
 	return items
 }
 
-func buildBuiltinHelp(help *plugins.HelpView) map[string]any {
+func buildBuiltinHelp(help *plugins.HelpView, commands []plugins.CommandView, cfg config.Config) map[string]any {
 	result := map[string]any{}
 	if help.Title != "" {
 		result["title"] = help.Title
@@ -421,17 +420,19 @@ func buildBuiltinHelp(help *plugins.HelpView) map[string]any {
 	if help.Summary != "" {
 		result["summary"] = help.Summary
 	}
+	commandPermissions := builtinMenuCommandPermissionSet(commands, cfg)
 	groups := make([]map[string]any, 0, len(help.Groups))
 	for _, group := range help.Groups {
 		items := make([]map[string]any, 0, len(group.Items))
 		for _, item := range group.Items {
 			commandName := strings.TrimSpace(item.Command)
+			permission := builtinMenuEffectiveHelpItemPermission(item, commandPermissions)
 			entry := map[string]any{
 				"name":        firstBuiltinMenuText(commandName, item.Title),
 				"title":       item.Title,
 				"description": firstBuiltinMenuText(item.Description, item.Title, item.Command),
 				"usage":       item.Usage,
-				"permission":  builtinMenuEffectiveHelpPermission(item.Permission),
+				"permission":  permission,
 			}
 			if commandName != "" {
 				entry["command_name"] = commandName
@@ -633,6 +634,27 @@ func addBuiltinMenuCommandToken(tokens map[string]struct{}, value string) {
 	tokens[value] = struct{}{}
 }
 
+func builtinMenuCommandPermissionSet(commands []plugins.CommandView, cfg config.Config) map[string]string {
+	permissions := make(map[string]string)
+	for _, command := range commands {
+		level := builtinMenuEffectiveCommandPermission(command.Permission, cfg)
+		setBuiltinMenuCommandPermission(permissions, command.Name, level)
+		setBuiltinMenuCommandPermission(permissions, command.DeclarationID, level)
+		for _, alias := range command.Aliases {
+			setBuiltinMenuCommandPermission(permissions, alias, level)
+		}
+	}
+	return permissions
+}
+
+func setBuiltinMenuCommandPermission(permissions map[string]string, value string, level string) {
+	value = normalizeMenuLookup(value)
+	if value == "" {
+		return
+	}
+	permissions[value] = level
+}
+
 func builtinCommandUsageArgs(commandName string, usage string) string {
 	commandName = strings.TrimSpace(commandName)
 	usage = strings.TrimSpace(usage)
@@ -694,6 +716,16 @@ func builtinMenuEffectiveHelpPermission(permissionLevel string) string {
 	default:
 		return "everyone"
 	}
+}
+
+func builtinMenuEffectiveHelpItemPermission(item plugins.HelpItemView, commandPermissions map[string]string) string {
+	if strings.TrimSpace(item.Permission) != "" {
+		return builtinMenuEffectiveHelpPermission(item.Permission)
+	}
+	if level, ok := commandPermissions[normalizeMenuLookup(item.Command)]; ok {
+		return level
+	}
+	return builtinMenuEffectiveHelpPermission(item.Permission)
 }
 
 func builtinMenuDefaultPermission(cfg config.Config) string {
