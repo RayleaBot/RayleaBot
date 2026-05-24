@@ -409,6 +409,16 @@ class SubscriptionHubTests(unittest.TestCase):
         self.assertEqual(settings["subscriptions"], [])
         self.assertIn("测试 UP（UID 123456）", result["message"])
 
+    def test_remove_bilibili_subscription_missing_uid_uses_local_subscriptions(self):
+        settings = merge_settings({}, {"subscriptions": []})
+        ctx = FakeContext(args=["123456"], http_responses=[self.user_info_response(code=-412)])
+
+        result = remove_bilibili_subscription(settings, ctx)
+
+        self.assertFalse(result["ok"])
+        self.assertEqual(result["message"], "当前会话没有订阅 Bilibili 123456。")
+        self.assertEqual(ctx.http_requests, [])
+
     def test_format_subscription_list_can_filter_current_target_and_platform(self):
         settings = merge_settings({}, {
             "subscriptions": [

@@ -696,6 +696,7 @@ def resolve_bilibili_user_for_removal(settings, ctx, query, target):
                 "uid": text,
                 "name": str(subscription.get("name") or text).strip() or text,
             }
+        return {"ok": False, "message": f"当前会话没有订阅 Bilibili {text}。"}
     else:
         subscription = find_bilibili_subscription_by_name(settings, text, target)
         if subscription:
