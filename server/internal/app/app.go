@@ -268,6 +268,7 @@ func New(options Options) (*App, error) {
 		grants:           grantView,
 		runtimes:         runtimeRegistry,
 		dispatcher:       pluginState.Dispatcher,
+		scheduler:        platformState.Scheduler,
 		pluginConfig:     pluginState.pluginConfig,
 		adapter:          pluginState.Adapter,
 		webhooks:         pluginState.webhooks,

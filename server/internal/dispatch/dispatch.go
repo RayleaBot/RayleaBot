@@ -547,6 +547,7 @@ func (d *Dispatcher) worker(pluginID string, slot *pluginSlot) {
 
 				go func(laneKey string, item dispatchItem) {
 					if !slotIsDeliverable(slot) {
+						d.recordSchedulerCompletion(item.ctx, item.event, scheduler.RunOutcomeFailed, schedulerElapsed(item.event), "platform.invalid_request", "plugin runtime is not deliverable")
 						d.logSchedulerCompletion(pluginID, item.event, "处理失败", schedulerElapsed(item.event), map[string]any{
 							"error": "plugin runtime is not deliverable",
 						})
@@ -555,6 +556,8 @@ func (d *Dispatcher) worker(pluginID string, slot *pluginSlot) {
 					}
 					delivery, err := slot.runtime.DeliverEvent(item.ctx, item.event)
 					if err != nil {
+						duration := schedulerElapsed(item.event)
+						outcome, code, message := schedulerFailureFields(err, delivery)
 						d.logger.Warn("dispatch delivery failed",
 							"component", "dispatch",
 							"plugin_id", pluginID,
@@ -562,8 +565,10 @@ func (d *Dispatcher) worker(pluginID string, slot *pluginSlot) {
 							"lane_key", laneKey,
 							"err", err.Error(),
 						)
-						d.logSchedulerCompletion(pluginID, item.event, "处理失败", schedulerElapsed(item.event), map[string]any{
-							"error": err.Error(),
+						d.recordSchedulerCompletion(item.ctx, item.event, outcome, duration, code, message)
+						d.logSchedulerCompletion(pluginID, item.event, "处理失败", duration, map[string]any{
+							"error":      err.Error(),
+							"error_code": code,
 						})
 						completions <- laneCompletion{laneKey: laneKey}
 						return
@@ -572,7 +577,7 @@ func (d *Dispatcher) worker(pluginID string, slot *pluginSlot) {
 					if delivery.Action != nil {
 						d.executeAction(item.ctx, pluginID, delivery.RequestID, item.event, *delivery.Action)
 					}
-					d.logSchedulerCompletion(pluginID, item.event, "处理完成", schedulerElapsed(item.event), nil)
+					d.recordSchedulerCompletion(item.ctx, item.event, scheduler.RunOutcomeSuccess, schedulerElapsed(item.event), "", "")
 					completions <- laneCompletion{laneKey: laneKey}
 				}(laneKey, item)
 			}
@@ -646,6 +651,56 @@ func (d *Dispatcher) logSchedulerCompletion(pluginID string, event runtime.Event
 		return
 	}
 	d.logger.Info(message, attrs...)
+}
+
+func (d *Dispatcher) recordSchedulerCompletion(ctx context.Context, event runtime.Event, outcome scheduler.RunOutcome, duration time.Duration, errorCode, errorText string) {
+	if event.SchedulerLog == nil || event.SchedulerLog.Recorder == nil {
+		return
+	}
+	jobID := strings.TrimSpace(event.SchedulerLog.JobID)
+	if jobID == "" {
+		jobID = strings.TrimSpace(event.SchedulerLog.TaskName)
+	}
+	if jobID == "" {
+		return
+	}
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	if err := event.SchedulerLog.Recorder.RecordSchedulerRunResult(ctx, runtime.SchedulerRunResult{
+		JobID:      jobID,
+		Outcome:    string(outcome),
+		Duration:   duration,
+		ErrorCode:  errorCode,
+		ErrorText:  errorText,
+		OccurredAt: time.Now(),
+	}); err != nil && d.logger != nil {
+		d.logger.Warn(
+			"scheduler run state update failed",
+			"component", "scheduler",
+			"job_id", jobID,
+			"err", err.Error(),
+		)
+	}
+}
+
+func schedulerFailureFields(err error, delivery runtime.Delivery) (scheduler.RunOutcome, string, string) {
+	code := strings.TrimSpace(delivery.ErrorCode)
+	message := strings.TrimSpace(delivery.ErrorMessage)
+	if code == "" {
+		var runtimeErr *runtime.Error
+		if errors.As(err, &runtimeErr) {
+			code = runtimeErr.Code
+			message = runtimeErr.Message
+		}
+	}
+	if message == "" && err != nil {
+		message = err.Error()
+	}
+	if strings.Contains(strings.ToLower(code), "timeout") {
+		return scheduler.RunOutcomeTimeout, code, message
+	}
+	return scheduler.RunOutcomeFailed, code, message
 }
 
 func schedulerCompletionMessage(pluginName, taskName, logLabel, status string, duration time.Duration) string {

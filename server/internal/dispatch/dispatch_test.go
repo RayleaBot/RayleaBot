@@ -26,6 +26,30 @@ type fakeDeliverer struct {
 	state    runtime.State
 }
 
+type recordingSchedulerRunRecorder struct {
+	mu      sync.Mutex
+	entries []runtime.SchedulerRunResult
+}
+
+func (r *recordingSchedulerRunRecorder) RecordSchedulerRunResult(_ context.Context, result runtime.SchedulerRunResult) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.entries = append(r.entries, result)
+	return nil
+}
+
+func (r *recordingSchedulerRunRecorder) count() int {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return len(r.entries)
+}
+
+func (r *recordingSchedulerRunRecorder) results() []runtime.SchedulerRunResult {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return append([]runtime.SchedulerRunResult(nil), r.entries...)
+}
+
 func (f *fakeDeliverer) Snapshot() runtime.Snapshot {
 	state := f.state
 	if state == "" {
@@ -213,6 +237,16 @@ func waitForDispatchLog(t *testing.T, stream *logging.Stream, match func(logging
 	return logging.Summary{}
 }
 
+func findDispatchLog(stream *logging.Stream, match func(logging.Summary) bool) *logging.Summary {
+	for _, summary := range stream.Snapshot() {
+		if match(summary) {
+			matched := summary
+			return &matched
+		}
+	}
+	return nil
+}
+
 func TestDispatchFanOutToMultiplePlugins(t *testing.T) {
 	sender := &fakeSender{}
 	d := New(slog.Default(), sender, nil, 16)
@@ -237,12 +271,13 @@ func TestDispatchFanOutToMultiplePlugins(t *testing.T) {
 	}
 }
 
-func TestDispatchLogsSchedulerCompletionAfterRuntimeReturns(t *testing.T) {
+func TestDispatchRecordsSchedulerSuccessWithoutCompletionLog(t *testing.T) {
 	t.Parallel()
 
 	logger, stream := newDispatchTestLogger()
 	d := New(logger, nil, nil, 1)
 	defer d.Close()
+	recorder := &recordingSchedulerRunRecorder{}
 
 	rt := &fakeDeliverer{delivery: runtime.Delivery{Result: map[string]any{"handled": true}}}
 	d.Register("weather", rt, []string{"scheduler.trigger"}, nil, 1)
@@ -254,10 +289,56 @@ func TestDispatchLogsSchedulerCompletionAfterRuntimeReturns(t *testing.T) {
 		EventType:      "scheduler.trigger",
 		Timestamp:      time.Now().Unix(),
 		SchedulerLog: &runtime.SchedulerLogContext{
+			JobID:      "daily_report",
 			PluginName: "天气插件",
 			TaskName:   "daily_report",
 			LogLabel:   "每日早报",
 			StartedAt:  time.Now().Add(-150 * time.Millisecond),
+			Recorder:   recorder,
+		},
+	})
+	if result.Outcome != OutcomeDelivered {
+		t.Fatalf("DispatchToPlugin outcome = %s, want delivered", result.Outcome)
+	}
+
+	waitForCondition(t, func() bool {
+		return recorder.count() == 1
+	}, "scheduler success should be recorded")
+	got := recorder.results()[0]
+	if got.JobID != "daily_report" || got.Outcome != "success" {
+		t.Fatalf("unexpected scheduler run result: %#v", got)
+	}
+	if summary := findDispatchLog(stream, func(summary logging.Summary) bool {
+		return strings.Contains(summary.Message, "处理完成")
+	}); summary != nil {
+		t.Fatalf("success completion should not be logged: %#v", summary)
+	}
+}
+
+func TestDispatchLogsAndRecordsSchedulerFailure(t *testing.T) {
+	t.Parallel()
+
+	logger, stream := newDispatchTestLogger()
+	d := New(logger, nil, nil, 1)
+	defer d.Close()
+	recorder := &recordingSchedulerRunRecorder{}
+
+	rt := &fakeDeliverer{err: &runtime.Error{Code: "plugin.event_timeout", Message: "plugin event response timed out"}}
+	d.Register("weather", rt, []string{"scheduler.trigger"}, nil, 1)
+
+	result := d.DispatchToPlugin(context.Background(), "weather", runtime.Event{
+		EventID:        "scheduler-daily_report-2",
+		SourceProtocol: "scheduler",
+		SourceAdapter:  "scheduler.internal",
+		EventType:      "scheduler.trigger",
+		Timestamp:      time.Now().Unix(),
+		SchedulerLog: &runtime.SchedulerLogContext{
+			JobID:      "daily_report",
+			PluginName: "天气插件",
+			TaskName:   "daily_report",
+			LogLabel:   "每日早报",
+			StartedAt:  time.Now().Add(-150 * time.Millisecond),
+			Recorder:   recorder,
 		},
 	})
 	if result.Outcome != OutcomeDelivered {
@@ -265,13 +346,17 @@ func TestDispatchLogsSchedulerCompletionAfterRuntimeReturns(t *testing.T) {
 	}
 
 	summary := waitForDispatchLog(t, stream, func(summary logging.Summary) bool {
-		return strings.Contains(summary.Message, "【天气插件｜daily_report｜每日早报｜处理完成】耗时 ")
+		return strings.Contains(summary.Message, "【天气插件｜daily_report｜每日早报｜处理失败】耗时 ")
 	})
-	if summary.Source != "scheduler" {
-		t.Fatalf("completion log source = %q, want scheduler", summary.Source)
+	if summary.Source != "scheduler" || summary.PluginID != "weather" {
+		t.Fatalf("unexpected failure log: %#v", summary)
 	}
-	if summary.PluginID != "weather" {
-		t.Fatalf("completion log plugin_id = %q, want weather", summary.PluginID)
+	waitForCondition(t, func() bool {
+		return recorder.count() == 1
+	}, "scheduler failure should be recorded")
+	got := recorder.results()[0]
+	if got.JobID != "daily_report" || got.Outcome != "timeout" || got.ErrorCode != "plugin.event_timeout" {
+		t.Fatalf("unexpected scheduler run result: %#v", got)
 	}
 }
 

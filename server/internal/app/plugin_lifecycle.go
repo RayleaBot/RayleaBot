@@ -25,6 +25,7 @@ type pluginLifecycleController struct {
 	grants           *pluginGrantView
 	runtimes         *runtimeRegistry
 	dispatcher       *dispatch.Dispatcher
+	scheduler        *scheduler.Engine
 	pluginConfig     pluginconfig.Repository
 	adapter          *adapter.Shell
 	webhooks         *pluginwebhook.Registry
@@ -43,6 +44,7 @@ func newPluginLifecycleController(deps pluginLifecycleDeps) *pluginLifecycleCont
 		grants:           deps.grants,
 		runtimes:         deps.runtimes,
 		dispatcher:       deps.dispatcher,
+		scheduler:        deps.scheduler,
 		pluginConfig:     deps.pluginConfig,
 		adapter:          deps.adapter,
 		webhooks:         deps.webhooks,
@@ -272,63 +274,83 @@ func (c *pluginLifecycleController) HandleSchedulerTrigger(ctx context.Context, 
 	if pluginID == "" {
 		return
 	}
+	taskName := strings.TrimSpace(job.JobID)
+	logLabel := scheduler.DisplayLabel(job.LogLabel)
+	startedAt := time.Now()
 
 	snapshot, ok := c.plugins.Get(pluginID)
 	if !ok || snapshot.RegistrationState != "installed" || snapshot.DesiredState != "enabled" || !snapshot.Valid {
-		c.state.Logger.Warn(
-			"scheduler trigger ignored for unavailable plugin",
-			"component", "app",
-			"plugin_id", pluginID,
-			"job_id", job.JobID,
-		)
+		c.logSchedulerTriggerFailure(ctx, pluginID, schedulerPluginDisplayName(snapshot, pluginID), taskName, logLabel, startedAt, "platform.invalid_request", "plugin is not available")
 		return
 	}
 
 	if err := c.ensurePluginRunning(ctx, pluginID, c.currentBotID()); err != nil {
-		c.logLifecycleWarn("ensure runtime before scheduler trigger", pluginID, err)
+		c.logSchedulerTriggerFailure(ctx, pluginID, schedulerPluginDisplayName(snapshot, pluginID), taskName, logLabel, startedAt, "plugin.internal_error", err.Error())
 		return
 	}
 
 	pluginName := schedulerPluginDisplayName(snapshot, pluginID)
-	taskName := strings.TrimSpace(job.JobID)
-	logLabel := scheduler.DisplayLabel(job.LogLabel)
-	startedAt := time.Now()
-	c.state.Logger.Info(
-		scheduler.DisplayMessage(pluginName, taskName, logLabel, "开始处理"),
-		"component", "scheduler",
-		"plugin_id", pluginID,
-		"plugin_name", pluginName,
-		"job_id", job.JobID,
-		"log_label", logLabel,
-		"cron_expr", job.CronExpr,
-	)
 
 	result := c.dispatcher.DispatchToPlugin(ctx, pluginID, runtime.Event{
 		EventID:        fmt.Sprintf("scheduler-%s-%d", job.JobID, time.Now().UnixNano()),
 		SourceProtocol: "scheduler",
 		SourceAdapter:  "scheduler.internal",
 		EventType:      "scheduler.trigger",
-		Timestamp:      time.Now().Unix(),
+		Timestamp:      startedAt.Unix(),
 		PayloadFields:  schedulerPayloadFields(job),
 		SchedulerLog: &runtime.SchedulerLogContext{
+			JobID:      job.JobID,
 			PluginName: pluginName,
 			TaskName:   taskName,
 			LogLabel:   logLabel,
 			StartedAt:  startedAt,
+			Recorder:   c.scheduler,
 		},
 	})
 	if result.Outcome != dispatch.OutcomeDelivered {
-		duration := time.Since(startedAt)
+		c.logSchedulerTriggerFailure(ctx, pluginID, pluginName, taskName, logLabel, startedAt, result.ErrorCode, string(result.Outcome))
+	}
+}
+
+func (c *pluginLifecycleController) logSchedulerTriggerFailure(ctx context.Context, pluginID, pluginName, taskName, logLabel string, startedAt time.Time, errorCode, errorText string) {
+	if c == nil {
+		return
+	}
+	duration := time.Since(startedAt)
+	c.recordSchedulerRunResult(ctx, taskName, scheduler.RunOutcomeFailed, duration, errorCode, errorText, time.Now())
+	if c.state == nil || c.state.Logger == nil {
+		return
+	}
+	c.state.Logger.Warn(
+		scheduler.DisplayMessage(pluginName, taskName, logLabel, "处理失败")+"耗时 "+scheduler.FormatDuration(duration),
+		"component", "scheduler",
+		"plugin_id", pluginID,
+		"plugin_name", pluginName,
+		"job_id", taskName,
+		"log_label", logLabel,
+		"duration_ms", duration.Milliseconds(),
+		"error_code", errorCode,
+		"error", errorText,
+	)
+}
+
+func (c *pluginLifecycleController) recordSchedulerRunResult(ctx context.Context, jobID string, outcome scheduler.RunOutcome, duration time.Duration, errorCode, errorText string, occurredAt time.Time) {
+	if c == nil || c.scheduler == nil {
+		return
+	}
+	if err := c.scheduler.RecordRunResult(ctx, scheduler.RunResult{
+		JobID:      jobID,
+		Outcome:    outcome,
+		Duration:   duration,
+		ErrorCode:  errorCode,
+		ErrorText:  errorText,
+		OccurredAt: occurredAt,
+	}); err != nil && c.state != nil && c.state.Logger != nil {
 		c.state.Logger.Warn(
-			scheduler.DisplayMessage(pluginName, taskName, logLabel, "处理失败")+"耗时 "+scheduler.FormatDuration(duration),
+			"scheduler run state update failed",
 			"component", "scheduler",
-			"plugin_id", pluginID,
-			"plugin_name", pluginName,
-			"job_id", job.JobID,
-			"log_label", logLabel,
-			"duration_ms", duration.Milliseconds(),
-			"outcome", string(result.Outcome),
-			"error_code", result.ErrorCode,
+			"job_id", jobID,
+			"err", err.Error(),
 		)
 	}
 }

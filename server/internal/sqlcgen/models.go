@@ -103,16 +103,25 @@ type RenderTemplateState struct {
 }
 
 type SchedulerJob struct {
-	JobID     string
-	PluginID  string
-	CronExpr  string
-	Payload   string
-	Enabled   int64
-	NextRun   string
-	LastRun   sql.NullString
-	CreatedAt string
-	UpdatedAt string
-	LogLabel  string
+	JobID            string
+	PluginID         string
+	CronExpr         string
+	Payload          string
+	Enabled          int64
+	NextRun          string
+	LastRun          sql.NullString
+	CreatedAt        string
+	UpdatedAt        string
+	LogLabel         string
+	LastDurationMs   int64
+	LastErrorCode    string
+	LastErrorMessage string
+	LastErrorAt      sql.NullString
+	SuccessCount     int64
+	FailureCount     int64
+	TimeoutCount     int64
+	RetryCount       int64
+	OtherCount       int64
 }
 
 type SecretStore struct {

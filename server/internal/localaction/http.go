@@ -9,7 +9,6 @@ import (
 
 	"github.com/RayleaBot/RayleaBot/server/internal/pluginhttp"
 	"github.com/RayleaBot/RayleaBot/server/internal/runtime"
-	"github.com/RayleaBot/RayleaBot/server/internal/scheduler"
 )
 
 func (s *Service) executeHTTPRequest(ctx context.Context, pluginID string, action runtime.Action) (map[string]any, error) {
@@ -93,27 +92,8 @@ func (s *Service) executeSchedulerCreate(ctx context.Context, pluginID string, a
 	if err != nil {
 		return nil, &runtime.Error{Code: "plugin.internal_error", Message: "scheduler.create failed", Err: err}
 	}
-	s.logSchedulerTaskRegistered(pluginID, action, job)
 	return map[string]any{
 		"task_id":  job.JobID,
 		"next_run": job.NextRun.UTC().Format(time.RFC3339),
 	}, nil
-}
-
-func (s *Service) logSchedulerTaskRegistered(pluginID string, action runtime.Action, job scheduler.Job) {
-	if s == nil || s.logger == nil {
-		return
-	}
-	pluginName := s.pluginDisplayName(pluginID)
-	logLabel := schedulerLogLabel(job.LogLabel, action.SchedulerLogLabel)
-	s.logger.Info(
-		schedulerLogMessage(pluginName, job.JobID, logLabel, "定时任务已注册")+"下次执行："+job.NextRun.UTC().Format(time.RFC3339),
-		"component", "scheduler",
-		"plugin_id", pluginID,
-		"plugin_name", pluginName,
-		"job_id", job.JobID,
-		"log_label", logLabel,
-		"cron_expr", job.CronExpr,
-		"next_run", job.NextRun.UTC().Format(time.RFC3339),
-	)
 }

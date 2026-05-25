@@ -1010,7 +1010,7 @@ func TestExecuteGovernanceWritePublishesGovernanceChanged(t *testing.T) {
 	}
 }
 
-func TestExecuteSchedulerCreateUpsert(t *testing.T) {
+func TestExecuteSchedulerCreateUpsertDoesNotWriteManagementLog(t *testing.T) {
 	t.Parallel()
 
 	buffer := &bytes.Buffer{}
@@ -1103,12 +1103,8 @@ func TestExecuteSchedulerCreateUpsert(t *testing.T) {
 	if jobs[0].LogLabel != "新版早报" {
 		t.Fatalf("LogLabel = %q, want 新版早报", jobs[0].LogLabel)
 	}
-	logs := buffer.String()
-	if !strings.Contains(logs, "【天气插件｜daily_report｜每日早报｜定时任务已注册】下次执行：") {
-		t.Fatalf("registration log missing readable message:\n%s", logs)
-	}
-	if !strings.Contains(logs, "【天气插件｜daily_report｜新版早报｜定时任务已注册】下次执行：") {
-		t.Fatalf("upsert log missing readable message:\n%s", logs)
+	if logs := buffer.String(); strings.Contains(logs, "定时任务已注册") {
+		t.Fatalf("scheduler registration should not write management log:\n%s", logs)
 	}
 }
 

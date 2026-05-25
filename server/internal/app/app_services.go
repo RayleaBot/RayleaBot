@@ -219,6 +219,7 @@ type pluginLifecycleDeps struct {
 	grants           *pluginGrantView
 	runtimes         *runtimeRegistry
 	dispatcher       *dispatch.Dispatcher
+	scheduler        *scheduler.Engine
 	pluginConfig     pluginconfig.Repository
 	adapter          *adapter.Shell
 	webhooks         *pluginwebhook.Registry

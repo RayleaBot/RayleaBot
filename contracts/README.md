@@ -37,7 +37,7 @@
   - 统一错误码命名、默认消息资源键、HTTP 语义和适用范围
 - `web-api.openapi.yaml`
   - 当前已冻结的管理 HTTP 接口
-  - 当前包含 setup / session、loopback launcher bootstrap、config snapshot/update、protocol snapshot / compatibility、plugin lifecycle、plugin grants、plugin rich detail、plugin settings、plugin secrets、governance 管理面、tasks / logs / system surfaces、scheduler 手动触发、recovery recheck / confirm、runtime bootstrap、render preview 与 render artifact 读取面
+  - 当前包含 setup / session、loopback launcher bootstrap、config snapshot/update、protocol snapshot / compatibility、plugin lifecycle、plugin grants、plugin rich detail、plugin settings、plugin secrets、governance 管理面、tasks / logs / system surfaces、scheduler 任务列表与手动触发、recovery recheck / confirm、runtime bootstrap、render preview 与 render artifact 读取面
   - `PUT /api/config` response 固定返回 `apply_effects.applied_now`、`apply_effects.reloaded_now`、`apply_effects.restart_required_fields`
   - plugin lifecycle surface 统一使用正式 `display_state` 枚举
 - `websocket-events.yaml`
@@ -95,9 +95,13 @@
 当前已进入 OpenAPI 冻结范围的 protocol compatibility surface：
 
 - `GET /api/protocols/onebot11/compatibility`
-- `POST /api/system/scheduler/jobs/{job_id}/trigger`
 
 其中 response 固定返回 `events`、`message_segments`、`read_capabilities`、`provider_extensions` 四类能力矩阵；provider 支持状态固定为 `supported` 或 `unsupported`。
+
+当前已进入 OpenAPI 冻结范围的 scheduler surface：
+
+- `GET /api/system/scheduler/jobs`
+- `POST /api/system/scheduler/jobs/{job_id}/trigger`
 
 当前已进入 OpenAPI 冻结范围的 plugin grants surface：
 

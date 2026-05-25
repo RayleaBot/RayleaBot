@@ -30,6 +30,8 @@ x-fixtures:
   - fixtures/web-api/ok.system-render-artifact.yaml
   - fixtures/web-api/ok.system-render-templates-list-response.yaml
   - fixtures/web-api/ok.system-render-template-detail-response.yaml
+  - fixtures/web-api/ok.system-scheduler-jobs-list.yaml
+  - fixtures/web-api/edge.system-scheduler-jobs-empty.yaml
   - fixtures/web-api/ok.system-scheduler-job-triggered.yaml
   - fixtures/web-api/ok.system-diagnostics-export.yaml
   - fixtures/web-api/ok.system-metrics-response.yaml
@@ -788,6 +790,24 @@ paths:
         '401':
           $ref: '#/components/responses/Error'
         '404':
+          $ref: '#/components/responses/Error'
+        default:
+          $ref: '#/components/responses/Error'
+
+  /api/system/scheduler/jobs:
+    get:
+      summary: List registered scheduler jobs and their aggregate run state.
+      operationId: listSchedulerJobs
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Scheduler job summaries.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SchedulerJobListResponse'
+        '401':
           $ref: '#/components/responses/Error'
         default:
           $ref: '#/components/responses/Error'
@@ -2353,6 +2373,110 @@ components:
           minLength: 1
         triggered:
           type: boolean
+
+    SchedulerJobLastError:
+      type: object
+      additionalProperties: false
+      required: [code, message, at]
+      properties:
+        code:
+          type: string
+          minLength: 1
+        message:
+          type: string
+          minLength: 1
+        at:
+          type: string
+          format: date-time
+
+    SchedulerJobRunStats:
+      type: object
+      additionalProperties: false
+      required: [total, success, failed, timeout, retry, other]
+      properties:
+        total:
+          type: integer
+          minimum: 0
+        success:
+          type: integer
+          minimum: 0
+        failed:
+          type: integer
+          minimum: 0
+        timeout:
+          type: integer
+          minimum: 0
+        retry:
+          type: integer
+          minimum: 0
+        other:
+          type: integer
+          minimum: 0
+
+    SchedulerJobSummary:
+      type: object
+      additionalProperties: false
+      required: [job_id, plugin_id, plugin_name, task_name, log_label, cron_expr, timezone, enabled, next_run, last_run, last_duration_ms, payload_summary, stats]
+      properties:
+        job_id:
+          type: string
+          minLength: 1
+        plugin_id:
+          type: string
+          minLength: 1
+        plugin_name:
+          type: string
+          minLength: 1
+        task_name:
+          type: string
+          minLength: 1
+        log_label:
+          type: string
+        cron_expr:
+          type: string
+          minLength: 1
+        timezone:
+          type: string
+          minLength: 1
+        enabled:
+          type: boolean
+        next_run:
+          type: string
+          format: date-time
+        last_run:
+          type: string
+          format: date-time
+          nullable: true
+        last_duration_ms:
+          type: integer
+          minimum: 0
+        last_error:
+          $ref: '#/components/schemas/SchedulerJobLastError'
+        payload_summary:
+          type: object
+          additionalProperties: false
+          required: [conversation_id, target_type, target_id, content]
+          properties:
+            conversation_id:
+              type: string
+            target_type:
+              type: string
+            target_id:
+              type: string
+            content:
+              type: string
+        stats:
+          $ref: '#/components/schemas/SchedulerJobRunStats'
+
+    SchedulerJobListResponse:
+      type: object
+      additionalProperties: false
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/SchedulerJobSummary'
 
     GovernanceEntryType:
       type: string

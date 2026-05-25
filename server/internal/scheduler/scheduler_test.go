@@ -160,6 +160,184 @@ func TestSQLiteRepository_DeleteByPlugin(t *testing.T) {
 	}
 }
 
+func TestSQLiteRepository_RecordRunResultPersistsAggregation(t *testing.T) {
+	t.Parallel()
+	store := openTestStore(t)
+	repo, err := NewSQLiteRepository(store)
+	if err != nil {
+		t.Fatalf("new repository: %v", err)
+	}
+
+	ctx := context.Background()
+	now := time.Date(2026, 5, 25, 8, 0, 0, 0, time.UTC)
+	job := Job{
+		JobID:     "daily_report",
+		PluginID:  "weather",
+		LogLabel:  "每日早报",
+		CronExpr:  "0 8 * * *",
+		Payload:   json.RawMessage(`{"topic":"daily_report"}`),
+		Enabled:   true,
+		NextRun:   now.Add(24 * time.Hour),
+		CreatedAt: now,
+		UpdatedAt: now,
+	}
+	if err := repo.SaveJob(ctx, job); err != nil {
+		t.Fatalf("save job: %v", err)
+	}
+	if err := repo.RecordJobRunResult(ctx, RunResult{
+		JobID:      "daily_report",
+		Outcome:    RunOutcomeSuccess,
+		Duration:   120 * time.Millisecond,
+		OccurredAt: now.Add(time.Minute),
+	}); err != nil {
+		t.Fatalf("record success: %v", err)
+	}
+	if err := repo.RecordJobRunResult(ctx, RunResult{
+		JobID:      "daily_report",
+		Outcome:    RunOutcomeTimeout,
+		Duration:   3 * time.Second,
+		ErrorCode:  "plugin.event_timeout",
+		ErrorText:  "plugin event response timed out",
+		OccurredAt: now.Add(2 * time.Minute),
+	}); err != nil {
+		t.Fatalf("record timeout: %v", err)
+	}
+
+	loaded, err := repo.LoadJobs(ctx)
+	if err != nil {
+		t.Fatalf("load jobs: %v", err)
+	}
+	if len(loaded) != 1 {
+		t.Fatalf("loaded %d jobs, want 1", len(loaded))
+	}
+	got := loaded[0]
+	if got.RunStats.Success != 1 || got.RunStats.Timeout != 1 || got.RunStats.Total() != 2 {
+		t.Fatalf("unexpected run stats: %#v", got.RunStats)
+	}
+	if got.LastDurationMS != 3000 {
+		t.Fatalf("LastDurationMS = %d, want 3000", got.LastDurationMS)
+	}
+	if got.LastError == nil || got.LastError.Code != "plugin.event_timeout" {
+		t.Fatalf("unexpected last error: %#v", got.LastError)
+	}
+}
+
+func TestSQLiteRepository_RecordSuccessPreservesLastError(t *testing.T) {
+	t.Parallel()
+	store := openTestStore(t)
+	repo, err := NewSQLiteRepository(store)
+	if err != nil {
+		t.Fatalf("new repository: %v", err)
+	}
+
+	ctx := context.Background()
+	now := time.Date(2026, 5, 25, 8, 0, 0, 0, time.UTC)
+	job := Job{
+		JobID:     "daily_report",
+		PluginID:  "weather",
+		LogLabel:  "每日早报",
+		CronExpr:  "0 8 * * *",
+		Payload:   json.RawMessage(`{"topic":"daily_report"}`),
+		Enabled:   true,
+		NextRun:   now.Add(24 * time.Hour),
+		CreatedAt: now,
+		UpdatedAt: now,
+	}
+	if err := repo.SaveJob(ctx, job); err != nil {
+		t.Fatalf("save job: %v", err)
+	}
+	if err := repo.RecordJobRunResult(ctx, RunResult{
+		JobID:      "daily_report",
+		Outcome:    RunOutcomeFailed,
+		Duration:   time.Second,
+		ErrorCode:  "plugin.internal_error",
+		ErrorText:  "delivery failed",
+		OccurredAt: now.Add(time.Minute),
+	}); err != nil {
+		t.Fatalf("record failure: %v", err)
+	}
+	if err := repo.RecordJobRunResult(ctx, RunResult{
+		JobID:      "daily_report",
+		Outcome:    RunOutcomeSuccess,
+		Duration:   120 * time.Millisecond,
+		OccurredAt: now.Add(2 * time.Minute),
+	}); err != nil {
+		t.Fatalf("record success: %v", err)
+	}
+
+	loaded, err := repo.LoadJobs(ctx)
+	if err != nil {
+		t.Fatalf("load jobs: %v", err)
+	}
+	got := loaded[0]
+	if got.RunStats.Success != 1 || got.RunStats.Failed != 1 || got.RunStats.Total() != 2 {
+		t.Fatalf("unexpected run stats: %#v", got.RunStats)
+	}
+	if got.LastError == nil || got.LastError.Code != "plugin.internal_error" || got.LastError.Message != "delivery failed" {
+		t.Fatalf("last error was not preserved: %#v", got.LastError)
+	}
+}
+
+func TestSQLiteRepository_UpdateJobSchedulePreservesAggregation(t *testing.T) {
+	t.Parallel()
+	store := openTestStore(t)
+	repo, err := NewSQLiteRepository(store)
+	if err != nil {
+		t.Fatalf("new repository: %v", err)
+	}
+
+	ctx := context.Background()
+	now := time.Date(2026, 5, 25, 8, 0, 0, 0, time.UTC)
+	job := Job{
+		JobID:     "daily_report",
+		PluginID:  "weather",
+		LogLabel:  "每日早报",
+		CronExpr:  "0 8 * * *",
+		Payload:   json.RawMessage(`{"topic":"daily_report"}`),
+		Enabled:   true,
+		NextRun:   now.Add(24 * time.Hour),
+		CreatedAt: now,
+		UpdatedAt: now,
+	}
+	if err := repo.SaveJob(ctx, job); err != nil {
+		t.Fatalf("save job: %v", err)
+	}
+	if err := repo.RecordJobRunResult(ctx, RunResult{
+		JobID:      "daily_report",
+		Outcome:    RunOutcomeSuccess,
+		Duration:   120 * time.Millisecond,
+		OccurredAt: now.Add(time.Minute),
+	}); err != nil {
+		t.Fatalf("record success: %v", err)
+	}
+
+	lastRun := now.Add(2 * time.Minute)
+	job.LastRun = &lastRun
+	job.NextRun = now.Add(48 * time.Hour)
+	job.UpdatedAt = lastRun
+	if err := repo.UpdateJobSchedule(ctx, job); err != nil {
+		t.Fatalf("update schedule: %v", err)
+	}
+
+	loaded, err := repo.LoadJobs(ctx)
+	if err != nil {
+		t.Fatalf("load jobs: %v", err)
+	}
+	if len(loaded) != 1 {
+		t.Fatalf("loaded %d jobs, want 1", len(loaded))
+	}
+	got := loaded[0]
+	if got.RunStats.Success != 1 || got.RunStats.Total() != 1 {
+		t.Fatalf("run state was not preserved: %#v", got.RunStats)
+	}
+	if got.LastRun == nil || !got.LastRun.Equal(now.Add(time.Minute)) {
+		t.Fatalf("LastRun = %#v, want %v", got.LastRun, now.Add(time.Minute))
+	}
+	if !got.NextRun.Equal(job.NextRun) {
+		t.Fatalf("NextRun = %v, want %v", got.NextRun, job.NextRun)
+	}
+}
+
 func TestSQLiteRepository_NilStore(t *testing.T) {
 	t.Parallel()
 	_, err := NewSQLiteRepository(nil)
@@ -357,6 +535,50 @@ func TestEngine_UpsertTask(t *testing.T) {
 	}
 }
 
+func TestEngine_UpsertTaskPreservesRunState(t *testing.T) {
+	t.Parallel()
+
+	store := openTestStore(t)
+	repo, err := NewSQLiteRepository(store)
+	if err != nil {
+		t.Fatalf("new repository: %v", err)
+	}
+	engine, err := New(Options{
+		Repository: repo,
+		Logger:     testLogger(),
+	})
+	if err != nil {
+		t.Fatalf("new engine: %v", err)
+	}
+
+	ctx := context.Background()
+	if _, err := engine.UpsertTaskWithLabel(ctx, "weather", "daily_report", "每日早报", "0 8 * * *", nil); err != nil {
+		t.Fatalf("first upsert: %v", err)
+	}
+	if err := engine.RecordRunResult(ctx, RunResult{
+		JobID:      "daily_report",
+		Outcome:    RunOutcomeSuccess,
+		Duration:   200 * time.Millisecond,
+		OccurredAt: time.Date(2026, 5, 25, 8, 0, 0, 0, time.UTC),
+	}); err != nil {
+		t.Fatalf("record run result: %v", err)
+	}
+	if _, err := engine.UpsertTaskWithLabel(ctx, "weather", "daily_report", "新版早报", "30 9 * * *", nil); err != nil {
+		t.Fatalf("second upsert: %v", err)
+	}
+
+	jobs := engine.Jobs()
+	if len(jobs) != 1 {
+		t.Fatalf("len(jobs) = %d, want 1", len(jobs))
+	}
+	if jobs[0].RunStats.Success != 1 || jobs[0].LastDurationMS != 200 {
+		t.Fatalf("run state was not preserved: %#v", jobs[0])
+	}
+	if jobs[0].LogLabel != "新版早报" {
+		t.Fatalf("LogLabel = %q, want 新版早报", jobs[0].LogLabel)
+	}
+}
+
 func TestEngine_TriggerDoesNotAdvanceNextRun(t *testing.T) {
 	t.Parallel()
 
@@ -412,6 +634,56 @@ func TestEngine_TriggerDoesNotAdvanceNextRun(t *testing.T) {
 	}
 	if jobs[0].LastRun != nil {
 		t.Fatalf("LastRun changed: %#v", jobs[0].LastRun)
+	}
+}
+
+func TestEngine_TickPreservesRunStateRecordedDuringTrigger(t *testing.T) {
+	t.Parallel()
+
+	store := openTestStore(t)
+	repo, err := NewSQLiteRepository(store)
+	if err != nil {
+		t.Fatalf("new repository: %v", err)
+	}
+
+	ctx := context.Background()
+	baseTime := time.Date(2026, 5, 25, 8, 0, 0, 0, time.UTC)
+	var engine *Engine
+	engine, err = New(Options{
+		Repository: repo,
+		Logger:     testLogger(),
+		Trigger: func(ctx context.Context, job Job) {
+			if err := engine.RecordRunResult(ctx, RunResult{
+				JobID:      job.JobID,
+				Outcome:    RunOutcomeSuccess,
+				Duration:   200 * time.Millisecond,
+				OccurredAt: baseTime.Add(time.Minute),
+			}); err != nil {
+				t.Errorf("RecordRunResult: %v", err)
+			}
+		},
+	})
+	if err != nil {
+		t.Fatalf("new engine: %v", err)
+	}
+	engine.now = func() time.Time { return baseTime }
+
+	job, err := engine.Register(ctx, "weather", "*/30 * * * *", nil)
+	if err != nil {
+		t.Fatalf("register: %v", err)
+	}
+	engine.now = func() time.Time { return job.NextRun.Add(time.Minute) }
+	engine.tick()
+
+	jobs := engine.Jobs()
+	if len(jobs) != 1 {
+		t.Fatalf("len(jobs) = %d, want 1", len(jobs))
+	}
+	if jobs[0].RunStats.Success != 1 || jobs[0].LastDurationMS != 200 {
+		t.Fatalf("run state was not preserved: %#v", jobs[0])
+	}
+	if jobs[0].LastRun == nil || !jobs[0].LastRun.Equal(baseTime.Add(time.Minute)) {
+		t.Fatalf("LastRun = %#v, want %v", jobs[0].LastRun, baseTime.Add(time.Minute))
 	}
 }
 

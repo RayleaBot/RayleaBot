@@ -172,6 +172,18 @@ export const adminRoutes: RouteRecordRaw[] = [
               viewKey: 'tasks',
             },
           },
+          {
+            path: '/scheduler',
+            name: 'scheduler',
+            component: () => import('@/views/operations/SchedulerJobsView.vue'),
+            meta: {
+              icon: 'scheduler',
+              keepAlive: true,
+              requiresAuth: true,
+              titleKey: 'routes.scheduler',
+              viewKey: 'scheduler',
+            },
+          },
         ],
       },
       {

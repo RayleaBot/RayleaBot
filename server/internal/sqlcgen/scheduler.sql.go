@@ -29,21 +29,33 @@ func (q *Queries) DeleteJobsByPlugin(ctx context.Context, pluginID string) error
 }
 
 const loadJobs = `-- name: LoadJobs :many
-SELECT job_id, plugin_id, log_label, cron_expr, payload, enabled, next_run, last_run, created_at, updated_at
+SELECT
+    job_id, plugin_id, log_label, cron_expr, payload, enabled, next_run, last_run, created_at, updated_at,
+    last_duration_ms, last_error_code, last_error_message, last_error_at,
+    success_count, failure_count, timeout_count, retry_count, other_count
 FROM scheduler_jobs ORDER BY created_at ASC
 `
 
 type LoadJobsRow struct {
-	JobID     string
-	PluginID  string
-	LogLabel  string
-	CronExpr  string
-	Payload   string
-	Enabled   int64
-	NextRun   string
-	LastRun   sql.NullString
-	CreatedAt string
-	UpdatedAt string
+	JobID            string
+	PluginID         string
+	LogLabel         string
+	CronExpr         string
+	Payload          string
+	Enabled          int64
+	NextRun          string
+	LastRun          sql.NullString
+	CreatedAt        string
+	UpdatedAt        string
+	LastDurationMs   int64
+	LastErrorCode    string
+	LastErrorMessage string
+	LastErrorAt      sql.NullString
+	SuccessCount     int64
+	FailureCount     int64
+	TimeoutCount     int64
+	RetryCount       int64
+	OtherCount       int64
 }
 
 func (q *Queries) LoadJobs(ctx context.Context) ([]LoadJobsRow, error) {
@@ -66,6 +78,15 @@ func (q *Queries) LoadJobs(ctx context.Context) ([]LoadJobsRow, error) {
 			&i.LastRun,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.LastDurationMs,
+			&i.LastErrorCode,
+			&i.LastErrorMessage,
+			&i.LastErrorAt,
+			&i.SuccessCount,
+			&i.FailureCount,
+			&i.TimeoutCount,
+			&i.RetryCount,
+			&i.OtherCount,
 		); err != nil {
 			return nil, err
 		}
@@ -80,9 +101,87 @@ func (q *Queries) LoadJobs(ctx context.Context) ([]LoadJobsRow, error) {
 	return items, nil
 }
 
+const recordJobRunFailure = `-- name: RecordJobRunFailure :exec
+UPDATE scheduler_jobs
+SET
+    last_run = ?,
+    last_duration_ms = ?,
+    last_error_code = ?,
+    last_error_message = ?,
+    last_error_at = ?,
+    failure_count = failure_count + ?,
+    timeout_count = timeout_count + ?,
+    retry_count = retry_count + ?,
+    other_count = other_count + ?,
+    updated_at = ?
+WHERE job_id = ?
+`
+
+type RecordJobRunFailureParams struct {
+	LastRun          sql.NullString
+	LastDurationMs   int64
+	LastErrorCode    string
+	LastErrorMessage string
+	LastErrorAt      sql.NullString
+	FailureCount     int64
+	TimeoutCount     int64
+	RetryCount       int64
+	OtherCount       int64
+	UpdatedAt        string
+	JobID            string
+}
+
+func (q *Queries) RecordJobRunFailure(ctx context.Context, arg RecordJobRunFailureParams) error {
+	_, err := q.db.ExecContext(ctx, recordJobRunFailure,
+		arg.LastRun,
+		arg.LastDurationMs,
+		arg.LastErrorCode,
+		arg.LastErrorMessage,
+		arg.LastErrorAt,
+		arg.FailureCount,
+		arg.TimeoutCount,
+		arg.RetryCount,
+		arg.OtherCount,
+		arg.UpdatedAt,
+		arg.JobID,
+	)
+	return err
+}
+
+const recordJobRunSuccess = `-- name: RecordJobRunSuccess :exec
+UPDATE scheduler_jobs
+SET
+    last_run = ?,
+    last_duration_ms = ?,
+    success_count = success_count + 1,
+    updated_at = ?
+WHERE job_id = ?
+`
+
+type RecordJobRunSuccessParams struct {
+	LastRun        sql.NullString
+	LastDurationMs int64
+	UpdatedAt      string
+	JobID          string
+}
+
+func (q *Queries) RecordJobRunSuccess(ctx context.Context, arg RecordJobRunSuccessParams) error {
+	_, err := q.db.ExecContext(ctx, recordJobRunSuccess,
+		arg.LastRun,
+		arg.LastDurationMs,
+		arg.UpdatedAt,
+		arg.JobID,
+	)
+	return err
+}
+
 const saveJob = `-- name: SaveJob :exec
-INSERT INTO scheduler_jobs (job_id, plugin_id, log_label, cron_expr, payload, enabled, next_run, last_run, created_at, updated_at)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+INSERT INTO scheduler_jobs (
+    job_id, plugin_id, log_label, cron_expr, payload, enabled, next_run, last_run, created_at, updated_at,
+    last_duration_ms, last_error_code, last_error_message, last_error_at,
+    success_count, failure_count, timeout_count, retry_count, other_count
+)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT(job_id) DO UPDATE SET
     log_label = excluded.log_label,
     cron_expr = excluded.cron_expr,
@@ -94,16 +193,25 @@ ON CONFLICT(job_id) DO UPDATE SET
 `
 
 type SaveJobParams struct {
-	JobID     string
-	PluginID  string
-	LogLabel  string
-	CronExpr  string
-	Payload   string
-	Enabled   int64
-	NextRun   string
-	LastRun   sql.NullString
-	CreatedAt string
-	UpdatedAt string
+	JobID            string
+	PluginID         string
+	LogLabel         string
+	CronExpr         string
+	Payload          string
+	Enabled          int64
+	NextRun          string
+	LastRun          sql.NullString
+	CreatedAt        string
+	UpdatedAt        string
+	LastDurationMs   int64
+	LastErrorCode    string
+	LastErrorMessage string
+	LastErrorAt      sql.NullString
+	SuccessCount     int64
+	FailureCount     int64
+	TimeoutCount     int64
+	RetryCount       int64
+	OtherCount       int64
 }
 
 func (q *Queries) SaveJob(ctx context.Context, arg SaveJobParams) error {
@@ -118,6 +226,34 @@ func (q *Queries) SaveJob(ctx context.Context, arg SaveJobParams) error {
 		arg.LastRun,
 		arg.CreatedAt,
 		arg.UpdatedAt,
+		arg.LastDurationMs,
+		arg.LastErrorCode,
+		arg.LastErrorMessage,
+		arg.LastErrorAt,
+		arg.SuccessCount,
+		arg.FailureCount,
+		arg.TimeoutCount,
+		arg.RetryCount,
+		arg.OtherCount,
 	)
+	return err
+}
+
+const updateJobSchedule = `-- name: UpdateJobSchedule :exec
+UPDATE scheduler_jobs
+SET
+    next_run = ?,
+    updated_at = ?
+WHERE job_id = ?
+`
+
+type UpdateJobScheduleParams struct {
+	NextRun   string
+	UpdatedAt string
+	JobID     string
+}
+
+func (q *Queries) UpdateJobSchedule(ctx context.Context, arg UpdateJobScheduleParams) error {
+	_, err := q.db.ExecContext(ctx, updateJobSchedule, arg.NextRun, arg.UpdatedAt, arg.JobID)
 	return err
 }

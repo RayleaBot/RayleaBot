@@ -681,7 +681,7 @@ describe('BasicLayout', () => {
 
     expect(builtinGroup?.findAll('.admin-layout__menu-icon')).toHaveLength(2)
     expect(pluginGroup?.findAll('.admin-layout__menu-icon')).toHaveLength(4)
-    expect(operationsGroup?.findAll('.admin-layout__menu-icon')).toHaveLength(5)
+    expect(operationsGroup?.findAll('.admin-layout__menu-icon')).toHaveLength(6)
     expect(logsGroup?.findAll('.admin-layout__menu-icon')).toHaveLength(3)
     expect(protocolGroup?.findAll('.admin-layout__menu-icon')).toHaveLength(3)
     expect(wrapper.find('.admin-layout__sider .ant-menu-item-selected .admin-layout__menu-icon').exists()).toBe(true)

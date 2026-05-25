@@ -55,10 +55,25 @@ type Event struct {
 }
 
 type SchedulerLogContext struct {
+	JobID      string
 	PluginName string
 	TaskName   string
 	LogLabel   string
 	StartedAt  time.Time
+	Recorder   SchedulerRunRecorder
+}
+
+type SchedulerRunRecorder interface {
+	RecordSchedulerRunResult(context.Context, SchedulerRunResult) error
+}
+
+type SchedulerRunResult struct {
+	JobID      string
+	Outcome    string
+	Duration   time.Duration
+	ErrorCode  string
+	ErrorText  string
+	OccurredAt time.Time
 }
 
 type EventActor struct {

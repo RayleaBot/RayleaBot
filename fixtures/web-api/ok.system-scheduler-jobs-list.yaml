@@ -1,0 +1,39 @@
+contract: contracts/web-api.openapi.yaml
+case: ok
+description: Management users can list scheduler jobs with aggregate run state.
+request:
+  method: GET
+  path: /api/system/scheduler/jobs
+response:
+  status: 200
+  body:
+    items:
+      - job_id: daily_report
+        plugin_id: weather
+        plugin_name: 天气插件
+        task_name: daily_report
+        log_label: 每日早报
+        cron_expr: 0 8 * * *
+        timezone: Asia/Shanghai
+        enabled: true
+        next_run: '2026-05-26T00:00:00Z'
+        last_run: '2026-05-25T00:00:00Z'
+        last_duration_ms: 820
+        last_error:
+          code: plugin.event_timeout
+          message: plugin event response timed out
+          at: '2026-05-24T00:00:00Z'
+        payload_summary:
+          conversation_id: group:879110321
+          target_type: group
+          target_id: '879110321'
+          content: 每日天气推送
+        stats:
+          total: 160
+          success: 150
+          failed: 6
+          timeout: 2
+          retry: 2
+          other: 0
+expect:
+  valid: true

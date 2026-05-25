@@ -13,22 +13,64 @@ import (
 	"log/slog"
 	"sync"
 	"time"
+
+	"github.com/RayleaBot/RayleaBot/server/internal/runtime"
 )
 
 var ErrJobNotFound = errors.New("scheduler job not found")
 
 // Job represents a persisted scheduled job.
 type Job struct {
-	JobID     string          `json:"job_id"`
-	PluginID  string          `json:"plugin_id"`
-	LogLabel  string          `json:"log_label,omitempty"`
-	CronExpr  string          `json:"cron_expr"`
-	Payload   json.RawMessage `json:"payload"`
-	Enabled   bool            `json:"enabled"`
-	NextRun   time.Time       `json:"next_run"`
-	LastRun   *time.Time      `json:"last_run,omitempty"`
-	CreatedAt time.Time       `json:"created_at"`
-	UpdatedAt time.Time       `json:"updated_at"`
+	JobID          string          `json:"job_id"`
+	PluginID       string          `json:"plugin_id"`
+	LogLabel       string          `json:"log_label,omitempty"`
+	CronExpr       string          `json:"cron_expr"`
+	Payload        json.RawMessage `json:"payload"`
+	Enabled        bool            `json:"enabled"`
+	NextRun        time.Time       `json:"next_run"`
+	LastRun        *time.Time      `json:"last_run,omitempty"`
+	LastDurationMS int64           `json:"last_duration_ms"`
+	LastError      *RunError       `json:"last_error,omitempty"`
+	RunStats       RunStats        `json:"run_stats"`
+	CreatedAt      time.Time       `json:"created_at"`
+	UpdatedAt      time.Time       `json:"updated_at"`
+}
+
+type RunOutcome string
+
+const (
+	RunOutcomeSuccess RunOutcome = "success"
+	RunOutcomeFailed  RunOutcome = "failed"
+	RunOutcomeTimeout RunOutcome = "timeout"
+	RunOutcomeRetry   RunOutcome = "retry"
+	RunOutcomeOther   RunOutcome = "other"
+)
+
+type RunError struct {
+	Code    string    `json:"code"`
+	Message string    `json:"message"`
+	At      time.Time `json:"at"`
+}
+
+type RunStats struct {
+	Success int64 `json:"success"`
+	Failed  int64 `json:"failed"`
+	Timeout int64 `json:"timeout"`
+	Retry   int64 `json:"retry"`
+	Other   int64 `json:"other"`
+}
+
+func (s RunStats) Total() int64 {
+	return s.Success + s.Failed + s.Timeout + s.Retry + s.Other
+}
+
+type RunResult struct {
+	JobID      string
+	Outcome    RunOutcome
+	Duration   time.Duration
+	ErrorCode  string
+	ErrorText  string
+	OccurredAt time.Time
 }
 
 // TriggerFunc is called when a job fires. The engine passes the job metadata
@@ -168,15 +210,6 @@ func (e *Engine) RegisterWithLabel(ctx context.Context, pluginID, logLabel, cron
 	e.jobs[job.JobID] = job
 	e.mu.Unlock()
 
-	e.logger.Info(DisplayMessage(pluginID, job.JobID, logLabel, "定时任务已注册")+"下次执行："+nextRun.UTC().Format(time.RFC3339),
-		"component", "scheduler",
-		"job_id", job.JobID,
-		"plugin_id", pluginID,
-		"log_label", logLabel,
-		"cron_expr", cronExpr,
-		"next_run", nextRun.UTC().Format(time.RFC3339),
-	)
-
 	return job, nil
 }
 
@@ -217,6 +250,9 @@ func (e *Engine) UpsertTaskWithLabel(ctx context.Context, pluginID, taskID, logL
 			lastRun := *existing.LastRun
 			job.LastRun = &lastRun
 		}
+		job.LastDurationMS = existing.LastDurationMS
+		job.LastError = cloneRunError(existing.LastError)
+		job.RunStats = existing.RunStats
 	}
 	e.mu.Unlock()
 
@@ -294,6 +330,60 @@ func (e *Engine) Trigger(ctx context.Context, jobID string) (Job, error) {
 	return job, nil
 }
 
+func (e *Engine) RecordRunResult(ctx context.Context, result RunResult) error {
+	if e == nil {
+		return ErrJobNotFound
+	}
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	if result.OccurredAt.IsZero() {
+		result.OccurredAt = e.now().UTC()
+	}
+	result.OccurredAt = result.OccurredAt.UTC()
+	if result.Duration < 0 {
+		result.Duration = 0
+	}
+	result.Outcome = normalizeRunOutcome(result.Outcome)
+
+	e.mu.Lock()
+	job, ok := e.jobs[result.JobID]
+	if !ok {
+		e.mu.Unlock()
+		return ErrJobNotFound
+	}
+	lastRun := result.OccurredAt
+	job.LastRun = &lastRun
+	job.LastDurationMS = result.Duration.Milliseconds()
+	applyRunOutcome(&job.RunStats, result.Outcome)
+	if result.Outcome != RunOutcomeSuccess {
+		job.LastError = &RunError{
+			Code:    DisplayLabel(result.ErrorCode, string(result.Outcome)),
+			Message: DisplayLabel(result.ErrorText, string(result.Outcome)),
+			At:      result.OccurredAt,
+		}
+	}
+	job.UpdatedAt = result.OccurredAt
+	e.jobs[job.JobID] = job
+	e.mu.Unlock()
+
+	if err := e.repo.RecordJobRunResult(ctx, result); err != nil {
+		return fmt.Errorf("record scheduler run result %s: %w", result.JobID, err)
+	}
+	return nil
+}
+
+func (e *Engine) RecordSchedulerRunResult(ctx context.Context, result runtime.SchedulerRunResult) error {
+	return e.RecordRunResult(ctx, RunResult{
+		JobID:      result.JobID,
+		Outcome:    RunOutcome(result.Outcome),
+		Duration:   result.Duration,
+		ErrorCode:  result.ErrorCode,
+		ErrorText:  result.ErrorText,
+		OccurredAt: result.OccurredAt,
+	})
+}
+
 func (e *Engine) tickLoop() {
 	defer e.wg.Done()
 
@@ -343,11 +433,15 @@ func (e *Engine) fireJob(j Job, now time.Time) {
 		return
 	}
 
-	j.LastRun = &now
 	j.NextRun = nextRun
 	j.UpdatedAt = now
 
 	e.mu.Lock()
+	if current, ok := e.jobs[j.JobID]; ok {
+		current.NextRun = j.NextRun
+		current.UpdatedAt = j.UpdatedAt
+		j = current
+	}
 	e.jobs[j.JobID] = j
 	e.mu.Unlock()
 
@@ -355,7 +449,7 @@ func (e *Engine) fireJob(j Job, now time.Time) {
 	go func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
-		_ = e.repo.SaveJob(ctx, j)
+		_ = e.repo.UpdateJobSchedule(ctx, j)
 	}()
 }
 
@@ -365,4 +459,36 @@ func generateJobID() (string, error) {
 		return "", fmt.Errorf("generate job id: %w", err)
 	}
 	return "sched_" + hex.EncodeToString(buf[:]), nil
+}
+
+func normalizeRunOutcome(outcome RunOutcome) RunOutcome {
+	switch outcome {
+	case RunOutcomeSuccess, RunOutcomeFailed, RunOutcomeTimeout, RunOutcomeRetry, RunOutcomeOther:
+		return outcome
+	default:
+		return RunOutcomeOther
+	}
+}
+
+func applyRunOutcome(stats *RunStats, outcome RunOutcome) {
+	switch normalizeRunOutcome(outcome) {
+	case RunOutcomeSuccess:
+		stats.Success++
+	case RunOutcomeFailed:
+		stats.Failed++
+	case RunOutcomeTimeout:
+		stats.Timeout++
+	case RunOutcomeRetry:
+		stats.Retry++
+	case RunOutcomeOther:
+		stats.Other++
+	}
+}
+
+func cloneRunError(err *RunError) *RunError {
+	if err == nil {
+		return nil
+	}
+	cloned := *err
+	return &cloned
 }

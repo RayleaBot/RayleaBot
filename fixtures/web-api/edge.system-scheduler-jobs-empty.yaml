@@ -1,0 +1,12 @@
+contract: contracts/web-api.openapi.yaml
+case: edge
+description: Scheduler job list is empty when no plugin has registered scheduled jobs.
+request:
+  method: GET
+  path: /api/system/scheduler/jobs
+response:
+  status: 200
+  body:
+    items: []
+expect:
+  valid: true

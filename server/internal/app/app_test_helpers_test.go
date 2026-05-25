@@ -109,6 +109,7 @@ func (a *App) setTestLifecycle(catalog *plugins.Catalog, desiredRepo plugins.Des
 		},
 		runtimes:     runtimes,
 		dispatcher:   dispatcher,
+		scheduler:    a.scheduler,
 		pluginConfig: pluginConfigRepo,
 		adapter:      adapterShell,
 		webhooks:     webhooks,

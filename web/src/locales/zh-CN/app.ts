@@ -18,6 +18,7 @@ export const routes = {
   rateLimits: '限流中心',
   commands: '指令中心',
   tasks: '任务',
+  scheduler: '定时任务',
   logs: '实时日志',
   logsHistory: '历史日志',
   logsCenter: '日志中心',

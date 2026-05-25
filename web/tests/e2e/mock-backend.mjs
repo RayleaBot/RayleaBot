@@ -52,6 +52,8 @@ const fixtures = {
   renderTemplatesList: await readFixture('fixtures/web-api/ok.system-render-templates-list-response.yaml'),
   renderTemplateDetail: await readFixture('fixtures/web-api/ok.system-render-template-detail-response.yaml'),
   renderTemplateNotFound: await readFixture('fixtures/web-api/invalid.system-render-template-not-found.yaml'),
+  schedulerJobsList: await readFixture('fixtures/web-api/ok.system-scheduler-jobs-list.yaml'),
+  schedulerJobTriggered: await readFixture('fixtures/web-api/ok.system-scheduler-job-triggered.yaml'),
   systemDiagnosticsExport: await readFixture('fixtures/web-api/ok.system-diagnostics-export.yaml'),
   pluginEnable: await readFixture('fixtures/web-api/ok.plugins-enable-response.yaml'),
   pluginDisable: await readFixture('fixtures/web-api/edge.plugins-disable-response.yaml'),
@@ -115,6 +117,7 @@ function baseState() {
     governanceWhitelist: structuredClone(fixtures.governanceWhitelist.response.body),
     governanceCommandPolicy: structuredClone(fixtures.governanceCommandPolicy.response.body),
     renderTemplates: createRenderTemplateState(),
+    schedulerJobs: structuredClone(fixtures.schedulerJobsList.response.body.items),
     renderPreviewSequence: 1,
     renderPreviewTasks: {},
     grants: {
@@ -1424,6 +1427,35 @@ const server = http.createServer(async (request, response) => {
       'Cache-Control': 'no-store',
     })
     response.end(previewArtifactBytes)
+    return
+  }
+
+  if (pathname === '/api/system/scheduler/jobs' && request.method === 'GET') {
+    if (!requireAuth(request, response)) {
+      return
+    }
+
+    json(response, 200, { items: structuredClone(state.schedulerJobs) })
+    return
+  }
+
+  if (pathname.startsWith('/api/system/scheduler/jobs/') && pathname.endsWith('/trigger') && request.method === 'POST') {
+    if (!requireAuth(request, response)) {
+      return
+    }
+
+    const jobId = decodeURIComponent(pathname.split('/')[5] ?? '')
+    const job = state.schedulerJobs.find((item) => item.job_id === jobId)
+    if (!job) {
+      json(response, 404, errorEnvelope('platform.not_found', 'scheduler job not found', 'req_scheduler_job_not_found'))
+      return
+    }
+
+    json(response, fixtures.schedulerJobTriggered.response.status, {
+      job_id: job.job_id,
+      plugin_id: job.plugin_id,
+      triggered: true,
+    })
     return
   }
 

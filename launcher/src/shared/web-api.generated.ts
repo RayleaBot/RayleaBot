@@ -544,6 +544,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/system/scheduler/jobs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List registered scheduler jobs and their aggregate run state. */
+        get: operations["listSchedulerJobs"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/system/scheduler/jobs/{job_id}/trigger": {
         parameters: {
             query?: never;
@@ -1241,6 +1258,46 @@ export interface components {
             job_id: string;
             plugin_id: string;
             triggered: boolean;
+        };
+        SchedulerJobLastError: {
+            code: string;
+            message: string;
+            /** Format: date-time */
+            at: string;
+        };
+        SchedulerJobRunStats: {
+            total: number;
+            success: number;
+            failed: number;
+            timeout: number;
+            retry: number;
+            other: number;
+        };
+        SchedulerJobSummary: {
+            job_id: string;
+            plugin_id: string;
+            plugin_name: string;
+            task_name: string;
+            log_label: string;
+            cron_expr: string;
+            timezone: string;
+            enabled: boolean;
+            /** Format: date-time */
+            next_run: string;
+            /** Format: date-time */
+            last_run: string | null;
+            last_duration_ms: number;
+            last_error?: components["schemas"]["SchedulerJobLastError"];
+            payload_summary: {
+                conversation_id: string;
+                target_type: string;
+                target_id: string;
+                content: string;
+            };
+            stats: components["schemas"]["SchedulerJobRunStats"];
+        };
+        SchedulerJobListResponse: {
+            items: components["schemas"]["SchedulerJobSummary"][];
         };
         /** @enum {string} */
         GovernanceEntryType: "user" | "group";
@@ -2588,6 +2645,28 @@ export interface operations {
             };
             401: components["responses"]["Error"];
             404: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    listSchedulerJobs: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Scheduler job summaries. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SchedulerJobListResponse"];
+                };
+            };
+            401: components["responses"]["Error"];
             default: components["responses"]["Error"];
         };
     };
