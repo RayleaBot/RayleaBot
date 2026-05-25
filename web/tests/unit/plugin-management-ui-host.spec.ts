@@ -111,6 +111,7 @@ describe('PluginManagementUIHost', () => {
 
     expect(wrapper.find('[data-testid="plugin-management-ui-confirm"]').exists()).toBe(false)
     expect(wrapper.find('[data-testid="plugin-management-ui-frame"]').exists()).toBe(true)
+    expect(wrapper.get('[data-testid="plugin-management-ui-frame"]').attributes('sandbox')).toBe('allow-forms allow-modals allow-scripts')
     expect(window.localStorage.getItem(
       'rayleabot.plugin-management-ui.confirmed:example-config-panel:0.1.0:local_zip:examples/plugins/example-config-panel.zip',
     )).toBe('1')
