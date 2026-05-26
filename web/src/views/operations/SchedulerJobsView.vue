@@ -2,6 +2,7 @@
 import {
   CheckCircleOutlined,
   CloseCircleOutlined,
+  CloseOutlined,
   ClockCircleOutlined,
   ExclamationCircleOutlined,
   EyeOutlined,
@@ -16,7 +17,7 @@ import {
   CheckOutlined,
   WarningOutlined,
 } from '@ant-design/icons-vue'
-import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, ref } from 'vue'
 import { storeToRefs } from 'pinia'
 
 import { notifyError, notifySuccess } from '@/adapter/feedback'
@@ -35,6 +36,9 @@ const { error, loading, sortedItems, triggeringJobId } = storeToRefs(schedulerSt
 // 交互状态
 const detailVisible = ref(false)
 const currentJob = ref<SchedulerJobSummary | null>(null)
+const modalContentReady = ref(false)
+const detailCardRef = ref<HTMLDivElement | null>(null)
+const detailModalTitleId = `scheduler-detail-modal-title-${Math.random().toString(36).slice(2, 8)}`
 const searchQuery = ref('')
 const statusFilter = ref<'all' | 'success' | 'error'>('all')
 const sortBy = ref<'name' | 'last_run' | 'duration'>('name')
@@ -43,6 +47,17 @@ const viewMode = ref<'table' | 'grid'>('table')
 // 定时更新相对时间
 const timeTick = ref(0)
 let timerId: any = null
+
+// modal 入场动画时长（与 .scheduler-detail-modal-* transition 对齐）
+const MODAL_ANIMATION_MS = 200
+let modalReadyTimer: number | null = null
+
+function clearModalReadyTimer() {
+  if (modalReadyTimer !== null) {
+    window.clearTimeout(modalReadyTimer)
+    modalReadyTimer = null
+  }
+}
 
 onMounted(() => {
   void loadSchedulerJobs()
@@ -53,6 +68,7 @@ onMounted(() => {
 
 onUnmounted(() => {
   if (timerId) clearInterval(timerId)
+  clearModalReadyTimer()
 })
 
 // 极致精修合并列定义
@@ -85,6 +101,24 @@ async function triggerJob(job: SchedulerJobSummary) {
 function showJobDetail(job: SchedulerJobSummary) {
   currentJob.value = job
   detailVisible.value = true
+  clearModalReadyTimer()
+  modalReadyTimer = window.setTimeout(() => {
+    modalContentReady.value = true
+    modalReadyTimer = null
+  }, MODAL_ANIMATION_MS)
+  void nextTick(() => detailCardRef.value?.focus())
+}
+
+function closeJobDetail() {
+  if (!detailVisible.value) return
+  detailVisible.value = false
+  clearModalReadyTimer()
+  window.setTimeout(() => {
+    if (!detailVisible.value) {
+      modalContentReady.value = false
+      currentJob.value = null
+    }
+  }, MODAL_ANIMATION_MS)
 }
 
 // 格式化耗时胶囊
@@ -615,147 +649,180 @@ const filteredItems = computed(() => {
 </div> <!-- .scheduler-page-container 闭合 -->
 
     <!-- 极客控制台详情弹窗 (Console Details Modal) -->
-    <a-modal
-      v-model:open="detailVisible"
-      :footer="null"
-      width="750px"
-      wrap-class-name="scheduler-detail-modal-wrapper"
-      :destroy-on-close="true"
-    >
-      <template #title>
-        <div class="modal-header-title">
-          <div class="pulse-dot"></div>
-          <span>定时任务详情控制台</span>
+    <Teleport to="body">
+      <Transition name="scheduler-detail-modal">
+        <div
+          v-if="detailVisible"
+          class="scheduler-detail-modal__host"
+          role="presentation"
+          @click.self="closeJobDetail"
+          @keydown.esc.self="closeJobDetail"
+        >
+          <div
+            ref="detailCardRef"
+            class="scheduler-detail-modal__card"
+            role="dialog"
+            aria-modal="true"
+            :aria-labelledby="detailModalTitleId"
+            tabindex="-1"
+            @keydown.esc.stop="closeJobDetail"
+          >
+            <header class="scheduler-detail-modal__header">
+              <div class="modal-header-title" :id="detailModalTitleId">
+                <div class="pulse-dot" aria-hidden="true"></div>
+                <span>定时任务详情控制台</span>
+              </div>
+              <button
+                type="button"
+                class="scheduler-detail-modal__close"
+                aria-label="关闭"
+                @click="closeJobDetail"
+              >
+                <CloseOutlined />
+              </button>
+            </header>
+
+            <div class="scheduler-detail-modal__body">
+              <Transition name="scheduler-modal-content">
+                <div
+                  v-if="currentJob && modalContentReady"
+                  key="content"
+                  class="modal-console-layout"
+                >
+                <!-- 左侧：系统参数面板 -->
+                <div class="console-pane-left">
+                  <div class="pane-group">
+                    <div class="pane-group-title">标识与归属</div>
+                    <div class="info-block">
+                      <span class="label">插件模块</span>
+                      <span class="value bold">{{ currentJob.plugin_name }}<span class="sr-only"> / </span></span>
+                      <span class="sub-val">{{ currentJob.plugin_id }}</span>
+                    </div>
+                    <div class="info-block">
+                      <span class="label">任务名称</span>
+                      <span class="value bold">{{ currentJob.task_name }}<span class="sr-only"> / </span></span>
+                      <span class="sub-val">{{ currentJob.job_id }}</span>
+                    </div>
+                  </div>
+
+                  <div class="pane-group">
+                    <div class="pane-group-title">执行调度配置</div>
+                    <div class="info-block inline">
+                      <div>
+                        <span class="label">Cron 规则</span>
+                        <span class="value code">{{ currentJob.cron_expr }}</span>
+                      </div>
+                      <div>
+                        <span class="label">时区</span>
+                        <span class="value code">{{ currentJob.timezone }}</span>
+                      </div>
+                    </div>
+                    <div class="info-block">
+                      <span class="label">智能中文语义</span>
+                      <span class="value highlight">{{ parseCronToChinese(currentJob.cron_expr) }}</span>
+                    </div>
+                  </div>
+
+                  <div class="pane-group">
+                    <div class="pane-group-title">上下文载荷</div>
+                    <div class="info-block inline">
+                      <div>
+                        <span class="label">会话 ID</span>
+                        <span class="value code">{{ conversationText(currentJob) || 'N/A (全局任务)' }}</span>
+                      </div>
+                    </div>
+                    <div class="info-block">
+                      <span class="label">内容标识</span>
+                      <span class="value">{{ displayText(currentJob.log_label || currentJob.payload_summary.content) }}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- 右侧：健康运行分析仪 -->
+                <div class="console-pane-right">
+                  <div class="pane-group-title">运行状态分析</div>
+
+                  <div class="health-instrument">
+                    <!-- 仪表圆环 -->
+                    <div class="health-gauge" :style="getHealthRingStyle(currentJob.stats)">
+                      <div class="gauge-center">
+                        <span class="gauge-pct">{{ currentJob.stats.total ? `${getSuccessRate(currentJob.stats)}%` : '-' }}</span>
+                        <span class="gauge-desc">健康度</span>
+                      </div>
+                    </div>
+
+                    <!-- 数据列项 -->
+                    <div class="gauge-stats-list">
+                      <div class="stat-item success">
+                        <CheckCircleOutlined />
+                        <span class="lbl">成功执行</span>
+                        <span class="val">{{ currentJob.stats.success }} 次</span>
+                      </div>
+                      <div class="stat-item failed">
+                        <CloseCircleOutlined />
+                        <span class="lbl">失败运行</span>
+                        <span class="val">{{ currentJob.stats.failed }} 次</span>
+                      </div>
+                      <div class="stat-item warning">
+                        <ClockCircleOutlined />
+                        <span class="lbl">执行超时</span>
+                        <span class="val">{{ currentJob.stats.timeout }} 次</span>
+                      </div>
+                      <div class="stat-item other">
+                        <InfoCircleOutlined />
+                        <span class="lbl">重试次数</span>
+                        <span class="val">{{ currentJob.stats.retry }} 次</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="pane-group margin-top">
+                    <div class="pane-group-title">时间与性能</div>
+                    <div class="info-block inline">
+                      <div>
+                        <span class="label">上一次执行</span>
+                        <span class="value small-text">{{ currentJob.last_run ? formatDateTime(currentJob.last_run) : '未跑' }}</span>
+                      </div>
+                      <div>
+                        <span class="label">单次耗时</span>
+                        <span class="value highlight">{{ formatDurationMs(currentJob.last_duration_ms) }}</span>
+                      </div>
+                    </div>
+                    <div class="info-block">
+                      <span class="label">下一次预计调度</span>
+                      <span class="value small-text">
+                        {{ currentJob.next_run ? formatDateTime(currentJob.next_run) : '未排期' }}
+                        <span class="rel-time" v-if="currentJob.next_run">({{ getNextRunRelativeText(currentJob.next_run) }})</span>
+                      </span>
+                    </div>
+                  </div>
+
+                  <!-- 最近运行错误报告区 -->
+                  <div class="console-error-report" v-if="currentJob.last_error">
+                    <div class="report-head">
+                      <WarningOutlined />
+                      <span>运行故障报告</span>
+                    </div>
+                    <div class="report-body">
+                      <div class="err-code">错误代码: <code>{{ currentJob.last_error.code }}</code></div>
+                      <p class="err-msg">{{ currentJob.last_error.message }}</p>
+                      <a-button size="small" type="primary" danger class="copy-console-err-btn" @click="copyToClipboard(`${currentJob.last_error.code}: ${currentJob.last_error.message}`)">
+                        <template #icon><CopyOutlined /></template>
+                        复制报错诊断堆栈
+                      </a-button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="modal-console-skeleton" v-else key="skeleton" aria-hidden="true">
+                  <a-skeleton active :paragraph="{ rows: 8 }" />
+                </div>
+              </Transition>
+            </div>
+          </div>
         </div>
-      </template>
-
-      <div class="modal-console-layout" v-if="currentJob">
-        <!-- 左侧：系统参数面板 -->
-        <div class="console-pane-left">
-          <div class="pane-group">
-            <div class="pane-group-title">标识与归属</div>
-            <div class="info-block">
-              <span class="label">插件模块</span>
-              <span class="value bold">{{ currentJob.plugin_name }}<span class="sr-only"> / </span></span>
-              <span class="sub-val">{{ currentJob.plugin_id }}</span>
-            </div>
-            <div class="info-block">
-              <span class="label">任务名称</span>
-              <span class="value bold">{{ currentJob.task_name }}<span class="sr-only"> / </span></span>
-              <span class="sub-val">{{ currentJob.job_id }}</span>
-            </div>
-          </div>
-
-          <div class="pane-group">
-            <div class="pane-group-title">执行调度配置</div>
-            <div class="info-block inline">
-              <div>
-                <span class="label">Cron 规则</span>
-                <span class="value code">{{ currentJob.cron_expr }}</span>
-              </div>
-              <div>
-                <span class="label">时区</span>
-                <span class="value code">{{ currentJob.timezone }}</span>
-              </div>
-            </div>
-            <div class="info-block">
-              <span class="label">智能中文语义</span>
-              <span class="value highlight">{{ parseCronToChinese(currentJob.cron_expr) }}</span>
-            </div>
-          </div>
-
-          <div class="pane-group">
-            <div class="pane-group-title">上下文载荷</div>
-            <div class="info-block inline">
-              <div>
-                <span class="label">会话 ID</span>
-                <span class="value code">{{ conversationText(currentJob) || 'N/A (全局任务)' }}</span>
-              </div>
-            </div>
-            <div class="info-block">
-              <span class="label">内容标识</span>
-              <span class="value">{{ displayText(currentJob.log_label || currentJob.payload_summary.content) }}</span>
-            </div>
-          </div>
-        </div>
-
-        <!-- 右侧：健康运行分析仪 -->
-        <div class="console-pane-right">
-          <div class="pane-group-title">运行状态分析</div>
-
-          <div class="health-instrument">
-            <!-- 仪表圆环 -->
-            <div class="health-gauge" :style="getHealthRingStyle(currentJob.stats)">
-              <div class="gauge-center">
-                <span class="gauge-pct">{{ currentJob.stats.total ? `${getSuccessRate(currentJob.stats)}%` : '-' }}</span>
-                <span class="gauge-desc">健康度</span>
-              </div>
-            </div>
-
-            <!-- 数据列项 -->
-            <div class="gauge-stats-list">
-              <div class="stat-item success">
-                <CheckCircleOutlined />
-                <span class="lbl">成功执行</span>
-                <span class="val">{{ currentJob.stats.success }} 次</span>
-              </div>
-              <div class="stat-item failed">
-                <CloseCircleOutlined />
-                <span class="lbl">失败运行</span>
-                <span class="val">{{ currentJob.stats.failed }} 次</span>
-              </div>
-              <div class="stat-item warning">
-                <ClockCircleOutlined />
-                <span class="lbl">执行超时</span>
-                <span class="val">{{ currentJob.stats.timeout }} 次</span>
-              </div>
-              <div class="stat-item other">
-                <InfoCircleOutlined />
-                <span class="lbl">重试次数</span>
-                <span class="val">{{ currentJob.stats.retry }} 次</span>
-              </div>
-            </div>
-          </div>
-
-          <div class="pane-group margin-top">
-            <div class="pane-group-title">时间与性能</div>
-            <div class="info-block inline">
-              <div>
-                <span class="label">上一次执行</span>
-                <span class="value small-text">{{ currentJob.last_run ? formatDateTime(currentJob.last_run) : '未跑' }}</span>
-              </div>
-              <div>
-                <span class="label">单次耗时</span>
-                <span class="value highlight">{{ formatDurationMs(currentJob.last_duration_ms) }}</span>
-              </div>
-            </div>
-            <div class="info-block">
-              <span class="label">下一次预计调度</span>
-              <span class="value small-text">
-                {{ currentJob.next_run ? formatDateTime(currentJob.next_run) : '未排期' }}
-                <span class="rel-time" v-if="currentJob.next_run">({{ getNextRunRelativeText(currentJob.next_run) }})</span>
-              </span>
-            </div>
-          </div>
-
-          <!-- 最近运行错误报告区 -->
-          <div class="console-error-report" v-if="currentJob.last_error">
-            <div class="report-head">
-              <WarningOutlined />
-              <span>运行故障报告</span>
-            </div>
-            <div class="report-body">
-              <div class="err-code">错误代码: <code>{{ currentJob.last_error.code }}</code></div>
-              <p class="err-msg">{{ currentJob.last_error.message }}</p>
-              <a-button size="small" type="primary" danger class="copy-console-err-btn" @click="copyToClipboard(`${currentJob.last_error.code}: ${currentJob.last_error.message}`)">
-                <template #icon><CopyOutlined /></template>
-                复制报错诊断堆栈
-              </a-button>
-            </div>
-          </div>
-        </div>
-      </div>
-    </a-modal>
+      </Transition>
+    </Teleport>
   </AppPage>
 </template>
 
@@ -1694,30 +1761,113 @@ const filteredItems = computed(() => {
 /* ----------------------------------------------------
  * 科技感控制台详情弹窗 (Console Details Dashboard)
  * ---------------------------------------------------- */
-:deep(.scheduler-detail-modal-wrapper) {
-  .ant-modal-content {
-    background: var(--surface) !important;
-    border: 1px solid var(--border);
-    border-radius: var(--radius-xl);
-    box-shadow: var(--shadow-floating);
-    padding: 20px 24px;
+.scheduler-detail-modal__host {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(0, 0, 0, 0.45);
+  overscroll-behavior: contain;
+}
+
+.scheduler-detail-modal__card {
+  width: min(750px, 100%);
+  max-height: calc(100vh - 48px);
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-floating);
+  overflow: hidden;
+  outline: none;
+  will-change: transform, opacity;
+}
+
+.scheduler-detail-modal__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 20px 24px 12px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.scheduler-detail-modal__close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: 0;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  transition: color 0.2s ease, background-color 0.2s ease;
+
+  &:hover {
+    color: var(--text);
+    background: color-mix(in srgb, var(--text) 5%, transparent);
   }
 
-  .ant-modal-header {
-    background: transparent !important;
-    border-bottom: 1px solid var(--border);
-    padding-bottom: 12px;
-    margin-bottom: 16px;
+  &:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
   }
+}
 
-  .ant-modal-close {
-    color: var(--muted);
-    transition: color 0.2s ease, background-color 0.2s ease;
-    &:hover {
-      color: var(--text);
-      background: color-mix(in srgb, var(--text) 5%, transparent);
-    }
-  }
+.scheduler-detail-modal__body {
+  position: relative;
+  padding: 16px 24px 24px;
+  overflow: auto;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+/* Skeleton ↔ content cross-fade */
+.scheduler-modal-content-enter-active,
+.scheduler-modal-content-leave-active {
+  transition: opacity 180ms cubic-bezier(0.2, 0, 0, 1);
+}
+
+.scheduler-modal-content-leave-active {
+  position: absolute;
+  inset: 16px 24px 24px;
+  pointer-events: none;
+}
+
+.scheduler-modal-content-enter-from,
+.scheduler-modal-content-leave-to {
+  opacity: 0;
+}
+
+/* Host (mask) fade */
+.scheduler-detail-modal-enter-active,
+.scheduler-detail-modal-leave-active {
+  transition: opacity 180ms cubic-bezier(0.2, 0, 0, 1);
+}
+
+.scheduler-detail-modal-enter-from,
+.scheduler-detail-modal-leave-to {
+  opacity: 0;
+}
+
+/* Card fade + lift */
+.scheduler-detail-modal-enter-active .scheduler-detail-modal__card,
+.scheduler-detail-modal-leave-active .scheduler-detail-modal__card {
+  transition: opacity 180ms cubic-bezier(0.2, 0, 0, 1),
+              transform 180ms cubic-bezier(0.2, 0, 0, 1);
+}
+
+.scheduler-detail-modal-enter-from .scheduler-detail-modal__card,
+.scheduler-detail-modal-leave-to .scheduler-detail-modal__card {
+  opacity: 0;
+  transform: translateY(8px);
 }
 
 .modal-header-title {
@@ -1729,25 +1879,42 @@ const filteredItems = computed(() => {
   color: var(--text);
 
   .pulse-dot {
+    position: relative;
     width: 8px;
     height: 8px;
     background: var(--success);
     border-radius: 50%;
-    box-shadow: 0 0 0 0 rgba(63, 190, 115, 0.4);
-    animation: pulse-green 2s infinite;
+    flex-shrink: 0;
+
+    &::after {
+      content: '';
+      position: absolute;
+      inset: -3px;
+      border-radius: 50%;
+      border: 2px solid color-mix(in srgb, var(--success) 60%, transparent);
+      opacity: 0;
+      transform: scale(0.6);
+      animation: pulse-ring 2s ease-out infinite;
+      pointer-events: none;
+      will-change: transform, opacity;
+    }
   }
 }
 
-@keyframes pulse-green {
-  0% { box-shadow: 0 0 0 0 rgba(63, 190, 115, 0.4); }
-  70% { box-shadow: 0 0 0 6px rgba(63, 190, 115, 0); }
-  100% { box-shadow: 0 0 0 0 rgba(63, 190, 115, 0); }
+@keyframes pulse-ring {
+  0%   { transform: scale(0.6); opacity: 1; }
+  70%  { transform: scale(1.6); opacity: 0; }
+  100% { transform: scale(1.6); opacity: 0; }
 }
 
 .modal-console-layout {
   display: grid;
   grid-template-columns: 1.1fr 1fr;
   gap: 20px;
+}
+
+.modal-console-skeleton {
+  min-height: 360px;
 }
 
 .console-pane-left {

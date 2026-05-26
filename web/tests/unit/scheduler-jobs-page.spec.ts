@@ -140,6 +140,9 @@ describe('SchedulerJobsPage', () => {
     expect(viewButton).toBeTruthy()
     await viewButton!.trigger('click')
     await flushPromises()
+    // modal 内容延迟挂载（>200ms），等待其落位
+    await new Promise((resolve) => setTimeout(resolve, 260))
+    await flushPromises()
 
     expect(document.body.textContent).toContain('定时任务详情')
     expect(document.body.textContent).toContain('天气插件 / weather')
