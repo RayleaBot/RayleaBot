@@ -617,10 +617,9 @@ const adapterConfigFields = computed(() => {
   background: var(--glass-bg);
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-xl, 16px);
-  backdrop-filter: blur(12px);
   box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.05);
   gap: 16px;
-  transition: all 0.3s ease;
+  transition: border-color 0.3s ease, box-shadow 0.3s ease;
 
   &:hover {
     box-shadow: 0 10px 40px 0 rgba(31, 38, 135, 0.08);
@@ -731,7 +730,7 @@ const adapterConfigFields = computed(() => {
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  transition: all 0.3s ease;
+  transition: transform 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease, background-color 0.3s ease, color 0.3s ease;
 
   &:hover {
     box-shadow: 0 6px 30px rgba(0, 0, 0, 0.04);
@@ -791,7 +790,7 @@ const adapterConfigFields = computed(() => {
     border-bottom: 1px solid var(--app-border);
     padding: 16px 20px;
     vertical-align: middle;
-    transition: all 0.25s ease;
+    transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease, background-color 0.25s ease, color 0.25s ease;
   }
 
   :deep(.ant-table-row:hover > td) {
@@ -817,7 +816,7 @@ const adapterConfigFields = computed(() => {
   font-size: 0.72rem;
   color: #ffffff;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
-  transition: all 0.3s ease;
+  transition: transform 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease, background-color 0.3s ease, color 0.3s ease;
 
   &.reverse_ws {
     background: linear-gradient(135deg, #3b82f6, #1d4ed8);
@@ -916,7 +915,7 @@ const adapterConfigFields = computed(() => {
   box-shadow: none;
   font-size: 0.85rem;
   padding: 6px 12px;
-  transition: all 0.25s ease;
+  transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease, background-color 0.25s ease, color 0.25s ease;
 
   &:hover {
     border-color: color-mix(in srgb, var(--accent) 30%, var(--app-border));
@@ -963,7 +962,7 @@ const adapterConfigFields = computed(() => {
   background: var(--app-bg-card, #ffffff);
   overflow: hidden;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.01);
-  transition: all 0.3s ease;
+  transition: transform 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease, background-color 0.3s ease, color 0.3s ease;
 
   &:hover {
     box-shadow: 0 6px 25px rgba(0, 0, 0, 0.03);
@@ -1065,7 +1064,7 @@ const adapterConfigFields = computed(() => {
   font-size: 0.72rem;
   cursor: help;
   font-weight: bold;
-  transition: all 0.2s ease;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease, background-color 0.2s ease, color 0.2s ease;
 
   &:hover {
     background: var(--accent);
@@ -1137,7 +1136,7 @@ const adapterConfigFields = computed(() => {
 
 .save-glow-btn {
   box-shadow: 0 4px 14px rgba(var(--primary-rgb), 0.25);
-  transition: all 0.25s ease;
+  transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease, background-color 0.25s ease, color 0.25s ease;
 
   &:hover:not(:disabled) {
     box-shadow: 0 6px 20px rgba(var(--primary-rgb), 0.4);
@@ -1245,7 +1244,7 @@ const adapterConfigFields = computed(() => {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  transition: all 0.2s ease;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease, background-color 0.2s ease, color 0.2s ease;
 
   &:hover {
     background: #ffffff;

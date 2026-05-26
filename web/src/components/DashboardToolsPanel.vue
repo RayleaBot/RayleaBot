@@ -65,7 +65,7 @@ defineEmits<{
   border: 1px solid var(--border);
   background: var(--surface-strong);
   box-shadow: var(--shadow-xs);
-  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+  transition: transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1), box-shadow 0.3s cubic-bezier(0.25, 0.8, 0.25, 1), border-color 0.3s cubic-bezier(0.25, 0.8, 0.25, 1), background-color 0.3s cubic-bezier(0.25, 0.8, 0.25, 1), color 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
 
   &:hover {
     box-shadow: var(--shadow-elevated);
@@ -102,7 +102,7 @@ defineEmits<{
   gap: 8px;
   box-shadow: var(--shadow-xs);
   border: 1px solid transparent;
-  transition: all 0.24s cubic-bezier(0.25, 0.8, 0.25, 1);
+  transition: transform 0.24s cubic-bezier(0.25, 0.8, 0.25, 1), box-shadow 0.24s cubic-bezier(0.25, 0.8, 0.25, 1), border-color 0.24s cubic-bezier(0.25, 0.8, 0.25, 1), background-color 0.24s cubic-bezier(0.25, 0.8, 0.25, 1), color 0.24s cubic-bezier(0.25, 0.8, 0.25, 1);
 
   &--backup {
     background: linear-gradient(135deg, var(--accent) 0%, color-mix(in srgb, var(--accent) 80%, #ffffff) 100%) !important;

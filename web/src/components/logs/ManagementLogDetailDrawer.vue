@@ -478,7 +478,6 @@ onBeforeUnmount(() => {
   <a-drawer
     v-if="isOpen && !useFloatingWindow"
     :open="open"
-    :get-container="false"
     placement="right"
     width="min(720px, 92vw)"
     :title="t('logs.detail.title')"

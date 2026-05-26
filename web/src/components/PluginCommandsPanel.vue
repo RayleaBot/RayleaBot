@@ -129,7 +129,7 @@ function isConflicted(command: PluginCommandSummary) {
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   background: var(--surface-soft);
-  transition: all 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.28s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.28s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.28s cubic-bezier(0.4, 0, 0.2, 1), color 0.28s cubic-bezier(0.4, 0, 0.2, 1);
   overflow: hidden;
   box-shadow: var(--shadow-xs);
 

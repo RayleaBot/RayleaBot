@@ -159,7 +159,7 @@ function handleClick(event: MouseEvent) {
   border: 1px solid var(--off-track-border);
   background: var(--off-track);
   box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.05);
-  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.25s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.25s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.25s cubic-bezier(0.4, 0, 0.2, 1), color 0.25s cubic-bezier(0.4, 0, 0.2, 1);
   display: flex;
   align-items: center;
 }
@@ -187,7 +187,7 @@ function handleClick(event: MouseEvent) {
   border: 2px solid var(--accent);
   border-top-color: transparent;
   border-radius: 50%;
-  transition: all 0.25s ease;
+  transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease, background-color 0.25s ease, color 0.25s ease;
 }
 
 .plugin-holo-button--compact .plugin-holo-button__thumb-inner {

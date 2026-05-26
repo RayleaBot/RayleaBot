@@ -1063,7 +1063,7 @@ onMounted(() => {
   align-items: center;
   gap: 8px;
   color: var(--fg);
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.2s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.2s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.2s cubic-bezier(0.4, 0, 0.2, 1), color 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   font-size: 0.85rem;
   font-weight: 600;
   max-width: 100%;

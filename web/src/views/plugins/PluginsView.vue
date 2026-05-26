@@ -734,7 +734,6 @@ async function submitInstall() {
 
     <a-modal
       v-model:open="installDialogVisible"
-      :get-container="false"
       :title="t('plugins.installDialogTitle')"
       :confirm-loading="installPending"
       :ok-text="t('plugins.installSubmit')"
@@ -770,7 +769,6 @@ async function submitInstall() {
 
     <a-drawer
       v-model:open="summaryDrawerVisible"
-      :get-container="false"
       :title="t('plugins.actions.summary')"
       placement="right"
       width="min(560px, 92vw)"
@@ -846,7 +844,7 @@ async function submitInstall() {
   border-radius: var(--app-card-radius);
   box-shadow: var(--shadow-sm);
   cursor: pointer;
-  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.25s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.25s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.25s cubic-bezier(0.4, 0, 0.2, 1), color 0.25s cubic-bezier(0.4, 0, 0.2, 1);
   position: relative;
   overflow: hidden;
 
@@ -887,7 +885,7 @@ async function submitInstall() {
   height: 42px;
   border-radius: 50%;
   font-size: 1.25rem;
-  transition: all 0.3s ease;
+  transition: transform 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease, background-color 0.3s ease, color 0.3s ease;
 
   &.total {
     background: var(--accent-soft);
@@ -991,7 +989,7 @@ async function submitInstall() {
   justify-content: center;
   border-radius: 6px !important;
   color: var(--muted);
-  transition: all 0.2s ease;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease, background-color 0.2s ease, color 0.2s ease;
 
   &:hover {
     background: var(--surface-soft);
@@ -1032,7 +1030,7 @@ async function submitInstall() {
   box-shadow: var(--shadow-sm);
   display: flex;
   flex-direction: column;
-  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+  transition: transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1), box-shadow 0.3s cubic-bezier(0.25, 0.8, 0.25, 1), border-color 0.3s cubic-bezier(0.25, 0.8, 0.25, 1), background-color 0.3s cubic-bezier(0.25, 0.8, 0.25, 1), color 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
   position: relative;
   overflow: hidden;
 

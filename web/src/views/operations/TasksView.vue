@@ -312,7 +312,6 @@ function getStatusColor(status: string) {
 
     <a-drawer
       v-model:open="detailVisible"
-      :get-container="false"
       :title="t('tasks.detailTitle')"
       placement="right"
       width="min(720px, 92vw)"

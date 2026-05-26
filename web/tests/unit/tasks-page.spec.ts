@@ -127,26 +127,30 @@ describe('TasksPage', () => {
 
     await flushPromises()
 
-    expect(wrapper.text()).toContain('任务类型')
-    expect(wrapper.text()).toContain('图片预览')
-    expect(wrapper.text()).toContain('render.preview')
-    expect(wrapper.text()).toContain('图片预览已生成')
+    const bodyText = () => document.body.textContent ?? ''
+    expect(bodyText()).toContain('任务类型')
+    expect(bodyText()).toContain('图片预览')
+    expect(bodyText()).toContain('render.preview')
+    expect(bodyText()).toContain('图片预览已生成')
     expect(apiDownload).toHaveBeenCalledWith(
       '/api/system/render/artifacts/render_preview_0001.png',
       expect.objectContaining({ signal: expect.any(AbortSignal) }),
     )
-    const image = wrapper.find('img[alt="图片预览结果"]')
-    expect(image.exists()).toBe(true)
-    expect(image.attributes('src')).toBe('blob:task-preview')
-    expect(wrapper.text()).toContain('打开模板预览')
+    const image = document.body.querySelector('img[alt="图片预览结果"]') as HTMLImageElement | null
+    expect(image).not.toBeNull()
+    expect(image!.getAttribute('src')).toBe('blob:task-preview')
+    expect(bodyText()).toContain('打开模板预览')
 
-    const templateButton = wrapper.findAll('button').find((candidate) => candidate.text().includes('打开模板预览'))
+    const templateButton = Array.from(document.body.querySelectorAll('button')).find(
+      (candidate) => candidate.textContent?.includes('打开模板预览'),
+    ) as HTMLButtonElement | undefined
     expect(templateButton).toBeTruthy()
-    await templateButton!.trigger('click')
+    templateButton!.click()
     await flushPromises()
 
     expect(router.currentRoute.value.name).toBe('render-templates')
     expect(router.currentRoute.value.params.templateId).toBe('help.menu')
+    wrapper.unmount()
   })
 
   it('does not create a new preview blob url after the page unmounts', async () => {
@@ -298,20 +302,24 @@ describe('TasksPage', () => {
 
     await flushPromises()
 
-    expect(wrapper.text()).toContain('恢复摘要')
-    expect(wrapper.text()).toContain('confirmed_review_ids = ["review_weather_pro"]')
-    expect(wrapper.text()).toContain('operator_id = alice')
-    expect(wrapper.text()).not.toContain('recovery_summary =')
-    expect(wrapper.find('[data-testid="recovery-plugin-card-review_weather_pro"]').exists()).toBe(true)
-    expect(wrapper.find('[data-testid="recovery-plugin-card-review_legacy_plugin"]').exists()).toBe(false)
-    expect(wrapper.findAll('[data-testid="recovery-audit-entry"]')).toHaveLength(2)
-    expect(wrapper.find('[data-testid="recovery-confirm-button"]').exists()).toBe(false)
+    const bodyText = () => document.body.textContent ?? ''
+    expect(bodyText()).toContain('恢复摘要')
+    expect(bodyText()).toContain('confirmed_review_ids = ["review_weather_pro"]')
+    expect(bodyText()).toContain('operator_id = alice')
+    expect(bodyText()).not.toContain('recovery_summary =')
+    expect(document.body.querySelector('[data-testid="recovery-plugin-card-review_weather_pro"]')).not.toBeNull()
+    expect(document.body.querySelector('[data-testid="recovery-plugin-card-review_legacy_plugin"]')).toBeNull()
+    expect(document.body.querySelectorAll('[data-testid="recovery-audit-entry"]')).toHaveLength(2)
+    expect(document.body.querySelector('[data-testid="recovery-confirm-button"]')).toBeNull()
 
-    await wrapper.find('[data-testid="recovery-filter-confirmed"]').trigger('click')
+    const filterButton = document.body.querySelector('[data-testid="recovery-filter-confirmed"]') as HTMLElement | null
+    expect(filterButton).not.toBeNull()
+    filterButton!.click()
     await flushPromises()
 
-    expect(wrapper.find('[data-testid="recovery-plugin-card-review_weather_pro"]').exists()).toBe(false)
-    expect(wrapper.find('[data-testid="recovery-plugin-card-review_legacy_plugin"]').exists()).toBe(true)
+    expect(document.body.querySelector('[data-testid="recovery-plugin-card-review_weather_pro"]')).toBeNull()
+    expect(document.body.querySelector('[data-testid="recovery-plugin-card-review_legacy_plugin"]')).not.toBeNull()
+    wrapper.unmount()
   })
 
   it('renders the task list inside a compact desktop table', async () => {

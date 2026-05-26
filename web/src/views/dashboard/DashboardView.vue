@@ -405,7 +405,6 @@ function getProtocolIssueTagColor(status: typeof protocolIssueStatusType.value) 
 
     <a-modal
       v-model:open="previewVisible"
-      :get-container="false"
       :title="t('dashboard.previewTitle')"
       :confirm-loading="previewPending"
       :ok-text="t('dashboard.previewSubmit')"
@@ -490,7 +489,7 @@ function getProtocolIssueTagColor(status: typeof protocolIssueStatusType.value) 
   border: 1px solid var(--border);
   background: var(--surface-strong);
   box-shadow: var(--shadow-xs);
-  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+  transition: transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1), box-shadow 0.3s cubic-bezier(0.25, 0.8, 0.25, 1), border-color 0.3s cubic-bezier(0.25, 0.8, 0.25, 1), background-color 0.3s cubic-bezier(0.25, 0.8, 0.25, 1), color 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
 
   &:hover {
     box-shadow: var(--shadow-elevated);
@@ -512,7 +511,7 @@ function getProtocolIssueTagColor(status: typeof protocolIssueStatusType.value) 
   font-size: 0.9rem;
   font-weight: 500;
   color: var(--muted);
-  transition: all 0.2s ease;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease, background-color 0.2s ease, color 0.2s ease;
 
   &:hover {
     color: var(--accent);
@@ -555,7 +554,7 @@ function getProtocolIssueTagColor(status: typeof protocolIssueStatusType.value) 
   border: 1px solid color-mix(in srgb, var(--warning) 30%, var(--border));
   background: color-mix(in srgb, var(--warning) 6%, var(--surface-soft));
   box-shadow: var(--shadow-sm);
-  transition: all 0.24s ease;
+  transition: transform 0.24s ease, box-shadow 0.24s ease, border-color 0.24s ease, background-color 0.24s ease, color 0.24s ease;
 
   &:hover {
     border-color: var(--warning);
@@ -687,7 +686,7 @@ function getProtocolIssueTagColor(status: typeof protocolIssueStatusType.value) 
   border-radius: var(--radius-md);
   border: 1px solid transparent;
   background: transparent;
-  transition: all 0.24s ease;
+  transition: transform 0.24s ease, box-shadow 0.24s ease, border-color 0.24s ease, background-color 0.24s ease, color 0.24s ease;
 
   &:hover {
     background: var(--surface-soft);
@@ -729,7 +728,7 @@ function getProtocolIssueTagColor(status: typeof protocolIssueStatusType.value) 
   border-radius: var(--radius-lg);
   border: 1px solid var(--border);
   background: var(--surface-soft);
-  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+  transition: transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1), box-shadow 0.3s cubic-bezier(0.25, 0.8, 0.25, 1), border-color 0.3s cubic-bezier(0.25, 0.8, 0.25, 1), background-color 0.3s cubic-bezier(0.25, 0.8, 0.25, 1), color 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
 
   &:hover {
     transform: translateY(-2px);
@@ -827,7 +826,7 @@ function getProtocolIssueTagColor(status: typeof protocolIssueStatusType.value) 
   box-shadow: var(--shadow-xs);
   position: relative;
   overflow: hidden;
-  transition: all 0.24s ease;
+  transition: transform 0.24s ease, box-shadow 0.24s ease, border-color 0.24s ease, background-color 0.24s ease, color 0.24s ease;
 
   &::before {
     content: '';
@@ -881,7 +880,7 @@ function getProtocolIssueTagColor(status: typeof protocolIssueStatusType.value) 
   border: 1px solid var(--border);
   background: var(--surface-strong);
   box-shadow: var(--shadow-xs);
-  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+  transition: transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1), box-shadow 0.3s cubic-bezier(0.25, 0.8, 0.25, 1), border-color 0.3s cubic-bezier(0.25, 0.8, 0.25, 1), background-color 0.3s cubic-bezier(0.25, 0.8, 0.25, 1), color 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
 
   &:hover {
     box-shadow: var(--shadow-elevated);
@@ -898,7 +897,7 @@ function getProtocolIssueTagColor(status: typeof protocolIssueStatusType.value) 
   border: 1px solid var(--border);
   background: var(--surface-soft);
   box-shadow: var(--shadow-xs);
-  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+  transition: transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1), box-shadow 0.3s cubic-bezier(0.25, 0.8, 0.25, 1), border-color 0.3s cubic-bezier(0.25, 0.8, 0.25, 1), background-color 0.3s cubic-bezier(0.25, 0.8, 0.25, 1), color 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
   overflow: hidden;
 
   &::before {

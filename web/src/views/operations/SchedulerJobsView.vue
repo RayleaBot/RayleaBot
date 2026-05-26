@@ -793,7 +793,7 @@ const filteredItems = computed(() => {
   border-radius: var(--radius-md);
   border-color: var(--border);
   background: var(--surface);
-  transition: all 0.25s ease;
+  transition: color 0.25s ease, border-color 0.25s ease, background-color 0.25s ease;
 
   &:hover {
     color: var(--accent) !important;
@@ -812,13 +812,12 @@ const filteredItems = computed(() => {
   flex-wrap: wrap;
   gap: var(--space-md);
   padding: 14px 18px;
-  background: color-mix(in srgb, var(--surface) 88%, transparent);
-  backdrop-filter: blur(12px);
+  background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-sm);
   margin-bottom: var(--space-md);
-  transition: all 0.3s ease;
+  transition: border-color 0.3s ease, box-shadow 0.3s ease;
 
   &:hover {
     border-color: var(--border-accent);
@@ -838,7 +837,7 @@ const filteredItems = computed(() => {
     height: 36px;
     border-radius: var(--radius-md);
     border-color: var(--border);
-    transition: all 0.25s ease;
+    transition: border-color 0.25s ease;
 
     &:hover, &:focus {
       border-color: var(--accent);
@@ -902,7 +901,7 @@ const filteredItems = computed(() => {
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-sm);
   overflow: hidden;
-  transition: all 0.3s ease;
+  transition: box-shadow 0.3s ease;
 
   &:hover {
     box-shadow: var(--shadow);
@@ -960,7 +959,7 @@ const filteredItems = computed(() => {
   /* 表格行 Hover 左侧指示条与底色 */
   :deep(.ant-table-tbody > tr:not(.ant-table-measure-row)) {
     position: relative;
-    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: background-color 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 
     &:hover {
       background-color: var(--surface-accent) !important;
@@ -1294,7 +1293,7 @@ const filteredItems = computed(() => {
     font-family: var(--font-mono);
     text-transform: uppercase;
     letter-spacing: 0.02em;
-    transition: all 0.2s ease;
+    transition: background-color 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
 
     &:hover {
       background: var(--danger);
@@ -1372,7 +1371,7 @@ const filteredItems = computed(() => {
     border-radius: var(--radius-sm);
     border: 1px solid var(--border);
     background: var(--surface);
-    transition: all 0.22s cubic-bezier(0.25, 0.8, 0.25, 1);
+    transition: transform 0.22s cubic-bezier(0.25, 0.8, 0.25, 1), box-shadow 0.22s cubic-bezier(0.25, 0.8, 0.25, 1), color 0.22s cubic-bezier(0.25, 0.8, 0.25, 1), border-color 0.22s cubic-bezier(0.25, 0.8, 0.25, 1), background-color 0.22s cubic-bezier(0.25, 0.8, 0.25, 1);
 
     &:hover {
       transform: translateY(-1px);
@@ -1410,13 +1409,12 @@ const filteredItems = computed(() => {
 .scheduler-card {
   display: flex;
   flex-direction: column;
-  background: color-mix(in srgb, var(--surface) 88%, transparent);
-  backdrop-filter: blur(16px);
+  background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-sm);
   overflow: hidden;
-  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+  transition: transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1), box-shadow 0.3s cubic-bezier(0.25, 0.8, 0.25, 1), border-color 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
 
   &:hover {
     transform: translateY(-4px);
@@ -1666,7 +1664,7 @@ const filteredItems = computed(() => {
       height: 32px;
       font-size: 12px;
       border-radius: var(--radius-md);
-      transition: all 0.2s ease;
+      transition: color 0.2s ease, border-color 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease;
 
       &.view {
         border-color: var(--border);
@@ -1698,8 +1696,7 @@ const filteredItems = computed(() => {
  * ---------------------------------------------------- */
 :deep(.scheduler-detail-modal-wrapper) {
   .ant-modal-content {
-    background: color-mix(in srgb, var(--surface) 95%, transparent) !important;
-    backdrop-filter: blur(20px);
+    background: var(--surface) !important;
     border: 1px solid var(--border);
     border-radius: var(--radius-xl);
     box-shadow: var(--shadow-floating);
@@ -1715,7 +1712,7 @@ const filteredItems = computed(() => {
 
   .ant-modal-close {
     color: var(--muted);
-    transition: all 0.2s ease;
+    transition: color 0.2s ease, background-color 0.2s ease;
     &:hover {
       color: var(--text);
       background: color-mix(in srgb, var(--text) 5%, transparent);

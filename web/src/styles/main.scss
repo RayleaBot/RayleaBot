@@ -1786,3 +1786,15 @@ textarea:focus-visible,
   align-items: center;
   padding: 0;
 }
+
+/* Overlay layer compositing hints — keep modal/drawer transforms on the GPU */
+.ant-modal,
+.ant-drawer-content-wrapper {
+  will-change: transform, opacity;
+  contain: layout paint;
+}
+
+.ant-modal-mask,
+.ant-drawer-mask {
+  will-change: opacity;
+}

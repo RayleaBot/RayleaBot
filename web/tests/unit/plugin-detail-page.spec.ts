@@ -625,15 +625,18 @@ describe('PluginDetailPage', () => {
     await wrapper.find('.plugin-holo-button').trigger('click')
     await flushPromises()
 
-    expect(wrapper.text()).toContain('重新确认插件权限')
-    expect(wrapper.text()).toContain('作用域发生变化')
-    expect(wrapper.text()).toContain('发起 HTTP 请求')
-    expect(wrapper.find('[title="原始能力：http.request"]').exists()).toBe(true)
-    expect(wrapper.text()).not.toContain('当前未声明权限')
+    const bodyText = () => document.body.textContent ?? ''
+    expect(bodyText()).toContain('重新确认插件权限')
+    expect(bodyText()).toContain('作用域发生变化')
+    expect(bodyText()).toContain('发起 HTTP 请求')
+    expect(document.body.querySelector('[title="原始能力：http.request"]')).not.toBeNull()
+    expect(bodyText()).not.toContain('当前未声明权限')
 
-    const confirmButton = wrapper.findAll('button').find((candidate) => candidate.text().includes('重新确认选中项'))
+    const confirmButton = Array.from(document.body.querySelectorAll('button')).find(
+      (candidate) => candidate.textContent?.includes('重新确认选中项'),
+    ) as HTMLButtonElement | undefined
     expect(confirmButton).toBeTruthy()
-    await confirmButton!.trigger('click')
+    confirmButton!.click()
     await flushPromises()
 
     expect(grantCapabilitySpy).toHaveBeenCalledWith('weather', { capability: 'http.request' })

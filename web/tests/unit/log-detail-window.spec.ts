@@ -218,8 +218,8 @@ describe('ManagementLogDetailDrawer', () => {
       memoryKey: 'logs-current',
     })
 
-    expect(wrapper.find('.ant-drawer').exists()).toBe(true)
-    expect(wrapper.find('.log-detail-window').exists()).toBe(false)
+    expect(document.body.querySelector('.ant-drawer')).not.toBeNull()
+    expect(document.body.querySelector('.log-detail-window')).toBeNull()
   })
 
   it('keeps dragging inside the right corridor and remembers the last position', async () => {

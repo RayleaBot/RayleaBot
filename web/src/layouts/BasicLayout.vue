@@ -1172,7 +1172,6 @@ onBeforeUnmount(() => {
 
   <a-modal
     v-model:open="shutdownDialogVisible"
-    :get-container="false"
     :title="t('shell.shutdownConfirmTitle')"
     :confirm-loading="shutdownPending"
     :ok-button-props="{ danger: true }"

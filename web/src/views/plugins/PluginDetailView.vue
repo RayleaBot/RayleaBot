@@ -1125,7 +1125,6 @@ watch(
 
   <a-modal
     v-model:open="permissionDialogVisible"
-    :get-container="false"
     :title="permissionDialogTitle"
     :confirm-loading="grantBusy"
     :ok-text="permissionDialogOkText"
@@ -1173,7 +1172,6 @@ watch(
 
   <a-modal
     v-model:open="uninstallDialogVisible"
-    :get-container="false"
     :title="t('plugins.uninstallConfirmTitle')"
     :confirm-loading="actionPending[pluginId] === 'uninstall'"
     :ok-text="t('plugins.actions.uninstallConfirm')"
@@ -1274,7 +1272,7 @@ watch(
   :deep(.ant-segmented-item) {
     border-radius: 4px;
     font-weight: 550;
-    transition: all 0.2s ease;
+    transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease, background-color 0.2s ease, color 0.2s ease;
   }
 
   :deep(.ant-segmented-item-selected) {
@@ -1299,7 +1297,7 @@ watch(
   box-shadow: var(--shadow-sm);
   position: relative;
   overflow: hidden;
-  transition: all 0.25s ease;
+  transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease, background-color 0.25s ease, color 0.25s ease;
 
   &::before {
     content: '';
@@ -1773,7 +1771,7 @@ watch(
   border: 1px solid var(--border);
   background: var(--surface-soft);
   min-height: 58px;
-  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.25s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.25s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.25s cubic-bezier(0.4, 0, 0.2, 1), color 0.25s cubic-bezier(0.4, 0, 0.2, 1);
   overflow: hidden;
 
   &:hover {
@@ -1980,7 +1978,7 @@ watch(
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.2s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.2s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.2s cubic-bezier(0.4, 0, 0.2, 1), color 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   }
 
   .grant-btn {

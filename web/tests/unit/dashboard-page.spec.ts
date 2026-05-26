@@ -172,13 +172,21 @@ describe('DashboardPage', () => {
     await previewButton!.trigger('click')
     await flushPromises()
 
-    const templateInput = wrapper.find('input[placeholder="help.menu"]')
-    await templateInput.setValue('help.menu')
-    const submitButton = wrapper.findAll('button').find((candidate) => candidate.text().includes('生成预览'))
+    const templateInput = document.body.querySelector('input[placeholder="help.menu"]') as HTMLInputElement | null
+    expect(templateInput).not.toBeNull()
+    templateInput!.value = 'help.menu'
+    templateInput!.dispatchEvent(new Event('input', { bubbles: true }))
+    await flushPromises()
+
+    const submitButton = Array.from(document.body.querySelectorAll('button')).find(
+      (candidate) => candidate.textContent?.includes('生成预览'),
+    ) as HTMLButtonElement | undefined
     expect(submitButton).toBeTruthy()
-    await submitButton!.trigger('click')
+    submitButton!.click()
+    await flushPromises()
 
     expect(previewSpy).toHaveBeenCalledTimes(1)
+    wrapper.unmount()
   })
 
   it('shows a protocol reminder when the protocol snapshot is degraded with transport issues', async () => {
