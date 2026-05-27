@@ -13,9 +13,24 @@ export interface ConfigFieldDefinition {
   description?: string
   options?: ConfigFieldOption[]
   defaultValue?: unknown
+  unit?: string
+  restartRequired?: boolean
+  placeholder?: string
   min?: number
   max?: number
   step?: number
+}
+
+export function composeFieldTooltip(field: ConfigFieldDefinition): string | undefined {
+  if (!field.description) {
+    return undefined
+  }
+
+  if (field.restartRequired) {
+    return `${field.description}\n${t('config.restartHint')}`
+  }
+
+  return field.description
 }
 
 export const DEFAULT_RENDER_FOOTER_TEMPLATE = 'Created By RayleaBot {{rayleabot_version}} & Plugin {{plugin_name}} {{plugin_version}}'
@@ -33,40 +48,107 @@ export function getConfigSections(): ConfigSectionDefinition[] {
       key: 'server',
       title: t('config.sections.server'),
       fields: [
-        { path: 'server.host', label: t('config.fields.serverHost'), type: 'text' },
-        { path: 'server.port', label: t('config.fields.serverPort'), type: 'number' },
+        {
+          path: 'server.host',
+          label: t('config.fields.serverHost'),
+          type: 'text',
+          description: t('config.descriptions.serverHost'),
+          restartRequired: true,
+        },
+        {
+          path: 'server.port',
+          label: t('config.fields.serverPort'),
+          type: 'number',
+          description: t('config.descriptions.serverPort'),
+          restartRequired: true,
+        },
       ],
     },
     {
       key: 'database',
       title: t('config.sections.database'),
       fields: [
-        { path: 'database.engine', label: t('config.fields.databaseEngine'), type: 'text' },
-        { path: 'database.path', label: t('config.fields.databasePath'), type: 'text' },
+        {
+          path: 'database.engine',
+          label: t('config.fields.databaseEngine'),
+          type: 'text',
+          description: t('config.descriptions.databaseEngine'),
+          restartRequired: true,
+        },
+        {
+          path: 'database.path',
+          label: t('config.fields.databasePath'),
+          type: 'text',
+          description: t('config.descriptions.databasePath'),
+          restartRequired: true,
+        },
       ],
     },
     {
       key: 'admin',
       title: t('config.sections.admin'),
       fields: [
-        { path: 'admin.session_ttl_days', label: t('config.fields.adminSessionTtlDays'), type: 'number' },
-        { path: 'admin.sliding_renewal', label: t('config.fields.adminSlidingRenewal'), type: 'boolean' },
-        { path: 'admin.max_sessions', label: t('config.fields.adminMaxSessions'), type: 'number' },
-        { path: 'admin.login_fail_limit', label: t('config.fields.adminLoginFailLimit'), type: 'number' },
-        { path: 'admin.login_fail_window_seconds', label: t('config.fields.adminLoginFailWindowSeconds'), type: 'number' },
+        {
+          path: 'admin.session_ttl_days',
+          label: t('config.fields.adminSessionTtlDays'),
+          type: 'number',
+          unit: t('config.units.day'),
+          description: t('config.descriptions.adminSessionTtlDays'),
+        },
+        {
+          path: 'admin.sliding_renewal',
+          label: t('config.fields.adminSlidingRenewal'),
+          type: 'boolean',
+          description: t('config.descriptions.adminSlidingRenewal'),
+        },
+        {
+          path: 'admin.max_sessions',
+          label: t('config.fields.adminMaxSessions'),
+          type: 'number',
+          description: t('config.descriptions.adminMaxSessions'),
+        },
+        {
+          path: 'admin.login_fail_limit',
+          label: t('config.fields.adminLoginFailLimit'),
+          type: 'number',
+          description: t('config.descriptions.adminLoginFailLimit'),
+        },
+        {
+          path: 'admin.login_fail_window_seconds',
+          label: t('config.fields.adminLoginFailWindowSeconds'),
+          type: 'number',
+          unit: t('config.units.second'),
+          description: t('config.descriptions.adminLoginFailWindowSeconds'),
+        },
       ],
     },
     {
       key: 'render',
       title: t('config.sections.render'),
       fields: [
-        { path: 'render.worker_count', label: t('config.fields.renderWorkerCount'), type: 'number' },
-        { path: 'render.browser_args', label: t('config.fields.renderBrowserArgs'), type: 'list' },
-        { path: 'render.browser_path', label: t('config.fields.renderBrowserPath'), type: 'text' },
+        {
+          path: 'render.worker_count',
+          label: t('config.fields.renderWorkerCount'),
+          type: 'number',
+          description: t('config.descriptions.renderWorkerCount'),
+        },
+        {
+          path: 'render.browser_args',
+          label: t('config.fields.renderBrowserArgs'),
+          type: 'list',
+          description: t('config.descriptions.renderBrowserArgs'),
+        },
+        {
+          path: 'render.browser_path',
+          label: t('config.fields.renderBrowserPath'),
+          type: 'text',
+          description: t('config.descriptions.renderBrowserPath'),
+        },
         {
           path: 'render.default_output',
           label: t('config.fields.renderDefaultOutput'),
           type: 'select',
+          description: t('config.descriptions.renderDefaultOutput'),
           options: [
             { label: t('config.options.renderOutputPng'), value: 'png' },
             { label: t('config.options.renderOutputJpeg'), value: 'jpeg' },
@@ -76,58 +158,211 @@ export function getConfigSections(): ConfigSectionDefinition[] {
           path: 'render.device_scale_percent',
           label: t('config.fields.renderDeviceScalePercent'),
           type: 'number',
+          unit: '%',
+          description: t('config.descriptions.renderDeviceScalePercent'),
           min: 50,
           max: 500,
           step: 1,
         },
-        { path: 'render.timeout_seconds', label: t('config.fields.renderTimeoutSeconds'), type: 'number' },
-        { path: 'render.queue_wait_timeout_seconds', label: t('config.fields.renderQueueWaitTimeoutSeconds'), type: 'number' },
-        { path: 'render.queue_max_length', label: t('config.fields.renderQueueMaxLength'), type: 'number' },
+        {
+          path: 'render.timeout_seconds',
+          label: t('config.fields.renderTimeoutSeconds'),
+          type: 'number',
+          unit: t('config.units.second'),
+          description: t('config.descriptions.renderTimeoutSeconds'),
+        },
+        {
+          path: 'render.queue_wait_timeout_seconds',
+          label: t('config.fields.renderQueueWaitTimeoutSeconds'),
+          type: 'number',
+          unit: t('config.units.second'),
+          description: t('config.descriptions.renderQueueWaitTimeoutSeconds'),
+        },
+        {
+          path: 'render.queue_max_length',
+          label: t('config.fields.renderQueueMaxLength'),
+          type: 'number',
+          description: t('config.descriptions.renderQueueMaxLength'),
+        },
       ],
     },
     {
       key: 'scheduler',
       title: t('config.sections.scheduler'),
-      fields: [{ path: 'scheduler.timezone', label: t('config.fields.schedulerTimezone'), type: 'text' }],
+      fields: [
+        {
+          path: 'scheduler.timezone',
+          label: t('config.fields.schedulerTimezone'),
+          type: 'text',
+          description: t('config.descriptions.schedulerTimezone'),
+        },
+      ],
     },
     {
       key: 'runtime',
       title: t('config.sections.runtime'),
       fields: [
-        { path: 'runtime.plugin_init_timeout_seconds', label: t('config.fields.runtimePluginInitTimeoutSeconds'), type: 'number' },
-        { path: 'runtime.plugin_init_max_total_seconds', label: t('config.fields.runtimePluginInitMaxTotalSeconds'), type: 'number' },
-        { path: 'runtime.plugin_event_timeout_seconds', label: t('config.fields.runtimePluginEventTimeoutSeconds'), type: 'number' },
-        { path: 'runtime.max_pending_events_per_plugin', label: t('config.fields.runtimeMaxPendingEventsPerPlugin'), type: 'number' },
-        { path: 'runtime.max_pending_control_events_per_plugin', label: t('config.fields.runtimeMaxPendingControlEventsPerPlugin'), type: 'number' },
-        { path: 'runtime.nodejs_max_old_space_size_mb', label: t('config.fields.runtimeNodejsMaxOldSpaceSizeMb'), type: 'number' },
-        { path: 'runtime.dependency_install_timeout_seconds', label: t('config.fields.runtimeDependencyInstallTimeoutSeconds'), type: 'number' },
-        { path: 'runtime.max_concurrent_dependency_installs', label: t('config.fields.runtimeMaxConcurrentDependencyInstalls'), type: 'number' },
-        { path: 'runtime.ipc_pending_actions_max', label: t('config.fields.runtimeIpcPendingActionsMax'), type: 'number' },
-        { path: 'runtime.ipc_action_burst_limit', label: t('config.fields.runtimeIpcActionBurstLimit'), type: 'rateLimit' },
-        { path: 'runtime.stderr_rate_limit_bytes_per_second', label: t('config.fields.runtimeStderrRateLimitBytesPerSecond'), type: 'number' },
-        { path: 'runtime.max_concurrent_tasks_per_plugin', label: t('config.fields.runtimeMaxConcurrentTasksPerPlugin'), type: 'number' },
-        { path: 'runtime.crash_backoff_initial_seconds', label: t('config.fields.runtimeCrashBackoffInitialSeconds'), type: 'number' },
-        { path: 'runtime.crash_backoff_max_seconds', label: t('config.fields.runtimeCrashBackoffMaxSeconds'), type: 'number' },
-        { path: 'runtime.shutdown_grace_seconds', label: t('config.fields.runtimeShutdownGraceSeconds'), type: 'number' },
-        { path: 'runtime.ipc_message_max_bytes', label: t('config.fields.runtimeIpcMessageMaxBytes'), type: 'number' },
+        {
+          path: 'runtime.plugin_init_timeout_seconds',
+          label: t('config.fields.runtimePluginInitTimeoutSeconds'),
+          type: 'number',
+          unit: t('config.units.second'),
+          description: t('config.descriptions.runtimePluginInitTimeoutSeconds'),
+        },
+        {
+          path: 'runtime.plugin_init_max_total_seconds',
+          label: t('config.fields.runtimePluginInitMaxTotalSeconds'),
+          type: 'number',
+          unit: t('config.units.second'),
+          description: t('config.descriptions.runtimePluginInitMaxTotalSeconds'),
+        },
+        {
+          path: 'runtime.plugin_event_timeout_seconds',
+          label: t('config.fields.runtimePluginEventTimeoutSeconds'),
+          type: 'number',
+          unit: t('config.units.second'),
+          description: t('config.descriptions.runtimePluginEventTimeoutSeconds'),
+        },
+        {
+          path: 'runtime.max_pending_events_per_plugin',
+          label: t('config.fields.runtimeMaxPendingEventsPerPlugin'),
+          type: 'number',
+          description: t('config.descriptions.runtimeMaxPendingEventsPerPlugin'),
+        },
+        {
+          path: 'runtime.max_pending_control_events_per_plugin',
+          label: t('config.fields.runtimeMaxPendingControlEventsPerPlugin'),
+          type: 'number',
+          description: t('config.descriptions.runtimeMaxPendingControlEventsPerPlugin'),
+        },
+        {
+          path: 'runtime.nodejs_max_old_space_size_mb',
+          label: t('config.fields.runtimeNodejsMaxOldSpaceSizeMb'),
+          type: 'number',
+          unit: 'MB',
+          description: t('config.descriptions.runtimeNodejsMaxOldSpaceSizeMb'),
+          restartRequired: true,
+        },
+        {
+          path: 'runtime.dependency_install_timeout_seconds',
+          label: t('config.fields.runtimeDependencyInstallTimeoutSeconds'),
+          type: 'number',
+          unit: t('config.units.second'),
+          description: t('config.descriptions.runtimeDependencyInstallTimeoutSeconds'),
+        },
+        {
+          path: 'runtime.max_concurrent_dependency_installs',
+          label: t('config.fields.runtimeMaxConcurrentDependencyInstalls'),
+          type: 'number',
+          description: t('config.descriptions.runtimeMaxConcurrentDependencyInstalls'),
+        },
+        {
+          path: 'runtime.ipc_pending_actions_max',
+          label: t('config.fields.runtimeIpcPendingActionsMax'),
+          type: 'number',
+          description: t('config.descriptions.runtimeIpcPendingActionsMax'),
+        },
+        {
+          path: 'runtime.ipc_action_burst_limit',
+          label: t('config.fields.runtimeIpcActionBurstLimit'),
+          type: 'rateLimit',
+          description: t('config.descriptions.runtimeIpcActionBurstLimit'),
+        },
+        {
+          path: 'runtime.stderr_rate_limit_bytes_per_second',
+          label: t('config.fields.runtimeStderrRateLimitBytesPerSecond'),
+          type: 'number',
+          unit: 'B/s',
+          description: t('config.descriptions.runtimeStderrRateLimitBytesPerSecond'),
+        },
+        {
+          path: 'runtime.max_concurrent_tasks_per_plugin',
+          label: t('config.fields.runtimeMaxConcurrentTasksPerPlugin'),
+          type: 'number',
+          description: t('config.descriptions.runtimeMaxConcurrentTasksPerPlugin'),
+        },
+        {
+          path: 'runtime.crash_backoff_initial_seconds',
+          label: t('config.fields.runtimeCrashBackoffInitialSeconds'),
+          type: 'number',
+          unit: t('config.units.second'),
+          description: t('config.descriptions.runtimeCrashBackoffInitialSeconds'),
+        },
+        {
+          path: 'runtime.crash_backoff_max_seconds',
+          label: t('config.fields.runtimeCrashBackoffMaxSeconds'),
+          type: 'number',
+          unit: t('config.units.second'),
+          description: t('config.descriptions.runtimeCrashBackoffMaxSeconds'),
+        },
+        {
+          path: 'runtime.shutdown_grace_seconds',
+          label: t('config.fields.runtimeShutdownGraceSeconds'),
+          type: 'number',
+          unit: t('config.units.second'),
+          description: t('config.descriptions.runtimeShutdownGraceSeconds'),
+        },
+        {
+          path: 'runtime.ipc_message_max_bytes',
+          label: t('config.fields.runtimeIpcMessageMaxBytes'),
+          type: 'number',
+          unit: t('config.units.byte'),
+          description: t('config.descriptions.runtimeIpcMessageMaxBytes'),
+        },
       ],
     },
     {
       key: 'storage',
       title: t('config.sections.storage'),
       fields: [
-        { path: 'storage.kv_value_max_bytes', label: t('config.fields.storageKvValueMaxBytes'), type: 'number' },
-        { path: 'storage.kv_total_limit_mb', label: t('config.fields.storageKvTotalLimitMb'), type: 'number' },
-        { path: 'storage.file_max_bytes', label: t('config.fields.storageFileMaxBytes'), type: 'number' },
+        {
+          path: 'storage.kv_value_max_bytes',
+          label: t('config.fields.storageKvValueMaxBytes'),
+          type: 'number',
+          unit: t('config.units.byte'),
+          description: t('config.descriptions.storageKvValueMaxBytes'),
+        },
+        {
+          path: 'storage.kv_total_limit_mb',
+          label: t('config.fields.storageKvTotalLimitMb'),
+          type: 'number',
+          unit: 'MB',
+          description: t('config.descriptions.storageKvTotalLimitMb'),
+        },
+        {
+          path: 'storage.file_max_bytes',
+          label: t('config.fields.storageFileMaxBytes'),
+          type: 'number',
+          unit: t('config.units.byte'),
+          description: t('config.descriptions.storageFileMaxBytes'),
+        },
       ],
     },
     {
       key: 'data',
       title: t('config.sections.data'),
       fields: [
-        { path: 'data.audit_logs_retention_days', label: t('config.fields.dataAuditLogsRetentionDays'), type: 'number' },
-        { path: 'data.event_records_retention_days', label: t('config.fields.dataEventRecordsRetentionDays'), type: 'number' },
-        { path: 'data.download_cache_retention_days', label: t('config.fields.dataDownloadCacheRetentionDays'), type: 'number' },
+        {
+          path: 'data.audit_logs_retention_days',
+          label: t('config.fields.dataAuditLogsRetentionDays'),
+          type: 'number',
+          unit: t('config.units.day'),
+          description: t('config.descriptions.dataAuditLogsRetentionDays'),
+        },
+        {
+          path: 'data.event_records_retention_days',
+          label: t('config.fields.dataEventRecordsRetentionDays'),
+          type: 'number',
+          unit: t('config.units.day'),
+          description: t('config.descriptions.dataEventRecordsRetentionDays'),
+        },
+        {
+          path: 'data.download_cache_retention_days',
+          label: t('config.fields.dataDownloadCacheRetentionDays'),
+          type: 'number',
+          unit: t('config.units.day'),
+          description: t('config.descriptions.dataDownloadCacheRetentionDays'),
+        },
       ],
     },
     {
@@ -138,6 +373,7 @@ export function getConfigSections(): ConfigSectionDefinition[] {
           path: 'log.level',
           label: t('config.fields.logLevel'),
           type: 'select',
+          description: t('config.descriptions.logLevel'),
           options: [
             { label: t('config.options.logDebug'), value: 'debug' },
             { label: t('config.options.logInfo'), value: 'info' },
@@ -145,23 +381,51 @@ export function getConfigSections(): ConfigSectionDefinition[] {
             { label: t('config.options.logError'), value: 'error' },
           ],
         },
-        { path: 'log.retention_days', label: t('config.fields.logRetentionDays'), type: 'number' },
+        {
+          path: 'log.retention_days',
+          label: t('config.fields.logRetentionDays'),
+          type: 'number',
+          unit: t('config.units.day'),
+          description: t('config.descriptions.logRetentionDays'),
+        },
       ],
     },
     {
       key: 'message',
       title: t('config.sections.message'),
       fields: [
-        { path: 'message.circuit_breaker_seconds', label: t('config.fields.messageCircuitBreakerSeconds'), type: 'number' },
+        {
+          path: 'message.circuit_breaker_seconds',
+          label: t('config.fields.messageCircuitBreakerSeconds'),
+          type: 'number',
+          unit: t('config.units.second'),
+          description: t('config.descriptions.messageCircuitBreakerSeconds'),
+        },
       ],
     },
     {
       key: 'http',
       title: t('config.sections.http'),
       fields: [
-        { path: 'http.timeout_seconds', label: t('config.fields.httpTimeoutSeconds'), type: 'number' },
-        { path: 'http.max_retries', label: t('config.fields.httpMaxRetries'), type: 'number' },
-        { path: 'http.allow_private_hosts', label: t('config.fields.httpAllowPrivateHosts'), type: 'list' },
+        {
+          path: 'http.timeout_seconds',
+          label: t('config.fields.httpTimeoutSeconds'),
+          type: 'number',
+          unit: t('config.units.second'),
+          description: t('config.descriptions.httpTimeoutSeconds'),
+        },
+        {
+          path: 'http.max_retries',
+          label: t('config.fields.httpMaxRetries'),
+          type: 'number',
+          description: t('config.descriptions.httpMaxRetries'),
+        },
+        {
+          path: 'http.allow_private_hosts',
+          label: t('config.fields.httpAllowPrivateHosts'),
+          type: 'list',
+          description: t('config.descriptions.httpAllowPrivateHosts'),
+        },
       ],
     },
     {
@@ -172,13 +436,21 @@ export function getConfigSections(): ConfigSectionDefinition[] {
           path: 'web.exposure_mode',
           label: t('config.fields.webExposureMode'),
           type: 'select',
+          description: t('config.descriptions.webExposureMode'),
+          restartRequired: true,
           options: [
             { label: t('config.options.webExposureLocalhostOnly'), value: 'localhost_only' },
             { label: t('config.options.webExposureLanEnabled'), value: 'lan_enabled' },
             { label: t('config.options.webExposureReverseProxy'), value: 'public_via_reverse_proxy' },
           ],
         },
-        { path: 'web.setup_local_only', label: t('config.fields.webSetupLocalOnly'), type: 'boolean' },
+        {
+          path: 'web.setup_local_only',
+          label: t('config.fields.webSetupLocalOnly'),
+          type: 'boolean',
+          description: t('config.descriptions.webSetupLocalOnly'),
+          restartRequired: true,
+        },
       ],
     },
     {
@@ -189,6 +461,7 @@ export function getConfigSections(): ConfigSectionDefinition[] {
           path: 'backup.default_consistency',
           label: t('config.fields.backupDefaultConsistency'),
           type: 'select',
+          description: t('config.descriptions.backupDefaultConsistency'),
           options: [
             { label: t('config.options.backupOffline'), value: 'offline' },
             { label: t('config.options.backupOnline'), value: 'online' },

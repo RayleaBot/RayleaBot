@@ -1,31 +1,27 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 
-import AppCard from '@/components/AppCard.vue'
-import AppSkeletonCard from '@/components/AppSkeletonCard.vue'
-import { notifySuccess } from '@/adapter/feedback'
-import ConfigApplyEffectsSummary from '@/components/config/ConfigApplyEffectsSummary.vue'
-import RateLimitInput from '@/components/config/RateLimitInput.vue'
 import AppPage from '@/components/page/AppPage.vue'
+import AppSkeletonCard from '@/components/AppSkeletonCard.vue'
+import ConfigApplyEffectsSummary from '@/components/config/ConfigApplyEffectsSummary.vue'
+import ConfigFieldRow from '@/components/config/ConfigFieldRow.vue'
 import RetryPanel from '@/components/RetryPanel.vue'
+import { notifySuccess } from '@/adapter/feedback'
 import { cloneConfig, getConfigSections, getValueByPath, setValueByPath, type ConfigFieldDefinition } from '@/lib/config-form'
-import { formatRateLimit, fromMultilineList, toMultilineList } from '@/lib/format'
 import { t } from '@/i18n'
 import { useConfigStore } from '@/stores/config'
 import type { ConfigDocument } from '@/types/api'
 
 const configStore = useConfigStore()
-const { applyEffects, document, error, loading, redactedFields, restartRequired, saving } = storeToRefs(configStore)
+const { applyEffects, document: configDocument, error, loading, redactedFields, restartRequired, saving } = storeToRefs(configStore)
 
 const draft = ref<ConfigDocument | null>(null)
 const configSections = computed(() => getConfigSections())
-const activeSectionKey = ref('server')
-const currentSection = computed(
-  () => configSections.value.find((section) => section.key === activeSectionKey.value) ?? configSections.value[0],
-)
+const activeSectionKey = ref<string>('server')
+const sectionRefs = ref<HTMLElement[]>([])
 
-watch(document, (value) => {
+watch(configDocument, (value) => {
   draft.value = value ? cloneConfig(value) : null
 }, { immediate: true })
 
@@ -34,6 +30,22 @@ watch(configSections, (sections) => {
     activeSectionKey.value = sections[0]?.key ?? 'server'
   }
 }, { immediate: true })
+
+const isDirty = computed(() => {
+  if (!draft.value || !configDocument.value) {
+    return false
+  }
+  return JSON.stringify(draft.value) !== JSON.stringify(configDocument.value)
+})
+
+const saveLabel = computed(() => (isDirty.value ? t('config.save') : t('config.saveIdle')))
+
+const segmentedOptions = computed(() =>
+  configSections.value.map((section) => ({
+    label: section.title,
+    value: section.key,
+  })),
+)
 
 async function loadConfig() {
   try {
@@ -45,82 +57,111 @@ async function loadConfig() {
 
 onMounted(() => {
   void loadConfig()
+  nextTick(() => setupObserver())
 })
+
+let observer: IntersectionObserver | null = null
+
+function teardownObserver() {
+  if (observer) {
+    observer.disconnect()
+    observer = null
+  }
+}
+
+function setupObserver() {
+  teardownObserver()
+  if (typeof IntersectionObserver === 'undefined') {
+    return
+  }
+
+  const elements = sectionRefs.value.filter((el): el is HTMLElement => el instanceof HTMLElement)
+  if (elements.length === 0) {
+    return
+  }
+
+  const root = window.document.getElementById('app-main')
+
+  observer = new IntersectionObserver(
+    (entries) => {
+      const visible = entries
+        .filter((entry) => entry.isIntersecting)
+        .sort((a, b) => (a.target as HTMLElement).offsetTop - (b.target as HTMLElement).offsetTop)
+      if (visible.length === 0) {
+        return
+      }
+      const key = (visible[0].target as HTMLElement).dataset.sectionKey
+      if (key) {
+        activeSectionKey.value = key
+      }
+    },
+    {
+      root,
+      rootMargin: '-25% 0px -65% 0px',
+      threshold: 0,
+    },
+  )
+
+  elements.forEach((el) => observer?.observe(el))
+}
+
+watch(configSections, () => {
+  nextTick(() => setupObserver())
+})
+
+watch(draft, (value, previous) => {
+  if (!previous && value) {
+    nextTick(() => setupObserver())
+  }
+})
+
+onBeforeUnmount(() => {
+  teardownObserver()
+})
+
+function scrollToSection(key: string) {
+  const el = window.document.getElementById(`config-section-${key}`)
+  if (!el) {
+    return
+  }
+  const prefersReduced = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+  el.scrollIntoView({ behavior: prefersReduced ? 'auto' : 'smooth', block: 'start' })
+  activeSectionKey.value = key
+}
+
+function onSegmentedChange(value: string | number) {
+  scrollToSection(String(value))
+}
 
 function readField(path: string, type: ConfigFieldDefinition['type']) {
   if (!draft.value) {
     if (type === 'boolean') {
       return false
     }
-
     return type === 'number' ? null : ''
   }
-
-  const current = getValueByPath(draft.value as unknown as Record<string, unknown>, path)
-  if (type === 'list') {
-    return Array.isArray(current) ? toMultilineList(current as string[]) : ''
-  }
-  return current
+  return getValueByPath(draft.value as unknown as Record<string, unknown>, path)
 }
 
-function writeField(path: string, type: ConfigFieldDefinition['type'], value: unknown) {
+function writeField(path: string, value: unknown) {
   if (!draft.value) {
     return
   }
-
-  let normalized = value
-  if (type === 'number') {
-    if (value === null || value === undefined || value === '') {
-      normalized = undefined
-    } else {
-      const nextNumber = Number(value)
-      normalized = Number.isFinite(nextNumber) ? nextNumber : undefined
-    }
-  } else if (type === 'list') {
-    normalized = fromMultilineList(String(value))
-  }
-
-  setValueByPath(draft.value as unknown as Record<string, unknown>, path, normalized)
+  setValueByPath(draft.value as unknown as Record<string, unknown>, path, value)
 }
-
-function getRateLimitPreview(field: ConfigFieldDefinition) {
-  if (field.type !== 'rateLimit') {
-    return null
-  }
-
-  const rawValue = String(readField(field.path, field.type) ?? '').trim()
-  if (!rawValue) {
-    return null
-  }
-
-  const preview = formatRateLimit(rawValue)
-  return preview !== rawValue ? preview : null
-}
-
-const canSave = computed(() => Boolean(draft.value) && !saving.value)
 
 async function save() {
   if (!draft.value) {
     return
   }
-
   const response = await configStore.saveConfig(draft.value)
   notifySuccess(response.restart_required ? t('config.saveRestart') : t('config.saveSuccess'))
 }
 </script>
 
 <template>
-  <AppPage :title="t('config.title')" full-height>
-    <template #extra>
-      <div class="table-actions">
-        <a-button type="primary" :disabled="!canSave" :loading="saving" :aria-label="t('config.save')" @click="save">
-          {{ t('config.save') }}
-        </a-button>
-        <a-button :loading="loading" :aria-label="t('dashboard.refresh')" @click="loadConfig">{{ t('dashboard.refresh') }}</a-button>
-      </div>
-    </template>
-
-    <div v-if="error || applyEffects || redactedFields.length > 0" class="config-alerts-container">
+  <AppPage :title="t('config.title')">
+    <div v-if="error || applyEffects || redactedFields.length > 0" class="config-alerts">
       <a-alert v-if="error" :message="t('errors.common.actionFailed')" type="error" :description="error" show-icon />
       <a-alert
         v-if="applyEffects"
@@ -149,373 +190,343 @@ async function save() {
       @retry="loadConfig"
     />
 
-    <div v-else-if="loading && !draft" class="skeleton-layout">
-      <AppSkeletonCard show-header :rows="6" />
+    <div v-else-if="loading && !draft" class="config-skeleton">
       <AppSkeletonCard show-header :rows="8" />
+      <AppSkeletonCard show-header :rows="6" />
     </div>
 
-    <div v-else-if="draft" class="config-layout">
-      <AppCard :title="t('config.sectionList')" borderless class="config-nav-card">
-        <nav class="config-nav-list" aria-label="配置分区">
-          <button
+    <div v-else-if="draft" class="config-page">
+      <div class="config-toolbar" role="region" :aria-label="t('config.title')">
+        <div class="config-toolbar__status">
+          <span
+            class="config-toolbar__dirty"
+            :class="{ 'is-active': isDirty }"
+            :aria-label="isDirty ? t('config.dirtyDotLabel') : undefined"
+          />
+          <span class="config-toolbar__status-text">{{ saveLabel }}</span>
+          <a-tag
+            v-if="restartRequired !== null"
+            :color="restartRequired ? 'warning' : 'success'"
+            class="config-toolbar__tag"
+          >
+            {{ restartRequired ? t('config.restartNeeded') : t('config.hotApplied') }}
+          </a-tag>
+        </div>
+        <div class="config-toolbar__actions">
+          <a-button :loading="loading" :aria-label="t('dashboard.refresh')" @click="loadConfig">
+            {{ t('dashboard.refresh') }}
+          </a-button>
+          <a-button
+            type="primary"
+            :disabled="!isDirty || saving"
+            :loading="saving"
+            :aria-label="t('config.save')"
+            @click="save"
+          >
+            {{ t('config.save') }}
+          </a-button>
+        </div>
+      </div>
+
+      <div class="config-toc-inline" :aria-label="t('config.tocLabel')">
+        <a-segmented
+          :value="activeSectionKey"
+          :options="segmentedOptions"
+          @change="onSegmentedChange"
+        />
+      </div>
+
+      <div class="config-grid">
+        <div class="config-stack">
+          <section
             v-for="section in configSections"
             :key="section.key"
-            type="button"
-            class="config-nav-item"
-            :class="{ 'is-active': activeSectionKey === section.key }"
-            :aria-current="activeSectionKey === section.key ? 'page' : undefined"
-            @click="activeSectionKey = section.key"
+            :id="`config-section-${section.key}`"
+            :data-section-key="section.key"
+            ref="sectionRefs"
+            class="config-section"
           >
-            <span class="config-nav-item__title">{{ section.title }}</span>
-            <small class="config-nav-item__meta">{{ section.fields.length }} {{ t('config.fieldCount') }}</small>
-          </button>
-        </nav>
-      </AppCard>
-
-      <AppCard borderless class="config-editor-card">
-        <template #title>
-          <div class="config-editor-card__header">
-            <div class="config-editor-card__title">
-              <strong>{{ currentSection?.title }}</strong>
-              <p v-if="currentSection?.description">{{ currentSection.description }}</p>
+            <header class="config-section__head">
+              <h2 class="config-section__title">{{ section.title }}</h2>
+              <p v-if="section.description" class="config-section__desc">{{ section.description }}</p>
+            </header>
+            <div class="config-section__fields">
+              <ConfigFieldRow
+                v-for="field in section.fields"
+                :key="field.path"
+                :field="field"
+                :value="readField(field.path, field.type)"
+                @update:value="(value) => writeField(field.path, value)"
+              />
             </div>
-            <div v-if="restartRequired !== null" class="restart-indicator">
-              <a-tag :color="restartRequired ? 'warning' : 'success'">
-                {{ restartRequired ? t('config.restartNeeded') : t('config.hotApplied') }}
-              </a-tag>
-            </div>
+          </section>
+        </div>
+
+        <aside class="config-toc" :aria-label="t('config.tocLabel')">
+          <div class="config-toc__sticky">
+            <p class="config-toc__heading">{{ t('config.tocLabel') }}</p>
+            <nav class="config-toc__list">
+              <a
+                v-for="section in configSections"
+                :key="section.key"
+                :href="`#config-section-${section.key}`"
+                class="config-toc__item"
+                :class="{ 'is-active': activeSectionKey === section.key }"
+                :aria-current="activeSectionKey === section.key ? 'true' : undefined"
+                @click.prevent="scrollToSection(section.key)"
+              >
+                <span class="config-toc__label">{{ section.title }}</span>
+                <span class="config-toc__count">{{ section.fields.length }}</span>
+              </a>
+            </nav>
           </div>
-        </template>
-
-        <a-form
-          v-if="currentSection"
-          layout="vertical"
-          class="config-form-grid"
-        >
-          <div v-for="field in currentSection.fields" :key="field.path" class="config-field-item">
-            <a-form-item>
-              <template #label>
-                <div class="field-label-wrap">
-                  <span class="field-label-text">{{ field.label }}</span>
-                  <a-tooltip v-if="field.description" :title="field.description">
-                    <button type="button" class="field-info-icon" :aria-label="t('config.fieldHelp')">?</button>
-                  </a-tooltip>
-                </div>
-              </template>
-
-              <RateLimitInput
-                v-if="field.type === 'rateLimit'"
-                :value="String(readField(field.path, field.type) ?? '')"
-                :aria-label="field.label"
-                @update:value="(value) => writeField(field.path, field.type, value)"
-              />
-
-              <a-input
-                v-else-if="field.type === 'text'"
-                :value="String(readField(field.path, field.type) ?? '')"
-                :aria-label="field.label"
-                @update:value="(value) => writeField(field.path, field.type, value)"
-              />
-
-              <a-input-number
-                v-else-if="field.type === 'number'"
-                class="config-number-input"
-                :value="typeof readField(field.path, field.type) === 'number' ? readField(field.path, field.type) : null"
-                :min="field.min ?? 0"
-                :max="field.max"
-                :step="field.step ?? 1"
-                :aria-label="field.label"
-                @update:value="(value) => writeField(field.path, field.type, value)"
-              />
-
-              <div v-else-if="field.type === 'boolean'" class="switch-wrap">
-                <a-switch
-                  :checked="Boolean(readField(field.path, field.type))"
-                  :aria-label="field.label"
-                  @update:checked="(value) => writeField(field.path, field.type, value)"
-                />
-              </div>
-
-              <a-select
-                v-else-if="field.type === 'select'"
-                :value="String(readField(field.path, field.type) ?? '')"
-                :options="field.options"
-                :aria-label="field.label"
-                @update:value="(value) => writeField(field.path, field.type, value)"
-              />
-
-              <a-textarea
-                v-else
-                :value="String(readField(field.path, field.type) ?? '')"
-                :auto-size="{ minRows: 4, maxRows: 8 }"
-                :aria-label="field.label"
-                @update:value="(value) => writeField(field.path, field.type, value)"
-              />
-
-              <div v-if="field.description || getRateLimitPreview(field)" class="config-field-note">
-                <p v-if="field.description" class="config-field-note__text">{{ field.description }}</p>
-                <div v-if="getRateLimitPreview(field)" class="config-rate-preview">
-                  <span class="config-rate-preview__label">{{ t('config.hints.rateLimitPreview') }}</span>
-                  <strong class="config-rate-preview__value">{{ getRateLimitPreview(field) }}</strong>
-                </div>
-              </div>
-            </a-form-item>
-          </div>
-        </a-form>
-      </AppCard>
+        </aside>
+      </div>
     </div>
   </AppPage>
 </template>
 
 <style lang="scss" scoped>
-.config-alerts-container {
+.config-alerts {
   display: grid;
   gap: 12px;
+  margin-bottom: var(--space-md);
 }
 
-.skeleton-layout {
+.config-skeleton {
   display: grid;
-  grid-template-columns: 240px minmax(0, 1fr);
-  gap: 12px;
-  flex: 1;
+  gap: var(--space-md);
 }
 
-.skeleton-panel {
-  border-radius: var(--radius-md);
-  min-height: 520px;
-  background: linear-gradient(90deg, var(--surface-soft), var(--surface), var(--surface-soft));
-  background-size: 200% 100%;
-  animation: shimmer 1.4s linear infinite;
-}
-
-.config-layout {
+.config-page {
+  container-type: inline-size;
+  container-name: configpage;
   display: grid;
-  grid-template-columns: 260px minmax(0, 1fr);
-  gap: 12px;
-  height: 100%;
-  min-height: 0;
+  gap: var(--space-md);
 }
 
-.config-nav-card,
-.config-editor-card {
-  min-height: 0;
+.config-toolbar {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+  padding: 10px var(--space-md);
+  background: color-mix(in srgb, var(--surface) 92%, transparent);
+  backdrop-filter: blur(8px);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
   box-shadow: var(--shadow-xs);
 }
 
-:deep(.config-nav-card) {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
+.config-toolbar__status {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.85rem;
+  color: var(--muted);
+  min-width: 0;
 }
 
-:deep(.config-nav-card .ant-card-head) {
+.config-toolbar__dirty {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: transparent;
+  border: 1px solid var(--border-strong);
+  transition: background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
   flex-shrink: 0;
 }
 
-.config-nav-card :deep(.ant-card-body) {
-  display: flex;
-  flex-direction: column;
-  align-items: stretch;
-  flex: 1 1 auto;
-  min-height: 0;
-  overflow-y: auto;
-  overflow-x: hidden;
-  scrollbar-gutter: stable;
-  padding: 12px;
+.config-toolbar__dirty.is-active {
+  background: var(--accent);
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
 }
 
-.config-editor-card :deep(.ant-card-head) {
-  min-height: 50px;
-}
-
-.config-editor-card :deep(.ant-card-body) {
-  min-height: 0;
-  overflow: auto;
-  padding: 16px;
-}
-
-.config-nav-list {
-  display: grid;
-  width: 100%;
-  gap: 6px;
-  min-height: min-content;
-}
-
-.config-nav-item {
-  appearance: none;
-  border: 1px solid transparent;
-  background: transparent;
-  width: 100%;
-  text-align: left;
-  padding: 10px 12px;
-  border-radius: 8px;
-  cursor: pointer;
-  display: grid;
-  gap: 4px;
-  transition: border-color 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease;
-  color: var(--text);
-}
-
-.config-nav-item:hover {
-  background: var(--surface-soft);
-  border-color: var(--border);
-  box-shadow: var(--shadow-xs);
-}
-
-.config-nav-item.is-active {
-  background: var(--surface-accent);
-  border-color: var(--border-accent);
-  box-shadow: var(--shadow-xs);
-  font-weight: 600;
-}
-
-.config-nav-item:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
-}
-
-.config-nav-item__title {
-  font-size: 0.94rem;
+.config-toolbar__status-text {
   font-weight: 500;
 }
 
-.config-nav-item__meta {
-  font-size: 0.78rem;
-  color: var(--muted);
+.config-toolbar__tag {
+  margin-inline-start: 4px;
 }
 
-.config-editor-card__header {
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
-  align-items: flex-start;
-}
-
-.config-editor-card__title {
-  display: grid;
-  gap: 4px;
-
-  strong {
-    font-size: 1rem;
-  }
-
-  p {
-    margin: 0;
-    color: var(--muted);
-    font-size: 0.86rem;
-    line-height: 1.5;
-  }
-}
-
-.config-form-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 16px 20px;
-}
-
-.field-label-wrap {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.field-label-text {
-  font-weight: 600;
-  font-size: 0.85rem;
-  color: var(--theme-text, var(--text));
-}
-
-.field-info-icon {
-  appearance: none;
-  background: transparent;
-  color: var(--muted);
-  cursor: help;
-  font-size: 0.8rem;
-  font-weight: bold;
-  opacity: 0.7;
-  width: 18px;
-  height: 18px;
+.config-toolbar__actions {
   display: inline-flex;
   align-items: center;
-  justify-content: center;
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--border);
-}
-
-.field-info-icon:hover {
-  opacity: 1;
-  color: var(--accent);
-  border-color: var(--accent);
-}
-
-.field-info-icon:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
-}
-
-.config-number-input {
-  width: 100%;
-}
-
-.switch-wrap {
-  display: flex;
-  min-height: 36px;
-  align-items: center;
-}
-
-.config-field-note {
-  display: grid;
   gap: 8px;
-  margin-top: 10px;
+  flex-shrink: 0;
 }
 
-.config-field-note__text {
-  margin: 0;
-  color: var(--muted);
-  font-size: 0.82rem;
-  line-height: 1.6;
+.config-toc-inline {
+  display: none;
 }
 
-.config-rate-preview {
+.config-toc-inline :deep(.ant-segmented) {
+  width: 100%;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  background: var(--surface-soft);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 4px;
+}
+
+.config-toc-inline :deep(.ant-segmented-item) {
+  scroll-snap-align: start;
+}
+
+.config-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 220px;
+  gap: var(--space-xl);
+  align-items: start;
+}
+
+.config-stack {
+  display: grid;
+  gap: var(--space-2xl);
+  min-width: 0;
+}
+
+.config-section {
+  scroll-margin-top: 80px;
+  display: grid;
+  gap: var(--space-lg);
+  padding-block-end: var(--space-xl);
+  border-bottom: 1px solid var(--border);
+}
+
+.config-section:last-child {
+  border-bottom: none;
+  padding-block-end: 0;
+}
+
+.config-section__head {
   display: grid;
   gap: 4px;
-  padding: 10px 12px;
-  border-radius: var(--radius-lg);
-  background: var(--surface-accent);
-  border: 1px solid var(--border-accent);
 }
 
-.config-rate-preview__label {
-  font-size: 0.75rem;
+.config-section__title {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: var(--text);
+  letter-spacing: -0.01em;
+}
+
+.config-section__desc {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.85rem;
+  line-height: 1.55;
+  max-width: 68ch;
+}
+
+.config-section__fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: clamp(var(--space-md), 1.6vw, var(--space-xl)) clamp(var(--space-lg), 2vw, var(--space-2xl));
+}
+
+.config-toc {
+  align-self: start;
+  min-width: 0;
+}
+
+.config-toc__sticky {
+  position: sticky;
+  top: 72px;
+  display: grid;
+  gap: 8px;
+  padding: 6px 0;
+}
+
+.config-toc__heading {
+  margin: 0 0 4px 12px;
+  font-size: 0.72rem;
+  font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--accent);
+  color: var(--muted);
 }
 
-.config-rate-preview__value {
+.config-toc__list {
+  display: grid;
+  gap: 2px;
+}
+
+.config-toc__item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 12px;
+  border-left: 2px solid transparent;
+  color: var(--muted);
+  font-size: 0.84rem;
+  text-decoration: none;
+  line-height: 1.5;
+  transition: color 0.15s ease, border-color 0.15s ease;
+}
+
+.config-toc__item:hover {
   color: var(--text);
-  font-size: 0.9rem;
-  line-height: 1.4;
 }
 
-@keyframes shimmer {
-  0% {
-    background-position: 200% 0;
+.config-toc__item.is-active {
+  color: var(--text-accent);
+  border-left-color: var(--accent);
+  font-weight: 600;
+}
+
+.config-toc__item:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+.config-toc__count {
+  font-size: 0.72rem;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
+}
+
+.config-toc__item.is-active .config-toc__count {
+  color: var(--text-accent);
+}
+
+@container configpage (max-width: 960px) {
+  .config-grid {
+    grid-template-columns: minmax(0, 1fr);
   }
 
-  100% {
-    background-position: -200% 0;
+  .config-toc {
+    display: none;
+  }
+
+  .config-toc-inline {
+    display: block;
   }
 }
 
-@media (max-width: 1024px) {
-  .config-layout,
-  .skeleton-layout {
-    grid-template-columns: 1fr;
+@container configpage (max-width: 640px) {
+  .config-section__fields {
+    grid-template-columns: minmax(0, 1fr);
   }
 
-  .config-nav-card :deep(.ant-card-body) {
-    max-height: 200px;
+  .config-toolbar {
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  .config-toolbar__actions {
+    flex: 1 1 auto;
+    justify-content: flex-end;
   }
 }
 </style>

@@ -41,13 +41,15 @@
       "properties": {
         "host": {
           "type": "string",
-          "default": "127.0.0.1"
+          "default": "127.0.0.1",
+          "description": "HTTP server bind address. Use 0.0.0.0 to listen on all interfaces; for production bind 127.0.0.1 behind a reverse proxy. Requires restart."
         },
         "port": {
           "type": "integer",
           "minimum": 1,
           "maximum": 65535,
-          "default": 8080
+          "default": 8080,
+          "description": "HTTP server listen port. Default: 8080. Requires restart."
         }
       }
     },
@@ -83,11 +85,13 @@
         "engine": {
           "type": "string",
           "const": "sqlite",
-          "default": "sqlite"
+          "default": "sqlite",
+          "description": "Database engine. Only sqlite is supported. Requires restart."
         },
         "path": {
           "type": "string",
-          "minLength": 1
+          "minLength": 1,
+          "description": "Database file path. Relative paths resolve against the data directory; absolute paths are recommended for migration clarity. Requires restart."
         }
       }
     },
@@ -162,26 +166,31 @@
         "session_ttl_days": {
           "type": "integer",
           "minimum": 1,
-          "default": 7
+          "default": 7,
+          "description": "Default admin session lifetime in days. Default: 7."
         },
         "sliding_renewal": {
           "type": "boolean",
-          "default": true
+          "default": true,
+          "description": "When enabled, active sessions are automatically extended."
         },
         "max_sessions": {
           "type": "integer",
           "minimum": 1,
-          "default": 3
+          "default": 3,
+          "description": "Maximum concurrent sessions per admin; older sessions are evicted when exceeded. Default: 3."
         },
         "login_fail_limit": {
           "type": "integer",
           "minimum": 1,
-          "default": 5
+          "default": 5,
+          "description": "Maximum login failures within the sliding window before temporary lockout. Default: 5."
         },
         "login_fail_window_seconds": {
           "type": "integer",
           "minimum": 1,
-          "default": 300
+          "default": 300,
+          "description": "Length of the login-failure sliding window in seconds. Default: 300."
         }
       }
     },
@@ -224,7 +233,8 @@
         "worker_count": {
           "type": "integer",
           "minimum": 1,
-          "default": 1
+          "default": 1,
+          "description": "Number of concurrent image render workers; high values consume significant memory. Default: 1."
         },
         "browser_args": {
           "type": "array",
@@ -232,37 +242,44 @@
           "items": {
             "type": "string",
             "minLength": 1
-          }
+          },
+          "description": "Chromium startup arguments passed verbatim."
         },
         "browser_path": {
           "type": "string",
-          "default": ""
+          "default": "",
+          "description": "Chromium executable path. Leave empty to use the bundled binary."
         },
         "default_output": {
           "type": "string",
           "enum": ["png", "jpeg"],
-          "default": "png"
+          "default": "png",
+          "description": "Output format used when a plugin does not specify one."
         },
         "device_scale_percent": {
           "type": "integer",
           "minimum": 50,
           "maximum": 500,
-          "default": 100
+          "default": 100,
+          "description": "Simulated device pixel ratio as a percentage; higher values yield sharper images at greater cost. Default: 100."
         },
         "timeout_seconds": {
           "type": "integer",
           "minimum": 1,
-          "default": 30
+          "default": 30,
+          "description": "Per-image render timeout in seconds; exceeded tasks are cancelled and recorded as failures. Default: 30."
         },
         "queue_wait_timeout_seconds": {
           "type": "integer",
           "minimum": 1,
-          "default": 15
+          "default": 15,
+          "description": "Maximum time a render task may wait in the queue before timing out. Default: 15."
         },
         "queue_max_length": {
           "type": "integer",
           "minimum": 1,
-          "default": 32
+          "default": 32,
+          "description": "Render queue capacity; new tasks are rejected when full. Default: 32."
         },
         "footer_template": {
           "type": "string",
@@ -277,7 +294,8 @@
       "properties": {
         "timezone": {
           "type": "string",
-          "default": ""
+          "default": "",
+          "description": "IANA timezone identifier used for scheduled tasks. Empty defaults to system timezone."
         }
       }
     },
@@ -306,56 +324,67 @@
         "plugin_init_timeout_seconds": {
           "type": "integer",
           "minimum": 1,
-          "default": 30
+          "default": 30,
+          "description": "Maximum time allowed for a single plugin's initialization (load and handshake). Default: 30."
         },
         "plugin_init_max_total_seconds": {
           "type": "integer",
           "minimum": 1,
-          "default": 300
+          "default": 300,
+          "description": "Cumulative initialization time budget across all plugins; remaining plugins skip initialization when exceeded. Default: 300."
         },
         "plugin_event_timeout_seconds": {
           "type": "integer",
           "minimum": 1,
-          "default": 60
+          "default": 60,
+          "description": "Maximum time a plugin may take to process one event; expired events are dropped. Default: 60."
         },
         "max_pending_events_per_plugin": {
           "type": "integer",
           "minimum": 1,
-          "default": 16
+          "default": 16,
+          "description": "Maximum queued events per plugin; new events are dropped when exceeded. Default: 16."
         },
         "max_pending_control_events_per_plugin": {
           "type": "integer",
           "minimum": 1,
-          "default": 4
+          "default": 4,
+          "description": "Maximum queued control events per plugin. Default: 4."
         },
         "nodejs_max_old_space_size_mb": {
           "type": "integer",
           "minimum": 1,
-          "default": 256
+          "default": 256,
+          "description": "Old-generation heap cap for Node.js plugin runtimes, passed to --max-old-space-size. Default: 256. Requires restart."
         },
         "dependency_install_timeout_seconds": {
           "type": "integer",
           "minimum": 1,
-          "default": 900
+          "default": 900,
+          "description": "Maximum time allowed for installing plugin dependencies. Default: 900."
         },
         "max_concurrent_dependency_installs": {
           "type": "integer",
           "minimum": 1,
-          "default": 1
+          "default": 1,
+          "description": "Maximum concurrent plugin dependency installation tasks. Default: 1."
         },
         "ipc_pending_actions_max": {
           "type": "integer",
           "minimum": 1,
-          "default": 256
+          "default": 256,
+          "description": "Maximum queued IPC actions per plugin; new actions are rejected when exceeded. Default: 256."
         },
         "ipc_action_burst_limit": {
           "$ref": "#/$defs/rateLimit",
-          "default": "100/1s"
+          "default": "100/1s",
+          "description": "Burst rate limit for IPC actions, expressed as count per time window."
         },
         "stderr_rate_limit_bytes_per_second": {
           "type": "integer",
           "minimum": 1,
-          "default": 262144
+          "default": 262144,
+          "description": "Plugin stderr output rate limit in bytes per second; excess output is truncated. Default: 262144."
         },
         "max_concurrent_tasks_per_plugin": {
           "type": "integer",
@@ -366,22 +395,26 @@
         "crash_backoff_initial_seconds": {
           "type": "integer",
           "minimum": 1,
-          "default": 2
+          "default": 2,
+          "description": "Initial backoff before the first restart after a plugin crash; subsequent waits grow exponentially. Default: 2."
         },
         "crash_backoff_max_seconds": {
           "type": "integer",
           "minimum": 1,
-          "default": 60
+          "default": 60,
+          "description": "Upper bound for the crash-restart backoff. Default: 60."
         },
         "shutdown_grace_seconds": {
           "type": "integer",
           "minimum": 1,
-          "default": 10
+          "default": 10,
+          "description": "Grace period given to plugins during shutdown before they are force-terminated. Default: 10."
         },
         "ipc_message_max_bytes": {
           "type": "integer",
           "minimum": 1,
-          "default": 8388608
+          "default": 8388608,
+          "description": "Maximum size of a single IPC message; exceeding this disconnects and restarts the plugin. Default: 8388608."
         }
       }
     },
@@ -393,17 +426,20 @@
         "kv_value_max_bytes": {
           "type": "integer",
           "minimum": 1,
-          "default": 65536
+          "default": 65536,
+          "description": "Maximum serialized size of one KV value in bytes. Default: 65536."
         },
         "kv_total_limit_mb": {
           "type": "integer",
           "minimum": 1,
-          "default": 16
+          "default": 16,
+          "description": "Aggregate KV storage cap across all plugins; new writes are rejected when reached. Default: 16."
         },
         "file_max_bytes": {
           "type": "integer",
           "minimum": 1,
-          "default": 10485760
+          "default": 10485760,
+          "description": "Maximum size of a single plugin file in bytes. Default: 10485760."
         },
         "plugin_workdir_soft_limit_mb": {
           "type": "integer",
@@ -424,17 +460,20 @@
         "audit_logs_retention_days": {
           "type": "integer",
           "minimum": 1,
-          "default": 90
+          "default": 90,
+          "description": "Audit log retention in days; entries older are purged. Default: 90."
         },
         "event_records_retention_days": {
           "type": "integer",
           "minimum": 1,
-          "default": 7
+          "default": 7,
+          "description": "Event-record retention in days; entries older are purged. Default: 7."
         },
         "download_cache_retention_days": {
           "type": "integer",
           "minimum": 1,
-          "default": 15
+          "default": 15,
+          "description": "Download cache retention in days; entries older are purged. Default: 15."
         }
       }
     },
@@ -446,12 +485,14 @@
         "level": {
           "type": "string",
           "enum": ["debug", "info", "warn", "error"],
-          "default": "info"
+          "default": "info",
+          "description": "Minimum log level; messages below this level are discarded."
         },
         "retention_days": {
           "type": "integer",
           "minimum": 1,
-          "default": 7
+          "default": 7,
+          "description": "Log file retention in days; older files are purged. Default: 7."
         },
         "rate_limit_per_plugin": {
           "$ref": "#/$defs/rateLimit",
@@ -475,7 +516,8 @@
         "circuit_breaker_seconds": {
           "type": "integer",
           "minimum": 1,
-          "default": 30
+          "default": 30,
+          "description": "Cooldown after consecutive send failures trigger the message circuit breaker. Default: 30."
         }
       }
     },
@@ -552,12 +594,14 @@
         "timeout_seconds": {
           "type": "integer",
           "minimum": 1,
-          "default": 10
+          "default": 10,
+          "description": "Default HTTP request timeout for plugin-issued requests. Default: 10."
         },
         "max_retries": {
           "type": "integer",
           "minimum": 0,
-          "default": 2
+          "default": 2,
+          "description": "Maximum retry count for plugin HTTP requests. Default: 2."
         },
         "allow_private_hosts": {
           "type": "array",
@@ -566,7 +610,8 @@
             "type": "string",
             "pattern": "^[A-Za-z0-9.-]+$"
           },
-          "uniqueItems": true
+          "uniqueItems": true,
+          "description": "Allow-list of private or LAN hosts that plugins may reach; private networks are blocked by default to prevent SSRF."
         }
       }
     },
@@ -578,11 +623,13 @@
         "exposure_mode": {
           "type": "string",
           "enum": ["localhost_only", "lan_enabled", "public_via_reverse_proxy"],
-          "default": "localhost_only"
+          "default": "localhost_only",
+          "description": "Admin UI network exposure: localhost_only restricts to 127.0.0.1; lan_enabled allows LAN; public_via_reverse_proxy trusts reverse-proxy headers. Requires restart."
         },
         "setup_local_only": {
           "type": "boolean",
-          "default": true
+          "default": true,
+          "description": "When enabled, first-run setup is only reachable from 127.0.0.1, preventing remote takeover. Requires restart."
         }
       }
     },
@@ -594,7 +641,8 @@
         "default_consistency": {
           "type": "string",
           "enum": ["offline", "online"],
-          "default": "offline"
+          "default": "offline",
+          "description": "Default backup consistency mode: offline takes an offline snapshot; online exports while running."
         }
       }
     }

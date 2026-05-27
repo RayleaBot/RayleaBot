@@ -132,8 +132,10 @@ describe('ConfigPage', () => {
     await flushPromises()
     expect(wrapper.text()).toContain('监听地址')
     expect(wrapper.text()).toContain('服务监听')
-    const hostInput = wrapper.find('input')
+    const hostInput = wrapper.find('#config-field-server-host')
+    expect(hostInput.exists()).toBe(true)
     await hostInput.setValue('0.0.0.0')
+    await flushPromises()
 
     const saveButton = wrapper.findAll('button').find((candidate) => candidate.text().includes('保存更改'))
     expect(saveButton).toBeTruthy()
@@ -158,10 +160,11 @@ describe('ConfigPage', () => {
     await flushPromises()
 
     expect(wrapper.find('.app-page').exists()).toBe(true)
-    expect(wrapper.find('.config-layout').exists()).toBe(true)
-    expect(wrapper.find('.config-nav-card').exists()).toBe(true)
-    expect(wrapper.find('.config-editor-card').exists()).toBe(true)
-    expect(wrapper.find('.config-nav-list').exists()).toBe(true)
+    expect(wrapper.find('.config-page').exists()).toBe(true)
+    expect(wrapper.find('.config-stack').exists()).toBe(true)
+    expect(wrapper.find('.config-toc').exists()).toBe(true)
+    expect(wrapper.find('.config-toolbar').exists()).toBe(true)
+    expect(wrapper.findAll('.config-section').length).toBe(getConfigSections().length)
     expect(wrapper.find('.glass-panel').exists()).toBe(false)
     expect(wrapper.text()).not.toContain('OneBot 连接')
     expect(wrapper.text()).not.toContain('适配器')
@@ -195,7 +198,7 @@ describe('ConfigPage', () => {
 
     await flushPromises()
 
-    const portInput = wrapper.find('.config-number-input input')
+    const portInput = wrapper.find('.config-field__number input')
     expect(portInput.exists()).toBe(true)
     await portInput.setValue('')
 
@@ -232,12 +235,8 @@ describe('ConfigPage', () => {
     await flushPromises()
 
     const viewModel = wrapper.vm as unknown as {
-      activeSectionKey: string
-      writeField: (path: string, type: string, value: unknown) => void
+      writeField: (path: string, value: unknown) => void
     }
-
-    viewModel.activeSectionKey = 'render'
-    await flushPromises()
 
     expect(wrapper.text()).toContain('默认生成格式')
     expect(wrapper.text()).toContain('图片精度')
@@ -245,9 +244,11 @@ describe('ConfigPage', () => {
     const precisionField = renderFields.find((field) => field.path === 'render.device_scale_percent')
     expect(precisionField?.min).toBe(50)
     expect(precisionField?.max).toBe(500)
+    expect(precisionField?.unit).toBe('%')
 
-    viewModel.writeField('render.default_output', 'select', 'jpeg')
-    viewModel.writeField('render.device_scale_percent', 'number', 200)
+    viewModel.writeField('render.default_output', 'jpeg')
+    viewModel.writeField('render.device_scale_percent', 200)
+    await flushPromises()
 
     const saveButton = wrapper.findAll('button').find((candidate) => candidate.text().includes('保存更改'))
     expect(saveButton).toBeTruthy()
@@ -337,12 +338,9 @@ describe('ConfigPage', () => {
     await flushPromises()
 
     const viewModel = wrapper.vm as unknown as {
-      activeSectionKey: string
-      writeField: (path: string, type: string, value: unknown) => void
+      writeField: (path: string, value: unknown) => void
     }
 
-    viewModel.activeSectionKey = 'runtime'
-    await flushPromises()
     expect(wrapper.text()).toContain('IPC 突发限制')
     expect(wrapper.text()).toContain('次数')
     expect(wrapper.text()).toContain('时间窗口')
@@ -350,8 +348,7 @@ describe('ConfigPage', () => {
     expect(wrapper.text()).not.toContain('格式使用')
     expect(wrapper.text()).toContain('1 秒内最多 100 次')
 
-    viewModel.writeField('runtime.ipc_action_burst_limit', 'rateLimit', '200/10s')
-    viewModel.activeSectionKey = 'message'
+    viewModel.writeField('runtime.ipc_action_burst_limit', '200/10s')
     await flushPromises()
     expect(wrapper.text()).not.toContain('目标消息速率限制')
 
@@ -363,5 +360,76 @@ describe('ConfigPage', () => {
     const submitted = saveSpy.mock.calls[0][0]
     expect(submitted.runtime.ipc_action_burst_limit).toBe('200/10s')
     expect(submitted.message.rate_limit_per_target).toBe('5/5s')
+  })
+
+  it('reflects dirty state in the toolbar save button', async () => {
+    const store = useConfigStore()
+    store.document = createFixtureConfig()
+    vi.spyOn(store, 'fetchConfig').mockResolvedValue(undefined)
+
+    const wrapper = mount(ConfigPage, {
+      global: {
+        plugins: [Antd],
+      },
+    })
+
+    await flushPromises()
+
+    const saveButton = wrapper.findAll('button').find((candidate) => candidate.text().includes('保存更改'))
+    expect(saveButton).toBeTruthy()
+    expect((saveButton!.element as HTMLButtonElement).disabled).toBe(true)
+    expect(wrapper.find('.config-toolbar__dirty').classes()).not.toContain('is-active')
+    expect(wrapper.text()).toContain('无需保存')
+
+    const viewModel = wrapper.vm as unknown as { writeField: (path: string, value: unknown) => void }
+    viewModel.writeField('server.host', '0.0.0.0')
+    await flushPromises()
+
+    expect((saveButton!.element as HTMLButtonElement).disabled).toBe(false)
+    expect(wrapper.find('.config-toolbar__dirty').classes()).toContain('is-active')
+  })
+
+  it('renders an info tooltip trigger for every general config field', async () => {
+    const store = useConfigStore()
+    store.document = createFixtureConfig()
+    vi.spyOn(store, 'fetchConfig').mockResolvedValue(undefined)
+
+    const wrapper = mount(ConfigPage, {
+      global: {
+        plugins: [Antd],
+      },
+    })
+
+    await flushPromises()
+
+    const expectedFieldCount = getConfigSections().reduce((acc, section) => acc + section.fields.length, 0)
+    const infoTriggers = wrapper.findAll('.config-field__info')
+    expect(infoTriggers.length).toBe(expectedFieldCount)
+    infoTriggers.forEach((trigger) => {
+      expect(trigger.attributes('aria-label')).toBeTruthy()
+    })
+  })
+
+  it('renders the right-hand TOC with one entry per section', async () => {
+    const store = useConfigStore()
+    store.document = createFixtureConfig()
+    vi.spyOn(store, 'fetchConfig').mockResolvedValue(undefined)
+
+    const wrapper = mount(ConfigPage, {
+      global: {
+        plugins: [Antd],
+      },
+    })
+
+    await flushPromises()
+
+    const sections = getConfigSections()
+    const tocItems = wrapper.findAll('.config-toc__item')
+    expect(tocItems.length).toBe(sections.length)
+    sections.forEach((section, index) => {
+      expect(tocItems[index].attributes('href')).toBe(`#config-section-${section.key}`)
+      expect(tocItems[index].text()).toContain(section.title)
+    })
+    expect(tocItems[0].classes()).toContain('is-active')
   })
 })
