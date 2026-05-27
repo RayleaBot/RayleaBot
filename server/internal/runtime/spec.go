@@ -85,6 +85,7 @@ type BotInfo struct {
 type InitPayload struct {
 	Bot             BotInfo
 	Capabilities    []string
+	SuperAdmins     []string
 	CommandPrefixes []string
 }
 

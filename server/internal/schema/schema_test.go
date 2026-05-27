@@ -4,6 +4,8 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"gopkg.in/yaml.v3"
 )
 
 func TestCompileAndValidateSimpleSchema(t *testing.T) {
@@ -33,6 +35,44 @@ func TestCompileAndValidateSimpleSchema(t *testing.T) {
 	}
 	if err := validator.Validate(map[string]any{}); err == nil {
 		t.Fatal("expected validation failure for missing required field")
+	}
+}
+
+func TestPluginProtocolInitFixturesValidate(t *testing.T) {
+	t.Parallel()
+
+	repoRoot := filepath.Clean(filepath.Join("..", "..", ".."))
+	validator, err := Compile(filepath.Join(repoRoot, "contracts", "plugin-protocol.schema.json"))
+	if err != nil {
+		t.Fatalf("Compile(plugin-protocol.schema.json) error = %v", err)
+	}
+	for _, name := range []string{
+		"ok.init-init-ack.yaml",
+		"ok.init-without-bot.yaml",
+	} {
+		name := name
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			content, err := os.ReadFile(filepath.Join(repoRoot, "fixtures", "plugin-protocol", name))
+			if err != nil {
+				t.Fatalf("read fixture %s: %v", name, err)
+			}
+			var fixture struct {
+				Frames []any `yaml:"frames"`
+			}
+			if err := yaml.Unmarshal(content, &fixture); err != nil {
+				t.Fatalf("decode fixture %s: %v", name, err)
+			}
+			if len(fixture.Frames) == 0 {
+				t.Fatalf("fixture %s must contain frames", name)
+			}
+			for index, frame := range fixture.Frames {
+				if err := validator.Validate(frame); err != nil {
+					t.Fatalf("Validate(%s frame %d) error = %v", name, index, err)
+				}
+			}
+		})
 	}
 }
 

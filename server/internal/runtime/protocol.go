@@ -11,19 +11,24 @@ type pingFrame struct {
 }
 
 type initFrame struct {
-	ProtocolVersion string    `json:"protocol_version"`
-	Type            string    `json:"type"`
-	Timestamp       int64     `json:"timestamp"`
-	PluginID        string    `json:"plugin_id"`
-	RequestID       string    `json:"request_id"`
-	Bot             *botFrame `json:"bot,omitempty"`
-	Capabilities    []string  `json:"capabilities,omitempty"`
-	CommandPrefixes []string  `json:"command_prefixes"`
+	ProtocolVersion string            `json:"protocol_version"`
+	Type            string            `json:"type"`
+	Timestamp       int64             `json:"timestamp"`
+	PluginID        string            `json:"plugin_id"`
+	RequestID       string            `json:"request_id"`
+	Bot             *botFrame         `json:"bot,omitempty"`
+	Capabilities    []string          `json:"capabilities,omitempty"`
+	Permissions     *permissionsFrame `json:"permissions,omitempty"`
+	CommandPrefixes []string          `json:"command_prefixes"`
 }
 
 type botFrame struct {
 	ID       string `json:"id"`
 	Nickname string `json:"nickname,omitempty"`
+}
+
+type permissionsFrame struct {
+	SuperAdmins []string `json:"super_admins,omitempty"`
 }
 
 type shutdownFrame struct {

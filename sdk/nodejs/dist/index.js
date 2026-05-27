@@ -49,6 +49,9 @@ export class PluginEventContext {
     get capabilities() {
         return this.plugin.capabilities;
     }
+    get superAdmins() {
+        return this.plugin.superAdmins;
+    }
     get commandPrefixes() {
         return this.plugin.commandPrefixes;
     }
@@ -282,6 +285,7 @@ function createPluginRuntime(owner) {
     let pluginId = '';
     let botId = '';
     let capabilities = [];
+    let superAdmins = [];
     let commandPrefixes = ['/'];
     let subscriptions = null;
     const botIdentityWaiters = new Set();
@@ -342,6 +346,9 @@ function createPluginRuntime(owner) {
         },
         get capabilities() {
             return [...capabilities];
+        },
+        get superAdmins() {
+            return [...superAdmins];
         },
         get commandPrefixes() {
             return [...commandPrefixes];
@@ -805,6 +812,9 @@ function createPluginRuntime(owner) {
                     capabilities = Array.isArray(initFrame.capabilities)
                         ? initFrame.capabilities.filter((value) => typeof value === 'string' && value.length > 0)
                         : [];
+                    superAdmins = Array.isArray(initFrame.permissions?.super_admins)
+                        ? initFrame.permissions.super_admins.filter((value) => typeof value === 'string' && value.length > 0)
+                        : [];
                     commandPrefixes = (initFrame.command_prefixes ?? []).filter((value) => typeof value === 'string' && value.length > 0);
                     if (commandPrefixes.length === 0) {
                         commandPrefixes = ['/'];
@@ -886,6 +896,9 @@ export class RayleaBotPlugin {
     }
     get capabilities() {
         return this.runtime.capabilities;
+    }
+    get superAdmins() {
+        return this.runtime.superAdmins;
     }
     get commandPrefixes() {
         return this.runtime.commandPrefixes;

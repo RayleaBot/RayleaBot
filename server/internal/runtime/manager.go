@@ -154,6 +154,12 @@ func (m *Manager) Start(ctx context.Context, spec Spec, payload InitPayload) err
 			Nickname: payload.Bot.Nickname,
 		}
 	}
+	var permissions *permissionsFrame
+	if len(payload.SuperAdmins) > 0 {
+		permissions = &permissionsFrame{
+			SuperAdmins: append([]string(nil), payload.SuperAdmins...),
+		}
+	}
 
 	if err := handle.writeJSONLine(initFrame{
 		ProtocolVersion: "1",
@@ -163,6 +169,7 @@ func (m *Manager) Start(ctx context.Context, spec Spec, payload InitPayload) err
 		RequestID:       requestID,
 		Bot:             bot,
 		Capabilities:    append([]string(nil), payload.Capabilities...),
+		Permissions:     permissions,
 		CommandPrefixes: append([]string(nil), payload.CommandPrefixes...),
 	}); err != nil {
 		m.cleanupFailedStart(handle, codePluginInternalError, "write init frame", err)

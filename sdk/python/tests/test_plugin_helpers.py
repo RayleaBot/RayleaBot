@@ -1,7 +1,11 @@
 import importlib
+import os
+import sys
 import threading
 import time
 import unittest
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
 import rayleabot.plugin as plugin_module
 import rayleabot.protocol as protocol_module
@@ -185,6 +189,7 @@ class PluginHelperTests(unittest.TestCase):
         plugin._bot_id = "bot-10001"
         plugin._capabilities = ["message.history.get", "provider.napcat.group.sign.set"]
         plugin._command_prefixes = ["!", "/"]
+        plugin._super_admins = ["9001", "9002"]
 
         capabilities = plugin.capabilities
         capabilities.append("tampered")
@@ -192,12 +197,16 @@ class PluginHelperTests(unittest.TestCase):
         prefixes = plugin.command_prefixes
         prefixes.append("#")
 
+        super_admins = plugin.super_admins
+        super_admins.append("tampered")
+
         self.assertEqual("bot-10001", plugin.bot_id)
         self.assertEqual(
             ["message.history.get", "provider.napcat.group.sign.set"],
             plugin.capabilities,
         )
         self.assertEqual(["!", "/"], plugin.command_prefixes)
+        self.assertEqual(["9001", "9002"], plugin.super_admins)
         self.assertEqual("!", plugin.primary_command_prefix)
 
     def test_init_without_bot_keeps_empty_bot_id(self):
@@ -217,6 +226,9 @@ class PluginHelperTests(unittest.TestCase):
                 "timestamp": int(time.time()),
                 "plugin_id": "helper-plugin",
                 "request_id": "init-1",
+                "permissions": {
+                    "super_admins": ["9001", "9002"],
+                },
                 "command_prefixes": ["/"],
             },
             {
@@ -237,6 +249,7 @@ class PluginHelperTests(unittest.TestCase):
 
         self.assertEqual("helper-plugin", sent["plugin_id"])
         self.assertEqual("", plugin.bot_id)
+        self.assertEqual(["9001", "9002"], plugin.super_admins)
 
     def test_bot_identity_changed_updates_bot_id_before_handler(self):
         plugin = self.plugin_module.RayleaBotPlugin()
@@ -304,6 +317,7 @@ class PluginHelperTests(unittest.TestCase):
                     "target_id": ctx.target_id,
                     "bot_id": ctx.bot_id,
                     "prefix": ctx.primary_command_prefix,
+                    "super_admins": ctx.super_admins,
                 }
                 ctx.send_text("ok")
 
@@ -311,6 +325,7 @@ class PluginHelperTests(unittest.TestCase):
         plugin._plugin_id = "context-plugin"
         plugin._bot_id = "bot-10001"
         plugin._command_prefixes = ["!"]
+        plugin._super_admins = ["9001"]
 
         plugin._handle_event(
             {
@@ -340,6 +355,7 @@ class PluginHelperTests(unittest.TestCase):
             "target_id": "20001",
             "bot_id": "bot-10001",
             "prefix": "!",
+            "super_admins": ["9001"],
         }, plugin.seen)
         self.assertEqual("context-plugin", sent["plugin_id"])
         self.assertEqual("evt-ctx-request", sent["request_id"])

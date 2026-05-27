@@ -96,6 +96,7 @@ interface GovernanceWhitelistWriteOptions extends ActionOptions {
 export interface RayleaBotPluginRuntime {
   readonly botId: string;
   readonly capabilities: string[];
+  readonly superAdmins: string[];
   readonly commandPrefixes: string[];
   readonly primaryCommandPrefix: string;
 
@@ -537,6 +538,10 @@ export class PluginEventContext {
 
   get capabilities(): string[] {
     return this.plugin.capabilities;
+  }
+
+  get superAdmins(): string[] {
+    return this.plugin.superAdmins;
   }
 
   get commandPrefixes(): string[] {
@@ -1012,6 +1017,7 @@ function createPluginRuntime(owner?: RayleaBotPlugin): RayleaBotPluginRuntime {
   let pluginId = '';
   let botId = '';
   let capabilities: string[] = [];
+  let superAdmins: string[] = [];
   let commandPrefixes = ['/'];
   let subscriptions: string[] | null = null;
   const botIdentityWaiters = new Set<(value: string) => void>();
@@ -1074,6 +1080,10 @@ function createPluginRuntime(owner?: RayleaBotPlugin): RayleaBotPluginRuntime {
 
     get capabilities(): string[] {
       return [...capabilities];
+    },
+
+    get superAdmins(): string[] {
+      return [...superAdmins];
     },
 
     get commandPrefixes(): string[] {
@@ -2057,6 +2067,11 @@ function createPluginRuntime(owner?: RayleaBotPlugin): RayleaBotPluginRuntime {
                 (value): value is string => typeof value === 'string' && value.length > 0,
               )
             : [];
+          superAdmins = Array.isArray(initFrame.permissions?.super_admins)
+            ? initFrame.permissions.super_admins.filter(
+                (value): value is string => typeof value === 'string' && value.length > 0,
+              )
+            : [];
           commandPrefixes = (initFrame.command_prefixes ?? []).filter(
             (value): value is string => typeof value === 'string' && value.length > 0,
           );
@@ -2174,6 +2189,10 @@ export class RayleaBotPlugin {
     return this.runtime.capabilities;
   }
 
+  get superAdmins(): string[] {
+    return this.runtime.superAdmins;
+  }
+
   get commandPrefixes(): string[] {
     return this.runtime.commandPrefixes;
   }
@@ -2209,7 +2228,7 @@ export class RayleaBotPlugin {
 
 export interface RayleaBotPlugin extends Omit<
   RayleaBotPluginRuntime,
-  'botId' | 'capabilities' | 'commandPrefixes' | 'primaryCommandPrefix' | 'onEvent' | 'onCommand' | 'subscribe' | 'awaitBotIdentity'
+  'botId' | 'capabilities' | 'superAdmins' | 'commandPrefixes' | 'primaryCommandPrefix' | 'onEvent' | 'onCommand' | 'subscribe' | 'awaitBotIdentity'
 > {}
 
 const delegatedRuntimeMethods = [

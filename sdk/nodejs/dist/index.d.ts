@@ -45,6 +45,7 @@ interface GovernanceWhitelistWriteOptions extends ActionOptions {
 export interface RayleaBotPluginRuntime {
     readonly botId: string;
     readonly capabilities: string[];
+    readonly superAdmins: string[];
     readonly commandPrefixes: string[];
     readonly primaryCommandPrefix: string;
     awaitBotIdentity(timeoutMs?: number): Promise<string>;
@@ -183,6 +184,7 @@ export declare class PluginEventContext {
     get botId(): string;
     awaitBotIdentity(timeoutMs?: number): Promise<string>;
     get capabilities(): string[];
+    get superAdmins(): string[];
     get commandPrefixes(): string[];
     get primaryCommandPrefix(): string;
     sendMessage(segments: Segment[], options?: {
@@ -310,6 +312,7 @@ export declare class RayleaBotPlugin {
     get botId(): string;
     awaitBotIdentity(timeoutMs?: number): Promise<string>;
     get capabilities(): string[];
+    get superAdmins(): string[];
     get commandPrefixes(): string[];
     get primaryCommandPrefix(): string;
     onEvent(handler: EventHandler): this;
@@ -317,7 +320,7 @@ export declare class RayleaBotPlugin {
     onCommand(name: string, handler: EventHandler, aliases?: string[]): this;
     subscribe(...eventTypes: string[]): this;
 }
-export interface RayleaBotPlugin extends Omit<RayleaBotPluginRuntime, 'botId' | 'capabilities' | 'commandPrefixes' | 'primaryCommandPrefix' | 'onEvent' | 'onCommand' | 'subscribe' | 'awaitBotIdentity'> {
+export interface RayleaBotPlugin extends Omit<RayleaBotPluginRuntime, 'botId' | 'capabilities' | 'superAdmins' | 'commandPrefixes' | 'primaryCommandPrefix' | 'onEvent' | 'onCommand' | 'subscribe' | 'awaitBotIdentity'> {
 }
 export declare function createPlugin(): RayleaBotPlugin;
 //# sourceMappingURL=index.d.ts.map

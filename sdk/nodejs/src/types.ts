@@ -180,6 +180,9 @@ export interface InitFrame extends FrameCommon {
   type: 'init';
   bot?: Bot;
   capabilities?: string[];
+  permissions?: {
+    super_admins?: string[];
+  };
   command_prefixes: string[];
 }
 

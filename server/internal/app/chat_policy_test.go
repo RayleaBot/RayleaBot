@@ -2262,6 +2262,90 @@ func TestReloadReturnsTemplateSyncErrorBeforeStartingRuntime(t *testing.T) {
 	}
 }
 
+func TestPluginRuntimeStartInputsIncludeSuperAdmins(t *testing.T) {
+	t.Parallel()
+
+	repoRoot := t.TempDir()
+	writeManagedRuntimeFixtures(t, repoRoot)
+	createPluginEntry(t, repoRoot, "plugins/weather-card", "main.py")
+	catalog := plugins.NewCatalog([]plugins.Snapshot{{
+		PluginID:          "weather-card",
+		Valid:             true,
+		RegistrationState: "installed",
+		DesiredState:      "enabled",
+		RuntimeState:      "running",
+		Runtime:           "python",
+		Entry:             "main.py",
+		ManifestPath:      "plugins/weather-card/info.json",
+	}})
+	app := newTestAppState(config.Config{
+		Admin: config.AdminConfig{
+			SuperAdmins: []string{"10001", "10002", "10001", " "},
+		},
+	}, slog.Default())
+	app.state.repoRoot = repoRoot
+	app.setTestLifecycle(
+		catalog,
+		nil,
+		nil,
+		newRuntimeRegistry(slog.Default(), runtime.Options{}),
+		dispatch.New(slog.Default(), nil, nil, 16),
+		nil,
+		nil,
+		newPluginWebhookRegistry(),
+	)
+
+	_, payload, err := app.pluginLifecycle.buildStartInputsWithCapabilities("weather-card", "", []string{"event.subscribe"})
+	if err != nil {
+		t.Fatalf("buildStartInputsWithCapabilities: %v", err)
+	}
+	if !reflect.DeepEqual(payload.SuperAdmins, []string{"10001", "10002"}) {
+		t.Fatalf("super_admins = %#v, want canonical values", payload.SuperAdmins)
+	}
+}
+
+func TestPluginRuntimeStartInputsUseLegacySuperAdminsFallback(t *testing.T) {
+	t.Parallel()
+
+	repoRoot := t.TempDir()
+	writeManagedRuntimeFixtures(t, repoRoot)
+	createPluginEntry(t, repoRoot, "plugins/weather-card", "main.py")
+	catalog := plugins.NewCatalog([]plugins.Snapshot{{
+		PluginID:          "weather-card",
+		Valid:             true,
+		RegistrationState: "installed",
+		DesiredState:      "enabled",
+		RuntimeState:      "running",
+		Runtime:           "python",
+		Entry:             "main.py",
+		ManifestPath:      "plugins/weather-card/info.json",
+	}})
+	app := newTestAppState(config.Config{
+		Auth: config.AuthConfig{
+			SuperAdmins: []string{"20001"},
+		},
+	}, slog.Default())
+	app.state.repoRoot = repoRoot
+	app.setTestLifecycle(
+		catalog,
+		nil,
+		nil,
+		newRuntimeRegistry(slog.Default(), runtime.Options{}),
+		dispatch.New(slog.Default(), nil, nil, 16),
+		nil,
+		nil,
+		newPluginWebhookRegistry(),
+	)
+
+	_, payload, err := app.pluginLifecycle.buildStartInputsWithCapabilities("weather-card", "", nil)
+	if err != nil {
+		t.Fatalf("buildStartInputsWithCapabilities: %v", err)
+	}
+	if !reflect.DeepEqual(payload.SuperAdmins, []string{"20001"}) {
+		t.Fatalf("super_admins = %#v, want legacy fallback", payload.SuperAdmins)
+	}
+}
+
 func TestRefreshPluginManifestReadsUpdatedManifestFile(t *testing.T) {
 	t.Parallel()
 

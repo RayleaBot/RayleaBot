@@ -182,6 +182,7 @@ func ensureRuntimeStartedForBot(
 			ID: botID,
 		},
 		Capabilities:    append([]string(nil), grantedCapabilities...),
+		SuperAdmins:     pluginRuntimeSuperAdmins(cfg),
 		CommandPrefixes: runtimeCommandPrefixes(cfg),
 	}
 

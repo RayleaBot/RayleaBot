@@ -1,4 +1,8 @@
 import unittest
+import os
+import sys
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
 from rayleabot import (
     Bot,
@@ -79,11 +83,13 @@ class ModelHelpersTests(unittest.TestCase):
         self.assertIsNone(decoded.bot)
 
     def test_init_frame_preserves_bot_when_present(self):
-        frame = InitFrame(plugin_id="weather", request_id="init-2", bot=Bot(id="10001"))
+        frame = InitFrame(plugin_id="weather", request_id="init-2", bot=Bot(id="10001"), super_admins=["9001"])
 
         encoded = frame.to_dict()
         self.assertEqual({"id": "10001"}, encoded["bot"])
+        self.assertEqual({"super_admins": ["9001"]}, encoded["permissions"])
         self.assertEqual("10001", InitFrame.from_dict(encoded).bot.id)
+        self.assertEqual(["9001"], InitFrame.from_dict(encoded).super_admins)
 
 
 if __name__ == "__main__":

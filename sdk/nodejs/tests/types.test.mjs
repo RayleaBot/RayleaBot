@@ -50,6 +50,9 @@ test('generated declaration files include meta fields and new helpers', async ()
   assert.match(indexText, /export declare class RayleaBotPlugin/);
   assert.match(indexText, /readonly botId: string;/);
   assert.match(indexText, /readonly capabilities: string\[\];/);
+  assert.match(indexText, /readonly superAdmins: string\[\];/);
+  assert.match(typesText, /permissions\?: \{/);
+  assert.match(typesText, /super_admins\?: string\[\];/);
 
   const contextDeclaration = indexText.slice(
     indexText.indexOf('export declare class PluginEventContext'),

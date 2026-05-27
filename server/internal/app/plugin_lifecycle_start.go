@@ -4,6 +4,7 @@ import (
 	"context"
 	"strings"
 
+	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	"github.com/RayleaBot/RayleaBot/server/internal/runtime"
 )
@@ -187,9 +188,31 @@ func (c *pluginLifecycleController) buildStartInputsWithCapabilities(pluginID, b
 			ID: strings.TrimSpace(botID),
 		},
 		Capabilities:    append([]string(nil), capabilities...),
+		SuperAdmins:     pluginRuntimeSuperAdmins(c.state.Config),
 		CommandPrefixes: runtimeCommandPrefixes(c.state.Config),
 	}
 	return spec, payload, nil
+}
+
+func pluginRuntimeSuperAdmins(cfg config.Config) []string {
+	source := cfg.Admin.SuperAdmins
+	if len(source) == 0 {
+		source = cfg.Auth.SuperAdmins
+	}
+	result := make([]string, 0, len(source))
+	seen := make(map[string]struct{}, len(source))
+	for _, item := range source {
+		value := strings.TrimSpace(item)
+		if value == "" {
+			continue
+		}
+		if _, ok := seen[value]; ok {
+			continue
+		}
+		seen[value] = struct{}{}
+		result = append(result, value)
+	}
+	return result
 }
 
 func (c *pluginLifecycleController) afterRuntimeRegistered(ctx context.Context, pluginID string, initBotID string) {

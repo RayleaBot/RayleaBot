@@ -43,6 +43,14 @@ func TestManagerStartInitAckSuccess(t *testing.T) {
 	if !ok || len(commandPrefixes) != 2 || commandPrefixes[0] != "!" || commandPrefixes[1] != "/" {
 		t.Fatalf("unexpected init command_prefixes: %#v", frames[0]["command_prefixes"])
 	}
+	permissions, ok := frames[0]["permissions"].(map[string]any)
+	if !ok {
+		t.Fatalf("missing init permissions: %#v", frames[0])
+	}
+	superAdmins, ok := permissions["super_admins"].([]any)
+	if !ok || len(superAdmins) != 2 || superAdmins[0] != "9001" || superAdmins[1] != "9002" {
+		t.Fatalf("unexpected init super_admins: %#v", permissions["super_admins"])
+	}
 
 	if err := manager.Stop(context.Background()); err != nil {
 		t.Fatalf("stop runtime: %v", err)
@@ -2562,6 +2570,7 @@ func testInitPayload() InitPayload {
 			Nickname: "RayleaBot",
 		},
 		Capabilities:    []string{"event.subscribe"},
+		SuperAdmins:     []string{"9001", "9002"},
 		CommandPrefixes: []string{"!", "/"},
 	}
 }

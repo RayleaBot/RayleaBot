@@ -1,7 +1,11 @@
 import importlib
 import io
+import os
 import queue
+import sys
 import unittest
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
 from rayleabot import protocol as protocol_module
 

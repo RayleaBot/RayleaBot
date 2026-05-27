@@ -460,6 +460,7 @@ class InitFrame:
     request_id: str
     bot: Bot | None = None
     capabilities: list[str] = field(default_factory=list)
+    super_admins: list[str] = field(default_factory=list)
     command_prefixes: list[str] = field(default_factory=lambda: ["/"])
     timestamp: int = field(default_factory=_now)
 
@@ -475,16 +476,20 @@ class InitFrame:
             d["bot"] = self.bot.to_dict()
         if self.capabilities:
             d["capabilities"] = self.capabilities
+        if self.super_admins:
+            d["permissions"] = {"super_admins": self.super_admins}
         d["command_prefixes"] = self.command_prefixes or ["/"]
         return d
 
     @classmethod
     def from_dict(cls, d: dict) -> InitFrame:
+        permissions = d.get("permissions") if isinstance(d.get("permissions"), dict) else {}
         return cls(
             plugin_id=d["plugin_id"],
             request_id=d["request_id"],
             bot=Bot.from_dict(d["bot"]) if "bot" in d else None,
             capabilities=d.get("capabilities", []),
+            super_admins=permissions.get("super_admins", []),
             command_prefixes=d.get("command_prefixes", ["/"]),
             timestamp=d.get("timestamp", _now()),
         )

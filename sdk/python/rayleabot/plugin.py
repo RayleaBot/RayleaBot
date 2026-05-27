@@ -84,6 +84,10 @@ class EventContext:
         return self._plugin.command_prefixes
 
     @property
+    def super_admins(self):
+        return self._plugin.super_admins
+
+    @property
     def primary_command_prefix(self):
         return self._plugin.primary_command_prefix
 
@@ -143,6 +147,7 @@ class RayleaBotPlugin:
         self._bot_id = ""
         self._bot_identity_event = threading.Event()
         self._capabilities = []
+        self._super_admins = []
         self._command_prefixes = ["/"]
         self._subscriptions = None
         self._register_decorated_handlers()
@@ -865,6 +870,8 @@ class RayleaBotPlugin:
                 bot = frame.get("bot", {})
                 self._set_bot_id(bot.get("id", ""))
                 self._capabilities = frame.get("capabilities", [])
+                permissions = frame.get("permissions") if isinstance(frame.get("permissions"), dict) else {}
+                self._super_admins = [str(item).strip() for item in permissions.get("super_admins", []) if str(item).strip()]
                 prefixes = [prefix for prefix in frame.get("command_prefixes", ["/"]) if isinstance(prefix, str) and prefix]
                 self._command_prefixes = prefixes or ["/"]
                 protocol.send_init_ack(plugin_id, request_id, self._subscriptions)
@@ -1003,6 +1010,10 @@ class RayleaBotPlugin:
     @property
     def capabilities(self):
         return list(self._capabilities)
+
+    @property
+    def super_admins(self):
+        return list(self._super_admins)
 
 
 def _uses_context_handler(handler):

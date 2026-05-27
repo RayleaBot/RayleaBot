@@ -11,11 +11,11 @@
   - Python：继承 `RayleaBotPlugin`，使用 `@command(...)` 与 `@event_handler(...)` 注册类方法
   - Node.js：继承 `RayleaBotPlugin`，在构造函数中使用 `this.onCommand(...)` 与 `this.onEvent(...)` 注册实例方法
 - 事件上下文：
-  - Python：`EventContext` 提供 `event`、`request_id`、`target`、`actor`、`payload`、`args`、`plain_text`、`bot_id` 和 request-bound helper
-  - Node.js：`PluginEventContext` 提供 `event`、`requestId`、`target`、`actor`、`payload`、`args`、`plainText`、`botId` 和 request-bound helper
+  - Python：`EventContext` 提供 `event`、`request_id`、`target`、`actor`、`payload`、`args`、`plain_text`、`bot_id`、`super_admins` 和 request-bound helper
+  - Node.js：`PluginEventContext` 提供 `event`、`requestId`、`target`、`actor`、`payload`、`args`、`plainText`、`botId`、`superAdmins` 和 request-bound helper
 - 启动上下文 helper：
-  - Python：`bot_id`、`capabilities`、`command_prefixes`、`primary_command_prefix`
-  - Node.js：`botId`、`capabilities`、`commandPrefixes`、`primaryCommandPrefix`
+  - Python：`bot_id`、`capabilities`、`super_admins`、`command_prefixes`、`primary_command_prefix`
+  - Node.js：`botId`、`capabilities`、`superAdmins`、`commandPrefixes`、`primaryCommandPrefix`
 - `bot_id` / `botId` 在协议身份不可用时为空字符串；SDK 收到 `bot.identity.changed` 后更新为当前 bot 身份。当 `bot.identity.changed` 不携带可用身份时（`target` 与 `event.payload.onebot.self_id` 均为空），SDK 将 `bot_id` / `botId` 重置为空，下次 `bot.identity.changed` 再恢复。
 - 等待身份就绪 helper：
   - Python：`RayleaBotPlugin.await_bot_identity(timeout_seconds=30)`；身份已知时立即返回当前 `bot_id`，否则阻塞至身份就绪或超时，超时返回空字符串。线程安全，可在事件处理线程内调用。

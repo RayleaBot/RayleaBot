@@ -23,6 +23,7 @@
 - 插件异常退出会进入崩溃恢复路径，而不是默默消失。
 - `init.command_prefixes` 提供当前生效的命令前缀列表，至少包含一项。
 - `init.bot` 在 OneBot 身份可用时提供当前 bot 身份；协议身份不可用时该字段缺省。
+- `init.permissions.super_admins` 提供当前平台超级管理员账号 ID 列表。
 
 ## 事件与结果
 

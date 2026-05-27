@@ -14,6 +14,10 @@ frames:
       - event.subscribe
       - message.history.get
       - provider.napcat.group.sign.set
+    permissions:
+      super_admins:
+        - "10001"
+        - "10002"
     command_prefixes:
       - /
       - "!"

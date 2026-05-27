@@ -55,7 +55,12 @@ func TestEnsureRuntimeStartedForEventStartsFirstEnabledInstalledPlugin(t *testin
 		manager,
 		catalog,
 		repoRoot,
-		config.Config{Command: &config.CommandConfig{Prefixes: []string{"!", "/"}}},
+		config.Config{
+			Admin: config.AdminConfig{
+				SuperAdmins: []string{"10001", "10002", "10001", " "},
+			},
+			Command: &config.CommandConfig{Prefixes: []string{"!", "/"}},
+		},
 		adapter.NormalizedEvent{BotID: "10001"},
 	)
 	if err != nil {
@@ -78,6 +83,9 @@ func TestEnsureRuntimeStartedForEventStartsFirstEnabledInstalledPlugin(t *testin
 	}
 	if len(manager.startedPayload.CommandPrefixes) != 2 || manager.startedPayload.CommandPrefixes[0] != "!" || manager.startedPayload.CommandPrefixes[1] != "/" {
 		t.Fatalf("unexpected command prefixes: %#v", manager.startedPayload.CommandPrefixes)
+	}
+	if len(manager.startedPayload.SuperAdmins) != 2 || manager.startedPayload.SuperAdmins[0] != "10001" || manager.startedPayload.SuperAdmins[1] != "10002" {
+		t.Fatalf("unexpected super admins: %#v", manager.startedPayload.SuperAdmins)
 	}
 }
 

@@ -15,6 +15,7 @@ export function createPlugin() {
   let pluginId = '';
   let botId = '';
   let capabilities = [];
+  let superAdmins = [];
   let commandPrefixes = ['/'];
   let subscriptions = null;
 
@@ -25,6 +26,10 @@ export function createPlugin() {
 
     get capabilities() {
       return [...capabilities];
+    },
+
+    get superAdmins() {
+      return [...superAdmins];
     },
 
     get commandPrefixes() {
@@ -605,6 +610,9 @@ export function createPlugin() {
           botId = frame.bot?.id ?? '';
           capabilities = Array.isArray(frame.capabilities)
             ? frame.capabilities.filter((value) => typeof value === 'string' && value.length > 0)
+            : [];
+          superAdmins = Array.isArray(frame.permissions?.super_admins)
+            ? frame.permissions.super_admins.filter((value) => typeof value === 'string' && value.length > 0)
             : [];
           commandPrefixes = Array.isArray(frame.command_prefixes)
             ? frame.command_prefixes.filter((value) => typeof value === 'string' && value.length > 0)

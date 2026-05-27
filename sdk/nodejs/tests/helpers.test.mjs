@@ -280,6 +280,9 @@ test('bot.identity.changed updates botId after init without bot', async () => {
       timestamp: Math.floor(Date.now() / 1000),
       plugin_id: 'helper-plugin',
       request_id: 'init-1',
+      permissions: {
+        super_admins: ['9001', '9002'],
+      },
       command_prefixes: ['/'],
     }) + '\n');
     child.stdin.write(JSON.stringify({
@@ -467,6 +470,7 @@ test('class plugin dispatches context command handlers', async () => {
             botId: ctx.botId,
             targetId: ctx.targetId,
             prefix: ctx.primaryCommandPrefix,
+            superAdmins: ctx.superAdmins,
             helpers: {
               storageFileRead: typeof ctx.storageFileRead,
               storageFileDelete: typeof ctx.storageFileDelete,
@@ -516,6 +520,9 @@ test('class plugin dispatches context command handlers', async () => {
       plugin_id: 'context-plugin',
       request_id: 'init-ctx',
       bot: { id: 'bot-10001' },
+      permissions: {
+        super_admins: ['9001'],
+      },
       command_prefixes: ['!'],
     }) + '\n');
     child.stdin.write(JSON.stringify({
@@ -579,6 +586,7 @@ test('class plugin dispatches context command handlers', async () => {
     botId: 'bot-10001',
     targetId: '20001',
     prefix: '!',
+    superAdmins: ['9001'],
     helpers: {
       storageFileRead: 'function',
       storageFileDelete: 'function',
