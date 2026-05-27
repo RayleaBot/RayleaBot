@@ -219,6 +219,7 @@ class SubscriptionHubTests(unittest.TestCase):
         })
         self.assertEqual(len(updates), 1)
         self.assertEqual(updates[0]["service"], "repost")
+        self.assertEqual(updates[0]["title"], "转发动态")
         self.assertEqual(updates[0]["summary"], "转发推荐")
         self.assertEqual(updates[0]["original"]["title"], "原视频")
 
@@ -246,9 +247,98 @@ class SubscriptionHubTests(unittest.TestCase):
         })
 
         self.assertEqual(len(updates), 1)
+        self.assertEqual(updates[0]["title"], "测试 UP 发布文字动态")
         self.assertEqual(updates[0]["summary"], "个人置顶简介 合作联系：hudie007@vip.qq.com")
         self.assertNotIn("rich_text_nodes", updates[0]["summary"])
         self.assertNotIn("orig_text", updates[0]["summary"])
+
+    def test_dynamic_updates_uses_short_title_for_untitled_word_dynamic(self):
+        long_text = "这是没有独立标题的文字动态，正文内容会比较长。" * 8
+        updates = dynamic_updates({
+            "data": {
+                "items": [{
+                    "id_str": "990",
+                    "type": "DYNAMIC_TYPE_WORD",
+                    "basic": {"jump_url": "//t.bilibili.com/990"},
+                    "modules": {
+                        "module_author": {"name": "测试 UP", "pub_ts": 1700000300, "pub_time": "今天 15:00"},
+                        "module_dynamic": {
+                            "desc": {"text": long_text},
+                            "major": {},
+                        },
+                    },
+                }],
+            },
+        })
+
+        self.assertEqual(len(updates), 1)
+        self.assertEqual(updates[0]["title"], "测试 UP 发布文字动态")
+        self.assertEqual(updates[0]["summary"], long_text)
+        self.assertNotEqual(updates[0]["title"], long_text[:40])
+
+    def test_dynamic_updates_uses_short_title_for_untitled_image_dynamic(self):
+        long_text = "这是一条没有独立标题的图文动态，正文应该进入摘要区域。" * 6
+        updates = dynamic_updates({
+            "data": {
+                "items": [{
+                    "id_str": "991",
+                    "type": "DYNAMIC_TYPE_DRAW",
+                    "basic": {"jump_url": "//t.bilibili.com/991"},
+                    "modules": {
+                        "module_author": {"name": "测试 UP", "pub_ts": 1700000400, "pub_time": "今天 16:00"},
+                        "module_dynamic": {
+                            "desc": {"text": long_text},
+                            "major": {
+                                "type": "MAJOR_TYPE_DRAW",
+                                "draw": {
+                                    "items": [
+                                        {"src": "//i0.hdslb.com/dyn/1.jpg", "width": 800, "height": 800},
+                                        {"src": "//i0.hdslb.com/dyn/2.jpg", "width": 800, "height": 800},
+                                    ],
+                                },
+                            },
+                        },
+                    },
+                }],
+            },
+        })
+
+        self.assertEqual(len(updates), 1)
+        self.assertEqual(updates[0]["title"], "测试 UP 发布图文动态")
+        self.assertEqual(updates[0]["summary"], long_text)
+        self.assertEqual(updates[0]["images"], [
+            {"url": "https://i0.hdslb.com/dyn/1.jpg", "width": 800, "height": 800},
+            {"url": "https://i0.hdslb.com/dyn/2.jpg", "width": 800, "height": 800},
+        ])
+
+    def test_dynamic_updates_keeps_article_title(self):
+        updates = dynamic_updates({
+            "data": {
+                "items": [{
+                    "id_str": "992",
+                    "type": "DYNAMIC_TYPE_ARTICLE",
+                    "basic": {"jump_url": "//www.bilibili.com/read/cv123"},
+                    "modules": {
+                        "module_author": {"name": "测试 UP", "pub_ts": 1700000500, "pub_time": "今天 17:00"},
+                        "module_dynamic": {
+                            "major": {
+                                "type": "MAJOR_TYPE_ARTICLE",
+                                "article": {
+                                    "title": "专栏文章标题",
+                                    "desc": "文章摘要",
+                                    "covers": ["//i0.hdslb.com/article.jpg"],
+                                },
+                            },
+                        },
+                    },
+                }],
+            },
+        })
+
+        self.assertEqual(len(updates), 1)
+        self.assertEqual(updates[0]["service"], "article")
+        self.assertEqual(updates[0]["title"], "专栏文章标题")
+        self.assertEqual(updates[0]["summary"], "文章摘要")
 
     def test_render_data_contains_subscriber_info(self):
         data = build_render_data({
@@ -272,6 +362,9 @@ class SubscriptionHubTests(unittest.TestCase):
         })
         self.assertEqual(data["subscriber_text"], "订阅人")
         self.assertEqual(data["service"], "视频")
+        self.assertEqual(data["headline"], "新视频")
+        self.assertEqual(data["content_text"], "视频简介")
+        self.assertEqual(data["source_label"], "Bilibili · 视频")
         self.assertEqual(data["images"], [{"url": "https://i0.hdslb.com/cover.jpg"}])
         self.assertEqual(data["original"]["title"], "原动态")
         self.assertEqual(data["original"]["images"], [{"url": "https://i0.hdslb.com/orig.jpg"}])

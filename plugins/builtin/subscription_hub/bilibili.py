@@ -129,7 +129,8 @@ def normalize_dynamic_item(item, depth=0):
     dynamic_id = str(item.get("id_str") or item.get("id") or "").strip()
     item_type = str(item.get("type") or "").strip()
     service = service_for_item(item_type, basic, major)
-    title = title_for_item(major, desc, service)
+    author_name = str(module_author.get("name") or "").strip()
+    title = title_for_item(major, desc, service, item_type, author_name)
     summary = summary_for_item(desc, major)
     url = jump_url_for_item(basic, major, dynamic_id)
     pub_ts = normalize_pub_ts(module_author.get("pub_ts"))
@@ -138,7 +139,7 @@ def normalize_dynamic_item(item, depth=0):
     if service == "repost" and original and not summary:
         summary = "转发动态"
     author = {
-        "name": str(module_author.get("name") or "").strip(),
+        "name": author_name,
         "avatar": str(module_author.get("face") or "").strip(),
     }
     if not dynamic_id or not title or not pub_ts:
@@ -185,27 +186,33 @@ def category_for_service(service):
     }.get(service, "动态")
 
 
-def title_for_item(major, desc, service):
+def title_for_item(major, desc, service, item_type="", author_name=""):
     if service == "repost":
         return "转发动态"
     if isinstance(major, dict):
-        for section_name in ("archive", "article", "opus", "draw", "common"):
+        for section_name in ("archive", "article", "opus", "common"):
             section = major.get(section_name)
             if isinstance(section, dict):
-                for key in ("title", "desc", "summary"):
+                for key in ("title",):
                     text = clean_text(section.get(key))
                     if text:
                         return text
-    text = clean_text(desc.get("text") if isinstance(desc, dict) else "")
-    if text:
-        return text[:40]
-    labels = {
-        "video": "发布了新视频",
-        "article": "发布了新文章",
-        "repost": "转发动态",
-        "image_text": "发布了新动态",
-    }
-    return labels.get(service, "发布了新内容")
+    action = default_title_action(service, item_type)
+    return f"{author_name} {action}" if author_name else action
+
+
+def default_title_action(service, item_type=""):
+    if service == "video":
+        return "发布新视频"
+    if service == "article":
+        return "发布新文章"
+    if service == "repost":
+        return "转发动态"
+    if item_type == "DYNAMIC_TYPE_WORD":
+        return "发布文字动态"
+    if service == "image_text":
+        return "发布图文动态"
+    return "发布新内容"
 
 
 def summary_for_item(desc, major):

@@ -1,19 +1,26 @@
 {
-  "title": "转发动态示例",
-  "subtitle": "Bilibili · 转发",
+  "title": "RayleaBot 示例账号 发布图文动态",
+  "headline": "RayleaBot 示例账号 发布图文动态",
+  "content_text": "这是一条没有独立标题的 Bilibili 图文动态。正文会显示在内容区域，顶部标题保持短句，图片和订阅信息继续按动态卡片展示。\n\n当正文比较长时，卡片会保留清晰的信息层级，避免把整段正文放进标题区域。",
+  "subtitle": "Bilibili · 图文",
+  "source_label": "Bilibili · 图文动态",
   "platform": "Bilibili",
-  "service": "转发",
-  "category": "转发",
+  "service": "图文",
+  "category": "图文动态",
   "author": {
-    "name": "RayleaBot 示例账号"
+    "name": "RayleaBot 示例账号",
+    "avatar": "https://i0.hdslb.com/bfs/face/sample-avatar.jpg"
   },
-  "summary": "转发评论会显示在主卡片正文中，原动态会以内嵌卡片展示。",
+  "summary": "这是一条没有独立标题的 Bilibili 图文动态。正文会显示在内容区域，顶部标题保持短句，图片和订阅信息继续按动态卡片展示。\n\n当正文比较长时，卡片会保留清晰的信息层级，避免把整段正文放进标题区域。",
   "images": [
     {
       "url": "https://i0.hdslb.com/bfs/new_dyn/sample-1.jpg"
     },
     {
       "url": "https://i0.hdslb.com/bfs/new_dyn/sample-2.jpg"
+    },
+    {
+      "url": "https://i0.hdslb.com/bfs/new_dyn/sample-3.jpg"
     }
   ],
   "url": "https://t.bilibili.com/100000000000000001",
@@ -22,9 +29,10 @@
   "original": {
     "title": "原动态视频标题",
     "service": "视频",
-    "category": "视频",
+    "category": "视频动态",
     "author": {
-      "name": "原动态作者"
+      "name": "原动态作者",
+      "avatar": "https://i0.hdslb.com/bfs/face/original-avatar.jpg"
     },
     "summary": "原动态摘要、图片与链接会显示在内嵌卡片中。",
     "images": [

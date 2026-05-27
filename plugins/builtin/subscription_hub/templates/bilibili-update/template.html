@@ -7,31 +7,30 @@
   </head>
   <body class="theme-{{ .Theme }}">
     <main class="surface">
-      <header class="header">
-        <div>
-          <p class="eyebrow">{{ .platform }} · {{ .category }}</p>
-          <h1>{{ .title }}</h1>
-          {{ if .subtitle }}<p class="subtitle">{{ .subtitle }}</p>{{ end }}
+      <header class="account-header">
+        <div class="author">
+          {{ with .author }}{{ with .avatar }}<img class="avatar" src="{{ . }}" alt="" />{{ end }}{{ end }}
+          <div class="author-text">
+            {{ with .author }}{{ if .name }}<strong>{{ .name }}</strong>{{ end }}{{ end }}
+            <span>{{ if .created_at }}{{ .created_at }}{{ else }}Bilibili 订阅更新{{ end }}</span>
+          </div>
         </div>
-        <div class="badge">订阅中心</div>
+        <div class="source-badge">{{ .platform }}</div>
       </header>
 
-      <section class="author-card">
-        {{ with .author }}
-          {{ with .avatar }}<img class="avatar" src="{{ . }}" alt="" />{{ end }}
-          <div>
-            <div class="label">UP 主</div>
-            <div class="value">{{ .name }}</div>
-          </div>
+      <section class="content-card">
+        <div class="content-meta">
+          <span>{{ if .source_label }}{{ .source_label }}{{ else }}{{ .platform }} · {{ .category }}{{ end }}</span>
+          <strong>{{ .service }}</strong>
+        </div>
+        <h1>{{ if .headline }}{{ .headline }}{{ else }}{{ .title }}{{ end }}</h1>
+
+        {{ if .content_text }}
+        <div class="dynamic-text">{{ .content_text }}</div>
+        {{ else if .summary }}
+        <div class="dynamic-text">{{ .summary }}</div>
         {{ end }}
       </section>
-
-      {{ if .summary }}
-      <section class="summary">
-        <div class="label">内容摘要</div>
-        <p>{{ .summary }}</p>
-      </section>
-      {{ end }}
 
       {{ if .images }}
       <section class="image-grid image-count-{{ len .images }}">
@@ -43,7 +42,6 @@
 
       {{ with .original }}
       <section class="original-card">
-        <div class="label">原动态</div>
         <div class="original-author">
           {{ with .author }}{{ with .avatar }}<img class="original-avatar" src="{{ . }}" alt="" />{{ end }}{{ end }}
           <div>
@@ -51,6 +49,7 @@
             <span>{{ .category }}{{ if .created_at }} · {{ .created_at }}{{ end }}</span>
           </div>
         </div>
+        <div class="original-label">原动态</div>
         <h2>{{ .title }}</h2>
         {{ if .summary }}<p>{{ .summary }}</p>{{ end }}
         {{ if .images }}
