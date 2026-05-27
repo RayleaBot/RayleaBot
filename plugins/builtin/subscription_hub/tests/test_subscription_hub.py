@@ -10,7 +10,7 @@ BUILTIN_DIR = os.path.dirname(PLUGIN_DIR)
 sys.path.insert(0, BUILTIN_DIR)
 sys.path.insert(0, PLUGIN_DIR)
 
-from bilibili import dynamic_updates
+from bilibili import dynamic_updates, parse_preview_url
 from main import (
     SUBSCRIBE_BILIBILI_USAGE,
     SubscriptionHubPlugin,
@@ -92,6 +92,55 @@ class SubscriptionHubTests(unittest.TestCase):
             }),
         }
 
+    def video_preview_response(self, code=0, message=""):
+        return {
+            "status_code": 200,
+            "body_text": json.dumps({
+                "code": code,
+                "message": message,
+                "data": {
+                    "bvid": "BV1c5qEBjEtJ",
+                    "title": "真实视频标题",
+                    "desc": "真实视频简介",
+                    "pic": "//i0.hdslb.com/video-cover.jpg",
+                    "pubdate": 1700000000,
+                    "owner": {
+                        "mid": 123456,
+                        "name": "测试 UP",
+                        "face": "//i0.hdslb.com/face.jpg",
+                    },
+                },
+            }),
+        }
+
+    def opus_preview_response(self, item=None, code=0, message=""):
+        return {
+            "status_code": 200,
+            "body_text": json.dumps({
+                "code": code,
+                "message": message,
+                "data": {"item": item or self.image_text_item("1194416231669563410")},
+            }),
+        }
+
+    def live_preview_response(self, code=0, message=""):
+        return {
+            "status_code": 200,
+            "body_text": json.dumps({
+                "code": code,
+                "message": message,
+                "data": {
+                    "room_id": 22913442,
+                    "uid": 123456,
+                    "uname": "测试主播",
+                    "title": "真实直播标题",
+                    "live_status": 1,
+                    "user_cover": "//i0.hdslb.com/live-cover.jpg",
+                    "live_time": 1700000000,
+                },
+            }),
+        }
+
     def video_item(self, dynamic_id, title, pub_ts=None):
         pub_ts = int(pub_ts or time.time())
         return {
@@ -104,6 +153,33 @@ class SubscriptionHubTests(unittest.TestCase):
                     "major": {
                         "type": "MAJOR_TYPE_ARCHIVE",
                         "archive": {"title": title, "desc": "视频简介", "cover": "//i0.hdslb.com/video.jpg"},
+                    },
+                },
+            },
+        }
+
+    def image_text_item(self, dynamic_id, pub_ts=1700000000):
+        return {
+            "id_str": dynamic_id,
+            "type": "DYNAMIC_TYPE_DRAW",
+            "basic": {"jump_url": f"//www.bilibili.com/opus/{dynamic_id}"},
+            "modules": {
+                "module_author": {
+                    "name": "测试 UP",
+                    "face": "//i0.hdslb.com/face.jpg",
+                    "pub_ts": pub_ts,
+                    "pub_time": "今天 12:00",
+                },
+                "module_dynamic": {
+                    "desc": {"text": "真实图文动态正文"},
+                    "major": {
+                        "type": "MAJOR_TYPE_DRAW",
+                        "draw": {
+                            "items": [
+                                {"src": "//i0.hdslb.com/dyn/1.jpg", "width": 800, "height": 800},
+                                {"src": "//i0.hdslb.com/dyn/2.jpg", "width": 800, "height": 800},
+                            ],
+                        },
                     },
                 },
             },
@@ -133,6 +209,8 @@ class SubscriptionHubTests(unittest.TestCase):
         self.assertEqual("super_admin", manifest["commands"][6]["permission"])
         self.assertEqual("super_admin", manifest["commands"][7]["permission"])
         self.assertEqual("super_admin", manifest["commands"][8]["permission"])
+        self.assertEqual("/预览订阅卡片 [直播|视频|图文|文章|转发|Bilibili链接]", manifest["commands"][8]["usage"])
+        self.assertIn("Bilibili 链接", manifest["commands"][8]["description"])
         self.assertIn("help", manifest)
         self.assertEqual([
             "订阅操作",
@@ -145,6 +223,9 @@ class SubscriptionHubTests(unittest.TestCase):
         self.assertEqual("/取消b站推送 [直播|视频|图文|文章|转发] UID或昵称", operation_items[2]["usage"])
         self.assertIn("不填表示全部类型", operation_items[1]["description"])
         self.assertIn("不填表示全部类型", operation_items[2]["description"])
+        preview_item = manifest["help"]["groups"][2]["items"][1]
+        self.assertEqual("/预览订阅卡片 [直播|视频|图文|文章|转发|Bilibili链接]", preview_item["usage"])
+        self.assertIn("视频、图文动态和直播间链接", preview_item["description"])
         self.assertNotIn("dynamic_commands", manifest)
 
     def test_merge_settings_normalizes_tokens_and_subscriptions(self):
@@ -835,6 +916,121 @@ class SubscriptionHubTests(unittest.TestCase):
             "target_type": None,
             "target_id": None,
         }])
+
+    def test_parse_preview_url_normalizes_supported_links(self):
+        self.assertEqual(parse_preview_url("www.bilibili.com/video/BV1c5qEBjEtJ/?trackid=x"), {
+            "kind": "video",
+            "bvid": "BV1c5qEBjEtJ",
+            "url": "https://www.bilibili.com/video/BV1c5qEBjEtJ",
+        })
+        self.assertEqual(parse_preview_url("https://www.bilibili.com/opus/1194416231669563410?x=1#reply"), {
+            "kind": "opus",
+            "opus_id": "1194416231669563410",
+            "url": "https://www.bilibili.com/opus/1194416231669563410",
+        })
+        self.assertEqual(parse_preview_url("https://live.bilibili.com/22913442?live_from&launch_id&trackid"), {
+            "kind": "live",
+            "room_id": "22913442",
+            "url": "https://live.bilibili.com/22913442",
+        })
+
+    def test_preview_card_fetches_real_video_link(self):
+        plugin = SubscriptionHubPlugin()
+        ctx = FakeContext(
+            args=["https://www.bilibili.com/video/BV1c5qEBjEtJ/?trackid=web_related"],
+            http_responses=[self.video_preview_response()],
+            render_result={"image_path": "video-preview.png"},
+        )
+
+        plugin.handle_preview_card(ctx)
+
+        self.assertEqual(len(ctx.http_requests), 1)
+        self.assertIn("/x/web-interface/view?bvid=BV1c5qEBjEtJ", ctx.http_requests[0]["url"])
+        data = ctx.render_calls[0]["data"]
+        self.assertEqual(data["service"], "视频")
+        self.assertEqual(data["title"], "真实视频标题")
+        self.assertEqual(data["content_text"], "真实视频简介")
+        self.assertEqual(data["url"], "https://www.bilibili.com/video/BV1c5qEBjEtJ")
+        self.assertEqual(data["author"]["name"], "测试 UP")
+        self.assertEqual(data["subscription"]["name"], "测试 UP")
+        self.assertEqual(data["subscription"]["uid"], "123456")
+        self.assertEqual(data["images"], [{"url": "https://i0.hdslb.com/video-cover.jpg"}])
+        self.assertEqual(ctx.messages[0]["segments"][0]["data"]["file"], "video-preview.png")
+
+    def test_preview_card_fetches_real_opus_link(self):
+        plugin = SubscriptionHubPlugin()
+        ctx = FakeContext(
+            args=["https://www.bilibili.com/opus/1194416231669563410?spm_id_from=share"],
+            http_responses=[self.opus_preview_response()],
+        )
+
+        plugin.handle_preview_card(ctx)
+
+        self.assertEqual(len(ctx.http_requests), 1)
+        self.assertIn("/x/polymer/web-dynamic/v1/opus/detail?id=1194416231669563410", ctx.http_requests[0]["url"])
+        data = ctx.render_calls[0]["data"]
+        self.assertEqual(data["service"], "图文")
+        self.assertEqual(data["title"], "测试 UP 发布图文动态")
+        self.assertEqual(data["content_text"], "真实图文动态正文")
+        self.assertEqual(data["url"], "https://www.bilibili.com/opus/1194416231669563410")
+        self.assertEqual(data["images"], [
+            {"url": "https://i0.hdslb.com/dyn/1.jpg", "width": 800, "height": 800},
+            {"url": "https://i0.hdslb.com/dyn/2.jpg", "width": 800, "height": 800},
+        ])
+
+    def test_preview_card_fetches_real_live_link(self):
+        plugin = SubscriptionHubPlugin()
+        ctx = FakeContext(
+            args=["live.bilibili.com/22913442?live_from&launch_id&trackid"],
+            http_responses=[self.live_preview_response()],
+        )
+
+        plugin.handle_preview_card(ctx)
+
+        self.assertEqual(len(ctx.http_requests), 1)
+        self.assertIn("/room/v1/Room/get_info?room_id=22913442", ctx.http_requests[0]["url"])
+        data = ctx.render_calls[0]["data"]
+        self.assertEqual(data["service"], "直播")
+        self.assertEqual(data["title"], "真实直播标题")
+        self.assertEqual(data["content_text"], "直播中")
+        self.assertEqual(data["url"], "https://live.bilibili.com/22913442")
+        self.assertEqual(data["author"]["name"], "测试主播")
+        self.assertEqual(data["images"], [{"url": "https://i0.hdslb.com/live-cover.jpg"}])
+
+    def test_preview_card_rejects_unsupported_url_without_rendering(self):
+        plugin = SubscriptionHubPlugin()
+        ctx = FakeContext(args=["https://example.com/video/BV1c5qEBjEtJ"])
+
+        plugin.handle_preview_card(ctx)
+
+        self.assertEqual(ctx.http_requests, [])
+        self.assertEqual(ctx.render_calls, [])
+        self.assertIn("暂不支持", ctx.texts[0])
+        self.assertEqual(ctx.results[-1], {"handled": True, "sent": 0})
+
+    def test_preview_card_reports_api_error_without_rendering(self):
+        plugin = SubscriptionHubPlugin()
+        ctx = FakeContext(
+            args=["https://www.bilibili.com/video/BV1c5qEBjEtJ"],
+            http_responses=[self.video_preview_response(code=-412)],
+        )
+
+        plugin.handle_preview_card(ctx)
+
+        self.assertEqual(len(ctx.http_requests), 1)
+        self.assertEqual(ctx.render_calls, [])
+        self.assertIn("风控拦截", ctx.texts[0])
+        self.assertEqual(ctx.results[-1], {"handled": True, "sent": 0})
+
+    def test_preview_card_keeps_sample_types_without_http(self):
+        plugin = SubscriptionHubPlugin()
+        ctx = FakeContext(args=["直播"])
+
+        plugin.handle_preview_card(ctx)
+
+        self.assertEqual(ctx.http_requests, [])
+        self.assertEqual(len(ctx.render_calls), 1)
+        self.assertEqual(ctx.render_calls[0]["data"]["service"], "直播")
 
     def test_first_successful_dynamic_poll_sets_baseline_without_push(self):
         plugin = SubscriptionHubPlugin()

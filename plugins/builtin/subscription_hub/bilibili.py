@@ -1,7 +1,8 @@
 import json
+import re
 from datetime import datetime, timezone
 from html import unescape
-from urllib.parse import urlencode
+from urllib.parse import unquote, urlencode, urlparse, urlunparse
 
 
 DYNAMIC_URL = "https://api.bilibili.com/x/polymer/web-dynamic/v1/feed/space?host_mid={uid}&timezone_offset=-480&platform=web&web_location=333.1365&features=itemOpusStyle,listOnlyfans,opusBigCover,onlyfansVote,decorationCard,onlyfansAssetsV2,forwardListHidden,ugcDelete"
@@ -9,6 +10,11 @@ LIVE_URL = "https://api.live.bilibili.com/room/v1/Room/get_status_info_by_uids?u
 NAV_URL = "https://api.bilibili.com/x/web-interface/nav"
 USER_INFO_URL = "https://api.bilibili.com/x/space/acc/info?mid={uid}&jsonp=jsonp"
 USER_SEARCH_URL = "https://api.bilibili.com/x/web-interface/search/type?{query}"
+VIDEO_VIEW_URL = "https://api.bilibili.com/x/web-interface/view?bvid={bvid}"
+OPUS_DETAIL_URL = "https://api.bilibili.com/x/polymer/web-dynamic/v1/opus/detail?id={opus_id}"
+LIVE_ROOM_INFO_URL = "https://api.live.bilibili.com/room/v1/Room/get_info?room_id={room_id}"
+BILIBILI_CONTENT_HOSTS = {"www.bilibili.com", "m.bilibili.com", "bilibili.com"}
+BVID_PATTERN = re.compile(r"^BV[0-9A-Za-z]+$")
 
 
 def build_cookie_headers(token, uid=None):
@@ -49,6 +55,215 @@ def user_search_url(keyword):
         "pagesize": 5,
     })
     return USER_SEARCH_URL.format(query=query)
+
+
+def video_view_url(bvid):
+    return VIDEO_VIEW_URL.format(bvid=bvid)
+
+
+def opus_detail_url(opus_id):
+    return OPUS_DETAIL_URL.format(opus_id=opus_id)
+
+
+def live_room_info_url(room_id):
+    return LIVE_ROOM_INFO_URL.format(room_id=room_id)
+
+
+def normalize_preview_url(value):
+    text = str(value or "").strip()
+    if not text:
+        return ""
+    if text.startswith("//"):
+        text = "https:" + text
+    elif "://" not in text:
+        text = "https://" + text
+    parsed = urlparse(text)
+    host = (parsed.netloc or "").lower()
+    if not host:
+        return ""
+    path = parsed.path or "/"
+    if len(path) > 1:
+        path = path.rstrip("/")
+    return urlunparse(("https", host, path, "", "", ""))
+
+
+def looks_like_preview_url(value):
+    text = str(value or "").strip().lower()
+    if not text:
+        return False
+    return (
+        "://" in text
+        or text.startswith("//")
+        or text.startswith(("www.", "m.", "live.", "bilibili.com/"))
+        or "bilibili.com/" in text
+    )
+
+
+def parse_preview_url(value):
+    canonical_url = normalize_preview_url(value)
+    if not canonical_url:
+        return None
+    parsed = urlparse(canonical_url)
+    host = (parsed.netloc or "").lower()
+    segments = [unquote(segment) for segment in (parsed.path or "").split("/") if segment]
+
+    if host in BILIBILI_CONTENT_HOSTS and len(segments) == 2 and segments[0] == "video" and BVID_PATTERN.match(segments[1]):
+        bvid = segments[1]
+        return {
+            "kind": "video",
+            "bvid": bvid,
+            "url": f"https://www.bilibili.com/video/{bvid}",
+        }
+
+    if host in BILIBILI_CONTENT_HOSTS and len(segments) == 2 and segments[0] == "opus" and segments[1].isdigit():
+        opus_id = segments[1]
+        return {
+            "kind": "opus",
+            "opus_id": opus_id,
+            "url": f"https://www.bilibili.com/opus/{opus_id}",
+        }
+
+    if host == "live.bilibili.com" and len(segments) == 1 and segments[0].isdigit():
+        room_id = segments[0]
+        return {
+            "kind": "live",
+            "room_id": room_id,
+            "url": f"https://live.bilibili.com/{room_id}",
+        }
+
+    return None
+
+
+def preview_document_error(document, label):
+    error = bilibili_document_error(document)
+    if not error:
+        return None
+    message = error.get("message") or "Bilibili 响应读取失败。"
+    if error.get("kind") == "not_found":
+        message = f"没有找到这个 Bilibili {label}。"
+    return f"Bilibili {label}预览失败：{message}"
+
+
+def preview_update_from_video_document(document, canonical_url):
+    error = preview_document_error(document, "视频")
+    if error:
+        return {"ok": False, "message": error}
+    data = document.get("data") if isinstance(document, dict) else {}
+    if not isinstance(data, dict):
+        return {"ok": False, "message": "Bilibili 视频预览失败：响应格式不正确。"}
+    owner = data.get("owner") if isinstance(data.get("owner"), dict) else {}
+    bvid = clean_text(data.get("bvid")) or clean_text(data.get("aid")) or canonical_url.rsplit("/", 1)[-1]
+    title = clean_text(data.get("title")) or "Bilibili 视频预览"
+    summary = truncate_text(data.get("desc") or data.get("dynamic") or "", 420)
+    pub_ts = normalize_pub_ts(data.get("pubdate") or data.get("ctime"))
+    images = []
+    add_image(images, data.get("pic"))
+    return {
+        "ok": True,
+        "update": {
+            "id": bvid,
+            "service": "video",
+            "category": category_for_service("video"),
+            "title": title,
+            "summary": summary,
+            "url": canonical_url,
+            "pub_ts": pub_ts,
+            "created_at": format_pub_time(pub_ts, ""),
+            "author": {
+                "name": clean_text(owner.get("name")),
+                "avatar": normalize_url(owner.get("face")),
+                "uid": clean_text(owner.get("mid")),
+            },
+            "images": images,
+        },
+    }
+
+
+def preview_update_from_opus_document(document, canonical_url):
+    error = preview_document_error(document, "动态")
+    if error:
+        return {"ok": False, "message": error}
+    data = document.get("data") if isinstance(document, dict) else {}
+    item = extract_opus_item(data)
+    update = normalize_dynamic_item(item) if item else None
+    if not update:
+        return {"ok": False, "message": "Bilibili 动态预览失败：响应格式不正确。"}
+    update["url"] = canonical_url
+    return {"ok": True, "update": update}
+
+
+def extract_opus_item(data):
+    if not isinstance(data, dict):
+        return None
+    for key in ("item", "opus", "dynamic"):
+        item = data.get(key)
+        if isinstance(item, dict) and isinstance(item.get("modules"), dict):
+            return item
+    if isinstance(data.get("modules"), dict):
+        return data
+    items = data.get("items")
+    if isinstance(items, list):
+        for item in items:
+            if isinstance(item, dict) and isinstance(item.get("modules"), dict):
+                return item
+    return None
+
+
+def preview_update_from_live_document(document, canonical_url, room_id):
+    error = preview_document_error(document, "直播间")
+    if error:
+        return {"ok": False, "message": error}
+    data = document.get("data") if isinstance(document, dict) else {}
+    if not isinstance(data, dict):
+        return {"ok": False, "message": "Bilibili 直播间预览失败：响应格式不正确。"}
+    pub_ts = normalize_live_time(data.get("live_time"))
+    live_status = normalize_int(data.get("live_status"))
+    images = []
+    for key in ("user_cover", "cover", "keyframe"):
+        add_image(images, data.get(key))
+    uid = clean_text(data.get("uid"))
+    return {
+        "ok": True,
+        "update": {
+            "id": f"live-{room_id}",
+            "service": "live",
+            "category": "直播",
+            "title": clean_text(data.get("title")) or "直播间预览",
+            "summary": "直播中" if live_status == 1 else "直播间预览",
+            "url": canonical_url,
+            "pub_ts": pub_ts,
+            "created_at": format_pub_time(pub_ts, ""),
+            "author": {
+                "name": clean_text(data.get("uname") or data.get("name") or uid or room_id),
+                "avatar": normalize_url(data.get("face")),
+                "uid": uid,
+            },
+            "images": images[:1],
+            "live_status": live_status,
+        },
+    }
+
+
+def normalize_live_time(value):
+    number = normalize_pub_ts(value)
+    if number:
+        return number
+    text = str(value or "").strip()
+    if not text or text.startswith("0000-00-00"):
+        return 0
+    for layout in ("%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M"):
+        try:
+            return int(datetime.strptime(text, layout).timestamp())
+        except ValueError:
+            continue
+    return 0
+
+
+def normalize_int(value):
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return 0
 
 
 def bilibili_document_error(document):
@@ -141,6 +356,7 @@ def normalize_dynamic_item(item, depth=0):
     author = {
         "name": author_name,
         "avatar": str(module_author.get("face") or "").strip(),
+        "uid": clean_text(module_author.get("mid")),
     }
     if not dynamic_id or not title or not pub_ts:
         return None

@@ -20,12 +20,20 @@ from bilibili import (
     NAV_URL,
     build_cookie_headers,
     dynamic_updates,
+    live_room_info_url,
     live_update,
+    looks_like_preview_url,
     normalize_user_info,
     normalize_user_search,
+    opus_detail_url,
     parse_json_response,
+    parse_preview_url,
+    preview_update_from_live_document,
+    preview_update_from_opus_document,
+    preview_update_from_video_document,
     user_info_url,
     user_search_url,
+    video_view_url,
 )
 from rendering import build_fallback_text, build_render_data
 from settings import SETTINGS_KEYS, merge_settings, normalize_settings
@@ -156,8 +164,26 @@ class SubscriptionHubPlugin(RayleaBotPlugin):
 
     @command("预览订阅卡片")
     def handle_preview_card(self, ctx):
+        argument = first_arg(ctx.args)
+        preview_ref = parse_preview_url(argument) if argument else None
+        if preview_ref:
+            result = self.preview_update_from_link(ctx, preview_ref)
+            if not result.get("ok"):
+                ctx.send_text(result.get("message") or "Bilibili 链接预览失败。")
+                ctx.send_result({"handled": True, "sent": 0})
+                return
+            self.send_preview_update(ctx, result["update"], real_preview=True)
+            return
+        if looks_like_preview_url(argument):
+            ctx.send_text("暂不支持这个 Bilibili 链接。")
+            ctx.send_result({"handled": True, "sent": 0})
+            return
         service = parse_preview_service(ctx.args)
-        render_data = build_render_data(sample_subscription(ctx), sample_update(service))
+        self.send_preview_update(ctx, sample_update(service))
+
+    def send_preview_update(self, ctx, update, real_preview=False):
+        subscription = preview_subscription(ctx, update) if real_preview else sample_subscription(ctx)
+        render_data = build_render_data(subscription, update)
         result = ctx.render_image(
             "bilibili-update",
             render_data,
@@ -174,6 +200,36 @@ class SubscriptionHubPlugin(RayleaBotPlugin):
             "type": "image",
             "data": {"file": image_path},
         }])
+
+    def preview_update_from_link(self, ctx, preview_ref):
+        headers = build_cookie_headers("", None)
+        try:
+            if preview_ref["kind"] == "video":
+                response = ctx.http_request("GET", video_view_url(preview_ref["bvid"]), headers=headers, timeout_seconds=30)
+                document = preview_response_document(response, "视频")
+                if isinstance(document, dict):
+                    return preview_update_from_video_document(document, preview_ref["url"])
+                return {"ok": False, "message": document}
+            if preview_ref["kind"] == "opus":
+                response = ctx.http_request("GET", opus_detail_url(preview_ref["opus_id"]), headers=headers, timeout_seconds=30)
+                document = preview_response_document(response, "动态")
+                if isinstance(document, dict):
+                    return preview_update_from_opus_document(document, preview_ref["url"])
+                return {"ok": False, "message": document}
+            if preview_ref["kind"] == "live":
+                response = ctx.http_request("GET", live_room_info_url(preview_ref["room_id"]), headers=headers, timeout_seconds=30)
+                document = preview_response_document(response, "直播间")
+                if isinstance(document, dict):
+                    return preview_update_from_live_document(document, preview_ref["url"], preview_ref["room_id"])
+                return {"ok": False, "message": document}
+        except ActionError as exc:
+            if is_http_permission_error(exc):
+                return {"ok": False, "message": "Bilibili 链接预览失败：请授予订阅中心 HTTP 请求权限，并重载插件后再试。"}
+            return {"ok": False, "message": "Bilibili 链接预览失败。"}
+        except Exception as exc:
+            self.try_log(ctx, "warn", "Bilibili 链接预览失败", {"error": str(exc)})
+            return {"ok": False, "message": "Bilibili 链接预览失败。"}
+        return {"ok": False, "message": "暂不支持这个 Bilibili 链接。"}
 
     def save_settings(self, ctx, settings):
         ctx.config_write({key: settings[key] for key in SETTINGS_KEYS if key in settings})
@@ -449,11 +505,28 @@ def parse_manual_check_scope(args):
     return "all" if values and values[0] == "全部" else "current"
 
 
-def parse_preview_service(args):
+def first_arg(args):
     values = [str(item or "").strip() for item in args or [] if str(item or "").strip()]
-    if not values:
+    return values[0] if values else ""
+
+
+def parse_preview_service(args):
+    argument = first_arg(args)
+    if not argument:
         return "video"
-    return normalize_service_token(values[0]) or "video"
+    return normalize_service_token(argument) or "video"
+
+
+def preview_response_document(response, label):
+    status_code = response.get("status_code") if isinstance(response, dict) else None
+    if not isinstance(status_code, int) or status_code < 200 or status_code >= 300:
+        if status_code == 412:
+            return f"Bilibili {label}预览失败：Bilibili 请求被风控拦截，请稍后再试。"
+        return f"Bilibili {label}预览失败：请求失败。"
+    document = parse_json_response(response)
+    if not document:
+        return f"Bilibili {label}预览失败：响应格式不正确。"
+    return document
 
 
 def has_enabled_subscriptions(settings):
@@ -499,6 +572,28 @@ def sample_subscription(ctx):
         "platform": "bilibili",
         "uid": "3546659356389007",
         "name": "RayleaBot 示例账号",
+        "target_type": target["target_type"],
+        "target_id": target["target_id"],
+        "services": ["all"],
+        "subscribers": [current_subscriber(ctx)],
+        "enabled": True,
+    }
+
+
+def preview_subscription(ctx, update):
+    target = current_target(ctx)
+    author = update.get("author") if isinstance(update.get("author"), dict) else {}
+    uid = str(author.get("uid") or "").strip()
+    name = str(author.get("name") or "").strip()
+    if not uid:
+        uid = str(update.get("id") or "preview").strip()
+    if not name:
+        name = "Bilibili 预览"
+    return {
+        "id": f"preview-bilibili-{target['target_type']}-{target['target_id'] or 'current'}",
+        "platform": "bilibili",
+        "uid": uid,
+        "name": name,
         "target_type": target["target_type"],
         "target_id": target["target_id"],
         "services": ["all"],
