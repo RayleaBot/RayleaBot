@@ -1,47 +1,93 @@
 {
-  "title": "RayleaBot 示例账号 发布图文动态",
-  "headline": "RayleaBot 示例账号 发布图文动态",
-  "content_text": "这是一条没有独立标题的 Bilibili 图文动态。正文会显示在内容区域，顶部标题保持短句，图片和订阅信息继续按动态卡片展示。\n\n当正文比较长时，卡片会保留清晰的信息层级，避免把整段正文放进标题区域。",
-  "subtitle": "Bilibili · 图文",
-  "source_label": "Bilibili · 图文动态",
+  "title": "【开发日志】Bilibili 订阅推送卡片：动态流版式、长标题、长正文和多图场景",
+  "headline": "【开发日志】Bilibili 订阅推送卡片：动态流版式、长标题、长正文和多图场景",
+  "content_text": "这是一条用于检查真实视觉问题的长正文样例。正文区域承载主要阅读内容，顶部标题区域保持清晰短促。\n\n图文动态里经常会出现多段说明、活动信息、链接说明和图片补充；卡片需要让 UP 主、发布时间、动态类型、正文、媒体和订阅信息都各有位置。正文可以多行展示，图片网格保持稳定比例，底部订阅信息保留为辅助信息。",
+  "subtitle": "Bilibili · 视频动态",
+  "source_label": "Bilibili · 视频动态",
   "platform": "Bilibili",
-  "service": "图文",
-  "category": "图文动态",
+  "service": "视频",
+  "category": "视频动态",
   "author": {
     "name": "RayleaBot 示例账号",
-    "avatar": "https://i0.hdslb.com/bfs/face/sample-avatar.jpg"
+    "avatar": "assets/avatar.svg",
+    "uid": "3546659356389007"
   },
-  "summary": "这是一条没有独立标题的 Bilibili 图文动态。正文会显示在内容区域，顶部标题保持短句，图片和订阅信息继续按动态卡片展示。\n\n当正文比较长时，卡片会保留清晰的信息层级，避免把整段正文放进标题区域。",
+  "summary": "这是一条用于检查真实视觉问题的长正文样例。正文区域承载主要阅读内容，顶部标题区域保持清晰短促。\n\n图文动态里经常会出现多段说明、活动信息、链接说明和图片补充；卡片需要让 UP 主、发布时间、动态类型、正文、媒体和订阅信息都各有位置。正文可以多行展示，图片网格保持稳定比例，底部订阅信息保留为辅助信息。",
   "images": [
     {
-      "url": "https://i0.hdslb.com/bfs/new_dyn/sample-1.jpg"
-    },
-    {
-      "url": "https://i0.hdslb.com/bfs/new_dyn/sample-2.jpg"
-    },
-    {
-      "url": "https://i0.hdslb.com/bfs/new_dyn/sample-3.jpg"
+      "url": "assets/cover-video.svg",
+      "width": 1280,
+      "height": 720
     }
   ],
-  "url": "https://t.bilibili.com/100000000000000001",
+  "image_count": 1,
+  "media_grid_class": "media-grid--single",
+  "media_items": [
+    {
+      "url": "assets/cover-video.svg",
+      "class": "media-item media-item--wide",
+      "label": "",
+      "width": 1280,
+      "height": 720
+    }
+  ],
+  "url": "https://www.bilibili.com/video/BV1c5qEBjEtJ",
   "pub_ts": 1778342400,
-  "created_at": "2026-05-09 20:00",
+  "created_at": "2026年05月09日 20:00",
   "original": {
-    "title": "原动态视频标题",
-    "service": "视频",
-    "category": "视频动态",
+    "title": "测试 UP 发布图文动态",
+    "service": "图文",
+    "category": "图文动态",
     "author": {
       "name": "原动态作者",
-      "avatar": "https://i0.hdslb.com/bfs/face/original-avatar.jpg"
+      "avatar": "assets/original-avatar.svg",
+      "uid": "10000001"
     },
-    "summary": "原动态摘要、图片与链接会显示在内嵌卡片中。",
+    "summary": "原动态是一段没有独立标题的长正文图文内容，转发块需要弱于主动态，但仍能看清原作者、正文、图片和链接。",
     "images": [
       {
-        "url": "https://i0.hdslb.com/bfs/archive/original-cover.jpg"
+        "url": "assets/grid-1.svg",
+        "width": 900,
+        "height": 900
+      },
+      {
+        "url": "assets/grid-2.svg",
+        "width": 900,
+        "height": 2200
+      },
+      {
+        "url": "assets/grid-3.svg",
+        "width": 900,
+        "height": 900
       }
     ],
-    "url": "https://www.bilibili.com/video/BV1RayleaBot",
-    "created_at": "2026-05-09 19:55"
+    "image_count": 3,
+    "media_grid_class": "media-grid--triple",
+    "media_items": [
+      {
+        "url": "assets/grid-1.svg",
+        "class": "media-item",
+        "label": "",
+        "width": 900,
+        "height": 900
+      },
+      {
+        "url": "assets/grid-2.svg",
+        "class": "media-item media-item--long",
+        "label": "长图",
+        "width": 900,
+        "height": 2200
+      },
+      {
+        "url": "assets/grid-3.svg",
+        "class": "media-item media-item--gif",
+        "label": "动图",
+        "width": 900,
+        "height": 900
+      }
+    ],
+    "url": "https://www.bilibili.com/opus/1194416231669563410",
+    "created_at": "2026年05月09日 19:55"
   },
   "subscription": {
     "uid": "3546659356389007",

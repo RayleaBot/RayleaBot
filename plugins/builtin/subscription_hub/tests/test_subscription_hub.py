@@ -447,8 +447,32 @@ class SubscriptionHubTests(unittest.TestCase):
         self.assertEqual(data["content_text"], "视频简介")
         self.assertEqual(data["source_label"], "Bilibili · 视频")
         self.assertEqual(data["images"], [{"url": "https://i0.hdslb.com/cover.jpg"}])
+        self.assertEqual(data["image_count"], 1)
+        self.assertEqual(data["media_grid_class"], "media-grid--single")
+        self.assertEqual(data["media_items"][0]["class"], "media-item media-item--wide")
         self.assertEqual(data["original"]["title"], "原动态")
         self.assertEqual(data["original"]["images"], [{"url": "https://i0.hdslb.com/orig.jpg"}])
+
+    def test_render_data_marks_long_and_gif_media(self):
+        data = build_render_data({
+            "uid": "123456",
+            "name": "测试 UP",
+        }, {
+            "service": "image_text",
+            "title": "测试 UP 发布图文动态",
+            "images": [
+                {"url": "https://i0.hdslb.com/dyn/1.jpg", "width": 800, "height": 800},
+                {"url": "https://i0.hdslb.com/dyn/2.jpg", "width": 800, "height": 1800},
+                {"url": "https://i0.hdslb.com/dyn/3.gif", "width": 800, "height": 800},
+            ],
+        })
+
+        self.assertEqual(data["image_count"], 3)
+        self.assertEqual(data["media_grid_class"], "media-grid--triple")
+        self.assertEqual(data["media_items"][1]["label"], "长图")
+        self.assertIn("media-item--long", data["media_items"][1]["class"])
+        self.assertEqual(data["media_items"][2]["label"], "动图")
+        self.assertIn("media-item--gif", data["media_items"][2]["class"])
 
     def test_parse_bilibili_command_args_defaults_to_all(self):
         self.assertEqual(parse_bilibili_command_args(["123456"]), {"services": ["all"], "uid": "123456", "query": "123456", "error": False})

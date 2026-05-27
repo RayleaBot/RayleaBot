@@ -20,6 +20,8 @@ def build_render_data(subscription, update):
     summary = limit_text(update.get("summary") or "", 420)
     service = service_label(update.get("service"))
     category = update.get("category") or service
+    images = list(update.get("images") or [])[:9]
+    media = media_data(images, service)
     return {
         "title": title,
         "headline": title,
@@ -31,7 +33,10 @@ def build_render_data(subscription, update):
         "category": category,
         "author": author,
         "summary": summary,
-        "images": list(update.get("images") or [])[:9],
+        "images": images,
+        "image_count": media["count"],
+        "media_grid_class": media["grid_class"],
+        "media_items": media["items"],
         "url": update.get("url") or "",
         "pub_ts": int(update.get("pub_ts") or 0),
         "created_at": update.get("created_at") or "",
@@ -71,13 +76,19 @@ def format_subscribers(subscribers):
 def render_original(original):
     if not isinstance(original, dict):
         return None
+    service = service_label(original.get("service"))
+    images = list(original.get("images") or [])[:6]
+    media = media_data(images, service)
     return {
         "title": limit_title(original.get("title") or "原动态"),
-        "service": service_label(original.get("service")),
-        "category": original.get("category") or service_label(original.get("service")),
+        "service": service,
+        "category": original.get("category") or service,
         "author": original.get("author") or {},
         "summary": limit_text(original.get("summary") or "", 260),
-        "images": list(original.get("images") or [])[:3],
+        "images": images[:3],
+        "image_count": media["count"],
+        "media_grid_class": media["grid_class"],
+        "media_items": media["items"],
         "url": original.get("url") or "",
         "created_at": original.get("created_at") or "",
     }
@@ -99,3 +110,65 @@ def limit_text(value, limit):
 
 def limit_title(value):
     return limit_text(value, 72)
+
+
+def media_data(images, service):
+    items = []
+    for image in images:
+        item = media_item(image, service)
+        if item:
+            items.append(item)
+    return {
+        "count": len(items),
+        "grid_class": media_grid_class(len(items)),
+        "items": items,
+    }
+
+
+def media_grid_class(count):
+    if count <= 0:
+        return ""
+    if count == 1:
+        return "media-grid--single"
+    if count in (2, 4):
+        return "media-grid--double"
+    return "media-grid--triple"
+
+
+def media_item(image, service):
+    if not isinstance(image, dict):
+        return None
+    url = str(image.get("url") or "").strip()
+    if not url:
+        return None
+    width = safe_int(image.get("width"))
+    height = safe_int(image.get("height"))
+    is_gif = url.split("?", 1)[0].lower().endswith(".gif")
+    is_long = width > 0 and height > width * 2
+    labels = []
+    if is_gif:
+        labels.append("动图")
+    if is_long:
+        labels.append("长图")
+    classes = ["media-item"]
+    if service in {"视频", "直播", "文章"}:
+        classes.append("media-item--wide")
+    if is_long:
+        classes.append("media-item--long")
+    if is_gif:
+        classes.append("media-item--gif")
+    return {
+        "url": url,
+        "class": " ".join(classes),
+        "label": " · ".join(labels),
+        "width": width,
+        "height": height,
+    }
+
+
+def safe_int(value):
+    try:
+        number = int(value or 0)
+    except (TypeError, ValueError):
+        return 0
+    return number if number > 0 else 0

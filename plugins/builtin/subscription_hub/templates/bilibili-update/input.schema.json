@@ -42,6 +42,19 @@
         "additionalProperties": true
       }
     },
+    "image_count": {
+      "type": "integer"
+    },
+    "media_grid_class": {
+      "type": "string"
+    },
+    "media_items": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": true
+      }
+    },
     "url": {
       "type": "string"
     },
