@@ -132,7 +132,12 @@ def normalize_subscribers(value):
             subscriber_id = str(item.get("id") or "").strip()
             nickname = str(item.get("nickname") or subscriber_id).strip()
             if subscriber_id:
-                items.append({"id": subscriber_id, "nickname": nickname or subscriber_id})
+                subscriber = {"id": subscriber_id, "nickname": nickname or subscriber_id}
+                for key in ("group_nickname", "title", "role", "role_label", "avatar_url"):
+                    text = str(item.get(key) or "").strip()
+                    if text:
+                        subscriber[key] = text
+                items.append(subscriber)
         else:
             text = str(item or "").strip()
             if text:

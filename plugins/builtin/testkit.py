@@ -9,6 +9,8 @@ class FakePluginContext:
         target_type="group",
         target_id="10000",
         actor=None,
+        payload=None,
+        super_admins=None,
         config_values=None,
         http_responses=None,
         secrets=None,
@@ -20,6 +22,8 @@ class FakePluginContext:
         self.target_type = target_type
         self.target_id = target_id
         self.actor = actor or {"id": "42", "nickname": "订阅人"}
+        self.payload = payload or {}
+        self.super_admins = list(super_admins or [])
         self.config_values = config_values or {}
         self.http_responses = list(http_responses or [])
         self.secrets = secrets or {}

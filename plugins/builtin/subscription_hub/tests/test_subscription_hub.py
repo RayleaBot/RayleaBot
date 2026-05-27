@@ -50,6 +50,16 @@ class SubscriptionHubTests(unittest.TestCase):
         settings.update(overrides)
         return settings
 
+    def cookie_settings(self):
+        return merge_settings({}, {
+            "tokens": [{
+                "id": "primary",
+                "label": "主 Cookie",
+                "secret_key": "bili.primary",
+                "enabled": True,
+            }],
+        })
+
     def dynamic_response(self, items, code=0, message=""):
         return {
             "status_code": 200,
@@ -102,6 +112,7 @@ class SubscriptionHubTests(unittest.TestCase):
                     "bvid": "BV1c5qEBjEtJ",
                     "title": "真实视频标题",
                     "desc": "真实视频简介",
+                    "duration": 3671,
                     "pic": "//i0.hdslb.com/video-cover.jpg",
                     "pubdate": 1700000000,
                     "owner": {
@@ -120,6 +131,76 @@ class SubscriptionHubTests(unittest.TestCase):
                 "code": code,
                 "message": message,
                 "data": {"item": item or self.image_text_item("1194416231669563410")},
+            }),
+        }
+
+    def opus_detail_modules_response(self):
+        return {
+            "status_code": 200,
+            "body_text": json.dumps({
+                "code": 0,
+                "message": "0",
+                "data": {
+                    "item": {
+                        "id_str": "1194416231669563410",
+                        "basic": {
+                            "title": "真实动态标题 - 哔哩哔哩",
+                            "uid": 4070943,
+                        },
+                        "modules": [
+                            {
+                                "module_type": "MODULE_TYPE_TITLE",
+                                "module_title": {"text": "真实动态标题"},
+                            },
+                            {
+                                "module_type": "MODULE_TYPE_AUTHOR",
+                                "module_author": {
+                                    "name": "真实 UP",
+                                    "face": "//i0.hdslb.com/opus-face.jpg",
+                                    "mid": "4070943",
+                                    "pub_ts": 1776935100,
+                                    "pub_time": "2026年04月23日 17:05",
+                                },
+                            },
+                            {
+                                "module_type": "MODULE_TYPE_CONTENT",
+                                "module_content": {
+                                    "paragraphs": [
+                                        {
+                                            "para_type": 1,
+                                            "heading": {
+                                                "nodes": [
+                                                    {"type": "TEXT_NODE_TYPE_WORD", "word": {"words": "正文标题"}},
+                                                ],
+                                            },
+                                        },
+                                        {
+                                            "para_type": 1,
+                                            "text": {
+                                                "nodes": [
+                                                    {"type": "TEXT_NODE_TYPE_WORD", "word": {"words": "真实正文"}},
+                                                    {"type": "TEXT_NODE_TYPE_RICH", "rich": {"text": "#测试话题#"}},
+                                                ],
+                                            },
+                                        },
+                                        {
+                                            "para_type": 2,
+                                            "pic": {
+                                                "pics": [
+                                                    {
+                                                        "url": "//i0.hdslb.com/opus-1.jpg",
+                                                        "width": 1000,
+                                                        "height": 1200,
+                                                    },
+                                                ],
+                                            },
+                                        },
+                                    ],
+                                },
+                            },
+                        ],
+                    },
+                },
             }),
         }
 
@@ -152,7 +233,7 @@ class SubscriptionHubTests(unittest.TestCase):
                 "module_dynamic": {
                     "major": {
                         "type": "MAJOR_TYPE_ARCHIVE",
-                        "archive": {"title": title, "desc": "视频简介", "cover": "//i0.hdslb.com/video.jpg"},
+                        "archive": {"title": title, "desc": "视频简介", "cover": "//i0.hdslb.com/video.jpg", "duration_text": "03:21"},
                     },
                 },
             },
@@ -261,7 +342,7 @@ class SubscriptionHubTests(unittest.TestCase):
                         "module_dynamic": {
                             "major": {
                                 "type": "MAJOR_TYPE_ARCHIVE",
-                                "archive": {"title": "新视频", "desc": "视频简介", "cover": "//i0.hdslb.com/cover.jpg"},
+                                "archive": {"title": "新视频", "desc": "视频简介", "cover": "//i0.hdslb.com/cover.jpg", "duration_text": "03:21"},
                             },
                         },
                     },
@@ -271,6 +352,7 @@ class SubscriptionHubTests(unittest.TestCase):
         self.assertEqual(len(updates), 1)
         self.assertEqual(updates[0]["service"], "video")
         self.assertEqual(updates[0]["title"], "新视频")
+        self.assertEqual(updates[0]["duration_text"], "03:21")
         self.assertEqual(updates[0]["pub_ts"], 1700000000)
         self.assertEqual(updates[0]["images"], [{"url": "https://i0.hdslb.com/cover.jpg"}])
 
@@ -425,11 +507,20 @@ class SubscriptionHubTests(unittest.TestCase):
         data = build_render_data({
             "uid": "123456",
             "name": "测试 UP",
-            "subscribers": [{"id": "42", "nickname": "订阅人"}],
+            "subscribers": [{
+                "id": "42",
+                "nickname": "普通昵称",
+                "group_nickname": "群名片",
+                "title": "专属头衔",
+                "role": "admin",
+                "role_label": "管理员",
+                "avatar_url": "https://q1.qlogo.cn/g?b=qq&nk=42&s=100",
+            }],
         }, {
             "service": "video",
             "title": "新视频",
             "summary": "视频简介",
+            "duration_text": "03:21",
             "images": [{"url": "https://i0.hdslb.com/cover.jpg"}],
             "pub_ts": 1700000000,
             "original": {
@@ -439,17 +530,23 @@ class SubscriptionHubTests(unittest.TestCase):
                 "images": [{"url": "https://i0.hdslb.com/orig.jpg"}],
                 "author": {"name": "原作者"},
             },
-            "author": {"name": "测试 UP"},
+            "author": {"name": "测试 UP", "uid": "123456"},
         })
-        self.assertEqual(data["subscriber_text"], "订阅人")
+        self.assertEqual(data["subscriber_text"], "群名片")
+        self.assertEqual(data["subscriber_cards"][0]["display_name"], "群名片")
+        self.assertEqual(data["subscriber_cards"][0]["uid_text"], "42")
+        self.assertEqual(data["subscriber_cards"][0]["title"], "专属头衔")
+        self.assertEqual(data["subscriber_cards"][0]["role_label"], "管理员")
         self.assertEqual(data["service"], "视频")
         self.assertEqual(data["headline"], "新视频")
         self.assertEqual(data["content_text"], "视频简介")
         self.assertEqual(data["source_label"], "Bilibili · 视频")
+        self.assertEqual(data["author_uid_text"], "UID 123456")
         self.assertEqual(data["images"], [{"url": "https://i0.hdslb.com/cover.jpg"}])
         self.assertEqual(data["image_count"], 1)
         self.assertEqual(data["media_grid_class"], "media-grid--single")
-        self.assertEqual(data["media_items"][0]["class"], "media-item media-item--wide")
+        self.assertEqual(data["media_items"][0]["class"], "media-item media-item--wide media-item--video")
+        self.assertEqual(data["media_items"][0]["duration_text"], "03:21")
         self.assertEqual(data["original"]["title"], "原动态")
         self.assertEqual(data["original"]["images"], [{"url": "https://i0.hdslb.com/orig.jpg"}])
 
@@ -492,15 +589,85 @@ class SubscriptionHubTests(unittest.TestCase):
 
     def test_add_bilibili_subscription_binds_current_target_and_subscriber(self):
         settings = merge_settings({}, {})
-        result = add_bilibili_subscription(settings, FakeContext(args=["图文", "123456"], http_responses=[self.user_info_response()]))
+        result = add_bilibili_subscription(settings, FakeContext(
+            args=["图文", "123456"],
+            payload={
+                "onebot": {
+                    "user_id": "42",
+                    "sender": {
+                        "user_id": "42",
+                        "nickname": "普通昵称",
+                        "card": "群名片",
+                        "role": "admin",
+                        "title": "专属头衔",
+                    },
+                },
+            },
+            http_responses=[self.user_info_response()],
+        ))
         self.assertTrue(result["ok"])
         self.assertEqual(len(settings["subscriptions"]), 1)
         subscription = settings["subscriptions"][0]
         self.assertEqual(subscription["id"], "bilibili-123456-group-10000")
         self.assertEqual(subscription["name"], "测试 UP")
         self.assertEqual(subscription["services"], ["image_text"])
-        self.assertEqual(subscription["subscribers"], [{"id": "42", "nickname": "订阅人"}])
+        self.assertEqual(subscription["subscribers"], [{
+            "id": "42",
+            "nickname": "订阅人",
+            "group_nickname": "群名片",
+            "title": "专属头衔",
+            "role": "admin",
+            "role_label": "管理员",
+            "avatar_url": "https://q1.qlogo.cn/g?b=qq&nk=42&s=100",
+        }])
         self.assertIn("测试 UP（UID 123456）", result["message"])
+
+    def test_add_bilibili_subscription_prefers_platform_super_admin_role(self):
+        settings = merge_settings({}, {})
+        result = add_bilibili_subscription(settings, FakeContext(
+            args=["图文", "123456"],
+            payload={
+                "onebot": {
+                    "user_id": "42",
+                    "sender": {
+                        "user_id": "42",
+                        "nickname": "普通昵称",
+                        "card": "群名片",
+                        "role": "member",
+                    },
+                },
+            },
+            super_admins=["42"],
+            http_responses=[self.user_info_response()],
+        ))
+
+        self.assertTrue(result["ok"])
+        subscriber = settings["subscriptions"][0]["subscribers"][0]
+        self.assertEqual(subscriber["role"], "super_admin")
+        self.assertEqual(subscriber["role_label"], "超级管理员")
+
+    def test_add_bilibili_subscription_falls_back_to_onebot_member_role(self):
+        settings = merge_settings({}, {})
+        result = add_bilibili_subscription(settings, FakeContext(
+            args=["图文", "123456"],
+            payload={
+                "onebot": {
+                    "user_id": "42",
+                    "sender": {
+                        "user_id": "42",
+                        "nickname": "普通昵称",
+                        "role": "member",
+                    },
+                },
+            },
+            super_admins=["99"],
+            http_responses=[self.user_info_response()],
+        ))
+
+        self.assertTrue(result["ok"])
+        subscriber = settings["subscriptions"][0]["subscribers"][0]
+        self.assertEqual(subscriber["role"], "member")
+        self.assertEqual(subscriber["role_label"], "群员")
 
     def test_add_bilibili_subscription_resolves_nickname(self):
         settings = merge_settings({}, {})
@@ -540,10 +707,11 @@ class SubscriptionHubTests(unittest.TestCase):
         self.assertEqual(settings["subscriptions"][0]["id"], "custom-subscription-id")
         self.assertEqual(settings["subscriptions"][0]["services"], ["video", "live"])
         self.assertEqual(settings["subscriptions"][0]["name"], "测试 UP")
-        self.assertEqual(settings["subscriptions"][0]["subscribers"], [
-            {"id": "42", "nickname": "旧昵称"},
-            {"id": "43", "nickname": "新订阅人"},
-        ])
+        subscribers = settings["subscriptions"][0]["subscribers"]
+        self.assertEqual(subscribers[0], {"id": "42", "nickname": "旧昵称"})
+        self.assertEqual(subscribers[1]["id"], "43")
+        self.assertEqual(subscribers[1]["nickname"], "新订阅人")
+        self.assertEqual(subscribers[1]["avatar_url"], "https://q1.qlogo.cn/g?b=qq&nk=43&s=100")
 
     def test_add_bilibili_subscription_rejects_empty_search_result(self):
         settings = merge_settings({}, {})
@@ -962,7 +1130,9 @@ class SubscriptionHubTests(unittest.TestCase):
         plugin = SubscriptionHubPlugin()
         ctx = FakeContext(
             args=["https://www.bilibili.com/video/BV1c5qEBjEtJ/?trackid=web_related"],
+            config_values=self.cookie_settings(),
             http_responses=[self.video_preview_response()],
+            secrets={"bili.primary": "SESSDATA=token; bili_jct=token"},
             render_result={"image_path": "video-preview.png"},
         )
 
@@ -970,6 +1140,7 @@ class SubscriptionHubTests(unittest.TestCase):
 
         self.assertEqual(len(ctx.http_requests), 1)
         self.assertIn("/x/web-interface/view?bvid=BV1c5qEBjEtJ", ctx.http_requests[0]["url"])
+        self.assertEqual(ctx.http_requests[0]["headers"].get("Cookie"), "SESSDATA=token; bili_jct=token")
         data = ctx.render_calls[0]["data"]
         self.assertEqual(data["service"], "视频")
         self.assertEqual(data["title"], "真实视频标题")
@@ -978,6 +1149,8 @@ class SubscriptionHubTests(unittest.TestCase):
         self.assertEqual(data["author"]["name"], "测试 UP")
         self.assertEqual(data["subscription"]["name"], "测试 UP")
         self.assertEqual(data["subscription"]["uid"], "123456")
+        self.assertEqual(data["duration_text"], "1:01:11")
+        self.assertEqual(data["media_items"][0]["duration_text"], "1:01:11")
         self.assertEqual(data["images"], [{"url": "https://i0.hdslb.com/video-cover.jpg"}])
         self.assertEqual(ctx.messages[0]["segments"][0]["data"]["file"], "video-preview.png")
 
@@ -985,13 +1158,16 @@ class SubscriptionHubTests(unittest.TestCase):
         plugin = SubscriptionHubPlugin()
         ctx = FakeContext(
             args=["https://www.bilibili.com/opus/1194416231669563410?spm_id_from=share"],
+            config_values=self.cookie_settings(),
             http_responses=[self.opus_preview_response()],
+            secrets={"bili.primary": "SESSDATA=token; bili_jct=token"},
         )
 
         plugin.handle_preview_card(ctx)
 
         self.assertEqual(len(ctx.http_requests), 1)
         self.assertIn("/x/polymer/web-dynamic/v1/opus/detail?id=1194416231669563410", ctx.http_requests[0]["url"])
+        self.assertEqual(ctx.http_requests[0]["headers"].get("Cookie"), "SESSDATA=token; bili_jct=token")
         data = ctx.render_calls[0]["data"]
         self.assertEqual(data["service"], "图文")
         self.assertEqual(data["title"], "测试 UP 发布图文动态")
@@ -1002,17 +1178,59 @@ class SubscriptionHubTests(unittest.TestCase):
             {"url": "https://i0.hdslb.com/dyn/2.jpg", "width": 800, "height": 800},
         ])
 
+    def test_preview_card_reports_352_as_cookie_required_without_rendering(self):
+        plugin = SubscriptionHubPlugin()
+        ctx = FakeContext(
+            args=["https://www.bilibili.com/opus/1194416231669563410"],
+            http_responses=[self.opus_preview_response(code=-352, message="-352")],
+        )
+
+        plugin.handle_preview_card(ctx)
+
+        self.assertEqual(len(ctx.http_requests), 1)
+        self.assertEqual(ctx.render_calls, [])
+        self.assertIn("Cookie", ctx.texts[0])
+        self.assertEqual(ctx.results[-1], {"handled": True, "sent": 0})
+
+    def test_preview_card_parses_opus_detail_module_list(self):
+        plugin = SubscriptionHubPlugin()
+        ctx = FakeContext(
+            args=["https://www.bilibili.com/opus/1194416231669563410"],
+            config_values=self.cookie_settings(),
+            http_responses=[self.opus_detail_modules_response()],
+            secrets={"bili.primary": "SESSDATA=token; bili_jct=token"},
+        )
+
+        plugin.handle_preview_card(ctx)
+
+        self.assertEqual(len(ctx.http_requests), 1)
+        self.assertIn("/x/polymer/web-dynamic/v1/opus/detail?id=1194416231669563410", ctx.http_requests[0]["url"])
+        data = ctx.render_calls[0]["data"]
+        self.assertEqual(data["service"], "图文")
+        self.assertEqual(data["title"], "真实动态标题")
+        self.assertIn("正文标题", data["content_text"])
+        self.assertIn("真实正文", data["content_text"])
+        self.assertIn("#测试话题#", data["content_text"])
+        self.assertEqual(data["author"]["name"], "真实 UP")
+        self.assertEqual(data["subscription"]["uid"], "4070943")
+        self.assertEqual(data["images"], [
+            {"url": "https://i0.hdslb.com/opus-1.jpg", "width": 1000, "height": 1200},
+        ])
+
     def test_preview_card_fetches_real_live_link(self):
         plugin = SubscriptionHubPlugin()
         ctx = FakeContext(
             args=["live.bilibili.com/22913442?live_from&launch_id&trackid"],
+            config_values=self.cookie_settings(),
             http_responses=[self.live_preview_response()],
+            secrets={"bili.primary": "SESSDATA=token; bili_jct=token"},
         )
 
         plugin.handle_preview_card(ctx)
 
         self.assertEqual(len(ctx.http_requests), 1)
         self.assertIn("/room/v1/Room/get_info?room_id=22913442", ctx.http_requests[0]["url"])
+        self.assertEqual(ctx.http_requests[0]["headers"].get("Cookie"), "SESSDATA=token; bili_jct=token")
         data = ctx.render_calls[0]["data"]
         self.assertEqual(data["service"], "直播")
         self.assertEqual(data["title"], "真实直播标题")

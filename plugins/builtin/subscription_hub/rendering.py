@@ -14,6 +14,7 @@ def service_label(service):
 
 def build_render_data(subscription, update):
     subscribers = subscription.get("subscribers") or []
+    subscriber_cards = subscriber_card_data(subscribers)
     original = render_original(update.get("original"))
     author = update.get("author") or {"name": subscription.get("name") or subscription.get("uid")}
     title = limit_title(update.get("title") or "订阅更新")
@@ -21,7 +22,8 @@ def build_render_data(subscription, update):
     service = service_label(update.get("service"))
     category = update.get("category") or service
     images = list(update.get("images") or [])[:9]
-    media = media_data(images, service)
+    media_images = images_with_duration(images, update.get("duration_text"), service)
+    media = media_data(media_images, service)
     return {
         "title": title,
         "headline": title,
@@ -32,11 +34,13 @@ def build_render_data(subscription, update):
         "service": service,
         "category": category,
         "author": author,
+        "author_uid_text": uid_text(author.get("uid") or subscription.get("uid")),
         "summary": summary,
         "images": images,
         "image_count": media["count"],
         "media_grid_class": media["grid_class"],
         "media_items": media["items"],
+        "duration_text": str(update.get("duration_text") or "").strip(),
         "url": update.get("url") or "",
         "pub_ts": int(update.get("pub_ts") or 0),
         "created_at": update.get("created_at") or "",
@@ -46,7 +50,8 @@ def build_render_data(subscription, update):
             "name": subscription.get("name") or subscription.get("uid"),
         },
         "subscribers": subscribers,
-        "subscriber_text": format_subscribers(subscribers),
+        "subscriber_cards": subscriber_cards,
+        "subscriber_text": format_subscribers(subscriber_cards),
     }
 
 
@@ -67,10 +72,59 @@ def format_subscribers(subscribers):
     for item in subscribers or []:
         if not isinstance(item, dict):
             continue
-        text = str(item.get("nickname") or item.get("id") or "").strip()
+        text = str(item.get("display_name") or item.get("nickname") or item.get("id") or "").strip()
         if text:
             names.append(text)
     return "、".join(names)
+
+
+def subscriber_card_data(subscribers):
+    cards = []
+    for item in subscribers or []:
+        if not isinstance(item, dict):
+            continue
+        subscriber_id = str(item.get("id") or "").strip()
+        if not subscriber_id:
+            continue
+        nickname = str(item.get("nickname") or subscriber_id).strip() or subscriber_id
+        group_nickname = str(item.get("group_nickname") or item.get("card") or "").strip()
+        display_name = group_nickname or nickname
+        role = str(item.get("role") or "").strip()
+        role_label = str(item.get("role_label") or role_label_for(role)).strip()
+        title = str(item.get("title") or "").strip()
+        avatar_url = str(item.get("avatar_url") or qq_avatar_url(subscriber_id)).strip()
+        cards.append({
+            "id": subscriber_id,
+            "nickname": nickname,
+            "group_nickname": group_nickname,
+            "display_name": display_name,
+            "title": title,
+            "role": role,
+            "role_label": role_label,
+            "avatar_url": avatar_url,
+            "uid_text": subscriber_id,
+        })
+    return cards
+
+
+def role_label_for(role):
+    return {
+        "super_admin": "超级管理员",
+        "owner": "群主",
+        "admin": "管理员",
+        "member": "群员",
+    }.get(role, "")
+
+
+def qq_avatar_url(subscriber_id):
+    if subscriber_id.isdigit():
+        return f"https://q1.qlogo.cn/g?b=qq&nk={subscriber_id}&s=100"
+    return ""
+
+
+def uid_text(value):
+    text = str(value or "").strip()
+    return f"UID {text}" if text else ""
 
 
 def render_original(original):
@@ -78,17 +132,20 @@ def render_original(original):
         return None
     service = service_label(original.get("service"))
     images = list(original.get("images") or [])[:6]
-    media = media_data(images, service)
+    media_images = images_with_duration(images, original.get("duration_text"), service)
+    media = media_data(media_images, service)
     return {
         "title": limit_title(original.get("title") or "原动态"),
         "service": service,
         "category": original.get("category") or service,
         "author": original.get("author") or {},
+        "author_uid_text": uid_text((original.get("author") or {}).get("uid")) if isinstance(original.get("author"), dict) else "",
         "summary": limit_text(original.get("summary") or "", 260),
         "images": images[:3],
         "image_count": media["count"],
         "media_grid_class": media["grid_class"],
         "media_items": media["items"],
+        "duration_text": str(original.get("duration_text") or "").strip(),
         "url": original.get("url") or "",
         "created_at": original.get("created_at") or "",
     }
@@ -125,6 +182,19 @@ def media_data(images, service):
     }
 
 
+def images_with_duration(images, duration_text, service):
+    result = []
+    for image in list(images or [])[:9]:
+        if isinstance(image, dict):
+            result.append(dict(image))
+        else:
+            result.append(image)
+    duration = str(duration_text or "").strip()
+    if duration and service_label(service) == "视频" and result and isinstance(result[0], dict):
+        result[0]["duration_text"] = duration
+    return result
+
+
 def media_grid_class(count):
     if count <= 0:
         return ""
@@ -150,6 +220,7 @@ def media_item(image, service):
         labels.append("动图")
     if is_long:
         labels.append("长图")
+    duration_text = str(image.get("duration_text") or "").strip()
     classes = ["media-item"]
     if service in {"视频", "直播", "文章"}:
         classes.append("media-item--wide")
@@ -157,10 +228,13 @@ def media_item(image, service):
         classes.append("media-item--long")
     if is_gif:
         classes.append("media-item--gif")
+    if duration_text:
+        classes.append("media-item--video")
     return {
         "url": url,
         "class": " ".join(classes),
         "label": " · ".join(labels),
+        "duration_text": duration_text,
         "width": width,
         "height": height,
     }

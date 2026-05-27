@@ -167,7 +167,7 @@ class SubscriptionHubPlugin(RayleaBotPlugin):
         argument = first_arg(ctx.args)
         preview_ref = parse_preview_url(argument) if argument else None
         if preview_ref:
-            result = self.preview_update_from_link(ctx, preview_ref)
+            result = self.preview_update_from_link(ctx, preview_ref, self.load_settings(ctx))
             if not result.get("ok"):
                 ctx.send_text(result.get("message") or "Bilibili 链接预览失败。")
                 ctx.send_result({"handled": True, "sent": 0})
@@ -201,8 +201,9 @@ class SubscriptionHubPlugin(RayleaBotPlugin):
             "data": {"file": image_path},
         }])
 
-    def preview_update_from_link(self, ctx, preview_ref):
-        headers = build_cookie_headers("", None)
+    def preview_update_from_link(self, ctx, preview_ref, settings=None):
+        token = first_available_token(settings or {}, ctx)
+        headers = build_cookie_headers(token, None)
         try:
             if preview_ref["kind"] == "video":
                 response = ctx.http_request("GET", video_view_url(preview_ref["bvid"]), headers=headers, timeout_seconds=30)
@@ -627,7 +628,7 @@ def sample_update(service):
         return {
             **base,
             "title": "图文动态示例",
-            "summary": "这里展示图文动态正文、图片九宫格、订阅对象和订阅人信息。",
+            "summary": "这里展示图文动态正文、图片九宫格、UP 主信息和订阅人身份。",
             "images": [
                 {"url": "https://i0.hdslb.com/bfs/new_dyn/sample-1.jpg"},
                 {"url": "https://i0.hdslb.com/bfs/new_dyn/sample-2.jpg"},
@@ -663,7 +664,8 @@ def sample_update(service):
         "service": "video",
         "category": "视频",
         "title": "新视频示例",
-        "summary": "视频简介会被整理为摘要，推送图会显示封面、链接、订阅对象和订阅人。",
+        "summary": "视频简介会被整理为摘要，推送图会显示封面、时长、链接和订阅人。",
+        "duration_text": "12:48",
         "url": "https://www.bilibili.com/video/BV1RayleaBot",
     }
 
@@ -867,8 +869,61 @@ def current_target(ctx):
 def current_subscriber(ctx):
     actor = ctx.actor or {}
     subscriber_id = str(actor.get("id") or "").strip()
-    nickname = str(actor.get("nickname") or subscriber_id).strip()
-    return {"id": subscriber_id, "nickname": nickname or subscriber_id}
+    onebot = ctx.payload.get("onebot") if isinstance(getattr(ctx, "payload", None), dict) else {}
+    sender = onebot.get("sender") if isinstance(onebot, dict) and isinstance(onebot.get("sender"), dict) else {}
+    if not subscriber_id:
+        subscriber_id = str(sender.get("user_id") or onebot.get("user_id") if isinstance(onebot, dict) else "").strip()
+    nickname = str(actor.get("nickname") or sender.get("nickname") or subscriber_id).strip()
+    group_nickname = str(sender.get("card") or "").strip()
+    role = subscriber_role_from_context(ctx, subscriber_id, actor, sender)
+    subscriber = {"id": subscriber_id, "nickname": nickname or subscriber_id}
+    if group_nickname:
+        subscriber["group_nickname"] = group_nickname
+    title = str(sender.get("title") or "").strip()
+    if title:
+        subscriber["title"] = title
+    if role:
+        subscriber["role"] = role
+        subscriber["role_label"] = subscriber_role_label(role)
+    if subscriber_id.isdigit():
+        subscriber["avatar_url"] = f"https://q1.qlogo.cn/g?b=qq&nk={subscriber_id}&s=100"
+    return subscriber
+
+
+def subscriber_role_from_context(ctx, subscriber_id, actor, sender):
+    if subscriber_id and subscriber_id in super_admin_ids_from_context(ctx):
+        return "super_admin"
+    return normalize_subscriber_role(actor.get("role") or sender.get("role"))
+
+
+def super_admin_ids_from_context(ctx):
+    values = []
+    for source in (
+        getattr(ctx, "super_admins", None),
+        getattr(getattr(ctx, "_plugin", None), "super_admins", None),
+    ):
+        if callable(source):
+            try:
+                source = source()
+            except Exception:
+                source = None
+        if isinstance(source, (list, tuple, set)):
+            values.extend(source)
+    return {str(item).strip() for item in values if str(item).strip()}
+
+
+def normalize_subscriber_role(value):
+    role = str(value or "").strip()
+    return role if role in {"super_admin", "owner", "admin", "member"} else ""
+
+
+def subscriber_role_label(role):
+    return {
+        "super_admin": "超级管理员",
+        "owner": "群主",
+        "admin": "管理员",
+        "member": "群员",
+    }.get(role, "")
 
 
 def subscription_id_for(platform, uid, target_type, target_id):
@@ -901,7 +956,7 @@ def merge_subscriber(existing, subscriber):
         return items
     for item in items:
         if str(item.get("id") or "") == subscriber["id"]:
-            item["nickname"] = subscriber["nickname"]
+            item.update(subscriber)
             return items
     items.append(subscriber)
     return items

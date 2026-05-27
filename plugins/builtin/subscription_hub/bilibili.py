@@ -156,6 +156,7 @@ def preview_update_from_video_document(document, canonical_url):
     title = clean_text(data.get("title")) or "Bilibili 视频预览"
     summary = truncate_text(data.get("desc") or data.get("dynamic") or "", 420)
     pub_ts = normalize_pub_ts(data.get("pubdate") or data.get("ctime"))
+    duration_text = format_video_duration(data.get("duration"))
     images = []
     add_image(images, data.get("pic"))
     return {
@@ -169,6 +170,7 @@ def preview_update_from_video_document(document, canonical_url):
             "url": canonical_url,
             "pub_ts": pub_ts,
             "created_at": format_pub_time(pub_ts, ""),
+            "duration_text": duration_text,
             "author": {
                 "name": clean_text(owner.get("name")),
                 "avatar": normalize_url(owner.get("face")),
@@ -186,6 +188,8 @@ def preview_update_from_opus_document(document, canonical_url):
     data = document.get("data") if isinstance(document, dict) else {}
     item = extract_opus_item(data)
     update = normalize_dynamic_item(item) if item else None
+    if not update and item:
+        update = normalize_opus_detail_item(item, canonical_url)
     if not update:
         return {"ok": False, "message": "Bilibili 动态预览失败：响应格式不正确。"}
     update["url"] = canonical_url
@@ -197,16 +201,152 @@ def extract_opus_item(data):
         return None
     for key in ("item", "opus", "dynamic"):
         item = data.get(key)
-        if isinstance(item, dict) and isinstance(item.get("modules"), dict):
+        if has_opus_modules(item):
             return item
-    if isinstance(data.get("modules"), dict):
+    if has_opus_modules(data):
         return data
     items = data.get("items")
     if isinstance(items, list):
         for item in items:
-            if isinstance(item, dict) and isinstance(item.get("modules"), dict):
+            if has_opus_modules(item):
                 return item
     return None
+
+
+def has_opus_modules(item):
+    return isinstance(item, dict) and isinstance(item.get("modules"), (dict, list))
+
+
+def normalize_opus_detail_item(item, canonical_url):
+    if not isinstance(item, dict):
+        return None
+    modules = item.get("modules")
+    if not isinstance(modules, list):
+        return None
+    basic = item.get("basic") if isinstance(item.get("basic"), dict) else {}
+    author = {}
+    title = clean_bilibili_title(basic.get("title"))
+    summary_parts = []
+    images = []
+
+    for module in modules:
+        if not isinstance(module, dict):
+            continue
+        module_type = str(module.get("module_type") or "").strip()
+        if module_type == "MODULE_TYPE_AUTHOR":
+            author = opus_detail_author(module.get("module_author"))
+        elif module_type == "MODULE_TYPE_TITLE":
+            module_title = module.get("module_title") if isinstance(module.get("module_title"), dict) else {}
+            title = clean_text(module_title.get("text")) or title
+        elif module_type == "MODULE_TYPE_CONTENT":
+            module_content = module.get("module_content") if isinstance(module.get("module_content"), dict) else {}
+            text, content_images = opus_detail_content(module_content)
+            if text:
+                summary_parts.append(text)
+            images.extend(content_images)
+
+    author_name = clean_text(author.get("name"))
+    if not title:
+        title = f"{author_name} 发布图文动态" if author_name else "图文动态更新"
+    dynamic_id = clean_text(item.get("id_str") or item.get("id") or basic.get("comment_id_str") or basic.get("rid_str") or canonical_url.rsplit("/", 1)[-1])
+    if not dynamic_id or not title:
+        return None
+    pub_ts = normalize_pub_ts(author.get("pub_ts") or basic.get("pub_ts"))
+    return {
+        "id": dynamic_id,
+        "type": clean_text(item.get("type")) or "DYNAMIC_TYPE_DRAW",
+        "service": "image_text",
+        "category": category_for_service("image_text"),
+        "title": title,
+        "summary": truncate_text("\n".join(summary_parts), 420),
+        "url": canonical_url,
+        "pub_ts": pub_ts,
+        "created_at": format_pub_time(pub_ts, author.get("pub_time")),
+        "author": {
+            "name": author_name,
+            "avatar": normalize_url(author.get("avatar")),
+            "uid": clean_text(author.get("uid") or basic.get("uid")),
+        },
+        "images": images[:9],
+        "is_pinned": False,
+        "original": None,
+    }
+
+
+def opus_detail_author(module_author):
+    if not isinstance(module_author, dict):
+        return {}
+    return {
+        "name": clean_text(module_author.get("name")),
+        "avatar": module_author.get("face") or nested_value(module_author, ["avatar", "fallback_layers", "layers", 0, "resource", "res_image", "image_src", "remote", "url"]),
+        "uid": clean_text(module_author.get("mid")),
+        "pub_ts": module_author.get("pub_ts"),
+        "pub_time": module_author.get("pub_time"),
+    }
+
+
+def opus_detail_content(module_content):
+    paragraphs = module_content.get("paragraphs") if isinstance(module_content, dict) else []
+    if not isinstance(paragraphs, list):
+        return "", []
+    text_parts = []
+    images = []
+    for paragraph in paragraphs:
+        if not isinstance(paragraph, dict):
+            continue
+        text = opus_detail_paragraph_text(paragraph)
+        if text:
+            text_parts.append(text)
+        pic = paragraph.get("pic") if isinstance(paragraph.get("pic"), dict) else {}
+        pics = pic.get("pics")
+        if isinstance(pics, list):
+            for image in pics:
+                add_image(images, image)
+    return "\n".join(text_parts), images
+
+
+def opus_detail_paragraph_text(paragraph):
+    nodes = []
+    text = paragraph.get("text") if isinstance(paragraph.get("text"), dict) else {}
+    if isinstance(text.get("nodes"), list):
+        nodes.extend(text.get("nodes"))
+    heading = paragraph.get("heading") if isinstance(paragraph.get("heading"), dict) else {}
+    if isinstance(heading.get("nodes"), list):
+        nodes.extend(heading.get("nodes"))
+    return clean_text([opus_detail_node_text(node) for node in nodes])
+
+
+def opus_detail_node_text(node):
+    if not isinstance(node, dict):
+        return ""
+    word = node.get("word") if isinstance(node.get("word"), dict) else {}
+    text = clean_text(word.get("words"))
+    if text:
+        return text
+    rich = node.get("rich") if isinstance(node.get("rich"), dict) else {}
+    return clean_text(rich.get("text") or rich.get("orig_text"))
+
+
+def nested_value(value, path):
+    current = value
+    for key in path:
+        if isinstance(key, int):
+            if not isinstance(current, list) or len(current) <= key:
+                return ""
+            current = current[key]
+        else:
+            if not isinstance(current, dict):
+                return ""
+            current = current.get(key)
+    return current
+
+
+def clean_bilibili_title(value):
+    text = clean_text(value)
+    suffix = " - 哔哩哔哩"
+    if text.endswith(suffix):
+        return text[:-len(suffix)].strip()
+    return text
 
 
 def preview_update_from_live_document(document, canonical_url, room_id):
@@ -266,6 +406,18 @@ def normalize_int(value):
         return 0
 
 
+def format_video_duration(value):
+    seconds = normalize_int(value)
+    if seconds <= 0:
+        return ""
+    hours = seconds // 3600
+    minutes = (seconds % 3600) // 60
+    remaining = seconds % 60
+    if hours:
+        return f"{hours}:{minutes:02d}:{remaining:02d}"
+    return f"{minutes}:{remaining:02d}"
+
+
 def bilibili_document_error(document):
     if not isinstance(document, dict):
         return {"kind": "invalid", "message": "Bilibili 响应格式不正确。"}
@@ -274,6 +426,8 @@ def bilibili_document_error(document):
         return None
     message = str(document.get("message") or document.get("msg") or "").strip()
     if code == -412:
+        return {"kind": "blocked", "message": "Bilibili 请求被风控拦截，请配置可用 Cookie 后再试。"}
+    if code == -352:
         return {"kind": "blocked", "message": "Bilibili 请求被风控拦截，请配置可用 Cookie 后再试。"}
     if code == -404:
         return {"kind": "not_found", "message": "没有找到这个 Bilibili 用户。"}
@@ -358,6 +512,7 @@ def normalize_dynamic_item(item, depth=0):
         "avatar": str(module_author.get("face") or "").strip(),
         "uid": clean_text(module_author.get("mid")),
     }
+    duration_text = duration_text_for_item(major, service)
     if not dynamic_id or not title or not pub_ts:
         return None
     return {
@@ -370,6 +525,7 @@ def normalize_dynamic_item(item, depth=0):
         "url": url,
         "pub_ts": pub_ts,
         "created_at": created_at,
+        "duration_text": duration_text,
         "author": author,
         "images": image_list_for_item(major, service),
         "is_pinned": clean_text(module_tag.get("text")) == "置顶",
@@ -443,6 +599,19 @@ def summary_for_item(desc, major):
                 if text:
                     return truncate_text(text, 420)
     return ""
+
+
+def duration_text_for_item(major, service):
+    if service != "video" or not isinstance(major, dict):
+        return ""
+    archive = major.get("archive") if isinstance(major.get("archive"), dict) else {}
+    duration_text = clean_text(archive.get("duration_text"))
+    if duration_text:
+        return duration_text
+    duration = clean_text(archive.get("duration"))
+    if ":" in duration:
+        return duration
+    return format_video_duration(archive.get("duration"))
 
 
 def jump_url_for_item(basic, major, dynamic_id):

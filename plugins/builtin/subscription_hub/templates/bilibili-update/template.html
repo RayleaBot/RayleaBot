@@ -9,9 +9,11 @@
     <main class="dynamic-shell">
       {{ $authorName := "Bilibili 动态" }}
       {{ $authorAvatar := "" }}
+      {{ $authorUID := .author_uid_text }}
       {{ with .author }}
         {{ with .name }}{{ $authorName = printf "%v" . }}{{ end }}
         {{ with .avatar }}{{ $authorAvatar = printf "%v" . }}{{ end }}
+        {{ if not $authorUID }}{{ with .uid }}{{ $authorUID = printf "UID %v" . }}{{ end }}{{ end }}
       {{ end }}
 
       <article class="dynamic-card">
@@ -25,7 +27,7 @@
               {{ end }}
             </div>
             <div class="author-text">
-              <strong>{{ $authorName }}</strong>
+              <strong>{{ $authorName }}{{ if $authorUID }}<em>（{{ $authorUID }}）</em>{{ end }}</strong>
               <span>{{ if .created_at }}{{ .created_at }}{{ else }}Bilibili 订阅更新{{ end }}</span>
             </div>
           </div>
@@ -54,6 +56,7 @@
           <figure class="{{ .class }}">
             <img src="{{ .url }}" alt="" />
             {{ if .label }}<figcaption>{{ .label }}</figcaption>{{ end }}
+            {{ if .duration_text }}<span class="duration-badge">{{ .duration_text }}</span>{{ end }}
           </figure>
           {{ end }}
         </section>
@@ -89,6 +92,7 @@
             <figure class="{{ .class }}">
               <img src="{{ .url }}" alt="" />
               {{ if .label }}<figcaption>{{ .label }}</figcaption>{{ end }}
+              {{ if .duration_text }}<span class="duration-badge">{{ .duration_text }}</span>{{ end }}
             </figure>
             {{ end }}
           </div>
@@ -98,23 +102,39 @@
         {{ end }}
 
         <footer class="dynamic-footer">
-          <div class="subscription-meta">
-            <div>
-              <span>订阅对象</span>
-              <strong>{{ .subscription.name }}</strong>
-              <em>UID {{ .subscription.uid }}</em>
+          {{ if .subscriber_cards }}
+          <section class="subscriber-panel" aria-label="订阅人">
+            <span class="subscriber-panel__label">订阅人</span>
+            <div class="subscriber-list">
+              {{ range .subscriber_cards }}
+              <div class="subscriber-card">
+                {{ if .avatar_url }}
+                <img class="subscriber-avatar" src="{{ .avatar_url }}" alt="" />
+                {{ else }}
+                <div class="subscriber-avatar subscriber-avatar--fallback">{{ if .display_name }}{{ .display_name }}{{ else }}{{ .id }}{{ end }}</div>
+                {{ end }}
+                <div class="subscriber-info">
+                  <div class="subscriber-name-row">
+                    <strong>{{ .display_name }}</strong>
+                    {{ if .uid_text }}<em>（{{ .uid_text }}）</em>{{ end }}
+                  </div>
+                  {{ if or .title .role_label }}
+                  <div class="subscriber-badges">
+                    {{ if .title }}<span class="subscriber-title">{{ .title }}</span>{{ end }}
+                    {{ if .role_label }}<span class="subscriber-role subscriber-role--{{ .role }}">{{ .role_label }}</span>{{ end }}
+                  </div>
+                  {{ end }}
+                </div>
+              </div>
+              {{ end }}
             </div>
-            <div>
-              <span>订阅人</span>
-              <strong>{{ .subscriber_text }}</strong>
-            </div>
-            {{ if .created_at }}
-            <div>
-              <span>发布时间</span>
-              <strong>{{ .created_at }}</strong>
-            </div>
-            {{ end }}
-          </div>
+          </section>
+          {{ else if .subscriber_text }}
+          <section class="subscriber-panel" aria-label="订阅人">
+            <span class="subscriber-panel__label">订阅人</span>
+            <strong class="subscriber-text-fallback">{{ .subscriber_text }}</strong>
+          </section>
+          {{ end }}
           {{ if .url }}<div class="footer-link">{{ .url }}</div>{{ end }}
         </footer>
       </article>

@@ -32,6 +32,9 @@
       "type": "object",
       "additionalProperties": true
     },
+    "author_uid_text": {
+      "type": "string"
+    },
     "summary": {
       "type": "string"
     },
@@ -73,6 +76,13 @@
       "additionalProperties": true
     },
     "subscribers": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": true
+      }
+    },
+    "subscriber_cards": {
       "type": "array",
       "items": {
         "type": "object",
