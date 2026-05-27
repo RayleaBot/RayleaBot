@@ -19,18 +19,19 @@ import (
 )
 
 type pluginLifecycleController struct {
-	state            *appRuntimeState
-	plugins          *plugins.Catalog
-	desiredStateRepo plugins.DesiredStateRepository
-	grants           *pluginGrantView
-	runtimes         *runtimeRegistry
-	dispatcher       *dispatch.Dispatcher
-	scheduler        *scheduler.Engine
-	pluginConfig     pluginconfig.Repository
-	adapter          *adapter.Shell
-	webhooks         *pluginwebhook.Registry
-	onRecoveryChange func(string)
-	refreshManifest  func(context.Context, string) (plugins.Snapshot, error)
+	state               *appRuntimeState
+	plugins             *plugins.Catalog
+	desiredStateRepo    plugins.DesiredStateRepository
+	grants              *pluginGrantView
+	runtimes            *runtimeRegistry
+	dispatcher          *dispatch.Dispatcher
+	scheduler           *scheduler.Engine
+	pluginConfig        pluginconfig.Repository
+	adapter             *adapter.Shell
+	webhooks            *pluginwebhook.Registry
+	onRecoveryChange    func(string)
+	refreshManifest     func(context.Context, string) (plugins.Snapshot, error)
+	syncRenderTemplates func(context.Context) error
 
 	identityMu       sync.Mutex
 	identityByPlugin map[string]string
@@ -38,18 +39,19 @@ type pluginLifecycleController struct {
 
 func newPluginLifecycleController(deps pluginLifecycleDeps) *pluginLifecycleController {
 	return &pluginLifecycleController{
-		state:            deps.state,
-		plugins:          deps.plugins,
-		desiredStateRepo: deps.desiredStateRepo,
-		grants:           deps.grants,
-		runtimes:         deps.runtimes,
-		dispatcher:       deps.dispatcher,
-		scheduler:        deps.scheduler,
-		pluginConfig:     deps.pluginConfig,
-		adapter:          deps.adapter,
-		webhooks:         deps.webhooks,
-		onRecoveryChange: deps.onRecoveryChange,
-		refreshManifest:  deps.refreshManifest,
+		state:               deps.state,
+		plugins:             deps.plugins,
+		desiredStateRepo:    deps.desiredStateRepo,
+		grants:              deps.grants,
+		runtimes:            deps.runtimes,
+		dispatcher:          deps.dispatcher,
+		scheduler:           deps.scheduler,
+		pluginConfig:        deps.pluginConfig,
+		adapter:             deps.adapter,
+		webhooks:            deps.webhooks,
+		onRecoveryChange:    deps.onRecoveryChange,
+		refreshManifest:     deps.refreshManifest,
+		syncRenderTemplates: deps.syncRenderTemplates,
 	}
 }
 
@@ -136,6 +138,12 @@ func (c *pluginLifecycleController) Reload(ctx context.Context, pluginID string)
 	if _, err := c.validateActivation(ctx, snapshot); err != nil {
 		c.disablePluginForPermissionLoss(ctx, pluginID)
 		return plugins.Snapshot{}, err
+	}
+
+	if c.syncRenderTemplates != nil {
+		if err := c.syncRenderTemplates(ctx); err != nil {
+			return plugins.Snapshot{}, err
+		}
 	}
 
 	updated, err := c.plugins.SetRuntimeState(pluginID, string(runtime.StateStarting))

@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"log/slog"
 	"os"
@@ -21,6 +22,7 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/outbound"
 	"github.com/RayleaBot/RayleaBot/server/internal/permission"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
+	"github.com/RayleaBot/RayleaBot/server/internal/render"
 	"github.com/RayleaBot/RayleaBot/server/internal/runtime"
 	"github.com/RayleaBot/RayleaBot/server/internal/schema"
 )
@@ -2137,6 +2139,126 @@ func TestReloadRefreshesManifestCommandsAndScopes(t *testing.T) {
 	hosts := app.pluginLifecycle.grants.GrantedHTTPHosts(context.Background(), "raylea.subscription-hub")
 	if !reflect.DeepEqual(hosts, []string{"api.bilibili.com", "api.live.bilibili.com"}) {
 		t.Fatalf("http hosts = %#v, want Bilibili hosts", hosts)
+	}
+}
+
+func TestReloadSyncsPluginRenderTemplates(t *testing.T) {
+	t.Parallel()
+
+	repoRoot := t.TempDir()
+	renderRoot := filepath.Join(t.TempDir(), "render")
+	pluginID := "weather-card"
+	templateID := "card"
+	writePluginRenderTemplate(t, repoRoot, pluginID, templateID)
+	pluginRoot := filepath.Join(repoRoot, "plugins", "installed", pluginID)
+	runner := &captureRenderRunner{}
+	renderer := newRenderServiceForRepo(t, repoRoot, renderRoot, runner)
+	catalog := plugins.NewCatalog([]plugins.Snapshot{{
+		PluginID:          pluginID,
+		Valid:             true,
+		RegistrationState: "installed",
+		DesiredState:      "enabled",
+		RuntimeState:      "running",
+		PackageRootPath:   pluginRoot,
+		RenderTemplates:   []plugins.RenderTemplate{{Path: "templates/" + templateID}},
+	}})
+	if err := syncCatalogRenderTemplates(context.Background(), renderer, catalog); err != nil {
+		t.Fatalf("initial sync plugin render templates: %v", err)
+	}
+
+	request := render.Request{
+		Template: "plugin.weather-card.card",
+		Output:   "png",
+		Data: map[string]any{
+			"title": "天气卡片",
+		},
+	}
+	first, err := renderer.Render(context.Background(), request)
+	if err != nil {
+		t.Fatalf("initial render: %v", err)
+	}
+	if first.FromCache {
+		t.Fatalf("initial render unexpectedly used cache")
+	}
+	if html := runner.lastHTML(); !strings.Contains(html, "<body>天气卡片</body>") {
+		t.Fatalf("initial render html = %s, want original template", html)
+	}
+
+	templatePath := filepath.Join(pluginRoot, "templates", templateID, "template.html")
+	if err := os.WriteFile(templatePath, []byte("<html><body>fresh {{ .title }}</body></html>"), 0o644); err != nil {
+		t.Fatalf("write updated plugin template: %v", err)
+	}
+
+	app := newTestAppState(config.Config{}, slog.Default())
+	app.setTestLifecycle(
+		catalog,
+		nil,
+		nil,
+		newRuntimeRegistry(slog.Default(), runtime.Options{}),
+		dispatch.New(slog.Default(), nil, nil, 16),
+		nil,
+		nil,
+		newPluginWebhookRegistry(),
+	)
+	app.pluginLifecycle.syncRenderTemplates = func(ctx context.Context) error {
+		return syncCatalogRenderTemplates(ctx, renderer, catalog)
+	}
+
+	if _, err := app.pluginLifecycle.Reload(context.Background(), pluginID); err != nil {
+		t.Fatalf("Reload returned error: %v", err)
+	}
+
+	second, err := renderer.Render(context.Background(), request)
+	if err != nil {
+		t.Fatalf("render after reload: %v", err)
+	}
+	if second.FromCache {
+		t.Fatalf("expected reload-synced template render to miss previous cache")
+	}
+	if second.ArtifactID == first.ArtifactID || second.CacheKey == first.CacheKey {
+		t.Fatalf("render after reload reused old artifact/cache: first=%s/%s second=%s/%s", first.ArtifactID, first.CacheKey, second.ArtifactID, second.CacheKey)
+	}
+	if html := runner.lastHTML(); !strings.Contains(html, "<body>fresh 天气卡片</body>") {
+		t.Fatalf("render after reload html = %s, want updated template", html)
+	}
+}
+
+func TestReloadReturnsTemplateSyncErrorBeforeStartingRuntime(t *testing.T) {
+	t.Parallel()
+
+	catalog := plugins.NewCatalog([]plugins.Snapshot{{
+		PluginID:          "weather-card",
+		Valid:             true,
+		RegistrationState: "installed",
+		DesiredState:      "enabled",
+		RuntimeState:      "running",
+	}})
+	app := newTestAppState(config.Config{}, slog.Default())
+	app.setTestLifecycle(
+		catalog,
+		nil,
+		nil,
+		newRuntimeRegistry(slog.Default(), runtime.Options{}),
+		dispatch.New(slog.Default(), nil, nil, 16),
+		nil,
+		nil,
+		newPluginWebhookRegistry(),
+	)
+	syncErr := errors.New("sync plugin templates")
+	app.pluginLifecycle.syncRenderTemplates = func(context.Context) error {
+		return syncErr
+	}
+
+	_, err := app.pluginLifecycle.Reload(context.Background(), "weather-card")
+	if !errors.Is(err, syncErr) {
+		t.Fatalf("Reload error = %v, want sync error", err)
+	}
+	snapshot, ok := catalog.Get("weather-card")
+	if !ok {
+		t.Fatal("plugin missing from catalog")
+	}
+	if snapshot.RuntimeState != "running" {
+		t.Fatalf("runtime_state = %q, want running", snapshot.RuntimeState)
 	}
 }
 

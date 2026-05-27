@@ -294,6 +294,9 @@ func New(options Options) (*App, error) {
 				return snapshots, nil
 			})
 		},
+		syncRenderTemplates: func(ctx context.Context) error {
+			return syncCatalogRenderTemplates(ctx, pluginState.renderer, pluginState.Plugins)
+		},
 	})
 	menuService := menuext.New(menuext.Deps{
 		CurrentConfig: func() config.Config { return state.Config },

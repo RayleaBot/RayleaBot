@@ -213,18 +213,19 @@ func (v *pluginGrantView) ListPluginSnapshots() []plugins.Snapshot {
 }
 
 type pluginLifecycleDeps struct {
-	state            *appRuntimeState
-	plugins          *plugins.Catalog
-	desiredStateRepo plugins.DesiredStateRepository
-	grants           *pluginGrantView
-	runtimes         *runtimeRegistry
-	dispatcher       *dispatch.Dispatcher
-	scheduler        *scheduler.Engine
-	pluginConfig     pluginconfig.Repository
-	adapter          *adapter.Shell
-	webhooks         *pluginwebhook.Registry
-	onRecoveryChange func(string)
-	refreshManifest  func(context.Context, string) (plugins.Snapshot, error)
+	state               *appRuntimeState
+	plugins             *plugins.Catalog
+	desiredStateRepo    plugins.DesiredStateRepository
+	grants              *pluginGrantView
+	runtimes            *runtimeRegistry
+	dispatcher          *dispatch.Dispatcher
+	scheduler           *scheduler.Engine
+	pluginConfig        pluginconfig.Repository
+	adapter             *adapter.Shell
+	webhooks            *pluginwebhook.Registry
+	onRecoveryChange    func(string)
+	refreshManifest     func(context.Context, string) (plugins.Snapshot, error)
+	syncRenderTemplates func(context.Context) error
 }
 
 type eventMetadataEnricher interface {
