@@ -4,7 +4,6 @@ import {
   CloseCircleOutlined,
   CloseOutlined,
   ClockCircleOutlined,
-  ExclamationCircleOutlined,
   EyeOutlined,
   ReloadOutlined,
   ThunderboltOutlined,
