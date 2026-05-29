@@ -1,0 +1,4 @@
+interface:
+  display_name: "RayleaBot Evidence Scan"
+  short_description: "Evidence-only scans for RayleaBot tasks"
+  default_prompt: "Use $rayleabot-evidence-scan to review the recent RayleaBot changes using only concrete repo evidence."
