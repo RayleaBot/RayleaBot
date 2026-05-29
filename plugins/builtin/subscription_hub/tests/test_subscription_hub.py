@@ -80,6 +80,31 @@ class SubscriptionHubTests(unittest.TestCase):
             }),
         }
 
+    def live_status_response(self, live_status=1, live_time=1700000000, include_cover=True):
+        entry = {
+            "room_id": 22913442,
+            "uid": 123456,
+            "uname": "测试主播",
+            "face": "//i0.hdslb.com/live-face.jpg",
+            "title": "真实直播标题",
+            "live_status": live_status,
+            "liveTime": live_time,
+            "live_time": live_time,
+            "url": "https://live.bilibili.com/22913442",
+            "area_v2_name": "虚拟主播",
+        }
+        if include_cover:
+            entry["cover_from_user"] = "//i0.hdslb.com/live-cover.jpg"
+            entry["user_cover"] = "//i0.hdslb.com/live-user-cover.jpg"
+        return {
+            "status_code": 200,
+            "body_text": json.dumps({
+                "code": 0,
+                "message": "0",
+                "data": {"123456": entry},
+            }),
+        }
+
     def user_info_response(self, uid="123456", name="测试 UP", code=0, message=""):
         return {
             "status_code": 200,
@@ -210,21 +235,24 @@ class SubscriptionHubTests(unittest.TestCase):
             }),
         }
 
-    def live_preview_response(self, code=0, message=""):
+    def live_preview_response(self, code=0, message="", include_identity=False):
+        data = {
+            "room_id": 22913442,
+            "uid": 123456,
+            "title": "真实直播标题",
+            "live_status": 1,
+            "user_cover": "//i0.hdslb.com/live-cover.jpg",
+            "live_time": 1700000000,
+        }
+        if include_identity:
+            data["uname"] = "测试主播"
+            data["face"] = "//i0.hdslb.com/live-face.jpg"
         return {
             "status_code": 200,
             "body_text": json.dumps({
                 "code": code,
                 "message": message,
-                "data": {
-                    "room_id": 22913442,
-                    "uid": 123456,
-                    "uname": "测试主播",
-                    "title": "真实直播标题",
-                    "live_status": 1,
-                    "user_cover": "//i0.hdslb.com/live-cover.jpg",
-                    "live_time": 1700000000,
-                },
+                "data": data,
             }),
         }
 
@@ -375,6 +403,8 @@ class SubscriptionHubTests(unittest.TestCase):
             self.assertIn(token, html)
         self.assertIn("bili-rich-text-module lottery", preview["original"]["summary_html"])
         self.assertIn("bili-rich-text-module goods taobao", preview["original"]["summary_html"])
+        for key in ("live_event", "status_label", "live_started_at", "live_detected_at"):
+            self.assertIn(key, preview)
 
     def test_merge_settings_normalizes_tokens_and_subscriptions(self):
         settings = merge_settings({}, {
@@ -1177,6 +1207,160 @@ class SubscriptionHubTests(unittest.TestCase):
         self.assertEqual(ctx.storage_sets[0], {"key": "seen:bilibili-123456-group-10000:video:987", "value": True})
         self.assertEqual(ctx.storage_sets[1]["key"], "dynamic-baseline:bilibili-123456-group-10000")
 
+    def test_live_start_push_contains_cover_and_start_time(self):
+        plugin = SubscriptionHubPlugin()
+        settings = self.subscription_settings(
+            tokens=[{
+                "id": "primary",
+                "label": "主 Cookie",
+                "secret_key": "bili.primary",
+                "enabled": True,
+            }],
+            subscriptions=[{
+                **self.subscription_settings()["subscriptions"][0],
+                "services": ["live"],
+            }],
+        )
+        ctx = FakeContext(
+            config_values=settings,
+            secrets={"bili.primary": "SESSDATA=token"},
+            http_responses=[
+                self.nav_response(),
+                self.live_status_response(live_status=1, live_time=1700000000),
+            ],
+            render_result={"image_path": "live-start.png"},
+        )
+
+        plugin.handle_scheduler_trigger(ctx)
+
+        data = ctx.render_calls[0]["data"]
+        self.assertEqual(data["service"], "直播")
+        self.assertEqual(data["status_label"], "直播中")
+        self.assertEqual(data["live_event"], "started")
+        self.assertEqual(data["content_text"].splitlines()[0], "直播中")
+        self.assertIn("开播时间：", data["content_text"])
+        self.assertEqual(data["live_started_at"], data["created_at"])
+        self.assertEqual(data["images"], [{"url": "https://i0.hdslb.com/live-cover.jpg"}])
+        self.assertEqual(data["media_items"][0]["url"], "https://i0.hdslb.com/live-cover.jpg")
+        self.assertEqual(ctx.messages[0]["segments"][0]["data"]["file"], "live-start.png")
+        self.assertEqual(ctx.storage_sets[0]["key"], "seen:bilibili-123456-group-10000:live:live-123456-1-22913442-1700000000")
+        self.assertEqual(ctx.storage_sets[1], {"key": "live-status:bilibili-123456-group-10000", "value": 1})
+        self.assertEqual(ctx.storage_sets[2]["key"], "live-info:bilibili-123456-group-10000")
+
+    def test_live_offline_baseline_does_not_push(self):
+        plugin = SubscriptionHubPlugin()
+        settings = self.subscription_settings(
+            tokens=[{
+                "id": "primary",
+                "label": "主 Cookie",
+                "secret_key": "bili.primary",
+                "enabled": True,
+            }],
+            subscriptions=[{
+                **self.subscription_settings()["subscriptions"][0],
+                "services": ["live"],
+            }],
+        )
+        ctx = FakeContext(
+            config_values=settings,
+            secrets={"bili.primary": "SESSDATA=token"},
+            http_responses=[
+                self.nav_response(),
+                self.live_status_response(live_status=0, live_time=0),
+            ],
+        )
+
+        plugin.handle_scheduler_trigger(ctx)
+
+        self.assertEqual(ctx.render_calls, [])
+        self.assertEqual(ctx.messages, [])
+        self.assertEqual(ctx.storage_sets, [{"key": "live-status:bilibili-123456-group-10000", "value": 0}])
+        self.assertEqual(ctx.results[-1], {"handled": True, "sent": 0})
+
+    def test_live_end_push_uses_stored_cover_and_detected_time(self):
+        plugin = SubscriptionHubPlugin()
+        settings = self.subscription_settings(
+            tokens=[{
+                "id": "primary",
+                "label": "主 Cookie",
+                "secret_key": "bili.primary",
+                "enabled": True,
+            }],
+            subscriptions=[{
+                **self.subscription_settings()["subscriptions"][0],
+                "services": ["live"],
+            }],
+        )
+        storage = {
+            "live-status:bilibili-123456-group-10000": 1,
+            "live-info:bilibili-123456-group-10000": {
+                "title": "真实直播标题",
+                "url": "https://live.bilibili.com/22913442",
+                "images": [{"url": "https://i0.hdslb.com/live-cover.jpg"}],
+                "pub_ts": 1700000000,
+                "created_at": "2023年11月15日 06:13",
+                "live_started_at": "2023年11月15日 06:13",
+                "room_id": "22913442",
+                "author": {"name": "测试主播", "avatar": "https://i0.hdslb.com/live-face.jpg", "uid": "123456"},
+            },
+        }
+        ctx = FakeContext(
+            config_values=settings,
+            secrets={"bili.primary": "SESSDATA=token"},
+            storage=storage,
+            http_responses=[
+                self.nav_response(),
+                self.live_status_response(live_status=0, live_time=0, include_cover=False),
+            ],
+            render_result={"image_path": "live-end.png"},
+        )
+
+        plugin.handle_scheduler_trigger(ctx)
+
+        data = ctx.render_calls[0]["data"]
+        self.assertEqual(data["status_label"], "已下播")
+        self.assertEqual(data["live_event"], "ended")
+        self.assertEqual(data["content_text"].splitlines()[0], "已下播")
+        self.assertIn("开播时间：2023年11月15日 06:13", data["content_text"])
+        self.assertIn("下播检测：", data["content_text"])
+        self.assertTrue(data["live_detected_at"])
+        self.assertEqual(data["images"], [{"url": "https://i0.hdslb.com/live-cover.jpg"}])
+        self.assertEqual(ctx.messages[0]["segments"][0]["data"]["file"], "live-end.png")
+        self.assertEqual(ctx.storage_sets[0]["key"], "seen:bilibili-123456-group-10000:live:live-123456-0-22913442-1700000000")
+        self.assertEqual(ctx.storage_sets[1], {"key": "live-status:bilibili-123456-group-10000", "value": 0})
+
+    def test_live_start_uses_source_time_in_seen_key(self):
+        plugin = SubscriptionHubPlugin()
+        settings = self.subscription_settings(
+            tokens=[{
+                "id": "primary",
+                "label": "主 Cookie",
+                "secret_key": "bili.primary",
+                "enabled": True,
+            }],
+            subscriptions=[{
+                **self.subscription_settings()["subscriptions"][0],
+                "services": ["live"],
+            }],
+        )
+        ctx = FakeContext(
+            config_values=settings,
+            secrets={"bili.primary": "SESSDATA=token"},
+            storage={
+                "seen:bilibili-123456-group-10000:live:live-123456-1-22913442-1700000000": True,
+                "live-status:bilibili-123456-group-10000": 0,
+            },
+            http_responses=[
+                self.nav_response(),
+                self.live_status_response(live_status=1, live_time=1700003600),
+            ],
+        )
+
+        plugin.handle_scheduler_trigger(ctx)
+
+        self.assertEqual(len(ctx.render_calls), 1)
+        self.assertEqual(ctx.storage_sets[0]["key"], "seen:bilibili-123456-group-10000:live:live-123456-1-22913442-1700003600")
+
     def test_manual_check_defaults_to_current_target(self):
         plugin = SubscriptionHubPlugin()
         settings = self.subscription_settings(
@@ -1398,22 +1582,50 @@ class SubscriptionHubTests(unittest.TestCase):
         ctx = FakeContext(
             args=["live.bilibili.com/22913442?live_from&launch_id&trackid"],
             config_values=self.cookie_settings(),
-            http_responses=[self.live_preview_response()],
+            http_responses=[
+                self.live_preview_response(),
+                self.live_status_response(),
+            ],
             secrets={"bili.primary": "SESSDATA=token; bili_jct=token"},
         )
 
         plugin.handle_preview_card(ctx)
 
-        self.assertEqual(len(ctx.http_requests), 1)
+        self.assertEqual(len(ctx.http_requests), 2)
         self.assertIn("/room/v1/Room/get_info?room_id=22913442", ctx.http_requests[0]["url"])
         self.assertEqual(ctx.http_requests[0]["headers"].get("Cookie"), "SESSDATA=token; bili_jct=token")
+        self.assertIn("/room/v1/Room/get_status_info_by_uids?uids[]=123456", ctx.http_requests[1]["url"])
         data = ctx.render_calls[0]["data"]
         self.assertEqual(data["service"], "直播")
         self.assertEqual(data["title"], "真实直播标题")
         self.assertEqual(data["content_text"], "直播中")
         self.assertEqual(data["url"], "https://live.bilibili.com/22913442")
         self.assertEqual(data["author"]["name"], "测试主播")
+        self.assertEqual(data["author"]["avatar"], "https://i0.hdslb.com/live-face.jpg")
+        self.assertEqual(data["author"]["uid"], "123456")
         self.assertEqual(data["images"], [{"url": "https://i0.hdslb.com/live-cover.jpg"}])
+
+    def test_preview_card_renders_live_link_when_status_lookup_fails(self):
+        plugin = SubscriptionHubPlugin()
+        ctx = FakeContext(
+            args=["https://live.bilibili.com/22913442"],
+            config_values=self.cookie_settings(),
+            http_responses=[
+                self.live_preview_response(),
+                ActionError("permission.scope_violation", "http.request target is outside the granted scope"),
+            ],
+            secrets={"bili.primary": "SESSDATA=token; bili_jct=token"},
+        )
+
+        plugin.handle_preview_card(ctx)
+
+        self.assertEqual(len(ctx.http_requests), 2)
+        data = ctx.render_calls[0]["data"]
+        self.assertEqual(data["service"], "直播")
+        self.assertEqual(data["title"], "真实直播标题")
+        self.assertEqual(data["author"], {"name": "123456", "avatar": "", "uid": "123456"})
+        self.assertEqual(data["images"], [{"url": "https://i0.hdslb.com/live-cover.jpg"}])
+        self.assertEqual(ctx.messages[0]["segments"][0]["data"]["file"], "plugin-test.png")
 
     def test_preview_card_rejects_unsupported_url_without_rendering(self):
         plugin = SubscriptionHubPlugin()

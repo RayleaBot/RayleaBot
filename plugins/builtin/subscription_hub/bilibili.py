@@ -384,19 +384,27 @@ def clean_bilibili_title(value):
     return text
 
 
-def preview_update_from_live_document(document, canonical_url, room_id):
+def preview_update_from_live_document(document, canonical_url, room_id, status_document=None):
     error = preview_document_error(document, "直播间")
     if error:
         return {"ok": False, "message": error}
     data = document.get("data") if isinstance(document, dict) else {}
     if not isinstance(data, dict):
         return {"ok": False, "message": "Bilibili 直播间预览失败：响应格式不正确。"}
-    pub_ts = normalize_live_time(data.get("live_time"))
-    live_status = normalize_int(data.get("live_status"))
-    images = []
-    for key in ("user_cover", "cover", "keyframe"):
-        add_image(images, data.get(key))
     uid = clean_text(data.get("uid"))
+    status_entry = live_status_entry(status_document, uid) if uid else None
+    pub_ts = live_start_ts(data) or live_start_ts(status_entry)
+    live_status = normalize_int(data.get("live_status"))
+    if "live_status" not in data and isinstance(status_entry, dict):
+        live_status = normalize_int(status_entry.get("live_status"))
+    images = live_cover_images(data)
+    if not images:
+        images = live_cover_images(status_entry)
+    started_at = format_pub_time(pub_ts, "")
+    author_name = clean_text((status_entry or {}).get("uname"))
+    if not author_name:
+        author_name = clean_text(data.get("uname") or data.get("name") or uid or room_id)
+    author_avatar = normalize_url((status_entry or {}).get("face") or data.get("face"))
     return {
         "ok": True,
         "update": {
@@ -407,14 +415,17 @@ def preview_update_from_live_document(document, canonical_url, room_id):
             "summary": "直播中" if live_status == 1 else "直播间预览",
             "url": canonical_url,
             "pub_ts": pub_ts,
-            "created_at": format_pub_time(pub_ts, ""),
+            "created_at": started_at,
             "author": {
-                "name": clean_text(data.get("uname") or data.get("name") or uid or room_id),
-                "avatar": normalize_url(data.get("face")),
+                "name": author_name,
+                "avatar": author_avatar,
                 "uid": uid,
             },
-            "images": images[:1],
+            "images": images,
             "live_status": live_status,
+            "live_event": "started" if live_status == 1 else "preview",
+            "status_label": "直播中" if live_status == 1 else "未开播",
+            "live_started_at": started_at,
         },
     }
 
@@ -439,6 +450,43 @@ def normalize_int(value):
         return int(value)
     except (TypeError, ValueError):
         return 0
+
+
+def live_start_ts(entry):
+    if not isinstance(entry, dict):
+        return 0
+    for key in ("liveTime", "live_time", "live_start_time"):
+        value = entry.get(key)
+        number = normalize_live_time(value)
+        if number:
+            return number
+    return 0
+
+
+def live_cover_images(entry):
+    images = []
+    if not isinstance(entry, dict):
+        return images
+    for key in ("cover_from_user", "user_cover", "cover", "keyframe"):
+        add_image(images, entry.get(key))
+    return images[:1]
+
+
+def live_status_entry(document, uid):
+    data = document.get("data") if isinstance(document, dict) else {}
+    if not isinstance(data, dict):
+        return None
+    entry = data.get(str(uid))
+    return entry if isinstance(entry, dict) else None
+
+
+def live_url(entry, room_id):
+    if not isinstance(entry, dict):
+        return f"https://live.bilibili.com/{room_id}" if room_id else ""
+    url = normalize_url(entry.get("url") or entry.get("link"))
+    if url:
+        return url
+    return f"https://live.bilibili.com/{room_id}" if room_id else ""
 
 
 def format_video_duration(value):
@@ -836,25 +884,42 @@ def normalize_url(value):
 
 
 def live_update(document, uid):
-    data = document.get("data") if isinstance(document, dict) else {}
-    entry = data.get(str(uid)) if isinstance(data, dict) else None
-    if not isinstance(entry, dict):
+    entry = live_status_entry(document, uid)
+    if not entry:
         return None
     live_status = int(entry.get("live_status") or 0)
     room_id = str(entry.get("room_id") or "").strip()
     title = clean_text(entry.get("title")) or "直播间状态更新"
+    pub_ts = live_start_ts(entry)
+    started_at = format_pub_time(pub_ts, "")
+    status_label = "直播中" if live_status == 1 else "已下播"
+    summary_lines = [status_label]
+    if started_at:
+        summary_lines.append(f"开播时间：{started_at}")
+    session_id = pub_ts or clean_text(entry.get("live_id") or entry.get("session_id") or "")
+    id_parts = ["live", str(uid), str(live_status), room_id]
+    if session_id:
+        id_parts.append(str(session_id))
     return {
-        "id": f"live-{uid}-{live_status}-{room_id}",
+        "id": "-".join(part for part in id_parts if part),
         "service": "live",
+        "category": "直播",
         "title": title,
-        "summary": "直播中" if live_status == 1 else "未开播",
-        "url": str(entry.get("url") or entry.get("link") or "").strip(),
-        "created_at": "",
+        "summary": "\n".join(summary_lines),
+        "url": live_url(entry, room_id),
+        "pub_ts": pub_ts,
+        "created_at": started_at,
         "author": {
             "name": clean_text(entry.get("uname")) or str(uid),
-            "avatar": str(entry.get("face") or "").strip(),
+            "avatar": normalize_url(entry.get("face")),
+            "uid": str(uid),
         },
+        "images": live_cover_images(entry),
         "live_status": live_status,
+        "live_event": "started" if live_status == 1 else "ended",
+        "status_label": status_label,
+        "live_started_at": started_at,
+        "room_id": room_id,
     }
 
 

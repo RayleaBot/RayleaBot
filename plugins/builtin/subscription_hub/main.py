@@ -20,7 +20,9 @@ from bilibili import (
     NAV_URL,
     build_cookie_headers,
     dynamic_updates,
+    format_pub_time,
     live_room_info_url,
+    live_status_entry,
     live_update,
     looks_like_preview_url,
     normalize_user_info,
@@ -221,7 +223,8 @@ class SubscriptionHubPlugin(RayleaBotPlugin):
                 response = ctx.http_request("GET", live_room_info_url(preview_ref["room_id"]), headers=headers, timeout_seconds=30)
                 document = preview_response_document(response, "直播间")
                 if isinstance(document, dict):
-                    return preview_update_from_live_document(document, preview_ref["url"], preview_ref["room_id"])
+                    status_document = self.preview_live_status_document(ctx, document, headers)
+                    return preview_update_from_live_document(document, preview_ref["url"], preview_ref["room_id"], status_document)
                 return {"ok": False, "message": document}
         except ActionError as exc:
             if is_http_permission_error(exc):
@@ -231,6 +234,20 @@ class SubscriptionHubPlugin(RayleaBotPlugin):
             self.try_log(ctx, "warn", "Bilibili 链接预览失败", {"error": str(exc)})
             return {"ok": False, "message": "Bilibili 链接预览失败。"}
         return {"ok": False, "message": "暂不支持这个 Bilibili 链接。"}
+
+    def preview_live_status_document(self, ctx, document, headers):
+        data = document.get("data") if isinstance(document, dict) else {}
+        uid = str(data.get("uid") or "").strip() if isinstance(data, dict) else ""
+        if not uid:
+            return None
+        try:
+            response = ctx.http_request("GET", LIVE_URL.format(uid=uid), headers=headers, timeout_seconds=30)
+        except Exception:
+            return None
+        status_document = preview_response_document(response, "直播间")
+        if not isinstance(status_document, dict):
+            return None
+        return status_document if live_status_entry(status_document, uid) else None
 
     def save_settings(self, ctx, settings):
         ctx.config_write({key: settings[key] for key in SETTINGS_KEYS if key in settings})
@@ -316,9 +333,15 @@ class SubscriptionHubPlugin(RayleaBotPlugin):
             )
             document = self.bilibili_response_document(ctx, response, subscription["uid"], "live")
             if document:
+                previous_status = self.previous_live_status(ctx, subscription)
                 update = live_update(document, subscription["uid"])
-                if update and (update.get("live_status") == 1 or self.previous_live_status(ctx, subscription) == 1):
-                    updates.append(update)
+                if update:
+                    if update.get("live_status") == 1:
+                        updates.append(update)
+                    elif previous_status == 1:
+                        updates.append(self.apply_live_end_context(ctx, subscription, update))
+                    else:
+                        self.mark_live_status(ctx, subscription, update)
 
         for update in sorted(updates, key=lambda item: int(item.get("pub_ts") or 0)):
             if not service_enabled(subscription, update.get("service")):
@@ -439,6 +462,39 @@ class SubscriptionHubPlugin(RayleaBotPlugin):
         except (TypeError, ValueError):
             return 0
 
+    def previous_live_info(self, ctx, subscription):
+        value = storage_value(ctx.storage_get(self.live_info_key(subscription)), {})
+        return value if isinstance(value, dict) else {}
+
+    def apply_live_end_context(self, ctx, subscription, update):
+        previous = self.previous_live_info(ctx, subscription)
+        detected_ts = int(time.time())
+        detected_at = format_pub_time(detected_ts, "")
+        for key in ("images", "pub_ts", "created_at", "live_started_at", "room_id"):
+            if not update.get(key) and previous.get(key):
+                update[key] = previous[key]
+        if not update.get("url") and previous.get("url"):
+            update["url"] = previous["url"]
+        if not update.get("title") and previous.get("title"):
+            update["title"] = previous["title"]
+        if not update.get("author") and previous.get("author"):
+            update["author"] = previous["author"]
+        update["live_event"] = "ended"
+        update["status_label"] = "已下播"
+        update["live_detected_at"] = detected_at
+        summary = ["已下播"]
+        if update.get("live_started_at"):
+            summary.append(f"开播时间：{update['live_started_at']}")
+        summary.append(f"下播检测：{detected_at}")
+        update["summary"] = "\n".join(summary)
+        session_id = update.get("pub_ts") or previous.get("pub_ts") or ""
+        room_id = str(update.get("room_id") or previous.get("room_id") or "").strip()
+        id_parts = ["live", str(subscription.get("uid") or ""), "0", room_id]
+        if session_id:
+            id_parts.append(str(session_id))
+        update["id"] = "-".join(part for part in id_parts if part)
+        return update
+
     def seen_update(self, ctx, subscription, update):
         key = self.update_key(subscription, update)
         return bool(storage_value(ctx.storage_get(key), False))
@@ -450,10 +506,30 @@ class SubscriptionHubPlugin(RayleaBotPlugin):
             next_value = max(current, int(update.get("pub_ts") or 0))
             ctx.storage_set(self.dynamic_baseline_key(subscription), next_value)
         if update.get("service") == "live":
-            ctx.storage_set(f"live-status:{subscription['id']}", int(update.get("live_status") or 0))
+            self.mark_live_status(ctx, subscription, update)
 
     def update_key(self, subscription, update):
         return f"seen:{subscription['id']}:{update.get('service')}:{update.get('id')}"
+
+    def live_info_key(self, subscription):
+        return f"live-info:{subscription['id']}"
+
+    def mark_live_status(self, ctx, subscription, update):
+        ctx.storage_set(f"live-status:{subscription['id']}", int(update.get("live_status") or 0))
+        if update.get("live_status") == 1:
+            ctx.storage_set(self.live_info_key(subscription), self.live_info_snapshot(update))
+
+    def live_info_snapshot(self, update):
+        return {
+            "title": update.get("title") or "",
+            "url": update.get("url") or "",
+            "images": list(update.get("images") or [])[:1],
+            "pub_ts": int(update.get("pub_ts") or 0),
+            "created_at": update.get("created_at") or "",
+            "live_started_at": update.get("live_started_at") or update.get("created_at") or "",
+            "room_id": update.get("room_id") or "",
+            "author": update.get("author") or {},
+        }
 
     def dynamic_baseline_key(self, subscription):
         return f"dynamic-baseline:{subscription['id']}"
@@ -616,12 +692,16 @@ def sample_update(service):
         "images": [{"url": "https://i0.hdslb.com/bfs/archive/sample-cover.jpg"}],
     }
     if service == "live":
+        started_at = time.strftime("%Y-%m-%d %H:%M", time.localtime(now))
         return {
             **base,
             "id": "preview-live",
             "title": "直播间已开播",
-            "summary": "正在直播：RayleaBot 订阅中心调试示例。",
+            "summary": f"直播中\n开播时间：{started_at}",
             "live_status": 1,
+            "live_event": "started",
+            "status_label": "直播中",
+            "live_started_at": started_at,
             "url": "https://live.bilibili.com/123456",
         }
     if service == "image_text":

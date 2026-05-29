@@ -51,6 +51,11 @@ def build_render_data(subscription, update):
         "url": update.get("url") or "",
         "pub_ts": int(update.get("pub_ts") or 0),
         "created_at": update.get("created_at") or "",
+        "live_event": update.get("live_event") or "",
+        "live_status": update.get("live_status"),
+        "status_label": update.get("status_label") or "",
+        "live_started_at": update.get("live_started_at") or "",
+        "live_detected_at": update.get("live_detected_at") or "",
         "original": original,
         "subscription": {
             "uid": subscription.get("uid"),

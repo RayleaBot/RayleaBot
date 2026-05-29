@@ -67,6 +67,21 @@
     "created_at": {
       "type": "string"
     },
+    "live_event": {
+      "type": "string"
+    },
+    "live_status": {
+      "type": ["integer", "null"]
+    },
+    "status_label": {
+      "type": "string"
+    },
+    "live_started_at": {
+      "type": "string"
+    },
+    "live_detected_at": {
+      "type": "string"
+    },
     "original": {
       "type": ["object", "null"],
       "additionalProperties": true

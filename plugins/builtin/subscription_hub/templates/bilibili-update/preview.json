@@ -38,6 +38,11 @@
   "url": "https://www.bilibili.com/video/BV1c5qEBjEtJ",
   "pub_ts": 1778342400,
   "created_at": "2026年05月09日 20:00",
+  "live_event": "",
+  "live_status": null,
+  "status_label": "",
+  "live_started_at": "2026年05月09日 20:00",
+  "live_detected_at": "",
   "original": {
     "title": "测试 UP 发布图文动态",
     "service": "图文",
