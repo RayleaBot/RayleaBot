@@ -341,6 +341,9 @@ func compileTemplateBundle(bundle templateSourceBundle) (*compiledTemplate, []Te
 			}
 			return template.JS(encoded)
 		},
+		"safeHTML": func(value string) template.HTML {
+			return template.HTML(value)
+		},
 	}
 
 	compiledHTML, err := template.New(bundle.manifest.ID).Funcs(funcs).Parse(bundle.source.HTML)
