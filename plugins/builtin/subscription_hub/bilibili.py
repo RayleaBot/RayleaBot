@@ -1,3 +1,4 @@
+import html
 import json
 import re
 from datetime import datetime, timezone
@@ -227,6 +228,7 @@ def normalize_opus_detail_item(item, canonical_url):
     author = {}
     title = clean_bilibili_title(basic.get("title"))
     summary_parts = []
+    summary_html_parts = []
     images = []
 
     for module in modules:
@@ -240,9 +242,11 @@ def normalize_opus_detail_item(item, canonical_url):
             title = clean_text(module_title.get("text")) or title
         elif module_type == "MODULE_TYPE_CONTENT":
             module_content = module.get("module_content") if isinstance(module.get("module_content"), dict) else {}
-            text, content_images = opus_detail_content(module_content)
+            text, html_text, content_images = opus_detail_content(module_content)
             if text:
                 summary_parts.append(text)
+            if html_text:
+                summary_html_parts.append(html_text)
             images.extend(content_images)
 
     author_name = clean_text(author.get("name"))
@@ -259,6 +263,7 @@ def normalize_opus_detail_item(item, canonical_url):
         "category": category_for_service("image_text"),
         "title": title,
         "summary": truncate_text("\n".join(summary_parts), 420),
+        "summary_html": "<br>".join(summary_html_parts),
         "url": canonical_url,
         "pub_ts": pub_ts,
         "created_at": format_pub_time(pub_ts, author.get("pub_time")),
@@ -288,8 +293,9 @@ def opus_detail_author(module_author):
 def opus_detail_content(module_content):
     paragraphs = module_content.get("paragraphs") if isinstance(module_content, dict) else []
     if not isinstance(paragraphs, list):
-        return "", []
+        return "", "", []
     text_parts = []
+    html_parts = []
     images = []
     for paragraph in paragraphs:
         if not isinstance(paragraph, dict):
@@ -297,15 +303,31 @@ def opus_detail_content(module_content):
         text = opus_detail_paragraph_text(paragraph)
         if text:
             text_parts.append(text)
+        html_text = opus_detail_paragraph_html(paragraph)
+        if html_text:
+            html_parts.append(html_text)
         pic = paragraph.get("pic") if isinstance(paragraph.get("pic"), dict) else {}
         pics = pic.get("pics")
         if isinstance(pics, list):
             for image in pics:
                 add_image(images, image)
-    return "\n".join(text_parts), images
+    return "\n".join(text_parts), "<br>".join(html_parts), images
 
 
 def opus_detail_paragraph_text(paragraph):
+    return clean_text([opus_detail_node_text(node) for node in opus_detail_paragraph_nodes(paragraph)])
+
+
+def opus_detail_paragraph_html(paragraph):
+    html_parts = []
+    for node in opus_detail_paragraph_nodes(paragraph):
+        html_text = opus_detail_node_html(node)
+        if html_text:
+            html_parts.append(html_text)
+    return "".join(html_parts)
+
+
+def opus_detail_paragraph_nodes(paragraph):
     nodes = []
     text = paragraph.get("text") if isinstance(paragraph.get("text"), dict) else {}
     if isinstance(text.get("nodes"), list):
@@ -313,7 +335,7 @@ def opus_detail_paragraph_text(paragraph):
     heading = paragraph.get("heading") if isinstance(paragraph.get("heading"), dict) else {}
     if isinstance(heading.get("nodes"), list):
         nodes.extend(heading.get("nodes"))
-    return clean_text([opus_detail_node_text(node) for node in nodes])
+    return nodes
 
 
 def opus_detail_node_text(node):
@@ -325,6 +347,19 @@ def opus_detail_node_text(node):
         return text
     rich = node.get("rich") if isinstance(node.get("rich"), dict) else {}
     return clean_text(rich.get("text") or rich.get("orig_text"))
+
+
+def opus_detail_node_html(node):
+    if not isinstance(node, dict):
+        return ""
+    node_type = str(node.get("type") or "").strip()
+    if node_type == "TEXT_NODE_TYPE_WORD":
+        word = node.get("word") if isinstance(node.get("word"), dict) else {}
+        return html_escape(raw_text(word.get("words"))).replace("\n", "<br>")
+    if node_type == "TEXT_NODE_TYPE_RICH":
+        rich = node.get("rich") if isinstance(node.get("rich"), dict) else {}
+        return rich_text_node_to_html(rich, classify_missing=True)
+    return html_escape(opus_detail_node_text(node))
 
 
 def nested_value(value, path):
@@ -501,12 +536,15 @@ def normalize_dynamic_item(item, depth=0):
     author_name = str(module_author.get("name") or "").strip()
     title = title_for_item(major, desc, service, item_type, author_name)
     summary = summary_for_item(desc, major)
+    summary_html = summary_html_for_item(desc)
     url = jump_url_for_item(basic, major, dynamic_id)
     pub_ts = normalize_pub_ts(module_author.get("pub_ts"))
     created_at = format_pub_time(pub_ts, module_author.get("pub_time"))
     original = normalize_dynamic_item(item.get("orig"), depth + 1) if item_type == "DYNAMIC_TYPE_FORWARD" and depth < 2 else None
     if service == "repost" and original and not summary:
         summary = "转发动态"
+    if service == "repost" and original and not summary_html:
+        summary_html = "转发动态"
     author = {
         "name": author_name,
         "avatar": str(module_author.get("face") or "").strip(),
@@ -522,6 +560,7 @@ def normalize_dynamic_item(item, depth=0):
         "category": category_for_service(service),
         "title": title,
         "summary": summary,
+        "summary_html": summary_html,
         "url": url,
         "pub_ts": pub_ts,
         "created_at": created_at,
@@ -599,6 +638,114 @@ def summary_for_item(desc, major):
                 if text:
                     return truncate_text(text, 420)
     return ""
+
+
+def summary_html_for_item(desc):
+    nodes = desc.get("rich_text_nodes") if isinstance(desc, dict) else None
+    if isinstance(nodes, list) and nodes:
+        html_text = rich_text_nodes_to_html(nodes)
+        if html_text:
+            return html_text
+    text = clean_text(desc.get("text") if isinstance(desc, dict) else "")
+    if text:
+        return html_escape(text).replace("\n", "<br>")
+    return ""
+
+
+def html_escape(text):
+    return html.escape(str(text or ""), quote=True)
+
+
+def raw_text(value):
+    if value is None:
+        return ""
+    if not isinstance(value, str):
+        value = str(value)
+    return (
+        unescape(value)
+        .replace("\r\n", "\n")
+        .replace("\r", "\n")
+        .replace("\\r\\n", "\n")
+        .replace("\\n", "\n")
+        .replace("\\t", " ")
+    )
+
+
+def css_class_token(value):
+    return re.sub(r"[^0-9A-Za-z_-]+", "", str(value or ""))
+
+
+def rich_text_nodes_to_html(nodes):
+    if not isinstance(nodes, list):
+        return ""
+    parts = []
+    for node in nodes:
+        html_text = rich_text_node_to_html(node)
+        if html_text:
+            parts.append(html_text)
+    return "".join(parts)
+
+
+def rich_text_node_to_html(node, classify_missing=False):
+    if not isinstance(node, dict):
+        return ""
+    node_type = str(node.get("type") or "").strip()
+    node_text = raw_text(node.get("text") if node.get("text") is not None else node.get("orig_text"))
+    node_text_for_type = node_text.strip()
+    if classify_missing and not node_type:
+        node_type = classify_rich_text(node_text_for_type)
+    if node_type == "RICH_TEXT_NODE_TYPE_TEXT":
+        return html_escape(node_text).replace("\n", "<br>")
+    if node_type == "RICH_TEXT_NODE_TYPE_TOPIC":
+        return f'<span class="rich-text-topic bili-rich-text-module topic">{html_escape(node_text)}</span>'
+    if node_type == "RICH_TEXT_NODE_TYPE_AT":
+        return f'<span class="rich-text-at bili-rich-text-module at">{html_escape(node_text)}</span>'
+    if node_type == "RICH_TEXT_NODE_TYPE_LOTTERY":
+        return f'<span class="rich-text-lottery bili-rich-text-module lottery">{html_escape(node_text)}</span>'
+    if node_type == "RICH_TEXT_NODE_TYPE_WEB":
+        return html_escape(node_text)
+    if node_type == "RICH_TEXT_NODE_TYPE_BV":
+        return f'<span class="rich-text-link bili-rich-text-link video">{html_escape(node_text)}</span>'
+    if node_type == "RICH_TEXT_NODE_TYPE_EMOJI":
+        return rich_text_emoji_to_html(node, node_text)
+    if node_type == "RICH_TEXT_NODE_TYPE_VOTE":
+        return f'<span class="rich-text-link bili-rich-text-module vote">{html_escape(node_text)}</span>'
+    if node_type == "RICH_TEXT_NODE_TYPE_GOODS":
+        icon_class = css_class_token(node.get("icon_name"))
+        classes = "rich-text-link bili-rich-text-module goods"
+        if icon_class:
+            classes = f"{classes} {icon_class}"
+        return f'<span class="{classes}">{html_escape(node_text)}</span>'
+    return html_escape(node_text)
+
+
+def classify_rich_text(text):
+    if re.fullmatch(r"#[^#\s][^#]*#", text or ""):
+        return "RICH_TEXT_NODE_TYPE_TOPIC"
+    if str(text or "").startswith("@"):
+        return "RICH_TEXT_NODE_TYPE_AT"
+    if text == "互动抽奖":
+        return "RICH_TEXT_NODE_TYPE_LOTTERY"
+    return "RICH_TEXT_NODE_TYPE_TEXT"
+
+
+def rich_text_emoji_to_html(node, node_text):
+    emoji = node.get("emoji") if isinstance(node.get("emoji"), dict) else {}
+    icon_url = str(emoji.get("icon_url") or "").strip()
+    emoji_text = str(emoji.get("text") or node_text or "").strip()
+    size = emoji.get("size")
+    try:
+        size_val = float(size) if size is not None else 1.0
+    except (TypeError, ValueError):
+        size_val = 1.0
+    size_css = f"{size_val * 1.5:.2f}em"
+    if not icon_url:
+        return html_escape(node_text)
+    return (
+        f'<img class="rich-text-emoji" src="{html_escape(icon_url)}" '
+        f'alt="{html_escape(emoji_text)}" title="{html_escape(emoji_text)}" '
+        f'style="width:{size_css};height:{size_css};">'
+    )
 
 
 def duration_text_for_item(major, service):

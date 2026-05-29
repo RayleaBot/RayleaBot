@@ -227,6 +227,82 @@ h1 {
   white-space: pre-line;
 }
 
+.dynamic-text .rich-text-topic,
+.dynamic-text .rich-text-at,
+.dynamic-text .rich-text-link,
+.dynamic-text .rich-text-lottery,
+.dynamic-text .bili-rich-text-module,
+.dynamic-text .bili-rich-text-link,
+.repost-summary .rich-text-topic,
+.repost-summary .rich-text-at,
+.repost-summary .rich-text-link,
+.repost-summary .rich-text-lottery,
+.repost-summary .bili-rich-text-module,
+.repost-summary .bili-rich-text-link {
+  color: var(--bili-blue);
+}
+
+.dynamic-text .rich-text-emoji,
+.repost-summary .rich-text-emoji {
+  vertical-align: middle;
+  width: 1.5em;
+  height: 1.5em;
+}
+
+.dynamic-text .rich-text-lottery,
+.dynamic-text .bili-rich-text-module.lottery,
+.dynamic-text .rich-text-link.video,
+.dynamic-text .bili-rich-text-link.video,
+.dynamic-text .rich-text-link.goods,
+.dynamic-text .bili-rich-text-module.goods,
+.dynamic-text .rich-text-link.vote,
+.dynamic-text .bili-rich-text-module.vote,
+.repost-summary .rich-text-lottery,
+.repost-summary .bili-rich-text-module.lottery,
+.repost-summary .rich-text-link.video,
+.repost-summary .bili-rich-text-link.video,
+.repost-summary .rich-text-link.goods,
+.repost-summary .bili-rich-text-module.goods,
+.repost-summary .rich-text-link.vote,
+.repost-summary .bili-rich-text-module.vote {
+  display: inline-block;
+  line-height: inherit;
+  min-height: 1.12em;
+  padding-left: 1.28em;
+  vertical-align: baseline;
+  background-repeat: no-repeat;
+  background-position: left calc(50% + 0.13em);
+  background-size: 1.12em 1.12em;
+}
+
+.dynamic-text .rich-text-lottery,
+.dynamic-text .bili-rich-text-module.lottery,
+.repost-summary .rich-text-lottery,
+.repost-summary .bili-rich-text-module.lottery {
+  background-image: url("assets/rich-text-lottery.svg");
+}
+
+.dynamic-text .rich-text-link.video,
+.dynamic-text .bili-rich-text-link.video,
+.repost-summary .rich-text-link.video,
+.repost-summary .bili-rich-text-link.video {
+  background-image: url("assets/rich-text-video.svg");
+}
+
+.dynamic-text .rich-text-link.goods,
+.dynamic-text .bili-rich-text-module.goods,
+.repost-summary .rich-text-link.goods,
+.repost-summary .bili-rich-text-module.goods {
+  background-image: url("assets/rich-text-goods-taobao.svg");
+}
+
+.dynamic-text .rich-text-link.vote,
+.dynamic-text .bili-rich-text-module.vote,
+.repost-summary .rich-text-link.vote,
+.repost-summary .bili-rich-text-module.vote {
+  background-image: url("assets/rich-text-vote.svg");
+}
+
 .media-grid,
 .repost-media {
   display: grid;
@@ -380,7 +456,8 @@ h1 {
   overflow-wrap: anywhere;
 }
 
-.repost-card p {
+.repost-card p,
+.repost-summary {
   color: #4b5158;
   font-size: 15px;
   line-height: 1.62;

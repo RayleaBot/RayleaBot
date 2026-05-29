@@ -43,7 +43,9 @@
           </div>
           <h1>{{ if .headline }}{{ .headline }}{{ else }}{{ .title }}{{ end }}</h1>
 
-          {{ if .content_text }}
+          {{ if .content_html }}
+          <div class="dynamic-text">{{ safeHTML .content_html }}</div>
+          {{ else if .content_text }}
           <div class="dynamic-text">{{ .content_text }}</div>
           {{ else if .summary }}
           <div class="dynamic-text">{{ .summary }}</div>
@@ -85,7 +87,7 @@
             <span class="repost-label">{{ .service }}</span>
           </header>
           <h2>{{ .title }}</h2>
-          {{ if .summary }}<p>{{ .summary }}</p>{{ end }}
+          {{ if .summary_html }}<div class="repost-summary">{{ safeHTML .summary_html }}</div>{{ else if .summary }}<p>{{ .summary }}</p>{{ end }}
           {{ if .media_items }}
           <div class="repost-media {{ .media_grid_class }}">
             {{ range .media_items }}

@@ -178,8 +178,14 @@ class SubscriptionHubTests(unittest.TestCase):
                                             "para_type": 1,
                                             "text": {
                                                 "nodes": [
-                                                    {"type": "TEXT_NODE_TYPE_WORD", "word": {"words": "真实正文"}},
-                                                    {"type": "TEXT_NODE_TYPE_RICH", "rich": {"text": "#测试话题#"}},
+                                                    {"type": "TEXT_NODE_TYPE_WORD", "word": {"words": "真实正文 "}},
+                                                    {"type": "TEXT_NODE_TYPE_RICH", "rich": {"type": "RICH_TEXT_NODE_TYPE_TOPIC", "text": "#测试话题#"}},
+                                                    {"type": "TEXT_NODE_TYPE_RICH", "rich": {"text": " #兜底话题#"}},
+                                                    {"type": "TEXT_NODE_TYPE_RICH", "rich": {"type": "RICH_TEXT_NODE_TYPE_AT", "text": "@银狼"}},
+                                                    {"type": "TEXT_NODE_TYPE_RICH", "rich": {"type": "RICH_TEXT_NODE_TYPE_LOTTERY", "text": "互动抽奖"}},
+                                                    {"type": "TEXT_NODE_TYPE_RICH", "rich": {"type": "RICH_TEXT_NODE_TYPE_BV", "text": "BV1c5qEBjEtJ"}},
+                                                    {"type": "TEXT_NODE_TYPE_RICH", "rich": {"type": "RICH_TEXT_NODE_TYPE_GOODS", "text": "周边", "icon_name": "taobao"}},
+                                                    {"type": "TEXT_NODE_TYPE_RICH", "rich": {"type": "RICH_TEXT_NODE_TYPE_VOTE", "text": "投票"}},
                                                 ],
                                             },
                                         },
@@ -309,6 +315,67 @@ class SubscriptionHubTests(unittest.TestCase):
         self.assertIn("视频、图文动态和直播间链接", preview_item["description"])
         self.assertNotIn("dynamic_commands", manifest)
 
+    def test_bilibili_update_template_marks_rich_text_selectors_blue(self):
+        style_path = os.path.join(PLUGIN_DIR, "templates", "bilibili-update", "styles.css")
+        with open(style_path, "r", encoding="utf-8") as handle:
+            styles = handle.read()
+
+        for selector in (
+            ".dynamic-text .rich-text-topic",
+            ".dynamic-text .rich-text-at",
+            ".dynamic-text .rich-text-link",
+            ".dynamic-text .rich-text-lottery",
+            ".dynamic-text .bili-rich-text-module",
+            ".dynamic-text .bili-rich-text-link",
+            ".repost-summary .bili-rich-text-module",
+            ".repost-summary .bili-rich-text-link",
+        ):
+            self.assertIn(selector, styles)
+        self.assertIn("color: var(--bili-blue);", styles)
+        for asset in (
+            'url("assets/rich-text-lottery.svg")',
+            'url("assets/rich-text-video.svg")',
+            'url("assets/rich-text-goods-taobao.svg")',
+            'url("assets/rich-text-vote.svg")',
+        ):
+            self.assertIn(asset, styles)
+        self.assertIn("line-height: inherit;", styles)
+        self.assertIn("min-height: 1.12em;", styles)
+        self.assertIn("padding-left: 1.28em;", styles)
+        self.assertIn("vertical-align: baseline;", styles)
+        self.assertIn("background-position: left calc(50% + 0.13em);", styles)
+        self.assertIn("background-size: 1.12em 1.12em;", styles)
+        self.assertNotIn("vertical-align: -0.12em;", styles)
+        self.assertNotIn("background-size: 1em 1em;", styles)
+
+    def test_bilibili_update_rich_text_icons_use_fixed_blue(self):
+        asset_dir = os.path.join(PLUGIN_DIR, "templates", "bilibili-update", "assets")
+        for name in ("rich-text-lottery.svg", "rich-text-goods-taobao.svg", "rich-text-vote.svg"):
+            with open(os.path.join(asset_dir, name), "r", encoding="utf-8") as handle:
+                svg = handle.read()
+            self.assertIn("#00A1D6", svg)
+            self.assertNotIn("currentColor", svg)
+            self.assertNotIn("darkreader", svg)
+
+    def test_bilibili_update_preview_includes_rich_text_examples(self):
+        preview_path = os.path.join(PLUGIN_DIR, "templates", "bilibili-update", "preview.json")
+        with open(preview_path, "r", encoding="utf-8") as handle:
+            preview = json.load(handle)
+
+        html = preview["content_html"]
+        self.assertIn("。 <span", html)
+        for token in (
+            "bili-rich-text-module topic",
+            "bili-rich-text-module at",
+            "bili-rich-text-module lottery",
+            "bili-rich-text-link video",
+            "bili-rich-text-module goods taobao",
+            "bili-rich-text-module vote",
+        ):
+            self.assertIn(token, html)
+        self.assertIn("bili-rich-text-module lottery", preview["original"]["summary_html"])
+        self.assertIn("bili-rich-text-module goods taobao", preview["original"]["summary_html"])
+
     def test_merge_settings_normalizes_tokens_and_subscriptions(self):
         settings = merge_settings({}, {
             "tokens": [{
@@ -414,6 +481,44 @@ class SubscriptionHubTests(unittest.TestCase):
         self.assertEqual(updates[0]["summary"], "个人置顶简介 合作联系：hudie007@vip.qq.com")
         self.assertNotIn("rich_text_nodes", updates[0]["summary"])
         self.assertNotIn("orig_text", updates[0]["summary"])
+
+    def test_dynamic_updates_generates_summary_html_from_rich_text_nodes(self):
+        updates = dynamic_updates({
+            "data": {
+                "items": [{
+                    "id_str": "990",
+                    "type": "DYNAMIC_TYPE_WORD",
+                    "basic": {"jump_url": "//t.bilibili.com/990"},
+                    "modules": {
+                        "module_author": {"name": "测试 UP", "pub_ts": 1700000300, "pub_time": "今天 15:00"},
+                        "module_dynamic": {
+                            "desc": {
+                                "rich_text_nodes": [
+                                    {"type": "RICH_TEXT_NODE_TYPE_TEXT", "text": "正文开头 ", "orig_text": "正文开头 "},
+                                    {"type": "RICH_TEXT_NODE_TYPE_TOPIC", "text": "#崩坏星穹铁道#", "orig_text": "#崩坏星穹铁道#"},
+                                    {"type": "RICH_TEXT_NODE_TYPE_TEXT", "text": " 结尾", "orig_text": " 结尾"},
+                                    {"type": "RICH_TEXT_NODE_TYPE_AT", "text": "@银狼", "orig_text": "@银狼"},
+                                    {"type": "RICH_TEXT_NODE_TYPE_LOTTERY", "text": "互动抽奖", "orig_text": "互动抽奖"},
+                                    {"type": "RICH_TEXT_NODE_TYPE_BV", "text": "BV1c5qEBjEtJ", "orig_text": "BV1c5qEBjEtJ"},
+                                    {"type": "RICH_TEXT_NODE_TYPE_GOODS", "text": "周边", "orig_text": "周边", "icon_name": "taobao"},
+                                    {"type": "RICH_TEXT_NODE_TYPE_VOTE", "text": "投票", "orig_text": "投票"},
+                                ],
+                            },
+                            "major": {},
+                        },
+                    },
+                }],
+            },
+        })
+
+        self.assertEqual(len(updates), 1)
+        html = updates[0]["summary_html"]
+        self.assertIn('正文开头 <span class="rich-text-topic bili-rich-text-module topic">#崩坏星穹铁道#</span> 结尾', html)
+        self.assertIn('<span class="rich-text-at bili-rich-text-module at">@银狼</span>', html)
+        self.assertIn('<span class="rich-text-lottery bili-rich-text-module lottery">互动抽奖</span>', html)
+        self.assertIn('<span class="rich-text-link bili-rich-text-link video">BV1c5qEBjEtJ</span>', html)
+        self.assertIn('<span class="rich-text-link bili-rich-text-module goods taobao">周边</span>', html)
+        self.assertIn('<span class="rich-text-link bili-rich-text-module vote">投票</span>', html)
 
     def test_dynamic_updates_uses_short_title_for_untitled_word_dynamic(self):
         long_text = "这是没有独立标题的文字动态，正文内容会比较长。" * 8
@@ -549,6 +654,68 @@ class SubscriptionHubTests(unittest.TestCase):
         self.assertEqual(data["media_items"][0]["duration_text"], "03:21")
         self.assertEqual(data["original"]["title"], "原动态")
         self.assertEqual(data["original"]["images"], [{"url": "https://i0.hdslb.com/orig.jpg"}])
+
+    def test_render_data_passes_summary_html(self):
+        data = build_render_data({
+            "uid": "123456",
+            "name": "测试 UP",
+            "subscribers": [],
+        }, {
+            "service": "image_text",
+            "title": "图文动态",
+            "summary": "纯文本摘要",
+            "summary_html": '<span class="rich-text-topic">#话题#</span> 正文',
+            "pub_ts": 1700000000,
+        })
+        self.assertEqual(data["content_html"], '<span class="rich-text-topic">#话题#</span> 正文')
+        self.assertEqual(data["summary_html"], '<span class="rich-text-topic">#话题#</span> 正文')
+        self.assertEqual(data["content_text"], "纯文本摘要")
+        self.assertIsNone(data.get("original"))
+
+    def test_render_data_passes_original_summary_html(self):
+        data = build_render_data({
+            "uid": "123456",
+            "name": "测试 UP",
+            "subscribers": [],
+        }, {
+            "service": "repost",
+            "title": "转发动态",
+            "summary": "转发评论",
+            "pub_ts": 1700000000,
+            "original": {
+                "service": "image_text",
+                "title": "原动态",
+                "summary": "原动态正文",
+                "summary_html": '<span class="rich-text-at">@用户</span>',
+                "author": {"name": "原作者"},
+            },
+        })
+        original = data.get("original")
+        self.assertIsNotNone(original)
+        self.assertEqual(original["summary_html"], '<span class="rich-text-at">@用户</span>')
+
+    def test_render_data_limits_summary_html_by_visible_text(self):
+        html = (
+            '正文 '
+            '<span class="rich-text-topic bili-rich-text-module topic">#话题#</span> '
+            '<span class="rich-text-lottery bili-rich-text-module lottery">互动抽奖</span> '
+            '<span class="rich-text-link bili-rich-text-module goods taobao">周边</span>'
+        ) * 32
+        data = build_render_data({
+            "uid": "123456",
+            "name": "测试 UP",
+            "subscribers": [],
+        }, {
+            "service": "image_text",
+            "title": "图文动态",
+            "summary": "纯文本摘要",
+            "summary_html": html,
+            "pub_ts": 1700000000,
+        })
+
+        self.assertIn('bili-rich-text-module goods taobao">周边</span>', data["content_html"])
+        self.assertIn("...", data["content_html"])
+        self.assertEqual(data["content_html"].count("<span"), data["content_html"].count("</span>"))
 
     def test_render_data_marks_long_and_gif_media(self):
         data = build_render_data({
@@ -1211,6 +1378,15 @@ class SubscriptionHubTests(unittest.TestCase):
         self.assertIn("正文标题", data["content_text"])
         self.assertIn("真实正文", data["content_text"])
         self.assertIn("#测试话题#", data["content_text"])
+        self.assertIn("#兜底话题#", data["content_text"])
+        self.assertIn("BV1c5qEBjEtJ", data["content_text"])
+        self.assertIn('真实正文 <span class="rich-text-topic bili-rich-text-module topic">#测试话题#</span>', data["content_html"])
+        self.assertIn('<span class="rich-text-topic bili-rich-text-module topic"> #兜底话题#</span>', data["content_html"])
+        self.assertIn('<span class="rich-text-at bili-rich-text-module at">@银狼</span>', data["content_html"])
+        self.assertIn('<span class="rich-text-lottery bili-rich-text-module lottery">互动抽奖</span>', data["content_html"])
+        self.assertIn('<span class="rich-text-link bili-rich-text-link video">BV1c5qEBjEtJ</span>', data["content_html"])
+        self.assertIn('<span class="rich-text-link bili-rich-text-module goods taobao">周边</span>', data["content_html"])
+        self.assertIn('<span class="rich-text-link bili-rich-text-module vote">投票</span>', data["content_html"])
         self.assertEqual(data["author"]["name"], "真实 UP")
         self.assertEqual(data["subscription"]["uid"], "4070943")
         self.assertEqual(data["images"], [

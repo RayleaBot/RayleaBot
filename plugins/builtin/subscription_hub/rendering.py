@@ -1,3 +1,7 @@
+import html
+from html.parser import HTMLParser
+
+
 SERVICE_LABELS = {
     "live": "直播",
     "video": "视频",
@@ -19,6 +23,7 @@ def build_render_data(subscription, update):
     author = update.get("author") or {"name": subscription.get("name") or subscription.get("uid")}
     title = limit_title(update.get("title") or "订阅更新")
     summary = limit_text(update.get("summary") or "", 420)
+    summary_html = limit_html(update.get("summary_html") or "", 420)
     service = service_label(update.get("service"))
     category = update.get("category") or service
     images = list(update.get("images") or [])[:9]
@@ -28,6 +33,7 @@ def build_render_data(subscription, update):
         "title": title,
         "headline": title,
         "content_text": summary,
+        "content_html": summary_html,
         "subtitle": f"Bilibili · {service}",
         "source_label": f"Bilibili · {category}",
         "platform": "Bilibili",
@@ -36,6 +42,7 @@ def build_render_data(subscription, update):
         "author": author,
         "author_uid_text": uid_text(author.get("uid") or subscription.get("uid")),
         "summary": summary,
+        "summary_html": summary_html,
         "images": images,
         "image_count": media["count"],
         "media_grid_class": media["grid_class"],
@@ -141,6 +148,7 @@ def render_original(original):
         "author": original.get("author") or {},
         "author_uid_text": uid_text((original.get("author") or {}).get("uid")) if isinstance(original.get("author"), dict) else "",
         "summary": limit_text(original.get("summary") or "", 260),
+        "summary_html": limit_html(original.get("summary_html") or "", 260),
         "images": images[:3],
         "image_count": media["count"],
         "media_grid_class": media["grid_class"],
@@ -163,6 +171,98 @@ def limit_text(value, limit):
     if len(text) <= limit:
         return text
     return text[:limit].rstrip() + "..."
+
+
+def limit_html(value, limit):
+    text = str(value or "").strip()
+    if html_visible_length(text) <= limit:
+        return text
+    return truncate_html(text, limit)
+
+
+class VisibleTextParser(HTMLParser):
+    def __init__(self):
+        super().__init__(convert_charrefs=True)
+        self.length = 0
+
+    def handle_data(self, data):
+        self.length += len(data)
+
+
+def html_visible_length(value):
+    parser = VisibleTextParser()
+    parser.feed(str(value or ""))
+    parser.close()
+    return parser.length
+
+
+class HTMLTruncator(HTMLParser):
+    VOID_TAGS = {"area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta", "source", "track", "wbr"}
+
+    def __init__(self, limit):
+        super().__init__(convert_charrefs=False)
+        self.limit = limit
+        self.length = 0
+        self.parts = []
+        self.open_tags = []
+        self.truncated = False
+
+    def handle_starttag(self, tag, attrs):
+        if self.truncated:
+            return
+        self.parts.append(self.format_start_tag(tag, attrs))
+        if tag.lower() not in self.VOID_TAGS:
+            self.open_tags.append(tag)
+
+    def handle_startendtag(self, tag, attrs):
+        if not self.truncated:
+            self.parts.append(self.format_start_tag(tag, attrs, closed=True))
+
+    def handle_endtag(self, tag):
+        if self.truncated:
+            return
+        self.parts.append(f"</{tag}>")
+        for index in range(len(self.open_tags) - 1, -1, -1):
+            if self.open_tags[index].lower() == tag.lower():
+                del self.open_tags[index:]
+                break
+
+    def handle_data(self, data):
+        if self.truncated or not data:
+            return
+        remaining = self.limit - self.length
+        if len(data) <= remaining:
+            self.parts.append(html.escape(data, quote=False))
+            self.length += len(data)
+            return
+        self.parts.append(html.escape(data[:remaining].rstrip(), quote=False))
+        self.parts.append("...")
+        self.truncated = True
+
+    def handle_entityref(self, name):
+        self.handle_data(html.unescape(f"&{name};"))
+
+    def handle_charref(self, name):
+        self.handle_data(html.unescape(f"&#{name};"))
+
+    def format_start_tag(self, tag, attrs, closed=False):
+        attr_text = "".join(
+            f' {name}="{html.escape(str(value), quote=True)}"' if value is not None else f" {name}"
+            for name, value in attrs
+        )
+        return f"<{tag}{attr_text}{' /' if closed else ''}>"
+
+    def result(self):
+        for tag in reversed(self.open_tags):
+            self.parts.append(f"</{tag}>")
+        return "".join(self.parts)
+
+
+def truncate_html(value, limit):
+    parser = HTMLTruncator(limit)
+    parser.feed(str(value or ""))
+    parser.close()
+    return parser.result()
 
 
 def limit_title(value):
