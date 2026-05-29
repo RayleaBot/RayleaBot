@@ -97,7 +97,7 @@ def normalize_subscriptions(value):
             continue
         seen.add(dedupe)
         services = normalize_services(item.get("services"))
-        items.append({
+        subscription = {
             "id": subscription_id,
             "platform": "bilibili",
             "uid": uid,
@@ -107,7 +107,12 @@ def normalize_subscriptions(value):
             "services": services,
             "subscribers": normalize_subscribers(item.get("subscribers")),
             "enabled": bool(item.get("enabled", True)),
-        })
+        }
+        for key in ("avatar_url", "target_name"):
+            text = str(item.get(key) or "").strip()
+            if text:
+                subscription[key] = text
+        items.append(subscription)
     return items
 
 

@@ -8,6 +8,7 @@ class FakePluginContext:
         request_id="req_plugin_test",
         target_type="group",
         target_id="10000",
+        target_name=None,
         actor=None,
         payload=None,
         super_admins=None,
@@ -21,6 +22,9 @@ class FakePluginContext:
         self.request_id = request_id
         self.target_type = target_type
         self.target_id = target_id
+        self.target = {"type": target_type, "id": target_id}
+        if target_name:
+            self.target["name"] = target_name
         self.actor = actor or {"id": "42", "nickname": "订阅人"}
         self.payload = payload or {}
         self.super_admins = list(super_admins or [])

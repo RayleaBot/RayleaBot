@@ -10,7 +10,7 @@ BUILTIN_DIR = os.path.dirname(PLUGIN_DIR)
 sys.path.insert(0, BUILTIN_DIR)
 sys.path.insert(0, PLUGIN_DIR)
 
-from bilibili import dynamic_updates, parse_preview_url
+from bilibili import dynamic_updates, normalize_user_info, normalize_user_search, parse_preview_url
 from main import (
     SUBSCRIBE_BILIBILI_USAGE,
     SubscriptionHubPlugin,
@@ -105,13 +105,13 @@ class SubscriptionHubTests(unittest.TestCase):
             }),
         }
 
-    def user_info_response(self, uid="123456", name="测试 UP", code=0, message=""):
+    def user_info_response(self, uid="123456", name="测试 UP", code=0, message="", face="//i0.hdslb.com/face.jpg"):
         return {
             "status_code": 200,
             "body_text": json.dumps({
                 "code": code,
                 "message": message,
-                "data": {"mid": uid, "name": name},
+                "data": {"mid": uid, "name": name, "face": face},
             }),
         }
 
@@ -122,7 +122,7 @@ class SubscriptionHubTests(unittest.TestCase):
                 "code": code,
                 "message": message,
                 "data": {"result": results if results is not None else [
-                    {"mid": "123456", "uname": "测试 UP", "fans": 1000},
+                    {"mid": "123456", "uname": "测试 UP", "fans": 1000, "upic": "//i0.hdslb.com/search-face.jpg"},
                 ]},
             }),
         }
@@ -416,16 +416,29 @@ class SubscriptionHubTests(unittest.TestCase):
             "subscriptions": [{
                 "uid": "123456",
                 "name": "测试 UP",
+                "avatar_url": "https://i0.hdslb.com/face.jpg",
                 "target_type": "group",
                 "target_id": "10000",
+                "target_name": "测试群",
                 "services": ["video", "live", "invalid"],
-                "subscribers": [{"id": "42", "nickname": "订阅人"}],
+                "subscribers": [{
+                    "id": "42",
+                    "nickname": "订阅人",
+                    "group_nickname": "群名片",
+                    "role": "admin",
+                    "role_label": "管理员",
+                    "avatar_url": "https://q1.qlogo.cn/g?b=qq&nk=42&s=100",
+                }],
             }],
         })
         self.assertEqual(settings["tokens"][0]["id"], "primary")
         self.assertEqual(settings["dynamic_time_range_seconds"], 7200)
         self.assertEqual(settings["subscriptions"][0]["services"], ["video", "live"])
+        self.assertEqual(settings["subscriptions"][0]["avatar_url"], "https://i0.hdslb.com/face.jpg")
+        self.assertEqual(settings["subscriptions"][0]["target_name"], "测试群")
         self.assertEqual(settings["subscriptions"][0]["subscribers"][0]["nickname"], "订阅人")
+        self.assertEqual(settings["subscriptions"][0]["subscribers"][0]["group_nickname"], "群名片")
+        self.assertEqual(settings["subscriptions"][0]["subscribers"][0]["avatar_url"], "https://q1.qlogo.cn/g?b=qq&nk=42&s=100")
 
     def test_dynamic_updates_extract_video(self):
         updates = dynamic_updates({
@@ -784,12 +797,29 @@ class SubscriptionHubTests(unittest.TestCase):
         self.assertFalse(remove_result["ok"])
         self.assertEqual(remove_result["message"], UNSUBSCRIBE_BILIBILI_USAGE)
 
+    def test_normalize_bilibili_user_info_keeps_avatar(self):
+        result = normalize_user_info(json.loads(self.user_info_response()["body_text"]))
+
+        self.assertTrue(result["ok"])
+        self.assertEqual(result["uid"], "123456")
+        self.assertEqual(result["name"], "测试 UP")
+        self.assertEqual(result["avatar_url"], "https://i0.hdslb.com/face.jpg")
+
+    def test_normalize_bilibili_user_search_keeps_avatar(self):
+        result = normalize_user_search(json.loads(self.user_search_response([
+            {"mid": "123456", "uname": "测试 UP", "upic": "//i0.hdslb.com/upic.jpg"},
+        ])["body_text"]), "测试 UP")
+
+        self.assertTrue(result["ok"])
+        self.assertEqual(result["avatar_url"], "https://i0.hdslb.com/upic.jpg")
+
     def test_add_bilibili_subscription_binds_current_target_and_subscriber(self):
         settings = merge_settings({}, {})
         result = add_bilibili_subscription(settings, FakeContext(
             args=["图文", "123456"],
             payload={
                 "onebot": {
+                    "group_name": "测试群",
                     "user_id": "42",
                     "sender": {
                         "user_id": "42",
@@ -807,6 +837,8 @@ class SubscriptionHubTests(unittest.TestCase):
         subscription = settings["subscriptions"][0]
         self.assertEqual(subscription["id"], "bilibili-123456-group-10000")
         self.assertEqual(subscription["name"], "测试 UP")
+        self.assertEqual(subscription["avatar_url"], "https://i0.hdslb.com/face.jpg")
+        self.assertEqual(subscription["target_name"], "测试群")
         self.assertEqual(subscription["services"], ["image_text"])
         self.assertEqual(subscription["subscribers"], [{
             "id": "42",
@@ -870,7 +902,7 @@ class SubscriptionHubTests(unittest.TestCase):
         settings = merge_settings({}, {})
         ctx = FakeContext(args=["视频", "崩坏星穹铁道"], http_responses=[self.user_search_response([
             {"mid": "111111", "uname": "崩坏星穹铁道二创", "fans": 10},
-            {"mid": "3537126822012013", "uname": "崩坏星穹铁道", "fans": 5000000},
+            {"mid": "3537126822012013", "uname": "崩坏星穹铁道", "fans": 5000000, "upic": "//i0.hdslb.com/star-rail.jpg"},
         ])])
 
         result = add_bilibili_subscription(settings, ctx)
@@ -879,6 +911,7 @@ class SubscriptionHubTests(unittest.TestCase):
         subscription = settings["subscriptions"][0]
         self.assertEqual(subscription["uid"], "3537126822012013")
         self.assertEqual(subscription["name"], "崩坏星穹铁道")
+        self.assertEqual(subscription["avatar_url"], "https://i0.hdslb.com/star-rail.jpg")
         self.assertEqual(subscription["services"], ["video"])
         self.assertIn("崩坏星穹铁道（UID 3537126822012013）", result["message"])
         self.assertIn("search/type", ctx.http_requests[0]["url"])

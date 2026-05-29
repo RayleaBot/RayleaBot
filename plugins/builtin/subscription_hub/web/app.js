@@ -154,7 +154,17 @@
         if (isRecord(item)) {
           const id = String(item.id || '').trim()
           const nickname = String(item.nickname || id).trim()
-          return id ? { id, nickname: nickname || id } : null
+          if (!id) {
+            return null
+          }
+          const subscriber = { id, nickname: nickname || id }
+          for (const key of ['group_nickname', 'title', 'role', 'role_label', 'avatar_url']) {
+            const text = String(item[key] || '').trim()
+            if (text) {
+              subscriber[key] = text
+            }
+          }
+          return subscriber
         }
         const text = String(item || '').trim()
         return text ? { id: text, nickname: text } : null
@@ -208,8 +218,10 @@
           platform: 'bilibili',
           uid,
           name: String(sourceItem.name || uid).trim(),
+          avatar_url: String(sourceItem.avatar_url || '').trim(),
           target_type: ['group', 'private'].includes(targetType) ? targetType : 'group',
           target_id: targetId,
+          target_name: String(sourceItem.target_name || '').trim(),
           services: normalizeServices(sourceItem.services),
           subscribers: normalizeSubscribers(sourceItem.subscribers),
           enabled: sourceItem.enabled !== false,
@@ -255,21 +267,34 @@
         dynamic_time_range_seconds: clampNumber(source.dynamic_time_range_seconds, 60, 604800, DEFAULT_SETTINGS.dynamic_time_range_seconds),
         max_updates_per_poll: clampNumber(source.max_updates_per_poll, 1, 20, DEFAULT_SETTINGS.max_updates_per_poll),
         tokens,
-        subscriptions: source.subscriptions.map((item) => ({
-          id: safeId(item.id, `bilibili-${item.uid}-${item.target_type}-${item.target_id}`),
-          platform: 'bilibili',
-          uid: String(item.uid || '').trim(),
-          name: String(item.name || item.uid || '').trim(),
-          target_type: item.target_type === 'private' ? 'private' : 'group',
-          target_id: String(item.target_id || '').trim(),
-          services: normalizeServices(item.services),
-          subscribers: normalizeSubscribers(item.subscribers),
-          enabled: item.enabled !== false,
-        })),
+        subscriptions: source.subscriptions.map(subscriptionPayload),
       },
       secrets,
       deletedKeys,
     }
+  }
+
+  function subscriptionPayload(item) {
+    const subscription = {
+      id: safeId(item.id, `bilibili-${item.uid}-${item.target_type}-${item.target_id}`),
+      platform: 'bilibili',
+      uid: String(item.uid || '').trim(),
+      name: String(item.name || item.uid || '').trim(),
+      target_type: item.target_type === 'private' ? 'private' : 'group',
+      target_id: String(item.target_id || '').trim(),
+      services: normalizeServices(item.services),
+      subscribers: normalizeSubscribers(item.subscribers),
+      enabled: item.enabled !== false,
+    }
+    const avatarUrl = String(item.avatar_url || '').trim()
+    if (avatarUrl) {
+      subscription.avatar_url = avatarUrl
+    }
+    const targetName = String(item.target_name || '').trim()
+    if (targetName) {
+      subscription.target_name = targetName
+    }
+    return subscription
   }
 
   function stableJson(value) {
@@ -515,14 +540,18 @@
       title.type = 'button'
       title.className = 'subscription-card__main'
       title.addEventListener('click', () => selectSubscription(item.id))
-      const firstChar = escapeHtml((item.name || item.uid || 'B').trim().charAt(0).toUpperCase())
-      title.innerHTML = `
-        <span class="subscription-avatar">${firstChar}</span>
-          <span class="subscription-card__info">
-            <span class="subscription-card__title">${escapeHtml(item.name || `Bilibili ${item.uid}`)}</span>
-          <span class="subscription-card__meta">${escapeHtml(item.uid ? `UID ${item.uid}` : '未填写 UID')} · ${targetLabel(item.target_type)} ${escapeHtml(item.target_id || '未填写目标')}</span>
-        </span>
-      `
+      title.appendChild(subscriptionAvatar(item))
+      const info = document.createElement('span')
+      info.className = 'subscription-card__info'
+      const name = document.createElement('span')
+      name.className = 'subscription-card__title'
+      name.textContent = item.name || `Bilibili ${item.uid}`
+      const meta = document.createElement('span')
+      meta.className = 'subscription-card__meta'
+      meta.textContent = `${item.uid ? `UID ${item.uid}` : '未填写 UID'} · ${sourceLabel(item)}`
+      info.appendChild(name)
+      info.appendChild(meta)
+      title.appendChild(info)
       card.appendChild(title)
 
       const chips = document.createElement('div')
@@ -575,7 +604,7 @@
     elements.subscriptionEditorPanel.classList.remove('is-collapsed')
     const item = draft.subscriptions[index]
     elements.subscriptionEditorTitle.textContent = item.name || `Bilibili ${item.uid || ''}`.trim() || '新订阅'
-    elements.subscriptionEditorSubtitle.textContent = `${targetLabel(item.target_type)} ${item.target_id || '未填写目标'}`
+    elements.subscriptionEditorSubtitle.textContent = sourceLabel(item)
 
     const grid = document.createElement('div')
     grid.className = 'editor-grid'
@@ -596,6 +625,10 @@
       item.name = value
       markChanged(false)
     }))
+    grid.appendChild(fieldInput('subscription-avatar-url', 'UP 主头像 URL', item.avatar_url, (value) => {
+      item.avatar_url = value.trim()
+      markChanged(false)
+    }, { spellcheck: false }))
     grid.appendChild(selectField('subscription-target-type', '目标类型', TARGET_OPTIONS, item.target_type, (value) => {
       item.target_type = value
       markChanged()
@@ -604,6 +637,10 @@
       item.target_id = value.trim()
       markChanged(false)
     }, { spellcheck: false }))
+    grid.appendChild(fieldInput('subscription-target-name', '目标名称', item.target_name, (value) => {
+      item.target_name = value.trim()
+      markChanged(false)
+    }))
     elements.subscriptionEditor.appendChild(grid)
 
     const serviceWrap = document.createElement('fieldset')
@@ -840,11 +877,56 @@
     return (TARGET_OPTIONS.find((item) => item.value === value) || { label: value }).label
   }
 
+  function sourceLabel(item) {
+    const label = targetLabel(item.target_type)
+    const name = String(item.target_name || '').trim()
+    const id = String(item.target_id || '').trim()
+    if (name && id) {
+      return `${label} ${name} ${id}`
+    }
+    return id ? `${label} ${id}` : `${label} 未填写目标`
+  }
+
+  function subscriberDisplayName(item) {
+    const id = String(item.id || '').trim()
+    const name = String(item.group_nickname || item.nickname || id).trim()
+    if (name && id && name !== id) {
+      return `${name}（${id}）`
+    }
+    return name || id
+  }
+
   function subscriberNames(value) {
     return normalizeSubscribers(value)
-      .map((item) => item.nickname || item.id)
+      .map(subscriberDisplayName)
       .filter(Boolean)
       .join('、')
+  }
+
+  function subscriptionAvatar(item) {
+    const avatar = document.createElement('span')
+    avatar.className = 'subscription-avatar'
+    const firstChar = (item.name || item.uid || 'B').trim().charAt(0).toUpperCase()
+    const fallback = document.createElement('span')
+    fallback.className = 'subscription-avatar__fallback'
+    fallback.textContent = firstChar || 'B'
+    const avatarUrl = String(item.avatar_url || '').trim()
+    if (avatarUrl) {
+      const image = document.createElement('img')
+      image.src = avatarUrl
+      image.alt = `${item.name || item.uid || 'Bilibili'} 头像`
+      image.loading = 'lazy'
+      image.referrerPolicy = 'no-referrer'
+      image.addEventListener('error', () => {
+        image.remove()
+        avatar.classList.add('is-fallback')
+      }, { once: true })
+      avatar.appendChild(image)
+    } else {
+      avatar.classList.add('is-fallback')
+    }
+    avatar.appendChild(fallback)
+    return avatar
   }
 
   function getFilteredSubscriptions() {
@@ -854,7 +936,7 @@
     return draft.subscriptions
       .map((item, index) => ({ item, index }))
       .filter(({ item }) => {
-        const searchText = `${item.uid} ${item.name} ${item.target_id} ${subscriberNames(item.subscribers)}`.toLowerCase()
+        const searchText = `${item.uid} ${item.name} ${item.target_id} ${item.target_name} ${subscriberNames(item.subscribers)}`.toLowerCase()
         const statusMatches = status === 'all' || (status === 'enabled' ? item.enabled !== false : item.enabled === false)
         const services = normalizeServices(item.services)
         const serviceMatches = service === 'all' || services.includes(service) || services.includes('all')
@@ -898,8 +980,10 @@
       platform: 'bilibili',
       uid: '',
       name: '',
+      avatar_url: '',
       target_type: 'group',
       target_id: '',
+      target_name: '',
       services: ['all'],
       subscribers: [],
       enabled: true,

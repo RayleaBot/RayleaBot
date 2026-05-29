@@ -776,6 +776,10 @@ def add_bilibili_subscription(settings, ctx):
             "subscribers": [],
             "enabled": True,
         }
+        if target.get("target_name"):
+            subscription["target_name"] = target["target_name"]
+        if user.get("avatar_url"):
+            subscription["avatar_url"] = user["avatar_url"]
         subscriptions.append(subscription)
 
     subscription["platform"] = "bilibili"
@@ -783,6 +787,10 @@ def add_bilibili_subscription(settings, ctx):
     subscription["name"] = user["name"]
     subscription["target_type"] = target["target_type"]
     subscription["target_id"] = target["target_id"]
+    if target.get("target_name"):
+        subscription["target_name"] = target["target_name"]
+    if user.get("avatar_url"):
+        subscription["avatar_url"] = user["avatar_url"]
     subscription["enabled"] = True
     subscription["services"] = merge_services(subscription.get("services"), parsed["services"])
     subscription["subscribers"] = merge_subscriber(subscription.get("subscribers"), current_subscriber(ctx))
@@ -940,10 +948,26 @@ def normalize_service_token(value):
 
 
 def current_target(ctx):
-    return {
+    target_type = "private" if ctx.target_type == "private" else "group"
+    target_id = str(ctx.target_id or "").strip()
+    target = getattr(ctx, "target", None)
+    target_name = ""
+    if isinstance(target, dict):
+        target_name = str(target.get("name") or "").strip()
+    onebot = ctx.payload.get("onebot") if isinstance(getattr(ctx, "payload", None), dict) else {}
+    sender = onebot.get("sender") if isinstance(onebot, dict) and isinstance(onebot.get("sender"), dict) else {}
+    actor = ctx.actor or {}
+    if not target_name and target_type == "group" and isinstance(onebot, dict):
+        target_name = str(onebot.get("group_name") or "").strip()
+    if not target_name and target_type == "private":
+        target_name = str(actor.get("nickname") or sender.get("nickname") or "").strip()
+    result = {
         "target_type": "private" if ctx.target_type == "private" else "group",
-        "target_id": str(ctx.target_id or "").strip(),
+        "target_id": target_id,
     }
+    if target_name and target_name != target_id:
+        result["target_name"] = target_name
+    return result
 
 
 def current_subscriber(ctx):

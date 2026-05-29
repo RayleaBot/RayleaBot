@@ -528,7 +528,12 @@ def normalize_user_info(document):
     name = clean_text(data.get("name") or data.get("uname") or "")
     if not uid.isdigit() or not name:
         return {"ok": False, "kind": "not_found", "message": "没有找到这个 Bilibili 用户。"}
-    return {"ok": True, "uid": uid, "name": name}
+    return {
+        "ok": True,
+        "uid": uid,
+        "name": name,
+        "avatar_url": normalize_url(data.get("face") or data.get("avatar") or data.get("upic")),
+    }
 
 
 def normalize_user_search(document, keyword):
@@ -546,7 +551,11 @@ def normalize_user_search(document, keyword):
         uid = str(item.get("mid") or "").strip()
         name = clean_text(item.get("uname") or item.get("name") or "")
         if uid.isdigit() and name:
-            candidates.append({"uid": uid, "name": name})
+            candidates.append({
+                "uid": uid,
+                "name": name,
+                "avatar_url": normalize_url(item.get("upic") or item.get("face") or item.get("avatar")),
+            })
     if not candidates:
         return {"ok": False, "kind": "invalid", "message": "Bilibili 用户搜索结果格式不正确。"}
     keyword_text = clean_text(keyword)
