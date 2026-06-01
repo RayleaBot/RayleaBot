@@ -101,7 +101,6 @@ jobs:
             --launcher-bundle "${{ matrix.launcher_bundle }}" \
             --web-dist web/dist \
             --builtin-dir plugins/builtin \
-            --contracts-dir contracts \
             --deps-dir .deps \
             --templates-dir templates \
             --default-config config/default.yaml \
@@ -199,7 +198,6 @@ jobs:
             --server-bin dist/server/raylea-server \
             --web-dist web/dist \
             --builtin-dir plugins/builtin \
-            --contracts-dir contracts \
             --deps-dir .deps \
             --templates-dir templates \
             --default-config config/default.yaml \

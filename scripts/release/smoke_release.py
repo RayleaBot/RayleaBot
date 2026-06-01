@@ -10,6 +10,7 @@ from pathlib import Path
 from package_runtime import (
     RESOURCE_KINDS,
     artifact_platform,
+    ensure_no_forbidden_paths,
     find_platform_resource,
     load_deps_manifest,
     resource_has_complete_metadata,
@@ -25,8 +26,6 @@ EXPECTED = {
             "RayleaLauncher.exe",
             "build_info.json",
             "config/default.yaml",
-            "contracts/config.user.schema.json",
-            "contracts/plugin-info.schema.json",
             "templates/fortune.stats/template.json",
             "templates/help.menu/template.json",
             "templates/status.panel/template.json",
@@ -41,8 +40,6 @@ EXPECTED = {
             "RayleaLauncher",
             "build_info.json",
             "config/default.yaml",
-            "contracts/config.user.schema.json",
-            "contracts/plugin-info.schema.json",
             "templates/fortune.stats/template.json",
             "templates/help.menu/template.json",
             "templates/status.panel/template.json",
@@ -57,8 +54,6 @@ EXPECTED = {
             "RayleaLauncher.app/Contents/MacOS/RayleaLauncher",
             "build_info.json",
             "config/default.yaml",
-            "contracts/config.user.schema.json",
-            "contracts/plugin-info.schema.json",
             "templates/fortune.stats/template.json",
             "templates/help.menu/template.json",
             "templates/status.panel/template.json",
@@ -72,8 +67,6 @@ EXPECTED = {
             "raylea-server",
             "build_info.json",
             "config/default.yaml",
-            "contracts/config.user.schema.json",
-            "contracts/plugin-info.schema.json",
             "systemd/rayleabot.service",
             "templates/fortune.stats/template.json",
             "templates/help.menu/template.json",
@@ -105,6 +98,7 @@ def list_entries(artifact_id: str, archive_path: Path) -> set[str]:
 def validate_runtime_bootstrap_prerequisites(artifact_id: str, archive_path: Path) -> None:
     with tempfile.TemporaryDirectory(prefix="rayleabot-release-smoke-") as tmp:
         root = unpack_archive(artifact_id, archive_path, Path(tmp))
+        ensure_no_forbidden_paths(root)
         manifest = load_deps_manifest(root)
         platform = artifact_platform(artifact_id)
         for kind in RESOURCE_KINDS:

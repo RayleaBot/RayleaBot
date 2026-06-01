@@ -158,7 +158,6 @@ jobs:
             --server-bin "${{ matrix.server_bin }}"
             --web-dist web/dist
             --builtin-dir plugins/builtin
-            --contracts-dir contracts
             --deps-dir .deps
             --templates-dir templates
             --default-config config/default.yaml

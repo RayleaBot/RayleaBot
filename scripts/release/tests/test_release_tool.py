@@ -20,7 +20,6 @@ class ReleaseToolTests(unittest.TestCase):
             launcher_bundle = temp / "win-unpacked"
             web_dist = temp / "web-dist"
             builtin = temp / "builtin"
-            contracts = temp / "contracts"
             deps = temp / ".deps"
             templates = temp / "templates"
             default_config = temp / "config" / "default.yaml"
@@ -33,15 +32,25 @@ class ReleaseToolTests(unittest.TestCase):
             (launcher_bundle / "resources" / "app.asar").write_text("asar", encoding="utf-8")
             (web_dist / "index.html").parent.mkdir(parents=True, exist_ok=True)
             (web_dist / "index.html").write_text("<html></html>", encoding="utf-8")
-            (builtin / "help" / "info.json").parent.mkdir(parents=True, exist_ok=True)
-            (builtin / "help" / "info.json").write_text("{}", encoding="utf-8")
-            (contracts / "config.user.schema.json").parent.mkdir(parents=True, exist_ok=True)
-            (contracts / "config.user.schema.json").write_text("{}", encoding="utf-8")
-            (contracts / "plugin-info.schema.json").write_text("{}", encoding="utf-8")
+            (web_dist / "app.js.map").write_text("source map", encoding="utf-8")
+            (web_dist / "README.md").write_text("dev docs", encoding="utf-8")
+            (builtin / "fortune" / "web").mkdir(parents=True, exist_ok=True)
+            (builtin / "fortune" / "info.json").write_text("{}", encoding="utf-8")
+            (builtin / "fortune" / "main.py").write_text("print('fortune')\n", encoding="utf-8")
+            (builtin / "fortune" / "web" / "index.html").write_text("<html></html>", encoding="utf-8")
+            (builtin / "fortune" / "tests").mkdir(parents=True, exist_ok=True)
+            (builtin / "fortune" / "tests" / "test_fortune.py").write_text("def test_fortune(): pass\n", encoding="utf-8")
+            (builtin / "fortune" / "__pycache__").mkdir(parents=True, exist_ok=True)
+            (builtin / "fortune" / "__pycache__" / "main.pyc").write_bytes(b"cache")
             (deps / "manifest.json").parent.mkdir(parents=True, exist_ok=True)
             (deps / "manifest.json").write_text('{"manifest_version":1,"resources":[]}', encoding="utf-8")
+            (deps / "store" / "python" / "3.12").mkdir(parents=True, exist_ok=True)
+            (deps / "store" / "python" / "3.12" / "python.exe").write_text("runtime", encoding="utf-8")
+            (deps / "cache" / "downloads").mkdir(parents=True, exist_ok=True)
+            (deps / "cache" / "downloads" / "python.zip").write_text("download", encoding="utf-8")
             (templates / "help.menu" / "template.json").parent.mkdir(parents=True, exist_ok=True)
             (templates / "help.menu" / "template.json").write_text("{}", encoding="utf-8")
+            (templates / "help.menu" / "template.test.mjs").write_text("test", encoding="utf-8")
             (templates / "status.panel" / "template.json").parent.mkdir(parents=True, exist_ok=True)
             (templates / "status.panel" / "template.json").write_text("{}", encoding="utf-8")
             default_config.parent.mkdir(parents=True, exist_ok=True)
@@ -56,7 +65,6 @@ class ReleaseToolTests(unittest.TestCase):
                 server_bin=server_bin,
                 web_dist=web_dist,
                 builtin_dir=builtin,
-                contracts_dir=contracts,
                 deps_dir=deps,
                 templates_dir=templates,
                 default_config=default_config,
@@ -75,8 +83,18 @@ class ReleaseToolTests(unittest.TestCase):
             self.assertIn("RayleaBot-v0.1.0-windows-x64-full/RayleaLauncher.exe", names)
             self.assertIn("RayleaBot-v0.1.0-windows-x64-full/resources/app.asar", names)
             self.assertIn("RayleaBot-v0.1.0-windows-x64-full/config/default.yaml", names)
-            self.assertIn("RayleaBot-v0.1.0-windows-x64-full/contracts/config.user.schema.json", names)
-            self.assertIn("RayleaBot-v0.1.0-windows-x64-full/contracts/plugin-info.schema.json", names)
+            self.assertNotIn("RayleaBot-v0.1.0-windows-x64-full/contracts/config.user.schema.json", names)
+            self.assertNotIn("RayleaBot-v0.1.0-windows-x64-full/contracts/plugin-info.schema.json", names)
+            self.assertNotIn("RayleaBot-v0.1.0-windows-x64-full/web/dist/app.js.map", names)
+            self.assertNotIn("RayleaBot-v0.1.0-windows-x64-full/web/dist/README.md", names)
+            self.assertNotIn("RayleaBot-v0.1.0-windows-x64-full/plugins/builtin/fortune/tests/test_fortune.py", names)
+            self.assertNotIn("RayleaBot-v0.1.0-windows-x64-full/plugins/builtin/fortune/__pycache__/main.pyc", names)
+            self.assertNotIn("RayleaBot-v0.1.0-windows-x64-full/.deps/store/python/3.12/python.exe", names)
+            self.assertNotIn("RayleaBot-v0.1.0-windows-x64-full/.deps/cache/downloads/python.zip", names)
+            self.assertNotIn("RayleaBot-v0.1.0-windows-x64-full/templates/help.menu/template.test.mjs", names)
+            self.assertIn("RayleaBot-v0.1.0-windows-x64-full/plugins/builtin/fortune/info.json", names)
+            self.assertIn("RayleaBot-v0.1.0-windows-x64-full/plugins/builtin/fortune/main.py", names)
+            self.assertIn("RayleaBot-v0.1.0-windows-x64-full/plugins/builtin/fortune/web/index.html", names)
             self.assertIn("RayleaBot-v0.1.0-windows-x64-full/templates/help.menu/template.json", names)
             self.assertIn("RayleaBot-v0.1.0-windows-x64-full/templates/status.panel/template.json", names)
             self.assertIn("RayleaBot-v0.1.0-windows-x64-full/web/dist/index.html", names)
@@ -111,7 +129,6 @@ class ReleaseToolTests(unittest.TestCase):
             launcher_bundle = temp / "linux-unpacked"
             web_dist = temp / "web-dist"
             builtin = temp / "builtin"
-            contracts = temp / "contracts"
             deps = temp / ".deps"
             templates = temp / "templates"
             default_config = temp / "config" / "default.yaml"
@@ -126,9 +143,6 @@ class ReleaseToolTests(unittest.TestCase):
             (web_dist / "index.html").write_text("<html></html>", encoding="utf-8")
             (builtin / "help" / "info.json").parent.mkdir(parents=True, exist_ok=True)
             (builtin / "help" / "info.json").write_text("{}", encoding="utf-8")
-            (contracts / "config.user.schema.json").parent.mkdir(parents=True, exist_ok=True)
-            (contracts / "config.user.schema.json").write_text("{}", encoding="utf-8")
-            (contracts / "plugin-info.schema.json").write_text("{}", encoding="utf-8")
             (deps / "manifest.json").parent.mkdir(parents=True, exist_ok=True)
             (deps / "manifest.json").write_text('{"manifest_version":1,"resources":[]}', encoding="utf-8")
             (templates / "help.menu" / "template.json").parent.mkdir(parents=True, exist_ok=True)
@@ -147,7 +161,6 @@ class ReleaseToolTests(unittest.TestCase):
                 server_bin=server_bin,
                 web_dist=web_dist,
                 builtin_dir=builtin,
-                contracts_dir=contracts,
                 deps_dir=deps,
                 templates_dir=templates,
                 default_config=default_config,
@@ -160,7 +173,7 @@ class ReleaseToolTests(unittest.TestCase):
                 names = set(tf.getnames())
             self.assertIn("RayleaBot-v0.1.0-linux-x64-full/RayleaLauncher", names)
             self.assertIn("RayleaBot-v0.1.0-linux-x64-full/locales/en-US.pak", names)
-            self.assertIn("RayleaBot-v0.1.0-linux-x64-full/contracts/config.user.schema.json", names)
+            self.assertNotIn("RayleaBot-v0.1.0-linux-x64-full/contracts/config.user.schema.json", names)
             self.assertIn("RayleaBot-v0.1.0-linux-x64-full/web/dist/index.html", names)
             self.assertIn("RayleaBot-v0.1.0-linux-x64-full/templates/help.menu/template.json", names)
 
@@ -171,7 +184,6 @@ class ReleaseToolTests(unittest.TestCase):
             launcher_bundle = temp / "RayleaLauncher.app"
             web_dist = temp / "web-dist"
             builtin = temp / "builtin"
-            contracts = temp / "contracts"
             deps = temp / ".deps"
             templates = temp / "templates"
             default_config = temp / "config" / "default.yaml"
@@ -187,9 +199,6 @@ class ReleaseToolTests(unittest.TestCase):
             (web_dist / "index.html").write_text("<html></html>", encoding="utf-8")
             (builtin / "help" / "info.json").parent.mkdir(parents=True, exist_ok=True)
             (builtin / "help" / "info.json").write_text("{}", encoding="utf-8")
-            (contracts / "config.user.schema.json").parent.mkdir(parents=True, exist_ok=True)
-            (contracts / "config.user.schema.json").write_text("{}", encoding="utf-8")
-            (contracts / "plugin-info.schema.json").write_text("{}", encoding="utf-8")
             (deps / "manifest.json").parent.mkdir(parents=True, exist_ok=True)
             (deps / "manifest.json").write_text('{"manifest_version":1,"resources":[]}', encoding="utf-8")
             (templates / "help.menu" / "template.json").parent.mkdir(parents=True, exist_ok=True)
@@ -208,7 +217,6 @@ class ReleaseToolTests(unittest.TestCase):
                 server_bin=server_bin,
                 web_dist=web_dist,
                 builtin_dir=builtin,
-                contracts_dir=contracts,
                 deps_dir=deps,
                 templates_dir=templates,
                 default_config=default_config,
@@ -221,7 +229,7 @@ class ReleaseToolTests(unittest.TestCase):
                 names = set(tf.getnames())
             self.assertIn("RayleaBot-v0.1.0-macos-arm64-full/RayleaLauncher.app/Contents/MacOS/RayleaLauncher", names)
             self.assertIn("RayleaBot-v0.1.0-macos-arm64-full/RayleaLauncher.app/Contents/Info.plist", names)
-            self.assertIn("RayleaBot-v0.1.0-macos-arm64-full/contracts/plugin-info.schema.json", names)
+            self.assertNotIn("RayleaBot-v0.1.0-macos-arm64-full/contracts/plugin-info.schema.json", names)
             self.assertIn("RayleaBot-v0.1.0-macos-arm64-full/web/dist/index.html", names)
             self.assertIn("RayleaBot-v0.1.0-macos-arm64-full/templates/status.panel/template.json", names)
 
@@ -231,7 +239,6 @@ class ReleaseToolTests(unittest.TestCase):
             server_bin = temp / "raylea-server"
             web_dist = temp / "web-dist"
             builtin = temp / "builtin"
-            contracts = temp / "contracts"
             deps = temp / ".deps"
             templates = temp / "templates"
             default_config = temp / "config" / "default.yaml"
@@ -243,9 +250,6 @@ class ReleaseToolTests(unittest.TestCase):
             (web_dist / "index.html").write_text("<html></html>", encoding="utf-8")
             (builtin / "help" / "info.json").parent.mkdir(parents=True, exist_ok=True)
             (builtin / "help" / "info.json").write_text("{}", encoding="utf-8")
-            (contracts / "config.user.schema.json").parent.mkdir(parents=True, exist_ok=True)
-            (contracts / "config.user.schema.json").write_text("{}", encoding="utf-8")
-            (contracts / "plugin-info.schema.json").write_text("{}", encoding="utf-8")
             (deps / "manifest.json").parent.mkdir(parents=True, exist_ok=True)
             (deps / "manifest.json").write_text('{"manifest_version":1,"resources":[]}', encoding="utf-8")
             (templates / "help.menu" / "template.json").parent.mkdir(parents=True, exist_ok=True)
@@ -265,7 +269,6 @@ class ReleaseToolTests(unittest.TestCase):
                 server_bin=server_bin,
                 web_dist=web_dist,
                 builtin_dir=builtin,
-                contracts_dir=contracts,
                 deps_dir=deps,
                 templates_dir=templates,
                 default_config=default_config,
@@ -277,7 +280,7 @@ class ReleaseToolTests(unittest.TestCase):
             with tarfile.open(archive_path, "r:gz") as tf:
                 names = set(tf.getnames())
             self.assertIn("RayleaBot-v0.1.0-linux-x64-server/systemd/rayleabot.service", names)
-            self.assertIn("RayleaBot-v0.1.0-linux-x64-server/contracts/config.user.schema.json", names)
+            self.assertNotIn("RayleaBot-v0.1.0-linux-x64-server/contracts/config.user.schema.json", names)
             self.assertIn("RayleaBot-v0.1.0-linux-x64-server/web/dist/index.html", names)
             self.assertIn("RayleaBot-v0.1.0-linux-x64-server/templates/help.menu/template.json", names)
 

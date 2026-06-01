@@ -14,6 +14,7 @@ ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(ROOT / "scripts" / "release"))
 
 import recovery_drill
+from package_runtime import FORBIDDEN_DIRECTORY_NAMES, FORBIDDEN_TOP_LEVEL_PATHS
 
 
 class RecoveryDrillTests(unittest.TestCase):
@@ -21,9 +22,16 @@ class RecoveryDrillTests(unittest.TestCase):
         required = recovery_drill.REQUIRED_PATHS["windows-x64-full"]
 
         self.assertIn("RayleaLauncher.exe", required)
-        self.assertIn("contracts/config.user.schema.json", required)
-        self.assertIn("contracts/plugin-info.schema.json", required)
+        self.assertNotIn("contracts/config.user.schema.json", required)
+        self.assertNotIn("contracts/plugin-info.schema.json", required)
         self.assertIn("web/dist/index.html", required)
+
+    def test_release_runtime_forbidden_paths_cover_development_materials(self) -> None:
+        self.assertIn("contracts", FORBIDDEN_TOP_LEVEL_PATHS)
+        self.assertIn("docs", FORBIDDEN_TOP_LEVEL_PATHS)
+        self.assertIn("fixtures", FORBIDDEN_TOP_LEVEL_PATHS)
+        self.assertIn("tests", FORBIDDEN_DIRECTORY_NAMES)
+        self.assertIn("node_modules", FORBIDDEN_DIRECTORY_NAMES)
 
     def test_read_server_output_stops_running_process_before_collecting_logs(self) -> None:
         process = subprocess.Popen(
