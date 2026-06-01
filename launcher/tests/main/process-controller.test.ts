@@ -3,10 +3,7 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, test, vi } from "vitest";
-import {
-  resolveConfigSchemaPath,
-  ServerProcessController,
-} from "@main/services/process-controller";
+import { ServerProcessController } from "@main/services/process-controller";
 import type { LauncherResolvedSettings } from "@shared/launcher-models";
 
 class FakeStream extends EventEmitter {
@@ -77,34 +74,13 @@ afterEach(async () => {
   );
 });
 
-describe("resolveConfigSchemaPath", () => {
-  test("prefers the installation root over the runtime workdir", async () => {
-    const installRoot = await createTempDir("install-root");
-    const runtimeRoot = await createTempDir("runtime-root");
-
-    await fs.mkdir(path.join(installRoot, "contracts"), { recursive: true });
-    await fs.mkdir(path.join(installRoot, "server"), { recursive: true });
-    await fs.mkdir(path.join(installRoot, "config"), { recursive: true });
-    await fs.writeFile(path.join(installRoot, "contracts", "config.user.schema.json"), "{}", "utf8");
-    await fs.writeFile(path.join(installRoot, "config", "user.yaml"), "server: {}\n", "utf8");
-
-    const settings = createSettings(installRoot, runtimeRoot);
-
-    await expect(resolveConfigSchemaPath(settings)).resolves.toBe(
-      path.join(installRoot, "contracts", "config.user.schema.json"),
-    );
-  });
-});
-
 describe("ServerProcessController", () => {
-  test("passes an explicit config schema path to the spawned server", async () => {
+  test("spawns the server with the config path only", async () => {
     const installRoot = await createTempDir("controller-start");
     const runtimeRoot = await createTempDir("controller-runtime");
 
-    await fs.mkdir(path.join(installRoot, "contracts"), { recursive: true });
     await fs.mkdir(path.join(installRoot, "server"), { recursive: true });
     await fs.mkdir(path.join(installRoot, "config"), { recursive: true });
-    await fs.writeFile(path.join(installRoot, "contracts", "config.user.schema.json"), "{}", "utf8");
     await fs.writeFile(path.join(installRoot, "config", "user.yaml"), "server: {}\n", "utf8");
 
     const child = new FakeChildProcess();
@@ -128,12 +104,7 @@ describe("ServerProcessController", () => {
 
     expect(spawnProcess).toHaveBeenCalledWith(
       path.join(installRoot, "server", "raylea-server.exe"),
-      [
-        "-config",
-        path.join(installRoot, "config", "user.yaml"),
-        "-config-schema",
-        path.join(installRoot, "contracts", "config.user.schema.json"),
-      ],
+      ["-config", path.join(installRoot, "config", "user.yaml")],
       expect.objectContaining({
         cwd: runtimeRoot,
         windowsHide: true,
@@ -146,10 +117,8 @@ describe("ServerProcessController", () => {
     const installRoot = await createTempDir("controller-error");
     const runtimeRoot = await createTempDir("controller-error-runtime");
 
-    await fs.mkdir(path.join(installRoot, "contracts"), { recursive: true });
     await fs.mkdir(path.join(installRoot, "server"), { recursive: true });
     await fs.mkdir(path.join(installRoot, "config"), { recursive: true });
-    await fs.writeFile(path.join(installRoot, "contracts", "config.user.schema.json"), "{}", "utf8");
     await fs.writeFile(path.join(installRoot, "config", "user.yaml"), "server: {}\n", "utf8");
 
     const child = new FakeChildProcess();
@@ -183,10 +152,8 @@ describe("ServerProcessController", () => {
     const installRoot = await createTempDir("controller-running");
     const runtimeRoot = await createTempDir("controller-running-runtime");
 
-    await fs.mkdir(path.join(installRoot, "contracts"), { recursive: true });
     await fs.mkdir(path.join(installRoot, "server"), { recursive: true });
     await fs.mkdir(path.join(installRoot, "config"), { recursive: true });
-    await fs.writeFile(path.join(installRoot, "contracts", "config.user.schema.json"), "{}", "utf8");
     await fs.writeFile(path.join(installRoot, "config", "user.yaml"), "server: {}\n", "utf8");
 
     const child = new FakeChildProcess();
@@ -216,10 +183,8 @@ describe("ServerProcessController", () => {
     const installRoot = await createTempDir("controller-exit-code");
     const runtimeRoot = await createTempDir("controller-exit-runtime");
 
-    await fs.mkdir(path.join(installRoot, "contracts"), { recursive: true });
     await fs.mkdir(path.join(installRoot, "server"), { recursive: true });
     await fs.mkdir(path.join(installRoot, "config"), { recursive: true });
-    await fs.writeFile(path.join(installRoot, "contracts", "config.user.schema.json"), "{}", "utf8");
     await fs.writeFile(path.join(installRoot, "config", "user.yaml"), "server: {}\n", "utf8");
 
     const child = new FakeChildProcess();
@@ -255,10 +220,8 @@ describe("ServerProcessController", () => {
     const installRoot = await createTempDir("controller-stdout");
     const runtimeRoot = await createTempDir("controller-stdout-runtime");
 
-    await fs.mkdir(path.join(installRoot, "contracts"), { recursive: true });
     await fs.mkdir(path.join(installRoot, "server"), { recursive: true });
     await fs.mkdir(path.join(installRoot, "config"), { recursive: true });
-    await fs.writeFile(path.join(installRoot, "contracts", "config.user.schema.json"), "{}", "utf8");
     await fs.writeFile(path.join(installRoot, "config", "user.yaml"), "server: {}\n", "utf8");
 
     const child = new FakeChildProcess();
@@ -293,10 +256,8 @@ describe("ServerProcessController", () => {
     const installRoot = await createTempDir("controller-stderr");
     const runtimeRoot = await createTempDir("controller-stderr-runtime");
 
-    await fs.mkdir(path.join(installRoot, "contracts"), { recursive: true });
     await fs.mkdir(path.join(installRoot, "server"), { recursive: true });
     await fs.mkdir(path.join(installRoot, "config"), { recursive: true });
-    await fs.writeFile(path.join(installRoot, "contracts", "config.user.schema.json"), "{}", "utf8");
     await fs.writeFile(path.join(installRoot, "config", "user.yaml"), "server: {}\n", "utf8");
 
     const child = new FakeChildProcess();
@@ -331,10 +292,8 @@ describe("ServerProcessController", () => {
     const installRoot = await createTempDir("controller-force-kill");
     const runtimeRoot = await createTempDir("controller-force-kill-runtime");
 
-    await fs.mkdir(path.join(installRoot, "contracts"), { recursive: true });
     await fs.mkdir(path.join(installRoot, "server"), { recursive: true });
     await fs.mkdir(path.join(installRoot, "config"), { recursive: true });
-    await fs.writeFile(path.join(installRoot, "contracts", "config.user.schema.json"), "{}", "utf8");
     await fs.writeFile(path.join(installRoot, "config", "user.yaml"), "server: {}\n", "utf8");
 
     const child = new FakeChildProcess();

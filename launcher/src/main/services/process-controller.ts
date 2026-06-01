@@ -2,7 +2,6 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
 import type { LauncherResolvedSettings } from "../../shared/launcher-models";
-import { pathExists } from "./fs-utils";
 import { terminateProcessId } from "./process-termination";
 
 const MAX_STDERR_LINES = 40;
@@ -16,46 +15,6 @@ interface ServerProcessControllerDependencies {
   spawnProcess?: typeof spawn;
   fileSystem?: FileSystemLike;
   terminateProcessId?: (pid: number) => Promise<boolean>;
-}
-
-async function findSchemaRoot(startPath: string) {
-  let current = path.resolve(startPath);
-  while (true) {
-    const candidate = path.join(current, "contracts", "config.user.schema.json");
-    if (await pathExists(candidate)) {
-      return current;
-    }
-
-    const parent = path.dirname(current);
-    if (parent === current) {
-      return "";
-    }
-    current = parent;
-  }
-}
-
-export async function resolveConfigSchemaPath(
-  settings: Pick<LauncherResolvedSettings, "installationRoot" | "serverExecutablePath" | "configPath" | "workdir">,
-) {
-  const seeds = [
-    settings.installationRoot,
-    path.dirname(settings.serverExecutablePath),
-    path.dirname(settings.configPath),
-    settings.workdir,
-  ];
-
-  for (const seed of seeds) {
-    if (!seed) {
-      continue;
-    }
-
-    const root = await findSchemaRoot(seed);
-    if (root) {
-      return path.join(root, "contracts", "config.user.schema.json");
-    }
-  }
-
-  return path.join(settings.workdir, "contracts", "config.user.schema.json");
 }
 
 export class ServerProcessController {
@@ -97,9 +56,7 @@ export class ServerProcessController {
     await this.fileSystem.mkdir(this.logDirectory, { recursive: true });
     const launcherLogPath = this.getLauncherLogPath();
     const serverLogPath = this.getServerLogPath();
-    const schemaPath = await resolveConfigSchemaPath(settings);
-
-    const child = this.spawnProcess(settings.serverExecutablePath, ["-config", settings.configPath, "-config-schema", schemaPath], {
+    const child = this.spawnProcess(settings.serverExecutablePath, ["-config", settings.configPath], {
       cwd: settings.workdir,
       windowsHide: true,
       stdio: "pipe",

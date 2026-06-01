@@ -79,13 +79,12 @@ function serverExecutableName(platform: NodeJS.Platform) {
 }
 
 async function hasInstallationMarkers(root: string) {
-  const hasContracts = await pathExists(path.join(root, "contracts", "config.user.schema.json"));
   const hasServer = await pathExists(path.join(root, "server", "go.mod"));
   const hasLauncher = await pathExists(path.join(root, "launcher", "package.json"));
   const hasReleaseConfig = await pathExists(path.join(root, "config", "default.yaml"));
   const hasDeps = await pathExists(path.join(root, ".deps", "manifest.json"));
 
-  return (hasContracts && hasServer && hasLauncher) || (hasReleaseConfig && hasDeps);
+  return (hasServer && hasLauncher) || (hasReleaseConfig && hasDeps);
 }
 
 export async function findInstallationRoot(startPath: string) {
