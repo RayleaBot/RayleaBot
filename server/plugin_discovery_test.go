@@ -23,9 +23,15 @@ func TestPluginDiscoveryContextUsesPluginDirectoriesOnly(t *testing.T) {
 	t.Parallel()
 
 	configPath := writePersistentYAMLConfig(t, filepath.Join(t.TempDir(), "state.db"))
+	repoRoot := repoRootPath(t)
 	application, err := app.New(app.Options{
-		ConfigPath: configPath,
-		SchemaPath: filepath.Join("..", "contracts", "config.user.schema.json"),
+		ConfigPath:       configPath,
+		PluginRepoRoot:   repoRoot,
+		PluginSchemaPath: filepath.Join("..", "contracts", "plugin-info.schema.json"),
+		PluginRoots: []plugins.ScanRoot{
+			{Label: "plugins/builtin", Path: filepath.Join(repoRoot, "plugins", "builtin")},
+			{Label: "plugins/installed", Path: filepath.Join(filepath.Dir(configPath), "..", "plugins", "installed")},
+		},
 	})
 	if err != nil {
 		t.Fatalf("app.New failed: %v", err)
@@ -48,6 +54,40 @@ func TestPluginDiscoveryContextUsesPluginDirectoriesOnly(t *testing.T) {
 	if _, ok := application.Plugins().Get("hello-python"); ok {
 		t.Fatal("examples/plugins must not be discovered by the default application roots")
 	}
+}
+
+func TestDefaultAppStartupDoesNotRequireContractsDirectory(t *testing.T) {
+	t.Parallel()
+
+	repoRoot := t.TempDir()
+	configPath := filepath.Join(repoRoot, "config", "user.yaml")
+	if err := os.MkdirAll(filepath.Dir(configPath), 0o755); err != nil {
+		t.Fatalf("create config dir: %v", err)
+	}
+	if err := os.WriteFile(configPath, []byte("schema_version: \"2\"\n"), 0o644); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+
+	for _, dir := range []string{
+		filepath.Join(repoRoot, "plugins", "builtin"),
+		filepath.Join(repoRoot, "plugins", "installed"),
+	} {
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			t.Fatalf("create plugin root %s: %v", dir, err)
+		}
+	}
+
+	application, err := app.New(app.Options{
+		ConfigPath: configPath,
+	})
+	if err != nil {
+		t.Fatalf("app.New without contracts directory failed: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := application.Close(); err != nil {
+			t.Fatalf("close app resources: %v", err)
+		}
+	})
 }
 
 func TestDiscoverInvalidManifestFromFixture(t *testing.T) {

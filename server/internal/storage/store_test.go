@@ -84,8 +84,9 @@ func TestOpenAppliesMigrationsOnlyOnce(t *testing.T) {
 	if err := second.Read.QueryRow(`SELECT COUNT(*) FROM schema_migrations`).Scan(&count); err != nil {
 		t.Fatalf("count schema_migrations rows: %v", err)
 	}
-	if count != 21 {
-		t.Fatalf("unexpected migration count: got %d want 21", count)
+	want := expectedEmbeddedMigrationCount(t)
+	if count != want {
+		t.Fatalf("unexpected migration count: got %d want %d", count, want)
 	}
 }
 
@@ -196,8 +197,9 @@ func TestOpenUpgradesExistingAuthDatabaseToPluginStateTables(t *testing.T) {
 	if err := upgraded.Read.QueryRow(`SELECT COUNT(*) FROM schema_migrations`).Scan(&migrationCount); err != nil {
 		t.Fatalf("count schema_migrations rows: %v", err)
 	}
-	if migrationCount != 21 {
-		t.Fatalf("unexpected migration count after upgrade: got %d want 21", migrationCount)
+	wantMigrationCount := expectedEmbeddedMigrationCount(t)
+	if migrationCount != wantMigrationCount {
+		t.Fatalf("unexpected migration count after upgrade: got %d want %d", migrationCount, wantMigrationCount)
 	}
 
 	var bootstrapCount int
@@ -320,6 +322,20 @@ func readAuthOnlyMigrations(t *testing.T) fs.FS {
 	return fstest.MapFS{
 		"0001_auth_core.sql": {Data: script},
 	}
+}
+
+func expectedEmbeddedMigrationCount(t *testing.T) int {
+	t.Helper()
+
+	migrationFS, err := fs.Sub(embeddedMigrations, "migrations")
+	if err != nil {
+		t.Fatalf("open embedded migrations: %v", err)
+	}
+	items, err := loadMigrations(migrationFS)
+	if err != nil {
+		t.Fatalf("load embedded migrations: %v", err)
+	}
+	return len(items)
 }
 
 func assertPragmaString(t *testing.T, db *sql.DB, name, want string) {

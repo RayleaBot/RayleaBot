@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"path/filepath"
 	"testing"
 
@@ -122,6 +123,8 @@ func newRenderReadyTestApp(t *testing.T, authOptions ...auth.Option) *app.App {
 
 	fixture := loadConfigFixture(t, filepath.Join("..", "fixtures", "config", "ok.minimal.json"))
 	configPath := writeYAMLConfig(t, fixture.Input)
+	runtimeRoot := filepath.Dir(filepath.Dir(configPath))
+	writeRenderHTTPTemplateSeed(t, filepath.Join(runtimeRoot, "templates"), "help.menu")
 	schemaPath := filepath.Join("..", "contracts", "config.user.schema.json")
 
 	application, err := app.New(app.Options{
@@ -140,4 +143,33 @@ func newRenderReadyTestApp(t *testing.T, authOptions ...auth.Option) *app.App {
 	})
 
 	return application
+}
+
+func writeRenderHTTPTemplateSeed(t *testing.T, templatesRoot, templateID string) {
+	t.Helper()
+
+	templateDir := filepath.Join(templatesRoot, templateID)
+	if err := os.MkdirAll(templateDir, 0o755); err != nil {
+		t.Fatalf("create template dir: %v", err)
+	}
+
+	files := map[string]string{
+		"template.json": `{
+  "id": "help.menu",
+  "version": "1",
+  "entry_html": "template.html",
+  "stylesheet": "styles.css",
+  "input_schema": "input.schema.json",
+  "width": 960,
+  "height": 640
+}`,
+		"template.html":     "<html><body>{{ .title }}</body></html>",
+		"styles.css":        "body { margin: 0; }",
+		"input.schema.json": `{"type":"object","additionalProperties":true}`,
+	}
+	for name, content := range files {
+		if err := os.WriteFile(filepath.Join(templateDir, name), []byte(content), 0o644); err != nil {
+			t.Fatalf("write template file %s: %v", name, err)
+		}
+	}
 }

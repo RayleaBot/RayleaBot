@@ -386,12 +386,11 @@ func TestDoctorReportIncludesStructuredIssues(t *testing.T) {
 
 	report := BuildDoctorReport(Command{
 		ConfigPath: filepath.Join(t.TempDir(), "config", "user.yaml"),
-		SchemaPath: filepath.Join(t.TempDir(), "contracts", "config.user.schema.json"),
 		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
 	})
 
 	if len(report.Issues) == 0 {
-		t.Fatal("doctor report must include at least one issue when config and schema are missing")
+		t.Fatal("doctor report must include at least one issue when config is missing")
 	}
 
 	for _, issue := range report.Issues {
@@ -439,7 +438,6 @@ func TestDoctorReportIncludesRecoverySummaryWhenPresent(t *testing.T) {
 
 	report := BuildDoctorReport(Command{
 		ConfigPath: configPath,
-		SchemaPath: filepath.Join(repoRoot, "contracts", "config.user.schema.json"),
 		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
 	})
 
@@ -453,11 +451,9 @@ func TestDoctorReportFlagsIncompleteRuntimeMetadata(t *testing.T) {
 
 	repoRoot := t.TempDir()
 	configPath := filepath.Join(repoRoot, "config", "user.yaml")
-	schemaPath := filepath.Join(repoRoot, "contracts", "config.user.schema.json")
 	manifestPath := filepath.Join(repoRoot, ".deps", "manifest.json")
 
 	writeFile(t, configPath, "schema_version: \"2\"\nserver:\n  host: 127.0.0.1\n  port: 8080\n")
-	writeFile(t, schemaPath, "{}\n")
 	if err := os.MkdirAll(filepath.Join(repoRoot, "data"), 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -523,7 +519,6 @@ func TestDoctorReportFlagsIncompleteRuntimeMetadata(t *testing.T) {
 
 	report := BuildDoctorReport(Command{
 		ConfigPath: configPath,
-		SchemaPath: schemaPath,
 		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
 	})
 
@@ -551,13 +546,11 @@ func TestDoctorReportSummarizesManagedRuntimeBootstrapStates(t *testing.T) {
 
 	repoRoot := t.TempDir()
 	configPath := filepath.Join(repoRoot, "config", "user.yaml")
-	schemaPath := filepath.Join(repoRoot, "contracts", "config.user.schema.json")
 	platform := deps.CurrentPlatform()
 	pythonID := "python-" + platform
 	nodeID := "nodejs-" + platform
 
 	writeFile(t, configPath, "schema_version: \"2\"\nserver:\n  host: 127.0.0.1\n  port: 8080\n")
-	writeFile(t, schemaPath, "{}\n")
 	if err := os.MkdirAll(filepath.Join(repoRoot, "data"), 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -609,7 +602,6 @@ func TestDoctorReportSummarizesManagedRuntimeBootstrapStates(t *testing.T) {
 
 	report := BuildDoctorReport(Command{
 		ConfigPath: configPath,
-		SchemaPath: schemaPath,
 		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
 	})
 

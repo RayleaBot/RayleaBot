@@ -5,6 +5,7 @@ import (
 	"net/url"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/schema"
+	"github.com/RayleaBot/RayleaBot/server/internal/schemaassets"
 )
 
 type Config struct {
@@ -251,6 +252,14 @@ func normalizeDocument(raw map[string]any) (any, error) {
 }
 
 func validateDocument(schemaPath string, document any) error {
+	if schemaassets.IsConfigUserSchemaID(schemaPath) {
+		validator, err := schema.CompileJSON(schemaassets.ConfigUserSchemaID, schemaassets.ConfigUserSchemaJSON)
+		if err != nil {
+			return err
+		}
+		return validator.Validate(document)
+	}
+
 	validator, err := schema.Compile(schemaPath)
 	if err != nil {
 		return err
@@ -265,6 +274,9 @@ func validateDocument(schemaPath string, document any) error {
 
 func buildSummary(configPath, schemaPath string, cfg Config, _ map[string]any) Summary {
 	endpoint := firstConfiguredOneBotEndpoint(cfg.OneBot)
+	if schemaPath == "" {
+		schemaPath = schemaassets.ConfigUserSchemaID
+	}
 	return Summary{
 		ConfigPath:       configPath,
 		SchemaPath:       schemaPath,

@@ -446,6 +446,15 @@ func TestConfigPutHotReloadsOneBotTransportStateWithoutRestart(t *testing.T) {
 }
 
 func newTestAppWithConfigMutation(t *testing.T, mutate func(map[string]any), authOptions ...auth.Option) (*internalapp.App, string, string) {
+	return newTestAppWithOptions(t, mutate, nil, authOptions...)
+}
+
+func newTestAppWithOptions(
+	t *testing.T,
+	mutate func(map[string]any),
+	configureOptions func(*internalapp.Options, string),
+	authOptions ...auth.Option,
+) (*internalapp.App, string, string) {
 	t.Helper()
 
 	fixture := loadConfigFixture(t, filepath.Join("..", "fixtures", "config", "ok.minimal.json"))
@@ -466,11 +475,16 @@ func newTestAppWithConfigMutation(t *testing.T, mutate func(map[string]any), aut
 	configPath := writeYAMLConfig(t, updated)
 	schemaPath := filepath.Join("..", "contracts", "config.user.schema.json")
 
-	application, err := internalapp.New(internalapp.Options{
+	options := internalapp.Options{
 		ConfigPath:  configPath,
 		SchemaPath:  schemaPath,
 		AuthOptions: authOptions,
-	})
+	}
+	if configureOptions != nil {
+		configureOptions(&options, configPath)
+	}
+
+	application, err := internalapp.New(options)
 	if err != nil {
 		t.Fatalf("app.New failed: %v", err)
 	}

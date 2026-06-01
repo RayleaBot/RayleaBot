@@ -1,10 +1,12 @@
 package schema
 
 import (
+	"bytes"
 	"os"
 	"path/filepath"
 	"testing"
 
+	"github.com/RayleaBot/RayleaBot/server/internal/schemaassets"
 	"gopkg.in/yaml.v3"
 )
 
@@ -94,6 +96,43 @@ func TestCompileFormalSchemasUsedByRuntime(t *testing.T) {
 			}
 			if validator.Path() == "" {
 				t.Fatalf("expected absolute validator path for %q", relativePath)
+			}
+		})
+	}
+}
+
+func TestEmbeddedRuntimeSchemasMatchFormalContracts(t *testing.T) {
+	t.Parallel()
+
+	repoRoot := filepath.Clean(filepath.Join("..", "..", ".."))
+	tests := []struct {
+		name         string
+		contractPath string
+		embedded     []byte
+	}{
+		{
+			name:         "config user",
+			contractPath: filepath.Join(repoRoot, "contracts", "config.user.schema.json"),
+			embedded:     schemaassets.ConfigUserSchemaJSON,
+		},
+		{
+			name:         "plugin info",
+			contractPath: filepath.Join(repoRoot, "contracts", "plugin-info.schema.json"),
+			embedded:     schemaassets.PluginInfoSchemaJSON,
+		},
+	}
+
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			content, err := os.ReadFile(tt.contractPath)
+			if err != nil {
+				t.Fatalf("read contract %s: %v", tt.contractPath, err)
+			}
+			if !bytes.Equal(content, tt.embedded) {
+				t.Fatalf("embedded schema does not match %s; run node scripts/generate-runtime-schemas.mjs", tt.contractPath)
 			}
 		})
 	}

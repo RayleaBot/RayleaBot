@@ -9,6 +9,7 @@ import (
 
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	"github.com/RayleaBot/RayleaBot/server/internal/recovery"
+	"github.com/RayleaBot/RayleaBot/server/internal/schemaassets"
 )
 
 type pluginDiscoverySpec struct {
@@ -155,7 +156,7 @@ func resolvePluginDiscovery(options Options) (pluginDiscoverySpec, error) {
 		}, nil
 	}
 
-	repoRoot, pluginSchemaPath, roots, err := pluginDiscoveryContext(options.SchemaPath)
+	repoRoot, pluginSchemaPath, roots, err := pluginDiscoveryContext(options.ConfigPath)
 	if err != nil {
 		return pluginDiscoverySpec{}, err
 	}
@@ -166,15 +167,12 @@ func resolvePluginDiscovery(options Options) (pluginDiscoverySpec, error) {
 	}, nil
 }
 
-func pluginDiscoveryContext(configSchemaPath string) (string, string, []plugins.ScanRoot, error) {
-	absoluteConfigSchemaPath, err := filepath.Abs(configSchemaPath)
+func pluginDiscoveryContext(configPath string) (string, string, []plugins.ScanRoot, error) {
+	repoRoot, err := resolveRuntimeRoot(configPath)
 	if err != nil {
-		return "", "", nil, fmt.Errorf("resolve config schema path %s: %w", configSchemaPath, err)
+		return "", "", nil, err
 	}
-
-	contractsDir := filepath.Dir(absoluteConfigSchemaPath)
-	repoRoot := filepath.Dir(contractsDir)
-	pluginSchemaPath := filepath.Join(contractsDir, "plugin-info.schema.json")
+	pluginSchemaPath := schemaassets.PluginInfoSchemaID
 
 	roots := []plugins.ScanRoot{
 		{

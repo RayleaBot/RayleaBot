@@ -10,6 +10,43 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+func TestLoadAndSaveUseEmbeddedSchemaByDefault(t *testing.T) {
+	t.Parallel()
+
+	configPath := filepath.Join(t.TempDir(), "config", "user.yaml")
+	cfg, summary, err := Load(configPath, "")
+	if err != nil {
+		t.Fatalf("Load with embedded schema failed: %v", err)
+	}
+	if cfg.Server.Host != "127.0.0.1" {
+		t.Fatalf("server.host = %q, want 127.0.0.1", cfg.Server.Host)
+	}
+	if summary.SchemaPath != "builtin://contracts/config.user.schema.json" {
+		t.Fatalf("summary.SchemaPath = %q", summary.SchemaPath)
+	}
+
+	document, err := LoadDocument(configPath, "")
+	if err != nil {
+		t.Fatalf("LoadDocument with embedded schema failed: %v", err)
+	}
+	server, ok := document["server"].(map[string]any)
+	if !ok {
+		t.Fatalf("server section = %#v", document["server"])
+	}
+	server["port"] = 18080
+
+	cfg, summary, err = SaveDocument(configPath, "", document)
+	if err != nil {
+		t.Fatalf("SaveDocument with embedded schema failed: %v", err)
+	}
+	if cfg.Server.Port != 18080 {
+		t.Fatalf("server.port = %d, want 18080", cfg.Server.Port)
+	}
+	if summary.SchemaPath != "builtin://contracts/config.user.schema.json" {
+		t.Fatalf("summary.SchemaPath after save = %q", summary.SchemaPath)
+	}
+}
+
 func TestLoadBootstrapsDefaultAndUserConfigWhenMissing(t *testing.T) {
 	t.Parallel()
 

@@ -5,7 +5,7 @@
 ## 当前已接线能力
 
 - `cmd/raylea-server` 入口、`-config` / `-config-schema` flags
-- `config/user.yaml` 读取与 `contracts/config.user.schema.json` 校验
+- `config/user.yaml` 读取与内置配置 schema 校验；`contracts/config.user.schema.json` 是源码中的正式来源
 - `GET /healthz`、`GET /readyz`
 - SQLite store、migration runner、auth persistence、task persistence、plugin desired_state persistence、grant persistence、secret store
 - plugin discovery：当前扫描 `plugins/builtin` 与 `plugins/installed`；`examples/plugins` 仅保留示例职责

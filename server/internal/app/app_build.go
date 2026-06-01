@@ -10,6 +10,7 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/logging"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	"github.com/RayleaBot/RayleaBot/server/internal/schema"
+	"github.com/RayleaBot/RayleaBot/server/internal/schemaassets"
 	"github.com/RayleaBot/RayleaBot/server/internal/tasks"
 )
 
@@ -47,7 +48,7 @@ func initializeAppBuild(options Options) (appBuildState, error) {
 	if err != nil {
 		return appBuildState{}, err
 	}
-	pluginValidator, err := schema.Compile(discoverySpec.pluginSchemaPath)
+	pluginValidator, err := compilePluginSchema(discoverySpec.pluginSchemaPath)
 	if err != nil {
 		return appBuildState{}, fmt.Errorf("compile plugin manifest schema %s: %w", discoverySpec.pluginSchemaPath, err)
 	}
@@ -80,4 +81,11 @@ func initializeAppBuild(options Options) (appBuildState, error) {
 		pluginCatalog:    plugins.NewCatalog(snapshots),
 		managementRedact: managementRedactor.Redact,
 	}, nil
+}
+
+func compilePluginSchema(schemaPath string) (*schema.Validator, error) {
+	if schemaassets.IsPluginInfoSchemaID(schemaPath) {
+		return schema.CompileJSON(schemaassets.PluginInfoSchemaID, schemaassets.PluginInfoSchemaJSON)
+	}
+	return schema.Compile(schemaPath)
 }

@@ -2,7 +2,7 @@
 
 本页说明 RayleaBot 当前用户可见的配置文件模型、目录职责和运行根目录语义。
 
-正式配置结构以 `contracts/config.user.schema.json` 为准。
+正式配置结构以源码中的 `contracts/config.user.schema.json` 为准。发行包中的服务端程序内置运行时配置校验规则。
 
 ## 配置文件模型
 

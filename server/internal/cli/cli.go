@@ -12,6 +12,8 @@ import (
 
 	"github.com/RayleaBot/RayleaBot/server/internal/deps"
 	"github.com/RayleaBot/RayleaBot/server/internal/recovery"
+	"github.com/RayleaBot/RayleaBot/server/internal/schema"
+	"github.com/RayleaBot/RayleaBot/server/internal/schemaassets"
 	"github.com/RayleaBot/RayleaBot/server/internal/storage"
 )
 
@@ -102,19 +104,19 @@ func BuildDoctorReport(cmd Command) DoctorReport {
 		})
 	}
 
-	// Check schema file.
-	if _, err := os.Stat(cmd.SchemaPath); err != nil {
+	// Check config schema.
+	if err := validateConfigSchema(cmd.SchemaPath); err != nil {
 		issues = append(issues, DoctorIssue{
-			Code:        "schema.not_accessible",
+			Code:        "schema.invalid",
 			Severity:    "error",
-			Summary:     "Config schema file not accessible: " + cmd.SchemaPath,
-			Remediation: "请确认 contracts 目录完整。",
+			Summary:     "Config schema unavailable: " + displaySchemaPath(cmd.SchemaPath),
+			Remediation: "请确认配置校验规则可用。",
 		})
 	} else {
 		issues = append(issues, DoctorIssue{
 			Code:     "schema.ok",
 			Severity: "ok",
-			Summary:  "Config schema file accessible",
+			Summary:  "Config schema available",
 		})
 	}
 
@@ -153,23 +155,6 @@ func BuildDoctorReport(cmd Command) DoctorReport {
 				})
 			}
 		}
-	}
-
-	// Check contracts directory.
-	contractsDir := filepath.Dir(cmd.SchemaPath)
-	if _, err := os.ReadDir(contractsDir); err != nil {
-		issues = append(issues, DoctorIssue{
-			Code:        "contracts.not_accessible",
-			Severity:    "warning",
-			Summary:     "Contracts directory not accessible: " + contractsDir,
-			Remediation: "请确认 contracts 目录存在且可读。",
-		})
-	} else {
-		issues = append(issues, DoctorIssue{
-			Code:     "contracts.ok",
-			Severity: "ok",
-			Summary:  "Contracts directory accessible",
-		})
 	}
 
 	repoRoot := recovery.RepoRootFromConfigPath(cmd.ConfigPath)
@@ -245,6 +230,22 @@ func BuildDoctorReport(cmd Command) DoctorReport {
 		report.RecoverySummary = summary
 	}
 	return report
+}
+
+func validateConfigSchema(schemaPath string) error {
+	if schemaassets.IsConfigUserSchemaID(schemaPath) {
+		_, err := schema.CompileJSON(schemaassets.ConfigUserSchemaID, schemaassets.ConfigUserSchemaJSON)
+		return err
+	}
+	_, err := schema.Compile(schemaPath)
+	return err
+}
+
+func displaySchemaPath(schemaPath string) string {
+	if schemaPath == "" {
+		return schemaassets.ConfigUserSchemaID
+	}
+	return schemaPath
 }
 
 func runDoctor(cmd Command) int {

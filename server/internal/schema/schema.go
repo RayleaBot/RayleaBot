@@ -38,6 +38,20 @@ func CompileDocument(name string, document any) (*Validator, error) {
 	return compileDocument(name, document)
 }
 
+func CompileJSON(name string, content []byte) (*Validator, error) {
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return nil, fmt.Errorf("schema name is required")
+	}
+
+	var document any
+	if err := json.Unmarshal(content, &document); err != nil {
+		return nil, fmt.Errorf("unmarshal schema %s: %w", name, err)
+	}
+
+	return compileDocument(name, document)
+}
+
 func (v *Validator) Path() string {
 	return v.path
 }

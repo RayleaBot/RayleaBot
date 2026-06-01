@@ -12,7 +12,9 @@ import (
 	"time"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/adapter"
+	internalapp "github.com/RayleaBot/RayleaBot/server/internal/app"
 	"github.com/RayleaBot/RayleaBot/server/internal/logging"
+	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 )
 
 func TestLogsListReturnsFilteredSummaries(t *testing.T) {
@@ -1040,8 +1042,17 @@ func TestLogDetailReturnsOutboundStructuredDetail(t *testing.T) {
 func TestLogsIncludeCommandPolicyRejectionFromEventIngress(t *testing.T) {
 	t.Parallel()
 
-	application, _, _ := newTestAppWithConfigMutation(t, func(input map[string]any) {
+	configMutation := func(input map[string]any) {
 		input["log"].(map[string]any)["retention_days"] = 365
+	}
+	application, _, _ := newTestAppWithOptions(t, configMutation, func(options *internalapp.Options, configPath string) {
+		repoRoot := repoRootPath(t)
+		options.PluginRepoRoot = repoRoot
+		options.PluginSchemaPath = filepath.Join("..", "contracts", "plugin-info.schema.json")
+		options.PluginRoots = []plugins.ScanRoot{
+			{Label: "plugins/builtin", Path: filepath.Join(repoRoot, "plugins", "builtin")},
+			{Label: "plugins/installed", Path: filepath.Join(filepath.Dir(configPath), "..", "plugins", "installed")},
+		}
 	}, deterministicAuthOptions()...)
 	token := issueLoginToken(t, application)
 	server := httptest.NewServer(application.Handler())

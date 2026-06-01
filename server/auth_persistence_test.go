@@ -17,6 +17,7 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/auth"
 	"github.com/RayleaBot/RayleaBot/server/internal/bridge"
 	"github.com/RayleaBot/RayleaBot/server/internal/dispatch"
+	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	"github.com/RayleaBot/RayleaBot/server/internal/secrets"
 	"github.com/RayleaBot/RayleaBot/server/internal/storage"
 )
@@ -211,9 +212,16 @@ func newPersistentTestApp(t *testing.T, configPath string, now func() time.Time,
 	t.Helper()
 
 	sessionCounter := 0
+	repoRoot := repoRootPath(t)
 	application, err := app.New(app.Options{
-		ConfigPath: configPath,
-		SchemaPath: filepath.Join("..", "contracts", "config.user.schema.json"),
+		ConfigPath:       configPath,
+		SchemaPath:       filepath.Join("..", "contracts", "config.user.schema.json"),
+		PluginRepoRoot:   repoRoot,
+		PluginSchemaPath: filepath.Join("..", "contracts", "plugin-info.schema.json"),
+		PluginRoots: []plugins.ScanRoot{
+			{Label: "plugins/builtin", Path: filepath.Join(repoRoot, "plugins", "builtin")},
+			{Label: "plugins/installed", Path: filepath.Join(filepath.Dir(configPath), "..", "plugins", "installed")},
+		},
 		AuthOptions: []auth.Option{
 			auth.WithClock(now),
 			auth.WithSessionIDGenerator(func() (string, error) {

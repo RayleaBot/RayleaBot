@@ -2,7 +2,7 @@
 
 本目录说明 RayleaBot 插件平台的当前边界、manifest、能力授权、协议和 SDK。
 
-正式裁决以 `contracts/plugin-info.schema.json` 和 `contracts/plugin-protocol.schema.json` 为准。
+正式裁决以源码中的 `contracts/plugin-info.schema.json` 和 `contracts/plugin-protocol.schema.json` 为准。发行包中的服务端程序内置插件 manifest 校验规则。
 
 ## 阅读入口
 
