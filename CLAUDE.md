@@ -37,6 +37,9 @@
 
 ## Default Commands
 
+- Windows shell
+  - `C:\Program Files\Git\usr\bin\bash.exe --noprofile --norc -lc '<command>'`
+  - Prefix Unix-tool commands with `export PATH="/usr/bin:/bin:$PATH";`
 - Server
   - `go build ./cmd/raylea-server`
   - `go test ./...`
