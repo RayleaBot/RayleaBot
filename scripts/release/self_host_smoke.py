@@ -51,8 +51,6 @@ EXPECTED_COMPATIBILITY_ITEMS = {
 }
 EXPECTED_COMPATIBILITY_SUPPORT_VALUES = {"supported", "unsupported"}
 DEFAULT_TEMPLATE_ID = "help.menu"
-DEFAULT_PREVIEW_THEME = "default"
-DEFAULT_PREVIEW_OUTPUT = "png"
 
 
 class SmokeError(RuntimeError):
@@ -347,42 +345,6 @@ def validate_render_template_versions(
     return revision_ids
 
 
-def build_render_preview_request(template_id: str) -> dict[str, object]:
-    if template_id != DEFAULT_TEMPLATE_ID:
-        raise SmokeError(f"no packaged smoke preview payload configured for template {template_id}")
-    return {
-        "template": template_id,
-        "theme": DEFAULT_PREVIEW_THEME,
-        "output": DEFAULT_PREVIEW_OUTPUT,
-        "data": {
-            "title": "帮助菜单",
-            "subtitle": "自托管冒烟验证",
-            "items": [
-                {
-                    "name": "health",
-                    "description": "查看当前服务状态",
-                    "usage": "/health",
-                }
-            ],
-        },
-    }
-
-
-def validate_render_preview_details(details: dict[str, object], template_id: str) -> tuple[str, str]:
-    artifact_id = require_non_empty_string(details.get("artifact_id"), "render preview artifact_id")
-    image_url = require_non_empty_string(details.get("image_url"), "render preview image_url")
-    if str(details.get("template", "")) != template_id:
-        raise SmokeError(f"render preview result must point back to template {template_id}: {details}")
-    if str(details.get("theme", "")) != DEFAULT_PREVIEW_THEME:
-        raise SmokeError(f"render preview result theme mismatch: {details}")
-    if str(details.get("mime", "")) not in {"image/png", "image/jpeg"}:
-        raise SmokeError(f"render preview result mime must be an image: {details}")
-    require_non_empty_string(details.get("cache_key"), "render preview cache_key")
-    if not isinstance(details.get("from_cache"), bool):
-        raise SmokeError(f"render preview from_cache must be boolean: {details}")
-    return artifact_id, image_url
-
-
 def exercise_packaged_protocol_and_template_workflows(base_url: str, session_token: str) -> tuple[str, str]:
     protocol_snapshot = request_json(f"{base_url}api/protocols/onebot11", headers=bearer_headers(session_token))
     validate_protocol_snapshot(protocol_snapshot)
@@ -412,32 +374,6 @@ def exercise_packaged_protocol_and_template_workflows(base_url: str, session_tok
         headers=bearer_headers(session_token),
     )
     validate_render_template_validation(validation_body, template_id)
-
-    preview_accepted = request_json(
-        f"{base_url}api/system/render/preview",
-        method="POST",
-        body=build_render_preview_request(template_id),
-        headers=bearer_headers(session_token),
-        expected_status=202,
-        timeout=15,
-    )
-    preview_task_id = extract_task_id(preview_accepted, "system/render/preview")
-    preview_task = poll_task(
-        base_url,
-        session_token,
-        preview_task_id,
-        expected_task_type="render.preview",
-        timeout_seconds=180,
-    )
-    preview_details = extract_task_details(preview_task, "render.preview")
-    _, image_url = validate_render_preview_details(preview_details, template_id)
-    artifact_bytes = request_bytes(
-        f"{base_url}{image_url.lstrip('/')}",
-        headers=bearer_headers(session_token),
-        timeout=30,
-    )
-    if not artifact_bytes:
-        raise SmokeError("render preview artifact response must not be empty")
 
     updated_source = json.loads(json.dumps(source_bundle))
     if not isinstance(updated_source, dict):

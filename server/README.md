@@ -22,8 +22,10 @@
   - `PUT /api/config`
   - `GET /api/system/status`
   - `POST /api/system/shutdown`
-  - `POST /api/system/render/preview`
-- `GET /api/system/render/artifacts/{artifact_id}`
+  - `GET /api/system/render/templates`
+  - `GET /api/system/render/templates/{template_id}`
+  - `POST /api/system/render/templates/{template_id}/preview-html`
+  - `GET /api/system/render/templates/{template_id}/asset`
 - `GET /api/protocols/onebot11`
 - `GET /api/logs`
 - `GET /api/logs/{log_id}`
@@ -114,7 +116,7 @@
 - Render Service：
   - Chromium 渲染与 bounded queue
   - `templates/` 模板注册、input schema 校验与缓存键生成
-  - `render.preview` 任务流、artifact registry 与同源图片读取面
+  - 管理面模板实时预览与插件图片渲染
   - startup logs、`/readyz`、CLI `doctor` 与 Launcher preflight 的统一资源诊断
 - CLI 子命令：
   - `reset-admin`

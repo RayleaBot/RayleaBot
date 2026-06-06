@@ -85,51 +85,6 @@ func TestRenderTemplateHandlersRejectUnknownTemplate(t *testing.T) {
 	}
 }
 
-func TestRenderPreviewHandlerAcceptsStoredTemplateAndStreamsArtifact(t *testing.T) {
-	t.Parallel()
-
-	fixture := newRenderHTTPFixture(t)
-
-	previewRecorder := fixture.request(http.MethodPost, "/api/system/render/preview", render.Request{
-		Template: "help.menu",
-		Theme:    "default",
-		Output:   "png",
-		Data: map[string]any{
-			"title": "帮助菜单",
-		},
-	})
-	if previewRecorder.Code != http.StatusAccepted {
-		t.Fatalf("preview status = %d, want 202 (%s)", previewRecorder.Code, previewRecorder.Body.String())
-	}
-
-	var accepted taskAcceptedResponse
-	if err := json.Unmarshal(previewRecorder.Body.Bytes(), &accepted); err != nil {
-		t.Fatalf("decode preview accepted response: %v", err)
-	}
-
-	task := waitTask(t, fixture.tasks, accepted.TaskID, tasks.StatusSucceeded)
-	if task.Result == nil {
-		t.Fatalf("expected preview task result, got %#v", task)
-	}
-
-	imageURL, _ := task.Result.Details["image_url"].(string)
-	artifactID, _ := task.Result.Details["artifact_id"].(string)
-	if imageURL == "" || artifactID == "" {
-		t.Fatalf("expected artifact metadata, got %#v", task.Result.Details)
-	}
-
-	artifactRecorder := fixture.request(http.MethodGet, imageURL, nil)
-	if artifactRecorder.Code != http.StatusOK {
-		t.Fatalf("artifact status = %d, want 200 (%s)", artifactRecorder.Code, artifactRecorder.Body.String())
-	}
-	if got := artifactRecorder.Header().Get("Content-Type"); got != "image/png" {
-		t.Fatalf("artifact content-type = %q, want image/png", got)
-	}
-	if len(artifactRecorder.Body.Bytes()) == 0 {
-		t.Fatal("expected artifact bytes")
-	}
-}
-
 func TestRenderTemplatePreviewHTMLHandlerDoesNotCreateTask(t *testing.T) {
 	t.Parallel()
 
@@ -279,8 +234,6 @@ func newRenderHTTPFixture(t *testing.T) renderHTTPFixture {
 	handlers := newRenderHTTPHandlers(renderer, executor)
 
 	router := chi.NewRouter()
-	router.Post("/api/system/render/preview", handlers.handleSystemRenderPreview())
-	router.Get("/api/system/render/artifacts/{artifact_id}", handlers.handleSystemRenderArtifact())
 	router.Get("/api/system/render/templates", handlers.handleSystemRenderTemplateList())
 	router.Post("/api/system/render/templates/{template_id}/preview-html", handlers.handleSystemRenderTemplatePreviewHTML())
 	router.Get("/api/system/render/templates/{template_id}/asset", handlers.handleSystemRenderTemplateAsset())

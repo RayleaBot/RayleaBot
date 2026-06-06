@@ -2,20 +2,17 @@
 import {
   CloudUploadOutlined,
   FileZipOutlined,
-  EyeOutlined,
 } from '@ant-design/icons-vue'
 import { t } from '@/i18n'
 
 defineProps<{
   backupPending: boolean
   diagnosticsPending: boolean
-  previewPending: boolean
 }>()
 
 defineEmits<{
   createBackup: []
   exportDiagnostics: []
-  openPreview: []
 }>()
 </script>
 
@@ -45,15 +42,6 @@ defineEmits<{
       >
         <template #icon><FileZipOutlined v-if="!diagnosticsPending" /></template>
         {{ t('dashboard.exportDiagnostics') }}
-      </a-button>
-      <a-button
-        type="primary"
-        class="tool-button tool-button--preview"
-        :loading="previewPending"
-        @click="$emit('openPreview')"
-      >
-        <template #icon><EyeOutlined v-if="!previewPending" /></template>
-        {{ t('dashboard.renderPreview') }}
       </a-button>
     </div>
   </a-card>
@@ -126,15 +114,5 @@ defineEmits<{
     }
   }
 
-  &--preview {
-    background: linear-gradient(135deg, var(--success) 0%, color-mix(in srgb, var(--success) 80%, #ffffff) 100%) !important;
-    border-color: var(--success);
-    color: #ffffff;
-
-    &:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 4px 12px -3px color-mix(in srgb, var(--success) 40%, transparent);
-    }
-  }
 }
 </style>

@@ -26,7 +26,6 @@ export const tasks = {
     title: '暂无任务',
     description: '当前没有运行或历史任务',
   },
-  previewAlt: '图片预览结果',
   recoverySummary: '恢复摘要',
   cancelAccepted: '取消请求已发送',
   statusAriaLabel: '任务状态：{status}',

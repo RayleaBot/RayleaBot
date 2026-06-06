@@ -39,9 +39,6 @@ export const display = {
     db: {
       migrate: '迁移数据库',
     },
-    render: {
-      preview: '图片预览',
-    },
   },
   taskStatuses: {
     pending: '等待中',

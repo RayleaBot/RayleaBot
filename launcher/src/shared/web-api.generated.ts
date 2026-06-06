@@ -476,40 +476,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/system/render/preview": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Start an asynchronous render.preview task for management-side template preview. */
-        post: operations["createRenderPreview"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/system/render/artifacts/{artifact_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Stream a previously rendered preview artifact for same-origin management inspection. */
-        get: operations["getRenderArtifact"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/system/render/templates": {
         parameters: {
             query?: never;
@@ -1204,7 +1170,7 @@ export interface components {
         /** @enum {string} */
         TaskStatus: "pending" | "running" | "succeeded" | "failed" | "cancelled" | "interrupted";
         /** @enum {string} */
-        TaskType: "plugin.install" | "plugin.uninstall" | "plugin.reload" | "backup.create" | "recovery.recheck" | "recovery.confirm" | "restore.apply" | "config.migrate" | "db.migrate" | "runtime.bootstrap" | "render.preview";
+        TaskType: "plugin.install" | "plugin.uninstall" | "plugin.reload" | "backup.create" | "recovery.recheck" | "recovery.confirm" | "restore.apply" | "config.migrate" | "db.migrate" | "runtime.bootstrap";
         TaskErrorSummary: {
             code: string;
             message: string;
@@ -1244,19 +1210,6 @@ export interface components {
         RuntimeBootstrapResource: "chromium" | "python-runtime" | "nodejs-runtime";
         RuntimeBootstrapRequest: {
             resources?: components["schemas"]["RuntimeBootstrapResource"][];
-        };
-        RenderPreviewRequest: {
-            template: string;
-            /** @default default */
-            theme: string;
-            /**
-             * @description Omit to use config render.default_output.
-             * @enum {string}
-             */
-            output?: "png" | "jpeg";
-            data: {
-                [key: string]: unknown;
-            };
         };
         RenderTemplatePreviewHTMLRequest: {
             /** @default default */
@@ -2722,62 +2675,6 @@ export interface operations {
             };
             400: components["responses"]["Error"];
             401: components["responses"]["Error"];
-            default: components["responses"]["Error"];
-        };
-    };
-    createRenderPreview: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["RenderPreviewRequest"];
-            };
-        };
-        responses: {
-            /** @description Render preview task accepted. */
-            202: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["TaskAcceptedResponse"];
-                };
-            };
-            400: components["responses"]["Error"];
-            401: components["responses"]["Error"];
-            413: components["responses"]["Error"];
-            429: components["responses"]["Error"];
-            503: components["responses"]["Error"];
-            default: components["responses"]["Error"];
-        };
-    };
-    getRenderArtifact: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                artifact_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Render artifact image bytes. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "image/png": string;
-                    "image/jpeg": string;
-                };
-            };
-            401: components["responses"]["Error"];
-            404: components["responses"]["Error"];
             default: components["responses"]["Error"];
         };
     };

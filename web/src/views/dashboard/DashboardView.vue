@@ -49,9 +49,6 @@ const {
   loading,
   openRecoveryPlugin,
   pendingRecoveryPlugins,
-  previewForm,
-  previewPending,
-  previewVisible,
   protocolSnapshot,
   readinessDetailText,
   readinessIssues,
@@ -68,7 +65,6 @@ const {
   runtimeBootstrapPending,
   selectedRecoveryReviewCountLabel,
   selectedRecoveryReviewIds,
-  submitRenderPreview,
   system,
   systemDetailText,
   systemValueText,
@@ -351,10 +347,8 @@ function getProtocolIssueTagColor(status: typeof protocolIssueStatusType.value) 
         v-motion="{ initial: { opacity: 0, y: 12 }, enter: { opacity: 1, y: 0, transition: { duration: 300, delay: 200 } } }"
         :backup-pending="backupPending"
         :diagnostics-pending="diagnosticsPending"
-        :preview-pending="previewPending"
         @create-backup="createBackup"
         @export-diagnostics="exportDiagnostics"
-        @open-preview="previewVisible = true"
       />
 
       <AppCard
@@ -402,37 +396,6 @@ function getProtocolIssueTagColor(status: typeof protocolIssueStatusType.value) 
         </div>
       </AppCard>
     </div>
-
-    <a-modal
-      v-model:open="previewVisible"
-      :title="t('dashboard.previewTitle')"
-      :confirm-loading="previewPending"
-      :ok-text="t('dashboard.previewSubmit')"
-      :cancel-text="t('dashboard.previewCancel')"
-      @ok="submitRenderPreview"
-    >
-      <a-form layout="vertical">
-        <a-form-item :label="t('dashboard.previewTemplate')">
-          <a-input v-model:value="previewForm.template" placeholder="help.menu" />
-        </a-form-item>
-        <a-form-item :label="t('dashboard.previewTheme')">
-          <a-input v-model:value="previewForm.theme" placeholder="default" />
-        </a-form-item>
-        <a-form-item :label="t('dashboard.previewOutput')">
-          <a-radio-group v-model:value="previewForm.output" button-style="solid">
-            <a-radio-button value="png">png</a-radio-button>
-            <a-radio-button value="jpeg">jpeg</a-radio-button>
-          </a-radio-group>
-        </a-form-item>
-        <a-form-item :label="t('dashboard.previewData')">
-          <a-textarea
-            v-model:value="previewForm.dataText"
-            :rows="10"
-            placeholder="{&quot;title&quot;:&quot;帮助菜单&quot;}"
-          />
-        </a-form-item>
-      </a-form>
-    </a-modal>
   </AppPage>
 </template>
 

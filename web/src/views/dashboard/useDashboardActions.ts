@@ -8,12 +8,6 @@ type DashboardActionState = {
   systemStore: {
     createBackup: () => Promise<{ task_id: string }>
     exportDiagnostics: () => Promise<void>
-    previewRender: (payload: {
-      template: string
-      theme?: string
-      output: 'png' | 'jpeg'
-      data: Record<string, unknown>
-    }) => Promise<{ task_id: string }>
     recheckRecovery: () => Promise<{ task_id: string }>
     confirmRecovery: (payload: { review_ids: string[]; note?: string }) => Promise<{ task_id: string }>
     bootstrapManagedRuntime: (resources: string[]) => Promise<{ task_id: string }>
@@ -24,13 +18,6 @@ type DashboardActionState = {
   router: {
     push: (location: unknown) => Promise<unknown>
   }
-  previewForm: {
-    template: string
-    theme: string
-    output: 'png' | 'jpeg'
-    dataText: string
-  }
-  previewVisible: Ref<boolean>
   recoveryBootstrapResources: ComputedRef<string[]>
   recoveryConfirmNote: Ref<string>
   selectedRecoveryReviewIds: Ref<string[]>
@@ -62,34 +49,6 @@ export function useDashboardActions(state: DashboardActionState) {
     try {
       await state.systemStore.exportDiagnostics()
       notifySuccess(t('dashboard.diagnosticsAccepted'))
-    } catch (error) {
-      notifyError(getDisplayErrorMessage(error))
-    }
-  }
-
-  async function submitRenderPreview() {
-    let data: Record<string, unknown>
-    try {
-      const parsed = JSON.parse(state.previewForm.dataText)
-      if (!parsed || Array.isArray(parsed) || typeof parsed !== 'object') {
-        throw new Error(t('errors.platform.invalidRequest'))
-      }
-      data = parsed as Record<string, unknown>
-    } catch (error) {
-      notifyError(getDisplayErrorMessage(error))
-      return
-    }
-
-    try {
-      const response = await state.systemStore.previewRender({
-        template: state.previewForm.template,
-        theme: state.previewForm.theme || undefined,
-        output: state.previewForm.output,
-        data,
-      })
-      state.previewVisible.value = false
-      notifySuccess(t('dashboard.previewAccepted'))
-      await state.router.push(buildTaskLocation(response.task_id))
     } catch (error) {
       notifyError(getDisplayErrorMessage(error))
     }
@@ -149,6 +108,5 @@ export function useDashboardActions(state: DashboardActionState) {
     exportDiagnostics,
     openRecoveryPlugin,
     recheckRecoverySummary,
-    submitRenderPreview,
   }
 }

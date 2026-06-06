@@ -1,7 +1,6 @@
 package app
 
 import (
-	"context"
 	"errors"
 	"net/http"
 	"strings"
@@ -10,7 +9,6 @@ import (
 
 	"github.com/RayleaBot/RayleaBot/server/internal/httpapi"
 	"github.com/RayleaBot/RayleaBot/server/internal/render"
-	"github.com/RayleaBot/RayleaBot/server/internal/tasks"
 )
 
 type renderTemplateSummary struct {
@@ -165,78 +163,6 @@ func (h *renderHTTPHandlers) handleSystemRenderTemplateAsset() http.HandlerFunc 
 	}
 }
 
-func (h *renderHTTPHandlers) handleSystemRenderPreview() http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		if h == nil || h.taskExecutor == nil || h.renderer == nil {
-			writeAppError(w, r, http.StatusInternalServerError, codeInternalError, "内部错误", "errors.platform.internal_error", nil)
-			return
-		}
-
-		var request render.Request
-		if err := httpapi.DecodeStrictJSON(w, r, &request, httpapi.MaxManagementJSONBodyBytes); err != nil || strings.TrimSpace(request.Template) == "" {
-			writeAppError(w, r, http.StatusBadRequest, codeInvalidRequest, "请求参数不合法", "errors.platform.invalid_request", nil)
-			return
-		}
-
-		taskID, err := h.taskExecutor.Submit("render.preview", "生成渲染预览", func(ctx context.Context, progress tasks.ProgressReporter) (*tasks.ResultSummary, error) {
-			progress.Update(20, "准备渲染模板")
-			result, renderErr := h.renderer.Render(ctx, request)
-			if renderErr != nil {
-				return nil, mapRenderTaskError(renderErr)
-			}
-
-			progress.Update(90, "生成渲染产物")
-			return &tasks.ResultSummary{
-				Summary: "渲染预览已生成",
-				Details: map[string]any{
-					"artifact_id": result.ArtifactID,
-					"image_url":   h.renderer.ArtifactURL(result.ArtifactID),
-					"mime":        result.MIME,
-					"cache_key":   result.CacheKey,
-					"template":    result.Template,
-					"theme":       result.Theme,
-					"from_cache":  result.FromCache,
-				},
-			}, nil
-		})
-		if err != nil {
-			writeAppError(w, r, http.StatusInternalServerError, codeInternalError, "内部错误", "errors.platform.internal_error", nil)
-			return
-		}
-
-		writeAuthJSON(w, http.StatusAccepted, taskAcceptedResponse{TaskID: taskID})
-	}
-}
-
-func (h *renderHTTPHandlers) handleSystemRenderArtifact() http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		if h == nil || h.renderer == nil {
-			writeAppError(w, r, http.StatusNotFound, codeResourceMissing, "缺少必要资源", "errors.platform.resource_missing", map[string]any{
-				"resource_type": "render_artifact",
-			})
-			return
-		}
-
-		artifactID := chi.URLParam(r, "artifact_id")
-		artifact, err := h.renderer.LookupArtifact(artifactID)
-		if err != nil {
-			var renderErr *render.Error
-			if errors.As(err, &renderErr) && renderErr.Code == codeResourceMissing {
-				writeAppError(w, r, http.StatusNotFound, codeResourceMissing, "缺少必要资源", "errors.platform.resource_missing", map[string]any{
-					"resource_type": "render_artifact",
-					"artifact_id":   artifactID,
-				})
-				return
-			}
-			writeAppError(w, r, http.StatusInternalServerError, codeInternalError, "内部错误", "errors.platform.internal_error", nil)
-			return
-		}
-
-		w.Header().Set("Content-Type", artifact.MIME)
-		http.ServeFile(w, r, artifact.Path)
-	}
-}
-
 func (h *renderHTTPHandlers) handleSystemRenderTemplateList() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		items, err := h.renderer.ListTemplates(r.Context())
@@ -303,15 +229,4 @@ func writeRenderTemplateError(w http.ResponseWriter, r *http.Request, err error)
 	default:
 		writeAppError(w, r, http.StatusInternalServerError, codeInternalError, "内部错误", "errors.platform.internal_error", nil)
 	}
-}
-
-func mapRenderTaskError(err error) error {
-	var renderErr *render.Error
-	if errors.As(err, &renderErr) {
-		return &tasks.TaskError{
-			Code:    renderErr.Code,
-			Message: renderErr.Message,
-		}
-	}
-	return err
 }

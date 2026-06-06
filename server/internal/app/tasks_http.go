@@ -30,7 +30,6 @@ var allowedTaskTypes = map[string]struct{}{
 	"config.migrate":    {},
 	"db.migrate":        {},
 	"runtime.bootstrap": {},
-	"render.preview":    {},
 }
 
 type taskListResponse struct {

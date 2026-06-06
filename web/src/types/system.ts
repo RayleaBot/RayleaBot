@@ -16,7 +16,6 @@ export type SystemShutdownResponse = components['schemas']['SystemShutdownRespon
 export type RecoveryConfirmRequest = components['schemas']['RecoveryConfirmRequest']
 export type RuntimeBootstrapResource = components['schemas']['RuntimeBootstrapResource']
 export type RuntimeBootstrapRequest = components['schemas']['RuntimeBootstrapRequest']
-export type RenderPreviewRequest = components['schemas']['RenderPreviewRequest']
 export type RenderTemplateDetail = components['schemas']['RenderTemplateDetail']
 export type RenderTemplateDetailResponse = components['schemas']['RenderTemplateDetailResponse']
 export type RenderTemplateListResponse = components['schemas']['RenderTemplateListResponse']

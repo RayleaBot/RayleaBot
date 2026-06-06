@@ -136,21 +136,25 @@ func TestSQLiteRepository_DoesNotDowngradeTerminalSnapshot(t *testing.T) {
 	ctx := context.Background()
 	startedAt := time.Date(2026, 4, 2, 7, 41, 19, 0, time.UTC)
 	finishedAt := time.Date(2026, 4, 2, 7, 41, 21, 0, time.UTC)
-	taskID := "task_render_preview_0001"
+	taskID := "task_runtime_bootstrap_0001"
 
 	succeeded := Snapshot{
 		TaskID:     taskID,
-		TaskType:   "render.preview",
+		TaskType:   "runtime.bootstrap",
 		Status:     StatusSucceeded,
 		Progress:   100,
-		Summary:    "渲染预览已生成",
+		Summary:    "运行环境准备完成",
 		StartedAt:  &startedAt,
 		FinishedAt: &finishedAt,
 		Result: &ResultSummary{
-			Summary: "渲染预览已生成",
+			Summary: "运行环境准备完成",
 			Details: map[string]any{
-				"artifact_id": "artifact_render_preview_0001",
-				"image_url":   "/api/system/render/artifacts/artifact_render_preview_0001",
+				"resources": []any{
+					map[string]any{
+						"resource": "chromium",
+						"status":   "ready",
+					},
+				},
 			},
 		},
 	}
@@ -160,10 +164,10 @@ func TestSQLiteRepository_DoesNotDowngradeTerminalSnapshot(t *testing.T) {
 
 	staleRunning := Snapshot{
 		TaskID:    taskID,
-		TaskType:  "render.preview",
+		TaskType:  "runtime.bootstrap",
 		Status:    StatusRunning,
 		Progress:  90,
-		Summary:   "生成渲染产物",
+		Summary:   "准备运行环境",
 		StartedAt: &startedAt,
 	}
 	if err := repo.SaveTask(ctx, staleRunning); err != nil {
@@ -188,8 +192,9 @@ func TestSQLiteRepository_DoesNotDowngradeTerminalSnapshot(t *testing.T) {
 	if got.FinishedAt == nil || !got.FinishedAt.Equal(finishedAt) {
 		t.Fatalf("FinishedAt = %v, want %v", got.FinishedAt, finishedAt)
 	}
-	if got.Result == nil || got.Result.Details["artifact_id"] != "artifact_render_preview_0001" {
-		t.Fatalf("Result = %+v, want persisted render artifact details", got.Result)
+	resources, ok := got.Result.Details["resources"].([]any)
+	if got.Result == nil || !ok || len(resources) != 1 {
+		t.Fatalf("Result = %+v, want persisted runtime bootstrap details", got.Result)
 	}
 }
 

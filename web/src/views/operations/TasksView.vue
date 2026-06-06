@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useRoute, useRouter } from 'vue-router'
 
@@ -12,10 +12,9 @@ import RetryPanel from '@/components/RetryPanel.vue'
 import { getDisplayErrorMessage } from '@/lib/error-text'
 import { getRecoveryStatusLabel, getTaskStatusLabel, getTaskTypeLabel } from '@/lib/display'
 import { formatDateTime } from '@/lib/format'
-import { apiDownload } from '@/lib/http'
 import { buildPluginDetailLocation, buildTaskContextActions, buildTaskLocation } from '@/lib/management-links'
 import { t } from '@/i18n'
-import type { RecoveryCompatibilitySummary, TaskSummary } from '@/types/api'
+import type { RecoveryCompatibilitySummary } from '@/types/api'
 import { useTasksStore } from '@/stores/tasks'
 import { useReadyToRenderHeavyContent } from '@/layouts/usePageTransitionStage'
 
@@ -24,11 +23,8 @@ const router = useRouter()
 const tasksStore = useTasksStore()
 const { cancelPending, currentTask, detailLoading, error, loading, sortedItems } = storeToRefs(tasksStore)
 const detailVisible = ref(false)
-const previewImageSrc = ref('')
 const hasRequestedTasks = ref(false)
 const readyToRenderHeavyContent = useReadyToRenderHeavyContent()
-let previewImageLoadVersion = 0
-let previewWatcherActive = true
 
 const tableColumns = computed(() => [
   { title: t('tasks.fields.type'), key: 'type', dataIndex: 'task_type', width: 220 },
@@ -82,7 +78,6 @@ watch(detailVisible, async (visible) => {
     return
   }
 
-  resetPreviewImage()
   tasksStore.clearCurrentTask()
   if (route.name === 'tasks' && route.query.task_id) {
     await router.replace(buildTaskLocation(null))
@@ -118,12 +113,6 @@ onMounted(() => {
   void loadTasks()
 })
 
-onBeforeUnmount(() => {
-  previewWatcherActive = false
-  previewImageLoadVersion += 1
-  resetPreviewImage()
-})
-
 function taskDetailEntries(details?: Record<string, unknown>) {
   return Object.entries(details ?? {}).filter(([key]) => key !== 'recovery_summary')
 }
@@ -136,11 +125,6 @@ function formatTaskDetailValue(value: unknown) {
     return String(value)
   }
   return JSON.stringify(value)
-}
-
-function previewImageUrl(task: TaskSummary | null) {
-  const imageUrl = task?.result?.details?.image_url
-  return typeof imageUrl === 'string' && imageUrl ? imageUrl : ''
 }
 
 function isRecoverySummary(value: unknown): value is RecoveryCompatibilitySummary {
@@ -167,56 +151,6 @@ const currentTaskActions = computed(() => (
 async function openRecoveryPlugin(pluginId: string) {
   await router.push(buildPluginDetailLocation(pluginId))
 }
-
-function resetPreviewImage() {
-  if (!previewImageSrc.value) {
-    return
-  }
-
-  window.URL.revokeObjectURL(previewImageSrc.value)
-  previewImageSrc.value = ''
-}
-
-watch(
-  [detailVisible, () => previewImageUrl(currentTask.value)],
-  async ([visible, imageUrl], _, onCleanup) => {
-    const requestVersion = ++previewImageLoadVersion
-    let cancelled = false
-    const controller = new AbortController()
-
-    onCleanup(() => {
-      cancelled = true
-      controller.abort()
-    })
-
-    if (!visible || !imageUrl) {
-      resetPreviewImage()
-      return
-    }
-
-    try {
-      const { blob } = await apiDownload(imageUrl, { signal: controller.signal })
-      if (cancelled || !previewWatcherActive || requestVersion !== previewImageLoadVersion) {
-        return
-      }
-
-      const nextPreviewUrl = window.URL.createObjectURL(blob)
-      if (cancelled || !previewWatcherActive || requestVersion !== previewImageLoadVersion) {
-        window.URL.revokeObjectURL(nextPreviewUrl)
-        return
-      }
-
-      resetPreviewImage()
-      previewImageSrc.value = nextPreviewUrl
-    } catch {
-      if (cancelled || requestVersion !== previewImageLoadVersion) {
-        return
-      }
-      resetPreviewImage()
-    }
-  },
-  { immediate: true },
-)
 
 function getStatusColor(status: string) {
   if (status === 'succeeded') return 'success'
@@ -358,12 +292,6 @@ function getStatusColor(status: string) {
                 {{ key }} = {{ formatTaskDetailValue(value) }}
               </div>
             </div>
-            <img
-              v-if="previewImageSrc"
-              :src="previewImageSrc"
-              :alt="t('tasks.previewAlt')"
-              class="task-preview-image"
-            />
           </div>
 
           <div v-if="taskRecoverySummary" class="drawer-section">
@@ -557,12 +485,4 @@ function getStatusColor(status: string) {
   justify-content: flex-end;
 }
 
-.task-preview-image {
-  display: block;
-  width: 100%;
-  margin-top: 16px;
-  border-radius: var(--radius-md);
-  border: 1px solid var(--border);
-  background: var(--surface-soft);
-}
 </style>

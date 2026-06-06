@@ -26,8 +26,6 @@ x-fixtures:
   - fixtures/web-api/ok.system-recovery-recheck-accepted.yaml
   - fixtures/web-api/ok.system-recovery-confirm-accepted.yaml
   - fixtures/web-api/ok.system-runtime-bootstrap-accepted.yaml
-  - fixtures/web-api/ok.system-render-preview-accepted.yaml
-  - fixtures/web-api/ok.system-render-artifact.yaml
   - fixtures/web-api/ok.system-render-templates-list-response.yaml
   - fixtures/web-api/ok.system-render-template-detail-response.yaml
   - fixtures/web-api/ok.system-render-template-preview-html.yaml
@@ -56,7 +54,6 @@ x-fixtures:
   - fixtures/web-api/ok.task-detail-succeeded-recovery-recheck.yaml
   - fixtures/web-api/ok.task-detail-succeeded-recovery-confirm.yaml
   - fixtures/web-api/ok.task-detail-succeeded-install.yaml
-  - fixtures/web-api/ok.task-detail-succeeded-render-preview.yaml
   - fixtures/web-api/ok.task-detail-succeeded-runtime-bootstrap.yaml
   - fixtures/web-api/ok.task-cancel-accepted.yaml
   - fixtures/web-api/ok.plugins-install-accepted.yaml
@@ -106,7 +103,6 @@ x-fixtures:
   - fixtures/web-api/invalid.governance-blacklist-entry-unauthorized.yaml
   - fixtures/web-api/invalid.governance-whitelist-unauthorized.yaml
   - fixtures/web-api/invalid.governance-entry-upsert-invalid.yaml
-  - fixtures/web-api/invalid.system-render-preview-invalid.yaml
   - fixtures/web-api/invalid.system-render-template-not-found.yaml
   - fixtures/web-api/invalid.system-render-template-preview-html-invalid.yaml
   - fixtures/web-api/invalid.system-render-template-preview-html-not-found.yaml
@@ -691,70 +687,6 @@ paths:
         '400':
           $ref: '#/components/responses/Error'
         '401':
-          $ref: '#/components/responses/Error'
-        default:
-          $ref: '#/components/responses/Error'
-
-  /api/system/render/preview:
-    post:
-      summary: Start an asynchronous render.preview task for management-side template preview.
-      operationId: createRenderPreview
-      security:
-        - BearerAuth: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/RenderPreviewRequest'
-      responses:
-        '202':
-          description: Render preview task accepted.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/TaskAcceptedResponse'
-        '400':
-          $ref: '#/components/responses/Error'
-        '401':
-          $ref: '#/components/responses/Error'
-        '413':
-          $ref: '#/components/responses/Error'
-        '429':
-          $ref: '#/components/responses/Error'
-        '503':
-          $ref: '#/components/responses/Error'
-        default:
-          $ref: '#/components/responses/Error'
-
-  /api/system/render/artifacts/{artifact_id}:
-    get:
-      summary: Stream a previously rendered preview artifact for same-origin management inspection.
-      operationId: getRenderArtifact
-      security:
-        - BearerAuth: []
-      parameters:
-        - name: artifact_id
-          in: path
-          required: true
-          schema:
-            type: string
-            minLength: 1
-      responses:
-        '200':
-          description: Render artifact image bytes.
-          content:
-            image/png:
-              schema:
-                type: string
-                format: binary
-            image/jpeg:
-              schema:
-                type: string
-                format: binary
-        '401':
-          $ref: '#/components/responses/Error'
-        '404':
           $ref: '#/components/responses/Error'
         default:
           $ref: '#/components/responses/Error'
@@ -2238,7 +2170,6 @@ components:
         - config.migrate
         - db.migrate
         - runtime.bootstrap
-        - render.preview
 
     TaskErrorSummary:
       type: object
@@ -2331,26 +2262,6 @@ components:
           items:
             $ref: '#/components/schemas/RuntimeBootstrapResource'
           uniqueItems: true
-
-    RenderPreviewRequest:
-      type: object
-      additionalProperties: false
-      required: [template, data]
-      properties:
-        template:
-          type: string
-          minLength: 1
-        theme:
-          type: string
-          minLength: 1
-          default: default
-        output:
-          type: string
-          enum: [png, jpeg]
-          description: Omit to use config render.default_output.
-        data:
-          type: object
-          additionalProperties: true
 
     RenderTemplatePreviewHTMLRequest:
       type: object

@@ -1,4 +1,4 @@
-import { computed, reactive, ref } from 'vue'
+import { computed, ref } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useRouter } from 'vue-router'
 
@@ -22,7 +22,6 @@ export function useDashboardState() {
     error,
     health,
     loading,
-    previewPending,
     readiness,
     recentEvents,
     recoveryConfirmPending,
@@ -31,28 +30,6 @@ export function useDashboardState() {
     system,
   } = storeToRefs(systemStore)
   const { snapshot: protocolSnapshot } = storeToRefs(protocolsStore)
-
-  const previewVisible = ref(false)
-  const previewForm = reactive({
-    template: 'help.menu',
-    theme: 'default',
-    output: 'png' as 'png' | 'jpeg',
-    dataText: JSON.stringify(
-      {
-        title: '帮助菜单',
-        subtitle: '系统页渲染调试入口',
-        items: [
-          {
-            name: 'weather',
-            description: '查询天气',
-            usage: '/weather <城市>',
-          },
-        ],
-      },
-      null,
-      2,
-    ),
-  })
 
   const autoRefresh = ref(false)
   const lastRefreshed = ref<string | null>(null)
@@ -87,9 +64,6 @@ export function useDashboardState() {
     eventsExpanded,
     issuesExpanded,
     loading,
-    previewForm,
-    previewPending,
-    previewVisible,
     protocolSnapshot,
     protocolsStore,
     readiness,

@@ -838,10 +838,6 @@ func (s *Service) RollbackTemplate(ctx context.Context, templateID, targetRevisi
 	return s.GetTemplate(ctx, templateID)
 }
 
-func (s *Service) ArtifactURL(artifactID string) string {
-	return "/api/system/render/artifacts/" + artifactID
-}
-
 func (s *Service) LookupArtifact(artifactID string) (Artifact, error) {
 	if s == nil {
 		return Artifact{}, &Error{Code: "platform.resource_missing", Message: "render service is not available"}

@@ -303,26 +303,6 @@ class SelfHostSmokeTests(unittest.TestCase):
         with self.assertRaises(self_host_smoke.SmokeError):
             self_host_smoke.select_template_id(payload)
 
-    def test_validate_render_preview_details_requires_artifact_fields(self) -> None:
-        details = {
-            "artifact_id": "render_preview_0001.png",
-            "image_url": "/api/system/render/artifacts/render_preview_0001.png",
-            "mime": "image/png",
-            "cache_key": "help.menu:v1:default:abc12345",
-            "template": "help.menu",
-            "theme": "default",
-            "from_cache": False,
-        }
-
-        artifact_id, image_url = self_host_smoke.validate_render_preview_details(details, "help.menu")
-
-        self.assertEqual("render_preview_0001.png", artifact_id)
-        self.assertEqual("/api/system/render/artifacts/render_preview_0001.png", image_url)
-
-        details["artifact_id"] = ""
-        with self.assertRaises(self_host_smoke.SmokeError):
-            self_host_smoke.validate_render_preview_details(details, "help.menu")
-
     def test_validate_render_template_versions_checks_save_and_rollback_order(self) -> None:
         payload = {
             "items": [

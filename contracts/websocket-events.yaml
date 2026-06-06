@@ -92,7 +92,6 @@ channels:
                 - config.migrate
                 - db.migrate
                 - runtime.bootstrap
-                - render.preview
             status:
               type: string
               enum: [pending, running, succeeded, failed, cancelled, interrupted]
