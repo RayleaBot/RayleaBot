@@ -68,7 +68,6 @@ class DepsManifestMetadataTests(unittest.TestCase):
             entrypoints = resource.get("entrypoints", {})
             if resource.get("kind") == "python-runtime":
                 self.assertIn("python", entrypoints, resource)
-                self.assertIn("pip", entrypoints, resource)
             if resource.get("kind") == "nodejs-runtime":
                 self.assertIn("node", entrypoints, resource)
                 self.assertIn("npm", entrypoints, resource)

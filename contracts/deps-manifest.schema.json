@@ -212,8 +212,7 @@
           "properties": {
             "entrypoints": {
               "required": [
-                "python",
-                "pip"
+                "python"
               ]
             }
           }

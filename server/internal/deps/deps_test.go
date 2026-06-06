@@ -41,7 +41,6 @@ func TestResourceMetadataCompleteRequiresArchiveAndEntrypoints(t *testing.T) {
 		ArchiveFormat: "tar.gz",
 		Entrypoints: map[string][]string{
 			"python": {"python/python.exe"},
-			"pip":    {"python/Scripts/pip.exe"},
 		},
 	}
 	if !ResourceMetadataComplete(resource) {
@@ -59,7 +58,6 @@ func TestResourceMetadataCompleteRequiresArchiveAndEntrypoints(t *testing.T) {
 	}
 	resource.Entrypoints = map[string][]string{
 		"python": {"python/python.exe"},
-		"pip":    {"python/Scripts/pip.exe"},
 	}
 	resource.Sources = []ResourceSource{
 		{URL: "https://example.invalid/python.tar.gz", Kind: "upstream"},
@@ -101,8 +99,7 @@ func TestResolveEntrypointUsesPreparedStoreWithoutDownload(t *testing.T) {
       "sha256": "10b7a95b928e551fc78cac665999e1ae1f08fb738b255adb0a8d3b9c2824a9c0",
       "archive_format": "tar.gz",
       "entrypoints": {
-        "python": ["python/install/bin/python3"],
-        "pip": ["python/install/bin/pip3"]
+        "python": ["python/install/bin/python3"]
       }
     }
   ]
@@ -110,7 +107,6 @@ func TestResolveEntrypointUsesPreparedStoreWithoutDownload(t *testing.T) {
 	writeManifest(t, repoRoot, manifest)
 	storeRoot := filepath.Join(repoRoot, ".deps", "store", "python-test", "3.12.13", "python", "install", "bin")
 	writePreparedFile(t, filepath.Join(storeRoot, "python3"))
-	writePreparedFile(t, filepath.Join(storeRoot, "pip3"))
 
 	manager := NewManager(repoRoot)
 	downloaded := false
@@ -830,8 +826,8 @@ func TestExtractTarGzReportsEntryProgress(t *testing.T) {
 
 	archivePath := filepath.Join(t.TempDir(), "runtime.tar.gz")
 	writeTarGzArchive(t, archivePath, map[string]string{
-		"python/python.exe":      "python",
-		"python/Scripts/pip.exe": "pip",
+		"python/python.exe": "python",
+		"python/README.txt": "readme",
 	})
 	var events []extractProgress
 

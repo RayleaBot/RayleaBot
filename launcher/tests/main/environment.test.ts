@@ -71,9 +71,8 @@ describe("inspectLauncherEnvironment", () => {
       "",
       "utf8",
     );
-    await fs.mkdir(path.join(installRoot, ".deps", "store", "python-test", "3.12.13", "python", "Scripts"), { recursive: true });
+    await fs.mkdir(path.join(installRoot, ".deps", "store", "python-test", "3.12.13", "python"), { recursive: true });
     await fs.writeFile(path.join(installRoot, ".deps", "store", "python-test", "3.12.13", "python", "python.exe"), "", "utf8");
-    await fs.writeFile(path.join(installRoot, ".deps", "store", "python-test", "3.12.13", "python", "Scripts", "pip.exe"), "", "utf8");
 
     const settings: LauncherResolvedSettings = {
       installationRoot: installRoot,
@@ -233,8 +232,7 @@ function buildDepsManifest(platform: string) {
       "sha256": "10b7a95b928e551fc78cac665999e1ae1f08fb738b255adb0a8d3b9c2824a9c0",
       "archive_format": "tar.gz",
       "entrypoints": {
-        "python": ["python/python.exe"],
-        "pip": ["python/Scripts/pip.exe"]
+        "python": ["python/python.exe"]
       }
     },
     {

@@ -43,7 +43,6 @@ class DepsManifestRuntimeTests(unittest.TestCase):
             "archive_format": "zip",
             "entrypoints": {
                 "python": ["python/python.exe"],
-                "pip": ["python/Scripts/pip.exe"],
             },
         }
 
@@ -63,7 +62,6 @@ class DepsManifestRuntimeTests(unittest.TestCase):
                 }),
                 "https://example.invalid/python.zip": self._runtime_archive({
                     "python/python.exe": b"python",
-                    "python/Scripts/pip.exe": b"pip",
                 }),
                 "https://example.invalid/node.zip": self._runtime_archive({
                     "node-v24.14.0-win-x64/node.exe": b"node",
@@ -95,10 +93,7 @@ class DepsManifestRuntimeTests(unittest.TestCase):
                         ],
                         "sha256": package_runtime.hashlib.sha256(archives["https://example.invalid/python.zip"]).hexdigest(),
                         "archive_format": "zip",
-                        "entrypoints": {
-                            "python": ["python/python.exe"],
-                            "pip": ["python/Scripts/pip.exe"],
-                        },
+                        "entrypoints": {"python": ["python/python.exe"]},
                     },
                     {
                         "id": "nodejs-windows-x64",

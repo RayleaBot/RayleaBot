@@ -24,10 +24,6 @@
         "python": [
           "python/install/bin/python3.12",
           "python/install/bin/python3"
-        ],
-        "pip": [
-          "python/install/bin/pip3.12",
-          "python/install/bin/pip3"
         ]
       }
     }

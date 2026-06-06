@@ -21,7 +21,6 @@ func TestBuildSpecFromDiscoveredExamples(t *testing.T) {
 	copyRuntimeDir(t, filepath.Join(fixtureRepoRoot, "examples", "plugins", "hello-python"), filepath.Join(repoRoot, "examples", "plugins", "hello-python"))
 	copyRuntimeDir(t, filepath.Join(fixtureRepoRoot, "examples", "plugins", "hello-node"), filepath.Join(repoRoot, "examples", "plugins", "hello-node"))
 	writePreparedManagedRuntime(t, filepath.Join(repoRoot, ".deps", "store", "python-test", "3.12.13", "python", "install", "bin", "python3"))
-	writePreparedManagedRuntime(t, filepath.Join(repoRoot, ".deps", "store", "python-test", "3.12.13", "python", "install", "bin", "pip3"))
 	writePreparedManagedRuntime(t, filepath.Join(repoRoot, ".deps", "store", "node-test", "24.14.0", "node", "bin", "node"))
 	writePreparedManagedRuntime(t, filepath.Join(repoRoot, ".deps", "store", "node-test", "24.14.0", "node", "bin", "npm"))
 
@@ -157,15 +156,11 @@ func TestBuildSpecFallsBackToManagedRuntimeStore(t *testing.T) {
 	writeRuntimeManifestFile(t, repoRoot)
 	writeRuntimePlugin(t, pluginRoot, "hello-python", "python", "main.py")
 	managedPython := filepath.Join(repoRoot, ".deps", "store", "python-test", "3.12.13", "python", "install", "bin", "python3")
-	managedPip := filepath.Join(repoRoot, ".deps", "store", "python-test", "3.12.13", "python", "install", "bin", "pip3")
 	if err := os.MkdirAll(filepath.Dir(managedPython), 0o755); err != nil {
 		t.Fatalf("mkdir managed python: %v", err)
 	}
 	if err := os.WriteFile(managedPython, []byte("python"), 0o755); err != nil {
 		t.Fatalf("write managed python: %v", err)
-	}
-	if err := os.WriteFile(managedPip, []byte("pip"), 0o755); err != nil {
-		t.Fatalf("write managed pip: %v", err)
 	}
 
 	spec, err := BuildSpec(plugins.Snapshot{
@@ -347,8 +342,7 @@ func writeRuntimeManifestFile(t *testing.T, repoRoot string) {
       "sha256": "10b7a95b928e551fc78cac665999e1ae1f08fb738b255adb0a8d3b9c2824a9c0",
       "archive_format": "tar.gz",
       "entrypoints": {
-        "python": ["python/install/bin/python3"],
-        "pip": ["python/install/bin/pip3"]
+        "python": ["python/install/bin/python3"]
       }
     },
     {

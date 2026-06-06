@@ -491,8 +491,7 @@ func TestDoctorReportFlagsIncompleteRuntimeMetadata(t *testing.T) {
       "sha256": "TODO(v0.1-phase0)",
       "archive_format": "tar.gz",
       "entrypoints": {
-        "python": ["python/python.exe"],
-        "pip": ["python/Scripts/pip.exe"]
+        "python": ["python/python.exe"]
       }
     },
     {
@@ -571,8 +570,7 @@ func TestDoctorReportSummarizesManagedRuntimeBootstrapStates(t *testing.T) {
       "sha256": "10b7a95b928e551fc78cac665999e1ae1f08fb738b255adb0a8d3b9c2824a9c0",
       "archive_format": "tar.gz",
       "entrypoints": {
-        "python": ["python/python.exe"],
-        "pip": ["python/Scripts/pip.exe"]
+        "python": ["python/python.exe"]
       }
     },
     {
@@ -597,7 +595,6 @@ func TestDoctorReportSummarizesManagedRuntimeBootstrapStates(t *testing.T) {
 }
 `)
 	writeFile(t, filepath.Join(repoRoot, ".deps", "store", pythonID, "3.12.13", "python", "python.exe"), "")
-	writeFile(t, filepath.Join(repoRoot, ".deps", "store", pythonID, "3.12.13", "python", "Scripts", "pip.exe"), "")
 	writeFile(t, filepath.Join(repoRoot, "cache", "downloads", "runtime", nodeID+"-24.14.0.zip"), "")
 
 	report := BuildDoctorReport(Command{

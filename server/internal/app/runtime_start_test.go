@@ -275,8 +275,7 @@ func writeManagedRuntimeFixtures(t *testing.T, repoRoot string) {
       "sha256": "10b7a95b928e551fc78cac665999e1ae1f08fb738b255adb0a8d3b9c2824a9c0",
       "archive_format": "tar.gz",
       "entrypoints": {
-        "python": ["python/install/bin/python3"],
-        "pip": ["python/install/bin/pip3"]
+        "python": ["python/install/bin/python3"]
       }
     },
     {

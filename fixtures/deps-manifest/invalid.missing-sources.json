@@ -11,9 +11,6 @@
       "entrypoints": {
         "python": [
           "python/install/bin/python3.12"
-        ],
-        "pip": [
-          "python/install/bin/pip3.12"
         ]
       }
     }

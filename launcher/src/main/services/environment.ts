@@ -77,7 +77,7 @@ const runtimeResourceDefinitions: RuntimeResourceDefinition[] = [
     kind: "python-runtime",
     title: "Python 依赖",
     label: "Python 依赖",
-    requiredEntrypoints: ["python", "pip"],
+    requiredEntrypoints: ["python"],
     readyCode: "python.ready",
     missingCode: "python.resource_missing",
     metadataCode: "python.metadata_incomplete",

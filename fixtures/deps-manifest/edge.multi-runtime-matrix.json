@@ -74,10 +74,6 @@
       "entrypoints": {
         "python": [
           "python/python.exe"
-        ],
-        "pip": [
-          "python/Scripts/pip.exe",
-          "python/Scripts/pip3.exe"
         ]
       }
     },
@@ -98,10 +94,6 @@
         "python": [
           "python/install/bin/python3.12",
           "python/install/bin/python3"
-        ],
-        "pip": [
-          "python/install/bin/pip3.12",
-          "python/install/bin/pip3"
         ]
       }
     },
@@ -122,10 +114,6 @@
         "python": [
           "python/install/bin/python3.12",
           "python/install/bin/python3"
-        ],
-        "pip": [
-          "python/install/bin/pip3.12",
-          "python/install/bin/pip3"
         ]
       }
     },
