@@ -42,8 +42,8 @@ Launcher 继续提供：
 ## 运行环境准备
 
 - 运行时资源问题通过 `runtime.bootstrap` 进入正式任务模型。
-- 任务结果会返回资源缓存归档与展开目录信息。
-- 离线或受限网络环境可预置归档到 `cache/downloads/runtime/`，或把资源预展开到 `.deps/store/<resource-id>/<version>/`。
+- 任务结果会返回安装包下载位置和解压位置。
+- 安装包下载到 `cache/downloads/runtime/`，运行环境解压到 `.deps/store/<resource-id>/<version>/`。
 - Chromium 仍可通过 `render.browser_path` 显式覆盖。
 
 ## 当前边界

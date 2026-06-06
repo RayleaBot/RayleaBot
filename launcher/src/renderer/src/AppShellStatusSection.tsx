@@ -79,21 +79,20 @@ export function AppShellStatusSection({
       : primaryEnvironmentIssue
         ? `${primaryEnvironmentIssue.title}：${primaryEnvironmentIssue.summary}`
         : presentation.detail);
-  const statusGuidanceLabel =
+  const heroServiceDetail =
     snapshot.launcher.lastLocalError
-      ? "异常提示"
-      : primaryReadinessIssue?.remediation || primaryEnvironmentIssue
-        ? "处理提示"
-        : "异常提示";
-  const statusGuidanceText =
-    snapshot.launcher.lastLocalError
-    || primaryReadinessIssue?.remediation
-    || primaryEnvironmentIssue?.remediation
-    || primaryEnvironmentIssue?.detail
-    || "当前没有阻塞异常。";
-  const hasStatusAlert = Boolean(snapshot.launcher.lastLocalError || readinessReason || primaryReadinessIssue || primaryEnvironmentIssue);
+      ? "启动器检测到本地异常。"
+      : presentation.state === "degraded"
+        ? "服务可运行，部分能力受限。"
+        : presentation.state === "setup_required"
+          ? "服务可运行，需要完成初始化。"
+          : presentation.state === "failed"
+            ? "服务未通过就绪检查。"
+            : presentation.detail;
   const hasReadinessDiagnostics = Boolean(
-    readinessReason || readinessReasonCodes.length || readinessIssues.length || nonOkReadinessChecks.length,
+    readinessReasonCodes.length
+      || readinessIssues.some((issue) => issue.remediation)
+      || nonOkReadinessChecks.length,
   );
   const canOpenWebUi = presentation.canOpenWebUi;
   const canRunRecoveryActions = presentation.canRunRecoveryActions && !controlsDisabled;
@@ -172,19 +171,16 @@ export function AppShellStatusSection({
         busyLabel={busyLabel}
         canOpenWebUi={canOpenWebUi}
         controlsDisabled={controlsDisabled}
-        hasStatusAlert={hasStatusAlert}
         onOpenWeb={onOpenWeb}
         onStart={onStart}
         onStop={onStop}
         primaryActionLabel={presentation.primaryActionLabel}
         snapshot={{
           lastError: snapshot.launcher.lastLocalError,
-          serviceDetail: presentation.detail,
+          serviceDetail: heroServiceDetail,
           serviceState: presentation.state,
         }}
         startDisabled={startDisabled}
-        statusGuidanceLabel={statusGuidanceLabel}
-        statusGuidanceText={statusGuidanceText}
         statusHighlight={statusHighlight}
         statusReasonLabel={statusReasonLabel}
         statusReasonText={statusReasonText}
@@ -196,9 +192,6 @@ export function AppShellStatusSection({
           {hasReadinessDiagnostics ? (
             <article className="panel glass-panel glass-panel--subtle status-diagnostics-panel">
               <div className="brand-eyebrow">服务诊断</div>
-              {readinessReason ? (
-                <div className="status-diagnostics-lead">{readinessReason}</div>
-              ) : null}
 
               {readinessReasonCodes.length > 0 ? (
                 <div className="status-diagnostics-block">
@@ -211,25 +204,22 @@ export function AppShellStatusSection({
                 </div>
               ) : null}
 
-              {readinessIssues.length > 0 ? (
+              {readinessIssues.some((issue) => issue.remediation) ? (
                 <div className="status-diagnostics-block">
-                  <span className="status-label">首要问题</span>
+                  <span className="status-label">处理方式</span>
                   <div className="status-diagnostics-list">
-                    {readinessIssues.slice(0, 3).map((issue) => (
+                    {readinessIssues.filter((issue) => issue.remediation).slice(0, 3).map((issue) => (
                       <div
                         key={`${issue.code}-${issue.summary}`}
                         className={`status-diagnostics-item status-diagnostics-item--${issue.severity}`}
                       >
                         <div className="status-diagnostics-item__header">
-                          <span className="status-diagnostics-item__summary">{issue.summary}</span>
+                          <span className="status-diagnostics-item__summary">{issue.remediation}</span>
                           <span className={`status-pill status-pill--${issue.severity === "error" ? "error" : "warning"}`}>
                             {issue.severity === "error" ? "阻塞" : "警告"}
                           </span>
                         </div>
                         <code className="status-diagnostics-item__code mono">{issue.code}</code>
-                        {issue.remediation ? (
-                          <div className="status-diagnostics-item__remediation">{issue.remediation}</div>
-                        ) : null}
                       </div>
                     ))}
                   </div>

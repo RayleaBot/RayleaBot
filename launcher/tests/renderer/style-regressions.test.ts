@@ -29,7 +29,7 @@ describe("renderer style regressions", () => {
   test("locks the homepage hero layout and busy feedback", () => {
     expect(styleSheet).toMatch(/\.status-hero\s*{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)\s*minmax\(240px,\s*320px\);/s);
     expect(styleSheet).toMatch(/\.status-hero__secondary-actions\s*{[^}]*grid-template-columns:\s*repeat\(2,\s*minmax\(0,\s*1fr\)\);/s);
-    expect(styleSheet).toMatch(/\.hero-context-grid\s*{[^}]*grid-template-columns:\s*repeat\(3,\s*minmax\(0,\s*1fr\)\);/s);
+    expect(styleSheet).toMatch(/\.hero-context-grid\s*{[^}]*grid-template-columns:\s*minmax\(140px,\s*180px\)\s*minmax\(0,\s*1fr\);/s);
     expect(styleSheet).toMatch(/\.status-action-feedback\[data-busy="true"\]\s+\.status-action-feedback__dot\s*{[^}]*animation:\s*busyDot/s);
   });
 

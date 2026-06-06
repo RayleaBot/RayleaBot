@@ -200,7 +200,7 @@ describe("AppShell", () => {
               severity: "warning",
               summary: "依赖 Python 运行环境的功能暂不可用。",
               detail: "当前平台的 Python 运行环境缺少本地可用资源。",
-              remediation: "请联网准备运行环境，或按正式目录结构手动预置资源。",
+              remediation: "启动运行环境任务准备 Python 依赖。",
             },
           ],
         },
@@ -209,9 +209,9 @@ describe("AppShell", () => {
 
     expect(screen.getAllByText("运行条件受限").length).toBeGreaterThan(0);
     expect(screen.getByText("当前限制")).toBeInTheDocument();
-    expect(screen.getAllByText("Python 运行环境元数据不完整。").length).toBeGreaterThan(0);
-    expect(screen.getByText("处理提示")).toBeInTheDocument();
-    expect(screen.getAllByText(/请在 \.deps\/manifest\.json 中补齐当前平台 Python 运行环境资源。/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Python 运行环境元数据不完整。")).toHaveLength(1);
+    expect(screen.queryByText("处理提示")).toBeNull();
+    expect(screen.getAllByText(/请在 \.deps\/manifest\.json 中补齐当前平台 Python 运行环境资源。/)).toHaveLength(1);
     expect(screen.getByText("服务诊断")).toBeInTheDocument();
     expect(screen.getAllByText("platform.resource_missing").length).toBeGreaterThan(0);
   });

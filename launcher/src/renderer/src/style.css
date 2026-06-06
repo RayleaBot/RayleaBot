@@ -1863,8 +1863,9 @@ body {
 
 .hero-context-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: minmax(140px, 180px) minmax(0, 1fr);
   gap: 12px;
+  align-items: start;
 }
 
 .hero-context-card {
@@ -1909,13 +1910,6 @@ body {
 
 .status-diagnostics-panel {
   gap: 16px;
-}
-
-.status-diagnostics-lead {
-  color: var(--text-primary);
-  font-size: 0.95rem;
-  font-weight: 700;
-  line-height: 1.5;
 }
 
 .status-diagnostics-block {

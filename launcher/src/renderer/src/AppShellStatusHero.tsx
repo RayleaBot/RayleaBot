@@ -8,7 +8,6 @@ type AppShellStatusHeroProps = {
   busyLabel: string;
   canOpenWebUi: boolean;
   controlsDisabled: boolean;
-  hasStatusAlert: boolean;
   onOpenWeb: () => void;
   onStart: () => void;
   onStop: () => void;
@@ -19,8 +18,6 @@ type AppShellStatusHeroProps = {
     serviceState: LauncherPresentationState;
   };
   startDisabled: boolean;
-  statusGuidanceLabel: string;
-  statusGuidanceText: string;
   statusHighlight: "none" | "signal" | "alert";
   statusReasonLabel: string;
   statusReasonText: string;
@@ -31,15 +28,12 @@ export function AppShellStatusHero({
   busyLabel,
   canOpenWebUi,
   controlsDisabled,
-  hasStatusAlert,
   onOpenWeb,
   onStart,
   onStop,
   primaryActionLabel,
   snapshot,
   startDisabled,
-  statusGuidanceLabel,
-  statusGuidanceText,
   statusHighlight,
   statusReasonLabel,
   statusReasonText,
@@ -68,10 +62,6 @@ export function AppShellStatusHero({
           <div className="hero-context-card">
             <span className="hero-context-card__label">{statusReasonLabel}</span>
             <span className="hero-context-card__value">{statusReasonText}</span>
-          </div>
-          <div className={`hero-context-card ${hasStatusAlert ? "hero-context-card--alert" : ""}`}>
-            <span className="hero-context-card__label">{statusGuidanceLabel}</span>
-            <span className="hero-context-card__value">{statusGuidanceText}</span>
           </div>
         </div>
       </div>

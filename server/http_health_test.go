@@ -213,7 +213,8 @@ func newTestApp(t *testing.T, authOptions ...auth.Option) *app.App {
 	fixture := loadConfigFixture(t, filepath.Join("..", "fixtures", "config", "ok.minimal.json"))
 	configPath := writeYAMLConfig(t, fixture.Input)
 	schemaPath := filepath.Join("..", "contracts", "config.user.schema.json")
-	repoRoot := repoRootPath(t)
+	repoRoot := newPreparedTestRuntimeRoot(t)
+	builtinRoot := filepath.Join(repoRootPath(t), "plugins", "builtin")
 
 	application, err := app.New(app.Options{
 		ConfigPath:       configPath,
@@ -221,7 +222,7 @@ func newTestApp(t *testing.T, authOptions ...auth.Option) *app.App {
 		PluginRepoRoot:   repoRoot,
 		PluginSchemaPath: filepath.Join("..", "contracts", "plugin-info.schema.json"),
 		PluginRoots: []plugins.ScanRoot{
-			{Label: "plugins/builtin", Path: filepath.Join(repoRoot, "plugins", "builtin")},
+			{Label: "plugins/builtin", Path: builtinRoot},
 			{Label: "plugins/installed", Path: filepath.Join(filepath.Dir(configPath), "..", "plugins", "installed")},
 		},
 		AuthOptions: authOptions,

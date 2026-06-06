@@ -154,14 +154,14 @@ func BootstrapSummary(kind string, inspection *BootstrapInspection) string {
 		return label + "已准备完成。"
 	case inspection.CachedArchivePresent:
 		if kind == "python-runtime" || kind == "nodejs-runtime" {
-			return label + "安装包已缓存，启动时可直接完成准备。"
+			return label + "已下载，启动时会解压。"
 		}
-		return label + "归档已缓存，可离线准备。"
+		return label + "已下载，未解压。"
 	default:
 		if kind == "python-runtime" || kind == "nodejs-runtime" {
 			return label + "已纳入启动流程。"
 		}
-		return label + "可按需准备。"
+		return label + "未准备。"
 	}
 }
 
@@ -623,11 +623,11 @@ func bootstrapMessage(kind, stage string) string {
 	case "lock":
 		return resourceLabel + "准备锁等待超时"
 	case "download":
-		return resourceLabel + "归档下载失败"
+		return resourceLabel + "安装包下载失败"
 	case "verify":
-		return resourceLabel + "归档校验失败"
+		return resourceLabel + "安装包校验失败"
 	case "extract":
-		return resourceLabel + "归档解压失败"
+		return resourceLabel + "安装包解压失败"
 	case "entrypoint":
 		return resourceLabel + "入口文件缺失"
 	default:
@@ -638,32 +638,21 @@ func bootstrapMessage(kind, stage string) string {
 func bootstrapRemediation(kind, archivePath, storeRoot string) string {
 	paths := []string{}
 	if strings.TrimSpace(archivePath) != "" {
-		paths = append(paths, "预置已校验归档到 "+archivePath)
+		paths = append(paths, "下载位置："+archivePath+"。")
 	}
 	if strings.TrimSpace(storeRoot) != "" {
-		paths = append(paths, "预展开到 "+storeRoot)
+		paths = append(paths, "解压位置："+storeRoot+"。")
 	}
+	locationText := strings.Join(paths, "")
 	switch kind {
 	case "chromium":
-		if len(paths) == 0 {
-			return "请先准备 Chromium 浏览环境，或在配置中显式设置 render.browser_path。"
-		}
-		return "请先准备 Chromium 浏览环境，或在配置中显式设置 render.browser_path。离线环境可" + strings.Join(paths, "，或")
+		return "启动运行环境任务准备 Chromium 浏览环境，或在配置中设置 render.browser_path。" + locationText
 	case "python-runtime":
-		if len(paths) == 0 {
-			return "请联网准备 Python 运行环境，或按正式目录结构手动预置资源。"
-		}
-		return "请联网准备 Python 运行环境；离线或受限网络环境可" + strings.Join(paths, "，或")
+		return "启动运行环境任务准备 Python 运行环境。" + locationText
 	case "nodejs-runtime":
-		if len(paths) == 0 {
-			return "请联网准备 Node.js 和 npm 环境，或按正式目录结构手动预置资源。"
-		}
-		return "请联网准备 Node.js 和 npm 环境；离线或受限网络环境可" + strings.Join(paths, "，或")
+		return "启动运行环境任务准备 Node.js 和 npm 环境。" + locationText
 	default:
-		if len(paths) == 0 {
-			return "请联网准备运行环境，或按正式目录结构手动预置资源。"
-		}
-		return "请联网准备运行环境；离线或受限网络环境可" + strings.Join(paths, "，或")
+		return "启动运行环境任务准备依赖。" + locationText
 	}
 }
 
@@ -735,6 +724,12 @@ func ensurePreparedResource(
 	storeRoot := StoreRoot(repoRoot, &resource)
 	if _, err := resolvePreparedEntrypoints(storeRoot, &resource); err == nil {
 		return nil
+	} else if _, statErr := os.Stat(storeRoot); statErr == nil {
+		if removeErr := os.RemoveAll(storeRoot); removeErr != nil {
+			return fmt.Errorf("clean incomplete deps store root: %w", removeErr)
+		}
+	} else if !errors.Is(statErr, os.ErrNotExist) {
+		return fmt.Errorf("inspect deps store root: %w", statErr)
 	}
 	if err := os.MkdirAll(filepath.Dir(storeRoot), 0o755); err != nil {
 		return fmt.Errorf("create deps store root: %w", err)

@@ -122,7 +122,7 @@ func (s *systemService) managedRuntimeDiagnostics(pluginsList []plugins.Snapshot
 		label := deps.ManagedResourceLabel(kind)
 		summary := label + "尚未准备完成。"
 		if inspection.CachedArchivePresent {
-			summary = label + "归档已缓存，仍需展开运行时。"
+			summary = label + "已下载，但未解压。"
 		}
 		issues = append(issues, recovery.CompatibilityIssue{
 			Code:        "platform.resource_missing",

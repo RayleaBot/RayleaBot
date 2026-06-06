@@ -108,11 +108,12 @@ describe("AppShellStatusSection", () => {
     renderSection();
 
     expect(screen.getByText("当前限制")).toBeInTheDocument();
-    expect(screen.getAllByText("Python 运行环境元数据不完整。").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Python 运行环境元数据不完整。")).toHaveLength(1);
     expect(screen.getByText("服务诊断")).toBeInTheDocument();
     expect(screen.getByText("原因代码")).toBeInTheDocument();
     expect(screen.getAllByText("platform.resource_missing").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("请在 .deps/manifest.json 中补齐当前平台 Python 运行环境资源。").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("请在 .deps/manifest.json 中补齐当前平台 Python 运行环境资源。")).toHaveLength(1);
+    expect(screen.queryByText("处理提示")).toBeNull();
     expect(screen.queryByText("当前没有阻塞异常。")).toBeNull();
     expect(screen.getByText("stderr line")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "重启服务" })).toBeInTheDocument();

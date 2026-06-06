@@ -35,7 +35,7 @@ export type {
 
 export function createLauncherCoordinator(deps: LauncherCoordinatorDependencies): LauncherCoordinator {
   const options = {
-    startupTimeoutMs: deps.options?.startupTimeoutMs ?? 300000,
+    startupTimeoutMs: deps.options?.startupTimeoutMs ?? 900000,
     startupReadinessGraceMs: deps.options?.startupReadinessGraceMs ?? 10000,
     pollIntervalMs: deps.options?.pollIntervalMs ?? 500,
     shutdownTimeoutMs: deps.options?.shutdownTimeoutMs ?? 5000,

@@ -1028,7 +1028,7 @@ func (s *Service) Diagnostics() []health.DiagnosticIssue {
 		issues = append(issues, health.DiagnosticIssue{
 			Code:        "platform.resource_missing",
 			Severity:    "warning",
-			Summary:     "Chromium 资源归档已缓存，仍需展开运行时。",
+			Summary:     "Chromium 依赖已下载，但未解压。",
 			Remediation: deps.BootstrapRemediation("chromium", inspection.ArchivePath, inspection.StoreRoot),
 		})
 		return issues
@@ -1036,7 +1036,7 @@ func (s *Service) Diagnostics() []health.DiagnosticIssue {
 	issues = append(issues, health.DiagnosticIssue{
 		Code:        "platform.resource_missing",
 		Severity:    "warning",
-		Summary:     "Chromium 资源尚未准备完成。",
+		Summary:     "Chromium 依赖未准备。",
 		Remediation: deps.BootstrapRemediation("chromium", inspection.ArchivePath, inspection.StoreRoot),
 	})
 	return issues

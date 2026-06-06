@@ -13,6 +13,7 @@ import (
 	internalapp "github.com/RayleaBot/RayleaBot/server/internal/app"
 	"github.com/RayleaBot/RayleaBot/server/internal/auth"
 	internalconfig "github.com/RayleaBot/RayleaBot/server/internal/config"
+	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 )
 
 func TestConfigGetReturnsPlaintextOneBotTransportTokens(t *testing.T) {
@@ -474,10 +475,18 @@ func newTestAppWithOptions(
 
 	configPath := writeYAMLConfig(t, updated)
 	schemaPath := filepath.Join("..", "contracts", "config.user.schema.json")
+	repoRoot := newPreparedTestRuntimeRoot(t)
+	builtinRoot := filepath.Join(repoRootPath(t), "plugins", "builtin")
 
 	options := internalapp.Options{
-		ConfigPath:  configPath,
-		SchemaPath:  schemaPath,
+		ConfigPath:       configPath,
+		SchemaPath:       schemaPath,
+		PluginRepoRoot:   repoRoot,
+		PluginSchemaPath: filepath.Join("..", "contracts", "plugin-info.schema.json"),
+		PluginRoots: []plugins.ScanRoot{
+			{Label: "plugins/builtin", Path: builtinRoot},
+			{Label: "plugins/installed", Path: filepath.Join(filepath.Dir(configPath), "..", "plugins", "installed")},
+		},
 		AuthOptions: authOptions,
 	}
 	if configureOptions != nil {

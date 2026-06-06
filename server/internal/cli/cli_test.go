@@ -606,8 +606,8 @@ func TestDoctorReportSummarizesManagedRuntimeBootstrapStates(t *testing.T) {
 	})
 
 	assertDoctorSummary(t, report.Issues, "runtime.python_managed_ready", "Python 运行环境已准备完成。")
-	assertDoctorSummary(t, report.Issues, "runtime.node_managed_ready", "Node.js / npm 环境归档已缓存，启动时可直接完成准备。")
-	assertDoctorSummary(t, report.Issues, "runtime.npm_managed_ready", "npm 归档已缓存，启动时可直接完成准备。")
+	assertDoctorSummary(t, report.Issues, "runtime.node_managed_ready", "Node.js / npm 环境已下载，启动时会解压。")
+	assertDoctorSummary(t, report.Issues, "runtime.npm_managed_ready", "npm 已下载，启动时会解压。")
 }
 
 func assertDoctorSummary(t *testing.T, issues []DoctorIssue, code, summary string) {

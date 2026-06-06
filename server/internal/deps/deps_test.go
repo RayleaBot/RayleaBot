@@ -496,6 +496,72 @@ func TestPrepareWithReportCleansStaleTempRootBeforeExtractingCachedArchive(t *te
 	}
 }
 
+func TestPrepareWithReportRemovesIncompleteStoreRootBeforeExtractingCachedArchive(t *testing.T) {
+	t.Parallel()
+
+	repoRoot := t.TempDir()
+	manifest := `{
+  "manifest_version": 3,
+  "resources": [
+    {
+      "id": "chromium-test",
+      "kind": "chromium",
+      "version": "147.0.7727.24",
+      "platform": "` + CurrentPlatform() + `",
+      "sources": [
+        {
+          "url": "https://example.invalid/chromium.zip",
+          "kind": "upstream"
+        }
+      ],
+      "sha256": "2bb9e071b229e9c0cb7d90297c51fa4cf3f5dbf4f88aded36d3f5892651baabf",
+      "archive_format": "zip",
+      "entrypoints": {
+        "browser": ["chrome-win64/chrome.exe"]
+      }
+    }
+  ]
+}`
+	writeManifest(t, repoRoot, manifest)
+
+	resource := &Resource{ID: "chromium-test", Kind: "chromium", Version: "147.0.7727.24"}
+	storeRoot := StoreRoot(repoRoot, resource)
+	writePreparedFile(t, filepath.Join(storeRoot, "chrome-win64", "chrome.dll"))
+
+	archivePath := filepath.Join(CacheRoot(repoRoot), "chromium-test-147.0.7727.24.zip")
+	if err := os.MkdirAll(filepath.Dir(archivePath), 0o755); err != nil {
+		t.Fatalf("mkdir cache root: %v", err)
+	}
+	if err := os.WriteFile(archivePath, []byte("fixture-archive"), 0o644); err != nil {
+		t.Fatalf("write cached archive: %v", err)
+	}
+
+	manager := NewManager(repoRoot)
+	manager.downloadFile = func(context.Context, string, string) error {
+		t.Fatal("PrepareWithReport should not download when cached archive matches")
+		return nil
+	}
+	manager.extract = func(_ context.Context, _ string, _ string, destRoot string) error {
+		if _, err := os.Stat(storeRoot); !errors.Is(err, os.ErrNotExist) {
+			t.Fatalf("incomplete store root should be removed before extraction, stat err = %v", err)
+		}
+		writePreparedFile(t, filepath.Join(destRoot, "chrome-win64", "chrome.exe"))
+		return nil
+	}
+
+	report, err := manager.PrepareWithReport(context.Background(), "chromium")
+	if err != nil {
+		t.Fatalf("PrepareWithReport failed: %v", err)
+	}
+	wantPath := filepath.Join(storeRoot, "chrome-win64", "chrome.exe")
+	if report.PreparedEntrypoint != wantPath {
+		t.Fatalf("prepared entrypoint = %q, want %q", report.PreparedEntrypoint, wantPath)
+	}
+	if _, err := os.Stat(filepath.Join(storeRoot, "chrome-win64", "chrome.dll")); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("incomplete store file should be removed, stat err = %v", err)
+	}
+}
+
 func TestRepoWindowsPythonManifestEntrypointsMatchPreparedLayout(t *testing.T) {
 	t.Parallel()
 
