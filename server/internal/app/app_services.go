@@ -223,6 +223,7 @@ type pluginLifecycleDeps struct {
 	pluginConfig        pluginconfig.Repository
 	adapter             *adapter.Shell
 	webhooks            *pluginwebhook.Registry
+	tasks               *tasks.Registry
 	onRecoveryChange    func(string)
 	refreshManifest     func(context.Context, string) (plugins.Snapshot, error)
 	syncRenderTemplates func(context.Context) error

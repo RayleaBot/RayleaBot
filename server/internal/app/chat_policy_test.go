@@ -2432,8 +2432,12 @@ func TestStartRuntimeDisablesPluginWhenGrantExpired(t *testing.T) {
 	}})
 	manager := runtime.New(slog.Default(), runtime.Options{})
 
-	if err := controller.startRuntime(context.Background(), "weather", "10001", manager); err != nil {
-		t.Fatalf("startRuntime returned error: %v", err)
+	err := controller.startRuntime(context.Background(), "weather", "10001", manager)
+	if err == nil {
+		t.Fatal("expected startRuntime to fail for expired grant")
+	}
+	if _, ok := err.(*plugins.PermissionPendingError); !ok {
+		t.Fatalf("err = %T, want *plugins.PermissionPendingError", err)
 	}
 
 	snapshot, ok := catalog.Get("weather")

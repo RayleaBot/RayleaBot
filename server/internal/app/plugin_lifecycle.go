@@ -16,6 +16,7 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/pluginwebhook"
 	"github.com/RayleaBot/RayleaBot/server/internal/runtime"
 	"github.com/RayleaBot/RayleaBot/server/internal/scheduler"
+	"github.com/RayleaBot/RayleaBot/server/internal/tasks"
 )
 
 type pluginLifecycleController struct {
@@ -29,6 +30,7 @@ type pluginLifecycleController struct {
 	pluginConfig        pluginconfig.Repository
 	adapter             *adapter.Shell
 	webhooks            *pluginwebhook.Registry
+	tasks               *tasks.Registry
 	onRecoveryChange    func(string)
 	refreshManifest     func(context.Context, string) (plugins.Snapshot, error)
 	syncRenderTemplates func(context.Context) error
@@ -49,6 +51,7 @@ func newPluginLifecycleController(deps pluginLifecycleDeps) *pluginLifecycleCont
 		pluginConfig:        deps.pluginConfig,
 		adapter:             deps.adapter,
 		webhooks:            deps.webhooks,
+		tasks:               deps.tasks,
 		onRecoveryChange:    deps.onRecoveryChange,
 		refreshManifest:     deps.refreshManifest,
 		syncRenderTemplates: deps.syncRenderTemplates,
@@ -151,9 +154,105 @@ func (c *pluginLifecycleController) Reload(ctx context.Context, pluginID string)
 		updated = snapshot
 	}
 
-	go c.reloadPluginAsync(pluginID, c.currentBotID())
+	taskID := c.createReloadTask(pluginID, snapshot)
+	go c.reloadPluginAsync(pluginID, c.currentBotID(), taskID)
 	c.reconcileRecoverySummaryBestEffort("plugin.reload")
 	return updated, nil
+}
+
+func (c *pluginLifecycleController) createReloadTask(pluginID string, snapshot plugins.Snapshot) string {
+	if c == nil || c.tasks == nil {
+		return ""
+	}
+	displayName := strings.TrimSpace(snapshot.Name)
+	if displayName == "" {
+		displayName = pluginID
+	}
+	taskID, err := c.tasks.Create("plugin.reload", "reload plugin: "+displayName)
+	if err != nil {
+		c.logLifecycleWarn("create plugin reload task", pluginID, err)
+		return ""
+	}
+	return taskID
+}
+
+func (c *pluginLifecycleController) startReloadTask(taskID string) {
+	if c == nil || c.tasks == nil || strings.TrimSpace(taskID) == "" {
+		return
+	}
+	now := time.Now().UTC()
+	c.tasks.Update(taskID, tasks.Update{
+		Status:    lifecycleTaskStatusPtr(tasks.StatusRunning),
+		Progress:  lifecycleIntPtr(5),
+		Summary:   lifecycleStringPtr("准备重载插件"),
+		StartedAt: &now,
+	})
+}
+
+func (c *pluginLifecycleController) updateReloadTask(taskID string, progress int, summary string) {
+	if c == nil || c.tasks == nil || strings.TrimSpace(taskID) == "" {
+		return
+	}
+	c.tasks.Update(taskID, tasks.Update{
+		Progress: lifecycleIntPtr(progress),
+		Summary:  lifecycleStringPtr(summary),
+	})
+}
+
+func (c *pluginLifecycleController) finishReloadTask(taskID string, pluginID string) {
+	if c == nil || c.tasks == nil || strings.TrimSpace(taskID) == "" {
+		return
+	}
+	now := time.Now().UTC()
+	c.tasks.Update(taskID, tasks.Update{
+		Status:     lifecycleTaskStatusPtr(tasks.StatusSucceeded),
+		Progress:   lifecycleIntPtr(100),
+		Summary:    lifecycleStringPtr("插件重载完成"),
+		FinishedAt: &now,
+		Result: &tasks.ResultSummary{
+			Summary: "插件运行时已重载",
+			Details: map[string]any{
+				"plugin_id": pluginID,
+			},
+		},
+	})
+}
+
+func (c *pluginLifecycleController) failReloadTask(taskID string, pluginID string, code string, message string) {
+	if c == nil || c.tasks == nil || strings.TrimSpace(taskID) == "" {
+		return
+	}
+	if strings.TrimSpace(code) == "" {
+		code = "plugin.internal_error"
+	}
+	if strings.TrimSpace(message) == "" {
+		message = "插件重载失败"
+	}
+	now := time.Now().UTC()
+	c.tasks.Update(taskID, tasks.Update{
+		Status:     lifecycleTaskStatusPtr(tasks.StatusFailed),
+		Summary:    lifecycleStringPtr(message),
+		FinishedAt: &now,
+		Error: &tasks.ErrorSummary{
+			Code:    code,
+			Message: message,
+			Details: map[string]any{
+				"plugin_id": pluginID,
+			},
+		},
+	})
+}
+
+func lifecycleStringPtr(value string) *string {
+	return &value
+}
+
+func lifecycleIntPtr(value int) *int {
+	return &value
+}
+
+func lifecycleTaskStatusPtr(status tasks.Status) *tasks.Status {
+	return &status
 }
 
 func (c *pluginLifecycleController) RecoverFromDeadLetter(ctx context.Context, pluginID string) (plugins.Snapshot, error) {

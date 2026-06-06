@@ -272,6 +272,7 @@ func New(options Options) (*App, error) {
 		pluginConfig:     pluginState.pluginConfig,
 		adapter:          pluginState.Adapter,
 		webhooks:         pluginState.webhooks,
+		tasks:            platformState.Tasks,
 		onRecoveryChange: systemService.ReconcileRecoverySummaryBestEffort,
 		refreshManifest: func(ctx context.Context, pluginID string) (plugins.Snapshot, error) {
 			return refreshPluginManifest(ctx, pluginState.Plugins, pluginState.pluginConfig, pluginID, func() ([]plugins.Snapshot, error) {
