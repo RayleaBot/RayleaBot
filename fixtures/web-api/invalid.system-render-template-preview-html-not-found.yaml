@@ -1,0 +1,18 @@
+contract: contracts/web-api.openapi.yaml
+case: invalid
+description: Template live preview rejects unknown templates.
+request:
+  method: POST
+  path: /api/system/render/templates/missing-template/preview-html
+  body:
+    data:
+      title: 缺失模板
+response:
+  status: 404
+  body:
+    error:
+      code: platform.template_not_found
+      message: 模板不存在
+      message_key: errors.platform.template_not_found
+expect:
+  valid: true

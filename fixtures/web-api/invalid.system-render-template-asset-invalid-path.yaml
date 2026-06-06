@@ -1,0 +1,17 @@
+contract: contracts/web-api.openapi.yaml
+case: invalid
+description: Template live preview rejects resources outside the controlled template root.
+request:
+  method: GET
+  path: /api/system/render/templates/help.menu/asset?path=../../config/user.yaml
+response:
+  status: 404
+  body:
+    error:
+      code: platform.resource_missing
+      message: 缺少必要资源
+      message_key: errors.platform.resource_missing
+      details:
+        resource_type: render_template_asset
+expect:
+  valid: true

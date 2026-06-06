@@ -235,8 +235,9 @@ func pluginRenderTemplateSources(snapshots []plugins.Snapshot) []render.PluginTe
 			}
 			seen[key] = struct{}{}
 			sources = append(sources, render.PluginTemplateSource{
-				PluginID: snapshot.PluginID,
-				Dir:      dir,
+				PluginID:     snapshot.PluginID,
+				Dir:          dir,
+				ResourceRoot: snapshot.PackageRootPath,
 			})
 		}
 	}
@@ -251,8 +252,9 @@ func validatePluginRenderTemplates(snapshot plugins.Snapshot) error {
 			return fmt.Errorf("plugin render template path %q is invalid", declared.Path)
 		}
 		sources = append(sources, render.PluginTemplateSource{
-			PluginID: snapshot.PluginID,
-			Dir:      dir,
+			PluginID:     snapshot.PluginID,
+			Dir:          dir,
+			ResourceRoot: snapshot.PackageRootPath,
 		})
 	}
 	return render.ValidatePluginTemplateSources(sources)

@@ -111,10 +111,22 @@ type Result struct {
 	FromCache  bool
 }
 
+type PreviewHTML struct {
+	TemplateID string
+	RevisionID string
+	Width      int
+	Height     int
+	HTML       string
+}
+
 type Artifact struct {
 	ArtifactID string
 	MIME       string
 	Path       string
+}
+
+type TemplateAsset struct {
+	Path string
 }
 
 type Error struct {
@@ -165,7 +177,7 @@ type Service struct {
 	logger         *slog.Logger
 	templateRepo   *sqliteTemplateRepository
 	templateSyncMu sync.Mutex
-	templateRoots  map[string]string
+	templateRoots  map[string]templateRoot
 
 	mu                 sync.RWMutex
 	queueMaxLength     int
@@ -181,6 +193,11 @@ type Service struct {
 
 	metricsMu sync.RWMutex
 	metrics   MetricsObserver
+}
+
+type templateRoot struct {
+	TemplateDir  string
+	ResourceRoot string
 }
 
 // MetricsObserver routes render service outcomes into the Prometheus
@@ -269,7 +286,7 @@ func NewService(options Options) (*Service, error) {
 		defaultOutput:      defaultOutput,
 		deviceScalePercent: deviceScalePercent,
 		templateRepo:       templateRepo,
-		templateRoots:      map[string]string{},
+		templateRoots:      map[string]templateRoot{},
 		cache:              map[string]Result{},
 		artifacts:          map[string]Artifact{},
 	}
@@ -380,7 +397,7 @@ func (s *Service) renderInternal(ctx context.Context, request Request) (Result, 
 		return Result{}, err
 	}
 
-	compiled, cacheVersion, cacheDigest, err := s.resolveCompiledTemplate(ctx, normalized)
+	compiled, _, cacheVersion, cacheDigest, err := s.resolveCompiledTemplate(ctx, normalized)
 	if err != nil {
 		return Result{}, err
 	}
@@ -471,6 +488,38 @@ func (s *Service) renderInternal(ctx context.Context, request Request) (Result, 
 	s.mu.Unlock()
 
 	return result, nil
+}
+
+func (s *Service) PreviewHTML(ctx context.Context, request Request) (PreviewHTML, error) {
+	if s == nil {
+		return PreviewHTML{}, &Error{Code: "platform.resource_missing", Message: "render service is not available"}
+	}
+
+	normalized, _, err := s.normalizeRequest(request)
+	if err != nil {
+		return PreviewHTML{}, err
+	}
+
+	if err := s.syncTemplatesFromFiles(ctx); err != nil {
+		return PreviewHTML{}, err
+	}
+
+	compiled, revisionID, _, _, err := s.resolveCompiledTemplate(ctx, normalized)
+	if err != nil {
+		return PreviewHTML{}, err
+	}
+	html, err := compiled.renderHTML(normalized.Theme, normalized.Data)
+	if err != nil {
+		return PreviewHTML{}, wrapRenderError(err, "render template execution failed")
+	}
+
+	return PreviewHTML{
+		TemplateID: normalized.Template,
+		RevisionID: revisionID,
+		Width:      compiled.bundle.manifest.Width,
+		Height:     compiled.bundle.manifest.Height,
+		HTML:       html,
+	}, nil
 }
 
 func (s *Service) currentRunner() Runner {
@@ -836,6 +885,52 @@ func (s *Service) LookupArtifact(artifactID string) (Artifact, error) {
 	s.mu.Unlock()
 
 	return artifact, nil
+}
+
+func (s *Service) LookupTemplateAsset(ctx context.Context, templateID string, relativePath string) (TemplateAsset, error) {
+	if s == nil {
+		return TemplateAsset{}, &Error{Code: "platform.resource_missing", Message: "render service is not available"}
+	}
+	if err := s.syncTemplatesFromFiles(ctx); err != nil {
+		return TemplateAsset{}, err
+	}
+
+	templateID = strings.TrimSpace(templateID)
+	relativePath = strings.TrimSpace(relativePath)
+	if relativePath == "" {
+		return TemplateAsset{}, &Error{Code: "platform.resource_missing", Message: "render template asset was not found"}
+	}
+	if _, err := s.GetTemplate(ctx, templateID); err != nil {
+		return TemplateAsset{}, err
+	}
+
+	root := s.templateRootFor(templateID)
+	if root.TemplateDir == "" || root.ResourceRoot == "" {
+		return TemplateAsset{}, &Error{Code: "platform.resource_missing", Message: "render template asset was not found"}
+	}
+	assetPath, err := resolveTemplateAssetPath(root, relativePath)
+	if err != nil {
+		return TemplateAsset{}, err
+	}
+	isSourcePath, err := s.isManagedTemplateSourcePath(ctx, assetPath)
+	if err != nil {
+		return TemplateAsset{}, err
+	}
+	if isSourcePath {
+		return TemplateAsset{}, &Error{Code: "platform.resource_missing", Message: "render template asset was not found"}
+	}
+	info, err := os.Stat(assetPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return TemplateAsset{}, &Error{Code: "platform.resource_missing", Message: "render template asset was not found", Err: err}
+		}
+		return TemplateAsset{}, fmt.Errorf("inspect render template asset %s: %w", assetPath, err)
+	}
+	if info.IsDir() {
+		return TemplateAsset{}, &Error{Code: "platform.resource_missing", Message: "render template asset was not found"}
+	}
+
+	return TemplateAsset{Path: assetPath}, nil
 }
 
 func (s *Service) Diagnostics() []health.DiagnosticIssue {
@@ -1281,21 +1376,21 @@ func (s *Service) loadArtifacts() error {
 	return nil
 }
 
-func (s *Service) resolveCompiledTemplate(ctx context.Context, request Request) (*compiledTemplate, string, string, error) {
-	_, source, err := s.templateRepo.GetCurrentSource(ctx, request.Template)
+func (s *Service) resolveCompiledTemplate(ctx context.Context, request Request) (*compiledTemplate, string, string, string, error) {
+	revisionID, source, err := s.templateRepo.GetCurrentSource(ctx, request.Template)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return nil, "", "", &Error{
+			return nil, "", "", "", &Error{
 				Code:    "platform.template_not_found",
 				Message: "render template was not found",
 			}
 		}
-		return nil, "", "", fmt.Errorf("get current render template %s: %w", request.Template, err)
+		return nil, "", "", "", fmt.Errorf("get current render template %s: %w", request.Template, err)
 	}
 
 	bundle, err := buildTemplateSourceBundle(request.Template, source)
 	if err != nil {
-		return nil, "", "", &Error{
+		return nil, "", "", "", &Error{
 			Code:    "platform.internal_error",
 			Message: "stored render template is invalid",
 			Err:     err,
@@ -1303,15 +1398,15 @@ func (s *Service) resolveCompiledTemplate(ctx context.Context, request Request) 
 	}
 	compiled, issues, err := compileTemplateBundle(bundle)
 	if err != nil {
-		return nil, "", "", fmt.Errorf("compile current render template %s: %w", request.Template, err)
+		return nil, "", "", "", fmt.Errorf("compile current render template %s: %w", request.Template, err)
 	}
 	if len(issues) > 0 {
-		return nil, "", "", &Error{
+		return nil, "", "", "", &Error{
 			Code:    "platform.internal_error",
 			Message: "stored render template is invalid",
 		}
 	}
-	return compiled, compiled.bundle.manifest.Version, compiled.bundle.digest, nil
+	return compiled, revisionID, compiled.bundle.manifest.Version, compiled.bundle.digest, nil
 }
 
 func (s *Service) validateTemplateForWrite(ctx context.Context, templateID string, source TemplateSource) (templateSourceBundle, *compiledTemplate, TemplateValidationStatus, error) {
@@ -1365,7 +1460,7 @@ func (s *Service) syncTemplatesFromFiles(ctx context.Context) error {
 	for _, templateID := range sortedTemplateIDs(templateSeeds) {
 		seed := templateSeeds[templateID]
 		templateDir := filepath.Join(s.templatesRoot, filepath.Clean(templateID))
-		if err := s.syncTemplateSeed(ctx, templateID, seed, TemplateSourceInfo{Type: "system"}, templateDir); err != nil {
+		if err := s.syncTemplateSeed(ctx, templateID, seed, TemplateSourceInfo{Type: "system"}, templateDir, s.templatesRoot); err != nil {
 			return fmt.Errorf("sync render template %s: %w", templateID, err)
 		}
 	}
@@ -1387,6 +1482,10 @@ func (s *Service) SyncPluginTemplates(ctx context.Context, sources []PluginTempl
 		dir := strings.TrimSpace(source.Dir)
 		if pluginID == "" || dir == "" {
 			continue
+		}
+		resourceRoot := strings.TrimSpace(source.ResourceRoot)
+		if resourceRoot == "" {
+			resourceRoot = dir
 		}
 		seed, err := loadTemplateSeed(dir)
 		if err != nil {
@@ -1411,7 +1510,7 @@ func (s *Service) SyncPluginTemplates(ctx context.Context, sources []PluginTempl
 			Type:     "plugin",
 			PluginID: pluginID,
 			LocalID:  localID,
-		}, dir); err != nil {
+		}, dir, resourceRoot); err != nil {
 			return fmt.Errorf("sync plugin render template %s/%s: %w", pluginID, localID, err)
 		}
 		keepByPlugin[pluginID] = append(keepByPlugin[pluginID], templateID)
@@ -1476,6 +1575,7 @@ func PluginTemplateSourcesFromManifests(items []PluginTemplateSource) []PluginTe
 		item.PluginID = pluginID
 		item.LocalID = localID
 		item.Dir = dir
+		item.ResourceRoot = strings.TrimSpace(item.ResourceRoot)
 		sources = append(sources, item)
 	}
 	return sources
@@ -1500,7 +1600,7 @@ func (s *Service) RemovePluginTemplates(ctx context.Context, pluginID string) er
 	return nil
 }
 
-func (s *Service) syncTemplateSeed(ctx context.Context, templateID string, seed templateSeed, sourceInfo TemplateSourceInfo, templateDir string) error {
+func (s *Service) syncTemplateSeed(ctx context.Context, templateID string, seed templateSeed, sourceInfo TemplateSourceInfo, templateDir string, resourceRoot string) error {
 	savedAt := time.Now().UTC().Format(time.RFC3339Nano)
 	revision := newStoredRevision(
 		templateID,
@@ -1519,7 +1619,7 @@ func (s *Service) syncTemplateSeed(ctx context.Context, templateID string, seed 
 		return err
 	}
 
-	s.rememberTemplateDir(templateID, templateDir)
+	s.rememberTemplateRoot(templateID, templateDir, resourceRoot)
 	if changed && s.logger != nil {
 		s.logger.Info(
 			"render template synchronized",
@@ -1628,17 +1728,27 @@ func fileURL(path string) string {
 	}).String()
 }
 
-func (s *Service) rememberTemplateDir(templateID, templateDir string) {
+func (s *Service) rememberTemplateRoot(templateID, templateDir, resourceRoot string) {
 	if s == nil || strings.TrimSpace(templateID) == "" || strings.TrimSpace(templateDir) == "" {
 		return
 	}
-	absolute, err := filepath.Abs(templateDir)
+	absoluteTemplateDir, err := filepath.Abs(templateDir)
+	if err != nil {
+		return
+	}
+	if strings.TrimSpace(resourceRoot) == "" {
+		resourceRoot = templateDir
+	}
+	absoluteResourceRoot, err := filepath.Abs(resourceRoot)
 	if err != nil {
 		return
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.templateRoots[strings.TrimSpace(templateID)] = absolute
+	s.templateRoots[strings.TrimSpace(templateID)] = templateRoot{
+		TemplateDir:  absoluteTemplateDir,
+		ResourceRoot: absoluteResourceRoot,
+	}
 }
 
 func (s *Service) templateDirFor(templateID string) string {
@@ -1647,12 +1757,30 @@ func (s *Service) templateDirFor(templateID string) string {
 	}
 	templateID = strings.TrimSpace(templateID)
 	s.mu.RLock()
-	if dir := s.templateRoots[templateID]; dir != "" {
+	if root := s.templateRoots[templateID]; root.TemplateDir != "" {
 		s.mu.RUnlock()
-		return dir
+		return root.TemplateDir
 	}
 	s.mu.RUnlock()
 	return filepath.Join(s.templatesRoot, filepath.Clean(templateID))
+}
+
+func (s *Service) templateRootFor(templateID string) templateRoot {
+	if s == nil {
+		return templateRoot{}
+	}
+	templateID = strings.TrimSpace(templateID)
+	s.mu.RLock()
+	root := s.templateRoots[templateID]
+	s.mu.RUnlock()
+	if root.TemplateDir != "" && root.ResourceRoot != "" {
+		return root
+	}
+	templateDir := filepath.Join(s.templatesRoot, filepath.Clean(templateID))
+	return templateRoot{
+		TemplateDir:  templateDir,
+		ResourceRoot: s.templatesRoot,
+	}
 }
 
 func templateBaseURL(templateDir string) string {
@@ -1706,6 +1834,114 @@ func templateResourceDigest(templateDir string) string {
 		return ""
 	}
 	return hex.EncodeToString(digest.Sum(nil))
+}
+
+func resolveTemplateAssetPath(root templateRoot, relativePath string) (string, error) {
+	templateDir := strings.TrimSpace(root.TemplateDir)
+	resourceRoot := strings.TrimSpace(root.ResourceRoot)
+	relativePath = strings.TrimSpace(relativePath)
+	if templateDir == "" || resourceRoot == "" || relativePath == "" || filepath.IsAbs(filepath.FromSlash(relativePath)) {
+		return "", &Error{Code: "platform.resource_missing", Message: "render template asset was not found"}
+	}
+
+	cleanRelative := filepath.Clean(filepath.FromSlash(relativePath))
+	if cleanRelative == "." {
+		return "", &Error{Code: "platform.resource_missing", Message: "render template asset was not found"}
+	}
+
+	absoluteTemplateDir, err := filepath.Abs(templateDir)
+	if err != nil {
+		return "", err
+	}
+	absoluteResourceRoot, err := filepath.Abs(resourceRoot)
+	if err != nil {
+		return "", err
+	}
+	candidate := filepath.Join(absoluteTemplateDir, cleanRelative)
+	if !pathWithinRoot(absoluteResourceRoot, candidate) {
+		return "", &Error{Code: "platform.resource_missing", Message: "render template asset was not found"}
+	}
+	return candidate, nil
+}
+
+func (s *Service) isManagedTemplateSourcePath(ctx context.Context, candidate string) (bool, error) {
+	absoluteCandidate, err := filepath.Abs(candidate)
+	if err != nil {
+		return false, err
+	}
+	items, err := s.templateRepo.ListTemplateSummaries(ctx)
+	if err != nil {
+		return false, fmt.Errorf("list render templates for asset lookup: %w", err)
+	}
+
+	for _, item := range items {
+		detail, err := s.templateRepo.GetTemplateDetail(ctx, item.ID)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				continue
+			}
+			return false, fmt.Errorf("get render template %s for asset lookup: %w", item.ID, err)
+		}
+
+		root := s.templateRootFor(item.ID)
+		if root.TemplateDir == "" {
+			continue
+		}
+		for _, sourcePath := range managedTemplateSourcePaths(root.TemplateDir, detail.Files) {
+			if sameFilePath(absoluteCandidate, sourcePath) {
+				return true, nil
+			}
+		}
+	}
+	return false, nil
+}
+
+func managedTemplateSourcePaths(templateDir string, files TemplateFiles) []string {
+	relativePaths := []string{
+		templateManifestFilename,
+		defaultTemplatePreviewData,
+	}
+	if strings.TrimSpace(files.HTML) != "" {
+		relativePaths = append(relativePaths, files.HTML)
+	}
+	if strings.TrimSpace(files.Stylesheet) != "" {
+		relativePaths = append(relativePaths, files.Stylesheet)
+	}
+	if files.InputSchema != nil && strings.TrimSpace(*files.InputSchema) != "" {
+		relativePaths = append(relativePaths, *files.InputSchema)
+	}
+
+	paths := make([]string, 0, len(relativePaths))
+	seen := map[string]struct{}{}
+	for _, relativePath := range relativePaths {
+		path, err := templateFilePath(templateDir, relativePath)
+		if err != nil {
+			continue
+		}
+		absolutePath, err := filepath.Abs(path)
+		if err != nil {
+			continue
+		}
+		key := normalizedFilePath(absolutePath)
+		if _, ok := seen[key]; ok {
+			continue
+		}
+		seen[key] = struct{}{}
+		paths = append(paths, absolutePath)
+	}
+	return paths
+}
+
+func sameFilePath(left, right string) bool {
+	return normalizedFilePath(left) == normalizedFilePath(right)
+}
+
+func normalizedFilePath(path string) string {
+	cleaned := filepath.Clean(path)
+	if strings.Contains(cleaned, "\\") {
+		return strings.ToLower(cleaned)
+	}
+	return cleaned
 }
 
 func formalPluginTemplateID(pluginID, localID string) string {

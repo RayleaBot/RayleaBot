@@ -1,0 +1,17 @@
+contract: contracts/web-api.openapi.yaml
+case: invalid
+description: Template live preview rejects invalid input data.
+request:
+  method: POST
+  path: /api/system/render/templates/help.menu/preview-html
+  body:
+    data: []
+response:
+  status: 400
+  body:
+    error:
+      code: platform.invalid_request
+      message: 请求参数不合法
+      message_key: errors.platform.invalid_request
+expect:
+  valid: true

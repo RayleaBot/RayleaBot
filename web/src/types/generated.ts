@@ -544,6 +544,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/system/render/templates/{template_id}/preview-html": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Render one managed template to an HTML document for management-side live preview. */
+        post: operations["createRenderTemplatePreviewHTML"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/system/render/templates/{template_id}/asset": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Stream a managed template resource for management-side live preview. */
+        get: operations["getRenderTemplateAsset"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/system/scheduler/jobs": {
         parameters: {
             query?: never;
@@ -1224,6 +1258,20 @@ export interface components {
                 [key: string]: unknown;
             };
         };
+        RenderTemplatePreviewHTMLRequest: {
+            /** @default default */
+            theme: string;
+            data: {
+                [key: string]: unknown;
+            };
+        };
+        RenderTemplatePreviewHTMLResponse: {
+            template_id: string;
+            revision_id: string;
+            width: number;
+            height: number;
+            html: string;
+        };
         RenderTemplateSource: {
             /** @enum {string} */
             type: "system" | "plugin";
@@ -1617,9 +1665,15 @@ export interface components {
              */
             schema_version: "2";
             server: {
-                /** @default 127.0.0.1 */
+                /**
+                 * @description HTTP server bind address. Use 0.0.0.0 to listen on all interfaces; for production bind 127.0.0.1 behind a reverse proxy. Requires restart.
+                 * @default 127.0.0.1
+                 */
                 host: string;
-                /** @default 8080 */
+                /**
+                 * @description HTTP server listen port. Default: 8080. Requires restart.
+                 * @default 8080
+                 */
                 port: number;
             };
             onebot: {
@@ -1630,10 +1684,12 @@ export interface components {
             };
             database: {
                 /**
+                 * @description Database engine. Only sqlite is supported. Requires restart.
                  * @default sqlite
                  * @constant
                  */
                 engine: "sqlite";
+                /** @description Database file path. Relative paths resolve against the data directory; absolute paths are recommended for migration clarity. Requires restart. */
                 path: string;
             };
             command: {
@@ -1656,15 +1712,30 @@ export interface components {
             admin: {
                 /** @default [] */
                 super_admins: string[];
-                /** @default 7 */
+                /**
+                 * @description Default admin session lifetime in days. Default: 7.
+                 * @default 7
+                 */
                 session_ttl_days: number;
-                /** @default true */
+                /**
+                 * @description When enabled, active sessions are automatically extended.
+                 * @default true
+                 */
                 sliding_renewal: boolean;
-                /** @default 3 */
+                /**
+                 * @description Maximum concurrent sessions per admin; older sessions are evicted when exceeded. Default: 3.
+                 * @default 3
+                 */
                 max_sessions: number;
-                /** @default 5 */
+                /**
+                 * @description Maximum login failures within the sliding window before temporary lockout. Default: 5.
+                 * @default 5
+                 */
                 login_fail_limit: number;
-                /** @default 300 */
+                /**
+                 * @description Length of the login-failure sliding window in seconds. Default: 300.
+                 * @default 300
+                 */
                 login_fail_window_seconds: number;
             };
             permission: {
@@ -1677,96 +1748,188 @@ export interface components {
                 auto_grant_capabilities: string[];
             };
             render: {
-                /** @default 1 */
+                /**
+                 * @description Number of concurrent image render workers; high values consume significant memory. Default: 1.
+                 * @default 1
+                 */
                 worker_count: number;
-                /** @default [
+                /**
+                 * @description Chromium startup arguments passed verbatim.
+                 * @default [
                  *       "--disable-gpu"
-                 *     ] */
+                 *     ]
+                 */
                 browser_args: string[];
-                /** @default  */
+                /**
+                 * @description Chromium executable path. Leave empty to use the bundled binary.
+                 * @default
+                 */
                 browser_path: string;
                 /**
+                 * @description Output format used when a plugin does not specify one.
                  * @default png
                  * @enum {string}
                  */
                 default_output: "png" | "jpeg";
-                /** @default 100 */
+                /**
+                 * @description Simulated device pixel ratio as a percentage; higher values yield sharper images at greater cost. Default: 100.
+                 * @default 100
+                 */
                 device_scale_percent: number;
-                /** @default 30 */
+                /**
+                 * @description Per-image render timeout in seconds; exceeded tasks are cancelled and recorded as failures. Default: 30.
+                 * @default 30
+                 */
                 timeout_seconds: number;
-                /** @default 15 */
+                /**
+                 * @description Maximum time a render task may wait in the queue before timing out. Default: 15.
+                 * @default 15
+                 */
                 queue_wait_timeout_seconds: number;
-                /** @default 32 */
+                /**
+                 * @description Render queue capacity; new tasks are rejected when full. Default: 32.
+                 * @default 32
+                 */
                 queue_max_length: number;
                 /** @default Created By RayleaBot {{rayleabot_version}} & Plugin {{plugin_name}} {{plugin_version}} */
                 footer_template: string;
             };
             scheduler: {
-                /** @default  */
+                /**
+                 * @description IANA timezone identifier used for scheduled tasks. Empty defaults to system timezone.
+                 * @default
+                 */
                 timezone: string;
             };
             runtime: {
-                /** @default 30 */
+                /**
+                 * @description Maximum time allowed for a single plugin's initialization (load and handshake). Default: 30.
+                 * @default 30
+                 */
                 plugin_init_timeout_seconds: number;
-                /** @default 300 */
+                /**
+                 * @description Cumulative initialization time budget across all plugins; remaining plugins skip initialization when exceeded. Default: 300.
+                 * @default 300
+                 */
                 plugin_init_max_total_seconds: number;
-                /** @default 60 */
+                /**
+                 * @description Maximum time a plugin may take to process one event; expired events are dropped. Default: 60.
+                 * @default 60
+                 */
                 plugin_event_timeout_seconds: number;
-                /** @default 16 */
+                /**
+                 * @description Maximum queued events per plugin; new events are dropped when exceeded. Default: 16.
+                 * @default 16
+                 */
                 max_pending_events_per_plugin: number;
-                /** @default 4 */
+                /**
+                 * @description Maximum queued control events per plugin. Default: 4.
+                 * @default 4
+                 */
                 max_pending_control_events_per_plugin: number;
-                /** @default 256 */
+                /**
+                 * @description Old-generation heap cap for Node.js plugin runtimes, passed to --max-old-space-size. Default: 256. Requires restart.
+                 * @default 256
+                 */
                 nodejs_max_old_space_size_mb: number;
-                /** @default 900 */
+                /**
+                 * @description Maximum time allowed for installing plugin dependencies. Default: 900.
+                 * @default 900
+                 */
                 dependency_install_timeout_seconds: number;
-                /** @default 1 */
+                /**
+                 * @description Maximum concurrent plugin dependency installation tasks. Default: 1.
+                 * @default 1
+                 */
                 max_concurrent_dependency_installs: number;
-                /** @default 256 */
+                /**
+                 * @description Maximum queued IPC actions per plugin; new actions are rejected when exceeded. Default: 256.
+                 * @default 256
+                 */
                 ipc_pending_actions_max: number;
-                /** @default 100/1s */
+                /**
+                 * @description Burst rate limit for IPC actions, expressed as count per time window.
+                 * @default 100/1s
+                 */
                 ipc_action_burst_limit: components["schemas"]["rateLimit"];
-                /** @default 262144 */
+                /**
+                 * @description Plugin stderr output rate limit in bytes per second; excess output is truncated. Default: 262144.
+                 * @default 262144
+                 */
                 stderr_rate_limit_bytes_per_second: number;
                 /**
                  * @description Upper bound for one plugin's concurrent event sessions. The runtime applies min(manifest.concurrency, runtime.max_concurrent_tasks_per_plugin) with a floor of 1.
                  * @default 4
                  */
                 max_concurrent_tasks_per_plugin: number;
-                /** @default 2 */
+                /**
+                 * @description Initial backoff before the first restart after a plugin crash; subsequent waits grow exponentially. Default: 2.
+                 * @default 2
+                 */
                 crash_backoff_initial_seconds: number;
-                /** @default 60 */
+                /**
+                 * @description Upper bound for the crash-restart backoff. Default: 60.
+                 * @default 60
+                 */
                 crash_backoff_max_seconds: number;
-                /** @default 10 */
+                /**
+                 * @description Grace period given to plugins during shutdown before they are force-terminated. Default: 10.
+                 * @default 10
+                 */
                 shutdown_grace_seconds: number;
-                /** @default 8388608 */
+                /**
+                 * @description Maximum size of a single IPC message; exceeding this disconnects and restarts the plugin. Default: 8388608.
+                 * @default 8388608
+                 */
                 ipc_message_max_bytes: number;
             };
             storage: {
-                /** @default 65536 */
+                /**
+                 * @description Maximum serialized size of one KV value in bytes. Default: 65536.
+                 * @default 65536
+                 */
                 kv_value_max_bytes: number;
-                /** @default 16 */
+                /**
+                 * @description Aggregate KV storage cap across all plugins; new writes are rejected when reached. Default: 16.
+                 * @default 16
+                 */
                 kv_total_limit_mb: number;
-                /** @default 10485760 */
+                /**
+                 * @description Maximum size of a single plugin file in bytes. Default: 10485760.
+                 * @default 10485760
+                 */
                 file_max_bytes: number;
                 /** @default 256 */
                 plugin_workdir_soft_limit_mb: number;
             };
             data: {
-                /** @default 90 */
+                /**
+                 * @description Audit log retention in days; entries older are purged. Default: 90.
+                 * @default 90
+                 */
                 audit_logs_retention_days: number;
-                /** @default 7 */
+                /**
+                 * @description Event-record retention in days; entries older are purged. Default: 7.
+                 * @default 7
+                 */
                 event_records_retention_days: number;
-                /** @default 15 */
+                /**
+                 * @description Download cache retention in days; entries older are purged. Default: 15.
+                 * @default 15
+                 */
                 download_cache_retention_days: number;
             };
             log: {
                 /**
+                 * @description Minimum log level; messages below this level are discarded.
                  * @default info
                  * @enum {string}
                  */
                 level: "debug" | "info" | "warn" | "error";
-                /** @default 7 */
+                /**
+                 * @description Log file retention in days; older files are purged. Default: 7.
+                 * @default 7
+                 */
                 retention_days: number;
                 /** @default 200/10s */
                 rate_limit_per_plugin: components["schemas"]["rateLimit"];
@@ -1776,7 +1939,10 @@ export interface components {
                 rate_limit_per_plugin: components["schemas"]["rateLimit"];
                 /** @default 5/5s */
                 rate_limit_per_target: components["schemas"]["rateLimit"];
-                /** @default 30 */
+                /**
+                 * @description Cooldown after consecutive send failures trigger the message circuit breaker. Default: 30.
+                 * @default 30
+                 */
                 circuit_breaker_seconds: number;
             };
             user: {
@@ -1802,24 +1968,38 @@ export interface components {
                 reconnect_jitter_ratio: number;
             };
             http: {
-                /** @default 10 */
+                /**
+                 * @description Default HTTP request timeout for plugin-issued requests. Default: 10.
+                 * @default 10
+                 */
                 timeout_seconds: number;
-                /** @default 2 */
+                /**
+                 * @description Maximum retry count for plugin HTTP requests. Default: 2.
+                 * @default 2
+                 */
                 max_retries: number;
-                /** @default [] */
+                /**
+                 * @description Allow-list of private or LAN hosts that plugins may reach; private networks are blocked by default to prevent SSRF.
+                 * @default []
+                 */
                 allow_private_hosts: string[];
             };
             web: {
                 /**
+                 * @description Admin UI network exposure: localhost_only restricts to 127.0.0.1; lan_enabled allows LAN; public_via_reverse_proxy trusts reverse-proxy headers. Requires restart.
                  * @default localhost_only
                  * @enum {string}
                  */
                 exposure_mode: "localhost_only" | "lan_enabled" | "public_via_reverse_proxy";
-                /** @default true */
+                /**
+                 * @description When enabled, first-run setup is only reachable from 127.0.0.1, preventing remote takeover. Requires restart.
+                 * @default true
+                 */
                 setup_local_only: boolean;
             };
             backup: {
                 /**
+                 * @description Default backup consistency mode: offline takes an offline snapshot; online exports while running.
                  * @default offline
                  * @enum {string}
                  */
@@ -2643,6 +2823,65 @@ export interface operations {
                     "application/json": components["schemas"]["RenderTemplateDetailResponse"];
                 };
             };
+            401: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    createRenderTemplatePreviewHTML: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                template_id: components["parameters"]["TemplateId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RenderTemplatePreviewHTMLRequest"];
+            };
+        };
+        responses: {
+            /** @description Rendered HTML document for same-origin iframe preview. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RenderTemplatePreviewHTMLResponse"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            413: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    getRenderTemplateAsset: {
+        parameters: {
+            query: {
+                path: string;
+            };
+            header?: never;
+            path: {
+                template_id: components["parameters"]["TemplateId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Template preview resource bytes. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/octet-stream": string;
+                };
+            };
+            400: components["responses"]["Error"];
             401: components["responses"]["Error"];
             404: components["responses"]["Error"];
             default: components["responses"]["Error"];

@@ -130,9 +130,10 @@ type templateSeed struct {
 }
 
 type PluginTemplateSource struct {
-	PluginID string
-	LocalID  string
-	Dir      string
+	PluginID     string
+	LocalID      string
+	Dir          string
+	ResourceRoot string
 }
 
 func discoverTemplateSeeds(root string, logger *slog.Logger) (map[string]templateSeed, error) {

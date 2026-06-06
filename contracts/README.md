@@ -136,10 +136,12 @@
 
 - `GET /api/system/render/templates`
 - `GET /api/system/render/templates/{template_id}`
+- `POST /api/system/render/templates/{template_id}/preview-html`
+- `GET /api/system/render/templates/{template_id}/asset`
 - `POST /api/system/render/preview`
 - `GET /api/system/render/artifacts/{artifact_id}`
 
-其中模板预览工作区继续使用 `render.preview` 任务链进行实时预览；模板列表和详情返回 `source`，用于区分系统模板与插件携带模板；模板目录可提供 `preview.json` 作为预览示例数据；`render.preview` 任务详情会在 `result.details` 中暴露 `artifact_id`、`image_url`、`mime`、`cache_key`、`template`、`theme`、`from_cache`。
+其中模板预览工作区使用同步 HTML 预览接口展示当前模板文档；模板资源接口只读取受控模板资源。模板列表和详情返回 `source`，用于区分系统模板与插件携带模板；模板目录可提供 `preview.json` 作为预览示例数据；`render.preview` 任务接口继续生成 PNG / JPEG 预览图，任务详情会在 `result.details` 中暴露 `artifact_id`、`image_url`、`mime`、`cache_key`、`template`、`theme`、`from_cache`。
 
 当前已进入 OpenAPI 冻结范围的 governance surface：
 

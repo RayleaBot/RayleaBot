@@ -30,6 +30,8 @@ x-fixtures:
   - fixtures/web-api/ok.system-render-artifact.yaml
   - fixtures/web-api/ok.system-render-templates-list-response.yaml
   - fixtures/web-api/ok.system-render-template-detail-response.yaml
+  - fixtures/web-api/ok.system-render-template-preview-html.yaml
+  - fixtures/web-api/ok.system-render-template-asset.yaml
   - fixtures/web-api/ok.system-scheduler-jobs-list.yaml
   - fixtures/web-api/edge.system-scheduler-jobs-empty.yaml
   - fixtures/web-api/ok.system-scheduler-job-triggered.yaml
@@ -106,6 +108,9 @@ x-fixtures:
   - fixtures/web-api/invalid.governance-entry-upsert-invalid.yaml
   - fixtures/web-api/invalid.system-render-preview-invalid.yaml
   - fixtures/web-api/invalid.system-render-template-not-found.yaml
+  - fixtures/web-api/invalid.system-render-template-preview-html-invalid.yaml
+  - fixtures/web-api/invalid.system-render-template-preview-html-not-found.yaml
+  - fixtures/web-api/invalid.system-render-template-asset-invalid-path.yaml
   - fixtures/web-api/invalid.logs-list-limit-too-large.yaml
   - fixtures/web-api/invalid.logs-list-invalid-scope.yaml
   - fixtures/web-api/invalid.logs-list-start-after-end.yaml
@@ -787,6 +792,69 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/RenderTemplateDetailResponse'
+        '401':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+        default:
+          $ref: '#/components/responses/Error'
+
+  /api/system/render/templates/{template_id}/preview-html:
+    post:
+      summary: Render one managed template to an HTML document for management-side live preview.
+      operationId: createRenderTemplatePreviewHTML
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/TemplateId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RenderTemplatePreviewHTMLRequest'
+      responses:
+        '200':
+          description: Rendered HTML document for same-origin iframe preview.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RenderTemplatePreviewHTMLResponse'
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+        '413':
+          $ref: '#/components/responses/Error'
+        default:
+          $ref: '#/components/responses/Error'
+
+  /api/system/render/templates/{template_id}/asset:
+    get:
+      summary: Stream a managed template resource for management-side live preview.
+      operationId: getRenderTemplateAsset
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/TemplateId'
+        - name: path
+          in: query
+          required: true
+          schema:
+            type: string
+            minLength: 1
+      responses:
+        '200':
+          description: Template preview resource bytes.
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+        '400':
+          $ref: '#/components/responses/Error'
         '401':
           $ref: '#/components/responses/Error'
         '404':
@@ -2283,6 +2351,40 @@ components:
         data:
           type: object
           additionalProperties: true
+
+    RenderTemplatePreviewHTMLRequest:
+      type: object
+      additionalProperties: false
+      required: [data]
+      properties:
+        theme:
+          type: string
+          minLength: 1
+          default: default
+        data:
+          type: object
+          additionalProperties: true
+
+    RenderTemplatePreviewHTMLResponse:
+      type: object
+      additionalProperties: false
+      required: [template_id, revision_id, width, height, html]
+      properties:
+        template_id:
+          type: string
+          minLength: 1
+        revision_id:
+          type: string
+          minLength: 1
+        width:
+          type: integer
+          minimum: 1
+        height:
+          type: integer
+          minimum: 1
+        html:
+          type: string
+          minLength: 1
 
     RenderTemplateSource:
       type: object

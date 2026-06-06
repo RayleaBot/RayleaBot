@@ -87,6 +87,8 @@ func registerAppProtectedRoutes(router chi.Router, deps httpServerDeps) {
 	router.Post("/api/system/render/preview", deps.renderHandler.handleSystemRenderPreview())
 	router.Get("/api/system/render/artifacts/{artifact_id}", deps.renderHandler.handleSystemRenderArtifact())
 	router.Get("/api/system/render/templates", deps.renderHandler.handleSystemRenderTemplateList())
+	router.Post("/api/system/render/templates/{template_id}/preview-html", deps.renderHandler.handleSystemRenderTemplatePreviewHTML())
+	router.Get("/api/system/render/templates/{template_id}/asset", deps.renderHandler.handleSystemRenderTemplateAsset())
 	router.Get("/api/system/render/templates/{template_id}", deps.renderHandler.handleSystemRenderTemplateDetail())
 	router.Get("/api/system/scheduler/jobs", deps.systemHandler.handleSystemSchedulerJobList())
 	router.Post("/api/system/scheduler/jobs/{job_id}/trigger", deps.systemHandler.handleSystemSchedulerJobTrigger())

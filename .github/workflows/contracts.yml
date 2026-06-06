@@ -682,6 +682,8 @@ jobs:
               '/api/system/render/artifacts/{artifact_id}',
               '/api/system/render/templates',
               '/api/system/render/templates/{template_id}',
+              '/api/system/render/templates/{template_id}/asset',
+              '/api/system/render/templates/{template_id}/preview-html',
               '/api/system/runtime/bootstrap',
               '/api/system/diagnostics/export',
               '/api/system/scheduler/jobs/{job_id}/trigger',

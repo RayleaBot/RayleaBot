@@ -1,0 +1,24 @@
+contract: contracts/web-api.openapi.yaml
+case: ok
+description: Template live preview returns a synchronous HTML document.
+request:
+  method: POST
+  path: /api/system/render/templates/help.menu/preview-html
+  body:
+    theme: default
+    data:
+      title: 帮助菜单
+      items:
+        - name: weather
+          description: 查询天气
+          usage: /weather <城市>
+response:
+  status: 200
+  body:
+    template_id: help.menu
+    revision_id: rev_help_menu_0001
+    width: 960
+    height: 640
+    html: '<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"></head><body class="theme-default"><main class="surface"><h1>帮助菜单</h1></main></body></html>'
+expect:
+  valid: true

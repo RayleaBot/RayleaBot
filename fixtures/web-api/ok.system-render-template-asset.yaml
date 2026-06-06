@@ -1,0 +1,12 @@
+contract: contracts/web-api.openapi.yaml
+case: ok
+description: Template live preview streams one controlled resource.
+request:
+  method: GET
+  path: /api/system/render/templates/help.menu/asset?path=../fortune.card/assets/fonts/lxgw-wenkai-bold/lxgw-wenkai-bold.ttf
+response:
+  status: 200
+  content_type: application/octet-stream
+  body: <binary>
+expect:
+  valid: true

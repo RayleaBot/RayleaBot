@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -129,6 +130,89 @@ func TestRenderPreviewHandlerAcceptsStoredTemplateAndStreamsArtifact(t *testing.
 	}
 }
 
+func TestRenderTemplatePreviewHTMLHandlerDoesNotCreateTask(t *testing.T) {
+	t.Parallel()
+
+	fixture := newRenderHTTPFixture(t)
+
+	recorder := fixture.request(http.MethodPost, "/api/system/render/templates/help.menu/preview-html", map[string]any{
+		"theme": "default",
+		"data": map[string]any{
+			"title": "同步预览",
+		},
+	})
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("preview html status = %d, want 200 (%s)", recorder.Code, recorder.Body.String())
+	}
+
+	var response renderTemplatePreviewHTMLResponse
+	if err := json.Unmarshal(recorder.Body.Bytes(), &response); err != nil {
+		t.Fatalf("decode preview html response: %v", err)
+	}
+	if response.TemplateID != "help.menu" || response.RevisionID == "" {
+		t.Fatalf("unexpected preview identity: %#v", response)
+	}
+	if response.Width != 960 || response.Height != 640 {
+		t.Fatalf("preview dimensions = %dx%d, want 960x640", response.Width, response.Height)
+	}
+	if !strings.Contains(response.HTML, "同步预览") {
+		t.Fatalf("preview html does not contain rendered data: %s", response.HTML)
+	}
+	if len(fixture.tasks.List()) != 0 {
+		t.Fatalf("preview html created tasks: %#v", fixture.tasks.List())
+	}
+}
+
+func TestRenderTemplatePreviewHTMLHandlerRejectsInvalidRequest(t *testing.T) {
+	t.Parallel()
+
+	fixture := newRenderHTTPFixture(t)
+
+	recorder := fixture.request(http.MethodPost, "/api/system/render/templates/help.menu/preview-html", map[string]any{
+		"theme": "default",
+		"data":  []any{},
+	})
+	if recorder.Code != http.StatusBadRequest {
+		t.Fatalf("invalid preview html status = %d, want 400 (%s)", recorder.Code, recorder.Body.String())
+	}
+
+	var body map[string]map[string]any
+	if err := json.Unmarshal(recorder.Body.Bytes(), &body); err != nil {
+		t.Fatalf("decode error response: %v", err)
+	}
+	if body["error"]["code"] != "platform.invalid_request" {
+		t.Fatalf("unexpected error response: %#v", body)
+	}
+}
+
+func TestRenderTemplateAssetHandlerStreamsAllowedResourceAndRejectsSources(t *testing.T) {
+	t.Parallel()
+
+	fixture := newRenderHTTPFixture(t)
+
+	assetRecorder := fixture.request(http.MethodGet, "/api/system/render/templates/help.menu/asset?path=../fortune.card/assets/fortune-emblem.png", nil)
+	if assetRecorder.Code != http.StatusOK {
+		t.Fatalf("asset status = %d, want 200 (%s)", assetRecorder.Code, assetRecorder.Body.String())
+	}
+	if len(assetRecorder.Body.Bytes()) == 0 {
+		t.Fatal("expected asset bytes")
+	}
+
+	for _, path := range []string{"../outside.txt", "template.html", "missing.txt"} {
+		recorder := fixture.request(http.MethodGet, "/api/system/render/templates/help.menu/asset?path="+path, nil)
+		if recorder.Code != http.StatusNotFound {
+			t.Fatalf("asset %q status = %d, want 404 (%s)", path, recorder.Code, recorder.Body.String())
+		}
+		var body map[string]map[string]any
+		if err := json.Unmarshal(recorder.Body.Bytes(), &body); err != nil {
+			t.Fatalf("decode error response for %q: %v", path, err)
+		}
+		if body["error"]["code"] != "platform.resource_missing" {
+			t.Fatalf("unexpected error response for %q: %#v", path, body)
+		}
+	}
+}
+
 func TestRenderTemplateEditorRoutesAreRemoved(t *testing.T) {
 	t.Parallel()
 
@@ -190,7 +274,6 @@ func newRenderHTTPFixture(t *testing.T) renderHTTPFixture {
 		_ = store.Close()
 		t.Fatalf("create render service: %v", err)
 	}
-
 	registry := tasks.NewRegistry()
 	executor := tasks.NewExecutor(registry, 2*time.Second)
 	handlers := newRenderHTTPHandlers(renderer, executor)
@@ -199,6 +282,8 @@ func newRenderHTTPFixture(t *testing.T) renderHTTPFixture {
 	router.Post("/api/system/render/preview", handlers.handleSystemRenderPreview())
 	router.Get("/api/system/render/artifacts/{artifact_id}", handlers.handleSystemRenderArtifact())
 	router.Get("/api/system/render/templates", handlers.handleSystemRenderTemplateList())
+	router.Post("/api/system/render/templates/{template_id}/preview-html", handlers.handleSystemRenderTemplatePreviewHTML())
+	router.Get("/api/system/render/templates/{template_id}/asset", handlers.handleSystemRenderTemplateAsset())
 	router.Get("/api/system/render/templates/{template_id}", handlers.handleSystemRenderTemplateDetail())
 
 	cleanup := func() {

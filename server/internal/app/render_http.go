@@ -49,6 +49,19 @@ type renderTemplateDetailResponse struct {
 	Template renderTemplateDetail `json:"template"`
 }
 
+type renderTemplatePreviewHTMLRequest struct {
+	Theme string         `json:"theme,omitempty"`
+	Data  map[string]any `json:"data"`
+}
+
+type renderTemplatePreviewHTMLResponse struct {
+	TemplateID string `json:"template_id"`
+	RevisionID string `json:"revision_id"`
+	Width      int    `json:"width"`
+	Height     int    `json:"height"`
+	HTML       string `json:"html"`
+}
+
 func toRenderTemplateSummary(item render.TemplateSummary) renderTemplateSummary {
 	return renderTemplateSummary{
 		ID:             item.ID,
@@ -75,6 +88,16 @@ func toRenderTemplateDetail(detail render.TemplateDetail, source render.Template
 	}
 }
 
+func toRenderTemplatePreviewHTMLResponse(result render.PreviewHTML) renderTemplatePreviewHTMLResponse {
+	return renderTemplatePreviewHTMLResponse{
+		TemplateID: result.TemplateID,
+		RevisionID: result.RevisionID,
+		Width:      result.Width,
+		Height:     result.Height,
+		HTML:       result.HTML,
+	}
+}
+
 func toRenderTemplateSource(source render.TemplateSourceInfo) renderTemplateSource {
 	if source.Type != "plugin" {
 		return renderTemplateSource{Type: "system", PluginID: nil, LocalID: nil}
@@ -92,6 +115,54 @@ func renderStringPtr(value string) *string {
 		return nil
 	}
 	return &value
+}
+
+func (h *renderHTTPHandlers) handleSystemRenderTemplatePreviewHTML() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if h == nil || h.renderer == nil {
+			writeAppError(w, r, http.StatusInternalServerError, codeInternalError, "内部错误", "errors.platform.internal_error", nil)
+			return
+		}
+
+		templateID := chi.URLParam(r, "template_id")
+		var request renderTemplatePreviewHTMLRequest
+		if err := httpapi.DecodeStrictJSON(w, r, &request, httpapi.MaxManagementJSONBodyBytes); err != nil || request.Data == nil {
+			writeAppError(w, r, http.StatusBadRequest, codeInvalidRequest, "请求参数不合法", "errors.platform.invalid_request", nil)
+			return
+		}
+
+		result, err := h.renderer.PreviewHTML(r.Context(), render.Request{
+			Template: templateID,
+			Theme:    request.Theme,
+			Data:     request.Data,
+		})
+		if err != nil {
+			writeRenderTemplateError(w, r, err)
+			return
+		}
+
+		writeAuthJSON(w, http.StatusOK, toRenderTemplatePreviewHTMLResponse(result))
+	}
+}
+
+func (h *renderHTTPHandlers) handleSystemRenderTemplateAsset() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if h == nil || h.renderer == nil {
+			writeAppError(w, r, http.StatusNotFound, codeResourceMissing, "缺少必要资源", "errors.platform.resource_missing", map[string]any{
+				"resource_type": "render_template_asset",
+			})
+			return
+		}
+
+		templateID := chi.URLParam(r, "template_id")
+		asset, err := h.renderer.LookupTemplateAsset(r.Context(), templateID, r.URL.Query().Get("path"))
+		if err != nil {
+			writeRenderTemplateError(w, r, err)
+			return
+		}
+
+		http.ServeFile(w, r, asset.Path)
+	}
 }
 
 func (h *renderHTTPHandlers) handleSystemRenderPreview() http.HandlerFunc {
@@ -221,6 +292,14 @@ func writeRenderTemplateError(w http.ResponseWriter, r *http.Request, err error)
 	switch renderErr.Code {
 	case "platform.template_not_found":
 		writeAppError(w, r, http.StatusNotFound, renderErr.Code, "模板不存在", "errors.platform.template_not_found", nil)
+	case "platform.invalid_request":
+		writeAppError(w, r, http.StatusBadRequest, renderErr.Code, "请求参数不合法", "errors.platform.invalid_request", nil)
+	case "platform.render_input_too_large":
+		writeAppError(w, r, http.StatusRequestEntityTooLarge, renderErr.Code, "渲染输入超过大小限制", "errors.platform.render_input_too_large", nil)
+	case "platform.resource_missing":
+		writeAppError(w, r, http.StatusNotFound, renderErr.Code, "缺少必要资源", "errors.platform.resource_missing", map[string]any{
+			"resource_type": "render_template_asset",
+		})
 	default:
 		writeAppError(w, r, http.StatusInternalServerError, codeInternalError, "内部错误", "errors.platform.internal_error", nil)
 	}
