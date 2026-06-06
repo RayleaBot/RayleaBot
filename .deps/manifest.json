@@ -86,6 +86,11 @@
           "url": "https://github.com/astral-sh/python-build-standalone/releases/download/20260303/cpython-3.12.13%2B20260303-x86_64-pc-windows-msvc-install_only_stripped.tar.gz",
           "kind": "upstream",
           "label": "python-build-standalone"
+        },
+        {
+          "url": "https://mirrors.nju.edu.cn/github-release/astral-sh/python-build-standalone/20260303/cpython-3.12.13%2B20260303-x86_64-pc-windows-msvc-install_only_stripped.tar.gz",
+          "kind": "mirror",
+          "label": "NJU"
         }
       ],
       "sha256": "10b7a95b928e551fc78cac665999e1ae1f08fb738b255adb0a8d3b9c2824a9c0",
@@ -110,6 +115,11 @@
           "url": "https://github.com/astral-sh/python-build-standalone/releases/download/20260303/cpython-3.12.13%2B20260303-x86_64-unknown-linux-gnu-install_only_stripped.tar.gz",
           "kind": "upstream",
           "label": "python-build-standalone"
+        },
+        {
+          "url": "https://mirrors.nju.edu.cn/github-release/astral-sh/python-build-standalone/20260303/cpython-3.12.13%2B20260303-x86_64-unknown-linux-gnu-install_only_stripped.tar.gz",
+          "kind": "mirror",
+          "label": "NJU"
         }
       ],
       "sha256": "c71033dc2e0d1f73d3ee34d174090dbe6f96fbc6226ec636f7968b1d7419afbe",
@@ -135,6 +145,11 @@
           "url": "https://github.com/astral-sh/python-build-standalone/releases/download/20260303/cpython-3.12.13%2B20260303-aarch64-apple-darwin-install_only_stripped.tar.gz",
           "kind": "upstream",
           "label": "python-build-standalone"
+        },
+        {
+          "url": "https://mirrors.nju.edu.cn/github-release/astral-sh/python-build-standalone/20260303/cpython-3.12.13%2B20260303-aarch64-apple-darwin-install_only_stripped.tar.gz",
+          "kind": "mirror",
+          "label": "NJU"
         }
       ],
       "sha256": "3772347e741f3bfe1ec6ca995ba20f6cc8e2cef95f8fe87940f1f7dcdfddc900",
@@ -165,6 +180,16 @@
           "url": "https://npmmirror.com/mirrors/node/v24.14.0/node-v24.14.0-win-x64.zip",
           "kind": "mirror",
           "label": "npmmirror"
+        },
+        {
+          "url": "https://mirrors.ustc.edu.cn/node/v24.14.0/node-v24.14.0-win-x64.zip",
+          "kind": "mirror",
+          "label": "USTC"
+        },
+        {
+          "url": "https://mirrors.nju.edu.cn/nodejs-release/v24.14.0/node-v24.14.0-win-x64.zip",
+          "kind": "mirror",
+          "label": "NJU"
         }
       ],
       "sha256": "313fa40c0d7b18575821de8cb17483031fe07d95de5994f6f435f3b345f85c66",
@@ -193,6 +218,16 @@
           "url": "https://npmmirror.com/mirrors/node/v24.14.0/node-v24.14.0-linux-x64.tar.xz",
           "kind": "mirror",
           "label": "npmmirror"
+        },
+        {
+          "url": "https://mirrors.ustc.edu.cn/node/v24.14.0/node-v24.14.0-linux-x64.tar.xz",
+          "kind": "mirror",
+          "label": "USTC"
+        },
+        {
+          "url": "https://mirrors.nju.edu.cn/nodejs-release/v24.14.0/node-v24.14.0-linux-x64.tar.xz",
+          "kind": "mirror",
+          "label": "NJU"
         }
       ],
       "sha256": "41cd79bb7877c81605a9e68ec4c91547774f46a40c67a17e34d7179ef11729df",
@@ -221,6 +256,16 @@
           "url": "https://npmmirror.com/mirrors/node/v24.14.0/node-v24.14.0-darwin-arm64.tar.xz",
           "kind": "mirror",
           "label": "npmmirror"
+        },
+        {
+          "url": "https://mirrors.ustc.edu.cn/node/v24.14.0/node-v24.14.0-darwin-arm64.tar.xz",
+          "kind": "mirror",
+          "label": "USTC"
+        },
+        {
+          "url": "https://mirrors.nju.edu.cn/nodejs-release/v24.14.0/node-v24.14.0-darwin-arm64.tar.xz",
+          "kind": "mirror",
+          "label": "NJU"
         }
       ],
       "sha256": "448f01d4dfa5a21d280cfbacf00abc22b51aad52f38db0f4886e0e5d00df541d",
@@ -237,6 +282,6 @@
   ],
   "notes": [
     "Python 3.12.13 使用 python-build-standalone install_only_stripped 归档，供 Launcher、doctor、启动前准备与插件依赖安装共用。",
-    "Chromium 与 Node.js 资源列表同时包含公开来源和中国境内可用的 npmmirror 镜像；Python 运行环境继续保留已核实的公开来源。"
+    "Chromium、Python 与 Node.js 运行环境使用可信来源列表；下载器按当前网络测速选择来源，校验失败会尝试下一个来源。"
   ]
 }

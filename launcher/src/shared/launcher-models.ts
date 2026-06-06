@@ -75,6 +75,7 @@ export interface ReleaseCheckSnapshot {
 export type RuntimePrepareStage =
   | "inspect"
   | "lock"
+  | "probe"
   | "download"
   | "verify"
   | "cleanup"

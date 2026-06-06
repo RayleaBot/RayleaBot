@@ -14,6 +14,10 @@ import package_runtime
 
 
 class _FakeResponse(io.BytesIO):
+    def __init__(self, payload: bytes, status: int = 200):
+        super().__init__(payload)
+        self.status = status
+
     def __enter__(self):
         return self
 
@@ -157,6 +161,85 @@ class DepsManifestRuntimeTests(unittest.TestCase):
                 archive_path = package_runtime.download_runtime_archive(root, resource)
 
             self.assertTrue(archive_path.exists())
+
+    def test_download_runtime_archive_uses_fastest_probed_source(self) -> None:
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            archive = self._runtime_archive({"node/node.exe": b"node", "node/npm.cmd": b"npm"})
+            resource = {
+                "id": "nodejs-windows-x64",
+                "kind": "nodejs-runtime",
+                "version": "24.14.0",
+                "platform": "windows-x64",
+                "sources": [
+                    {"url": "https://nodejs.org/node.zip", "kind": "upstream"},
+                    {"url": "https://mirror.example.invalid/node.zip", "kind": "mirror"},
+                ],
+                "sha256": package_runtime.hashlib.sha256(archive).hexdigest(),
+                "archive_format": "zip",
+                "entrypoints": {
+                    "node": ["node/node.exe"],
+                    "npm": ["node/npm.cmd"],
+                },
+            }
+            requested: list[str] = []
+
+            def fake_probe(source, index):  # noqa: ANN001
+                return {
+                    "source": source,
+                    "index": index,
+                    "ok": True,
+                    "bytes_per_second": 10 if "nodejs.org" in source["url"] else 100,
+                }
+
+            def fake_urlopen(request, timeout=60):  # noqa: ANN001
+                url = request if isinstance(request, str) else request.full_url
+                requested.append(url)
+                return _FakeResponse(archive)
+
+            with mock.patch.object(package_runtime, "probe_runtime_download_source", side_effect=fake_probe):
+                with mock.patch.object(package_runtime.urllib.request, "urlopen", side_effect=fake_urlopen):
+                    archive_path = package_runtime.download_runtime_archive(root, resource)
+
+            self.assertTrue(archive_path.exists())
+            self.assertEqual(["https://mirror.example.invalid/node.zip"], requested)
+
+    def test_download_runtime_archive_uses_manifest_order_when_probes_fail(self) -> None:
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            archive = self._runtime_archive({"node/node.exe": b"node", "node/npm.cmd": b"npm"})
+            resource = {
+                "id": "nodejs-windows-x64",
+                "kind": "nodejs-runtime",
+                "version": "24.14.0",
+                "platform": "windows-x64",
+                "sources": [
+                    {"url": "https://primary.example.invalid/node.zip", "kind": "upstream"},
+                    {"url": "https://mirror.example.invalid/node.zip", "kind": "mirror"},
+                ],
+                "sha256": package_runtime.hashlib.sha256(archive).hexdigest(),
+                "archive_format": "zip",
+                "entrypoints": {
+                    "node": ["node/node.exe"],
+                    "npm": ["node/npm.cmd"],
+                },
+            }
+            requested: list[str] = []
+
+            def fake_probe(source, index):  # noqa: ANN001
+                return {"source": source, "index": index, "ok": False, "bytes_per_second": 0.0}
+
+            def fake_urlopen(request, timeout=60):  # noqa: ANN001
+                url = request if isinstance(request, str) else request.full_url
+                requested.append(url)
+                return _FakeResponse(archive)
+
+            with mock.patch.object(package_runtime, "probe_runtime_download_source", side_effect=fake_probe):
+                with mock.patch.object(package_runtime.urllib.request, "urlopen", side_effect=fake_urlopen):
+                    archive_path = package_runtime.download_runtime_archive(root, resource)
+
+            self.assertTrue(archive_path.exists())
+            self.assertEqual(["https://primary.example.invalid/node.zip"], requested)
 
     def test_extract_runtime_archive_cleans_stale_temp_roots(self) -> None:
         with TemporaryDirectory() as tmp:

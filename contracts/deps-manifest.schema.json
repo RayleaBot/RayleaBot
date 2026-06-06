@@ -155,7 +155,7 @@
           "items": {
             "$ref": "#/$defs/sourceEntry"
           },
-          "description": "按优先顺序排列的资源来源列表；每项 url 必须唯一。"
+          "description": "可信资源来源列表；下载器按当前网络测速选择来源，测速不可用时按列表顺序尝试；每项 url 必须唯一。"
         },
         "sha256": {
           "$ref": "#/$defs/sha256"

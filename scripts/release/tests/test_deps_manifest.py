@@ -73,6 +73,21 @@ class DepsManifestMetadataTests(unittest.TestCase):
                 self.assertIn("node", entrypoints, resource)
                 self.assertIn("npm", entrypoints, resource)
 
+    def test_runtime_resources_include_trusted_mirrors(self) -> None:
+        manifest = json.loads(MANIFEST_PATH.read_text(encoding="utf-8"))
+        for resource in manifest.get("resources", []):
+            if not isinstance(resource, dict):
+                continue
+            urls = [source.get("url", "") for source in resource.get("sources", []) if isinstance(source, dict)]
+            if resource.get("kind") == "nodejs-runtime":
+                self.assertTrue(any("nodejs.org/" in url for url in urls), resource)
+                self.assertTrue(any("npmmirror.com/mirrors/node/" in url for url in urls), resource)
+                self.assertTrue(any("mirrors.ustc.edu.cn/node/" in url for url in urls), resource)
+                self.assertTrue(any("mirrors.nju.edu.cn/nodejs-release/" in url for url in urls), resource)
+            if resource.get("kind") == "python-runtime":
+                self.assertTrue(any("github.com/astral-sh/python-build-standalone/" in url for url in urls), resource)
+                self.assertTrue(any("mirrors.nju.edu.cn/github-release/astral-sh/python-build-standalone/" in url for url in urls), resource)
+
 
 if __name__ == "__main__":
     unittest.main()

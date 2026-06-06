@@ -175,7 +175,7 @@ func TestAutoPrepareRuntimeEnvironmentsLogsPrepareProgress(t *testing.T) {
 			Progress:        25,
 			DownloadedBytes: 1024,
 			TotalBytes:      4096,
-			Summary:         "正在下载Python 运行环境",
+			Summary:         "正在从 python-build-standalone 下载 Python 运行环境",
 		})
 		return &deps.PrepareReport{Kind: kind}, nil
 	}

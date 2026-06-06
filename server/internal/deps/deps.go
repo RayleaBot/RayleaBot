@@ -11,6 +11,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"net/http"
 	"net/url"
 	"os"
@@ -19,11 +20,20 @@ import (
 	"reflect"
 	"regexp"
 	"runtime"
+	"sort"
 	"strings"
+	"sync"
 	"time"
 )
 
 const ManifestVersion = 3
+
+const (
+	sourceProbeBytes          int64 = 1024 * 1024
+	sourceProbePerSourceLimit       = 8 * time.Second
+	sourceProbeOverallLimit         = 12 * time.Second
+	sourceProbeCloseRatio           = 0.10
+)
 
 var sha256Pattern = regexp.MustCompile(`^[0-9a-f]{64}$`)
 
@@ -167,18 +177,20 @@ func BootstrapSummary(kind string, inspection *BootstrapInspection) string {
 }
 
 type Manager struct {
-	repoRoot     string
-	downloadFile func(context.Context, string, string) error
-	extract      func(context.Context, string, string, string) error
-	now          func() time.Time
+	repoRoot      string
+	downloadFile  func(context.Context, string, string) error
+	selectSources func(context.Context, []ResourceSource) []ResourceSource
+	extract       func(context.Context, string, string, string) error
+	now           func() time.Time
 }
 
 func NewManager(repoRoot string) *Manager {
 	return &Manager{
-		repoRoot:     strings.TrimSpace(repoRoot),
-		downloadFile: downloadHTTPSFile,
-		extract:      extractArchive,
-		now:          time.Now,
+		repoRoot:      strings.TrimSpace(repoRoot),
+		downloadFile:  downloadHTTPSFile,
+		selectSources: selectDownloadSources,
+		extract:       extractArchive,
+		now:           time.Now,
 	}
 }
 
@@ -529,7 +541,11 @@ func (m *Manager) PrepareWithReportOptions(ctx context.Context, kind string, opt
 			Summary:  managedResourceLabel(kind) + "安装包已下载",
 		}.withResource(resource, report.ArchivePath, report.StoreRoot))
 	}
-	selectedSource, attemptedSources, err := ensureDownloadedArchiveWithProgress(ctx, report.ArchivePath, report.StoreRoot, resource, m.downloadFile, options.Progress)
+	sourceSelector := m.selectSources
+	if m.downloadFile != nil && !sameFunction(m.downloadFile, downloadHTTPSFile) && sameFunction(sourceSelector, selectDownloadSources) {
+		sourceSelector = nil
+	}
+	selectedSource, attemptedSources, err := ensureDownloadedArchiveWithProgress(ctx, report.ArchivePath, report.StoreRoot, resource, m.downloadFile, sourceSelector, options.Progress)
 	report.SelectedSource = strings.TrimSpace(selectedSource)
 	report.AttemptedSources = append(report.AttemptedSources, attemptedSources...)
 	if err != nil {
@@ -742,10 +758,22 @@ func pathWithinRoot(root, candidate string) bool {
 }
 
 func ensureDownloadedArchive(ctx context.Context, archivePath string, resource *Resource, downloader func(context.Context, string, string) error) (string, []string, error) {
-	return ensureDownloadedArchiveWithProgress(ctx, archivePath, StoreRoot("", resource), resource, downloader, nil)
+	sourceSelector := selectDownloadSources
+	if downloader != nil && !sameFunction(downloader, downloadHTTPSFile) {
+		sourceSelector = nil
+	}
+	return ensureDownloadedArchiveWithProgress(ctx, archivePath, StoreRoot("", resource), resource, downloader, sourceSelector, nil)
 }
 
-func ensureDownloadedArchiveWithProgress(ctx context.Context, archivePath, storeRoot string, resource *Resource, downloader func(context.Context, string, string) error, reporter PrepareProgressReporter) (string, []string, error) {
+func ensureDownloadedArchiveWithProgress(
+	ctx context.Context,
+	archivePath,
+	storeRoot string,
+	resource *Resource,
+	downloader func(context.Context, string, string) error,
+	sourceSelector func(context.Context, []ResourceSource) []ResourceSource,
+	reporter PrepareProgressReporter,
+) (string, []string, error) {
 	if err := verifyFileSHA256(archivePath, resource.SHA256); err == nil {
 		emitPrepareProgress(reporter, PrepareProgress{
 			Stage:    "download",
@@ -758,7 +786,26 @@ func ensureDownloadedArchiveWithProgress(ctx context.Context, archivePath, store
 	tempPath := archivePath + ".download"
 	var attempted []string
 	var finalErr error
-	for _, source := range resource.Sources {
+	downloadSources := normalizedResourceSources(resource.Sources)
+	if len(downloadSources) > 1 && sourceSelector != nil {
+		emitPrepareProgress(reporter, PrepareProgress{
+			Stage:    "probe",
+			Status:   "running",
+			Summary:  "正在测试 " + managedResourceLabel(resource.Kind) + "下载来源",
+			Progress: 0,
+		}.withResource(resource, archivePath, storeRoot))
+		selectedSources := sourceSelector(ctx, downloadSources)
+		if len(selectedSources) > 0 {
+			downloadSources = selectedSources
+		}
+		emitPrepareProgress(reporter, PrepareProgress{
+			Stage:    "probe",
+			Status:   "succeeded",
+			Summary:  managedResourceLabel(resource.Kind) + "下载来源已测试",
+			Progress: 100,
+		}.withResource(resource, archivePath, storeRoot))
+	}
+	for _, source := range downloadSources {
 		rawURL := strings.TrimSpace(source.URL)
 		if rawURL == "" {
 			continue
@@ -769,7 +816,7 @@ func ensureDownloadedArchiveWithProgress(ctx context.Context, archivePath, store
 			Status:      "running",
 			SourceLabel: strings.TrimSpace(source.Label),
 			SourceURL:   rawURL,
-			Summary:     "正在下载 " + managedResourceLabel(resource.Kind),
+			Summary:     downloadSourceSummary(resource.Kind, source),
 		}.withResource(resource, archivePath, storeRoot))
 		_ = os.Remove(tempPath)
 		if err := downloadWithProgress(ctx, rawURL, tempPath, downloader, func(progress downloadProgress) {
@@ -781,7 +828,7 @@ func ensureDownloadedArchiveWithProgress(ctx context.Context, archivePath, store
 				Progress:        progress.Progress,
 				DownloadedBytes: progress.DownloadedBytes,
 				TotalBytes:      progress.TotalBytes,
-				Summary:         "正在下载 " + managedResourceLabel(resource.Kind),
+				Summary:         downloadSourceSummary(resource.Kind, source),
 			}.withResource(resource, archivePath, storeRoot))
 		}); err != nil {
 			_ = os.Remove(tempPath)
@@ -820,6 +867,157 @@ func ensureDownloadedArchiveWithProgress(ctx context.Context, archivePath, store
 		finalErr = fmt.Errorf("download deps resource %s: no usable source configured", resource.Kind)
 	}
 	return "", attempted, finalErr
+}
+
+func normalizedResourceSources(sources []ResourceSource) []ResourceSource {
+	normalized := make([]ResourceSource, 0, len(sources))
+	for _, source := range sources {
+		if strings.TrimSpace(source.URL) == "" {
+			continue
+		}
+		source.URL = strings.TrimSpace(source.URL)
+		source.Label = strings.TrimSpace(source.Label)
+		source.Kind = strings.TrimSpace(source.Kind)
+		normalized = append(normalized, source)
+	}
+	return normalized
+}
+
+func downloadSourceSummary(kind string, source ResourceSource) string {
+	label := strings.TrimSpace(source.Label)
+	if label == "" {
+		return "正在下载 " + managedResourceLabel(kind)
+	}
+	return "正在从 " + label + " 下载 " + managedResourceLabel(kind)
+}
+
+type sourceProbeResult struct {
+	source      ResourceSource
+	index       int
+	bytesRead   int64
+	duration    time.Duration
+	bytesPerSec float64
+	ok          bool
+}
+
+func selectDownloadSources(ctx context.Context, sources []ResourceSource) []ResourceSource {
+	normalized := normalizedResourceSources(sources)
+	if len(normalized) <= 1 {
+		return normalized
+	}
+	ctx, cancel := context.WithTimeout(ctx, sourceProbeOverallLimit)
+	defer cancel()
+
+	results := make([]sourceProbeResult, len(normalized))
+	var wg sync.WaitGroup
+	for index, source := range normalized {
+		results[index] = sourceProbeResult{source: source, index: index}
+		wg.Add(1)
+		go func(index int, source ResourceSource) {
+			defer wg.Done()
+			result := probeDownloadSource(ctx, source, index)
+			results[index] = result
+		}(index, source)
+	}
+	wg.Wait()
+
+	successful := make([]sourceProbeResult, 0, len(results))
+	failed := make([]sourceProbeResult, 0, len(results))
+	for _, result := range results {
+		if result.ok {
+			successful = append(successful, result)
+			continue
+		}
+		failed = append(failed, result)
+	}
+	if len(successful) == 0 {
+		return normalized
+	}
+	sort.SliceStable(successful, func(i, j int) bool {
+		if successful[i].bytesPerSec == successful[j].bytesPerSec {
+			return successful[i].index < successful[j].index
+		}
+		return successful[i].bytesPerSec > successful[j].bytesPerSec
+	})
+	sort.SliceStable(failed, func(i, j int) bool {
+		return failed[i].index < failed[j].index
+	})
+	ordered := restoreCloseProbeOrder(successful)
+	ordered = append(ordered, failed...)
+	selected := make([]ResourceSource, 0, len(ordered))
+	for _, result := range ordered {
+		selected = append(selected, result.source)
+	}
+	return selected
+}
+
+func restoreCloseProbeOrder(results []sourceProbeResult) []sourceProbeResult {
+	if len(results) <= 1 {
+		return append([]sourceProbeResult(nil), results...)
+	}
+	ordered := make([]sourceProbeResult, 0, len(results))
+	group := make([]sourceProbeResult, 0, len(results))
+	groupBest := 0.0
+	flush := func() {
+		sort.SliceStable(group, func(i, j int) bool {
+			return group[i].index < group[j].index
+		})
+		ordered = append(ordered, group...)
+		group = nil
+	}
+	for _, result := range results {
+		if len(group) == 0 {
+			group = append(group, result)
+			groupBest = result.bytesPerSec
+			continue
+		}
+		if groupBest > 0 && math.Abs(groupBest-result.bytesPerSec)/groupBest <= sourceProbeCloseRatio {
+			group = append(group, result)
+			continue
+		}
+		flush()
+		group = append(group, result)
+		groupBest = result.bytesPerSec
+	}
+	if len(group) > 0 {
+		flush()
+	}
+	return ordered
+}
+
+func probeDownloadSource(ctx context.Context, source ResourceSource, index int) sourceProbeResult {
+	result := sourceProbeResult{source: source, index: index}
+	probeCtx, cancel := context.WithTimeout(ctx, sourceProbePerSourceLimit)
+	defer cancel()
+
+	request, err := http.NewRequestWithContext(probeCtx, http.MethodGet, source.URL, nil)
+	if err != nil {
+		return result
+	}
+	request.Header.Set("Range", fmt.Sprintf("bytes=0-%d", sourceProbeBytes-1))
+	startedAt := time.Now()
+	response, err := http.DefaultClient.Do(request)
+	if err != nil {
+		return result
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK && response.StatusCode != http.StatusPartialContent {
+		return result
+	}
+	limited := io.LimitReader(response.Body, sourceProbeBytes)
+	bytesRead, err := io.Copy(io.Discard, limited)
+	if err != nil || bytesRead <= 0 {
+		return result
+	}
+	duration := time.Since(startedAt)
+	if duration <= 0 {
+		duration = time.Millisecond
+	}
+	result.bytesRead = bytesRead
+	result.duration = duration
+	result.bytesPerSec = float64(bytesRead) / duration.Seconds()
+	result.ok = true
+	return result
 }
 
 func ensurePreparedResource(
@@ -990,10 +1188,22 @@ func acquireLock(ctx context.Context, path string, now func() time.Time) (func()
 }
 
 func downloadWithProgress(ctx context.Context, rawURL, destPath string, downloader func(context.Context, string, string) error, progress func(downloadProgress)) error {
-	if downloader == nil || reflect.ValueOf(downloader).Pointer() == reflect.ValueOf(downloadHTTPSFile).Pointer() {
+	if downloader == nil || sameFunction(downloader, downloadHTTPSFile) {
 		return downloadHTTPSFileWithProgress(ctx, rawURL, destPath, progress)
 	}
 	return downloader(ctx, rawURL, destPath)
+}
+
+func sameFunction(left, right any) bool {
+	if left == nil || right == nil {
+		return false
+	}
+	leftValue := reflect.ValueOf(left)
+	rightValue := reflect.ValueOf(right)
+	if leftValue.Kind() != reflect.Func || rightValue.Kind() != reflect.Func {
+		return false
+	}
+	return leftValue.Pointer() == rightValue.Pointer()
 }
 
 func downloadHTTPSFile(ctx context.Context, rawURL, destPath string) error {

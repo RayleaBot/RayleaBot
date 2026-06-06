@@ -106,6 +106,8 @@ func runtimePrepareStageSummary(event deps.PrepareProgress) string {
 		label = deps.ManagedResourceLabel(event.Kind)
 	}
 	switch event.Stage {
+	case "probe":
+		return "正在测试 " + label + "下载来源"
 	case "download":
 		if event.Status == "succeeded" {
 			return label + "安装包已下载"

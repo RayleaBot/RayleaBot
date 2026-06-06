@@ -13,6 +13,7 @@ import subprocess
 import shutil
 import tarfile
 import tempfile
+import threading
 import time
 import urllib.request
 import zipfile
@@ -38,6 +39,9 @@ ARCHIVE_SUFFIXES = {
     "tar.gz": ".tar.gz",
     "tar.xz": ".tar.xz",
 }
+SOURCE_PROBE_BYTES = 1024 * 1024
+SOURCE_PROBE_TIMEOUT_SECONDS = 8
+SOURCE_PROBE_CLOSE_RATIO = 0.10
 
 REQUIRED_PATHS = {
     "windows-x64-full": {
@@ -376,7 +380,7 @@ def download_runtime_archive(root: Path, resource: dict[str, object]) -> Path:
     temp_path = archive_path.with_suffix(archive_path.suffix + ".download")
     attempted: list[str] = []
     final_error: Exception | None = None
-    for source in resource_sources(resource):
+    for source in select_runtime_download_sources(resource_sources(resource)):
         url = source["url"]
         attempted.append(url)
         temp_path.unlink(missing_ok=True)
@@ -395,6 +399,98 @@ def download_runtime_archive(root: Path, resource: dict[str, object]) -> Path:
     if final_error is None:
         raise RuntimeError(f"runtime archive download failed: {resource['id']}")
     raise RuntimeError(f"{final_error}; attempted_sources={attempted}")
+
+
+def select_runtime_download_sources(sources: list[dict[str, str]]) -> list[dict[str, str]]:
+    if len(sources) <= 1:
+        return sources
+    results: list[dict[str, object] | None] = [None] * len(sources)
+    threads: list[threading.Thread] = []
+    for index, source in enumerate(sources):
+        thread = threading.Thread(target=_probe_runtime_source_worker, args=(source, index, results), daemon=True)
+        threads.append(thread)
+        thread.start()
+    deadline = time.monotonic() + SOURCE_PROBE_TIMEOUT_SECONDS + 4
+    for thread in threads:
+        remaining = max(0.0, deadline - time.monotonic())
+        thread.join(remaining)
+    if not any(item and item.get("ok") for item in results):
+        return sources
+
+    ranked = [
+        item
+        if item is not None
+        else {"source": sources[index], "index": index, "ok": False, "bytes_per_second": 0.0}
+        for index, item in enumerate(results)
+    ]
+
+    def compare_key(item: dict[str, object]) -> tuple[int, float, int]:
+        ok = 1 if item.get("ok") else 0
+        return (-ok, -float(item.get("bytes_per_second", 0.0)), int(item["index"]))
+
+    ranked.sort(key=compare_key)
+    ranked = _restore_close_probe_order(ranked)
+    return [item["source"] for item in ranked if isinstance(item.get("source"), dict)]
+
+
+def _probe_runtime_source_worker(
+    source: dict[str, str],
+    index: int,
+    results: list[dict[str, object] | None],
+) -> None:
+    results[index] = probe_runtime_download_source(source, index)
+
+
+def probe_runtime_download_source(source: dict[str, str], index: int) -> dict[str, object]:
+    result: dict[str, object] = {
+        "source": source,
+        "index": index,
+        "ok": False,
+        "bytes_per_second": 0.0,
+    }
+    try:
+        request = urllib.request.Request(source["url"], headers={"Range": f"bytes=0-{SOURCE_PROBE_BYTES - 1}"})
+        started = time.monotonic()
+        with urllib.request.urlopen(request, timeout=SOURCE_PROBE_TIMEOUT_SECONDS) as response:
+            status = getattr(response, "status", 200)
+            if status not in (200, 206):
+                return result
+            payload = response.read(SOURCE_PROBE_BYTES)
+        elapsed = max(time.monotonic() - started, 0.001)
+        if not payload:
+            return result
+        result["ok"] = True
+        result["bytes_per_second"] = len(payload) / elapsed
+        return result
+    except Exception:  # noqa: BLE001
+        return result
+
+
+def _restore_close_probe_order(ranked: list[dict[str, object]]) -> list[dict[str, object]]:
+    ordered: list[dict[str, object]] = []
+    group: list[dict[str, object]] = []
+    group_best = 0.0
+    for item in ranked:
+        if not item.get("ok"):
+            if group:
+                ordered.extend(sorted(group, key=lambda entry: int(entry["index"])))
+                group = []
+            ordered.append(item)
+            continue
+        speed = float(item.get("bytes_per_second", 0.0))
+        if not group:
+            group = [item]
+            group_best = speed
+            continue
+        if group_best > 0 and abs(group_best - speed) / group_best <= SOURCE_PROBE_CLOSE_RATIO:
+            group.append(item)
+            continue
+        ordered.extend(sorted(group, key=lambda entry: int(entry["index"])))
+        group = [item]
+        group_best = speed
+    if group:
+        ordered.extend(sorted(group, key=lambda entry: int(entry["index"])))
+    return ordered
 
 
 def extract_runtime_archive(root: Path, resource: dict[str, object], archive_path: Path) -> None:

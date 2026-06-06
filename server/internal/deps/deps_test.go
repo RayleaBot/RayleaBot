@@ -368,6 +368,240 @@ func TestPrepareWithReportFallsBackToNextSource(t *testing.T) {
 	}
 }
 
+func TestPrepareWithReportUsesFastestProbedSource(t *testing.T) {
+	t.Parallel()
+
+	repoRoot := t.TempDir()
+	manifest := `{
+  "manifest_version": 3,
+  "resources": [
+    {
+      "id": "node-test",
+      "kind": "nodejs-runtime",
+      "version": "24.14.0",
+      "platform": "` + CurrentPlatform() + `",
+      "sources": [
+        {
+          "url": "https://nodejs.org/node.tar.xz",
+          "kind": "upstream",
+          "label": "nodejs.org"
+        },
+        {
+          "url": "https://mirrors.example.invalid/node.tar.xz",
+          "kind": "mirror",
+          "label": "mirror"
+        }
+      ],
+      "sha256": "2bb9e071b229e9c0cb7d90297c51fa4cf3f5dbf4f88aded36d3f5892651baabf",
+      "archive_format": "tar.xz",
+      "entrypoints": {
+        "node": ["node/bin/node"],
+        "npm": ["node/bin/npm"]
+      }
+    }
+  ]
+}`
+	writeManifest(t, repoRoot, manifest)
+
+	manager := NewManager(repoRoot)
+	manager.selectSources = func(_ context.Context, sources []ResourceSource) []ResourceSource {
+		return []ResourceSource{sources[1], sources[0]}
+	}
+	var requested []string
+	manager.downloadFile = func(_ context.Context, rawURL string, destPath string) error {
+		requested = append(requested, rawURL)
+		return os.WriteFile(destPath, []byte("fixture-archive"), 0o644)
+	}
+	manager.extract = func(_ context.Context, _ string, _ string, destRoot string) error {
+		writePreparedFile(t, filepath.Join(destRoot, "node", "bin", "node"))
+		writePreparedFile(t, filepath.Join(destRoot, "node", "bin", "npm"))
+		return nil
+	}
+	var events []PrepareProgress
+
+	report, err := manager.PrepareWithReportOptions(context.Background(), "nodejs-runtime", PrepareOptions{
+		Progress: func(event PrepareProgress) {
+			events = append(events, event)
+		},
+	})
+	if err != nil {
+		t.Fatalf("PrepareWithReportOptions failed: %v", err)
+	}
+	if len(requested) != 1 || requested[0] != "https://mirrors.example.invalid/node.tar.xz" {
+		t.Fatalf("expected fastest mirror download first, got %#v", requested)
+	}
+	if report.SelectedSource != "https://mirrors.example.invalid/node.tar.xz" {
+		t.Fatalf("unexpected selected source: %#v", report)
+	}
+	if !hasPrepareEvent(events, "probe", "running", "") {
+		t.Fatalf("expected source probe progress event: %#v", events)
+	}
+	if !hasPrepareEvent(events, "download", "running", "https://mirrors.example.invalid/node.tar.xz") {
+		t.Fatalf("expected mirror download progress event: %#v", events)
+	}
+}
+
+func TestPrepareWithReportFallsBackToManifestOrderWhenProbeFails(t *testing.T) {
+	t.Parallel()
+
+	repoRoot := t.TempDir()
+	manifest := `{
+  "manifest_version": 3,
+  "resources": [
+    {
+      "id": "node-test",
+      "kind": "nodejs-runtime",
+      "version": "24.14.0",
+      "platform": "` + CurrentPlatform() + `",
+      "sources": [
+        {
+          "url": "https://primary.example.invalid/node.tar.xz",
+          "kind": "upstream"
+        },
+        {
+          "url": "https://mirror.example.invalid/node.tar.xz",
+          "kind": "mirror"
+        }
+      ],
+      "sha256": "2bb9e071b229e9c0cb7d90297c51fa4cf3f5dbf4f88aded36d3f5892651baabf",
+      "archive_format": "tar.xz",
+      "entrypoints": {
+        "node": ["node/bin/node"],
+        "npm": ["node/bin/npm"]
+      }
+    }
+  ]
+}`
+	writeManifest(t, repoRoot, manifest)
+
+	manager := NewManager(repoRoot)
+	manager.selectSources = func(_ context.Context, _ []ResourceSource) []ResourceSource {
+		return nil
+	}
+	var requested []string
+	manager.downloadFile = func(_ context.Context, rawURL string, destPath string) error {
+		requested = append(requested, rawURL)
+		return os.WriteFile(destPath, []byte("fixture-archive"), 0o644)
+	}
+	manager.extract = func(_ context.Context, _ string, _ string, destRoot string) error {
+		writePreparedFile(t, filepath.Join(destRoot, "node", "bin", "node"))
+		writePreparedFile(t, filepath.Join(destRoot, "node", "bin", "npm"))
+		return nil
+	}
+
+	report, err := manager.PrepareWithReport(context.Background(), "nodejs-runtime")
+	if err != nil {
+		t.Fatalf("PrepareWithReport failed: %v", err)
+	}
+	if len(requested) != 1 || requested[0] != "https://primary.example.invalid/node.tar.xz" {
+		t.Fatalf("expected manifest order when probes fail, got %#v", requested)
+	}
+	if report.SelectedSource != "https://primary.example.invalid/node.tar.xz" {
+		t.Fatalf("unexpected selected source: %#v", report)
+	}
+}
+
+func TestPrepareWithReportFallsBackWhenFastestSourceFailsVerification(t *testing.T) {
+	t.Parallel()
+
+	repoRoot := t.TempDir()
+	manifest := `{
+  "manifest_version": 3,
+  "resources": [
+    {
+      "id": "node-test",
+      "kind": "nodejs-runtime",
+      "version": "24.14.0",
+      "platform": "` + CurrentPlatform() + `",
+      "sources": [
+        {
+          "url": "https://primary.example.invalid/node.tar.xz",
+          "kind": "upstream"
+        },
+        {
+          "url": "https://mirror.example.invalid/node.tar.xz",
+          "kind": "mirror"
+        }
+      ],
+      "sha256": "2bb9e071b229e9c0cb7d90297c51fa4cf3f5dbf4f88aded36d3f5892651baabf",
+      "archive_format": "tar.xz",
+      "entrypoints": {
+        "node": ["node/bin/node"],
+        "npm": ["node/bin/npm"]
+      }
+    }
+  ]
+}`
+	writeManifest(t, repoRoot, manifest)
+
+	manager := NewManager(repoRoot)
+	manager.selectSources = func(_ context.Context, sources []ResourceSource) []ResourceSource {
+		return []ResourceSource{sources[1], sources[0]}
+	}
+	var requested []string
+	manager.downloadFile = func(_ context.Context, rawURL string, destPath string) error {
+		requested = append(requested, rawURL)
+		if strings.Contains(rawURL, "mirror") {
+			return os.WriteFile(destPath, []byte("wrong-archive"), 0o644)
+		}
+		return os.WriteFile(destPath, []byte("fixture-archive"), 0o644)
+	}
+	manager.extract = func(_ context.Context, _ string, _ string, destRoot string) error {
+		writePreparedFile(t, filepath.Join(destRoot, "node", "bin", "node"))
+		writePreparedFile(t, filepath.Join(destRoot, "node", "bin", "npm"))
+		return nil
+	}
+
+	report, err := manager.PrepareWithReport(context.Background(), "nodejs-runtime")
+	if err != nil {
+		t.Fatalf("PrepareWithReport failed: %v", err)
+	}
+	if len(requested) != 2 {
+		t.Fatalf("expected two download attempts, got %#v", requested)
+	}
+	if requested[0] != "https://mirror.example.invalid/node.tar.xz" || requested[1] != "https://primary.example.invalid/node.tar.xz" {
+		t.Fatalf("unexpected download order: %#v", requested)
+	}
+	if report.SelectedSource != "https://primary.example.invalid/node.tar.xz" {
+		t.Fatalf("unexpected selected source: %#v", report)
+	}
+}
+
+func TestSelectDownloadSourcesKeepsManifestOrderForCloseProbeSpeeds(t *testing.T) {
+	t.Parallel()
+
+	ordered := restoreCloseProbeOrder([]sourceProbeResult{
+		{
+			source:      ResourceSource{URL: "https://mirror.example.invalid/node.tar.xz"},
+			index:       1,
+			bytesPerSec: 100,
+			ok:          true,
+		},
+		{
+			source:      ResourceSource{URL: "https://primary.example.invalid/node.tar.xz"},
+			index:       0,
+			bytesPerSec: 95,
+			ok:          true,
+		},
+		{
+			source:      ResourceSource{URL: "https://slow.example.invalid/node.tar.xz"},
+			index:       2,
+			bytesPerSec: 50,
+			ok:          true,
+		},
+	})
+
+	got := []string{ordered[0].source.URL, ordered[1].source.URL, ordered[2].source.URL}
+	want := []string{
+		"https://primary.example.invalid/node.tar.xz",
+		"https://mirror.example.invalid/node.tar.xz",
+		"https://slow.example.invalid/node.tar.xz",
+	}
+	if !slicesEqual(got, want) {
+		t.Fatalf("unexpected close probe order: got %#v want %#v", got, want)
+	}
+}
+
 func TestPrepareWithReportEmitsDownloadFallbackProgress(t *testing.T) {
 	t.Parallel()
 
@@ -843,6 +1077,18 @@ func hasPrepareEvent(events []PrepareProgress, stage, status, sourceURL string) 
 func sha256Hex(content []byte) string {
 	sum := sha256.Sum256(content)
 	return hex.EncodeToString(sum[:])
+}
+
+func slicesEqual(left, right []string) bool {
+	if len(left) != len(right) {
+		return false
+	}
+	for index := range left {
+		if left[index] != right[index] {
+			return false
+		}
+	}
+	return true
 }
 
 func writeZipArchive(t *testing.T, archivePath string, files map[string]string) {

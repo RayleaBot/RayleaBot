@@ -252,7 +252,7 @@ describe("ServerProcessController", () => {
     expect(loggedPaths(fileSystem)).not.toContain(path.join(runtimeRoot, "logs", "launcher.log"));
   });
 
-  test("parses structured runtime preparation progress from child stdout", async () => {
+  test("parses structured runtime preparation source probe from child stdout", async () => {
     const installRoot = await createTempDir("controller-runtime-progress");
     const runtimeRoot = await createTempDir("controller-runtime-progress-root");
 
@@ -287,20 +287,19 @@ describe("ServerProcessController", () => {
       source_url: "https://example.invalid/chrome.zip",
       archive_path: "C:\\RayleaBot\\cache\\downloads\\runtime\\chromium.zip",
       store_root: "C:\\RayleaBot\\.deps\\store\\chromium-windows-x64\\147.0.7727.24",
-      stage: "download",
+      stage: "probe",
       status: "running",
-      progress: 37,
-      downloaded_bytes: 1024,
-      total_bytes: 2048,
-      summary: "正在下载 Chromium 浏览环境",
+      progress: 0,
+      summary: "正在测试 Chromium 浏览环境下载来源",
     }) + "\n");
     await flushLogWrites();
 
     const snapshot = controller.getRuntimePrepareSnapshot();
     expect(snapshot?.active).toBe(true);
-    expect(snapshot?.summary).toBe("正在下载 Chromium 浏览环境");
+    expect(snapshot?.summary).toBe("正在测试 Chromium 浏览环境下载来源");
+    expect(snapshot?.resources[0]?.stage).toBe("probe");
     expect(snapshot?.resources[0]?.sourceUrl).toBe("https://example.invalid/chrome.zip");
-    expect(snapshot?.resources[0]?.progress).toBe(37);
+    expect(snapshot?.resources[0]?.progress).toBe(0);
     expect(controller.getRecentStderr().join("\n")).not.toContain("runtime_prepare_progress");
     expect(fileSystem.appendFile).toHaveBeenCalledWith(
       path.join(runtimeRoot, "logs", "server.log"),

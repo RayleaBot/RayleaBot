@@ -253,6 +253,23 @@ func TestHandleSystemRuntimeBootstrapAcceptsTaskAndReportsPreparedStoreHits(t *t
 	}
 }
 
+func TestManagedRuntimeTaskProgressSummarizesSourceProbe(t *testing.T) {
+	percent, summary := managedRuntimeTaskProgress(1, 0, deps.PrepareProgress{
+		Kind:     "nodejs-runtime",
+		Label:    deps.ManagedResourceLabel("nodejs-runtime"),
+		Stage:    "probe",
+		Status:   "running",
+		Progress: 0,
+	})
+
+	if percent != 0 {
+		t.Fatalf("unexpected probe percent: got %d want 0", percent)
+	}
+	if summary != "正在测试 Node.js / npm 环境下载来源" {
+		t.Fatalf("unexpected probe summary: %q", summary)
+	}
+}
+
 func TestHandleSystemRuntimeBootstrapRefreshesChromiumDiagnostics(t *testing.T) {
 	repoRoot := t.TempDir()
 	writeDepsManifest(t, repoRoot)

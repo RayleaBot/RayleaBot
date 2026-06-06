@@ -18,6 +18,7 @@ const statusLabels: Record<string, string> = {
 const stageLabels: Record<string, string> = {
   inspect: "检查",
   lock: "准备锁",
+  probe: "测试来源",
   download: "下载",
   verify: "校验",
   cleanup: "清理",
