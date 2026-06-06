@@ -26,11 +26,12 @@
 - Launcher 或等价桌面入口
 - `web/dist`
 - `build_info.json`
-- `contracts/`
 - `config/default.yaml`
 - `plugins/builtin/`
 - `templates/`
 - `.deps/manifest.json`
+
+`config.user.schema.json` 与 `plugin-info.schema.json` 的运行时校验规则由 `raylea-server` 内置；`contracts/` 只作为源码仓库中的正式契约来源。
 
 发行包根目录同时是默认运行根目录，安装、升级和工作区复用都以这一结构为准。
 
