@@ -53,6 +53,85 @@ var prepareManagedRuntimeWithReport = func(ctx context.Context, repoRoot, kind s
 	}, nil
 }
 
+var prepareManagedRuntimeWithProgress = func(ctx context.Context, repoRoot, kind string, progress deps.PrepareProgressReporter) (*managedRuntimePrepareReport, error) {
+	if progress == nil {
+		return prepareManagedRuntimeWithReport(ctx, repoRoot, kind)
+	}
+	report, err := deps.NewManager(repoRoot).PrepareWithReportOptions(ctx, kind, deps.PrepareOptions{Progress: progress})
+	if err != nil {
+		return nil, err
+	}
+	return &managedRuntimePrepareReport{
+		Kind:               report.Kind,
+		ArchivePath:        report.ArchivePath,
+		StoreRoot:          report.StoreRoot,
+		UsedPreparedStore:  report.UsedPreparedStore,
+		UsedCachedArchive:  report.UsedCachedArchive,
+		AttemptedSources:   append([]string{}, report.AttemptedSources...),
+		SelectedSource:     report.SelectedSource,
+		PreparedEntrypoint: report.PreparedEntrypoint,
+	}, nil
+}
+
+func managedRuntimeTaskProgress(total, index int, event deps.PrepareProgress) (int, string) {
+	if total <= 0 {
+		total = 1
+	}
+	base := (index * 100) / total
+	share := 100 / total
+	stageProgress := event.Progress
+	if stageProgress < 0 {
+		stageProgress = 0
+	}
+	if stageProgress > 100 {
+		stageProgress = 100
+	}
+	percent := base + (share*stageProgress)/100
+	if percent > 99 && event.Status != "succeeded" {
+		percent = 99
+	}
+	if percent > 100 {
+		percent = 100
+	}
+	summary := strings.TrimSpace(event.Summary)
+	if summary == "" {
+		summary = runtimePrepareStageSummary(event)
+	}
+	return percent, summary
+}
+
+func runtimePrepareStageSummary(event deps.PrepareProgress) string {
+	label := strings.TrimSpace(event.Label)
+	if label == "" {
+		label = deps.ManagedResourceLabel(event.Kind)
+	}
+	switch event.Stage {
+	case "download":
+		if event.Status == "succeeded" {
+			return label + "安装包已下载"
+		}
+		return "正在下载 " + label
+	case "verify":
+		return "正在校验 " + label + "安装包"
+	case "extract":
+		if event.Status == "succeeded" {
+			return label + "已解压"
+		}
+		return "正在解压 " + label
+	case "cleanup":
+		return "正在清理未完成的 " + label + "目录"
+	case "activate":
+		if event.Status == "succeeded" {
+			return label + "已启用"
+		}
+		return "正在启用 " + label
+	case "complete":
+		return label + "已准备完成"
+	default:
+		return "正在准备 " + label
+	}
+}
+
 func (h *systemHTTPHandlers) handleSystemRecoveryRecheck() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if h == nil || h.system == nil || h.system.taskExecutor == nil {
@@ -241,8 +320,11 @@ func (h *systemHTTPHandlers) handleSystemRuntimeBootstrap() http.HandlerFunc {
 		taskID, err := h.system.taskExecutor.Submit("runtime.bootstrap", "准备运行环境", func(ctx context.Context, progress tasks.ProgressReporter) (*tasks.ResultSummary, error) {
 			results := make([]any, 0, len(resources))
 			for index, kind := range resources {
-				progress.Update((index*70)/len(resources), "准备 "+kind)
-				report, err := prepareManagedRuntimeWithReport(ctx, h.system.state.repoRoot, kind)
+				progress.Update((index*100)/len(resources), "正在准备 "+deps.ManagedResourceLabel(kind))
+				report, err := prepareManagedRuntimeWithProgress(ctx, h.system.state.repoRoot, kind, func(event deps.PrepareProgress) {
+					percent, summary := managedRuntimeTaskProgress(len(resources), index, event)
+					progress.Update(percent, summary)
+				})
 				if err != nil {
 					var bootstrapErr *deps.BootstrapError
 					if errors.As(err, &bootstrapErr) {

@@ -16,6 +16,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"reflect"
 	"regexp"
 	"runtime"
 	"strings"
@@ -443,6 +444,10 @@ func (m *Manager) Inspect(kind string) (*BootstrapInspection, error) {
 }
 
 func (m *Manager) PrepareWithReport(ctx context.Context, kind string) (*PrepareReport, error) {
+	return m.PrepareWithReportOptions(ctx, kind, PrepareOptions{})
+}
+
+func (m *Manager) PrepareWithReportOptions(ctx context.Context, kind string, options PrepareOptions) (*PrepareReport, error) {
 	if m == nil {
 		return nil, errors.New("deps manager is required")
 	}
@@ -451,7 +456,7 @@ func (m *Manager) PrepareWithReport(ctx context.Context, kind string) (*PrepareR
 	}
 	manifest, resource, err := m.currentResource(kind)
 	if err != nil {
-		return nil, classifyBootstrapError(m.repoRoot, kind, nil, "manifest", "", nil, err)
+		return nil, m.classifyBootstrapErrorWithProgress(options.Progress, kind, nil, "manifest", "", nil, err)
 	}
 	report := &PrepareReport{
 		Kind:        kind,
@@ -459,27 +464,43 @@ func (m *Manager) PrepareWithReport(ctx context.Context, kind string) (*PrepareR
 		ArchivePath: filepath.Join(CacheRoot(m.repoRoot), resource.ID+"-"+resource.Version+archiveSuffix(resource.ArchiveFormat)),
 		StoreRoot:   StoreRoot(m.repoRoot, resource),
 	}
+	emitPrepareProgress(options.Progress, PrepareProgress{
+		Stage:   "inspect",
+		Status:  "running",
+		Summary: "正在检查 " + managedResourceLabel(kind),
+	}.withResource(resource, report.ArchivePath, report.StoreRoot))
 	if !manifest.HasPlatform(CurrentPlatform()) {
-		return nil, classifyBootstrapError(m.repoRoot, kind, resource, "manifest", "", nil, fmt.Errorf("deps manifest does not include current platform %s", CurrentPlatform()))
+		return nil, m.classifyBootstrapErrorWithProgress(options.Progress, kind, resource, "manifest", "", nil, fmt.Errorf("deps manifest does not include current platform %s", CurrentPlatform()))
 	}
 	if !ResourceMetadataComplete(resource) {
-		return nil, classifyBootstrapError(m.repoRoot, kind, resource, "manifest", "", nil, fmt.Errorf("deps resource %s for %s is not bootstrap-ready", kind, CurrentPlatform()))
+		return nil, m.classifyBootstrapErrorWithProgress(options.Progress, kind, resource, "manifest", "", nil, fmt.Errorf("deps resource %s for %s is not bootstrap-ready", kind, CurrentPlatform()))
 	}
 
 	if prepared, err := m.resolvePreparedManifestResource(manifest, resource); err == nil {
 		report.UsedPreparedStore = true
 		report.Entrypoints = prepared.Entrypoints
 		report.PreparedEntrypoint = primaryEntrypoint(prepared)
+		emitPrepareProgress(options.Progress, PrepareProgress{
+			Stage:    "complete",
+			Status:   "succeeded",
+			Progress: 100,
+			Summary:  managedResourceLabel(kind) + "已准备完成",
+		}.withResource(resource, report.ArchivePath, report.StoreRoot))
 		return report, nil
 	}
 
 	lockPath := LockPath(m.repoRoot)
 	if err := os.MkdirAll(filepath.Dir(lockPath), 0o755); err != nil {
-		return nil, classifyBootstrapError(m.repoRoot, kind, resource, "lock", "", nil, fmt.Errorf("create deps lock root: %w", err))
+		return nil, m.classifyBootstrapErrorWithProgress(options.Progress, kind, resource, "lock", "", nil, fmt.Errorf("create deps lock root: %w", err))
 	}
+	emitPrepareProgress(options.Progress, PrepareProgress{
+		Stage:   "lock",
+		Status:  "running",
+		Summary: "正在等待 " + managedResourceLabel(kind) + "准备锁",
+	}.withResource(resource, report.ArchivePath, report.StoreRoot))
 	release, err := acquireLock(ctx, lockPath, m.now)
 	if err != nil {
-		return nil, classifyBootstrapError(m.repoRoot, kind, resource, "lock", "", nil, err)
+		return nil, m.classifyBootstrapErrorWithProgress(options.Progress, kind, resource, "lock", "", nil, err)
 	}
 	defer release()
 
@@ -487,16 +508,28 @@ func (m *Manager) PrepareWithReport(ctx context.Context, kind string) (*PrepareR
 		report.UsedPreparedStore = true
 		report.Entrypoints = prepared.Entrypoints
 		report.PreparedEntrypoint = primaryEntrypoint(prepared)
+		emitPrepareProgress(options.Progress, PrepareProgress{
+			Stage:    "complete",
+			Status:   "succeeded",
+			Progress: 100,
+			Summary:  managedResourceLabel(kind) + "已准备完成",
+		}.withResource(resource, report.ArchivePath, report.StoreRoot))
 		return report, nil
 	}
 
 	if err := os.MkdirAll(CacheRoot(m.repoRoot), 0o755); err != nil {
-		return nil, classifyBootstrapError(m.repoRoot, kind, resource, "download", "", nil, fmt.Errorf("create deps cache root: %w", err))
+		return nil, m.classifyBootstrapErrorWithProgress(options.Progress, kind, resource, "download", "", nil, fmt.Errorf("create deps cache root: %w", err))
 	}
 	if verifyFileSHA256(report.ArchivePath, resource.SHA256) == nil {
 		report.UsedCachedArchive = true
+		emitPrepareProgress(options.Progress, PrepareProgress{
+			Stage:    "download",
+			Status:   "succeeded",
+			Progress: 100,
+			Summary:  managedResourceLabel(kind) + "安装包已下载",
+		}.withResource(resource, report.ArchivePath, report.StoreRoot))
 	}
-	selectedSource, attemptedSources, err := ensureDownloadedArchive(ctx, report.ArchivePath, resource, m.downloadFile)
+	selectedSource, attemptedSources, err := ensureDownloadedArchiveWithProgress(ctx, report.ArchivePath, report.StoreRoot, resource, m.downloadFile, options.Progress)
 	report.SelectedSource = strings.TrimSpace(selectedSource)
 	report.AttemptedSources = append(report.AttemptedSources, attemptedSources...)
 	if err != nil {
@@ -504,18 +537,24 @@ func (m *Manager) PrepareWithReport(ctx context.Context, kind string) (*PrepareR
 		if strings.Contains(err.Error(), "verify deps resource") || strings.Contains(err.Error(), "persist deps archive") {
 			stage = "verify"
 		}
-		return nil, classifyBootstrapError(m.repoRoot, kind, resource, stage, report.SelectedSource, report.AttemptedSources, err)
+		return nil, m.classifyBootstrapErrorWithProgress(options.Progress, kind, resource, stage, report.SelectedSource, report.AttemptedSources, err)
 	}
-	if err := ensurePreparedResource(ctx, m.repoRoot, *resource, report.ArchivePath, m.extract); err != nil {
-		return nil, classifyBootstrapError(m.repoRoot, kind, resource, "extract", report.SelectedSource, report.AttemptedSources, err)
+	if err := ensurePreparedResourceWithProgress(ctx, m.repoRoot, *resource, report.ArchivePath, m.extract, options.Progress); err != nil {
+		return nil, m.classifyBootstrapErrorWithProgress(options.Progress, kind, resource, "extract", report.SelectedSource, report.AttemptedSources, err)
 	}
 
 	prepared, err := m.resolvePreparedManifestResource(manifest, resource)
 	if err != nil {
-		return nil, classifyBootstrapError(m.repoRoot, kind, resource, "entrypoint", report.SelectedSource, report.AttemptedSources, err)
+		return nil, m.classifyBootstrapErrorWithProgress(options.Progress, kind, resource, "entrypoint", report.SelectedSource, report.AttemptedSources, err)
 	}
 	report.Entrypoints = prepared.Entrypoints
 	report.PreparedEntrypoint = primaryEntrypoint(prepared)
+	emitPrepareProgress(options.Progress, PrepareProgress{
+		Stage:    "complete",
+		Status:   "succeeded",
+		Progress: 100,
+		Summary:  managedResourceLabel(kind) + "已准备完成",
+	}.withResource(resource, report.ArchivePath, report.StoreRoot))
 	return report, nil
 }
 
@@ -615,6 +654,31 @@ func classifyBootstrapError(repoRoot, kind string, resource *Resource, stage str
 	}
 }
 
+func (m *Manager) classifyBootstrapErrorWithProgress(reporter PrepareProgressReporter, kind string, resource *Resource, stage string, selectedSource string, attemptedSources []string, err error) error {
+	bootstrapErr := classifyBootstrapError(m.repoRoot, kind, resource, stage, selectedSource, attemptedSources, err)
+	if bootstrapErr == nil {
+		return nil
+	}
+	var details *BootstrapError
+	if errors.As(bootstrapErr, &details) {
+		sourceURL := strings.TrimSpace(selectedSource)
+		if sourceURL == "" && len(attemptedSources) > 0 {
+			sourceURL = strings.TrimSpace(attemptedSources[len(attemptedSources)-1])
+		}
+		emitPrepareProgress(reporter, PrepareProgress{
+			Kind:        kind,
+			Stage:       stage,
+			Status:      "failed",
+			SourceURL:   sourceURL,
+			ArchivePath: details.ArchivePath,
+			StoreRoot:   details.StoreRoot,
+			Summary:     details.Message,
+			Error:       err.Error(),
+		}.withResource(resource, details.ArchivePath, details.StoreRoot))
+	}
+	return bootstrapErr
+}
+
 func bootstrapMessage(kind, stage string) string {
 	resourceLabel := managedResourceLabel(kind)
 	switch stage {
@@ -678,7 +742,17 @@ func pathWithinRoot(root, candidate string) bool {
 }
 
 func ensureDownloadedArchive(ctx context.Context, archivePath string, resource *Resource, downloader func(context.Context, string, string) error) (string, []string, error) {
+	return ensureDownloadedArchiveWithProgress(ctx, archivePath, StoreRoot("", resource), resource, downloader, nil)
+}
+
+func ensureDownloadedArchiveWithProgress(ctx context.Context, archivePath, storeRoot string, resource *Resource, downloader func(context.Context, string, string) error, reporter PrepareProgressReporter) (string, []string, error) {
 	if err := verifyFileSHA256(archivePath, resource.SHA256); err == nil {
+		emitPrepareProgress(reporter, PrepareProgress{
+			Stage:    "download",
+			Status:   "succeeded",
+			Progress: 100,
+			Summary:  managedResourceLabel(resource.Kind) + "安装包已下载",
+		}.withResource(resource, archivePath, storeRoot))
 		return "", nil, nil
 	}
 	tempPath := archivePath + ".download"
@@ -690,12 +764,38 @@ func ensureDownloadedArchive(ctx context.Context, archivePath string, resource *
 			continue
 		}
 		attempted = append(attempted, rawURL)
+		emitPrepareProgress(reporter, PrepareProgress{
+			Stage:       "download",
+			Status:      "running",
+			SourceLabel: strings.TrimSpace(source.Label),
+			SourceURL:   rawURL,
+			Summary:     "正在下载 " + managedResourceLabel(resource.Kind),
+		}.withResource(resource, archivePath, storeRoot))
 		_ = os.Remove(tempPath)
-		if err := downloader(ctx, rawURL, tempPath); err != nil {
+		if err := downloadWithProgress(ctx, rawURL, tempPath, downloader, func(progress downloadProgress) {
+			emitPrepareProgress(reporter, PrepareProgress{
+				Stage:           "download",
+				Status:          "running",
+				SourceLabel:     strings.TrimSpace(source.Label),
+				SourceURL:       rawURL,
+				Progress:        progress.Progress,
+				DownloadedBytes: progress.DownloadedBytes,
+				TotalBytes:      progress.TotalBytes,
+				Summary:         "正在下载 " + managedResourceLabel(resource.Kind),
+			}.withResource(resource, archivePath, storeRoot))
+		}); err != nil {
 			_ = os.Remove(tempPath)
 			finalErr = fmt.Errorf("download deps resource %s from %s: %w", resource.Kind, rawURL, err)
 			continue
 		}
+		emitPrepareProgress(reporter, PrepareProgress{
+			Stage:       "verify",
+			Status:      "running",
+			SourceLabel: strings.TrimSpace(source.Label),
+			SourceURL:   rawURL,
+			Progress:    100,
+			Summary:     "正在校验 " + managedResourceLabel(resource.Kind) + "安装包",
+		}.withResource(resource, archivePath, storeRoot))
 		if err := verifyFileSHA256(tempPath, resource.SHA256); err != nil {
 			_ = os.Remove(tempPath)
 			finalErr = fmt.Errorf("verify deps resource %s archive from %s: %w", resource.Kind, rawURL, err)
@@ -706,6 +806,14 @@ func ensureDownloadedArchive(ctx context.Context, archivePath string, resource *
 			finalErr = fmt.Errorf("persist deps archive %s from %s: %w", resource.Kind, rawURL, err)
 			continue
 		}
+		emitPrepareProgress(reporter, PrepareProgress{
+			Stage:       "download",
+			Status:      "succeeded",
+			SourceLabel: strings.TrimSpace(source.Label),
+			SourceURL:   rawURL,
+			Progress:    100,
+			Summary:     managedResourceLabel(resource.Kind) + "安装包已下载",
+		}.withResource(resource, archivePath, storeRoot))
 		return rawURL, attempted, nil
 	}
 	if finalErr == nil {
@@ -721,10 +829,32 @@ func ensurePreparedResource(
 	archivePath string,
 	extractor func(context.Context, string, string, string) error,
 ) error {
+	return ensurePreparedResourceWithProgress(ctx, repoRoot, resource, archivePath, extractor, nil)
+}
+
+func ensurePreparedResourceWithProgress(
+	ctx context.Context,
+	repoRoot string,
+	resource Resource,
+	archivePath string,
+	extractor func(context.Context, string, string, string) error,
+	reporter PrepareProgressReporter,
+) error {
 	storeRoot := StoreRoot(repoRoot, &resource)
 	if _, err := resolvePreparedEntrypoints(storeRoot, &resource); err == nil {
+		emitPrepareProgress(reporter, PrepareProgress{
+			Stage:    "extract",
+			Status:   "succeeded",
+			Progress: 100,
+			Summary:  managedResourceLabel(resource.Kind) + "已解压",
+		}.withResource(&resource, archivePath, storeRoot))
 		return nil
 	} else if _, statErr := os.Stat(storeRoot); statErr == nil {
+		emitPrepareProgress(reporter, PrepareProgress{
+			Stage:   "cleanup",
+			Status:  "running",
+			Summary: "正在清理未完成的 " + managedResourceLabel(resource.Kind) + "目录",
+		}.withResource(&resource, archivePath, storeRoot))
 		if removeErr := os.RemoveAll(storeRoot); removeErr != nil {
 			return fmt.Errorf("clean incomplete deps store root: %w", removeErr)
 		}
@@ -743,13 +873,44 @@ func ensurePreparedResource(
 	}
 	defer os.RemoveAll(tempRoot)
 
-	if err := extractor(ctx, archivePath, resource.ArchiveFormat, tempRoot); err != nil {
+	emitPrepareProgress(reporter, PrepareProgress{
+		Stage:   "extract",
+		Status:  "running",
+		Summary: "正在解压 " + managedResourceLabel(resource.Kind),
+	}.withResource(&resource, archivePath, storeRoot))
+	if err := extractWithProgress(ctx, archivePath, resource.ArchiveFormat, tempRoot, extractor, func(progress extractProgress) {
+		emitPrepareProgress(reporter, PrepareProgress{
+			Stage:            "extract",
+			Status:           "running",
+			Progress:         progress.Progress,
+			ExtractedEntries: progress.ExtractedEntries,
+			TotalEntries:     progress.TotalEntries,
+			Summary:          "正在解压 " + managedResourceLabel(resource.Kind),
+		}.withResource(&resource, archivePath, storeRoot))
+	}); err != nil {
 		return fmt.Errorf("extract deps resource %s: %w", resource.Kind, err)
 	}
+	emitPrepareProgress(reporter, PrepareProgress{
+		Stage:    "extract",
+		Status:   "succeeded",
+		Progress: 100,
+		Summary:  managedResourceLabel(resource.Kind) + "已解压",
+	}.withResource(&resource, archivePath, storeRoot))
+	emitPrepareProgress(reporter, PrepareProgress{
+		Stage:   "activate",
+		Status:  "running",
+		Summary: "正在启用 " + managedResourceLabel(resource.Kind),
+	}.withResource(&resource, archivePath, storeRoot))
 	_ = os.RemoveAll(storeRoot)
 	if err := os.Rename(tempRoot, storeRoot); err != nil {
 		return fmt.Errorf("activate deps resource %s: %w", resource.Kind, err)
 	}
+	emitPrepareProgress(reporter, PrepareProgress{
+		Stage:    "activate",
+		Status:   "succeeded",
+		Progress: 100,
+		Summary:  managedResourceLabel(resource.Kind) + "已启用",
+	}.withResource(&resource, archivePath, storeRoot))
 	return nil
 }
 
@@ -828,7 +989,18 @@ func acquireLock(ctx context.Context, path string, now func() time.Time) (func()
 	}
 }
 
+func downloadWithProgress(ctx context.Context, rawURL, destPath string, downloader func(context.Context, string, string) error, progress func(downloadProgress)) error {
+	if downloader == nil || reflect.ValueOf(downloader).Pointer() == reflect.ValueOf(downloadHTTPSFile).Pointer() {
+		return downloadHTTPSFileWithProgress(ctx, rawURL, destPath, progress)
+	}
+	return downloader(ctx, rawURL, destPath)
+}
+
 func downloadHTTPSFile(ctx context.Context, rawURL, destPath string) error {
+	return downloadHTTPSFileWithProgress(ctx, rawURL, destPath, nil)
+}
+
+func downloadHTTPSFileWithProgress(ctx context.Context, rawURL, destPath string, progress func(downloadProgress)) error {
 	request, err := http.NewRequestWithContext(ctx, http.MethodGet, rawURL, nil)
 	if err != nil {
 		return err
@@ -846,17 +1018,31 @@ func downloadHTTPSFile(ctx context.Context, rawURL, destPath string) error {
 		return err
 	}
 	defer file.Close()
-	_, err = io.Copy(file, response.Body)
+	_, err = io.Copy(file, &progressReader{
+		reader: response.Body,
+		total:  response.ContentLength,
+		notify: progress,
+	})
 	return err
 }
 
 func extractArchive(ctx context.Context, archivePath, archiveFormat, destRoot string) error {
+	return extractWithProgress(ctx, archivePath, archiveFormat, destRoot, nil, nil)
+}
+
+func extractWithProgress(ctx context.Context, archivePath, archiveFormat, destRoot string, extractor func(context.Context, string, string, string) error, progress func(extractProgress)) error {
+	if extractor != nil && reflect.ValueOf(extractor).Pointer() != reflect.ValueOf(extractArchive).Pointer() {
+		return extractor(ctx, archivePath, archiveFormat, destRoot)
+	}
 	switch archiveFormat {
 	case "zip":
-		return extractZip(archivePath, destRoot)
+		return extractZipWithProgress(archivePath, destRoot, progress)
 	case "tar.gz":
-		return extractTarGz(archivePath, destRoot)
+		return extractTarGzWithProgress(archivePath, destRoot, progress)
 	case "tar.xz":
+		if progress != nil {
+			progress(extractProgress{Progress: 0})
+		}
 		cmd := exec.CommandContext(ctx, "tar", "-xf", archivePath, "-C", destRoot)
 		output, err := cmd.CombinedOutput()
 		if err != nil {
@@ -865,20 +1051,69 @@ func extractArchive(ctx context.Context, archivePath, archiveFormat, destRoot st
 			}
 			return fmt.Errorf("%w: %s", err, strings.TrimSpace(string(output)))
 		}
+		if progress != nil {
+			progress(extractProgress{Progress: 100})
+		}
 		return nil
 	default:
 		return fmt.Errorf("unsupported archive format %s", archiveFormat)
 	}
 }
 
+type progressReader struct {
+	reader     io.Reader
+	total      int64
+	read       int64
+	lastNotify int
+	lastBytes  int64
+	notify     func(downloadProgress)
+}
+
+func (r *progressReader) Read(p []byte) (int, error) {
+	n, err := r.reader.Read(p)
+	if n > 0 {
+		r.read += int64(n)
+		r.emit(false)
+	}
+	if errors.Is(err, io.EOF) {
+		r.emit(true)
+	}
+	return n, err
+}
+
+func (r *progressReader) emit(force bool) {
+	if r.notify == nil {
+		return
+	}
+	percent := prepareProgressPercent(r.read, r.total)
+	if !force && r.total <= 0 && r.read-r.lastBytes < 1024*1024 {
+		return
+	}
+	if !force && r.total > 0 && percent == r.lastNotify {
+		return
+	}
+	r.lastNotify = percent
+	r.lastBytes = r.read
+	r.notify(downloadProgress{
+		DownloadedBytes: r.read,
+		TotalBytes:      r.total,
+		Progress:        percent,
+	})
+}
+
 func extractZip(archivePath, destRoot string) error {
+	return extractZipWithProgress(archivePath, destRoot, nil)
+}
+
+func extractZipWithProgress(archivePath, destRoot string, progress func(extractProgress)) error {
 	reader, err := zip.OpenReader(archivePath)
 	if err != nil {
 		return err
 	}
 	defer reader.Close()
 
-	for _, file := range reader.File {
+	totalEntries := len(reader.File)
+	for index, file := range reader.File {
 		targetPath := filepath.Join(destRoot, filepath.FromSlash(file.Name))
 		if !pathWithinRoot(destRoot, targetPath) {
 			return fmt.Errorf("zip entry escapes destination: %s", file.Name)
@@ -908,11 +1143,29 @@ func extractZip(archivePath, destRoot string) error {
 		}
 		out.Close()
 		in.Close()
+		if progress != nil {
+			progress(extractProgress{
+				ExtractedEntries: index + 1,
+				TotalEntries:     totalEntries,
+				Progress:         prepareProgressPercent(int64(index+1), int64(totalEntries)),
+			})
+		}
+	}
+	if progress != nil {
+		progress(extractProgress{
+			ExtractedEntries: totalEntries,
+			TotalEntries:     totalEntries,
+			Progress:         100,
+		})
 	}
 	return nil
 }
 
 func extractTarGz(archivePath, destRoot string) error {
+	return extractTarGzWithProgress(archivePath, destRoot, nil)
+}
+
+func extractTarGzWithProgress(archivePath, destRoot string, progress func(extractProgress)) error {
 	file, err := os.Open(archivePath)
 	if err != nil {
 		return err
@@ -924,10 +1177,22 @@ func extractTarGz(archivePath, destRoot string) error {
 	}
 	defer gzr.Close()
 
+	totalEntries, err := countTarGzEntries(archivePath)
+	if err != nil {
+		totalEntries = 0
+	}
 	reader := tar.NewReader(gzr)
+	extractedEntries := 0
 	for {
 		header, err := reader.Next()
 		if errors.Is(err, io.EOF) {
+			if progress != nil {
+				progress(extractProgress{
+					ExtractedEntries: extractedEntries,
+					TotalEntries:     totalEntries,
+					Progress:         100,
+				})
+			}
 			return nil
 		}
 		if err != nil {
@@ -956,5 +1221,38 @@ func extractTarGz(archivePath, destRoot string) error {
 			}
 			out.Close()
 		}
+		extractedEntries++
+		if progress != nil {
+			progress(extractProgress{
+				ExtractedEntries: extractedEntries,
+				TotalEntries:     totalEntries,
+				Progress:         prepareProgressPercent(int64(extractedEntries), int64(totalEntries)),
+			})
+		}
+	}
+}
+
+func countTarGzEntries(archivePath string) (int, error) {
+	file, err := os.Open(archivePath)
+	if err != nil {
+		return 0, err
+	}
+	defer file.Close()
+	gzr, err := gzip.NewReader(file)
+	if err != nil {
+		return 0, err
+	}
+	defer gzr.Close()
+	reader := tar.NewReader(gzr)
+	total := 0
+	for {
+		_, err := reader.Next()
+		if errors.Is(err, io.EOF) {
+			return total, nil
+		}
+		if err != nil {
+			return total, err
+		}
+		total++
 	}
 }

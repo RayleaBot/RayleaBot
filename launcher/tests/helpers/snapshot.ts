@@ -20,6 +20,7 @@ export function createLauncherSnapshot(overrides: DeepPartial<LauncherSnapshot> 
       preflightChecks: [],
       advisoryChecks: [],
       recentStderr: [],
+      runtimePrepare: null,
       releaseCheck: {
         status: "unavailable",
         currentVersion: "",

@@ -252,6 +252,133 @@ describe("ServerProcessController", () => {
     expect(loggedPaths(fileSystem)).not.toContain(path.join(runtimeRoot, "logs", "launcher.log"));
   });
 
+  test("parses structured runtime preparation progress from child stdout", async () => {
+    const installRoot = await createTempDir("controller-runtime-progress");
+    const runtimeRoot = await createTempDir("controller-runtime-progress-root");
+
+    await fs.mkdir(path.join(installRoot, "server"), { recursive: true });
+    await fs.mkdir(path.join(installRoot, "config"), { recursive: true });
+    await fs.writeFile(path.join(installRoot, "config", "user.yaml"), "server: {}\n", "utf8");
+
+    const child = new FakeChildProcess();
+    const spawnProcess = vi.fn(() => {
+      queueMicrotask(() => {
+        child.emit("spawn");
+      });
+      return child as never;
+    });
+
+    const fileSystem = createFileSystemDouble();
+    const controller = new ServerProcessController({
+      spawnProcess,
+      fileSystem,
+      terminateProcessId: vi.fn(async () => true),
+    });
+
+    await controller.start(createSettings(installRoot, runtimeRoot));
+    child.stdout.emit("data", JSON.stringify({
+      msg: "runtime_prepare_progress",
+      ts: "2026-06-06T00:00:00Z",
+      resource_kind: "chromium",
+      label: "Chromium 浏览环境",
+      resource_id: "chromium-windows-x64",
+      version: "147.0.7727.24",
+      source_label: "Chrome for Testing",
+      source_url: "https://example.invalid/chrome.zip",
+      archive_path: "C:\\RayleaBot\\cache\\downloads\\runtime\\chromium.zip",
+      store_root: "C:\\RayleaBot\\.deps\\store\\chromium-windows-x64\\147.0.7727.24",
+      stage: "download",
+      status: "running",
+      progress: 37,
+      downloaded_bytes: 1024,
+      total_bytes: 2048,
+      summary: "正在下载 Chromium 浏览环境",
+    }) + "\n");
+    await flushLogWrites();
+
+    const snapshot = controller.getRuntimePrepareSnapshot();
+    expect(snapshot?.active).toBe(true);
+    expect(snapshot?.summary).toBe("正在下载 Chromium 浏览环境");
+    expect(snapshot?.resources[0]?.sourceUrl).toBe("https://example.invalid/chrome.zip");
+    expect(snapshot?.resources[0]?.progress).toBe(37);
+    expect(controller.getRecentStderr().join("\n")).not.toContain("runtime_prepare_progress");
+    expect(fileSystem.appendFile).toHaveBeenCalledWith(
+      path.join(runtimeRoot, "logs", "server.log"),
+      expect.stringContaining("runtime_prepare_progress"),
+      "utf8",
+    );
+  });
+
+  test("parses runtime preparation progress split across stdout chunks", async () => {
+    const installRoot = await createTempDir("controller-runtime-progress-split");
+    const runtimeRoot = await createTempDir("controller-runtime-progress-split-root");
+
+    await fs.mkdir(path.join(installRoot, "server"), { recursive: true });
+    await fs.mkdir(path.join(installRoot, "config"), { recursive: true });
+    await fs.writeFile(path.join(installRoot, "config", "user.yaml"), "server: {}\n", "utf8");
+
+    const child = new FakeChildProcess();
+    const spawnProcess = vi.fn(() => {
+      queueMicrotask(() => {
+        child.emit("spawn");
+      });
+      return child as never;
+    });
+
+    const controller = new ServerProcessController({
+      spawnProcess,
+      fileSystem: createFileSystemDouble(),
+      terminateProcessId: vi.fn(async () => true),
+    });
+
+    await controller.start(createSettings(installRoot, runtimeRoot));
+    const line = JSON.stringify({
+      msg: "runtime_prepare_progress",
+      resource_kind: "python-runtime",
+      label: "Python 运行环境",
+      stage: "extract",
+      status: "running",
+      progress: 51,
+      summary: "正在解压 Python 运行环境",
+    });
+    child.stdout.emit("data", line.slice(0, 40));
+    expect(controller.getRuntimePrepareSnapshot()).toBeNull();
+
+    child.stdout.emit("data", `${line.slice(40)}\n`);
+
+    const snapshot = controller.getRuntimePrepareSnapshot();
+    expect(snapshot?.summary).toBe("正在解压 Python 运行环境");
+    expect(snapshot?.resources[0]?.progress).toBe(51);
+  });
+
+  test("keeps ordinary runtime logs out of runtime preparation progress", async () => {
+    const installRoot = await createTempDir("controller-runtime-ignore");
+    const runtimeRoot = await createTempDir("controller-runtime-ignore-root");
+
+    await fs.mkdir(path.join(installRoot, "server"), { recursive: true });
+    await fs.mkdir(path.join(installRoot, "config"), { recursive: true });
+    await fs.writeFile(path.join(installRoot, "config", "user.yaml"), "server: {}\n", "utf8");
+
+    const child = new FakeChildProcess();
+    const spawnProcess = vi.fn(() => {
+      queueMicrotask(() => {
+        child.emit("spawn");
+      });
+      return child as never;
+    });
+
+    const controller = new ServerProcessController({
+      spawnProcess,
+      fileSystem: createFileSystemDouble(),
+      terminateProcessId: vi.fn(async () => true),
+    });
+
+    await controller.start(createSettings(installRoot, runtimeRoot));
+    child.stdout.emit("data", "{\"msg\":\"startup runtime prepare requested\",\"resource_kind\":\"chromium\"}\n");
+
+    expect(controller.getRuntimePrepareSnapshot()).toBeNull();
+  });
+
   test("writes child stderr to server.log and keeps stderr lines for launcher status", async () => {
     const installRoot = await createTempDir("controller-stderr");
     const runtimeRoot = await createTempDir("controller-stderr-runtime");

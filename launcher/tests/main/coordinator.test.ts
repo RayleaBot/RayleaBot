@@ -1,5 +1,6 @@
 import { describe, expect, test, vi } from "vitest";
 import type { LauncherReadinessSnapshot, LauncherSnapshot } from "@shared/launcher-models";
+import type { RuntimePrepareSnapshot } from "@shared/launcher-models";
 import { deriveLauncherPresentation, resolveRecoverySummary } from "@shared/launcher-presentation";
 import {
   createLauncherCoordinator,
@@ -89,6 +90,7 @@ class FakeProcessController implements ServerProcessController {
   startCalls = 0;
   forceKillCalls = 0;
   recentStderr = ["stderr line"];
+  runtimePrepare: RuntimePrepareSnapshot | null = null;
   logDirectory = "C:\\RayleaBot\\logs";
 
   async start() {
@@ -103,6 +105,14 @@ class FakeProcessController implements ServerProcessController {
 
   getRecentStderr() {
     return this.recentStderr;
+  }
+
+  getRuntimePrepareSnapshot() {
+    return this.runtimePrepare;
+  }
+
+  clearRuntimePrepareSnapshot() {
+    this.runtimePrepare = null;
   }
 }
 
@@ -634,6 +644,76 @@ describe("launcher coordinator", () => {
     await startPromise;
 
     expect(presentationState(coordinator.snapshot).state).toBe("running");
+  });
+
+  test("start publishes runtime preparation progress before the server is ready", async () => {
+    const settingsStore = new FakeSettingsStore();
+    const endpointResolver = new FakeEndpointResolver();
+    const managementClient = new FakeManagementClient();
+    const processController = new FakeProcessController();
+    let ready = false;
+
+    managementClient.health = false;
+    managementClient.isHealthy = vi.fn(async () => ready);
+
+    const coordinator = createLauncherCoordinator({
+      settingsStore,
+      endpointResolver,
+      inspectEnvironment: vi.fn(async () => okInspection()),
+      managementClient,
+      processController,
+      isEndpointListening: vi.fn(async () => false),
+      tryStopEndpointProcess: vi.fn(async () => false),
+      externalOpener: new FakeExternalOpener(),
+      options: {
+        pollIntervalMs: 1,
+        startupTimeoutMs: 200,
+        shutdownTimeoutMs: 1,
+      },
+    });
+
+    await coordinator.initialize();
+    const startPromise = coordinator.start();
+    await new Promise((resolve) => setTimeout(resolve, 10));
+
+    processController.runtimePrepare = {
+      active: true,
+      currentKind: "chromium",
+      summary: "正在下载 Chromium 浏览环境",
+      resources: [
+        {
+          kind: "chromium",
+          label: "Chromium 浏览环境",
+          resourceId: "chromium-windows-x64",
+          version: "147.0.7727.24",
+          sourceLabel: "Chrome for Testing",
+          sourceUrl: "https://example.invalid/chrome.zip",
+          archivePath: "C:\\RayleaBot\\cache\\downloads\\runtime\\chromium-windows-x64.zip",
+          storeRoot: "C:\\RayleaBot\\.deps\\store\\chromium-windows-x64\\147.0.7727.24",
+          stage: "download",
+          status: "running",
+          progress: 42,
+          downloadedBytes: 1024,
+          totalBytes: 2048,
+          extractedEntries: null,
+          totalEntries: null,
+          summary: "正在下载 Chromium 浏览环境",
+          error: "",
+          updatedAt: "2026-06-06T00:00:00Z",
+        },
+      ],
+    };
+    await new Promise((resolve) => setTimeout(resolve, 20));
+
+    expect(coordinator.snapshot.launcher.runtimePrepare?.summary).toBe("正在下载 Chromium 浏览环境");
+    expect(coordinator.snapshot.launcher.runtimePrepare?.resources[0]?.progress).toBe(42);
+    expect(presentationState(coordinator.snapshot).detail).toContain("正在下载 Chromium 浏览环境");
+
+    ready = true;
+    await startPromise;
+
+    expect(presentationState(coordinator.snapshot).state).toBe("running");
+    expect(coordinator.snapshot.launcher.runtimePrepare).toBeNull();
   });
 
   test("start waits for /readyz before finalizing a successful startup", async () => {

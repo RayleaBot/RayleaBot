@@ -1987,6 +1987,145 @@ body {
   text-transform: uppercase;
 }
 
+.runtime-prepare-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  max-height: 360px;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.runtime-prepare-panel__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  min-width: 0;
+}
+
+.runtime-prepare-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 0;
+  overflow: auto;
+  padding-right: 2px;
+}
+
+.runtime-prepare-item {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: var(--radius-control);
+  border: 1px solid var(--surface-border);
+  background: var(--surface-bg);
+  min-width: 0;
+}
+
+.runtime-prepare-item--failed {
+  border-color: var(--error);
+  background: var(--error-subtle);
+}
+
+.runtime-prepare-item--succeeded {
+  border-color: var(--success);
+  background: var(--success-subtle);
+}
+
+.runtime-prepare-item__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+}
+
+.runtime-prepare-item__title {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  min-width: 0;
+}
+
+.runtime-prepare-item__stage,
+.runtime-prepare-status {
+  display: inline-flex;
+  align-items: center;
+  min-height: 20px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 800;
+  color: var(--text-secondary);
+  background: var(--surface-bg-subtle);
+  border: 1px solid var(--surface-border);
+  white-space: nowrap;
+}
+
+.runtime-prepare-status--running {
+  color: var(--warning);
+  background: var(--warning-subtle);
+  border-color: var(--warning);
+}
+
+.runtime-prepare-status--succeeded {
+  color: var(--success);
+  background: var(--success-subtle);
+  border-color: var(--success);
+}
+
+.runtime-prepare-status--failed {
+  color: var(--error);
+  background: var(--error-subtle);
+  border-color: var(--error);
+}
+
+.runtime-prepare-progress-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.runtime-prepare-progress-text {
+  color: var(--text-secondary);
+  font-size: 0.76rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.runtime-prepare-details {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
+  gap: 8px 12px;
+  min-width: 0;
+}
+
+.runtime-prepare-details div {
+  min-width: 0;
+}
+
+.runtime-prepare-details span {
+  display: block;
+  margin-bottom: 3px;
+  color: var(--text-muted);
+  font-size: 0.68rem;
+  font-weight: 800;
+}
+
+.runtime-prepare-details code {
+  display: block;
+  overflow: hidden;
+  color: var(--text-secondary);
+  font-size: 0.74rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .status-action-feedback {
   display: flex;
   align-items: center;

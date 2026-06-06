@@ -280,11 +280,21 @@ func TestHandleSystemRuntimeBootstrapRefreshesChromiumDiagnostics(t *testing.T) 
 	application.renderer = renderer
 	application.systemService.renderer = renderer
 
-	original := prepareManagedRuntimeWithReport
+	original := prepareManagedRuntimeWithProgress
 	t.Cleanup(func() {
-		prepareManagedRuntimeWithReport = original
+		prepareManagedRuntimeWithProgress = original
 	})
-	prepareManagedRuntimeWithReport = func(_ context.Context, _ string, kind string) (*managedRuntimePrepareReport, error) {
+	prepareManagedRuntimeWithProgress = func(_ context.Context, _ string, kind string, progress deps.PrepareProgressReporter) (*managedRuntimePrepareReport, error) {
+		if progress != nil {
+			progress(deps.PrepareProgress{
+				Kind:     kind,
+				Label:    deps.ManagedResourceLabel(kind),
+				Stage:    "complete",
+				Status:   "succeeded",
+				Progress: 100,
+				Summary:  deps.ManagedResourceLabel(kind) + "已准备完成",
+			})
+		}
 		writePreparedRuntime(t, repoRoot, "chromium-"+platform, "147.0.7727.24", "chrome-win64", "chrome.exe")
 		return &managedRuntimePrepareReport{
 			Kind:               kind,

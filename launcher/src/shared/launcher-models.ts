@@ -72,6 +72,48 @@ export interface ReleaseCheckSnapshot {
   updateAvailable: boolean;
 }
 
+export type RuntimePrepareStage =
+  | "inspect"
+  | "lock"
+  | "download"
+  | "verify"
+  | "cleanup"
+  | "extract"
+  | "activate"
+  | "complete"
+  | "manifest"
+  | "entrypoint";
+
+export type RuntimePrepareStatus = "pending" | "running" | "succeeded" | "failed";
+
+export interface RuntimePrepareResourceProgress {
+  kind: string;
+  label: string;
+  resourceId: string;
+  version: string;
+  sourceLabel: string;
+  sourceUrl: string;
+  archivePath: string;
+  storeRoot: string;
+  stage: RuntimePrepareStage | string;
+  status: RuntimePrepareStatus;
+  progress: number | null;
+  downloadedBytes: number | null;
+  totalBytes: number | null;
+  extractedEntries: number | null;
+  totalEntries: number | null;
+  summary: string;
+  error: string;
+  updatedAt: string;
+}
+
+export interface RuntimePrepareSnapshot {
+  active: boolean;
+  currentKind: string;
+  summary: string;
+  resources: RuntimePrepareResourceProgress[];
+}
+
 export interface LauncherServerSnapshot {
   health: LivenessStatusResponse | null;
   readiness: LauncherReadinessSnapshot | null;
@@ -86,6 +128,7 @@ export interface LauncherLocalSnapshot {
   preflightChecks: EnvironmentCheckResult[];
   advisoryChecks: EnvironmentCheckResult[];
   recentStderr: string[];
+  runtimePrepare: RuntimePrepareSnapshot | null;
   releaseCheck: ReleaseCheckSnapshot;
   lastLocalError: string;
   statusHint: string;

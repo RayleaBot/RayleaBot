@@ -1,7 +1,12 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
-import type { LauncherResolvedSettings } from "../../shared/launcher-models";
+import type {
+  LauncherResolvedSettings,
+  RuntimePrepareResourceProgress,
+  RuntimePrepareSnapshot,
+  RuntimePrepareStatus,
+} from "../../shared/launcher-models";
 import { terminateProcessId } from "./process-termination";
 
 const MAX_STDERR_LINES = 40;
@@ -17,12 +22,107 @@ interface ServerProcessControllerDependencies {
   terminateProcessId?: (pid: number) => Promise<boolean>;
 }
 
+type RuntimePrepareLogLine = {
+  msg?: unknown;
+  resource_kind?: unknown;
+  label?: unknown;
+  resource_id?: unknown;
+  version?: unknown;
+  source_label?: unknown;
+  source_url?: unknown;
+  archive_path?: unknown;
+  store_root?: unknown;
+  stage?: unknown;
+  status?: unknown;
+  progress?: unknown;
+  downloaded_bytes?: unknown;
+  total_bytes?: unknown;
+  extracted_entries?: unknown;
+  total_entries?: unknown;
+  summary?: unknown;
+  err?: unknown;
+  ts?: unknown;
+};
+
+function stringValue(value: unknown) {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function numberValue(value: unknown) {
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
+function normalizeProgress(value: unknown) {
+  const progress = numberValue(value);
+  if (progress === null) {
+    return null;
+  }
+  if (progress < 0) {
+    return 0;
+  }
+  if (progress > 100) {
+    return 100;
+  }
+  return Math.round(progress);
+}
+
+function normalizeRuntimePrepareStatus(value: unknown): RuntimePrepareStatus {
+  const status = stringValue(value);
+  if (status === "running" || status === "succeeded" || status === "failed" || status === "pending") {
+    return status;
+  }
+  return "running";
+}
+
+function parseRuntimePrepareProgressLine(line: string): RuntimePrepareResourceProgress | null {
+  let parsed: RuntimePrepareLogLine;
+  try {
+    parsed = JSON.parse(line) as RuntimePrepareLogLine;
+  } catch {
+    return null;
+  }
+  if (parsed.msg !== "runtime_prepare_progress") {
+    return null;
+  }
+  const kind = stringValue(parsed.resource_kind);
+  if (!kind) {
+    return null;
+  }
+  const label = stringValue(parsed.label) || kind;
+  const status = normalizeRuntimePrepareStatus(parsed.status);
+  return {
+    kind,
+    label,
+    resourceId: stringValue(parsed.resource_id),
+    version: stringValue(parsed.version),
+    sourceLabel: stringValue(parsed.source_label),
+    sourceUrl: stringValue(parsed.source_url),
+    archivePath: stringValue(parsed.archive_path),
+    storeRoot: stringValue(parsed.store_root),
+    stage: stringValue(parsed.stage) || "inspect",
+    status,
+    progress: normalizeProgress(parsed.progress),
+    downloadedBytes: numberValue(parsed.downloaded_bytes),
+    totalBytes: numberValue(parsed.total_bytes),
+    extractedEntries: numberValue(parsed.extracted_entries),
+    totalEntries: numberValue(parsed.total_entries),
+    summary: stringValue(parsed.summary) || `${label}${status === "failed" ? "准备失败" : "准备中"}`,
+    error: stringValue(parsed.err),
+    updatedAt: stringValue(parsed.ts) || new Date().toISOString(),
+  };
+}
+
 export class ServerProcessController {
   private readonly spawnProcess: typeof spawn;
   private readonly fileSystem: FileSystemLike;
   private readonly terminateProcessId: (pid: number) => Promise<boolean>;
   private process: ChildProcessWithoutNullStreams | null = null;
   private stderrLines: string[] = [];
+  private runtimePrepareResources = new Map<string, RuntimePrepareResourceProgress>();
+  private runtimePrepareCurrentKind = "";
+  private runtimePrepareSummary = "";
+  private runtimePrepareActive = false;
+  private stdoutLineBuffer = "";
   private logWriteQueue = Promise.resolve();
   logDirectory = path.resolve(process.cwd(), "logs");
 
@@ -45,12 +145,33 @@ export class ServerProcessController {
     return [...this.stderrLines];
   }
 
+  getRuntimePrepareSnapshot(): RuntimePrepareSnapshot | null {
+    if (!this.runtimePrepareActive && this.runtimePrepareResources.size === 0) {
+      return null;
+    }
+    return {
+      active: this.runtimePrepareActive,
+      currentKind: this.runtimePrepareCurrentKind,
+      summary: this.runtimePrepareSummary,
+      resources: [...this.runtimePrepareResources.values()],
+    };
+  }
+
+  clearRuntimePrepareSnapshot() {
+    this.runtimePrepareActive = false;
+    this.runtimePrepareCurrentKind = "";
+    this.runtimePrepareSummary = "";
+    this.runtimePrepareResources.clear();
+  }
+
   async start(settings: LauncherResolvedSettings) {
     if (this.isRunning) {
       return;
     }
 
     this.stderrLines = [];
+    this.clearRuntimePrepareSnapshot();
+    this.stdoutLineBuffer = "";
     await this.fileSystem.mkdir(settings.workdir, { recursive: true });
     this.logDirectory = path.join(settings.workdir, "logs");
     await this.fileSystem.mkdir(this.logDirectory, { recursive: true });
@@ -191,14 +312,36 @@ export class ServerProcessController {
   }
 
   private recordStdoutDiagnostics(text: string) {
-    for (const rawLine of text.split(/\r?\n/)) {
+    const combined = this.stdoutLineBuffer + text;
+    const lines = combined.split(/\r?\n/);
+    this.stdoutLineBuffer = lines.pop() ?? "";
+    if (this.stdoutLineBuffer.length > 1024 * 1024) {
+      this.stdoutLineBuffer = "";
+    }
+    for (const rawLine of lines) {
       const line = rawLine.trim();
-      if (!line || !this.shouldCaptureStdoutDiagnostic(line)) {
+      if (!line) {
+        continue;
+      }
+      this.recordRuntimePrepareProgress(line);
+      if (!this.shouldCaptureStdoutDiagnostic(line)) {
         continue;
       }
       this.stderrLines.push(line);
     }
     this.stderrLines = this.stderrLines.slice(-MAX_STDERR_LINES);
+  }
+
+  private recordRuntimePrepareProgress(line: string) {
+    const event = parseRuntimePrepareProgressLine(line);
+    if (!event) {
+      return;
+    }
+    this.runtimePrepareResources.set(event.kind, event);
+    this.runtimePrepareCurrentKind = event.kind;
+    this.runtimePrepareSummary = event.summary;
+    this.runtimePrepareActive = event.status === "running"
+      || [...this.runtimePrepareResources.values()].some((item) => item.status === "running");
   }
 
   private shouldCaptureStdoutDiagnostic(line: string) {

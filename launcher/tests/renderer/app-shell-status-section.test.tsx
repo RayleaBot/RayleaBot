@@ -139,4 +139,58 @@ describe("AppShellStatusSection", () => {
     expect(screen.getAllByText("正在准备运行环境并等待服务就绪。").length).toBeGreaterThan(0);
     expect(screen.queryByText("当前限制")).toBeNull();
   });
+
+  test("shows runtime preparation panel without duplicate diagnostics while starting", () => {
+    renderSection({
+      server: {
+        ...snapshot.server,
+        readiness: {
+          ...snapshot.server.readiness!,
+          reason: "Python 运行环境元数据不完整。",
+          reason_codes: ["platform.resource_missing"],
+        },
+      },
+      launcher: {
+        ...snapshot.launcher,
+        processLifecycle: "starting",
+        statusHint: "正在启动服务。",
+        recentStderr: [],
+        runtimePrepare: {
+          active: true,
+          currentKind: "chromium",
+          summary: "正在下载 Chromium 浏览环境",
+          resources: [
+            {
+              kind: "chromium",
+              label: "Chromium 浏览环境",
+              resourceId: "chromium-windows-x64",
+              version: "147.0.7727.24",
+              sourceLabel: "Chrome for Testing",
+              sourceUrl: "https://example.invalid/chrome.zip",
+              archivePath: "C:\\RayleaBot\\cache\\downloads\\runtime\\chromium-windows-x64.zip",
+              storeRoot: "C:\\RayleaBot\\.deps\\store\\chromium-windows-x64\\147.0.7727.24",
+              stage: "download",
+              status: "running",
+              progress: 42,
+              downloadedBytes: 1024,
+              totalBytes: 2048,
+              extractedEntries: null,
+              totalEntries: null,
+              summary: "正在下载 Chromium 浏览环境",
+              error: "",
+              updatedAt: "2026-06-06T00:00:00Z",
+            },
+          ],
+        },
+      },
+    });
+
+    expect(screen.getByText("准备进度")).toBeInTheDocument();
+    expect(screen.getByText("运行环境准备")).toBeInTheDocument();
+    expect(screen.getAllByText("正在下载 Chromium 浏览环境").length).toBeGreaterThan(0);
+    expect(screen.getByText("Chrome for Testing · https://example.invalid/chrome.zip")).toBeInTheDocument();
+    expect(screen.queryByText("当前限制")).toBeNull();
+    expect(screen.queryByText("服务诊断")).toBeNull();
+    expect(screen.queryByText("Python 运行环境元数据不完整。")).toBeNull();
+  });
 });

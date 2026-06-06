@@ -18,6 +18,7 @@ export const initialSnapshot: LauncherSnapshot = {
     preflightChecks: [],
     advisoryChecks: [],
     recentStderr: [],
+    runtimePrepare: null,
     releaseCheck: {
       status: "unavailable",
       currentVersion: "",

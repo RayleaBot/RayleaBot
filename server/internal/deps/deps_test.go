@@ -1,7 +1,13 @@
 package deps
 
 import (
+	"archive/tar"
+	"archive/zip"
+	"bytes"
+	"compress/gzip"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"os"
 	"path/filepath"
@@ -362,6 +368,140 @@ func TestPrepareWithReportFallsBackToNextSource(t *testing.T) {
 	}
 }
 
+func TestPrepareWithReportEmitsDownloadFallbackProgress(t *testing.T) {
+	t.Parallel()
+
+	repoRoot := t.TempDir()
+	manifest := `{
+  "manifest_version": 3,
+  "resources": [
+    {
+      "id": "node-test",
+      "kind": "nodejs-runtime",
+      "version": "24.14.0",
+      "platform": "` + CurrentPlatform() + `",
+      "sources": [
+        {
+          "url": "https://primary.example.invalid/node.tar.xz",
+          "kind": "upstream",
+          "label": "primary"
+        },
+        {
+          "url": "https://mirror.example.invalid/node.tar.xz",
+          "kind": "mirror",
+          "label": "mirror"
+        }
+      ],
+      "sha256": "2bb9e071b229e9c0cb7d90297c51fa4cf3f5dbf4f88aded36d3f5892651baabf",
+      "archive_format": "tar.xz",
+      "entrypoints": {
+        "node": ["node/bin/node"],
+        "npm": ["node/bin/npm"]
+      }
+    }
+  ]
+}`
+	writeManifest(t, repoRoot, manifest)
+
+	manager := NewManager(repoRoot)
+	manager.downloadFile = func(_ context.Context, rawURL string, destPath string) error {
+		if strings.Contains(rawURL, "primary") {
+			return errors.New("offline")
+		}
+		return os.WriteFile(destPath, []byte("fixture-archive"), 0o644)
+	}
+	manager.extract = func(_ context.Context, _ string, _ string, destRoot string) error {
+		writePreparedFile(t, filepath.Join(destRoot, "node", "bin", "node"))
+		writePreparedFile(t, filepath.Join(destRoot, "node", "bin", "npm"))
+		return nil
+	}
+	var events []PrepareProgress
+
+	_, err := manager.PrepareWithReportOptions(context.Background(), "nodejs-runtime", PrepareOptions{
+		Progress: func(event PrepareProgress) {
+			events = append(events, event)
+		},
+	})
+	if err != nil {
+		t.Fatalf("PrepareWithReportOptions failed: %v", err)
+	}
+
+	if !hasPrepareEvent(events, "download", "running", "https://primary.example.invalid/node.tar.xz") {
+		t.Fatalf("expected primary download progress event: %#v", events)
+	}
+	if !hasPrepareEvent(events, "download", "running", "https://mirror.example.invalid/node.tar.xz") {
+		t.Fatalf("expected mirror download progress event: %#v", events)
+	}
+	if !hasPrepareEvent(events, "complete", "succeeded", "") {
+		t.Fatalf("expected completed progress event: %#v", events)
+	}
+}
+
+func TestPrepareWithReportEmitsCachedArchiveProgress(t *testing.T) {
+	t.Parallel()
+
+	repoRoot := t.TempDir()
+	archiveContent := []byte("fixture-archive")
+	manifest := `{
+  "manifest_version": 3,
+  "resources": [
+    {
+      "id": "node-test",
+      "kind": "nodejs-runtime",
+      "version": "24.14.0",
+      "platform": "` + CurrentPlatform() + `",
+      "sources": [
+        {
+          "url": "https://example.invalid/node.tar.xz",
+          "kind": "upstream"
+        }
+      ],
+      "sha256": "` + sha256Hex(archiveContent) + `",
+      "archive_format": "tar.xz",
+      "entrypoints": {
+        "node": ["node/bin/node"],
+        "npm": ["node/bin/npm"]
+      }
+    }
+  ]
+}`
+	writeManifest(t, repoRoot, manifest)
+	archivePath := filepath.Join(CacheRoot(repoRoot), "node-test-24.14.0.tar.xz")
+	if err := os.MkdirAll(filepath.Dir(archivePath), 0o755); err != nil {
+		t.Fatalf("mkdir cache root: %v", err)
+	}
+	if err := os.WriteFile(archivePath, archiveContent, 0o644); err != nil {
+		t.Fatalf("write cached archive: %v", err)
+	}
+
+	manager := NewManager(repoRoot)
+	manager.downloadFile = func(context.Context, string, string) error {
+		t.Fatal("cached archive should not be downloaded")
+		return nil
+	}
+	manager.extract = func(_ context.Context, _ string, _ string, destRoot string) error {
+		writePreparedFile(t, filepath.Join(destRoot, "node", "bin", "node"))
+		writePreparedFile(t, filepath.Join(destRoot, "node", "bin", "npm"))
+		return nil
+	}
+	var events []PrepareProgress
+
+	report, err := manager.PrepareWithReportOptions(context.Background(), "nodejs-runtime", PrepareOptions{
+		Progress: func(event PrepareProgress) {
+			events = append(events, event)
+		},
+	})
+	if err != nil {
+		t.Fatalf("PrepareWithReportOptions failed: %v", err)
+	}
+	if !report.UsedCachedArchive {
+		t.Fatalf("expected cached archive report: %#v", report)
+	}
+	if !hasPrepareEvent(events, "download", "succeeded", "") {
+		t.Fatalf("expected cached archive progress event: %#v", events)
+	}
+}
+
 func TestPrepareWithReportUsesCachedArchiveWithoutDownload(t *testing.T) {
 	t.Parallel()
 
@@ -423,6 +563,56 @@ func TestPrepareWithReportUsesCachedArchiveWithoutDownload(t *testing.T) {
 	}
 	if len(report.AttemptedSources) != 0 || report.SelectedSource != "" {
 		t.Fatalf("cached archive should not record source attempts, got %#v", report)
+	}
+}
+
+func TestExtractZipReportsEntryProgress(t *testing.T) {
+	t.Parallel()
+
+	archivePath := filepath.Join(t.TempDir(), "runtime.zip")
+	writeZipArchive(t, archivePath, map[string]string{
+		"node/bin/node": "node",
+		"node/bin/npm":  "npm",
+	})
+	var events []extractProgress
+
+	if err := extractZipWithProgress(archivePath, t.TempDir(), func(event extractProgress) {
+		events = append(events, event)
+	}); err != nil {
+		t.Fatalf("extractZipWithProgress failed: %v", err)
+	}
+
+	if len(events) == 0 {
+		t.Fatal("expected zip extract progress events")
+	}
+	last := events[len(events)-1]
+	if last.TotalEntries != 2 || last.ExtractedEntries != 2 || last.Progress != 100 {
+		t.Fatalf("unexpected final zip progress: %#v", last)
+	}
+}
+
+func TestExtractTarGzReportsEntryProgress(t *testing.T) {
+	t.Parallel()
+
+	archivePath := filepath.Join(t.TempDir(), "runtime.tar.gz")
+	writeTarGzArchive(t, archivePath, map[string]string{
+		"python/python.exe":      "python",
+		"python/Scripts/pip.exe": "pip",
+	})
+	var events []extractProgress
+
+	if err := extractTarGzWithProgress(archivePath, t.TempDir(), func(event extractProgress) {
+		events = append(events, event)
+	}); err != nil {
+		t.Fatalf("extractTarGzWithProgress failed: %v", err)
+	}
+
+	if len(events) == 0 {
+		t.Fatal("expected tar.gz extract progress events")
+	}
+	last := events[len(events)-1]
+	if last.TotalEntries != 2 || last.ExtractedEntries != 2 || last.Progress != 100 {
+		t.Fatalf("unexpected final tar.gz progress: %#v", last)
 	}
 }
 
@@ -634,5 +824,82 @@ func writePreparedFile(t *testing.T, path string) {
 	}
 	if err := os.WriteFile(path, []byte("ok"), 0o755); err != nil {
 		t.Fatalf("write prepared file: %v", err)
+	}
+}
+
+func hasPrepareEvent(events []PrepareProgress, stage, status, sourceURL string) bool {
+	for _, event := range events {
+		if event.Stage != stage || event.Status != status {
+			continue
+		}
+		if sourceURL != "" && event.SourceURL != sourceURL {
+			continue
+		}
+		return true
+	}
+	return false
+}
+
+func sha256Hex(content []byte) string {
+	sum := sha256.Sum256(content)
+	return hex.EncodeToString(sum[:])
+}
+
+func writeZipArchive(t *testing.T, archivePath string, files map[string]string) {
+	t.Helper()
+	if err := os.MkdirAll(filepath.Dir(archivePath), 0o755); err != nil {
+		t.Fatalf("mkdir zip root: %v", err)
+	}
+	out, err := os.Create(archivePath)
+	if err != nil {
+		t.Fatalf("create zip: %v", err)
+	}
+	writer := zip.NewWriter(out)
+	for name, content := range files {
+		entry, err := writer.Create(name)
+		if err != nil {
+			t.Fatalf("create zip entry: %v", err)
+		}
+		if _, err := entry.Write([]byte(content)); err != nil {
+			t.Fatalf("write zip entry: %v", err)
+		}
+	}
+	if err := writer.Close(); err != nil {
+		t.Fatalf("close zip: %v", err)
+	}
+	if err := out.Close(); err != nil {
+		t.Fatalf("close zip file: %v", err)
+	}
+}
+
+func writeTarGzArchive(t *testing.T, archivePath string, files map[string]string) {
+	t.Helper()
+	if err := os.MkdirAll(filepath.Dir(archivePath), 0o755); err != nil {
+		t.Fatalf("mkdir tar.gz root: %v", err)
+	}
+	var buffer bytes.Buffer
+	gzipWriter := gzip.NewWriter(&buffer)
+	tarWriter := tar.NewWriter(gzipWriter)
+	for name, content := range files {
+		payload := []byte(content)
+		if err := tarWriter.WriteHeader(&tar.Header{
+			Name: name,
+			Mode: 0o644,
+			Size: int64(len(payload)),
+		}); err != nil {
+			t.Fatalf("write tar header: %v", err)
+		}
+		if _, err := tarWriter.Write(payload); err != nil {
+			t.Fatalf("write tar entry: %v", err)
+		}
+	}
+	if err := tarWriter.Close(); err != nil {
+		t.Fatalf("close tar writer: %v", err)
+	}
+	if err := gzipWriter.Close(); err != nil {
+		t.Fatalf("close gzip writer: %v", err)
+	}
+	if err := os.WriteFile(archivePath, buffer.Bytes(), 0o644); err != nil {
+		t.Fatalf("write tar.gz archive: %v", err)
 	}
 }

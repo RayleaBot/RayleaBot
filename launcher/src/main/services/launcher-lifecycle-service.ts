@@ -13,6 +13,7 @@ import type {
 } from "./launcher-coordinator.types";
 import type {
   LauncherReadinessSnapshot,
+  RuntimePrepareSnapshot,
   LauncherResolvedSettings,
   ServerEndpoint,
 } from "../../shared/launcher-models";
@@ -34,6 +35,43 @@ interface LauncherLifecycleServiceDependencies {
 
 function delay(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function getRuntimePrepareSnapshot(processController: ServerProcessController): RuntimePrepareSnapshot | null {
+  const maybeProcessController = processController as Partial<ServerProcessController>;
+  return typeof maybeProcessController.getRuntimePrepareSnapshot === "function"
+    ? maybeProcessController.getRuntimePrepareSnapshot()
+    : null;
+}
+
+function clearRuntimePrepareSnapshot(processController: ServerProcessController) {
+  const maybeProcessController = processController as Partial<ServerProcessController>;
+  if (typeof maybeProcessController.clearRuntimePrepareSnapshot === "function") {
+    maybeProcessController.clearRuntimePrepareSnapshot();
+  }
+}
+
+function runtimePrepareKey(snapshot: RuntimePrepareSnapshot | null) {
+  if (!snapshot) {
+    return "";
+  }
+  return JSON.stringify({
+    active: snapshot.active,
+    currentKind: snapshot.currentKind,
+    summary: snapshot.summary,
+    resources: snapshot.resources.map((item) => ({
+      kind: item.kind,
+      stage: item.stage,
+      status: item.status,
+      progress: item.progress,
+      downloadedBytes: item.downloadedBytes,
+      totalBytes: item.totalBytes,
+      extractedEntries: item.extractedEntries,
+      totalEntries: item.totalEntries,
+      summary: item.summary,
+      error: item.error,
+    })),
+  });
 }
 
 function isLoopbackHost(host: string) {
@@ -162,6 +200,7 @@ export function createLauncherLifecycleService(deps: LauncherLifecycleServiceDep
             processOwnership: "launcher_managed",
             statusHint: startingDetail(inspection.canBootstrapUserConfig),
             lastLocalError: "",
+            runtimePrepare: getRuntimePrepareSnapshot(deps.processController),
           },
         ),
       );
@@ -169,6 +208,7 @@ export function createLauncherLifecycleService(deps: LauncherLifecycleServiceDep
       const startedAt = Date.now();
       let firstFailedReadinessAt: number | null = null;
       let lastFailedReadiness: LauncherReadinessSnapshot | null = null;
+      let lastRuntimePrepareKey = "";
       while (Date.now() - startedAt < deps.options.startupTimeoutMs) {
         if (await deps.managementClient.isHealthy(context.endpoint)) {
           try {
@@ -186,6 +226,7 @@ export function createLauncherLifecycleService(deps: LauncherLifecycleServiceDep
               firstFailedReadinessAt = null;
               lastFailedReadiness = null;
             }
+            clearRuntimePrepareSnapshot(deps.processController);
             await deps.snapshotStore.publish(await deps.statusService.buildSnapshotFromReadiness(context, inspection, readiness, true));
             return;
           } catch {
@@ -230,10 +271,30 @@ export function createLauncherLifecycleService(deps: LauncherLifecycleServiceDep
           );
           return;
         }
+        const runtimePrepare = getRuntimePrepareSnapshot(deps.processController);
+        const nextRuntimePrepareKey = runtimePrepareKey(runtimePrepare);
+        if (nextRuntimePrepareKey && nextRuntimePrepareKey !== lastRuntimePrepareKey) {
+          lastRuntimePrepareKey = nextRuntimePrepareKey;
+          await deps.snapshotStore.publish(
+            deps.snapshotStore.buildSnapshot(
+              context,
+              inspection,
+              {},
+              {
+                processLifecycle: "starting",
+                processOwnership: "launcher_managed",
+                statusHint: runtimePrepare?.summary || startingDetail(inspection.canBootstrapUserConfig),
+                lastLocalError: "",
+                runtimePrepare,
+              },
+            ),
+          );
+        }
         await delay(deps.options.pollIntervalMs);
       }
 
       if (lastFailedReadiness) {
+        clearRuntimePrepareSnapshot(deps.processController);
         await deps.snapshotStore.publish(await deps.statusService.buildSnapshotFromReadiness(context, inspection, lastFailedReadiness, true));
         return;
       }

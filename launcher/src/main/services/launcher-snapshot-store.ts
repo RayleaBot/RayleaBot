@@ -50,6 +50,7 @@ function defaultSnapshot(
       preflightChecks: [],
       advisoryChecks: [],
       recentStderr: [],
+      runtimePrepare: null,
       releaseCheck: createReleaseUnavailable(),
       lastLocalError: "",
       statusHint: "",
@@ -102,6 +103,13 @@ function currentProcessLifecycle(
   return processController.isRunning ? "running" : "stopped";
 }
 
+function getRuntimePrepareSnapshot(processController: ServerProcessController) {
+  const maybeProcessController = processController as Partial<ServerProcessController>;
+  return typeof maybeProcessController.getRuntimePrepareSnapshot === "function"
+    ? maybeProcessController.getRuntimePrepareSnapshot()
+    : null;
+}
+
 export function createLauncherSnapshotStore(deps: LauncherSnapshotStoreDependencies): LauncherSnapshotStore {
   const listeners = new Set<(snapshot: LauncherSnapshot) => void>();
   let snapshot = defaultSnapshot();
@@ -134,6 +142,9 @@ export function createLauncherSnapshotStore(deps: LauncherSnapshotStoreDependenc
           preflightChecks: inspection.preflightChecks,
           advisoryChecks: inspection.advisoryChecks,
           recentStderr: deps.processController.getRecentStderr(),
+          runtimePrepare: launcherOverrides.runtimePrepare === undefined
+            ? getRuntimePrepareSnapshot(deps.processController)
+            : launcherOverrides.runtimePrepare,
           releaseCheck: snapshot.launcher.releaseCheck,
           lastLocalError: launcherOverrides.lastLocalError ?? "",
           statusHint: launcherOverrides.statusHint ?? "",

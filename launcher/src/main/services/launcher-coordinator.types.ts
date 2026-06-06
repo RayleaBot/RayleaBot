@@ -8,6 +8,7 @@ import type {
   RecoveryCompatibilitySummary,
   LauncherSettings,
   LauncherSnapshot,
+  RuntimePrepareSnapshot,
   ReleaseCheckSnapshot,
   ServerEndpoint,
   LauncherSystemStatusSnapshot,
@@ -39,6 +40,8 @@ export interface ServerProcessController {
   start(settings: LauncherResolvedSettings): Promise<void>;
   forceKill(): Promise<void>;
   getRecentStderr(): string[];
+  getRuntimePrepareSnapshot(): RuntimePrepareSnapshot | null;
+  clearRuntimePrepareSnapshot(): void;
 }
 
 export interface ExternalOpener {
@@ -116,6 +119,7 @@ export interface LocalSnapshotOverrides {
   processOwnership?: LauncherProcessOwnership;
   lastLocalError?: string;
   statusHint?: string;
+  runtimePrepare?: RuntimePrepareSnapshot | null;
   localRecoverySummary?: RecoveryCompatibilitySummary | null;
 }
 

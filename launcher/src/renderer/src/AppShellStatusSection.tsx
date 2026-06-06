@@ -7,6 +7,7 @@ import { AppShellStatusHero } from "./AppShellStatusHero";
 import { AppShellStatusLogs } from "./AppShellStatusLogs";
 import { AppShellStatusRail } from "./AppShellStatusRail";
 import { AppShellStatusSummary } from "./AppShellStatusSummary";
+import { AppShellRuntimePreparePanel } from "./AppShellRuntimePreparePanel";
 
 type StatusSectionProps = {
   snapshot: LauncherSnapshot;
@@ -40,6 +41,7 @@ export function AppShellStatusSection({
 
   const presentation = useMemo(() => deriveLauncherPresentation(snapshot), [snapshot]);
   const recoverySummary = useMemo(() => resolveRecoverySummary(snapshot), [snapshot]);
+  const runtimePrepare = snapshot.launcher.runtimePrepare ?? null;
   const readiness = snapshot.server.readiness ?? null;
   const checks = useMemo(() => sortChecks(snapshot.launcher.preflightChecks || []), [snapshot.launcher.preflightChecks]);
   const nonOkChecks = useMemo(() => checks.filter((item) => item.severity !== "ok"), [checks]);
@@ -65,14 +67,18 @@ export function AppShellStatusSection({
           : "none";
   const logAlert = hasRecentStderr ? "error" : "none";
   const statusReasonLabel =
-    presentation.state === "degraded"
+    runtimePrepare?.active
+      ? "准备进度"
+      : presentation.state === "degraded"
       || presentation.state === "setup_required"
       || presentation.state === "failed"
       || Boolean(readinessReason || primaryReadinessIssue)
       ? "当前限制"
       : "运行说明";
   const statusReasonText =
-    readinessReason
+    runtimePrepare?.active
+      ? (runtimePrepare.summary || "正在准备运行环境。")
+      : readinessReason
     || primaryReadinessIssue?.summary
     || (presentation.state === "degraded" || presentation.state === "setup_required" || presentation.state === "failed"
       ? presentation.detail
@@ -80,7 +86,9 @@ export function AppShellStatusSection({
         ? `${primaryEnvironmentIssue.title}：${primaryEnvironmentIssue.summary}`
         : presentation.detail);
   const heroServiceDetail =
-    snapshot.launcher.lastLocalError
+    runtimePrepare?.active
+      ? "运行环境准备中。"
+      : snapshot.launcher.lastLocalError
       ? "启动器检测到本地异常。"
       : presentation.state === "degraded"
         ? "服务可运行，部分能力受限。"
@@ -89,7 +97,7 @@ export function AppShellStatusSection({
           : presentation.state === "failed"
             ? "服务未通过就绪检查。"
             : presentation.detail;
-  const hasReadinessDiagnostics = Boolean(
+  const hasReadinessDiagnostics = !runtimePrepare?.active && Boolean(
     readinessReasonCodes.length
       || readinessIssues.some((issue) => issue.remediation)
       || nonOkReadinessChecks.length,
@@ -189,6 +197,8 @@ export function AppShellStatusSection({
 
       <div className="status-summary-grid status-grid">
         <div className="status-summary-main status-main-column">
+          <AppShellRuntimePreparePanel runtimePrepare={runtimePrepare} />
+
           {hasReadinessDiagnostics ? (
             <article className="panel glass-panel glass-panel--subtle status-diagnostics-panel">
               <div className="brand-eyebrow">服务诊断</div>

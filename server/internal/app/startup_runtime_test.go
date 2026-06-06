@@ -1,11 +1,14 @@
 package app
 
 import (
+	"bytes"
 	"context"
 	"errors"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 	"testing"
 	"time"
 
@@ -16,9 +19,11 @@ import (
 func TestAutoPrepareRuntimeEnvironmentsPreparesStartupManagedRuntimes(t *testing.T) {
 	originalInspect := inspectStartupRuntime
 	originalPrepare := prepareStartupRuntime
+	originalPrepareWithProgress := prepareStartupRuntimeWithProgress
 	t.Cleanup(func() {
 		inspectStartupRuntime = originalInspect
 		prepareStartupRuntime = originalPrepare
+		prepareStartupRuntimeWithProgress = originalPrepareWithProgress
 	})
 
 	preparedKinds := make([]string, 0, 3)
@@ -36,6 +41,9 @@ func TestAutoPrepareRuntimeEnvironmentsPreparesStartupManagedRuntimes(t *testing
 			Kind:              kind,
 			UsedCachedArchive: true,
 		}, nil
+	}
+	prepareStartupRuntimeWithProgress = func(ctx context.Context, repoRoot, kind string, progress deps.PrepareProgressReporter) (*deps.PrepareReport, error) {
+		return prepareStartupRuntime(ctx, repoRoot, kind)
 	}
 
 	application := newTestAppState(config.Config{}, nil)
@@ -64,9 +72,11 @@ func TestAutoPrepareRuntimeEnvironmentsPreparesStartupManagedRuntimes(t *testing
 func TestAutoPrepareRuntimeEnvironmentsWaitsForPrepareResult(t *testing.T) {
 	originalInspect := inspectStartupRuntime
 	originalPrepare := prepareStartupRuntime
+	originalPrepareWithProgress := prepareStartupRuntimeWithProgress
 	t.Cleanup(func() {
 		inspectStartupRuntime = originalInspect
 		prepareStartupRuntime = originalPrepare
+		prepareStartupRuntimeWithProgress = originalPrepareWithProgress
 	})
 
 	inspectStartupRuntime = func(_ string, kind string) (*deps.BootstrapInspection, error) {
@@ -93,6 +103,9 @@ func TestAutoPrepareRuntimeEnvironmentsWaitsForPrepareResult(t *testing.T) {
 		<-releasePrepare
 		close(prepareReturned)
 		return &deps.PrepareReport{Kind: kind}, nil
+	}
+	prepareStartupRuntimeWithProgress = func(ctx context.Context, repoRoot, kind string, progress deps.PrepareProgressReporter) (*deps.PrepareReport, error) {
+		return prepareStartupRuntime(ctx, repoRoot, kind)
 	}
 
 	application := newTestAppState(config.Config{}, nil)
@@ -123,6 +136,66 @@ func TestAutoPrepareRuntimeEnvironmentsWaitsForPrepareResult(t *testing.T) {
 	case <-prepareReturned:
 	default:
 		t.Fatal("prepare function should complete before startup runtime prepare returns")
+	}
+}
+
+func TestAutoPrepareRuntimeEnvironmentsLogsPrepareProgress(t *testing.T) {
+	originalInspect := inspectStartupRuntime
+	originalPrepareWithProgress := prepareStartupRuntimeWithProgress
+	t.Cleanup(func() {
+		inspectStartupRuntime = originalInspect
+		prepareStartupRuntimeWithProgress = originalPrepareWithProgress
+	})
+
+	inspectStartupRuntime = func(_ string, kind string) (*deps.BootstrapInspection, error) {
+		if kind == "chromium" || kind == "nodejs-runtime" {
+			return &deps.BootstrapInspection{
+				Kind:                 kind,
+				MetadataComplete:     true,
+				PreparedStorePresent: true,
+			}, nil
+		}
+		return &deps.BootstrapInspection{
+			Kind:             kind,
+			MetadataComplete: true,
+		}, nil
+	}
+	prepareStartupRuntimeWithProgress = func(_ context.Context, _ string, kind string, progress deps.PrepareProgressReporter) (*deps.PrepareReport, error) {
+		progress(deps.PrepareProgress{
+			Kind:            kind,
+			Label:           "Python 运行环境",
+			ResourceID:      "python-windows-x64",
+			Version:         "3.12.13",
+			SourceLabel:     "python-build-standalone",
+			SourceURL:       "https://example.invalid/python.tar.gz",
+			ArchivePath:     "C:\\RayleaBot\\cache\\downloads\\runtime\\python-windows-x64-3.12.13.tar.gz",
+			StoreRoot:       "C:\\RayleaBot\\.deps\\store\\python-windows-x64\\3.12.13",
+			Stage:           "download",
+			Status:          "running",
+			Progress:        25,
+			DownloadedBytes: 1024,
+			TotalBytes:      4096,
+			Summary:         "正在下载Python 运行环境",
+		})
+		return &deps.PrepareReport{Kind: kind}, nil
+	}
+
+	var logs bytes.Buffer
+	application := newTestAppState(config.Config{}, slog.New(slog.NewJSONHandler(&logs, nil)))
+	application.state.repoRoot = t.TempDir()
+	application.setTestSystem(nil, nil, nil, nil)
+
+	application.autoPrepareRuntimeEnvironments(context.Background())
+
+	logText := logs.String()
+	if !strings.Contains(logText, `"msg":"runtime_prepare_progress"`) {
+		t.Fatalf("startup progress log missing runtime_prepare_progress: %s", logText)
+	}
+	if !strings.Contains(logText, `"source_url":"https://example.invalid/python.tar.gz"`) {
+		t.Fatalf("startup progress log missing source URL: %s", logText)
+	}
+	if !strings.Contains(logText, `"archive_path":"C:\\RayleaBot\\cache\\downloads\\runtime\\python-windows-x64-3.12.13.tar.gz"`) {
+		t.Fatalf("startup progress log missing archive path: %s", logText)
 	}
 }
 
