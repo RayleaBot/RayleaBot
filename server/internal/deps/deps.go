@@ -739,6 +739,9 @@ func ensurePreparedResource(
 	if err := os.MkdirAll(filepath.Dir(storeRoot), 0o755); err != nil {
 		return fmt.Errorf("create deps store root: %w", err)
 	}
+	if err := removeStaleTempRoots(filepath.Dir(storeRoot), resource.ID, resource.Version); err != nil {
+		return fmt.Errorf("clean stale deps temp roots: %w", err)
+	}
 	tempRoot, err := os.MkdirTemp(filepath.Dir(storeRoot), "."+resource.ID+"-"+resource.Version+"-*")
 	if err != nil {
 		return fmt.Errorf("create deps temp root: %w", err)
@@ -751,6 +754,26 @@ func ensurePreparedResource(
 	_ = os.RemoveAll(storeRoot)
 	if err := os.Rename(tempRoot, storeRoot); err != nil {
 		return fmt.Errorf("activate deps resource %s: %w", resource.Kind, err)
+	}
+	return nil
+}
+
+func removeStaleTempRoots(parent, resourceID, version string) error {
+	entries, err := os.ReadDir(parent)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return nil
+		}
+		return err
+	}
+	prefix := "." + resourceID + "-" + version + "-"
+	for _, entry := range entries {
+		if !entry.IsDir() || !strings.HasPrefix(entry.Name(), prefix) {
+			continue
+		}
+		if err := os.RemoveAll(filepath.Join(parent, entry.Name())); err != nil {
+			return err
+		}
 	}
 	return nil
 }

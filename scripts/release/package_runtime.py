@@ -400,6 +400,7 @@ def download_runtime_archive(root: Path, resource: dict[str, object]) -> Path:
 def extract_runtime_archive(root: Path, resource: dict[str, object], archive_path: Path) -> None:
     target_root = store_root(root, resource)
     target_root.parent.mkdir(parents=True, exist_ok=True)
+    cleanup_stale_runtime_temp_roots(target_root.parent, resource)
     with tempfile.TemporaryDirectory(prefix=f"{resource['id']}-", dir=target_root.parent) as tmp:
         temp_root = Path(tmp)
         archive_format = str(resource["archive_format"])
@@ -412,6 +413,18 @@ def extract_runtime_archive(root: Path, resource: dict[str, object], archive_pat
         if target_root.exists():
             shutil.rmtree(target_root, ignore_errors=True)
         temp_root.replace(target_root)
+
+
+def cleanup_stale_runtime_temp_roots(parent: Path, resource: dict[str, object]) -> None:
+    prefixes = (
+        f"{resource['id']}-{resource['version']}-",
+        f".{resource['id']}-{resource['version']}-",
+    )
+    if not parent.exists():
+        return
+    for item in parent.iterdir():
+        if item.is_dir() and any(item.name.startswith(prefix) for prefix in prefixes):
+            shutil.rmtree(item, ignore_errors=True)
 
 
 def sha256_file(path: Path) -> str:

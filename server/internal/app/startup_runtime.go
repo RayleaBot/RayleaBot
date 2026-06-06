@@ -33,11 +33,17 @@ type startupRuntimeState struct {
 }
 
 func startupRuntimeKinds() []string {
+	return []string{"chromium", "python-runtime", "nodejs-runtime"}
+}
+
+func startupManagedRuntimeDiagnosticKinds() []string {
 	return []string{"python-runtime", "nodejs-runtime"}
 }
 
 func startupRuntimeLabel(kind string) string {
 	switch kind {
+	case "chromium":
+		return "Chromium 浏览环境"
 	case "python-runtime":
 		return "Python 运行环境"
 	case "nodejs-runtime":
@@ -148,7 +154,12 @@ func (s *systemService) startupRequiredRuntimeKinds() []string {
 	if s == nil {
 		return nil
 	}
-	return startupRuntimeKinds()
+	kinds := make([]string, 0, len(startupRuntimeKinds()))
+	if strings.TrimSpace(s.state.Config.Render.BrowserPath) == "" {
+		kinds = append(kinds, "chromium")
+	}
+	kinds = append(kinds, "python-runtime", "nodejs-runtime")
+	return kinds
 }
 
 func (s *systemService) autoPrepareRuntimeEnvironments(ctx context.Context) {
@@ -205,6 +216,9 @@ func (s *systemService) autoPrepareRuntimeEnvironments(ctx context.Context) {
 		}
 
 		s.setStartupRuntimeState(kind, startupRuntimeReady, nil)
+		if kind == "chromium" && s.renderer != nil && report.PreparedEntrypoint != "" {
+			s.renderer.RefreshBrowserPath(report.PreparedEntrypoint)
+		}
 		if s.state.Logger != nil {
 			s.state.Logger.Info(
 				"startup runtime prepare completed",

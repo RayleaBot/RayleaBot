@@ -21,7 +21,7 @@ func TestAutoPrepareRuntimeEnvironmentsPreparesStartupManagedRuntimes(t *testing
 		prepareStartupRuntime = originalPrepare
 	})
 
-	preparedKinds := make([]string, 0, 2)
+	preparedKinds := make([]string, 0, 3)
 	inspectStartupRuntime = func(_ string, kind string) (*deps.BootstrapInspection, error) {
 		return &deps.BootstrapInspection{
 			Kind:                 kind,
@@ -44,8 +44,12 @@ func TestAutoPrepareRuntimeEnvironmentsPreparesStartupManagedRuntimes(t *testing
 
 	application.autoPrepareRuntimeEnvironments(context.Background())
 
-	if !slices.Equal(preparedKinds, []string{"python-runtime", "nodejs-runtime"}) {
+	if !slices.Equal(preparedKinds, []string{"chromium", "python-runtime", "nodejs-runtime"}) {
 		t.Fatalf("unexpected prepared kinds: %#v", preparedKinds)
+	}
+	chromiumState, ok := application.startupRuntimeState("chromium")
+	if !ok || chromiumState.Phase != startupRuntimeReady {
+		t.Fatalf("chromium runtime state = %#v, want ready", chromiumState)
 	}
 	pythonState, ok := application.startupRuntimeState("python-runtime")
 	if !ok || pythonState.Phase != startupRuntimeReady {
@@ -66,7 +70,7 @@ func TestAutoPrepareRuntimeEnvironmentsWaitsForPrepareResult(t *testing.T) {
 	})
 
 	inspectStartupRuntime = func(_ string, kind string) (*deps.BootstrapInspection, error) {
-		if kind == "nodejs-runtime" {
+		if kind == "chromium" || kind == "nodejs-runtime" {
 			return &deps.BootstrapInspection{
 				Kind:                 kind,
 				MetadataComplete:     true,
@@ -119,6 +123,17 @@ func TestAutoPrepareRuntimeEnvironmentsWaitsForPrepareResult(t *testing.T) {
 	case <-prepareReturned:
 	default:
 		t.Fatal("prepare function should complete before startup runtime prepare returns")
+	}
+}
+
+func TestStartupRequiredRuntimeKindsSkipsChromiumWhenBrowserPathConfigured(t *testing.T) {
+	application := newTestAppState(config.Config{
+		Render: config.RenderConfig{BrowserPath: "C:\\chromium\\chrome.exe"},
+	}, nil)
+	application.setTestSystem(nil, nil, nil, nil)
+
+	if got := application.systemService.startupRequiredRuntimeKinds(); !slices.Equal(got, []string{"python-runtime", "nodejs-runtime"}) {
+		t.Fatalf("startupRequiredRuntimeKinds() = %#v", got)
 	}
 }
 
@@ -198,6 +213,23 @@ func writeStartupRuntimeManifest(t *testing.T, repoRoot string) {
 	manifest := `{
   "manifest_version": 3,
   "resources": [
+    {
+      "id": "chromium-test",
+      "kind": "chromium",
+      "version": "147.0.7727.24",
+      "platform": "` + deps.CurrentPlatform() + `",
+      "sources": [
+        {
+          "url": "https://example.invalid/chromium.zip",
+          "kind": "upstream"
+        }
+      ],
+      "sha256": "2bb9e071b229e9c0cb7d90297c51fa4cf3f5dbf4f88aded36d3f5892651baabf",
+      "archive_format": "zip",
+      "entrypoints": {
+        "browser": ["chrome-win64/chrome.exe"]
+      }
+    },
     {
       "id": "python-test",
       "kind": "python-runtime",

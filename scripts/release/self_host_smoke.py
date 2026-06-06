@@ -737,7 +737,7 @@ def remove_prepared_runtime_stores(root: Path, artifact_id: str, resources: list
 
 
 def run_runtime_bootstrap_cycle(root: Path, artifact_id: str, base_url: str, session_token: str) -> None:
-    resources = ["python-runtime", "nodejs-runtime"]
+    resources = ["chromium", "python-runtime", "nodejs-runtime"]
     remove_prepared_runtime_stores(root, artifact_id, resources)
     task_id = create_runtime_bootstrap_task(base_url, session_token, resources)
     task_detail = poll_task(

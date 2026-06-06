@@ -158,6 +158,47 @@ class DepsManifestRuntimeTests(unittest.TestCase):
 
             self.assertTrue(archive_path.exists())
 
+    def test_extract_runtime_archive_cleans_stale_temp_roots(self) -> None:
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            resource = {
+                "id": "chromium-windows-x64",
+                "kind": "chromium",
+                "version": "147.0.7727.24",
+                "platform": "windows-x64",
+                "sources": [
+                    {"url": "https://example.invalid/chromium.zip", "kind": "upstream"}
+                ],
+                "sha256": "unused",
+                "archive_format": "zip",
+                "entrypoints": {"browser": ["chrome-win64/chrome.exe"]},
+            }
+            store_parent = root / ".deps" / "store" / "chromium-windows-x64"
+            hidden_stale_root = store_parent / ".chromium-windows-x64-147.0.7727.24-stale"
+            plain_stale_root = store_parent / "chromium-windows-x64-147.0.7727.24-stale"
+            (hidden_stale_root / "chrome-win64").mkdir(parents=True, exist_ok=True)
+            (plain_stale_root / "chrome-win64").mkdir(parents=True, exist_ok=True)
+            archive_path = root / "chromium.zip"
+            archive_path.write_bytes(self._runtime_archive({
+                "chrome-win64/chrome.exe": b"chrome",
+            }))
+
+            package_runtime.extract_runtime_archive(root, resource, archive_path)
+
+            self.assertFalse(hidden_stale_root.exists())
+            self.assertFalse(plain_stale_root.exists())
+            self.assertTrue(
+                (
+                    root
+                    / ".deps"
+                    / "store"
+                    / "chromium-windows-x64"
+                    / "147.0.7727.24"
+                    / "chrome-win64"
+                    / "chrome.exe"
+                ).exists()
+            )
+
     @staticmethod
     def _runtime_archive(entries: dict[str, bytes]) -> bytes:
         buffer = io.BytesIO()

@@ -89,7 +89,7 @@ func (s *systemService) managedRuntimeDiagnostics(pluginsList []plugins.Snapshot
 	if s == nil || s.state.repoRoot == "" {
 		return nil
 	}
-	requiredKinds := startupRuntimeKinds()
+	requiredKinds := startupManagedRuntimeDiagnosticKinds()
 	if len(requiredKinds) == 0 {
 		return nil
 	}
