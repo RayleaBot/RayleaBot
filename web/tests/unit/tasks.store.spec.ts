@@ -83,4 +83,36 @@ describe('tasks store', () => {
     expect(store.currentTask?.result?.summary).toBe('图片预览已生成')
     expect(store.currentTask?.finished_at).toBe('2026-04-01T15:21:44Z')
   })
+
+  it('sorts tasks by latest task time first', () => {
+    const store = useTasksStore()
+
+    store.upsert({
+      task_id: 'task_backup_0001',
+      task_type: 'backup.create',
+      status: 'succeeded',
+      summary: '备份已完成',
+      finished_at: '2026-04-01T15:25:00Z',
+    })
+    store.upsert({
+      task_id: 'task_render_preview_0001',
+      task_type: 'render.preview',
+      status: 'running',
+      summary: '图片预览生成中',
+      started_at: '2026-04-01T15:24:00Z',
+    })
+    store.upsert({
+      task_id: 'task_plugin_install_0001',
+      task_type: 'plugin.install',
+      status: 'running',
+      summary: '安装插件',
+      started_at: '2026-04-01T15:20:00Z',
+    })
+
+    expect(store.sortedItems.map((task) => task.task_id)).toEqual([
+      'task_backup_0001',
+      'task_render_preview_0001',
+      'task_plugin_install_0001',
+    ])
+  })
 })

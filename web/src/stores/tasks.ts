@@ -7,6 +7,25 @@ import type { TaskAcceptedResponse, TaskDetailResponse, TaskListResponse, TaskSu
 
 const IN_PROGRESS_TASK_STATUSES = new Set(['pending', 'running'])
 
+function taskTimeMs(task: TaskSummary) {
+  const timestamp = task.started_at ?? task.finished_at ?? ''
+  if (!timestamp) {
+    return 0
+  }
+
+  const parsed = Date.parse(timestamp)
+  return Number.isNaN(parsed) ? 0 : parsed
+}
+
+function compareTasksByTimeDesc(left: TaskSummary, right: TaskSummary) {
+  const timeDiff = taskTimeMs(right) - taskTimeMs(left)
+  if (timeDiff !== 0) {
+    return timeDiff
+  }
+
+  return right.task_id.localeCompare(left.task_id)
+}
+
 export const useTasksStore = defineStore('tasks', () => {
   const items = ref<TaskSummary[]>([])
   const currentTask = ref<TaskSummary | null>(null)
@@ -17,7 +36,7 @@ export const useTasksStore = defineStore('tasks', () => {
   const taskVersions = new Map<string, number>()
   let taskClock = 0
 
-  const sortedItems = computed(() => [...items.value].sort((left, right) => left.task_id.localeCompare(right.task_id)))
+  const sortedItems = computed(() => [...items.value].sort(compareTasksByTimeDesc))
 
   function getTaskVersion(taskId: string) {
     return taskVersions.get(taskId) ?? 0

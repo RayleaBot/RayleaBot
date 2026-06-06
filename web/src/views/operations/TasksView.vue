@@ -34,6 +34,7 @@ const tableColumns = computed(() => [
   { title: t('tasks.fields.type'), key: 'type', dataIndex: 'task_type', width: 220 },
   { title: t('tasks.fields.status'), key: 'status', dataIndex: 'status', width: 180 },
   { title: t('tasks.fields.started'), key: 'started', dataIndex: 'started_at', width: 220 },
+  { title: t('tasks.fields.finished'), key: 'finished', dataIndex: 'finished_at', width: 220 },
   { title: t('tasks.fields.summary'), key: 'summary', dataIndex: 'summary' },
   { title: '', key: 'actions', dataIndex: 'actions', width: 120, fixed: 'right' as const },
 ])
@@ -264,7 +265,7 @@ function getStatusColor(status: string) {
       :data-source="sortedItems"
       :pagination="false"
       :row-key="(row) => row.task_id"
-      :scroll="{ x: 980 }"
+      :scroll="{ x: 1200 }"
     >
       <template #emptyText>
         {{ t('display.empty') }}
@@ -295,6 +296,12 @@ function getStatusColor(status: string) {
           <div class="task-cell-time">
             <div class="task-time-display">{{ formatDateTime(record.started_at) }}</div>
             <small class="task-id-mono">{{ record.task_id }}</small>
+          </div>
+        </template>
+
+        <template v-else-if="column.key === 'finished'">
+          <div class="task-cell-time">
+            <div class="task-time-display">{{ formatDateTime(record.finished_at) }}</div>
           </div>
         </template>
 

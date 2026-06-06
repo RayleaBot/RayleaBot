@@ -335,6 +335,8 @@ describe('TasksPage', () => {
         status: 'running',
         progress: 40,
         summary: '正在创建备份',
+        started_at: '2026-04-01T15:20:00Z',
+        finished_at: '2026-04-01T15:23:00Z',
       },
     ]
 
@@ -353,6 +355,8 @@ describe('TasksPage', () => {
     expect(wrapper.find('.task-cell-status').exists()).toBe(true)
     expect(wrapper.find('.task-cell-time').exists()).toBe(true)
     expect(wrapper.find('.task-summary-text').exists()).toBe(true)
+    expect(wrapper.text()).toContain('结束时间')
+    expect(wrapper.text()).toContain('2026')
     expect(wrapper.find('.task-summary-row').exists()).toBe(false)
     expect(wrapper.find('.desktop-table').exists()).toBe(false)
   })
