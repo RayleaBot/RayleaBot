@@ -404,6 +404,94 @@ func TestServicePreviewHTMLReusesValidationAndSkipsRunnerAndArtifacts(t *testing
 	}
 }
 
+func TestServicePreviewHTMLCachesByRevisionThemeAndData(t *testing.T) {
+	t.Parallel()
+
+	repoRoot := t.TempDir()
+	templatesRoot := filepath.Join(repoRoot, "templates")
+	writeRenderTemplateSeed(t, templatesRoot, "help.menu")
+
+	service, err := NewService(Options{
+		RepoRoot:           repoRoot,
+		OutputRoot:         filepath.Join(t.TempDir(), "render-output"),
+		Store:              openRenderTestStore(t),
+		Runner:             &fakeRunner{},
+		WorkerCount:        1,
+		QueueMaxLength:     2,
+		QueueWaitTimeout:   time.Second,
+		RenderTimeout:      time.Second,
+		MaxRenderDataBytes: 256 * 1024,
+	})
+	if err != nil {
+		t.Fatalf("NewService: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := service.Close(); err != nil {
+			t.Fatalf("Close: %v", err)
+		}
+	})
+
+	first, err := service.PreviewHTML(context.Background(), Request{
+		Template: "help.menu",
+		Data: map[string]any{
+			"title": "第一次",
+		},
+	})
+	if err != nil {
+		t.Fatalf("PreviewHTML first: %v", err)
+	}
+	second, err := service.PreviewHTML(context.Background(), Request{
+		Template: "help.menu",
+		Data: map[string]any{
+			"title": "第一次",
+		},
+	})
+	if err != nil {
+		t.Fatalf("PreviewHTML second: %v", err)
+	}
+	if second != first {
+		t.Fatalf("same revision and data should reuse cached preview\nfirst=%#v\nsecond=%#v", first, second)
+	}
+
+	changedData, err := service.PreviewHTML(context.Background(), Request{
+		Template: "help.menu",
+		Data: map[string]any{
+			"title": "第二次",
+		},
+	})
+	if err != nil {
+		t.Fatalf("PreviewHTML changed data: %v", err)
+	}
+	if changedData.HTML == first.HTML {
+		t.Fatalf("changed data should render different html")
+	}
+
+	templatePath := filepath.Join(templatesRoot, "help.menu", "template.html")
+	content, err := os.ReadFile(templatePath)
+	if err != nil {
+		t.Fatalf("read template: %v", err)
+	}
+	content = []byte(strings.Replace(string(content), "</body>", "<p>revision marker</p></body>", 1))
+	if err := os.WriteFile(templatePath, content, 0o644); err != nil {
+		t.Fatalf("write template: %v", err)
+	}
+	revised, err := service.PreviewHTML(context.Background(), Request{
+		Template: "help.menu",
+		Data: map[string]any{
+			"title": "第一次",
+		},
+	})
+	if err != nil {
+		t.Fatalf("PreviewHTML revised: %v", err)
+	}
+	if revised.RevisionID == first.RevisionID {
+		t.Fatalf("template file change should create a new revision")
+	}
+	if !strings.Contains(revised.HTML, "revision marker") {
+		t.Fatalf("revised html should reflect template changes: %s", revised.HTML)
+	}
+}
+
 func TestLookupTemplateAssetRespectsSystemResourceRoot(t *testing.T) {
 	t.Parallel()
 

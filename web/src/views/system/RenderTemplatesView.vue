@@ -4,6 +4,7 @@ import { storeToRefs } from 'pinia'
 import { useRoute, useRouter } from 'vue-router'
 
 import AppEmptyState from '@/components/AppEmptyState.vue'
+import NativeTemplatePreviewFrame from '@/components/NativeTemplatePreviewFrame.vue'
 import AppPage from '@/components/page/AppPage.vue'
 import RetryPanel from '@/components/RetryPanel.vue'
 import TemplatePreviewFrame from '@/components/TemplatePreviewFrame.vue'
@@ -24,7 +25,26 @@ const renderTemplatesStore = useRenderTemplatesStore()
 const { detailById, error, items, loading, workspaceLoading } = storeToRefs(renderTemplatesStore)
 
 interface PreviewDocumentState extends RenderTemplatePreviewHTMLResponse {
-  objectUrls: string[]
+  cacheKey: string
+  resourceKeys: string[]
+}
+
+interface PreviewResourceCacheEntry {
+  blobUrl: string
+  refCount: number
+}
+
+interface PreviewResourceTextCacheEntry {
+  text: string
+}
+
+interface PreviewResourceRewriteContext {
+  createdResourceKeys: string[]
+  resourceKeys: string[]
+  resolved: Map<string, Promise<string>>
+  resolvedText: Map<string, Promise<string>>
+  signal: AbortSignal
+  templateId: string
 }
 
 const hasRequestedList = ref(false)
@@ -37,6 +57,9 @@ const pendingPreviewKeyByTemplate = ref<Record<string, string>>({})
 const lastPreviewKeyByTemplate = ref<Record<string, string>>({})
 
 const previewControllers = new Map<string, AbortController>()
+const previewDocumentCache = new Map<string, PreviewDocumentState>()
+const previewResourceCache = new Map<string, PreviewResourceCacheEntry>()
+const previewResourceTextCache = new Map<string, PreviewResourceTextCacheEntry>()
 let autoPreviewHandle: number | null = null
 let previewRunId = 0
 
@@ -109,6 +132,7 @@ const previewRequestKey = computed(() => {
   return JSON.stringify({
     template: activeTemplateId.value,
     updated_at: currentTemplate.value.updated_at,
+    theme: 'default',
     data: previewParseResult.value.data,
   })
 })
@@ -123,6 +147,18 @@ const currentPreviewError = computed(() => (
 
 const currentPreviewPending = computed(() => (
   Boolean(activeTemplateId.value && previewRequestKey.value && pendingPreviewKeyByTemplate.value[activeTemplateId.value] === previewRequestKey.value)
+))
+
+const currentLocalHelpMenuData = computed(() => (
+  activeTemplateId.value === 'help.menu' && previewParseResult.value.data
+    ? previewParseResult.value.data
+    : null
+))
+
+const showLocalHelpMenuPreview = computed(() => (
+  activeTemplateId.value === 'help.menu'
+    && !currentPreviewDocument.value
+    && Boolean(currentLocalHelpMenuData.value)
 ))
 
 const previewEmptyDescription = computed(() => {
@@ -249,12 +285,64 @@ function clearAutoPreviewTimer() {
 }
 
 function revokePreviewDocument(templateId: string) {
-  const previous = previewDocumentByTemplate.value[templateId]
-  if (!previous) {
+  if (!(templateId in previewDocumentByTemplate.value)) {
     return
   }
-  for (const objectUrl of previous.objectUrls) {
-    window.URL.revokeObjectURL(objectUrl)
+  const next = { ...previewDocumentByTemplate.value }
+  delete next[templateId]
+  previewDocumentByTemplate.value = next
+}
+
+function retainPreviewDocumentResources(document: PreviewDocumentState) {
+  for (const cacheKey of document.resourceKeys) {
+    const entry = previewResourceCache.get(cacheKey)
+    if (entry) {
+      entry.refCount += 1
+    }
+  }
+}
+
+function releasePreviewDocumentResources(document: PreviewDocumentState) {
+  releasePreviewResourceKeys(document.resourceKeys, { force: false })
+}
+
+function releasePreviewResourceKeys(cacheKeys: string[], options: { force: boolean }) {
+  for (const cacheKey of new Set(cacheKeys)) {
+    const entry = previewResourceCache.get(cacheKey)
+    if (!entry) {
+      continue
+    }
+    if (!options.force) {
+      entry.refCount -= 1
+    }
+    if (options.force || entry.refCount <= 0) {
+      previewResourceCache.delete(cacheKey)
+      window.URL.revokeObjectURL(entry.blobUrl)
+    }
+  }
+}
+
+function clearPreviewDocumentCaches() {
+  const released = new Set<string>()
+  for (const document of Object.values(previewDocumentByTemplate.value)) {
+    if (released.has(document.cacheKey)) {
+      continue
+    }
+    released.add(document.cacheKey)
+    releasePreviewDocumentResources(document)
+  }
+  for (const [cacheKey, document] of previewDocumentCache) {
+    if (released.has(cacheKey)) {
+      continue
+    }
+    released.add(cacheKey)
+    releasePreviewDocumentResources(document)
+  }
+  previewDocumentCache.clear()
+  previewDocumentByTemplate.value = {}
+  previewResourceTextCache.clear()
+  for (const cacheKey of Array.from(previewResourceCache.keys())) {
+    releasePreviewResourceKeys([cacheKey], { force: true })
   }
 }
 
@@ -311,8 +399,9 @@ async function reloadCurrentTemplate() {
     ...lastPreviewKeyByTemplate.value,
     [activeTemplateId.value]: '',
   }
+  previewDocumentCache.delete(previewRequestKey.value)
   await loadTemplateWorkspace(activeTemplateId.value, { force: true })
-  scheduleAutoPreview()
+  scheduleAutoPreview({ immediate: true })
 }
 
 async function syncRouteTemplate() {
@@ -357,6 +446,15 @@ async function submitPreview(templateId: string, requestKey: string) {
     return
   }
 
+  const cached = previewDocumentCache.get(requestKey)
+  if (cached) {
+    revokePreviewDocument(templateId)
+    previewDocumentByTemplate.value = {
+      ...previewDocumentByTemplate.value,
+      [templateId]: cached,
+    }
+  }
+
   previewControllers.get(templateId)?.abort()
   const controller = new AbortController()
   previewControllers.set(templateId, controller)
@@ -373,20 +471,29 @@ async function submitPreview(templateId: string, requestKey: string) {
       theme: 'default',
       data: previewParseResult.value.data,
     }, controller.signal)
-    const rewritten = await rewritePreviewDocumentResources(templateId, response.html, controller.signal)
+    const rewritten = await rewritePreviewDocumentResources(templateId, response.html, response.revision_id, controller.signal)
     if (controller.signal.aborted || runId !== previewRunId || activeTemplateId.value !== templateId || previewRequestKey.value !== requestKey) {
-      revokeObjectUrls(rewritten.objectUrls)
+      releasePreviewResourceKeys(rewritten.createdResourceKeys, { force: true })
       return
     }
 
     revokePreviewDocument(templateId)
+    const document = {
+      ...response,
+      cacheKey: requestKey,
+      html: rewritten.html,
+      resourceKeys: rewritten.resourceKeys,
+    }
+    retainPreviewDocumentResources(document)
+    const previousCached = previewDocumentCache.get(requestKey)
+    if (previousCached) {
+      previewDocumentCache.delete(requestKey)
+      releasePreviewDocumentResources(previousCached)
+    }
+    previewDocumentCache.set(requestKey, document)
     previewDocumentByTemplate.value = {
       ...previewDocumentByTemplate.value,
-      [templateId]: {
-        ...response,
-        html: rewritten.html,
-        objectUrls: rewritten.objectUrls,
-      },
+      [templateId]: document,
     }
     lastPreviewKeyByTemplate.value = {
       ...lastPreviewKeyByTemplate.value,
@@ -410,7 +517,7 @@ async function submitPreview(templateId: string, requestKey: string) {
   }
 }
 
-function scheduleAutoPreview() {
+function scheduleAutoPreview(options: { immediate?: boolean } = {}) {
   clearAutoPreviewTimer()
 
   if (!isActiveTemplateRoute.value || !activeTemplateId.value || !currentTemplate.value) {
@@ -427,7 +534,25 @@ function scheduleAutoPreview() {
     clearPreviewError(templateId)
   }
 
-  if (!requestKey || lastPreviewKeyByTemplate.value[templateId] === requestKey || pendingPreviewKeyByTemplate.value[templateId] === requestKey) {
+  if (!requestKey || pendingPreviewKeyByTemplate.value[templateId] === requestKey) {
+    return
+  }
+
+  if (!options.immediate && lastPreviewKeyByTemplate.value[templateId] === requestKey) {
+    return
+  }
+
+  const cached = previewDocumentCache.get(requestKey)
+  if (cached) {
+    revokePreviewDocument(templateId)
+    previewDocumentByTemplate.value = {
+      ...previewDocumentByTemplate.value,
+      [templateId]: cached,
+    }
+  }
+
+  if (options.immediate) {
+    void submitPreview(templateId, requestKey)
     return
   }
 
@@ -441,56 +566,53 @@ function scheduleAutoPreview() {
   }, 350)
 }
 
-async function rewritePreviewDocumentResources(templateId: string, html: string, signal: AbortSignal) {
-  const objectUrls: string[] = []
+async function rewritePreviewDocumentResources(templateId: string, html: string, revisionId: string, signal: AbortSignal) {
+  const createdResourceKeys: string[] = []
+  const resourceKeys: string[] = []
+  const context: PreviewResourceRewriteContext = {
+    createdResourceKeys,
+    resourceKeys,
+    resolved: new Map(),
+    resolvedText: new Map(),
+    signal,
+    templateId,
+  }
   const document = new DOMParser().parseFromString(html, 'text/html')
 
-  for (const style of Array.from(document.querySelectorAll('style'))) {
-    style.textContent = await rewriteCSSResources(templateId, style.textContent ?? '', '', signal, objectUrls)
-  }
-
-  for (const element of Array.from(document.querySelectorAll<HTMLElement>('[style]'))) {
-    const style = element.getAttribute('style') ?? ''
-    element.setAttribute('style', await rewriteCSSResources(templateId, style, '', signal, objectUrls))
-  }
-
-  for (const element of Array.from(document.querySelectorAll<HTMLElement>('[src]'))) {
-    await rewriteElementResourceAttribute(templateId, element, 'src', '', signal, objectUrls)
-  }
-
-  for (const link of Array.from(document.querySelectorAll<HTMLLinkElement>('link[href]'))) {
-    const rel = (link.getAttribute('rel') ?? '').toLowerCase()
-    const href = link.getAttribute('href') ?? ''
-    const resourcePath = resolvePreviewResourcePath('', href)
-    if (!resourcePath) {
-      continue
-    }
-
-    if (rel.includes('stylesheet')) {
-      const css = await downloadTemplateAssetText(templateId, resourcePath, signal)
-      const style = document.createElement('style')
-      style.textContent = await rewriteCSSResources(templateId, css, dirname(resourcePath), signal, objectUrls)
-      link.replaceWith(style)
-      continue
-    }
-
-    const blobUrl = await downloadTemplateAssetObjectURL(templateId, resourcePath, signal, objectUrls)
-    link.setAttribute('href', blobUrl)
+  try {
+    await Promise.all([
+      ...Array.from(document.querySelectorAll('style')).map(async (style) => {
+        style.textContent = await rewriteCSSResources(style.textContent ?? '', '', revisionId, context)
+      }),
+      ...Array.from(document.querySelectorAll<HTMLElement>('[style]')).map(async (element) => {
+        const style = element.getAttribute('style') ?? ''
+        element.setAttribute('style', await rewriteCSSResources(style, '', revisionId, context))
+      }),
+      ...Array.from(document.querySelectorAll<HTMLElement>('[src]')).map((element) => (
+        rewriteElementResourceAttribute(element, 'src', '', revisionId, context)
+      )),
+      ...Array.from(document.querySelectorAll<HTMLLinkElement>('link[href]')).map((link) => (
+        rewriteLinkResource(link, document, revisionId, context)
+      )),
+    ])
+  } catch (err) {
+    releasePreviewResourceKeys(createdResourceKeys, { force: true })
+    throw err
   }
 
   return {
+    createdResourceKeys,
     html: `<!doctype html>\n${document.documentElement.outerHTML}`,
-    objectUrls,
+    resourceKeys,
   }
 }
 
 async function rewriteElementResourceAttribute(
-  templateId: string,
   element: HTMLElement,
   attribute: string,
   basePath: string,
-  signal: AbortSignal,
-  objectUrls: string[],
+  revisionId: string,
+  context: PreviewResourceRewriteContext,
 ) {
   const raw = element.getAttribute(attribute) ?? ''
   const resourcePath = resolvePreviewResourcePath(basePath, raw)
@@ -498,11 +620,36 @@ async function rewriteElementResourceAttribute(
     return
   }
 
-  const blobUrl = await downloadTemplateAssetObjectURL(templateId, resourcePath, signal, objectUrls)
+  const blobUrl = await downloadTemplateAssetObjectURL(resourcePath, revisionId, context)
   element.setAttribute(attribute, blobUrl)
 }
 
-async function rewriteCSSResources(templateId: string, css: string, basePath: string, signal: AbortSignal, objectUrls: string[]): Promise<string> {
+async function rewriteLinkResource(
+  link: HTMLLinkElement,
+  document: Document,
+  revisionId: string,
+  context: PreviewResourceRewriteContext,
+) {
+  const rel = (link.getAttribute('rel') ?? '').toLowerCase()
+  const href = link.getAttribute('href') ?? ''
+  const resourcePath = resolvePreviewResourcePath('', href)
+  if (!resourcePath) {
+    return
+  }
+
+  if (rel.includes('stylesheet')) {
+    const css = await downloadTemplateAssetText(resourcePath, revisionId, context)
+    const style = document.createElement('style')
+    style.textContent = await rewriteCSSResources(css, dirname(resourcePath), revisionId, context)
+    link.replaceWith(style)
+    return
+  }
+
+  const blobUrl = await downloadTemplateAssetObjectURL(resourcePath, revisionId, context)
+  link.setAttribute('href', blobUrl)
+}
+
+async function rewriteCSSResources(css: string, basePath: string, revisionId: string, context: PreviewResourceRewriteContext): Promise<string> {
   let rewritten = css
 
   rewritten = await replaceAsync(rewritten, /@import\s+(?:url\()?["']?([^"')\s;]+)["']?\)?[^;]*;?/gi, async (match, rawUrl: string) => {
@@ -510,8 +657,8 @@ async function rewriteCSSResources(templateId: string, css: string, basePath: st
     if (!resourcePath) {
       return match
     }
-    const importedCSS = await downloadTemplateAssetText(templateId, resourcePath, signal)
-    return rewriteCSSResources(templateId, importedCSS, dirname(resourcePath), signal, objectUrls)
+    const importedCSS = await downloadTemplateAssetText(resourcePath, revisionId, context)
+    return rewriteCSSResources(importedCSS, dirname(resourcePath), revisionId, context)
   })
 
   rewritten = await replaceAsync(rewritten, /url\(\s*(["']?)([^"')]+)\1\s*\)/gi, async (match, quote: string, rawUrl: string) => {
@@ -519,23 +666,78 @@ async function rewriteCSSResources(templateId: string, css: string, basePath: st
     if (!resourcePath) {
       return match
     }
-    const blobUrl = await downloadTemplateAssetObjectURL(templateId, resourcePath, signal, objectUrls)
+    const blobUrl = await downloadTemplateAssetObjectURL(resourcePath, revisionId, context)
     return `url(${quote}${blobUrl}${quote})`
   })
 
   return rewritten
 }
 
-async function downloadTemplateAssetText(templateId: string, path: string, signal: AbortSignal) {
-  const { blob } = await renderTemplatesStore.downloadTemplateAsset(templateId, path, signal)
-  return blob.text()
+async function downloadTemplateAssetText(path: string, revisionId: string, context: PreviewResourceRewriteContext) {
+  const cacheKey = `${context.templateId}:${revisionId}:${path}`
+  const existing = previewResourceTextCache.get(cacheKey)
+  if (existing) {
+    return existing.text
+  }
+  const pending = context.resolvedText.get(cacheKey)
+  if (pending) {
+    return pending
+  }
+
+  const promise = renderTemplatesStore.downloadTemplateAsset(context.templateId, path, context.signal)
+    .then(async ({ blob }) => {
+      const text = await readPreviewResourceText(blob)
+      previewResourceTextCache.set(cacheKey, { text })
+      return text
+    })
+  context.resolvedText.set(cacheKey, promise)
+  return promise
 }
 
-async function downloadTemplateAssetObjectURL(templateId: string, path: string, signal: AbortSignal, objectUrls: string[]) {
-  const { blob } = await renderTemplatesStore.downloadTemplateAsset(templateId, path, signal)
-  const objectUrl = window.URL.createObjectURL(blob)
-  objectUrls.push(objectUrl)
-  return objectUrl
+async function readPreviewResourceText(blob: Blob) {
+  if (typeof blob.text === 'function') {
+    return blob.text()
+  }
+  return new Response(blob).text()
+}
+
+async function downloadTemplateAssetObjectURL(path: string, revisionId: string, context: PreviewResourceRewriteContext) {
+  const cacheKey = `${context.templateId}:${revisionId}:${path}`
+  const existing = previewResourceCache.get(cacheKey)
+  if (existing) {
+    addPreviewResourceKey(context, cacheKey)
+    return existing.blobUrl
+  }
+  const pending = context.resolved.get(cacheKey)
+  if (pending) {
+    const blobUrl = await pending
+    addPreviewResourceKey(context, cacheKey)
+    return blobUrl
+  }
+
+  const promise = renderTemplatesStore.downloadTemplateAsset(context.templateId, path, context.signal)
+    .then(({ blob }) => {
+      const blobUrl = window.URL.createObjectURL(blob)
+      previewResourceCache.set(cacheKey, { blobUrl, refCount: 0 })
+      addCreatedPreviewResourceKey(context, cacheKey)
+      return blobUrl
+    })
+  context.resolved.set(cacheKey, promise)
+  const blobUrl = await promise
+  addPreviewResourceKey(context, cacheKey)
+  return blobUrl
+}
+
+function addPreviewResourceKey(context: PreviewResourceRewriteContext, cacheKey: string) {
+  if (!context.resourceKeys.includes(cacheKey)) {
+    context.resourceKeys.push(cacheKey)
+  }
+}
+
+function addCreatedPreviewResourceKey(context: PreviewResourceRewriteContext, cacheKey: string) {
+  if (!context.createdResourceKeys.includes(cacheKey)) {
+    context.createdResourceKeys.push(cacheKey)
+  }
 }
 
 function resolvePreviewResourcePath(basePath: string, rawUrl: string) {
@@ -599,12 +801,6 @@ async function replaceAsync(source: string, pattern: RegExp, replacer: (...args:
   return result
 }
 
-function revokeObjectUrls(urls: string[]) {
-  for (const objectUrl of urls) {
-    window.URL.revokeObjectURL(objectUrl)
-  }
-}
-
 watch([items, isActiveTemplateRoute, () => route.params.templateId], () => {
   void syncRouteTemplate()
 }, { immediate: true })
@@ -629,8 +825,13 @@ watch(() => [
   currentPreviewDataText.value,
   isActiveTemplateRoute.value,
   pageActive.value,
-], () => {
-  scheduleAutoPreview()
+], (next, previous) => {
+  const immediate = !previous
+    || next[0] !== previous[0]
+    || next[1] !== previous[1]
+    || next[3] !== previous[3]
+    || next[4] !== previous[4]
+  scheduleAutoPreview({ immediate })
 }, { immediate: true })
 
 onMounted(() => {
@@ -653,9 +854,7 @@ onBeforeUnmount(() => {
     controller.abort()
   }
   previewControllers.clear()
-  for (const templateId of Object.keys(previewDocumentByTemplate.value)) {
-    revokePreviewDocument(templateId)
-  }
+  clearPreviewDocumentCaches()
 })
 </script>
 
@@ -846,6 +1045,12 @@ onBeforeUnmount(() => {
             :template-id="currentPreviewDocument.template_id"
             :payload="currentPreviewDataText"
             test-id-prefix="render-template-preview"
+          />
+          <NativeTemplatePreviewFrame
+            v-else-if="showLocalHelpMenuPreview && currentLocalHelpMenuData"
+            template-id="help.menu"
+            :data="currentLocalHelpMenuData"
+            data-testid="render-template-preview-local-frame"
           />
           <div v-else class="render-template-preview-empty">
             <a-empty :description="previewEmptyDescription" />

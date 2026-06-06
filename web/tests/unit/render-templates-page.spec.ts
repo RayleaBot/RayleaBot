@@ -176,6 +176,16 @@ function createPreviewHTML(templateId: string, title: string): RenderTemplatePre
   }
 }
 
+function createLocalResourcePreviewHTML(templateId: string, title: string): RenderTemplatePreviewHTMLResponse {
+  return {
+    template_id: templateId,
+    revision_id: `rev_${templateId.replaceAll('.', '_')}`,
+    width: 960,
+    height: 640,
+    html: `<!doctype html><html><head><link rel="stylesheet" href="styles/base.css"><style>.surface{background-image:url("assets/shared.png")}.avatar{background:url("assets/shared.png")}</style></head><body><main class="surface"><h1>${title}</h1><img src="assets/shared.png" alt=""></main></body></html>`,
+  }
+}
+
 function createRouterForPage() {
   return createRouter({
     history: createMemoryHistory(),
@@ -216,7 +226,8 @@ describe('RenderTemplatesView', () => {
       }
       return new Response(new Blob(['asset'], { type: 'text/plain' }), { status: 200 })
     }))
-    window.URL.createObjectURL = vi.fn(() => 'blob:template-asset')
+    let blobSequence = 0
+    window.URL.createObjectURL = vi.fn(() => `blob:template-asset-${++blobSequence}`)
     window.URL.revokeObjectURL = vi.fn()
   })
 
@@ -243,7 +254,6 @@ describe('RenderTemplatesView', () => {
 
     const { wrapper } = await mountPage()
 
-    await vi.advanceTimersByTimeAsync(350)
     await flushPromises()
 
     expect(wrapper.text()).toContain('模板预览')
@@ -275,6 +285,37 @@ describe('RenderTemplatesView', () => {
     expect(frame.attributes('srcdoc')).toContain('https://cdn.example.test/avatar.png')
     expect(frame.attributes('data-preview-payload')).toContain('帮助菜单')
     expect(wrapper.get('[data-testid="render-template-preview-result"]').text()).not.toContain('等待可预览的 HTML')
+  })
+
+  it('shows local help menu preview before server HTML resolves', async () => {
+    const renderTemplatesStore = useRenderTemplatesStore()
+
+    renderTemplatesStore.items = [createTemplateSummary()]
+    renderTemplatesStore.detailById = {
+      'help.menu': createTemplateDetail(),
+    }
+
+    let resolvePreview: ((value: RenderTemplatePreviewHTMLResponse) => void) | null = null
+    vi.spyOn(renderTemplatesStore, 'fetchTemplates').mockResolvedValue({ items: renderTemplatesStore.items })
+    vi.spyOn(renderTemplatesStore, 'fetchTemplateWorkspace').mockResolvedValue(createTemplateDetail())
+    vi.spyOn(renderTemplatesStore, 'previewTemplateHTML').mockImplementation(() => (
+      new Promise((resolve) => {
+        resolvePreview = resolve
+      })
+    ))
+
+    const { wrapper } = await mountPage()
+    await flushPromises()
+
+    expect(renderTemplatesStore.previewTemplateHTML).toHaveBeenCalledTimes(1)
+    expect(wrapper.find('[data-testid="native-template-preview-frame"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="render-template-preview-frame"]').exists()).toBe(false)
+
+    resolvePreview?.(createPreviewHTML('help.menu', '帮助菜单'))
+    await flushPromises()
+
+    expect(wrapper.find('[data-testid="native-template-preview-frame"]').exists()).toBe(false)
+    expect(wrapper.get('[data-testid="render-template-preview-frame"]').attributes('srcdoc')).toContain('帮助菜单')
   })
 
   it('scales wide templates without exposing horizontal preview scrollbars', async () => {
@@ -326,6 +367,8 @@ describe('RenderTemplatesView', () => {
 
     const textarea = wrapper.get('textarea[aria-label="输入数据 JSON"]')
     await textarea.setValue(HELP_MENU_ALTERNATE_PREVIEW_DATA)
+    await flushPromises()
+    expect(renderTemplatesStore.previewTemplateHTML).toHaveBeenCalledTimes(1)
     await vi.advanceTimersByTimeAsync(350)
     await flushPromises()
 
@@ -338,6 +381,89 @@ describe('RenderTemplatesView', () => {
 
     expect(renderTemplatesStore.previewTemplateHTML).toHaveBeenCalledTimes(2)
     expect(wrapper.text()).toContain('JSON 解析失败')
+  })
+
+  it('reuses cached preview HTML immediately while refreshing in the background', async () => {
+    const renderTemplatesStore = useRenderTemplatesStore()
+
+    const help = createTemplateDetail()
+    const status = {
+      ...createTemplateDetail('help.menu'),
+      id: 'status.panel',
+      version: '3',
+      updated_at: '2026-05-09T05:58:59Z',
+    }
+    renderTemplatesStore.items = [createTemplateSummary(), createTemplateSummary('status.panel', '2026-05-09T05:58:59Z')]
+    renderTemplatesStore.detailById = {
+      'help.menu': help,
+      'status.panel': status,
+    }
+
+    vi.spyOn(renderTemplatesStore, 'fetchTemplates').mockResolvedValue({ items: renderTemplatesStore.items })
+    vi.spyOn(renderTemplatesStore, 'fetchTemplateWorkspace').mockImplementation(async (templateId) => (
+      templateId === 'status.panel' ? status : help
+    ))
+    vi.spyOn(renderTemplatesStore, 'previewTemplateHTML')
+      .mockResolvedValueOnce(createPreviewHTML('help.menu', '帮助菜单'))
+      .mockResolvedValueOnce(createPreviewHTML('status.panel', 'Runtime Status'))
+      .mockImplementation(() => new Promise(() => {}))
+
+    const { wrapper, router } = await mountPage()
+    await flushPromises()
+    expect(wrapper.get('[data-testid="render-template-preview-frame"]').attributes('srcdoc')).toContain('帮助菜单')
+
+    await router.replace('/render/templates/status.panel')
+    await flushPromises()
+    expect(wrapper.get('[data-testid="render-template-preview-frame"]').attributes('srcdoc')).toContain('Runtime Status')
+
+    await router.replace('/render/templates/help.menu')
+    await flushPromises()
+
+    expect(renderTemplatesStore.previewTemplateHTML).toHaveBeenCalledTimes(3)
+    expect(wrapper.get('[data-testid="render-template-preview-frame"]').attributes('srcdoc')).toContain('帮助菜单')
+    expect(wrapper.get('[data-testid="render-template-preview-result"]').text()).not.toContain('等待可预览的 HTML')
+  })
+
+  it('deduplicates local template assets while rewriting preview HTML', async () => {
+    const renderTemplatesStore = useRenderTemplatesStore()
+
+    renderTemplatesStore.items = [createTemplateSummary()]
+    renderTemplatesStore.detailById = {
+      'help.menu': createTemplateDetail(),
+    }
+
+    vi.spyOn(renderTemplatesStore, 'fetchTemplates').mockResolvedValue({ items: renderTemplatesStore.items })
+    vi.spyOn(renderTemplatesStore, 'fetchTemplateWorkspace').mockResolvedValue(createTemplateDetail())
+    vi.spyOn(renderTemplatesStore, 'previewTemplateHTML').mockResolvedValue(createLocalResourcePreviewHTML('help.menu', '帮助菜单'))
+    const downloadSpy = vi.spyOn(renderTemplatesStore, 'downloadTemplateAsset').mockImplementation(async (_templateId, path) => {
+      if (path === 'styles/base.css') {
+        return {
+          blob: new Blob(['.surface{border-image:url("../assets/shared.png")}'], { type: 'text/css' }),
+          filename: null,
+        }
+      }
+      return {
+        blob: new Blob(['image'], { type: 'image/png' }),
+        filename: null,
+      }
+    })
+
+    const { wrapper } = await mountPage()
+    await flushPromises()
+    await flushPromises()
+
+    expect(downloadSpy).toHaveBeenCalledTimes(2)
+    expect(downloadSpy).toHaveBeenCalledWith('help.menu', 'styles/base.css', expect.any(AbortSignal))
+    expect(downloadSpy).toHaveBeenCalledWith('help.menu', 'assets/shared.png', expect.any(AbortSignal))
+    expect(wrapper.get('[data-testid="render-template-preview-frame"]').attributes('srcdoc')).toContain('blob:template-asset-')
+
+    const textarea = wrapper.get('textarea[aria-label="输入数据 JSON"]')
+    await textarea.setValue(HELP_MENU_ALTERNATE_PREVIEW_DATA)
+    await vi.advanceTimersByTimeAsync(350)
+    await flushPromises()
+
+    expect(renderTemplatesStore.previewTemplateHTML).toHaveBeenCalledTimes(2)
+    expect(downloadSpy).toHaveBeenCalledTimes(2)
   })
 
   it('groups templates by source and shows plugin ownership', async () => {

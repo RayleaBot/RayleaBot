@@ -190,6 +190,7 @@ type Service struct {
 	activeRequests     int
 	cache              map[string]Result
 	artifacts          map[string]Artifact
+	previewHTMLCache   map[string]PreviewHTML
 
 	metricsMu sync.RWMutex
 	metrics   MetricsObserver
@@ -289,6 +290,7 @@ func NewService(options Options) (*Service, error) {
 		templateRoots:      map[string]templateRoot{},
 		cache:              map[string]Result{},
 		artifacts:          map[string]Artifact{},
+		previewHTMLCache:   map[string]PreviewHTML{},
 	}
 
 	if err := service.syncTemplatesFromFiles(context.Background()); err != nil {
@@ -495,7 +497,7 @@ func (s *Service) PreviewHTML(ctx context.Context, request Request) (PreviewHTML
 		return PreviewHTML{}, &Error{Code: "platform.resource_missing", Message: "render service is not available"}
 	}
 
-	normalized, _, err := s.normalizeRequest(request)
+	normalized, payloadBytes, err := s.normalizeRequest(request)
 	if err != nil {
 		return PreviewHTML{}, err
 	}
@@ -508,18 +510,24 @@ func (s *Service) PreviewHTML(ctx context.Context, request Request) (PreviewHTML
 	if err != nil {
 		return PreviewHTML{}, err
 	}
+	cacheKey := buildPreviewHTMLCacheKey(normalized, revisionID, payloadBytes)
+	if cached, ok := s.cachedPreviewHTML(cacheKey); ok {
+		return cached, nil
+	}
 	html, err := compiled.renderHTML(normalized.Theme, normalized.Data)
 	if err != nil {
 		return PreviewHTML{}, wrapRenderError(err, "render template execution failed")
 	}
 
-	return PreviewHTML{
+	preview := PreviewHTML{
 		TemplateID: normalized.Template,
 		RevisionID: revisionID,
 		Width:      compiled.bundle.manifest.Width,
 		Height:     compiled.bundle.manifest.Height,
 		HTML:       html,
-	}, nil
+	}
+	s.cachePreviewHTML(cacheKey, preview)
+	return preview, nil
 }
 
 func (s *Service) currentRunner() Runner {
@@ -1280,6 +1288,19 @@ func (s *Service) cachedResult(cacheKey string) (Result, bool) {
 	return result, ok
 }
 
+func (s *Service) cachedPreviewHTML(cacheKey string) (PreviewHTML, bool) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	preview, ok := s.previewHTMLCache[cacheKey]
+	return preview, ok
+}
+
+func (s *Service) cachePreviewHTML(cacheKey string, preview PreviewHTML) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.previewHTMLCache[cacheKey] = preview
+}
+
 func (s *Service) persistArtifact(request Request, cacheKey string, content []byte) (Result, error) {
 	artifactID := buildArtifactID(cacheKey)
 	filename := artifactID + outputSuffix(request.Output)
@@ -1696,6 +1717,11 @@ func issuesOrEmpty(issues []TemplateValidationIssue) []TemplateValidationIssue {
 func buildCacheKey(request Request, version string, sourceDigest string, resourceDigest string, deviceScalePercent int, payloadBytes []byte) string {
 	sum := sha256.Sum256(payloadBytes)
 	return fmt.Sprintf("%s:%s:%s:%s:%s:%s:%s:%d:%s", renderCacheVersion, request.Template, version, sourceDigest, resourceDigest, request.Theme, request.Output, normalizeDeviceScalePercent(deviceScalePercent), hex.EncodeToString(sum[:12]))
+}
+
+func buildPreviewHTMLCacheKey(request Request, revisionID string, payloadBytes []byte) string {
+	sum := sha256.Sum256(payloadBytes)
+	return fmt.Sprintf("preview-html:%s:%s:%s:%s", request.Template, revisionID, request.Theme, hex.EncodeToString(sum[:12]))
 }
 
 func buildArtifactID(cacheKey string) string {
