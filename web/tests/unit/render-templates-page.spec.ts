@@ -1,20 +1,17 @@
 import Antd from 'ant-design-vue'
 import { createPinia, setActivePinia } from 'pinia'
 import { flushPromises, mount } from '@vue/test-utils'
-import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMemoryHistory, createRouter } from 'vue-router'
 
 import RenderTemplatesView from '@/views/system/RenderTemplatesView.vue'
-import { apiDownload } from '@/lib/http'
 import { useRenderTemplatesStore } from '@/stores/render-templates'
 import { useSystemStore } from '@/stores/system'
-import { useTasksStore } from '@/stores/tasks'
-import type { RenderTemplateSummary } from '@/types/api'
-
-vi.mock('@/lib/http', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('@/lib/http')>()),
-  apiDownload: vi.fn(),
-}))
+import type {
+  RenderTemplateDetail,
+  RenderTemplatePreviewHTMLResponse,
+  RenderTemplateSummary,
+} from '@/types/api'
 
 const HELP_MENU_DEFAULT_PREVIEW_DATA = JSON.stringify({
   title: '帮助菜单',
@@ -44,7 +41,7 @@ const HELP_MENU_ALTERNATE_PREVIEW_DATA = JSON.stringify({
   title: '帮助菜单（新）',
 }, null, 2)
 
-function createTemplateDetail(templateId = 'help.menu', updatedAt = '2026-04-18T10:30:00Z') {
+function createTemplateDetail(templateId = 'help.menu', updatedAt = '2026-04-18T10:30:00Z'): RenderTemplateDetail {
   if (templateId === 'leaderboard.list') {
     return {
       id: 'leaderboard.list',
@@ -101,31 +98,8 @@ function createTemplateDetail(templateId = 'help.menu', updatedAt = '2026-04-18T
           },
         ],
       },
-    } as const
-  }
-
-  if (templateId === 'status.panel') {
-    return {
-      id: 'status.panel',
-      version: '1',
-      width: 960,
-      height: 540,
-      has_input_schema: true,
-      updated_at: updatedAt,
-      source: {
-        type: 'system',
-        plugin_id: null,
-        local_id: null,
-      },
-      input_schema_json: {
-        type: 'object',
-        required: ['title', 'status'],
-        properties: {
-          title: { type: 'string', description: '状态标题' },
-          status: { type: 'string', description: '当前状态' },
-        },
-      },
-    } as const
+      preview_data_json: null,
+    }
   }
 
   return {
@@ -148,7 +122,8 @@ function createTemplateDetail(templateId = 'help.menu', updatedAt = '2026-04-18T
       },
       required: ['title'],
     },
-  } as const
+    preview_data_json: null,
+  }
 }
 
 function createTemplateSummary(templateId = 'help.menu', updatedAt = '2026-04-18T10:30:00Z'): RenderTemplateSummary {
@@ -177,7 +152,28 @@ function createPluginTemplateSummary(): RenderTemplateSummary {
       plugin_id: 'weather-card',
       local_id: 'card',
     },
-  } as const
+  }
+}
+
+function createWideTemplateDetail(): RenderTemplateDetail {
+  return {
+    ...createTemplateDetail('help.menu'),
+    id: 'fortune.card',
+    width: 1124,
+    height: 1365,
+    updated_at: '2026-05-04T10:30:00Z',
+  }
+}
+
+function createPreviewHTML(templateId: string, title: string): RenderTemplatePreviewHTMLResponse {
+  const isWideTemplate = templateId === 'fortune.card' || templateId === 'fortune.stats'
+  return {
+    template_id: templateId,
+    revision_id: `rev_${templateId.replaceAll('.', '_')}`,
+    width: isWideTemplate ? 1124 : 960,
+    height: isWideTemplate ? 1365 : 640,
+    html: `<!doctype html><html><head><link rel="stylesheet" href="https://cdn.example.test/template-font.css"><style>@font-face{font-family:PreviewExternal;src:url("https://cdn.example.test/template-font.woff2")} .surface{min-height:320px;background-image:url("https://cdn.example.test/template-bg.png")}</style></head><body><main class="surface"><h1>${title}</h1><img src="https://cdn.example.test/avatar.png" alt=""></main></body></html>`,
+  }
 }
 
 function createRouterForPage() {
@@ -188,11 +184,6 @@ function createRouterForPage() {
         path: '/render/templates/:templateId?',
         name: 'render-templates',
         component: RenderTemplatesView,
-      },
-      {
-        path: '/tasks',
-        name: 'tasks',
-        component: { template: '<div>tasks</div>' },
       },
     ],
   })
@@ -218,23 +209,25 @@ describe('RenderTemplatesView', () => {
   beforeEach(() => {
     setActivePinia(createPinia())
     vi.useFakeTimers()
-    window.URL.createObjectURL = vi.fn(() => 'blob:render-preview')
+    vi.restoreAllMocks()
+    vi.stubGlobal('fetch', vi.fn(async (path: string) => {
+      if (path.includes('/api/system/render/preview')) {
+        return new Response(JSON.stringify({ error: { code: 'unexpected' } }), { status: 500 })
+      }
+      return new Response(new Blob(['asset'], { type: 'text/plain' }), { status: 200 })
+    }))
+    window.URL.createObjectURL = vi.fn(() => 'blob:template-asset')
     window.URL.revokeObjectURL = vi.fn()
-    vi.mocked(apiDownload).mockReset()
-    vi.mocked(apiDownload).mockResolvedValue({
-      blob: new Blob(['preview'], { type: 'image/png' }),
-      filename: null,
-    })
   })
 
   afterEach(() => {
     vi.useRealTimers()
+    vi.unstubAllGlobals()
   })
 
-  it('renders the template preview workspace and auto-submits preview requests', async () => {
+  it('renders realtime HTML in an iframe without using render preview tasks', async () => {
     const renderTemplatesStore = useRenderTemplatesStore()
     const systemStore = useSystemStore()
-    const tasksStore = useTasksStore()
 
     renderTemplatesStore.items = [createTemplateSummary()]
     renderTemplatesStore.detailById = {
@@ -243,66 +236,112 @@ describe('RenderTemplatesView', () => {
 
     vi.spyOn(renderTemplatesStore, 'fetchTemplates').mockResolvedValue({ items: renderTemplatesStore.items })
     vi.spyOn(renderTemplatesStore, 'fetchTemplateWorkspace').mockResolvedValue(createTemplateDetail())
-    vi.spyOn(systemStore, 'previewRender').mockResolvedValue({ task_id: 'task_render_preview_0001' })
-    vi.spyOn(tasksStore, 'fetchTask').mockImplementation(async () => {
-      tasksStore.items = [
-        {
-          task_id: 'task_render_preview_0001',
-          task_type: 'render.preview',
-          status: 'succeeded',
-          summary: 'render preview for help.menu',
-          result: {
-            summary: 'render preview complete',
-            details: {
-              artifact_id: 'render_preview_0001.png',
-              image_url: '/api/system/render/artifacts/render_preview_0001.png',
-              from_cache: false,
-            },
-          },
-        },
-      ]
-      return tasksStore.items[0]!
-    })
+    vi.spyOn(renderTemplatesStore, 'previewTemplateHTML').mockImplementation(async (templateId, payload) => (
+      createPreviewHTML(templateId, String(payload.data.title ?? 'preview'))
+    ))
+    const legacyPreviewSpy = vi.spyOn(systemStore, 'previewRender')
 
     const { wrapper } = await mountPage()
 
-    await vi.advanceTimersByTimeAsync(500)
+    await vi.advanceTimersByTimeAsync(350)
     await flushPromises()
 
     expect(wrapper.text()).toContain('模板预览')
     expect(wrapper.text()).toContain('help.menu')
     expect(wrapper.text()).toContain('输入结构')
-    expect(wrapper.text()).toContain('渲染参数')
+    expect(wrapper.text()).toContain('实时 HTML 预览')
     expect(wrapper.text()).toContain('宽度 960px · 高度自适应（初始 640px）')
-    expect(wrapper.text()).toContain('按内容高度生成最新预览')
-    expect(wrapper.text()).not.toContain('画布尺寸')
-    expect(wrapper.text()).not.toContain('960 × 640')
-    expect(wrapper.text()).not.toContain('主题')
-    expect(wrapper.text()).not.toContain('输出格式')
-    expect(wrapper.text()).not.toContain('源码编辑')
-    expect(wrapper.text()).not.toContain('版本历史')
-    expect(wrapper.text()).not.toContain('执行校验')
-    expect(wrapper.text()).not.toContain('保存模板')
-    expect(systemStore.previewRender).toHaveBeenCalledTimes(1)
-    const previewPayload = vi.mocked(systemStore.previewRender).mock.calls[0]![0]
-    expect(previewPayload).toEqual({
-      template: 'help.menu',
-      data: JSON.parse(HELP_MENU_DEFAULT_PREVIEW_DATA),
-    })
-    expect(previewPayload).not.toHaveProperty('theme')
-    expect(previewPayload).not.toHaveProperty('output')
-    expect(systemStore.previewRender).not.toHaveBeenCalledWith(expect.objectContaining({
-      draft: expect.anything(),
-    }))
-    expect(tasksStore.fetchTask).toHaveBeenCalledWith('task_render_preview_0001', { makeCurrent: false })
-    expect(wrapper.get('[data-testid="render-template-preview-result"]').text()).toContain('render_preview_0001.png')
-    expect(wrapper.find('img[alt="模板预览结果"]').attributes('src')).toBe('blob:render-preview')
+    expect(wrapper.text()).toContain('输入数据合法时同步显示当前 HTML 文档。')
+    expect(wrapper.text()).not.toContain('任务 ID')
+    expect(wrapper.text()).not.toContain('产物 ID')
+    expect(wrapper.text()).not.toContain('缓存结果')
+    expect(wrapper.text()).not.toContain('打开任务详情')
+    expect(wrapper.text()).not.toContain('点击放大')
+    expect(legacyPreviewSpy).not.toHaveBeenCalled()
+    expect(renderTemplatesStore.previewTemplateHTML).toHaveBeenCalledTimes(1)
+    expect(renderTemplatesStore.previewTemplateHTML).toHaveBeenCalledWith(
+      'help.menu',
+      { theme: 'default', data: JSON.parse(HELP_MENU_DEFAULT_PREVIEW_DATA) },
+      expect.any(AbortSignal),
+    )
+
+    const frame = wrapper.get('[data-testid="render-template-preview-frame"]')
+    expect(frame.attributes('sandbox')).toBe('allow-same-origin')
+    expect(frame.attributes('srcdoc')).toContain('帮助菜单')
+    expect(frame.attributes('srcdoc')).toContain('overflow-x:hidden!important')
+    expect(frame.attributes('srcdoc')).toContain('https://cdn.example.test/template-font.css')
+    expect(frame.attributes('srcdoc')).toContain('https://cdn.example.test/template-font.woff2')
+    expect(frame.attributes('srcdoc')).toContain('https://cdn.example.test/template-bg.png')
+    expect(frame.attributes('srcdoc')).toContain('https://cdn.example.test/avatar.png')
+    expect(frame.attributes('data-preview-payload')).toContain('帮助菜单')
+    expect(wrapper.get('[data-testid="render-template-preview-result"]').text()).not.toContain('等待可预览的 HTML')
+  })
+
+  it('scales wide templates without exposing horizontal preview scrollbars', async () => {
+    const renderTemplatesStore = useRenderTemplatesStore()
+    const wideTemplate = createWideTemplateDetail()
+
+    renderTemplatesStore.items = [wideTemplate]
+    renderTemplatesStore.detailById = {
+      'fortune.card': wideTemplate,
+    }
+
+    vi.spyOn(renderTemplatesStore, 'fetchTemplates').mockResolvedValue({ items: renderTemplatesStore.items })
+    vi.spyOn(renderTemplatesStore, 'fetchTemplateWorkspace').mockResolvedValue(wideTemplate)
+    vi.spyOn(renderTemplatesStore, 'previewTemplateHTML').mockResolvedValue(createPreviewHTML('fortune.card', '今日运势'))
+
+    const { wrapper } = await mountPage('/render/templates/fortune.card')
+
+    await vi.advanceTimersByTimeAsync(350)
+    await flushPromises()
+
+    const host = wrapper.get('[data-testid="render-template-preview-host"]')
+    const frame = wrapper.get('[data-testid="render-template-preview-frame"]')
+    expect(frame.attributes('data-preview-frame-width')).toBe('1124')
+    expect(host.attributes('style')).toContain('--native-template-preview-frame-width: 1124px')
+    expect(frame.attributes('srcdoc')).toContain('overflow-x:hidden!important')
+    expect(frame.attributes('srcdoc')).toContain('max-width:1124px!important')
+    expect(frame.attributes('srcdoc')).toContain('width:1124px!important')
+  })
+
+  it('updates iframe html when JSON changes and blocks invalid JSON locally', async () => {
+    const renderTemplatesStore = useRenderTemplatesStore()
+
+    renderTemplatesStore.items = [createTemplateSummary()]
+    renderTemplatesStore.detailById = {
+      'help.menu': createTemplateDetail(),
+    }
+
+    vi.spyOn(renderTemplatesStore, 'fetchTemplates').mockResolvedValue({ items: renderTemplatesStore.items })
+    vi.spyOn(renderTemplatesStore, 'fetchTemplateWorkspace').mockResolvedValue(createTemplateDetail())
+    vi.spyOn(renderTemplatesStore, 'previewTemplateHTML').mockImplementation(async (templateId, payload) => (
+      createPreviewHTML(templateId, String(payload.data.title ?? 'preview'))
+    ))
+
+    const { wrapper } = await mountPage()
+
+    await vi.advanceTimersByTimeAsync(350)
+    await flushPromises()
+    expect(renderTemplatesStore.previewTemplateHTML).toHaveBeenCalledTimes(1)
+
+    const textarea = wrapper.get('textarea[aria-label="输入数据 JSON"]')
+    await textarea.setValue(HELP_MENU_ALTERNATE_PREVIEW_DATA)
+    await vi.advanceTimersByTimeAsync(350)
+    await flushPromises()
+
+    expect(renderTemplatesStore.previewTemplateHTML).toHaveBeenCalledTimes(2)
+    expect(wrapper.get('[data-testid="render-template-preview-frame"]').attributes('srcdoc')).toContain('帮助菜单（新）')
+
+    await textarea.setValue('{')
+    await vi.advanceTimersByTimeAsync(350)
+    await flushPromises()
+
+    expect(renderTemplatesStore.previewTemplateHTML).toHaveBeenCalledTimes(2)
+    expect(wrapper.text()).toContain('JSON 解析失败')
   })
 
   it('groups templates by source and shows plugin ownership', async () => {
     const renderTemplatesStore = useRenderTemplatesStore()
-    const systemStore = useSystemStore()
-    const tasksStore = useTasksStore()
 
     renderTemplatesStore.items = [
       createTemplateSummary(),
@@ -314,15 +353,11 @@ describe('RenderTemplatesView', () => {
 
     vi.spyOn(renderTemplatesStore, 'fetchTemplates').mockResolvedValue({ items: renderTemplatesStore.items })
     vi.spyOn(renderTemplatesStore, 'fetchTemplateWorkspace').mockResolvedValue(createTemplateDetail())
-    vi.spyOn(systemStore, 'previewRender').mockResolvedValue({ task_id: 'task_render_preview_0001' })
-    vi.spyOn(tasksStore, 'fetchTask').mockResolvedValue({
-      task_id: 'task_render_preview_0001',
-      task_type: 'render.preview',
-      status: 'pending',
-      summary: 'render preview for help.menu',
-    })
+    vi.spyOn(renderTemplatesStore, 'previewTemplateHTML').mockResolvedValue(createPreviewHTML('help.menu', '帮助菜单'))
 
     const { wrapper } = await mountPage()
+    await vi.advanceTimersByTimeAsync(350)
+    await flushPromises()
 
     expect(wrapper.text()).toContain('系统模板')
     expect(wrapper.text()).toContain('插件模板')
@@ -331,63 +366,8 @@ describe('RenderTemplatesView', () => {
     expect(wrapper.text()).toContain('card')
   })
 
-  it('does not resubmit identical payloads and blocks invalid preview json', async () => {
-    const renderTemplatesStore = useRenderTemplatesStore()
-    const systemStore = useSystemStore()
-    const tasksStore = useTasksStore()
-
-    renderTemplatesStore.items = [createTemplateSummary()]
-    renderTemplatesStore.detailById = {
-      'help.menu': createTemplateDetail(),
-    }
-
-    vi.spyOn(renderTemplatesStore, 'fetchTemplates').mockResolvedValue({ items: renderTemplatesStore.items })
-    vi.spyOn(renderTemplatesStore, 'fetchTemplateWorkspace').mockResolvedValue(createTemplateDetail())
-    vi.spyOn(systemStore, 'previewRender').mockResolvedValue({ task_id: 'task_render_preview_0001' })
-    vi.spyOn(tasksStore, 'fetchTask').mockImplementation(async () => {
-      tasksStore.items = [
-        {
-          task_id: 'task_render_preview_0001',
-          task_type: 'render.preview',
-          status: 'succeeded',
-          summary: 'render preview for help.menu',
-          result: {
-            summary: 'render preview complete',
-            details: {
-              artifact_id: 'render_preview_0001.png',
-              image_url: '/api/system/render/artifacts/render_preview_0001.png',
-              from_cache: false,
-            },
-          },
-        },
-      ]
-      return tasksStore.items[0]!
-    })
-
-    const { wrapper } = await mountPage()
-
-    await vi.advanceTimersByTimeAsync(500)
-    await flushPromises()
-
-    const textarea = wrapper.get('textarea[aria-label="输入数据 JSON"]')
-    await textarea.setValue(HELP_MENU_DEFAULT_PREVIEW_DATA)
-    await vi.advanceTimersByTimeAsync(500)
-    await flushPromises()
-
-    expect(systemStore.previewRender).toHaveBeenCalledTimes(1)
-
-    await textarea.setValue('{')
-    await vi.advanceTimersByTimeAsync(500)
-    await flushPromises()
-
-    expect(systemStore.previewRender).toHaveBeenCalledTimes(1)
-    expect(wrapper.text()).toContain('JSON 解析失败')
-  })
-
   it('seeds unknown templates from input schema examples before previewing', async () => {
     const renderTemplatesStore = useRenderTemplatesStore()
-    const systemStore = useSystemStore()
-    const tasksStore = useTasksStore()
 
     renderTemplatesStore.items = [createTemplateSummary('leaderboard.list', '2026-05-03T01:01:04Z')]
 
@@ -401,64 +381,48 @@ describe('RenderTemplatesView', () => {
       renderTemplatesStore.items = [detail]
       return detail
     })
-    vi.spyOn(systemStore, 'previewRender').mockResolvedValue({ task_id: 'task_render_preview_leaderboard' })
-    vi.spyOn(tasksStore, 'fetchTask').mockImplementation(async () => {
-      tasksStore.items = [
-        {
-          task_id: 'task_render_preview_leaderboard',
-          task_type: 'render.preview',
-          status: 'succeeded',
-          summary: 'render preview for leaderboard.list',
-          result: {
-            summary: 'render preview complete',
-            details: {
-              artifact_id: 'render_preview_leaderboard.png',
-              image_url: '/api/system/render/artifacts/render_preview_leaderboard.png',
-              from_cache: false,
-            },
-          },
-        },
-      ]
-      return tasksStore.items[0]!
-    })
+    vi.spyOn(renderTemplatesStore, 'previewTemplateHTML').mockImplementation(async (templateId, payload) => (
+      createPreviewHTML(templateId, String(payload.data.title ?? 'preview'))
+    ))
 
     const { wrapper } = await mountPage('/render/templates/leaderboard.list')
 
-    await vi.advanceTimersByTimeAsync(500)
+    await vi.advanceTimersByTimeAsync(350)
     await flushPromises()
 
     const textarea = wrapper.get('textarea[aria-label="输入数据 JSON"]')
     expect((textarea.element as HTMLTextAreaElement).value).toContain('本周发言榜')
     expect((textarea.element as HTMLTextAreaElement).value).toContain('items')
-    expect(systemStore.previewRender).toHaveBeenCalledTimes(1)
-    expect(vi.mocked(systemStore.previewRender).mock.calls[0]![0]).toEqual({
-      template: 'leaderboard.list',
-      data: {
-        title: '本周发言榜',
-        subtitle: '统计周期：2026-05-01 至 2026-05-07',
-        value_label: '发言数',
-        items: [
-          {
-            avatar_url: 'https://q1.qlogo.cn/g?b=qq&nk=10001&s=100',
-            group_nickname: '银蝶',
-            nickname: 'Silver',
-            title: '群主',
-            value: 128,
-          },
-          {
-            nickname: 'Nova',
-            value: 81,
-          },
-        ],
+    expect(renderTemplatesStore.previewTemplateHTML).toHaveBeenCalledWith(
+      'leaderboard.list',
+      {
+        theme: 'default',
+        data: {
+          title: '本周发言榜',
+          subtitle: '统计周期：2026-05-01 至 2026-05-07',
+          value_label: '发言数',
+          items: [
+            {
+              avatar_url: 'https://q1.qlogo.cn/g?b=qq&nk=10001&s=100',
+              group_nickname: '银蝶',
+              nickname: 'Silver',
+              title: '群主',
+              value: 128,
+            },
+            {
+              nickname: 'Nova',
+              value: 81,
+            },
+          ],
+        },
       },
-    })
-    expect(wrapper.get('[data-testid="render-template-preview-result"]').text()).toContain('render_preview_leaderboard.png')
+      expect.any(AbortSignal),
+    )
+    expect(wrapper.get('[data-testid="render-template-preview-frame"]').attributes('srcdoc')).toContain('本周发言榜')
   })
 
   it('resubmits unchanged preview data after reloading a changed template', async () => {
     const renderTemplatesStore = useRenderTemplatesStore()
-    const systemStore = useSystemStore()
-    const tasksStore = useTasksStore()
 
     renderTemplatesStore.items = [createTemplateSummary()]
     renderTemplatesStore.detailById = {
@@ -475,328 +439,23 @@ describe('RenderTemplatesView', () => {
       renderTemplatesStore.items = [detail]
       return detail
     })
-    vi.spyOn(systemStore, 'previewRender')
-      .mockResolvedValueOnce({ task_id: 'task_render_preview_0001' })
-      .mockResolvedValueOnce({ task_id: 'task_render_preview_0002' })
-    vi.spyOn(tasksStore, 'fetchTask').mockImplementation(async (taskId) => {
-      const artifactId = `${taskId}.png`
-      tasksStore.items = [
-        {
-          task_id: taskId,
-          task_type: 'render.preview',
-          status: 'succeeded',
-          summary: `render preview for ${taskId}`,
-          result: {
-            summary: 'render preview complete',
-            details: {
-              artifact_id: artifactId,
-              image_url: `/api/system/render/artifacts/${artifactId}`,
-              from_cache: false,
-            },
-          },
-        },
-      ]
-      return tasksStore.items[0]!
-    })
+    vi.spyOn(renderTemplatesStore, 'previewTemplateHTML').mockResolvedValue(createPreviewHTML('help.menu', '帮助菜单'))
 
     const { wrapper } = await mountPage()
 
-    await vi.advanceTimersByTimeAsync(500)
+    await vi.advanceTimersByTimeAsync(350)
     await flushPromises()
 
-    expect(systemStore.previewRender).toHaveBeenCalledTimes(1)
+    expect(renderTemplatesStore.previewTemplateHTML).toHaveBeenCalledTimes(1)
 
     const reloadButton = wrapper.findAll('button').find((button) => button.text().includes('重新加载当前模板'))
     expect(reloadButton).toBeTruthy()
     await reloadButton!.trigger('click')
     await flushPromises()
-    await vi.advanceTimersByTimeAsync(500)
+    await vi.advanceTimersByTimeAsync(350)
     await flushPromises()
 
     expect(renderTemplatesStore.fetchTemplateWorkspace).toHaveBeenCalledWith('help.menu')
-    expect(systemStore.previewRender).toHaveBeenCalledTimes(2)
-    expect(vi.mocked(systemStore.previewRender).mock.calls[1]![0]).toEqual({
-      template: 'help.menu',
-      data: JSON.parse(HELP_MENU_DEFAULT_PREVIEW_DATA),
-    })
-  })
-
-  it('keeps the current template in pending state while a newer preview request is still running', async () => {
-    const renderTemplatesStore = useRenderTemplatesStore()
-    const systemStore = useSystemStore()
-    const tasksStore = useTasksStore()
-
-    renderTemplatesStore.items = [createTemplateSummary()]
-    renderTemplatesStore.detailById = {
-      'help.menu': createTemplateDetail(),
-    }
-
-    vi.spyOn(renderTemplatesStore, 'fetchTemplates').mockResolvedValue({ items: renderTemplatesStore.items })
-    vi.spyOn(renderTemplatesStore, 'fetchTemplateWorkspace').mockResolvedValue(createTemplateDetail())
-
-    let resolveFirst: ((value: { task_id: string }) => void) | null = null
-    let resolveSecond: ((value: { task_id: string }) => void) | null = null
-    vi.spyOn(systemStore, 'previewRender')
-      .mockImplementationOnce(() => new Promise((resolve) => {
-        resolveFirst = resolve
-      }))
-      .mockImplementationOnce(() => new Promise((resolve) => {
-        resolveSecond = resolve
-      }))
-
-    vi.spyOn(tasksStore, 'fetchTask').mockImplementation(async () => {
-      tasksStore.items = [
-        {
-          task_id: 'task_render_preview_0002',
-          task_type: 'render.preview',
-          status: 'succeeded',
-          summary: 'render preview for help.menu',
-          result: {
-            summary: 'render preview complete',
-            details: {
-              artifact_id: 'render_preview_0002.png',
-              image_url: '/api/system/render/artifacts/render_preview_0002.png',
-              from_cache: false,
-            },
-          },
-        },
-      ]
-      return tasksStore.items[0]!
-    })
-
-    const { wrapper } = await mountPage()
-
-    await vi.advanceTimersByTimeAsync(500)
-    await flushPromises()
-
-    const textarea = wrapper.get('textarea[aria-label="输入数据 JSON"]')
-    await textarea.setValue(HELP_MENU_ALTERNATE_PREVIEW_DATA)
-    await vi.advanceTimersByTimeAsync(500)
-    await flushPromises()
-
-    expect(systemStore.previewRender).toHaveBeenCalledTimes(2)
-
-    resolveFirst?.({ task_id: 'task_render_preview_0001' })
-    await flushPromises()
-
-    const previewResult = wrapper.get('[data-testid="render-template-preview-result"]')
-    expect(previewResult.text()).toContain('正在生成最新预览。')
-    expect(wrapper.text()).not.toContain('等待生成预览。')
-
-    resolveSecond?.({ task_id: 'task_render_preview_0002' })
-    await flushPromises()
-  })
-
-  it('does not resubmit an already pending payload after reverting to it', async () => {
-    const renderTemplatesStore = useRenderTemplatesStore()
-    const systemStore = useSystemStore()
-    const tasksStore = useTasksStore()
-
-    renderTemplatesStore.items = [createTemplateSummary()]
-    renderTemplatesStore.detailById = {
-      'help.menu': createTemplateDetail(),
-    }
-
-    vi.spyOn(renderTemplatesStore, 'fetchTemplates').mockResolvedValue({ items: renderTemplatesStore.items })
-    vi.spyOn(renderTemplatesStore, 'fetchTemplateWorkspace').mockResolvedValue(createTemplateDetail())
-
-    let resolveFirst: ((value: { task_id: string }) => void) | null = null
-    let resolveSecond: ((value: { task_id: string }) => void) | null = null
-    vi.spyOn(systemStore, 'previewRender')
-      .mockImplementationOnce(() => new Promise((resolve) => {
-        resolveFirst = resolve
-      }))
-      .mockImplementationOnce(() => new Promise((resolve) => {
-        resolveSecond = resolve
-      }))
-
-    vi.spyOn(tasksStore, 'fetchTask').mockImplementation(async (taskId) => {
-      const artifactId = taskId === 'task_render_preview_0002' ? 'render_preview_0002.png' : 'render_preview_0001.png'
-      tasksStore.items = [
-        {
-          task_id: taskId,
-          task_type: 'render.preview',
-          status: 'succeeded',
-          summary: `render preview for ${taskId}`,
-          result: {
-            summary: 'render preview complete',
-            details: {
-              artifact_id: artifactId,
-              image_url: `/api/system/render/artifacts/${artifactId}`,
-              from_cache: false,
-            },
-          },
-        },
-      ]
-      return tasksStore.items[0]!
-    })
-
-    const { wrapper } = await mountPage()
-
-    await vi.advanceTimersByTimeAsync(500)
-    await flushPromises()
-
-    const textarea = wrapper.get('textarea[aria-label="输入数据 JSON"]')
-    await textarea.setValue(HELP_MENU_ALTERNATE_PREVIEW_DATA)
-    await vi.advanceTimersByTimeAsync(500)
-    await flushPromises()
-
-    await textarea.setValue(HELP_MENU_DEFAULT_PREVIEW_DATA)
-    await vi.advanceTimersByTimeAsync(500)
-    await flushPromises()
-
-    expect(systemStore.previewRender).toHaveBeenCalledTimes(2)
-
-    resolveFirst?.({ task_id: 'task_render_preview_0001' })
-    await flushPromises()
-    expect(wrapper.get('[data-testid="render-template-preview-result"]').text()).toContain('render_preview_0001.png')
-    expect(wrapper.text()).not.toContain('正在生成最新预览。')
-
-    resolveSecond?.({ task_id: 'task_render_preview_0002' })
-    await flushPromises()
-    expect(wrapper.get('[data-testid="render-template-preview-result"]').text()).toContain('render_preview_0001.png')
-    expect(wrapper.get('[data-testid="render-template-preview-result"]').text()).not.toContain('render_preview_0002.png')
-  })
-
-  it('clears stale preview errors when the inputs return to the last successful payload', async () => {
-    const renderTemplatesStore = useRenderTemplatesStore()
-    const systemStore = useSystemStore()
-    const tasksStore = useTasksStore()
-
-    renderTemplatesStore.items = [createTemplateSummary()]
-    renderTemplatesStore.detailById = {
-      'help.menu': createTemplateDetail(),
-    }
-
-    vi.spyOn(renderTemplatesStore, 'fetchTemplates').mockResolvedValue({ items: renderTemplatesStore.items })
-    vi.spyOn(renderTemplatesStore, 'fetchTemplateWorkspace').mockResolvedValue(createTemplateDetail())
-    vi.spyOn(systemStore, 'previewRender')
-      .mockResolvedValueOnce({ task_id: 'task_render_preview_0001' })
-      .mockRejectedValueOnce(new Error('服务繁忙'))
-    vi.spyOn(tasksStore, 'fetchTask').mockImplementation(async () => {
-      tasksStore.items = [
-        {
-          task_id: 'task_render_preview_0001',
-          task_type: 'render.preview',
-          status: 'succeeded',
-          summary: 'render preview for help.menu',
-          result: {
-            summary: 'render preview complete',
-            details: {
-              artifact_id: 'render_preview_0001.png',
-              image_url: '/api/system/render/artifacts/render_preview_0001.png',
-              from_cache: false,
-            },
-          },
-        },
-      ]
-      return tasksStore.items[0]!
-    })
-
-    const { wrapper } = await mountPage()
-
-    await vi.advanceTimersByTimeAsync(500)
-    await flushPromises()
-
-    const textarea = wrapper.get('textarea[aria-label="输入数据 JSON"]')
-    await textarea.setValue(HELP_MENU_ALTERNATE_PREVIEW_DATA)
-    await vi.advanceTimersByTimeAsync(500)
-    await flushPromises()
-
-    expect(wrapper.text()).toContain('服务繁忙')
-
-    await textarea.setValue(HELP_MENU_DEFAULT_PREVIEW_DATA)
-    await vi.advanceTimersByTimeAsync(500)
-    await flushPromises()
-
-    expect(systemStore.previewRender).toHaveBeenCalledTimes(2)
-    expect(wrapper.text()).not.toContain('服务繁忙')
-    expect(wrapper.get('[data-testid="render-template-preview-result"]').text()).toContain('render_preview_0001.png')
-  })
-
-  it('keeps the latest accepted preview when an older request resolves later', async () => {
-    const renderTemplatesStore = useRenderTemplatesStore()
-    const systemStore = useSystemStore()
-    const tasksStore = useTasksStore()
-
-    renderTemplatesStore.items = [createTemplateSummary()]
-    renderTemplatesStore.detailById = {
-      'help.menu': createTemplateDetail(),
-    }
-
-    vi.spyOn(renderTemplatesStore, 'fetchTemplates').mockResolvedValue({ items: renderTemplatesStore.items })
-    vi.spyOn(renderTemplatesStore, 'fetchTemplateWorkspace').mockResolvedValue(createTemplateDetail())
-
-    let resolveFirst: ((value: { task_id: string }) => void) | null = null
-    let resolveSecond: ((value: { task_id: string }) => void) | null = null
-    vi.spyOn(systemStore, 'previewRender')
-      .mockImplementationOnce(() => new Promise((resolve) => {
-        resolveFirst = resolve
-      }))
-      .mockImplementationOnce(() => new Promise((resolve) => {
-        resolveSecond = resolve
-      }))
-
-    vi.spyOn(tasksStore, 'fetchTask').mockImplementation(async (taskId) => {
-      const artifactId = taskId === 'task_render_preview_0002' ? 'render_preview_0002.png' : 'render_preview_0001.png'
-      tasksStore.items = [
-        {
-          task_id: taskId,
-          task_type: 'render.preview',
-          status: 'succeeded',
-          summary: `render preview for ${taskId}`,
-          result: {
-            summary: 'render preview complete',
-            details: {
-              artifact_id: artifactId,
-              image_url: `/api/system/render/artifacts/${artifactId}`,
-              from_cache: false,
-            },
-          },
-        },
-      ]
-      return tasksStore.items[0]!
-    })
-
-    const { wrapper } = await mountPage()
-
-    await vi.advanceTimersByTimeAsync(500)
-    await flushPromises()
-
-    const textarea = wrapper.get('textarea[aria-label="输入数据 JSON"]')
-    await textarea.setValue(HELP_MENU_ALTERNATE_PREVIEW_DATA)
-    await vi.advanceTimersByTimeAsync(500)
-    await flushPromises()
-
-    resolveSecond?.({ task_id: 'task_render_preview_0002' })
-    await flushPromises()
-    resolveFirst?.({ task_id: 'task_render_preview_0001' })
-    await flushPromises()
-
-    expect(wrapper.get('[data-testid="render-template-preview-result"]').text()).toContain('render_preview_0002.png')
-    expect(wrapper.get('[data-testid="render-template-preview-result"]').text()).not.toContain('render_preview_0001.png')
-  })
-
-  it('auto-selects the first template once and does not pull other routes back', async () => {
-    const renderTemplatesStore = useRenderTemplatesStore()
-
-    renderTemplatesStore.items = [
-      createTemplateSummary(),
-      createTemplateSummary('status.panel', '2026-04-18T10:31:00Z'),
-    ]
-
-    vi.spyOn(renderTemplatesStore, 'fetchTemplates').mockResolvedValue({ items: renderTemplatesStore.items })
-    vi.spyOn(renderTemplatesStore, 'fetchTemplateWorkspace').mockResolvedValue(createTemplateDetail())
-
-    const { router } = await mountPage('/render/templates')
-
-    await flushPromises()
-
-    expect(router.currentRoute.value.fullPath).toBe('/render/templates/help.menu')
-
-    await router.push('/tasks')
-    await flushPromises()
-
-    expect(router.currentRoute.value.fullPath).toBe('/tasks')
+    expect(renderTemplatesStore.previewTemplateHTML).toHaveBeenCalledTimes(2)
   })
 })

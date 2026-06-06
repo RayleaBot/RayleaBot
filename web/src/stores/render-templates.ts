@@ -2,11 +2,13 @@ import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
 
 import { getDisplayErrorMessage } from '@/lib/error-text'
-import { apiRequest } from '@/lib/http'
+import { apiDownload, apiRequest } from '@/lib/http'
 import type {
   RenderTemplateDetail,
   RenderTemplateDetailResponse,
   RenderTemplateListResponse,
+  RenderTemplatePreviewHTMLRequest,
+  RenderTemplatePreviewHTMLResponse,
   RenderTemplateSummary,
 } from '@/types/api'
 
@@ -66,14 +68,35 @@ export const useRenderTemplatesStore = defineStore('render-templates', () => {
     }
   }
 
+  async function previewTemplateHTML(templateId: string, payload: RenderTemplatePreviewHTMLRequest, signal?: AbortSignal) {
+    return apiRequest<RenderTemplatePreviewHTMLResponse>(
+      `/api/system/render/templates/${encodeURIComponent(templateId)}/preview-html`,
+      {
+        body: payload,
+        method: 'POST',
+        signal,
+      },
+    )
+  }
+
+  async function downloadTemplateAsset(templateId: string, path: string, signal?: AbortSignal) {
+    const params = new URLSearchParams({ path })
+    return apiDownload(
+      `/api/system/render/templates/${encodeURIComponent(templateId)}/asset?${params.toString()}`,
+      { signal },
+    )
+  }
+
   return {
     clearError,
     detailById,
+    downloadTemplateAsset,
     error,
     fetchTemplateWorkspace,
     fetchTemplates,
     items,
     loading,
+    previewTemplateHTML,
     templateMap,
     workspaceLoading,
   }

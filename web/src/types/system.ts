@@ -20,6 +20,8 @@ export type RenderPreviewRequest = components['schemas']['RenderPreviewRequest']
 export type RenderTemplateDetail = components['schemas']['RenderTemplateDetail']
 export type RenderTemplateDetailResponse = components['schemas']['RenderTemplateDetailResponse']
 export type RenderTemplateListResponse = components['schemas']['RenderTemplateListResponse']
+export type RenderTemplatePreviewHTMLRequest = components['schemas']['RenderTemplatePreviewHTMLRequest']
+export type RenderTemplatePreviewHTMLResponse = components['schemas']['RenderTemplatePreviewHTMLResponse']
 export type RenderTemplateSummary = components['schemas']['RenderTemplateSummary']
 
 export interface RenderTemplateLocalIssue {

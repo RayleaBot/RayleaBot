@@ -1,41 +1,11 @@
 <script lang="ts">
-export const nativePreviewTemplateWidth = 960
-export const nativePreviewMinHeight = 320
-export const nativePreviewViewportPadding = 24
-
-export function calculateNativePreviewScale(containerWidth: number) {
-  if (!Number.isFinite(containerWidth) || containerWidth <= 0) {
-    return 1
-  }
-  return Math.min(1, containerWidth / nativePreviewTemplateWidth)
-}
-
-export function calculateNativePreviewLayout(input: {
-  containerWidth: number
-  contentHeight: number
-  viewportHeight: number
-  containerTop: number
-}) {
-  const scale = calculateNativePreviewScale(input.containerWidth)
-  const contentHeight = Math.max(nativePreviewMinHeight, Math.ceil(input.contentHeight || nativePreviewMinHeight))
-  const scaledContentHeight = Math.ceil(contentHeight * scale)
-  const availableHeight = Math.max(
-    nativePreviewMinHeight,
-    Math.floor(input.viewportHeight - input.containerTop - nativePreviewViewportPadding),
-  )
-  const previewHeight = Math.max(nativePreviewMinHeight, Math.min(scaledContentHeight, availableHeight))
-  const frameHeight = Math.ceil(previewHeight / scale)
-
-  return {
-    availableHeight,
-    contentHeight,
-    frameHeight,
-    isScrollable: contentHeight > frameHeight,
-    previewHeight,
-    scale,
-    scaledContentHeight,
-  }
-}
+export {
+  calculateNativePreviewLayout,
+  calculateNativePreviewScale,
+  nativePreviewMinHeight,
+  nativePreviewTemplateWidth,
+  nativePreviewViewportPadding,
+} from '@/components/template-preview-frame'
 
 export function stripHelpMenuPreviewFontImports(styles: string) {
   return styles
@@ -45,9 +15,9 @@ export function stripHelpMenuPreviewFontImports(styles: string) {
 </script>
 
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import type { CSSProperties } from 'vue'
+import { computed } from 'vue'
 
+import TemplatePreviewFrame from '@/components/TemplatePreviewFrame.vue'
 import helpMenuFooterFontUrl from '../../../templates/fortune.card/assets/fonts/lxgw-wenkai-bold/lxgw-wenkai-bold.ttf?url'
 import helpMenuStyles from '../../../templates/help.menu/styles.css?raw'
 
@@ -59,102 +29,9 @@ const props = defineProps<{
   data: PreviewData
 }>()
 
-const containerRef = ref<HTMLElement | null>(null)
-const iframeRef = ref<HTMLIFrameElement | null>(null)
-const containerWidth = ref(nativePreviewTemplateWidth)
-const containerTop = ref(0)
-const contentHeight = ref(nativePreviewMinHeight)
-const viewportHeight = ref(typeof window === 'undefined' ? 720 : window.innerHeight)
-let resizeObserver: ResizeObserver | null = null
-let measureFrame = 0
-
 const serializedData = computed(() => JSON.stringify(props.data))
-
 const srcdoc = computed(() => buildPreviewDocument(props.templateId, props.data))
 const helpMenuPreviewStyles = computed(() => buildHelpMenuPreviewStyles(helpMenuStyles, helpMenuFooterFontUrl))
-
-const previewLayout = computed(() => calculateNativePreviewLayout({
-  containerTop: containerTop.value,
-  containerWidth: containerWidth.value,
-  contentHeight: contentHeight.value,
-  viewportHeight: viewportHeight.value,
-}))
-
-const previewStyle = computed<CSSProperties>(() => ({
-  '--native-template-preview-frame-height': `${previewLayout.value.frameHeight}px`,
-  '--native-template-preview-frame-width': `${nativePreviewTemplateWidth}px`,
-  '--native-template-preview-height': `${previewLayout.value.previewHeight}px`,
-  '--native-template-preview-scale': `${previewLayout.value.scale}`,
-}))
-
-onMounted(() => {
-  if (typeof window.ResizeObserver === 'function' && containerRef.value) {
-    resizeObserver = new window.ResizeObserver(() => queuePreviewMeasure())
-    resizeObserver.observe(containerRef.value)
-  }
-
-  window.addEventListener('resize', queuePreviewMeasure)
-  void nextTick(queuePreviewMeasure)
-})
-
-onBeforeUnmount(() => {
-  resizeObserver?.disconnect()
-  resizeObserver = null
-  window.removeEventListener('resize', queuePreviewMeasure)
-  if (measureFrame) {
-    window.cancelAnimationFrame(measureFrame)
-    measureFrame = 0
-  }
-})
-
-watch(srcdoc, () => {
-  void nextTick(queuePreviewMeasure)
-}, { flush: 'post' })
-
-function queuePreviewMeasure() {
-  if (typeof window === 'undefined') {
-    measurePreview()
-    return
-  }
-
-  if (measureFrame) {
-    window.cancelAnimationFrame(measureFrame)
-  }
-  measureFrame = window.requestAnimationFrame(() => {
-    measureFrame = 0
-    measurePreview()
-  })
-}
-
-function measurePreview() {
-  const container = containerRef.value
-  if (container) {
-    const rect = container.getBoundingClientRect()
-    containerWidth.value = rect.width > 0 ? rect.width : nativePreviewTemplateWidth
-    containerTop.value = rect.top
-  }
-
-  viewportHeight.value = typeof window === 'undefined' ? viewportHeight.value : window.innerHeight
-  contentHeight.value = measureFrameContentHeight() || contentHeight.value
-}
-
-function measureFrameContentHeight() {
-  try {
-    const doc = iframeRef.value?.contentDocument
-    const surface = doc?.querySelector<HTMLElement>('.surface')
-    if (!surface) {
-      return 0
-    }
-    return Math.max(surface.scrollHeight, Math.ceil(surface.getBoundingClientRect().height))
-  } catch {
-    return 0
-  }
-}
-
-function handleFrameLoad() {
-  queuePreviewMeasure()
-  void iframeRef.value?.contentDocument?.fonts?.ready.then(queuePreviewMeasure)
-}
 
 function buildPreviewDocument(templateId: string, data: PreviewData) {
   if (templateId !== 'help.menu') {
@@ -463,53 +340,10 @@ function escapeCssString(input: string) {
 </script>
 
 <template>
-  <div
-    ref="containerRef"
-    class="native-template-preview"
-    :style="previewStyle"
-    :data-preview-scale="previewLayout.scale.toFixed(4)"
-    :data-preview-scrollable="previewLayout.isScrollable ? 'true' : 'false'"
-    data-testid="native-template-preview-host"
-  >
-    <iframe
-      ref="iframeRef"
-      class="native-template-preview__frame"
-      title="help.menu"
-      sandbox="allow-same-origin"
-      :srcdoc="srcdoc"
-      :data-template-id="templateId"
-      :data-preview-payload="serializedData"
-      :data-preview-frame-width="nativePreviewTemplateWidth"
-      :data-preview-frame-height="previewLayout.frameHeight"
-      data-testid="native-template-preview-frame"
-      @load="handleFrameLoad"
-    />
-  </div>
+  <TemplatePreviewFrame
+    frame-title="help.menu"
+    :srcdoc="srcdoc"
+    :template-id="templateId"
+    :payload="serializedData"
+  />
 </template>
-
-<style scoped lang="scss">
-.native-template-preview {
-  position: relative;
-  display: flex;
-  justify-content: center;
-  align-items: flex-start;
-  min-width: 0;
-  height: var(--native-template-preview-height);
-  min-height: var(--native-template-preview-height);
-  overflow: hidden;
-  background: var(--surface-soft);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-sm);
-}
-
-.native-template-preview__frame {
-  display: block;
-  width: var(--native-template-preview-frame-width);
-  height: var(--native-template-preview-frame-height);
-  border: 0;
-  background: transparent;
-  transform: scale(var(--native-template-preview-scale));
-  transform-origin: center top;
-}
-</style>

@@ -1775,38 +1775,100 @@ test('template preview auto-refreshes results without editor controls', async ({
   await resetBackend(request, true)
   await login(page)
 
-  await navigateThroughMenu(page, '模板预览', '系统')
+  await page.goto('/render/templates/help.menu')
   await expect(page.getByRole('heading', { name: '模板预览', level: 1 })).toBeVisible()
   await expect(page.getByText('模板不存在。')).toHaveCount(0)
   await expect(page).toHaveURL(/\/render\/templates\/help\.menu$/)
   expect((await readTabLabels(page)).filter((label) => label === '模板预览')).toHaveLength(1)
 
-  await expect(page.locator('.template-info-bar')).toContainText('模板 ID')
-  await expect(page.locator('.template-info-bar')).toContainText('help.menu')
-  await expect(page.locator('.template-info-bar')).toContainText('渲染参数')
-  await expect(page.locator('.app-card__title-text').filter({ hasText: '输入结构' }).first()).toBeVisible()
+  await expect(page.locator('.render-templates-float-panel')).toContainText('模板 ID')
+  await expect(page.locator('.render-templates-float-panel')).toContainText('help.menu')
+  await expect(page.locator('.render-templates-float-panel')).toContainText('渲染参数')
+  await expect(page.locator('.render-templates-float-panel')).toContainText('输入结构')
   await expect(page.locator('.render-templates-card--editor')).toHaveCount(0)
   await expect(page.locator('.version-item')).toHaveCount(0)
   await expect(page.getByRole('button', { name: '保存模板' })).toHaveCount(0)
   await expect(page.getByRole('button', { name: '执行校验' })).toHaveCount(0)
   await expect(page.getByRole('button', { name: '确认回退' })).toHaveCount(0)
   await expect(page.getByRole('button', { name: '生成预览' })).toHaveCount(0)
+  await expect(page.getByText('任务 ID')).toHaveCount(0)
+  await expect(page.getByText('产物 ID')).toHaveCount(0)
+  await expect(page.getByText('缓存结果')).toHaveCount(0)
 
   const previewResult = page.getByTestId('render-template-preview-result')
-  await expect(previewResult).toContainText('task_render_preview_0001')
-  await expect(previewResult).toContainText('render_preview_0001.png')
-  await expect(page.getByRole('img', { name: '模板预览结果' })).toBeVisible()
+  const previewFrame = page.getByTestId('render-template-preview-frame')
+  await expect(previewFrame).toBeVisible()
+  await expect(previewFrame).toHaveAttribute('srcdoc', /帮助菜单/)
 
   await page.getByLabel('输入数据 JSON').fill('{\n  "title": "帮助菜单（自动刷新）"\n}')
-  await expect(previewResult).toContainText('task_render_preview_0002')
-  await expect(previewResult).toContainText('render_preview_0002.png')
+  await expect(previewFrame).toHaveAttribute('srcdoc', /帮助菜单（自动刷新）/)
 
   await page.locator('.template-nav-item').filter({ hasText: 'status.panel' }).first().click()
   await expect(page).toHaveURL(/\/render\/templates\/status\.panel$/)
   expect((await readTabLabels(page)).filter((label) => label === '模板预览')).toHaveLength(1)
-  await expect(previewResult).toContainText('task_render_preview_0003')
-  await expect(previewResult).toContainText('render_preview_0003.png')
-  await expect(page.locator('.template-info-bar')).toContainText('status.panel')
+  await expect(page.getByTestId('render-template-preview-frame')).toHaveAttribute('data-template-id', 'status.panel')
+  await expect(page.locator('.render-templates-float-panel')).toContainText('status.panel')
+})
+
+test('template preview scales wide templates without horizontal scrollbars', async ({ page, request }) => {
+  await resetBackend(request, true)
+  await page.setViewportSize({ width: 1280, height: 760 })
+  await login(page)
+
+  await page.goto('/render/templates/fortune.stats')
+  await expect(page.getByRole('heading', { name: '模板预览', level: 1 })).toBeVisible()
+
+  const previewResult = page.getByTestId('render-template-preview-result')
+  const previewHost = page.getByTestId('render-template-preview-host')
+  const previewFrame = page.getByTestId('render-template-preview-frame')
+
+  await expect(previewFrame).toBeVisible()
+  await expect(previewFrame).toHaveAttribute('data-template-id', 'fortune.stats')
+  await expect(previewFrame).toHaveAttribute('data-preview-frame-width', '1124')
+  await expect(previewFrame).toHaveAttribute('srcdoc', /overflow-x:hidden!important/)
+
+  await expect.poll(async () => (
+    previewFrame.evaluate(async (frame) => {
+      const iframe = frame as HTMLIFrameElement
+      const image = iframe.contentDocument?.querySelector<HTMLImageElement>('.external-preview-image')
+      await iframe.contentDocument?.fonts?.ready
+      return {
+        fontReady: iframe.contentDocument?.fonts?.check('16px RayleaExternalPreview') ?? false,
+        imageComplete: Boolean(image?.complete),
+        imageWidth: image?.naturalWidth ?? 0,
+      }
+    })
+  )).toEqual({
+    fontReady: true,
+    imageComplete: true,
+    imageWidth: 1,
+  })
+
+  const frameMetrics = await previewFrame.evaluate((frame) => {
+    const iframe = frame as HTMLIFrameElement
+    const documentElement = iframe.contentDocument?.documentElement
+    const body = iframe.contentDocument?.body
+    return {
+      bodyClientWidth: body?.clientWidth ?? 0,
+      bodyScrollWidth: body?.scrollWidth ?? 0,
+      documentClientWidth: documentElement?.clientWidth ?? 0,
+      documentScrollWidth: documentElement?.scrollWidth ?? 0,
+    }
+  })
+  expect(frameMetrics.documentScrollWidth).toBeLessThanOrEqual(frameMetrics.documentClientWidth)
+  expect(frameMetrics.bodyScrollWidth).toBeLessThanOrEqual(frameMetrics.bodyClientWidth)
+
+  const hostMetrics = await previewHost.evaluate((node) => ({
+    clientWidth: node.clientWidth,
+    scrollWidth: node.scrollWidth,
+  }))
+  expect(hostMetrics.scrollWidth).toBeLessThanOrEqual(hostMetrics.clientWidth)
+
+  const resultMetrics = await previewResult.evaluate((node) => ({
+    clientWidth: node.clientWidth,
+    scrollWidth: node.scrollWidth,
+  }))
+  expect(resultMetrics.scrollWidth).toBeLessThanOrEqual(resultMetrics.clientWidth)
 })
 
 test('template preview page stays scrollable on shorter viewports', async ({ page, request }) => {
@@ -1816,10 +1878,10 @@ test('template preview page stays scrollable on shorter viewports', async ({ pag
 
   await page.goto('/render/templates/help.menu')
   await expect(page.getByRole('heading', { name: '模板预览', level: 1 })).toBeVisible()
-  await expect(page.getByTestId('render-template-preview-result')).toContainText('task_render_preview_0001')
+  await expect(page.getByTestId('render-template-preview-frame')).toHaveAttribute('srcdoc', /帮助菜单/)
 
-  const appMain = page.locator('#app-main')
-  const initialMetrics = await appMain.evaluate((node) => ({
+  const scrollPanel = page.locator('.render-templates-float-panel__body')
+  const initialMetrics = await scrollPanel.evaluate((node) => ({
     clientHeight: node.clientHeight,
     scrollHeight: node.scrollHeight,
     scrollTop: node.scrollTop,
@@ -1827,18 +1889,18 @@ test('template preview page stays scrollable on shorter viewports', async ({ pag
 
   expect(initialMetrics.scrollHeight).toBeGreaterThan(initialMetrics.clientHeight)
 
-  const appMainBox = await appMain.boundingBox()
-  if (!appMainBox) {
-    throw new Error('#app-main is not visible')
+  const scrollPanelBox = await scrollPanel.boundingBox()
+  if (!scrollPanelBox) {
+    throw new Error('.render-templates-float-panel__body is not visible')
   }
   await page.mouse.move(
-    appMainBox.x + appMainBox.width - 24,
-    appMainBox.y + Math.min(appMainBox.height - 24, 320),
+    scrollPanelBox.x + scrollPanelBox.width - 24,
+    scrollPanelBox.y + Math.min(scrollPanelBox.height - 24, 320),
   )
   await page.mouse.wheel(0, 1200)
 
   await expect.poll(async () => (
-    appMain.evaluate((node) => node.scrollTop)
+    scrollPanel.evaluate((node) => node.scrollTop)
   )).toBeGreaterThan(initialMetrics.scrollTop)
 })
 

@@ -3,14 +3,12 @@ import { computed, onActivated, onBeforeUnmount, onDeactivated, onMounted, ref, 
 import { storeToRefs } from 'pinia'
 import { useRoute, useRouter } from 'vue-router'
 
-import AppCard from '@/components/AppCard.vue'
 import AppEmptyState from '@/components/AppEmptyState.vue'
 import AppPage from '@/components/page/AppPage.vue'
 import RetryPanel from '@/components/RetryPanel.vue'
+import TemplatePreviewFrame from '@/components/TemplatePreviewFrame.vue'
 import { getDisplayErrorMessage } from '@/lib/error-text'
 import { formatDateTime } from '@/lib/format'
-import { apiDownload } from '@/lib/http'
-import { getTaskStatusLabel } from '@/lib/display'
 import {
   buildRenderTemplatePreviewSample,
   buildRenderTemplateSchemaNodes,
@@ -18,33 +16,29 @@ import {
 } from '@/lib/render-template-editor'
 import { t } from '@/i18n'
 import { useRenderTemplatesStore } from '@/stores/render-templates'
-import { useSystemStore } from '@/stores/system'
-import { useTasksStore } from '@/stores/tasks'
-import type { RenderPreviewRequest, RenderTemplateSummary } from '@/types/api'
+import type { RenderTemplatePreviewHTMLResponse, RenderTemplateSummary } from '@/types/api'
 
 const route = useRoute()
 const router = useRouter()
 const renderTemplatesStore = useRenderTemplatesStore()
-const systemStore = useSystemStore()
-const tasksStore = useTasksStore()
-
 const { detailById, error, items, loading, workspaceLoading } = storeToRefs(renderTemplatesStore)
+
+interface PreviewDocumentState extends RenderTemplatePreviewHTMLResponse {
+  objectUrls: string[]
+}
 
 const hasRequestedList = ref(false)
 const pageActive = ref(true)
 const previewDataByTemplate = ref<Record<string, string>>({})
-const previewTaskIdByTemplate = ref<Record<string, string>>({})
-const previewRequestErrorByTemplate = ref<Record<string, string>>({})
-const previewRequestErrorKeyByTemplate = ref<Record<string, string>>({})
-const desiredPreviewKeyByTemplate = ref<Record<string, string>>({})
-const lastSubmittedPreviewKeyByTemplate = ref<Record<string, string>>({})
-const pendingPreviewKeysByTemplate = ref<Record<string, string[]>>({})
-const previewImageSrc = ref('')
-const imageModalVisible = ref(false)
+const previewDocumentByTemplate = ref<Record<string, PreviewDocumentState>>({})
+const previewErrorByTemplate = ref<Record<string, string>>({})
+const previewErrorKeyByTemplate = ref<Record<string, string>>({})
+const pendingPreviewKeyByTemplate = ref<Record<string, string>>({})
+const lastPreviewKeyByTemplate = ref<Record<string, string>>({})
 
+const previewControllers = new Map<string, AbortController>()
 let autoPreviewHandle: number | null = null
-let previewImageLoadVersion = 0
-let previewWatcherActive = true
+let previewRunId = 0
 
 const isTemplateRoute = computed(() => route.name === 'render-templates')
 const isActiveTemplateRoute = computed(() => pageActive.value && isTemplateRoute.value)
@@ -103,23 +97,6 @@ const currentPreviewDataText = computed({
   },
 })
 
-const currentPreviewTaskId = computed(() => (
-  activeTemplateId.value ? previewTaskIdByTemplate.value[activeTemplateId.value] ?? '' : ''
-))
-
-const currentPreviewTask = computed(() => (
-  currentPreviewTaskId.value
-    ? tasksStore.items.find((item) => item.task_id === currentPreviewTaskId.value) ?? null
-    : null
-))
-
-const currentPreviewRequestError = computed(() => (
-  activeTemplateId.value ? previewRequestErrorByTemplate.value[activeTemplateId.value] ?? '' : ''
-))
-const currentPreviewPending = computed(() => (
-  Boolean(activeTemplateId.value && previewRequestKey.value && hasPendingPreviewKey(activeTemplateId.value, previewRequestKey.value))
-))
-
 const previewParseResult = computed(() => parseRenderTemplatePreviewData(currentPreviewDataText.value))
 const schemaNodes = computed(() => buildRenderTemplateSchemaNodes(currentTemplate.value?.input_schema_json ?? null))
 const displaySchemaNodes = computed(() => schemaNodes.value.filter((node) => node.depth > 0))
@@ -136,17 +113,24 @@ const previewRequestKey = computed(() => {
   })
 })
 
-const previewImageUrl = computed(() => {
-  const imageUrl = currentPreviewTask.value?.result?.details?.image_url
-  return typeof imageUrl === 'string' ? imageUrl : ''
-})
+const currentPreviewDocument = computed(() => (
+  activeTemplateId.value ? previewDocumentByTemplate.value[activeTemplateId.value] ?? null : null
+))
+
+const currentPreviewError = computed(() => (
+  activeTemplateId.value ? previewErrorByTemplate.value[activeTemplateId.value] ?? '' : ''
+))
+
+const currentPreviewPending = computed(() => (
+  Boolean(activeTemplateId.value && previewRequestKey.value && pendingPreviewKeyByTemplate.value[activeTemplateId.value] === previewRequestKey.value)
+))
 
 const previewEmptyDescription = computed(() => {
   if (previewParseResult.value.issue) {
     return previewParseResult.value.issue.message
   }
-  if (currentPreviewRequestError.value) {
-    return currentPreviewRequestError.value
+  if (currentPreviewError.value) {
+    return currentPreviewError.value
   }
   if (currentPreviewPending.value) {
     return t('renderTemplates.previewPending')
@@ -264,73 +248,35 @@ function clearAutoPreviewTimer() {
   autoPreviewHandle = null
 }
 
-function resetPreviewImage() {
-  if (!previewImageSrc.value) {
+function revokePreviewDocument(templateId: string) {
+  const previous = previewDocumentByTemplate.value[templateId]
+  if (!previous) {
     return
   }
-
-  window.URL.revokeObjectURL(previewImageSrc.value)
-  previewImageSrc.value = ''
-}
-
-function clearPreviewRequestError(templateId: string) {
-  previewRequestErrorByTemplate.value = {
-    ...previewRequestErrorByTemplate.value,
-    [templateId]: '',
-  }
-  previewRequestErrorKeyByTemplate.value = {
-    ...previewRequestErrorKeyByTemplate.value,
-    [templateId]: '',
+  for (const objectUrl of previous.objectUrls) {
+    window.URL.revokeObjectURL(objectUrl)
   }
 }
 
-function setPreviewRequestError(templateId: string, requestKey: string, message: string) {
-  previewRequestErrorByTemplate.value = {
-    ...previewRequestErrorByTemplate.value,
+function setPreviewError(templateId: string, requestKey: string, message: string) {
+  previewErrorByTemplate.value = {
+    ...previewErrorByTemplate.value,
     [templateId]: message,
   }
-  previewRequestErrorKeyByTemplate.value = {
-    ...previewRequestErrorKeyByTemplate.value,
+  previewErrorKeyByTemplate.value = {
+    ...previewErrorKeyByTemplate.value,
     [templateId]: requestKey,
   }
 }
 
-function setDesiredPreviewKey(templateId: string, requestKey: string) {
-  desiredPreviewKeyByTemplate.value = {
-    ...desiredPreviewKeyByTemplate.value,
-    [templateId]: requestKey,
+function clearPreviewError(templateId: string) {
+  previewErrorByTemplate.value = {
+    ...previewErrorByTemplate.value,
+    [templateId]: '',
   }
-}
-
-function hasPendingPreviewKey(templateId: string, requestKey: string) {
-  return pendingPreviewKeysByTemplate.value[templateId]?.includes(requestKey) ?? false
-}
-
-function markPendingPreviewKey(templateId: string, requestKey: string) {
-  if (hasPendingPreviewKey(templateId, requestKey)) {
-    return
-  }
-
-  pendingPreviewKeysByTemplate.value = {
-    ...pendingPreviewKeysByTemplate.value,
-    [templateId]: [...(pendingPreviewKeysByTemplate.value[templateId] ?? []), requestKey],
-  }
-}
-
-function clearPendingPreviewKey(templateId: string, requestKey: string) {
-  const keys = pendingPreviewKeysByTemplate.value[templateId]
-  if (!keys?.length) {
-    return
-  }
-
-  if (!keys.includes(requestKey)) {
-    return
-  }
-
-  const nextKeys = keys.filter((key) => key !== requestKey)
-  pendingPreviewKeysByTemplate.value = {
-    ...pendingPreviewKeysByTemplate.value,
-    [templateId]: nextKeys,
+  previewErrorKeyByTemplate.value = {
+    ...previewErrorKeyByTemplate.value,
+    [templateId]: '',
   }
 }
 
@@ -361,8 +307,8 @@ async function reloadCurrentTemplate() {
     return
   }
 
-  lastSubmittedPreviewKeyByTemplate.value = {
-    ...lastSubmittedPreviewKeyByTemplate.value,
+  lastPreviewKeyByTemplate.value = {
+    ...lastPreviewKeyByTemplate.value,
     [activeTemplateId.value]: '',
   }
   await loadTemplateWorkspace(activeTemplateId.value, { force: true })
@@ -406,41 +352,61 @@ async function submitPreview(templateId: string, requestKey: string) {
     return
   }
 
-  if (hasPendingPreviewKey(templateId, requestKey)) {
+  const currentPendingKey = pendingPreviewKeyByTemplate.value[templateId]
+  if (currentPendingKey === requestKey) {
     return
   }
 
-  markPendingPreviewKey(templateId, requestKey)
-  clearPreviewRequestError(templateId)
+  previewControllers.get(templateId)?.abort()
+  const controller = new AbortController()
+  previewControllers.set(templateId, controller)
+  const runId = ++previewRunId
 
-  const payload: RenderPreviewRequest = {
-    template: templateId,
-    data: previewParseResult.value.data,
+  pendingPreviewKeyByTemplate.value = {
+    ...pendingPreviewKeyByTemplate.value,
+    [templateId]: requestKey,
   }
+  clearPreviewError(templateId)
 
   try {
-    const response = await systemStore.previewRender(payload)
-    if (desiredPreviewKeyByTemplate.value[templateId] !== requestKey) {
+    const response = await renderTemplatesStore.previewTemplateHTML(templateId, {
+      theme: 'default',
+      data: previewParseResult.value.data,
+    }, controller.signal)
+    const rewritten = await rewritePreviewDocumentResources(templateId, response.html, controller.signal)
+    if (controller.signal.aborted || runId !== previewRunId || activeTemplateId.value !== templateId || previewRequestKey.value !== requestKey) {
+      revokeObjectUrls(rewritten.objectUrls)
       return
     }
 
-    lastSubmittedPreviewKeyByTemplate.value = {
-      ...lastSubmittedPreviewKeyByTemplate.value,
+    revokePreviewDocument(templateId)
+    previewDocumentByTemplate.value = {
+      ...previewDocumentByTemplate.value,
+      [templateId]: {
+        ...response,
+        html: rewritten.html,
+        objectUrls: rewritten.objectUrls,
+      },
+    }
+    lastPreviewKeyByTemplate.value = {
+      ...lastPreviewKeyByTemplate.value,
       [templateId]: requestKey,
     }
-    previewTaskIdByTemplate.value = {
-      ...previewTaskIdByTemplate.value,
-      [templateId]: response.task_id,
-    }
-    await tasksStore.fetchTask(response.task_id, { makeCurrent: false })
-  } catch (error) {
-    if (desiredPreviewKeyByTemplate.value[templateId] !== requestKey) {
+  } catch (err) {
+    if (controller.signal.aborted || runId !== previewRunId || activeTemplateId.value !== templateId || previewRequestKey.value !== requestKey) {
       return
     }
-
-    setPreviewRequestError(templateId, requestKey, getDisplayErrorMessage(error))
+    setPreviewError(templateId, requestKey, getDisplayErrorMessage(err))
   } finally {
-    clearPendingPreviewKey(templateId, requestKey)
+    if (previewControllers.get(templateId) === controller) {
+      previewControllers.delete(templateId)
+    }
+    if (pendingPreviewKeyByTemplate.value[templateId] === requestKey) {
+      pendingPreviewKeyByTemplate.value = {
+        ...pendingPreviewKeyByTemplate.value,
+        [templateId]: '',
+      }
+    }
   }
 }
 
@@ -457,11 +423,11 @@ function scheduleAutoPreview() {
 
   const requestKey = previewRequestKey.value
   const templateId = activeTemplateId.value
-  if (previewRequestErrorKeyByTemplate.value[templateId] && previewRequestErrorKeyByTemplate.value[templateId] !== requestKey) {
-    clearPreviewRequestError(templateId)
+  if (previewErrorKeyByTemplate.value[templateId] && previewErrorKeyByTemplate.value[templateId] !== requestKey) {
+    clearPreviewError(templateId)
   }
 
-  if (!requestKey || lastSubmittedPreviewKeyByTemplate.value[templateId] === requestKey || hasPendingPreviewKey(templateId, requestKey)) {
+  if (!requestKey || lastPreviewKeyByTemplate.value[templateId] === requestKey || pendingPreviewKeyByTemplate.value[templateId] === requestKey) {
     return
   }
 
@@ -472,14 +438,171 @@ function scheduleAutoPreview() {
     }
 
     void submitPreview(templateId, requestKey)
-  }, 500)
+  }, 350)
 }
 
-function openImageModal() {
-  if (!previewImageSrc.value) {
+async function rewritePreviewDocumentResources(templateId: string, html: string, signal: AbortSignal) {
+  const objectUrls: string[] = []
+  const document = new DOMParser().parseFromString(html, 'text/html')
+
+  for (const style of Array.from(document.querySelectorAll('style'))) {
+    style.textContent = await rewriteCSSResources(templateId, style.textContent ?? '', '', signal, objectUrls)
+  }
+
+  for (const element of Array.from(document.querySelectorAll<HTMLElement>('[style]'))) {
+    const style = element.getAttribute('style') ?? ''
+    element.setAttribute('style', await rewriteCSSResources(templateId, style, '', signal, objectUrls))
+  }
+
+  for (const element of Array.from(document.querySelectorAll<HTMLElement>('[src]'))) {
+    await rewriteElementResourceAttribute(templateId, element, 'src', '', signal, objectUrls)
+  }
+
+  for (const link of Array.from(document.querySelectorAll<HTMLLinkElement>('link[href]'))) {
+    const rel = (link.getAttribute('rel') ?? '').toLowerCase()
+    const href = link.getAttribute('href') ?? ''
+    const resourcePath = resolvePreviewResourcePath('', href)
+    if (!resourcePath) {
+      continue
+    }
+
+    if (rel.includes('stylesheet')) {
+      const css = await downloadTemplateAssetText(templateId, resourcePath, signal)
+      const style = document.createElement('style')
+      style.textContent = await rewriteCSSResources(templateId, css, dirname(resourcePath), signal, objectUrls)
+      link.replaceWith(style)
+      continue
+    }
+
+    const blobUrl = await downloadTemplateAssetObjectURL(templateId, resourcePath, signal, objectUrls)
+    link.setAttribute('href', blobUrl)
+  }
+
+  return {
+    html: `<!doctype html>\n${document.documentElement.outerHTML}`,
+    objectUrls,
+  }
+}
+
+async function rewriteElementResourceAttribute(
+  templateId: string,
+  element: HTMLElement,
+  attribute: string,
+  basePath: string,
+  signal: AbortSignal,
+  objectUrls: string[],
+) {
+  const raw = element.getAttribute(attribute) ?? ''
+  const resourcePath = resolvePreviewResourcePath(basePath, raw)
+  if (!resourcePath) {
     return
   }
-  imageModalVisible.value = true
+
+  const blobUrl = await downloadTemplateAssetObjectURL(templateId, resourcePath, signal, objectUrls)
+  element.setAttribute(attribute, blobUrl)
+}
+
+async function rewriteCSSResources(templateId: string, css: string, basePath: string, signal: AbortSignal, objectUrls: string[]): Promise<string> {
+  let rewritten = css
+
+  rewritten = await replaceAsync(rewritten, /@import\s+(?:url\()?["']?([^"')\s;]+)["']?\)?[^;]*;?/gi, async (match, rawUrl: string) => {
+    const resourcePath = resolvePreviewResourcePath(basePath, rawUrl)
+    if (!resourcePath) {
+      return match
+    }
+    const importedCSS = await downloadTemplateAssetText(templateId, resourcePath, signal)
+    return rewriteCSSResources(templateId, importedCSS, dirname(resourcePath), signal, objectUrls)
+  })
+
+  rewritten = await replaceAsync(rewritten, /url\(\s*(["']?)([^"')]+)\1\s*\)/gi, async (match, quote: string, rawUrl: string) => {
+    const resourcePath = resolvePreviewResourcePath(basePath, rawUrl)
+    if (!resourcePath) {
+      return match
+    }
+    const blobUrl = await downloadTemplateAssetObjectURL(templateId, resourcePath, signal, objectUrls)
+    return `url(${quote}${blobUrl}${quote})`
+  })
+
+  return rewritten
+}
+
+async function downloadTemplateAssetText(templateId: string, path: string, signal: AbortSignal) {
+  const { blob } = await renderTemplatesStore.downloadTemplateAsset(templateId, path, signal)
+  return blob.text()
+}
+
+async function downloadTemplateAssetObjectURL(templateId: string, path: string, signal: AbortSignal, objectUrls: string[]) {
+  const { blob } = await renderTemplatesStore.downloadTemplateAsset(templateId, path, signal)
+  const objectUrl = window.URL.createObjectURL(blob)
+  objectUrls.push(objectUrl)
+  return objectUrl
+}
+
+function resolvePreviewResourcePath(basePath: string, rawUrl: string) {
+  const url = stripResourceURL(rawUrl)
+  if (!url || isExternalPreviewResource(url)) {
+    return ''
+  }
+  return normalizePreviewResourcePath(basePath ? `${basePath}/${url}` : url)
+}
+
+function stripResourceURL(rawUrl: string) {
+  return String(rawUrl ?? '').trim().replace(/^["']|["']$/g, '').split(/[?#]/)[0]
+}
+
+function isExternalPreviewResource(url: string) {
+  return url.startsWith('#')
+    || url.startsWith('/')
+    || /^[a-z][a-z0-9+.-]*:/i.test(url)
+}
+
+function dirname(path: string) {
+  const normalized = normalizePreviewResourcePath(path)
+  const index = normalized.lastIndexOf('/')
+  return index > 0 ? normalized.slice(0, index) : ''
+}
+
+function normalizePreviewResourcePath(path: string) {
+  const segments: string[] = []
+  for (const segment of path.replace(/\\/g, '/').split('/')) {
+    if (!segment || segment === '.') {
+      continue
+    }
+    if (segment === '..') {
+      if (segments.length > 0 && segments[segments.length - 1] !== '..') {
+        segments.pop()
+      } else {
+        segments.push(segment)
+      }
+      continue
+    }
+    segments.push(segment)
+  }
+  return segments.join('/')
+}
+
+async function replaceAsync(source: string, pattern: RegExp, replacer: (...args: any[]) => Promise<string>) {
+  const matches = Array.from(source.matchAll(pattern))
+  if (matches.length === 0) {
+    return source
+  }
+
+  const replacements = await Promise.all(matches.map((match) => replacer(...match)))
+  let result = ''
+  let lastIndex = 0
+  matches.forEach((match, index) => {
+    result += source.slice(lastIndex, match.index)
+    result += replacements[index]
+    lastIndex = (match.index ?? 0) + match[0].length
+  })
+  result += source.slice(lastIndex)
+  return result
+}
+
+function revokeObjectUrls(urls: string[]) {
+  for (const objectUrl of urls) {
+    window.URL.revokeObjectURL(objectUrl)
+  }
 }
 
 watch([items, isActiveTemplateRoute, () => route.params.templateId], () => {
@@ -492,9 +615,9 @@ watch(activeTemplateId, (templateId) => {
   }
 
   ensurePreviewDefaults(templateId)
-  if (!(templateId in previewRequestErrorByTemplate.value)) {
-    previewRequestErrorByTemplate.value = {
-      ...previewRequestErrorByTemplate.value,
+  if (!(templateId in previewErrorByTemplate.value)) {
+    previewErrorByTemplate.value = {
+      ...previewErrorByTemplate.value,
       [templateId]: '',
     }
   }
@@ -507,47 +630,7 @@ watch(() => [
   isActiveTemplateRoute.value,
   pageActive.value,
 ], () => {
-  if (activeTemplateId.value) {
-    setDesiredPreviewKey(activeTemplateId.value, previewRequestKey.value)
-  }
   scheduleAutoPreview()
-}, { immediate: true })
-
-watch(previewImageUrl, async (imageUrl, _, onCleanup) => {
-  const requestVersion = ++previewImageLoadVersion
-  let cancelled = false
-  const controller = new AbortController()
-
-  onCleanup(() => {
-    cancelled = true
-    controller.abort()
-  })
-
-  if (!imageUrl) {
-    resetPreviewImage()
-    return
-  }
-
-  try {
-    const { blob } = await apiDownload(imageUrl, { signal: controller.signal })
-    if (cancelled || !previewWatcherActive || requestVersion !== previewImageLoadVersion) {
-      return
-    }
-
-    const nextPreviewUrl = window.URL.createObjectURL(blob)
-    if (cancelled || !previewWatcherActive || requestVersion !== previewImageLoadVersion) {
-      window.URL.revokeObjectURL(nextPreviewUrl)
-      return
-    }
-
-    resetPreviewImage()
-    previewImageSrc.value = nextPreviewUrl
-  } catch {
-    if (cancelled || requestVersion !== previewImageLoadVersion) {
-      return
-    }
-    resetPreviewImage()
-  }
 }, { immediate: true })
 
 onMounted(() => {
@@ -564,18 +647,22 @@ onDeactivated(() => {
 })
 
 onBeforeUnmount(() => {
-  previewWatcherActive = false
   clearAutoPreviewTimer()
-  pendingPreviewKeysByTemplate.value = {}
-  previewImageLoadVersion += 1
-  resetPreviewImage()
+  previewRunId += 1
+  for (const controller of previewControllers.values()) {
+    controller.abort()
+  }
+  previewControllers.clear()
+  for (const templateId of Object.keys(previewDocumentByTemplate.value)) {
+    revokePreviewDocument(templateId)
+  }
 })
 </script>
 
 <template>
-  <AppPage :title="t('renderTemplates.title')" :description="t('renderTemplates.subtitle')">
+  <AppPage :title="t('renderTemplates.title')" :description="t('renderTemplates.subtitle')" full-height>
     <template #extra>
-      <div class="table-actions">
+      <div class="render-templates-actions">
         <a-button :loading="loading || workspaceLoading" @click="loadTemplateList">
           {{ t('dashboard.refresh') }}
         </a-button>
@@ -584,23 +671,6 @@ onBeforeUnmount(() => {
         </a-button>
       </div>
     </template>
-
-    <div v-if="error || previewParseResult.issue" class="render-templates__alerts">
-      <a-alert
-        v-if="error"
-        type="error"
-        show-icon
-        :message="t('errors.common.actionFailed')"
-        :description="error"
-      />
-      <a-alert
-        v-if="previewParseResult.issue"
-        type="warning"
-        show-icon
-        :message="t('renderTemplates.previewInvalid')"
-        :description="previewParseResult.issue.message"
-      />
-    </div>
 
     <RetryPanel
       v-if="error && items.length === 0"
@@ -617,407 +687,355 @@ onBeforeUnmount(() => {
       :description="t('renderTemplates.templateListHint')"
     />
 
-    <div v-else class="render-templates-layout">
-      <div class="render-templates-layout__sidebar">
-        <AppCard :title="t('renderTemplates.templateList')" borderless class="render-templates-card render-templates-card--nav" size="small">
-          <template #extra>
-            <span class="render-templates-card__meta">{{ items.length }}</span>
-          </template>
-          <div class="template-nav-list">
-            <section
-              v-for="group in groupedTemplates"
-              :key="group.key"
-              class="template-nav-group"
-            >
-              <div class="template-nav-group__title">
-                <span>{{ group.title }}</span>
-                <small>{{ group.items.length }}</small>
-              </div>
-              <button
-                v-for="template in group.items"
-                :key="template.id"
-                type="button"
-                class="template-nav-item"
-                :class="{ 'is-active': template.id === activeTemplateId }"
-                @click="selectTemplate(template.id)"
+    <div v-else class="render-templates-shell">
+      <aside class="render-templates-float-panel">
+        <div class="render-templates-float-panel__header">
+          <span class="render-templates-float-panel__title">{{ t('renderTemplates.title') }}</span>
+          <a-tag v-if="currentPreviewPending" color="blue" class="render-templates-live-tag">
+            {{ t('renderTemplates.previewPending') }}
+          </a-tag>
+        </div>
+
+        <div class="render-templates-float-panel__body">
+          <a-alert
+            v-if="error"
+            type="error"
+            show-icon
+            :message="t('errors.common.actionFailed')"
+            :description="error"
+          />
+          <a-alert
+            v-if="previewParseResult.issue"
+            type="warning"
+            show-icon
+            :message="t('renderTemplates.previewInvalid')"
+            :description="previewParseResult.issue.message"
+          />
+          <a-alert
+            v-if="currentPreviewError"
+            type="error"
+            show-icon
+            :message="t('errors.common.actionFailed')"
+            :description="currentPreviewError"
+          />
+
+          <section class="render-templates-panel-section">
+            <div class="render-templates-panel-section__header">
+              <span>{{ t('renderTemplates.templateList') }}</span>
+              <small>{{ items.length }}</small>
+            </div>
+            <div class="template-nav-list">
+              <section
+                v-for="group in groupedTemplates"
+                :key="group.key"
+                class="template-nav-group"
               >
-                <div class="template-nav-item__header">
-                  <strong>{{ template.id }}</strong>
-                  <a-tag size="small">{{ template.version }}</a-tag>
+                <div class="template-nav-group__title">
+                  <span>{{ group.title }}</span>
+                  <small>{{ group.items.length }}</small>
                 </div>
-                <div class="template-nav-item__source">
-                  <a-tag size="small">{{ getTemplateSourceLabel(template) }}</a-tag>
-                  <span v-if="getTemplateLocalId(template)">{{ getTemplateLocalId(template) }}</span>
-                </div>
-                <div class="template-nav-item__meta">
-                  <span>{{ formatTemplateSize(template.width, template.height) }}</span>
-                  <span>{{ formatDateTime(template.updated_at) }}</span>
-                </div>
-              </button>
-            </section>
-          </div>
-        </AppCard>
-      </div>
-
-      <div class="render-templates-layout__main">
-        <a-skeleton
-          v-if="workspaceLoading && !currentTemplate"
-          active
-          :paragraph="{ rows: 1 }"
-          class="template-info-bar-skeleton"
-        />
-        <div v-else-if="currentTemplate" class="template-info-bar">
-          <div class="template-info-bar__item">
-            <span>{{ t('renderTemplates.fields.id') }}</span>
-            <strong>{{ currentTemplate.id }}</strong>
-          </div>
-          <div class="template-info-bar__item">
-            <span>{{ t('renderTemplates.fields.source') }}</span>
-            <strong>{{ getTemplateSourceLabel(currentTemplate) }}</strong>
-          </div>
-          <div v-if="getTemplateLocalId(currentTemplate)" class="template-info-bar__item">
-            <span>{{ t('renderTemplates.fields.localId') }}</span>
-            <strong>{{ getTemplateLocalId(currentTemplate) }}</strong>
-          </div>
-          <div class="template-info-bar__item">
-            <span>{{ t('renderTemplates.fields.version') }}</span>
-            <strong>{{ currentTemplate.version }}</strong>
-          </div>
-          <div class="template-info-bar__item">
-            <span>{{ t('renderTemplates.fields.size') }}</span>
-            <strong>{{ formatTemplateSize(currentTemplate.width, currentTemplate.height) }}</strong>
-          </div>
-          <div class="template-info-bar__item">
-            <span>{{ t('renderTemplates.fields.updatedAt') }}</span>
-            <strong>{{ formatDateTime(currentTemplate.updated_at) }}</strong>
-          </div>
-        </div>
-
-        <div class="render-templates-workspace">
-          <div class="render-templates-workspace__col">
-            <AppCard :title="t('renderTemplates.previewData')" borderless size="small">
-              <a-form layout="vertical" class="preview-form">
-                <a-form-item :label="t('renderTemplates.previewData')">
-                  <a-textarea
-                    v-model:value="currentPreviewDataText"
-                    :rows="10"
-                    :aria-label="t('renderTemplates.previewData')"
-                    :placeholder="t('renderTemplates.previewDataPlaceholder')"
-                  />
-                </a-form-item>
-              </a-form>
-            </AppCard>
-
-            <AppCard :title="t('renderTemplates.schemaPreviewTitle')" borderless size="small">
-              <template #extra>
-                <span class="render-templates-card__meta">{{ t('renderTemplates.schemaPreviewHint') }}</span>
-              </template>
-              <a-skeleton :loading="workspaceLoading && !currentTemplate" active :paragraph="{ rows: 5 }">
-                <div v-if="displaySchemaNodes.length > 0" class="schema-tree">
-                  <div
-                    v-for="node in displaySchemaNodes"
-                    :key="node.key"
-                    class="schema-tree-row"
-                    :style="{ '--schema-depth': String(node.depth) }"
-                  >
-                    <div class="schema-tree-row__content">
-                      <div class="schema-tree-row__header">
-                        <span class="schema-tree-row__name">{{ node.label }}</span>
-                        <span class="schema-tree-row__type">{{ node.type }}</span>
-                        <span v-if="node.required" class="schema-tree-row__required">{{ t('renderTemplates.required.yes') }}</span>
-                      </div>
-                      <div v-if="node.description" class="schema-tree-row__desc">{{ node.description }}</div>
-                    </div>
-                  </div>
-                </div>
-                <a-empty v-else :description="t('renderTemplates.schemaPreviewEmpty')" />
-              </a-skeleton>
-            </AppCard>
-          </div>
-
-          <div class="render-templates-workspace__col render-templates-workspace__col--preview">
-            <AppCard
-              :title="t('renderTemplates.previewTitle')"
-              borderless
-              size="small"
-              class="render-templates-card--preview"
-            >
-              <template #extra>
-                <span class="render-templates-card__meta">{{ t('renderTemplates.previewHint') }}</span>
-              </template>
-
-              <div class="preview-pane">
-                <div
-                  v-if="currentPreviewTask || previewImageSrc || currentPreviewRequestError || currentPreviewPending"
-                  class="preview-result"
-                  data-testid="render-template-preview-result"
+                <button
+                  v-for="template in group.items"
+                  :key="template.id"
+                  type="button"
+                  class="template-nav-item"
+                  :class="{ 'is-active': template.id === activeTemplateId }"
+                  @click="selectTemplate(template.id)"
                 >
-                  <div class="preview-result__status-bar">
-                    <span class="status-pill">
-                      <span>{{ t('renderTemplates.previewTask') }}</span>
-                      <strong>{{ currentPreviewTask?.task_id || t('display.empty') }}</strong>
-                    </span>
-                    <span class="status-pill">
-                      <span>{{ t('tasks.fields.status') }}</span>
-                      <strong>
-                        {{ currentPreviewPending
-                          ? t('renderTemplates.previewPending')
-                          : currentPreviewTask
-                            ? getTaskStatusLabel(currentPreviewTask.status)
-                            : t('display.empty') }}
-                      </strong>
-                    </span>
-                    <span class="status-pill">
-                      <span>{{ t('renderTemplates.previewArtifact') }}</span>
-                      <strong>{{ currentPreviewTask?.result?.details?.artifact_id || t('display.empty') }}</strong>
-                    </span>
-                    <span class="status-pill">
-                      <span>{{ t('renderTemplates.previewCache') }}</span>
-                      <strong>{{ currentPreviewTask?.result?.details?.from_cache ? t('renderTemplates.previewFromCache') : t('renderTemplates.previewFresh') }}</strong>
-                    </span>
-                  </div>
+                  <span class="template-nav-item__id">{{ template.id }}</span>
+                  <span class="template-nav-item__meta">
+                    {{ getTemplateSourceLabel(template) }}
+                    <span v-if="getTemplateLocalId(template)"> · {{ getTemplateLocalId(template) }}</span>
+                  </span>
+                </button>
+              </section>
+            </div>
+          </section>
 
-                  <a-alert
-                    v-if="currentPreviewRequestError"
-                    type="error"
-                    show-icon
-                    :message="t('errors.common.actionFailed')"
-                    :description="currentPreviewRequestError"
-                  />
-
-                  <a-alert
-                    v-if="currentPreviewTask?.error"
-                    type="error"
-                    show-icon
-                    :message="currentPreviewTask.error.code"
-                    :description="currentPreviewTask.error.message"
-                  />
-
-                  <div
-                    v-if="previewImageSrc"
-                    class="preview-result__image-wrap"
-                    :title="t('renderTemplates.previewZoomHint')"
-                    @click="openImageModal"
-                  >
-                    <img
-                      :src="previewImageSrc"
-                      :alt="t('renderTemplates.previewImageAlt')"
-                      class="preview-result__image"
-                    />
-                    <div class="preview-result__zoom-hint">
-                      {{ t('renderTemplates.previewZoomHint') }}
-                    </div>
-                  </div>
-
-                  <RouterLink
-                    v-if="currentPreviewTask"
-                    class="preview-result__link"
-                    :to="{ name: 'tasks', query: { task_id: currentPreviewTask.task_id } }"
-                  >
-                    {{ t('renderTemplates.previewTaskDetail') }}
-                  </RouterLink>
-                </div>
-
-                <a-empty v-else :description="previewEmptyDescription" />
+          <section v-if="currentTemplate" class="render-templates-panel-section">
+            <div class="render-templates-panel-section__header">
+              <span>{{ t('renderTemplates.summaryTitle') }}</span>
+            </div>
+            <dl class="template-info-list">
+              <div>
+                <dt>{{ t('renderTemplates.fields.id') }}</dt>
+                <dd>{{ currentTemplate.id }}</dd>
               </div>
-            </AppCard>
+              <div>
+                <dt>{{ t('renderTemplates.fields.source') }}</dt>
+                <dd>{{ getTemplateSourceLabel(currentTemplate) }}</dd>
+              </div>
+              <div v-if="getTemplateLocalId(currentTemplate)">
+                <dt>{{ t('renderTemplates.fields.localId') }}</dt>
+                <dd>{{ getTemplateLocalId(currentTemplate) }}</dd>
+              </div>
+              <div>
+                <dt>{{ t('renderTemplates.fields.version') }}</dt>
+                <dd>{{ currentTemplate.version }}</dd>
+              </div>
+              <div>
+                <dt>{{ t('renderTemplates.fields.size') }}</dt>
+                <dd>{{ formatTemplateSize(currentTemplate.width, currentTemplate.height) }}</dd>
+              </div>
+              <div>
+                <dt>{{ t('renderTemplates.fields.updatedAt') }}</dt>
+                <dd>{{ formatDateTime(currentTemplate.updated_at) }}</dd>
+              </div>
+            </dl>
+          </section>
+
+          <section class="render-templates-panel-section">
+            <div class="render-templates-panel-section__header">
+              <span>{{ t('renderTemplates.previewData') }}</span>
+            </div>
+            <a-textarea
+              v-model:value="currentPreviewDataText"
+              :rows="12"
+              :aria-label="t('renderTemplates.previewData')"
+              :placeholder="t('renderTemplates.previewDataPlaceholder')"
+              class="render-templates-json-input"
+            />
+          </section>
+
+          <section class="render-templates-panel-section">
+            <div class="render-templates-panel-section__header">
+              <span>{{ t('renderTemplates.schemaPreviewTitle') }}</span>
+              <small>{{ t('renderTemplates.schemaPreviewHint') }}</small>
+            </div>
+            <a-skeleton :loading="workspaceLoading && !currentTemplate" active :paragraph="{ rows: 5 }">
+              <div v-if="displaySchemaNodes.length > 0" class="schema-tree">
+                <div
+                  v-for="node in displaySchemaNodes"
+                  :key="node.key"
+                  class="schema-tree-row"
+                  :style="{ '--schema-depth': String(node.depth) }"
+                >
+                  <div class="schema-tree-row__content">
+                    <div class="schema-tree-row__header">
+                      <span class="schema-tree-row__name">{{ node.label }}</span>
+                      <span class="schema-tree-row__type">{{ node.type }}</span>
+                      <span v-if="node.required" class="schema-tree-row__required">{{ t('renderTemplates.required.yes') }}</span>
+                    </div>
+                    <div v-if="node.description" class="schema-tree-row__desc">{{ node.description }}</div>
+                  </div>
+                </div>
+              </div>
+              <a-empty v-else :description="t('renderTemplates.schemaPreviewEmpty')" />
+            </a-skeleton>
+          </section>
+        </div>
+      </aside>
+
+      <main class="render-template-preview-area">
+        <div class="render-template-preview-area__header">
+          <div>
+            <span>{{ t('renderTemplates.previewTitle') }}</span>
+            <small>{{ t('renderTemplates.previewHint') }}</small>
+          </div>
+          <a-tag v-if="currentPreviewDocument" color="green">
+            {{ currentPreviewDocument.revision_id }}
+          </a-tag>
+        </div>
+
+        <div class="render-template-preview-surface" data-testid="render-template-preview-result">
+          <TemplatePreviewFrame
+            v-if="currentPreviewDocument"
+            :frame-title="currentPreviewDocument.template_id"
+            :frame-width="currentPreviewDocument.width"
+            :srcdoc="currentPreviewDocument.html"
+            :template-id="currentPreviewDocument.template_id"
+            :payload="currentPreviewDataText"
+            test-id-prefix="render-template-preview"
+          />
+          <div v-else class="render-template-preview-empty">
+            <a-empty :description="previewEmptyDescription" />
           </div>
         </div>
-      </div>
+      </main>
     </div>
-
-    <a-modal
-      v-model:open="imageModalVisible"
-      :footer="null"
-      :closable="true"
-      width="auto"
-      wrap-class-name="preview-image-modal"
-      @cancel="imageModalVisible = false"
-    >
-      <img
-        :src="previewImageSrc"
-        :alt="t('renderTemplates.previewImageAlt')"
-        style="display: block; max-width: 90vw; max-height: 85vh; object-fit: contain;"
-      />
-    </a-modal>
   </AppPage>
 </template>
 
 <style lang="scss" scoped>
-.render-templates__alerts {
-  display: grid;
-  gap: 12px;
+.render-templates-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
 }
 
-.render-templates-layout {
-  display: grid;
-  grid-template-columns: 300px minmax(0, 1fr);
-  gap: 16px;
+.render-templates-shell {
+  --render-template-panel-width: 360px;
+  --render-template-panel-inset: var(--space-md);
+  --render-template-preview-max-width: 1120px;
+
+  position: relative;
+  display: flex;
   flex: 1 1 auto;
   min-height: 0;
+  padding: var(--space-lg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface-strong);
+  box-shadow: var(--shadow-card);
 }
 
-.render-templates-layout__sidebar,
-.render-templates-layout__main {
+.render-templates-float-panel {
+  position: absolute;
+  top: var(--render-template-panel-inset);
+  left: var(--render-template-panel-inset);
+  z-index: 10;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  width: var(--render-template-panel-width);
+  max-height: calc(100% - var(--render-template-panel-inset) * 2);
   min-height: 0;
+  padding: var(--space-md);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border);
+  background: var(--surface-strong);
+  box-shadow: var(--shadow-elevated);
 }
 
-.render-templates-card__meta {
-  color: var(--app-text-secondary);
-  font-size: 0.82rem;
+.render-templates-float-panel__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  padding-bottom: var(--space-sm);
+  border-bottom: 1px solid var(--border);
 }
 
-.render-templates-card--nav {
+.render-templates-float-panel__title {
+  color: var(--text);
+  font-size: 0.92rem;
+  font-weight: 600;
+}
+
+.render-templates-live-tag {
+  margin: 0;
+  font-size: 0.75rem;
+}
+
+.render-templates-float-panel__body {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: var(--space-md);
   min-height: 0;
+  overflow: auto;
+  padding-top: var(--space-md);
 }
 
-.render-templates-card--nav :deep(.ant-card-body) {
-  padding: 12px;
+.render-templates-panel-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.render-templates-panel-section__header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  color: var(--text);
+  font-size: 0.84rem;
+  font-weight: 600;
+
+  small {
+    color: var(--muted);
+    font-size: 0.74rem;
+    font-weight: 500;
+    text-align: right;
+  }
 }
 
 .template-nav-list {
-  display: grid;
-  gap: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
 }
 
 .template-nav-group {
-  display: grid;
-  gap: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
 }
 
 .template-nav-group__title {
   display: flex;
-  align-items: center;
   justify-content: space-between;
-  gap: 8px;
-  padding: 0 2px;
-  color: var(--app-text-secondary);
-  font-size: 0.78rem;
-  font-weight: 600;
-
-  small {
-    color: var(--app-text-secondary);
-    font-size: 0.75rem;
-    font-weight: 500;
-  }
+  gap: var(--space-sm);
+  color: var(--muted);
+  font-size: 0.76rem;
 }
 
 .template-nav-item {
-  appearance: none;
-  border: 1px solid var(--app-border);
-  background: linear-gradient(180deg, color-mix(in srgb, var(--surface) 92%, white 8%), var(--surface-soft));
-  border-radius: var(--radius-lg);
-  padding: 14px;
   display: grid;
-  gap: 10px;
-  text-align: left;
-  color: var(--app-text);
+  gap: 4px;
+  width: 100%;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  appearance: none;
+  background: var(--surface);
+  color: var(--text);
   cursor: pointer;
-  transition: border-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+  text-align: left;
+  transition: border-color 0.2s ease, background-color 0.2s ease, transform 0.2s ease;
 }
 
 .template-nav-item:hover {
-  border-color: color-mix(in srgb, var(--accent) 28%, var(--app-border));
+  border-color: var(--border-accent);
+  background: var(--surface-soft);
   transform: translateY(-1px);
-  box-shadow: 0 12px 24px rgba(15, 23, 42, 0.06);
 }
 
 .template-nav-item.is-active {
-  border-color: color-mix(in srgb, var(--accent) 38%, var(--app-border));
-  background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 8%, white 92%), color-mix(in srgb, var(--accent) 6%, var(--surface-soft)));
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 18%, transparent);
+  border-color: var(--border-accent);
+  background: var(--surface-accent);
 }
 
-.template-nav-item__header,
-.template-nav-item__source,
-.template-nav-item__meta {
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
-  align-items: center;
-}
-
-.template-nav-item__source {
-  justify-content: flex-start;
-  flex-wrap: wrap;
-  gap: 6px;
-  color: var(--app-text-secondary);
-  font-size: 0.8rem;
-
-  span {
-    overflow-wrap: anywhere;
-  }
-}
-
-.template-nav-item__meta {
-  flex-wrap: wrap;
-  color: var(--app-text-secondary);
+.template-nav-item__id {
+  font-family: var(--font-mono);
   font-size: 0.82rem;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
 
-  span {
+.template-nav-item__meta {
+  color: var(--muted);
+  font-size: 0.76rem;
+  overflow-wrap: anywhere;
+}
+
+.template-info-list {
+  display: grid;
+  gap: 7px;
+  margin: 0;
+
+  div {
+    display: grid;
+    grid-template-columns: 72px minmax(0, 1fr);
+    gap: var(--space-sm);
+  }
+
+  dt {
+    color: var(--muted);
+    font-size: 0.76rem;
+  }
+
+  dd {
     min-width: 0;
+    margin: 0;
+    color: var(--text);
+    font-size: 0.8rem;
     overflow-wrap: anywhere;
   }
 }
 
-.template-info-bar-skeleton :deep(.ant-skeleton-title) {
-  margin: 0;
-  height: 48px;
-  border-radius: var(--radius-lg);
-}
-
-.template-info-bar {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px 24px;
-  padding: 12px 16px;
-  border-radius: var(--radius-lg);
-  border: 1px solid var(--app-border);
-  background: color-mix(in srgb, var(--surface-soft) 92%, white 8%);
-}
-
-.template-info-bar__item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 0.88rem;
-
-  span {
-    color: var(--app-text-secondary);
-    font-size: 0.78rem;
-  }
-
-  strong {
-    font-weight: 600;
-    word-break: break-word;
-  }
-}
-
-.render-templates-workspace {
-  display: grid;
-  grid-template-columns: minmax(300px, 1fr) minmax(300px, 1.2fr);
-  gap: 16px;
-  flex: 1 1 auto;
-  min-height: 0;
-}
-
-.render-templates-workspace__col {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-  min-height: 0;
-}
-
-.render-templates-workspace__col--preview {
-  min-height: 0;
-}
-
-.preview-result {
-  display: grid;
-  gap: 12px;
+.render-templates-json-input {
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
 }
 
 .schema-tree {
@@ -1028,10 +1046,10 @@ onBeforeUnmount(() => {
 .schema-tree-row {
   display: flex;
   align-items: flex-start;
-  gap: 8px;
+  gap: var(--space-xs);
   padding: 7px 0;
-  padding-left: calc((var(--schema-depth) - 1) * 16px);
-  border-bottom: 1px solid color-mix(in srgb, var(--app-border) 40%, transparent);
+  padding-left: calc((var(--schema-depth) - 1) * 14px);
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 45%, transparent);
 }
 
 .schema-tree-row:last-child {
@@ -1040,156 +1058,130 @@ onBeforeUnmount(() => {
 
 .schema-tree-row__content {
   display: flex;
-  flex-direction: column;
-  gap: 2px;
   flex: 1;
   min-width: 0;
+  flex-direction: column;
+  gap: 2px;
 }
 
 .schema-tree-row__header {
   display: flex;
   align-items: center;
-  gap: 8px;
   flex-wrap: wrap;
+  gap: 6px;
 }
 
 .schema-tree-row__name {
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
   font-weight: 600;
-  font-size: 0.9rem;
-  font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
 }
 
 .schema-tree-row__type {
-  font-size: 0.75rem;
-  color: var(--app-text-secondary);
-  background: color-mix(in srgb, var(--surface-soft) 80%, white 20%);
   padding: 1px 6px;
+  border: 1px solid var(--border);
   border-radius: var(--radius-sm);
-  border: 1px solid color-mix(in srgb, var(--app-border) 50%, transparent);
+  color: var(--muted);
+  font-size: 0.72rem;
 }
 
 .schema-tree-row__required {
-  font-size: 0.75rem;
   color: #ff4d4f;
-  font-weight: 500;
-}
-
-.schema-tree-row__desc {
-  font-size: 0.8rem;
-  color: var(--app-text-secondary);
-  line-height: 1.4;
-}
-
-.render-templates-card--preview :deep(.ant-card-body) {
-  display: grid;
-  gap: 16px;
-}
-
-.preview-form {
-  display: grid;
-  gap: 10px;
-}
-
-.preview-form :deep(.ant-form-item) {
-  margin-bottom: 0;
-}
-
-.preview-pane {
-  display: grid;
-  gap: 12px;
-}
-
-.preview-result__status-bar {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.status-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 4px 10px;
-  border-radius: var(--radius-md);
-  border: 1px solid var(--app-border);
-  background: color-mix(in srgb, var(--surface-soft) 88%, white 12%);
-  font-size: 0.82rem;
-
-  span {
-    color: var(--app-text-secondary);
-  }
-
-  strong {
-    font-weight: 600;
-    word-break: break-word;
-  }
-}
-
-.preview-result__image-wrap {
-  position: relative;
-  display: inline-block;
-  width: 100%;
-  border-radius: var(--radius-lg);
-  border: 1px solid var(--app-border);
-  background: var(--surface-soft);
-  cursor: zoom-in;
-  overflow: hidden;
-  transition: box-shadow 0.2s ease;
-}
-
-.preview-result__image-wrap:hover {
-  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.1);
-}
-
-.preview-result__image {
-  display: block;
-  width: 100%;
-  max-height: 70vh;
-  object-fit: contain;
-  border-radius: var(--radius-lg);
-}
-
-.preview-result__zoom-hint {
-  position: absolute;
-  bottom: 12px;
-  right: 12px;
-  padding: 4px 10px;
-  background: rgba(0, 0, 0, 0.55);
-  color: #fff;
-  border-radius: var(--radius-md);
-  font-size: 0.75rem;
-  opacity: 0;
-  transition: opacity 0.2s ease;
-  pointer-events: none;
-  user-select: none;
-}
-
-.preview-result__image-wrap:hover .preview-result__zoom-hint {
-  opacity: 1;
-}
-
-.preview-result__link {
-  color: var(--accent);
+  font-size: 0.72rem;
   font-weight: 600;
 }
 
-@media (max-width: 1080px) {
-  .render-templates-layout {
-    grid-template-columns: 1fr;
+.schema-tree-row__desc {
+  color: var(--muted);
+  font-size: 0.76rem;
+  line-height: 1.45;
+}
+
+.render-template-preview-area {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: var(--space-md);
+  align-items: center;
+  min-width: 0;
+  min-height: 0;
+  padding-left: calc(var(--render-template-panel-width) + var(--space-xl));
+}
+
+.render-template-preview-area__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+  width: min(100%, var(--render-template-preview-max-width));
+  color: var(--text);
+
+  div {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  span {
+    font-size: 0.95rem;
+    font-weight: 600;
+  }
+
+  small {
+    color: var(--muted);
+    font-size: 0.78rem;
   }
 }
 
-@media (max-width: 900px) {
-  .render-templates-workspace {
-    grid-template-columns: 1fr;
+.render-template-preview-surface {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  width: min(100%, var(--render-template-preview-max-width));
+  min-height: 0;
+}
+
+.render-template-preview-empty {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: center;
+  justify-content: center;
+  min-height: 320px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-soft);
+}
+
+@media (max-width: 1180px) {
+  .render-templates-shell {
+    flex-direction: column;
+    gap: var(--space-md);
+  }
+
+  .render-templates-float-panel {
+    position: static;
+    width: 100%;
+    max-height: none;
+    background: var(--surface);
+  }
+
+  .render-template-preview-area {
+    padding-left: 0;
   }
 }
 
-@media (max-width: 768px) {
-  .template-info-bar {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 10px;
+@media (max-width: 720px) {
+  .render-templates-shell {
+    padding: var(--space-sm);
+  }
+
+  .render-templates-float-panel {
+    padding: var(--space-sm);
+  }
+
+  .template-info-list div {
+    grid-template-columns: 1fr;
+    gap: 2px;
   }
 }
 </style>

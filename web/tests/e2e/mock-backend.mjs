@@ -14,6 +14,10 @@ const previewArtifactBytes = Buffer.from(
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO2W4n8AAAAASUVORK5CYII=',
   'base64',
 )
+const externalPreviewImageBytes = previewArtifactBytes
+const externalPreviewFontBytes = await readFile(
+  path.join(repoRoot, 'templates', 'fortune.card', 'assets', 'fonts', 'lxgwwenkai-medium', 'e8f52c41386b1b7731acfccb8c1a8c52.woff2'),
+)
 
 async function readFixture(relativePath) {
   const absolutePath = path.join(repoRoot, relativePath)
@@ -301,6 +305,7 @@ function listRenderTemplates() {
         height: template.detail.height,
         has_input_schema: template.detail.has_input_schema,
         updated_at: template.detail.updated_at,
+        source: structuredClone(template.detail.source),
       }))
       .sort((left, right) => right.updated_at.localeCompare(left.updated_at)),
   }
@@ -313,6 +318,35 @@ function getRenderTemplate(templateId) {
 function renderTemplateDetailBody(templateId) {
   const template = getRenderTemplate(templateId)
   return template ? { template: structuredClone(template.detail) } : null
+}
+
+function renderTemplatePreviewHTMLBody(templateId, payload = {}) {
+  const template = getRenderTemplate(templateId)
+  if (!template) {
+    return null
+  }
+  const title = typeof payload.data?.title === 'string' && payload.data.title.trim()
+    ? payload.data.title.trim()
+    : template.detail.id
+  const width = Number.isFinite(template.detail.width) && template.detail.width > 0
+    ? Math.ceil(template.detail.width)
+    : 960
+  return {
+    template_id: templateId,
+    revision_id: `rev_${templateId.replaceAll('.', '_')}_e2e`,
+    width: template.detail.width,
+    height: template.detail.height,
+    html: `<!doctype html><html lang="zh-CN"><head><meta charset="utf-8" /><link rel="stylesheet" href="http://127.0.0.1:4010/external-preview/font.css" /><style>html,body{min-width:${width}px;margin:0}.surface{width:${width}px;min-height:360px;padding:24px;font-family:RayleaExternalPreview,sans-serif;background-image:url("http://127.0.0.1:4010/external-preview/background.png")}.external-preview-image{width:16px;height:16px}</style></head><body><main class="surface"><h1>${escapeHTML(title)}</h1><img class="external-preview-image" src="http://127.0.0.1:4010/external-preview/avatar.png" alt="外部图片"></main></body></html>`,
+  }
+}
+
+function escapeHTML(value) {
+  return String(value)
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#39;')
 }
 
 function nextRenderPreviewTaskSequence() {
@@ -1228,6 +1262,36 @@ const server = http.createServer(async (request, response) => {
     return
   }
 
+  if (pathname === '/external-preview/font.css' && request.method === 'GET') {
+    response.writeHead(200, {
+      'Content-Type': 'text/css; charset=utf-8',
+      'Cache-Control': 'no-store',
+      'Access-Control-Allow-Origin': '*',
+    })
+    response.end('@font-face{font-family:"RayleaExternalPreview";src:url("http://127.0.0.1:4010/external-preview/font.woff2") format("woff2");font-style:normal;font-weight:400;font-display:block;unicode-range:U+20-7E;}')
+    return
+  }
+
+  if (pathname === '/external-preview/font.woff2' && request.method === 'GET') {
+    response.writeHead(200, {
+      'Content-Type': 'font/woff2',
+      'Cache-Control': 'no-store',
+      'Access-Control-Allow-Origin': '*',
+    })
+    response.end(externalPreviewFontBytes)
+    return
+  }
+
+  if ((pathname === '/external-preview/avatar.png' || pathname === '/external-preview/background.png') && request.method === 'GET') {
+    response.writeHead(200, {
+      'Content-Type': 'image/png',
+      'Cache-Control': 'no-store',
+      'Access-Control-Allow-Origin': '*',
+    })
+    response.end(externalPreviewImageBytes)
+    return
+  }
+
   if (state.networkOffline) {
     request.socket.destroy()
     return
@@ -1387,6 +1451,35 @@ const server = http.createServer(async (request, response) => {
     }
 
     json(response, 200, listRenderTemplates())
+    return
+  }
+
+  if (pathname.startsWith('/api/system/render/templates/') && pathname.endsWith('/asset') && request.method === 'GET') {
+    if (!requireAuth(request, response)) {
+      return
+    }
+
+    response.writeHead(200, {
+      'Content-Type': 'application/octet-stream',
+      'Cache-Control': 'no-store',
+    })
+    response.end(Buffer.from('template asset'))
+    return
+  }
+
+  if (pathname.startsWith('/api/system/render/templates/') && pathname.endsWith('/preview-html') && request.method === 'POST') {
+    if (!requireAuth(request, response)) {
+      return
+    }
+
+    const templateId = decodeURIComponent(pathname.split('/')[5] ?? '')
+    const payload = await parseBody(request)
+    const body = renderTemplatePreviewHTMLBody(templateId, payload)
+    if (!body) {
+      json(response, fixtures.renderTemplateNotFound.response.status, fixtures.renderTemplateNotFound.response.body)
+      return
+    }
+    json(response, 200, body)
     return
   }
 
