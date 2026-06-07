@@ -83,7 +83,7 @@
   }
 
   function defaultPageSubtitle() {
-    return pageMode === 'cookies' ? '管理 Bilibili CK、备注和密钥名' : '管理 Bilibili 订阅与轮询'
+    return pageMode === 'cookies' ? '管理 Bilibili CK 与备注' : '管理 Bilibili 订阅与轮询'
   }
 
   function postMessage(type, payload, requestId) {
@@ -132,6 +132,27 @@
       .replace(/^[._-]+|[._-]+$/g, '')
       .slice(0, 96)
     return normalized || fallback
+  }
+
+  function nextCookieIdentity(tokens) {
+    const usedIds = new Set(tokens.map((item) => safeId(item.id, '')).filter(Boolean))
+    const usedSecretKeys = new Set(tokens.map((item) => safeId(item.secret_key, '')).filter(Boolean))
+    if (!usedIds.has('bilibili-primary') && !usedSecretKeys.has('bili.primary')) {
+      return {
+        id: 'bilibili-primary',
+        label: '主 CK',
+        secret_key: 'bili.primary',
+      }
+    }
+    let index = 2
+    while (usedIds.has(`bilibili-cookie-${index}`) || usedSecretKeys.has(`bili.cookie_${index}`)) {
+      index += 1
+    }
+    return {
+      id: `bilibili-cookie-${index}`,
+      label: `备用 CK ${index}`,
+      secret_key: `bili.cookie_${index}`,
+    }
   }
 
   function clampNumber(value, minimum, maximum, fallback) {
@@ -523,60 +544,116 @@
       return
     }
 
+    const table = document.createElement('div')
+    table.className = 'cookie-table'
+    table.setAttribute('role', 'table')
+    table.setAttribute('aria-label', 'Bilibili CK 列表')
+
+    const header = document.createElement('div')
+    header.className = 'cookie-table__head'
+    header.setAttribute('role', 'row')
+    ;['状态', '平台', '备注', 'CK', '操作'].forEach((label) => {
+      const cell = document.createElement('span')
+      cell.setAttribute('role', 'columnheader')
+      cell.textContent = label
+      header.appendChild(cell)
+    })
+    table.appendChild(header)
+
     draft.tokens.forEach((token, index) => {
-      const card = document.createElement('article')
-      card.className = `cookie-card${token.enabled === false ? ' is-muted' : ''}`
-      card.appendChild(rowHeader(token.label || token.id, token.enabled ? '启用' : '停用', [
-        smallButton(token.show_secret ? '隐藏' : '显示', () => {
-          token.show_secret = !token.show_secret
-          renderCookies()
-        }),
-        smallButton('删除', () => removeCookie(index), 'button--danger'),
-      ]))
+      const row = document.createElement('div')
+      row.className = `cookie-row${token.enabled === false ? ' is-muted' : ''}`
+      row.setAttribute('role', 'row')
 
-      card.appendChild(selectField(`cookie-platform-${index}`, '平台', COOKIE_PLATFORM_OPTIONS, token.platform, (value) => {
-        token.platform = value
-        markChanged()
-      }))
-      card.appendChild(fieldInput(`cookie-label-${index}`, '备注', token.label, (value) => {
-        token.label = value
-        markChanged(false)
-      }))
-      card.appendChild(fieldInput(`cookie-id-${index}`, 'ID', token.id, (value) => {
-        token.id = safeId(value, '')
-        markChanged()
-      }, { spellcheck: false }))
-      card.appendChild(fieldInput(`cookie-secret-key-${index}`, '密钥名', token.secret_key, (value) => {
-        token.secret_key = safeId(value, '')
-        markChanged()
-      }, { spellcheck: false }))
-      card.appendChild(fieldInput(`cookie-secret-value-${index}`, 'CK', token.secret_value, (value) => {
-        token.secret_value = value
-        markChanged(false)
-      }, { type: token.show_secret ? 'text' : 'password', spellcheck: false }))
-
-      const toggle = labelWrap('cookie-enabled', `cookie-enabled-${index}`)
-      toggle.className = 'toggle-row toggle-row--compact'
-      const input = document.createElement('input')
-      input.id = `cookie-enabled-${index}`
-      input.type = 'checkbox'
-      input.name = `cookie_enabled_${index}`
-      input.autocomplete = 'off'
-      input.checked = token.enabled !== false
-      input.addEventListener('change', () => {
-        token.enabled = input.checked
+      const statusCell = document.createElement('div')
+      statusCell.className = 'cookie-cell cookie-cell--status'
+      statusCell.setAttribute('role', 'cell')
+      const toggle = labelWrap('启用这个 CK', `cookie-enabled-${index}`)
+      toggle.className = 'cookie-switch'
+      const enabledInput = document.createElement('input')
+      enabledInput.id = `cookie-enabled-${index}`
+      enabledInput.type = 'checkbox'
+      enabledInput.name = `cookie_enabled_${index}`
+      enabledInput.autocomplete = 'off'
+      enabledInput.checked = token.enabled !== false
+      enabledInput.addEventListener('change', () => {
+        token.enabled = enabledInput.checked
         markChanged()
       })
-      toggle.appendChild(input)
-      toggle.appendChild(textBlock('启用这个 CK', '停用后不会用于轮询。'))
-      card.appendChild(toggle)
+      const statusText = document.createElement('span')
+      statusText.textContent = token.enabled === false ? '停用' : '启用'
+      toggle.appendChild(enabledInput)
+      toggle.appendChild(statusText)
+      statusCell.appendChild(toggle)
+      row.appendChild(statusCell)
+
+      const platformCell = document.createElement('div')
+      platformCell.className = 'cookie-cell cookie-cell--platform'
+      platformCell.setAttribute('role', 'cell')
+      const platform = document.createElement('span')
+      platform.className = 'cookie-platform'
+      platform.textContent = COOKIE_PLATFORM_OPTIONS.find((item) => item.value === token.platform)?.label || 'Bilibili'
+      platformCell.appendChild(platform)
+      row.appendChild(platformCell)
+
+      const labelCell = document.createElement('div')
+      labelCell.className = 'cookie-cell cookie-cell--label'
+      labelCell.setAttribute('role', 'cell')
+      const labelInput = document.createElement('input')
+      labelInput.id = `cookie-label-${index}`
+      labelInput.name = `cookie_label_${index}`
+      labelInput.type = 'text'
+      labelInput.autocomplete = 'off'
+      labelInput.value = String(token.label || '')
+      labelInput.setAttribute('aria-label', '备注')
+      labelInput.placeholder = `CK ${index + 1}`
+      labelInput.addEventListener('input', () => {
+        token.label = labelInput.value
+        markChanged(false)
+      })
+      labelCell.appendChild(labelInput)
+      row.appendChild(labelCell)
+
+      const secretCell = document.createElement('div')
+      secretCell.className = 'cookie-cell cookie-cell--secret'
+      secretCell.setAttribute('role', 'cell')
+      const secretInput = document.createElement('input')
+      secretInput.id = `cookie-secret-value-${index}`
+      secretInput.name = `cookie_secret_value_${index}`
+      secretInput.type = token.show_secret ? 'text' : 'password'
+      secretInput.autocomplete = 'off'
+      secretInput.spellcheck = false
+      secretInput.value = String(token.secret_value || '')
+      secretInput.setAttribute('aria-label', 'CK')
+      secretInput.placeholder = 'SESSDATA=...'
+      secretInput.addEventListener('input', () => {
+        token.secret_value = secretInput.value
+        markChanged(false)
+      })
+      secretCell.appendChild(secretInput)
+      row.appendChild(secretCell)
+
+      const actions = document.createElement('div')
+      actions.className = 'cookie-cell cookie-cell--actions'
+      actions.setAttribute('role', 'cell')
+      actions.appendChild(smallButton(token.show_secret ? '隐藏' : '显示', () => {
+        token.show_secret = !token.show_secret
+        renderCookies()
+      }))
+      actions.appendChild(smallButton('删除', () => removeCookie(index), 'button--danger'))
+      row.appendChild(actions)
 
       const error = firstError(`token-${index}`)
       if (error) {
-        card.appendChild(errorNode(error.message))
+        const errorCell = document.createElement('div')
+        errorCell.className = 'cookie-cell cookie-cell--error'
+        errorCell.setAttribute('role', 'cell')
+        errorCell.appendChild(errorNode(error.message))
+        row.appendChild(errorCell)
       }
-      elements.cookieList.appendChild(card)
+      table.appendChild(row)
     })
+    elements.cookieList.appendChild(table)
   }
 
   function renderSubscriptions() {
@@ -1039,12 +1116,12 @@
   }
 
   function addCookie() {
-    const next = draft.tokens.length + 1
+    const identity = nextCookieIdentity(draft.tokens)
     draft.tokens.push({
-      id: next === 1 ? 'bilibili-primary' : `bilibili-cookie-${next}`,
+      id: identity.id,
       platform: 'bilibili',
-      label: next === 1 ? '主 CK' : `备用 CK ${next}`,
-      secret_key: next === 1 ? 'bili.primary' : `bili.cookie_${next}`,
+      label: identity.label,
+      secret_key: identity.secret_key,
       enabled: true,
       secret_value: '',
       show_secret: true,
@@ -1156,7 +1233,7 @@
     }
     if (first.scope.startsWith('token-')) {
       const [, index] = first.scope.split('-')
-      const input = document.getElementById(`cookie-secret-value-${index}`) || document.getElementById(`cookie-id-${index}`)
+      const input = document.getElementById(`cookie-secret-value-${index}`) || document.getElementById(`cookie-label-${index}`)
       if (input) {
         input.focus()
       }

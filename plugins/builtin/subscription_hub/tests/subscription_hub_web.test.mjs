@@ -163,9 +163,12 @@ test('renders CK page and saves token remarks through settings and secrets', () 
   const document = dom.window.document
 
   assert.equal(document.querySelector('#subscription-list'), null)
-  assert.equal(document.querySelector('.cookie-card select').value, 'bilibili')
+  assert.equal(document.querySelectorAll('.cookie-row').length, 1)
+  assert.equal(document.querySelector('.cookie-platform').textContent, 'Bilibili')
   assert.equal(document.querySelector('#cookie-label-0').value, '主 CK')
   assert.equal(document.querySelector('#cookie-secret-value-0').value, 'SESSDATA=old; bili_jct=old')
+  assert.equal(document.querySelector('#cookie-id-0'), null)
+  assert.equal(document.querySelector('#cookie-secret-key-0'), null)
 
   document.querySelector('#cookie-label-0').value = '主账号'
   document.querySelector('#cookie-label-0').dispatchEvent(new dom.window.Event('input', { bubbles: true }))
@@ -215,14 +218,14 @@ test('adds and deletes CK entries with platform and deleted secret keys', () => 
   const document = dom.window.document
 
   document.querySelector('#add-cookie-button').click()
-  assert.equal(document.querySelectorAll('.cookie-card').length, 2)
-  assert.equal(document.querySelector('#cookie-platform-1').value, 'bilibili')
-  assert.equal(document.querySelector('#cookie-id-1').value, 'bilibili-cookie-2')
-  assert.equal(document.querySelector('#cookie-secret-key-1').value, 'bili.cookie_2')
+  assert.equal(document.querySelectorAll('.cookie-row').length, 2)
+  assert.equal(document.querySelectorAll('.cookie-platform')[1].textContent, 'Bilibili')
+  assert.equal(document.querySelector('#cookie-id-1'), null)
+  assert.equal(document.querySelector('#cookie-secret-key-1'), null)
 
   document.querySelector('#cookie-secret-value-1').value = 'SESSDATA=backup; bili_jct=backup'
   document.querySelector('#cookie-secret-value-1').dispatchEvent(new dom.window.Event('input', { bubbles: true }))
-  document.querySelectorAll('.cookie-card .button--danger')[0].click()
+  document.querySelectorAll('.cookie-row .button--danger')[0].click()
   document.querySelector('#save-button').click()
 
   const values = saveMessage(messages).payload.values
