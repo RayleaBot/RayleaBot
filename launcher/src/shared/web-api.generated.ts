@@ -1482,9 +1482,7 @@ export interface components {
             alt?: string;
         };
         PluginManagementUISummary: {
-            entry: string;
-            label?: string;
-            pages?: components["schemas"]["PluginManagementUIPage"][];
+            pages: components["schemas"]["PluginManagementUIPage"][];
         };
         PluginManagementUIPage: {
             id: string;

@@ -93,7 +93,9 @@ func TestHandlePluginManagementUIStaticServesScopedAssets(t *testing.T) {
 			RuntimeState:      "stopped",
 			PackageRootPath:   pluginDir,
 			ManagementUI: &plugins.ManagementUI{
-				Entry: "web/index.html",
+				Pages: []plugins.ManagementUIPage{
+					{ID: "config", Label: "配置页面", Entry: "web/index.html"},
+				},
 			},
 		}}),
 	})
@@ -160,7 +162,9 @@ func TestHandlePluginManagementUIStaticRejectsParentEscape(t *testing.T) {
 			RuntimeState:      "stopped",
 			PackageRootPath:   pluginDir,
 			ManagementUI: &plugins.ManagementUI{
-				Entry: "web/index.html",
+				Pages: []plugins.ManagementUIPage{
+					{ID: "config", Label: "配置页面", Entry: "web/index.html"},
+				},
 			},
 		}}),
 	})

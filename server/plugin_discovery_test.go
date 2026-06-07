@@ -515,14 +515,11 @@ func TestDiscoverManifestManagementUI(t *testing.T) {
 	if snapshot.ManagementUI == nil {
 		t.Fatal("expected management_ui to be populated")
 	}
-	if snapshot.ManagementUI.Entry != "web/index.html" {
-		t.Fatalf("unexpected management_ui.entry: got %q want web/index.html", snapshot.ManagementUI.Entry)
+	if len(snapshot.ManagementUI.Pages) != 1 {
+		t.Fatalf("unexpected management_ui.pages length: got %d want 1", len(snapshot.ManagementUI.Pages))
 	}
-	if snapshot.ManagementUI.Label != "配置页面" {
-		t.Fatalf("unexpected management_ui.label: got %q want 配置页面", snapshot.ManagementUI.Label)
-	}
-	if len(snapshot.ManagementUI.Pages) != 0 {
-		t.Fatalf("unexpected management_ui.pages length: got %d want 0", len(snapshot.ManagementUI.Pages))
+	if got := snapshot.ManagementUI.Pages[0]; got.ID != "config" || got.Label != "配置页面" || got.Entry != "web/index.html" {
+		t.Fatalf("unexpected management_ui page: %#v", got)
 	}
 	if snapshot.PackageRootPath != pluginDir {
 		t.Fatalf("unexpected package root path: got %q want %q", snapshot.PackageRootPath, pluginDir)

@@ -137,9 +137,7 @@ type pluginScreenshotResponse struct {
 }
 
 type pluginManagementUIResponse struct {
-	Entry string                           `json:"entry"`
-	Label string                           `json:"label,omitempty"`
-	Pages []pluginManagementUIPageResponse `json:"pages,omitempty"`
+	Pages []pluginManagementUIPageResponse `json:"pages"`
 }
 
 type pluginManagementUIPageResponse struct {
@@ -803,15 +801,7 @@ func buildPluginManagementUI(snapshot Snapshot) *pluginManagementUIResponse {
 		return nil
 	}
 
-	entry := strings.TrimSpace(snapshot.ManagementUI.Entry)
-	if entry == "" {
-		return nil
-	}
-
-	response := &pluginManagementUIResponse{
-		Entry: entry,
-		Label: strings.TrimSpace(snapshot.ManagementUI.Label),
-	}
+	response := &pluginManagementUIResponse{}
 	for _, page := range snapshot.ManagementUI.Pages {
 		pageID := strings.TrimSpace(page.ID)
 		pageLabel := strings.TrimSpace(page.Label)
@@ -824,6 +814,9 @@ func buildPluginManagementUI(snapshot Snapshot) *pluginManagementUIResponse {
 			Label: pageLabel,
 			Entry: pageEntry,
 		})
+	}
+	if len(response.Pages) == 0 {
+		return nil
 	}
 	return response
 }

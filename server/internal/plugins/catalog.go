@@ -56,9 +56,7 @@ type Screenshot struct {
 }
 
 type ManagementUI struct {
-	Entry string             `json:"entry"`
-	Label string             `json:"label,omitempty"`
-	Pages []ManagementUIPage `json:"pages,omitempty"`
+	Pages []ManagementUIPage `json:"pages"`
 }
 
 type ManagementUIPage struct {

@@ -1,7 +1,7 @@
 {
   "contract": "contracts/plugin-info.schema.json",
   "case": "invalid",
-  "description": "The management UI entry must point to an HTML file.",
+  "description": "The management UI object does not accept a top-level entry field.",
   "input": {
     "id": "example-config-panel",
     "name": "Example Config Panel",
@@ -13,7 +13,14 @@
     "entry": "main.py",
     "license": "MIT",
     "management_ui": {
-      "entry": "web/app.js"
+      "entry": "web/index.html",
+      "pages": [
+        {
+          "id": "config",
+          "label": "配置页面",
+          "entry": "web/index.html"
+        }
+      ]
     },
     "permissions": {
       "required": [],

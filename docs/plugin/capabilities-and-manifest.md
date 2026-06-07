@@ -170,9 +170,9 @@
 
 ## 插件内置管理页
 
-- `management_ui.entry` 指向插件包内的 HTML 入口文件，路径相对于插件根目录。
-- `management_ui.label` 用于插件详情页内工作区标题；省略时管理面使用默认标题。
-- `management_ui.pages` 用于声明同一管理入口目录内的多个工作区页签；`pages[].entry` 必须是 HTML 文件，且必须位于 `management_ui.entry` 所在目录。
+- `management_ui.pages` 声明插件详情页内的管理页签，至少包含一个页面。
+- `pages[].id` 是稳定页签标识，`pages[].label` 是页签标题，`pages[].entry` 是插件包内的 HTML 文件路径。
+- 同一插件的所有 `pages[].entry` 必须位于同一目录。
 - 插件详情页在概览之外提供同一插件的内置管理页工作区，不提供第二个插件一级页面。
 - 插件内置页面通过 `/plugin-ui/{plugin_id}/...` 读取自身静态资源。
 - 插件内置页面只通过正式桥接消息读取和保存插件自己的设置，不直接持有管理会话。

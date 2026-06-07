@@ -99,8 +99,7 @@ const pluginSecretKeyPattern = /^[a-z0-9](?:[a-z0-9_.-]{0,126}[a-z0-9])?$/
 const props = defineProps<{
   plugin: PluginDetail
   title: string
-  entry?: string
-  page?: PluginManagementUIPage | null
+  page: PluginManagementUIPage
 }>()
 
 const pluginsStore = usePluginsStore()
@@ -115,7 +114,7 @@ const waitingForReady = ref(false)
 const fatalError = ref<string | null>(null)
 const actionError = ref<string | null>(null)
 
-const managementEntry = computed(() => props.entry?.trim() || props.plugin.management_ui?.entry?.trim() || '')
+const managementEntry = computed(() => props.page.entry.trim())
 const requiresConfirmation = computed(() => props.plugin.trust?.level === 'unverified')
 const confirmationStorageKey = computed(() => (
   `rayleabot.plugin-management-ui.confirmed:${props.plugin.id}:${props.plugin.version ?? ''}:${props.plugin.source?.package_source_type ?? ''}:${props.plugin.source?.package_source_ref ?? ''}`
@@ -312,11 +311,7 @@ function toBridgeValue<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T
 }
 
-function toBridgePage(page: PluginManagementUIPage | null | undefined): PluginManagementUIPage | undefined {
-  if (!page) {
-    return undefined
-  }
-
+function toBridgePage(page: PluginManagementUIPage): PluginManagementUIPage {
   return {
     id: page.id,
     label: page.label,

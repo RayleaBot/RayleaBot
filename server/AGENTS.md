@@ -13,7 +13,7 @@
 ## Current Boundary Expectations
 
 - 当前主链包含治理读写、插件设置、插件内置管理页静态资源、OneBot11 协议快照、命令拒绝日志、render management、recovery/runtime tasks 与 launcher bootstrap。
-- 插件内置管理页资源只读取 `management_ui.entry` 所在目录下的文件，不扩成目录枚举或管理数据出口。
+- 插件内置管理页资源只读取 `management_ui.pages[0].entry` 所在目录下的文件，不扩成目录枚举或管理数据出口。
 - 命令被白名单、黑名单、权限或冷却拒绝时，继续通过现有管理日志主链记录，不新增第二套拒绝语义。
 
 ## Config and Policy Reading

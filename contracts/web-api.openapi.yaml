@@ -2953,15 +2953,11 @@ components:
     PluginManagementUISummary:
       type: object
       additionalProperties: false
-      required: [entry]
+      required: [pages]
       properties:
-        entry:
-          type: string
-          pattern: '^[A-Za-z0-9._/-]+\.html$'
-        label:
-          type: string
         pages:
           type: array
+          minItems: 1
           items:
             $ref: '#/components/schemas/PluginManagementUIPage'
 

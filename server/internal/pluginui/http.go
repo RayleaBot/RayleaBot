@@ -365,7 +365,7 @@ func (h *Handlers) resolvePluginUISnapshot(pluginID string) (plugins.Snapshot, b
 	if !ok || !snapshot.Valid || snapshot.RegistrationState != "installed" || snapshot.ManagementUI == nil {
 		return plugins.Snapshot{}, false
 	}
-	if strings.TrimSpace(snapshot.PackageRootPath) == "" || strings.TrimSpace(snapshot.ManagementUI.Entry) == "" {
+	if strings.TrimSpace(snapshot.PackageRootPath) == "" || len(snapshot.ManagementUI.Pages) == 0 || strings.TrimSpace(snapshot.ManagementUI.Pages[0].Entry) == "" {
 		return plugins.Snapshot{}, false
 	}
 	return snapshot, true
@@ -421,7 +421,10 @@ func pluginUIAssetRoot(snapshot plugins.Snapshot) string {
 		return ""
 	}
 
-	entryDir := path.Dir(strings.TrimSpace(snapshot.ManagementUI.Entry))
+	if len(snapshot.ManagementUI.Pages) == 0 {
+		return ""
+	}
+	entryDir := path.Dir(strings.TrimSpace(snapshot.ManagementUI.Pages[0].Entry))
 	if entryDir == "." || entryDir == "/" {
 		return filepath.Clean(snapshot.PackageRootPath)
 	}

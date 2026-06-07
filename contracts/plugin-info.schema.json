@@ -157,29 +157,12 @@
       "description": "Optional plugin-local management page entries shown inside the protected plugin detail workbench.",
       "additionalProperties": false,
       "required": [
-        "entry"
+        "pages"
       ],
       "properties": {
-        "entry": {
-          "allOf": [
-            {
-              "$ref": "#/$defs/package_relative_path"
-            },
-            {
-              "type": "string",
-              "pattern": "\\.html$"
-            }
-          ],
-          "description": "Package-relative HTML entry file for the plugin management page."
-        },
-        "label": {
-          "type": "string",
-          "minLength": 1,
-          "description": "Optional workbench label shown in the plugin detail page."
-        },
         "pages": {
           "type": "array",
-          "description": "Optional explicit management pages shown as plugin detail workbench tabs. Page entries must be package-relative HTML files inside the management UI asset directory.",
+          "description": "Management pages shown as plugin detail workbench tabs. Page entries must be package-relative HTML files inside the same management UI asset directory.",
           "items": {
             "$ref": "#/$defs/management_ui_page"
           },
@@ -731,8 +714,8 @@
     "fixtures/plugin-info/invalid.unknown-provider-capability.json",
     "fixtures/plugin-info/invalid.icon-absolute-path.json",
     "fixtures/plugin-info/invalid.icon-parent-path.json",
-    "fixtures/plugin-info/invalid.management-ui-parent-path.json",
-    "fixtures/plugin-info/invalid.management-ui-non-html-entry.json",
+    "fixtures/plugin-info/invalid.management-ui-entry-field.json",
+    "fixtures/plugin-info/invalid.management-ui-label-field.json",
     "fixtures/plugin-info/invalid.management-ui-page-parent-path.json",
     "fixtures/plugin-info/invalid.management-ui-page-non-html-entry.json",
     "fixtures/plugin-info/invalid.render-template-absolute-path.json",
@@ -743,5 +726,5 @@
     "fixtures/plugin-info/invalid.screenshots-invalid-shape.json",
     "fixtures/plugin-info/invalid.system-dependencies-duplicates.json"
   ],
-  "$comment": "The manifest stays focused on install-time validation, permission declaration, management role labeling, source metadata, default plugin config seeding, plugin-local management page entry, package-local render templates, migration boundaries, and opt-in event concurrency. The formal capability set covers event.subscribe and event.raw_payload, shared local actions including governance control, frozen OneBot single-action capabilities, and the current provider extension actions. Binary runtime support remains outside this frozen surface."
+  "$comment": "The manifest stays focused on install-time validation, permission declaration, management role labeling, source metadata, default plugin config seeding, plugin-local management page entries, package-local render templates, migration boundaries, and opt-in event concurrency. The formal capability set covers event.subscribe and event.raw_payload, shared local actions including governance control, frozen OneBot single-action capabilities, and the current provider extension actions. Binary runtime support remains outside this frozen surface."
 }

@@ -71,7 +71,7 @@
 
 ## 插件内置管理页
 
-- 插件在 manifest 中声明 `management_ui` 后，插件详情页会显示对应工作区；声明 `management_ui.pages` 的插件会显示多个内置页签。
+- 插件在 manifest 中声明 `management_ui.pages` 后，插件详情页会显示对应内置页签。
 - 管理页静态资源通过公共只读 `/plugin-ui/{plugin_id}/...` 路由提供。
 - 管理页读取和保存插件设置使用正式受保护接口 `GET /api/plugins/{plugin_id}/settings` 与 `PUT /api/plugins/{plugin_id}/settings`。
 - 未验证来源插件首次打开内置管理页时需要手动确认；插件版本或来源变化后会重新确认。

@@ -13,7 +13,6 @@
     "entry": "main.py",
     "license": "MIT",
     "management_ui": {
-      "entry": "web/index.html",
       "pages": [
         {
           "id": "config",

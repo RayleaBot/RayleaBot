@@ -681,8 +681,6 @@ func TestDetailHandler_ReturnsManagementUI(t *testing.T) {
 		RuntimeState:      "stopped",
 		DisplayState:      "disabled",
 		ManagementUI: &ManagementUI{
-			Entry: "web/index.html",
-			Label: "配置页面",
 			Pages: []ManagementUIPage{
 				{ID: "config", Label: "配置页面", Entry: "web/index.html"},
 				{ID: "secrets", Label: "密钥设置", Entry: "web/secrets.html"},
@@ -707,12 +705,6 @@ func TestDetailHandler_ReturnsManagementUI(t *testing.T) {
 	}
 	if resp.Plugin.ManagementUI == nil {
 		t.Fatal("expected management_ui in detail response")
-	}
-	if resp.Plugin.ManagementUI.Entry != "web/index.html" {
-		t.Fatalf("management_ui.entry = %q, want web/index.html", resp.Plugin.ManagementUI.Entry)
-	}
-	if resp.Plugin.ManagementUI.Label != "配置页面" {
-		t.Fatalf("management_ui.label = %q, want 配置页面", resp.Plugin.ManagementUI.Label)
 	}
 	if len(resp.Plugin.ManagementUI.Pages) != 2 {
 		t.Fatalf("management_ui.pages length = %d, want 2", len(resp.Plugin.ManagementUI.Pages))

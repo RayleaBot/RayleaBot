@@ -12,8 +12,13 @@
   "author": "raylea",
   "role": "builtin",
   "management_ui": {
-    "entry": "web/index.html",
-    "label": "运势设置"
+    "pages": [
+      {
+        "id": "settings",
+        "label": "运势设置",
+        "entry": "web/index.html"
+      }
+    ]
   },
   "capabilities": [
     "event.subscribe",

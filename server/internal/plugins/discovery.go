@@ -539,15 +539,13 @@ func manifestManagementUI(document map[string]any) *ManagementUI {
 		return nil
 	}
 
-	entry := stringField(value, "entry")
-	if entry == "" {
+	pages := manifestManagementUIPages(value)
+	if len(pages) == 0 {
 		return nil
 	}
 
 	return &ManagementUI{
-		Entry: entry,
-		Label: stringField(value, "label"),
-		Pages: manifestManagementUIPages(value),
+		Pages: pages,
 	}
 }
 
@@ -577,7 +575,7 @@ func validateManagementUIPages(managementUI *ManagementUI) error {
 		return nil
 	}
 
-	assetRoot := pathDirectory(managementUI.Entry)
+	assetRoot := pathDirectory(managementUI.Pages[0].Entry)
 	seen := map[string]struct{}{}
 	for _, page := range managementUI.Pages {
 		if _, exists := seen[page.ID]; exists {

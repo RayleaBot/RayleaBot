@@ -804,8 +804,6 @@ describe('PluginDetailPage', () => {
         unit: 'celsius',
       },
       management_ui: {
-        entry: 'web/index.html',
-        label: '配置页面',
         pages: [
           {
             id: 'config',
@@ -876,7 +874,7 @@ describe('PluginDetailPage', () => {
     expect(wrapper.find('.app-page').classes()).not.toContain('app-page--full-height')
   })
 
-  it('keeps single-page management plugins on the legacy management panel query', async () => {
+  it('normalizes single-page management plugins to the declared management page query', async () => {
     const router = createPluginRouter()
     await router.push('/plugins/example-config-panel?panel=management-ui')
     await router.isReady()
@@ -909,8 +907,13 @@ describe('PluginDetailPage', () => {
         label: '示例',
       },
       management_ui: {
-        entry: 'web/index.html',
-        label: '配置页面',
+        pages: [
+          {
+            id: 'config',
+            label: '配置页面',
+            entry: 'web/index.html',
+          },
+        ],
       },
       commands: [],
       command_conflicts: [],
@@ -937,8 +940,12 @@ describe('PluginDetailPage', () => {
     expect(wrapper.text()).toContain('配置页面')
     expect(wrapper.find('.plugin-detail-panel-switch').exists()).toBe(true)
     expect(wrapper.find('[data-testid="plugin-management-ui-host"]').exists()).toBe(true)
-    expect(wrapper.getComponent(PluginManagementUIHost).props('page')).toBeNull()
+    expect(wrapper.getComponent(PluginManagementUIHost).props('page')).toEqual({
+      id: 'config',
+      label: '配置页面',
+      entry: 'web/index.html',
+    })
     expect(wrapper.get('[data-testid="plugin-management-ui-frame"]').attributes('src')).toContain('/plugin-ui/example-config-panel/web/index.html')
-    expect(router.currentRoute.value.query).toEqual({ panel: 'management-ui' })
+    expect(router.currentRoute.value.query).toEqual({ panel: 'management-ui', management_page: 'config' })
   })
 })

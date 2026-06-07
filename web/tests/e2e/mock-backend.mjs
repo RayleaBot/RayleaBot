@@ -709,7 +709,7 @@ function getPluginManagementUIRoot(pluginId) {
 
 function resolvePluginManagementUIFile(pluginId, requestedPath) {
   const plugin = state.plugins[pluginId]
-  const entry = plugin?.management_ui?.entry
+  const entry = plugin?.management_ui?.pages?.[0]?.entry
   const pluginRoot = getPluginManagementUIRoot(pluginId)
   if (!plugin || typeof entry !== 'string' || !entry.trim() || !pluginRoot) {
     return null

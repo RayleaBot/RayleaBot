@@ -19,7 +19,7 @@ static_route:
     registration_state: installed
     management_ui_declared: true
   asset_scope:
-    root: dirname(management_ui.entry)
+    root: dirname(management_ui.pages[0].entry)
     allow_directory_listing: false
     allow_parent_escape: false
   denied_behavior:

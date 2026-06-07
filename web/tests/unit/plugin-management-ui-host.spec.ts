@@ -8,6 +8,15 @@ import PluginManagementUIHost from '@/components/plugins/PluginManagementUIHost.
 import { useGovernanceStore } from '@/stores/governance'
 import { usePluginsStore } from '@/stores/plugins'
 
+function buildManagementPage(overrides: Record<string, unknown> = {}) {
+  return {
+    id: 'config',
+    label: '配置页面',
+    entry: 'web/index.html',
+    ...overrides,
+  }
+}
+
 function buildPlugin(overrides: Record<string, unknown> = {}) {
   return {
     id: 'example-config-panel',
@@ -34,8 +43,13 @@ function buildPlugin(overrides: Record<string, unknown> = {}) {
       unit: 'celsius',
     },
     management_ui: {
-      entry: 'web/index.html',
-      label: '配置页面',
+      pages: [
+        {
+          id: 'config',
+          label: '配置页面',
+          entry: 'web/index.html',
+        },
+      ],
     },
     commands: [],
     command_conflicts: [],
@@ -96,6 +110,7 @@ describe('PluginManagementUIHost', () => {
       props: {
         plugin: buildPlugin(),
         title: '配置页面',
+        page: buildManagementPage(),
       },
       global: {
         plugins: [Antd],
@@ -149,12 +164,11 @@ describe('PluginManagementUIHost', () => {
       props: {
         plugin,
         title: '配置页面',
-        entry: 'web/secrets.html',
-        page: {
+        page: buildManagementPage({
           id: 'secrets',
           label: '密钥设置',
           entry: 'web/secrets.html',
-        },
+        }),
       },
       global: {
         plugins: [Antd],
@@ -263,12 +277,11 @@ describe('PluginManagementUIHost', () => {
       props: {
         plugin,
         title: '配置页面',
-        entry: 'web/secrets.html',
-        page: {
+        page: buildManagementPage({
           id: 'secrets',
           label: '密钥设置',
           entry: 'web/secrets.html',
-        },
+        }),
       },
       global: {
         plugins: [Antd],
@@ -483,7 +496,6 @@ describe('PluginManagementUIHost', () => {
       props: {
         plugin,
         title: '密钥设置',
-        entry: 'web/secrets.html',
         page: reactive({
           id: 'secrets',
           label: '密钥设置',
@@ -558,6 +570,7 @@ describe('PluginManagementUIHost', () => {
       props: {
         plugin,
         title: '配置页面',
+        page: buildManagementPage(),
       },
       global: {
         plugins: [Antd],
@@ -619,6 +632,7 @@ describe('PluginManagementUIHost', () => {
           },
         }),
         title: '配置页面',
+        page: buildManagementPage(),
       },
       global: {
         plugins: [Antd],
