@@ -1,6 +1,5 @@
 import type { App } from 'vue'
 
-import Alert from 'ant-design-vue/es/alert'
 import AntdApp from 'ant-design-vue/es/app'
 import Badge from 'ant-design-vue/es/badge'
 import Button from 'ant-design-vue/es/button'
@@ -36,7 +35,6 @@ import Timeline from 'ant-design-vue/es/timeline'
 import Tooltip from 'ant-design-vue/es/tooltip'
 
 const components = [
-  Alert,
   AntdApp,
   Badge,
   Button,

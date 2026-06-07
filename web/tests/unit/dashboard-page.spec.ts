@@ -9,6 +9,29 @@ import { useProtocolsStore } from '@/stores/protocols'
 import { useSystemStore } from '@/stores/system'
 import { useTasksStore } from '@/stores/tasks'
 
+const feedbackMock = vi.hoisted(() => ({
+  notifyError: vi.fn(),
+  notifySuccess: vi.fn(),
+  useToastFeedback: vi.fn(),
+}))
+
+vi.mock('@/adapter/feedback', () => ({
+  notifyError: feedbackMock.notifyError,
+  notifySuccess: feedbackMock.notifySuccess,
+  useToastFeedback: feedbackMock.useToastFeedback,
+}))
+
+function toastMessages() {
+  return feedbackMock.useToastFeedback.mock.calls
+    .map(([source]) => {
+      if (typeof source === 'function') {
+        return source()?.message
+      }
+      return source.value?.message
+    })
+    .filter((message): message is string => Boolean(message))
+}
+
 function createProtocolSnapshot(overrides: Record<string, unknown> = {}) {
   return {
     protocol: 'onebot11',
@@ -54,6 +77,9 @@ function createDashboardRouter() {
 describe('DashboardPage', () => {
   beforeEach(() => {
     setActivePinia(createPinia())
+    feedbackMock.notifyError.mockClear()
+    feedbackMock.notifySuccess.mockClear()
+    feedbackMock.useToastFeedback.mockClear()
   })
 
   it('renders a compact status page with overview cards, tabs, and bottom workbench cards', async () => {
@@ -98,7 +124,6 @@ describe('DashboardPage', () => {
     expect(wrapper.findAll('.dashboard-overview-grid .stat-card')).toHaveLength(4)
     expect(wrapper.find('.dashboard-main-grid .ant-tabs').exists()).toBe(true)
     expect(wrapper.findAll('.dashboard-bottom-grid > .ant-card')).toHaveLength(3)
-    expect(wrapper.find('[data-testid="dashboard-protocol-alert"]').exists()).toBe(false)
     expect(wrapper.find('.dashboard-hero-card').exists()).toBe(false)
     expect(wrapper.find('.status-badge').exists()).toBe(false)
     expect(wrapper.text()).not.toContain('聚合 health、ready、system status')
@@ -174,20 +199,12 @@ describe('DashboardPage', () => {
 
     await flushPromises()
 
-    expect(wrapper.find('[data-testid="dashboard-protocol-alert"]').exists()).toBe(true)
-    expect(wrapper.text()).toContain('协议提醒')
-    expect(wrapper.text()).toContain('OneBot 主动连接已断开，正在重试。')
-    expect(wrapper.text()).toContain('adapter.transport_forward_ws_session_lost')
-    expect(wrapper.text()).toContain('查看协议中心')
-    expect(wrapper.text()).toContain('查看实时日志')
-
-    const realtimeLogsButton = wrapper.findAll('button').find((candidate) => candidate.text().includes('查看实时日志'))
-    expect(realtimeLogsButton).toBeTruthy()
-    await realtimeLogsButton!.trigger('click')
-    await flushPromises()
-
-    expect(router.currentRoute.value.name).toBe('logs')
-    expect(router.currentRoute.value.query.protocol).toBe('onebot11')
+    expect(wrapper.text()).not.toContain('协议提醒')
+    expect(wrapper.text()).not.toContain('OneBot 主动连接已断开，正在重试。')
+    expect(wrapper.text()).not.toContain('adapter.transport_forward_ws_session_lost')
+    expect(feedbackMock.useToastFeedback).toHaveBeenCalledTimes(3)
+    const protocolToastSource = feedbackMock.useToastFeedback.mock.calls[2][0] as { value: { message?: string | null } | null }
+    expect(protocolToastSource.value?.message).toBe('协议提醒：OneBot 主动连接已断开，正在重试。')
   })
 
   it('renders readiness issues from the readiness snapshot', async () => {
@@ -225,7 +242,8 @@ describe('DashboardPage', () => {
     await flushPromises()
 
     expect(wrapper.text()).toContain('就绪检查')
-    expect(wrapper.text()).toContain('协议连接警告')
+    expect(wrapper.text()).not.toContain('协议连接警告')
+    expect(toastMessages()).toContain('协议连接警告：OneBot authentication failed')
     expect(wrapper.text()).not.toContain('运行条件受限')
     expect(wrapper.findAll('.stat-card--success').length).toBeGreaterThan(0)
     expect(wrapper.text()).toContain('adapter.auth_failed')
@@ -270,7 +288,8 @@ describe('DashboardPage', () => {
     await flushPromises()
 
     expect(wrapper.text()).toContain('运行条件受限')
-    expect(wrapper.text()).toContain('管理面可用，但依赖 Python 运行环境的功能暂不可用。')
+    expect(wrapper.text()).not.toContain('管理面可用，但依赖 Python 运行环境的功能暂不可用。')
+    expect(toastMessages()).toContain('运行条件受限：管理面可用，但依赖 Python 运行环境的功能暂不可用。')
     expect(wrapper.text()).toContain('管理面可用')
     expect(wrapper.text()).not.toContain('degraded')
     expect(wrapper.text()).not.toContain('性能降级')

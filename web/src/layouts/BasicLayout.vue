@@ -30,7 +30,7 @@ import {
   resolveRouteTitle,
   type AppMenuItem,
 } from '@/access/menu'
-import { notifyError, notifyInfo, notifySuccess } from '@/adapter/feedback'
+import { notifyError, notifyInfo, notifySuccess, useToastFeedback } from '@/adapter/feedback'
 import PreferencesDrawer from '@/components/shell/PreferencesDrawer.vue'
 import RouteSearchPanel from '@/components/shell/RouteSearchPanel.vue'
 import ThemeToggleSwitch from '@/components/shell/ThemeToggleSwitch.vue'
@@ -64,6 +64,16 @@ const isFullscreen = ref(false)
 const reducedMotion = ref(false)
 const openMenuKeys = ref<string[]>([])
 let reducedMotionMediaQuery: MediaQueryList | null = null
+
+useToastFeedback(() => (
+  shutdownRequested.value
+    ? {
+        key: 'shell-shutdown-requested',
+        level: 'warning' as const,
+        message: `${t('shell.shutdownRequestedTitle')}：${t('shell.shutdownRequestedDescription')}`,
+      }
+    : null
+))
 
 const menuItems = computed(() => buildMenuItems(adminRoutes[0]?.children ?? [], ''))
 const staticNavigationItems = collectNavigationItems(adminRoutes[0]?.children ?? [], '')
@@ -1131,15 +1141,6 @@ onBeforeUnmount(() => {
       </a-layout-header>
 
       <a-layout-content id="app-main" class="admin-layout__content" tabindex="-1">
-        <a-alert
-          v-if="shutdownRequested"
-          class="admin-layout__shutdown-banner"
-          type="warning"
-          show-icon
-          :message="t('shell.shutdownRequestedTitle')"
-          :description="t('shell.shutdownRequestedDescription')"
-        />
-
         <RouterView v-slot="{ route: currentViewRoute }">
           <Transition
             :name="effectiveTransitionName"

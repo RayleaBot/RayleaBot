@@ -23,7 +23,7 @@ import AppCard from '@/components/AppCard.vue'
 import AppEmptyState from '@/components/AppEmptyState.vue'
 import PluginPowerButton from '@/components/PluginPowerButton.vue'
 import AppTableToolbar from '@/components/AppTableToolbar.vue'
-import { notifyError, notifySuccess } from '@/adapter/feedback'
+import { notifyError, notifySuccess, useToastFeedback } from '@/adapter/feedback'
 import AppPage from '@/components/page/AppPage.vue'
 import PluginCommandsPanel from '@/components/PluginCommandsPanel.vue'
 import RetryPanel from '@/components/RetryPanel.vue'
@@ -95,6 +95,27 @@ const alertCount = computed(() =>
     (item.command_conflicts?.length ?? 0) > 0
   ).length
 )
+const pageErrorToast = computed(() => (
+  error.value
+    ? {
+        key: `plugins-error:${error.value}`,
+        level: 'error' as const,
+        message: error.value,
+      }
+    : null
+))
+const installErrorToast = computed(() => (
+  installError.value
+    ? {
+        key: `plugins-install-error:${installError.value}`,
+        level: 'error' as const,
+        message: installError.value,
+      }
+    : null
+))
+
+useToastFeedback(pageErrorToast)
+useToastFeedback(installErrorToast)
 
 function getPluginGradient(id: string) {
   const colors = [
@@ -331,8 +352,6 @@ async function submitInstall() {
       @retry="loadPlugins()"
     />
 
-    <a-alert v-else-if="error" :message="t('errors.common.loadFailed')" type="error" :description="error" show-icon />
-
     <div v-else class="plugins-page-content">
       <div class="plugins-stats-row" v-motion="{ initial: { opacity: 0, y: -10 }, enter: { opacity: 1, y: 0, transition: { duration: 350 } } }">
         <div class="stat-card" @click="filterState = 'all'" :class="{ active: filterState === 'all' }">
@@ -438,8 +457,6 @@ async function submitInstall() {
             </a-button>
           </template>
         </AppTableToolbar>
-
-        <a-alert v-if="installError" :message="t('errors.common.actionFailed')" type="error" :description="installError" show-icon class="plugins-alert" />
 
         <div v-if="layoutMode === 'grid'" class="plugins-grid-container">
           <div v-if="filteredItems.length === 0" class="empty-container">
@@ -742,8 +759,6 @@ async function submitInstall() {
       @ok="submitInstall"
     >
       <a-form layout="vertical">
-        <a-alert v-if="installError" :message="t('errors.common.actionFailed')" type="error" :description="installError" show-icon class="plugins-alert" />
-
         <a-form-item :label="t('plugins.sourceType')">
           <a-select
             v-model:value="installForm.source_type"
@@ -1346,10 +1361,6 @@ async function submitInstall() {
   flex: 1 1 auto;
   min-height: 0;
   padding: 0;
-}
-
-.plugins-alert {
-  margin: 12px 14px 0;
 }
 
 .plugins-data-table {

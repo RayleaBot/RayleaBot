@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 
+import { useToastFeedback } from '@/adapter/feedback'
 import ManagementContextActions from '@/components/ManagementContextActions.vue'
 import { getLogLevelLabel, getLogProtocolLabel } from '@/lib/display'
 import { formatDateTime } from '@/lib/format'
@@ -26,6 +27,17 @@ const detailJson = computed(() => safeJsonStringify(props.detail?.details ?? {})
 const contextActions = computed(() => (
   props.summary ? buildLogContextActions(props.summary, props.scope) : []
 ))
+const errorToast = computed(() => (
+  props.error
+    ? {
+        key: `log-detail:${props.summary?.timestamp ?? ''}:${props.error}`,
+        level: 'error' as const,
+        message: props.error,
+      }
+    : null
+))
+
+useToastFeedback(errorToast)
 
 const summaryFields = computed(() => {
   if (!props.summary) {
@@ -67,15 +79,6 @@ const summaryFields = computed(() => {
 <template>
   <a-skeleton :loading="loading && !detail" active>
     <template v-if="summary">
-      <a-alert
-        v-if="error"
-        :message="t('errors.common.loadFailed')"
-        type="error"
-        :description="error"
-        show-icon
-        class="log-detail-content__alert"
-      />
-
       <section class="log-detail-content__summary">
         <div
           v-for="field in summaryFields"
@@ -117,10 +120,6 @@ const summaryFields = computed(() => {
 </template>
 
 <style lang="scss" scoped>
-.log-detail-content__alert {
-  margin-bottom: 16px;
-}
-
 .log-detail-content__summary {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

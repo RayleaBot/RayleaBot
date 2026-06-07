@@ -4,12 +4,13 @@ import { flushPromises, mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMemoryHistory, createRouter } from 'vue-router'
 
-import { notifySuccess } from '@/adapter/feedback'
+import { notifySuccess, useToastFeedback } from '@/adapter/feedback'
 import AccessListsPage from '@/views/operations/AccessListsView.vue'
 import { useGovernanceStore } from '@/stores/governance'
 
 vi.mock('@/adapter/feedback', () => ({
   notifySuccess: vi.fn(),
+  useToastFeedback: vi.fn(),
 }))
 
 function createRouterForPage() {
@@ -40,6 +41,17 @@ function buildEntries(
 function mockAccessListFetches(store: ReturnType<typeof useGovernanceStore>) {
   vi.spyOn(store, 'fetchBlacklist').mockResolvedValue(store.blacklist!)
   vi.spyOn(store, 'fetchWhitelist').mockResolvedValue(store.whitelist!)
+}
+
+function toastMessages() {
+  return vi.mocked(useToastFeedback).mock.calls
+    .map(([source]) => {
+      if (typeof source === 'function') {
+        return source()?.message
+      }
+      return source.value?.message
+    })
+    .filter((message): message is string => Boolean(message))
 }
 
 describe('AccessListsPage', () => {
@@ -98,7 +110,8 @@ describe('AccessListsPage', () => {
 
     expect(wrapper.get('[data-testid="access-lists-blacklist-card"]').text()).toContain('黑名单')
     expect(wrapper.get('[data-testid="access-lists-blacklist-card"]').text()).not.toContain('命中黑名单的用户或群')
-    expect(wrapper.get('[data-testid="access-lists-blacklist-card"]').text()).toContain('读取黑名单失败')
+    expect(wrapper.get('[data-testid="access-lists-blacklist-card"]').text()).not.toContain('读取黑名单失败')
+    expect(toastMessages()).toContain('读取黑名单失败')
 
     await wrapper.get('[data-testid="access-lists-open-commands"]').trigger('click')
     await flushPromises()
@@ -451,8 +464,9 @@ describe('AccessListsPage', () => {
     await confirmModal!.vm.$emit('ok')
     await flushPromises()
 
-    expect(wrapper.text()).toContain('白名单已启用且当前为空')
-    expect(wrapper.text()).toContain('除超级管理员外，所有命令都会被挡下')
+    expect(wrapper.text()).not.toContain('白名单已启用且当前为空')
+    expect(wrapper.text()).not.toContain('除超级管理员外，所有命令都会被挡下')
+    expect(toastMessages()).toContain('白名单已启用且当前为空：除超级管理员外，所有命令都会被挡下。请尽快补充条目，或先关闭白名单。')
   }, 15000)
 
   it('copies the target id and keeps the existing success feedback', async () => {

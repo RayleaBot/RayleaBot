@@ -4,14 +4,13 @@ import { reactive, ref } from 'vue'
 import type { FormInstance, Rule } from 'ant-design-vue/es/form'
 import { useRouter } from 'vue-router'
 
-import { notifyError, notifySuccess } from '@/adapter/feedback'
+import { notifyError, notifySuccess, useToastFeedback } from '@/adapter/feedback'
 import { toLoginErrorMessage } from '@/lib/auth-feedback'
 import { t } from '@/i18n'
 import { useSessionStore } from '@/stores/session'
 
 const router = useRouter()
 const sessionStore = useSessionStore()
-const submitError = ref<string | null>(null)
 
 const form = reactive({
   identifier: 'admin',
@@ -23,9 +22,17 @@ const rules: Record<string, Rule[]> = {
   secret: [{ required: true, message: t('auth.validation.secretRequired'), trigger: 'blur' }],
 }
 
-async function submit() {
-  submitError.value = null
+useToastFeedback(() => (
+  sessionStore.bootstrapError
+      ? {
+          key: `bootstrap:${sessionStore.bootstrapError}`,
+          level: 'warning' as const,
+          message: sessionStore.bootstrapError,
+        }
+    : null
+))
 
+async function submit() {
   try {
     await formRef.value?.validate()
     await sessionStore.login(form)
@@ -33,7 +40,6 @@ async function submit() {
     await router.push(resolvePostAuthTarget())
   } catch (error) {
     const message = toLoginErrorMessage(error)
-    submitError.value = message
     notifyError(message)
   }
 }
@@ -62,26 +68,6 @@ function resolvePostAuthTarget() {
       <h1>{{ t('auth.loginTitle') }}</h1>
       <p>{{ t('auth.loginBody') }}</p>
     </div>
-
-    <a-alert
-      v-if="sessionStore.bootstrapError"
-      :message="t('auth.alerts.bootstrapUnavailable')"
-      type="warning"
-      :description="sessionStore.bootstrapError"
-      show-icon
-      class="section-gap"
-    />
-
-    <a-alert
-      v-if="submitError"
-      :message="t('auth.alerts.loginIncomplete')"
-      type="error"
-      :description="submitError"
-      role="alert"
-      aria-live="assertive"
-      show-icon
-      class="section-gap"
-    />
 
     <a-form ref="formRef" layout="vertical" :model="form" :rules="rules">
       <a-form-item

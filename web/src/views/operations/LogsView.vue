@@ -8,6 +8,7 @@ import ManagementLogDetailDrawer from '@/components/logs/ManagementLogDetailDraw
 import RetryPanel from '@/components/RetryPanel.vue'
 import VirtualDataViewport from '@/components/VirtualDataViewport.vue'
 import AppPage from '@/components/page/AppPage.vue'
+import { useToastFeedback } from '@/adapter/feedback'
 import { getLogLevelLabel } from '@/lib/display'
 import { formatDateTime } from '@/lib/format'
 import {
@@ -60,6 +61,15 @@ const {
   pendingNewCount,
 } = storeToRefs(logsStore)
 const { sortedItems: pluginItems } = storeToRefs(pluginsStore)
+const pageErrorToast = computed(() => (
+  error.value
+    ? {
+        key: `logs-error:${error.value}`,
+        level: 'error' as const,
+        message: error.value,
+      }
+    : null
+))
 
 const levelOptions = computed(() => ([
   { label: t('display.logLevels.debug'), value: 'debug' as LogLevel },
@@ -86,6 +96,8 @@ const pluginOptions = computed(() => {
 
 const followBottom = computed(() => atBottom.value)
 const readyToRenderHeavyContent = useReadyToRenderHeavyContent()
+
+useToastFeedback(pageErrorToast)
 
 function whenReadyToRenderHeavyContent(): Promise<void> {
   if (readyToRenderHeavyContent.value) {
@@ -376,8 +388,6 @@ onUnmounted(() => {
       :loading="loading"
       @retry="activatePage"
     />
-
-    <a-alert v-else-if="error" :message="t('errors.common.loadFailed')" type="error" :description="error" show-icon />
 
     <section
       v-else

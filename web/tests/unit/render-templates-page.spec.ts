@@ -4,6 +4,7 @@ import { flushPromises, mount } from '@vue/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMemoryHistory, createRouter } from 'vue-router'
 
+import { useToastFeedback } from '@/adapter/feedback'
 import RenderTemplatesView from '@/views/system/RenderTemplatesView.vue'
 import { useRenderTemplatesStore } from '@/stores/render-templates'
 import type {
@@ -11,6 +12,10 @@ import type {
   RenderTemplatePreviewHTMLResponse,
   RenderTemplateSummary,
 } from '@/types/api'
+
+vi.mock('@/adapter/feedback', () => ({
+  useToastFeedback: vi.fn(),
+}))
 
 const HELP_MENU_DEFAULT_PREVIEW_DATA = JSON.stringify({
   title: '帮助菜单',
@@ -175,6 +180,17 @@ function createPreviewHTML(templateId: string, title: string): RenderTemplatePre
   }
 }
 
+function toastMessages() {
+  return vi.mocked(useToastFeedback).mock.calls
+    .map(([source]) => {
+      if (typeof source === 'function') {
+        return source()?.message
+      }
+      return source.value?.message
+    })
+    .filter((message): message is string => Boolean(message))
+}
+
 function createLocalResourcePreviewHTML(templateId: string, title: string): RenderTemplatePreviewHTMLResponse {
   return {
     template_id: templateId,
@@ -219,6 +235,7 @@ describe('RenderTemplatesView', () => {
     setActivePinia(createPinia())
     vi.useFakeTimers()
     vi.restoreAllMocks()
+    vi.mocked(useToastFeedback).mockClear()
     vi.stubGlobal('fetch', vi.fn(async (path: string) => {
       return new Response(new Blob(['asset'], { type: 'text/plain' }), { status: 200 })
     }))
@@ -230,6 +247,7 @@ describe('RenderTemplatesView', () => {
   afterEach(() => {
     vi.useRealTimers()
     vi.unstubAllGlobals()
+    vi.mocked(useToastFeedback).mockClear()
   })
 
   it('renders realtime HTML in an iframe', async () => {
@@ -369,7 +387,8 @@ describe('RenderTemplatesView', () => {
     await flushPromises()
 
     expect(renderTemplatesStore.previewTemplateHTML).toHaveBeenCalledTimes(2)
-    expect(wrapper.text()).toContain('JSON 解析失败')
+    expect(wrapper.text()).not.toContain('JSON 解析失败')
+    expect(toastMessages().some((message) => message.startsWith('JSON 解析失败'))).toBe(true)
   })
 
   it('reuses cached preview HTML immediately while refreshing in the background', async () => {

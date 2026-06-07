@@ -44,19 +44,19 @@ export function useDashboardRecoveryState(input: RecoveryInput) {
     return (recoverySummary.value?.skipped_plugins ?? []).filter((plugin: RecoveryCompatibilitySkippedPlugin) => plugin.review_status !== 'confirmed')
   })
   const selectedRecoveryReviewCountLabel = computed(() => t('dashboard.recoveryConfirmSelection', { count: input.selectedRecoveryReviewIds.value.length }))
-  const alertBannerType = computed<'warning' | 'error' | null>(() => {
+  const readinessToastLevel = computed<'warning' | 'error' | null>(() => {
     if (input.readiness.value?.status === 'failed') return 'error'
     if (input.readiness.value?.status === 'degraded') return 'warning'
     if (adapterWarningIssue.value) return 'warning'
     return null
   })
-  const alertBannerTitle = computed(() => {
+  const readinessToastTitle = computed(() => {
     if (input.readiness.value?.status === 'failed') return t('dashboard.alertFailed')
     if (input.readiness.value?.status === 'degraded') return t('dashboard.alertDegraded')
     if (adapterWarningIssue.value) return t('dashboard.alertProtocolWarning')
     return ''
   })
-  const alertBannerMessage = computed(() => {
+  const readinessToastMessage = computed(() => {
     if (!input.readiness.value) return ''
     if (pythonRuntimeIssue.value) return t('dashboard.pythonRuntimeLimited')
     if (adapterWarningIssue.value) return adapterWarningIssue.value.summary
@@ -66,10 +66,10 @@ export function useDashboardRecoveryState(input: RecoveryInput) {
   })
 
   return {
-    alertBannerMessage,
-    alertBannerTitle,
-    alertBannerType,
     pendingRecoveryPlugins,
+    readinessToastLevel,
+    readinessToastMessage,
+    readinessToastTitle,
     recoveryBootstrapResources,
     recoveryStatusLabel,
     recoverySummary,

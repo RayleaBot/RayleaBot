@@ -2,10 +2,16 @@ import Antd from 'ant-design-vue'
 import { createPinia, setActivePinia } from 'pinia'
 import { flushPromises, mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { notifySuccess, useToastFeedback } from '@/adapter/feedback'
 import ConfigPage from '@/views/system/ConfigView.vue'
 import { getConfigSections } from '@/lib/config-form'
 import { useConfigStore } from '@/stores/config'
 import type { ConfigDocument } from '@/types/api'
+
+vi.mock('@/adapter/feedback', () => ({
+  notifySuccess: vi.fn(),
+  useToastFeedback: vi.fn(),
+}))
 
 function createFixtureConfig(): ConfigDocument {
   return {
@@ -104,6 +110,8 @@ function createFixtureConfig(): ConfigDocument {
 describe('ConfigPage', () => {
   beforeEach(() => {
     setActivePinia(createPinia())
+    vi.mocked(notifySuccess).mockClear()
+    vi.mocked(useToastFeedback).mockClear()
   })
 
   it('submits the edited config document', async () => {
@@ -260,7 +268,7 @@ describe('ConfigPage', () => {
     expect(submitted.render.device_scale_percent).toBe(200)
   })
 
-  it('renders the last apply effect summary from the config store', async () => {
+  it('keeps apply effect details out of the page-level banner area', async () => {
     const store = useConfigStore()
     store.document = createFixtureConfig()
     store.applyEffects = {
@@ -280,13 +288,15 @@ describe('ConfigPage', () => {
 
     await flushPromises()
 
-    expect(wrapper.text()).toContain('保存结果')
-    expect(wrapper.text()).toContain('已即时生效')
-    expect(wrapper.text()).toContain('已重载')
-    expect(wrapper.text()).toContain('需重启生效')
-    expect(wrapper.text()).toContain('log.level')
-    expect(wrapper.text()).toContain('onebot.forward_ws.url')
-    expect(wrapper.text()).toContain('server.port')
+    expect(wrapper.text()).not.toContain('保存结果')
+    expect(wrapper.text()).not.toContain('已即时生效')
+    expect(wrapper.text()).not.toContain('已重载')
+    expect(wrapper.text()).not.toContain('需重启生效')
+    expect(wrapper.text()).not.toContain('log.level')
+    expect(wrapper.text()).not.toContain('onebot.forward_ws.url')
+    expect(wrapper.text()).not.toContain('server.port')
+    expect(wrapper.text()).toContain('保存完成，仍需重启服务')
+    expect(vi.mocked(useToastFeedback)).toHaveBeenCalled()
   })
 
   it('keeps plugin-facing settings out of the general config page', async () => {

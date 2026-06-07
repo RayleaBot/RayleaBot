@@ -15,7 +15,7 @@ import {
 import { computed, onBeforeUnmount, onDeactivated, onMounted, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 
-import { notifySuccess } from '@/adapter/feedback'
+import { notifySuccess, useToastFeedback } from '@/adapter/feedback'
 import AppSkeletonCard from '@/components/AppSkeletonCard.vue'
 import RateLimitInput from '@/components/config/RateLimitInput.vue'
 import AppPage from '@/components/page/AppPage.vue'
@@ -48,6 +48,25 @@ const hasUnsavedChanges = computed(() => {
   return JSON.stringify(draft.value) !== JSON.stringify(document.value)
 })
 const canSave = computed(() => hasUnsavedChanges.value && !saving.value)
+const feedbackToast = computed(() => {
+  if (error.value) {
+    return {
+      key: `plugin-settings-error:${error.value}`,
+      level: 'error' as const,
+      message: error.value,
+    }
+  }
+
+  if (redactedFields.value.length > 0) {
+    return {
+      key: `plugin-settings-redacted:${redactedFields.value.join('|')}`,
+      level: 'info' as const,
+      message: `${t('config.redactedTitle')}：${redactedFields.value.join(', ')}`,
+    }
+  }
+
+  return null
+})
 const saveStatusLabel = computed(() => {
   switch (saveStatus.value) {
     case 'restart':
@@ -74,6 +93,8 @@ async function loadConfig() {
 onMounted(() => {
   void loadConfig()
 })
+
+useToastFeedback(feedbackToast)
 
 onDeactivated(() => {
   clearSaveStatus()
@@ -251,17 +272,6 @@ async function save() {
       </div>
     </template>
 
-    <div v-if="error || redactedFields.length > 0" class="plugin-settings-alerts-container">
-      <a-alert v-if="error" :message="t('errors.common.actionFailed')" type="error" :description="error" show-icon />
-      <a-alert
-        v-if="redactedFields.length > 0"
-        :message="t('config.redactedTitle')"
-        type="info"
-        :description="redactedFields.join(', ')"
-        show-icon
-      />
-    </div>
-
     <RetryPanel
       v-if="error && !draft"
       :title="t('plugins.settings.title')"
@@ -428,11 +438,6 @@ async function save() {
 </template>
 
 <style lang="scss" scoped>
-.plugin-settings-alerts-container {
-  display: grid;
-  gap: 12px;
-}
-
 .plugin-settings-skeleton-layout {
   display: grid;
 }

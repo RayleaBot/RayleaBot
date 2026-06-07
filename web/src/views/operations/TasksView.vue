@@ -3,7 +3,7 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useRoute, useRouter } from 'vue-router'
 
-import { notifyError, notifySuccess } from '@/adapter/feedback'
+import { notifyError, notifySuccess, useToastFeedback } from '@/adapter/feedback'
 import AppEmptyState from '@/components/AppEmptyState.vue'
 import ManagementContextActions from '@/components/ManagementContextActions.vue'
 import AppPage from '@/components/page/AppPage.vue'
@@ -34,6 +34,17 @@ const tableColumns = computed(() => [
   { title: t('tasks.fields.summary'), key: 'summary', dataIndex: 'summary' },
   { title: '', key: 'actions', dataIndex: 'actions', width: 120, fixed: 'right' as const },
 ])
+const pageErrorToast = computed(() => (
+  error.value
+    ? {
+        key: `tasks-error:${error.value}`,
+        level: 'error' as const,
+        message: error.value,
+      }
+    : null
+))
+
+useToastFeedback(pageErrorToast)
 
 async function loadTasks() {
   hasRequestedTasks.value = true
@@ -179,8 +190,6 @@ function getStatusColor(status: string) {
       @retry="loadTasks()"
     />
 
-    <a-alert v-else-if="error" :message="t('errors.common.loadFailed')" type="error" :description="error" show-icon />
-
     <a-card v-else-if="(!hasRequestedTasks || loading) && sortedItems.length === 0" class="tasks-empty-card" :bordered="false">
       <a-skeleton active :paragraph="{ rows: 4 }" />
     </a-card>
@@ -310,12 +319,10 @@ function getStatusColor(status: string) {
             <div class="card-header">
               <span>{{ t('tasks.fields.error') }}</span>
             </div>
-            <a-alert
-              :message="currentTask.error.code"
-              type="error"
-              :description="currentTask.error.message"
-              show-icon
-            />
+            <div class="task-error-note">
+              <strong>{{ currentTask.error.code }}</strong>
+              <span>{{ currentTask.error.message }}</span>
+            </div>
             <div v-if="taskDetailEntries(currentTask.error.details).length" class="mono-list">
               <div v-for="[key, value] in taskDetailEntries(currentTask.error.details)" :key="key">
                 {{ key }} = {{ formatTaskDetailValue(value) }}
@@ -469,6 +476,29 @@ function getStatusColor(status: string) {
   overflow: hidden;
   text-overflow: ellipsis;
   max-width: 100%;
+}
+
+.task-error-note {
+  display: grid;
+  gap: 6px;
+  padding: 12px 14px;
+  border: 1px solid color-mix(in srgb, var(--danger) 18%, var(--border));
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--danger) 5%, var(--surface));
+
+  strong {
+    color: var(--danger);
+    font-family: var(--font-mono);
+    font-size: 0.9rem;
+    line-height: 1.4;
+    word-break: break-word;
+  }
+
+  span {
+    color: var(--muted);
+    line-height: 1.5;
+    word-break: break-word;
+  }
 }
 
 .drawer-section {

@@ -4,17 +4,16 @@ import { storeToRefs } from 'pinia'
 
 import AppPage from '@/components/page/AppPage.vue'
 import AppSkeletonCard from '@/components/AppSkeletonCard.vue'
-import ConfigApplyEffectsSummary from '@/components/config/ConfigApplyEffectsSummary.vue'
 import ConfigFieldRow from '@/components/config/ConfigFieldRow.vue'
 import RetryPanel from '@/components/RetryPanel.vue'
-import { notifySuccess } from '@/adapter/feedback'
+import { notifySuccess, useToastFeedback } from '@/adapter/feedback'
 import { cloneConfig, getConfigSections, getValueByPath, setValueByPath, type ConfigFieldDefinition } from '@/lib/config-form'
 import { t } from '@/i18n'
 import { useConfigStore } from '@/stores/config'
 import type { ConfigDocument } from '@/types/api'
 
 const configStore = useConfigStore()
-const { applyEffects, document: configDocument, error, loading, redactedFields, restartRequired, saving } = storeToRefs(configStore)
+const { document: configDocument, error, loading, redactedFields, restartRequired, saving } = storeToRefs(configStore)
 
 const draft = ref<ConfigDocument | null>(null)
 const configSections = computed(() => getConfigSections())
@@ -39,6 +38,25 @@ const isDirty = computed(() => {
 })
 
 const saveLabel = computed(() => (isDirty.value ? t('config.save') : t('config.saveIdle')))
+const feedbackToast = computed(() => {
+  if (error.value) {
+    return {
+      key: `config-error:${error.value}`,
+      level: 'error' as const,
+      message: error.value,
+    }
+  }
+
+  if (redactedFields.value.length > 0) {
+    return {
+      key: `config-redacted:${redactedFields.value.join('|')}`,
+      level: 'info' as const,
+      message: `${t('config.redactedTitle')}：${redactedFields.value.join(', ')}`,
+    }
+  }
+
+  return null
+})
 
 const segmentedOptions = computed(() =>
   configSections.value.map((section) => ({
@@ -54,6 +72,8 @@ async function loadConfig() {
     // store error state drives the page
   }
 }
+
+useToastFeedback(feedbackToast)
 
 onMounted(() => {
   void loadConfig()
@@ -161,27 +181,6 @@ async function save() {
 
 <template>
   <AppPage :title="t('config.title')">
-    <div v-if="error || applyEffects || redactedFields.length > 0" class="config-alerts">
-      <a-alert v-if="error" :message="t('errors.common.actionFailed')" type="error" :description="error" show-icon />
-      <a-alert
-        v-if="applyEffects"
-        :message="t('config.applyEffects.title')"
-        :type="restartRequired ? 'warning' : 'success'"
-        show-icon
-      >
-        <template #description>
-          <ConfigApplyEffectsSummary :effects="applyEffects" />
-        </template>
-      </a-alert>
-      <a-alert
-        v-if="redactedFields.length > 0"
-        :message="t('config.redactedTitle')"
-        type="info"
-        :description="redactedFields.join(', ')"
-        show-icon
-      />
-    </div>
-
     <RetryPanel
       v-if="error && !draft"
       :title="t('config.title')"
@@ -287,12 +286,6 @@ async function save() {
 </template>
 
 <style lang="scss" scoped>
-.config-alerts {
-  display: grid;
-  gap: 12px;
-  margin-bottom: var(--space-md);
-}
-
 .config-skeleton {
   display: grid;
   gap: var(--space-md);

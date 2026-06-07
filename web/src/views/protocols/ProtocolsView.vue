@@ -2,9 +2,8 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 
-import { notifySuccess } from '@/adapter/feedback'
+import { notifySuccess, useToastFeedback } from '@/adapter/feedback'
 import ManagementContextActions from '@/components/ManagementContextActions.vue'
-import ConfigApplyEffectsSummary from '@/components/config/ConfigApplyEffectsSummary.vue'
 import AppPage from '@/components/page/AppPage.vue'
 import RetryPanel from '@/components/RetryPanel.vue'
 import {
@@ -30,7 +29,6 @@ const {
   document,
   error: configError,
   loading: configLoading,
-  applyEffects,
   redactedFields,
   restartRequired,
   saving,
@@ -65,6 +63,25 @@ const readinessType = computed(() => getStatusType(snapshot.value?.readiness_sta
 const pageLoading = computed(() => configLoading.value || protocolsLoading.value)
 const protocolSummary = computed(() => snapshot.value?.summary ?? t('display.empty'))
 const pageError = computed(() => configError.value || protocolsError.value)
+const feedbackToast = computed(() => {
+  if (pageError.value) {
+    return {
+      key: `protocols-error:${pageError.value}`,
+      level: 'error' as const,
+      message: pageError.value,
+    }
+  }
+
+  if (redactedFields.value.length > 0) {
+    return {
+      key: `protocols-redacted:${redactedFields.value.join('|')}`,
+      level: 'info' as const,
+      message: `${t('config.redactedTitle')}：${redactedFields.value.join(', ')}`,
+    }
+  }
+
+  return null
+})
 const transportLabelMap = {
   reverse_ws: t('config.sections.onebotReverseWs'),
   forward_ws: t('config.sections.onebotForwardWs'),
@@ -169,6 +186,8 @@ async function loadPage() {
 onMounted(() => {
   void loadPage()
 })
+
+useToastFeedback(feedbackToast)
 
 function readField(path: string, type: ConfigFieldDefinition['type']) {
   if (!draft.value) {
@@ -357,29 +376,6 @@ const adapterConfigFields = computed(() => {
         </div>
       </div>
 
-      <!-- Config effects alerts -->
-      <div v-if="pageError || applyEffects || redactedFields.length > 0" class="config-alerts-container">
-        <a-alert v-if="pageError" :message="t('errors.common.actionFailed')" type="error" :description="pageError" show-icon />
-        <a-alert
-          v-if="applyEffects"
-          :message="t('config.applyEffects.title')"
-          :type="restartRequired ? 'warning' : 'success'"
-          show-icon
-        >
-          <template #description>
-            <ConfigApplyEffectsSummary :effects="applyEffects" />
-          </template>
-        </a-alert>
-        <a-alert
-          v-if="redactedFields.length > 0"
-          :message="t('config.redactedTitle')"
-          type="info"
-          :description="redactedFields.join(', ')"
-          show-icon
-        />
-      </div>
-
-      <!-- Sleek Transmission Exceptions Banner -->
       <div v-if="transportIssues.length > 0" class="premium-diagnostics-card" data-testid="protocol-issues" v-motion="{ initial: { opacity: 0, y: 10 }, enter: { opacity: 1, y: 0 } }">
         <div class="diagnostics-header">
           <div class="diagnostics-title-wrap">
@@ -509,7 +505,6 @@ const adapterConfigFields = computed(() => {
                       @update:value="(value) => writeField(record.urlPath, 'text', value)"
                     />
                     
-                    <!-- Integrated Inline Exception alerts -->
                     <div v-if="getLiveTransportIssues(record.type).length > 0" class="inline-error-alert">
                       <span class="inline-err-icon">⚠️</span>
                       <span class="inline-err-msg" :title="getLiveTransportIssues(record.type)[0].summary">
@@ -1191,7 +1186,6 @@ const adapterConfigFields = computed(() => {
   }
 }
 
-/* Sleek Diagnostics Banner */
 .premium-diagnostics-card {
   padding: 16px 24px;
   background: linear-gradient(135deg, color-mix(in srgb, var(--app-danger) 6%, #ffffff), color-mix(in srgb, var(--app-danger) 2%, #ffffff));

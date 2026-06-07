@@ -14,7 +14,7 @@ import { computed, onBeforeUnmount, onDeactivated, onMounted, ref, watch } from 
 import { storeToRefs } from 'pinia'
 import { useRouter } from 'vue-router'
 
-import { notifySuccess } from '@/adapter/feedback'
+import { notifySuccess, useToastFeedback } from '@/adapter/feedback'
 import AppEmptyState from '@/components/AppEmptyState.vue'
 import AppPage from '@/components/page/AppPage.vue'
 import AppStatCard from '@/components/AppStatCard.vue'
@@ -76,6 +76,25 @@ const saveStatusLabel = computed(() => {
     default:
       return ''
   }
+})
+const feedbackToast = computed(() => {
+  if (pageError.value) {
+    return {
+      key: `permission-policy-error:${pageError.value}`,
+      level: 'error' as const,
+      message: pageError.value,
+    }
+  }
+
+  if (redactedFields.value.length > 0) {
+    return {
+      key: `permission-policy-redacted:${redactedFields.value.join('|')}`,
+      level: 'info' as const,
+      message: `${t('config.redactedTitle')}：${redactedFields.value.join(', ')}`,
+    }
+  }
+
+  return null
 })
 
 watch(document, (value) => {
@@ -148,6 +167,8 @@ async function loadPage() {
 onMounted(() => {
   void loadPage()
 })
+
+useToastFeedback(feedbackToast)
 
 onDeactivated(() => {
   clearSaveStatus()
@@ -295,17 +316,6 @@ async function save() {
     </template>
 
     <div class="permission-policy-page">
-      <div v-if="pageError || redactedFields.length > 0" class="config-alerts-container">
-        <a-alert v-if="pageError" :message="t('errors.common.actionFailed')" type="error" :description="pageError" show-icon />
-        <a-alert
-          v-if="redactedFields.length > 0"
-          :message="t('config.redactedTitle')"
-          type="info"
-          :description="redactedFields.join(', ')"
-          show-icon
-        />
-      </div>
-
       <RetryPanel
         v-if="showFatalError"
         :title="t('permissionPolicy.title')"

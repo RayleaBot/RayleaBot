@@ -2,6 +2,7 @@
 import { computed, onMounted, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 
+import { useToastFeedback } from '@/adapter/feedback'
 import AppPage from '@/components/page/AppPage.vue'
 import RetryPanel from '@/components/RetryPanel.vue'
 import { t } from '@/i18n'
@@ -38,6 +39,17 @@ const currentProviderLabel = computed(() => formatProvider(currentProvider.value
 const currentTransportText = computed(() => joinTransportLabels(snapshot.value?.active_transports))
 const configuredTransportText = computed(() => joinTransportLabels(snapshot.value?.configured_transports))
 const currentTransportSummary = computed(() => snapshot.value?.summary ?? t('display.empty'))
+const pageErrorToast = computed(() => (
+  pageError.value && matrixSections.value.length > 0
+    ? {
+        key: `protocol-compatibility-error:${pageError.value}`,
+        level: 'error' as const,
+        message: pageError.value,
+      }
+    : null
+))
+
+useToastFeedback(pageErrorToast)
 
 async function loadPage() {
   try {
@@ -146,14 +158,6 @@ function providerColumnClass(provider: string) {
           <p>{{ t('protocols.compatibilityMatrixHint') }}</p>
         </a-card>
       </div>
-
-      <a-alert
-        v-if="pageError && matrixSections.length > 0"
-        type="error"
-        show-icon
-        :message="t('errors.common.actionFailed')"
-        :description="pageError"
-      />
 
       <RetryPanel
         v-if="pageError && matrixSections.length === 0"

@@ -4,7 +4,7 @@ import { computed, onMounted, reactive, ref } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useRouter } from 'vue-router'
 
-import { notifySuccess } from '@/adapter/feedback'
+import { notifySuccess, useToastFeedback } from '@/adapter/feedback'
 import AppCard from '@/components/AppCard.vue'
 import AppPage from '@/components/page/AppPage.vue'
 import RetryPanel from '@/components/RetryPanel.vue'
@@ -88,6 +88,37 @@ const showWhitelistEmptyWarning = computed(() => whitelistEnabled.value && total
 
 const blacklistRegionError = computed(() => blacklistActionError.value ?? blacklistError.value)
 const whitelistRegionError = computed(() => whitelistActionError.value ?? whitelistError.value)
+const whitelistRegionErrorToast = computed(() => (
+  whitelistRegionError.value
+    ? {
+        key: `access-lists-whitelist:${whitelistRegionError.value}`,
+        level: 'warning' as const,
+        message: whitelistRegionError.value,
+      }
+    : null
+))
+const blacklistRegionErrorToast = computed(() => (
+  blacklistRegionError.value
+    ? {
+        key: `access-lists-blacklist:${blacklistRegionError.value}`,
+        level: 'warning' as const,
+        message: blacklistRegionError.value,
+      }
+    : null
+))
+const whitelistEmptyToast = computed(() => (
+  showWhitelistEmptyWarning.value
+    ? {
+        key: 'access-lists-whitelist-empty',
+        level: 'warning' as const,
+        message: `${t('accessLists.whitelist.emptyWarningTitle')}：${t('accessLists.whitelist.emptyWarningDescription')}`,
+      }
+    : null
+))
+
+useToastFeedback(whitelistRegionErrorToast)
+useToastFeedback(blacklistRegionErrorToast)
+useToastFeedback(whitelistEmptyToast)
 
 function sortEntries(entries: BlacklistEntry[]) {
   return [...entries].sort((a, b) => {
@@ -436,23 +467,6 @@ onMounted(() => {
             </div>
           </div>
 
-          <a-alert
-            v-if="whitelistRegionError"
-            :message="t('errors.common.actionFailed')"
-            type="warning"
-            :description="whitelistRegionError"
-            show-icon
-            class="section-gap"
-          />
-
-          <div v-if="showWhitelistEmptyWarning" class="access-lists-risk-banner">
-            <div class="access-lists-risk-banner__header">
-              <strong>{{ t('accessLists.whitelist.emptyWarningTitle') }}</strong>
-              <a-tag color="warning">{{ t('accessLists.summary.whitelistEnabled') }}</a-tag>
-            </div>
-            <p>{{ t('accessLists.whitelist.emptyWarningDescription') }}</p>
-          </div>
-
           <div class="access-lists-toolbar">
             <div class="access-lists-toolbar__row">
               <div class="toolbar-left-group">
@@ -651,15 +665,6 @@ onMounted(() => {
               <span class="access-lists-card-header__count">{{ totalBlacklistEntries }}</span>
             </div>
           </div>
-
-          <a-alert
-            v-if="blacklistRegionError"
-            :message="t('errors.common.actionFailed')"
-            type="warning"
-            :description="blacklistRegionError"
-            show-icon
-            class="section-gap"
-          />
 
           <div class="access-lists-toolbar">
             <div class="access-lists-toolbar__row">
@@ -968,29 +973,6 @@ onMounted(() => {
   line-height: 1;
   color: var(--fg);
   letter-spacing: -0.02em;
-}
-
-.access-lists-risk-banner {
-  padding: 14px;
-  border-radius: var(--radius-lg);
-  background: color-mix(in srgb, var(--warning) 10%, var(--surface));
-  border: 1px solid color-mix(in srgb, var(--warning) 20%, var(--border));
-  display: grid;
-  gap: 6px;
-  font-size: 0.85rem;
-}
-
-.access-lists-risk-banner__header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.access-lists-risk-banner p {
-  margin: 0;
-  color: var(--muted);
-  line-height: 1.4;
 }
 
 .access-lists-toolbar {

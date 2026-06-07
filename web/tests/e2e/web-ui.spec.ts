@@ -2612,17 +2612,17 @@ test('fallback pages cover missing routes and server offline recovery', async ({
   await expect(page.getByRole('heading', { name: '指令中心' })).toBeVisible()
 })
 
-test('shutdown flow shows the draining banner', async ({ page, request }) => {
+test('shutdown flow shows the draining toast', async ({ page, request }) => {
   await resetBackend(request, true)
   await login(page)
 
   await page.getByRole('button', { name: '关闭服务' }).click({ force: true })
   await page.getByRole('button', { name: '确认关闭' }).click()
 
-  await expect(page.getByText('服务正在停止', { exact: true })).toBeVisible()
-  await expect(page.getByText('停机请求已发送')).toBeVisible()
+  await expect(page.locator('.ant-message')).toContainText('停机请求已发送')
+  await expect(page.locator('.ant-message')).toContainText('服务正在停止')
   await page.getByRole('button', { name: '刷新状态' }).click()
-  await expect(page.getByText('服务正在停止，管理界面连接断开属于预期行为。')).toBeVisible({ timeout: 7000 })
+  await expect(page.locator('.ant-message')).toContainText('服务正在停止：服务正在停止，管理界面连接断开属于预期行为。', { timeout: 7000 })
 })
 
 test('mobile navigation and card layouts remain usable', async ({ page, request }) => {

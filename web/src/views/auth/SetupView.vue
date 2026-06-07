@@ -11,7 +11,6 @@ import { useSessionStore } from '@/stores/session'
 
 const router = useRouter()
 const sessionStore = useSessionStore()
-const submitError = ref<string | null>(null)
 
 const form = reactive({
   identifier: 'admin',
@@ -24,8 +23,6 @@ const rules: Record<string, Rule[]> = {
 }
 
 async function submit() {
-  submitError.value = null
-
   try {
     await formRef.value?.validate()
     await sessionStore.setupAdmin(form)
@@ -33,7 +30,6 @@ async function submit() {
     await router.push(resolvePostAuthTarget())
   } catch (error) {
     const message = toSetupErrorMessage(error)
-    submitError.value = message
     notifyError(message)
   }
 }
@@ -62,17 +58,6 @@ function resolvePostAuthTarget() {
       <h1>{{ t('auth.setupTitle') }}</h1>
       <p>{{ t('auth.setupBody') }}</p>
     </div>
-
-    <a-alert
-      v-if="submitError"
-      :message="t('auth.alerts.setupIncomplete')"
-      type="error"
-      :description="submitError"
-      role="alert"
-      aria-live="assertive"
-      show-icon
-      class="section-gap"
-    />
 
     <a-form ref="formRef" layout="vertical" :model="form" :rules="rules">
       <a-form-item

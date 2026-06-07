@@ -3,7 +3,7 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import { ReloadOutlined, SaveOutlined } from '@ant-design/icons-vue'
 
-import { notifySuccess } from '@/adapter/feedback'
+import { notifySuccess, useToastFeedback } from '@/adapter/feedback'
 import NativeTemplatePreviewFrame from '@/components/NativeTemplatePreviewFrame.vue'
 import AppPage from '@/components/page/AppPage.vue'
 import RetryPanel from '@/components/RetryPanel.vue'
@@ -30,6 +30,17 @@ const activeTab = ref<'root' | 'plugin'>('root')
 
 const pageError = computed(() => configError.value ?? pluginsError.value)
 const loading = computed(() => configLoading.value || pluginsLoading.value)
+const pageErrorToast = computed(() => (
+  pageError.value && configDocument.value
+    ? {
+        key: `menu-center-error:${pageError.value}`,
+        level: 'error' as const,
+        message: pageError.value,
+      }
+    : null
+))
+
+useToastFeedback(pageErrorToast)
 const inheritedCommandPrefixes = computed(() => normalizeTokens(configDocument.value?.command?.prefixes).length > 0
   ? normalizeTokens(configDocument.value?.command?.prefixes)
   : ['/'])
@@ -310,8 +321,6 @@ async function save() {
         </div>
 
         <div class="menu-center-float-panel__body">
-          <a-alert v-if="pageError" :message="pageError" type="error" show-icon class="menu-center-float-panel__alert" />
-
           <div class="menu-center-float-panel__field">
             <label class="menu-center-float-panel__label">{{ t('builtinFeatures.menuCenter.commands.label') }}</label>
             <a-select
@@ -448,14 +457,6 @@ async function save() {
 .menu-center-unsaved-tag {
   font-size: 0.75rem;
   margin: 0;
-}
-
-.menu-center-float-panel__alert {
-  margin-bottom: var(--space-md);
-
-  :deep(.ant-alert-message) {
-    font-size: 0.8rem;
-  }
 }
 
 .menu-center-float-panel__body {

@@ -6,6 +6,7 @@ import { useRoute, useRouter } from 'vue-router'
 import AppEmptyState from '@/components/AppEmptyState.vue'
 import AppPage from '@/components/page/AppPage.vue'
 import RetryPanel from '@/components/RetryPanel.vue'
+import { useToastFeedback } from '@/adapter/feedback'
 import { formatCommandUsage, getPrimaryCommandPrefix } from '@/lib/command-usage'
 import {
   areLocationQueriesEqual,
@@ -59,6 +60,27 @@ const commandRows = computed(() => {
 
 const pageErrorMessage = computed(() => error.value ?? commandPolicyError.value)
 const showFatalError = computed(() => Boolean(pageErrorMessage.value) && commandRows.value.length === 0)
+const feedbackToast = computed(() => {
+  if (error.value && commandRows.value.length > 0) {
+    return {
+      key: `commands-error:${error.value}`,
+      level: 'error' as const,
+      message: error.value,
+    }
+  }
+
+  if (commandPolicyError.value && commandRows.value.length > 0) {
+    return {
+      key: `commands-policy-error:${commandPolicyError.value}`,
+      level: 'warning' as const,
+      message: commandPolicyError.value,
+    }
+  }
+
+  return null
+})
+
+useToastFeedback(feedbackToast)
 
 const commandTableColumns = computed(() => [
   { title: t('commands.fields.command'), key: 'command', dataIndex: 'command', width: 180 },
@@ -246,24 +268,6 @@ onMounted(() => {
     />
 
     <template v-else>
-      <a-alert
-        v-if="error && commandRows.length > 0"
-        :message="t('errors.common.loadFailed')"
-        type="error"
-        :description="error"
-        show-icon
-        class="section-gap"
-      />
-
-      <a-alert
-        v-if="commandPolicyError && commandRows.length > 0"
-        :message="t('errors.common.loadFailed')"
-        type="warning"
-        :description="commandPolicyError"
-        show-icon
-        class="section-gap"
-      />
-
       <a-card
         :bordered="false"
         class="app-view-card commands-section-card"
@@ -369,10 +373,6 @@ onMounted(() => {
 
 :deep(.ant-table-row:hover > td) {
   background: var(--surface-accent) !important;
-}
-
-.section-gap {
-  margin-bottom: 12px;
 }
 
 .commands-page__actions {

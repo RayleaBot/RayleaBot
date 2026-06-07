@@ -15,9 +15,9 @@ import DashboardToolsPanel from '@/components/DashboardToolsPanel.vue'
 import ManagementContextActions from '@/components/ManagementContextActions.vue'
 import AppPage from '@/components/page/AppPage.vue'
 import RetryPanel from '@/components/RetryPanel.vue'
-import { getReadinessStatusLabel, getStatusType } from '@/lib/display'
+import { useToastFeedback } from '@/adapter/feedback'
 import { formatDurationSeconds, formatRelativeTime } from '@/lib/format'
-import { buildDashboardEventActions, buildDashboardProtocolActions } from '@/lib/management-links'
+import { buildDashboardEventActions } from '@/lib/management-links'
 import { t } from '@/i18n'
 import { useDashboardPage } from '@/views/dashboard/useDashboardPage'
 
@@ -27,9 +27,6 @@ const {
   adapterDetailText,
   adapterStatusType,
   adapterValueText,
-  alertBannerMessage,
-  alertBannerTitle,
-  alertBannerType,
   autoRefresh,
   backupPending,
   bootstrapRuntimeResources,
@@ -50,6 +47,9 @@ const {
   openRecoveryPlugin,
   pendingRecoveryPlugins,
   protocolSnapshot,
+  readinessToastLevel,
+  readinessToastMessage,
+  readinessToastTitle,
   readinessDetailText,
   readinessIssues,
   readinessStatusType,
@@ -127,23 +127,43 @@ const protocolIssue = computed(() => {
   return snapshot.recent_transport_issues[0] ?? null
 })
 
-const protocolIssueStatusLabel = computed(() => (
-  protocolSnapshot.value ? getReadinessStatusLabel(protocolSnapshot.value.readiness_status) : t('display.empty')
+const readinessToast = computed(() => {
+  if (!readinessToastLevel.value) {
+    return null
+  }
+  const title = readinessToastTitle.value
+  const detail = readinessToastMessage.value
+  const message = detail ? `${title}：${detail}` : title
+  return {
+    key: `dashboard-readiness:${readinessToastLevel.value}:${title}:${detail}`,
+    level: readinessToastLevel.value,
+    message,
+  }
+})
+
+const dashboardErrorToast = computed(() => (
+  error.value && system.value
+    ? {
+        key: `dashboard-error:${error.value}`,
+        level: 'error' as const,
+        message: error.value,
+      }
+    : null
 ))
 
-const protocolIssueStatusType = computed(() => getStatusType(protocolSnapshot.value?.readiness_status))
+const protocolIssueToast = computed(() => (
+  protocolIssue.value
+    ? {
+        key: `dashboard-protocol:${protocolIssue.value.code}:${protocolIssue.value.summary}`,
+        level: protocolIssue.value.severity === 'error' ? 'error' as const : 'warning' as const,
+        message: `${t('dashboard.protocolAlertTitle')}：${protocolIssue.value.summary}`,
+      }
+    : null
+))
 
-const protocolIssueExtraCount = computed(() => {
-  const count = protocolSnapshot.value?.recent_transport_issues.length ?? 0
-  return count > 0 ? count - 1 : 0
-})
-const protocolAlertActions = computed(() => buildDashboardProtocolActions(protocolSnapshot.value))
-
-function getProtocolIssueTagColor(status: typeof protocolIssueStatusType.value) {
-  if (status === 'danger') return 'error'
-  if (status === 'success') return 'success'
-  return 'warning'
-}
+useToastFeedback(readinessToast)
+useToastFeedback(dashboardErrorToast)
+useToastFeedback(protocolIssueToast)
 </script>
 
 <template>
@@ -174,15 +194,6 @@ function getProtocolIssueTagColor(status: typeof protocolIssueStatusType.value) 
       </div>
     </template>
 
-    <a-alert
-      v-if="alertBannerType"
-      :type="alertBannerType"
-      :message="alertBannerTitle"
-      :description="alertBannerMessage"
-      show-icon
-      :closable="false"
-    />
-
     <RetryPanel
       v-if="error && !system"
       :title="t('routes.status')"
@@ -190,8 +201,6 @@ function getProtocolIssueTagColor(status: typeof protocolIssueStatusType.value) 
       :loading="loading"
       @retry="refreshState()"
     />
-
-    <a-alert v-else-if="error" :message="t('errors.common.loadFailed')" type="error" :description="error" show-icon />
 
     <DashboardStatusGrid
       v-motion="{ initial: { opacity: 0, y: 12 }, enter: { opacity: 1, y: 0, transition: { duration: 300, delay: 0 } } }"
@@ -374,26 +383,6 @@ function getProtocolIssueTagColor(status: typeof protocolIssueStatusType.value) 
             <small>{{ autoRefresh ? `${t('dashboard.autoRefresh')} ${countdown}s` : t('dashboard.refresh') }}</small>
           </div>
         </div>
-
-        <div v-if="protocolIssue" class="dashboard-protocol-alert" data-testid="dashboard-protocol-alert">
-          <div class="dashboard-protocol-alert__header">
-            <div class="dashboard-protocol-alert__heading">
-              <span>{{ t('dashboard.protocolAlertTitle') }}</span>
-              <strong>{{ protocolIssue.summary }}</strong>
-            </div>
-            <div class="dashboard-protocol-alert__actions">
-              <a-tag :color="getProtocolIssueTagColor(protocolIssueStatusType)">{{ protocolIssueStatusLabel }}</a-tag>
-              <ManagementContextActions :actions="protocolAlertActions" />
-            </div>
-          </div>
-
-          <div class="dashboard-protocol-alert__meta">
-            <a-tag color="warning">{{ protocolIssue.code }}</a-tag>
-            <small v-if="protocolIssueExtraCount > 0">
-              {{ t('dashboard.protocolIssueMore', { count: protocolIssueExtraCount }) }}
-            </small>
-          </div>
-        </div>
       </AppCard>
     </div>
   </AppPage>
@@ -508,81 +497,9 @@ function getProtocolIssueTagColor(status: typeof protocolIssueStatusType.value) 
   gap: var(--space-md);
 }
 
-.dashboard-protocol-alert {
-  display: grid;
-  gap: 12px;
-  margin-top: 16px;
-  padding: 16px;
-  border-radius: var(--radius-lg);
-  border: 1px solid color-mix(in srgb, var(--warning) 30%, var(--border));
-  background: color-mix(in srgb, var(--warning) 6%, var(--surface-soft));
-  box-shadow: var(--shadow-sm);
-  transition: transform 0.24s ease, box-shadow 0.24s ease, border-color 0.24s ease, background-color 0.24s ease, color 0.24s ease;
-
-  &:hover {
-    border-color: var(--warning);
-    box-shadow: var(--shadow-elevated);
-  }
-}
-
-.dashboard-protocol-alert__header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 12px;
-}
-
-.dashboard-protocol-alert__heading {
-  display: grid;
-  gap: 4px;
-
-  span {
-    color: var(--muted);
-    font-size: 0.76rem;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-  }
-
-  strong {
-    font-size: 0.92rem;
-    line-height: 1.4;
-    color: var(--text);
-  }
-}
-
-.dashboard-protocol-alert__actions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-}
-
-.dashboard-protocol-alert__meta {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
-
-  small {
-    color: var(--muted);
-    line-height: 1.4;
-    font-weight: 500;
-  }
-}
-
 @media (max-width: 720px) {
   .dashboard-runtime-grid {
     grid-template-columns: 1fr;
-  }
-
-  .dashboard-protocol-alert__header {
-    flex-direction: column;
-  }
-
-  .dashboard-protocol-alert__actions {
-    justify-content: flex-start;
   }
 }
 

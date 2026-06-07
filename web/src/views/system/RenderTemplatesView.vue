@@ -7,6 +7,7 @@ import AppEmptyState from '@/components/AppEmptyState.vue'
 import NativeTemplatePreviewFrame from '@/components/NativeTemplatePreviewFrame.vue'
 import AppPage from '@/components/page/AppPage.vue'
 import RetryPanel from '@/components/RetryPanel.vue'
+import { useToastFeedback } from '@/adapter/feedback'
 import TemplatePreviewFrame from '@/components/TemplatePreviewFrame.vue'
 import { getDisplayErrorMessage } from '@/lib/error-text'
 import { formatDateTime } from '@/lib/format'
@@ -148,6 +149,37 @@ const currentPreviewError = computed(() => (
 const currentPreviewPending = computed(() => (
   Boolean(activeTemplateId.value && previewRequestKey.value && pendingPreviewKeyByTemplate.value[activeTemplateId.value] === previewRequestKey.value)
 ))
+const pageErrorToast = computed(() => (
+  error.value && items.value.length > 0
+    ? {
+        key: `render-templates-error:${error.value}`,
+        level: 'error' as const,
+        message: error.value,
+      }
+    : null
+))
+const previewParseIssueToast = computed(() => (
+  previewParseResult.value.issue
+    ? {
+        key: `render-templates-preview-parse:${previewParseResult.value.issue.message}`,
+        level: 'warning' as const,
+        message: previewParseResult.value.issue.message,
+      }
+    : null
+))
+const previewErrorToast = computed(() => (
+  currentPreviewError.value
+    ? {
+        key: `render-templates-preview-error:${activeTemplateId.value}:${currentPreviewError.value}`,
+        level: 'error' as const,
+        message: currentPreviewError.value,
+      }
+    : null
+))
+
+useToastFeedback(pageErrorToast)
+useToastFeedback(previewParseIssueToast)
+useToastFeedback(previewErrorToast)
 
 const currentLocalHelpMenuData = computed(() => (
   activeTemplateId.value === 'help.menu' && previewParseResult.value.data
@@ -896,28 +928,6 @@ onBeforeUnmount(() => {
         </div>
 
         <div class="render-templates-float-panel__body">
-          <a-alert
-            v-if="error"
-            type="error"
-            show-icon
-            :message="t('errors.common.actionFailed')"
-            :description="error"
-          />
-          <a-alert
-            v-if="previewParseResult.issue"
-            type="warning"
-            show-icon
-            :message="t('renderTemplates.previewInvalid')"
-            :description="previewParseResult.issue.message"
-          />
-          <a-alert
-            v-if="currentPreviewError"
-            type="error"
-            show-icon
-            :message="t('errors.common.actionFailed')"
-            :description="currentPreviewError"
-          />
-
           <section class="render-templates-panel-section">
             <div class="render-templates-panel-section__header">
               <span>{{ t('renderTemplates.templateList') }}</span>

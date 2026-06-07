@@ -10,7 +10,7 @@ import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useRoute, useRouter } from 'vue-router'
 
-import { notifySuccess } from '@/adapter/feedback'
+import { notifySuccess, useToastFeedback } from '@/adapter/feedback'
 import AppPage from '@/components/page/AppPage.vue'
 import ManagementContextActions from '@/components/ManagementContextActions.vue'
 import PluginManagementUIHost from '@/components/plugins/PluginManagementUIHost.vue'
@@ -211,6 +211,27 @@ const permissionSummaryLabel = computed(() => (
     ? t('plugins.permissionPendingCompact', { count: missingRequiredPermissions.value.length })
     : t('plugins.permissionTotalCompact', { count: currentPermissions.value.length })
 ))
+const detailErrorToast = computed(() => {
+  if (operationError.value) {
+    return {
+      key: `plugin-detail-operation:${operationError.value}`,
+      level: 'error' as const,
+      message: operationError.value,
+    }
+  }
+
+  if (loadError.value) {
+    return {
+      key: `plugin-detail-load:${loadError.value}`,
+      level: 'error' as const,
+      message: loadError.value,
+    }
+  }
+
+  return null
+})
+
+useToastFeedback(detailErrorToast)
 
 async function loadDetail() {
   const requestedPluginId = pluginId.value
@@ -664,24 +685,6 @@ watch(
       @retry="loadDetail()"
     />
 
-    <a-alert
-      v-else-if="loadError"
-      class="plugin-detail-page-alert"
-      :message="t('errors.common.loadFailed')"
-      type="error"
-      :description="loadError"
-      show-icon
-    />
-
-    <a-alert
-      v-if="operationError"
-      class="plugin-detail-page-alert"
-      :message="t('errors.common.actionFailed')"
-      type="error"
-      :description="operationError"
-      show-icon
-    />
-
 
     <template v-if="activePanel === 'overview'">
       <a-skeleton :loading="detailLoading && !currentPlugin" active>
@@ -1133,14 +1136,7 @@ watch(
     @cancel="closePermissionDialog"
     @ok="submitPermissionDialog"
   >
-    <a-alert
-      v-if="permissionDialogBody"
-      :message="permissionDialogTitle"
-      :type="permissionDialogMode === 'scope_changed' ? 'info' : 'warning'"
-      :description="permissionDialogBody"
-      show-icon
-      class="section-gap"
-    />
+    <p v-if="permissionDialogBody" class="plugin-detail-permission-copy">{{ permissionDialogBody }}</p>
 
     <a-empty
       v-if="permissionDialogCandidates.length === 0"
@@ -1198,9 +1194,14 @@ watch(
   }
 }
 
-.plugin-detail-panel-switch,
-.plugin-detail-page-alert {
+.plugin-detail-panel-switch {
   flex: 0 0 auto;
+}
+
+.plugin-detail-permission-copy {
+  margin: 0 0 16px;
+  color: var(--muted);
+  line-height: 1.6;
 }
 
 .premium-detail-tabs {

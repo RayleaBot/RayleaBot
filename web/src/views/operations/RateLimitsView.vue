@@ -14,7 +14,7 @@ import {
 import { computed, onBeforeUnmount, onDeactivated, onMounted, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 
-import { notifySuccess } from '@/adapter/feedback'
+import { notifySuccess, useToastFeedback } from '@/adapter/feedback'
 import AppSkeletonCard from '@/components/AppSkeletonCard.vue'
 import RateLimitInput from '@/components/config/RateLimitInput.vue'
 import AppPage from '@/components/page/AppPage.vue'
@@ -57,6 +57,25 @@ const saveStatusLabel = computed(() => {
     default:
       return ''
   }
+})
+const feedbackToast = computed(() => {
+  if (error.value) {
+    return {
+      key: `rate-limits-error:${error.value}`,
+      level: 'error' as const,
+      message: error.value,
+    }
+  }
+
+  if (redactedFields.value.length > 0) {
+    return {
+      key: `rate-limits-redacted:${redactedFields.value.join('|')}`,
+      level: 'info' as const,
+      message: `${t('config.redactedTitle')}：${redactedFields.value.join(', ')}`,
+    }
+  }
+
+  return null
 })
 const summaryCards = computed(() => [
   {
@@ -108,6 +127,8 @@ async function loadConfig() {
 onMounted(() => {
   void loadConfig()
 })
+
+useToastFeedback(feedbackToast)
 
 onDeactivated(() => {
   clearSaveStatus()
@@ -246,17 +267,6 @@ async function save() {
     </template>
 
     <div class="rate-limits-page">
-      <div v-if="error || redactedFields.length > 0" class="rate-limits-alerts-container">
-        <a-alert v-if="error" :message="t('errors.common.actionFailed')" type="error" :description="error" show-icon />
-        <a-alert
-          v-if="redactedFields.length > 0"
-          :message="t('config.redactedTitle')"
-          type="info"
-          :description="redactedFields.join(', ')"
-          show-icon
-        />
-      </div>
-
       <RetryPanel
         v-if="error && !draft"
         :title="t('rateLimits.title')"
@@ -376,7 +386,6 @@ async function save() {
   gap: 18px;
 }
 
-.rate-limits-alerts-container,
 .rate-limits-skeleton-layout {
   display: grid;
   gap: 12px;

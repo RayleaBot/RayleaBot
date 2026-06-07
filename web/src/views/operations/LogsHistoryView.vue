@@ -7,6 +7,7 @@ import ManagementLogDetailDrawer from '@/components/logs/ManagementLogDetailDraw
 import RetryPanel from '@/components/RetryPanel.vue'
 import VirtualDataViewport from '@/components/VirtualDataViewport.vue'
 import AppPage from '@/components/page/AppPage.vue'
+import { useToastFeedback } from '@/adapter/feedback'
 import { getLogLevelLabel } from '@/lib/display'
 import { formatDateTime } from '@/lib/format'
 import {
@@ -79,6 +80,17 @@ const {
   timeRangeInput,
 } = storeToRefs(historyStore)
 const { sortedItems: pluginItems } = storeToRefs(pluginsStore)
+const pageErrorToast = computed(() => (
+  error.value
+    ? {
+        key: `logs-history-error:${error.value}`,
+        level: 'error' as const,
+        message: error.value,
+      }
+    : null
+))
+
+useToastFeedback(pageErrorToast)
 
 const levelOptions = computed(() => ([
   { label: t('display.logLevels.debug'), value: 'debug' as LogLevel },
@@ -438,8 +450,6 @@ onBeforeUnmount(() => {
       :loading="loading"
       @retry="refreshHistory"
     />
-
-    <a-alert v-else-if="error" :message="t('errors.common.loadFailed')" type="error" :description="error" show-icon />
 
     <section
       v-else

@@ -4,10 +4,16 @@ import { flushPromises, mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMemoryHistory, createRouter } from 'vue-router'
 
+import { notifySuccess, useToastFeedback } from '@/adapter/feedback'
 import ProtocolsPage from '@/views/protocols/ProtocolsView.vue'
 import { useConfigStore } from '@/stores/config'
 import { useProtocolsStore } from '@/stores/protocols'
 import type { ConfigDocument } from '@/types/api'
+
+vi.mock('@/adapter/feedback', () => ({
+  notifySuccess: vi.fn(),
+  useToastFeedback: vi.fn(),
+}))
 
 function createFixtureConfig(): ConfigDocument {
   return {
@@ -104,6 +110,8 @@ function createFixtureConfig(): ConfigDocument {
 describe('ProtocolsPage', () => {
   beforeEach(() => {
     setActivePinia(createPinia())
+    vi.mocked(notifySuccess).mockClear()
+    vi.mocked(useToastFeedback).mockClear()
   })
 
   function createTestRouter() {
@@ -396,7 +404,7 @@ describe('ProtocolsPage', () => {
     expect(saveSpy.mock.calls[0][0].adapter.connect_timeout_seconds).toBeUndefined()
   })
 
-  it('renders the apply effect summary on the protocol page', async () => {
+  it('keeps apply effect details out of the protocol page banner area', async () => {
     const configStore = useConfigStore()
     const protocolsStore = useProtocolsStore()
 
@@ -437,11 +445,13 @@ describe('ProtocolsPage', () => {
 
     await flushPromises()
 
-    expect(wrapper.text()).toContain('保存结果')
-    expect(wrapper.text()).toContain('已重载')
-    expect(wrapper.text()).toContain('需重启生效')
-    expect(wrapper.text()).toContain('onebot.forward_ws.url')
-    expect(wrapper.text()).toContain('render.browser_args')
+    expect(wrapper.text()).not.toContain('保存结果')
+    expect(wrapper.text()).not.toContain('已重载')
+    expect(wrapper.text()).not.toContain('需重启生效')
+    expect(wrapper.text()).not.toContain('onebot.forward_ws.url')
+    expect(wrapper.text()).not.toContain('render.browser_args')
+    expect(wrapper.text()).toContain('保存完成，仍需重启服务')
+    expect(vi.mocked(useToastFeedback)).toHaveBeenCalled()
   })
 
   it('shows unknown runtime fallback and omits provider from saved config', async () => {

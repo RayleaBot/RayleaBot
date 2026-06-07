@@ -20,6 +20,7 @@ const weatherMenuPreviewFooter = 'Created By RayleaBot 开发版本 & Plugin Wea
 
 vi.mock('@/adapter/feedback', () => ({
   notifySuccess: vi.fn(),
+  useToastFeedback: vi.fn(),
 }))
 
 function createConfig(): ConfigDocument {

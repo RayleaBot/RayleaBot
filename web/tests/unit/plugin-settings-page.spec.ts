@@ -10,6 +10,7 @@ import type { ConfigDocument } from '@/types/api'
 
 vi.mock('@/adapter/feedback', () => ({
   notifySuccess: vi.fn(),
+  useToastFeedback: vi.fn(),
 }))
 
 function createFixtureConfig(): ConfigDocument {

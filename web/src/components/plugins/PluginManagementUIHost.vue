@@ -2,6 +2,7 @@
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 
+import { useToastFeedback } from '@/adapter/feedback'
 import RetryPanel from '@/components/RetryPanel.vue'
 import { t } from '@/i18n'
 import { getDisplayErrorMessage } from '@/lib/error-text'
@@ -138,6 +139,17 @@ const sourceReference = computed(() => (
   || props.plugin.source?.root?.trim()
   || t('display.empty')
 ))
+const actionErrorToast = computed(() => (
+  actionError.value
+    ? {
+        key: `plugin-management-ui:${props.plugin.id}:${actionError.value}`,
+        level: 'error' as const,
+        message: actionError.value,
+      }
+    : null
+))
+
+useToastFeedback(actionErrorToast)
 
 let bridgeToken = 0
 let initStartedForBridgeToken = 0
@@ -797,26 +809,15 @@ onBeforeUnmount(() => {
       </div>
     </template>
 
-    <a-alert
-      v-if="actionError"
-      class="section-gap"
-      :message="t('errors.common.actionFailed')"
-      type="error"
-      :description="actionError"
-      show-icon
-    />
-
     <section
       v-if="requiresConfirmation && !confirmed"
       class="plugin-management-ui-confirm"
       data-testid="plugin-management-ui-confirm"
     >
-      <a-alert
-        :message="t('plugins.managementUi.confirmTitle')"
-        type="warning"
-        :description="t('plugins.managementUi.confirmBody')"
-        show-icon
-      />
+      <div class="plugin-management-ui-confirm-note">
+        <strong>{{ t('plugins.managementUi.confirmTitle') }}</strong>
+        <p>{{ t('plugins.managementUi.confirmBody') }}</p>
+      </div>
 
       <a-descriptions :column="1" bordered size="small">
         <a-descriptions-item :label="t('plugins.fields.trust')">
@@ -876,6 +877,28 @@ onBeforeUnmount(() => {
 .plugin-management-ui-confirm {
   display: grid;
   gap: 16px;
+}
+
+.plugin-management-ui-confirm-note {
+  display: grid;
+  gap: 6px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-soft);
+
+  strong {
+    color: var(--text);
+    font-size: 0.9rem;
+    line-height: 1.4;
+  }
+
+  p {
+    margin: 0;
+    color: var(--muted);
+    font-size: 0.86rem;
+    line-height: 1.5;
+  }
 }
 
 .plugin-management-ui-frame-shell,

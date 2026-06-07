@@ -11,6 +11,7 @@ import { usePluginsStore } from '@/stores/plugins'
 vi.mock('@/adapter/feedback', () => ({
   notifyError: vi.fn(),
   notifySuccess: vi.fn(),
+  useToastFeedback: vi.fn(),
 }))
 
 describe('PluginsPage', () => {
