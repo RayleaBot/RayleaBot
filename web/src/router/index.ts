@@ -105,11 +105,15 @@ function installRouteGuards(router: Router) {
       }
     }
 
-    if (sessionStore.requiresSetup && to.name !== 'setup') {
-      return {
-        name: 'setup',
-        query: to.fullPath ? { redirect: to.fullPath } : undefined,
+    if (sessionStore.requiresSetup) {
+      sessionStore.clearSession()
+      if (to.name !== 'setup') {
+        return {
+          name: 'setup',
+          query: to.fullPath ? { redirect: to.fullPath } : undefined,
+        }
       }
+      return true
     }
 
     if (!sessionStore.requiresSetup && to.name === 'setup') {

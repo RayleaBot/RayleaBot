@@ -57,9 +57,21 @@ async function syncRouteWithSession(
     return
   }
 
+  const current = router.currentRoute.value
+  if (sessionStore.requiresSetup) {
+    sessionStore.clearSession()
+    socketStore.disconnectAll()
+    if (current.name !== 'setup') {
+      await router.push({
+        name: 'setup',
+        query: current.fullPath ? { redirect: current.fullPath } : undefined,
+      })
+    }
+    return
+  }
+
   if (sessionStore.isAuthenticated) {
     socketStore.ensureManagementSockets()
-    const current = router.currentRoute.value
     if (current.name === 'login' || current.name === 'setup') {
       await router.push(readRouteRedirectTarget(current.query.redirect) ?? { name: 'status' })
     }
@@ -67,15 +79,6 @@ async function syncRouteWithSession(
   }
 
   socketStore.disconnectAll()
-
-  const current = router.currentRoute.value
-  if (sessionStore.requiresSetup && current.name !== 'setup') {
-    await router.push({
-      name: 'setup',
-      query: current.fullPath ? { redirect: current.fullPath } : undefined,
-    })
-    return
-  }
 
   if (!sessionStore.requiresSetup && current.meta.requiresAuth) {
     await router.push({

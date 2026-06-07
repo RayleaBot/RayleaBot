@@ -89,6 +89,18 @@ describe('router guards', () => {
     expect(router.currentRoute.value.name).toBe('plugins')
   })
 
+  it('clears persisted tokens and opens setup when initialization is required', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse({ initialized: false })))
+    window.localStorage.setItem('rayleabot.session_token', 'stale-session-token')
+    const router = createAppRouter(createMemoryHistory())
+
+    await router.push('/')
+    await router.isReady()
+
+    expect(router.currentRoute.value.name).toBe('setup')
+    expect(window.localStorage.getItem('rayleabot.session_token')).toBeNull()
+  })
+
   it('lets offline state own protected navigation', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse({ initialized: true })))
     const availabilityStore = useAppAvailabilityStore()
