@@ -264,12 +264,12 @@ async function bootstrap() {
     onUnauthorized: (tokenSnapshot) => sessionStore.handleSessionExpired(tokenSnapshot),
   })
 
-  await sessionStore.bootstrap().catch(() => undefined)
   uiShellStore.resetRestoredTabs()
 
   const router = createAppRouter()
   installAvailabilityHandlers(router, sessionStore, socketStore, availabilityStore, uiShellStore)
   app.use(router)
+  app.mount('#app')
 
   await router.isReady()
   if (availabilityStore.isOffline && router.currentRoute.value.name !== 'offline') {
@@ -288,8 +288,6 @@ async function bootstrap() {
     () => [sessionStore.isBootstrapped, sessionStore.isAuthenticated, sessionStore.requiresSetup] as const,
     () => syncRouteWithSession(router, sessionStore, socketStore),
   )
-
-  app.mount('#app')
 }
 
 void bootstrap()

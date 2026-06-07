@@ -199,6 +199,53 @@ describe('web bootstrap', () => {
     expect(router.replace).not.toHaveBeenCalledWith({ name: 'status' })
   })
 
+  it('mounts the app before startup status and route readiness complete', async () => {
+    const pendingBootstrap = new Promise<void>(() => undefined)
+    let resolveRouterReady!: () => void
+    const routerReady = new Promise<void>((resolve) => {
+      resolveRouterReady = resolve
+    })
+    const app = {
+      use: vi.fn().mockReturnThis(),
+      mount: vi.fn(),
+    }
+    const router = {
+      currentRoute: {
+        value: {
+          fullPath: '/',
+          name: undefined,
+          meta: {},
+        },
+      },
+      isReady: vi.fn().mockReturnValue(routerReady),
+      push: vi.fn(),
+      replace: vi.fn(),
+    }
+    const sessionStore = {
+      token: null,
+      isAuthenticated: false,
+      isBootstrapped: false,
+      requiresSetup: false,
+      setupInitialized: null,
+      bootstrap: vi.fn().mockReturnValue(pendingBootstrap),
+      clearSession: vi.fn(),
+      handleSessionExpired: vi.fn(),
+    }
+
+    createApp.mockReturnValue(app)
+    createAppRouter.mockReturnValue(router)
+    sessionStoreFactory.mockReturnValue(sessionStore)
+
+    await import('@/main')
+    await flushBootstrap()
+
+    expect(router.isReady).toHaveBeenCalled()
+    expect(app.mount).toHaveBeenCalledWith('#app')
+
+    resolveRouterReady()
+    await flushBootstrap()
+  })
+
   it('keeps authenticated startup exception routes in place', async () => {
     for (const routeName of ['status', 'offline']) {
       vi.resetModules()

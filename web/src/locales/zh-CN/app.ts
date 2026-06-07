@@ -1,5 +1,6 @@
 export const app = {
   brand: 'RayleaBot',
+  loading: '正在加载管理界面',
   skipToMain: '跳到主内容',
 } as const
 
