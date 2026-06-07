@@ -7,6 +7,7 @@ import { createMemoryHistory, createRouter } from 'vue-router'
 
 import { ApiError } from '@/lib/http'
 import VirtualDataViewport from '@/components/VirtualDataViewport.vue'
+import PluginManagementUIHost from '@/components/plugins/PluginManagementUIHost.vue'
 import PluginDetailPage from '@/views/plugins/PluginDetailView.vue'
 import { useConfigStore } from '@/stores/config'
 import { usePluginConsoleStore } from '@/stores/plugin-console'
@@ -805,6 +806,18 @@ describe('PluginDetailPage', () => {
       management_ui: {
         entry: 'web/index.html',
         label: '配置页面',
+        pages: [
+          {
+            id: 'config',
+            label: '配置页面',
+            entry: 'web/index.html',
+          },
+          {
+            id: 'secrets',
+            label: '密钥设置',
+            entry: 'web/secrets.html',
+          },
+        ],
       },
       commands: [],
       command_conflicts: [],
@@ -844,14 +857,88 @@ describe('PluginDetailPage', () => {
 
     expect(wrapper.text()).toContain('概览')
     expect(wrapper.text()).toContain('配置页面')
+    expect(wrapper.text()).toContain('密钥设置')
     expect(wrapper.find('.app-page').classes()).toContain('app-page--full-height')
     expect(wrapper.find('.plugin-detail-panel-switch').exists()).toBe(true)
     expect(wrapper.find('[data-testid="plugin-management-ui-host"]').exists()).toBe(true)
+    expect(wrapper.get('[data-testid="plugin-management-ui-frame"]').attributes('src')).toContain('/plugin-ui/example-config-panel/web/index.html')
     expect(wrapper.find('.console-terminal').exists()).toBe(false)
+
+    await router.push('/plugins/example-config-panel?panel=management-ui&management_page=secrets')
+    await flushPromises()
+
+    expect(wrapper.get('[data-testid="plugin-management-ui-frame"]').attributes('src')).toContain('/plugin-ui/example-config-panel/web/secrets.html')
+    expect(wrapper.find('.app-page').classes()).toContain('app-page--full-height')
 
     await router.push('/plugins/example-config-panel')
     await flushPromises()
 
     expect(wrapper.find('.app-page').classes()).not.toContain('app-page--full-height')
+  })
+
+  it('keeps single-page management plugins on the legacy management panel query', async () => {
+    const router = createPluginRouter()
+    await router.push('/plugins/example-config-panel?panel=management-ui')
+    await router.isReady()
+
+    const configStore = useConfigStore()
+    const pluginsStore = usePluginsStore()
+    const pluginConsoleStore = usePluginConsoleStore()
+    const socketStore = useSocketStore()
+
+    const detail = {
+      id: 'example-config-panel',
+      name: 'Example Config Panel',
+      role: 'example',
+      registration_state: 'installed',
+      desired_state: 'disabled',
+      runtime_state: 'stopped',
+      display_state: 'disabled',
+      version: '0.1.0',
+      runtime: 'python',
+      type: 'managed_runtime',
+      entry: 'main.py',
+      source: {
+        root: 'examples/plugins',
+        package_source_type: 'local_directory',
+        package_source_ref: 'examples/plugins/example-config-panel',
+        verified: true,
+      },
+      trust: {
+        level: 'third_party',
+        label: '示例',
+      },
+      management_ui: {
+        entry: 'web/index.html',
+        label: '配置页面',
+      },
+      commands: [],
+      command_conflicts: [],
+      permissions: [],
+    } as const
+
+    pluginsStore.current = detail
+
+    vi.spyOn(configStore, 'fetchConfig').mockResolvedValue(undefined)
+    vi.spyOn(pluginsStore, 'fetchDetail').mockResolvedValue(detail)
+    vi.spyOn(pluginsStore, 'fetchGrants').mockResolvedValue([])
+    vi.spyOn(pluginConsoleStore, 'fetchOutboundConsoleHistory').mockResolvedValue([])
+    vi.spyOn(socketStore, 'setConsolePlugin').mockImplementation(() => undefined)
+
+    const wrapper = mount(PluginDetailPage, {
+      global: {
+        plugins: [Antd, router],
+      },
+    })
+
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('概览')
+    expect(wrapper.text()).toContain('配置页面')
+    expect(wrapper.find('.plugin-detail-panel-switch').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="plugin-management-ui-host"]').exists()).toBe(true)
+    expect(wrapper.getComponent(PluginManagementUIHost).props('page')).toBeNull()
+    expect(wrapper.get('[data-testid="plugin-management-ui-frame"]').attributes('src')).toContain('/plugin-ui/example-config-panel/web/index.html')
+    expect(router.currentRoute.value.query).toEqual({ panel: 'management-ui' })
   })
 })

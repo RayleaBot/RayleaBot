@@ -68,6 +68,29 @@
         }
       }
     },
+    "plugin_management_ui_page": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "label",
+        "entry"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z0-9](?:[a-z0-9._-]{0,62}[a-z0-9])?$"
+        },
+        "label": {
+          "type": "string",
+          "minLength": 1
+        },
+        "entry": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9._/-]+\\.html$"
+        }
+      }
+    },
     "plugin_trust_summary": {
       "type": "object",
       "additionalProperties": false,
@@ -177,6 +200,9 @@
             "title": {
               "type": "string",
               "minLength": 1
+            },
+            "page": {
+              "$ref": "#/$defs/plugin_management_ui_page"
             }
           }
         }

@@ -154,7 +154,7 @@
     },
     "management_ui": {
       "type": "object",
-      "description": "Optional plugin-local management page entry shown inside the protected plugin detail workbench.",
+      "description": "Optional plugin-local management page entries shown inside the protected plugin detail workbench.",
       "additionalProperties": false,
       "required": [
         "entry"
@@ -176,6 +176,15 @@
           "type": "string",
           "minLength": 1,
           "description": "Optional workbench label shown in the plugin detail page."
+        },
+        "pages": {
+          "type": "array",
+          "description": "Optional explicit management pages shown as plugin detail workbench tabs. Page entries must be package-relative HTML files inside the management UI asset directory.",
+          "items": {
+            "$ref": "#/$defs/management_ui_page"
+          },
+          "minItems": 1,
+          "uniqueItems": true
         }
       }
     },
@@ -666,6 +675,39 @@
           "minLength": 1
         }
       }
+    },
+    "management_ui_page": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "label",
+        "entry"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z0-9](?:[a-z0-9._-]{0,62}[a-z0-9])?$",
+          "description": "Stable management page identifier used by the host workbench tab."
+        },
+        "label": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Workbench tab label."
+        },
+        "entry": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/package_relative_path"
+            },
+            {
+              "type": "string",
+              "pattern": "\\.html$"
+            }
+          ],
+          "description": "Package-relative HTML entry file for this management page."
+        }
+      }
     }
   },
   "x-fixtures": [
@@ -680,6 +722,7 @@
     "fixtures/plugin-info/ok.concurrency-opt-in.json",
     "fixtures/plugin-info/ok.rich-metadata.json",
     "fixtures/plugin-info/ok.management-ui.json",
+    "fixtures/plugin-info/ok.management-ui-pages.json",
     "fixtures/plugin-info/ok.render-template.json",
     "fixtures/plugin-info/ok.plugin-with-help.json",
     "fixtures/plugin-info/invalid.concurrency-zero.json",
@@ -690,6 +733,8 @@
     "fixtures/plugin-info/invalid.icon-parent-path.json",
     "fixtures/plugin-info/invalid.management-ui-parent-path.json",
     "fixtures/plugin-info/invalid.management-ui-non-html-entry.json",
+    "fixtures/plugin-info/invalid.management-ui-page-parent-path.json",
+    "fixtures/plugin-info/invalid.management-ui-page-non-html-entry.json",
     "fixtures/plugin-info/invalid.render-template-absolute-path.json",
     "fixtures/plugin-info/invalid.render-template-manifest.json",
     "fixtures/plugin-info/invalid.render-template-missing-directory.json",

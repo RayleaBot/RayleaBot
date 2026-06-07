@@ -67,11 +67,13 @@ def normalize_tokens(value):
             continue
         token_id = safe_id(item.get("id"))
         secret_key = safe_id(item.get("secret_key"))
-        if not token_id or not secret_key or token_id in seen:
+        platform = str(item.get("platform") or "").strip()
+        if platform != "bilibili" or not token_id or not secret_key or token_id in seen:
             continue
         seen.add(token_id)
         items.append({
             "id": token_id,
+            "platform": "bilibili",
             "label": str(item.get("label") or token_id).strip() or token_id,
             "secret_key": secret_key,
             "enabled": bool(item.get("enabled", True)),

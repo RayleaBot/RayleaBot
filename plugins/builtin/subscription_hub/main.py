@@ -439,7 +439,10 @@ class SubscriptionHubPlugin(RayleaBotPlugin):
         return document
 
     def choose_token(self, ctx, settings):
-        candidates = [item for item in settings["tokens"] if item.get("enabled", True)]
+        candidates = [
+            item for item in settings["tokens"]
+            if item.get("platform") == "bilibili" and item.get("enabled", True)
+        ]
         if not candidates:
             self.try_log(ctx, "warn", "Bilibili Cookie 未配置或未启用")
             return ""
@@ -925,6 +928,8 @@ def find_bilibili_subscription_by_name(settings, name, target):
 
 def first_available_token(settings, ctx):
     for item in settings.get("tokens") or []:
+        if item.get("platform") != "bilibili":
+            continue
         if item.get("enabled", True) is False:
             continue
         try:
@@ -1106,7 +1111,7 @@ def digits(value):
 
 
 def build_status_text(settings):
-    tokens = settings.get("tokens") or []
+    tokens = [item for item in settings.get("tokens") or [] if item.get("platform") == "bilibili"]
     subscriptions = settings.get("subscriptions") or []
     enabled_tokens = sum(1 for item in tokens if item.get("enabled", True))
     enabled_subscriptions = sum(1 for item in subscriptions if item.get("enabled", True))

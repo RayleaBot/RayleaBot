@@ -55,6 +55,7 @@ class SubscriptionHubTests(unittest.TestCase):
             "tokens": [{
                 "id": "primary",
                 "label": "主 Cookie",
+                "platform": "bilibili",
                 "secret_key": "bili.primary",
                 "enabled": True,
             }],
@@ -411,6 +412,7 @@ class SubscriptionHubTests(unittest.TestCase):
             "tokens": [{
                 "id": "Primary",
                 "label": "主 Cookie",
+                "platform": "bilibili",
                 "secret_key": "bili.primary",
             }],
             "subscriptions": [{
@@ -432,6 +434,7 @@ class SubscriptionHubTests(unittest.TestCase):
             }],
         })
         self.assertEqual(settings["tokens"][0]["id"], "primary")
+        self.assertEqual(settings["tokens"][0]["platform"], "bilibili")
         self.assertEqual(settings["dynamic_time_range_seconds"], 7200)
         self.assertEqual(settings["subscriptions"][0]["services"], ["video", "live"])
         self.assertEqual(settings["subscriptions"][0]["avatar_url"], "https://i0.hdslb.com/face.jpg")
@@ -439,6 +442,22 @@ class SubscriptionHubTests(unittest.TestCase):
         self.assertEqual(settings["subscriptions"][0]["subscribers"][0]["nickname"], "订阅人")
         self.assertEqual(settings["subscriptions"][0]["subscribers"][0]["group_nickname"], "群名片")
         self.assertEqual(settings["subscriptions"][0]["subscribers"][0]["avatar_url"], "https://q1.qlogo.cn/g?b=qq&nk=42&s=100")
+
+    def test_merge_settings_requires_bilibili_token_platform(self):
+        settings = merge_settings({}, {
+            "tokens": [
+                {"id": "missing-platform", "label": "未标记平台", "secret_key": "bili.missing", "enabled": True},
+                {"id": "other", "platform": "qq", "label": "其它平台", "secret_key": "qq.primary", "enabled": True},
+                {"id": "primary", "platform": "bilibili", "label": "主 CK", "secret_key": "bili.primary", "enabled": True},
+            ],
+        })
+        self.assertEqual(settings["tokens"], [{
+            "id": "primary",
+            "platform": "bilibili",
+            "label": "主 CK",
+            "secret_key": "bili.primary",
+            "enabled": True,
+        }])
 
     def test_dynamic_updates_extract_video(self):
         updates = dynamic_updates({
@@ -1084,6 +1103,7 @@ class SubscriptionHubTests(unittest.TestCase):
         settings = self.subscription_settings(tokens=[{
             "id": "primary",
             "label": "主 Cookie",
+            "platform": "bilibili",
             "secret_key": "bili.primary",
             "enabled": True,
         }])
@@ -1109,6 +1129,7 @@ class SubscriptionHubTests(unittest.TestCase):
         settings = self.subscription_settings(tokens=[{
             "id": "primary",
             "label": "主 Cookie",
+            "platform": "bilibili",
             "secret_key": "bili.primary",
             "enabled": True,
         }])
@@ -1131,6 +1152,7 @@ class SubscriptionHubTests(unittest.TestCase):
         settings = self.subscription_settings(tokens=[{
             "id": "primary",
             "label": "主 Cookie",
+            "platform": "bilibili",
             "secret_key": "bili.primary",
             "enabled": True,
         }])
@@ -1156,6 +1178,7 @@ class SubscriptionHubTests(unittest.TestCase):
         settings = self.subscription_settings(tokens=[{
             "id": "primary",
             "label": "主 Cookie",
+            "platform": "bilibili",
             "secret_key": "bili.primary",
             "enabled": True,
         }])
@@ -1179,6 +1202,7 @@ class SubscriptionHubTests(unittest.TestCase):
         settings = self.subscription_settings(tokens=[{
             "id": "primary",
             "label": "主 Cookie",
+            "platform": "bilibili",
             "secret_key": "bili.primary",
             "enabled": True,
         }])
@@ -1217,6 +1241,7 @@ class SubscriptionHubTests(unittest.TestCase):
         settings = self.subscription_settings(tokens=[{
             "id": "primary",
             "label": "主 Cookie",
+            "platform": "bilibili",
             "secret_key": "bili.primary",
             "enabled": True,
         }])
@@ -1246,6 +1271,7 @@ class SubscriptionHubTests(unittest.TestCase):
             tokens=[{
                 "id": "primary",
                 "label": "主 Cookie",
+                "platform": "bilibili",
                 "secret_key": "bili.primary",
                 "enabled": True,
             }],
@@ -1286,6 +1312,7 @@ class SubscriptionHubTests(unittest.TestCase):
             tokens=[{
                 "id": "primary",
                 "label": "主 Cookie",
+                "platform": "bilibili",
                 "secret_key": "bili.primary",
                 "enabled": True,
             }],
@@ -1316,6 +1343,7 @@ class SubscriptionHubTests(unittest.TestCase):
             tokens=[{
                 "id": "primary",
                 "label": "主 Cookie",
+                "platform": "bilibili",
                 "secret_key": "bili.primary",
                 "enabled": True,
             }],
@@ -1368,6 +1396,7 @@ class SubscriptionHubTests(unittest.TestCase):
             tokens=[{
                 "id": "primary",
                 "label": "主 Cookie",
+                "platform": "bilibili",
                 "secret_key": "bili.primary",
                 "enabled": True,
             }],
@@ -1400,6 +1429,7 @@ class SubscriptionHubTests(unittest.TestCase):
             tokens=[{
                 "id": "primary",
                 "label": "主 Cookie",
+                "platform": "bilibili",
                 "secret_key": "bili.primary",
                 "enabled": True,
             }],
@@ -1442,6 +1472,7 @@ class SubscriptionHubTests(unittest.TestCase):
             tokens=[{
                 "id": "primary",
                 "label": "主 Cookie",
+                "platform": "bilibili",
                 "secret_key": "bili.primary",
                 "enabled": True,
             }],
@@ -1700,6 +1731,7 @@ class SubscriptionHubTests(unittest.TestCase):
         settings = self.subscription_settings(tokens=[{
             "id": "primary",
             "label": "主 Cookie",
+            "platform": "bilibili",
             "secret_key": "bili.primary",
             "enabled": True,
         }])
@@ -1727,6 +1759,7 @@ class SubscriptionHubTests(unittest.TestCase):
             tokens=[{
                 "id": "primary",
                 "label": "主 Cookie",
+                "platform": "bilibili",
                 "secret_key": "bili.primary",
                 "enabled": True,
             }],
@@ -1757,6 +1790,7 @@ class SubscriptionHubTests(unittest.TestCase):
         settings = self.subscription_settings(tokens=[{
             "id": "primary",
             "label": "主 Cookie",
+            "platform": "bilibili",
             "secret_key": "bili.primary",
             "enabled": True,
         }])
@@ -1792,14 +1826,49 @@ class SubscriptionHubTests(unittest.TestCase):
         self.assertTrue(any("Bilibili Cookie" in log["message"] for log in ctx.logs))
         self.assertEqual(ctx.messages, [])
 
+    def test_scheduler_uses_only_bilibili_tokens(self):
+        plugin = SubscriptionHubPlugin()
+        settings = self.subscription_settings(tokens=[
+            {
+                "id": "qq-primary",
+                "platform": "qq",
+                "label": "QQ CK",
+                "secret_key": "qq.primary",
+                "enabled": True,
+            },
+            {
+                "id": "bilibili-primary",
+                "platform": "bilibili",
+                "label": "主 CK",
+                "secret_key": "bili.primary",
+                "enabled": True,
+            },
+        ])
+        ctx = FakeContext(
+            config_values=settings,
+            secrets={
+                "qq.primary": "SESSDATA=wrong",
+                "bili.primary": "SESSDATA=token",
+            },
+            storage={"dynamic-baseline:bilibili-123456-group-10000": int(time.time()) - 60},
+            http_responses=[
+                self.nav_response(),
+                self.dynamic_response([self.video_item("987", "新视频")]),
+            ],
+        )
+
+        plugin.handle_scheduler_trigger(ctx)
+
+        self.assertEqual(ctx.http_requests[0]["headers"].get("Cookie"), "SESSDATA=token")
+
     def test_build_status_text_summarizes_visible_state(self):
         settings = merge_settings({}, {
             "enabled": True,
             "poll_cron": "*/10 * * * *",
             "dynamic_time_range_seconds": 1800,
             "tokens": [
-                {"id": "primary", "label": "主 Cookie", "secret_key": "bili.primary", "enabled": True},
-                {"id": "backup", "label": "备用 Cookie", "secret_key": "bili.backup", "enabled": False},
+                {"id": "primary", "label": "主 Cookie", "platform": "bilibili", "secret_key": "bili.primary", "enabled": True},
+                {"id": "backup", "label": "备用 Cookie", "platform": "bilibili", "secret_key": "bili.backup", "enabled": False},
             ],
             "subscriptions": [
                 {"uid": "123456", "target_type": "group", "target_id": "10000"},

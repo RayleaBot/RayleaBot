@@ -290,6 +290,13 @@ func loadSnapshot(infoPath, sourceRoot, repoRoot string, validator *schema.Valid
 		return snapshot, true, nil
 	}
 
+	if err := validateManagementUIPages(snapshot.ManagementUI); err != nil {
+		snapshot.Valid = false
+		snapshot.DisplayState = displayInvalid
+		snapshot.ValidationSummary = trimSummary(err.Error(), maxSummaryChars)
+		return snapshot, true, nil
+	}
+
 	snapshot.Valid = true
 	snapshot.DisplayState = displayDiscovered
 	return snapshot, true, nil
@@ -540,7 +547,57 @@ func manifestManagementUI(document map[string]any) *ManagementUI {
 	return &ManagementUI{
 		Entry: entry,
 		Label: stringField(value, "label"),
+		Pages: manifestManagementUIPages(value),
 	}
+}
+
+func manifestManagementUIPages(document map[string]any) []ManagementUIPage {
+	values, ok := document["pages"].([]any)
+	if !ok {
+		return nil
+	}
+
+	items := make([]ManagementUIPage, 0, len(values))
+	for _, value := range values {
+		item, ok := value.(map[string]any)
+		if !ok {
+			continue
+		}
+		items = append(items, ManagementUIPage{
+			ID:    stringField(item, "id"),
+			Label: stringField(item, "label"),
+			Entry: stringField(item, "entry"),
+		})
+	}
+	return items
+}
+
+func validateManagementUIPages(managementUI *ManagementUI) error {
+	if managementUI == nil || len(managementUI.Pages) == 0 {
+		return nil
+	}
+
+	assetRoot := pathDirectory(managementUI.Entry)
+	seen := map[string]struct{}{}
+	for _, page := range managementUI.Pages {
+		if _, exists := seen[page.ID]; exists {
+			return fmt.Errorf("management_ui.pages contains duplicate id %q", page.ID)
+		}
+		seen[page.ID] = struct{}{}
+		if pathDirectory(page.Entry) != assetRoot {
+			return fmt.Errorf("management_ui.pages entry %q must stay inside %q", page.Entry, assetRoot)
+		}
+	}
+	return nil
+}
+
+func pathDirectory(value string) string {
+	cleaned := strings.TrimSpace(filepath.ToSlash(value))
+	index := strings.LastIndex(cleaned, "/")
+	if index < 0 {
+		return ""
+	}
+	return cleaned[:index]
 }
 
 func manifestRenderTemplates(document map[string]any) []RenderTemplate {

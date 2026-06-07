@@ -521,8 +521,136 @@ func TestDiscoverManifestManagementUI(t *testing.T) {
 	if snapshot.ManagementUI.Label != "配置页面" {
 		t.Fatalf("unexpected management_ui.label: got %q want 配置页面", snapshot.ManagementUI.Label)
 	}
+	if len(snapshot.ManagementUI.Pages) != 0 {
+		t.Fatalf("unexpected management_ui.pages length: got %d want 0", len(snapshot.ManagementUI.Pages))
+	}
 	if snapshot.PackageRootPath != pluginDir {
 		t.Fatalf("unexpected package root path: got %q want %q", snapshot.PackageRootPath, pluginDir)
+	}
+}
+
+func TestDiscoverManifestManagementUIPages(t *testing.T) {
+	t.Parallel()
+
+	rootDir := t.TempDir()
+	validator := compileSchema(t, filepath.Join("..", "contracts", "plugin-info.schema.json"))
+	fixture := loadPluginInfoFixture(t, filepath.Join("..", "fixtures", "plugin-info", "ok.management-ui-pages.json"))
+	pluginDir := filepath.Join(rootDir, "plugins", "example-config-panel")
+	if err := os.MkdirAll(filepath.Join(pluginDir, "web"), 0o755); err != nil {
+		t.Fatalf("mkdir %s: %v", pluginDir, err)
+	}
+	if err := writePluginManifest(filepath.Join(pluginDir, "info.json"), fixture.Input); err != nil {
+		t.Fatalf("write manifest: %v", err)
+	}
+
+	snapshots, summary, err := plugins.Discover(plugins.DiscoverOptions{
+		Validator: validator,
+		Roots: []plugins.ScanRoot{{
+			Label: "plugins/installed",
+			Path:  filepath.Join(rootDir, "plugins"),
+		}},
+		RepoRoot: rootDir,
+	})
+	if err != nil {
+		t.Fatalf("Discover failed: %v", err)
+	}
+	if summary.ValidCount != 1 || len(snapshots) != 1 {
+		t.Fatalf("unexpected discovery summary: %#v len=%d", summary, len(snapshots))
+	}
+
+	pages := snapshots[0].ManagementUI.Pages
+	if len(pages) != 2 {
+		t.Fatalf("unexpected management_ui.pages length: got %d want 2", len(pages))
+	}
+	if pages[0].ID != "config" || pages[0].Entry != "web/index.html" {
+		t.Fatalf("unexpected first management page: %#v", pages[0])
+	}
+	if pages[1].ID != "secrets" || pages[1].Entry != "web/secrets.html" {
+		t.Fatalf("unexpected second management page: %#v", pages[1])
+	}
+}
+
+func TestDiscoverManifestRejectsManagementUIPageOutsideEntryDirectory(t *testing.T) {
+	t.Parallel()
+
+	rootDir := t.TempDir()
+	validator := compileSchema(t, filepath.Join("..", "contracts", "plugin-info.schema.json"))
+	fixture := loadPluginInfoFixture(t, filepath.Join("..", "fixtures", "plugin-info", "ok.management-ui-pages.json"))
+	input := fixture.Input.(map[string]any)
+	managementUI := input["management_ui"].(map[string]any)
+	pages := managementUI["pages"].([]any)
+	secondPage := pages[1].(map[string]any)
+	secondPage["entry"] = "admin/secrets.html"
+
+	pluginDir := filepath.Join(rootDir, "plugins", "example-config-panel")
+	if err := os.MkdirAll(filepath.Join(pluginDir, "web"), 0o755); err != nil {
+		t.Fatalf("mkdir %s: %v", pluginDir, err)
+	}
+	if err := writePluginManifest(filepath.Join(pluginDir, "info.json"), input); err != nil {
+		t.Fatalf("write manifest: %v", err)
+	}
+
+	snapshots, summary, err := plugins.Discover(plugins.DiscoverOptions{
+		Validator: validator,
+		Roots: []plugins.ScanRoot{{
+			Label: "plugins/installed",
+			Path:  filepath.Join(rootDir, "plugins"),
+		}},
+		RepoRoot: rootDir,
+	})
+	if err != nil {
+		t.Fatalf("Discover failed: %v", err)
+	}
+	if summary.InvalidCount != 1 || len(snapshots) != 1 {
+		t.Fatalf("unexpected discovery summary: %#v len=%d", summary, len(snapshots))
+	}
+	if snapshots[0].Valid {
+		t.Fatal("expected invalid snapshot")
+	}
+	if !strings.Contains(snapshots[0].ValidationSummary, "must stay inside") {
+		t.Fatalf("unexpected validation summary: %q", snapshots[0].ValidationSummary)
+	}
+}
+
+func TestDiscoverManifestRejectsDuplicateManagementUIPageID(t *testing.T) {
+	t.Parallel()
+
+	rootDir := t.TempDir()
+	validator := compileSchema(t, filepath.Join("..", "contracts", "plugin-info.schema.json"))
+	fixture := loadPluginInfoFixture(t, filepath.Join("..", "fixtures", "plugin-info", "ok.management-ui-pages.json"))
+	input := fixture.Input.(map[string]any)
+	managementUI := input["management_ui"].(map[string]any)
+	pages := managementUI["pages"].([]any)
+	secondPage := pages[1].(map[string]any)
+	secondPage["id"] = "config"
+
+	pluginDir := filepath.Join(rootDir, "plugins", "example-config-panel")
+	if err := os.MkdirAll(filepath.Join(pluginDir, "web"), 0o755); err != nil {
+		t.Fatalf("mkdir %s: %v", pluginDir, err)
+	}
+	if err := writePluginManifest(filepath.Join(pluginDir, "info.json"), input); err != nil {
+		t.Fatalf("write manifest: %v", err)
+	}
+
+	snapshots, summary, err := plugins.Discover(plugins.DiscoverOptions{
+		Validator: validator,
+		Roots: []plugins.ScanRoot{{
+			Label: "plugins/installed",
+			Path:  filepath.Join(rootDir, "plugins"),
+		}},
+		RepoRoot: rootDir,
+	})
+	if err != nil {
+		t.Fatalf("Discover failed: %v", err)
+	}
+	if summary.InvalidCount != 1 || len(snapshots) != 1 {
+		t.Fatalf("unexpected discovery summary: %#v len=%d", summary, len(snapshots))
+	}
+	if snapshots[0].Valid {
+		t.Fatal("expected invalid snapshot")
+	}
+	if !strings.Contains(snapshots[0].ValidationSummary, "duplicate id") {
+		t.Fatalf("unexpected validation summary: %q", snapshots[0].ValidationSummary)
 	}
 }
 

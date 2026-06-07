@@ -683,6 +683,10 @@ func TestDetailHandler_ReturnsManagementUI(t *testing.T) {
 		ManagementUI: &ManagementUI{
 			Entry: "web/index.html",
 			Label: "配置页面",
+			Pages: []ManagementUIPage{
+				{ID: "config", Label: "配置页面", Entry: "web/index.html"},
+				{ID: "secrets", Label: "密钥设置", Entry: "web/secrets.html"},
+			},
 		},
 	}})
 	router := chi.NewRouter()
@@ -709,6 +713,12 @@ func TestDetailHandler_ReturnsManagementUI(t *testing.T) {
 	}
 	if resp.Plugin.ManagementUI.Label != "配置页面" {
 		t.Fatalf("management_ui.label = %q, want 配置页面", resp.Plugin.ManagementUI.Label)
+	}
+	if len(resp.Plugin.ManagementUI.Pages) != 2 {
+		t.Fatalf("management_ui.pages length = %d, want 2", len(resp.Plugin.ManagementUI.Pages))
+	}
+	if got := resp.Plugin.ManagementUI.Pages[1]; got.ID != "secrets" || got.Label != "密钥设置" || got.Entry != "web/secrets.html" {
+		t.Fatalf("unexpected management_ui page: %#v", got)
 	}
 }
 

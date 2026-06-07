@@ -11,6 +11,9 @@
     { value: 'group', label: '群聊' },
     { value: 'private', label: '私聊' },
   ]
+  const COOKIE_PLATFORM_OPTIONS = [
+    { value: 'bilibili', label: 'Bilibili' },
+  ]
   const DEFAULT_SETTINGS = {
     enabled: true,
     poll_cron: '*/5 * * * *',
@@ -20,6 +23,7 @@
     tokens: [],
     subscriptions: [],
   }
+  const pageMode = document.getElementById('main-content')?.dataset.page === 'cookies' ? 'cookies' : 'subscriptions'
 
   const elements = {
     statusText: document.getElementById('status-text'),
@@ -74,6 +78,14 @@
   let initialized = false
   let pendingSave = null
 
+  function defaultPageTitle() {
+    return pageMode === 'cookies' ? 'CK 设置' : '订阅设置'
+  }
+
+  function defaultPageSubtitle() {
+    return pageMode === 'cookies' ? '管理 Bilibili CK、备注和密钥名' : '管理 Bilibili 订阅与轮询'
+  }
+
   function postMessage(type, payload, requestId) {
     window.parent.postMessage({
       version: '1',
@@ -101,6 +113,9 @@
   }
 
   function setStatus(message, isError) {
+    if (!elements.statusText) {
+      return
+    }
     elements.statusText.textContent = message
     elements.statusText.classList.toggle('is-error', Boolean(isError))
   }
@@ -178,7 +193,10 @@
     return source
       .map((item, index) => {
         const sourceItem = isRecord(item) ? item : {}
-        const id = safeId(sourceItem.id, index === 0 ? 'primary' : `cookie-${index + 1}`)
+        if (sourceItem.platform !== 'bilibili') {
+          return null
+        }
+        const id = safeId(sourceItem.id, index === 0 ? 'bilibili-primary' : `bilibili-cookie-${index + 1}`)
         const secretKey = safeId(sourceItem.secret_key, index === 0 ? 'bili.primary' : `bili.cookie_${index + 1}`)
         if (seen.has(id)) {
           return null
@@ -186,10 +204,11 @@
         seen.add(id)
         return {
           id,
+          platform: 'bilibili',
           label: String(sourceItem.label || id).trim() || id,
           secret_key: secretKey,
           enabled: sourceItem.enabled !== false,
-          secret_value: String(sourceItem.secret_value || secrets[secretKey] || ''),
+          secret_value: String(secrets[secretKey] || ''),
           show_secret: false,
         }
       })
@@ -250,6 +269,7 @@
       secrets[secretKey] = String(item.secret_value || '')
       return {
         id: safeId(item.id, secretKey),
+        platform: 'bilibili',
         label: String(item.label || item.id || secretKey).trim(),
         secret_key: secretKey,
         enabled: item.enabled !== false,
@@ -311,65 +331,75 @@
 
   function validateDraft() {
     const errors = []
-    const cron = String(draft.poll_cron || '').trim()
-    if (cron.split(/\s+/).length !== 5) {
-      errors.push({ scope: 'poll_cron', message: 'Cron 需要 5 段，例如 */5 * * * *' })
+    if (pageMode !== 'cookies') {
+      const cron = String(draft.poll_cron || '').trim()
+      if (cron.split(/\s+/).length !== 5) {
+        errors.push({ scope: 'poll_cron', message: 'Cron 需要 5 段，例如 */5 * * * *' })
+      }
+      validateRange('poll_timeout_seconds', draft.poll_timeout_seconds, 5, 60, '请求超时需在 5 - 60 秒之间')
+      validateRange('dynamic_time_range_seconds', draft.dynamic_time_range_seconds, 60, 604800, '动态有效时间需在 60 - 604800 秒之间')
+      validateRange('max_updates_per_poll', draft.max_updates_per_poll, 1, 20, '单轮最多推送需在 1 - 20 条之间')
     }
-    validateRange('poll_timeout_seconds', draft.poll_timeout_seconds, 5, 60, '请求超时需在 5 - 60 秒之间')
-    validateRange('dynamic_time_range_seconds', draft.dynamic_time_range_seconds, 60, 604800, '动态有效时间需在 60 - 604800 秒之间')
-    validateRange('max_updates_per_poll', draft.max_updates_per_poll, 1, 20, '单轮最多推送需在 1 - 20 条之间')
 
-    const tokenIds = new Set()
-    const secretKeys = new Set()
-    draft.tokens.forEach((item, index) => {
-      const label = item.label || item.id || `Cookie ${index + 1}`
-      if (!item.id) {
-        errors.push({ scope: `token-${index}-id`, message: `${label} 的 ID 不能为空` })
-      } else if (tokenIds.has(item.id)) {
-        errors.push({ scope: `token-${index}-id`, message: `${label} 的 ID 重复` })
-      }
-      tokenIds.add(item.id)
-
-      if (!item.secret_key) {
-        errors.push({ scope: `token-${index}-secret_key`, message: `${label} 的密钥名不能为空` })
-      } else if (secretKeys.has(item.secret_key)) {
-        errors.push({ scope: `token-${index}-secret_key`, message: `${label} 的密钥名重复` })
-      }
-      secretKeys.add(item.secret_key)
-
-      if (item.enabled !== false) {
-        const value = String(item.secret_value || '').trim()
-        if (!value) {
-          errors.push({ scope: `token-${index}-secret_value`, message: `${label} 的 Bilibili Cookie 不能为空` })
-        } else if (!/SESSDATA\s*=/.test(value)) {
-          errors.push({ scope: `token-${index}-secret_value`, message: `${label} 至少需要包含 SESSDATA=...` })
+    if (pageMode === 'cookies') {
+      const tokenIds = new Set()
+      const secretKeys = new Set()
+      draft.tokens.forEach((item, index) => {
+        const label = item.label || item.id || `CK ${index + 1}`
+        if (!item.id) {
+          errors.push({ scope: `token-${index}-id`, message: `${label} 的 ID 不能为空` })
+        } else if (tokenIds.has(item.id)) {
+          errors.push({ scope: `token-${index}-id`, message: `${label} 的 ID 重复` })
         }
-      }
-    })
+        tokenIds.add(item.id)
 
-    const subscriptionIds = new Set()
-    draft.subscriptions.forEach((item, index) => {
-      const label = item.name || item.uid || `订阅 ${index + 1}`
-      if (!item.id) {
-        errors.push({ scope: `subscription-${index}-id`, message: `${label} 的 ID 不能为空` })
-      } else if (subscriptionIds.has(item.id)) {
-        errors.push({ scope: `subscription-${index}-id`, message: `${label} 的 ID 重复` })
-      }
-      subscriptionIds.add(item.id)
+        if (item.platform !== 'bilibili') {
+          errors.push({ scope: `token-${index}-platform`, message: `${label} 的平台必须是 Bilibili` })
+        }
 
-      if (!/^\d+$/.test(String(item.uid || '').trim())) {
-        errors.push({ scope: `subscription-${index}-uid`, message: `${label} 的 UID 只能填写数字` })
-      }
-      if (!['group', 'private'].includes(item.target_type)) {
-        errors.push({ scope: `subscription-${index}-target_type`, message: `${label} 的目标类型不正确` })
-      }
-      if (!String(item.target_id || '').trim()) {
-        errors.push({ scope: `subscription-${index}-target_id`, message: `${label} 的目标 ID 不能为空` })
-      }
-      if (normalizeServices(item.services).length === 0) {
-        errors.push({ scope: `subscription-${index}-services`, message: `${label} 至少需要一个推送类型` })
-      }
-    })
+        if (!item.secret_key) {
+          errors.push({ scope: `token-${index}-secret_key`, message: `${label} 的密钥名不能为空` })
+        } else if (secretKeys.has(item.secret_key)) {
+          errors.push({ scope: `token-${index}-secret_key`, message: `${label} 的密钥名重复` })
+        }
+        secretKeys.add(item.secret_key)
+
+        if (item.enabled !== false) {
+          const value = String(item.secret_value || '').trim()
+          if (!value) {
+            errors.push({ scope: `token-${index}-secret_value`, message: `${label} 的 Bilibili CK 不能为空` })
+          } else if (!/SESSDATA\s*=/.test(value)) {
+            errors.push({ scope: `token-${index}-secret_value`, message: `${label} 至少需要包含 SESSDATA=...` })
+          }
+        }
+      })
+    }
+
+    if (pageMode !== 'cookies') {
+      const subscriptionIds = new Set()
+      draft.subscriptions.forEach((item, index) => {
+        const label = item.name || item.uid || `订阅 ${index + 1}`
+        if (!item.id) {
+          errors.push({ scope: `subscription-${index}-id`, message: `${label} 的 ID 不能为空` })
+        } else if (subscriptionIds.has(item.id)) {
+          errors.push({ scope: `subscription-${index}-id`, message: `${label} 的 ID 重复` })
+        }
+        subscriptionIds.add(item.id)
+
+        if (!/^\d+$/.test(String(item.uid || '').trim())) {
+          errors.push({ scope: `subscription-${index}-uid`, message: `${label} 的 UID 只能填写数字` })
+        }
+        if (!['group', 'private'].includes(item.target_type)) {
+          errors.push({ scope: `subscription-${index}-target_type`, message: `${label} 的目标类型不正确` })
+        }
+        if (!String(item.target_id || '').trim()) {
+          errors.push({ scope: `subscription-${index}-target_id`, message: `${label} 的目标 ID 不能为空` })
+        }
+        if (normalizeServices(item.services).length === 0) {
+          errors.push({ scope: `subscription-${index}-services`, message: `${label} 至少需要一个推送类型` })
+        }
+      })
+    }
 
     return { errors }
 
@@ -413,16 +443,22 @@
 
   function render() {
     validation = validateDraft()
-    renderControls()
     renderOverview()
-    renderCookies()
-    renderSubscriptions()
-    renderSubscriptionEditor()
-    renderRawJson()
+    if (pageMode === 'cookies') {
+      renderCookies()
+    } else {
+      renderControls()
+      renderSubscriptions()
+      renderSubscriptionEditor()
+      renderRawJson()
+    }
     renderFooter()
   }
 
   function renderControls() {
+    if (!elements.enabledInput) {
+      return
+    }
     elements.enabledInput.checked = draft.enabled
     syncInputValue(elements.pollCronInput, draft.poll_cron)
     syncInputValue(elements.pollTimeoutInput, draft.poll_timeout_seconds)
@@ -435,6 +471,9 @@
   }
 
   function syncInputValue(input, value) {
+    if (!input) {
+      return
+    }
     const text = String(value)
     if (input.value !== text) {
       input.value = text
@@ -442,6 +481,9 @@
   }
 
   function setFieldError(element, error, fallbackClass) {
+    if (!element) {
+      return
+    }
     if (!element.dataset.defaultText) {
       element.dataset.defaultText = element.textContent
     }
@@ -452,18 +494,31 @@
   function renderOverview() {
     const enabledSubscriptions = draft.subscriptions.filter((item) => item.enabled !== false).length
     const enabledCookies = draft.tokens.filter((item) => item.enabled !== false).length
-    elements.metricEnabled.textContent = draft.enabled ? '启用' : '停用'
-    elements.metricSubscriptions.textContent = `${enabledSubscriptions} / ${draft.subscriptions.length}`
-    elements.metricCookies.textContent = `${enabledCookies} / ${draft.tokens.length}`
-    elements.metricCron.textContent = draft.poll_cron || DEFAULT_SETTINGS.poll_cron
-    elements.metricValidation.textContent = validation.errors.length === 0 ? '可保存' : `${validation.errors.length} 个问题`
-    elements.metricValidation.classList.toggle('is-error', validation.errors.length > 0)
+    if (elements.metricEnabled) {
+      elements.metricEnabled.textContent = draft.enabled ? '启用' : '停用'
+    }
+    if (elements.metricSubscriptions) {
+      elements.metricSubscriptions.textContent = `${enabledSubscriptions} / ${draft.subscriptions.length}`
+    }
+    if (elements.metricCookies) {
+      elements.metricCookies.textContent = `${enabledCookies} / ${draft.tokens.length}`
+    }
+    if (elements.metricCron) {
+      elements.metricCron.textContent = draft.poll_cron || DEFAULT_SETTINGS.poll_cron
+    }
+    if (elements.metricValidation) {
+      elements.metricValidation.textContent = validation.errors.length === 0 ? '可保存' : `${validation.errors.length} 个问题`
+      elements.metricValidation.classList.toggle('is-error', validation.errors.length > 0)
+    }
   }
 
   function renderCookies() {
+    if (!elements.cookieList) {
+      return
+    }
     elements.cookieList.innerHTML = ''
     if (draft.tokens.length === 0) {
-      const empty = emptyState('还没有 Cookie', '添加 Bilibili Cookie 后才能轮询需要登录态的动态。', '添加 Bilibili Cookie', addCookie)
+      const empty = emptyState('还没有 CK', '添加 Bilibili CK 后才能轮询需要登录态的动态。', '添加 Bilibili CK', addCookie)
       elements.cookieList.appendChild(empty)
       return
     }
@@ -479,7 +534,11 @@
         smallButton('删除', () => removeCookie(index), 'button--danger'),
       ]))
 
-      card.appendChild(fieldInput(`cookie-label-${index}`, '标签', token.label, (value) => {
+      card.appendChild(selectField(`cookie-platform-${index}`, '平台', COOKIE_PLATFORM_OPTIONS, token.platform, (value) => {
+        token.platform = value
+        markChanged()
+      }))
+      card.appendChild(fieldInput(`cookie-label-${index}`, '备注', token.label, (value) => {
         token.label = value
         markChanged(false)
       }))
@@ -491,7 +550,7 @@
         token.secret_key = safeId(value, '')
         markChanged()
       }, { spellcheck: false }))
-      card.appendChild(fieldInput(`cookie-secret-value-${index}`, 'Cookie', token.secret_value, (value) => {
+      card.appendChild(fieldInput(`cookie-secret-value-${index}`, 'CK', token.secret_value, (value) => {
         token.secret_value = value
         markChanged(false)
       }, { type: token.show_secret ? 'text' : 'password', spellcheck: false }))
@@ -509,7 +568,7 @@
         markChanged()
       })
       toggle.appendChild(input)
-      toggle.appendChild(textBlock('启用这个 Cookie', '停用后不会用于轮询。'))
+      toggle.appendChild(textBlock('启用这个 CK', '停用后不会用于轮询。'))
       card.appendChild(toggle)
 
       const error = firstError(`token-${index}`)
@@ -521,6 +580,9 @@
   }
 
   function renderSubscriptions() {
+    if (!elements.subscriptionList) {
+      return
+    }
     elements.subscriptionList.innerHTML = ''
     const filtered = getFilteredSubscriptions()
     if (draft.subscriptions.length === 0) {
@@ -592,6 +654,9 @@
   }
 
   function renderSubscriptionEditor() {
+    if (!elements.subscriptionEditor) {
+      return
+    }
     elements.subscriptionEditor.innerHTML = ''
     const index = draft.subscriptions.findIndex((item) => item.id === selectedSubscriptionId)
     if (index < 0) {
@@ -719,16 +784,27 @@
   }
 
   function renderRawJson() {
-    const payload = buildPayloadFromDraft(draft).settings
+    if (!elements.rawJsonInput) {
+      return
+    }
+    const payload = subscriptionSettingsPayload(buildPayloadFromDraft(draft).settings)
     const text = JSON.stringify(payload, null, 2)
     if (document.activeElement !== elements.rawJsonInput && elements.rawJsonInput.value !== text) {
       elements.rawJsonInput.value = text
     }
   }
 
+  function subscriptionSettingsPayload(settings) {
+    const { tokens, ...visibleSettings } = settings
+    return visibleSettings
+  }
+
   function renderFooter() {
     const dirty = isDirty()
     const hasErrors = validation.errors.length > 0
+    if (!elements.dirtyState || !elements.saveButton) {
+      return
+    }
     elements.dirtyState.textContent = !initialized ? '等待载入' : pendingSave ? '正在保存…' : hasErrors ? `存在 ${validation.errors.length} 个问题` : dirty ? '有未保存更改' : '设置已同步'
     elements.dirtyState.classList.toggle('is-error', hasErrors)
     elements.dirtyState.classList.toggle('is-dirty', initialized && !pendingSave && dirty && !hasErrors)
@@ -741,7 +817,9 @@
       validation = validateDraft()
       renderOverview()
       renderFooter()
-      renderRawJson()
+      if (pageMode !== 'cookies') {
+        renderRawJson()
+      }
       return
     }
     render()
@@ -761,6 +839,9 @@
     input.disabled = Boolean(options && options.disabled)
     if (options && options.inputmode) {
       input.inputMode = options.inputmode
+    }
+    if (options && options.placeholder) {
+      input.placeholder = options.placeholder
     }
     if (options && options.spellcheck === false) {
       input.spellcheck = false
@@ -930,9 +1011,9 @@
   }
 
   function getFilteredSubscriptions() {
-    const query = elements.subscriptionSearchInput.value.trim().toLowerCase()
-    const status = elements.statusFilterInput.value
-    const service = elements.serviceFilterInput.value
+    const query = elements.subscriptionSearchInput?.value.trim().toLowerCase() || ''
+    const status = elements.statusFilterInput?.value || 'all'
+    const service = elements.serviceFilterInput?.value || 'all'
     return draft.subscriptions
       .map((item, index) => ({ item, index }))
       .filter(({ item }) => {
@@ -945,17 +1026,24 @@
   }
 
   function clearFilters() {
-    elements.subscriptionSearchInput.value = ''
-    elements.statusFilterInput.value = 'all'
-    elements.serviceFilterInput.value = 'all'
+    if (elements.subscriptionSearchInput) {
+      elements.subscriptionSearchInput.value = ''
+    }
+    if (elements.statusFilterInput) {
+      elements.statusFilterInput.value = 'all'
+    }
+    if (elements.serviceFilterInput) {
+      elements.serviceFilterInput.value = 'all'
+    }
     renderSubscriptions()
   }
 
   function addCookie() {
     const next = draft.tokens.length + 1
     draft.tokens.push({
-      id: next === 1 ? 'primary' : `cookie-${next}`,
-      label: next === 1 ? '主 Cookie' : `备用 Cookie ${next}`,
+      id: next === 1 ? 'bilibili-primary' : `bilibili-cookie-${next}`,
+      platform: 'bilibili',
+      label: next === 1 ? '主 CK' : `备用 CK ${next}`,
       secret_key: next === 1 ? 'bili.primary' : `bili.cookie_${next}`,
       enabled: true,
       secret_value: '',
@@ -1053,10 +1141,12 @@
     }
 
     const payload = buildPayloadFromDraft(draft)
-    pendingSave = { settingsAck: false, secretsAck: false }
+    pendingSave = { settingsAck: false, secretsAck: pageMode !== 'cookies' }
     setStatus('正在保存设置…')
     postMessage('settings.save', { values: payload.settings }, `save-settings-${Date.now()}`)
-    postMessage('secrets.save', { values: payload.secrets, deleted_keys: payload.deletedKeys }, `save-secrets-${Date.now()}`)
+    if (pageMode === 'cookies') {
+      postMessage('secrets.save', { values: payload.secrets, deleted_keys: payload.deletedKeys }, `save-secrets-${Date.now()}`)
+    }
   }
 
   function focusFirstError() {
@@ -1098,8 +1188,22 @@
   }
 
   function resetSettings() {
-    applySettings(defaultSettings, currentSecrets)
-    setStatus('默认设置已载入，保存后生效')
+    const nextSettings = normalizeSettings(defaultSettings, currentSecrets)
+    if (pageMode === 'cookies') {
+      draft = {
+        ...draft,
+        tokens: nextSettings.tokens,
+      }
+      setStatus('默认 CK 设置已载入，保存后生效')
+    } else {
+      draft = {
+        ...nextSettings,
+        tokens: draft.tokens,
+      }
+      selectedSubscriptionId = draft.subscriptions[0] ? draft.subscriptions[0].id : ''
+      setStatus('默认订阅设置已载入，保存后生效')
+    }
+    render()
   }
 
   function triggerManualCheck() {
@@ -1112,9 +1216,12 @@
   }
 
   function importRawJson() {
+    if (!elements.rawJsonInput || !elements.rawJsonError) {
+      return
+    }
     try {
       const parsed = JSON.parse(elements.rawJsonInput.value || '{}')
-      draft = normalizeSettings(parsed, currentSecrets)
+      draft = normalizeSettings({ ...parsed, tokens: draft.tokens }, currentSecrets)
       selectedSubscriptionId = draft.subscriptions[0] ? draft.subscriptions[0].id : ''
       elements.rawJsonError.textContent = ''
       setStatus('JSON 已导入，保存后生效')
@@ -1126,46 +1233,52 @@
   }
 
   function bindEvents() {
-    elements.enabledInput.addEventListener('change', () => {
+    bind(elements.enabledInput, 'change', () => {
       draft.enabled = elements.enabledInput.checked
       markChanged()
     })
-    elements.pollCronInput.addEventListener('input', () => {
+    bind(elements.pollCronInput, 'input', () => {
       draft.poll_cron = elements.pollCronInput.value
       markChanged(false)
     })
-    elements.pollTimeoutInput.addEventListener('input', () => {
+    bind(elements.pollTimeoutInput, 'input', () => {
       draft.poll_timeout_seconds = elements.pollTimeoutInput.value
       markChanged(false)
     })
-    elements.dynamicTimeRangeInput.addEventListener('input', () => {
+    bind(elements.dynamicTimeRangeInput, 'input', () => {
       draft.dynamic_time_range_seconds = elements.dynamicTimeRangeInput.value
       markChanged(false)
     })
-    elements.maxUpdatesInput.addEventListener('input', () => {
+    bind(elements.maxUpdatesInput, 'input', () => {
       draft.max_updates_per_poll = elements.maxUpdatesInput.value
       markChanged(false)
     })
-    elements.addCookieButton.addEventListener('click', addCookie)
-    elements.addSubscriptionButton.addEventListener('click', addSubscription)
-    elements.subscriptionSearchInput.addEventListener('input', renderSubscriptions)
-    elements.statusFilterInput.addEventListener('change', renderSubscriptions)
-    elements.serviceFilterInput.addEventListener('change', renderSubscriptions)
-    elements.closeEditorButton.addEventListener('click', () => {
+    bind(elements.addCookieButton, 'click', addCookie)
+    bind(elements.addSubscriptionButton, 'click', addSubscription)
+    bind(elements.subscriptionSearchInput, 'input', renderSubscriptions)
+    bind(elements.statusFilterInput, 'change', renderSubscriptions)
+    bind(elements.serviceFilterInput, 'change', renderSubscriptions)
+    bind(elements.closeEditorButton, 'click', () => {
       selectedSubscriptionId = ''
       renderSubscriptions()
       renderSubscriptionEditor()
     })
-    elements.exportJsonButton.addEventListener('click', () => {
+    bind(elements.exportJsonButton, 'click', () => {
       renderRawJson()
       setStatus('原始配置预览已刷新')
     })
-    elements.importJsonButton.addEventListener('click', importRawJson)
-    elements.reloadButton.addEventListener('click', reloadAll)
-    elements.resetButton.addEventListener('click', resetSettings)
-    elements.manualCheckButton.addEventListener('click', triggerManualCheck)
-    elements.previewButton.addEventListener('click', openCardPreview)
-    elements.saveButton.addEventListener('click', saveAll)
+    bind(elements.importJsonButton, 'click', importRawJson)
+    bind(elements.reloadButton, 'click', reloadAll)
+    bind(elements.resetButton, 'click', resetSettings)
+    bind(elements.manualCheckButton, 'click', triggerManualCheck)
+    bind(elements.previewButton, 'click', openCardPreview)
+    bind(elements.saveButton, 'click', saveAll)
+  }
+
+  function bind(element, eventName, handler) {
+    if (element) {
+      element.addEventListener(eventName, handler)
+    }
   }
 
   window.addEventListener('message', (event) => {
@@ -1177,10 +1290,12 @@
     if (message.type === 'host.init') {
       stopReadyLoop()
       const payload = message.payload || {}
-      elements.pageTitle.textContent = payload.title || '订阅设置'
-      elements.pageSubtitle.textContent = payload.plugin && payload.plugin.description
-        ? payload.plugin.description
-        : '管理 Bilibili 订阅、轮询和 Cookie'
+      if (elements.pageTitle) {
+        elements.pageTitle.textContent = payload.title || defaultPageTitle()
+      }
+      if (elements.pageSubtitle) {
+        elements.pageSubtitle.textContent = defaultPageSubtitle()
+      }
       defaultSettings = normalizeSettings(payload.default_config || DEFAULT_SETTINGS, {})
       currentSecrets = payload.secrets || {}
       initialized = true

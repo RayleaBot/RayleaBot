@@ -157,6 +157,10 @@ export function readPluginDetailPanel(query: LocationQuery) {
     : 'overview'
 }
 
+export function readPluginManagementPage(query: LocationQuery) {
+  return normalizeSingleQueryValue(query.management_page)
+}
+
 export function buildCommandsLocation(pluginIds?: string[] | string | null) {
   const normalizedPluginIds = normalizePluginIds(pluginIds)
 
@@ -226,14 +230,16 @@ export function buildLogsLocation(options: LogsLocationOptions = {}) {
   } satisfies RouteLocationRaw
 }
 
-export function buildPluginDetailLocation(pluginId: string, options: { panel?: PluginDetailPanel | null } = {}) {
+export function buildPluginDetailLocation(pluginId: string, options: { panel?: PluginDetailPanel | null; managementPage?: string | null } = {}) {
   const panel = options.panel ?? undefined
+  const managementPage = panel === 'management-ui' ? normalizeString(options.managementPage ?? undefined) : undefined
 
   return {
     name: 'plugin-detail',
     params: { id: pluginId },
     query: createLocationQuery([
       ['panel', panel],
+      ['management_page', managementPage],
     ]),
   } satisfies RouteLocationRaw
 }

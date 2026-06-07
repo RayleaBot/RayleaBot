@@ -1,5 +1,6 @@
 import Antd from 'ant-design-vue'
 import { createPinia, setActivePinia } from 'pinia'
+import { reactive } from 'vue'
 import { flushPromises, mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -73,6 +74,7 @@ describe('PluginManagementUIHost', () => {
   beforeEach(() => {
     window.localStorage.clear()
     setActivePinia(createPinia())
+    vi.useRealTimers()
   })
 
   it('requires confirmation before loading an unverified plugin page', async () => {
@@ -147,6 +149,12 @@ describe('PluginManagementUIHost', () => {
       props: {
         plugin,
         title: '配置页面',
+        entry: 'web/secrets.html',
+        page: {
+          id: 'secrets',
+          label: '密钥设置',
+          entry: 'web/secrets.html',
+        },
       },
       global: {
         plugins: [Antd],
@@ -156,10 +164,10 @@ describe('PluginManagementUIHost', () => {
     await flushPromises()
 
     const initialSrc = parseFrameSrc(wrapper)
-    expect(initialSrc.pathname).toBe('/plugin-ui/example-config-panel/web/index.html')
+    expect(initialSrc.pathname).toBe('/plugin-ui/example-config-panel/web/secrets.html')
     expect(initialSrc.searchParams.get('plugin_id')).toBe('example-config-panel')
     expect(initialSrc.searchParams.get('version')).toBe('0.1.0')
-    expect(initialSrc.searchParams.get('entry')).toBe('web/index.html')
+    expect(initialSrc.searchParams.get('entry')).toBe('web/secrets.html')
     expect(initialSrc.searchParams.get('source_ref')).toBe('examples/plugins/example-config-panel')
     const initialNonce = initialSrc.searchParams.get('nonce')
     expect(initialNonce).toBeTruthy()
@@ -175,7 +183,7 @@ describe('PluginManagementUIHost', () => {
     await flushPromises()
 
     const retrySrc = parseFrameSrc(wrapper)
-    expect(retrySrc.pathname).toBe('/plugin-ui/example-config-panel/web/index.html')
+    expect(retrySrc.pathname).toBe('/plugin-ui/example-config-panel/web/secrets.html')
     expect(retrySrc.searchParams.get('version')).toBe('0.1.1')
     expect(retrySrc.searchParams.get('nonce')).not.toBe(initialNonce)
     expect(retrySrc.searchParams.get('session')).toBe(initialSession)
@@ -255,6 +263,12 @@ describe('PluginManagementUIHost', () => {
       props: {
         plugin,
         title: '配置页面',
+        entry: 'web/secrets.html',
+        page: {
+          id: 'secrets',
+          label: '密钥设置',
+          entry: 'web/secrets.html',
+        },
       },
       global: {
         plugins: [Antd],
@@ -283,10 +297,42 @@ describe('PluginManagementUIHost', () => {
       payload: {
         plugin_id: 'example-config-panel',
         title: '配置页面',
+        page: {
+          id: 'secrets',
+          label: '密钥设置',
+          entry: 'web/secrets.html',
+        },
         default_config: {
           default_city: '北京',
           unit: 'celsius',
         },
+        settings: {
+          default_city: '上海',
+          unit: 'fahrenheit',
+        },
+        secrets: {
+          api_token: 'secret-one',
+        },
+      },
+    })
+
+    dispatchBridgeMessage(frameWindow, {
+      version: '1',
+      source: 'plugin_management_ui',
+      type: 'page.ready',
+      request_id: 'req-ready-again',
+    })
+    await flushPromises()
+
+    expect(fetchSettingsSpy).toHaveBeenCalledTimes(1)
+    expect(fetchSecretsSpy).toHaveBeenCalledTimes(1)
+    expect((frameWindow.postMessage as ReturnType<typeof vi.fn>).mock.calls[1]?.[0]).toMatchObject({
+      version: '1',
+      source: 'management_host',
+      type: 'host.init',
+      request_id: 'req-ready-again',
+      payload: {
+        plugin_id: 'example-config-panel',
         settings: {
           default_city: '上海',
           unit: 'fahrenheit',
@@ -306,7 +352,7 @@ describe('PluginManagementUIHost', () => {
     await flushPromises()
 
     expect(fetchSettingsSpy).toHaveBeenCalledTimes(2)
-    expect((frameWindow.postMessage as ReturnType<typeof vi.fn>).mock.calls[1]?.[0]).toMatchObject({
+    expect((frameWindow.postMessage as ReturnType<typeof vi.fn>).mock.calls[2]?.[0]).toMatchObject({
       version: '1',
       source: 'management_host',
       type: 'settings.changed',
@@ -340,7 +386,7 @@ describe('PluginManagementUIHost', () => {
     })
     expect(fetchDetailSpy).toHaveBeenCalledWith('example-config-panel')
     expect(fetchCommandPolicySpy).toHaveBeenCalledTimes(1)
-    expect((frameWindow.postMessage as ReturnType<typeof vi.fn>).mock.calls[2]?.[0]).toMatchObject({
+    expect((frameWindow.postMessage as ReturnType<typeof vi.fn>).mock.calls[3]?.[0]).toMatchObject({
       version: '1',
       source: 'management_host',
       type: 'settings.changed',
@@ -363,7 +409,7 @@ describe('PluginManagementUIHost', () => {
     await flushPromises()
 
     expect(fetchSecretsSpy).toHaveBeenCalledTimes(2)
-    expect((frameWindow.postMessage as ReturnType<typeof vi.fn>).mock.calls[3]?.[0]).toMatchObject({
+    expect((frameWindow.postMessage as ReturnType<typeof vi.fn>).mock.calls[4]?.[0]).toMatchObject({
       version: '1',
       source: 'management_host',
       type: 'secrets.changed',
@@ -393,7 +439,7 @@ describe('PluginManagementUIHost', () => {
     expect(updateSecretsSpy).toHaveBeenCalledWith('example-config-panel', {
       api_token: 'secret-three',
     }, ['api_token_old'])
-    expect((frameWindow.postMessage as ReturnType<typeof vi.fn>).mock.calls[4]?.[0]).toMatchObject({
+    expect((frameWindow.postMessage as ReturnType<typeof vi.fn>).mock.calls[5]?.[0]).toMatchObject({
       version: '1',
       source: 'management_host',
       type: 'secrets.changed',
@@ -405,6 +451,80 @@ describe('PluginManagementUIHost', () => {
         },
       },
     })
+  })
+
+  it('posts a plain page payload when the selected management page is reactive', async () => {
+    const pluginsStore = usePluginsStore()
+    const plugin = buildPlugin({
+      source: {
+        root: 'examples/plugins',
+        package_source_type: 'local_directory',
+        package_source_ref: 'examples/plugins/example-config-panel',
+        verified: true,
+      },
+      trust: {
+        level: 'third_party',
+        label: '示例',
+      },
+    })
+
+    vi.spyOn(pluginsStore, 'fetchSettings').mockResolvedValue({
+      plugin_id: 'example-config-panel',
+      values: {
+        default_city: '上海',
+      },
+    })
+    vi.spyOn(pluginsStore, 'fetchSecrets').mockResolvedValue({
+      plugin_id: 'example-config-panel',
+      values: {},
+    })
+
+    const wrapper = mount(PluginManagementUIHost, {
+      props: {
+        plugin,
+        title: '密钥设置',
+        entry: 'web/secrets.html',
+        page: reactive({
+          id: 'secrets',
+          label: '密钥设置',
+          entry: 'web/secrets.html',
+        }),
+      },
+      global: {
+        plugins: [Antd],
+      },
+    })
+    await flushPromises()
+
+    const { frameWindow } = assignIframeWindow(wrapper)
+    const deliveredMessages: unknown[] = []
+    ;(frameWindow.postMessage as ReturnType<typeof vi.fn>).mockImplementation((message) => {
+      deliveredMessages.push(structuredClone(message))
+    })
+
+    dispatchBridgeMessage(frameWindow, {
+      version: '1',
+      source: 'plugin_management_ui',
+      type: 'page.ready',
+      request_id: 'req-ready',
+    })
+    await flushPromises()
+
+    expect(deliveredMessages).toHaveLength(1)
+    expect(deliveredMessages[0]).toMatchObject({
+      version: '1',
+      source: 'management_host',
+      type: 'host.init',
+      request_id: 'req-ready',
+      payload: {
+        page: {
+          id: 'secrets',
+          label: '密钥设置',
+          entry: 'web/secrets.html',
+        },
+      },
+    })
+    expect(wrapper.text()).not.toContain('插件页面未打开')
   })
 
   it('does not restart the iframe when unrelated plugin detail fields change', async () => {

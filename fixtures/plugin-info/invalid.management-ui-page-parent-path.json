@@ -1,0 +1,33 @@
+{
+  "contract": "contracts/plugin-info.schema.json",
+  "case": "invalid",
+  "description": "A management UI page entry must stay inside the plugin package root.",
+  "input": {
+    "id": "example-config-panel",
+    "name": "Example Config Panel",
+    "version": "0.1.0",
+    "manifest_version": "1",
+    "plugin_protocol_version": "1",
+    "type": "managed_runtime",
+    "runtime": "python",
+    "entry": "main.py",
+    "license": "MIT",
+    "management_ui": {
+      "entry": "web/index.html",
+      "pages": [
+        {
+          "id": "config",
+          "label": "配置页面",
+          "entry": "../web/index.html"
+        }
+      ]
+    },
+    "permissions": {
+      "required": [],
+      "optional": []
+    }
+  },
+  "expect": {
+    "valid": false
+  }
+}

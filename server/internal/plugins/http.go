@@ -137,8 +137,15 @@ type pluginScreenshotResponse struct {
 }
 
 type pluginManagementUIResponse struct {
+	Entry string                           `json:"entry"`
+	Label string                           `json:"label,omitempty"`
+	Pages []pluginManagementUIPageResponse `json:"pages,omitempty"`
+}
+
+type pluginManagementUIPageResponse struct {
+	ID    string `json:"id"`
+	Label string `json:"label"`
 	Entry string `json:"entry"`
-	Label string `json:"label,omitempty"`
 }
 
 type pluginRenderTemplateResponse struct {
@@ -801,10 +808,24 @@ func buildPluginManagementUI(snapshot Snapshot) *pluginManagementUIResponse {
 		return nil
 	}
 
-	return &pluginManagementUIResponse{
+	response := &pluginManagementUIResponse{
 		Entry: entry,
 		Label: strings.TrimSpace(snapshot.ManagementUI.Label),
 	}
+	for _, page := range snapshot.ManagementUI.Pages {
+		pageID := strings.TrimSpace(page.ID)
+		pageLabel := strings.TrimSpace(page.Label)
+		pageEntry := strings.TrimSpace(page.Entry)
+		if pageID == "" || pageLabel == "" || pageEntry == "" {
+			continue
+		}
+		response.Pages = append(response.Pages, pluginManagementUIPageResponse{
+			ID:    pageID,
+			Label: pageLabel,
+			Entry: pageEntry,
+		})
+	}
+	return response
 }
 
 func buildPluginRenderTemplates(snapshot Snapshot) []pluginRenderTemplateResponse {

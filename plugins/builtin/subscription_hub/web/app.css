@@ -1,7 +1,6 @@
 :root {
   color-scheme: light;
 
-  /* Bilibili Premium Branding Colors */
   --bili-blue: oklch(64% 0.16 230);    /* #00aeec */
   --bili-pink: oklch(68% 0.20 350);    /* #fb7299 */
   --bili-blue-strong: oklch(56% 0.18 230);
@@ -9,7 +8,6 @@
   --bili-blue-glow: oklch(64% 0.16 230 / 10%);
   --bili-pink-glow: oklch(68% 0.20 350 / 10%);
 
-  /* Performance-optimized Dashboard Colors */
   --bg: oklch(98.5% 0.005 250);
   --surface-translucent: rgba(255, 255, 255, 0.76);
   --surface-hover: rgba(255, 255, 255, 0.92);
@@ -23,12 +21,10 @@
   --text: oklch(24% 0.015 250);
   --muted: oklch(52% 0.015 250);
 
-  /* Accent mapping */
   --accent: var(--bili-blue);
   --accent-strong: var(--bili-blue-strong);
   --accent-soft: oklch(94% 0.03 230);
 
-  /* Telemetry Status Colors */
   --success: oklch(60% 0.16 142);
   --success-soft: oklch(95% 0.03 142);
   --warning: oklch(72% 0.16 76);
@@ -36,14 +32,12 @@
   --danger: oklch(62% 0.18 28);
   --danger-soft: oklch(96% 0.03 28);
 
-  /* Premium Shadow Elevations */
   --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.02), 0 1px 2px rgba(0, 0, 0, 0.01);
   --shadow-md: 0 10px 24px rgba(0, 0, 0, 0.04), 0 2px 8px rgba(0, 0, 0, 0.02);
   --shadow-lg: 0 20px 40px rgba(0, 0, 0, 0.05), 0 4px 12px rgba(0, 0, 0, 0.02);
   --shadow-glow-blue: 0 0 12px oklch(64% 0.16 230 / 18%);
   --shadow-glow-pink: 0 0 12px oklch(68% 0.20 350 / 18%);
 
-  /* Grid Layout Constants */
   --space-xs: 4px;
   --space-sm: 8px;
   --space-md: 12px;
@@ -73,7 +67,6 @@ html {
 body {
   margin: 0;
   background-color: var(--bg);
-  /* High-performance static gradient to prevent background scroll repaints */
   background-image: linear-gradient(135deg, oklch(96.5% 0.015 340) 0%, oklch(98.5% 0.003 250) 50%, oklch(96.5% 0.015 200) 100%);
   background-attachment: fixed;
   color: var(--text);
@@ -91,7 +84,6 @@ button {
   touch-action: manipulation;
 }
 
-/* Skip link */
 .skip-link {
   position: fixed;
   left: 16px;
@@ -114,7 +106,6 @@ button {
   transform: translateY(0);
 }
 
-/* Page Layout Shell */
 .page-shell {
   display: grid;
   gap: var(--space-lg);
@@ -172,7 +163,6 @@ h2 {
   line-height: 1.45;
 }
 
-/* Telemetry Status Pill */
 .status-pill {
   display: inline-flex;
   align-items: center;
@@ -222,14 +212,17 @@ h2 {
   100% { box-shadow: 0 0 0 0 oklch(62% 0.18 28 / 0%); }
 }
 
-/* Metric Telemetry Overview Grid */
 .overview-grid {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: var(--space-md);
 }
 
-/* Static Panels and Metrics Card Overhaul: Removed backdrop-filter to secure fluid 60FPS scroll performance */
+[data-page="subscriptions"] .overview-grid,
+.overview-grid--cookies {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
 .metric,
 .panel {
   border: 1px solid var(--border);
@@ -259,7 +252,6 @@ h2 {
   box-shadow: var(--shadow-md);
 }
 
-/* Subtle, tasteful accent highlights on telemetry hover states */
 .metric:nth-child(1):hover { border-color: rgba(0, 174, 236, 0.25); }
 .metric:nth-child(2):hover { border-color: rgba(251, 114, 153, 0.25); }
 .metric:nth-child(3):hover { border-color: rgba(0, 174, 236, 0.25); }
@@ -293,7 +285,6 @@ h2 {
   color: var(--danger);
 }
 
-/* Column Page Wrapper Grid */
 .layout-grid {
   display: grid;
   grid-template-columns: 330px minmax(0, 1fr);
@@ -340,7 +331,6 @@ h2 {
   gap: var(--space-md);
 }
 
-/* Form Settings Controls */
 .field,
 .toggle-row {
   min-width: 0;
@@ -424,7 +414,6 @@ a:focus-visible {
   box-shadow: 0 0 0 3px oklch(64% 0.16 230 / 18%);
 }
 
-/* Custom switch checkbox styles: STRICT dimension parameters to lock aspect ratio and prevent browser flex stretching */
 input[type="checkbox"] {
   appearance: none;
   -webkit-appearance: none;
@@ -467,7 +456,6 @@ input[type="checkbox"]:checked::after {
   transform: translateX(16px) !important;
 }
 
-/* Premium iOS Switch Row Wrapper */
 .toggle-row {
   display: flex;
   align-items: center;
@@ -518,7 +506,6 @@ input[type="checkbox"]:checked::after {
   gap: var(--space-md);
 }
 
-/* Keycard Cookie Container Overhaul */
 .cookie-card {
   display: grid;
   gap: var(--space-sm);
@@ -532,17 +519,6 @@ input[type="checkbox"]:checked::after {
   overflow: hidden;
 }
 
-.cookie-card::after {
-  content: "🗝️";
-  position: absolute;
-  right: 14px;
-  top: 14px;
-  font-size: 15px;
-  opacity: 0.18;
-  pointer-events: none;
-  transition: transform 0.4s var(--transition-bezier), opacity 0.4s var(--transition-bezier);
-}
-
 .cookie-card:hover {
   border-color: rgba(0, 174, 236, 0.22);
   background: linear-gradient(135deg, rgba(255, 255, 255, 0.85), rgba(255, 255, 255, 0.65));
@@ -550,21 +526,11 @@ input[type="checkbox"]:checked::after {
   transform: translateY(-1px);
 }
 
-.cookie-card:hover::after {
-  transform: rotate(-15deg) scale(1.1);
-  opacity: 0.35;
-}
-
 .cookie-card.is-muted {
   background: rgba(230, 235, 242, 0.25);
   border-color: rgba(0, 0, 0, 0.02);
 }
 
-.cookie-card.is-muted::after {
-  filter: grayscale(1);
-}
-
-/* Row Headers & Actions */
 .row-header {
   display: flex;
   align-items: center;
@@ -1196,4 +1162,8 @@ input[type="checkbox"]:checked::after {
   .row-actions .button {
     flex: 1 1 auto;
   }
+}
+.cookies-page-layout {
+  display: grid;
+  gap: var(--space-lg);
 }

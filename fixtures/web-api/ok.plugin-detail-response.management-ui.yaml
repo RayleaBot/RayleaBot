@@ -1,6 +1,6 @@
 contract: contracts/web-api.openapi.yaml
 case: ok
-description: Plugin detail may expose one plugin-local management page entry.
+description: Plugin detail may expose multiple plugin-local management page entries.
 request:
   method: GET
   path: /api/plugins/example-config-panel
@@ -24,6 +24,13 @@ response:
       management_ui:
         entry: web/index.html
         label: 配置页面
+        pages:
+          - id: config
+            label: 配置页面
+            entry: web/index.html
+          - id: secrets
+            label: 密钥设置
+            entry: web/secrets.html
       registration_state: installed
       desired_state: disabled
       runtime_state: stopped

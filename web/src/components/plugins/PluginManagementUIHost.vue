@@ -28,6 +28,13 @@ interface PluginManagementUIHostInitPayload {
   settings: Record<string, unknown>
   secrets: Record<string, string>
   title: string
+  page?: PluginManagementUIPage
+}
+
+interface PluginManagementUIPage {
+  id: string
+  label: string
+  entry: string
 }
 
 type PluginManagementUIInboundMessage =
@@ -92,6 +99,8 @@ const pluginSecretKeyPattern = /^[a-z0-9](?:[a-z0-9_.-]{0,126}[a-z0-9])?$/
 const props = defineProps<{
   plugin: PluginDetail
   title: string
+  entry?: string
+  page?: PluginManagementUIPage | null
 }>()
 
 const pluginsStore = usePluginsStore()
@@ -106,7 +115,7 @@ const waitingForReady = ref(false)
 const fatalError = ref<string | null>(null)
 const actionError = ref<string | null>(null)
 
-const managementEntry = computed(() => props.plugin.management_ui?.entry?.trim() ?? '')
+const managementEntry = computed(() => props.entry?.trim() || props.plugin.management_ui?.entry?.trim() || '')
 const requiresConfirmation = computed(() => props.plugin.trust?.level === 'unverified')
 const confirmationStorageKey = computed(() => (
   `rayleabot.plugin-management-ui.confirmed:${props.plugin.id}:${props.plugin.version ?? ''}:${props.plugin.source?.package_source_type ?? ''}:${props.plugin.source?.package_source_ref ?? ''}`
@@ -153,6 +162,9 @@ useToastFeedback(actionErrorToast)
 
 let bridgeToken = 0
 let initStartedForBridgeToken = 0
+let initPayloadBridgeToken = 0
+let lastInitSettings: Record<string, unknown> | null = null
+let lastInitSecrets: Record<string, string> | null = null
 let readyTimer: ReturnType<typeof setTimeout> | null = null
 let loadInitTimer: ReturnType<typeof setTimeout> | null = null
 let requestCounter = 0
@@ -243,6 +255,9 @@ function rememberConfirmation() {
 function restartFrame() {
   bridgeToken += 1
   initStartedForBridgeToken = 0
+  initPayloadBridgeToken = 0
+  lastInitSettings = null
+  lastInitSecrets = null
   acceptedOpaqueOrigin = false
   clearLoadInitTimer()
   clearReadyTimer()
@@ -295,6 +310,18 @@ function toBridgeValue<T>(value: T): T {
   }
 
   return JSON.parse(JSON.stringify(value)) as T
+}
+
+function toBridgePage(page: PluginManagementUIPage | null | undefined): PluginManagementUIPage | undefined {
+  if (!page) {
+    return undefined
+  }
+
+  return {
+    id: page.id,
+    label: page.label,
+    entry: page.entry,
+  }
 }
 
 function parseInboundBridgeMessage(value: unknown): PluginManagementUIInboundMessage | null {
@@ -432,6 +459,7 @@ function postBridgeError(message: string, options: { code?: string; requestId?: 
 }
 
 function postHostInit(settings: Record<string, unknown>, secrets: Record<string, string>, requestId?: string) {
+  const page = toBridgePage(props.page)
   const payload: PluginManagementUIHostInitPayload = {
     plugin_id: props.plugin.id,
     plugin: {
@@ -448,6 +476,7 @@ function postHostInit(settings: Record<string, unknown>, secrets: Record<string,
     settings: toBridgeValue(settings),
     secrets: toBridgeValue(secrets),
     title: props.title,
+    ...(page ? { page } : {}),
   }
 
   return postMessageToIframe({
@@ -502,6 +531,16 @@ function postSchedulerTriggered(response: SchedulerJobTriggerResponse, requestId
 async function initializeFrame(requestId?: string) {
   const currentToken = bridgeToken
   if (initStartedForBridgeToken === currentToken) {
+    if (initPayloadBridgeToken === currentToken && lastInitSettings && lastInitSecrets) {
+      const posted = postHostInit(lastInitSettings, lastInitSecrets, requestId)
+      if (posted) {
+        waitingForReady.value = false
+        actionError.value = null
+        fatalError.value = null
+        clearLoadInitTimer()
+        clearReadyTimer()
+      }
+    }
     return
   }
   initStartedForBridgeToken = currentToken
@@ -515,6 +554,9 @@ async function initializeFrame(requestId?: string) {
       return
     }
 
+    lastInitSettings = settingsResponse.values
+    lastInitSecrets = secretsResponse.values
+    initPayloadBridgeToken = currentToken
     const posted = postHostInit(settingsResponse.values, secretsResponse.values, requestId)
     if (!posted) {
       initStartedForBridgeToken = 0
@@ -782,6 +824,8 @@ watch(
     () => props.plugin.source?.package_source_type ?? '',
     () => props.plugin.source?.package_source_ref ?? '',
     () => managementEntry.value,
+    () => props.page?.id ?? '',
+    () => props.page?.entry ?? '',
     () => props.plugin.trust?.level ?? '',
   ],
   () => {

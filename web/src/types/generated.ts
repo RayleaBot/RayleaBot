@@ -1484,6 +1484,12 @@ export interface components {
         PluginManagementUISummary: {
             entry: string;
             label?: string;
+            pages?: components["schemas"]["PluginManagementUIPage"][];
+        };
+        PluginManagementUIPage: {
+            id: string;
+            label: string;
+            entry: string;
         };
         PluginRenderTemplateSummary: {
             path: string;

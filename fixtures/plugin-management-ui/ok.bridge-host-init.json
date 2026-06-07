@@ -26,7 +26,12 @@
         "default_city": "上海",
         "unit": "fahrenheit"
       },
-      "title": "配置页面"
+      "title": "配置页面",
+      "page": {
+        "id": "config",
+        "label": "配置页面",
+        "entry": "web/index.html"
+      }
     }
   },
   "expect": {

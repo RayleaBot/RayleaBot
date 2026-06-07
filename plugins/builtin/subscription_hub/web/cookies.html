@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#f6f8fb" />
+    <title>CK 设置</title>
+    <link rel="stylesheet" href="./app.css" />
+  </head>
+  <body>
+    <a class="skip-link" href="#main-content">跳到主要内容</a>
+    <main id="main-content" class="page-shell" data-page="cookies">
+      <header class="page-header">
+        <div class="page-heading">
+          <p class="eyebrow" translate="no">raylea.subscription-hub</p>
+          <h1 id="page-title">CK 设置</h1>
+          <p id="page-subtitle">管理 Bilibili CK、备注和密钥名</p>
+        </div>
+        <div class="status-pill" id="status-text" aria-live="polite">正在等待宿主初始化…</div>
+      </header>
+
+      <section class="overview-grid overview-grid--cookies" aria-label="CK 设置概览">
+        <article class="metric">
+          <span class="metric__label">状态</span>
+          <strong id="metric-enabled">未载入</strong>
+        </article>
+        <article class="metric">
+          <span class="metric__label">订阅</span>
+          <strong id="metric-subscriptions">0 / 0</strong>
+        </article>
+        <article class="metric">
+          <span class="metric__label">CK</span>
+          <strong id="metric-cookies">0 / 0</strong>
+        </article>
+        <article class="metric">
+          <span class="metric__label">校验</span>
+          <strong id="metric-validation">未校验</strong>
+        </article>
+      </section>
+
+      <section class="cookies-page-layout">
+        <section class="panel">
+          <div class="section-title section-title--inline">
+            <div>
+              <h2>Bilibili CK</h2>
+              <p>CK 明文保存到插件密钥存储，设置中只保留备注和密钥名。</p>
+            </div>
+            <button type="button" id="add-cookie-button" class="button button--primary-accent">添加 CK</button>
+          </div>
+          <div id="cookie-list" class="cookie-list"></div>
+        </section>
+      </section>
+
+      <footer class="actions">
+        <div id="dirty-state" class="dirty-state" aria-live="polite">等待载入</div>
+        <div class="footer-buttons">
+          <button type="button" id="reload-button" class="button">重新载入</button>
+          <button type="button" id="reset-button" class="button">恢复默认</button>
+          <button type="button" id="save-button" class="button button--primary">保存设置</button>
+        </div>
+      </footer>
+    </main>
+    <script src="./app.js"></script>
+  </body>
+</html>

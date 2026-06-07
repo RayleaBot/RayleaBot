@@ -13,7 +13,19 @@
   "role": "builtin",
   "management_ui": {
     "entry": "web/index.html",
-    "label": "订阅设置"
+    "label": "订阅设置",
+    "pages": [
+      {
+        "id": "subscriptions",
+        "label": "订阅设置",
+        "entry": "web/index.html"
+      },
+      {
+        "id": "cookies",
+        "label": "CK 设置",
+        "entry": "web/cookies.html"
+      }
+    ]
   },
   "render_templates": [
     {

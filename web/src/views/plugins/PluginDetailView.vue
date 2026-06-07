@@ -38,6 +38,7 @@ import {
   buildPluginWorkbenchActions,
   buildTaskLocation,
   readPluginDetailPanel,
+  readPluginManagementPage,
   type PluginDetailPanel,
 } from '@/lib/management-links'
 import { escapeUnsafeDisplayText, safeJsonStringify } from '@/lib/text-safety'
@@ -51,6 +52,7 @@ import { useReadyToRenderHeavyContent } from '@/layouts/usePageTransitionStage'
 
 type PermissionDialogMode = 'grant' | 'pending' | 'scope_changed'
 type PluginDetailInnerTab = 'commands' | 'permissions' | 'console'
+type PluginPanelOption = { label: string; value: string }
 const CONSOLE_ROW_ESTIMATED_HEIGHT = 84
 
 const route = useRoute()
@@ -92,8 +94,36 @@ let consoleBottomSyncToken = 0
 
 const commandPrefix = computed(() => getPrimaryCommandPrefix(configDocument.value?.command?.prefixes))
 const requestedPanel = computed(() => readPluginDetailPanel(route.query))
+const requestedManagementPage = computed(() => readPluginManagementPage(route.query))
 const isBuiltinPlugin = computed(() => currentPlugin.value?.role === 'builtin')
 const hasManagementUI = computed(() => Boolean(currentPlugin.value?.management_ui?.entry))
+const hasDeclaredManagementPages = computed(() => (currentPlugin.value?.management_ui?.pages?.length ?? 0) > 0)
+const managementPages = computed(() => {
+  const managementUI = currentPlugin.value?.management_ui
+  if (!managementUI?.entry) {
+    return []
+  }
+
+  const declaredPages = managementUI.pages ?? []
+  if (declaredPages.length > 0) {
+    return declaredPages
+  }
+
+  return [{
+    id: 'main',
+    label: managementUI.label?.trim() || t('plugins.panels.managementUi'),
+    entry: managementUI.entry,
+  }]
+})
+const activeManagementPage = computed(() => {
+  if (!hasManagementUI.value) {
+    return null
+  }
+
+  return managementPages.value.find((page) => page.id === requestedManagementPage.value)
+    ?? managementPages.value[0]
+    ?? null
+})
 const activePanel = computed<PluginDetailPanel>(() => {
   if (requestedPanel.value === 'management-ui' && currentPlugin.value && !hasManagementUI.value) {
     return 'overview'
@@ -101,16 +131,23 @@ const activePanel = computed<PluginDetailPanel>(() => {
 
   return requestedPanel.value
 })
+const activePanelKey = computed(() => (
+  activePanel.value === 'management-ui' && activeManagementPage.value
+    ? `management-ui:${activeManagementPage.value.id}`
+    : activePanel.value
+))
 const panelOptions = computed(() => {
-  const options = [
+  const options: PluginPanelOption[] = [
     { label: t('plugins.panels.overview'), value: 'overview' },
   ]
 
   if (hasManagementUI.value) {
-    options.push({
-      label: currentPlugin.value?.management_ui?.label?.trim() || t('plugins.panels.managementUi'),
-      value: 'management-ui',
-    })
+    for (const page of managementPages.value) {
+      options.push({
+        label: page.label?.trim() || t('plugins.panels.managementUi'),
+        value: `management-ui:${page.id}`,
+      })
+    }
   }
 
   return options
@@ -153,7 +190,7 @@ const permissionDialogOkText = computed(() => (
     : t('plugins.actions.grantSelected')
 ))
 const pluginWorkbenchActions = computed(() => buildPluginWorkbenchActions(pluginId.value))
-const managementPanelTitle = computed(() => currentPlugin.value?.management_ui?.label?.trim() || t('plugins.sections.managementUi'))
+const managementPanelTitle = computed(() => activeManagementPage.value?.label?.trim() || currentPlugin.value?.management_ui?.label?.trim() || t('plugins.sections.managementUi'))
 const pluginDisplayName = computed(() => currentPlugin.value?.name?.trim() || pluginId.value)
 const pluginInitial = computed(() => pluginDisplayName.value.trim().slice(0, 1).toUpperCase() || 'P')
 const sourceRefText = computed(() => currentPlugin.value?.source?.package_source_ref ?? currentPlugin.value?.source?.package_source_type ?? '')
@@ -542,9 +579,10 @@ function getPluginAvatarStyle(name: string) {
   }
 }
 
-async function syncPanelQuery(nextPanel: PluginDetailPanel) {
+async function syncPanelQuery(nextPanel: PluginDetailPanel, managementPage?: string | null) {
   const target = buildPluginDetailLocation(pluginId.value, {
     panel: nextPanel,
+    managementPage,
   })
 
   if (areLocationQueriesEqual(route.query, target.query ?? {})) {
@@ -554,8 +592,21 @@ async function syncPanelQuery(nextPanel: PluginDetailPanel) {
   await router.replace(target)
 }
 
-async function setActivePanel(nextPanel: PluginDetailPanel) {
-  await syncPanelQuery(nextPanel)
+async function setActivePanelKey(nextKey: string) {
+  if (nextKey === 'overview') {
+    await syncPanelQuery('overview')
+    return
+  }
+
+  if (nextKey.startsWith('management-ui:')) {
+    await syncPanelQuery(
+      'management-ui',
+      hasDeclaredManagementPages.value ? nextKey.slice('management-ui:'.length) : null,
+    )
+    return
+  }
+
+  await syncPanelQuery('management-ui')
 }
 
 function setActiveDetailTab(nextTab: PluginDetailInnerTab) {
@@ -610,14 +661,22 @@ watch(
 )
 
 watch(
-  [requestedPanel, currentPlugin],
-  ([panel, plugin]) => {
+  [requestedPanel, requestedManagementPage, currentPlugin, activeManagementPage],
+  ([panel, managementPage, plugin, activePage]) => {
     if (route.name !== 'plugin-detail') {
       return
     }
 
     if (panel === 'management-ui' && plugin && !plugin.management_ui?.entry) {
       void syncPanelQuery('overview')
+      return
+    }
+
+    if (panel === 'management-ui' && plugin?.management_ui?.entry && activePage && hasDeclaredManagementPages.value) {
+      const expectedPage = activePage.id
+      if (managementPage !== expectedPage) {
+        void syncPanelQuery('management-ui', expectedPage)
+      }
     }
   },
   { immediate: true },
@@ -654,10 +713,10 @@ watch(
         <h1>{{ pluginId }}</h1>
         <a-segmented
           v-if="panelOptions.length > 1"
-          :value="activePanel"
+          :value="activePanelKey"
           :options="panelOptions"
           class="plugin-header-segmented plugin-detail-panel-switch"
-          @change="setActivePanel($event as PluginDetailPanel)"
+          @change="setActivePanelKey(String($event))"
         />
       </div>
     </template>
@@ -1110,9 +1169,11 @@ watch(
     </template>
 
     <PluginManagementUIHost
-      v-else-if="currentPlugin?.management_ui"
+      v-else-if="currentPlugin?.management_ui && activeManagementPage"
       :plugin="currentPlugin"
       :title="managementPanelTitle"
+      :entry="activeManagementPage.entry"
+      :page="hasDeclaredManagementPages ? activeManagementPage : null"
     />
 
     <a-skeleton v-else active :loading="detailLoading">

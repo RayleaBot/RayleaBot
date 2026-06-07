@@ -56,8 +56,15 @@ type Screenshot struct {
 }
 
 type ManagementUI struct {
+	Entry string             `json:"entry"`
+	Label string             `json:"label,omitempty"`
+	Pages []ManagementUIPage `json:"pages,omitempty"`
+}
+
+type ManagementUIPage struct {
+	ID    string `json:"id"`
+	Label string `json:"label"`
 	Entry string `json:"entry"`
-	Label string `json:"label,omitempty"`
 }
 
 type RenderTemplate struct {
@@ -466,6 +473,7 @@ func cloneSnapshot(snapshot Snapshot) Snapshot {
 	}
 	if snapshot.ManagementUI != nil {
 		copied := *snapshot.ManagementUI
+		copied.Pages = append([]ManagementUIPage(nil), snapshot.ManagementUI.Pages...)
 		cloned.ManagementUI = &copied
 	}
 	if len(snapshot.RenderTemplates) > 0 {
