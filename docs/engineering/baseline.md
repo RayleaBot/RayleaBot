@@ -38,7 +38,7 @@
 | Render | `chromedp 0.14.2` + Chromium 浏览环境 |
 | Metrics | `github.com/prometheus/client_golang 1.23.2`（Prometheus 文本暴露格式） |
 
-Web 管理面采用 `Ant Design Vue + Vue Vben Admin` 对齐方案作为正式工程基线；相关目录结构、样式入口与测试基线按 [`web-antdv-vben-migration-plan.md`](./web-antdv-vben-migration-plan.md) 约束维护。
+Web 管理面采用 `Ant Design Vue + Vue Vben Admin` 对齐方案作为正式工程基线；相关目录结构、样式入口与测试基线按 [`web-admin-baseline.md`](./web-admin-baseline.md) 约束维护。
 
 ## 固定工程选型
 

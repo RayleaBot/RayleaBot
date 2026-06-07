@@ -162,7 +162,7 @@
   <rect class="chip" x="280" y="362" width="148" height="26" rx="6"/>
   <text class="chip-title" x="354" y="380" text-anchor="middle">CLI</text>
   <text class="module-text" x="274" y="406" text-anchor="middle">共享同一 raylea-server 二进制</text>
-  <text class="module-text" x="274" y="424" text-anchor="middle">CLI：backup · restore · migrate · diagnose</text>
+  <text class="module-text" x="274" y="424" text-anchor="middle">CLI：backup · restore · doctor · cleanup</text>
 
   <rect class="card-emerald" x="100" y="450" width="348" height="198" rx="12" filter="url(#card-shadow)"/>
   <text class="module-title" x="274" y="478" text-anchor="middle">OneBot11 接入方</text>
@@ -252,7 +252,7 @@
   <text class="module-title" x="1746" y="346" text-anchor="middle">Tasks 通道</text>
   <text class="module-text" x="1746" y="368" text-anchor="middle">异步任务订阅</text>
   <text class="module-text" x="1746" y="394" text-anchor="middle">install · backup · restore</text>
-  <text class="module-text" x="1746" y="414" text-anchor="middle">migrate · recovery</text>
+  <text class="module-text" x="1746" y="414" text-anchor="middle">recovery · runtime bootstrap</text>
   <text class="module-text" x="1746" y="434" text-anchor="middle">进度 + 终态推送</text>
 
   <rect class="card-blue" x="1924" y="320" width="336" height="132" rx="10" filter="url(#card-shadow)"/>
@@ -488,7 +488,7 @@
   <text class="resource-text" x="2524" y="368" text-anchor="middle">Config 模块合并与裁决</text>
 
   <rect class="card-emerald" x="2348" y="398" width="352" height="232" rx="10" filter="url(#card-shadow)"/>
-  <text class="resource-title" x="2524" y="424" text-anchor="middle">SQLite（嵌入 migrations · sqlc）</text>
+  <text class="resource-title" x="2524" y="424" text-anchor="middle">SQLite（内置 schema.sql · sqlc）</text>
   <rect class="chip-emerald" x="2368" y="438" width="156" height="22" rx="5"/>
   <text class="chip-title" x="2446" y="454" text-anchor="middle">auth_core</text>
   <rect class="chip-emerald" x="2532" y="438" width="156" height="22" rx="5"/>

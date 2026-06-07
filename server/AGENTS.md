@@ -24,7 +24,6 @@
   - `user.command_rate_limit`
   - `group.command_rate_limit`
   - `user.cooldown_reply`
-- 旧兼容字段只作为显式回退路径，不作为新的主读取口径。
 - 白名单、黑名单、默认权限、冷却与 super admin 判断保持同一套正式语义。
 
 ## Testing Rules

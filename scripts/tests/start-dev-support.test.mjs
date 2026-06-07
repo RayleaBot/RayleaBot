@@ -20,13 +20,11 @@ import {
   shouldInstallDependencies,
 } from "../start-dev-support.mjs";
 
-test("resolves start profile and legacy web mode", () => {
+test("resolves start profile", () => {
   assert.equal(resolveStartProfile({}), WEB_DEV_PROFILE);
-  assert.equal(resolveStartProfile({ RAYLEA_START_WEB_MODE: "build" }), BUILD_PROFILE);
-  assert.equal(resolveStartProfile({ RAYLEA_START_WEB_MODE: "dev" }), WEB_DEV_PROFILE);
+  assert.equal(resolveStartProfile({ RAYLEA_START_PROFILE: BUILD_PROFILE }), BUILD_PROFILE);
   assert.equal(resolveStartProfile({ RAYLEA_START_PROFILE: LAUNCHER_DEV_PROFILE }), LAUNCHER_DEV_PROFILE);
   assert.throws(() => resolveStartProfile({ RAYLEA_START_PROFILE: "unknown" }), /Unsupported/);
-  assert.throws(() => resolveStartProfile({ RAYLEA_START_WEB_MODE: "preview" }), /Unsupported/);
 });
 
 test("resolves install mode", () => {

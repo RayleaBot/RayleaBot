@@ -37,7 +37,7 @@
   - 统一错误码命名、默认消息资源键、HTTP 语义和适用范围
 - `web-api.openapi.yaml`
   - 当前已冻结的管理 HTTP 接口
-  - 当前包含 setup / session、loopback launcher bootstrap、config snapshot/update、protocol snapshot / compatibility、plugin lifecycle、plugin grants、plugin rich detail、plugin settings、plugin secrets、governance 管理面、tasks / logs / system surfaces、scheduler 任务列表与手动触发、recovery recheck / confirm、runtime bootstrap、render preview 与 render artifact 读取面
+  - 当前包含 setup / session、loopback launcher bootstrap、config snapshot/update、protocol snapshot / compatibility、plugin lifecycle、plugin grants、plugin rich detail、plugin settings、plugin secrets、governance 管理面、tasks / logs / system surfaces、scheduler 任务列表与手动触发、recovery recheck / confirm、runtime bootstrap、render templates、preview HTML 与模板资源读取面
   - `PUT /api/config` response 固定返回 `apply_effects.applied_now`、`apply_effects.reloaded_now`、`apply_effects.restart_required_fields`
   - plugin lifecycle surface 统一使用正式 `display_state` 枚举
 - `websocket-events.yaml`
@@ -48,7 +48,7 @@
   - 当前已冻结 `default_config`、`default_config_file`、`role`、`icon`、`repo`、`homepage`、`keywords`、`screenshots`、`system_dependencies`、`platforms`、`management_ui`、`render_templates`、`help` 与插件详情页投影所需 metadata
   - `capabilities`、`permissions.required` 与 `permissions.optional` 共用同一套正式 capability 集合，覆盖基础 local action、治理 local action、冻结的 OneBot 单动作能力与 3 个正式 provider 扩展动作
   - `concurrency` 省略时按 `1` 处理，声明值用于插件事件并发 opt-in
-  - command `permission` 省略时回落到 `auth.default_level`
+  - command `permission` 省略时使用 `permission.default_level`
 - `plugin-management-ui.yaml`
   - 插件内置管理页的公共静态资源路由前缀
   - 当前固定为 `/plugin-ui/{plugin_id}/...`
@@ -72,7 +72,7 @@
   - `release_manifest.json` 与 `build_info.json` 的正式字段结构
   - `SHA256SUMS.txt` 继续由 release tool 的生成与校验规则裁决，不作为独立 schema
 - `cli-commands.yaml`
-  - `reset-admin`、`backup`、`restore`、`doctor`、`migrate`、`cleanup` 的正式命令模型
+  - `reset-admin`、`backup`、`restore`、`doctor`、`cleanup` 的正式命令模型
 
 ## 当前延后到后续版本的边界
 

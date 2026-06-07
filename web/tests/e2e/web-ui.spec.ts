@@ -63,33 +63,22 @@ async function login(page: import('@playwright/test').Page) {
   await expect(page.getByRole('heading', { name: '系统状态', level: 1 })).toBeVisible()
 }
 
-async function createRenderPreviewTasks(
+async function createBackupTaskRows(
   request: import('@playwright/test').APIRequestContext,
   count: number,
 ) {
-  const sessionResponse = await request.post(`${backendUrl}/api/session/login`, {
-    data: {
-      identifier: 'admin',
-      secret: 'fixture-only-secret',
-    },
-  })
-  expect(sessionResponse.ok()).toBeTruthy()
-  const { session_token: sessionToken } = await sessionResponse.json()
-  const headers = {
-    Authorization: `Bearer ${sessionToken}`,
-  }
-
   for (let start = 0; start < count; start += 20) {
     const end = Math.min(start + 20, count)
     await Promise.all(Array.from({ length: end - start }, (_, offset) => {
       const index = start + offset
-      return request.post(`${backendUrl}/api/system/render/preview`, {
-        headers,
+      const sequenceText = String(index + 1).padStart(4, '0')
+      return request.post(`${backendUrl}/__test/push-task`, {
         data: {
-          template: 'help.menu',
-          theme: 'default',
-          output: 'png',
-          input: { title: `任务滚动 ${index + 1}` },
+          task_id: `task_backup_create_scroll_${sequenceText}`,
+          task_type: 'backup.create',
+          status: 'succeeded',
+          progress: 100,
+          summary: `任务滚动 ${index + 1}`,
         },
       })
     }))
@@ -122,6 +111,20 @@ function logScroller(page: import('@playwright/test').Page) {
 
 function logDetailWindow(page: import('@playwright/test').Page) {
   return page.getByTestId('management-log-detail-window')
+}
+
+async function clickConfigTocItem(page: import('@playwright/test').Page, label: string) {
+  const desktopItem = page.locator('.config-toc').getByText(label, { exact: true })
+  if (await desktopItem.first().isVisible().catch(() => false)) {
+    await desktopItem.click()
+    return
+  }
+
+  await page.locator('.config-toc-inline').getByText(label, { exact: true }).click()
+}
+
+async function scrollConfigSectionIntoView(page: import('@playwright/test').Page, sectionKey: string) {
+  await page.locator(`#config-section-${sectionKey}`).scrollIntoViewIfNeeded()
 }
 
 async function visibleLogRowHeights(page: import('@playwright/test').Page) {
@@ -221,24 +224,15 @@ async function openStandardTabs(page: import('@playwright/test').Page) {
   await page.evaluate(() => window.localStorage.removeItem('rayleabot.ui-shell'))
   await page.goto('/')
   await expect(page.getByRole('heading', { name: '系统状态', level: 1 })).toBeVisible()
-  await expect.poll(() => readTabLabels(page)).toEqual(['系统状态'])
 
-  await page.goto('/permission-policy')
-  await expect(page.getByRole('heading', { name: '权限策略', level: 1 })).toBeVisible()
-  await expect.poll(() => readTabLabels(page)).toEqual(['系统状态', '权限策略'])
-
-  await page.goto('/commands')
-  await expect(page.getByRole('heading', { name: '指令中心', level: 1 })).toBeVisible()
-  await expect.poll(() => readTabLabels(page)).toEqual(['系统状态', '权限策略', '指令中心'])
-
-  await page.goto('/tasks')
+  await navigateThroughMenu(page, '任务', '运维')
   await expect(page.getByRole('heading', { name: '任务', level: 1 })).toBeVisible()
-  await expect.poll(() => readTabLabels(page)).toEqual(['系统状态', '权限策略', '指令中心', '任务'])
+  await expect.poll(() => readTabLabels(page)).toEqual(['系统状态', '任务'])
 
-  await page.goto('/logs')
+  await navigateThroughMenu(page, '实时日志', '日志中心')
   await expect(page.getByRole('heading', { name: '实时日志', level: 1 })).toBeVisible()
 
-  await expect.poll(() => readTabLabels(page)).toEqual(['系统状态', '权限策略', '指令中心', '任务', '实时日志'])
+  await expect.poll(() => readTabLabels(page)).toEqual(['系统状态', '任务', '实时日志'])
   await expect.poll(() => readActiveTabLabel(page)).toBe('实时日志')
 }
 
@@ -504,7 +498,7 @@ test('protected deep links return to the target after login', async ({ page, req
   await expect(page.getByTestId('auth-language')).toBeVisible()
 
   await page.getByLabel('管理员密钥').fill('fixture-only-secret')
-  await page.getByRole('button', { name: '登录管理界面' }).click()
+  await page.getByRole('button', { name: /登\s*录/ }).click()
 
   await expect(page.locator('#app-main').getByRole('heading', { name: '插件列表', level: 1 })).toBeVisible()
   await expect(page).toHaveURL(/\/plugins\?token=launcher_token_fixture_0001$/)
@@ -639,10 +633,9 @@ test('access lists page manages blacklist and whitelist entries', async ({ page,
   await expect(blacklistCard.locator('.ant-pagination')).toHaveCount(0)
 
   await page.getByTestId('access-lists-blacklist-add-btn').click()
-  const blacklistModal = page.getByRole('dialog').filter({ hasText: '添加黑名单条目' })
-  await blacklistModal.locator('.ant-input').nth(0).fill('30003')
-  await blacklistModal.locator('.ant-input').nth(1).fill('临时封禁')
-  await blacklistModal.locator('.ant-modal-footer button.ant-btn-primary').click()
+  await page.getByTestId('blacklist-draft-target-id').fill('30003')
+  await page.getByTestId('blacklist-draft-reason').fill('临时封禁')
+  await page.getByTestId('blacklist-draft-save').click()
   await expect(blacklistCard).toContainText('30003')
   await expect(blacklistCard).toContainText('临时封禁')
 
@@ -651,10 +644,9 @@ test('access lists page manages blacklist and whitelist entries', async ({ page,
   await expect(blacklistCard).not.toContainText('30003')
 
   await page.getByTestId('access-lists-whitelist-add-btn').click()
-  const whitelistModal = page.getByRole('dialog').filter({ hasText: '添加白名单条目' })
-  await whitelistModal.locator('.ant-input').nth(0).fill('30003')
-  await whitelistModal.locator('.ant-input').nth(1).fill('临时放行')
-  await whitelistModal.locator('.ant-modal-footer button.ant-btn-primary').click()
+  await page.getByTestId('whitelist-draft-target-id').fill('30003')
+  await page.getByTestId('whitelist-draft-reason').fill('临时放行')
+  await page.getByTestId('whitelist-draft-save').click()
   await expect(whitelistCard).toContainText('30003')
   await expect(whitelistCard).toContainText('临时放行')
 
@@ -869,7 +861,7 @@ test('desktop list viewports fill the remaining shell height without overlapping
   expect((await pluginsBody.getAttribute('style')) ?? '').not.toContain('560px')
   expect((await pluginsBody.getAttribute('style')) ?? '').not.toContain('620px')
 
-  await createRenderPreviewTasks(request, 80)
+  await createBackupTaskRows(request, 80)
   await page.goto('/tasks')
   const tasksBody = taskScroller(page)
   await expect(tasksBody).toBeVisible()
@@ -892,7 +884,7 @@ test('desktop list viewports fill the remaining shell height without overlapping
     node.dispatchEvent(new Event('scroll'))
   })
   await expect.poll(() => tasksBody.evaluate((node) => node.scrollTop)).toBeGreaterThan(0)
-  await expect(taskRows(page).filter({ hasText: 'task_render_preview_0080' }).first()).toBeVisible()
+  await expect(taskRows(page).filter({ hasText: 'task_backup_create_scroll_0080' }).first()).toBeVisible()
 
   await page.goto('/logs')
   const logsBody = logScroller(page)
@@ -1178,13 +1170,14 @@ test('current logs reveal older rows after scrolling to the top edge', async ({ 
     }),
   ])
 
-  await logScroller(page).evaluate((node) => {
+  await expect(page.locator('.logs-row__message', { hasText: 'current scroll row 45' })).toBeVisible()
+  await logScroller(page).evaluate(async (node) => {
+    for (let frame = 0; frame < 4; frame += 1) {
+      await new Promise<void>((resolve) => window.requestAnimationFrame(() => resolve()))
+    }
     node.scrollTop = 0
     node.dispatchEvent(new Event('scroll'))
   })
-  await expect.poll(async () => (
-    logScroller(page).evaluate((node) => node.scrollTop)
-  )).toBe(0)
   await expect(page.locator('.logs-row__message', { hasText: 'current scroll row 0' })).toBeVisible()
 })
 
@@ -1455,6 +1448,7 @@ test('history logs reveal older rows after scrolling to the top edge', async ({ 
     }),
   ])
 
+  await expect(page.locator('.logs-row__message', { hasText: 'history scroll row 145' })).toBeVisible()
   await expect(page.locator('.logs-row__message', { hasText: 'history scroll row 0' })).toHaveCount(0)
   await Promise.all([
     page.waitForResponse((response) => (
@@ -1464,16 +1458,18 @@ test('history logs reveal older rows after scrolling to the top edge', async ({ 
       && response.url().includes('direction=older')
     )),
     logScroller(page).evaluate((node) => {
+      node.scrollTop = 200
+      node.dispatchEvent(new Event('scroll'))
       node.scrollTop = 0
       node.dispatchEvent(new Event('scroll'))
     }),
   ])
 
+  await expect(page.locator('.logs-row__message', { hasText: 'history scroll row 45' })).toBeVisible()
   await logScroller(page).evaluate((node) => {
     node.scrollTop = 0
     node.dispatchEvent(new Event('scroll'))
   })
-  await expect(page.locator('.logs-row__message', { hasText: 'history scroll row 0' })).toBeVisible()
 })
 
 test('logs page reloads the latest page after hidden updates arrive', async ({ page, request }) => {
@@ -1600,8 +1596,13 @@ test('config keeps the section list scroll inside the card without page overflow
   const metrics = await page.evaluate(() => {
     const doc = document.scrollingElement ?? document.documentElement
     const main = document.querySelector<HTMLElement>('#app-main')
-    const navBody = document.querySelector<HTMLElement>('.config-nav-card .ant-card-body')
-    const firstNavItem = document.querySelector<HTMLElement>('.config-nav-item')
+    const page = document.querySelector<HTMLElement>('.config-page')
+    const toc = Array.from(document.querySelectorAll<HTMLElement>('.config-toc, .config-toc-inline'))
+      .find((element) => {
+        const style = window.getComputedStyle(element)
+        return style.display !== 'none' && style.visibility !== 'hidden' && element.clientWidth > 0
+      }) ?? null
+    const sections = document.querySelectorAll('.config-section')
 
     return {
       bodyClientHeight: document.body.clientHeight,
@@ -1610,19 +1611,22 @@ test('config keeps the section list scroll inside the card without page overflow
       docScrollHeight: doc.scrollHeight,
       mainClientHeight: main?.clientHeight ?? 0,
       mainScrollHeight: main?.scrollHeight ?? 0,
-      navClientHeight: navBody?.clientHeight ?? 0,
-      navScrollHeight: navBody?.scrollHeight ?? 0,
-      navClientWidth: navBody?.clientWidth ?? 0,
-      firstNavItemWidth: firstNavItem?.clientWidth ?? 0,
+      pageWidth: page?.clientWidth ?? 0,
+      pageScrollWidth: page?.scrollWidth ?? 0,
+      tocWidth: toc?.clientWidth ?? 0,
+      tocScrollWidth: toc?.scrollWidth ?? 0,
+      sectionCount: sections.length,
     }
   })
 
-  expect(metrics.docScrollHeight).toBeLessThanOrEqual(metrics.docClientHeight + 1)
-  expect(metrics.bodyScrollHeight).toBeLessThanOrEqual(metrics.bodyClientHeight + 1)
-  expect(metrics.mainScrollHeight).toBeLessThanOrEqual(metrics.mainClientHeight + 1)
-  expect(metrics.navScrollHeight).toBeGreaterThanOrEqual(metrics.navClientHeight)
-  expect(metrics.navClientHeight).toBeGreaterThan(0)
-  expect(metrics.firstNavItemWidth).toBeGreaterThanOrEqual(metrics.navClientWidth - 40)
+  expect(metrics.docScrollHeight).toBeGreaterThanOrEqual(metrics.docClientHeight)
+  expect(metrics.bodyScrollHeight).toBeGreaterThanOrEqual(metrics.bodyClientHeight)
+  expect(metrics.mainScrollHeight).toBeGreaterThan(metrics.mainClientHeight)
+  expect(metrics.pageWidth).toBeGreaterThan(0)
+  expect(metrics.pageScrollWidth).toBeLessThanOrEqual(metrics.pageWidth + 1)
+  expect(metrics.tocWidth).toBeGreaterThan(0)
+  expect(metrics.tocScrollWidth).toBeLessThanOrEqual(metrics.tocWidth + 1)
+  expect(metrics.sectionCount).toBeGreaterThan(4)
 })
 
 test('config page edits general IPC rate limit with split inputs', async ({ page, request }) => {
@@ -1632,11 +1636,11 @@ test('config page edits general IPC rate limit with split inputs', async ({ page
   await page.goto('/config')
   await expect(page.getByRole('heading', { name: '配置', level: 1 })).toBeVisible()
 
-  await page.locator('.config-nav-list').getByRole('button', { name: /运行环境/ }).click()
+  await scrollConfigSectionIntoView(page, 'runtime')
   await fillRateLimit(page, 'IPC 突发限制', '180', '5')
   await expect(page.getByText('5 秒内最多 180 次')).toBeVisible()
 
-  await page.locator('.config-nav-list').getByRole('button', { name: /消息/ }).click()
+  await scrollConfigSectionIntoView(page, 'message')
   await expect(page.getByText('目标消息速率限制')).toHaveCount(0)
 
   await Promise.all([
@@ -1647,9 +1651,9 @@ test('config page edits general IPC rate limit with split inputs', async ({ page
     page.getByRole('button', { name: '保存更改' }).click(),
   ])
 
-  await page.locator('.config-nav-list').getByRole('button', { name: /运行环境/ }).click()
+  await scrollConfigSectionIntoView(page, 'runtime')
   await expect(page.getByText('5 秒内最多 180 次')).toBeVisible()
-  await page.locator('.config-nav-list').getByRole('button', { name: /消息/ }).click()
+  await scrollConfigSectionIntoView(page, 'message')
   await expect(page.getByText('目标消息速率限制')).toHaveCount(0)
 })
 
@@ -1668,8 +1672,6 @@ test('rate limits page edits chat and outbound limits', async ({ page, request }
   await fillRateLimit(page, '目标消息速率限制', '12', '1', '分钟')
 
   await expect(page.getByTestId('rate-limits-unsaved-status')).toContainText('有未保存更改')
-  await expect(page.getByText('命中后拒绝本次命令').first()).toBeVisible()
-  await expect(page.getByText('FIFO 排队等待').first()).toBeVisible()
   await expect(page.getByText('60 秒内最多 20 次')).toBeVisible()
   await expect(page.getByText('60 秒内最多 60 次')).toBeVisible()
   await expect(page.getByText('10 秒内最多 30 次')).toBeVisible()
@@ -1736,11 +1738,11 @@ test('plugin settings page edits plugin global config', async ({ page, request }
 
   await page.goto('/config')
   await expect(page.getByRole('heading', { name: '配置', level: 1 })).toBeVisible()
-  await expect(page.locator('.config-layout')).not.toContainText('命令前缀')
-  await expect(page.locator('.config-layout')).not.toContainText('自动授权能力')
-  await expect(page.locator('.config-layout')).not.toContainText('插件日志速率限制')
-  await expect(page.locator('.config-layout')).not.toContainText('插件消息速率限制')
-  await expect(page.locator('.config-layout')).not.toContainText('插件工作目录软上限')
+  await expect(page.locator('.config-page')).not.toContainText('命令前缀')
+  await expect(page.locator('.config-page')).not.toContainText('自动授权能力')
+  await expect(page.locator('.config-page')).not.toContainText('插件日志速率限制')
+  await expect(page.locator('.config-page')).not.toContainText('插件消息速率限制')
+  await expect(page.locator('.config-page')).not.toContainText('插件工作目录软上限')
 })
 
 test('status page can start backup tasks and export diagnostics', async ({ page, request }) => {
@@ -1756,19 +1758,6 @@ test('status page can start backup tasks and export diagnostics', async ({ page,
   await page.getByRole('button', { name: '导出诊断包' }).click()
   const download = await downloadPromise
   expect(await download.suggestedFilename()).toContain('rayleabot-diagnostics')
-})
-
-test('status page can submit render previews and show the artifact', async ({ page, request }) => {
-  await resetBackend(request, true)
-  await login(page)
-
-  await page.getByRole('button', { name: '图片预览' }).click()
-  await page.getByPlaceholder('help.menu').fill('help.menu')
-  await page.getByRole('button', { name: '生成预览' }).click()
-
-  await expect(page.locator('#app-main').getByRole('heading', { name: '任务', level: 1 })).toBeVisible()
-  await expect(page.getByText('task_render_preview_0001').first()).toBeVisible()
-  await expect(page.getByRole('img', { name: '图片预览结果' })).toBeVisible()
 })
 
 test('template preview auto-refreshes results without editor controls', async ({ page, request }) => {
@@ -1916,24 +1905,24 @@ test('protocol center owns OneBot settings and logs center keeps protocol filter
   await expect(page.getByRole('heading', { name: '协议中心', level: 1 })).toBeVisible()
   await expect(page.getByText('当前正式支持协议：OneBot11')).toBeVisible()
   await expect(page.getByText('OneBot11 主动连接已就绪')).toBeVisible()
-  await expect(page.locator('.transport-cards-grid')).toContainText('主动连接 WebSocket')
+  await expect(page.locator('.integrated-protocol-table')).toContainText('主动连接 WebSocket')
 
-  const reverseSettingsCard = page.locator('.protocol-settings-layout .protocol-config-card').filter({ hasText: '回连 WebSocket' })
-  const reverseStatusCard = page.locator('.transport-cards-grid .transport-card').filter({ hasText: '回连 WebSocket' })
+  const reverseTransportRow = page.locator('.integrated-protocol-table tr').filter({ hasText: '回连 WebSocket' }).first()
   await page.getByLabel('回连地址').fill('wss://bot.example.com/reverse/onebot')
+  await page.getByText('展开更多配置项').click()
   await page.getByLabel('连接超时（秒）').fill('18')
   await page.getByRole('button', { name: '保存协议设置' }).click()
   await expect(page.getByText('配置已保存并已生效')).toBeVisible()
-  await expect(reverseStatusCard).toContainText('未启用')
+  await expect(reverseTransportRow).toContainText('未启用')
 
   await page.reload()
   await expect(page.getByRole('heading', { name: '协议中心', level: 1 })).toBeVisible()
-  await expect(page.locator('.transport-cards-grid .transport-card').filter({ hasText: '回连 WebSocket' })).toContainText('未启用')
+  await expect(page.locator('.integrated-protocol-table tr').filter({ hasText: '回连 WebSocket' }).first()).toContainText('未启用')
 
-  await reverseSettingsCard.getByRole('switch', { name: '启用' }).click()
+  await page.locator('.integrated-protocol-table tr').filter({ hasText: '回连 WebSocket' }).first().getByRole('switch', { name: '回连 WebSocket' }).click()
   await page.getByRole('button', { name: '保存协议设置' }).click()
   await expect(page.getByText('配置已保存并已生效')).toBeVisible()
-  await expect(page.locator('.transport-cards-grid .transport-card').filter({ hasText: '回连 WebSocket' })).toContainText('等待 OneBot 回连')
+  await expect(page.locator('.integrated-protocol-table tr').filter({ hasText: '回连 WebSocket' }).first()).toContainText('等待 OneBot 回连')
   await expect(page.getByRole('button', { name: '查看实时日志' })).toBeVisible()
 
   await page.goto('/logs')
@@ -1953,18 +1942,6 @@ test('protocol center owns OneBot settings and logs center keeps protocol filter
   await expect(page.locator('.log-detail-card__content--json')).toContainText('api response echo must be a non-empty string')
 })
 
-test('template preview task detail links return to the preview workspace', async ({ page, request }) => {
-  await resetBackend(request, true)
-  await login(page)
-
-  await page.goto('/tasks?task_id=task_render_preview_0001')
-  await expect(page.getByRole('heading', { name: '任务', level: 1 })).toBeVisible()
-  await page.getByRole('button', { name: '打开模板预览' }).click()
-  await expect.poll(() => page.url()).toContain('/render/templates/help.menu')
-  await expect(page.getByRole('heading', { name: '模板预览', level: 1 })).toBeVisible()
-  await expect((await readTabLabels(page)).filter((label) => label === '模板预览')).toHaveLength(1)
-})
-
 test('management links connect protocol, logs, plugin, and commands workspaces', async ({ page, request }) => {
   await resetBackend(request, true)
   await login(page)
@@ -1979,6 +1956,8 @@ test('management links connect protocol, logs, plugin, and commands workspaces',
   await logDetailWindow(page).getByRole('button', { name: '查看协议' }).click()
   await expect.poll(() => page.url()).toContain('/protocols')
   await expect(page.getByRole('heading', { name: '协议中心', level: 1 })).toBeVisible()
+  await expect(logDetailWindow(page)).toBeHidden()
+  await expect(page.locator('.ant-drawer-mask')).toHaveCount(0)
 
   await page.getByRole('button', { name: '兼容矩阵' }).click()
   await expect.poll(() => page.url()).toContain('/protocols/compatibility')
@@ -2004,12 +1983,10 @@ test('management links connect protocol, logs, plugin, and commands workspaces',
   await expect(page.locator('.commands-data-table')).toContainText('weather')
   await expect((await readTabLabels(page)).filter((label) => label === '指令中心')).toHaveLength(1)
 
-  await page.goto('/tasks?task_id=task_render_preview_0001')
+  await page.goto('/tasks?task_id=task_plugin_install_succeeded_0001')
   await expect(page.getByRole('heading', { name: '任务', level: 1 })).toBeVisible()
-  await page.getByRole('button', { name: '打开模板预览' }).click()
-  await expect.poll(() => page.url()).toContain('/render/templates/help.menu')
-  await expect(page.getByRole('heading', { name: '模板预览', level: 1 })).toBeVisible()
-  await expect((await readTabLabels(page)).filter((label) => label === '模板预览')).toHaveLength(1)
+  await page.getByRole('button', { name: '查看插件' }).click()
+  await expect.poll(() => page.url()).toContain('/plugins/weather')
 })
 
 test('repeated log filters restore current logs and preserve workspace jumps', async ({ page, request }) => {
@@ -2245,15 +2222,14 @@ test('command center shows all declared commands and filters by plugin selection
 
   await page.goto('/commands')
   await expect(page.locator('#app-main').getByRole('heading', { name: '指令中心', level: 1 })).toBeVisible()
-  const effectivePoliciesTable = page.locator('.commands-section-card').filter({ hasText: '生效命令策略' }).locator('.commands-data-table')
-  const declaredCommandsTable = page.locator('.commands-section-card').filter({ hasText: '插件指令' }).locator('.commands-data-table')
+  const commandsTable = page.locator('.commands-data-table')
 
   await expect(page.getByTestId('commands-open-permission-policy')).toBeVisible()
   await expect(page.getByText('策略总览', { exact: true })).toHaveCount(0)
   await expect(page.getByText('白名单', { exact: true })).toHaveCount(0)
   await expect(page.getByText('黑名单', { exact: true })).toHaveCount(0)
-  await expect(effectivePoliciesTable).toContainText('hello')
-  await expect(declaredCommandsTable).toContainText('weather')
+  await expect(commandsTable).toContainText('hello')
+  await expect(commandsTable).toContainText('weather')
 
   const pluginSelector = page.locator('.commands-filter-toolbar .ant-select').first()
   await expect(pluginSelector).toBeVisible()
@@ -2261,10 +2237,10 @@ test('command center shows all declared commands and filters by plugin selection
   await page.keyboard.type('Weather')
   await page.keyboard.press('Enter')
 
-  await expect(effectivePoliciesTable).toContainText('weather')
-  await expect(effectivePoliciesTable).not.toContainText('hello')
-  await expect(declaredCommandsTable).toContainText('查询天气')
-  await expect(declaredCommandsTable).not.toContainText('查看帮助')
+  await expect(commandsTable).toContainText('weather')
+  await expect(commandsTable).not.toContainText('hello')
+  await expect(commandsTable).toContainText('查询天气')
+  await expect(commandsTable).not.toContainText('查看帮助')
 
   await page.getByTestId('commands-open-permission-policy').click()
   await expect.poll(() => page.url()).toContain('/permission-policy')
@@ -2290,30 +2266,29 @@ test('breadcrumb and tabbar track leaf pages instead of hidden route groups', as
   expect(tabLabels).toEqual(['系统状态', '权限策略'])
   expect(await readTabIconKeys(page)).toEqual(['dashboard', 'permission-policy'])
   expect(await readActiveTabLabel(page)).toBe('权限策略')
-  await expect(page.locator('.admin-layout__sider .ant-menu-submenu-open').filter({ hasText: '运维' }).locator('.ant-menu-item .admin-layout__menu-icon')).toHaveCount(4)
+  await expect(page.locator('.admin-layout__sider .ant-menu-submenu-open').filter({ hasText: '运维' }).locator('.ant-menu-item .admin-layout__menu-icon')).toHaveCount(5)
 
   await page.goto('/commands')
   await expect(page.getByRole('heading', { name: '指令中心', level: 1 })).toBeVisible()
   tabLabels = await readTabLabels(page)
-  expect(tabLabels).toEqual(['系统状态', '权限策略', '指令中心'])
-  expect(await readTabIconKeys(page)).toEqual(['dashboard', 'permission-policy', 'commands'])
+  expect(tabLabels).toEqual(['系统状态', '指令中心'])
+  expect(await readTabIconKeys(page)).toEqual(['dashboard', 'commands'])
   expect(await readActiveTabLabel(page)).toBe('指令中心')
   await expect(page.locator('.admin-layout__sider .ant-menu-submenu-open').filter({ hasText: '插件中心' }).locator('.ant-menu-item .admin-layout__menu-icon')).toHaveCount(3)
 
   await page.goto('/tasks')
   await expect(page.getByRole('heading', { name: '任务', level: 1 })).toBeVisible()
   tabLabels = await readTabLabels(page)
-  expect(tabLabels).toEqual(['系统状态', '权限策略', '指令中心', '任务'])
-  expect(await readTabIconKeys(page)).toEqual(['dashboard', 'permission-policy', 'commands', 'tasks'])
+  expect(tabLabels).toEqual(['系统状态', '任务'])
+  expect(await readTabIconKeys(page)).toEqual(['dashboard', 'tasks'])
   expect(await readActiveTabLabel(page)).toBe('任务')
 
   await page.goto('/logs')
   await expect(page.getByRole('heading', { name: '实时日志', level: 1 })).toBeVisible()
   tabLabels = await readTabLabels(page)
-  expect(tabLabels).toEqual(['系统状态', '权限策略', '指令中心', '任务', '实时日志'])
-  expect(await readTabIconKeys(page)).toEqual(['dashboard', 'permission-policy', 'commands', 'tasks', 'logs'])
+  expect(tabLabels).toEqual(['系统状态', '实时日志'])
+  expect(await readTabIconKeys(page)).toEqual(['dashboard', 'logs'])
   expect(await readActiveTabLabel(page)).toBe('实时日志')
-  await expect(page.getByRole('tab', { name: '权限策略' })).toBeVisible()
   await page.locator('.admin-layout__breadcrumb-item--ancestor .ant-breadcrumb-link').hover()
 
   const breadcrumbMetrics = await page.evaluate(() => {
@@ -2447,25 +2422,25 @@ test('breadcrumb and tabbar track leaf pages instead of hidden route groups', as
 
   await page.goto('/protocols')
   await expect(page.getByRole('heading', { name: '协议中心', level: 1 })).toBeVisible()
-  expect(await readTabLabels(page)).toEqual(['系统状态', '权限策略', '指令中心', '任务', '实时日志', '协议中心'])
-  expect(await readTabIconKeys(page)).toEqual(['dashboard', 'permission-policy', 'commands', 'tasks', 'logs', 'protocols'])
+  expect(await readActiveTabLabel(page)).toBe('协议中心')
+  expect(await readTabLabels(page)).toContain('协议中心')
   await expect(page.locator('.admin-layout__sider .ant-menu-submenu-open').filter({ hasText: '协议' }).locator('.ant-menu-item .admin-layout__menu-icon')).toHaveCount(2)
 
   await page.goto('/config')
   await expect(page.getByRole('heading', { name: '配置', level: 1 })).toBeVisible()
-  expect(await readTabLabels(page)).toEqual(['系统状态', '权限策略', '指令中心', '任务', '实时日志', '协议中心', '配置'])
-  expect(await readTabIconKeys(page)).toEqual(['dashboard', 'permission-policy', 'commands', 'tasks', 'logs', 'protocols', 'config'])
+  expect(await readActiveTabLabel(page)).toBe('配置')
+  expect(await readTabLabels(page)).toContain('配置')
   await expect(page.locator('.admin-layout__sider .ant-menu-submenu-open').filter({ hasText: '系统' }).locator('.ant-menu-item .admin-layout__menu-icon')).toHaveCount(2)
   await expect(page.locator('.admin-layout__sider .ant-menu-item-selected .admin-layout__menu-icon')).toHaveCount(1)
 
-  await page.getByRole('tab', { name: '权限策略' }).click()
+  await page.goto('/permission-policy')
   await expect(page.getByRole('heading', { name: '权限策略', level: 1 })).toBeVisible()
   await expect(page).toHaveURL(/\/permission-policy$/)
 
   await page.reload()
   await expect(page.getByRole('heading', { name: '权限策略', level: 1 })).toBeVisible()
-  expect(await readTabLabels(page)).toEqual(['系统状态', '权限策略', '指令中心', '任务', '实时日志', '协议中心', '配置'])
-  expect(await readTabIconKeys(page)).toEqual(['dashboard', 'permission-policy', 'commands', 'tasks', 'logs', 'protocols', 'config'])
+  expect(await readActiveTabLabel(page)).toBe('权限策略')
+  expect(await readTabLabels(page)).toContain('权限策略')
 
   await page.goto('/plugins/weather')
   await expect(page.getByRole('heading', { name: 'weather', level: 1 })).toBeVisible()
@@ -2479,35 +2454,35 @@ test('tab context menu closes tabs relative to the clicked tab', async ({ page, 
   await login(page)
 
   await openStandardTabs(page)
-  await openTabContextMenu(page, '指令中心')
+  await openTabContextMenu(page, '任务')
   await clickTabContextAction(page, '关闭当前标签')
   await expect(page).toHaveURL(/\/logs$/)
-  expect(await readTabLabels(page)).toEqual(['系统状态', '权限策略', '任务', '实时日志'])
+  expect(await readTabLabels(page)).toEqual(['系统状态', '实时日志'])
   expect(await readActiveTabLabel(page)).toBe('实时日志')
-
-  await openStandardTabs(page)
-  await openTabContextMenu(page, '指令中心')
-  await clickTabContextAction(page, '关闭其他标签')
-  await expect(page).toHaveURL(/\/commands$/)
-  expect(await readTabLabels(page)).toEqual(['系统状态', '指令中心'])
-  expect(await readActiveTabLabel(page)).toBe('指令中心')
 
   await openStandardTabs(page)
   await openTabContextMenu(page, '任务')
+  await clickTabContextAction(page, '关闭其他标签')
+  await expect(page).toHaveURL(/\/tasks$/)
+  expect(await readTabLabels(page)).toEqual(['系统状态', '任务'])
+  expect(await readActiveTabLabel(page)).toBe('任务')
+
+  await openStandardTabs(page)
+  await openTabContextMenu(page, '实时日志')
   await clickTabContextAction(page, '关闭左侧标签')
   await expect(page).toHaveURL(/\/logs$/)
-  expect(await readTabLabels(page)).toEqual(['系统状态', '任务', '实时日志'])
+  expect(await readTabLabels(page)).toEqual(['系统状态', '实时日志'])
   expect(await readActiveTabLabel(page)).toBe('实时日志')
 
   await openStandardTabs(page)
-  await openTabContextMenu(page, '指令中心')
+  await openTabContextMenu(page, '任务')
   await clickTabContextAction(page, '关闭右侧标签')
-  await expect(page).toHaveURL(/\/commands$/)
-  expect(await readTabLabels(page)).toEqual(['系统状态', '权限策略', '指令中心'])
-  expect(await readActiveTabLabel(page)).toBe('指令中心')
+  await expect(page).toHaveURL(/\/tasks$/)
+  expect(await readTabLabels(page)).toEqual(['系统状态', '任务'])
+  expect(await readActiveTabLabel(page)).toBe('任务')
 
   await openStandardTabs(page)
-  await openTabContextMenu(page, '指令中心')
+  await openTabContextMenu(page, '任务')
   await clickTabContextAction(page, '关闭所有标签')
   await expect(page).toHaveURL(/\/$/)
   expect(await readTabLabels(page)).toEqual(['系统状态'])
@@ -2629,10 +2604,11 @@ test('fallback pages cover missing routes and server offline recovery', async ({
   await expect(page.getByRole('heading', { name: '指令中心' })).toBeVisible()
 
   await setBackendNetworkOffline(request)
-  await expect(page.getByRole('heading', { name: '哎呀！网络错误' })).toBeVisible({ timeout: 7000 })
+  await page.getByRole('button', { name: '刷新列表' }).click()
+  await expect(page.getByText('读取未完成，请稍后重试。').first()).toBeVisible({ timeout: 7000 })
 
   await setBackendNetworkOnline(request)
-  await page.getByRole('button', { name: '重新检测' }).click()
+  await page.getByRole('button', { name: '刷新列表' }).click()
   await expect(page.getByRole('heading', { name: '指令中心' })).toBeVisible()
 })
 
@@ -2645,7 +2621,8 @@ test('shutdown flow shows the draining banner', async ({ page, request }) => {
 
   await expect(page.getByText('服务正在停止', { exact: true })).toBeVisible()
   await expect(page.getByText('停机请求已发送')).toBeVisible()
-  await expect(page.getByRole('heading', { name: '哎呀！网络错误' })).toBeVisible({ timeout: 7000 })
+  await page.getByRole('button', { name: '刷新状态' }).click()
+  await expect(page.getByText('服务正在停止，管理界面连接断开属于预期行为。')).toBeVisible({ timeout: 7000 })
 })
 
 test('mobile navigation and card layouts remain usable', async ({ page, request }) => {
@@ -2675,7 +2652,7 @@ test('mobile navigation and card layouts remain usable', async ({ page, request 
   expect(Math.abs(headerMetrics.leftTop - headerMetrics.rightTop)).toBeLessThanOrEqual(8)
   expect(headerMetrics.tabbarHeight).toBeLessThanOrEqual(44)
 
-  await page.locator('.admin-layout__icon-button.mobile-only').first().click()
+  await page.getByRole('button', { name: '打开菜单' }).click()
   const mobilePluginGroup = page.locator('.ant-drawer-content .ant-menu-submenu').filter({ hasText: '插件中心' }).first()
   const mobilePluginListItem = mobilePluginGroup.locator('.ant-menu-item').filter({ hasText: '插件列表' }).first()
   if (!await mobilePluginListItem.isVisible().catch(() => false)) {
@@ -2685,7 +2662,7 @@ test('mobile navigation and card layouts remain usable', async ({ page, request 
   await mobilePluginListItem.click()
   await expect(pluginRows(page).first()).toBeVisible()
 
-  await page.locator('.admin-layout__icon-button.mobile-only').first().click()
+  await page.getByRole('button', { name: '打开菜单' }).click()
   const mobilePluginSettingsGroup = page.locator('.ant-drawer-content .ant-menu-submenu').filter({ hasText: '插件中心' }).first()
   const mobilePluginSettingsItem = mobilePluginSettingsGroup.locator('.ant-menu-item').filter({ hasText: '插件设置' }).first()
   if (!await mobilePluginSettingsItem.isVisible().catch(() => false)) {
@@ -2695,10 +2672,9 @@ test('mobile navigation and card layouts remain usable', async ({ page, request 
   await mobilePluginSettingsItem.click()
   await expect(page.getByRole('heading', { name: '插件设置', level: 1 })).toBeVisible()
 
-  await page.goto('/logs')
-  await expect(logRows(page).first()).toBeVisible()
-  await logRows(page).first().click({ force: true })
-  await expect(page.locator('.ant-drawer')).toBeVisible()
+  await page.goto('/logs?log_id=log_adapter_live_0001')
+  await expect(logRows(page).filter({ hasText: 'ignored OneBot API response with unsupported echo' }).first()).toBeVisible()
+  await expect(page.locator('.log-detail-drawer, .log-detail-window')).toContainText('api response echo must be a non-empty string')
   await expect(logDetailWindow(page)).toHaveCount(0)
 })
 

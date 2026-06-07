@@ -57,12 +57,9 @@ running -> interrupted   # 服务重启
 - `plugin.reload`
 - `backup.create`
 - `restore.apply`
-- `config.migrate`
-- `db.migrate`
 - `recovery.recheck`
 - `recovery.confirm`
 - `runtime.bootstrap`
-- `render.preview`
 
 ## 四、Grant 时效
 

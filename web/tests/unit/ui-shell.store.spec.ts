@@ -18,31 +18,18 @@ describe('ui-shell store', () => {
     expect(store.preferences.rememberTabs).toBe(true)
   })
 
-  it('migrates legacy local storage into the current preference shape', () => {
-    window.localStorage.setItem('rayleabot.ui-shell', JSON.stringify({
-      siderCollapsed: true,
-      themeMode: 'dark',
-    }))
-
-    setActivePinia(createPinia())
-    const store = useUiShellStore()
-
-    expect(store.siderCollapsed).toBe(true)
-    expect(store.preferences.themeMode).toBe('dark')
-    expect(store.preferences.chromeTabbar).toBe(true)
-  })
-
-  it('migrates remembered governance tabs to the permission policy route', () => {
+  it('restores the current shell preference shape', () => {
     window.localStorage.setItem('rayleabot.ui-shell', JSON.stringify({
       version: 2,
-      preferences: { rememberTabs: true },
+      preferences: { rememberTabs: true, themeMode: 'dark' },
+      siderCollapsed: true,
       tabs: [
         {
-          fullPath: '/governance',
-          icon: 'governance',
+          fullPath: '/permission-policy',
+          icon: 'permission-policy',
           keepAlive: true,
-          name: 'governance',
-          path: '/governance',
+          name: 'permission-policy',
+          path: '/permission-policy',
           title: '权限策略',
         },
       ],
@@ -51,6 +38,8 @@ describe('ui-shell store', () => {
     setActivePinia(createPinia())
     const store = useUiShellStore()
 
+    expect(store.siderCollapsed).toBe(true)
+    expect(store.preferences.themeMode).toBe('dark')
     expect(store.tabs).toEqual([
       expect.objectContaining({
         fullPath: '/permission-policy',

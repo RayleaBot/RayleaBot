@@ -1,7 +1,5 @@
 package plugins
 
-import "strings"
-
 const (
 	displayRemoved    = "removed"
 	displayEnabled    = "enabled"
@@ -20,12 +18,19 @@ func projectDisplayState(snapshot Snapshot) string {
 		return displayRemoved
 	}
 
-	switch strings.TrimSpace(snapshot.DisplayState) {
-	case displayDiscovered, displayInvalid, displayConflict:
+	switch snapshot.DisplayState {
+	case displayDiscovered, displayInvalid, displayConflict,
+		displayEnabled, displayEnabling, displayRunning,
+		displayDisabling, displayStopping, displayCrashed,
+		displayBackoff, displayDeadLetter, displayDisabled:
 		return snapshot.DisplayState
 	}
 
-	if !snapshot.Valid {
+	if snapshot.DisplayState != "" {
+		return displayInvalid
+	}
+
+	if !snapshot.Valid || snapshot.RegistrationState != stateInstalled {
 		return displayInvalid
 	}
 

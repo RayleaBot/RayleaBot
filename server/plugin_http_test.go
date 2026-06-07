@@ -442,16 +442,16 @@ func TestInvalidPluginAppearsInListButDetailReturns409(t *testing.T) {
 	t.Parallel()
 
 	snapshot := plugins.Snapshot{
-		PluginID:          "legacy-binary-tool",
+		PluginID:          "unsupported-binary-tool",
 		Valid:             false,
 		RegistrationState: "installed",
 		DesiredState:      "disabled",
 		RuntimeState:      "stopped",
 		DisplayState:      "invalid_manifest",
-		ManifestPath:      "plugins/installed/legacy-binary-tool/info.json",
+		ManifestPath:      "plugins/installed/unsupported-binary-tool/info.json",
 		ValidationSummary: "runtime must be one of python or nodejs",
 		Commands: []plugins.Command{
-			{Name: "legacy"},
+			{Name: "unsupported"},
 		},
 	}
 	router := pluginRouter(t, plugins.NewCatalog([]plugins.Snapshot{snapshot}))
@@ -472,7 +472,7 @@ func TestInvalidPluginAppearsInListButDetailReturns409(t *testing.T) {
 		t.Fatalf("invalid plugin commands = %#v, want []", commands)
 	}
 
-	detailRequest := httptest.NewRequest("GET", "/api/plugins/legacy-binary-tool", nil)
+	detailRequest := httptest.NewRequest("GET", "/api/plugins/unsupported-binary-tool", nil)
 	detailRecorder := httptest.NewRecorder()
 	router.ServeHTTP(detailRecorder, detailRequest)
 	if detailRecorder.Code != 409 {

@@ -47,9 +47,10 @@ type shellDeps struct {
 }
 
 type Shell struct {
-	cfg    config.OneBotConfig
-	logger *slog.Logger
-	deps   shellDeps
+	cfg        config.OneBotConfig
+	adapterCfg config.AdapterConfig
+	logger     *slog.Logger
+	deps       shellDeps
 
 	sendMu           sync.Mutex
 	mu               sync.RWMutex
@@ -83,15 +84,15 @@ type MetricsObserver interface {
 	IncEventPipelineStage(stage, outcome string)
 }
 
-func New(cfg config.OneBotConfig, logger *slog.Logger) *Shell {
-	return newShell(cfg, logger, shellDeps{})
+func New(cfg config.OneBotConfig, adapterCfg config.AdapterConfig, logger *slog.Logger) *Shell {
+	return newShell(cfg, adapterCfg, logger, shellDeps{})
 }
 
-func NewForTest(cfg config.OneBotConfig, logger *slog.Logger, skipRuntimeInfo bool) *Shell {
-	return newShell(cfg, logger, shellDeps{skipRuntimeInfo: skipRuntimeInfo})
+func NewForTest(cfg config.OneBotConfig, adapterCfg config.AdapterConfig, logger *slog.Logger, skipRuntimeInfo bool) *Shell {
+	return newShell(cfg, adapterCfg, logger, shellDeps{skipRuntimeInfo: skipRuntimeInfo})
 }
 
-func newShell(cfg config.OneBotConfig, logger *slog.Logger, deps shellDeps) *Shell {
+func newShell(cfg config.OneBotConfig, adapterCfg config.AdapterConfig, logger *slog.Logger, deps shellDeps) *Shell {
 	if logger == nil {
 		logger = slog.New(slog.NewJSONHandler(io.Discard, nil))
 	}
@@ -105,20 +106,21 @@ func newShell(cfg config.OneBotConfig, logger *slog.Logger, deps shellDeps) *She
 		deps.sleep = sleepWithContext
 	}
 	if deps.connectTimeout <= 0 {
-		deps.connectTimeout = time.Duration(maxInt(cfg.ConnectTimeoutSeconds, 1)) * time.Second
+		deps.connectTimeout = time.Duration(maxInt(adapterCfg.ConnectTimeoutSeconds, 1)) * time.Second
 	}
 	if deps.backoff == nil {
 		deps.backoff = NewBackoff(
-			cfg.ReconnectInitialSeconds,
-			cfg.ReconnectMultiplier,
-			cfg.ReconnectMaxSeconds,
-			cfg.ReconnectJitterRatio,
+			adapterCfg.ReconnectInitialSeconds,
+			adapterCfg.ReconnectMultiplier,
+			adapterCfg.ReconnectMaxSeconds,
+			adapterCfg.ReconnectJitterRatio,
 			nil,
 		)
 	}
 
 	return &Shell{
 		cfg:              cfg,
+		adapterCfg:       adapterCfg,
 		logger:           logger,
 		deps:             deps,
 		snapshot:         newTransportSnapshot(cfg),
@@ -201,7 +203,7 @@ func (s *Shell) Stop(ctx context.Context) error {
 	return waitForClosed(ctx, reverseDone)
 }
 
-func (s *Shell) Reload(nextCfg config.OneBotConfig) error {
+func (s *Shell) Reload(nextCfg config.OneBotConfig, nextAdapterCfg config.AdapterConfig) error {
 	if s == nil {
 		return nil
 	}
@@ -210,6 +212,7 @@ func (s *Shell) Reload(nextCfg config.OneBotConfig) error {
 	started := s.started
 	supervisorCtx := s.supervisorCtx
 	previousCfg := s.cfg
+	previousAdapterCfg := s.adapterCfg
 	s.mu.RUnlock()
 
 	if started {
@@ -220,7 +223,7 @@ func (s *Shell) Reload(nextCfg config.OneBotConfig) error {
 		}
 	}
 
-	s.applyConfig(nextCfg, previousCfg)
+	s.applyConfig(nextCfg, nextAdapterCfg, previousCfg, previousAdapterCfg)
 	if !started {
 		return nil
 	}
@@ -334,11 +337,12 @@ func (s *Shell) run(ctx context.Context) {
 	}
 }
 
-func (s *Shell) applyConfig(nextCfg config.OneBotConfig, previousCfg config.OneBotConfig) {
+func (s *Shell) applyConfig(nextCfg config.OneBotConfig, nextAdapterCfg config.AdapterConfig, previousCfg config.OneBotConfig, previousAdapterCfg config.AdapterConfig) {
 	s.mu.Lock()
 	s.cfg = nextCfg
-	s.deps.connectTimeout = nextConnectTimeout(previousCfg, nextCfg, s.deps.connectTimeout)
-	s.deps.backoff = nextBackoff(previousCfg, nextCfg, s.deps.backoff)
+	s.adapterCfg = nextAdapterCfg
+	s.deps.connectTimeout = nextConnectTimeout(previousAdapterCfg, nextAdapterCfg, s.deps.connectTimeout)
+	s.deps.backoff = nextBackoff(previousAdapterCfg, nextAdapterCfg, s.deps.backoff)
 	s.httpClient = &http.Client{
 		Timeout: s.deps.connectTimeout,
 	}
@@ -353,7 +357,7 @@ func (s *Shell) applyConfig(nextCfg config.OneBotConfig, previousCfg config.OneB
 	s.emitStateSnapshot(handler, snapshot)
 }
 
-func nextConnectTimeout(previousCfg config.OneBotConfig, nextCfg config.OneBotConfig, current time.Duration) time.Duration {
+func nextConnectTimeout(previousCfg config.AdapterConfig, nextCfg config.AdapterConfig, current time.Duration) time.Duration {
 	if nextCfg.ConnectTimeoutSeconds == previousCfg.ConnectTimeoutSeconds && current > 0 {
 		return current
 	}
@@ -361,7 +365,7 @@ func nextConnectTimeout(previousCfg config.OneBotConfig, nextCfg config.OneBotCo
 	return time.Duration(maxInt(nextCfg.ConnectTimeoutSeconds, 1)) * time.Second
 }
 
-func nextBackoff(previousCfg config.OneBotConfig, nextCfg config.OneBotConfig, current *Backoff) *Backoff {
+func nextBackoff(previousCfg config.AdapterConfig, nextCfg config.AdapterConfig, current *Backoff) *Backoff {
 	if reconnectSettingsEqual(previousCfg, nextCfg) && current != nil {
 		return current
 	}
@@ -380,7 +384,7 @@ func nextBackoff(previousCfg config.OneBotConfig, nextCfg config.OneBotConfig, c
 	)
 }
 
-func reconnectSettingsEqual(left config.OneBotConfig, right config.OneBotConfig) bool {
+func reconnectSettingsEqual(left config.AdapterConfig, right config.AdapterConfig) bool {
 	return left.ReconnectInitialSeconds == right.ReconnectInitialSeconds &&
 		left.ReconnectMultiplier == right.ReconnectMultiplier &&
 		left.ReconnectMaxSeconds == right.ReconnectMaxSeconds &&

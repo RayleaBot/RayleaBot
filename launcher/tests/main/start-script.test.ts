@@ -25,7 +25,6 @@ async function writeNodeStub(binDir: string, logPath: string) {
       "@echo off",
       `>>"${logPath}" echo CWD=%CD%`,
       `>>"${logPath}" echo ARGS=%*`,
-      `>>"${logPath}" echo WEB_MODE=%RAYLEA_START_WEB_MODE%`,
       `>>"${logPath}" echo PROFILE=%RAYLEA_START_PROFILE%`,
       "exit /b 0",
       "",
@@ -70,12 +69,11 @@ describe("start.bat", () => {
     expect(await readLogLines(logPath)).toEqual([
       `CWD=${repositoryRoot}`,
       "ARGS=scripts\\start-dev.mjs --dry-run",
-      "WEB_MODE=",
       "PROFILE=",
     ]);
   }, 20000);
 
-  test.runIf(process.platform === "win32")("keeps legacy build mode available to the orchestrator", async () => {
+  test.runIf(process.platform === "win32")("keeps start profile available to the orchestrator", async () => {
     const binDir = await createTempDir("bin");
     const logPath = path.join(await createTempDir("logs"), "commands.log");
     await writeNodeStub(binDir, logPath);
@@ -85,7 +83,7 @@ describe("start.bat", () => {
       env: {
         ...process.env,
         PATH: `${binDir};${process.env.PATH ?? ""}`,
-        RAYLEA_START_WEB_MODE: "build",
+        RAYLEA_START_PROFILE: "build",
       },
       windowsHide: true,
       timeout: 15000,
@@ -94,8 +92,7 @@ describe("start.bat", () => {
     expect(await readLogLines(logPath)).toEqual([
       `CWD=${repositoryRoot}`,
       "ARGS=scripts\\start-dev.mjs",
-      "WEB_MODE=build",
-      "PROFILE=",
+      "PROFILE=build",
     ]);
   }, 20000);
 });

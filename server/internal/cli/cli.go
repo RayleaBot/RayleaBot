@@ -14,7 +14,6 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/recovery"
 	"github.com/RayleaBot/RayleaBot/server/internal/schema"
 	"github.com/RayleaBot/RayleaBot/server/internal/schemaassets"
-	"github.com/RayleaBot/RayleaBot/server/internal/storage"
 )
 
 type Command struct {
@@ -37,11 +36,9 @@ func Run(cmd Command) int {
 		return runBackup(cmd)
 	case "restore":
 		return runRestore(cmd)
-	case "migrate":
-		return runMigrate(cmd)
 	default:
 		fmt.Fprintf(os.Stderr, "未知子命令: %s\n", cmd.Name)
-		fmt.Fprintln(os.Stderr, "可用子命令: reset-admin, backup, restore, doctor, migrate, cleanup")
+		fmt.Fprintln(os.Stderr, "可用子命令: reset-admin, backup, restore, doctor, cleanup")
 		return 1
 	}
 }
@@ -315,24 +312,6 @@ func runCleanup(cmd Command) int {
 	}
 
 	cmd.Logger.Info("cleanup completed", "cleaned_items", cleaned)
-	return 0
-}
-
-func runMigrate(cmd Command) int {
-	databasePath, err := resolveDatabasePath(cmd.ConfigPath)
-	if err != nil {
-		cmd.Logger.Error("resolve database path", "err", err.Error())
-		return 1
-	}
-
-	store, err := storage.Open(databasePath)
-	if err != nil {
-		cmd.Logger.Error("open database for migration", "path", databasePath, "err", err.Error())
-		return 1
-	}
-	defer store.Close()
-
-	cmd.Logger.Info("database migrations applied successfully", "path", databasePath)
 	return 0
 }
 

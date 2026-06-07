@@ -254,7 +254,7 @@ jobs:
           VERSION="${GITHUB_REF_NAME#v}"
           GIT_COMMIT="$(git rev-parse --short HEAD)"
           CONFIG_SCHEMA_VERSION="$(python -c "import json; print(json.load(open('contracts/config.user.schema.json', encoding='utf-8'))['properties']['schema_version']['const'])")"
-          DB_SCHEMA_VERSION="$(python -c "from pathlib import Path; print(len(list(Path('server/internal/storage/migrations').glob('*.sql'))))")"
+          DB_SCHEMA_VERSION="$(python -c "from pathlib import Path; import re; text = Path('server/internal/storage/version.go').read_text(encoding='utf-8'); print(re.search(r'return \"([^\"]+)\"', text).group(1))")"
           RELEASE_NOTES_REF="https://github.com/${GITHUB_REPOSITORY}/releases/tag/${GITHUB_REF_NAME}"
           python scripts/release/release_tool.py metadata \
             --version "$VERSION" \

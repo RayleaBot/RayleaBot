@@ -17,9 +17,7 @@ import (
 )
 
 const (
-	defaultUserCommandRateLimit  = "10/60s"
-	defaultGroupCommandRateLimit = "30/60s"
-	cooldownReplyText            = "命令触发冷却，请稍后再试。"
+	cooldownReplyText = "命令触发冷却，请稍后再试。"
 )
 
 type outboundActionSender interface {
@@ -37,8 +35,8 @@ type chatPolicyConfigSnapshot struct {
 
 func newPermissionChecker(cfg config.Config, whitelistRepo permission.WhitelistRepository, whitelistState permission.WhitelistStateRepository, blacklistRepo permission.BlacklistRepository) *permission.Checker {
 	settings := resolveChatPolicyConfig(cfg)
-	userLimit := parseCooldownRateLimitWithFallback(settings.UserCommandRateLimit, defaultUserCommandRateLimit)
-	groupLimit := parseCooldownRateLimitWithFallback(settings.GroupCommandRateLimit, defaultGroupCommandRateLimit)
+	userLimit := parseCooldownRateLimitWithFallback(settings.UserCommandRateLimit, config.DefaultUserCommandRateLimit)
+	groupLimit := parseCooldownRateLimitWithFallback(settings.GroupCommandRateLimit, config.DefaultGroupCommandRateLimit)
 
 	return permission.NewChecker(permission.CheckerConfig{
 		SuperAdmins:  append([]string(nil), settings.SuperAdmins...),
@@ -84,50 +82,16 @@ func resolveChatPolicyConfig(cfg config.Config) chatPolicyConfigSnapshot {
 		CooldownReplyEnabled:  cfg.User.CooldownReply,
 	}
 
-	if len(settings.SuperAdmins) == 0 && len(cfg.Auth.SuperAdmins) > 0 {
-		settings.SuperAdmins = append([]string(nil), cfg.Auth.SuperAdmins...)
-	}
-	if settings.DefaultLevel == "" {
-		settings.DefaultLevel = strings.TrimSpace(cfg.Auth.DefaultLevel)
-	}
-	if settings.UserCommandRateLimit == "" && cfg.Cooldown != nil {
-		settings.UserCommandRateLimit = strings.TrimSpace(cfg.Cooldown.UserCommandRateLimit)
-	}
-	if settings.GroupCommandRateLimit == "" && cfg.Cooldown != nil {
-		settings.GroupCommandRateLimit = strings.TrimSpace(cfg.Cooldown.GroupCommandRateLimit)
-	}
-	if canonicalCooldownReplyConfigured(cfg) {
-		settings.CooldownReplyEnabled = cfg.User.CooldownReply
-	} else if cfg.Cooldown != nil && cfg.Cooldown.CooldownReply {
-		settings.CooldownReplyEnabled = true
-	}
 	if settings.UserCommandRateLimit == "" {
-		settings.UserCommandRateLimit = defaultUserCommandRateLimit
+		settings.UserCommandRateLimit = config.DefaultUserCommandRateLimit
 	}
 	if settings.GroupCommandRateLimit == "" {
-		settings.GroupCommandRateLimit = defaultGroupCommandRateLimit
-	}
-	if !settings.CooldownReplyEnabled &&
-		settings.UserCommandRateLimit == defaultUserCommandRateLimit &&
-		settings.GroupCommandRateLimit == defaultGroupCommandRateLimit &&
-		cfg.Cooldown == nil &&
-		len(cfg.Admin.SuperAdmins) == 0 &&
-		len(cfg.Permission.AutoGrantCapabilities) == 0 &&
-		len(cfg.Auth.SuperAdmins) == 0 &&
-		strings.TrimSpace(cfg.Permission.DefaultLevel) == "" &&
-		strings.TrimSpace(cfg.Auth.DefaultLevel) == "" &&
-		strings.TrimSpace(cfg.User.CommandRateLimit) == "" &&
-		strings.TrimSpace(cfg.Group.CommandRateLimit) == "" {
-		settings.CooldownReplyEnabled = true
+		settings.GroupCommandRateLimit = config.DefaultGroupCommandRateLimit
 	}
 	if settings.DefaultLevel == "" {
 		settings.DefaultLevel = "everyone"
 	}
 	return settings
-}
-
-func canonicalCooldownReplyConfigured(cfg config.Config) bool {
-	return strings.TrimSpace(cfg.User.CommandRateLimit) != "" || cfg.User.CooldownReply || cfg.Cooldown == nil
 }
 
 type eventIngressService struct {

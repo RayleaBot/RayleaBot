@@ -27,8 +27,6 @@ var allowedTaskTypes = map[string]struct{}{
 	"recovery.recheck":  {},
 	"recovery.confirm":  {},
 	"restore.apply":     {},
-	"config.migrate":    {},
-	"db.migrate":        {},
 	"runtime.bootstrap": {},
 }
 

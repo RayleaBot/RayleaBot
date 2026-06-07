@@ -40,7 +40,7 @@ describe('router guards', () => {
     expect(router.currentRoute.value.name).toBe('login')
   })
 
-  it('registers the split permission pages without the legacy governance route', () => {
+  it('registers the split permission pages with the current permission routes', () => {
     const routeNames = new Set<string>()
     const routePaths = new Set<string>()
 

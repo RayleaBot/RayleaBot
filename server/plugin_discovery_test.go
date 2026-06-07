@@ -126,8 +126,8 @@ func TestDiscoverInvalidManifestFromFixture(t *testing.T) {
 	}
 
 	snapshot := snapshots[0]
-	if snapshot.PluginID != "legacy-binary-tool" {
-		t.Fatalf("unexpected plugin_id: got %q want legacy-binary-tool", snapshot.PluginID)
+	if snapshot.PluginID != "unsupported-binary-tool" {
+		t.Fatalf("unexpected plugin_id: got %q want unsupported-binary-tool", snapshot.PluginID)
 	}
 	if snapshot.Valid {
 		t.Fatal("expected invalid snapshot")

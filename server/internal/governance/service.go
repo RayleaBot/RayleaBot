@@ -12,9 +12,7 @@ import (
 )
 
 const (
-	defaultUserCommandRateLimit  = "10/60s"
-	defaultGroupCommandRateLimit = "30/60s"
-	defaultGovernanceSummary     = "治理设置已更新"
+	defaultGovernanceSummary = "治理设置已更新"
 )
 
 var (
@@ -333,24 +331,11 @@ func cooldownSnapshot(cfg config.Config) CommandCooldownResponse {
 	groupRateLimit := strings.TrimSpace(cfg.Group.CommandRateLimit)
 	cooldownReply := cfg.User.CooldownReply
 
-	if cfg.Cooldown != nil {
-		if trimmed := strings.TrimSpace(cfg.Cooldown.UserCommandRateLimit); trimmed != "" {
-			userRateLimit = trimmed
-		}
-		if trimmed := strings.TrimSpace(cfg.Cooldown.GroupCommandRateLimit); trimmed != "" {
-			groupRateLimit = trimmed
-		}
-		cooldownReply = cfg.Cooldown.CooldownReply
-	}
-
 	if userRateLimit == "" {
-		userRateLimit = defaultUserCommandRateLimit
+		userRateLimit = config.DefaultUserCommandRateLimit
 	}
 	if groupRateLimit == "" {
-		groupRateLimit = defaultGroupCommandRateLimit
-	}
-	if userRateLimit == defaultUserCommandRateLimit && groupRateLimit == defaultGroupCommandRateLimit && !cfg.User.CooldownReply && cfg.Cooldown == nil {
-		cooldownReply = true
+		groupRateLimit = config.DefaultGroupCommandRateLimit
 	}
 
 	return CommandCooldownResponse{
@@ -450,9 +435,6 @@ func normalizedDeclaredCommandPermission(raw string) *string {
 
 func commandPermissionDefaultLevel(cfg config.Config) string {
 	defaultLevel := strings.TrimSpace(cfg.Permission.DefaultLevel)
-	if defaultLevel == "" {
-		defaultLevel = strings.TrimSpace(cfg.Auth.DefaultLevel)
-	}
 	switch defaultLevel {
 	case "super_admin", "group_admin", "everyone":
 		return defaultLevel

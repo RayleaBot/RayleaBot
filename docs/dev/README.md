@@ -33,7 +33,7 @@
 
 兼容环境变量：
 
-- `RAYLEA_START_WEB_MODE=build ./start.bat` 等价于 `RAYLEA_START_PROFILE=build ./start.bat`。
+- `RAYLEA_START_PROFILE=build ./start.bat` 使用构建产物启动 Web 管理面。
 - `RAYLEA_START_SKIP_LAUNCH=1 ./start.bat` 执行准备与启动检查，不打开 Electron。
 
 依赖安装策略：

@@ -9,6 +9,10 @@ defineProps<{
   }>
   size?: 'large' | 'middle' | 'small'
 }>()
+
+const emit = defineEmits<{
+  action: []
+}>()
 </script>
 
 <template>
@@ -20,7 +24,7 @@ defineProps<{
       custom
       v-slot="{ navigate }"
     >
-      <a-button :size="size ?? 'small'" @click="navigate">
+      <a-button :size="size ?? 'small'" @click="() => { emit('action'); navigate() }">
         {{ action.label }}
       </a-button>
     </RouterLink>

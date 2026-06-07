@@ -140,55 +140,6 @@ describe('DashboardPage', () => {
     expect(router.currentRoute.value.path).toBe('/plugins')
   })
 
-  it('submits render preview requests from the tools section', async () => {
-    const router = createDashboardRouter()
-    await router.push('/')
-    await router.isReady()
-
-    const { protocolsStore, systemStore: store } = mockDashboardRefreshes()
-    store.health = { status: 'ok' }
-    store.readiness = { status: 'ready' }
-    store.system = {
-      status: 'running',
-      adapter_state: 'connected',
-      active_plugins: 2,
-      uptime_seconds: 120,
-    }
-    protocolsStore.snapshot = createProtocolSnapshot()
-
-    const previewSpy = vi.spyOn(store as never, 'previewRender').mockResolvedValue({ task_id: 'task_render_preview_0001' })
-
-    const wrapper = mount(DashboardPage, {
-      global: {
-        plugins: [Antd, router],
-      },
-    })
-
-    await flushPromises()
-
-    const previewButton = wrapper.findAll('button').find((candidate) => candidate.text().includes('图片预览'))
-    expect(previewButton).toBeTruthy()
-
-    await previewButton!.trigger('click')
-    await flushPromises()
-
-    const templateInput = document.body.querySelector('input[placeholder="help.menu"]') as HTMLInputElement | null
-    expect(templateInput).not.toBeNull()
-    templateInput!.value = 'help.menu'
-    templateInput!.dispatchEvent(new Event('input', { bubbles: true }))
-    await flushPromises()
-
-    const submitButton = Array.from(document.body.querySelectorAll('button')).find(
-      (candidate) => candidate.textContent?.includes('生成预览'),
-    ) as HTMLButtonElement | undefined
-    expect(submitButton).toBeTruthy()
-    submitButton!.click()
-    await flushPromises()
-
-    expect(previewSpy).toHaveBeenCalledTimes(1)
-    wrapper.unmount()
-  })
-
   it('shows a protocol reminder when the protocol snapshot is degraded with transport issues', async () => {
     const router = createDashboardRouter()
     await router.push('/')
@@ -239,7 +190,7 @@ describe('DashboardPage', () => {
     expect(router.currentRoute.value.query.protocol).toBe('onebot11')
   })
 
-  it('renders readiness issues instead of legacy checks', async () => {
+  it('renders readiness issues from the readiness snapshot', async () => {
     const router = createDashboardRouter()
     await router.push('/')
     await router.isReady()
@@ -418,11 +369,11 @@ describe('DashboardPage', () => {
             manual_action: '升级程序或重新安装兼容版本插件。',
           },
           {
-            plugin_id: 'legacy-plugin',
+            plugin_id: 'platform-mismatch-plugin',
             version: '1.0.0',
             reason_code: 'plugin.platform_mismatch',
             summary: '插件平台兼容性不满足，已保留安装目录并跳过自动启用。',
-            review_id: 'review_legacy_plugin',
+            review_id: 'review_platform_mismatch_plugin',
             review_status: 'confirmed',
             reviewed_at: '2026-04-02T08:03:00Z',
             reviewed_by: 'alice',
@@ -454,8 +405,8 @@ describe('DashboardPage', () => {
             note: '已记录平台兼容性处理结论。',
             items: [
               {
-                review_id: 'review_legacy_plugin',
-                plugin_id: 'legacy-plugin',
+                review_id: 'review_platform_mismatch_plugin',
+                plugin_id: 'platform-mismatch-plugin',
                 reason_code: 'plugin.platform_mismatch',
                 summary: '插件平台兼容性不满足，已保留安装目录并跳过自动启用。',
                 version: '1.0.0',
@@ -486,7 +437,7 @@ describe('DashboardPage', () => {
     expect(wrapper.text()).toContain('alice')
     expect(wrapper.text()).toContain('已确认当前跳过状态。')
     expect(wrapper.find('[data-testid="recovery-plugin-card-review_weather_pro"]').exists()).toBe(true)
-    expect(wrapper.find('[data-testid="recovery-plugin-card-review_legacy_plugin"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="recovery-plugin-card-review_platform_mismatch_plugin"]').exists()).toBe(false)
     expect(wrapper.findAll('[data-testid="recovery-audit-entry"]')).toHaveLength(2)
     expect(wrapper.findAll('[data-testid="recovery-manual-action"]')).toHaveLength(1)
     expect(wrapper.findAll('[data-testid="recovery-next-step"]')).toHaveLength(2)
@@ -495,13 +446,13 @@ describe('DashboardPage', () => {
     await flushPromises()
 
     expect(wrapper.find('[data-testid="recovery-plugin-card-review_weather_pro"]').exists()).toBe(false)
-    expect(wrapper.find('[data-testid="recovery-plugin-card-review_legacy_plugin"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="recovery-plugin-card-review_platform_mismatch_plugin"]').exists()).toBe(true)
 
     await wrapper.find('[data-testid="recovery-filter-all"]').trigger('click')
     await flushPromises()
 
     expect(wrapper.find('[data-testid="recovery-plugin-card-review_weather_pro"]').exists()).toBe(true)
-    expect(wrapper.find('[data-testid="recovery-plugin-card-review_legacy_plugin"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="recovery-plugin-card-review_platform_mismatch_plugin"]').exists()).toBe(true)
   })
 
   it('submits recovery confirm, recovery recheck, and runtime bootstrap tasks from the recovery block', async () => {

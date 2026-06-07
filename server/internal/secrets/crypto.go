@@ -46,12 +46,11 @@ func SealString(ctx context.Context, store Store, plaintext string) ([]byte, err
 	return []byte(envelope), nil
 }
 
-// OpenString decrypts a versioned encrypted value. Plain legacy values are
-// returned as-is so existing local deployments remain readable.
+// OpenString decrypts a versioned encrypted value.
 func OpenString(ctx context.Context, store Store, stored []byte) (string, error) {
 	text := string(stored)
 	if !strings.HasPrefix(text, sealedPrefix) {
-		return text, nil
+		return "", errors.New("invalid encrypted secret envelope")
 	}
 	if store == nil {
 		return "", errors.New("secret store is required")

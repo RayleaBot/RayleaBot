@@ -31,9 +31,9 @@ func TestProjectDisplayStateCoversFormalLifecycleEnum(t *testing.T) {
 			want: displayInvalid,
 		},
 		{
-			name: "invalid manifest falls back from unknown legacy display state",
+			name: "unknown display state",
 			snapshot: Snapshot{
-				Valid:             false,
+				Valid:             true,
 				RegistrationState: stateInstalled,
 				DisplayState:      "paused",
 			},

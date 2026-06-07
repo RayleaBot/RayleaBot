@@ -18,6 +18,10 @@ const props = defineProps<{
   scope: LogScope
 }>()
 
+const emit = defineEmits<{
+  action: []
+}>()
+
 const detailJson = computed(() => safeJsonStringify(props.detail?.details ?? {}))
 const contextActions = computed(() => (
   props.summary ? buildLogContextActions(props.summary, props.scope) : []
@@ -92,6 +96,7 @@ const summaryFields = computed(() => {
         v-if="contextActions.length"
         :actions="contextActions"
         class="log-detail-content__actions"
+        @action="emit('action')"
       />
 
       <section class="log-detail-card">

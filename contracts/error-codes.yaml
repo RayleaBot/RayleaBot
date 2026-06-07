@@ -114,16 +114,6 @@ codes:
     retryable: true
     applies_to: [http, websocket, plugin_protocol]
 
-  platform.migration_required:
-    code: platform.migration_required
-    domain: platform
-    message_key: errors.platform.migration_required
-    message: 检测到必须先执行迁移
-    description: Startup or an operation was blocked because an offline-required migration must run first.
-    http_status: 409
-    retryable: false
-    applies_to: [http, websocket, readiness]
-
   platform.resource_missing:
     code: platform.resource_missing
     domain: platform
@@ -244,16 +234,6 @@ codes:
     retryable: true
     applies_to: [http, websocket, task]
 
-  plugin.migration_failed:
-    code: plugin.migration_failed
-    domain: plugin
-    message_key: errors.plugin.migration_failed
-    message: 插件数据迁移失败
-    description: A plugin data schema migration failed and the plugin must remain blocked pending manual intervention.
-    http_status: 409
-    retryable: false
-    applies_to: [http, websocket, task]
-
   plugin.permission_pending:
     code: plugin.permission_pending
     domain: plugin
@@ -272,9 +252,9 @@ codes:
     description: >
       The plugin webhook request carried an event id that matched a recently
       accepted request within the configured replay window. The request was
-      rejected to prevent duplicate plugin event dispatch. Enable
-      replay_protection.enforce=false on the exposed route during legacy
-      source migration to fall back to log-only observation.
+      rejected to prevent duplicate plugin event dispatch. Routes with
+      replay_protection.enforce=false keep duplicate requests in log-only
+      observation mode.
     http_status: 401
     retryable: false
     applies_to: [http]

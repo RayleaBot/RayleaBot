@@ -37,7 +37,7 @@ func initializeAppBuild(options Options) (appBuildState, error) {
 	}
 
 	managementRedactor := buildManagementRedactor(cfg)
-	logger, logStream, logLevel, err := logging.NewWithStreamAndController(cfg.Logging.Level, managementRedactor.Redact)
+	logger, logStream, logLevel, err := logging.NewWithStreamAndController(cfg.Log.Level, managementRedactor.Redact)
 	if err != nil {
 		return appBuildState{}, err
 	}

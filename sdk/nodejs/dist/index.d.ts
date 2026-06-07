@@ -2,9 +2,8 @@ import type { EventBody, Segment } from './types.js';
 export type { Frame, Segment, EventBody } from './types.js';
 export { textSegment, imageSegment, atSegment, atAllSegment, faceSegment, replySegment, passthroughSegment, recordSegment, videoSegment, markdownSegment, fileSegment, flashFileSegment, jsonSegment, xmlSegment, musicSegment, contactSegment, forwardSegment, nodeSegment, pokeSegment, diceSegment, rpsSegment, mfaceSegment, keyboardSegment, shakeSegment, } from './types.js';
 export { ActionError } from './protocol.js';
-type LegacyEventHandler = (event: EventBody, requestId: string) => void | Promise<void>;
 type ContextEventHandler = (ctx: PluginEventContext) => void | Promise<void>;
-type EventHandler = LegacyEventHandler | ContextEventHandler;
+type EventHandler = ContextEventHandler;
 type ConversationType = 'group' | 'private';
 type ProviderName = 'napcat' | 'luckylillia';
 interface ActionOptions {

@@ -8,29 +8,16 @@ import type { SessionLoginRequest, SessionLoginResponse, SetupStatusResponse } f
 const sessionStorageKey = 'rayleabot.session_token'
 
 function readStoredToken() {
-  const persistedToken = window.localStorage.getItem(sessionStorageKey)
-  if (persistedToken) {
-    return persistedToken
-  }
-
-  const legacyToken = window.sessionStorage.getItem(sessionStorageKey)
-  if (legacyToken) {
-    window.localStorage.setItem(sessionStorageKey, legacyToken)
-    window.sessionStorage.removeItem(sessionStorageKey)
-  }
-
-  return legacyToken
+  return window.localStorage.getItem(sessionStorageKey)
 }
 
 function writeStoredToken(token: string | null) {
   if (token) {
     window.localStorage.setItem(sessionStorageKey, token)
-    window.sessionStorage.removeItem(sessionStorageKey)
     return
   }
 
   window.localStorage.removeItem(sessionStorageKey)
-  window.sessionStorage.removeItem(sessionStorageKey)
 }
 
 export const useSessionStore = defineStore('session', () => {

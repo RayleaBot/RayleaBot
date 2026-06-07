@@ -84,7 +84,6 @@ x-fixtures:
   - fixtures/web-api/edge.logs-empty-response.yaml
   - fixtures/web-api/edge.logs-empty-response.protocol-onebot11.yaml
   - fixtures/web-api/edge.log-detail-not-found.yaml
-  - fixtures/web-api/edge.log-detail-legacy-empty-details.yaml
   - fixtures/web-api/edge.setup-admin-already-initialized.yaml
   - fixtures/web-api/edge.session-login-max-sessions.yaml
   - fixtures/web-api/edge.session-login-rate-limited.yaml
@@ -2167,8 +2166,6 @@ components:
         - recovery.recheck
         - recovery.confirm
         - restore.apply
-        - config.migrate
-        - db.migrate
         - runtime.bootstrap
 
     TaskErrorSummary:

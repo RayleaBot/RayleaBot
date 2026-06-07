@@ -1,14 +1,14 @@
 # Render Service
 
-本页说明 RayleaBot 当前的渲染服务，包括模板来源、版本仓、同步 HTML 预览、图片预览任务、缓存键和管理面能力。
+本页说明 RayleaBot 当前的渲染服务，包括模板来源、版本仓、同步 HTML 预览、图片渲染、缓存键和管理面能力。
 
 正式接口、错误码和任务结构以 `contracts/` 为准。
 
 ## 当前定位
 
 - 图片渲染是平台内建能力，不由插件各自维护浏览器截图链路。
-- 当前正式入口包括插件侧 `render.image`、管理侧 `render.preview` 和管理侧模板同步 HTML 预览。
-- 渲染结果会生成稳定 `artifact_id`，供管理面同源读取和任务详情预览。
+- 当前正式入口包括插件侧 `render.image` 和管理侧模板同步 HTML 预览。
+- 插件侧图片渲染结果会生成稳定 `artifact_id`，供平台同源读取。
 
 ## 模板来源与版本真相
 
@@ -26,15 +26,12 @@
 
 ## 预览能力
 
-- `render.preview` 使用现有任务模型和 `/ws/tasks`。
-- 系统状态页和任务详情使用 `render.preview` 生成 PNG / JPEG 预览图。
 - 模板预览工作区使用同步 HTML 预览当前模板版本。
 - 模板预览工作区在模板或输入数据变化后请求当前 HTML 文档。
 - 模板预览工作区通过受控模板资源接口读取字体、图片和 CSS 等本地资源。
 - 重新加载当前模板会刷新模板详情，并触发有效文件模板同步。
 - 渲染截图会按页面内容高度生成图片，模板 manifest 的 `height` 作为初始测量高度。
-- 相同 payload 不重复提交，旧任务结果和旧 artifact 下载结果不会覆盖当前结果。
-- 管理面可以在任务详情查看图片预览任务状态、产物信息和图片结果。
+- 相同模板输入会按缓存键复用已生成 artifact。
 
 ## 输入与输出
 
@@ -51,13 +48,11 @@
 - `user` 包含用户 ID、昵称、群头衔和 QQ 头像地址；昵称在群聊中优先使用群名片。
 - `permission.level` 使用 `super_admin`、`owner`、`admin`、`member`。
 - 群聊事件带有已归一化群名时，渲染数据包含 `group.name`；私聊事件没有 `group`。
-- 管理面 `render.preview` 使用页面提交的 JSON 生成图片样例。
 - 管理面模板同步 HTML 预览使用页面提交的 JSON 生成 iframe 文档。
 
 ### 输出
 
 - 插件侧消费 `image_path` 与受控 artifact 信息。
-- 管理侧通过 artifact 读取接口查看图片渲染结果。
 - 管理侧模板同步 HTML 预览返回当前模板 revision、尺寸和 HTML 文档。
 - `render.default_output` 控制请求未指定输出格式时的默认格式，取值为 `png` 或 `jpeg`。
 - 请求显式指定 `png` 或 `jpeg` 时，以请求值为准。

@@ -365,7 +365,6 @@ export function buildTaskContextActions(task: TaskSummary) {
   const pluginId = readContextString(resultDetails, 'plugin_id') ?? readContextString(errorDetails, 'plugin_id')
   const requestId = readContextString(resultDetails, 'request_id') ?? readContextString(errorDetails, 'request_id')
   const protocol = readContextString(resultDetails, 'protocol') ?? readContextString(errorDetails, 'protocol')
-  const templateId = readContextString(resultDetails, 'template')
 
   if (pluginId) {
     pushAction(actions, {
@@ -393,14 +392,6 @@ export function buildTaskContextActions(task: TaskSummary) {
           requestId,
         },
       }),
-    })
-  }
-
-  if (templateId) {
-    pushAction(actions, {
-      key: `template:${templateId}`,
-      label: t('tasks.actions.openTemplate'),
-      to: buildRenderTemplateLocation(templateId),
     })
   }
 

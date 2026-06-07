@@ -17,9 +17,6 @@ x-fixtures:
   - fixtures/cli/ok.doctor.online.yaml
   - fixtures/cli/invalid.doctor.unsupported-mode.yaml
   - fixtures/cli/edge.doctor.offline-exit-code-1.yaml
-  - fixtures/cli/ok.migrate.offline.yaml
-  - fixtures/cli/invalid.migrate.online.yaml
-  - fixtures/cli/edge.migrate.exit-code-1.yaml
   - fixtures/cli/ok.cleanup.online.yaml
   - fixtures/cli/invalid.cleanup.unsupported-mode.yaml
   - fixtures/cli/edge.cleanup.offline-exit-code-1.yaml
@@ -118,28 +115,6 @@ commands:
       - fixtures/cli/ok.doctor.online.yaml
       - fixtures/cli/invalid.doctor.unsupported-mode.yaml
       - fixtures/cli/edge.doctor.offline-exit-code-1.yaml
-
-  migrate:
-    name: migrate
-    summary: 执行显式配置或数据库迁移。
-    availability:
-      online: false
-      offline: true
-    description: >
-      在停服窗口下执行受控配置迁移或数据库 schema 迁移，
-      避免与运行中写入竞争。迁移通过 task 模型记录进度
-      （task_type: db.migrate 或 config.migrate）。
-    exit_codes:
-      0: 迁移成功
-      1: 迁移失败
-    task_model: true
-    task_type: db.migrate
-    cancellable: false
-    implemented: true
-    x-fixtures:
-      - fixtures/cli/ok.migrate.offline.yaml
-      - fixtures/cli/invalid.migrate.online.yaml
-      - fixtures/cli/edge.migrate.exit-code-1.yaml
 
   cleanup:
     name: cleanup

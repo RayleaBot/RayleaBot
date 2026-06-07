@@ -446,6 +446,32 @@ func TestConfirmSkippedPluginsRejectsUnknownReviewID(t *testing.T) {
 	}
 }
 
+func TestSchemaVersionComparisonUsesComparableFamiliesOnly(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		name   string
+		source string
+		target string
+		want   bool
+	}{
+		{name: "numeric newer", source: "15", target: "14", want: true},
+		{name: "numeric older", source: "14", target: "15", want: false},
+		{name: "base newer", source: "base-2026-07", target: "base-2026-06", want: true},
+		{name: "base equal", source: "base-2026-06", target: "base-2026-06", want: false},
+		{name: "numeric source cannot outrank base target", source: "9999", target: "base-2026-06", want: false},
+		{name: "base source cannot outrank numeric target", source: "base-2026-06", target: "9999", want: false},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := isSchemaNewer(tc.source, tc.target); got != tc.want {
+				t.Fatalf("isSchemaNewer(%q, %q) = %v, want %v", tc.source, tc.target, got, tc.want)
+			}
+		})
+	}
+}
+
 func unknownErrIDs(err error, target **UnknownReviewIDsError) []string {
 	if err == nil {
 		return nil

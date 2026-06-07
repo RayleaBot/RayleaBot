@@ -545,9 +545,9 @@ describe('BasicLayout', () => {
     expect(uiShellStore.tabs.filter((item) => item.name === 'logs')).toHaveLength(1)
     expect(getActiveTabLabel()).toBe('实时日志')
 
-    await router.push('/tasks?task_id=task_render_preview_0001')
+    await router.push('/tasks?task_id=task_backup_create_0001')
     await flushPromises()
-    await router.push('/tasks?task_id=task_render_preview_0002')
+    await router.push('/tasks?task_id=task_backup_create_0002')
     await flushPromises()
     expect(uiShellStore.tabs.filter((item) => item.name === 'tasks')).toHaveLength(1)
     expect(getActiveTabLabel()).toBe('任务')

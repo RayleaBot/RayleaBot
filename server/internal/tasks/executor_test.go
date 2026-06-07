@@ -61,8 +61,8 @@ func TestExecutor_SubmitAndFail(t *testing.T) {
 	executor := NewExecutor(registry, 30*time.Second)
 	defer executor.Close()
 
-	taskID, err := executor.Submit("db.migrate", "test migration", func(ctx context.Context, p ProgressReporter) (*ResultSummary, error) {
-		return nil, &TaskError{Code: "plugin.migration_failed", Message: "schema conflict"}
+	taskID, err := executor.Submit("plugin.reload", "test reload", func(ctx context.Context, p ProgressReporter) (*ResultSummary, error) {
+		return nil, &TaskError{Code: "plugin.internal_error", Message: "runtime conflict"}
 	})
 	if err != nil {
 		t.Fatalf("submit: %v", err)
@@ -72,7 +72,7 @@ func TestExecutor_SubmitAndFail(t *testing.T) {
 	for {
 		snap, _ := registry.Get(taskID)
 		if snap.Status == StatusFailed {
-			if snap.Error == nil || snap.Error.Code != "plugin.migration_failed" {
+			if snap.Error == nil || snap.Error.Code != "plugin.internal_error" {
 				t.Fatalf("unexpected error: %+v", snap.Error)
 			}
 			break
@@ -179,7 +179,6 @@ func TestExecutor_Close(t *testing.T) {
 		t.Fatal("expected error after close")
 	}
 }
-
 
 // recordingTaskMetrics captures every observed task execution outcome for
 // assertions in TestExecutor_RecordsMetrics. The executor invokes

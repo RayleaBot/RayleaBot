@@ -50,6 +50,6 @@
 ## Consult Before Major Changes
 
 - 工程基线与固定栈：`docs/engineering/baseline.md`
-- Web 迁移与分层基线：`docs/engineering/web-antdv-vben-migration-plan.md`
+- Web 管理面工程基线：`docs/engineering/web-admin-baseline.md`
 - 管理面页面职责：`docs/user/management-surface.md`
 - 正式接口与类型来源：`contracts/README.md`

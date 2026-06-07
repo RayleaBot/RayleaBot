@@ -12,7 +12,10 @@
       "progress": 100,
       "summary": "插件安装完成",
       "result": {
-        "summary": "插件已安装并刷新插件目录索引"
+        "summary": "插件已安装并刷新插件目录索引",
+        "details": {
+          "plugin_id": "weather"
+        }
       }
     }
   },

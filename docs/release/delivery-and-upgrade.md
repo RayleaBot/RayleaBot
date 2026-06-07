@@ -93,16 +93,43 @@
 - 升级默认不覆盖 `config/`、`data/` 和 `plugins/installed/`。
 - 升级前先检查配置版本、数据库版本和插件兼容风险。
 - 回滚依赖升级前备份，不直接让旧版本读取较新的状态库。
-- 恢复后先执行迁移和兼容检查，再决定是否进入可运行状态。
+- 恢复后先执行兼容检查，再决定是否进入可运行状态。
 - 跨平台恢复默认只保证配置和业务数据可参考恢复，不保证二进制插件与运行环境直接复用。
+
+## Breaking Baseline 准备包
+
+破坏性基线安装前使用 `scripts/release/breaking_baseline_prepare.py` 生成本地备份包：
+
+```bash
+python scripts/release/breaking_baseline_prepare.py --root <install-root> --output <backup.zip>
+```
+
+备份包包含：
+
+- `config/`
+- `data/`
+- `plugins/installed/`
+- `logs/recovery-summary.json`
+- `build_info.json`
+- `breaking-baseline-backup.json`
+
+回滚操作：
+
+1. 停止 RayleaBot 服务和 Launcher。
+2. 清空当前安装目录中的 `config/`、`data/`、`plugins/installed/`。
+3. 从备份包恢复同名目录和可选文件。
+4. 使用备份对应的 RayleaBot 包启动。
+5. 执行 `raylea doctor`，确认状态库、配置和运行环境可读。
+
+准备包只保存文件，不转换配置、数据库或插件数据。
 
 ## 恢复支持矩阵
 
 | 场景 | 支持级别 | 说明 |
 | --- | --- | --- |
 | 同平台、同小版本线恢复 | 支持 | 当前主要受控恢复路径 |
-| 同平台、跨小版本恢复 | 受控支持 | 需先通过迁移与兼容检查 |
-| 跨大版本恢复 | 默认不支持 | 需要额外迁移说明或显式拒绝 |
+| 同平台、跨小版本恢复 | 受控支持 | 需先通过兼容检查 |
+| 跨大版本恢复 | 默认不支持 | 需要额外恢复说明或显式拒绝 |
 | 跨平台恢复 | 仅配置与业务数据参考恢复 | `.deps/`、运行环境与二进制插件不保证可直接复用 |
 
 ## 当前边界

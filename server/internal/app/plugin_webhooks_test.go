@@ -76,7 +76,7 @@ func TestHandlePluginWebhookAcceptsSignedRequestAndDispatchesEvent(t *testing.T)
 			Host: "127.0.0.1",
 			Port: 8080,
 		},
-		Auth: config.AuthConfig{
+		Permission: config.PermissionConfig{
 			AutoGrantCapabilities: []string{"event.expose_webhook", "event.raw_payload"},
 		},
 	}, slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)))
@@ -194,7 +194,7 @@ func TestHandlePluginWebhookRejectsOversizedBody(t *testing.T) {
 			Host: "127.0.0.1",
 			Port: 8080,
 		},
-		Auth: config.AuthConfig{
+		Permission: config.PermissionConfig{
 			AutoGrantCapabilities: []string{"event.expose_webhook", "event.raw_payload"},
 		},
 	}, slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)))

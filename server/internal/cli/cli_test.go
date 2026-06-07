@@ -223,7 +223,7 @@ func TestRestoreBlocksNewerDatabaseSchemaBeforeExtraction(t *testing.T) {
 		CreatedAt:           "2026-04-02T00:00:00Z",
 		CoreVersion:         "0.2.0",
 		ConfigSchemaVersion: "2",
-		DBSchemaVersion:     "9999",
+		DBSchemaVersion:     "base-2026-07",
 		Consistency:         "offline",
 		Directories: []recovery.BackupManifestDirectory{
 			{Label: "config", Path: "config/user.yaml"},

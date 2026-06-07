@@ -91,17 +91,11 @@ func loginFailureTrackingEnabled(source string, limit int, window time.Duration)
 }
 
 func loginFailureLimit(cfg config.Config) int {
-	if cfg.Admin.LoginFailLimit > 0 {
-		return cfg.Admin.LoginFailLimit
-	}
-	return cfg.Auth.LoginFailLimit
+	return cfg.Admin.LoginFailLimit
 }
 
 func loginFailureWindow(cfg config.Config) time.Duration {
-	seconds := cfg.Auth.LoginFailWindowSecs
-	if cfg.Admin.LoginFailWindowSecs > 0 {
-		seconds = cfg.Admin.LoginFailWindowSecs
-	}
+	seconds := cfg.Admin.LoginFailWindowSecs
 	if seconds <= 0 {
 		return 0
 	}

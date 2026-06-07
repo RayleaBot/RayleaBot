@@ -1016,10 +1016,6 @@ function bindHandler(owner, handler) {
     return handler.bind(owner);
 }
 async function invokeHandler(plugin, handler, event, requestId) {
-    if (handler.length >= 2) {
-        await handler(event, requestId);
-        return;
-    }
     await handler(new PluginEventContext(plugin, event, requestId));
 }
 function formatErrorMessage(error) {

@@ -194,7 +194,7 @@ func TestApplyHotReloadableFieldsFallsBackToRestartRequiredWhenAdapterReloadFail
 	}
 	app := newTestAppState(baseConfig, logger)
 
-	adapterShell := adapter.New(baseConfig.OneBot, logger)
+	adapterShell := adapter.New(baseConfig.OneBot, baseConfig.Adapter, logger)
 	startCtx, cancelStart := context.WithCancel(context.Background())
 	adapterShell.Start(startCtx)
 	cancelStart()

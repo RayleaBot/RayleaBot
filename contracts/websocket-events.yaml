@@ -89,8 +89,6 @@ channels:
                 - recovery.recheck
                 - recovery.confirm
                 - restore.apply
-                - config.migrate
-                - db.migrate
                 - runtime.bootstrap
             status:
               type: string

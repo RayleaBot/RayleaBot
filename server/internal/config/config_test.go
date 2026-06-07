@@ -64,8 +64,8 @@ func TestLoadBootstrapsDefaultAndUserConfigWhenMissing(t *testing.T) {
 	if cfg.Server.Port != 8080 {
 		t.Fatalf("Server.Port = %d, want 8080", cfg.Server.Port)
 	}
-	if cfg.OneBot.WSURL != "" {
-		t.Fatalf("OneBot.WSURL = %q, want empty by default", cfg.OneBot.WSURL)
+	if cfg.OneBot.ForwardWS.URL != "" {
+		t.Fatalf("OneBot.ForwardWS.URL = %q, want empty by default", cfg.OneBot.ForwardWS.URL)
 	}
 
 	defaultPath := filepath.Join(filepath.Dir(configPath), "default.yaml")
@@ -116,71 +116,6 @@ func TestLoadBootstrapsDefaultAndUserConfigWhenMissing(t *testing.T) {
 	}
 }
 
-func TestLoadMigratesLegacyConfigShape(t *testing.T) {
-	t.Parallel()
-
-	configDir := filepath.Join(t.TempDir(), "config")
-	configPath := filepath.Join(configDir, "user.yaml")
-	schemaPath := filepath.Join("..", "..", "..", "contracts", "config.user.schema.json")
-
-	writeYAMLDocument(t, filepath.Join(configDir, "default.yaml"), newPlanningConfigDocument())
-	writeYAMLDocument(t, configPath, legacyConfigDocument())
-
-	cfg, _, err := Load(configPath, schemaPath)
-	if err != nil {
-		t.Fatalf("Load() error = %v", err)
-	}
-
-	if cfg.Logging.Level != "warn" {
-		t.Fatalf("Logging.Level = %q, want warn", cfg.Logging.Level)
-	}
-	if cfg.Auth.SuperAdmins[0] != "10001" {
-		t.Fatalf("Auth.SuperAdmins = %#v, want [10001]", cfg.Auth.SuperAdmins)
-	}
-	if cfg.Runtime.SchedulerTimezone != "Asia/Shanghai" {
-		t.Fatalf("Runtime.SchedulerTimezone = %q, want Asia/Shanghai", cfg.Runtime.SchedulerTimezone)
-	}
-	if cfg.OneBot.ConnectTimeoutSeconds != 20 {
-		t.Fatalf("OneBot.ConnectTimeoutSeconds = %d, want 20", cfg.OneBot.ConnectTimeoutSeconds)
-	}
-
-	document, err := LoadDocument(configPath, schemaPath)
-	if err != nil {
-		t.Fatalf("LoadDocument() error = %v", err)
-	}
-
-	if _, ok := document["logging"]; ok {
-		t.Fatal("legacy logging section should not remain in canonical document")
-	}
-	if _, ok := document["auth"]; ok {
-		t.Fatal("legacy auth section should not remain in canonical document")
-	}
-	if _, ok := document["cooldown"]; ok {
-		t.Fatal("legacy cooldown section should not remain in canonical document")
-	}
-	if _, ok := document["retention"]; ok {
-		t.Fatal("legacy retention section should not remain in canonical document")
-	}
-	if got := nestedString(t, document, "schema_version"); got != "2" {
-		t.Fatalf("schema_version = %q, want 2", got)
-	}
-	if got := nestedString(t, document, "log", "level"); got != "warn" {
-		t.Fatalf("log.level = %q, want warn", got)
-	}
-	if got := nestedString(t, document, "scheduler", "timezone"); got != "Asia/Shanghai" {
-		t.Fatalf("scheduler.timezone = %q, want Asia/Shanghai", got)
-	}
-	if got := nestedString(t, document, "adapter", "connect_timeout_seconds"); got != "20" {
-		t.Fatalf("adapter.connect_timeout_seconds = %q, want 20", got)
-	}
-	if _, ok := document["onebot"].(map[string]any)["access_token"]; ok {
-		t.Fatal("legacy onebot.access_token should not remain in canonical document")
-	}
-	if got := nestedString(t, document, "onebot", "forward_ws", "access_token"); got != "" {
-		t.Fatalf("onebot.forward_ws.access_token = %q, want empty", got)
-	}
-}
-
 func TestLoadMergesDefaultAndUserOverrides(t *testing.T) {
 	t.Parallel()
 
@@ -215,8 +150,8 @@ func TestLoadMergesDefaultAndUserOverrides(t *testing.T) {
 	if cfg.Server.Port != 9090 {
 		t.Fatalf("Server.Port = %d, want 9090", cfg.Server.Port)
 	}
-	if cfg.Logging.Level != "debug" {
-		t.Fatalf("Logging.Level = %q, want debug", cfg.Logging.Level)
+	if cfg.Log.Level != "debug" {
+		t.Fatalf("Log.Level = %q, want debug", cfg.Log.Level)
 	}
 
 	document, err := LoadDocument(configPath, schemaPath)
@@ -254,11 +189,11 @@ func TestSaveDocumentPersistsPlanningAlignedShape(t *testing.T) {
 	if cfg.Server.Port != 8081 {
 		t.Fatalf("Server.Port = %d, want 8081", cfg.Server.Port)
 	}
-	if cfg.Logging.Level != "debug" {
-		t.Fatalf("Logging.Level = %q, want debug", cfg.Logging.Level)
+	if cfg.Log.Level != "debug" {
+		t.Fatalf("Log.Level = %q, want debug", cfg.Log.Level)
 	}
-	if cfg.Auth.DefaultLevel != "group_admin" {
-		t.Fatalf("Auth.DefaultLevel = %q, want group_admin", cfg.Auth.DefaultLevel)
+	if cfg.Permission.DefaultLevel != "group_admin" {
+		t.Fatalf("Permission.DefaultLevel = %q, want group_admin", cfg.Permission.DefaultLevel)
 	}
 	if !reflect.DeepEqual(cfg.Builtin.Menu.Commands, []string{"menu", "菜单"}) {
 		t.Fatalf("Builtin.Menu.Commands = %#v, want [menu 菜单]", cfg.Builtin.Menu.Commands)
@@ -274,12 +209,6 @@ func TestSaveDocumentPersistsPlanningAlignedShape(t *testing.T) {
 	var saved map[string]any
 	if err := yaml.Unmarshal(bytes, &saved); err != nil {
 		t.Fatalf("parse saved yaml: %v", err)
-	}
-	if _, ok := saved["logging"]; ok {
-		t.Fatal("saved config should not use legacy logging section")
-	}
-	if _, ok := saved["auth"]; ok {
-		t.Fatal("saved config should not use legacy auth section")
 	}
 	if got := nestedString(t, saved, "schema_version"); got != "2" {
 		t.Fatalf("schema_version = %q, want 2", got)
@@ -300,8 +229,8 @@ func TestSaveDocumentAllowsBlankOneBotConnection(t *testing.T) {
 	if err != nil {
 		t.Fatalf("SaveDocument() error = %v", err)
 	}
-	if cfg.OneBot.WSURL != "" {
-		t.Fatalf("OneBot.WSURL = %q, want empty", cfg.OneBot.WSURL)
+	if cfg.OneBot.ForwardWS.URL != "" {
+		t.Fatalf("OneBot.ForwardWS.URL = %q, want empty", cfg.OneBot.ForwardWS.URL)
 	}
 
 	saved, err := LoadDocument(configPath, schemaPath)
@@ -313,39 +242,6 @@ func TestSaveDocumentAllowsBlankOneBotConnection(t *testing.T) {
 	}
 	if got := nestedString(t, saved, "onebot", "forward_ws", "access_token"); got != "" {
 		t.Fatalf("saved onebot.forward_ws.access_token = %q, want empty", got)
-	}
-}
-
-func TestSaveDocumentDropsLegacyOneBotAccessToken(t *testing.T) {
-	t.Parallel()
-
-	configPath := filepath.Join(t.TempDir(), "config", "user.yaml")
-	schemaPath := filepath.Join("..", "..", "..", "contracts", "config.user.schema.json")
-	document := newPlanningConfigDocument()
-	document["onebot"].(map[string]any)["access_token"] = "legacy-secret"
-	document["onebot"].(map[string]any)["provider"] = "napcat"
-	document["onebot"].(map[string]any)["forward_ws"].(map[string]any)["access_token"] = "forward-secret"
-
-	cfg, _, err := SaveDocument(configPath, schemaPath, document)
-	if err != nil {
-		t.Fatalf("SaveDocument() error = %v", err)
-	}
-	if cfg.OneBot.ForwardWS.AccessToken != "forward-secret" {
-		t.Fatalf("OneBot.ForwardWS.AccessToken = %q, want forward-secret", cfg.OneBot.ForwardWS.AccessToken)
-	}
-
-	saved, err := LoadDocument(configPath, schemaPath)
-	if err != nil {
-		t.Fatalf("LoadDocument() error = %v", err)
-	}
-	if _, ok := saved["onebot"].(map[string]any)["access_token"]; ok {
-		t.Fatal("legacy onebot.access_token should not be persisted")
-	}
-	if _, ok := saved["onebot"].(map[string]any)["provider"]; ok {
-		t.Fatal("legacy onebot.provider should not be persisted")
-	}
-	if got := nestedString(t, saved, "onebot", "forward_ws", "access_token"); got != "forward-secret" {
-		t.Fatalf("saved onebot.forward_ws.access_token = %q, want forward-secret", got)
 	}
 }
 
@@ -430,31 +326,6 @@ func TestSaveDocumentAcceptsRenderOutputAndDeviceScalePercent(t *testing.T) {
 	}
 	if cfg.Render.DeviceScalePercent != 500 {
 		t.Fatalf("Render.DeviceScalePercent = %d, want 500", cfg.Render.DeviceScalePercent)
-	}
-}
-
-func TestSaveDocumentNormalizesShorthandOneBotConnection(t *testing.T) {
-	t.Parallel()
-
-	configPath := filepath.Join(t.TempDir(), "config", "user.yaml")
-	schemaPath := filepath.Join("..", "..", "..", "contracts", "config.user.schema.json")
-	document := newPlanningConfigDocument()
-	document["onebot"].(map[string]any)["ws_url"] = "ws:127.0.0.1:2658"
-
-	cfg, _, err := SaveDocument(configPath, schemaPath, document)
-	if err != nil {
-		t.Fatalf("SaveDocument() error = %v", err)
-	}
-	if cfg.OneBot.WSURL != "ws://127.0.0.1:2658" {
-		t.Fatalf("OneBot.WSURL = %q, want ws://127.0.0.1:2658", cfg.OneBot.WSURL)
-	}
-
-	saved, err := LoadDocument(configPath, schemaPath)
-	if err != nil {
-		t.Fatalf("LoadDocument() error = %v", err)
-	}
-	if got := nestedString(t, saved, "onebot", "forward_ws", "url"); got != "ws://127.0.0.1:2658" {
-		t.Fatalf("saved onebot.forward_ws.url = %q, want ws://127.0.0.1:2658", got)
 	}
 }
 
@@ -682,105 +553,6 @@ func newPlanningConfigDocument() map[string]any {
 		},
 		"backup": map[string]any{
 			"default_consistency": "offline",
-		},
-	}
-}
-
-func legacyConfigDocument() map[string]any {
-	return map[string]any{
-		"schema_version": "1",
-		"server": map[string]any{
-			"host": "127.0.0.1",
-			"port": 8080,
-		},
-		"onebot": map[string]any{
-			"ws_url":                    "ws://127.0.0.1:6700",
-			"access_token":              "",
-			"connect_timeout_seconds":   20,
-			"reconnect_initial_seconds": 3,
-			"reconnect_multiplier":      2,
-			"reconnect_max_seconds":     120,
-			"reconnect_jitter_ratio":    0.2,
-		},
-		"database": map[string]any{
-			"engine": "sqlite",
-			"path":   "data/rayleabot.db",
-		},
-		"storage": map[string]any{
-			"kv_value_max_bytes":           65536,
-			"kv_total_limit_mb":            16,
-			"file_max_bytes":               10485760,
-			"plugin_workdir_soft_limit_mb": 256,
-		},
-		"http": map[string]any{
-			"timeout_seconds":     10,
-			"max_retries":         2,
-			"allow_private_hosts": []string{},
-		},
-		"logging": map[string]any{
-			"level":                 "warn",
-			"retention_days":        7,
-			"rate_limit_per_plugin": "200/10s",
-		},
-		"auth": map[string]any{
-			"super_admins":              []string{"10001"},
-			"default_level":             "group_admin",
-			"auto_grant_capabilities":   []string{"logger.write"},
-			"session_ttl_days":          14,
-			"sliding_renewal":           false,
-			"max_sessions":              2,
-			"login_fail_limit":          4,
-			"login_fail_window_seconds": 120,
-		},
-		"runtime": map[string]any{
-			"scheduler_timezone":                    "Asia/Shanghai",
-			"plugin_init_timeout_seconds":           30,
-			"plugin_init_max_total_seconds":         300,
-			"plugin_event_timeout_seconds":          60,
-			"max_pending_events_per_plugin":         16,
-			"max_pending_control_events_per_plugin": 4,
-			"nodejs_max_old_space_size_mb":          256,
-			"dependency_install_timeout_seconds":    900,
-			"max_concurrent_dependency_installs":    1,
-			"ipc_pending_actions_max":               256,
-			"ipc_action_burst_limit":                "100/1s",
-			"stderr_rate_limit_bytes_per_second":    262144,
-			"max_concurrent_tasks_per_plugin":       4,
-			"crash_backoff_initial_seconds":         2,
-			"crash_backoff_max_seconds":             60,
-			"shutdown_grace_seconds":                10,
-			"ipc_message_max_bytes":                 8388608,
-		},
-		"render": map[string]any{
-			"worker_count":               1,
-			"browser_args":               []string{"--disable-gpu"},
-			"browser_path":               "",
-			"default_output":             DefaultRenderOutput,
-			"device_scale_percent":       DefaultRenderDeviceScalePercent,
-			"timeout_seconds":            30,
-			"queue_wait_timeout_seconds": 15,
-			"queue_max_length":           32,
-			"footer_template":            DefaultRenderFooterTemplate,
-		},
-		"web": map[string]any{
-			"exposure_mode":    "localhost_only",
-			"setup_local_only": true,
-		},
-		"backup": map[string]any{
-			"default_consistency": "offline",
-		},
-		"retention": map[string]any{
-			"audit_logs_retention_days":     90,
-			"event_records_retention_days":  7,
-			"download_cache_retention_days": 15,
-		},
-		"command": map[string]any{
-			"prefixes": []string{"/"},
-		},
-		"cooldown": map[string]any{
-			"user_command_rate_limit":  "11/60s",
-			"group_command_rate_limit": "31/60s",
-			"cooldown_reply":           true,
 		},
 	}
 }

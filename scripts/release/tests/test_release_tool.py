@@ -105,7 +105,7 @@ class ReleaseToolTests(unittest.TestCase):
                 git_commit="abcdef1",
                 built_at="2026-03-24T10:00:00Z",
                 config_schema_version="2",
-                db_schema_version="13",
+                db_schema_version="base-2026-06",
                 plugin_protocol_version="1",
                 release_notes_ref="https://example.invalid/releases/v0.1.0",
                 deps_manifest=deps / "manifest.json",

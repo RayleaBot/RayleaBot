@@ -1170,7 +1170,7 @@ export interface components {
         /** @enum {string} */
         TaskStatus: "pending" | "running" | "succeeded" | "failed" | "cancelled" | "interrupted";
         /** @enum {string} */
-        TaskType: "plugin.install" | "plugin.uninstall" | "plugin.reload" | "backup.create" | "recovery.recheck" | "recovery.confirm" | "restore.apply" | "config.migrate" | "db.migrate" | "runtime.bootstrap";
+        TaskType: "plugin.install" | "plugin.uninstall" | "plugin.reload" | "backup.create" | "recovery.recheck" | "recovery.confirm" | "restore.apply" | "runtime.bootstrap";
         TaskErrorSummary: {
             code: string;
             message: string;
@@ -1613,7 +1613,7 @@ export interface components {
          */
         "config.user.schema": {
             /**
-             * @description Configuration schema version for bootstrap and migration.
+             * @description Configuration schema version for bootstrap and validation.
              * @constant
              */
             schema_version: "2";
@@ -1642,7 +1642,7 @@ export interface components {
                  * @constant
                  */
                 engine: "sqlite";
-                /** @description Database file path. Relative paths resolve against the data directory; absolute paths are recommended for migration clarity. Requires restart. */
+                /** @description Database file path. Relative paths resolve against the data directory; absolute paths are recommended for operational clarity. Requires restart. */
                 path: string;
             };
             command: {

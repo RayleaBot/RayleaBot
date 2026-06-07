@@ -6,7 +6,6 @@ import { createMemoryHistory, createRouter } from 'vue-router'
 
 import RenderTemplatesView from '@/views/system/RenderTemplatesView.vue'
 import { useRenderTemplatesStore } from '@/stores/render-templates'
-import { useSystemStore } from '@/stores/system'
 import type {
   RenderTemplateDetail,
   RenderTemplatePreviewHTMLResponse,
@@ -221,9 +220,6 @@ describe('RenderTemplatesView', () => {
     vi.useFakeTimers()
     vi.restoreAllMocks()
     vi.stubGlobal('fetch', vi.fn(async (path: string) => {
-      if (path.includes('/api/system/render/preview')) {
-        return new Response(JSON.stringify({ error: { code: 'unexpected' } }), { status: 500 })
-      }
       return new Response(new Blob(['asset'], { type: 'text/plain' }), { status: 200 })
     }))
     let blobSequence = 0
@@ -236,9 +232,8 @@ describe('RenderTemplatesView', () => {
     vi.unstubAllGlobals()
   })
 
-  it('renders realtime HTML in an iframe without using render preview tasks', async () => {
+  it('renders realtime HTML in an iframe', async () => {
     const renderTemplatesStore = useRenderTemplatesStore()
-    const systemStore = useSystemStore()
 
     renderTemplatesStore.items = [createTemplateSummary()]
     renderTemplatesStore.detailById = {
@@ -250,8 +245,6 @@ describe('RenderTemplatesView', () => {
     vi.spyOn(renderTemplatesStore, 'previewTemplateHTML').mockImplementation(async (templateId, payload) => (
       createPreviewHTML(templateId, String(payload.data.title ?? 'preview'))
     ))
-    const legacyPreviewSpy = vi.spyOn(systemStore, 'previewRender')
-
     const { wrapper } = await mountPage()
 
     await flushPromises()
@@ -264,10 +257,6 @@ describe('RenderTemplatesView', () => {
     expect(wrapper.text()).toContain('输入数据合法时同步显示当前 HTML 文档。')
     expect(wrapper.text()).not.toContain('任务 ID')
     expect(wrapper.text()).not.toContain('产物 ID')
-    expect(wrapper.text()).not.toContain('缓存结果')
-    expect(wrapper.text()).not.toContain('打开任务详情')
-    expect(wrapper.text()).not.toContain('点击放大')
-    expect(legacyPreviewSpy).not.toHaveBeenCalled()
     expect(renderTemplatesStore.previewTemplateHTML).toHaveBeenCalledTimes(1)
     expect(renderTemplatesStore.previewTemplateHTML).toHaveBeenCalledWith(
       'help.menu',

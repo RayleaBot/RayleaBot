@@ -138,7 +138,7 @@ func prunePluginLogEntries(entries []time.Time, now time.Time, window time.Durat
 }
 
 func parsePluginLogRateLimit(cfg config.Config) permission.RateLimit {
-	limit, err := permission.ParseRateLimit(strings.TrimSpace(cfg.Logging.RateLimitPerPlugin))
+	limit, err := permission.ParseRateLimit(strings.TrimSpace(cfg.Log.RateLimitPerPlugin))
 	if err == nil {
 		return limit
 	}

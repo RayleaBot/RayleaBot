@@ -1,7 +1,0 @@
-contract: contracts/cli-commands.yaml#commands.migrate
-input:
-  command: migrate
-  mode: online
-expect:
-  valid: false
-  reason: mode_unavailable

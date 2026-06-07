@@ -235,10 +235,7 @@ func pluginListCallerPermissionRank(cfg config.Config, event runtime.Event) int 
 }
 
 func pluginListSuperAdmins(cfg config.Config) []string {
-	if len(cfg.Admin.SuperAdmins) > 0 {
-		return cfg.Admin.SuperAdmins
-	}
-	return cfg.Auth.SuperAdmins
+	return cfg.Admin.SuperAdmins
 }
 
 func pluginListEffectiveCommandPermission(permissionLevel string, cfg config.Config) string {
@@ -263,9 +260,6 @@ func pluginListEffectiveHelpPermission(permissionLevel string) string {
 
 func pluginListDefaultPermission(cfg config.Config) string {
 	defaultLevel := strings.TrimSpace(cfg.Permission.DefaultLevel)
-	if defaultLevel == "" {
-		defaultLevel = strings.TrimSpace(cfg.Auth.DefaultLevel)
-	}
 	switch defaultLevel {
 	case "super_admin", "group_admin", "everyone":
 		return defaultLevel

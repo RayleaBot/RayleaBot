@@ -678,14 +678,13 @@ jobs:
               '/api/system/metrics',
               '/api/system/recovery/recheck',
               '/api/system/recovery/confirm',
-              '/api/system/render/preview',
-              '/api/system/render/artifacts/{artifact_id}',
               '/api/system/render/templates',
               '/api/system/render/templates/{template_id}',
               '/api/system/render/templates/{template_id}/asset',
               '/api/system/render/templates/{template_id}/preview-html',
               '/api/system/runtime/bootstrap',
               '/api/system/diagnostics/export',
+              '/api/system/scheduler/jobs',
               '/api/system/scheduler/jobs/{job_id}/trigger',
               '/api/logs',
               '/api/logs/{log_id}',
@@ -805,7 +804,6 @@ jobs:
               'plugin.init_timeout',
               'plugin.protocol_violation',
               'plugin.install_failed',
-              'plugin.migration_failed',
               'plugin.permission_pending',
               'permission.denied',
               'permission.scope_violation',
@@ -859,7 +857,7 @@ jobs:
                   load_any(ref_path)
 
           cli_commands = load_yaml(contracts / 'cli-commands.yaml')
-          expected_cli_commands = {'reset-admin', 'backup', 'restore', 'doctor', 'migrate', 'cleanup'}
+          expected_cli_commands = {'reset-admin', 'backup', 'restore', 'doctor', 'cleanup'}
           actual_cli_commands = set(cli_commands.get('commands', {}).keys())
           if actual_cli_commands != expected_cli_commands:
               raise SystemExit(f'cli-commands.yaml commands must exactly match {sorted(expected_cli_commands)}; got {sorted(actual_cli_commands)}')

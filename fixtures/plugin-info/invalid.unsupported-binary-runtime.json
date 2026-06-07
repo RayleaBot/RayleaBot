@@ -2,8 +2,8 @@
   "contract": "contracts/plugin-info.schema.json",
   "case": "invalid",
   "input": {
-    "id": "legacy-binary-tool",
-    "name": "Legacy Binary Tool",
+    "id": "unsupported-binary-tool",
+    "name": "Unsupported Binary Tool",
     "version": "1.0.0",
     "manifest_version": "1",
     "plugin_protocol_version": "1",

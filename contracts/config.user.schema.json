@@ -32,7 +32,7 @@
     "schema_version": {
       "type": "string",
       "const": "2",
-      "description": "Configuration schema version for bootstrap and migration."
+      "description": "Configuration schema version for bootstrap and validation."
     },
     "server": {
       "type": "object",
@@ -91,7 +91,7 @@
         "path": {
           "type": "string",
           "minLength": 1,
-          "description": "Database file path. Relative paths resolve against the data directory; absolute paths are recommended for migration clarity. Requires restart."
+          "description": "Database file path. Relative paths resolve against the data directory; absolute paths are recommended for operational clarity. Requires restart."
         }
       }
     },
@@ -715,5 +715,5 @@
     "fixtures/config/edge.public-via-reverse-proxy.json",
     "fixtures/config/ok.with-command-and-cooldown.json"
   ],
-  "$comment": "The canonical config document follows the planning-aligned section names. Legacy auth/logging/retention/cooldown/runtime.scheduler_timezone/onebot reconnect fields remain migration inputs only."
+  "$comment": "The canonical config document follows the planning-aligned section names and current runtime configuration groups."
 }

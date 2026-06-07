@@ -694,10 +694,7 @@ func builtinMenuCallerPermissionRank(cfg config.Config, event runtime.Event) int
 }
 
 func builtinMenuSuperAdmins(cfg config.Config) []string {
-	if len(cfg.Admin.SuperAdmins) > 0 {
-		return cfg.Admin.SuperAdmins
-	}
-	return cfg.Auth.SuperAdmins
+	return cfg.Admin.SuperAdmins
 }
 
 func builtinMenuEffectiveCommandPermission(permissionLevel string, cfg config.Config) string {
@@ -732,9 +729,6 @@ func builtinMenuEffectiveHelpItemPermission(item plugins.HelpItemView, commandPe
 
 func builtinMenuDefaultPermission(cfg config.Config) string {
 	defaultLevel := strings.TrimSpace(cfg.Permission.DefaultLevel)
-	if defaultLevel == "" {
-		defaultLevel = strings.TrimSpace(cfg.Auth.DefaultLevel)
-	}
 	switch defaultLevel {
 	case "super_admin", "group_admin", "everyone":
 		return defaultLevel

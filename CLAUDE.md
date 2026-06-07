@@ -25,7 +25,7 @@
 
 - OneBot11 事件主链路：`adapter -> bridge -> dispatch -> plugin runtimes`
 - 插件以子进程形式运行，通过 stdin/stdout 上的 JSONL 协议与平台通信。
-- 持久化存储使用 SQLite，迁移位于 `server/internal/storage/migrations/`。
+- 持久化存储使用 SQLite，当前基线 schema 位于 `server/internal/storage/schema.sql`。
 - 启动器是本地 Electron 壳层，不承担 Web 业务逻辑副本。
 
 ## Useful Areas

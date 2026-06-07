@@ -1116,47 +1116,6 @@ func TestLogsIncludeCommandPolicyRejectionFromEventIngress(t *testing.T) {
 	}
 }
 
-func TestLogDetailReturnsEmptyObjectForLegacyRows(t *testing.T) {
-	t.Parallel()
-
-	application, _, _ := newTestAppWithConfigMutation(t, func(input map[string]any) {
-		input["log"].(map[string]any)["retention_days"] = 365
-	}, deterministicAuthOptions()...)
-	token := issueLoginToken(t, application)
-	fixture := loadWebAPIFixtureDocument(t, filepath.Join("..", "fixtures", "web-api", "edge.log-detail-legacy-empty-details.yaml"))
-
-	application.Logs().Append(logging.Summary{
-		LogID:     "log_legacy_0001",
-		Timestamp: "2026-03-20T10:00:01Z",
-		Level:     "warn",
-		Source:    "adapter",
-		Message:   "adapter reconnect scheduled",
-	})
-
-	server := httptest.NewServer(application.Handler())
-	defer server.Close()
-
-	request, err := http.NewRequest(http.MethodGet, server.URL+fixture.Request.Path, nil)
-	if err != nil {
-		t.Fatalf("create legacy log detail request: %v", err)
-	}
-	request.Header.Set("Authorization", "Bearer "+token)
-
-	response, err := server.Client().Do(request)
-	if err != nil {
-		t.Fatalf("perform legacy log detail request: %v", err)
-	}
-	defer response.Body.Close()
-	if response.StatusCode != fixture.Response.Status {
-		t.Fatalf("unexpected legacy log detail status: got %d want %d", response.StatusCode, fixture.Response.Status)
-	}
-
-	body := decodeBody(t, readAll(t, response))
-	if !reflect.DeepEqual(body, fixture.Response.Body) {
-		t.Fatalf("unexpected legacy log detail body: got %#v want %#v", body, fixture.Response.Body)
-	}
-}
-
 func TestLogDetailReturnsNotFound(t *testing.T) {
 	t.Parallel()
 

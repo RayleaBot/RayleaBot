@@ -444,42 +444,6 @@ func TestManagerDeliverEventReturnsAction(t *testing.T) {
 	}
 }
 
-func TestManagerDeliverEventRejectsLegacyMessageReplyAction(t *testing.T) {
-	t.Parallel()
-
-	manager := testManager()
-	spec := helperSpec(t, "event-action-message-reply", "")
-
-	if err := manager.Start(context.Background(), spec, testInitPayload()); err != nil {
-		t.Fatalf("start runtime: %v", err)
-	}
-
-	_, err := manager.DeliverEvent(context.Background(), testRuntimeEvent())
-	assertRuntimeErrorCode(t, err, codePluginProtocolViolation)
-
-	if err := manager.Stop(context.Background()); err != nil {
-		t.Fatalf("stop runtime: %v", err)
-	}
-}
-
-func TestManagerDeliverEventRejectsRemovedMessageSendImageAction(t *testing.T) {
-	t.Parallel()
-
-	manager := testManager()
-	spec := helperSpec(t, "event-action-message-send-image", "")
-
-	if err := manager.Start(context.Background(), spec, testInitPayload()); err != nil {
-		t.Fatalf("start runtime: %v", err)
-	}
-
-	_, err := manager.DeliverEvent(context.Background(), testRuntimeEvent())
-	assertRuntimeErrorCode(t, err, codePluginProtocolViolation)
-
-	if err := manager.Stop(context.Background()); err != nil {
-		t.Fatalf("stop runtime: %v", err)
-	}
-}
-
 func TestManagerDeliverEventReturnsRichMessageSendAction(t *testing.T) {
 	t.Parallel()
 
@@ -1624,103 +1588,6 @@ func TestHelperProcessRuntime(t *testing.T) {
 		for scanner.Scan() {
 			line := append([]byte(nil), scanner.Bytes()...)
 			recordFrame(recordPath, line)
-			var frame map[string]any
-			if err := json.Unmarshal(line, &frame); err != nil {
-				os.Exit(6)
-			}
-			if frame["type"] == "shutdown" {
-				os.Exit(0)
-			}
-		}
-		os.Exit(0)
-	case "event-action-message-reply":
-		if !scanner.Scan() {
-			os.Exit(2)
-		}
-		line := append([]byte(nil), scanner.Bytes()...)
-		var initFrame map[string]any
-		if err := json.Unmarshal(line, &initFrame); err != nil {
-			os.Exit(3)
-		}
-		writeHelperFrame(map[string]any{
-			"protocol_version": "1",
-			"type":             "init_ack",
-			"timestamp":        time.Now().Unix(),
-			"plugin_id":        initFrame["plugin_id"],
-			"request_id":       initFrame["request_id"],
-			"status":           "ready",
-		})
-		if !scanner.Scan() {
-			os.Exit(4)
-		}
-		line = append([]byte(nil), scanner.Bytes()...)
-		var eventFrame map[string]any
-		if err := json.Unmarshal(line, &eventFrame); err != nil {
-			os.Exit(5)
-		}
-		writeHelperFrame(map[string]any{
-			"protocol_version": "1",
-			"type":             "action",
-			"timestamp":        time.Now().Unix(),
-			"plugin_id":        eventFrame["plugin_id"],
-			"request_id":       eventFrame["request_id"],
-			"action":           "message.reply",
-			"data": map[string]any{
-				removedReplyMessageIDKey(): "98765",
-				"text":                     "reply from plugin",
-			},
-		})
-		for scanner.Scan() {
-			line := append([]byte(nil), scanner.Bytes()...)
-			var frame map[string]any
-			if err := json.Unmarshal(line, &frame); err != nil {
-				os.Exit(6)
-			}
-			if frame["type"] == "shutdown" {
-				os.Exit(0)
-			}
-		}
-		os.Exit(0)
-	case "event-action-message-send-image":
-		if !scanner.Scan() {
-			os.Exit(2)
-		}
-		line := append([]byte(nil), scanner.Bytes()...)
-		var initFrame map[string]any
-		if err := json.Unmarshal(line, &initFrame); err != nil {
-			os.Exit(3)
-		}
-		writeHelperFrame(map[string]any{
-			"protocol_version": "1",
-			"type":             "init_ack",
-			"timestamp":        time.Now().Unix(),
-			"plugin_id":        initFrame["plugin_id"],
-			"request_id":       initFrame["request_id"],
-			"status":           "ready",
-		})
-		if !scanner.Scan() {
-			os.Exit(4)
-		}
-		line = append([]byte(nil), scanner.Bytes()...)
-		var eventFrame map[string]any
-		if err := json.Unmarshal(line, &eventFrame); err != nil {
-			os.Exit(5)
-		}
-		writeHelperFrame(map[string]any{
-			"protocol_version": "1",
-			"type":             "action",
-			"timestamp":        time.Now().Unix(),
-			"plugin_id":        eventFrame["plugin_id"],
-			"request_id":       eventFrame["request_id"],
-			"action":           removedSendImageActionKind(),
-			"data": map[string]any{
-				"target_type": "group",
-				"target_id":   "2001",
-				"file":        "file://cache/image.png",
-			},
-		})
-		for scanner.Scan() {
-			line := append([]byte(nil), scanner.Bytes()...)
 			var frame map[string]any
 			if err := json.Unmarshal(line, &frame); err != nil {
 				os.Exit(6)
@@ -2924,12 +2791,4 @@ func helperConsumeShutdown(scanner *bufio.Scanner, code int) {
 		}
 	}
 	os.Exit(0)
-}
-
-func removedReplyMessageIDKey() string {
-	return strings.Join([]string{"reply", "to", "message", "id"}, "_")
-}
-
-func removedSendImageActionKind() string {
-	return strings.Join([]string{"message", "send_image"}, ".")
 }

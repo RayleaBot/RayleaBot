@@ -7,7 +7,7 @@
     "git_commit": "a8ee7bb",
     "built_at": "2026-03-17T10:00:00Z",
     "config_schema_version": "1",
-    "db_schema_version": "1",
+    "db_schema_version": "base-2026-06",
     "plugin_protocol_version": "1",
     "artifacts": [
       {

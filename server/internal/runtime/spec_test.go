@@ -53,10 +53,10 @@ func TestBuildSpecRejectsInvalidOrConflictedPlugin(t *testing.T) {
 
 	t.Run("invalid manifest fixture", func(t *testing.T) {
 		root := t.TempDir()
-		writePluginManifestFromFixture(t, filepath.Join(root, "legacy-binary-tool"), "legacy-binary-tool", filepath.Join(repoRoot, "fixtures", "plugin-info", "invalid.unsupported-binary-runtime.json"))
+		writePluginManifestFromFixture(t, filepath.Join(root, "unsupported-binary-tool"), "unsupported-binary-tool", filepath.Join(repoRoot, "fixtures", "plugin-info", "invalid.unsupported-binary-runtime.json"))
 		catalog := discoverRuntimeTestCatalog(t, root)
 
-		snapshot, ok := catalog.Get("legacy-binary-tool")
+		snapshot, ok := catalog.Get("unsupported-binary-tool")
 		if !ok {
 			t.Fatalf("expected invalid plugin to enter catalog")
 		}

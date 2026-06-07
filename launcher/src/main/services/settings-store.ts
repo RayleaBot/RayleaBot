@@ -10,27 +10,12 @@ import { pathExists } from "./fs-utils";
 
 interface SerializedLauncherSettings {
   installationRoot?: string;
-  installationRootPinned?: boolean;
-  launcherBasePath?: string;
   advancedOverrides?: unknown;
   closeBehavior?: string;
-  serverExecutablePath?: string;
-  configPath?: string;
-  workdir?: string;
-  CloseToTrayEnabled?: boolean;
-  InstallationRoot?: string;
-  InstallationRootPinned?: boolean;
-  LauncherBasePath?: string;
-  AdvancedOverrides?: unknown;
-  ServerExecutablePath?: string;
-  ConfigPath?: string;
-  Workdir?: string;
-  CloseBehavior?: string;
 }
 
 interface LauncherSettingsFileLocations {
   settingsPath: string;
-  legacySettingsPath: string;
 }
 
 interface ReadSerializedSettingsResult {
@@ -41,19 +26,19 @@ interface ReadSerializedSettingsResult {
 }
 
 function normalizeCloseBehavior(value: unknown): LauncherCloseBehavior {
-  if (value === "hide_to_tray" || value === "HideToTray") {
-    return "hide_to_tray";
-  }
-  if (value === "exit_application" || value === "ExitApplication") {
-    return "exit_application";
-  }
-  if (value === "ask_every_time" || value === "AskEveryTime") {
+  if (value === undefined || value === null || value === "") {
     return "ask_every_time";
   }
-  if (typeof value === "boolean") {
-    return value ? "hide_to_tray" : "ask_every_time";
+  if (value === "hide_to_tray") {
+    return "hide_to_tray";
   }
-  return "ask_every_time";
+  if (value === "exit_application") {
+    return "exit_application";
+  }
+  if (value === "ask_every_time") {
+    return "ask_every_time";
+  }
+  throw new Error("launcher closeBehavior must use a supported value.");
 }
 
 function readString(...values: unknown[]) {
@@ -63,15 +48,6 @@ function readString(...values: unknown[]) {
     }
   }
   return "";
-}
-
-function readBoolean(...values: unknown[]) {
-  for (const value of values) {
-    if (typeof value === "boolean") {
-      return value;
-    }
-  }
-  return undefined;
 }
 
 function serverExecutableName(platform: NodeJS.Platform) {
@@ -102,58 +78,6 @@ export async function findInstallationRoot(startPath: string) {
   }
 }
 
-function rebaseWorkspacePath(savedPath: string, savedWorkdir: string, nextRoot: string) {
-  if (!savedPath || !savedWorkdir) {
-    return "";
-  }
-
-  const relativePath = path.relative(savedWorkdir, savedPath);
-  if (!relativePath || relativePath.startsWith("..") || path.isAbsolute(relativePath)) {
-    return "";
-  }
-
-  return path.join(nextRoot, relativePath);
-}
-
-async function resolveLegacyPath(savedPath: string, savedWorkdir: string, fallback: string, nextRoot: string) {
-  if (savedPath && (await pathExists(savedPath))) {
-    return path.resolve(savedPath);
-  }
-
-  const rebasedPath = rebaseWorkspacePath(savedPath, savedWorkdir, nextRoot);
-  if (rebasedPath && (await pathExists(rebasedPath))) {
-    return path.resolve(rebasedPath);
-  }
-
-  return path.resolve(fallback);
-}
-
-async function resolveLegacyWorkdir(savedWorkdir: string, fallback: string, nextRoot: string) {
-  if (savedWorkdir && (await pathExists(savedWorkdir))) {
-    const managedEntries = [
-      "config",
-      "data",
-      "cache",
-      "logs",
-      "plugins",
-      ".deps",
-      "templates",
-    ];
-    const hasManagedState = (
-      await Promise.all(managedEntries.map(async (entry) => pathExists(path.join(savedWorkdir, entry))))
-    ).some(Boolean);
-    if (hasManagedState) {
-      return path.resolve(savedWorkdir);
-    }
-  }
-
-  const rebasedPath = rebaseWorkspacePath(savedWorkdir, savedWorkdir, nextRoot);
-  if (rebasedPath && (await pathExists(rebasedPath))) {
-    return path.resolve(rebasedPath);
-  }
-  return path.resolve(fallback);
-}
-
 function normalizeOverrides(value: unknown): LauncherAdvancedOverrides | undefined {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     return undefined;
@@ -161,9 +85,9 @@ function normalizeOverrides(value: unknown): LauncherAdvancedOverrides | undefin
 
   const payload = value as Record<string, unknown>;
   const normalized = {
-    serverExecutablePath: readString(payload.serverExecutablePath, payload.ServerExecutablePath),
-    configPath: readString(payload.configPath, payload.ConfigPath),
-    workdir: readString(payload.workdir, payload.Workdir),
+    serverExecutablePath: readString(payload.serverExecutablePath),
+    configPath: readString(payload.configPath),
+    workdir: readString(payload.workdir),
   } satisfies LauncherAdvancedOverrides;
 
   if (!normalized.serverExecutablePath && !normalized.configPath && !normalized.workdir) {
@@ -175,14 +99,6 @@ function normalizeOverrides(value: unknown): LauncherAdvancedOverrides | undefin
 
 function normalizeInstallationRoot(value: string) {
   return path.resolve(value || ".");
-}
-
-function pathsEqual(left: string, right: string) {
-  const normalize = (value: string) => {
-    const resolved = path.resolve(value);
-    return process.platform === "win32" ? resolved.toLowerCase() : resolved;
-  };
-  return normalize(left) === normalize(right);
 }
 
 function findManagedWorktreeOwnerRoot(targetPath: string) {
@@ -199,55 +115,6 @@ function findManagedWorktreeOwnerRoot(targetPath: string) {
   }
 }
 
-function belongsToSameManagedWorktreeFamily(left: string, right: string) {
-  const leftResolved = path.resolve(left);
-  const rightResolved = path.resolve(right);
-
-  if (pathsEqual(leftResolved, rightResolved)) {
-    return false;
-  }
-
-  const leftOwner = findManagedWorktreeOwnerRoot(leftResolved);
-  const rightOwner = findManagedWorktreeOwnerRoot(rightResolved);
-
-  if (leftOwner && rightOwner) {
-    return pathsEqual(leftOwner, rightOwner);
-  }
-  if (leftOwner) {
-    return pathsEqual(leftOwner, rightResolved);
-  }
-  if (rightOwner) {
-    return pathsEqual(rightOwner, leftResolved);
-  }
-  return false;
-}
-
-function shouldUseCurrentInstallationRoot(
-  savedInstallationRoot: string,
-  savedLauncherBasePath: string,
-  savedInstallationRootPinned: boolean | undefined,
-  fallbackRoot: string,
-  allowLegacyWorktreeMigration: boolean,
-) {
-  if (savedInstallationRootPinned === true) {
-    return false;
-  }
-
-  if (savedInstallationRootPinned === false) {
-    return !pathsEqual(savedInstallationRoot, fallbackRoot);
-  }
-
-  if (!allowLegacyWorktreeMigration) {
-    return false;
-  }
-
-  if (savedLauncherBasePath && !pathsEqual(savedInstallationRoot, savedLauncherBasePath)) {
-    return false;
-  }
-
-  return belongsToSameManagedWorktreeFamily(savedInstallationRoot, fallbackRoot);
-}
-
 function resolveLauncherStorageRoot(basePath: string) {
   const ownerRoot = findManagedWorktreeOwnerRoot(basePath);
   if (ownerRoot) {
@@ -258,12 +125,10 @@ function resolveLauncherStorageRoot(basePath: string) {
 
 function resolveLauncherSettingsFileLocations(
   installationRoot: string,
-  legacyUserDataPath: string,
 ): LauncherSettingsFileLocations {
   const storageRoot = resolveLauncherStorageRoot(installationRoot);
   return {
     settingsPath: path.join(storageRoot, "data", "launcher.json"),
-    legacySettingsPath: legacyUserDataPath ? path.join(legacyUserDataPath, "launcher.json") : "",
   };
 }
 
@@ -311,127 +176,36 @@ export async function createDefaultSettings(basePath: string): Promise<LauncherS
   };
 }
 
-async function inferLegacyInstallationRoot(
-  savedInstallationRoot: string,
-  savedWorkdir: string,
-  savedServerExecutablePath: string,
-  savedConfigPath: string,
-  fallbackRoot: string,
-  allowLegacyWorktreeMigration: boolean,
-  savedLauncherBasePath: string,
-  savedInstallationRootPinned: boolean | undefined,
-) {
-  if (savedInstallationRoot) {
-    const normalizedSavedRoot = normalizeInstallationRoot(savedInstallationRoot);
-    const normalizedSavedLauncherBasePath = savedLauncherBasePath
-      ? normalizeInstallationRoot(savedLauncherBasePath)
-      : "";
-    if (
-      shouldUseCurrentInstallationRoot(
-        normalizedSavedRoot,
-        normalizedSavedLauncherBasePath,
-        savedInstallationRootPinned,
-        fallbackRoot,
-        allowLegacyWorktreeMigration,
-      )
-    ) {
-      return fallbackRoot;
-    }
-    return normalizedSavedRoot;
-  }
-
-  const candidates = [
-    savedWorkdir,
-    savedServerExecutablePath ? path.dirname(savedServerExecutablePath) : "",
-    savedConfigPath ? path.dirname(savedConfigPath) : "",
-  ].filter(Boolean);
-
-  for (const candidate of candidates) {
-    const resolvedCandidate = path.resolve(candidate);
-    if (await pathExists(resolvedCandidate)) {
-      const inferredRoot = await findInstallationRoot(resolvedCandidate);
-      if (await hasInstallationMarkers(inferredRoot)) {
-        return inferredRoot;
-      }
-    }
-    const parent = path.dirname(resolvedCandidate);
-    if (parent !== resolvedCandidate && (await pathExists(parent))) {
-      const inferredRoot = await findInstallationRoot(parent);
-      if (await hasInstallationMarkers(inferredRoot)) {
-        return inferredRoot;
-      }
-    }
-  }
-
-  return fallbackRoot;
-}
-
 async function normalizeSettings(
   payload: SerializedLauncherSettings,
   defaults: LauncherSettings,
   platform: NodeJS.Platform,
 ): Promise<LauncherSettings> {
-  const savedInstallationRoot = readString(payload.installationRoot, payload.InstallationRoot);
-  const savedInstallationRootPinned = readBoolean(payload.installationRootPinned, payload.InstallationRootPinned);
-  const savedLauncherBasePath = readString(payload.launcherBasePath, payload.LauncherBasePath);
-  const savedWorkdir = readString(payload.workdir, payload.Workdir);
-  const savedServerExecutablePath = readString(payload.serverExecutablePath, payload.ServerExecutablePath);
-  const savedConfigPath = readString(payload.configPath, payload.ConfigPath);
-  const explicitOverrides = normalizeOverrides(payload.advancedOverrides ?? payload.AdvancedOverrides);
-  const hasExplicitPathOverrides =
-    Boolean(savedWorkdir)
-    || Boolean(savedServerExecutablePath)
-    || Boolean(savedConfigPath)
-    || Boolean(explicitOverrides?.serverExecutablePath)
-    || Boolean(explicitOverrides?.configPath)
-    || Boolean(explicitOverrides?.workdir);
-
-  const installationRoot = await inferLegacyInstallationRoot(
-    savedInstallationRoot,
-    savedWorkdir,
-    savedServerExecutablePath,
-    savedConfigPath,
-    defaults.installationRoot,
-    !hasExplicitPathOverrides,
-    savedLauncherBasePath,
-    savedInstallationRootPinned,
-  );
+  const savedInstallationRoot = readString(payload.installationRoot);
+  const explicitOverrides = normalizeOverrides(payload.advancedOverrides);
   const baseSettings = {
-    installationRoot,
-    closeBehavior: normalizeCloseBehavior(payload.closeBehavior ?? payload.CloseBehavior ?? payload.CloseToTrayEnabled),
+    installationRoot: savedInstallationRoot
+      ? normalizeInstallationRoot(savedInstallationRoot)
+      : defaults.installationRoot,
+    closeBehavior: normalizeCloseBehavior(payload.closeBehavior),
   } satisfies LauncherSettings;
   const derived = await resolveLauncherSettings(baseSettings, platform);
 
-  const mergedOverrides = {
-    serverExecutablePath:
-      explicitOverrides?.serverExecutablePath
-      || (savedServerExecutablePath
-        ? await resolveLegacyPath(savedServerExecutablePath, savedWorkdir, derived.serverExecutablePath, installationRoot)
-        : ""),
-    configPath:
-      explicitOverrides?.configPath
-      || (savedConfigPath
-        ? await resolveLegacyPath(savedConfigPath, savedWorkdir, derived.configPath, installationRoot)
-        : ""),
-    workdir:
-      explicitOverrides?.workdir
-      || (savedWorkdir
-        ? await resolveLegacyWorkdir(savedWorkdir, derived.workdir, installationRoot)
-        : ""),
-  } satisfies LauncherAdvancedOverrides;
-
   const normalizedOverrides = {
     serverExecutablePath:
-      mergedOverrides.serverExecutablePath && path.resolve(mergedOverrides.serverExecutablePath) !== derived.serverExecutablePath
-        ? path.resolve(mergedOverrides.serverExecutablePath)
+      explicitOverrides?.serverExecutablePath
+      && path.resolve(explicitOverrides.serverExecutablePath) !== derived.serverExecutablePath
+        ? path.resolve(explicitOverrides.serverExecutablePath)
         : undefined,
     configPath:
-      mergedOverrides.configPath && path.resolve(mergedOverrides.configPath) !== derived.configPath
-        ? path.resolve(mergedOverrides.configPath)
+      explicitOverrides?.configPath
+      && path.resolve(explicitOverrides.configPath) !== derived.configPath
+        ? path.resolve(explicitOverrides.configPath)
         : undefined,
     workdir:
-      mergedOverrides.workdir && path.resolve(mergedOverrides.workdir) !== derived.workdir
-        ? path.resolve(mergedOverrides.workdir)
+      explicitOverrides?.workdir
+      && path.resolve(explicitOverrides.workdir) !== derived.workdir
+        ? path.resolve(explicitOverrides.workdir)
         : undefined,
   } satisfies LauncherAdvancedOverrides;
 
@@ -477,14 +251,9 @@ async function normalizeCurrentSettingsInput(
   };
 }
 
-async function serializeSettings(
-  settings: LauncherSettings,
-  defaults: LauncherSettings,
-) {
+async function serializeSettings(settings: LauncherSettings) {
   return {
     installationRoot: settings.installationRoot,
-    installationRootPinned: !pathsEqual(settings.installationRoot, defaults.installationRoot),
-    launcherBasePath: defaults.installationRoot,
     advancedOverrides: settings.advancedOverrides,
     closeBehavior: settings.closeBehavior,
   } satisfies SerializedLauncherSettings;
@@ -524,15 +293,13 @@ async function readSerializedSettings(settingsPath: string): Promise<ReadSeriali
 export class JsonLauncherSettingsStore {
   private readonly defaultsPromise: Promise<LauncherSettings>;
   private readonly fileLocationsPromise: Promise<LauncherSettingsFileLocations>;
-  private readonly legacyUserDataPath: string;
   private readonly platform: NodeJS.Platform;
 
-  constructor(basePath: string, platform: NodeJS.Platform, legacyUserDataPath = "") {
+  constructor(basePath: string, platform: NodeJS.Platform) {
     this.defaultsPromise = createDefaultSettings(basePath);
     this.fileLocationsPromise = this.defaultsPromise.then((defaults) =>
-      resolveLauncherSettingsFileLocations(defaults.installationRoot, legacyUserDataPath),
+      resolveLauncherSettingsFileLocations(defaults.installationRoot),
     );
-    this.legacyUserDataPath = legacyUserDataPath;
     this.platform = platform;
   }
 
@@ -545,24 +312,14 @@ export class JsonLauncherSettingsStore {
       return defaults;
     }
 
-    let source = current;
-    if (!current.exists && this.legacyUserDataPath) {
-      const legacy = await readSerializedSettings(locations.legacySettingsPath);
-      if (legacy.exists && !legacy.valid) {
-        await this.save(defaults);
-        return defaults;
-      }
-      source = legacy;
-    }
-
-    if (!source.exists || !source.payload) {
+    if (!current.exists || !current.payload) {
       await this.save(defaults);
       return defaults;
     }
 
-    const normalized = await normalizeSettings(source.payload, defaults, this.platform);
-    const serialized = await serializeSettings(normalized, defaults);
-    if (source.path !== locations.settingsPath || JSON.stringify(source.payload) !== JSON.stringify(serialized)) {
+    const normalized = await normalizeSettings(current.payload, defaults, this.platform);
+    const serialized = await serializeSettings(normalized);
+    if (JSON.stringify(current.payload) !== JSON.stringify(serialized)) {
       await fs.mkdir(path.dirname(locations.settingsPath), { recursive: true });
       await fs.writeFile(locations.settingsPath, JSON.stringify(serialized, null, 2), "utf8");
     }
@@ -570,10 +327,9 @@ export class JsonLauncherSettingsStore {
   }
 
   async save(settings: LauncherSettings) {
-    const defaults = await this.defaultsPromise;
     const locations = await this.fileLocationsPromise;
     const normalized = await normalizeCurrentSettingsInput(settings, this.platform);
-    const serialized = await serializeSettings(normalized, defaults);
+    const serialized = await serializeSettings(normalized);
     await fs.mkdir(path.dirname(locations.settingsPath), { recursive: true });
     await fs.writeFile(locations.settingsPath, JSON.stringify(serialized, null, 2), "utf8");
   }

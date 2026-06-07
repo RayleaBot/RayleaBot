@@ -7,7 +7,7 @@
 - `cmd/raylea-server` 入口、`-config` / `-config-schema` flags
 - `config/user.yaml` 读取与内置配置 schema 校验；`contracts/config.user.schema.json` 是源码中的正式来源
 - `GET /healthz`、`GET /readyz`
-- SQLite store、migration runner、auth persistence、task persistence、plugin desired_state persistence、grant persistence、secret store
+- SQLite store、current schema bootstrap、auth persistence、task persistence、plugin desired_state persistence、grant persistence、secret store
 - plugin discovery：当前扫描 `plugins/builtin` 与 `plugins/installed`；`examples/plugins` 仅保留示例职责
 - management auth surface：
   - `POST /api/setup/admin`
@@ -102,17 +102,19 @@
   - loopback-only launcher shutdown
 - config runtime snapshot / hot reload：
   - `command.prefixes`
-  - `cooldown.*`
-  - `auth.super_admins`
-  - `auth.default_level`
+  - `user.command_rate_limit`
+  - `group.command_rate_limit`
+  - `user.cooldown_reply`
+  - `admin.super_admins`
+  - `permission.default_level`
   - `render.timeout_seconds`
   - `render.queue_wait_timeout_seconds`
   - `render.queue_max_length`
   - `storage.kv_*`
   - `storage.file_*`
   - `http.*`
-  - `logging.retention_days`
-  - `logging.rate_limit_per_plugin`
+  - `log.retention_days`
+  - `log.rate_limit_per_plugin`
 - Render Service：
   - Chromium 渲染与 bounded queue
   - `templates/` 模板注册、input schema 校验与缓存键生成
@@ -123,7 +125,6 @@
   - `backup`
   - `restore`
   - `doctor`
-  - `migrate`
   - `cleanup`
 
 ## 当前边界

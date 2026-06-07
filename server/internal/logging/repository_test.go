@@ -515,50 +515,6 @@ func TestSQLiteRepositoryReturnsNotFoundForMissingLogID(t *testing.T) {
 	}
 }
 
-func TestSQLiteRepositoryHistoryIncludesLegacyRowsWithoutBootID(t *testing.T) {
-	t.Parallel()
-
-	repository := openLoggingRepository(t)
-	ctx := context.Background()
-
-	if err := repository.SaveSummary(ctx, Summary{
-		LogID:     "log_legacy_boot_0002",
-		BootID:    "boot_new",
-		Timestamp: "2026-03-20T10:00:01Z",
-		Level:     "info",
-		Source:    "runtime",
-		Message:   "current boot",
-	}); err != nil {
-		t.Fatalf("save current boot summary: %v", err)
-	}
-
-	if _, err := repository.write.ExecContext(ctx, `INSERT INTO management_logs (log_id, ts, level, source, message, plugin_id, request_id, details_json)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-		"log_legacy_boot_0001",
-		"2026-03-20T10:00:00Z",
-		"warn",
-		"runtime",
-		"legacy bootless",
-		"",
-		"",
-		"{}",
-	); err != nil {
-		t.Fatalf("insert legacy summary without boot id: %v", err)
-	}
-
-	items, err := repository.ListSummaries(ctx, Query{
-		StartAt: "2026-03-20T00:00:00Z",
-		EndAt:   "2026-03-20T23:59:59Z",
-		Limit:   10,
-	})
-	if err != nil {
-		t.Fatalf("list historical summaries: %v", err)
-	}
-	if got := []string{items[0].Message, items[1].Message}; !equalStrings(got, []string{"legacy bootless", "current boot"}) {
-		t.Fatalf("unexpected historical summaries: %#v", got)
-	}
-}
-
 func openLoggingRepository(t *testing.T) *SQLiteRepository {
 	t.Helper()
 

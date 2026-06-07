@@ -33,12 +33,6 @@ export const display = {
     runtime: {
       bootstrap: '准备运行环境',
     },
-    config: {
-      migrate: '迁移配置',
-    },
-    db: {
-      migrate: '迁移数据库',
-    },
   },
   taskStatuses: {
     pending: '等待中',

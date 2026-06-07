@@ -490,6 +490,7 @@ onBeforeUnmount(() => {
       :summary="summary"
       :detail="detail"
       :scope="scope"
+      @action="emit('close')"
     />
   </a-drawer>
 
@@ -557,6 +558,7 @@ onBeforeUnmount(() => {
               :summary="summary"
               :detail="detail"
               :scope="scope"
+              @action="emit('close')"
             />
           </div>
         </Transition>

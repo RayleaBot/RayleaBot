@@ -17,13 +17,7 @@ import (
 
 func newTransportSnapshot(cfg config.OneBotConfig) Snapshot {
 	forwardURL := strings.TrimSpace(cfg.ForwardWS.URL)
-	if forwardURL == "" {
-		forwardURL = strings.TrimSpace(cfg.WSURL)
-	}
 	forwardEnabled := cfg.ForwardWS.Enabled
-	if strings.TrimSpace(cfg.ForwardWS.URL) == "" && strings.TrimSpace(cfg.WSURL) != "" {
-		forwardEnabled = true
-	}
 
 	snapshot := Snapshot{
 		State: StateIdle,
@@ -81,10 +75,7 @@ func (s *Shell) markTransportPrimed() {
 }
 
 func (s *Shell) forwardWSURL() string {
-	if strings.TrimSpace(s.cfg.ForwardWS.URL) != "" {
-		return strings.TrimSpace(s.cfg.ForwardWS.URL)
-	}
-	return strings.TrimSpace(s.cfg.WSURL)
+	return strings.TrimSpace(s.cfg.ForwardWS.URL)
 }
 
 func (s *Shell) transportEndpoint(transport TransportKey) string {

@@ -528,10 +528,10 @@ func TestExecuteLoggerWriteAppliesRateLimit(t *testing.T) {
 
 	buffer := &bytes.Buffer{}
 	application := newTestAppState(config.Config{
-		Auth: config.AuthConfig{
+		Permission: config.PermissionConfig{
 			AutoGrantCapabilities: []string{"logger.write"},
 		},
-		Logging: config.LoggingConfig{
+		Log: config.LogConfig{
 			RateLimitPerPlugin: "1/1h",
 		},
 	}, slog.New(slog.NewJSONHandler(buffer, nil)))
@@ -547,7 +547,7 @@ func TestExecuteLoggerWriteAppliesRateLimit(t *testing.T) {
 		nil,
 		nil,
 		nil,
-		newPluginLogLimiter(config.Config{Logging: config.LoggingConfig{RateLimitPerPlugin: "1/1h"}}),
+		newPluginLogLimiter(config.Config{Log: config.LogConfig{RateLimitPerPlugin: "1/1h"}}),
 		nil,
 	)
 
@@ -672,7 +672,7 @@ func TestExecuteConfigReadWriteRoundTrip(t *testing.T) {
 	}
 
 	application := newTestAppState(config.Config{
-		Auth: config.AuthConfig{
+		Permission: config.PermissionConfig{
 			AutoGrantCapabilities: []string{"config.read", "config.write"},
 		},
 	}, slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)))
@@ -755,7 +755,7 @@ func TestExecuteConfigWriteDispatchesConfigChanged(t *testing.T) {
 
 	dispatcher := dispatch.New(slog.Default(), nil, nil, 16)
 	application := newTestAppState(config.Config{
-		Auth: config.AuthConfig{
+		Permission: config.PermissionConfig{
 			AutoGrantCapabilities: []string{"config.write"},
 		},
 	}, slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)))
@@ -835,7 +835,7 @@ func TestExecuteGovernanceActionsRoundTrip(t *testing.T) {
 	defer store.Close()
 
 	application := newTestAppState(config.Config{
-		Auth: config.AuthConfig{
+		Permission: config.PermissionConfig{
 			AutoGrantCapabilities: []string{
 				"governance.blacklist.read",
 				"governance.blacklist.write",
@@ -966,7 +966,7 @@ func TestExecuteGovernanceWritePublishesGovernanceChanged(t *testing.T) {
 	defer store.Close()
 
 	application := newTestAppState(config.Config{
-		Auth: config.AuthConfig{
+		Permission: config.PermissionConfig{
 			AutoGrantCapabilities: []string{"governance.blacklist.write"},
 		},
 	}, slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)))
@@ -1033,7 +1033,7 @@ func TestExecuteSchedulerCreateUpsertDoesNotWriteManagementLog(t *testing.T) {
 	}
 
 	application := newTestAppState(config.Config{
-		Auth: config.AuthConfig{
+		Permission: config.PermissionConfig{
 			AutoGrantCapabilities: []string{"scheduler.create"},
 		},
 	}, slog.New(slog.NewTextHandler(buffer, nil)))
@@ -1125,7 +1125,7 @@ func TestExecuteExposeWebhookRegistersGateway(t *testing.T) {
 			Host: "127.0.0.1",
 			Port: 8080,
 		},
-		Auth: config.AuthConfig{
+		Permission: config.PermissionConfig{
 			AutoGrantCapabilities: []string{"event.expose_webhook"},
 		},
 	}, slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)))
@@ -1287,7 +1287,7 @@ func TestExecuteRenderImageReturnsArtifact(t *testing.T) {
 
 	renderRoot := filepath.Join(t.TempDir(), "render")
 	application := newTestAppState(config.Config{
-		Auth: config.AuthConfig{
+		Permission: config.PermissionConfig{
 			AutoGrantCapabilities: []string{"render.image"},
 		},
 	}, slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)))
@@ -1342,7 +1342,7 @@ func TestExecuteRenderImageInjectsPluginFooter(t *testing.T) {
 	renderRoot := filepath.Join(t.TempDir(), "render")
 	runner := &captureRenderRunner{}
 	application := newTestAppState(config.Config{
-		Auth: config.AuthConfig{
+		Permission: config.PermissionConfig{
 			AutoGrantCapabilities: []string{"render.image"},
 		},
 	}, slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)))
@@ -1410,7 +1410,7 @@ func TestExecuteRenderImageResolvesOwnPluginTemplateShortID(t *testing.T) {
 	}
 
 	application := newTestAppState(config.Config{
-		Auth: config.AuthConfig{
+		Permission: config.PermissionConfig{
 			AutoGrantCapabilities: []string{"render.image"},
 		},
 	}, slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)))
@@ -1481,7 +1481,7 @@ func TestExecuteRenderImageRejectsOtherPluginTemplate(t *testing.T) {
 	}
 
 	application := newTestAppState(config.Config{
-		Auth: config.AuthConfig{
+		Permission: config.PermissionConfig{
 			AutoGrantCapabilities: []string{"render.image"},
 		},
 	}, slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)))
@@ -1520,7 +1520,7 @@ func TestExecuteRenderImageRejectsUnknownOtherPluginTemplate(t *testing.T) {
 		t.Fatalf("resolve repo root: %v", err)
 	}
 	application := newTestAppState(config.Config{
-		Auth: config.AuthConfig{
+		Permission: config.PermissionConfig{
 			AutoGrantCapabilities: []string{"render.image"},
 		},
 	}, slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)))
@@ -1562,7 +1562,7 @@ func TestExecuteRenderImageInjectsGroupIdentityFromParentEvent(t *testing.T) {
 		Admin: config.AdminConfig{
 			SuperAdmins: []string{"30001"},
 		},
-		Auth: config.AuthConfig{
+		Permission: config.PermissionConfig{
 			AutoGrantCapabilities: []string{"render.image"},
 		},
 	}, slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)))
@@ -1653,7 +1653,7 @@ func TestExecuteRenderImageInjectsPrivateIdentityWithoutGroup(t *testing.T) {
 		t.Fatalf("resolve repo root: %v", err)
 	}
 	application := newTestAppState(config.Config{
-		Auth: config.AuthConfig{
+		Permission: config.PermissionConfig{
 			AutoGrantCapabilities: []string{"render.image"},
 		},
 	}, slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)))
@@ -1736,7 +1736,7 @@ func TestExecuteRenderImageKeepsPrivateSuperAdminBadge(t *testing.T) {
 		Admin: config.AdminConfig{
 			SuperAdmins: []string{"30002"},
 		},
-		Auth: config.AuthConfig{
+		Permission: config.PermissionConfig{
 			AutoGrantCapabilities: []string{"render.image"},
 		},
 	}, slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)))
@@ -1807,7 +1807,7 @@ func TestExecuteRenderImageAppliesIdentityBadgeRulesToStatusPanel(t *testing.T) 
 		Admin: config.AdminConfig{
 			SuperAdmins: []string{"30005"},
 		},
-		Auth: config.AuthConfig{
+		Permission: config.PermissionConfig{
 			AutoGrantCapabilities: []string{"render.image"},
 		},
 	}, slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)))
@@ -1936,7 +1936,7 @@ func TestExecuteRenderImageLeavesNonIdentityTemplateDataUnchanged(t *testing.T) 
 	renderRoot := filepath.Join(t.TempDir(), "render")
 	runner := &captureRenderRunner{}
 	application := newTestAppState(config.Config{
-		Auth: config.AuthConfig{
+		Permission: config.PermissionConfig{
 			AutoGrantCapabilities: []string{"render.image"},
 		},
 	}, slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)))

@@ -12,8 +12,6 @@ import (
 
 	"github.com/coder/websocket"
 	"github.com/coder/websocket/wsjson"
-
-	"github.com/RayleaBot/RayleaBot/server/internal/config"
 )
 
 func TestGetLoginInfoReturnsIDAndNickname(t *testing.T) {
@@ -69,9 +67,7 @@ func TestGetLoginInfoReturnsIDAndNickname(t *testing.T) {
 	}))
 	defer server.Close()
 
-	shell := newTestShell(config.OneBotConfig{
-		WSURL: wsURL(server.URL),
-	}, shellDeps{
+	shell := newTestShell(oneBotForwardWS(wsURL(server.URL)), shellDeps{
 		connectTimeout: 75 * time.Millisecond,
 		sleep:          blockingSleep,
 	})
@@ -143,9 +139,7 @@ func TestGetLoginInfoReturnsErrorOnFailedResponse(t *testing.T) {
 	}))
 	defer server.Close()
 
-	shell := newTestShell(config.OneBotConfig{
-		WSURL: wsURL(server.URL),
-	}, shellDeps{
+	shell := newTestShell(oneBotForwardWS(wsURL(server.URL)), shellDeps{
 		connectTimeout: 75 * time.Millisecond,
 		sleep:          blockingSleep,
 	})
@@ -224,9 +218,7 @@ func TestGetVersionInfoReturnsImplementationMetadata(t *testing.T) {
 	}))
 	defer server.Close()
 
-	shell := newShell(config.OneBotConfig{
-		WSURL: wsURL(server.URL),
-	}, slog.New(slog.NewJSONHandler(io.Discard, nil)), shellDeps{
+	shell := newShell(oneBotForwardWS(wsURL(server.URL)), defaultAdapterConfig(), slog.New(slog.NewJSONHandler(io.Discard, nil)), shellDeps{
 		connectTimeout:  75 * time.Millisecond,
 		sleep:           blockingSleep,
 		skipRuntimeInfo: true,
@@ -301,9 +293,7 @@ func TestGetVersionInfoReturnsErrorOnFailedResponse(t *testing.T) {
 	}))
 	defer server.Close()
 
-	shell := newShell(config.OneBotConfig{
-		WSURL: wsURL(server.URL),
-	}, slog.New(slog.NewJSONHandler(io.Discard, nil)), shellDeps{
+	shell := newShell(oneBotForwardWS(wsURL(server.URL)), defaultAdapterConfig(), slog.New(slog.NewJSONHandler(io.Discard, nil)), shellDeps{
 		connectTimeout:  75 * time.Millisecond,
 		sleep:           blockingSleep,
 		skipRuntimeInfo: true,
@@ -389,9 +379,7 @@ func TestGetGroupMemberInfoReturnsRoleAndNames(t *testing.T) {
 	}))
 	defer server.Close()
 
-	shell := newTestShell(config.OneBotConfig{
-		WSURL: wsURL(server.URL),
-	}, shellDeps{
+	shell := newTestShell(oneBotForwardWS(wsURL(server.URL)), shellDeps{
 		connectTimeout: 75 * time.Millisecond,
 		sleep:          blockingSleep,
 	})
@@ -470,9 +458,7 @@ func TestGetGroupMemberInfoSanitizesUnsafeTextFields(t *testing.T) {
 	}))
 	defer server.Close()
 
-	shell := newTestShell(config.OneBotConfig{
-		WSURL: wsURL(server.URL),
-	}, shellDeps{
+	shell := newTestShell(oneBotForwardWS(wsURL(server.URL)), shellDeps{
 		connectTimeout: 75 * time.Millisecond,
 		sleep:          blockingSleep,
 	})
@@ -554,9 +540,7 @@ func TestGetGroupInfoReturnsGroupName(t *testing.T) {
 	}))
 	defer server.Close()
 
-	shell := newTestShell(config.OneBotConfig{
-		WSURL: wsURL(server.URL),
-	}, shellDeps{
+	shell := newTestShell(oneBotForwardWS(wsURL(server.URL)), shellDeps{
 		connectTimeout: 75 * time.Millisecond,
 		sleep:          blockingSleep,
 	})
@@ -627,9 +611,7 @@ func TestGetGroupInfoSanitizesUnsafeGroupName(t *testing.T) {
 	}))
 	defer server.Close()
 
-	shell := newTestShell(config.OneBotConfig{
-		WSURL: wsURL(server.URL),
-	}, shellDeps{
+	shell := newTestShell(oneBotForwardWS(wsURL(server.URL)), shellDeps{
 		connectTimeout: 75 * time.Millisecond,
 		sleep:          blockingSleep,
 	})
@@ -704,9 +686,7 @@ func TestGetStrangerInfoReturnsNickname(t *testing.T) {
 	}))
 	defer server.Close()
 
-	shell := newTestShell(config.OneBotConfig{
-		WSURL: wsURL(server.URL),
-	}, shellDeps{
+	shell := newTestShell(oneBotForwardWS(wsURL(server.URL)), shellDeps{
 		connectTimeout: 75 * time.Millisecond,
 		sleep:          blockingSleep,
 	})
@@ -777,9 +757,7 @@ func TestGetStrangerInfoSanitizesUnsafeNickname(t *testing.T) {
 	}))
 	defer server.Close()
 
-	shell := newTestShell(config.OneBotConfig{
-		WSURL: wsURL(server.URL),
-	}, shellDeps{
+	shell := newTestShell(oneBotForwardWS(wsURL(server.URL)), shellDeps{
 		connectTimeout: 75 * time.Millisecond,
 		sleep:          blockingSleep,
 	})
@@ -809,9 +787,7 @@ func TestCallAPIReturnsErrorWhenNotConnected(t *testing.T) {
 
 	t.Parallel()
 
-	shell := newTestShell(config.OneBotConfig{
-		WSURL: "ws://127.0.0.1:1",
-	}, shellDeps{
+	shell := newTestShell(oneBotForwardWS("ws://127.0.0.1:1"), shellDeps{
 		connectTimeout: 10 * time.Millisecond,
 		sleep:          blockingSleep,
 	})

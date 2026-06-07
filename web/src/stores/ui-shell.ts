@@ -18,11 +18,6 @@ export interface ShellTabItem {
   title: string
 }
 
-interface LegacyPersistedShellState {
-  siderCollapsed?: boolean
-  themeMode?: ThemeMode
-}
-
 interface PersistedShellState {
   preferences?: Partial<LayoutPreferences>
   siderCollapsed?: boolean
@@ -64,24 +59,18 @@ function normalizePersistedState(value: unknown): PersistedShellState {
     }
   }
 
-  if ('version' in value && value.version === 2) {
-    const nextValue = value as Partial<PersistedShellState>
+  if (!('version' in value) || value.version !== 2) {
     return {
       version: 2,
-      preferences: normalizeLayoutPreferences(nextValue.preferences),
-      siderCollapsed: Boolean(nextValue.siderCollapsed),
-      tabs: normalizeTabs(nextValue.tabs),
     }
   }
 
-  const legacyValue = value as LegacyPersistedShellState
+  const nextValue = value as Partial<PersistedShellState>
   return {
     version: 2,
-    preferences: normalizeLayoutPreferences({
-      themeMode: legacyValue.themeMode ?? defaultLayoutPreferences.themeMode,
-    }),
-    siderCollapsed: Boolean(legacyValue.siderCollapsed),
-    tabs: [],
+    preferences: normalizeLayoutPreferences(nextValue.preferences),
+    siderCollapsed: Boolean(nextValue.siderCollapsed),
+    tabs: normalizeTabs(nextValue.tabs),
   }
 }
 
@@ -107,7 +96,7 @@ function normalizeTabs(value: unknown): ShellTabItem[] {
       continue
     }
 
-    nextTabs.push(normalizeLegacyTab({
+    nextTabs.push({
       affix: Boolean(tab.affix),
       fullPath: tab.fullPath,
       icon: typeof tab.icon === 'string' && tab.icon ? tab.icon : undefined,
@@ -115,26 +104,10 @@ function normalizeTabs(value: unknown): ShellTabItem[] {
       name: tab.name,
       path: tab.path,
       title: tab.title,
-    }))
+    })
   }
 
   return dedupeTabs(nextTabs)
-}
-
-function normalizeLegacyTab(tab: ShellTabItem): ShellTabItem {
-  if (tab.name !== 'governance' && tab.path !== '/governance' && tab.fullPath !== '/governance') {
-    return tab
-  }
-
-  return {
-    ...tab,
-    fullPath: '/permission-policy',
-    icon: 'permission-policy',
-    keepAlive: true,
-    name: 'permission-policy',
-    path: '/permission-policy',
-    title: tab.title || '权限策略',
-  }
 }
 
 function dedupeTabs(items: ShellTabItem[]) {

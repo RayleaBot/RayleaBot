@@ -20,14 +20,6 @@ export function resolveStartProfile(env = process.env) {
   if (explicitProfile) {
     return assertKnownProfile(explicitProfile);
   }
-
-  const legacyWebMode = env.RAYLEA_START_WEB_MODE?.trim().toLowerCase();
-  if (legacyWebMode === "build") {
-    return BUILD_PROFILE;
-  }
-  if (legacyWebMode && legacyWebMode !== "dev") {
-    throw new Error(`Unsupported RAYLEA_START_WEB_MODE: ${env.RAYLEA_START_WEB_MODE}`);
-  }
   return WEB_DEV_PROFILE;
 }
 

@@ -11,31 +11,30 @@ function jsonResponse(body: unknown, status = 200) {
   })
 }
 
-function renderPreviewRunningTask(): TaskSummary {
+function runtimeBootstrapRunningTask(): TaskSummary {
   return {
-    task_id: 'task_render_preview_0001',
-    task_type: 'render.preview',
+    task_id: 'task_runtime_bootstrap_0001',
+    task_type: 'runtime.bootstrap',
     status: 'running',
     progress: 90,
-    summary: '生成图片产物',
+    summary: '准备运行环境',
     started_at: '2026-04-01T15:21:43Z',
   }
 }
 
-function renderPreviewSucceededTask(): TaskSummary {
+function runtimeBootstrapSucceededTask(): TaskSummary {
   return {
-    task_id: 'task_render_preview_0001',
-    task_type: 'render.preview',
+    task_id: 'task_runtime_bootstrap_0001',
+    task_type: 'runtime.bootstrap',
     status: 'succeeded',
     progress: 100,
-    summary: '图片预览已生成',
+    summary: '运行环境已准备',
     started_at: '2026-04-01T15:21:43Z',
     finished_at: '2026-04-01T15:21:44Z',
     result: {
-      summary: '图片预览已生成',
+      summary: '运行环境已准备',
       details: {
-        artifact_id: 'render_preview_0001.png',
-        image_url: '/api/system/render/artifacts/render_preview_0001.png',
+        resource_count: 2,
       },
     },
   }
@@ -55,14 +54,14 @@ describe('tasks store', () => {
     const store = useTasksStore()
     const pending = store.fetchList()
 
-    store.upsert(renderPreviewSucceededTask())
-    resolveFetch?.(jsonResponse({ items: [renderPreviewRunningTask()] }))
+    store.upsert(runtimeBootstrapSucceededTask())
+    resolveFetch?.(jsonResponse({ items: [runtimeBootstrapRunningTask()] }))
     await pending
 
     expect(store.items).toHaveLength(1)
     expect(store.items[0]?.status).toBe('succeeded')
     expect(store.items[0]?.progress).toBe(100)
-    expect(store.items[0]?.result?.details?.image_url).toBe('/api/system/render/artifacts/render_preview_0001.png')
+    expect(store.items[0]?.result?.details?.resource_count).toBe(2)
   })
 
   it('keeps a newer terminal snapshot when a stale task detail response resolves later', async () => {
@@ -72,15 +71,15 @@ describe('tasks store', () => {
     })))
 
     const store = useTasksStore()
-    const pending = store.fetchDetail('task_render_preview_0001')
+    const pending = store.fetchDetail('task_runtime_bootstrap_0001')
 
-    store.upsert(renderPreviewSucceededTask())
-    resolveFetch?.(jsonResponse({ task: renderPreviewRunningTask() }))
+    store.upsert(runtimeBootstrapSucceededTask())
+    resolveFetch?.(jsonResponse({ task: runtimeBootstrapRunningTask() }))
     const task = await pending
 
     expect(task.status).toBe('succeeded')
     expect(store.currentTask?.status).toBe('succeeded')
-    expect(store.currentTask?.result?.summary).toBe('图片预览已生成')
+    expect(store.currentTask?.result?.summary).toBe('运行环境已准备')
     expect(store.currentTask?.finished_at).toBe('2026-04-01T15:21:44Z')
   })
 
@@ -95,10 +94,10 @@ describe('tasks store', () => {
       finished_at: '2026-04-01T15:25:00Z',
     })
     store.upsert({
-      task_id: 'task_render_preview_0001',
-      task_type: 'render.preview',
+      task_id: 'task_runtime_bootstrap_0001',
+      task_type: 'runtime.bootstrap',
       status: 'running',
-      summary: '图片预览生成中',
+      summary: '准备运行环境',
       started_at: '2026-04-01T15:24:00Z',
     })
     store.upsert({
@@ -111,7 +110,7 @@ describe('tasks store', () => {
 
     expect(store.sortedItems.map((task) => task.task_id)).toEqual([
       'task_backup_0001',
-      'task_render_preview_0001',
+      'task_runtime_bootstrap_0001',
       'task_plugin_install_0001',
     ])
   })

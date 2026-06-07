@@ -164,10 +164,7 @@ func currentAutoGrantCapabilities(v *pluginGrantView) []string {
 	if v == nil || v.state == nil {
 		return nil
 	}
-	if len(v.state.Config.Permission.AutoGrantCapabilities) > 0 {
-		return append([]string(nil), v.state.Config.Permission.AutoGrantCapabilities...)
-	}
-	return append([]string(nil), v.state.Config.Auth.AutoGrantCapabilities...)
+	return append([]string(nil), v.state.Config.Permission.AutoGrantCapabilities...)
 }
 
 func (v *pluginGrantView) storageRootGranted(ctx context.Context, pluginID, root string) bool {

@@ -10,11 +10,10 @@ const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 const repoRoot = path.resolve(__dirname, '..', '..', '..')
 const exampleConfigPanelRoot = path.join(repoRoot, 'examples', 'plugins', 'example-config-panel')
-const previewArtifactBytes = Buffer.from(
+const externalPreviewImageBytes = Buffer.from(
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO2W4n8AAAAASUVORK5CYII=',
   'base64',
 )
-const externalPreviewImageBytes = previewArtifactBytes
 const externalPreviewFontBytes = await readFile(
   path.join(repoRoot, 'templates', 'fortune.card', 'assets', 'fonts', 'lxgwwenkai-medium', 'e8f52c41386b1b7731acfccb8c1a8c52.woff2'),
 )
@@ -41,18 +40,15 @@ const fixtures = {
   protocolCompatibility: await readFixture('fixtures/web-api/ok.protocol-onebot11-compatibility.yaml'),
   logsList: await readFixture('fixtures/web-api/ok.logs-list-response.yaml'),
   logDetail: await readFixture('fixtures/web-api/ok.log-detail-response.yaml'),
-  logDetailLegacy: await readFixture('fixtures/web-api/edge.log-detail-legacy-empty-details.yaml'),
   logDetailNotFound: await readFixture('fixtures/web-api/edge.log-detail-not-found.yaml'),
   tasksList: await readFixture('fixtures/web-api/ok.tasks-list-response.yaml'),
   taskDetail: await readFixture('fixtures/web-api/ok.task-detail-response.yaml'),
   taskDetailSucceededInstall: await readFixture('fixtures/web-api/ok.task-detail-succeeded-install.yaml'),
-  taskDetailSucceededRenderPreview: await readFixture('fixtures/web-api/ok.task-detail-succeeded-render-preview.yaml'),
   taskDetailFailedInstallScriptBlocked: await readFixture('fixtures/web-api/edge.task-detail-failed-install-script-blocked.yaml'),
   taskCancel: await readFixture('fixtures/web-api/ok.task-cancel-accepted.yaml'),
   systemStatus: await readFixture('fixtures/web-api/ok.system-status.yaml'),
   systemShutdown: await readFixture('fixtures/web-api/ok.system-shutdown.yaml'),
   systemBackupAccepted: await readFixture('fixtures/web-api/ok.system-backup-accepted.yaml'),
-  systemRenderPreviewAccepted: await readFixture('fixtures/web-api/ok.system-render-preview-accepted.yaml'),
   renderTemplatesList: await readFixture('fixtures/web-api/ok.system-render-templates-list-response.yaml'),
   renderTemplateDetail: await readFixture('fixtures/web-api/ok.system-render-template-detail-response.yaml'),
   renderTemplateNotFound: await readFixture('fixtures/web-api/invalid.system-render-template-not-found.yaml'),
@@ -122,8 +118,6 @@ function baseState() {
     governanceCommandPolicy: structuredClone(fixtures.governanceCommandPolicy.response.body),
     renderTemplates: createRenderTemplateState(),
     schedulerJobs: structuredClone(fixtures.schedulerJobsList.response.body.items),
-    renderPreviewSequence: 1,
-    renderPreviewTasks: {},
     grants: {
       weather: structuredClone(fixtures.pluginGrantsList.response.body.items),
       'example-config-panel': [
@@ -349,61 +343,6 @@ function escapeHTML(value) {
     .replaceAll("'", '&#39;')
 }
 
-function nextRenderPreviewTaskSequence() {
-  const sequence = state.renderPreviewSequence
-  state.renderPreviewSequence += 1
-  return sequence
-}
-
-function buildRenderPreviewDetail(payload = {}) {
-  const sequence = nextRenderPreviewTaskSequence()
-  const sequenceText = String(sequence).padStart(4, '0')
-  const templateId = typeof payload.template === 'string' && payload.template.trim()
-    ? payload.template.trim()
-    : 'unknown-template'
-  const theme = typeof payload.theme === 'string' && payload.theme.trim()
-    ? payload.theme.trim()
-    : 'default'
-  const output = payload.output === 'jpeg' ? 'jpeg' : 'png'
-  const taskId = `task_render_preview_${sequenceText}`
-  const artifactId = `render_preview_${sequenceText}.${output}`
-  const baseTime = Date.parse('2026-04-22T10:00:00Z') + sequence * 1000
-  const startedAt = new Date(baseTime).toISOString()
-  const finishedAt = new Date(baseTime + 800).toISOString()
-
-  return {
-    task_id: taskId,
-    task_type: 'render.preview',
-    status: 'succeeded',
-    progress: 100,
-    summary: `渲染 ${templateId} 预览已完成`,
-    started_at: startedAt,
-    finished_at: finishedAt,
-    result: {
-      summary: '渲染预览已生成',
-      details: {
-        artifact_id: artifactId,
-        image_url: `/api/system/render/artifacts/${artifactId}`,
-        mime: output === 'jpeg' ? 'image/jpeg' : 'image/png',
-        cache_key: `${templateId}:${theme}:${output}:${sequenceText}`,
-        template: templateId,
-        theme,
-        from_cache: false,
-      },
-    },
-  }
-}
-
-function createRenderPreviewTask(payload = {}) {
-  const task = buildRenderPreviewDetail(payload)
-  state.renderPreviewTasks[task.task_id] = structuredClone(task)
-  state.tasks = [
-    taskSummary(task.task_id, task.task_type, task.summary),
-    ...state.tasks.filter((item) => item.task_id !== task.task_id),
-  ]
-  return task
-}
-
 const configRestartRequiredFields = new Set([
   'admin.max_sessions',
   'admin.session_ttl_days',
@@ -464,7 +403,6 @@ function isPlainObject(value) {
 function createLogDetailMap() {
   return {
     [fixtures.logDetail.response.body.log_id]: structuredClone(fixtures.logDetail.response.body),
-    [fixtures.logDetailLegacy.response.body.log_id]: structuredClone(fixtures.logDetailLegacy.response.body),
     log_runtime_0001: {
       log_id: 'log_runtime_0001',
       timestamp: '2026-03-20T10:00:00Z',
@@ -1256,6 +1194,30 @@ const server = http.createServer(async (request, response) => {
     return
   }
 
+  if (pathname === '/__test/push-task' && request.method === 'POST') {
+    const payload = await parseBody(request)
+    if (!payload.task_id || !payload.task_type || !payload.status || !payload.summary) {
+      json(response, 400, errorEnvelope('platform.invalid_request', 'task payload is invalid', 'req_test_task_invalid'))
+      return
+    }
+
+    const task = {
+      task_id: String(payload.task_id),
+      task_type: String(payload.task_type),
+      status: String(payload.status),
+      progress: typeof payload.progress === 'number' ? payload.progress : undefined,
+      summary: String(payload.summary),
+      started_at: typeof payload.started_at === 'string' ? payload.started_at : '2026-04-22T10:00:00Z',
+      finished_at: typeof payload.finished_at === 'string' ? payload.finished_at : '2026-04-22T10:00:05Z',
+    }
+    state.tasks = [
+      task,
+      ...state.tasks.filter((item) => item.task_id !== task.task_id),
+    ]
+    json(response, 200, { ok: true })
+    return
+  }
+
   if (pathname === '/__test/network-online' && request.method === 'POST') {
     state.networkOffline = false
     json(response, 200, { ok: true })
@@ -1499,30 +1461,6 @@ const server = http.createServer(async (request, response) => {
     return
   }
 
-  if (pathname === '/api/system/render/preview' && request.method === 'POST') {
-    if (!requireAuth(request, response)) {
-      return
-    }
-
-    const payload = await parseBody(request)
-    const task = createRenderPreviewTask(payload)
-    json(response, fixtures.systemRenderPreviewAccepted.response.status, { task_id: task.task_id })
-    return
-  }
-
-  if (pathname.startsWith('/api/system/render/artifacts/') && request.method === 'GET') {
-    if (!requireAuth(request, response)) {
-      return
-    }
-
-    response.writeHead(200, {
-      'Content-Type': 'image/png',
-      'Cache-Control': 'no-store',
-    })
-    response.end(previewArtifactBytes)
-    return
-  }
-
   if (pathname === '/api/system/scheduler/jobs' && request.method === 'GET') {
     if (!requireAuth(request, response)) {
       return
@@ -1681,10 +1619,6 @@ const server = http.createServer(async (request, response) => {
     let task
     if (taskId === fixtures.taskDetailSucceededInstall.response.body.task.task_id) {
       task = structuredClone(fixtures.taskDetailSucceededInstall.response.body.task)
-    } else if (state.renderPreviewTasks[taskId]) {
-      task = structuredClone(state.renderPreviewTasks[taskId])
-    } else if (taskId === fixtures.taskDetailSucceededRenderPreview.response.body.task.task_id) {
-      task = structuredClone(fixtures.taskDetailSucceededRenderPreview.response.body.task)
     } else if (taskId === fixtures.taskDetailFailedInstallScriptBlocked.response.body.task.task_id) {
       task = structuredClone(fixtures.taskDetailFailedInstallScriptBlocked.response.body.task)
     } else {

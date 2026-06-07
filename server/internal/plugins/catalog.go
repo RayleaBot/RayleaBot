@@ -559,7 +559,7 @@ func defaultDisplayState(snapshot Snapshot) string {
 		return displayRemoved
 	}
 	if !snapshot.Valid || snapshot.RegistrationState != stateInstalled {
-		return projectDisplayState(snapshot)
+		return displayInvalid
 	}
 
 	switch snapshot.RuntimeState {

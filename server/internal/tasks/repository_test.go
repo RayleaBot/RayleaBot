@@ -209,7 +209,7 @@ func TestSQLiteRepository_Delete(t *testing.T) {
 	ctx := context.Background()
 	snapshot := Snapshot{
 		TaskID:   "task_del1",
-		TaskType: "db.migrate",
+		TaskType: "plugin.reload",
 		Status:   StatusSucceeded,
 		Summary:  "done",
 	}

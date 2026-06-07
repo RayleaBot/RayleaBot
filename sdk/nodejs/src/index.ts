@@ -44,9 +44,8 @@ export {
 } from './types.js';
 export { ActionError } from './protocol.js';
 
-type LegacyEventHandler = (event: EventBody, requestId: string) => void | Promise<void>;
 type ContextEventHandler = (ctx: PluginEventContext) => void | Promise<void>;
-type EventHandler = LegacyEventHandler | ContextEventHandler;
+type EventHandler = ContextEventHandler;
 type ConversationType = 'group' | 'private';
 type ProviderName = 'napcat' | 'luckylillia';
 
@@ -2330,11 +2329,7 @@ async function invokeHandler(
   event: EventBody,
   requestId: string,
 ): Promise<void> {
-  if (handler.length >= 2) {
-    await (handler as LegacyEventHandler)(event, requestId);
-    return;
-  }
-  await (handler as ContextEventHandler)(new PluginEventContext(plugin, event, requestId));
+  await handler(new PluginEventContext(plugin, event, requestId));
 }
 
 function formatErrorMessage(error: unknown): string {

@@ -61,7 +61,7 @@ func TestRenderTemplateHandlersExposePreviewWorkspaceOnly(t *testing.T) {
 	}
 	for _, removedField := range []string{"files", "current_revision", "last_validation", "current_revision_id"} {
 		if _, ok := templateBody[removedField]; ok {
-			t.Fatalf("unexpected legacy detail field %q in %#v", removedField, templateBody)
+			t.Fatalf("unexpected removed detail field %q in %#v", removedField, templateBody)
 		}
 	}
 }

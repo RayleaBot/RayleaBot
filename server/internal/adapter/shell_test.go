@@ -54,12 +54,7 @@ func TestShellReachesConnectedAfterReadyFrame(t *testing.T) {
 	}))
 	defer server.Close()
 
-	shell := newTestShell(config.OneBotConfig{
-		WSURL: wsURL(server.URL),
-		ForwardWS: config.OneBotTransportConfig{
-			AccessToken: "secret-token",
-		},
-	}, shellDeps{
+	shell := newTestShell(oneBotForwardWSWithToken(wsURL(server.URL), "secret-token"), shellDeps{
 		connectTimeout: 75 * time.Millisecond,
 		sleep:          blockingSleep,
 	})
@@ -106,12 +101,7 @@ func TestShellAuthFailureStopsAtAuthFailed(t *testing.T) {
 	}))
 	defer server.Close()
 
-	shell := newTestShell(config.OneBotConfig{
-		WSURL: wsURL(server.URL),
-		ForwardWS: config.OneBotTransportConfig{
-			AccessToken: "bad-token",
-		},
-	}, shellDeps{
+	shell := newTestShell(oneBotForwardWSWithToken(wsURL(server.URL), "bad-token"), shellDeps{
 		connectTimeout: 50 * time.Millisecond,
 		sleep:          blockingSleep,
 	})
@@ -252,9 +242,7 @@ func TestShellReloadReconnectsWithNewForwardTransportAndKeepsSendUsable(t *testi
 	}))
 	defer secondServer.Close()
 
-	shell := newTestShell(config.OneBotConfig{
-		WSURL: wsURL(firstServer.URL),
-	}, shellDeps{
+	shell := newTestShell(oneBotForwardWS(wsURL(firstServer.URL)), shellDeps{
 		connectTimeout: 75 * time.Millisecond,
 		sleep:          blockingSleep,
 	})
@@ -268,9 +256,7 @@ func TestShellReloadReconnectsWithNewForwardTransportAndKeepsSendUsable(t *testi
 		t.Fatalf("unexpected initial connection count: got %d want 1", firstServerConnections.Load())
 	}
 
-	if err := shell.Reload(config.OneBotConfig{
-		WSURL: wsURL(secondServer.URL),
-	}); err != nil {
+	if err := shell.Reload(oneBotForwardWS(wsURL(secondServer.URL)), defaultAdapterConfig()); err != nil {
 		t.Fatalf("Reload failed: %v", err)
 	}
 
@@ -362,9 +348,7 @@ func TestShellWaitsForReadyFrameWhileTrafficContinues(t *testing.T) {
 	}))
 	defer server.Close()
 
-	shell := newTestShell(config.OneBotConfig{
-		WSURL: wsURL(server.URL),
-	}, shellDeps{
+	shell := newTestShell(oneBotForwardWS(wsURL(server.URL)), shellDeps{
 		connectTimeout: 150 * time.Millisecond,
 		sleep:          blockingSleep,
 	})
@@ -424,9 +408,7 @@ func TestShellHeartbeatUpdatesIntakeObservability(t *testing.T) {
 	}))
 	defer server.Close()
 
-	shell := newTestShell(config.OneBotConfig{
-		WSURL: wsURL(server.URL),
-	}, shellDeps{
+	shell := newTestShell(oneBotForwardWS(wsURL(server.URL)), shellDeps{
 		connectTimeout: 75 * time.Millisecond,
 		sleep:          blockingSleep,
 	})
@@ -494,9 +476,7 @@ func TestShellTreatsLifecycleConnectAsReadyAndKeepsSessionOpen(t *testing.T) {
 	}))
 	defer server.Close()
 
-	shell := newTestShell(config.OneBotConfig{
-		WSURL: wsURL(server.URL),
-	}, shellDeps{
+	shell := newTestShell(oneBotForwardWS(wsURL(server.URL)), shellDeps{
 		connectTimeout: 75 * time.Millisecond,
 		sleep:          blockingSleep,
 	})
@@ -552,9 +532,7 @@ func TestShellAcceptsBinaryReadyFrame(t *testing.T) {
 	}))
 	defer server.Close()
 
-	shell := newTestShell(config.OneBotConfig{
-		WSURL: wsURL(server.URL),
-	}, shellDeps{
+	shell := newTestShell(oneBotForwardWS(wsURL(server.URL)), shellDeps{
 		connectTimeout: 75 * time.Millisecond,
 		sleep:          blockingSleep,
 	})
@@ -616,9 +594,7 @@ func TestShellInvalidFrameIncrementsInvalidCounter(t *testing.T) {
 	}))
 	defer server.Close()
 
-	shell := newTestShell(config.OneBotConfig{
-		WSURL: wsURL(server.URL),
-	}, shellDeps{
+	shell := newTestShell(oneBotForwardWS(wsURL(server.URL)), shellDeps{
 		connectTimeout: 75 * time.Millisecond,
 		sleep:          blockingSleep,
 	})
@@ -690,9 +666,7 @@ func TestShellUnknownFrameIsClassifiedConservatively(t *testing.T) {
 	}))
 	defer server.Close()
 
-	shell := newTestShell(config.OneBotConfig{
-		WSURL: wsURL(server.URL),
-	}, shellDeps{
+	shell := newTestShell(oneBotForwardWS(wsURL(server.URL)), shellDeps{
 		connectTimeout: 500 * time.Millisecond,
 		sleep:          blockingSleep,
 	})
@@ -769,9 +743,7 @@ func TestShellNonStringEchoDoesNotTriggerReconnect(t *testing.T) {
 	}))
 	defer server.Close()
 
-	shell := newTestShell(config.OneBotConfig{
-		WSURL: wsURL(server.URL),
-	}, shellDeps{
+	shell := newTestShell(oneBotForwardWS(wsURL(server.URL)), shellDeps{
 		connectTimeout: 500 * time.Millisecond,
 		sleep:          blockingSleep,
 	})
@@ -848,9 +820,7 @@ func TestShellBlankEchoDoesNotTriggerReconnect(t *testing.T) {
 	}))
 	defer server.Close()
 
-	shell := newTestShell(config.OneBotConfig{
-		WSURL: wsURL(server.URL),
-	}, shellDeps{
+	shell := newTestShell(oneBotForwardWS(wsURL(server.URL)), shellDeps{
 		connectTimeout: 500 * time.Millisecond,
 		sleep:          blockingSleep,
 	})
@@ -922,9 +892,7 @@ func TestShellEventFrameIsConsumedWithoutSideEffects(t *testing.T) {
 	}))
 	defer server.Close()
 
-	shell := newTestShell(config.OneBotConfig{
-		WSURL: wsURL(server.URL),
-	}, shellDeps{
+	shell := newTestShell(oneBotForwardWS(wsURL(server.URL)), shellDeps{
 		connectTimeout: 500 * time.Millisecond,
 		sleep:          blockingSleep,
 	})
@@ -982,9 +950,7 @@ func TestShellReconnectsWhenReadyFrameTimesOut(t *testing.T) {
 	}))
 	defer server.Close()
 
-	shell := newTestShell(config.OneBotConfig{
-		WSURL: wsURL(server.URL),
-	}, shellDeps{
+	shell := newTestShell(oneBotForwardWS(wsURL(server.URL)), shellDeps{
 		connectTimeout: 40 * time.Millisecond,
 		sleep:          blockingSleep,
 	})
@@ -1039,9 +1005,7 @@ func TestShellReconnectsAfterConnectionLoss(t *testing.T) {
 	}))
 	defer server.Close()
 
-	shell := newTestShell(config.OneBotConfig{
-		WSURL: wsURL(server.URL),
-	}, shellDeps{
+	shell := newTestShell(oneBotForwardWS(wsURL(server.URL)), shellDeps{
 		connectTimeout: 75 * time.Millisecond,
 		sleep:          blockingSleep,
 	})
@@ -1093,9 +1057,7 @@ func TestShellKeepsConnectionOpenWhenHeartbeatHasNotStartedAfterLifecycleEnable(
 	}))
 	defer server.Close()
 
-	shell := newTestShell(config.OneBotConfig{
-		WSURL: wsURL(server.URL),
-	}, shellDeps{
+	shell := newTestShell(oneBotForwardWS(wsURL(server.URL)), shellDeps{
 		connectTimeout: 40 * time.Millisecond,
 		sleep:          blockingSleep,
 	})
@@ -1149,9 +1111,7 @@ func TestShellReconnectsAfterHeartbeatTimeout(t *testing.T) {
 	}))
 	defer server.Close()
 
-	shell := newTestShell(config.OneBotConfig{
-		WSURL: wsURL(server.URL),
-	}, shellDeps{
+	shell := newTestShell(oneBotForwardWS(wsURL(server.URL)), shellDeps{
 		connectTimeout: 75 * time.Millisecond,
 		sleep:          blockingSleep,
 	})
@@ -1202,9 +1162,7 @@ func TestShellStopTransitionsToStopped(t *testing.T) {
 	}))
 	defer server.Close()
 
-	shell := newTestShell(config.OneBotConfig{
-		WSURL: wsURL(server.URL),
-	}, shellDeps{
+	shell := newTestShell(oneBotForwardWS(wsURL(server.URL)), shellDeps{
 		connectTimeout: 75 * time.Millisecond,
 		sleep:          blockingSleep,
 	})
@@ -1247,7 +1205,7 @@ func TestShellStopWaitsForReverseWebSocketAndStoppedLog(t *testing.T) {
 			Enabled: true,
 			URL:     "ws://127.0.0.1:8080/onebot/reverse",
 		},
-	}, logger, shellDeps{
+	}, defaultAdapterConfig(), logger, shellDeps{
 		connectTimeout: 75 * time.Millisecond,
 		sleep:          blockingSleep,
 	})
@@ -1402,9 +1360,7 @@ func TestShellSendMessageWritesSendMsgRequestAndReturnsMessageID(t *testing.T) {
 	}))
 	defer server.Close()
 
-	shell := newTestShell(config.OneBotConfig{
-		WSURL: wsURL(server.URL),
-	}, shellDeps{
+	shell := newTestShell(oneBotForwardWS(wsURL(server.URL)), shellDeps{
 		connectTimeout: 75 * time.Millisecond,
 		sleep:          blockingSleep,
 	})
@@ -1530,9 +1486,7 @@ func TestShellSendMessageReturnsAdapterSendFailed(t *testing.T) {
 	}))
 	defer server.Close()
 
-	shell := newTestShell(config.OneBotConfig{
-		WSURL: wsURL(server.URL),
-	}, shellDeps{
+	shell := newTestShell(oneBotForwardWS(wsURL(server.URL)), shellDeps{
 		connectTimeout: 75 * time.Millisecond,
 		sleep:          blockingSleep,
 	})
@@ -1616,9 +1570,7 @@ func TestShellSendReplyWritesReplySegmentRequestAndReturnsMessageID(t *testing.T
 	}))
 	defer server.Close()
 
-	shell := newTestShell(config.OneBotConfig{
-		WSURL: wsURL(server.URL),
-	}, shellDeps{
+	shell := newTestShell(oneBotForwardWS(wsURL(server.URL)), shellDeps{
 		connectTimeout: 75 * time.Millisecond,
 		sleep:          blockingSleep,
 	})
@@ -1740,9 +1692,7 @@ func TestShellSendMessageWritesRichSegmentArray(t *testing.T) {
 	}))
 	defer server.Close()
 
-	shell := newTestShell(config.OneBotConfig{
-		WSURL: wsURL(server.URL),
-	}, shellDeps{
+	shell := newTestShell(oneBotForwardWS(wsURL(server.URL)), shellDeps{
 		connectTimeout: 75 * time.Millisecond,
 		sleep:          blockingSleep,
 	})
@@ -1842,9 +1792,7 @@ func TestShellSendReplyMapsReplyTargetMissing(t *testing.T) {
 	}))
 	defer server.Close()
 
-	shell := newTestShell(config.OneBotConfig{
-		WSURL: wsURL(server.URL),
-	}, shellDeps{
+	shell := newTestShell(oneBotForwardWS(wsURL(server.URL)), shellDeps{
 		connectTimeout: 75 * time.Millisecond,
 		sleep:          blockingSleep,
 	})
@@ -1901,7 +1849,31 @@ func newTestShell(cfg config.OneBotConfig, deps shellDeps) *Shell {
 		}
 	}
 
-	return newShell(cfg, slog.New(slog.NewJSONHandler(io.Discard, nil)), deps)
+	return newShell(cfg, defaultAdapterConfig(), slog.New(slog.NewJSONHandler(io.Discard, nil)), deps)
+}
+
+func oneBotForwardWS(url string) config.OneBotConfig {
+	return oneBotForwardWSWithToken(url, "")
+}
+
+func oneBotForwardWSWithToken(url, accessToken string) config.OneBotConfig {
+	return config.OneBotConfig{
+		ForwardWS: config.OneBotTransportConfig{
+			Enabled:     true,
+			URL:         url,
+			AccessToken: accessToken,
+		},
+	}
+}
+
+func defaultAdapterConfig() config.AdapterConfig {
+	return config.AdapterConfig{
+		ConnectTimeoutSeconds:   15,
+		ReconnectInitialSeconds: 2,
+		ReconnectMultiplier:     2,
+		ReconnectMaxSeconds:     120,
+		ReconnectJitterRatio:    0.2,
+	}
 }
 
 func waitForState(t *testing.T, shell *Shell, want State, timeout time.Duration) {

@@ -21,8 +21,8 @@ response:
       target_core_version: 0.2.0
       source_config_schema_version: "2"
       target_config_schema_version: "2"
-      source_db_schema_version: "0014"
-      target_db_schema_version: "0014"
+      source_db_schema_version: "base-2026-06"
+      target_db_schema_version: "base-2026-06"
       skipped_plugins:
         - plugin_id: weather-pro
           version: 1.4.0

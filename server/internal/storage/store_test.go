@@ -2,10 +2,8 @@ package storage
 
 import (
 	"database/sql"
-	"io/fs"
 	"path/filepath"
 	"testing"
-	"testing/fstest"
 )
 
 func TestOpenBootstrapsSQLiteWithExpectedPragmas(t *testing.T) {
@@ -27,7 +25,6 @@ func TestOpenBootstrapsSQLiteWithExpectedPragmas(t *testing.T) {
 	assertPragmaString(t, store.Read, "journal_mode", "wal")
 	assertPragmaInt(t, store.Write, "busy_timeout", int(defaultBusyTimeout.Milliseconds()))
 	assertPragmaInt(t, store.Read, "busy_timeout", int(defaultBusyTimeout.Milliseconds()))
-	assertTableExists(t, store.Read, "schema_migrations")
 	assertTableExists(t, store.Read, "auth_bootstrap_state")
 	assertTableExists(t, store.Read, "admin_sessions")
 	assertTableExists(t, store.Read, "plugin_instances")
@@ -65,12 +62,13 @@ func TestOpenBootstrapsSQLiteWithExpectedPragmas(t *testing.T) {
 	assertIndexExists(t, store.Read, "idx_render_template_states_source")
 
 	tables := readTables(t, store.Read)
-	if len(tables) != 18 {
+	if len(tables) != 17 {
 		t.Fatalf("unexpected table set: %#v", tables)
 	}
+	assertTableMissing(t, store.Read, "schema_migrations")
 }
 
-func TestOpenAppliesMigrationsOnlyOnce(t *testing.T) {
+func TestOpenCanReopenCurrentSchemaDatabase(t *testing.T) {
 	t.Parallel()
 
 	databasePath := filepath.Join(t.TempDir(), "state.db")
@@ -80,142 +78,12 @@ func TestOpenAppliesMigrationsOnlyOnce(t *testing.T) {
 	second := mustOpenStore(t, databasePath)
 	defer second.Close()
 
-	var count int
-	if err := second.Read.QueryRow(`SELECT COUNT(*) FROM schema_migrations`).Scan(&count); err != nil {
-		t.Fatalf("count schema_migrations rows: %v", err)
-	}
-	want := expectedEmbeddedMigrationCount(t)
-	if count != want {
-		t.Fatalf("unexpected migration count: got %d want %d", count, want)
-	}
-}
-
-func TestLoadMigrationsRejectsDuplicateIDs(t *testing.T) {
-	t.Parallel()
-
-	_, err := loadMigrations(fstest.MapFS{
-		"0001_auth.sql": {Data: []byte("CREATE TABLE t1 (id INTEGER);")},
-		"0001_more.sql": {Data: []byte("CREATE TABLE t2 (id INTEGER);")},
-	})
-	if err == nil {
-		t.Fatalf("expected duplicate migration id error")
-	}
-}
-
-func TestOpenAcceptsEquivalentMigrationWithDifferentLineEndings(t *testing.T) {
-	t.Parallel()
-
-	databasePath := filepath.Join(t.TempDir(), "state.db")
-	lfMigrations := fstest.MapFS{
-		"0001_test.sql": {Data: []byte("CREATE TABLE test_items (\n\tid INTEGER PRIMARY KEY\n);\n")},
-	}
-	crlfMigrations := fstest.MapFS{
-		"0001_test.sql": {Data: []byte("CREATE TABLE test_items (\r\n\tid INTEGER PRIMARY KEY\r\n);\r\n")},
-	}
-
-	store := mustOpenStoreWithMigrations(t, databasePath, lfMigrations)
-	if err := store.Close(); err != nil {
-		t.Fatalf("close LF store: %v", err)
-	}
-
-	reopened, err := Open(databasePath, WithMigrationsFS(crlfMigrations))
-	if err != nil {
-		t.Fatalf("Open with CRLF-equivalent migration failed: %v", err)
-	}
-	t.Cleanup(func() {
-		if err := reopened.Close(); err != nil {
-			t.Fatalf("close CRLF store: %v", err)
-		}
-	})
-}
-
-func TestOpenAcceptsEquivalentMigrationWhenStoredChecksumWasCRLF(t *testing.T) {
-	t.Parallel()
-
-	databasePath := filepath.Join(t.TempDir(), "state.db")
-	lfMigrations := fstest.MapFS{
-		"0001_test.sql": {Data: []byte("CREATE TABLE test_items (\n\tid INTEGER PRIMARY KEY\n);\n")},
-	}
-	crlfMigrations := fstest.MapFS{
-		"0001_test.sql": {Data: []byte("CREATE TABLE test_items (\r\n\tid INTEGER PRIMARY KEY\r\n);\r\n")},
-	}
-
-	store := mustOpenStoreWithMigrations(t, databasePath, crlfMigrations)
-	if err := store.Close(); err != nil {
-		t.Fatalf("close CRLF store: %v", err)
-	}
-
-	reopened, err := Open(databasePath, WithMigrationsFS(lfMigrations))
-	if err != nil {
-		t.Fatalf("Open with LF-equivalent migration failed: %v", err)
-	}
-	t.Cleanup(func() {
-		if err := reopened.Close(); err != nil {
-			t.Fatalf("close LF store: %v", err)
-		}
-	})
-}
-
-func TestOpenUpgradesExistingAuthDatabaseToPluginStateTables(t *testing.T) {
-	t.Parallel()
-
-	authOnlyFS := readAuthOnlyMigrations(t)
-	databasePath := filepath.Join(t.TempDir(), "state.db")
-
-	store := mustOpenStoreWithMigrations(t, databasePath, authOnlyFS)
-	if _, err := store.Write.Exec(
-		`INSERT INTO auth_bootstrap_state (singleton_id, identifier, secret_digest, signing_key, initialized_at)
-		 VALUES (1, ?, ?, ?, ?)`,
-		"admin",
-		[]byte("digest"),
-		[]byte("signing-key"),
-		"2026-03-20T09:00:00Z",
-	); err != nil {
-		t.Fatalf("seed bootstrap state: %v", err)
-	}
-	if _, err := store.Write.Exec(
-		`INSERT INTO admin_sessions (session_id, subject, issued_at, expires_at)
-		 VALUES (?, ?, ?, ?)`,
-		"sess_1",
-		"admin",
-		"2026-03-20T09:00:00Z",
-		"2026-03-21T09:00:00Z",
-	); err != nil {
-		t.Fatalf("seed admin session: %v", err)
-	}
-	if err := store.Close(); err != nil {
-		t.Fatalf("close auth-only store: %v", err)
-	}
-
-	upgraded := mustOpenStore(t, databasePath)
-	defer upgraded.Close()
-
-	assertTableExists(t, upgraded.Read, "plugin_instances")
-	assertTableExists(t, upgraded.Read, "plugin_packages")
-
-	var migrationCount int
-	if err := upgraded.Read.QueryRow(`SELECT COUNT(*) FROM schema_migrations`).Scan(&migrationCount); err != nil {
-		t.Fatalf("count schema_migrations rows: %v", err)
-	}
-	wantMigrationCount := expectedEmbeddedMigrationCount(t)
-	if migrationCount != wantMigrationCount {
-		t.Fatalf("unexpected migration count after upgrade: got %d want %d", migrationCount, wantMigrationCount)
-	}
-
 	var bootstrapCount int
-	if err := upgraded.Read.QueryRow(`SELECT COUNT(*) FROM auth_bootstrap_state`).Scan(&bootstrapCount); err != nil {
+	if err := second.Read.QueryRow(`SELECT COUNT(*) FROM auth_bootstrap_state`).Scan(&bootstrapCount); err != nil {
 		t.Fatalf("count auth_bootstrap_state rows: %v", err)
 	}
-	if bootstrapCount != 1 {
-		t.Fatalf("unexpected bootstrap row count: got %d want 1", bootstrapCount)
-	}
-
-	var sessionCount int
-	if err := upgraded.Read.QueryRow(`SELECT COUNT(*) FROM admin_sessions`).Scan(&sessionCount); err != nil {
-		t.Fatalf("count admin_sessions rows: %v", err)
-	}
-	if sessionCount != 1 {
-		t.Fatalf("unexpected session row count: got %d want 1", sessionCount)
+	if bootstrapCount != 0 {
+		t.Fatalf("unexpected bootstrap row count: got %d want 0", bootstrapCount)
 	}
 }
 
@@ -301,43 +169,6 @@ func mustOpenStore(t *testing.T, path string) *Store {
 	return store
 }
 
-func mustOpenStoreWithMigrations(t *testing.T, path string, migrations fs.FS) *Store {
-	t.Helper()
-
-	store, err := Open(path, WithMigrationsFS(migrations))
-	if err != nil {
-		t.Fatalf("Open(%s) with custom migrations failed: %v", path, err)
-	}
-	return store
-}
-
-func readAuthOnlyMigrations(t *testing.T) fs.FS {
-	t.Helper()
-
-	script, err := fs.ReadFile(embeddedMigrations, "migrations/0001_auth_core.sql")
-	if err != nil {
-		t.Fatalf("read embedded 0001_auth_core.sql: %v", err)
-	}
-
-	return fstest.MapFS{
-		"0001_auth_core.sql": {Data: script},
-	}
-}
-
-func expectedEmbeddedMigrationCount(t *testing.T) int {
-	t.Helper()
-
-	migrationFS, err := fs.Sub(embeddedMigrations, "migrations")
-	if err != nil {
-		t.Fatalf("open embedded migrations: %v", err)
-	}
-	items, err := loadMigrations(migrationFS)
-	if err != nil {
-		t.Fatalf("load embedded migrations: %v", err)
-	}
-	return len(items)
-}
-
 func assertPragmaString(t *testing.T, db *sql.DB, name, want string) {
 	t.Helper()
 
@@ -371,6 +202,18 @@ func assertTableExists(t *testing.T, db *sql.DB, name string) {
 	}
 	if exists != 1 {
 		t.Fatalf("expected table %s to exist", name)
+	}
+}
+
+func assertTableMissing(t *testing.T, db *sql.DB, name string) {
+	t.Helper()
+
+	var exists int
+	if err := db.QueryRow(`SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = ?`, name).Scan(&exists); err != nil {
+		t.Fatalf("query sqlite_master for %s: %v", name, err)
+	}
+	if exists != 0 {
+		t.Fatalf("expected table %s to be absent", name)
 	}
 }
 

@@ -5,13 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMemoryHistory, createRouter } from 'vue-router'
 
 import TasksPage from '@/views/operations/TasksView.vue'
-import { apiDownload } from '@/lib/http'
 import { useTasksStore } from '@/stores/tasks'
-
-vi.mock('@/lib/http', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('@/lib/http')>()),
-  apiDownload: vi.fn(),
-}))
 
 describe('TasksPage', () => {
   function createTasksRouter() {
@@ -39,9 +33,6 @@ describe('TasksPage', () => {
       removeEventListener: vi.fn(),
       dispatchEvent: vi.fn(),
     })) as typeof window.matchMedia
-    window.URL.createObjectURL = vi.fn(() => 'blob:task-preview')
-    window.URL.revokeObjectURL = vi.fn()
-    vi.mocked(apiDownload).mockReset()
   })
 
   it('loads task detail from the route query', async () => {
@@ -89,96 +80,26 @@ describe('TasksPage', () => {
     expect(fetchListSpy).toHaveBeenCalledWith({ taskType: 'recovery.recheck' })
   })
 
-  it('renders render preview task results including the preview image', async () => {
+  it('renders task results as structured details', async () => {
     const router = createTasksRouter()
-    await router.push('/tasks?task_id=task_render_preview_0001')
+    await router.push('/tasks?task_id=task_backup_create_0001')
     await router.isReady()
 
     const store = useTasksStore()
     vi.spyOn(store, 'fetchList').mockResolvedValue(undefined)
-    vi.mocked(apiDownload).mockResolvedValue({
-      blob: new Blob(['preview'], { type: 'image/png' }),
-      filename: null,
-    })
     vi.spyOn(store, 'fetchDetail').mockImplementation(async () => {
       store.currentTask = {
-      task_id: 'task_render_preview_0001',
-      task_type: 'render.preview',
-      status: 'succeeded',
-      progress: 100,
-      summary: '图片预览已完成',
-      result: {
-        summary: '图片预览已生成',
-        details: {
-          image_url: '/api/system/render/artifacts/render_preview_0001.png',
-          mime: 'image/png',
-          template: 'help.menu',
-        },
-      },
-      }
-      return store.currentTask
-    })
-
-    const wrapper = mount(TasksPage, {
-      global: {
-        plugins: [Antd, router],
-      },
-    })
-
-    await flushPromises()
-
-    const bodyText = () => document.body.textContent ?? ''
-    expect(bodyText()).toContain('任务类型')
-    expect(bodyText()).toContain('图片预览')
-    expect(bodyText()).toContain('render.preview')
-    expect(bodyText()).toContain('图片预览已生成')
-    expect(apiDownload).toHaveBeenCalledWith(
-      '/api/system/render/artifacts/render_preview_0001.png',
-      expect.objectContaining({ signal: expect.any(AbortSignal) }),
-    )
-    const image = document.body.querySelector('img[alt="图片预览结果"]') as HTMLImageElement | null
-    expect(image).not.toBeNull()
-    expect(image!.getAttribute('src')).toBe('blob:task-preview')
-    expect(bodyText()).toContain('打开模板预览')
-
-    const templateButton = Array.from(document.body.querySelectorAll('button')).find(
-      (candidate) => candidate.textContent?.includes('打开模板预览'),
-    ) as HTMLButtonElement | undefined
-    expect(templateButton).toBeTruthy()
-    templateButton!.click()
-    await flushPromises()
-
-    expect(router.currentRoute.value.name).toBe('render-templates')
-    expect(router.currentRoute.value.params.templateId).toBe('help.menu')
-    wrapper.unmount()
-  })
-
-  it('does not create a new preview blob url after the page unmounts', async () => {
-    const router = createTasksRouter()
-    await router.push('/tasks?task_id=task_render_preview_0002')
-    await router.isReady()
-
-    const store = useTasksStore()
-    vi.spyOn(store, 'fetchList').mockResolvedValue(undefined)
-
-    let resolveDownload: ((value: { blob: Blob; filename: string | null }) => void) | null = null
-    vi.mocked(apiDownload).mockImplementation(() => (
-      new Promise((resolve) => {
-        resolveDownload = resolve
-      })
-    ))
-
-    vi.spyOn(store, 'fetchDetail').mockImplementation(async () => {
-      store.currentTask = {
-        task_id: 'task_render_preview_0002',
-        task_type: 'render.preview',
+        task_id: 'task_backup_create_0001',
+        task_type: 'backup.create',
         status: 'succeeded',
         progress: 100,
-        summary: '图片预览已完成',
+        summary: '备份已完成',
         result: {
-          summary: '图片预览已生成',
+          summary: '备份报告已生成',
           details: {
-            image_url: '/api/system/render/artifacts/render_preview_0002.png',
+            backup_id: 'backup_0001',
+            artifact_path: 'backups/backup_0001.zip',
+            size_bytes: 4096,
           },
         },
       }
@@ -193,14 +114,15 @@ describe('TasksPage', () => {
 
     await flushPromises()
 
+    const bodyText = () => document.body.textContent ?? ''
+    expect(bodyText()).toContain('任务类型')
+    expect(bodyText()).toContain('创建备份')
+    expect(bodyText()).toContain('backup.create')
+    expect(bodyText()).toContain('备份报告已生成')
+    expect(bodyText()).toContain('backup_id = backup_0001')
+    expect(bodyText()).toContain('artifact_path = backups/backup_0001.zip')
+    expect(bodyText()).toContain('size_bytes = 4096')
     wrapper.unmount()
-    resolveDownload?.({
-      blob: new Blob(['preview'], { type: 'image/png' }),
-      filename: null,
-    })
-    await flushPromises()
-
-    expect(window.URL.createObjectURL).not.toHaveBeenCalled()
   })
 
   it('renders recovery summaries in task detail without dumping the raw recovery_summary payload', async () => {
@@ -242,11 +164,11 @@ describe('TasksPage', () => {
                   manual_action: '升级程序或重新安装兼容版本插件。',
                 },
                 {
-                  plugin_id: 'legacy-plugin',
+                  plugin_id: 'platform-mismatch-plugin',
                   version: '1.0.0',
                   reason_code: 'plugin.platform_mismatch',
                   summary: '插件平台兼容性不满足，已保留安装目录并跳过自动启用。',
-                  review_id: 'review_legacy_plugin',
+                  review_id: 'review_platform_mismatch_plugin',
                   review_status: 'confirmed',
                   reviewed_at: '2026-04-03T08:00:03Z',
                   reviewed_by: 'alice',
@@ -278,8 +200,8 @@ describe('TasksPage', () => {
                   note: '已记录平台兼容性处理结论。',
                   items: [
                     {
-                      review_id: 'review_legacy_plugin',
-                      plugin_id: 'legacy-plugin',
+                      review_id: 'review_platform_mismatch_plugin',
+                      plugin_id: 'platform-mismatch-plugin',
                       reason_code: 'plugin.platform_mismatch',
                       summary: '插件平台兼容性不满足，已保留安装目录并跳过自动启用。',
                       version: '1.0.0',
@@ -308,7 +230,7 @@ describe('TasksPage', () => {
     expect(bodyText()).toContain('operator_id = alice')
     expect(bodyText()).not.toContain('recovery_summary =')
     expect(document.body.querySelector('[data-testid="recovery-plugin-card-review_weather_pro"]')).not.toBeNull()
-    expect(document.body.querySelector('[data-testid="recovery-plugin-card-review_legacy_plugin"]')).toBeNull()
+    expect(document.body.querySelector('[data-testid="recovery-plugin-card-review_platform_mismatch_plugin"]')).toBeNull()
     expect(document.body.querySelectorAll('[data-testid="recovery-audit-entry"]')).toHaveLength(2)
     expect(document.body.querySelector('[data-testid="recovery-confirm-button"]')).toBeNull()
 
@@ -318,7 +240,7 @@ describe('TasksPage', () => {
     await flushPromises()
 
     expect(document.body.querySelector('[data-testid="recovery-plugin-card-review_weather_pro"]')).toBeNull()
-    expect(document.body.querySelector('[data-testid="recovery-plugin-card-review_legacy_plugin"]')).not.toBeNull()
+    expect(document.body.querySelector('[data-testid="recovery-plugin-card-review_platform_mismatch_plugin"]')).not.toBeNull()
     wrapper.unmount()
   })
 

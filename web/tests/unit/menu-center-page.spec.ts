@@ -294,7 +294,6 @@ describe('MenuCenterView', () => {
         },
       },
     }))
-    expect(fetchMock.mock.calls.some(([input]) => String(input).includes('/api/system/render/preview'))).toBe(false)
   })
 
   it('calculates native preview scaling and internal scroll bounds', () => {

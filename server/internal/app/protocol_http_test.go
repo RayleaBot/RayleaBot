@@ -184,8 +184,11 @@ func TestProtocolSnapshotEventMatchesCurrentProjection(t *testing.T) {
 	defer server.Close()
 
 	shell := adapter.New(config.OneBotConfig{
-		WSURL: "ws" + server.URL[len("http"):],
-	}, slog.New(slog.NewTextHandler(io.Discard, nil)))
+		ForwardWS: config.OneBotTransportConfig{
+			Enabled: true,
+			URL:     "ws" + server.URL[len("http"):],
+		},
+	}, defaultAdapterTestConfig(), slog.New(slog.NewTextHandler(io.Discard, nil)))
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	shell.Start(ctx)

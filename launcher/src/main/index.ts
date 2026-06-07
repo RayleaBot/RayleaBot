@@ -35,7 +35,7 @@ const executableBasePath = resolveLauncherBasePath({
   executablePath: app.getPath("exe"),
   isPackaged: app.isPackaged,
 });
-const settingsStore = new JsonLauncherSettingsStore(executableBasePath, process.platform, app.getPath("userData"));
+const settingsStore = new JsonLauncherSettingsStore(executableBasePath, process.platform);
 const processController = new ServerProcessController();
 const coordinator = createLauncherCoordinator({
   settingsStore,

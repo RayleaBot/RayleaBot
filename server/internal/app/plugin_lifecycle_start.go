@@ -258,9 +258,6 @@ func (c *pluginLifecycleController) buildStartInputsWithCapabilities(pluginID, b
 
 func pluginRuntimeSuperAdmins(cfg config.Config) []string {
 	source := cfg.Admin.SuperAdmins
-	if len(source) == 0 {
-		source = cfg.Auth.SuperAdmins
-	}
 	result := make([]string, 0, len(source))
 	seen := make(map[string]struct{}, len(source))
 	for _, item := range source {

@@ -3,7 +3,6 @@ package recovery
 import (
 	"context"
 	"crypto/sha256"
-	"database/sql"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -20,7 +19,6 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	"github.com/RayleaBot/RayleaBot/server/internal/storage"
-	_ "modernc.org/sqlite"
 )
 
 const (
@@ -529,7 +527,32 @@ func isSchemaNewer(source, target string) bool {
 	if leftErr == nil && rightErr == nil {
 		return left > right
 	}
+	leftBase, leftBaseOK := baseSchemaVersion(source)
+	rightBase, rightBaseOK := baseSchemaVersion(target)
+	if leftBaseOK && rightBaseOK {
+		return leftBase > rightBase
+	}
+	if leftBaseOK != rightBaseOK || leftErr != nil || rightErr != nil {
+		return false
+	}
 	return compareSemver(source, target) > 0
+}
+
+func baseSchemaVersion(version string) (int, bool) {
+	const prefix = "base-"
+	if !strings.HasPrefix(version, prefix) {
+		return 0, false
+	}
+	parts := strings.Split(strings.TrimPrefix(version, prefix), "-")
+	if len(parts) != 2 {
+		return 0, false
+	}
+	year, yearErr := strconv.Atoi(parts[0])
+	month, monthErr := strconv.Atoi(parts[1])
+	if yearErr != nil || monthErr != nil || month < 1 || month > 12 {
+		return 0, false
+	}
+	return year*100 + month, true
 }
 
 func currentPlatform() string {
@@ -794,26 +817,6 @@ func contains(items []string, want string) bool {
 		}
 	}
 	return false
-}
-
-func ReadDBSchemaVersion(ctx context.Context, databasePath string) string {
-	if strings.TrimSpace(databasePath) == "" {
-		return ""
-	}
-	db, err := sql.Open("sqlite", databasePath)
-	if err != nil {
-		return ""
-	}
-	defer db.Close()
-	var count int
-	if err := db.QueryRowContext(ctx, `SELECT COUNT(*) FROM schema_migrations`).Scan(&count); err != nil {
-		return ""
-	}
-	return fmt.Sprintf("%04d", count)
-}
-
-func EmbeddedMigrationCount() string {
-	return storage.CurrentSchemaVersion()
 }
 
 func RemoveSummary(repoRoot string) error {

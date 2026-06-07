@@ -75,7 +75,7 @@
     "author": {
       "type": "string",
       "minLength": 1,
-      "description": "Single author identifier retained from the planning document. This contract does not introduce an authors array."
+      "description": "Single author identifier."
     },
     "sdk_min_version": {
       "$ref": "#/$defs/semver",
@@ -358,7 +358,7 @@
           "permission": {
             "type": "string",
             "enum": ["super_admin", "group_admin", "everyone"],
-            "description": "Minimum chat-side permission level required to invoke this command. When omitted, the platform falls back to auth.default_level."
+            "description": "Minimum chat-side permission level required to invoke this command. When omitted, the platform uses permission.default_level."
           }
         }
       }
@@ -395,7 +395,7 @@
           "permission": {
             "type": "string",
             "enum": ["super_admin", "group_admin", "everyone"],
-            "description": "Minimum chat-side permission level required to invoke projected commands. When omitted, the platform falls back to auth.default_level."
+            "description": "Minimum chat-side permission level required to invoke projected commands. When omitted, the platform uses permission.default_level."
           }
         }
       }

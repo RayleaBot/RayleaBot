@@ -20,7 +20,6 @@ export const tasks = {
     openPlugin: '查看插件',
     openProtocol: '查看协议',
     openRequestHistory: '相关历史日志',
-    openTemplate: '打开模板预览',
   },
   empty: {
     title: '暂无任务',

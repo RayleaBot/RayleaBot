@@ -172,9 +172,6 @@ func (h *systemHTTPHandlers) schedulerTimezone() string {
 		if tz := strings.TrimSpace(h.system.state.Config.Scheduler.Timezone); tz != "" {
 			return tz
 		}
-		if tz := strings.TrimSpace(h.system.state.Config.Runtime.SchedulerTimezone); tz != "" {
-			return tz
-		}
 	}
 	return "UTC"
 }

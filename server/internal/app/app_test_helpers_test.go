@@ -44,6 +44,16 @@ func newTestAppState(cfg config.Config, logger *slog.Logger) *App {
 	}
 }
 
+func defaultAdapterTestConfig() config.AdapterConfig {
+	return config.AdapterConfig{
+		ConnectTimeoutSeconds:   15,
+		ReconnectInitialSeconds: 2,
+		ReconnectMultiplier:     2,
+		ReconnectMaxSeconds:     120,
+		ReconnectJitterRatio:    0.2,
+	}
+}
+
 func (a *App) setTestEventIngress(catalog *plugins.Catalog, blacklistRepo permission.BlacklistRepository, sender outboundActionSender, eventBridge *bridge.Bridge) {
 	a.setTestEventIngressWithGovernance(catalog, nil, nil, blacklistRepo, sender, eventBridge)
 }

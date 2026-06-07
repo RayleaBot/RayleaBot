@@ -72,7 +72,6 @@ func TestConfigPutWritesValidatedDocumentAndPlaintextTransportTokens(t *testing.
 	defer server.Close()
 
 	updateRequest := normalizeJSONMap(t, fixture.Request.Body)
-	updateRequest["onebot"].(map[string]any)["access_token"] = "legacy-secret"
 	payload, err := json.Marshal(updateRequest)
 	if err != nil {
 		t.Fatalf("marshal config update request: %v", err)
@@ -98,9 +97,6 @@ func TestConfigPutWritesValidatedDocumentAndPlaintextTransportTokens(t *testing.
 	if !reflect.DeepEqual(body, expected) {
 		t.Fatalf("unexpected config update body: got %#v want %#v", body, expected)
 	}
-	if _, ok := body["config"].(map[string]any)["onebot"].(map[string]any)["access_token"]; ok {
-		t.Fatal("legacy onebot.access_token should not be returned")
-	}
 
 	document, err := internalconfig.LoadDocument(configPath, schemaPath)
 	if err != nil {
@@ -113,9 +109,6 @@ func TestConfigPutWritesValidatedDocumentAndPlaintextTransportTokens(t *testing.
 		t.Fatalf("unexpected persisted log.level: got %#v want debug", got)
 	}
 	onebot := document["onebot"].(map[string]any)
-	if _, ok := onebot["access_token"]; ok {
-		t.Fatal("legacy onebot.access_token should not be persisted")
-	}
 	if got := onebot["forward_ws"].(map[string]any)["access_token"]; got != "forward-secret" {
 		t.Fatalf("unexpected persisted forward_ws.access_token: got %#v want forward-secret", got)
 	}
@@ -123,8 +116,8 @@ func TestConfigPutWritesValidatedDocumentAndPlaintextTransportTokens(t *testing.
 	if application.CurrentConfig().Server.Port != 8081 {
 		t.Fatalf("expected live config server.port to reflect saved value 8081, got %d", application.CurrentConfig().Server.Port)
 	}
-	if application.CurrentConfig().Logging.Level != "debug" {
-		t.Fatalf("expected live config log.level to be hot-reloaded to debug, got %q", application.CurrentConfig().Logging.Level)
+	if application.CurrentConfig().Log.Level != "debug" {
+		t.Fatalf("expected live config log.level to be hot-reloaded to debug, got %q", application.CurrentConfig().Log.Level)
 	}
 }
 
@@ -170,45 +163,6 @@ func TestConfigPutRejectsInvalidConfig(t *testing.T) {
 	}
 	if !reflect.DeepEqual(after, before) {
 		t.Fatalf("config file changed after invalid update: got %#v want %#v", after, before)
-	}
-}
-
-func TestConfigPutNormalizesShorthandOneBotURL(t *testing.T) {
-	t.Parallel()
-
-	application, configPath, schemaPath := newTestAppWithConfigMutation(t, nil, deterministicAuthOptions()...)
-	token := issueLoginToken(t, application)
-	document, err := internalconfig.LoadDocument(configPath, schemaPath)
-	if err != nil {
-		t.Fatalf("load baseline config: %v", err)
-	}
-	document["onebot"].(map[string]any)["forward_ws"].(map[string]any)["url"] = "ws:127.0.0.1:2658"
-	document["onebot"].(map[string]any)["forward_ws"].(map[string]any)["enabled"] = true
-
-	payload, err := json.Marshal(document)
-	if err != nil {
-		t.Fatalf("marshal config update request: %v", err)
-	}
-	request, err := http.NewRequest(http.MethodPut, "/api/config", bytes.NewReader(payload))
-	if err != nil {
-		t.Fatalf("create config update request: %v", err)
-	}
-	request.Header.Set("Authorization", "Bearer "+token)
-	request.Header.Set("Content-Type", "application/json")
-	recorder := httptest.NewRecorder()
-
-	application.Handler().ServeHTTP(recorder, request)
-	if recorder.Code != http.StatusOK {
-		t.Fatalf("unexpected config update status: got %d want 200", recorder.Code)
-	}
-
-	saved, err := internalconfig.LoadDocument(configPath, schemaPath)
-	if err != nil {
-		t.Fatalf("reload config after update: %v", err)
-	}
-	forwardWS := saved["onebot"].(map[string]any)["forward_ws"].(map[string]any)
-	if got := forwardWS["url"]; got != "ws://127.0.0.1:2658" {
-		t.Fatalf("saved onebot.forward_ws.url = %#v, want ws://127.0.0.1:2658", got)
 	}
 }
 

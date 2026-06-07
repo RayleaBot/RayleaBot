@@ -59,7 +59,7 @@ func TestCommandInfoForEventUsesDefaultLevelForOmittedPermission(t *testing.T) {
 	}
 }
 
-func TestResolveChatPolicyConfigPrefersCanonicalFields(t *testing.T) {
+func TestResolveChatPolicyConfigUsesConfiguredFields(t *testing.T) {
 	t.Parallel()
 
 	settings := resolveChatPolicyConfig(config.Config{
@@ -71,15 +71,6 @@ func TestResolveChatPolicyConfigPrefersCanonicalFields(t *testing.T) {
 		},
 		Group: config.GroupConfig{
 			CommandRateLimit: "3/1h",
-		},
-		Auth: config.AuthConfig{
-			SuperAdmins:  []string{"legacy-admin"},
-			DefaultLevel: "super_admin",
-		},
-		Cooldown: &config.CooldownConfig{
-			UserCommandRateLimit:  "9/1h",
-			GroupCommandRateLimit: "8/1h",
-			CooldownReply:         true,
 		},
 	})
 
@@ -333,7 +324,7 @@ func TestHandleAdapterEventUsesMostStrictMatchingCommandPermission(t *testing.T)
 
 	dispatcherClient := &recordingDispatcherClient{}
 	cfg := config.Config{
-		Auth: config.AuthConfig{DefaultLevel: "everyone"},
+		Permission: config.PermissionConfig{DefaultLevel: "everyone"},
 		Command: &config.CommandConfig{
 			Prefixes: []string{"/"},
 		},
@@ -390,7 +381,7 @@ func TestHandleAdapterEventLogsPermissionDeniedCommandRejection(t *testing.T) {
 	logger, stream := newAppTestLogger()
 	dispatcherClient := &recordingDispatcherClient{}
 	cfg := config.Config{
-		Auth: config.AuthConfig{DefaultLevel: "everyone"},
+		Permission: config.PermissionConfig{DefaultLevel: "everyone"},
 		Command: &config.CommandConfig{
 			Prefixes: []string{"/"},
 		},
@@ -442,7 +433,7 @@ func TestHandleAdapterEventLogsConflictingCommandRejectionWithoutPluginID(t *tes
 	logger, stream := newAppTestLogger()
 	dispatcherClient := &recordingDispatcherClient{}
 	cfg := config.Config{
-		Auth: config.AuthConfig{DefaultLevel: "everyone"},
+		Permission: config.PermissionConfig{DefaultLevel: "everyone"},
 		Command: &config.CommandConfig{
 			Prefixes: []string{"/"},
 		},
@@ -507,10 +498,12 @@ func TestApplyChatPolicySendsCooldownReplyForGroupCommand(t *testing.T) {
 		Command: &config.CommandConfig{
 			Prefixes: []string{"/"},
 		},
-		Cooldown: &config.CooldownConfig{
-			UserCommandRateLimit:  "1/1h",
-			GroupCommandRateLimit: "5/1h",
-			CooldownReply:         true,
+		User: config.UserConfig{
+			CommandRateLimit: "1/1h",
+			CooldownReply:    true,
+		},
+		Group: config.GroupConfig{
+			CommandRateLimit: "5/1h",
 		},
 	}
 	application := newTestAppState(cfg, nil)
@@ -566,10 +559,12 @@ func TestApplyChatPolicyAppliesTargetLimitToCooldownReply(t *testing.T) {
 		Command: &config.CommandConfig{
 			Prefixes: []string{"/"},
 		},
-		Cooldown: &config.CooldownConfig{
-			UserCommandRateLimit:  "1/1h",
-			GroupCommandRateLimit: "5/1h",
-			CooldownReply:         true,
+		User: config.UserConfig{
+			CommandRateLimit: "1/1h",
+			CooldownReply:    true,
+		},
+		Group: config.GroupConfig{
+			CommandRateLimit: "5/1h",
 		},
 	}
 	application := newTestAppState(cfg, logger)
@@ -633,10 +628,12 @@ func TestApplyChatPolicyCancelsCooldownReplyTargetLimit(t *testing.T) {
 		Command: &config.CommandConfig{
 			Prefixes: []string{"/"},
 		},
-		Cooldown: &config.CooldownConfig{
-			UserCommandRateLimit:  "1/1h",
-			GroupCommandRateLimit: "5/1h",
-			CooldownReply:         true,
+		User: config.UserConfig{
+			CommandRateLimit: "1/1h",
+			CooldownReply:    true,
+		},
+		Group: config.GroupConfig{
+			CommandRateLimit: "5/1h",
 		},
 	}
 	application := newTestAppState(cfg, nil)
@@ -1484,10 +1481,12 @@ func TestApplyChatPolicyLogsCooldownReplySuccess(t *testing.T) {
 		Command: &config.CommandConfig{
 			Prefixes: []string{"/"},
 		},
-		Cooldown: &config.CooldownConfig{
-			UserCommandRateLimit:  "1/1h",
-			GroupCommandRateLimit: "5/1h",
-			CooldownReply:         true,
+		User: config.UserConfig{
+			CommandRateLimit: "1/1h",
+			CooldownReply:    true,
+		},
+		Group: config.GroupConfig{
+			CommandRateLimit: "5/1h",
 		},
 	}
 	application := newTestAppState(cfg, logger)
@@ -1567,10 +1566,12 @@ func TestApplyChatPolicyLogsCooldownReplyFailure(t *testing.T) {
 		Command: &config.CommandConfig{
 			Prefixes: []string{"/"},
 		},
-		Cooldown: &config.CooldownConfig{
-			UserCommandRateLimit:  "1/1h",
-			GroupCommandRateLimit: "5/1h",
-			CooldownReply:         true,
+		User: config.UserConfig{
+			CommandRateLimit: "1/1h",
+			CooldownReply:    true,
+		},
+		Group: config.GroupConfig{
+			CommandRateLimit: "5/1h",
 		},
 	}
 	application := newTestAppState(cfg, logger)
@@ -1665,7 +1666,7 @@ func TestApplyHotReloadableFieldsReloadsCommandPolicy(t *testing.T) {
 			MaxRetries:        0,
 			AllowPrivateHosts: []string{},
 		},
-		Logging: config.LoggingConfig{Level: "info"},
+		Log: config.LogConfig{Level: "info"},
 		Message: config.MessageConfig{
 			RateLimitPerPlugin:    "1/1h",
 			RateLimitPerTarget:    "100/1s",
@@ -1711,7 +1712,7 @@ func TestApplyHotReloadableFieldsReloadsCommandPolicy(t *testing.T) {
 			MaxRetries:        2,
 			AllowPrivateHosts: []string{"127.0.0.1"},
 		},
-		Logging: config.LoggingConfig{Level: "info"},
+		Log: config.LogConfig{Level: "info"},
 		Message: config.MessageConfig{
 			RateLimitPerPlugin:    "2/1h",
 			RateLimitPerTarget:    "100/1s",
@@ -2013,7 +2014,7 @@ func TestReloadReturnsPermissionPendingWhenGrantScopeChanged(t *testing.T) {
 		PluginID:   "weather",
 		Capability: "http.request",
 		GrantedAt:  time.Now().UTC().Add(-2 * time.Hour),
-		ScopeJSON:  `{"http_hosts":["legacy.example"]}`,
+		ScopeJSON:  `{"http_hosts":["api.example"]}`,
 	}})
 
 	_, err := controller.Reload(context.Background(), "weather")
@@ -2301,48 +2302,6 @@ func TestPluginRuntimeStartInputsIncludeSuperAdmins(t *testing.T) {
 	}
 	if !reflect.DeepEqual(payload.SuperAdmins, []string{"10001", "10002"}) {
 		t.Fatalf("super_admins = %#v, want canonical values", payload.SuperAdmins)
-	}
-}
-
-func TestPluginRuntimeStartInputsUseLegacySuperAdminsFallback(t *testing.T) {
-	t.Parallel()
-
-	repoRoot := t.TempDir()
-	writeManagedRuntimeFixtures(t, repoRoot)
-	createPluginEntry(t, repoRoot, "plugins/weather-card", "main.py")
-	catalog := plugins.NewCatalog([]plugins.Snapshot{{
-		PluginID:          "weather-card",
-		Valid:             true,
-		RegistrationState: "installed",
-		DesiredState:      "enabled",
-		RuntimeState:      "running",
-		Runtime:           "python",
-		Entry:             "main.py",
-		ManifestPath:      "plugins/weather-card/info.json",
-	}})
-	app := newTestAppState(config.Config{
-		Auth: config.AuthConfig{
-			SuperAdmins: []string{"20001"},
-		},
-	}, slog.Default())
-	app.state.repoRoot = repoRoot
-	app.setTestLifecycle(
-		catalog,
-		nil,
-		nil,
-		newRuntimeRegistry(slog.Default(), runtime.Options{}),
-		dispatch.New(slog.Default(), nil, nil, 16),
-		nil,
-		nil,
-		newPluginWebhookRegistry(),
-	)
-
-	_, payload, err := app.pluginLifecycle.buildStartInputsWithCapabilities("weather-card", "", nil)
-	if err != nil {
-		t.Fatalf("buildStartInputsWithCapabilities: %v", err)
-	}
-	if !reflect.DeepEqual(payload.SuperAdmins, []string{"20001"}) {
-		t.Fatalf("super_admins = %#v, want legacy fallback", payload.SuperAdmins)
 	}
 }
 

@@ -6,7 +6,6 @@ import (
 	"embed"
 	"errors"
 	"fmt"
-	"io/fs"
 	"os"
 	"path/filepath"
 	"time"
@@ -20,13 +19,12 @@ const (
 	defaultReadMaxConns = 4
 )
 
-//go:embed migrations/*.sql
-var embeddedMigrations embed.FS
+//go:embed schema.sql
+var schemaFS embed.FS
 
 type Option func(*options) error
 
 type options struct {
-	migrations  fs.FS
 	busyTimeout time.Duration
 }
 
@@ -34,16 +32,6 @@ type Store struct {
 	Path  string
 	Read  *sql.DB
 	Write *sql.DB
-}
-
-func WithMigrationsFS(migrations fs.FS) Option {
-	return func(opts *options) error {
-		if migrations == nil {
-			return errors.New("migrations filesystem is required")
-		}
-		opts.migrations = migrations
-		return nil
-	}
 }
 
 func WithBusyTimeout(timeout time.Duration) Option {
@@ -65,12 +53,6 @@ func Open(path string, opts ...Option) (*Store, error) {
 	options := options{
 		busyTimeout: defaultBusyTimeout,
 	}
-
-	migrationFS, err := fs.Sub(embeddedMigrations, "migrations")
-	if err != nil {
-		return nil, fmt.Errorf("open embedded migrations: %w", err)
-	}
-	options.migrations = migrationFS
 
 	for _, opt := range opts {
 		if err := opt(&options); err != nil {
@@ -112,8 +94,8 @@ func Open(path string, opts ...Option) (*Store, error) {
 	if _, err := readDB.ExecContext(context.Background(), "PRAGMA query_only = ON"); err != nil {
 		return cleanup(fmt.Errorf("set sqlite read handle to query_only: %w", err))
 	}
-	if err := applyMigrations(context.Background(), writeDB, options.migrations); err != nil {
-		return cleanup(fmt.Errorf("apply sqlite migrations: %w", err))
+	if err := initializeSchema(context.Background(), writeDB); err != nil {
+		return cleanup(fmt.Errorf("initialize sqlite schema: %w", err))
 	}
 
 	return &Store{
@@ -159,6 +141,19 @@ func configureHandle(ctx context.Context, db *sql.DB, busyTimeout time.Duration)
 
 	if _, err := db.ExecContext(ctx, fmt.Sprintf("PRAGMA busy_timeout = %d", busyTimeout.Milliseconds())); err != nil {
 		return fmt.Errorf("set busy_timeout: %w", err)
+	}
+
+	return nil
+}
+
+func initializeSchema(ctx context.Context, db *sql.DB) error {
+	schemaSQL, err := schemaFS.ReadFile("schema.sql")
+	if err != nil {
+		return fmt.Errorf("read embedded schema: %w", err)
+	}
+
+	if _, err := db.ExecContext(ctx, string(schemaSQL)); err != nil {
+		return fmt.Errorf("apply embedded schema: %w", err)
 	}
 
 	return nil

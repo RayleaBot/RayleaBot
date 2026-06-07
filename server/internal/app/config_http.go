@@ -96,21 +96,21 @@ func (h *configHTTPHandlers) applyHotReloadableFields(newCfg internalconfig.Conf
 	oneBotHotChanged := len(effects.ReloadedNow) > 0
 
 	// logging.level — immediate effect via LevelController.
-	if newCfg.Logging.Level != oldCfg.Logging.Level {
+	if newCfg.Log.Level != oldCfg.Log.Level {
 		if h.state.LogLevel != nil {
-			if err := h.state.LogLevel.SetLevel(newCfg.Logging.Level); err == nil {
+			if err := h.state.LogLevel.SetLevel(newCfg.Log.Level); err == nil {
 				h.state.Logger.Info("log level changed",
 					"component", "config",
-					"old_level", oldCfg.Logging.Level,
-					"new_level", newCfg.Logging.Level,
+					"old_level", oldCfg.Log.Level,
+					"new_level", newCfg.Log.Level,
 				)
 			}
 		}
 	}
-	if newCfg.Logging.RetentionDays != oldCfg.Logging.RetentionDays && h.logs != nil {
-		h.logs.SetRepository(h.logRepository, newCfg.Logging.RetentionDays)
+	if newCfg.Log.RetentionDays != oldCfg.Log.RetentionDays && h.logs != nil {
+		h.logs.SetRepository(h.logRepository, newCfg.Log.RetentionDays)
 	}
-	if newCfg.Logging.RateLimitPerPlugin != oldCfg.Logging.RateLimitPerPlugin && h.pluginLogLimiter != nil {
+	if newCfg.Log.RateLimitPerPlugin != oldCfg.Log.RateLimitPerPlugin && h.pluginLogLimiter != nil {
 		h.pluginLogLimiter.ApplyConfig(newCfg)
 	}
 	if h.outboundLimiter != nil && (newCfg.Message.RateLimitPerPlugin != oldCfg.Message.RateLimitPerPlugin ||
@@ -143,7 +143,7 @@ func (h *configHTTPHandlers) applyHotReloadableFields(newCfg internalconfig.Conf
 		if h.protocol.adapter.Snapshot().State == adapter.StateStopped {
 			effects.RestartRequiredFields = append(effects.RestartRequiredFields, effects.ReloadedNow...)
 			effects.ReloadedNow = effects.ReloadedNow[:0]
-		} else if err := h.protocol.adapter.Reload(newCfg.OneBot); err != nil {
+		} else if err := h.protocol.adapter.Reload(newCfg.OneBot, newCfg.Adapter); err != nil {
 			effects.RestartRequiredFields = append(effects.RestartRequiredFields, effects.ReloadedNow...)
 			effects.ReloadedNow = effects.ReloadedNow[:0]
 			h.state.Logger.Warn("adapter shell hot reload failed",

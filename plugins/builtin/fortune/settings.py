@@ -1,5 +1,4 @@
 import copy
-import hashlib
 import json
 import re
 from datetime import timedelta, timezone
@@ -18,15 +17,6 @@ FIXED_TIMEZONES = {
     "PRC": timezone(timedelta(hours=8), "PRC"),
 }
 COUNTED_FORTUNES = FORTUNE_ORDER + [SPECIAL_FORTUNE]
-LEGACY_DEFAULT_FORTUNE_FINGERPRINTS = {
-    20971722105971170178545846480553058583241879270455125236487596287809186753718,
-}
-LEGACY_DEFAULT_GOOD_ACTION_FINGERPRINTS = {
-    115679103881304806644259508398492031899235386804883197485922384508897281193421,
-}
-LEGACY_DEFAULT_BAD_ACTION_FINGERPRINTS = {
-    44719200896750948948678725643061855201404412653412759708514911212779905198010,
-}
 EXPECTED_STARS = {
     "大吉": "★★★★★★★",
     "吉": "★★★★★★☆",
@@ -88,12 +78,6 @@ class FortuneSettingsService:
         if isinstance(stored_values, dict):
             for key in SETTINGS_KEYS:
                 if key not in stored_values:
-                    continue
-                if key == "fortunes" and stored_fortunes_are_legacy_defaults(stored_values[key]):
-                    continue
-                if key == "good_actions" and stored_actions_are_legacy_defaults(stored_values[key], LEGACY_DEFAULT_GOOD_ACTION_FINGERPRINTS):
-                    continue
-                if key == "bad_actions" and stored_actions_are_legacy_defaults(stored_values[key], LEGACY_DEFAULT_BAD_ACTION_FINGERPRINTS):
                     continue
                 merged[key] = stored_values[key]
         normalized = self.validate(merged)
@@ -280,25 +264,3 @@ def is_special_date_key(value):
         except ValueError:
             return False
     return False
-
-
-def stored_fortunes_are_legacy_defaults(value):
-    fortunes = normalize_fortunes(value)
-    if not fortunes:
-        return False
-    return fortune_library_fingerprint(fortunes) in LEGACY_DEFAULT_FORTUNE_FINGERPRINTS
-
-
-def stored_actions_are_legacy_defaults(value, fingerprints):
-    actions = normalize_string_list(value, [])
-    if not actions:
-        return False
-    return stable_fingerprint(actions) in fingerprints
-
-
-def fortune_library_fingerprint(fortunes):
-    return stable_fingerprint(normalize_fortunes(fortunes))
-
-
-def stable_fingerprint(value):
-    return int(hashlib.sha256(stable_json(value).encode("utf-8")).hexdigest(), 16)

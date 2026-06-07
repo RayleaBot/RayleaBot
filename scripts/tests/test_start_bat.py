@@ -30,7 +30,7 @@ class StartBatTests(unittest.TestCase):
             setlocal
             >> "{calls_path}" echo CWD=%CD%
             >> "{calls_path}" echo ARGS=%*
-            >> "{calls_path}" echo WEB_MODE=%RAYLEA_START_WEB_MODE%
+            >> "{calls_path}" echo PROFILE=%RAYLEA_START_PROFILE%
             >> "{calls_path}" echo SKIP_LAUNCH=%RAYLEA_START_SKIP_LAUNCH%
             exit /b 0
             """
@@ -70,7 +70,7 @@ class StartBatTests(unittest.TestCase):
             self.assertEqual(lines[3], "SKIP_LAUNCH=1")
 
     @unittest.skipIf(os.name != "nt", "start.bat is a Windows entrypoint")
-    def test_start_bat_preserves_legacy_build_mode_env(self) -> None:
+    def test_start_bat_preserves_start_profile_env(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             workspace = Path(tmpdir)
             self._prepare_workspace(workspace)
@@ -78,7 +78,7 @@ class StartBatTests(unittest.TestCase):
 
             env = os.environ.copy()
             env["PATH"] = str(bin_dir) + os.pathsep + env["PATH"]
-            env["RAYLEA_START_WEB_MODE"] = "build"
+            env["RAYLEA_START_PROFILE"] = "build"
 
             result = subprocess.run(
                 ["cmd", "/c", "start.bat"],
@@ -92,7 +92,7 @@ class StartBatTests(unittest.TestCase):
             self.assertEqual(result.returncode, 0, msg=result.stdout + result.stderr)
             lines = [line for line in calls_path.read_text(encoding="utf-8").splitlines() if line.strip()]
             self.assertEqual(lines[1], "ARGS=scripts\\start-dev.mjs")
-            self.assertEqual(lines[2], "WEB_MODE=build")
+            self.assertEqual(lines[2], "PROFILE=build")
 
 
 if __name__ == "__main__":

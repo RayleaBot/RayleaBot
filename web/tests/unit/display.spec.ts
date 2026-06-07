@@ -20,7 +20,7 @@ describe('display helpers', () => {
   })
 
   it('renders chinese labels for task, plugin, log, and system states', () => {
-    expect(getTaskTypeLabel('render.preview')).toBe('图片预览')
+    expect(getTaskTypeLabel('runtime.bootstrap')).toBe('准备运行环境')
     expect(getTaskStatusLabel('succeeded')).toBe('已完成')
     expect(getPluginRuntimeStateLabel('running')).toBe('运行中')
     expect(getPluginDisplayStateLabel('discovered')).toBe('已识别')

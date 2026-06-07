@@ -13,7 +13,7 @@
 
 - `examples/plugins/` 主要服务于 manifest、plugin protocol、local actions 和管理面能力理解。
 - 示例插件的 `capabilities`、`permissions.required` 和 `permissions.optional` 要与代码主路径一致。
-- 已冻结的插件内置管理页、治理 local actions、render preview、webhook、scheduler 等能力，可以在示例中演示；未来能力不写进示例。
+- 已冻结的插件内置管理页、治理 local actions、render templates、webhook、scheduler 等能力，可以在示例中演示；未来能力不写进示例。
 - 示例插件不是生产模板、市场分发包或官方最佳实践承诺。
 
 ## HTTP Example Rules

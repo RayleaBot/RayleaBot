@@ -8,12 +8,12 @@ frames:
     request_id: local_webhook_grace_0001
     action: event.expose_webhook
     data:
-      route: legacy
+      route: partner
       methods:
         - POST
       auth_strategy: fixed_token
       header: X-Webhook-Token
-      secret_ref: webhook.legacy.token
+      secret_ref: webhook.partner.token
       replay_protection:
         timestamp_header: X-Raylea-Timestamp
         event_id_header: X-Raylea-Event-Id
@@ -22,5 +22,5 @@ frames:
 expect:
   valid: true
   notes:
-    - Grace-mode webhook route accepts legacy senders that may omit timestamp or event id headers.
+    - Grace-mode webhook route accepts partner senders that may omit timestamp or event id headers.
     - The platform still records webhook_replay_grace_observed counts but does not reject the request.

@@ -15,6 +15,9 @@ const currentSchemaVersion = "2"
 const DefaultRenderFooterTemplate = "Created By RayleaBot {{rayleabot_version}} & Plugin {{plugin_name}} {{plugin_version}}"
 const DefaultRenderOutput = "png"
 const DefaultRenderDeviceScalePercent = 100
+const DefaultUserCommandRateLimit = "10/60s"
+const DefaultGroupCommandRateLimit = "30/60s"
+const DefaultCooldownReply = true
 
 func CurrentSchemaVersion() string {
 	return currentSchemaVersion
@@ -123,11 +126,6 @@ func canonicalizeDocument(raw map[string]any) (map[string]any, error) {
 		return nil, fmt.Errorf("normalized document is not an object")
 	}
 	document = stripNullValues(document)
-	if isLegacyDocument(document) {
-		canonical := stripNullValues(legacyToCanonical(document))
-		normalizeOneBotSection(canonical)
-		return canonical, nil
-	}
 
 	cloned := CloneDocument(document)
 	if cloned == nil {
@@ -185,46 +183,14 @@ func normalizeOneBotSection(document map[string]any) {
 		return
 	}
 
-	delete(onebot, "provider")
-	delete(onebot, "access_token")
+	normalizeOneBotTransport(onebot, "reverse_ws")
+	normalizeOneBotTransport(onebot, "forward_ws")
+	normalizeOneBotTransport(onebot, "http_api")
+	normalizeOneBotTransport(onebot, "webhook")
 
-	wsURL := strings.TrimSpace(stringValue(onebot["ws_url"]))
-	if wsURL != "" {
-		if normalized, ok := normalizeOneBotWSURL(wsURL); ok {
-			wsURL = normalized
-		}
-	}
-
-	normalizeOneBotTransport(onebot, "reverse_ws", normalizeOneBotWSURL)
-	normalizeOneBotTransport(onebot, "forward_ws", normalizeOneBotWSURL)
-	normalizeOneBotTransport(onebot, "http_api", normalizeOneBotHTTPURL)
-	normalizeOneBotTransport(onebot, "webhook", normalizeOneBotHTTPURL)
-
-	reverseWS := transportSection(onebot, "reverse_ws")
-	if reverseWS == nil {
-		reverseWS = oneBotTransportDocument(false, "", "")
-		onebot["reverse_ws"] = reverseWS
-	}
-
-	forwardWS := transportSection(onebot, "forward_ws")
-	if forwardWS == nil {
-		forwardWS = oneBotTransportDocument(false, "", "")
-		onebot["forward_ws"] = forwardWS
-	}
-	if stringValue(forwardWS["url"]) == "" && wsURL != "" {
-		forwardWS["url"] = wsURL
-		forwardWS["enabled"] = true
-	}
-	if wsURL != "" && stringValue(reverseWS["url"]) == wsURL {
-		reverseWS["url"] = ""
-		reverseWS["enabled"] = false
-	}
-
-	delete(onebot, "ws_url")
-	delete(onebot, "sse")
 }
 
-func normalizeOneBotTransport(onebot map[string]any, key string, normalize func(string) (string, bool)) {
+func normalizeOneBotTransport(onebot map[string]any, key string) {
 	transport := transportSection(onebot, key)
 	if transport == nil {
 		transport = map[string]any{
@@ -235,11 +201,6 @@ func normalizeOneBotTransport(onebot map[string]any, key string, normalize func(
 	}
 
 	urlValue := strings.TrimSpace(stringValue(transport["url"]))
-	if urlValue != "" {
-		if normalized, ok := normalize(urlValue); ok {
-			urlValue = normalized
-		}
-	}
 	transport["url"] = urlValue
 	if _, ok := transport["enabled"].(bool); !ok {
 		transport["enabled"] = false
@@ -257,144 +218,6 @@ func oneBotTransportDocument(enabled bool, urlValue string, accessToken string) 
 
 func oneBotTransportConfigDocument(transport OneBotTransportConfig) map[string]any {
 	return oneBotTransportDocument(transport.Enabled, transport.URL, transport.AccessToken)
-}
-
-func normalizeOneBotWSURL(raw string) (string, bool) {
-	lower := strings.ToLower(raw)
-	switch {
-	case strings.HasPrefix(lower, "ws://"), strings.HasPrefix(lower, "wss://"):
-		return raw, true
-	case strings.HasPrefix(lower, "ws:"):
-		return "ws://" + strings.TrimLeft(raw[len("ws:"):], "/"), true
-	case strings.HasPrefix(lower, "wss:"):
-		return "wss://" + strings.TrimLeft(raw[len("wss:"):], "/"), true
-	default:
-		return raw, false
-	}
-}
-
-func normalizeOneBotHTTPURL(raw string) (string, bool) {
-	lower := strings.ToLower(raw)
-	switch {
-	case strings.HasPrefix(lower, "http://"), strings.HasPrefix(lower, "https://"):
-		return raw, true
-	case strings.HasPrefix(lower, "http:"):
-		return "http://" + strings.TrimLeft(raw[len("http:"):], "/"), true
-	case strings.HasPrefix(lower, "https:"):
-		return "https://" + strings.TrimLeft(raw[len("https:"):], "/"), true
-	default:
-		return raw, false
-	}
-}
-
-func isLegacyDocument(document map[string]any) bool {
-	if document == nil {
-		return false
-	}
-	if _, ok := document["logging"]; ok {
-		return true
-	}
-	if _, ok := document["auth"]; ok {
-		return true
-	}
-	if _, ok := document["retention"]; ok {
-		return true
-	}
-	if _, ok := document["cooldown"]; ok {
-		return true
-	}
-	if runtimeSection := section(document, "runtime"); runtimeSection != nil {
-		if _, ok := runtimeSection["scheduler_timezone"]; ok {
-			return true
-		}
-	}
-	if onebotSection := section(document, "onebot"); onebotSection != nil {
-		if _, ok := onebotSection["connect_timeout_seconds"]; ok {
-			return true
-		}
-		if _, ok := onebotSection["reverse_ws"]; !ok {
-			return true
-		}
-	}
-	return strings.TrimSpace(stringValue(document["schema_version"])) == "1"
-}
-
-func legacyToCanonical(document map[string]any) map[string]any {
-	canonical := map[string]any{
-		"schema_version": currentSchemaVersion,
-	}
-	copySectionIfPresent(canonical, "server", document, "server")
-	copySectionIfPresent(canonical, "database", document, "database")
-	copySectionIfPresent(canonical, "storage", document, "storage")
-	copySectionIfPresent(canonical, "http", document, "http")
-	copySectionIfPresent(canonical, "render", document, "render")
-	copySectionIfPresent(canonical, "web", document, "web")
-	copySectionIfPresent(canonical, "backup", document, "backup")
-	copySectionIfPresent(canonical, "command", document, "command")
-
-	if onebot := section(document, "onebot"); onebot != nil {
-		wsURL := strings.TrimSpace(stringValue(onebot["ws_url"]))
-		canonical["onebot"] = map[string]any{
-			"reverse_ws": oneBotTransportDocument(false, "", ""),
-			"forward_ws": oneBotTransportDocument(wsURL != "", wsURL, ""),
-			"http_api":   oneBotTransportDocument(false, "", ""),
-			"webhook":    oneBotTransportDocument(false, "", ""),
-		}
-		canonical["adapter"] = map[string]any{
-			"connect_timeout_seconds":   onebot["connect_timeout_seconds"],
-			"reconnect_initial_seconds": onebot["reconnect_initial_seconds"],
-			"reconnect_multiplier":      onebot["reconnect_multiplier"],
-			"reconnect_max_seconds":     onebot["reconnect_max_seconds"],
-			"reconnect_jitter_ratio":    onebot["reconnect_jitter_ratio"],
-		}
-	}
-
-	if auth := section(document, "auth"); auth != nil {
-		canonical["admin"] = map[string]any{
-			"super_admins":              auth["super_admins"],
-			"session_ttl_days":          auth["session_ttl_days"],
-			"sliding_renewal":           auth["sliding_renewal"],
-			"max_sessions":              auth["max_sessions"],
-			"login_fail_limit":          auth["login_fail_limit"],
-			"login_fail_window_seconds": auth["login_fail_window_seconds"],
-		}
-		canonical["permission"] = map[string]any{
-			"default_level":           auth["default_level"],
-			"auto_grant_capabilities": auth["auto_grant_capabilities"],
-		}
-	}
-
-	if runtime := section(document, "runtime"); runtime != nil {
-		canonical["scheduler"] = map[string]any{
-			"timezone": runtime["scheduler_timezone"],
-		}
-		canonical["runtime"] = CloneDocument(runtime)
-		delete(canonical["runtime"].(map[string]any), "scheduler_timezone")
-	}
-
-	if logging := section(document, "logging"); logging != nil {
-		canonical["log"] = CloneDocument(logging)
-	}
-	if retention := section(document, "retention"); retention != nil {
-		canonical["data"] = CloneDocument(retention)
-	}
-	if cooldown := section(document, "cooldown"); cooldown != nil {
-		canonical["user"] = map[string]any{
-			"command_rate_limit": cooldown["user_command_rate_limit"],
-			"cooldown_reply":     cooldown["cooldown_reply"],
-		}
-		canonical["group"] = map[string]any{
-			"command_rate_limit": cooldown["group_command_rate_limit"],
-		}
-	}
-
-	return canonical
-}
-
-func copySectionIfPresent(target map[string]any, targetKey string, source map[string]any, sourceKey string) {
-	if value := section(source, sourceKey); value != nil {
-		target[targetKey] = CloneDocument(value)
-	}
 }
 
 func section(document map[string]any, key string) map[string]any {
@@ -453,14 +276,10 @@ func decodeTypedConfig(document map[string]any) (Config, error) {
 	if err := json.Unmarshal(jsonBytes, &cfg); err != nil {
 		return cfg, err
 	}
-	cfg.hydrateCompatibility()
 	return cfg, nil
 }
 
 func canonicalDocumentFromTyped(cfg Config) map[string]any {
-	cfg.hydrateCompatibility()
-	reverseWS := configOneBotReverseWS(cfg)
-	forwardWS := configOneBotForwardWS(cfg)
 	return map[string]any{
 		"schema_version": currentSchemaVersion,
 		"server": map[string]any{
@@ -468,8 +287,8 @@ func canonicalDocumentFromTyped(cfg Config) map[string]any {
 			"port": cfg.Server.Port,
 		},
 		"onebot": map[string]any{
-			"reverse_ws": oneBotTransportConfigDocument(reverseWS),
-			"forward_ws": oneBotTransportConfigDocument(forwardWS),
+			"reverse_ws": oneBotTransportConfigDocument(cfg.OneBot.ReverseWS),
+			"forward_ws": oneBotTransportConfigDocument(cfg.OneBot.ForwardWS),
 			"http_api":   oneBotTransportConfigDocument(cfg.OneBot.HTTPAPI),
 			"webhook":    oneBotTransportConfigDocument(cfg.OneBot.Webhook),
 		},
@@ -487,16 +306,16 @@ func canonicalDocumentFromTyped(cfg Config) map[string]any {
 			},
 		},
 		"admin": map[string]any{
-			"super_admins":              append([]string{}, configSuperAdmins(cfg)...),
-			"session_ttl_days":          configSessionTTLDays(cfg),
-			"sliding_renewal":           configSlidingRenewal(cfg),
-			"max_sessions":              configMaxSessions(cfg),
-			"login_fail_limit":          configLoginFailLimit(cfg),
-			"login_fail_window_seconds": configLoginFailWindowSeconds(cfg),
+			"super_admins":              append([]string{}, cfg.Admin.SuperAdmins...),
+			"session_ttl_days":          cfg.Admin.SessionTTLDays,
+			"sliding_renewal":           cfg.Admin.SlidingRenewal,
+			"max_sessions":              cfg.Admin.MaxSessions,
+			"login_fail_limit":          cfg.Admin.LoginFailLimit,
+			"login_fail_window_seconds": cfg.Admin.LoginFailWindowSecs,
 		},
 		"permission": map[string]any{
-			"default_level":           configDefaultLevel(cfg),
-			"auto_grant_capabilities": append([]string{}, configAutoGrantCapabilities(cfg)...),
+			"default_level":           cfg.Permission.DefaultLevel,
+			"auto_grant_capabilities": append([]string{}, cfg.Permission.AutoGrantCapabilities...),
 		},
 		"render": map[string]any{
 			"worker_count":               cfg.Render.WorkerCount,
@@ -510,7 +329,7 @@ func canonicalDocumentFromTyped(cfg Config) map[string]any {
 			"footer_template":            configRenderFooterTemplate(cfg),
 		},
 		"scheduler": map[string]any{
-			"timezone": configSchedulerTimezone(cfg),
+			"timezone": cfg.Scheduler.Timezone,
 		},
 		"runtime": map[string]any{
 			"plugin_init_timeout_seconds":           cfg.Runtime.PluginInitTimeoutSeconds,
@@ -537,14 +356,14 @@ func canonicalDocumentFromTyped(cfg Config) map[string]any {
 			"plugin_workdir_soft_limit_mb": cfg.Storage.PluginWorkDirMB,
 		},
 		"data": map[string]any{
-			"audit_logs_retention_days":     configAuditLogsRetentionDays(cfg),
-			"event_records_retention_days":  configEventRecordsRetentionDays(cfg),
-			"download_cache_retention_days": configDownloadCacheRetentionDays(cfg),
+			"audit_logs_retention_days":     cfg.Data.AuditLogsRetentionDays,
+			"event_records_retention_days":  cfg.Data.EventRecordsRetentionDays,
+			"download_cache_retention_days": cfg.Data.DownloadCacheRetentionDays,
 		},
 		"log": map[string]any{
-			"level":                 configLogLevel(cfg),
-			"retention_days":        configLogRetentionDays(cfg),
-			"rate_limit_per_plugin": configLogRateLimit(cfg),
+			"level":                 cfg.Log.Level,
+			"retention_days":        cfg.Log.RetentionDays,
+			"rate_limit_per_plugin": cfg.Log.RateLimitPerPlugin,
 		},
 		"message": map[string]any{
 			"rate_limit_per_plugin":   configMessageRateLimitPerPlugin(cfg),
@@ -553,17 +372,17 @@ func canonicalDocumentFromTyped(cfg Config) map[string]any {
 		},
 		"user": map[string]any{
 			"command_rate_limit": configUserCommandRateLimit(cfg),
-			"cooldown_reply":     configCooldownReply(cfg),
+			"cooldown_reply":     cfg.User.CooldownReply,
 		},
 		"group": map[string]any{
 			"command_rate_limit": configGroupCommandRateLimit(cfg),
 		},
 		"adapter": map[string]any{
-			"connect_timeout_seconds":   configAdapterConnectTimeout(cfg),
-			"reconnect_initial_seconds": configAdapterReconnectInitial(cfg),
-			"reconnect_multiplier":      configAdapterReconnectMultiplier(cfg),
-			"reconnect_max_seconds":     configAdapterReconnectMax(cfg),
-			"reconnect_jitter_ratio":    configAdapterReconnectJitter(cfg),
+			"connect_timeout_seconds":   cfg.Adapter.ConnectTimeoutSeconds,
+			"reconnect_initial_seconds": cfg.Adapter.ReconnectInitialSeconds,
+			"reconnect_multiplier":      cfg.Adapter.ReconnectMultiplier,
+			"reconnect_max_seconds":     cfg.Adapter.ReconnectMaxSeconds,
+			"reconnect_jitter_ratio":    cfg.Adapter.ReconnectJitterRatio,
 		},
 		"http": map[string]any{
 			"timeout_seconds":     cfg.HTTP.TimeoutSeconds,
@@ -605,111 +424,6 @@ func configBuiltinMenuPrefixes(cfg Config) []string {
 	return []string{}
 }
 
-func configSuperAdmins(cfg Config) []string {
-	if len(cfg.Admin.SuperAdmins) > 0 {
-		return cfg.Admin.SuperAdmins
-	}
-	return cfg.Auth.SuperAdmins
-}
-
-func configDefaultLevel(cfg Config) string {
-	if strings.TrimSpace(cfg.Permission.DefaultLevel) != "" {
-		return cfg.Permission.DefaultLevel
-	}
-	return cfg.Auth.DefaultLevel
-}
-
-func configAutoGrantCapabilities(cfg Config) []string {
-	if len(cfg.Permission.AutoGrantCapabilities) > 0 {
-		return cfg.Permission.AutoGrantCapabilities
-	}
-	return cfg.Auth.AutoGrantCapabilities
-}
-
-func configSessionTTLDays(cfg Config) int {
-	if cfg.Admin.SessionTTLDays > 0 {
-		return cfg.Admin.SessionTTLDays
-	}
-	return cfg.Auth.SessionTTLDays
-}
-
-func configSlidingRenewal(cfg Config) bool {
-	if cfg.Admin.SessionTTLDays > 0 {
-		return cfg.Admin.SlidingRenewal
-	}
-	return cfg.Auth.SlidingRenewal
-}
-
-func configMaxSessions(cfg Config) int {
-	if cfg.Admin.MaxSessions > 0 {
-		return cfg.Admin.MaxSessions
-	}
-	return cfg.Auth.MaxSessions
-}
-
-func configLoginFailLimit(cfg Config) int {
-	if cfg.Admin.LoginFailLimit > 0 {
-		return cfg.Admin.LoginFailLimit
-	}
-	return cfg.Auth.LoginFailLimit
-}
-
-func configLoginFailWindowSeconds(cfg Config) int {
-	if cfg.Admin.LoginFailWindowSecs > 0 {
-		return cfg.Admin.LoginFailWindowSecs
-	}
-	return cfg.Auth.LoginFailWindowSecs
-}
-
-func configSchedulerTimezone(cfg Config) string {
-	if cfg.Scheduler.Timezone != "" {
-		return cfg.Scheduler.Timezone
-	}
-	return cfg.Runtime.SchedulerTimezone
-}
-
-func configAuditLogsRetentionDays(cfg Config) int {
-	if cfg.Data.AuditLogsRetentionDays > 0 {
-		return cfg.Data.AuditLogsRetentionDays
-	}
-	return cfg.Retention.AuditLogsRetentionDays
-}
-
-func configEventRecordsRetentionDays(cfg Config) int {
-	if cfg.Data.EventRecordsRetentionDays > 0 {
-		return cfg.Data.EventRecordsRetentionDays
-	}
-	return cfg.Retention.EventRecordsRetentionDays
-}
-
-func configDownloadCacheRetentionDays(cfg Config) int {
-	if cfg.Data.DownloadCacheRetentionDays > 0 {
-		return cfg.Data.DownloadCacheRetentionDays
-	}
-	return cfg.Retention.DownloadCacheRetentionDays
-}
-
-func configLogLevel(cfg Config) string {
-	if cfg.Log.Level != "" {
-		return cfg.Log.Level
-	}
-	return cfg.Logging.Level
-}
-
-func configLogRetentionDays(cfg Config) int {
-	if cfg.Log.RetentionDays > 0 {
-		return cfg.Log.RetentionDays
-	}
-	return cfg.Logging.RetentionDays
-}
-
-func configLogRateLimit(cfg Config) string {
-	if cfg.Log.RateLimitPerPlugin != "" {
-		return cfg.Log.RateLimitPerPlugin
-	}
-	return cfg.Logging.RateLimitPerPlugin
-}
-
 func configMessageRateLimitPerPlugin(cfg Config) string {
 	if cfg.Message.RateLimitPerPlugin != "" {
 		return cfg.Message.RateLimitPerPlugin
@@ -735,78 +449,14 @@ func configUserCommandRateLimit(cfg Config) string {
 	if cfg.User.CommandRateLimit != "" {
 		return cfg.User.CommandRateLimit
 	}
-	if cfg.Cooldown != nil && cfg.Cooldown.UserCommandRateLimit != "" {
-		return cfg.Cooldown.UserCommandRateLimit
-	}
-	return "10/60s"
+	return DefaultUserCommandRateLimit
 }
 
 func configGroupCommandRateLimit(cfg Config) string {
 	if cfg.Group.CommandRateLimit != "" {
 		return cfg.Group.CommandRateLimit
 	}
-	if cfg.Cooldown != nil && cfg.Cooldown.GroupCommandRateLimit != "" {
-		return cfg.Cooldown.GroupCommandRateLimit
-	}
-	return "30/60s"
-}
-
-func configCooldownReply(cfg Config) bool {
-	if cfg.User.CommandRateLimit != "" || cfg.User.CooldownReply {
-		return cfg.User.CooldownReply
-	}
-	if cfg.Cooldown != nil {
-		return cfg.Cooldown.CooldownReply
-	}
-	return true
-}
-
-func configAdapterConnectTimeout(cfg Config) int {
-	if cfg.Adapter.ConnectTimeoutSeconds > 0 {
-		return cfg.Adapter.ConnectTimeoutSeconds
-	}
-	return cfg.OneBot.ConnectTimeoutSeconds
-}
-
-func configAdapterReconnectInitial(cfg Config) int {
-	if cfg.Adapter.ReconnectInitialSeconds > 0 {
-		return cfg.Adapter.ReconnectInitialSeconds
-	}
-	return cfg.OneBot.ReconnectInitialSeconds
-}
-
-func configAdapterReconnectMultiplier(cfg Config) float64 {
-	if cfg.Adapter.ReconnectMultiplier > 0 {
-		return cfg.Adapter.ReconnectMultiplier
-	}
-	return cfg.OneBot.ReconnectMultiplier
-}
-
-func configAdapterReconnectMax(cfg Config) int {
-	if cfg.Adapter.ReconnectMaxSeconds > 0 {
-		return cfg.Adapter.ReconnectMaxSeconds
-	}
-	return cfg.OneBot.ReconnectMaxSeconds
-}
-
-func configAdapterReconnectJitter(cfg Config) float64 {
-	if cfg.Adapter.ReconnectJitterRatio > 0 {
-		return cfg.Adapter.ReconnectJitterRatio
-	}
-	return cfg.OneBot.ReconnectJitterRatio
-}
-
-func configOneBotReverseWS(cfg Config) OneBotTransportConfig {
-	return cfg.OneBot.ReverseWS
-}
-
-func configOneBotForwardWS(cfg Config) OneBotTransportConfig {
-	transport := cfg.OneBot.ForwardWS
-	if transport.URL == "" && cfg.OneBot.WSURL != "" {
-		transport.URL = cfg.OneBot.WSURL
-		transport.Enabled = true
-	}
-	return transport
+	return DefaultGroupCommandRateLimit
 }
 
 func configRenderFooterTemplate(cfg Config) string {
@@ -924,11 +574,11 @@ func defaultDocument() map[string]any {
 			"circuit_breaker_seconds": 30,
 		},
 		"user": map[string]any{
-			"command_rate_limit": "10/60s",
-			"cooldown_reply":     true,
+			"command_rate_limit": DefaultUserCommandRateLimit,
+			"cooldown_reply":     DefaultCooldownReply,
 		},
 		"group": map[string]any{
-			"command_rate_limit": "30/60s",
+			"command_rate_limit": DefaultGroupCommandRateLimit,
 		},
 		"adapter": map[string]any{
 			"reconnect_initial_seconds": 2,

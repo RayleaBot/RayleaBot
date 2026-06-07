@@ -69,8 +69,11 @@ func TestExecuteOneBotLocalActionMessageHistoryGet(t *testing.T) {
 	defer server.Close()
 
 	shell := adapter.NewForTest(config.OneBotConfig{
-		WSURL: "ws" + server.URL[len("http"):],
-	}, slog.New(slog.NewJSONHandler(io.Discard, nil)), true)
+		ForwardWS: config.OneBotTransportConfig{
+			Enabled: true,
+			URL:     "ws" + server.URL[len("http"):],
+		},
+	}, defaultAdapterTestConfig(), slog.New(slog.NewJSONHandler(io.Discard, nil)), true)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -79,7 +82,7 @@ func TestExecuteOneBotLocalActionMessageHistoryGet(t *testing.T) {
 	waitForAdapterState(t, shell, adapter.StateConnected, time.Second)
 
 	application := newTestAppState(config.Config{
-		Auth: config.AuthConfig{
+		Permission: config.PermissionConfig{
 			AutoGrantCapabilities: []string{"message.history.get"},
 		},
 	}, slog.New(slog.NewTextHandler(io.Discard, nil)))
@@ -135,7 +138,7 @@ func TestExecuteOneBotLocalActionProviderMismatch(t *testing.T) {
 	t.Parallel()
 
 	application := newTestAppState(config.Config{
-		Auth: config.AuthConfig{
+		Permission: config.PermissionConfig{
 			AutoGrantCapabilities: []string{"provider.napcat.message_emoji.like.set"},
 		},
 	}, nil)
@@ -229,8 +232,11 @@ func TestExecuteOneBotLocalActionProviderExtensionUsesDetectedProvider(t *testin
 	defer server.Close()
 
 	shell := adapter.New(config.OneBotConfig{
-		WSURL: "ws" + server.URL[len("http"):],
-	}, slog.New(slog.NewTextHandler(io.Discard, nil)))
+		ForwardWS: config.OneBotTransportConfig{
+			Enabled: true,
+			URL:     "ws" + server.URL[len("http"):],
+		},
+	}, defaultAdapterTestConfig(), slog.New(slog.NewTextHandler(io.Discard, nil)))
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	shell.Start(ctx)
@@ -238,7 +244,7 @@ func TestExecuteOneBotLocalActionProviderExtensionUsesDetectedProvider(t *testin
 	waitForRuntimeInfo(t, shell, adapter.TransportForwardWS, "napcat", time.Second)
 
 	application := newTestAppState(config.Config{
-		Auth: config.AuthConfig{
+		Permission: config.PermissionConfig{
 			AutoGrantCapabilities: []string{"provider.napcat.message_emoji.like.set"},
 		},
 	}, nil)
@@ -293,7 +299,7 @@ func TestExecuteOneBotLocalActionConnectionLossKeepsPluginRunning(t *testing.T) 
 	t.Parallel()
 
 	application := newTestAppState(config.Config{
-		Auth: config.AuthConfig{
+		Permission: config.PermissionConfig{
 			AutoGrantCapabilities: []string{"message.history.get"},
 		},
 	}, nil)

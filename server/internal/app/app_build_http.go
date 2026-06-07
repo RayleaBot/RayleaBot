@@ -108,10 +108,7 @@ func currentPluginAutoGrantCapabilities(state *appRuntimeState) func() []string 
 		if state == nil {
 			return nil
 		}
-		if len(state.Config.Permission.AutoGrantCapabilities) > 0 {
-			return append([]string(nil), state.Config.Permission.AutoGrantCapabilities...)
-		}
-		return append([]string(nil), state.Config.Auth.AutoGrantCapabilities...)
+		return append([]string(nil), state.Config.Permission.AutoGrantCapabilities...)
 	}
 }
 

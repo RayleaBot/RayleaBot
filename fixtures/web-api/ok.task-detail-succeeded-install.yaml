@@ -17,5 +17,7 @@ response:
       finished_at: 2026-03-21T10:00:05Z
       result:
         summary: 插件已安装并刷新插件目录索引
+        details:
+          plugin_id: weather
 expect:
   valid: true
