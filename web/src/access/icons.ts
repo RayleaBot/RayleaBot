@@ -5,6 +5,7 @@ import {
   ControlOutlined,
   FieldTimeOutlined,
   FileTextOutlined,
+  LinkOutlined,
   MenuOutlined,
   DashboardOutlined,
   DisconnectOutlined,
@@ -38,6 +39,7 @@ const iconMap: Record<string, Component> = {
   scheduler: FieldTimeOutlined,
   setting: SettingOutlined,
   system: HddOutlined,
+  'third-party-accounts': LinkOutlined,
   tasks: ProfileOutlined,
   toolbox: ToolOutlined,
 }

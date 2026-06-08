@@ -113,6 +113,30 @@ function logDetailWindow(page: import('@playwright/test').Page) {
   return page.getByTestId('management-log-detail-window')
 }
 
+async function expectThirdPartyAccountCardsContained(page: import('@playwright/test').Page) {
+  const metrics = await page.evaluate(() => {
+    const tolerance = 1
+    const viewportOverflow = document.documentElement.scrollWidth - document.documentElement.clientWidth
+    const cards = Array.from(document.querySelectorAll<HTMLElement>('.account-card'))
+    const overflowingCards = cards.map((card) => {
+      const rect = card.getBoundingClientRect()
+      return {
+        className: card.className,
+        inlineOverflow: card.scrollWidth - card.clientWidth,
+        rightOverflow: rect.right - document.documentElement.clientWidth,
+      }
+    }).filter((card) => card.inlineOverflow > tolerance || card.rightOverflow > tolerance)
+
+    return {
+      viewportOverflow,
+      overflowingCards,
+    }
+  })
+
+  expect(metrics.viewportOverflow).toBeLessThanOrEqual(1)
+  expect(metrics.overflowingCards).toEqual([])
+}
+
 async function clickConfigTocItem(page: import('@playwright/test').Page, label: string) {
   const desktopItem = page.locator('.config-toc').getByText(label, { exact: true })
   if (await desktopItem.first().isVisible().catch(() => false)) {
@@ -2567,6 +2591,65 @@ test('login keeps the protected shell after reload', async ({ page, request }) =
   await expect(page).not.toHaveURL(/\/login$/)
   await expect(appHeader(page)).not.toContainText('事件流')
   await expect(page.getByTestId('connection-card-events')).toContainText('已认证')
+})
+
+test('third-party accounts show Bilibili CK cards and QR login fills the editor', async ({ page, request }) => {
+  await resetBackend(request, true)
+  await login(page)
+
+  await page.goto('/third-party-accounts')
+  await expect(page.getByRole('heading', { name: '三方账号', level: 1 })).toBeVisible()
+  await expect(page.locator('.source-summary-strip')).toContainText('Bilibili 事件源')
+  await expect(page.locator('.source-metric')).toHaveCount(3)
+
+  const accountCard = page.locator('.account-card').filter({ hasText: '主账号昵称' }).first()
+  await expect(accountCard).toBeVisible()
+  await expect(accountCard).toContainText('UID 123456')
+  await expect(accountCard).toContainText('CK 有效')
+  await expect(accountCard).toContainText('轮询')
+  await expect(accountCard).toContainText('上次使用')
+  const avatarImage = accountCard.getByTestId('bilibili-account-avatar-image')
+  await expect(avatarImage).toBeVisible()
+  await expect(avatarImage).toHaveAttribute('src', /external-preview\/avatar\.png/)
+  await avatarImage.evaluate((element) => element.dispatchEvent(new Event('error')))
+  await expect(accountCard.getByTestId('bilibili-account-avatar-fallback')).toBeVisible()
+  await expect(accountCard.getByTestId('bilibili-account-avatar-image')).toHaveCount(0)
+  await expectThirdPartyAccountCardsContained(page)
+
+  await accountCard.getByRole('button', { name: '编辑' }).click()
+  const editingExistingCard = page.locator('.account-card--editing').filter({ hasText: '留空时保留当前 CK。' }).first()
+  await expect(editingExistingCard.locator('textarea')).toBeVisible()
+  await expect(editingExistingCard).toContainText('留空时保留当前 CK。')
+  await expectThirdPartyAccountCardsContained(page)
+  await editingExistingCard.getByRole('button', { name: /取\s*消/ }).click()
+
+  await page.getByRole('button', { name: '添加 Bilibili CK' }).first().click()
+  await page.getByRole('button', { name: '添加 Bilibili CK' }).first().click()
+  const draftCards = page.locator('.account-card--editing').filter({ hasText: 'Bilibili CK' })
+  await expect(draftCards).toHaveCount(2)
+  await expectThirdPartyAccountCardsContained(page)
+  await page.setViewportSize({ width: 390, height: 844 })
+  await expectThirdPartyAccountCardsContained(page)
+  await page.setViewportSize({ width: 1280, height: 720 })
+  await expectThirdPartyAccountCardsContained(page)
+  const draftCard = page.locator('.account-card--editing').nth(0)
+  await expect(draftCard).toBeVisible()
+  await draftCard.getByRole('button', { name: '扫码获取 CK' }).click()
+  await expect(draftCard.locator('.qr-panel')).toContainText('等待确认')
+  await expect(draftCard.locator('.qr-panel')).toContainText('有效期至')
+  await expect(draftCard.locator('.qr-panel .ant-qrcode')).toHaveCount(1)
+  await expectThirdPartyAccountCardsContained(page)
+  const scannedDraftCard = page.locator('.account-card--editing').filter({ has: page.locator('.qr-panel') }).first()
+  const scannedInputs = scannedDraftCard.locator('input')
+  await expect(scannedInputs.nth(0)).toHaveValue('123456', { timeout: 5000 })
+  await expect(scannedInputs.nth(1)).toHaveValue('主账号昵称')
+  await expect(scannedDraftCard.locator('textarea')).toHaveValue(/SESSDATA=fixture/)
+  await scannedDraftCard.getByRole('button', { name: /保\s*存/ }).click()
+  const savedQRCodeAccountCard = page.locator('.account-card').filter({ hasText: '账号 ID123456' }).first()
+  await expect(savedQRCodeAccountCard).toBeVisible()
+  await expect(savedQRCodeAccountCard).toContainText('CK 有效')
+  await expect(savedQRCodeAccountCard.getByTestId('bilibili-account-avatar-image')).toBeVisible()
+  await expectThirdPartyAccountCardsContained(page)
 })
 
 test('error recovery covers retry and uninstall failure', async ({ page, request }) => {

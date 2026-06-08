@@ -1,6 +1,7 @@
 import type { App } from 'vue'
 
 import AntdApp from 'ant-design-vue/es/app'
+import Avatar from 'ant-design-vue/es/avatar'
 import Badge from 'ant-design-vue/es/badge'
 import Button from 'ant-design-vue/es/button'
 import Card from 'ant-design-vue/es/card'
@@ -21,6 +22,7 @@ import Pagination from 'ant-design-vue/es/pagination'
 import Popconfirm from 'ant-design-vue/es/popconfirm'
 import Popover from 'ant-design-vue/es/popover'
 import Progress from 'ant-design-vue/es/progress'
+import QRCode from 'ant-design-vue/es/qrcode'
 import Radio from 'ant-design-vue/es/radio'
 import Result from 'ant-design-vue/es/result'
 import Segmented from 'ant-design-vue/es/segmented'
@@ -36,6 +38,7 @@ import Tooltip from 'ant-design-vue/es/tooltip'
 
 const components = [
   AntdApp,
+  Avatar,
   Badge,
   Button,
   Card,
@@ -56,6 +59,7 @@ const components = [
   Popconfirm,
   Popover,
   Progress,
+  QRCode,
   Radio,
   Result,
   Segmented,

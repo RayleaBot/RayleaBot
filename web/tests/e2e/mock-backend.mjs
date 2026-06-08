@@ -14,6 +14,7 @@ const externalPreviewImageBytes = Buffer.from(
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO2W4n8AAAAASUVORK5CYII=',
   'base64',
 )
+const bilibiliAvatarUrl = 'http://127.0.0.1:4010/external-preview/avatar.png'
 const externalPreviewFontBytes = await readFile(
   path.join(repoRoot, 'templates', 'fortune.card', 'assets', 'fonts', 'lxgwwenkai-medium', 'e8f52c41386b1b7731acfccb8c1a8c52.woff2'),
 )
@@ -79,6 +80,13 @@ const fixtures = {
   governanceWhitelistState: await readFixture('fixtures/web-api/ok.governance-whitelist-state-response.yaml'),
   governanceWhitelistEntryUpsert: await readFixture('fixtures/web-api/ok.governance-whitelist-entry-upsert.yaml'),
   governanceCommandPolicy: await readFixture('fixtures/web-api/ok.governance-command-policy-response.yaml'),
+  thirdPartyAccounts: await readFixture('fixtures/web-api/ok.third-party-accounts-list.yaml'),
+  thirdPartyAccountUpsert: await readFixture('fixtures/web-api/ok.third-party-account-upsert.yaml'),
+  bilibiliSourceStatus: await readFixture('fixtures/web-api/ok.bilibili-source-status.yaml'),
+  bilibiliSourceRestart: await readFixture('fixtures/web-api/ok.bilibili-source-restart.yaml'),
+  bilibiliQRCodeCreate: await readFixture('fixtures/web-api/ok.bilibili-login-qrcode-create.yaml'),
+  bilibiliQRCodePollPending: await readFixture('fixtures/web-api/ok.bilibili-login-qrcode-poll-pending.yaml'),
+  bilibiliQRCodePollSucceeded: await readFixture('fixtures/web-api/ok.bilibili-login-qrcode-poll-succeeded.yaml'),
   wsLogs: await readFixture('fixtures/websocket/ok.logs-appended.protocol-onebot11.json'),
   wsTasks: await readFixture('fixtures/websocket/ok.tasks-updated-running.json'),
   wsEvents: await readFixture('fixtures/websocket/edge.events-received-degraded.json'),
@@ -100,6 +108,8 @@ function baseState() {
   const pluginMap = Object.fromEntries(pluginItems.map((item) => [item.id, item]))
   pluginMap.weather = structuredClone(fixtures.pluginDetail.response.body.plugin)
   pluginMap['example-config-panel'] = createExampleConfigPanelPlugin()
+  const thirdPartyAccounts = structuredClone(fixtures.thirdPartyAccounts.response.body.items)
+    .map(localizeBilibiliAccountAvatar)
   return {
     initialized: false,
     token: null,
@@ -116,6 +126,9 @@ function baseState() {
     governanceBlacklist: structuredClone(fixtures.governanceBlacklist.response.body),
     governanceWhitelist: structuredClone(fixtures.governanceWhitelist.response.body),
     governanceCommandPolicy: structuredClone(fixtures.governanceCommandPolicy.response.body),
+    thirdPartyAccounts,
+    bilibiliSourceStatus: structuredClone(fixtures.bilibiliSourceStatus.response.body),
+    bilibiliQRCodePolls: {},
     renderTemplates: createRenderTemplateState(),
     schedulerJobs: structuredClone(fixtures.schedulerJobsList.response.body.items),
     grants: {
@@ -258,6 +271,13 @@ function pickOneBotHotState(config) {
 
 function computeRestartRequiredForConfig(prevConfig, nextConfig) {
   return computeConfigApplyEffects(prevConfig, nextConfig).restart_required_fields.length > 0
+}
+
+function localizeBilibiliAccountAvatar(account) {
+  if (account?.platform === 'bilibili' && account.profile) {
+    account.profile.avatar_url = bilibiliAvatarUrl
+  }
+  return account
 }
 
 function syncGovernanceCommandPolicyFromConfig(config) {
@@ -1546,6 +1566,131 @@ const server = http.createServer(async (request, response) => {
     }
 
     json(response, 200, structuredClone(fixtures.protocolCompatibility.response.body))
+    return
+  }
+
+  if (pathname === '/api/third-party/accounts' && request.method === 'GET') {
+    if (!requireAuth(request, response)) {
+      return
+    }
+
+    json(response, 200, { items: structuredClone(state.thirdPartyAccounts) })
+    return
+  }
+
+  if (pathname.startsWith('/api/third-party/accounts/') && request.method === 'PUT') {
+    if (!requireAuth(request, response)) {
+      return
+    }
+
+    const segments = pathname.split('/')
+    const platform = decodeURIComponent(segments[4] ?? '')
+    const accountId = decodeURIComponent(segments[5] ?? '')
+    const payload = await parseBody(request)
+    if (platform !== 'bilibili' || !accountId || !payload || typeof payload.label !== 'string' || typeof payload.enabled !== 'boolean') {
+      json(response, 400, errorEnvelope('platform.invalid_request', 'third-party account payload is invalid', 'req_third_party_account_invalid'))
+      return
+    }
+
+    const fixtureAccount = structuredClone(fixtures.thirdPartyAccountUpsert.response.body.account)
+    const previous = state.thirdPartyAccounts.find((item) => item.platform === platform && item.account_id === accountId)
+    const nextAccount = {
+      ...fixtureAccount,
+      ...(previous ?? {}),
+      platform,
+      account_id: accountId,
+      label: payload.label,
+      enabled: payload.enabled,
+      configured: previous?.configured || Boolean(payload.cookie),
+      updated_at: new Date().toISOString(),
+    }
+    if (payload.cookie) {
+      nextAccount.profile = structuredClone(fixtureAccount.profile)
+      nextAccount.credential = structuredClone(fixtureAccount.credential)
+      nextAccount.configured = true
+    }
+    localizeBilibiliAccountAvatar(nextAccount)
+    state.thirdPartyAccounts = [
+      ...state.thirdPartyAccounts.filter((item) => item.platform !== platform || item.account_id !== accountId),
+      nextAccount,
+    ].sort((left, right) => left.account_id.localeCompare(right.account_id))
+    json(response, 200, { account: structuredClone(nextAccount) })
+    return
+  }
+
+  if (pathname.startsWith('/api/third-party/accounts/') && request.method === 'DELETE') {
+    if (!requireAuth(request, response)) {
+      return
+    }
+
+    const segments = pathname.split('/')
+    const platform = decodeURIComponent(segments[4] ?? '')
+    const accountId = decodeURIComponent(segments[5] ?? '')
+    state.thirdPartyAccounts = state.thirdPartyAccounts.filter((item) => item.platform !== platform || item.account_id !== accountId)
+    noContent(response)
+    return
+  }
+
+  if (pathname === '/api/bilibili/source/status' && request.method === 'GET') {
+    if (!requireAuth(request, response)) {
+      return
+    }
+
+    json(response, 200, {
+      ...structuredClone(state.bilibiliSourceStatus),
+      accounts: structuredClone(state.thirdPartyAccounts),
+    })
+    return
+  }
+
+  if (pathname === '/api/bilibili/source/restart' && request.method === 'POST') {
+    if (!requireAuth(request, response)) {
+      return
+    }
+
+    json(response, fixtures.bilibiliSourceRestart.response.status, {
+      ...structuredClone(fixtures.bilibiliSourceRestart.response.body),
+      status: {
+        ...structuredClone(state.bilibiliSourceStatus),
+        accounts: structuredClone(state.thirdPartyAccounts),
+      },
+    })
+    return
+  }
+
+  if (pathname === '/api/bilibili/login/qrcode' && request.method === 'POST') {
+    if (!requireAuth(request, response)) {
+      return
+    }
+
+    const body = structuredClone(fixtures.bilibiliQRCodeCreate.response.body)
+    state.bilibiliQRCodePolls[body.login_id] = 0
+    json(response, fixtures.bilibiliQRCodeCreate.response.status, body)
+    return
+  }
+
+  if (pathname.startsWith('/api/bilibili/login/qrcode/') && request.method === 'GET') {
+    if (!requireAuth(request, response)) {
+      return
+    }
+
+    const loginId = decodeURIComponent(pathname.split('/')[5] ?? '')
+    if (!loginId || !(loginId in state.bilibiliQRCodePolls)) {
+      json(response, 400, errorEnvelope('platform.invalid_request', 'qr login session not found', 'req_bilibili_qr_missing'))
+      return
+    }
+    state.bilibiliQRCodePolls[loginId] += 1
+    const fixture = state.bilibiliQRCodePolls[loginId] > 1
+      ? fixtures.bilibiliQRCodePollSucceeded
+      : fixtures.bilibiliQRCodePollPending
+    const body = structuredClone(fixture.response.body)
+    if (body.account) {
+      body.account.avatar_url = bilibiliAvatarUrl
+    }
+    json(response, fixture.response.status, {
+      ...body,
+      login_id: loginId,
+    })
     return
   }
 
