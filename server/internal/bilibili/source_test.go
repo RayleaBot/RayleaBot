@@ -163,6 +163,7 @@ func TestPollDynamicsDispatchesWatchedUpdatesAndDeduplicates(t *testing.T) {
 		},
 	}
 	ctx := context.Background()
+	source.markSeen(ctx, EventDynamicPublished+":baseline", "123456", EventDynamicPublished, "baseline")
 	account := thirdparty.Account{Platform: thirdparty.PlatformBilibili, AccountID: "primary"}
 	source.pollDynamics(ctx, subjects, account, "SESSDATA=fixture; bili_jct=csrf;")
 	source.pollDynamics(ctx, subjects, account, "SESSDATA=fixture; bili_jct=csrf;")
@@ -195,6 +196,177 @@ func TestPollDynamicsDispatchesWatchedUpdatesAndDeduplicates(t *testing.T) {
 	monitor := snapshot.Items[0]
 	if monitor.Dynamic == nil || monitor.Dynamic.LastID != "90001" || monitor.Dynamic.Title != "新视频标题" {
 		t.Fatalf("unexpected monitor dynamic snapshot: %#v", monitor.Dynamic)
+	}
+}
+
+func TestPollDynamicsBootstrapsExistingUpdatesBeforeDispatch(t *testing.T) {
+	t.Parallel()
+
+	call := 0
+	source, recorder := newTestSourceWithPluginConfig(t, time.Date(2026, 6, 8, 8, 21, 0, 0, time.UTC), func(request *http.Request) (*http.Response, error) {
+		switch request.URL.Host + request.URL.Path {
+		case "api.bilibili.com/bapis/bilibili.api.ticket.v1.Ticket/GenWebTicket":
+			return jsonResponse(`{
+				"code": 0,
+				"data": {
+					"ticket": "ticket-value",
+					"created_at": 1780906860,
+					"ttl": 259200,
+					"nav": {
+						"img": "https://i0.hdslb.com/bfs/wbi/7cd084941338484aae1ad9425b84077c.png",
+						"sub": "https://i0.hdslb.com/bfs/wbi/4932caff0ff746eab6f01bf08b70ac45.png"
+					}
+				}
+			}`), nil
+		case "api.bilibili.com/x/polymer/web-dynamic/v1/feed/all":
+			call++
+			items := `{
+				"id_str": "old-90001",
+				"type": "DYNAMIC_TYPE_AV",
+				"basic": {"jump_url": "//www.bilibili.com/video/BV1OLD"},
+				"modules": {
+					"module_author": {"mid": "123456", "name": "测试 UP", "pub_ts": 1780646400},
+					"module_dynamic": {
+						"major": {
+							"type": "MAJOR_TYPE_ARCHIVE",
+							"archive": {"title": "几天前的视频", "desc": "历史内容", "cover": "//i0.hdslb.com/bfs/archive/old.jpg"}
+						}
+					}
+				}
+			}`
+			if call > 1 {
+				items = `{
+					"id_str": "new-90002",
+					"type": "DYNAMIC_TYPE_AV",
+					"basic": {"jump_url": "//www.bilibili.com/video/BV1NEW"},
+					"modules": {
+						"module_author": {"mid": "123456", "name": "测试 UP", "pub_ts": 1780906800},
+						"module_dynamic": {
+							"major": {
+								"type": "MAJOR_TYPE_ARCHIVE",
+								"archive": {"title": "新视频", "desc": "新内容", "cover": "//i0.hdslb.com/bfs/archive/new.jpg"}
+							}
+						}
+					}
+				},` + items
+			}
+			return jsonResponse(`{"code":0,"data":{"items":[` + items + `]}}`), nil
+		default:
+			t.Fatalf("unexpected request url: %s", request.URL.String())
+			return nil, nil
+		}
+	}, staticPluginConfig{
+		values: map[string]any{
+			"subscriptions": []any{
+				map[string]any{
+					"enabled":  true,
+					"platform": "bilibili",
+					"uid":      "123456",
+					"name":     "测试 UP",
+					"services": []any{"video"},
+				},
+			},
+		},
+	})
+	ctx := context.Background()
+	subjects := map[string]Subject{
+		"123456": {
+			UID:      "123456",
+			Name:     "测试 UP",
+			Services: map[string]bool{"video": true},
+		},
+	}
+	account := thirdparty.Account{Platform: thirdparty.PlatformBilibili, AccountID: "primary"}
+
+	source.pollDynamics(ctx, subjects, account, "SESSDATA=fixture; bili_jct=csrf;")
+	if len(recorder.events) != 0 {
+		t.Fatalf("first dynamic poll dispatched history: %#v", recorder.events)
+	}
+
+	source.pollDynamics(ctx, subjects, account, "SESSDATA=fixture; bili_jct=csrf;")
+	if len(recorder.events) != 1 {
+		t.Fatalf("second dynamic poll events = %d, want 1", len(recorder.events))
+	}
+	payload := bilibiliPayload(t, recorder.events[0])
+	if payload["id"] != "new-90002" || payload["title"] != "新视频" {
+		t.Fatalf("unexpected dispatched dynamic payload: %#v", payload)
+	}
+}
+
+func TestPollDynamicsDispatchesAfterEmptyBootstrap(t *testing.T) {
+	t.Parallel()
+
+	call := 0
+	source, recorder := newTestSourceWithPluginConfig(t, time.Date(2026, 6, 8, 8, 22, 0, 0, time.UTC), func(request *http.Request) (*http.Response, error) {
+		switch request.URL.Host + request.URL.Path {
+		case "api.bilibili.com/bapis/bilibili.api.ticket.v1.Ticket/GenWebTicket":
+			return jsonResponse(`{
+				"code": 0,
+				"data": {
+					"ticket": "ticket-value",
+					"created_at": 1780906920,
+					"ttl": 259200,
+					"nav": {
+						"img": "https://i0.hdslb.com/bfs/wbi/7cd084941338484aae1ad9425b84077c.png",
+						"sub": "https://i0.hdslb.com/bfs/wbi/4932caff0ff746eab6f01bf08b70ac45.png"
+					}
+				}
+			}`), nil
+		case "api.bilibili.com/x/polymer/web-dynamic/v1/feed/all":
+			call++
+			if call == 1 {
+				return jsonResponse(`{"code":0,"data":{"items":[]}}`), nil
+			}
+			return jsonResponse(`{"code":0,"data":{"items":[{
+				"id_str": "new-after-empty",
+				"type": "DYNAMIC_TYPE_AV",
+				"basic": {"jump_url": "//www.bilibili.com/video/BV1AFTEREMPTY"},
+				"modules": {
+					"module_author": {"mid": "123456", "name": "测试 UP", "pub_ts": 1780906900},
+					"module_dynamic": {
+						"major": {
+							"type": "MAJOR_TYPE_ARCHIVE",
+							"archive": {"title": "空基线后的新视频", "desc": "新内容", "cover": "//i0.hdslb.com/bfs/archive/after-empty.jpg"}
+						}
+					}
+				}
+			}]}}`), nil
+		default:
+			t.Fatalf("unexpected request url: %s", request.URL.String())
+			return nil, nil
+		}
+	}, staticPluginConfig{
+		values: map[string]any{
+			"subscriptions": []any{
+				map[string]any{
+					"enabled":  true,
+					"platform": "bilibili",
+					"uid":      "123456",
+					"name":     "测试 UP",
+					"services": []any{"video"},
+				},
+			},
+		},
+	})
+	ctx := context.Background()
+	subjects := map[string]Subject{
+		"123456": {
+			UID:      "123456",
+			Name:     "测试 UP",
+			Services: map[string]bool{"video": true},
+		},
+	}
+	account := thirdparty.Account{Platform: thirdparty.PlatformBilibili, AccountID: "primary"}
+
+	source.pollDynamics(ctx, subjects, account, "SESSDATA=fixture; bili_jct=csrf;")
+	source.pollDynamics(ctx, subjects, account, "SESSDATA=fixture; bili_jct=csrf;")
+
+	if len(recorder.events) != 1 {
+		t.Fatalf("dynamic events = %d, want 1", len(recorder.events))
+	}
+	payload := bilibiliPayload(t, recorder.events[0])
+	if payload["id"] != "new-after-empty" {
+		t.Fatalf("unexpected dynamic payload: %#v", payload)
 	}
 }
 

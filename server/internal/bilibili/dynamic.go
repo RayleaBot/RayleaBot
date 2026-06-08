@@ -60,6 +60,8 @@ func (s *Source) pollDynamics(ctx context.Context, subjects map[string]Subject, 
 	s.mu.Unlock()
 	s.publishStatus(ctx, s.withAccounts(ctx, status))
 
+	initialized := s.initializedDynamicUIDs(ctx, watched)
+	s.ensureDynamicBaselines(ctx, watched)
 	for _, item := range append(doc.Data.Items, doc.Data.Cards...) {
 		event, ok := dynamicEventFromItem(item, watched)
 		if !ok {
@@ -69,9 +71,36 @@ func (s *Source) pollDynamics(ctx context.Context, subjects map[string]Subject, 
 			continue
 		}
 		s.setDynamicSnapshot(ctx, event)
+		if !initialized[event.UID] {
+			continue
+		}
 		s.dispatchEvent(ctx, event)
 	}
 	_ = account
+}
+
+func (s *Source) initializedDynamicUIDs(ctx context.Context, subjects map[string]Subject) map[string]bool {
+	result := make(map[string]bool, len(subjects))
+	for uid := range subjects {
+		result[uid] = s.hasSeenDynamic(ctx, uid)
+	}
+	return result
+}
+
+func (s *Source) ensureDynamicBaselines(ctx context.Context, subjects map[string]Subject) {
+	for uid := range subjects {
+		key := EventDynamicPublished + ":baseline:" + uid
+		s.markSeen(ctx, key, uid, EventDynamicPublished, "__baseline__")
+	}
+}
+
+func (s *Source) hasSeenDynamic(ctx context.Context, uid string) bool {
+	var exists int
+	err := s.read.QueryRowContext(ctx,
+		`SELECT 1 FROM bilibili_source_seen WHERE uid = ? AND event_type = ? LIMIT 1`,
+		uid, EventDynamicPublished,
+	).Scan(&exists)
+	return err == nil && exists == 1
 }
 
 func (s *Source) autoFollow(ctx context.Context, subjects map[string]Subject, account thirdparty.Account, cookie string) {
