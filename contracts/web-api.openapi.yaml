@@ -119,6 +119,8 @@ x-fixtures:
   - fixtures/web-api/ok.third-party-account-upsert.yaml
   - fixtures/web-api/ok.third-party-account-delete.yaml
   - fixtures/web-api/ok.third-party-monitors-bilibili.yaml
+  - fixtures/web-api/ok.third-party-media-bilibili-image.yaml
+  - fixtures/web-api/invalid.third-party-media-unsupported-url.yaml
   - fixtures/web-api/ok.bilibili-login-qrcode-create.yaml
   - fixtures/web-api/ok.bilibili-login-qrcode-poll-pending.yaml
   - fixtures/web-api/ok.bilibili-login-qrcode-poll-succeeded.yaml
@@ -1549,6 +1551,51 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ThirdPartyMonitorsResponse'
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+        default:
+          $ref: '#/components/responses/Error'
+
+  /api/third-party/media:
+    get:
+      summary: Fetch a controlled third-party media resource for management UI display.
+      operationId: getThirdPartyMedia
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: url
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uri
+            minLength: 1
+      responses:
+        '200':
+          description: Controlled media resource bytes.
+          content:
+            image/png:
+              schema:
+                type: string
+                format: binary
+            image/jpeg:
+              schema:
+                type: string
+                format: binary
+            image/webp:
+              schema:
+                type: string
+                format: binary
+            image/gif:
+              schema:
+                type: string
+                format: binary
+            image/avif:
+              schema:
+                type: string
+                format: binary
         '400':
           $ref: '#/components/responses/Error'
         '401':

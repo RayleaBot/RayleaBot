@@ -948,6 +948,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/third-party/media": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Fetch a controlled third-party media resource for management UI display. */
+        get: operations["getThirdPartyMedia"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/bilibili/login/qrcode": {
         parameters: {
             query?: never;
@@ -3779,6 +3796,35 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ThirdPartyMonitorsResponse"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    getThirdPartyMedia: {
+        parameters: {
+            query: {
+                url: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Controlled media resource bytes. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "image/png": string;
+                    "image/jpeg": string;
+                    "image/webp": string;
+                    "image/gif": string;
+                    "image/avif": string;
                 };
             };
             400: components["responses"]["Error"];

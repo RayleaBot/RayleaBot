@@ -1,0 +1,12 @@
+contract: contracts/web-api.openapi.yaml
+case: ok
+description: Third-party media streams one allowed Bilibili image resource.
+request:
+  method: GET
+  path: /api/third-party/media?url=https%3A%2F%2Fi0.hdslb.com%2Fbfs%2Fface%2Fup.jpg
+response:
+  status: 200
+  content_type: image/jpeg
+  body: <binary>
+expect:
+  valid: true

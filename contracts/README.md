@@ -37,7 +37,7 @@
   - 统一错误码命名、默认消息资源键、HTTP 语义和适用范围
 - `web-api.openapi.yaml`
   - 当前已冻结的管理 HTTP 接口
-  - 当前包含 setup / session、loopback launcher bootstrap、config snapshot/update、protocol snapshot / compatibility、plugin lifecycle、plugin grants、plugin rich detail、plugin settings、plugin secrets、third-party accounts、third-party monitors、Bilibili source status、governance 管理面、tasks / logs / system surfaces、scheduler 任务列表与手动触发、recovery recheck / confirm、runtime bootstrap、render templates、preview HTML 与模板资源读取面
+  - 当前包含 setup / session、loopback launcher bootstrap、config snapshot/update、protocol snapshot / compatibility、plugin lifecycle、plugin grants、plugin rich detail、plugin settings、plugin secrets、third-party accounts、third-party monitors、third-party media、Bilibili source status、governance 管理面、tasks / logs / system surfaces、scheduler 任务列表与手动触发、recovery recheck / confirm、runtime bootstrap、render templates、preview HTML 与模板资源读取面
   - `PUT /api/config` response 固定返回 `apply_effects.applied_now`、`apply_effects.reloaded_now`、`apply_effects.restart_required_fields`
   - plugin lifecycle surface 统一使用正式 `display_state` 枚举
 - `websocket-events.yaml`
@@ -106,6 +106,7 @@
 当前已进入 OpenAPI 冻结范围的 third-party monitor surface：
 
 - `GET /api/third-party/monitors`
+- `GET /api/third-party/media`
 
 当前已进入 OpenAPI 冻结范围的 plugin grants surface：
 
