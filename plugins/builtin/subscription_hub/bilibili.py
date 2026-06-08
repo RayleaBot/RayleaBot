@@ -13,8 +13,10 @@ USER_INFO_URL = "https://api.bilibili.com/x/space/acc/info?mid={uid}&jsonp=jsonp
 USER_SEARCH_URL = "https://api.bilibili.com/x/web-interface/search/type?{query}"
 VIDEO_VIEW_URL = "https://api.bilibili.com/x/web-interface/view?bvid={bvid}"
 OPUS_DETAIL_URL = "https://api.bilibili.com/x/polymer/web-dynamic/v1/opus/detail?id={opus_id}"
+DYNAMIC_DETAIL_URL = "https://api.bilibili.com/x/polymer/web-dynamic/v1/detail?id={dynamic_id}&features=itemOpusStyle,opusBigCover,onlyfansVote,decorationCard,onlyfansAssetsV2,forwardListHidden,ugcDelete"
 LIVE_ROOM_INFO_URL = "https://api.live.bilibili.com/room/v1/Room/get_info?room_id={room_id}"
 BILIBILI_CONTENT_HOSTS = {"www.bilibili.com", "m.bilibili.com", "bilibili.com"}
+BILIBILI_DYNAMIC_HOSTS = {"t.bilibili.com"}
 BVID_PATTERN = re.compile(r"^BV[0-9A-Za-z]+$")
 
 
@@ -66,6 +68,10 @@ def opus_detail_url(opus_id):
     return OPUS_DETAIL_URL.format(opus_id=opus_id)
 
 
+def dynamic_detail_url(dynamic_id):
+    return DYNAMIC_DETAIL_URL.format(dynamic_id=dynamic_id)
+
+
 def live_room_info_url(room_id):
     return LIVE_ROOM_INFO_URL.format(room_id=room_id)
 
@@ -95,7 +101,7 @@ def looks_like_preview_url(value):
     return (
         "://" in text
         or text.startswith("//")
-        or text.startswith(("www.", "m.", "live.", "bilibili.com/"))
+        or text.startswith(("www.", "m.", "live.", "t.", "bilibili.com/"))
         or "bilibili.com/" in text
     )
 
@@ -122,6 +128,14 @@ def parse_preview_url(value):
             "kind": "opus",
             "opus_id": opus_id,
             "url": f"https://www.bilibili.com/opus/{opus_id}",
+        }
+
+    if host in BILIBILI_DYNAMIC_HOSTS and len(segments) == 1 and segments[0].isdigit():
+        dynamic_id = segments[0]
+        return {
+            "kind": "dynamic",
+            "dynamic_id": dynamic_id,
+            "url": f"https://t.bilibili.com/{dynamic_id}",
         }
 
     if host == "live.bilibili.com" and len(segments) == 1 and segments[0].isdigit():
@@ -192,7 +206,7 @@ def preview_update_from_opus_document(document, canonical_url):
     if not update and item:
         update = normalize_opus_detail_item(item, canonical_url)
     if not update:
-        return {"ok": False, "message": "Bilibili 动态预览失败：响应格式不正确。"}
+        return {"ok": False, "message": "Bilibili 动态预览失败：未识别到可预览的动态内容。"}
     update["url"] = canonical_url
     return {"ok": True, "update": update}
 
@@ -751,7 +765,7 @@ def rich_text_node_to_html(node, classify_missing=False):
     node_text = raw_text(node.get("text") if node.get("text") is not None else node.get("orig_text"))
     node_text_for_type = node_text.strip()
     if classify_missing and not node_type:
-        node_type = classify_rich_text(node_text_for_type)
+        node_type = classify_rich_text(node_text_for_type, node)
     if node_type == "RICH_TEXT_NODE_TYPE_TEXT":
         return html_escape(node_text).replace("\n", "<br>")
     if node_type == "RICH_TEXT_NODE_TYPE_TOPIC":
@@ -761,7 +775,10 @@ def rich_text_node_to_html(node, classify_missing=False):
     if node_type == "RICH_TEXT_NODE_TYPE_LOTTERY":
         return f'<span class="rich-text-lottery bili-rich-text-module lottery">{html_escape(node_text)}</span>'
     if node_type == "RICH_TEXT_NODE_TYPE_WEB":
-        return html_escape(node_text)
+        classified = classify_rich_text(node_text_for_type, node)
+        if classified and classified != "RICH_TEXT_NODE_TYPE_TEXT" and classified != node_type:
+            return rich_text_node_to_html({**node, "type": classified}, classify_missing=False)
+        return f'<span class="rich-text-link bili-rich-text-link web">{html_escape(node_text)}</span>' if node_text else ""
     if node_type == "RICH_TEXT_NODE_TYPE_BV":
         return f'<span class="rich-text-link bili-rich-text-link video">{html_escape(node_text)}</span>'
     if node_type == "RICH_TEXT_NODE_TYPE_EMOJI":
@@ -774,22 +791,36 @@ def rich_text_node_to_html(node, classify_missing=False):
         if icon_class:
             classes = f"{classes} {icon_class}"
         return f'<span class="{classes}">{html_escape(node_text)}</span>'
+    classified = classify_rich_text(node_text_for_type, node)
+    if classified and classified != "RICH_TEXT_NODE_TYPE_TEXT" and classified != node_type:
+        return rich_text_node_to_html({**node, "type": classified}, classify_missing=False)
     return html_escape(node_text)
 
 
-def classify_rich_text(text):
+def classify_rich_text(text, node=None):
+    node = node if isinstance(node, dict) else {}
+    if isinstance(node.get("emoji"), dict):
+        return "RICH_TEXT_NODE_TYPE_EMOJI"
     if re.fullmatch(r"#[^#\s][^#]*#", text or ""):
         return "RICH_TEXT_NODE_TYPE_TOPIC"
     if str(text or "").startswith("@"):
         return "RICH_TEXT_NODE_TYPE_AT"
     if text == "互动抽奖":
         return "RICH_TEXT_NODE_TYPE_LOTTERY"
+    if BVID_PATTERN.match(str(text or "").strip()):
+        return "RICH_TEXT_NODE_TYPE_BV"
+    icon_name = str(node.get("icon_name") or "").lower()
+    jump_url = str(node.get("jump_url") or node.get("url") or "").lower()
+    if "vote" in icon_name or "vote" in jump_url:
+        return "RICH_TEXT_NODE_TYPE_VOTE"
+    if "taobao" in icon_name or "goods" in icon_name or "mall" in jump_url:
+        return "RICH_TEXT_NODE_TYPE_GOODS"
     return "RICH_TEXT_NODE_TYPE_TEXT"
 
 
 def rich_text_emoji_to_html(node, node_text):
     emoji = node.get("emoji") if isinstance(node.get("emoji"), dict) else {}
-    icon_url = str(emoji.get("icon_url") or "").strip()
+    icon_url = normalize_url(emoji.get("icon_url") or emoji.get("url") or node.get("icon_url"))
     emoji_text = str(emoji.get("text") or node_text or "").strip()
     size = emoji.get("size")
     try:

@@ -10,7 +10,7 @@ BUILTIN_DIR = os.path.dirname(PLUGIN_DIR)
 sys.path.insert(0, BUILTIN_DIR)
 sys.path.insert(0, PLUGIN_DIR)
 
-from bilibili import dynamic_updates, parse_preview_url
+from bilibili import dynamic_detail_url, dynamic_updates, parse_preview_url
 from main import (
     SUBSCRIBE_BILIBILI_USAGE,
     SubscriptionHubPlugin,
@@ -86,6 +86,74 @@ class SubscriptionHubTests(unittest.TestCase):
                     },
                 },
             },
+        }
+
+    def repost_item(self, dynamic_id="1210053730841395205", pub_ts=1780585560):
+        return {
+            "id_str": dynamic_id,
+            "type": "DYNAMIC_TYPE_FORWARD",
+            "basic": {"jump_url": f"//t.bilibili.com/{dynamic_id}"},
+            "modules": {
+                "module_author": {
+                    "mid": "123456",
+                    "name": "乐正绫",
+                    "face": "//i0.hdslb.com/bfs/face/repost.jpg",
+                    "pub_ts": pub_ts,
+                    "pub_time": "2026年06月04日 20:26",
+                },
+                "module_dynamic": {
+                    "desc": {
+                        "text": "你是我爱这世界的原因[星星眼] #乐正绫单人集#",
+                        "rich_text_nodes": [
+                            {"type": "RICH_TEXT_NODE_TYPE_TEXT", "text": "你是我爱这世界的原因"},
+                            {
+                                "type": "RICH_TEXT_NODE_TYPE_EMOJI",
+                                "text": "[星星眼]",
+                                "emoji": {"icon_url": "//i0.hdslb.com/bfs/emote/star.png", "text": "[星星眼]", "size": 1},
+                            },
+                            {"type": "RICH_TEXT_NODE_TYPE_WEB", "text": "#乐正绫单人集#"},
+                        ],
+                    },
+                },
+            },
+            "orig": {
+                "id_str": "90001",
+                "type": "DYNAMIC_TYPE_AV",
+                "basic": {"jump_url": "//www.bilibili.com/video/BV1ORIGINAL"},
+                "modules": {
+                    "module_author": {
+                        "mid": "271828",
+                        "name": "WOVOP",
+                        "face": "//i0.hdslb.com/bfs/face/original.jpg",
+                        "pub_ts": 1780585200,
+                        "pub_time": "2026年06月04日 20:20",
+                    },
+                    "module_dynamic": {
+                        "desc": {
+                            "text": "新歌来了！",
+                            "rich_text_nodes": [
+                                {"type": "", "orig_text": "#洛天依#"},
+                                {"type": "RICH_TEXT_NODE_TYPE_TEXT", "text": " 新歌来了！"},
+                            ],
+                        },
+                        "major": {
+                            "type": "MAJOR_TYPE_ARCHIVE",
+                            "archive": {
+                                "title": "【乐正绫ACE原创】你是我爱这世界的原因",
+                                "desc": "视策划旧斜日红狐泽生日快乐！",
+                                "cover": "//i0.hdslb.com/bfs/archive/original-cover.jpg",
+                                "duration_text": "03:17",
+                            },
+                        },
+                    },
+                },
+            },
+        }
+
+    def dynamic_detail_response(self, item=None):
+        return {
+            "status_code": 200,
+            "body_text": json.dumps({"code": 0, "data": {"item": item or self.repost_item()}}, ensure_ascii=False),
         }
 
     def live_event_payload(self, **overrides):
@@ -318,10 +386,30 @@ class SubscriptionHubTests(unittest.TestCase):
         self.assertEqual(ctx.results[-1], {"handled": True, "skipped": "disabled"})
         self.assertEqual(ctx.render_calls, [])
 
-    def test_preview_url_parser_supports_video_opus_and_live(self):
+    def test_preview_url_parser_supports_video_opus_dynamic_and_live(self):
         self.assertEqual(parse_preview_url("https://www.bilibili.com/video/BV1c5qEBjEtJ")["kind"], "video")
         self.assertEqual(parse_preview_url("https://www.bilibili.com/opus/1194416231669563410")["kind"], "opus")
+        self.assertEqual(parse_preview_url("https://t.bilibili.com/1210053730841395205")["kind"], "dynamic")
         self.assertEqual(parse_preview_url("https://live.bilibili.com/22913442")["kind"], "live")
+
+    def test_preview_card_supports_t_bilibili_repost_link(self):
+        plugin = SubscriptionHubPlugin()
+        ctx = FakeContext(
+            args=["https://t.bilibili.com/1210053730841395205"],
+            http_responses=[self.dynamic_detail_response()],
+        )
+
+        plugin.handle_preview_card(ctx)
+
+        self.assertEqual(ctx.texts, [])
+        self.assertEqual(ctx.http_requests[0]["url"], dynamic_detail_url("1210053730841395205"))
+        self.assertEqual(ctx.http_requests[0]["headers"]["Referer"], "https://t.bilibili.com/1210053730841395205")
+        render_data = ctx.render_calls[0]["data"]
+        self.assertEqual(render_data["service"], "转发")
+        self.assertEqual(render_data["original"]["title"], "【乐正绫ACE原创】你是我爱这世界的原因")
+        self.assertIn("rich-text-topic", render_data["content_html"])
+        self.assertIn("rich-text-emoji", render_data["content_html"])
+        self.assertIn("rich-text-topic", render_data["original"]["summary_html"])
 
     def test_preview_response_reports_http_status_and_body(self):
         message = preview_response_document({
@@ -343,6 +431,32 @@ class SubscriptionHubTests(unittest.TestCase):
         self.assertIn("HTTP 200", message)
         self.assertIn("风控校验失败", message)
         self.assertIn('"code": -352', message)
+
+    def test_preview_response_reports_non_json_body(self):
+        message = preview_response_document({
+            "status_code": 200,
+            "body_text": "<html><title>blocked</title></html>",
+        }, "动态")
+
+        self.assertIn("Bilibili 返回内容不是 JSON", message)
+        self.assertIn("HTTP 200", message)
+        self.assertIn("<html><title>blocked</title></html>", message)
+        self.assertNotIn("响应格式不正确", message)
+
+    def test_preview_card_reports_unrecognized_dynamic_detail(self):
+        plugin = SubscriptionHubPlugin()
+        ctx = FakeContext(
+            args=["https://t.bilibili.com/1210053730841395205"],
+            http_responses=[{
+                "status_code": 200,
+                "body_text": json.dumps({"code": 0, "data": {"item": {}}}, ensure_ascii=False),
+            }],
+        )
+
+        plugin.handle_preview_card(ctx)
+
+        self.assertIn("未识别到可预览的动态内容", ctx.texts[-1])
+        self.assertNotIn("响应格式不正确", ctx.texts[-1])
 
     def test_subscribe_user_lookup_reports_bilibili_code_and_body(self):
         settings = merge_settings({}, {"subscriptions": []})
@@ -369,6 +483,76 @@ class SubscriptionHubTests(unittest.TestCase):
         self.assertEqual(updates[0]["title"], "新视频")
         self.assertEqual(updates[0]["duration_text"], "03:21")
         self.assertEqual(updates[0]["images"], [{"url": "https://i0.hdslb.com/video.jpg"}])
+
+    def test_dynamic_updates_extract_repost_original_and_rich_text(self):
+        updates = dynamic_updates({"data": {"items": [self.repost_item()]}})
+
+        self.assertEqual(len(updates), 1)
+        update = updates[0]
+        self.assertEqual(update["service"], "repost")
+        self.assertIn("rich-text-topic", update["summary_html"])
+        self.assertIn("rich-text-emoji", update["summary_html"])
+        self.assertEqual(update["original"]["service"], "video")
+        self.assertEqual(update["original"]["title"], "【乐正绫ACE原创】你是我爱这世界的原因")
+        self.assertIn("rich-text-topic", update["original"]["summary_html"])
+
+    def test_repost_event_fetches_original_before_render(self):
+        settings = merge_settings({}, self.subscription_settings(subscriptions=[{
+            **self.subscription_settings()["subscriptions"][0],
+            "services": ["repost"],
+        }]))
+        plugin = SubscriptionHubPlugin()
+        ctx = FakeContext(
+            config_values=settings,
+            payload={"bilibili": self.dynamic_event_payload(
+                id="1210053730841395205",
+                service="repost",
+                title="转发动态",
+                summary="你是我爱这世界的原因",
+                url="https://t.bilibili.com/1210053730841395205",
+                author={"uid": "123456", "name": "乐正绫"},
+            )},
+            http_responses=[self.dynamic_detail_response()],
+        )
+
+        plugin.handle_bilibili_dynamic_published(ctx)
+
+        self.assertEqual(ctx.results[-1], {"handled": True, "sent": 1})
+        self.assertEqual(ctx.http_requests[0]["url"], dynamic_detail_url("1210053730841395205"))
+        self.assertEqual(ctx.http_requests[0]["headers"]["Referer"], "https://t.bilibili.com/1210053730841395205")
+        render_data = ctx.render_calls[0]["data"]
+        self.assertEqual(render_data["original"]["title"], "【乐正绫ACE原创】你是我爱这世界的原因")
+        self.assertIn("rich-text-topic", render_data["content_html"])
+        self.assertIn("rich-text-emoji", render_data["content_html"])
+        self.assertIn("rich-text-topic", render_data["original"]["summary_html"])
+
+    def test_repost_event_still_pushes_when_original_lookup_fails(self):
+        settings = merge_settings({}, self.subscription_settings(subscriptions=[{
+            **self.subscription_settings()["subscriptions"][0],
+            "services": ["repost"],
+        }]))
+        plugin = SubscriptionHubPlugin()
+        ctx = FakeContext(
+            config_values=settings,
+            payload={"bilibili": self.dynamic_event_payload(
+                id="1210053730841395205",
+                service="repost",
+                title="转发动态",
+                summary="你是我爱这世界的原因",
+                url="https://t.bilibili.com/1210053730841395205",
+                author={"uid": "123456", "name": "乐正绫"},
+            )},
+            http_responses=[{
+                "status_code": 200,
+                "body_text": json.dumps({"code": -352, "message": "风控校验失败"}, ensure_ascii=False),
+            }],
+        )
+
+        plugin.handle_bilibili_dynamic_published(ctx)
+
+        self.assertEqual(ctx.results[-1], {"handled": True, "sent": 1})
+        self.assertEqual(ctx.render_calls[0]["data"]["original"], None)
+        self.assertEqual(ctx.messages[0]["segments"][0]["data"]["file"], "plugin-test.png")
 
     def test_render_data_keeps_subscribers_and_live_fields(self):
         subscription = self.subscription_settings(subscriptions=[{

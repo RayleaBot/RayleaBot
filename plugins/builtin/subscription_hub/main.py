@@ -23,6 +23,7 @@ from bilibili import (
     looks_like_preview_url,
     normalize_user_info,
     normalize_user_search,
+    dynamic_detail_url,
     opus_detail_url,
     parse_json_response,
     parse_preview_url,
@@ -193,7 +194,7 @@ class SubscriptionHubPlugin(RayleaBotPlugin):
         }])
 
     def preview_update_from_link(self, ctx, preview_ref):
-        headers = build_cookie_headers("", None)
+        headers = preview_request_headers(preview_ref)
         try:
             if preview_ref["kind"] == "video":
                 response = ctx.http_request("GET", video_view_url(preview_ref["bvid"]), headers=headers, timeout_seconds=30)
@@ -203,6 +204,12 @@ class SubscriptionHubPlugin(RayleaBotPlugin):
                 return {"ok": False, "message": document}
             if preview_ref["kind"] == "opus":
                 response = ctx.http_request("GET", opus_detail_url(preview_ref["opus_id"]), headers=headers, timeout_seconds=30)
+                document = preview_response_document(response, "动态")
+                if isinstance(document, dict):
+                    return preview_update_from_opus_document(document, preview_ref["url"])
+                return {"ok": False, "message": document}
+            if preview_ref["kind"] == "dynamic":
+                response = ctx.http_request("GET", dynamic_detail_url(preview_ref["dynamic_id"]), headers=headers, timeout_seconds=30)
                 document = preview_response_document(response, "动态")
                 if isinstance(document, dict):
                     return preview_update_from_opus_document(document, preview_ref["url"])
@@ -292,7 +299,8 @@ class SubscriptionHubPlugin(RayleaBotPlugin):
         return f"seen:{subscription['id']}:{update.get('service')}:{update.get('id')}"
 
     def prepare_push_update(self, ctx, subscription, update):
-        render_data = build_render_data(subscription, update)
+        prepared_update = self.prepare_render_update(ctx, update)
+        render_data = build_render_data(subscription, prepared_update)
         result = ctx.render_image(
             "bilibili-update",
             render_data,
@@ -310,6 +318,24 @@ class SubscriptionHubPlugin(RayleaBotPlugin):
             "target_type": subscription["target_type"],
             "target_id": subscription["target_id"],
         }
+
+    def prepare_render_update(self, ctx, update):
+        prepared = copy.deepcopy(update)
+        if prepared.get("service") != "repost" or isinstance(prepared.get("original"), dict):
+            return prepared
+        preview_ref = parse_preview_url(prepared.get("url"))
+        if not preview_ref or preview_ref.get("kind") not in {"opus", "dynamic"}:
+            return prepared
+        result = self.preview_update_from_link(ctx, preview_ref)
+        if result.get("ok") and isinstance(result.get("update"), dict):
+            detailed = result["update"]
+            if isinstance(detailed.get("original"), dict):
+                prepared["original"] = detailed["original"]
+            if not str(prepared.get("summary_html") or "").strip() and str(detailed.get("summary_html") or "").strip():
+                prepared["summary_html"] = detailed["summary_html"]
+            if not str(prepared.get("summary") or "").strip() and str(detailed.get("summary") or "").strip():
+                prepared["summary"] = detailed["summary"]
+        return prepared
 
     def send_prepared_update(self, ctx, prepared):
         ctx.send_message(
@@ -359,8 +385,16 @@ def bilibili_response_failure(response, label):
     if not isinstance(status_code, int) or status_code < 200 or status_code >= 300:
         return f"{label}：{response_details_text(response)}"
     if not parse_json_response(response):
-        return f"{label}：响应格式不正确。{response_details_text(response)}"
+        return f"{label}：Bilibili 返回内容不是 JSON。{response_details_text(response)}"
     return None
+
+
+def preview_request_headers(preview_ref):
+    headers = build_cookie_headers("", None)
+    referer = str((preview_ref or {}).get("url") or "").strip()
+    if referer:
+        headers["Referer"] = referer
+    return headers
 
 
 def response_details_text(response):
