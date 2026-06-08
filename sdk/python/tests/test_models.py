@@ -5,7 +5,11 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
 from rayleabot import (
+    BilibiliAuthor,
+    BilibiliImage,
+    BilibiliPayload,
     Bot,
+    EventPayload,
     InitFrame,
     OneBotPayload,
     PassthroughSegment,
@@ -65,6 +69,61 @@ class ModelHelpersTests(unittest.TestCase):
         self.assertEqual(5000, payload.interval)
         self.assertEqual({"online": True, "good": True}, payload.status)
         self.assertEqual("heartbeat", payload.to_dict()["meta_event_type"])
+
+    def test_bilibili_payload_roundtrip(self):
+        payload = EventPayload.from_dict({
+            "bilibili": {
+                "kind": "live",
+                "uid": "123456",
+                "id": "live-123456-10001-1710000500",
+                "room_id": "10001",
+                "service": "live",
+                "title": "直播间已开播",
+                "summary": "直播中",
+                "url": "https://live.bilibili.com/10001",
+                "pub_ts": 1710000500,
+                "created_at": "2024-03-09 16:08",
+                "author": {
+                    "uid": "123456",
+                    "name": "测试主播",
+                    "avatar": "https://i0.hdslb.com/bfs/face/live.jpg",
+                },
+                "images": [
+                    {
+                        "url": "https://i0.hdslb.com/bfs/live/cover.jpg",
+                        "width": 1280,
+                        "height": 720,
+                    },
+                ],
+                "live_status": 1,
+                "live_event": "started",
+                "status_label": "直播中",
+                "live_started_at": "2024-03-09 16:08",
+            },
+        })
+
+        self.assertEqual("123456", payload.bilibili.uid)
+        self.assertEqual("测试主播", payload.bilibili.author.name)
+        self.assertEqual(1280, payload.bilibili.images[0].width)
+        self.assertEqual("started", payload.to_dict()["bilibili"]["live_event"])
+
+    def test_bilibili_payload_builder_strips_empty_fields(self):
+        payload = EventPayload(
+            bilibili=BilibiliPayload(
+                kind="dynamic",
+                uid="123456",
+                id="90001",
+                service="video",
+                url="https://www.bilibili.com/video/BV1RayleaBot",
+                author=BilibiliAuthor(uid="123456", name="测试 UP"),
+                images=[BilibiliImage(url="https://i0.hdslb.com/bfs/archive/cover.jpg")],
+                dynamic_type="DYNAMIC_TYPE_AV",
+            ),
+        )
+
+        encoded = payload.to_dict()["bilibili"]
+        self.assertNotIn("room_id", encoded)
+        self.assertEqual("DYNAMIC_TYPE_AV", encoded["dynamic_type"])
 
     def test_init_frame_allows_missing_bot(self):
         frame = InitFrame(plugin_id="weather", request_id="init-1", bot=None)

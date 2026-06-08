@@ -145,6 +145,39 @@ export interface OneBotPayload {
   status?: Record<string, unknown>;
 }
 
+export interface BilibiliAuthor {
+  uid: string;
+  name: string;
+  avatar?: string;
+}
+
+export interface BilibiliImage {
+  url: string;
+  width?: number;
+  height?: number;
+}
+
+export interface BilibiliPayload {
+  kind: 'live' | 'dynamic';
+  uid: string;
+  id: string;
+  room_id?: string;
+  service: 'live' | 'video' | 'image_text' | 'article' | 'repost';
+  title?: string;
+  summary?: string;
+  url: string;
+  pub_ts?: number;
+  created_at?: string;
+  author: BilibiliAuthor;
+  images?: BilibiliImage[];
+  live_status?: 0 | 1;
+  live_event?: 'started' | 'ended';
+  status_label?: string;
+  live_started_at?: string;
+  live_detected_at?: string;
+  dynamic_type?: string;
+}
+
 export interface EventPayload {
   command?: string | null;
   args?: string[];
@@ -152,6 +185,7 @@ export interface EventPayload {
   sub_type?: string;
   operator_id?: string;
   onebot?: OneBotPayload;
+  bilibili?: BilibiliPayload;
 }
 
 export interface EventMessage {

@@ -42,6 +42,11 @@ test('generated declaration files include meta fields and new helpers', async ()
   assert.match(typesText, /interval\?: number;/);
   assert.match(typesText, /status\?: Record<string, unknown>;/);
   assert.match(typesText, /bot\?: Bot;/);
+  assert.match(typesText, /export interface BilibiliPayload/);
+  assert.match(typesText, /kind: 'live' \| 'dynamic';/);
+  assert.match(typesText, /service: 'live' \| 'video' \| 'image_text' \| 'article' \| 'repost';/);
+  assert.match(typesText, /live_event\?: 'started' \| 'ended';/);
+  assert.match(typesText, /bilibili\?: BilibiliPayload;/);
 
   assert.match(indexText, /messageForwardGet/);
   assert.match(indexText, /fileGroupFsDelete/);

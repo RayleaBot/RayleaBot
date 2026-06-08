@@ -358,6 +358,108 @@ class OneBotPayload:
 
 
 @dataclass(slots=True)
+class BilibiliAuthor:
+    uid: str
+    name: str
+    avatar: str | None = None
+
+    def to_dict(self) -> dict:
+        return _strip_none(asdict(self))
+
+    @classmethod
+    def from_dict(cls, d: dict) -> BilibiliAuthor:
+        return cls(uid=d["uid"], name=d["name"], avatar=d.get("avatar"))
+
+
+@dataclass(slots=True)
+class BilibiliImage:
+    url: str
+    width: int | None = None
+    height: int | None = None
+
+    def to_dict(self) -> dict:
+        return _strip_none(asdict(self))
+
+    @classmethod
+    def from_dict(cls, d: dict) -> BilibiliImage:
+        return cls(url=d["url"], width=d.get("width"), height=d.get("height"))
+
+
+@dataclass(slots=True)
+class BilibiliPayload:
+    kind: Literal["live", "dynamic"]
+    uid: str
+    id: str
+    service: Literal["live", "video", "image_text", "article", "repost"]
+    url: str
+    author: BilibiliAuthor
+    room_id: str | None = None
+    title: str | None = None
+    summary: str | None = None
+    pub_ts: int | None = None
+    created_at: str | None = None
+    images: list[BilibiliImage] = field(default_factory=list)
+    live_status: Literal[0, 1] | None = None
+    live_event: Literal["started", "ended"] | None = None
+    status_label: str | None = None
+    live_started_at: str | None = None
+    live_detected_at: str | None = None
+    dynamic_type: str | None = None
+
+    def to_dict(self) -> dict:
+        d: dict[str, Any] = {
+            "kind": self.kind,
+            "uid": self.uid,
+            "id": self.id,
+            "service": self.service,
+            "url": self.url,
+            "author": self.author.to_dict(),
+        }
+        if self.images:
+            d["images"] = [image.to_dict() for image in self.images]
+        for key in (
+            "room_id",
+            "title",
+            "summary",
+            "pub_ts",
+            "created_at",
+            "live_status",
+            "live_event",
+            "status_label",
+            "live_started_at",
+            "live_detected_at",
+            "dynamic_type",
+        ):
+            value = getattr(self, key)
+            if value is not None:
+                d[key] = value
+        return d
+
+    @classmethod
+    def from_dict(cls, d: dict) -> BilibiliPayload:
+        return cls(
+            kind=d["kind"],
+            uid=d["uid"],
+            id=d["id"],
+            service=d["service"],
+            url=d["url"],
+            author=BilibiliAuthor.from_dict(d["author"]),
+            room_id=d.get("room_id"),
+            title=d.get("title"),
+            summary=d.get("summary"),
+            pub_ts=d.get("pub_ts"),
+            created_at=d.get("created_at"),
+            images=[BilibiliImage.from_dict(item) for item in d.get("images", [])],
+            live_status=d.get("live_status"),
+            live_event=d.get("live_event"),
+            status_label=d.get("status_label"),
+            live_started_at=d.get("live_started_at"),
+            live_detected_at=d.get("live_detected_at"),
+            dynamic_type=d.get("dynamic_type"),
+        )
+
+
+@dataclass(slots=True)
 class EventPayload:
     command: str | None = None
     args: list[str] | None = None
@@ -365,11 +467,14 @@ class EventPayload:
     sub_type: str | None = None
     operator_id: str | None = None
     onebot: OneBotPayload | None = None
+    bilibili: BilibiliPayload | None = None
 
     def to_dict(self) -> dict:
         d = _strip_none(asdict(self))
         if self.onebot is not None:
             d["onebot"] = self.onebot.to_dict()
+        if self.bilibili is not None:
+            d["bilibili"] = self.bilibili.to_dict()
         return d
 
     @classmethod
@@ -381,6 +486,7 @@ class EventPayload:
             sub_type=d.get("sub_type"),
             operator_id=d.get("operator_id"),
             onebot=OneBotPayload.from_dict(d["onebot"]) if "onebot" in d else None,
+            bilibili=BilibiliPayload.from_dict(d["bilibili"]) if "bilibili" in d else None,
         )
 
 
