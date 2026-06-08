@@ -46,7 +46,7 @@ func (s *Source) pollDynamics(ctx context.Context, subjects map[string]Subject, 
 		return
 	}
 	var doc dynamicFeedDocument
-	if err := s.requestJSON(ctx, http.MethodGet, dynamicFeedURL, cookie, nil, &doc); err != nil {
+	if err := s.requestSignedJSON(ctx, http.MethodGet, dynamicFeedURL, cookie, nil, &doc); err != nil {
 		s.setDynamicError(err)
 		return
 	}
@@ -89,7 +89,7 @@ func (s *Source) autoFollow(ctx context.Context, subjects map[string]Subject, ac
 			continue
 		}
 		var relation relationDocument
-		if err := s.requestJSON(ctx, http.MethodGet, fmt.Sprintf(relationURL, subject.UID), cookie, nil, &relation); err != nil {
+		if err := s.requestSignedJSON(ctx, http.MethodGet, fmt.Sprintf(relationURL, subject.UID), cookie, nil, &relation); err != nil {
 			continue
 		}
 		if relation.Data.Attribute > 0 {
@@ -101,7 +101,7 @@ func (s *Source) autoFollow(ctx context.Context, subjects map[string]Subject, ac
 			"re_src": {"11"},
 			"csrf":   {csrf},
 		}
-		_ = s.requestJSON(ctx, http.MethodPost, followURL, cookie, formBody(body), nil)
+		_ = s.requestSignedJSON(ctx, http.MethodPost, followURL, cookie, formBody(body), nil)
 	}
 }
 

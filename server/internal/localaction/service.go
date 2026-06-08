@@ -5,6 +5,7 @@ import (
 	"log/slog"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/adapter"
+	source "github.com/RayleaBot/RayleaBot/server/internal/bilibili"
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/dispatch"
 	"github.com/RayleaBot/RayleaBot/server/internal/governance"
@@ -56,7 +57,14 @@ type GovernanceService interface {
 type ThirdPartyAccounts interface {
 	ListEnabled(context.Context, string) ([]thirdparty.Account, error)
 	ReadCookie(context.Context, thirdparty.Account) (string, error)
+	UpdateCookie(context.Context, thirdparty.Account, string) error
 	MarkUsed(context.Context, thirdparty.Account) error
+}
+
+type BilibiliSession interface {
+	PrepareCookie(context.Context, string) (source.PreparedCookie, error)
+	SignURL(context.Context, string, string) (string, error)
+	InvalidateWBI()
 }
 
 type Deps struct {
@@ -75,6 +83,7 @@ type Deps struct {
 	PluginLogLimiter *PluginLogLimiter
 	Governance       GovernanceService
 	ThirdParty       ThirdPartyAccounts
+	BilibiliSession  BilibiliSession
 	RefreshCommands  func(context.Context, string, map[string]any)
 }
 
@@ -95,6 +104,7 @@ type Service struct {
 	pluginLogLimiter *PluginLogLimiter
 	governance       GovernanceService
 	thirdParty       ThirdPartyAccounts
+	bilibiliSession  BilibiliSession
 	refreshCommands  func(context.Context, string, map[string]any)
 }
 
@@ -115,6 +125,7 @@ func New(deps Deps) *Service {
 		pluginLogLimiter: deps.PluginLogLimiter,
 		governance:       deps.Governance,
 		thirdParty:       deps.ThirdParty,
+		bilibiliSession:  deps.BilibiliSession,
 		refreshCommands:  deps.RefreshCommands,
 	}
 }

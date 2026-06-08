@@ -39,6 +39,7 @@ type Deps struct {
 	Dispatcher    Dispatcher
 	NotifyStatus  func(Status)
 	HTTPTransport http.RoundTripper
+	Session       *SessionClient
 	Now           func() time.Time
 }
 

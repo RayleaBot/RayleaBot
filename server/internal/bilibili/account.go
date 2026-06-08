@@ -34,6 +34,13 @@ func NewAccountClient(transport http.RoundTripper, now func() time.Time) *Accoun
 
 func (c *AccountClient) CheckCookie(ctx context.Context, cookie string) (thirdparty.AccountProfile, thirdparty.CredentialStatus, error) {
 	checkedAt := c.now().UTC()
+	if err := validateCookieForLogin(cookie); err != nil {
+		return thirdparty.AccountProfile{}, thirdparty.CredentialStatus{
+			State:     thirdparty.CredentialInvalid,
+			CheckedAt: &checkedAt,
+			LastError: err.Error(),
+		}, err
+	}
 	profile, err := c.fetchNav(ctx, cookie)
 	if err != nil {
 		return thirdparty.AccountProfile{}, thirdparty.CredentialStatus{
@@ -54,10 +61,7 @@ func (c *AccountClient) fetchNav(ctx context.Context, cookie string) (thirdparty
 	if err != nil {
 		return thirdparty.AccountProfile{}, err
 	}
-	request.Header.Set("Accept", "application/json, text/plain, */*")
-	request.Header.Set("Accept-Language", "zh-CN,zh;q=0.9,en;q=0.8")
-	request.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36")
-	request.Header.Set("Referer", "https://www.bilibili.com/")
+	applyBilibiliWebHeaders(request, http.MethodGet)
 	request.Header.Set("Cookie", strings.TrimSpace(cookie))
 
 	response, err := c.client.Do(request)
@@ -65,9 +69,6 @@ func (c *AccountClient) fetchNav(ctx context.Context, cookie string) (thirdparty
 		return thirdparty.AccountProfile{}, err
 	}
 	defer response.Body.Close()
-	if response.StatusCode < 200 || response.StatusCode >= 300 {
-		return thirdparty.AccountProfile{}, fmt.Errorf("bilibili nav http %d", response.StatusCode)
-	}
 	var document struct {
 		Code    int    `json:"code"`
 		Message string `json:"message"`
@@ -82,15 +83,18 @@ func (c *AccountClient) fetchNav(ctx context.Context, cookie string) (thirdparty
 	if err != nil {
 		return thirdparty.AccountProfile{}, err
 	}
+	if response.StatusCode < 200 || response.StatusCode >= 300 {
+		return thirdparty.AccountProfile{}, &Error{Kind: classifyHTTPStatus(response.StatusCode), HTTPStatus: response.StatusCode, Message: responseExcerpt(body)}
+	}
 	if err := json.Unmarshal(body, &document); err != nil {
-		return thirdparty.AccountProfile{}, err
+		return thirdparty.AccountProfile{}, &Error{Kind: ErrorInvalidResponse, HTTPStatus: response.StatusCode, Message: responseExcerpt(body), Err: err}
 	}
 	if document.Code != 0 || !document.Data.IsLogin {
 		message := strings.TrimSpace(document.Message)
 		if message == "" {
 			message = "账号未登录"
 		}
-		return thirdparty.AccountProfile{}, fmt.Errorf("bilibili nav invalid: %s", message)
+		return thirdparty.AccountProfile{}, apiError(response.StatusCode, document.Code, message, body)
 	}
 	uid := strings.TrimSpace(stringValue(document.Data.Mid))
 	if uid == "" {

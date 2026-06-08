@@ -81,13 +81,28 @@ func TestPollDynamicsDispatchesWatchedUpdatesAndDeduplicates(t *testing.T) {
 	t.Parallel()
 
 	source, recorder := newTestSource(t, time.Date(2026, 6, 8, 8, 11, 0, 0, time.UTC), func(request *http.Request) (*http.Response, error) {
-		if request.URL.String() != dynamicFeedURL {
-			t.Fatalf("unexpected dynamic feed url: %s", request.URL.String())
-		}
-		if request.Header.Get("Cookie") != "SESSDATA=fixture; bili_jct=csrf;" {
-			t.Fatalf("unexpected dynamic feed cookie: %q", request.Header.Get("Cookie"))
-		}
-		return jsonResponse(`{
+		switch request.URL.Host + request.URL.Path {
+		case "api.bilibili.com/bapis/bilibili.api.ticket.v1.Ticket/GenWebTicket":
+			return jsonResponse(`{
+				"code": 0,
+				"data": {
+					"ticket": "ticket-value",
+					"created_at": 1780906260,
+					"ttl": 259200,
+					"nav": {
+						"img": "https://i0.hdslb.com/bfs/wbi/7cd084941338484aae1ad9425b84077c.png",
+						"sub": "https://i0.hdslb.com/bfs/wbi/4932caff0ff746eab6f01bf08b70ac45.png"
+					}
+				}
+			}`), nil
+		case "api.bilibili.com/x/polymer/web-dynamic/v1/feed/all":
+			if request.URL.Query().Get("wts") != "1780906260" || request.URL.Query().Get("w_rid") == "" {
+				t.Fatalf("dynamic feed url missing WBI signature: %s", request.URL.String())
+			}
+			if request.Header.Get("Cookie") != "SESSDATA=fixture; bili_jct=csrf;" {
+				t.Fatalf("unexpected dynamic feed cookie: %q", request.Header.Get("Cookie"))
+			}
+			return jsonResponse(`{
 			"code": 0,
 			"data": {
 				"items": [{
@@ -122,6 +137,10 @@ func TestPollDynamicsDispatchesWatchedUpdatesAndDeduplicates(t *testing.T) {
 				}]
 			}
 		}`), nil
+		default:
+			t.Fatalf("unexpected request url: %s", request.URL.String())
+			return nil, nil
+		}
 	})
 
 	subjects := map[string]Subject{
@@ -280,7 +299,7 @@ func TestRequestJSONIncludesHTTPStatusAndResponseBodyInErrors(t *testing.T) {
 		t.Fatalf("expected requestJSON error")
 	}
 	text := err.Error()
-	for _, want := range []string{"bilibili code -352", "风控校验失败", "HTTP 200", `"code":-352`} {
+	for _, want := range []string{"risk_control", "code -352", "风控校验失败", "HTTP 200"} {
 		if !strings.Contains(text, want) {
 			t.Fatalf("requestJSON error missing %q: %s", want, text)
 		}
@@ -306,7 +325,27 @@ func TestRequestJSONIncludesHTTPFailureBody(t *testing.T) {
 		t.Fatalf("expected requestJSON error")
 	}
 	text := err.Error()
-	for _, want := range []string{"bilibili HTTP 412", `"code":-412`, "请求被拦截"} {
+	for _, want := range []string{"risk_control", "HTTP 412", `"code":-412`, "请求被拦截"} {
+		if !strings.Contains(text, want) {
+			t.Fatalf("requestJSON error missing %q: %s", want, text)
+		}
+	}
+}
+
+func TestRequestJSONWithoutTargetStillChecksBilibiliCode(t *testing.T) {
+	t.Parallel()
+
+	source, _ := newTestSource(t, time.Date(2026, 6, 8, 8, 17, 0, 0, time.UTC), func(request *http.Request) (*http.Response, error) {
+		return jsonResponse(`{"code":-111,"message":"csrf 校验失败"}`), nil
+	})
+
+	err := source.requestJSON(context.Background(), http.MethodPost, followURL, "SESSDATA=fixture; bili_jct=csrf;", strings.NewReader("csrf=csrf"), nil)
+
+	if err == nil {
+		t.Fatalf("expected requestJSON error")
+	}
+	text := err.Error()
+	for _, want := range []string{"code -111", "csrf 校验失败"} {
 		if !strings.Contains(text, want) {
 			t.Fatalf("requestJSON error missing %q: %s", want, text)
 		}

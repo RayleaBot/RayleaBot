@@ -41,6 +41,7 @@ type Source struct {
 	dispatcher   Dispatcher
 	notifyStatus func(Status)
 	client       *http.Client
+	session      *SessionClient
 	now          func() time.Time
 
 	mu        sync.RWMutex
@@ -87,9 +88,13 @@ func NewSource(deps Deps) (*Source, error) {
 			Transport: transport,
 			Timeout:   defaultRequestTimeout,
 		},
+		session:   deps.Session,
 		now:       now,
 		roomTasks: make(map[string]liveRoomTask),
 		restart:   make(chan struct{}, 1),
+	}
+	if source.session == nil {
+		source.session = NewSessionClient(transport, now)
 	}
 	source.status = Status{
 		Status:  StateIdle,
@@ -249,6 +254,27 @@ func (s *Source) primaryAccountCookie(ctx context.Context) (thirdparty.Account, 
 	for _, account := range accounts {
 		cookie, err := s.accounts.ReadCookie(ctx, account)
 		if err == nil && strings.TrimSpace(cookie) != "" {
+			if s.session != nil {
+				prepared, prepareErr := s.session.PrepareCookie(ctx, cookie)
+				if prepareErr != nil {
+					if isBilibiliAuthError(prepareErr) {
+						checkedAt := s.now()
+						_ = s.accounts.UpdateCredentialStatus(ctx, account.Platform, account.AccountID, account.Profile, thirdparty.CredentialStatus{
+							State:     thirdparty.CredentialInvalid,
+							CheckedAt: &checkedAt,
+							LastError: prepareErr.Error(),
+						})
+						continue
+					}
+					return thirdparty.Account{}, "", prepareErr
+				}
+				if prepared.Cookie != "" && prepared.Cookie != cookie && (prepared.Refreshed || prepared.Enriched) {
+					if updateErr := s.accounts.UpdateCookie(ctx, account, prepared.Cookie); updateErr != nil {
+						return thirdparty.Account{}, "", updateErr
+					}
+					cookie = prepared.Cookie
+				}
+			}
 			_ = s.accounts.MarkUsed(ctx, account)
 			return account, cookie, nil
 		}
@@ -479,17 +505,30 @@ func (s *Source) deriveStateLocked() string {
 }
 
 func (s *Source) requestJSON(ctx context.Context, method, rawURL, cookie string, body io.Reader, target any) error {
+	return s.requestJSONWithOptions(ctx, method, rawURL, cookie, body, target, false)
+}
+
+func (s *Source) requestSignedJSON(ctx context.Context, method, rawURL, cookie string, body io.Reader, target any) error {
+	return s.requestJSONWithOptions(ctx, method, rawURL, cookie, body, target, true)
+}
+
+func (s *Source) requestJSONWithOptions(ctx context.Context, method, rawURL, cookie string, body io.Reader, target any, needWBI bool) error {
+	return s.requestJSONOnce(ctx, method, rawURL, cookie, body, target, needWBI, true)
+}
+
+func (s *Source) requestJSONOnce(ctx context.Context, method, rawURL, cookie string, body io.Reader, target any, needWBI, allowRetry bool) error {
+	if needWBI && s.session != nil && isBilibiliURLForWBI(rawURL) {
+		signedURL, err := s.session.SignURL(ctx, rawURL, cookie)
+		if err != nil {
+			return err
+		}
+		rawURL = signedURL
+	}
 	request, err := http.NewRequestWithContext(ctx, method, rawURL, body)
 	if err != nil {
 		return err
 	}
-	request.Header.Set("Accept", "application/json, text/plain, */*")
-	request.Header.Set("Accept-Language", "zh-CN,zh;q=0.9,en;q=0.8")
-	request.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36")
-	request.Header.Set("Referer", "https://www.bilibili.com/")
-	if method == http.MethodPost {
-		request.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	}
+	applyBilibiliWebHeaders(request, method)
 	if strings.TrimSpace(cookie) != "" {
 		request.Header.Set("Cookie", cookie)
 	}
@@ -503,13 +542,26 @@ func (s *Source) requestJSON(ctx context.Context, method, rawURL, cookie string,
 		return err
 	}
 	if response.StatusCode < 200 || response.StatusCode >= 300 {
-		return fmt.Errorf("bilibili HTTP %d response: %s", response.StatusCode, responseExcerpt(responseBody))
+		err := &Error{Kind: classifyHTTPStatus(response.StatusCode), HTTPStatus: response.StatusCode, Message: responseExcerpt(responseBody)}
+		if needWBI && allowRetry && body == nil && s.session != nil && shouldRetryWBI(err) {
+			s.session.InvalidateWBI()
+			return s.requestJSONOnce(ctx, method, rawURL, cookie, body, target, needWBI, false)
+		}
+		return err
 	}
 	if target == nil {
+		var values map[string]any
+		if json.Unmarshal(responseBody, &values) == nil {
+			code := intValue(values["code"])
+			if code != 0 {
+				message := firstNonEmpty(stringValue(values["message"]), stringValue(values["msg"]))
+				return apiError(response.StatusCode, code, message, responseBody)
+			}
+		}
 		return nil
 	}
 	if err := json.Unmarshal(responseBody, target); err != nil {
-		return fmt.Errorf("bilibili HTTP %d response JSON: %w; response: %s", response.StatusCode, err, responseExcerpt(responseBody))
+		return &Error{Kind: ErrorInvalidResponse, HTTPStatus: response.StatusCode, Message: responseExcerpt(responseBody), Err: err}
 	}
 	code := intFromMap(target, "code")
 	if code != 0 {
@@ -517,7 +569,12 @@ func (s *Source) requestJSON(ctx context.Context, method, rawURL, cookie string,
 		if message == "" {
 			message = stringFromMap(target, "msg")
 		}
-		return fmt.Errorf("bilibili code %d %s HTTP %d response: %s", code, strings.TrimSpace(message), response.StatusCode, responseExcerpt(responseBody))
+		err := apiError(response.StatusCode, code, message, responseBody)
+		if needWBI && allowRetry && body == nil && s.session != nil && shouldRetryWBI(err) {
+			s.session.InvalidateWBI()
+			return s.requestJSONOnce(ctx, method, rawURL, cookie, body, target, needWBI, false)
+		}
+		return err
 	}
 	return nil
 }

@@ -33,10 +33,22 @@ func (s *Service) executeHTTPRequest(ctx context.Context, pluginID string, actio
 	scopeHosts := s.grants.GrantedHTTPHosts(ctx, pluginID)
 	headers := cloneHTTPHeaders(action.HTTPHeaders)
 	bilibiliAccount, bilibiliCookieApplied := s.applyBilibiliCookie(ctx, pluginID, action.HTTPURL, scopeHosts, headers)
+	requestURL := action.HTTPURL
+	if bilibiliCookieApplied && s.bilibiliSession != nil && isBilibiliURLForWBI(requestURL) {
+		signedURL, err := s.bilibiliSession.SignURL(ctx, requestURL, headers["Cookie"])
+		if err != nil {
+			return nil, &runtime.Error{
+				Code:    "plugin.internal_error",
+				Message: "http.request failed",
+				Err:     err,
+			}
+		}
+		requestURL = signedURL
+	}
 
 	response, err := client.Do(ctx, pluginhttp.Request{
 		Method:        action.HTTPMethod,
-		URL:           action.HTTPURL,
+		URL:           requestURL,
 		Headers:       headers,
 		Body:          append([]byte(nil), action.HTTPBody...),
 		ActionTimeout: currentHTTPActionTimeout(action),
@@ -89,6 +101,18 @@ func (s *Service) applyBilibiliCookie(ctx context.Context, pluginID, rawURL stri
 	for _, account := range accounts {
 		cookie, err := s.thirdParty.ReadCookie(ctx, account)
 		if err == nil && strings.TrimSpace(cookie) != "" {
+			if s.bilibiliSession != nil {
+				prepared, prepareErr := s.bilibiliSession.PrepareCookie(ctx, cookie)
+				if prepareErr != nil {
+					return thirdparty.Account{}, false
+				}
+				if prepared.Cookie != "" {
+					if prepared.Cookie != cookie && (prepared.Refreshed || prepared.Enriched) {
+						_ = s.thirdParty.UpdateCookie(ctx, account, prepared.Cookie)
+					}
+					cookie = prepared.Cookie
+				}
+			}
 			headers["Cookie"] = cookie
 			return account, true
 		}
@@ -132,6 +156,14 @@ func hasHTTPHeader(headers map[string]string, name string) bool {
 		}
 	}
 	return false
+}
+
+func isBilibiliURLForWBI(rawURL string) bool {
+	parsed, err := url.Parse(rawURL)
+	if err != nil {
+		return false
+	}
+	return strings.EqualFold(parsed.Hostname(), "api.bilibili.com")
 }
 
 func (s *Service) executeSchedulerCreate(ctx context.Context, pluginID string, action runtime.Action) (map[string]any, error) {

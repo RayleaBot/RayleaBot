@@ -234,6 +234,7 @@ func New(options Options) (*App, error) {
 	if err != nil {
 		return nil, err
 	}
+	bilibiliSession := source.NewSessionClient(options.BilibiliHTTPTransport, options.BilibiliClock)
 	localActions := localaction.New(localaction.Deps{
 		CurrentConfig:    func() config.Config { return state.Config },
 		Logger:           state.Logger,
@@ -250,6 +251,7 @@ func New(options Options) (*App, error) {
 		PluginLogLimiter: pluginState.pluginLogLimiter,
 		Governance:       governanceService,
 		ThirdParty:       thirdPartyService,
+		BilibiliSession:  bilibiliSession,
 	})
 	localActions.SetRefreshPluginCommands(func(ctx context.Context, pluginID string, settings map[string]any) {
 		applicationRefreshPluginCommands(pluginState.Plugins, pluginState.Dispatcher, pluginID, settings)
@@ -362,6 +364,7 @@ func New(options Options) (*App, error) {
 		Dispatcher:    pluginState.Dispatcher,
 		NotifyStatus:  bilibiliEvents.Publish,
 		HTTPTransport: options.BilibiliHTTPTransport,
+		Session:       bilibiliSession,
 		Now:           options.BilibiliClock,
 	})
 	if err != nil {

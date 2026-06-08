@@ -79,10 +79,7 @@ func (s *QRLoginService) Create(ctx context.Context) (QRLoginCreateResult, error
 	if err != nil {
 		return QRLoginCreateResult{}, err
 	}
-	request.Header.Set("Accept", "application/json, text/plain, */*")
-	request.Header.Set("Accept-Language", "zh-CN,zh;q=0.9,en;q=0.8")
-	request.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36")
-	request.Header.Set("Referer", "https://www.bilibili.com/")
+	applyBilibiliWebHeaders(request, http.MethodGet)
 	response, err := s.client.Do(request)
 	if err != nil {
 		return QRLoginCreateResult{}, err
@@ -174,10 +171,7 @@ func (s *QRLoginService) pollRemote(ctx context.Context, session qrLoginSession)
 	if err != nil {
 		return session, err
 	}
-	request.Header.Set("Accept", "application/json, text/plain, */*")
-	request.Header.Set("Accept-Language", "zh-CN,zh;q=0.9,en;q=0.8")
-	request.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36")
-	request.Header.Set("Referer", "https://www.bilibili.com/")
+	applyBilibiliWebHeaders(request, http.MethodGet)
 	response, err := s.client.Do(request)
 	if err != nil {
 		return session, err
@@ -213,7 +207,7 @@ func (s *QRLoginService) pollRemote(ctx context.Context, session qrLoginSession)
 		session.State = QRLoginPendingConfirm
 	case 86038:
 		session.State = QRLoginExpired
-	default:
+	case 0:
 		cookie, err := cookieFromLoginURL(document.Data.URL, document.Data.RefreshToken)
 		if err != nil {
 			return session, err
@@ -225,6 +219,12 @@ func (s *QRLoginService) pollRemote(ctx context.Context, session qrLoginSession)
 		session.State = QRLoginSucceeded
 		session.Cookie = cookie
 		session.Account = account
+	default:
+		message := strings.TrimSpace(document.Data.Message)
+		if message == "" {
+			message = "二维码状态读取失败"
+		}
+		return session, fmt.Errorf("bilibili qr poll code %d: %s", document.Data.Code, message)
 	}
 	return session, nil
 }
