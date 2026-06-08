@@ -15,6 +15,7 @@ const externalPreviewImageBytes = Buffer.from(
   'base64',
 )
 const bilibiliAvatarUrl = 'http://127.0.0.1:4010/external-preview/avatar.png'
+const bilibiliMonitorMediaUrl = '//i0.hdslb.com/bfs/face/rayleabot-avatar.png'
 const externalPreviewFontBytes = await readFile(
   path.join(repoRoot, 'templates', 'fortune.card', 'assets', 'fonts', 'lxgwwenkai-medium', 'e8f52c41386b1b7731acfccb8c1a8c52.woff2'),
 )
@@ -287,14 +288,14 @@ function localizeBilibiliMonitorMedia(item) {
   if (!item) {
     return item
   }
-  item.avatar_url = bilibiliAvatarUrl
+  item.avatar_url = bilibiliMonitorMediaUrl
   if (item.live) {
-    item.live.cover_url = bilibiliAvatarUrl
+    item.live.cover_url = bilibiliMonitorMediaUrl
   }
   if (item.dynamic?.images?.length) {
     item.dynamic.images = item.dynamic.images.map((image) => ({
       ...image,
-      url: bilibiliAvatarUrl,
+      url: bilibiliMonitorMediaUrl,
     }))
   }
   return item
@@ -1612,6 +1613,23 @@ const server = http.createServer(async (request, response) => {
       items: structuredClone(state.thirdPartyMonitors),
       updated_at: new Date().toISOString(),
     })
+    return
+  }
+
+  if (pathname === '/api/third-party/media' && request.method === 'GET') {
+    if (!requireAuth(request, response)) {
+      return
+    }
+    const mediaURL = new URL(searchParams.get('url') || '')
+    if (mediaURL.protocol !== 'https:' || !mediaURL.hostname.endsWith('.hdslb.com') || !mediaURL.pathname.startsWith('/bfs/')) {
+      json(response, 400, errorEnvelope('platform.invalid_request', 'third-party media url is invalid', 'req_third_party_media_invalid'))
+      return
+    }
+    response.writeHead(200, {
+      'Content-Type': 'image/png',
+      'Cache-Control': 'no-store',
+    })
+    response.end(externalPreviewImageBytes)
     return
   }
 

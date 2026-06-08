@@ -162,8 +162,28 @@ async function expectThirdPartyMonitoringCardsContained(page: import('@playwrigh
 }
 
 async function expectThirdPartyAccountAvatarImageFillsFrame(page: import('@playwright/test').Page) {
-  const metrics = await page.getByTestId('bilibili-account-avatar-image').first().evaluate((image) => {
-    const avatar = image.closest<HTMLElement>('.account-avatar')
+  const metrics = await expectAvatarImageFillsFrame(page, 'bilibili-account-avatar-image', '.account-avatar')
+
+  const frameInsetTolerance = 2
+  expect(metrics).not.toBeNull()
+  expect(metrics!.imageWidth).toBeGreaterThanOrEqual(metrics!.avatarWidth - frameInsetTolerance)
+  expect(metrics!.imageHeight).toBeGreaterThanOrEqual(metrics!.avatarHeight - frameInsetTolerance)
+  expect(metrics!.stringTransform).toBe('none')
+}
+
+async function expectThirdPartyMonitorAvatarImageFillsFrame(page: import('@playwright/test').Page) {
+  const metrics = await expectAvatarImageFillsFrame(page, 'third-party-monitor-avatar-image', '.monitor-avatar')
+
+  const frameInsetTolerance = 2
+  expect(metrics).not.toBeNull()
+  expect(metrics!.imageWidth).toBeGreaterThanOrEqual(metrics!.avatarWidth - frameInsetTolerance)
+  expect(metrics!.imageHeight).toBeGreaterThanOrEqual(metrics!.avatarHeight - frameInsetTolerance)
+  expect(metrics!.stringTransform).toBe('none')
+}
+
+async function expectAvatarImageFillsFrame(page: import('@playwright/test').Page, testId: string, avatarSelector: string) {
+  return page.getByTestId(testId).first().evaluate((image, selector) => {
+    const avatar = image.closest<HTMLElement>(selector)
     if (!avatar) {
       return null
     }
@@ -178,13 +198,7 @@ async function expectThirdPartyAccountAvatarImageFillsFrame(page: import('@playw
       imageWidth: imageRect.width,
       stringTransform: stringStyle?.transform ?? '',
     }
-  })
-
-  const frameInsetTolerance = 2
-  expect(metrics).not.toBeNull()
-  expect(metrics!.imageWidth).toBeGreaterThanOrEqual(metrics!.avatarWidth - frameInsetTolerance)
-  expect(metrics!.imageHeight).toBeGreaterThanOrEqual(metrics!.avatarHeight - frameInsetTolerance)
-  expect(metrics!.stringTransform).toBe('none')
+  }, avatarSelector)
 }
 
 async function clickConfigTocItem(page: import('@playwright/test').Page, label: string) {
@@ -2722,6 +2736,10 @@ test('third-party monitoring shows Bilibili targets and platform switch', async 
   await expect(monitorCard).toContainText('直播间标题')
   await expect(monitorCard).toContainText('10001')
   await expect(monitorCard).toContainText('已连接')
+  const monitorAvatar = monitorCard.getByTestId('third-party-monitor-avatar-image')
+  await expect(monitorAvatar).toBeVisible()
+  await expect(monitorAvatar).toHaveAttribute('src', /^blob:/)
+  await expectThirdPartyMonitorAvatarImageFillsFrame(page)
   await expectThirdPartyMonitoringCardsContained(page)
 
   await page.setViewportSize({ width: 390, height: 844 })

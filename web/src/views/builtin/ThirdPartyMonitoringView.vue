@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, reactive } from 'vue'
+import { computed, onMounted, onUnmounted, reactive } from 'vue'
 import { storeToRefs } from 'pinia'
 import {
   FieldTimeOutlined,
@@ -71,6 +71,10 @@ onMounted(() => {
   void loadPage()
 })
 
+onUnmounted(() => {
+  store.disposeMedia()
+})
+
 async function loadPage() {
   try {
     await store.fetchAll()
@@ -130,7 +134,7 @@ function liveTag(item: ThirdPartyMonitorItem) {
   if (item.live.is_live) {
     return { color: 'green', label: t('builtinFeatures.thirdPartyMonitoring.liveOn') }
   }
-  if (item.live.last_error) {
+  if (visibleLiveError(item)) {
     return { color: 'red', label: t('builtinFeatures.thirdPartyMonitoring.liveError') }
   }
   return { color: 'default', label: t('builtinFeatures.thirdPartyMonitoring.liveOff') }
@@ -143,6 +147,15 @@ function serviceLabel(service: ThirdPartyMonitorService | string) {
 
 function mainImage(item: ThirdPartyMonitorItem) {
   return item.live.cover_url || item.dynamic?.images?.[0]?.url || ''
+}
+
+function visibleLiveError(item: ThirdPartyMonitorItem) {
+  const value = item.live.last_error.trim()
+  if (!value) {
+    return ''
+  }
+  const normalized = value.toLowerCase()
+  return normalized.includes('risk_control') || normalized.includes('code -352') ? '' : value
 }
 
 function displayTime(value?: string | null) {
@@ -277,8 +290,13 @@ function coverFailed(uid: string) {
               <a-avatar :size="48" class="monitor-avatar">
                 <img
                   v-if="item.avatar_url && !avatarLoadFailures[item.uid]"
+                  class="monitor-avatar__image"
                   :src="item.avatar_url"
                   :alt="item.username"
+                  data-testid="third-party-monitor-avatar-image"
+                  draggable="false"
+                  loading="lazy"
+                  referrerpolicy="no-referrer"
                   @error="avatarFailed(item.uid)"
                 >
                 <UserOutlined v-else />
@@ -345,8 +363,8 @@ function coverFailed(uid: string) {
               </div>
             </dl>
 
-            <p v-if="item.live.last_error" class="monitor-card__error">
-              {{ item.live.last_error }}
+            <p v-if="visibleLiveError(item)" class="monitor-card__error">
+              {{ visibleLiveError(item) }}
             </p>
           </div>
         </article>
@@ -607,9 +625,20 @@ function coverFailed(uid: string) {
   color: var(--text-accent);
 }
 
-.monitor-avatar img {
+.monitor-avatar :deep(.ant-avatar-string) {
+  inset: 0 !important;
+  display: block;
   width: 100%;
   height: 100%;
+  line-height: inherit;
+  transform: none !important;
+}
+
+.monitor-avatar__image {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
   object-fit: cover;
 }
 
