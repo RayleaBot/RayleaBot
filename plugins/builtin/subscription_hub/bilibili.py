@@ -508,10 +508,11 @@ def bilibili_document_error(document):
     if code == 0:
         return None
     message = str(document.get("message") or document.get("msg") or "").strip()
-    if code == -412:
-        return {"kind": "blocked", "message": "Bilibili 请求被风控拦截，请配置可用 Cookie 后再试。"}
-    if code == -352:
-        return {"kind": "blocked", "message": "Bilibili 请求被风控拦截，请配置可用 Cookie 后再试。"}
+    if code in (-412, -352):
+        detail = f"Bilibili code {code}"
+        if message:
+            detail += f": {message}"
+        return {"kind": "blocked", "message": detail, "code": code}
     if code == -404:
         return {"kind": "not_found", "message": "没有找到这个 Bilibili 用户。"}
     return {"kind": "api_error", "message": message or "Bilibili 用户信息读取失败。", "code": code}

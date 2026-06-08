@@ -5,6 +5,7 @@ import copy
 import os
 import sys
 import time
+import base64
 
 PLUGIN_DIR = os.path.dirname(__file__)
 sys.path.insert(0, PLUGIN_DIR)
@@ -15,6 +16,7 @@ from rayleabot.protocol import ActionError
 
 from bilibili import (
     LIVE_URL,
+    bilibili_document_error,
     build_cookie_headers,
     live_room_info_url,
     live_status_entry,
@@ -338,15 +340,69 @@ def parse_preview_service(args):
 
 
 def preview_response_document(response, label):
+    failure_label = f"Bilibili {label}预览失败"
+    response_failure = bilibili_response_failure(response, failure_label)
+    if response_failure:
+        return response_failure
+    document = parse_json_response(response)
+    error = bilibili_document_error(document)
+    if error:
+        message = error.get("message") or "Bilibili 响应读取失败。"
+        if error.get("kind") == "not_found":
+            message = f"没有找到这个 Bilibili {label}。"
+        return f"{failure_label}：{sentence_text(message)}{response_details_text(response)}"
+    return document
+
+
+def bilibili_response_failure(response, label):
     status_code = response.get("status_code") if isinstance(response, dict) else None
     if not isinstance(status_code, int) or status_code < 200 or status_code >= 300:
-        if status_code == 412:
-            return f"Bilibili {label}预览失败：Bilibili 请求被风控拦截，请稍后再试。"
-        return f"Bilibili {label}预览失败：请求失败。"
-    document = parse_json_response(response)
-    if not document:
-        return f"Bilibili {label}预览失败：响应格式不正确。"
-    return document
+        return f"{label}：{response_details_text(response)}"
+    if not parse_json_response(response):
+        return f"{label}：响应格式不正确。{response_details_text(response)}"
+    return None
+
+
+def response_details_text(response):
+    status_code = response.get("status_code") if isinstance(response, dict) else None
+    body_excerpt = response_body_excerpt(response)
+    return f"HTTP {http_status_text(status_code)}{response_excerpt_suffix(body_excerpt)}"
+
+
+def http_status_text(status_code):
+    return str(status_code) if isinstance(status_code, int) else "未知"
+
+
+def sentence_text(text):
+    text = str(text or "").strip()
+    if not text:
+        return ""
+    return text if text.endswith(("。", "！", "？", ".", "!", "?")) else text + "。"
+
+
+def response_body_excerpt(response, limit=600):
+    if not isinstance(response, dict):
+        return ""
+    body = response.get("body_text")
+    if isinstance(body, str):
+        text = body
+    else:
+        body_base64 = response.get("body_base64")
+        if not isinstance(body_base64, str) or not body_base64.strip():
+            return ""
+        try:
+            raw = base64.b64decode(body_base64, validate=True)
+        except Exception:
+            return "[binary response]"
+        text = raw.decode("utf-8", errors="replace")
+    text = " ".join(str(text or "").split())
+    if len(text) <= limit:
+        return text
+    return text[:limit].rstrip() + "..."
+
+
+def response_excerpt_suffix(excerpt):
+    return f"。响应：{excerpt}" if excerpt else "。"
 
 
 SERVICE_ALIASES = {
@@ -617,10 +673,18 @@ def resolve_bilibili_user(settings, ctx, query):
     try:
         if text.isdigit():
             response = ctx.http_request("GET", user_info_url(text), headers=headers, timeout_seconds=timeout_seconds)
-            result = normalize_user_info(parse_json_response(response))
+            failure = bilibili_response_failure(response, "Bilibili 用户信息读取失败")
+            if failure:
+                return {"ok": False, "message": failure}
+            document = parse_json_response(response)
+            result = normalize_user_info(document)
         else:
             response = ctx.http_request("GET", user_search_url(text), headers=headers, timeout_seconds=timeout_seconds)
-            result = normalize_user_search(parse_json_response(response), text)
+            failure = bilibili_response_failure(response, "Bilibili 用户信息读取失败")
+            if failure:
+                return {"ok": False, "message": failure}
+            document = parse_json_response(response)
+            result = normalize_user_search(document, text)
     except ActionError as exc:
         if is_http_permission_error(exc):
             return {"ok": False, "message": "Bilibili 用户信息读取失败：请授予订阅中心 HTTP 请求权限，并重载插件后再试。"}
@@ -629,7 +693,10 @@ def resolve_bilibili_user(settings, ctx, query):
         return {"ok": False, "message": "Bilibili 用户信息读取失败。"}
     if result.get("ok"):
         return result
-    return {"ok": False, "message": result.get("message") or "Bilibili 用户信息读取失败。"}
+    message = result.get("message") or "Bilibili 用户信息读取失败。"
+    if "response" in locals():
+        message = f"{sentence_text(message)}{response_details_text(response)}"
+    return {"ok": False, "message": message}
 
 
 def is_http_permission_error(exc):

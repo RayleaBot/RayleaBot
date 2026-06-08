@@ -16,6 +16,7 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/runtime"
 	"github.com/RayleaBot/RayleaBot/server/internal/scheduler"
 	"github.com/RayleaBot/RayleaBot/server/internal/secrets"
+	"github.com/RayleaBot/RayleaBot/server/internal/thirdparty"
 )
 
 const (
@@ -26,6 +27,7 @@ const (
 	defaultPluginWorkdirMB      = 256
 	defaultHTTPTimeoutSeconds   = 10
 	defaultHTTPMaxRetries       = 2
+	subscriptionHubPluginID     = "raylea.subscription-hub"
 )
 
 type GrantView interface {
@@ -51,6 +53,12 @@ type GovernanceService interface {
 	ReadCommandPolicy(context.Context) (governance.CommandPolicyResponse, error)
 }
 
+type ThirdPartyAccounts interface {
+	ListEnabled(context.Context, string) ([]thirdparty.Account, error)
+	ReadCookie(context.Context, thirdparty.Account) (string, error)
+	MarkUsed(context.Context, thirdparty.Account) error
+}
+
 type Deps struct {
 	CurrentConfig    func() config.Config
 	Logger           *slog.Logger
@@ -66,6 +74,7 @@ type Deps struct {
 	Adapter          *adapter.Shell
 	PluginLogLimiter *PluginLogLimiter
 	Governance       GovernanceService
+	ThirdParty       ThirdPartyAccounts
 	RefreshCommands  func(context.Context, string, map[string]any)
 }
 
@@ -85,6 +94,7 @@ type Service struct {
 	webhookGateway   WebhookGateway
 	pluginLogLimiter *PluginLogLimiter
 	governance       GovernanceService
+	thirdParty       ThirdPartyAccounts
 	refreshCommands  func(context.Context, string, map[string]any)
 }
 
@@ -104,6 +114,7 @@ func New(deps Deps) *Service {
 		adapter:          deps.Adapter,
 		pluginLogLimiter: deps.PluginLogLimiter,
 		governance:       deps.Governance,
+		thirdParty:       deps.ThirdParty,
 		refreshCommands:  deps.RefreshCommands,
 	}
 }

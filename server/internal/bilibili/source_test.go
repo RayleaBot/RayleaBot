@@ -261,6 +261,58 @@ func TestPrimaryAccountCookieSkipsInvalidCredentials(t *testing.T) {
 	}
 }
 
+func TestRequestJSONIncludesHTTPStatusAndResponseBodyInErrors(t *testing.T) {
+	t.Parallel()
+
+	source, _ := newTestSource(t, time.Date(2026, 6, 8, 8, 15, 0, 0, time.UTC), func(request *http.Request) (*http.Response, error) {
+		return &http.Response{
+			StatusCode: http.StatusOK,
+			Header:     http.Header{"Content-Type": []string{"application/json"}},
+			Body:       io.NopCloser(strings.NewReader(`{"code":-352,"message":"风控校验失败","data":null}`)),
+			Request:    request,
+		}, nil
+	})
+
+	var document map[string]any
+	err := source.requestJSON(context.Background(), http.MethodGet, dynamicFeedURL, "SESSDATA=fixture;", nil, &document)
+
+	if err == nil {
+		t.Fatalf("expected requestJSON error")
+	}
+	text := err.Error()
+	for _, want := range []string{"bilibili code -352", "风控校验失败", "HTTP 200", `"code":-352`} {
+		if !strings.Contains(text, want) {
+			t.Fatalf("requestJSON error missing %q: %s", want, text)
+		}
+	}
+}
+
+func TestRequestJSONIncludesHTTPFailureBody(t *testing.T) {
+	t.Parallel()
+
+	source, _ := newTestSource(t, time.Date(2026, 6, 8, 8, 16, 0, 0, time.UTC), func(request *http.Request) (*http.Response, error) {
+		return &http.Response{
+			StatusCode: http.StatusPreconditionFailed,
+			Header:     http.Header{"Content-Type": []string{"application/json"}},
+			Body:       io.NopCloser(strings.NewReader(`{"code":-412,"message":"请求被拦截"}`)),
+			Request:    request,
+		}, nil
+	})
+
+	var document map[string]any
+	err := source.requestJSON(context.Background(), http.MethodGet, dynamicFeedURL, "SESSDATA=fixture;", nil, &document)
+
+	if err == nil {
+		t.Fatalf("expected requestJSON error")
+	}
+	text := err.Error()
+	for _, want := range []string{"bilibili HTTP 412", `"code":-412`, "请求被拦截"} {
+		if !strings.Contains(text, want) {
+			t.Fatalf("requestJSON error missing %q: %s", want, text)
+		}
+	}
+}
+
 func newTestSource(t *testing.T, now time.Time, handler func(*http.Request) (*http.Response, error)) (*Source, *dispatchRecorder) {
 	t.Helper()
 

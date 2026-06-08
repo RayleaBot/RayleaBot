@@ -170,6 +170,7 @@ func (a *App) setTestLocalActions(grantRepo plugins.GrantRepository, pluginConfi
 		Adapter:          adapterShell,
 		PluginLogLimiter: limiter,
 		Governance:       a.governance,
+		ThirdParty:       a.thirdParty,
 	})
 	if webhookService != nil {
 		a.localActions.SetWebhookGateway(webhookService)

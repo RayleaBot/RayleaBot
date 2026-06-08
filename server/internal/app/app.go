@@ -39,15 +39,15 @@ import (
 )
 
 type Options struct {
-	ConfigPath              string
-	SchemaPath              string
-	AuthOptions             []auth.Option
-	PluginRepoRoot          string
-	PluginSchemaPath        string
-	PluginRoots             []plugins.ScanRoot
-	RenderRunner            render.Runner
-	BilibiliHTTPTransport   http.RoundTripper
-	BilibiliClock           func() time.Time
+	ConfigPath            string
+	SchemaPath            string
+	AuthOptions           []auth.Option
+	PluginRepoRoot        string
+	PluginSchemaPath      string
+	PluginRoots           []plugins.ScanRoot
+	RenderRunner          render.Runner
+	BilibiliHTTPTransport http.RoundTripper
+	BilibiliClock         func() time.Time
 }
 
 type appCore struct {
@@ -230,6 +230,10 @@ func New(options Options) (*App, error) {
 		WhitelistState: pluginState.whitelistState,
 		NotifyChanged:  governanceEvents.PublishChanged,
 	})
+	thirdPartyService, err := thirdparty.NewService(platformState.Storage, platformState.Secrets)
+	if err != nil {
+		return nil, err
+	}
 	localActions := localaction.New(localaction.Deps{
 		CurrentConfig:    func() config.Config { return state.Config },
 		Logger:           state.Logger,
@@ -245,6 +249,7 @@ func New(options Options) (*App, error) {
 		Adapter:          pluginState.Adapter,
 		PluginLogLimiter: pluginState.pluginLogLimiter,
 		Governance:       governanceService,
+		ThirdParty:       thirdPartyService,
 	})
 	localActions.SetRefreshPluginCommands(func(ctx context.Context, pluginID string, settings map[string]any) {
 		applicationRefreshPluginCommands(pluginState.Plugins, pluginState.Dispatcher, pluginID, settings)
@@ -348,10 +353,6 @@ func New(options Options) (*App, error) {
 	})
 	pluginWebhooks.SetReplayMetrics(webhookReplayMetricsAdapter{registry: metricRegistry})
 	localActions.SetWebhookGateway(pluginWebhooks)
-	thirdPartyService, err := thirdparty.NewService(platformState.Storage, platformState.Secrets)
-	if err != nil {
-		return nil, err
-	}
 	bilibiliAccountClient := source.NewAccountClient(options.BilibiliHTTPTransport, options.BilibiliClock)
 	bilibiliQRLogin := source.NewQRLoginService(options.BilibiliHTTPTransport, options.BilibiliClock)
 	bilibiliSource, err := source.NewSource(source.Deps{

@@ -20,6 +20,7 @@ from main import (
     format_subscription_list,
     normalize_bilibili_event_payload,
     parse_bilibili_command_args,
+    preview_response_document,
     remove_bilibili_subscription,
     subscription_matches_event,
 )
@@ -321,6 +322,44 @@ class SubscriptionHubTests(unittest.TestCase):
         self.assertEqual(parse_preview_url("https://www.bilibili.com/video/BV1c5qEBjEtJ")["kind"], "video")
         self.assertEqual(parse_preview_url("https://www.bilibili.com/opus/1194416231669563410")["kind"], "opus")
         self.assertEqual(parse_preview_url("https://live.bilibili.com/22913442")["kind"], "live")
+
+    def test_preview_response_reports_http_status_and_body(self):
+        message = preview_response_document({
+            "status_code": 412,
+            "body_text": '{"code":-412,"message":"请求被拦截"}',
+        }, "动态")
+
+        self.assertIn("HTTP 412", message)
+        self.assertIn('"code":-412', message)
+        self.assertIn("请求被拦截", message)
+
+    def test_preview_response_reports_bilibili_code_and_body(self):
+        message = preview_response_document({
+            "status_code": 200,
+            "body_text": json.dumps({"code": -352, "message": "风控校验失败", "data": None}, ensure_ascii=False),
+        }, "动态")
+
+        self.assertIn("Bilibili code -352", message)
+        self.assertIn("HTTP 200", message)
+        self.assertIn("风控校验失败", message)
+        self.assertIn('"code": -352', message)
+
+    def test_subscribe_user_lookup_reports_bilibili_code_and_body(self):
+        settings = merge_settings({}, {"subscriptions": []})
+        ctx = FakeContext(
+            args=["123456"],
+            http_responses=[{
+                "status_code": 200,
+                "body_text": json.dumps({"code": -352, "message": "风控校验失败", "data": None}, ensure_ascii=False),
+            }],
+        )
+
+        result = add_bilibili_subscription(settings, ctx)
+
+        self.assertFalse(result["ok"])
+        self.assertIn("Bilibili code -352", result["message"])
+        self.assertIn("HTTP 200", result["message"])
+        self.assertIn('"code": -352', result["message"])
 
     def test_dynamic_updates_extract_video(self):
         updates = dynamic_updates({"data": {"items": [self.video_item("987", "新视频", pub_ts=1700000000)]}})

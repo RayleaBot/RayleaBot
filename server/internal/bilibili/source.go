@@ -503,13 +503,13 @@ func (s *Source) requestJSON(ctx context.Context, method, rawURL, cookie string,
 		return err
 	}
 	if response.StatusCode < 200 || response.StatusCode >= 300 {
-		return fmt.Errorf("bilibili http %d", response.StatusCode)
+		return fmt.Errorf("bilibili HTTP %d response: %s", response.StatusCode, responseExcerpt(responseBody))
 	}
 	if target == nil {
 		return nil
 	}
 	if err := json.Unmarshal(responseBody, target); err != nil {
-		return err
+		return fmt.Errorf("bilibili HTTP %d response JSON: %w; response: %s", response.StatusCode, err, responseExcerpt(responseBody))
 	}
 	code := intFromMap(target, "code")
 	if code != 0 {
@@ -517,9 +517,17 @@ func (s *Source) requestJSON(ctx context.Context, method, rawURL, cookie string,
 		if message == "" {
 			message = stringFromMap(target, "msg")
 		}
-		return fmt.Errorf("bilibili code %d %s", code, strings.TrimSpace(message))
+		return fmt.Errorf("bilibili code %d %s HTTP %d response: %s", code, strings.TrimSpace(message), response.StatusCode, responseExcerpt(responseBody))
 	}
 	return nil
+}
+
+func responseExcerpt(body []byte) string {
+	text := strings.Join(strings.Fields(string(body)), " ")
+	if text == "" {
+		return "<empty>"
+	}
+	return truncate(text, 600)
 }
 
 func (s *Source) markSeen(ctx context.Context, key, uid, eventType, sourceID string) bool {
