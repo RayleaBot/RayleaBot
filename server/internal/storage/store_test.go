@@ -42,6 +42,7 @@ func TestOpenBootstrapsSQLiteWithExpectedPragmas(t *testing.T) {
 	assertTableExists(t, store.Read, "third_party_accounts")
 	assertTableExists(t, store.Read, "bilibili_source_rooms")
 	assertTableExists(t, store.Read, "bilibili_source_seen")
+	assertTableExists(t, store.Read, "bilibili_source_dynamics")
 	assertTableExists(t, store.Read, "bilibili_source_state")
 	assertTableExists(t, store.Read, "render_template_revisions")
 	assertTableExists(t, store.Read, "render_template_states")
@@ -62,6 +63,7 @@ func TestOpenBootstrapsSQLiteWithExpectedPragmas(t *testing.T) {
 	assertColumnExists(t, store.Read, "third_party_accounts", "credential_checked_at")
 	assertColumnExists(t, store.Read, "third_party_accounts", "credential_last_error")
 	assertColumnExists(t, store.Read, "third_party_accounts", "last_used_at")
+	assertColumnExists(t, store.Read, "bilibili_source_rooms", "cover_url")
 	assertIndexExists(t, store.Read, "idx_management_logs_log_id")
 	assertIndexExists(t, store.Read, "idx_management_logs_boot_ts")
 	assertIndexExists(t, store.Read, "idx_management_logs_source")
@@ -71,12 +73,13 @@ func TestOpenBootstrapsSQLiteWithExpectedPragmas(t *testing.T) {
 	assertIndexExists(t, store.Read, "idx_third_party_accounts_platform")
 	assertIndexExists(t, store.Read, "idx_bilibili_source_rooms_state")
 	assertIndexExists(t, store.Read, "idx_bilibili_source_seen_uid")
+	assertIndexExists(t, store.Read, "idx_bilibili_source_dynamics_observed_at")
 	assertIndexExists(t, store.Read, "idx_render_template_revisions_template_saved_at")
 	assertIndexExists(t, store.Read, "idx_render_template_revisions_template_digest")
 	assertIndexExists(t, store.Read, "idx_render_template_states_source")
 
 	tables := readTables(t, store.Read)
-	if len(tables) != 21 {
+	if len(tables) != 22 {
 		t.Fatalf("unexpected table set: %#v", tables)
 	}
 	assertTableMissing(t, store.Read, "schema_migrations")

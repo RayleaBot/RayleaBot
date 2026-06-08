@@ -118,6 +118,7 @@ x-fixtures:
   - fixtures/web-api/ok.third-party-accounts-list.yaml
   - fixtures/web-api/ok.third-party-account-upsert.yaml
   - fixtures/web-api/ok.third-party-account-delete.yaml
+  - fixtures/web-api/ok.third-party-monitors-bilibili.yaml
   - fixtures/web-api/ok.bilibili-login-qrcode-create.yaml
   - fixtures/web-api/ok.bilibili-login-qrcode-poll-pending.yaml
   - fixtures/web-api/ok.bilibili-login-qrcode-poll-succeeded.yaml
@@ -1524,6 +1525,32 @@ paths:
       responses:
         '204':
           description: Account deleted.
+        '401':
+          $ref: '#/components/responses/Error'
+        default:
+          $ref: '#/components/responses/Error'
+
+  /api/third-party/monitors:
+    get:
+      summary: List third-party monitoring targets for the selected platform.
+      operationId: listThirdPartyMonitors
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: platform
+          in: query
+          required: false
+          schema:
+            $ref: '#/components/schemas/ThirdPartyPlatform'
+      responses:
+        '200':
+          description: Current third-party monitoring targets.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ThirdPartyMonitorsResponse'
+        '400':
+          $ref: '#/components/responses/Error'
         '401':
           $ref: '#/components/responses/Error'
         default:
@@ -3378,6 +3405,127 @@ components:
       properties:
         account:
           $ref: '#/components/schemas/ThirdPartyAccountSummary'
+
+    ThirdPartyMonitorService:
+      type: string
+      enum: [live, video, image_text, article, repost]
+
+    ThirdPartyMonitorImage:
+      type: object
+      additionalProperties: false
+      required: [url]
+      properties:
+        url:
+          type: string
+          minLength: 1
+        width:
+          type: integer
+          minimum: 0
+        height:
+          type: integer
+          minimum: 0
+
+    ThirdPartyMonitorDynamic:
+      type: object
+      additionalProperties: false
+      required: [last_id, service, title, summary, url, images, published_at, observed_at]
+      properties:
+        last_id:
+          type: string
+          minLength: 1
+        service:
+          $ref: '#/components/schemas/ThirdPartyMonitorService'
+        title:
+          type: string
+        summary:
+          type: string
+        url:
+          type: string
+        images:
+          type: array
+          items:
+            $ref: '#/components/schemas/ThirdPartyMonitorImage'
+        published_at:
+          type: string
+          nullable: true
+          format: date-time
+        observed_at:
+          type: string
+          format: date-time
+
+    ThirdPartyMonitorLive:
+      type: object
+      additionalProperties: false
+      required: [room_id, room_name, room_url, cover_url, is_live, live_started_at, live_ended_at, connection_state, last_error, updated_at]
+      properties:
+        room_id:
+          type: string
+        room_name:
+          type: string
+        room_url:
+          type: string
+        cover_url:
+          type: string
+        is_live:
+          type: boolean
+        live_started_at:
+          type: string
+          nullable: true
+          format: date-time
+        live_ended_at:
+          type: string
+          nullable: true
+          format: date-time
+        connection_state:
+          $ref: '#/components/schemas/BilibiliSourceState'
+        last_error:
+          type: string
+        updated_at:
+          type: string
+          nullable: true
+          format: date-time
+
+    ThirdPartyMonitorItem:
+      type: object
+      additionalProperties: false
+      required: [uid, username, avatar_url, services, dynamic, live, updated_at]
+      properties:
+        uid:
+          type: string
+          pattern: '^[0-9]+$'
+        username:
+          type: string
+        avatar_url:
+          type: string
+        services:
+          type: array
+          items:
+            $ref: '#/components/schemas/ThirdPartyMonitorService'
+          uniqueItems: true
+        dynamic:
+          anyOf:
+            - $ref: '#/components/schemas/ThirdPartyMonitorDynamic'
+            - type: 'null'
+        live:
+          $ref: '#/components/schemas/ThirdPartyMonitorLive'
+        updated_at:
+          type: string
+          format: date-time
+
+    ThirdPartyMonitorsResponse:
+      type: object
+      additionalProperties: false
+      required: [platform, items, updated_at]
+      properties:
+        platform:
+          $ref: '#/components/schemas/ThirdPartyPlatform'
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ThirdPartyMonitorItem'
+        updated_at:
+          type: string
+          format: date-time
 
     BilibiliQRCodeLoginState:
       type: string

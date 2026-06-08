@@ -6,8 +6,6 @@ import { apiRequest } from '@/lib/http'
 import type {
   BilibiliQRCodeLoginCreateResponse,
   BilibiliQRCodeLoginPollResponse,
-  BilibiliSourceRestartResponse,
-  BilibiliSourceStatusResponse,
   ThirdPartyAccountSummary,
   ThirdPartyAccountUpsertRequest,
   ThirdPartyAccountUpsertResponse,
@@ -16,13 +14,11 @@ import type {
 
 export const useThirdPartyAccountsStore = defineStore('third-party-accounts', () => {
   const accounts = ref<ThirdPartyAccountSummary[]>([])
-  const bilibiliStatus = ref<BilibiliSourceStatusResponse | null>(null)
   const loading = ref(false)
   const savingAccountId = ref<string | null>(null)
   const deletingAccountId = ref<string | null>(null)
   const qrcodeCreating = ref(false)
   const qrcodePollingLoginId = ref<string | null>(null)
-  const restarting = ref(false)
   const error = ref<string | null>(null)
 
   const bilibiliAccounts = computed(() => accounts.value
@@ -33,12 +29,8 @@ export const useThirdPartyAccountsStore = defineStore('third-party-accounts', ()
     loading.value = true
     error.value = null
     try {
-      const [accountsResponse, statusResponse] = await Promise.all([
-        apiRequest<ThirdPartyAccountsResponse>('/api/third-party/accounts'),
-        apiRequest<BilibiliSourceStatusResponse>('/api/bilibili/source/status'),
-      ])
+      const accountsResponse = await apiRequest<ThirdPartyAccountsResponse>('/api/third-party/accounts')
       accounts.value = accountsResponse.items
-      bilibiliStatus.value = statusResponse
     } catch (err) {
       error.value = getDisplayErrorMessage(err, 'errors.common.loadFailed')
       throw err
@@ -55,7 +47,6 @@ export const useThirdPartyAccountsStore = defineStore('third-party-accounts', ()
         { method: 'PUT', body: payload },
       )
       upsertAccount(response.account)
-      await fetchStatus()
       return response.account
     } finally {
       savingAccountId.value = null
@@ -69,14 +60,9 @@ export const useThirdPartyAccountsStore = defineStore('third-party-accounts', ()
         method: 'DELETE',
       })
       accounts.value = accounts.value.filter((account) => account.platform !== 'bilibili' || account.account_id !== accountId)
-      await fetchStatus()
     } finally {
       deletingAccountId.value = null
     }
-  }
-
-  async function fetchStatus() {
-    bilibiliStatus.value = await apiRequest<BilibiliSourceStatusResponse>('/api/bilibili/source/status')
   }
 
   async function createBilibiliQRCodeLogin() {
@@ -101,19 +87,6 @@ export const useThirdPartyAccountsStore = defineStore('third-party-accounts', ()
     }
   }
 
-  async function restartBilibiliSource() {
-    restarting.value = true
-    try {
-      const response = await apiRequest<BilibiliSourceRestartResponse>('/api/bilibili/source/restart', {
-        method: 'POST',
-      })
-      bilibiliStatus.value = response.status
-      return response
-    } finally {
-      restarting.value = false
-    }
-  }
-
   function upsertAccount(account: ThirdPartyAccountSummary) {
     const index = accounts.value.findIndex((item) => item.platform === account.platform && item.account_id === account.account_id)
     if (index === -1) {
@@ -126,20 +99,16 @@ export const useThirdPartyAccountsStore = defineStore('third-party-accounts', ()
   return {
     accounts,
     bilibiliAccounts,
-    bilibiliStatus,
     deletingAccountId,
     error,
     loading,
     qrcodeCreating,
     qrcodePollingLoginId,
-    restarting,
     savingAccountId,
     createBilibiliQRCodeLogin,
     deleteBilibiliAccount,
     fetchAll,
-    fetchStatus,
     pollBilibiliQRCodeLogin,
-    restartBilibiliSource,
     saveBilibiliAccount,
   }
 })

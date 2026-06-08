@@ -403,6 +403,25 @@ func TestThirdPartyAccountAndBilibiliSourceHandlers(t *testing.T) {
 		t.Fatalf("unexpected bilibili source account summary: %#v", statusAccount)
 	}
 
+	monitorsResp, monitorsPayload := doRequest(http.MethodGet, "/api/third-party/monitors?platform=bilibili", "")
+	defer monitorsResp.Body.Close()
+	if monitorsResp.StatusCode != http.StatusOK {
+		t.Fatalf("unexpected third-party monitors code: got %d want 200 body=%s", monitorsResp.StatusCode, string(monitorsPayload))
+	}
+	monitorsBody := decodeBody(t, monitorsPayload)
+	if monitorsBody["platform"] != "bilibili" {
+		t.Fatalf("unexpected third-party monitors platform: %#v", monitorsBody)
+	}
+	monitorItems, ok := monitorsBody["items"].([]any)
+	if !ok || len(monitorItems) != 0 {
+		t.Fatalf("unexpected third-party monitor items: %#v", monitorsBody)
+	}
+	invalidMonitorsResp, invalidMonitorsPayload := doRequest(http.MethodGet, "/api/third-party/monitors?platform=twitter", "")
+	defer invalidMonitorsResp.Body.Close()
+	if invalidMonitorsResp.StatusCode != http.StatusBadRequest {
+		t.Fatalf("unexpected invalid third-party monitors code: got %d want 400 body=%s", invalidMonitorsResp.StatusCode, string(invalidMonitorsPayload))
+	}
+
 	restartResp, restartPayload := doRequest(http.MethodPost, "/api/bilibili/source/restart", "")
 	defer restartResp.Body.Close()
 	if restartResp.StatusCode != http.StatusOK {

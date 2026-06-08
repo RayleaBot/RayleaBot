@@ -931,6 +931,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/third-party/monitors": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List third-party monitoring targets for the selected platform. */
+        get: operations["listThirdPartyMonitors"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/bilibili/login/qrcode": {
         parameters: {
             query?: never;
@@ -1690,6 +1707,56 @@ export interface components {
         };
         ThirdPartyAccountUpsertResponse: {
             account: components["schemas"]["ThirdPartyAccountSummary"];
+        };
+        /** @enum {string} */
+        ThirdPartyMonitorService: "live" | "video" | "image_text" | "article" | "repost";
+        ThirdPartyMonitorImage: {
+            url: string;
+            width?: number;
+            height?: number;
+        };
+        ThirdPartyMonitorDynamic: {
+            last_id: string;
+            service: components["schemas"]["ThirdPartyMonitorService"];
+            title: string;
+            summary: string;
+            url: string;
+            images: components["schemas"]["ThirdPartyMonitorImage"][];
+            /** Format: date-time */
+            published_at: string | null;
+            /** Format: date-time */
+            observed_at: string;
+        };
+        ThirdPartyMonitorLive: {
+            room_id: string;
+            room_name: string;
+            room_url: string;
+            cover_url: string;
+            is_live: boolean;
+            /** Format: date-time */
+            live_started_at: string | null;
+            /** Format: date-time */
+            live_ended_at: string | null;
+            connection_state: components["schemas"]["BilibiliSourceState"];
+            last_error: string;
+            /** Format: date-time */
+            updated_at: string | null;
+        };
+        ThirdPartyMonitorItem: {
+            uid: string;
+            username: string;
+            avatar_url: string;
+            services: components["schemas"]["ThirdPartyMonitorService"][];
+            dynamic: components["schemas"]["ThirdPartyMonitorDynamic"] | null;
+            live: components["schemas"]["ThirdPartyMonitorLive"];
+            /** Format: date-time */
+            updated_at: string;
+        };
+        ThirdPartyMonitorsResponse: {
+            platform: components["schemas"]["ThirdPartyPlatform"];
+            items: components["schemas"]["ThirdPartyMonitorItem"][];
+            /** Format: date-time */
+            updated_at: string;
         };
         /** @enum {string} */
         BilibiliQRCodeLoginState: "pending_scan" | "pending_confirm" | "expired" | "succeeded";
@@ -3690,6 +3757,31 @@ export interface operations {
                 };
                 content?: never;
             };
+            401: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    listThirdPartyMonitors: {
+        parameters: {
+            query?: {
+                platform?: components["schemas"]["ThirdPartyPlatform"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Current third-party monitoring targets. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ThirdPartyMonitorsResponse"];
+                };
+            };
+            400: components["responses"]["Error"];
             401: components["responses"]["Error"];
             default: components["responses"]["Error"];
         };

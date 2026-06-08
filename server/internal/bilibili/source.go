@@ -157,6 +157,46 @@ func (s *Source) Status(ctx context.Context) Status {
 	return s.statusWithAccounts(ctx)
 }
 
+func (s *Source) MonitorSnapshot(ctx context.Context) (MonitorSnapshot, error) {
+	snapshot := MonitorSnapshot{
+		Platform: thirdparty.PlatformBilibili,
+		Items:    []MonitorItem{},
+	}
+	if s == nil {
+		snapshot.UpdatedAt = time.Now().UTC()
+		return snapshot, nil
+	}
+	subjects, err := s.loadSubjects(ctx)
+	if err != nil {
+		return snapshot, err
+	}
+	dynamics := s.loadDynamicSnapshots(ctx)
+	for _, subject := range sortedSubjects(subjects) {
+		room := s.loadRoomState(ctx, subject.UID)
+		dynamic := dynamics[subject.UID]
+		item := MonitorItem{
+			UID:       subject.UID,
+			Username:  firstNonEmpty(room.Name, dynamic.Username, subject.Name, subject.UID),
+			AvatarURL: firstNonEmpty(room.Face, dynamic.AvatarURL, subject.AvatarURL),
+			Services:  sortedServiceNames(subject.Services),
+			Dynamic:   dynamic.MonitorDynamic(),
+			Live:      monitorLiveFromRoom(room),
+			UpdatedAt: latestTime(room.UpdatedAt, dynamic.UpdatedAt),
+		}
+		if item.UpdatedAt.IsZero() {
+			item.UpdatedAt = s.now()
+		}
+		if snapshot.UpdatedAt.IsZero() || item.UpdatedAt.After(snapshot.UpdatedAt) {
+			snapshot.UpdatedAt = item.UpdatedAt
+		}
+		snapshot.Items = append(snapshot.Items, item)
+	}
+	if snapshot.UpdatedAt.IsZero() {
+		snapshot.UpdatedAt = s.now()
+	}
+	return snapshot, nil
+}
+
 func (s *Source) reconcile(ctx context.Context, subjectsRef *map[string]Subject, accountRef *thirdparty.Account, cookieRef *string) {
 	subjects, err := s.loadSubjects(ctx)
 	if err != nil {
@@ -424,12 +464,13 @@ func (s *Source) setRoomState(ctx context.Context, state roomState) {
 		state.UpdatedAt = now
 	}
 	_, _ = s.write.ExecContext(ctx,
-		`INSERT INTO bilibili_source_rooms (uid, room_id, name, face, live_status, live_started_at, live_event_id, connection_state, last_event_at, last_error, updated_at)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		`INSERT INTO bilibili_source_rooms (uid, room_id, name, face, cover_url, live_status, live_started_at, live_event_id, connection_state, last_event_at, last_error, updated_at)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		 ON CONFLICT(uid) DO UPDATE SET
 		   room_id = excluded.room_id,
 		   name = excluded.name,
 		   face = excluded.face,
+		   cover_url = excluded.cover_url,
 		   live_status = excluded.live_status,
 		   live_started_at = excluded.live_started_at,
 		   live_event_id = excluded.live_event_id,
@@ -437,9 +478,101 @@ func (s *Source) setRoomState(ctx context.Context, state roomState) {
 		   last_event_at = excluded.last_event_at,
 		   last_error = excluded.last_error,
 		   updated_at = excluded.updated_at`,
-		state.UID, state.RoomID, state.Name, state.Face, state.LiveStatus, state.LiveStartedAt, state.LiveEventID,
+		state.UID, state.RoomID, state.Name, state.Face, state.CoverURL, state.LiveStatus, state.LiveStartedAt, state.LiveEventID,
 		state.ConnectionState, nullableTimeString(state.LastEventAt), state.LastError, state.UpdatedAt.Format(time.RFC3339),
 	)
+}
+
+type dynamicSnapshot struct {
+	UID         string
+	DynamicID   string
+	Service     string
+	Title       string
+	Summary     string
+	URL         string
+	Username    string
+	AvatarURL   string
+	Images      []Image
+	PublishedAt *time.Time
+	ObservedAt  time.Time
+	UpdatedAt   time.Time
+}
+
+func (s *Source) setDynamicSnapshot(ctx context.Context, event BilibiliEvent) {
+	if event.UID == "" || event.ID == "" {
+		return
+	}
+	rawImages, err := json.Marshal(event.Images)
+	if err != nil {
+		rawImages = []byte("[]")
+	}
+	now := s.now()
+	observedAt := now
+	publishedAt := int64(0)
+	if event.PubTS > 0 {
+		publishedAt = event.PubTS
+	}
+	_, _ = s.write.ExecContext(ctx,
+		`INSERT INTO bilibili_source_dynamics (uid, dynamic_id, service, title, summary, url, username, avatar_url, images_json, published_at, observed_at, updated_at)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		 ON CONFLICT(uid) DO UPDATE SET
+		   dynamic_id = excluded.dynamic_id,
+		   service = excluded.service,
+		   title = excluded.title,
+		   summary = excluded.summary,
+		   url = excluded.url,
+		   username = excluded.username,
+		   avatar_url = excluded.avatar_url,
+		   images_json = excluded.images_json,
+		   published_at = excluded.published_at,
+		   observed_at = excluded.observed_at,
+		   updated_at = excluded.updated_at`,
+		event.UID, event.ID, event.Service, event.Title, event.Summary, event.URL, event.Author.Name, event.Author.Avatar,
+		string(rawImages), publishedAt, observedAt.Format(time.RFC3339), now.Format(time.RFC3339),
+	)
+}
+
+func (s *Source) loadDynamicSnapshots(ctx context.Context) map[string]dynamicSnapshot {
+	rows, err := s.read.QueryContext(ctx,
+		`SELECT uid, dynamic_id, service, title, summary, url, username, avatar_url, images_json, published_at, observed_at, updated_at
+		 FROM bilibili_source_dynamics`,
+	)
+	if err != nil {
+		return map[string]dynamicSnapshot{}
+	}
+	defer rows.Close()
+	result := make(map[string]dynamicSnapshot)
+	for rows.Next() {
+		var item dynamicSnapshot
+		var rawImages string
+		var publishedAt int64
+		var observedAt, updatedAt string
+		if err := rows.Scan(
+			&item.UID,
+			&item.DynamicID,
+			&item.Service,
+			&item.Title,
+			&item.Summary,
+			&item.URL,
+			&item.Username,
+			&item.AvatarURL,
+			&rawImages,
+			&publishedAt,
+			&observedAt,
+			&updatedAt,
+		); err != nil {
+			continue
+		}
+		_ = json.Unmarshal([]byte(rawImages), &item.Images)
+		if publishedAt > 0 {
+			published := time.Unix(publishedAt, 0).UTC()
+			item.PublishedAt = &published
+		}
+		item.ObservedAt = parseRFC3339(observedAt)
+		item.UpdatedAt = parseRFC3339(updatedAt)
+		result[item.UID] = item
+	}
+	return result
 }
 
 func (s *Source) loadRoomState(ctx context.Context, uid string) roomState {
@@ -447,9 +580,9 @@ func (s *Source) loadRoomState(ctx context.Context, uid string) roomState {
 	var lastEventAt sql.NullString
 	var updatedAt string
 	err := s.read.QueryRowContext(ctx,
-		`SELECT uid, room_id, name, face, live_status, live_started_at, live_event_id, connection_state, last_event_at, last_error, updated_at
+		`SELECT uid, room_id, name, face, cover_url, live_status, live_started_at, live_event_id, connection_state, last_event_at, last_error, updated_at
 		 FROM bilibili_source_rooms WHERE uid = ?`, uid,
-	).Scan(&state.UID, &state.RoomID, &state.Name, &state.Face, &state.LiveStatus, &state.LiveStartedAt, &state.LiveEventID,
+	).Scan(&state.UID, &state.RoomID, &state.Name, &state.Face, &state.CoverURL, &state.LiveStatus, &state.LiveStartedAt, &state.LiveEventID,
 		&state.ConnectionState, &lastEventAt, &state.LastError, &updatedAt)
 	if err != nil {
 		return roomState{UID: uid, ConnectionState: StateIdle}
@@ -888,6 +1021,71 @@ func sortedSubjects(subjects map[string]Subject) []Subject {
 		return items[i].UID < items[j].UID
 	})
 	return items
+}
+
+func sortedServiceNames(services map[string]bool) []string {
+	items := make([]string, 0, len(services))
+	for service, enabled := range services {
+		if enabled {
+			items = append(items, service)
+		}
+	}
+	sort.Strings(items)
+	return items
+}
+
+func monitorLiveFromRoom(room roomState) MonitorLive {
+	live := MonitorLive{
+		RoomID:          room.RoomID,
+		RoomName:        room.Name,
+		CoverURL:        room.CoverURL,
+		IsLive:          room.LiveStatus == 1,
+		ConnectionState: firstNonEmpty(room.ConnectionState, StateIdle),
+		LastError:       room.LastError,
+	}
+	if room.RoomID != "" {
+		live.RoomURL = "https://live.bilibili.com/" + room.RoomID
+	}
+	if room.LiveStartedAt > 0 {
+		startedAt := time.Unix(room.LiveStartedAt, 0).UTC()
+		live.LiveStartedAt = &startedAt
+	}
+	if room.LastEventAt != nil && room.LiveStatus == 0 {
+		live.LiveEndedAt = room.LastEventAt
+	}
+	if !room.UpdatedAt.IsZero() {
+		live.UpdatedAt = &room.UpdatedAt
+	}
+	return live
+}
+
+func (item dynamicSnapshot) MonitorDynamic() *MonitorDynamic {
+	if item.UID == "" || item.DynamicID == "" {
+		return nil
+	}
+	return &MonitorDynamic{
+		LastID:      item.DynamicID,
+		Service:     item.Service,
+		Title:       item.Title,
+		Summary:     item.Summary,
+		URL:         item.URL,
+		Images:      item.Images,
+		PublishedAt: item.PublishedAt,
+		ObservedAt:  item.ObservedAt,
+	}
+}
+
+func latestTime(values ...time.Time) time.Time {
+	var latest time.Time
+	for _, value := range values {
+		if value.IsZero() {
+			continue
+		}
+		if latest.IsZero() || value.After(latest) {
+			latest = value
+		}
+	}
+	return latest
 }
 
 func formBody(values url.Values) io.Reader {

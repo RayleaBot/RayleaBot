@@ -4,12 +4,9 @@ import { storeToRefs } from 'pinia'
 import {
   DeleteOutlined,
   EditOutlined,
-  LinkOutlined,
   PlusOutlined,
   QrcodeOutlined,
-  ReloadOutlined,
   SaveOutlined,
-  SyncOutlined,
   UserOutlined,
 } from '@ant-design/icons-vue'
 
@@ -24,7 +21,6 @@ import type {
   BilibiliQRCodeLoginCreateResponse,
   BilibiliQRCodeLoginPollResponse,
   BilibiliQRCodeLoginState,
-  BilibiliSourceStatusResponse,
   ThirdPartyAccountSummary,
   ThirdPartyCredentialState,
 } from '@/types/api'
@@ -43,15 +39,6 @@ interface AccountDraftEntry {
   draft: AccountDraft
 }
 
-type SourceTone = 'normal' | 'success' | 'warning' | 'danger'
-
-interface SourceMetric {
-  label: string
-  detail?: string
-  tone?: SourceTone
-  value: string
-}
-
 interface QRLoginState {
   loginId: string
   qrcodeUrl: string
@@ -67,13 +54,11 @@ const qrPollIntervalMs = 2000
 const store = useThirdPartyAccountsStore()
 const {
   bilibiliAccounts,
-  bilibiliStatus,
   deletingAccountId,
   error,
   loading,
   qrcodeCreating,
   qrcodePollingLoginId,
-  restarting,
   savingAccountId,
 } = storeToRefs(store)
 
@@ -85,7 +70,7 @@ const draftSequence = ref(0)
 let qrPollTimer: number | undefined
 
 const pageErrorToast = computed(() => (
-  error.value && bilibiliStatus.value
+  error.value && bilibiliAccounts.value.length > 0
     ? {
         key: `third-party-accounts-error:${error.value}`,
         level: 'error' as const,
@@ -96,9 +81,7 @@ const pageErrorToast = computed(() => (
 
 useToastFeedback(pageErrorToast)
 
-const fatalError = computed(() => error.value && !bilibiliStatus.value && bilibiliAccounts.value.length === 0)
-const status = computed(() => bilibiliStatus.value)
-const sourceStatusTag = computed(() => sourceStatusMeta(status.value?.status))
+const fatalError = computed(() => error.value && bilibiliAccounts.value.length === 0)
 const hasAccounts = computed(() => bilibiliAccounts.value.length > 0)
 const configuredAccountCount = computed(() => bilibiliAccounts.value.filter((account) => account.configured).length)
 const enabledAccountCount = computed(() => bilibiliAccounts.value.filter((account) => account.enabled).length)
@@ -106,48 +89,6 @@ const activeDraftEntries = computed<AccountDraftEntry[]>(() => Object.entries(dr
   .filter(([, draft]) => draft.isNew)
   .map(([key, draft]) => ({ key, draft })))
 const hasEditorCards = computed(() => activeDraftEntries.value.length > 0)
-const sourceErrorText = computed(() => {
-  const liveError = status.value?.live.last_error?.trim()
-  const dynamicError = status.value?.dynamic.last_error?.trim()
-  return liveError || dynamicError || t('builtinFeatures.thirdPartyAccounts.noError')
-})
-const statusTone = computed<SourceTone>(() => {
-  switch (status.value?.status) {
-    case 'connected':
-      return 'success'
-    case 'degraded':
-      return 'warning'
-    case 'failed':
-      return 'danger'
-    default:
-      return 'normal'
-  }
-})
-const sourceMetrics = computed<SourceMetric[]>(() => {
-  const failedRooms = status.value?.live.failed_rooms ?? 0
-  return [
-    {
-      label: t('builtinFeatures.thirdPartyAccounts.liveMetric'),
-      value: `${status.value?.live.connected_rooms ?? 0}/${status.value?.live.watched_rooms ?? 0}`,
-      detail: status.value?.live.fallback_polling
-        ? t('builtinFeatures.thirdPartyAccounts.liveFallbackMetric', { count: failedRooms })
-        : t('builtinFeatures.thirdPartyAccounts.liveFailedMetric', { count: failedRooms }),
-      tone: failedRooms > 0 || status.value?.live.fallback_polling ? 'warning' : 'normal',
-    },
-    {
-      label: t('builtinFeatures.thirdPartyAccounts.dynamicMetric'),
-      value: `${status.value?.dynamic.watched_uids ?? 0} UID`,
-      detail: t('builtinFeatures.thirdPartyAccounts.lastPollMetric', { time: timeText(status.value?.dynamic.last_poll_at) }),
-      tone: status.value?.dynamic.enabled === false ? 'warning' : 'normal',
-    },
-    {
-      label: t('builtinFeatures.thirdPartyAccounts.accountMetric'),
-      value: `${enabledAccountCount.value}/${bilibiliAccounts.value.length}`,
-      detail: t('builtinFeatures.thirdPartyAccounts.configuredMetric', { count: configuredAccountCount.value }),
-      tone: enabledAccountCount.value > 0 ? 'success' : 'normal',
-    },
-  ]
-})
 
 onMounted(() => {
   void loadPage()
@@ -258,15 +199,6 @@ function deleteDraft(key: string) {
   cancelEdit(key)
 }
 
-async function restartSource() {
-  try {
-    await store.restartBilibiliSource()
-    notifySuccess(t('builtinFeatures.thirdPartyAccounts.restarted'))
-  } catch (err) {
-    notifyError(getDisplayErrorMessage(err))
-  }
-}
-
 async function startQRCodeLogin(key: string) {
   try {
     const response = await store.createBilibiliQRCodeLogin()
@@ -362,24 +294,6 @@ function normalizeAccountId(value: string) {
   return value.trim().toLowerCase().replace(/[^a-z0-9_.-]+/g, '').replace(/^[._-]+|[._-]+$/g, '').slice(0, 64)
 }
 
-function sourceStatusMeta(value?: BilibiliSourceStatusResponse['status']) {
-  switch (value) {
-    case 'connected':
-      return { color: 'green', label: t('builtinFeatures.thirdPartyAccounts.sourceConnected') }
-    case 'connecting':
-      return { color: 'blue', label: t('builtinFeatures.thirdPartyAccounts.sourceConnecting') }
-    case 'degraded':
-      return { color: 'orange', label: t('builtinFeatures.thirdPartyAccounts.sourceDegraded') }
-    case 'failed':
-      return { color: 'red', label: t('builtinFeatures.thirdPartyAccounts.sourceFailed') }
-    case 'disabled':
-      return { color: 'default', label: t('builtinFeatures.thirdPartyAccounts.disabled') }
-    case 'idle':
-    default:
-      return { color: 'default', label: t('builtinFeatures.thirdPartyAccounts.sourceIdle') }
-  }
-}
-
 function credentialMeta(state?: ThirdPartyCredentialState) {
   switch (state) {
     case 'valid':
@@ -462,50 +376,20 @@ function timeText(value?: string | null) {
     />
 
     <div v-else class="third-party-layout">
-      <section :class="['source-summary-strip', `source-summary-strip--${statusTone}`]">
-        <div class="source-summary-main">
-          <div class="source-summary-title-row">
-            <span class="source-summary-title">
-              <LinkOutlined />
-              <span>{{ t('builtinFeatures.thirdPartyAccounts.sourceTitle') }}</span>
-            </span>
-            <a-tag :color="sourceStatusTag.color">{{ sourceStatusTag.label }}</a-tag>
-          </div>
-          <p>{{ status?.summary || t('builtinFeatures.thirdPartyAccounts.sourceWaiting') }}</p>
-          <div :class="['source-summary-error', { 'is-empty': sourceErrorText === t('builtinFeatures.thirdPartyAccounts.noError') }]">
-            {{ sourceErrorText }}
-          </div>
-        </div>
-
-        <div class="source-metrics">
-          <div v-for="metric in sourceMetrics" :key="metric.label" :class="['source-metric', `source-metric--${metric.tone || 'normal'}`]">
-            <span>{{ metric.label }}</span>
-            <strong>{{ metric.value }}</strong>
-            <small>{{ metric.detail }}</small>
-          </div>
-        </div>
-
-        <div class="source-summary-actions">
-          <a-button :loading="loading" @click="loadPage">
-            <template #icon><ReloadOutlined /></template>
-            {{ t('builtinFeatures.thirdPartyAccounts.refresh') }}
-          </a-button>
-          <a-button :loading="restarting" @click="restartSource">
-            <template #icon><SyncOutlined /></template>
-            {{ t('builtinFeatures.thirdPartyAccounts.restartSource') }}
-          </a-button>
-          <a-button type="primary" @click="addDraft">
-            <template #icon><PlusOutlined /></template>
-            {{ t('builtinFeatures.thirdPartyAccounts.addBilibili') }}
-          </a-button>
-        </div>
-      </section>
-
       <section class="accounts-panel">
         <div class="accounts-panel__header">
           <div>
             <h2>{{ t('builtinFeatures.thirdPartyAccounts.accountTitle') }}</h2>
             <p>{{ t('builtinFeatures.thirdPartyAccounts.accountSummary', { configured: configuredAccountCount, enabled: enabledAccountCount }) }}</p>
+          </div>
+          <div class="accounts-panel__actions">
+            <a-button :loading="loading" @click="loadPage">
+              {{ t('builtinFeatures.thirdPartyAccounts.refresh') }}
+            </a-button>
+            <a-button type="primary" @click="addDraft">
+              <template #icon><PlusOutlined /></template>
+              {{ t('builtinFeatures.thirdPartyAccounts.addBilibili') }}
+            </a-button>
           </div>
         </div>
 
@@ -731,10 +615,8 @@ function timeText(value?: string | null) {
 </template>
 
 <style scoped lang="scss">
-.source-summary-actions,
 .accounts-panel__header,
-.source-summary-title,
-.source-summary-title-row,
+.accounts-panel__actions,
 .account-card__badges,
 .account-card__actions,
 .account-editor-actions,
@@ -754,125 +636,6 @@ function timeText(value?: string | null) {
   box-shadow: var(--shadow-card);
 }
 
-.source-summary-strip {
-  display: grid;
-  grid-template-columns: minmax(240px, 4fr) minmax(320px, 5fr) minmax(220px, 3fr);
-  align-items: center;
-  gap: var(--space-lg);
-  padding: var(--space-md) var(--space-lg);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  background: var(--surface-soft);
-}
-
-.source-summary-strip--warning {
-  border-color: color-mix(in srgb, #d97706 35%, var(--border));
-  background: color-mix(in srgb, #f59e0b 4%, var(--surface-soft));
-}
-
-.source-summary-strip--danger {
-  border-color: color-mix(in srgb, #dc2626 36%, var(--border));
-  background: color-mix(in srgb, #ef4444 4%, var(--surface-soft));
-}
-
-.source-summary-strip--success {
-  border-color: color-mix(in srgb, #16a34a 24%, var(--border));
-}
-
-.source-summary-main,
-.source-summary-title-row,
-.source-summary-title {
-  min-width: 0;
-}
-
-.source-summary-title-row {
-  flex-wrap: wrap;
-}
-
-.source-summary-title {
-  color: var(--text);
-  font-weight: 600;
-}
-
-.source-summary-main p {
-  margin: var(--space-xs) 0 0;
-  overflow: hidden;
-  color: var(--muted);
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.source-summary-error {
-  margin-top: var(--space-xs);
-  color: #b45309;
-  font-size: 0.78rem;
-  line-height: 1.4;
-  overflow-wrap: anywhere;
-}
-
-.source-summary-error.is-empty {
-  color: var(--muted);
-}
-
-.source-metrics {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: var(--space-sm);
-  min-width: 0;
-}
-
-.source-metric {
-  min-width: 0;
-  padding: 8px 10px;
-  border: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
-  border-radius: var(--radius-sm);
-  background: var(--surface);
-}
-
-.source-metric span,
-.source-metric small {
-  display: block;
-  color: var(--muted);
-  font-size: 0.74rem;
-  line-height: 1.35;
-}
-
-.source-metric strong {
-  display: block;
-  margin-top: 2px;
-  overflow: hidden;
-  color: var(--text);
-  font-size: 0.92rem;
-  font-weight: 650;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.source-metric small {
-  margin-top: 2px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.source-metric--success strong {
-  color: #15803d;
-}
-
-.source-metric--warning strong {
-  color: #b45309;
-}
-
-.source-metric--danger strong {
-  color: #b91c1c;
-}
-
-.source-summary-actions {
-  justify-content: flex-end;
-  flex-wrap: wrap;
-  min-width: 0;
-}
-
 .accounts-panel {
   display: grid;
   gap: var(--space-md);
@@ -880,6 +643,12 @@ function timeText(value?: string | null) {
 
 .accounts-panel__header {
   justify-content: space-between;
+}
+
+.accounts-panel__actions {
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  min-width: 0;
 }
 
 .accounts-panel__header h2 {
@@ -1117,45 +886,23 @@ function timeText(value?: string | null) {
   color: var(--muted);
 }
 
-@media (max-width: 960px) {
-  .source-summary-strip {
-    grid-template-columns: 1fr;
-    align-items: stretch;
-  }
-
-  .source-summary-actions {
-    justify-content: flex-start;
-  }
-}
-
 @media (max-width: 720px) {
   .third-party-layout {
     padding: var(--space-md);
   }
 
-  .source-summary-strip {
-    grid-template-columns: 1fr;
-  }
-
-  .source-summary-strip {
-    padding: var(--space-md);
-  }
-
-  .source-metrics,
   .account-card__facts {
     grid-template-columns: 1fr;
   }
 
-  .source-summary-main p,
-  .source-metric strong,
-  .source-metric small,
   .account-card__head strong,
   .account-card__head small,
   .account-card__facts dd {
     white-space: normal;
   }
 
-  .source-summary-actions,
+  .accounts-panel__header,
+  .accounts-panel__actions,
   .account-card__actions,
   .account-editor-actions,
   .accounts-empty,
@@ -1164,7 +911,7 @@ function timeText(value?: string | null) {
     flex-direction: column;
   }
 
-  .source-summary-actions :deep(.ant-btn),
+  .accounts-panel__actions :deep(.ant-btn),
   .account-card__actions :deep(.ant-btn),
   .account-editor-actions :deep(.ant-btn),
   .accounts-empty :deep(.ant-btn) {

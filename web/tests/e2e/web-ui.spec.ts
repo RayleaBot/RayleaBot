@@ -137,6 +137,30 @@ async function expectThirdPartyAccountCardsContained(page: import('@playwright/t
   expect(metrics.overflowingCards).toEqual([])
 }
 
+async function expectThirdPartyMonitoringCardsContained(page: import('@playwright/test').Page) {
+  const metrics = await page.evaluate(() => {
+    const tolerance = 1
+    const viewportOverflow = document.documentElement.scrollWidth - document.documentElement.clientWidth
+    const cards = Array.from(document.querySelectorAll<HTMLElement>('.monitor-card'))
+    const overflowingCards = cards.map((card) => {
+      const rect = card.getBoundingClientRect()
+      return {
+        className: card.className,
+        inlineOverflow: card.scrollWidth - card.clientWidth,
+        rightOverflow: rect.right - document.documentElement.clientWidth,
+      }
+    }).filter((card) => card.inlineOverflow > tolerance || card.rightOverflow > tolerance)
+
+    return {
+      viewportOverflow,
+      overflowingCards,
+    }
+  })
+
+  expect(metrics.viewportOverflow).toBeLessThanOrEqual(1)
+  expect(metrics.overflowingCards).toEqual([])
+}
+
 async function expectThirdPartyAccountAvatarImageFillsFrame(page: import('@playwright/test').Page) {
   const metrics = await page.getByTestId('bilibili-account-avatar-image').first().evaluate((image) => {
     const avatar = image.closest<HTMLElement>('.account-avatar')
@@ -2625,8 +2649,7 @@ test('third-party accounts show Bilibili CK cards and QR login fills the editor'
 
   await page.goto('/third-party-accounts')
   await expect(page.getByRole('heading', { name: '三方账号', level: 1 })).toBeVisible()
-  await expect(page.locator('.source-summary-strip')).toContainText('Bilibili 事件源')
-  await expect(page.locator('.source-metric')).toHaveCount(3)
+  await expect(page.locator('.source-summary-strip')).toHaveCount(0)
 
   const accountCard = page.locator('.account-card').filter({ hasText: '主账号昵称' }).first()
   await expect(accountCard).toBeVisible()
@@ -2677,6 +2700,34 @@ test('third-party accounts show Bilibili CK cards and QR login fills the editor'
   await expect(savedQRCodeAccountCard).toContainText('CK 有效')
   await expect(savedQRCodeAccountCard.getByTestId('bilibili-account-avatar-image')).toBeVisible()
   await expectThirdPartyAccountCardsContained(page)
+})
+
+test('third-party monitoring shows Bilibili targets and platform switch', async ({ page, request }) => {
+  await resetBackend(request, true)
+  await login(page)
+
+  await page.goto('/third-party-monitoring')
+  await expect(page.getByRole('heading', { name: '三方监控', level: 1 })).toBeVisible()
+  const platformSwitch = page.locator('.platform-switch')
+  await expect(platformSwitch.getByText('Bilibili', { exact: true })).toBeVisible()
+  await expect(platformSwitch.getByText('YouTube', { exact: true })).toBeVisible()
+  await expect(platformSwitch.getByText('Twitch', { exact: true })).toBeVisible()
+  await expect(page.locator('.uid-list')).toContainText('UID 123456')
+
+  const monitorCard = page.locator('.monitor-card').filter({ hasText: '测试 UP' }).first()
+  await expect(monitorCard).toBeVisible()
+  await expect(monitorCard).toContainText('UID 123456')
+  await expect(monitorCard).toContainText('新视频标题')
+  await expect(monitorCard).toContainText('开播中')
+  await expect(monitorCard).toContainText('直播间标题')
+  await expect(monitorCard).toContainText('10001')
+  await expect(monitorCard).toContainText('已连接')
+  await expectThirdPartyMonitoringCardsContained(page)
+
+  await page.setViewportSize({ width: 390, height: 844 })
+  await expectThirdPartyMonitoringCardsContained(page)
+  await expect(monitorCard).toContainText('新视频标题')
+  await page.setViewportSize({ width: 1280, height: 720 })
 })
 
 test('error recovery covers retry and uninstall failure', async ({ page, request }) => {

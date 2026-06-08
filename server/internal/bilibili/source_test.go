@@ -80,7 +80,7 @@ func TestLiveTransitionDispatchesStartedEndedAndDeduplicates(t *testing.T) {
 func TestPollDynamicsDispatchesWatchedUpdatesAndDeduplicates(t *testing.T) {
 	t.Parallel()
 
-	source, recorder := newTestSource(t, time.Date(2026, 6, 8, 8, 11, 0, 0, time.UTC), func(request *http.Request) (*http.Response, error) {
+	source, recorder := newTestSourceWithPluginConfig(t, time.Date(2026, 6, 8, 8, 11, 0, 0, time.UTC), func(request *http.Request) (*http.Response, error) {
 		switch request.URL.Host + request.URL.Path {
 		case "api.bilibili.com/bapis/bilibili.api.ticket.v1.Ticket/GenWebTicket":
 			return jsonResponse(`{
@@ -141,6 +141,18 @@ func TestPollDynamicsDispatchesWatchedUpdatesAndDeduplicates(t *testing.T) {
 			t.Fatalf("unexpected request url: %s", request.URL.String())
 			return nil, nil
 		}
+	}, staticPluginConfig{
+		values: map[string]any{
+			"subscriptions": []any{
+				map[string]any{
+					"enabled":  true,
+					"platform": "bilibili",
+					"uid":      "123456",
+					"name":     "测试 UP",
+					"services": []any{"video"},
+				},
+			},
+		},
 	})
 
 	subjects := map[string]Subject{
@@ -172,6 +184,86 @@ func TestPollDynamicsDispatchesWatchedUpdatesAndDeduplicates(t *testing.T) {
 	author, ok := payload["author"].(map[string]any)
 	if !ok || author["uid"] != "123456" || author["name"] != "测试 UP" {
 		t.Fatalf("unexpected dynamic author payload: %#v", payload["author"])
+	}
+	snapshot, err := source.MonitorSnapshot(ctx)
+	if err != nil {
+		t.Fatalf("MonitorSnapshot: %v", err)
+	}
+	if len(snapshot.Items) != 1 {
+		t.Fatalf("monitor items = %d, want 1", len(snapshot.Items))
+	}
+	monitor := snapshot.Items[0]
+	if monitor.Dynamic == nil || monitor.Dynamic.LastID != "90001" || monitor.Dynamic.Title != "新视频标题" {
+		t.Fatalf("unexpected monitor dynamic snapshot: %#v", monitor.Dynamic)
+	}
+}
+
+func TestMonitorSnapshotMergesSubjectsRoomsAndDynamicSnapshots(t *testing.T) {
+	t.Parallel()
+
+	now := time.Date(2026, 6, 8, 8, 20, 0, 0, time.UTC)
+	source, _ := newTestSourceWithPluginConfig(t, now, nil, staticPluginConfig{
+		values: map[string]any{
+			"subscriptions": []any{
+				map[string]any{
+					"enabled":    true,
+					"platform":   "bilibili",
+					"uid":        "123456",
+					"name":       "订阅名",
+					"avatar_url": "https://i0.hdslb.com/bfs/face/subject.jpg",
+					"services":   []any{"live", "video"},
+				},
+			},
+		},
+	})
+	ctx := context.Background()
+	eventTime := time.Date(2026, 6, 8, 8, 19, 30, 0, time.UTC)
+	source.setRoomState(ctx, roomState{
+		UID:             "123456",
+		RoomID:          "10001",
+		Name:            "直播间标题",
+		Face:            "https://i0.hdslb.com/bfs/face/live.jpg",
+		CoverURL:        "https://i0.hdslb.com/bfs/live/cover.jpg",
+		LiveStatus:      1,
+		LiveStartedAt:   1780906000,
+		ConnectionState: StateConnected,
+		LastEventAt:     &eventTime,
+		UpdatedAt:       now,
+	})
+	source.setDynamicSnapshot(ctx, BilibiliEvent{
+		UID:     "123456",
+		ID:      "90001",
+		Service: "video",
+		Title:   "新视频标题",
+		Summary: "视频简介",
+		URL:     "https://www.bilibili.com/video/BV1RayleaBot",
+		PubTS:   1780906200,
+		Author: Author{
+			Name:   "测试 UP",
+			Avatar: "https://i0.hdslb.com/bfs/face/up.jpg",
+		},
+		Images: []Image{{URL: "https://i0.hdslb.com/bfs/archive/cover.jpg", Width: 1920, Height: 1080}},
+	})
+
+	snapshot, err := source.MonitorSnapshot(ctx)
+	if err != nil {
+		t.Fatalf("MonitorSnapshot: %v", err)
+	}
+	if snapshot.Platform != thirdparty.PlatformBilibili || len(snapshot.Items) != 1 {
+		t.Fatalf("unexpected monitor snapshot: %#v", snapshot)
+	}
+	item := snapshot.Items[0]
+	if item.UID != "123456" || item.Username != "直播间标题" || item.AvatarURL != "https://i0.hdslb.com/bfs/face/live.jpg" {
+		t.Fatalf("unexpected monitor identity: %#v", item)
+	}
+	if strings.Join(item.Services, ",") != "live,video" {
+		t.Fatalf("unexpected monitor services: %#v", item.Services)
+	}
+	if item.Dynamic == nil || item.Dynamic.LastID != "90001" || item.Dynamic.Images[0].Width != 1920 {
+		t.Fatalf("unexpected monitor dynamic: %#v", item.Dynamic)
+	}
+	if !item.Live.IsLive || item.Live.RoomID != "10001" || item.Live.CoverURL != "https://i0.hdslb.com/bfs/live/cover.jpg" || item.Live.LiveStartedAt == nil {
+		t.Fatalf("unexpected monitor live: %#v", item.Live)
 	}
 }
 
@@ -354,7 +446,11 @@ func TestRequestJSONWithoutTargetStillChecksBilibiliCode(t *testing.T) {
 
 func newTestSource(t *testing.T, now time.Time, handler func(*http.Request) (*http.Response, error)) (*Source, *dispatchRecorder) {
 	t.Helper()
+	return newTestSourceWithPluginConfig(t, now, handler, staticPluginConfig{})
+}
 
+func newTestSourceWithPluginConfig(t *testing.T, now time.Time, handler func(*http.Request) (*http.Response, error), pluginConfig staticPluginConfig) (*Source, *dispatchRecorder) {
+	t.Helper()
 	store, err := storage.Open(filepath.Join(t.TempDir(), "state.db"))
 	if err != nil {
 		t.Fatalf("storage.Open: %v", err)
@@ -372,7 +468,7 @@ func newTestSource(t *testing.T, now time.Time, handler func(*http.Request) (*ht
 	source, err := NewSource(Deps{
 		Store:         store,
 		Accounts:      accounts,
-		PluginConfig:  staticPluginConfig{},
+		PluginConfig:  pluginConfig,
 		Dispatcher:    recorder,
 		HTTPTransport: roundTripFunc(handler),
 		Now:           func() time.Time { return now },
@@ -392,7 +488,9 @@ func (r *dispatchRecorder) Dispatch(_ context.Context, event runtime.Event, _ st
 	return []dispatch.DeliveryResult{{PluginID: subscriptionHubPluginID, Outcome: dispatch.OutcomeDelivered}}
 }
 
-type staticPluginConfig struct{}
+type staticPluginConfig struct {
+	values map[string]any
+}
 
 func (staticPluginConfig) SeedDefaults(context.Context, string, map[string]any) (bool, error) {
 	return false, nil
@@ -402,8 +500,11 @@ func (staticPluginConfig) Read(context.Context, string, []string) (map[string]an
 	return map[string]any{}, nil
 }
 
-func (staticPluginConfig) ReadAll(context.Context, string) (map[string]any, error) {
-	return map[string]any{}, nil
+func (s staticPluginConfig) ReadAll(context.Context, string) (map[string]any, error) {
+	if s.values == nil {
+		return map[string]any{}, nil
+	}
+	return s.values, nil
 }
 
 func (staticPluginConfig) Write(context.Context, string, map[string]any) ([]string, error) {

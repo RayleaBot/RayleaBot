@@ -117,6 +117,7 @@ func (s *Source) connectLiveRoom(ctx context.Context, subject Subject, cookie st
 	state.RoomID = roomID
 	state.Name = firstNonEmpty(item.UName, subject.Name)
 	state.Face = firstNonEmpty(normalizeURL(item.Face), subject.AvatarURL)
+	state.CoverURL = firstLiveImageURL(item)
 	state.LiveStatus = normalizeLiveStatus(item.LiveStatus)
 	state.LiveStartedAt = liveTimeFromItem(item)
 	state.ConnectionState = StateConnecting
@@ -316,6 +317,7 @@ func (s *Source) emitLiveTransition(ctx context.Context, subject Subject, item l
 	}
 	state.Name = firstNonEmpty(item.UName, subject.Name, state.Name)
 	state.Face = firstNonEmpty(normalizeURL(item.Face), subject.AvatarURL, state.Face)
+	state.CoverURL = firstNonEmpty(firstLiveImageURL(item), state.CoverURL)
 	state.LiveStartedAt = liveTimeFromItem(item)
 	state.ConnectionState = firstNonEmpty(state.ConnectionState, StateIdle)
 	if state.LiveStatus == liveStatus && source != "status" {
@@ -396,12 +398,19 @@ func (s *Source) emitSyntheticLiveTransition(ctx context.Context, subject Subjec
 }
 
 func liveImages(item liveStatusItem) []Image {
-	for _, value := range []string{item.CoverFromUser, item.UserCover} {
-		if url := normalizeURL(value); url != "" {
-			return []Image{{URL: url}}
-		}
+	if url := firstLiveImageURL(item); url != "" {
+		return []Image{{URL: url}}
 	}
 	return nil
+}
+
+func firstLiveImageURL(item liveStatusItem) string {
+	for _, value := range []string{item.CoverFromUser, item.UserCover} {
+		if url := normalizeURL(value); url != "" {
+			return url
+		}
+	}
+	return ""
 }
 
 func liveTimeFromItem(item liveStatusItem) int64 {

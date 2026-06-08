@@ -82,6 +82,7 @@ const fixtures = {
   governanceCommandPolicy: await readFixture('fixtures/web-api/ok.governance-command-policy-response.yaml'),
   thirdPartyAccounts: await readFixture('fixtures/web-api/ok.third-party-accounts-list.yaml'),
   thirdPartyAccountUpsert: await readFixture('fixtures/web-api/ok.third-party-account-upsert.yaml'),
+  thirdPartyMonitors: await readFixture('fixtures/web-api/ok.third-party-monitors-bilibili.yaml'),
   bilibiliSourceStatus: await readFixture('fixtures/web-api/ok.bilibili-source-status.yaml'),
   bilibiliSourceRestart: await readFixture('fixtures/web-api/ok.bilibili-source-restart.yaml'),
   bilibiliQRCodeCreate: await readFixture('fixtures/web-api/ok.bilibili-login-qrcode-create.yaml'),
@@ -127,6 +128,8 @@ function baseState() {
     governanceWhitelist: structuredClone(fixtures.governanceWhitelist.response.body),
     governanceCommandPolicy: structuredClone(fixtures.governanceCommandPolicy.response.body),
     thirdPartyAccounts,
+    thirdPartyMonitors: structuredClone(fixtures.thirdPartyMonitors.response.body.items)
+      .map(localizeBilibiliMonitorMedia),
     bilibiliSourceStatus: structuredClone(fixtures.bilibiliSourceStatus.response.body),
     bilibiliQRCodePolls: {},
     renderTemplates: createRenderTemplateState(),
@@ -278,6 +281,23 @@ function localizeBilibiliAccountAvatar(account) {
     account.profile.avatar_url = bilibiliAvatarUrl
   }
   return account
+}
+
+function localizeBilibiliMonitorMedia(item) {
+  if (!item) {
+    return item
+  }
+  item.avatar_url = bilibiliAvatarUrl
+  if (item.live) {
+    item.live.cover_url = bilibiliAvatarUrl
+  }
+  if (item.dynamic?.images?.length) {
+    item.dynamic.images = item.dynamic.images.map((image) => ({
+      ...image,
+      url: bilibiliAvatarUrl,
+    }))
+  }
+  return item
 }
 
 function syncGovernanceCommandPolicyFromConfig(config) {
@@ -1575,6 +1595,23 @@ const server = http.createServer(async (request, response) => {
     }
 
     json(response, 200, { items: structuredClone(state.thirdPartyAccounts) })
+    return
+  }
+
+  if (pathname === '/api/third-party/monitors' && request.method === 'GET') {
+    if (!requireAuth(request, response)) {
+      return
+    }
+    const monitorPlatform = searchParams.get('platform') || 'bilibili'
+    if (monitorPlatform !== 'bilibili') {
+      json(response, 400, errorEnvelope('platform.invalid_request', 'third-party monitor platform is invalid', 'req_third_party_monitor_invalid'))
+      return
+    }
+    json(response, 200, {
+      ...structuredClone(fixtures.thirdPartyMonitors.response.body),
+      items: structuredClone(state.thirdPartyMonitors),
+      updated_at: new Date().toISOString(),
+    })
     return
   }
 

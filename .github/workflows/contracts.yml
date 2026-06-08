@@ -666,6 +666,7 @@ jobs:
               '/api/config',
               '/api/third-party/accounts',
               '/api/third-party/accounts/{platform}/{account_id}',
+              '/api/third-party/monitors',
               '/api/bilibili/login/qrcode',
               '/api/bilibili/login/qrcode/{login_id}',
               '/api/bilibili/source/status',

@@ -51,6 +51,46 @@ type Status struct {
 	Accounts []thirdparty.Account `json:"-"`
 }
 
+type MonitorSnapshot struct {
+	Platform  string        `json:"platform"`
+	Items     []MonitorItem `json:"items"`
+	UpdatedAt time.Time     `json:"updated_at"`
+}
+
+type MonitorItem struct {
+	UID       string
+	Username  string
+	AvatarURL string
+	Services  []string
+	Dynamic   *MonitorDynamic
+	Live      MonitorLive
+	UpdatedAt time.Time
+}
+
+type MonitorDynamic struct {
+	LastID      string
+	Service     string
+	Title       string
+	Summary     string
+	URL         string
+	Images      []Image
+	PublishedAt *time.Time
+	ObservedAt  time.Time
+}
+
+type MonitorLive struct {
+	RoomID          string
+	RoomName        string
+	RoomURL         string
+	CoverURL        string
+	IsLive          bool
+	LiveStartedAt   *time.Time
+	LiveEndedAt     *time.Time
+	ConnectionState string
+	LastError       string
+	UpdatedAt       *time.Time
+}
+
 type LiveStatus struct {
 	WatchedRooms    int        `json:"watched_rooms"`
 	ConnectedRooms  int        `json:"connected_rooms"`
@@ -130,6 +170,7 @@ type roomState struct {
 	RoomID          string
 	Name            string
 	Face            string
+	CoverURL        string
 	LiveStatus      int
 	LiveStartedAt   int64
 	LiveEventID     string

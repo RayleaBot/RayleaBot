@@ -187,6 +187,7 @@ CREATE TABLE IF NOT EXISTS bilibili_source_rooms (
     room_id TEXT NOT NULL DEFAULT '',
     name TEXT NOT NULL DEFAULT '',
     face TEXT NOT NULL DEFAULT '',
+    cover_url TEXT NOT NULL DEFAULT '',
     live_status INTEGER NOT NULL DEFAULT 0 CHECK (live_status IN (0, 1)),
     live_started_at INTEGER NOT NULL DEFAULT 0,
     live_event_id TEXT NOT NULL DEFAULT '',
@@ -209,6 +210,24 @@ CREATE TABLE IF NOT EXISTS bilibili_source_seen (
 
 CREATE INDEX IF NOT EXISTS idx_bilibili_source_seen_uid
     ON bilibili_source_seen (uid, observed_at DESC);
+
+CREATE TABLE IF NOT EXISTS bilibili_source_dynamics (
+    uid TEXT PRIMARY KEY,
+    dynamic_id TEXT NOT NULL,
+    service TEXT NOT NULL CHECK (service IN ('video', 'image_text', 'article', 'repost')),
+    title TEXT NOT NULL DEFAULT '',
+    summary TEXT NOT NULL DEFAULT '',
+    url TEXT NOT NULL DEFAULT '',
+    username TEXT NOT NULL DEFAULT '',
+    avatar_url TEXT NOT NULL DEFAULT '',
+    images_json TEXT NOT NULL DEFAULT '[]',
+    published_at INTEGER NOT NULL DEFAULT 0,
+    observed_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_bilibili_source_dynamics_observed_at
+    ON bilibili_source_dynamics (observed_at DESC);
 
 CREATE TABLE IF NOT EXISTS bilibili_source_state (
     key TEXT PRIMARY KEY,

@@ -68,6 +68,7 @@ func (s *Source) pollDynamics(ctx context.Context, subjects map[string]Subject, 
 		if !s.markSeen(ctx, EventDynamicPublished+":"+event.ID, event.UID, EventDynamicPublished, event.ID) {
 			continue
 		}
+		s.setDynamicSnapshot(ctx, event)
 		s.dispatchEvent(ctx, event)
 	}
 	_ = account

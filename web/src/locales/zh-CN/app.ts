@@ -9,6 +9,7 @@ export const routes = {
   builtinFeatures: '内置功能',
   menuCenter: '菜单中心',
   thirdPartyAccounts: '三方账号',
+  thirdPartyMonitoring: '三方监控',
   pluginCenter: '插件中心',
   pluginList: '插件列表',
   pluginSettings: '插件设置',

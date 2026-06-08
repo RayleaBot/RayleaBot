@@ -1,0 +1,45 @@
+contract: contracts/web-api.openapi.yaml
+case: ok
+description: Third-party monitors return Bilibili monitoring targets with dynamic and live snapshots.
+request:
+  method: GET
+  path: /api/third-party/monitors?platform=bilibili
+response:
+  status: 200
+  body:
+    platform: bilibili
+    items:
+      - uid: "123456"
+        username: 测试 UP
+        avatar_url: "https://i0.hdslb.com/bfs/face/up.jpg"
+        services:
+          - live
+          - video
+          - image_text
+        dynamic:
+          last_id: "90001"
+          service: video
+          title: 新视频标题
+          summary: 视频简介
+          url: "https://www.bilibili.com/video/BV1RayleaBot"
+          images:
+            - url: "https://i0.hdslb.com/bfs/archive/cover.jpg"
+              width: 1920
+              height: 1080
+          published_at: "2026-06-08T08:10:00Z"
+          observed_at: "2026-06-08T08:11:00Z"
+        live:
+          room_id: "10001"
+          room_name: 直播间标题
+          room_url: "https://live.bilibili.com/10001"
+          cover_url: "https://i0.hdslb.com/bfs/live/cover.jpg"
+          is_live: true
+          live_started_at: "2026-06-08T08:06:40Z"
+          live_ended_at: null
+          connection_state: connected
+          last_error: ""
+          updated_at: "2026-06-08T08:11:05Z"
+        updated_at: "2026-06-08T08:11:05Z"
+    updated_at: "2026-06-08T08:11:05Z"
+expect:
+  valid: true
