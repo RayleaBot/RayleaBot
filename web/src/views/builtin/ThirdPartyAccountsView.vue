@@ -984,6 +984,15 @@ function timeText(value?: string | null) {
   color: var(--muted);
 }
 
+.account-avatar :deep(.ant-avatar-string) {
+  inset: 0 !important;
+  display: block;
+  width: 100%;
+  height: 100%;
+  line-height: inherit;
+  transform: none !important;
+}
+
 .account-avatar__image {
   display: block;
   width: 100%;

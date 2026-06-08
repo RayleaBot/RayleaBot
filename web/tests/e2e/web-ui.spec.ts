@@ -137,6 +137,32 @@ async function expectThirdPartyAccountCardsContained(page: import('@playwright/t
   expect(metrics.overflowingCards).toEqual([])
 }
 
+async function expectThirdPartyAccountAvatarImageFillsFrame(page: import('@playwright/test').Page) {
+  const metrics = await page.getByTestId('bilibili-account-avatar-image').first().evaluate((image) => {
+    const avatar = image.closest<HTMLElement>('.account-avatar')
+    if (!avatar) {
+      return null
+    }
+    const avatarRect = avatar.getBoundingClientRect()
+    const imageRect = image.getBoundingClientRect()
+    const string = image.closest<HTMLElement>('.ant-avatar-string')
+    const stringStyle = string ? getComputedStyle(string) : null
+    return {
+      avatarHeight: avatarRect.height,
+      avatarWidth: avatarRect.width,
+      imageHeight: imageRect.height,
+      imageWidth: imageRect.width,
+      stringTransform: stringStyle?.transform ?? '',
+    }
+  })
+
+  const frameInsetTolerance = 2
+  expect(metrics).not.toBeNull()
+  expect(metrics!.imageWidth).toBeGreaterThanOrEqual(metrics!.avatarWidth - frameInsetTolerance)
+  expect(metrics!.imageHeight).toBeGreaterThanOrEqual(metrics!.avatarHeight - frameInsetTolerance)
+  expect(metrics!.stringTransform).toBe('none')
+}
+
 async function clickConfigTocItem(page: import('@playwright/test').Page, label: string) {
   const desktopItem = page.locator('.config-toc').getByText(label, { exact: true })
   if (await desktopItem.first().isVisible().catch(() => false)) {
@@ -2611,6 +2637,7 @@ test('third-party accounts show Bilibili CK cards and QR login fills the editor'
   const avatarImage = accountCard.getByTestId('bilibili-account-avatar-image')
   await expect(avatarImage).toBeVisible()
   await expect(avatarImage).toHaveAttribute('src', /external-preview\/avatar\.png/)
+  await expectThirdPartyAccountAvatarImageFillsFrame(page)
   await avatarImage.evaluate((element) => element.dispatchEvent(new Event('error')))
   await expect(accountCard.getByTestId('bilibili-account-avatar-fallback')).toBeVisible()
   await expect(accountCard.getByTestId('bilibili-account-avatar-image')).toHaveCount(0)
