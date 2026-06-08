@@ -218,7 +218,7 @@ async function ensureDependencies(label, projectDir, installMode) {
 }
 
 async function ensureWebDevServer(devEnvironment) {
-  const state = await classifyWebDevServer();
+  const state = await classifyWebDevServer({ backendBaseUrl: devEnvironment.VITE_BACKEND_TARGET });
   if (state === "rayleabot") {
     log(`复用 Web 开发服务器：${WEB_DEV_BASE_URL}`);
     return;
@@ -234,16 +234,16 @@ async function ensureWebDevServer(devEnvironment) {
     logPath: webDevLogPath,
   });
 
-  await waitForWebDevServer(child);
+  await waitForWebDevServer(child, devEnvironment.VITE_BACKEND_TARGET);
 }
 
-async function waitForWebDevServer(child) {
+async function waitForWebDevServer(child, backendBaseUrl) {
   const deadline = Date.now() + 30_000;
   while (Date.now() < deadline) {
     if (child.exitCode !== null) {
       throw new Error("Web 开发服务器已退出。");
     }
-    const state = await classifyWebDevServer({ timeoutMs: 800 });
+    const state = await classifyWebDevServer({ backendBaseUrl, timeoutMs: 800 });
     if (state === "rayleabot") {
       log(`Web 开发服务器已就绪：${WEB_DEV_BASE_URL}`);
       return;

@@ -8,6 +8,7 @@ export const LAUNCHER_DEV_PROFILE = "launcher-dev";
 export const SERVER_RELOAD_AIR = "air";
 export const WEB_DEV_PORT = 4173;
 export const WEB_DEV_BASE_URL = `http://127.0.0.1:${WEB_DEV_PORT}/`;
+export const WEB_DEV_STATUS_PATH = "/__rayleabot-dev/status";
 
 const VALID_PROFILES = new Set([WEB_DEV_PROFILE, BUILD_PROFILE, LAUNCHER_DEV_PROFILE]);
 const VALID_INSTALL_MODES = new Set(["auto", "always", "skip"]);
@@ -200,6 +201,7 @@ export async function classifyWebDevServer({
   url = WEB_DEV_BASE_URL,
   host = "127.0.0.1",
   port = WEB_DEV_PORT,
+  backendBaseUrl,
   fetchImpl = globalThis.fetch,
   timeoutMs = 1500,
 } = {}) {
@@ -210,9 +212,32 @@ export async function classifyWebDevServer({
   try {
     const response = await fetchWithTimeout(fetchImpl, url, timeoutMs);
     const body = await response.text();
-    return isRayleaBotWebDevHtml(body) ? "rayleabot" : "occupied";
+    if (!isRayleaBotWebDevHtml(body)) {
+      return "occupied";
+    }
+    if (!backendBaseUrl) {
+      return "rayleabot";
+    }
+    return await hasMatchingBackendTarget({ url, backendBaseUrl, fetchImpl, timeoutMs })
+      ? "rayleabot"
+      : "occupied";
   } catch {
     return "occupied";
+  }
+}
+
+async function hasMatchingBackendTarget({ url, backendBaseUrl, fetchImpl, timeoutMs }) {
+  try {
+    const statusUrl = new URL(WEB_DEV_STATUS_PATH, url).toString();
+    const response = await fetchWithTimeout(fetchImpl, statusUrl, timeoutMs);
+    if (!response.ok) {
+      return false;
+    }
+    const payload = await response.json();
+    return payload?.app === "RayleaBot Web"
+      && normalizeComparableUrl(payload?.backendTarget) === normalizeComparableUrl(backendBaseUrl);
+  } catch {
+    return false;
   }
 }
 
@@ -245,6 +270,14 @@ function stripQuotes(value) {
 
 function trimTrailingSlash(value) {
   return value.replace(/\/+$/, "");
+}
+
+function normalizeComparableUrl(value) {
+  try {
+    return trimTrailingSlash(new URL(String(value ?? "")).toString());
+  } catch {
+    return "";
+  }
 }
 
 async function statOrNull(stat, targetPath) {

@@ -157,6 +157,59 @@ test("classifies web dev server port states", async () => {
   }
 });
 
+test("classifies rayleabot dev server by backend target", async () => {
+  const rayleaServer = await listenHttp((request) => {
+    if (request.url === "/__rayleabot-dev/status") {
+      return JSON.stringify({
+        app: "RayleaBot Web",
+        backendTarget: "http://127.0.0.1:8080",
+      });
+    }
+    return "<title>RayleaBot Web</title><script type=\"module\" src=\"/src/main.ts\"></script>";
+  }, "application/json; charset=utf-8");
+  try {
+    const port = rayleaServer.address().port;
+    assert.equal(
+      await classifyWebDevServer({
+        url: `http://127.0.0.1:${port}/`,
+        port,
+        backendBaseUrl: "http://127.0.0.1:8080/",
+        timeoutMs: 100,
+      }),
+      "rayleabot",
+    );
+    assert.equal(
+      await classifyWebDevServer({
+        url: `http://127.0.0.1:${port}/`,
+        port,
+        backendBaseUrl: "http://127.0.0.1:18080",
+        timeoutMs: 100,
+      }),
+      "occupied",
+    );
+  } finally {
+    await closeServer(rayleaServer);
+  }
+});
+
+test("classifies rayleabot dev server without status as occupied when backend target is required", async () => {
+  const rayleaServer = await listenHttp("<title>RayleaBot Web</title><script type=\"module\" src=\"/src/main.ts\"></script>");
+  try {
+    const port = rayleaServer.address().port;
+    assert.equal(
+      await classifyWebDevServer({
+        url: `http://127.0.0.1:${port}/`,
+        port,
+        backendBaseUrl: "http://127.0.0.1:8080",
+        timeoutMs: 100,
+      }),
+      "occupied",
+    );
+  } finally {
+    await closeServer(rayleaServer);
+  }
+});
+
 async function reservePort() {
   const server = net.createServer();
   await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
@@ -165,10 +218,10 @@ async function reservePort() {
   return port;
 }
 
-async function listenHttp(body) {
+async function listenHttp(body, contentType = "text/html; charset=utf-8") {
   const server = http.createServer((_, response) => {
-    response.writeHead(200, { "content-type": "text/html; charset=utf-8" });
-    response.end(body);
+    response.writeHead(200, { "content-type": contentType });
+    response.end(typeof body === "function" ? body(_) : body);
   });
   await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
   return server;

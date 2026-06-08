@@ -11,6 +11,7 @@ const backendTarget = process.env.VITE_BACKEND_TARGET ?? 'http://127.0.0.1:8080'
 process.env.VITE_BACKEND_TARGET = backendTarget
 const backendUnavailableHeader = 'x-rayleabot-backend-unavailable'
 const backendAvailabilityCacheMs = 500
+const devStatusPath = '/__rayleabot-dev/status'
 
 export function resolveDevWebSocketBaseUrl(configuredBaseUrl: string | undefined, fallbackBaseUrl: string) {
   return configuredBaseUrl?.trim() || fallbackBaseUrl
@@ -110,6 +111,27 @@ function createBackendAvailabilityGuard(target: string): Plugin {
   }
 }
 
+export function createRayleaBotDevStatus(target: string): Plugin {
+  return {
+    name: 'rayleabot-dev-status',
+    configureServer(server) {
+      server.middlewares.use((request: IncomingMessage, response: ServerResponse, next) => {
+        const pathname = new URL(request.url ?? '/', 'http://rayleabot.local').pathname
+        if (pathname !== devStatusPath) {
+          next()
+          return
+        }
+
+        response.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' })
+        response.end(JSON.stringify({
+          app: 'RayleaBot Web',
+          backendTarget: target,
+        }))
+      })
+    },
+  }
+}
+
 export function createBackendProxyOptions(target: string): ProxyOptions {
   return {
     target,
@@ -123,7 +145,7 @@ export default defineConfig(({ command }) => {
   process.env.VITE_WS_BASE_URL = clientWebSocketBaseUrl
 
   return {
-    plugins: [createBackendAvailabilityGuard(backendTarget), vue(), tailwindcss()],
+    plugins: [createRayleaBotDevStatus(backendTarget), createBackendAvailabilityGuard(backendTarget), vue(), tailwindcss()],
     define: {
       'import.meta.env.VITE_WS_BASE_URL': JSON.stringify(clientWebSocketBaseUrl),
     },
