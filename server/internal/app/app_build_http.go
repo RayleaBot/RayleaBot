@@ -94,6 +94,7 @@ func registerAppProtectedRoutes(router chi.Router, deps httpServerDeps) {
 	router.Put("/api/third-party/accounts/{platform}/{account_id}", deps.thirdPartyHandler.handleThirdPartyAccountUpsert())
 	router.Delete("/api/third-party/accounts/{platform}/{account_id}", deps.thirdPartyHandler.handleThirdPartyAccountDelete())
 	router.Get("/api/third-party/monitors", deps.thirdPartyHandler.handleThirdPartyMonitorList(deps.bilibiliHandler.source))
+	router.Get("/api/third-party/media", deps.thirdPartyHandler.handleThirdPartyMedia())
 	router.Post("/api/bilibili/login/qrcode", deps.bilibiliHandler.handleBilibiliQRCodeLoginCreate())
 	router.Get("/api/bilibili/login/qrcode/{login_id}", deps.bilibiliHandler.handleBilibiliQRCodeLoginPoll())
 	router.Get("/api/bilibili/source/status", deps.bilibiliHandler.handleBilibiliSourceStatus())
