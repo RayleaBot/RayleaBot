@@ -78,6 +78,10 @@ func buildEventPayload(event Event) (*protocolPayloadFrame, bool) {
 			payload.OneBot = onebot
 			hasPayload = true
 		}
+		if bilibili, ok := buildProtocolBilibiliPayload(event.PayloadFields); ok {
+			payload.Bilibili = bilibili
+			hasPayload = true
+		}
 	}
 	if !hasPayload {
 		return nil, false
@@ -187,6 +191,117 @@ func buildProtocolOneBotPayload(fields map[string]any) (*protocolOneBotPayloadFr
 	return &payload, true
 }
 
+func buildProtocolBilibiliPayload(fields map[string]any) (*protocolBilibiliPayloadFrame, bool) {
+	raw, ok := fields["bilibili"].(map[string]any)
+	if !ok || len(raw) == 0 {
+		return nil, false
+	}
+	kind, hasKind := payloadString(raw, "kind")
+	uid, hasUID := payloadString(raw, "uid")
+	id, hasID := payloadString(raw, "id")
+	service, hasService := payloadString(raw, "service")
+	url, hasURL := payloadString(raw, "url")
+	author, hasAuthor := buildProtocolBilibiliAuthor(raw)
+	if !hasKind || !hasUID || !hasID || !hasService || !hasURL || !hasAuthor {
+		return nil, false
+	}
+
+	payload := protocolBilibiliPayloadFrame{
+		Kind:    kind,
+		UID:     uid,
+		ID:      id,
+		Service: service,
+		URL:     url,
+		Author:  author,
+	}
+	if v, ok := payloadString(raw, "room_id"); ok {
+		payload.RoomID = v
+	}
+	if v, ok := payloadString(raw, "title"); ok {
+		payload.Title = v
+	}
+	if v, ok := payloadString(raw, "summary"); ok {
+		payload.Summary = v
+	}
+	if v, ok := payloadInt64(raw, "pub_ts"); ok {
+		payload.PubTS = v
+	}
+	if v, ok := payloadString(raw, "created_at"); ok {
+		payload.CreatedAt = v
+	}
+	if images := buildProtocolBilibiliImages(raw); len(images) > 0 {
+		payload.Images = images
+	}
+	if v, ok := payloadIntAllowZero(raw, "live_status"); ok {
+		payload.LiveStatus = &v
+	}
+	if v, ok := payloadString(raw, "live_event"); ok {
+		payload.LiveEvent = v
+	}
+	if v, ok := payloadString(raw, "status_label"); ok {
+		payload.StatusLabel = v
+	}
+	if v, ok := payloadString(raw, "live_started_at"); ok {
+		payload.LiveStartedAt = v
+	}
+	if v, ok := payloadString(raw, "live_detected_at"); ok {
+		payload.LiveDetectedAt = v
+	}
+	if v, ok := payloadString(raw, "dynamic_type"); ok {
+		payload.DynamicType = v
+	}
+	return &payload, true
+}
+
+func buildProtocolBilibiliAuthor(raw map[string]any) (protocolBilibiliAuthorFrame, bool) {
+	authorRaw, ok := raw["author"].(map[string]any)
+	if !ok || len(authorRaw) == 0 {
+		return protocolBilibiliAuthorFrame{}, false
+	}
+	uid, hasUID := payloadString(authorRaw, "uid")
+	name, hasName := payloadString(authorRaw, "name")
+	if !hasUID || !hasName {
+		return protocolBilibiliAuthorFrame{}, false
+	}
+	author := protocolBilibiliAuthorFrame{UID: uid, Name: name}
+	if avatar, ok := payloadString(authorRaw, "avatar"); ok {
+		author.Avatar = avatar
+	}
+	return author, true
+}
+
+func buildProtocolBilibiliImages(raw map[string]any) []protocolBilibiliImageFrame {
+	source, ok := raw["images"].([]map[string]any)
+	if !ok {
+		sourceAny, ok := raw["images"].([]any)
+		if !ok {
+			return nil
+		}
+		source = make([]map[string]any, 0, len(sourceAny))
+		for _, item := range sourceAny {
+			if image, ok := item.(map[string]any); ok {
+				source = append(source, image)
+			}
+		}
+	}
+	images := make([]protocolBilibiliImageFrame, 0, len(source))
+	for _, item := range source {
+		url, ok := payloadString(item, "url")
+		if !ok {
+			continue
+		}
+		image := protocolBilibiliImageFrame{URL: url}
+		if width, ok := payloadIntAllowZero(item, "width"); ok {
+			image.Width = width
+		}
+		if height, ok := payloadIntAllowZero(item, "height"); ok {
+			image.Height = height
+		}
+		images = append(images, image)
+	}
+	return images
+}
+
 func buildProtocolOneBotSender(raw map[string]any) (*protocolOneBotSenderFrame, bool) {
 	senderRaw, ok := raw["sender"].(map[string]any)
 	if !ok || len(senderRaw) == 0 {
@@ -273,6 +388,28 @@ func payloadInt(values map[string]any, key string) (int, bool) {
 		return int(value), true
 	case float64:
 		if value <= 0 {
+			return 0, false
+		}
+		return int(value), true
+	default:
+		return 0, false
+	}
+}
+
+func payloadIntAllowZero(values map[string]any, key string) (int, bool) {
+	switch value := values[key].(type) {
+	case int:
+		if value < 0 {
+			return 0, false
+		}
+		return value, true
+	case int64:
+		if value < 0 {
+			return 0, false
+		}
+		return int(value), true
+	case float64:
+		if value < 0 {
 			return 0, false
 		}
 		return int(value), true

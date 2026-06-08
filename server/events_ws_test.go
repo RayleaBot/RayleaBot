@@ -46,18 +46,7 @@ func TestEventsWebSocketDeliversBridgeRuntimeFrame(t *testing.T) {
 		t.Fatalf("unexpected bridge outcome: got %q want %q", outcome, bridge.OutcomeDelivered)
 	}
 
-	readCtx, cancel := context.WithTimeout(context.Background(), time.Second)
-	defer cancel()
-
-	_, payload, err := conn.Read(readCtx)
-	if err != nil {
-		t.Fatalf("read websocket frame: %v", err)
-	}
-
-	var frame map[string]any
-	if err := json.Unmarshal(payload, &frame); err != nil {
-		t.Fatalf("unmarshal websocket frame: %v", err)
-	}
+	frame := readEventsReplayFrameByKey(t, conn, "observability_scope")
 
 	if frame["channel"] != "events" {
 		t.Fatalf("unexpected channel: got %#v want %q", frame["channel"], "events")
@@ -86,7 +75,11 @@ func TestEventsWebSocketDeliversBridgeRuntimeFrame(t *testing.T) {
 		t.Fatalf("unexpected aggregate counts: %#v", data)
 	}
 
-	raw := string(payload)
+	rawBytes, err := json.Marshal(frame)
+	if err != nil {
+		t.Fatalf("marshal websocket frame: %v", err)
+	}
+	raw := string(rawBytes)
 	for _, forbidden := range []string{
 		"hello bridge",
 		"onebot11-message-1001",
@@ -226,18 +219,7 @@ func TestEventsWebSocketDeliversPluginStateFrame(t *testing.T) {
 		t.Fatalf("SetRuntimeState returned error: %v", err)
 	}
 
-	readCtx, cancel := context.WithTimeout(context.Background(), time.Second)
-	defer cancel()
-
-	_, payload, err := conn.Read(readCtx)
-	if err != nil {
-		t.Fatalf("read websocket frame: %v", err)
-	}
-
-	var frame map[string]any
-	if err := json.Unmarshal(payload, &frame); err != nil {
-		t.Fatalf("unmarshal websocket frame: %v", err)
-	}
+	frame := readEventsReplayFrameByKey(t, conn, "plugin_id")
 
 	data, ok := frame["data"].(map[string]any)
 	if !ok {

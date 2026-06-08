@@ -5,6 +5,8 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -14,6 +16,7 @@ import (
 	"testing"
 	"time"
 
+	internalapp "github.com/RayleaBot/RayleaBot/server/internal/app"
 	"github.com/RayleaBot/RayleaBot/server/internal/permission"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 )
@@ -283,6 +286,252 @@ func TestLauncherHandlersRejectForwardedHeadersAndOldTokenRoutesAreGone(t *testi
 		if resp.StatusCode != http.StatusNotFound {
 			t.Fatalf("old launcher route %s returned %d, want 404", tc.path, resp.StatusCode)
 		}
+	}
+}
+
+func TestThirdPartyAccountAndBilibiliSourceHandlers(t *testing.T) {
+	t.Parallel()
+
+	application, _, _ := newTestAppWithOptions(t, nil, func(options *internalapp.Options, _ string) {
+		options.BilibiliHTTPTransport = managementBilibiliTransport(t)
+		options.BilibiliClock = func() time.Time { return time.Date(2026, 6, 8, 8, 0, 0, 0, time.UTC) }
+	}, deterministicAuthOptions()...)
+	token := issueLoginToken(t, application)
+	server := httptest.NewServer(application.Handler())
+	defer server.Close()
+
+	doRequest := func(method, path, body string) (*http.Response, []byte) {
+		t.Helper()
+		request, err := http.NewRequest(method, server.URL+path, strings.NewReader(body))
+		if err != nil {
+			t.Fatalf("create %s %s request: %v", method, path, err)
+		}
+		request.Header.Set("Authorization", "Bearer "+token)
+		if body != "" {
+			request.Header.Set("Content-Type", "application/json")
+		}
+		response, err := server.Client().Do(request)
+		if err != nil {
+			t.Fatalf("perform %s %s request: %v", method, path, err)
+		}
+		payload := readAll(t, response)
+		return response, payload
+	}
+
+	cookie := "SESSDATA=fixture-secret; bili_jct=fixture-csrf;"
+	upsertResp, upsertPayload := doRequest(http.MethodPut, "/api/third-party/accounts/bilibili/primary", `{"label":"主账号","enabled":true,"cookie":"`+cookie+`"}`)
+	defer upsertResp.Body.Close()
+	if upsertResp.StatusCode != http.StatusOK {
+		t.Fatalf("unexpected third-party account upsert status: got %d want 200 body=%s", upsertResp.StatusCode, string(upsertPayload))
+	}
+	if strings.Contains(string(upsertPayload), "fixture-secret") || strings.Contains(string(upsertPayload), "fixture-csrf") {
+		t.Fatalf("third-party account upsert response leaked cookie: %s", string(upsertPayload))
+	}
+	upsertBody := decodeBody(t, upsertPayload)
+	account, ok := upsertBody["account"].(map[string]any)
+	if !ok {
+		t.Fatalf("unexpected third-party account upsert body: %#v", upsertBody)
+	}
+	if account["platform"] != "bilibili" || account["account_id"] != "primary" || account["label"] != "主账号" || account["enabled"] != true || account["configured"] != true {
+		t.Fatalf("unexpected third-party account summary: %#v", account)
+	}
+	profile, ok := account["profile"].(map[string]any)
+	if !ok || profile["uid"] != "123456" || profile["nickname"] != "主账号昵称" || profile["avatar_url"] != "https://i0.hdslb.com/bfs/face/raylea.jpg" {
+		t.Fatalf("unexpected third-party account profile: %#v", account["profile"])
+	}
+	credential, ok := account["credential"].(map[string]any)
+	if !ok || credential["state"] != "valid" || credential["checked_at"] != "2026-06-08T08:00:00Z" || credential["last_error"] != "" {
+		t.Fatalf("unexpected third-party credential: %#v", account["credential"])
+	}
+	polling, ok := account["polling"].(map[string]any)
+	if !ok || polling["enabled"] != true || polling["last_used_at"] != nil {
+		t.Fatalf("unexpected third-party polling status: %#v", account["polling"])
+	}
+	updatedAt, ok := account["updated_at"].(string)
+	if !ok {
+		t.Fatalf("expected third-party account updated_at string, got %#v", account["updated_at"])
+	}
+	if _, err := time.Parse(time.RFC3339, updatedAt); err != nil {
+		t.Fatalf("unexpected third-party account updated_at: %v", err)
+	}
+
+	listResp, listPayload := doRequest(http.MethodGet, "/api/third-party/accounts", "")
+	defer listResp.Body.Close()
+	if listResp.StatusCode != http.StatusOK {
+		t.Fatalf("unexpected third-party account list status: got %d want 200 body=%s", listResp.StatusCode, string(listPayload))
+	}
+	if strings.Contains(string(listPayload), "fixture-secret") || strings.Contains(string(listPayload), "fixture-csrf") {
+		t.Fatalf("third-party account list response leaked cookie: %s", string(listPayload))
+	}
+	listBody := decodeBody(t, listPayload)
+	items, ok := listBody["items"].([]any)
+	if !ok || len(items) != 1 {
+		t.Fatalf("unexpected third-party account list body: %#v", listBody)
+	}
+	listAccount := items[0].(map[string]any)
+	if listAccount["platform"] != "bilibili" || listAccount["account_id"] != "primary" || listAccount["configured"] != true {
+		t.Fatalf("unexpected third-party account list item: %#v", listAccount)
+	}
+	listProfile, ok := listAccount["profile"].(map[string]any)
+	if !ok || listProfile["nickname"] != "主账号昵称" || listProfile["uid"] != "123456" {
+		t.Fatalf("unexpected third-party account list profile: %#v", listAccount["profile"])
+	}
+
+	statusResp, statusPayload := doRequest(http.MethodGet, "/api/bilibili/source/status", "")
+	defer statusResp.Body.Close()
+	if statusResp.StatusCode != http.StatusOK {
+		t.Fatalf("unexpected bilibili source status code: got %d want 200 body=%s", statusResp.StatusCode, string(statusPayload))
+	}
+	statusBody := decodeBody(t, statusPayload)
+	if statusBody["status"] != "idle" || statusBody["summary"] != "Bilibili 事件源等待订阅" {
+		t.Fatalf("unexpected bilibili source status body: %#v", statusBody)
+	}
+	live, ok := statusBody["live"].(map[string]any)
+	if !ok || live["watched_rooms"] == nil || live["fallback_polling"] == nil {
+		t.Fatalf("unexpected bilibili live status: %#v", statusBody["live"])
+	}
+	dynamic, ok := statusBody["dynamic"].(map[string]any)
+	if !ok || dynamic["interval_seconds"] != float64(10) || dynamic["auto_follow"] != true {
+		t.Fatalf("unexpected bilibili dynamic status: %#v", statusBody["dynamic"])
+	}
+	statusAccounts, ok := statusBody["accounts"].([]any)
+	if !ok || len(statusAccounts) != 1 {
+		t.Fatalf("unexpected bilibili source accounts: %#v", statusBody["accounts"])
+	}
+	statusAccount := statusAccounts[0].(map[string]any)
+	if statusAccount["platform"] != "bilibili" || statusAccount["configured"] != true {
+		t.Fatalf("unexpected bilibili source account summary: %#v", statusAccount)
+	}
+
+	restartResp, restartPayload := doRequest(http.MethodPost, "/api/bilibili/source/restart", "")
+	defer restartResp.Body.Close()
+	if restartResp.StatusCode != http.StatusOK {
+		t.Fatalf("unexpected bilibili source restart code: got %d want 200 body=%s", restartResp.StatusCode, string(restartPayload))
+	}
+	restartBody := decodeBody(t, restartPayload)
+	if restartBody["accepted"] != true {
+		t.Fatalf("unexpected bilibili source restart body: %#v", restartBody)
+	}
+	if _, ok := restartBody["status"].(map[string]any); !ok {
+		t.Fatalf("expected bilibili source restart status snapshot, got %#v", restartBody["status"])
+	}
+
+	qrCreateResp, qrCreatePayload := doRequest(http.MethodPost, "/api/bilibili/login/qrcode", "")
+	defer qrCreateResp.Body.Close()
+	if qrCreateResp.StatusCode != http.StatusOK {
+		t.Fatalf("unexpected bilibili qr create code: got %d want 200 body=%s", qrCreateResp.StatusCode, string(qrCreatePayload))
+	}
+	qrCreateBody := decodeBody(t, qrCreatePayload)
+	if qrCreateBody["state"] != "pending_scan" || qrCreateBody["qrcode_url"] != "https://passport.bilibili.com/h5-app/passport/login/scan?navhide=1&qrcode_key=fixture-key" {
+		t.Fatalf("unexpected bilibili qr create body: %#v", qrCreateBody)
+	}
+	loginID, ok := qrCreateBody["login_id"].(string)
+	if !ok || !strings.HasPrefix(loginID, "qr_") {
+		t.Fatalf("unexpected bilibili qr login id: %#v", qrCreateBody["login_id"])
+	}
+
+	qrPendingResp, qrPendingPayload := doRequest(http.MethodGet, "/api/bilibili/login/qrcode/"+loginID, "")
+	defer qrPendingResp.Body.Close()
+	if qrPendingResp.StatusCode != http.StatusOK {
+		t.Fatalf("unexpected bilibili qr pending code: got %d want 200 body=%s", qrPendingResp.StatusCode, string(qrPendingPayload))
+	}
+	qrPendingBody := decodeBody(t, qrPendingPayload)
+	if qrPendingBody["state"] != "pending_confirm" || qrPendingBody["cookie"] != nil || qrPendingBody["account"] != nil {
+		t.Fatalf("unexpected bilibili qr pending body: %#v", qrPendingBody)
+	}
+
+	qrSucceededResp, qrSucceededPayload := doRequest(http.MethodGet, "/api/bilibili/login/qrcode/"+loginID, "")
+	defer qrSucceededResp.Body.Close()
+	if qrSucceededResp.StatusCode != http.StatusOK {
+		t.Fatalf("unexpected bilibili qr succeeded code: got %d want 200 body=%s", qrSucceededResp.StatusCode, string(qrSucceededPayload))
+	}
+	if !strings.Contains(string(qrSucceededPayload), "fixture-secret") {
+		t.Fatalf("expected qr poll success to return cookie, got %s", string(qrSucceededPayload))
+	}
+	qrSucceededBody := decodeBody(t, qrSucceededPayload)
+	qrAccount, ok := qrSucceededBody["account"].(map[string]any)
+	if qrSucceededBody["state"] != "succeeded" || !ok || qrAccount["uid"] != "123456" || qrAccount["nickname"] != "主账号昵称" {
+		t.Fatalf("unexpected bilibili qr succeeded body: %#v", qrSucceededBody)
+	}
+
+	deleteResp, deletePayload := doRequest(http.MethodDelete, "/api/third-party/accounts/bilibili/primary", "")
+	defer deleteResp.Body.Close()
+	if deleteResp.StatusCode != http.StatusNoContent {
+		t.Fatalf("unexpected third-party account delete status: got %d want 204 body=%s", deleteResp.StatusCode, string(deletePayload))
+	}
+
+	emptyResp, emptyPayload := doRequest(http.MethodGet, "/api/third-party/accounts", "")
+	defer emptyResp.Body.Close()
+	if emptyResp.StatusCode != http.StatusOK {
+		t.Fatalf("unexpected empty third-party account list status: got %d want 200 body=%s", emptyResp.StatusCode, string(emptyPayload))
+	}
+	emptyBody := decodeBody(t, emptyPayload)
+	emptyItems, ok := emptyBody["items"].([]any)
+	if !ok || len(emptyItems) != 0 {
+		t.Fatalf("expected empty third-party account list, got %#v", emptyBody)
+	}
+}
+
+func managementBilibiliTransport(t *testing.T) http.RoundTripper {
+	t.Helper()
+
+	qrPollCount := 0
+	return managementRoundTripFunc(func(request *http.Request) (*http.Response, error) {
+		switch {
+		case request.URL.Host == "api.bilibili.com" && request.URL.Path == "/x/web-interface/nav":
+			if !strings.Contains(request.Header.Get("Cookie"), "SESSDATA=") {
+				return nil, fmt.Errorf("expected nav cookie header, got %q", request.Header.Get("Cookie"))
+			}
+			return managementJSONResponse(`{
+				"code": 0,
+				"data": {
+					"isLogin": true,
+					"mid": 123456,
+					"uname": "主账号昵称",
+					"face": "//i0.hdslb.com/bfs/face/raylea.jpg"
+				}
+			}`), nil
+		case request.URL.Host == "passport.bilibili.com" && request.URL.Path == "/x/passport-login/web/qrcode/generate":
+			return managementJSONResponse(`{
+				"code": 0,
+				"data": {
+					"url": "https://passport.bilibili.com/h5-app/passport/login/scan?navhide=1&qrcode_key=fixture-key",
+					"qrcode_key": "fixture-key"
+				}
+			}`), nil
+		case request.URL.Host == "passport.bilibili.com" && request.URL.Path == "/x/passport-login/web/qrcode/poll":
+			if request.URL.Query().Get("qrcode_key") != "fixture-key" {
+				return nil, fmt.Errorf("unexpected qrcode_key: %s", request.URL.RawQuery)
+			}
+			qrPollCount += 1
+			if qrPollCount == 1 {
+				return managementJSONResponse(`{"code":0,"data":{"code":86090,"message":"waiting"}}`), nil
+			}
+			return managementJSONResponse(`{
+				"code": 0,
+				"data": {
+					"code": 0,
+					"url": "https://passport.bilibili.com/login?SESSDATA=fixture-secret&bili_jct=fixture-csrf&DedeUserID=123456",
+					"refresh_token": "fixture-refresh-token"
+				}
+			}`), nil
+		default:
+			return nil, fmt.Errorf("unexpected bilibili request: %s %s", request.Method, request.URL.String())
+		}
+	})
+}
+
+type managementRoundTripFunc func(*http.Request) (*http.Response, error)
+
+func (fn managementRoundTripFunc) RoundTrip(request *http.Request) (*http.Response, error) {
+	return fn(request)
+}
+
+func managementJSONResponse(body string) *http.Response {
+	return &http.Response{
+		StatusCode: http.StatusOK,
+		Header:     http.Header{"Content-Type": []string{"application/json"}},
+		Body:       io.NopCloser(strings.NewReader(body)),
 	}
 }
 

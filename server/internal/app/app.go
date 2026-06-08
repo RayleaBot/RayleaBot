@@ -10,6 +10,7 @@ import (
 
 	"github.com/RayleaBot/RayleaBot/server/internal/adapter"
 	"github.com/RayleaBot/RayleaBot/server/internal/auth"
+	source "github.com/RayleaBot/RayleaBot/server/internal/bilibili"
 	"github.com/RayleaBot/RayleaBot/server/internal/bridge"
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/console"
@@ -34,16 +35,19 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/secrets"
 	"github.com/RayleaBot/RayleaBot/server/internal/storage"
 	"github.com/RayleaBot/RayleaBot/server/internal/tasks"
+	"github.com/RayleaBot/RayleaBot/server/internal/thirdparty"
 )
 
 type Options struct {
-	ConfigPath       string
-	SchemaPath       string
-	AuthOptions      []auth.Option
-	PluginRepoRoot   string
-	PluginSchemaPath string
-	PluginRoots      []plugins.ScanRoot
-	RenderRunner     render.Runner
+	ConfigPath              string
+	SchemaPath              string
+	AuthOptions             []auth.Option
+	PluginRepoRoot          string
+	PluginSchemaPath        string
+	PluginRoots             []plugins.ScanRoot
+	RenderRunner            render.Runner
+	BilibiliHTTPTransport   http.RoundTripper
+	BilibiliClock           func() time.Time
 }
 
 type appCore struct {
@@ -162,6 +166,9 @@ type App struct {
 	governanceEvents *governanceEventService
 	logService       *logService
 	systemService    *systemService
+	thirdParty       *thirdparty.Service
+	bilibiliSource   *source.Source
+	bilibiliEvents   *bilibiliSourceEventService
 
 	authHandler       *authHTTPHandlers
 	managementHandler *managementHTTPHandlers
@@ -214,6 +221,7 @@ func New(options Options) (*App, error) {
 	}
 	pluginState.Dispatcher.SetCapabilityChecker(grantView.capabilityGranted)
 	governanceEvents := newGovernanceEventService()
+	bilibiliEvents := newBilibiliSourceEventService()
 	governanceService := governance.NewService(governance.Deps{
 		CurrentConfig:  func() config.Config { return state.Config },
 		Plugins:        pluginState.Plugins,
@@ -340,6 +348,24 @@ func New(options Options) (*App, error) {
 	})
 	pluginWebhooks.SetReplayMetrics(webhookReplayMetricsAdapter{registry: metricRegistry})
 	localActions.SetWebhookGateway(pluginWebhooks)
+	thirdPartyService, err := thirdparty.NewService(platformState.Storage, platformState.Secrets)
+	if err != nil {
+		return nil, err
+	}
+	bilibiliAccountClient := source.NewAccountClient(options.BilibiliHTTPTransport, options.BilibiliClock)
+	bilibiliQRLogin := source.NewQRLoginService(options.BilibiliHTTPTransport, options.BilibiliClock)
+	bilibiliSource, err := source.NewSource(source.Deps{
+		Store:         platformState.Storage,
+		Accounts:      thirdPartyService,
+		PluginConfig:  pluginState.pluginConfig,
+		Dispatcher:    pluginState.Dispatcher,
+		NotifyStatus:  bilibiliEvents.Publish,
+		HTTPTransport: options.BilibiliHTTPTransport,
+		Now:           options.BilibiliClock,
+	})
+	if err != nil {
+		return nil, err
+	}
 
 	application := &App{
 		state:                   state,
@@ -381,6 +407,9 @@ func New(options Options) (*App, error) {
 		pluginWebhooks:          pluginWebhooks,
 		governance:              governanceService,
 		governanceEvents:        governanceEvents,
+		thirdParty:              thirdPartyService,
+		bilibiliSource:          bilibiliSource,
+		bilibiliEvents:          bilibiliEvents,
 		logService:              logService,
 		systemService:           systemService,
 		metrics:                 metricRegistry,
@@ -457,7 +486,9 @@ func New(options Options) (*App, error) {
 	renderHandler := newRenderHTTPHandlers(pluginState.renderer, platformState.taskExecutor)
 	systemHandler := newSystemHTTPHandlers(systemService, platformState.Scheduler)
 	protocolHandler := newProtocolHTTPHandlers(protocolService)
-	eventsWS := newEventsWSHandler(pluginState.Bridge, pluginState.Plugins, protocolService, serviceStatusService, governanceEvents)
+	thirdPartyHandler := newThirdPartyHTTPHandlers(thirdPartyService, bilibiliAccountClient)
+	bilibiliHandler := newBilibiliSourceHTTPHandlers(bilibiliSource, bilibiliQRLogin)
+	eventsWS := newEventsWSHandler(pluginState.Bridge, pluginState.Plugins, protocolService, serviceStatusService, governanceEvents, bilibiliEvents)
 	tasksWS := newTasksWSHandler(platformState.Tasks)
 	logsWS := newLogsWSHandler(logService)
 	consoleWS := newConsoleWSHandler(platformState.Console, pluginState.Plugins)
@@ -495,6 +526,8 @@ func New(options Options) (*App, error) {
 		renderHandler:      renderHandler,
 		systemHandler:      systemHandler,
 		protocolHandler:    protocolHandler,
+		thirdPartyHandler:  thirdPartyHandler,
+		bilibiliHandler:    bilibiliHandler,
 		eventsWS:           eventsWS,
 		tasksWS:            tasksWS,
 		logsWS:             logsWS,

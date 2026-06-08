@@ -26,6 +26,9 @@ func (a *App) Close() error {
 		cancel()
 		a.runtimes = nil
 	}
+	if a != nil && a.bilibiliSource != nil {
+		a.bilibiliSource = nil
+	}
 	if a != nil && a.dispatcher != nil {
 		a.dispatcher.Close()
 		a.dispatcher = nil
@@ -84,6 +87,9 @@ func (a *App) Run(ctx context.Context) error {
 	}
 	a.adapter.Start(runCtx)
 	a.scheduler.Start(runCtx)
+	if a.bilibiliSource != nil {
+		go a.bilibiliSource.Start(runCtx)
+	}
 
 	go func() {
 		a.state.Logger.Info("http server starting", "component", "app", "listen_addr", a.process.server.Addr)

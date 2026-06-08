@@ -38,6 +38,12 @@ func (h *eventsWSHandler) handleEventsWebSocket() http.HandlerFunc {
 		defer unsubscribeProtocol()
 		statusFrames, unsubscribeStatus := h.serviceStatus.subscribeStatusEvents(4)
 		defer unsubscribeStatus()
+		var bilibiliFrames <-chan managementEventFrame
+		unsubscribeBilibili := func() {}
+		if h.bilibili != nil {
+			bilibiliFrames, unsubscribeBilibili = h.bilibili.subscribe(4)
+		}
+		defer unsubscribeBilibili()
 		var governanceFrames <-chan managementEventFrame
 		unsubscribeGovernance := func() {}
 		if h.governance != nil {
@@ -48,6 +54,7 @@ func (h *eventsWSHandler) handleEventsWebSocket() http.HandlerFunc {
 		for _, frame := range []managementEventFrame{
 			h.serviceStatus.currentServiceStatusEvent(),
 			h.protocol.protocolSnapshotEvent(),
+			h.bilibili.currentEvent(),
 		} {
 			if err := wsjson.Write(eventsCtx, conn, frame); err != nil {
 				return
@@ -80,6 +87,13 @@ func (h *eventsWSHandler) handleEventsWebSocket() http.HandlerFunc {
 					return
 				}
 			case frame, ok := <-statusFrames:
+				if !ok {
+					return
+				}
+				if err := wsjson.Write(eventsCtx, conn, frame); err != nil {
+					return
+				}
+			case frame, ok := <-bilibiliFrames:
 				if !ok {
 					return
 				}

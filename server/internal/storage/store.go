@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	_ "modernc.org/sqlite"
@@ -156,5 +157,31 @@ func initializeSchema(ctx context.Context, db *sql.DB) error {
 		return fmt.Errorf("apply embedded schema: %w", err)
 	}
 
+	if err := ensureThirdPartyAccountColumns(ctx, db); err != nil {
+		return err
+	}
+
 	return nil
+}
+
+func ensureThirdPartyAccountColumns(ctx context.Context, db *sql.DB) error {
+	columns := []string{
+		"profile_uid TEXT NOT NULL DEFAULT ''",
+		"profile_nickname TEXT NOT NULL DEFAULT ''",
+		"profile_avatar_url TEXT NOT NULL DEFAULT ''",
+		"credential_state TEXT NOT NULL DEFAULT 'unknown' CHECK (credential_state IN ('unknown', 'valid', 'invalid'))",
+		"credential_checked_at TEXT",
+		"credential_last_error TEXT NOT NULL DEFAULT ''",
+		"last_used_at TEXT",
+	}
+	for _, column := range columns {
+		if _, err := db.ExecContext(ctx, "ALTER TABLE third_party_accounts ADD COLUMN "+column); err != nil && !isDuplicateColumnError(err) {
+			return fmt.Errorf("add third_party_accounts column %q: %w", column, err)
+		}
+	}
+	return nil
+}
+
+func isDuplicateColumnError(err error) bool {
+	return err != nil && strings.Contains(strings.ToLower(err.Error()), "duplicate column name")
 }

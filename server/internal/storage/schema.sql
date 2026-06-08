@@ -162,6 +162,60 @@ CREATE TABLE IF NOT EXISTS system_configs (
 CREATE INDEX IF NOT EXISTS idx_system_configs_namespace
     ON system_configs (namespace);
 
+CREATE TABLE IF NOT EXISTS third_party_accounts (
+    platform TEXT NOT NULL CHECK (platform IN ('bilibili')),
+    account_id TEXT NOT NULL,
+    label TEXT NOT NULL DEFAULT '',
+    enabled INTEGER NOT NULL DEFAULT 1 CHECK (enabled IN (0, 1)),
+    secret_key TEXT NOT NULL,
+    profile_uid TEXT NOT NULL DEFAULT '',
+    profile_nickname TEXT NOT NULL DEFAULT '',
+    profile_avatar_url TEXT NOT NULL DEFAULT '',
+    credential_state TEXT NOT NULL DEFAULT 'unknown' CHECK (credential_state IN ('unknown', 'valid', 'invalid')),
+    credential_checked_at TEXT,
+    credential_last_error TEXT NOT NULL DEFAULT '',
+    last_used_at TEXT,
+    updated_at TEXT NOT NULL,
+    PRIMARY KEY (platform, account_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_third_party_accounts_platform
+    ON third_party_accounts (platform);
+
+CREATE TABLE IF NOT EXISTS bilibili_source_rooms (
+    uid TEXT PRIMARY KEY,
+    room_id TEXT NOT NULL DEFAULT '',
+    name TEXT NOT NULL DEFAULT '',
+    face TEXT NOT NULL DEFAULT '',
+    live_status INTEGER NOT NULL DEFAULT 0 CHECK (live_status IN (0, 1)),
+    live_started_at INTEGER NOT NULL DEFAULT 0,
+    live_event_id TEXT NOT NULL DEFAULT '',
+    connection_state TEXT NOT NULL DEFAULT 'idle' CHECK (connection_state IN ('idle', 'connecting', 'connected', 'degraded', 'failed')),
+    last_event_at TEXT,
+    last_error TEXT NOT NULL DEFAULT '',
+    updated_at TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_bilibili_source_rooms_state
+    ON bilibili_source_rooms (connection_state);
+
+CREATE TABLE IF NOT EXISTS bilibili_source_seen (
+    event_key TEXT PRIMARY KEY,
+    uid TEXT NOT NULL,
+    event_type TEXT NOT NULL CHECK (event_type IN ('bilibili.live.started', 'bilibili.live.ended', 'bilibili.dynamic.published')),
+    source_id TEXT NOT NULL,
+    observed_at TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_bilibili_source_seen_uid
+    ON bilibili_source_seen (uid, observed_at DESC);
+
+CREATE TABLE IF NOT EXISTS bilibili_source_state (
+    key TEXT PRIMARY KEY,
+    value_json TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS render_template_revisions (
     revision_id TEXT PRIMARY KEY,
     template_id TEXT NOT NULL,

@@ -307,6 +307,8 @@ type httpServerDeps struct {
 	renderHandler      *renderHTTPHandlers
 	systemHandler      *systemHTTPHandlers
 	protocolHandler    *protocolHTTPHandlers
+	thirdPartyHandler  *thirdPartyHTTPHandlers
+	bilibiliHandler    *bilibiliSourceHTTPHandlers
 	eventsWS           *eventsWSHandler
 	tasksWS            *tasksWSHandler
 	logsWS             *logsWSHandler
@@ -449,10 +451,11 @@ type eventsWSHandler struct {
 	protocol      *protocolService
 	serviceStatus *serviceStatusService
 	governance    *governanceEventService
+	bilibili      *bilibiliSourceEventService
 }
 
-func newEventsWSHandler(bridge *bridge.Bridge, plugins *plugins.Catalog, protocol *protocolService, serviceStatus *serviceStatusService, governance *governanceEventService) *eventsWSHandler {
-	return &eventsWSHandler{bridge: bridge, plugins: plugins, protocol: protocol, serviceStatus: serviceStatus, governance: governance}
+func newEventsWSHandler(bridge *bridge.Bridge, plugins *plugins.Catalog, protocol *protocolService, serviceStatus *serviceStatusService, governance *governanceEventService, bilibili *bilibiliSourceEventService) *eventsWSHandler {
+	return &eventsWSHandler{bridge: bridge, plugins: plugins, protocol: protocol, serviceStatus: serviceStatus, governance: governance, bilibili: bilibili}
 }
 
 type tasksWSHandler struct {
