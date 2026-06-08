@@ -452,14 +452,15 @@ func TestEnsureRoomTasksRestartsWhenCookieChanges(t *testing.T) {
 			Services: map[string]bool{"live": true},
 		},
 	}
+	account := thirdparty.Account{Platform: thirdparty.PlatformBilibili, AccountID: "primary"}
 
-	source.ensureRoomTasks(ctx, subjects, "SESSDATA=old;")
+	source.ensureRoomTasks(ctx, subjects, account, "SESSDATA=old;")
 	oldTask := source.roomTasks["123456"]
-	source.ensureRoomTasks(ctx, subjects, "SESSDATA=old;")
+	source.ensureRoomTasks(ctx, subjects, account, "SESSDATA=old;")
 	if source.roomTasks["123456"].cookieFingerprint != oldTask.cookieFingerprint {
 		t.Fatalf("expected unchanged cookie to keep task")
 	}
-	source.ensureRoomTasks(ctx, subjects, "SESSDATA=new;")
+	source.ensureRoomTasks(ctx, subjects, account, "SESSDATA=new;")
 	newTask := source.roomTasks["123456"]
 	if newTask.cookieFingerprint == oldTask.cookieFingerprint {
 		t.Fatalf("expected changed cookie to restart task")
@@ -468,6 +469,121 @@ func TestEnsureRoomTasksRestartsWhenCookieChanges(t *testing.T) {
 	case <-oldTask.ctx.Done():
 	default:
 		t.Fatalf("expected old live room task to be cancelled")
+	}
+}
+
+func TestEnsureRoomTasksStopsWhenCookieMissing(t *testing.T) {
+	t.Parallel()
+
+	source, _ := newTestSource(t, time.Date(2026, 6, 8, 8, 12, 30, 0, time.UTC), nil)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	subjects := map[string]Subject{
+		"123456": {
+			UID:      "123456",
+			Name:     "测试主播",
+			Services: map[string]bool{"live": true},
+		},
+	}
+	account := thirdparty.Account{Platform: thirdparty.PlatformBilibili, AccountID: "primary"}
+
+	source.ensureRoomTasks(ctx, subjects, account, "SESSDATA=fixture;")
+	task := source.roomTasks["123456"]
+	source.ensureRoomTasks(ctx, subjects, thirdparty.Account{}, "")
+	if len(source.roomTasks) != 0 {
+		t.Fatalf("room tasks = %d, want 0", len(source.roomTasks))
+	}
+	select {
+	case <-task.ctx.Done():
+	default:
+		t.Fatalf("expected live room task to be cancelled")
+	}
+}
+
+func TestMonitorSnapshotSuppressesStoredRiskControlRoomErrors(t *testing.T) {
+	t.Parallel()
+
+	now := time.Date(2026, 6, 8, 8, 18, 0, 0, time.UTC)
+	source, _ := newTestSourceWithPluginConfig(t, now, nil, staticPluginConfig{
+		values: map[string]any{
+			"subscriptions": []any{
+				map[string]any{
+					"enabled":  true,
+					"platform": "bilibili",
+					"uid":      "123456",
+					"name":     "测试 UP",
+					"services": []any{"live"},
+				},
+			},
+		},
+	})
+	ctx := context.Background()
+	source.setRoomState(ctx, roomState{
+		UID:             "123456",
+		Name:            "测试 UP",
+		Face:            "https://i0.hdslb.com/bfs/face/live.jpg",
+		ConnectionState: StateDegraded,
+		LastError:       `bilibili: risk_control: code -352: HTTP 200: {"code":-352,"message":"-352","ttl":1}`,
+		UpdatedAt:       now,
+	})
+
+	snapshot, err := source.MonitorSnapshot(ctx)
+	if err != nil {
+		t.Fatalf("MonitorSnapshot: %v", err)
+	}
+	if len(snapshot.Items) != 1 {
+		t.Fatalf("monitor items = %d, want 1", len(snapshot.Items))
+	}
+	item := snapshot.Items[0]
+	if item.Live.LastError != "" || item.Live.ConnectionState != StateIdle {
+		t.Fatalf("unexpected monitor live state: %#v", item.Live)
+	}
+	if item.AvatarURL != "https://i0.hdslb.com/bfs/face/live.jpg" {
+		t.Fatalf("avatar url = %q, want room face", item.AvatarURL)
+	}
+}
+
+func TestPollDynamicsRiskControlMarksAccountInvalid(t *testing.T) {
+	t.Parallel()
+
+	source, _ := newTestSource(t, time.Date(2026, 6, 8, 8, 18, 30, 0, time.UTC), func(request *http.Request) (*http.Response, error) {
+		return jsonResponse(`{"code":-352,"message":"-352","ttl":1}`), nil
+	})
+	ctx := context.Background()
+	checkedAt := time.Date(2026, 6, 8, 8, 0, 0, 0, time.UTC)
+	account, err := source.accounts.Upsert(ctx, thirdparty.UpsertRequest{
+		Platform:  thirdparty.PlatformBilibili,
+		AccountID: "primary",
+		Label:     "主账号",
+		Enabled:   true,
+		Cookie:    "SESSDATA=fixture;",
+		Profile: thirdparty.AccountProfile{
+			UID:       "primary",
+			Nickname:  "主账号",
+			AvatarURL: "https://i0.hdslb.com/bfs/face/account.jpg",
+		},
+		Credential: thirdparty.CredentialStatus{
+			State:     thirdparty.CredentialValid,
+			CheckedAt: &checkedAt,
+		},
+	})
+	if err != nil {
+		t.Fatalf("upsert account: %v", err)
+	}
+
+	source.pollDynamics(ctx, map[string]Subject{
+		"123456": {
+			UID:      "123456",
+			Services: map[string]bool{"video": true},
+		},
+	}, account, "SESSDATA=fixture;")
+
+	accounts, err := source.accounts.List(ctx)
+	if err != nil {
+		t.Fatalf("list accounts: %v", err)
+	}
+	if len(accounts) != 1 || accounts[0].Credential.State != thirdparty.CredentialInvalid || !strings.Contains(accounts[0].Credential.LastError, "code -352") {
+		t.Fatalf("unexpected account credential: %#v", accounts)
 	}
 }
 

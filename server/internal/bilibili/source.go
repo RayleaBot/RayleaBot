@@ -54,6 +54,7 @@ type liveRoomTask struct {
 	ctx               context.Context
 	cancel            context.CancelFunc
 	cookieFingerprint string
+	accountID         string
 }
 
 func NewSource(deps Deps) (*Source, error) {
@@ -135,7 +136,7 @@ func (s *Source) Start(ctx context.Context) {
 		case <-refreshTicker.C:
 			s.reconcile(ctx, &subjects, &account, &cookie)
 		case <-fallbackTicker.C:
-			s.pollLiveFallback(ctx, subjects, cookie)
+			s.pollLiveFallback(ctx, subjects, account, cookie)
 		case <-dynamicTicker.C:
 			s.pollDynamics(ctx, subjects, account, cookie)
 		}
@@ -217,7 +218,7 @@ func (s *Source) reconcile(ctx context.Context, subjectsRef *map[string]Subject,
 	if cookie != "" {
 		s.autoFollow(ctx, subjects, account, cookie)
 	}
-	s.ensureRoomTasks(ctx, subjects, cookie)
+	s.ensureRoomTasks(ctx, subjects, account, cookie)
 	s.updateWatchCounts(ctx, subjects)
 }
 
@@ -325,11 +326,13 @@ func (s *Source) primaryAccountCookie(ctx context.Context) (thirdparty.Account, 
 	return thirdparty.Account{}, "", secrets.ErrNotFound
 }
 
-func (s *Source) ensureRoomTasks(ctx context.Context, subjects map[string]Subject, cookie string) {
+func (s *Source) ensureRoomTasks(ctx context.Context, subjects map[string]Subject, account thirdparty.Account, cookie string) {
 	needed := make(map[string]Subject)
-	for uid, subject := range subjects {
-		if subject.Services["live"] {
-			needed[uid] = subject
+	if strings.TrimSpace(cookie) != "" {
+		for uid, subject := range subjects {
+			if subject.Services["live"] {
+				needed[uid] = subject
+			}
 		}
 	}
 	fingerprint := cookieFingerprint(cookie)
@@ -342,7 +345,7 @@ func (s *Source) ensureRoomTasks(ctx context.Context, subjects map[string]Subjec
 	}
 	for uid, subject := range needed {
 		if task, ok := s.roomTasks[uid]; ok {
-			if task.cookieFingerprint == fingerprint {
+			if task.cookieFingerprint == fingerprint && task.accountID == account.AccountID {
 				continue
 			}
 			task.cancel()
@@ -353,8 +356,9 @@ func (s *Source) ensureRoomTasks(ctx context.Context, subjects map[string]Subjec
 			ctx:               roomCtx,
 			cancel:            cancel,
 			cookieFingerprint: fingerprint,
+			accountID:         account.AccountID,
 		}
-		go s.runLiveRoom(roomCtx, subject, cookie)
+		go s.runLiveRoom(roomCtx, subject, account, cookie)
 	}
 	s.mu.Unlock()
 }
@@ -456,6 +460,23 @@ func (s *Source) setDynamicError(err error) {
 	s.status.Status = StateDegraded
 	s.status.Summary = sourceSummary(StateDegraded)
 	s.mu.Unlock()
+}
+
+func (s *Source) handleAccountRequestError(ctx context.Context, account thirdparty.Account, err error) bool {
+	if err == nil || account.Platform == "" || account.AccountID == "" {
+		return false
+	}
+	if !isBilibiliAuthError(err) && !isBilibiliRiskControlError(err) {
+		return false
+	}
+	checkedAt := s.now()
+	_ = s.accounts.UpdateCredentialStatus(ctx, account.Platform, account.AccountID, account.Profile, thirdparty.CredentialStatus{
+		State:     thirdparty.CredentialInvalid,
+		CheckedAt: &checkedAt,
+		LastError: err.Error(),
+	})
+	s.stopRoomTasks()
+	return true
 }
 
 func (s *Source) setRoomState(ctx context.Context, state roomState) {
@@ -1040,8 +1061,8 @@ func monitorLiveFromRoom(room roomState) MonitorLive {
 		RoomName:        room.Name,
 		CoverURL:        room.CoverURL,
 		IsLive:          room.LiveStatus == 1,
-		ConnectionState: firstNonEmpty(room.ConnectionState, StateIdle),
-		LastError:       room.LastError,
+		ConnectionState: normalizeRoomConnectionState(room.ConnectionState, room.LastError),
+		LastError:       roomMonitorLastError(room.LastError),
 	}
 	if room.RoomID != "" {
 		live.RoomURL = "https://live.bilibili.com/" + room.RoomID
@@ -1057,6 +1078,20 @@ func monitorLiveFromRoom(room roomState) MonitorLive {
 		live.UpdatedAt = &room.UpdatedAt
 	}
 	return live
+}
+
+func normalizeRoomConnectionState(state string, lastError string) string {
+	if isBilibiliRiskControlErrorText(lastError) {
+		return StateIdle
+	}
+	return firstNonEmpty(state, StateIdle)
+}
+
+func roomMonitorLastError(value string) string {
+	if isBilibiliRiskControlErrorText(value) {
+		return ""
+	}
+	return value
 }
 
 func (item dynamicSnapshot) MonitorDynamic() *MonitorDynamic {

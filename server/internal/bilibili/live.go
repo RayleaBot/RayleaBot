@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/RayleaBot/RayleaBot/server/internal/thirdparty"
 	"github.com/coder/websocket"
 )
 
@@ -63,13 +64,17 @@ type danmuInfoDocument struct {
 	} `json:"data"`
 }
 
-func (s *Source) runLiveRoom(ctx context.Context, subject Subject, cookie string) {
+func (s *Source) runLiveRoom(ctx context.Context, subject Subject, account thirdparty.Account, cookie string) {
 	backoff := time.Second
 	for {
 		if err := ctx.Err(); err != nil {
 			return
 		}
 		if err := s.connectLiveRoom(ctx, subject, cookie); err != nil {
+			if s.handleAccountRequestError(ctx, account, err) {
+				s.setLiveError(err)
+				return
+			}
 			state := s.loadRoomState(ctx, subject.UID)
 			state.UID = subject.UID
 			state.Name = firstNonEmpty(state.Name, subject.Name)
@@ -281,7 +286,10 @@ func (s *Source) consumeLiveWebSocket(ctx context.Context, subject Subject, room
 	}
 }
 
-func (s *Source) pollLiveFallback(ctx context.Context, subjects map[string]Subject, cookie string) {
+func (s *Source) pollLiveFallback(ctx context.Context, subjects map[string]Subject, account thirdparty.Account, cookie string) {
+	if strings.TrimSpace(cookie) == "" {
+		return
+	}
 	liveSubjects := make([]Subject, 0)
 	for _, subject := range sortedSubjects(subjects) {
 		if subject.Services["live"] {
@@ -293,6 +301,7 @@ func (s *Source) pollLiveFallback(ctx context.Context, subjects map[string]Subje
 	}
 	items, err := s.fetchLiveStatuses(ctx, liveSubjects, cookie)
 	if err != nil {
+		_ = s.handleAccountRequestError(ctx, account, err)
 		s.setLiveError(err)
 		return
 	}

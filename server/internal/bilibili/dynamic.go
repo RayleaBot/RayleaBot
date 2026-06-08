@@ -47,6 +47,7 @@ func (s *Source) pollDynamics(ctx context.Context, subjects map[string]Subject, 
 	}
 	var doc dynamicFeedDocument
 	if err := s.requestSignedJSON(ctx, http.MethodGet, dynamicFeedURL, cookie, nil, &doc); err != nil {
+		_ = s.handleAccountRequestError(ctx, account, err)
 		s.setDynamicError(err)
 		return
 	}
@@ -76,7 +77,6 @@ func (s *Source) pollDynamics(ctx context.Context, subjects map[string]Subject, 
 		}
 		s.dispatchEvent(ctx, event)
 	}
-	_ = account
 }
 
 func (s *Source) initializedDynamicUIDs(ctx context.Context, subjects map[string]Subject) map[string]bool {

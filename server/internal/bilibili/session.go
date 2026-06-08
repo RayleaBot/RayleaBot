@@ -687,6 +687,19 @@ func isBilibiliAuthError(err error) bool {
 	return biliErr != nil && biliErr.Kind == ErrorAuth
 }
 
+func isBilibiliRiskControlError(err error) bool {
+	biliErr := asBilibiliError(err)
+	return biliErr != nil && biliErr.Kind == ErrorRiskControl
+}
+
+func isBilibiliRiskControlErrorText(value string) bool {
+	text := strings.ToLower(strings.TrimSpace(value))
+	if text == "" {
+		return false
+	}
+	return strings.Contains(text, "risk_control") || strings.Contains(text, "code -352")
+}
+
 func shouldRetryWBI(err error) bool {
 	biliErr := asBilibiliError(err)
 	if biliErr == nil {
