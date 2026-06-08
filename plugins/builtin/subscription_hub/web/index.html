@@ -14,7 +14,7 @@
         <div class="page-heading">
           <p class="eyebrow" translate="no">raylea.subscription-hub</p>
           <h1 id="page-title">订阅设置</h1>
-          <p id="page-subtitle">管理 Bilibili 订阅与轮询</p>
+          <p id="page-subtitle">管理 Bilibili 订阅和推送目标</p>
         </div>
         <div class="status-pill" id="status-text" aria-live="polite">正在等待宿主初始化…</div>
       </header>
@@ -29,8 +29,8 @@
           <strong id="metric-subscriptions">0 / 0</strong>
         </article>
         <article class="metric">
-          <span class="metric__label">轮询</span>
-          <strong id="metric-cron">*/5 * * * *</strong>
+          <span class="metric__label">事件源</span>
+          <strong id="metric-source">平台事件源</strong>
         </article>
         <article class="metric">
           <span class="metric__label">校验</span>
@@ -39,44 +39,19 @@
       </section>
 
       <section class="layout-grid">
-        <aside class="side-stack" aria-label="轮询设置">
+        <aside class="side-stack" aria-label="订阅中心设置">
           <section class="panel">
             <div class="section-title">
-              <h2>轮询设置</h2>
-              <p>控制订阅扫描节奏和单轮推送上限。</p>
+              <h2>订阅中心</h2>
+              <p>控制订阅中心是否处理平台 Bilibili 事件。</p>
             </div>
 
             <label class="toggle-row" for="enabled-input">
               <input id="enabled-input" name="enabled" type="checkbox" autocomplete="off" />
               <span>
-                <strong>启用订阅轮询</strong>
-                <small>关闭后保留配置，但不自动检查。</small>
+                <strong>启用订阅推送</strong>
+                <small>关闭后保留配置，但不发送订阅卡片。</small>
               </span>
-            </label>
-
-            <label class="field" for="poll-cron-input">
-              <span>轮询 Cron</span>
-              <input id="poll-cron-input" name="poll_cron" type="text" inputmode="text" autocomplete="off" placeholder="*/5 * * * *" spellcheck="false" />
-              <small id="poll-cron-error" class="field-error"></small>
-            </label>
-
-            <div class="field-pair">
-              <label class="field" for="poll-timeout-input">
-                <span>请求超时</span>
-                <input id="poll-timeout-input" name="poll_timeout_seconds" type="number" min="5" max="60" inputmode="numeric" autocomplete="off" />
-                <small id="poll-timeout-error" class="field-hint">5 - 60 秒</small>
-              </label>
-              <label class="field" for="max-updates-input">
-                <span>单轮最多推送</span>
-                <input id="max-updates-input" name="max_updates_per_poll" type="number" min="1" max="20" inputmode="numeric" autocomplete="off" />
-                <small id="max-updates-error" class="field-hint">1 - 20 条</small>
-              </label>
-            </div>
-
-            <label class="field" for="dynamic-time-range-input">
-              <span>动态有效时间</span>
-              <input id="dynamic-time-range-input" name="dynamic_time_range_seconds" type="number" min="60" max="604800" inputmode="numeric" autocomplete="off" />
-              <small id="dynamic-time-range-error" class="field-hint">60 - 604800 秒</small>
             </label>
           </section>
         </aside>
@@ -153,7 +128,7 @@
         <div class="footer-buttons">
           <button type="button" id="reload-button" class="button">重新载入</button>
           <button type="button" id="reset-button" class="button">恢复默认</button>
-          <button type="button" id="manual-check-button" class="button">立即检查</button>
+          <button type="button" id="manual-check-button" class="button">事件源状态</button>
           <button type="button" id="preview-button" class="button">打开卡片预览</button>
           <button type="button" id="save-button" class="button button--primary">保存设置</button>
         </div>

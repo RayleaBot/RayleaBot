@@ -1,9 +1,4 @@
 {
   "enabled": true,
-  "poll_cron": "*/5 * * * *",
-  "poll_timeout_seconds": 12,
-  "dynamic_time_range_seconds": 7200,
-  "max_updates_per_poll": 6,
-  "tokens": [],
   "subscriptions": []
 }

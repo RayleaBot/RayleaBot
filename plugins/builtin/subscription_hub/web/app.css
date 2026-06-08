@@ -218,8 +218,7 @@ h2 {
   gap: var(--space-md);
 }
 
-[data-page="subscriptions"] .overview-grid,
-.overview-grid--cookies {
+[data-page="subscriptions"] .overview-grid {
   grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
@@ -498,114 +497,11 @@ input[type="checkbox"]:checked::after {
   border-color: transparent;
 }
 
-.cookie-list,
 .subscription-list,
 .subscription-editor,
 .subscriber-section {
   display: grid;
   gap: var(--space-md);
-}
-
-.cookie-table {
-  overflow: hidden;
-  border: 1px solid rgba(228, 233, 242, 0.9);
-  border-radius: var(--radius-md);
-  background: rgba(255, 255, 255, 0.76);
-}
-
-.cookie-table__head,
-.cookie-row {
-  display: grid;
-  grid-template-columns: minmax(84px, 0.7fr) minmax(92px, 0.7fr) minmax(160px, 1.1fr) minmax(260px, 2fr) minmax(130px, auto);
-  gap: 0;
-  align-items: center;
-}
-
-.cookie-table__head {
-  min-height: 34px;
-  border-bottom: 1px solid rgba(228, 233, 242, 0.9);
-  background: rgba(244, 247, 251, 0.86);
-}
-
-.cookie-table__head span {
-  min-width: 0;
-  padding: 8px 10px;
-  color: var(--muted);
-  font-size: 11px;
-  font-weight: 850;
-  line-height: 1.2;
-}
-
-.cookie-row {
-  min-height: 50px;
-  transition: background-color var(--transition-speed) var(--transition-bezier), opacity var(--transition-speed) var(--transition-bezier);
-}
-
-.cookie-row + .cookie-row {
-  border-top: 1px solid rgba(228, 233, 242, 0.72);
-}
-
-.cookie-row:hover {
-  background: rgba(244, 247, 251, 0.55);
-}
-
-.cookie-row.is-muted {
-  background: rgba(244, 247, 251, 0.36);
-  opacity: 0.68;
-}
-
-.cookie-cell {
-  min-width: 0;
-  padding: 7px 10px;
-}
-
-.cookie-cell--status,
-.cookie-cell--platform,
-.cookie-cell--actions {
-  display: flex;
-  align-items: center;
-}
-
-.cookie-cell--actions {
-  justify-content: flex-end;
-  gap: 6px;
-}
-
-.cookie-cell--error {
-  grid-column: 1 / -1;
-  padding-top: 0;
-}
-
-.cookie-switch {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  min-width: 0;
-  color: var(--text);
-  font-size: 12px;
-  font-weight: 800;
-}
-
-.cookie-platform {
-  display: inline-flex;
-  align-items: center;
-  min-height: 26px;
-  max-width: 100%;
-  border: 1px solid rgba(0, 174, 236, 0.12);
-  border-radius: 6px;
-  background: rgba(0, 174, 236, 0.07);
-  color: var(--bili-blue-strong);
-  padding: 3px 8px;
-  font-size: 11.5px;
-  font-weight: 850;
-  line-height: 1.15;
-}
-
-.cookie-row input[type="text"],
-.cookie-row input[type="password"] {
-  min-height: 32px;
-  padding: 6px 9px;
-  font-size: 12.5px;
 }
 
 .row-header {
@@ -1205,37 +1101,6 @@ input[type="checkbox"]:checked::after {
     gap: 12px;
   }
 
-  .cookie-table__head {
-    display: none;
-  }
-
-  .cookie-table {
-    display: grid;
-  }
-
-  .cookie-row {
-    grid-template-columns: minmax(120px, 1fr) minmax(0, 2fr);
-    padding: 8px;
-  }
-
-  .cookie-row + .cookie-row {
-    border-top: 1px solid rgba(228, 233, 242, 0.9);
-  }
-
-  .cookie-cell {
-    padding: 5px 6px;
-  }
-
-  .cookie-cell--secret,
-  .cookie-cell--actions,
-  .cookie-cell--error {
-    grid-column: 1 / -1;
-  }
-
-  .cookie-cell--actions {
-    justify-content: flex-start;
-  }
-
   .subscription-avatar {
     margin-right: 10px;
   }
@@ -1270,18 +1135,4 @@ input[type="checkbox"]:checked::after {
   .row-actions .button {
     flex: 1 1 auto;
   }
-
-  .cookie-row {
-    grid-template-columns: 1fr;
-  }
-
-  .cookie-cell--secret,
-  .cookie-cell--actions,
-  .cookie-cell--error {
-    grid-column: auto;
-  }
-}
-.cookies-page-layout {
-  display: grid;
-  gap: var(--space-lg);
 }

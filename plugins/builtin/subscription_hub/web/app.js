@@ -11,19 +11,10 @@
     { value: 'group', label: '群聊' },
     { value: 'private', label: '私聊' },
   ]
-  const COOKIE_PLATFORM_OPTIONS = [
-    { value: 'bilibili', label: 'Bilibili' },
-  ]
   const DEFAULT_SETTINGS = {
     enabled: true,
-    poll_cron: '*/5 * * * *',
-    poll_timeout_seconds: 12,
-    dynamic_time_range_seconds: 7200,
-    max_updates_per_poll: 6,
-    tokens: [],
     subscriptions: [],
   }
-  const pageMode = document.getElementById('main-content')?.dataset.page === 'cookies' ? 'cookies' : 'subscriptions'
 
   const elements = {
     statusText: document.getElementById('status-text'),
@@ -31,20 +22,9 @@
     pageSubtitle: document.getElementById('page-subtitle'),
     metricEnabled: document.getElementById('metric-enabled'),
     metricSubscriptions: document.getElementById('metric-subscriptions'),
-    metricCookies: document.getElementById('metric-cookies'),
-    metricCron: document.getElementById('metric-cron'),
+    metricSource: document.getElementById('metric-source'),
     metricValidation: document.getElementById('metric-validation'),
     enabledInput: document.getElementById('enabled-input'),
-    pollCronInput: document.getElementById('poll-cron-input'),
-    pollTimeoutInput: document.getElementById('poll-timeout-input'),
-    dynamicTimeRangeInput: document.getElementById('dynamic-time-range-input'),
-    maxUpdatesInput: document.getElementById('max-updates-input'),
-    pollCronError: document.getElementById('poll-cron-error'),
-    pollTimeoutError: document.getElementById('poll-timeout-error'),
-    dynamicTimeRangeError: document.getElementById('dynamic-time-range-error'),
-    maxUpdatesError: document.getElementById('max-updates-error'),
-    addCookieButton: document.getElementById('add-cookie-button'),
-    cookieList: document.getElementById('cookie-list'),
     addSubscriptionButton: document.getElementById('add-subscription-button'),
     subscriptionSearchInput: document.getElementById('subscription-search-input'),
     statusFilterInput: document.getElementById('status-filter-input'),
@@ -67,24 +47,15 @@
     saveButton: document.getElementById('save-button'),
   }
 
-  let defaultSettings = { ...DEFAULT_SETTINGS }
-  let draft = normalizeSettings(DEFAULT_SETTINGS, {})
-  let currentSecrets = {}
+  let defaultSettings = normalizeSettings(DEFAULT_SETTINGS)
+  let draft = normalizeSettings(DEFAULT_SETTINGS)
   let savedSnapshot = ''
   let validation = { errors: [] }
   let selectedSubscriptionId = ''
   let readyTimer = null
   let readyAttempts = 0
   let initialized = false
-  let pendingSave = null
-
-  function defaultPageTitle() {
-    return pageMode === 'cookies' ? 'CK 设置' : '订阅设置'
-  }
-
-  function defaultPageSubtitle() {
-    return pageMode === 'cookies' ? '管理 Bilibili CK 与备注' : '管理 Bilibili 订阅与轮询'
-  }
+  let pendingSave = false
 
   function postMessage(type, payload, requestId) {
     window.parent.postMessage({
@@ -134,40 +105,6 @@
     return normalized || fallback
   }
 
-  function nextCookieIdentity(tokens) {
-    const usedIds = new Set(tokens.map((item) => safeId(item.id, '')).filter(Boolean))
-    const usedSecretKeys = new Set(tokens.map((item) => safeId(item.secret_key, '')).filter(Boolean))
-    if (!usedIds.has('bilibili-primary') && !usedSecretKeys.has('bili.primary')) {
-      return {
-        id: 'bilibili-primary',
-        label: '主 CK',
-        secret_key: 'bili.primary',
-      }
-    }
-    let index = 2
-    while (usedIds.has(`bilibili-cookie-${index}`) || usedSecretKeys.has(`bili.cookie_${index}`)) {
-      index += 1
-    }
-    return {
-      id: `bilibili-cookie-${index}`,
-      label: `备用 CK ${index}`,
-      secret_key: `bili.cookie_${index}`,
-    }
-  }
-
-  function clampNumber(value, minimum, maximum, fallback) {
-    const number = Number(value)
-    if (!Number.isFinite(number)) {
-      return fallback
-    }
-    return Math.max(minimum, Math.min(maximum, Math.trunc(number)))
-  }
-
-  function normalizeCron(value) {
-    const text = String(value || '').trim()
-    return text.split(/\s+/).length === 5 ? text : DEFAULT_SETTINGS.poll_cron
-  }
-
   function normalizeServices(value) {
     const source = Array.isArray(value) ? value : ['all']
     const seen = new Set()
@@ -208,34 +145,6 @@
       .filter(Boolean)
   }
 
-  function normalizeTokens(value, secrets) {
-    const source = Array.isArray(value) ? value : []
-    const seen = new Set()
-    return source
-      .map((item, index) => {
-        const sourceItem = isRecord(item) ? item : {}
-        if (sourceItem.platform !== 'bilibili') {
-          return null
-        }
-        const id = safeId(sourceItem.id, index === 0 ? 'bilibili-primary' : `bilibili-cookie-${index + 1}`)
-        const secretKey = safeId(sourceItem.secret_key, index === 0 ? 'bili.primary' : `bili.cookie_${index + 1}`)
-        if (seen.has(id)) {
-          return null
-        }
-        seen.add(id)
-        return {
-          id,
-          platform: 'bilibili',
-          label: String(sourceItem.label || id).trim() || id,
-          secret_key: secretKey,
-          enabled: sourceItem.enabled !== false,
-          secret_value: String(secrets[secretKey] || ''),
-          show_secret: false,
-        }
-      })
-      .filter(Boolean)
-  }
-
   function normalizeSubscriptions(value) {
     const source = Array.isArray(value) ? value : []
     const seen = new Set()
@@ -270,48 +179,20 @@
       .filter(Boolean)
   }
 
-  function normalizeSettings(values, secrets) {
+  function normalizeSettings(values) {
     const source = isRecord(values) ? values : {}
     return {
       enabled: source.enabled !== false,
-      poll_cron: normalizeCron(source.poll_cron),
-      poll_timeout_seconds: clampNumber(source.poll_timeout_seconds, 5, 60, DEFAULT_SETTINGS.poll_timeout_seconds),
-      dynamic_time_range_seconds: clampNumber(source.dynamic_time_range_seconds, 60, 604800, DEFAULT_SETTINGS.dynamic_time_range_seconds),
-      max_updates_per_poll: clampNumber(source.max_updates_per_poll, 1, 20, DEFAULT_SETTINGS.max_updates_per_poll),
-      tokens: normalizeTokens(source.tokens, secrets || {}),
       subscriptions: normalizeSubscriptions(source.subscriptions),
     }
   }
 
   function buildPayloadFromDraft(source) {
-    const secrets = {}
-    const tokens = source.tokens.map((item) => {
-      const secretKey = safeId(item.secret_key, item.id)
-      secrets[secretKey] = String(item.secret_value || '')
-      return {
-        id: safeId(item.id, secretKey),
-        platform: 'bilibili',
-        label: String(item.label || item.id || secretKey).trim(),
-        secret_key: secretKey,
-        enabled: item.enabled !== false,
-      }
-    })
-
-    const activeSecretKeys = new Set(tokens.map((item) => item.secret_key))
-    const deletedKeys = Object.keys(currentSecrets).filter((key) => !activeSecretKeys.has(key))
-
     return {
       settings: {
         enabled: source.enabled !== false,
-        poll_cron: String(source.poll_cron || '').trim() || DEFAULT_SETTINGS.poll_cron,
-        poll_timeout_seconds: clampNumber(source.poll_timeout_seconds, 5, 60, DEFAULT_SETTINGS.poll_timeout_seconds),
-        dynamic_time_range_seconds: clampNumber(source.dynamic_time_range_seconds, 60, 604800, DEFAULT_SETTINGS.dynamic_time_range_seconds),
-        max_updates_per_poll: clampNumber(source.max_updates_per_poll, 1, 20, DEFAULT_SETTINGS.max_updates_per_poll),
-        tokens,
         subscriptions: source.subscriptions.map(subscriptionPayload),
       },
-      secrets,
-      deletedKeys,
     }
   }
 
@@ -338,98 +219,35 @@
     return subscription
   }
 
-  function stableJson(value) {
-    return JSON.stringify(value)
-  }
-
   function snapshotFromPayload(payload) {
-    return stableJson({
-      settings: payload.settings,
-      secrets: payload.secrets,
-      deletedKeys: payload.deletedKeys,
-    })
+    return JSON.stringify(payload.settings)
   }
 
   function validateDraft() {
     const errors = []
-    if (pageMode !== 'cookies') {
-      const cron = String(draft.poll_cron || '').trim()
-      if (cron.split(/\s+/).length !== 5) {
-        errors.push({ scope: 'poll_cron', message: 'Cron 需要 5 段，例如 */5 * * * *' })
+    const subscriptionIds = new Set()
+    draft.subscriptions.forEach((item, index) => {
+      const label = item.name || item.uid || `订阅 ${index + 1}`
+      if (!item.id) {
+        errors.push({ scope: `subscription-${index}-id`, message: `${label} 的 ID 不能为空` })
+      } else if (subscriptionIds.has(item.id)) {
+        errors.push({ scope: `subscription-${index}-id`, message: `${label} 的 ID 重复` })
       }
-      validateRange('poll_timeout_seconds', draft.poll_timeout_seconds, 5, 60, '请求超时需在 5 - 60 秒之间')
-      validateRange('dynamic_time_range_seconds', draft.dynamic_time_range_seconds, 60, 604800, '动态有效时间需在 60 - 604800 秒之间')
-      validateRange('max_updates_per_poll', draft.max_updates_per_poll, 1, 20, '单轮最多推送需在 1 - 20 条之间')
-    }
-
-    if (pageMode === 'cookies') {
-      const tokenIds = new Set()
-      const secretKeys = new Set()
-      draft.tokens.forEach((item, index) => {
-        const label = item.label || item.id || `CK ${index + 1}`
-        if (!item.id) {
-          errors.push({ scope: `token-${index}-id`, message: `${label} 的 ID 不能为空` })
-        } else if (tokenIds.has(item.id)) {
-          errors.push({ scope: `token-${index}-id`, message: `${label} 的 ID 重复` })
-        }
-        tokenIds.add(item.id)
-
-        if (item.platform !== 'bilibili') {
-          errors.push({ scope: `token-${index}-platform`, message: `${label} 的平台必须是 Bilibili` })
-        }
-
-        if (!item.secret_key) {
-          errors.push({ scope: `token-${index}-secret_key`, message: `${label} 的密钥名不能为空` })
-        } else if (secretKeys.has(item.secret_key)) {
-          errors.push({ scope: `token-${index}-secret_key`, message: `${label} 的密钥名重复` })
-        }
-        secretKeys.add(item.secret_key)
-
-        if (item.enabled !== false) {
-          const value = String(item.secret_value || '').trim()
-          if (!value) {
-            errors.push({ scope: `token-${index}-secret_value`, message: `${label} 的 Bilibili CK 不能为空` })
-          } else if (!/SESSDATA\s*=/.test(value)) {
-            errors.push({ scope: `token-${index}-secret_value`, message: `${label} 至少需要包含 SESSDATA=...` })
-          }
-        }
-      })
-    }
-
-    if (pageMode !== 'cookies') {
-      const subscriptionIds = new Set()
-      draft.subscriptions.forEach((item, index) => {
-        const label = item.name || item.uid || `订阅 ${index + 1}`
-        if (!item.id) {
-          errors.push({ scope: `subscription-${index}-id`, message: `${label} 的 ID 不能为空` })
-        } else if (subscriptionIds.has(item.id)) {
-          errors.push({ scope: `subscription-${index}-id`, message: `${label} 的 ID 重复` })
-        }
-        subscriptionIds.add(item.id)
-
-        if (!/^\d+$/.test(String(item.uid || '').trim())) {
-          errors.push({ scope: `subscription-${index}-uid`, message: `${label} 的 UID 只能填写数字` })
-        }
-        if (!['group', 'private'].includes(item.target_type)) {
-          errors.push({ scope: `subscription-${index}-target_type`, message: `${label} 的目标类型不正确` })
-        }
-        if (!String(item.target_id || '').trim()) {
-          errors.push({ scope: `subscription-${index}-target_id`, message: `${label} 的目标 ID 不能为空` })
-        }
-        if (normalizeServices(item.services).length === 0) {
-          errors.push({ scope: `subscription-${index}-services`, message: `${label} 至少需要一个推送类型` })
-        }
-      })
-    }
-
+      subscriptionIds.add(item.id)
+      if (!/^\d+$/.test(String(item.uid || '').trim())) {
+        errors.push({ scope: `subscription-${index}-uid`, message: `${label} 的 UID 只能填写数字` })
+      }
+      if (!['group', 'private'].includes(item.target_type)) {
+        errors.push({ scope: `subscription-${index}-target_type`, message: `${label} 的目标类型不正确` })
+      }
+      if (!String(item.target_id || '').trim()) {
+        errors.push({ scope: `subscription-${index}-target_id`, message: `${label} 的目标 ID 不能为空` })
+      }
+      if (normalizeServices(item.services).length === 0) {
+        errors.push({ scope: `subscription-${index}-services`, message: `${label} 至少需要一个推送类型` })
+      }
+    })
     return { errors }
-
-    function validateRange(scope, value, minimum, maximum, message) {
-      const number = Number(value)
-      if (!Number.isFinite(number) || number < minimum || number > maximum) {
-        errors.push({ scope, message })
-      }
-    }
   }
 
   function firstError(scopePrefix) {
@@ -440,9 +258,8 @@
     return snapshotFromPayload(buildPayloadFromDraft(draft)) !== savedSnapshot
   }
 
-  function applySettings(values, secrets, options) {
-    currentSecrets = secrets || currentSecrets || {}
-    draft = normalizeSettings(values || defaultSettings, currentSecrets)
+  function applySettings(values, options) {
+    draft = normalizeSettings(values || defaultSettings)
     if (options && options.markSaved) {
       savedSnapshot = snapshotFromPayload(buildPayloadFromDraft(draft))
     }
@@ -452,208 +269,37 @@
     render()
   }
 
-  function finishPendingSave() {
-    if (!pendingSave || !pendingSave.settingsAck || !pendingSave.secretsAck) {
-      return false
-    }
-    savedSnapshot = snapshotFromPayload(buildPayloadFromDraft(draft))
-    pendingSave = null
-    setStatus('设置已保存')
-    return true
-  }
-
   function render() {
     validation = validateDraft()
     renderOverview()
-    if (pageMode === 'cookies') {
-      renderCookies()
-    } else {
-      renderControls()
-      renderSubscriptions()
-      renderSubscriptionEditor()
-      renderRawJson()
-    }
+    renderControls()
+    renderSubscriptions()
+    renderSubscriptionEditor()
+    renderRawJson()
     renderFooter()
   }
 
   function renderControls() {
-    if (!elements.enabledInput) {
-      return
+    if (elements.enabledInput) {
+      elements.enabledInput.checked = draft.enabled
     }
-    elements.enabledInput.checked = draft.enabled
-    syncInputValue(elements.pollCronInput, draft.poll_cron)
-    syncInputValue(elements.pollTimeoutInput, draft.poll_timeout_seconds)
-    syncInputValue(elements.dynamicTimeRangeInput, draft.dynamic_time_range_seconds)
-    syncInputValue(elements.maxUpdatesInput, draft.max_updates_per_poll)
-    setFieldError(elements.pollCronError, firstError('poll_cron'), 'field-error')
-    setFieldError(elements.pollTimeoutError, firstError('poll_timeout_seconds'), 'field-hint')
-    setFieldError(elements.dynamicTimeRangeError, firstError('dynamic_time_range_seconds'), 'field-hint')
-    setFieldError(elements.maxUpdatesError, firstError('max_updates_per_poll'), 'field-hint')
-  }
-
-  function syncInputValue(input, value) {
-    if (!input) {
-      return
-    }
-    const text = String(value)
-    if (input.value !== text) {
-      input.value = text
-    }
-  }
-
-  function setFieldError(element, error, fallbackClass) {
-    if (!element) {
-      return
-    }
-    if (!element.dataset.defaultText) {
-      element.dataset.defaultText = element.textContent
-    }
-    element.textContent = error ? error.message : element.dataset.defaultText
-    element.className = error ? 'field-error' : fallbackClass
   }
 
   function renderOverview() {
     const enabledSubscriptions = draft.subscriptions.filter((item) => item.enabled !== false).length
-    const enabledCookies = draft.tokens.filter((item) => item.enabled !== false).length
     if (elements.metricEnabled) {
       elements.metricEnabled.textContent = draft.enabled ? '启用' : '停用'
     }
     if (elements.metricSubscriptions) {
       elements.metricSubscriptions.textContent = `${enabledSubscriptions} / ${draft.subscriptions.length}`
     }
-    if (elements.metricCookies) {
-      elements.metricCookies.textContent = `${enabledCookies} / ${draft.tokens.length}`
-    }
-    if (elements.metricCron) {
-      elements.metricCron.textContent = draft.poll_cron || DEFAULT_SETTINGS.poll_cron
+    if (elements.metricSource) {
+      elements.metricSource.textContent = '平台事件源'
     }
     if (elements.metricValidation) {
       elements.metricValidation.textContent = validation.errors.length === 0 ? '可保存' : `${validation.errors.length} 个问题`
       elements.metricValidation.classList.toggle('is-error', validation.errors.length > 0)
     }
-  }
-
-  function renderCookies() {
-    if (!elements.cookieList) {
-      return
-    }
-    elements.cookieList.innerHTML = ''
-    if (draft.tokens.length === 0) {
-      const empty = emptyState('还没有 CK', '添加 Bilibili CK 后才能轮询需要登录态的动态。', '添加 Bilibili CK', addCookie)
-      elements.cookieList.appendChild(empty)
-      return
-    }
-
-    const table = document.createElement('div')
-    table.className = 'cookie-table'
-    table.setAttribute('role', 'table')
-    table.setAttribute('aria-label', 'Bilibili CK 列表')
-
-    const header = document.createElement('div')
-    header.className = 'cookie-table__head'
-    header.setAttribute('role', 'row')
-    ;['状态', '平台', '备注', 'CK', '操作'].forEach((label) => {
-      const cell = document.createElement('span')
-      cell.setAttribute('role', 'columnheader')
-      cell.textContent = label
-      header.appendChild(cell)
-    })
-    table.appendChild(header)
-
-    draft.tokens.forEach((token, index) => {
-      const row = document.createElement('div')
-      row.className = `cookie-row${token.enabled === false ? ' is-muted' : ''}`
-      row.setAttribute('role', 'row')
-
-      const statusCell = document.createElement('div')
-      statusCell.className = 'cookie-cell cookie-cell--status'
-      statusCell.setAttribute('role', 'cell')
-      const toggle = labelWrap('启用这个 CK', `cookie-enabled-${index}`)
-      toggle.className = 'cookie-switch'
-      const enabledInput = document.createElement('input')
-      enabledInput.id = `cookie-enabled-${index}`
-      enabledInput.type = 'checkbox'
-      enabledInput.name = `cookie_enabled_${index}`
-      enabledInput.autocomplete = 'off'
-      enabledInput.checked = token.enabled !== false
-      enabledInput.addEventListener('change', () => {
-        token.enabled = enabledInput.checked
-        markChanged()
-      })
-      const statusText = document.createElement('span')
-      statusText.textContent = token.enabled === false ? '停用' : '启用'
-      toggle.appendChild(enabledInput)
-      toggle.appendChild(statusText)
-      statusCell.appendChild(toggle)
-      row.appendChild(statusCell)
-
-      const platformCell = document.createElement('div')
-      platformCell.className = 'cookie-cell cookie-cell--platform'
-      platformCell.setAttribute('role', 'cell')
-      const platform = document.createElement('span')
-      platform.className = 'cookie-platform'
-      platform.textContent = COOKIE_PLATFORM_OPTIONS.find((item) => item.value === token.platform)?.label || 'Bilibili'
-      platformCell.appendChild(platform)
-      row.appendChild(platformCell)
-
-      const labelCell = document.createElement('div')
-      labelCell.className = 'cookie-cell cookie-cell--label'
-      labelCell.setAttribute('role', 'cell')
-      const labelInput = document.createElement('input')
-      labelInput.id = `cookie-label-${index}`
-      labelInput.name = `cookie_label_${index}`
-      labelInput.type = 'text'
-      labelInput.autocomplete = 'off'
-      labelInput.value = String(token.label || '')
-      labelInput.setAttribute('aria-label', '备注')
-      labelInput.placeholder = `CK ${index + 1}`
-      labelInput.addEventListener('input', () => {
-        token.label = labelInput.value
-        markChanged(false)
-      })
-      labelCell.appendChild(labelInput)
-      row.appendChild(labelCell)
-
-      const secretCell = document.createElement('div')
-      secretCell.className = 'cookie-cell cookie-cell--secret'
-      secretCell.setAttribute('role', 'cell')
-      const secretInput = document.createElement('input')
-      secretInput.id = `cookie-secret-value-${index}`
-      secretInput.name = `cookie_secret_value_${index}`
-      secretInput.type = token.show_secret ? 'text' : 'password'
-      secretInput.autocomplete = 'off'
-      secretInput.spellcheck = false
-      secretInput.value = String(token.secret_value || '')
-      secretInput.setAttribute('aria-label', 'CK')
-      secretInput.placeholder = 'SESSDATA=...'
-      secretInput.addEventListener('input', () => {
-        token.secret_value = secretInput.value
-        markChanged(false)
-      })
-      secretCell.appendChild(secretInput)
-      row.appendChild(secretCell)
-
-      const actions = document.createElement('div')
-      actions.className = 'cookie-cell cookie-cell--actions'
-      actions.setAttribute('role', 'cell')
-      actions.appendChild(smallButton(token.show_secret ? '隐藏' : '显示', () => {
-        token.show_secret = !token.show_secret
-        renderCookies()
-      }))
-      actions.appendChild(smallButton('删除', () => removeCookie(index), 'button--danger'))
-      row.appendChild(actions)
-
-      const error = firstError(`token-${index}`)
-      if (error) {
-        const errorCell = document.createElement('div')
-        errorCell.className = 'cookie-cell cookie-cell--error'
-        errorCell.setAttribute('role', 'cell')
-        errorCell.appendChild(errorNode(error.message))
-        row.appendChild(errorCell)
-      }
-      table.appendChild(row)
-    })
-    elements.cookieList.appendChild(table)
   }
 
   function renderSubscriptions() {
@@ -703,12 +349,11 @@
       })
       card.appendChild(chips)
 
-      const subscribers = subscriberNames(item.subscribers)
       const subscriberRow = document.createElement('div')
       subscriberRow.className = 'subscription-subscribers'
       subscriberRow.innerHTML = `
         <span class="subscription-subscribers__label">订阅人</span>
-        <span class="subscription-subscribers__names">${escapeHtml(subscribers || '未记录')}</span>
+        <span class="subscription-subscribers__names">${escapeHtml(subscriberNames(item.subscribers) || '未记录')}</span>
       `
       card.appendChild(subscriberRow)
 
@@ -737,13 +382,13 @@
     elements.subscriptionEditor.innerHTML = ''
     const index = draft.subscriptions.findIndex((item) => item.id === selectedSubscriptionId)
     if (index < 0) {
-      elements.subscriptionEditorPanel.classList.add('is-collapsed')
-      elements.subscriptionEditorTitle.textContent = '订阅编辑'
-      elements.subscriptionEditorSubtitle.textContent = '选择一条订阅，或新建订阅。'
+      elements.subscriptionEditorPanel?.classList.add('is-collapsed')
+      if (elements.subscriptionEditorTitle) elements.subscriptionEditorTitle.textContent = '订阅编辑'
+      if (elements.subscriptionEditorSubtitle) elements.subscriptionEditorSubtitle.textContent = '选择一条订阅，或新建订阅。'
       return
     }
 
-    elements.subscriptionEditorPanel.classList.remove('is-collapsed')
+    elements.subscriptionEditorPanel?.classList.remove('is-collapsed')
     const item = draft.subscriptions[index]
     elements.subscriptionEditorTitle.textContent = item.name || `Bilibili ${item.uid || ''}`.trim() || '新订阅'
     elements.subscriptionEditorSubtitle.textContent = sourceLabel(item)
@@ -864,16 +509,10 @@
     if (!elements.rawJsonInput) {
       return
     }
-    const payload = subscriptionSettingsPayload(buildPayloadFromDraft(draft).settings)
-    const text = JSON.stringify(payload, null, 2)
+    const text = JSON.stringify(buildPayloadFromDraft(draft).settings, null, 2)
     if (document.activeElement !== elements.rawJsonInput && elements.rawJsonInput.value !== text) {
       elements.rawJsonInput.value = text
     }
-  }
-
-  function subscriptionSettingsPayload(settings) {
-    const { tokens, ...visibleSettings } = settings
-    return visibleSettings
   }
 
   function renderFooter() {
@@ -886,7 +525,7 @@
     elements.dirtyState.classList.toggle('is-error', hasErrors)
     elements.dirtyState.classList.toggle('is-dirty', initialized && !pendingSave && dirty && !hasErrors)
     elements.dirtyState.classList.toggle('is-synced', initialized && !pendingSave && !dirty && !hasErrors)
-    elements.saveButton.disabled = !initialized || Boolean(pendingSave) || hasErrors || !dirty
+    elements.saveButton.disabled = !initialized || pendingSave || hasErrors || !dirty
   }
 
   function markChanged(fullRender) {
@@ -894,9 +533,7 @@
       validation = validateDraft()
       renderOverview()
       renderFooter()
-      if (pageMode !== 'cookies') {
-        renderRawJson()
-      }
+      renderRawJson()
       return
     }
     render()
@@ -1115,29 +752,6 @@
     renderSubscriptions()
   }
 
-  function addCookie() {
-    const identity = nextCookieIdentity(draft.tokens)
-    draft.tokens.push({
-      id: identity.id,
-      platform: 'bilibili',
-      label: identity.label,
-      secret_key: identity.secret_key,
-      enabled: true,
-      secret_value: '',
-      show_secret: true,
-    })
-    markChanged()
-  }
-
-  function removeCookie(index) {
-    const token = draft.tokens[index]
-    if (!window.confirm(`删除 ${token.label || token.id}？`)) {
-      return
-    }
-    draft.tokens.splice(index, 1)
-    markChanged()
-  }
-
   function addSubscription() {
     const next = draft.subscriptions.length + 1
     const item = {
@@ -1218,25 +832,14 @@
     }
 
     const payload = buildPayloadFromDraft(draft)
-    pendingSave = { settingsAck: false, secretsAck: pageMode !== 'cookies' }
+    pendingSave = true
     setStatus('正在保存设置…')
     postMessage('settings.save', { values: payload.settings }, `save-settings-${Date.now()}`)
-    if (pageMode === 'cookies') {
-      postMessage('secrets.save', { values: payload.secrets, deleted_keys: payload.deletedKeys }, `save-secrets-${Date.now()}`)
-    }
   }
 
   function focusFirstError() {
     const first = validation.errors[0]
     if (!first) {
-      return
-    }
-    if (first.scope.startsWith('token-')) {
-      const [, index] = first.scope.split('-')
-      const input = document.getElementById(`cookie-secret-value-${index}`) || document.getElementById(`cookie-label-${index}`)
-      if (input) {
-        input.focus()
-      }
       return
     }
     if (first.scope.startsWith('subscription-')) {
@@ -1250,42 +853,23 @@
           target.focus()
         }
       }
-      return
-    }
-    const target = document.querySelector(`[name="${first.scope}"]`)
-    if (target) {
-      target.focus()
     }
   }
 
   function reloadAll() {
     setStatus('正在重新读取设置…')
     postMessage('settings.reload', undefined, `reload-settings-${Date.now()}`)
-    postMessage('secrets.reload', undefined, `reload-secrets-${Date.now()}`)
   }
 
   function resetSettings() {
-    const nextSettings = normalizeSettings(defaultSettings, currentSecrets)
-    if (pageMode === 'cookies') {
-      draft = {
-        ...draft,
-        tokens: nextSettings.tokens,
-      }
-      setStatus('默认 CK 设置已载入，保存后生效')
-    } else {
-      draft = {
-        ...nextSettings,
-        tokens: draft.tokens,
-      }
-      selectedSubscriptionId = draft.subscriptions[0] ? draft.subscriptions[0].id : ''
-      setStatus('默认订阅设置已载入，保存后生效')
-    }
+    draft = normalizeSettings(defaultSettings)
+    selectedSubscriptionId = draft.subscriptions[0] ? draft.subscriptions[0].id : ''
+    setStatus('默认订阅设置已载入，保存后生效')
     render()
   }
 
-  function triggerManualCheck() {
-    setStatus('正在触发订阅检查…')
-    postMessage('scheduler.trigger', { job_id: 'subscription-hub-poll' }, `trigger-scheduler-${Date.now()}`)
+  function showSourceEntry() {
+    setStatus('Bilibili 事件源状态在 Web 三方账号页面查看')
   }
 
   function openCardPreview() {
@@ -1298,7 +882,7 @@
     }
     try {
       const parsed = JSON.parse(elements.rawJsonInput.value || '{}')
-      draft = normalizeSettings({ ...parsed, tokens: draft.tokens }, currentSecrets)
+      draft = normalizeSettings(parsed)
       selectedSubscriptionId = draft.subscriptions[0] ? draft.subscriptions[0].id : ''
       elements.rawJsonError.textContent = ''
       setStatus('JSON 已导入，保存后生效')
@@ -1314,23 +898,6 @@
       draft.enabled = elements.enabledInput.checked
       markChanged()
     })
-    bind(elements.pollCronInput, 'input', () => {
-      draft.poll_cron = elements.pollCronInput.value
-      markChanged(false)
-    })
-    bind(elements.pollTimeoutInput, 'input', () => {
-      draft.poll_timeout_seconds = elements.pollTimeoutInput.value
-      markChanged(false)
-    })
-    bind(elements.dynamicTimeRangeInput, 'input', () => {
-      draft.dynamic_time_range_seconds = elements.dynamicTimeRangeInput.value
-      markChanged(false)
-    })
-    bind(elements.maxUpdatesInput, 'input', () => {
-      draft.max_updates_per_poll = elements.maxUpdatesInput.value
-      markChanged(false)
-    })
-    bind(elements.addCookieButton, 'click', addCookie)
     bind(elements.addSubscriptionButton, 'click', addSubscription)
     bind(elements.subscriptionSearchInput, 'input', renderSubscriptions)
     bind(elements.statusFilterInput, 'change', renderSubscriptions)
@@ -1347,7 +914,7 @@
     bind(elements.importJsonButton, 'click', importRawJson)
     bind(elements.reloadButton, 'click', reloadAll)
     bind(elements.resetButton, 'click', resetSettings)
-    bind(elements.manualCheckButton, 'click', triggerManualCheck)
+    bind(elements.manualCheckButton, 'click', showSourceEntry)
     bind(elements.previewButton, 'click', openCardPreview)
     bind(elements.saveButton, 'click', saveAll)
   }
@@ -1368,63 +935,29 @@
       stopReadyLoop()
       const payload = message.payload || {}
       if (elements.pageTitle) {
-        elements.pageTitle.textContent = payload.title || defaultPageTitle()
+        elements.pageTitle.textContent = payload.title || '订阅设置'
       }
       if (elements.pageSubtitle) {
-        elements.pageSubtitle.textContent = defaultPageSubtitle()
+        elements.pageSubtitle.textContent = '管理 Bilibili 订阅和推送目标'
       }
-      defaultSettings = normalizeSettings(payload.default_config || DEFAULT_SETTINGS, {})
-      currentSecrets = payload.secrets || {}
+      defaultSettings = normalizeSettings(payload.default_config || DEFAULT_SETTINGS)
       initialized = true
-      applySettings(payload.settings || defaultSettings, currentSecrets, { markSaved: true })
+      applySettings(payload.settings || defaultSettings, { markSaved: true })
       setStatus('已载入设置')
       return
     }
 
     if (message.type === 'settings.changed') {
       const payload = message.payload || {}
-      if (pendingSave) {
-        pendingSave.settingsAck = true
-        draft = normalizeSettings(payload.values || defaultSettings, buildPayloadFromDraft(draft).secrets)
-        if (!draft.subscriptions.some((item) => item.id === selectedSubscriptionId)) {
-          selectedSubscriptionId = draft.subscriptions[0] ? draft.subscriptions[0].id : ''
-        }
-        if (!finishPendingSave()) {
-          setStatus('设置已保存，正在保存敏感值…')
-        }
-        render()
-        return
-      }
-      applySettings(payload.values || defaultSettings, currentSecrets, { markSaved: true })
+      pendingSave = false
+      applySettings(payload.values || defaultSettings, { markSaved: true })
       setStatus('设置已保存')
-      return
-    }
-
-    if (message.type === 'secrets.changed') {
-      const payload = message.payload || {}
-      currentSecrets = payload.values || {}
-      if (pendingSave) {
-        pendingSave.secretsAck = true
-        draft = normalizeSettings(buildPayloadFromDraft(draft).settings, currentSecrets)
-        if (!finishPendingSave()) {
-          setStatus('敏感值已保存，正在等待设置回写…')
-        }
-        render()
-        return
-      }
-      applySettings(buildPayloadFromDraft(draft).settings, currentSecrets, { markSaved: true })
-      setStatus('敏感值已保存')
-      return
-    }
-
-    if (message.type === 'scheduler.triggered') {
-      setStatus('已触发订阅检查')
       return
     }
 
     if (message.type === 'error') {
       const payload = message.payload || {}
-      pendingSave = null
+      pendingSave = false
       setStatus(payload.message || '操作未完成', true)
       renderFooter()
     }

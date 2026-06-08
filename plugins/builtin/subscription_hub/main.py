@@ -3,7 +3,6 @@
 
 import copy
 import os
-import random
 import sys
 import time
 
@@ -15,15 +14,10 @@ from rayleabot import RayleaBotPlugin, command, event_handler
 from rayleabot.protocol import ActionError
 
 from bilibili import (
-    DYNAMIC_URL,
     LIVE_URL,
-    NAV_URL,
     build_cookie_headers,
-    dynamic_updates,
-    format_pub_time,
     live_room_info_url,
     live_status_entry,
-    live_update,
     looks_like_preview_url,
     normalize_user_info,
     normalize_user_search,
@@ -64,7 +58,14 @@ def storage_value(result, fallback=None):
 class SubscriptionHubPlugin(RayleaBotPlugin):
     def __init__(self):
         super().__init__()
-        self.subscribe("message.group", "message.private", "scheduler.trigger", "config.changed")
+        self.subscribe(
+            "message.group",
+            "message.private",
+            "config.changed",
+            "bilibili.live.started",
+            "bilibili.live.ended",
+            "bilibili.dynamic.published",
+        )
         self._default_settings = load_default_settings()
         self._settings = copy.deepcopy(self._default_settings)
         self._settings_loaded = False
@@ -91,7 +92,6 @@ class SubscriptionHubPlugin(RayleaBotPlugin):
     @command("订阅状态")
     def handle_status_command(self, ctx):
         settings = self.load_settings(ctx)
-        self.ensure_scheduler_if_needed(ctx, settings)
         ctx.send_text(build_status_text(settings))
         ctx.send_result({"handled": True})
 
@@ -103,7 +103,6 @@ class SubscriptionHubPlugin(RayleaBotPlugin):
             self.save_settings(ctx, settings)
             self._settings = copy.deepcopy(settings)
             self._settings_loaded = True
-            self.ensure_scheduler(ctx, settings)
         ctx.send_text(result["message"])
         ctx.send_result({"handled": True})
 
@@ -115,53 +114,41 @@ class SubscriptionHubPlugin(RayleaBotPlugin):
             self.save_settings(ctx, settings)
             self._settings = copy.deepcopy(settings)
             self._settings_loaded = True
-            self.ensure_scheduler(ctx, settings)
         ctx.send_text(result["message"])
         ctx.send_result({"handled": True})
 
     @command("订阅列表")
     def handle_subscription_list(self, ctx):
         settings = self.load_settings(ctx)
-        self.ensure_scheduler_if_needed(ctx, settings)
         ctx.send_text(format_subscription_list(settings, current_target(ctx), platform=None, title="订阅列表"))
         ctx.send_result({"handled": True})
 
     @command("b站订阅列表")
     def handle_bilibili_subscription_list(self, ctx):
         settings = self.load_settings(ctx)
-        self.ensure_scheduler_if_needed(ctx, settings)
         ctx.send_text(format_subscription_list(settings, current_target(ctx), platform="bilibili", title="Bilibili 订阅列表"))
         ctx.send_result({"handled": True})
 
     @command("全部订阅列表")
     def handle_all_subscription_list(self, ctx):
         settings = self.load_settings(ctx)
-        self.ensure_scheduler_if_needed(ctx, settings)
         ctx.send_text(format_subscription_list(settings, None, platform=None, title="全部订阅列表"))
         ctx.send_result({"handled": True})
 
     @command("全部b站订阅列表")
     def handle_all_bilibili_subscription_list(self, ctx):
         settings = self.load_settings(ctx)
-        self.ensure_scheduler_if_needed(ctx, settings)
         ctx.send_text(format_subscription_list(settings, None, platform="bilibili", title="全部 Bilibili 订阅列表"))
         ctx.send_result({"handled": True})
 
     @command("立即检查订阅")
     def handle_manual_check(self, ctx):
         settings = self.load_settings(ctx, force=True)
-        self.ensure_scheduler_if_needed(ctx, settings)
         if not settings["enabled"]:
             ctx.send_text("订阅中心未启用。")
             ctx.send_result({"handled": True, "skipped": "disabled"})
             return
-        scope = parse_manual_check_scope(ctx.args)
-        target = None if scope == "all" else current_target(ctx)
-        prepared = self.prepare_next_update(ctx, settings, target=target)
-        if prepared:
-            self.send_prepared_update(ctx, prepared)
-            return
-        ctx.send_text("当前没有可推送的订阅更新。")
+        ctx.send_text("Bilibili 事件源负责实时检查。请在 Web 的三方账号页面查看连接和降级检查状态。")
         ctx.send_result({"handled": True, "sent": 0})
 
     @command("预览订阅卡片")
@@ -169,7 +156,7 @@ class SubscriptionHubPlugin(RayleaBotPlugin):
         argument = first_arg(ctx.args)
         preview_ref = parse_preview_url(argument) if argument else None
         if preview_ref:
-            result = self.preview_update_from_link(ctx, preview_ref, self.load_settings(ctx))
+            result = self.preview_update_from_link(ctx, preview_ref)
             if not result.get("ok"):
                 ctx.send_text(result.get("message") or "Bilibili 链接预览失败。")
                 ctx.send_result({"handled": True, "sent": 0})
@@ -203,9 +190,8 @@ class SubscriptionHubPlugin(RayleaBotPlugin):
             "data": {"file": image_path},
         }])
 
-    def preview_update_from_link(self, ctx, preview_ref, settings=None):
-        token = first_available_token(settings or {}, ctx)
-        headers = build_cookie_headers(token, None)
+    def preview_update_from_link(self, ctx, preview_ref):
+        headers = build_cookie_headers("", None)
         try:
             if preview_ref["kind"] == "video":
                 response = ctx.http_request("GET", video_view_url(preview_ref["bvid"]), headers=headers, timeout_seconds=30)
@@ -254,249 +240,44 @@ class SubscriptionHubPlugin(RayleaBotPlugin):
 
     @event_handler("config.changed")
     def handle_config_changed(self, ctx):
-        settings = self.load_settings(ctx, force=True)
-        self.ensure_scheduler_if_needed(ctx, settings)
+        self.load_settings(ctx, force=True)
         ctx.send_result({"handled": True})
 
-    @event_handler("scheduler.trigger")
-    def handle_scheduler_trigger(self, ctx):
+    @event_handler("bilibili.live.started")
+    def handle_bilibili_live_started(self, ctx):
+        self.handle_bilibili_event(ctx)
+
+    @event_handler("bilibili.live.ended")
+    def handle_bilibili_live_ended(self, ctx):
+        self.handle_bilibili_event(ctx)
+
+    @event_handler("bilibili.dynamic.published")
+    def handle_bilibili_dynamic_published(self, ctx):
+        self.handle_bilibili_event(ctx)
+
+    def handle_bilibili_event(self, ctx):
         settings = self.load_settings(ctx, force=True)
-        self.ensure_scheduler_if_needed(ctx, settings)
         if not settings["enabled"]:
             ctx.send_result({"handled": True, "skipped": "disabled"})
             return
-        prepared = self.prepare_next_update(ctx, settings)
-        if prepared:
-            self.send_prepared_update(ctx, prepared)
+        payload = ctx.payload.get("bilibili") if isinstance(getattr(ctx, "payload", None), dict) else None
+        update = normalize_bilibili_event_payload(payload)
+        if not update:
+            ctx.send_result({"handled": True, "sent": 0})
             return
-        ctx.send_result({"handled": True, "sent": 0})
-
-    def ensure_scheduler_if_needed(self, ctx, settings):
-        if settings.get("enabled", True) and has_enabled_subscriptions(settings):
-            self.ensure_scheduler(ctx, settings)
-
-    def ensure_scheduler(self, ctx, settings):
-        task_id = "subscription-hub-poll"
-        cron = settings["poll_cron"]
-        try:
-            ctx.scheduler_create(
-                task_id,
-                cron,
-                payload={"kind": "subscription_poll"},
-                log_label="Bilibili 推送轮询",
-            )
-        except Exception as exc:
-            self.try_log(ctx, "warn", "订阅轮询任务注册失败", {
-                "task_id": task_id,
-                "cron": cron,
-                "error": str(exc),
-            })
-
-    def prepare_next_update(self, ctx, settings, target=None):
+        sent = 0
         for subscription in settings["subscriptions"]:
             if not subscription.get("enabled", True):
                 continue
-            if target and (subscription.get("target_type") != target["target_type"] or subscription.get("target_id") != target["target_id"]):
-                continue
-            if subscription.get("platform") != "bilibili":
-                continue
-            prepared = self.prepare_bilibili_subscription_update(ctx, settings, subscription)
-            if prepared:
-                return prepared
-        return None
-
-    def prepare_bilibili_subscription_update(self, ctx, settings, subscription):
-        token = self.choose_token(ctx, settings)
-        if not token:
-            return None
-        headers = build_cookie_headers(token, subscription["uid"])
-        if not self.bilibili_cookie_available(ctx, settings, headers):
-            return None
-        updates = []
-        services = set(subscription.get("services") or ["all"])
-        if "all" in services or any(service in services for service in {"video", "image_text", "article", "repost"}):
-            response = self.bilibili_http_request(ctx,
-                "GET",
-                DYNAMIC_URL.format(uid=subscription["uid"]),
-                headers=headers,
-                timeout_seconds=settings["poll_timeout_seconds"],
-            )
-            document = self.bilibili_response_document(ctx, response, subscription["uid"], "dynamic")
-            if document:
-                updates.extend(self.filter_dynamic_updates(ctx, settings, subscription, dynamic_updates(document)))
-        if "all" in services or "live" in services:
-            response = self.bilibili_http_request(ctx,
-                "GET",
-                LIVE_URL.format(uid=subscription["uid"]),
-                headers=headers,
-                timeout_seconds=settings["poll_timeout_seconds"],
-            )
-            document = self.bilibili_response_document(ctx, response, subscription["uid"], "live")
-            if document:
-                previous_status = self.previous_live_status(ctx, subscription)
-                update = live_update(document, subscription["uid"])
-                if update:
-                    if update.get("live_status") == 1:
-                        updates.append(update)
-                    elif previous_status == 1:
-                        updates.append(self.apply_live_end_context(ctx, subscription, update))
-                    else:
-                        self.mark_live_status(ctx, subscription, update)
-
-        for update in sorted(updates, key=lambda item: int(item.get("pub_ts") or 0)):
-            if not service_enabled(subscription, update.get("service")):
+            if not subscription_matches_event(subscription, update):
                 continue
             if self.seen_update(ctx, subscription, update):
                 continue
             prepared = self.prepare_push_update(ctx, subscription, update)
             if prepared:
-                return prepared
-        return None
-
-    def filter_dynamic_updates(self, ctx, settings, subscription, updates):
-        dynamic_updates_only = [item for item in updates if isinstance(item, dict) and item.get("pub_ts")]
-        if not dynamic_updates_only:
-            return []
-        latest_ts = max(int(item.get("pub_ts") or 0) for item in dynamic_updates_only)
-        baseline_key = self.dynamic_baseline_key(subscription)
-        baseline = self.dynamic_baseline(ctx, subscription)
-        if baseline <= 0:
-            ctx.storage_set(baseline_key, latest_ts)
-            return []
-        now = int(time.time())
-        window = int(settings.get("dynamic_time_range_seconds") or 7200)
-        result = []
-        for update in dynamic_updates_only:
-            pub_ts = int(update.get("pub_ts") or 0)
-            if update.get("is_pinned"):
-                continue
-            if pub_ts <= baseline:
-                continue
-            if now - pub_ts > window:
-                continue
-            result.append(update)
-        return result
-
-    def bilibili_cookie_available(self, ctx, settings, headers):
-        response = self.bilibili_http_request(ctx,
-            "GET",
-            NAV_URL,
-            headers=headers,
-            timeout_seconds=settings["poll_timeout_seconds"],
-        )
-        document = self.bilibili_response_document(ctx, response, "", "cookie")
-        if not document:
-            return False
-        data = document.get("data") if isinstance(document, dict) else {}
-        if not isinstance(data, dict) or data.get("isLogin") is not True:
-            self.try_log(ctx, "warn", "Bilibili Cookie 无效或已过期")
-            return False
-        return True
-
-    def bilibili_http_request(self, ctx, method, url, headers=None, timeout_seconds=30):
-        try:
-            return ctx.http_request(method, url, headers=headers, timeout_seconds=timeout_seconds)
-        except Exception as exc:
-            self.try_log(ctx, "warn", "Bilibili 请求失败", {"error": str(exc)})
-            return {}
-
-    def bilibili_response_document(self, ctx, response, uid, endpoint):
-        status_code = response.get("status_code") if isinstance(response, dict) else None
-        if not isinstance(status_code, int) or status_code < 200 or status_code >= 300:
-            if status_code == 412:
-                self.try_log(ctx, "warn", "Bilibili 风控拦截", {
-                    "uid": uid,
-                    "endpoint": endpoint,
-                    "status_code": status_code,
-                })
-                return None
-            self.try_log(ctx, "warn", "Bilibili 订阅读取失败", {
-                "uid": uid,
-                "endpoint": endpoint,
-                "status_code": status_code,
-            })
-            return None
-
-        document = parse_json_response(response)
-        if not document:
-            self.try_log(ctx, "warn", "Bilibili 订阅响应解析失败", {
-                "uid": uid,
-                "endpoint": endpoint,
-                "status_code": status_code,
-            })
-            return None
-
-        code = document.get("code")
-        if code != 0:
-            self.try_log(ctx, "warn", "Bilibili 订阅读取失败", {
-                "uid": uid,
-                "endpoint": endpoint,
-                "status_code": status_code,
-                "bilibili_code": code,
-                "bilibili_message": str(document.get("message") or document.get("msg") or "").strip(),
-            })
-            return None
-        return document
-
-    def choose_token(self, ctx, settings):
-        candidates = [
-            item for item in settings["tokens"]
-            if item.get("platform") == "bilibili" and item.get("enabled", True)
-        ]
-        if not candidates:
-            self.try_log(ctx, "warn", "Bilibili Cookie 未配置或未启用")
-            return ""
-        random.shuffle(candidates)
-        for item in candidates:
-            try:
-                result = ctx.secret_read(item["secret_key"])
-                value = str(result.get("value") or "").strip() if isinstance(result, dict) else ""
-                if value:
-                    return value
-            except Exception as exc:
-                self.try_log(ctx, "warn", "Bilibili Cookie 读取失败", {"cookie_id": item.get("id"), "error": str(exc)})
-        self.try_log(ctx, "warn", "Bilibili Cookie 未读取到可用值")
-        return ""
-
-    def previous_live_status(self, ctx, subscription):
-        value = storage_value(ctx.storage_get(f"live-status:{subscription['id']}"), 0)
-        try:
-            return int(value)
-        except (TypeError, ValueError):
-            return 0
-
-    def previous_live_info(self, ctx, subscription):
-        value = storage_value(ctx.storage_get(self.live_info_key(subscription)), {})
-        return value if isinstance(value, dict) else {}
-
-    def apply_live_end_context(self, ctx, subscription, update):
-        previous = self.previous_live_info(ctx, subscription)
-        detected_ts = int(time.time())
-        detected_at = format_pub_time(detected_ts, "")
-        for key in ("images", "pub_ts", "created_at", "live_started_at", "room_id"):
-            if not update.get(key) and previous.get(key):
-                update[key] = previous[key]
-        if not update.get("url") and previous.get("url"):
-            update["url"] = previous["url"]
-        if not update.get("title") and previous.get("title"):
-            update["title"] = previous["title"]
-        if not update.get("author") and previous.get("author"):
-            update["author"] = previous["author"]
-        update["live_event"] = "ended"
-        update["status_label"] = "已下播"
-        update["live_detected_at"] = detected_at
-        summary = ["已下播"]
-        if update.get("live_started_at"):
-            summary.append(f"开播时间：{update['live_started_at']}")
-        summary.append(f"下播检测：{detected_at}")
-        update["summary"] = "\n".join(summary)
-        session_id = update.get("pub_ts") or previous.get("pub_ts") or ""
-        room_id = str(update.get("room_id") or previous.get("room_id") or "").strip()
-        id_parts = ["live", str(subscription.get("uid") or ""), "0", room_id]
-        if session_id:
-            id_parts.append(str(session_id))
-        update["id"] = "-".join(part for part in id_parts if part)
-        return update
+                self.send_prepared_update(ctx, prepared)
+                sent += 1
+        ctx.send_result({"handled": True, "sent": sent})
 
     def seen_update(self, ctx, subscription, update):
         key = self.update_key(subscription, update)
@@ -504,45 +285,9 @@ class SubscriptionHubPlugin(RayleaBotPlugin):
 
     def mark_seen(self, ctx, subscription, update):
         ctx.storage_set(self.update_key(subscription, update), True)
-        if update.get("service") != "live" and update.get("pub_ts"):
-            current = self.dynamic_baseline(ctx, subscription)
-            next_value = max(current, int(update.get("pub_ts") or 0))
-            ctx.storage_set(self.dynamic_baseline_key(subscription), next_value)
-        if update.get("service") == "live":
-            self.mark_live_status(ctx, subscription, update)
 
     def update_key(self, subscription, update):
         return f"seen:{subscription['id']}:{update.get('service')}:{update.get('id')}"
-
-    def live_info_key(self, subscription):
-        return f"live-info:{subscription['id']}"
-
-    def mark_live_status(self, ctx, subscription, update):
-        ctx.storage_set(f"live-status:{subscription['id']}", int(update.get("live_status") or 0))
-        if update.get("live_status") == 1:
-            ctx.storage_set(self.live_info_key(subscription), self.live_info_snapshot(update))
-
-    def live_info_snapshot(self, update):
-        return {
-            "title": update.get("title") or "",
-            "url": update.get("url") or "",
-            "images": list(update.get("images") or [])[:1],
-            "pub_ts": int(update.get("pub_ts") or 0),
-            "created_at": update.get("created_at") or "",
-            "live_started_at": update.get("live_started_at") or update.get("created_at") or "",
-            "room_id": update.get("room_id") or "",
-            "author": update.get("author") or {},
-        }
-
-    def dynamic_baseline_key(self, subscription):
-        return f"dynamic-baseline:{subscription['id']}"
-
-    def dynamic_baseline(self, ctx, subscription):
-        value = storage_value(ctx.storage_get(self.dynamic_baseline_key(subscription)), 0)
-        try:
-            return int(value)
-        except (TypeError, ValueError):
-            return 0
 
     def prepare_push_update(self, ctx, subscription, update):
         render_data = build_render_data(subscription, update)
@@ -580,11 +325,6 @@ def service_enabled(subscription, service):
     return "all" in services or service in services
 
 
-def parse_manual_check_scope(args):
-    values = [str(item or "").strip() for item in args or [] if str(item or "").strip()]
-    return "all" if values and values[0] == "全部" else "current"
-
-
 def first_arg(args):
     values = [str(item or "").strip() for item in args or [] if str(item or "").strip()]
     return values[0] if values else ""
@@ -607,13 +347,6 @@ def preview_response_document(response, label):
     if not document:
         return f"Bilibili {label}预览失败：响应格式不正确。"
     return document
-
-
-def has_enabled_subscriptions(settings):
-    for subscription in settings.get("subscriptions") or []:
-        if subscription.get("enabled", True):
-            return True
-    return False
 
 
 SERVICE_ALIASES = {
@@ -643,6 +376,39 @@ SERVICE_NAMES = {
     "article": "文章",
     "repost": "转发",
 }
+
+
+def normalize_bilibili_event_payload(payload):
+    if not isinstance(payload, dict):
+        return None
+    update = copy.deepcopy(payload)
+    update_id = str(update.get("id") or "").strip()
+    uid = str(update.get("uid") or "").strip()
+    service = str(update.get("service") or "").strip()
+    if not update_id or not uid or service not in SERVICE_NAMES or service == "all":
+        return None
+
+    update["id"] = update_id
+    update["uid"] = uid
+    update["service"] = service
+    update.setdefault("category", SERVICE_NAMES.get(service, service))
+    author = update.get("author") if isinstance(update.get("author"), dict) else {}
+    if not str(author.get("uid") or "").strip():
+        author["uid"] = uid
+    if not str(author.get("name") or "").strip():
+        author["name"] = uid
+    update["author"] = author
+    images = update.get("images") if isinstance(update.get("images"), list) else []
+    update["images"] = [item for item in images if isinstance(item, dict)]
+    return update
+
+
+def subscription_matches_event(subscription, update):
+    return (
+        subscription.get("platform") == "bilibili"
+        and str(subscription.get("uid") or "").strip() == str(update.get("uid") or "").strip()
+        and service_enabled(subscription, update.get("service"))
+    )
 
 
 def sample_subscription(ctx):
@@ -846,9 +612,8 @@ def resolve_bilibili_user(settings, ctx, query):
     text = str(query or "").strip()
     if not text:
         return {"ok": False, "message": "请填写 Bilibili UID 或昵称。"}
-    token = first_available_token(settings, ctx)
-    headers = build_cookie_headers(token, text if text.isdigit() else None)
-    timeout_seconds = int(settings.get("poll_timeout_seconds") or 12)
+    headers = build_cookie_headers("", text if text.isdigit() else None)
+    timeout_seconds = 12
     try:
         if text.isdigit():
             response = ctx.http_request("GET", user_info_url(text), headers=headers, timeout_seconds=timeout_seconds)
@@ -924,22 +689,6 @@ def find_bilibili_subscription_by_name(settings, name, target):
         and item.get("target_id") == target["target_id"]
         and str(item.get("name") or "").strip() == text
     ), None)
-
-
-def first_available_token(settings, ctx):
-    for item in settings.get("tokens") or []:
-        if item.get("platform") != "bilibili":
-            continue
-        if item.get("enabled", True) is False:
-            continue
-        try:
-            result = ctx.secret_read(item["secret_key"])
-            value = str(result.get("value") or "").strip() if isinstance(result, dict) else ""
-            if value:
-                return value
-        except Exception:
-            continue
-    return ""
 
 
 def user_label(user):
@@ -1111,17 +860,14 @@ def digits(value):
 
 
 def build_status_text(settings):
-    tokens = [item for item in settings.get("tokens") or [] if item.get("platform") == "bilibili"]
     subscriptions = settings.get("subscriptions") or []
-    enabled_tokens = sum(1 for item in tokens if item.get("enabled", True))
     enabled_subscriptions = sum(1 for item in subscriptions if item.get("enabled", True))
     return "\n".join([
         "订阅中心",
         f"状态：{'启用' if settings.get('enabled', True) else '停用'}",
         f"订阅：{enabled_subscriptions}/{len(subscriptions)}",
-        f"Cookie：{enabled_tokens}/{len(tokens)}",
-        f"轮询：{settings.get('poll_cron') or '*/5 * * * *'}",
-        f"动态窗口：{settings.get('dynamic_time_range_seconds') or 7200} 秒",
+        "事件源：平台 Bilibili 实时源",
+        "账号：Web 三方账号页面管理 Bilibili CK",
     ])
 
 

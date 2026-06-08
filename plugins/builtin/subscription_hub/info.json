@@ -17,11 +17,6 @@
         "id": "subscriptions",
         "label": "订阅设置",
         "entry": "web/index.html"
-      },
-      {
-        "id": "cookies",
-        "label": "CK 设置",
-        "entry": "web/cookies.html"
       }
     ]
   },
@@ -38,9 +33,7 @@
     "config.read",
     "config.write",
     "logger.write",
-    "http.request",
-    "scheduler.create",
-    "secret.read"
+    "http.request"
   ],
   "permissions": {
     "required": [
@@ -50,9 +43,7 @@
       "config.read",
       "config.write",
       "logger.write",
-      "http.request",
-      "scheduler.create",
-      "secret.read"
+      "http.request"
     ],
     "optional": [],
     "scopes": {
@@ -107,8 +98,8 @@
     },
     {
       "name": "立即检查订阅",
-      "description": "立即检查当前会话或全部订阅",
-      "usage": "/立即检查订阅 [当前|全部]",
+      "description": "查看 Bilibili 事件源检查入口",
+      "usage": "/立即检查订阅",
       "permission": "super_admin"
     },
     {
@@ -127,7 +118,7 @@
         "items": [
           {
             "title": "订阅状态",
-            "description": "查看启用状态、Cookie 数量、轮询计划和动态窗口。",
+            "description": "查看启用状态、订阅数量和平台事件源入口。",
             "usage": "/订阅状态",
             "command": "订阅状态"
           },
@@ -179,8 +170,8 @@
         "items": [
           {
             "title": "立即检查订阅",
-            "description": "立即检查当前会话或全部订阅，每次最多发送一条待推送图片。",
-            "usage": "/立即检查订阅 [当前|全部]",
+            "description": "查看 Bilibili 实时源和降级检查入口。",
+            "usage": "/立即检查订阅",
             "command": "立即检查订阅"
           },
           {
@@ -195,13 +186,13 @@
         "title": "配置说明",
         "items": [
           {
-            "title": "Bilibili Cookie",
-            "description": "Cookie 可配置多个，轮询时随机选择一个可用 Cookie。",
+            "title": "Bilibili 账号",
+            "description": "Bilibili CK 在 Web 三方账号页面配置。",
             "permission": "super_admin"
           },
           {
-            "title": "动态有效时间",
-            "description": "动态只在设置的时间窗口内推送，首次成功读取会建立基线。",
+            "title": "实时源状态",
+            "description": "连接、错误、最近事件和降级检查状态在 Web 三方账号页面查看。",
             "permission": "super_admin"
           }
         ]

@@ -3,22 +3,12 @@ import copy
 
 SETTINGS_KEYS = [
     "enabled",
-    "poll_cron",
-    "poll_timeout_seconds",
-    "dynamic_time_range_seconds",
-    "max_updates_per_poll",
-    "tokens",
     "subscriptions",
 ]
 
 SERVICE_KINDS = {"live", "video", "image_text", "article", "repost", "all"}
 DEFAULT_SETTINGS = {
     "enabled": True,
-    "poll_cron": "*/5 * * * *",
-    "poll_timeout_seconds": 12,
-    "dynamic_time_range_seconds": 7200,
-    "max_updates_per_poll": 6,
-    "tokens": [],
     "subscriptions": [],
 }
 
@@ -36,49 +26,8 @@ def normalize_settings(raw):
     source = raw if isinstance(raw, dict) else {}
     return {
         "enabled": bool(source.get("enabled", True)),
-        "poll_cron": normalize_cron(source.get("poll_cron")),
-        "poll_timeout_seconds": clamp_int(source.get("poll_timeout_seconds"), 5, 60, 12),
-        "dynamic_time_range_seconds": clamp_int(source.get("dynamic_time_range_seconds"), 60, 604800, 7200),
-        "max_updates_per_poll": clamp_int(source.get("max_updates_per_poll"), 1, 20, 6),
-        "tokens": normalize_tokens(source.get("tokens")),
         "subscriptions": normalize_subscriptions(source.get("subscriptions")),
     }
-
-
-def normalize_cron(value):
-    text = str(value or "").strip()
-    return text if len(text.split()) == 5 else DEFAULT_SETTINGS["poll_cron"]
-
-
-def clamp_int(value, minimum, maximum, fallback):
-    try:
-        number = int(value)
-    except (TypeError, ValueError):
-        return fallback
-    return max(minimum, min(maximum, number))
-
-
-def normalize_tokens(value):
-    items = []
-    seen = set()
-    source = value if isinstance(value, list) else []
-    for item in source:
-        if not isinstance(item, dict):
-            continue
-        token_id = safe_id(item.get("id"))
-        secret_key = safe_id(item.get("secret_key"))
-        platform = str(item.get("platform") or "").strip()
-        if platform != "bilibili" or not token_id or not secret_key or token_id in seen:
-            continue
-        seen.add(token_id)
-        items.append({
-            "id": token_id,
-            "platform": "bilibili",
-            "label": str(item.get("label") or token_id).strip() or token_id,
-            "secret_key": secret_key,
-            "enabled": bool(item.get("enabled", True)),
-        })
-    return items
 
 
 def normalize_subscriptions(value):
