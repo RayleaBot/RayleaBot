@@ -51,6 +51,9 @@ func TestPluginProtocolInitFixturesValidate(t *testing.T) {
 	for _, name := range []string{
 		"ok.init-init-ack.yaml",
 		"ok.init-without-bot.yaml",
+		"ok.event-bilibili-live-started.yaml",
+		"ok.event-bilibili-live-ended.yaml",
+		"ok.event-bilibili-dynamic-published.yaml",
 	} {
 		name := name
 		t.Run(name, func(t *testing.T) {

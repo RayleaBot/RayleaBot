@@ -1,0 +1,19 @@
+contract: contracts/web-api.openapi.yaml
+case: ok
+description: Bilibili QR code login poll returns a cookie and account profile after confirmation.
+request:
+  method: GET
+  path: /api/bilibili/login/qrcode/qr_20260608_001
+response:
+  status: 200
+  body:
+    login_id: qr_20260608_001
+    state: succeeded
+    expires_at: "2026-06-08T08:03:00Z"
+    cookie: "SESSDATA=fixture; bili_jct=fixture; DedeUserID=123456; ac_time_value=fixture-refresh-token;"
+    account:
+      uid: "123456"
+      nickname: 主账号昵称
+      avatar_url: "https://i0.hdslb.com/bfs/face/raylea.jpg"
+expect:
+  valid: true

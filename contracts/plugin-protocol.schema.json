@@ -336,6 +336,9 @@
                     "config.changed",
                     "webhook.received",
                     "bot.identity.changed",
+                    "bilibili.live.started",
+                    "bilibili.live.ended",
+                    "bilibili.dynamic.published",
                     "message.private",
                     "message.group",
                     "message_sent.private",
@@ -533,6 +536,134 @@
                         "status": {
                           "type": "object",
                           "additionalProperties": true
+                        }
+                      }
+                    },
+                    "bilibili": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "kind",
+                        "uid",
+                        "id",
+                        "service",
+                        "url",
+                        "author"
+                      ],
+                      "properties": {
+                        "kind": {
+                          "type": "string",
+                          "enum": [
+                            "live",
+                            "dynamic"
+                          ]
+                        },
+                        "uid": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "id": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "room_id": {
+                          "type": "string"
+                        },
+                        "service": {
+                          "type": "string",
+                          "enum": [
+                            "live",
+                            "video",
+                            "image_text",
+                            "article",
+                            "repost"
+                          ]
+                        },
+                        "title": {
+                          "type": "string"
+                        },
+                        "summary": {
+                          "type": "string"
+                        },
+                        "url": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "pub_ts": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "created_at": {
+                          "type": "string"
+                        },
+                        "author": {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "required": [
+                            "uid",
+                            "name"
+                          ],
+                          "properties": {
+                            "uid": {
+                              "type": "string",
+                              "minLength": 1
+                            },
+                            "name": {
+                              "type": "string"
+                            },
+                            "avatar": {
+                              "type": "string"
+                            }
+                          }
+                        },
+                        "images": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "required": [
+                              "url"
+                            ],
+                            "properties": {
+                              "url": {
+                                "type": "string"
+                              },
+                              "width": {
+                                "type": "integer",
+                                "minimum": 0
+                              },
+                              "height": {
+                                "type": "integer",
+                                "minimum": 0
+                              }
+                            }
+                          }
+                        },
+                        "live_status": {
+                          "type": "integer",
+                          "enum": [
+                            0,
+                            1
+                          ]
+                        },
+                        "live_event": {
+                          "type": "string",
+                          "enum": [
+                            "started",
+                            "ended"
+                          ]
+                        },
+                        "status_label": {
+                          "type": "string"
+                        },
+                        "live_started_at": {
+                          "type": "string"
+                        },
+                        "live_detected_at": {
+                          "type": "string"
+                        },
+                        "dynamic_type": {
+                          "type": "string"
                         }
                       }
                     }
@@ -3103,6 +3234,9 @@
     "fixtures/plugin-protocol/ok.event-result.yaml",
     "fixtures/plugin-protocol/ok.event-bot-identity-changed.yaml",
     "fixtures/plugin-protocol/ok.event-error.yaml",
+    "fixtures/plugin-protocol/ok.event-bilibili-live-started.yaml",
+    "fixtures/plugin-protocol/ok.event-bilibili-live-ended.yaml",
+    "fixtures/plugin-protocol/ok.event-bilibili-dynamic-published.yaml",
     "fixtures/plugin-protocol/ok.action-message-send-segments.yaml",
     "fixtures/plugin-protocol/ok.action-message-send-mixed-segments.yaml",
     "fixtures/plugin-protocol/ok.action-message-reply-to-event.yaml",
@@ -3192,5 +3326,5 @@
     "fixtures/plugin-protocol/ok.action-message-forward-get.yaml",
     "fixtures/plugin-protocol/ok.action-file-get.yaml"
   ],
-  "$comment": "Frozen plugin action kinds include terminal message.send/message.reply, local-action RPC logger.write/storage.kv/config.read/plugin.list/secret.read/config.write/governance.blacklist.read/governance.blacklist.write/governance.whitelist.read/governance.whitelist.write/governance.command_policy.read/storage.file/http.request/scheduler.create/event.expose_webhook/render.image, the frozen OneBot single-action surface, and the three current provider extension actions. secret.read reads the calling plugin's secret namespace only and is separate from non-sensitive config.read. render.image accepts system template IDs and the calling plugin's declared package-local template short IDs; plugin template formal IDs use plugin.<plugin_id>.<template_id> and are not cross-plugin renderable. init conveys granted capabilities, sanitized command_prefixes, permissions.super_admins, and the current bot identity when available. bot.identity.changed carries the current bot identity after a protocol adapter becomes ready. message.* and meta.* use the shared frozen event model; local actions use distinct request_ids, may carry parent_request_id to identify the owning event session, and receive result/error frames from the platform before the plugin completes its event. Concurrent plugins must provide parent_request_id on local action frames. event.raw_payload remains a gated high-sensitivity event field rather than a standalone action. Ping/pong remain the minimum keepalive semantics. Batching and complex streaming payloads remain out of scope."
+  "$comment": "Frozen plugin action kinds include terminal message.send/message.reply, local-action RPC logger.write/storage.kv/config.read/plugin.list/secret.read/config.write/governance.blacklist.read/governance.blacklist.write/governance.whitelist.read/governance.whitelist.write/governance.command_policy.read/storage.file/http.request/scheduler.create/event.expose_webhook/render.image, the frozen OneBot single-action surface, and the three current provider extension actions. secret.read reads the calling plugin's secret namespace only and is separate from non-sensitive config.read. render.image accepts system template IDs and the calling plugin's declared package-local template short IDs; plugin template formal IDs use plugin.<plugin_id>.<template_id> and are not cross-plugin renderable. init conveys granted capabilities, sanitized command_prefixes, permissions.super_admins, and the current bot identity when available. bot.identity.changed carries the current bot identity after a protocol adapter becomes ready. Bilibili source events carry event.payload.bilibili for live started, live ended, and dynamic published notifications. message.* and meta.* use the shared frozen event model; local actions use distinct request_ids, may carry parent_request_id to identify the owning event session, and receive result/error frames from the platform before the plugin completes its event. Concurrent plugins must provide parent_request_id on local action frames. event.raw_payload remains a gated high-sensitivity event field rather than a standalone action. Ping/pong remain the minimum keepalive semantics. Batching and complex streaming payloads remain out of scope."
 }

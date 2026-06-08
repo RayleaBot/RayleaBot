@@ -18,6 +18,7 @@ x-fixtures:
   - fixtures/websocket/ok.events-received-service-running.json
   - fixtures/websocket/ok.events-received-service-stopping.json
   - fixtures/websocket/ok.events-received-governance-changed.json
+  - fixtures/websocket/ok.events-received-bilibili-source-status.json
   - fixtures/websocket/edge.tasks-updated-failed-install.json
   - fixtures/websocket/edge.events-received-degraded.json
   - fixtures/websocket/edge.events-received-bridge-runtime-zeroed.json
@@ -264,6 +265,51 @@ channels:
                   type: string
                   description: Generic management event type. Current values include governance.changed.
                 summary:
+                  type: string
+            - type: object
+              additionalProperties: false
+              required:
+                - source
+                - status
+                - summary
+                - live_watched_rooms
+                - live_connected_rooms
+                - live_failed_rooms
+                - fallback_polling
+                - dynamic_enabled
+                - dynamic_watched_uids
+                - last_event_at
+                - last_error
+              properties:
+                source:
+                  type: string
+                  enum: [bilibili]
+                status:
+                  type: string
+                  enum: [disabled, idle, connecting, connected, degraded, failed]
+                summary:
+                  type: string
+                live_watched_rooms:
+                  type: integer
+                  minimum: 0
+                live_connected_rooms:
+                  type: integer
+                  minimum: 0
+                live_failed_rooms:
+                  type: integer
+                  minimum: 0
+                fallback_polling:
+                  type: boolean
+                dynamic_enabled:
+                  type: boolean
+                dynamic_watched_uids:
+                  type: integer
+                  minimum: 0
+                last_event_at:
+                  type: string
+                  nullable: true
+                  format: date-time
+                last_error:
                   type: string
             - type: object
               additionalProperties: false

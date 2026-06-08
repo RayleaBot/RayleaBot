@@ -87,6 +87,20 @@ export type DispatcherRuntimeObservabilityEventPayload = {
   drops_by_reason?: DispatcherRuntimeDropRow[]
 }
 
+export type BilibiliSourceStatusEventPayload = {
+  source: 'bilibili'
+  status: 'disabled' | 'idle' | 'connecting' | 'connected' | 'degraded' | 'failed'
+  summary: string
+  live_watched_rooms: number
+  live_connected_rooms: number
+  live_failed_rooms: number
+  fallback_polling: boolean
+  dynamic_enabled: boolean
+  dynamic_watched_uids: number
+  last_event_at: string | null
+  last_error: string
+}
+
 export type ProtocolSnapshotEventPayload = {
   protocol: 'onebot11'
   protocol_snapshot: components['schemas']['OneBot11ProtocolSnapshotResponse']
@@ -99,6 +113,7 @@ export type EventsPayload =
   | GenericManagementEventPayload
   | BridgeRuntimeObservabilityEventPayload
   | DispatcherRuntimeObservabilityEventPayload
+  | BilibiliSourceStatusEventPayload
   | ProtocolSnapshotEventPayload
 
 export type PluginConsoleFrameData = {

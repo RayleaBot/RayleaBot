@@ -1,0 +1,10 @@
+contract: contracts/web-api.openapi.yaml
+case: ok
+description: Third-party account delete removes account metadata and credential.
+request:
+  method: DELETE
+  path: /api/third-party/accounts/bilibili/primary
+response:
+  status: 204
+expect:
+  valid: true

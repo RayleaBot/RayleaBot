@@ -1,0 +1,25 @@
+{
+  "contract": "contracts/websocket-events.yaml",
+  "case": "ok",
+  "frame": {
+    "channel": "events",
+    "type": "events.received",
+    "timestamp": "2026-06-08T08:10:00Z",
+    "data": {
+      "source": "bilibili",
+      "status": "degraded",
+      "summary": "Bilibili 事件源使用备用检查",
+      "live_watched_rooms": 2,
+      "live_connected_rooms": 1,
+      "live_failed_rooms": 1,
+      "fallback_polling": true,
+      "dynamic_enabled": true,
+      "dynamic_watched_uids": 2,
+      "last_event_at": "2026-06-08T08:09:58Z",
+      "last_error": "直播间 20002 连接失败"
+    }
+  },
+  "expect": {
+    "valid": true
+  }
+}

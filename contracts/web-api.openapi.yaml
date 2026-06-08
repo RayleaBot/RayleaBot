@@ -115,6 +115,14 @@ x-fixtures:
   - fixtures/web-api/ok.plugins-reload-response.yaml
   - fixtures/web-api/ok.plugins-dead-letter-recover-response.yaml
   - fixtures/web-api/ok.plugins-uninstall-accepted.yaml
+  - fixtures/web-api/ok.third-party-accounts-list.yaml
+  - fixtures/web-api/ok.third-party-account-upsert.yaml
+  - fixtures/web-api/ok.third-party-account-delete.yaml
+  - fixtures/web-api/ok.bilibili-login-qrcode-create.yaml
+  - fixtures/web-api/ok.bilibili-login-qrcode-poll-pending.yaml
+  - fixtures/web-api/ok.bilibili-login-qrcode-poll-succeeded.yaml
+  - fixtures/web-api/ok.bilibili-source-status.yaml
+  - fixtures/web-api/ok.bilibili-source-restart.yaml
   - fixtures/web-api/invalid.plugins-reload-not-enabled.yaml
   - fixtures/web-api/invalid.plugins-dead-letter-recover-not-in-dead-letter.yaml
   - fixtures/web-api/invalid.plugins-uninstall-not-found.yaml
@@ -1459,6 +1467,144 @@ paths:
         default:
           $ref: '#/components/responses/Error'
 
+  /api/third-party/accounts:
+    get:
+      summary: List configured third-party accounts available to built-in platform sources.
+      operationId: listThirdPartyAccounts
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Current third-party account summaries.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ThirdPartyAccountsResponse'
+        '401':
+          $ref: '#/components/responses/Error'
+        default:
+          $ref: '#/components/responses/Error'
+
+  /api/third-party/accounts/{platform}/{account_id}:
+    put:
+      summary: Save one third-party account and its credential.
+      operationId: upsertThirdPartyAccount
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ThirdPartyPlatform'
+        - $ref: '#/components/parameters/ThirdPartyAccountId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ThirdPartyAccountUpsertRequest'
+      responses:
+        '200':
+          description: Account saved.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ThirdPartyAccountUpsertResponse'
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+        default:
+          $ref: '#/components/responses/Error'
+    delete:
+      summary: Delete one third-party account and its credential.
+      operationId: deleteThirdPartyAccount
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ThirdPartyPlatform'
+        - $ref: '#/components/parameters/ThirdPartyAccountId'
+      responses:
+        '204':
+          description: Account deleted.
+        '401':
+          $ref: '#/components/responses/Error'
+        default:
+          $ref: '#/components/responses/Error'
+
+  /api/bilibili/login/qrcode:
+    post:
+      summary: Start a Bilibili QR code login session.
+      operationId: createBilibiliQRCodeLogin
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: QR code login session created.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BilibiliQRCodeLoginCreateResponse'
+        '401':
+          $ref: '#/components/responses/Error'
+        default:
+          $ref: '#/components/responses/Error'
+
+  /api/bilibili/login/qrcode/{login_id}:
+    get:
+      summary: Poll a Bilibili QR code login session.
+      operationId: pollBilibiliQRCodeLogin
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/BilibiliQRCodeLoginId'
+      responses:
+        '200':
+          description: Current QR code login state.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BilibiliQRCodeLoginPollResponse'
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+        default:
+          $ref: '#/components/responses/Error'
+
+  /api/bilibili/source/status:
+    get:
+      summary: Query the built-in Bilibili source status.
+      operationId: getBilibiliSourceStatus
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Current Bilibili source status.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BilibiliSourceStatusResponse'
+        '401':
+          $ref: '#/components/responses/Error'
+        default:
+          $ref: '#/components/responses/Error'
+
+  /api/bilibili/source/restart:
+    post:
+      summary: Restart the built-in Bilibili source.
+      operationId: restartBilibiliSource
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Restart accepted.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BilibiliSourceRestartResponse'
+        '401':
+          $ref: '#/components/responses/Error'
+        default:
+          $ref: '#/components/responses/Error'
+
   /api/webhooks/{plugin_id}/{route}:
     post:
       summary: Receive a controlled plugin webhook and enqueue a webhook.received event for the target plugin.
@@ -1559,6 +1705,26 @@ components:
       schema:
         type: string
         minLength: 1
+    ThirdPartyPlatform:
+      name: platform
+      in: path
+      required: true
+      schema:
+        $ref: '#/components/schemas/ThirdPartyPlatform'
+    ThirdPartyAccountId:
+      name: account_id
+      in: path
+      required: true
+      schema:
+        type: string
+        pattern: '^[a-z0-9](?:[a-z0-9_.-]{0,62}[a-z0-9])?$'
+    BilibiliQRCodeLoginId:
+      name: login_id
+      in: path
+      required: true
+      schema:
+        type: string
+        pattern: '^[a-z0-9](?:[a-z0-9_.-]{0,126}[a-z0-9])?$'
 
   responses:
     Error:
@@ -3107,6 +3273,232 @@ components:
         values:
           type: object
           additionalProperties: true
+
+    ThirdPartyPlatform:
+      type: string
+      enum: [bilibili]
+
+    ThirdPartyAccountSummary:
+      type: object
+      additionalProperties: false
+      required: [platform, account_id, label, enabled, configured, profile, credential, polling, updated_at]
+      properties:
+        platform:
+          $ref: '#/components/schemas/ThirdPartyPlatform'
+        account_id:
+          type: string
+          pattern: '^[a-z0-9](?:[a-z0-9_.-]{0,62}[a-z0-9])?$'
+        label:
+          type: string
+        enabled:
+          type: boolean
+        configured:
+          type: boolean
+        profile:
+          $ref: '#/components/schemas/ThirdPartyAccountProfile'
+        credential:
+          $ref: '#/components/schemas/ThirdPartyCredentialStatus'
+        polling:
+          $ref: '#/components/schemas/ThirdPartyAccountPollingStatus'
+        updated_at:
+          type: string
+          format: date-time
+
+    ThirdPartyAccountProfile:
+      type: object
+      nullable: true
+      additionalProperties: false
+      required: [uid, nickname, avatar_url]
+      properties:
+        uid:
+          type: string
+          pattern: '^[0-9]+$'
+        nickname:
+          type: string
+        avatar_url:
+          type: string
+
+    ThirdPartyCredentialState:
+      type: string
+      enum: [unknown, valid, invalid]
+
+    ThirdPartyCredentialStatus:
+      type: object
+      additionalProperties: false
+      required: [state, checked_at, last_error]
+      properties:
+        state:
+          $ref: '#/components/schemas/ThirdPartyCredentialState'
+        checked_at:
+          type: string
+          nullable: true
+          format: date-time
+        last_error:
+          type: string
+
+    ThirdPartyAccountPollingStatus:
+      type: object
+      additionalProperties: false
+      required: [enabled, last_used_at]
+      properties:
+        enabled:
+          type: boolean
+        last_used_at:
+          type: string
+          nullable: true
+          format: date-time
+
+    ThirdPartyAccountsResponse:
+      type: object
+      additionalProperties: false
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ThirdPartyAccountSummary'
+
+    ThirdPartyAccountUpsertRequest:
+      type: object
+      additionalProperties: false
+      required: [label, enabled]
+      properties:
+        label:
+          type: string
+        enabled:
+          type: boolean
+        cookie:
+          type: string
+          minLength: 1
+
+    ThirdPartyAccountUpsertResponse:
+      type: object
+      additionalProperties: false
+      required: [account]
+      properties:
+        account:
+          $ref: '#/components/schemas/ThirdPartyAccountSummary'
+
+    BilibiliQRCodeLoginState:
+      type: string
+      enum: [pending_scan, pending_confirm, expired, succeeded]
+
+    BilibiliQRCodeLoginCreateResponse:
+      type: object
+      additionalProperties: false
+      required: [login_id, qrcode_url, expires_at, state]
+      properties:
+        login_id:
+          type: string
+          pattern: '^[a-z0-9](?:[a-z0-9_.-]{0,126}[a-z0-9])?$'
+        qrcode_url:
+          type: string
+          minLength: 1
+        expires_at:
+          type: string
+          format: date-time
+        state:
+          $ref: '#/components/schemas/BilibiliQRCodeLoginState'
+
+    BilibiliQRCodeLoginPollResponse:
+      type: object
+      additionalProperties: false
+      required: [login_id, state, expires_at, cookie, account]
+      properties:
+        login_id:
+          type: string
+          pattern: '^[a-z0-9](?:[a-z0-9_.-]{0,126}[a-z0-9])?$'
+        state:
+          $ref: '#/components/schemas/BilibiliQRCodeLoginState'
+        expires_at:
+          type: string
+          format: date-time
+        cookie:
+          type: string
+          nullable: true
+        account:
+          $ref: '#/components/schemas/ThirdPartyAccountProfile'
+
+    BilibiliSourceState:
+      type: string
+      enum: [disabled, idle, connecting, connected, degraded, failed]
+
+    BilibiliSourceLiveStatus:
+      type: object
+      additionalProperties: false
+      required: [watched_rooms, connected_rooms, failed_rooms, fallback_polling, last_event_at, last_error]
+      properties:
+        watched_rooms:
+          type: integer
+          minimum: 0
+        connected_rooms:
+          type: integer
+          minimum: 0
+        failed_rooms:
+          type: integer
+          minimum: 0
+        fallback_polling:
+          type: boolean
+        last_event_at:
+          type: string
+          nullable: true
+          format: date-time
+        last_error:
+          type: string
+
+    BilibiliSourceDynamicStatus:
+      type: object
+      additionalProperties: false
+      required: [enabled, interval_seconds, watched_uids, auto_follow, last_poll_at, last_event_at, last_error]
+      properties:
+        enabled:
+          type: boolean
+        interval_seconds:
+          type: integer
+          minimum: 1
+        watched_uids:
+          type: integer
+          minimum: 0
+        auto_follow:
+          type: boolean
+        last_poll_at:
+          type: string
+          nullable: true
+          format: date-time
+        last_event_at:
+          type: string
+          nullable: true
+          format: date-time
+        last_error:
+          type: string
+
+    BilibiliSourceStatusResponse:
+      type: object
+      additionalProperties: false
+      required: [status, summary, live, dynamic, accounts]
+      properties:
+        status:
+          $ref: '#/components/schemas/BilibiliSourceState'
+        summary:
+          type: string
+        live:
+          $ref: '#/components/schemas/BilibiliSourceLiveStatus'
+        dynamic:
+          $ref: '#/components/schemas/BilibiliSourceDynamicStatus'
+        accounts:
+          type: array
+          items:
+            $ref: '#/components/schemas/ThirdPartyAccountSummary'
+
+    BilibiliSourceRestartResponse:
+      type: object
+      additionalProperties: false
+      required: [accepted, status]
+      properties:
+        accepted:
+          type: boolean
+        status:
+          $ref: '#/components/schemas/BilibiliSourceStatusResponse'
 
     PluginSecretValues:
       type: object

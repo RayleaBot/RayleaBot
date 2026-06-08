@@ -1,0 +1,48 @@
+contract: contracts/web-api.openapi.yaml
+case: ok
+description: Bilibili source restart returns the current source snapshot.
+request:
+  method: POST
+  path: /api/bilibili/source/restart
+response:
+  status: 200
+  body:
+    accepted: true
+    status:
+      status: connecting
+      summary: Bilibili 事件源正在连接
+      live:
+        watched_rooms: 2
+        connected_rooms: 0
+        failed_rooms: 0
+        fallback_polling: true
+        last_event_at: null
+        last_error: ""
+      dynamic:
+        enabled: true
+        interval_seconds: 10
+        watched_uids: 2
+        auto_follow: true
+        last_poll_at: null
+        last_event_at: null
+        last_error: ""
+      accounts:
+        - platform: bilibili
+          account_id: primary
+          label: 主账号
+          enabled: true
+          configured: true
+          profile:
+            uid: "123456"
+            nickname: 主账号昵称
+            avatar_url: "https://i0.hdslb.com/bfs/face/raylea.jpg"
+          credential:
+            state: valid
+            checked_at: "2026-06-08T08:00:01Z"
+            last_error: ""
+          polling:
+            enabled: true
+            last_used_at: "2026-06-08T08:10:05Z"
+          updated_at: "2026-06-08T08:00:00Z"
+expect:
+  valid: true

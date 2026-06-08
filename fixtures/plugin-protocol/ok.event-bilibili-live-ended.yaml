@@ -1,0 +1,43 @@
+contract: contracts/plugin-protocol.schema.json
+case: ok
+frames:
+  - protocol_version: "1"
+    type: event
+    timestamp: 1710000801
+    plugin_id: raylea.subscription-hub
+    request_id: evt_bilibili_live_ended_001
+    event:
+      event_id: bilibili-live-ended-123456-10001-1710000800
+      source_protocol: bilibili
+      source_adapter: bilibili.source
+      event_type: bilibili.live.ended
+      timestamp: 1710000800
+      payload:
+        bilibili:
+          kind: live
+          uid: "123456"
+          id: live-123456-10001-ended-1710000800
+          room_id: "10001"
+          service: live
+          title: 直播已结束
+          summary: 直播结束
+          url: "https://live.bilibili.com/10001"
+          pub_ts: 1710000800
+          created_at: "2024-03-09 16:13"
+          author:
+            uid: "123456"
+            name: 测试主播
+          live_status: 0
+          live_event: ended
+          status_label: 直播结束
+          live_detected_at: "2024-03-09 16:13"
+  - protocol_version: "1"
+    type: result
+    timestamp: 1710000802
+    plugin_id: raylea.subscription-hub
+    request_id: evt_bilibili_live_ended_001
+    status: success
+    data:
+      handled: true
+expect:
+  valid: true

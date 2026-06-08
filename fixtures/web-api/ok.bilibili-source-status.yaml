@@ -1,0 +1,46 @@
+contract: contracts/web-api.openapi.yaml
+case: ok
+description: Bilibili source status exposes live, dynamic, and account summaries.
+request:
+  method: GET
+  path: /api/bilibili/source/status
+response:
+  status: 200
+  body:
+    status: degraded
+    summary: Bilibili 事件源使用备用检查
+    live:
+      watched_rooms: 2
+      connected_rooms: 1
+      failed_rooms: 1
+      fallback_polling: true
+      last_event_at: "2026-06-08T08:10:00Z"
+      last_error: "直播间 20002 连接失败"
+    dynamic:
+      enabled: true
+      interval_seconds: 10
+      watched_uids: 2
+      auto_follow: true
+      last_poll_at: "2026-06-08T08:10:05Z"
+      last_event_at: "2026-06-08T08:09:58Z"
+      last_error: ""
+    accounts:
+      - platform: bilibili
+        account_id: primary
+        label: 主账号
+        enabled: true
+        configured: true
+        profile:
+          uid: "123456"
+          nickname: 主账号昵称
+          avatar_url: "https://i0.hdslb.com/bfs/face/raylea.jpg"
+        credential:
+          state: valid
+          checked_at: "2026-06-08T08:00:01Z"
+          last_error: ""
+        polling:
+          enabled: true
+          last_used_at: "2026-06-08T08:10:05Z"
+        updated_at: "2026-06-08T08:00:00Z"
+expect:
+  valid: true

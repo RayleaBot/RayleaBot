@@ -1,0 +1,46 @@
+contract: contracts/plugin-protocol.schema.json
+case: ok
+frames:
+  - protocol_version: "1"
+    type: event
+    timestamp: 1710000501
+    plugin_id: raylea.subscription-hub
+    request_id: evt_bilibili_live_started_001
+    event:
+      event_id: bilibili-live-started-123456-10001-1710000500
+      source_protocol: bilibili
+      source_adapter: bilibili.source
+      event_type: bilibili.live.started
+      timestamp: 1710000500
+      payload:
+        bilibili:
+          kind: live
+          uid: "123456"
+          id: live-123456-10001-1710000500
+          room_id: "10001"
+          service: live
+          title: 直播间已开播
+          summary: 直播中
+          url: "https://live.bilibili.com/10001"
+          pub_ts: 1710000500
+          created_at: "2024-03-09 16:08"
+          author:
+            uid: "123456"
+            name: 测试主播
+            avatar: "https://i0.hdslb.com/bfs/face/live.jpg"
+          images:
+            - url: "https://i0.hdslb.com/bfs/live/cover.jpg"
+          live_status: 1
+          live_event: started
+          status_label: 直播中
+          live_started_at: "2024-03-09 16:08"
+  - protocol_version: "1"
+    type: result
+    timestamp: 1710000502
+    plugin_id: raylea.subscription-hub
+    request_id: evt_bilibili_live_started_001
+    status: success
+    data:
+      handled: true
+expect:
+  valid: true
