@@ -93,7 +93,7 @@ body {
 
 .avatar--fallback {
   background: linear-gradient(135deg, var(--bili-pink), var(--bili-blue));
-  font-size: 22px;
+  font-size: 24px;
 }
 
 .author-text,
@@ -106,7 +106,7 @@ body {
 .author-text strong {
   max-width: 520px;
   color: #111318;
-  font-size: 20px;
+  font-size: 24px;
   font-weight: 800;
   line-height: 1.25;
   overflow: hidden;
@@ -116,7 +116,7 @@ body {
 
 .author-text strong em {
   color: var(--text-muted);
-  font-size: 15px;
+  font-size: 17px;
   font-style: normal;
   font-weight: 700;
 }
@@ -132,7 +132,7 @@ body {
 }
 
 .author-text span {
-  font-size: 13px;
+  font-size: 16px;
   line-height: 1.35;
 }
 
@@ -152,7 +152,7 @@ body {
   justify-content: center;
   min-height: 24px;
   border-radius: 999px;
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 800;
   line-height: 1;
   white-space: nowrap;
@@ -183,7 +183,7 @@ body {
   align-items: center;
   gap: 8px;
   min-width: 0;
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 700;
   line-height: 1.35;
 }
@@ -212,7 +212,7 @@ figure {
 
 h1 {
   color: #18191c;
-  font-size: 24px;
+  font-size: 29px;
   font-weight: 800;
   line-height: 1.34;
   letter-spacing: 0;
@@ -221,8 +221,8 @@ h1 {
 
 .dynamic-text {
   color: #2f3338;
-  font-size: 17px;
-  line-height: 1.68;
+  font-size: 20px;
+  line-height: 1.64;
   overflow-wrap: anywhere;
   white-space: pre-line;
 }
@@ -370,7 +370,7 @@ h1 {
   border-radius: 999px;
   background: rgba(0, 0, 0, 0.62);
   color: #ffffff;
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 800;
   line-height: 1;
   white-space: nowrap;
@@ -387,7 +387,7 @@ h1 {
   background: linear-gradient(180deg, rgba(20, 22, 26, 0.82), rgba(5, 6, 8, 0.72));
   box-shadow: 0 8px 18px rgba(0, 0, 0, 0.28);
   color: #ffffff;
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 900;
   line-height: 1;
   text-align: center;
@@ -429,13 +429,13 @@ h1 {
 .repost-avatar--fallback {
   background: #ccd3dd;
   color: #ffffff;
-  font-size: 13px;
+  font-size: 14px;
 }
 
 .repost-author strong {
   max-width: 500px;
   color: #33373d;
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 800;
   line-height: 1.25;
   overflow: hidden;
@@ -444,13 +444,13 @@ h1 {
 }
 
 .repost-author span {
-  font-size: 12px;
+  font-size: 14px;
   line-height: 1.25;
 }
 
 .repost-card h2 {
   color: #2f3338;
-  font-size: 18px;
+  font-size: 21px;
   font-weight: 800;
   line-height: 1.38;
   overflow-wrap: anywhere;
@@ -459,8 +459,8 @@ h1 {
 .repost-card p,
 .repost-summary {
   color: #4b5158;
-  font-size: 15px;
-  line-height: 1.62;
+  font-size: 18px;
+  line-height: 1.56;
   overflow-wrap: anywhere;
   white-space: pre-line;
 }
@@ -491,7 +491,7 @@ h1 {
 .inline-link,
 .footer-link {
   overflow-wrap: anywhere;
-  font-size: 12px;
+  font-size: 15px;
   line-height: 1.45;
 }
 
@@ -515,7 +515,7 @@ h1 {
 }
 
 .subscriber-panel__label {
-  font-size: 12px;
+  font-size: 15px;
   font-weight: 800;
   line-height: 1.2;
 }
@@ -556,7 +556,7 @@ h1 {
   overflow: hidden;
   color: #ffffff;
   background: linear-gradient(135deg, var(--bili-pink), var(--bili-blue));
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 900;
   line-height: 1;
   text-align: center;
@@ -581,7 +581,7 @@ h1 {
   max-width: 220px;
   overflow: hidden;
   color: #33373d;
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 900;
   line-height: 1.2;
   text-overflow: ellipsis;
@@ -590,7 +590,7 @@ h1 {
 
 .subscriber-name-row em {
   flex: 0 0 auto;
-  font-size: 12px;
+  font-size: 14px;
   font-style: normal;
   font-weight: 700;
   line-height: 1.2;
@@ -603,7 +603,7 @@ h1 {
   min-height: 18px;
   padding: 0 7px;
   border-radius: 999px;
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 800;
   line-height: 1;
   white-space: nowrap;
@@ -641,7 +641,7 @@ h1 {
 
 .subscriber-text-fallback {
   color: #33373d;
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 900;
 }
 
