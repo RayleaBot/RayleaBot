@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, reactive } from 'vue'
+import { computed, onMounted, onUnmounted, reactive, ref } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useRouter } from 'vue-router'
 import {
+  CaretDownOutlined,
   FieldTimeOutlined,
   ReloadOutlined,
   SyncOutlined,
@@ -44,6 +45,7 @@ const {
 
 const avatarLoadFailures = reactive<Record<string, boolean>>({})
 const coverLoadFailures = reactive<Record<string, boolean>>({})
+const diagnosisExpanded = ref(false)
 
 const platformOptions = computed<PlatformOption[]>(() => [
   { label: 'Bilibili', value: 'bilibili' },
@@ -69,6 +71,11 @@ const watchedUIDs = computed(() => items.value.map((item) => item.uid))
 const liveCount = computed(() => items.value.filter((item) => item.live.is_live).length)
 const dynamicCount = computed(() => items.value.filter((item) => item.dynamic).length)
 const accountCount = computed(() => bilibiliStatus.value?.accounts.length ?? 0)
+const hasDiagnosisDetail = computed(() =>
+  (diagnosis.value?.causes.length ?? 0) > 0 ||
+  (diagnosis.value?.impacts.length ?? 0) > 0 ||
+  (diagnosis.value?.actions.length ?? 0) > 0,
+)
 
 useToastFeedback(pageErrorToast)
 
@@ -103,6 +110,10 @@ function handlePlatformChange(value: string | number) {
   }
   platform.value = 'bilibili'
   void loadPage()
+}
+
+function toggleDiagnosis() {
+  diagnosisExpanded.value = !diagnosisExpanded.value
 }
 
 function sourceStatusMeta(value?: BilibiliSourceStatusResponse['status']) {
@@ -158,10 +169,6 @@ function dynamicMetricText() {
     return t('builtinFeatures.thirdPartyMonitoring.dynamicErrorMetric')
   }
   return t('builtinFeatures.thirdPartyMonitoring.lastPoll', { time: displayTime(dynamic.last_poll_at) })
-}
-
-function accountMetricText() {
-  return t('builtinFeatures.thirdPartyMonitoring.accountSummary', { count: accountCount.value })
 }
 
 function causeRetryText(value?: string | null) {
@@ -263,124 +270,132 @@ function coverFailed(uid: string) {
     />
 
     <div v-else class="third-party-monitoring">
-      <section :class="['monitoring-overview', `monitoring-overview--${statusTone}`]">
-        <div class="monitoring-overview__top">
-          <div class="platform-switch">
-            <span>{{ t('builtinFeatures.thirdPartyMonitoring.platform') }}</span>
-            <a-segmented
-              :value="platform"
-              :options="platformOptions"
-              @change="handlePlatformChange"
-            />
+      <!-- Slim status strip -->
+      <section :class="['monitoring-strip', `monitoring-strip--${statusTone}`]">
+        <div class="monitoring-strip__row">
+          <div class="monitoring-strip__left">
+            <span class="monitoring-strip__dot" :class="`monitoring-strip__dot--${statusTag.color}`" />
+            <span class="monitoring-strip__label">{{ statusTag.label }}</span>
+            <span class="monitoring-strip__summary">
+              {{ diagnosis?.headline || bilibiliStatus?.summary || t('builtinFeatures.thirdPartyMonitoring.sourceWaiting') }}
+            </span>
           </div>
-
-          <div class="status-summary">
-            <div>
-              <span class="status-title">{{ t('builtinFeatures.thirdPartyMonitoring.sourceTitle') }}</span>
-              <h2>{{ diagnosis?.headline || bilibiliStatus?.summary || t('builtinFeatures.thirdPartyMonitoring.sourceWaiting') }}</h2>
-              <p>{{ diagnosis?.description || t('builtinFeatures.thirdPartyMonitoring.sourceWaiting') }}</p>
-              <small>{{ t('builtinFeatures.thirdPartyMonitoring.updatedAt', { time: displayTime(diagnosis?.updated_at ?? monitors?.updated_at) }) }}</small>
-            </div>
-            <a-tag :color="statusTag.color">{{ statusTag.label }}</a-tag>
-          </div>
-
-          <div class="diagnosis-actions">
-            <a-button v-if="openAccountsAction" type="primary" @click="openBilibiliAccounts">
-              {{ openAccountsAction.label }}
-            </a-button>
-            <a-button :loading="loading" @click="loadPage">
-              <template #icon><ReloadOutlined /></template>
-              {{ t('builtinFeatures.thirdPartyMonitoring.refresh') }}
-            </a-button>
-            <a-button :loading="restarting" @click="restartSource">
-              <template #icon><SyncOutlined /></template>
-              {{ t('builtinFeatures.thirdPartyMonitoring.restartSource') }}
+          <div class="monitoring-strip__right">
+            <span class="monitoring-strip__counts">
+              <span>{{ accountCount }} CK</span>
+              <span class="monitoring-strip__sep">·</span>
+              <span>{{ liveCount }}/{{ bilibiliStatus?.live.watched_rooms ?? watchedUIDs.length }} {{ t('builtinFeatures.thirdPartyMonitoring.liveMetric') }}</span>
+              <span class="monitoring-strip__sep">·</span>
+              <span>{{ dynamicCount }}/{{ bilibiliStatus?.dynamic.watched_uids ?? watchedUIDs.length }} {{ t('builtinFeatures.thirdPartyMonitoring.dynamicMetric') }}</span>
+            </span>
+            <a-button
+              v-if="hasDiagnosisDetail"
+              type="text"
+              size="small"
+              :class="['monitoring-strip__toggle', { 'is-expanded': diagnosisExpanded }]"
+              @click="toggleDiagnosis"
+            >
+              <CaretDownOutlined />
             </a-button>
           </div>
         </div>
 
-        <div class="diagnosis-grid">
-          <div class="diagnosis-column">
-            <span>{{ t('builtinFeatures.thirdPartyMonitoring.diagnosisCause') }}</span>
-            <div v-if="diagnosis?.causes.length" class="diagnosis-list">
-              <article v-for="cause in diagnosis.causes" :key="`${cause.scope}:${cause.code}:${cause.title}`">
+        <!-- Expandable diagnosis detail -->
+        <div :class="['monitoring-strip__detail', { 'is-open': diagnosisExpanded }]">
+          <div class="monitoring-strip__detail-inner">
+            <div v-if="diagnosis?.causes.length" class="diagnosis-chips">
+              <span class="diagnosis-chips__label">{{ t('builtinFeatures.thirdPartyMonitoring.diagnosisCause') }}</span>
+              <article v-for="cause in diagnosis.causes" :key="`${cause.scope}:${cause.code}`" class="diagnosis-chip">
                 <strong>{{ cause.title }}</strong>
                 <p>{{ cause.detail }}</p>
-                <small v-if="causeRetryText(cause.retry_at)">{{ causeRetryText(cause.retry_at) }}</small>
-                <small v-if="cause.last_error">{{ cause.last_error }}</small>
               </article>
             </div>
-            <p v-else>{{ t('builtinFeatures.thirdPartyMonitoring.noDiagnosisCause') }}</p>
+            <div v-if="diagnosis?.impacts.length" class="diagnosis-chips">
+              <span class="diagnosis-chips__label">{{ t('builtinFeatures.thirdPartyMonitoring.diagnosisImpact') }}</span>
+              <span v-for="impact in diagnosis.impacts" :key="impact" class="diagnosis-chip diagnosis-chip--inline">{{ impact }}</span>
+            </div>
+            <div v-if="diagnosisActions.length" class="diagnosis-chips">
+              <span class="diagnosis-chips__label">{{ t('builtinFeatures.thirdPartyMonitoring.diagnosisAction') }}</span>
+              <span v-for="action in diagnosisActions" :key="`${action.kind}:${action.label}`" class="diagnosis-chip diagnosis-chip--inline">{{ action.label }}</span>
+            </div>
+            <div v-if="openAccountsAction" class="diagnosis-chips__actions">
+              <a-button type="primary" size="small" @click="openBilibiliAccounts">
+                {{ openAccountsAction.label }}
+              </a-button>
+            </div>
           </div>
-
-          <div class="diagnosis-column">
-            <span>{{ t('builtinFeatures.thirdPartyMonitoring.diagnosisImpact') }}</span>
-            <ul v-if="diagnosis?.impacts.length" class="diagnosis-points">
-              <li v-for="impact in diagnosis.impacts" :key="impact">{{ impact }}</li>
-            </ul>
-            <p v-else>{{ t('builtinFeatures.thirdPartyMonitoring.noDiagnosisImpact') }}</p>
-          </div>
-
-          <div class="diagnosis-column">
-            <span>{{ t('builtinFeatures.thirdPartyMonitoring.diagnosisAction') }}</span>
-            <ul v-if="diagnosis?.actions.length" class="diagnosis-points">
-              <li v-for="action in diagnosis.actions" :key="`${action.kind}:${action.label}`">{{ action.label }}</li>
-            </ul>
-            <p v-else>{{ t('builtinFeatures.thirdPartyMonitoring.noDiagnosisAction') }}</p>
-          </div>
-        </div>
-
-        <div class="monitoring-metrics">
-          <div class="monitoring-metric">
-            <span>{{ t('builtinFeatures.thirdPartyMonitoring.accountMetric') }}</span>
-            <strong>{{ accountCount }}</strong>
-            <small>{{ accountMetricText() }}</small>
-          </div>
-          <div class="monitoring-metric">
-            <span>{{ t('builtinFeatures.thirdPartyMonitoring.liveMetric') }}</span>
-            <strong>{{ liveCount }}/{{ bilibiliStatus?.live.watched_rooms ?? watchedUIDs.length }}</strong>
-            <small>{{ liveMetricText() }}</small>
-          </div>
-          <div class="monitoring-metric">
-            <span>{{ t('builtinFeatures.thirdPartyMonitoring.dynamicMetric') }}</span>
-            <strong>{{ dynamicCount }}/{{ bilibiliStatus?.dynamic.watched_uids ?? watchedUIDs.length }}</strong>
-            <small>{{ dynamicMetricText() }}</small>
-          </div>
-        </div>
-
-        <div class="uid-panel">
-          <span>{{ t('builtinFeatures.thirdPartyMonitoring.uidList') }}</span>
-          <div v-if="watchedUIDs.length" class="uid-list">
-            <a-tag v-for="uid in watchedUIDs" :key="uid">UID {{ uid }}</a-tag>
-          </div>
-          <span v-else class="uid-empty">{{ t('builtinFeatures.thirdPartyMonitoring.noUIDs') }}</span>
         </div>
       </section>
 
-      <a-empty
-        v-if="!items.length"
-        :description="t('builtinFeatures.thirdPartyMonitoring.empty')"
-        class="monitoring-empty"
-      />
+      <!-- UID tag flow -->
+      <div v-if="watchedUIDs.length" class="uid-strip">
+        <span class="uid-strip__label">{{ t('builtinFeatures.thirdPartyMonitoring.uidList') }}</span>
+        <div class="uid-strip__tags">
+          <a-tag v-for="uid in watchedUIDs" :key="uid" size="small">UID {{ uid }}</a-tag>
+        </div>
+      </div>
 
+      <!-- Empty state -->
+      <div v-if="!items.length" class="monitoring-empty">
+        <div class="monitoring-empty__inner">
+          <FieldTimeOutlined class="monitoring-empty__icon" />
+          <p>{{ t('builtinFeatures.thirdPartyMonitoring.empty') }}</p>
+          <a-button v-if="openAccountsAction" type="primary" @click="openBilibiliAccounts">
+            {{ openAccountsAction.label }}
+          </a-button>
+        </div>
+      </div>
+
+      <!-- Monitor cards -->
       <section v-else class="monitor-card-grid">
         <article v-for="item in items" :key="item.uid" class="monitor-card">
-          <div class="monitor-card__media">
-            <img
+          <!-- Landscape cover with gaussian blur transition -->
+          <div class="monitor-card__cover-wrap">
+            <div
               v-if="mainImage(item) && !coverLoadFailures[item.uid]"
-              :src="mainImage(item)"
-              :alt="roomName(item)"
-              @error="coverFailed(item.uid)"
+              class="monitor-card__cover"
             >
-            <div v-else class="monitor-card__media-fallback">
-              <FieldTimeOutlined />
+              <img
+                :src="mainImage(item)"
+                :alt="roomName(item)"
+                class="monitor-card__cover-img"
+                @error="coverFailed(item.uid)"
+              >
+              <!-- Blurred extension layer -->
+              <div class="monitor-card__cover-blur" aria-hidden="true">
+                <img
+                  :src="mainImage(item)"
+                  alt=""
+                  class="monitor-card__cover-blur-img"
+                >
+              </div>
+              <!-- Live info overlay on blurred zone -->
+              <div class="monitor-card__cover-info">
+                <a-tag :color="liveTag(item).color" size="small">{{ liveTag(item).label }}</a-tag>
+                <h3 class="monitor-card__cover-room-name">
+                  <a
+                    v-if="item.live.room_url"
+                    :href="item.live.room_url"
+                    target="_blank"
+                    rel="noreferrer"
+                  >{{ roomName(item) }}</a>
+                  <span v-else>{{ roomName(item) }}</span>
+                </h3>
+                <span class="monitor-card__cover-room-id">房间 {{ item.live.room_id || '—' }}</span>
+              </div>
             </div>
-            <a-tag class="monitor-card__live-tag" :color="liveTag(item).color">{{ liveTag(item).label }}</a-tag>
+            <div v-else class="monitor-card__cover monitor-card__cover--fallback">
+              <div class="monitor-card__cover-fb-inner">
+                <FieldTimeOutlined />
+                <span>{{ t('builtinFeatures.thirdPartyMonitoring.noRoomName') }}</span>
+              </div>
+            </div>
           </div>
 
+          <!-- Card body -->
           <div class="monitor-card__body">
             <div class="monitor-card__identity">
-              <a-avatar :size="48" class="monitor-avatar">
+              <a-avatar :size="40" class="monitor-avatar">
                 <img
                   v-if="item.avatar_url && !avatarLoadFailures[item.uid]"
                   class="monitor-avatar__image"
@@ -394,50 +409,34 @@ function coverFailed(uid: string) {
                 >
                 <UserOutlined v-else />
               </a-avatar>
-              <div>
+              <div class="monitor-card__identity-text">
                 <strong>{{ item.username || item.uid }}</strong>
                 <span>UID {{ item.uid }}</span>
               </div>
+              <div class="monitor-card__services">
+                <a-tag v-for="service in item.services" :key="service" size="small">{{ serviceLabel(service) }}</a-tag>
+              </div>
             </div>
 
-            <div class="monitor-card__services">
-              <a-tag v-for="service in item.services" :key="service">{{ serviceLabel(service) }}</a-tag>
-            </div>
-
-            <div class="monitor-card__dynamic">
-              <span>{{ t('builtinFeatures.thirdPartyMonitoring.dynamicTitle') }}</span>
+            <!-- Dynamic -->
+            <div v-if="item.dynamic" class="monitor-card__dynamic">
+              <span class="monitor-card__dynamic-label">{{ t('builtinFeatures.thirdPartyMonitoring.dynamicTitle') }}</span>
               <a
-                v-if="item.dynamic?.url"
+                v-if="item.dynamic.url"
                 :href="item.dynamic.url"
                 target="_blank"
                 rel="noreferrer"
+                class="monitor-card__dynamic-link"
               >
                 {{ dynamicTitle(item) }}
               </a>
-              <strong v-else>{{ dynamicTitle(item) }}</strong>
-              <p>{{ dynamicSummary(item) }}</p>
-              <small>{{ displayTime(item.dynamic?.published_at ?? item.dynamic?.observed_at) }}</small>
+              <strong v-else class="monitor-card__dynamic-title">{{ dynamicTitle(item) }}</strong>
+              <p class="monitor-card__dynamic-summary">{{ dynamicSummary(item) }}</p>
+              <small class="monitor-card__dynamic-time">{{ displayTime(item.dynamic.published_at ?? item.dynamic.observed_at) }}</small>
             </div>
 
+            <!-- Live facts -->
             <dl class="monitor-card__facts">
-              <div>
-                <dt>{{ t('builtinFeatures.thirdPartyMonitoring.roomName') }}</dt>
-                <dd>
-                  <a
-                    v-if="item.live.room_url"
-                    :href="item.live.room_url"
-                    target="_blank"
-                    rel="noreferrer"
-                  >
-                    {{ roomName(item) }}
-                  </a>
-                  <span v-else>{{ roomName(item) }}</span>
-                </dd>
-              </div>
-              <div>
-                <dt>{{ t('builtinFeatures.thirdPartyMonitoring.roomId') }}</dt>
-                <dd>{{ item.live.room_id || t('display.empty') }}</dd>
-              </div>
               <div>
                 <dt>{{ t('builtinFeatures.thirdPartyMonitoring.startedAt') }}</dt>
                 <dd>{{ liveStartedText(item) }}</dd>
@@ -456,6 +455,7 @@ function coverFailed(uid: string) {
               </div>
             </dl>
 
+            <!-- Live error -->
             <p v-if="visibleLiveError(item)" class="monitor-card__error">
               {{ visibleLiveError(item) }}
             </p>
@@ -467,348 +467,426 @@ function coverFailed(uid: string) {
 </template>
 
 <style scoped lang="scss">
-.monitoring-actions,
-.platform-switch,
-.status-summary,
-.diagnosis-actions,
-.uid-panel,
-.uid-list,
-.monitor-card__identity,
-.monitor-card__services {
+/* ── Actions bar ── */
+.monitoring-actions {
   display: flex;
+  justify-content: flex-end;
   align-items: center;
   gap: var(--space-sm);
-}
-
-.monitoring-actions {
-  justify-content: flex-end;
   flex-wrap: wrap;
 }
 
+/* ── Page grid ── */
 .third-party-monitoring {
-  display: grid;
-  gap: var(--space-lg);
-  min-width: 0;
-}
-
-.monitoring-overview {
   display: grid;
   gap: var(--space-md);
   min-width: 0;
-  padding: var(--space-lg);
+}
+
+/* ── Slim status strip ── */
+.monitoring-strip {
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   background: var(--surface-strong);
   box-shadow: var(--shadow-card);
-}
-
-.monitoring-overview--warning {
-  border-color: color-mix(in srgb, #d97706 42%, var(--border));
-  background: color-mix(in srgb, #f59e0b 4%, var(--surface-strong));
-}
-
-.monitoring-overview--danger {
-  border-color: color-mix(in srgb, #dc2626 42%, var(--border));
-  background: color-mix(in srgb, #ef4444 4%, var(--surface-strong));
-}
-
-.monitoring-overview--success {
-  border-color: color-mix(in srgb, #16a34a 24%, var(--border));
-}
-
-.monitoring-overview__top {
-  display: grid;
-  grid-template-columns: minmax(180px, 0.85fr) minmax(320px, 2fr) auto;
-  gap: var(--space-md);
-  align-items: stretch;
-  min-width: 0;
-}
-
-.platform-switch,
-.status-summary {
-  min-width: 0;
-  padding: var(--space-md);
-  border: 1px solid color-mix(in srgb, var(--border) 72%, transparent);
-  border-radius: var(--radius-md);
-  background: var(--surface-soft);
-}
-
-.platform-switch {
-  flex-direction: column;
-  align-items: flex-start;
-  justify-content: center;
-}
-
-.platform-switch > span,
-.status-title,
-.diagnosis-column > span,
-.uid-panel > span:first-child,
-.monitoring-metric span,
-.monitor-card__dynamic span,
-.monitor-card__facts dt {
-  color: var(--muted);
-  font-size: 0.76rem;
-}
-
-.status-summary {
-  justify-content: space-between;
-  align-items: flex-start;
-}
-
-.status-summary > div {
-  min-width: 0;
-}
-
-.status-title {
-  display: block;
-}
-
-.status-summary h2 {
-  margin: 4px 0 0;
-  color: var(--text);
-  font-size: 1.05rem;
-  font-weight: 700;
-  line-height: 1.35;
-}
-
-.status-summary p {
-  max-width: 72ch;
-  margin: 5px 0 0;
-  color: var(--muted);
-  font-size: 0.86rem;
-  line-height: 1.55;
-}
-
-.status-summary small {
-  display: block;
-  margin-top: 5px;
-  color: var(--muted);
-  font-size: 0.74rem;
-}
-
-.diagnosis-actions {
-  justify-content: flex-end;
-  align-content: center;
-  align-items: center;
-  flex-wrap: wrap;
-  min-width: 220px;
-}
-
-.diagnosis-grid {
-  display: grid;
-  grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr) minmax(0, 0.85fr);
-  gap: var(--space-sm);
-  min-width: 0;
-}
-
-.diagnosis-column,
-.uid-panel {
-  min-width: 0;
-  padding: var(--space-md);
-  border: 1px solid color-mix(in srgb, var(--border) 72%, transparent);
-  border-radius: var(--radius-md);
-  background: var(--surface-soft);
-}
-
-.diagnosis-column {
-  display: grid;
-  align-content: start;
-  gap: var(--space-sm);
-}
-
-.diagnosis-column p,
-.diagnosis-points {
-  margin: 0;
-  color: var(--muted);
-  font-size: 0.82rem;
-  line-height: 1.5;
-}
-
-.diagnosis-list {
-  display: grid;
-  gap: var(--space-sm);
-  min-width: 0;
-}
-
-.diagnosis-list article {
-  display: grid;
-  gap: 3px;
-  min-width: 0;
-}
-
-.diagnosis-list strong {
-  color: var(--text);
-  font-size: 0.9rem;
-  font-weight: 650;
-}
-
-.diagnosis-list small {
-  color: var(--muted);
-  font-size: 0.74rem;
-  overflow-wrap: anywhere;
-}
-
-.diagnosis-points {
-  display: grid;
-  gap: 5px;
-  padding-left: 1.05rem;
-}
-
-.monitoring-metrics {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: var(--space-sm);
-  min-width: 0;
-}
-
-.monitoring-metric {
-  min-width: 0;
-  padding: var(--space-md);
-  border: 1px solid color-mix(in srgb, var(--border) 72%, transparent);
-  border-radius: var(--radius-md);
-  background: var(--surface-soft);
-}
-
-.monitoring-metric strong {
-  display: block;
-  margin-top: 2px;
   overflow: hidden;
-  color: var(--text);
-  font-size: 1.25rem;
-  font-weight: 700;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
-.monitoring-metric small {
-  display: block;
-  margin-top: 3px;
-  overflow: hidden;
-  color: var(--muted);
-  font-size: 0.76rem;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+.monitoring-strip--warning {
+  border-color: color-mix(in srgb, var(--warning) 38%, var(--border));
+  background: color-mix(in srgb, var(--warning) 3%, var(--surface-strong));
 }
 
-.uid-panel {
+.monitoring-strip--danger {
+  border-color: color-mix(in srgb, var(--danger) 38%, var(--border));
+  background: color-mix(in srgb, var(--danger) 3%, var(--surface-strong));
+}
+
+.monitoring-strip__row {
   display: flex;
-  justify-content: space-between;
   align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  padding: 10px var(--space-md);
+  min-height: 44px;
 }
 
-.uid-list {
-  flex-wrap: wrap;
-  justify-content: flex-end;
+.monitoring-strip__left {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.monitoring-strip__right {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  flex: 0 0 auto;
   min-width: 0;
 }
 
-.uid-list :deep(.ant-tag) {
+.monitoring-strip__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex: 0 0 auto;
+  background: var(--muted);
+
+  &--green  { background: var(--success); }
+  &--blue   { background: var(--accent); }
+  &--orange { background: var(--warning); }
+  &--red    { background: var(--danger); }
+  &--default { background: var(--muted); }
+}
+
+.monitoring-strip__label {
+  font-weight: 650;
+  font-size: 0.88rem;
+  color: var(--text);
+  flex: 0 0 auto;
+}
+
+.monitoring-strip__summary {
+  color: var(--muted);
+  font-size: 0.84rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.monitoring-strip__counts {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.monitoring-strip__sep {
+  color: color-mix(in srgb, var(--muted) 36%, transparent);
+}
+
+.monitoring-strip__toggle {
+  color: var(--muted);
+  transition: transform 0.25s ease;
+  flex: 0 0 auto;
+
+  &.is-expanded {
+    transform: rotate(180deg);
+  }
+}
+
+/* Expandable detail */
+.monitoring-strip__detail {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 0.28s ease;
+
+  &.is-open {
+    grid-template-rows: 1fr;
+  }
+}
+
+.monitoring-strip__detail-inner {
+  overflow: hidden;
+  display: grid;
+  gap: var(--space-sm);
+  padding: 0 var(--space-md) var(--space-md);
+}
+
+.diagnosis-chips {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-sm);
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+.diagnosis-chips__label {
+  color: var(--muted);
+  font-size: 0.74rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding-top: 3px;
+  flex: 0 0 auto;
+}
+
+.diagnosis-chip {
+  padding: 6px 10px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-soft);
+  border: 1px solid color-mix(in srgb, var(--border) 72%, transparent);
+  min-width: 0;
+
+  strong {
+    display: block;
+    color: var(--text);
+    font-size: 0.84rem;
+    font-weight: 650;
+  }
+
+  p {
+    margin: 2px 0 0;
+    color: var(--muted);
+    font-size: 0.78rem;
+    line-height: 1.45;
+  }
+}
+
+.diagnosis-chip--inline {
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.diagnosis-chips__actions {
+  padding-top: 2px;
+}
+
+/* ── UID strip ── */
+.uid-strip {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  min-width: 0;
+}
+
+.uid-strip__label {
+  color: var(--muted);
+  font-size: 0.76rem;
+  flex: 0 0 auto;
+}
+
+.uid-strip__tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  min-width: 0;
+}
+
+.uid-strip__tags :deep(.ant-tag) {
   margin-inline-end: 0;
 }
 
-.uid-empty {
-  color: var(--muted);
-}
-
+/* ── Empty state ── */
 .monitoring-empty {
-  padding: var(--space-2xl);
+  display: grid;
+  place-items: center;
+  padding: var(--space-2xl) var(--space-lg);
   border: 1px dashed var(--border);
   border-radius: var(--radius-lg);
   background: var(--surface-strong);
 }
 
+.monitoring-empty__inner {
+  display: grid;
+  justify-items: center;
+  gap: var(--space-md);
+  text-align: center;
+}
+
+.monitoring-empty__icon {
+  font-size: 2rem;
+  color: var(--muted);
+}
+
+.monitoring-empty__inner p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.92rem;
+}
+
+/* ── Card grid ── */
 .monitor-card-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(min(100%, 420px), 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 480px), 1fr));
   gap: var(--space-md);
   align-items: start;
 }
 
+/* ── Monitor card ── */
 .monitor-card {
   display: grid;
-  grid-template-columns: minmax(152px, 0.42fr) minmax(0, 1fr);
   min-width: 0;
   overflow: hidden;
   border: 1px solid var(--border);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-lg);
   background: var(--surface-strong);
   box-shadow: var(--shadow-card);
+  transition: transform 0.22s ease, box-shadow 0.22s ease, border-color 0.22s ease;
+
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-elevated);
+    border-color: var(--border-strong);
+  }
 }
 
-.monitor-card__media {
+/* ── Cover area ── */
+.monitor-card__cover-wrap {
   position: relative;
-  min-height: 210px;
+  min-width: 0;
+}
+
+.monitor-card__cover {
+  position: relative;
+  display: grid;
+  aspect-ratio: 16 / 9;
   overflow: hidden;
-  background: color-mix(in srgb, var(--text-accent) 8%, var(--surface-soft));
+  background: color-mix(in srgb, var(--accent) 8%, var(--surface-soft));
 }
 
-.monitor-card__media img {
+.monitor-card__cover-img {
   width: 100%;
   height: 100%;
-  min-height: 210px;
   object-fit: cover;
+  transition: transform 0.4s ease;
+
+  .monitor-card:hover & {
+    transform: scale(1.04);
+  }
 }
 
-.monitor-card__media-fallback {
-  display: grid;
-  place-items: center;
+/* Gaussian blur extension layer */
+.monitor-card__cover-blur {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+}
+
+.monitor-card__cover-blur-img {
   width: 100%;
   height: 100%;
-  min-height: 210px;
-  color: var(--muted);
-  font-size: 1.6rem;
+  object-fit: cover;
+  filter: blur(18px) saturate(1.3);
+  opacity: 0.52;
+  transform: scale(1.08);
+  mask-image: linear-gradient(to bottom, transparent 60%, rgba(0,0,0,0.85) 78%, rgba(0,0,0,1) 100%);
+  -webkit-mask-image: linear-gradient(to bottom, transparent 60%, rgba(0,0,0,0.85) 78%, rgba(0,0,0,1) 100%);
 }
 
-.monitor-card__live-tag {
+/* Live info overlay */
+.monitor-card__cover-info {
   position: absolute;
-  top: var(--space-sm);
-  left: var(--space-sm);
+  z-index: 2;
+  inset: auto 0 0;
+  padding: 28px var(--space-md) var(--space-md);
+  display: grid;
+  gap: 4px;
+  background: linear-gradient(to top, rgba(0,0,0,0.62) 0%, rgba(0,0,0,0.28) 50%, transparent 100%);
+}
+
+.monitor-card__cover-info :deep(.ant-tag) {
   margin-inline-end: 0;
-  box-shadow: var(--shadow-card);
+  justify-self: start;
+  backdrop-filter: blur(6px);
 }
 
-.monitor-card__body {
-  display: grid;
-  gap: var(--space-md);
-  min-width: 0;
-  padding: var(--space-md);
-}
-
-.monitor-card__identity {
-  min-width: 0;
-}
-
-.monitor-card__identity > div {
-  display: grid;
-  min-width: 0;
-}
-
-.monitor-card__identity strong,
-.monitor-card__identity span,
-.monitor-card__facts dd,
-.monitor-card__dynamic a,
-.monitor-card__dynamic strong,
-.monitor-card__dynamic small {
+.monitor-card__cover-room-name {
+  margin: 0;
+  font-size: 0.96rem;
+  font-weight: 700;
+  line-height: 1.3;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  color: #fff;
+  text-shadow: 0 1px 3px rgba(0,0,0,0.5);
+
+  a {
+    color: inherit;
+
+    &:hover {
+      text-decoration: underline;
+    }
+  }
 }
 
-.monitor-card__identity strong {
-  color: var(--text);
-  font-size: 1rem;
-  font-weight: 700;
+.monitor-card__cover-room-id {
+  color: rgba(255,255,255,0.78);
+  font-size: 0.76rem;
+  font-variant-numeric: tabular-nums;
 }
 
-.monitor-card__identity span {
+/* Cover fallback */
+.monitor-card__cover--fallback {
+  display: grid;
+  place-items: center;
+}
+
+.monitor-card__cover-fb-inner {
+  display: grid;
+  justify-items: center;
+  gap: var(--space-sm);
   color: var(--muted);
-  font-size: 0.78rem;
+  font-size: 1.6rem;
+
+  span {
+    font-size: 0.84rem;
+    font-family: var(--font-sans);
+  }
+}
+
+/* ── Card body ── */
+.monitor-card__body {
+  display: grid;
+  gap: var(--space-md);
+  padding: var(--space-md);
+  min-width: 0;
+}
+
+.monitor-card__identity {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  min-width: 0;
+}
+
+.monitor-card__identity-text {
+  display: grid;
+  min-width: 0;
+  flex: 1 1 auto;
+
+  strong {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--text);
+    font-size: 0.94rem;
+    font-weight: 700;
+  }
+
+  span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--muted);
+    font-size: 0.74rem;
+  }
+}
+
+.monitor-card__services {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+  flex: 0 0 auto;
+
+  :deep(.ant-tag) {
+    margin-inline-end: 0;
+  }
 }
 
 .monitor-avatar {
   flex: 0 0 auto;
-  background: color-mix(in srgb, var(--text-accent) 16%, var(--surface-soft));
-  color: var(--text-accent);
+  background: color-mix(in srgb, var(--accent) 16%, var(--surface-soft));
+  color: var(--accent);
 }
 
 .monitor-avatar :deep(.ant-avatar-string) {
@@ -828,14 +906,7 @@ function coverFailed(uid: string) {
   object-fit: cover;
 }
 
-.monitor-card__services {
-  flex-wrap: wrap;
-}
-
-.monitor-card__services :deep(.ant-tag) {
-  margin-inline-end: 0;
-}
-
+/* Dynamic */
 .monitor-card__dynamic {
   display: grid;
   gap: 3px;
@@ -846,28 +917,38 @@ function coverFailed(uid: string) {
   background: var(--surface-soft);
 }
 
-.monitor-card__dynamic a,
-.monitor-card__dynamic strong {
-  color: var(--text);
-  font-weight: 650;
+.monitor-card__dynamic-label {
+  color: var(--muted);
+  font-size: 0.72rem;
 }
 
-.monitor-card__dynamic p {
+.monitor-card__dynamic-link,
+.monitor-card__dynamic-title {
+  color: var(--text);
+  font-weight: 650;
+  font-size: 0.86rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.monitor-card__dynamic-summary {
   display: -webkit-box;
   margin: 0;
   overflow: hidden;
   color: var(--muted);
-  font-size: 0.82rem;
+  font-size: 0.8rem;
   line-height: 1.5;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
 }
 
-.monitor-card__dynamic small {
+.monitor-card__dynamic-time {
   color: var(--muted);
-  font-size: 0.74rem;
+  font-size: 0.72rem;
 }
 
+/* Facts */
 .monitor-card__facts {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -879,84 +960,84 @@ function coverFailed(uid: string) {
   min-width: 0;
 }
 
+.monitor-card__facts dt {
+  color: var(--muted);
+  font-size: 0.72rem;
+}
+
 .monitor-card__facts dd {
   margin: 2px 0 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   color: var(--text);
-  font-size: 0.84rem;
+  font-size: 0.82rem;
   font-weight: 500;
 }
 
-.monitor-card__facts a {
-  color: var(--text-accent);
-}
-
+/* Error */
 .monitor-card__error {
   margin: 0;
-  padding: 7px 9px;
+  padding: 7px 10px;
   border-radius: var(--radius-sm);
-  background: color-mix(in srgb, #ef4444 7%, var(--surface));
-  color: #b91c1c;
-  font-size: 0.78rem;
+  background: color-mix(in srgb, var(--danger) 7%, var(--surface));
+  color: var(--danger);
+  font-size: 0.76rem;
   line-height: 1.45;
   overflow-wrap: anywhere;
 }
 
-@media (max-width: 1100px) {
-  .monitoring-overview__top,
-  .diagnosis-grid {
+/* ── Responsive ── */
+@media (max-width: 960px) {
+  .monitoring-strip__row {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .monitoring-strip__counts {
+    font-size: 0.74rem;
+  }
+
+  .monitor-card-grid {
     grid-template-columns: 1fr;
-  }
-
-  .diagnosis-actions {
-    justify-content: flex-start;
-    min-width: 0;
-  }
-
-  .uid-panel {
-    grid-column: auto;
   }
 }
 
-@media (max-width: 760px) {
+@media (max-width: 720px) {
   .monitoring-actions,
-  .diagnosis-actions,
-  .uid-panel,
-  .status-summary {
-    align-items: stretch;
+  .uid-strip {
     flex-direction: column;
+    align-items: stretch;
   }
 
-  .monitoring-actions :deep(.ant-btn),
-  .diagnosis-actions :deep(.ant-btn) {
+  .monitoring-actions :deep(.ant-btn) {
     width: 100%;
   }
 
-  .monitoring-metrics,
-  .monitor-card,
+  .monitoring-strip__row {
+    gap: 6px;
+    padding: 10px var(--space-sm);
+  }
+
+  .monitoring-strip__left {
+    flex-wrap: wrap;
+  }
+
+  .monitoring-strip__right {
+    width: 100%;
+    justify-content: space-between;
+  }
+
   .monitor-card__facts {
-    grid-template-columns: minmax(0, 1fr);
+    grid-template-columns: 1fr;
   }
 
-  .monitor-card__media,
-  .monitor-card__media img,
-  .monitor-card__media-fallback {
-    min-height: 180px;
+  .monitor-card__identity {
+    flex-wrap: wrap;
   }
 
-  .uid-list {
-    justify-content: flex-start;
-  }
-
-  .status-summary h2,
-  .monitoring-metric strong,
-  .monitoring-metric small,
-  .monitor-card__identity strong,
-  .monitor-card__identity span,
-  .monitor-card__facts dd,
-  .monitor-card__dynamic a,
-  .monitor-card__dynamic strong,
-  .monitor-card__dynamic small {
-    white-space: normal;
+  .monitor-card__services {
+    width: 100%;
   }
 }
 </style>
