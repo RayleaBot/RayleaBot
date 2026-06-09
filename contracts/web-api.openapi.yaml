@@ -3374,6 +3374,10 @@ components:
           $ref: '#/components/schemas/ThirdPartyCredentialStatus'
         polling:
           $ref: '#/components/schemas/ThirdPartyAccountPollingStatus'
+        proxy_url:
+          type: string
+        proxy_enabled:
+          type: boolean
         updated_at:
           type: string
           format: date-time
@@ -3444,6 +3448,10 @@ components:
         cookie:
           type: string
           minLength: 1
+        proxy_url:
+          type: string
+        proxy_enabled:
+          type: boolean
 
     ThirdPartyAccountUpsertResponse:
       type: object

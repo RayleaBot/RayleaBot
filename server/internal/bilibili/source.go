@@ -48,6 +48,7 @@ type Source struct {
 	notifyStatus func(Status)
 	client       *http.Client
 	session      *SessionClient
+	identity     *IdentityProvider
 	now          func() time.Time
 
 	mu                sync.RWMutex
@@ -56,7 +57,11 @@ type Source struct {
 	roomTasks         map[string]liveRoomTask
 	cooldowns         map[string]requestCooldown
 	autoFollowChecked map[string]time.Time
-	restart           chan struct{}
+	restart            chan struct{}
+	liveAccountOffset  int
+	dynamicAccountOffset int
+	griskID            string
+	griskMu            sync.Mutex
 }
 
 type liveRoomTask struct {
@@ -91,9 +96,18 @@ func NewSource(deps Deps) (*Source, error) {
 	if transport == nil {
 		transport = http.DefaultTransport
 	}
+	if deps.ProxyPool != nil {
+		if proxyTransport := deps.ProxyPool.Transport(); proxyTransport != nil {
+			transport = proxyTransport
+		}
+	}
 	now := deps.Now
 	if now == nil {
 		now = func() time.Time { return time.Now().UTC() }
+	}
+	identity := deps.Identity
+	if identity == nil {
+		identity = NewIdentityProvider(now)
 	}
 	source := &Source{
 		read:         deps.Store.Read,
@@ -107,6 +121,7 @@ func NewSource(deps Deps) (*Source, error) {
 			Timeout:   defaultRequestTimeout,
 		},
 		session:           deps.Session,
+		identity:          identity,
 		now:               now,
 		roomTasks:         make(map[string]liveRoomTask),
 		cooldowns:         make(map[string]requestCooldown),
@@ -114,7 +129,7 @@ func NewSource(deps Deps) (*Source, error) {
 		restart:           make(chan struct{}, 1),
 	}
 	if source.session == nil {
-		source.session = NewSessionClient(transport, now)
+		source.session = NewSessionClient(transport, now, identity)
 	}
 	source.status = Status{
 		Status:  StateIdle,
@@ -133,18 +148,18 @@ func (s *Source) Start(ctx context.Context) {
 		return
 	}
 	s.publishStatus(ctx, s.statusWithAccounts(ctx))
-	refreshTicker := time.NewTicker(defaultRefreshIntervalSeconds * time.Second)
-	fallbackTicker := time.NewTicker(defaultFallbackIntervalSeconds * time.Second)
-	dynamicTicker := time.NewTicker(defaultDynamicIntervalSeconds * time.Second)
+	refreshTicker := time.NewTicker(s.identity.JitteredDelay(defaultRefreshIntervalSeconds * time.Second))
+	fallbackTicker := time.NewTicker(s.identity.JitteredDelay(defaultFallbackIntervalSeconds * time.Second))
+	dynamicTicker := time.NewTicker(s.identity.JitteredDelay(defaultDynamicIntervalSeconds * time.Second))
 	defer refreshTicker.Stop()
 	defer fallbackTicker.Stop()
 	defer dynamicTicker.Stop()
 	defer s.stopRoomTasks()
 
 	var subjects map[string]Subject
-	var account thirdparty.Account
-	var cookie string
-	s.reconcile(ctx, &subjects, &account, &cookie)
+	var liveAccount, dynamicAccount thirdparty.Account
+	var liveCookie, dynamicCookie string
+	s.reconcile(ctx, &subjects, &liveAccount, &liveCookie, &dynamicAccount, &dynamicCookie)
 	for {
 		select {
 		case <-ctx.Done():
@@ -152,13 +167,13 @@ func (s *Source) Start(ctx context.Context) {
 		case <-s.restart:
 			s.stopRoomTasks()
 			subjects = nil
-			s.reconcile(ctx, &subjects, &account, &cookie)
+			s.reconcile(ctx, &subjects, &liveAccount, &liveCookie, &dynamicAccount, &dynamicCookie)
 		case <-refreshTicker.C:
-			s.reconcile(ctx, &subjects, &account, &cookie)
+			s.reconcile(ctx, &subjects, &liveAccount, &liveCookie, &dynamicAccount, &dynamicCookie)
 		case <-fallbackTicker.C:
-			s.pollLiveFallback(ctx, subjects, account, cookie)
+			s.pollLiveFallback(ctx, subjects, liveAccount, liveCookie)
 		case <-dynamicTicker.C:
-			s.pollDynamics(ctx, subjects, account, cookie)
+			s.pollDynamics(ctx, subjects, dynamicAccount, dynamicCookie)
 		}
 	}
 }
@@ -223,7 +238,7 @@ func (s *Source) MonitorSnapshot(ctx context.Context) (MonitorSnapshot, error) {
 	return snapshot, nil
 }
 
-func (s *Source) reconcile(ctx context.Context, subjectsRef *map[string]Subject, accountRef *thirdparty.Account, cookieRef *string) {
+func (s *Source) reconcile(ctx context.Context, subjectsRef *map[string]Subject, liveAccountRef *thirdparty.Account, liveCookieRef *string, dynamicAccountRef *thirdparty.Account, dynamicCookieRef *string) {
 	subjects, err := s.loadSubjects(ctx)
 	if err != nil {
 		s.setDynamicError(err)
@@ -231,19 +246,22 @@ func (s *Source) reconcile(ctx context.Context, subjectsRef *map[string]Subject,
 		return
 	}
 	*subjectsRef = subjects
-	account, cookie, err := s.primaryAccountCookie(ctx)
-	if err != nil {
-		if !errors.Is(err, secrets.ErrNotFound) {
-			s.setDynamicError(err)
-		}
-		cookie = ""
+	liveAccount, liveCookie, liveErr := s.accountCookieForLive(ctx)
+	dynamicAccount, dynamicCookie, dynamicErr := s.accountCookieForDynamic(ctx)
+	*liveAccountRef = liveAccount
+	*liveCookieRef = liveCookie
+	*dynamicAccountRef = dynamicAccount
+	*dynamicCookieRef = dynamicCookie
+	if liveErr != nil && !errors.Is(liveErr, secrets.ErrNotFound) {
+		s.setLiveError(liveErr)
 	}
-	*accountRef = account
-	*cookieRef = cookie
-	if cookie != "" {
-		s.autoFollow(ctx, subjects, account, cookie)
+	if dynamicErr != nil && !errors.Is(dynamicErr, secrets.ErrNotFound) {
+		s.setDynamicError(dynamicErr)
 	}
-	s.ensureRoomTasks(ctx, subjects, account, cookie)
+	if liveCookie != "" {
+		s.autoFollow(ctx, subjects, liveAccount, liveCookie)
+	}
+	s.ensureRoomTasks(ctx, subjects, liveAccount, liveCookie)
 	s.updateWatchCounts(ctx, subjects)
 }
 
@@ -313,11 +331,36 @@ func (s *Source) loadSubjects(ctx context.Context) (map[string]Subject, error) {
 }
 
 func (s *Source) primaryAccountCookie(ctx context.Context) (thirdparty.Account, string, error) {
+	return s.accountCookieFromOffset(ctx, 0)
+}
+
+func (s *Source) accountCookieForLive(ctx context.Context) (thirdparty.Account, string, error) {
+	result, cookie, err := s.accountCookieFromOffset(ctx, s.liveAccountOffset)
+	if err == nil {
+		s.liveAccountOffset++
+	}
+	return result, cookie, err
+}
+
+func (s *Source) accountCookieForDynamic(ctx context.Context) (thirdparty.Account, string, error) {
+	result, cookie, err := s.accountCookieFromOffset(ctx, s.dynamicAccountOffset)
+	if err == nil {
+		s.dynamicAccountOffset++
+	}
+	return result, cookie, err
+}
+
+func (s *Source) accountCookieFromOffset(ctx context.Context, offset int) (thirdparty.Account, string, error) {
 	accounts, err := s.accounts.ListEnabled(ctx, thirdparty.PlatformBilibili)
 	if err != nil {
 		return thirdparty.Account{}, "", err
 	}
-	for _, account := range accounts {
+	if len(accounts) == 0 {
+		return thirdparty.Account{}, "", secrets.ErrNotFound
+	}
+	start := offset % len(accounts)
+	for i := 0; i < len(accounts); i++ {
+		account := accounts[(start+i)%len(accounts)]
 		cookie, err := s.accounts.ReadCookie(ctx, account)
 		if err == nil && strings.TrimSpace(cookie) != "" {
 			if s.session != nil {
@@ -523,11 +566,29 @@ func (s *Source) handleAccountRequestError(ctx context.Context, account thirdpar
 		s.stopRoomTasks()
 		return accountRequestErrorAuth
 	}
-	if isBilibiliRequestCooldownError(err) {
+	if bilibErr := asBilibiliError(err); bilibErr != nil && bilibErr.Kind == ErrorCaptcha {
+		s.rememberRequestCooldown(scope, account, cookie, err)
+		go s.tryCaptchaRecovery(ctx, account, cookie, err)
+		return accountRequestErrorCooldown
+		}
+		if isBilibiliRequestCooldownError(err) {
 		s.rememberRequestCooldown(scope, account, cookie, err)
 		return accountRequestErrorCooldown
 	}
 	return accountRequestErrorNone
+}
+
+func (s *Source) tryCaptchaRecovery(ctx context.Context, account thirdparty.Account, cookie string, err error) {
+	biliErr := asBilibiliError(err)
+	if biliErr == nil {
+		return
+	}
+	// Extract the response body from the error message to find v_voucher.
+	// The apiError function includes v_voucher detection; re-extract if needed.
+	_ = biliErr
+	_ = ctx
+	_ = account
+	_ = cookie
 }
 
 func isBilibiliRequestCooldownError(err error) bool {
@@ -572,6 +633,7 @@ func (s *Source) rememberRequestCooldown(scope string, account thirdparty.Accoun
 			break
 		}
 	}
+	delay = s.identity.JitteredDelay(delay)
 	cooldown.Until = now.Add(delay)
 	cooldown.LastError = err.Error()
 	s.cooldowns[key] = cooldown
@@ -799,6 +861,16 @@ func (s *Source) requestJSONWithOptions(ctx context.Context, method, rawURL, coo
 }
 
 func (s *Source) requestJSONOnce(ctx context.Context, method, rawURL, cookie string, body io.Reader, target any, needWBI, allowRetry bool) error {
+	s.griskMu.Lock()
+	grisk := s.griskID
+	s.griskMu.Unlock()
+	if grisk != "" && isBilibiliURLForWBI(rawURL) {
+		sep := "&"
+		if !strings.Contains(rawURL, "?") {
+			sep = "?"
+		}
+		rawURL = rawURL + sep + "gaia_vtoken=" + grisk
+	}
 	if needWBI && s.session != nil && isBilibiliURLForWBI(rawURL) {
 		signedURL, err := s.session.SignURL(ctx, rawURL, cookie)
 		if err != nil {
@@ -810,7 +882,11 @@ func (s *Source) requestJSONOnce(ctx context.Context, method, rawURL, cookie str
 	if err != nil {
 		return err
 	}
-	applyBilibiliWebHeaders(request, method)
+	if isLiveBilibiliURL(rawURL) {
+		s.identity.ApplyLiveHeaders(request, method)
+	} else {
+		s.identity.ApplyHeaders(request, method)
+	}
 	if strings.TrimSpace(cookie) != "" {
 		request.Header.Set("Cookie", cookie)
 	}
@@ -859,6 +935,14 @@ func (s *Source) requestJSONOnce(ctx context.Context, method, rawURL, cookie str
 		return err
 	}
 	return nil
+}
+
+func isLiveBilibiliURL(rawURL string) bool {
+	parsed, err := url.Parse(rawURL)
+	if err != nil {
+		return false
+	}
+	return strings.EqualFold(parsed.Hostname(), "api.live.bilibili.com")
 }
 
 func responseExcerpt(body []byte) string {

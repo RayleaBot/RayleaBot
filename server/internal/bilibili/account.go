@@ -15,20 +15,25 @@ import (
 const navURL = "https://api.bilibili.com/x/web-interface/nav"
 
 type AccountClient struct {
-	client *http.Client
-	now    func() time.Time
+	client   *http.Client
+	identity *IdentityProvider
+	now      func() time.Time
 }
 
-func NewAccountClient(transport http.RoundTripper, now func() time.Time) *AccountClient {
+func NewAccountClient(transport http.RoundTripper, now func() time.Time, identity *IdentityProvider) *AccountClient {
 	if transport == nil {
 		transport = http.DefaultTransport
 	}
 	if now == nil {
 		now = func() time.Time { return time.Now().UTC() }
 	}
+	if identity == nil {
+		identity = NewIdentityProvider(now)
+	}
 	return &AccountClient{
-		client: &http.Client{Transport: transport, Timeout: defaultRequestTimeout},
-		now:    now,
+		client:   &http.Client{Transport: transport, Timeout: defaultRequestTimeout},
+		identity: identity,
+		now:      now,
 	}
 }
 
@@ -65,7 +70,7 @@ func (c *AccountClient) fetchNav(ctx context.Context, cookie string) (thirdparty
 	if err != nil {
 		return thirdparty.AccountProfile{}, err
 	}
-	applyBilibiliWebHeaders(request, http.MethodGet)
+	c.identity.ApplyHeaders(request, http.MethodGet)
 	request.Header.Set("Cookie", strings.TrimSpace(cookie))
 
 	response, err := c.client.Do(request)

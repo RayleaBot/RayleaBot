@@ -163,7 +163,8 @@ func isBilibiliURLForWBI(rawURL string) bool {
 	if err != nil {
 		return false
 	}
-	return strings.EqualFold(parsed.Hostname(), "api.bilibili.com")
+	host := strings.ToLower(parsed.Hostname())
+	return host == "api.bilibili.com" || host == "api.live.bilibili.com"
 }
 
 func (s *Service) executeSchedulerCreate(ctx context.Context, pluginID string, action runtime.Action) (map[string]any, error) {

@@ -182,6 +182,16 @@ CREATE TABLE IF NOT EXISTS third_party_accounts (
 CREATE INDEX IF NOT EXISTS idx_third_party_accounts_platform
     ON third_party_accounts (platform);
 
+CREATE TABLE IF NOT EXISTS bilibili_source_config (
+    id INTEGER PRIMARY KEY CHECK (id = 1),
+    ua_rotation_enabled INTEGER NOT NULL DEFAULT 1 CHECK (ua_rotation_enabled IN (0, 1)),
+    fingerprint_enabled INTEGER NOT NULL DEFAULT 1 CHECK (fingerprint_enabled IN (0, 1)),
+    dm_img_enabled INTEGER NOT NULL DEFAULT 1 CHECK (dm_img_enabled IN (0, 1)),
+    captcha_recovery_enabled INTEGER NOT NULL DEFAULT 0 CHECK (captcha_recovery_enabled IN (0, 1)),
+    proxy_global_enabled INTEGER NOT NULL DEFAULT 0 CHECK (proxy_global_enabled IN (0, 1)),
+    updated_at TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS bilibili_source_rooms (
     uid TEXT PRIMARY KEY,
     room_id TEXT NOT NULL DEFAULT '',

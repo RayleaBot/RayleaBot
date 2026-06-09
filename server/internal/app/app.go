@@ -234,7 +234,7 @@ func New(options Options) (*App, error) {
 	if err != nil {
 		return nil, err
 	}
-	bilibiliSession := source.NewSessionClient(options.BilibiliHTTPTransport, options.BilibiliClock)
+	bilibiliSession := source.NewSessionClient(options.BilibiliHTTPTransport, options.BilibiliClock, nil)
 	localActions := localaction.New(localaction.Deps{
 		CurrentConfig:    func() config.Config { return state.Config },
 		Logger:           state.Logger,
@@ -355,7 +355,7 @@ func New(options Options) (*App, error) {
 	})
 	pluginWebhooks.SetReplayMetrics(webhookReplayMetricsAdapter{registry: metricRegistry})
 	localActions.SetWebhookGateway(pluginWebhooks)
-	bilibiliAccountClient := source.NewAccountClient(options.BilibiliHTTPTransport, options.BilibiliClock)
+	bilibiliAccountClient := source.NewAccountClient(options.BilibiliHTTPTransport, options.BilibiliClock, nil)
 	bilibiliQRLogin := source.NewQRLoginService(options.BilibiliHTTPTransport, options.BilibiliClock)
 	bilibiliSource, err := source.NewSource(source.Deps{
 		Store:         platformState.Storage,

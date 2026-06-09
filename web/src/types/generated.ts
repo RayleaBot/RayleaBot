@@ -1693,6 +1693,8 @@ export interface components {
             profile: components["schemas"]["ThirdPartyAccountProfile"];
             credential: components["schemas"]["ThirdPartyCredentialStatus"];
             polling: components["schemas"]["ThirdPartyAccountPollingStatus"];
+            proxy_url?: string;
+            proxy_enabled?: boolean;
             /** Format: date-time */
             updated_at: string;
         };
@@ -1721,6 +1723,8 @@ export interface components {
             label: string;
             enabled: boolean;
             cookie?: string;
+            proxy_url?: string;
+            proxy_enabled?: boolean;
         };
         ThirdPartyAccountUpsertResponse: {
             account: components["schemas"]["ThirdPartyAccountSummary"];

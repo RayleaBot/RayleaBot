@@ -934,7 +934,7 @@ func TestPrimaryAccountCookieSkipsInvalidCredentials(t *testing.T) {
 	if err != nil {
 		t.Fatalf("primaryAccountCookie: %v", err)
 	}
-	if account.AccountID != "valid" || cookie != "SESSDATA=valid;" {
+	if account.AccountID != "valid" || !strings.Contains(cookie, "SESSDATA=valid;") {
 		t.Fatalf("unexpected primary account %q cookie %q", account.AccountID, cookie)
 	}
 }

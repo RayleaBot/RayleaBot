@@ -176,6 +176,8 @@ func ensureThirdPartyAccountColumns(ctx context.Context, db *sql.DB) error {
 		"credential_checked_at TEXT",
 		"credential_last_error TEXT NOT NULL DEFAULT ''",
 		"last_used_at TEXT",
+			"proxy_url TEXT NOT NULL DEFAULT ''",
+			"proxy_enabled INTEGER NOT NULL DEFAULT 0 CHECK (proxy_enabled IN (0, 1))",
 	}
 	for _, column := range columns {
 		if _, err := db.ExecContext(ctx, "ALTER TABLE third_party_accounts ADD COLUMN "+column); err != nil && !isDuplicateColumnError(err) {

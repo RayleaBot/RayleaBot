@@ -63,6 +63,8 @@ func TestOpenBootstrapsSQLiteWithExpectedPragmas(t *testing.T) {
 	assertColumnExists(t, store.Read, "third_party_accounts", "credential_checked_at")
 	assertColumnExists(t, store.Read, "third_party_accounts", "credential_last_error")
 	assertColumnExists(t, store.Read, "third_party_accounts", "last_used_at")
+	assertColumnExists(t, store.Read, "third_party_accounts", "proxy_url")
+	assertColumnExists(t, store.Read, "third_party_accounts", "proxy_enabled")
 	assertColumnExists(t, store.Read, "bilibili_source_rooms", "cover_url")
 	assertIndexExists(t, store.Read, "idx_management_logs_log_id")
 	assertIndexExists(t, store.Read, "idx_management_logs_boot_ts")
@@ -79,7 +81,7 @@ func TestOpenBootstrapsSQLiteWithExpectedPragmas(t *testing.T) {
 	assertIndexExists(t, store.Read, "idx_render_template_states_source")
 
 	tables := readTables(t, store.Read)
-	if len(tables) != 22 {
+	if len(tables) != 23 {
 		t.Fatalf("unexpected table set: %#v", tables)
 	}
 	assertTableMissing(t, store.Read, "schema_migrations")

@@ -29,7 +29,7 @@ func TestAccountClientCheckCookieReadsNavProfile(t *testing.T) {
 				"face": "//i0.hdslb.com/bfs/face/raylea.jpg"
 			}
 		}`), nil
-	}), func() time.Time { return time.Date(2026, 6, 8, 8, 0, 0, 0, time.UTC) })
+	}), func() time.Time { return time.Date(2026, 6, 8, 8, 0, 0, 0, time.UTC) }, nil)
 
 	profile, credential, err := client.CheckCookie(context.Background(), "SESSDATA=fixture; bili_jct=fixture;")
 	if err != nil {
@@ -48,7 +48,7 @@ func TestAccountClientCheckCookieMarksInvalidNavResponse(t *testing.T) {
 
 	client := NewAccountClient(bilibiliRoundTripFunc(func(request *http.Request) (*http.Response, error) {
 		return bilibiliJSONResponse(`{"code": -101, "message": "账号未登录", "data": {"isLogin": false}}`), nil
-	}), func() time.Time { return time.Date(2026, 6, 8, 8, 0, 0, 0, time.UTC) })
+	}), func() time.Time { return time.Date(2026, 6, 8, 8, 0, 0, 0, time.UTC) }, nil)
 
 	_, credential, err := client.CheckCookie(context.Background(), "SESSDATA=expired;")
 	if err == nil {
@@ -64,7 +64,7 @@ func TestAccountClientCheckCookieKeepsRiskControlUnknown(t *testing.T) {
 
 	client := NewAccountClient(bilibiliRoundTripFunc(func(request *http.Request) (*http.Response, error) {
 		return bilibiliJSONResponse(`{"code": -352, "message": "风控校验失败", "data": null}`), nil
-	}), func() time.Time { return time.Date(2026, 6, 8, 8, 0, 0, 0, time.UTC) })
+	}), func() time.Time { return time.Date(2026, 6, 8, 8, 0, 0, 0, time.UTC) }, nil)
 
 	_, credential, err := client.CheckCookie(context.Background(), "SESSDATA=fixture;")
 	if err == nil {

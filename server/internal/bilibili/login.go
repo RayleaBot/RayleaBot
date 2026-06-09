@@ -68,7 +68,7 @@ func NewQRLoginService(transport http.RoundTripper, now func() time.Time) *QRLog
 	}
 	return &QRLoginService{
 		client:        &http.Client{Transport: transport, Timeout: defaultRequestTimeout},
-		accountClient: NewAccountClient(transport, now),
+		accountClient: NewAccountClient(transport, now, nil),
 		now:           now,
 		sessions:      make(map[string]qrLoginSession),
 	}

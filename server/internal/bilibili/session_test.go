@@ -28,7 +28,7 @@ func TestSessionClientSignURLAddsWBIParameters(t *testing.T) {
 				}
 			}
 		}`), nil
-	}), func() time.Time { return time.Unix(1780905600, 0).UTC() })
+	}), func() time.Time { return time.Unix(1780905600, 0).UTC() }, nil)
 
 	signed, err := client.SignURL(context.Background(), "https://api.bilibili.com/x/polymer/web-dynamic/v1/feed/all?type=all&page=1", "SESSDATA=fixture; bili_jct=csrf;")
 	if err != nil {
@@ -69,7 +69,7 @@ func TestPrepareCookieRefreshesAndEnrichesCookie(t *testing.T) {
 			t.Fatalf("unexpected request url: %s", request.URL.String())
 			return nil, nil
 		}
-	}), func() time.Time { return time.Unix(1780905600, 0).UTC() })
+	}), func() time.Time { return time.Unix(1780905600, 0).UTC() }, nil)
 
 	prepared, err := client.PrepareCookie(context.Background(), "SESSDATA=old-sess; bili_jct=old-csrf; DedeUserID=123456; ac_time_value=old-refresh;")
 	if err != nil {
@@ -128,7 +128,7 @@ func TestPrepareCookieKeepsCookieWhenRefreshCheckRiskFails(t *testing.T) {
 			t.Fatalf("unexpected request url: %s", request.URL.String())
 			return nil, nil
 		}
-	}), func() time.Time { return time.Unix(1780905600, 0).UTC() })
+	}), func() time.Time { return time.Unix(1780905600, 0).UTC() }, nil)
 
 	prepared, err := client.PrepareCookie(context.Background(), "SESSDATA=old-sess; bili_jct=old-csrf; DedeUserID=123456; ac_time_value=old-refresh;")
 	if err != nil {

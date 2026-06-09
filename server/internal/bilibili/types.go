@@ -40,6 +40,8 @@ type Deps struct {
 	NotifyStatus  func(Status)
 	HTTPTransport http.RoundTripper
 	Session       *SessionClient
+	Identity      *IdentityProvider
+	ProxyPool     *ProxyPool
 	Now           func() time.Time
 }
 

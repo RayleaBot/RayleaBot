@@ -49,8 +49,14 @@ func (s *Source) pollDynamics(ctx context.Context, subjects map[string]Subject, 
 		s.setDynamicError(fmt.Errorf("Bilibili 动态检查因平台风控暂停，剩余 %s", formatCooldownDelay(delay)))
 		return
 	}
+	dmImg := GetDmImg()
+	feedURL := dynamicFeedURL +
+		"&dm_img_list=" + url.QueryEscape(dmImg.DmImgList) +
+		"&dm_img_str=" + url.QueryEscape(dmImg.DmImgStr) +
+		"&dm_cover_img_str=" + url.QueryEscape(dmImg.DmCoverImgStr) +
+		"&dm_img_inter=" + url.QueryEscape(dmImg.DmImgInter)
 	var doc dynamicFeedDocument
-	if err := s.requestSignedJSON(ctx, http.MethodGet, dynamicFeedURL, cookie, nil, &doc); err != nil {
+	if err := s.requestSignedJSON(ctx, http.MethodGet, feedURL, cookie, nil, &doc); err != nil {
 		_ = s.handleAccountRequestError(ctx, account, cookie, bilibiliRequestCooldownDynamic, err)
 		s.setDynamicError(err)
 		return

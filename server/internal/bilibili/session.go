@@ -25,8 +25,6 @@ import (
 )
 
 const (
-	bilibiliUserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
-
 	cookieInfoURL           = "https://passport.bilibili.com/x/passport-login/web/cookie/info"
 	cookieRefreshURL        = "https://passport.bilibili.com/x/passport-login/web/cookie/refresh"
 	cookieRefreshConfirmURL = "https://passport.bilibili.com/x/passport-login/web/confirm/refresh"
@@ -63,6 +61,7 @@ const (
 	ErrorCSRF            ErrorKind = "csrf"
 	ErrorRefresh         ErrorKind = "cookie_refresh"
 	ErrorRiskControl     ErrorKind = "risk_control"
+	ErrorCaptcha         ErrorKind = "captcha"
 	ErrorRateLimit       ErrorKind = "rate_limit"
 	ErrorSignature       ErrorKind = "signature"
 	ErrorTicket          ErrorKind = "ticket"
@@ -116,8 +115,9 @@ type PreparedCookie struct {
 }
 
 type SessionClient struct {
-	client *http.Client
-	now    func() time.Time
+	client   *http.Client
+	identity *IdentityProvider
+	now      func() time.Time
 
 	mu            sync.Mutex
 	refreshChecks map[string]time.Time
@@ -144,19 +144,23 @@ type deviceCookieCache struct {
 	ExpiresAt time.Time
 }
 
-func NewSessionClient(transport http.RoundTripper, now func() time.Time) *SessionClient {
+func NewSessionClient(transport http.RoundTripper, now func() time.Time, identity *IdentityProvider) *SessionClient {
 	if transport == nil {
 		transport = http.DefaultTransport
 	}
 	if now == nil {
 		now = func() time.Time { return time.Now().UTC() }
 	}
+	if identity == nil {
+		identity = NewIdentityProvider(now)
+	}
 	return &SessionClient{
 		client: &http.Client{
 			Transport: transport,
 			Timeout:   defaultRequestTimeout,
 		},
-		now:           now,
+		identity:       identity,
+		now:            now,
 		refreshChecks: make(map[string]time.Time),
 	}
 }
@@ -405,6 +409,12 @@ func (c *SessionClient) enrichCookie(ctx context.Context, cookie string) (string
 			updates["bili_ticket_expires"] = strconv.FormatInt(ticket.ExpiresAt.Unix(), 10)
 		}
 	}
+	if strings.TrimSpace(values["buvid_fp"]) == "" {
+		updates["buvid_fp"] = GenBuvidFP(c.identity.UserAgent())
+	}
+	if strings.TrimSpace(values["_uuid"]) == "" {
+		updates["_uuid"] = GenUUID()
+	}
 	if len(updates) == 0 {
 		return cookie, false, nil
 	}
@@ -444,8 +454,11 @@ func (c *SessionClient) ensureDeviceCookies(ctx context.Context, cookie string) 
 		Buvid4:    strings.TrimSpace(doc.Data.Buvid4),
 		ExpiresAt: now.Add(deviceCookieTTL),
 	}
-	if device.Buvid3 == "" && device.Buvid4 == "" {
-		return deviceCookieCache{}, &Error{Kind: ErrorDevice, HTTPStatus: status, Message: "buvid missing"}
+	if device.Buvid3 == "" {
+		device.Buvid3 = GenBuvid("XX")
+	}
+	if device.Buvid4 == "" {
+		device.Buvid4 = GenBuvid("XY")
 	}
 	c.mu.Lock()
 	c.device = device
@@ -575,7 +588,7 @@ func (c *SessionClient) send(ctx context.Context, method, rawURL, cookie string,
 	if err != nil {
 		return nil, nil, 0, err
 	}
-	applyBilibiliWebHeaders(request, method)
+	c.identity.ApplyHeaders(request, method)
 	if strings.TrimSpace(cookie) != "" {
 		request.Header.Set("Cookie", strings.TrimSpace(cookie))
 	}
@@ -609,13 +622,8 @@ func (c *SessionClient) rememberRefreshCheck(fingerprint string) {
 }
 
 func applyBilibiliWebHeaders(request *http.Request, method string) {
-	request.Header.Set("Accept", "application/json, text/plain, */*")
-	request.Header.Set("Accept-Language", "zh-CN,zh;q=0.9,en;q=0.8")
-	request.Header.Set("User-Agent", bilibiliUserAgent)
-	request.Header.Set("Referer", "https://www.bilibili.com/")
-	if method == http.MethodPost {
-		request.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	}
+	defaultIdentity := NewIdentityProvider(nil)
+	defaultIdentity.ApplyHeaders(request, method)
 }
 
 func validateCookieForLogin(cookie string) error {
@@ -630,7 +638,11 @@ func apiError(httpStatus, code int, message string, body []byte) error {
 	if text == "" {
 		text = responseExcerpt(body)
 	}
-	return &Error{Kind: classifyBilibiliCode(httpStatus, code), Code: code, HTTPStatus: httpStatus, Message: text}
+	kind := classifyBilibiliCode(httpStatus, code)
+	if kind == ErrorRiskControl && ExtractVVoucher(body) != "" {
+		kind = ErrorCaptcha
+	}
+	return &Error{Kind: kind, Code: code, HTTPStatus: httpStatus, Message: text}
 }
 
 func classifyBilibiliCode(httpStatus, code int) ErrorKind {
@@ -713,7 +725,8 @@ func isBilibiliURLForWBI(rawURL string) bool {
 	if err != nil {
 		return false
 	}
-	return strings.EqualFold(parsed.Hostname(), "api.bilibili.com")
+	host := strings.ToLower(parsed.Hostname())
+	return host == "api.bilibili.com" || host == "api.live.bilibili.com"
 }
 
 func generateCorrespondPath(timestamp int64) (string, error) {

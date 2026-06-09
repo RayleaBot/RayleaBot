@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"compress/zlib"
 	"context"
+	"encoding/base64"
 	"encoding/binary"
 	"encoding/json"
 	"fmt"
@@ -22,14 +23,17 @@ const (
 	liveDanmuInfoURL   = "https://api.live.bilibili.com/xlive/web-room/v1/index/getDanmuInfo?id=%s&type=0"
 
 	liveWSHeaderSize = 16
-	liveWSProtoRaw   = 0
-	liveWSProtoZlib  = 2
+	liveWSProtoRaw    = 0
+	liveWSProtoZlib   = 2
+	liveWSProtoBrotli = 3
 
 	liveWSOpHeartbeat      = 2
 	liveWSOpHeartbeatReply = 3
 	liveWSOpNotice         = 5
 	liveWSOpVerify         = 7
 	liveWSOpVerifyReply    = 8
+
+	liveHeartbeatURL = "https://live-trace.bilibili.com/xlive/rdata-interface/v1/heartbeat/webHeartBeat"
 )
 
 type liveStatusDocument struct {
@@ -106,7 +110,7 @@ func (s *Source) runLiveRoom(ctx context.Context, subject Subject, account third
 }
 
 func (s *Source) connectLiveRoom(ctx context.Context, subject Subject, cookie string) error {
-	items, err := s.fetchLiveStatuses(ctx, []Subject{subject}, cookie)
+	items, err := s.fetchLiveStatuses(ctx, []Subject{subject})
 	if err != nil {
 		return err
 	}
@@ -168,7 +172,7 @@ func (s *Source) connectLiveRoom(ctx context.Context, subject Subject, cookie st
 	return fmt.Errorf("live room %s websocket hosts exhausted", roomID)
 }
 
-func (s *Source) fetchLiveStatuses(ctx context.Context, subjects []Subject, cookie string) (map[string]liveStatusItem, error) {
+func (s *Source) fetchLiveStatuses(ctx context.Context, subjects []Subject) (map[string]liveStatusItem, error) {
 	if len(subjects) == 0 {
 		return map[string]liveStatusItem{}, nil
 	}
@@ -182,7 +186,7 @@ func (s *Source) fetchLiveStatuses(ctx context.Context, subjects []Subject, cook
 		return map[string]liveStatusItem{}, nil
 	}
 	var doc liveStatusDocument
-	if err := s.requestJSON(ctx, http.MethodGet, liveStatusBatchURL+"?"+strings.Join(values, "&"), cookie, nil, &doc); err != nil {
+	if err := s.requestJSON(ctx, http.MethodGet, liveStatusBatchURL+"?"+strings.Join(values, "&"), "", nil, &doc); err != nil {
 		return nil, err
 	}
 	result := make(map[string]liveStatusItem, len(doc.Data))
@@ -200,7 +204,7 @@ func (s *Source) fetchLiveStatuses(ctx context.Context, subjects []Subject, cook
 
 func (s *Source) fetchDanmuInfo(ctx context.Context, roomID, cookie string) (danmuInfoDocument, error) {
 	var doc danmuInfoDocument
-	if err := s.requestJSON(ctx, http.MethodGet, fmt.Sprintf(liveDanmuInfoURL, roomID), cookie, nil, &doc); err != nil {
+	if err := s.requestSignedJSON(ctx, http.MethodGet, fmt.Sprintf(liveDanmuInfoURL, roomID), cookie, nil, &doc); err != nil {
 		return doc, err
 	}
 	if strings.TrimSpace(doc.Data.Token) == "" {
@@ -211,23 +215,39 @@ func (s *Source) fetchDanmuInfo(ctx context.Context, roomID, cookie string) (dan
 
 func (s *Source) consumeLiveWebSocket(ctx context.Context, subject Subject, roomID, wsURL, token, cookie string) error {
 	headers := http.Header{}
-	headers.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36")
+	headers.Set("User-Agent", s.identity.UserAgent())
+	headers.Set("Referer", "https://live.bilibili.com/")
+	headers.Set("Origin", "https://live.bilibili.com")
+	headers.Set("Accept-Language", "zh-CN,zh;q=0.9,en;q=0.8")
 	if cookie != "" {
 		headers.Set("Cookie", cookie)
 	}
-	conn, _, err := websocket.Dial(ctx, wsURL, &websocket.DialOptions{HTTPHeader: headers})
+	conn, _, err := websocket.Dial(ctx, wsURL, &websocket.DialOptions{HTTPHeader: headers, HTTPClient: s.client})
 	if err != nil {
 		return err
 	}
 	defer conn.CloseNow()
 
+	values := cookieValues(cookie)
+	buvid := strings.TrimSpace(values["buvid3"])
+	if buvid == "" {
+		buvid = strings.TrimSpace(values["buvid4"])
+	}
+	if buvid == "" {
+		buvid = GenBuvid("XX")
+	}
+	loginUID := int64(0)
+	if raw := strings.TrimSpace(values["DedeUserID"]); raw != "" {
+		loginUID = parseInt(raw)
+	}
 	verify := map[string]any{
-		"uid":      0,
+		"uid":      loginUID,
 		"roomid":   parseInt(roomID),
 		"protover": liveWSProtoZlib,
 		"platform": "web",
 		"type":     2,
 		"key":      token,
+		"buvid":    buvid,
 	}
 	verifyBytes, _ := json.Marshal(verify)
 	if err := conn.Write(ctx, websocket.MessageBinary, liveWSPack(verifyBytes, 1, liveWSOpVerify)); err != nil {
@@ -255,6 +275,33 @@ func (s *Source) consumeLiveWebSocket(ctx context.Context, subject Subject, room
 		}
 	}()
 
+	go func() {
+		ticker := time.NewTicker(s.identity.JitteredDelay(60 * time.Second))
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-heartbeatDone:
+				return
+			case <-ticker.C:
+				hbData := fmt.Sprintf(`{"room_id":%d,"hb_type":1}`, parseInt(roomID))
+				hbEncoded := make([]byte, base64.StdEncoding.EncodedLen(len(hbData)))
+				base64.StdEncoding.Encode(hbEncoded, []byte(hbData))
+				hbURL := fmt.Sprintf("%s?pf=web&hb=%s", liveHeartbeatURL, string(hbEncoded))
+				hbReq, _ := http.NewRequestWithContext(ctx, http.MethodPost, hbURL, nil)
+				s.identity.ApplyLiveHeaders(hbReq, http.MethodPost)
+				if cookie != "" {
+					hbReq.Header.Set("Cookie", cookie)
+				}
+				resp, err := s.client.Do(hbReq)
+				if err == nil {
+					resp.Body.Close()
+				}
+			}
+		}
+	}()
+
 	for {
 		messageType, data, err := conn.Read(ctx)
 		if err != nil {
@@ -274,7 +321,7 @@ func (s *Source) consumeLiveWebSocket(ctx context.Context, subject Subject, room
 			}
 			switch cmd {
 			case "LIVE":
-				items, err := s.fetchLiveStatuses(ctx, []Subject{subject}, cookie)
+				items, err := s.fetchLiveStatuses(ctx, []Subject{subject})
 				if err != nil {
 					s.emitSyntheticLiveTransition(ctx, subject, roomID, 1)
 					continue
@@ -283,7 +330,7 @@ func (s *Source) consumeLiveWebSocket(ctx context.Context, subject Subject, room
 					s.emitLiveTransition(ctx, subject, item, 1, "websocket")
 				}
 			case "PREPARING":
-				items, err := s.fetchLiveStatuses(ctx, []Subject{subject}, cookie)
+				items, err := s.fetchLiveStatuses(ctx, []Subject{subject})
 				if err != nil {
 					s.emitSyntheticLiveTransition(ctx, subject, roomID, 0)
 					continue
@@ -313,7 +360,7 @@ func (s *Source) pollLiveFallback(ctx context.Context, subjects map[string]Subje
 	if len(liveSubjects) == 0 {
 		return
 	}
-	items, err := s.fetchLiveStatuses(ctx, liveSubjects, cookie)
+	items, err := s.fetchLiveStatuses(ctx, liveSubjects)
 	if err != nil {
 		_ = s.handleAccountRequestError(ctx, account, cookie, bilibiliRequestCooldownLive, err)
 		s.setLiveError(err)
