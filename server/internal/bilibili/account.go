@@ -43,8 +43,12 @@ func (c *AccountClient) CheckCookie(ctx context.Context, cookie string) (thirdpa
 	}
 	profile, err := c.fetchNav(ctx, cookie)
 	if err != nil {
+		state := thirdparty.CredentialInvalid
+		if isBilibiliRequestCooldownError(err) {
+			state = thirdparty.CredentialUnknown
+		}
 		return thirdparty.AccountProfile{}, thirdparty.CredentialStatus{
-			State:     thirdparty.CredentialInvalid,
+			State:     state,
 			CheckedAt: &checkedAt,
 			LastError: err.Error(),
 		}, err

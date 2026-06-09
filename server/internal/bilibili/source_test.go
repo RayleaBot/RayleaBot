@@ -543,10 +543,12 @@ func TestMonitorSnapshotSuppressesStoredRiskControlRoomErrors(t *testing.T) {
 	}
 }
 
-func TestPollDynamicsRiskControlMarksAccountInvalid(t *testing.T) {
+func TestPollDynamicsRiskControlCoolsDynamicWithoutInvalidatingAccount(t *testing.T) {
 	t.Parallel()
 
+	requests := 0
 	source, _ := newTestSource(t, time.Date(2026, 6, 8, 8, 18, 30, 0, time.UTC), func(request *http.Request) (*http.Response, error) {
+		requests++
 		return jsonResponse(`{"code":-352,"message":"-352","ttl":1}`), nil
 	})
 	ctx := context.Background()
@@ -582,8 +584,126 @@ func TestPollDynamicsRiskControlMarksAccountInvalid(t *testing.T) {
 	if err != nil {
 		t.Fatalf("list accounts: %v", err)
 	}
-	if len(accounts) != 1 || accounts[0].Credential.State != thirdparty.CredentialInvalid || !strings.Contains(accounts[0].Credential.LastError, "code -352") {
+	if len(accounts) != 1 || accounts[0].Credential.State != thirdparty.CredentialValid || accounts[0].Credential.LastError != "" {
 		t.Fatalf("unexpected account credential: %#v", accounts)
+	}
+	status := source.Status(ctx)
+	if !strings.Contains(status.Dynamic.LastError, "code -352") {
+		t.Fatalf("unexpected dynamic error: %#v", status.Dynamic.LastError)
+	}
+	requestsAfterRisk := requests
+	source.pollDynamics(ctx, map[string]Subject{
+		"123456": {
+			UID:      "123456",
+			Services: map[string]bool{"video": true},
+		},
+	}, account, "SESSDATA=fixture;")
+	if requests != requestsAfterRisk {
+		t.Fatalf("dynamic cooldown should skip immediate retry, requests = %d before = %d", requests, requestsAfterRisk)
+	}
+}
+
+func TestLiveRiskControlDoesNotBlockDynamicCookieUse(t *testing.T) {
+	t.Parallel()
+
+	now := time.Date(2026, 6, 8, 8, 23, 0, 0, time.UTC)
+	source, recorder := newTestSourceWithPluginConfig(t, now, func(request *http.Request) (*http.Response, error) {
+		switch request.URL.Host + request.URL.Path {
+		case "api.live.bilibili.com/room/v1/Room/get_status_info_by_uids":
+			return jsonResponse(`{"code":-352,"message":"-352","ttl":1}`), nil
+		case "api.bilibili.com/bapis/bilibili.api.ticket.v1.Ticket/GenWebTicket":
+			return jsonResponse(`{
+				"code": 0,
+				"data": {
+					"ticket": "ticket-value",
+					"created_at": 1780906980,
+					"ttl": 259200,
+					"nav": {
+						"img": "https://i0.hdslb.com/bfs/wbi/7cd084941338484aae1ad9425b84077c.png",
+						"sub": "https://i0.hdslb.com/bfs/wbi/4932caff0ff746eab6f01bf08b70ac45.png"
+					}
+				}
+			}`), nil
+		case "api.bilibili.com/x/polymer/web-dynamic/v1/feed/all":
+			return jsonResponse(`{"code":0,"data":{"items":[{
+				"id_str": "dynamic-after-live-risk",
+				"type": "DYNAMIC_TYPE_AV",
+				"basic": {"jump_url": "//www.bilibili.com/video/BV1AFTERLIVERISK"},
+				"modules": {
+					"module_author": {"mid": "123456", "name": "测试 UP", "pub_ts": 1780906980},
+					"module_dynamic": {
+						"major": {
+							"type": "MAJOR_TYPE_ARCHIVE",
+							"archive": {"title": "直播风控后的动态", "desc": "动态仍可用", "cover": "//i0.hdslb.com/bfs/archive/after-live-risk.jpg"}
+						}
+					}
+				}
+			}]}}`), nil
+		default:
+			t.Fatalf("unexpected request url: %s", request.URL.String())
+			return nil, nil
+		}
+	}, staticPluginConfig{
+		values: map[string]any{
+			"subscriptions": []any{
+				map[string]any{
+					"enabled":  true,
+					"platform": "bilibili",
+					"uid":      "123456",
+					"name":     "测试 UP",
+					"services": []any{"live", "video"},
+				},
+			},
+		},
+	})
+	ctx := context.Background()
+	checkedAt := time.Date(2026, 6, 8, 8, 0, 0, 0, time.UTC)
+	account, err := source.accounts.Upsert(ctx, thirdparty.UpsertRequest{
+		Platform:  thirdparty.PlatformBilibili,
+		AccountID: "primary",
+		Label:     "主账号",
+		Enabled:   true,
+		Cookie:    "SESSDATA=fixture; bili_jct=csrf;",
+		Credential: thirdparty.CredentialStatus{
+			State:     thirdparty.CredentialValid,
+			CheckedAt: &checkedAt,
+		},
+	})
+	if err != nil {
+		t.Fatalf("upsert account: %v", err)
+	}
+	subjects := map[string]Subject{
+		"123456": {
+			UID:      "123456",
+			Name:     "测试 UP",
+			Services: map[string]bool{"live": true, "video": true},
+		},
+	}
+
+	source.pollLiveFallback(ctx, subjects, account, "SESSDATA=fixture; bili_jct=csrf;")
+	accounts, err := source.accounts.List(ctx)
+	if err != nil {
+		t.Fatalf("list accounts: %v", err)
+	}
+	if len(accounts) != 1 || accounts[0].Credential.State != thirdparty.CredentialValid {
+		t.Fatalf("live risk should not invalidate account: %#v", accounts)
+	}
+	source.markSeen(ctx, EventDynamicPublished+":baseline", "123456", EventDynamicPublished, "baseline")
+	source.pollDynamics(ctx, subjects, account, "SESSDATA=fixture; bili_jct=csrf;")
+
+	if len(recorder.events) != 1 {
+		t.Fatalf("dynamic events after live risk = %d, want 1", len(recorder.events))
+	}
+	payload := bilibiliPayload(t, recorder.events[0])
+	if payload["id"] != "dynamic-after-live-risk" || payload["title"] != "直播风控后的动态" {
+		t.Fatalf("unexpected dynamic payload after live risk: %#v", payload)
+	}
+	status := source.Status(ctx)
+	if !strings.Contains(status.Live.LastError, "code -352") {
+		t.Fatalf("expected live risk error to remain isolated, status = %#v", status)
+	}
+	if status.Dynamic.LastError != "" {
+		t.Fatalf("dynamic status should remain healthy, got %q", status.Dynamic.LastError)
 	}
 }
 

@@ -59,6 +59,22 @@ func TestAccountClientCheckCookieMarksInvalidNavResponse(t *testing.T) {
 	}
 }
 
+func TestAccountClientCheckCookieKeepsRiskControlUnknown(t *testing.T) {
+	t.Parallel()
+
+	client := NewAccountClient(bilibiliRoundTripFunc(func(request *http.Request) (*http.Response, error) {
+		return bilibiliJSONResponse(`{"code": -352, "message": "风控校验失败", "data": null}`), nil
+	}), func() time.Time { return time.Date(2026, 6, 8, 8, 0, 0, 0, time.UTC) })
+
+	_, credential, err := client.CheckCookie(context.Background(), "SESSDATA=fixture;")
+	if err == nil {
+		t.Fatal("expected risk control error")
+	}
+	if credential.State != "unknown" || credential.CheckedAt == nil || !strings.Contains(credential.LastError, "code -352") {
+		t.Fatalf("unexpected risk-control credential: %#v", credential)
+	}
+}
+
 func TestQRLoginServiceCreatePollAndReturnCookie(t *testing.T) {
 	t.Parallel()
 

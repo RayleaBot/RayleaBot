@@ -45,12 +45,17 @@ func (s *Source) pollDynamics(ctx context.Context, subjects map[string]Subject, 
 	if len(watched) == 0 {
 		return
 	}
+	if delay := s.requestCooldownDelay(bilibiliRequestCooldownDynamic, account, cookie); delay > 0 {
+		s.setDynamicError(fmt.Errorf("Bilibili 动态检查因平台风控暂停，剩余 %s", formatCooldownDelay(delay)))
+		return
+	}
 	var doc dynamicFeedDocument
 	if err := s.requestSignedJSON(ctx, http.MethodGet, dynamicFeedURL, cookie, nil, &doc); err != nil {
-		_ = s.handleAccountRequestError(ctx, account, err)
+		_ = s.handleAccountRequestError(ctx, account, cookie, bilibiliRequestCooldownDynamic, err)
 		s.setDynamicError(err)
 		return
 	}
+	s.clearRequestCooldown(bilibiliRequestCooldownDynamic, account, cookie)
 	now := s.now()
 	s.mu.Lock()
 	s.status.Dynamic.LastPollAt = &now
@@ -111,6 +116,9 @@ func (s *Source) autoFollow(ctx context.Context, subjects map[string]Subject, ac
 	if csrf == "" {
 		return
 	}
+	if s.requestCooldownDelay(bilibiliRequestCooldownAutoFollow, account, cookie) > 0 {
+		return
+	}
 	for _, subject := range sortedSubjects(subjects) {
 		if !hasDynamicService(subject.Services) {
 			continue
@@ -118,11 +126,16 @@ func (s *Source) autoFollow(ctx context.Context, subjects map[string]Subject, ac
 		if account.AccountID != "" && subject.UID == account.AccountID {
 			continue
 		}
+		if !s.shouldCheckAutoFollow(subject.UID, account, cookie) {
+			continue
+		}
 		var relation relationDocument
 		if err := s.requestSignedJSON(ctx, http.MethodGet, fmt.Sprintf(relationURL, subject.UID), cookie, nil, &relation); err != nil {
+			_ = s.handleAccountRequestError(ctx, account, cookie, bilibiliRequestCooldownAutoFollow, err)
 			continue
 		}
 		if relation.Data.Attribute > 0 {
+			s.clearRequestCooldown(bilibiliRequestCooldownAutoFollow, account, cookie)
 			continue
 		}
 		body := url.Values{
@@ -131,8 +144,28 @@ func (s *Source) autoFollow(ctx context.Context, subjects map[string]Subject, ac
 			"re_src": {"11"},
 			"csrf":   {csrf},
 		}
-		_ = s.requestSignedJSON(ctx, http.MethodPost, followURL, cookie, formBody(body), nil)
+		if err := s.requestSignedJSON(ctx, http.MethodPost, followURL, cookie, formBody(body), nil); err != nil {
+			_ = s.handleAccountRequestError(ctx, account, cookie, bilibiliRequestCooldownAutoFollow, err)
+			continue
+		}
+		s.clearRequestCooldown(bilibiliRequestCooldownAutoFollow, account, cookie)
 	}
+}
+
+func (s *Source) shouldCheckAutoFollow(uid string, account thirdparty.Account, cookie string) bool {
+	key := requestCooldownKey(bilibiliRequestCooldownAutoFollow+":"+uid, account, cookie)
+	if key == "" {
+		return false
+	}
+	now := s.now()
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	checkedAt, ok := s.autoFollowChecked[key]
+	if ok && now.Sub(checkedAt) < bilibiliAutoFollowCheckInterval {
+		return false
+	}
+	s.autoFollowChecked[key] = now
+	return true
 }
 
 func dynamicEventFromItem(item map[string]any, watched map[string]Subject) (BilibiliEvent, bool) {

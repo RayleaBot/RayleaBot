@@ -25,10 +25,16 @@ import (
 const (
 	subscriptionHubPluginID = "raylea.subscription-hub"
 
-	defaultDynamicIntervalSeconds  = 10
-	defaultFallbackIntervalSeconds = 10
-	defaultRefreshIntervalSeconds  = 15
-	defaultRequestTimeout          = 20 * time.Second
+	defaultDynamicIntervalSeconds     = 10
+	defaultFallbackIntervalSeconds    = 10
+	defaultRefreshIntervalSeconds     = 15
+	defaultRequestTimeout             = 20 * time.Second
+	bilibiliRiskControlCooldownBase   = 5 * time.Minute
+	bilibiliRiskControlCooldownMax    = 30 * time.Minute
+	bilibiliAutoFollowCheckInterval   = 6 * time.Hour
+	bilibiliRequestCooldownLive       = "live"
+	bilibiliRequestCooldownDynamic    = "dynamic"
+	bilibiliRequestCooldownAutoFollow = "auto_follow"
 )
 
 type Source struct {
@@ -44,10 +50,13 @@ type Source struct {
 	session      *SessionClient
 	now          func() time.Time
 
-	mu        sync.RWMutex
-	status    Status
-	roomTasks map[string]liveRoomTask
-	restart   chan struct{}
+	mu                sync.RWMutex
+	requestMu         sync.Mutex
+	status            Status
+	roomTasks         map[string]liveRoomTask
+	cooldowns         map[string]requestCooldown
+	autoFollowChecked map[string]time.Time
+	restart           chan struct{}
 }
 
 type liveRoomTask struct {
@@ -55,6 +64,12 @@ type liveRoomTask struct {
 	cancel            context.CancelFunc
 	cookieFingerprint string
 	accountID         string
+}
+
+type requestCooldown struct {
+	Attempts  int
+	Until     time.Time
+	LastError string
 }
 
 func NewSource(deps Deps) (*Source, error) {
@@ -89,10 +104,12 @@ func NewSource(deps Deps) (*Source, error) {
 			Transport: transport,
 			Timeout:   defaultRequestTimeout,
 		},
-		session:   deps.Session,
-		now:       now,
-		roomTasks: make(map[string]liveRoomTask),
-		restart:   make(chan struct{}, 1),
+		session:           deps.Session,
+		now:               now,
+		roomTasks:         make(map[string]liveRoomTask),
+		cooldowns:         make(map[string]requestCooldown),
+		autoFollowChecked: make(map[string]time.Time),
+		restart:           make(chan struct{}, 1),
 	}
 	if source.session == nil {
 		source.session = NewSessionClient(transport, now)
@@ -462,21 +479,104 @@ func (s *Source) setDynamicError(err error) {
 	s.mu.Unlock()
 }
 
-func (s *Source) handleAccountRequestError(ctx context.Context, account thirdparty.Account, err error) bool {
+type accountRequestErrorAction int
+
+const (
+	accountRequestErrorNone accountRequestErrorAction = iota
+	accountRequestErrorAuth
+	accountRequestErrorCooldown
+)
+
+func (s *Source) handleAccountRequestError(ctx context.Context, account thirdparty.Account, cookie, scope string, err error) accountRequestErrorAction {
 	if err == nil || account.Platform == "" || account.AccountID == "" {
+		return accountRequestErrorNone
+	}
+	if isBilibiliAuthError(err) {
+		checkedAt := s.now()
+		_ = s.accounts.UpdateCredentialStatus(ctx, account.Platform, account.AccountID, account.Profile, thirdparty.CredentialStatus{
+			State:     thirdparty.CredentialInvalid,
+			CheckedAt: &checkedAt,
+			LastError: err.Error(),
+		})
+		s.stopRoomTasks()
+		return accountRequestErrorAuth
+	}
+	if isBilibiliRequestCooldownError(err) {
+		s.rememberRequestCooldown(scope, account, cookie, err)
+		return accountRequestErrorCooldown
+	}
+	return accountRequestErrorNone
+}
+
+func isBilibiliRequestCooldownError(err error) bool {
+	biliErr := asBilibiliError(err)
+	if biliErr == nil {
 		return false
 	}
-	if !isBilibiliAuthError(err) && !isBilibiliRiskControlError(err) {
-		return false
+	return biliErr.Kind == ErrorRiskControl || biliErr.Kind == ErrorRateLimit
+}
+
+func (s *Source) requestCooldownDelay(scope string, account thirdparty.Account, cookie string) time.Duration {
+	key := requestCooldownKey(scope, account, cookie)
+	if key == "" {
+		return 0
 	}
-	checkedAt := s.now()
-	_ = s.accounts.UpdateCredentialStatus(ctx, account.Platform, account.AccountID, account.Profile, thirdparty.CredentialStatus{
-		State:     thirdparty.CredentialInvalid,
-		CheckedAt: &checkedAt,
-		LastError: err.Error(),
-	})
-	s.stopRoomTasks()
-	return true
+	now := s.now()
+	s.mu.RLock()
+	cooldown := s.cooldowns[key]
+	s.mu.RUnlock()
+	if cooldown.Until.IsZero() || !now.Before(cooldown.Until) {
+		return 0
+	}
+	return cooldown.Until.Sub(now)
+}
+
+func (s *Source) rememberRequestCooldown(scope string, account thirdparty.Account, cookie string, err error) {
+	key := requestCooldownKey(scope, account, cookie)
+	if key == "" || err == nil {
+		return
+	}
+	now := s.now()
+	s.mu.Lock()
+	cooldown := s.cooldowns[key]
+	cooldown.Attempts++
+	delay := bilibiliRiskControlCooldownBase
+	for i := 1; i < cooldown.Attempts; i++ {
+		delay *= 2
+		if delay >= bilibiliRiskControlCooldownMax {
+			delay = bilibiliRiskControlCooldownMax
+			break
+		}
+	}
+	cooldown.Until = now.Add(delay)
+	cooldown.LastError = err.Error()
+	s.cooldowns[key] = cooldown
+	s.mu.Unlock()
+}
+
+func (s *Source) clearRequestCooldown(scope string, account thirdparty.Account, cookie string) {
+	key := requestCooldownKey(scope, account, cookie)
+	if key == "" {
+		return
+	}
+	s.mu.Lock()
+	delete(s.cooldowns, key)
+	s.mu.Unlock()
+}
+
+func requestCooldownKey(scope string, account thirdparty.Account, cookie string) string {
+	scope = strings.TrimSpace(scope)
+	if scope == "" {
+		return ""
+	}
+	accountKey := strings.TrimSpace(account.Platform + ":" + account.AccountID)
+	if accountKey == ":" {
+		accountKey = cookieFingerprint(cookie)
+	}
+	if accountKey == "" {
+		return ""
+	}
+	return scope + ":" + accountKey + ":" + cookieFingerprint(cookie)
 }
 
 func (s *Source) setRoomState(ctx context.Context, state roomState) {
@@ -667,6 +767,8 @@ func (s *Source) requestSignedJSON(ctx context.Context, method, rawURL, cookie s
 }
 
 func (s *Source) requestJSONWithOptions(ctx context.Context, method, rawURL, cookie string, body io.Reader, target any, needWBI bool) error {
+	s.requestMu.Lock()
+	defer s.requestMu.Unlock()
 	return s.requestJSONOnce(ctx, method, rawURL, cookie, body, target, needWBI, true)
 }
 
@@ -944,6 +1046,13 @@ func putString(values map[string]any, key, value string) {
 	if strings.TrimSpace(value) != "" {
 		values[key] = value
 	}
+}
+
+func formatCooldownDelay(delay time.Duration) string {
+	if delay <= 0 {
+		return "0s"
+	}
+	return delay.Round(time.Second).String()
 }
 
 func cookieFingerprint(cookie string) string {

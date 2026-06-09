@@ -70,8 +70,16 @@ func (s *Source) runLiveRoom(ctx context.Context, subject Subject, account third
 		if err := ctx.Err(); err != nil {
 			return
 		}
+		if delay := s.requestCooldownDelay(bilibiliRequestCooldownLive, account, cookie); delay > 0 {
+			select {
+			case <-ctx.Done():
+				return
+			case <-time.After(delay):
+			}
+			continue
+		}
 		if err := s.connectLiveRoom(ctx, subject, cookie); err != nil {
-			if s.handleAccountRequestError(ctx, account, err) {
+			if s.handleAccountRequestError(ctx, account, cookie, bilibiliRequestCooldownLive, err) == accountRequestErrorAuth {
 				s.setLiveError(err)
 				return
 			}
@@ -83,6 +91,8 @@ func (s *Source) runLiveRoom(ctx context.Context, subject Subject, account third
 			state.LastError = err.Error()
 			s.setRoomState(ctx, state)
 			s.setLiveError(err)
+		} else {
+			s.clearRequestCooldown(bilibiliRequestCooldownLive, account, cookie)
 		}
 		select {
 		case <-ctx.Done():
@@ -290,6 +300,10 @@ func (s *Source) pollLiveFallback(ctx context.Context, subjects map[string]Subje
 	if strings.TrimSpace(cookie) == "" {
 		return
 	}
+	if delay := s.requestCooldownDelay(bilibiliRequestCooldownLive, account, cookie); delay > 0 {
+		s.setLiveError(fmt.Errorf("Bilibili 直播检查因平台风控暂停，剩余 %s", formatCooldownDelay(delay)))
+		return
+	}
 	liveSubjects := make([]Subject, 0)
 	for _, subject := range sortedSubjects(subjects) {
 		if subject.Services["live"] {
@@ -301,10 +315,11 @@ func (s *Source) pollLiveFallback(ctx context.Context, subjects map[string]Subje
 	}
 	items, err := s.fetchLiveStatuses(ctx, liveSubjects, cookie)
 	if err != nil {
-		_ = s.handleAccountRequestError(ctx, account, err)
+		_ = s.handleAccountRequestError(ctx, account, cookie, bilibiliRequestCooldownLive, err)
 		s.setLiveError(err)
 		return
 	}
+	s.clearRequestCooldown(bilibiliRequestCooldownLive, account, cookie)
 	for _, subject := range liveSubjects {
 		item, ok := items[subject.UID]
 		if !ok {
