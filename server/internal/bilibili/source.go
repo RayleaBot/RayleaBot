@@ -659,6 +659,13 @@ func (s *Source) clearRequestCooldown(scope string, account thirdparty.Account, 
 	s.mu.Unlock()
 }
 
+func (s *Source) clearLiveError() {
+	s.mu.Lock()
+	s.status.Live.LastError = ""
+	s.status.Diagnosis = s.diagnosisForStatusLocked(s.status, nil)
+	s.mu.Unlock()
+}
+
 func requestCooldownKey(scope string, account thirdparty.Account, cookie string) string {
 	scope = strings.TrimSpace(scope)
 	if scope == "" {
