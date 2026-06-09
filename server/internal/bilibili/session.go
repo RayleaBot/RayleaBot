@@ -78,6 +78,7 @@ type Error struct {
 	Code       int
 	HTTPStatus int
 	Message    string
+	Body       string
 	Err        error
 }
 
@@ -642,7 +643,7 @@ func apiError(httpStatus, code int, message string, body []byte) error {
 	if kind == ErrorRiskControl && ExtractVVoucher(body) != "" {
 		kind = ErrorCaptcha
 	}
-	return &Error{Kind: kind, Code: code, HTTPStatus: httpStatus, Message: text}
+	return &Error{Kind: kind, Code: code, HTTPStatus: httpStatus, Message: text, Body: string(body)}
 }
 
 func classifyBilibiliCode(httpStatus, code int) ErrorKind {

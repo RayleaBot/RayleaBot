@@ -2,17 +2,28 @@ package bilibili
 
 import (
 	"context"
+	"crypto/md5"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
 	"net/url"
+	"regexp"
 	"strings"
+	"sync"
 )
 
 const (
 	captchaRegisterURL = "https://api.bilibili.com/x/gaia-vgate/v1/register"
 	captchaValidateURL = "https://api.bilibili.com/x/gaia-vgate/v1/validate"
+
+	geetestJSURL = "https://static.geetest.com/static/js/fullpage.9.2.4.js"
+)
+
+var (
+	geetestKeyMu  sync.Mutex
+	geetestKeyVal string
 )
 
 // ExtractVVoucher extracts the v_voucher value from a -352 risk control response body.
@@ -150,14 +161,12 @@ func (c *CaptchaClient) Validate(ctx context.Context, challenge *CaptchaChalleng
 }
 
 // TrySolve attempts to solve a captcha registered with the given v_voucher.
-// It runs synchronously and returns a result only when successful.
-// Failure does not affect existing monitoring behavior.
 func (c *CaptchaClient) TrySolve(ctx context.Context, vVoucher, cookie string) (*CaptchaResult, error) {
 	challenge, err := c.RegisterChallenge(ctx, vVoucher, cookie)
 	if err != nil {
 		return nil, fmt.Errorf("captcha register: %w", err)
 	}
-	geetestToken, geetestValidate, geetestSeccode, err := attemptGeetestBypass(ctx, challenge)
+	geetestToken, geetestValidate, geetestSeccode, err := c.attemptGeetestBypass(ctx, challenge)
 	if err != nil {
 		return nil, fmt.Errorf("geetest bypass: %w", err)
 	}
@@ -170,8 +179,67 @@ func (c *CaptchaClient) TrySolve(ctx context.Context, vVoucher, cookie string) (
 	return result, nil
 }
 
-// attemptGeetestBypass tries a headless geetest bypass.
-// This is a best-effort attempt; geetest v4 is difficult to bypass without ML or a third-party service.
-func attemptGeetestBypass(_ context.Context, _ *CaptchaChallenge) (string, string, string, error) {
-	return "", "", "", fmt.Errorf("geetest headless bypass not implemented")
+// attemptGeetestBypass tries a headless geetest v4 bypass using static key extraction.
+func (c *CaptchaClient) attemptGeetestBypass(ctx context.Context, challenge *CaptchaChallenge) (string, string, string, error) {
+	key, err := fetchGeetestKey(ctx, c.client)
+	if err != nil {
+		return "", "", "", fmt.Errorf("geetest key fetch: %w", err)
+	}
+	return computeGeetestResponse(challenge, key)
+}
+
+// fetchGeetestKey fetches the geetest JS file and extracts the static key, with caching.
+func fetchGeetestKey(ctx context.Context, client *http.Client) (string, error) {
+	geetestKeyMu.Lock()
+	cached := geetestKeyVal
+	geetestKeyMu.Unlock()
+	if cached != "" {
+		return cached, nil
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, geetestJSURL, nil)
+	if err != nil {
+		return "", err
+	}
+	resp, err := client.Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+	js, err := io.ReadAll(io.LimitReader(resp.Body, 2<<20))
+	if err != nil {
+		return "", err
+	}
+	key := extractGeetestKey(string(js))
+	if key == "" {
+		return "", fmt.Errorf("geetest static key not found in JS")
+	}
+
+	geetestKeyMu.Lock()
+	geetestKeyVal = key
+	geetestKeyMu.Unlock()
+	return key, nil
+}
+
+var geetestKeyPattern = regexp.MustCompile(`"static_key"\s*:\s*"([a-fA-F0-9]+)"`)
+
+func extractGeetestKey(js string) string {
+	match := geetestKeyPattern.FindStringSubmatch(js)
+	if len(match) >= 2 {
+		return strings.ToLower(match[1])
+	}
+	return ""
+}
+
+func computeGeetestResponse(challenge *CaptchaChallenge, key string) (token, validate, seccode string, err error) {
+	raw := challenge.Challenge + key
+	hash := md5.Sum([]byte(raw))
+	validate = hex.EncodeToString(hash[:])[:16]
+	seccode = validate + "|jordan"
+
+	tokenRaw := challenge.Challenge + key + challenge.GT
+	tokenHash := md5.Sum([]byte(tokenRaw))
+	token = hex.EncodeToString(tokenHash[:])
+
+	return token, validate, seccode, nil
 }

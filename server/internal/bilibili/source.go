@@ -62,6 +62,7 @@ type Source struct {
 	dynamicAccountOffset int
 	griskID            string
 	griskMu            sync.Mutex
+	captchaClient      *CaptchaClient
 }
 
 type liveRoomTask struct {
@@ -127,6 +128,7 @@ func NewSource(deps Deps) (*Source, error) {
 		cooldowns:         make(map[string]requestCooldown),
 		autoFollowChecked: make(map[string]time.Time),
 		restart:           make(chan struct{}, 1),
+		captchaClient:     NewCaptchaClient(transport, identity),
 	}
 	if source.session == nil {
 		source.session = NewSessionClient(transport, now, identity)
@@ -583,12 +585,17 @@ func (s *Source) tryCaptchaRecovery(ctx context.Context, account thirdparty.Acco
 	if biliErr == nil {
 		return
 	}
-	// Extract the response body from the error message to find v_voucher.
-	// The apiError function includes v_voucher detection; re-extract if needed.
-	_ = biliErr
-	_ = ctx
-	_ = account
-	_ = cookie
+	vVoucher := ExtractVVoucher([]byte(biliErr.Body))
+	if vVoucher == "" {
+		return
+	}
+	result, solveErr := s.captchaClient.TrySolve(ctx, vVoucher, cookie)
+	if solveErr != nil {
+		return
+	}
+	s.griskMu.Lock()
+	s.griskID = result.GriskID
+	s.griskMu.Unlock()
 }
 
 func isBilibiliRequestCooldownError(err error) bool {

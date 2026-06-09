@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/thirdparty"
+	"github.com/andybalholm/brotli"
 	"github.com/coder/websocket"
 )
 
@@ -243,7 +244,7 @@ func (s *Source) consumeLiveWebSocket(ctx context.Context, subject Subject, room
 	verify := map[string]any{
 		"uid":      loginUID,
 		"roomid":   parseInt(roomID),
-		"protover": liveWSProtoZlib,
+		"protover": liveWSProtoBrotli,
 		"platform": "web",
 		"type":     2,
 		"key":      token,
@@ -550,6 +551,13 @@ func liveWSUnpack(data []byte) ([]map[string]any, error) {
 		}
 		defer reader.Close()
 		inflated, err := io.ReadAll(reader)
+		if err != nil {
+			return nil, err
+		}
+		return liveWSUnpack(inflated)
+	}
+	if protocol == liveWSProtoBrotli {
+		inflated, err := io.ReadAll(brotli.NewReader(bytes.NewReader(data[liveWSHeaderSize:])))
 		if err != nil {
 			return nil, err
 		}
