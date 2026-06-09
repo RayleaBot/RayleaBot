@@ -170,7 +170,7 @@
         "items": [
           {
             "title": "立即检查订阅",
-            "description": "查看 Bilibili 实时源和降级检查入口。",
+            "description": "查看 Bilibili 实时源、运行受限和备用检查入口。",
             "usage": "/立即检查订阅",
             "command": "立即检查订阅"
           },
@@ -192,7 +192,7 @@
           },
           {
             "title": "实时源状态",
-            "description": "连接、错误、最近事件和降级检查状态在 Web 三方账号页面查看。",
+            "description": "连接、错误、最近事件、运行受限和备用检查状态在 Web 三方监控页面查看。",
             "permission": "super_admin"
           }
         ]

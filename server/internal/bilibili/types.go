@@ -44,11 +44,42 @@ type Deps struct {
 }
 
 type Status struct {
-	Status   string               `json:"status"`
-	Summary  string               `json:"summary"`
-	Live     LiveStatus           `json:"live"`
-	Dynamic  DynamicStatus        `json:"dynamic"`
-	Accounts []thirdparty.Account `json:"-"`
+	Status    string               `json:"status"`
+	Summary   string               `json:"summary"`
+	Live      LiveStatus           `json:"live"`
+	Dynamic   DynamicStatus        `json:"dynamic"`
+	Diagnosis Diagnosis            `json:"diagnosis"`
+	Accounts  []thirdparty.Account `json:"-"`
+}
+
+type Diagnosis struct {
+	Level       string            `json:"level"`
+	Headline    string            `json:"headline"`
+	Description string            `json:"description"`
+	Causes      []DiagnosisCause  `json:"causes"`
+	Impacts     []string          `json:"impacts"`
+	Actions     []DiagnosisAction `json:"actions"`
+	UpdatedAt   time.Time         `json:"updated_at"`
+}
+
+type DiagnosisCause struct {
+	Scope     string     `json:"scope"`
+	Code      string     `json:"code"`
+	Title     string     `json:"title"`
+	Detail    string     `json:"detail"`
+	LastError string     `json:"last_error"`
+	RetryAt   *time.Time `json:"retry_at"`
+}
+
+type DiagnosisAction struct {
+	Kind    string  `json:"kind"`
+	Label   string  `json:"label"`
+	Target  *string `json:"target"`
+	Primary bool    `json:"primary"`
+}
+
+func DiagnosisForStatus(status Status, now time.Time) Diagnosis {
+	return diagnosisForStatusAt(status, nil, now)
 }
 
 type MonitorSnapshot struct {

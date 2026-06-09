@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, reactive } from 'vue'
 import { storeToRefs } from 'pinia'
+import { useRouter } from 'vue-router'
 import {
   FieldTimeOutlined,
-  LinkOutlined,
   ReloadOutlined,
   SyncOutlined,
   UserOutlined,
@@ -31,6 +31,7 @@ interface PlatformOption {
 }
 
 const store = useThirdPartyMonitoringStore()
+const router = useRouter()
 const {
   bilibiliStatus,
   error,
@@ -60,10 +61,14 @@ const pageErrorToast = computed(() => (
     : null
 ))
 const statusTag = computed(() => sourceStatusMeta(bilibiliStatus.value?.status))
-const statusTone = computed<StatusTone>(() => statusToneFromStatus(bilibiliStatus.value?.status))
+const statusTone = computed<StatusTone>(() => statusToneFromDiagnosis(bilibiliStatus.value?.diagnosis.level))
+const diagnosis = computed(() => bilibiliStatus.value?.diagnosis ?? null)
+const diagnosisActions = computed(() => diagnosis.value?.actions ?? [])
+const openAccountsAction = computed(() => diagnosisActions.value.find((action) => action.kind === 'open_accounts'))
 const watchedUIDs = computed(() => items.value.map((item) => item.uid))
 const liveCount = computed(() => items.value.filter((item) => item.live.is_live).length)
 const dynamicCount = computed(() => items.value.filter((item) => item.dynamic).length)
+const accountCount = computed(() => bilibiliStatus.value?.accounts.length ?? 0)
 
 useToastFeedback(pageErrorToast)
 
@@ -117,17 +122,56 @@ function sourceStatusMeta(value?: BilibiliSourceStatusResponse['status']) {
   }
 }
 
-function statusToneFromStatus(value?: BilibiliSourceStatusResponse['status']): StatusTone {
+function statusToneFromDiagnosis(value?: BilibiliSourceStatusResponse['diagnosis']['level']): StatusTone {
   switch (value) {
-    case 'connected':
+    case 'normal':
       return 'success'
-    case 'degraded':
+    case 'attention':
       return 'warning'
-    case 'failed':
+    case 'action_required':
       return 'danger'
     default:
       return 'normal'
   }
+}
+
+function liveMetricText() {
+  const live = bilibiliStatus.value?.live
+  if (!live) {
+    return t('display.empty')
+  }
+  if (live.failed_rooms > 0 && live.fallback_polling) {
+    return t('builtinFeatures.thirdPartyMonitoring.liveFallbackMetric', { count: live.failed_rooms })
+  }
+  if (live.failed_rooms > 0 || live.last_error) {
+    return t('builtinFeatures.thirdPartyMonitoring.liveFailedMetric', { count: live.failed_rooms })
+  }
+  return t('builtinFeatures.thirdPartyMonitoring.liveConnected', { count: live.connected_rooms })
+}
+
+function dynamicMetricText() {
+  const dynamic = bilibiliStatus.value?.dynamic
+  if (!dynamic) {
+    return t('display.empty')
+  }
+  if (dynamic.last_error) {
+    return t('builtinFeatures.thirdPartyMonitoring.dynamicErrorMetric')
+  }
+  return t('builtinFeatures.thirdPartyMonitoring.lastPoll', { time: displayTime(dynamic.last_poll_at) })
+}
+
+function accountMetricText() {
+  return t('builtinFeatures.thirdPartyMonitoring.accountSummary', { count: accountCount.value })
+}
+
+function causeRetryText(value?: string | null) {
+  return value
+    ? t('builtinFeatures.thirdPartyMonitoring.retryAt', { time: displayTime(value) })
+    : ''
+}
+
+async function openBilibiliAccounts() {
+  await router.push(openAccountsAction.value?.target || { name: 'third-party-accounts' })
 }
 
 function liveTag(item: ThirdPartyMonitorItem) {
@@ -220,38 +264,87 @@ function coverFailed(uid: string) {
 
     <div v-else class="third-party-monitoring">
       <section :class="['monitoring-overview', `monitoring-overview--${statusTone}`]">
-        <div class="platform-switch">
-          <span>{{ t('builtinFeatures.thirdPartyMonitoring.platform') }}</span>
-          <a-segmented
-            :value="platform"
-            :options="platformOptions"
-            @change="handlePlatformChange"
-          />
+        <div class="monitoring-overview__top">
+          <div class="platform-switch">
+            <span>{{ t('builtinFeatures.thirdPartyMonitoring.platform') }}</span>
+            <a-segmented
+              :value="platform"
+              :options="platformOptions"
+              @change="handlePlatformChange"
+            />
+          </div>
+
+          <div class="status-summary">
+            <div>
+              <span class="status-title">{{ t('builtinFeatures.thirdPartyMonitoring.sourceTitle') }}</span>
+              <h2>{{ diagnosis?.headline || bilibiliStatus?.summary || t('builtinFeatures.thirdPartyMonitoring.sourceWaiting') }}</h2>
+              <p>{{ diagnosis?.description || t('builtinFeatures.thirdPartyMonitoring.sourceWaiting') }}</p>
+              <small>{{ t('builtinFeatures.thirdPartyMonitoring.updatedAt', { time: displayTime(diagnosis?.updated_at ?? monitors?.updated_at) }) }}</small>
+            </div>
+            <a-tag :color="statusTag.color">{{ statusTag.label }}</a-tag>
+          </div>
+
+          <div class="diagnosis-actions">
+            <a-button v-if="openAccountsAction" type="primary" @click="openBilibiliAccounts">
+              {{ openAccountsAction.label }}
+            </a-button>
+            <a-button :loading="loading" @click="loadPage">
+              <template #icon><ReloadOutlined /></template>
+              {{ t('builtinFeatures.thirdPartyMonitoring.refresh') }}
+            </a-button>
+            <a-button :loading="restarting" @click="restartSource">
+              <template #icon><SyncOutlined /></template>
+              {{ t('builtinFeatures.thirdPartyMonitoring.restartSource') }}
+            </a-button>
+          </div>
         </div>
 
-        <div class="status-summary">
-          <div>
-            <span class="status-title">{{ t('builtinFeatures.thirdPartyMonitoring.sourceTitle') }}</span>
-            <p>{{ bilibiliStatus?.summary || t('builtinFeatures.thirdPartyMonitoring.sourceWaiting') }}</p>
+        <div class="diagnosis-grid">
+          <div class="diagnosis-column">
+            <span>{{ t('builtinFeatures.thirdPartyMonitoring.diagnosisCause') }}</span>
+            <div v-if="diagnosis?.causes.length" class="diagnosis-list">
+              <article v-for="cause in diagnosis.causes" :key="`${cause.scope}:${cause.code}:${cause.title}`">
+                <strong>{{ cause.title }}</strong>
+                <p>{{ cause.detail }}</p>
+                <small v-if="causeRetryText(cause.retry_at)">{{ causeRetryText(cause.retry_at) }}</small>
+                <small v-if="cause.last_error">{{ cause.last_error }}</small>
+              </article>
+            </div>
+            <p v-else>{{ t('builtinFeatures.thirdPartyMonitoring.noDiagnosisCause') }}</p>
           </div>
-          <a-tag :color="statusTag.color">{{ statusTag.label }}</a-tag>
+
+          <div class="diagnosis-column">
+            <span>{{ t('builtinFeatures.thirdPartyMonitoring.diagnosisImpact') }}</span>
+            <ul v-if="diagnosis?.impacts.length" class="diagnosis-points">
+              <li v-for="impact in diagnosis.impacts" :key="impact">{{ impact }}</li>
+            </ul>
+            <p v-else>{{ t('builtinFeatures.thirdPartyMonitoring.noDiagnosisImpact') }}</p>
+          </div>
+
+          <div class="diagnosis-column">
+            <span>{{ t('builtinFeatures.thirdPartyMonitoring.diagnosisAction') }}</span>
+            <ul v-if="diagnosis?.actions.length" class="diagnosis-points">
+              <li v-for="action in diagnosis.actions" :key="`${action.kind}:${action.label}`">{{ action.label }}</li>
+            </ul>
+            <p v-else>{{ t('builtinFeatures.thirdPartyMonitoring.noDiagnosisAction') }}</p>
+          </div>
         </div>
 
         <div class="monitoring-metrics">
           <div class="monitoring-metric">
-            <span>{{ t('builtinFeatures.thirdPartyMonitoring.uidMetric') }}</span>
-            <strong>{{ watchedUIDs.length }}</strong>
-            <small>{{ t('builtinFeatures.thirdPartyMonitoring.updatedAt', { time: displayTime(monitors?.updated_at) }) }}</small>
+            <span>{{ t('builtinFeatures.thirdPartyMonitoring.accountMetric') }}</span>
+            <strong>{{ accountCount }}</strong>
+            <small>{{ accountMetricText() }}</small>
           </div>
           <div class="monitoring-metric">
             <span>{{ t('builtinFeatures.thirdPartyMonitoring.liveMetric') }}</span>
-            <strong>{{ liveCount }}/{{ watchedUIDs.length }}</strong>
-            <small>{{ t('builtinFeatures.thirdPartyMonitoring.liveConnected', { count: bilibiliStatus?.live.connected_rooms ?? 0 }) }}</small>
+            <strong>{{ liveCount }}/{{ bilibiliStatus?.live.watched_rooms ?? watchedUIDs.length }}</strong>
+            <small>{{ liveMetricText() }}</small>
           </div>
           <div class="monitoring-metric">
             <span>{{ t('builtinFeatures.thirdPartyMonitoring.dynamicMetric') }}</span>
-            <strong>{{ dynamicCount }}</strong>
-            <small>{{ t('builtinFeatures.thirdPartyMonitoring.lastPoll', { time: displayTime(bilibiliStatus?.dynamic.last_poll_at) }) }}</small>
+            <strong>{{ dynamicCount }}/{{ bilibiliStatus?.dynamic.watched_uids ?? watchedUIDs.length }}</strong>
+            <small>{{ dynamicMetricText() }}</small>
           </div>
         </div>
 
@@ -377,6 +470,7 @@ function coverFailed(uid: string) {
 .monitoring-actions,
 .platform-switch,
 .status-summary,
+.diagnosis-actions,
 .uid-panel,
 .uid-list,
 .monitor-card__identity,
@@ -399,8 +493,6 @@ function coverFailed(uid: string) {
 
 .monitoring-overview {
   display: grid;
-  grid-template-columns: minmax(180px, 1.1fr) minmax(260px, 1.5fr) minmax(360px, 2.4fr);
-  align-items: stretch;
   gap: var(--space-md);
   min-width: 0;
   padding: var(--space-lg);
@@ -411,20 +503,29 @@ function coverFailed(uid: string) {
 }
 
 .monitoring-overview--warning {
-  border-color: color-mix(in srgb, #d97706 35%, var(--border));
+  border-color: color-mix(in srgb, #d97706 42%, var(--border));
+  background: color-mix(in srgb, #f59e0b 4%, var(--surface-strong));
 }
 
 .monitoring-overview--danger {
-  border-color: color-mix(in srgb, #dc2626 35%, var(--border));
+  border-color: color-mix(in srgb, #dc2626 42%, var(--border));
+  background: color-mix(in srgb, #ef4444 4%, var(--surface-strong));
 }
 
 .monitoring-overview--success {
   border-color: color-mix(in srgb, #16a34a 24%, var(--border));
 }
 
+.monitoring-overview__top {
+  display: grid;
+  grid-template-columns: minmax(180px, 0.85fr) minmax(320px, 2fr) auto;
+  gap: var(--space-md);
+  align-items: stretch;
+  min-width: 0;
+}
+
 .platform-switch,
-.status-summary,
-.uid-panel {
+.status-summary {
   min-width: 0;
   padding: var(--space-md);
   border: 1px solid color-mix(in srgb, var(--border) 72%, transparent);
@@ -435,10 +536,12 @@ function coverFailed(uid: string) {
 .platform-switch {
   flex-direction: column;
   align-items: flex-start;
+  justify-content: center;
 }
 
 .platform-switch > span,
 .status-title,
+.diagnosis-column > span,
 .uid-panel > span:first-child,
 .monitoring-metric span,
 .monitor-card__dynamic span,
@@ -449,6 +552,7 @@ function coverFailed(uid: string) {
 
 .status-summary {
   justify-content: space-between;
+  align-items: flex-start;
 }
 
 .status-summary > div {
@@ -459,14 +563,95 @@ function coverFailed(uid: string) {
   display: block;
 }
 
-.status-summary p {
+.status-summary h2 {
   margin: 4px 0 0;
-  overflow: hidden;
+  color: var(--text);
+  font-size: 1.05rem;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.status-summary p {
+  max-width: 72ch;
+  margin: 5px 0 0;
+  color: var(--muted);
+  font-size: 0.86rem;
+  line-height: 1.55;
+}
+
+.status-summary small {
+  display: block;
+  margin-top: 5px;
+  color: var(--muted);
+  font-size: 0.74rem;
+}
+
+.diagnosis-actions {
+  justify-content: flex-end;
+  align-content: center;
+  align-items: center;
+  flex-wrap: wrap;
+  min-width: 220px;
+}
+
+.diagnosis-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr) minmax(0, 0.85fr);
+  gap: var(--space-sm);
+  min-width: 0;
+}
+
+.diagnosis-column,
+.uid-panel {
+  min-width: 0;
+  padding: var(--space-md);
+  border: 1px solid color-mix(in srgb, var(--border) 72%, transparent);
+  border-radius: var(--radius-md);
+  background: var(--surface-soft);
+}
+
+.diagnosis-column {
+  display: grid;
+  align-content: start;
+  gap: var(--space-sm);
+}
+
+.diagnosis-column p,
+.diagnosis-points {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.82rem;
+  line-height: 1.5;
+}
+
+.diagnosis-list {
+  display: grid;
+  gap: var(--space-sm);
+  min-width: 0;
+}
+
+.diagnosis-list article {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.diagnosis-list strong {
   color: var(--text);
   font-size: 0.9rem;
-  font-weight: 600;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  font-weight: 650;
+}
+
+.diagnosis-list small {
+  color: var(--muted);
+  font-size: 0.74rem;
+  overflow-wrap: anywhere;
+}
+
+.diagnosis-points {
+  display: grid;
+  gap: 5px;
+  padding-left: 1.05rem;
 }
 
 .monitoring-metrics {
@@ -506,8 +691,9 @@ function coverFailed(uid: string) {
 }
 
 .uid-panel {
-  grid-column: 1 / -1;
+  display: flex;
   justify-content: space-between;
+  align-items: center;
 }
 
 .uid-list {
@@ -716,8 +902,14 @@ function coverFailed(uid: string) {
 }
 
 @media (max-width: 1100px) {
-  .monitoring-overview {
+  .monitoring-overview__top,
+  .diagnosis-grid {
     grid-template-columns: 1fr;
+  }
+
+  .diagnosis-actions {
+    justify-content: flex-start;
+    min-width: 0;
   }
 
   .uid-panel {
@@ -727,13 +919,15 @@ function coverFailed(uid: string) {
 
 @media (max-width: 760px) {
   .monitoring-actions,
+  .diagnosis-actions,
   .uid-panel,
   .status-summary {
     align-items: stretch;
     flex-direction: column;
   }
 
-  .monitoring-actions :deep(.ant-btn) {
+  .monitoring-actions :deep(.ant-btn),
+  .diagnosis-actions :deep(.ant-btn) {
     width: 100%;
   }
 
@@ -753,7 +947,7 @@ function coverFailed(uid: string) {
     justify-content: flex-start;
   }
 
-  .status-summary p,
+  .status-summary h2,
   .monitoring-metric strong,
   .monitoring-metric small,
   .monitor-card__identity strong,

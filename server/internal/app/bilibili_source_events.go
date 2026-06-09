@@ -77,17 +77,18 @@ func (s *bilibiliSourceEventService) subscribe(buffer int) (<-chan managementEve
 }
 
 type bilibiliSourceEventPayload struct {
-	Source             string  `json:"source"`
-	Status             string  `json:"status"`
-	Summary            string  `json:"summary"`
-	LiveWatchedRooms   int     `json:"live_watched_rooms"`
-	LiveConnectedRooms int     `json:"live_connected_rooms"`
-	LiveFailedRooms    int     `json:"live_failed_rooms"`
-	FallbackPolling    bool    `json:"fallback_polling"`
-	DynamicEnabled     bool    `json:"dynamic_enabled"`
-	DynamicWatchedUIDs int     `json:"dynamic_watched_uids"`
-	LastEventAt        *string `json:"last_event_at"`
-	LastError          string  `json:"last_error"`
+	Source             string                  `json:"source"`
+	Status             string                  `json:"status"`
+	Summary            string                  `json:"summary"`
+	LiveWatchedRooms   int                     `json:"live_watched_rooms"`
+	LiveConnectedRooms int                     `json:"live_connected_rooms"`
+	LiveFailedRooms    int                     `json:"live_failed_rooms"`
+	FallbackPolling    bool                    `json:"fallback_polling"`
+	DynamicEnabled     bool                    `json:"dynamic_enabled"`
+	DynamicWatchedUIDs int                     `json:"dynamic_watched_uids"`
+	LastEventAt        *string                 `json:"last_event_at"`
+	LastError          string                  `json:"last_error"`
+	Diagnosis          bilibiliSourceDiagnosis `json:"diagnosis"`
 }
 
 func bilibiliSourceStatusEventFrame(status source.Status) managementEventFrame {
@@ -111,6 +112,7 @@ func bilibiliSourceStatusEventFrame(status source.Status) managementEventFrame {
 		DynamicWatchedUIDs: status.Dynamic.WatchedUIDs,
 		LastEventAt:        lastEventAt,
 		LastError:          lastError,
+		Diagnosis:          bilibiliSourceDiagnosisFrom(status),
 	})
 }
 

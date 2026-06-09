@@ -280,6 +280,7 @@ channels:
                 - dynamic_watched_uids
                 - last_event_at
                 - last_error
+                - diagnosis
               properties:
                 source:
                   type: string
@@ -311,6 +312,81 @@ channels:
                   format: date-time
                 last_error:
                   type: string
+                diagnosis:
+                  type: object
+                  additionalProperties: false
+                  required: [level, headline, description, causes, impacts, actions, updated_at]
+                  properties:
+                    level:
+                      type: string
+                      enum: [normal, attention, action_required]
+                    headline:
+                      type: string
+                      minLength: 1
+                    description:
+                      type: string
+                      minLength: 1
+                    causes:
+                      type: array
+                      items:
+                        type: object
+                        additionalProperties: false
+                        required: [scope, code, title, detail, last_error, retry_at]
+                        properties:
+                          scope:
+                            type: string
+                            enum: [source, live, dynamic, auto_follow, account]
+                          code:
+                            type: string
+                            enum:
+                              - healthy
+                              - source_disabled
+                              - source_idle
+                              - source_connecting
+                              - live_fallback
+                              - live_connection_error
+                              - platform_risk_control
+                              - platform_rate_limit
+                              - credential_invalid
+                              - source_failed
+                          title:
+                            type: string
+                            minLength: 1
+                          detail:
+                            type: string
+                            minLength: 1
+                          last_error:
+                            type: string
+                          retry_at:
+                            type: string
+                            nullable: true
+                            format: date-time
+                    impacts:
+                      type: array
+                      items:
+                        type: string
+                        minLength: 1
+                    actions:
+                      type: array
+                      items:
+                        type: object
+                        additionalProperties: false
+                        required: [kind, label, target, primary]
+                        properties:
+                          kind:
+                            type: string
+                            enum: [refresh, restart_source, open_accounts, wait]
+                          label:
+                            type: string
+                            minLength: 1
+                          target:
+                            type: string
+                            nullable: true
+                          primary:
+                            type: boolean
+                    updated_at:
+                      type: string
+                      format: date-time
             - type: object
               additionalProperties: false
               required: [protocol, protocol_snapshot]

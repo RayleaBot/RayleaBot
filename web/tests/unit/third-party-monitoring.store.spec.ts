@@ -106,6 +106,26 @@ describe('third-party monitoring store', () => {
             last_event_at: null,
             last_error: '',
           },
+          diagnosis: {
+            level: 'normal',
+            headline: 'Bilibili 事件源运行中',
+            description: '直播和动态检查正在正常运行。',
+            causes: [
+              {
+                scope: 'source',
+                code: 'healthy',
+                title: '检查正常',
+                detail: '直播和动态检查正在按当前配置运行。',
+                last_error: '',
+                retry_at: null,
+              },
+            ],
+            impacts: ['直播状态正常检查。', '动态接收不受影响。', 'CK 有效，无需重新登录。'],
+            actions: [
+              { kind: 'refresh', label: '刷新状态', target: null, primary: true },
+            ],
+            updated_at: '2026-06-08T08:11:05Z',
+          },
           accounts: [],
         }))
       }

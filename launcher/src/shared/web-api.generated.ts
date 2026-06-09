@@ -1814,11 +1814,45 @@ export interface components {
             last_event_at: string | null;
             last_error: string;
         };
+        /** @enum {string} */
+        BilibiliSourceDiagnosisLevel: "normal" | "attention" | "action_required";
+        /** @enum {string} */
+        BilibiliSourceDiagnosisScope: "source" | "live" | "dynamic" | "auto_follow" | "account";
+        /** @enum {string} */
+        BilibiliSourceDiagnosisCode: "healthy" | "source_disabled" | "source_idle" | "source_connecting" | "live_fallback" | "live_connection_error" | "platform_risk_control" | "platform_rate_limit" | "credential_invalid" | "source_failed";
+        /** @enum {string} */
+        BilibiliSourceDiagnosisActionKind: "refresh" | "restart_source" | "open_accounts" | "wait";
+        BilibiliSourceDiagnosisCause: {
+            scope: components["schemas"]["BilibiliSourceDiagnosisScope"];
+            code: components["schemas"]["BilibiliSourceDiagnosisCode"];
+            title: string;
+            detail: string;
+            last_error: string;
+            /** Format: date-time */
+            retry_at: string | null;
+        };
+        BilibiliSourceDiagnosisAction: {
+            kind: components["schemas"]["BilibiliSourceDiagnosisActionKind"];
+            label: string;
+            target: string | null;
+            primary: boolean;
+        };
+        BilibiliSourceDiagnosis: {
+            level: components["schemas"]["BilibiliSourceDiagnosisLevel"];
+            headline: string;
+            description: string;
+            causes: components["schemas"]["BilibiliSourceDiagnosisCause"][];
+            impacts: string[];
+            actions: components["schemas"]["BilibiliSourceDiagnosisAction"][];
+            /** Format: date-time */
+            updated_at: string;
+        };
         BilibiliSourceStatusResponse: {
             status: components["schemas"]["BilibiliSourceState"];
             summary: string;
             live: components["schemas"]["BilibiliSourceLiveStatus"];
             dynamic: components["schemas"]["BilibiliSourceDynamicStatus"];
+            diagnosis: components["schemas"]["BilibiliSourceDiagnosis"];
             accounts: components["schemas"]["ThirdPartyAccountSummary"][];
         };
         BilibiliSourceRestartResponse: {

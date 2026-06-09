@@ -591,6 +591,15 @@ func TestPollDynamicsRiskControlCoolsDynamicWithoutInvalidatingAccount(t *testin
 	if !strings.Contains(status.Dynamic.LastError, "code -352") {
 		t.Fatalf("unexpected dynamic error: %#v", status.Dynamic.LastError)
 	}
+	if status.Diagnosis.Level != "attention" || status.Diagnosis.Headline != "平台风控等待中" {
+		t.Fatalf("unexpected dynamic risk diagnosis: %#v", status.Diagnosis)
+	}
+	if len(status.Diagnosis.Causes) != 1 || status.Diagnosis.Causes[0].Scope != "dynamic" || status.Diagnosis.Causes[0].Code != "platform_risk_control" || status.Diagnosis.Causes[0].RetryAt == nil {
+		t.Fatalf("unexpected dynamic risk cause: %#v", status.Diagnosis.Causes)
+	}
+	if !containsText(status.Diagnosis.Impacts, "动态检查暂时等待平台恢复。") || !containsText(status.Diagnosis.Impacts, "CK 有效，无需重新登录。") {
+		t.Fatalf("unexpected dynamic risk impacts: %#v", status.Diagnosis.Impacts)
+	}
 	requestsAfterRisk := requests
 	source.pollDynamics(ctx, map[string]Subject{
 		"123456": {
@@ -680,6 +689,7 @@ func TestLiveRiskControlDoesNotBlockDynamicCookieUse(t *testing.T) {
 		},
 	}
 
+	source.updateWatchCounts(ctx, subjects)
 	source.pollLiveFallback(ctx, subjects, account, "SESSDATA=fixture; bili_jct=csrf;")
 	accounts, err := source.accounts.List(ctx)
 	if err != nil {
@@ -704,6 +714,155 @@ func TestLiveRiskControlDoesNotBlockDynamicCookieUse(t *testing.T) {
 	}
 	if status.Dynamic.LastError != "" {
 		t.Fatalf("dynamic status should remain healthy, got %q", status.Dynamic.LastError)
+	}
+	if status.Diagnosis.Headline != "平台风控等待中" {
+		t.Fatalf("unexpected live risk diagnosis: %#v", status.Diagnosis)
+	}
+	if !containsText(status.Diagnosis.Impacts, "动态接收不受影响。") || !containsText(status.Diagnosis.Impacts, "CK 有效，无需重新登录。") {
+		t.Fatalf("live risk should explain dynamic and CK impact: %#v", status.Diagnosis.Impacts)
+	}
+}
+
+func TestSourceDiagnosisExplainsLiveFallback(t *testing.T) {
+	t.Parallel()
+
+	source, _ := newTestSource(t, time.Date(2026, 6, 8, 8, 24, 0, 0, time.UTC), nil)
+	ctx := context.Background()
+	source.setRoomState(ctx, roomState{
+		UID:             "123456",
+		ConnectionState: StateDegraded,
+		LastError:       "直播间 123456 连接失败",
+		UpdatedAt:       time.Date(2026, 6, 8, 8, 23, 0, 0, time.UTC),
+	})
+	source.updateWatchCounts(ctx, map[string]Subject{
+		"123456": {
+			UID:      "123456",
+			Services: map[string]bool{"live": true, "video": true},
+		},
+	})
+
+	status := source.Status(ctx)
+	if status.Summary != "Bilibili 事件源运行受限" {
+		t.Fatalf("summary = %q", status.Summary)
+	}
+	if status.Diagnosis.Level != "attention" || status.Diagnosis.Headline != "直播备用检查中" {
+		t.Fatalf("unexpected live fallback diagnosis: %#v", status.Diagnosis)
+	}
+	if len(status.Diagnosis.Causes) != 1 || status.Diagnosis.Causes[0].Code != "live_fallback" {
+		t.Fatalf("unexpected live fallback cause: %#v", status.Diagnosis.Causes)
+	}
+	if !containsText(status.Diagnosis.Impacts, "动态接收不受影响。") {
+		t.Fatalf("live fallback should explain dynamic impact: %#v", status.Diagnosis.Impacts)
+	}
+}
+
+func TestSourceDiagnosisPrioritizesInvalidCredential(t *testing.T) {
+	t.Parallel()
+
+	source, _ := newTestSource(t, time.Date(2026, 6, 8, 8, 25, 0, 0, time.UTC), nil)
+	ctx := context.Background()
+	checkedAt := time.Date(2026, 6, 8, 8, 0, 0, 0, time.UTC)
+	if _, err := source.accounts.Upsert(ctx, thirdparty.UpsertRequest{
+		Platform:  thirdparty.PlatformBilibili,
+		AccountID: "primary",
+		Label:     "主账号",
+		Enabled:   true,
+		Cookie:    "SESSDATA=invalid;",
+		Credential: thirdparty.CredentialStatus{
+			State:     thirdparty.CredentialInvalid,
+			CheckedAt: &checkedAt,
+			LastError: "账号未登录",
+		},
+	}); err != nil {
+		t.Fatalf("upsert account: %v", err)
+	}
+	source.updateWatchCounts(ctx, map[string]Subject{
+		"123456": {
+			UID:      "123456",
+			Services: map[string]bool{"live": true, "video": true},
+		},
+	})
+
+	status := source.Status(ctx)
+	if status.Diagnosis.Level != "action_required" || status.Diagnosis.Headline != "CK 需要重新登录" {
+		t.Fatalf("unexpected invalid credential diagnosis: %#v", status.Diagnosis)
+	}
+	if len(status.Diagnosis.Causes) != 1 || status.Diagnosis.Causes[0].Code != "credential_invalid" || status.Diagnosis.Causes[0].LastError != "账号未登录" {
+		t.Fatalf("unexpected invalid credential cause: %#v", status.Diagnosis.Causes)
+	}
+	if len(status.Diagnosis.Actions) == 0 || status.Diagnosis.Actions[0].Kind != "open_accounts" || status.Diagnosis.Actions[0].Target == nil || *status.Diagnosis.Actions[0].Target != "/third-party-accounts" {
+		t.Fatalf("unexpected invalid credential actions: %#v", status.Diagnosis.Actions)
+	}
+}
+
+func TestSourcePublishStatusIncludesCredentialDiagnosis(t *testing.T) {
+	t.Parallel()
+
+	var published []Status
+	source, _ := newTestSource(t, time.Date(2026, 6, 8, 8, 25, 0, 0, time.UTC), nil)
+	source.notifyStatus = func(status Status) {
+		published = append(published, status)
+	}
+	ctx := context.Background()
+	checkedAt := time.Date(2026, 6, 8, 8, 0, 0, 0, time.UTC)
+	if _, err := source.accounts.Upsert(ctx, thirdparty.UpsertRequest{
+		Platform:  thirdparty.PlatformBilibili,
+		AccountID: "primary",
+		Label:     "主账号",
+		Enabled:   true,
+		Cookie:    "SESSDATA=invalid;",
+		Credential: thirdparty.CredentialStatus{
+			State:     thirdparty.CredentialInvalid,
+			CheckedAt: &checkedAt,
+			LastError: "账号未登录",
+		},
+	}); err != nil {
+		t.Fatalf("upsert account: %v", err)
+	}
+
+	source.updateWatchCounts(ctx, map[string]Subject{
+		"123456": {
+			UID:      "123456",
+			Services: map[string]bool{"live": true, "video": true},
+		},
+	})
+
+	if len(published) == 0 {
+		t.Fatal("expected status publication")
+	}
+	last := published[len(published)-1]
+	if last.Diagnosis.Level != "action_required" || last.Diagnosis.Headline != "CK 需要重新登录" {
+		t.Fatalf("unexpected published diagnosis: %#v", last.Diagnosis)
+	}
+	if len(last.Accounts) != 1 || last.Accounts[0].Credential.State != thirdparty.CredentialInvalid {
+		t.Fatalf("published status should include current account state: %#v", last.Accounts)
+	}
+}
+
+func TestSourceDiagnosisReportsHealthyState(t *testing.T) {
+	t.Parallel()
+
+	source, _ := newTestSource(t, time.Date(2026, 6, 8, 8, 26, 0, 0, time.UTC), nil)
+	ctx := context.Background()
+	source.updateWatchCounts(ctx, map[string]Subject{
+		"123456": {
+			UID:      "123456",
+			Services: map[string]bool{"video": true},
+		},
+	})
+	source.mu.Lock()
+	now := time.Date(2026, 6, 8, 8, 26, 0, 0, time.UTC)
+	source.status.Dynamic.LastPollAt = &now
+	source.status.Status = source.deriveStateLocked()
+	source.status.Summary = sourceSummary(source.status.Status)
+	source.mu.Unlock()
+
+	status := source.Status(ctx)
+	if status.Status != StateConnected || status.Diagnosis.Level != "normal" || status.Diagnosis.Headline != "Bilibili 事件源运行中" {
+		t.Fatalf("unexpected healthy diagnosis: %#v", status)
+	}
+	if !containsText(status.Diagnosis.Impacts, "动态接收不受影响。") {
+		t.Fatalf("healthy diagnosis should explain dynamic state: %#v", status.Diagnosis.Impacts)
 	}
 }
 
@@ -948,4 +1107,13 @@ func bilibiliPayload(t *testing.T, event runtime.Event) map[string]any {
 		t.Fatalf("event missing bilibili payload: %#v", event.PayloadFields)
 	}
 	return payload
+}
+
+func containsText(values []string, want string) bool {
+	for _, value := range values {
+		if value == want {
+			return true
+		}
+	}
+	return false
 }

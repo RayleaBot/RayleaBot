@@ -99,6 +99,7 @@ export type BilibiliSourceStatusEventPayload = {
   dynamic_watched_uids: number
   last_event_at: string | null
   last_error: string
+  diagnosis: components['schemas']['BilibiliSourceDiagnosis']
 }
 
 export type ProtocolSnapshotEventPayload = {

@@ -26,6 +26,27 @@ response:
         last_poll_at: null
         last_event_at: null
         last_error: ""
+      diagnosis:
+        level: attention
+        headline: 正在连接 Bilibili 事件源
+        description: 直播和动态检查正在恢复，稍后刷新状态。
+        causes:
+          - scope: source
+            code: source_connecting
+            title: 事件源正在连接
+            detail: 直播连接、备用检查和动态检查正在启动。
+            last_error: ""
+            retry_at: null
+        impacts:
+          - 直播状态会在连接完成后更新。
+          - 动态检查会在下一轮检查后更新。
+          - CK 状态不受重启影响。
+        actions:
+          - kind: refresh
+            label: 刷新状态
+            target: null
+            primary: true
+        updated_at: "2026-06-08T08:10:05Z"
       accounts:
         - platform: bilibili
           account_id: primary

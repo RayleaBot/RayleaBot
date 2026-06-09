@@ -151,7 +151,7 @@ class SubscriptionHubPlugin(RayleaBotPlugin):
             ctx.send_text("订阅中心未启用。")
             ctx.send_result({"handled": True, "skipped": "disabled"})
             return
-        ctx.send_text("Bilibili 事件源负责实时检查。请在 Web 的三方账号页面查看连接和降级检查状态。")
+        ctx.send_text("Bilibili 事件源负责实时检查。请在 Web 的三方监控页面查看连接、运行受限和备用检查状态。")
         ctx.send_result({"handled": True, "sent": 0})
 
     @command("预览订阅卡片")

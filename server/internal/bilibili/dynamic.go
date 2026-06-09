@@ -64,7 +64,7 @@ func (s *Source) pollDynamics(ctx context.Context, subjects map[string]Subject, 
 	s.status.Summary = sourceSummary(s.status.Status)
 	status := s.status
 	s.mu.Unlock()
-	s.publishStatus(ctx, s.withAccounts(ctx, status))
+	s.publishStatus(ctx, status)
 
 	initialized := s.initializedDynamicUIDs(ctx, watched)
 	s.ensureDynamicBaselines(ctx, watched)
