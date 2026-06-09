@@ -4,10 +4,19 @@ import { storeToRefs } from 'pinia'
 import { useRouter } from 'vue-router'
 import {
   CaretDownOutlined,
+  CheckCircleOutlined,
+  CloseCircleOutlined,
   FieldTimeOutlined,
+  InfoCircleOutlined,
+  KeyOutlined,
+  NotificationOutlined,
   ReloadOutlined,
   SyncOutlined,
+  ThunderboltOutlined,
+  ToolOutlined,
   UserOutlined,
+  VideoCameraOutlined,
+  WarningOutlined,
 } from '@ant-design/icons-vue'
 
 import { notifyError, notifySuccess, useToastFeedback } from '@/adapter/feedback'
@@ -270,24 +279,44 @@ function coverFailed(uid: string) {
     />
 
     <div v-else class="third-party-monitoring">
-      <!-- Slim status strip -->
+      <!-- Status bar -->
       <section :class="['monitoring-strip', `monitoring-strip--${statusTone}`]">
         <div class="monitoring-strip__row">
           <div class="monitoring-strip__left">
-            <span class="monitoring-strip__dot" :class="`monitoring-strip__dot--${statusTag.color}`" />
-            <span class="monitoring-strip__label">{{ statusTag.label }}</span>
+            <div class="monitoring-strip__status">
+              <span class="monitoring-strip__pulse" :class="`monitoring-strip__pulse--${statusTag.color}`">
+                <span class="monitoring-strip__dot" :class="`monitoring-strip__dot--${statusTag.color}`" />
+              </span>
+              <span class="monitoring-strip__label">{{ statusTag.label }}</span>
+            </div>
             <span class="monitoring-strip__summary">
               {{ diagnosis?.headline || bilibiliStatus?.summary || t('builtinFeatures.thirdPartyMonitoring.sourceWaiting') }}
             </span>
           </div>
           <div class="monitoring-strip__right">
-            <span class="monitoring-strip__counts">
-              <span>{{ accountCount }} CK</span>
-              <span class="monitoring-strip__sep">·</span>
-              <span>{{ liveCount }}/{{ bilibiliStatus?.live.watched_rooms ?? watchedUIDs.length }} {{ t('builtinFeatures.thirdPartyMonitoring.liveMetric') }}</span>
-              <span class="monitoring-strip__sep">·</span>
-              <span>{{ dynamicCount }}/{{ bilibiliStatus?.dynamic.watched_uids ?? watchedUIDs.length }} {{ t('builtinFeatures.thirdPartyMonitoring.dynamicMetric') }}</span>
-            </span>
+            <div class="monitoring-strip__metrics">
+              <div class="metric-badge">
+                <KeyOutlined class="metric-badge__icon" />
+                <span class="metric-badge__value">{{ accountCount }}</span>
+                <span class="metric-badge__label">CK</span>
+              </div>
+              <div
+                class="metric-badge"
+                :class="{ 'metric-badge--warning': liveCount < (bilibiliStatus?.live.watched_rooms ?? watchedUIDs.length) }"
+              >
+                <VideoCameraOutlined class="metric-badge__icon" />
+                <span class="metric-badge__value">{{ liveCount }}/{{ bilibiliStatus?.live.watched_rooms ?? watchedUIDs.length }}</span>
+                <span class="metric-badge__label">{{ t('builtinFeatures.thirdPartyMonitoring.liveMetric') }}</span>
+              </div>
+              <div
+                class="metric-badge"
+                :class="{ 'metric-badge--warning': dynamicCount < (bilibiliStatus?.dynamic.watched_uids ?? watchedUIDs.length) }"
+              >
+                <NotificationOutlined class="metric-badge__icon" />
+                <span class="metric-badge__value">{{ dynamicCount }}/{{ bilibiliStatus?.dynamic.watched_uids ?? watchedUIDs.length }}</span>
+                <span class="metric-badge__label">{{ t('builtinFeatures.thirdPartyMonitoring.dynamicMetric') }}</span>
+              </div>
+            </div>
             <a-button
               v-if="hasDiagnosisDetail"
               type="text"
@@ -303,25 +332,69 @@ function coverFailed(uid: string) {
         <!-- Expandable diagnosis detail -->
         <div :class="['monitoring-strip__detail', { 'is-open': diagnosisExpanded }]">
           <div class="monitoring-strip__detail-inner">
-            <div v-if="diagnosis?.causes.length" class="diagnosis-chips">
-              <span class="diagnosis-chips__label">{{ t('builtinFeatures.thirdPartyMonitoring.diagnosisCause') }}</span>
-              <article v-for="cause in diagnosis.causes" :key="`${cause.scope}:${cause.code}`" class="diagnosis-chip">
-                <strong>{{ cause.title }}</strong>
-                <p>{{ cause.detail }}</p>
-              </article>
+            <!-- Causes -->
+            <div v-if="diagnosis?.causes.length" class="diagnosis-section">
+              <div class="diagnosis-section__header">
+                <InfoCircleOutlined class="diagnosis-section__header-icon" />
+                <span class="diagnosis-section__header-title">{{ t('builtinFeatures.thirdPartyMonitoring.diagnosisCause') }}</span>
+              </div>
+              <div class="diagnosis-causes">
+                <article
+                  v-for="cause in diagnosis.causes"
+                  :key="`${cause.scope}:${cause.code}`"
+                  class="diagnosis-cause-card"
+                >
+                  <div class="diagnosis-cause-card__icon">
+                    <WarningOutlined v-if="statusTone === 'warning'" />
+                    <CloseCircleOutlined v-else-if="statusTone === 'danger'" />
+                    <CheckCircleOutlined v-else />
+                  </div>
+                  <div class="diagnosis-cause-card__content">
+                    <strong>{{ cause.title }}</strong>
+                    <p>{{ cause.detail }}</p>
+                  </div>
+                </article>
+              </div>
             </div>
-            <div v-if="diagnosis?.impacts.length" class="diagnosis-chips">
-              <span class="diagnosis-chips__label">{{ t('builtinFeatures.thirdPartyMonitoring.diagnosisImpact') }}</span>
-              <span v-for="impact in diagnosis.impacts" :key="impact" class="diagnosis-chip diagnosis-chip--inline">{{ impact }}</span>
+
+            <!-- Impacts -->
+            <div v-if="diagnosis?.impacts.length" class="diagnosis-section">
+              <div class="diagnosis-section__header">
+                <ThunderboltOutlined class="diagnosis-section__header-icon" />
+                <span class="diagnosis-section__header-title">{{ t('builtinFeatures.thirdPartyMonitoring.diagnosisImpact') }}</span>
+              </div>
+              <div class="diagnosis-impact-list">
+                <span v-for="impact in diagnosis.impacts" :key="impact" class="impact-tag">
+                  <CheckCircleOutlined class="impact-tag__icon" />
+                  {{ impact }}
+                </span>
+              </div>
             </div>
-            <div v-if="diagnosisActions.length" class="diagnosis-chips">
-              <span class="diagnosis-chips__label">{{ t('builtinFeatures.thirdPartyMonitoring.diagnosisAction') }}</span>
-              <span v-for="action in diagnosisActions" :key="`${action.kind}:${action.label}`" class="diagnosis-chip diagnosis-chip--inline">{{ action.label }}</span>
-            </div>
-            <div v-if="openAccountsAction" class="diagnosis-chips__actions">
-              <a-button type="primary" size="small" @click="openBilibiliAccounts">
-                {{ openAccountsAction.label }}
-              </a-button>
+
+            <!-- Actions -->
+            <div v-if="diagnosisActions.length" class="diagnosis-section">
+              <div class="diagnosis-section__header">
+                <ToolOutlined class="diagnosis-section__header-icon" />
+                <span class="diagnosis-section__header-title">{{ t('builtinFeatures.thirdPartyMonitoring.diagnosisAction') }}</span>
+              </div>
+              <div class="diagnosis-action-list">
+                <span
+                  v-for="action in diagnosisActions"
+                  :key="`${action.kind}:${action.label}`"
+                  class="action-tag"
+                >
+                  {{ action.label }}
+                </span>
+                <a-button
+                  v-if="openAccountsAction"
+                  type="primary"
+                  size="small"
+                  class="diagnosis-action-btn"
+                  @click="openBilibiliAccounts"
+                >
+                  {{ openAccountsAction.label }}
+                </a-button>
+              </div>
             </div>
           </div>
         </div>
@@ -483,23 +556,49 @@ function coverFailed(uid: string) {
   min-width: 0;
 }
 
-/* ── Slim status strip ── */
+/* ── Status bar ── */
 .monitoring-strip {
+  position: relative;
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   background: var(--surface-strong);
   box-shadow: var(--shadow-card);
   overflow: hidden;
+
+  /* Left status accent line */
+  &::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 3px;
+    background: var(--muted);
+    transition: background 0.3s ease;
+  }
 }
 
+.monitoring-strip--success::before { background: var(--success); }
+.monitoring-strip--warning::before { background: var(--warning); }
+.monitoring-strip--danger::before  { background: var(--danger); }
+.monitoring-strip--normal::before  { background: var(--accent); }
+
 .monitoring-strip--warning {
-  border-color: color-mix(in srgb, var(--warning) 38%, var(--border));
-  background: color-mix(in srgb, var(--warning) 3%, var(--surface-strong));
+  border-color: color-mix(in srgb, var(--warning) 28%, var(--border));
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--warning) 4%, var(--surface-strong)) 0%,
+    var(--surface-strong) 60%
+  );
 }
 
 .monitoring-strip--danger {
-  border-color: color-mix(in srgb, var(--danger) 38%, var(--border));
-  background: color-mix(in srgb, var(--danger) 3%, var(--surface-strong));
+  border-color: color-mix(in srgb, var(--danger) 28%, var(--border));
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--danger) 4%, var(--surface-strong)) 0%,
+    var(--surface-strong) 60%
+  );
 }
 
 .monitoring-strip__row {
@@ -507,8 +606,8 @@ function coverFailed(uid: string) {
   align-items: center;
   justify-content: space-between;
   gap: var(--space-sm);
-  padding: 10px var(--space-md);
-  min-height: 44px;
+  padding: 12px var(--space-md) 12px calc(var(--space-md) + 3px);
+  min-height: 48px;
 }
 
 .monitoring-strip__left {
@@ -519,12 +618,44 @@ function coverFailed(uid: string) {
   flex: 1 1 auto;
 }
 
-.monitoring-strip__right {
+.monitoring-strip__status {
   display: flex;
   align-items: center;
-  gap: var(--space-sm);
+  gap: 8px;
   flex: 0 0 auto;
-  min-width: 0;
+}
+
+/* Pulse animation wrapper */
+.monitoring-strip__pulse {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  flex: 0 0 auto;
+
+  &::before {
+    content: '';
+    position: absolute;
+    inset: -3px;
+    border-radius: 50%;
+    opacity: 0;
+    animation: status-pulse 2.4s ease-in-out infinite;
+  }
+
+  &--green::before  { background: var(--success); }
+  &--blue::before   { background: var(--accent); }
+  &--orange::before { background: var(--warning); }
+  &--red::before    { background: var(--danger); }
+  &--default::before { background: var(--muted); }
+}
+
+@keyframes status-pulse {
+  0%   { transform: scale(0.6); opacity: 0; }
+  30%  { transform: scale(1); opacity: 0.25; }
+  60%  { transform: scale(1.4); opacity: 0; }
+  100% { transform: scale(1.4); opacity: 0; }
 }
 
 .monitoring-strip__dot {
@@ -533,6 +664,8 @@ function coverFailed(uid: string) {
   border-radius: 50%;
   flex: 0 0 auto;
   background: var(--muted);
+  position: relative;
+  z-index: 1;
 
   &--green  { background: var(--success); }
   &--blue   { background: var(--accent); }
@@ -542,33 +675,76 @@ function coverFailed(uid: string) {
 }
 
 .monitoring-strip__label {
-  font-weight: 650;
-  font-size: 0.88rem;
+  font-weight: 700;
+  font-size: 0.9rem;
   color: var(--text);
   flex: 0 0 auto;
+  letter-spacing: -0.01em;
 }
 
 .monitoring-strip__summary {
   color: var(--muted);
-  font-size: 0.84rem;
+  font-size: 0.82rem;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   min-width: 0;
+  padding-left: 6px;
+  border-left: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
 }
 
-.monitoring-strip__counts {
+.monitoring-strip__right {
   display: flex;
   align-items: center;
-  gap: 4px;
-  color: var(--muted);
-  font-size: 0.78rem;
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
+  gap: var(--space-sm);
+  flex: 0 0 auto;
+  min-width: 0;
 }
 
-.monitoring-strip__sep {
-  color: color-mix(in srgb, var(--muted) 36%, transparent);
+/* Metric badges */
+.monitoring-strip__metrics {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 0 0 auto;
+}
+
+.metric-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px;
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--surface-soft) 80%, transparent);
+  border: 1px solid color-mix(in srgb, var(--border) 50%, transparent);
+  font-size: 0.76rem;
+  color: var(--muted);
+  white-space: nowrap;
+  transition: border-color 0.2s ease, background 0.2s ease;
+
+  &__icon {
+    font-size: 0.82rem;
+    opacity: 0.7;
+  }
+
+  &__value {
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    color: var(--text);
+  }
+
+  &__label {
+    font-size: 0.72rem;
+  }
+
+  &--warning {
+    border-color: color-mix(in srgb, var(--warning) 35%, var(--border));
+    background: color-mix(in srgb, var(--warning) 6%, var(--surface-soft));
+
+    .metric-badge__value {
+      color: var(--warning);
+    }
+  }
 }
 
 .monitoring-strip__toggle {
@@ -595,57 +771,154 @@ function coverFailed(uid: string) {
 .monitoring-strip__detail-inner {
   overflow: hidden;
   display: grid;
-  gap: var(--space-sm);
-  padding: 0 var(--space-md) var(--space-md);
+  gap: var(--space-md);
+  padding: 0 var(--space-md) var(--space-md) calc(var(--space-md) + 3px);
 }
 
-.diagnosis-chips {
+/* Diagnosis sections */
+.diagnosis-section {
+  display: grid;
+  gap: var(--space-sm);
+}
+
+.diagnosis-section__header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.diagnosis-section__header-icon {
+  font-size: 0.88rem;
+  opacity: 0.8;
+}
+
+.diagnosis-section__header-title {
+  padding-top: 1px;
+}
+
+/* Cause cards */
+.diagnosis-causes {
+  display: grid;
+  gap: var(--space-sm);
+}
+
+.diagnosis-cause-card {
   display: flex;
   align-items: flex-start;
   gap: var(--space-sm);
-  flex-wrap: wrap;
+  padding: 10px 12px;
+  border-radius: var(--radius-md);
+  background: var(--surface-soft);
+  border: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
   min-width: 0;
+
+  &__icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border-radius: var(--radius-sm);
+    background: color-mix(in srgb, var(--success) 10%, var(--surface));
+    color: var(--success);
+    font-size: 0.92rem;
+    flex: 0 0 auto;
+    margin-top: 1px;
+  }
+
+  &__content {
+    flex: 1 1 auto;
+    min-width: 0;
+
+    strong {
+      display: block;
+      color: var(--text);
+      font-size: 0.86rem;
+      font-weight: 650;
+      line-height: 1.4;
+    }
+
+    p {
+      margin: 3px 0 0;
+      color: var(--muted);
+      font-size: 0.78rem;
+      line-height: 1.5;
+    }
+  }
 }
 
-.diagnosis-chips__label {
-  color: var(--muted);
-  font-size: 0.74rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  padding-top: 3px;
-  flex: 0 0 auto;
+.monitoring-strip--warning .diagnosis-cause-card__icon {
+  background: color-mix(in srgb, var(--warning) 10%, var(--surface));
+  color: var(--warning);
 }
 
-.diagnosis-chip {
-  padding: 6px 10px;
+.monitoring-strip--danger .diagnosis-cause-card__icon {
+  background: color-mix(in srgb, var(--danger) 10%, var(--surface));
+  color: var(--danger);
+}
+
+/* Impact tags */
+.diagnosis-impact-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.impact-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 10px;
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--success) 6%, var(--surface-soft));
+  border: 1px solid color-mix(in srgb, var(--success) 18%, var(--border));
+  color: color-mix(in srgb, var(--success) 85%, var(--text));
+  font-size: 0.8rem;
+
+  &__icon {
+    font-size: 0.82rem;
+    opacity: 0.8;
+  }
+}
+
+.monitoring-strip--warning .impact-tag {
+  background: color-mix(in srgb, var(--warning) 6%, var(--surface-soft));
+  border-color: color-mix(in srgb, var(--warning) 18%, var(--border));
+  color: color-mix(in srgb, var(--warning) 85%, var(--text));
+}
+
+.monitoring-strip--danger .impact-tag {
+  background: color-mix(in srgb, var(--danger) 6%, var(--surface-soft));
+  border-color: color-mix(in srgb, var(--danger) 18%, var(--border));
+  color: color-mix(in srgb, var(--danger) 85%, var(--text));
+}
+
+/* Action tags */
+.diagnosis-action-list {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.action-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 5px 10px;
   border-radius: var(--radius-sm);
   background: var(--surface-soft);
-  border: 1px solid color-mix(in srgb, var(--border) 72%, transparent);
-  min-width: 0;
-
-  strong {
-    display: block;
-    color: var(--text);
-    font-size: 0.84rem;
-    font-weight: 650;
-  }
-
-  p {
-    margin: 2px 0 0;
-    color: var(--muted);
-    font-size: 0.78rem;
-    line-height: 1.45;
-  }
-}
-
-.diagnosis-chip--inline {
+  border: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
   color: var(--muted);
   font-size: 0.8rem;
 }
 
-.diagnosis-chips__actions {
-  padding-top: 2px;
+.diagnosis-action-btn {
+  margin-left: 2px;
 }
 
 /* ── UID strip ── */
@@ -992,10 +1265,12 @@ function coverFailed(uid: string) {
   .monitoring-strip__row {
     flex-direction: column;
     align-items: flex-start;
+    gap: var(--space-sm);
   }
 
-  .monitoring-strip__counts {
-    font-size: 0.74rem;
+  .monitoring-strip__right {
+    width: 100%;
+    justify-content: space-between;
   }
 
   .monitor-card-grid {
@@ -1015,17 +1290,56 @@ function coverFailed(uid: string) {
   }
 
   .monitoring-strip__row {
-    gap: 6px;
-    padding: 10px var(--space-sm);
+    gap: 8px;
+    padding: 10px var(--space-sm) 10px calc(var(--space-sm) + 3px);
   }
 
   .monitoring-strip__left {
     flex-wrap: wrap;
   }
 
+  .monitoring-strip__summary {
+    width: 100%;
+    padding-left: 0;
+    border-left: none;
+    padding-top: 2px;
+  }
+
   .monitoring-strip__right {
     width: 100%;
     justify-content: space-between;
+  }
+
+  .monitoring-strip__metrics {
+    flex-wrap: wrap;
+  }
+
+  .metric-badge {
+    padding: 2px 8px;
+    font-size: 0.72rem;
+  }
+
+  .monitoring-strip__detail-inner {
+    padding: 0 var(--space-sm) var(--space-sm) calc(var(--space-sm) + 3px);
+    gap: var(--space-sm);
+  }
+
+  .diagnosis-cause-card {
+    padding: 8px 10px;
+
+    &__icon {
+      width: 24px;
+      height: 24px;
+      font-size: 0.84rem;
+    }
+
+    &__content strong {
+      font-size: 0.82rem;
+    }
+
+    &__content p {
+      font-size: 0.74rem;
+    }
   }
 
   .monitor-card__facts {
