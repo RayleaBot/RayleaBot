@@ -12,9 +12,10 @@ import (
 )
 
 const (
-	dynamicFeedURL = "https://api.bilibili.com/x/polymer/web-dynamic/v1/feed/all?timezone_offset=-480&type=all&page=1"
-	relationURL    = "https://api.bilibili.com/x/relation?fid=%s"
-	followURL      = "https://api.bilibili.com/x/relation/modify"
+	dynamicFeedURL      = "https://api.bilibili.com/x/polymer/web-dynamic/v1/feed/all?timezone_offset=-480&type=all&page=1"
+	dynamicSpaceFeedURL = "https://api.bilibili.com/x/polymer/web-dynamic/v1/feed/space?host_mid=%s&timezone_offset=-480&features=itemOpusStyle"
+	relationURL         = "https://api.bilibili.com/x/relation?fid=%s"
+	followURL           = "https://api.bilibili.com/x/relation/modify"
 )
 
 type dynamicFeedDocument struct {
@@ -30,6 +31,12 @@ type relationDocument struct {
 	Data struct {
 		Attribute int `json:"attribute"`
 	} `json:"data"`
+}
+
+type monitorDynamicCandidate struct {
+	event  BilibiliEvent
+	pinned bool
+	index  int
 }
 
 func (s *Source) pollDynamics(ctx context.Context, subjects map[string]Subject, account thirdparty.Account, cookie string) {
@@ -87,6 +94,95 @@ func (s *Source) pollDynamics(ctx context.Context, subjects map[string]Subject, 
 			continue
 		}
 		s.dispatchEvent(ctx, event)
+	}
+}
+
+func (s *Source) refreshMonitorDynamics(ctx context.Context, subjects map[string]Subject) error {
+	watched := make(map[string]Subject)
+	for uid, subject := range subjects {
+		if hasDynamicService(subject.Services) {
+			watched[uid] = subject
+		}
+	}
+	if len(watched) == 0 {
+		return nil
+	}
+	account, cookie, err := s.accountCookieForDynamic(ctx)
+	if err != nil {
+		s.clearDynamicSnapshots(ctx, watched)
+		return err
+	}
+	if delay := s.requestCooldownDelay(bilibiliRequestCooldownDynamic, account, cookie); delay > 0 {
+		s.clearDynamicSnapshots(ctx, watched)
+		return fmt.Errorf("Bilibili 动态检查因平台风控暂停，剩余 %s", formatCooldownDelay(delay))
+	}
+	for _, subject := range sortedSubjects(watched) {
+		event, ok, err := s.fetchMonitorLatestDynamic(ctx, subject, account, cookie)
+		if err != nil {
+			s.clearDynamicSnapshots(ctx, watched)
+			_ = s.handleAccountRequestError(ctx, account, cookie, bilibiliRequestCooldownDynamic, err)
+			return err
+		}
+		if ok {
+			s.setDynamicSnapshot(ctx, event)
+			continue
+		}
+		s.clearDynamicSnapshot(ctx, subject.UID)
+	}
+	s.clearRequestCooldown(bilibiliRequestCooldownDynamic, account, cookie)
+	now := s.now()
+	s.mu.Lock()
+	s.status.Dynamic.LastPollAt = &now
+	s.status.Dynamic.LastError = ""
+	s.status.Status = s.deriveStateLocked()
+	s.status.Summary = sourceSummary(s.status.Status)
+	s.status.Diagnosis = s.diagnosisForStatusLocked(s.status, nil)
+	status := s.status
+	s.mu.Unlock()
+	s.publishStatus(ctx, status)
+	return nil
+}
+
+func (s *Source) fetchMonitorLatestDynamic(ctx context.Context, subject Subject, account thirdparty.Account, cookie string) (BilibiliEvent, bool, error) {
+	if strings.TrimSpace(subject.UID) == "" || strings.TrimSpace(cookie) == "" {
+		return BilibiliEvent{}, false, nil
+	}
+	dmImg := GetDmImg()
+	feedURL := fmt.Sprintf(dynamicSpaceFeedURL, subject.UID) +
+		"&dm_img_list=" + url.QueryEscape(dmImg.DmImgList) +
+		"&dm_img_str=" + url.QueryEscape(dmImg.DmImgStr) +
+		"&dm_cover_img_str=" + url.QueryEscape(dmImg.DmCoverImgStr) +
+		"&dm_img_inter=" + url.QueryEscape(dmImg.DmImgInter)
+	var doc dynamicFeedDocument
+	if err := s.requestSignedJSON(ctx, http.MethodGet, feedURL, cookie, nil, &doc); err != nil {
+		return BilibiliEvent{}, false, err
+	}
+	watched := map[string]Subject{subject.UID: {
+		UID:       subject.UID,
+		Name:      subject.Name,
+		AvatarURL: subject.AvatarURL,
+		Services:  allDynamicServices(),
+	}}
+	candidates := []monitorDynamicCandidate{}
+	for index, item := range append(doc.Data.Items, doc.Data.Cards...) {
+		event, ok := dynamicEventFromItem(item, watched)
+		if ok {
+			candidates = append(candidates, monitorDynamicCandidate{
+				event:  event,
+				pinned: dynamicItemPinned(item),
+				index:  index,
+			})
+		}
+	}
+	return latestMonitorDynamicCandidate(candidates)
+}
+
+func allDynamicServices() map[string]bool {
+	return map[string]bool{
+		"video":      true,
+		"image_text": true,
+		"article":    true,
+		"repost":     true,
 	}
 }
 
@@ -205,7 +301,7 @@ func dynamicEventFromItem(item map[string]any, watched map[string]Subject) (Bili
 		Service:     service,
 		Title:       firstNonEmpty(title, dynamicTitleFallback(service)),
 		Summary:     truncate(summary, 420),
-		URL:         firstNonEmpty(urlValue, "https://t.bilibili.com/"+id),
+		URL:         firstNonEmpty(urlValue, dynamicPageURL(id)),
 		PubTS:       pubTS,
 		CreatedAt:   formatTime(pubTS),
 		DynamicType: dynamicType,
@@ -217,6 +313,116 @@ func dynamicEventFromItem(item map[string]any, watched map[string]Subject) (Bili
 		Images: images,
 	}
 	return event, true
+}
+
+func latestMonitorDynamicCandidate(candidates []monitorDynamicCandidate) (BilibiliEvent, bool, error) {
+	if len(candidates) == 0 {
+		return BilibiliEvent{}, false, nil
+	}
+	pinned := []monitorDynamicCandidate{}
+	normal := []monitorDynamicCandidate{}
+	for _, candidate := range candidates {
+		if candidate.pinned {
+			pinned = append(pinned, candidate)
+			continue
+		}
+		normal = append(normal, candidate)
+	}
+	if len(normal) == 0 {
+		latest := latestDynamicCandidate(pinned)
+		return latest.event, true, nil
+	}
+	latest := latestDynamicCandidate(normal)
+	if len(pinned) > 0 {
+		latestPinned := latestDynamicCandidate(pinned)
+		if dynamicCandidateAfter(latestPinned, latest) {
+			latest = latestPinned
+		}
+	}
+	return latest.event, true, nil
+}
+
+func latestDynamicCandidate(candidates []monitorDynamicCandidate) monitorDynamicCandidate {
+	latest := candidates[0]
+	for _, candidate := range candidates[1:] {
+		if dynamicCandidateAfter(candidate, latest) {
+			latest = candidate
+		}
+	}
+	return latest
+}
+
+func dynamicCandidateAfter(candidate, current monitorDynamicCandidate) bool {
+	if candidate.event.PubTS > 0 || current.event.PubTS > 0 {
+		if candidate.event.PubTS != current.event.PubTS {
+			return candidate.event.PubTS > current.event.PubTS
+		}
+	}
+	if cmp := compareDynamicID(candidate.event.ID, current.event.ID); cmp != 0 {
+		return cmp > 0
+	}
+	return candidate.index < current.index
+}
+
+func compareDynamicID(left, right string) int {
+	left = strings.TrimSpace(left)
+	right = strings.TrimSpace(right)
+	if len(left) != len(right) {
+		if len(left) > len(right) {
+			return 1
+		}
+		return -1
+	}
+	if left == right {
+		return 0
+	}
+	if left > right {
+		return 1
+	}
+	return -1
+}
+
+func dynamicItemPinned(item map[string]any) bool {
+	if boolishValue(item["is_top"]) || boolishValue(item["is_top_dynamic"]) || boolishValue(item["is_pinned"]) {
+		return true
+	}
+	if boolishValue(nested(item, "basic", "is_top")) || boolishValue(nested(item, "basic", "is_pinned")) {
+		return true
+	}
+	tag := nestedMap(item, "modules", "module_tag")
+	tagText := firstNonEmpty(
+		stringValue(tag["text"]),
+		stringValue(tag["name"]),
+		stringValue(tag["title"]),
+		stringValue(tag["label"]),
+	)
+	if strings.Contains(tagText, "置顶") {
+		return true
+	}
+	tagType := strings.ToUpper(firstNonEmpty(
+		stringValue(tag["type"]),
+		stringValue(tag["module_type"]),
+		stringValue(tag["tag_type"]),
+	))
+	return strings.Contains(tagType, "TOP") || strings.Contains(tagType, "PIN")
+}
+
+func boolishValue(value any) bool {
+	switch typed := value.(type) {
+	case bool:
+		return typed
+	case float64:
+		return typed != 0
+	case int:
+		return typed != 0
+	case int64:
+		return typed != 0
+	case string:
+		normalized := strings.ToLower(strings.TrimSpace(typed))
+		return normalized == "true" || normalized == "1" || normalized == "yes"
+	default:
+		return false
+	}
 }
 
 func dynamicAuthor(item map[string]any) Author {
@@ -260,12 +466,12 @@ func dynamicContent(item map[string]any, service, id string) (string, string, []
 	switch service {
 	case "video":
 		archive := nestedMap(major, "archive")
-		return firstNonEmpty(stringValue(archive["title"])), firstNonEmpty(stringValue(archive["desc"]), desc), []Image{{URL: normalizeURL(stringValue(archive["cover"]))}}, firstNonEmpty(jumpURL, "https://www.bilibili.com/video/"+id)
+		return firstNonEmpty(stringValue(archive["title"])), firstNonEmpty(stringValue(archive["desc"]), desc), []Image{{URL: normalizeURL(stringValue(archive["cover"]))}}, firstNonEmpty(jumpURL, videoArchiveURL(archive), dynamicPageURL(id))
 	case "article":
 		article := nestedMap(major, "article")
-		return firstNonEmpty(stringValue(article["title"])), firstNonEmpty(stringValue(article["desc"]), desc), dynamicArticleImages(article), firstNonEmpty(jumpURL, "https://www.bilibili.com/read/cv"+id)
+		return firstNonEmpty(stringValue(article["title"])), firstNonEmpty(stringValue(article["desc"]), desc), dynamicArticleImages(article), firstNonEmpty(jumpURL, dynamicPageURL(id))
 	case "repost":
-		return "转发动态", desc, nil, firstNonEmpty(jumpURL, "https://t.bilibili.com/"+id)
+		return "转发动态", desc, nil, firstNonEmpty(jumpURL, dynamicPageURL(id))
 	default:
 		images := []Image{}
 		drawItems := nestedList(major, "draw", "items")
@@ -277,8 +483,26 @@ func dynamicContent(item map[string]any, service, id string) (string, string, []
 			}
 			images = append(images, Image{URL: urlValue, Width: intValue(image["width"]), Height: intValue(image["height"])})
 		}
-		return "图文动态更新", desc, images, firstNonEmpty(jumpURL, "https://www.bilibili.com/opus/"+id)
+		return "图文动态更新", desc, images, firstNonEmpty(jumpURL, dynamicPageURL(id))
 	}
+}
+
+func videoArchiveURL(archive map[string]any) string {
+	if bvid := strings.TrimSpace(stringValue(archive["bvid"])); bvid != "" {
+		return "https://www.bilibili.com/video/" + bvid
+	}
+	if aid := strings.TrimSpace(stringValue(archive["aid"])); aid != "" && aid != "0" {
+		return "https://www.bilibili.com/video/av" + aid
+	}
+	return ""
+}
+
+func dynamicPageURL(id string) string {
+	id = strings.TrimSpace(id)
+	if id == "" {
+		return ""
+	}
+	return "https://t.bilibili.com/" + id + "/"
 }
 
 func dynamicArticleImages(article map[string]any) []Image {

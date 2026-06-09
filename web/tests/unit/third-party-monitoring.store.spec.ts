@@ -50,6 +50,7 @@ describe('third-party monitoring store', () => {
               uid: '123456',
               username: '测试 UP',
               avatar_url: '//i0.hdslb.com/bfs/face/up.jpg@96w_96h_1c.png?from=monitor',
+              profile_url: 'https://space.bilibili.com/123456/',
               services: ['live'],
               dynamic: {
                 last_id: '90001',

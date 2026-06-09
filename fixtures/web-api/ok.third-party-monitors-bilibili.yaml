@@ -12,6 +12,7 @@ response:
       - uid: "123456"
         username: 测试 UP
         avatar_url: "https://i0.hdslb.com/bfs/face/up.jpg"
+        profile_url: "https://space.bilibili.com/123456/"
         services:
           - live
           - video

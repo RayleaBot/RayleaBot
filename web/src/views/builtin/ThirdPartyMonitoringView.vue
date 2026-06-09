@@ -231,7 +231,7 @@ function liveStartedText(item: ThirdPartyMonitorItem) {
 function liveEndedText(item: ThirdPartyMonitorItem) {
   return item.live.is_live
     ? t('display.empty')
-    : displayTime(item.live.live_ended_at ?? item.live.updated_at)
+    : displayTime(item.live.live_ended_at)
 }
 
 function roomName(item: ThirdPartyMonitorItem) {
@@ -243,7 +243,7 @@ function dynamicTitle(item: ThirdPartyMonitorItem) {
 }
 
 function dynamicSummary(item: ThirdPartyMonitorItem) {
-  return item.dynamic?.summary || t('builtinFeatures.thirdPartyMonitoring.noDynamicSummary')
+  return item.dynamic?.summary?.trim() || ''
 }
 
 function avatarFailed(uid: string) {
@@ -332,68 +332,80 @@ function coverFailed(uid: string) {
         <!-- Expandable diagnosis detail -->
         <div :class="['monitoring-strip__detail', { 'is-open': diagnosisExpanded }]">
           <div class="monitoring-strip__detail-inner">
-            <!-- Causes -->
-            <div v-if="diagnosis?.causes.length" class="diagnosis-section">
-              <div class="diagnosis-section__header">
-                <InfoCircleOutlined class="diagnosis-section__header-icon" />
-                <span class="diagnosis-section__header-title">{{ t('builtinFeatures.thirdPartyMonitoring.diagnosisCause') }}</span>
-              </div>
-              <div class="diagnosis-causes">
-                <article
-                  v-for="cause in diagnosis.causes"
-                  :key="`${cause.scope}:${cause.code}`"
-                  class="diagnosis-cause-card"
-                >
-                  <div class="diagnosis-cause-card__icon">
-                    <WarningOutlined v-if="statusTone === 'warning'" />
-                    <CloseCircleOutlined v-else-if="statusTone === 'danger'" />
-                    <CheckCircleOutlined v-else />
+            <div
+              :class="[
+                'diagnosis-grid',
+                { 'diagnosis-grid--single-col': !diagnosis?.causes.length || (!diagnosis?.impacts.length && !diagnosisActions.length) }
+              ]"
+            >
+              <!-- Left Column: Causes -->
+              <div v-if="diagnosis?.causes.length" class="diagnosis-grid__col-causes">
+                <div class="diagnosis-section">
+                  <div class="diagnosis-section__header">
+                    <InfoCircleOutlined class="diagnosis-section__header-icon" />
+                    <span class="diagnosis-section__header-title">{{ t('builtinFeatures.thirdPartyMonitoring.diagnosisCause') }}</span>
                   </div>
-                  <div class="diagnosis-cause-card__content">
-                    <strong>{{ cause.title }}</strong>
-                    <p>{{ cause.detail }}</p>
+                  <div class="diagnosis-causes">
+                    <article
+                      v-for="cause in diagnosis.causes"
+                      :key="`${cause.scope}:${cause.code}`"
+                      class="diagnosis-cause-card"
+                    >
+                      <div class="diagnosis-cause-card__icon">
+                        <WarningOutlined v-if="statusTone === 'warning'" />
+                        <CloseCircleOutlined v-else-if="statusTone === 'danger'" />
+                        <CheckCircleOutlined v-else />
+                      </div>
+                      <div class="diagnosis-cause-card__content">
+                        <strong>{{ cause.title }}</strong>
+                        <p>{{ cause.detail }}</p>
+                      </div>
+                    </article>
                   </div>
-                </article>
+                </div>
               </div>
-            </div>
 
-            <!-- Impacts -->
-            <div v-if="diagnosis?.impacts.length" class="diagnosis-section">
-              <div class="diagnosis-section__header">
-                <ThunderboltOutlined class="diagnosis-section__header-icon" />
-                <span class="diagnosis-section__header-title">{{ t('builtinFeatures.thirdPartyMonitoring.diagnosisImpact') }}</span>
-              </div>
-              <div class="diagnosis-impact-list">
-                <span v-for="impact in diagnosis.impacts" :key="impact" class="impact-tag">
-                  <CheckCircleOutlined class="impact-tag__icon" />
-                  {{ impact }}
-                </span>
-              </div>
-            </div>
+              <!-- Right Column: Impacts and Actions -->
+              <div v-if="diagnosis?.impacts.length || diagnosisActions.length" class="diagnosis-grid__col-meta">
+                <!-- Impacts -->
+                <div v-if="diagnosis?.impacts.length" class="diagnosis-section">
+                  <div class="diagnosis-section__header">
+                    <ThunderboltOutlined class="diagnosis-section__header-icon" />
+                    <span class="diagnosis-section__header-title">{{ t('builtinFeatures.thirdPartyMonitoring.diagnosisImpact') }}</span>
+                  </div>
+                  <div class="diagnosis-impact-list">
+                    <span v-for="impact in diagnosis.impacts" :key="impact" class="impact-tag">
+                      <CheckCircleOutlined class="impact-tag__icon" />
+                      {{ impact }}
+                    </span>
+                  </div>
+                </div>
 
-            <!-- Actions -->
-            <div v-if="diagnosisActions.length" class="diagnosis-section">
-              <div class="diagnosis-section__header">
-                <ToolOutlined class="diagnosis-section__header-icon" />
-                <span class="diagnosis-section__header-title">{{ t('builtinFeatures.thirdPartyMonitoring.diagnosisAction') }}</span>
-              </div>
-              <div class="diagnosis-action-list">
-                <span
-                  v-for="action in diagnosisActions"
-                  :key="`${action.kind}:${action.label}`"
-                  class="action-tag"
-                >
-                  {{ action.label }}
-                </span>
-                <a-button
-                  v-if="openAccountsAction"
-                  type="primary"
-                  size="small"
-                  class="diagnosis-action-btn"
-                  @click="openBilibiliAccounts"
-                >
-                  {{ openAccountsAction.label }}
-                </a-button>
+                <!-- Actions -->
+                <div v-if="diagnosisActions.length" class="diagnosis-section">
+                  <div class="diagnosis-section__header">
+                    <ToolOutlined class="diagnosis-section__header-icon" />
+                    <span class="diagnosis-section__header-title">{{ t('builtinFeatures.thirdPartyMonitoring.diagnosisAction') }}</span>
+                  </div>
+                  <div class="diagnosis-action-list">
+                    <span
+                      v-for="action in diagnosisActions"
+                      :key="`${action.kind}:${action.label}`"
+                      class="action-tag"
+                    >
+                      {{ action.label }}
+                    </span>
+                    <a-button
+                      v-if="openAccountsAction"
+                      type="primary"
+                      size="small"
+                      class="diagnosis-action-btn"
+                      @click="openBilibiliAccounts"
+                    >
+                      {{ openAccountsAction.label }}
+                    </a-button>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -483,7 +495,16 @@ function coverFailed(uid: string) {
                 <UserOutlined v-else />
               </a-avatar>
               <div class="monitor-card__identity-text">
-                <strong>{{ item.username || item.uid }}</strong>
+                <a
+                  v-if="item.profile_url"
+                  :href="item.profile_url"
+                  target="_blank"
+                  rel="noreferrer"
+                  class="monitor-card__profile-link"
+                >
+                  {{ item.username || item.uid }}
+                </a>
+                <strong v-else>{{ item.username || item.uid }}</strong>
                 <span>UID {{ item.uid }}</span>
               </div>
               <div class="monitor-card__services">
@@ -504,7 +525,7 @@ function coverFailed(uid: string) {
                 {{ dynamicTitle(item) }}
               </a>
               <strong v-else class="monitor-card__dynamic-title">{{ dynamicTitle(item) }}</strong>
-              <p class="monitor-card__dynamic-summary">{{ dynamicSummary(item) }}</p>
+              <p v-if="dynamicSummary(item)" class="monitor-card__dynamic-summary">{{ dynamicSummary(item) }}</p>
               <small class="monitor-card__dynamic-time">{{ displayTime(item.dynamic.published_at ?? item.dynamic.observed_at) }}</small>
             </div>
 
@@ -564,41 +585,43 @@ function coverFailed(uid: string) {
   background: var(--surface-strong);
   box-shadow: var(--shadow-card);
   overflow: hidden;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 
-  /* Left status accent line */
-  &::before {
-    content: '';
-    position: absolute;
-    left: 0;
-    top: 0;
-    bottom: 0;
-    width: 3px;
-    background: var(--muted);
-    transition: background 0.3s ease;
+  &--success {
+    border-color: color-mix(in srgb, var(--success) 18%, var(--border));
+    background: linear-gradient(
+      135deg,
+      color-mix(in srgb, var(--success) 3%, var(--surface-strong)) 0%,
+      var(--surface-strong) 80%
+    );
   }
-}
 
-.monitoring-strip--success::before { background: var(--success); }
-.monitoring-strip--warning::before { background: var(--warning); }
-.monitoring-strip--danger::before  { background: var(--danger); }
-.monitoring-strip--normal::before  { background: var(--accent); }
+  &--warning {
+    border-color: color-mix(in srgb, var(--warning) 24%, var(--border));
+    background: linear-gradient(
+      135deg,
+      color-mix(in srgb, var(--warning) 4%, var(--surface-strong)) 0%,
+      var(--surface-strong) 80%
+    );
+  }
 
-.monitoring-strip--warning {
-  border-color: color-mix(in srgb, var(--warning) 28%, var(--border));
-  background: linear-gradient(
-    135deg,
-    color-mix(in srgb, var(--warning) 4%, var(--surface-strong)) 0%,
-    var(--surface-strong) 60%
-  );
-}
+  &--danger {
+    border-color: color-mix(in srgb, var(--danger) 24%, var(--border));
+    background: linear-gradient(
+      135deg,
+      color-mix(in srgb, var(--danger) 4%, var(--surface-strong)) 0%,
+      var(--surface-strong) 80%
+    );
+  }
 
-.monitoring-strip--danger {
-  border-color: color-mix(in srgb, var(--danger) 28%, var(--border));
-  background: linear-gradient(
-    135deg,
-    color-mix(in srgb, var(--danger) 4%, var(--surface-strong)) 0%,
-    var(--surface-strong) 60%
-  );
+  &--normal {
+    border-color: color-mix(in srgb, var(--accent) 18%, var(--border));
+    background: linear-gradient(
+      135deg,
+      color-mix(in srgb, var(--accent) 3%, var(--surface-strong)) 0%,
+      var(--surface-strong) 80%
+    );
+  }
 }
 
 .monitoring-strip__row {
@@ -606,7 +629,7 @@ function coverFailed(uid: string) {
   align-items: center;
   justify-content: space-between;
   gap: var(--space-sm);
-  padding: 12px var(--space-md) 12px calc(var(--space-md) + 3px);
+  padding: 12px var(--space-md);
   min-height: 48px;
 }
 
@@ -713,35 +736,49 @@ function coverFailed(uid: string) {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  padding: 3px 10px;
-  border-radius: var(--radius-sm);
-  background: color-mix(in srgb, var(--surface-soft) 80%, transparent);
-  border: 1px solid color-mix(in srgb, var(--border) 50%, transparent);
+  padding: 4px 10px;
+  border-radius: var(--radius-md);
+  background: var(--surface-soft);
+  border: 1px solid var(--border);
   font-size: 0.76rem;
   color: var(--muted);
   white-space: nowrap;
-  transition: border-color 0.2s ease, background 0.2s ease;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+
+  &:hover {
+    border-color: var(--border-strong);
+    background: color-mix(in srgb, var(--text) 4%, var(--surface-soft));
+    color: var(--text);
+  }
 
   &__icon {
     font-size: 0.82rem;
-    opacity: 0.7;
+    opacity: 0.8;
   }
 
   &__value {
-    font-weight: 700;
+    font-weight: 600;
     font-variant-numeric: tabular-nums;
     color: var(--text);
   }
 
   &__label {
     font-size: 0.72rem;
+    opacity: 0.85;
   }
 
   &--warning {
-    border-color: color-mix(in srgb, var(--warning) 35%, var(--border));
-    background: color-mix(in srgb, var(--warning) 6%, var(--surface-soft));
+    border-color: color-mix(in srgb, var(--warning) 25%, var(--border));
+    background: color-mix(in srgb, var(--warning) 8%, var(--surface-soft));
+    color: var(--warning);
 
     .metric-badge__value {
+      color: var(--warning);
+    }
+
+    &:hover {
+      border-color: var(--warning);
+      background: color-mix(in srgb, var(--warning) 12%, var(--surface-soft));
       color: var(--warning);
     }
   }
@@ -749,8 +786,22 @@ function coverFailed(uid: string) {
 
 .monitoring-strip__toggle {
   color: var(--muted);
-  transition: transform 0.25s ease;
+  transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.2s ease, color 0.2s ease;
   flex: 0 0 auto;
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+
+  &:hover {
+    background-color: var(--surface-soft);
+    color: var(--text);
+  }
 
   &.is-expanded {
     transform: rotate(180deg);
@@ -761,10 +812,13 @@ function coverFailed(uid: string) {
 .monitoring-strip__detail {
   display: grid;
   grid-template-rows: 0fr;
-  transition: grid-template-rows 0.28s ease;
+  transition: grid-template-rows 0.28s ease, visibility 0.28s ease;
+  overflow: hidden;
+  visibility: hidden;
 
   &.is-open {
     grid-template-rows: 1fr;
+    visibility: visible;
   }
 }
 
@@ -772,7 +826,28 @@ function coverFailed(uid: string) {
   overflow: hidden;
   display: grid;
   gap: var(--space-md);
-  padding: 0 var(--space-md) var(--space-md) calc(var(--space-md) + 3px);
+  padding: 0 var(--space-md) var(--space-md);
+  min-height: 0;
+}
+
+/* Diagnosis Grid */
+.diagnosis-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-md);
+  align-items: start;
+}
+
+@media (min-width: 960px) {
+  .diagnosis-grid:not(.diagnosis-grid--single-col) {
+    grid-template-columns: 1.6fr 1fr;
+    gap: var(--space-lg);
+  }
+}
+
+.diagnosis-grid__col-meta {
+  display: grid;
+  gap: var(--space-md);
 }
 
 /* Diagnosis sections */
@@ -811,11 +886,17 @@ function coverFailed(uid: string) {
   display: flex;
   align-items: flex-start;
   gap: var(--space-sm);
-  padding: 10px 12px;
+  padding: 12px var(--space-md);
   border-radius: var(--radius-md);
   background: var(--surface-soft);
-  border: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
+  border: 1px solid var(--border);
   min-width: 0;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+
+  &:hover {
+    border-color: var(--border-strong);
+    background: color-mix(in srgb, var(--text) 2%, var(--surface-soft));
+  }
 
   &__icon {
     display: flex;
@@ -824,11 +905,10 @@ function coverFailed(uid: string) {
     width: 28px;
     height: 28px;
     border-radius: var(--radius-sm);
-    background: color-mix(in srgb, var(--success) 10%, var(--surface));
+    background: color-mix(in srgb, var(--success) 8%, var(--surface));
     color: var(--success);
     font-size: 0.92rem;
     flex: 0 0 auto;
-    margin-top: 1px;
   }
 
   &__content {
@@ -852,14 +932,26 @@ function coverFailed(uid: string) {
   }
 }
 
-.monitoring-strip--warning .diagnosis-cause-card__icon {
-  background: color-mix(in srgb, var(--warning) 10%, var(--surface));
-  color: var(--warning);
+.monitoring-strip--warning {
+  .diagnosis-cause-card {
+    border-color: color-mix(in srgb, var(--warning) 12%, var(--border));
+    background: color-mix(in srgb, var(--warning) 2%, var(--surface-soft));
+  }
+  .diagnosis-cause-card__icon {
+    background: color-mix(in srgb, var(--warning) 8%, var(--surface));
+    color: var(--warning);
+  }
 }
 
-.monitoring-strip--danger .diagnosis-cause-card__icon {
-  background: color-mix(in srgb, var(--danger) 10%, var(--surface));
-  color: var(--danger);
+.monitoring-strip--danger {
+  .diagnosis-cause-card {
+    border-color: color-mix(in srgb, var(--danger) 12%, var(--border));
+    background: color-mix(in srgb, var(--danger) 2%, var(--surface-soft));
+  }
+  .diagnosis-cause-card__icon {
+    background: color-mix(in srgb, var(--danger) 8%, var(--surface));
+    color: var(--danger);
+  }
 }
 
 /* Impact tags */
@@ -872,30 +964,40 @@ function coverFailed(uid: string) {
 .impact-tag {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  padding: 5px 10px;
-  border-radius: var(--radius-sm);
-  background: color-mix(in srgb, var(--success) 6%, var(--surface-soft));
-  border: 1px solid color-mix(in srgb, var(--success) 18%, var(--border));
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--success) 5%, var(--surface-soft));
+  border: 1px solid color-mix(in srgb, var(--success) 15%, var(--border));
   color: color-mix(in srgb, var(--success) 85%, var(--text));
-  font-size: 0.8rem;
+  font-size: 0.76rem;
+  line-height: 1.4;
+  transition: all 0.2s ease;
 
   &__icon {
     font-size: 0.82rem;
-    opacity: 0.8;
+    color: var(--success);
   }
 }
 
 .monitoring-strip--warning .impact-tag {
-  background: color-mix(in srgb, var(--warning) 6%, var(--surface-soft));
-  border-color: color-mix(in srgb, var(--warning) 18%, var(--border));
+  background: color-mix(in srgb, var(--warning) 5%, var(--surface-soft));
+  border-color: color-mix(in srgb, var(--warning) 15%, var(--border));
   color: color-mix(in srgb, var(--warning) 85%, var(--text));
+
+  .impact-tag__icon {
+    color: var(--warning);
+  }
 }
 
 .monitoring-strip--danger .impact-tag {
-  background: color-mix(in srgb, var(--danger) 6%, var(--surface-soft));
-  border-color: color-mix(in srgb, var(--danger) 18%, var(--border));
+  background: color-mix(in srgb, var(--danger) 5%, var(--surface-soft));
+  border-color: color-mix(in srgb, var(--danger) 15%, var(--border));
   color: color-mix(in srgb, var(--danger) 85%, var(--text));
+
+  .impact-tag__icon {
+    color: var(--danger);
+  }
 }
 
 /* Action tags */
@@ -909,15 +1011,17 @@ function coverFailed(uid: string) {
 .action-tag {
   display: inline-flex;
   align-items: center;
-  padding: 5px 10px;
-  border-radius: var(--radius-sm);
+  padding: 4px 10px;
+  border-radius: var(--radius-md);
   background: var(--surface-soft);
-  border: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
+  border: 1px solid var(--border);
   color: var(--muted);
-  font-size: 0.8rem;
+  font-size: 0.76rem;
+  line-height: 1.4;
 }
 
 .diagnosis-action-btn {
+  border-radius: var(--radius-md);
   margin-left: 2px;
 }
 
@@ -1126,13 +1230,18 @@ function coverFailed(uid: string) {
   min-width: 0;
   flex: 1 1 auto;
 
-  strong {
+  strong,
+  .monitor-card__profile-link {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
     color: var(--text);
     font-size: 0.94rem;
     font-weight: 700;
+  }
+
+  .monitor-card__profile-link:hover {
+    color: var(--accent);
   }
 
   span {

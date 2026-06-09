@@ -33,6 +33,7 @@ function monitorItem(): ThirdPartyMonitorItem {
     uid: '123456',
     username: '测试 UP',
     avatar_url: '',
+    profile_url: 'https://space.bilibili.com/123456/',
     services: ['live', 'video'],
     dynamic: {
       last_id: '90001',
@@ -214,5 +215,24 @@ describe('ThirdPartyMonitoringPage', () => {
     await flushPromises()
 
     expect(router.currentRoute.value.name).toBe('third-party-accounts')
+  })
+
+  it('links the monitor nickname to the Bilibili profile', async () => {
+    const { wrapper } = await mountMonitoringPage()
+
+    const profileLink = wrapper.find('.monitor-card__profile-link')
+    expect(profileLink.exists()).toBe(true)
+    expect(profileLink.attributes('href')).toBe('https://space.bilibili.com/123456/')
+    expect(profileLink.text()).toBe('测试 UP')
+  })
+
+  it('does not show guessed live end time or dynamic empty summary', async () => {
+    const { wrapper } = await mountMonitoringPage()
+
+    expect(wrapper.text()).toContain('监控刷新时间')
+    expect(wrapper.text()).toContain('下播时间')
+    expect(wrapper.text()).not.toContain('当前没有可展示的最近动态。')
+    const factValues = wrapper.findAll('.monitor-card__facts dd').map((item) => item.text())
+    expect(factValues).toContain('—')
   })
 })

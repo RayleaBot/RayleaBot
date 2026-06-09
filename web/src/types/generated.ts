@@ -1767,6 +1767,8 @@ export interface components {
             uid: string;
             username: string;
             avatar_url: string;
+            /** Format: uri */
+            profile_url: string;
             services: components["schemas"]["ThirdPartyMonitorService"][];
             dynamic: components["schemas"]["ThirdPartyMonitorDynamic"] | null;
             live: components["schemas"]["ThirdPartyMonitorLive"];

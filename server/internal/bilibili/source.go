@@ -51,18 +51,18 @@ type Source struct {
 	identity     *IdentityProvider
 	now          func() time.Time
 
-	mu                sync.RWMutex
-	requestMu         sync.Mutex
-	status            Status
-	roomTasks         map[string]liveRoomTask
-	cooldowns         map[string]requestCooldown
-	autoFollowChecked map[string]time.Time
-	restart            chan struct{}
-	liveAccountOffset  int
+	mu                   sync.RWMutex
+	requestMu            sync.Mutex
+	status               Status
+	roomTasks            map[string]liveRoomTask
+	cooldowns            map[string]requestCooldown
+	autoFollowChecked    map[string]time.Time
+	restart              chan struct{}
+	liveAccountOffset    int
 	dynamicAccountOffset int
-	griskID            string
-	griskMu            sync.Mutex
-	captchaClient      *CaptchaClient
+	griskID              string
+	griskMu              sync.Mutex
+	captchaClient        *CaptchaClient
 }
 
 type liveRoomTask struct {
@@ -213,18 +213,25 @@ func (s *Source) MonitorSnapshot(ctx context.Context) (MonitorSnapshot, error) {
 	if err != nil {
 		return snapshot, err
 	}
+	if err := s.refreshMonitorDynamics(ctx, subjects); err != nil {
+		s.setDynamicError(err)
+	}
 	dynamics := s.loadDynamicSnapshots(ctx)
 	for _, subject := range sortedSubjects(subjects) {
 		room := s.loadRoomState(ctx, subject.UID)
 		dynamic := dynamics[subject.UID]
+		if !hasDynamicService(subject.Services) {
+			dynamic = dynamicSnapshot{}
+		}
 		item := MonitorItem{
-			UID:       subject.UID,
-			Username:  firstNonEmpty(room.Name, dynamic.Username, subject.Name, subject.UID),
-			AvatarURL: firstNonEmpty(room.Face, dynamic.AvatarURL, subject.AvatarURL),
-			Services:  sortedServiceNames(subject.Services),
-			Dynamic:   dynamic.MonitorDynamic(),
-			Live:      monitorLiveFromRoom(room),
-			UpdatedAt: latestTime(room.UpdatedAt, dynamic.UpdatedAt),
+			UID:        subject.UID,
+			Username:   firstNonEmpty(room.Name, dynamic.Username, subject.Name, subject.UID),
+			AvatarURL:  firstNonEmpty(room.Face, dynamic.AvatarURL, subject.AvatarURL),
+			ProfileURL: bilibiliProfileURL(subject.UID),
+			Services:   sortedServiceNames(subject.Services),
+			Dynamic:    dynamic.MonitorDynamic(),
+			Live:       monitorLiveFromRoom(room),
+			UpdatedAt:  latestTime(room.UpdatedAt, dynamic.UpdatedAt),
 		}
 		if item.UpdatedAt.IsZero() {
 			item.UpdatedAt = s.now()
@@ -572,8 +579,8 @@ func (s *Source) handleAccountRequestError(ctx context.Context, account thirdpar
 		s.rememberRequestCooldown(scope, account, cookie, err)
 		go s.tryCaptchaRecovery(ctx, account, cookie, err)
 		return accountRequestErrorCooldown
-		}
-		if isBilibiliRequestCooldownError(err) {
+	}
+	if isBilibiliRequestCooldownError(err) {
 		s.rememberRequestCooldown(scope, account, cookie, err)
 		return accountRequestErrorCooldown
 	}
@@ -753,6 +760,20 @@ func (s *Source) setDynamicSnapshot(ctx context.Context, event BilibiliEvent) {
 		event.UID, event.ID, event.Service, event.Title, event.Summary, event.URL, event.Author.Name, event.Author.Avatar,
 		string(rawImages), publishedAt, observedAt.Format(time.RFC3339), now.Format(time.RFC3339),
 	)
+}
+
+func (s *Source) clearDynamicSnapshot(ctx context.Context, uid string) {
+	uid = strings.TrimSpace(uid)
+	if uid == "" {
+		return
+	}
+	_, _ = s.write.ExecContext(ctx, `DELETE FROM bilibili_source_dynamics WHERE uid = ?`, uid)
+}
+
+func (s *Source) clearDynamicSnapshots(ctx context.Context, subjects map[string]Subject) {
+	for uid := range subjects {
+		s.clearDynamicSnapshot(ctx, uid)
+	}
 }
 
 func (s *Source) loadDynamicSnapshots(ctx context.Context) map[string]dynamicSnapshot {
@@ -1616,13 +1637,21 @@ func monitorLiveFromRoom(room roomState) MonitorLive {
 		startedAt := time.Unix(room.LiveStartedAt, 0).UTC()
 		live.LiveStartedAt = &startedAt
 	}
-	if room.LastEventAt != nil && room.LiveStatus == 0 {
+	if room.LastEventAt != nil && room.LiveStatus == 0 && strings.TrimSpace(room.LiveEventID) != "" {
 		live.LiveEndedAt = room.LastEventAt
 	}
 	if !room.UpdatedAt.IsZero() {
 		live.UpdatedAt = &room.UpdatedAt
 	}
 	return live
+}
+
+func bilibiliProfileURL(uid string) string {
+	uid = strings.TrimSpace(uid)
+	if uid == "" {
+		return ""
+	}
+	return "https://space.bilibili.com/" + uid + "/"
 }
 
 func normalizeRoomConnectionState(state string, lastError string) string {

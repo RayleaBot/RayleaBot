@@ -138,7 +138,7 @@ export const builtinFeatures = {
     startedAt: '开播时间',
     endedAt: '下播时间',
     connection: '连接',
-    updated: '更新',
+    updated: '监控刷新时间',
     services: {
       live: '直播',
       video: '视频',

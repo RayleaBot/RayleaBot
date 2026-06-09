@@ -203,13 +203,14 @@ type thirdPartyMonitorsResponse struct {
 }
 
 type thirdPartyMonitorItem struct {
-	UID       string                    `json:"uid"`
-	Username  string                    `json:"username"`
-	AvatarURL string                    `json:"avatar_url"`
-	Services  []string                  `json:"services"`
-	Dynamic   *thirdPartyMonitorDynamic `json:"dynamic"`
-	Live      thirdPartyMonitorLive     `json:"live"`
-	UpdatedAt string                    `json:"updated_at"`
+	UID        string                    `json:"uid"`
+	Username   string                    `json:"username"`
+	AvatarURL  string                    `json:"avatar_url"`
+	ProfileURL string                    `json:"profile_url"`
+	Services   []string                  `json:"services"`
+	Dynamic    *thirdPartyMonitorDynamic `json:"dynamic"`
+	Live       thirdPartyMonitorLive     `json:"live"`
+	UpdatedAt  string                    `json:"updated_at"`
 }
 
 type thirdPartyMonitorDynamic struct {
@@ -328,11 +329,12 @@ func thirdPartyMonitorItemFrom(item source.MonitorItem) thirdPartyMonitorItem {
 	services := append([]string(nil), item.Services...)
 	sort.Strings(services)
 	return thirdPartyMonitorItem{
-		UID:       item.UID,
-		Username:  item.Username,
-		AvatarURL: item.AvatarURL,
-		Services:  services,
-		Dynamic:   thirdPartyMonitorDynamicFrom(item.Dynamic),
+		UID:        item.UID,
+		Username:   item.Username,
+		AvatarURL:  item.AvatarURL,
+		ProfileURL: item.ProfileURL,
+		Services:   services,
+		Dynamic:    thirdPartyMonitorDynamicFrom(item.Dynamic),
 		Live: thirdPartyMonitorLive{
 			RoomID:          item.Live.RoomID,
 			RoomName:        item.Live.RoomName,

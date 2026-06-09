@@ -91,13 +91,14 @@ type MonitorSnapshot struct {
 }
 
 type MonitorItem struct {
-	UID       string
-	Username  string
-	AvatarURL string
-	Services  []string
-	Dynamic   *MonitorDynamic
-	Live      MonitorLive
-	UpdatedAt time.Time
+	UID        string
+	Username   string
+	AvatarURL  string
+	ProfileURL string
+	Services   []string
+	Dynamic    *MonitorDynamic
+	Live       MonitorLive
+	UpdatedAt  time.Time
 }
 
 type MonitorDynamic struct {

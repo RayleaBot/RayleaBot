@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -16,6 +17,8 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/storage"
 	"github.com/RayleaBot/RayleaBot/server/internal/thirdparty"
 )
+
+const monitorCookie = "SESSDATA=fixture; bili_jct=csrf; buvid3=buvid3; buvid4=buvid4; b_nut=1780905600; bili_ticket=ticket-value; bili_ticket_expires=4102444800; buvid_fp=fp; _uuid=uuid;"
 
 func TestLiveTransitionDispatchesStartedEndedAndDeduplicates(t *testing.T) {
 	t.Parallel()
@@ -186,16 +189,56 @@ func TestPollDynamicsDispatchesWatchedUpdatesAndDeduplicates(t *testing.T) {
 	if !ok || author["uid"] != "123456" || author["name"] != "测试 UP" {
 		t.Fatalf("unexpected dynamic author payload: %#v", payload["author"])
 	}
-	snapshot, err := source.MonitorSnapshot(ctx)
-	if err != nil {
-		t.Fatalf("MonitorSnapshot: %v", err)
+	snapshots := source.loadDynamicSnapshots(ctx)
+	monitor := snapshots["123456"].MonitorDynamic()
+	if monitor == nil || monitor.LastID != "90001" || monitor.Title != "新视频标题" {
+		t.Fatalf("unexpected monitor dynamic snapshot: %#v", monitor)
 	}
-	if len(snapshot.Items) != 1 {
-		t.Fatalf("monitor items = %d, want 1", len(snapshot.Items))
+}
+
+func TestDynamicEventVideoURLUsesArchiveIDOrDynamicPage(t *testing.T) {
+	t.Parallel()
+
+	watched := map[string]Subject{
+		"123456": {
+			UID:      "123456",
+			Name:     "测试 UP",
+			Services: map[string]bool{"video": true},
+		},
 	}
-	monitor := snapshot.Items[0]
-	if monitor.Dynamic == nil || monitor.Dynamic.LastID != "90001" || monitor.Dynamic.Title != "新视频标题" {
-		t.Fatalf("unexpected monitor dynamic snapshot: %#v", monitor.Dynamic)
+
+	withBVID, ok := dynamicEventFromItem(map[string]any{
+		"id_str": "1211778697093185576",
+		"type":   "DYNAMIC_TYPE_AV",
+		"modules": map[string]any{
+			"module_author": map[string]any{"mid": "123456", "name": "测试 UP"},
+			"module_dynamic": map[string]any{
+				"major": map[string]any{
+					"type":    "MAJOR_TYPE_ARCHIVE",
+					"archive": map[string]any{"title": "真实视频号", "bvid": "BV1RayleaBot"},
+				},
+			},
+		},
+	}, watched)
+	if !ok || withBVID.URL != "https://www.bilibili.com/video/BV1RayleaBot" {
+		t.Fatalf("dynamic video url with bvid = %#v, ok=%v", withBVID, ok)
+	}
+
+	withoutArchiveID, ok := dynamicEventFromItem(map[string]any{
+		"id_str": "1211778697093185576",
+		"type":   "DYNAMIC_TYPE_AV",
+		"modules": map[string]any{
+			"module_author": map[string]any{"mid": "123456", "name": "测试 UP"},
+			"module_dynamic": map[string]any{
+				"major": map[string]any{
+					"type":    "MAJOR_TYPE_ARCHIVE",
+					"archive": map[string]any{"title": "缺少真实视频号"},
+				},
+			},
+		},
+	}, watched)
+	if !ok || withoutArchiveID.URL != "https://t.bilibili.com/1211778697093185576/" {
+		t.Fatalf("dynamic video url without archive id = %#v, ok=%v", withoutArchiveID, ok)
 	}
 }
 
@@ -374,7 +417,29 @@ func TestMonitorSnapshotMergesSubjectsRoomsAndDynamicSnapshots(t *testing.T) {
 	t.Parallel()
 
 	now := time.Date(2026, 6, 8, 8, 20, 0, 0, time.UTC)
-	source, _ := newTestSourceWithPluginConfig(t, now, nil, staticPluginConfig{
+	source, _ := newTestSourceWithPluginConfig(t, now, monitorDynamicTransport(t, now, `{
+		"id_str": "90001",
+		"type": "DYNAMIC_TYPE_AV",
+		"basic": {"jump_url": "//www.bilibili.com/video/BV1RayleaBot"},
+		"modules": {
+			"module_author": {
+				"mid": "123456",
+				"name": "测试 UP",
+				"face": "//i0.hdslb.com/bfs/face/up.jpg",
+				"pub_ts": 1780906200
+			},
+			"module_dynamic": {
+				"major": {
+					"type": "MAJOR_TYPE_ARCHIVE",
+					"archive": {
+						"title": "新视频标题",
+						"desc": "视频简介",
+						"cover": "//i0.hdslb.com/bfs/archive/cover.jpg"
+					}
+				}
+			}
+		}
+	}`), staticPluginConfig{
 		values: map[string]any{
 			"subscriptions": []any{
 				map[string]any{
@@ -389,6 +454,7 @@ func TestMonitorSnapshotMergesSubjectsRoomsAndDynamicSnapshots(t *testing.T) {
 		},
 	})
 	ctx := context.Background()
+	seedBilibiliAccount(t, source, ctx)
 	eventTime := time.Date(2026, 6, 8, 8, 19, 30, 0, time.UTC)
 	source.setRoomState(ctx, roomState{
 		UID:             "123456",
@@ -402,20 +468,6 @@ func TestMonitorSnapshotMergesSubjectsRoomsAndDynamicSnapshots(t *testing.T) {
 		LastEventAt:     &eventTime,
 		UpdatedAt:       now,
 	})
-	source.setDynamicSnapshot(ctx, BilibiliEvent{
-		UID:     "123456",
-		ID:      "90001",
-		Service: "video",
-		Title:   "新视频标题",
-		Summary: "视频简介",
-		URL:     "https://www.bilibili.com/video/BV1RayleaBot",
-		PubTS:   1780906200,
-		Author: Author{
-			Name:   "测试 UP",
-			Avatar: "https://i0.hdslb.com/bfs/face/up.jpg",
-		},
-		Images: []Image{{URL: "https://i0.hdslb.com/bfs/archive/cover.jpg", Width: 1920, Height: 1080}},
-	})
 
 	snapshot, err := source.MonitorSnapshot(ctx)
 	if err != nil {
@@ -428,14 +480,340 @@ func TestMonitorSnapshotMergesSubjectsRoomsAndDynamicSnapshots(t *testing.T) {
 	if item.UID != "123456" || item.Username != "直播间标题" || item.AvatarURL != "https://i0.hdslb.com/bfs/face/live.jpg" {
 		t.Fatalf("unexpected monitor identity: %#v", item)
 	}
+	if item.ProfileURL != "https://space.bilibili.com/123456/" {
+		t.Fatalf("profile url = %q", item.ProfileURL)
+	}
 	if strings.Join(item.Services, ",") != "live,video" {
 		t.Fatalf("unexpected monitor services: %#v", item.Services)
 	}
-	if item.Dynamic == nil || item.Dynamic.LastID != "90001" || item.Dynamic.Images[0].Width != 1920 {
+	if item.Dynamic == nil || item.Dynamic.LastID != "90001" || len(item.Dynamic.Images) != 1 || item.Dynamic.Images[0].URL != "https://i0.hdslb.com/bfs/archive/cover.jpg" {
 		t.Fatalf("unexpected monitor dynamic: %#v", item.Dynamic)
 	}
 	if !item.Live.IsLive || item.Live.RoomID != "10001" || item.Live.CoverURL != "https://i0.hdslb.com/bfs/live/cover.jpg" || item.Live.LiveStartedAt == nil {
 		t.Fatalf("unexpected monitor live: %#v", item.Live)
+	}
+}
+
+func TestMonitorSnapshotRefreshesLatestDynamicWithoutDispatch(t *testing.T) {
+	t.Parallel()
+
+	now := time.Date(2026, 6, 8, 8, 24, 0, 0, time.UTC)
+	source, recorder := newTestSourceWithPluginConfig(t, now, monitorDynamicTransport(t, now, `{
+		"id_str": "1211778697093185576",
+		"type": "DYNAMIC_TYPE_AV",
+		"modules": {
+			"module_author": {"mid": "123456", "name": "测试 UP", "pub_ts": 1546300800},
+			"module_dynamic": {
+				"major": {
+					"type": "MAJOR_TYPE_ARCHIVE",
+					"archive": {
+						"title": "很久前的最新视频",
+						"desc": "仍然是主页最新动态",
+						"cover": "//i0.hdslb.com/bfs/archive/latest.jpg"
+					}
+				}
+			}
+		}
+	}`), staticPluginConfig{
+		values: map[string]any{
+			"subscriptions": []any{
+				map[string]any{
+					"enabled":  true,
+					"platform": "bilibili",
+					"uid":      "123456",
+					"name":     "测试 UP",
+					"services": []any{"video"},
+				},
+			},
+		},
+	})
+	ctx := context.Background()
+	seedBilibiliAccount(t, source, ctx)
+	source.setDynamicSnapshot(ctx, BilibiliEvent{
+		UID:     "123456",
+		ID:      "old-90001",
+		Service: "video",
+		Title:   "几天前的视频",
+		URL:     "https://www.bilibili.com/video/BV1OLD",
+		PubTS:   1780646400,
+		Author:  Author{Name: "测试 UP"},
+	})
+
+	snapshot, err := source.MonitorSnapshot(ctx)
+	if err != nil {
+		t.Fatalf("MonitorSnapshot: %v", err)
+	}
+	if len(recorder.events) != 0 {
+		t.Fatalf("monitor dynamic refresh dispatched plugin events: %#v", recorder.events)
+	}
+	if len(snapshot.Items) != 1 || snapshot.Items[0].Dynamic == nil {
+		t.Fatalf("unexpected monitor snapshot: %#v", snapshot)
+	}
+	dynamic := snapshot.Items[0].Dynamic
+	if dynamic.LastID != "1211778697093185576" || dynamic.Title != "很久前的最新视频" {
+		t.Fatalf("unexpected latest dynamic: %#v", dynamic)
+	}
+	if dynamic.URL != "https://t.bilibili.com/1211778697093185576/" {
+		t.Fatalf("dynamic url = %q", dynamic.URL)
+	}
+	if dynamic.PublishedAt == nil || !dynamic.PublishedAt.Equal(time.Unix(1546300800, 0).UTC()) {
+		t.Fatalf("published_at = %#v", dynamic.PublishedAt)
+	}
+}
+
+func TestMonitorSnapshotSkipsPinnedDynamicWhenItIsNotLatest(t *testing.T) {
+	t.Parallel()
+
+	now := time.Date(2026, 6, 8, 8, 27, 0, 0, time.UTC)
+	source, _ := newTestSourceWithPluginConfig(t, now, monitorDynamicTransport(t, now, `{
+		"id_str": "1211778697093185570",
+		"type": "DYNAMIC_TYPE_AV",
+		"modules": {
+			"module_tag": {"text": "置顶"},
+			"module_author": {"mid": "123456", "name": "测试 UP", "pub_ts": 1780800000},
+			"module_dynamic": {
+				"major": {
+					"type": "MAJOR_TYPE_ARCHIVE",
+					"archive": {"title": "置顶旧视频"}
+				}
+			}
+		}
+	}, {
+		"id_str": "1211778697093185576",
+		"type": "DYNAMIC_TYPE_DRAW",
+		"modules": {
+			"module_author": {"mid": "123456", "name": "测试 UP", "pub_ts": 1780906200},
+			"module_dynamic": {
+				"desc": {"text": "真实最新图文"},
+				"major": {
+					"type": "MAJOR_TYPE_DRAW",
+					"draw": {"items": [{"src": "//i0.hdslb.com/bfs/album/latest.jpg"}]}
+				}
+			}
+		}
+	}`), staticPluginConfig{
+		values: map[string]any{
+			"subscriptions": []any{
+				map[string]any{
+					"enabled":  true,
+					"platform": "bilibili",
+					"uid":      "123456",
+					"name":     "测试 UP",
+					"services": []any{"video"},
+				},
+			},
+		},
+	})
+	ctx := context.Background()
+	seedBilibiliAccount(t, source, ctx)
+
+	snapshot, err := source.MonitorSnapshot(ctx)
+	if err != nil {
+		t.Fatalf("MonitorSnapshot: %v", err)
+	}
+	if len(snapshot.Items) != 1 || snapshot.Items[0].Dynamic == nil {
+		t.Fatalf("unexpected monitor snapshot: %#v", snapshot)
+	}
+	dynamic := snapshot.Items[0].Dynamic
+	if dynamic.LastID != "1211778697093185576" || dynamic.Title != "图文动态更新" || dynamic.Summary != "真实最新图文" {
+		t.Fatalf("unexpected latest dynamic after pinned item: %#v", dynamic)
+	}
+}
+
+func TestMonitorSnapshotSkipsPinnedDynamicWithoutTimestamp(t *testing.T) {
+	t.Parallel()
+
+	now := time.Date(2026, 6, 8, 8, 27, 30, 0, time.UTC)
+	source, _ := newTestSourceWithPluginConfig(t, now, monitorDynamicTransport(t, now, `{
+		"id_str": "1211778697093185570",
+		"type": "DYNAMIC_TYPE_AV",
+		"modules": {
+			"module_tag": {"text": "置顶"},
+			"module_author": {"mid": "123456", "name": "测试 UP"},
+			"module_dynamic": {
+				"major": {
+					"type": "MAJOR_TYPE_ARCHIVE",
+					"archive": {"title": "置顶无时间"}
+				}
+			}
+		}
+	}, {
+		"id_str": "1211778697093185576",
+		"type": "DYNAMIC_TYPE_DRAW",
+		"modules": {
+			"module_author": {"mid": "123456", "name": "测试 UP"},
+			"module_dynamic": {
+				"desc": {"text": "非置顶无时间"},
+				"major": {
+					"type": "MAJOR_TYPE_DRAW",
+					"draw": {"items": [{"src": "//i0.hdslb.com/bfs/album/latest.jpg"}]}
+				}
+			}
+		}
+	}`), staticPluginConfig{
+		values: map[string]any{
+			"subscriptions": []any{
+				map[string]any{
+					"enabled":  true,
+					"platform": "bilibili",
+					"uid":      "123456",
+					"name":     "测试 UP",
+					"services": []any{"video"},
+				},
+			},
+		},
+	})
+	ctx := context.Background()
+	seedBilibiliAccount(t, source, ctx)
+
+	snapshot, err := source.MonitorSnapshot(ctx)
+	if err != nil {
+		t.Fatalf("MonitorSnapshot: %v", err)
+	}
+	if len(snapshot.Items) != 1 || snapshot.Items[0].Dynamic == nil {
+		t.Fatalf("unexpected monitor snapshot: %#v", snapshot)
+	}
+	dynamic := snapshot.Items[0].Dynamic
+	if dynamic.LastID != "1211778697093185576" || dynamic.Summary != "非置顶无时间" {
+		t.Fatalf("unexpected dynamic without timestamps: %#v", dynamic)
+	}
+}
+
+func TestMonitorSnapshotKeepsPinnedDynamicWhenItIsLatest(t *testing.T) {
+	t.Parallel()
+
+	now := time.Date(2026, 6, 8, 8, 28, 0, 0, time.UTC)
+	source, _ := newTestSourceWithPluginConfig(t, now, monitorDynamicTransport(t, now, `{
+		"id_str": "1211778697093185580",
+		"type": "DYNAMIC_TYPE_AV",
+		"modules": {
+			"module_tag": {"text": "置顶"},
+			"module_author": {"mid": "123456", "name": "测试 UP", "pub_ts": 1780906300},
+			"module_dynamic": {
+				"major": {
+					"type": "MAJOR_TYPE_ARCHIVE",
+					"archive": {"title": "置顶也是最新"}
+				}
+			}
+		}
+	}, {
+		"id_str": "1211778697093185576",
+		"type": "DYNAMIC_TYPE_DRAW",
+		"modules": {
+			"module_author": {"mid": "123456", "name": "测试 UP", "pub_ts": 1780906200},
+			"module_dynamic": {
+				"desc": {"text": "较早图文"},
+				"major": {
+					"type": "MAJOR_TYPE_DRAW",
+					"draw": {"items": [{"src": "//i0.hdslb.com/bfs/album/previous.jpg"}]}
+				}
+			}
+		}
+	}`), staticPluginConfig{
+		values: map[string]any{
+			"subscriptions": []any{
+				map[string]any{
+					"enabled":  true,
+					"platform": "bilibili",
+					"uid":      "123456",
+					"name":     "测试 UP",
+					"services": []any{"video"},
+				},
+			},
+		},
+	})
+	ctx := context.Background()
+	seedBilibiliAccount(t, source, ctx)
+
+	snapshot, err := source.MonitorSnapshot(ctx)
+	if err != nil {
+		t.Fatalf("MonitorSnapshot: %v", err)
+	}
+	if len(snapshot.Items) != 1 || snapshot.Items[0].Dynamic == nil {
+		t.Fatalf("unexpected monitor snapshot: %#v", snapshot)
+	}
+	dynamic := snapshot.Items[0].Dynamic
+	if dynamic.LastID != "1211778697093185580" || dynamic.Title != "置顶也是最新" {
+		t.Fatalf("unexpected pinned latest dynamic: %#v", dynamic)
+	}
+}
+
+func TestMonitorSnapshotClearsDynamicWhenSpaceFeedHasNoDisplayableItem(t *testing.T) {
+	t.Parallel()
+
+	now := time.Date(2026, 6, 8, 8, 25, 0, 0, time.UTC)
+	source, _ := newTestSourceWithPluginConfig(t, now, monitorDynamicTransport(t, now, ""), staticPluginConfig{
+		values: map[string]any{
+			"subscriptions": []any{
+				map[string]any{
+					"enabled":  true,
+					"platform": "bilibili",
+					"uid":      "123456",
+					"name":     "测试 UP",
+					"services": []any{"video"},
+				},
+			},
+		},
+	})
+	ctx := context.Background()
+	seedBilibiliAccount(t, source, ctx)
+	source.setDynamicSnapshot(ctx, BilibiliEvent{
+		UID:     "123456",
+		ID:      "old-90001",
+		Service: "video",
+		Title:   "旧动态",
+		URL:     "https://t.bilibili.com/old-90001/",
+		Author:  Author{Name: "测试 UP"},
+	})
+
+	snapshot, err := source.MonitorSnapshot(ctx)
+	if err != nil {
+		t.Fatalf("MonitorSnapshot: %v", err)
+	}
+	if len(snapshot.Items) != 1 {
+		t.Fatalf("monitor items = %d, want 1", len(snapshot.Items))
+	}
+	if snapshot.Items[0].Dynamic != nil {
+		t.Fatalf("expected dynamic snapshot to be cleared, got %#v", snapshot.Items[0].Dynamic)
+	}
+}
+
+func TestMonitorSnapshotDoesNotShowDynamicForLiveOnlySubject(t *testing.T) {
+	t.Parallel()
+
+	now := time.Date(2026, 6, 8, 8, 26, 0, 0, time.UTC)
+	source, _ := newTestSourceWithPluginConfig(t, now, nil, staticPluginConfig{
+		values: map[string]any{
+			"subscriptions": []any{
+				map[string]any{
+					"enabled":  true,
+					"platform": "bilibili",
+					"uid":      "123456",
+					"name":     "测试 UP",
+					"services": []any{"live"},
+				},
+			},
+		},
+	})
+	ctx := context.Background()
+	source.setDynamicSnapshot(ctx, BilibiliEvent{
+		UID:     "123456",
+		ID:      "old-90001",
+		Service: "video",
+		Title:   "旧动态",
+		URL:     "https://t.bilibili.com/old-90001/",
+		Author:  Author{Name: "测试 UP"},
+	})
+
+	snapshot, err := source.MonitorSnapshot(ctx)
+	if err != nil {
+		t.Fatalf("MonitorSnapshot: %v", err)
+	}
+	if len(snapshot.Items) != 1 {
+		t.Fatalf("monitor items = %d, want 1", len(snapshot.Items))
+	}
+	if snapshot.Items[0].Dynamic != nil {
+		t.Fatalf("live-only subject dynamic = %#v, want nil", snapshot.Items[0].Dynamic)
 	}
 }
 
@@ -540,6 +918,45 @@ func TestMonitorSnapshotSuppressesStoredRiskControlRoomErrors(t *testing.T) {
 	}
 	if item.AvatarURL != "https://i0.hdslb.com/bfs/face/live.jpg" {
 		t.Fatalf("avatar url = %q, want room face", item.AvatarURL)
+	}
+}
+
+func TestMonitorSnapshotDoesNotGuessLiveEndedAtFromRoomUpdate(t *testing.T) {
+	t.Parallel()
+
+	now := time.Date(2026, 6, 8, 8, 18, 15, 0, time.UTC)
+	source, _ := newTestSourceWithPluginConfig(t, now, nil, staticPluginConfig{
+		values: map[string]any{
+			"subscriptions": []any{
+				map[string]any{
+					"enabled":  true,
+					"platform": "bilibili",
+					"uid":      "123456",
+					"name":     "测试 UP",
+					"services": []any{"live"},
+				},
+			},
+		},
+	})
+	ctx := context.Background()
+	source.setRoomState(ctx, roomState{
+		UID:             "123456",
+		Name:            "测试 UP",
+		LiveStatus:      0,
+		ConnectionState: StateIdle,
+		LastEventAt:     &now,
+		UpdatedAt:       now,
+	})
+
+	snapshot, err := source.MonitorSnapshot(ctx)
+	if err != nil {
+		t.Fatalf("MonitorSnapshot: %v", err)
+	}
+	if len(snapshot.Items) != 1 {
+		t.Fatalf("monitor items = %d, want 1", len(snapshot.Items))
+	}
+	if snapshot.Items[0].Live.LiveEndedAt != nil {
+		t.Fatalf("live_ended_at = %#v, want nil", snapshot.Items[0].Live.LiveEndedAt)
 	}
 }
 
@@ -1044,6 +1461,67 @@ func newTestSourceWithPluginConfig(t *testing.T, now time.Time, handler func(*ht
 		t.Fatalf("NewSource: %v", err)
 	}
 	return source, recorder
+}
+
+func monitorDynamicTransport(t *testing.T, now time.Time, itemJSON string) func(*http.Request) (*http.Response, error) {
+	t.Helper()
+	return func(request *http.Request) (*http.Response, error) {
+		switch request.URL.Host + request.URL.Path {
+		case "api.bilibili.com/bapis/bilibili.api.ticket.v1.Ticket/GenWebTicket":
+			return jsonResponse(`{
+				"code": 0,
+				"data": {
+					"ticket": "ticket-value",
+					"created_at": ` + strconv.FormatInt(now.Unix(), 10) + `,
+					"ttl": 259200,
+					"nav": {
+						"img": "https://i0.hdslb.com/bfs/wbi/7cd084941338484aae1ad9425b84077c.png",
+						"sub": "https://i0.hdslb.com/bfs/wbi/4932caff0ff746eab6f01bf08b70ac45.png"
+					}
+				}
+			}`), nil
+		case "api.bilibili.com/x/polymer/web-dynamic/v1/feed/space":
+			if request.URL.Query().Get("host_mid") != "123456" {
+				t.Fatalf("unexpected space feed host_mid: %s", request.URL.String())
+			}
+			if request.URL.Query().Get("wts") != strconv.FormatInt(now.Unix(), 10) || request.URL.Query().Get("w_rid") == "" {
+				t.Fatalf("space feed url missing WBI signature: %s", request.URL.String())
+			}
+			if request.Header.Get("Cookie") != monitorCookie {
+				t.Fatalf("unexpected space feed cookie: %q", request.Header.Get("Cookie"))
+			}
+			items := ""
+			if strings.TrimSpace(itemJSON) != "" {
+				items = itemJSON
+			}
+			return jsonResponse(`{"code":0,"data":{"items":[` + items + `]}}`), nil
+		default:
+			t.Fatalf("unexpected request url: %s", request.URL.String())
+			return nil, nil
+		}
+	}
+}
+
+func seedBilibiliAccount(t *testing.T, source *Source, ctx context.Context) {
+	t.Helper()
+	_, err := source.accounts.Upsert(ctx, thirdparty.UpsertRequest{
+		Platform:  thirdparty.PlatformBilibili,
+		AccountID: "primary",
+		Label:     "主账号",
+		Enabled:   true,
+		Cookie:    monitorCookie,
+		Profile: thirdparty.AccountProfile{
+			UID:       "primary",
+			Nickname:  "主账号",
+			AvatarURL: "https://i0.hdslb.com/bfs/face/account.jpg",
+		},
+		Credential: thirdparty.CredentialStatus{
+			State: thirdparty.CredentialValid,
+		},
+	})
+	if err != nil {
+		t.Fatalf("seed bilibili account: %v", err)
+	}
 }
 
 type dispatchRecorder struct {

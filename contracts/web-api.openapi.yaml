@@ -3543,7 +3543,7 @@ components:
     ThirdPartyMonitorItem:
       type: object
       additionalProperties: false
-      required: [uid, username, avatar_url, services, dynamic, live, updated_at]
+      required: [uid, username, avatar_url, profile_url, services, dynamic, live, updated_at]
       properties:
         uid:
           type: string
@@ -3552,6 +3552,9 @@ components:
           type: string
         avatar_url:
           type: string
+        profile_url:
+          type: string
+          format: uri
         services:
           type: array
           items:
