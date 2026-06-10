@@ -17,7 +17,7 @@
 - 恢复预检和启动后兼容检查共享 `logs/recovery-summary.json`。
 - CLI、Web 管理面、Launcher 和 diagnostics 导出读取同一份恢复摘要。
 - 摘要会标示当前属于 `restore`、`upgrade` 或 `rollback`，并列出跳过插件、人工处理建议、下一步和确认历史。
-- `degraded` 状态下会保留人工处理建议；`compatible` 状态下不再保留人工处理建议。
+- `degraded` 状态下会保留人工处理建议；`compatible` 状态下不保留人工处理建议。
 
 ## 人工处理与确认
 

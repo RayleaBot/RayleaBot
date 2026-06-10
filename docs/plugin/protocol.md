@@ -62,7 +62,7 @@
 ### 身份不可用期间的出站语义
 
 - `init.bot` 缺失或 `bot.identity.changed` 携带空 `self_id` 时，平台视该插件的 OneBot 身份为不可用：
-  - `message.send`、`message.reply`、`message.recall`、`reaction.set` 及任何依赖 `self_id` 的 `onebot.*` action 会被平台拒绝；拒绝以正式协议 `error` 帧返回，`error.code=plugin.permission_pending` 或 `error.code=adapter.connection_lost`，由具体根因决定。
+  - `message.send`、`message.reply`、`message.delete`、`reaction.set` 及任何依赖 `self_id` 的 `onebot.*` action 会被平台拒绝；拒绝以正式协议 `error` 帧返回，`error.code=plugin.permission_pending` 或 `error.code=adapter.connection_lost`，由具体根因决定。
   - 不依赖身份的 local action（`config.*`、`storage.*`、`logger.write`、`http.request`、`render.image` 等）保持可用。
 - 插件代码应订阅 `bot.identity.changed` 并在身份重新可用时刷新本地缓存的会话上下文。
 - SDK 提供阻塞等待入口：Python `RayleaBotPlugin.await_bot_identity(timeout_seconds)` 与 Node.js `plugin.awaitBotIdentity(timeoutMs)` / `EventContext.awaitBotIdentity(timeoutMs)`。两者在身份已可用时立即返回当前 `bot_id` / `botId`；否则阻塞直至身份可用或超时，超时返回空字符串。
@@ -82,6 +82,7 @@
 - `config.read`
 - `plugin.list`
 - `config.write`
+- `secret.read`：只读取调用插件自己的 secret 命名空间内的单个值
 - `governance.blacklist.read`
 - `governance.blacklist.write`
 - `governance.whitelist.read`

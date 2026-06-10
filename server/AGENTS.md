@@ -12,9 +12,12 @@
 
 ## Current Boundary Expectations
 
-- 当前主链包含治理读写、插件设置、插件内置管理页静态资源、OneBot11 协议快照、命令拒绝日志、render management、recovery/runtime tasks 与 launcher bootstrap。
+- 当前主链包含治理读写、插件设置、插件内置管理页静态资源、OneBot11 协议快照、命令拒绝日志、render management、recovery/runtime tasks、launcher bootstrap、三方账号、Bilibili source、三方监控和运行指标。
 - 插件内置管理页资源只读取 `management_ui.pages[0].entry` 所在目录下的文件，不扩成目录枚举或管理数据出口。
 - 命令被白名单、黑名单、权限或冷却拒绝时，继续通过现有管理日志主链记录，不新增第二套拒绝语义。
+- 三方账号当前只支持 Bilibili；账号摘要保存在 SQLite，CK 等敏感凭据保存在 secret store，不写入配置文件、日志或管理响应。
+- 三方监控当前由内置 Bilibili source 读取 `raylea.subscription-hub` 的订阅配置并投递 `bilibili.*` 平台事件，不由插件管理页自行代理平台状态。
+- Bilibili source 的 HTTP、WebSocket、状态枚举和诊断字段以 OpenAPI 与 WebSocket contract 为准；实现侧入口在 `server/internal/bilibili/`、`server/internal/thirdparty/` 和 `server/internal/app/*bilibili*`。
 
 ## Config and Policy Reading
 

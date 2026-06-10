@@ -506,7 +506,7 @@
   <rect class="chip-emerald" x="2532" y="522" width="156" height="22" rx="5"/>
   <text class="chip-title" x="2610" y="538" text-anchor="middle">secret_store</text>
   <text class="resource-text" x="2524" y="568" text-anchor="middle">modernc.org/sqlite 纯 Go 驱动</text>
-  <text class="resource-text" x="2524" y="586" text-anchor="middle">迁移 0001..NNNN 嵌入二进制</text>
+  <text class="resource-text" x="2524" y="586" text-anchor="middle">schema.sql 内置初始化状态库</text>
   <text class="resource-text" x="2524" y="604" text-anchor="middle">查询经 sqlc 生成入口</text>
   <text class="resource-text" x="2524" y="622" text-anchor="middle" style="font-style:italic;">唯一正式状态库</text>
 

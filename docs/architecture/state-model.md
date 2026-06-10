@@ -1,6 +1,6 @@
 # State Model
 
-本文档说明 RayleaBot 当前已落地的核心状态机，覆盖插件运行时、插件期望状态、后台任务、授权时效和 OneBot11 连接状态。
+本文档说明 RayleaBot 当前已落地的核心状态机，覆盖插件运行时、插件期望状态、后台任务、授权时效、OneBot11 连接状态和 Bilibili source 状态。
 
 正式枚举值以 `contracts/` 和当前实现常量为准。
 
@@ -67,7 +67,7 @@ running -> interrupted   # 服务重启
 | --- | --- |
 | `expires_at` 为空 | 永久有效 |
 | `expires_at` 在未来 | 在到期前有效 |
-| `expires_at` 已过期 | 不再投影到运行时能力列表 |
+| `expires_at` 已过期 | 不投影到运行时能力列表 |
 
 ## 五、OneBot11 Adapter 聚合状态
 
@@ -107,3 +107,24 @@ running -> interrupted   # 服务重启
 | `auth_failed` | 最近一次鉴权失败 |
 | `reconnecting` | 该传输正在按 backoff 重试 |
 | `stopped` | 该传输已停止 |
+
+## 七、Bilibili Source 状态
+
+| 状态 | 含义 |
+| --- | --- |
+| `disabled` | 没有可用订阅或事件源不可用 |
+| `idle` | 事件源已初始化，等待可检查的订阅或账号 |
+| `connecting` | 正在建立直播连接或检查动态 |
+| `connected` | 直播或动态检查处于可用状态 |
+| `degraded` | 部分直播连接、动态检查或账号凭据受限 |
+| `failed` | 当前直播与动态检查都不可用 |
+
+诊断等级：
+
+| 等级 | 含义 |
+| --- | --- |
+| `normal` | 当前无需要处理的问题 |
+| `attention` | 需要关注，但平台会继续等待或重试 |
+| `action_required` | 需要人工处理，例如重新登录 Bilibili CK |
+
+Bilibili source 状态通过 `/api/bilibili/source/status` 查询，通过 `/ws/events` 的 `source: bilibili` 分支推送摘要。三方监控列表通过 `/api/third-party/monitors` 投影当前订阅目标、直播状态和动态快照。

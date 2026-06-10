@@ -37,7 +37,7 @@
   - 统一错误码命名、默认消息资源键、HTTP 语义和适用范围
 - `web-api.openapi.yaml`
   - 当前已冻结的管理 HTTP 接口
-  - 当前包含 setup / session、loopback launcher bootstrap、config snapshot/update、protocol snapshot / compatibility、plugin lifecycle、plugin grants、plugin rich detail、plugin settings、plugin secrets、third-party accounts、third-party monitors、third-party media、Bilibili source status、governance 管理面、tasks / logs / system surfaces、scheduler 任务列表与手动触发、recovery recheck / confirm、runtime bootstrap、render templates、preview HTML 与模板资源读取面
+  - 当前包含 setup / session、loopback launcher bootstrap、config snapshot/update、protocol snapshot / compatibility、plugin lifecycle、plugin grants、plugin rich detail、plugin settings、plugin secrets、third-party accounts、third-party monitors、third-party media、Bilibili QR login、Bilibili source status / restart、governance 管理面、tasks / logs / system / metrics surfaces、scheduler 任务列表与手动触发、recovery recheck / confirm、runtime bootstrap、render templates、preview HTML 与模板资源读取面
   - `PUT /api/config` response 固定返回 `apply_effects.applied_now`、`apply_effects.reloaded_now`、`apply_effects.restart_required_fields`
   - plugin lifecycle surface 统一使用正式 `display_state` 枚举
 - `websocket-events.yaml`
@@ -103,10 +103,25 @@
 - `GET /api/system/scheduler/jobs`
 - `POST /api/system/scheduler/jobs/{job_id}/trigger`
 
-当前已进入 OpenAPI 冻结范围的 third-party monitor surface：
+当前已进入 OpenAPI 冻结范围的 metrics surface：
 
+- `GET /api/system/metrics`
+
+其中 response 为 Prometheus text exposition format，并受 admin session 保护。
+
+当前已进入 OpenAPI 冻结范围的 third-party / Bilibili surface：
+
+- `GET /api/third-party/accounts`
+- `PUT /api/third-party/accounts/{platform}/{account_id}`
+- `DELETE /api/third-party/accounts/{platform}/{account_id}`
 - `GET /api/third-party/monitors`
 - `GET /api/third-party/media`
+- `POST /api/bilibili/login/qrcode`
+- `GET /api/bilibili/login/qrcode/{login_id}`
+- `GET /api/bilibili/source/status`
+- `POST /api/bilibili/source/restart`
+
+其中当前正式平台固定为 `bilibili`；三方账号响应只暴露账号摘要、凭据状态和保存状态，不暴露 CK 明文。
 
 当前已进入 OpenAPI 冻结范围的 plugin grants surface：
 

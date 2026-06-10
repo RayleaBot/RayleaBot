@@ -17,7 +17,7 @@
 
 ## 当前工程落点
 
-- `server/` 是产品核心，承载配置、存储、鉴权、任务、插件发现、OneBot11 adapter、多插件 runtime、dispatcher、scheduler trigger 与管理面日志持久化。
+- `server/` 是产品核心，承载配置、存储、鉴权、任务、插件发现、OneBot11 adapter、多插件 runtime、dispatcher、scheduler trigger、三方账号、Bilibili source、管理面日志持久化与运行指标。
 - `web/` 承载管理控制台主链路。
 - `launcher/` 承载 Electron 桌面启动器，负责本地环境检查、服务进程编排、桌面交互与打开 Web 管理面。
 - `.deps/manifest.json` 固定 Chromium 与 Python / Node.js 运行环境资源矩阵及其可信来源列表，并作为运行环境准备的唯一正式来源。

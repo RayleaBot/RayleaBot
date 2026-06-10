@@ -284,7 +284,7 @@ Fluent UI React v9 的 `<Input>` 组件在 `.field-inline` 容器中使用时需
 主题偏好存储在渲染层 `localStorage`（`raylea-theme-mode`），支持 `light` / `dark` / `system` 三档：
 
 - `system`：通过 `matchMedia('(prefers-color-scheme: dark)')` 实时响应系统主题变化。
-- `light` / `dark`：固定使用对应主题，不再跟随系统。
+- `light` / `dark`：固定使用对应主题，不跟随系统。
 
 切换时同步更新：
 1. `document.documentElement.dataset.theme`

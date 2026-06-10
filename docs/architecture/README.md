@@ -15,7 +15,6 @@
 | [Bot Core](./bot-core.md) | 事件分发、命令解析、聊天权限、调度和后台任务 |
 | [Render Service](./render-service.md) | 模板渲染、队列、artifact 与资源边界 |
 | [Platform Runtime](./platform-runtime.md) | 配置、存储、日志、恢复、Launcher 控制面和兼容策略 |
-| [Optimization Review](./optimization-review.md) | 当前架构可优化项的优先级评估与路线 |
 
 ## 当前主链路
 
@@ -57,6 +56,8 @@ OneBot11 transport
 | Protocol Service | 负责协议快照、reverse-ws / webhook 协议入口和协议事件推送 |
 | Plugin Webhook Service | 负责插件 webhook 注册、鉴权、按需拉起和定向投递 |
 | System Service | 负责恢复摘要、运行环境诊断、备份和系统状态 |
+| Third-Party Account Service | 负责内置三方账号摘要、凭据保存状态和 Bilibili CK 校验 |
+| Bilibili Source | 负责内置 Bilibili 直播与动态订阅状态、平台事件投递和诊断 |
 | Capability Grant Manager | 负责插件能力授权与时效过滤 |
 | Governance Service | 负责黑白名单、白名单状态、命令策略读取面与聊天侧权限裁决 |
 | HTTP / WebSocket Handlers | 负责按领域暴露管理 API 与实时通道 |

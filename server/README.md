@@ -4,10 +4,10 @@
 
 ## 当前已接线能力
 
-- `cmd/raylea-server` 入口、`-config` / `-config-schema` flags
+- `cmd/raylea-server` 入口、`-config` / `-config-schema` flags；`-config-schema` 默认使用内置配置 schema
 - `config/user.yaml` 读取与内置配置 schema 校验；`contracts/config.user.schema.json` 是源码中的正式来源
 - `GET /healthz`、`GET /readyz`
-- SQLite store、current schema bootstrap、auth persistence、task persistence、plugin desired_state persistence、grant persistence、secret store
+- SQLite store、current schema bootstrap、auth persistence、task persistence、plugin desired_state persistence、grant persistence、secret store、third-party account persistence、Bilibili source state persistence
 - plugin discovery：当前扫描 `plugins/builtin` 与 `plugins/installed`；`examples/plugins` 仅保留示例职责
 - management auth surface：
   - `POST /api/setup/admin`
@@ -37,8 +37,34 @@
 - `POST /api/system/recovery/confirm`
 - `POST /api/system/runtime/bootstrap`
 - `GET /api/system/diagnostics/export`
+- `GET /api/system/metrics`
 - `GET /api/protocols/onebot11/reverse-ws`
 - `POST /api/protocols/onebot11/webhook`
+- `GET /api/third-party/accounts`
+- `PUT /api/third-party/accounts/{platform}/{account_id}`
+- `DELETE /api/third-party/accounts/{platform}/{account_id}`
+- `GET /api/third-party/monitors`
+- `GET /api/third-party/media`
+- `POST /api/bilibili/login/qrcode`
+- `GET /api/bilibili/login/qrcode/{login_id}`
+- `GET /api/bilibili/source/status`
+- `POST /api/bilibili/source/restart`
+- `GET /api/governance/blacklist`
+- `POST /api/governance/blacklist/entries`
+- `DELETE /api/governance/blacklist/entries/{entry_type}/{target_id}`
+- `GET /api/governance/whitelist`
+- `PUT /api/governance/whitelist/state`
+- `POST /api/governance/whitelist/entries`
+- `DELETE /api/governance/whitelist/entries/{entry_type}/{target_id}`
+- `GET /api/governance/command-policy`
+- `GET /api/system/scheduler/jobs`
+- `POST /api/system/scheduler/jobs/{job_id}/trigger`
+- `GET /api/plugins/{plugin_id}/settings`
+- `PUT /api/plugins/{plugin_id}/settings`
+- `GET /api/plugins/{plugin_id}/secrets`
+- `PUT /api/plugins/{plugin_id}/secrets`
+- `POST /api/plugins/{plugin_id}/dead_letter/recover`
+- `POST /api/webhooks/{plugin_id}/{route}`
 - `/ws/events`
 - `/ws/tasks`
 - `/ws/logs`
@@ -84,6 +110,17 @@
   - protocol snapshot aggregation and `/ws/events` protocol updates
   - plugin webhook registry, auth validation, on-demand runtime start, and `webhook.received`
   - recovery summary refresh, backup, diagnostics export, and runtime bootstrap tasks
+- third-party and Bilibili services：
+  - Bilibili CK account summaries and credential save / delete status
+  - Bilibili cookie validation through account profile lookup
+  - Bilibili QR login session create / poll
+  - built-in Bilibili source lifecycle, status, restart, diagnosis, and `/ws/events` status updates
+  - subscription hub config readout for Bilibili live / dynamic monitoring targets
+  - `bilibili.live.started`、`bilibili.live.ended`、`bilibili.dynamic.published` event dispatch
+  - controlled Bilibili media proxy for management UI images
+- runtime metrics：
+  - Prometheus text format through authenticated `GET /api/system/metrics`
+  - adapter / bridge / dispatcher / runtime / tasks / render / outbound / webhook metrics
 - live chat command policy：
   - blacklist pre-check
   - command permission enforcement
@@ -132,6 +169,8 @@
 - 单实例、单活跃 OneBot 主模型
 - 插件 runtime 通过正式 local action surface 访问平台能力
 - App 负责组装、运行和关闭；事件入口、协议入口、Webhook 网关、本地动作和系统能力分别由独立服务承载
+- 内置三方平台当前只支持 Bilibili
+- Bilibili CK 值只保存在 secret store；HTTP 响应只暴露账号摘要与凭据状态
 
 ## 默认命令
 

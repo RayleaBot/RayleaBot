@@ -52,26 +52,32 @@
 | 协议接入 | OneBot11 `reverse_ws` / `forward_ws` / `http_api` / `webhook` |
 | 事件分发 | 统一事件模型，按命令声明和事件订阅 fan-out 到插件 |
 | 插件运行时 | Python 3.12 / Node.js 24，子进程隔离，7 种生命周期状态 |
-| 任务调度 | cron 表达式定时任务，插件内声明，管理面编辑 |
+| 任务调度 | cron 表达式定时任务，插件内声明，管理面查看与手动触发 |
 | 聊天权限 | 命令冷却、黑白名单、超级管理员与默认权限策略 |
 | 渲染服务 | Chromium 模板渲染，artifact 管理与缓存 |
 | 本地能力 | 插件通过 local action 调用平台 API（HTTP 请求、调度、存储等） |
 
 ### 管理控制台
 
-| 页面 | 功能 |
-|------|------|
-| 仪表盘 | 连接状态、插件运行指标、恢复摘要、近期事件 |
-| 插件管理 | 安装/卸载/启停、manifest 详情、设置页、命令面板 |
-| 权限策略 | 超级管理员、默认权限、命令冷却 |
-| 访问控制 | 用户/群组黑白名单 |
-| 任务调度 | cron 任务创建、启停、日志标签 |
-| 日志检索 | 按级别/插件/时间过滤，实时追加 + 历史回放 |
-| 命令审计 | 命令使用统计与频次 |
-| 系统配置 | 配置分组编辑、热更新、校验提示 |
-| 渲染模板 | 模板上传、实时预览、变量编辑 |
-| 协议管理 | OneBot11 连接配置、传输模式切换、兼容性检查 |
-| 恢复中心 | 环境检查、兼容诊断、运行环境准备 |
+| 页面 | 路由 | 功能 |
+|------|------|------|
+| 系统状态 | `/` | 连接与就绪状态、恢复摘要、近期事件、系统工具 |
+| 内置菜单 | `/menu-center` | 平台内置菜单、声明命令与可用入口 |
+| 插件列表 | `/plugins` | 安装、卸载、启停、重载、授权与插件清单 |
+| 插件设置 | `/plugins/settings` | 命令前缀、插件授权、日志与存储设置 |
+| 插件详情 | `/plugins/:id` | manifest 详情、权限、命令、实时控制台、内置管理页 |
+| 指令中心 | `/commands` | 当前生效命令策略与全部声明命令 |
+| 权限策略 | `/permission-policy` | 超级管理员与默认权限 |
+| 黑白名单 | `/access-lists` | 白名单、黑名单与白名单启用状态 |
+| 限流中心 | `/rate-limits` | 用户/群命令、插件消息、目标消息限流与冷却提示 |
+| 任务 | `/tasks` | 任务列表、任务详情、恢复摘要与渲染结果 |
+| 任务调度 | `/scheduler` | 插件声明的定时任务查看与手动触发 |
+| 实时日志 | `/logs` | 启动窗口日志、命令拒绝记录、增量更新 |
+| 历史日志 | `/logs/history` | 按级别、来源、插件与时间范围筛选的历史日志 |
+| 协议中心 | `/protocols` | OneBot11 协议快照、连接设置、传输异常 |
+| 协议兼容矩阵 | `/protocols/compatibility` | 正式兼容范围与 provider 差异 |
+| 系统配置 | `/config` | 配置查看与保存、热更新与校验提示 |
+| 模板预览 | `/render/templates` | 模板信息、输入结构、实时预览、任务入口 |
 
 ### Bilibili 平台集成
 
@@ -91,7 +97,45 @@
 - 环境预检（Node.js / Python / Chromium 可用性）
 - 亮色 / 暗色双主题
 
-## 快速开始
+## 下载安装
+
+面向使用者的推荐路径。发行包自带 Chromium、Python、Node.js 等运行环境资源，无需预装 Go / Node.js / Python。
+
+### 选择发行包
+
+在 [GitHub Releases](https://github.com/RayleaBot/RayleaBot/releases) 选择对应平台：
+
+| 平台 | 发行包 | 桌面入口 |
+|------|--------|----------|
+| Windows | `RayleaBot-v<版本>-windows-x64-full.zip` | `RayleaLauncher.exe` |
+| Linux 桌面 | `RayleaBot-v<版本>-linux-x64-full.tar.gz` | `RayleaLauncher` |
+| macOS (Apple Silicon) | `RayleaBot-v<版本>-macos-arm64-full.tar.gz` | `RayleaLauncher.app` |
+| Linux 无桌面 / 服务器 | `RayleaBot-v<版本>-linux-x64-server.tar.gz` | `raylea-server` + `systemd` |
+
+每次 Release 同时提供 `release_manifest.json` 与 `SHA256SUMS.txt` 用于校验。
+
+### 安装与首次启动
+
+1. 下载发行包，对照 `SHA256SUMS.txt` 校验完整性。
+2. 解压到一个固定目录，该目录同时是运行根目录（承载 `config/`、`data/`、`logs/`、`plugins/installed/` 等）。
+3. 运行桌面入口 `RayleaLauncher`；服务器包则启动 `raylea-server` 并按包内 `systemd/rayleabot.service` 示例托管。
+4. 浏览器打开管理面 `http://127.0.0.1:8080`（Launcher 会自动打开），按引导完成管理员初始化。
+
+首次运行可能按 `.deps/manifest.json` 准备 Chromium 与运行时资源。初始化只在本机开放，远程访问需在配置中显式开启并优先走 HTTPS 反向代理。
+
+### 平台提示
+
+- **Windows**：首次运行 Launcher 或 Chromium 时，Defender / SmartScreen 可能弹出提示，对照 `SHA256SUMS.txt` 确认来源后放行。
+- **macOS**：`macos-arm64-full` 以目录包交付，首次打开前先做本地校验，并按系统提示授予运行许可。
+- **Linux**：桌面环境使用 full 包，无桌面服务器使用 `linux-x64-server` 包配合 `systemd`。
+
+### 升级
+
+沿用原运行根目录覆盖更新，`config/`、`data/` 与 `plugins/installed/` 不被覆盖。升级前可通过任务页或 CLI `doctor` 检查配置、数据库与插件兼容性。当前不提供自动覆盖更新。
+
+## 从源码构建
+
+面向参与开发或自行构建的协作者。
 
 ### 前置条件
 
@@ -103,7 +147,7 @@
 | Python | 3.12.13 |
 | Git | 2.x |
 
-### 本地启动
+### 本地开发启动
 
 ```bash
 # 克隆仓库
@@ -121,7 +165,7 @@ set RAYLEA_SERVER_RELOAD=air
 node scripts/start-dev.mjs
 ```
 
-启动后访问 `http://127.0.0.1:4173`，按引导完成初始设置。
+开发模式下，服务端监听 `http://127.0.0.1:8080`，Web 开发服务器运行在 `http://127.0.0.1:4173`。访问 `http://127.0.0.1:4173` 按引导完成初始设置。
 
 ### 生产构建
 
@@ -150,9 +194,17 @@ RayleaBot/
 │   └── internal/            # 内核实现
 │       ├── adapter/         # OneBot11 协议适配
 │       ├── app/             # 路由与 HTTP handler
+│       ├── auth/            # 管理员鉴权与会话
 │       ├── bilibili/        # Bilibili 源与反风控
+│       ├── bridge/          # 事件桥接与可观测性
+│       ├── command/         # 命令解析
 │       ├── dispatch/        # 事件分发
+│       ├── governance/      # 黑白名单与命令策略
 │       ├── localaction/     # 插件本地能力
+│       ├── logging/         # 日志持久化与流式
+│       ├── outbound/        # 出站消息发送
+│       ├── permission/      # 权限与冷却
+│       ├── plugins/         # 插件发现与安装
 │       ├── pluginconfig/    # 插件配置
 │       ├── pluginhttp/      # 插件 HTTP 代理
 │       ├── recovery/        # 恢复与诊断
@@ -160,8 +212,8 @@ RayleaBot/
 │       ├── runtime/         # 插件运行时
 │       ├── scheduler/       # 任务调度
 │       ├── secrets/         # 密钥存储
-│       ├── sqlcqueries/     # SQL 查询
 │       ├── storage/         # SQLite 存储层
+│       ├── tasks/           # 任务模型
 │       └── thirdparty/      # 三方账号服务
 ├── web/                     # Vue 3 管理控制台
 │   └── src/
@@ -269,10 +321,12 @@ Local Action Service → 平台能力（HTTP / 存储 / 调度 / 渲染）
 | WebSocket | `github.com/coder/websocket` |
 | 数据库 | SQLite (`modernc.org/sqlite`) |
 | 前端框架 | Vue 3.5 + TypeScript |
+| 前端路由 | Vue Router 5 |
 | 构建工具 | Vite 8 |
 | UI 组件库 | Ant Design Vue 4 |
 | 样式方案 | Tailwind CSS 4 + Sass + CSS Variables |
 | 状态管理 | Pinia 3 |
+| 国际化 | vue-i18n 11 |
 | 桌面框架 | Electron 41 + React 18 + Fluent UI |
 | 插件 SDK | Python 3.12 / Node.js 24 |
 | 渲染引擎 | chromedp + Chromium |

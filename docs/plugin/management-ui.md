@@ -81,6 +81,9 @@
 - `secrets.reload`
 - `secrets.save`
 - `secrets.changed`
+- `scheduler.trigger`
+- `scheduler.triggered`
+- `render_template.open`
 - `error`
 
 `host.init` 会提供：

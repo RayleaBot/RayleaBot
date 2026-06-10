@@ -12,7 +12,7 @@
 
 ## Current Surface Expectations
 
-- 当前正式 surface 已覆盖管理 HTTP / WebSocket、插件 manifest、插件协议、插件内置管理页静态路由与桥接、用户配置、错误码、release metadata、backup manifest、deps manifest 与 CLI。
+- 当前正式 surface 已覆盖管理 HTTP / WebSocket、插件 manifest、插件协议、插件内置管理页静态路由与桥接、用户配置、错误码、release metadata、backup manifest、deps manifest、CLI、三方账号、三方监控、三方媒体代理、Bilibili source 状态和 Bilibili 扫码登录。
 - governance、plugin settings、plugin rich detail、protocol compatibility、render management、recovery/runtime tasks、launcher bootstrap 都属于已冻结范围。
 - `plugin-management-ui.yaml` 与 `plugin-management-ui-bridge.schema.json` 继续表达插件内置管理页的正式边界，不把这类结构塞回 OpenAPI。
 
