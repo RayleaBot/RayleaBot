@@ -348,4 +348,4 @@ Local Action Service → 平台能力（HTTP / 存储 / 调度 / 渲染）
 
 ## License
 
-MIT
+[AGPL-3.0](LICENSE)
