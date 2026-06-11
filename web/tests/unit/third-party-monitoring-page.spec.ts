@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMemoryHistory, createRouter } from 'vue-router'
 
 import ThirdPartyMonitoringPage from '@/views/builtin/ThirdPartyMonitoringView.vue'
+import { useSocketStore } from '@/stores/sockets'
 import { useThirdPartyMonitoringStore } from '@/stores/third-party-monitoring'
 import type {
   BilibiliSourceStatusResponse,
@@ -143,13 +144,16 @@ function sourceStatus(overrides: Partial<BilibiliSourceStatusResponse> = {}): Bi
   }
 }
 
-async function mountMonitoringPage(status: BilibiliSourceStatusResponse = sourceStatus()) {
+async function mountMonitoringPage(
+  status: BilibiliSourceStatusResponse = sourceStatus(),
+  monitors: ThirdPartyMonitorsResponse = monitorsResponse(),
+) {
   const router = createMonitoringRouter()
   await router.push('/third-party-monitoring')
   await router.isReady()
 
   const store = useThirdPartyMonitoringStore()
-  store.monitors = monitorsResponse()
+  store.monitors = monitors
   store.bilibiliStatus = status
   vi.spyOn(store, 'fetchAll').mockResolvedValue(undefined)
   vi.spyOn(store, 'restartBilibiliSource').mockResolvedValue({ accepted: true, status })
@@ -234,5 +238,128 @@ describe('ThirdPartyMonitoringPage', () => {
     expect(wrapper.text()).not.toContain('当前没有可展示的最近动态。')
     const factValues = wrapper.findAll('.monitor-card__facts dd').map((item) => item.text())
     expect(factValues).toContain('—')
+  })
+
+  it('replaces the manual refresh button with the realtime indicator', async () => {
+    const { wrapper } = await mountMonitoringPage()
+
+    const refreshButton = wrapper.findAll('button').find((candidate) => candidate.text().trim() === '刷新')
+    expect(refreshButton).toBeUndefined()
+    const restartButton = wrapper.findAll('button').find((candidate) => candidate.text().includes('重启事件源'))
+    expect(restartButton).toBeTruthy()
+
+    const indicator = wrapper.find('[data-testid="third-party-monitoring-live-indicator"]')
+    expect(indicator.exists()).toBe(true)
+    expect(indicator.text()).toContain('连接中断')
+  })
+
+  it('shows the realtime indicator as live when the events socket is connected', async () => {
+    const socketStore = useSocketStore()
+    socketStore.snapshots.events.status = 'connected'
+
+    const { wrapper } = await mountMonitoringPage()
+
+    const indicator = wrapper.find('[data-testid="third-party-monitoring-live-indicator"]')
+    expect(indicator.text()).toContain('实时更新中')
+  })
+
+  it('activates monitoring on mount and deactivates on unmount', async () => {
+    const store = useThirdPartyMonitoringStore()
+    const activateSpy = vi.spyOn(store, 'activate')
+    const deactivateSpy = vi.spyOn(store, 'deactivate')
+
+    const { wrapper } = await mountMonitoringPage()
+    expect(activateSpy).toHaveBeenCalledTimes(1)
+
+    wrapper.unmount()
+    expect(deactivateSpy).toHaveBeenCalledTimes(1)
+  })
+
+  it('renders the empty state with the accounts entry when no targets exist', async () => {
+    const { router, wrapper } = await mountMonitoringPage(sourceStatus({
+      diagnosis: {
+        level: 'action_required',
+        headline: 'CK 需要重新登录',
+        description: 'Bilibili CK 无效，直播和动态检查需要可用 CK。',
+        causes: [],
+        impacts: [],
+        actions: [
+          { kind: 'open_accounts', label: '查看 Bilibili CK', target: '/third-party-accounts', primary: true },
+        ],
+        updated_at: '2026-06-08T08:30:00Z',
+      },
+    }), monitorsResponse([]))
+
+    const emptyState = wrapper.find('.app-empty-state')
+    expect(emptyState.exists()).toBe(true)
+    expect(emptyState.text()).toContain('当前没有监控目标。')
+
+    const actionButton = wrapper.findAll('button').find((candidate) => candidate.text().includes('查看 Bilibili CK'))
+    expect(actionButton).toBeTruthy()
+    await actionButton!.trigger('click')
+    await flushPromises()
+
+    expect(router.currentRoute.value.name).toBe('third-party-accounts')
+  })
+
+  it('shows the skeleton screen while loading without prior data', async () => {
+    const router = createMonitoringRouter()
+    await router.push('/third-party-monitoring')
+    await router.isReady()
+
+    const store = useThirdPartyMonitoringStore()
+    store.loading = true
+    store.monitors = null
+    vi.spyOn(store, 'fetchAll').mockResolvedValue(undefined)
+
+    const wrapper = mount(ThirdPartyMonitoringPage, {
+      global: {
+        plugins: [Antd, router],
+      },
+    })
+    await flushPromises()
+
+    const skeleton = wrapper.find('.monitoring-skeleton')
+    expect(skeleton.exists()).toBe(true)
+    expect(skeleton.findAll('.monitoring-skeleton__card').length).toBe(3)
+
+    const statusBar = wrapper.find('.monitoring-strip')
+    expect(statusBar.exists()).toBe(false)
+  })
+
+  it('shows the authenticated state as realtime when the events socket is authenticated', async () => {
+    const socketStore = useSocketStore()
+    socketStore.snapshots.events.status = 'authenticated'
+
+    const { wrapper } = await mountMonitoringPage()
+
+    const indicator = wrapper.find('[data-testid="third-party-monitoring-live-indicator"]')
+    expect(indicator.text()).toContain('实时更新中')
+    expect(indicator.classes()).toContain('monitoring-strip__live--live')
+  })
+
+  it('shows the disconnected indicator when the events socket is disconnected', async () => {
+    const socketStore = useSocketStore()
+    socketStore.snapshots.events.status = 'disconnected'
+
+    const { wrapper } = await mountMonitoringPage()
+
+    const indicator = wrapper.find('[data-testid="third-party-monitoring-live-indicator"]')
+    expect(indicator.text()).toContain('连接中断')
+    expect(indicator.classes()).toContain('monitoring-strip__live--disconnected')
+
+    const strip = wrapper.find('.monitoring-strip')
+    expect(strip.classes()).toContain('is-reconnecting')
+  })
+
+  it('shows the reconnecting indicator when the events socket is reconnecting', async () => {
+    const socketStore = useSocketStore()
+    socketStore.snapshots.events.status = 'reconnecting'
+
+    const { wrapper } = await mountMonitoringPage()
+
+    const indicator = wrapper.find('[data-testid="third-party-monitoring-live-indicator"]')
+    expect(indicator.text()).toContain('正在重连')
+    expect(indicator.classes()).toContain('monitoring-strip__live--reconnecting')
   })
 })

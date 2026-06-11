@@ -1,15 +1,18 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, reactive, ref } from 'vue'
+import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useRouter } from 'vue-router'
 import {
   CaretDownOutlined,
   CheckCircleOutlined,
+  ClockCircleOutlined,
   CloseCircleOutlined,
   FieldTimeOutlined,
   InfoCircleOutlined,
   KeyOutlined,
+  LinkOutlined,
   NotificationOutlined,
+  PlayCircleOutlined,
   ReloadOutlined,
   SyncOutlined,
   ThunderboltOutlined,
@@ -20,11 +23,13 @@ import {
 } from '@ant-design/icons-vue'
 
 import { notifyError, notifySuccess, useToastFeedback } from '@/adapter/feedback'
+import AppEmptyState from '@/components/AppEmptyState.vue'
 import AppPage from '@/components/page/AppPage.vue'
 import RetryPanel from '@/components/RetryPanel.vue'
 import { t } from '@/i18n'
 import { getDisplayErrorMessage } from '@/lib/error-text'
 import { formatDateTime } from '@/lib/format'
+import { useSocketStore } from '@/stores/sockets'
 import { useThirdPartyMonitoringStore } from '@/stores/third-party-monitoring'
 import type {
   BilibiliSourceStatusResponse,
@@ -34,33 +39,33 @@ import type {
 
 type StatusTone = 'normal' | 'success' | 'warning' | 'danger'
 
-interface PlatformOption {
-  label: string
-  value: string
-  disabled?: boolean
-}
-
 const store = useThirdPartyMonitoringStore()
+const socketStore = useSocketStore()
 const router = useRouter()
 const {
   bilibiliStatus,
   error,
   items,
+  lastRefreshedAt,
   loading,
   monitors,
-  platform,
   restarting,
 } = storeToRefs(store)
 
 const avatarLoadFailures = reactive<Record<string, boolean>>({})
 const coverLoadFailures = reactive<Record<string, boolean>>({})
+const coverLoaded = reactive<Record<string, boolean>>({})
 const diagnosisExpanded = ref(false)
+const stripRefreshed = ref(false)
+const cardRefreshed = reactive<Record<string, boolean>>({})
+const metricBumped = reactive<Record<string, boolean>>({})
+const cardsEntered = ref(false)
 
-const platformOptions = computed<PlatformOption[]>(() => [
-  { label: 'Bilibili', value: 'bilibili' },
-  { label: 'YouTube', value: 'youtube', disabled: true },
-  { label: 'Twitch', value: 'twitch', disabled: true },
-])
+let stripRefreshTimer: number | null = null
+let cardsEnteredTimer: number | null = null
+const cardRefreshTimers = new Map<string, number>()
+const metricBumpTimers = new Map<string, number>()
+
 const fatalError = computed(() => error.value && !monitors.value)
 const pageErrorToast = computed(() => (
   error.value && monitors.value
@@ -85,15 +90,98 @@ const hasDiagnosisDetail = computed(() =>
   (diagnosis.value?.impacts.length ?? 0) > 0 ||
   (diagnosis.value?.actions.length ?? 0) > 0,
 )
+const eventsStatus = computed(() => socketStore.snapshots.events.status)
+const realtimeConnected = computed(() => {
+  const status = eventsStatus.value
+  return status === 'connected' || status === 'authenticated'
+})
+const hasSkeleton = computed(() => loading.value && !monitors.value)
+const isReconnecting = computed(() => !realtimeConnected.value && !!monitors.value)
 
 useToastFeedback(pageErrorToast)
 
+watch(lastRefreshedAt, () => {
+  if (!monitors.value || loading.value) {
+    return
+  }
+  stripRefreshed.value = true
+  if (stripRefreshTimer !== null) {
+    window.clearTimeout(stripRefreshTimer)
+  }
+  stripRefreshTimer = window.setTimeout(() => {
+    stripRefreshed.value = false
+    stripRefreshTimer = null
+  }, 600)
+})
+
+watch(items, (newItems, oldItems) => {
+  if (!oldItems || oldItems.length === 0) {
+    return
+  }
+  const oldMap = new Map(oldItems.map((item) => [item.uid, item]))
+  for (const item of newItems) {
+    const old = oldMap.get(item.uid)
+    if (old && JSON.stringify(item) !== JSON.stringify(old)) {
+      cardRefreshed[item.uid] = true
+      const existingTimer = cardRefreshTimers.get(item.uid)
+      if (existingTimer !== undefined) {
+        window.clearTimeout(existingTimer)
+      }
+      const timer = window.setTimeout(() => {
+        cardRefreshed[item.uid] = false
+        cardRefreshTimers.delete(item.uid)
+      }, 600)
+      cardRefreshTimers.set(item.uid, timer)
+    }
+  }
+})
+
+watch([liveCount, dynamicCount, accountCount], (newVals, oldVals) => {
+  const keys = ['liveCount', 'dynamicCount', 'accountCount']
+  for (let i = 0; i < keys.length; i++) {
+    if (oldVals[i] !== undefined && newVals[i] !== oldVals[i]) {
+      metricBumped[keys[i]!] = true
+      const key = keys[i]!
+      const existingTimer = metricBumpTimers.get(key)
+      if (existingTimer !== undefined) {
+        window.clearTimeout(existingTimer)
+      }
+      const timer = window.setTimeout(() => {
+        metricBumped[key] = false
+        metricBumpTimers.delete(key)
+      }, 500)
+      metricBumpTimers.set(key, timer)
+    }
+  }
+})
+
 onMounted(() => {
+  store.activate()
   void loadPage()
+  cardsEnteredTimer = window.setTimeout(() => {
+    cardsEntered.value = true
+    cardsEnteredTimer = null
+  }, 50)
 })
 
 onUnmounted(() => {
-  store.disposeMedia()
+  store.deactivate()
+  if (stripRefreshTimer !== null) {
+    window.clearTimeout(stripRefreshTimer)
+    stripRefreshTimer = null
+  }
+  if (cardsEnteredTimer !== null) {
+    window.clearTimeout(cardsEnteredTimer)
+    cardsEnteredTimer = null
+  }
+  for (const timer of cardRefreshTimers.values()) {
+    window.clearTimeout(timer)
+  }
+  cardRefreshTimers.clear()
+  for (const timer of metricBumpTimers.values()) {
+    window.clearTimeout(timer)
+  }
+  metricBumpTimers.clear()
 })
 
 async function loadPage() {
@@ -113,16 +201,25 @@ async function restartSource() {
   }
 }
 
-function handlePlatformChange(value: string | number) {
-  if (value !== 'bilibili') {
-    return
-  }
-  platform.value = 'bilibili'
-  void loadPage()
-}
-
 function toggleDiagnosis() {
   diagnosisExpanded.value = !diagnosisExpanded.value
+}
+
+function liveIndicatorMeta() {
+  switch (eventsStatus.value) {
+    case 'connected':
+    case 'authenticated':
+      return { color: 'green', tone: 'live', label: t('builtinFeatures.thirdPartyMonitoring.realtime') }
+    case 'connecting':
+      return { color: 'blue', tone: 'connecting', label: t('builtinFeatures.thirdPartyMonitoring.realtimeConnecting') }
+    case 'reconnecting':
+      return { color: 'warning', tone: 'reconnecting', label: t('builtinFeatures.thirdPartyMonitoring.realtimeReconnecting') }
+    case 'auth_failed':
+      return { color: 'danger', tone: 'error', label: t('builtinFeatures.thirdPartyMonitoring.realtimeAuthFailed') }
+    case 'disconnected':
+    default:
+      return { color: 'default', tone: 'disconnected', label: t('builtinFeatures.thirdPartyMonitoring.realtimeDisconnected') }
+  }
 }
 
 function sourceStatusMeta(value?: BilibiliSourceStatusResponse['status']) {
@@ -153,37 +250,6 @@ function statusToneFromDiagnosis(value?: BilibiliSourceStatusResponse['diagnosis
     default:
       return 'normal'
   }
-}
-
-function liveMetricText() {
-  const live = bilibiliStatus.value?.live
-  if (!live) {
-    return t('display.empty')
-  }
-  if (live.failed_rooms > 0 && live.fallback_polling) {
-    return t('builtinFeatures.thirdPartyMonitoring.liveFallbackMetric', { count: live.failed_rooms })
-  }
-  if (live.failed_rooms > 0 || live.last_error) {
-    return t('builtinFeatures.thirdPartyMonitoring.liveFailedMetric', { count: live.failed_rooms })
-  }
-  return t('builtinFeatures.thirdPartyMonitoring.liveConnected', { count: live.connected_rooms })
-}
-
-function dynamicMetricText() {
-  const dynamic = bilibiliStatus.value?.dynamic
-  if (!dynamic) {
-    return t('display.empty')
-  }
-  if (dynamic.last_error) {
-    return t('builtinFeatures.thirdPartyMonitoring.dynamicErrorMetric')
-  }
-  return t('builtinFeatures.thirdPartyMonitoring.lastPoll', { time: displayTime(dynamic.last_poll_at) })
-}
-
-function causeRetryText(value?: string | null) {
-  return value
-    ? t('builtinFeatures.thirdPartyMonitoring.retryAt', { time: displayTime(value) })
-    : ''
 }
 
 async function openBilibiliAccounts() {
@@ -253,16 +319,47 @@ function avatarFailed(uid: string) {
 function coverFailed(uid: string) {
   coverLoadFailures[uid] = true
 }
+
+function coverLoadedOk(uid: string) {
+  coverLoaded[uid] = true
+}
+
+function cardTone(item: ThirdPartyMonitorItem): string {
+  if (visibleLiveError(item)) {
+    return 'error'
+  }
+  if (item.live.is_live && item.dynamic) {
+    return 'live-dynamic'
+  }
+  if (item.live.is_live) {
+    return 'live-only'
+  }
+  if (item.dynamic) {
+    return 'dynamic-only'
+  }
+  return 'idle'
+}
+
+function dynamicIcon(service?: string) {
+  switch (service) {
+    case 'video':
+      return 'play'
+    case 'image_text':
+      return 'image'
+    case 'article':
+      return 'article'
+    case 'repost':
+      return 'repost'
+    default:
+      return 'default'
+  }
+}
 </script>
 
 <template>
   <AppPage :title="t('builtinFeatures.thirdPartyMonitoring.title')" :description="t('builtinFeatures.thirdPartyMonitoring.subtitle')">
     <template #extra>
       <div class="monitoring-actions">
-        <a-button :loading="loading" @click="loadPage">
-          <template #icon><ReloadOutlined /></template>
-          {{ t('builtinFeatures.thirdPartyMonitoring.refresh') }}
-        </a-button>
         <a-button :loading="restarting" @click="restartSource">
           <template #icon><SyncOutlined /></template>
           {{ t('builtinFeatures.thirdPartyMonitoring.restartSource') }}
@@ -279,8 +376,33 @@ function coverFailed(uid: string) {
     />
 
     <div v-else class="third-party-monitoring">
+      <!-- Skeleton -->
+      <div v-if="hasSkeleton" class="monitoring-skeleton">
+        <div class="monitoring-skeleton__strip" />
+        <div class="monitoring-skeleton__cards">
+          <div v-for="i in 3" :key="i" class="monitoring-skeleton__card">
+            <div class="monitoring-skeleton__cover" />
+            <div class="monitoring-skeleton__body">
+              <div class="monitoring-skeleton__identity">
+                <div class="monitoring-skeleton__avatar" />
+                <div class="monitoring-skeleton__name" />
+              </div>
+              <div class="monitoring-skeleton__line" />
+              <div class="monitoring-skeleton__line monitoring-skeleton__line--short" />
+            </div>
+          </div>
+        </div>
+      </div>
+
       <!-- Status bar -->
-      <section :class="['monitoring-strip', `monitoring-strip--${statusTone}`]">
+      <section
+        v-if="!hasSkeleton"
+        :class="[
+          'monitoring-strip',
+          `monitoring-strip--${statusTone}`,
+          { 'is-reconnecting': isReconnecting, 'is-refreshed': stripRefreshed },
+        ]"
+      >
         <div class="monitoring-strip__row">
           <div class="monitoring-strip__left">
             <div class="monitoring-strip__status">
@@ -294,15 +416,31 @@ function coverFailed(uid: string) {
             </span>
           </div>
           <div class="monitoring-strip__right">
+            <span
+              :class="[
+                'monitoring-strip__live',
+                `monitoring-strip__live--${liveIndicatorMeta().tone}`,
+              ]"
+              data-testid="third-party-monitoring-live-indicator"
+            >
+              <span class="monitoring-strip__live-dot" aria-hidden="true" />
+              {{ liveIndicatorMeta().label }}
+            </span>
             <div class="monitoring-strip__metrics">
-              <div class="metric-badge">
+              <div
+                class="metric-badge"
+                :class="{ 'is-bumped': metricBumped['accountCount'] }"
+              >
                 <KeyOutlined class="metric-badge__icon" />
                 <span class="metric-badge__value">{{ accountCount }}</span>
                 <span class="metric-badge__label">CK</span>
               </div>
               <div
                 class="metric-badge"
-                :class="{ 'metric-badge--warning': liveCount < (bilibiliStatus?.live.watched_rooms ?? watchedUIDs.length) }"
+                :class="{
+                  'metric-badge--warning': liveCount < (bilibiliStatus?.live.watched_rooms ?? watchedUIDs.length),
+                  'is-bumped': metricBumped['liveCount'],
+                }"
               >
                 <VideoCameraOutlined class="metric-badge__icon" />
                 <span class="metric-badge__value">{{ liveCount }}/{{ bilibiliStatus?.live.watched_rooms ?? watchedUIDs.length }}</span>
@@ -310,7 +448,10 @@ function coverFailed(uid: string) {
               </div>
               <div
                 class="metric-badge"
-                :class="{ 'metric-badge--warning': dynamicCount < (bilibiliStatus?.dynamic.watched_uids ?? watchedUIDs.length) }"
+                :class="{
+                  'metric-badge--warning': dynamicCount < (bilibiliStatus?.dynamic.watched_uids ?? watchedUIDs.length),
+                  'is-bumped': metricBumped['dynamicCount'],
+                }"
               >
                 <NotificationOutlined class="metric-badge__icon" />
                 <span class="metric-badge__value">{{ dynamicCount }}/{{ bilibiliStatus?.dynamic.watched_uids ?? watchedUIDs.length }}</span>
@@ -421,29 +562,43 @@ function coverFailed(uid: string) {
       </div>
 
       <!-- Empty state -->
-      <div v-if="!items.length" class="monitoring-empty">
-        <div class="monitoring-empty__inner">
-          <FieldTimeOutlined class="monitoring-empty__icon" />
-          <p>{{ t('builtinFeatures.thirdPartyMonitoring.empty') }}</p>
-          <a-button v-if="openAccountsAction" type="primary" @click="openBilibiliAccounts">
-            {{ openAccountsAction.label }}
-          </a-button>
-        </div>
-      </div>
+      <AppEmptyState
+        v-if="!loading && !items.length"
+        icon="search"
+        :title="t('builtinFeatures.thirdPartyMonitoring.empty')"
+        :action-label="openAccountsAction?.label"
+        @action="openBilibiliAccounts"
+      />
 
       <!-- Monitor cards -->
-      <section v-else class="monitor-card-grid">
-        <article v-for="item in items" :key="item.uid" class="monitor-card">
+      <section v-if="items.length" class="monitor-card-grid">
+        <article
+          v-for="(item, index) in items"
+          :key="item.uid"
+          :class="[
+            'monitor-card',
+            `monitor-card--${cardTone(item)}`,
+            { 'is-refreshed': cardRefreshed[item.uid], 'is-entered': cardsEntered },
+            { 'is-reconnecting': isReconnecting },
+          ]"
+          :style="{ transitionDelay: `${index * 40}ms` }"
+        >
           <!-- Landscape cover with gaussian blur transition -->
           <div class="monitor-card__cover-wrap">
             <div
               v-if="mainImage(item) && !coverLoadFailures[item.uid]"
               class="monitor-card__cover"
             >
+              <div
+                v-if="!coverLoaded[item.uid]"
+                class="monitor-card__cover-skeleton"
+                aria-hidden="true"
+              />
               <img
                 :src="mainImage(item)"
                 :alt="roomName(item)"
-                class="monitor-card__cover-img"
+                :class="['monitor-card__cover-img', { 'is-loaded': coverLoaded[item.uid] }]"
+                @load="coverLoadedOk(item.uid)"
                 @error="coverFailed(item.uid)"
               >
               <!-- Blurred extension layer -->
@@ -451,7 +606,7 @@ function coverFailed(uid: string) {
                 <img
                   :src="mainImage(item)"
                   alt=""
-                  class="monitor-card__cover-blur-img"
+                  :class="['monitor-card__cover-blur-img', { 'is-loaded': coverLoaded[item.uid] }]"
                 >
               </div>
               <!-- Live info overlay on blurred zone -->
@@ -466,7 +621,7 @@ function coverFailed(uid: string) {
                   >{{ roomName(item) }}</a>
                   <span v-else>{{ roomName(item) }}</span>
                 </h3>
-                <span class="monitor-card__cover-room-id">房间 {{ item.live.room_id || '—' }}</span>
+                <span class="monitor-card__cover-room-id">{{ t('builtinFeatures.thirdPartyMonitoring.roomId', { id: item.live.room_id || t('display.empty') }) }}</span>
               </div>
             </div>
             <div v-else class="monitor-card__cover monitor-card__cover--fallback">
@@ -508,13 +663,29 @@ function coverFailed(uid: string) {
                 <span>UID {{ item.uid }}</span>
               </div>
               <div class="monitor-card__services">
-                <a-tag v-for="service in item.services" :key="service" size="small">{{ serviceLabel(service) }}</a-tag>
+                <a-tag
+                  v-for="service in item.services"
+                  :key="service"
+                  size="small"
+                  :class="['service-tag', `service-tag--${service}`]"
+                >
+                  {{ serviceLabel(service) }}
+                </a-tag>
               </div>
             </div>
 
             <!-- Dynamic -->
             <div v-if="item.dynamic" class="monitor-card__dynamic">
-              <span class="monitor-card__dynamic-label">{{ t('builtinFeatures.thirdPartyMonitoring.dynamicTitle') }}</span>
+              <div class="monitor-card__dynamic-header">
+                <span class="monitor-card__dynamic-icon">
+                  <PlayCircleOutlined v-if="dynamicIcon(item.dynamic.service) === 'play'" />
+                  <NotificationOutlined v-else-if="dynamicIcon(item.dynamic.service) === 'image'" />
+                  <InfoCircleOutlined v-else-if="dynamicIcon(item.dynamic.service) === 'article'" />
+                  <SyncOutlined v-else-if="dynamicIcon(item.dynamic.service) === 'repost'" />
+                  <NotificationOutlined v-else />
+                </span>
+                <span class="monitor-card__dynamic-label">{{ t('builtinFeatures.thirdPartyMonitoring.dynamicTitle') }}</span>
+              </div>
               <a
                 v-if="item.dynamic.url"
                 :href="item.dynamic.url"
@@ -526,26 +697,40 @@ function coverFailed(uid: string) {
               </a>
               <strong v-else class="monitor-card__dynamic-title">{{ dynamicTitle(item) }}</strong>
               <p v-if="dynamicSummary(item)" class="monitor-card__dynamic-summary">{{ dynamicSummary(item) }}</p>
-              <small class="monitor-card__dynamic-time">{{ displayTime(item.dynamic.published_at ?? item.dynamic.observed_at) }}</small>
+              <div class="monitor-card__dynamic-footer">
+                <small class="monitor-card__dynamic-time">{{ displayTime(item.dynamic.published_at ?? item.dynamic.observed_at) }}</small>
+              </div>
             </div>
 
             <!-- Live facts -->
             <dl class="monitor-card__facts">
               <div>
-                <dt>{{ t('builtinFeatures.thirdPartyMonitoring.startedAt') }}</dt>
-                <dd>{{ liveStartedText(item) }}</dd>
+                <dt>
+                  <FieldTimeOutlined class="monitor-card__fact-icon" />
+                  {{ t('builtinFeatures.thirdPartyMonitoring.startedAt') }}
+                </dt>
+                <dd :class="{ 'is-live': item.live.is_live }">{{ liveStartedText(item) }}</dd>
               </div>
               <div>
-                <dt>{{ t('builtinFeatures.thirdPartyMonitoring.endedAt') }}</dt>
+                <dt>
+                  <ClockCircleOutlined class="monitor-card__fact-icon" />
+                  {{ t('builtinFeatures.thirdPartyMonitoring.endedAt') }}
+                </dt>
                 <dd>{{ liveEndedText(item) }}</dd>
               </div>
               <div>
-                <dt>{{ t('builtinFeatures.thirdPartyMonitoring.connection') }}</dt>
+                <dt>
+                  <LinkOutlined class="monitor-card__fact-icon" />
+                  {{ t('builtinFeatures.thirdPartyMonitoring.connection') }}
+                </dt>
                 <dd>{{ sourceStatusMeta(item.live.connection_state as BilibiliSourceStatusResponse['status']).label }}</dd>
               </div>
               <div>
-                <dt>{{ t('builtinFeatures.thirdPartyMonitoring.updated') }}</dt>
-                <dd>{{ displayTime(item.updated_at) }}</dd>
+                <dt>
+                  <ReloadOutlined class="monitor-card__fact-icon" />
+                  {{ t('builtinFeatures.thirdPartyMonitoring.updated') }}
+                </dt>
+                <dd>{{ displayTime(lastRefreshedAt) }}</dd>
               </div>
             </dl>
 
@@ -629,7 +814,7 @@ function coverFailed(uid: string) {
   align-items: center;
   justify-content: space-between;
   gap: var(--space-sm);
-  padding: 12px var(--space-md);
+  padding: var(--space-md);
   min-height: 48px;
 }
 
@@ -681,6 +866,13 @@ function coverFailed(uid: string) {
   100% { transform: scale(1.4); opacity: 0; }
 }
 
+@media (prefers-reduced-motion: reduce) {
+  .monitoring-strip__pulse::before,
+  .monitoring-strip__live-dot {
+    animation: none;
+  }
+}
+
 .monitoring-strip__dot {
   width: 8px;
   height: 8px;
@@ -724,6 +916,76 @@ function coverFailed(uid: string) {
   min-width: 0;
 }
 
+/* Realtime indicator */
+.monitoring-strip__live {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: 0 0 auto;
+  color: var(--muted);
+  font-size: 0.74rem;
+  white-space: nowrap;
+}
+
+.monitoring-strip__live-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex: 0 0 auto;
+  background: var(--success);
+  animation: live-dot-breathe 2.4s ease-in-out infinite;
+}
+
+.monitoring-strip__live--live {
+  color: var(--success);
+
+  .monitoring-strip__live-dot {
+    background: var(--success);
+    animation: live-dot-breathe 2.4s ease-in-out infinite;
+  }
+}
+
+.monitoring-strip__live--connecting {
+  color: var(--accent);
+
+  .monitoring-strip__live-dot {
+    background: var(--accent);
+    animation: none;
+  }
+}
+
+.monitoring-strip__live--reconnecting {
+  color: var(--warning);
+
+  .monitoring-strip__live-dot {
+    background: var(--warning);
+    animation: live-dot-breathe 1.2s ease-in-out infinite;
+  }
+}
+
+.monitoring-strip__live--error {
+  color: var(--danger);
+
+  .monitoring-strip__live-dot {
+    background: var(--danger);
+    animation: none;
+  }
+}
+
+.monitoring-strip__live--disconnected {
+  color: var(--muted);
+
+  .monitoring-strip__live-dot {
+    background: var(--muted);
+    animation: none;
+  }
+}
+
+@keyframes live-dot-breathe {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+
 /* Metric badges */
 .monitoring-strip__metrics {
   display: flex;
@@ -760,6 +1022,7 @@ function coverFailed(uid: string) {
     font-weight: 600;
     font-variant-numeric: tabular-nums;
     color: var(--text);
+    transition: color 0.25s ease;
   }
 
   &__label {
@@ -886,7 +1149,7 @@ function coverFailed(uid: string) {
   display: flex;
   align-items: flex-start;
   gap: var(--space-sm);
-  padding: 12px var(--space-md);
+  padding: var(--space-md);
   border-radius: var(--radius-md);
   background: var(--surface-soft);
   border: 1px solid var(--border);
@@ -1050,34 +1313,6 @@ function coverFailed(uid: string) {
   margin-inline-end: 0;
 }
 
-/* ── Empty state ── */
-.monitoring-empty {
-  display: grid;
-  place-items: center;
-  padding: var(--space-2xl) var(--space-lg);
-  border: 1px dashed var(--border);
-  border-radius: var(--radius-lg);
-  background: var(--surface-strong);
-}
-
-.monitoring-empty__inner {
-  display: grid;
-  justify-items: center;
-  gap: var(--space-md);
-  text-align: center;
-}
-
-.monitoring-empty__icon {
-  font-size: 2rem;
-  color: var(--muted);
-}
-
-.monitoring-empty__inner p {
-  margin: 0;
-  color: var(--muted);
-  font-size: 0.92rem;
-}
-
 /* ── Card grid ── */
 .monitor-card-grid {
   display: grid;
@@ -1150,19 +1385,23 @@ function coverFailed(uid: string) {
 
 /* Live info overlay */
 .monitor-card__cover-info {
+  --cover-overlay-strong: rgba(0, 0, 0, 0.62);
+  --cover-overlay-soft: rgba(0, 0, 0, 0.28);
+  --cover-overlay-text: #fff;
   position: absolute;
   z-index: 2;
   inset: auto 0 0;
   padding: 28px var(--space-md) var(--space-md);
   display: grid;
   gap: 4px;
-  background: linear-gradient(to top, rgba(0,0,0,0.62) 0%, rgba(0,0,0,0.28) 50%, transparent 100%);
+  background: linear-gradient(to top, var(--cover-overlay-strong) 0%, var(--cover-overlay-soft) 50%, transparent 100%);
 }
 
 .monitor-card__cover-info :deep(.ant-tag) {
   margin-inline-end: 0;
   justify-self: start;
   backdrop-filter: blur(6px);
+  transition: color 0.25s ease, background-color 0.25s ease, border-color 0.25s ease;
 }
 
 .monitor-card__cover-room-name {
@@ -1173,8 +1412,8 @@ function coverFailed(uid: string) {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  color: #fff;
-  text-shadow: 0 1px 3px rgba(0,0,0,0.5);
+  color: var(--cover-overlay-text);
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
 
   a {
     color: inherit;
@@ -1186,7 +1425,7 @@ function coverFailed(uid: string) {
 }
 
 .monitor-card__cover-room-id {
-  color: rgba(255,255,255,0.78);
+  color: color-mix(in srgb, var(--cover-overlay-text) 78%, transparent);
   font-size: 0.76rem;
   font-variant-numeric: tabular-nums;
 }
@@ -1462,5 +1701,343 @@ function coverFailed(uid: string) {
   .monitor-card__services {
     width: 100%;
   }
+}
+
+/* Skeleton */
+.monitoring-skeleton {
+  display: grid;
+  gap: var(--space-md);
+}
+
+.monitoring-skeleton__strip {
+  height: 56px;
+  border-radius: var(--radius-lg);
+  background: var(--surface-strong);
+  border: 1px solid var(--border);
+  overflow: hidden;
+  position: relative;
+
+  &::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      90deg,
+      transparent 0%,
+      color-mix(in srgb, var(--text) 4%, transparent) 50%,
+      transparent 100%
+    );
+    animation: skeleton-shimmer 1.6s ease-in-out infinite;
+  }
+}
+
+.monitoring-skeleton__cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 480px), 1fr));
+  gap: var(--space-md);
+}
+
+.monitoring-skeleton__card {
+  display: grid;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface-strong);
+  overflow: hidden;
+}
+
+.monitoring-skeleton__cover {
+  aspect-ratio: 16 / 9;
+  background: color-mix(in srgb, var(--accent) 8%, var(--surface-soft));
+  position: relative;
+  overflow: hidden;
+
+  &::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      90deg,
+      transparent 0%,
+      color-mix(in srgb, var(--text) 4%, transparent) 50%,
+      transparent 100%
+    );
+    animation: skeleton-shimmer 1.6s ease-in-out infinite;
+  }
+}
+
+.monitoring-skeleton__body {
+  display: grid;
+  gap: var(--space-sm);
+  padding: var(--space-md);
+}
+
+.monitoring-skeleton__identity {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.monitoring-skeleton__avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--accent) 12%, var(--surface-soft));
+  flex: 0 0 auto;
+}
+
+.monitoring-skeleton__name {
+  height: 16px;
+  width: 120px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-soft);
+}
+
+.monitoring-skeleton__line {
+  height: 12px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-soft);
+
+  &--short {
+    width: 60%;
+  }
+}
+
+@keyframes skeleton-shimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .monitoring-skeleton__strip::after,
+  .monitoring-skeleton__cover::after {
+    animation: none;
+  }
+}
+
+/* ── Status bar reconnecting & refresh states ── */
+.monitoring-strip.is-reconnecting {
+  border-style: dashed;
+  border-color: color-mix(in srgb, var(--warning) 30%, var(--border));
+
+  .metric-badge {
+    opacity: 0.6;
+  }
+}
+
+.monitoring-strip.is-refreshed {
+  animation: strip-refresh-pulse 0.6s ease;
+}
+
+@keyframes strip-refresh-pulse {
+  0% { filter: brightness(1); }
+  40% { filter: brightness(1.06); }
+  100% { filter: brightness(1); }
+}
+
+/* ── Metric badge bump ── */
+.metric-badge.is-bumped .metric-badge__value {
+  animation: metric-bump 0.5s ease;
+}
+
+@keyframes metric-bump {
+  0% { transform: scale(1); }
+  30% { transform: scale(1.15); color: var(--accent); }
+  100% { transform: scale(1); }
+}
+
+/* ── Card tone coloring ── */
+.monitor-card {
+  position: relative;
+
+  &::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+    background: var(--border);
+    z-index: 3;
+    transition: background 0.3s ease;
+  }
+}
+
+.monitor-card--live-dynamic::before {
+  background: linear-gradient(90deg, var(--success) 0%, var(--accent) 100%);
+}
+
+.monitor-card--live-only::before {
+  background: var(--success);
+}
+
+.monitor-card--dynamic-only::before {
+  background: var(--accent);
+}
+
+.monitor-card--error::before {
+  background: var(--danger);
+}
+
+.monitor-card--idle::before {
+  background: var(--muted);
+}
+
+/* ── Card refresh flash ── */
+.monitor-card.is-refreshed {
+  animation: card-refresh-flash 0.6s ease;
+}
+
+@keyframes card-refresh-flash {
+  0% { border-color: var(--border); }
+  40% { border-color: color-mix(in srgb, var(--accent) 50%, var(--border)); }
+  100% { border-color: var(--border); }
+}
+
+/* ── Card reconnecting state ── */
+.monitor-card.is-reconnecting {
+  &::before {
+    background: var(--warning);
+    animation: reconnecting-dash 1.2s linear infinite;
+  }
+}
+
+@keyframes reconnecting-dash {
+  0% { opacity: 0.5; }
+  50% { opacity: 1; }
+  100% { opacity: 0.5; }
+}
+
+/* ── Card enter animation ── */
+.monitor-card {
+  opacity: 0;
+  transform: translateY(12px);
+  transition:
+    opacity 0.35s ease,
+    transform 0.35s ease,
+    box-shadow 0.22s ease,
+    border-color 0.22s ease;
+
+  &.is-entered {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .monitor-card {
+    opacity: 1;
+    transform: none;
+    transition: box-shadow 0.22s ease, border-color 0.22s ease;
+  }
+}
+
+/* ── Cover image load fade ── */
+.monitor-card__cover-img {
+  opacity: 0;
+  transition: opacity 0.35s ease, transform 0.4s ease;
+
+  &.is-loaded {
+    opacity: 1;
+  }
+}
+
+.monitor-card__cover-blur-img {
+  opacity: 0;
+  transition: opacity 0.35s ease;
+
+  &.is-loaded {
+    opacity: 0.52;
+  }
+}
+
+.monitor-card__cover-skeleton {
+  position: absolute;
+  inset: 0;
+  background: color-mix(in srgb, var(--accent) 8%, var(--surface-soft));
+  overflow: hidden;
+
+  &::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      90deg,
+      transparent 0%,
+      color-mix(in srgb, var(--text) 3%, transparent) 50%,
+      transparent 100%
+    );
+    animation: skeleton-shimmer 1.6s ease-in-out infinite;
+  }
+}
+
+/* ── Service tag colors ── */
+.service-tag {
+  transition: all 0.2s ease;
+
+  &--live {
+    background: color-mix(in srgb, var(--accent) 8%, var(--surface-soft));
+    border-color: color-mix(in srgb, var(--accent) 20%, var(--border));
+    color: color-mix(in srgb, var(--accent) 80%, var(--text));
+  }
+
+  &--video {
+    background: color-mix(in srgb, var(--success) 8%, var(--surface-soft));
+    border-color: color-mix(in srgb, var(--success) 20%, var(--border));
+    color: color-mix(in srgb, var(--success) 80%, var(--text));
+  }
+
+  &--image_text {
+    background: color-mix(in srgb, var(--warning) 8%, var(--surface-soft));
+    border-color: color-mix(in srgb, var(--warning) 20%, var(--border));
+    color: color-mix(in srgb, var(--warning) 80%, var(--text));
+  }
+
+  &--article {
+    background: color-mix(in srgb, var(--info) 8%, var(--surface-soft));
+    border-color: color-mix(in srgb, var(--info) 20%, var(--border));
+    color: color-mix(in srgb, var(--info) 80%, var(--text));
+  }
+
+  &--repost {
+    background: color-mix(in srgb, var(--muted) 8%, var(--surface-soft));
+    border-color: color-mix(in srgb, var(--muted) 20%, var(--border));
+    color: color-mix(in srgb, var(--muted) 90%, var(--text));
+  }
+}
+
+/* ── Dynamic section redesign ── */
+.monitor-card__dynamic-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 2px;
+}
+
+.monitor-card__dynamic-icon {
+  color: var(--accent);
+  font-size: 0.82rem;
+  opacity: 0.85;
+  display: inline-flex;
+  align-items: center;
+}
+
+.monitor-card__dynamic-footer {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 2px;
+}
+
+/* ── Live facts icon ── */
+.monitor-card__fact-icon {
+  font-size: 0.78rem;
+  opacity: 0.65;
+  margin-right: 4px;
+  vertical-align: -0.1em;
+}
+
+.monitor-card__facts dd.is-live {
+  color: var(--accent);
+  font-weight: 600;
 }
 </style>

@@ -5,11 +5,14 @@ import { getDisplayErrorMessage } from '@/lib/error-text'
 import { apiDownload, apiRequest } from '@/lib/http'
 import type {
   BilibiliSourceRestartResponse,
+  BilibiliSourceStatusEventPayload,
   BilibiliSourceStatusResponse,
   ThirdPartyMonitorItem,
   ThirdPartyMonitorsResponse,
   ThirdPartyPlatform,
 } from '@/types/api'
+
+const silentRefreshDebounceMs = 120
 
 export const useThirdPartyMonitoringStore = defineStore('third-party-monitoring', () => {
   const platform = ref<ThirdPartyPlatform>('bilibili')
@@ -18,7 +21,14 @@ export const useThirdPartyMonitoringStore = defineStore('third-party-monitoring'
   const loading = ref(false)
   const restarting = ref(false)
   const error = ref<string | null>(null)
+  const lastRefreshedAt = ref<string | null>(null)
   const mediaObjectURLs = new Map<string, string>()
+  let active = false
+  let lastSignature: string | null = null
+  let silentRefreshHandle: number | null = null
+  let pendingMonitorsRefresh = false
+  let silentRefreshInFlight = false
+  let silentRefreshQueued = false
 
   const items = computed<ThirdPartyMonitorItem[]>(() => monitors.value?.items ?? [])
 
@@ -32,11 +42,92 @@ export const useThirdPartyMonitoringStore = defineStore('third-party-monitoring'
       ])
       monitors.value = await resolveMonitorMedia(monitorResponse)
       bilibiliStatus.value = statusResponse
+      lastSignature = signatureFromStatusResponse(statusResponse)
+      lastRefreshedAt.value = new Date().toISOString()
     } catch (err) {
       error.value = getDisplayErrorMessage(err, 'errors.common.loadFailed')
       throw err
     } finally {
       loading.value = false
+    }
+  }
+
+  function activate() {
+    active = true
+  }
+
+  function deactivate() {
+    active = false
+    lastSignature = null
+    pendingMonitorsRefresh = false
+    silentRefreshQueued = false
+    lastRefreshedAt.value = null
+    if (silentRefreshHandle !== null) {
+      window.clearTimeout(silentRefreshHandle)
+      silentRefreshHandle = null
+    }
+    disposeMedia()
+  }
+
+  function handleSourceStatusEvent(payload: BilibiliSourceStatusEventPayload) {
+    if (!active) {
+      return
+    }
+    const signature = sourceStatusSignature(payload)
+    const monitorsChanged = signature !== lastSignature
+    lastSignature = signature
+    scheduleSilentRefresh(monitorsChanged)
+  }
+
+  function scheduleSilentRefresh(includeMonitors: boolean) {
+    pendingMonitorsRefresh = pendingMonitorsRefresh || includeMonitors
+    if (silentRefreshHandle !== null) {
+      return
+    }
+    silentRefreshHandle = window.setTimeout(() => {
+      silentRefreshHandle = null
+      void runSilentRefresh()
+    }, silentRefreshDebounceMs)
+  }
+
+  async function runSilentRefresh() {
+    if (!active || loading.value || restarting.value) {
+      return
+    }
+    if (silentRefreshInFlight) {
+      silentRefreshQueued = true
+      return
+    }
+    const includeMonitors = pendingMonitorsRefresh
+    pendingMonitorsRefresh = false
+    silentRefreshInFlight = true
+    try {
+      const [statusResponse, monitorResponse] = await Promise.all([
+        apiRequest<BilibiliSourceStatusResponse>('/api/bilibili/source/status'),
+        includeMonitors
+          ? apiRequest<ThirdPartyMonitorsResponse>(`/api/third-party/monitors?platform=${encodeURIComponent(platform.value)}`)
+          : Promise.resolve(null),
+      ])
+      if (!active) {
+        return
+      }
+      const resolvedMonitors = monitorResponse ? await resolveMonitorMedia(monitorResponse) : null
+      if (!active) {
+        return
+      }
+      bilibiliStatus.value = statusResponse
+      if (resolvedMonitors) {
+        monitors.value = resolvedMonitors
+      }
+      lastRefreshedAt.value = new Date().toISOString()
+    } catch {
+      // 静默刷新失败时保留上次成功数据，等待下一次事件信号
+    } finally {
+      silentRefreshInFlight = false
+      if (active && silentRefreshQueued) {
+        silentRefreshQueued = false
+        scheduleSilentRefresh(pendingMonitorsRefresh)
+      }
     }
   }
 
@@ -123,15 +214,63 @@ export const useThirdPartyMonitoringStore = defineStore('third-party-monitoring'
     bilibiliStatus,
     error,
     items,
+    lastRefreshedAt,
     loading,
     monitors,
     platform,
     restarting,
+    activate,
+    deactivate,
     fetchAll,
+    handleSourceStatusEvent,
     restartBilibiliSource,
     disposeMedia,
   }
 })
+
+function sourceStatusSignature(payload: BilibiliSourceStatusEventPayload) {
+  return [
+    payload.status,
+    payload.live_watched_rooms,
+    payload.live_connected_rooms,
+    payload.live_failed_rooms,
+    payload.fallback_polling,
+    payload.dynamic_enabled,
+    payload.dynamic_watched_uids,
+    payload.last_event_at ?? '',
+    payload.last_error ? '1' : '0',
+  ].join('|')
+}
+
+function signatureFromStatusResponse(response: BilibiliSourceStatusResponse) {
+  return [
+    response.status,
+    response.live.watched_rooms,
+    response.live.connected_rooms,
+    response.live.failed_rooms,
+    response.live.fallback_polling,
+    response.dynamic.enabled,
+    response.dynamic.watched_uids,
+    newestEventTime(response.live.last_event_at, response.dynamic.last_event_at),
+    response.live.last_error || response.dynamic.last_error ? '1' : '0',
+  ].join('|')
+}
+
+function newestEventTime(...values: Array<string | null | undefined>) {
+  let newest = ''
+  let newestMs = Number.NEGATIVE_INFINITY
+  for (const value of values) {
+    if (!value) {
+      continue
+    }
+    const ms = Date.parse(value)
+    if (Number.isFinite(ms) && ms > newestMs) {
+      newestMs = ms
+      newest = value
+    }
+  }
+  return newest
+}
 
 function normalizeThirdPartyMediaURL(value: string) {
   const text = value.trim()

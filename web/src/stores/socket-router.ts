@@ -6,6 +6,7 @@ import type {
   WebSocketFrame,
 } from '@/types/api'
 import type {
+  BilibiliSourceStatusEvent,
   PluginStateEvent,
   ProtocolSnapshotEvent,
   SocketFrameRouter,
@@ -111,6 +112,11 @@ export function createSocketFrameRouter(
       return
     }
 
+    if (isBilibiliSourceStatusEvent(frame.data)) {
+      dependencies.thirdPartyMonitoring.handleSourceStatusEvent(frame.data)
+      return
+    }
+
     if (isPluginStateEvent(frame.data)) {
       dependencies.plugins.upsert({
         id: frame.data.plugin_id,
@@ -196,4 +202,8 @@ function isProtocolSnapshotEvent(payload: EventsPayload): payload is ProtocolSna
 
 function isGovernanceChangedEvent(payload: EventsPayload): payload is Extract<EventsPayload, { event_type: string }> {
   return 'event_type' in payload && payload.event_type === 'governance.changed'
+}
+
+function isBilibiliSourceStatusEvent(payload: EventsPayload): payload is BilibiliSourceStatusEvent {
+  return 'source' in payload && payload.source === 'bilibili'
 }

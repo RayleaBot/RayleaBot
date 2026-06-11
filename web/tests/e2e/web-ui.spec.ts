@@ -2716,13 +2716,14 @@ test('third-party accounts show Bilibili CK cards and QR login fills the editor'
   await expectThirdPartyAccountCardsContained(page)
 })
 
-test('third-party monitoring shows Bilibili targets and platform switch', async ({ page, request }) => {
+test('third-party monitoring shows Bilibili targets with realtime updates', async ({ page, request }) => {
   await resetBackend(request, true)
   await login(page)
 
   await page.goto('/third-party-monitoring')
   await expect(page.getByRole('heading', { name: '三方监控', level: 1 })).toBeVisible()
   const diagnosisBar = page.locator('.monitoring-strip')
+  await expect(diagnosisBar.getByTestId('third-party-monitoring-live-indicator')).toContainText('实时更新中', { timeout: 10000 })
   await expect(diagnosisBar).toContainText('直播备用检查中')
   await expect(diagnosisBar).toContainText('运行受限')
   await expect(diagnosisBar).toContainText('原因')
