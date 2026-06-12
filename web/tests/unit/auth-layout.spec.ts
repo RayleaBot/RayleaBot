@@ -12,7 +12,7 @@ describe('AuthLayout', () => {
     setActivePinia(createPinia())
   })
 
-  it('renders a panel-right auth shell with toolbar controls', async () => {
+  it('renders a lightweight auth shell with toolbar controls', async () => {
     const router = createRouter({
       history: createMemoryHistory(),
       routes: [
@@ -43,11 +43,11 @@ describe('AuthLayout', () => {
 
     const shellStore = useUiShellStore()
 
-    expect(wrapper.find('.auth-layout__hero').exists()).toBe(true)
-    expect(wrapper.find('.auth-layout__panel').exists()).toBe(true)
+    expect(wrapper.find('.auth-layout').exists()).toBe(true)
+    expect(wrapper.find('.auth-layout__blob').exists()).toBe(false)
+    expect(wrapper.find('.auth-layout__toolbar').exists()).toBe(true)
     expect(wrapper.get('[data-testid="auth-language"]').exists()).toBe(true)
     expect(wrapper.get('[data-testid="auth-theme-toggle"]').exists()).toBe(true)
-    expect(wrapper.text()).toContain('统一管理机器人与连接能力')
     expect(wrapper.text()).toContain('登录')
 
     await wrapper.get('[data-testid="auth-theme-toggle"]').trigger('click')

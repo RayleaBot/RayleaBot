@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { TranslationOutlined, CheckOutlined } from '@ant-design/icons-vue'
+import { TranslationOutlined } from '@ant-design/icons-vue'
 
 import ThemeToggleSwitch from '@/components/shell/ThemeToggleSwitch.vue'
 import { t } from '@/i18n'
@@ -14,61 +14,35 @@ const themeToggleLabel = computed(() => (
 
 <template>
   <div class="auth-layout">
-    <section class="auth-layout__hero">
-      <div class="auth-layout__toolbar">
-        <a-popover placement="bottom" trigger="click">
-          <template #content>
-            <div class="auth-layout__pending-panel">{{ t('shell.languagePending') }}</div>
+    <div class="auth-layout__toolbar">
+      <a-popover placement="bottom" trigger="click">
+        <template #content>
+          <div class="auth-layout__pending-panel">{{ t('shell.languagePending') }}</div>
+        </template>
+
+        <a-button
+          class="auth-layout__toolbar-button"
+          type="text"
+          :aria-label="t('shell.language')"
+          data-testid="auth-language"
+        >
+          <template #icon>
+            <TranslationOutlined />
           </template>
+        </a-button>
+      </a-popover>
+      <a-tooltip :title="themeToggleLabel">
+        <ThemeToggleSwitch
+          class="auth-layout__theme-toggle"
+          :checked="uiShellStore.themeMode === 'dark'"
+          :label="themeToggleLabel"
+          size="default"
+          test-id="auth-theme-toggle"
+          @toggle="uiShellStore.toggleThemeMode()"
+        />
+      </a-tooltip>
+    </div>
 
-          <a-button
-            class="auth-layout__toolbar-button"
-            type="text"
-            :aria-label="t('shell.language')"
-            data-testid="auth-language"
-          >
-            <template #icon>
-              <TranslationOutlined />
-            </template>
-          </a-button>
-        </a-popover>
-        <a-tooltip :title="themeToggleLabel">
-          <ThemeToggleSwitch
-            class="auth-layout__theme-toggle"
-            :checked="uiShellStore.themeMode === 'dark'"
-            :label="themeToggleLabel"
-            size="default"
-            test-id="auth-theme-toggle"
-            @toggle="uiShellStore.toggleThemeMode()"
-          />
-        </a-tooltip>
-      </div>
-
-      <div class="auth-layout__intro-panel">
-        <div class="auth-layout__brand">
-          <span class="auth-layout__brand-badge">R</span>
-          <div class="auth-layout__brand-copy">
-            <strong>RayleaBot</strong>
-            <span>{{ t('auth.surface') }}</span>
-          </div>
-        </div>
-
-        <div class="auth-layout__hero-copy">
-          <h1>{{ t('auth.heroTitle') }}</h1>
-          <p>{{ t('auth.heroBody') }}</p>
-        </div>
-
-        <div class="auth-layout__highlights">
-          <p class="auth-layout__highlights-label">{{ t('auth.heroHighlightsLabel') }}</p>
-          <span><CheckOutlined class="auth-layout__highlight-icon" aria-hidden="true" />{{ t('auth.heroFeatureStatus') }}</span>
-          <span><CheckOutlined class="auth-layout__highlight-icon" aria-hidden="true" />{{ t('auth.heroFeaturePlugins') }}</span>
-          <span><CheckOutlined class="auth-layout__highlight-icon" aria-hidden="true" />{{ t('auth.heroFeatureProtocols') }}</span>
-        </div>
-      </div>
-    </section>
-
-    <section class="auth-layout__panel">
-      <RouterView />
-    </section>
+    <RouterView />
   </div>
 </template>

@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { MotionDirective as vMotion } from '@vueuse/motion'
 import { reactive, ref } from 'vue'
 import type { FormInstance, Rule } from 'ant-design-vue/es/form'
 import { useRouter } from 'vue-router'
@@ -17,6 +16,7 @@ const form = reactive({
   secret: '',
 })
 const formRef = ref<FormInstance>()
+const isShaking = ref(false)
 const rules: Record<string, Rule[]> = {
   identifier: [{ required: true, message: t('auth.validation.identifierRequired'), trigger: 'blur' }],
   secret: [{ required: true, message: t('auth.validation.secretRequired'), trigger: 'blur' }],
@@ -31,7 +31,15 @@ async function submit() {
   } catch (error) {
     const message = toSetupErrorMessage(error)
     notifyError(message)
+    triggerShake()
   }
+}
+
+function triggerShake() {
+  isShaking.value = true
+  setTimeout(() => {
+    isShaking.value = false
+  }, 400)
 }
 
 function resolvePostAuthTarget() {
@@ -47,24 +55,20 @@ function resolvePostAuthTarget() {
 
 <template>
   <a-card
-    v-motion="{
-      initial: { opacity: 0, y: 12 },
-      enter: { opacity: 1, y: 0, transition: { duration: 350, ease: 'easeOut', delay: 120 } },
-    }"
     class="auth-panel-card"
+    :class="{ 'is-shaking': isShaking }"
     :bordered="false"
   >
-    <div class="auth-panel-card__copy">
-      <h1>{{ t('auth.setupTitle') }}</h1>
-      <p>{{ t('auth.setupBody') }}</p>
+    <div class="auth-card-header">
+      <span class="auth-brand-badge" aria-hidden="true">R</span>
+      <div class="auth-card-header__title">
+        <h1>{{ t('auth.setupTitle') }}</h1>
+        <p>{{ t('auth.setupBody') }}</p>
+      </div>
     </div>
 
     <a-form ref="formRef" layout="vertical" :model="form" :rules="rules">
       <a-form-item
-        v-motion="{
-          initial: { opacity: 0, y: 8 },
-          enter: { opacity: 1, y: 0, transition: { duration: 300, ease: 'easeOut', delay: 200 } },
-        }"
         :label="t('auth.identifier')"
         name="identifier"
       >
@@ -72,10 +76,6 @@ function resolvePostAuthTarget() {
       </a-form-item>
 
       <a-form-item
-        v-motion="{
-          initial: { opacity: 0, y: 8 },
-          enter: { opacity: 1, y: 0, transition: { duration: 300, ease: 'easeOut', delay: 280 } },
-        }"
         :label="t('auth.secret')"
         name="secret"
       >
@@ -83,10 +83,6 @@ function resolvePostAuthTarget() {
       </a-form-item>
 
       <a-button
-        v-motion="{
-          initial: { opacity: 0, y: 8 },
-          enter: { opacity: 1, y: 0, transition: { duration: 300, ease: 'easeOut', delay: 360 } },
-        }"
         type="primary"
         class="auth-submit"
         :aria-label="t('auth.setupSubmit')"
@@ -98,27 +94,3 @@ function resolvePostAuthTarget() {
     </a-form>
   </a-card>
 </template>
-
-<style scoped lang="scss">
-.auth-panel-card__copy {
-  display: grid;
-  gap: 8px;
-  margin-bottom: 18px;
-}
-
-:deep(.ant-input),
-:deep(.ant-input-password) {
-  transition: box-shadow 0.2s ease, border-color 0.2s ease;
-}
-
-:deep(.ant-input:focus),
-:deep(.ant-input-password .ant-input:focus),
-:deep(.ant-input-focused) {
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent);
-}
-
-.auth-panel-card {
-  backdrop-filter: blur(8px);
-  background: color-mix(in srgb, var(--surface-strong) 92%, transparent) !important;
-}
-</style>
