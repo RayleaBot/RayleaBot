@@ -127,12 +127,14 @@ interface OneBot11GroupTarget {
   target_type: 'group'
   target_id: string
   target_name: string
+  avatar_url?: string
 }
 
 interface OneBot11PrivateTarget {
   target_type: 'private'
   target_id: string
   nickname: string
+  avatar_url?: string
 }
 
 interface OneBot11ProtocolTargetsResponse {

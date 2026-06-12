@@ -57,12 +57,14 @@ type oneBot11GroupTargetResponse struct {
 	TargetType string `json:"target_type"`
 	TargetID   string `json:"target_id"`
 	TargetName string `json:"target_name"`
+	AvatarURL  string `json:"avatar_url,omitempty"`
 }
 
 type oneBot11PrivateTargetResponse struct {
 	TargetType string `json:"target_type"`
 	TargetID   string `json:"target_id"`
 	Nickname   string `json:"nickname"`
+	AvatarURL  string `json:"avatar_url,omitempty"`
 }
 
 type oneBot11ProtocolTargetsResponse struct {
@@ -305,6 +307,7 @@ func (s *protocolService) currentOneBot11ProtocolTargets(ctx context.Context) on
 				TargetType: "group",
 				TargetID:   group.ID,
 				TargetName: group.Name,
+				AvatarURL:  oneBot11GroupAvatarURL(group.ID),
 			})
 		}
 	}
@@ -318,6 +321,7 @@ func (s *protocolService) currentOneBot11ProtocolTargets(ctx context.Context) on
 				TargetType: "private",
 				TargetID:   friend.ID,
 				Nickname:   friend.Nickname,
+				AvatarURL:  oneBot11AvatarURL(friend.ID),
 			})
 		}
 	}
@@ -734,6 +738,14 @@ func currentOneBotProvider(raw string) string {
 
 func oneBot11AvatarURL(userID string) string {
 	return "https://q1.qlogo.cn/g?b=qq&nk=" + strings.TrimSpace(userID) + "&s=640"
+}
+
+func oneBot11GroupAvatarURL(groupID string) string {
+	id := strings.TrimSpace(groupID)
+	if id == "" {
+		return ""
+	}
+	return "https://p.qlogo.cn/gh/" + id + "/" + id + "/100"
 }
 
 func oneBot11RoleLabel(role string) string {

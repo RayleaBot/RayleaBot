@@ -2,6 +2,7 @@
   'use strict'
 
   const SERVICE_ORDER = ['all', 'live', 'video', 'image_text', 'article', 'repost']
+  const SERVICE_TYPES = SERVICE_ORDER.filter((service) => service !== 'all')
   const SERVICE_LABELS = {
     all: '全部',
     live: '直播',
@@ -48,6 +49,7 @@
     savingRequestId: '',
     pending: new Map(),
     resolveTimers: new Map(),
+    subscriberAvatars: new Map(),
     targets: {
       loaded: false,
       available: false,
@@ -84,7 +86,23 @@
     if (!services.length || services.includes('all')) {
       return ['all']
     }
-    return SERVICE_ORDER.filter((service) => services.includes(service))
+    const selected = SERVICE_TYPES.filter((service) => services.includes(service))
+    return selected.length === SERVICE_TYPES.length ? ['all'] : selected
+  }
+
+  function serviceCheckboxValues(value) {
+    if (Array.isArray(value) && value.length === 0) {
+      return new Set()
+    }
+    const services = normalizeServices(value)
+    if (services.includes('all')) {
+      return new Set(SERVICE_ORDER)
+    }
+    return new Set(services)
+  }
+
+  function hasServiceSelection(value) {
+    return !(Array.isArray(value) && value.length === 0)
   }
 
   function servicesKey(services) {
@@ -93,6 +111,12 @@
 
   function servicesText(services) {
     return normalizeServices(services).map((service) => SERVICE_LABELS[service] || service).join('、')
+  }
+
+  function serviceTagsHTML(services) {
+    return normalizeServices(services).map((service) => `
+      <span class="service-tag">${escapeHTML(SERVICE_LABELS[service] || service)}</span>
+    `).join('')
   }
 
   function targetKey(targetType, targetId) {
@@ -117,6 +141,58 @@
       request_id: requestId || nextRequestId(type.replaceAll('.', '-')),
       ...(payload === undefined ? {} : { payload }),
     }, '*')
+  }
+
+  function generateHueFromString(value) {
+    let hash = 0
+    const text = trim(value) || '?'
+    for (let i = 0; i < text.length; i += 1) {
+      hash = text.charCodeAt(i) + ((hash << 5) - hash)
+    }
+    return Math.abs(hash) % 360
+  }
+
+  function avatarHTML(avatarUrl, fallbackText, sizeClass, alt) {
+    const hue = generateHueFromString(fallbackText || '?')
+    const bg = `hsl(${hue} 72% 58%)`
+    const text = (fallbackText || '?').slice(0, 1).toUpperCase()
+    const safeBg = escapeHTML(bg)
+    const safeText = escapeHTML(text)
+    const safeAlt = escapeHTML(alt || '')
+    const safeUrl = escapeHTML(avatarUrl || '')
+    const safeSize = escapeHTML(sizeClass)
+    return `
+      <span class="avatar ${safeSize}" style="background:${safeBg}" aria-label="${safeAlt}">
+        <img src="${safeUrl}" alt="${safeAlt}" loading="lazy" referrerpolicy="no-referrer" onerror="this.style.display='none'; this.parentNode.querySelector('.avatar-fallback__text').style.display='flex'" />
+        <span class="avatar-fallback__text">${safeText}</span>
+      </span>
+    `
+  }
+
+  function avatarStackHTML(items, maxVisible, sizeClass, getAvatar, getLabel) {
+    if (!items.length) {
+      return '<span class="sub-card__summary-label">无</span>'
+    }
+    const visible = items.slice(0, maxVisible)
+    const overflow = items.length - visible.length
+    const avatars = visible.map((item) => avatarHTML(getAvatar(item), getLabel(item), sizeClass, getLabel(item))).join('')
+    const overflowHTML = overflow > 0 ? `<span class="avatar-stack__overflow">+${overflow}</span>` : ''
+    return `<span class="avatar-stack">${avatars}${overflowHTML}</span>`
+  }
+
+  function deriveTargetAvatarURL(targetType, targetId) {
+    const id = trim(targetId)
+    if (targetType === 'private' && numericPattern.test(id)) {
+      return `https://q1.qlogo.cn/g?b=qq&nk=${encodeURIComponent(id)}&s=640`
+    }
+    if (targetType === 'group' && numericPattern.test(id)) {
+      return `https://p.qlogo.cn/gh/${encodeURIComponent(id)}/${encodeURIComponent(id)}/100`
+    }
+    return ''
+  }
+
+  function subscriberAvatarURL(userId) {
+    return state.subscriberAvatars.get(trim(userId)) || `https://q1.qlogo.cn/g?b=qq&nk=${encodeURIComponent(trim(userId))}&s=640`
   }
 
   function normalizeSubscriber(value) {
@@ -189,6 +265,8 @@
       target_mode: 'group',
       targets: [],
       subscriber_ids: [],
+      edit_mode: true,
+      _editSnapshot: null,
     }
   }
 
@@ -213,6 +291,8 @@
           target_mode: subscription.target_type || 'group',
           targets: [],
           subscriber_ids: [],
+          edit_mode: false,
+          _editSnapshot: null,
         }
         grouped.set(subscription.uid, row)
       }
@@ -233,6 +313,9 @@
       for (const subscriber of subscription.subscribers || []) {
         if (subscriber.id) {
           row.subscriber_ids.push(subscriber.id)
+          if (subscriber.avatar_url) {
+            state.subscriberAvatars.set(subscriber.id, subscriber.avatar_url)
+          }
         }
       }
     }
@@ -257,12 +340,14 @@
         target_type: 'group',
         target_id: trim(target.target_id),
         label: trim(target.target_name) || trim(target.target_id),
+        avatar_url: trim(target.avatar_url) || deriveTargetAvatarURL('group', target.target_id),
       })),
       ...state.targets.private_users.map((target) => ({
         key: targetKey('private', target.target_id),
         target_type: 'private',
         target_id: trim(target.target_id),
         label: trim(target.nickname) || trim(target.target_id),
+        avatar_url: trim(target.avatar_url) || deriveTargetAvatarURL('private', target.target_id),
       })),
     ]
   }
@@ -279,6 +364,11 @@
     const live = map.get(target.key)
     const label = live ? live.label : target.target_name || target.target_id
     return `${TARGET_LABELS[target.target_type] || target.target_type} ${label}`
+  }
+
+  function targetAvatar(target, map) {
+    const live = map.get(target.key)
+    return live ? live.avatar_url : deriveTargetAvatarURL(target.target_type, target.target_id)
   }
 
   function rowSearchText(row) {
@@ -316,7 +406,7 @@
     return true
   }
 
-  function render() {
+  function renderPageState() {
     elements.enabledInput.checked = state.settings.enabled !== false
     elements.metricEnabled.textContent = state.settings.enabled === false ? '停用' : '启用'
     elements.metricSubscriptions.textContent = `${state.rows.length} / ${(state.settings.subscriptions || []).length}`
@@ -335,110 +425,200 @@
         : state.loaded
           ? '设置已同步'
           : '等待载入'
+  }
 
+  function render() {
+    renderPageState()
     const visibleRows = state.rows.filter(rowVisible)
     elements.list.innerHTML = visibleRows.length
       ? visibleRows.map(renderRow).join('')
-      : '<div class="empty-state">没有匹配的订阅。可添加订阅或调整筛选条件。</div>'
+      : '<div class="empty-state"><p>没有匹配的订阅</p><p>可添加订阅或调整筛选条件</p></div>'
   }
 
   function renderRow(row) {
+    return row.edit_mode ? renderRowEdit(row) : renderRowView(row)
+  }
+
+  function renderRowView(row) {
     const map = targetMap()
     const title = row.name || row.uid || '未校验 UP'
     const subtitle = row.uid ? `UID ${row.uid}` : '输入 UID 或 Bilibili 用户名后校验'
+    const upAvatar = avatarHTML(row.avatar_url, title, 'avatar--up', title)
+    const services = row.service_mode === 'mixed'
+      ? '<span class="service-tag">目标配置不同</span>'
+      : serviceTagsHTML(row.services)
+    const targetSummaryItems = row.targets.map((target) => ({
+      avatar_url: targetAvatar(target, map),
+      label: targetDisplay(target, map),
+    }))
+    const targetStack = avatarStackHTML(targetSummaryItems, 5, 'avatar--target', (item) => item.avatar_url, (item) => item.label)
+    const targetLabel = row.targets.length ? `${row.targets.length} 个推送对象` : '未选择推送对象'
+
+    const subscriberItems = row.subscriber_ids.map((id) => ({
+      id,
+      avatar_url: subscriberAvatarURL(id),
+    }))
+    const subscriberStack = row.subscriber_ids.length
+      ? avatarStackHTML(subscriberItems, 5, 'avatar--subscriber', (item) => item.avatar_url, (item) => `QQ ${item.id}`)
+      : '<span class="chip chip--success">系统订阅</span>'
+    const subscriberLabel = row.subscriber_ids.length ? `${row.subscriber_ids.length} 位订阅人` : '系统订阅'
+
+    const validation = validateRow(row)
+    const statusBadge = validation.length
+      ? '<span class="badge badge--danger">需处理</span>'
+      : '<span class="badge badge--success">可保存</span>'
+
+    return `
+      <article class="sub-card ${row.enabled ? '' : 'sub-card--disabled'}" data-row-id="${escapeHTML(row.row_id)}">
+        <div class="sub-card__head">
+          ${upAvatar}
+          <div class="sub-card__meta">
+            <strong>${escapeHTML(title)}</strong>
+            <small>${escapeHTML(subtitle)}</small>
+          </div>
+          <div class="sub-card__status">
+            ${row.resolved ? '<span class="badge">已校验</span>' : ''}
+            ${statusBadge}
+            <label class="switch-row" title="启用">
+              <input type="checkbox" class="row-enabled-input" data-row-id="${escapeHTML(row.row_id)}" ${row.enabled ? 'checked' : ''} />
+            </label>
+          </div>
+        </div>
+
+        <div class="sub-card__body">
+          <div class="sub-card__section">
+            <div class="sub-card__section-title">推送类型</div>
+            <div class="sub-card__services">${services}</div>
+          </div>
+
+          <div class="sub-card__section">
+            <div class="sub-card__section-title">推送对象</div>
+            <div class="sub-card__targets-summary">
+              ${targetStack}
+              <span class="sub-card__summary-label">${escapeHTML(targetLabel)}</span>
+            </div>
+          </div>
+
+          <div class="sub-card__section">
+            <div class="sub-card__section-title">订阅人</div>
+            <div class="sub-card__subscribers-summary">
+              ${subscriberStack}
+              <span class="sub-card__summary-label">${escapeHTML(subscriberLabel)}</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="sub-card__actions">
+          <button type="button" class="button button--primary button--small" data-action="edit-row" data-row-id="${escapeHTML(row.row_id)}">编辑</button>
+          <button type="button" class="button button--small" data-action="duplicate-row" data-row-id="${escapeHTML(row.row_id)}">复制</button>
+          <button type="button" class="button button--small button--danger" data-action="delete-row" data-row-id="${escapeHTML(row.row_id)}">删除</button>
+        </div>
+      </article>
+    `
+  }
+
+  function renderRowEdit(row) {
+    const map = targetMap()
+    const title = row.name || row.uid || '未校验 UP'
+    const subtitle = row.uid ? `UID ${row.uid}` : '输入 UID 或 Bilibili 用户名后校验'
+    const upAvatar = avatarHTML(row.avatar_url, title, 'avatar--up', title)
     const serviceEditor = row.service_mode === 'mixed'
       ? renderMixedServices(row, map)
       : `<div class="inline-checks" aria-label="推送类型">${renderServiceCheckboxes(row.row_id, 'common', row.services)}</div>`
     const candidates = row.candidates.length
       ? `<div class="candidate-list">${row.candidates.map((candidate) => `
-          <button type="button" class="button button--small" data-action="choose-candidate" data-row-id="${escapeHTML(row.row_id)}" data-user='${escapeHTML(JSON.stringify(candidate))}'>
+          <button type="button" class="button candidate-button" data-action="choose-candidate" data-row-id="${escapeHTML(row.row_id)}" data-user='${escapeHTML(JSON.stringify(candidate))}'>
+            ${avatarHTML(candidate.avatar_url, candidate.name, 'avatar--candidate', candidate.name)}
             <span>${escapeHTML(candidate.name)} · UID ${escapeHTML(candidate.uid)}</span>
           </button>
         `).join('')}</div>`
       : ''
-    const targetOptions = currentTargetsForMode(row.target_mode).map((target) => `
-      <option value="${escapeHTML(target.key)}" ${row.targets.some((item) => item.key === target.key) ? 'selected' : ''}>
-        ${escapeHTML(target.label)} (${escapeHTML(target.target_id)})
-      </option>
-    `).join('')
-    const selectedTargets = row.targets.length
-      ? row.targets.map((target) => `
-          <span class="chip ${map.has(target.key) ? '' : 'badge--warning'}">
-            <span>${escapeHTML(targetDisplay(target, map))}</span>
-            <button type="button" aria-label="移除推送对象" data-action="remove-target" data-row-id="${escapeHTML(row.row_id)}" data-target-key="${escapeHTML(target.key)}">×</button>
-          </span>
-        `).join('')
-      : '<span class="chip">未选择推送对象</span>'
+    const targetOptions = renderTargetOptions(row)
+    const selectedTargets = renderSelectedTargets(row, map)
     const subscribers = row.subscriber_ids.length
       ? row.subscriber_ids.map((id) => `
           <span class="chip">
+            ${avatarHTML(subscriberAvatarURL(id), `QQ ${id}`, 'avatar--candidate', `QQ ${id}`)}
             <span>QQ ${escapeHTML(id)}</span>
             <button type="button" aria-label="移除订阅人" data-action="remove-subscriber" data-row-id="${escapeHTML(row.row_id)}" data-user-id="${escapeHTML(id)}">×</button>
           </span>
         `).join('')
-      : '<span class="chip badge--success">系统订阅</span>'
-    const validation = validateRow(row)
-    const validationHTML = validation.length
-      ? `<ul class="validation-list">${validation.map((item) => `<li>${escapeHTML(item)}</li>`).join('')}</ul>`
-      : '<span class="badge badge--success">可保存</span>'
+      : '<span class="chip chip--success">系统订阅</span>'
+    const validationHTML = renderRowValidation(row)
 
     return `
-      <article class="subscription-row ${row.enabled ? '' : 'is-disabled'}" data-row-id="${escapeHTML(row.row_id)}">
-        <section class="row-block">
-          <div class="row-title">
+      <article class="sub-card sub-card--editing ${row.enabled ? '' : 'sub-card--disabled'}" data-row-id="${escapeHTML(row.row_id)}">
+        <div class="sub-card__head">
+          ${upAvatar}
+          <div class="sub-card__meta">
             <strong>${escapeHTML(title)}</strong>
+            <small>${escapeHTML(subtitle)}</small>
+          </div>
+          <div class="sub-card__status">
             <span class="badge">${row.resolved ? '已校验' : row.resolve_state === 'checking' ? '校验中' : '待校验'}</span>
+            <div class="row-validation-slot" data-row-id="${escapeHTML(row.row_id)}">${validationHTML}</div>
           </div>
-          <div class="row-subtitle">${escapeHTML(subtitle)}</div>
-          <div class="up-input-line">
-            <input class="up-query-input" data-row-id="${escapeHTML(row.row_id)}" type="text" autocomplete="off" value="${escapeHTML(row.query)}" placeholder="UID 或 Bilibili 用户名" />
-            <button type="button" class="button button--small" data-action="resolve-up" data-row-id="${escapeHTML(row.row_id)}">校验</button>
-          </div>
-          ${row.resolve_message ? `<div class="row-note">${escapeHTML(row.resolve_message)}</div>` : ''}
-          ${candidates}
-          ${serviceEditor}
-        </section>
+        </div>
 
-        <section class="row-block">
-          <div class="row-title"><strong>推送对象</strong><span class="badge">${escapeHTML(TARGET_LABELS[row.target_mode])}</span></div>
-          <div class="mode-tabs" role="group" aria-label="推送对象类型">
-            <button type="button" class="button button--small ${row.target_mode === 'group' ? 'is-active' : ''}" data-action="target-mode" data-row-id="${escapeHTML(row.row_id)}" data-mode="group">群聊</button>
-            <button type="button" class="button button--small ${row.target_mode === 'private' ? 'is-active' : ''}" data-action="target-mode" data-row-id="${escapeHTML(row.row_id)}" data-mode="private">私聊</button>
+        <div class="sub-card__body">
+          <div class="sub-card__section">
+            <div class="sub-card__section-title">UP 信息</div>
+            <div class="up-input-line">
+              <input class="up-query-input" data-row-id="${escapeHTML(row.row_id)}" type="text" autocomplete="off" value="${escapeHTML(row.query)}" placeholder="UID 或 Bilibili 用户名" />
+              <button type="button" class="button button--small" data-action="resolve-up" data-row-id="${escapeHTML(row.row_id)}">校验</button>
+            </div>
+            ${row.resolve_message ? `<div class="row-note">${escapeHTML(row.resolve_message)}</div>` : ''}
+            ${candidates}
+            <div class="service-editor-slot" data-row-id="${escapeHTML(row.row_id)}">${serviceEditor}</div>
           </div>
-          <select class="target-select" data-row-id="${escapeHTML(row.row_id)}" multiple size="5" ${state.targets.loaded ? '' : 'disabled'}>
-            ${targetOptions}
-          </select>
-          <div class="chip-list">${selectedTargets}</div>
-          ${state.targets.issues.length ? `<div class="target-note">${escapeHTML(state.targets.issues.map((issue) => issue.message).join('；'))}</div>` : ''}
-        </section>
 
-        <section class="row-block">
-          <div class="row-title"><strong>订阅人</strong></div>
-          <div class="subscriber-line">
-            <input class="subscriber-input" data-row-id="${escapeHTML(row.row_id)}" type="text" inputmode="numeric" autocomplete="off" placeholder="QQ 号，留空为系统订阅" />
-            <button type="button" class="button button--small" data-action="add-subscriber" data-row-id="${escapeHTML(row.row_id)}">添加</button>
+          <div class="sub-card__section">
+            <div class="sub-card__section-title">推送对象</div>
+            <div class="mode-tabs" role="group" aria-label="推送对象类型">
+              <button type="button" class="button button--small ${row.target_mode === 'group' ? 'is-active' : ''}" data-action="target-mode" data-row-id="${escapeHTML(row.row_id)}" data-mode="group">群聊</button>
+              <button type="button" class="button button--small ${row.target_mode === 'private' ? 'is-active' : ''}" data-action="target-mode" data-row-id="${escapeHTML(row.row_id)}" data-mode="private">私聊</button>
+            </div>
+            <div class="target-select" data-row-id="${escapeHTML(row.row_id)}" role="listbox" aria-multiselectable="true" aria-disabled="${state.targets.loaded ? 'false' : 'true'}" tabindex="0">
+              <div class="target-options-list">${targetOptions}</div>
+            </div>
+            <div class="chip-list target-chip-list" data-row-id="${escapeHTML(row.row_id)}">${selectedTargets}</div>
+            ${state.targets.issues.length ? `<div class="target-note">${escapeHTML(state.targets.issues.map((issue) => issue.message).join('；'))}</div>` : ''}
           </div>
-          <div class="chip-list">${subscribers}</div>
-          <div class="row-note">只保存 QQ 号，昵称和群名片保存时刷新。</div>
-        </section>
 
-        <section class="row-state">
-          <label><input type="checkbox" class="row-enabled-input" data-row-id="${escapeHTML(row.row_id)}" ${row.enabled ? 'checked' : ''} /> 启用</label>
-          ${validationHTML}
-          <div class="row-actions">
+          <div class="sub-card__section">
+            <div class="sub-card__section-title">订阅人</div>
+            <div class="subscriber-line">
+              <input class="subscriber-input" data-row-id="${escapeHTML(row.row_id)}" type="text" inputmode="numeric" autocomplete="off" placeholder="QQ 号，留空为系统订阅" />
+              <button type="button" class="button button--small" data-action="add-subscriber" data-row-id="${escapeHTML(row.row_id)}">添加</button>
+            </div>
+            <div class="chip-list">${subscribers}</div>
+            <div class="row-note">只保存 QQ 号，昵称和群名片保存时刷新。</div>
+          </div>
+        </div>
+
+        <div class="sub-card__actions">
+          <div class="button-group">
+            <label class="switch-row" title="启用">
+              <input type="checkbox" class="row-enabled-input" data-row-id="${escapeHTML(row.row_id)}" ${row.enabled ? 'checked' : ''} />
+              <span>${row.enabled ? '已启用' : '已停用'}</span>
+            </label>
+          </div>
+          <div class="button-group">
+            <button type="button" class="button button--primary button--small" data-action="finish-edit" data-row-id="${escapeHTML(row.row_id)}">完成</button>
+            <button type="button" class="button button--ghost button--small" data-action="cancel-edit" data-row-id="${escapeHTML(row.row_id)}">取消</button>
             <button type="button" class="button button--small" data-action="duplicate-row" data-row-id="${escapeHTML(row.row_id)}">复制</button>
             <button type="button" class="button button--small button--danger" data-action="delete-row" data-row-id="${escapeHTML(row.row_id)}">删除</button>
           </div>
-        </section>
+        </div>
       </article>
     `
   }
 
   function renderServiceCheckboxes(rowId, targetKeyValue, services) {
-    const active = normalizeServices(services)
+    const active = serviceCheckboxValues(services)
     return SERVICE_ORDER.map((service) => `
       <label>
-        <input type="checkbox" class="service-checkbox" data-row-id="${escapeHTML(rowId)}" data-target-key="${escapeHTML(targetKeyValue)}" value="${escapeHTML(service)}" ${active.includes(service) ? 'checked' : ''} />
+        <input type="checkbox" class="service-checkbox" data-row-id="${escapeHTML(rowId)}" data-target-key="${escapeHTML(targetKeyValue)}" value="${escapeHTML(service)}" ${active.has(service) ? 'checked' : ''} />
         ${escapeHTML(SERVICE_LABELS[service])}
       </label>
     `).join('')
@@ -456,6 +636,130 @@
         `).join('')}
       </div>
     `
+  }
+
+  function nextFrame(callback) {
+    const schedule = window.requestAnimationFrame || ((fn) => window.setTimeout(fn, 0))
+    schedule.call(window, callback)
+  }
+
+  function renderSelectedTargets(row, map) {
+    return row.targets.length
+      ? row.targets.map((target) => `
+          <span class="chip ${map.has(target.key) ? '' : 'badge--warning'}">
+            ${avatarHTML(targetAvatar(target, map), targetDisplay(target, map), 'avatar--candidate', targetDisplay(target, map))}
+            <span>${escapeHTML(targetDisplay(target, map))}</span>
+            <button type="button" aria-label="移除推送对象" data-action="remove-target" data-row-id="${escapeHTML(row.row_id)}" data-target-key="${escapeHTML(target.key)}">×</button>
+          </span>
+        `).join('')
+      : '<span class="chip">未选择推送对象</span>'
+  }
+
+  function renderTargetOptions(row) {
+    const selected = new Set(row.targets.map((target) => target.key))
+    const targets = currentTargetsForMode(row.target_mode)
+    if (!targets.length) {
+      return '<div class="target-option-empty">没有可选对象</div>'
+    }
+    return targets.map((target) => {
+      const isSelected = selected.has(target.key)
+      return `
+        <button type="button" class="target-option ${isSelected ? 'is-selected' : ''}" data-action="toggle-target" data-row-id="${escapeHTML(row.row_id)}" data-target-key="${escapeHTML(target.key)}" role="option" aria-selected="${isSelected ? 'true' : 'false'}">
+          <span class="target-option__mark" aria-hidden="true">${isSelected ? '✓' : ''}</span>
+          <span class="target-option__label">${escapeHTML(target.label)}</span>
+          <span class="target-option__id">${escapeHTML(target.target_id)}</span>
+        </button>
+      `
+    }).join('')
+  }
+
+  function renderRowValidation(row) {
+    const validation = validateRow(row)
+    return validation.length
+      ? `<ul class="validation-list">${validation.map((item) => `<li>${escapeHTML(item)}</li>`).join('')}</ul>`
+      : '<span class="badge badge--success">可保存</span>'
+  }
+
+  function refreshRowTargetEditor(row) {
+    const card = elements.list.querySelector(`.sub-card[data-row-id="${selectorValue(row.row_id)}"]`)
+    if (!card) {
+      render()
+      return
+    }
+
+    const map = targetMap()
+    const targetList = card.querySelector('.target-select')
+    const targetScrollTop = targetList ? targetList.scrollTop : 0
+    const optionsList = card.querySelector('.target-options-list')
+    if (optionsList) {
+      optionsList.innerHTML = renderTargetOptions(row)
+    }
+
+    const targetChips = card.querySelector('.target-chip-list')
+    if (targetChips) {
+      targetChips.innerHTML = renderSelectedTargets(row, map)
+    }
+
+    const validationSlot = card.querySelector('.row-validation-slot')
+    if (validationSlot) {
+      validationSlot.innerHTML = renderRowValidation(row)
+    }
+
+    const serviceSlot = card.querySelector('.service-editor-slot')
+    if (serviceSlot) {
+      serviceSlot.innerHTML = row.service_mode === 'mixed'
+        ? renderMixedServices(row, map)
+        : `<div class="inline-checks" aria-label="推送类型">${renderServiceCheckboxes(row.row_id, 'common', row.services)}</div>`
+    }
+
+    renderPageState()
+    if (targetList) {
+      targetList.scrollTop = targetScrollTop
+    }
+  }
+
+  function cloneRow(row) {
+    return JSON.parse(JSON.stringify(row))
+  }
+
+  function scrollRowIntoCenter(row) {
+    nextFrame(() => {
+      const element = elements.list.querySelector(`.sub-card[data-row-id="${selectorValue(row.row_id)}"]`)
+      if (element && typeof element.scrollIntoView === 'function') {
+        element.scrollIntoView({ block: 'center', behavior: 'smooth' })
+      }
+    })
+  }
+
+  function beginEdit(row) {
+    row._editSnapshot = cloneRow(row)
+    row.edit_mode = true
+    render()
+    scrollRowIntoCenter(row)
+  }
+
+  function cancelEdit(row) {
+    if (row._editSnapshot) {
+      const snapshot = row._editSnapshot
+      const preservedRowId = row.row_id
+      Object.assign(row, snapshot)
+      row.row_id = preservedRowId
+      row._editSnapshot = null
+      row.edit_mode = false
+    }
+    render()
+  }
+
+  function finishEdit(row) {
+    const errors = validateRow(row)
+    if (errors.length) {
+      setStatus(errors[0] || '行未通过校验')
+      render()
+      return
+    }
+    row._editSnapshot = null
+    row.edit_mode = false
+    markDirty()
   }
 
   function findRow(rowId) {
@@ -487,6 +791,12 @@
       if (!map.has(target.key)) {
         errors.push(`${targetDisplay(target, map)} 不在协议对象列表中`)
       }
+      if (row.service_mode === 'mixed' && !hasServiceSelection(target.services)) {
+        errors.push(`${targetDisplay(target, map)} 请选择推送类型`)
+      }
+    }
+    if (row.service_mode !== 'mixed' && !hasServiceSelection(row.services)) {
+      errors.push('请选择推送类型')
     }
     for (const id of row.subscriber_ids) {
       if (!numericPattern.test(id)) {
@@ -501,16 +811,23 @@
     return { ok: errors.length === 0, errors }
   }
 
-  function readCheckedServices(rowId, targetKeyValue) {
-    const checked = [...elements.list.querySelectorAll(`.service-checkbox[data-row-id="${selectorValue(rowId)}"][data-target-key="${selectorValue(targetKeyValue)}"]:checked`)]
+  function readCheckedServices(rowId, targetKeyValue, changedService, isChecked) {
+    if (changedService === 'all') {
+      return isChecked ? ['all'] : []
+    }
+    const checkedServices = [...elements.list.querySelectorAll(`.service-checkbox[data-row-id="${selectorValue(rowId)}"][data-target-key="${selectorValue(targetKeyValue)}"]:checked`)]
       .map((input) => input.value)
-    return normalizeServices(checked)
+      .filter((service) => service !== 'all')
+    if (SERVICE_TYPES.every((service) => checkedServices.includes(service))) {
+      return ['all']
+    }
+    return SERVICE_TYPES.filter((service) => checkedServices.includes(service))
   }
 
-  function updateService(row, targetKeyValue) {
+  function updateService(row, targetKeyValue, changedService, isChecked) {
     if (targetKeyValue === 'common') {
       row.service_mode = 'common'
-      row.services = readCheckedServices(row.row_id, 'common')
+      row.services = readCheckedServices(row.row_id, 'common', changedService, isChecked)
       for (const target of row.targets) {
         target.services = row.services
       }
@@ -518,7 +835,7 @@
     }
     const target = row.targets.find((item) => item.key === targetKeyValue)
     if (target) {
-      target.services = readCheckedServices(row.row_id, targetKeyValue)
+      target.services = readCheckedServices(row.row_id, targetKeyValue, changedService, isChecked)
       const serviceKeys = unique(row.targets.map((item) => servicesKey(item.services)))
       row.service_mode = serviceKeys.length > 1 ? 'mixed' : 'common'
       if (row.service_mode === 'common' && row.targets[0]) {
@@ -616,6 +933,19 @@
         addTargetToRow(row, liveTarget)
       }
     }
+  }
+
+  function toggleTarget(row, targetKeyValue) {
+    const currentModeKeys = row.targets
+      .filter((target) => target.target_type === row.target_mode)
+      .map((target) => target.key)
+    const selected = new Set(currentModeKeys)
+    if (selected.has(targetKeyValue)) {
+      selected.delete(targetKeyValue)
+    } else {
+      selected.add(targetKeyValue)
+    }
+    updateTargetsFromSelect(row, [...selected])
   }
 
   function addSubscriber(row, input) {
@@ -733,6 +1063,11 @@
     state.savingRequestId = ''
     const issues = Array.isArray(message.payload.issues) ? message.payload.issues : []
     const items = Array.isArray(message.payload.items) ? message.payload.items : []
+    for (const item of items) {
+      if (item.user_id && item.avatar_url) {
+        state.subscriberAvatars.set(trim(item.user_id), trim(item.avatar_url))
+      }
+    }
     const received = new Set(items.map((item) => identityKey(item.target_type, item.target_id, item.user_id)))
     const missing = request.expected.filter((item) => !received.has(identityKey(item.target_type, item.target_id, item.user_id)))
     if (issues.length || missing.length) {
@@ -837,6 +1172,12 @@
       render()
       return
     }
+    if (action === 'toggle-target') {
+      toggleTarget(row, button.dataset.targetKey)
+      state.dirty = true
+      refreshRowTargetEditor(row)
+      return
+    }
     if (action === 'remove-target') {
       row.targets = row.targets.filter((target) => target.key !== button.dataset.targetKey)
       markDirty()
@@ -853,9 +1194,11 @@
       return
     }
     if (action === 'duplicate-row') {
-      const copy = JSON.parse(JSON.stringify(row))
+      const copy = cloneRow(row)
       copy.row_id = nextRowId()
       copy.targets = copy.targets.map((target) => ({ ...target, subscription_id: '' }))
+      copy.edit_mode = true
+      copy._editSnapshot = null
       state.rows.push(copy)
       markDirty()
       return
@@ -863,6 +1206,18 @@
     if (action === 'delete-row') {
       state.rows = state.rows.filter((item) => item.row_id !== row.row_id)
       markDirty()
+      return
+    }
+    if (action === 'edit-row') {
+      beginEdit(row)
+      return
+    }
+    if (action === 'finish-edit') {
+      finishEdit(row)
+      return
+    }
+    if (action === 'cancel-edit') {
+      cancelEdit(row)
     }
   }
 
@@ -890,12 +1245,7 @@
       return
     }
     if (input.classList.contains('service-checkbox')) {
-      updateService(row, input.dataset.targetKey)
-      markDirty()
-      return
-    }
-    if (input.classList.contains('target-select')) {
-      updateTargetsFromSelect(row, [...input.selectedOptions].map((option) => option.value))
+      updateService(row, input.dataset.targetKey, input.value, input.checked)
       markDirty()
       return
     }
@@ -924,8 +1274,10 @@
     elements.statusFilter.addEventListener('change', render)
     elements.serviceFilter.addEventListener('change', render)
     elements.addButton.addEventListener('click', () => {
-      state.rows.unshift(createBlankRow())
+      const newRow = createBlankRow()
+      state.rows.unshift(newRow)
       markDirty()
+      scrollRowIntoCenter(newRow)
     })
     elements.list.addEventListener('click', handleListClick)
     elements.list.addEventListener('input', handleListInput)

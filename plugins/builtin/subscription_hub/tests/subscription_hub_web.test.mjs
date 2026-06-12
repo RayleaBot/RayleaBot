@@ -105,44 +105,123 @@ function plain(value) {
   return JSON.parse(JSON.stringify(value))
 }
 
+function editFirstCard(document) {
+  const card = document.querySelector('.sub-card')
+  card.querySelector('button[data-action="edit-row"]').click()
+  return document.querySelector('.sub-card')
+}
+
+function commonServiceInputs(document) {
+  return Object.fromEntries([...document.querySelectorAll('.service-checkbox[data-target-key="common"]')]
+    .map((input) => [input.value, input]))
+}
+
 test('groups subscriptions by Bilibili UID and hides raw maintenance fields', () => {
   const { dom } = createPage()
   const document = dom.window.document
-  const rows = document.querySelectorAll('.subscription-row')
+  const rows = document.querySelectorAll('.sub-card')
 
   assert.equal(rows.length, 1)
   assert.equal(document.querySelector('#raw-json-input'), null)
   assert.equal(document.querySelector('#subscription-editor-panel'), null)
   assert.match(rows[0].textContent, /测试 UP/)
-  assert.match(rows[0].textContent, /群聊 测试群/)
-  assert.match(rows[0].textContent, /私聊 测试用户/)
+  assert.match(rows[0].textContent, /2 个推送对象/)
+  assert.match(rows[0].textContent, /1 位订阅人/)
   assert.match(rows[0].textContent, /目标配置不同/)
 })
 
 test('target type switch keeps targets selected across group and private lists', () => {
   const { dom } = createPage()
   const document = dom.window.document
-  const row = document.querySelector('.subscription-row')
+  const row = editFirstCard(document)
   const privateButton = row.querySelector('button[data-action="target-mode"][data-mode="private"]')
   privateButton.click()
 
-  const privateRow = document.querySelector('.subscription-row')
-  const select = privateRow.querySelector('.target-select')
-  assert.equal([...select.options].length, 1)
-  assert.equal(select.options[0].selected, true)
+  const privateRow = document.querySelector('.sub-card')
+  const privateOptions = privateRow.querySelectorAll('.target-option')
+  assert.equal(privateOptions.length, 1)
+  assert.equal(privateOptions[0].getAttribute('aria-selected'), 'true')
   assert.match(privateRow.textContent, /群聊 测试群/)
   assert.match(privateRow.textContent, /私聊 测试用户/)
 
   privateRow.querySelector('button[data-action="target-mode"][data-mode="group"]').click()
-  const groupRow = document.querySelector('.subscription-row')
-  const groupSelect = groupRow.querySelector('.target-select')
-  groupSelect.options[1].selected = true
-  groupSelect.dispatchEvent(new dom.window.Event('change', { bubbles: true }))
+  const groupRow = document.querySelector('.sub-card')
+  const groupOptions = groupRow.querySelectorAll('.target-option')
+  groupOptions[1].click()
 
-  const updatedRow = document.querySelector('.subscription-row')
+  const updatedRow = document.querySelector('.sub-card')
   assert.match(updatedRow.textContent, /群聊 测试群/)
   assert.match(updatedRow.textContent, /群聊 备用群/)
   assert.match(updatedRow.textContent, /私聊 测试用户/)
+})
+
+test('target multi-select updates current card without replacing the select', () => {
+  const { dom } = createPage()
+  const document = dom.window.document
+  const row = editFirstCard(document)
+  const list = row.querySelector('.target-select')
+  list.scrollTop = 32
+
+  row.querySelectorAll('.target-option')[1].click()
+
+  const currentList = document.querySelector('.target-select')
+  assert.equal(currentList, list)
+  assert.equal(currentList.scrollTop, 32)
+  assert.equal(currentList.querySelectorAll('.target-option')[1].getAttribute('aria-selected'), 'true')
+  assert.equal(currentList.querySelectorAll('.target-option')[1].classList.contains('is-selected'), true)
+  assert.match(document.querySelector('.sub-card').textContent, /群聊 备用群/)
+  assert.match(document.querySelector('#dirty-state').textContent, /设置有修改/)
+})
+
+test('all service checkbox selects all services and follows complete selection', () => {
+  const { dom } = createPage({
+    enabled: true,
+    subscriptions: [{
+      id: 'bilibili-123456-group-5050',
+      platform: 'bilibili',
+      uid: '123456',
+      name: '测试 UP',
+      target_type: 'group',
+      target_id: '5050',
+      target_name: '旧群名',
+      services: ['all'],
+      subscribers: [],
+      enabled: true,
+    }],
+  })
+  const document = dom.window.document
+  editFirstCard(document)
+
+  let inputs = commonServiceInputs(document)
+  assert.deepEqual(Object.fromEntries(Object.entries(inputs).map(([key, input]) => [key, input.checked])), {
+    all: true,
+    live: true,
+    video: true,
+    image_text: true,
+    article: true,
+    repost: true,
+  })
+
+  inputs.live.click()
+  inputs = commonServiceInputs(document)
+  assert.equal(inputs.all.checked, false)
+  assert.equal(inputs.live.checked, false)
+  assert.equal(inputs.video.checked, true)
+
+  inputs.live.click()
+  inputs = commonServiceInputs(document)
+  assert.equal(inputs.all.checked, true)
+  assert.equal(inputs.live.checked, true)
+  assert.equal(inputs.repost.checked, true)
+
+  inputs.video.click()
+  inputs = commonServiceInputs(document)
+  assert.equal(inputs.all.checked, false)
+  assert.equal(inputs.video.checked, false)
+
+  inputs.all.click()
+  inputs = commonServiceInputs(document)
+  assert.ok(Object.values(inputs).every((input) => input.checked))
 })
 
 test('saving without subscriber IDs keeps system subscription and refreshes target names', () => {
@@ -242,8 +321,6 @@ test('new row must resolve Bilibili user before saving', () => {
     candidates: [],
   }, resolveMessage.request_id)
 
-  const select = document.querySelector('.target-select')
-  select.options[0].selected = true
-  select.dispatchEvent(new dom.window.Event('change', { bubbles: true }))
+  document.querySelector('.target-option').click()
   assert.equal(document.querySelector('#save-button').disabled, false)
 })

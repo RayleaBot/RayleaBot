@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/schemaassets"
@@ -77,6 +78,54 @@ func TestPluginProtocolInitFixturesValidate(t *testing.T) {
 				if err := validator.Validate(frame); err != nil {
 					t.Fatalf("Validate(%s frame %d) error = %v", name, index, err)
 				}
+			}
+		})
+	}
+}
+
+func TestPluginManagementUIBridgeFixturesValidate(t *testing.T) {
+	t.Parallel()
+
+	repoRoot := filepath.Clean(filepath.Join("..", "..", ".."))
+	validator, err := Compile(filepath.Join(repoRoot, "contracts", "plugin-management-ui-bridge.schema.json"))
+	if err != nil {
+		t.Fatalf("Compile(plugin-management-ui-bridge.schema.json) error = %v", err)
+	}
+
+	fixtureDir := filepath.Join(repoRoot, "fixtures", "plugin-management-ui")
+	entries, err := os.ReadDir(fixtureDir)
+	if err != nil {
+		t.Fatalf("ReadDir(%q) error = %v", fixtureDir, err)
+	}
+
+	for _, entry := range entries {
+		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".json") {
+			continue
+		}
+		name := entry.Name()
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			fixturePath := filepath.Join(fixtureDir, name)
+			document, err := LoadJSONFile(fixturePath)
+			if err != nil {
+				t.Fatalf("decode fixture %s: %v", name, err)
+			}
+
+			payload := document
+			if docMap, ok := document.(map[string]any); ok {
+				if input, hasInput := docMap["input"]; hasInput {
+					payload = input
+				}
+			}
+
+			expectValid := strings.HasPrefix(name, "ok.")
+			err = validator.Validate(payload)
+			if expectValid && err != nil {
+				t.Fatalf("Validate(%s) error = %v", name, err)
+			}
+			if !expectValid && err == nil {
+				t.Fatalf("Validate(%s) unexpectedly succeeded", name)
 			}
 		})
 	}

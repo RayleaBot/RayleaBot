@@ -629,6 +629,9 @@
         "target_name": {
           "type": "string",
           "minLength": 1
+        },
+        "avatar_url": {
+          "type": "string"
         }
       }
     },
@@ -651,6 +654,9 @@
         "nickname": {
           "type": "string",
           "minLength": 1
+        },
+        "avatar_url": {
+          "type": "string"
         }
       }
     },
