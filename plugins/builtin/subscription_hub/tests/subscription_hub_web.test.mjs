@@ -3,7 +3,7 @@ import fs from 'node:fs'
 import { createRequire } from 'node:module'
 import path from 'node:path'
 import test from 'node:test'
-import { fileURLToPath, pathToFileURL } from 'node:url'
+import { fileURLToPath } from 'node:url'
 import { buildRowsFromSettings, normalizeSettings } from '../web/model.js'
 import { buildSettingsPayload } from '../web/settings-payload.js'
 import { normalizeTargets, targetMap } from '../web/targets.js'
@@ -13,8 +13,7 @@ const pluginRoot = path.resolve(__dirname, '..')
 const require = createRequire(path.join(pluginRoot, '..', '..', '..', 'web', 'package.json'))
 const { JSDOM } = require('jsdom')
 const subscriptionHtml = fs.readFileSync(path.join(pluginRoot, 'web', 'index.html'), 'utf8')
-const appUrl = pathToFileURL(path.join(pluginRoot, 'web', 'app.js')).href
-let appImportCounter = 0
+const script = fs.readFileSync(path.join(pluginRoot, 'web', 'app.js'), 'utf8')
 
 const defaultSettings = {
   enabled: true,
@@ -75,7 +74,7 @@ function dispatchHost(dom, type, payload, requestId = 'host-test') {
   }))
 }
 
-async function createPage(settings = richSettings) {
+function createPage(settings = richSettings) {
   const dom = new JSDOM(subscriptionHtml, {
     runScripts: 'outside-only',
     url: 'https://rayleabot.local/plugin-ui/raylea.subscription-hub/web/index.html',
@@ -86,9 +85,7 @@ async function createPage(settings = richSettings) {
       messages.push(message)
     },
   }
-  globalThis.window = dom.window
-  globalThis.document = dom.window.document
-  await import(`${appUrl}?case=${appImportCounter += 1}`)
+  dom.window.eval(script)
   dispatchHost(dom, 'host.init', {
     title: '订阅设置',
     plugin: { description: '订阅中心' },
@@ -122,6 +119,12 @@ function commonServiceInputs(document) {
     .map((input) => [input.value, input]))
 }
 
+test('settings page uses a classic script entry for sandboxed plugin iframes', () => {
+  assert.match(subscriptionHtml, /<script src="\.\/app\.js"><\/script>/)
+  assert.doesNotMatch(subscriptionHtml, /type="module"/)
+  assert.doesNotMatch(script, /^\s*import\s/m)
+})
+
 test('pure model groups subscriptions by Bilibili UID and payload splits them back', () => {
   const settings = normalizeSettings(richSettings)
   const rows = buildRowsFromSettings(settings)
@@ -153,8 +156,8 @@ test('pure model groups subscriptions by Bilibili UID and payload splits them ba
   ])
 })
 
-test('groups subscriptions by Bilibili UID and hides raw maintenance fields', async () => {
-  const { dom } = await createPage()
+test('groups subscriptions by Bilibili UID and hides raw maintenance fields', () => {
+  const { dom } = createPage()
   const document = dom.window.document
   const rows = document.querySelectorAll('.sub-card')
 
@@ -167,8 +170,8 @@ test('groups subscriptions by Bilibili UID and hides raw maintenance fields', as
   assert.match(rows[0].textContent, /目标配置不同/)
 })
 
-test('target type switch keeps targets selected across group and private lists', async () => {
-  const { dom } = await createPage()
+test('target type switch keeps targets selected across group and private lists', () => {
+  const { dom } = createPage()
   const document = dom.window.document
   const row = editFirstCard(document)
   const privateButton = row.querySelector('button[data-action="target-mode"][data-mode="private"]')
@@ -192,8 +195,8 @@ test('target type switch keeps targets selected across group and private lists',
   assert.match(updatedRow.textContent, /私聊 测试用户/)
 })
 
-test('target multi-select updates current card without replacing the select', async () => {
-  const { dom } = await createPage()
+test('target multi-select updates current card without replacing the select', () => {
+  const { dom } = createPage()
   const document = dom.window.document
   const row = editFirstCard(document)
   const list = row.querySelector('.target-select')
@@ -213,8 +216,8 @@ test('target multi-select updates current card without replacing the select', as
   assert.match(document.querySelector('#dirty-state').textContent, /设置有修改/)
 })
 
-test('all service checkbox selects all services and follows complete selection', async () => {
-  const { dom } = await createPage({
+test('all service checkbox selects all services and follows complete selection', () => {
+  const { dom } = createPage({
     enabled: true,
     subscriptions: [{
       id: 'bilibili-123456-group-5050',
@@ -264,8 +267,8 @@ test('all service checkbox selects all services and follows complete selection',
   assert.ok(Object.values(inputs).every((input) => input.checked))
 })
 
-test('saving without subscriber IDs keeps system subscription and refreshes target names', async () => {
-  const { dom, messages } = await createPage({
+test('saving without subscriber IDs keeps system subscription and refreshes target names', () => {
+  const { dom, messages } = createPage({
     enabled: true,
     subscriptions: [{
       id: 'bilibili-123456-group-5050',
@@ -292,8 +295,8 @@ test('saving without subscriber IDs keeps system subscription and refreshes targ
   assert.equal(lastMessage(messages, 'protocol.identities.resolve'), undefined)
 })
 
-test('saving subscriber IDs resolves identity before settings save and stores only QQ numbers', async () => {
-  const { dom, messages } = await createPage()
+test('saving subscriber IDs resolves identity before settings save and stores only QQ numbers', () => {
+  const { dom, messages } = createPage()
   const document = dom.window.document
 
   document.querySelector('#save-button').click()
@@ -335,8 +338,8 @@ test('saving subscriber IDs resolves identity before settings save and stores on
   assert.deepEqual(plain(values.subscriptions[1].subscribers), [{ id: '10001' }])
 })
 
-test('identity resolve failure prevents settings save', async () => {
-  const { dom, messages } = await createPage()
+test('identity resolve failure prevents settings save', () => {
+  const { dom, messages } = createPage()
   const document = dom.window.document
 
   document.querySelector('#save-button').click()
@@ -352,8 +355,8 @@ test('identity resolve failure prevents settings save', async () => {
   assert.match(document.querySelector('#status-text').textContent, /订阅人身份解析失败/)
 })
 
-test('missing protocol target prevents settings save', async () => {
-  const { dom, messages } = await createPage({
+test('missing protocol target prevents settings save', () => {
+  const { dom, messages } = createPage({
     enabled: true,
     subscriptions: [{
       id: 'bilibili-123456-group-9999',
@@ -375,8 +378,8 @@ test('missing protocol target prevents settings save', async () => {
   assert.equal(saveMessage(messages), undefined)
 })
 
-test('new row must resolve Bilibili user before saving', async () => {
-  const { dom, messages } = await createPage(defaultSettings)
+test('new row must resolve Bilibili user before saving', () => {
+  const { dom, messages } = createPage(defaultSettings)
   const document = dom.window.document
 
   document.querySelector('#add-subscription-button').click()
