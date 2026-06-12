@@ -49,10 +49,10 @@ func TestSummaryWriterKeepsLogTimestampSeparateFromOneBotTimeDetail(t *testing.T
 	logger := newLoggerWithWriter(slog.LevelInfo, NewSummaryWriter(&output, stream, nil))
 
 	logger.Info(
-		"1145141919: [测试群(553855023)]Alice(3001): hello bridge",
+		"10001: [测试群(20001)]测试用户A(3001): hello bridge",
 		"component", "bridge",
-		"time", int64(1776009574),
-		"message_id", "899582563",
+		"time", int64(1710000900),
+		"message_id", "40002",
 	)
 
 	var body map[string]any
@@ -62,7 +62,7 @@ func TestSummaryWriterKeepsLogTimestampSeparateFromOneBotTimeDetail(t *testing.T
 	if _, ok := body["ts"].(string); !ok {
 		t.Fatalf("expected built-in log timestamp string, got %#v", body["ts"])
 	}
-	if body["time"] != float64(1776009574) {
+	if body["time"] != float64(1710000900) {
 		t.Fatalf("expected preserved onebot time detail, got %#v", body["time"])
 	}
 
@@ -70,10 +70,10 @@ func TestSummaryWriterKeepsLogTimestampSeparateFromOneBotTimeDetail(t *testing.T
 	if len(summaries) != 1 {
 		t.Fatalf("unexpected summary count: got %d want 1", len(summaries))
 	}
-	if summaries[0].Timestamp == "1776009574" || summaries[0].Timestamp == "" {
+	if summaries[0].Timestamp == "1710000900" || summaries[0].Timestamp == "" {
 		t.Fatalf("expected RFC3339 log timestamp, got %#v", summaries[0].Timestamp)
 	}
-	if got := summaries[0].Details["time"]; got != float64(1776009574) {
+	if got := summaries[0].Details["time"]; got != float64(1710000900) {
 		t.Fatalf("expected summary details to keep onebot time, got %#v", got)
 	}
 }

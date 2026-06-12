@@ -24,9 +24,9 @@ response:
           message: plugin event response timed out
           at: '2026-05-24T00:00:00Z'
         payload_summary:
-          conversation_id: group:879110321
+          conversation_id: group:20001
           target_type: group
-          target_id: '879110321'
+          target_id: '20001'
           content: 每日天气推送
         stats:
           total: 160

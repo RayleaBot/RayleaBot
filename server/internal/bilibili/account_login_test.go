@@ -25,8 +25,8 @@ func TestAccountClientCheckCookieReadsNavProfile(t *testing.T) {
 			"data": {
 				"isLogin": true,
 				"mid": 123456,
-				"uname": "主账号昵称",
-				"face": "//i0.hdslb.com/bfs/face/raylea.jpg"
+				"uname": "测试账号昵称",
+				"face": "//i0.hdslb.com/bfs/face/test-account.jpg"
 			}
 		}`), nil
 	}), func() time.Time { return time.Date(2026, 6, 8, 8, 0, 0, 0, time.UTC) }, nil)
@@ -35,7 +35,7 @@ func TestAccountClientCheckCookieReadsNavProfile(t *testing.T) {
 	if err != nil {
 		t.Fatalf("CheckCookie returned error: %v", err)
 	}
-	if profile.UID != "123456" || profile.Nickname != "主账号昵称" || profile.AvatarURL != "https://i0.hdslb.com/bfs/face/raylea.jpg" {
+	if profile.UID != "123456" || profile.Nickname != "测试账号昵称" || profile.AvatarURL != "https://i0.hdslb.com/bfs/face/test-account.jpg" {
 		t.Fatalf("unexpected profile: %#v", profile)
 	}
 	if credential.State != "valid" || credential.CheckedAt == nil || credential.CheckedAt.Format(time.RFC3339) != "2026-06-08T08:00:00Z" || credential.LastError != "" {
@@ -101,8 +101,8 @@ func TestQRLoginServiceCreatePollAndReturnCookie(t *testing.T) {
 				"code": 0,
 				"data": {
 					"code": 0,
-					"url": "https://passport.bilibili.com/login?SESSDATA=fixture-secret&bili_jct=fixture-csrf&DedeUserID=123456",
-					"refresh_token": "fixture-refresh-token"
+					"url": "https://passport.bilibili.com/login?SESSDATA=fixture&bili_jct=fixture&DedeUserID=123456",
+					"refresh_token": "fixture-refresh"
 				}
 			}`), nil
 		case navURL:
@@ -111,8 +111,8 @@ func TestQRLoginServiceCreatePollAndReturnCookie(t *testing.T) {
 				"data": {
 					"isLogin": true,
 					"mid": "123456",
-					"uname": "主账号昵称",
-					"face": "https://i0.hdslb.com/bfs/face/raylea.jpg"
+					"uname": "测试账号昵称",
+					"face": "https://i0.hdslb.com/bfs/face/test-account.jpg"
 				}
 			}`), nil
 		default:
@@ -151,12 +151,12 @@ func TestQRLoginServiceCreatePollAndReturnCookie(t *testing.T) {
 	if succeeded.State != QRLoginSucceeded {
 		t.Fatalf("unexpected qr success state: %#v", succeeded)
 	}
-	for _, fragment := range []string{"SESSDATA=fixture-secret", "bili_jct=fixture-csrf", "DedeUserID=123456", "ac_time_value=fixture-refresh-token"} {
+	for _, fragment := range []string{"SESSDATA=fixture", "bili_jct=fixture", "DedeUserID=123456", "ac_time_value=fixture-refresh"} {
 		if !strings.Contains(succeeded.Cookie, fragment) {
 			t.Fatalf("success cookie missing %s: %s", fragment, succeeded.Cookie)
 		}
 	}
-	if succeeded.Account.UID != "123456" || succeeded.Account.Nickname != "主账号昵称" || succeeded.Account.AvatarURL != "https://i0.hdslb.com/bfs/face/raylea.jpg" {
+	if succeeded.Account.UID != "123456" || succeeded.Account.Nickname != "测试账号昵称" || succeeded.Account.AvatarURL != "https://i0.hdslb.com/bfs/face/test-account.jpg" {
 		t.Fatalf("unexpected qr account: %#v", succeeded.Account)
 	}
 }

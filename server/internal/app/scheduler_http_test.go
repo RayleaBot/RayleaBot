@@ -39,7 +39,7 @@ func TestSystemSchedulerJobListHTTP(t *testing.T) {
 	if err != nil {
 		t.Fatalf("scheduler.New: %v", err)
 	}
-	job, err := engine.UpsertTaskWithLabel(context.Background(), "weather", "daily_report", "每日早报", "0 8 * * *", []byte(`{"target_type":"group","target_id":"879110321","content":"每日天气推送"}`))
+	job, err := engine.UpsertTaskWithLabel(context.Background(), "weather", "daily_report", "每日早报", "0 8 * * *", []byte(`{"target_type":"group","target_id":"20001","content":"每日天气推送"}`))
 	if err != nil {
 		t.Fatalf("UpsertTaskWithLabel: %v", err)
 	}
@@ -95,7 +95,7 @@ func TestSystemSchedulerJobListHTTP(t *testing.T) {
 	if item.LastError == nil || item.LastError.Code != "plugin.event_timeout" {
 		t.Fatalf("unexpected last error: %#v", item.LastError)
 	}
-	if item.PayloadSummary.ConversationID != "group:879110321" || item.PayloadSummary.Content != "每日天气推送" {
+	if item.PayloadSummary.ConversationID != "group:20001" || item.PayloadSummary.Content != "每日天气推送" {
 		t.Fatalf("unexpected payload summary: %#v", item.PayloadSummary)
 	}
 }

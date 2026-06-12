@@ -89,7 +89,7 @@ class SubscriptionHubTests(unittest.TestCase):
             },
         }
 
-    def repost_item(self, dynamic_id="1210053730841395205", pub_ts=1780585560):
+    def repost_item(self, dynamic_id="100000000000000001", pub_ts=1780585560):
         return {
             "id_str": dynamic_id,
             "type": "DYNAMIC_TYPE_FORWARD",
@@ -97,22 +97,22 @@ class SubscriptionHubTests(unittest.TestCase):
             "modules": {
                 "module_author": {
                     "mid": "123456",
-                    "name": "乐正绫",
+                    "name": "测试转发用户",
                     "face": "//i0.hdslb.com/bfs/face/repost.jpg",
                     "pub_ts": pub_ts,
                     "pub_time": "2026年06月04日 20:26",
                 },
                 "module_dynamic": {
                     "desc": {
-                        "text": "你是我爱这世界的原因[星星眼] #乐正绫单人集#",
+                        "text": "测试原创作品标题[星星眼] #测试转发话题#",
                         "rich_text_nodes": [
-                            {"type": "RICH_TEXT_NODE_TYPE_TEXT", "text": "你是我爱这世界的原因"},
+                            {"type": "RICH_TEXT_NODE_TYPE_TEXT", "text": "测试原创作品标题"},
                             {
                                 "type": "RICH_TEXT_NODE_TYPE_EMOJI",
                                 "text": "[星星眼]",
                                 "emoji": {"icon_url": "//i0.hdslb.com/bfs/emote/star.png", "text": "[星星眼]", "size": 1},
                             },
-                            {"type": "RICH_TEXT_NODE_TYPE_WEB", "text": "#乐正绫单人集#"},
+                            {"type": "RICH_TEXT_NODE_TYPE_WEB", "text": "#测试转发话题#"},
                         ],
                     },
                 },
@@ -124,7 +124,7 @@ class SubscriptionHubTests(unittest.TestCase):
                 "modules": {
                     "module_author": {
                         "mid": "271828",
-                        "name": "WOVOP",
+                        "name": "测试原创作者",
                         "face": "//i0.hdslb.com/bfs/face/original.jpg",
                         "pub_ts": 1780585200,
                         "pub_time": "2026年06月04日 20:20",
@@ -132,21 +132,21 @@ class SubscriptionHubTests(unittest.TestCase):
                     "module_dynamic": {
                         "topic": {
                             "id": 10001,
-                            "name": "洛天依",
+                            "name": "测试 UP",
                             "jump_url": "https://m.bilibili.com/topic-detail?topic_id=10001",
                         },
                         "desc": {
                             "text": "新歌来了！",
                             "rich_text_nodes": [
-                                {"type": "", "orig_text": "#洛天依#"},
+                                {"type": "", "orig_text": "#测试 UP#"},
                                 {"type": "RICH_TEXT_NODE_TYPE_TEXT", "text": " 新歌来了！"},
                             ],
                         },
                         "major": {
                             "type": "MAJOR_TYPE_ARCHIVE",
                             "archive": {
-                                "title": "【乐正绫ACE原创】你是我爱这世界的原因",
-                                "desc": "视策划旧斜日红狐泽生日快乐！",
+                                "title": "测试原创作品标题",
+                                "desc": "原创作品简介。",
                                 "cover": "//i0.hdslb.com/bfs/archive/original-cover.jpg",
                                 "duration_text": "03:17",
                             },
@@ -169,16 +169,16 @@ class SubscriptionHubTests(unittest.TestCase):
                 "code": 0,
                 "data": {
                     "item": {
-                        "id_str": "1212948650493214729",
+                        "id_str": "100000000000000002",
                         "type": "DYNAMIC_TYPE_DRAW",
-                        "basic": {"title": "洛天依 发布图文动态"},
+                        "basic": {"title": "测试 UP 发布图文动态"},
                         "modules": [
                             {
                                 "module_type": "MODULE_TYPE_AUTHOR",
                                 "module_author": {
-                                    "mid": "36081646",
-                                    "name": "洛天依",
-                                    "face": "//i0.hdslb.com/bfs/face/luotianyi.jpg",
+                                    "mid": "1000001",
+                                    "name": "测试 UP",
+                                    "face": "//i0.hdslb.com/bfs/face/test-up.jpg",
                                     "pub_ts": 1781250000,
                                     "pub_time": "2026年06月12日 15:40",
                                 },
@@ -187,7 +187,7 @@ class SubscriptionHubTests(unittest.TestCase):
                                 "module_type": "MODULE_TYPE_TOPIC",
                                 "module_topic": {
                                     "id": 1156147,
-                                    "name": "BML-PLAY! 2026",
+                                    "name": "测试活动 2026",
                                     "jump_url": "https://m.bilibili.com/topic-detail?topic_id=1156147",
                                 },
                             },
@@ -202,12 +202,12 @@ class SubscriptionHubTests(unittest.TestCase):
                                                         "type": "TEXT_NODE_TYPE_RICH",
                                                         "rich": {
                                                             "type": "RICH_TEXT_NODE_TYPE_WEB",
-                                                            "text": "#BML-PLAY! 2026#",
+                                                            "text": "#测试活动 2026#",
                                                         },
                                                     },
                                                     {
                                                         "type": "TEXT_NODE_TYPE_WORD",
-                                                        "word": {"words": "线下演唱会，天依今年也来啦！"},
+                                                        "word": {"words": "线下演唱会，测试内容更新。"},
                                                     },
                                                 ],
                                             },
@@ -230,12 +230,12 @@ class SubscriptionHubTests(unittest.TestCase):
         payload = {
             "kind": "live",
             "uid": "123456",
-            "id": "live:123456:22913442:1700000000",
-            "room_id": "22913442",
+            "id": "live:123456:10001:1700000000",
+            "room_id": "10001",
             "service": "live",
-            "title": "真实直播标题",
+            "title": "测试直播标题",
             "summary": "直播中",
-            "url": "https://live.bilibili.com/22913442",
+            "url": "https://live.bilibili.com/10001",
             "pub_ts": 1700000000,
             "created_at": "2026-06-08 12:00",
             "author": {"uid": "123456", "name": "测试 UP", "avatar": "https://i0.hdslb.com/face.jpg"},
@@ -253,9 +253,9 @@ class SubscriptionHubTests(unittest.TestCase):
         payload = {
             "kind": "dynamic",
             "uid": "123456",
-            "id": "dynamic:1194416231669563410",
+            "id": "dynamic:100000000000000003",
             "service": "video",
-            "title": "真实视频标题",
+            "title": "测试视频标题",
             "summary": "视频简介",
             "url": "https://www.bilibili.com/video/BV1RayleaBot",
             "pub_ts": 1700000100,
@@ -353,20 +353,20 @@ class SubscriptionHubTests(unittest.TestCase):
     def test_bilibili_user_search_returns_multiple_candidates(self):
         plugin = SubscriptionHubPlugin()
         ctx = FakeContext(
-            args=["洛天依"],
+            args=["测试 UP"],
             http_responses=[self.user_search_response(results=[
-                {"mid": "36081646", "uname": "洛天依", "fans": 1280000, "upic": "//i0.hdslb.com/luotianyi.jpg"},
-                {"mid": "123456", "uname": "洛天依官方粉丝团", "fans": 2048},
+                {"mid": "1000001", "uname": "测试 UP", "fans": 1280000, "upic": "//i0.hdslb.com/test-up.jpg"},
+                {"mid": "123456", "uname": "测试 UP官方粉丝团", "fans": 2048},
             ])],
         )
 
         plugin.handle_bilibili_user_search(ctx)
 
-        self.assertEqual(ctx.http_requests[0]["url"], user_search_url("洛天依"))
+        self.assertEqual(ctx.http_requests[0]["url"], user_search_url("测试 UP"))
         self.assertEqual(ctx.results[-1], {"handled": True, "count": 2})
-        self.assertIn("Bilibili UP 搜索结果：洛天依", ctx.texts[0])
-        self.assertIn("1. 洛天依（UID 36081646）｜粉丝 128万", ctx.texts[0])
-        self.assertIn("2. 洛天依官方粉丝团（UID 123456）｜粉丝 2048", ctx.texts[0])
+        self.assertIn("Bilibili UP 搜索结果：测试 UP", ctx.texts[0])
+        self.assertIn("1. 测试 UP（UID 1000001）｜粉丝 128万", ctx.texts[0])
+        self.assertIn("2. 测试 UP官方粉丝团（UID 123456）｜粉丝 2048", ctx.texts[0])
 
     def test_bilibili_user_search_validates_usage(self):
         plugin = SubscriptionHubPlugin()
@@ -380,13 +380,13 @@ class SubscriptionHubTests(unittest.TestCase):
     def test_bilibili_user_search_not_found_omits_raw_response(self):
         plugin = SubscriptionHubPlugin()
         ctx = FakeContext(
-            args=["bronyaicu"],
+            args=["test-user"],
             http_responses=[self.user_search_response(results=[])],
         )
 
         plugin.handle_bilibili_user_search(ctx)
 
-        self.assertEqual(ctx.texts, ["没有搜索到 Bilibili 用户：bronyaicu"])
+        self.assertEqual(ctx.texts, ["没有搜索到 Bilibili 用户：test-user"])
         self.assertNotIn("HTTP 200", ctx.texts[0])
         self.assertNotIn('"code"', ctx.texts[0])
         self.assertEqual(ctx.results[-1], {"handled": True, "count": 0})
@@ -440,7 +440,7 @@ class SubscriptionHubTests(unittest.TestCase):
             summary_html='<span class="rich-text-topic">#转发#</span>',
             topic={
                 "id": 1156147,
-                "name": "BML-PLAY! 2026",
+                "name": "测试活动 2026",
                 "jump_url": "https://m.bilibili.com/topic-detail?topic_id=1156147",
             },
             original={
@@ -467,7 +467,7 @@ class SubscriptionHubTests(unittest.TestCase):
 
         self.assertEqual(update["service"], "repost")
         self.assertIn("rich-text-topic", update["summary_html"])
-        self.assertEqual(update["topic"]["name"], "BML-PLAY! 2026")
+        self.assertEqual(update["topic"]["name"], "测试活动 2026")
         self.assertEqual(update["topic"]["id"], 1156147)
         self.assertEqual(update["original"]["category"], "图文")
         self.assertIn("rich-text-topic", update["original"]["summary_html"])
@@ -507,9 +507,9 @@ class SubscriptionHubTests(unittest.TestCase):
 
         self.assertEqual(ctx.results[-1], {"handled": True, "sent": 1})
         self.assertEqual(ctx.render_calls[0]["template"], "bilibili-update")
-        self.assertEqual(ctx.render_calls[0]["data"]["title"], "真实直播标题")
+        self.assertEqual(ctx.render_calls[0]["data"]["title"], "测试直播标题")
         self.assertEqual(ctx.storage_sets, [{
-            "key": "seen:bilibili-123456-group-10000:live:live:123456:22913442:1700000000",
+            "key": "seen:bilibili-123456-group-10000:live:live:123456:10001:1700000000",
             "value": True,
         }])
         self.assertEqual(ctx.messages[0]["target_type"], "group")
@@ -522,7 +522,7 @@ class SubscriptionHubTests(unittest.TestCase):
             "services": ["live"],
         }]))
         plugin = SubscriptionHubPlugin()
-        storage = {"seen:bilibili-123456-group-10000:live:live:123456:22913442:1700000000": True}
+        storage = {"seen:bilibili-123456-group-10000:live:live:123456:10001:1700000000": True}
         ctx = FakeContext(config_values=settings, payload={"bilibili": self.live_event_payload()}, storage=storage)
 
         plugin.handle_bilibili_live_started(ctx)
@@ -555,26 +555,26 @@ class SubscriptionHubTests(unittest.TestCase):
         self.assertEqual(ctx.render_calls, [])
 
     def test_preview_url_parser_supports_video_opus_dynamic_and_live(self):
-        self.assertEqual(parse_preview_url("https://www.bilibili.com/video/BV1c5qEBjEtJ")["kind"], "video")
-        self.assertEqual(parse_preview_url("https://www.bilibili.com/opus/1194416231669563410")["kind"], "opus")
-        self.assertEqual(parse_preview_url("https://t.bilibili.com/1210053730841395205")["kind"], "dynamic")
-        self.assertEqual(parse_preview_url("https://live.bilibili.com/22913442")["kind"], "live")
+        self.assertEqual(parse_preview_url("https://www.bilibili.com/video/BV1RayleaBot")["kind"], "video")
+        self.assertEqual(parse_preview_url("https://www.bilibili.com/opus/100000000000000003")["kind"], "opus")
+        self.assertEqual(parse_preview_url("https://t.bilibili.com/100000000000000001")["kind"], "dynamic")
+        self.assertEqual(parse_preview_url("https://live.bilibili.com/10001")["kind"], "live")
 
     def test_preview_card_supports_t_bilibili_repost_link(self):
         plugin = SubscriptionHubPlugin()
         ctx = FakeContext(
-            args=["https://t.bilibili.com/1210053730841395205"],
+            args=["https://t.bilibili.com/100000000000000001"],
             http_responses=[self.dynamic_detail_response()],
         )
 
         plugin.handle_preview_card(ctx)
 
         self.assertEqual(ctx.texts, [])
-        self.assertEqual(ctx.http_requests[0]["url"], dynamic_detail_url("1210053730841395205"))
-        self.assertEqual(ctx.http_requests[0]["headers"]["Referer"], "https://t.bilibili.com/1210053730841395205")
+        self.assertEqual(ctx.http_requests[0]["url"], dynamic_detail_url("100000000000000001"))
+        self.assertEqual(ctx.http_requests[0]["headers"]["Referer"], "https://t.bilibili.com/100000000000000001")
         render_data = ctx.render_calls[0]["data"]
         self.assertEqual(render_data["service"], "转发")
-        self.assertEqual(render_data["original"]["title"], "【乐正绫ACE原创】你是我爱这世界的原因")
+        self.assertEqual(render_data["original"]["title"], "测试原创作品标题")
         self.assertIn("rich-text-topic", render_data["content_html"])
         self.assertIn("rich-text-emoji", render_data["content_html"])
         self.assertIn("rich-text-topic", render_data["original"]["summary_html"])
@@ -582,16 +582,16 @@ class SubscriptionHubTests(unittest.TestCase):
     def test_preview_card_supports_opus_topic_module(self):
         plugin = SubscriptionHubPlugin()
         ctx = FakeContext(
-            args=["https://www.bilibili.com/opus/1212948650493214729"],
+            args=["https://www.bilibili.com/opus/100000000000000002"],
             http_responses=[self.opus_detail_response()],
         )
 
         plugin.handle_preview_card(ctx)
 
         self.assertEqual(ctx.texts, [])
-        self.assertEqual(ctx.http_requests[0]["url"], opus_detail_url("1212948650493214729"))
+        self.assertEqual(ctx.http_requests[0]["url"], opus_detail_url("100000000000000002"))
         render_data = ctx.render_calls[0]["data"]
-        self.assertEqual(render_data["topic"]["name"], "BML-PLAY! 2026")
+        self.assertEqual(render_data["topic"]["name"], "测试活动 2026")
         self.assertEqual(render_data["topic"]["url"], "https://m.bilibili.com/topic-detail?topic_id=1156147")
         self.assertIn("rich-text-topic", render_data["content_html"])
         self.assertEqual(render_data["media_grid_class"], "media-grid--single")
@@ -631,7 +631,7 @@ class SubscriptionHubTests(unittest.TestCase):
     def test_preview_card_reports_unrecognized_dynamic_detail(self):
         plugin = SubscriptionHubPlugin()
         ctx = FakeContext(
-            args=["https://t.bilibili.com/1210053730841395205"],
+            args=["https://t.bilibili.com/100000000000000001"],
             http_responses=[{
                 "status_code": 200,
                 "body_text": json.dumps({"code": 0, "data": {"item": {}}}, ensure_ascii=False),
@@ -671,20 +671,20 @@ class SubscriptionHubTests(unittest.TestCase):
 
     def test_dynamic_updates_extract_opus_summary_rich_text(self):
         updates = dynamic_updates({"data": {"items": [{
-            "id_str": "1212948650493214729",
+            "id_str": "100000000000000002",
             "type": "DYNAMIC_TYPE_DRAW",
             "modules": {
-                "module_author": {"mid": "123456", "name": "洛天依", "pub_ts": 1700000000, "pub_time": "今天 12:00"},
+                "module_author": {"mid": "123456", "name": "测试 UP", "pub_ts": 1700000000, "pub_time": "今天 12:00"},
                 "module_dynamic": {
-                    "topic": {"name": "洛天依2026巡演"},
+                    "topic": {"name": "测试 UP2026巡演"},
                     "major": {
                         "type": "MAJOR_TYPE_OPUS",
                         "opus": {
                             "summary": {
-                                "text": "#BML-PLAY! 2026#\n线下演唱会，天依今年也来啦！[打call]",
+                                "text": "#测试活动 2026#\n线下演唱会，测试内容更新。[打call]",
                                 "rich_text_nodes": [
-                                    {"type": "RICH_TEXT_NODE_TYPE_WEB", "text": "#BML-PLAY! 2026#"},
-                                    {"type": "RICH_TEXT_NODE_TYPE_TEXT", "text": "\n线下演唱会，天依今年也来啦！"},
+                                    {"type": "RICH_TEXT_NODE_TYPE_WEB", "text": "#测试活动 2026#"},
+                                    {"type": "RICH_TEXT_NODE_TYPE_TEXT", "text": "\n线下演唱会，测试内容更新。"},
                                     {
                                         "type": "RICH_TEXT_NODE_TYPE_TEXT",
                                         "text": "[打call]",
@@ -701,9 +701,9 @@ class SubscriptionHubTests(unittest.TestCase):
 
         self.assertEqual(len(updates), 1)
         update = updates[0]
-        self.assertEqual(update["topic"]["name"], "洛天依2026巡演")
+        self.assertEqual(update["topic"]["name"], "测试 UP2026巡演")
         self.assertIn("rich-text-topic", update["summary_html"])
-        self.assertIn("#洛天依2026巡演#", update["summary_html"])
+        self.assertIn("#测试 UP2026巡演#", update["summary_html"])
         self.assertIn("rich-text-emoji", update["summary_html"])
         self.assertIn("https://i0.hdslb.com/bfs/emote/call.png", update["summary_html"])
         self.assertEqual(update["images"], [{"url": "https://i0.hdslb.com/bfs/new_dyn/single.jpg", "width": 900, "height": 1600}])
@@ -717,8 +717,8 @@ class SubscriptionHubTests(unittest.TestCase):
         self.assertIn("rich-text-topic", update["summary_html"])
         self.assertIn("rich-text-emoji", update["summary_html"])
         self.assertEqual(update["original"]["service"], "video")
-        self.assertEqual(update["original"]["title"], "【乐正绫ACE原创】你是我爱这世界的原因")
-        self.assertEqual(update["original"]["topic"]["name"], "洛天依")
+        self.assertEqual(update["original"]["title"], "测试原创作品标题")
+        self.assertEqual(update["original"]["topic"]["name"], "测试 UP")
         self.assertIn("rich-text-topic", update["original"]["summary_html"])
 
     def test_repost_event_fetches_original_before_render(self):
@@ -730,12 +730,12 @@ class SubscriptionHubTests(unittest.TestCase):
         ctx = FakeContext(
             config_values=settings,
             payload={"bilibili": self.dynamic_event_payload(
-                id="1210053730841395205",
+                id="100000000000000001",
                 service="repost",
                 title="转发动态",
-                summary="你是我爱这世界的原因",
-                url="https://t.bilibili.com/1210053730841395205",
-                author={"uid": "123456", "name": "乐正绫"},
+                summary="测试原创作品标题",
+                url="https://t.bilibili.com/100000000000000001",
+                author={"uid": "123456", "name": "测试转发用户"},
             )},
             http_responses=[self.dynamic_detail_response()],
         )
@@ -743,11 +743,11 @@ class SubscriptionHubTests(unittest.TestCase):
         plugin.handle_bilibili_dynamic_published(ctx)
 
         self.assertEqual(ctx.results[-1], {"handled": True, "sent": 1})
-        self.assertEqual(ctx.http_requests[0]["url"], dynamic_detail_url("1210053730841395205"))
-        self.assertEqual(ctx.http_requests[0]["headers"]["Referer"], "https://t.bilibili.com/1210053730841395205")
+        self.assertEqual(ctx.http_requests[0]["url"], dynamic_detail_url("100000000000000001"))
+        self.assertEqual(ctx.http_requests[0]["headers"]["Referer"], "https://t.bilibili.com/100000000000000001")
         render_data = ctx.render_calls[0]["data"]
-        self.assertEqual(render_data["original"]["title"], "【乐正绫ACE原创】你是我爱这世界的原因")
-        self.assertEqual(render_data["original"]["topic"]["name"], "洛天依")
+        self.assertEqual(render_data["original"]["title"], "测试原创作品标题")
+        self.assertEqual(render_data["original"]["topic"]["name"], "测试 UP")
         self.assertIn("rich-text-topic", render_data["content_html"])
         self.assertIn("rich-text-emoji", render_data["content_html"])
         self.assertIn("rich-text-topic", render_data["original"]["summary_html"])
@@ -761,12 +761,12 @@ class SubscriptionHubTests(unittest.TestCase):
         ctx = FakeContext(
             config_values=settings,
             payload={"bilibili": self.dynamic_event_payload(
-                id="1210053730841395205",
+                id="100000000000000001",
                 service="repost",
                 title="转发动态",
-                summary="你是我爱这世界的原因",
-                url="https://t.bilibili.com/1210053730841395205",
-                author={"uid": "123456", "name": "乐正绫"},
+                summary="测试原创作品标题",
+                url="https://t.bilibili.com/100000000000000001",
+                author={"uid": "123456", "name": "测试转发用户"},
             )},
             http_responses=[{
                 "status_code": 200,
@@ -795,7 +795,7 @@ class SubscriptionHubTests(unittest.TestCase):
         subscription = self.subscription_settings()["subscriptions"][0]
         render_data = build_render_data(subscription, self.dynamic_event_payload(
             topic={
-                "name": "BML-PLAY! 2026",
+                "name": "测试活动 2026",
                 "jump_url": "https://m.bilibili.com/topic-detail?topic_id=1156147",
             },
             original={
@@ -809,8 +809,8 @@ class SubscriptionHubTests(unittest.TestCase):
             },
         ))
 
-        self.assertEqual(render_data["topic"]["name"], "BML-PLAY! 2026")
-        self.assertEqual(render_data["topic"]["label"], "# BML-PLAY! 2026")
+        self.assertEqual(render_data["topic"]["name"], "测试活动 2026")
+        self.assertEqual(render_data["topic"]["label"], "# 测试活动 2026")
         self.assertEqual(render_data["original"]["topic"]["name"], "原动态话题")
 
 

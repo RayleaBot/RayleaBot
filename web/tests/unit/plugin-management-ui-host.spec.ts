@@ -698,11 +698,11 @@ describe('PluginManagementUIHost', () => {
           issues: [],
         }), { status: 200, headers: { 'content-type': 'application/json' } })
       }
-      if (url === '/api/bilibili/users/resolve?query=%E6%B4%9B%E5%A4%A9%E4%BE%9D') {
+      if (url === '/api/bilibili/users/resolve?query=%E6%B5%8B%E8%AF%95+UP') {
         return new Response(JSON.stringify({
-          query: '洛天依',
+          query: '测试 UP',
           exact: true,
-          user: { uid: '36081646', name: '洛天依', avatar_url: '' },
+          user: { uid: '1000001', name: '测试 UP', avatar_url: '' },
           candidates: [],
         }), { status: 200, headers: { 'content-type': 'application/json' } })
       }
@@ -779,7 +779,7 @@ describe('PluginManagementUIHost', () => {
       type: 'bilibili.user.resolve',
       request_id: 'req-bili',
       payload: {
-        query: '洛天依',
+        query: '测试 UP',
       },
     })
     await flushPromises()
@@ -788,7 +788,7 @@ describe('PluginManagementUIHost', () => {
       request_id: 'req-bili',
       payload: {
         exact: true,
-        user: { uid: '36081646', name: '洛天依' },
+        user: { uid: '1000001', name: '测试 UP' },
       },
     })
   })

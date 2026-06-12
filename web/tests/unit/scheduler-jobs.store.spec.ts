@@ -26,9 +26,9 @@ function makeSchedulerJob(overrides: Partial<SchedulerJobSummary> = {}): Schedul
     last_run: null,
     last_duration_ms: 0,
     payload_summary: {
-      conversation_id: 'group:879110321',
+      conversation_id: 'group:20001',
       target_type: 'group',
-      target_id: '879110321',
+      target_id: '20001',
       content: '每日天气推送',
     },
     stats: {

@@ -13,17 +13,17 @@
       "groups": [
         {
           "target_type": "group",
-          "target_id": "553855023",
-          "target_name": "群聊 放逐之城贴吧官方群",
-          "avatar_url": "https://p.qlogo.cn/gh/553855023/553855023/100"
+          "target_id": "20001",
+          "target_name": "群聊 测试群组",
+          "avatar_url": "https://p.qlogo.cn/gh/20001/20001/100"
         }
       ],
       "private_users": [
         {
           "target_type": "private",
-          "target_id": "2678980697",
-          "nickname": "董草风信子",
-          "avatar_url": "https://q1.qlogo.cn/g?b=qq&nk=2678980697&s=640"
+          "target_id": "30001",
+          "nickname": "测试用户",
+          "avatar_url": "https://q1.qlogo.cn/g?b=qq&nk=30001&s=640"
         }
       ],
       "issues": []

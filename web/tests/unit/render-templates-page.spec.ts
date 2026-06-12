@@ -27,7 +27,7 @@ const HELP_MENU_DEFAULT_PREVIEW_DATA = JSON.stringify({
     id: '10001',
   },
   group: {
-    name: 'RayleaBot 测试群',
+    name: '测试群组',
   },
   permission: {
     level: 'admin',
@@ -89,7 +89,7 @@ function createTemplateDetail(templateId = 'help.menu', updatedAt = '2026-04-18T
             items: [
               {
                 avatar_url: 'https://q1.qlogo.cn/g?b=qq&nk=10001&s=100',
-                group_nickname: '银蝶',
+                group_nickname: '测试群名片',
                 nickname: 'Silver',
                 title: '群主',
                 value: 128,
@@ -538,7 +538,7 @@ describe('RenderTemplatesView', () => {
           items: [
             {
               avatar_url: 'https://q1.qlogo.cn/g?b=qq&nk=10001&s=100',
-              group_nickname: '银蝶',
+              group_nickname: '测试群名片',
               nickname: 'Silver',
               title: '群主',
               value: 128,

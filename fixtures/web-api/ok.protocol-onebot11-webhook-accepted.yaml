@@ -9,7 +9,7 @@ request:
   body:
     post_type: message
     message_type: private
-    self_id: 2609164374
+    self_id: 30003
     user_id: 20001
     message_id: 1001
     raw_message: hello

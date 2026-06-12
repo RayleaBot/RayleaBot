@@ -991,7 +991,7 @@ func TestHandleAdapterEventSendsBuiltinMenuImageWithoutPluginDispatch(t *testing
 	application.handleAdapterEvent(context.Background(), adapter.NormalizedEvent{
 		Kind:             adapter.EventKindMessage,
 		EventID:          "evt-builtin-menu",
-		BotID:            "1145141919",
+		BotID:            "10001",
 		SourceProtocol:   "onebot11",
 		SourceAdapter:    "adapter.onebot11",
 		EventType:        "message.group",
@@ -1024,7 +1024,7 @@ func TestHandleAdapterEventSendsBuiltinMenuImageWithoutPluginDispatch(t *testing
 		t.Fatalf("builtin menu dispatched to plugins %d times", dispatcher.deliverCount)
 	}
 	summary := waitForAppLog(t, stream, func(summary logging.Summary) bool {
-		return summary.Message == "1145141919: [测试群(20001)]群名片/普通昵称(10002): /help"
+		return summary.Message == "10001: [测试群(20001)]群名片/普通昵称(10002): /help"
 	})
 	if summary.Level != "info" || summary.Source != "bridge" || summary.Protocol != logging.ProtocolOneBot11 {
 		t.Fatalf("unexpected builtin menu trigger log: %+v", summary)

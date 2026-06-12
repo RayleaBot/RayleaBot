@@ -74,20 +74,20 @@ func TestNormalizeSupportedEventMessageGroupCarriesOneBotFields(t *testing.T) {
 		PostType:      "message",
 		MessageType:   "group",
 		SubType:       "normal",
-		SelfID:        721011692,
-		UserID:        721011692,
-		GroupID:       860105388,
+		SelfID:        10001,
+		UserID:        10001,
+		GroupID:       20001,
 		Time:          1729679125,
-		MessageID:     966671988,
-		RealID:        966671988,
-		MessageSeq:    966671988,
+		MessageID:     40001,
+		RealID:        40001,
+		MessageSeq:    40001,
 		GroupName:     "测试群",
 		RawMessage:    "您好",
 		Font:          14,
 		MessageFormat: "array",
 		Message:       []byte(`[{"type":"text","data":{"text":"您好"}}]`),
 		Sender: &senderObject{
-			UserID:   721011692,
+			UserID:   10001,
 			Nickname: "--",
 			Card:     "",
 			Role:     "owner",
@@ -100,10 +100,10 @@ func TestNormalizeSupportedEventMessageGroupCarriesOneBotFields(t *testing.T) {
 	if event.EventType != "message.group" {
 		t.Fatalf("unexpected event type: %q", event.EventType)
 	}
-	if event.MessageID != "966671988" {
+	if event.MessageID != "40001" {
 		t.Fatalf("unexpected message id: %q", event.MessageID)
 	}
-	if event.ConversationID != "860105388" {
+	if event.ConversationID != "20001" {
 		t.Fatalf("unexpected conversation id: %q", event.ConversationID)
 	}
 	if event.Timestamp != 1729679125 {
@@ -113,19 +113,19 @@ func TestNormalizeSupportedEventMessageGroupCarriesOneBotFields(t *testing.T) {
 	if !ok {
 		t.Fatalf("missing onebot payload: %#v", event.PayloadFields)
 	}
-	if got := onebot["group_id"]; got != "860105388" {
+	if got := onebot["group_id"]; got != "20001" {
 		t.Fatalf("unexpected group_id: %#v", got)
 	}
 	if got := onebot["group_name"]; got != "测试群" {
 		t.Fatalf("unexpected group_name: %#v", got)
 	}
-	if got := onebot["message_id"]; got != "966671988" {
+	if got := onebot["message_id"]; got != "40001" {
 		t.Fatalf("unexpected message_id: %#v", got)
 	}
-	if got := onebot["real_id"]; got != "966671988" {
+	if got := onebot["real_id"]; got != "40001" {
 		t.Fatalf("unexpected real_id: %#v", got)
 	}
-	if got := onebot["message_seq"]; got != "966671988" {
+	if got := onebot["message_seq"]; got != "40001" {
 		t.Fatalf("unexpected message_seq: %#v", got)
 	}
 	if got := onebot["time"]; got != int64(1729679125) {
@@ -156,17 +156,17 @@ func TestNormalizeSupportedEventMessageGroupSanitizesUnsafeUserControlledText(t 
 		PostType:      "message",
 		MessageType:   "group",
 		SubType:       "normal",
-		SelfID:        721011692,
-		UserID:        721011692,
-		GroupID:       860105388,
+		SelfID:        10001,
+		UserID:        10001,
+		GroupID:       20001,
 		Time:          1729679125,
-		MessageID:     966671988,
+		MessageID:     40001,
 		RawMessage:    "hello\u2066 world",
 		Font:          14,
 		MessageFormat: "array",
 		Message:       []byte(`[{"type":"text","data":{"text":"hello\u2066 world"}},{"type":"image","data":{"file":"https://example.com/\u202eimage.png"}}]`),
 		Sender: &senderObject{
-			UserID:   721011692,
+			UserID:   10001,
 			Nickname: "昵称\u2066",
 			Card:     "群名片\u202e",
 			Role:     "owner",
@@ -221,19 +221,19 @@ func TestNormalizeSupportedEventMessageSentGroup(t *testing.T) {
 		PostType:      "message_sent",
 		MessageType:   "group",
 		SubType:       "normal",
-		SelfID:        721011692,
-		UserID:        721011692,
-		GroupID:       860105388,
+		SelfID:        10001,
+		UserID:        10001,
+		GroupID:       20001,
 		Time:          1729679125,
-		MessageID:     966671988,
-		RealID:        966671988,
-		MessageSeq:    966671988,
+		MessageID:     40001,
+		RealID:        40001,
+		MessageSeq:    40001,
 		RawMessage:    "您好",
 		Font:          14,
 		MessageFormat: "array",
 		Message:       []byte(`[{"type":"text","data":{"text":"您好"}}]`),
 		Sender: &senderObject{
-			UserID:   721011692,
+			UserID:   10001,
 			Nickname: "--",
 			Role:     "owner",
 		},
@@ -247,7 +247,7 @@ func TestNormalizeSupportedEventMessageSentGroup(t *testing.T) {
 	if event.EventType != "message_sent.group" {
 		t.Fatalf("unexpected event type: %q", event.EventType)
 	}
-	if event.ConversationType != "group" || event.ConversationID != "860105388" {
+	if event.ConversationType != "group" || event.ConversationID != "20001" {
 		t.Fatalf("unexpected conversation: %#v", event)
 	}
 	onebot, ok := event.PayloadFields["onebot"].(map[string]any)

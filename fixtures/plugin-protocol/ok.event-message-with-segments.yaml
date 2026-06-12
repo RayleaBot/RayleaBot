@@ -14,12 +14,12 @@ frames:
       timestamp: 1710000010
       actor:
         id: "100001"
-        nickname: Alice
+        nickname: 测试用户A
         role: admin
       target:
         type: group
         id: "200001"
-        name: 开发群
+        name: 测试群组
       payload:
         command: echo
         args:
@@ -42,8 +42,8 @@ frames:
           font: 14
           sender:
             user_id: "100001"
-            nickname: Alice
-            card: Alice
+            nickname: 测试用户A
+            card: 测试用户A
             role: admin
       message:
         segments:

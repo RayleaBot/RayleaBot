@@ -28,7 +28,7 @@
       }
     },
     "admin": {
-      "super_admins": ["123456789"],
+      "super_admins": ["30001"],
       "session_ttl_days": 7,
       "sliding_renewal": true,
       "max_sessions": 3,

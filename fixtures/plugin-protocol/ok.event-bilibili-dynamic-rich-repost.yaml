@@ -31,8 +31,8 @@ frames:
             avatar: "https://i0.hdslb.com/bfs/face/up.jpg"
           topic:
             id: 1156147
-            name: BML-PLAY! 2026
-            jump_url: "https://m.bilibili.com/topic-detail?topic_id=1156147&topic_name=BML-PLAY%21%202026"
+            name: 测试活动 2026
+            jump_url: "https://m.bilibili.com/topic-detail?topic_id=1156147&topic_name=%E6%B5%8B%E8%AF%95%E6%B4%BB%E5%8A%A8%202026"
           original:
             id: "80001"
             service: image_text

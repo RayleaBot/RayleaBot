@@ -125,7 +125,7 @@ function sourceStatus(overrides: Partial<BilibiliSourceStatusResponse> = {}): Bi
         configured: true,
         profile: {
           uid: '123456',
-          nickname: '主账号昵称',
+          nickname: '测试账号昵称',
           avatar_url: '',
         },
         credential: {

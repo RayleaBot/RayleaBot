@@ -176,7 +176,7 @@ func TestLogsListReturnsProtocolFilteredSummaries(t *testing.T) {
 			Timestamp: "2026-03-20T10:00:02Z",
 			Level:     "info",
 			Source:    "bridge",
-			Message:   "721011692: [测试群(2001)]管理员/Alice(3001): hello bridge",
+			Message:   "10001: [测试群(2001)]管理员/测试用户A(3001): hello bridge",
 			RequestID: "req_bridge_0001",
 		},
 		{
@@ -237,7 +237,7 @@ func TestLogsListReturnsOutboundProtocolFilteredSummaries(t *testing.T) {
 			Timestamp: "2026-04-10T09:18:01Z",
 			Level:     "warn",
 			Source:    "adapter.onebot11",
-			Message:   "echo/echo -> Alice(3001) 发送失败：hello world",
+			Message:   "echo/echo -> 测试用户A(3001) 发送失败：hello world",
 			PluginID:  "raylea.echo",
 			RequestID: "req_runtime_delivery_0002",
 		},
@@ -444,7 +444,7 @@ func TestLogsListReturnsCurrentSessionScope(t *testing.T) {
 			Timestamp: "2026-03-20T10:00:02Z",
 			Level:     "info",
 			Source:    "bridge",
-			Message:   "721011692: [测试群(2001)]管理员/Alice(3001): hello bridge",
+			Message:   "10001: [测试群(2001)]管理员/测试用户A(3001): hello bridge",
 			RequestID: "req_current_scope",
 		},
 	} {
@@ -474,7 +474,7 @@ func TestLogsListReturnsCurrentSessionScope(t *testing.T) {
 	if len(items) != 3 {
 		t.Fatalf("unexpected current session logs count: %#v", items)
 	}
-	if items[0].(map[string]any)["message"] != "721011692: [测试群(2001)]管理员/Alice(3001): hello bridge" {
+	if items[0].(map[string]any)["message"] != "10001: [测试群(2001)]管理员/测试用户A(3001): hello bridge" {
 		t.Fatalf("unexpected first current session item: %#v", items[0])
 	}
 	if items[1].(map[string]any)["message"] != "plugin runtime stderr truncated" {
@@ -914,7 +914,7 @@ func TestLogDetailReturnsStructuredDetails(t *testing.T) {
 		Timestamp: "2026-03-20T10:00:02Z",
 		Level:     "info",
 		Source:    "bridge",
-		Message:   "721011692: [测试群(2001)]管理员/Alice(3001): hello bridge",
+		Message:   "10001: [测试群(2001)]管理员/测试用户A(3001): hello bridge",
 		RequestID: "req_bridge_0001",
 		Details: map[string]any{
 			"direction":         "inbound",
@@ -923,7 +923,7 @@ func TestLogDetailReturnsStructuredDetails(t *testing.T) {
 			"post_type":         "message",
 			"message_type":      "group",
 			"event_timestamp":   float64(1711015202),
-			"self_id":           "721011692",
+			"self_id":           "10001",
 			"time":              float64(1711015202),
 			"conversation_type": "group",
 			"conversation_id":   "2001",
@@ -931,7 +931,7 @@ func TestLogDetailReturnsStructuredDetails(t *testing.T) {
 			"group_id":          "2001",
 			"sender_id":         "3001",
 			"user_id":           "3001",
-			"sender_nickname":   "Alice",
+			"sender_nickname":   "测试用户A",
 			"sender_card":       "管理员",
 			"sender_role":       "admin",
 			"message_id":        "1001",
@@ -943,7 +943,7 @@ func TestLogDetailReturnsStructuredDetails(t *testing.T) {
 			"plain_text":        "hello bridge",
 			"sender": map[string]any{
 				"user_id":  "3001",
-				"nickname": "Alice",
+				"nickname": "测试用户A",
 				"card":     "管理员",
 				"role":     "admin",
 			},
@@ -1005,7 +1005,7 @@ func TestLogDetailReturnsOutboundStructuredDetail(t *testing.T) {
 			"target_type":   "group",
 			"target_id":     "2001",
 			"plain_text":    "hello world",
-			"message_id":    "966671988",
+			"message_id":    "40001",
 			"segments": []any{
 				map[string]any{
 					"type": "text",
@@ -1158,18 +1158,18 @@ func TestLogDetailFallsBackToLiveStreamWhenRepositoryMissesNewLog(t *testing.T) 
 		Timestamp: "2026-04-09T20:51:46Z",
 		Level:     "info",
 		Source:    "bridge",
-		Message:   "721011692: [测试群(860105388)]Alice(3001): 装修臭头大",
+		Message:   "10001: [测试群(20001)]测试用户A(3001): 测试消息内容",
 		RequestID: "dispatch_1775739204056693800",
 		Details: map[string]any{
 			"direction":       "inbound",
 			"event_type":      "message.group",
-			"self_id":         "721011692",
-			"conversation_id": "860105388",
+			"self_id":         "10001",
+			"conversation_id": "20001",
 			"group_name":      "测试群",
-			"group_id":        "860105388",
+			"group_id":        "20001",
 			"sender_id":       "3001",
-			"sender_nickname": "Alice",
-			"plain_text":      "装修臭头大",
+			"sender_nickname": "测试用户A",
+			"plain_text":      "测试消息内容",
 		},
 	})
 
@@ -1199,10 +1199,10 @@ func TestLogDetailFallsBackToLiveStreamWhenRepositoryMissesNewLog(t *testing.T) 
 	if !ok {
 		t.Fatalf("expected fallback details map, got %#v", body["details"])
 	}
-	if details["plain_text"] != "装修臭头大" {
+	if details["plain_text"] != "测试消息内容" {
 		t.Fatalf("unexpected fallback details: %#v", details)
 	}
-	if details["self_id"] != "721011692" {
+	if details["self_id"] != "10001" {
 		t.Fatalf("unexpected self_id detail: %#v", details["self_id"])
 	}
 	if details["group_name"] != "测试群" {
@@ -1218,7 +1218,7 @@ func TestLogDetailFallsBackToLiveStreamWhenRepositoryMissesNewLog(t *testing.T) 
 	if !ok {
 		t.Fatalf("expected compacted sender map, got %#v", details["sender"])
 	}
-	if sender["user_id"] != "3001" || sender["nickname"] != "Alice" {
+	if sender["user_id"] != "3001" || sender["nickname"] != "测试用户A" {
 		t.Fatalf("unexpected compacted sender details: %#v", sender)
 	}
 }
@@ -1237,14 +1237,14 @@ func TestLogDetailFallbackSanitizesUnsafeOneBotText(t *testing.T) {
 		Timestamp: "2026-04-09T20:51:46Z",
 		Level:     "info",
 		Source:    "bridge",
-		Message:   "721011692: [860105388]群星怒\u2066~喵(3001): hello\u202eworld",
+		Message:   "10001: [20001]测试群名片\u2066~喵(3001): hello\u202eworld",
 		RequestID: "dispatch_1775739204056693801",
 		Details: map[string]any{
 			"direction":       "inbound",
 			"event_type":      "message.group",
-			"self_id":         "721011692",
-			"conversation_id": "860105388",
-			"sender_nickname": "群星怒\u2066~喵",
+			"self_id":         "10001",
+			"conversation_id": "20001",
+			"sender_nickname": "测试群名片\u2066~喵",
 			"plain_text":      "hello\u202eworld",
 		},
 	})
@@ -1268,7 +1268,7 @@ func TestLogDetailFallbackSanitizesUnsafeOneBotText(t *testing.T) {
 	}
 
 	body := decodeBody(t, readAll(t, response))
-	if body["message"] != "721011692: [860105388]群星怒~喵(3001): helloworld" {
+	if body["message"] != "10001: [20001]测试群名片~喵(3001): helloworld" {
 		t.Fatalf("unexpected sanitized fallback message: %#v", body["message"])
 	}
 	details, ok := body["details"].(map[string]any)
@@ -1278,14 +1278,14 @@ func TestLogDetailFallbackSanitizesUnsafeOneBotText(t *testing.T) {
 	if details["plain_text"] != "helloworld" {
 		t.Fatalf("unexpected sanitized fallback details: %#v", details)
 	}
-	if details["self_id"] != "721011692" {
+	if details["self_id"] != "10001" {
 		t.Fatalf("unexpected sanitized self_id detail: %#v", details["self_id"])
 	}
 	sender, ok := details["sender"].(map[string]any)
 	if !ok {
 		t.Fatalf("expected compacted sender map, got %#v", details["sender"])
 	}
-	if sender["nickname"] != "群星怒~喵" {
+	if sender["nickname"] != "测试群名片~喵" {
 		t.Fatalf("unexpected sanitized fallback sender: %#v", sender)
 	}
 }
@@ -1387,7 +1387,7 @@ func commandRejectionEvent() adapter.NormalizedEvent {
 				"raw_message":    "/echo",
 				"message_format": "array",
 				"sender": map[string]any{
-					"nickname": "Alice",
+					"nickname": "测试用户A",
 				},
 			},
 		},
@@ -1539,34 +1539,34 @@ func TestLogsListReadsPersistedBridgeMessageAcrossRestart(t *testing.T) {
 
 	event := adapter.NormalizedEvent{
 		Kind:             adapter.EventKindMessageText,
-		EventID:          "onebot11-message-899582563",
-		BotID:            "1145141919",
+		EventID:          "onebot11-message-40002",
+		BotID:            "10001",
 		SourceProtocol:   "onebot11",
 		SourceAdapter:    "adapter.onebot11",
 		EventType:        "message.group",
 		Timestamp:        time.Date(2026, 4, 14, 23, 59, 34, 0, time.FixedZone("CST", 8*3600)).Unix(),
 		ConversationType: "group",
-		ConversationID:   "553855023",
-		SenderID:         "1358252269",
-		PlainText:        "标题: 终末地困困小猫的一天 作者: 半截扣子w#32270458",
-		MessageID:        "899582563",
-		TargetName:       "终末地摸鱼群",
+		ConversationID:   "20001",
+		SenderID:         "30001",
+		PlainText:        "标题: 测试动态标题 作者: 测试作者#40003",
+		MessageID:        "40002",
+		TargetName:       "测试群组",
 		PayloadFields: map[string]any{
 			"onebot": map[string]any{
 				"post_type":      "message",
 				"message_type":   "group",
-				"group_id":       "553855023",
-				"user_id":        "1358252269",
-				"time":           float64(1776009574),
-				"message_id":     "899582563",
-				"real_id":        "899582563",
+				"group_id":       "20001",
+				"user_id":        "30001",
+				"time":           float64(1710000900),
+				"message_id":     "40002",
+				"real_id":        "40002",
 				"message_seq":    "1306315",
-				"raw_message":    "标题: 终末地困困小猫的一天 作者: 半截扣子w#32270458",
+				"raw_message":    "标题: 测试动态标题 作者: 测试作者#40003",
 				"message_format": "array",
 				"font":           float64(14),
 				"sender": map[string]any{
 					"nickname": "。",
-					"card":     "群星怒，大明云玩家",
+					"card":     "测试群名片，测试用户昵称",
 					"role":     "member",
 					"title":    "管理员",
 				},
@@ -1601,7 +1601,7 @@ func TestLogsListReadsPersistedBridgeMessageAcrossRestart(t *testing.T) {
 	if bridgeItem == nil {
 		t.Fatalf("expected a persisted bridge log after restart, got %#v", bridgeItems)
 	}
-	if !strings.Contains(bridgeItem["message"].(string), "1145141919: [终末地摸鱼群(553855023)][管理员]") {
+	if !strings.Contains(bridgeItem["message"].(string), "10001: [测试群组(20001)][管理员]") {
 		t.Fatalf("unexpected persisted bridge message: %#v", bridgeItem["message"])
 	}
 
@@ -1610,7 +1610,7 @@ func TestLogsListReadsPersistedBridgeMessageAcrossRestart(t *testing.T) {
 	foundBridge := false
 	for _, raw := range protocolItems {
 		item := raw.(map[string]any)
-		if item["source"] == "bridge" && strings.Contains(item["message"].(string), "1145141919: [终末地摸鱼群(553855023)][管理员]") {
+		if item["source"] == "bridge" && strings.Contains(item["message"].(string), "10001: [测试群组(20001)][管理员]") {
 			foundBridge = true
 			break
 		}

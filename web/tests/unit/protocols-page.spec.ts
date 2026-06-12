@@ -148,7 +148,7 @@ describe('ProtocolsPage', () => {
           app_name: 'NapCat.Onebot',
           protocol_version: 'v11',
           app_version: '1.0.0',
-          user_id: '12345678',
+          user_id: '10001',
           nickname: 'TestBot',
         },
         { transport: 'http_api', enabled: false, configured: false, endpoint: '', state: 'idle', summary: '未启用' },
@@ -189,7 +189,7 @@ describe('ProtocolsPage', () => {
     expect(wrapper.text()).toContain('NapCat.Onebot')
     expect(wrapper.text()).toContain('v11 / 1.0.0')
     expect(wrapper.text()).toContain('登录账号')
-    expect(wrapper.text()).toContain('12345678 / TestBot')
+    expect(wrapper.text()).toContain('10001 / TestBot')
     expect(wrapper.text()).toContain('传输异常')
     expect(wrapper.text()).toContain('主动连接 WebSocket')
     expect(wrapper.text()).toContain('主动连接鉴权失败')

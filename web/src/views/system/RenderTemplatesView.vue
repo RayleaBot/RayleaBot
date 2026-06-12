@@ -246,7 +246,7 @@ function buildDefaultPreviewData(templateId: string, schema: Record<string, unkn
         id: '10001',
       },
       group: {
-        name: 'RayleaBot 测试群',
+        name: '测试群组',
       },
       permission: {
         level: 'admin',

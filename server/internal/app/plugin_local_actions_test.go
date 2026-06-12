@@ -1611,7 +1611,7 @@ func TestExecuteRenderImageInjectsGroupIdentityFromParentEvent(t *testing.T) {
 		Target: &runtime.EventTarget{
 			Type: "group",
 			ID:   "2001",
-			Name: "放逐之城贴吧官方联动测试长群名",
+			Name: "长名称测试群组",
 		},
 		PayloadFields: map[string]any{
 			"onebot": map[string]any{
@@ -1631,7 +1631,7 @@ func TestExecuteRenderImageInjectsGroupIdentityFromParentEvent(t *testing.T) {
 	}
 
 	html := runner.lastHTML()
-	for _, want := range []string{"群名片", "专属头衔", `<span class="identity-title"`, "ID 30001", "放逐之城贴吧官方联动测试长群名", "超级管理员", `<span class="permission-badge`, "nk=30001"} {
+	for _, want := range []string{"群名片", "专属头衔", `<span class="identity-title"`, "ID 30001", "长名称测试群组", "超级管理员", `<span class="permission-badge`, "nk=30001"} {
 		if !strings.Contains(html, want) {
 			t.Fatalf("rendered html missing %q:\n%s", want, html)
 		}
@@ -1891,7 +1891,7 @@ func TestExecuteRenderImageAppliesIdentityBadgeRulesToStatusPanel(t *testing.T) 
 		t.Fatalf("status private super admin rendered html missing badge:\n%s", superHTML)
 	}
 
-	longGroupName := "放逐之城贴吧官方联动测试长群名"
+	longGroupName := "长名称测试群组"
 	groupHTML := renderStatus("req_render_status_group", runtime.Event{
 		EventID:        "event-render-status-group",
 		SourceProtocol: "onebot11",
@@ -1978,13 +1978,13 @@ func TestExecuteRenderImageLeavesNonIdentityTemplateDataUnchanged(t *testing.T) 
 		Timestamp:      time.Now().Unix(),
 		Actor: &runtime.EventActor{
 			ID:       "30003",
-			Nickname: "真实昵称",
+			Nickname: "外部昵称",
 			Role:     "owner",
 		},
 		Target: &runtime.EventTarget{
 			Type: "group",
 			ID:   "2003",
-			Name: "真实群",
+			Name: "外部群组",
 		},
 	})
 	if err != nil {
@@ -1997,7 +1997,7 @@ func TestExecuteRenderImageLeavesNonIdentityTemplateDataUnchanged(t *testing.T) 
 			t.Fatalf("plain template html missing plugin field %q:\n%s", want, html)
 		}
 	}
-	for _, unwanted := range []string{"真实昵称", "真实群", "owner"} {
+	for _, unwanted := range []string{"外部昵称", "外部群组", "owner"} {
 		if strings.Contains(html, unwanted) {
 			t.Fatalf("plain template html contains injected identity field %q:\n%s", unwanted, html)
 		}

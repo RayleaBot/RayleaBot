@@ -25,10 +25,10 @@ func TestShellReachesConnectedAfterReadyFrame(t *testing.T) {
 	t.Parallel()
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if got := r.Header.Get("Authorization"); got != "Bearer secret-token" {
+		if got := r.Header.Get("Authorization"); got != "Bearer test-token" {
 			t.Errorf("unexpected Authorization header: %q", got)
 		}
-		if got := r.URL.Query().Get("access_token"); got != "secret-token" {
+		if got := r.URL.Query().Get("access_token"); got != "test-token" {
 			t.Errorf("unexpected access_token query parameter: %q", got)
 		}
 
@@ -54,7 +54,7 @@ func TestShellReachesConnectedAfterReadyFrame(t *testing.T) {
 	}))
 	defer server.Close()
 
-	shell := newTestShell(oneBotForwardWSWithToken(wsURL(server.URL), "secret-token"), shellDeps{
+	shell := newTestShell(oneBotForwardWSWithToken(wsURL(server.URL), "test-token"), shellDeps{
 		connectTimeout: 75 * time.Millisecond,
 		sleep:          blockingSleep,
 	})
@@ -393,8 +393,8 @@ func TestShellHeartbeatUpdatesIntakeObservability(t *testing.T) {
 			"post_type":       "meta_event",
 			"meta_event_type": "heartbeat",
 			"interval":        1000,
-			"self_id":         2609164374,
-			"time":            1775656456,
+			"self_id":         30003,
+			"time":            30004,
 			"status": map[string]any{
 				"good":   true,
 				"online": true,
@@ -437,8 +437,8 @@ func TestShellHeartbeatUpdatesIntakeObservability(t *testing.T) {
 	if snapshot.State != StateConnected {
 		t.Fatalf("unexpected state after structured heartbeat: got %s want %s", snapshot.State, StateConnected)
 	}
-	if snapshot.BotID != "2609164374" {
-		t.Fatalf("unexpected bot id from heartbeat: got %q want %q", snapshot.BotID, "2609164374")
+	if snapshot.BotID != "30003" {
+		t.Fatalf("unexpected bot id from heartbeat: got %q want %q", snapshot.BotID, "30003")
 	}
 
 	stopCtx, stopCancel := context.WithTimeout(context.Background(), time.Second)
@@ -466,7 +466,7 @@ func TestShellTreatsLifecycleConnectAsReadyAndKeepsSessionOpen(t *testing.T) {
 			"post_type":       "meta_event",
 			"meta_event_type": "lifecycle",
 			"sub_type":        "connect",
-			"self_id":         2609164374,
+			"self_id":         30003,
 		}); err != nil {
 			t.Errorf("wsjson.Write failed: %v", err)
 			return
@@ -498,8 +498,8 @@ func TestShellTreatsLifecycleConnectAsReadyAndKeepsSessionOpen(t *testing.T) {
 	if snapshot.LastFrameType != "meta.lifecycle.connect" {
 		t.Fatalf("unexpected last frame type: got %q want %q", snapshot.LastFrameType, "meta.lifecycle.connect")
 	}
-	if snapshot.BotID != "2609164374" {
-		t.Fatalf("unexpected bot id: got %q want %q", snapshot.BotID, "2609164374")
+	if snapshot.BotID != "30003" {
+		t.Fatalf("unexpected bot id: got %q want %q", snapshot.BotID, "30003")
 	}
 
 	stopCtx, stopCancel := context.WithTimeout(context.Background(), time.Second)

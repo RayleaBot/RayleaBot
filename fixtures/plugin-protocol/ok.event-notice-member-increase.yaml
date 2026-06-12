@@ -14,12 +14,12 @@ frames:
       timestamp: 1710000020
       actor:
         id: "100003"
-        nickname: Bob
+        nickname: 测试用户B
         role: member
       target:
         type: group
         id: "200001"
-        name: 开发群
+        name: 测试群组
       payload:
         sub_type: approve
         operator_id: "100001"

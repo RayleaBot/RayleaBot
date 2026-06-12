@@ -255,13 +255,13 @@ func TestBuildEventFrameIncludesOneBotPayload(t *testing.T) {
 		EventType:      "message_sent.group",
 		Timestamp:      1_729_679_125,
 		Actor: &EventActor{
-			ID:       "721011692",
+			ID:       "10001",
 			Nickname: "--",
 			Role:     "owner",
 		},
 		Target: &EventTarget{
 			Type: "group",
-			ID:   "860105388",
+			ID:   "20001",
 		},
 		Message: &EventMessage{
 			PlainText: "您好",
@@ -270,24 +270,24 @@ func TestBuildEventFrameIncludesOneBotPayload(t *testing.T) {
 				Data: map[string]any{"text": "您好"},
 			}},
 		},
-		MessageID: "966671988",
+		MessageID: "40001",
 		PayloadFields: map[string]any{
 			"sub_type": "normal",
 			"onebot": map[string]any{
 				"post_type":      "message_sent",
 				"message_type":   "group",
-				"self_id":        "721011692",
-				"user_id":        "721011692",
-				"group_id":       "860105388",
+				"self_id":        "10001",
+				"user_id":        "10001",
+				"group_id":       "20001",
 				"time":           int64(1_729_679_125),
-				"message_id":     "966671988",
-				"real_id":        "966671988",
-				"message_seq":    "966671988",
+				"message_id":     "40001",
+				"real_id":        "40001",
+				"message_seq":    "40001",
 				"raw_message":    "您好",
 				"font":           14,
 				"message_format": "array",
 				"sender": map[string]any{
-					"user_id":  "721011692",
+					"user_id":  "10001",
 					"nickname": "--",
 					"role":     "owner",
 				},
@@ -298,13 +298,13 @@ func TestBuildEventFrameIncludesOneBotPayload(t *testing.T) {
 	if frame.Event.Payload == nil || frame.Event.Payload.OneBot == nil {
 		t.Fatalf("expected onebot payload, got %#v", frame.Event.Payload)
 	}
-	if frame.Event.Payload.MessageID != "966671988" {
+	if frame.Event.Payload.MessageID != "40001" {
 		t.Fatalf("unexpected payload message_id: %#v", frame.Event.Payload.MessageID)
 	}
 	if frame.Event.Payload.OneBot.PostType != "message_sent" {
 		t.Fatalf("unexpected onebot post_type: %#v", frame.Event.Payload.OneBot)
 	}
-	if frame.Event.Payload.OneBot.GroupID != "860105388" {
+	if frame.Event.Payload.OneBot.GroupID != "20001" {
 		t.Fatalf("unexpected onebot group_id: %#v", frame.Event.Payload.OneBot)
 	}
 	if frame.Event.Payload.OneBot.Time != 1_729_679_125 {
@@ -336,7 +336,7 @@ func TestBuildEventFrameIncludesBilibiliRichDynamicPayload(t *testing.T) {
 				"url":          "https://t.bilibili.com/90002/",
 				"topic": map[string]any{
 					"id":       int64(1156147),
-					"name":     "BML-PLAY! 2026",
+					"name":     "测试活动 2026",
 					"jump_url": "https://m.bilibili.com/topic-detail?topic_id=1156147",
 				},
 				"author": map[string]any{
@@ -381,7 +381,7 @@ func TestBuildEventFrameIncludesBilibiliRichDynamicPayload(t *testing.T) {
 	if payload.SummaryHTML == "" || payload.Original == nil {
 		t.Fatalf("unexpected bilibili rich payload: %#v", payload)
 	}
-	if payload.Topic == nil || payload.Topic.Name != "BML-PLAY! 2026" || payload.Topic.ID != 1156147 {
+	if payload.Topic == nil || payload.Topic.Name != "测试活动 2026" || payload.Topic.ID != 1156147 {
 		t.Fatalf("unexpected bilibili topic payload: %#v", payload.Topic)
 	}
 	if payload.Original.Author.UID != "654321" || payload.Original.SummaryHTML == "" {
@@ -405,17 +405,17 @@ func TestBuildEventFrameIncludesMetaOneBotPayload(t *testing.T) {
 		EventType:      "meta.heartbeat",
 		Timestamp:      1_729_679_130,
 		Actor: &EventActor{
-			ID: "721011692",
+			ID: "10001",
 		},
 		Target: &EventTarget{
 			Type: "bot",
-			ID:   "721011692",
+			ID:   "10001",
 		},
 		PayloadFields: map[string]any{
 			"onebot": map[string]any{
 				"post_type":       "meta_event",
 				"meta_event_type": "heartbeat",
-				"self_id":         "721011692",
+				"self_id":         "10001",
 				"time":            int64(1_729_679_130),
 				"interval":        5000,
 				"status": map[string]any{

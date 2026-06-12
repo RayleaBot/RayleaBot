@@ -1612,7 +1612,7 @@ test('unsafe OneBot text stays escaped in current logs and history logs', async 
         source: 'bridge',
         protocol: 'onebot11',
         request_id: 'req_bridge_unsafe_0001',
-        message: '721011692: [760384342]群星怒\u2066，大明云玩家\u202e~喵\u2069/没错，是魔法！(2896109796): 除了战猎这种抓不到加费就完全没法打的角色',
+        message: '10001: [20001]测试群名片\u2066，测试用户昵称\u202e~喵\u2069/测试用户昵称(30001): 测试消息内容',
       },
       detail: {
         log_id: 'log_bridge_unsafe_0001',
@@ -1621,20 +1621,20 @@ test('unsafe OneBot text stays escaped in current logs and history logs', async 
         source: 'bridge',
         protocol: 'onebot11',
         request_id: 'req_bridge_unsafe_0001',
-        message: '721011692: [760384342]群星怒\u2066，大明云玩家\u202e~喵\u2069/没错，是魔法！(2896109796): 除了战猎这种抓不到加费就完全没法打的角色',
+        message: '10001: [20001]测试群名片\u2066，测试用户昵称\u202e~喵\u2069/测试用户昵称(30001): 测试消息内容',
         details: {
           direction: 'inbound',
-          self_id: '721011692',
-          conversation_id: '760384342',
+          self_id: '10001',
+          conversation_id: '20001',
           conversation_type: 'group',
           group_name: '测试群',
           sender: {
-            user_id: '2896109796',
-            nickname: '没错，是魔法！',
-            card: '群星怒\u2066，大明云玩家\u202e~喵\u2069',
+            user_id: '30001',
+            nickname: '测试用户昵称',
+            card: '测试群名片\u2066，测试用户昵称\u202e~喵\u2069',
             role: 'member',
           },
-          plain_text: '除了战猎这种抓不到加费就完全没法打的角色',
+          plain_text: '测试消息内容',
         },
       },
     },
@@ -1645,7 +1645,7 @@ test('unsafe OneBot text stays escaped in current logs and history logs', async 
   await page.getByPlaceholder('例如 req_*').fill('req_bridge_unsafe_0001')
   await page.getByRole('button', { name: '应用筛选' }).click()
 
-  const unsafeCurrentRow = page.locator('.logs-row').filter({ hasText: '群星怒' }).first()
+  const unsafeCurrentRow = page.locator('.logs-row').filter({ hasText: '测试群名片' }).first()
   const unsafeCurrentMessage = unsafeCurrentRow.locator('.logs-row__message')
   await expect(unsafeCurrentMessage).toContainText('\\u2066')
   await unsafeCurrentRow.click()
@@ -1665,7 +1665,7 @@ test('unsafe OneBot text stays escaped in current logs and history logs', async 
   await expect(page.getByRole('heading', { name: '历史日志', level: 1 })).toBeVisible()
   await page.getByPlaceholder('例如 req_*').fill('req_bridge_unsafe_0001')
   await page.getByRole('button', { name: '应用筛选' }).click()
-  const unsafeHistoryMessage = page.locator('.logs-row__message', { hasText: '群星怒' }).first()
+  const unsafeHistoryMessage = page.locator('.logs-row__message', { hasText: '测试群名片' }).first()
   await expect(unsafeHistoryMessage).toContainText('\\u2066')
 
   const historyText = await unsafeHistoryMessage.evaluate((node) => node.textContent ?? '')
@@ -2664,7 +2664,7 @@ test('third-party accounts show Bilibili CK cards and QR login fills the editor'
   await expect(page.getByRole('heading', { name: '三方账号', level: 1 })).toBeVisible()
   await expect(page.locator('.source-summary-strip')).toHaveCount(0)
 
-  const accountCard = page.locator('.account-card').filter({ hasText: '主账号昵称' }).first()
+  const accountCard = page.locator('.account-card').filter({ hasText: '测试账号昵称' }).first()
   await expect(accountCard).toBeVisible()
   await expect(accountCard).toContainText('UID 123456')
   await expect(accountCard).toContainText('CK 有效')
@@ -2705,7 +2705,7 @@ test('third-party accounts show Bilibili CK cards and QR login fills the editor'
   const scannedDraftCard = page.locator('.account-card--editing').filter({ has: page.locator('.qr-panel') }).first()
   const scannedInputs = scannedDraftCard.locator('input')
   await expect(scannedInputs.nth(0)).toHaveValue('123456', { timeout: 5000 })
-  await expect(scannedInputs.nth(1)).toHaveValue('主账号昵称')
+  await expect(scannedInputs.nth(1)).toHaveValue('测试账号昵称')
   await expect(scannedDraftCard.locator('textarea')).toHaveValue(/SESSDATA=fixture/)
   await scannedDraftCard.getByRole('button', { name: /保\s*存/ }).click()
   const savedQRCodeAccountCard = page.locator('.account-card').filter({ hasText: '账号 ID123456' }).first()

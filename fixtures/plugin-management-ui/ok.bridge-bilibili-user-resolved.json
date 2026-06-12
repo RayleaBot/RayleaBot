@@ -8,19 +8,19 @@
     "type": "bilibili.user.resolved",
     "request_id": "req_bilibili_user_0001",
     "payload": {
-      "query": "洛天依",
+      "query": "测试 UP",
       "exact": true,
       "user": {
-        "uid": "36081646",
-        "name": "洛天依",
-        "avatar_url": "https://i0.hdslb.com/bfs/face/luotianyi.jpg",
+        "uid": "1000001",
+        "name": "测试 UP",
+        "avatar_url": "https://i0.hdslb.com/bfs/face/test-up.jpg",
         "fans": 7000000
       },
       "candidates": [
         {
-          "uid": "36081646",
-          "name": "洛天依",
-          "avatar_url": "https://i0.hdslb.com/bfs/face/luotianyi.jpg",
+          "uid": "1000001",
+          "name": "测试 UP",
+          "avatar_url": "https://i0.hdslb.com/bfs/face/test-up.jpg",
           "fans": 7000000
         }
       ]

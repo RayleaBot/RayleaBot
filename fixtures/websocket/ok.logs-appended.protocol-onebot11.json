@@ -11,7 +11,7 @@
       "level": "info",
       "source": "bridge",
       "protocol": "onebot11",
-      "message": "721011692: [测试群(2001)]管理员/Alice(3001): hello bridge",
+      "message": "10001: [测试群(2001)]管理员/测试用户A(3001): hello bridge",
       "request_id": "req_bridge_0001"
     }
   },

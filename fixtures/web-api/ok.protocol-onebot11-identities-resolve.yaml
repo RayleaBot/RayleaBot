@@ -7,29 +7,29 @@ request:
   body:
     items:
       - target_type: group
-        target_id: "553855023"
-        user_id: "2678980697"
+        target_id: "20001"
+        user_id: "30001"
       - target_type: private
-        target_id: "2678980697"
-        user_id: "2678980697"
+        target_id: "30001"
+        user_id: "30001"
 response:
   status: 200
   body:
     items:
       - target_type: group
-        target_id: "553855023"
-        user_id: "2678980697"
-        nickname: 董草风信子
-        group_nickname: 银蝶
+        target_id: "20001"
+        user_id: "30001"
+        nickname: 测试用户
+        group_nickname: 测试群名片
         title: 超级管理员
         role: admin
         role_label: 管理员
-        avatar_url: https://q1.qlogo.cn/g?b=qq&nk=2678980697&s=640
+        avatar_url: https://q1.qlogo.cn/g?b=qq&nk=30001&s=640
       - target_type: private
-        target_id: "2678980697"
-        user_id: "2678980697"
-        nickname: 董草风信子
-        avatar_url: https://q1.qlogo.cn/g?b=qq&nk=2678980697&s=640
+        target_id: "30001"
+        user_id: "30001"
+        nickname: 测试用户
+        avatar_url: https://q1.qlogo.cn/g?b=qq&nk=30001&s=640
     issues: []
 expect:
   valid: true

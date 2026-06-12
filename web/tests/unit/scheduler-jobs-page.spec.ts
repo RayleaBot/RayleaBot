@@ -32,9 +32,9 @@ function makeSchedulerJob(overrides: Partial<SchedulerJobSummary> = {}): Schedul
       at: '2026-05-24T00:00:00Z',
     },
     payload_summary: {
-      conversation_id: 'group:879110321',
+      conversation_id: 'group:20001',
       target_type: 'group',
-      target_id: '879110321',
+      target_id: '20001',
       content: '每日天气推送',
     },
     stats: {
@@ -84,7 +84,7 @@ describe('SchedulerJobsPage', () => {
 
     expect(wrapper.text()).toContain('天气插件')
     expect(wrapper.text()).toContain('每日早报')
-    expect(wrapper.text()).toContain('group:879110321')
+    expect(wrapper.text()).toContain('group:20001')
     expect(wrapper.text()).toContain('已执行 160 次')
     expect(wrapper.text()).toContain('plugin.event_timeout')
   })

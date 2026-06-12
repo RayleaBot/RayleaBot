@@ -10,10 +10,10 @@ response:
     login_id: qr_20260608_001
     state: succeeded
     expires_at: "2026-06-08T08:03:00Z"
-    cookie: "SESSDATA=fixture; bili_jct=fixture; DedeUserID=123456; ac_time_value=fixture-refresh-token;"
+    cookie: "SESSDATA=fixture; bili_jct=fixture; DedeUserID=123456; ac_time_value=fixture-refresh;"
     account:
       uid: "123456"
-      nickname: 主账号昵称
-      avatar_url: "https://i0.hdslb.com/bfs/face/raylea.jpg"
+      nickname: 测试账号昵称
+      avatar_url: "https://i0.hdslb.com/bfs/face/test-account.jpg"
 expect:
   valid: true

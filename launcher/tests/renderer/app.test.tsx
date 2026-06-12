@@ -7,18 +7,19 @@ import type { LauncherDesktopApi } from "@shared/desktop-api";
 import type { LauncherSnapshot } from "@shared/launcher-models";
 
 const blankSnapshot: LauncherSnapshot = createLauncherSnapshot();
+const TEST_INSTALLATION_ROOT = "C:\\RayleaBotTest\\workspace";
 
 const loadedSnapshot: LauncherSnapshot = createLauncherSnapshot({
   launcher: {
     settings: {
-      installationRoot: "C:\\Users\\26789\\Desktop\\RayleaBot",
+      installationRoot: TEST_INSTALLATION_ROOT,
       closeBehavior: "ask_every_time",
     },
     resolvedSettings: {
-      installationRoot: "C:\\Users\\26789\\Desktop\\RayleaBot",
-      serverExecutablePath: "C:\\Users\\26789\\Desktop\\RayleaBot\\server\\raylea-server.exe",
-      configPath: "C:\\Users\\26789\\Desktop\\RayleaBot\\config\\user.yaml",
-      workdir: "C:\\Users\\26789\\Desktop\\RayleaBot",
+      installationRoot: TEST_INSTALLATION_ROOT,
+      serverExecutablePath: `${TEST_INSTALLATION_ROOT}\\server\\raylea-server.exe`,
+      configPath: `${TEST_INSTALLATION_ROOT}\\config\\user.yaml`,
+      workdir: TEST_INSTALLATION_ROOT,
     },
   },
 });
@@ -117,7 +118,7 @@ describe("App", () => {
     render(<App />);
 
     await waitFor(() => {
-      expect(screen.getAllByText("C:\\Users\\26789\\Desktop\\RayleaBot").length).toBeGreaterThan(0);
+      expect(screen.getAllByText(TEST_INSTALLATION_ROOT).length).toBeGreaterThan(0);
     });
   });
 
@@ -401,7 +402,7 @@ describe("App", () => {
     render(<App />);
 
     await waitFor(() => {
-      expect(screen.getAllByText("C:\\Users\\26789\\Desktop\\RayleaBot").length).toBeGreaterThan(0);
+      expect(screen.getAllByText(TEST_INSTALLATION_ROOT).length).toBeGreaterThan(0);
     });
 
     fireEvent.click(screen.getByRole("button", { name: "偏好设置" }));

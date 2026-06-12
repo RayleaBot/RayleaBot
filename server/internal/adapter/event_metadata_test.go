@@ -68,14 +68,14 @@ func TestEnrichEventMetadataHydratesGroupContextAndUsesCache(t *testing.T) {
 		SourceProtocol:   "onebot11",
 		EventType:        "message.group",
 		ConversationType: "group",
-		ConversationID:   "553855023",
-		SenderID:         "1358252269",
+		ConversationID:   "20001",
+		SenderID:         "30001",
 		PayloadFields: map[string]any{
 			"sender": map[string]any{},
 			"onebot": map[string]any{
 				"self_id":      "10001",
-				"group_id":     "553855023",
-				"user_id":      "1358252269",
+				"group_id":     "20001",
+				"user_id":      "30001",
 				"message_type": "group",
 				"sender":       map[string]any{},
 			},
@@ -152,13 +152,13 @@ func TestEnrichEventMetadataHydratesPrivateNicknameAndUsesCache(t *testing.T) {
 		SourceProtocol:   "onebot11",
 		EventType:        "message.private",
 		ConversationType: "private",
-		ConversationID:   "3599026669",
-		SenderID:         "3599026669",
+		ConversationID:   "30002",
+		SenderID:         "30002",
 		PayloadFields: map[string]any{
 			"sender": map[string]any{},
 			"onebot": map[string]any{
 				"self_id":      "10001",
-				"user_id":      "3599026669",
+				"user_id":      "30002",
 				"message_type": "private",
 				"sender":       map[string]any{},
 			},
@@ -228,13 +228,13 @@ func TestEnrichEventMetadataRefreshesGroupNameAfterNotice(t *testing.T) {
 		SourceProtocol:   "onebot11",
 		EventType:        "message.group",
 		ConversationType: "group",
-		ConversationID:   "553855023",
-		SenderID:         "1358252269",
+		ConversationID:   "20001",
+		SenderID:         "30001",
 		PayloadFields: map[string]any{
 			"sender": map[string]any{"nickname": "用户"},
 			"onebot": map[string]any{
-				"group_id": "553855023",
-				"user_id":  "1358252269",
+				"group_id": "20001",
+				"user_id":  "30001",
 				"sender":   map[string]any{"nickname": "用户"},
 			},
 		},
@@ -249,13 +249,13 @@ func TestEnrichEventMetadataRefreshesGroupNameAfterNotice(t *testing.T) {
 		SourceProtocol:   "onebot11",
 		EventType:        "notice.group_name",
 		ConversationType: "group",
-		ConversationID:   "553855023",
-		SenderID:         "1358252269",
+		ConversationID:   "20001",
+		SenderID:         "30001",
 		PayloadFields: map[string]any{
 			"notice_type": "group_name",
 			"onebot": map[string]any{
 				"notice_type": "group_name",
-				"group_id":    "553855023",
+				"group_id":    "20001",
 			},
 		},
 	})
@@ -313,8 +313,8 @@ func TestIdentityCacheRefreshesGroupNameAfterRawNoticeFrame(t *testing.T) {
 		SourceProtocol:   "onebot11",
 		EventType:        "message.group",
 		ConversationType: "group",
-		ConversationID:   "553855023",
-		SenderID:         "1358252269",
+		ConversationID:   "20001",
+		SenderID:         "30001",
 		PayloadFields: map[string]any{
 			"sender": map[string]any{"nickname": "用户"},
 		},
@@ -327,8 +327,8 @@ func TestIdentityCacheRefreshesGroupNameAfterRawNoticeFrame(t *testing.T) {
 	shell.invalidateIdentityCacheForFrame(oneBotFrame{
 		PostType:   "notice",
 		NoticeType: "group_name",
-		GroupID:    553855023,
-		UserID:     1358252269,
+		GroupID:    20001,
+		UserID:     30001,
 	})
 
 	enriched := shell.EnrichEventMetadata(context.Background(), event)
@@ -382,8 +382,8 @@ func TestEnrichEventMetadataUsesMessageGroupNameOverCachedLookup(t *testing.T) {
 		SourceProtocol:   "onebot11",
 		EventType:        "message.group",
 		ConversationType: "group",
-		ConversationID:   "553855023",
-		SenderID:         "1358252269",
+		ConversationID:   "20001",
+		SenderID:         "30001",
 		PayloadFields: map[string]any{
 			"sender": map[string]any{"nickname": "用户"},
 		},
@@ -467,14 +467,14 @@ func TestEnrichEventMetadataRefreshesMemberInfoAfterCardNotice(t *testing.T) {
 		SourceProtocol:   "onebot11",
 		EventType:        "message.group",
 		ConversationType: "group",
-		ConversationID:   "553855023",
-		SenderID:         "1358252269",
+		ConversationID:   "20001",
+		SenderID:         "30001",
 		TargetName:       "群",
 		PayloadFields: map[string]any{
 			"sender": map[string]any{},
 			"onebot": map[string]any{
-				"group_id": "553855023",
-				"user_id":  "1358252269",
+				"group_id": "20001",
+				"user_id":  "30001",
 				"sender":   map[string]any{},
 			},
 		},
@@ -491,14 +491,14 @@ func TestEnrichEventMetadataRefreshesMemberInfoAfterCardNotice(t *testing.T) {
 		SourceProtocol:   "onebot11",
 		EventType:        "notice.group_card",
 		ConversationType: "group",
-		ConversationID:   "553855023",
-		SenderID:         "1358252269",
+		ConversationID:   "20001",
+		SenderID:         "30001",
 		PayloadFields: map[string]any{
 			"notice_type": "group_card",
 			"onebot": map[string]any{
 				"notice_type": "group_card",
-				"group_id":    "553855023",
-				"user_id":     "1358252269",
+				"group_id":    "20001",
+				"user_id":     "30001",
 			},
 		},
 	})

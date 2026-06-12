@@ -5,9 +5,9 @@ import "testing"
 func TestSanitizeStringRemovesUnsafeControlsAndPreservesOrdinaryUnicode(t *testing.T) {
 	t.Parallel()
 
-	value := "群星怒\u2066，大明云玩家\u202e~喵\u2069\tok\n下一行\u0000\u2028尾巴\ufeff"
+	value := "测试群名片\u2066，测试用户昵称\u202e~喵\u2069\tok\n下一行\u0000\u2028尾巴\ufeff"
 	got := SanitizeString(value)
-	want := "群星怒，大明云玩家~喵\tok\n下一行\n尾巴"
+	want := "测试群名片，测试用户昵称~喵\tok\n下一行\n尾巴"
 
 	if got != want {
 		t.Fatalf("unexpected sanitized string: got %q want %q", got, want)
@@ -28,7 +28,7 @@ func TestSanitizeAnyRecursivelyClonesAndSanitizesStrings(t *testing.T) {
 
 	input := map[string]any{
 		"sender": map[string]any{
-			"nickname": "没错\u202e，是魔法！",
+			"nickname": "测试用户\u202e昵称",
 		},
 		"segments": []any{
 			map[string]any{
@@ -44,13 +44,13 @@ func TestSanitizeAnyRecursivelyClonesAndSanitizesStrings(t *testing.T) {
 	segments := output["segments"].([]any)
 	segmentData := segments[0].(map[string]any)["data"].(map[string]any)
 
-	if sender["nickname"] != "没错，是魔法！" {
+	if sender["nickname"] != "测试用户昵称" {
 		t.Fatalf("unexpected sanitized sender nickname: %#v", sender["nickname"])
 	}
 	if segmentData["text"] != "helloworld" {
 		t.Fatalf("unexpected sanitized segment text: %#v", segmentData["text"])
 	}
-	if input["sender"].(map[string]any)["nickname"] != "没错\u202e，是魔法！" {
+	if input["sender"].(map[string]any)["nickname"] != "测试用户\u202e昵称" {
 		t.Fatalf("input should remain unchanged: %#v", input)
 	}
 }

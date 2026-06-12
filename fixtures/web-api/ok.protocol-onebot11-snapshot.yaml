@@ -30,7 +30,7 @@ response:
         app_name: NapCat.Onebot
         protocol_version: v11
         app_version: 1.0.0
-        user_id: "12345678"
+        user_id: "10001"
         nickname: TestBot
       - transport: http_api
         enabled: false

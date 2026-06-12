@@ -7,37 +7,37 @@ frames:
     plugin_id: echo
     request_id: evt_message_sent_001
     event:
-      event_id: onebot11-message-sent-966671988
+      event_id: onebot11-message-sent-40001
       source_protocol: onebot11
       source_adapter: adapter.onebot11
       event_type: message_sent.group
       timestamp: 1729679125
       actor:
-        id: "721011692"
+        id: "10001"
         nickname: "--"
         role: owner
       target:
         type: group
-        id: "860105388"
+        id: "20001"
       payload:
-        message_id: "966671988"
+        message_id: "40001"
         sub_type: normal
         onebot:
           post_type: message_sent
           message_type: group
           sub_type: normal
-          self_id: "721011692"
-          user_id: "721011692"
-          group_id: "860105388"
+          self_id: "10001"
+          user_id: "10001"
+          group_id: "20001"
           time: 1729679125
-          message_id: "966671988"
-          real_id: "966671988"
-          message_seq: "966671988"
+          message_id: "40001"
+          real_id: "40001"
+          message_seq: "40001"
           raw_message: 您好
           message_format: array
           font: 14
           sender:
-            user_id: "721011692"
+            user_id: "10001"
             nickname: "--"
             role: owner
       message:

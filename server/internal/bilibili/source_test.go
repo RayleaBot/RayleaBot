@@ -208,14 +208,14 @@ func TestDynamicEventVideoURLUsesArchiveIDOrDynamicPage(t *testing.T) {
 	}
 
 	withBVID, ok := dynamicEventFromItem(map[string]any{
-		"id_str": "1211778697093185576",
+		"id_str": "100000000000000004",
 		"type":   "DYNAMIC_TYPE_AV",
 		"modules": map[string]any{
 			"module_author": map[string]any{"mid": "123456", "name": "测试 UP"},
 			"module_dynamic": map[string]any{
 				"major": map[string]any{
 					"type":    "MAJOR_TYPE_ARCHIVE",
-					"archive": map[string]any{"title": "真实视频号", "bvid": "BV1RayleaBot"},
+					"archive": map[string]any{"title": "测试视频号", "bvid": "BV1RayleaBot"},
 				},
 			},
 		},
@@ -225,19 +225,19 @@ func TestDynamicEventVideoURLUsesArchiveIDOrDynamicPage(t *testing.T) {
 	}
 
 	withoutArchiveID, ok := dynamicEventFromItem(map[string]any{
-		"id_str": "1211778697093185576",
+		"id_str": "100000000000000004",
 		"type":   "DYNAMIC_TYPE_AV",
 		"modules": map[string]any{
 			"module_author": map[string]any{"mid": "123456", "name": "测试 UP"},
 			"module_dynamic": map[string]any{
 				"major": map[string]any{
 					"type":    "MAJOR_TYPE_ARCHIVE",
-					"archive": map[string]any{"title": "缺少真实视频号"},
+					"archive": map[string]any{"title": "缺少测试视频号"},
 				},
 			},
 		},
 	}, watched)
-	if !ok || withoutArchiveID.URL != "https://t.bilibili.com/1211778697093185576/" {
+	if !ok || withoutArchiveID.URL != "https://t.bilibili.com/100000000000000004/" {
 		t.Fatalf("dynamic video url without archive id = %#v, ok=%v", withoutArchiveID, ok)
 	}
 }
@@ -254,7 +254,7 @@ func TestDynamicEventOpusImageTextIncludesRichSummaryAndSingleImage(t *testing.T
 	}
 
 	event, ok := dynamicEventFromItem(map[string]any{
-		"id_str": "1212948650493214729",
+		"id_str": "100000000000000002",
 		"type":   "DYNAMIC_TYPE_DRAW",
 		"modules": map[string]any{
 			"module_author": map[string]any{
@@ -265,18 +265,18 @@ func TestDynamicEventOpusImageTextIncludesRichSummaryAndSingleImage(t *testing.T
 			"module_dynamic": map[string]any{
 				"topic": map[string]any{
 					"id":       float64(1156147),
-					"name":     "洛天依2026巡演",
+					"name":     "测试 UP2026巡演",
 					"jump_url": "//m.bilibili.com/topic-detail?topic_id=1156147",
 				},
 				"major": map[string]any{
 					"type": "MAJOR_TYPE_OPUS",
 					"opus": map[string]any{
-						"jump_url": "https://www.bilibili.com/opus/1212948650493214729",
+						"jump_url": "https://www.bilibili.com/opus/100000000000000002",
 						"summary": map[string]any{
-							"text": "#BML-PLAY! 2026#\n线下演唱会，天依今年也来啦！[打call]",
+							"text": "#测试活动 2026#\n线下演唱会，测试内容更新。[打call]",
 							"rich_text_nodes": []any{
-								map[string]any{"type": "RICH_TEXT_NODE_TYPE_WEB", "text": "#BML-PLAY! 2026#"},
-								map[string]any{"type": "RICH_TEXT_NODE_TYPE_TEXT", "text": "\n线下演唱会，天依今年也来啦！"},
+								map[string]any{"type": "RICH_TEXT_NODE_TYPE_WEB", "text": "#测试活动 2026#"},
+								map[string]any{"type": "RICH_TEXT_NODE_TYPE_TEXT", "text": "\n线下演唱会，测试内容更新。"},
 								map[string]any{
 									"type": "RICH_TEXT_NODE_TYPE_TEXT",
 									"text": "[打call]",
@@ -306,13 +306,13 @@ func TestDynamicEventOpusImageTextIncludesRichSummaryAndSingleImage(t *testing.T
 	if event.Service != "image_text" || event.Summary == "" || !strings.Contains(event.Summary, "线下演唱会") {
 		t.Fatalf("unexpected opus summary: %#v", event)
 	}
-	if event.Topic == nil || event.Topic.ID != 1156147 || event.Topic.Name != "洛天依2026巡演" || event.Topic.JumpURL != "https://m.bilibili.com/topic-detail?topic_id=1156147" {
+	if event.Topic == nil || event.Topic.ID != 1156147 || event.Topic.Name != "测试 UP2026巡演" || event.Topic.JumpURL != "https://m.bilibili.com/topic-detail?topic_id=1156147" {
 		t.Fatalf("unexpected opus topic: %#v", event.Topic)
 	}
-	if !strings.Contains(event.SummaryHTML, "#洛天依2026巡演#") || !strings.Contains(event.SummaryHTML, "rich-text-topic") || !strings.Contains(event.SummaryHTML, "rich-text-emoji") || !strings.Contains(event.SummaryHTML, "https://i0.hdslb.com/bfs/emote/call.png") {
+	if !strings.Contains(event.SummaryHTML, "#测试 UP2026巡演#") || !strings.Contains(event.SummaryHTML, "rich-text-topic") || !strings.Contains(event.SummaryHTML, "rich-text-emoji") || !strings.Contains(event.SummaryHTML, "https://i0.hdslb.com/bfs/emote/call.png") {
 		t.Fatalf("unexpected opus summary html: %q", event.SummaryHTML)
 	}
-	if event.URL != "https://www.bilibili.com/opus/1212948650493214729" {
+	if event.URL != "https://www.bilibili.com/opus/100000000000000002" {
 		t.Fatalf("unexpected opus url: %q", event.URL)
 	}
 	if len(event.Images) != 1 || event.Images[0].URL != "https://i0.hdslb.com/bfs/new_dyn/single.jpg" || event.Images[0].Width != 900 || event.Images[0].Height != 1600 {
@@ -332,7 +332,7 @@ func TestDynamicEventRepostIncludesOriginalRichTextAndImages(t *testing.T) {
 	}
 
 	event, ok := dynamicEventFromItem(map[string]any{
-		"id_str": "1212925998839889941",
+		"id_str": "100000000000000005",
 		"type":   "DYNAMIC_TYPE_FORWARD",
 		"modules": map[string]any{
 			"module_author": map[string]any{
@@ -355,7 +355,7 @@ func TestDynamicEventRepostIncludesOriginalRichTextAndImages(t *testing.T) {
 			},
 		},
 		"orig": map[string]any{
-			"id_str": "1212922863505375256",
+			"id_str": "100000000000000006",
 			"type":   "DYNAMIC_TYPE_DRAW",
 			"modules": map[string]any{
 				"module_author": map[string]any{
@@ -670,7 +670,7 @@ func TestMonitorSnapshotRefreshesLatestDynamicWithoutDispatch(t *testing.T) {
 
 	now := time.Date(2026, 6, 8, 8, 24, 0, 0, time.UTC)
 	source, recorder := newTestSourceWithPluginConfig(t, now, monitorDynamicTransport(t, now, `{
-		"id_str": "1211778697093185576",
+		"id_str": "100000000000000004",
 		"type": "DYNAMIC_TYPE_AV",
 		"modules": {
 			"module_author": {"mid": "123456", "name": "测试 UP", "pub_ts": 1546300800},
@@ -721,10 +721,10 @@ func TestMonitorSnapshotRefreshesLatestDynamicWithoutDispatch(t *testing.T) {
 		t.Fatalf("unexpected monitor snapshot: %#v", snapshot)
 	}
 	dynamic := snapshot.Items[0].Dynamic
-	if dynamic.LastID != "1211778697093185576" || dynamic.Title != "很久前的最新视频" {
+	if dynamic.LastID != "100000000000000004" || dynamic.Title != "很久前的最新视频" {
 		t.Fatalf("unexpected latest dynamic: %#v", dynamic)
 	}
-	if dynamic.URL != "https://t.bilibili.com/1211778697093185576/" {
+	if dynamic.URL != "https://t.bilibili.com/100000000000000004/" {
 		t.Fatalf("dynamic url = %q", dynamic.URL)
 	}
 	if dynamic.PublishedAt == nil || !dynamic.PublishedAt.Equal(time.Unix(1546300800, 0).UTC()) {
@@ -737,7 +737,7 @@ func TestMonitorSnapshotSkipsPinnedDynamicWhenItIsNotLatest(t *testing.T) {
 
 	now := time.Date(2026, 6, 8, 8, 27, 0, 0, time.UTC)
 	source, _ := newTestSourceWithPluginConfig(t, now, monitorDynamicTransport(t, now, `{
-		"id_str": "1211778697093185570",
+		"id_str": "100000000000000007",
 		"type": "DYNAMIC_TYPE_AV",
 		"modules": {
 			"module_tag": {"text": "置顶"},
@@ -750,7 +750,7 @@ func TestMonitorSnapshotSkipsPinnedDynamicWhenItIsNotLatest(t *testing.T) {
 			}
 		}
 	}, {
-		"id_str": "1211778697093185576",
+		"id_str": "100000000000000004",
 		"type": "DYNAMIC_TYPE_DRAW",
 		"modules": {
 			"module_author": {"mid": "123456", "name": "测试 UP", "pub_ts": 1780906200},
@@ -786,7 +786,7 @@ func TestMonitorSnapshotSkipsPinnedDynamicWhenItIsNotLatest(t *testing.T) {
 		t.Fatalf("unexpected monitor snapshot: %#v", snapshot)
 	}
 	dynamic := snapshot.Items[0].Dynamic
-	if dynamic.LastID != "1211778697093185576" || dynamic.Title != "图文动态更新" || dynamic.Summary != "真实最新图文" {
+	if dynamic.LastID != "100000000000000004" || dynamic.Title != "图文动态更新" || dynamic.Summary != "真实最新图文" {
 		t.Fatalf("unexpected latest dynamic after pinned item: %#v", dynamic)
 	}
 }
@@ -796,7 +796,7 @@ func TestMonitorSnapshotSkipsPinnedDynamicWithoutTimestamp(t *testing.T) {
 
 	now := time.Date(2026, 6, 8, 8, 27, 30, 0, time.UTC)
 	source, _ := newTestSourceWithPluginConfig(t, now, monitorDynamicTransport(t, now, `{
-		"id_str": "1211778697093185570",
+		"id_str": "100000000000000007",
 		"type": "DYNAMIC_TYPE_AV",
 		"modules": {
 			"module_tag": {"text": "置顶"},
@@ -809,7 +809,7 @@ func TestMonitorSnapshotSkipsPinnedDynamicWithoutTimestamp(t *testing.T) {
 			}
 		}
 	}, {
-		"id_str": "1211778697093185576",
+		"id_str": "100000000000000009",
 		"type": "DYNAMIC_TYPE_DRAW",
 		"modules": {
 			"module_author": {"mid": "123456", "name": "测试 UP"},
@@ -845,7 +845,7 @@ func TestMonitorSnapshotSkipsPinnedDynamicWithoutTimestamp(t *testing.T) {
 		t.Fatalf("unexpected monitor snapshot: %#v", snapshot)
 	}
 	dynamic := snapshot.Items[0].Dynamic
-	if dynamic.LastID != "1211778697093185576" || dynamic.Summary != "非置顶无时间" {
+	if dynamic.LastID != "100000000000000009" || dynamic.Summary != "非置顶无时间" {
 		t.Fatalf("unexpected dynamic without timestamps: %#v", dynamic)
 	}
 }
@@ -855,7 +855,7 @@ func TestMonitorSnapshotKeepsPinnedDynamicWhenItIsLatest(t *testing.T) {
 
 	now := time.Date(2026, 6, 8, 8, 28, 0, 0, time.UTC)
 	source, _ := newTestSourceWithPluginConfig(t, now, monitorDynamicTransport(t, now, `{
-		"id_str": "1211778697093185580",
+		"id_str": "100000000000000008",
 		"type": "DYNAMIC_TYPE_AV",
 		"modules": {
 			"module_tag": {"text": "置顶"},
@@ -868,7 +868,7 @@ func TestMonitorSnapshotKeepsPinnedDynamicWhenItIsLatest(t *testing.T) {
 			}
 		}
 	}, {
-		"id_str": "1211778697093185576",
+		"id_str": "100000000000000004",
 		"type": "DYNAMIC_TYPE_DRAW",
 		"modules": {
 			"module_author": {"mid": "123456", "name": "测试 UP", "pub_ts": 1780906200},
@@ -904,7 +904,7 @@ func TestMonitorSnapshotKeepsPinnedDynamicWhenItIsLatest(t *testing.T) {
 		t.Fatalf("unexpected monitor snapshot: %#v", snapshot)
 	}
 	dynamic := snapshot.Items[0].Dynamic
-	if dynamic.LastID != "1211778697093185580" || dynamic.Title != "置顶也是最新" {
+	if dynamic.LastID != "100000000000000008" || dynamic.Title != "置顶也是最新" {
 		t.Fatalf("unexpected pinned latest dynamic: %#v", dynamic)
 	}
 }

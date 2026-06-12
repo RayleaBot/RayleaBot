@@ -208,10 +208,10 @@ class FortuneLogicTests(unittest.TestCase):
         }]
         day = date(2026, 5, 7)
 
-        old_record = fortune.build_daily_record(alternate, "2022603900", day)
+        old_record = fortune.build_daily_record(alternate, "30001", day)
         self.assertFalse(fortune.daily_record_matches_settings(old_record, defaults))
 
-        new_record = fortune.build_daily_record(defaults, "2022603900", day)
+        new_record = fortune.build_daily_record(defaults, "30001", day)
         self.assertTrue(fortune.daily_record_matches_settings(new_record, defaults))
 
     def test_daily_record_detects_action_source_changes(self):
@@ -221,7 +221,7 @@ class FortuneLogicTests(unittest.TestCase):
         next_defaults["bad_actions"] = ["熬夜刷屏", "冲动下单", "空腹喝咖啡"]
         day = date(2026, 5, 7)
 
-        old_record = fortune.build_daily_record(defaults, "2022603900", day)
+        old_record = fortune.build_daily_record(defaults, "30001", day)
 
         self.assertFalse(fortune.daily_record_matches_settings(old_record, next_defaults))
 

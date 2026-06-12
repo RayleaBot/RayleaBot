@@ -23,7 +23,7 @@ response:
       target_type: group
       target_id: "2001"
       plain_text: hello world
-      message_id: "966671988"
+      message_id: "40001"
       segments:
         - type: text
           data:

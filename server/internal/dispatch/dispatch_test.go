@@ -152,7 +152,7 @@ func testEvent() runtime.Event {
 		SourceAdapter:  "adapter.onebot11",
 		EventType:      "message.group",
 		Timestamp:      time.Now().Unix(),
-		Actor:          &runtime.EventActor{ID: "100", Nickname: "Alice"},
+		Actor:          &runtime.EventActor{ID: "100", Nickname: "测试用户A"},
 		Target:         &runtime.EventTarget{Type: "group", ID: "200", Name: "测试群"},
 		Message:        &runtime.EventMessage{PlainText: "hello"},
 	}

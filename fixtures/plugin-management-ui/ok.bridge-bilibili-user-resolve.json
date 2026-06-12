@@ -8,7 +8,7 @@
     "type": "bilibili.user.resolve",
     "request_id": "req_bilibili_user_0001",
     "payload": {
-      "query": "洛天依"
+      "query": "测试 UP"
     }
   },
   "expect": {

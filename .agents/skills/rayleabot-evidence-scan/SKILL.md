@@ -46,7 +46,7 @@ This skill preserves the evidence boundary for recurring RayleaBot scans. Reposi
 
 ## Automation Memory
 
-- Use explicit paths under `C:\Users\26789\.codex\automations\<automation-name>\memory.md`.
+- Use explicit paths under `<user-home>\.codex\automations\<automation-name>\memory.md`.
 - Do not rely on `$CODEX_HOME` or `$env:CODEX_HOME` in this Windows environment.
 - Keep memory entries aligned with the user-facing conclusion and the evidence that supports it.
 

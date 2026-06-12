@@ -67,7 +67,7 @@ func TestEventIngressEnrichesMetadataBeforeBridgeDispatch(t *testing.T) {
 				"group_id":     "2001",
 				"user_id":      "3001",
 				"sender": map[string]any{
-					"nickname": "Alice",
+					"nickname": "测试用户A",
 				},
 			},
 		},

@@ -386,19 +386,19 @@ test('new row must resolve Bilibili user before saving', () => {
   assert.equal(document.querySelector('#save-button').disabled, true)
 
   const input = document.querySelector('.up-query-input')
-  input.value = '洛天依'
+  input.value = '测试 UP'
   input.dispatchEvent(new dom.window.Event('input', { bubbles: true }))
   document.querySelector('button[data-action="resolve-up"]').click()
   const resolveMessage = lastMessage(messages, 'bilibili.user.resolve')
-  assert.equal(resolveMessage.payload.query, '洛天依')
+  assert.equal(resolveMessage.payload.query, '测试 UP')
 
   dispatchHost(dom, 'bilibili.user.resolved', {
-    query: '洛天依',
+    query: '测试 UP',
     exact: true,
     user: {
-      uid: '36081646',
-      name: '洛天依',
-      avatar_url: 'https://i0.hdslb.com/bfs/face/luotianyi.jpg',
+      uid: '1000001',
+      name: '测试 UP',
+      avatar_url: 'https://i0.hdslb.com/bfs/face/test-up.jpg',
       fans: 7000000,
     },
     candidates: [],

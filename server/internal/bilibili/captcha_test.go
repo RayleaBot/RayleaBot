@@ -199,7 +199,7 @@ func TestTrySolveUsesCookieForCSRF(t *testing.T) {
 					solveCalled = true
 					body, _ := io.ReadAll(req.Body)
 					formStr := string(body)
-					if !strings.Contains(formStr, "csrf=test_csrf_from_cookie") {
+					if !strings.Contains(formStr, "csrf=csrf") {
 						t.Fatalf("validate missing csrf in form: %s", formStr)
 					}
 					return captchaJSONResponse(`{"code":0,"data":{"grisk_id":"solved_grisk"}}`), nil
@@ -210,7 +210,7 @@ func TestTrySolveUsesCookieForCSRF(t *testing.T) {
 		},
 		identity: identity,
 	}
-	result, err := client.TrySolve(context.Background(), "test_voucher", "bili_jct=test_csrf_from_cookie; SESSDATA=test;")
+	result, err := client.TrySolve(context.Background(), "test_voucher", "bili_jct=csrf; SESSDATA=test;")
 	if err != nil {
 		t.Fatalf("TrySolve: %v", err)
 	}

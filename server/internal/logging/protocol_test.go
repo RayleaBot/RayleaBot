@@ -47,7 +47,7 @@ func TestNormalizeSummaryCompactsRepeatedOneBotDetailFields(t *testing.T) {
 			"message_seq":     "1001",
 			"user_id":         "3001",
 			"sender_id":       "3001",
-			"sender_nickname": "Alice",
+			"sender_nickname": "测试用户A",
 			"sender_role":     "admin",
 		},
 	})
@@ -81,7 +81,7 @@ func TestNormalizeSummaryCompactsRepeatedOneBotDetailFields(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected sender map, got %#v", summary.Details["sender"])
 	}
-	if sender["user_id"] != "3001" || sender["nickname"] != "Alice" || sender["role"] != "admin" {
+	if sender["user_id"] != "3001" || sender["nickname"] != "测试用户A" || sender["role"] != "admin" {
 		t.Fatalf("unexpected sender details: %#v", sender)
 	}
 }
@@ -91,24 +91,24 @@ func TestNormalizeSummarySanitizesOneBotMessageAndDetails(t *testing.T) {
 
 	summary := NormalizeSummary(Summary{
 		Source:  "bridge",
-		Message: "1145141919: [终末地摸鱼群(553855023)][管理员]群星怒/没错，是魔法！(1358252269): 除了战猎这种抓不到加费就完全没法打的角色",
+		Message: "10001: [测试群组(20001)][管理员]测试群名片/测试用户昵称(30001): 测试消息内容",
 		Level:   "info",
 		Details: map[string]any{
 			"plain_text": "hello\u202eworld",
 			"sender": map[string]any{
-				"card": "群星怒\u2066~喵",
+				"card": "测试群名片\u2066~喵",
 			},
 		},
 	})
 
-	if summary.Message != "1145141919: [终末地摸鱼群(553855023)][管理员]群星怒/没错，是魔法！(1358252269): 除了战猎这种抓不到加费就完全没法打的角色" {
+	if summary.Message != "10001: [测试群组(20001)][管理员]测试群名片/测试用户昵称(30001): 测试消息内容" {
 		t.Fatalf("unexpected sanitized summary message: %#v", summary.Message)
 	}
 	if got := summary.Details["plain_text"]; got != "helloworld" {
 		t.Fatalf("unexpected sanitized plain_text detail: %#v", got)
 	}
 	sender := summary.Details["sender"].(map[string]any)
-	if got := sender["card"]; got != "群星怒~喵" {
+	if got := sender["card"]; got != "测试群名片~喵" {
 		t.Fatalf("unexpected sanitized sender card: %#v", got)
 	}
 }

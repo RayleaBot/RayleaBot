@@ -31,7 +31,7 @@ def sample_subscription(ctx):
     return {
         "id": f"preview-bilibili-{target['target_type']}-{target['target_id'] or 'current'}",
         "platform": "bilibili",
-        "uid": "3546659356389007",
+        "uid": "100000000000000009",
         "name": "RayleaBot 示例账号",
         "target_type": target["target_type"],
         "target_id": target["target_id"],
@@ -104,7 +104,7 @@ def sample_update(service):
             **base,
             "title": "专栏文章示例",
             "summary": "文章摘要会显示在卡片正文区域，封面图显示在图片区域。",
-            "url": "https://www.bilibili.com/read/cv12345678",
+            "url": "https://www.bilibili.com/read/cv10001",
         }
     if service == "repost":
         return {

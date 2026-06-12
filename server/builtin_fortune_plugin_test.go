@@ -238,7 +238,7 @@ func fortuneMessageEvent(requestID string) map[string]any {
 					"sender": map[string]any{
 						"user_id":  "10001",
 						"nickname": "Silver",
-						"card":     "银蝶",
+						"card":     "测试群名片",
 						"role":     "owner",
 						"title":    "群主",
 					},

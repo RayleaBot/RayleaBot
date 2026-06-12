@@ -116,11 +116,11 @@ func TestLogSendOutcomeUsesPlatformFailureSummaryWithoutPluginContext(t *testing
 func TestBuildTargetLabelPrefersEventContextForPrivateMessage(t *testing.T) {
 	t.Parallel()
 
-	label := BuildTargetLabel(context.Background(), "private", "300", "", "300", "Alice", stubTargetDisplayResolver{
-		"private:300": "Bob",
+	label := BuildTargetLabel(context.Background(), "private", "300", "", "300", "测试用户A", stubTargetDisplayResolver{
+		"private:300": "测试用户B",
 	})
-	if label != "Alice(300)" {
-		t.Fatalf("unexpected private label: got %q want %q", label, "Alice(300)")
+	if label != "测试用户A(300)" {
+		t.Fatalf("unexpected private label: got %q want %q", label, "测试用户A(300)")
 	}
 }
 

@@ -683,7 +683,7 @@ describe('PluginDetailPage', () => {
       source: 'adapter.onebot11',
       plugin_id: 'weather',
       request_id: 'req_runtime_delivery_unsafe_0001',
-      message: 'plugin weather command weather delivered group message: 群星怒\u2066~喵',
+      message: 'plugin weather command weather delivered group message: 测试群名片\u2066~喵',
     })
 
     vi.spyOn(pluginsStore, 'fetchDetail').mockResolvedValue(pluginsStore.current)

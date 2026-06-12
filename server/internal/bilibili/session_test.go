@@ -71,7 +71,7 @@ func TestPrepareCookieRefreshesAndEnrichesCookie(t *testing.T) {
 		}
 	}), func() time.Time { return time.Unix(1780905600, 0).UTC() }, nil)
 
-	prepared, err := client.PrepareCookie(context.Background(), "SESSDATA=old-sess; bili_jct=old-csrf; DedeUserID=123456; ac_time_value=old-refresh;")
+	prepared, err := client.PrepareCookie(context.Background(), "SESSDATA=old-session; bili_jct=old-token; DedeUserID=123456; ac_time_value=old-refresh;")
 	if err != nil {
 		t.Fatalf("PrepareCookie returned error: %v", err)
 	}
@@ -130,11 +130,11 @@ func TestPrepareCookieKeepsCookieWhenRefreshCheckRiskFails(t *testing.T) {
 		}
 	}), func() time.Time { return time.Unix(1780905600, 0).UTC() }, nil)
 
-	prepared, err := client.PrepareCookie(context.Background(), "SESSDATA=old-sess; bili_jct=old-csrf; DedeUserID=123456; ac_time_value=old-refresh;")
+	prepared, err := client.PrepareCookie(context.Background(), "SESSDATA=old-session; bili_jct=old-token; DedeUserID=123456; ac_time_value=old-refresh;")
 	if err != nil {
 		t.Fatalf("PrepareCookie should keep usable cookie on refresh-check risk error: %v", err)
 	}
-	if prepared.Refreshed || !prepared.Enriched || !strings.Contains(prepared.Cookie, "SESSDATA=old-sess") || !strings.Contains(prepared.Cookie, "buvid3=buvid3-value") {
+	if prepared.Refreshed || !prepared.Enriched || !strings.Contains(prepared.Cookie, "SESSDATA=old-session") || !strings.Contains(prepared.Cookie, "buvid3=buvid3-value") {
 		t.Fatalf("unexpected prepared cookie: %#v", prepared)
 	}
 }

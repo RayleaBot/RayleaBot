@@ -57,8 +57,8 @@ response:
         configured: true
         profile:
           uid: "123456"
-          nickname: 主账号昵称
-          avatar_url: "https://i0.hdslb.com/bfs/face/raylea.jpg"
+          nickname: 测试账号昵称
+          avatar_url: "https://i0.hdslb.com/bfs/face/test-account.jpg"
         credential:
           state: valid
           checked_at: "2026-06-08T08:00:01Z"

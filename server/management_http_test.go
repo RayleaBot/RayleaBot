@@ -318,13 +318,13 @@ func TestThirdPartyAccountAndBilibiliSourceHandlers(t *testing.T) {
 		return response, payload
 	}
 
-	cookie := "SESSDATA=fixture-secret; bili_jct=fixture-csrf;"
+	cookie := "SESSDATA=fixture; bili_jct=fixture;"
 	upsertResp, upsertPayload := doRequest(http.MethodPut, "/api/third-party/accounts/bilibili/primary", `{"label":"主账号","enabled":true,"cookie":"`+cookie+`"}`)
 	defer upsertResp.Body.Close()
 	if upsertResp.StatusCode != http.StatusOK {
 		t.Fatalf("unexpected third-party account upsert status: got %d want 200 body=%s", upsertResp.StatusCode, string(upsertPayload))
 	}
-	if strings.Contains(string(upsertPayload), "fixture-secret") || strings.Contains(string(upsertPayload), "fixture-csrf") {
+	if strings.Contains(string(upsertPayload), "SESSDATA=fixture") || strings.Contains(string(upsertPayload), "bili_jct=fixture") {
 		t.Fatalf("third-party account upsert response leaked cookie: %s", string(upsertPayload))
 	}
 	upsertBody := decodeBody(t, upsertPayload)
@@ -336,7 +336,7 @@ func TestThirdPartyAccountAndBilibiliSourceHandlers(t *testing.T) {
 		t.Fatalf("unexpected third-party account summary: %#v", account)
 	}
 	profile, ok := account["profile"].(map[string]any)
-	if !ok || profile["uid"] != "123456" || profile["nickname"] != "主账号昵称" || profile["avatar_url"] != "https://i0.hdslb.com/bfs/face/raylea.jpg" {
+	if !ok || profile["uid"] != "123456" || profile["nickname"] != "测试账号昵称" || profile["avatar_url"] != "https://i0.hdslb.com/bfs/face/test-account.jpg" {
 		t.Fatalf("unexpected third-party account profile: %#v", account["profile"])
 	}
 	credential, ok := account["credential"].(map[string]any)
@@ -360,7 +360,7 @@ func TestThirdPartyAccountAndBilibiliSourceHandlers(t *testing.T) {
 	if listResp.StatusCode != http.StatusOK {
 		t.Fatalf("unexpected third-party account list status: got %d want 200 body=%s", listResp.StatusCode, string(listPayload))
 	}
-	if strings.Contains(string(listPayload), "fixture-secret") || strings.Contains(string(listPayload), "fixture-csrf") {
+	if strings.Contains(string(listPayload), "SESSDATA=fixture") || strings.Contains(string(listPayload), "bili_jct=fixture") {
 		t.Fatalf("third-party account list response leaked cookie: %s", string(listPayload))
 	}
 	listBody := decodeBody(t, listPayload)
@@ -373,7 +373,7 @@ func TestThirdPartyAccountAndBilibiliSourceHandlers(t *testing.T) {
 		t.Fatalf("unexpected third-party account list item: %#v", listAccount)
 	}
 	listProfile, ok := listAccount["profile"].(map[string]any)
-	if !ok || listProfile["nickname"] != "主账号昵称" || listProfile["uid"] != "123456" {
+	if !ok || listProfile["nickname"] != "测试账号昵称" || listProfile["uid"] != "123456" {
 		t.Fatalf("unexpected third-party account list profile: %#v", listAccount["profile"])
 	}
 
@@ -464,12 +464,12 @@ func TestThirdPartyAccountAndBilibiliSourceHandlers(t *testing.T) {
 	if qrSucceededResp.StatusCode != http.StatusOK {
 		t.Fatalf("unexpected bilibili qr succeeded code: got %d want 200 body=%s", qrSucceededResp.StatusCode, string(qrSucceededPayload))
 	}
-	if !strings.Contains(string(qrSucceededPayload), "fixture-secret") {
+	if !strings.Contains(string(qrSucceededPayload), "SESSDATA=fixture") {
 		t.Fatalf("expected qr poll success to return cookie, got %s", string(qrSucceededPayload))
 	}
 	qrSucceededBody := decodeBody(t, qrSucceededPayload)
 	qrAccount, ok := qrSucceededBody["account"].(map[string]any)
-	if qrSucceededBody["state"] != "succeeded" || !ok || qrAccount["uid"] != "123456" || qrAccount["nickname"] != "主账号昵称" {
+	if qrSucceededBody["state"] != "succeeded" || !ok || qrAccount["uid"] != "123456" || qrAccount["nickname"] != "测试账号昵称" {
 		t.Fatalf("unexpected bilibili qr succeeded body: %#v", qrSucceededBody)
 	}
 
@@ -506,8 +506,8 @@ func managementBilibiliTransport(t *testing.T) http.RoundTripper {
 				"data": {
 					"isLogin": true,
 					"mid": 123456,
-					"uname": "主账号昵称",
-					"face": "//i0.hdslb.com/bfs/face/raylea.jpg"
+					"uname": "测试账号昵称",
+					"face": "//i0.hdslb.com/bfs/face/test-account.jpg"
 				}
 			}`), nil
 		case request.URL.Host == "passport.bilibili.com" && request.URL.Path == "/x/passport-login/web/qrcode/generate":
@@ -530,8 +530,8 @@ func managementBilibiliTransport(t *testing.T) http.RoundTripper {
 				"code": 0,
 				"data": {
 					"code": 0,
-					"url": "https://passport.bilibili.com/login?SESSDATA=fixture-secret&bili_jct=fixture-csrf&DedeUserID=123456",
-					"refresh_token": "fixture-refresh-token"
+					"url": "https://passport.bilibili.com/login?SESSDATA=fixture&bili_jct=fixture&DedeUserID=123456",
+					"refresh_token": "fixture-refresh"
 				}
 			}`), nil
 		default:

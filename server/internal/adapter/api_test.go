@@ -54,7 +54,7 @@ func TestGetLoginInfoReturnsIDAndNickname(t *testing.T) {
 			"status":  "ok",
 			"retcode": 0,
 			"data": map[string]any{
-				"user_id":  12345678,
+				"user_id":  10001,
 				"nickname": "TestBot",
 			},
 			"echo": request["echo"],
@@ -82,8 +82,8 @@ func TestGetLoginInfoReturnsIDAndNickname(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetLoginInfo failed: %v", err)
 	}
-	if info.ID != "12345678" {
-		t.Fatalf("unexpected ID: got %q want %q", info.ID, "12345678")
+	if info.ID != "10001" {
+		t.Fatalf("unexpected ID: got %q want %q", info.ID, "10001")
 	}
 	if info.Nickname != "TestBot" {
 		t.Fatalf("unexpected Nickname: got %q want %q", info.Nickname, "TestBot")
@@ -366,8 +366,8 @@ func TestGetGroupMemberInfoReturnsRoleAndNames(t *testing.T) {
 			"retcode": 0,
 			"data": map[string]any{
 				"role":     "admin",
-				"nickname": "Alice",
-				"card":     "Alice in Wonderland",
+				"nickname": "测试用户A",
+				"card":     "测试群名片A",
 			},
 			"echo": request["echo"],
 		}); err != nil {
@@ -397,11 +397,11 @@ func TestGetGroupMemberInfoReturnsRoleAndNames(t *testing.T) {
 	if info.Role != "admin" {
 		t.Fatalf("unexpected Role: got %q want %q", info.Role, "admin")
 	}
-	if info.Nickname != "Alice" {
-		t.Fatalf("unexpected Nickname: got %q want %q", info.Nickname, "Alice")
+	if info.Nickname != "测试用户A" {
+		t.Fatalf("unexpected Nickname: got %q want %q", info.Nickname, "测试用户A")
 	}
-	if info.Card != "Alice in Wonderland" {
-		t.Fatalf("unexpected Card: got %q want %q", info.Card, "Alice in Wonderland")
+	if info.Card != "测试群名片A" {
+		t.Fatalf("unexpected Card: got %q want %q", info.Card, "测试群名片A")
 	}
 
 	stopCtx, stopCancel := context.WithTimeout(context.Background(), time.Second)
@@ -445,8 +445,8 @@ func TestGetGroupMemberInfoSanitizesUnsafeTextFields(t *testing.T) {
 			"retcode": 0,
 			"data": map[string]any{
 				"role":     "member",
-				"nickname": "Alice\u2066",
-				"card":     "群星怒\u202e~喵",
+				"nickname": "测试用户A\u2066",
+				"card":     "测试群名片\u202e~喵",
 			},
 			"echo": request["echo"],
 		}); err != nil {
@@ -473,11 +473,11 @@ func TestGetGroupMemberInfoSanitizesUnsafeTextFields(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetGroupMemberInfo failed: %v", err)
 	}
-	if info.Nickname != "Alice" {
-		t.Fatalf("unexpected sanitized nickname: got %q want %q", info.Nickname, "Alice")
+	if info.Nickname != "测试用户A" {
+		t.Fatalf("unexpected sanitized nickname: got %q want %q", info.Nickname, "测试用户A")
 	}
-	if info.Card != "群星怒~喵" {
-		t.Fatalf("unexpected sanitized card: got %q want %q", info.Card, "群星怒~喵")
+	if info.Card != "测试群名片~喵" {
+		t.Fatalf("unexpected sanitized card: got %q want %q", info.Card, "测试群名片~喵")
 	}
 
 	stopCtx, stopCancel := context.WithTimeout(context.Background(), time.Second)
@@ -669,11 +669,11 @@ func TestListGroupsAndFriendsReturnSelectableTargets(t *testing.T) {
 			switch request["action"] {
 			case "get_group_list":
 				data = []any{
-					map[string]any{"group_id": 553855023, "group_name": "群聊 放逐之城"},
+					map[string]any{"group_id": 20001, "group_name": "测试群组"},
 				}
 			case "get_friend_list":
 				data = []any{
-					map[string]any{"user_id": 2678980697, "nickname": "董草风信子"},
+					map[string]any{"user_id": 30001, "nickname": "测试用户"},
 				}
 			default:
 				t.Errorf("unexpected action: %v", request["action"])
@@ -709,14 +709,14 @@ func TestListGroupsAndFriendsReturnSelectableTargets(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ListGroups failed: %v", err)
 	}
-	if len(groups) != 1 || groups[0].ID != "553855023" || groups[0].Name != "群聊 放逐之城" {
+	if len(groups) != 1 || groups[0].ID != "20001" || groups[0].Name != "测试群组" {
 		t.Fatalf("unexpected groups: %#v", groups)
 	}
 	friends, err := shell.ListFriends(context.Background())
 	if err != nil {
 		t.Fatalf("ListFriends failed: %v", err)
 	}
-	if len(friends) != 1 || friends[0].ID != "2678980697" || friends[0].Nickname != "董草风信子" {
+	if len(friends) != 1 || friends[0].ID != "30001" || friends[0].Nickname != "测试用户" {
 		t.Fatalf("unexpected friends: %#v", friends)
 	}
 
@@ -764,7 +764,7 @@ func TestGetStrangerInfoReturnsNickname(t *testing.T) {
 			"status":  "ok",
 			"retcode": 0,
 			"data": map[string]any{
-				"nickname": "Stranger Bob",
+				"nickname": "测试私聊用户B",
 			},
 			"echo": request["echo"],
 		}); err != nil {
@@ -791,8 +791,8 @@ func TestGetStrangerInfoReturnsNickname(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetStrangerInfo failed: %v", err)
 	}
-	if info.Nickname != "Stranger Bob" {
-		t.Fatalf("unexpected Nickname: got %q want %q", info.Nickname, "Stranger Bob")
+	if info.Nickname != "测试私聊用户B" {
+		t.Fatalf("unexpected Nickname: got %q want %q", info.Nickname, "测试私聊用户B")
 	}
 
 	stopCtx, stopCancel := context.WithTimeout(context.Background(), time.Second)
@@ -835,7 +835,7 @@ func TestGetStrangerInfoSanitizesUnsafeNickname(t *testing.T) {
 			"status":  "ok",
 			"retcode": 0,
 			"data": map[string]any{
-				"nickname": "Stranger\u007fBob",
+				"nickname": "测试私聊\u007f用户B",
 			},
 			"echo": request["echo"],
 		}); err != nil {
@@ -862,8 +862,8 @@ func TestGetStrangerInfoSanitizesUnsafeNickname(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetStrangerInfo failed: %v", err)
 	}
-	if info.Nickname != "StrangerBob" {
-		t.Fatalf("unexpected sanitized nickname: got %q want %q", info.Nickname, "StrangerBob")
+	if info.Nickname != "测试私聊用户B" {
+		t.Fatalf("unexpected sanitized nickname: got %q want %q", info.Nickname, "测试私聊用户B")
 	}
 
 	stopCtx, stopCancel := context.WithTimeout(context.Background(), time.Second)
@@ -912,13 +912,13 @@ func TestIdentityCacheTTLExpiry(t *testing.T) {
 		t.Fatalf("expected cached group info, got ok=%v info=%+v", ok, info)
 	}
 
-	cache.SetGroupMemberInfo("g1", "u1", GroupMemberInfo{Role: "owner", Nickname: "Alice", Card: "A"})
+	cache.SetGroupMemberInfo("g1", "u1", GroupMemberInfo{Role: "owner", Nickname: "测试用户A", Card: "A"})
 	if info, ok := cache.GetGroupMemberInfo("g1", "u1"); !ok || info.Role != "owner" {
 		t.Fatalf("expected cached member info, got ok=%v info=%+v", ok, info)
 	}
 
-	cache.SetStrangerInfo("u2", StrangerInfo{Nickname: "Bob"})
-	if info, ok := cache.GetStrangerInfo("u2"); !ok || info.Nickname != "Bob" {
+	cache.SetStrangerInfo("u2", StrangerInfo{Nickname: "测试用户B"})
+	if info, ok := cache.GetStrangerInfo("u2"); !ok || info.Nickname != "测试用户B" {
 		t.Fatalf("expected cached stranger info, got ok=%v info=%+v", ok, info)
 	}
 
@@ -948,7 +948,7 @@ func TestIdentityCacheClearInvalidatesAll(t *testing.T) {
 	cache.SetLogin(LoginInfo{ID: "1", Nickname: "Bot"})
 	cache.SetGroupInfo("g1", GroupInfo{Name: "Group"})
 	cache.SetGroupMemberInfo("g1", "u1", GroupMemberInfo{Role: "member"})
-	cache.SetStrangerInfo("u2", StrangerInfo{Nickname: "Bob"})
+	cache.SetStrangerInfo("u2", StrangerInfo{Nickname: "测试用户B"})
 
 	cache.Clear()
 

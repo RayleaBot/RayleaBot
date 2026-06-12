@@ -12,7 +12,7 @@ response:
     level: info
     source: bridge
     protocol: onebot11
-    message: "721011692: [测试群(2001)]管理员/Alice(3001): hello bridge"
+    message: "10001: [测试群(2001)]管理员/测试用户A(3001): hello bridge"
     request_id: req_bridge_0001
     details:
       direction: inbound
@@ -21,7 +21,7 @@ response:
       post_type: message
       message_type: group
       event_timestamp: 1711015202.0
-      self_id: "721011692"
+      self_id: "10001"
       conversation_type: group
       conversation_id: "2001"
       group_name: 测试群
@@ -32,7 +32,7 @@ response:
       plain_text: hello bridge
       sender:
         user_id: "3001"
-        nickname: Alice
+        nickname: 测试用户A
         card: 管理员
         role: admin
       segments:

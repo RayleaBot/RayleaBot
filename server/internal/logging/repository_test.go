@@ -438,7 +438,7 @@ func TestSQLiteRepositoryCompactsStoredOneBotDetailMirrorsOnRead(t *testing.T) {
 			"real_id":"1001",
 			"message_seq":"1001",
 			"sender_id":"3001",
-			"sender_nickname":"Alice",
+			"sender_nickname":"测试用户A",
 			"sender_role":"admin",
 			"sender":{"user_id":"3001"}
 		}`,
@@ -461,7 +461,7 @@ func TestSQLiteRepositoryCompactsStoredOneBotDetailMirrorsOnRead(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected sender map, got %#v", item.Details["sender"])
 	}
-	if sender["user_id"] != "3001" || sender["nickname"] != "Alice" || sender["role"] != "admin" {
+	if sender["user_id"] != "3001" || sender["nickname"] != "测试用户A" || sender["role"] != "admin" {
 		t.Fatalf("unexpected sender details: %#v", sender)
 	}
 }
@@ -478,12 +478,12 @@ func TestSQLiteRepositorySanitizesStoredOneBotTextOnRead(t *testing.T) {
 		"2026-03-20T10:00:02Z",
 		"info",
 		"bridge",
-		"1145141919: [终末地摸鱼群(553855023)][管理员]群星怒/没错，是魔法！(1358252269): 除了战猎这种抓不到加费就完全没法打的角色",
+		"10001: [测试群组(20001)][管理员]测试群名片/测试用户昵称(30001): 测试消息内容",
 		"",
 		"",
 		`{
 			"plain_text":"hello\u202eworld",
-			"sender":{"card":"群星怒\u2066~喵"}
+			"sender":{"card":"测试群名片\u2066~喵"}
 		}`,
 	); err != nil {
 		t.Fatalf("insert raw detail summary: %v", err)
@@ -493,14 +493,14 @@ func TestSQLiteRepositorySanitizesStoredOneBotTextOnRead(t *testing.T) {
 	if err != nil {
 		t.Fatalf("get detail summary: %v", err)
 	}
-	if item.Message != "1145141919: [终末地摸鱼群(553855023)][管理员]群星怒/没错，是魔法！(1358252269): 除了战猎这种抓不到加费就完全没法打的角色" {
+	if item.Message != "10001: [测试群组(20001)][管理员]测试群名片/测试用户昵称(30001): 测试消息内容" {
 		t.Fatalf("unexpected sanitized message: %#v", item.Message)
 	}
 	if got := item.Details["plain_text"]; got != "helloworld" {
 		t.Fatalf("unexpected sanitized plain_text detail: %#v", got)
 	}
 	sender := item.Details["sender"].(map[string]any)
-	if got := sender["card"]; got != "群星怒~喵" {
+	if got := sender["card"]; got != "测试群名片~喵" {
 		t.Fatalf("unexpected sanitized sender card: %#v", got)
 	}
 }

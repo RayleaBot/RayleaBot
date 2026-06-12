@@ -14,7 +14,7 @@ frames:
       timestamp: 1710000002
       actor:
         id: "123"
-        nickname: 小明
+        nickname: 测试用户A
         role: member
       target:
         type: group

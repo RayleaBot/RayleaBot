@@ -409,7 +409,7 @@ func TestBridgeDeliversMessageSentEvent(t *testing.T) {
 				"message_format": "array",
 				"font":           14,
 				"sender": map[string]any{
-					"nickname": "Alice",
+					"nickname": "测试用户A",
 					"role":     "owner",
 				},
 			},
@@ -437,26 +437,26 @@ func TestBridgeEventSummaryFormatsGroupMessageContext(t *testing.T) {
 	t.Parallel()
 
 	summary := bridgeEventSummary("queued for dispatcher", adapter.NormalizedEvent{
-		BotID:            "1145141919",
+		BotID:            "10001",
 		SourceProtocol:   "onebot11",
 		EventType:        "message.group",
 		ConversationType: "group",
-		ConversationID:   "553855023",
-		SenderID:         "1358252269",
-		TargetName:       "终末地摸鱼群",
-		PlainText:        "除了战猎这种抓不到加费就完全没法打的角色",
+		ConversationID:   "20001",
+		SenderID:         "30001",
+		TargetName:       "测试群组",
+		PlainText:        "测试消息内容",
 		PayloadFields: map[string]any{
 			"onebot": map[string]any{
 				"sender": map[string]any{
-					"nickname": "没错，是魔法！",
-					"card":     "群星怒",
+					"nickname": "测试用户昵称",
+					"card":     "测试群名片",
 					"title":    "管理员",
 				},
 			},
 		},
 	})
 
-	if summary != "1145141919: [终末地摸鱼群(553855023)][管理员]群星怒/没错，是魔法！(1358252269): 除了战猎这种抓不到加费就完全没法打的角色" {
+	if summary != "10001: [测试群组(20001)][管理员]测试群名片/测试用户昵称(30001): 测试消息内容" {
 		t.Fatalf("unexpected group summary: %#v", summary)
 	}
 }
@@ -465,21 +465,21 @@ func TestBridgeEventSummaryFormatsPrivateMessageContext(t *testing.T) {
 	t.Parallel()
 
 	summary := bridgeEventSummary("queued for dispatcher", adapter.NormalizedEvent{
-		BotID:          "1145141919",
+		BotID:          "10001",
 		SourceProtocol: "onebot11",
 		EventType:      "message.private",
-		SenderID:       "3599026669",
+		SenderID:       "30002",
 		PlainText:      "你好",
 		PayloadFields: map[string]any{
 			"onebot": map[string]any{
 				"sender": map[string]any{
-					"nickname": "乔温迪乔斯达",
+					"nickname": "测试私聊用户",
 				},
 			},
 		},
 	})
 
-	if summary != "1145141919: 乔温迪乔斯达(3599026669): 你好" {
+	if summary != "10001: 测试私聊用户(30002): 你好" {
 		t.Fatalf("unexpected private summary: %#v", summary)
 	}
 }
@@ -495,43 +495,43 @@ func TestBridgeEventSummaryFormatsFallbackVariants(t *testing.T) {
 		{
 			name: "group missing group name title and card",
 			event: adapter.NormalizedEvent{
-				BotID:          "1145141919",
+				BotID:          "10001",
 				SourceProtocol: "onebot11",
 				EventType:      "message.group",
-				ConversationID: "553855023",
-				SenderID:       "1358252269",
+				ConversationID: "20001",
+				SenderID:       "30001",
 				PlainText:      "删了",
 				PayloadFields: map[string]any{
 					"onebot": map[string]any{
 						"sender": map[string]any{
-							"nickname": "bronya-icu",
+							"nickname": "测试用户",
 						},
 					},
 				},
 			},
-			want: "1145141919: [553855023]bronya-icu(1358252269): 删了",
+			want: "10001: [20001]测试用户(30001): 删了",
 		},
 		{
 			name: "private missing nickname",
 			event: adapter.NormalizedEvent{
-				BotID:          "1145141919",
+				BotID:          "10001",
 				SourceProtocol: "onebot11",
 				EventType:      "message.private",
-				SenderID:       "3599026669",
+				SenderID:       "30002",
 				PlainText:      "你好",
 			},
-			want: "1145141919: 3599026669(3599026669): 你好",
+			want: "10001: 30002(30002): 你好",
 		},
 		{
 			name: "message text truncated",
 			event: adapter.NormalizedEvent{
-				BotID:          "1145141919",
+				BotID:          "10001",
 				SourceProtocol: "onebot11",
 				EventType:      "message.private",
-				SenderID:       "3599026669",
+				SenderID:       "30002",
 				PlainText:      strings.Repeat("终末地", 100),
 			},
-			want: "1145141919: 3599026669(3599026669): " + strings.Repeat("终末地", 53) + "终...",
+			want: "10001: 30002(30002): " + strings.Repeat("终末地", 53) + "终...",
 		},
 	}
 
@@ -562,19 +562,19 @@ func TestBridgeEventLogAttrsIncludeBotIDAndGroupName(t *testing.T) {
 	t.Parallel()
 
 	attrs := bridgeEventLogAttrs(adapter.NormalizedEvent{
-		BotID:            "1145141919",
+		BotID:            "10001",
 		SourceProtocol:   "onebot11",
 		EventType:        "message.group",
 		ConversationType: "group",
-		ConversationID:   "553855023",
-		SenderID:         "1358252269",
-		TargetName:       "终末地摸鱼群",
+		ConversationID:   "20001",
+		SenderID:         "30001",
+		TargetName:       "测试群组",
 		PlainText:        "hello bridge",
 		PayloadFields: map[string]any{
 			"onebot": map[string]any{
-				"self_id": "1145141919",
+				"self_id": "10001",
 				"sender": map[string]any{
-					"nickname": "Alice",
+					"nickname": "测试用户A",
 				},
 			},
 		},
@@ -586,10 +586,10 @@ func TestBridgeEventLogAttrsIncludeBotIDAndGroupName(t *testing.T) {
 		attrMap[key] = attrs[index+1]
 	}
 
-	if attrMap["self_id"] != "1145141919" {
+	if attrMap["self_id"] != "10001" {
 		t.Fatalf("unexpected self_id attr: %#v", attrMap["self_id"])
 	}
-	if attrMap["group_name"] != "终末地摸鱼群" {
+	if attrMap["group_name"] != "测试群组" {
 		t.Fatalf("unexpected group_name attr: %#v", attrMap["group_name"])
 	}
 }
@@ -661,7 +661,7 @@ func supportedAdapterEvent() adapter.NormalizedEvent {
 				"message_format": "array",
 				"font":           14,
 				"sender": map[string]any{
-					"nickname": "Alice",
+					"nickname": "测试用户A",
 					"card":     "管理员",
 					"role":     "admin",
 				},

@@ -18,10 +18,10 @@ func TestBilibiliUserResolveExactUID(t *testing.T) {
 	t.Parallel()
 
 	handler := newBilibiliSourceHTTPHandlers(nil, nil, roundTripFunc(func(r *http.Request) (*http.Response, error) {
-		if r.URL.Path != "/x/space/acc/info" || r.URL.Query().Get("mid") != "36081646" {
+		if r.URL.Path != "/x/space/acc/info" || r.URL.Query().Get("mid") != "1000001" {
 			t.Fatalf("unexpected request URL: %s", r.URL.String())
 		}
-		if !strings.Contains(r.Header.Get("Referer"), "36081646") {
+		if !strings.Contains(r.Header.Get("Referer"), "1000001") {
 			t.Fatalf("expected UID referer, got %q", r.Header.Get("Referer"))
 		}
 		return &http.Response{
@@ -29,9 +29,9 @@ func TestBilibiliUserResolveExactUID(t *testing.T) {
 			Body: io.NopCloser(strings.NewReader(`{
 				"code": 0,
 				"data": {
-					"mid": 36081646,
-					"name": "洛天依",
-					"face": "https://i0.hdslb.com/bfs/face/luotianyi.jpg",
+					"mid": 1000001,
+					"name": "测试 UP",
+					"face": "https://i0.hdslb.com/bfs/face/test-up.jpg",
 					"fans": 7000000
 				}
 			}`)),
@@ -40,14 +40,14 @@ func TestBilibiliUserResolveExactUID(t *testing.T) {
 	}))
 
 	recorder := httptest.NewRecorder()
-	request := httptest.NewRequest(http.MethodGet, "/api/bilibili/users/resolve?query=36081646", nil)
+	request := httptest.NewRequest(http.MethodGet, "/api/bilibili/users/resolve?query=1000001", nil)
 	handler.handleBilibiliUserResolve()(recorder, request)
 
 	if recorder.Code != http.StatusOK {
 		t.Fatalf("unexpected status: got %d body %s", recorder.Code, recorder.Body.String())
 	}
 	body := recorder.Body.String()
-	for _, want := range []string{`"exact":true`, `"uid":"36081646"`, `"name":"洛天依"`, `"fans":7000000`} {
+	for _, want := range []string{`"exact":true`, `"uid":"1000001"`, `"name":"测试 UP"`, `"fans":7000000`} {
 		if !strings.Contains(body, want) {
 			t.Fatalf("response missing %s: %s", want, body)
 		}
@@ -58,7 +58,7 @@ func TestBilibiliUserResolveSearchCandidates(t *testing.T) {
 	t.Parallel()
 
 	handler := newBilibiliSourceHTTPHandlers(nil, nil, roundTripFunc(func(r *http.Request) (*http.Response, error) {
-		if r.URL.Path != "/x/web-interface/search/type" || r.URL.Query().Get("search_type") != "bili_user" || r.URL.Query().Get("keyword") != "brony" {
+		if r.URL.Path != "/x/web-interface/search/type" || r.URL.Query().Get("search_type") != "bili_user" || r.URL.Query().Get("keyword") != "test" {
 			t.Fatalf("unexpected request URL: %s", r.URL.String())
 		}
 		return &http.Response{
@@ -67,7 +67,7 @@ func TestBilibiliUserResolveSearchCandidates(t *testing.T) {
 				"code": 0,
 				"data": {
 					"result": [
-						{"mid": "3493087684856589", "uname": "<em class=\"keyword\">brony</em>a-official", "upic": "//i0.hdslb.com/bfs/face/a.jpg", "fans": 1200}
+						{"mid": "1000002", "uname": "<em class=\"keyword\">test</em>-official", "upic": "//i0.hdslb.com/bfs/face/a.jpg", "fans": 1200}
 					]
 				}
 			}`)),
@@ -76,14 +76,14 @@ func TestBilibiliUserResolveSearchCandidates(t *testing.T) {
 	}))
 
 	recorder := httptest.NewRecorder()
-	request := httptest.NewRequest(http.MethodGet, "/api/bilibili/users/resolve?query=brony", nil)
+	request := httptest.NewRequest(http.MethodGet, "/api/bilibili/users/resolve?query=test", nil)
 	handler.handleBilibiliUserResolve()(recorder, request)
 
 	if recorder.Code != http.StatusOK {
 		t.Fatalf("unexpected status: got %d body %s", recorder.Code, recorder.Body.String())
 	}
 	body := recorder.Body.String()
-	for _, want := range []string{`"exact":false`, `"uid":"3493087684856589"`, `"name":"bronya-official"`, `"avatar_url":"https://i0.hdslb.com/bfs/face/a.jpg"`} {
+	for _, want := range []string{`"exact":false`, `"uid":"1000002"`, `"name":"test-official"`, `"avatar_url":"https://i0.hdslb.com/bfs/face/a.jpg"`} {
 		if !strings.Contains(body, want) {
 			t.Fatalf("response missing %s: %s", want, body)
 		}
