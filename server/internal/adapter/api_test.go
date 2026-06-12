@@ -637,6 +637,96 @@ func TestGetGroupInfoSanitizesUnsafeGroupName(t *testing.T) {
 	}
 }
 
+func TestListGroupsAndFriendsReturnSelectableTargets(t *testing.T) {
+	t.Parallel()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		conn, err := websocket.Accept(w, r, nil)
+		if err != nil {
+			t.Errorf("Accept failed: %v", err)
+			return
+		}
+		defer func() {
+			_ = conn.CloseNow()
+		}()
+
+		if err := wsjson.Write(context.Background(), conn, map[string]any{
+			"post_type":       "meta_event",
+			"meta_event_type": "lifecycle",
+			"sub_type":        "enable",
+		}); err != nil {
+			t.Errorf("wsjson.Write ready failed: %v", err)
+			return
+		}
+
+		for i := 0; i < 2; i++ {
+			var request map[string]any
+			if err := wsjson.Read(context.Background(), conn, &request); err != nil {
+				t.Errorf("wsjson.Read request failed: %v", err)
+				return
+			}
+			var data any
+			switch request["action"] {
+			case "get_group_list":
+				data = []any{
+					map[string]any{"group_id": 553855023, "group_name": "群聊 放逐之城"},
+				}
+			case "get_friend_list":
+				data = []any{
+					map[string]any{"user_id": 2678980697, "nickname": "董草风信子"},
+				}
+			default:
+				t.Errorf("unexpected action: %v", request["action"])
+				return
+			}
+			if err := wsjson.Write(context.Background(), conn, map[string]any{
+				"status":  "ok",
+				"retcode": 0,
+				"data":    data,
+				"echo":    request["echo"],
+			}); err != nil {
+				t.Errorf("wsjson.Write response failed: %v", err)
+				return
+			}
+		}
+
+		<-r.Context().Done()
+	}))
+	defer server.Close()
+
+	shell := newTestShell(oneBotForwardWS(wsURL(server.URL)), shellDeps{
+		connectTimeout: 75 * time.Millisecond,
+		sleep:          blockingSleep,
+	})
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	shell.Start(ctx)
+	waitForState(t, shell, StateConnected, 500*time.Millisecond)
+
+	groups, err := shell.ListGroups(context.Background())
+	if err != nil {
+		t.Fatalf("ListGroups failed: %v", err)
+	}
+	if len(groups) != 1 || groups[0].ID != "553855023" || groups[0].Name != "群聊 放逐之城" {
+		t.Fatalf("unexpected groups: %#v", groups)
+	}
+	friends, err := shell.ListFriends(context.Background())
+	if err != nil {
+		t.Fatalf("ListFriends failed: %v", err)
+	}
+	if len(friends) != 1 || friends[0].ID != "2678980697" || friends[0].Nickname != "董草风信子" {
+		t.Fatalf("unexpected friends: %#v", friends)
+	}
+
+	stopCtx, stopCancel := context.WithTimeout(context.Background(), time.Second)
+	defer stopCancel()
+	if err := shell.Stop(stopCtx); err != nil {
+		t.Fatalf("Stop failed: %v", err)
+	}
+}
+
 func TestGetStrangerInfoReturnsNickname(t *testing.T) {
 
 	t.Parallel()

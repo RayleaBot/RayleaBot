@@ -1,0 +1,23 @@
+{
+  "contract": "contracts/plugin-management-ui-bridge.schema.json",
+  "case": "ok",
+  "description": "The iframe may request subscriber identity resolution for selected targets.",
+  "input": {
+    "version": "1",
+    "source": "plugin_management_ui",
+    "type": "protocol.identities.resolve",
+    "request_id": "req_protocol_identities_0001",
+    "payload": {
+      "items": [
+        {
+          "target_type": "group",
+          "target_id": "553855023",
+          "user_id": "2678980697"
+        }
+      ]
+    }
+  },
+  "expect": {
+    "valid": true
+  }
+}

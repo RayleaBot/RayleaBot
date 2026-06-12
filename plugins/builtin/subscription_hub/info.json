@@ -33,7 +33,11 @@
     "config.read",
     "config.write",
     "logger.write",
-    "http.request"
+    "http.request",
+    "friend.list",
+    "group.list",
+    "user.info.get",
+    "group.member.get"
   ],
   "permissions": {
     "required": [
@@ -43,7 +47,11 @@
       "config.read",
       "config.write",
       "logger.write",
-      "http.request"
+      "http.request",
+      "friend.list",
+      "group.list",
+      "user.info.get",
+      "group.member.get"
     ],
     "optional": [],
     "scopes": {

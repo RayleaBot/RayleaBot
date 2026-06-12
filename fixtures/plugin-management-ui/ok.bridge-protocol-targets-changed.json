@@ -1,0 +1,33 @@
+{
+  "contract": "contracts/plugin-management-ui-bridge.schema.json",
+  "case": "ok",
+  "description": "The host returns separated OneBot11 group and private targets.",
+  "input": {
+    "version": "1",
+    "source": "management_host",
+    "type": "protocol.targets.changed",
+    "request_id": "req_protocol_targets_0001",
+    "payload": {
+      "protocol": "onebot11",
+      "available": true,
+      "groups": [
+        {
+          "target_type": "group",
+          "target_id": "553855023",
+          "target_name": "群聊 放逐之城贴吧官方群"
+        }
+      ],
+      "private_users": [
+        {
+          "target_type": "private",
+          "target_id": "2678980697",
+          "nickname": "董草风信子"
+        }
+      ],
+      "issues": []
+    }
+  },
+  "expect": {
+    "valid": true
+  }
+}

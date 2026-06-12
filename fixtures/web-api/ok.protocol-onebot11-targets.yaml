@@ -1,0 +1,22 @@
+contract: contracts/web-api.openapi.yaml
+case: ok
+description: OneBot11 selectable targets are separated into groups and private users.
+request:
+  method: GET
+  path: /api/protocols/onebot11/targets
+response:
+  status: 200
+  body:
+    protocol: onebot11
+    available: true
+    groups:
+      - target_type: group
+        target_id: "553855023"
+        target_name: 群聊 放逐之城贴吧官方群
+    private_users:
+      - target_type: private
+        target_id: "2678980697"
+        nickname: 董草风信子
+    issues: []
+expect:
+  valid: true

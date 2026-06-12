@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="theme-color" content="#f6f8fb" />
+    <meta name="theme-color" content="#f7f9fc" />
     <title>订阅设置</title>
     <link rel="stylesheet" href="./app.css" />
   </head>
@@ -11,116 +11,73 @@
     <a class="skip-link" href="#main-content">跳到主要内容</a>
     <main id="main-content" class="page-shell" data-page="subscriptions">
       <header class="page-header">
-        <div class="page-heading">
+        <div>
           <p class="eyebrow" translate="no">raylea.subscription-hub</p>
           <h1 id="page-title">订阅设置</h1>
-          <p id="page-subtitle">管理 Bilibili 订阅和推送目标</p>
+          <p id="page-subtitle">按 Bilibili UP 管理推送对象</p>
         </div>
         <div class="status-pill" id="status-text" aria-live="polite">正在等待宿主初始化…</div>
       </header>
 
-      <section class="overview-grid" aria-label="订阅中心概览">
-        <article class="metric">
-          <span class="metric__label">状态</span>
-          <strong id="metric-enabled">未载入</strong>
-        </article>
-        <article class="metric">
-          <span class="metric__label">订阅</span>
+      <section class="status-strip" aria-label="订阅中心状态">
+        <label class="switch-row" for="enabled-input">
+          <input id="enabled-input" name="enabled" type="checkbox" autocomplete="off" />
+          <span>
+            <strong>订阅中心</strong>
+            <small id="metric-enabled">未载入</small>
+          </span>
+        </label>
+        <div class="strip-metric">
+          <span>订阅</span>
           <strong id="metric-subscriptions">0 / 0</strong>
-        </article>
-        <article class="metric">
-          <span class="metric__label">事件源</span>
-          <strong id="metric-source">平台事件源</strong>
-        </article>
-        <article class="metric">
-          <span class="metric__label">校验</span>
+        </div>
+        <div class="strip-metric">
+          <span>推送对象</span>
+          <strong id="metric-targets">未载入</strong>
+        </div>
+        <div class="strip-metric">
+          <span>保存</span>
           <strong id="metric-validation">未校验</strong>
-        </article>
+        </div>
+        <button type="button" id="targets-reload-button" class="button button--small">刷新对象</button>
       </section>
 
-      <section class="layout-grid">
-        <aside class="side-stack" aria-label="订阅中心设置">
-          <section class="panel">
-            <div class="section-title">
-              <h2>订阅中心</h2>
-              <p>控制订阅中心是否处理平台 Bilibili 事件。</p>
-            </div>
+      <section class="panel">
+        <div class="section-title section-title--inline">
+          <div>
+            <h2>订阅管理</h2>
+            <p>同一 UP 的群聊和私聊目标合并在同一行编辑。</p>
+          </div>
+          <button type="button" id="add-subscription-button" class="button button--primary-accent">添加订阅</button>
+        </div>
 
-            <label class="toggle-row" for="enabled-input">
-              <input id="enabled-input" name="enabled" type="checkbox" autocomplete="off" />
-              <span>
-                <strong>启用订阅推送</strong>
-                <small>关闭后保留配置，但不发送订阅卡片。</small>
-              </span>
-            </label>
-          </section>
-        </aside>
+        <div class="toolbar" role="search">
+          <label class="field field--search" for="subscription-search-input">
+            <span>搜索</span>
+            <input id="subscription-search-input" name="subscription_search" type="search" autocomplete="off" placeholder="搜索 UID、UP 名称、推送对象或订阅人…" />
+          </label>
+          <label class="field" for="status-filter-input">
+            <span>状态</span>
+            <select id="status-filter-input" name="status_filter" autocomplete="off">
+              <option value="all">全部</option>
+              <option value="enabled">启用</option>
+              <option value="disabled">停用</option>
+            </select>
+          </label>
+          <label class="field" for="service-filter-input">
+            <span>类型</span>
+            <select id="service-filter-input" name="service_filter" autocomplete="off">
+              <option value="all">全部类型</option>
+              <option value="live">直播</option>
+              <option value="video">视频</option>
+              <option value="image_text">图文</option>
+              <option value="article">文章</option>
+              <option value="repost">转发</option>
+            </select>
+          </label>
+        </div>
 
-        <section class="workspace-stack">
-          <section class="panel">
-            <div class="section-title section-title--inline">
-              <div>
-                <h2>订阅管理</h2>
-                <p>按 UID、目标和推送类型管理订阅。</p>
-              </div>
-              <button type="button" id="add-subscription-button" class="button button--primary-accent">添加订阅</button>
-            </div>
-
-            <div class="toolbar" role="search">
-              <label class="field field--search" for="subscription-search-input">
-                <span>搜索</span>
-                <input id="subscription-search-input" name="subscription_search" type="search" autocomplete="off" placeholder="搜索 UID、名称或目标…" />
-              </label>
-              <label class="field" for="status-filter-input">
-                <span>状态</span>
-                <select id="status-filter-input" name="status_filter" autocomplete="off">
-                  <option value="all">全部</option>
-                  <option value="enabled">启用</option>
-                  <option value="disabled">停用</option>
-                </select>
-              </label>
-              <label class="field" for="service-filter-input">
-                <span>类型</span>
-                <select id="service-filter-input" name="service_filter" autocomplete="off">
-                  <option value="all">全部类型</option>
-                  <option value="live">直播</option>
-                  <option value="video">视频</option>
-                  <option value="image_text">图文</option>
-                  <option value="article">文章</option>
-                  <option value="repost">转发</option>
-                </select>
-              </label>
-            </div>
-
-            <div id="subscription-list" class="subscription-list"></div>
-          </section>
-
-          <section class="panel editor-panel" id="subscription-editor-panel">
-            <div class="section-title section-title--inline">
-              <div>
-                <h2 id="subscription-editor-title">订阅编辑</h2>
-                <p id="subscription-editor-subtitle">选择一条订阅，或新建订阅。</p>
-              </div>
-              <button type="button" id="close-editor-button" class="button button--small">收起</button>
-            </div>
-
-            <div id="subscription-editor" class="subscription-editor"></div>
-          </section>
-
-          <details class="panel advanced-panel">
-            <summary>高级配置</summary>
-            <p>用于批量编辑、排障和保留原始结构。保存仍会走上方结构化校验。</p>
-            <div class="advanced-actions">
-              <button type="button" id="export-json-button" class="button button--small">刷新预览</button>
-              <button type="button" id="import-json-button" class="button button--small">导入 JSON</button>
-            </div>
-            <label class="field" for="raw-json-input">
-              <span>原始配置</span>
-              <textarea id="raw-json-input" name="raw_json" rows="12" spellcheck="false" autocomplete="off"></textarea>
-              <small id="raw-json-error" class="field-error"></small>
-            </label>
-          </details>
-        </section>
+        <div id="subscription-list" class="subscription-list" aria-live="polite"></div>
       </section>
 
       <footer class="actions">

@@ -374,6 +374,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/protocols/onebot11/targets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List current OneBot11 group and private message targets. */
+        get: operations["getOneBot11ProtocolTargets"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/protocols/onebot11/identities/resolve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Resolve OneBot11 user display identities for selected targets. */
+        post: operations["resolveOneBot11ProtocolIdentities"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/protocols/onebot11/compatibility": {
         parameters: {
             query?: never;
@@ -1016,6 +1050,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/bilibili/users/resolve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Resolve a Bilibili user by UID or search keyword for management UI forms. */
+        get: operations["resolveBilibiliUser"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/bilibili/source/restart": {
         parameters: {
             query?: never;
@@ -1140,6 +1191,56 @@ export interface components {
             readiness_status: components["schemas"]["ProtocolReadinessStatus"];
             summary: string;
             recent_transport_issues: components["schemas"]["ProtocolIssue"][];
+        };
+        OneBot11TargetIssue: {
+            /** @enum {string} */
+            scope: "protocol" | "groups" | "private_users" | "identity";
+            message: string;
+        };
+        OneBot11GroupTarget: {
+            /** @constant */
+            target_type: "group";
+            target_id: string;
+            target_name: string;
+        };
+        OneBot11PrivateTarget: {
+            /** @constant */
+            target_type: "private";
+            target_id: string;
+            nickname: string;
+        };
+        OneBot11ProtocolTargetsResponse: {
+            /** @constant */
+            protocol: "onebot11";
+            available: boolean;
+            groups: components["schemas"]["OneBot11GroupTarget"][];
+            private_users: components["schemas"]["OneBot11PrivateTarget"][];
+            issues: components["schemas"]["OneBot11TargetIssue"][];
+        };
+        OneBot11IdentityResolveItem: {
+            /** @enum {string} */
+            target_type: "group" | "private";
+            target_id: string;
+            user_id: string;
+        };
+        OneBot11IdentityResolveRequest: {
+            items: components["schemas"]["OneBot11IdentityResolveItem"][];
+        };
+        OneBot11Identity: {
+            /** @enum {string} */
+            target_type: "group" | "private";
+            target_id: string;
+            user_id: string;
+            nickname: string;
+            group_nickname?: string;
+            title?: string;
+            role?: string;
+            role_label?: string;
+            avatar_url: string;
+        };
+        OneBot11IdentityResolveResponse: {
+            items: components["schemas"]["OneBot11Identity"][];
+            issues: components["schemas"]["OneBot11TargetIssue"][];
         };
         /** @enum {string} */
         ProtocolCompatibilityCategoryKey: "events" | "message_segments" | "read_capabilities" | "provider_extensions";
@@ -1864,6 +1965,19 @@ export interface components {
         BilibiliSourceRestartResponse: {
             accepted: boolean;
             status: components["schemas"]["BilibiliSourceStatusResponse"];
+        };
+        BilibiliResolvedUser: {
+            uid: string;
+            name: string;
+            avatar_url: string;
+            fans?: number;
+        };
+        BilibiliUserResolveResponse: {
+            query: string;
+            exact: boolean;
+            user?: components["schemas"]["BilibiliResolvedUser"];
+            candidates: components["schemas"]["BilibiliResolvedUser"][];
+            message?: string;
         };
         PluginSecretValues: {
             [key: string]: string;
@@ -2851,6 +2965,55 @@ export interface operations {
                     "application/json": components["schemas"]["OneBot11ProtocolSnapshotResponse"];
                 };
             };
+            401: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    getOneBot11ProtocolTargets: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Current OneBot11 selectable targets. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OneBot11ProtocolTargetsResponse"];
+                };
+            };
+            401: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    resolveOneBot11ProtocolIdentities: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OneBot11IdentityResolveRequest"];
+            };
+        };
+        responses: {
+            /** @description Resolved OneBot11 identities. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OneBot11IdentityResolveResponse"];
+                };
+            };
+            400: components["responses"]["Error"];
             401: components["responses"]["Error"];
             default: components["responses"]["Error"];
         };
@@ -3937,6 +4100,31 @@ export interface operations {
                     "application/json": components["schemas"]["BilibiliSourceStatusResponse"];
                 };
             };
+            401: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    resolveBilibiliUser: {
+        parameters: {
+            query: {
+                query: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Resolved Bilibili user or candidate list. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BilibiliUserResolveResponse"];
+                };
+            };
+            400: components["responses"]["Error"];
             401: components["responses"]["Error"];
             default: components["responses"]["Error"];
         };

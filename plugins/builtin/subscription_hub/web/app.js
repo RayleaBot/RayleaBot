@@ -1,44 +1,34 @@
 (function () {
-  const SERVICE_OPTIONS = [
-    { value: 'all', label: '全部' },
-    { value: 'live', label: '直播' },
-    { value: 'video', label: '视频' },
-    { value: 'image_text', label: '图文' },
-    { value: 'article', label: '文章' },
-    { value: 'repost', label: '转发' },
-  ]
-  const TARGET_OPTIONS = [
-    { value: 'group', label: '群聊' },
-    { value: 'private', label: '私聊' },
-  ]
-  const DEFAULT_SETTINGS = {
-    enabled: true,
-    subscriptions: [],
+  'use strict'
+
+  const SERVICE_ORDER = ['all', 'live', 'video', 'image_text', 'article', 'repost']
+  const SERVICE_LABELS = {
+    all: '全部',
+    live: '直播',
+    video: '视频',
+    image_text: '图文',
+    article: '文章',
+    repost: '转发',
   }
+  const TARGET_LABELS = {
+    group: '群聊',
+    private: '私聊',
+  }
+  const numericPattern = /^[0-9]+$/
 
   const elements = {
     statusText: document.getElementById('status-text'),
-    pageTitle: document.getElementById('page-title'),
-    pageSubtitle: document.getElementById('page-subtitle'),
+    enabledInput: document.getElementById('enabled-input'),
     metricEnabled: document.getElementById('metric-enabled'),
     metricSubscriptions: document.getElementById('metric-subscriptions'),
-    metricSource: document.getElementById('metric-source'),
+    metricTargets: document.getElementById('metric-targets'),
     metricValidation: document.getElementById('metric-validation'),
-    enabledInput: document.getElementById('enabled-input'),
-    addSubscriptionButton: document.getElementById('add-subscription-button'),
-    subscriptionSearchInput: document.getElementById('subscription-search-input'),
-    statusFilterInput: document.getElementById('status-filter-input'),
-    serviceFilterInput: document.getElementById('service-filter-input'),
-    subscriptionList: document.getElementById('subscription-list'),
-    subscriptionEditorPanel: document.getElementById('subscription-editor-panel'),
-    subscriptionEditorTitle: document.getElementById('subscription-editor-title'),
-    subscriptionEditorSubtitle: document.getElementById('subscription-editor-subtitle'),
-    closeEditorButton: document.getElementById('close-editor-button'),
-    subscriptionEditor: document.getElementById('subscription-editor'),
-    exportJsonButton: document.getElementById('export-json-button'),
-    importJsonButton: document.getElementById('import-json-button'),
-    rawJsonInput: document.getElementById('raw-json-input'),
-    rawJsonError: document.getElementById('raw-json-error'),
+    targetsReloadButton: document.getElementById('targets-reload-button'),
+    searchInput: document.getElementById('subscription-search-input'),
+    statusFilter: document.getElementById('status-filter-input'),
+    serviceFilter: document.getElementById('service-filter-input'),
+    addButton: document.getElementById('add-subscription-button'),
+    list: document.getElementById('subscription-list'),
     dirtyState: document.getElementById('dirty-state'),
     reloadButton: document.getElementById('reload-button'),
     resetButton: document.getElementById('reset-button'),
@@ -47,933 +37,932 @@
     saveButton: document.getElementById('save-button'),
   }
 
-  let defaultSettings = normalizeSettings(DEFAULT_SETTINGS)
-  let draft = normalizeSettings(DEFAULT_SETTINGS)
-  let savedSnapshot = ''
-  let validation = { errors: [] }
-  let selectedSubscriptionId = ''
-  let readyTimer = null
-  let readyAttempts = 0
-  let initialized = false
-  let pendingSave = false
+  const state = {
+    defaultSettings: { enabled: true, subscriptions: [] },
+    settings: { enabled: true, subscriptions: [] },
+    rows: [],
+    loaded: false,
+    dirty: false,
+    rowCounter: 0,
+    requestCounter: 0,
+    savingRequestId: '',
+    pending: new Map(),
+    resolveTimers: new Map(),
+    targets: {
+      loaded: false,
+      available: false,
+      groups: [],
+      private_users: [],
+      issues: [],
+    },
+  }
+
+  function escapeHTML(value) {
+    return String(value ?? '')
+      .replaceAll('&', '&amp;')
+      .replaceAll('<', '&lt;')
+      .replaceAll('>', '&gt;')
+      .replaceAll('"', '&quot;')
+      .replaceAll("'", '&#39;')
+  }
+
+  function selectorValue(value) {
+    return String(value ?? '').replaceAll('\\', '\\\\').replaceAll('"', '\\"')
+  }
+
+  function trim(value) {
+    return String(value ?? '').trim()
+  }
+
+  function unique(values) {
+    return [...new Set(values.map(trim).filter(Boolean))]
+  }
+
+  function normalizeServices(value) {
+    const services = unique(Array.isArray(value) ? value : ['all'])
+      .filter((item) => SERVICE_ORDER.includes(item))
+    if (!services.length || services.includes('all')) {
+      return ['all']
+    }
+    return SERVICE_ORDER.filter((service) => services.includes(service))
+  }
+
+  function servicesKey(services) {
+    return normalizeServices(services).join(',')
+  }
+
+  function servicesText(services) {
+    return normalizeServices(services).map((service) => SERVICE_LABELS[service] || service).join('、')
+  }
+
+  function targetKey(targetType, targetId) {
+    return `${trim(targetType)}:${trim(targetId)}`
+  }
+
+  function nextRowId() {
+    state.rowCounter += 1
+    return `row-${Date.now()}-${state.rowCounter}`
+  }
+
+  function nextRequestId(prefix) {
+    state.requestCounter += 1
+    return `${prefix}-${Date.now()}-${state.requestCounter}`
+  }
 
   function postMessage(type, payload, requestId) {
     window.parent.postMessage({
       version: '1',
       source: 'plugin_management_ui',
       type,
-      request_id: requestId,
-      payload,
+      request_id: requestId || nextRequestId(type.replaceAll('.', '-')),
+      ...(payload === undefined ? {} : { payload }),
     }, '*')
   }
 
-  function stopReadyLoop() {
-    if (readyTimer) {
-      clearTimeout(readyTimer)
-      readyTimer = null
+  function normalizeSubscriber(value) {
+    const id = trim(value && value.id)
+    if (!numericPattern.test(id)) {
+      return null
     }
-  }
-
-  function announceReady() {
-    stopReadyLoop()
-    readyAttempts += 1
-    postMessage('page.ready', undefined, `ready-${Date.now()}-${readyAttempts}`)
-    if (readyAttempts < 10) {
-      readyTimer = setTimeout(announceReady, 500)
-    }
-  }
-
-  function setStatus(message, isError) {
-    if (!elements.statusText) {
-      return
-    }
-    elements.statusText.textContent = message
-    elements.statusText.classList.toggle('is-error', Boolean(isError))
-  }
-
-  function isRecord(value) {
-    return value && typeof value === 'object' && !Array.isArray(value)
-  }
-
-  function safeId(value, fallback) {
-    const text = String(value || '').trim().toLowerCase()
-    const normalized = Array.from(text)
-      .filter((char) => /[a-z0-9_.-]/.test(char))
-      .join('')
-      .replace(/^[._-]+|[._-]+$/g, '')
-      .slice(0, 96)
-    return normalized || fallback
-  }
-
-  function normalizeServices(value) {
-    const source = Array.isArray(value) ? value : ['all']
-    const seen = new Set()
-    const result = []
-    for (const item of source) {
-      const service = String(item || '').trim()
-      if (!SERVICE_OPTIONS.some((option) => option.value === service) || seen.has(service)) {
-        continue
-      }
-      seen.add(service)
-      result.push(service)
-    }
-    return result.length > 0 ? result : ['all']
-  }
-
-  function normalizeSubscribers(value) {
-    const source = Array.isArray(value) ? value : []
-    return source
-      .map((item) => {
-        if (isRecord(item)) {
-          const id = String(item.id || '').trim()
-          const nickname = String(item.nickname || id).trim()
-          if (!id) {
-            return null
-          }
-          const subscriber = { id, nickname: nickname || id }
-          for (const key of ['group_nickname', 'title', 'role', 'role_label', 'avatar_url']) {
-            const text = String(item[key] || '').trim()
-            if (text) {
-              subscriber[key] = text
-            }
-          }
-          return subscriber
-        }
-        const text = String(item || '').trim()
-        return text ? { id: text, nickname: text } : null
-      })
-      .filter(Boolean)
-  }
-
-  function normalizeSubscriptions(value) {
-    const source = Array.isArray(value) ? value : []
-    const seen = new Set()
-    return source
-      .map((item, index) => {
-        const sourceItem = isRecord(item) ? item : {}
-        const uid = String(sourceItem.uid || '').trim()
-        const targetType = String(sourceItem.target_type || '').trim()
-        const targetId = String(sourceItem.target_id || '').trim()
-        const fallbackId = uid && targetType && targetId
-          ? `bilibili-${uid}-${targetType}-${targetId}`
-          : `bilibili-draft-${index + 1}`
-        const id = safeId(sourceItem.id, fallbackId)
-        if (seen.has(id)) {
-          return null
-        }
-        seen.add(id)
-        return {
-          id,
-          platform: 'bilibili',
-          uid,
-          name: String(sourceItem.name || uid).trim(),
-          avatar_url: String(sourceItem.avatar_url || '').trim(),
-          target_type: ['group', 'private'].includes(targetType) ? targetType : 'group',
-          target_id: targetId,
-          target_name: String(sourceItem.target_name || '').trim(),
-          services: normalizeServices(sourceItem.services),
-          subscribers: normalizeSubscribers(sourceItem.subscribers),
-          enabled: sourceItem.enabled !== false,
-        }
-      })
-      .filter(Boolean)
-  }
-
-  function normalizeSettings(values) {
-    const source = isRecord(values) ? values : {}
     return {
-      enabled: source.enabled !== false,
-      subscriptions: normalizeSubscriptions(source.subscriptions),
+      id,
+      nickname: trim(value.nickname),
+      group_nickname: trim(value.group_nickname),
+      title: trim(value.title),
+      role: trim(value.role),
+      role_label: trim(value.role_label),
+      avatar_url: trim(value.avatar_url),
     }
   }
 
-  function buildPayloadFromDraft(source) {
+  function normalizeSubscription(value) {
+    if (!value || typeof value !== 'object') {
+      return null
+    }
+    const uid = trim(value.uid)
+    const targetType = trim(value.target_type)
+    const targetId = trim(value.target_id)
+    if (!numericPattern.test(uid) || !['group', 'private'].includes(targetType) || !numericPattern.test(targetId)) {
+      return null
+    }
     return {
-      settings: {
-        enabled: source.enabled !== false,
-        subscriptions: source.subscriptions.map(subscriptionPayload),
-      },
-    }
-  }
-
-  function subscriptionPayload(item) {
-    const subscription = {
-      id: safeId(item.id, `bilibili-${item.uid}-${item.target_type}-${item.target_id}`),
+      id: trim(value.id),
       platform: 'bilibili',
-      uid: String(item.uid || '').trim(),
-      name: String(item.name || item.uid || '').trim(),
-      target_type: item.target_type === 'private' ? 'private' : 'group',
-      target_id: String(item.target_id || '').trim(),
-      services: normalizeServices(item.services),
-      subscribers: normalizeSubscribers(item.subscribers),
-      enabled: item.enabled !== false,
-    }
-    const avatarUrl = String(item.avatar_url || '').trim()
-    if (avatarUrl) {
-      subscription.avatar_url = avatarUrl
-    }
-    const targetName = String(item.target_name || '').trim()
-    if (targetName) {
-      subscription.target_name = targetName
-    }
-    return subscription
-  }
-
-  function snapshotFromPayload(payload) {
-    return JSON.stringify(payload.settings)
-  }
-
-  function validateDraft() {
-    const errors = []
-    const subscriptionIds = new Set()
-    draft.subscriptions.forEach((item, index) => {
-      const label = item.name || item.uid || `订阅 ${index + 1}`
-      if (!item.id) {
-        errors.push({ scope: `subscription-${index}-id`, message: `${label} 的 ID 不能为空` })
-      } else if (subscriptionIds.has(item.id)) {
-        errors.push({ scope: `subscription-${index}-id`, message: `${label} 的 ID 重复` })
-      }
-      subscriptionIds.add(item.id)
-      if (!/^\d+$/.test(String(item.uid || '').trim())) {
-        errors.push({ scope: `subscription-${index}-uid`, message: `${label} 的 UID 只能填写数字` })
-      }
-      if (!['group', 'private'].includes(item.target_type)) {
-        errors.push({ scope: `subscription-${index}-target_type`, message: `${label} 的目标类型不正确` })
-      }
-      if (!String(item.target_id || '').trim()) {
-        errors.push({ scope: `subscription-${index}-target_id`, message: `${label} 的目标 ID 不能为空` })
-      }
-      if (normalizeServices(item.services).length === 0) {
-        errors.push({ scope: `subscription-${index}-services`, message: `${label} 至少需要一个推送类型` })
-      }
-    })
-    return { errors }
-  }
-
-  function firstError(scopePrefix) {
-    return validation.errors.find((error) => error.scope === scopePrefix || error.scope.startsWith(`${scopePrefix}-`))
-  }
-
-  function isDirty() {
-    return snapshotFromPayload(buildPayloadFromDraft(draft)) !== savedSnapshot
-  }
-
-  function applySettings(values, options) {
-    draft = normalizeSettings(values || defaultSettings)
-    if (options && options.markSaved) {
-      savedSnapshot = snapshotFromPayload(buildPayloadFromDraft(draft))
-    }
-    if (!draft.subscriptions.some((item) => item.id === selectedSubscriptionId)) {
-      selectedSubscriptionId = draft.subscriptions[0] ? draft.subscriptions[0].id : ''
-    }
-    render()
-  }
-
-  function render() {
-    validation = validateDraft()
-    renderOverview()
-    renderControls()
-    renderSubscriptions()
-    renderSubscriptionEditor()
-    renderRawJson()
-    renderFooter()
-  }
-
-  function renderControls() {
-    if (elements.enabledInput) {
-      elements.enabledInput.checked = draft.enabled
+      uid,
+      name: trim(value.name) || uid,
+      avatar_url: trim(value.avatar_url),
+      target_type: targetType,
+      target_id: targetId,
+      target_name: trim(value.target_name),
+      services: normalizeServices(value.services),
+      subscribers: Array.isArray(value.subscribers)
+        ? value.subscribers.map(normalizeSubscriber).filter(Boolean)
+        : [],
+      enabled: value.enabled !== false,
     }
   }
 
-  function renderOverview() {
-    const enabledSubscriptions = draft.subscriptions.filter((item) => item.enabled !== false).length
-    if (elements.metricEnabled) {
-      elements.metricEnabled.textContent = draft.enabled ? '启用' : '停用'
-    }
-    if (elements.metricSubscriptions) {
-      elements.metricSubscriptions.textContent = `${enabledSubscriptions} / ${draft.subscriptions.length}`
-    }
-    if (elements.metricSource) {
-      elements.metricSource.textContent = '平台事件源'
-    }
-    if (elements.metricValidation) {
-      elements.metricValidation.textContent = validation.errors.length === 0 ? '可保存' : `${validation.errors.length} 个问题`
-      elements.metricValidation.classList.toggle('is-error', validation.errors.length > 0)
+  function normalizeSettings(value) {
+    const record = value && typeof value === 'object' ? value : {}
+    return {
+      enabled: record.enabled !== false,
+      subscriptions: Array.isArray(record.subscriptions)
+        ? record.subscriptions.map(normalizeSubscription).filter(Boolean)
+        : [],
     }
   }
 
-  function renderSubscriptions() {
-    if (!elements.subscriptionList) {
-      return
-    }
-    elements.subscriptionList.innerHTML = ''
-    const filtered = getFilteredSubscriptions()
-    if (draft.subscriptions.length === 0) {
-      elements.subscriptionList.appendChild(emptyState('还没有订阅', '添加 UP 主 UID、目标和推送类型后开始管理订阅。', '添加订阅', addSubscription))
-      return
-    }
-    if (filtered.length === 0) {
-      elements.subscriptionList.appendChild(emptyState('没有符合条件的订阅', '清除搜索和筛选后查看全部订阅。', '清除筛选', clearFilters))
-      return
-    }
-
-    filtered.forEach(({ item, index }) => {
-      const card = document.createElement('article')
-      card.className = `subscription-card${item.id === selectedSubscriptionId ? ' is-selected' : ''}${item.enabled === false ? ' is-muted' : ''}`
-
-      const title = document.createElement('button')
-      title.type = 'button'
-      title.className = 'subscription-card__main'
-      title.addEventListener('click', () => selectSubscription(item.id))
-      title.appendChild(subscriptionAvatar(item))
-      const info = document.createElement('span')
-      info.className = 'subscription-card__info'
-      const name = document.createElement('span')
-      name.className = 'subscription-card__title'
-      name.textContent = item.name || `Bilibili ${item.uid}`
-      const meta = document.createElement('span')
-      meta.className = 'subscription-card__meta'
-      meta.textContent = `${item.uid ? `UID ${item.uid}` : '未填写 UID'} · ${sourceLabel(item)}`
-      info.appendChild(name)
-      info.appendChild(meta)
-      title.appendChild(info)
-      card.appendChild(title)
-
-      const chips = document.createElement('div')
-      chips.className = 'chip-list chip-list--plain'
-      normalizeServices(item.services).forEach((service) => {
-        const chip = document.createElement('span')
-        chip.className = 'chip'
-        chip.textContent = serviceLabel(service)
-        chips.appendChild(chip)
-      })
-      card.appendChild(chips)
-
-      const subscriberRow = document.createElement('div')
-      subscriberRow.className = 'subscription-subscribers'
-      subscriberRow.innerHTML = `
-        <span class="subscription-subscribers__label">订阅人</span>
-        <span class="subscription-subscribers__names">${escapeHtml(subscriberNames(item.subscribers) || '未记录')}</span>
-      `
-      card.appendChild(subscriberRow)
-
-      const actions = document.createElement('div')
-      actions.className = 'row-actions'
-      actions.appendChild(smallButton(item.enabled ? '停用' : '启用', () => {
-        item.enabled = !item.enabled
-        markChanged()
-      }))
-      actions.appendChild(smallButton('复制', () => duplicateSubscription(index)))
-      actions.appendChild(smallButton('删除', () => removeSubscription(index), 'button--danger'))
-      card.appendChild(actions)
-
-      const error = firstError(`subscription-${index}`)
-      if (error) {
-        card.appendChild(errorNode(error.message))
-      }
-      elements.subscriptionList.appendChild(card)
-    })
-  }
-
-  function renderSubscriptionEditor() {
-    if (!elements.subscriptionEditor) {
-      return
-    }
-    elements.subscriptionEditor.innerHTML = ''
-    const index = draft.subscriptions.findIndex((item) => item.id === selectedSubscriptionId)
-    if (index < 0) {
-      elements.subscriptionEditorPanel?.classList.add('is-collapsed')
-      if (elements.subscriptionEditorTitle) elements.subscriptionEditorTitle.textContent = '订阅编辑'
-      if (elements.subscriptionEditorSubtitle) elements.subscriptionEditorSubtitle.textContent = '选择一条订阅，或新建订阅。'
-      return
-    }
-
-    elements.subscriptionEditorPanel?.classList.remove('is-collapsed')
-    const item = draft.subscriptions[index]
-    elements.subscriptionEditorTitle.textContent = item.name || `Bilibili ${item.uid || ''}`.trim() || '新订阅'
-    elements.subscriptionEditorSubtitle.textContent = sourceLabel(item)
-
-    const grid = document.createElement('div')
-    grid.className = 'editor-grid'
-    grid.appendChild(fieldInput('subscription-enabled-platform', '平台', 'bilibili', () => undefined, { disabled: true }))
-    grid.appendChild(fieldInput('subscription-id', 'ID', item.id, (value) => {
-      item.id = safeId(value, '')
-      selectedSubscriptionId = item.id
-      markChanged()
-    }, { spellcheck: false }))
-    grid.appendChild(fieldInput('subscription-uid', 'UP 主 UID', item.uid, (value) => {
-      item.uid = value.trim()
-      if (!item.name) {
-        item.name = item.uid
-      }
-      markChanged(false)
-    }, { inputmode: 'numeric', spellcheck: false }))
-    grid.appendChild(fieldInput('subscription-name', 'Bilibili 用户名', item.name, (value) => {
-      item.name = value
-      markChanged(false)
-    }))
-    grid.appendChild(fieldInput('subscription-avatar-url', 'UP 主头像 URL', item.avatar_url, (value) => {
-      item.avatar_url = value.trim()
-      markChanged(false)
-    }, { spellcheck: false }))
-    grid.appendChild(selectField('subscription-target-type', '目标类型', TARGET_OPTIONS, item.target_type, (value) => {
-      item.target_type = value
-      markChanged()
-    }))
-    grid.appendChild(fieldInput('subscription-target-id', '目标 ID', item.target_id, (value) => {
-      item.target_id = value.trim()
-      markChanged(false)
-    }, { spellcheck: false }))
-    grid.appendChild(fieldInput('subscription-target-name', '目标名称', item.target_name, (value) => {
-      item.target_name = value.trim()
-      markChanged(false)
-    }))
-    elements.subscriptionEditor.appendChild(grid)
-
-    const serviceWrap = document.createElement('fieldset')
-    serviceWrap.className = 'service-fieldset'
-    const legend = document.createElement('legend')
-    legend.textContent = '推送类型'
-    serviceWrap.appendChild(legend)
-    SERVICE_OPTIONS.forEach((service) => {
-      const label = document.createElement('label')
-      label.className = 'check-chip'
-      const input = document.createElement('input')
-      input.type = 'checkbox'
-      input.name = `service_${service.value}`
-      input.checked = item.services.includes(service.value)
-      input.addEventListener('change', () => {
-        updateServiceSelection(item, service.value, input.checked)
-        markChanged()
-      })
-      label.appendChild(input)
-      label.appendChild(document.createTextNode(service.label))
-      serviceWrap.appendChild(label)
-    })
-    elements.subscriptionEditor.appendChild(serviceWrap)
-
-    const subscriberSection = document.createElement('div')
-    subscriberSection.className = 'subscriber-section'
-    subscriberSection.appendChild(rowHeader('订阅人', `${item.subscribers.length} 个`, [
-      smallButton('添加订阅人', () => {
-        item.subscribers.push({ id: '', nickname: '' })
-        markChanged()
-      }),
-    ]))
-    if (item.subscribers.length === 0) {
-      subscriberSection.appendChild(document.createElement('p')).textContent = '未记录订阅人。'
-    } else {
-      item.subscribers.forEach((subscriber, subscriberIndex) => {
-        const row = document.createElement('div')
-        row.className = 'subscriber-row'
-        row.appendChild(fieldInput(`subscriber-id-${subscriberIndex}`, 'ID', subscriber.id, (value) => {
-          subscriber.id = value.trim()
-          markChanged(false)
-        }, { spellcheck: false }))
-        row.appendChild(fieldInput(`subscriber-nickname-${subscriberIndex}`, '昵称', subscriber.nickname, (value) => {
-          subscriber.nickname = value
-          markChanged(false)
-        }))
-        row.appendChild(smallButton('删除', () => {
-          item.subscribers.splice(subscriberIndex, 1)
-          markChanged()
-        }, 'button--danger'))
-        subscriberSection.appendChild(row)
-      })
-    }
-    elements.subscriptionEditor.appendChild(subscriberSection)
-
-    const toggle = labelWrap('subscription-enabled', 'subscription-enabled')
-    toggle.className = 'toggle-row toggle-row--compact'
-    const enabled = document.createElement('input')
-    enabled.id = 'subscription-enabled'
-    enabled.type = 'checkbox'
-    enabled.name = 'subscription_enabled'
-    enabled.autocomplete = 'off'
-    enabled.checked = item.enabled !== false
-    enabled.addEventListener('change', () => {
-      item.enabled = enabled.checked
-      markChanged()
-    })
-    toggle.appendChild(enabled)
-    toggle.appendChild(textBlock('启用这条订阅', '停用后保留配置，不会推送。'))
-    elements.subscriptionEditor.appendChild(toggle)
-
-    const error = firstError(`subscription-${index}`)
-    if (error) {
-      elements.subscriptionEditor.appendChild(errorNode(error.message))
-    }
-  }
-
-  function renderRawJson() {
-    if (!elements.rawJsonInput) {
-      return
-    }
-    const text = JSON.stringify(buildPayloadFromDraft(draft).settings, null, 2)
-    if (document.activeElement !== elements.rawJsonInput && elements.rawJsonInput.value !== text) {
-      elements.rawJsonInput.value = text
-    }
-  }
-
-  function renderFooter() {
-    const dirty = isDirty()
-    const hasErrors = validation.errors.length > 0
-    if (!elements.dirtyState || !elements.saveButton) {
-      return
-    }
-    elements.dirtyState.textContent = !initialized ? '等待载入' : pendingSave ? '正在保存…' : hasErrors ? `存在 ${validation.errors.length} 个问题` : dirty ? '有未保存更改' : '设置已同步'
-    elements.dirtyState.classList.toggle('is-error', hasErrors)
-    elements.dirtyState.classList.toggle('is-dirty', initialized && !pendingSave && dirty && !hasErrors)
-    elements.dirtyState.classList.toggle('is-synced', initialized && !pendingSave && !dirty && !hasErrors)
-    elements.saveButton.disabled = !initialized || pendingSave || hasErrors || !dirty
-  }
-
-  function markChanged(fullRender) {
-    if (fullRender === false) {
-      validation = validateDraft()
-      renderOverview()
-      renderFooter()
-      renderRawJson()
-      return
-    }
-    render()
-  }
-
-  function fieldInput(id, labelText, value, onInput, options) {
-    const label = labelWrap(labelText, id)
-    label.className = 'field'
-    const span = document.createElement('span')
-    span.textContent = labelText
-    const input = document.createElement('input')
-    input.id = id
-    input.name = id.replace(/-/g, '_')
-    input.type = options && options.type ? options.type : 'text'
-    input.autocomplete = 'off'
-    input.value = String(value || '')
-    input.disabled = Boolean(options && options.disabled)
-    if (options && options.inputmode) {
-      input.inputMode = options.inputmode
-    }
-    if (options && options.placeholder) {
-      input.placeholder = options.placeholder
-    }
-    if (options && options.spellcheck === false) {
-      input.spellcheck = false
-    }
-    input.addEventListener('input', () => onInput(input.value))
-    label.appendChild(span)
-    label.appendChild(input)
-    return label
-  }
-
-  function selectField(id, labelText, options, value, onChange) {
-    const label = labelWrap(labelText, id)
-    label.className = 'field'
-    const span = document.createElement('span')
-    span.textContent = labelText
-    const select = document.createElement('select')
-    select.id = id
-    select.name = id.replace(/-/g, '_')
-    select.autocomplete = 'off'
-    options.forEach((item) => {
-      const option = document.createElement('option')
-      option.value = item.value
-      option.textContent = item.label
-      select.appendChild(option)
-    })
-    select.value = value
-    select.addEventListener('change', () => onChange(select.value))
-    label.appendChild(span)
-    label.appendChild(select)
-    return label
-  }
-
-  function labelWrap(text, id) {
-    const label = document.createElement('label')
-    label.setAttribute('for', id)
-    label.setAttribute('aria-label', text)
-    return label
-  }
-
-  function textBlock(title, description) {
-    const span = document.createElement('span')
-    const strong = document.createElement('strong')
-    strong.textContent = title
-    const small = document.createElement('small')
-    small.textContent = description
-    span.appendChild(strong)
-    span.appendChild(small)
-    return span
-  }
-
-  function rowHeader(title, badge, buttons) {
-    const header = document.createElement('div')
-    header.className = 'row-header'
-    const text = document.createElement('div')
-    const strong = document.createElement('strong')
-    strong.textContent = title
-    const small = document.createElement('small')
-    small.textContent = badge
-    text.appendChild(strong)
-    text.appendChild(small)
-    const actions = document.createElement('div')
-    actions.className = 'row-actions'
-    buttons.forEach((button) => actions.appendChild(button))
-    header.appendChild(text)
-    header.appendChild(actions)
-    return header
-  }
-
-  function smallButton(label, onClick, extraClass) {
-    const button = document.createElement('button')
-    button.type = 'button'
-    button.className = `button button--small${extraClass ? ` ${extraClass}` : ''}`
-    button.textContent = label
-    button.addEventListener('click', onClick)
-    return button
-  }
-
-  function emptyState(title, description, actionLabel, action) {
-    const empty = document.createElement('div')
-    empty.className = 'empty-state'
-    const strong = document.createElement('strong')
-    strong.textContent = title
-    const paragraph = document.createElement('p')
-    paragraph.textContent = description
-    const button = smallButton(actionLabel, action, 'button--primary-accent')
-    empty.appendChild(strong)
-    empty.appendChild(paragraph)
-    empty.appendChild(button)
-    return empty
-  }
-
-  function errorNode(message) {
-    const node = document.createElement('small')
-    node.className = 'field-error'
-    node.textContent = message
-    return node
-  }
-
-  function escapeHtml(value) {
-    return String(value || '').replace(/[&<>"']/g, (char) => ({
-      '&': '&amp;',
-      '<': '&lt;',
-      '>': '&gt;',
-      '"': '&quot;',
-      "'": '&#039;',
-    })[char])
-  }
-
-  function serviceLabel(value) {
-    return (SERVICE_OPTIONS.find((item) => item.value === value) || { label: value }).label
-  }
-
-  function targetLabel(value) {
-    return (TARGET_OPTIONS.find((item) => item.value === value) || { label: value }).label
-  }
-
-  function sourceLabel(item) {
-    const label = targetLabel(item.target_type)
-    const name = String(item.target_name || '').trim()
-    const id = String(item.target_id || '').trim()
-    if (name && id) {
-      return `${label} ${name} ${id}`
-    }
-    return id ? `${label} ${id}` : `${label} 未填写目标`
-  }
-
-  function subscriberDisplayName(item) {
-    const id = String(item.id || '').trim()
-    const name = String(item.group_nickname || item.nickname || id).trim()
-    if (name && id && name !== id) {
-      return `${name}（${id}）`
-    }
-    return name || id
-  }
-
-  function subscriberNames(value) {
-    return normalizeSubscribers(value)
-      .map(subscriberDisplayName)
-      .filter(Boolean)
-      .join('、')
-  }
-
-  function subscriptionAvatar(item) {
-    const avatar = document.createElement('span')
-    avatar.className = 'subscription-avatar'
-    const firstChar = (item.name || item.uid || 'B').trim().charAt(0).toUpperCase()
-    const fallback = document.createElement('span')
-    fallback.className = 'subscription-avatar__fallback'
-    fallback.textContent = firstChar || 'B'
-    const avatarUrl = String(item.avatar_url || '').trim()
-    if (avatarUrl) {
-      const image = document.createElement('img')
-      image.src = avatarUrl
-      image.alt = `${item.name || item.uid || 'Bilibili'} 头像`
-      image.loading = 'lazy'
-      image.referrerPolicy = 'no-referrer'
-      image.addEventListener('error', () => {
-        image.remove()
-        avatar.classList.add('is-fallback')
-      }, { once: true })
-      avatar.appendChild(image)
-    } else {
-      avatar.classList.add('is-fallback')
-    }
-    avatar.appendChild(fallback)
-    return avatar
-  }
-
-  function getFilteredSubscriptions() {
-    const query = elements.subscriptionSearchInput?.value.trim().toLowerCase() || ''
-    const status = elements.statusFilterInput?.value || 'all'
-    const service = elements.serviceFilterInput?.value || 'all'
-    return draft.subscriptions
-      .map((item, index) => ({ item, index }))
-      .filter(({ item }) => {
-        const searchText = `${item.uid} ${item.name} ${item.target_id} ${item.target_name} ${subscriberNames(item.subscribers)}`.toLowerCase()
-        const statusMatches = status === 'all' || (status === 'enabled' ? item.enabled !== false : item.enabled === false)
-        const services = normalizeServices(item.services)
-        const serviceMatches = service === 'all' || services.includes(service) || services.includes('all')
-        return (!query || searchText.includes(query)) && statusMatches && serviceMatches
-      })
-  }
-
-  function clearFilters() {
-    if (elements.subscriptionSearchInput) {
-      elements.subscriptionSearchInput.value = ''
-    }
-    if (elements.statusFilterInput) {
-      elements.statusFilterInput.value = 'all'
-    }
-    if (elements.serviceFilterInput) {
-      elements.serviceFilterInput.value = 'all'
-    }
-    renderSubscriptions()
-  }
-
-  function addSubscription() {
-    const next = draft.subscriptions.length + 1
-    const item = {
-      id: `bilibili-new-${next}`,
-      platform: 'bilibili',
+  function createBlankRow() {
+    return {
+      row_id: nextRowId(),
       uid: '',
       name: '',
       avatar_url: '',
-      target_type: 'group',
-      target_id: '',
-      target_name: '',
-      services: ['all'],
-      subscribers: [],
+      query: '',
+      resolved: false,
+      resolve_state: 'idle',
+      resolve_message: '',
+      candidates: [],
       enabled: true,
+      services: ['all'],
+      service_mode: 'common',
+      target_mode: 'group',
+      targets: [],
+      subscriber_ids: [],
     }
-    draft.subscriptions.unshift(item)
-    selectedSubscriptionId = item.id
-    markChanged()
   }
 
-  function selectSubscription(id) {
-    selectedSubscriptionId = id
-    renderSubscriptions()
-    renderSubscriptionEditor()
-  }
-
-  function duplicateSubscription(index) {
-    const source = draft.subscriptions[index]
-    const copy = {
-      ...source,
-      id: `${source.id || 'bilibili-copy'}-copy-${Date.now().toString(36)}`,
-      name: source.name ? `${source.name} 副本` : source.name,
-      services: [...source.services],
-      subscribers: source.subscribers.map((item) => ({ ...item })),
-    }
-    draft.subscriptions.splice(index + 1, 0, copy)
-    selectedSubscriptionId = copy.id
-    markChanged()
-  }
-
-  function removeSubscription(index) {
-    const item = draft.subscriptions[index]
-    if (!window.confirm(`删除 ${item.name || item.uid || item.id}？`)) {
-      return
-    }
-    draft.subscriptions.splice(index, 1)
-    if (selectedSubscriptionId === item.id) {
-      selectedSubscriptionId = draft.subscriptions[0] ? draft.subscriptions[0].id : ''
-    }
-    markChanged()
-  }
-
-  function updateServiceSelection(item, value, checked) {
-    const current = new Set(normalizeServices(item.services))
-    if (checked) {
-      if (value === 'all') {
-        item.services = ['all']
-        return
+  function buildRowsFromSettings(settings) {
+    const grouped = new Map()
+    for (const subscription of settings.subscriptions || []) {
+      let row = grouped.get(subscription.uid)
+      if (!row) {
+        row = {
+          row_id: `uid-${subscription.uid}`,
+          uid: subscription.uid,
+          name: subscription.name || subscription.uid,
+          avatar_url: subscription.avatar_url || '',
+          query: subscription.name || subscription.uid,
+          resolved: true,
+          resolve_state: 'resolved',
+          resolve_message: '',
+          candidates: [],
+          enabled: false,
+          services: normalizeServices(subscription.services),
+          service_mode: 'common',
+          target_mode: subscription.target_type || 'group',
+          targets: [],
+          subscriber_ids: [],
+        }
+        grouped.set(subscription.uid, row)
       }
-      current.delete('all')
-      current.add(value)
-    } else {
-      current.delete(value)
-    }
-    item.services = Array.from(current)
-    if (item.services.length === 0) {
-      item.services = ['all']
-    }
-  }
+      row.enabled = row.enabled || subscription.enabled !== false
+      row.avatar_url = row.avatar_url || subscription.avatar_url || ''
+      row.name = row.name || subscription.name || subscription.uid
+      row.query = row.name
 
-  function saveAll() {
-    validation = validateDraft()
-    if (validation.errors.length > 0) {
-      render()
-      setStatus(validation.errors[0].message, true)
-      focusFirstError()
-      return
-    }
-
-    const payload = buildPayloadFromDraft(draft)
-    pendingSave = true
-    setStatus('正在保存设置…')
-    postMessage('settings.save', { values: payload.settings }, `save-settings-${Date.now()}`)
-  }
-
-  function focusFirstError() {
-    const first = validation.errors[0]
-    if (!first) {
-      return
-    }
-    if (first.scope.startsWith('subscription-')) {
-      const [, index] = first.scope.split('-')
-      const item = draft.subscriptions[Number(index)]
-      if (item) {
-        selectedSubscriptionId = item.id
-        render()
-        const target = document.getElementById('subscription-uid') || document.getElementById('subscription-target-id')
-        if (target) {
-          target.focus()
+      const key = targetKey(subscription.target_type, subscription.target_id)
+      row.targets.push({
+        key,
+        subscription_id: subscription.id,
+        target_type: subscription.target_type,
+        target_id: subscription.target_id,
+        target_name: subscription.target_name || '',
+        services: normalizeServices(subscription.services),
+      })
+      for (const subscriber of subscription.subscribers || []) {
+        if (subscriber.id) {
+          row.subscriber_ids.push(subscriber.id)
         }
       }
     }
+
+    const rows = [...grouped.values()]
+    for (const row of rows) {
+      row.subscriber_ids = unique(row.subscriber_ids)
+      const serviceKeys = unique(row.targets.map((target) => servicesKey(target.services)))
+      if (serviceKeys.length > 1) {
+        row.service_mode = 'mixed'
+      } else if (serviceKeys.length === 1) {
+        row.services = row.targets[0].services
+      }
+    }
+    return rows
   }
 
-  function reloadAll() {
-    setStatus('正在重新读取设置…')
-    postMessage('settings.reload', undefined, `reload-settings-${Date.now()}`)
+  function allTargets() {
+    return [
+      ...state.targets.groups.map((target) => ({
+        key: targetKey('group', target.target_id),
+        target_type: 'group',
+        target_id: trim(target.target_id),
+        label: trim(target.target_name) || trim(target.target_id),
+      })),
+      ...state.targets.private_users.map((target) => ({
+        key: targetKey('private', target.target_id),
+        target_type: 'private',
+        target_id: trim(target.target_id),
+        label: trim(target.nickname) || trim(target.target_id),
+      })),
+    ]
   }
 
-  function resetSettings() {
-    draft = normalizeSettings(defaultSettings)
-    selectedSubscriptionId = draft.subscriptions[0] ? draft.subscriptions[0].id : ''
-    setStatus('默认订阅设置已载入，保存后生效')
+  function targetMap() {
+    return new Map(allTargets().map((target) => [target.key, target]))
+  }
+
+  function currentTargetsForMode(mode) {
+    return allTargets().filter((target) => target.target_type === mode)
+  }
+
+  function targetDisplay(target, map) {
+    const live = map.get(target.key)
+    const label = live ? live.label : target.target_name || target.target_id
+    return `${TARGET_LABELS[target.target_type] || target.target_type} ${label}`
+  }
+
+  function rowSearchText(row) {
+    const map = targetMap()
+    return [
+      row.uid,
+      row.name,
+      row.query,
+      ...row.targets.map((target) => `${target.target_id} ${targetDisplay(target, map)}`),
+      ...row.subscriber_ids,
+    ].join(' ').toLowerCase()
+  }
+
+  function rowVisible(row) {
+    const query = trim(elements.searchInput.value).toLowerCase()
+    if (query && !rowSearchText(row).includes(query)) {
+      return false
+    }
+    const status = elements.statusFilter.value
+    if (status === 'enabled' && !row.enabled) {
+      return false
+    }
+    if (status === 'disabled' && row.enabled) {
+      return false
+    }
+    const service = elements.serviceFilter.value
+    if (service !== 'all') {
+      const services = row.service_mode === 'mixed'
+        ? row.targets.flatMap((target) => target.services)
+        : row.services
+      if (!services.includes('all') && !services.includes(service)) {
+        return false
+      }
+    }
+    return true
+  }
+
+  function render() {
+    elements.enabledInput.checked = state.settings.enabled !== false
+    elements.metricEnabled.textContent = state.settings.enabled === false ? '停用' : '启用'
+    elements.metricSubscriptions.textContent = `${state.rows.length} / ${(state.settings.subscriptions || []).length}`
+    if (!state.targets.loaded) {
+      elements.metricTargets.textContent = '未载入'
+    } else {
+      elements.metricTargets.textContent = `${state.targets.groups.length} 群聊 / ${state.targets.private_users.length} 私聊`
+    }
+    const validation = validateRows()
+    elements.metricValidation.textContent = validation.ok ? '可保存' : '需处理'
+    elements.saveButton.disabled = !state.loaded || !validation.ok || state.savingRequestId !== ''
+    elements.dirtyState.textContent = state.savingRequestId
+      ? '正在保存'
+      : state.dirty
+        ? '设置有修改'
+        : state.loaded
+          ? '设置已同步'
+          : '等待载入'
+
+    const visibleRows = state.rows.filter(rowVisible)
+    elements.list.innerHTML = visibleRows.length
+      ? visibleRows.map(renderRow).join('')
+      : '<div class="empty-state">没有匹配的订阅。可添加订阅或调整筛选条件。</div>'
+  }
+
+  function renderRow(row) {
+    const map = targetMap()
+    const title = row.name || row.uid || '未校验 UP'
+    const subtitle = row.uid ? `UID ${row.uid}` : '输入 UID 或 Bilibili 用户名后校验'
+    const serviceEditor = row.service_mode === 'mixed'
+      ? renderMixedServices(row, map)
+      : `<div class="inline-checks" aria-label="推送类型">${renderServiceCheckboxes(row.row_id, 'common', row.services)}</div>`
+    const candidates = row.candidates.length
+      ? `<div class="candidate-list">${row.candidates.map((candidate) => `
+          <button type="button" class="button button--small" data-action="choose-candidate" data-row-id="${escapeHTML(row.row_id)}" data-user='${escapeHTML(JSON.stringify(candidate))}'>
+            <span>${escapeHTML(candidate.name)} · UID ${escapeHTML(candidate.uid)}</span>
+          </button>
+        `).join('')}</div>`
+      : ''
+    const targetOptions = currentTargetsForMode(row.target_mode).map((target) => `
+      <option value="${escapeHTML(target.key)}" ${row.targets.some((item) => item.key === target.key) ? 'selected' : ''}>
+        ${escapeHTML(target.label)} (${escapeHTML(target.target_id)})
+      </option>
+    `).join('')
+    const selectedTargets = row.targets.length
+      ? row.targets.map((target) => `
+          <span class="chip ${map.has(target.key) ? '' : 'badge--warning'}">
+            <span>${escapeHTML(targetDisplay(target, map))}</span>
+            <button type="button" aria-label="移除推送对象" data-action="remove-target" data-row-id="${escapeHTML(row.row_id)}" data-target-key="${escapeHTML(target.key)}">×</button>
+          </span>
+        `).join('')
+      : '<span class="chip">未选择推送对象</span>'
+    const subscribers = row.subscriber_ids.length
+      ? row.subscriber_ids.map((id) => `
+          <span class="chip">
+            <span>QQ ${escapeHTML(id)}</span>
+            <button type="button" aria-label="移除订阅人" data-action="remove-subscriber" data-row-id="${escapeHTML(row.row_id)}" data-user-id="${escapeHTML(id)}">×</button>
+          </span>
+        `).join('')
+      : '<span class="chip badge--success">系统订阅</span>'
+    const validation = validateRow(row)
+    const validationHTML = validation.length
+      ? `<ul class="validation-list">${validation.map((item) => `<li>${escapeHTML(item)}</li>`).join('')}</ul>`
+      : '<span class="badge badge--success">可保存</span>'
+
+    return `
+      <article class="subscription-row ${row.enabled ? '' : 'is-disabled'}" data-row-id="${escapeHTML(row.row_id)}">
+        <section class="row-block">
+          <div class="row-title">
+            <strong>${escapeHTML(title)}</strong>
+            <span class="badge">${row.resolved ? '已校验' : row.resolve_state === 'checking' ? '校验中' : '待校验'}</span>
+          </div>
+          <div class="row-subtitle">${escapeHTML(subtitle)}</div>
+          <div class="up-input-line">
+            <input class="up-query-input" data-row-id="${escapeHTML(row.row_id)}" type="text" autocomplete="off" value="${escapeHTML(row.query)}" placeholder="UID 或 Bilibili 用户名" />
+            <button type="button" class="button button--small" data-action="resolve-up" data-row-id="${escapeHTML(row.row_id)}">校验</button>
+          </div>
+          ${row.resolve_message ? `<div class="row-note">${escapeHTML(row.resolve_message)}</div>` : ''}
+          ${candidates}
+          ${serviceEditor}
+        </section>
+
+        <section class="row-block">
+          <div class="row-title"><strong>推送对象</strong><span class="badge">${escapeHTML(TARGET_LABELS[row.target_mode])}</span></div>
+          <div class="mode-tabs" role="group" aria-label="推送对象类型">
+            <button type="button" class="button button--small ${row.target_mode === 'group' ? 'is-active' : ''}" data-action="target-mode" data-row-id="${escapeHTML(row.row_id)}" data-mode="group">群聊</button>
+            <button type="button" class="button button--small ${row.target_mode === 'private' ? 'is-active' : ''}" data-action="target-mode" data-row-id="${escapeHTML(row.row_id)}" data-mode="private">私聊</button>
+          </div>
+          <select class="target-select" data-row-id="${escapeHTML(row.row_id)}" multiple size="5" ${state.targets.loaded ? '' : 'disabled'}>
+            ${targetOptions}
+          </select>
+          <div class="chip-list">${selectedTargets}</div>
+          ${state.targets.issues.length ? `<div class="target-note">${escapeHTML(state.targets.issues.map((issue) => issue.message).join('；'))}</div>` : ''}
+        </section>
+
+        <section class="row-block">
+          <div class="row-title"><strong>订阅人</strong></div>
+          <div class="subscriber-line">
+            <input class="subscriber-input" data-row-id="${escapeHTML(row.row_id)}" type="text" inputmode="numeric" autocomplete="off" placeholder="QQ 号，留空为系统订阅" />
+            <button type="button" class="button button--small" data-action="add-subscriber" data-row-id="${escapeHTML(row.row_id)}">添加</button>
+          </div>
+          <div class="chip-list">${subscribers}</div>
+          <div class="row-note">只保存 QQ 号，昵称和群名片保存时刷新。</div>
+        </section>
+
+        <section class="row-state">
+          <label><input type="checkbox" class="row-enabled-input" data-row-id="${escapeHTML(row.row_id)}" ${row.enabled ? 'checked' : ''} /> 启用</label>
+          ${validationHTML}
+          <div class="row-actions">
+            <button type="button" class="button button--small" data-action="duplicate-row" data-row-id="${escapeHTML(row.row_id)}">复制</button>
+            <button type="button" class="button button--small button--danger" data-action="delete-row" data-row-id="${escapeHTML(row.row_id)}">删除</button>
+          </div>
+        </section>
+      </article>
+    `
+  }
+
+  function renderServiceCheckboxes(rowId, targetKeyValue, services) {
+    const active = normalizeServices(services)
+    return SERVICE_ORDER.map((service) => `
+      <label>
+        <input type="checkbox" class="service-checkbox" data-row-id="${escapeHTML(rowId)}" data-target-key="${escapeHTML(targetKeyValue)}" value="${escapeHTML(service)}" ${active.includes(service) ? 'checked' : ''} />
+        ${escapeHTML(SERVICE_LABELS[service])}
+      </label>
+    `).join('')
+  }
+
+  function renderMixedServices(row, map) {
+    return `
+      <div class="target-service-editor">
+        <span class="badge badge--warning">目标配置不同</span>
+        ${row.targets.map((target) => `
+          <div class="target-service-line">
+            <span class="row-note">${escapeHTML(targetDisplay(target, map))}</span>
+            <div class="inline-checks">${renderServiceCheckboxes(row.row_id, target.key, target.services)}</div>
+          </div>
+        `).join('')}
+      </div>
+    `
+  }
+
+  function findRow(rowId) {
+    return state.rows.find((row) => row.row_id === rowId)
+  }
+
+  function markDirty() {
+    state.dirty = true
     render()
   }
 
-  function showSourceEntry() {
-    setStatus('Bilibili 事件源状态在 Web 三方账号页面查看')
+  function setStatus(text) {
+    elements.statusText.textContent = text
   }
 
-  function openCardPreview() {
-    postMessage('render_template.open', { template_id: 'plugin.raylea.subscription-hub.bilibili-update' }, `open-template-${Date.now()}`)
+  function validateRow(row) {
+    const errors = []
+    if (!row.resolved || !numericPattern.test(row.uid) || !row.name) {
+      errors.push('UP 未完成校验')
+    }
+    if (!state.targets.loaded) {
+      errors.push('推送对象未载入')
+    }
+    if (!row.targets.length) {
+      errors.push('请选择推送对象')
+    }
+    const map = targetMap()
+    for (const target of row.targets) {
+      if (!map.has(target.key)) {
+        errors.push(`${targetDisplay(target, map)} 不在协议对象列表中`)
+      }
+    }
+    for (const id of row.subscriber_ids) {
+      if (!numericPattern.test(id)) {
+        errors.push(`订阅人 QQ 不合法：${id}`)
+      }
+    }
+    return unique(errors)
   }
 
-  function importRawJson() {
-    if (!elements.rawJsonInput || !elements.rawJsonError) {
+  function validateRows() {
+    const errors = state.rows.flatMap(validateRow)
+    return { ok: errors.length === 0, errors }
+  }
+
+  function readCheckedServices(rowId, targetKeyValue) {
+    const checked = [...elements.list.querySelectorAll(`.service-checkbox[data-row-id="${selectorValue(rowId)}"][data-target-key="${selectorValue(targetKeyValue)}"]:checked`)]
+      .map((input) => input.value)
+    return normalizeServices(checked)
+  }
+
+  function updateService(row, targetKeyValue) {
+    if (targetKeyValue === 'common') {
+      row.service_mode = 'common'
+      row.services = readCheckedServices(row.row_id, 'common')
+      for (const target of row.targets) {
+        target.services = row.services
+      }
       return
     }
-    try {
-      const parsed = JSON.parse(elements.rawJsonInput.value || '{}')
-      draft = normalizeSettings(parsed)
-      selectedSubscriptionId = draft.subscriptions[0] ? draft.subscriptions[0].id : ''
-      elements.rawJsonError.textContent = ''
-      setStatus('JSON 已导入，保存后生效')
-      render()
-    } catch (error) {
-      elements.rawJsonError.textContent = error && error.message ? error.message : 'JSON 格式不正确'
-      setStatus('JSON 格式不正确', true)
+    const target = row.targets.find((item) => item.key === targetKeyValue)
+    if (target) {
+      target.services = readCheckedServices(row.row_id, targetKeyValue)
+      const serviceKeys = unique(row.targets.map((item) => servicesKey(item.services)))
+      row.service_mode = serviceKeys.length > 1 ? 'mixed' : 'common'
+      if (row.service_mode === 'common' && row.targets[0]) {
+        row.services = row.targets[0].services
+      }
     }
+  }
+
+  function requestTargets() {
+    setStatus('正在刷新推送对象…')
+    postMessage('protocol.targets.reload', undefined, nextRequestId('protocol-targets'))
+  }
+
+  function requestBilibiliResolve(row, immediate) {
+    const query = trim(row.query)
+    if (!query) {
+      row.resolved = false
+      row.resolve_state = 'error'
+      row.resolve_message = '请填写 UID 或 Bilibili 用户名。'
+      render()
+      return
+    }
+    const run = () => {
+      const requestId = nextRequestId('bilibili-user')
+      state.pending.set(requestId, { kind: 'bilibili-user', row_id: row.row_id, query })
+      row.resolve_state = 'checking'
+      row.resolve_message = '正在校验 UP…'
+      row.candidates = []
+      row.resolved = false
+      render()
+      postMessage('bilibili.user.resolve', { query }, requestId)
+    }
+    if (immediate) {
+      run()
+      return
+    }
+    clearTimeout(state.resolveTimers.get(row.row_id))
+    state.resolveTimers.set(row.row_id, setTimeout(run, 450))
+  }
+
+  function applyBilibiliResolved(message) {
+    const request = state.pending.get(message.request_id)
+    if (!request || request.kind !== 'bilibili-user') {
+      return
+    }
+    state.pending.delete(message.request_id)
+    const row = findRow(request.row_id)
+    if (!row || request.query !== message.payload.query) {
+      return
+    }
+    if (message.payload.exact && message.payload.user) {
+      applyResolvedUser(row, message.payload.user)
+      row.resolve_message = 'UP 已校验。'
+    } else {
+      row.resolved = false
+      row.resolve_state = 'error'
+      row.resolve_message = message.payload.message || '请选择一个候选 UP 后保存。'
+      row.candidates = Array.isArray(message.payload.candidates) ? message.payload.candidates : []
+    }
+    markDirty()
+  }
+
+  function applyResolvedUser(row, user) {
+    row.uid = trim(user.uid)
+    row.name = trim(user.name)
+    row.avatar_url = trim(user.avatar_url)
+    row.query = row.name || row.uid
+    row.resolved = Boolean(row.uid && row.name)
+    row.resolve_state = row.resolved ? 'resolved' : 'error'
+    row.candidates = []
+  }
+
+  function addTargetToRow(row, liveTarget) {
+    if (row.targets.some((target) => target.key === liveTarget.key)) {
+      return
+    }
+    const services = row.service_mode === 'mixed' ? ['all'] : row.services
+    row.targets.push({
+      key: liveTarget.key,
+      subscription_id: '',
+      target_type: liveTarget.target_type,
+      target_id: liveTarget.target_id,
+      target_name: liveTarget.label,
+      services: normalizeServices(services),
+    })
+  }
+
+  function updateTargetsFromSelect(row, selectedKeys) {
+    const liveTargets = currentTargetsForMode(row.target_mode)
+    const liveMap = new Map(liveTargets.map((target) => [target.key, target]))
+    row.targets = row.targets.filter((target) => target.target_type !== row.target_mode || selectedKeys.includes(target.key))
+    for (const key of selectedKeys) {
+      const liveTarget = liveMap.get(key)
+      if (liveTarget) {
+        addTargetToRow(row, liveTarget)
+      }
+    }
+  }
+
+  function addSubscriber(row, input) {
+    if (!input) {
+      return
+    }
+    const id = trim(input.value)
+    if (!numericPattern.test(id)) {
+      setStatus('订阅人 QQ 号不正确')
+      return
+    }
+    row.subscriber_ids = unique([...row.subscriber_ids, id])
+    input.value = ''
+    markDirty()
+  }
+
+  function buildIdentityRequests() {
+    const items = []
+    for (const row of state.rows) {
+      for (const target of row.targets) {
+        for (const userId of row.subscriber_ids) {
+          items.push({
+            target_type: target.target_type,
+            target_id: target.target_id,
+            user_id: userId,
+          })
+        }
+      }
+    }
+    const seen = new Set()
+    return items.filter((item) => {
+      const key = `${item.target_type}:${item.target_id}:${item.user_id}`
+      if (seen.has(key)) {
+        return false
+      }
+      seen.add(key)
+      return true
+    })
+  }
+
+  function identityKey(targetType, targetId, userId) {
+    return `${targetType}:${targetId}:${userId}`
+  }
+
+  function buildSettingsPayload(identityItems) {
+    const targets = targetMap()
+    const identities = new Map((identityItems || []).map((item) => [identityKey(item.target_type, item.target_id, item.user_id), item]))
+    const subscriptions = []
+    for (const row of state.rows) {
+      for (const target of row.targets) {
+        const live = targets.get(target.key)
+        const targetName = live ? live.label : target.target_name
+        const subscribers = row.subscriber_ids.map((userId) => {
+          const identity = identities.get(identityKey(target.target_type, target.target_id, userId))
+          return {
+            id: userId,
+            nickname: trim(identity && identity.nickname),
+            group_nickname: trim(identity && identity.group_nickname),
+            title: trim(identity && identity.title),
+            role: trim(identity && identity.role),
+            role_label: trim(identity && identity.role_label),
+            avatar_url: trim(identity && identity.avatar_url),
+          }
+        })
+        subscriptions.push({
+          id: target.subscription_id || `bilibili-${row.uid}-${target.target_type}-${target.target_id}`,
+          platform: 'bilibili',
+          uid: row.uid,
+          name: row.name,
+          avatar_url: row.avatar_url,
+          target_type: target.target_type,
+          target_id: target.target_id,
+          target_name: targetName,
+          services: normalizeServices(row.service_mode === 'mixed' ? target.services : row.services),
+          subscribers,
+          enabled: row.enabled,
+        })
+      }
+    }
+    return {
+      enabled: state.settings.enabled !== false,
+      subscriptions,
+    }
+  }
+
+  function saveSettings() {
+    const validation = validateRows()
+    if (!validation.ok) {
+      setStatus(validation.errors[0] || '设置未通过校验')
+      render()
+      return
+    }
+    const identityRequests = buildIdentityRequests()
+    if (!identityRequests.length) {
+      const payload = buildSettingsPayload([])
+      state.savingRequestId = nextRequestId('settings-save')
+      postMessage('settings.save', { values: payload }, state.savingRequestId)
+      render()
+      return
+    }
+    const requestId = nextRequestId('protocol-identities')
+    state.pending.set(requestId, { kind: 'save-identities', expected: identityRequests })
+    state.savingRequestId = requestId
+    setStatus('正在刷新订阅人身份…')
+    postMessage('protocol.identities.resolve', { items: identityRequests }, requestId)
+    render()
+  }
+
+  function applyIdentitiesResolved(message) {
+    const request = state.pending.get(message.request_id)
+    if (!request || request.kind !== 'save-identities') {
+      return
+    }
+    state.pending.delete(message.request_id)
+    state.savingRequestId = ''
+    const issues = Array.isArray(message.payload.issues) ? message.payload.issues : []
+    const items = Array.isArray(message.payload.items) ? message.payload.items : []
+    const received = new Set(items.map((item) => identityKey(item.target_type, item.target_id, item.user_id)))
+    const missing = request.expected.filter((item) => !received.has(identityKey(item.target_type, item.target_id, item.user_id)))
+    if (issues.length || missing.length) {
+      setStatus(issues[0] && issues[0].message ? issues[0].message : '订阅人身份刷新失败')
+      render()
+      return
+    }
+    const payload = buildSettingsPayload(items)
+    state.savingRequestId = nextRequestId('settings-save')
+    postMessage('settings.save', { values: payload }, state.savingRequestId)
+    render()
+  }
+
+  function applySettingsChanged(message) {
+    state.settings = normalizeSettings(message.payload && message.payload.values)
+    state.rows = buildRowsFromSettings(state.settings)
+    state.loaded = true
+    state.dirty = false
+    state.savingRequestId = ''
+    setStatus('设置已同步')
+    render()
+  }
+
+  function applyHostInit(payload) {
+    state.defaultSettings = normalizeSettings(payload.default_config)
+    state.settings = normalizeSettings(payload.settings)
+    state.rows = buildRowsFromSettings(state.settings)
+    state.loaded = true
+    state.dirty = false
+    setStatus('设置已载入')
+    render()
+    requestTargets()
+  }
+
+  function applyTargetsChanged(payload) {
+    state.targets = {
+      loaded: true,
+      available: payload.available === true,
+      groups: Array.isArray(payload.groups) ? payload.groups : [],
+      private_users: Array.isArray(payload.private_users) ? payload.private_users : [],
+      issues: Array.isArray(payload.issues) ? payload.issues : [],
+    }
+    setStatus(state.targets.available ? '推送对象已刷新' : '推送对象不可用')
+    render()
+  }
+
+  function handleBridgeMessage(event) {
+    const message = event.data || {}
+    if (message.version !== '1' || message.source !== 'management_host') {
+      return
+    }
+    switch (message.type) {
+      case 'host.init':
+        applyHostInit(message.payload || {})
+        return
+      case 'settings.changed':
+        applySettingsChanged(message)
+        return
+      case 'protocol.targets.changed':
+        applyTargetsChanged(message.payload || {})
+        return
+      case 'protocol.identities.resolved':
+        applyIdentitiesResolved(message)
+        return
+      case 'bilibili.user.resolved':
+        applyBilibiliResolved(message)
+        return
+      case 'error':
+        state.savingRequestId = ''
+        setStatus((message.payload && message.payload.message) || '操作失败')
+        render()
+        return
+    }
+  }
+
+  function handleListClick(event) {
+    const button = event.target.closest('button[data-action]')
+    if (!button) {
+      return
+    }
+    const row = findRow(button.dataset.rowId)
+    if (!row) {
+      return
+    }
+    const action = button.dataset.action
+    if (action === 'resolve-up') {
+      requestBilibiliResolve(row, true)
+      return
+    }
+    if (action === 'choose-candidate') {
+      try {
+        applyResolvedUser(row, JSON.parse(button.dataset.user || '{}'))
+        row.resolve_message = 'UP 已校验。'
+        markDirty()
+      } catch {
+        setStatus('候选 UP 数据不正确')
+      }
+      return
+    }
+    if (action === 'target-mode') {
+      row.target_mode = button.dataset.mode === 'private' ? 'private' : 'group'
+      render()
+      return
+    }
+    if (action === 'remove-target') {
+      row.targets = row.targets.filter((target) => target.key !== button.dataset.targetKey)
+      markDirty()
+      return
+    }
+    if (action === 'add-subscriber') {
+      const input = elements.list.querySelector(`.subscriber-input[data-row-id="${selectorValue(row.row_id)}"]`)
+      addSubscriber(row, input)
+      return
+    }
+    if (action === 'remove-subscriber') {
+      row.subscriber_ids = row.subscriber_ids.filter((id) => id !== button.dataset.userId)
+      markDirty()
+      return
+    }
+    if (action === 'duplicate-row') {
+      const copy = JSON.parse(JSON.stringify(row))
+      copy.row_id = nextRowId()
+      copy.targets = copy.targets.map((target) => ({ ...target, subscription_id: '' }))
+      state.rows.push(copy)
+      markDirty()
+      return
+    }
+    if (action === 'delete-row') {
+      state.rows = state.rows.filter((item) => item.row_id !== row.row_id)
+      markDirty()
+    }
+  }
+
+  function handleListInput(event) {
+    const input = event.target
+    if (input.classList.contains('up-query-input')) {
+      const row = findRow(input.dataset.rowId)
+      if (!row) {
+        return
+      }
+      row.query = input.value
+      row.resolved = false
+      row.resolve_state = 'idle'
+      row.resolve_message = ''
+      row.candidates = []
+      state.dirty = true
+      requestBilibiliResolve(row, false)
+    }
+  }
+
+  function handleListChange(event) {
+    const input = event.target
+    const row = findRow(input.dataset.rowId)
+    if (!row) {
+      return
+    }
+    if (input.classList.contains('service-checkbox')) {
+      updateService(row, input.dataset.targetKey)
+      markDirty()
+      return
+    }
+    if (input.classList.contains('target-select')) {
+      updateTargetsFromSelect(row, [...input.selectedOptions].map((option) => option.value))
+      markDirty()
+      return
+    }
+    if (input.classList.contains('row-enabled-input')) {
+      row.enabled = input.checked
+      markDirty()
+    }
+  }
+
+  function resetToDefault() {
+    state.settings = normalizeSettings(state.defaultSettings)
+    state.rows = buildRowsFromSettings(state.settings)
+    state.dirty = true
+    setStatus('已恢复默认设置，保存后生效')
+    render()
   }
 
   function bindEvents() {
-    bind(elements.enabledInput, 'change', () => {
-      draft.enabled = elements.enabledInput.checked
-      markChanged()
+    window.addEventListener('message', handleBridgeMessage)
+    elements.enabledInput.addEventListener('change', () => {
+      state.settings.enabled = elements.enabledInput.checked
+      markDirty()
     })
-    bind(elements.addSubscriptionButton, 'click', addSubscription)
-    bind(elements.subscriptionSearchInput, 'input', renderSubscriptions)
-    bind(elements.statusFilterInput, 'change', renderSubscriptions)
-    bind(elements.serviceFilterInput, 'change', renderSubscriptions)
-    bind(elements.closeEditorButton, 'click', () => {
-      selectedSubscriptionId = ''
-      renderSubscriptions()
-      renderSubscriptionEditor()
+    elements.targetsReloadButton.addEventListener('click', requestTargets)
+    elements.searchInput.addEventListener('input', render)
+    elements.statusFilter.addEventListener('change', render)
+    elements.serviceFilter.addEventListener('change', render)
+    elements.addButton.addEventListener('click', () => {
+      state.rows.unshift(createBlankRow())
+      markDirty()
     })
-    bind(elements.exportJsonButton, 'click', () => {
-      renderRawJson()
-      setStatus('原始配置预览已刷新')
+    elements.list.addEventListener('click', handleListClick)
+    elements.list.addEventListener('input', handleListInput)
+    elements.list.addEventListener('change', handleListChange)
+    elements.reloadButton.addEventListener('click', () => {
+      setStatus('正在重新载入设置…')
+      postMessage('settings.reload', undefined, nextRequestId('settings-reload'))
     })
-    bind(elements.importJsonButton, 'click', importRawJson)
-    bind(elements.reloadButton, 'click', reloadAll)
-    bind(elements.resetButton, 'click', resetSettings)
-    bind(elements.manualCheckButton, 'click', showSourceEntry)
-    bind(elements.previewButton, 'click', openCardPreview)
-    bind(elements.saveButton, 'click', saveAll)
-  }
-
-  function bind(element, eventName, handler) {
-    if (element) {
-      element.addEventListener(eventName, handler)
-    }
-  }
-
-  window.addEventListener('message', (event) => {
-    const message = event.data
-    if (!message || message.version !== '1' || typeof message.type !== 'string') {
-      return
-    }
-
-    if (message.type === 'host.init') {
-      stopReadyLoop()
-      const payload = message.payload || {}
-      if (elements.pageTitle) {
-        elements.pageTitle.textContent = payload.title || '订阅设置'
+    elements.resetButton.addEventListener('click', resetToDefault)
+    elements.manualCheckButton.addEventListener('click', () => {
+      setStatus('Bilibili 事件源状态在 Web 三方监控页面查看')
+    })
+    elements.previewButton.addEventListener('click', () => {
+      postMessage('render_template.open', { template_id: 'plugin.raylea.subscription-hub.bilibili-update' }, nextRequestId('open-template'))
+    })
+    elements.saveButton.addEventListener('click', saveSettings)
+    elements.list.addEventListener('keydown', (event) => {
+      if (event.key !== 'Enter' || !event.target.classList.contains('subscriber-input')) {
+        return
       }
-      if (elements.pageSubtitle) {
-        elements.pageSubtitle.textContent = '管理 Bilibili 订阅和推送目标'
+      event.preventDefault()
+      const row = findRow(event.target.dataset.rowId)
+      if (row) {
+        addSubscriber(row, event.target)
       }
-      defaultSettings = normalizeSettings(payload.default_config || DEFAULT_SETTINGS)
-      initialized = true
-      applySettings(payload.settings || defaultSettings, { markSaved: true })
-      setStatus('已载入设置')
-      return
-    }
-
-    if (message.type === 'settings.changed') {
-      const payload = message.payload || {}
-      pendingSave = false
-      applySettings(payload.values || defaultSettings, { markSaved: true })
-      setStatus('设置已保存')
-      return
-    }
-
-    if (message.type === 'error') {
-      const payload = message.payload || {}
-      pendingSave = false
-      setStatus(payload.message || '操作未完成', true)
-      renderFooter()
-    }
-  })
+    })
+  }
 
   bindEvents()
   render()
-  announceReady()
+  postMessage('page.ready', undefined, nextRequestId('page-ready'))
 
   window.__subscriptionHubSettingsPage = {
-    buildPayload: () => buildPayloadFromDraft(draft),
-    validate: validateDraft,
-    importRawJson,
-    getFilteredSubscriptions: () => getFilteredSubscriptions().map(({ item, index }) => ({ item, index })),
-    subscriberNames,
-    getDraft: () => JSON.parse(JSON.stringify(draft)),
-    readyAttempts: () => readyAttempts,
+    state,
+    normalizeSettings,
+    buildRowsFromSettings,
+    buildSettingsPayload,
+    validateRows,
   }
 })()

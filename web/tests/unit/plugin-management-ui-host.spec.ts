@@ -88,6 +88,7 @@ describe('PluginManagementUIHost', () => {
   beforeEach(() => {
     window.localStorage.clear()
     setActivePinia(createPinia())
+    vi.unstubAllGlobals()
     vi.useRealTimers()
   })
 
@@ -657,5 +658,195 @@ describe('PluginManagementUIHost', () => {
     expect(wrapper.text()).toContain('插件页面发送了无效消息，当前页面已停止交互。')
     expect(wrapper.find('[data-testid="vben-fallback"]').exists()).toBe(false)
     expect(wrapper.text()).not.toContain('返回首页')
+  })
+
+  it('proxies authorized protocol targets and Bilibili user bridge requests', async () => {
+    const pluginsStore = usePluginsStore()
+    vi.spyOn(pluginsStore, 'fetchSettings').mockResolvedValue({
+      plugin_id: 'raylea.subscription-hub',
+      values: {},
+    })
+    vi.spyOn(pluginsStore, 'fetchSecrets').mockResolvedValue({
+      plugin_id: 'raylea.subscription-hub',
+      values: {},
+    })
+    const fetchSpy = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      if (url === '/api/protocols/onebot11/targets') {
+        return new Response(JSON.stringify({
+          protocol: 'onebot11',
+          available: true,
+          groups: [{ target_type: 'group', target_id: '5050', target_name: '测试群' }],
+          private_users: [{ target_type: 'private', target_id: '2626', nickname: '测试用户' }],
+          issues: [],
+        }), { status: 200, headers: { 'content-type': 'application/json' } })
+      }
+      if (url === '/api/protocols/onebot11/identities/resolve') {
+        expect(init?.method).toBe('POST')
+        expect(JSON.parse(String(init?.body))).toEqual({
+          items: [{ target_type: 'group', target_id: '5050', user_id: '10001' }],
+        })
+        return new Response(JSON.stringify({
+          items: [{
+            target_type: 'group',
+            target_id: '5050',
+            user_id: '10001',
+            nickname: '测试号',
+            group_nickname: '群名片',
+            avatar_url: 'https://q1.qlogo.cn/g?b=qq&nk=10001&s=640',
+          }],
+          issues: [],
+        }), { status: 200, headers: { 'content-type': 'application/json' } })
+      }
+      if (url === '/api/bilibili/users/resolve?query=%E6%B4%9B%E5%A4%A9%E4%BE%9D') {
+        return new Response(JSON.stringify({
+          query: '洛天依',
+          exact: true,
+          user: { uid: '36081646', name: '洛天依', avatar_url: '' },
+          candidates: [],
+        }), { status: 200, headers: { 'content-type': 'application/json' } })
+      }
+      throw new Error(`unexpected fetch ${url}`)
+    })
+    vi.stubGlobal('fetch', fetchSpy)
+
+    const plugin = buildPlugin({
+      id: 'raylea.subscription-hub',
+      role: 'builtin',
+      source: {
+        root: 'plugins/builtin/subscription_hub',
+        package_source_type: 'local_directory',
+        package_source_ref: 'plugins/builtin/subscription_hub',
+        verified: true,
+      },
+      trust: {
+        level: 'official',
+        label: '内置',
+      },
+      permissions: [],
+    })
+    const wrapper = mount(PluginManagementUIHost, {
+      props: {
+        plugin,
+        title: '订阅设置',
+        page: buildManagementPage(),
+      },
+      global: {
+        plugins: [Antd],
+      },
+    })
+
+    await flushPromises()
+
+    const { frameWindow } = assignIframeWindow(wrapper)
+
+    dispatchBridgeMessage(frameWindow, {
+      version: '1',
+      source: 'plugin_management_ui',
+      type: 'protocol.targets.reload',
+      request_id: 'req-targets',
+    })
+    await flushPromises()
+    expect((frameWindow.postMessage as ReturnType<typeof vi.fn>).mock.calls.at(-1)?.[0]).toMatchObject({
+      type: 'protocol.targets.changed',
+      request_id: 'req-targets',
+      payload: {
+        groups: [{ target_type: 'group', target_id: '5050', target_name: '测试群' }],
+      },
+    })
+
+    dispatchBridgeMessage(frameWindow, {
+      version: '1',
+      source: 'plugin_management_ui',
+      type: 'protocol.identities.resolve',
+      request_id: 'req-identities',
+      payload: {
+        items: [{ target_type: 'group', target_id: '5050', user_id: '10001' }],
+      },
+    })
+    await flushPromises()
+    expect((frameWindow.postMessage as ReturnType<typeof vi.fn>).mock.calls.at(-1)?.[0]).toMatchObject({
+      type: 'protocol.identities.resolved',
+      request_id: 'req-identities',
+      payload: {
+        items: [{ group_nickname: '群名片' }],
+      },
+    })
+
+    dispatchBridgeMessage(frameWindow, {
+      version: '1',
+      source: 'plugin_management_ui',
+      type: 'bilibili.user.resolve',
+      request_id: 'req-bili',
+      payload: {
+        query: '洛天依',
+      },
+    })
+    await flushPromises()
+    expect((frameWindow.postMessage as ReturnType<typeof vi.fn>).mock.calls.at(-1)?.[0]).toMatchObject({
+      type: 'bilibili.user.resolved',
+      request_id: 'req-bili',
+      payload: {
+        exact: true,
+        user: { uid: '36081646', name: '洛天依' },
+      },
+    })
+  })
+
+  it('rejects protocol target bridge requests without granted capabilities', async () => {
+    const pluginsStore = usePluginsStore()
+    vi.spyOn(pluginsStore, 'fetchSettings').mockResolvedValue({
+      plugin_id: 'example-config-panel',
+      values: {},
+    })
+    vi.spyOn(pluginsStore, 'fetchSecrets').mockResolvedValue({
+      plugin_id: 'example-config-panel',
+      values: {},
+    })
+    const fetchSpy = vi.fn()
+    vi.stubGlobal('fetch', fetchSpy)
+
+    const wrapper = mount(PluginManagementUIHost, {
+      props: {
+        plugin: buildPlugin({
+          source: {
+            root: 'examples/plugins',
+            package_source_type: 'local_directory',
+            package_source_ref: 'examples/plugins/example-config-panel',
+            verified: true,
+          },
+          trust: {
+            level: 'third_party',
+            label: '示例',
+          },
+          permissions: [],
+        }),
+        title: '配置页面',
+        page: buildManagementPage(),
+      },
+      global: {
+        plugins: [Antd],
+      },
+    })
+
+    await flushPromises()
+
+    const { frameWindow } = assignIframeWindow(wrapper)
+    dispatchBridgeMessage(frameWindow, {
+      version: '1',
+      source: 'plugin_management_ui',
+      type: 'protocol.targets.reload',
+      request_id: 'req-denied',
+    })
+    await flushPromises()
+
+    expect(fetchSpy).not.toHaveBeenCalled()
+    expect((frameWindow.postMessage as ReturnType<typeof vi.fn>).mock.calls.at(-1)?.[0]).toMatchObject({
+      type: 'error',
+      request_id: 'req-denied',
+      payload: {
+        code: 'permission.denied',
+      },
+    })
   })
 })

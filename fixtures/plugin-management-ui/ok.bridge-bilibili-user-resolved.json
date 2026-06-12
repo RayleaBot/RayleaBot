@@ -1,0 +1,32 @@
+{
+  "contract": "contracts/plugin-management-ui-bridge.schema.json",
+  "case": "ok",
+  "description": "The host returns an exact Bilibili user or selectable candidates.",
+  "input": {
+    "version": "1",
+    "source": "management_host",
+    "type": "bilibili.user.resolved",
+    "request_id": "req_bilibili_user_0001",
+    "payload": {
+      "query": "洛天依",
+      "exact": true,
+      "user": {
+        "uid": "36081646",
+        "name": "洛天依",
+        "avatar_url": "https://i0.hdslb.com/bfs/face/luotianyi.jpg",
+        "fans": 7000000
+      },
+      "candidates": [
+        {
+          "uid": "36081646",
+          "name": "洛天依",
+          "avatar_url": "https://i0.hdslb.com/bfs/face/luotianyi.jpg",
+          "fans": 7000000
+        }
+      ]
+    }
+  },
+  "expect": {
+    "valid": true
+  }
+}

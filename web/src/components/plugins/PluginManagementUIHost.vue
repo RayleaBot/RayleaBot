@@ -93,8 +93,96 @@ type PluginManagementUIInboundMessage =
       template_id: string
     }
   }
+  | {
+    version: '1'
+    source: 'plugin_management_ui'
+    type: 'protocol.targets.reload'
+    request_id?: string
+  }
+  | {
+    version: '1'
+    source: 'plugin_management_ui'
+    type: 'protocol.identities.resolve'
+    request_id?: string
+    payload: {
+      items: OneBot11IdentityResolveItem[]
+    }
+  }
+  | {
+    version: '1'
+    source: 'plugin_management_ui'
+    type: 'bilibili.user.resolve'
+    request_id?: string
+    payload: {
+      query: string
+    }
+  }
+
+interface OneBot11TargetIssue {
+  scope: 'protocol' | 'groups' | 'private_users' | 'identity'
+  message: string
+}
+
+interface OneBot11GroupTarget {
+  target_type: 'group'
+  target_id: string
+  target_name: string
+}
+
+interface OneBot11PrivateTarget {
+  target_type: 'private'
+  target_id: string
+  nickname: string
+}
+
+interface OneBot11ProtocolTargetsResponse {
+  protocol: 'onebot11'
+  available: boolean
+  groups: OneBot11GroupTarget[]
+  private_users: OneBot11PrivateTarget[]
+  issues: OneBot11TargetIssue[]
+}
+
+interface OneBot11IdentityResolveItem {
+  target_type: 'group' | 'private'
+  target_id: string
+  user_id: string
+}
+
+interface OneBot11Identity {
+  target_type: 'group' | 'private'
+  target_id: string
+  user_id: string
+  nickname: string
+  group_nickname?: string
+  title?: string
+  role?: string
+  role_label?: string
+  avatar_url: string
+}
+
+interface OneBot11IdentityResolveResponse {
+  items: OneBot11Identity[]
+  issues: OneBot11TargetIssue[]
+}
+
+interface BilibiliResolvedUser {
+  uid: string
+  name: string
+  avatar_url: string
+  fans?: number
+}
+
+interface BilibiliUserResolveResponse {
+  query: string
+  exact: boolean
+  user?: BilibiliResolvedUser
+  candidates: BilibiliResolvedUser[]
+  message?: string
+}
 
 const pluginSecretKeyPattern = /^[a-z0-9](?:[a-z0-9_.-]{0,126}[a-z0-9])?$/
+const numericIdPattern = /^[0-9]+$/
 
 const props = defineProps<{
   plugin: PluginDetail
@@ -421,6 +509,62 @@ function parseInboundBridgeMessage(value: unknown): PluginManagementUIInboundMes
         },
       }
     }
+    case 'protocol.targets.reload':
+      return {
+        version: '1',
+        source: 'plugin_management_ui',
+        type: 'protocol.targets.reload',
+        request_id: requestId,
+      }
+    case 'protocol.identities.resolve': {
+      const payload = toRecord(record.payload)
+      const rawItems = Array.isArray(payload?.items) ? payload.items : []
+      const items: OneBot11IdentityResolveItem[] = []
+      for (const rawItem of rawItems) {
+        const item = toRecord(rawItem)
+        const targetType = item?.target_type === 'group' || item?.target_type === 'private'
+          ? item.target_type
+          : ''
+        const targetId = typeof item?.target_id === 'string' ? item.target_id.trim() : ''
+        const userId = typeof item?.user_id === 'string' ? item.user_id.trim() : ''
+        if (!targetType || !numericIdPattern.test(targetId) || !numericIdPattern.test(userId)) {
+          return null
+        }
+        items.push({
+          target_type: targetType,
+          target_id: targetId,
+          user_id: userId,
+        })
+      }
+      if (!items.length || items.length > 100) {
+        return null
+      }
+      return {
+        version: '1',
+        source: 'plugin_management_ui',
+        type: 'protocol.identities.resolve',
+        request_id: requestId,
+        payload: {
+          items,
+        },
+      }
+    }
+    case 'bilibili.user.resolve': {
+      const payload = toRecord(record.payload)
+      const query = typeof payload?.query === 'string' ? payload.query.trim() : ''
+      if (!query) {
+        return null
+      }
+      return {
+        version: '1',
+        source: 'plugin_management_ui',
+        type: 'bilibili.user.resolve',
+        request_id: requestId,
+        payload: {
+          query,
+        },
+      }
+    }
     default:
       return null
   }
@@ -523,6 +667,55 @@ function postSchedulerTriggered(response: SchedulerJobTriggerResponse, requestId
   })
 }
 
+function postProtocolTargetsChanged(response: OneBot11ProtocolTargetsResponse, requestId?: string) {
+  return postMessageToIframe({
+    version: '1',
+    source: 'management_host',
+    type: 'protocol.targets.changed',
+    request_id: requestId ?? nextBridgeRequestId('protocol-targets-changed'),
+    payload: toBridgeValue(response),
+  })
+}
+
+function postProtocolIdentitiesResolved(response: OneBot11IdentityResolveResponse, requestId?: string) {
+  return postMessageToIframe({
+    version: '1',
+    source: 'management_host',
+    type: 'protocol.identities.resolved',
+    request_id: requestId ?? nextBridgeRequestId('protocol-identities-resolved'),
+    payload: toBridgeValue(response),
+  })
+}
+
+function postBilibiliUserResolved(response: BilibiliUserResolveResponse, requestId?: string) {
+  return postMessageToIframe({
+    version: '1',
+    source: 'management_host',
+    type: 'bilibili.user.resolved',
+    request_id: requestId ?? nextBridgeRequestId('bilibili-user-resolved'),
+    payload: toBridgeValue(response),
+  })
+}
+
+function hasBridgeCapability(capability: string) {
+  if (props.plugin.role === 'builtin' && props.plugin.id === 'raylea.subscription-hub') {
+    return true
+  }
+  return (props.plugin.permissions ?? []).some((permission) => permission.capability === capability && permission.status === 'granted')
+}
+
+function canUseBridgeCapabilities(capabilities: string[], requestId?: string) {
+  const missing = capabilities.filter((capability) => !hasBridgeCapability(capability))
+  if (!missing.length) {
+    return true
+  }
+  postBridgeError(`插件缺少必要权限：${missing.join('、')}`, {
+    code: 'permission.denied',
+    requestId,
+  })
+  return false
+}
+
 async function initializeFrame(requestId?: string) {
   const currentToken = bridgeToken
   if (initStartedForBridgeToken === currentToken) {
@@ -617,6 +810,94 @@ async function openRenderTemplate(templateId: string, requestId?: string) {
   try {
     await router.push(buildRenderTemplateLocation(templateId))
   } catch (error) {
+    actionError.value = getDisplayErrorMessage(error)
+    postBridgeError(actionError.value, {
+      code: error instanceof ApiError ? error.code : undefined,
+      requestId,
+    })
+  }
+}
+
+async function reloadProtocolTargets(requestId?: string) {
+  if (!canUseBridgeCapabilities(['group.list', 'friend.list'], requestId)) {
+    return
+  }
+  const currentToken = bridgeToken
+
+  try {
+    const response = await apiRequest<OneBot11ProtocolTargetsResponse>('/api/protocols/onebot11/targets')
+    if (currentToken !== bridgeToken) {
+      return
+    }
+    actionError.value = null
+    postProtocolTargetsChanged(response, requestId)
+  } catch (error) {
+    if (currentToken !== bridgeToken) {
+      return
+    }
+
+    actionError.value = getDisplayErrorMessage(error)
+    postBridgeError(actionError.value, {
+      code: error instanceof ApiError ? error.code : undefined,
+      requestId,
+    })
+  }
+}
+
+async function resolveProtocolIdentities(items: OneBot11IdentityResolveItem[], requestId?: string) {
+  const needsGroup = items.some((item) => item.target_type === 'group')
+  const needsPrivate = items.some((item) => item.target_type === 'private')
+  const capabilities = [
+    ...(needsGroup ? ['group.member.get'] : []),
+    ...(needsPrivate ? ['user.info.get'] : []),
+  ]
+  if (!canUseBridgeCapabilities(capabilities, requestId)) {
+    return
+  }
+  const currentToken = bridgeToken
+
+  try {
+    const response = await apiRequest<OneBot11IdentityResolveResponse>('/api/protocols/onebot11/identities/resolve', {
+      method: 'POST',
+      body: { items },
+    })
+    if (currentToken !== bridgeToken) {
+      return
+    }
+    actionError.value = null
+    postProtocolIdentitiesResolved(response, requestId)
+  } catch (error) {
+    if (currentToken !== bridgeToken) {
+      return
+    }
+
+    actionError.value = getDisplayErrorMessage(error)
+    postBridgeError(actionError.value, {
+      code: error instanceof ApiError ? error.code : undefined,
+      requestId,
+    })
+  }
+}
+
+async function resolveBilibiliUser(query: string, requestId?: string) {
+  if (!canUseBridgeCapabilities(['http.request'], requestId)) {
+    return
+  }
+  const currentToken = bridgeToken
+
+  try {
+    const params = new URLSearchParams({ query })
+    const response = await apiRequest<BilibiliUserResolveResponse>(`/api/bilibili/users/resolve?${params.toString()}`)
+    if (currentToken !== bridgeToken) {
+      return
+    }
+    actionError.value = null
+    postBilibiliUserResolved(response, requestId)
+  } catch (error) {
+    if (currentToken !== bridgeToken) {
+      return
+    }
+
     actionError.value = getDisplayErrorMessage(error)
     postBridgeError(actionError.value, {
       code: error instanceof ApiError ? error.code : undefined,
@@ -804,6 +1085,15 @@ function handleBridgeMessage(event: MessageEvent) {
       return
     case 'render_template.open':
       void openRenderTemplate(message.payload.template_id, message.request_id)
+      return
+    case 'protocol.targets.reload':
+      void reloadProtocolTargets(message.request_id)
+      return
+    case 'protocol.identities.resolve':
+      void resolveProtocolIdentities(message.payload.items, message.request_id)
+      return
+    case 'bilibili.user.resolve':
+      void resolveBilibiliUser(message.payload.query, message.request_id)
       return
   }
 }

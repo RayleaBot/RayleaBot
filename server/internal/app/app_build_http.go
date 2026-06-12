@@ -68,6 +68,8 @@ func registerAppProtectedRoutes(router chi.Router, deps httpServerDeps) {
 	router.Get("/api/config", deps.configHandler.handleConfigGet())
 	router.Put("/api/config", deps.configHandler.handleConfigPut())
 	router.Get("/api/protocols/onebot11", deps.protocolHandler.handleProtocolOneBot11Snapshot())
+	router.Get("/api/protocols/onebot11/targets", deps.protocolHandler.handleProtocolOneBot11Targets())
+	router.Post("/api/protocols/onebot11/identities/resolve", deps.protocolHandler.handleProtocolOneBot11IdentitiesResolve())
 	router.Get("/api/protocols/onebot11/compatibility", deps.protocolHandler.handleProtocolOneBot11Compatibility())
 	if deps.governanceHandler != nil {
 		deps.governanceHandler.RegisterProtectedRoutes(router)
@@ -97,6 +99,7 @@ func registerAppProtectedRoutes(router chi.Router, deps httpServerDeps) {
 	router.Get("/api/third-party/media", deps.thirdPartyHandler.handleThirdPartyMedia())
 	router.Post("/api/bilibili/login/qrcode", deps.bilibiliHandler.handleBilibiliQRCodeLoginCreate())
 	router.Get("/api/bilibili/login/qrcode/{login_id}", deps.bilibiliHandler.handleBilibiliQRCodeLoginPoll())
+	router.Get("/api/bilibili/users/resolve", deps.bilibiliHandler.handleBilibiliUserResolve())
 	router.Get("/api/bilibili/source/status", deps.bilibiliHandler.handleBilibiliSourceStatus())
 	router.Post("/api/bilibili/source/restart", deps.bilibiliHandler.handleBilibiliSourceRestart())
 	router.Get("/api/tasks", deps.taskHandler.handleTaskList())

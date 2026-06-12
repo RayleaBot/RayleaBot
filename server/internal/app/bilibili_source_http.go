@@ -1,7 +1,16 @@
 package app
 
 import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"html"
+	"io"
 	"net/http"
+	"net/url"
+	"regexp"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -11,12 +20,20 @@ import (
 )
 
 type bilibiliSourceHTTPHandlers struct {
-	source  *source.Source
-	qrLogin *source.QRLoginService
+	source     *source.Source
+	qrLogin    *source.QRLoginService
+	userClient *http.Client
 }
 
-func newBilibiliSourceHTTPHandlers(source *source.Source, qrLogin *source.QRLoginService) *bilibiliSourceHTTPHandlers {
-	return &bilibiliSourceHTTPHandlers{source: source, qrLogin: qrLogin}
+func newBilibiliSourceHTTPHandlers(source *source.Source, qrLogin *source.QRLoginService, transport http.RoundTripper) *bilibiliSourceHTTPHandlers {
+	return &bilibiliSourceHTTPHandlers{
+		source:  source,
+		qrLogin: qrLogin,
+		userClient: &http.Client{
+			Transport: transport,
+			Timeout:   15 * time.Second,
+		},
+	}
 }
 
 func (h *bilibiliSourceHTTPHandlers) handleBilibiliSourceStatus() http.HandlerFunc {
@@ -31,6 +48,22 @@ func (h *bilibiliSourceHTTPHandlers) handleBilibiliSourceRestart() http.HandlerF
 			Accepted: true,
 			Status:   bilibiliSourceStatusResponseFrom(h.source.Restart()),
 		})
+	}
+}
+
+func (h *bilibiliSourceHTTPHandlers) handleBilibiliUserResolve() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		query := strings.TrimSpace(r.URL.Query().Get("query"))
+		if query == "" {
+			httpapi.WriteError(w, r, http.StatusBadRequest, "platform.invalid_request", "请求参数不合法", "errors.platform.invalid_request", nil)
+			return
+		}
+		response, err := h.resolveBilibiliUser(r.Context(), query)
+		if err != nil {
+			httpapi.WriteError(w, r, http.StatusBadGateway, "platform.upstream_request_failed", "Bilibili 用户信息读取失败", "errors.platform.upstream_request_failed", nil)
+			return
+		}
+		httpapi.WriteJSON(w, http.StatusOK, response)
 	}
 }
 
@@ -118,6 +151,21 @@ type bilibiliSourceDynamicStatus struct {
 type bilibiliSourceRestartResponse struct {
 	Accepted bool                         `json:"accepted"`
 	Status   bilibiliSourceStatusResponse `json:"status"`
+}
+
+type bilibiliResolvedUser struct {
+	UID       string `json:"uid"`
+	Name      string `json:"name"`
+	AvatarURL string `json:"avatar_url"`
+	Fans      int    `json:"fans,omitempty"`
+}
+
+type bilibiliUserResolveResponse struct {
+	Query      string                 `json:"query"`
+	Exact      bool                   `json:"exact"`
+	User       *bilibiliResolvedUser  `json:"user,omitempty"`
+	Candidates []bilibiliResolvedUser `json:"candidates"`
+	Message    string                 `json:"message,omitempty"`
 }
 
 type bilibiliSourceDiagnosis struct {
@@ -229,4 +277,255 @@ func timeStringPtr(value *time.Time) *string {
 	}
 	text := value.UTC().Format(time.RFC3339)
 	return &text
+}
+
+const (
+	bilibiliUserInfoURL   = "https://api.bilibili.com/x/space/acc/info?mid=%s&jsonp=jsonp"
+	bilibiliUserSearchURL = "https://api.bilibili.com/x/web-interface/search/type"
+)
+
+var bilibiliHTMLTagPattern = regexp.MustCompile(`<[^>]+>`)
+
+func (h *bilibiliSourceHTTPHandlers) resolveBilibiliUser(ctx context.Context, query string) (bilibiliUserResolveResponse, error) {
+	response := bilibiliUserResolveResponse{
+		Query:      query,
+		Candidates: []bilibiliResolvedUser{},
+	}
+	if isDigits(query) {
+		document, err := h.getBilibiliJSON(ctx, fmt.Sprintf(bilibiliUserInfoURL, url.QueryEscape(query)), query)
+		if err != nil {
+			return response, err
+		}
+		if message := bilibiliUserDocumentMessage(document, "没有找到这个 Bilibili 用户。"); message != "" {
+			response.Message = message
+			return response, nil
+		}
+		user, ok := bilibiliUserFromInfoDocument(document)
+		if !ok {
+			response.Message = "没有找到这个 Bilibili 用户。"
+			return response, nil
+		}
+		response.Exact = true
+		response.User = &user
+		response.Candidates = []bilibiliResolvedUser{user}
+		return response, nil
+	}
+
+	searchURL, err := bilibiliUserSearchURLFor(query)
+	if err != nil {
+		return response, err
+	}
+	document, err := h.getBilibiliJSON(ctx, searchURL, "")
+	if err != nil {
+		return response, err
+	}
+	if message := bilibiliUserDocumentMessage(document, "没有搜索到 Bilibili 用户。"); message != "" {
+		response.Message = message
+		return response, nil
+	}
+	candidates := bilibiliUsersFromSearchDocument(document)
+	response.Candidates = candidates
+	if len(candidates) == 0 {
+		response.Message = "没有搜索到 Bilibili 用户。"
+		return response, nil
+	}
+	for i := range candidates {
+		if candidates[i].Name == query {
+			response.Exact = true
+			response.User = &candidates[i]
+			break
+		}
+	}
+	return response, nil
+}
+
+func (h *bilibiliSourceHTTPHandlers) getBilibiliJSON(ctx context.Context, requestURL, refererUID string) (map[string]any, error) {
+	client := h.userClient
+	if client == nil {
+		client = http.DefaultClient
+	}
+	request, err := http.NewRequestWithContext(ctx, http.MethodGet, requestURL, nil)
+	if err != nil {
+		return nil, err
+	}
+	applyBilibiliUserResolveHeaders(request, refererUID)
+	resp, err := client.Do(request)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	body, err := io.ReadAll(io.LimitReader(resp.Body, 2<<20))
+	if err != nil {
+		return nil, err
+	}
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return nil, fmt.Errorf("bilibili user request failed: http %d", resp.StatusCode)
+	}
+	var document map[string]any
+	if err := json.Unmarshal(body, &document); err != nil {
+		return nil, err
+	}
+	return document, nil
+}
+
+func applyBilibiliUserResolveHeaders(request *http.Request, uid string) {
+	request.Header.Set("Accept", "application/json, text/plain, */*")
+	request.Header.Set("Accept-Language", "zh-CN,zh;q=0.9,en;q=0.8")
+	request.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36")
+	if uid != "" {
+		request.Header.Set("Referer", "https://space.bilibili.com/"+uid+"/dynamic")
+	} else {
+		request.Header.Set("Referer", "https://www.bilibili.com/")
+	}
+}
+
+func bilibiliUserSearchURLFor(keyword string) (string, error) {
+	parsed, err := url.Parse(bilibiliUserSearchURL)
+	if err != nil {
+		return "", err
+	}
+	query := parsed.Query()
+	query.Set("keyword", keyword)
+	query.Set("page", "1")
+	query.Set("search_type", "bili_user")
+	query.Set("order", "totalrank")
+	query.Set("pagesize", "5")
+	parsed.RawQuery = query.Encode()
+	return parsed.String(), nil
+}
+
+func bilibiliUserDocumentMessage(document map[string]any, notFoundMessage string) string {
+	if document == nil {
+		return "Bilibili 响应格式不正确。"
+	}
+	code := intFromAny(document["code"])
+	if code == 0 {
+		return ""
+	}
+	switch code {
+	case -404:
+		return notFoundMessage
+	case -412, -352:
+		return "Bilibili 暂时限制了本次查询，请稍后再试。"
+	default:
+		message := cleanBilibiliUserText(document["message"])
+		if message == "" {
+			message = cleanBilibiliUserText(document["msg"])
+		}
+		if message == "" {
+			return "Bilibili 用户信息读取失败。"
+		}
+		return message
+	}
+}
+
+func bilibiliUserFromInfoDocument(document map[string]any) (bilibiliResolvedUser, bool) {
+	data, _ := document["data"].(map[string]any)
+	uid := bilibiliIDText(data["mid"])
+	name := cleanBilibiliUserText(firstNonEmpty(data["name"], data["uname"]))
+	if !isDigits(uid) || name == "" {
+		return bilibiliResolvedUser{}, false
+	}
+	return bilibiliResolvedUser{
+		UID:       uid,
+		Name:      name,
+		AvatarURL: cleanBilibiliUserURL(firstNonEmpty(data["face"], data["avatar"], data["upic"])),
+		Fans:      intFromAny(data["fans"]),
+	}, true
+}
+
+func bilibiliUsersFromSearchDocument(document map[string]any) []bilibiliResolvedUser {
+	data, _ := document["data"].(map[string]any)
+	result, _ := data["result"].([]any)
+	users := make([]bilibiliResolvedUser, 0, len(result))
+	for _, item := range result {
+		data, ok := item.(map[string]any)
+		if !ok {
+			continue
+		}
+		uid := bilibiliIDText(data["mid"])
+		name := cleanBilibiliUserText(firstNonEmpty(data["uname"], data["name"]))
+		if !isDigits(uid) || name == "" {
+			continue
+		}
+		users = append(users, bilibiliResolvedUser{
+			UID:       uid,
+			Name:      name,
+			AvatarURL: cleanBilibiliUserURL(firstNonEmpty(data["upic"], data["face"], data["avatar"])),
+			Fans:      intFromAny(data["fans"]),
+		})
+		if len(users) >= 5 {
+			break
+		}
+	}
+	return users
+}
+
+func cleanBilibiliUserText(value any) string {
+	text := strings.TrimSpace(fmt.Sprint(value))
+	if text == "" || text == "<nil>" {
+		return ""
+	}
+	text = bilibiliHTMLTagPattern.ReplaceAllString(text, "")
+	return strings.TrimSpace(html.UnescapeString(text))
+}
+
+func bilibiliIDText(value any) string {
+	switch typed := value.(type) {
+	case json.Number:
+		return typed.String()
+	case float64:
+		if typed == float64(int64(typed)) {
+			return strconv.FormatInt(int64(typed), 10)
+		}
+		return strconv.FormatFloat(typed, 'f', -1, 64)
+	case int:
+		return strconv.Itoa(typed)
+	case int64:
+		return strconv.FormatInt(typed, 10)
+	default:
+		return cleanBilibiliUserText(value)
+	}
+}
+
+func cleanBilibiliUserURL(value any) string {
+	text := cleanBilibiliUserText(value)
+	if text == "" {
+		return ""
+	}
+	if strings.HasPrefix(text, "//") {
+		return "https:" + text
+	}
+	if strings.Contains(text, "://") {
+		return text
+	}
+	return ""
+}
+
+func firstNonEmpty(values ...any) any {
+	for _, value := range values {
+		if cleanBilibiliUserText(value) != "" {
+			return value
+		}
+	}
+	return nil
+}
+
+func intFromAny(value any) int {
+	switch typed := value.(type) {
+	case int:
+		return typed
+	case int64:
+		return int(typed)
+	case float64:
+		return int(typed)
+	case json.Number:
+		number, _ := typed.Int64()
+		return int(number)
+	case string:
+		number, _ := strconv.Atoi(strings.TrimSpace(typed))
+		return number
+	default:
+		return 0
+	}
 }

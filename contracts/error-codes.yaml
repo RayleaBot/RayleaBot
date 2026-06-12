@@ -124,6 +124,16 @@ codes:
     retryable: false
     applies_to: [http, websocket, readiness]
 
+  platform.upstream_request_failed:
+    code: platform.upstream_request_failed
+    domain: platform
+    message_key: errors.platform.upstream_request_failed
+    message: 上游请求失败
+    description: A protected management request could not complete because an upstream platform request failed.
+    http_status: 502
+    retryable: true
+    applies_to: [http, websocket, plugin_protocol, readiness]
+
   platform.value_too_large:
     code: platform.value_too_large
     domain: platform

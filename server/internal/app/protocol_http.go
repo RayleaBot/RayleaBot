@@ -1,6 +1,7 @@
 package app
 
 import (
+	"context"
 	"net/http"
 	"net/url"
 	"strings"
@@ -47,6 +48,58 @@ type oneBot11ProtocolSnapshotView struct {
 	RecentTransportIssues []protocolIssueResponse           `json:"recent_transport_issues"`
 }
 
+type oneBot11TargetIssueResponse struct {
+	Scope   string `json:"scope"`
+	Message string `json:"message"`
+}
+
+type oneBot11GroupTargetResponse struct {
+	TargetType string `json:"target_type"`
+	TargetID   string `json:"target_id"`
+	TargetName string `json:"target_name"`
+}
+
+type oneBot11PrivateTargetResponse struct {
+	TargetType string `json:"target_type"`
+	TargetID   string `json:"target_id"`
+	Nickname   string `json:"nickname"`
+}
+
+type oneBot11ProtocolTargetsResponse struct {
+	Protocol     string                          `json:"protocol"`
+	Available    bool                            `json:"available"`
+	Groups       []oneBot11GroupTargetResponse   `json:"groups"`
+	PrivateUsers []oneBot11PrivateTargetResponse `json:"private_users"`
+	Issues       []oneBot11TargetIssueResponse   `json:"issues"`
+}
+
+type oneBot11IdentityResolveRequest struct {
+	Items []oneBot11IdentityResolveItem `json:"items"`
+}
+
+type oneBot11IdentityResolveItem struct {
+	TargetType string `json:"target_type"`
+	TargetID   string `json:"target_id"`
+	UserID     string `json:"user_id"`
+}
+
+type oneBot11IdentityResponse struct {
+	TargetType    string `json:"target_type"`
+	TargetID      string `json:"target_id"`
+	UserID        string `json:"user_id"`
+	Nickname      string `json:"nickname"`
+	GroupNickname string `json:"group_nickname,omitempty"`
+	Title         string `json:"title,omitempty"`
+	Role          string `json:"role,omitempty"`
+	RoleLabel     string `json:"role_label,omitempty"`
+	AvatarURL     string `json:"avatar_url"`
+}
+
+type oneBot11IdentityResolveResponse struct {
+	Items  []oneBot11IdentityResponse    `json:"items"`
+	Issues []oneBot11TargetIssueResponse `json:"issues"`
+}
+
 type protocolCompatibilitySupportResponse struct {
 	Standard    string `json:"standard"`
 	NapCat      string `json:"napcat"`
@@ -90,6 +143,23 @@ func newProtocolService(state *appRuntimeState, adapterShell *adapter.Shell) *pr
 func (h *protocolHTTPHandlers) handleProtocolOneBot11Snapshot() http.HandlerFunc {
 	return func(w http.ResponseWriter, _ *http.Request) {
 		writeAuthJSON(w, http.StatusOK, h.protocol.currentOneBot11ProtocolSnapshot())
+	}
+}
+
+func (h *protocolHTTPHandlers) handleProtocolOneBot11Targets() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		writeAuthJSON(w, http.StatusOK, h.protocol.currentOneBot11ProtocolTargets(r.Context()))
+	}
+}
+
+func (h *protocolHTTPHandlers) handleProtocolOneBot11IdentitiesResolve() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var body oneBot11IdentityResolveRequest
+		if err := httpapi.DecodeStrictJSON(w, r, &body, httpapi.MaxManagementJSONBodyBytes); err != nil || len(body.Items) == 0 || len(body.Items) > 100 {
+			writeAppError(w, r, http.StatusBadRequest, codeInvalidRequest, "请求参数不合法", "errors.platform.invalid_request", nil)
+			return
+		}
+		writeAuthJSON(w, http.StatusOK, h.protocol.resolveOneBot11Identities(r.Context(), body.Items))
 	}
 }
 
@@ -212,6 +282,117 @@ func (s *protocolService) currentOneBot11ProtocolSnapshot() oneBot11ProtocolSnap
 		Summary:               protocolSnapshotSummary(adapterSnapshot, readiness),
 		RecentTransportIssues: protocolIssuesFromSnapshot(adapterSnapshot),
 	}
+}
+
+func (s *protocolService) currentOneBot11ProtocolTargets(ctx context.Context) oneBot11ProtocolTargetsResponse {
+	response := oneBot11ProtocolTargetsResponse{
+		Protocol:     "onebot11",
+		Groups:       []oneBot11GroupTargetResponse{},
+		PrivateUsers: []oneBot11PrivateTargetResponse{},
+		Issues:       []oneBot11TargetIssueResponse{},
+	}
+	if s == nil || s.adapter == nil {
+		response.Issues = append(response.Issues, oneBot11TargetIssueResponse{Scope: "protocol", Message: "OneBot11 协议不可用"})
+		return response
+	}
+
+	groups, groupErr := s.adapter.ListGroups(ctx)
+	if groupErr != nil {
+		response.Issues = append(response.Issues, oneBot11TargetIssueResponse{Scope: "groups", Message: "群聊列表读取失败"})
+	} else {
+		for _, group := range groups {
+			response.Groups = append(response.Groups, oneBot11GroupTargetResponse{
+				TargetType: "group",
+				TargetID:   group.ID,
+				TargetName: group.Name,
+			})
+		}
+	}
+
+	friends, friendErr := s.adapter.ListFriends(ctx)
+	if friendErr != nil {
+		response.Issues = append(response.Issues, oneBot11TargetIssueResponse{Scope: "private_users", Message: "私聊对象列表读取失败"})
+	} else {
+		for _, friend := range friends {
+			response.PrivateUsers = append(response.PrivateUsers, oneBot11PrivateTargetResponse{
+				TargetType: "private",
+				TargetID:   friend.ID,
+				Nickname:   friend.Nickname,
+			})
+		}
+	}
+
+	response.Available = groupErr == nil && friendErr == nil
+	return response
+}
+
+func (s *protocolService) resolveOneBot11Identities(ctx context.Context, items []oneBot11IdentityResolveItem) oneBot11IdentityResolveResponse {
+	response := oneBot11IdentityResolveResponse{
+		Items:  []oneBot11IdentityResponse{},
+		Issues: []oneBot11TargetIssueResponse{},
+	}
+	if s == nil || s.adapter == nil {
+		response.Issues = append(response.Issues, oneBot11TargetIssueResponse{Scope: "protocol", Message: "OneBot11 协议不可用"})
+		return response
+	}
+
+	seen := map[string]struct{}{}
+	for _, item := range items {
+		targetType := strings.TrimSpace(item.TargetType)
+		targetID := strings.TrimSpace(item.TargetID)
+		userID := strings.TrimSpace(item.UserID)
+		if (targetType != "group" && targetType != "private") || !isDigits(targetID) || !isDigits(userID) {
+			response.Issues = append(response.Issues, oneBot11TargetIssueResponse{Scope: "identity", Message: "身份解析参数不合法"})
+			continue
+		}
+		key := targetType + ":" + targetID + ":" + userID
+		if _, ok := seen[key]; ok {
+			continue
+		}
+		seen[key] = struct{}{}
+
+		switch targetType {
+		case "group":
+			member, err := s.adapter.GetGroupMemberInfo(ctx, targetID, userID)
+			if err != nil {
+				response.Issues = append(response.Issues, oneBot11TargetIssueResponse{Scope: "identity", Message: "群成员身份读取失败"})
+				continue
+			}
+			nickname := member.Nickname
+			if nickname == "" {
+				nickname = userID
+			}
+			response.Items = append(response.Items, oneBot11IdentityResponse{
+				TargetType:    "group",
+				TargetID:      targetID,
+				UserID:        userID,
+				Nickname:      nickname,
+				GroupNickname: member.Card,
+				Title:         member.Title,
+				Role:          member.Role,
+				RoleLabel:     oneBot11RoleLabel(member.Role),
+				AvatarURL:     oneBot11AvatarURL(userID),
+			})
+		case "private":
+			stranger, err := s.adapter.GetStrangerInfo(ctx, userID)
+			if err != nil {
+				response.Issues = append(response.Issues, oneBot11TargetIssueResponse{Scope: "identity", Message: "私聊身份读取失败"})
+				continue
+			}
+			nickname := stranger.Nickname
+			if nickname == "" {
+				nickname = userID
+			}
+			response.Items = append(response.Items, oneBot11IdentityResponse{
+				TargetType: "private",
+				TargetID:   targetID,
+				UserID:     userID,
+				Nickname:   nickname,
+				AvatarURL:  oneBot11AvatarURL(userID),
+			})
+		}
+	}
+	return response
 }
 
 func (s *protocolService) currentOneBot11ProtocolCompatibility() (oneBot11ProtocolCompatibilityResponse, error) {
@@ -549,6 +730,35 @@ func currentOneBotProvider(raw string) string {
 	default:
 		return "unknown"
 	}
+}
+
+func oneBot11AvatarURL(userID string) string {
+	return "https://q1.qlogo.cn/g?b=qq&nk=" + strings.TrimSpace(userID) + "&s=640"
+}
+
+func oneBot11RoleLabel(role string) string {
+	switch strings.TrimSpace(role) {
+	case "owner":
+		return "群主"
+	case "admin":
+		return "管理员"
+	case "member":
+		return "成员"
+	default:
+		return ""
+	}
+}
+
+func isDigits(raw string) bool {
+	if raw == "" {
+		return false
+	}
+	for _, ch := range raw {
+		if ch < '0' || ch > '9' {
+			return false
+		}
+	}
+	return true
 }
 
 func sanitizeProtocolEndpoint(raw string) string {

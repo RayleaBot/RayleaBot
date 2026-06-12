@@ -17,6 +17,19 @@ const defaultSettings = {
   subscriptions: [],
 }
 
+const targetsPayload = {
+  protocol: 'onebot11',
+  available: true,
+  groups: [
+    { target_type: 'group', target_id: '5050', target_name: '测试群' },
+    { target_type: 'group', target_id: '6060', target_name: '备用群' },
+  ],
+  private_users: [
+    { target_type: 'private', target_id: '2626', nickname: '测试用户' },
+  ],
+  issues: [],
+}
+
 const richSettings = {
   ...defaultSettings,
   subscriptions: [{
@@ -27,30 +40,35 @@ const richSettings = {
     avatar_url: 'https://i0.hdslb.com/face.jpg',
     target_type: 'group',
     target_id: '5050',
-    target_name: '测试群',
+    target_name: '旧群名',
     services: ['live'],
-    subscribers: [{
-      id: '10001',
-      nickname: '测试号',
-      group_nickname: '群名片',
-      title: '头衔',
-      role: 'admin',
-      role_label: '管理员',
-      avatar_url: 'https://q1.qlogo.cn/g?b=qq&nk=10001&s=100',
-    }],
+    subscribers: [{ id: '10001', nickname: '旧昵称' }],
     enabled: true,
   }, {
-    id: 'bilibili-654321-private-2626',
+    id: 'bilibili-123456-private-2626',
     platform: 'bilibili',
-    uid: '654321',
-    name: '无头像 UP',
+    uid: '123456',
+    name: '测试 UP',
+    avatar_url: 'https://i0.hdslb.com/face.jpg',
     target_type: 'private',
     target_id: '2626',
-    target_name: '测试用户',
+    target_name: '旧私聊名',
     services: ['video'],
-    subscribers: [{ id: '10002', nickname: '测试号' }],
+    subscribers: [{ id: '10001', nickname: '旧昵称' }],
     enabled: true,
   }],
+}
+
+function dispatchHost(dom, type, payload, requestId = 'host-test') {
+  dom.window.dispatchEvent(new dom.window.MessageEvent('message', {
+    data: {
+      version: '1',
+      source: 'management_host',
+      type,
+      request_id: requestId,
+      payload,
+    },
+  }))
 }
 
 function createPage(settings = richSettings) {
@@ -64,21 +82,14 @@ function createPage(settings = richSettings) {
       messages.push(message)
     },
   }
-  dom.window.confirm = () => true
   dom.window.eval(script)
-  dom.window.dispatchEvent(new dom.window.MessageEvent('message', {
-    data: {
-      version: '1',
-      source: 'management_host',
-      type: 'host.init',
-      payload: {
-        title: '订阅设置',
-        plugin: { description: '订阅中心' },
-        default_config: defaultSettings,
-        settings,
-      },
-    },
-  }))
+  dispatchHost(dom, 'host.init', {
+    title: '订阅设置',
+    plugin: { description: '订阅中心' },
+    default_config: defaultSettings,
+    settings,
+  })
+  dispatchHost(dom, 'protocol.targets.changed', targetsPayload)
   return { dom, messages }
 }
 
@@ -86,68 +97,153 @@ function saveMessage(messages) {
   return messages.findLast((message) => message.type === 'settings.save')
 }
 
+function lastMessage(messages, type) {
+  return messages.findLast((message) => message.type === type)
+}
+
 function plain(value) {
   return JSON.parse(JSON.stringify(value))
 }
 
-test('renders Bilibili avatars, source names, and subscriber IDs', () => {
+test('groups subscriptions by Bilibili UID and hides raw maintenance fields', () => {
   const { dom } = createPage()
   const document = dom.window.document
-  const cards = document.querySelectorAll('.subscription-card')
+  const rows = document.querySelectorAll('.subscription-row')
 
-  assert.equal(cards.length, 2)
-  assert.equal(document.querySelector('#cookie-list'), null)
-  assert.equal(document.querySelector('#metric-source').textContent, '平台事件源')
-  assert.equal(cards[0].querySelector('.subscription-avatar img').getAttribute('src'), 'https://i0.hdslb.com/face.jpg')
-  assert.equal(cards[0].querySelector('.subscription-avatar__fallback').textContent, '测')
-  assert.match(cards[0].querySelector('.subscription-card__meta').textContent, /群聊 测试群 5050/)
-  assert.equal(cards[0].querySelector('.subscription-subscribers__names').textContent, '群名片（10001）')
-  assert.equal(cards[1].querySelector('.subscription-avatar img'), null)
-  assert.equal(cards[1].querySelector('.subscription-avatar__fallback').textContent, '无')
-  assert.match(cards[1].querySelector('.subscription-card__meta').textContent, /私聊 测试用户 2626/)
-  assert.equal(cards[1].querySelector('.subscription-subscribers__names').textContent, '测试号（10002）')
+  assert.equal(rows.length, 1)
+  assert.equal(document.querySelector('#raw-json-input'), null)
+  assert.equal(document.querySelector('#subscription-editor-panel'), null)
+  assert.match(rows[0].textContent, /测试 UP/)
+  assert.match(rows[0].textContent, /群聊 测试群/)
+  assert.match(rows[0].textContent, /私聊 测试用户/)
+  assert.match(rows[0].textContent, /目标配置不同/)
 })
 
-test('saves subscription display metadata without cookie payloads', () => {
-  const { dom, messages } = createPage()
+test('target type switch keeps targets selected across group and private lists', () => {
+  const { dom } = createPage()
+  const document = dom.window.document
+  const row = document.querySelector('.subscription-row')
+  const privateButton = row.querySelector('button[data-action="target-mode"][data-mode="private"]')
+  privateButton.click()
+
+  const privateRow = document.querySelector('.subscription-row')
+  const select = privateRow.querySelector('.target-select')
+  assert.equal([...select.options].length, 1)
+  assert.equal(select.options[0].selected, true)
+  assert.match(privateRow.textContent, /群聊 测试群/)
+  assert.match(privateRow.textContent, /私聊 测试用户/)
+
+  privateRow.querySelector('button[data-action="target-mode"][data-mode="group"]').click()
+  const groupRow = document.querySelector('.subscription-row')
+  const groupSelect = groupRow.querySelector('.target-select')
+  groupSelect.options[1].selected = true
+  groupSelect.dispatchEvent(new dom.window.Event('change', { bubbles: true }))
+
+  const updatedRow = document.querySelector('.subscription-row')
+  assert.match(updatedRow.textContent, /群聊 测试群/)
+  assert.match(updatedRow.textContent, /群聊 备用群/)
+  assert.match(updatedRow.textContent, /私聊 测试用户/)
+})
+
+test('saving without subscriber IDs keeps system subscription and refreshes target names', () => {
+  const { dom, messages } = createPage({
+    enabled: true,
+    subscriptions: [{
+      id: 'bilibili-123456-group-5050',
+      platform: 'bilibili',
+      uid: '123456',
+      name: '测试 UP',
+      target_type: 'group',
+      target_id: '5050',
+      target_name: '旧群名',
+      services: ['all'],
+      subscribers: [],
+      enabled: true,
+    }],
+  })
   const document = dom.window.document
 
-  document.querySelector('#save-button').disabled = false
-  document.querySelector('#enabled-input').checked = false
-  document.querySelector('#enabled-input').dispatchEvent(new dom.window.Event('change', { bubbles: true }))
   document.querySelector('#save-button').click()
 
   const values = saveMessage(messages).payload.values
-  assert.equal(values.enabled, false)
-  assert.deepEqual(plain(values.subscriptions[0]), richSettings.subscriptions[0])
-  assert.equal(values.subscriptions[1].target_name, '测试用户')
-  assert.equal(Object.hasOwn(values, 'tokens'), false)
-  assert.equal(Object.hasOwn(values, 'poll_cron'), false)
-  assert.equal(messages.some((message) => message.type === 'secrets.save'), false)
-  assert.equal(messages.some((message) => message.type === 'scheduler.trigger'), false)
+  assert.equal(values.enabled, true)
+  assert.equal(values.subscriptions.length, 1)
+  assert.equal(values.subscriptions[0].target_name, '测试群')
+  assert.deepEqual(plain(values.subscriptions[0].subscribers), [])
+  assert.equal(lastMessage(messages, 'protocol.identities.resolve'), undefined)
 })
 
-test('search matches source names and subscriber IDs', () => {
-  const { dom } = createPage()
-  const document = dom.window.document
-
-  document.querySelector('#subscription-search-input').value = '测试用户'
-  document.querySelector('#subscription-search-input').dispatchEvent(new dom.window.Event('input', { bubbles: true }))
-  assert.equal(document.querySelectorAll('.subscription-card').length, 1)
-  assert.match(document.querySelector('.subscription-card__meta').textContent, /私聊 测试用户 2626/)
-
-  document.querySelector('#subscription-search-input').value = '10001'
-  document.querySelector('#subscription-search-input').dispatchEvent(new dom.window.Event('input', { bubbles: true }))
-  assert.equal(document.querySelectorAll('.subscription-card').length, 1)
-  assert.equal(document.querySelector('.subscription-subscribers__names').textContent, '群名片（10001）')
-})
-
-test('manual check button points to platform source status', () => {
+test('saving subscriber IDs resolves display identity before settings save', () => {
   const { dom, messages } = createPage()
   const document = dom.window.document
 
-  document.querySelector('#manual-check-button').click()
+  document.querySelector('#save-button').click()
+  const resolveMessage = lastMessage(messages, 'protocol.identities.resolve')
+  assert.ok(resolveMessage)
+  assert.deepEqual(plain(resolveMessage.payload.items), [
+    { target_type: 'group', target_id: '5050', user_id: '10001' },
+    { target_type: 'private', target_id: '2626', user_id: '10001' },
+  ])
 
-  assert.equal(document.querySelector('#status-text').textContent, 'Bilibili 事件源状态在 Web 三方账号页面查看')
-  assert.equal(messages.some((message) => message.type === 'scheduler.trigger'), false)
+  dispatchHost(dom, 'protocol.identities.resolved', {
+    items: [
+      {
+        target_type: 'group',
+        target_id: '5050',
+        user_id: '10001',
+        nickname: '测试号',
+        group_nickname: '群名片',
+        role: 'admin',
+        role_label: '管理员',
+        title: '头衔',
+        avatar_url: 'https://q1.qlogo.cn/g?b=qq&nk=10001&s=640',
+      },
+      {
+        target_type: 'private',
+        target_id: '2626',
+        user_id: '10001',
+        nickname: '测试号',
+        avatar_url: 'https://q1.qlogo.cn/g?b=qq&nk=10001&s=640',
+      },
+    ],
+    issues: [],
+  }, resolveMessage.request_id)
+
+  const values = saveMessage(messages).payload.values
+  assert.equal(values.subscriptions[0].target_name, '测试群')
+  assert.equal(values.subscriptions[0].subscribers[0].group_nickname, '群名片')
+  assert.equal(values.subscriptions[1].target_name, '测试用户')
+  assert.equal(values.subscriptions[1].subscribers[0].nickname, '测试号')
+})
+
+test('new row must resolve Bilibili user before saving', () => {
+  const { dom, messages } = createPage(defaultSettings)
+  const document = dom.window.document
+
+  document.querySelector('#add-subscription-button').click()
+  assert.equal(document.querySelector('#save-button').disabled, true)
+
+  const input = document.querySelector('.up-query-input')
+  input.value = '洛天依'
+  input.dispatchEvent(new dom.window.Event('input', { bubbles: true }))
+  document.querySelector('button[data-action="resolve-up"]').click()
+  const resolveMessage = lastMessage(messages, 'bilibili.user.resolve')
+  assert.equal(resolveMessage.payload.query, '洛天依')
+
+  dispatchHost(dom, 'bilibili.user.resolved', {
+    query: '洛天依',
+    exact: true,
+    user: {
+      uid: '36081646',
+      name: '洛天依',
+      avatar_url: 'https://i0.hdslb.com/bfs/face/luotianyi.jpg',
+      fans: 7000000,
+    },
+    candidates: [],
+  }, resolveMessage.request_id)
+
+  const select = document.querySelector('.target-select')
+  select.options[0].selected = true
+  select.dispatchEvent(new dom.window.Event('change', { bubbles: true }))
+  assert.equal(document.querySelector('#save-button').disabled, false)
 })

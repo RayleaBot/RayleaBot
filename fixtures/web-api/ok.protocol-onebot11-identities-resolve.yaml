@@ -1,0 +1,35 @@
+contract: contracts/web-api.openapi.yaml
+case: ok
+description: OneBot11 identity resolution returns refreshed subscriber display data.
+request:
+  method: POST
+  path: /api/protocols/onebot11/identities/resolve
+  body:
+    items:
+      - target_type: group
+        target_id: "553855023"
+        user_id: "2678980697"
+      - target_type: private
+        target_id: "2678980697"
+        user_id: "2678980697"
+response:
+  status: 200
+  body:
+    items:
+      - target_type: group
+        target_id: "553855023"
+        user_id: "2678980697"
+        nickname: 董草风信子
+        group_nickname: 银蝶
+        title: 超级管理员
+        role: admin
+        role_label: 管理员
+        avatar_url: https://q1.qlogo.cn/g?b=qq&nk=2678980697&s=640
+      - target_type: private
+        target_id: "2678980697"
+        user_id: "2678980697"
+        nickname: 董草风信子
+        avatar_url: https://q1.qlogo.cn/g?b=qq&nk=2678980697&s=640
+    issues: []
+expect:
+  valid: true

@@ -1,0 +1,23 @@
+contract: contracts/web-api.openapi.yaml
+case: ok
+description: Bilibili UID resolution returns an exact user for management forms.
+request:
+  method: GET
+  path: /api/bilibili/users/resolve?query=36081646
+response:
+  status: 200
+  body:
+    query: "36081646"
+    exact: true
+    user:
+      uid: "36081646"
+      name: 洛天依
+      avatar_url: https://i0.hdslb.com/bfs/face/luotianyi.jpg
+      fans: 7000000
+    candidates:
+      - uid: "36081646"
+        name: 洛天依
+        avatar_url: https://i0.hdslb.com/bfs/face/luotianyi.jpg
+        fans: 7000000
+expect:
+  valid: true

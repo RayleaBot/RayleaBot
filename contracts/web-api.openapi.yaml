@@ -18,6 +18,8 @@ x-fixtures:
   - fixtures/web-api/edge.config-update-response.adapter-reload-fallback.yaml
   - fixtures/web-api/ok.system-status.yaml
   - fixtures/web-api/ok.protocol-onebot11-snapshot.yaml
+  - fixtures/web-api/ok.protocol-onebot11-targets.yaml
+  - fixtures/web-api/ok.protocol-onebot11-identities-resolve.yaml
   - fixtures/web-api/ok.protocol-onebot11-compatibility.yaml
   - fixtures/web-api/ok.protocol-onebot11-reverse-ws-upgrade.yaml
   - fixtures/web-api/ok.protocol-onebot11-webhook-accepted.yaml
@@ -124,6 +126,7 @@ x-fixtures:
   - fixtures/web-api/ok.bilibili-login-qrcode-create.yaml
   - fixtures/web-api/ok.bilibili-login-qrcode-poll-pending.yaml
   - fixtures/web-api/ok.bilibili-login-qrcode-poll-succeeded.yaml
+  - fixtures/web-api/ok.bilibili-user-resolve.yaml
   - fixtures/web-api/ok.bilibili-source-status.yaml
   - fixtures/web-api/ok.bilibili-source-restart.yaml
   - fixtures/web-api/invalid.plugins-reload-not-enabled.yaml
@@ -565,6 +568,50 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/OneBot11ProtocolSnapshotResponse'
+        '401':
+          $ref: '#/components/responses/Error'
+        default:
+          $ref: '#/components/responses/Error'
+
+  /api/protocols/onebot11/targets:
+    get:
+      summary: List current OneBot11 group and private message targets.
+      operationId: getOneBot11ProtocolTargets
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Current OneBot11 selectable targets.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OneBot11ProtocolTargetsResponse'
+        '401':
+          $ref: '#/components/responses/Error'
+        default:
+          $ref: '#/components/responses/Error'
+
+  /api/protocols/onebot11/identities/resolve:
+    post:
+      summary: Resolve OneBot11 user display identities for selected targets.
+      operationId: resolveOneBot11ProtocolIdentities
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OneBot11IdentityResolveRequest'
+      responses:
+        '200':
+          description: Resolved OneBot11 identities.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OneBot11IdentityResolveResponse'
+        '400':
+          $ref: '#/components/responses/Error'
         '401':
           $ref: '#/components/responses/Error'
         default:
@@ -1661,6 +1708,33 @@ paths:
         default:
           $ref: '#/components/responses/Error'
 
+  /api/bilibili/users/resolve:
+    get:
+      summary: Resolve a Bilibili user by UID or search keyword for management UI forms.
+      operationId: resolveBilibiliUser
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: query
+          in: query
+          required: true
+          schema:
+            type: string
+            minLength: 1
+      responses:
+        '200':
+          description: Resolved Bilibili user or candidate list.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BilibiliUserResolveResponse'
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+        default:
+          $ref: '#/components/responses/Error'
+
   /api/bilibili/source/restart:
     post:
       summary: Restart the built-in Bilibili source.
@@ -2021,6 +2095,139 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/ProtocolIssue'
+
+    OneBot11TargetIssue:
+      type: object
+      additionalProperties: false
+      required: [scope, message]
+      properties:
+        scope:
+          type: string
+          enum: [protocol, groups, private_users, identity]
+        message:
+          type: string
+          minLength: 1
+
+    OneBot11GroupTarget:
+      type: object
+      additionalProperties: false
+      required: [target_type, target_id, target_name]
+      properties:
+        target_type:
+          type: string
+          const: group
+        target_id:
+          type: string
+          pattern: '^[0-9]+$'
+        target_name:
+          type: string
+          minLength: 1
+
+    OneBot11PrivateTarget:
+      type: object
+      additionalProperties: false
+      required: [target_type, target_id, nickname]
+      properties:
+        target_type:
+          type: string
+          const: private
+        target_id:
+          type: string
+          pattern: '^[0-9]+$'
+        nickname:
+          type: string
+          minLength: 1
+
+    OneBot11ProtocolTargetsResponse:
+      type: object
+      additionalProperties: false
+      required: [protocol, available, groups, private_users, issues]
+      properties:
+        protocol:
+          type: string
+          const: onebot11
+        available:
+          type: boolean
+        groups:
+          type: array
+          items:
+            $ref: '#/components/schemas/OneBot11GroupTarget'
+        private_users:
+          type: array
+          items:
+            $ref: '#/components/schemas/OneBot11PrivateTarget'
+        issues:
+          type: array
+          items:
+            $ref: '#/components/schemas/OneBot11TargetIssue'
+
+    OneBot11IdentityResolveItem:
+      type: object
+      additionalProperties: false
+      required: [target_type, target_id, user_id]
+      properties:
+        target_type:
+          type: string
+          enum: [group, private]
+        target_id:
+          type: string
+          pattern: '^[0-9]+$'
+        user_id:
+          type: string
+          pattern: '^[0-9]+$'
+
+    OneBot11IdentityResolveRequest:
+      type: object
+      additionalProperties: false
+      required: [items]
+      properties:
+        items:
+          type: array
+          minItems: 1
+          maxItems: 100
+          items:
+            $ref: '#/components/schemas/OneBot11IdentityResolveItem'
+
+    OneBot11Identity:
+      type: object
+      additionalProperties: false
+      required: [target_type, target_id, user_id, nickname, avatar_url]
+      properties:
+        target_type:
+          type: string
+          enum: [group, private]
+        target_id:
+          type: string
+          pattern: '^[0-9]+$'
+        user_id:
+          type: string
+          pattern: '^[0-9]+$'
+        nickname:
+          type: string
+        group_nickname:
+          type: string
+        title:
+          type: string
+        role:
+          type: string
+        role_label:
+          type: string
+        avatar_url:
+          type: string
+
+    OneBot11IdentityResolveResponse:
+      type: object
+      additionalProperties: false
+      required: [items, issues]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/OneBot11Identity'
+        issues:
+          type: array
+          items:
+            $ref: '#/components/schemas/OneBot11TargetIssue'
 
     ProtocolCompatibilityCategoryKey:
       type: string
@@ -3801,6 +4008,42 @@ components:
           type: boolean
         status:
           $ref: '#/components/schemas/BilibiliSourceStatusResponse'
+
+    BilibiliResolvedUser:
+      type: object
+      additionalProperties: false
+      required: [uid, name, avatar_url]
+      properties:
+        uid:
+          type: string
+          pattern: '^[0-9]+$'
+        name:
+          type: string
+          minLength: 1
+        avatar_url:
+          type: string
+        fans:
+          type: integer
+          minimum: 0
+
+    BilibiliUserResolveResponse:
+      type: object
+      additionalProperties: false
+      required: [query, exact, candidates]
+      properties:
+        query:
+          type: string
+          minLength: 1
+        exact:
+          type: boolean
+        user:
+          $ref: '#/components/schemas/BilibiliResolvedUser'
+        candidates:
+          type: array
+          items:
+            $ref: '#/components/schemas/BilibiliResolvedUser'
+        message:
+          type: string
 
     PluginSecretValues:
       type: object

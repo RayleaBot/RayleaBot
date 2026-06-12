@@ -37,7 +37,7 @@
   - 统一错误码命名、默认消息资源键、HTTP 语义和适用范围
 - `web-api.openapi.yaml`
   - 当前已冻结的管理 HTTP 接口
-  - 当前包含 setup / session、loopback launcher bootstrap、config snapshot/update、protocol snapshot / compatibility、plugin lifecycle、plugin grants、plugin rich detail、plugin settings、plugin secrets、third-party accounts、third-party monitors、third-party media、Bilibili QR login、Bilibili source status / restart、governance 管理面、tasks / logs / system / metrics surfaces、scheduler 任务列表与手动触发、recovery recheck / confirm、runtime bootstrap、render templates、preview HTML 与模板资源读取面
+  - 当前包含 setup / session、loopback launcher bootstrap、config snapshot/update、protocol snapshot / compatibility、OneBot target / identity resolution、plugin lifecycle、plugin grants、plugin rich detail、plugin settings、plugin secrets、third-party accounts、third-party monitors、third-party media、Bilibili QR login、Bilibili user resolve、Bilibili source status / restart、governance 管理面、tasks / logs / system / metrics surfaces、scheduler 任务列表与手动触发、recovery recheck / confirm、runtime bootstrap、render templates、preview HTML 与模板资源读取面
   - `PUT /api/config` response 固定返回 `apply_effects.applied_now`、`apply_effects.reloaded_now`、`apply_effects.restart_required_fields`
   - plugin lifecycle surface 统一使用正式 `display_state` 枚举
 - `websocket-events.yaml`
@@ -54,7 +54,7 @@
   - 当前固定为 `/plugin-ui/{plugin_id}/...`
 - `plugin-management-ui-bridge.schema.json`
   - Web 宿主页与插件内置 iframe 的正式桥接消息结构
-  - 当前固定 `page.ready`、`host.init`、`settings.reload`、`settings.save`、`settings.changed`、`secrets.reload`、`secrets.save`、`secrets.changed`、`scheduler.trigger`、`scheduler.triggered`、`render_template.open` 与 `error`
+  - 当前固定 `page.ready`、`host.init`、`settings.reload`、`settings.save`、`settings.changed`、`secrets.reload`、`secrets.save`、`secrets.changed`、`scheduler.trigger`、`scheduler.triggered`、`render_template.open`、`protocol.targets.reload`、`protocol.targets.changed`、`protocol.identities.resolve`、`protocol.identities.resolved`、`bilibili.user.resolve`、`bilibili.user.resolved` 与 `error`
 - `plugin-protocol.schema.json`
   - 插件 Runtime JSONL 协议
   - 当前冻结 `init`、`init_progress`、`init_ack`、`event`、`result`、`error`、`ping`、`pong`、`shutdown`
@@ -92,11 +92,13 @@
 
 当前没有额外的管理 HTTP 路由保留在正式 OpenAPI 冻结范围之外。
 
-当前已进入 OpenAPI 冻结范围的 protocol compatibility surface：
+当前已进入 OpenAPI 冻结范围的 protocol management surface：
 
 - `GET /api/protocols/onebot11/compatibility`
+- `GET /api/protocols/onebot11/targets`
+- `POST /api/protocols/onebot11/identities/resolve`
 
-其中 response 固定返回 `events`、`message_segments`、`read_capabilities`、`provider_extensions` 四类能力矩阵；provider 支持状态固定为 `supported` 或 `unsupported`。
+其中 compatibility response 固定返回 `events`、`message_segments`、`read_capabilities`、`provider_extensions` 四类能力矩阵；provider 支持状态固定为 `supported` 或 `unsupported`。targets response 固定返回 `groups`、`private_users` 与可展示的 `issues`。identities resolve response 固定返回每个请求项的展示身份与失败原因。
 
 当前已进入 OpenAPI 冻结范围的 scheduler surface：
 
@@ -118,6 +120,7 @@
 - `GET /api/third-party/media`
 - `POST /api/bilibili/login/qrcode`
 - `GET /api/bilibili/login/qrcode/{login_id}`
+- `GET /api/bilibili/users/resolve`
 - `GET /api/bilibili/source/status`
 - `POST /api/bilibili/source/restart`
 

@@ -491,7 +491,7 @@ func New(options Options) (*App, error) {
 	systemHandler := newSystemHTTPHandlers(systemService, platformState.Scheduler)
 	protocolHandler := newProtocolHTTPHandlers(protocolService)
 	thirdPartyHandler := newThirdPartyHTTPHandlers(thirdPartyService, bilibiliAccountClient, options.BilibiliHTTPTransport)
-	bilibiliHandler := newBilibiliSourceHTTPHandlers(bilibiliSource, bilibiliQRLogin)
+	bilibiliHandler := newBilibiliSourceHTTPHandlers(bilibiliSource, bilibiliQRLogin, options.BilibiliHTTPTransport)
 	eventsWS := newEventsWSHandler(pluginState.Bridge, pluginState.Plugins, protocolService, serviceStatusService, governanceEvents, bilibiliEvents)
 	tasksWS := newTasksWSHandler(platformState.Tasks)
 	logsWS := newLogsWSHandler(logService)
