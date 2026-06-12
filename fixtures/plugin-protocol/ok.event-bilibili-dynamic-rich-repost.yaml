@@ -1,0 +1,67 @@
+contract: contracts/plugin-protocol.schema.json
+case: ok
+frames:
+  - protocol_version: "1"
+    type: event
+    timestamp: 1710001001
+    plugin_id: raylea.subscription-hub
+    request_id: evt_bilibili_dynamic_rich_001
+    event:
+      event_id: bilibili-dynamic-published-123456-90002
+      source_protocol: bilibili
+      source_adapter: bilibili.source
+      event_type: bilibili.dynamic.published
+      timestamp: 1710001000
+      payload:
+        bilibili:
+          kind: dynamic
+          uid: "123456"
+          id: "90002"
+          service: repost
+          title: 转发动态
+          summary: 转发说明
+          summary_html: 转发说明
+          url: "https://t.bilibili.com/90002/"
+          pub_ts: 1710000990
+          created_at: "2024-03-09 16:16"
+          dynamic_type: DYNAMIC_TYPE_FORWARD
+          author:
+            uid: "123456"
+            name: 测试 UP
+            avatar: "https://i0.hdslb.com/bfs/face/up.jpg"
+          topic:
+            id: 1156147
+            name: BML-PLAY! 2026
+            jump_url: "https://m.bilibili.com/topic-detail?topic_id=1156147&topic_name=BML-PLAY%21%202026"
+          original:
+            id: "80001"
+            service: image_text
+            title: 图文动态更新
+            summary: "#活动# 正文 [打call]"
+            summary_html: '<span class="rich-text-topic bili-rich-text-module topic">#活动#</span> 正文 <img class="rich-text-emoji" src="https://i0.hdslb.com/bfs/emote/call.png" alt="[打call]" title="[打call]" style="width:1.50em;height:1.50em;">'
+            url: "https://t.bilibili.com/80001/"
+            pub_ts: 1710000900
+            created_at: "2024-03-09 16:15"
+            dynamic_type: DYNAMIC_TYPE_DRAW
+            author:
+              uid: "654321"
+              name: 原作者
+              avatar: "https://i0.hdslb.com/bfs/face/original.jpg"
+            images:
+              - url: "https://i0.hdslb.com/bfs/new_dyn/original.jpg"
+                width: 900
+                height: 1600
+            topic:
+              id: 10001
+              name: 活动
+              jump_url: "https://m.bilibili.com/topic-detail?topic_id=10001&topic_name=%E6%B4%BB%E5%8A%A8"
+  - protocol_version: "1"
+    type: result
+    timestamp: 1710001002
+    plugin_id: raylea.subscription-hub
+    request_id: evt_bilibili_dynamic_rich_001
+    status: success
+    data:
+      handled: true
+expect:
+  valid: true

@@ -242,6 +242,177 @@ func TestDynamicEventVideoURLUsesArchiveIDOrDynamicPage(t *testing.T) {
 	}
 }
 
+func TestDynamicEventOpusImageTextIncludesRichSummaryAndSingleImage(t *testing.T) {
+	t.Parallel()
+
+	watched := map[string]Subject{
+		"123456": {
+			UID:      "123456",
+			Name:     "测试 UP",
+			Services: map[string]bool{"image_text": true},
+		},
+	}
+
+	event, ok := dynamicEventFromItem(map[string]any{
+		"id_str": "1212948650493214729",
+		"type":   "DYNAMIC_TYPE_DRAW",
+		"modules": map[string]any{
+			"module_author": map[string]any{
+				"mid":    "123456",
+				"name":   "测试 UP",
+				"pub_ts": float64(1781250000),
+			},
+			"module_dynamic": map[string]any{
+				"topic": map[string]any{
+					"id":       float64(1156147),
+					"name":     "洛天依2026巡演",
+					"jump_url": "//m.bilibili.com/topic-detail?topic_id=1156147",
+				},
+				"major": map[string]any{
+					"type": "MAJOR_TYPE_OPUS",
+					"opus": map[string]any{
+						"jump_url": "https://www.bilibili.com/opus/1212948650493214729",
+						"summary": map[string]any{
+							"text": "#BML-PLAY! 2026#\n线下演唱会，天依今年也来啦！[打call]",
+							"rich_text_nodes": []any{
+								map[string]any{"type": "RICH_TEXT_NODE_TYPE_WEB", "text": "#BML-PLAY! 2026#"},
+								map[string]any{"type": "RICH_TEXT_NODE_TYPE_TEXT", "text": "\n线下演唱会，天依今年也来啦！"},
+								map[string]any{
+									"type": "RICH_TEXT_NODE_TYPE_TEXT",
+									"text": "[打call]",
+									"emoji": map[string]any{
+										"text":     "[打call]",
+										"icon_url": "//i0.hdslb.com/bfs/emote/call.png",
+									},
+								},
+							},
+						},
+						"pics": []any{
+							map[string]any{
+								"url":    "//i0.hdslb.com/bfs/new_dyn/single.jpg",
+								"width":  float64(900),
+								"height": float64(1600),
+							},
+						},
+					},
+				},
+			},
+		},
+	}, watched)
+
+	if !ok {
+		t.Fatal("expected opus image_text dynamic event")
+	}
+	if event.Service != "image_text" || event.Summary == "" || !strings.Contains(event.Summary, "线下演唱会") {
+		t.Fatalf("unexpected opus summary: %#v", event)
+	}
+	if event.Topic == nil || event.Topic.ID != 1156147 || event.Topic.Name != "洛天依2026巡演" || event.Topic.JumpURL != "https://m.bilibili.com/topic-detail?topic_id=1156147" {
+		t.Fatalf("unexpected opus topic: %#v", event.Topic)
+	}
+	if !strings.Contains(event.SummaryHTML, "#洛天依2026巡演#") || !strings.Contains(event.SummaryHTML, "rich-text-topic") || !strings.Contains(event.SummaryHTML, "rich-text-emoji") || !strings.Contains(event.SummaryHTML, "https://i0.hdslb.com/bfs/emote/call.png") {
+		t.Fatalf("unexpected opus summary html: %q", event.SummaryHTML)
+	}
+	if event.URL != "https://www.bilibili.com/opus/1212948650493214729" {
+		t.Fatalf("unexpected opus url: %q", event.URL)
+	}
+	if len(event.Images) != 1 || event.Images[0].URL != "https://i0.hdslb.com/bfs/new_dyn/single.jpg" || event.Images[0].Width != 900 || event.Images[0].Height != 1600 {
+		t.Fatalf("unexpected opus images: %#v", event.Images)
+	}
+}
+
+func TestDynamicEventRepostIncludesOriginalRichTextAndImages(t *testing.T) {
+	t.Parallel()
+
+	watched := map[string]Subject{
+		"123456": {
+			UID:      "123456",
+			Name:     "转发 UP",
+			Services: map[string]bool{"repost": true},
+		},
+	}
+
+	event, ok := dynamicEventFromItem(map[string]any{
+		"id_str": "1212925998839889941",
+		"type":   "DYNAMIC_TYPE_FORWARD",
+		"modules": map[string]any{
+			"module_author": map[string]any{
+				"mid":    "123456",
+				"name":   "转发 UP",
+				"pub_ts": float64(1781240000),
+			},
+			"module_dynamic": map[string]any{
+				"topic": map[string]any{
+					"id":       float64(10001),
+					"name":     "星穹铁道",
+					"jump_url": "https://m.bilibili.com/topic-detail?topic_id=10001",
+				},
+				"desc": map[string]any{
+					"rich_text_nodes": []any{
+						map[string]any{"type": "RICH_TEXT_NODE_TYPE_TEXT", "text": "转发说明 "},
+						map[string]any{"type": "RICH_TEXT_NODE_TYPE_EMOJI", "text": "[OK]", "emoji": map[string]any{"text": "[OK]", "icon_url": "//i0.hdslb.com/bfs/emote/ok.png"}},
+					},
+				},
+			},
+		},
+		"orig": map[string]any{
+			"id_str": "1212922863505375256",
+			"type":   "DYNAMIC_TYPE_DRAW",
+			"modules": map[string]any{
+				"module_author": map[string]any{
+					"mid":    "654321",
+					"name":   "原作者",
+					"pub_ts": float64(1781230000),
+				},
+				"module_dynamic": map[string]any{
+					"topic": map[string]any{
+						"id":       float64(10001),
+						"name":     "星穹铁道",
+						"jump_url": "https://m.bilibili.com/topic-detail?topic_id=10001",
+					},
+					"desc": map[string]any{
+						"rich_text_nodes": []any{
+							map[string]any{"type": "RICH_TEXT_NODE_TYPE_TOPIC", "text": "#星穹铁道#"},
+							map[string]any{"type": "RICH_TEXT_NODE_TYPE_TEXT", "text": " 原动态正文 "},
+							map[string]any{"type": "RICH_TEXT_NODE_TYPE_WEB", "text": "互动抽奖", "jump_url": "https://www.bilibili.com/blackboard/activity-lottery.html"},
+						},
+					},
+					"major": map[string]any{
+						"type": "MAJOR_TYPE_OPUS",
+						"opus": map[string]any{
+							"pics": []any{
+								map[string]any{"url": "//i0.hdslb.com/bfs/new_dyn/original-a.jpg", "width": float64(800), "height": float64(800)},
+								map[string]any{"url": "//i0.hdslb.com/bfs/new_dyn/original-b.jpg", "width": float64(900), "height": float64(1200)},
+							},
+						},
+					},
+				},
+			},
+		},
+	}, watched)
+
+	if !ok {
+		t.Fatal("expected repost dynamic event")
+	}
+	if event.Service != "repost" || event.Original == nil {
+		t.Fatalf("unexpected repost event: %#v", event)
+	}
+	if !strings.Contains(event.SummaryHTML, "rich-text-emoji") {
+		t.Fatalf("unexpected repost summary html: %q", event.SummaryHTML)
+	}
+	if event.Original.Author.UID != "654321" || event.Original.Service != "image_text" {
+		t.Fatalf("unexpected original identity: %#v", event.Original)
+	}
+	if event.Original.Topic == nil || event.Original.Topic.ID != 10001 || event.Original.Topic.Name != "星穹铁道" {
+		t.Fatalf("unexpected original topic: %#v", event.Original.Topic)
+	}
+	if !strings.Contains(event.Original.SummaryHTML, "rich-text-topic") || !strings.Contains(event.Original.SummaryHTML, "rich-text-lottery") {
+		t.Fatalf("unexpected original summary html: %q", event.Original.SummaryHTML)
+	}
+	if len(event.Original.Images) != 2 || event.Original.Images[1].Height != 1200 {
+		t.Fatalf("unexpected original images: %#v", event.Original.Images)
+	}
+}
+
 func TestPollDynamicsBootstrapsExistingUpdatesBeforeDispatch(t *testing.T) {
 	t.Parallel()
 

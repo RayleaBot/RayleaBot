@@ -18,6 +18,7 @@ LIVE_ROOM_INFO_URL = "https://api.live.bilibili.com/room/v1/Room/get_info?room_i
 BILIBILI_CONTENT_HOSTS = {"www.bilibili.com", "m.bilibili.com", "bilibili.com"}
 BILIBILI_DYNAMIC_HOSTS = {"t.bilibili.com"}
 BVID_PATTERN = re.compile(r"^BV[0-9A-Za-z]+$")
+TOPIC_PATTERN = re.compile(r"#[^#\r\n]+#")
 
 
 def build_cookie_headers(token, uid=None):
@@ -244,6 +245,7 @@ def normalize_opus_detail_item(item, canonical_url):
     summary_parts = []
     summary_html_parts = []
     images = []
+    topic = topic_from_value(item.get("topic")) or topic_from_value(basic.get("topic"))
 
     for module in modules:
         if not isinstance(module, dict):
@@ -262,6 +264,8 @@ def normalize_opus_detail_item(item, canonical_url):
             if html_text:
                 summary_html_parts.append(html_text)
             images.extend(content_images)
+        elif module_type == "MODULE_TYPE_TOPIC":
+            topic = topic_from_value(module.get("module_topic")) or topic
 
     author_name = clean_text(author.get("name"))
     if not title:
@@ -287,6 +291,7 @@ def normalize_opus_detail_item(item, canonical_url):
             "uid": clean_text(author.get("uid") or basic.get("uid")),
         },
         "images": images[:9],
+        "topic": topic,
         "is_pinned": False,
         "original": None,
     }
@@ -608,7 +613,10 @@ def normalize_dynamic_item(item, depth=0):
     author_name = str(module_author.get("name") or "").strip()
     title = title_for_item(major, desc, service, item_type, author_name)
     summary = summary_for_item(desc, major)
-    summary_html = summary_html_for_item(desc)
+    html_summary = summary
+    topic = topic_for_item(item, basic, major)
+    topic_text = topic_text_for_item(topic)
+    summary_html = summary_html_for_item(desc, major, html_summary, topic_text)
     url = jump_url_for_item(basic, major, dynamic_id)
     pub_ts = normalize_pub_ts(module_author.get("pub_ts"))
     created_at = format_pub_time(pub_ts, module_author.get("pub_time"))
@@ -639,6 +647,7 @@ def normalize_dynamic_item(item, depth=0):
         "duration_text": duration_text,
         "author": author,
         "images": image_list_for_item(major, service),
+        "topic": topic,
         "is_pinned": clean_text(module_tag.get("text")) == "置顶",
         "original": original,
     }
@@ -712,16 +721,150 @@ def summary_for_item(desc, major):
     return ""
 
 
-def summary_html_for_item(desc):
+def summary_html_for_item(desc, major=None, summary="", topic=""):
     nodes = desc.get("rich_text_nodes") if isinstance(desc, dict) else None
     if isinstance(nodes, list) and nodes:
         html_text = rich_text_nodes_to_html(nodes)
         if html_text:
-            return html_text
+            return html_with_standalone_topic(html_text, summary, topic)
+    major_html = summary_html_for_major(major)
+    if major_html:
+        return html_with_standalone_topic(major_html, summary, topic)
     text = clean_text(desc.get("text") if isinstance(desc, dict) else "")
     if text:
-        return html_escape(text).replace("\n", "<br>")
+        return html_with_standalone_topic(rich_text_fallback_html(text), summary, topic)
+    if summary:
+        return html_with_standalone_topic(rich_text_fallback_html(summary), summary, topic)
     return ""
+
+
+def topic_for_item(item, basic, major):
+    candidates = [
+        nested_value(item, ["modules", "module_dynamic", "topic", "name"]),
+        nested_value(item, ["modules", "module_dynamic", "topic", "title"]),
+        nested_value(item, ["modules", "module_dynamic", "topic", "text"]),
+        nested_value(basic, ["topic", "name"]),
+        nested_value(basic, ["topic", "title"]),
+        nested_value(item, ["topic", "name"]),
+        nested_value(major, ["opus", "topic", "name"]),
+        nested_value(major, ["opus", "topic", "title"]),
+    ]
+    for value in (
+        nested_value(item, ["modules", "module_dynamic", "topic"]),
+        nested_value(basic, ["topic"]),
+        nested_value(item, ["topic"]),
+        nested_value(major, ["opus", "topic"]),
+    ):
+        topic = topic_from_value(value)
+        if topic:
+            return topic
+    for value in candidates:
+        topic = topic_from_value(value)
+        if topic:
+            return topic
+    return None
+
+
+def topic_from_value(value):
+    if isinstance(value, dict):
+        name = str(value.get("name") or value.get("title") or value.get("text") or "").strip().strip("# \t\r\n")
+        if not name:
+            return None
+        topic = {"name": name}
+        try:
+            topic_id = int(value.get("id") or 0)
+        except (TypeError, ValueError):
+            topic_id = 0
+        if topic_id > 0:
+            topic["id"] = topic_id
+        jump_url = normalize_url(value.get("jump_url"))
+        if jump_url:
+            topic["jump_url"] = jump_url
+        return topic
+    name = str(value or "").strip().strip("# \t\r\n")
+    return {"name": name} if name else None
+
+
+def topic_text_for_item(topic):
+    if not isinstance(topic, dict):
+        return ""
+    name = str(topic.get("name") or "").strip().strip("# \t\r\n")
+    return f"#{name}#" if name else ""
+
+
+def html_with_standalone_topic(html_text, summary, topic):
+    topic = str(topic or "").strip()
+    if not topic or text_contains_topic(summary, topic) or html_escape(topic) in str(html_text or ""):
+        return html_text
+    topic_html = f'<span class="rich-text-topic bili-rich-text-module topic">{html_escape(topic)}</span>'
+    if not str(html_text or "").strip():
+        return topic_html
+    return f"{topic_html}<br>{html_text}"
+
+
+def text_contains_topic(text, topic):
+    topic = str(topic or "").strip()
+    if not topic:
+        return True
+    name = topic.strip("# \t\r\n")
+    text = str(text or "")
+    return topic in text or (bool(name) and name in text)
+
+
+def summary_html_for_major(major):
+    if not isinstance(major, dict):
+        return ""
+    for section_name in ("archive", "article", "opus", "draw", "common"):
+        section = major.get(section_name)
+        if not isinstance(section, dict):
+            continue
+        for key in ("summary", "content", "desc", "paragraphs"):
+            html_text = rich_text_html_from_value(section.get(key))
+            if html_text:
+                return html_text
+    return ""
+
+
+def rich_text_html_from_value(value):
+    if isinstance(value, dict):
+        nodes = value.get("rich_text_nodes")
+        if isinstance(nodes, list) and nodes:
+            html_text = rich_text_nodes_to_html(nodes)
+            if html_text:
+                return html_text
+        for key in ("paragraphs", "text", "orig_text", "title", "desc", "summary", "content"):
+            html_text = rich_text_html_from_value(value.get(key))
+            if html_text:
+                return html_text
+        return ""
+    if isinstance(value, list):
+        parts = [html_text for html_text in (rich_text_html_from_value(item) for item in value) if html_text]
+        return "<br>".join(parts)
+    text = raw_text(value).strip()
+    if text:
+        return rich_text_fallback_html(text)
+    return ""
+
+
+def rich_text_fallback_html(text):
+    text = raw_text(text)
+    if not text.strip():
+        return ""
+    parts = []
+    offset = 0
+    for match in TOPIC_PATTERN.finditer(text):
+        start, end = match.span()
+        if start > offset:
+            parts.append(html_escape(text[offset:start]).replace("\n", "<br>"))
+        topic = match.group(0)
+        if topic.strip("# \t\r\n"):
+            parts.append(f'<span class="rich-text-topic bili-rich-text-module topic">{html_escape(topic)}</span>')
+        else:
+            parts.append(html_escape(topic).replace("\n", "<br>"))
+        offset = end
+    if offset < len(text):
+        parts.append(html_escape(text[offset:]).replace("\n", "<br>"))
+    return "".join(parts) if parts else html_escape(text).replace("\n", "<br>")
 
 
 def html_escape(text):
@@ -764,6 +907,8 @@ def rich_text_node_to_html(node, classify_missing=False):
     node_type = str(node.get("type") or "").strip()
     node_text = raw_text(node.get("text") if node.get("text") is not None else node.get("orig_text"))
     node_text_for_type = node_text.strip()
+    if rich_text_emoji_url(node) and node_type in {"", "RICH_TEXT_NODE_TYPE_TEXT"}:
+        node_type = "RICH_TEXT_NODE_TYPE_EMOJI"
     if classify_missing and not node_type:
         node_type = classify_rich_text(node_text_for_type, node)
     if node_type == "RICH_TEXT_NODE_TYPE_TEXT":
@@ -799,7 +944,7 @@ def rich_text_node_to_html(node, classify_missing=False):
 
 def classify_rich_text(text, node=None):
     node = node if isinstance(node, dict) else {}
-    if isinstance(node.get("emoji"), dict):
+    if rich_text_emoji_url(node):
         return "RICH_TEXT_NODE_TYPE_EMOJI"
     if re.fullmatch(r"#[^#\s][^#]*#", text or ""):
         return "RICH_TEXT_NODE_TYPE_TOPIC"
@@ -820,7 +965,7 @@ def classify_rich_text(text, node=None):
 
 def rich_text_emoji_to_html(node, node_text):
     emoji = node.get("emoji") if isinstance(node.get("emoji"), dict) else {}
-    icon_url = normalize_url(emoji.get("icon_url") or emoji.get("url") or node.get("icon_url"))
+    icon_url = rich_text_emoji_url(node)
     emoji_text = str(emoji.get("text") or node_text or "").strip()
     size = emoji.get("size")
     try:
@@ -834,6 +979,22 @@ def rich_text_emoji_to_html(node, node_text):
         f'<img class="rich-text-emoji" src="{html_escape(icon_url)}" '
         f'alt="{html_escape(emoji_text)}" title="{html_escape(emoji_text)}" '
         f'style="width:{size_css};height:{size_css};">'
+    )
+
+
+def rich_text_emoji_url(node):
+    if not isinstance(node, dict):
+        return ""
+    emoji = node.get("emoji") if isinstance(node.get("emoji"), dict) else {}
+    return normalize_url(
+        emoji.get("icon_url")
+        or emoji.get("url")
+        or emoji.get("image_url")
+        or emoji.get("gif_url")
+        or emoji.get("webp_url")
+        or node.get("icon_url")
+        or node.get("url")
+        or node.get("image_url")
     )
 
 

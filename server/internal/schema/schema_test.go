@@ -54,6 +54,7 @@ func TestPluginProtocolInitFixturesValidate(t *testing.T) {
 		"ok.event-bilibili-live-started.yaml",
 		"ok.event-bilibili-live-ended.yaml",
 		"ok.event-bilibili-dynamic-published.yaml",
+		"ok.event-bilibili-dynamic-rich-repost.yaml",
 	} {
 		name := name
 		t.Run(name, func(t *testing.T) {

@@ -24,6 +24,7 @@ def build_render_data(subscription, update):
     title = limit_title(update.get("title") or "订阅更新")
     summary = limit_text(update.get("summary") or "", 420)
     summary_html = limit_html(update.get("summary_html") or "", 420)
+    topic = topic_data(update.get("topic"))
     service = service_label(update.get("service"))
     category = update.get("category") or service
     images = list(update.get("images") or [])[:9]
@@ -43,6 +44,7 @@ def build_render_data(subscription, update):
         "author_uid_text": uid_text(author.get("uid") or subscription.get("uid")),
         "summary": summary,
         "summary_html": summary_html,
+        "topic": topic,
         "images": images,
         "image_count": media["count"],
         "media_grid_class": media["grid_class"],
@@ -154,6 +156,7 @@ def render_original(original):
         "author_uid_text": uid_text((original.get("author") or {}).get("uid")) if isinstance(original.get("author"), dict) else "",
         "summary": limit_text(original.get("summary") or "", 260),
         "summary_html": limit_html(original.get("summary_html") or "", 260),
+        "topic": topic_data(original.get("topic")),
         "images": images[:3],
         "image_count": media["count"],
         "media_grid_class": media["grid_class"],
@@ -169,6 +172,19 @@ def original_fallback(original):
         return ""
     parts = ["原动态", original.get("title") or "", original.get("summary") or ""]
     return "\n".join(part for part in parts if part)
+
+
+def topic_data(value):
+    if not isinstance(value, dict):
+        return None
+    name = str(value.get("name") or "").strip().strip("# \t\r\n")
+    if not name:
+        return None
+    return {
+        "name": name,
+        "label": f"# {name}",
+        "url": str(value.get("jump_url") or "").strip(),
+    }
 
 
 def limit_text(value, limit):

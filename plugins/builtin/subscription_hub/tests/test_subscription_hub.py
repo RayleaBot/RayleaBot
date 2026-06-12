@@ -10,7 +10,7 @@ BUILTIN_DIR = os.path.dirname(PLUGIN_DIR)
 sys.path.insert(0, BUILTIN_DIR)
 sys.path.insert(0, PLUGIN_DIR)
 
-from bilibili import dynamic_detail_url, dynamic_updates, parse_preview_url
+from bilibili import dynamic_detail_url, dynamic_updates, opus_detail_url, parse_preview_url
 from main import (
     SUBSCRIBE_BILIBILI_USAGE,
     SubscriptionHubPlugin,
@@ -129,6 +129,11 @@ class SubscriptionHubTests(unittest.TestCase):
                         "pub_time": "2026年06月04日 20:20",
                     },
                     "module_dynamic": {
+                        "topic": {
+                            "id": 10001,
+                            "name": "洛天依",
+                            "jump_url": "https://m.bilibili.com/topic-detail?topic_id=10001",
+                        },
                         "desc": {
                             "text": "新歌来了！",
                             "rich_text_nodes": [
@@ -154,6 +159,70 @@ class SubscriptionHubTests(unittest.TestCase):
         return {
             "status_code": 200,
             "body_text": json.dumps({"code": 0, "data": {"item": item or self.repost_item()}}, ensure_ascii=False),
+        }
+
+    def opus_detail_response(self):
+        return {
+            "status_code": 200,
+            "body_text": json.dumps({
+                "code": 0,
+                "data": {
+                    "item": {
+                        "id_str": "1212948650493214729",
+                        "type": "DYNAMIC_TYPE_DRAW",
+                        "basic": {"title": "洛天依 发布图文动态"},
+                        "modules": [
+                            {
+                                "module_type": "MODULE_TYPE_AUTHOR",
+                                "module_author": {
+                                    "mid": "36081646",
+                                    "name": "洛天依",
+                                    "face": "//i0.hdslb.com/bfs/face/luotianyi.jpg",
+                                    "pub_ts": 1781250000,
+                                    "pub_time": "2026年06月12日 15:40",
+                                },
+                            },
+                            {
+                                "module_type": "MODULE_TYPE_TOPIC",
+                                "module_topic": {
+                                    "id": 1156147,
+                                    "name": "BML-PLAY! 2026",
+                                    "jump_url": "https://m.bilibili.com/topic-detail?topic_id=1156147",
+                                },
+                            },
+                            {
+                                "module_type": "MODULE_TYPE_CONTENT",
+                                "module_content": {
+                                    "paragraphs": [
+                                        {
+                                            "text": {
+                                                "nodes": [
+                                                    {
+                                                        "type": "TEXT_NODE_TYPE_RICH",
+                                                        "rich": {
+                                                            "type": "RICH_TEXT_NODE_TYPE_WEB",
+                                                            "text": "#BML-PLAY! 2026#",
+                                                        },
+                                                    },
+                                                    {
+                                                        "type": "TEXT_NODE_TYPE_WORD",
+                                                        "word": {"words": "线下演唱会，天依今年也来啦！"},
+                                                    },
+                                                ],
+                                            },
+                                            "pic": {
+                                                "pics": [
+                                                    {"url": "//i0.hdslb.com/bfs/new_dyn/single.jpg", "width": 900, "height": 1600},
+                                                ],
+                                            },
+                                        }
+                                    ],
+                                },
+                            },
+                        ],
+                    }
+                },
+            }, ensure_ascii=False),
         }
 
     def live_event_payload(self, **overrides):
@@ -320,6 +389,60 @@ class SubscriptionHubTests(unittest.TestCase):
         self.assertEqual(update["category"], "视频")
         self.assertEqual(update["images"], [{"url": "https://i0.hdslb.com/a.jpg"}])
 
+    def test_normalize_event_payload_keeps_rich_original(self):
+        payload = self.dynamic_event_payload(
+            service="repost",
+            summary_html='<span class="rich-text-topic">#转发#</span>',
+            topic={
+                "id": 1156147,
+                "name": "BML-PLAY! 2026",
+                "jump_url": "https://m.bilibili.com/topic-detail?topic_id=1156147",
+            },
+            original={
+                "id": "80001",
+                "service": "image_text",
+                "title": "图文动态更新",
+                "summary": "#原动态# 正文",
+                "summary_html": '<span class="rich-text-topic">#原动态#</span>',
+                "url": "https://t.bilibili.com/80001/",
+                "author": {"uid": "654321", "name": "原作者"},
+                "topic": {
+                    "id": 10001,
+                    "name": "原动态话题",
+                    "jump_url": "https://m.bilibili.com/topic-detail?topic_id=10001",
+                },
+                "images": [
+                    {"url": "https://i0.hdslb.com/original.jpg", "width": 900, "height": 1600},
+                    "bad",
+                ],
+            },
+        )
+
+        update = normalize_bilibili_event_payload(payload)
+
+        self.assertEqual(update["service"], "repost")
+        self.assertIn("rich-text-topic", update["summary_html"])
+        self.assertEqual(update["topic"]["name"], "BML-PLAY! 2026")
+        self.assertEqual(update["topic"]["id"], 1156147)
+        self.assertEqual(update["original"]["category"], "图文")
+        self.assertIn("rich-text-topic", update["original"]["summary_html"])
+        self.assertEqual(update["original"]["topic"]["name"], "原动态话题")
+        self.assertEqual(update["original"]["images"], [{"url": "https://i0.hdslb.com/original.jpg", "width": 900, "height": 1600}])
+
+    def test_template_css_keeps_single_images_contained(self):
+        styles_path = os.path.join(PLUGIN_DIR, "templates", "bilibili-update", "styles.css")
+        with open(styles_path, "r", encoding="utf-8") as handle:
+            styles = handle.read()
+
+        self.assertIn(".media-grid--single .media-item:not(.media-item--wide) img", styles)
+        self.assertIn(".repost-media.media-grid--single .media-item:not(.media-item--wide) img", styles)
+        self.assertIn(".topic-line", styles)
+        self.assertIn('background-image: url("assets/topic.svg")', styles)
+        self.assertIn("object-fit: contain", styles)
+        self.assertNotIn("max-height: 760px", styles)
+        self.assertNotIn("max-height: 460px", styles)
+        self.assertTrue(os.path.exists(os.path.join(PLUGIN_DIR, "templates", "bilibili-update", "assets", "topic.svg")))
+
     def test_event_matching_requires_uid_and_service(self):
         subscription = self.subscription_settings()["subscriptions"][0]
 
@@ -411,6 +534,23 @@ class SubscriptionHubTests(unittest.TestCase):
         self.assertIn("rich-text-emoji", render_data["content_html"])
         self.assertIn("rich-text-topic", render_data["original"]["summary_html"])
 
+    def test_preview_card_supports_opus_topic_module(self):
+        plugin = SubscriptionHubPlugin()
+        ctx = FakeContext(
+            args=["https://www.bilibili.com/opus/1212948650493214729"],
+            http_responses=[self.opus_detail_response()],
+        )
+
+        plugin.handle_preview_card(ctx)
+
+        self.assertEqual(ctx.texts, [])
+        self.assertEqual(ctx.http_requests[0]["url"], opus_detail_url("1212948650493214729"))
+        render_data = ctx.render_calls[0]["data"]
+        self.assertEqual(render_data["topic"]["name"], "BML-PLAY! 2026")
+        self.assertEqual(render_data["topic"]["url"], "https://m.bilibili.com/topic-detail?topic_id=1156147")
+        self.assertIn("rich-text-topic", render_data["content_html"])
+        self.assertEqual(render_data["media_grid_class"], "media-grid--single")
+
     def test_preview_response_reports_http_status_and_body(self):
         message = preview_response_document({
             "status_code": 412,
@@ -484,6 +624,45 @@ class SubscriptionHubTests(unittest.TestCase):
         self.assertEqual(updates[0]["duration_text"], "03:21")
         self.assertEqual(updates[0]["images"], [{"url": "https://i0.hdslb.com/video.jpg"}])
 
+    def test_dynamic_updates_extract_opus_summary_rich_text(self):
+        updates = dynamic_updates({"data": {"items": [{
+            "id_str": "1212948650493214729",
+            "type": "DYNAMIC_TYPE_DRAW",
+            "modules": {
+                "module_author": {"mid": "123456", "name": "洛天依", "pub_ts": 1700000000, "pub_time": "今天 12:00"},
+                "module_dynamic": {
+                    "topic": {"name": "洛天依2026巡演"},
+                    "major": {
+                        "type": "MAJOR_TYPE_OPUS",
+                        "opus": {
+                            "summary": {
+                                "text": "#BML-PLAY! 2026#\n线下演唱会，天依今年也来啦！[打call]",
+                                "rich_text_nodes": [
+                                    {"type": "RICH_TEXT_NODE_TYPE_WEB", "text": "#BML-PLAY! 2026#"},
+                                    {"type": "RICH_TEXT_NODE_TYPE_TEXT", "text": "\n线下演唱会，天依今年也来啦！"},
+                                    {
+                                        "type": "RICH_TEXT_NODE_TYPE_TEXT",
+                                        "text": "[打call]",
+                                        "emoji": {"icon_url": "//i0.hdslb.com/bfs/emote/call.png", "text": "[打call]", "size": 1},
+                                    },
+                                ],
+                            },
+                            "pics": [{"url": "//i0.hdslb.com/bfs/new_dyn/single.jpg", "width": 900, "height": 1600}],
+                        },
+                    },
+                },
+            },
+        }]}})
+
+        self.assertEqual(len(updates), 1)
+        update = updates[0]
+        self.assertEqual(update["topic"]["name"], "洛天依2026巡演")
+        self.assertIn("rich-text-topic", update["summary_html"])
+        self.assertIn("#洛天依2026巡演#", update["summary_html"])
+        self.assertIn("rich-text-emoji", update["summary_html"])
+        self.assertIn("https://i0.hdslb.com/bfs/emote/call.png", update["summary_html"])
+        self.assertEqual(update["images"], [{"url": "https://i0.hdslb.com/bfs/new_dyn/single.jpg", "width": 900, "height": 1600}])
+
     def test_dynamic_updates_extract_repost_original_and_rich_text(self):
         updates = dynamic_updates({"data": {"items": [self.repost_item()]}})
 
@@ -494,6 +673,7 @@ class SubscriptionHubTests(unittest.TestCase):
         self.assertIn("rich-text-emoji", update["summary_html"])
         self.assertEqual(update["original"]["service"], "video")
         self.assertEqual(update["original"]["title"], "【乐正绫ACE原创】你是我爱这世界的原因")
+        self.assertEqual(update["original"]["topic"]["name"], "洛天依")
         self.assertIn("rich-text-topic", update["original"]["summary_html"])
 
     def test_repost_event_fetches_original_before_render(self):
@@ -522,6 +702,7 @@ class SubscriptionHubTests(unittest.TestCase):
         self.assertEqual(ctx.http_requests[0]["headers"]["Referer"], "https://t.bilibili.com/1210053730841395205")
         render_data = ctx.render_calls[0]["data"]
         self.assertEqual(render_data["original"]["title"], "【乐正绫ACE原创】你是我爱这世界的原因")
+        self.assertEqual(render_data["original"]["topic"]["name"], "洛天依")
         self.assertIn("rich-text-topic", render_data["content_html"])
         self.assertIn("rich-text-emoji", render_data["content_html"])
         self.assertIn("rich-text-topic", render_data["original"]["summary_html"])
@@ -564,6 +745,28 @@ class SubscriptionHubTests(unittest.TestCase):
         self.assertEqual(render_data["service"], "直播")
         self.assertEqual(render_data["status_label"], "直播中")
         self.assertEqual(render_data["subscribers"][0]["nickname"], "订阅人")
+
+    def test_render_data_keeps_bilibili_topic(self):
+        subscription = self.subscription_settings()["subscriptions"][0]
+        render_data = build_render_data(subscription, self.dynamic_event_payload(
+            topic={
+                "name": "BML-PLAY! 2026",
+                "jump_url": "https://m.bilibili.com/topic-detail?topic_id=1156147",
+            },
+            original={
+                "id": "80001",
+                "service": "image_text",
+                "title": "原动态",
+                "summary": "原动态正文",
+                "url": "https://t.bilibili.com/80001",
+                "author": {"uid": "654321", "name": "原作者"},
+                "topic": {"name": "原动态话题"},
+            },
+        ))
+
+        self.assertEqual(render_data["topic"]["name"], "BML-PLAY! 2026")
+        self.assertEqual(render_data["topic"]["label"], "# BML-PLAY! 2026")
+        self.assertEqual(render_data["original"]["topic"]["name"], "原动态话题")
 
 
 if __name__ == "__main__":

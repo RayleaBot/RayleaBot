@@ -227,6 +227,40 @@ h1 {
   white-space: pre-line;
 }
 
+.topic-line {
+  display: inline-flex;
+  max-width: 100%;
+  align-items: center;
+  gap: 8px;
+  color: var(--bili-blue);
+  font-size: 20px;
+  font-weight: 650;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.topic-mark {
+  display: inline-flex;
+  width: 22px;
+  height: 22px;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  background-image: url("assets/topic.svg");
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: contain;
+}
+
+.topic-line--repost {
+  font-size: 17px;
+}
+
+.topic-line--repost .topic-mark {
+  width: 19px;
+  height: 19px;
+}
+
 .dynamic-text .rich-text-topic,
 .dynamic-text .rich-text-at,
 .dynamic-text .rich-text-link,
@@ -347,6 +381,15 @@ h1 {
 
 .media-grid--single .media-item--wide {
   aspect-ratio: 16 / 9;
+}
+
+.media-grid--single .media-item:not(.media-item--wide) {
+  aspect-ratio: auto;
+}
+
+.media-grid--single .media-item:not(.media-item--wide) img {
+  height: auto;
+  object-fit: contain;
 }
 
 .media-item img {
@@ -486,6 +529,15 @@ h1 {
 
 .repost-media.media-grid--single .media-item {
   aspect-ratio: 16 / 9;
+}
+
+.repost-media.media-grid--single .media-item:not(.media-item--wide) {
+  aspect-ratio: auto;
+}
+
+.repost-media.media-grid--single .media-item:not(.media-item--wide) img {
+  height: auto;
+  object-fit: contain;
 }
 
 .inline-link,

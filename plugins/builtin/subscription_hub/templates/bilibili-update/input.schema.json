@@ -38,6 +38,10 @@
     "summary": {
       "type": "string"
     },
+    "topic": {
+      "type": ["object", "null"],
+      "additionalProperties": true
+    },
     "images": {
       "type": "array",
       "items": {

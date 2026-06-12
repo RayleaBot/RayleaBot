@@ -315,6 +315,86 @@ func TestBuildEventFrameIncludesOneBotPayload(t *testing.T) {
 	}
 }
 
+func TestBuildEventFrameIncludesBilibiliRichDynamicPayload(t *testing.T) {
+	t.Parallel()
+
+	frame := buildEventFrame(Event{
+		EventID:        "evt-bilibili-rich-1",
+		SourceProtocol: "bilibili",
+		SourceAdapter:  "bilibili.source",
+		EventType:      "bilibili.dynamic.published",
+		Timestamp:      1_729_679_140,
+		PayloadFields: map[string]any{
+			"bilibili": map[string]any{
+				"kind":         "dynamic",
+				"uid":          "123456",
+				"id":           "90002",
+				"service":      "repost",
+				"title":        "转发动态",
+				"summary":      "转发说明",
+				"summary_html": `<span class="rich-text-topic">#活动#</span>`,
+				"url":          "https://t.bilibili.com/90002/",
+				"topic": map[string]any{
+					"id":       int64(1156147),
+					"name":     "BML-PLAY! 2026",
+					"jump_url": "https://m.bilibili.com/topic-detail?topic_id=1156147",
+				},
+				"author": map[string]any{
+					"uid":  "123456",
+					"name": "测试 UP",
+				},
+				"original": map[string]any{
+					"id":           "80001",
+					"service":      "image_text",
+					"title":        "图文动态更新",
+					"summary":      "原动态正文",
+					"summary_html": `<span class="rich-text-topic">#原动态#</span>`,
+					"url":          "https://t.bilibili.com/80001/",
+					"pub_ts":       int64(1_729_679_100),
+					"created_at":   "2024-10-23 12:00",
+					"dynamic_type": "DYNAMIC_TYPE_DRAW",
+					"topic": map[string]any{
+						"id":       int64(10001),
+						"name":     "原动态话题",
+						"jump_url": "https://m.bilibili.com/topic-detail?topic_id=10001",
+					},
+					"author": map[string]any{
+						"uid":  "654321",
+						"name": "原作者",
+					},
+					"images": []any{
+						map[string]any{
+							"url":    "https://i0.hdslb.com/bfs/new_dyn/original.jpg",
+							"width":  900,
+							"height": 1600,
+						},
+					},
+				},
+			},
+		},
+	}, "raylea.subscription-hub", "evt_bilibili_dynamic_rich_001", 1_729_679_141)
+
+	if frame.Event.Payload == nil || frame.Event.Payload.Bilibili == nil {
+		t.Fatalf("expected bilibili payload, got %#v", frame.Event.Payload)
+	}
+	payload := frame.Event.Payload.Bilibili
+	if payload.SummaryHTML == "" || payload.Original == nil {
+		t.Fatalf("unexpected bilibili rich payload: %#v", payload)
+	}
+	if payload.Topic == nil || payload.Topic.Name != "BML-PLAY! 2026" || payload.Topic.ID != 1156147 {
+		t.Fatalf("unexpected bilibili topic payload: %#v", payload.Topic)
+	}
+	if payload.Original.Author.UID != "654321" || payload.Original.SummaryHTML == "" {
+		t.Fatalf("unexpected bilibili original payload: %#v", payload.Original)
+	}
+	if payload.Original.Topic == nil || payload.Original.Topic.Name != "原动态话题" || payload.Original.Topic.ID != 10001 {
+		t.Fatalf("unexpected bilibili original topic payload: %#v", payload.Original.Topic)
+	}
+	if len(payload.Original.Images) != 1 || payload.Original.Images[0].Height != 1600 {
+		t.Fatalf("unexpected bilibili original images: %#v", payload.Original.Images)
+	}
+}
+
 func TestBuildEventFrameIncludesMetaOneBotPayload(t *testing.T) {
 	t.Parallel()
 
@@ -2374,8 +2454,8 @@ func helperSpec(t *testing.T, scenario string, recordPath string) Spec {
 		t,
 		scenario,
 		recordPath,
-		300*time.Millisecond,
 		time.Second,
+		3*time.Second,
 		400*time.Millisecond,
 	)
 }

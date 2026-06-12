@@ -585,6 +585,9 @@
                         "summary": {
                           "type": "string"
                         },
+                        "summary_html": {
+                          "type": "string"
+                        },
                         "url": {
                           "type": "string",
                           "minLength": 1
@@ -636,6 +639,138 @@
                                 "type": "integer",
                                 "minimum": 0
                               }
+                            }
+                          }
+                        },
+                        "topic": {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "required": [
+                            "name"
+                          ],
+                          "properties": {
+                            "id": {
+                              "type": "integer",
+                              "minimum": 0
+                            },
+                            "name": {
+                              "type": "string",
+                              "minLength": 1
+                            },
+                            "jump_url": {
+                              "type": "string"
+                            }
+                          }
+                        },
+                        "original": {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "required": [
+                            "id",
+                            "service",
+                            "url",
+                            "author"
+                          ],
+                          "properties": {
+                            "id": {
+                              "type": "string",
+                              "minLength": 1
+                            },
+                            "service": {
+                              "type": "string",
+                              "enum": [
+                                "live",
+                                "video",
+                                "image_text",
+                                "article",
+                                "repost"
+                              ]
+                            },
+                            "title": {
+                              "type": "string"
+                            },
+                            "summary": {
+                              "type": "string"
+                            },
+                            "summary_html": {
+                              "type": "string"
+                            },
+                            "url": {
+                              "type": "string",
+                              "minLength": 1
+                            },
+                            "pub_ts": {
+                              "type": "integer",
+                              "minimum": 0
+                            },
+                            "created_at": {
+                              "type": "string"
+                            },
+                            "author": {
+                              "type": "object",
+                              "additionalProperties": false,
+                              "required": [
+                                "uid",
+                                "name"
+                              ],
+                              "properties": {
+                                "uid": {
+                                  "type": "string",
+                                  "minLength": 1
+                                },
+                                "name": {
+                                  "type": "string"
+                                },
+                                "avatar": {
+                                  "type": "string"
+                                }
+                              }
+                            },
+                            "images": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "additionalProperties": false,
+                                "required": [
+                                  "url"
+                                ],
+                                "properties": {
+                                  "url": {
+                                    "type": "string"
+                                  },
+                                  "width": {
+                                    "type": "integer",
+                                    "minimum": 0
+                                  },
+                                  "height": {
+                                    "type": "integer",
+                                    "minimum": 0
+                                  }
+                                }
+                              }
+                            },
+                            "topic": {
+                              "type": "object",
+                              "additionalProperties": false,
+                              "required": [
+                                "name"
+                              ],
+                              "properties": {
+                                "id": {
+                                  "type": "integer",
+                                  "minimum": 0
+                                },
+                                "name": {
+                                  "type": "string",
+                                  "minLength": 1
+                                },
+                                "jump_url": {
+                                  "type": "string"
+                                }
+                              }
+                            },
+                            "dynamic_type": {
+                              "type": "string"
                             }
                           }
                         },
@@ -3237,6 +3372,7 @@
     "fixtures/plugin-protocol/ok.event-bilibili-live-started.yaml",
     "fixtures/plugin-protocol/ok.event-bilibili-live-ended.yaml",
     "fixtures/plugin-protocol/ok.event-bilibili-dynamic-published.yaml",
+    "fixtures/plugin-protocol/ok.event-bilibili-dynamic-rich-repost.yaml",
     "fixtures/plugin-protocol/ok.action-message-send-segments.yaml",
     "fixtures/plugin-protocol/ok.action-message-send-mixed-segments.yaml",
     "fixtures/plugin-protocol/ok.action-message-reply-to-event.yaml",

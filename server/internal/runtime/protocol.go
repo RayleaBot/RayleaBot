@@ -95,24 +95,48 @@ type protocolPayloadFrame struct {
 }
 
 type protocolBilibiliPayloadFrame struct {
-	Kind           string                       `json:"kind"`
-	UID            string                       `json:"uid"`
-	ID             string                       `json:"id"`
-	RoomID         string                       `json:"room_id,omitempty"`
-	Service        string                       `json:"service"`
-	Title          string                       `json:"title,omitempty"`
-	Summary        string                       `json:"summary,omitempty"`
-	URL            string                       `json:"url"`
-	PubTS          int64                        `json:"pub_ts,omitempty"`
-	CreatedAt      string                       `json:"created_at,omitempty"`
-	Author         protocolBilibiliAuthorFrame  `json:"author"`
-	Images         []protocolBilibiliImageFrame `json:"images,omitempty"`
-	LiveStatus     *int                         `json:"live_status,omitempty"`
-	LiveEvent      string                       `json:"live_event,omitempty"`
-	StatusLabel    string                       `json:"status_label,omitempty"`
-	LiveStartedAt  string                       `json:"live_started_at,omitempty"`
-	LiveDetectedAt string                       `json:"live_detected_at,omitempty"`
-	DynamicType    string                       `json:"dynamic_type,omitempty"`
+	Kind           string                         `json:"kind"`
+	UID            string                         `json:"uid"`
+	ID             string                         `json:"id"`
+	RoomID         string                         `json:"room_id,omitempty"`
+	Service        string                         `json:"service"`
+	Title          string                         `json:"title,omitempty"`
+	Summary        string                         `json:"summary,omitempty"`
+	SummaryHTML    string                         `json:"summary_html,omitempty"`
+	URL            string                         `json:"url"`
+	PubTS          int64                          `json:"pub_ts,omitempty"`
+	CreatedAt      string                         `json:"created_at,omitempty"`
+	Author         protocolBilibiliAuthorFrame    `json:"author"`
+	Images         []protocolBilibiliImageFrame   `json:"images,omitempty"`
+	Topic          *protocolBilibiliTopicFrame    `json:"topic,omitempty"`
+	Original       *protocolBilibiliOriginalFrame `json:"original,omitempty"`
+	LiveStatus     *int                           `json:"live_status,omitempty"`
+	LiveEvent      string                         `json:"live_event,omitempty"`
+	StatusLabel    string                         `json:"status_label,omitempty"`
+	LiveStartedAt  string                         `json:"live_started_at,omitempty"`
+	LiveDetectedAt string                         `json:"live_detected_at,omitempty"`
+	DynamicType    string                         `json:"dynamic_type,omitempty"`
+}
+
+type protocolBilibiliOriginalFrame struct {
+	ID          string                       `json:"id"`
+	Service     string                       `json:"service"`
+	Title       string                       `json:"title,omitempty"`
+	Summary     string                       `json:"summary,omitempty"`
+	SummaryHTML string                       `json:"summary_html,omitempty"`
+	URL         string                       `json:"url"`
+	PubTS       int64                        `json:"pub_ts,omitempty"`
+	CreatedAt   string                       `json:"created_at,omitempty"`
+	Author      protocolBilibiliAuthorFrame  `json:"author"`
+	Images      []protocolBilibiliImageFrame `json:"images,omitempty"`
+	Topic       *protocolBilibiliTopicFrame  `json:"topic,omitempty"`
+	DynamicType string                       `json:"dynamic_type,omitempty"`
+}
+
+type protocolBilibiliTopicFrame struct {
+	ID      int64  `json:"id,omitempty"`
+	Name    string `json:"name"`
+	JumpURL string `json:"jump_url,omitempty"`
 }
 
 type protocolBilibiliAuthorFrame struct {

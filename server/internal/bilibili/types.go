@@ -174,17 +174,41 @@ type BilibiliEvent struct {
 	Service        string
 	Title          string
 	Summary        string
+	SummaryHTML    string
 	URL            string
 	PubTS          int64
 	CreatedAt      string
 	Author         Author
 	Images         []Image
+	Topic          *BilibiliTopic
+	Original       *BilibiliOriginal
 	LiveStatus     *int
 	LiveEvent      string
 	StatusLabel    string
 	LiveStartedAt  string
 	LiveDetectedAt string
 	DynamicType    string
+}
+
+type BilibiliOriginal struct {
+	ID          string
+	Service     string
+	Title       string
+	Summary     string
+	SummaryHTML string
+	URL         string
+	PubTS       int64
+	CreatedAt   string
+	Author      Author
+	Images      []Image
+	Topic       *BilibiliTopic
+	DynamicType string
+}
+
+type BilibiliTopic struct {
+	ID      int64
+	Name    string
+	JumpURL string
 }
 
 type Author struct {
