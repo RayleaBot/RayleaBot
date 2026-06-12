@@ -20,6 +20,7 @@ interface ServerProcessControllerDependencies {
   spawnProcess?: typeof spawn;
   fileSystem?: FileSystemLike;
   terminateProcessId?: (pid: number) => Promise<boolean>;
+  now?: () => Date;
 }
 
 type RuntimePrepareLogLine = {
@@ -64,6 +65,13 @@ function normalizeProgress(value: unknown) {
     return 100;
   }
   return Math.round(progress);
+}
+
+function formatLocalLogDate(date: Date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
 }
 
 function normalizeRuntimePrepareStatus(value: unknown): RuntimePrepareStatus {
@@ -116,6 +124,7 @@ export class ServerProcessController {
   private readonly spawnProcess: typeof spawn;
   private readonly fileSystem: FileSystemLike;
   private readonly terminateProcessId: (pid: number) => Promise<boolean>;
+  private readonly now: () => Date;
   private process: ChildProcessWithoutNullStreams | null = null;
   private stderrLines: string[] = [];
   private runtimePrepareResources = new Map<string, RuntimePrepareResourceProgress>();
@@ -130,6 +139,7 @@ export class ServerProcessController {
     this.spawnProcess = dependencies.spawnProcess ?? spawn;
     this.fileSystem = dependencies.fileSystem ?? fs;
     this.terminateProcessId = dependencies.terminateProcessId ?? terminateProcessId;
+    this.now = dependencies.now ?? (() => new Date());
   }
 
   get isRunning() {
@@ -175,8 +185,6 @@ export class ServerProcessController {
     await this.fileSystem.mkdir(settings.workdir, { recursive: true });
     this.logDirectory = path.join(settings.workdir, "logs");
     await this.fileSystem.mkdir(this.logDirectory, { recursive: true });
-    const launcherLogPath = this.getLauncherLogPath();
-    const serverLogPath = this.getServerLogPath();
     const child = this.spawnProcess(settings.serverExecutablePath, ["-config", settings.configPath], {
       cwd: settings.workdir,
       windowsHide: true,
@@ -186,13 +194,13 @@ export class ServerProcessController {
 
     child.stdout.on("data", (chunk) => {
       const text = String(chunk);
-      this.queueLogWrite(serverLogPath, "stdout", text);
+      this.queueLogWrite("server", "stdout", text);
       this.recordStdoutDiagnostics(text);
     });
 
     child.stderr.on("data", (chunk) => {
       const text = String(chunk);
-      this.queueLogWrite(serverLogPath, "stderr", text);
+      this.queueLogWrite("server", "stderr", text);
       this.recordStderr(text);
     });
 
@@ -209,7 +217,7 @@ export class ServerProcessController {
         code !== null && code !== undefined
           ? `服务进程已退出，退出码 ${code}。`
           : `服务进程已退出，信号 ${signal ?? "unknown"}。`;
-      this.recordLauncherDiagnostic(launcherLogPath, detail);
+      this.recordLauncherDiagnostic(detail);
     });
 
     await new Promise<void>((resolve, reject) => {
@@ -235,7 +243,7 @@ export class ServerProcessController {
 
       child.once("error", (error) => {
         this.recordStderr(error.message);
-        this.queueLogWrite(launcherLogPath, "launcher", `spawn error: ${error.message}\n`);
+        this.queueLogWrite("launcher", "launcher", `spawn error: ${error.message}\n`);
         if (this.process === child) {
           this.process = null;
         }
@@ -271,7 +279,6 @@ export class ServerProcessController {
         child.kill();
       } catch (error) {
         this.recordLauncherDiagnostic(
-          this.getLauncherLogPath(),
           error instanceof Error ? error.message : String(error),
         );
       }
@@ -284,7 +291,6 @@ export class ServerProcessController {
         child.kill("SIGKILL");
       } catch (error) {
         this.recordLauncherDiagnostic(
-          this.getLauncherLogPath(),
           error instanceof Error ? error.message : String(error),
         );
       }
@@ -296,11 +302,16 @@ export class ServerProcessController {
     }
   }
 
-  private queueLogWrite(logPath: string, stream: "stdout" | "stderr" | "launcher", text: string) {
-    const entry = `[${new Date().toISOString()}] ${stream}: ${text}`;
+  private queueLogWrite(logType: "server" | "launcher", stream: "stdout" | "stderr" | "launcher", text: string) {
+    const timestamp = this.now();
+    const logPath = this.getLogPath(logType, timestamp);
+    const entry = `[${timestamp.toISOString()}] ${stream}: ${text}`;
     this.logWriteQueue = this.logWriteQueue
       .catch(() => undefined)
-      .then(() => this.fileSystem.appendFile(logPath, entry, "utf8"))
+      .then(async () => {
+        await this.fileSystem.mkdir(path.dirname(logPath), { recursive: true });
+        await this.fileSystem.appendFile(logPath, entry, "utf8");
+      })
       .catch(() => undefined);
   }
 
@@ -352,17 +363,13 @@ export class ServerProcessController {
       || /\bbind:\b/i.test(line);
   }
 
-  private recordLauncherDiagnostic(logPath: string, text: string) {
+  private recordLauncherDiagnostic(text: string) {
     this.recordStderr(text);
-    this.queueLogWrite(logPath, "launcher", `${text}\n`);
+    this.queueLogWrite("launcher", "launcher", `${text}\n`);
   }
 
-  private getLauncherLogPath() {
-    return path.join(this.logDirectory, "launcher.log");
-  }
-
-  private getServerLogPath() {
-    return path.join(this.logDirectory, "server.log");
+  private getLogPath(logType: "server" | "launcher", date: Date) {
+    return path.join(this.logDirectory, logType, `${formatLocalLogDate(date)}.log`);
   }
 
   private async waitForExit(child: ChildProcessWithoutNullStreams, timeoutMs: number) {

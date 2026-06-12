@@ -34,6 +34,8 @@ class FakeChildProcess extends EventEmitter {
 }
 
 const tempRoots: string[] = [];
+const fixedLogDate = new Date(2026, 5, 13, 12, 0, 0);
+const fixedLogDay = "2026-06-13";
 
 async function createTempDir(label: string) {
   const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), `raylea-${label}-`));
@@ -61,9 +63,18 @@ function loggedPaths(fileSystem: ReturnType<typeof createFileSystemDouble>) {
   return fileSystem.appendFile.mock.calls.map(([target]) => target);
 }
 
+function datedLogPath(root: string, type: "server" | "launcher") {
+  return path.join(root, "logs", type, `${fixedLogDay}.log`);
+}
+
+function legacyLogPath(root: string, type: "server" | "launcher") {
+  return path.join(root, "logs", `${type}.log`);
+}
+
 async function flushLogWrites() {
-  await Promise.resolve();
-  await Promise.resolve();
+  for (let index = 0; index < 6; index += 1) {
+    await Promise.resolve();
+  }
 }
 
 afterEach(async () => {
@@ -98,6 +109,7 @@ describe("ServerProcessController", () => {
         appendFile: vi.fn(async () => undefined),
       },
       terminateProcessId: vi.fn(async () => true),
+      now: () => fixedLogDate,
     });
 
     await controller.start(createSettings(installRoot, runtimeRoot));
@@ -134,18 +146,21 @@ describe("ServerProcessController", () => {
       spawnProcess,
       fileSystem,
       terminateProcessId: vi.fn(async () => true),
+      now: () => fixedLogDate,
     });
 
     await expect(controller.start(createSettings(installRoot, runtimeRoot))).rejects.toThrow("spawn EACCES");
     await flushLogWrites();
     expect(controller.isRunning).toBe(false);
     expect(controller.getRecentStderr()).toContain("spawn EACCES");
+    expect(fileSystem.mkdir).toHaveBeenCalledWith(path.join(runtimeRoot, "logs", "launcher"), { recursive: true });
     expect(fileSystem.appendFile).toHaveBeenCalledWith(
-      path.join(runtimeRoot, "logs", "launcher.log"),
+      datedLogPath(runtimeRoot, "launcher"),
       expect.stringContaining("spawn error: spawn EACCES"),
       "utf8",
     );
-    expect(loggedPaths(fileSystem)).not.toContain(path.join(runtimeRoot, "logs", "server.log"));
+    expect(loggedPaths(fileSystem)).not.toContain(legacyLogPath(runtimeRoot, "server"));
+    expect(loggedPaths(fileSystem)).not.toContain(legacyLogPath(runtimeRoot, "launcher"));
   });
 
   test("treats a child with an exit code as no longer running", async () => {
@@ -171,6 +186,7 @@ describe("ServerProcessController", () => {
         appendFile: vi.fn(async () => undefined),
       },
       terminateProcessId: vi.fn(async () => true),
+      now: () => fixedLogDate,
     });
 
     await controller.start(createSettings(installRoot, runtimeRoot));
@@ -200,6 +216,7 @@ describe("ServerProcessController", () => {
       spawnProcess,
       fileSystem,
       terminateProcessId: vi.fn(async () => true),
+      now: () => fixedLogDate,
     });
 
     await controller.start(createSettings(installRoot, runtimeRoot));
@@ -208,15 +225,17 @@ describe("ServerProcessController", () => {
     await flushLogWrites();
 
     expect(controller.getRecentStderr().join("\n")).toContain("23");
+    expect(fileSystem.mkdir).toHaveBeenCalledWith(path.join(runtimeRoot, "logs", "launcher"), { recursive: true });
     expect(fileSystem.appendFile).toHaveBeenCalledWith(
-      path.join(runtimeRoot, "logs", "launcher.log"),
+      datedLogPath(runtimeRoot, "launcher"),
       expect.stringContaining("退出码 23"),
       "utf8",
     );
-    expect(loggedPaths(fileSystem)).not.toContain(path.join(runtimeRoot, "logs", "server.log"));
+    expect(loggedPaths(fileSystem)).not.toContain(legacyLogPath(runtimeRoot, "server"));
+    expect(loggedPaths(fileSystem)).not.toContain(legacyLogPath(runtimeRoot, "launcher"));
   });
 
-  test("writes child stdout to server.log and keeps diagnostic extraction for launcher status", async () => {
+  test("writes child stdout to dated server log and keeps diagnostic extraction for launcher status", async () => {
     const installRoot = await createTempDir("controller-stdout");
     const runtimeRoot = await createTempDir("controller-stdout-runtime");
 
@@ -237,6 +256,7 @@ describe("ServerProcessController", () => {
       spawnProcess,
       fileSystem,
       terminateProcessId: vi.fn(async () => true),
+      now: () => fixedLogDate,
     });
 
     await controller.start(createSettings(installRoot, runtimeRoot));
@@ -244,12 +264,14 @@ describe("ServerProcessController", () => {
     await flushLogWrites();
 
     expect(controller.getRecentStderr().join("\n")).toContain("listen on 127.0.0.1:8080");
+    expect(fileSystem.mkdir).toHaveBeenCalledWith(path.join(runtimeRoot, "logs", "server"), { recursive: true });
     expect(fileSystem.appendFile).toHaveBeenCalledWith(
-      path.join(runtimeRoot, "logs", "server.log"),
+      datedLogPath(runtimeRoot, "server"),
       expect.stringContaining("stdout: {\"level\":\"ERROR\""),
       "utf8",
     );
-    expect(loggedPaths(fileSystem)).not.toContain(path.join(runtimeRoot, "logs", "launcher.log"));
+    expect(loggedPaths(fileSystem)).not.toContain(legacyLogPath(runtimeRoot, "server"));
+    expect(loggedPaths(fileSystem)).not.toContain(legacyLogPath(runtimeRoot, "launcher"));
   });
 
   test("parses structured runtime preparation source probe from child stdout", async () => {
@@ -273,6 +295,7 @@ describe("ServerProcessController", () => {
       spawnProcess,
       fileSystem,
       terminateProcessId: vi.fn(async () => true),
+      now: () => fixedLogDate,
     });
 
     await controller.start(createSettings(installRoot, runtimeRoot));
@@ -302,7 +325,7 @@ describe("ServerProcessController", () => {
     expect(snapshot?.resources[0]?.progress).toBe(0);
     expect(controller.getRecentStderr().join("\n")).not.toContain("runtime_prepare_progress");
     expect(fileSystem.appendFile).toHaveBeenCalledWith(
-      path.join(runtimeRoot, "logs", "server.log"),
+      datedLogPath(runtimeRoot, "server"),
       expect.stringContaining("runtime_prepare_progress"),
       "utf8",
     );
@@ -328,6 +351,7 @@ describe("ServerProcessController", () => {
       spawnProcess,
       fileSystem: createFileSystemDouble(),
       terminateProcessId: vi.fn(async () => true),
+      now: () => fixedLogDate,
     });
 
     await controller.start(createSettings(installRoot, runtimeRoot));
@@ -370,6 +394,7 @@ describe("ServerProcessController", () => {
       spawnProcess,
       fileSystem: createFileSystemDouble(),
       terminateProcessId: vi.fn(async () => true),
+      now: () => fixedLogDate,
     });
 
     await controller.start(createSettings(installRoot, runtimeRoot));
@@ -378,7 +403,7 @@ describe("ServerProcessController", () => {
     expect(controller.getRuntimePrepareSnapshot()).toBeNull();
   });
 
-  test("writes child stderr to server.log and keeps stderr lines for launcher status", async () => {
+  test("writes child stderr to dated server log and keeps stderr lines for launcher status", async () => {
     const installRoot = await createTempDir("controller-stderr");
     const runtimeRoot = await createTempDir("controller-stderr-runtime");
 
@@ -399,6 +424,7 @@ describe("ServerProcessController", () => {
       spawnProcess,
       fileSystem,
       terminateProcessId: vi.fn(async () => true),
+      now: () => fixedLogDate,
     });
 
     await controller.start(createSettings(installRoot, runtimeRoot));
@@ -406,12 +432,14 @@ describe("ServerProcessController", () => {
     await flushLogWrites();
 
     expect(controller.getRecentStderr()).toContain("startup failed");
+    expect(fileSystem.mkdir).toHaveBeenCalledWith(path.join(runtimeRoot, "logs", "server"), { recursive: true });
     expect(fileSystem.appendFile).toHaveBeenCalledWith(
-      path.join(runtimeRoot, "logs", "server.log"),
+      datedLogPath(runtimeRoot, "server"),
       expect.stringContaining("stderr: startup failed"),
       "utf8",
     );
-    expect(loggedPaths(fileSystem)).not.toContain(path.join(runtimeRoot, "logs", "launcher.log"));
+    expect(loggedPaths(fileSystem)).not.toContain(legacyLogPath(runtimeRoot, "server"));
+    expect(loggedPaths(fileSystem)).not.toContain(legacyLogPath(runtimeRoot, "launcher"));
   });
 
   test("records force-kill fallback failures instead of swallowing them silently", async () => {
@@ -438,6 +466,7 @@ describe("ServerProcessController", () => {
       spawnProcess,
       fileSystem,
       terminateProcessId: vi.fn(async () => false),
+      now: () => fixedLogDate,
     });
 
     await controller.start(createSettings(installRoot, runtimeRoot));
@@ -445,11 +474,13 @@ describe("ServerProcessController", () => {
     await flushLogWrites();
 
     expect(controller.getRecentStderr().join("\n")).toContain("kill EPERM");
+    expect(fileSystem.mkdir).toHaveBeenCalledWith(path.join(runtimeRoot, "logs", "launcher"), { recursive: true });
     expect(fileSystem.appendFile).toHaveBeenCalledWith(
-      path.join(runtimeRoot, "logs", "launcher.log"),
+      datedLogPath(runtimeRoot, "launcher"),
       expect.stringContaining("launcher: kill EPERM"),
       "utf8",
     );
-    expect(loggedPaths(fileSystem)).not.toContain(path.join(runtimeRoot, "logs", "server.log"));
+    expect(loggedPaths(fileSystem)).not.toContain(legacyLogPath(runtimeRoot, "server"));
+    expect(loggedPaths(fileSystem)).not.toContain(legacyLogPath(runtimeRoot, "launcher"));
   });
 });

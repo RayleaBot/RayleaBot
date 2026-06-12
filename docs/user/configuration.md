@@ -42,8 +42,8 @@
 
 ## 日志目录
 
-- `logs/launcher.log` 保存 Launcher 自身诊断和服务进程编排信息。
-- `logs/server.log` 保存 `raylea-server` 的文本输出镜像。
+- `logs/launcher/YYYY-MM-DD.log` 保存 Launcher 自身诊断和服务进程编排信息。
+- `logs/server/YYYY-MM-DD.log` 保存 `raylea-server` 的文本输出镜像。
 - `logs/recovery-summary.json` 保存恢复与兼容摘要。
 
 ## 运行根目录

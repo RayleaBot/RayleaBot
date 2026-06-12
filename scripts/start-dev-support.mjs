@@ -16,6 +16,31 @@ const VALID_SERVER_RELOAD_MODES = new Set(["", SERVER_RELOAD_AIR]);
 const WILDCARD_HOSTS = new Set(["", "*", "0.0.0.0", "::", "[::]"]);
 const INSTALL_MARKER_NAME = ".rayleabot-start-install.stamp";
 
+export function formatLocalLogDate(date = new Date()) {
+  if (!(date instanceof Date) || Number.isNaN(date.getTime())) {
+    throw new Error("date must be a valid Date");
+  }
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+export function resolveDatedLogPath({ rootDir, scope = "", type, date = new Date() } = {}) {
+  if (!rootDir) {
+    throw new Error("rootDir is required");
+  }
+  if (!type) {
+    throw new Error("type is required");
+  }
+  const segments = [rootDir, "logs"];
+  if (scope) {
+    segments.push(scope);
+  }
+  segments.push(type, `${formatLocalLogDate(date)}.log`);
+  return path.join(...segments);
+}
+
 export function resolveStartProfile(env = process.env) {
   const explicitProfile = env.RAYLEA_START_PROFILE?.trim();
   if (explicitProfile) {

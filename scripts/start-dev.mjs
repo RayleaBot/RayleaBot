@@ -14,6 +14,7 @@ import {
   classifyWebDevServer,
   createDevEnvironment,
   markDependenciesInstalled,
+  resolveDatedLogPath,
   resolveBackendBaseUrl,
   resolveInstallMode,
   resolveServerReloadMode,
@@ -26,16 +27,16 @@ const rootDir = path.resolve(scriptDir, "..");
 const webDir = path.join(rootDir, "web");
 const serverDir = path.join(rootDir, "server");
 const launcherDir = path.join(rootDir, "launcher");
-const logDir = path.join(rootDir, "logs", "dev");
-const webDevLogPath = path.join(logDir, "web-dev.log");
-const launcherLogPath = path.join(logDir, "launcher.log");
-const serverDevLogPath = path.join(logDir, "server-dev.log");
-const startLogPath = path.join(logDir, "start.log");
+const logDate = new Date();
+const webDevLogPath = resolveDatedLogPath({ rootDir, scope: "dev", type: "web", date: logDate });
+const launcherLogPath = resolveDatedLogPath({ rootDir, scope: "dev", type: "launcher", date: logDate });
+const serverDevLogPath = resolveDatedLogPath({ rootDir, scope: "dev", type: "server", date: logDate });
+const startLogPath = resolveDatedLogPath({ rootDir, scope: "dev", type: "start", date: logDate });
 const longRunningChildren = new Set();
 let startLog;
 let shuttingDown = false;
 
-await fsp.mkdir(logDir, { recursive: true });
+await prepareLogDirectories([webDevLogPath, launcherLogPath, serverDevLogPath, startLogPath]);
 startLog = fs.createWriteStream(startLogPath, { flags: "a" });
 
 process.once("SIGINT", () => {
@@ -372,6 +373,12 @@ function log(message, level = "info") {
 
 function writeStartLog(chunk) {
   startLog?.write(`[${new Date().toISOString()}] ${chunk}`);
+}
+
+async function prepareLogDirectories(paths) {
+  await Promise.all([...new Set(paths.map((targetPath) => path.dirname(targetPath)))].map((directory) => {
+    return fsp.mkdir(directory, { recursive: true });
+  }));
 }
 
 function shouldSkipLaunch() {

@@ -12,13 +12,39 @@ import {
   WEB_DEV_PROFILE,
   classifyWebDevServer,
   createDevEnvironment,
+  formatLocalLogDate,
   parseBackendEndpointFromConfigText,
+  resolveDatedLogPath,
   resolveBackendBaseUrl,
   resolveInstallMode,
   resolveServerReloadMode,
   resolveStartProfile,
   shouldInstallDependencies,
 } from "../start-dev-support.mjs";
+
+test("formats local log dates", () => {
+  assert.equal(formatLocalLogDate(new Date(2026, 5, 3, 12, 0, 0)), "2026-06-03");
+});
+
+test("resolves dated dev log paths by type", () => {
+  const rootDir = path.join("C:", "RayleaBot");
+  const date = new Date(2026, 5, 13, 12, 0, 0);
+
+  assert.deepEqual(
+    ["server", "web", "launcher", "start"].map((type) => resolveDatedLogPath({
+      rootDir,
+      scope: "dev",
+      type,
+      date,
+    })),
+    [
+      path.join(rootDir, "logs", "dev", "server", "2026-06-13.log"),
+      path.join(rootDir, "logs", "dev", "web", "2026-06-13.log"),
+      path.join(rootDir, "logs", "dev", "launcher", "2026-06-13.log"),
+      path.join(rootDir, "logs", "dev", "start", "2026-06-13.log"),
+    ],
+  );
+});
 
 test("resolves start profile", () => {
   assert.equal(resolveStartProfile({}), WEB_DEV_PROFILE);

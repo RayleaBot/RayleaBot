@@ -49,6 +49,7 @@
 - Web 开发服务器使用 `127.0.0.1:4173`。
 - `4173` 上已有 RayleaBot Web 开发服务器时直接复用。
 - `4173` 被其他程序占用时，启动脚本会显示占用原因并退出。
-- 启动日志位于 `logs/dev/start.log`。
-- Web 开发服务器输出位于 `logs/dev/web-dev.log`。
-- Launcher 输出位于 `logs/dev/launcher.log`。
+- 启动日志位于 `logs/dev/start/YYYY-MM-DD.log`。
+- Server 热重载输出位于 `logs/dev/server/YYYY-MM-DD.log`。
+- Web 开发服务器输出位于 `logs/dev/web/YYYY-MM-DD.log`。
+- Launcher 输出位于 `logs/dev/launcher/YYYY-MM-DD.log`。
