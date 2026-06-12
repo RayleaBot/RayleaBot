@@ -127,17 +127,7 @@ func TestProductionAppPersistsSessionSigningKeyInSecretStore(t *testing.T) {
 	application := newPersistentTestApp(t, configPath, time.Now, "secret-a")
 	defer closePersistentTestApp(t, application)
 
-	store, err := storage.Open(dbPath)
-	if err != nil {
-		t.Fatalf("open sqlite store: %v", err)
-	}
-	defer func() {
-		if closeErr := store.Close(); closeErr != nil {
-			t.Fatalf("close sqlite store: %v", closeErr)
-		}
-	}()
-
-	secretStore, err := secrets.NewSQLiteStore(store)
+	secretStore, err := secrets.NewSQLiteStore(application.Storage())
 	if err != nil {
 		t.Fatalf("create sqlite secret store: %v", err)
 	}
@@ -180,6 +170,9 @@ func TestDeletingPersistedSessionSigningKeyInvalidatesOlderTokens(t *testing.T) 
 	}
 	if err := secretStore.Delete(context.Background(), sessionSigningKeySecret); err != nil {
 		t.Fatalf("delete persisted session signing key: %v", err)
+	}
+	if err := store.Close(); err != nil {
+		t.Fatalf("close sqlite store: %v", err)
 	}
 
 	appB := newPersistentTestApp(t, configPath, func() time.Time {

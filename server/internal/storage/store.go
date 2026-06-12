@@ -15,9 +15,10 @@ import (
 )
 
 const (
-	sqliteDriverName    = "sqlite"
-	defaultBusyTimeout  = 5 * time.Second
-	defaultReadMaxConns = 4
+	sqliteDriverName             = "sqlite"
+	defaultBusyTimeout           = 5 * time.Second
+	defaultReadMaxConns          = 4
+	defaultWALAutoCheckpointPage = 1000
 )
 
 //go:embed schema.sql
@@ -33,6 +34,7 @@ type Store struct {
 	Path  string
 	Read  *sql.DB
 	Write *sql.DB
+	lock  *dbFileLock
 }
 
 func WithBusyTimeout(timeout time.Duration) Option {
@@ -65,6 +67,45 @@ func Open(path string, opts ...Option) (*Store, error) {
 		return nil, fmt.Errorf("create sqlite parent directory: %w", err)
 	}
 
+	lock, err := acquireDBFileLock(databaseLockPath(path))
+	if err != nil {
+		return nil, err
+	}
+
+	store, err := openWithProtection(path, options, lock)
+	if err != nil {
+		_ = lock.Close()
+		return nil, err
+	}
+	return store, nil
+}
+
+func openWithProtection(path string, options options, lock *dbFileLock) (*Store, error) {
+	if databaseFileExists(path) {
+		if err := QuickCheckPath(context.Background(), path); err != nil {
+			if !isSQLiteCorruptionError(err) {
+				return nil, fmt.Errorf("check sqlite integrity: %w", err)
+			}
+			if err := quarantineMalformedDatabase(path, err); err != nil {
+				return nil, err
+			}
+		}
+	}
+
+	store, err := openConfigured(path, options, lock)
+	if err == nil {
+		return store, nil
+	}
+	if databaseFileExists(path) && isSQLiteCorruptionError(err) {
+		if quarantineErr := quarantineMalformedDatabase(path, err); quarantineErr != nil {
+			return nil, quarantineErr
+		}
+		return openConfigured(path, options, lock)
+	}
+	return nil, err
+}
+
+func openConfigured(path string, options options, lock *dbFileLock) (*Store, error) {
 	writeDB, err := sql.Open(sqliteDriverName, path)
 	if err != nil {
 		return nil, fmt.Errorf("open sqlite write handle: %w", err)
@@ -103,6 +144,7 @@ func Open(path string, opts ...Option) (*Store, error) {
 		Path:  path,
 		Read:  readDB,
 		Write: writeDB,
+		lock:  lock,
 	}, nil
 }
 
@@ -116,11 +158,22 @@ func (s *Store) Close() error {
 		if err := s.Read.Close(); err != nil {
 			closeErr = errors.Join(closeErr, fmt.Errorf("close sqlite read handle: %w", err))
 		}
+		s.Read = nil
 	}
 	if s.Write != nil {
+		if err := checkpointAndTruncate(context.Background(), s.Write); err != nil {
+			closeErr = errors.Join(closeErr, fmt.Errorf("checkpoint sqlite WAL: %w", err))
+		}
 		if err := s.Write.Close(); err != nil {
 			closeErr = errors.Join(closeErr, fmt.Errorf("close sqlite write handle: %w", err))
 		}
+		s.Write = nil
+	}
+	if s.lock != nil {
+		if err := s.lock.Close(); err != nil {
+			closeErr = errors.Join(closeErr, fmt.Errorf("release sqlite lock: %w", err))
+		}
+		s.lock = nil
 	}
 
 	return closeErr
@@ -139,12 +192,35 @@ func configureHandle(ctx context.Context, db *sql.DB, busyTimeout time.Duration)
 	if err := db.QueryRowContext(ctx, "PRAGMA journal_mode = WAL").Scan(&journalMode); err != nil {
 		return fmt.Errorf("enable WAL mode: %w", err)
 	}
+	if _, err := db.ExecContext(ctx, "PRAGMA synchronous = FULL"); err != nil {
+		return fmt.Errorf("set synchronous: %w", err)
+	}
 
 	if _, err := db.ExecContext(ctx, fmt.Sprintf("PRAGMA busy_timeout = %d", busyTimeout.Milliseconds())); err != nil {
 		return fmt.Errorf("set busy_timeout: %w", err)
 	}
+	if _, err := db.ExecContext(ctx, fmt.Sprintf("PRAGMA wal_autocheckpoint = %d", defaultWALAutoCheckpointPage)); err != nil {
+		return fmt.Errorf("set wal_autocheckpoint: %w", err)
+	}
 
 	return nil
+}
+
+func checkpointAndTruncate(ctx context.Context, db *sql.DB) error {
+	if db == nil {
+		return nil
+	}
+	_, err := db.ExecContext(ctx, "PRAGMA wal_checkpoint(TRUNCATE)")
+	return err
+}
+
+func databaseLockPath(databasePath string) string {
+	return databasePath + ".lock"
+}
+
+func databaseFileExists(path string) bool {
+	info, err := os.Stat(path)
+	return err == nil && !info.IsDir()
 }
 
 func initializeSchema(ctx context.Context, db *sql.DB) error {
@@ -176,8 +252,8 @@ func ensureThirdPartyAccountColumns(ctx context.Context, db *sql.DB) error {
 		"credential_checked_at TEXT",
 		"credential_last_error TEXT NOT NULL DEFAULT ''",
 		"last_used_at TEXT",
-			"proxy_url TEXT NOT NULL DEFAULT ''",
-			"proxy_enabled INTEGER NOT NULL DEFAULT 0 CHECK (proxy_enabled IN (0, 1))",
+		"proxy_url TEXT NOT NULL DEFAULT ''",
+		"proxy_enabled INTEGER NOT NULL DEFAULT 0 CHECK (proxy_enabled IN (0, 1))",
 	}
 	for _, column := range columns {
 		if _, err := db.ExecContext(ctx, "ALTER TABLE third_party_accounts ADD COLUMN "+column); err != nil && !isDuplicateColumnError(err) {

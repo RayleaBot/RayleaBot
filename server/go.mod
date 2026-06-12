@@ -8,6 +8,7 @@ require (
 	github.com/coder/websocket v1.8.14
 	github.com/go-chi/chi/v5 v5.2.5
 	github.com/santhosh-tekuri/jsonschema/v6 v6.0.2
+	golang.org/x/sys v0.42.0
 	gopkg.in/yaml.v3 v3.0.1
 	modernc.org/sqlite v1.47.0
 	pgregory.net/rapid v1.3.0
@@ -48,7 +49,6 @@ require (
 	github.com/spf13/cast v1.9.2 // indirect
 	github.com/tdewolff/parse/v2 v2.8.3 // indirect
 	go.yaml.in/yaml/v2 v2.4.2 // indirect
-	golang.org/x/sys v0.42.0 // indirect
 	golang.org/x/text v0.28.0 // indirect
 	google.golang.org/protobuf v1.36.8 // indirect
 	modernc.org/libc v1.70.0 // indirect

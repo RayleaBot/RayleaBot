@@ -30,6 +30,7 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/render"
 	"github.com/RayleaBot/RayleaBot/server/internal/runtime"
 	"github.com/RayleaBot/RayleaBot/server/internal/scheduler"
+	"github.com/RayleaBot/RayleaBot/server/internal/storage"
 	"github.com/RayleaBot/RayleaBot/server/internal/tasks"
 )
 
@@ -253,6 +254,7 @@ type systemServiceDeps struct {
 	plugins          *plugins.Catalog
 	runtimes         *runtimeRegistry
 	renderer         *render.Service
+	storage          *storage.Store
 	pluginRepository plugins.DesiredStateRepository
 	taskExecutor     *tasks.Executor
 	logRepository    logging.Repository

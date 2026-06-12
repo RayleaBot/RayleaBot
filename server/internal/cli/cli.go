@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"context"
 	"database/sql"
 	"errors"
 	"fmt"
@@ -14,6 +15,7 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/recovery"
 	"github.com/RayleaBot/RayleaBot/server/internal/schema"
 	"github.com/RayleaBot/RayleaBot/server/internal/schemaassets"
+	"github.com/RayleaBot/RayleaBot/server/internal/storage"
 )
 
 type Command struct {
@@ -127,30 +129,19 @@ func BuildDoctorReport(cmd Command) DoctorReport {
 			Remediation: "请确认配置文件路径正确。",
 		})
 	} else {
-		db, err := sql.Open("sqlite", databasePath)
-		if err != nil {
+		if err := storage.QuickCheckPath(context.Background(), databasePath); err != nil {
 			issues = append(issues, DoctorIssue{
-				Code:        "database.open_failed",
+				Code:        "database.ping_failed",
 				Severity:    "error",
-				Summary:     "Database open failed: " + databasePath,
-				Remediation: "请确认数据库文件未损坏且路径可访问。",
+				Summary:     "Database integrity check failed: " + databasePath,
+				Remediation: "数据库可能损坏。请查看 data/quarantine/ 与 data/sqlite-snapshots/。",
 			})
 		} else {
-			defer db.Close()
-			if err := db.Ping(); err != nil {
-				issues = append(issues, DoctorIssue{
-					Code:        "database.ping_failed",
-					Severity:    "error",
-					Summary:     "Database ping failed: " + databasePath,
-					Remediation: "请确认数据库文件未损坏。",
-				})
-			} else {
-				issues = append(issues, DoctorIssue{
-					Code:     "database.ok",
-					Severity: "ok",
-					Summary:  "Database accessible",
-				})
-			}
+			issues = append(issues, DoctorIssue{
+				Code:     "database.ok",
+				Severity: "ok",
+				Summary:  "Database accessible",
+			})
 		}
 	}
 

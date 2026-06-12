@@ -8,10 +8,12 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/deps"
 	"github.com/RayleaBot/RayleaBot/server/internal/recovery"
+	"github.com/RayleaBot/RayleaBot/server/internal/storage"
 )
 
 func TestBackupCreatesValidArchive(t *testing.T) {
@@ -30,7 +32,7 @@ func TestBackupCreatesValidArchive(t *testing.T) {
 	}
 
 	writeFile(t, filepath.Join(configDir, "user.yaml"), "server:\n  listen: 127.0.0.1:9600\n")
-	writeFile(t, filepath.Join(dataDir, "rayleabot.db"), "fake-sqlite-data")
+	createTestSQLiteDatabase(t, filepath.Join(dataDir, "rayleabot.db"))
 	writeFile(t, filepath.Join(pluginsDir, "info.json"), `{"id":"hello-python"}`)
 
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
@@ -70,6 +72,11 @@ func TestBackupCreatesValidArchive(t *testing.T) {
 	}
 	if !names["data/rayleabot.db"] {
 		t.Error("missing data/rayleabot.db in archive")
+	}
+	extractedDB := filepath.Join(t.TempDir(), "rayleabot.db")
+	extractZipEntry(t, reader.File, "data/rayleabot.db", extractedDB)
+	if err := storage.QuickCheckPath(t.Context(), extractedDB); err != nil {
+		t.Fatalf("backup database quick_check failed: %v", err)
 	}
 
 	// Validate manifest structure.
@@ -116,7 +123,7 @@ func TestRestoreExtractsArchiveContents(t *testing.T) {
 		t.Fatal(err)
 	}
 	writeFile(t, filepath.Join(configDir, "user.yaml"), "server:\n  listen: 127.0.0.1:9600\n")
-	writeFile(t, filepath.Join(dataDir, "rayleabot.db"), "fake-sqlite-data")
+	createTestSQLiteDatabase(t, filepath.Join(dataDir, "rayleabot.db"))
 
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	code := runBackup(Command{
@@ -415,6 +422,41 @@ func TestDoctorReportIncludesStructuredIssues(t *testing.T) {
 	}
 }
 
+func TestDoctorReportChecksSQLiteIntegrity(t *testing.T) {
+	t.Parallel()
+
+	repoRoot := t.TempDir()
+	configPath := filepath.Join(repoRoot, "config", "user.yaml")
+	databasePath := filepath.Join(repoRoot, "data", "rayleabot.db")
+	writeFile(t, configPath, "schema_version: \"2\"\nserver:\n  host: 127.0.0.1\n  port: 8080\n")
+	createTestSQLiteDatabase(t, databasePath)
+
+	healthy := BuildDoctorReport(Command{
+		ConfigPath: configPath,
+		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
+	})
+	assertDoctorSummary(t, healthy.Issues, "database.ok", "Database accessible")
+
+	if err := os.WriteFile(databasePath, []byte("not a sqlite database"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	corrupt := BuildDoctorReport(Command{
+		ConfigPath: configPath,
+		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
+	})
+
+	issue := findDoctorIssue(corrupt.Issues, "database.ping_failed")
+	if issue == nil {
+		t.Fatalf("doctor report should flag corrupt database, got %#v", corrupt.Issues)
+	}
+	if issue.Severity != "error" || !strings.Contains(issue.Summary, "Database integrity check failed") {
+		t.Fatalf("unexpected corrupt database issue: %#v", issue)
+	}
+	if !strings.Contains(issue.Remediation, "data/quarantine/") || !strings.Contains(issue.Remediation, "data/sqlite-snapshots/") {
+		t.Fatalf("corrupt database remediation should mention recovery paths: %#v", issue)
+	}
+}
+
 func TestDoctorReportIncludesRecoverySummaryWhenPresent(t *testing.T) {
 	t.Parallel()
 
@@ -618,6 +660,58 @@ func assertDoctorSummary(t *testing.T, issues []DoctorIssue, code, summary strin
 		}
 	}
 	t.Fatalf("doctor issue %s not found in %#v", code, issues)
+}
+
+func findDoctorIssue(issues []DoctorIssue, code string) *DoctorIssue {
+	for i := range issues {
+		if issues[i].Code == code {
+			return &issues[i]
+		}
+	}
+	return nil
+}
+
+func createTestSQLiteDatabase(t *testing.T, path string) {
+	t.Helper()
+	store, err := storage.Open(path)
+	if err != nil {
+		t.Fatalf("open test sqlite database: %v", err)
+	}
+	defer func() {
+		if err := store.Close(); err != nil {
+			t.Fatalf("close test sqlite database: %v", err)
+		}
+	}()
+	if _, err := store.Write.Exec(`INSERT INTO plugin_instances (plugin_id, desired_state, updated_at) VALUES ('backup-test', 'enabled', '2026-06-13T00:00:00Z')`); err != nil {
+		t.Fatalf("seed test sqlite database: %v", err)
+	}
+}
+
+func extractZipEntry(t *testing.T, files []*zip.File, name string, targetPath string) {
+	t.Helper()
+	for _, file := range files {
+		if file.Name != name {
+			continue
+		}
+		if err := os.MkdirAll(filepath.Dir(targetPath), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		reader, err := file.Open()
+		if err != nil {
+			t.Fatalf("open zip entry %s: %v", name, err)
+		}
+		defer reader.Close()
+		out, err := os.Create(targetPath)
+		if err != nil {
+			t.Fatalf("create extracted entry %s: %v", targetPath, err)
+		}
+		defer out.Close()
+		if _, err := io.Copy(out, reader); err != nil {
+			t.Fatalf("extract zip entry %s: %v", name, err)
+		}
+		return
+	}
+	t.Fatalf("zip entry %s not found", name)
 }
 
 func writeFile(t *testing.T, path, content string) {

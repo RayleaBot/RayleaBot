@@ -270,6 +270,7 @@ func New(options Options) (*App, error) {
 		plugins:          pluginState.Plugins,
 		runtimes:         runtimeRegistry,
 		renderer:         pluginState.renderer,
+		storage:          platformState.Storage,
 		pluginRepository: pluginState.pluginRepository,
 		taskExecutor:     platformState.taskExecutor,
 		logRepository:    platformState.LogRepository,

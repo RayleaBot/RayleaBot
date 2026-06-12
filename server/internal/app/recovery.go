@@ -15,6 +15,7 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	"github.com/RayleaBot/RayleaBot/server/internal/recovery"
 	"github.com/RayleaBot/RayleaBot/server/internal/render"
+	"github.com/RayleaBot/RayleaBot/server/internal/storage"
 	"github.com/RayleaBot/RayleaBot/server/internal/tasks"
 )
 
@@ -25,6 +26,7 @@ type systemService struct {
 	plugins          *plugins.Catalog
 	runtimes         *runtimeRegistry
 	renderer         *render.Service
+	storage          *storage.Store
 	pluginRepository plugins.DesiredStateRepository
 	taskExecutor     *tasks.Executor
 	logRepository    logging.Repository
@@ -40,6 +42,7 @@ func newSystemService(deps systemServiceDeps) *systemService {
 		plugins:          deps.plugins,
 		runtimes:         deps.runtimes,
 		renderer:         deps.renderer,
+		storage:          deps.storage,
 		pluginRepository: deps.pluginRepository,
 		taskExecutor:     deps.taskExecutor,
 		logRepository:    deps.logRepository,

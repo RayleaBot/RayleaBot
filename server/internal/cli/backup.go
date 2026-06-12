@@ -2,6 +2,7 @@ package cli
 
 import (
 	"archive/zip"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -10,6 +11,7 @@ import (
 	"time"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/recovery"
+	"github.com/RayleaBot/RayleaBot/server/internal/storage"
 )
 
 func runBackup(cmd Command) int {
@@ -49,15 +51,20 @@ func runBackup(cmd Command) int {
 	// 2. SQLite database
 	var databasePath string
 	dbPath, err := resolveDatabasePath(cmd.ConfigPath)
-	if err == nil {
+	if err == nil && fileExists(dbPath) {
 		databasePath = dbPath
 		archivePath := filepath.ToSlash(filepath.Join("data", filepath.Base(dbPath)))
-		if err := addFileToZip(w, dbPath, archivePath); err != nil {
-			cmd.Logger.Warn("skip database file", "path", dbPath, "err", err.Error())
-		} else {
-			directories = append(directories, recovery.Directory(archivePath, "database"))
-			cmd.Logger.Info("backed up database", "path", dbPath)
+		snapshotPath, err := storage.CreateSnapshot(context.Background(), dbPath)
+		if err != nil {
+			cmd.Logger.Error("create database snapshot", "path", dbPath, "err", err.Error())
+			return 1
 		}
+		if err := addFileToZip(w, snapshotPath, archivePath); err != nil {
+			cmd.Logger.Error("write database snapshot", "path", dbPath, "err", err.Error())
+			return 1
+		}
+		directories = append(directories, recovery.Directory(archivePath, "database"))
+		cmd.Logger.Info("backed up database", "path", dbPath)
 	}
 
 	// 3. plugins/installed/
@@ -91,6 +98,11 @@ func runBackup(cmd Command) int {
 
 	cmd.Logger.Info("backup completed", "path", backupPath, "directories", len(directories), "plugins", len(manifest.Plugins))
 	return 0
+}
+
+func fileExists(path string) bool {
+	info, err := os.Stat(path)
+	return err == nil && !info.IsDir()
 }
 
 func addManifestToZip(w *zip.Writer, manifest recovery.BackupManifest) error {

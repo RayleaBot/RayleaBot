@@ -15,6 +15,7 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/cli"
 	"github.com/RayleaBot/RayleaBot/server/internal/logging"
 	"github.com/RayleaBot/RayleaBot/server/internal/recovery"
+	"github.com/RayleaBot/RayleaBot/server/internal/storage"
 	"github.com/RayleaBot/RayleaBot/server/internal/tasks"
 )
 
@@ -92,10 +93,15 @@ func (s *systemService) createBackupArchive(ctx context.Context, progress tasks.
 
 	databasePath, err := resolveDatabasePath(s.state.Summary.ConfigPath, s.state.Config.Database.Path)
 	if err == nil {
-		archivePath := filepath.ToSlash(filepath.Join("data", filepath.Base(databasePath)))
-		if err := addFileToZip(writer, databasePath, archivePath); err == nil {
-			directories = append(directories, recovery.Directory(archivePath, "database"))
+		databaseSnapshotPath, err := s.createDatabaseSnapshot(ctx, databasePath)
+		if err != nil {
+			return "", &tasks.TaskError{Code: "plugin.internal_error", Message: "创建数据库快照失败"}
 		}
+		archivePath := filepath.ToSlash(filepath.Join("data", filepath.Base(databasePath)))
+		if err := addFileToZip(writer, databaseSnapshotPath, archivePath); err != nil {
+			return "", &tasks.TaskError{Code: "plugin.internal_error", Message: "写入数据库快照失败"}
+		}
+		directories = append(directories, recovery.Directory(archivePath, "database"))
 
 		spoolPath := logging.SpoolPathForDatabase(databasePath)
 		spoolArchivePath := filepath.ToSlash(filepath.Join("data", filepath.Base(spoolPath)))
@@ -138,6 +144,16 @@ func (s *systemService) createBackupArchive(ctx context.Context, progress tasks.
 	}
 
 	return archivePath, nil
+}
+
+func (s *systemService) createDatabaseSnapshot(ctx context.Context, databasePath string) (string, error) {
+	if _, err := os.Stat(databasePath); err != nil {
+		return "", err
+	}
+	if s != nil && s.storage != nil && filepath.Clean(s.storage.Path) == filepath.Clean(databasePath) {
+		return s.storage.CreateSnapshot(ctx)
+	}
+	return storage.CreateSnapshot(ctx, databasePath)
 }
 
 func (s *systemService) buildDiagnosticsArchive(ctx context.Context) ([]byte, error) {

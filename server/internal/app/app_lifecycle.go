@@ -8,6 +8,8 @@ import (
 	"time"
 )
 
+const sqliteSnapshotInterval = 6 * time.Hour
+
 func (a *App) Handler() http.Handler {
 	return a.process.router
 }
@@ -85,6 +87,7 @@ func (a *App) Run(ctx context.Context) error {
 	if a.pluginLifecycle != nil {
 		go a.pluginLifecycle.reconcileRuntime(runCtx, a.pluginLifecycle.currentBotID())
 	}
+	a.startSQLiteSnapshotLoop(runCtx)
 	a.adapter.Start(runCtx)
 	a.scheduler.Start(runCtx)
 	if a.bilibiliSource != nil {
@@ -187,4 +190,43 @@ func (a *App) closeStorage() error {
 
 	a.storage = nil
 	return nil
+}
+
+func (a *App) startSQLiteSnapshotLoop(ctx context.Context) {
+	if a == nil || a.storage == nil {
+		return
+	}
+
+	go func() {
+		a.createSQLiteSnapshotBestEffort(ctx)
+		ticker := time.NewTicker(sqliteSnapshotInterval)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				a.createSQLiteSnapshotBestEffort(ctx)
+			}
+		}
+	}()
+}
+
+func (a *App) createSQLiteSnapshotBestEffort(parent context.Context) {
+	if a == nil || a.storage == nil {
+		return
+	}
+	ctx, cancel := context.WithTimeout(parent, 5*time.Minute)
+	defer cancel()
+
+	path, err := a.storage.CreateSnapshot(ctx)
+	if err != nil {
+		if a.state != nil && a.state.Logger != nil {
+			a.state.Logger.Warn("sqlite snapshot failed", "component", "storage", "err", err.Error())
+		}
+		return
+	}
+	if a.state != nil && a.state.Logger != nil {
+		a.state.Logger.Info("sqlite snapshot created", "component", "storage", "path", path)
+	}
 }

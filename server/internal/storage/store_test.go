@@ -1,8 +1,12 @@
 package storage
 
 import (
+	"context"
 	"database/sql"
+	"encoding/json"
+	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -23,8 +27,15 @@ func TestOpenBootstrapsSQLiteWithExpectedPragmas(t *testing.T) {
 
 	assertPragmaString(t, store.Write, "journal_mode", "wal")
 	assertPragmaString(t, store.Read, "journal_mode", "wal")
+	assertPragmaInt(t, store.Write, "synchronous", 2)
+	assertPragmaInt(t, store.Read, "synchronous", 2)
+	assertPragmaInt(t, store.Write, "foreign_keys", 1)
+	assertPragmaInt(t, store.Read, "foreign_keys", 1)
 	assertPragmaInt(t, store.Write, "busy_timeout", int(defaultBusyTimeout.Milliseconds()))
 	assertPragmaInt(t, store.Read, "busy_timeout", int(defaultBusyTimeout.Milliseconds()))
+	assertPragmaInt(t, store.Write, "wal_autocheckpoint", defaultWALAutoCheckpointPage)
+	assertPragmaInt(t, store.Read, "wal_autocheckpoint", defaultWALAutoCheckpointPage)
+	assertPragmaInt(t, store.Read, "query_only", 1)
 	assertTableExists(t, store.Read, "auth_bootstrap_state")
 	assertTableExists(t, store.Read, "admin_sessions")
 	assertTableExists(t, store.Read, "plugin_instances")
@@ -106,6 +117,117 @@ func TestOpenCanReopenCurrentSchemaDatabase(t *testing.T) {
 	}
 }
 
+func TestOpenQuarantinesMalformedDatabaseAndCreatesFreshStore(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	databasePath := filepath.Join(dir, "state.db")
+	if err := os.WriteFile(databasePath, []byte("not a sqlite database"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(databasePath+"-wal", []byte("wal"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(databasePath+"-shm", []byte("shm"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	store := mustOpenStore(t, databasePath)
+	defer store.Close()
+
+	if err := QuickCheckPath(context.Background(), databasePath); err != nil {
+		t.Fatalf("fresh database quick_check failed: %v", err)
+	}
+
+	quarantineRoot := filepath.Join(dir, "quarantine")
+	entries, err := os.ReadDir(quarantineRoot)
+	if err != nil {
+		t.Fatalf("read quarantine dir: %v", err)
+	}
+	if len(entries) != 1 || !entries[0].IsDir() {
+		t.Fatalf("expected one quarantine directory, got %#v", entries)
+	}
+
+	quarantineDir := filepath.Join(quarantineRoot, entries[0].Name())
+	for _, name := range []string{"state.db", "state.db-wal", "state.db-shm", "reason.json"} {
+		if _, err := os.Stat(filepath.Join(quarantineDir, name)); err != nil {
+			t.Fatalf("expected quarantined %s: %v", name, err)
+		}
+	}
+
+	reasonPayload, err := os.ReadFile(filepath.Join(quarantineDir, "reason.json"))
+	if err != nil {
+		t.Fatalf("read reason.json: %v", err)
+	}
+	var reason quarantineReason
+	if err := json.Unmarshal(reasonPayload, &reason); err != nil {
+		t.Fatalf("decode reason.json: %v", err)
+	}
+	if reason.OriginalPath != databasePath || reason.Error == "" || len(reason.Files) != 3 {
+		t.Fatalf("unexpected quarantine reason: %#v", reason)
+	}
+}
+
+func TestOpenRejectsSecondHandleForSameDatabasePath(t *testing.T) {
+	t.Parallel()
+
+	databasePath := filepath.Join(t.TempDir(), "state.db")
+	store := mustOpenStore(t, databasePath)
+	defer store.Close()
+
+	second, err := Open(databasePath)
+	if err == nil {
+		second.Close()
+		t.Fatal("expected second Open for the same database path to fail")
+	}
+	if !strings.Contains(err.Error(), "already in use") {
+		t.Fatalf("unexpected lock error: %v", err)
+	}
+}
+
+func TestCloseCheckpointsWALAndLeavesDatabaseReadable(t *testing.T) {
+	t.Parallel()
+
+	databasePath := filepath.Join(t.TempDir(), "state.db")
+	store := mustOpenStore(t, databasePath)
+	if _, err := store.Write.Exec(`INSERT INTO plugin_instances (plugin_id, desired_state, updated_at) VALUES ('checkpoint', 'enabled', '2026-06-13T00:00:00Z')`); err != nil {
+		t.Fatalf("insert row: %v", err)
+	}
+	if err := store.Close(); err != nil {
+		t.Fatalf("close store: %v", err)
+	}
+
+	if err := QuickCheckPath(context.Background(), databasePath); err != nil {
+		t.Fatalf("database quick_check after close failed: %v", err)
+	}
+	if info, err := os.Stat(databasePath + "-wal"); err == nil && info.Size() != 0 {
+		t.Fatalf("expected WAL file to be absent or truncated, size=%d", info.Size())
+	}
+}
+
+func TestCreateSnapshotUsesValidSQLiteFileAndRetainsThree(t *testing.T) {
+	t.Parallel()
+
+	databasePath := filepath.Join(t.TempDir(), "state.db")
+	store := mustOpenStore(t, databasePath)
+	defer store.Close()
+
+	for i := 0; i < 5; i++ {
+		snapshotPath, err := store.CreateSnapshot(context.Background())
+		if err != nil {
+			t.Fatalf("create snapshot %d: %v", i, err)
+		}
+		if err := QuickCheckPath(context.Background(), snapshotPath); err != nil {
+			t.Fatalf("snapshot quick_check failed: %v", err)
+		}
+	}
+
+	snapshots := validSnapshotFiles(t, SnapshotDirForDatabase(databasePath))
+	if len(snapshots) != defaultSnapshotRetention {
+		t.Fatalf("unexpected snapshot count: got %d want %d: %#v", len(snapshots), defaultSnapshotRetention, snapshots)
+	}
+}
+
 func TestPluginInstancesRejectsDuplicateIDsAndInvalidDesiredState(t *testing.T) {
 	t.Parallel()
 
@@ -137,6 +259,26 @@ func TestPluginInstancesRejectsDuplicateIDsAndInvalidDesiredState(t *testing.T) 
 	); err == nil {
 		t.Fatalf("expected invalid desired_state insert to fail")
 	}
+}
+
+func validSnapshotFiles(t *testing.T, dir string) []string {
+	t.Helper()
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		t.Fatalf("read snapshot dir: %v", err)
+	}
+	var snapshots []string
+	for _, entry := range entries {
+		if entry.IsDir() || filepath.Ext(entry.Name()) != ".db" {
+			continue
+		}
+		path := filepath.Join(dir, entry.Name())
+		if err := QuickCheckPath(context.Background(), path); err != nil {
+			t.Fatalf("snapshot %s failed quick_check: %v", path, err)
+		}
+		snapshots = append(snapshots, path)
+	}
+	return snapshots
 }
 
 func TestPluginPackagesRejectInvalidSourceType(t *testing.T) {
