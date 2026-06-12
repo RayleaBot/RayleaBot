@@ -8,6 +8,7 @@ import { usePluginConsoleStore } from '@/stores/plugin-console'
 import { usePluginsStore } from '@/stores/plugins'
 import { useProtocolsStore } from '@/stores/protocols'
 import { useSessionStore } from '@/stores/session'
+import { useSchedulerJobsStore } from '@/stores/scheduler-jobs'
 import { useSystemStore } from '@/stores/system'
 import { useTasksStore } from '@/stores/tasks'
 import { useThirdPartyMonitoringStore } from '@/stores/third-party-monitoring'
@@ -17,6 +18,7 @@ export const useSocketStore = defineStore('sockets', () => {
   const pluginsStore = usePluginsStore()
   const pluginConsoleStore = usePluginConsoleStore()
   const tasksStore = useTasksStore()
+  const schedulerJobsStore = useSchedulerJobsStore()
   const logsStore = useLogsStore()
   const governanceStore = useGovernanceStore()
   const protocolsStore = useProtocolsStore()
@@ -37,6 +39,9 @@ export const useSocketStore = defineStore('sockets', () => {
     },
     tasks: {
       upsert: tasksStore.upsert,
+    },
+    schedulerJobs: {
+      scheduleDataSourceRefresh: schedulerJobsStore.scheduleDataSourceRefresh,
     },
     logs: {
       appendBatch: logsStore.appendBatch,

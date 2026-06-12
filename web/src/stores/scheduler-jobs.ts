@@ -10,6 +10,12 @@ export const useSchedulerJobsStore = defineStore('scheduler-jobs', () => {
   const loading = ref(false)
   const triggeringJobId = ref<string | null>(null)
   const error = ref<string | null>(null)
+  const liveRefreshActive = ref(false)
+
+  const liveRefreshDebounceMs = 120
+  let liveRefreshHandle: ReturnType<typeof window.setTimeout> | null = null
+  let liveRefreshInFlight = false
+  let liveRefreshQueued = false
 
   const sortedItems = computed(() => (
     [...items.value].sort((left, right) => {
@@ -31,6 +37,66 @@ export const useSchedulerJobsStore = defineStore('scheduler-jobs', () => {
       throw err
     } finally {
       loading.value = false
+      if (liveRefreshQueued && liveRefreshActive.value && !liveRefreshInFlight) {
+        liveRefreshQueued = false
+        scheduleDataSourceRefresh()
+      }
+    }
+  }
+
+  async function runDataSourceRefresh() {
+    if (!liveRefreshActive.value) {
+      return
+    }
+    if (loading.value) {
+      liveRefreshQueued = true
+      return
+    }
+    if (liveRefreshInFlight) {
+      liveRefreshQueued = true
+      return
+    }
+
+    liveRefreshInFlight = true
+    try {
+      await fetchList()
+    } catch {
+      return
+    } finally {
+      liveRefreshInFlight = false
+      if (liveRefreshQueued) {
+        liveRefreshQueued = false
+        scheduleDataSourceRefresh()
+      }
+    }
+  }
+
+  function scheduleDataSourceRefresh() {
+    if (!liveRefreshActive.value) {
+      return
+    }
+    if (liveRefreshInFlight) {
+      liveRefreshQueued = true
+      return
+    }
+    if (liveRefreshHandle !== null) {
+      return
+    }
+
+    liveRefreshHandle = window.setTimeout(() => {
+      liveRefreshHandle = null
+      void runDataSourceRefresh()
+    }, liveRefreshDebounceMs)
+  }
+
+  function setLiveRefreshActive(active: boolean) {
+    liveRefreshActive.value = active
+    if (!active && liveRefreshHandle !== null) {
+      window.clearTimeout(liveRefreshHandle)
+      liveRefreshHandle = null
+    }
+    if (!active) {
+      liveRefreshQueued = false
     }
   }
 
@@ -54,6 +120,8 @@ export const useSchedulerJobsStore = defineStore('scheduler-jobs', () => {
     sortedItems,
     triggeringJobId,
     fetchList,
+    scheduleDataSourceRefresh,
+    setLiveRefreshActive,
     trigger,
   }
 })

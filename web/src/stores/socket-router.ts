@@ -127,6 +127,7 @@ export function createSocketFrameRouter(
         commands: frame.data.commands,
         command_conflicts: frame.data.command_conflicts,
       })
+      dependencies.schedulerJobs.scheduleDataSourceRefresh()
       return
     }
 
@@ -170,6 +171,9 @@ export function createSocketFrameRouter(
     if (frame.type === 'logs.appended') {
       pendingLiveLogs.push(frame.data)
       scheduleFlushLiveLogs()
+      if (isSchedulerLog(frame.data)) {
+        dependencies.schedulerJobs.scheduleDataSourceRefresh()
+      }
     }
   }
 
@@ -206,4 +210,8 @@ function isGovernanceChangedEvent(payload: EventsPayload): payload is Extract<Ev
 
 function isBilibiliSourceStatusEvent(payload: EventsPayload): payload is BilibiliSourceStatusEvent {
   return 'source' in payload && payload.source === 'bilibili'
+}
+
+function isSchedulerLog(log: LogSummary) {
+  return log.source === 'scheduler'
 }

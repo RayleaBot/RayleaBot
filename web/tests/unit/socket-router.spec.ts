@@ -28,6 +28,9 @@ describe('socket frame router', () => {
       tasks: {
         upsert: vi.fn(),
       },
+      schedulerJobs: {
+        scheduleDataSourceRefresh: vi.fn(),
+      },
       logs: {
         appendBatch: vi.fn(),
       },
@@ -89,6 +92,9 @@ describe('socket frame router', () => {
       },
       tasks: {
         upsert: vi.fn(),
+      },
+      schedulerJobs: {
+        scheduleDataSourceRefresh: vi.fn(),
       },
       logs: {
         appendBatch: vi.fn(),
@@ -152,6 +158,7 @@ describe('socket frame router', () => {
       runtime_state: 'running',
       display_state: 'running',
     })
+    expect(dependencies.schedulerJobs.scheduleDataSourceRefresh).toHaveBeenCalledTimes(1)
     expect(dependencies.protocols.applySnapshot).toHaveBeenCalledTimes(1)
   })
 
@@ -170,6 +177,9 @@ describe('socket frame router', () => {
       },
       tasks: {
         upsert: vi.fn(),
+      },
+      schedulerJobs: {
+        scheduleDataSourceRefresh: vi.fn(),
       },
       logs: {
         appendBatch: vi.fn(),
@@ -236,6 +246,9 @@ describe('socket frame router', () => {
       },
       tasks: {
         upsert: vi.fn(),
+      },
+      schedulerJobs: {
+        scheduleDataSourceRefresh: vi.fn(),
       },
       logs: {
         appendBatch: vi.fn(),
@@ -318,6 +331,70 @@ describe('socket frame router', () => {
       text: 'console line',
       timestamp: '2026-04-05T08:00:05Z',
     })
+    expect(dependencies.schedulerJobs.scheduleDataSourceRefresh).not.toHaveBeenCalled()
+  })
+
+  it('routes scheduler log frames to scheduler job refresh', async () => {
+    const dependencies = {
+      system: {
+        applyEvent: vi.fn(),
+        refreshStatus: vi.fn().mockResolvedValue(undefined),
+      },
+      plugins: {
+        upsert: vi.fn(),
+      },
+      pluginConsole: {
+        appendOutboundLog: vi.fn(),
+        appendConsole: vi.fn(),
+      },
+      tasks: {
+        upsert: vi.fn(),
+      },
+      schedulerJobs: {
+        scheduleDataSourceRefresh: vi.fn(),
+      },
+      logs: {
+        appendBatch: vi.fn(),
+      },
+      governance: {
+        refresh: vi.fn().mockResolvedValue(undefined),
+      },
+      protocols: {
+        applySnapshot: vi.fn(),
+      },
+      thirdPartyMonitoring: {
+        handleSourceStatusEvent: vi.fn(),
+      },
+    }
+    const router = createSocketFrameRouter(dependencies)
+
+    router.handleLogsFrame({
+      channel: 'logs',
+      type: 'logs.appended',
+      timestamp: '2026-05-25T08:00:01Z',
+      data: {
+        log_id: 'log_scheduler_0001',
+        timestamp: '2026-05-25T08:00:01Z',
+        level: 'info',
+        source: 'scheduler',
+        plugin_id: 'weather',
+        message: '【天气插件｜daily_report｜每日早报｜处理成功】耗时 820ms',
+      },
+    })
+
+    await flushPromises()
+
+    expect(dependencies.schedulerJobs.scheduleDataSourceRefresh).toHaveBeenCalledTimes(1)
+    expect(dependencies.logs.appendBatch).toHaveBeenCalledWith([
+      {
+        log_id: 'log_scheduler_0001',
+        timestamp: '2026-05-25T08:00:01Z',
+        level: 'info',
+        source: 'scheduler',
+        plugin_id: 'weather',
+        message: '【天气插件｜daily_report｜每日早报｜处理成功】耗时 820ms',
+      },
+    ])
   })
 
   it('debounces governance refresh when governance.changed arrives repeatedly', async () => {
@@ -335,6 +412,9 @@ describe('socket frame router', () => {
       },
       tasks: {
         upsert: vi.fn(),
+      },
+      schedulerJobs: {
+        scheduleDataSourceRefresh: vi.fn(),
       },
       logs: {
         appendBatch: vi.fn(),
@@ -398,6 +478,9 @@ describe('socket frame router', () => {
       tasks: {
         upsert: vi.fn(),
       },
+      schedulerJobs: {
+        scheduleDataSourceRefresh: vi.fn(),
+      },
       logs: {
         appendBatch: vi.fn(),
       },
@@ -459,6 +542,9 @@ describe('socket frame router', () => {
       },
       tasks: {
         upsert: vi.fn(),
+      },
+      schedulerJobs: {
+        scheduleDataSourceRefresh: vi.fn(),
       },
       logs: {
         appendBatch: vi.fn(),

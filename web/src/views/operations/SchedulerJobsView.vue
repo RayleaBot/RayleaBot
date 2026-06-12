@@ -58,6 +58,7 @@ function clearModalReadyTimer() {
 }
 
 onMounted(() => {
+  schedulerStore.setLiveRefreshActive(true)
   void loadSchedulerJobs()
   timerId = setInterval(() => {
     timeTick.value++
@@ -65,6 +66,7 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
+  schedulerStore.setLiveRefreshActive(false)
   if (timerId) clearInterval(timerId)
   clearModalReadyTimer()
 })

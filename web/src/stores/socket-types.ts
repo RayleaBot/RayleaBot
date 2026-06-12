@@ -50,6 +50,9 @@ export interface SocketFrameRouterDependencies {
   tasks: {
     upsert: (task: TaskSummary) => void
   }
+  schedulerJobs: {
+    scheduleDataSourceRefresh: () => void
+  }
   logs: {
     appendBatch: (logs: LogSummary[]) => unknown
   }
