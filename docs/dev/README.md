@@ -19,7 +19,7 @@
 ## 本地启动
 
 - Windows 本地开发入口为仓库根目录的 `start.bat`。
-- Windows 环境执行开发命令优先使用 Git Bash。
+- Windows 环境执行开发命令使用 `gbash -lc '<command>'`。
 - `start.bat` 使用 Web 开发服务器，管理面地址为 `http://127.0.0.1:4173/`。
 - Web 开发服务器代理到 `config/user.yaml` 中的 `server.host` / `server.port`；自定义后端地址使用 `VITE_BACKEND_TARGET`。
 - WebSocket 后端地址使用 `VITE_WS_BASE_URL`，缺省值与 `VITE_BACKEND_TARGET` 一致。
