@@ -26,7 +26,7 @@ from main import (
     subscription_matches_event,
 )
 from rendering import build_render_data
-from settings import merge_settings
+from hub.settings import merge_settings
 from testkit import FakePluginContext as FakeContext
 
 

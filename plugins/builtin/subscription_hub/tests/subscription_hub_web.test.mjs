@@ -3,14 +3,18 @@ import fs from 'node:fs'
 import { createRequire } from 'node:module'
 import path from 'node:path'
 import test from 'node:test'
-import { fileURLToPath } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
+import { buildRowsFromSettings, normalizeSettings } from '../web/model.js'
+import { buildSettingsPayload } from '../web/settings-payload.js'
+import { normalizeTargets, targetMap } from '../web/targets.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const pluginRoot = path.resolve(__dirname, '..')
 const require = createRequire(path.join(pluginRoot, '..', '..', '..', 'web', 'package.json'))
 const { JSDOM } = require('jsdom')
 const subscriptionHtml = fs.readFileSync(path.join(pluginRoot, 'web', 'index.html'), 'utf8')
-const script = fs.readFileSync(path.join(pluginRoot, 'web', 'app.js'), 'utf8')
+const appUrl = pathToFileURL(path.join(pluginRoot, 'web', 'app.js')).href
+let appImportCounter = 0
 
 const defaultSettings = {
   enabled: true,
@@ -71,7 +75,7 @@ function dispatchHost(dom, type, payload, requestId = 'host-test') {
   }))
 }
 
-function createPage(settings = richSettings) {
+async function createPage(settings = richSettings) {
   const dom = new JSDOM(subscriptionHtml, {
     runScripts: 'outside-only',
     url: 'https://rayleabot.local/plugin-ui/raylea.subscription-hub/web/index.html',
@@ -82,7 +86,9 @@ function createPage(settings = richSettings) {
       messages.push(message)
     },
   }
-  dom.window.eval(script)
+  globalThis.window = dom.window
+  globalThis.document = dom.window.document
+  await import(`${appUrl}?case=${appImportCounter += 1}`)
   dispatchHost(dom, 'host.init', {
     title: '订阅设置',
     plugin: { description: '订阅中心' },
@@ -116,8 +122,39 @@ function commonServiceInputs(document) {
     .map((input) => [input.value, input]))
 }
 
-test('groups subscriptions by Bilibili UID and hides raw maintenance fields', () => {
-  const { dom } = createPage()
+test('pure model groups subscriptions by Bilibili UID and payload splits them back', () => {
+  const settings = normalizeSettings(richSettings)
+  const rows = buildRowsFromSettings(settings)
+  const payload = buildSettingsPayload(settings, rows, targetMap(normalizeTargets(targetsPayload)))
+
+  assert.equal(rows.length, 1)
+  assert.equal(rows[0].targets.length, 2)
+  assert.deepEqual(payload.subscriptions.map((item) => ({
+    target_type: item.target_type,
+    target_id: item.target_id,
+    target_name: item.target_name,
+    services: item.services,
+    subscribers: item.subscribers,
+  })), [
+    {
+      target_type: 'group',
+      target_id: '5050',
+      target_name: '测试群',
+      services: ['live'],
+      subscribers: [{ id: '10001' }],
+    },
+    {
+      target_type: 'private',
+      target_id: '2626',
+      target_name: '测试用户',
+      services: ['video'],
+      subscribers: [{ id: '10001' }],
+    },
+  ])
+})
+
+test('groups subscriptions by Bilibili UID and hides raw maintenance fields', async () => {
+  const { dom } = await createPage()
   const document = dom.window.document
   const rows = document.querySelectorAll('.sub-card')
 
@@ -130,8 +167,8 @@ test('groups subscriptions by Bilibili UID and hides raw maintenance fields', ()
   assert.match(rows[0].textContent, /目标配置不同/)
 })
 
-test('target type switch keeps targets selected across group and private lists', () => {
-  const { dom } = createPage()
+test('target type switch keeps targets selected across group and private lists', async () => {
+  const { dom } = await createPage()
   const document = dom.window.document
   const row = editFirstCard(document)
   const privateButton = row.querySelector('button[data-action="target-mode"][data-mode="private"]')
@@ -155,26 +192,29 @@ test('target type switch keeps targets selected across group and private lists',
   assert.match(updatedRow.textContent, /私聊 测试用户/)
 })
 
-test('target multi-select updates current card without replacing the select', () => {
-  const { dom } = createPage()
+test('target multi-select updates current card without replacing the select', async () => {
+  const { dom } = await createPage()
   const document = dom.window.document
   const row = editFirstCard(document)
   const list = row.querySelector('.target-select')
   list.scrollTop = 32
 
-  row.querySelectorAll('.target-option')[1].click()
+  const option = row.querySelectorAll('.target-option')[1]
+  option.focus()
+  option.click()
 
   const currentList = document.querySelector('.target-select')
   assert.equal(currentList, list)
   assert.equal(currentList.scrollTop, 32)
   assert.equal(currentList.querySelectorAll('.target-option')[1].getAttribute('aria-selected'), 'true')
   assert.equal(currentList.querySelectorAll('.target-option')[1].classList.contains('is-selected'), true)
+  assert.equal(document.activeElement.dataset.targetKey, 'group:6060')
   assert.match(document.querySelector('.sub-card').textContent, /群聊 备用群/)
   assert.match(document.querySelector('#dirty-state').textContent, /设置有修改/)
 })
 
-test('all service checkbox selects all services and follows complete selection', () => {
-  const { dom } = createPage({
+test('all service checkbox selects all services and follows complete selection', async () => {
+  const { dom } = await createPage({
     enabled: true,
     subscriptions: [{
       id: 'bilibili-123456-group-5050',
@@ -224,8 +264,8 @@ test('all service checkbox selects all services and follows complete selection',
   assert.ok(Object.values(inputs).every((input) => input.checked))
 })
 
-test('saving without subscriber IDs keeps system subscription and refreshes target names', () => {
-  const { dom, messages } = createPage({
+test('saving without subscriber IDs keeps system subscription and refreshes target names', async () => {
+  const { dom, messages } = await createPage({
     enabled: true,
     subscriptions: [{
       id: 'bilibili-123456-group-5050',
@@ -252,8 +292,8 @@ test('saving without subscriber IDs keeps system subscription and refreshes targ
   assert.equal(lastMessage(messages, 'protocol.identities.resolve'), undefined)
 })
 
-test('saving subscriber IDs resolves display identity before settings save', () => {
-  const { dom, messages } = createPage()
+test('saving subscriber IDs resolves identity before settings save and stores only QQ numbers', async () => {
+  const { dom, messages } = await createPage()
   const document = dom.window.document
 
   document.querySelector('#save-button').click()
@@ -290,13 +330,53 @@ test('saving subscriber IDs resolves display identity before settings save', () 
 
   const values = saveMessage(messages).payload.values
   assert.equal(values.subscriptions[0].target_name, '测试群')
-  assert.equal(values.subscriptions[0].subscribers[0].group_nickname, '群名片')
+  assert.deepEqual(plain(values.subscriptions[0].subscribers), [{ id: '10001' }])
   assert.equal(values.subscriptions[1].target_name, '测试用户')
-  assert.equal(values.subscriptions[1].subscribers[0].nickname, '测试号')
+  assert.deepEqual(plain(values.subscriptions[1].subscribers), [{ id: '10001' }])
 })
 
-test('new row must resolve Bilibili user before saving', () => {
-  const { dom, messages } = createPage(defaultSettings)
+test('identity resolve failure prevents settings save', async () => {
+  const { dom, messages } = await createPage()
+  const document = dom.window.document
+
+  document.querySelector('#save-button').click()
+  const resolveMessage = lastMessage(messages, 'protocol.identities.resolve')
+  assert.ok(resolveMessage)
+
+  dispatchHost(dom, 'protocol.identities.resolved', {
+    items: [],
+    issues: [{ message: '订阅人身份解析失败' }],
+  }, resolveMessage.request_id)
+
+  assert.equal(saveMessage(messages), undefined)
+  assert.match(document.querySelector('#status-text').textContent, /订阅人身份解析失败/)
+})
+
+test('missing protocol target prevents settings save', async () => {
+  const { dom, messages } = await createPage({
+    enabled: true,
+    subscriptions: [{
+      id: 'bilibili-123456-group-9999',
+      platform: 'bilibili',
+      uid: '123456',
+      name: '测试 UP',
+      target_type: 'group',
+      target_id: '9999',
+      target_name: '不存在的群',
+      services: ['all'],
+      subscribers: [],
+      enabled: true,
+    }],
+  })
+  const document = dom.window.document
+
+  assert.equal(document.querySelector('#save-button').disabled, true)
+  document.querySelector('#save-button').click()
+  assert.equal(saveMessage(messages), undefined)
+})
+
+test('new row must resolve Bilibili user before saving', async () => {
+  const { dom, messages } = await createPage(defaultSettings)
   const document = dom.window.document
 
   document.querySelector('#add-subscription-button').click()

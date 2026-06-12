@@ -1,3 +1,4 @@
+/* Page base layout */
 :root {
   --bg: #f5f7fa;
   --surface: #ffffff;
@@ -146,6 +147,7 @@ h3 {
   color: var(--muted);
 }
 
+/* Top status bar */
 .status-pill {
   min-width: 180px;
   max-width: 520px;
@@ -227,6 +229,7 @@ h3 {
   gap: var(--space-md);
 }
 
+/* Toolbar */
 .toolbar {
   display: grid;
   grid-template-columns: minmax(260px, 1fr) 150px 180px;
@@ -345,6 +348,7 @@ h3 {
   gap: var(--space-sm);
 }
 
+/* Subscription rows */
 .subscription-list {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(min(100%, 380px), 380px));
@@ -595,6 +599,7 @@ h3 {
   color: var(--muted);
 }
 
+/* Edit area */
 .up-input-line,
 .subscriber-line {
   display: flex;
@@ -638,6 +643,7 @@ h3 {
   white-space: nowrap;
 }
 
+/* Target picker */
 .mode-tabs {
   display: flex;
   gap: var(--space-xs);
@@ -737,6 +743,7 @@ h3 {
   text-align: center;
 }
 
+/* Subscriber editor */
 .chip-list {
   display: flex;
   flex-wrap: wrap;
@@ -788,6 +795,7 @@ h3 {
   border-color: rgba(22, 163, 74, 0.18);
 }
 
+/* Service picker */
 .inline-checks {
   display: flex;
   flex-wrap: wrap;
@@ -829,6 +837,7 @@ h3 {
   align-items: center;
 }
 
+/* Status labels and errors */
 .validation-list {
   display: grid;
   gap: var(--space-xs);
@@ -872,6 +881,7 @@ h3 {
   color: var(--danger);
 }
 
+/* Footer actions */
 .actions-bar {
   position: sticky;
   bottom: var(--space-lg);
@@ -896,6 +906,7 @@ h3 {
   gap: var(--space-sm);
 }
 
+/* Responsive layout */
 @media (max-width: 720px) {
   .page-shell {
     padding: var(--space-md);
