@@ -383,12 +383,6 @@ onBeforeUnmount(() => {
 
 <template>
   <AppPage :title="t('logs.historyTitle')" full-height>
-    <template #extra>
-      <a-button :loading="loading" @click="refreshHistory">
-        {{ t('logs.history.refresh') }}
-      </a-button>
-    </template>
-
     <template #toolbar>
       <a-card :bordered="false" class="app-view-card logs-toolbar">
         <a-form layout="vertical" class="logs-filter-grid">

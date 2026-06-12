@@ -760,7 +760,8 @@ test('access lists page manages blacklist and whitelist entries', async ({ page,
       headers: authHeaders,
     })
   }
-  await page.getByRole('button', { name: '刷新状态' }).click()
+  await page.goto('/access-lists')
+  await expect(page.getByRole('heading', { name: '黑白名单', level: 1 })).toBeVisible()
   await expect(whitelistCard).not.toContainText('31010')
 
   await page.getByTestId('access-lists-whitelist-enabled').dispatchEvent('click')
@@ -1146,7 +1147,7 @@ test('logs page keeps the feed and floating detail window inside the viewport', 
   expect(metrics.detailClientHeight).toBeGreaterThan(0)
 })
 
-test('history logs stay frozen until the user refreshes the anchor', async ({ page, request }) => {
+test('history logs stay frozen until a new anchor is loaded', async ({ page, request }) => {
   await resetBackend(request, true)
   await login(page)
 
@@ -1204,8 +1205,6 @@ test('history logs stay frozen until the user refreshes the anchor', async ({ pa
   })
 
   await expect(page.locator('.logs-row__message', { hasText: 'history row latest' })).toHaveCount(0)
-  await page.getByRole('button', { name: '刷新到最新时间' }).click()
-  await expect(page.locator('.logs-row__message', { hasText: 'history row latest' })).toBeVisible()
 
   await page.goto('/logs')
   await expect(page.getByRole('heading', { name: '实时日志', level: 1 })).toBeVisible()
@@ -1848,7 +1847,7 @@ test('status page can start backup tasks and export diagnostics', async ({ page,
   expect(await download.suggestedFilename()).toContain('rayleabot-diagnostics')
 })
 
-test('template preview auto-refreshes results without editor controls', async ({ page, request }) => {
+test('template preview auto-updates results without editor controls', async ({ page, request }) => {
   await resetBackend(request, true)
   await login(page)
 
@@ -1877,8 +1876,8 @@ test('template preview auto-refreshes results without editor controls', async ({
   await expect(previewFrame).toBeVisible()
   await expect(previewFrame).toHaveAttribute('srcdoc', /帮助菜单/)
 
-  await page.getByLabel('输入数据 JSON').fill('{\n  "title": "帮助菜单（自动刷新）"\n}')
-  await expect(previewFrame).toHaveAttribute('srcdoc', /帮助菜单（自动刷新）/)
+  await page.getByLabel('输入数据 JSON').fill('{\n  "title": "帮助菜单（自动同步）"\n}')
+  await expect(previewFrame).toHaveAttribute('srcdoc', /帮助菜单（自动同步）/)
 
   await page.locator('.template-nav-item').filter({ hasText: 'status.panel' }).first().click()
   await expect(page).toHaveURL(/\/render\/templates\/status\.panel$/)
@@ -2738,7 +2737,7 @@ test('third-party monitoring shows Bilibili targets with realtime updates', asyn
   await expect(monitorCard).toBeVisible()
   await expect(monitorCard).toContainText('UID 123456')
   await expect(monitorCard).toContainText('新视频标题')
-  await expect(monitorCard).toContainText('监控刷新时间')
+  await expect(monitorCard).toContainText('监控更新时间')
   await expect(monitorCard).toContainText('开播中')
   await expect(monitorCard).toContainText('直播间标题')
   await expect(monitorCard).toContainText('10001')
@@ -2794,12 +2793,12 @@ test('fallback pages cover missing routes and server offline recovery', async ({
   await expect(page.getByRole('heading', { name: '指令中心' })).toBeVisible()
 
   await setBackendNetworkOffline(request)
-  await page.getByRole('button', { name: '刷新列表' }).click()
-  await expect(page.getByText('读取未完成，请稍后重试。').first()).toBeVisible({ timeout: 7000 })
+  await page.goto('/access-lists')
+  await expect(page.getByRole('heading', { name: '哎呀！网络错误' })).toBeVisible({ timeout: 7000 })
 
   await setBackendNetworkOnline(request)
-  await page.getByRole('button', { name: '刷新列表' }).click()
-  await expect(page.getByRole('heading', { name: '指令中心' })).toBeVisible()
+  await page.getByRole('button', { name: '重新检测' }).click()
+  await expect(page.getByRole('heading', { name: '黑白名单', level: 1 })).toBeVisible()
 })
 
 test('shutdown flow shows the draining toast', async ({ page, request }) => {
@@ -2811,8 +2810,6 @@ test('shutdown flow shows the draining toast', async ({ page, request }) => {
 
   await expect(page.locator('.ant-message')).toContainText('停机请求已发送')
   await expect(page.locator('.ant-message')).toContainText('服务正在停止')
-  await page.getByRole('button', { name: '刷新状态' }).click()
-  await expect(page.locator('.ant-message')).toContainText('服务正在停止：服务正在停止，管理界面连接断开属于预期行为。', { timeout: 7000 })
 })
 
 test('mobile navigation and card layouts remain usable', async ({ page, request }) => {

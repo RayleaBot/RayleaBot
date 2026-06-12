@@ -183,6 +183,7 @@ describe('ThirdPartyMonitoringPage', () => {
     expect(wrapper.text()).toContain('直播请求被平台限制')
     expect(wrapper.text()).toContain('动态接收不受影响')
     expect(wrapper.text()).toContain('CK 有效')
+    expect(wrapper.text()).not.toContain('刷新状态')
     expect(wrapper.text()).not.toContain('降级检查')
     expect(wrapper.text()).not.toContain('查看 Bilibili CK')
   })
@@ -215,6 +216,7 @@ describe('ThirdPartyMonitoringPage', () => {
 
     const openButton = wrapper.findAll('button').find((candidate) => candidate.text().includes('查看 Bilibili CK'))
     expect(openButton).toBeTruthy()
+    expect(wrapper.text()).not.toContain('刷新状态')
     await openButton!.trigger('click')
     await flushPromises()
 
@@ -233,7 +235,7 @@ describe('ThirdPartyMonitoringPage', () => {
   it('does not show guessed live end time or dynamic empty summary', async () => {
     const { wrapper } = await mountMonitoringPage()
 
-    expect(wrapper.text()).toContain('监控刷新时间')
+    expect(wrapper.text()).toContain('监控更新时间')
     expect(wrapper.text()).toContain('下播时间')
     expect(wrapper.text()).not.toContain('当前没有可展示的最近动态。')
     const factValues = wrapper.findAll('.monitor-card__facts dd').map((item) => item.text())

@@ -46,7 +46,7 @@ export function createSocketFrameRouter(
     try {
       await dependencies.system.refreshStatus()
     } catch {
-      // dashboard keeps the last good snapshot until the next reconnect or manual refresh
+      // dashboard keeps the last good snapshot until the next reconnect signal
     } finally {
       statusRefreshInFlight = false
     }

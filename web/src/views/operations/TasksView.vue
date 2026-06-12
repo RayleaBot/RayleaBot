@@ -172,12 +172,6 @@ function getStatusColor(status: string) {
 
 <template>
   <AppPage :title="t('tasks.title')" full-height>
-    <template #extra>
-      <a-button :loading="loading" :aria-label="t('tasks.refresh')" @click="loadTasks()">
-        {{ t('tasks.refresh') }}
-      </a-button>
-    </template>
-
     <a-card v-if="!readyToRenderHeavyContent" class="tasks-empty-card" :bordered="false">
       <a-skeleton active :paragraph="{ rows: 4 }" />
     </a-card>

@@ -104,26 +104,6 @@ describe('SchedulerJobsPage', () => {
     expect(wrapper.text()).toContain('暂无定时任务')
   })
 
-  it('refreshes scheduler jobs through the toolbar action', async () => {
-    const store = useSchedulerJobsStore()
-    store.items = [makeSchedulerJob()]
-    const fetchSpy = vi.spyOn(store, 'fetchList').mockResolvedValue(undefined)
-
-    const wrapper = mount(SchedulerJobsPage, {
-      global: {
-        plugins: [Antd],
-      },
-    })
-    await flushPromises()
-
-    const refreshButton = wrapper.findAll('button').find((candidate) => candidate.text().includes('刷新'))
-    expect(refreshButton).toBeTruthy()
-    await refreshButton!.trigger('click')
-    await flushPromises()
-
-    expect(fetchSpy).toHaveBeenCalledTimes(2)
-  })
-
   it('opens a scheduler job detail view without full payload data', async () => {
     const store = useSchedulerJobsStore()
     store.items = [makeSchedulerJob()]

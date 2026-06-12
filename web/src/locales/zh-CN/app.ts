@@ -75,7 +75,6 @@ export const shell = {
     menu: '标签页操作',
     closeOther: '关闭其他标签',
     closeRight: '关闭右侧标签',
-    refresh: '刷新当前页',
   },
   toggleSidebar: '折叠侧栏',
   preferences: {
@@ -108,7 +107,7 @@ export const shell = {
     radiusSm: '较小',
     radiusXl: '更大',
     rememberTabs: '记住标签页',
-    rememberTabsHelp: '刷新页面后恢复已打开的标签。',
+    rememberTabsHelp: '重新打开管理界面后恢复已打开的标签。',
     reset: '恢复默认设置',
     shortcutCloseCurrent: '关闭当前标签页',
     shortcutCloseOther: '关闭其他标签页',

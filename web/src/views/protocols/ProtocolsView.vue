@@ -35,7 +35,6 @@ const {
 } = storeToRefs(configStore)
 const {
   error: protocolsError,
-  loading: protocolsLoading,
   snapshot,
 } = storeToRefs(protocolsStore)
 
@@ -60,7 +59,6 @@ const protocolStatusLabel = computed(() => (
 const protocolStatusType = computed(() => getStatusType(activeTransportState.value ?? snapshot.value?.readiness_status))
 const readinessLabel = computed(() => getReadinessStatusLabel(snapshot.value?.readiness_status))
 const readinessType = computed(() => getStatusType(snapshot.value?.readiness_status))
-const pageLoading = computed(() => configLoading.value || protocolsLoading.value)
 const protocolSummary = computed(() => snapshot.value?.summary ?? t('display.empty'))
 const pageError = computed(() => configError.value || protocolsError.value)
 const feedbackToast = computed(() => {
@@ -328,12 +326,6 @@ const adapterConfigFields = computed(() => {
   <AppPage :title="t('protocols.title')" :description="t('protocols.subtitle')">
     <template #extra>
       <div class="table-actions">
-        <a-button :loading="pageLoading" @click="loadPage">
-          <template #icon>
-            <span class="btn-icon">↻</span>
-          </template>
-          {{ t('dashboard.refresh') }}
-        </a-button>
         <a-button type="primary" :disabled="!canSave" :loading="saving" @click="save" class="save-glow-btn">
           <template #icon>
             <span class="btn-icon">✓</span>

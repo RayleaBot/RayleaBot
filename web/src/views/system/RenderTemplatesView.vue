@@ -894,9 +894,6 @@ onBeforeUnmount(() => {
   <AppPage :title="t('renderTemplates.title')" :description="t('renderTemplates.subtitle')" full-height>
     <template #extra>
       <div class="render-templates-actions">
-        <a-button :loading="loading || workspaceLoading" @click="loadTemplateList">
-          {{ t('dashboard.refresh') }}
-        </a-button>
         <a-button :disabled="!activeTemplateId" @click="reloadCurrentTemplate">
           {{ t('renderTemplates.reloadAction') }}
         </a-button>

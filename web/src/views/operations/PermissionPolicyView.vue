@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import {
   ExclamationCircleOutlined,
-  ReloadOutlined,
   SafetyCertificateOutlined,
   SafetyOutlined,
   SaveOutlined,
@@ -288,12 +287,6 @@ async function save() {
   <AppPage :title="t('permissionPolicy.title')">
     <template #extra>
       <div class="table-actions permission-policy-actions">
-        <a-button :loading="pageBusy" @click="loadPage">
-          <template #icon>
-            <ReloadOutlined />
-          </template>
-          {{ t('dashboard.refresh') }}
-        </a-button>
         <a-button data-testid="permission-policy-open-access-lists" @click="router.push(buildAccessListsLocation())">
           <template #icon>
             <TeamOutlined />

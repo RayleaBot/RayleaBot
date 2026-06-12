@@ -5,7 +5,6 @@ import {
   CloseOutlined,
   ClockCircleOutlined,
   EyeOutlined,
-  ReloadOutlined,
   ThunderboltOutlined,
   SearchOutlined,
   AppstoreOutlined,
@@ -43,7 +42,7 @@ const statusFilter = ref<'all' | 'success' | 'error'>('all')
 const sortBy = ref<'name' | 'last_run' | 'duration'>('name')
 const viewMode = ref<'table' | 'grid'>('table')
 
-// 定时更新相对时间
+// 更新相对时间显示
 const timeTick = ref(0)
 let timerId: any = null
 
@@ -62,7 +61,7 @@ onMounted(() => {
   void loadSchedulerJobs()
   timerId = setInterval(() => {
     timeTick.value++
-  }, 10000) // 每 10 秒强制刷新一次相对倒计时视图
+  }, 10000)
 })
 
 onUnmounted(() => {
@@ -301,17 +300,6 @@ const filteredItems = computed(() => {
 
 <template>
   <AppPage :title="t('scheduler.title')" full-height>
-    <template #extra>
-      <div class="scheduler-toolbar">
-        <a-button :loading="loading" :aria-label="t('scheduler.refresh')" class="refresh-btn" @click="loadSchedulerJobs">
-          <template #icon>
-            <ReloadOutlined />
-          </template>
-          {{ t('scheduler.refresh') }}
-        </a-button>
-      </div>
-    </template>
-
     <div class="scheduler-page-container">
       <!-- 高级交互搜索过滤栏 -->
       <div class="scheduler-filter-card">
@@ -843,29 +831,6 @@ const filteredItems = computed(() => {
   flex-direction: column;
   flex: 1 1 auto;
   min-height: 0;
-}
-
-/* ----------------------------------------------------
- * 主题基础变量与公用混合宏
- * ---------------------------------------------------- */
-.scheduler-toolbar {
-  display: flex;
-  align-items: center;
-  gap: var(--space-sm);
-}
-
-.refresh-btn {
-  height: 38px;
-  border-radius: var(--radius-md);
-  border-color: var(--border);
-  background: var(--surface);
-  transition: color 0.25s ease, border-color 0.25s ease, background-color 0.25s ease;
-
-  &:hover {
-    color: var(--accent) !important;
-    border-color: var(--accent) !important;
-    background: var(--surface-accent) !important;
-  }
 }
 
 /* ----------------------------------------------------

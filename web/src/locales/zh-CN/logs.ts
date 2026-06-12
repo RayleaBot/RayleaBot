@@ -2,7 +2,6 @@ export const logs = {
   title: '实时日志',
   currentTitle: '实时日志',
   historyTitle: '历史日志',
-  refresh: '刷新',
   filters: {
     level: '级别',
     source: '来源',
@@ -42,7 +41,6 @@ export const logs = {
     jumpToLatest: '滚动到最新',
   },
   history: {
-    refresh: '刷新到最新时间',
     streamTitle: '历史日志',
     frozen: '固定时间窗口',
     startAt: '开始时间',

@@ -229,20 +229,6 @@ async function activatePage() {
   }
 }
 
-async function refreshLatest() {
-  try {
-    await logsStore.refreshLatest()
-    await replaceRouteState()
-    await whenReadyToRenderHeavyContent()
-    await nextTick()
-    if (followBottom.value) {
-      viewportRef.value?.scrollToBottom()
-    }
-  } catch {
-    // store error drives the page
-  }
-}
-
 async function applyFilters() {
   try {
     logsStore.setViewportAtBottom(true)
@@ -328,12 +314,6 @@ onUnmounted(() => {
 
 <template>
   <AppPage :title="t('logs.currentTitle')" full-height>
-    <template #extra>
-      <a-button :loading="loading" :aria-label="t('logs.refresh')" @click="refreshLatest">
-        {{ t('logs.refresh') }}
-      </a-button>
-    </template>
-
     <template #toolbar>
       <a-card
         :bordered="false"

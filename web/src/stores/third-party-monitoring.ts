@@ -121,7 +121,7 @@ export const useThirdPartyMonitoringStore = defineStore('third-party-monitoring'
       }
       lastRefreshedAt.value = new Date().toISOString()
     } catch {
-      // 静默刷新失败时保留上次成功数据，等待下一次事件信号
+      // 静默同步失败时保留上次成功数据，等待下一次事件信号
     } finally {
       silentRefreshInFlight = false
       if (active && silentRefreshQueued) {

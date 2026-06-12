@@ -2,7 +2,6 @@ export const builtinFeatures = {
   menuCenter: {
     title: '菜单中心',
     subtitle: '配置内置菜单命令，并预览聊天菜单内容。',
-    refresh: '刷新',
     save: '保存',
     unsaved: '有未保存更改',
     saved: '保存完成',
@@ -33,7 +32,6 @@ export const builtinFeatures = {
   thirdPartyAccounts: {
     title: '三方账号',
     subtitle: '配置平台事件源使用的外部账号。',
-    refresh: '刷新',
     save: '保存',
     edit: '编辑',
     delete: '删除',
@@ -125,7 +123,7 @@ export const builtinFeatures = {
     startedAt: '开播时间',
     endedAt: '下播时间',
     connection: '连接',
-    updated: '监控刷新时间',
+    updated: '监控更新时间',
     services: {
       live: '直播',
       video: '视频',

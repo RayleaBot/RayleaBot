@@ -417,9 +417,6 @@ onMounted(() => {
   <AppPage :title="t('accessLists.title')" :description="t('accessLists.subtitle')">
     <template #extra>
       <div class="table-actions">
-        <a-button :loading="pageBusy" :aria-label="t('accessLists.refresh')" @click="loadAccessLists()">
-          {{ t('accessLists.refresh') }}
-        </a-button>
         <a-button data-testid="access-lists-open-commands" type="primary" @click="router.push(buildCommandsLocation())">
           {{ t('accessLists.actions.openCommands') }}
         </a-button>

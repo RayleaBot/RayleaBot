@@ -451,10 +451,6 @@ async function submitInstall() {
               <template #icon><PlusOutlined /></template>
               {{ t('plugins.install') }}
             </a-button>
-            <a-button :loading="loading" @click="loadPlugins()">
-              <template #icon><ReloadOutlined /></template>
-              {{ t('plugins.refresh') }}
-            </a-button>
           </template>
         </AppTableToolbar>
 

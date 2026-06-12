@@ -1,6 +1,5 @@
 export const tasks = {
   title: '任务',
-  refresh: '刷新任务',
   detailTitle: '任务详情',
   fields: {
     id: '任务 ID',

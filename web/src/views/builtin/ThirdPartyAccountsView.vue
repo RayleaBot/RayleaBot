@@ -383,9 +383,6 @@ function timeText(value?: string | null) {
             <p>{{ t('builtinFeatures.thirdPartyAccounts.accountSummary', { configured: configuredAccountCount, enabled: enabledAccountCount }) }}</p>
           </div>
           <div class="accounts-panel__actions">
-            <a-button :loading="loading" @click="loadPage">
-              {{ t('builtinFeatures.thirdPartyAccounts.refresh') }}
-            </a-button>
             <a-button type="primary" @click="addDraft">
               <template #icon><PlusOutlined /></template>
               {{ t('builtinFeatures.thirdPartyAccounts.addBilibili') }}

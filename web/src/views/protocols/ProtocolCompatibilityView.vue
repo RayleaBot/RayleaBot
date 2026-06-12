@@ -122,10 +122,6 @@ function providerColumnClass(provider: string) {
 
 <template>
   <AppPage :title="t('protocols.compatibilityTitle')" :description="t('protocols.compatibilitySubtitle')">
-    <template #extra>
-      <a-button :loading="pageLoading" @click="loadPage">{{ t('dashboard.refresh') }}</a-button>
-    </template>
-
     <div class="protocol-compatibility-page" data-testid="protocol-compatibility-page">
       <div class="protocol-overview-grid">
         <a-card :bordered="false" class="protocol-overview-card">

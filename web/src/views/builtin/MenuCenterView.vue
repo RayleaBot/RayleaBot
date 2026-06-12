@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
-import { ReloadOutlined, SaveOutlined } from '@ant-design/icons-vue'
+import { SaveOutlined } from '@ant-design/icons-vue'
 
 import { notifySuccess, useToastFeedback } from '@/adapter/feedback'
 import NativeTemplatePreviewFrame from '@/components/NativeTemplatePreviewFrame.vue'
@@ -295,10 +295,6 @@ async function save() {
         >
           <template #icon><SaveOutlined /></template>
           {{ t('builtinFeatures.menuCenter.save') }}
-        </a-button>
-        <a-button :loading="loading" @click="loadPage">
-          <template #icon><ReloadOutlined /></template>
-          {{ t('builtinFeatures.menuCenter.refresh') }}
         </a-button>
       </div>
     </template>

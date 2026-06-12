@@ -228,11 +228,8 @@ onMounted(() => {
   <AppPage :title="t('commands.title')" :description="t('commands.subtitle')" full-height>
     <template #extra>
       <div class="commands-page__actions">
-        <a-button data-testid="commands-open-permission-policy" :aria-label="t('commands.actions.openPermissionPolicy')" @click="router.push(buildPermissionPolicyLocation())">
+        <a-button type="primary" data-testid="commands-open-permission-policy" :aria-label="t('commands.actions.openPermissionPolicy')" @click="router.push(buildPermissionPolicyLocation())">
           {{ t('commands.actions.openPermissionPolicy') }}
-        </a-button>
-        <a-button :loading="loading || commandPolicyLoading" type="primary" :aria-label="t('commands.refresh')" @click="loadCommands()">
-          {{ t('commands.refresh') }}
         </a-button>
       </div>
     </template>

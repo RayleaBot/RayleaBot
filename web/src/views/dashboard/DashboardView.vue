@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 
 import {
   CheckCircleOutlined,
@@ -22,17 +22,18 @@ import { t } from '@/i18n'
 import { useDashboardPage } from '@/views/dashboard/useDashboardPage'
 
 const activeOverviewTab = ref('events')
+const uptimeClock = ref(Date.now())
+const uptimeSnapshotAt = ref(Date.now())
+let uptimeTimer: ReturnType<typeof window.setInterval> | null = null
 
 const {
   adapterDetailText,
   adapterStatusType,
   adapterValueText,
-  autoRefresh,
   backupPending,
   bootstrapRuntimeResources,
   checkItems,
   confirmRecoverySelection,
-  countdown,
   createBackup,
   diagnosticsPending,
   error,
@@ -42,7 +43,6 @@ const {
   healthStatusType,
   healthValueText,
   issuesExpanded,
-  lastRefreshed,
   loading,
   openRecoveryPlugin,
   pendingRecoveryPlugins,
@@ -68,7 +68,6 @@ const {
   system,
   systemDetailText,
   systemValueText,
-  toggleAutoRefresh,
   visibleReasonCodes,
 } = useDashboardPage()
 
@@ -160,6 +159,37 @@ const protocolIssueToast = computed(() => (
       }
     : null
 ))
+const liveUptimeSeconds = computed(() => {
+  const baseUptime = system.value?.uptime_seconds
+  if (baseUptime === undefined) {
+    return undefined
+  }
+
+  const elapsedSeconds = Math.max(0, Math.floor((uptimeClock.value - uptimeSnapshotAt.value) / 1000))
+  return baseUptime + elapsedSeconds
+})
+
+watch(
+  () => system.value?.uptime_seconds,
+  () => {
+    uptimeClock.value = Date.now()
+    uptimeSnapshotAt.value = uptimeClock.value
+  },
+  { immediate: true },
+)
+
+onMounted(() => {
+  uptimeTimer = window.setInterval(() => {
+    uptimeClock.value = Date.now()
+  }, 1000)
+})
+
+onBeforeUnmount(() => {
+  if (uptimeTimer !== null) {
+    window.clearInterval(uptimeTimer)
+    uptimeTimer = null
+  }
+})
 
 useToastFeedback(readinessToast)
 useToastFeedback(dashboardErrorToast)
@@ -168,32 +198,6 @@ useToastFeedback(protocolIssueToast)
 
 <template>
   <AppPage :title="t('dashboard.title')">
-    <template #extra>
-      <div class="dashboard-page__actions">
-        <span v-if="lastRefreshed || autoRefresh" class="dashboard-page__refresh-meta">
-          <template v-if="lastRefreshed">
-            {{ `${t('dashboard.lastRefreshed')}: ${formatRelativeTime(lastRefreshed)}` }}
-          </template>
-          <template v-if="autoRefresh">
-            <span v-if="lastRefreshed"> · </span>
-            {{ `${t('dashboard.autoRefresh')}: ${countdown}s` }}
-          </template>
-        </span>
-        <label class="dashboard-page__refresh-toggle">
-          <span>{{ t('dashboard.autoRefresh') }}</span>
-          <a-switch
-            :checked="autoRefresh"
-            size="small"
-            :aria-label="t('dashboard.autoRefresh')"
-            @change="toggleAutoRefresh"
-          />
-        </label>
-        <a-button :loading="loading" @click="refreshState()">
-          {{ t('dashboard.refresh') }}
-        </a-button>
-      </div>
-    </template>
-
     <RetryPanel
       v-if="error && !system"
       :title="t('routes.status')"
@@ -217,7 +221,7 @@ useToastFeedback(protocolIssueToast)
       :active-plugins-to="{ name: 'plugins' }"
       :active-plugins-aria-label="t('dashboard.openPluginList')"
       :uptime-label="t('dashboard.uptime')"
-      :uptime-text="formatDurationSeconds(system?.uptime_seconds)"
+      :uptime-text="formatDurationSeconds(liveUptimeSeconds)"
     />
 
     <div class="dashboard-main-grid">
@@ -377,11 +381,6 @@ useToastFeedback(protocolIssueToast)
             <strong :class="`text-${adapterStatusType}`">{{ adapterValueText }}</strong>
             <small>{{ adapterDetailText }}</small>
           </div>
-          <div class="dashboard-runtime-item">
-            <span>{{ t('dashboard.lastRefreshed') }}</span>
-            <strong>{{ lastRefreshed ? formatRelativeTime(lastRefreshed) : t('display.empty') }}</strong>
-            <small>{{ autoRefresh ? `${t('dashboard.autoRefresh')} ${countdown}s` : t('dashboard.refresh') }}</small>
-          </div>
         </div>
       </AppCard>
     </div>
@@ -389,40 +388,6 @@ useToastFeedback(protocolIssueToast)
 </template>
 
 <style scoped lang="scss">
-.dashboard-page__actions {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 12px;
-  flex-wrap: wrap;
-}
-
-.dashboard-page__refresh-meta {
-  color: var(--muted);
-  font-size: 0.78rem;
-  background: var(--surface-soft);
-  padding: 4px 10px;
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--border);
-  font-weight: 500;
-}
-
-.dashboard-page__refresh-toggle {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  color: var(--muted);
-  font-size: 0.8rem;
-  cursor: pointer;
-  padding: 4px 8px;
-  border-radius: var(--radius-sm);
-  transition: background-color 0.2s ease;
-
-  &:hover {
-    background: var(--surface-soft);
-  }
-}
-
 .dashboard-main-grid {
   display: grid;
   grid-template-columns: minmax(0, 1.15fr) minmax(340px, 0.85fr);
@@ -493,7 +458,7 @@ useToastFeedback(protocolIssueToast)
 
 .dashboard-runtime-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: var(--space-md);
 }
 
@@ -836,12 +801,6 @@ useToastFeedback(protocolIssueToast)
   .dashboard-main-grid,
   .dashboard-bottom-grid {
     grid-template-columns: 1fr;
-  }
-}
-
-@media (max-width: 720px) {
-  .dashboard-page__actions {
-    justify-content: flex-start;
   }
 }
 </style>

@@ -54,7 +54,7 @@ function mockDashboardRefreshes() {
   const systemStore = useSystemStore()
   const protocolsStore = useProtocolsStore()
   const tasksStore = useTasksStore()
-  vi.spyOn(systemStore, 'refresh').mockResolvedValue(undefined)
+  vi.spyOn(systemStore, 'refreshAll').mockResolvedValue(undefined)
   vi.spyOn(protocolsStore, 'refresh').mockImplementation(async () => ({ snapshot: protocolsStore.snapshot }))
   return { protocolsStore, systemStore, tasksStore }
 }
@@ -133,6 +133,49 @@ describe('DashboardPage', () => {
 
     expect(createBackupSpy).toHaveBeenCalledTimes(1)
     expect(exportDiagnosticsSpy).toHaveBeenCalledTimes(1)
+  })
+
+  it('updates the displayed uptime every second without refreshing dashboard data', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-06-12T00:00:00Z'))
+    let wrapper: { text: () => string; unmount: () => void } | null = null
+
+    try {
+      const router = createDashboardRouter()
+      await router.push('/')
+      await router.isReady()
+
+      const { protocolsStore, systemStore: store } = mockDashboardRefreshes()
+      store.health = { status: 'ok' }
+      store.readiness = { status: 'ready' }
+      store.system = {
+        status: 'running',
+        adapter_state: 'connected',
+        active_plugins: 2,
+        uptime_seconds: 120,
+      }
+      protocolsStore.snapshot = createProtocolSnapshot()
+
+      wrapper = mount(DashboardPage, {
+        global: {
+          plugins: [Antd, router],
+        },
+      })
+
+      await flushPromises()
+
+      expect(wrapper.text()).toContain('2 分钟 0 秒')
+      expect(store.refreshAll).toHaveBeenCalledTimes(1)
+
+      await vi.advanceTimersByTimeAsync(6000)
+      await flushPromises()
+
+      expect(wrapper.text()).toContain('2 分钟 6 秒')
+      expect(store.refreshAll).toHaveBeenCalledTimes(1)
+    } finally {
+      wrapper?.unmount()
+      vi.useRealTimers()
+    }
   })
 
   it('opens the plugin list from the active plugins card', async () => {

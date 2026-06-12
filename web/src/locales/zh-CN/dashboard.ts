@@ -1,6 +1,5 @@
 export const dashboard = {
   title: '系统状态',
-  refresh: '刷新状态',
   health: '健康检查',
   readiness: '就绪状态',
   service: '服务状态',
@@ -24,8 +23,6 @@ export const dashboard = {
   recoveryRecheckAccepted: '恢复摘要重新检查任务已提交',
   recoveryConfirmAccepted: '恢复项确认任务已提交',
   runtimeBootstrapAccepted: '运行环境准备任务已提交',
-  lastRefreshed: '上次刷新',
-  autoRefresh: '自动刷新',
   reasonCodes: '原因代码',
   expandIssues: '展开剩余 {count} 项',
   collapseIssues: '收起',

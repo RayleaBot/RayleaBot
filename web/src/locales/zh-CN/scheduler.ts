@@ -1,6 +1,5 @@
 export const scheduler = {
   title: '定时任务',
-  refresh: '刷新',
   view: '查看',
   trigger: '立即执行',
   detailTitle: '定时任务详情',

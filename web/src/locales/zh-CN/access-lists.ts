@@ -1,7 +1,6 @@
 export const accessLists = {
   title: '黑白名单',
   subtitle: '维护白名单、黑名单和白名单启用状态。',
-  refresh: '刷新状态',
   actions: {
     openCommands: '查看指令中心',
     addEntry: '添加条目',

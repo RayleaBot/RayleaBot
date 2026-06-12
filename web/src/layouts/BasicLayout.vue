@@ -14,7 +14,6 @@ import {
   MenuUnfoldOutlined,
   MoreOutlined,
   PoweroffOutlined,
-  ReloadOutlined,
   RightOutlined,
   SearchOutlined,
   SettingOutlined,
@@ -99,7 +98,7 @@ interface AppBreadcrumbItem {
   title: string
 }
 
-type TabActionKey = 'refresh' | 'close-current' | 'close-other' | 'close-left' | 'close-right' | 'close-all'
+type TabActionKey = 'close-current' | 'close-other' | 'close-left' | 'close-right' | 'close-all'
 
 interface TabActionItem {
   disabled?: boolean
@@ -152,7 +151,6 @@ function handlePageTransitionAfterEnter() {
 function handlePageTransitionEnterCancelled() {
   internalPageTransitionStage.value = 'idle'
 }
-const currentRouteViewName = computed(() => resolveRouteViewIdentity(route))
 const routeStageRegistry = new Map<string, VueComponent>()
 const breadcrumbItems = computed<AppBreadcrumbItem[]>(() => {
   const seen = new Set<string>()
@@ -489,10 +487,6 @@ function onTabEdit(targetKey: string | MouseEvent, action: 'add' | 'remove') {
   closeTab(targetKey)
 }
 
-async function refreshCurrentRoute() {
-  await uiShellStore.refreshView(currentRouteViewName.value)
-}
-
 function closeOtherTabs(targetPath = currentTabPath.value) {
   if (!findTab(targetPath)) {
     return
@@ -583,9 +577,6 @@ function onSearchOpenUpdate(open: boolean) {
 function handleTabAction(key: string | number, targetTab = currentTab.value) {
   const actionKey = String(key) as TabActionKey
   switch (actionKey) {
-    case 'refresh':
-      void refreshCurrentRoute()
-      return
     case 'close-current':
       if (targetTab && !targetTab.affix) {
         closeTab(targetTab.path)
@@ -655,10 +646,7 @@ function getTabCloseActionItems(targetTab: ShellTabItem | null | undefined): Tab
   ]
 }
 
-const tabActionItems = computed<TabActionItem[]>(() => [
-  { key: 'refresh', label: t('shell.tabActions.refresh') },
-  ...getTabCloseActionItems(currentTab.value),
-])
+const tabActionItems = computed<TabActionItem[]>(() => getTabCloseActionItems(currentTab.value))
 
 function isEditableTarget(target: EventTarget | null) {
   if (!(target instanceof HTMLElement)) {
@@ -714,10 +702,10 @@ function handleReducedMotionPreference(event?: MediaQueryList | MediaQueryListEv
 function getRouteViewKey(viewRoute: RouteLocationNormalizedLoaded) {
   const viewIdentity = resolveRouteViewIdentity(viewRoute)
   if (typeof getLeafRouteMeta(viewRoute)?.viewKey === 'string' && getLeafRouteMeta(viewRoute)?.viewKey) {
-    return `${viewIdentity}:${uiShellStore.getRefreshKey(viewIdentity)}`
+    return viewIdentity
   }
 
-  return `${viewIdentity}:${viewRoute.path}:${uiShellStore.getRefreshKey(viewIdentity)}`
+  return `${viewIdentity}:${viewRoute.path}`
 }
 
 onMounted(() => {
@@ -1097,20 +1085,6 @@ onBeforeUnmount(() => {
             </a-tabs>
 
             <div class="admin-layout__tabbar-actions">
-              <a-tooltip :title="t('shell.tabActions.refresh')">
-                <a-button
-                  class="admin-layout__icon-button"
-                  type="text"
-                  :aria-label="t('shell.tabActions.refresh')"
-                  data-testid="tabbar-refresh"
-                  @click="refreshCurrentRoute"
-                >
-                  <template #icon>
-                    <ReloadOutlined />
-                  </template>
-                </a-button>
-              </a-tooltip>
-
               <a-dropdown placement="bottomRight">
                 <a-button
                   class="admin-layout__icon-button"

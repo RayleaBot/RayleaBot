@@ -1,10 +1,6 @@
-import { onMounted, onUnmounted, ref, watch, type ComputedRef, type Ref } from 'vue'
-
-import type { ConnectionStatus } from '@/types/api'
-import { AUTO_REFRESH_INTERVAL } from '@/views/dashboard/constants'
+import { onMounted, ref, watch, type ComputedRef, type Ref } from 'vue'
 
 type DashboardRefreshInput = {
-  eventsSocketStatus: ComputedRef<ConnectionStatus>
   recoveryConfirmNote: Ref<string>
   recoverySummary: ComputedRef<any>
   selectedRecoveryReviewIds: Ref<string[]>
@@ -16,16 +12,8 @@ type DashboardRefreshInput = {
   }
 }
 
-export function shouldUseDashboardHttpAutoRefresh(status: ConnectionStatus) {
-  return status !== 'authenticated' && status !== 'connected'
-}
-
 export function useDashboardRefresh(input: DashboardRefreshInput) {
-  const autoRefresh = ref(false)
   const lastRefreshed = ref<string | null>(null)
-  const countdown = ref(AUTO_REFRESH_INTERVAL)
-  let autoRefreshTimer: ReturnType<typeof setInterval> | null = null
-  let countdownTimer: ReturnType<typeof setInterval> | null = null
 
   async function refreshState() {
     try {
@@ -36,62 +24,9 @@ export function useDashboardRefresh(input: DashboardRefreshInput) {
         // protocol store error state is optional on the dashboard
       }
       lastRefreshed.value = new Date().toISOString()
-      countdown.value = AUTO_REFRESH_INTERVAL
     } catch {
       // store error state drives the page
     }
-  }
-
-  async function refreshAutoState() {
-    try {
-      if (shouldUseDashboardHttpAutoRefresh(input.eventsSocketStatus.value)) {
-        await input.systemStore.refreshAll()
-        try {
-          await input.protocolsStore.refresh()
-        } catch {
-          // protocol store error state is optional on the dashboard
-        }
-      }
-      lastRefreshed.value = new Date().toISOString()
-      countdown.value = AUTO_REFRESH_INTERVAL
-    } catch {
-      // store error state drives the page
-    }
-  }
-
-  function startAutoRefresh() {
-    stopAutoRefresh()
-    autoRefresh.value = true
-    countdown.value = AUTO_REFRESH_INTERVAL
-
-    countdownTimer = setInterval(() => {
-      countdown.value = Math.max(0, countdown.value - 1)
-    }, 1000)
-
-    autoRefreshTimer = setInterval(() => {
-      void refreshAutoState()
-    }, AUTO_REFRESH_INTERVAL * 1000)
-  }
-
-  function stopAutoRefresh() {
-    if (autoRefreshTimer !== null) {
-      clearInterval(autoRefreshTimer)
-      autoRefreshTimer = null
-    }
-    if (countdownTimer !== null) {
-      clearInterval(countdownTimer)
-      countdownTimer = null
-    }
-    autoRefresh.value = false
-  }
-
-  function toggleAutoRefresh(val: boolean) {
-    if (val) {
-      void refreshState()
-      startAutoRefresh()
-      return
-    }
-    stopAutoRefresh()
   }
 
   watch(input.recoverySummary, (nextSummary) => {
@@ -110,15 +45,8 @@ export function useDashboardRefresh(input: DashboardRefreshInput) {
     void refreshState()
   })
 
-  onUnmounted(() => {
-    stopAutoRefresh()
-  })
-
   return {
-    autoRefresh,
-    countdown,
     lastRefreshed,
     refreshState,
-    toggleAutoRefresh,
   }
 }

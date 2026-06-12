@@ -40,7 +40,6 @@ async function goHome() {
 
 async function retry() {
   if (status.value !== 'offline') {
-    window.location.reload()
     return
   }
 
@@ -68,6 +67,7 @@ async function retry() {
     :status="status"
     :retry-label="retryLabel"
     :retry-loading="retrying"
+    :show-retry="status === 'offline'"
     @home="goHome"
     @retry="retry"
   />

@@ -1,4 +1,4 @@
-import { computed, nextTick, ref } from 'vue'
+import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
 
 import {
@@ -128,8 +128,6 @@ export const useUiShellStore = defineStore('ui-shell', () => {
   const searchOpen = ref(false)
   const settingsOpen = ref(false)
   const routeLoading = ref(false)
-  const excludedViewNames = ref<string[]>([])
-  const refreshKeys = ref<Record<string, number>>({})
   const tabs = ref<ShellTabItem[]>(
     normalizeTabs(preferences.value.rememberTabs ? persistedState.tabs : []),
   )
@@ -141,9 +139,7 @@ export const useUiShellStore = defineStore('ui-shell', () => {
 
     return Array.from(new Set(names))
   })
-  const effectiveCachedViewNames = computed(() => (
-    cachedViewNames.value.filter((name) => !excludedViewNames.value.includes(name))
-  ))
+  const effectiveCachedViewNames = computed(() => cachedViewNames.value)
 
   function persist() {
     writePersistedState({
@@ -287,23 +283,6 @@ export const useUiShellStore = defineStore('ui-shell', () => {
     routeLoading.value = nextValue
   }
 
-  async function refreshView(name: string) {
-    if (cachedViewNames.value.includes(name) && !excludedViewNames.value.includes(name)) {
-      excludedViewNames.value = [...excludedViewNames.value, name]
-      await nextTick()
-      excludedViewNames.value = excludedViewNames.value.filter((item) => item !== name)
-    }
-
-    refreshKeys.value = {
-      ...refreshKeys.value,
-      [name]: (refreshKeys.value[name] ?? 0) + 1,
-    }
-  }
-
-  function getRefreshKey(name: string) {
-    return refreshKeys.value[name] ?? 0
-  }
-
   function resetPreferences() {
     preferences.value = { ...defaultLayoutPreferences }
     persist()
@@ -316,11 +295,9 @@ export const useUiShellStore = defineStore('ui-shell', () => {
     closeOtherTabs,
     closeTabsToLeft,
     closeTabsToRight,
-    getRefreshKey,
     mobileMenuOpen,
     preferences,
     patchPreferences,
-    refreshView,
     resetPreferences,
     resetRestoredTabs,
     routeLoading,

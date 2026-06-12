@@ -6,7 +6,6 @@ import {
   ExclamationCircleOutlined,
   FileTextOutlined,
   MessageOutlined,
-  ReloadOutlined,
   SafetyCertificateOutlined,
   SaveOutlined,
   SettingOutlined,
@@ -262,12 +261,6 @@ async function save() {
             <SaveOutlined />
           </template>
           {{ t('config.save') }}
-        </a-button>
-        <a-button :loading="loading" :aria-label="t('dashboard.refresh')" @click="loadConfig">
-          <template #icon>
-            <ReloadOutlined />
-          </template>
-          {{ t('dashboard.refresh') }}
         </a-button>
       </div>
     </template>

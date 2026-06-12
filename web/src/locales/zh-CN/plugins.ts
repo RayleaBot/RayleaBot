@@ -1,7 +1,6 @@
 export const plugins = {
   title: '插件列表',
   install: '安装插件',
-  refresh: '刷新列表',
   detailTitle: '插件详情',
   installDialogTitle: '安装插件',
   stats: {
@@ -191,7 +190,7 @@ export const plugins = {
   permissionPendingBody: '当前还有 {count} 项必需权限未授权。',
   permissionTotalCompact: '{count} 项权限',
   permissionPendingCompact: '{count} 项待处理',
-  permissionReconfirmUnavailable: '当前没有可重新确认的手动授权，请刷新插件详情后重试。',
+  permissionReconfirmUnavailable: '当前没有可重新确认的手动授权，请重新打开插件详情后重试。',
   capabilityRawTitle: '原始能力：{capability}',
   capabilityLabels: {
     'event.subscribe': '订阅事件',

@@ -13,7 +13,6 @@ import {
   LinkOutlined,
   NotificationOutlined,
   PlayCircleOutlined,
-  ReloadOutlined,
   SyncOutlined,
   ThunderboltOutlined,
   ToolOutlined,
@@ -80,7 +79,8 @@ const statusTag = computed(() => sourceStatusMeta(bilibiliStatus.value?.status))
 const statusTone = computed<StatusTone>(() => statusToneFromDiagnosis(bilibiliStatus.value?.diagnosis.level))
 const diagnosis = computed(() => bilibiliStatus.value?.diagnosis ?? null)
 const diagnosisActions = computed(() => diagnosis.value?.actions ?? [])
-const openAccountsAction = computed(() => diagnosisActions.value.find((action) => action.kind === 'open_accounts'))
+const visibleDiagnosisActions = computed(() => diagnosisActions.value.filter((action) => action.kind !== 'refresh'))
+const openAccountsAction = computed(() => visibleDiagnosisActions.value.find((action) => action.kind === 'open_accounts'))
 const watchedUIDs = computed(() => items.value.map((item) => item.uid))
 const liveCount = computed(() => items.value.filter((item) => item.live.is_live).length)
 const dynamicCount = computed(() => items.value.filter((item) => item.dynamic).length)
@@ -88,7 +88,7 @@ const accountCount = computed(() => bilibiliStatus.value?.accounts.length ?? 0)
 const hasDiagnosisDetail = computed(() =>
   (diagnosis.value?.causes.length ?? 0) > 0 ||
   (diagnosis.value?.impacts.length ?? 0) > 0 ||
-  (diagnosis.value?.actions.length ?? 0) > 0,
+  visibleDiagnosisActions.value.length > 0,
 )
 const eventsStatus = computed(() => socketStore.snapshots.events.status)
 const realtimeConnected = computed(() => {
@@ -476,7 +476,7 @@ function dynamicIcon(service?: string) {
             <div
               :class="[
                 'diagnosis-grid',
-                { 'diagnosis-grid--single-col': !diagnosis?.causes.length || (!diagnosis?.impacts.length && !diagnosisActions.length) }
+                { 'diagnosis-grid--single-col': !diagnosis?.causes.length || (!diagnosis?.impacts.length && !visibleDiagnosisActions.length) }
               ]"
             >
               <!-- Left Column: Causes -->
@@ -507,7 +507,7 @@ function dynamicIcon(service?: string) {
               </div>
 
               <!-- Right Column: Impacts and Actions -->
-              <div v-if="diagnosis?.impacts.length || diagnosisActions.length" class="diagnosis-grid__col-meta">
+              <div v-if="diagnosis?.impacts.length || visibleDiagnosisActions.length" class="diagnosis-grid__col-meta">
                 <!-- Impacts -->
                 <div v-if="diagnosis?.impacts.length" class="diagnosis-section">
                   <div class="diagnosis-section__header">
@@ -523,14 +523,14 @@ function dynamicIcon(service?: string) {
                 </div>
 
                 <!-- Actions -->
-                <div v-if="diagnosisActions.length" class="diagnosis-section">
+                <div v-if="visibleDiagnosisActions.length" class="diagnosis-section">
                   <div class="diagnosis-section__header">
                     <ToolOutlined class="diagnosis-section__header-icon" />
                     <span class="diagnosis-section__header-title">{{ t('builtinFeatures.thirdPartyMonitoring.diagnosisAction') }}</span>
                   </div>
                   <div class="diagnosis-action-list">
                     <span
-                      v-for="action in diagnosisActions"
+                      v-for="action in visibleDiagnosisActions"
                       :key="`${action.kind}:${action.label}`"
                       class="action-tag"
                     >
@@ -727,7 +727,7 @@ function dynamicIcon(service?: string) {
               </div>
               <div>
                 <dt>
-                  <ReloadOutlined class="monitor-card__fact-icon" />
+                  <FieldTimeOutlined class="monitor-card__fact-icon" />
                   {{ t('builtinFeatures.thirdPartyMonitoring.updated') }}
                 </dt>
                 <dd>{{ displayTime(lastRefreshedAt) }}</dd>

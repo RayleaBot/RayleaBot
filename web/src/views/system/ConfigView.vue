@@ -212,9 +212,6 @@ async function save() {
           </a-tag>
         </div>
         <div class="config-toolbar__actions">
-          <a-button :loading="loading" :aria-label="t('dashboard.refresh')" @click="loadConfig">
-            {{ t('dashboard.refresh') }}
-          </a-button>
           <a-button
             type="primary"
             :disabled="!isDirty || saving"
