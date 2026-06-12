@@ -557,6 +557,18 @@ def normalize_user_info(document):
 
 
 def normalize_user_search(document, keyword):
+    result = normalize_user_search_results(document, keyword)
+    if not result.get("ok"):
+        return result
+    candidates = result.get("items") or []
+    if not candidates:
+        return {"ok": False, "kind": "invalid", "message": "Bilibili 用户搜索结果格式不正确。"}
+    keyword_text = clean_text(keyword)
+    exact = next((item for item in candidates if item["name"] == keyword_text), None)
+    return {"ok": True, **(exact or candidates[0])}
+
+
+def normalize_user_search_results(document, keyword):
     error = bilibili_document_error(document)
     if error:
         return {"ok": False, **error}
@@ -571,16 +583,18 @@ def normalize_user_search(document, keyword):
         uid = str(item.get("mid") or "").strip()
         name = clean_text(item.get("uname") or item.get("name") or "")
         if uid.isdigit() and name:
-            candidates.append({
+            candidate = {
                 "uid": uid,
                 "name": name,
                 "avatar_url": normalize_url(item.get("upic") or item.get("face") or item.get("avatar")),
-            })
+            }
+            fans = normalize_int(item.get("fans"))
+            if fans > 0:
+                candidate["fans"] = fans
+            candidates.append(candidate)
     if not candidates:
         return {"ok": False, "kind": "invalid", "message": "Bilibili 用户搜索结果格式不正确。"}
-    keyword_text = clean_text(keyword)
-    exact = next((item for item in candidates if item["name"] == keyword_text), None)
-    return {"ok": True, **(exact or candidates[0])}
+    return {"ok": True, "items": candidates[:5]}
 
 
 def dynamic_updates(document):

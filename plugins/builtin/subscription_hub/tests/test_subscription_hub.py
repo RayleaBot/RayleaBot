@@ -10,8 +10,9 @@ BUILTIN_DIR = os.path.dirname(PLUGIN_DIR)
 sys.path.insert(0, BUILTIN_DIR)
 sys.path.insert(0, PLUGIN_DIR)
 
-from bilibili import dynamic_detail_url, dynamic_updates, opus_detail_url, parse_preview_url
+from bilibili import dynamic_detail_url, dynamic_updates, opus_detail_url, parse_preview_url, user_search_url
 from main import (
+    BILIBILI_SEARCH_UP_USAGE,
     SUBSCRIBE_BILIBILI_USAGE,
     SubscriptionHubPlugin,
     UNSUBSCRIBE_BILIBILI_USAGE,
@@ -276,8 +277,11 @@ class SubscriptionHubTests(unittest.TestCase):
         self.assertNotIn("secret.read", manifest["capabilities"])
         self.assertNotIn("scheduler.create", manifest["permissions"]["required"])
         self.assertNotIn("secret.read", manifest["permissions"]["required"])
-        self.assertEqual("/立即检查订阅", manifest["commands"][7]["usage"])
+        usages = [item["usage"] for item in manifest["commands"]]
+        self.assertIn("/b站搜索up UP昵称关键词", usages)
+        self.assertIn("/立即检查订阅", usages)
         help_text = json.dumps(manifest["help"], ensure_ascii=False)
+        self.assertIn("搜索 Bilibili UP", help_text)
         self.assertIn("Web 三方账号页面", help_text)
         self.assertNotIn("轮询", help_text)
 
@@ -345,6 +349,47 @@ class SubscriptionHubTests(unittest.TestCase):
 
         self.assertFalse(result["ok"])
         self.assertEqual(result["message"], SUBSCRIBE_BILIBILI_USAGE)
+
+    def test_bilibili_user_search_returns_multiple_candidates(self):
+        plugin = SubscriptionHubPlugin()
+        ctx = FakeContext(
+            args=["洛天依"],
+            http_responses=[self.user_search_response(results=[
+                {"mid": "36081646", "uname": "洛天依", "fans": 1280000, "upic": "//i0.hdslb.com/luotianyi.jpg"},
+                {"mid": "123456", "uname": "洛天依官方粉丝团", "fans": 2048},
+            ])],
+        )
+
+        plugin.handle_bilibili_user_search(ctx)
+
+        self.assertEqual(ctx.http_requests[0]["url"], user_search_url("洛天依"))
+        self.assertEqual(ctx.results[-1], {"handled": True, "count": 2})
+        self.assertIn("Bilibili UP 搜索结果：洛天依", ctx.texts[0])
+        self.assertIn("1. 洛天依（UID 36081646）｜粉丝 128万", ctx.texts[0])
+        self.assertIn("2. 洛天依官方粉丝团（UID 123456）｜粉丝 2048", ctx.texts[0])
+
+    def test_bilibili_user_search_validates_usage(self):
+        plugin = SubscriptionHubPlugin()
+        ctx = FakeContext(args=[])
+
+        plugin.handle_bilibili_user_search(ctx)
+
+        self.assertEqual(ctx.texts, [BILIBILI_SEARCH_UP_USAGE])
+        self.assertEqual(ctx.results[-1], {"handled": True, "count": 0})
+
+    def test_bilibili_user_search_not_found_omits_raw_response(self):
+        plugin = SubscriptionHubPlugin()
+        ctx = FakeContext(
+            args=["bronyaicu"],
+            http_responses=[self.user_search_response(results=[])],
+        )
+
+        plugin.handle_bilibili_user_search(ctx)
+
+        self.assertEqual(ctx.texts, ["没有搜索到 Bilibili 用户：bronyaicu"])
+        self.assertNotIn("HTTP 200", ctx.texts[0])
+        self.assertNotIn('"code"', ctx.texts[0])
+        self.assertEqual(ctx.results[-1], {"handled": True, "count": 0})
 
     def test_unsubscribe_command_removes_matching_subscription(self):
         settings = merge_settings({}, self.subscription_settings())

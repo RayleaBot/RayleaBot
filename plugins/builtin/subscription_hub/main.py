@@ -23,6 +23,7 @@ from bilibili import (
     looks_like_preview_url,
     normalize_user_info,
     normalize_user_search,
+    normalize_user_search_results,
     dynamic_detail_url,
     opus_detail_url,
     parse_json_response,
@@ -41,6 +42,7 @@ from settings import SETTINGS_KEYS, merge_settings, normalize_settings
 DEFAULT_SETTINGS_PATH = os.path.join(PLUGIN_DIR, "default_config.json")
 SUBSCRIBE_BILIBILI_USAGE = "用法：/订阅b站推送 [直播|视频|图文|文章|转发] UID或昵称；类型可选，不填表示全部类型。"
 UNSUBSCRIBE_BILIBILI_USAGE = "用法：/取消b站推送 [直播|视频|图文|文章|转发] UID或昵称；类型可选，不填表示全部类型。"
+BILIBILI_SEARCH_UP_USAGE = "用法：/b站搜索up UP昵称关键词"
 
 
 def load_default_settings(path=DEFAULT_SETTINGS_PATH):
@@ -119,6 +121,12 @@ class SubscriptionHubPlugin(RayleaBotPlugin):
             self._settings_loaded = True
         ctx.send_text(result["message"])
         ctx.send_result({"handled": True})
+
+    @command("b站搜索up", aliases=["b站搜索UP", "B站搜索up", "B站搜索UP"])
+    def handle_bilibili_user_search(self, ctx):
+        result = search_bilibili_users(ctx)
+        ctx.send_text(result["message"])
+        ctx.send_result({"handled": True, "count": result.get("count", 0)})
 
     @command("订阅列表")
     def handle_subscription_list(self, ctx):
@@ -717,6 +725,34 @@ def add_bilibili_subscription(settings, ctx):
     return {"ok": True, "message": f"已订阅 Bilibili {user_label(user)}：{services_text(subscription['services'])}"}
 
 
+def search_bilibili_users(ctx):
+    query = parse_bilibili_search_query(ctx.args)
+    if not query:
+        return {"ok": False, "count": 0, "message": BILIBILI_SEARCH_UP_USAGE}
+    headers = build_cookie_headers("", None)
+    response = None
+    try:
+        response = ctx.http_request("GET", user_search_url(query), headers=headers, timeout_seconds=12)
+        failure = bilibili_response_failure(response, "Bilibili UP 搜索失败")
+        if failure:
+            return {"ok": False, "count": 0, "message": failure}
+        document = parse_json_response(response)
+        result = normalize_user_search_results(document, query)
+    except ActionError as exc:
+        if is_http_permission_error(exc):
+            return {"ok": False, "count": 0, "message": "Bilibili UP 搜索失败：请授予订阅中心 HTTP 请求权限，并重载插件后再试。"}
+        return {"ok": False, "count": 0, "message": "Bilibili UP 搜索失败。"}
+    except Exception:
+        return {"ok": False, "count": 0, "message": "Bilibili UP 搜索失败。"}
+    if not result.get("ok"):
+        message = result.get("message") or "Bilibili UP 搜索失败。"
+        if response is not None and result.get("kind") != "not_found":
+            message = f"{sentence_text(message)}{response_details_text(response)}"
+        return {"ok": False, "count": 0, "message": message}
+    items = result.get("items") or []
+    return {"ok": True, "count": len(items), "message": format_bilibili_user_search_results(query, items)}
+
+
 def remove_bilibili_subscription(settings, ctx):
     parsed = parse_bilibili_command_args(ctx.args)
     if parsed["error"] or not parsed["query"]:
@@ -756,6 +792,29 @@ def parse_bilibili_command_args(args):
         service = "all"
     uid = digits(query)
     return {"services": [service] if service else [], "uid": uid, "query": query, "error": error}
+
+
+def parse_bilibili_search_query(args):
+    values = [str(item or "").strip() for item in args or [] if str(item or "").strip()]
+    return " ".join(values).strip()
+
+
+def format_bilibili_user_search_results(keyword, items):
+    lines = [f"Bilibili UP 搜索结果：{keyword}"]
+    for index, item in enumerate(items[:5], start=1):
+        label = user_label(item)
+        fans = int(item.get("fans") or 0)
+        suffix = f"｜粉丝 {format_count(fans)}" if fans > 0 else ""
+        lines.append(f"{index}. {label}{suffix}")
+    return "\n".join(lines)
+
+
+def format_count(value):
+    number = int(value or 0)
+    if number >= 10000:
+        text = f"{number / 10000:.1f}".rstrip("0").rstrip(".")
+        return f"{text}万"
+    return str(number)
 
 
 def resolve_bilibili_user(settings, ctx, query):

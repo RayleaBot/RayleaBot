@@ -73,6 +73,12 @@
       "permission": "super_admin"
     },
     {
+      "name": "b站搜索up",
+      "description": "按昵称关键词搜索 Bilibili UP 主并返回名称与 UID",
+      "usage": "/b站搜索up UP昵称关键词",
+      "permission": "everyone"
+    },
+    {
       "name": "订阅列表",
       "description": "查看当前群聊或私聊的订阅列表",
       "usage": "/订阅列表",
@@ -133,6 +139,12 @@
             "description": "取消当前群聊或私聊的指定 Bilibili 用户订阅，类型可选，不填表示全部类型。",
             "usage": "/取消b站推送 [直播|视频|图文|文章|转发] UID或昵称",
             "command": "取消b站推送"
+          },
+          {
+            "title": "搜索 Bilibili UP",
+            "description": "按昵称关键词搜索 Bilibili UP 主，返回候选账号的名称与 UID。",
+            "usage": "/b站搜索up UP昵称关键词",
+            "command": "b站搜索up"
           }
         ]
       },
