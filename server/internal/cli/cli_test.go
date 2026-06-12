@@ -11,10 +11,79 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/RayleaBot/RayleaBot/server/internal/auth"
 	"github.com/RayleaBot/RayleaBot/server/internal/deps"
 	"github.com/RayleaBot/RayleaBot/server/internal/recovery"
 	"github.com/RayleaBot/RayleaBot/server/internal/storage"
 )
+
+func TestResetAdminAllowsArgon2idSetupAfterReset(t *testing.T) {
+	root := t.TempDir()
+	configPath := filepath.Join(root, "config", "user.yaml")
+	databasePath := filepath.Join(root, "data", "rayleabot.db")
+	writeFile(t, configPath, "schema_version: \"2\"\nserver:\n  host: 127.0.0.1\n  port: 8080\n")
+
+	store, err := storage.Open(databasePath)
+	if err != nil {
+		t.Fatalf("open sqlite database: %v", err)
+	}
+	repository, err := auth.NewSQLiteRepository(store)
+	if err != nil {
+		_ = store.Close()
+		t.Fatalf("create auth repository: %v", err)
+	}
+	manager, err := auth.NewManager(auth.Config{
+		SessionTTLDays: 1,
+		SlidingRenewal: false,
+		MaxSessions:    2,
+	}, auth.WithRepository(repository))
+	if err != nil {
+		_ = store.Close()
+		t.Fatalf("create auth manager: %v", err)
+	}
+	if _, _, err := manager.Bootstrap("admin", "fixture-only-secret"); err != nil {
+		_ = store.Close()
+		t.Fatalf("bootstrap first admin: %v", err)
+	}
+	if err := store.Close(); err != nil {
+		t.Fatalf("close initial store: %v", err)
+	}
+
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	if code := runResetAdmin(Command{ConfigPath: configPath, Logger: logger}); code != 0 {
+		t.Fatalf("runResetAdmin exit code = %d", code)
+	}
+
+	resetStore, err := storage.Open(databasePath)
+	if err != nil {
+		t.Fatalf("reopen sqlite database: %v", err)
+	}
+	defer resetStore.Close()
+
+	resetRepository, err := auth.NewSQLiteRepository(resetStore)
+	if err != nil {
+		t.Fatalf("create reset auth repository: %v", err)
+	}
+	resetManager, err := auth.NewManager(auth.Config{
+		SessionTTLDays: 1,
+		SlidingRenewal: false,
+		MaxSessions:    2,
+	}, auth.WithRepository(resetRepository))
+	if err != nil {
+		t.Fatalf("create reset auth manager: %v", err)
+	}
+	if _, _, err := resetManager.Bootstrap("admin", "fixture-only-secret"); err != nil {
+		t.Fatalf("bootstrap after reset failed: %v", err)
+	}
+
+	var digest []byte
+	if err := resetStore.Read.QueryRow(`SELECT secret_digest FROM auth_bootstrap_state WHERE singleton_id = 1`).Scan(&digest); err != nil {
+		t.Fatalf("load reset bootstrap digest: %v", err)
+	}
+	if !strings.HasPrefix(string(digest), "raylea-pwd:v2:argon2id:m=65536,t=3,p=1:") {
+		t.Fatalf("expected reset bootstrap digest to use argon2id, got %q", string(digest))
+	}
+}
 
 func TestBackupCreatesValidArchive(t *testing.T) {
 	t.Parallel()

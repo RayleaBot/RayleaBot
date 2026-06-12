@@ -23,6 +23,60 @@ type AuthBootstrapState struct {
 	InitializedAt string
 }
 
+type BilibiliSourceConfig struct {
+	ID                     int64
+	UaRotationEnabled      int64
+	FingerprintEnabled     int64
+	DmImgEnabled           int64
+	CaptchaRecoveryEnabled int64
+	ProxyGlobalEnabled     int64
+	UpdatedAt              string
+}
+
+type BilibiliSourceDynamic struct {
+	Uid         string
+	DynamicID   string
+	Service     string
+	Title       string
+	Summary     string
+	Url         string
+	Username    string
+	AvatarUrl   string
+	ImagesJson  string
+	PublishedAt int64
+	ObservedAt  string
+	UpdatedAt   string
+}
+
+type BilibiliSourceRoom struct {
+	Uid             string
+	RoomID          string
+	Name            string
+	Face            string
+	CoverUrl        string
+	LiveStatus      int64
+	LiveStartedAt   int64
+	LiveEventID     string
+	ConnectionState string
+	LastEventAt     sql.NullString
+	LastError       string
+	UpdatedAt       string
+}
+
+type BilibiliSourceSeen struct {
+	EventKey   string
+	Uid        string
+	EventType  string
+	SourceID   string
+	ObservedAt string
+}
+
+type BilibiliSourceState struct {
+	Key       string
+	ValueJson string
+	UpdatedAt string
+}
+
 type BlacklistEntry struct {
 	ID        int64
 	EntryType string
@@ -33,22 +87,22 @@ type BlacklistEntry struct {
 
 type ManagementLog struct {
 	ID          int64
+	LogID       string
+	BootID      string
 	Ts          string
 	Level       string
 	Source      string
 	Message     string
 	PluginID    string
 	RequestID   string
-	LogID       string
 	DetailsJson string
-	BootID      string
 }
 
 type PluginGrant struct {
 	PluginID   string
 	Capability string
-	GrantedAt  string
 	ScopeJson  string
+	GrantedAt  string
 	ExpiresAt  sql.NullString
 }
 
@@ -105,6 +159,7 @@ type RenderTemplateState struct {
 type SchedulerJob struct {
 	JobID            string
 	PluginID         string
+	LogLabel         string
 	CronExpr         string
 	Payload          string
 	Enabled          int64
@@ -112,7 +167,6 @@ type SchedulerJob struct {
 	LastRun          sql.NullString
 	CreatedAt        string
 	UpdatedAt        string
-	LogLabel         string
 	LastDurationMs   int64
 	LastErrorCode    string
 	LastErrorMessage string
@@ -149,6 +203,22 @@ type Task struct {
 	ResultJson sql.NullString
 	ErrorJson  sql.NullString
 	CreatedAt  string
+}
+
+type ThirdPartyAccount struct {
+	Platform            string
+	AccountID           string
+	Label               string
+	Enabled             int64
+	SecretKey           string
+	ProfileUid          string
+	ProfileNickname     string
+	ProfileAvatarUrl    string
+	CredentialState     string
+	CredentialCheckedAt sql.NullString
+	CredentialLastError string
+	LastUsedAt          sql.NullString
+	UpdatedAt           string
 }
 
 type WhitelistEntry struct {

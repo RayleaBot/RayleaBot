@@ -36,37 +36,15 @@ SELECT
 FROM scheduler_jobs ORDER BY created_at ASC
 `
 
-type LoadJobsRow struct {
-	JobID            string
-	PluginID         string
-	LogLabel         string
-	CronExpr         string
-	Payload          string
-	Enabled          int64
-	NextRun          string
-	LastRun          sql.NullString
-	CreatedAt        string
-	UpdatedAt        string
-	LastDurationMs   int64
-	LastErrorCode    string
-	LastErrorMessage string
-	LastErrorAt      sql.NullString
-	SuccessCount     int64
-	FailureCount     int64
-	TimeoutCount     int64
-	RetryCount       int64
-	OtherCount       int64
-}
-
-func (q *Queries) LoadJobs(ctx context.Context) ([]LoadJobsRow, error) {
+func (q *Queries) LoadJobs(ctx context.Context) ([]SchedulerJob, error) {
 	rows, err := q.db.QueryContext(ctx, loadJobs)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	items := []LoadJobsRow{}
+	items := []SchedulerJob{}
 	for rows.Next() {
-		var i LoadJobsRow
+		var i SchedulerJob
 		if err := rows.Scan(
 			&i.JobID,
 			&i.PluginID,

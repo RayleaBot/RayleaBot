@@ -22,6 +22,7 @@ type Repository interface {
 	LoadBootstrap(context.Context) (*BootstrapState, error)
 	LoadSessions(context.Context) ([]Claims, error)
 	SaveBootstrap(context.Context, BootstrapState, Claims) error
+	UpdateBootstrapSecretDigest(context.Context, []byte) error
 	SaveSession(context.Context, Claims) error
 	DeleteSessions(context.Context, []string) error
 }
@@ -137,6 +138,17 @@ func (r *SQLiteRepository) SaveBootstrap(ctx context.Context, state BootstrapSta
 func (r *SQLiteRepository) SaveSession(ctx context.Context, claims Claims) error {
 	if err := r.writeQ.UpsertSession(ctx, claimsToUpsertParams(claims)); err != nil {
 		return fmt.Errorf("upsert session %s: %w", claims.SessionID, err)
+	}
+	return nil
+}
+
+func (r *SQLiteRepository) UpdateBootstrapSecretDigest(ctx context.Context, secretDigest []byte) error {
+	affected, err := r.writeQ.UpdateBootstrapSecretDigest(ctx, secretDigest)
+	if err != nil {
+		return fmt.Errorf("update bootstrap secret digest: %w", err)
+	}
+	if affected == 0 {
+		return sql.ErrNoRows
 	}
 	return nil
 }

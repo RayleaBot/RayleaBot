@@ -37,19 +37,21 @@ type Claims struct {
 type Option func(*managerOptions) error
 
 type managerOptions struct {
-	now        func() time.Time
-	signingKey []byte
-	sessionID  func() (string, error)
-	repo       Repository
+	now                func() time.Time
+	signingKey         []byte
+	sessionID          func() (string, error)
+	repo               Repository
+	passwordHashParams passwordHashParams
 }
 
 type Manager struct {
 	cfg Config
 
-	now        func() time.Time
-	signingKey []byte
-	sessionID  func() (string, error)
-	repo       Repository
+	now                func() time.Time
+	signingKey         []byte
+	sessionID          func() (string, error)
+	repo               Repository
+	passwordHashParams passwordHashParams
 
 	mu        sync.Mutex
 	sessions  map[string]Claims
@@ -104,6 +106,16 @@ func WithRepository(repo Repository) Option {
 	}
 }
 
+func withPasswordHashParams(params passwordHashParams) Option {
+	return func(options *managerOptions) error {
+		if err := params.validateForHashing(); err != nil {
+			return err
+		}
+		options.passwordHashParams = params
+		return nil
+	}
+}
+
 func NewManager(cfg Config, opts ...Option) (*Manager, error) {
 	if cfg.SessionTTLDays <= 0 {
 		return nil, fmt.Errorf("session_ttl_days must be positive")
@@ -113,7 +125,8 @@ func NewManager(cfg Config, opts ...Option) (*Manager, error) {
 	}
 
 	options := managerOptions{
-		now: time.Now,
+		now:                time.Now,
+		passwordHashParams: defaultPasswordHashParams,
 		sessionID: func() (string, error) {
 			return randomTokenSegment(16)
 		},
@@ -134,12 +147,13 @@ func NewManager(cfg Config, opts ...Option) (*Manager, error) {
 	}
 
 	manager := &Manager{
-		cfg:        cfg,
-		now:        options.now,
-		signingKey: options.signingKey,
-		sessionID:  options.sessionID,
-		repo:       options.repo,
-		sessions:   make(map[string]Claims),
+		cfg:                cfg,
+		now:                options.now,
+		signingKey:         options.signingKey,
+		sessionID:          options.sessionID,
+		repo:               options.repo,
+		passwordHashParams: options.passwordHashParams,
+		sessions:           make(map[string]Claims),
 	}
 
 	if manager.repo != nil {

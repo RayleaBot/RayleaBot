@@ -158,23 +158,15 @@ SELECT plugin_id, capability, scope_json, granted_at, expires_at
 FROM plugin_grants WHERE plugin_id = ? ORDER BY capability
 `
 
-type LoadGrantsRow struct {
-	PluginID   string
-	Capability string
-	ScopeJson  string
-	GrantedAt  string
-	ExpiresAt  sql.NullString
-}
-
-func (q *Queries) LoadGrants(ctx context.Context, pluginID string) ([]LoadGrantsRow, error) {
+func (q *Queries) LoadGrants(ctx context.Context, pluginID string) ([]PluginGrant, error) {
 	rows, err := q.db.QueryContext(ctx, loadGrants, pluginID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	items := []LoadGrantsRow{}
+	items := []PluginGrant{}
 	for rows.Next() {
-		var i LoadGrantsRow
+		var i PluginGrant
 		if err := rows.Scan(
 			&i.PluginID,
 			&i.Capability,

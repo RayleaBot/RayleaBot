@@ -9,11 +9,12 @@ import (
 )
 
 type stubAuthRepository struct {
-	loadBootstrapFn  func(context.Context) (*auth.BootstrapState, error)
-	loadSessionsFn   func(context.Context) ([]auth.Claims, error)
-	saveBootstrapFn  func(context.Context, auth.BootstrapState, auth.Claims) error
-	saveSessionFn    func(context.Context, auth.Claims) error
-	deleteSessionsFn func(context.Context, []string) error
+	loadBootstrapFn   func(context.Context) (*auth.BootstrapState, error)
+	loadSessionsFn    func(context.Context) ([]auth.Claims, error)
+	saveBootstrapFn   func(context.Context, auth.BootstrapState, auth.Claims) error
+	updateBootstrapFn func(context.Context, []byte) error
+	saveSessionFn     func(context.Context, auth.Claims) error
+	deleteSessionsFn  func(context.Context, []string) error
 }
 
 func (r *stubAuthRepository) LoadBootstrap(ctx context.Context) (*auth.BootstrapState, error) {
@@ -40,6 +41,13 @@ func (r *stubAuthRepository) SaveBootstrap(ctx context.Context, state auth.Boots
 func (r *stubAuthRepository) SaveSession(ctx context.Context, claims auth.Claims) error {
 	if r != nil && r.saveSessionFn != nil {
 		return r.saveSessionFn(ctx, claims)
+	}
+	return nil
+}
+
+func (r *stubAuthRepository) UpdateBootstrapSecretDigest(ctx context.Context, secretDigest []byte) error {
+	if r != nil && r.updateBootstrapFn != nil {
+		return r.updateBootstrapFn(ctx, secretDigest)
 	}
 	return nil
 }

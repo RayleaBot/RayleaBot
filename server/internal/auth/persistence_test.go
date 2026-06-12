@@ -168,6 +168,7 @@ func newPersistentManager(t *testing.T, databasePath string, cfg Config, now fun
 			sessionCounter++
 			return sessionPrefix + "-" + string(rune('0'+sessionCounter)), nil
 		}),
+		withPasswordHashParams(testPasswordHashParams),
 	)
 	if err != nil {
 		_ = store.Close()

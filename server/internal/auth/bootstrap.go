@@ -2,8 +2,6 @@ package auth
 
 import (
 	"context"
-	"crypto/hmac"
-	"crypto/sha256"
 	"errors"
 	"fmt"
 	"strings"
@@ -25,8 +23,19 @@ func (m *Manager) Bootstrap(identifier, secret string) (string, Claims, error) {
 		return "", Claims{}, ErrInvalidToken
 	}
 
+	m.mu.Lock()
+	if m.bootstrap != nil {
+		m.mu.Unlock()
+		return "", Claims{}, ErrBootstrapAlreadyInitialized
+	}
+	m.mu.Unlock()
+
 	now := m.now().UTC()
 	canonicalNow := canonicalSessionTimestamp(now)
+	secretDigest, err := hashSecret(secret, m.passwordHashParams)
+	if err != nil {
+		return "", Claims{}, err
+	}
 
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -37,7 +46,7 @@ func (m *Manager) Bootstrap(identifier, secret string) (string, Claims, error) {
 
 	bootstrapState := BootstrapState{
 		Identifier:    identifier,
-		SecretDigest:  digestSecret(secret),
+		SecretDigest:  secretDigest,
 		SigningKey:    append([]byte(nil), m.signingKey...),
 		InitializedAt: canonicalNow,
 	}
@@ -95,20 +104,27 @@ func (m *Manager) Login(identifier, secret string) (string, Claims, error) {
 	if m.bootstrap == nil {
 		return "", Claims{}, ErrInvalidCredentials
 	}
-	if m.bootstrap.Identifier != identifier || !secretsEqual(secret, m.bootstrap.SecretDigest) {
+	if m.bootstrap.Identifier != identifier {
 		return "", Claims{}, ErrInvalidCredentials
+	}
+	verification := verifySecret(secret, m.bootstrap.SecretDigest)
+	if !verification.OK {
+		return "", Claims{}, ErrInvalidCredentials
+	}
+	if verification.Legacy {
+		secretDigest, err := hashSecret(secret, m.passwordHashParams)
+		if err != nil {
+			return "", Claims{}, err
+		}
+		if m.repo != nil {
+			if err := m.repo.UpdateBootstrapSecretDigest(context.Background(), secretDigest); err != nil {
+				return "", Claims{}, fmt.Errorf("upgrade bootstrap secret digest: %w", err)
+			}
+		}
+		m.bootstrap.SecretDigest = append([]byte(nil), secretDigest...)
 	}
 
 	return m.issueLocked(identifier, now)
-}
-
-func digestSecret(secret string) []byte {
-	sum := sha256.Sum256([]byte(secret))
-	return sum[:]
-}
-
-func secretsEqual(secret string, digest []byte) bool {
-	return hmac.Equal(digestSecret(secret), digest)
 }
 
 func (m *Manager) newTokenClaimsLocked(subject string, now time.Time) (string, Claims, error) {
