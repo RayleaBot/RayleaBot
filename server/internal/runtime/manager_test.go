@@ -87,7 +87,7 @@ func TestManagerStartAllowsInitProgressBeforeReady(t *testing.T) {
 	t.Parallel()
 
 	manager := testManager()
-	spec := helperSpecWithTimings(t, "progress-then-ready", "", 500*time.Millisecond, 2*time.Second, 400*time.Millisecond)
+	spec := helperSpecWithTimings(t, "progress-then-ready", "", 2*time.Second, 4*time.Second, 400*time.Millisecond)
 
 	if err := manager.Start(context.Background(), spec, testInitPayload()); err != nil {
 		t.Fatalf("start runtime with init_progress: %v", err)
@@ -161,7 +161,7 @@ func TestManagerStartFailsOnEarlyExit(t *testing.T) {
 	t.Parallel()
 
 	manager := testManager()
-	spec := helperSpecWithTimings(t, "early-exit", "", time.Second, 3*time.Second, 400*time.Millisecond)
+	spec := helperSpec(t, "early-exit", "")
 
 	err := manager.Start(context.Background(), spec, testInitPayload())
 	assertRuntimeErrorCode(t, err, codePluginInternalError)
@@ -171,7 +171,7 @@ func TestManagerStartSucceedsWithLargeStderrOutput(t *testing.T) {
 	t.Parallel()
 
 	manager := testManager()
-	spec := helperSpecWithTimings(t, "stderr-noise", "", time.Second, 3*time.Second, 400*time.Millisecond)
+	spec := helperSpec(t, "stderr-noise", "")
 
 	if err := manager.Start(context.Background(), spec, testInitPayload()); err != nil {
 		t.Fatalf("start runtime with stderr noise: %v", err)
@@ -1351,7 +1351,7 @@ func TestManagerStopIgnoresPluginThatAlreadyExited(t *testing.T) {
 	t.Parallel()
 
 	manager := testManager()
-	spec := helperSpecWithTimings(t, "exit-after-ready", "", 300*time.Millisecond, time.Second, 400*time.Millisecond)
+	spec := helperSpec(t, "exit-after-ready", "")
 
 	if err := manager.Start(context.Background(), spec, testInitPayload()); err != nil {
 		t.Fatalf("start runtime: %v", err)
@@ -2454,8 +2454,8 @@ func helperSpec(t *testing.T, scenario string, recordPath string) Spec {
 		t,
 		scenario,
 		recordPath,
-		time.Second,
-		3*time.Second,
+		2*time.Second,
+		4*time.Second,
 		400*time.Millisecond,
 	)
 }

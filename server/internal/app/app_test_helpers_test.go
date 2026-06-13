@@ -62,34 +62,34 @@ func (a *App) setTestEventIngressWithGovernance(catalog *plugins.Catalog, whitel
 	if a == nil {
 		return
 	}
-	a.plugins = catalog
-	a.whitelistRepo = whitelistRepo
-	a.whitelistState = whitelistState
-	a.blacklistRepo = blacklistRepo
-	a.outboundSender = sender
-	a.bridge = eventBridge
+	a.pluginStack.Plugins = catalog
+	a.pluginStack.whitelistRepo = whitelistRepo
+	a.pluginStack.whitelistState = whitelistState
+	a.pluginStack.blacklistRepo = blacklistRepo
+	a.pluginStack.outboundSender = sender
+	a.pluginStack.Bridge = eventBridge
 	menuService := menuext.New(menuext.Deps{
 		CurrentConfig: func() config.Config { return a.state.Config },
 		Plugins:       catalog,
-		Renderer:      a.renderer,
+		Renderer:      a.pluginStack.renderer,
 		Sender:        sender,
 		WaitOutbound: func(ctx context.Context, request outbound.MessageLimitRequest) error {
-			if a.outboundLimiter == nil {
+			if a.pluginStack.outboundLimiter == nil {
 				return nil
 			}
-			return a.outboundLimiter.Wait(ctx, request)
+			return a.pluginStack.outboundLimiter.Wait(ctx, request)
 		},
 		Logger: a.state.Logger,
 	})
-	a.eventIngress = newEventIngressService(eventIngressDeps{
+	a.services.eventIngress = newEventIngressService(eventIngressDeps{
 		state:            a.state,
 		plugins:          catalog,
 		outboundSender:   sender,
-		outboundLimiter:  a.outboundLimiter,
-		renderer:         a.renderer,
+		outboundLimiter:  a.pluginStack.outboundLimiter,
+		renderer:         a.pluginStack.renderer,
 		menu:             menuService,
 		bridge:           eventBridge,
-		metadataEnricher: a.adapter,
+		metadataEnricher: a.pluginStack.Adapter,
 		whitelistRepo:    whitelistRepo,
 		whitelistState:   whitelistState,
 		blacklistRepo:    blacklistRepo,
@@ -100,15 +100,15 @@ func (a *App) setTestLifecycle(catalog *plugins.Catalog, desiredRepo plugins.Des
 	if a == nil {
 		return
 	}
-	a.plugins = catalog
-	a.pluginRepository = desiredRepo
-	a.grantRepository = grantRepo
+	a.pluginStack.Plugins = catalog
+	a.pluginStack.pluginRepository = desiredRepo
+	a.pluginStack.grantRepository = grantRepo
 	a.runtimes = runtimes
-	a.dispatcher = dispatcher
-	a.pluginConfig = pluginConfigRepo
-	a.adapter = adapterShell
-	a.webhookRegistry = webhooks
-	a.pluginLifecycle = newPluginLifecycleController(pluginLifecycleDeps{
+	a.pluginStack.Dispatcher = dispatcher
+	a.pluginStack.pluginConfig = pluginConfigRepo
+	a.pluginStack.Adapter = adapterShell
+	a.pluginStack.webhooks = webhooks
+	a.services.pluginLifecycle = newPluginLifecycleController(pluginLifecycleDeps{
 		state:            a.state,
 		plugins:          catalog,
 		desiredStateRepo: desiredRepo,
@@ -119,11 +119,11 @@ func (a *App) setTestLifecycle(catalog *plugins.Catalog, desiredRepo plugins.Des
 		},
 		runtimes:     runtimes,
 		dispatcher:   dispatcher,
-		scheduler:    a.scheduler,
+		scheduler:    a.platform.Scheduler,
 		pluginConfig: pluginConfigRepo,
 		adapter:      adapterShell,
 		webhooks:     webhooks,
-		tasks:        a.tasks,
+		tasks:        a.platform.Tasks,
 	})
 }
 
@@ -131,49 +131,49 @@ func (a *App) setTestLocalActions(grantRepo plugins.GrantRepository, pluginConfi
 	if a == nil {
 		return
 	}
-	a.grantRepository = grantRepo
-	a.pluginConfig = pluginConfigRepo
-	a.pluginFiles = pluginFiles
-	a.pluginKV = pluginKV
-	a.scheduler = schedulerEngine
-	a.dispatcher = dispatcher
-	a.renderer = rendererService
-	a.adapter = adapterShell
-	a.pluginLogLimiter = limiter
-	if a.governanceEvents == nil {
-		a.governanceEvents = newGovernanceEventService()
+	a.pluginStack.grantRepository = grantRepo
+	a.pluginStack.pluginConfig = pluginConfigRepo
+	a.pluginStack.pluginFiles = pluginFiles
+	a.pluginStack.pluginKV = pluginKV
+	a.platform.Scheduler = schedulerEngine
+	a.pluginStack.Dispatcher = dispatcher
+	a.pluginStack.renderer = rendererService
+	a.pluginStack.Adapter = adapterShell
+	a.pluginStack.pluginLogLimiter = limiter
+	if a.services.governanceEvents == nil {
+		a.services.governanceEvents = newGovernanceEventService()
 	}
-	a.governance = governance.NewService(governance.Deps{
+	a.services.governance = governance.NewService(governance.Deps{
 		CurrentConfig:  func() config.Config { return a.state.Config },
-		Plugins:        a.plugins,
-		BlacklistRepo:  a.blacklistRepo,
-		WhitelistRepo:  a.whitelistRepo,
-		WhitelistState: a.whitelistState,
-		NotifyChanged:  a.governanceEvents.PublishChanged,
+		Plugins:        a.pluginStack.Plugins,
+		BlacklistRepo:  a.pluginStack.blacklistRepo,
+		WhitelistRepo:  a.pluginStack.whitelistRepo,
+		WhitelistState: a.pluginStack.whitelistState,
+		NotifyChanged:  a.services.governanceEvents.PublishChanged,
 	})
-	a.localActions = localaction.New(localaction.Deps{
+	a.services.localActions = localaction.New(localaction.Deps{
 		CurrentConfig: func() config.Config { return a.state.Config },
 		Logger:        a.state.Logger,
 		RedactText:    a.state.redactString,
 		Grants: &pluginGrantView{
 			state:           a.state,
-			plugins:         a.plugins,
+			plugins:         a.pluginStack.Plugins,
 			grantRepository: grantRepo,
 		},
 		PluginConfig:     pluginConfigRepo,
 		PluginFiles:      pluginFiles,
 		PluginKV:         pluginKV,
-		Secrets:          a.secrets,
+		Secrets:          a.platform.Secrets,
 		Scheduler:        schedulerEngine,
 		Dispatcher:       dispatcher,
 		Renderer:         rendererService,
 		Adapter:          adapterShell,
 		PluginLogLimiter: limiter,
-		Governance:       a.governance,
-		ThirdParty:       a.thirdParty,
+		Governance:       a.services.governance,
+		ThirdParty:       a.services.thirdParty,
 	})
 	if webhookService != nil {
-		a.localActions.SetWebhookGateway(webhookService)
+		a.services.localActions.SetWebhookGateway(webhookService)
 	}
 }
 
@@ -181,107 +181,107 @@ func (a *App) setTestSystem(taskRegistry *tasks.Registry, taskExecutor *tasks.Ex
 	if a == nil {
 		return
 	}
-	a.tasks = taskRegistry
-	a.taskExecutor = taskExecutor
-	a.renderer = rendererService
-	a.systemService = newSystemService(systemServiceDeps{
+	a.platform.Tasks = taskRegistry
+	a.platform.taskExecutor = taskExecutor
+	a.pluginStack.renderer = rendererService
+	a.services.system = newSystemService(systemServiceDeps{
 		state:            a.state,
-		auth:             a.auth,
-		adapter:          a.adapter,
-		plugins:          a.plugins,
+		auth:             a.platform.Auth,
+		adapter:          a.pluginStack.Adapter,
+		plugins:          a.pluginStack.Plugins,
 		runtimes:         a.runtimes,
 		renderer:         rendererService,
-		pluginRepository: a.pluginRepository,
+		pluginRepository: a.pluginStack.pluginRepository,
 		taskExecutor:     taskExecutor,
 		logRepository:    logRepository,
 	})
-	a.systemService.shuttingDown = &a.process.shuttingDown
+	a.services.system.shuttingDown = &a.process.shuttingDown
 }
 
 func (a *App) setTestWebhookService(secretStore secrets.Store, dispatcher *dispatch.Dispatcher, lifecycle *pluginLifecycleController, registry *pluginwebhook.Registry) {
 	if a == nil {
 		return
 	}
-	a.secrets = secretStore
-	a.dispatcher = dispatcher
-	a.webhookRegistry = registry
-	a.pluginWebhooks = pluginwebhook.New(pluginwebhook.Deps{
+	a.platform.Secrets = secretStore
+	a.pluginStack.Dispatcher = dispatcher
+	a.pluginStack.webhooks = registry
+	a.services.pluginWebhooks = pluginwebhook.New(pluginwebhook.Deps{
 		CurrentConfig: func() config.Config { return a.state.Config },
 		Logger:        a.state.Logger,
 		Registry:      registry,
 		Secrets:       secretStore,
-		Plugins:       a.plugins,
+		Plugins:       a.pluginStack.Plugins,
 		Dispatcher:    dispatcher,
 		Runtime:       lifecycle,
 		Grants: &pluginGrantView{
 			state:           a.state,
-			plugins:         a.plugins,
-			grantRepository: a.grantRepository,
+			plugins:         a.pluginStack.Plugins,
+			grantRepository: a.pluginStack.grantRepository,
 		},
 	})
-	if a.localActions != nil {
-		a.localActions.SetWebhookGateway(a.pluginWebhooks)
+	if a.services.localActions != nil {
+		a.services.localActions.SetWebhookGateway(a.services.pluginWebhooks)
 	}
 }
 
 func (a *App) executeLocalAction(ctx context.Context, pluginID, requestID string, action runtime.Action) (map[string]any, error) {
-	return a.localActions.Execute(ctx, pluginID, requestID, action, runtime.Event{})
+	return a.services.localActions.Execute(ctx, pluginID, requestID, action, runtime.Event{})
 }
 
 func (a *App) executeOneBotLocalAction(ctx context.Context, pluginID, requestID string, action runtime.Action) (map[string]any, error) {
-	return a.localActions.Execute(ctx, pluginID, requestID, action, runtime.Event{})
+	return a.services.localActions.Execute(ctx, pluginID, requestID, action, runtime.Event{})
 }
 
 func (a *App) executeLocalActionForEvent(ctx context.Context, pluginID, requestID string, action runtime.Action, parentEvent runtime.Event) (map[string]any, error) {
-	return a.localActions.Execute(ctx, pluginID, requestID, action, parentEvent)
+	return a.services.localActions.Execute(ctx, pluginID, requestID, action, parentEvent)
 }
 
 func (a *App) commandInfoForEvent(event adapter.NormalizedEvent) *permission.CommandInfo {
-	return a.eventIngress.commandInfoForEvent(event)
+	return a.services.eventIngress.commandInfoForEvent(event)
 }
 
 func (a *App) enrichCommandEvent(event adapter.NormalizedEvent) adapter.NormalizedEvent {
-	return a.eventIngress.enrichCommandEvent(event)
+	return a.services.eventIngress.enrichCommandEvent(event)
 }
 
 func (a *App) handleAdapterEvent(ctx context.Context, event adapter.NormalizedEvent) {
-	a.eventIngress.HandleAdapterEvent(ctx, event)
+	a.services.eventIngress.HandleAdapterEvent(ctx, event)
 }
 
 func (a *App) applyChatPolicy(ctx context.Context, event adapter.NormalizedEvent) (adapter.NormalizedEvent, bool) {
-	return a.eventIngress.applyChatPolicy(ctx, event)
+	return a.services.eventIngress.applyChatPolicy(ctx, event)
 }
 
 func (a *App) autoPrepareRuntimeEnvironments(ctx context.Context) {
-	a.systemService.autoPrepareRuntimeEnvironments(ctx)
+	a.services.system.autoPrepareRuntimeEnvironments(ctx)
 }
 
 func (a *App) startupRuntimeState(kind string) (startupRuntimeState, bool) {
-	return a.systemService.startupRuntimeState(kind)
+	return a.services.system.startupRuntimeState(kind)
 }
 
 func (a *App) setStartupRuntimeState(kind string, phase startupRuntimePhase, issue *recovery.CompatibilityIssue) {
-	a.systemService.setStartupRuntimeState(kind, phase, issue)
+	a.services.system.setStartupRuntimeState(kind, phase, issue)
 }
 
 func (a *App) managedRuntimeDiagnostics(pluginsList []plugins.Snapshot) []recovery.CompatibilityIssue {
-	return a.systemService.managedRuntimeDiagnostics(pluginsList)
+	return a.services.system.managedRuntimeDiagnostics(pluginsList)
 }
 
 func (a *App) handleSystemRecoveryRecheck() http.HandlerFunc {
-	return newSystemHTTPHandlers(a.systemService).handleSystemRecoveryRecheck()
+	return newSystemHTTPHandlers(a.services.system).handleSystemRecoveryRecheck()
 }
 
 func (a *App) handleSystemRecoveryConfirm() http.HandlerFunc {
-	return newSystemHTTPHandlers(a.systemService).handleSystemRecoveryConfirm()
+	return newSystemHTTPHandlers(a.services.system).handleSystemRecoveryConfirm()
 }
 
 func (a *App) handleSystemRuntimeBootstrap() http.HandlerFunc {
-	return newSystemHTTPHandlers(a.systemService).handleSystemRuntimeBootstrap()
+	return newSystemHTTPHandlers(a.services.system).handleSystemRuntimeBootstrap()
 }
 
 func (a *App) handlePluginWebhook() http.HandlerFunc {
-	return a.pluginWebhooks.HandleWebhook()
+	return a.services.pluginWebhooks.HandleWebhook()
 }
 
 func applyConfigApplyEffects(app *App, newCfg config.Config) configApplyEffects {
@@ -290,14 +290,14 @@ func applyConfigApplyEffects(app *App, newCfg config.Config) configApplyEffects 
 	}
 	return newConfigHTTPHandlers(configHTTPDeps{
 		state:            app.state,
-		logs:             app.logs,
-		logRepository:    app.logRepository,
-		renderer:         app.renderer,
-		pluginLogLimiter: app.pluginLogLimiter,
-		outboundLimiter:  app.outboundLimiter,
-		protocol:         app.protocol,
-		eventIngress:     app.eventIngress,
-		blacklistRepo:    app.blacklistRepo,
+		logs:             app.platform.Logs,
+		logRepository:    app.platform.LogRepository,
+		renderer:         app.pluginStack.renderer,
+		pluginLogLimiter: app.pluginStack.pluginLogLimiter,
+		outboundLimiter:  app.pluginStack.outboundLimiter,
+		protocol:         app.services.protocol,
+		eventIngress:     app.services.eventIngress,
+		blacklistRepo:    app.pluginStack.blacklistRepo,
 	}).applyHotReloadableFields(newCfg)
 }
 
@@ -314,10 +314,10 @@ func newPluginLogLimiter(cfg config.Config) *localaction.PluginLogLimiter {
 }
 
 func (a *App) dispatchPluginConfigChanged(ctx context.Context, pluginID string) {
-	if a == nil || a.localActions == nil {
+	if a == nil || a.services.localActions == nil {
 		return
 	}
-	a.localActions.DispatchPluginConfigChanged(ctx, pluginID)
+	a.services.localActions.DispatchPluginConfigChanged(ctx, pluginID)
 }
 
 type pluginManagementUIHTTPDeps struct {

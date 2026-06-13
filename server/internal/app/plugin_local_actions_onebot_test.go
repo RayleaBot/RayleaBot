@@ -303,7 +303,7 @@ func TestExecuteOneBotLocalActionConnectionLossKeepsPluginRunning(t *testing.T) 
 			AutoGrantCapabilities: []string{"message.history.get"},
 		},
 	}, nil)
-	application.plugins = plugins.NewCatalog([]plugins.Snapshot{{
+	application.pluginStack.Plugins = plugins.NewCatalog([]plugins.Snapshot{{
 		PluginID:          "weather",
 		Name:              "Weather",
 		Valid:             true,
@@ -322,7 +322,7 @@ func TestExecuteOneBotLocalActionConnectionLossKeepsPluginRunning(t *testing.T) 
 	})
 	assertRuntimeErrorCode(t, err, "adapter.connection_lost")
 
-	snapshot, ok := application.plugins.Get("weather")
+	snapshot, ok := application.pluginStack.Plugins.Get("weather")
 	if !ok {
 		t.Fatal("plugin missing from catalog")
 	}

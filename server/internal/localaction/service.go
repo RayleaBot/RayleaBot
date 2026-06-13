@@ -5,67 +5,15 @@ import (
 	"log/slog"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/adapter"
-	source "github.com/RayleaBot/RayleaBot/server/internal/bilibili"
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/dispatch"
-	"github.com/RayleaBot/RayleaBot/server/internal/governance"
 	"github.com/RayleaBot/RayleaBot/server/internal/pluginconfig"
 	"github.com/RayleaBot/RayleaBot/server/internal/pluginfile"
 	"github.com/RayleaBot/RayleaBot/server/internal/pluginkv"
-	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	"github.com/RayleaBot/RayleaBot/server/internal/render"
-	"github.com/RayleaBot/RayleaBot/server/internal/runtime"
 	"github.com/RayleaBot/RayleaBot/server/internal/scheduler"
 	"github.com/RayleaBot/RayleaBot/server/internal/secrets"
-	"github.com/RayleaBot/RayleaBot/server/internal/thirdparty"
 )
-
-const (
-	defaultPluginLogRateLimit   = "200/10s"
-	defaultKVValueMaxBytes      = 65536
-	defaultKVTotalLimitMegabyte = 16
-	defaultFileMaxBytes         = 10 * 1024 * 1024
-	defaultPluginWorkdirMB      = 256
-	defaultHTTPTimeoutSeconds   = 10
-	defaultHTTPMaxRetries       = 2
-	subscriptionHubPluginID     = "raylea.subscription-hub"
-)
-
-type GrantView interface {
-	CapabilityGranted(context.Context, string, string) bool
-	StorageRootGranted(context.Context, string, string) bool
-	GrantedHTTPHosts(context.Context, string) []string
-	GrantedWebhookScope(context.Context, string, string) (plugins.WebhookScope, bool)
-	ListPluginSnapshots() []plugins.Snapshot
-}
-
-type WebhookGateway interface {
-	Expose(context.Context, string, runtime.Action) (map[string]any, error)
-}
-
-type GovernanceService interface {
-	ReadBlacklist(context.Context) (governance.BlacklistSnapshot, error)
-	UpsertBlacklistEntry(context.Context, string, string, string) (governance.EntryResponse, error)
-	DeleteBlacklistEntry(context.Context, string, string) error
-	ReadWhitelist(context.Context) (governance.WhitelistSnapshot, error)
-	SetWhitelistEnabled(context.Context, bool) (governance.WhitelistStateResponse, error)
-	UpsertWhitelistEntry(context.Context, string, string, string) (governance.EntryResponse, error)
-	DeleteWhitelistEntry(context.Context, string, string) error
-	ReadCommandPolicy(context.Context) (governance.CommandPolicyResponse, error)
-}
-
-type ThirdPartyAccounts interface {
-	ListEnabled(context.Context, string) ([]thirdparty.Account, error)
-	ReadCookie(context.Context, thirdparty.Account) (string, error)
-	UpdateCookie(context.Context, thirdparty.Account, string) error
-	MarkUsed(context.Context, thirdparty.Account) error
-}
-
-type BilibiliSession interface {
-	PrepareCookie(context.Context, string) (source.PreparedCookie, error)
-	SignURL(context.Context, string, string) (string, error)
-	InvalidateWBI()
-}
 
 type Deps struct {
 	CurrentConfig    func() config.Config
@@ -142,53 +90,6 @@ func (s *Service) SetWebhookGateway(gateway WebhookGateway) {
 		return
 	}
 	s.webhookGateway = gateway
-}
-
-func (s *Service) Execute(ctx context.Context, pluginID, requestID string, action runtime.Action, parentEvent runtime.Event) (map[string]any, error) {
-	switch action.Kind {
-	case "logger.write":
-		return s.executeLoggerWrite(ctx, pluginID, requestID, action)
-	case "storage.kv":
-		return s.executeStorageKV(ctx, pluginID, action)
-	case "config.read":
-		return s.executeConfigRead(ctx, pluginID, action)
-	case "plugin.list":
-		return s.executePluginList(ctx, pluginID, action, parentEvent)
-	case "secret.read":
-		return s.executeSecretRead(ctx, pluginID, action)
-	case "config.write":
-		return s.executeConfigWrite(ctx, pluginID, action)
-	case "governance.blacklist.read":
-		return s.executeGovernanceBlacklistRead(ctx, pluginID)
-	case "governance.blacklist.write":
-		return s.executeGovernanceBlacklistWrite(ctx, pluginID, action)
-	case "governance.whitelist.read":
-		return s.executeGovernanceWhitelistRead(ctx, pluginID)
-	case "governance.whitelist.write":
-		return s.executeGovernanceWhitelistWrite(ctx, pluginID, action)
-	case "governance.command_policy.read":
-		return s.executeGovernanceCommandPolicyRead(ctx, pluginID)
-	case "storage.file":
-		return s.executeStorageFile(ctx, pluginID, action)
-	case "http.request":
-		return s.executeHTTPRequest(ctx, pluginID, action)
-	case "scheduler.create":
-		return s.executeSchedulerCreate(ctx, pluginID, action)
-	case "event.expose_webhook":
-		return s.executeExposeWebhook(ctx, pluginID, action)
-	case "render.image":
-		return s.executeRenderImage(ctx, pluginID, action, parentEvent)
-	default:
-		switch {
-		case runtimeIsOneBotLocalAction(action.Kind), runtimeIsProviderExtensionAction(action.Kind):
-			return s.executeOneBotLocalAction(ctx, pluginID, action)
-		default:
-			return nil, &runtime.Error{
-				Code:    "plugin.protocol_violation",
-				Message: "received unsupported local action kind",
-			}
-		}
-	}
 }
 
 func (s *Service) config() config.Config {

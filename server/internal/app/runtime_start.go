@@ -5,9 +5,7 @@ import (
 	"strings"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/adapter"
-	"github.com/RayleaBot/RayleaBot/server/internal/command"
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
-	menuext "github.com/RayleaBot/RayleaBot/server/internal/extensions/menu"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	"github.com/RayleaBot/RayleaBot/server/internal/runtime"
 )
@@ -15,128 +13,6 @@ import (
 type runtimeStarter interface {
 	Snapshot() runtime.Snapshot
 	Start(context.Context, runtime.Spec, runtime.InitPayload) error
-}
-
-func (s *eventIngressService) HandleAdapterEvent(ctx context.Context, event adapter.NormalizedEvent) {
-	if s == nil {
-		return
-	}
-	event = s.enrichEventMetadata(ctx, event)
-	if s.replyTargets != nil {
-		s.replyTargets.Record(event)
-	}
-
-	enriched, allowed := s.applyChatPolicy(ctx, event)
-	if !allowed {
-		return
-	}
-
-	if s.menu != nil && s.menu.Handle(ctx, enriched) {
-		return
-	}
-
-	if s.lifecycle != nil {
-		s.lifecycle.HandleAdapterEvent(ctx, event)
-	}
-
-	if s.bridge != nil {
-		s.bridge.HandleAdapterEvent(ctx, enriched)
-	}
-}
-
-func (s *eventIngressService) enrichEventMetadata(ctx context.Context, event adapter.NormalizedEvent) adapter.NormalizedEvent {
-	if s == nil || s.metadataEnricher == nil {
-		return event
-	}
-	return s.metadataEnricher.EnrichEventMetadata(ctx, event)
-}
-
-func (s *eventIngressService) HandleAdapterReady(ctx context.Context) {
-	if s == nil || s.lifecycle == nil {
-		return
-	}
-
-	s.lifecycle.HandleAdapterReady(ctx)
-}
-
-func newCommandParser(cfg config.Config) *command.Parser {
-	prefixes := []string{"/"}
-	if cfg.Command != nil && len(cfg.Command.Prefixes) > 0 {
-		prefixes = sanitizeCommandPrefixes(cfg.Command.Prefixes)
-	}
-	return command.NewParser(prefixes)
-}
-
-func sanitizeCommandPrefixes(prefixes []string) []string {
-	items := make([]string, 0, len(prefixes))
-	seen := make(map[string]struct{}, len(prefixes))
-	for _, prefix := range prefixes {
-		prefix = strings.TrimSpace(prefix)
-		if prefix == "" {
-			continue
-		}
-		if _, ok := seen[prefix]; ok {
-			continue
-		}
-		seen[prefix] = struct{}{}
-		items = append(items, prefix)
-	}
-	if len(items) == 0 {
-		return []string{"/"}
-	}
-	return items
-}
-
-func runtimeCommandPrefixes(cfg config.Config) []string {
-	if cfg.Command != nil && len(cfg.Command.Prefixes) > 0 {
-		return sanitizeCommandPrefixes(cfg.Command.Prefixes)
-	}
-	return []string{"/"}
-}
-
-func (s *eventIngressService) enrichCommandEvent(event adapter.NormalizedEvent) adapter.NormalizedEvent {
-	if s == nil || s.commandParser == nil || strings.TrimSpace(event.PlainText) == "" {
-		return event
-	}
-
-	parsed := s.commandParser.Parse(event.PlainText)
-	var builtinParsed menuext.Request
-	if s.menu != nil {
-		builtinParsed = s.menu.Match(event)
-	}
-	if builtinParsed.Matched {
-		parsed = command.ParseResult{
-			IsCommand: true,
-			Command:   builtinParsed.Command,
-			Args:      builtinMenuArgs(builtinParsed.Target),
-			Prefix:    builtinParsed.Prefix,
-		}
-	}
-	if !parsed.IsCommand {
-		return event
-	}
-
-	enriched := event
-	if enriched.PayloadFields == nil {
-		enriched.PayloadFields = make(map[string]any, 2)
-	} else {
-		cloned := make(map[string]any, len(enriched.PayloadFields)+2)
-		for key, value := range enriched.PayloadFields {
-			cloned[key] = value
-		}
-		enriched.PayloadFields = cloned
-	}
-	enriched.PayloadFields["command"] = parsed.Command
-	enriched.PayloadFields["args"] = append([]string(nil), parsed.Args...)
-	return enriched
-}
-
-func builtinMenuArgs(target string) []string {
-	target = strings.TrimSpace(target)
-	if target == "" {
-		return []string{}
-	}
-	return strings.Fields(target)
 }
 
 func ensureRuntimeStartedForEvent(

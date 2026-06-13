@@ -27,7 +27,8 @@ type authResponse struct {
 
 func (h *authHTTPHandlers) handleSetupAdmin() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if h.state.Config.Web.SetupLocalOnly && !isLoopbackRequest(r) {
+		cfg := h.currentConfig()
+		if cfg.SetupLocalOnly && !isLoopbackRequest(r) {
 			writeAuthError(w, r, http.StatusForbidden, codePermissionDenied, "当前用户无权执行该操作", "errors.permission.denied")
 			return
 		}
@@ -55,6 +56,7 @@ func (h *authHTTPHandlers) handleSetupAdmin() http.HandlerFunc {
 
 func (h *authHTTPHandlers) handleSessionLogin() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		cfg := h.currentConfig()
 		var request authRequest
 		if err := httpapi.DecodeStrictJSON(w, r, &request, httpapi.MaxManagementJSONBodyBytes); err != nil || request.Identifier == "" || request.Secret == "" {
 			writeAuthError(w, r, http.StatusBadRequest, codeInvalidRequest, "请求参数不合法", "errors.platform.invalid_request")
@@ -62,7 +64,7 @@ func (h *authHTTPHandlers) handleSessionLogin() http.HandlerFunc {
 		}
 
 		sourceIP := httpapi.RequestRemoteIP(r)
-		if h.loginFailures != nil && h.loginFailures.IsLimited(sourceIP, loginFailureLimit(h.state.Config), loginFailureWindow(h.state.Config)) {
+		if h.loginFailures != nil && h.loginFailures.IsLimited(sourceIP, cfg.LoginFailureLimit, cfg.LoginFailureWindow) {
 			writeAppError(w, r, http.StatusTooManyRequests, "platform.rate_limited", "触发平台级限流", "errors.platform.rate_limited", nil)
 			return
 		}
@@ -77,7 +79,7 @@ func (h *authHTTPHandlers) handleSessionLogin() http.HandlerFunc {
 			return
 		case errors.Is(err, auth.ErrInvalidCredentials):
 			if h.loginFailures != nil {
-				h.loginFailures.RecordFailure(sourceIP, loginFailureLimit(h.state.Config), loginFailureWindow(h.state.Config))
+				h.loginFailures.RecordFailure(sourceIP, cfg.LoginFailureLimit, cfg.LoginFailureWindow)
 			}
 			writeAuthError(w, r, http.StatusForbidden, codePermissionDenied, "当前用户无权执行该操作", "errors.permission.denied")
 			return

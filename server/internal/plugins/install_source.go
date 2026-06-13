@@ -6,8 +6,6 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
-
-	"github.com/RayleaBot/RayleaBot/server/internal/tasks"
 )
 
 func (s *InstallService) prepareSource(ctx context.Context, request InstallRequest) (string, string, func(), error) {
@@ -101,72 +99,4 @@ func (s *InstallService) prepareSource(ctx context.Context, request InstallReque
 		cleanup()
 		return "", "", func() {}, installError(codeInvalidRequest, "插件来源类型不受支持", "插件来源类型不受支持")
 	}
-}
-
-func (s *InstallService) loadCandidateSnapshot(candidateDir string) (Snapshot, error) {
-	infoPath := filepath.Join(candidateDir, "info.json")
-	snapshot, ok, err := loadSnapshot(infoPath, "plugins/installed", s.repoRoot, s.validator, validationMaxSummary, s.logger)
-	if err != nil {
-		return Snapshot{}, installError(codePluginInstallFailed, "读取插件 manifest 失败", "读取插件 manifest 失败")
-	}
-	if !ok {
-		return Snapshot{}, installError(codeInvalidRequest, "插件 manifest 缺少必需字段", "插件 manifest 缺少必需字段")
-	}
-	if !snapshot.Valid {
-		return Snapshot{}, installError(codePluginInstallFailed, snapshot.ValidationSummary, "插件 manifest 校验失败")
-	}
-	if snapshot.PluginID == "" {
-		return Snapshot{}, installError(codeInvalidRequest, "插件 manifest 缺少插件 ID", "插件 manifest 缺少插件 ID")
-	}
-	return snapshot, nil
-}
-
-func (s *InstallService) refreshCatalog() error {
-	snapshots, _, err := Discover(DiscoverOptions{
-		Validator: s.validator,
-		Roots:     s.discoveryRoots,
-		RepoRoot:  s.repoRoot,
-		Logger:    s.logger,
-	})
-	if err != nil {
-		return installError(codePluginInstallFailed, "刷新插件目录索引失败", "刷新插件目录索引失败")
-	}
-
-	reloaded := NewCatalog(snapshots)
-	if packageLoader, ok := s.repository.(PackageMetadataLoader); ok {
-		packageMetadata, err := packageLoader.LoadAllPackageMetadata(context.Background())
-		if err != nil {
-			return installError(codePluginInstallFailed, "读取插件安装元数据失败", "读取插件安装元数据失败")
-		}
-		reloaded.Replace(ApplyPackageMetadata(reloaded.List(), packageMetadata))
-	}
-	if s.repository != nil {
-		states, err := s.repository.LoadDesiredStates(context.Background())
-		if err != nil {
-			return installError(codePluginInstallFailed, "读取插件持久化状态失败", "读取插件持久化状态失败")
-		}
-		reloaded.ApplyDesiredStates(states)
-	}
-
-	s.catalog.Replace(reloaded.List())
-	return nil
-}
-
-func (s *InstallService) failTask(taskID, code, message, summary string) {
-	now := s.deps.now().UTC()
-	s.registry.Update(taskID, tasks.Update{
-		Status:     taskStatusPtr(tasks.StatusFailed),
-		Summary:    stringPtr(summary),
-		FinishedAt: &now,
-		Error: &tasks.ErrorSummary{
-			Code:    code,
-			Message: message,
-		},
-	})
-}
-
-func (s *InstallService) dropCancel(taskID string) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	delete(s.cancels, taskID)
 }

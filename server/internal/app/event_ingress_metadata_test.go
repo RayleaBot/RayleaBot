@@ -46,7 +46,7 @@ func TestEventIngressEnrichesMetadataBeforeBridgeDispatch(t *testing.T) {
 	dispatcher := &eventIngressDispatcherStub{}
 	application.setTestEventIngress(nil, nil, nil, bridge.New(slog.Default(), dispatcher))
 	enricher := &metadataEnricherStub{}
-	application.eventIngress.metadataEnricher = enricher
+	application.services.eventIngress.metadataEnricher = enricher
 
 	application.handleAdapterEvent(context.Background(), adapter.NormalizedEvent{
 		Kind:             adapter.EventKindMessage,

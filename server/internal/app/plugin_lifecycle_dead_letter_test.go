@@ -62,7 +62,7 @@ func TestHandleCrashDeadLetterCleansUpWebhooks(t *testing.T) {
 		t.Fatal("seed registration was not stored")
 	}
 
-	application.pluginLifecycle.handleCrash("repo-watcher", runtime.DefaultMaxCrashRetries, "plugin.internal_error")
+	application.services.pluginLifecycle.handleCrash("repo-watcher", runtime.DefaultMaxCrashRetries, "plugin.internal_error")
 
 	snapshot := manager.Snapshot()
 	if snapshot.State != runtime.StateDeadLetter {
@@ -85,7 +85,6 @@ type discardWriter struct{}
 func (discardWriter) Write(p []byte) (int, error) {
 	return len(p), nil
 }
-
 
 // TestRecoverFromDeadLetterRejectsRunning verifies the controller refuses
 // to recover a plugin that is not currently in dead_letter.
@@ -114,7 +113,7 @@ func TestRecoverFromDeadLetterRejectsRunning(t *testing.T) {
 
 	application.setTestLifecycle(catalog, nil, nil, runtimes, dispatcher, nil, nil, registry)
 
-	_, err := application.pluginLifecycle.RecoverFromDeadLetter(context.Background(), "weather")
+	_, err := application.services.pluginLifecycle.RecoverFromDeadLetter(context.Background(), "weather")
 	if err == nil {
 		t.Fatal("expected error when plugin is not in dead_letter")
 	}
@@ -122,7 +121,6 @@ func TestRecoverFromDeadLetterRejectsRunning(t *testing.T) {
 		t.Fatalf("err = %v, want ErrPluginNotInDeadLetter", err)
 	}
 }
-
 
 // failingDesiredStateRepo is a tiny stub that returns an error from
 // SaveDesiredState so RecoverFromDeadLetter can be exercised under a
@@ -176,7 +174,7 @@ func TestRecoverFromDeadLetterPersistFailureLeavesManagerInDeadLetter(t *testing
 
 	application.setTestLifecycle(catalog, repo, nil, runtimes, dispatcher, nil, nil, registry)
 
-	_, err := application.pluginLifecycle.RecoverFromDeadLetter(context.Background(), "weather")
+	_, err := application.services.pluginLifecycle.RecoverFromDeadLetter(context.Background(), "weather")
 	if err == nil {
 		t.Fatal("expected error when desired_state persistence fails")
 	}

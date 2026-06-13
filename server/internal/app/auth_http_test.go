@@ -26,8 +26,8 @@ func TestAuthHTTPSetupAndLoginResponseShape(t *testing.T) {
 	}
 
 	handlers := newAuthHTTPHandlers(authHTTPDeps{
-		state: newTestAppState(config.Config{}, slog.New(slog.NewTextHandler(io.Discard, nil))).state,
-		auth:  manager,
+		config: newTestAppState(config.Config{}, slog.New(slog.NewTextHandler(io.Discard, nil))).state,
+		auth:   manager,
 	})
 
 	setupBody := authHTTPJSON(t, map[string]string{

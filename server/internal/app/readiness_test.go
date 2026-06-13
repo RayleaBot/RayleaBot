@@ -12,12 +12,12 @@ func TestCurrentReadinessDoesNotRequireOneBotAdapter(t *testing.T) {
 	t.Parallel()
 
 	app := newTestAppState(config.Config{}, nil)
-	app.systemService = newSystemService(systemServiceDeps{
+	app.services.system = newSystemService(systemServiceDeps{
 		state: app.state,
 		auth:  initializedReadinessAuth(t),
 	})
 
-	report := app.systemService.CurrentReadiness()
+	report := app.services.system.CurrentReadiness()
 	if report.Status != "ready" {
 		t.Fatalf("readiness status = %q, want ready", report.Status)
 	}

@@ -3,17 +3,10 @@ package localaction
 import (
 	"context"
 	"encoding/base64"
-	"encoding/json"
-	"errors"
-	"net/url"
-	"strings"
-	"time"
 	"unicode/utf8"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/pluginhttp"
 	"github.com/RayleaBot/RayleaBot/server/internal/runtime"
-	"github.com/RayleaBot/RayleaBot/server/internal/secrets"
-	"github.com/RayleaBot/RayleaBot/server/internal/thirdparty"
 )
 
 func (s *Service) executeHTTPRequest(ctx context.Context, pluginID string, action runtime.Action) (map[string]any, error) {
@@ -88,113 +81,4 @@ func (s *Service) executeHTTPRequest(ctx context.Context, pluginID string, actio
 		}
 	}
 	return result, nil
-}
-
-func (s *Service) applyBilibiliCookie(ctx context.Context, pluginID, rawURL string, scopeHosts []string, headers map[string]string) (thirdparty.Account, bool) {
-	if s == nil || s.thirdParty == nil || pluginID != subscriptionHubPluginID || !isBilibiliURL(rawURL) || !urlHostGranted(rawURL, scopeHosts) || hasHTTPHeader(headers, "Cookie") {
-		return thirdparty.Account{}, false
-	}
-	accounts, err := s.thirdParty.ListEnabled(ctx, thirdparty.PlatformBilibili)
-	if err != nil {
-		return thirdparty.Account{}, false
-	}
-	for _, account := range accounts {
-		cookie, err := s.thirdParty.ReadCookie(ctx, account)
-		if err == nil && strings.TrimSpace(cookie) != "" {
-			if s.bilibiliSession != nil {
-				prepared, prepareErr := s.bilibiliSession.PrepareCookie(ctx, cookie)
-				if prepareErr != nil {
-					return thirdparty.Account{}, false
-				}
-				if prepared.Cookie != "" {
-					if prepared.Cookie != cookie && (prepared.Refreshed || prepared.Enriched) {
-						_ = s.thirdParty.UpdateCookie(ctx, account, prepared.Cookie)
-					}
-					cookie = prepared.Cookie
-				}
-			}
-			headers["Cookie"] = cookie
-			return account, true
-		}
-		if err != nil && !errors.Is(err, secrets.ErrNotFound) {
-			return thirdparty.Account{}, false
-		}
-	}
-	return thirdparty.Account{}, false
-}
-
-func isBilibiliURL(rawURL string) bool {
-	parsed, err := url.Parse(rawURL)
-	if err != nil {
-		return false
-	}
-	host := strings.ToLower(strings.TrimSpace(parsed.Hostname()))
-	return host == "bilibili.com" || strings.HasSuffix(host, ".bilibili.com")
-}
-
-func urlHostGranted(rawURL string, scopeHosts []string) bool {
-	parsed, err := url.Parse(rawURL)
-	if err != nil {
-		return false
-	}
-	host := strings.ToLower(strings.TrimSpace(parsed.Hostname()))
-	if host == "" {
-		return false
-	}
-	for _, scopeHost := range scopeHosts {
-		if host == strings.ToLower(strings.TrimSpace(scopeHost)) {
-			return true
-		}
-	}
-	return false
-}
-
-func hasHTTPHeader(headers map[string]string, name string) bool {
-	for key, value := range headers {
-		if strings.EqualFold(key, name) && strings.TrimSpace(value) != "" {
-			return true
-		}
-	}
-	return false
-}
-
-func isBilibiliURLForWBI(rawURL string) bool {
-	parsed, err := url.Parse(rawURL)
-	if err != nil {
-		return false
-	}
-	host := strings.ToLower(parsed.Hostname())
-	return host == "api.bilibili.com" || host == "api.live.bilibili.com"
-}
-
-func (s *Service) executeSchedulerCreate(ctx context.Context, pluginID string, action runtime.Action) (map[string]any, error) {
-	if s == nil || s.grants == nil || !s.grants.CapabilityGranted(ctx, pluginID, "scheduler.create") {
-		return nil, &runtime.Error{
-			Code:    "permission.scope_violation",
-			Message: "scheduler.create capability is not granted",
-		}
-	}
-	if s.scheduler == nil {
-		return nil, &runtime.Error{
-			Code:    "plugin.internal_error",
-			Message: "scheduler engine is not available",
-		}
-	}
-
-	payloadBytes, err := json.Marshal(action.SchedulerPayload)
-	if err != nil {
-		return nil, &runtime.Error{
-			Code:    "plugin.internal_error",
-			Message: "scheduler.create payload is invalid",
-			Err:     err,
-		}
-	}
-	job, err := s.scheduler.UpsertTaskWithLabel(ctx, pluginID, action.SchedulerTaskID, action.SchedulerLogLabel, action.SchedulerCron, payloadBytes)
-	if err != nil {
-		return nil, &runtime.Error{Code: "plugin.internal_error", Message: "scheduler.create failed", Err: err}
-	}
-	return map[string]any{
-		"task_id":  job.JobID,
-		"next_run": job.NextRun.UTC().Format(time.RFC3339),
-	}, nil
 }

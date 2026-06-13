@@ -39,7 +39,7 @@ func TestReloadCreatesPluginReloadTask(t *testing.T) {
 		newPluginWebhookRegistry(),
 	)
 
-	if _, err := app.pluginLifecycle.Reload(context.Background(), "weather"); err != nil {
+	if _, err := app.services.pluginLifecycle.Reload(context.Background(), "weather"); err != nil {
 		t.Fatalf("Reload returned error: %v", err)
 	}
 
@@ -85,7 +85,7 @@ func TestReloadRejectedBeforeAcceptanceDoesNotCreateTask(t *testing.T) {
 		newPluginWebhookRegistry(),
 	)
 
-	if _, err := app.pluginLifecycle.Reload(context.Background(), "weather"); err == nil {
+	if _, err := app.services.pluginLifecycle.Reload(context.Background(), "weather"); err == nil {
 		t.Fatal("expected Reload to reject disabled plugin")
 	}
 	if tasks := registry.List(); len(tasks) != 0 {

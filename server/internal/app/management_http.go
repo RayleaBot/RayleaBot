@@ -85,11 +85,15 @@ func (h *managementHTTPHandlers) handleLauncherShutdown() http.HandlerFunc {
 }
 
 func (h *managementHTTPHandlers) writeSystemStatus(w http.ResponseWriter, statusCode int) {
-	writeAuthJSON(w, statusCode, systemStatusResponse{
-		Status:          h.system.systemStatus(),
-		AdapterState:    string(stateOrIdle(h.system.adapter.Snapshot().State)),
-		ActivePlugins:   h.system.activePluginCount(),
-		UptimeSeconds:   h.system.uptimeSeconds(),
-		RecoverySummary: h.system.state.recoverySummarySnapshot(),
-	})
+	writeAuthJSON(w, statusCode, h.system.managementStatusSnapshot())
+}
+
+func (s *systemService) managementStatusSnapshot() systemStatusResponse {
+	return systemStatusResponse{
+		Status:          s.systemStatus(),
+		AdapterState:    string(stateOrIdle(s.adapter.Snapshot().State)),
+		ActivePlugins:   s.activePluginCount(),
+		UptimeSeconds:   s.uptimeSeconds(),
+		RecoverySummary: s.state.recoverySummarySnapshot(),
+	}
 }

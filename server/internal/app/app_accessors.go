@@ -33,22 +33,22 @@ func (a *App) AuthManager() *auth.Manager {
 	if a == nil {
 		return nil
 	}
-	return a.auth
+	return a.platform.Auth
 }
 
 func (a *App) SetAuthManager(manager *auth.Manager) {
 	if a == nil {
 		return
 	}
-	a.auth = manager
-	if a.authHandler != nil {
-		a.authHandler.auth = manager
+	a.platform.Auth = manager
+	if a.httpHandlers.auth != nil {
+		a.httpHandlers.auth.auth = manager
 	}
-	if a.managementHandler != nil {
-		a.managementHandler.auth = manager
+	if a.httpHandlers.management != nil {
+		a.httpHandlers.management.auth = manager
 	}
-	if a.systemService != nil {
-		a.systemService.auth = manager
+	if a.services.system != nil {
+		a.services.system.auth = manager
 	}
 }
 
@@ -56,46 +56,46 @@ func (a *App) Bridge() *bridge.Bridge {
 	if a == nil {
 		return nil
 	}
-	return a.bridge
+	return a.pluginStack.Bridge
 }
 
 func (a *App) SetBridge(eventBridge *bridge.Bridge) {
 	if a == nil {
 		return
 	}
-	a.bridge = eventBridge
-	if a.eventIngress != nil {
-		a.eventIngress.bridge = eventBridge
+	a.pluginStack.Bridge = eventBridge
+	if a.services.eventIngress != nil {
+		a.services.eventIngress.bridge = eventBridge
 	}
-	if a.eventsWS != nil {
-		a.eventsWS.bridge = eventBridge
+	if a.httpHandlers.eventsWS != nil {
+		a.httpHandlers.eventsWS.bridge = eventBridge
 	}
 }
 
 func (a *App) HandleAdapterEvent(ctx context.Context, event adapter.NormalizedEvent) {
-	if a == nil || a.eventIngress == nil {
+	if a == nil || a.services.eventIngress == nil {
 		return
 	}
-	a.eventIngress.HandleAdapterEvent(ctx, event)
+	a.services.eventIngress.HandleAdapterEvent(ctx, event)
 }
 
 func (a *App) Logs() *logging.Stream {
 	if a == nil {
 		return nil
 	}
-	return a.logs
+	return a.platform.Logs
 }
 
 func (a *App) SetLogRepository(repository logging.Repository) {
 	if a == nil {
 		return
 	}
-	a.logRepository = repository
-	if a.logService != nil {
-		a.logService.repository = repository
+	a.platform.LogRepository = repository
+	if a.services.logs != nil {
+		a.services.logs.repository = repository
 	}
-	if a.systemService != nil {
-		a.systemService.logRepository = repository
+	if a.services.system != nil {
+		a.services.system.logRepository = repository
 	}
 }
 
@@ -103,43 +103,43 @@ func (a *App) Console() *console.Stream {
 	if a == nil {
 		return nil
 	}
-	return a.console
+	return a.platform.Console
 }
 
 func (a *App) Tasks() *tasks.Registry {
 	if a == nil {
 		return nil
 	}
-	return a.tasks
+	return a.platform.Tasks
 }
 
 func (a *App) Plugins() *plugins.Catalog {
 	if a == nil {
 		return nil
 	}
-	return a.plugins
+	return a.pluginStack.Plugins
 }
 
 func (a *App) Storage() *storage.Store {
 	if a == nil {
 		return nil
 	}
-	return a.storage
+	return a.platform.Storage
 }
 
 func (a *App) PluginInstaller() plugins.InstallCoordinator {
 	if a == nil {
 		return nil
 	}
-	return a.pluginInstaller
+	return a.pluginStack.PluginInstaller
 }
 
 func (a *App) SetPluginInstaller(installer plugins.InstallCoordinator) {
 	if a == nil {
 		return
 	}
-	a.pluginInstaller = installer
-	if a.taskHandler != nil {
-		a.taskHandler.pluginInstaller = installer
+	a.pluginStack.PluginInstaller = installer
+	if a.httpHandlers.tasks != nil {
+		a.httpHandlers.tasks.pluginInstaller = installer
 	}
 }

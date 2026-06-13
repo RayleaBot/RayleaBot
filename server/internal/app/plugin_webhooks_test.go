@@ -80,14 +80,14 @@ func TestHandlePluginWebhookAcceptsSignedRequestAndDispatchesEvent(t *testing.T)
 			AutoGrantCapabilities: []string{"event.expose_webhook", "event.raw_payload"},
 		},
 	}, slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)))
-	application.plugins = plugins.NewCatalog([]plugins.Snapshot{{PluginID: "repo-watcher", Name: "Repo Watcher", Valid: true, RegistrationState: "installed", DesiredState: "enabled", RuntimeState: "running"}})
+	application.pluginStack.Plugins = plugins.NewCatalog([]plugins.Snapshot{{PluginID: "repo-watcher", Name: "Repo Watcher", Valid: true, RegistrationState: "installed", DesiredState: "enabled", RuntimeState: "running"}})
 	application.setTestLocalActions(grantRepo, nil, nil, nil, nil, dispatcher, nil, nil, nil, nil)
 	application.setTestWebhookService(secretStore, dispatcher, nil, registry)
 
 	fakeRuntime := &capturingRuntime{events: make(chan runtime.Event, 1)}
-	application.dispatcher.Register("repo-watcher", fakeRuntime, []string{"webhook.received"}, nil, 1)
+	application.pluginStack.Dispatcher.Register("repo-watcher", fakeRuntime, []string{"webhook.received"}, nil, 1)
 
-	if err := application.secrets.Set(context.Background(), "webhook.github.secret", []byte("fixture-webhook-secret")); err != nil {
+	if err := application.platform.Secrets.Set(context.Background(), "webhook.github.secret", []byte("fixture-webhook-secret")); err != nil {
 		t.Fatalf("set webhook secret: %v", err)
 	}
 
@@ -198,14 +198,14 @@ func TestHandlePluginWebhookRejectsOversizedBody(t *testing.T) {
 			AutoGrantCapabilities: []string{"event.expose_webhook", "event.raw_payload"},
 		},
 	}, slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)))
-	application.plugins = plugins.NewCatalog([]plugins.Snapshot{{PluginID: "repo-watcher", Name: "Repo Watcher", Valid: true, RegistrationState: "installed", DesiredState: "enabled", RuntimeState: "running"}})
+	application.pluginStack.Plugins = plugins.NewCatalog([]plugins.Snapshot{{PluginID: "repo-watcher", Name: "Repo Watcher", Valid: true, RegistrationState: "installed", DesiredState: "enabled", RuntimeState: "running"}})
 	application.setTestLocalActions(grantRepo, nil, nil, nil, nil, dispatcher, nil, nil, nil, nil)
 	application.setTestWebhookService(secretStore, dispatcher, nil, registry)
 
 	fakeRuntime := &capturingRuntime{events: make(chan runtime.Event, 1)}
-	application.dispatcher.Register("repo-watcher", fakeRuntime, []string{"webhook.received"}, nil, 1)
+	application.pluginStack.Dispatcher.Register("repo-watcher", fakeRuntime, []string{"webhook.received"}, nil, 1)
 
-	if err := application.secrets.Set(context.Background(), "webhook.github.secret", []byte("fixture-webhook-secret")); err != nil {
+	if err := application.platform.Secrets.Set(context.Background(), "webhook.github.secret", []byte("fixture-webhook-secret")); err != nil {
 		t.Fatalf("set webhook secret: %v", err)
 	}
 

@@ -35,18 +35,18 @@ func (h *logsWSHandler) handleLogsWebSocket() http.HandlerFunc {
 		}()
 
 		framesCtx := conn.CloseRead(context.Background())
-		summaries, unsubscribe := h.logs.stream.Subscribe(8)
+		summaries, unsubscribe := h.logs.Subscribe(8)
 		defer unsubscribe()
 
 		replayed := make(map[string]struct{})
-		for _, summary := range h.logs.replayLogSummaries(framesCtx) {
+		for _, summary := range h.logs.Replay(framesCtx) {
 			if err := wsjson.Write(framesCtx, conn, newLogFrame(summary)); err != nil {
 				return
 			}
 			replayed[logSummaryKey(summary)] = struct{}{}
 		}
 
-		for _, summary := range h.logs.stream.Snapshot() {
+		for _, summary := range h.logs.Snapshot() {
 			if _, ok := replayed[logSummaryKey(summary)]; ok {
 				continue
 			}
@@ -71,7 +71,7 @@ func (h *logsWSHandler) handleLogsWebSocket() http.HandlerFunc {
 	}
 }
 
-func (s *logService) replayLogSummaries(ctx context.Context) []logging.Summary {
+func (s *logService) Replay(ctx context.Context) []logging.Summary {
 	if s == nil {
 		return nil
 	}
@@ -87,6 +87,22 @@ func (s *logService) replayLogSummaries(ctx context.Context) []logging.Summary {
 		return nil
 	}
 	return items
+}
+
+func (s *logService) Snapshot() []logging.Summary {
+	if s == nil || s.stream == nil {
+		return nil
+	}
+	return s.stream.Snapshot()
+}
+
+func (s *logService) Subscribe(buffer int) (<-chan logging.Summary, func()) {
+	if s == nil || s.stream == nil {
+		ch := make(chan logging.Summary)
+		close(ch)
+		return ch, func() {}
+	}
+	return s.stream.Subscribe(buffer)
 }
 
 func logSummaryKey(summary logging.Summary) string {

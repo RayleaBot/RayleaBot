@@ -62,7 +62,7 @@ func TestExecutePluginListUsesBuiltinAutoGrant(t *testing.T) {
 	t.Parallel()
 
 	application := newTestAppState(config.Config{}, slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)))
-	application.plugins = plugins.NewCatalog([]plugins.Snapshot{
+	application.pluginStack.Plugins = plugins.NewCatalog([]plugins.Snapshot{
 		{
 			PluginID:            "raylea.echo",
 			Name:                "Echo",
@@ -278,7 +278,7 @@ func TestExecutePluginListCallerVisibilityFiltersHelp(t *testing.T) {
 
 func newPluginListVisibilityTestApp(cfg config.Config) *App {
 	application := newTestAppState(cfg, slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)))
-	application.plugins = plugins.NewCatalog([]plugins.Snapshot{
+	application.pluginStack.Plugins = plugins.NewCatalog([]plugins.Snapshot{
 		{
 			PluginID:            "raylea.echo",
 			Name:                "Echo",
@@ -446,13 +446,13 @@ func TestExecuteSecretReadReturnsPluginScopedValue(t *testing.T) {
 	}
 
 	application := newTestAppState(config.Config{}, slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)))
-	application.plugins = plugins.NewCatalog([]plugins.Snapshot{{
+	application.pluginStack.Plugins = plugins.NewCatalog([]plugins.Snapshot{{
 		PluginID:            "subscription-hub",
 		Valid:               true,
 		RegistrationState:   "installed",
 		RequiredPermissions: []string{"secret.read"},
 	}})
-	application.secrets = secretStore
+	application.platform.Secrets = secretStore
 	application.setTestLocalActions(
 		&stubLifecycleGrantRepository{grants: map[string][]plugins.PluginGrant{
 			"subscription-hub": {{
@@ -772,7 +772,7 @@ func TestExecuteConfigWriteDispatchesConfigChanged(t *testing.T) {
 		nil,
 	)
 	fakeRuntime := &capturingRuntime{events: make(chan runtime.Event, 1)}
-	application.dispatcher.Register("weather", fakeRuntime, []string{"config.changed"}, nil, 1)
+	application.pluginStack.Dispatcher.Register("weather", fakeRuntime, []string{"config.changed"}, nil, 1)
 
 	if _, err := application.executeLocalAction(context.Background(), "weather", "req_config_changed", runtime.Action{
 		Kind: "config.write",
@@ -803,9 +803,9 @@ func TestExecuteGovernanceActionsRejectMissingCapability(t *testing.T) {
 	defer store.Close()
 
 	application := newTestAppState(config.Config{}, slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)))
-	application.blacklistRepo = permission.NewSQLiteBlacklistRepository(store.Read, store.Write)
-	application.whitelistRepo = permission.NewSQLiteWhitelistRepository(store.Read, store.Write)
-	application.whitelistState = permission.NewSQLiteWhitelistStateRepository(store.Read, store.Write)
+	application.pluginStack.blacklistRepo = permission.NewSQLiteBlacklistRepository(store.Read, store.Write)
+	application.pluginStack.whitelistRepo = permission.NewSQLiteWhitelistRepository(store.Read, store.Write)
+	application.pluginStack.whitelistState = permission.NewSQLiteWhitelistStateRepository(store.Read, store.Write)
 	application.setTestLocalActions(
 		&stubLifecycleGrantRepository{grants: map[string][]plugins.PluginGrant{}},
 		nil,
@@ -845,10 +845,10 @@ func TestExecuteGovernanceActionsRoundTrip(t *testing.T) {
 			},
 		},
 	}, slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)))
-	application.blacklistRepo = permission.NewSQLiteBlacklistRepository(store.Read, store.Write)
-	application.whitelistRepo = permission.NewSQLiteWhitelistRepository(store.Read, store.Write)
-	application.whitelistState = permission.NewSQLiteWhitelistStateRepository(store.Read, store.Write)
-	application.plugins = plugins.NewCatalog([]plugins.Snapshot{{
+	application.pluginStack.blacklistRepo = permission.NewSQLiteBlacklistRepository(store.Read, store.Write)
+	application.pluginStack.whitelistRepo = permission.NewSQLiteWhitelistRepository(store.Read, store.Write)
+	application.pluginStack.whitelistState = permission.NewSQLiteWhitelistStateRepository(store.Read, store.Write)
+	application.pluginStack.Plugins = plugins.NewCatalog([]plugins.Snapshot{{
 		PluginID:          "weather",
 		Name:              "Weather",
 		Valid:             true,
@@ -970,9 +970,9 @@ func TestExecuteGovernanceWritePublishesGovernanceChanged(t *testing.T) {
 			AutoGrantCapabilities: []string{"governance.blacklist.write"},
 		},
 	}, slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)))
-	application.blacklistRepo = permission.NewSQLiteBlacklistRepository(store.Read, store.Write)
-	application.whitelistRepo = permission.NewSQLiteWhitelistRepository(store.Read, store.Write)
-	application.whitelistState = permission.NewSQLiteWhitelistStateRepository(store.Read, store.Write)
+	application.pluginStack.blacklistRepo = permission.NewSQLiteBlacklistRepository(store.Read, store.Write)
+	application.pluginStack.whitelistRepo = permission.NewSQLiteWhitelistRepository(store.Read, store.Write)
+	application.pluginStack.whitelistState = permission.NewSQLiteWhitelistStateRepository(store.Read, store.Write)
 	application.setTestLocalActions(
 		&stubLifecycleGrantRepository{grants: map[string][]plugins.PluginGrant{}},
 		nil,
@@ -986,7 +986,7 @@ func TestExecuteGovernanceWritePublishesGovernanceChanged(t *testing.T) {
 		nil,
 	)
 
-	events, unsubscribe := application.governanceEvents.subscribeGovernanceEvents(1)
+	events, unsubscribe := application.services.governanceEvents.subscribeGovernanceEvents(1)
 	defer unsubscribe()
 
 	if _, err := application.executeLocalAction(context.Background(), "governance-helper", "req_governance_publish", runtime.Action{
@@ -1037,7 +1037,7 @@ func TestExecuteSchedulerCreateUpsertDoesNotWriteManagementLog(t *testing.T) {
 			AutoGrantCapabilities: []string{"scheduler.create"},
 		},
 	}, slog.New(slog.NewTextHandler(buffer, nil)))
-	application.plugins = plugins.NewCatalog([]plugins.Snapshot{{
+	application.pluginStack.Plugins = plugins.NewCatalog([]plugins.Snapshot{{
 		PluginID:          "weather",
 		Name:              "天气插件",
 		Valid:             true,
@@ -1159,7 +1159,7 @@ func TestExecuteExposeWebhookRegistersGateway(t *testing.T) {
 		t.Fatalf("unexpected webhook url: %#v", urlValue)
 	}
 
-	registration, ok := application.webhookRegistry.Get("repo-watcher", "github")
+	registration, ok := application.pluginStack.webhooks.Get("repo-watcher", "github")
 	if !ok {
 		t.Fatal("expected webhook registration to be stored")
 	}
@@ -1346,7 +1346,7 @@ func TestExecuteRenderImageInjectsPluginFooter(t *testing.T) {
 			AutoGrantCapabilities: []string{"render.image"},
 		},
 	}, slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)))
-	application.plugins = plugins.NewCatalog([]plugins.Snapshot{{
+	application.pluginStack.Plugins = plugins.NewCatalog([]plugins.Snapshot{{
 		PluginID:          "help-menu",
 		Name:              "帮助",
 		Version:           "1.0.0",
@@ -1414,7 +1414,7 @@ func TestExecuteRenderImageResolvesOwnPluginTemplateShortID(t *testing.T) {
 			AutoGrantCapabilities: []string{"render.image"},
 		},
 	}, slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)))
-	application.plugins = catalog
+	application.pluginStack.Plugins = catalog
 	application.setTestLocalActions(
 		&stubLifecycleGrantRepository{grants: map[string][]plugins.PluginGrant{}},
 		nil,
@@ -1485,7 +1485,7 @@ func TestExecuteRenderImageRejectsOtherPluginTemplate(t *testing.T) {
 			AutoGrantCapabilities: []string{"render.image"},
 		},
 	}, slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)))
-	application.plugins = catalog
+	application.pluginStack.Plugins = catalog
 	application.setTestLocalActions(
 		&stubLifecycleGrantRepository{grants: map[string][]plugins.PluginGrant{}},
 		nil,

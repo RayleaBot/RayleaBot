@@ -14,7 +14,6 @@ import (
 
 	"github.com/RayleaBot/RayleaBot/server/internal/render"
 	"github.com/RayleaBot/RayleaBot/server/internal/storage"
-	"github.com/RayleaBot/RayleaBot/server/internal/tasks"
 )
 
 func TestRenderTemplateHandlersExposePreviewWorkspaceOnly(t *testing.T) {
@@ -85,7 +84,7 @@ func TestRenderTemplateHandlersRejectUnknownTemplate(t *testing.T) {
 	}
 }
 
-func TestRenderTemplatePreviewHTMLHandlerDoesNotCreateTask(t *testing.T) {
+func TestRenderTemplatePreviewHTMLHandlerReturnsHTML(t *testing.T) {
 	t.Parallel()
 
 	fixture := newRenderHTTPFixture(t)
@@ -112,9 +111,6 @@ func TestRenderTemplatePreviewHTMLHandlerDoesNotCreateTask(t *testing.T) {
 	}
 	if !strings.Contains(response.HTML, "同步预览") {
 		t.Fatalf("preview html does not contain rendered data: %s", response.HTML)
-	}
-	if len(fixture.tasks.List()) != 0 {
-		t.Fatalf("preview html created tasks: %#v", fixture.tasks.List())
 	}
 }
 
@@ -196,7 +192,6 @@ func TestRenderTemplateEditorRoutesAreRemoved(t *testing.T) {
 type renderHTTPFixture struct {
 	router   http.Handler
 	renderer *render.Service
-	tasks    *tasks.Registry
 	cleanup  func()
 }
 
@@ -229,9 +224,7 @@ func newRenderHTTPFixture(t *testing.T) renderHTTPFixture {
 		_ = store.Close()
 		t.Fatalf("create render service: %v", err)
 	}
-	registry := tasks.NewRegistry()
-	executor := tasks.NewExecutor(registry, 2*time.Second)
-	handlers := newRenderHTTPHandlers(renderer, executor)
+	handlers := newRenderHTTPHandlers(renderer)
 
 	router := chi.NewRouter()
 	router.Get("/api/system/render/templates", handlers.handleSystemRenderTemplateList())
@@ -240,7 +233,6 @@ func newRenderHTTPFixture(t *testing.T) renderHTTPFixture {
 	router.Get("/api/system/render/templates/{template_id}", handlers.handleSystemRenderTemplateDetail())
 
 	cleanup := func() {
-		_ = executor.Close()
 		_ = renderer.Close()
 		_ = store.Close()
 	}
@@ -249,7 +241,6 @@ func newRenderHTTPFixture(t *testing.T) renderHTTPFixture {
 	return renderHTTPFixture{
 		router:   router,
 		renderer: renderer,
-		tasks:    registry,
 		cleanup:  cleanup,
 	}
 }

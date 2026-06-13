@@ -1,13 +1,10 @@
 package main
 
 import (
-	"context"
 	"flag"
 	"os"
-	"os/signal"
-	"syscall"
 
-	"github.com/RayleaBot/RayleaBot/server/internal/app"
+	"github.com/RayleaBot/RayleaBot/server/internal/bootstrap"
 	"github.com/RayleaBot/RayleaBot/server/internal/cli"
 	"github.com/RayleaBot/RayleaBot/server/internal/logging"
 	"github.com/RayleaBot/RayleaBot/server/internal/schemaassets"
@@ -43,7 +40,7 @@ func main() {
 		"schema_path", schemaPath,
 	)
 
-	application, err := app.New(app.Options{
+	application, err := bootstrap.New(bootstrap.Options{
 		ConfigPath: configPath,
 		SchemaPath: schemaPath,
 	})
@@ -58,10 +55,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
-	defer stop()
-
-	if err := application.Run(ctx); err != nil {
+	if err := bootstrap.RunWithSignals(application); err != nil {
 		application.Logger().Error("server exited with error", "component", "main", "err", err.Error())
 		os.Exit(1)
 	}

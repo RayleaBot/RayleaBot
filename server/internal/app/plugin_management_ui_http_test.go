@@ -258,7 +258,7 @@ func TestHandlePluginSettingsPutDispatchesConfigChanged(t *testing.T) {
 			Description: "动态指令",
 		}},
 	}})
-	application.plugins = catalog
+	application.pluginStack.Plugins = catalog
 	application.setTestLocalActions(
 		&stubLifecycleGrantRepository{grants: map[string][]plugins.PluginGrant{}},
 		repo,

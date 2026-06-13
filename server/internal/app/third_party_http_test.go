@@ -20,7 +20,7 @@ func (fn thirdPartyMediaRoundTripFunc) RoundTrip(request *http.Request) (*http.R
 func TestThirdPartyMediaStreamsAllowedBilibiliImage(t *testing.T) {
 	t.Parallel()
 
-	handler := newThirdPartyHTTPHandlers(nil, nil, thirdPartyMediaRoundTripFunc(func(request *http.Request) (*http.Response, error) {
+	handler := newThirdPartyHTTPHandlers(nil, nil, nil, thirdPartyMediaRoundTripFunc(func(request *http.Request) (*http.Response, error) {
 		if request.URL.String() != "https://i0.hdslb.com/bfs/face/up.jpg" {
 			t.Fatalf("unexpected media url: %s", request.URL.String())
 		}
@@ -53,7 +53,7 @@ func TestThirdPartyMediaStreamsAllowedBilibiliImage(t *testing.T) {
 func TestThirdPartyMediaRejectsUnsupportedURL(t *testing.T) {
 	t.Parallel()
 
-	handler := newThirdPartyHTTPHandlers(nil, nil, thirdPartyMediaRoundTripFunc(func(request *http.Request) (*http.Response, error) {
+	handler := newThirdPartyHTTPHandlers(nil, nil, nil, thirdPartyMediaRoundTripFunc(func(request *http.Request) (*http.Response, error) {
 		t.Fatalf("unexpected upstream request: %s", request.URL.String())
 		return nil, nil
 	}))

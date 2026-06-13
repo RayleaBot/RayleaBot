@@ -14,6 +14,12 @@ type loginFailureTracker struct {
 	entries map[string][]time.Time
 }
 
+type loginFailureRecorder interface {
+	IsLimited(string, int, time.Duration) bool
+	RecordFailure(string, int, time.Duration)
+	Reset(string)
+}
+
 func newLoginFailureTracker(now func() time.Time) *loginFailureTracker {
 	if now == nil {
 		now = time.Now

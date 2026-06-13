@@ -36,3 +36,35 @@ func projectDisplayState(snapshot Snapshot) string {
 
 	return defaultDisplayState(snapshot)
 }
+
+func defaultDisplayState(snapshot Snapshot) string {
+	if snapshot.RegistrationState == stateRemoved {
+		return displayRemoved
+	}
+	if !snapshot.Valid || snapshot.RegistrationState != stateInstalled {
+		return displayInvalid
+	}
+
+	switch snapshot.RuntimeState {
+	case "starting":
+		return displayEnabling
+	case "running":
+		return displayRunning
+	case "stopping":
+		if snapshot.DesiredState == "disabled" {
+			return displayDisabling
+		}
+		return displayStopping
+	case "crashed":
+		return displayCrashed
+	case "backoff":
+		return displayBackoff
+	case "dead_letter":
+		return displayDeadLetter
+	}
+
+	if snapshot.DesiredState == "enabled" {
+		return displayEnabled
+	}
+	return displayDisabled
+}

@@ -205,7 +205,7 @@ func TestStartupRequiredRuntimeKindsSkipsChromiumWhenBrowserPathConfigured(t *te
 	}, nil)
 	application.setTestSystem(nil, nil, nil, nil)
 
-	if got := application.systemService.startupRequiredRuntimeKinds(); !slices.Equal(got, []string{"python-runtime", "nodejs-runtime"}) {
+	if got := application.services.system.startupRequiredRuntimeKinds(); !slices.Equal(got, []string{"python-runtime", "nodejs-runtime"}) {
 		t.Fatalf("startupRequiredRuntimeKinds() = %#v", got)
 	}
 }
