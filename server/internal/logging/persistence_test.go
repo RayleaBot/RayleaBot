@@ -100,10 +100,11 @@ func TestSpoolQueueKeepsPendingRecordsWhenRepositoryFails(t *testing.T) {
 func TestStreamAppendsAfterSpoolingWhenDatabaseFails(t *testing.T) {
 	t.Parallel()
 
+	tempDir := t.TempDir()
 	stream := NewStream(8)
 	t.Cleanup(stream.Close)
 
-	queue := NewSpoolQueue(filepath.Join(t.TempDir(), "management-logs.spool.jsonl"))
+	queue := NewSpoolQueue(filepath.Join(tempDir, "management-logs.spool.jsonl"))
 	stream.ConfigureSpool(queue, io.Discard)
 	stream.SetRepository(&recordingRepository{saveErr: errors.New("database unavailable")}, 0)
 
@@ -171,10 +172,11 @@ func TestStreamDropsLogWhenDatabaseAndSpoolBothFail(t *testing.T) {
 func TestStreamFlushesQueuedRecordsOnceRepositoryRecovers(t *testing.T) {
 	t.Parallel()
 
+	tempDir := t.TempDir()
 	stream := NewStream(8)
 	t.Cleanup(stream.Close)
 
-	queue := NewSpoolQueue(filepath.Join(t.TempDir(), "management-logs.spool.jsonl"))
+	queue := NewSpoolQueue(filepath.Join(tempDir, "management-logs.spool.jsonl"))
 	if err := queue.Append(Summary{
 		LogID:     "log_stream_flush_0001",
 		Timestamp: "2026-04-15T00:00:01Z",

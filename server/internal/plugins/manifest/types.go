@@ -5,14 +5,14 @@ import "github.com/RayleaBot/RayleaBot/server/internal/plugins"
 const (
 	ManifestValidationMaxSummary = plugins.ManifestValidationMaxSummary
 
-	RegistrationStateInstalled = plugins.RegistrationStateInstalled
-	DesiredStateEnabled        = plugins.DesiredStateEnabled
-	DesiredStateDisabled       = plugins.DesiredStateDisabled
-	RuntimeStateStopped        = plugins.RuntimeStateStopped
-	DisplayStateDiscovered     = plugins.DisplayStateDiscovered
-	DisplayStateInvalid        = plugins.DisplayStateInvalidManifest
+	RegistrationStateInstalled  = plugins.RegistrationStateInstalled
+	DesiredStateEnabled         = plugins.DesiredStateEnabled
+	DesiredStateDisabled        = plugins.DesiredStateDisabled
+	RuntimeStateStopped         = plugins.RuntimeStateStopped
+	DisplayStateDiscovered      = plugins.DisplayStateDiscovered
+	DisplayStateInvalid         = plugins.DisplayStateInvalidManifest
 	DisplayStateInvalidManifest = plugins.DisplayStateInvalidManifest
-	DisplayStateConflict       = plugins.DisplayStateConflict
+	DisplayStateConflict        = plugins.DisplayStateConflict
 
 	CommandSourceManifest = plugins.CommandSourceManifest
 	CommandSourceDynamic  = plugins.CommandSourceDynamic
