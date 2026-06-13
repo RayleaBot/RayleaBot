@@ -7,6 +7,7 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/RayleaBot/RayleaBot/server/internal/bilibili/fingerprint"
 	"github.com/RayleaBot/RayleaBot/server/internal/thirdparty"
 )
 
@@ -60,7 +61,7 @@ func (s *Source) fetchMonitorLatestDynamic(ctx context.Context, subject Subject,
 	if strings.TrimSpace(subject.UID) == "" || strings.TrimSpace(cookie) == "" {
 		return BilibiliEvent{}, false, nil
 	}
-	dmImg := GetDmImg()
+	dmImg := fingerprint.GetDmImg()
 	feedURL := fmt.Sprintf(dynamicSpaceFeedURL, subject.UID) +
 		"&dm_img_list=" + url.QueryEscape(dmImg.DmImgList) +
 		"&dm_img_str=" + url.QueryEscape(dmImg.DmImgStr) +

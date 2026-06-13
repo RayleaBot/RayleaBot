@@ -1,4 +1,4 @@
-package bilibili
+package fingerprint
 
 import "fmt"
 

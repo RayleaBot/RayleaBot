@@ -11,6 +11,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/RayleaBot/RayleaBot/server/internal/bilibili/fingerprint"
 )
 
 func (c *SessionClient) enrichCookie(ctx context.Context, cookie string) (string, bool, error) {
@@ -43,10 +45,10 @@ func (c *SessionClient) enrichCookie(ctx context.Context, cookie string) (string
 		}
 	}
 	if strings.TrimSpace(values["buvid_fp"]) == "" {
-		updates["buvid_fp"] = GenBuvidFP(c.identity.UserAgent())
+		updates["buvid_fp"] = fingerprint.GenBuvidFP(c.identity.UserAgent())
 	}
 	if strings.TrimSpace(values["_uuid"]) == "" {
-		updates["_uuid"] = GenUUID()
+		updates["_uuid"] = fingerprint.GenUUID()
 	}
 	if len(updates) == 0 {
 		return cookie, false, nil
@@ -88,10 +90,10 @@ func (c *SessionClient) ensureDeviceCookies(ctx context.Context, cookie string) 
 		ExpiresAt: now.Add(deviceCookieTTL),
 	}
 	if device.Buvid3 == "" {
-		device.Buvid3 = GenBuvid("XX")
+		device.Buvid3 = fingerprint.GenBuvid("XX")
 	}
 	if device.Buvid4 == "" {
-		device.Buvid4 = GenBuvid("XY")
+		device.Buvid4 = fingerprint.GenBuvid("XY")
 	}
 	c.mu.Lock()
 	c.device = device

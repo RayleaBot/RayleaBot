@@ -7,6 +7,7 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/RayleaBot/RayleaBot/server/internal/bilibili/fingerprint"
 	"github.com/RayleaBot/RayleaBot/server/internal/thirdparty"
 )
 
@@ -27,7 +28,7 @@ func (s *Source) pollDynamics(ctx context.Context, subjects map[string]Subject, 
 		s.setDynamicError(fmt.Errorf("Bilibili 动态检查因平台风控暂停，剩余 %s", formatCooldownDelay(delay)))
 		return
 	}
-	dmImg := GetDmImg()
+	dmImg := fingerprint.GetDmImg()
 	feedURL := dynamicFeedURL +
 		"&dm_img_list=" + url.QueryEscape(dmImg.DmImgList) +
 		"&dm_img_str=" + url.QueryEscape(dmImg.DmImgStr) +

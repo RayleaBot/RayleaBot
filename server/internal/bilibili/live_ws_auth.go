@@ -3,6 +3,8 @@ package bilibili
 import (
 	"encoding/json"
 	"strings"
+
+	"github.com/RayleaBot/RayleaBot/server/internal/bilibili/fingerprint"
 )
 
 func liveWSVerifyPayload(roomID, token, cookie string) []byte {
@@ -12,7 +14,7 @@ func liveWSVerifyPayload(roomID, token, cookie string) []byte {
 		buvid = strings.TrimSpace(values["buvid4"])
 	}
 	if buvid == "" {
-		buvid = GenBuvid("XX")
+		buvid = fingerprint.GenBuvid("XX")
 	}
 	loginUID := int64(0)
 	if raw := strings.TrimSpace(values["DedeUserID"]); raw != "" {

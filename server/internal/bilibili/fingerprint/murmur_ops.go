@@ -1,4 +1,4 @@
-package bilibili
+package fingerprint
 
 // MurmurHash3 x64 128-bit implementation, ported from the JS reference
 // in yuki-plugin-main3/models/bilibili/bilibili.risk.buid.fp.js
