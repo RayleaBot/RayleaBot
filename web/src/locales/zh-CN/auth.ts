@@ -12,6 +12,8 @@ export const auth = {
   setupBody: '首次使用时，请先创建管理员账号。',
   identifier: '管理员账号',
   secret: '管理员密钥',
+  showSecret: '显示密钥',
+  hideSecret: '隐藏密钥',
   loginSubmit: '登录',
   setupSubmit: '创建并进入管理界面',
   alerts: {

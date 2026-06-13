@@ -1,26 +1,16 @@
 <script setup lang="ts">
-import { reactive, ref } from 'vue'
-import type { FormInstance, Rule } from 'ant-design-vue/es/form'
+import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 
 import { notifyError, notifySuccess, useToastFeedback } from '@/adapter/feedback'
+import AuthCredentialsForm from '@/components/auth/AuthCredentialsForm.vue'
 import { toLoginErrorMessage } from '@/lib/auth-feedback'
 import { t } from '@/i18n'
 import { useSessionStore } from '@/stores/session'
 
 const router = useRouter()
 const sessionStore = useSessionStore()
-
-const form = reactive({
-  identifier: 'admin',
-  secret: '',
-})
-const formRef = ref<FormInstance>()
-const isShaking = ref(false)
-const rules: Record<string, Rule[]> = {
-  identifier: [{ required: true, message: t('auth.validation.identifierRequired'), trigger: 'blur' }],
-  secret: [{ required: true, message: t('auth.validation.secretRequired'), trigger: 'blur' }],
-}
+const formRef = ref<InstanceType<typeof AuthCredentialsForm> | null>(null)
 
 useToastFeedback(() => (
   sessionStore.bootstrapError
@@ -32,24 +22,15 @@ useToastFeedback(() => (
     : null
 ))
 
-async function submit() {
+async function handleSubmit(payload: { identifier: string, secret: string }) {
   try {
-    await formRef.value?.validate()
-    await sessionStore.login(form)
+    await sessionStore.login(payload)
     notifySuccess(t('auth.feedback.loginSuccess'))
     await router.push(resolvePostAuthTarget())
   } catch (error) {
-    const message = toLoginErrorMessage(error)
-    notifyError(message)
-    triggerShake()
+    notifyError(toLoginErrorMessage(error))
+    formRef.value?.shake()
   }
-}
-
-function triggerShake() {
-  isShaking.value = true
-  setTimeout(() => {
-    isShaking.value = false
-  }, 400)
 }
 
 function resolvePostAuthTarget() {
@@ -64,43 +45,13 @@ function resolvePostAuthTarget() {
 </script>
 
 <template>
-  <a-card
-    class="auth-panel-card"
-    :class="{ 'is-shaking': isShaking }"
-    :bordered="false"
-  >
-    <div class="auth-card-header">
-      <span class="auth-brand-badge" aria-hidden="true">R</span>
-      <div class="auth-card-header__title">
-        <h1>{{ t('auth.loginTitle') }}</h1>
-        <p>{{ t('auth.loginBody') }}</p>
-      </div>
-    </div>
-
-    <a-form ref="formRef" layout="vertical" :model="form" :rules="rules">
-      <a-form-item
-        :label="t('auth.identifier')"
-        name="identifier"
-      >
-        <a-input v-model:value="form.identifier" autocomplete="username" :aria-label="t('auth.identifier')" />
-      </a-form-item>
-
-      <a-form-item
-        :label="t('auth.secret')"
-        name="secret"
-      >
-        <a-input-password v-model:value="form.secret" autocomplete="current-password" :aria-label="t('auth.secret')" />
-      </a-form-item>
-
-      <a-button
-        type="primary"
-        class="auth-submit"
-        :aria-label="t('auth.loginSubmit')"
-        :loading="sessionStore.loginPending"
-        @click="submit"
-      >
-        {{ t('auth.loginSubmit') }}
-      </a-button>
-    </a-form>
-  </a-card>
+  <AuthCredentialsForm
+    ref="formRef"
+    :title="t('auth.loginTitle')"
+    :subtitle="t('auth.loginBody')"
+    :submit-label="t('auth.loginSubmit')"
+    :pending="sessionStore.loginPending"
+    secret-autocomplete="current-password"
+    @submit="handleSubmit"
+  />
 </template>

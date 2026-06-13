@@ -44,7 +44,9 @@ describe('AuthLayout', () => {
     const shellStore = useUiShellStore()
 
     expect(wrapper.find('.auth-layout').exists()).toBe(true)
+    expect(wrapper.find('.aurora-bg').exists()).toBe(true)
     expect(wrapper.find('.auth-layout__blob').exists()).toBe(false)
+    expect(wrapper.find('.aurora-bg__canvas').exists()).toBe(false)
     expect(wrapper.find('.auth-layout__toolbar').exists()).toBe(true)
     expect(wrapper.get('[data-testid="auth-language"]').exists()).toBe(true)
     expect(wrapper.get('[data-testid="auth-theme-toggle"]').exists()).toBe(true)
