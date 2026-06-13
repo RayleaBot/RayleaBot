@@ -33,7 +33,7 @@ output.push('')
 
 for (const schema of schemas) {
   const schemaPath = path.join(repoRoot, schema.source)
-  const bytes = await fs.readFile(schemaPath)
+  const bytes = normalizeSchemaBytes(await fs.readFile(schemaPath))
   output.push(`// ${schema.constName} is generated from ${schema.source}.`)
   output.push(`var ${schema.constName} = []byte{`)
   output.push(quoteBytes(bytes))
@@ -44,3 +44,7 @@ for (const schema of schemas) {
 const outputPath = path.join(repoRoot, 'server/internal/schemaassets/assets_gen.go')
 await fs.mkdir(path.dirname(outputPath), { recursive: true })
 await fs.writeFile(outputPath, `${output.join('\n')}\n`, 'utf8')
+
+function normalizeSchemaBytes(buffer) {
+  return Buffer.from(buffer.toString('utf8').replace(/\r\n?/g, '\n'), 'utf8')
+}

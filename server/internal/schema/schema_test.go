@@ -184,11 +184,16 @@ func TestEmbeddedRuntimeSchemasMatchFormalContracts(t *testing.T) {
 			if err != nil {
 				t.Fatalf("read contract %s: %v", tt.contractPath, err)
 			}
-			if !bytes.Equal(content, tt.embedded) {
+			if !bytes.Equal(normalizeSchemaBytes(content), normalizeSchemaBytes(tt.embedded)) {
 				t.Fatalf("embedded schema does not match %s; run node scripts/generate-runtime-schemas.mjs", tt.contractPath)
 			}
 		})
 	}
+}
+
+func normalizeSchemaBytes(content []byte) []byte {
+	content = bytes.ReplaceAll(content, []byte("\r\n"), []byte("\n"))
+	return bytes.ReplaceAll(content, []byte("\r"), []byte("\n"))
 }
 
 func TestFormalSchemaFixturesKeepRelativePathConstraints(t *testing.T) {
