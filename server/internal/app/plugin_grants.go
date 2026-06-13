@@ -5,12 +5,14 @@ import (
 	"encoding/json"
 	"strings"
 
+	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
+
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 )
 
 type pluginGrantView struct {
 	state           *appRuntimeState
-	plugins         *plugins.Catalog
+	plugins         *plugincatalog.Catalog
 	grantRepository plugins.GrantRepository
 }
 

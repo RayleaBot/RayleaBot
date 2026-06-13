@@ -2,7 +2,6 @@ package plugins
 
 import (
 	"errors"
-	"sync"
 	"time"
 )
 
@@ -11,6 +10,18 @@ var (
 	ErrStateConflict         = errors.New("state conflict")
 	ErrPluginNotInDeadLetter = errors.New("plugin is not in dead_letter")
 )
+
+type CatalogView interface {
+	List() []Snapshot
+	Get(string) (Snapshot, bool)
+	SetDesiredState(string, string) (Snapshot, error)
+}
+
+type CatalogStore interface {
+	List() []Snapshot
+	Get(string) (Snapshot, bool)
+	Replace([]Snapshot)
+}
 
 type PermissionPendingError struct {
 	PluginID            string
@@ -151,12 +162,4 @@ type DeadLetterSnapshot struct {
 	CrashCount       int
 	LastErrorCode    string
 	LastErrorMessage string
-}
-
-type Catalog struct {
-	mu          sync.RWMutex
-	order       []string
-	items       map[string]Snapshot
-	nextSubID   uint64
-	subscribers map[uint64]chan Snapshot
 }

@@ -41,8 +41,8 @@ func (r *stubDesiredStateRepository) DeleteDesiredState(_ context.Context, _ str
 	return nil
 }
 
-func setupRouter(entries []Snapshot) (chi.Router, *Catalog, *tasks.Registry, *stubDesiredStateRepository) {
-	catalog := NewCatalog(entries)
+func setupRouter(entries []Snapshot) (chi.Router, CatalogView, *tasks.Registry, *stubDesiredStateRepository) {
+	catalog := newTestCatalog(entries)
 	taskRegistry := tasks.NewRegistry()
 	repo := &stubDesiredStateRepository{}
 	router := chi.NewRouter()
@@ -94,7 +94,7 @@ func decodeErrorEnvelope(t fataler, body []byte) errorEnvelope {
 func TestListHandler_ReturnsPluginMetadata(t *testing.T) {
 	t.Parallel()
 
-	catalog := NewCatalog([]Snapshot{{
+	catalog := newTestCatalog([]Snapshot{{
 		PluginID:          "weather",
 		Name:              "Weather",
 		Version:           "1.2.3",
@@ -262,7 +262,7 @@ func TestProperty_NonExistentPluginReturns404(t *testing.T) {
 func TestProperty_ErrorResponseSchemaConsistency(t *testing.T) {
 	rapid.Check(t, func(t *rapid.T) {
 		// Build a catalog with one installed+enabled plugin for 409 scenarios.
-		catalog := NewCatalog([]Snapshot{{
+		catalog := newTestCatalog([]Snapshot{{
 			PluginID:          "existing",
 			Name:              "Existing Plugin",
 			Version:           "1.0.0",
@@ -480,7 +480,7 @@ func TestDisableHandler_RuntimeStillStopping(t *testing.T) {
 func TestEnableHandler_ReturnsPermissionPendingForScopeChange(t *testing.T) {
 	t.Parallel()
 
-	catalog := NewCatalog([]Snapshot{{
+	catalog := newTestCatalog([]Snapshot{{
 		PluginID:          "weather",
 		Valid:             true,
 		RegistrationState: "installed",
@@ -536,7 +536,7 @@ func TestDetailHandler_ReturnsPermissionSummaries(t *testing.T) {
 			}},
 		},
 	}
-	catalog := NewCatalog([]Snapshot{{
+	catalog := newTestCatalog([]Snapshot{{
 		PluginID:            "weather",
 		Name:                "Weather",
 		Valid:               true,
@@ -578,7 +578,7 @@ func TestDetailHandler_ReturnsPermissionSummaries(t *testing.T) {
 func TestDetailHandler_ReturnsBuiltinAutoPermissions(t *testing.T) {
 	t.Parallel()
 
-	catalog := NewCatalog([]Snapshot{{
+	catalog := newTestCatalog([]Snapshot{{
 		PluginID:            "raylea.echo",
 		Name:                "Echo",
 		Valid:               true,
@@ -620,7 +620,7 @@ func TestDetailHandler_ReturnsBuiltinAutoPermissions(t *testing.T) {
 func TestDetailHandlerReturnsHelpProjection(t *testing.T) {
 	t.Parallel()
 
-	catalog := NewCatalog([]Snapshot{{
+	catalog := newTestCatalog([]Snapshot{{
 		PluginID:          "weather",
 		Name:              "Weather",
 		Valid:             true,
@@ -672,7 +672,7 @@ func TestDetailHandlerReturnsHelpProjection(t *testing.T) {
 func TestDetailHandler_ReturnsManagementUI(t *testing.T) {
 	t.Parallel()
 
-	catalog := NewCatalog([]Snapshot{{
+	catalog := newTestCatalog([]Snapshot{{
 		PluginID:          "example-config-panel",
 		Name:              "Example Config Panel",
 		Valid:             true,
@@ -717,7 +717,7 @@ func TestDetailHandler_ReturnsManagementUI(t *testing.T) {
 func TestDetailHandler_ReturnsRenderTemplates(t *testing.T) {
 	t.Parallel()
 
-	catalog := NewCatalog([]Snapshot{{
+	catalog := newTestCatalog([]Snapshot{{
 		PluginID:          "weather-card",
 		Name:              "Weather Card",
 		Valid:             true,
@@ -945,7 +945,7 @@ func grantsRouter(entries []Snapshot, grantRepo GrantRepository) chi.Router {
 }
 
 func grantsRouterWithAutoGrants(entries []Snapshot, grantRepo GrantRepository, autoGrants []string) chi.Router {
-	catalog := NewCatalog(entries)
+	catalog := newTestCatalog(entries)
 	router := chi.NewRouter()
 	RegisterRoutes(router, catalog, nil, nil, nil, nil, nil, grantRepo, func() []string {
 		return append([]string(nil), autoGrants...)
@@ -1404,7 +1404,7 @@ func TestListGrantsHandler_ReturnsBuiltinAutoGrant(t *testing.T) {
 func TestRecoverFromDeadLetterHandler_Success(t *testing.T) {
 	t.Parallel()
 
-	catalog := NewCatalog([]Snapshot{{
+	catalog := newTestCatalog([]Snapshot{{
 		PluginID:          "weather",
 		Valid:             true,
 		RegistrationState: "installed",
@@ -1454,7 +1454,7 @@ func TestRecoverFromDeadLetterHandler_Success(t *testing.T) {
 func TestRecoverFromDeadLetterHandler_NotInDeadLetter(t *testing.T) {
 	t.Parallel()
 
-	catalog := NewCatalog([]Snapshot{{
+	catalog := newTestCatalog([]Snapshot{{
 		PluginID:          "weather",
 		Valid:             true,
 		RegistrationState: "installed",
@@ -1492,7 +1492,7 @@ func TestRecoverFromDeadLetterHandler_NotInDeadLetter(t *testing.T) {
 func TestRecoverFromDeadLetterHandler_NotFound(t *testing.T) {
 	t.Parallel()
 
-	catalog := NewCatalog(nil)
+	catalog := newTestCatalog(nil)
 	controller := &stubDesiredStateController{
 		recoverErr: ErrPluginNotFound,
 	}

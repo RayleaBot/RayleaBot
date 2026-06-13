@@ -57,6 +57,10 @@ func cloneSnapshot(snapshot Snapshot) Snapshot {
 	return cloned
 }
 
+func CloneSnapshot(snapshot Snapshot) Snapshot {
+	return cloneSnapshot(snapshot)
+}
+
 func cloneHelp(help *Help) *Help {
 	if help == nil {
 		return nil

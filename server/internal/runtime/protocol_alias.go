@@ -1,0 +1,64 @@
+package runtime
+
+import runtimeprotocol "github.com/RayleaBot/RayleaBot/server/internal/runtime/protocol"
+
+type Event = runtimeprotocol.Event
+type SchedulerLogContext = runtimeprotocol.SchedulerLogContext
+type SchedulerRunRecorder = runtimeprotocol.SchedulerRunRecorder
+type SchedulerRunResult = runtimeprotocol.SchedulerRunResult
+type EventActor = runtimeprotocol.EventActor
+type EventTarget = runtimeprotocol.EventTarget
+type EventMessage = runtimeprotocol.EventMessage
+type EventSegment = runtimeprotocol.EventSegment
+
+type actionFrame = runtimeprotocol.ActionFrame
+type protocolOutboundMessageFrame = runtimeprotocol.ProtocolOutboundMessageFrame
+type protocolActionMessageSendFrame = runtimeprotocol.ProtocolActionMessageSendFrame
+type protocolActionMessageReplyFrame = runtimeprotocol.ProtocolActionMessageReplyFrame
+type protocolActionLoggerWriteFrame = runtimeprotocol.ProtocolActionLoggerWriteFrame
+type protocolActionStorageKVFrame = runtimeprotocol.ProtocolActionStorageKVFrame
+type protocolActionConfigReadFrame = runtimeprotocol.ProtocolActionConfigReadFrame
+type protocolActionPluginListFrame = runtimeprotocol.ProtocolActionPluginListFrame
+type protocolActionSecretReadFrame = runtimeprotocol.ProtocolActionSecretReadFrame
+type protocolActionConfigWriteFrame = runtimeprotocol.ProtocolActionConfigWriteFrame
+type protocolActionGovernanceReadFrame = runtimeprotocol.ProtocolActionGovernanceReadFrame
+type protocolActionGovernanceBlacklistWriteFrame = runtimeprotocol.ProtocolActionGovernanceBlacklistWriteFrame
+type protocolActionGovernanceWhitelistWriteFrame = runtimeprotocol.ProtocolActionGovernanceWhitelistWriteFrame
+type protocolActionStorageFileFrame = runtimeprotocol.ProtocolActionStorageFileFrame
+type protocolActionHTTPRequestFrame = runtimeprotocol.ProtocolActionHTTPRequestFrame
+type protocolActionSchedulerCreateFrame = runtimeprotocol.ProtocolActionSchedulerCreateFrame
+type protocolActionEventExposeWebhookFrame = runtimeprotocol.ProtocolActionEventExposeWebhookFrame
+type protocolWebhookReplayProtectionFrame = runtimeprotocol.ProtocolWebhookReplayProtectionFrame
+type protocolActionRenderImageFrame = runtimeprotocol.ProtocolActionRenderImageFrame
+
+type eventFrame = runtimeprotocol.EventFrame
+type protocolEventFrame = runtimeprotocol.ProtocolEventFrame
+type protocolActorFrame = runtimeprotocol.ProtocolActorFrame
+type protocolTargetFrame = runtimeprotocol.ProtocolTargetFrame
+type protocolMessageFrame = runtimeprotocol.ProtocolMessageFrame
+type protocolSegmentFrame = runtimeprotocol.ProtocolSegmentFrame
+type protocolPayloadFrame = runtimeprotocol.ProtocolPayloadFrame
+type protocolBilibiliPayloadFrame = runtimeprotocol.ProtocolBilibiliPayloadFrame
+type protocolBilibiliOriginalFrame = runtimeprotocol.ProtocolBilibiliOriginalFrame
+type protocolBilibiliTopicFrame = runtimeprotocol.ProtocolBilibiliTopicFrame
+type protocolBilibiliAuthorFrame = runtimeprotocol.ProtocolBilibiliAuthorFrame
+type protocolBilibiliImageFrame = runtimeprotocol.ProtocolBilibiliImageFrame
+type protocolOneBotPayloadFrame = runtimeprotocol.ProtocolOneBotPayloadFrame
+type protocolOneBotSenderFrame = runtimeprotocol.ProtocolOneBotSenderFrame
+
+type pingFrame = runtimeprotocol.PingFrame
+type initFrame = runtimeprotocol.InitFrame
+type botFrame = runtimeprotocol.BotFrame
+type permissionsFrame = runtimeprotocol.PermissionsFrame
+type shutdownFrame = runtimeprotocol.ShutdownFrame
+type frameEnvelope = runtimeprotocol.FrameEnvelope
+type initProgressFrame = runtimeprotocol.InitProgressFrame
+type initAckFrame = runtimeprotocol.InitAckFrame
+type errorFrame = runtimeprotocol.ErrorFrame
+type resultFrame = runtimeprotocol.ResultFrame
+type initResponseStatus = runtimeprotocol.InitResponseStatus
+
+const (
+	initResponseWait  = runtimeprotocol.InitResponseWait
+	initResponseReady = runtimeprotocol.InitResponseReady
+)

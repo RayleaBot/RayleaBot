@@ -12,6 +12,8 @@ import (
 	"testing"
 	"time"
 
+	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
+
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/dispatch"
 	"github.com/RayleaBot/RayleaBot/server/internal/pluginconfig"
@@ -85,7 +87,7 @@ func TestHandlePluginManagementUIStaticServesScopedAssets(t *testing.T) {
 	}
 
 	handlers := newPluginManagementUIHTTPHandlers(pluginManagementUIHTTPDeps{
-		plugins: plugins.NewCatalog([]plugins.Snapshot{{
+		plugins: plugincatalog.New([]plugins.Snapshot{{
 			PluginID:          "example-config-panel",
 			Valid:             true,
 			RegistrationState: "installed",
@@ -154,7 +156,7 @@ func TestHandlePluginManagementUIStaticRejectsParentEscape(t *testing.T) {
 	}
 
 	handlers := newPluginManagementUIHTTPHandlers(pluginManagementUIHTTPDeps{
-		plugins: plugins.NewCatalog([]plugins.Snapshot{{
+		plugins: plugincatalog.New([]plugins.Snapshot{{
 			PluginID:          "example-config-panel",
 			Valid:             true,
 			RegistrationState: "installed",
@@ -193,7 +195,7 @@ func TestHandlePluginSettingsGetMergesDefaultsAndPersistedValues(t *testing.T) {
 	}
 
 	handlers := newPluginManagementUIHTTPHandlers(pluginManagementUIHTTPDeps{
-		plugins: plugins.NewCatalog([]plugins.Snapshot{{
+		plugins: plugincatalog.New([]plugins.Snapshot{{
 			PluginID:          "example-config-panel",
 			Valid:             true,
 			RegistrationState: "installed",
@@ -241,7 +243,7 @@ func TestHandlePluginSettingsPutDispatchesConfigChanged(t *testing.T) {
 	repo := openPluginSettingsRepo(t)
 	dispatcher := dispatch.New(slog.Default(), nil, nil, 16)
 	application := newTestAppState(config.Config{}, nil)
-	catalog := plugins.NewCatalog([]plugins.Snapshot{{
+	catalog := plugincatalog.New([]plugins.Snapshot{{
 		PluginID:          "example-config-panel",
 		Valid:             true,
 		RegistrationState: "installed",
@@ -343,7 +345,7 @@ func TestHandlePluginSecretsGetAndPutAreScopedToPlugin(t *testing.T) {
 	}
 
 	handlers := newPluginManagementUIHTTPHandlers(pluginManagementUIHTTPDeps{
-		plugins: plugins.NewCatalog([]plugins.Snapshot{{
+		plugins: plugincatalog.New([]plugins.Snapshot{{
 			PluginID:          "example-config-panel",
 			Valid:             true,
 			RegistrationState: "installed",
@@ -421,7 +423,7 @@ func TestHandlePluginSecretsPutRejectsInvalidKey(t *testing.T) {
 
 	secretStore := openPluginSecretStore(t)
 	handlers := newPluginManagementUIHTTPHandlers(pluginManagementUIHTTPDeps{
-		plugins: plugins.NewCatalog([]plugins.Snapshot{{
+		plugins: plugincatalog.New([]plugins.Snapshot{{
 			PluginID:          "example-config-panel",
 			Valid:             true,
 			RegistrationState: "installed",
@@ -502,7 +504,7 @@ func TestHandlePluginSettingsRejectsInvalidPluginSnapshots(t *testing.T) {
 			}
 
 			handlers := newPluginManagementUIHTTPHandlers(pluginManagementUIHTTPDeps{
-				plugins: plugins.NewCatalog(entries),
+				plugins: plugincatalog.New(entries),
 			})
 			router := chi.NewRouter()
 			router.Get("/api/plugins/{plugin_id}/settings", handlers.handlePluginSettingsGet())

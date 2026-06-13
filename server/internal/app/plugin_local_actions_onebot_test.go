@@ -9,6 +9,8 @@ import (
 	"testing"
 	"time"
 
+	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
+
 	"github.com/coder/websocket"
 	"github.com/coder/websocket/wsjson"
 
@@ -303,7 +305,7 @@ func TestExecuteOneBotLocalActionConnectionLossKeepsPluginRunning(t *testing.T) 
 			AutoGrantCapabilities: []string{"message.history.get"},
 		},
 	}, nil)
-	application.pluginStack.Plugins = plugins.NewCatalog([]plugins.Snapshot{{
+	application.pluginStack.Plugins = plugincatalog.New([]plugins.Snapshot{{
 		PluginID:          "weather",
 		Name:              "Weather",
 		Valid:             true,

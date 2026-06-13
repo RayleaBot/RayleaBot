@@ -8,6 +8,7 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/governance"
 	"github.com/RayleaBot/RayleaBot/server/internal/localaction"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
+	plugindiscovery "github.com/RayleaBot/RayleaBot/server/internal/plugins/discovery"
 	"github.com/RayleaBot/RayleaBot/server/internal/thirdparty"
 )
 
@@ -64,7 +65,7 @@ func buildPluginLifecycleRefreshManifest(
 ) func(context.Context, string) (plugins.Snapshot, error) {
 	return func(ctx context.Context, pluginID string) (plugins.Snapshot, error) {
 		return refreshPluginManifest(ctx, pluginStack.Plugins, pluginStack.pluginConfig, pluginID, func() ([]plugins.Snapshot, error) {
-			snapshots, _, err := plugins.Discover(plugins.DiscoverOptions{
+			snapshots, _, err := plugindiscovery.Discover(plugindiscovery.DiscoverOptions{
 				Validator: buildState.pluginValidator,
 				Roots:     buildState.discoverySpec.roots,
 				RepoRoot:  buildState.discoverySpec.repoRoot,

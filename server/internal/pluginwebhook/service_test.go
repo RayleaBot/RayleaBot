@@ -8,6 +8,8 @@ import (
 	"testing"
 	"time"
 
+	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
+
 	"github.com/RayleaBot/RayleaBot/server/internal/dispatch"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	"github.com/RayleaBot/RayleaBot/server/internal/runtime"
@@ -36,7 +38,7 @@ func TestHandleWebhookEnsuresRuntimeWithoutBotID(t *testing.T) {
 	service := New(Deps{
 		Registry: registry,
 		Secrets:  &staticSecretStore{values: map[string][]byte{"webhook.github.secret": []byte("fixture-token")}},
-		Plugins: plugins.NewCatalog([]plugins.Snapshot{{
+		Plugins: plugincatalog.New([]plugins.Snapshot{{
 			PluginID:          "repo-watcher",
 			Valid:             true,
 			RegistrationState: "installed",

@@ -3,6 +3,8 @@ package app
 import (
 	"context"
 
+	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
+
 	"github.com/RayleaBot/RayleaBot/server/internal/adapter"
 	"github.com/RayleaBot/RayleaBot/server/internal/bridge"
 	"github.com/RayleaBot/RayleaBot/server/internal/command"
@@ -10,7 +12,6 @@ import (
 	menuext "github.com/RayleaBot/RayleaBot/server/internal/extensions/menu"
 	"github.com/RayleaBot/RayleaBot/server/internal/outbound"
 	"github.com/RayleaBot/RayleaBot/server/internal/permission"
-	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	"github.com/RayleaBot/RayleaBot/server/internal/render"
 )
 
@@ -21,7 +22,7 @@ type outboundActionSender interface {
 
 type eventIngressService struct {
 	state             *appRuntimeState
-	plugins           *plugins.Catalog
+	plugins           *plugincatalog.Catalog
 	replyTargets      *replyTargetCache
 	outboundSender    outboundActionSender
 	outboundLimiter   outbound.MessageLimiter

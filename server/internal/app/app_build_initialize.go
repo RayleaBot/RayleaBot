@@ -5,10 +5,12 @@ import (
 	"fmt"
 	"time"
 
+	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
+	plugindiscovery "github.com/RayleaBot/RayleaBot/server/internal/plugins/discovery"
+
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/deps"
 	"github.com/RayleaBot/RayleaBot/server/internal/logging"
-	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	"github.com/RayleaBot/RayleaBot/server/internal/schema"
 	"github.com/RayleaBot/RayleaBot/server/internal/schemaassets"
 	"github.com/RayleaBot/RayleaBot/server/internal/tasks"
@@ -26,7 +28,7 @@ type appBuildState struct {
 	taskExecutor     *tasks.Executor
 	discoverySpec    pluginDiscoverySpec
 	pluginValidator  *schema.Validator
-	pluginCatalog    *plugins.Catalog
+	pluginCatalog    *plugincatalog.Catalog
 	managementRedact func(string) string
 }
 
@@ -52,7 +54,7 @@ func initializeAppBuild(options Options) (appBuildState, error) {
 	if err != nil {
 		return appBuildState{}, fmt.Errorf("compile plugin manifest schema %s: %w", discoverySpec.pluginSchemaPath, err)
 	}
-	snapshots, _, err := plugins.Discover(plugins.DiscoverOptions{
+	snapshots, _, err := plugindiscovery.Discover(plugindiscovery.DiscoverOptions{
 		Validator: pluginValidator,
 		Roots:     discoverySpec.roots,
 		RepoRoot:  discoverySpec.repoRoot,
@@ -78,7 +80,7 @@ func initializeAppBuild(options Options) (appBuildState, error) {
 		taskExecutor:     taskExecutor,
 		discoverySpec:    discoverySpec,
 		pluginValidator:  pluginValidator,
-		pluginCatalog:    plugins.NewCatalog(snapshots),
+		pluginCatalog:    plugincatalog.New(snapshots),
 		managementRedact: managementRedactor.Redact,
 	}, nil
 }

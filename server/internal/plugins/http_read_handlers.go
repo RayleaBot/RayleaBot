@@ -6,7 +6,7 @@ import (
 	"github.com/go-chi/chi/v5"
 )
 
-func newListHandler(catalog *Catalog) http.HandlerFunc {
+func newListHandler(catalog CatalogView) http.HandlerFunc {
 	return func(w http.ResponseWriter, _ *http.Request) {
 		snapshots := catalog.List()
 		conflicts := detectCommandConflicts(snapshots)
@@ -19,7 +19,7 @@ func newListHandler(catalog *Catalog) http.HandlerFunc {
 	}
 }
 
-func newDetailHandler(catalog *Catalog, grantRepo GrantRepository, autoGrantProvider autoGrantCapabilitiesProvider) http.HandlerFunc {
+func newDetailHandler(catalog CatalogView, grantRepo GrantRepository, autoGrantProvider autoGrantCapabilitiesProvider) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		pluginID := chi.URLParam(r, "plugin_id")
 		snapshot, ok := catalog.Get(pluginID)

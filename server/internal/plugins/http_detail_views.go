@@ -106,7 +106,7 @@ func buildPluginRenderTemplates(snapshot Snapshot) []pluginRenderTemplateRespons
 	return items
 }
 
-func buildPluginDetailResponse(ctx context.Context, catalog *Catalog, snapshot Snapshot, repo GrantRepository, autoGrantProvider autoGrantCapabilitiesProvider) (pluginDetailResponse, error) {
+func buildPluginDetailResponse(ctx context.Context, catalog CatalogView, snapshot Snapshot, repo GrantRepository, autoGrantProvider autoGrantCapabilitiesProvider) (pluginDetailResponse, error) {
 	summary := buildPluginSummary(catalog, snapshot)
 	persisted, err := loadPersistedGrants(ctx, repo, snapshot.PluginID)
 	if err != nil {

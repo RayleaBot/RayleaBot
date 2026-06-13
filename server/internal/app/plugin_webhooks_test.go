@@ -15,6 +15,8 @@ import (
 	"testing"
 	"time"
 
+	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
+
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/dispatch"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
@@ -80,7 +82,7 @@ func TestHandlePluginWebhookAcceptsSignedRequestAndDispatchesEvent(t *testing.T)
 			AutoGrantCapabilities: []string{"event.expose_webhook", "event.raw_payload"},
 		},
 	}, slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)))
-	application.pluginStack.Plugins = plugins.NewCatalog([]plugins.Snapshot{{PluginID: "repo-watcher", Name: "Repo Watcher", Valid: true, RegistrationState: "installed", DesiredState: "enabled", RuntimeState: "running"}})
+	application.pluginStack.Plugins = plugincatalog.New([]plugins.Snapshot{{PluginID: "repo-watcher", Name: "Repo Watcher", Valid: true, RegistrationState: "installed", DesiredState: "enabled", RuntimeState: "running"}})
 	application.setTestLocalActions(grantRepo, nil, nil, nil, nil, dispatcher, nil, nil, nil, nil)
 	application.setTestWebhookService(secretStore, dispatcher, nil, registry)
 
@@ -198,7 +200,7 @@ func TestHandlePluginWebhookRejectsOversizedBody(t *testing.T) {
 			AutoGrantCapabilities: []string{"event.expose_webhook", "event.raw_payload"},
 		},
 	}, slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)))
-	application.pluginStack.Plugins = plugins.NewCatalog([]plugins.Snapshot{{PluginID: "repo-watcher", Name: "Repo Watcher", Valid: true, RegistrationState: "installed", DesiredState: "enabled", RuntimeState: "running"}})
+	application.pluginStack.Plugins = plugincatalog.New([]plugins.Snapshot{{PluginID: "repo-watcher", Name: "Repo Watcher", Valid: true, RegistrationState: "installed", DesiredState: "enabled", RuntimeState: "running"}})
 	application.setTestLocalActions(grantRepo, nil, nil, nil, nil, dispatcher, nil, nil, nil, nil)
 	application.setTestWebhookService(secretStore, dispatcher, nil, registry)
 

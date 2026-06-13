@@ -13,7 +13,7 @@ import (
 
 	"github.com/RayleaBot/RayleaBot/server/internal/app"
 	"github.com/RayleaBot/RayleaBot/server/internal/auth"
-	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
+	plugindiscovery "github.com/RayleaBot/RayleaBot/server/internal/plugins/discovery"
 	"github.com/RayleaBot/RayleaBot/server/internal/tasks"
 )
 
@@ -38,7 +38,7 @@ func TestPluginInstallRouteExecutesTaskAndRefreshesCatalog(t *testing.T) {
 		SchemaPath:       filepath.Join("..", "contracts", "config.user.schema.json"),
 		PluginRepoRoot:   repoRoot,
 		PluginSchemaPath: pluginSchemaPath,
-		PluginRoots: []plugins.ScanRoot{
+		PluginRoots: []plugindiscovery.ScanRoot{
 			{Label: "examples/plugins", Path: examplesRoot},
 			{Label: "plugins/installed", Path: installedRoot},
 		},

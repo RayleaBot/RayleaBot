@@ -11,6 +11,8 @@ import (
 	"testing"
 	"time"
 
+	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
+
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	"github.com/RayleaBot/RayleaBot/server/internal/runtime"
@@ -80,7 +82,7 @@ func TestExecuteRenderImageInjectsPluginFooter(t *testing.T) {
 			AutoGrantCapabilities: []string{"render.image"},
 		},
 	}, slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)))
-	application.pluginStack.Plugins = plugins.NewCatalog([]plugins.Snapshot{{
+	application.pluginStack.Plugins = plugincatalog.New([]plugins.Snapshot{{
 		PluginID:          "help-menu",
 		Name:              "帮助",
 		Version:           "1.0.0",
@@ -129,7 +131,7 @@ func TestExecuteRenderImageResolvesOwnPluginTemplateShortID(t *testing.T) {
 	renderRoot := filepath.Join(t.TempDir(), "render")
 	writePluginRenderTemplate(t, repoRoot, "weather-card", "card")
 	renderer := newRenderServiceForRepo(t, repoRoot, renderRoot, staticRenderRunner{})
-	catalog := plugins.NewCatalog([]plugins.Snapshot{{
+	catalog := plugincatalog.New([]plugins.Snapshot{{
 		PluginID:          "weather-card",
 		Valid:             true,
 		RegistrationState: "installed",
@@ -200,7 +202,7 @@ func TestExecuteRenderImageRejectsOtherPluginTemplate(t *testing.T) {
 	renderRoot := filepath.Join(t.TempDir(), "render")
 	writePluginRenderTemplate(t, repoRoot, "weather-card", "card")
 	renderer := newRenderServiceForRepo(t, repoRoot, renderRoot, staticRenderRunner{})
-	catalog := plugins.NewCatalog([]plugins.Snapshot{{
+	catalog := plugincatalog.New([]plugins.Snapshot{{
 		PluginID:          "weather-card",
 		Valid:             true,
 		RegistrationState: "installed",

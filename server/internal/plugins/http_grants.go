@@ -8,7 +8,7 @@ import (
 	"github.com/go-chi/chi/v5"
 )
 
-func newListGrantsHandler(catalog *Catalog, repo GrantRepository, autoGrantProvider autoGrantCapabilitiesProvider) http.HandlerFunc {
+func newListGrantsHandler(catalog CatalogView, repo GrantRepository, autoGrantProvider autoGrantCapabilitiesProvider) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		pluginID := chi.URLParam(r, "plugin_id")
 		snapshot, ok := catalog.Get(pluginID)
@@ -26,7 +26,7 @@ func newListGrantsHandler(catalog *Catalog, repo GrantRepository, autoGrantProvi
 	}
 }
 
-func newGrantHandler(catalog *Catalog, repo GrantRepository) http.HandlerFunc {
+func newGrantHandler(catalog CatalogView, repo GrantRepository) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		pluginID := chi.URLParam(r, "plugin_id")
 		snapshot, ok := catalog.Get(pluginID)
@@ -84,7 +84,7 @@ func newGrantHandler(catalog *Catalog, repo GrantRepository) http.HandlerFunc {
 	}
 }
 
-func newRevokeGrantHandler(catalog *Catalog, repo GrantRepository) http.HandlerFunc {
+func newRevokeGrantHandler(catalog CatalogView, repo GrantRepository) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		pluginID := chi.URLParam(r, "plugin_id")
 		capability := chi.URLParam(r, "capability")

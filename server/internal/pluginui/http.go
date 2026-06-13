@@ -11,7 +11,7 @@ import (
 )
 
 type Deps struct {
-	Plugins            *plugins.Catalog
+	Plugins            plugins.CatalogView
 	PluginConfig       pluginconfig.Repository
 	Secrets            secrets.Store
 	NotifyConfigChange func(context.Context, string)
@@ -19,7 +19,7 @@ type Deps struct {
 }
 
 type Handlers struct {
-	plugins            *plugins.Catalog
+	plugins            plugins.CatalogView
 	pluginConfig       pluginconfig.Repository
 	secrets            secrets.Store
 	notifyConfigChange func(context.Context, string)

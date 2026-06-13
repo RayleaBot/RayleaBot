@@ -4,6 +4,8 @@ import (
 	"context"
 	"log/slog"
 
+	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
+
 	"github.com/RayleaBot/RayleaBot/server/internal/adapter"
 	"github.com/RayleaBot/RayleaBot/server/internal/auth"
 	"github.com/RayleaBot/RayleaBot/server/internal/bridge"
@@ -113,7 +115,7 @@ func (a *App) Tasks() *tasks.Registry {
 	return a.platform.Tasks
 }
 
-func (a *App) Plugins() *plugins.Catalog {
+func (a *App) Plugins() *plugincatalog.Catalog {
 	if a == nil {
 		return nil
 	}

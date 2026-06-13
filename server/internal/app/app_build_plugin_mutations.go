@@ -5,10 +5,13 @@ import (
 	"time"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
+	plugininstall "github.com/RayleaBot/RayleaBot/server/internal/plugins/install"
+	pluginrepository "github.com/RayleaBot/RayleaBot/server/internal/plugins/repository"
+	pluginuninstall "github.com/RayleaBot/RayleaBot/server/internal/plugins/uninstall"
 )
 
-func buildPluginMutationServices(state appBuildState, pluginRepository *plugins.SQLiteRepository) (plugins.InstallCoordinator, plugins.UninstallCoordinator, error) {
-	pluginInstallService, err := plugins.NewInstallService(
+func buildPluginMutationServices(state appBuildState, pluginRepository *pluginrepository.SQLiteRepository) (plugins.InstallCoordinator, plugins.UninstallCoordinator, error) {
+	pluginInstallService, err := plugininstall.NewInstallService(
 		state.core.Logger,
 		state.taskRegistry,
 		state.pluginCatalog,
@@ -21,7 +24,7 @@ func buildPluginMutationServices(state appBuildState, pluginRepository *plugins.
 	if err != nil {
 		return nil, nil, fmt.Errorf("create plugin install service: %w", err)
 	}
-	pluginUninstallService, err := plugins.NewUninstallService(
+	pluginUninstallService, err := pluginuninstall.NewUninstallService(
 		state.core.Logger,
 		state.taskRegistry,
 		state.pluginCatalog,

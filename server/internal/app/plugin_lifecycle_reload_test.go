@@ -12,9 +12,12 @@ import (
 	"testing"
 	"time"
 
+	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
+
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/dispatch"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
+	plugindiscovery "github.com/RayleaBot/RayleaBot/server/internal/plugins/discovery"
 	"github.com/RayleaBot/RayleaBot/server/internal/render"
 	"github.com/RayleaBot/RayleaBot/server/internal/runtime"
 	"github.com/RayleaBot/RayleaBot/server/internal/schema"
@@ -84,7 +87,7 @@ func TestReloadReturnsPermissionPendingWhenGrantScopeChanged(t *testing.T) {
 func TestReloadRefreshesManifestCommandsAndScopes(t *testing.T) {
 	t.Parallel()
 
-	catalog := plugins.NewCatalog([]plugins.Snapshot{{
+	catalog := plugincatalog.New([]plugins.Snapshot{{
 		PluginID:            "raylea.subscription-hub",
 		Name:                "Subscription Hub",
 		Valid:               true,
@@ -194,7 +197,7 @@ func TestReloadSyncsPluginRenderTemplates(t *testing.T) {
 	pluginRoot := filepath.Join(repoRoot, "plugins", "installed", pluginID)
 	runner := &captureRenderRunner{}
 	renderer := newRenderServiceForRepo(t, repoRoot, renderRoot, runner)
-	catalog := plugins.NewCatalog([]plugins.Snapshot{{
+	catalog := plugincatalog.New([]plugins.Snapshot{{
 		PluginID:          pluginID,
 		Valid:             true,
 		RegistrationState: "installed",
@@ -267,7 +270,7 @@ func TestReloadSyncsPluginRenderTemplates(t *testing.T) {
 func TestReloadReturnsTemplateSyncErrorBeforeStartingRuntime(t *testing.T) {
 	t.Parallel()
 
-	catalog := plugins.NewCatalog([]plugins.Snapshot{{
+	catalog := plugincatalog.New([]plugins.Snapshot{{
 		PluginID:          "weather-card",
 		Valid:             true,
 		RegistrationState: "installed",
@@ -309,7 +312,7 @@ func TestPluginRuntimeStartInputsIncludeSuperAdmins(t *testing.T) {
 	repoRoot := t.TempDir()
 	writeManagedRuntimeFixtures(t, repoRoot)
 	createPluginEntry(t, repoRoot, "plugins/weather-card", "main.py")
-	catalog := plugins.NewCatalog([]plugins.Snapshot{{
+	catalog := plugincatalog.New([]plugins.Snapshot{{
 		PluginID:          "weather-card",
 		Valid:             true,
 		RegistrationState: "installed",
@@ -357,9 +360,9 @@ func TestRefreshPluginManifestReadsUpdatedManifestFile(t *testing.T) {
 	writeLifecyclePluginManifest(t, manifestPath, "/订阅b站推送 UID", "old.example")
 
 	validator := compilePluginValidatorForLifecycleTest(t)
-	snapshots, _, err := plugins.Discover(plugins.DiscoverOptions{
+	snapshots, _, err := plugindiscovery.Discover(plugindiscovery.DiscoverOptions{
 		Validator: validator,
-		Roots: []plugins.ScanRoot{{
+		Roots: []plugindiscovery.ScanRoot{{
 			Label: "plugins/builtin",
 			Path:  filepath.Join(repoRoot, "plugins", "builtin"),
 		}},
@@ -368,16 +371,16 @@ func TestRefreshPluginManifestReadsUpdatedManifestFile(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Discover initial: %v", err)
 	}
-	catalog := plugins.NewCatalog(snapshots)
+	catalog := plugincatalog.New(snapshots)
 	if updated, err := catalog.SetRuntimeState("raylea.subscription-hub", "running"); err != nil || updated.RuntimeState != "running" {
 		t.Fatalf("SetRuntimeState: snapshot=%+v err=%v", updated, err)
 	}
 
 	writeLifecyclePluginManifest(t, manifestPath, "/订阅b站推送 UID或昵称", "api.bilibili.com")
 	refreshed, err := refreshPluginManifest(context.Background(), catalog, nil, "raylea.subscription-hub", func() ([]plugins.Snapshot, error) {
-		snapshots, _, err := plugins.Discover(plugins.DiscoverOptions{
+		snapshots, _, err := plugindiscovery.Discover(plugindiscovery.DiscoverOptions{
 			Validator: validator,
-			Roots: []plugins.ScanRoot{{
+			Roots: []plugindiscovery.ScanRoot{{
 				Label: "plugins/builtin",
 				Path:  filepath.Join(repoRoot, "plugins", "builtin"),
 			}},
@@ -520,10 +523,10 @@ func quoteLifecycleJSON(value string) string {
 	return string(data)
 }
 
-func newLifecycleControllerForGrantTests(t *testing.T, grants []plugins.PluginGrant) (*pluginLifecycleController, *plugins.Catalog) {
+func newLifecycleControllerForGrantTests(t *testing.T, grants []plugins.PluginGrant) (*pluginLifecycleController, *plugincatalog.Catalog) {
 	t.Helper()
 
-	catalog := plugins.NewCatalog([]plugins.Snapshot{{
+	catalog := plugincatalog.New([]plugins.Snapshot{{
 		PluginID:            "weather",
 		Valid:               true,
 		RegistrationState:   "installed",

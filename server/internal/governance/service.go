@@ -20,7 +20,7 @@ var (
 
 type Deps struct {
 	CurrentConfig  func() config.Config
-	Plugins        *plugins.Catalog
+	Plugins        plugins.CatalogView
 	BlacklistRepo  permission.BlacklistRepository
 	WhitelistRepo  permission.WhitelistRepository
 	WhitelistState permission.WhitelistStateRepository
@@ -75,7 +75,7 @@ type CommandPolicyResponse struct {
 
 type Service struct {
 	currentConfig  func() config.Config
-	plugins        *plugins.Catalog
+	plugins        plugins.CatalogView
 	blacklistRepo  permission.BlacklistRepository
 	whitelistRepo  permission.WhitelistRepository
 	whitelistState permission.WhitelistStateRepository

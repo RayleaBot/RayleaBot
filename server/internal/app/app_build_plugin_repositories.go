@@ -4,13 +4,16 @@ import (
 	"context"
 	"fmt"
 
+	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
+	pluginrepository "github.com/RayleaBot/RayleaBot/server/internal/plugins/repository"
+
 	"github.com/RayleaBot/RayleaBot/server/internal/pluginconfig"
 	"github.com/RayleaBot/RayleaBot/server/internal/pluginkv"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 )
 
-func buildPluginRepositories(platform appPlatform) (*plugins.SQLiteRepository, pluginkv.Repository, pluginconfig.Repository, error) {
-	pluginRepository, err := plugins.NewSQLiteRepository(platform.Storage)
+func buildPluginRepositories(platform appPlatform) (*pluginrepository.SQLiteRepository, pluginkv.Repository, pluginconfig.Repository, error) {
+	pluginRepository, err := pluginrepository.NewSQLiteRepository(platform.Storage)
 	if err != nil {
 		return nil, nil, nil, fmt.Errorf("create plugin repository: %w", err)
 	}
@@ -25,7 +28,7 @@ func buildPluginRepositories(platform appPlatform) (*plugins.SQLiteRepository, p
 	return pluginRepository, pluginKVRepository, pluginConfigRepository, nil
 }
 
-func hydratePluginCatalog(state appBuildState, pluginRepository *plugins.SQLiteRepository, pluginConfigRepository pluginconfig.Repository) error {
+func hydratePluginCatalog(state appBuildState, pluginRepository *pluginrepository.SQLiteRepository, pluginConfigRepository pluginconfig.Repository) error {
 	desiredStates, err := pluginRepository.LoadDesiredStates(context.Background())
 	if err != nil {
 		return fmt.Errorf("load persisted plugin desired_state: %w", err)
@@ -44,7 +47,7 @@ func hydratePluginCatalog(state appBuildState, pluginRepository *plugins.SQLiteR
 	return nil
 }
 
-func refreshCatalogCommandsFromSettings(ctx context.Context, catalog *plugins.Catalog, repo pluginconfig.Repository) error {
+func refreshCatalogCommandsFromSettings(ctx context.Context, catalog *plugincatalog.Catalog, repo pluginconfig.Repository) error {
 	if catalog == nil || repo == nil {
 		return nil
 	}

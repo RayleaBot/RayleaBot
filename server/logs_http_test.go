@@ -14,7 +14,7 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/adapter"
 	internalapp "github.com/RayleaBot/RayleaBot/server/internal/app"
 	"github.com/RayleaBot/RayleaBot/server/internal/logging"
-	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
+	plugindiscovery "github.com/RayleaBot/RayleaBot/server/internal/plugins/discovery"
 )
 
 func TestLogsListReturnsFilteredSummaries(t *testing.T) {
@@ -1049,7 +1049,7 @@ func TestLogsIncludeCommandPolicyRejectionFromEventIngress(t *testing.T) {
 		repoRoot := repoRootPath(t)
 		options.PluginRepoRoot = repoRoot
 		options.PluginSchemaPath = filepath.Join("..", "contracts", "plugin-info.schema.json")
-		options.PluginRoots = []plugins.ScanRoot{
+		options.PluginRoots = []plugindiscovery.ScanRoot{
 			{Label: "plugins/builtin", Path: filepath.Join(repoRoot, "plugins", "builtin")},
 			{Label: "plugins/installed", Path: filepath.Join(filepath.Dir(configPath), "..", "plugins", "installed")},
 		}

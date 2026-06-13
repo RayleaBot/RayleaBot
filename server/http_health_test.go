@@ -15,7 +15,7 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/app"
 	"github.com/RayleaBot/RayleaBot/server/internal/auth"
 	"github.com/RayleaBot/RayleaBot/server/internal/health"
-	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
+	plugindiscovery "github.com/RayleaBot/RayleaBot/server/internal/plugins/discovery"
 	"github.com/RayleaBot/RayleaBot/server/internal/recovery"
 )
 
@@ -221,7 +221,7 @@ func newTestApp(t *testing.T, authOptions ...auth.Option) *app.App {
 		SchemaPath:       schemaPath,
 		PluginRepoRoot:   repoRoot,
 		PluginSchemaPath: filepath.Join("..", "contracts", "plugin-info.schema.json"),
-		PluginRoots: []plugins.ScanRoot{
+		PluginRoots: []plugindiscovery.ScanRoot{
 			{Label: "plugins/builtin", Path: builtinRoot},
 			{Label: "plugins/installed", Path: filepath.Join(filepath.Dir(configPath), "..", "plugins", "installed")},
 		},

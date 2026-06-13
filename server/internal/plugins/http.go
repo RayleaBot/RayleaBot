@@ -5,9 +5,9 @@ import (
 	"github.com/go-chi/chi/v5"
 )
 
-func RegisterRoutes(router chi.Router, catalog *Catalog, taskRegistry *tasks.Registry, repo DesiredStateRepository, installer InstallCoordinator, controller DesiredStateController, uninstaller UninstallCoordinator, grantRepo GrantRepository, autoGrantProvider autoGrantCapabilitiesProvider) {
+func RegisterRoutes(router chi.Router, catalog CatalogView, taskRegistry *tasks.Registry, repo DesiredStateRepository, installer InstallCoordinator, controller DesiredStateController, uninstaller UninstallCoordinator, grantRepo GrantRepository, autoGrantProvider autoGrantCapabilitiesProvider) {
 	if catalog == nil {
-		catalog = NewCatalog(nil)
+		catalog = emptyCatalogView{}
 	}
 
 	router.Get("/api/plugins", newListHandler(catalog))
@@ -21,4 +21,18 @@ func RegisterRoutes(router chi.Router, catalog *Catalog, taskRegistry *tasks.Reg
 	router.Get("/api/plugins/{plugin_id}/grants", newListGrantsHandler(catalog, grantRepo, autoGrantProvider))
 	router.Post("/api/plugins/{plugin_id}/grants", newGrantHandler(catalog, grantRepo))
 	router.Delete("/api/plugins/{plugin_id}/grants/{capability}", newRevokeGrantHandler(catalog, grantRepo))
+}
+
+type emptyCatalogView struct{}
+
+func (emptyCatalogView) List() []Snapshot {
+	return nil
+}
+
+func (emptyCatalogView) Get(string) (Snapshot, bool) {
+	return Snapshot{}, false
+}
+
+func (emptyCatalogView) SetDesiredState(string, string) (Snapshot, error) {
+	return Snapshot{}, ErrPluginNotFound
 }

@@ -7,6 +7,8 @@ import (
 	"testing"
 	"time"
 
+	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
+
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/dispatch"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
@@ -27,7 +29,7 @@ func TestHandleCrashDeadLetterCleansUpWebhooks(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(discardWriter{}, nil))
 	application := newTestAppState(config.Config{}, logger)
 
-	catalog := plugins.NewCatalog([]plugins.Snapshot{{
+	catalog := plugincatalog.New([]plugins.Snapshot{{
 		PluginID:          "repo-watcher",
 		Valid:             true,
 		RegistrationState: "installed",
@@ -94,7 +96,7 @@ func TestRecoverFromDeadLetterRejectsRunning(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(discardWriter{}, nil))
 	application := newTestAppState(config.Config{}, logger)
 
-	catalog := plugins.NewCatalog([]plugins.Snapshot{{
+	catalog := plugincatalog.New([]plugins.Snapshot{{
 		PluginID:          "weather",
 		Valid:             true,
 		RegistrationState: "installed",
@@ -153,7 +155,7 @@ func TestRecoverFromDeadLetterPersistFailureLeavesManagerInDeadLetter(t *testing
 	logger := slog.New(slog.NewTextHandler(discardWriter{}, nil))
 	application := newTestAppState(config.Config{}, logger)
 
-	catalog := plugins.NewCatalog([]plugins.Snapshot{{
+	catalog := plugincatalog.New([]plugins.Snapshot{{
 		PluginID:          "weather",
 		Valid:             true,
 		RegistrationState: "installed",

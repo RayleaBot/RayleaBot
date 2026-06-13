@@ -4,8 +4,9 @@ import (
 	"strings"
 	"time"
 
+	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
+
 	"github.com/RayleaBot/RayleaBot/server/internal/metrics"
-	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 )
 
 // pluginRuntimeStates enumerates formal runtime states so stale gauge buckets reset to zero.
@@ -19,7 +20,7 @@ var pluginRuntimeStates = []string{
 	"dead_letter",
 }
 
-func refreshPluginRuntimeStateGauge(registry *metrics.Registry, catalog *plugins.Catalog) {
+func refreshPluginRuntimeStateGauge(registry *metrics.Registry, catalog *plugincatalog.Catalog) {
 	if registry == nil || registry.PluginRuntimeState == nil || catalog == nil {
 		return
 	}
@@ -42,7 +43,7 @@ func refreshPluginRuntimeStateGauge(registry *metrics.Registry, catalog *plugins
 	}
 }
 
-func startPluginRuntimeStateGaugeRefresh(registry *metrics.Registry, catalog *plugins.Catalog) (stop func()) {
+func startPluginRuntimeStateGaugeRefresh(registry *metrics.Registry, catalog *plugincatalog.Catalog) (stop func()) {
 	if registry == nil || catalog == nil {
 		return func() {}
 	}

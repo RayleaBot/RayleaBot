@@ -3,6 +3,8 @@ package app
 import (
 	"context"
 
+	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
+
 	"github.com/RayleaBot/RayleaBot/server/internal/adapter"
 	"github.com/RayleaBot/RayleaBot/server/internal/auth"
 	"github.com/RayleaBot/RayleaBot/server/internal/bridge"
@@ -27,7 +29,7 @@ import (
 
 type pluginLifecycleDeps struct {
 	state               *appRuntimeState
-	plugins             *plugins.Catalog
+	plugins             *plugincatalog.Catalog
 	desiredStateRepo    plugins.DesiredStateRepository
 	grants              *pluginGrantView
 	runtimes            *runtimeRegistry
@@ -48,7 +50,7 @@ type eventMetadataEnricher interface {
 
 type eventIngressDeps struct {
 	state            *appRuntimeState
-	plugins          *plugins.Catalog
+	plugins          *plugincatalog.Catalog
 	replyTargets     *replyTargetCache
 	outboundSender   outboundActionSender
 	outboundLimiter  outbound.MessageLimiter
@@ -66,7 +68,7 @@ type systemServiceDeps struct {
 	state            *appRuntimeState
 	auth             *auth.Manager
 	adapter          *adapter.Shell
-	plugins          *plugins.Catalog
+	plugins          *plugincatalog.Catalog
 	runtimes         *runtimeRegistry
 	renderer         *render.Service
 	storage          *storage.Store
@@ -103,7 +105,7 @@ type httpServerDeps struct {
 	state              *appRuntimeState
 	auth               *auth.Manager
 	tasks              *tasks.Registry
-	plugins            *plugins.Catalog
+	plugins            *plugincatalog.Catalog
 	pluginInstaller    plugins.InstallCoordinator
 	pluginUninstaller  plugins.UninstallCoordinator
 	pluginRepository   plugins.DesiredStateRepository

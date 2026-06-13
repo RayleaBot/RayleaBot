@@ -10,6 +10,8 @@ import (
 	"testing"
 	"time"
 
+	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
+
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/dispatch"
 	"github.com/RayleaBot/RayleaBot/server/internal/governance"
@@ -57,7 +59,7 @@ func TestExecutePluginListUsesBuiltinAutoGrant(t *testing.T) {
 	t.Parallel()
 
 	application := newTestAppState(config.Config{}, slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)))
-	application.pluginStack.Plugins = plugins.NewCatalog([]plugins.Snapshot{
+	application.pluginStack.Plugins = plugincatalog.New([]plugins.Snapshot{
 		{
 			PluginID:            "raylea.echo",
 			Name:                "Echo",
@@ -273,7 +275,7 @@ func TestExecutePluginListCallerVisibilityFiltersHelp(t *testing.T) {
 
 func newPluginListVisibilityTestApp(cfg config.Config) *App {
 	application := newTestAppState(cfg, slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)))
-	application.pluginStack.Plugins = plugins.NewCatalog([]plugins.Snapshot{
+	application.pluginStack.Plugins = plugincatalog.New([]plugins.Snapshot{
 		{
 			PluginID:            "raylea.echo",
 			Name:                "Echo",
@@ -441,7 +443,7 @@ func TestExecuteSecretReadReturnsPluginScopedValue(t *testing.T) {
 	}
 
 	application := newTestAppState(config.Config{}, slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)))
-	application.pluginStack.Plugins = plugins.NewCatalog([]plugins.Snapshot{{
+	application.pluginStack.Plugins = plugincatalog.New([]plugins.Snapshot{{
 		PluginID:            "subscription-hub",
 		Valid:               true,
 		RegistrationState:   "installed",
@@ -843,7 +845,7 @@ func TestExecuteGovernanceActionsRoundTrip(t *testing.T) {
 	application.pluginStack.blacklistRepo = permission.NewSQLiteBlacklistRepository(store.Read, store.Write)
 	application.pluginStack.whitelistRepo = permission.NewSQLiteWhitelistRepository(store.Read, store.Write)
 	application.pluginStack.whitelistState = permission.NewSQLiteWhitelistStateRepository(store.Read, store.Write)
-	application.pluginStack.Plugins = plugins.NewCatalog([]plugins.Snapshot{{
+	application.pluginStack.Plugins = plugincatalog.New([]plugins.Snapshot{{
 		PluginID:          "weather",
 		Name:              "Weather",
 		Valid:             true,
@@ -1032,7 +1034,7 @@ func TestExecuteSchedulerCreateUpsertDoesNotWriteManagementLog(t *testing.T) {
 			AutoGrantCapabilities: []string{"scheduler.create"},
 		},
 	}, slog.New(slog.NewTextHandler(buffer, nil)))
-	application.pluginStack.Plugins = plugins.NewCatalog([]plugins.Snapshot{{
+	application.pluginStack.Plugins = plugincatalog.New([]plugins.Snapshot{{
 		PluginID:          "weather",
 		Name:              "天气插件",
 		Valid:             true,

@@ -8,6 +8,8 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
+
 	"github.com/go-chi/chi/v5"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
@@ -130,7 +132,7 @@ func (s *stubWhitelistStateRepo) SetEnabled(_ context.Context, enabled bool) err
 	return nil
 }
 
-func newGovernanceRouter(cfg config.Config, blacklist permission.BlacklistRepository, whitelist permission.WhitelistRepository, whitelistState permission.WhitelistStateRepository, catalog *plugins.Catalog) *chi.Mux {
+func newGovernanceRouter(cfg config.Config, blacklist permission.BlacklistRepository, whitelist permission.WhitelistRepository, whitelistState permission.WhitelistStateRepository, catalog plugins.CatalogView) *chi.Mux {
 	router := chi.NewRouter()
 	NewHandlers(Deps{
 		CurrentConfig:  func() config.Config { return cfg },
@@ -148,7 +150,7 @@ func TestGovernanceBlacklistAndWhitelistRoundTrip(t *testing.T) {
 	blacklist := newStubBlacklistRepo()
 	whitelist := newStubWhitelistRepo()
 	whitelistState := &stubWhitelistStateRepo{}
-	router := newGovernanceRouter(config.Config{}, blacklist, whitelist, whitelistState, plugins.NewCatalog(nil))
+	router := newGovernanceRouter(config.Config{}, blacklist, whitelist, whitelistState, plugincatalog.New(nil))
 
 	upsertBody := bytes.NewBufferString(`{"entry_type":"user","target_id":"1001","reason":"spam"}`)
 	upsertReq := httptest.NewRequest(http.MethodPost, "/api/governance/blacklist/entries", upsertBody)
@@ -221,7 +223,7 @@ func TestGovernanceBlacklistAndWhitelistRoundTrip(t *testing.T) {
 func TestGovernanceWhitelistStateRejectsInvalidRequest(t *testing.T) {
 	t.Parallel()
 
-	router := newGovernanceRouter(config.Config{}, newStubBlacklistRepo(), newStubWhitelistRepo(), &stubWhitelistStateRepo{}, plugins.NewCatalog(nil))
+	router := newGovernanceRouter(config.Config{}, newStubBlacklistRepo(), newStubWhitelistRepo(), &stubWhitelistStateRepo{}, plugincatalog.New(nil))
 	req := httptest.NewRequest(http.MethodPut, "/api/governance/whitelist/state", bytes.NewBufferString(`{"enabled":"yes"}`))
 	req.Header.Set("Content-Type", "application/json")
 	resp := httptest.NewRecorder()
@@ -247,7 +249,7 @@ func TestGovernanceCommandPolicyProjection(t *testing.T) {
 			CommandRateLimit: "9/60s",
 		},
 	}
-	catalog := plugins.NewCatalog([]plugins.Snapshot{
+	catalog := plugincatalog.New([]plugins.Snapshot{
 		{
 			PluginID:          "weather",
 			Name:              "Weather",

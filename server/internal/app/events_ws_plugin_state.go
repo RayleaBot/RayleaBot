@@ -1,6 +1,8 @@
 package app
 
-import "github.com/RayleaBot/RayleaBot/server/internal/plugins"
+import (
+	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
+)
 
 func pluginStateEventFrame(snapshot plugins.Snapshot, snapshots []plugins.Snapshot) managementEventFrame {
 	return newEventsReceivedFrame(pluginStateEventPayload{

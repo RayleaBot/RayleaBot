@@ -6,7 +6,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
+	plugindiscovery "github.com/RayleaBot/RayleaBot/server/internal/plugins/discovery"
 	"github.com/RayleaBot/RayleaBot/server/internal/recovery"
 	"github.com/RayleaBot/RayleaBot/server/internal/schemaassets"
 )
@@ -14,7 +14,7 @@ import (
 type pluginDiscoverySpec struct {
 	repoRoot         string
 	pluginSchemaPath string
-	roots            []plugins.ScanRoot
+	roots            []plugindiscovery.ScanRoot
 }
 
 func resolveDatabasePath(configPath, databasePath string) (string, error) {
@@ -50,7 +50,7 @@ func resolvePluginDiscovery(options Options) (pluginDiscoverySpec, error) {
 		return pluginDiscoverySpec{
 			repoRoot:         options.PluginRepoRoot,
 			pluginSchemaPath: options.PluginSchemaPath,
-			roots:            append([]plugins.ScanRoot(nil), options.PluginRoots...),
+			roots:            append([]plugindiscovery.ScanRoot(nil), options.PluginRoots...),
 		}, nil
 	}
 
@@ -65,14 +65,14 @@ func resolvePluginDiscovery(options Options) (pluginDiscoverySpec, error) {
 	}, nil
 }
 
-func pluginDiscoveryContext(configPath string) (string, string, []plugins.ScanRoot, error) {
+func pluginDiscoveryContext(configPath string) (string, string, []plugindiscovery.ScanRoot, error) {
 	repoRoot, err := resolveRuntimeRoot(configPath)
 	if err != nil {
 		return "", "", nil, err
 	}
 	pluginSchemaPath := schemaassets.PluginInfoSchemaID
 
-	roots := []plugins.ScanRoot{
+	roots := []plugindiscovery.ScanRoot{
 		{
 			Label: "plugins/builtin",
 			Path:  filepath.Join(repoRoot, "plugins", "builtin"),
@@ -86,7 +86,7 @@ func pluginDiscoveryContext(configPath string) (string, string, []plugins.ScanRo
 	return repoRoot, pluginSchemaPath, roots, nil
 }
 
-func cleanupOrphanedInstallDirs(logger *slog.Logger, roots []plugins.ScanRoot) {
+func cleanupOrphanedInstallDirs(logger *slog.Logger, roots []plugindiscovery.ScanRoot) {
 	for _, root := range roots {
 		if root.Label != "plugins/installed" {
 			continue

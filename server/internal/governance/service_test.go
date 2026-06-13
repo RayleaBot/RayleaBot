@@ -4,8 +4,9 @@ import (
 	"context"
 	"testing"
 
+	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
+
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
-	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 )
 
 func TestServiceWritesNotifyGovernanceChangedOnce(t *testing.T) {
@@ -18,7 +19,7 @@ func TestServiceWritesNotifyGovernanceChangedOnce(t *testing.T) {
 
 	service := NewService(Deps{
 		CurrentConfig:  func() config.Config { return config.Config{} },
-		Plugins:        plugins.NewCatalog(nil),
+		Plugins:        plugincatalog.New(nil),
 		BlacklistRepo:  blacklist,
 		WhitelistRepo:  whitelist,
 		WhitelistState: whitelistState,

@@ -68,3 +68,25 @@ func defaultDisplayState(snapshot Snapshot) string {
 	}
 	return displayDisabled
 }
+
+func DefaultDisplayState(snapshot Snapshot) string {
+	return defaultDisplayState(snapshot)
+}
+
+func ApplyDesiredStates(snapshots []Snapshot, states map[string]string) []Snapshot {
+	if len(snapshots) == 0 {
+		return nil
+	}
+	result := make([]Snapshot, 0, len(snapshots))
+	for _, snapshot := range snapshots {
+		cloned := CloneSnapshot(snapshot)
+		if desired, ok := states[cloned.PluginID]; ok &&
+			cloned.RegistrationState == stateInstalled &&
+			(desired == "enabled" || desired == "disabled") {
+			cloned.DesiredState = desired
+			cloned.DisplayState = defaultDisplayState(cloned)
+		}
+		result = append(result, cloned)
+	}
+	return result
+}

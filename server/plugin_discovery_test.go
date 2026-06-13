@@ -10,6 +10,8 @@ import (
 
 	"github.com/RayleaBot/RayleaBot/server/internal/app"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
+	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
+	plugindiscovery "github.com/RayleaBot/RayleaBot/server/internal/plugins/discovery"
 )
 
 type pluginInfoFixture struct {
@@ -28,7 +30,7 @@ func TestPluginDiscoveryContextUsesPluginDirectoriesOnly(t *testing.T) {
 		ConfigPath:       configPath,
 		PluginRepoRoot:   repoRoot,
 		PluginSchemaPath: filepath.Join("..", "contracts", "plugin-info.schema.json"),
-		PluginRoots: []plugins.ScanRoot{
+		PluginRoots: []plugindiscovery.ScanRoot{
 			{Label: "plugins/builtin", Path: filepath.Join(repoRoot, "plugins", "builtin")},
 			{Label: "plugins/installed", Path: filepath.Join(filepath.Dir(configPath), "..", "plugins", "installed")},
 		},
@@ -104,9 +106,9 @@ func TestDiscoverInvalidManifestFromFixture(t *testing.T) {
 		t.Fatalf("write manifest: %v", err)
 	}
 
-	snapshots, summary, err := plugins.Discover(plugins.DiscoverOptions{
+	snapshots, summary, err := plugindiscovery.Discover(plugindiscovery.DiscoverOptions{
 		Validator: validator,
-		Roots: []plugins.ScanRoot{
+		Roots: []plugindiscovery.ScanRoot{
 			{
 				Label: "plugins/installed",
 				Path:  filepath.Join(rootDir, "plugins"),
@@ -158,9 +160,9 @@ func TestDiscoverPluginIDConflict(t *testing.T) {
 		}
 	}
 
-	snapshots, summary, err := plugins.Discover(plugins.DiscoverOptions{
+	snapshots, summary, err := plugindiscovery.Discover(plugindiscovery.DiscoverOptions{
 		Validator: validator,
-		Roots: []plugins.ScanRoot{
+		Roots: []plugindiscovery.ScanRoot{
 			{
 				Label: "plugins/installed",
 				Path:  filepath.Join(rootDir, "plugins"),
@@ -247,9 +249,9 @@ func TestConflictPathsUseStableSourceOrdering(t *testing.T) {
 		}
 	}
 
-	snapshots, _, err := plugins.Discover(plugins.DiscoverOptions{
+	snapshots, _, err := plugindiscovery.Discover(plugindiscovery.DiscoverOptions{
 		Validator: validator,
-		Roots: []plugins.ScanRoot{
+		Roots: []plugindiscovery.ScanRoot{
 			{
 				Label: "plugins/installed",
 				Path:  filepath.Join(rootDir, "plugins"),
@@ -274,9 +276,9 @@ func TestDiscoverBuiltinPluginDefaultsToEnabledAndPreservesCommands(t *testing.T
 
 	repoRoot := repoRootPath(t)
 	validator := compileSchema(t, filepath.Join("..", "contracts", "plugin-info.schema.json"))
-	snapshots, _, err := plugins.Discover(plugins.DiscoverOptions{
+	snapshots, _, err := plugindiscovery.Discover(plugindiscovery.DiscoverOptions{
 		Validator: validator,
-		Roots: []plugins.ScanRoot{
+		Roots: []plugindiscovery.ScanRoot{
 			{
 				Label: "plugins/builtin",
 				Path:  filepath.Join(repoRoot, "plugins", "builtin"),
@@ -288,7 +290,7 @@ func TestDiscoverBuiltinPluginDefaultsToEnabledAndPreservesCommands(t *testing.T
 		t.Fatalf("Discover builtin plugins failed: %v", err)
 	}
 
-	catalog := plugins.NewCatalog(snapshots)
+	catalog := plugincatalog.New(snapshots)
 	for _, tc := range []struct {
 		pluginID      string
 		commandName   string
@@ -348,9 +350,9 @@ func TestDiscoverManifestDynamicCommands(t *testing.T) {
 		t.Fatalf("write manifest: %v", err)
 	}
 
-	snapshots, summary, err := plugins.Discover(plugins.DiscoverOptions{
+	snapshots, summary, err := plugindiscovery.Discover(plugindiscovery.DiscoverOptions{
 		Validator: validator,
-		Roots: []plugins.ScanRoot{{
+		Roots: []plugindiscovery.ScanRoot{{
 			Label: "plugins/installed",
 			Path:  filepath.Join(rootDir, "plugins"),
 		}},
@@ -401,9 +403,9 @@ func TestDiscoverManifestDefaultConfigFile(t *testing.T) {
 		t.Fatalf("write manifest: %v", err)
 	}
 
-	snapshots, summary, err := plugins.Discover(plugins.DiscoverOptions{
+	snapshots, summary, err := plugindiscovery.Discover(plugindiscovery.DiscoverOptions{
 		Validator: validator,
-		Roots: []plugins.ScanRoot{{
+		Roots: []plugindiscovery.ScanRoot{{
 			Label: "plugins/installed",
 			Path:  filepath.Join(rootDir, "plugins"),
 		}},
@@ -455,9 +457,9 @@ func TestDiscoverManifestDefaultConfigAndRole(t *testing.T) {
 		t.Fatalf("write manifest: %v", err)
 	}
 
-	snapshots, summary, err := plugins.Discover(plugins.DiscoverOptions{
+	snapshots, summary, err := plugindiscovery.Discover(plugindiscovery.DiscoverOptions{
 		Validator: validator,
-		Roots: []plugins.ScanRoot{{
+		Roots: []plugindiscovery.ScanRoot{{
 			Label: "plugins/installed",
 			Path:  filepath.Join(rootDir, "plugins"),
 		}},
@@ -496,9 +498,9 @@ func TestDiscoverManifestManagementUI(t *testing.T) {
 		t.Fatalf("write manifest: %v", err)
 	}
 
-	snapshots, summary, err := plugins.Discover(plugins.DiscoverOptions{
+	snapshots, summary, err := plugindiscovery.Discover(plugindiscovery.DiscoverOptions{
 		Validator: validator,
-		Roots: []plugins.ScanRoot{{
+		Roots: []plugindiscovery.ScanRoot{{
 			Label: "plugins/installed",
 			Path:  filepath.Join(rootDir, "plugins"),
 		}},
@@ -540,9 +542,9 @@ func TestDiscoverManifestManagementUIPages(t *testing.T) {
 		t.Fatalf("write manifest: %v", err)
 	}
 
-	snapshots, summary, err := plugins.Discover(plugins.DiscoverOptions{
+	snapshots, summary, err := plugindiscovery.Discover(plugindiscovery.DiscoverOptions{
 		Validator: validator,
-		Roots: []plugins.ScanRoot{{
+		Roots: []plugindiscovery.ScanRoot{{
 			Label: "plugins/installed",
 			Path:  filepath.Join(rootDir, "plugins"),
 		}},
@@ -587,9 +589,9 @@ func TestDiscoverManifestRejectsManagementUIPageOutsideEntryDirectory(t *testing
 		t.Fatalf("write manifest: %v", err)
 	}
 
-	snapshots, summary, err := plugins.Discover(plugins.DiscoverOptions{
+	snapshots, summary, err := plugindiscovery.Discover(plugindiscovery.DiscoverOptions{
 		Validator: validator,
-		Roots: []plugins.ScanRoot{{
+		Roots: []plugindiscovery.ScanRoot{{
 			Label: "plugins/installed",
 			Path:  filepath.Join(rootDir, "plugins"),
 		}},
@@ -629,9 +631,9 @@ func TestDiscoverManifestRejectsDuplicateManagementUIPageID(t *testing.T) {
 		t.Fatalf("write manifest: %v", err)
 	}
 
-	snapshots, summary, err := plugins.Discover(plugins.DiscoverOptions{
+	snapshots, summary, err := plugindiscovery.Discover(plugindiscovery.DiscoverOptions{
 		Validator: validator,
-		Roots: []plugins.ScanRoot{{
+		Roots: []plugindiscovery.ScanRoot{{
 			Label: "plugins/installed",
 			Path:  filepath.Join(rootDir, "plugins"),
 		}},
@@ -665,9 +667,9 @@ func TestDiscoverManifestRenderTemplates(t *testing.T) {
 		t.Fatalf("write manifest: %v", err)
 	}
 
-	snapshots, summary, err := plugins.Discover(plugins.DiscoverOptions{
+	snapshots, summary, err := plugindiscovery.Discover(plugindiscovery.DiscoverOptions{
 		Validator: validator,
-		Roots: []plugins.ScanRoot{{
+		Roots: []plugindiscovery.ScanRoot{{
 			Label: "plugins/installed",
 			Path:  filepath.Join(rootDir, "plugins"),
 		}},
@@ -700,9 +702,9 @@ func TestDiscoverManifestRichMetadata(t *testing.T) {
 		t.Fatalf("write manifest: %v", err)
 	}
 
-	snapshots, summary, err := plugins.Discover(plugins.DiscoverOptions{
+	snapshots, summary, err := plugindiscovery.Discover(plugindiscovery.DiscoverOptions{
 		Validator: validator,
-		Roots: []plugins.ScanRoot{{
+		Roots: []plugindiscovery.ScanRoot{{
 			Label: "plugins/installed",
 			Path:  filepath.Join(rootDir, "plugins"),
 		}},
@@ -783,9 +785,9 @@ func TestDiscoverManifestWebhookScopes(t *testing.T) {
 		t.Fatalf("write manifest: %v", err)
 	}
 
-	snapshots, _, err := plugins.Discover(plugins.DiscoverOptions{
+	snapshots, _, err := plugindiscovery.Discover(plugindiscovery.DiscoverOptions{
 		Validator: validator,
-		Roots: []plugins.ScanRoot{{
+		Roots: []plugindiscovery.ScanRoot{{
 			Label: "plugins/installed",
 			Path:  filepath.Join(rootDir, "plugins"),
 		}},

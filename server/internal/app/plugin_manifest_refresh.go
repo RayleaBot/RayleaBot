@@ -4,12 +4,15 @@ import (
 	"context"
 	"fmt"
 
+	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
+	pluginmanifest "github.com/RayleaBot/RayleaBot/server/internal/plugins/manifest"
+
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 )
 
 func refreshPluginManifest(
 	ctx context.Context,
-	catalog *plugins.Catalog,
+	catalog *plugincatalog.Catalog,
 	pluginConfig pluginconfigReader,
 	pluginID string,
 	discover func() ([]plugins.Snapshot, error),
@@ -54,7 +57,7 @@ func refreshPluginManifest(
 				settings[key] = plugins.CloneSettingValue(value)
 			}
 		}
-		snapshot.Commands = plugins.ProjectCommands(snapshot, settings)
+		snapshot.Commands = pluginmanifest.ProjectCommands(snapshot, settings)
 		if snapshot.PluginID == pluginID {
 			refreshed = snapshot
 			found = true

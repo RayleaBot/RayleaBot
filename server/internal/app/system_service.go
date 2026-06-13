@@ -3,6 +3,8 @@ package app
 import (
 	"sync/atomic"
 
+	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
+
 	"github.com/RayleaBot/RayleaBot/server/internal/adapter"
 	"github.com/RayleaBot/RayleaBot/server/internal/auth"
 	"github.com/RayleaBot/RayleaBot/server/internal/logging"
@@ -16,7 +18,7 @@ type systemService struct {
 	state            *appRuntimeState
 	auth             *auth.Manager
 	adapter          *adapter.Shell
-	plugins          *plugins.Catalog
+	plugins          *plugincatalog.Catalog
 	runtimes         *runtimeRegistry
 	renderer         *render.Service
 	storage          *storage.Store

@@ -12,6 +12,8 @@ import (
 	"testing"
 	"time"
 
+	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
+
 	"github.com/RayleaBot/RayleaBot/server/internal/auth"
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/deps"
@@ -360,7 +362,7 @@ func newTaskOnlyApp(t *testing.T, repoRoot string) *App {
 	application.state.startedAt = time.Now()
 	application.platform.Tasks = registry
 	application.platform.taskExecutor = executor
-	application.pluginStack.Plugins = plugins.NewCatalog(nil)
+	application.pluginStack.Plugins = plugincatalog.New(nil)
 	application.setTestSystem(registry, executor, nil, nil)
 	return application
 }

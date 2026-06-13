@@ -5,7 +5,7 @@ import (
 	"time"
 )
 
-func buildPluginSummary(catalog *Catalog, snapshot Snapshot) pluginSummaryResponse {
+func buildPluginSummary(catalog CatalogView, snapshot Snapshot) pluginSummaryResponse {
 	if catalog == nil {
 		return toPluginSummary(snapshot, nil)
 	}

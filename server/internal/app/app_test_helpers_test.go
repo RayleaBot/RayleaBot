@@ -6,6 +6,8 @@ import (
 	"net/http"
 	"time"
 
+	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
+
 	"github.com/RayleaBot/RayleaBot/server/internal/adapter"
 	"github.com/RayleaBot/RayleaBot/server/internal/bridge"
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
@@ -54,11 +56,11 @@ func defaultAdapterTestConfig() config.AdapterConfig {
 	}
 }
 
-func (a *App) setTestEventIngress(catalog *plugins.Catalog, blacklistRepo permission.BlacklistRepository, sender outboundActionSender, eventBridge *bridge.Bridge) {
+func (a *App) setTestEventIngress(catalog *plugincatalog.Catalog, blacklistRepo permission.BlacklistRepository, sender outboundActionSender, eventBridge *bridge.Bridge) {
 	a.setTestEventIngressWithGovernance(catalog, nil, nil, blacklistRepo, sender, eventBridge)
 }
 
-func (a *App) setTestEventIngressWithGovernance(catalog *plugins.Catalog, whitelistRepo permission.WhitelistRepository, whitelistState permission.WhitelistStateRepository, blacklistRepo permission.BlacklistRepository, sender outboundActionSender, eventBridge *bridge.Bridge) {
+func (a *App) setTestEventIngressWithGovernance(catalog *plugincatalog.Catalog, whitelistRepo permission.WhitelistRepository, whitelistState permission.WhitelistStateRepository, blacklistRepo permission.BlacklistRepository, sender outboundActionSender, eventBridge *bridge.Bridge) {
 	if a == nil {
 		return
 	}
@@ -96,7 +98,7 @@ func (a *App) setTestEventIngressWithGovernance(catalog *plugins.Catalog, whitel
 	})
 }
 
-func (a *App) setTestLifecycle(catalog *plugins.Catalog, desiredRepo plugins.DesiredStateRepository, grantRepo plugins.GrantRepository, runtimes *runtimeRegistry, dispatcher *dispatch.Dispatcher, pluginConfigRepo pluginconfig.Repository, adapterShell *adapter.Shell, webhooks *pluginwebhook.Registry) {
+func (a *App) setTestLifecycle(catalog *plugincatalog.Catalog, desiredRepo plugins.DesiredStateRepository, grantRepo plugins.GrantRepository, runtimes *runtimeRegistry, dispatcher *dispatch.Dispatcher, pluginConfigRepo pluginconfig.Repository, adapterShell *adapter.Shell, webhooks *pluginwebhook.Registry) {
 	if a == nil {
 		return
 	}
@@ -321,7 +323,7 @@ func (a *App) dispatchPluginConfigChanged(ctx context.Context, pluginID string) 
 }
 
 type pluginManagementUIHTTPDeps struct {
-	plugins            *plugins.Catalog
+	plugins            *plugincatalog.Catalog
 	pluginConfig       pluginconfig.Repository
 	secrets            secrets.Store
 	notifyConfigChange func(context.Context, string)

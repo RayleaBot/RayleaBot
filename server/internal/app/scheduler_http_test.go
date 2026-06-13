@@ -11,6 +11,8 @@ import (
 	"testing"
 	"time"
 
+	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
+
 	"github.com/go-chi/chi/v5"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
@@ -67,7 +69,7 @@ func TestSystemSchedulerJobListHTTP(t *testing.T) {
 	}, slog.Default())
 	system := newSystemService(systemServiceDeps{
 		state:   application.state,
-		plugins: plugins.NewCatalog([]plugins.Snapshot{{PluginID: "weather", Name: "天气插件"}}),
+		plugins: plugincatalog.New([]plugins.Snapshot{{PluginID: "weather", Name: "天气插件"}}),
 	})
 	handler := newSystemHTTPHandlers(system, engine).handleSystemSchedulerJobList()
 	req := httptest.NewRequest(http.MethodGet, "/api/system/scheduler/jobs", nil)

@@ -4,6 +4,8 @@ import (
 	"context"
 	"strings"
 
+	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
+
 	"github.com/RayleaBot/RayleaBot/server/internal/adapter"
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
@@ -18,7 +20,7 @@ type runtimeStarter interface {
 func ensureRuntimeStartedForEvent(
 	ctx context.Context,
 	manager runtimeStarter,
-	catalog *plugins.Catalog,
+	catalog *plugincatalog.Catalog,
 	repoRoot string,
 	cfg config.Config,
 	event adapter.NormalizedEvent,
@@ -29,7 +31,7 @@ func ensureRuntimeStartedForEvent(
 func ensureRuntimeStartedForBot(
 	ctx context.Context,
 	manager runtimeStarter,
-	catalog *plugins.Catalog,
+	catalog *plugincatalog.Catalog,
 	repoRoot string,
 	cfg config.Config,
 	botID string,
@@ -69,7 +71,7 @@ func ensureRuntimeStartedForBot(
 	return snapshot, true, nil
 }
 
-func selectRuntimeStartupPlugin(catalog *plugins.Catalog, grantedCapabilities []string) (plugins.Snapshot, bool) {
+func selectRuntimeStartupPlugin(catalog *plugincatalog.Catalog, grantedCapabilities []string) (plugins.Snapshot, bool) {
 	if catalog == nil {
 		return plugins.Snapshot{}, false
 	}

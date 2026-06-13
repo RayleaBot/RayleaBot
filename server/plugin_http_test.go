@@ -10,12 +10,13 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
+	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
 )
 
 func TestListPluginsReturnsContractShape(t *testing.T) {
 	t.Parallel()
 
-	router := pluginRouter(t, plugins.NewCatalog([]plugins.Snapshot{
+	router := pluginRouter(t, plugincatalog.New([]plugins.Snapshot{
 		{
 			PluginID:          "raylea.echo",
 			Valid:             true,
@@ -228,7 +229,7 @@ func TestListPluginsReturnsContractShape(t *testing.T) {
 func TestGetPluginReturnsValidSnapshot(t *testing.T) {
 	t.Parallel()
 
-	router := pluginRouter(t, plugins.NewCatalog([]plugins.Snapshot{
+	router := pluginRouter(t, plugincatalog.New([]plugins.Snapshot{
 		{
 			PluginID:          "hello-python",
 			Name:              "Hello Python",
@@ -306,7 +307,7 @@ func TestGetPluginReturnsValidSnapshot(t *testing.T) {
 func TestGetPluginReturnsRichMetadataDetail(t *testing.T) {
 	t.Parallel()
 
-	router := pluginRouter(t, plugins.NewCatalog([]plugins.Snapshot{
+	router := pluginRouter(t, plugincatalog.New([]plugins.Snapshot{
 		{
 			PluginID:             "weather",
 			Name:                 "Weather",
@@ -417,7 +418,7 @@ func TestGetPluginReturnsRichMetadataDetail(t *testing.T) {
 func TestGetPluginReturns404WhenMissing(t *testing.T) {
 	t.Parallel()
 
-	router := pluginRouter(t, plugins.NewCatalog(nil))
+	router := pluginRouter(t, plugincatalog.New(nil))
 
 	request := httptest.NewRequest("GET", "/api/plugins/missing-plugin", nil)
 	recorder := httptest.NewRecorder()
@@ -454,7 +455,7 @@ func TestInvalidPluginAppearsInListButDetailReturns409(t *testing.T) {
 			{Name: "unsupported"},
 		},
 	}
-	router := pluginRouter(t, plugins.NewCatalog([]plugins.Snapshot{snapshot}))
+	router := pluginRouter(t, plugincatalog.New([]plugins.Snapshot{snapshot}))
 
 	listRequest := httptest.NewRequest("GET", "/api/plugins", nil)
 	listRecorder := httptest.NewRecorder()
@@ -493,7 +494,7 @@ func TestInvalidPluginAppearsInListButDetailReturns409(t *testing.T) {
 func TestConflictPluginDetailReturns409(t *testing.T) {
 	t.Parallel()
 
-	router := pluginRouter(t, plugins.NewCatalog([]plugins.Snapshot{
+	router := pluginRouter(t, plugincatalog.New([]plugins.Snapshot{
 		{
 			PluginID:          "weather",
 			Valid:             false,
@@ -553,7 +554,7 @@ func TestConflictPluginDetailReturns409(t *testing.T) {
 	}
 }
 
-func pluginRouter(t *testing.T, catalog *plugins.Catalog) *chi.Mux {
+func pluginRouter(t *testing.T, catalog *plugincatalog.Catalog) *chi.Mux {
 	t.Helper()
 
 	router := chi.NewRouter()
@@ -561,7 +562,7 @@ func pluginRouter(t *testing.T, catalog *plugins.Catalog) *chi.Mux {
 	return router
 }
 
-func pluginRouterWithController(t *testing.T, catalog *plugins.Catalog, controller plugins.DesiredStateController, uninstaller plugins.UninstallCoordinator) *chi.Mux {
+func pluginRouterWithController(t *testing.T, catalog *plugincatalog.Catalog, controller plugins.DesiredStateController, uninstaller plugins.UninstallCoordinator) *chi.Mux {
 	t.Helper()
 
 	router := chi.NewRouter()
@@ -620,7 +621,7 @@ func assertCommandList(t *testing.T, got any, want []map[string]any) {
 func TestReloadPluginReturnsUpdatedSnapshot(t *testing.T) {
 	t.Parallel()
 
-	catalog := plugins.NewCatalog([]plugins.Snapshot{
+	catalog := plugincatalog.New([]plugins.Snapshot{
 		{PluginID: "weather", Valid: true, RegistrationState: "installed", DesiredState: "enabled", RuntimeState: "running"},
 	})
 	controller := &stubReloadController{
@@ -652,7 +653,7 @@ func TestReloadPluginReturnsUpdatedSnapshot(t *testing.T) {
 func TestReloadPluginRejectsDisabledPlugin(t *testing.T) {
 	t.Parallel()
 
-	catalog := plugins.NewCatalog([]plugins.Snapshot{
+	catalog := plugincatalog.New([]plugins.Snapshot{
 		{PluginID: "weather", Valid: true, RegistrationState: "installed", DesiredState: "disabled", RuntimeState: "stopped"},
 	})
 	controller := &stubReloadController{
@@ -672,7 +673,7 @@ func TestReloadPluginRejectsDisabledPlugin(t *testing.T) {
 func TestReloadPluginRejectsNotFound(t *testing.T) {
 	t.Parallel()
 
-	catalog := plugins.NewCatalog(nil)
+	catalog := plugincatalog.New(nil)
 	controller := &stubReloadController{
 		reloadErr: plugins.ErrPluginNotFound,
 	}
@@ -690,7 +691,7 @@ func TestReloadPluginRejectsNotFound(t *testing.T) {
 func TestUninstallPluginReturnsTaskAccepted(t *testing.T) {
 	t.Parallel()
 
-	catalog := plugins.NewCatalog([]plugins.Snapshot{
+	catalog := plugincatalog.New([]plugins.Snapshot{
 		{PluginID: "weather", Valid: true, RegistrationState: "installed", DesiredState: "disabled", RuntimeState: "stopped"},
 	})
 	uninstaller := &stubUninstallCoordinator{taskID: "task_plugin_uninstall_0001"}
@@ -713,7 +714,7 @@ func TestUninstallPluginReturnsTaskAccepted(t *testing.T) {
 func TestUninstallPluginRejectsNotFound(t *testing.T) {
 	t.Parallel()
 
-	catalog := plugins.NewCatalog(nil)
+	catalog := plugincatalog.New(nil)
 	uninstaller := &stubUninstallCoordinator{taskID: "should-not-reach"}
 	router := pluginRouterWithController(t, catalog, nil, uninstaller)
 
@@ -735,7 +736,7 @@ func TestUninstallPluginRejectsNotFound(t *testing.T) {
 func TestUninstallBuiltinPluginRejected(t *testing.T) {
 	t.Parallel()
 
-	catalog := plugins.NewCatalog([]plugins.Snapshot{
+	catalog := plugincatalog.New([]plugins.Snapshot{
 		{
 			PluginID:          "raylea.echo",
 			Valid:             true,

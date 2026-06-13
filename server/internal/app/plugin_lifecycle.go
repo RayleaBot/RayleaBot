@@ -4,6 +4,8 @@ import (
 	"context"
 	"sync"
 
+	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
+
 	"github.com/RayleaBot/RayleaBot/server/internal/adapter"
 	"github.com/RayleaBot/RayleaBot/server/internal/dispatch"
 	"github.com/RayleaBot/RayleaBot/server/internal/pluginconfig"
@@ -15,7 +17,7 @@ import (
 
 type pluginLifecycleController struct {
 	state               *appRuntimeState
-	plugins             *plugins.Catalog
+	plugins             *plugincatalog.Catalog
 	desiredStateRepo    plugins.DesiredStateRepository
 	grants              *pluginGrantView
 	runtimes            *runtimeRegistry

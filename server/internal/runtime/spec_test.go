@@ -7,6 +7,9 @@ import (
 	goruntime "runtime"
 	"testing"
 
+	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
+	plugindiscovery "github.com/RayleaBot/RayleaBot/server/internal/plugins/discovery"
+
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	"github.com/RayleaBot/RayleaBot/server/internal/schema"
@@ -220,7 +223,7 @@ func TestBuildSpecUsesManagedNodeAndInjectsNodeOptions(t *testing.T) {
 	}
 }
 
-func discoverRuntimeTestCatalog(t *testing.T, root string) *plugins.Catalog {
+func discoverRuntimeTestCatalog(t *testing.T, root string) *plugincatalog.Catalog {
 	t.Helper()
 
 	repoRoot := runtimeRepoRoot(t)
@@ -229,9 +232,9 @@ func discoverRuntimeTestCatalog(t *testing.T, root string) *plugins.Catalog {
 		t.Fatalf("compile plugin-info schema: %v", err)
 	}
 
-	snapshots, _, err := plugins.Discover(plugins.DiscoverOptions{
+	snapshots, _, err := plugindiscovery.Discover(plugindiscovery.DiscoverOptions{
 		Validator: validator,
-		Roots: []plugins.ScanRoot{
+		Roots: []plugindiscovery.ScanRoot{
 			{
 				Label: filepath.Base(root),
 				Path:  root,
@@ -243,7 +246,7 @@ func discoverRuntimeTestCatalog(t *testing.T, root string) *plugins.Catalog {
 		t.Fatalf("discover plugins: %v", err)
 	}
 
-	return plugins.NewCatalog(snapshots)
+	return plugincatalog.New(snapshots)
 }
 
 func writePluginManifestFromFixture(t *testing.T, root string, pluginID string, fixturePath string) {

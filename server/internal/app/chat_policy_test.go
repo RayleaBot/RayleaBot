@@ -11,6 +11,8 @@ import (
 	"testing"
 	"time"
 
+	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
+
 	"github.com/RayleaBot/RayleaBot/server/internal/adapter"
 	"github.com/RayleaBot/RayleaBot/server/internal/bridge"
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
@@ -32,7 +34,7 @@ func TestCommandInfoForEventUsesDefaultLevelForOmittedPermission(t *testing.T) {
 		},
 	}
 	application := newTestAppState(cfg, nil)
-	application.setTestEventIngress(plugins.NewCatalog([]plugins.Snapshot{{
+	application.setTestEventIngress(plugincatalog.New([]plugins.Snapshot{{
 		PluginID:          "weather",
 		Valid:             true,
 		RegistrationState: "installed",
@@ -155,7 +157,7 @@ func TestHandleAdapterEventBlocksCommandWhenNotWhitelistedBeforeBridge(t *testin
 	}
 	application := newTestAppState(cfg, nil)
 	application.setTestEventIngressWithGovernance(
-		plugins.NewCatalog([]plugins.Snapshot{{
+		plugincatalog.New([]plugins.Snapshot{{
 			PluginID:          "weather",
 			Valid:             true,
 			RegistrationState: "installed",
@@ -202,7 +204,7 @@ func TestHandleAdapterEventLogsWhitelistedCommandRejection(t *testing.T) {
 	}
 	application := newTestAppState(cfg, logger)
 	application.setTestEventIngressWithGovernance(
-		plugins.NewCatalog([]plugins.Snapshot{{
+		plugincatalog.New([]plugins.Snapshot{{
 			PluginID:          "weather",
 			Valid:             true,
 			RegistrationState: "installed",
@@ -274,7 +276,7 @@ func TestHandleAdapterEventLogsBlacklistedCommandRejection(t *testing.T) {
 	}
 	application := newTestAppState(cfg, logger)
 	application.setTestEventIngress(
-		plugins.NewCatalog([]plugins.Snapshot{{
+		plugincatalog.New([]plugins.Snapshot{{
 			PluginID:          "ops.tools",
 			Valid:             true,
 			RegistrationState: "installed",
@@ -325,7 +327,7 @@ func TestHandleAdapterEventUsesMostStrictMatchingCommandPermission(t *testing.T)
 		},
 	}
 	application := newTestAppState(cfg, nil)
-	application.setTestEventIngress(plugins.NewCatalog([]plugins.Snapshot{
+	application.setTestEventIngress(plugincatalog.New([]plugins.Snapshot{
 		{
 			PluginID:          "weather",
 			Valid:             true,
@@ -383,7 +385,7 @@ func TestHandleAdapterEventLogsPermissionDeniedCommandRejection(t *testing.T) {
 	}
 	application := newTestAppState(cfg, logger)
 	application.setTestEventIngress(
-		plugins.NewCatalog([]plugins.Snapshot{{
+		plugincatalog.New([]plugins.Snapshot{{
 			PluginID:          "admin",
 			Valid:             true,
 			RegistrationState: "installed",
@@ -434,7 +436,7 @@ func TestHandleAdapterEventLogsConflictingCommandRejectionWithoutPluginID(t *tes
 		},
 	}
 	application := newTestAppState(cfg, logger)
-	application.setTestEventIngress(plugins.NewCatalog([]plugins.Snapshot{
+	application.setTestEventIngress(plugincatalog.New([]plugins.Snapshot{
 		{
 			PluginID:          "weather",
 			Valid:             true,
@@ -502,7 +504,7 @@ func TestApplyChatPolicySendsCooldownReplyForGroupCommand(t *testing.T) {
 		},
 	}
 	application := newTestAppState(cfg, nil)
-	application.setTestEventIngress(plugins.NewCatalog([]plugins.Snapshot{{
+	application.setTestEventIngress(plugincatalog.New([]plugins.Snapshot{{
 		PluginID:          "weather",
 		Valid:             true,
 		RegistrationState: "installed",
@@ -563,7 +565,7 @@ func TestApplyChatPolicyAppliesTargetLimitToCooldownReply(t *testing.T) {
 		},
 	}
 	application := newTestAppState(cfg, logger)
-	application.setTestEventIngress(plugins.NewCatalog([]plugins.Snapshot{{
+	application.setTestEventIngress(plugincatalog.New([]plugins.Snapshot{{
 		PluginID:          "weather",
 		Valid:             true,
 		RegistrationState: "installed",
@@ -632,7 +634,7 @@ func TestApplyChatPolicyCancelsCooldownReplyTargetLimit(t *testing.T) {
 		},
 	}
 	application := newTestAppState(cfg, nil)
-	application.setTestEventIngress(plugins.NewCatalog([]plugins.Snapshot{{
+	application.setTestEventIngress(plugincatalog.New([]plugins.Snapshot{{
 		PluginID:          "weather",
 		Valid:             true,
 		RegistrationState: "installed",
@@ -694,7 +696,7 @@ func TestApplyChatPolicyUsesCanonicalUserCooldownForPrivateCommand(t *testing.T)
 		},
 	}
 	application := newTestAppState(cfg, nil)
-	application.setTestEventIngress(plugins.NewCatalog([]plugins.Snapshot{{
+	application.setTestEventIngress(plugincatalog.New([]plugins.Snapshot{{
 		PluginID:          "help",
 		Valid:             true,
 		RegistrationState: "installed",
@@ -743,7 +745,7 @@ func TestApplyChatPolicyUsesCanonicalUserCooldownForGroupCommand(t *testing.T) {
 		},
 	}
 	application := newTestAppState(cfg, nil)
-	application.setTestEventIngress(plugins.NewCatalog([]plugins.Snapshot{{
+	application.setTestEventIngress(plugincatalog.New([]plugins.Snapshot{{
 		PluginID:          "weather",
 		Valid:             true,
 		RegistrationState: "installed",
@@ -795,7 +797,7 @@ func TestApplyChatPolicyUsesCanonicalGroupCooldown(t *testing.T) {
 		},
 	}
 	application := newTestAppState(cfg, nil)
-	application.setTestEventIngress(plugins.NewCatalog([]plugins.Snapshot{{
+	application.setTestEventIngress(plugincatalog.New([]plugins.Snapshot{{
 		PluginID:          "weather",
 		Valid:             true,
 		RegistrationState: "installed",
@@ -850,7 +852,7 @@ func TestApplyChatPolicyUsesCanonicalCooldownReplyFlag(t *testing.T) {
 		},
 	}
 	application := newTestAppState(cfg, nil)
-	application.setTestEventIngress(plugins.NewCatalog([]plugins.Snapshot{{
+	application.setTestEventIngress(plugincatalog.New([]plugins.Snapshot{{
 		PluginID:          "weather",
 		Valid:             true,
 		RegistrationState: "installed",
@@ -908,7 +910,7 @@ func TestApplyChatPolicyUsesCanonicalPermissionAndSuperAdmin(t *testing.T) {
 		},
 	}
 	application := newTestAppState(cfg, nil)
-	application.setTestEventIngress(plugins.NewCatalog([]plugins.Snapshot{{
+	application.setTestEventIngress(plugincatalog.New([]plugins.Snapshot{{
 		PluginID:          "ops",
 		Valid:             true,
 		RegistrationState: "installed",
@@ -967,7 +969,7 @@ func TestHandleAdapterEventSendsBuiltinMenuImageWithoutPluginDispatch(t *testing
 		Permission: config.PermissionConfig{DefaultLevel: "everyone"},
 	}, logger)
 	application.pluginStack.renderer = newRenderServiceForRepo(t, repoRoot, renderRoot, runner)
-	application.setTestEventIngress(plugins.NewCatalog([]plugins.Snapshot{{
+	application.setTestEventIngress(plugincatalog.New([]plugins.Snapshot{{
 		PluginID:          "weather",
 		Name:              "天气",
 		Description:       "查询天气",
@@ -1067,7 +1069,7 @@ func TestHandleAdapterEventUsesIndependentBuiltinMenuPrefix(t *testing.T) {
 		Permission: config.PermissionConfig{DefaultLevel: "everyone"},
 	}, nil)
 	application.pluginStack.renderer = newRenderService(t, t.TempDir())
-	application.setTestEventIngress(plugins.NewCatalog([]plugins.Snapshot{{
+	application.setTestEventIngress(plugincatalog.New([]plugins.Snapshot{{
 		PluginID:          "fortune",
 		Name:              "运势",
 		Valid:             true,
@@ -1114,7 +1116,7 @@ func TestApplyChatPolicyDoesNotTreatPluginCommandAsBuiltinWhenMenuPrefixDiffers(
 		}},
 		Permission: config.PermissionConfig{DefaultLevel: "everyone"},
 	}, nil)
-	application.setTestEventIngress(plugins.NewCatalog([]plugins.Snapshot{{
+	application.setTestEventIngress(plugincatalog.New([]plugins.Snapshot{{
 		PluginID:          "admin-help",
 		Valid:             true,
 		RegistrationState: "installed",
@@ -1164,7 +1166,7 @@ func TestHandleAdapterEventRendersBuiltinMenuPluginPrefixesAsSingleUsage(t *test
 		Permission: config.PermissionConfig{DefaultLevel: "everyone"},
 	}, nil)
 	application.pluginStack.renderer = newRenderServiceForRepo(t, repoRoot, renderRoot, runner)
-	application.setTestEventIngress(plugins.NewCatalog([]plugins.Snapshot{{
+	application.setTestEventIngress(plugincatalog.New([]plugins.Snapshot{{
 		PluginID:          "subscription-hub",
 		Name:              "订阅中心",
 		Description:       "订阅平台内容并推送更新",
@@ -1235,7 +1237,7 @@ func TestHandleAdapterEventMatchesBuiltinPluginSuffixHelp(t *testing.T) {
 		Permission: config.PermissionConfig{DefaultLevel: "everyone"},
 	}, nil)
 	application.pluginStack.renderer = newRenderService(t, t.TempDir())
-	application.setTestEventIngress(plugins.NewCatalog([]plugins.Snapshot{{
+	application.setTestEventIngress(plugincatalog.New([]plugins.Snapshot{{
 		PluginID:          "fortune",
 		Name:              "运势",
 		Valid:             true,
@@ -1280,7 +1282,7 @@ func TestHandleAdapterEventSkipsMissingBuiltinPluginMenuTarget(t *testing.T) {
 		Permission: config.PermissionConfig{DefaultLevel: "everyone"},
 	}, nil)
 	application.pluginStack.renderer = newRenderService(t, t.TempDir())
-	application.setTestEventIngress(plugins.NewCatalog([]plugins.Snapshot{{
+	application.setTestEventIngress(plugincatalog.New([]plugins.Snapshot{{
 		PluginID:          "fortune",
 		Name:              "运势",
 		Valid:             true,
@@ -1328,7 +1330,7 @@ func TestHandleAdapterEventDoesNotTreatExactPluginCommandAsBuiltinSuffixMenu(t *
 		Permission: config.PermissionConfig{DefaultLevel: "everyone"},
 	}, nil)
 	application.pluginStack.renderer = newRenderService(t, t.TempDir())
-	application.setTestEventIngress(plugins.NewCatalog([]plugins.Snapshot{{
+	application.setTestEventIngress(plugincatalog.New([]plugins.Snapshot{{
 		PluginID:          "custom-help",
 		Name:              "Custom Help",
 		Valid:             true,
@@ -1377,7 +1379,7 @@ func TestHandleAdapterEventBlocksBuiltinMenuWhenBlacklistApplies(t *testing.T) {
 		Permission: config.PermissionConfig{DefaultLevel: "everyone"},
 	}, nil)
 	application.pluginStack.renderer = newRenderService(t, t.TempDir())
-	application.setTestEventIngress(plugins.NewCatalog([]plugins.Snapshot{{
+	application.setTestEventIngress(plugincatalog.New([]plugins.Snapshot{{
 		PluginID:          "weather",
 		Valid:             true,
 		RegistrationState: "installed",
@@ -1430,7 +1432,7 @@ func TestHandleAdapterEventBlocksBuiltinMenuWhenCooldownApplies(t *testing.T) {
 		Group: config.GroupConfig{CommandRateLimit: "10/1h"},
 	}, nil)
 	application.pluginStack.renderer = newRenderService(t, t.TempDir())
-	application.setTestEventIngress(plugins.NewCatalog([]plugins.Snapshot{{
+	application.setTestEventIngress(plugincatalog.New([]plugins.Snapshot{{
 		PluginID:          "weather",
 		Valid:             true,
 		RegistrationState: "installed",
@@ -1485,7 +1487,7 @@ func TestApplyChatPolicyLogsCooldownReplySuccess(t *testing.T) {
 		},
 	}
 	application := newTestAppState(cfg, logger)
-	application.setTestEventIngress(plugins.NewCatalog([]plugins.Snapshot{{
+	application.setTestEventIngress(plugincatalog.New([]plugins.Snapshot{{
 		PluginID:          "weather",
 		Valid:             true,
 		RegistrationState: "installed",
@@ -1570,7 +1572,7 @@ func TestApplyChatPolicyLogsCooldownReplyFailure(t *testing.T) {
 		},
 	}
 	application := newTestAppState(cfg, logger)
-	application.setTestEventIngress(plugins.NewCatalog([]plugins.Snapshot{{
+	application.setTestEventIngress(plugincatalog.New([]plugins.Snapshot{{
 		PluginID:          "weather",
 		Valid:             true,
 		RegistrationState: "installed",

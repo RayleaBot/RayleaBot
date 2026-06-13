@@ -48,7 +48,7 @@ type Deps struct {
 	Logger        *slog.Logger
 	Registry      *Registry
 	Secrets       secrets.Store
-	Plugins       *plugins.Catalog
+	Plugins       plugins.CatalogView
 	Dispatcher    *dispatch.Dispatcher
 	Runtime       RuntimeEnsurer
 	Grants        GrantView
@@ -59,7 +59,7 @@ type Service struct {
 	logger        *slog.Logger
 	registry      *Registry
 	secrets       secrets.Store
-	plugins       *plugins.Catalog
+	plugins       plugins.CatalogView
 	dispatcher    *dispatch.Dispatcher
 	runtime       RuntimeEnsurer
 	grants        GrantView

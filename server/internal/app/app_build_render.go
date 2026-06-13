@@ -7,6 +7,8 @@ import (
 	"strings"
 	"time"
 
+	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
+
 	"github.com/RayleaBot/RayleaBot/server/internal/httpapi"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	"github.com/RayleaBot/RayleaBot/server/internal/render"
@@ -37,7 +39,7 @@ func buildRenderService(state appBuildState, platform appPlatform, renderRunner 
 	return renderService, nil
 }
 
-func syncCatalogRenderTemplates(ctx context.Context, renderer *render.Service, catalog *plugins.Catalog) error {
+func syncCatalogRenderTemplates(ctx context.Context, renderer *render.Service, catalog *plugincatalog.Catalog) error {
 	if renderer == nil || catalog == nil {
 		return nil
 	}

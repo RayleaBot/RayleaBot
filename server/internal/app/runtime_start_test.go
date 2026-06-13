@@ -7,6 +7,8 @@ import (
 	goruntime "runtime"
 	"testing"
 
+	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
+
 	"github.com/RayleaBot/RayleaBot/server/internal/adapter"
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
@@ -21,7 +23,7 @@ func TestEnsureRuntimeStartedForEventStartsFirstEnabledInstalledPlugin(t *testin
 	createPluginEntry(t, repoRoot, "plugins/installed/hello-node", "index.js")
 	createPluginEntry(t, repoRoot, "plugins/installed/zzz-plugin", "main.py")
 
-	catalog := plugins.NewCatalog([]plugins.Snapshot{
+	catalog := plugincatalog.New([]plugins.Snapshot{
 		{
 			PluginID:     "aaa-invalid",
 			Valid:        false,
@@ -95,7 +97,7 @@ func TestEnsureRuntimeStartedForEventSkipsWhenRuntimeIsAlreadyRunning(t *testing
 	manager := &fakeRuntimeStarter{
 		snapshot: runtime.Snapshot{State: runtime.StateRunning},
 	}
-	catalog := plugins.NewCatalog([]plugins.Snapshot{
+	catalog := plugincatalog.New([]plugins.Snapshot{
 		{
 			PluginID:          "hello-node",
 			Valid:             true,
@@ -136,7 +138,7 @@ func TestEnsureRuntimeStartedForEventAllowsMissingBotID(t *testing.T) {
 	manager := &fakeRuntimeStarter{
 		snapshot: runtime.Snapshot{State: runtime.StateStopped},
 	}
-	catalog := plugins.NewCatalog([]plugins.Snapshot{
+	catalog := plugincatalog.New([]plugins.Snapshot{
 		{
 			PluginID:          "hello-node",
 			Valid:             true,
@@ -177,7 +179,7 @@ func TestEnsureRuntimeStartedForEventSkipsDisabledPlugin(t *testing.T) {
 	manager := &fakeRuntimeStarter{
 		snapshot: runtime.Snapshot{State: runtime.StateStopped},
 	}
-	catalog := plugins.NewCatalog([]plugins.Snapshot{
+	catalog := plugincatalog.New([]plugins.Snapshot{
 		{
 			PluginID:          "hello-node",
 			Valid:             true,

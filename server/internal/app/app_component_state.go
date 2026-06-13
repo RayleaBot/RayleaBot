@@ -8,6 +8,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
+
 	"github.com/RayleaBot/RayleaBot/server/internal/adapter"
 	"github.com/RayleaBot/RayleaBot/server/internal/auth"
 	source "github.com/RayleaBot/RayleaBot/server/internal/bilibili"
@@ -58,7 +60,7 @@ type appPlatform struct {
 }
 
 type appPlugins struct {
-	Plugins           *plugins.Catalog
+	Plugins           *plugincatalog.Catalog
 	Adapter           *adapter.Shell
 	Bridge            *bridge.Bridge
 	Dispatcher        *dispatch.Dispatcher

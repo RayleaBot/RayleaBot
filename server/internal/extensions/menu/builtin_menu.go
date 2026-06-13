@@ -25,7 +25,7 @@ type Sender interface {
 
 type Deps struct {
 	CurrentConfig func() config.Config
-	Plugins       *plugins.Catalog
+	Plugins       plugins.CatalogView
 	Renderer      *render.Service
 	Sender        Sender
 	WaitOutbound  func(context.Context, outbound.MessageLimitRequest) error
@@ -34,7 +34,7 @@ type Deps struct {
 
 type Service struct {
 	currentConfig func() config.Config
-	plugins       *plugins.Catalog
+	plugins       plugins.CatalogView
 	renderer      *render.Service
 	sender        Sender
 	waitOutbound  func(context.Context, outbound.MessageLimitRequest) error

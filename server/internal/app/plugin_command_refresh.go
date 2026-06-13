@@ -2,10 +2,10 @@ package app
 
 import (
 	"github.com/RayleaBot/RayleaBot/server/internal/dispatch"
-	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
+	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
 )
 
-func applicationRefreshPluginCommands(catalog *plugins.Catalog, dispatcher *dispatch.Dispatcher, pluginID string, settings map[string]any) {
+func applicationRefreshPluginCommands(catalog *plugincatalog.Catalog, dispatcher *dispatch.Dispatcher, pluginID string, settings map[string]any) {
 	if catalog == nil {
 		return
 	}

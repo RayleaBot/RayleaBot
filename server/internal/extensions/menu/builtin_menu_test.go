@@ -4,6 +4,8 @@ import (
 	"reflect"
 	"testing"
 
+	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
+
 	"github.com/RayleaBot/RayleaBot/server/internal/adapter"
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
@@ -22,7 +24,7 @@ func TestBuiltinRootMenuDataUsesBuiltinMenuPrefixesAndTriggerExamples(t *testing
 	}
 	service := New(Deps{
 		CurrentConfig: func() config.Config { return cfg },
-		Plugins: plugins.NewCatalog([]plugins.Snapshot{{
+		Plugins: plugincatalog.New([]plugins.Snapshot{{
 			PluginID:          "fortune",
 			Name:              "运势",
 			Description:       "今日运势",
