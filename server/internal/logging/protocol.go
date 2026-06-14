@@ -4,6 +4,7 @@ import (
 	"strings"
 	"time"
 
+	logdetails "github.com/RayleaBot/RayleaBot/server/internal/logging/details"
 	"github.com/RayleaBot/RayleaBot/server/internal/textsafe"
 )
 
@@ -33,7 +34,7 @@ func NormalizeSummary(summary Summary) Summary {
 	if summary.Protocol == ProtocolOneBot11 {
 		summary.Message = strings.TrimSpace(textsafe.SanitizeString(summary.Message))
 	}
-	summary.Details = normalizeProtocolDetails(summary.Protocol, summary.Details)
+	summary.Details = logdetails.NormalizeProtocol(summary.Protocol, summary.Details)
 
 	return summary
 }

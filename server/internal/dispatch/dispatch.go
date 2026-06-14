@@ -7,8 +7,8 @@ import (
 	"time"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/outbound"
-	runtimemanager "github.com/RayleaBot/RayleaBot/server/internal/runtime/manager"
-	runtimeprotocol "github.com/RayleaBot/RayleaBot/server/internal/runtime/protocol"
+	runtimemanager "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime/manager"
+	runtimeprotocol "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime/protocol"
 )
 
 // runtimeDeliverer is the interface a plugin runtime must satisfy for dispatch.

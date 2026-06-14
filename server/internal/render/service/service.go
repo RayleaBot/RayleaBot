@@ -3,17 +3,20 @@ package service
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/deps"
 	renderartifact "github.com/RayleaBot/RayleaBot/server/internal/render/artifact"
 	renderbrowser "github.com/RayleaBot/RayleaBot/server/internal/render/browser"
 	rendercatalog "github.com/RayleaBot/RayleaBot/server/internal/render/catalog"
+	renderworker "github.com/RayleaBot/RayleaBot/server/internal/render/engine"
 	renderrepo "github.com/RayleaBot/RayleaBot/server/internal/render/repository"
-	renderworker "github.com/RayleaBot/RayleaBot/server/internal/render/worker"
+	"github.com/RayleaBot/RayleaBot/server/internal/storage"
 )
 
 const (
@@ -31,6 +34,89 @@ const (
 )
 
 var revisionCounter uint64
+
+type Options struct {
+	RepoRoot           string
+	OutputRoot         string
+	Store              *storage.Store
+	Runner             renderbrowser.Runner
+	WorkerCount        int
+	BrowserArgs        []string
+	BrowserPath        string
+	QueueMaxLength     int
+	QueueWaitTimeout   time.Duration
+	RenderTimeout      time.Duration
+	MaxRenderDataBytes int
+	FooterTemplate     string
+	DefaultOutput      string
+	DeviceScalePercent int
+	Logger             *slog.Logger
+}
+
+type RuntimeConfig struct {
+	QueueMaxLength     int
+	QueueWaitTimeout   time.Duration
+	RenderTimeout      time.Duration
+	FooterTemplate     string
+	DefaultOutput      string
+	DeviceScalePercent int
+}
+
+type Request struct {
+	Template string         `json:"template"`
+	Theme    string         `json:"theme,omitempty"`
+	Output   string         `json:"output,omitempty"`
+	Data     map[string]any `json:"data"`
+	Plugin   *PluginContext `json:"-"`
+}
+
+type PluginContext struct {
+	Name    string `json:"name,omitempty"`
+	Version string `json:"version,omitempty"`
+}
+
+type PreviewHTML struct {
+	TemplateID string
+	RevisionID string
+	Width      int
+	Height     int
+	HTML       string
+}
+
+type TemplateAsset struct {
+	Path string
+}
+
+type Service struct {
+	repoRoot       string
+	templatesRoot  string
+	outputRoot     string
+	browserPath    string
+	browserArgs    []string
+	worker         *renderworker.Worker
+	logger         *slog.Logger
+	templateRepo   *renderrepo.SQLiteTemplateRepository
+	templateSyncMu sync.Mutex
+	templateRoots  *rendercatalog.Roots
+
+	mu                 sync.RWMutex
+	maxRenderDataBytes int
+	footerTemplate     string
+	defaultOutput      string
+	deviceScalePercent int
+	cache              map[string]renderartifact.Result
+	artifacts          map[string]renderartifact.Artifact
+	previewHTMLCache   map[string]PreviewHTML
+
+	metricsMu sync.RWMutex
+	metrics   MetricsObserver
+}
+
+// MetricsObserver routes render service outcomes into the Prometheus registry.
+type MetricsObserver interface {
+	SetRenderQueueDepth(depth int)
+	ObserveRenderDuration(outcome string, duration time.Duration)
+}
 
 func NewService(options Options) (*Service, error) {
 	repoRoot, err := filepath.Abs(options.RepoRoot)

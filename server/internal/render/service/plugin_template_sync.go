@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	renderplugins "github.com/RayleaBot/RayleaBot/server/internal/render/plugins"
+	renderplugins "github.com/RayleaBot/RayleaBot/server/internal/render/pluginsync"
 )
 
 func (s *Service) SyncPluginTemplates(ctx context.Context, sources []renderplugins.Source) error {

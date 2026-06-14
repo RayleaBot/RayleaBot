@@ -4,17 +4,16 @@ import (
 	"time"
 
 	internalconfig "github.com/RayleaBot/RayleaBot/server/internal/config"
-	managementhttp "github.com/RayleaBot/RayleaBot/server/internal/management/http"
 	renderservice "github.com/RayleaBot/RayleaBot/server/internal/render/service"
 )
 
-func normalizeConfigApplyEffects(e *managementhttp.ConfigApplyEffects) {
+func normalizeConfigApplyEffects(e *ApplyEffects) {
 	e.AppliedNow = normalizeConfigEffectPaths(e.AppliedNow)
 	e.ReloadedNow = normalizeConfigEffectPaths(e.ReloadedNow)
 	e.RestartRequiredFields = normalizeConfigEffectPaths(e.RestartRequiredFields)
 }
 
-func (s *Service) ApplyHotReloadableFields(newCfg internalconfig.Config) managementhttp.ConfigApplyEffects {
+func (s *Service) ApplyHotReloadableFields(newCfg internalconfig.Config) ApplyEffects {
 	oldCfg := s.config()
 	effects := ClassifyApplyEffects(oldCfg, newCfg)
 	oneBotHotChanged := len(effects.ReloadedNow) > 0
@@ -67,7 +66,7 @@ func (s *Service) ApplyHotReloadableFields(newCfg internalconfig.Config) managem
 		if err := s.protocol.ApplyConfigReload(newCfg); err != nil {
 			effects.RestartRequiredFields = append(effects.RestartRequiredFields, effects.ReloadedNow...)
 			effects.ReloadedNow = effects.ReloadedNow[:0]
-			if err != managementhttp.ErrProtocolStopped && s.logger != nil {
+			if err != ErrProtocolStopped && s.logger != nil {
 				s.logger.Warn("adapter shell hot reload failed",
 					"component", "config",
 					"err", err.Error(),

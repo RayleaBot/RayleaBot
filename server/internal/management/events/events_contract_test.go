@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	bilibilisource "github.com/RayleaBot/RayleaBot/server/internal/bilibili/source"
+	bilibilisource "github.com/RayleaBot/RayleaBot/server/internal/integrations/bilibili/source"
 )
 
 func TestNewEventsReceivedFrameUsesFrozenEnvelope(t *testing.T) {

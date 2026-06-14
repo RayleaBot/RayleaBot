@@ -5,7 +5,7 @@ import (
 	"log/slog"
 	"strings"
 
-	adapteroutbound "github.com/RayleaBot/RayleaBot/server/internal/adapter/outbound"
+	adapteroutbound "github.com/RayleaBot/RayleaBot/server/internal/bot/adapter/onebot11/outbound"
 )
 
 func LogSendOutcome(logger *slog.Logger, context SendLogContext, attempt SendAttempt, result SendResult, err error) {

@@ -1,7 +1,7 @@
 package bridge
 
 import (
-	adapterintake "github.com/RayleaBot/RayleaBot/server/internal/adapter/intake"
+	adapterintake "github.com/RayleaBot/RayleaBot/server/internal/bot/adapter/onebot11/intake"
 )
 
 func isSupportedEvent(event adapterintake.NormalizedEvent) bool {

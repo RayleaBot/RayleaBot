@@ -3,7 +3,7 @@ package outbound
 import (
 	"strings"
 
-	adapteroutbound "github.com/RayleaBot/RayleaBot/server/internal/adapter/outbound"
+	adapteroutbound "github.com/RayleaBot/RayleaBot/server/internal/bot/adapter/onebot11/outbound"
 )
 
 func cloneOutboundSegments(segments []adapteroutbound.OutboundMessageSegment) []map[string]any {

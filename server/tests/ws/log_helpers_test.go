@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
-	adapterintake "github.com/RayleaBot/RayleaBot/server/internal/adapter/intake"
-	adaptersegments "github.com/RayleaBot/RayleaBot/server/internal/adapter/segments"
+	adapterintake "github.com/RayleaBot/RayleaBot/server/internal/bot/adapter/onebot11/intake"
+	adaptersegments "github.com/RayleaBot/RayleaBot/server/internal/bot/adapter/onebot11/segments"
 )
 
 func putWhitelistState(t *testing.T, baseURL, token string, enabled bool) {

@@ -5,10 +5,10 @@ import (
 	"strings"
 	"time"
 
-	adapteroutbound "github.com/RayleaBot/RayleaBot/server/internal/adapter/outbound"
+	adapteroutbound "github.com/RayleaBot/RayleaBot/server/internal/bot/adapter/onebot11/outbound"
 	"github.com/RayleaBot/RayleaBot/server/internal/outbound"
-	runtimeaction "github.com/RayleaBot/RayleaBot/server/internal/runtime/action"
-	runtimeprotocol "github.com/RayleaBot/RayleaBot/server/internal/runtime/protocol"
+	runtimeaction "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime/action"
+	runtimeprotocol "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime/protocol"
 )
 
 func (d *Dispatcher) executeAction(ctx context.Context, pluginID string, requestID string, event runtimeprotocol.Event, action runtimeaction.Action) {

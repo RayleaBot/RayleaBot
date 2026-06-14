@@ -1,4 +1,4 @@
-package plugindiscovery
+package discovery
 
 import (
 	"log/slog"

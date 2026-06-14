@@ -1,4 +1,4 @@
-package pluginrepository
+package repository
 
 import (
 	"context"

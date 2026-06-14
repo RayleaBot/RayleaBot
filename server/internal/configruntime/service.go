@@ -2,22 +2,21 @@ package configruntime
 
 import (
 	internalconfig "github.com/RayleaBot/RayleaBot/server/internal/config"
-	managementhttp "github.com/RayleaBot/RayleaBot/server/internal/management/http"
 )
 
-func (s *Service) CurrentConfigDocument() managementhttp.ConfigResponse {
+func (s *Service) CurrentConfigDocument() Document {
 	document, redactedFields := sanitizeConfigDocument(ConfigDocumentFromTyped(s.config()))
-	return managementhttp.ConfigResponse{
+	return Document{
 		Config:         document,
 		RedactedFields: redactedFields,
 	}
 }
 
-func (s *Service) UpdateConfigDocument(request map[string]any) (managementhttp.ConfigUpdateResponse, error) {
+func (s *Service) UpdateConfigDocument(request map[string]any) (UpdateResult, error) {
 	summary := s.summary()
 	newCfg, newSummary, err := internalconfig.SaveDocument(summary.ConfigPath, summary.SchemaPath, request)
 	if err != nil {
-		return managementhttp.ConfigUpdateResponse{}, err
+		return UpdateResult{}, err
 	}
 
 	applyEffects := s.ApplyHotReloadableFields(newCfg)
@@ -26,9 +25,11 @@ func (s *Service) UpdateConfigDocument(request map[string]any) (managementhttp.C
 	}
 
 	document, redactedFields := sanitizeConfigDocument(ConfigDocumentFromTyped(newCfg))
-	return managementhttp.ConfigUpdateResponse{
-		Config:          document,
-		RedactedFields:  redactedFields,
+	return UpdateResult{
+		Document: Document{
+			Config:         document,
+			RedactedFields: redactedFields,
+		},
 		RestartRequired: applyEffects.RestartRequired(),
 		ApplyEffects:    applyEffects,
 	}, nil

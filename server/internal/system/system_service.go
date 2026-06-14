@@ -2,27 +2,42 @@ package system
 
 import (
 	"log/slog"
+	"reflect"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
 
-	adaptershell "github.com/RayleaBot/RayleaBot/server/internal/adapter/shell"
-	"github.com/RayleaBot/RayleaBot/server/internal/auth"
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
+	"github.com/RayleaBot/RayleaBot/server/internal/health"
 	"github.com/RayleaBot/RayleaBot/server/internal/logging"
 	managementevents "github.com/RayleaBot/RayleaBot/server/internal/management/events"
-	managementhttp "github.com/RayleaBot/RayleaBot/server/internal/management/http"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
-	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
 	"github.com/RayleaBot/RayleaBot/server/internal/recovery"
-	renderservice "github.com/RayleaBot/RayleaBot/server/internal/render/service"
-	runtimeregistry "github.com/RayleaBot/RayleaBot/server/internal/runtime/registry"
 	"github.com/RayleaBot/RayleaBot/server/internal/storage"
+	systemmodel "github.com/RayleaBot/RayleaBot/server/internal/system/model"
 	"github.com/RayleaBot/RayleaBot/server/internal/tasks"
 )
 
 type StatusPublisher interface {
 	PublishSnapshot()
+}
+
+type AuthBootstrapState interface {
+	IsBootstrapped() bool
+}
+
+type AdapterStateSource interface {
+	CurrentState() string
+}
+
+type RuntimeRegistry interface {
+	ActiveCount() int
+}
+
+type RendererState interface {
+	Diagnostics() []health.DiagnosticIssue
+	RefreshBrowserPath(string)
 }
 
 type Deps struct {
@@ -33,11 +48,11 @@ type Deps struct {
 	RepoRoot         string
 	Logger           *slog.Logger
 	StartedAt        time.Time
-	Auth             *auth.Manager
-	Adapter          *adaptershell.Shell
-	Plugins          *plugincatalog.Catalog
-	Runtimes         *runtimeregistry.Registry
-	Renderer         *renderservice.Service
+	Auth             AuthBootstrapState
+	Adapter          AdapterStateSource
+	Plugins          plugins.CatalogView
+	Runtimes         RuntimeRegistry
+	Renderer         RendererState
 	Storage          *storage.Store
 	PluginRepository plugins.DesiredStateRepository
 	TaskExecutor     *tasks.Executor
@@ -52,11 +67,11 @@ type Service struct {
 	repoRoot         string
 	logger           *slog.Logger
 	startedAt        time.Time
-	auth             *auth.Manager
-	adapter          *adaptershell.Shell
-	plugins          *plugincatalog.Catalog
-	runtimes         *runtimeregistry.Registry
-	renderer         *renderservice.Service
+	auth             AuthBootstrapState
+	adapter          AdapterStateSource
+	plugins          plugins.CatalogView
+	runtimes         RuntimeRegistry
+	renderer         RendererState
 	storage          *storage.Store
 	pluginRepository plugins.DesiredStateRepository
 	taskExecutor     *tasks.Executor
@@ -81,6 +96,26 @@ func New(deps Deps) *Service {
 	if currentSummary == nil {
 		currentSummary = func() config.Summary { return config.Summary{} }
 	}
+	authState := deps.Auth
+	if isNilDependency(authState) {
+		authState = nil
+	}
+	adapter := deps.Adapter
+	if isNilDependency(adapter) {
+		adapter = nil
+	}
+	pluginsCatalog := deps.Plugins
+	if isNilDependency(pluginsCatalog) {
+		pluginsCatalog = nil
+	}
+	runtimes := deps.Runtimes
+	if isNilDependency(runtimes) {
+		runtimes = nil
+	}
+	renderer := deps.Renderer
+	if isNilDependency(renderer) {
+		renderer = nil
+	}
 	return &Service{
 		currentConfig:    currentConfig,
 		currentSummary:   currentSummary,
@@ -89,11 +124,11 @@ func New(deps Deps) *Service {
 		repoRoot:         deps.RepoRoot,
 		logger:           deps.Logger,
 		startedAt:        deps.StartedAt,
-		auth:             deps.Auth,
-		adapter:          deps.Adapter,
-		plugins:          deps.Plugins,
-		runtimes:         deps.Runtimes,
-		renderer:         deps.Renderer,
+		auth:             authState,
+		adapter:          adapter,
+		plugins:          pluginsCatalog,
+		runtimes:         runtimes,
+		renderer:         renderer,
 		storage:          deps.Storage,
 		pluginRepository: deps.PluginRepository,
 		taskExecutor:     deps.TaskExecutor,
@@ -106,12 +141,36 @@ func (s *Service) SystemStatus() string {
 	return s.systemStatus()
 }
 
-func (s *Service) ManagementStatusSnapshot() managementhttp.SystemStatusResponse {
+func (s *Service) SchedulerPluginName(pluginID string) string {
+	pluginName := strings.TrimSpace(pluginID)
+	if s != nil && s.plugins != nil {
+		if snapshot, ok := s.plugins.Get(pluginID); ok {
+			if name := strings.TrimSpace(snapshot.Name); name != "" {
+				pluginName = name
+			}
+		}
+	}
+	if pluginName == "" {
+		return "未知插件"
+	}
+	return pluginName
+}
+
+func (s *Service) SchedulerTimezone() string {
+	if s != nil {
+		if tz := strings.TrimSpace(s.config().Scheduler.Timezone); tz != "" {
+			return tz
+		}
+	}
+	return "UTC"
+}
+
+func (s *Service) StatusSnapshot() systemmodel.StatusSnapshot {
 	adapterState := ""
 	if s != nil && s.adapter != nil {
-		adapterState = string(stateOrIdle(s.adapter.Snapshot().State))
+		adapterState = s.adapter.CurrentState()
 	}
-	return managementhttp.SystemStatusResponse{
+	return systemmodel.StatusSnapshot{
 		Status:          s.systemStatus(),
 		AdapterState:    adapterState,
 		ActivePlugins:   s.activePluginCount(),
@@ -120,8 +179,11 @@ func (s *Service) ManagementStatusSnapshot() managementhttp.SystemStatusResponse
 	}
 }
 
-func (s *Service) SetAuth(manager *auth.Manager) {
+func (s *Service) SetAuth(manager AuthBootstrapState) {
 	if s != nil {
+		if isNilDependency(manager) {
+			manager = nil
+		}
 		s.auth = manager
 	}
 }
@@ -183,6 +245,19 @@ func (s *Service) currentLogger() *slog.Logger {
 		return slog.Default()
 	}
 	return s.logger
+}
+
+func isNilDependency(value any) bool {
+	if value == nil {
+		return true
+	}
+	rv := reflect.ValueOf(value)
+	switch rv.Kind() {
+	case reflect.Chan, reflect.Func, reflect.Interface, reflect.Map, reflect.Pointer, reflect.Slice:
+		return rv.IsNil()
+	default:
+		return false
+	}
 }
 
 func (s *Service) recoverySummarySnapshot() *recovery.CompatibilitySummary {

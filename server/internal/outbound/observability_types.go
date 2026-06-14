@@ -1,7 +1,7 @@
 package outbound
 
 import (
-	adapteroutbound "github.com/RayleaBot/RayleaBot/server/internal/adapter/outbound"
+	adapteroutbound "github.com/RayleaBot/RayleaBot/server/internal/bot/adapter/onebot11/outbound"
 )
 
 type SendAttempt struct {

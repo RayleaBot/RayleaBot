@@ -1,8 +1,8 @@
 package dispatch
 
 import (
-	adapteroutbound "github.com/RayleaBot/RayleaBot/server/internal/adapter/outbound"
-	runtimeaction "github.com/RayleaBot/RayleaBot/server/internal/runtime/action"
+	adapteroutbound "github.com/RayleaBot/RayleaBot/server/internal/bot/adapter/onebot11/outbound"
+	runtimeaction "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime/action"
 )
 
 func toOutboundSegments(segments []runtimeaction.ActionSegment) []adapteroutbound.OutboundMessageSegment {

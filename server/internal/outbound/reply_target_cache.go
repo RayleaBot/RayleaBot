@@ -5,7 +5,7 @@ import (
 	"strings"
 	"sync"
 
-	adapterintake "github.com/RayleaBot/RayleaBot/server/internal/adapter/intake"
+	adapterintake "github.com/RayleaBot/RayleaBot/server/internal/bot/adapter/onebot11/intake"
 )
 
 const DefaultReplyTargetCacheSize = 10000

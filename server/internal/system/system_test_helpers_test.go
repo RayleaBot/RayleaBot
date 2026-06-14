@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
-	managementhttp "github.com/RayleaBot/RayleaBot/server/internal/management/http"
+	"github.com/RayleaBot/RayleaBot/server/internal/management/systemapi"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
 	"github.com/RayleaBot/RayleaBot/server/internal/recovery"
@@ -102,13 +102,13 @@ func (a *App) managedRuntimeDiagnostics(pluginsList []plugins.Snapshot) []recove
 }
 
 func (a *App) handleSystemRecoveryRecheck() http.HandlerFunc {
-	return managementhttp.NewSystemHandlers(a.services.system).HandleSystemRecoveryRecheck()
+	return systemapi.NewHandlers(a.services.system).HandleSystemRecoveryRecheck()
 }
 
 func (a *App) handleSystemRecoveryConfirm() http.HandlerFunc {
-	return managementhttp.NewSystemHandlers(a.services.system).HandleSystemRecoveryConfirm()
+	return systemapi.NewHandlers(a.services.system).HandleSystemRecoveryConfirm()
 }
 
 func (a *App) handleSystemRuntimeBootstrap() http.HandlerFunc {
-	return managementhttp.NewSystemHandlers(a.services.system).HandleSystemRuntimeBootstrap()
+	return systemapi.NewHandlers(a.services.system).HandleSystemRuntimeBootstrap()
 }

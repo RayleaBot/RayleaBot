@@ -3,7 +3,7 @@ package outbound
 import (
 	"testing"
 
-	adapterintake "github.com/RayleaBot/RayleaBot/server/internal/adapter/intake"
+	adapterintake "github.com/RayleaBot/RayleaBot/server/internal/bot/adapter/onebot11/intake"
 )
 
 func TestReplyTargetCacheStoresRecentEventTargets(t *testing.T) {

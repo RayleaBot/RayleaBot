@@ -7,8 +7,8 @@ import (
 
 	renderartifact "github.com/RayleaBot/RayleaBot/server/internal/render/artifact"
 	renderbrowser "github.com/RayleaBot/RayleaBot/server/internal/render/browser"
+	renderworker "github.com/RayleaBot/RayleaBot/server/internal/render/engine"
 	rendertemplates "github.com/RayleaBot/RayleaBot/server/internal/render/templates"
-	renderworker "github.com/RayleaBot/RayleaBot/server/internal/render/worker"
 )
 
 func (s *Service) Render(ctx context.Context, request Request) (renderartifact.Result, error) {

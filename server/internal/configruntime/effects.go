@@ -7,11 +7,10 @@ import (
 	"strings"
 
 	internalconfig "github.com/RayleaBot/RayleaBot/server/internal/config"
-	managementhttp "github.com/RayleaBot/RayleaBot/server/internal/management/http"
 )
 
-func ClassifyApplyEffects(oldCfg internalconfig.Config, newCfg internalconfig.Config) managementhttp.ConfigApplyEffects {
-	effects := managementhttp.NewConfigApplyEffects()
+func ClassifyApplyEffects(oldCfg internalconfig.Config, newCfg internalconfig.Config) ApplyEffects {
+	effects := NewApplyEffects()
 
 	for _, path := range diffConfigDocumentPaths(ConfigDocumentFromTyped(oldCfg), ConfigDocumentFromTyped(newCfg)) {
 		switch {

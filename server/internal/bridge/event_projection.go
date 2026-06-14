@@ -3,9 +3,9 @@ package bridge
 import (
 	"strings"
 
-	adapterintake "github.com/RayleaBot/RayleaBot/server/internal/adapter/intake"
-	adaptersegments "github.com/RayleaBot/RayleaBot/server/internal/adapter/segments"
-	runtimeprotocol "github.com/RayleaBot/RayleaBot/server/internal/runtime/protocol"
+	adapterintake "github.com/RayleaBot/RayleaBot/server/internal/bot/adapter/onebot11/intake"
+	adaptersegments "github.com/RayleaBot/RayleaBot/server/internal/bot/adapter/onebot11/segments"
+	runtimeprotocol "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime/protocol"
 )
 
 func runtimeEventFromAdapter(event adapterintake.NormalizedEvent) runtimeprotocol.Event {

@@ -13,7 +13,7 @@ import (
 	"time"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
-	managementhttp "github.com/RayleaBot/RayleaBot/server/internal/management/http"
+	"github.com/RayleaBot/RayleaBot/server/internal/management/systemapi"
 	"github.com/RayleaBot/RayleaBot/server/internal/storage"
 	"github.com/RayleaBot/RayleaBot/server/internal/tasks"
 )
@@ -55,7 +55,7 @@ func TestSystemBackupUsesSQLiteSnapshotAndPreservesTaskShape(t *testing.T) {
 		Storage:         store,
 		TaskExecutor:    executor,
 	})
-	handler := managementhttp.NewSystemHandlers(system).HandleSystemBackup()
+	handler := systemapi.NewHandlers(system).HandleSystemBackup()
 
 	recorder := httptest.NewRecorder()
 	handler.ServeHTTP(recorder, httptest.NewRequest(http.MethodPost, "/api/system/backup", nil))

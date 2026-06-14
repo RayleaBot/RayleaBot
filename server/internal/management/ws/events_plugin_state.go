@@ -1,4 +1,4 @@
-package managementws
+package ws
 
 import (
 	managementevents "github.com/RayleaBot/RayleaBot/server/internal/management/events"

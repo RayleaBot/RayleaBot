@@ -1,4 +1,4 @@
-package plugindiscovery_test
+package discovery_test
 
 import (
 	"encoding/json"

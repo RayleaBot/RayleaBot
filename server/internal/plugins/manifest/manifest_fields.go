@@ -1,4 +1,4 @@
-package pluginmanifest
+package manifest
 
 func extractStringField(document map[string]any, key string) (string, bool) {
 	value, ok := document[key]

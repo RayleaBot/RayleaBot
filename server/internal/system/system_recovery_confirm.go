@@ -4,35 +4,35 @@ import (
 	"context"
 	"errors"
 
-	managementhttp "github.com/RayleaBot/RayleaBot/server/internal/management/http"
 	"github.com/RayleaBot/RayleaBot/server/internal/recovery"
+	systemmodel "github.com/RayleaBot/RayleaBot/server/internal/system/model"
 	"github.com/RayleaBot/RayleaBot/server/internal/tasks"
 )
 
-func (s *Service) ValidateRecoveryConfirmRequest(reviewIDs []string, note string) *managementhttp.SystemHTTPError {
+func (s *Service) ValidateRecoveryConfirmRequest(reviewIDs []string, note string) *systemmodel.Error {
 	if s == nil {
-		return managementhttp.InternalSystemHTTPError()
+		return systemmodel.InternalError()
 	}
 	summary, err := recovery.LoadSummary(s.repoRootPath())
 	if err != nil {
-		return managementhttp.InternalSystemHTTPError()
+		return systemmodel.InternalError()
 	}
 	if summary == nil || summary.Phase != "post_startup" {
-		return managementhttp.MissingSystemResourceHTTPError(managementhttp.RecoverySummaryDetails(s.repoRootPath()))
+		return systemmodel.ResourceMissingError(systemmodel.RecoverySummaryDetails(s.repoRootPath()))
 	}
 	if _, _, err := recovery.ConfirmSkippedPlugins(*summary, reviewIDs, "validation", note, "validation"); err != nil {
 		var unknownErr *recovery.UnknownReviewIDsError
 		if errors.As(err, &unknownErr) {
-			return managementhttp.InvalidSystemHTTPError(map[string]any{"review_ids": unknownErr.ReviewIDs})
+			return systemmodel.InvalidRequestError(map[string]any{"review_ids": unknownErr.ReviewIDs})
 		}
-		return managementhttp.InvalidSystemHTTPError(nil)
+		return systemmodel.InvalidRequestError(nil)
 	}
 	return nil
 }
 
-func (s *Service) SubmitRecoveryConfirmTask(reviewIDs []string, note, operatorID string) (string, *managementhttp.SystemHTTPError) {
+func (s *Service) SubmitRecoveryConfirmTask(reviewIDs []string, note, operatorID string) (string, *systemmodel.Error) {
 	if s == nil || s.taskExecutor == nil {
-		return "", managementhttp.InternalSystemHTTPError()
+		return "", systemmodel.InternalError()
 	}
 	taskIDCh := make(chan string, 1)
 	taskID, err := s.taskExecutor.Submit("recovery.confirm", "确认恢复处理结果", func(ctx context.Context, progress tasks.ProgressReporter) (*tasks.ResultSummary, error) {
@@ -45,7 +45,7 @@ func (s *Service) SubmitRecoveryConfirmTask(reviewIDs []string, note, operatorID
 			return nil, &tasks.TaskError{
 				Code:    codeResourceMissing,
 				Message: "恢复摘要不存在或当前不可确认",
-				Details: managementhttp.RecoverySummaryDetails(s.repoRootPath()),
+				Details: systemmodel.RecoverySummaryDetails(s.repoRootPath()),
 			}
 		}
 		progress.Update(55, "确认恢复项")
@@ -85,7 +85,7 @@ func (s *Service) SubmitRecoveryConfirmTask(reviewIDs []string, note, operatorID
 		}, nil
 	})
 	if err != nil {
-		return "", managementhttp.InternalSystemHTTPError()
+		return "", systemmodel.InternalError()
 	}
 	taskIDCh <- taskID
 	return taskID, nil

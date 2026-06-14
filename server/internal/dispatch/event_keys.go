@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	runtimeprotocol "github.com/RayleaBot/RayleaBot/server/internal/runtime/protocol"
+	runtimeprotocol "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime/protocol"
 )
 
 func laneKeyForEvent(event runtimeprotocol.Event, fallbackCounter *int) string {

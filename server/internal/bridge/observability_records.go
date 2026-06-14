@@ -3,7 +3,7 @@ package bridge
 import (
 	"time"
 
-	adapterintake "github.com/RayleaBot/RayleaBot/server/internal/adapter/intake"
+	adapterintake "github.com/RayleaBot/RayleaBot/server/internal/bot/adapter/onebot11/intake"
 )
 
 func (b *Bridge) recordIgnored(event adapterintake.NormalizedEvent, observedAt time.Time) {

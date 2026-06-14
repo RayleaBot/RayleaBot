@@ -10,12 +10,12 @@ import (
 	"testing"
 	"time"
 
-	adapteroutbound "github.com/RayleaBot/RayleaBot/server/internal/adapter/outbound"
+	adapteroutbound "github.com/RayleaBot/RayleaBot/server/internal/bot/adapter/onebot11/outbound"
 	"github.com/RayleaBot/RayleaBot/server/internal/logging"
 	"github.com/RayleaBot/RayleaBot/server/internal/outbound"
-	runtimeaction "github.com/RayleaBot/RayleaBot/server/internal/runtime/action"
-	runtimemanager "github.com/RayleaBot/RayleaBot/server/internal/runtime/manager"
-	runtimeprotocol "github.com/RayleaBot/RayleaBot/server/internal/runtime/protocol"
+	runtimeaction "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime/action"
+	runtimemanager "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime/manager"
+	runtimeprotocol "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime/protocol"
 )
 
 type fakeDeliverer struct {

@@ -1,4 +1,4 @@
-package plugininstall
+package install
 
 import "github.com/RayleaBot/RayleaBot/server/internal/tasks"
 

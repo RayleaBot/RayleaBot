@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	runtimemanager "github.com/RayleaBot/RayleaBot/server/internal/runtime/manager"
+	runtimemanager "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime/manager"
 )
 
 func TestReloadPluginSwapsRuntime(t *testing.T) {

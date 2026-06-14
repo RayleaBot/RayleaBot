@@ -1,4 +1,4 @@
-package pluginmanifest
+package manifest
 
 import (
 	"encoding/json"

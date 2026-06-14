@@ -1,4 +1,4 @@
-package pluginuninstall
+package uninstall
 
 import "github.com/RayleaBot/RayleaBot/server/internal/tasks"
 

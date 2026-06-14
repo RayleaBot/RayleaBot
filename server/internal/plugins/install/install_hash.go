@@ -1,4 +1,4 @@
-package plugininstall
+package install
 
 import (
 	"crypto/sha256"

@@ -1,4 +1,4 @@
-package pluginmanifest
+package manifest
 
 import "github.com/RayleaBot/RayleaBot/server/internal/plugins"
 

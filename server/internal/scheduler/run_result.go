@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	runtimeprotocol "github.com/RayleaBot/RayleaBot/server/internal/runtime/protocol"
+	runtimeprotocol "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime/protocol"
 )
 
 // Trigger fires a registered job immediately without advancing the scheduled

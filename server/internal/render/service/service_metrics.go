@@ -52,3 +52,11 @@ func renderOutcome(result renderartifact.Result, err error) string {
 	}
 	return "succeeded"
 }
+
+func (s *Service) publishQueueDepth(depth int) {
+	observer := s.currentMetrics()
+	if observer == nil {
+		return
+	}
+	go observer.SetRenderQueueDepth(depth)
+}

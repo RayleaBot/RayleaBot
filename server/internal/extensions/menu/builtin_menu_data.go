@@ -1,11 +1,11 @@
 package menu
 
 import (
-	adapterintake "github.com/RayleaBot/RayleaBot/server/internal/adapter/intake"
-	"github.com/RayleaBot/RayleaBot/server/internal/localaction"
+	adapterintake "github.com/RayleaBot/RayleaBot/server/internal/bot/adapter/onebot11/intake"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
+	"github.com/RayleaBot/RayleaBot/server/internal/plugins/actions/renderidentity"
+	runtimeprotocol "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime/protocol"
 	renderservice "github.com/RayleaBot/RayleaBot/server/internal/render/service"
-	runtimeprotocol "github.com/RayleaBot/RayleaBot/server/internal/runtime/protocol"
 )
 
 func (s *Service) buildBuiltinMenuData(event adapterintake.NormalizedEvent, target string) builtinMenuRenderData {
@@ -100,7 +100,7 @@ func (s *Service) withBuiltinMenuIdentity(data map[string]any, event runtimeprot
 		data = map[string]any{}
 	}
 	cfg := s.config()
-	identity := localaction.RenderIdentityData(cfg, event)
+	identity := renderidentity.Data(cfg, event)
 	data["user"] = identity.User
 	data["permission"] = identity.Permission
 	if identity.Group != nil {

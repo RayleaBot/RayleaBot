@@ -3,7 +3,7 @@ package eventingress
 import (
 	"context"
 
-	adapterintake "github.com/RayleaBot/RayleaBot/server/internal/adapter/intake"
+	adapterintake "github.com/RayleaBot/RayleaBot/server/internal/bot/adapter/onebot11/intake"
 )
 
 func (s *Service) HandleAdapterEvent(ctx context.Context, event adapterintake.NormalizedEvent) {
@@ -25,7 +25,7 @@ func (s *Service) HandleAdapterEvent(ctx context.Context, event adapterintake.No
 	}
 
 	if s.lifecycle != nil {
-		s.lifecycle.HandleAdapterEvent(ctx, event)
+		s.lifecycle.HandleAdapterBotID(ctx, event.BotID)
 	}
 
 	if s.bridge != nil {

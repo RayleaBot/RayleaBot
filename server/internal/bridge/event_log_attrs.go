@@ -1,8 +1,8 @@
 package bridge
 
 import (
-	adapterintake "github.com/RayleaBot/RayleaBot/server/internal/adapter/intake"
-	adaptersegments "github.com/RayleaBot/RayleaBot/server/internal/adapter/segments"
+	adapterintake "github.com/RayleaBot/RayleaBot/server/internal/bot/adapter/onebot11/intake"
+	adaptersegments "github.com/RayleaBot/RayleaBot/server/internal/bot/adapter/onebot11/segments"
 	"github.com/RayleaBot/RayleaBot/server/internal/textsafe"
 )
 

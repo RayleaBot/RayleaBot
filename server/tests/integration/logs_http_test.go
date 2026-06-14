@@ -4,9 +4,9 @@ import (
 	"context"
 	"encoding/json"
 
-	adapterintake "github.com/RayleaBot/RayleaBot/server/internal/adapter/intake"
-	adaptersegments "github.com/RayleaBot/RayleaBot/server/internal/adapter/segments"
 	internalapp "github.com/RayleaBot/RayleaBot/server/internal/app"
+	adapterintake "github.com/RayleaBot/RayleaBot/server/internal/bot/adapter/onebot11/intake"
+	adaptersegments "github.com/RayleaBot/RayleaBot/server/internal/bot/adapter/onebot11/segments"
 	"github.com/RayleaBot/RayleaBot/server/internal/logging"
 	plugindiscovery "github.com/RayleaBot/RayleaBot/server/internal/plugins/discovery"
 

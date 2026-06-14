@@ -6,8 +6,8 @@ import (
 	"strings"
 	"time"
 
-	runtimemanager "github.com/RayleaBot/RayleaBot/server/internal/runtime/manager"
-	runtimeprotocol "github.com/RayleaBot/RayleaBot/server/internal/runtime/protocol"
+	runtimemanager "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime/manager"
+	runtimeprotocol "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime/protocol"
 	"github.com/RayleaBot/RayleaBot/server/internal/scheduler"
 )
 

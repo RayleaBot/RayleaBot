@@ -4,8 +4,8 @@ import (
 	"context"
 	"log/slog"
 
-	adapterintake "github.com/RayleaBot/RayleaBot/server/internal/adapter/intake"
-	adapteroutbound "github.com/RayleaBot/RayleaBot/server/internal/adapter/outbound"
+	adapterintake "github.com/RayleaBot/RayleaBot/server/internal/bot/adapter/onebot11/intake"
+	adapteroutbound "github.com/RayleaBot/RayleaBot/server/internal/bot/adapter/onebot11/outbound"
 	"github.com/RayleaBot/RayleaBot/server/internal/bridge"
 	"github.com/RayleaBot/RayleaBot/server/internal/chatpolicy"
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
@@ -13,7 +13,7 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/outbound"
 	"github.com/RayleaBot/RayleaBot/server/internal/permission"
 	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
-	pluginservice "github.com/RayleaBot/RayleaBot/server/internal/plugins/service"
+	pluginservice "github.com/RayleaBot/RayleaBot/server/internal/plugins/lifecycle"
 	renderservice "github.com/RayleaBot/RayleaBot/server/internal/render/service"
 )
 

@@ -1,4 +1,4 @@
-package managementws
+package ws
 
 import (
 	"net/http"

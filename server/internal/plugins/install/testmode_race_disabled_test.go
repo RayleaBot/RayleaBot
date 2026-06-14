@@ -1,5 +1,5 @@
 //go:build !race
 
-package plugininstall
+package install
 
 const testRaceEnabled = false

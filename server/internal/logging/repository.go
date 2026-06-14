@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	logdetails "github.com/RayleaBot/RayleaBot/server/internal/logging/details"
 	"github.com/RayleaBot/RayleaBot/server/internal/storage"
 )
 
@@ -89,7 +90,7 @@ func NewSQLiteRepository(store *storage.Store) (*SQLiteRepository, error) {
 
 func (r *SQLiteRepository) SaveSummary(ctx context.Context, summary Summary) error {
 	summary = NormalizeSummary(summary)
-	detailsJSON, err := encodeDetailsJSON(summary.Details)
+	detailsJSON, err := logdetails.EncodeJSON(summary.Details)
 	if err != nil {
 		return fmt.Errorf("encode management log details: %w", err)
 	}

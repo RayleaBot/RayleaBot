@@ -3,8 +3,8 @@ package dispatch
 import (
 	"context"
 
-	runtimemanager "github.com/RayleaBot/RayleaBot/server/internal/runtime/manager"
-	runtimeprotocol "github.com/RayleaBot/RayleaBot/server/internal/runtime/protocol"
+	runtimemanager "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime/manager"
+	runtimeprotocol "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime/protocol"
 )
 
 // Dispatch fans out an event to all matching registered plugins.

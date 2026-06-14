@@ -1,0 +1,54 @@
+package manager
+
+import (
+	"context"
+	"time"
+
+	runtimeprotocol "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime/protocol"
+)
+
+func (m *Manager) Ping(ctx context.Context) error {
+	m.mu.RLock()
+	handle := m.proc
+	m.mu.RUnlock()
+	if handle == nil {
+		return errorf(codePlatformInvalidRequest, "plugin runtime is not running", nil)
+	}
+
+	requestID := m.deps.requestID()
+	request, runtimeErr := m.registerPingRequest(handle, requestID)
+	if runtimeErr != nil {
+		return runtimeErr
+	}
+
+	if err := handle.WriteJSONLine(runtimeprotocol.PingFrame{
+		ProtocolVersion: "1",
+		Type:            "ping",
+		Timestamp:       m.deps.now().Unix(),
+		PluginID:        handle.Spec.PluginID,
+		RequestID:       requestID,
+	}); err != nil {
+		m.mu.Lock()
+		delete(m.pendingPings, requestID)
+		m.mu.Unlock()
+		return m.failRuntime(handle, codePluginInternalError, "write ping frame", err)
+	}
+
+	timeout := handle.Spec.EventTimeout
+	if deadline, ok := ctx.Deadline(); ok {
+		if remaining := time.Until(deadline); remaining > 0 && remaining < timeout {
+			timeout = remaining
+		}
+	}
+	timer := time.NewTimer(timeout)
+	defer timer.Stop()
+
+	select {
+	case err := <-request.done:
+		return err
+	case <-timer.C:
+		return m.failRuntime(handle, codePluginEventTimeout, "plugin pong response timed out", nil)
+	case <-ctx.Done():
+		return m.failRuntime(handle, codePluginEventTimeout, "plugin pong response timed out", ctx.Err())
+	}
+}

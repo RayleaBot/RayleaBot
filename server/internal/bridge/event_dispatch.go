@@ -4,7 +4,7 @@ import (
 	"strings"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/dispatch"
-	runtimeprotocol "github.com/RayleaBot/RayleaBot/server/internal/runtime/protocol"
+	runtimeprotocol "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime/protocol"
 )
 
 func bridgeCommandName(event runtimeprotocol.Event) string {

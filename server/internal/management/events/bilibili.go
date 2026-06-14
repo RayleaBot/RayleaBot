@@ -4,7 +4,7 @@ import (
 	"sync"
 	"time"
 
-	bilibilisource "github.com/RayleaBot/RayleaBot/server/internal/bilibili/source"
+	bilibilisource "github.com/RayleaBot/RayleaBot/server/internal/integrations/bilibili/source"
 )
 
 type BilibiliSourceService struct {

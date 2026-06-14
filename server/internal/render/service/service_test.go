@@ -12,8 +12,8 @@ import (
 	"time"
 
 	renderbrowser "github.com/RayleaBot/RayleaBot/server/internal/render/browser"
+	renderworker "github.com/RayleaBot/RayleaBot/server/internal/render/engine"
 	rendertemplates "github.com/RayleaBot/RayleaBot/server/internal/render/templates"
-	renderworker "github.com/RayleaBot/RayleaBot/server/internal/render/worker"
 )
 
 func TestNewServiceSkipsInvalidTemplateDirectories(t *testing.T) {

@@ -1,4 +1,4 @@
-package plugincatalog
+package catalog
 
 import "github.com/RayleaBot/RayleaBot/server/internal/plugins"
 

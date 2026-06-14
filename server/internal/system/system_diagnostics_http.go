@@ -15,7 +15,7 @@ func (s *Service) BuildDiagnosticsArchive(ctx context.Context) ([]byte, error) {
 	buffer := &bytes.Buffer{}
 	writer := zip.NewWriter(buffer)
 
-	if err := addJSONToZip(writer, "system-status.json", s.ManagementStatusSnapshot()); err != nil {
+	if err := addJSONToZip(writer, "system-status.json", s.StatusSnapshot()); err != nil {
 		return nil, err
 	}
 	if err := addJSONToZip(writer, "readiness.json", s.CurrentReadiness()); err != nil {

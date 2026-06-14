@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"strings"
 
-	renderplugins "github.com/RayleaBot/RayleaBot/server/internal/render/plugins"
+	renderplugins "github.com/RayleaBot/RayleaBot/server/internal/render/pluginsync"
 	rendertemplates "github.com/RayleaBot/RayleaBot/server/internal/render/templates"
 )
 

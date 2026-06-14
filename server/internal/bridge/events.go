@@ -5,7 +5,7 @@ import (
 	"strings"
 	"time"
 
-	adapterintake "github.com/RayleaBot/RayleaBot/server/internal/adapter/intake"
+	adapterintake "github.com/RayleaBot/RayleaBot/server/internal/bot/adapter/onebot11/intake"
 )
 
 func (b *Bridge) HandleAdapterEvent(ctx context.Context, event adapterintake.NormalizedEvent) Outcome {

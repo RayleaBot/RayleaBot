@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"strings"
 	"time"
+
+	logdetails "github.com/RayleaBot/RayleaBot/server/internal/logging/details"
 )
 
 func (r *SQLiteRepository) GetSummary(ctx context.Context, logID string) (Summary, error) {
@@ -46,7 +48,7 @@ func (r *SQLiteRepository) GetSummary(ctx context.Context, logID string) (Summar
 		return Summary{}, fmt.Errorf("query management log detail: %w", err)
 	}
 
-	details, err := decodeDetailsJSON(item.DetailsRaw)
+	details, err := logdetails.DecodeJSON(item.DetailsRaw)
 	if err != nil {
 		return Summary{}, fmt.Errorf("decode management log detail %s: %w", item.LogID, err)
 	}
