@@ -20,12 +20,15 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/governance"
 	"github.com/RayleaBot/RayleaBot/server/internal/localaction"
 	"github.com/RayleaBot/RayleaBot/server/internal/logging"
+	managementevents "github.com/RayleaBot/RayleaBot/server/internal/management/events"
+	managementhttp "github.com/RayleaBot/RayleaBot/server/internal/management/http"
 	"github.com/RayleaBot/RayleaBot/server/internal/outbound"
 	"github.com/RayleaBot/RayleaBot/server/internal/permission"
 	"github.com/RayleaBot/RayleaBot/server/internal/pluginconfig"
 	"github.com/RayleaBot/RayleaBot/server/internal/pluginfile"
 	"github.com/RayleaBot/RayleaBot/server/internal/pluginkv"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
+	pluginservice "github.com/RayleaBot/RayleaBot/server/internal/plugins/service"
 	"github.com/RayleaBot/RayleaBot/server/internal/pluginwebhook"
 	"github.com/RayleaBot/RayleaBot/server/internal/recovery"
 	"github.com/RayleaBot/RayleaBot/server/internal/render"
@@ -56,7 +59,7 @@ type appPlatform struct {
 	Logs          *logging.Stream
 	LogRepository logging.Repository
 	Console       *console.Stream
-	loginFailures *loginFailureTracker
+	loginFailures *managementhttp.LoginFailureTracker
 }
 
 type appPlugins struct {
@@ -84,17 +87,17 @@ type appPlugins struct {
 
 type appServices struct {
 	localActions     *localaction.Service
-	pluginLifecycle  *pluginLifecycleController
+	pluginLifecycle  *pluginservice.Controller
 	eventIngress     *eventIngressService
-	protocol         *protocolService
+	protocol         *managementhttp.ProtocolService
 	pluginWebhooks   *pluginwebhook.Service
 	governance       *governance.Service
-	governanceEvents *governanceEventService
+	governanceEvents *managementevents.GovernanceService
 	logs             *logService
 	system           *systemService
 	thirdParty       *thirdparty.Service
 	bilibiliSource   *source.Source
-	bilibiliEvents   *bilibiliSourceEventService
+	bilibiliEvents   *managementevents.BilibiliSourceService
 }
 
 type appProcessState struct {

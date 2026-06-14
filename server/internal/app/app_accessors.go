@@ -44,10 +44,10 @@ func (a *App) SetAuthManager(manager *auth.Manager) {
 	}
 	a.platform.Auth = manager
 	if a.httpHandlers.auth != nil {
-		a.httpHandlers.auth.auth = manager
+		a.httpHandlers.auth.SetAuthManager(manager)
 	}
 	if a.httpHandlers.management != nil {
-		a.httpHandlers.management.auth = manager
+		a.httpHandlers.management.SetAuthManager(manager)
 	}
 	if a.services.system != nil {
 		a.services.system.auth = manager
@@ -70,7 +70,7 @@ func (a *App) SetBridge(eventBridge *bridge.Bridge) {
 		a.services.eventIngress.bridge = eventBridge
 	}
 	if a.httpHandlers.eventsWS != nil {
-		a.httpHandlers.eventsWS.bridge = eventBridge
+		a.httpHandlers.eventsWS.SetBridge(eventBridge)
 	}
 }
 
@@ -142,6 +142,6 @@ func (a *App) SetPluginInstaller(installer plugins.InstallCoordinator) {
 	}
 	a.pluginStack.PluginInstaller = installer
 	if a.httpHandlers.tasks != nil {
-		a.httpHandlers.tasks.pluginInstaller = installer
+		a.httpHandlers.tasks.SetPluginInstaller(installer)
 	}
 }

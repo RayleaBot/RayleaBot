@@ -1,24 +1,14 @@
 package adapter
 
-import "strings"
+import adaptershell "github.com/RayleaBot/RayleaBot/server/internal/adapter/shell"
 
 const (
-	ProviderUnknown     = "unknown"
-	ProviderStandard    = "standard"
-	ProviderNapCat      = "napcat"
-	ProviderLuckyLillia = "luckylillia"
+	ProviderUnknown     = adaptershell.ProviderUnknown
+	ProviderStandard    = adaptershell.ProviderStandard
+	ProviderNapCat      = adaptershell.ProviderNapCat
+	ProviderLuckyLillia = adaptershell.ProviderLuckyLillia
 )
 
 func DetectProvider(appName string) string {
-	normalized := strings.ToLower(strings.TrimSpace(appName))
-	switch {
-	case normalized == "":
-		return ProviderUnknown
-	case strings.Contains(normalized, "napcat"):
-		return ProviderNapCat
-	case strings.Contains(normalized, "llonebot"), strings.Contains(normalized, "luckylillia"):
-		return ProviderLuckyLillia
-	default:
-		return ProviderStandard
-	}
+	return adaptershell.DetectProvider(appName)
 }

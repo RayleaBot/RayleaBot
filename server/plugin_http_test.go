@@ -9,6 +9,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
+	managementhttp "github.com/RayleaBot/RayleaBot/server/internal/management/http"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
 )
@@ -558,15 +559,15 @@ func pluginRouter(t *testing.T, catalog *plugincatalog.Catalog) *chi.Mux {
 	t.Helper()
 
 	router := chi.NewRouter()
-	plugins.RegisterRoutes(router, catalog, nil, nil, nil, nil, nil, nil, nil)
+	managementhttp.RegisterPluginRoutes(router, catalog, nil, nil, nil, nil, nil, nil, nil)
 	return router
 }
 
-func pluginRouterWithController(t *testing.T, catalog *plugincatalog.Catalog, controller plugins.DesiredStateController, uninstaller plugins.UninstallCoordinator) *chi.Mux {
+func pluginRouterWithController(t *testing.T, catalog *plugincatalog.Catalog, controller managementhttp.DesiredStateController, uninstaller plugins.UninstallCoordinator) *chi.Mux {
 	t.Helper()
 
 	router := chi.NewRouter()
-	plugins.RegisterRoutes(router, catalog, nil, nil, nil, controller, uninstaller, nil, nil)
+	managementhttp.RegisterPluginRoutes(router, catalog, nil, nil, nil, controller, uninstaller, nil, nil)
 	return router
 }
 

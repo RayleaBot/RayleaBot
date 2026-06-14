@@ -1,71 +1,31 @@
 package runtime
 
 import (
-	"fmt"
+	"context"
 	"log/slog"
-	"sync"
 	"time"
 
-	"github.com/RayleaBot/RayleaBot/server/internal/console"
+	"github.com/RayleaBot/RayleaBot/server/internal/config"
+	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
+	runtimemanager "github.com/RayleaBot/RayleaBot/server/internal/runtime/manager"
 )
 
-type Manager struct {
-	logger *slog.Logger
-	deps   managerDeps
-	opts   Options
+const DefaultMaxCrashRetries = runtimemanager.DefaultMaxCrashRetries
 
-	mu            sync.RWMutex
-	protocolMu    sync.Mutex
-	proc          *processHandle
-	snap          Snapshot
-	pendingEvents map[string]*eventSession
-	pendingPings  map[string]*pingRequest
-}
+type Manager = runtimemanager.Manager
 
 func New(logger *slog.Logger, options Options) *Manager {
-	return newManager(logger, managerDeps{
-		now: time.Now,
-		requestID: func() string {
-			return fmt.Sprintf("req_%d", time.Now().UnixNano())
-		},
-	}, options)
+	return runtimemanager.New(logger, options)
 }
 
-func newManager(logger *slog.Logger, deps managerDeps, options Options) *Manager {
-	if logger == nil {
-		logger = slog.Default()
-	}
-	if deps.now == nil {
-		deps.now = time.Now
-	}
-	if deps.requestID == nil {
-		deps.requestID = func() string {
-			return fmt.Sprintf("req_%d", time.Now().UnixNano())
-		}
-	}
-	if options.Console == nil {
-		options.Console = console.NewStream(1000, 2*1024*1024)
-	}
-	if options.RedactText == nil {
-		options.RedactText = func(text string) string {
-			return text
-		}
-	}
-
-	return &Manager{
-		logger:        logger,
-		deps:          deps,
-		opts:          options,
-		pendingEvents: make(map[string]*eventSession),
-		pendingPings:  make(map[string]*pingRequest),
-		snap: Snapshot{
-			State: StateStopped,
-		},
-	}
+func BuildSpec(snapshot plugins.Snapshot, repoRoot string, runtimeConfig config.RuntimeConfig) (Spec, error) {
+	return runtimemanager.BuildSpec(snapshot, repoRoot, runtimeConfig)
 }
 
-func (m *Manager) Snapshot() Snapshot {
-	m.mu.RLock()
-	defer m.mu.RUnlock()
-	return cloneSnapshot(m.snap)
+func BuildSpecWithContext(ctx context.Context, snapshot plugins.Snapshot, repoRoot string, runtimeConfig config.RuntimeConfig) (Spec, error) {
+	return runtimemanager.BuildSpecWithContext(ctx, snapshot, repoRoot, runtimeConfig)
+}
+
+func CrashBackoff(crashCount, initialSeconds, maxSeconds int) time.Duration {
+	return runtimemanager.CrashBackoff(crashCount, initialSeconds, maxSeconds)
 }

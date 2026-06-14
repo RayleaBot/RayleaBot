@@ -1,119 +1,37 @@
 package adapter
 
-import "time"
+import adaptershell "github.com/RayleaBot/RayleaBot/server/internal/adapter/shell"
 
-type State string
-type TransportKey string
-type TransportState string
+type State = adaptershell.State
+type TransportKey = adaptershell.TransportKey
+type TransportState = adaptershell.TransportState
 
 const (
-	StateIdle         State = "idle"
-	StateConnecting   State = "connecting"
-	StateConnected    State = "connected"
-	StateAuthFailed   State = "auth_failed"
-	StateReconnecting State = "reconnecting"
-	StateStopped      State = "stopped"
+	StateIdle         = adaptershell.StateIdle
+	StateConnecting   = adaptershell.StateConnecting
+	StateConnected    = adaptershell.StateConnected
+	StateAuthFailed   = adaptershell.StateAuthFailed
+	StateReconnecting = adaptershell.StateReconnecting
+	StateStopped      = adaptershell.StateStopped
 )
 
 const (
-	TransportReverseWS TransportKey = "reverse_ws"
-	TransportForwardWS TransportKey = "forward_ws"
-	TransportHTTPAPI   TransportKey = "http_api"
-	TransportWebhook   TransportKey = "webhook"
+	TransportReverseWS = adaptershell.TransportReverseWS
+	TransportForwardWS = adaptershell.TransportForwardWS
+	TransportHTTPAPI   = adaptershell.TransportHTTPAPI
+	TransportWebhook   = adaptershell.TransportWebhook
 )
 
 const (
-	TransportStateIdle         TransportState = "idle"
-	TransportStateListening    TransportState = "listening"
-	TransportStateConnecting   TransportState = "connecting"
-	TransportStateConnected    TransportState = "connected"
-	TransportStateAuthFailed   TransportState = "auth_failed"
-	TransportStateReconnecting TransportState = "reconnecting"
-	TransportStateStopped      TransportState = "stopped"
+	TransportStateIdle         = adaptershell.TransportStateIdle
+	TransportStateListening    = adaptershell.TransportStateListening
+	TransportStateConnecting   = adaptershell.TransportStateConnecting
+	TransportStateConnected    = adaptershell.TransportStateConnected
+	TransportStateAuthFailed   = adaptershell.TransportStateAuthFailed
+	TransportStateReconnecting = adaptershell.TransportStateReconnecting
+	TransportStateStopped      = adaptershell.TransportStateStopped
 )
 
-type TransportSnapshot struct {
-	Enabled          bool
-	Configured       bool
-	Endpoint         string
-	State            TransportState
-	LastErrorCode    string
-	LastErrorMessage string
-	RuntimeInfo      TransportRuntimeInfo
-}
-
-type TransportRuntimeInfo struct {
-	Provider        string
-	AppName         string
-	ProtocolVersion string
-	AppVersion      string
-	UserID          string
-	Nickname        string
-}
-
-type Snapshot struct {
-	State                 State
-	ForwardWS             TransportSnapshot
-	ReverseWS             TransportSnapshot
-	HTTPAPI               TransportSnapshot
-	Webhook               TransportSnapshot
-	ActiveTransports      []TransportKey
-	BotID                 string
-	LastErrorCode         string
-	LastErrorMessage      string
-	ReadyFrameSeen        bool
-	ConnectedAt           *time.Time
-	LastFrameAt           *time.Time
-	LastHeartbeatAt       *time.Time
-	HeartbeatInterval     time.Duration
-	TotalReceivedFrames   uint64
-	InvalidReceivedFrames uint64
-	HeartbeatSeen         bool
-	LastFrameCategory     FrameCategory
-	LastFrameType         string
-}
-
-func cloneSnapshot(snapshot Snapshot) Snapshot {
-	cloned := snapshot
-	cloned.ConnectedAt = cloneTime(snapshot.ConnectedAt)
-	cloned.LastFrameAt = cloneTime(snapshot.LastFrameAt)
-	cloned.LastHeartbeatAt = cloneTime(snapshot.LastHeartbeatAt)
-	if len(snapshot.ActiveTransports) > 0 {
-		cloned.ActiveTransports = append([]TransportKey(nil), snapshot.ActiveTransports...)
-	}
-	return cloned
-}
-
-func (snapshot Snapshot) DetectedProvider() string {
-	for _, transport := range snapshot.ActiveTransports {
-		info := snapshot.transportRuntimeInfo(transport)
-		if info.Provider != "" && info.Provider != ProviderUnknown {
-			return info.Provider
-		}
-	}
-	return ProviderUnknown
-}
-
-func (snapshot Snapshot) transportRuntimeInfo(transport TransportKey) TransportRuntimeInfo {
-	switch transport {
-	case TransportForwardWS:
-		return snapshot.ForwardWS.RuntimeInfo
-	case TransportReverseWS:
-		return snapshot.ReverseWS.RuntimeInfo
-	case TransportHTTPAPI:
-		return snapshot.HTTPAPI.RuntimeInfo
-	case TransportWebhook:
-		return snapshot.Webhook.RuntimeInfo
-	default:
-		return TransportRuntimeInfo{}
-	}
-}
-
-func cloneTime(value *time.Time) *time.Time {
-	if value == nil {
-		return nil
-	}
-
-	copied := *value
-	return &copied
-}
+type TransportSnapshot = adaptershell.TransportSnapshot
+type TransportRuntimeInfo = adaptershell.TransportRuntimeInfo
+type Snapshot = adaptershell.Snapshot

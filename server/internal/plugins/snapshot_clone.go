@@ -103,6 +103,10 @@ func cloneMap(values map[string]any) map[string]any {
 	return cloned
 }
 
+func CloneMap(values map[string]any) map[string]any {
+	return cloneMap(values)
+}
+
 func cloneSlice(values []any) []any {
 	if len(values) == 0 {
 		return nil

@@ -95,3 +95,5 @@ type RoomState struct {
 	LastError       string
 	UpdatedAt       time.Time
 }
+
+type roomState = RoomState

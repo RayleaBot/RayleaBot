@@ -1,55 +1,38 @@
 package runtime
 
-import (
-	"context"
-	"time"
+import runtimemanager "github.com/RayleaBot/RayleaBot/server/internal/runtime/manager"
 
-	"github.com/RayleaBot/RayleaBot/server/internal/console"
-)
-
-type State string
+type State = runtimemanager.State
 
 const (
-	StateStopped    State = "stopped"
-	StateStarting   State = "starting"
-	StateRunning    State = "running"
-	StateStopping   State = "stopping"
-	StateCrashed    State = "crashed"
-	StateBackoff    State = "backoff"
-	StateDeadLetter State = "dead_letter"
+	StateStopped    = runtimemanager.StateStopped
+	StateStarting   = runtimemanager.StateStarting
+	StateRunning    = runtimemanager.StateRunning
+	StateStopping   = runtimemanager.StateStopping
+	StateCrashed    = runtimemanager.StateCrashed
+	StateBackoff    = runtimemanager.StateBackoff
+	StateDeadLetter = runtimemanager.StateDeadLetter
 )
 
-type Snapshot struct {
-	PluginID            string
-	State               State
-	LastErrorCode       string
-	LastErrorMessage    string
-	InitRequestID       string
-	PID                 int
-	StartedAt           *time.Time
-	StoppedAt           *time.Time
-	CrashCount          int
-	NextRetryAt         *time.Time
-	EnteredDeadLetterAt *time.Time
-	Subscriptions       []string
-}
+type Snapshot = runtimemanager.Snapshot
+type CrashCallback = runtimemanager.CrashCallback
+type LocalActionExecutor = runtimemanager.LocalActionExecutor
+type Options = runtimemanager.Options
 
-// CrashCallback is invoked by the runtime manager when a running plugin
-// process exits unexpectedly. The lifecycle controller uses this to drive
-// the backoff/restart cycle.
-type CrashCallback func(pluginID string, crashCount int, lastErrorCode string)
+type ActionSegment = runtimemanager.ActionSegment
+type Action = runtimemanager.Action
+type WebhookReplayProtection = runtimemanager.WebhookReplayProtection
 
-type managerDeps struct {
-	now       func() time.Time
-	requestID func() string
-}
+type Event = runtimemanager.Event
+type SchedulerLogContext = runtimemanager.SchedulerLogContext
+type SchedulerRunRecorder = runtimemanager.SchedulerRunRecorder
+type SchedulerRunResult = runtimemanager.SchedulerRunResult
+type EventActor = runtimemanager.EventActor
+type EventTarget = runtimemanager.EventTarget
+type EventMessage = runtimemanager.EventMessage
+type EventSegment = runtimemanager.EventSegment
 
-type LocalActionExecutor func(context.Context, string, string, Action, Event) (map[string]any, error)
-
-type Options struct {
-	Console                    *console.Stream
-	RedactText                 func(string) string
-	StderrRateLimitBytesPerSec int
-	OnCrash                    CrashCallback
-	ExecuteLocalAction         LocalActionExecutor
-}
+type Delivery = runtimemanager.Delivery
+type BotInfo = runtimemanager.BotInfo
+type InitPayload = runtimemanager.InitPayload
+type Spec = runtimemanager.Spec

@@ -1,0 +1,20 @@
+package managementhttp
+
+import (
+	"errors"
+
+	"github.com/RayleaBot/RayleaBot/server/internal/adapter"
+	"github.com/RayleaBot/RayleaBot/server/internal/config"
+)
+
+var ErrProtocolStopped = errors.New("protocol adapter stopped")
+
+func (s *ProtocolService) ApplyConfigReload(cfg config.Config) error {
+	if s == nil || s.adapter == nil {
+		return nil
+	}
+	if s.adapter.Snapshot().State == adapter.StateStopped {
+		return ErrProtocolStopped
+	}
+	return s.adapter.Reload(cfg.OneBot, cfg.Adapter)
+}

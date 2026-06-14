@@ -4,6 +4,9 @@ import (
 	"context"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/governance"
+	managementhttp "github.com/RayleaBot/RayleaBot/server/internal/management/http"
+	managementws "github.com/RayleaBot/RayleaBot/server/internal/management/ws"
+	pluginservice "github.com/RayleaBot/RayleaBot/server/internal/plugins/service"
 	"github.com/RayleaBot/RayleaBot/server/internal/pluginui"
 )
 
@@ -13,7 +16,7 @@ func configureAppHTTP(application *App, serviceBuild appServiceBuildResult, opti
 	pluginState := application.pluginStack
 	services := application.services
 
-	configHandler := newConfigHTTPHandlers(configHTTPDeps{
+	configService := newConfigHTTPService(configHTTPDeps{
 		state:            state,
 		logs:             platformState.Logs,
 		logRepository:    platformState.LogRepository,
@@ -24,35 +27,36 @@ func configureAppHTTP(application *App, serviceBuild appServiceBuildResult, opti
 		eventIngress:     services.eventIngress,
 		blacklistRepo:    pluginState.blacklistRepo,
 	})
-	authHandler := newAuthHTTPHandlers(authHTTPDeps{
-		config:        state,
-		auth:          platformState.Auth,
-		loginFailures: platformState.loginFailures,
+	configHandler := managementhttp.NewConfigHandlers(configService)
+	authHandler := managementhttp.NewAuthHandlers(managementhttp.AuthDeps{
+		Config:        state,
+		Auth:          platformState.Auth,
+		LoginFailures: platformState.loginFailures,
 	})
-	managementHandler := newManagementHTTPHandlers(managementHTTPDeps{
-		auth:            platformState.Auth,
-		system:          services.system,
-		requestShutdown: application.requestShutdown,
+	managementHandler := managementhttp.NewManagementHandlers(managementhttp.ManagementDeps{
+		Auth:            platformState.Auth,
+		System:          services.system,
+		RequestShutdown: application.requestShutdown,
 	})
 	governanceHandler := governance.NewHandlersWithService(services.governance)
-	taskHandler := newTaskHTTPHandlers(platformState.Tasks, platformState.taskExecutor, pluginState.PluginInstaller)
-	logHandler := newLogHTTPHandlers(services.logs)
-	renderHandler := newRenderHTTPHandlers(pluginState.renderer)
-	systemHandler := newSystemHTTPHandlers(services.system, platformState.Scheduler)
-	protocolHandler := newProtocolHTTPHandlers(services.protocol)
-	thirdPartyHandler := newThirdPartyHTTPHandlers(services.thirdParty, serviceBuild.bilibiliAccountClient, services.bilibiliSource, options.BilibiliHTTPTransport)
-	bilibiliHandler := newBilibiliSourceHTTPHandlers(services.bilibiliSource, serviceBuild.bilibiliQRLogin, options.BilibiliHTTPTransport)
-	eventsWS := newEventsWSHandler(pluginState.Bridge, pluginState.Plugins, services.protocol, serviceBuild.status, services.governanceEvents, services.bilibiliEvents)
-	tasksWS := newTasksWSHandler(platformState.Tasks)
-	logsWS := newLogsWSHandler(services.logs)
-	consoleWS := newConsoleWSHandler(platformState.Console, pluginState.Plugins)
+	taskHandler := managementhttp.NewTaskHandlers(platformState.Tasks, platformState.taskExecutor, pluginState.PluginInstaller)
+	logHandler := managementhttp.NewLogHandlers(services.logs)
+	renderHandler := managementhttp.NewRenderHandlers(pluginState.renderer)
+	systemHandler := managementhttp.NewSystemHandlers(services.system, platformState.Scheduler)
+	protocolHandler := managementhttp.NewProtocolHandlers(services.protocol)
+	thirdPartyHandler := managementhttp.NewThirdPartyHandlers(services.thirdParty, serviceBuild.bilibiliAccountClient, services.bilibiliSource, options.BilibiliHTTPTransport)
+	bilibiliHandler := managementhttp.NewBilibiliHandlers(services.bilibiliSource, serviceBuild.bilibiliQRLogin, options.BilibiliHTTPTransport)
+	eventsWS := managementws.NewEventsHandler(pluginState.Bridge, pluginState.Plugins, services.protocol, serviceBuild.status, services.governanceEvents, services.bilibiliEvents)
+	tasksWS := managementws.NewTasksHandler(platformState.Tasks)
+	logsWS := managementws.NewLogsHandler(services.logs)
+	consoleWS := managementws.NewConsoleHandler(platformState.Console, pluginState.Plugins)
 	pluginManagementUIHandler := pluginui.NewHandlers(pluginui.Deps{
 		Plugins:            pluginState.Plugins,
 		PluginConfig:       pluginState.pluginConfig,
 		Secrets:            platformState.Secrets,
 		NotifyConfigChange: services.localActions.DispatchPluginConfigChanged,
 		RefreshCommands: func(ctx context.Context, pluginID string, settings map[string]any) {
-			applicationRefreshPluginCommands(pluginState.Plugins, pluginState.Dispatcher, pluginID, settings)
+			pluginservice.RefreshPluginCommands(pluginState.Plugins, pluginState.Dispatcher, pluginID, settings)
 		},
 	})
 

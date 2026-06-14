@@ -23,7 +23,7 @@ func (a *App) Run(ctx context.Context) error {
 		return err
 	}
 	if a.services.pluginLifecycle != nil {
-		go a.services.pluginLifecycle.reconcileRuntime(runCtx, a.services.pluginLifecycle.currentBotID())
+		go a.services.pluginLifecycle.ReconcileRuntime(runCtx, a.services.pluginLifecycle.CurrentBotID())
 	}
 	a.startSQLiteSnapshotLoop(runCtx)
 	a.pluginStack.Adapter.Start(runCtx)
