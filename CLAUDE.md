@@ -41,7 +41,7 @@
   - `C:\Program Files\Git\usr\bin\bash.exe --noprofile --norc -lc '<command>'`
   - Prefix Unix-tool commands with `export PATH="/usr/bin:/bin:$PATH";`
 - Server
-  - `go build ./cmd/raylea-server`
+  - `mkdir -p dist && go build -o "dist/raylea-server$(go env GOEXE)" ./cmd/raylea-server`
   - `go test ./...`
 - Web
   - `pnpm install --frozen-lockfile`

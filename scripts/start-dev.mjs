@@ -26,6 +26,10 @@ const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const rootDir = path.resolve(scriptDir, "..");
 const webDir = path.join(rootDir, "web");
 const serverDir = path.join(rootDir, "server");
+const serverDistDir = path.join(serverDir, "dist");
+const serverBinaryName = process.platform === "win32"
+  ? "raylea-server.exe"
+  : "raylea-server";
 const launcherDir = path.join(rootDir, "launcher");
 const logDate = new Date();
 const webDevLogPath = resolveDatedLogPath({ rootDir, scope: "dev", type: "web", date: logDate });
@@ -136,9 +140,13 @@ async function runLauncherDevProfile({ installMode, devEnvironment, serverReload
 }
 
 async function buildServer() {
-  await runCommand("构建 Server", "go", ["build", "-o", "raylea-server.exe", "./cmd/raylea-server"], {
-    cwd: serverDir,
-  });
+  await fsp.mkdir(serverDistDir, { recursive: true });
+  await runCommand(
+    "构建 Server",
+    "go",
+    ["build", "-o", path.join("dist", serverBinaryName), "./cmd/raylea-server"],
+    { cwd: serverDir },
+  );
 }
 
 async function ensureServerRuntime({ serverReloadMode, backendBaseUrl }) {

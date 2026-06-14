@@ -3,6 +3,7 @@
 /artifacts/
 /cache/
 /.cache/
+/dist/
 /server/.cache/
 /logs/
 /backups/
@@ -36,6 +37,7 @@ plugins/**/node_modules/
 /server/raylea-server
 /server/*.exe
 /server/*.exe~
+/server/dist/
 /server/coverage.out
 /server/.coverprofile
 /server/.gocache

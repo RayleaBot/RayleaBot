@@ -174,5 +174,5 @@
 
 ## 默认命令
 
-- 构建：`go build ./cmd/raylea-server`
+- 构建：`mkdir -p dist && go build -o "dist/raylea-server$(go env GOEXE)" ./cmd/raylea-server`
 - 测试：`go test ./...`

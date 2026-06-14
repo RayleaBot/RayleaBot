@@ -7,7 +7,7 @@
 ### Server
 
 - `go test ./...`
-- `go build ./cmd/raylea-server`
+- `mkdir -p dist && go build -o "dist/raylea-server$(go env GOEXE)" ./cmd/raylea-server`
 
 ### Web
 

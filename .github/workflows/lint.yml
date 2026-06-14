@@ -48,7 +48,7 @@ jobs:
 
       - name: Build server shell
         working-directory: server
-        run: go build ./cmd/raylea-server
+        run: mkdir -p dist && go build -o dist/raylea-server ./cmd/raylea-server
 
       - name: Run golangci-lint
         uses: golangci/golangci-lint-action@v6

@@ -121,7 +121,7 @@ jobs:
               "CLAUDE.md": (root / "CLAUDE.md").read_text(encoding="utf-8"),
           }
           required_commands = [
-              "go build ./cmd/raylea-server",
+              "mkdir -p dist && go build -o \"dist/raylea-server$(go env GOEXE)\" ./cmd/raylea-server",
               "pnpm install --frozen-lockfile",
               "pnpm test",
               "pnpm build",
