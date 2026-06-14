@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	adapterintake "github.com/RayleaBot/RayleaBot/server/internal/adapter/intake"
+	"github.com/RayleaBot/RayleaBot/server/internal/chatpolicy"
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
@@ -62,7 +63,7 @@ func ensureRuntimeStartedForBot(
 		},
 		Capabilities:    append([]string(nil), grantedCapabilities...),
 		SuperAdmins:     pluginservice.PluginRuntimeSuperAdmins(cfg),
-		CommandPrefixes: runtimeCommandPrefixes(cfg),
+		CommandPrefixes: chatpolicy.RuntimeCommandPrefixes(cfg),
 	}
 
 	if err := manager.Start(ctx, spec, payload); err != nil {

@@ -1,4 +1,4 @@
-package app
+package chatpolicy
 
 import (
 	"strings"
@@ -37,14 +37,14 @@ func sanitizeCommandPrefixes(prefixes []string) []string {
 	return items
 }
 
-func runtimeCommandPrefixes(cfg config.Config) []string {
+func RuntimeCommandPrefixes(cfg config.Config) []string {
 	if cfg.Command != nil && len(cfg.Command.Prefixes) > 0 {
 		return sanitizeCommandPrefixes(cfg.Command.Prefixes)
 	}
 	return []string{"/"}
 }
 
-func (s *eventIngressService) enrichCommandEvent(event adapterintake.NormalizedEvent) adapterintake.NormalizedEvent {
+func (s *Service) EnrichCommandEvent(event adapterintake.NormalizedEvent) adapterintake.NormalizedEvent {
 	if s == nil || s.commandParser == nil || strings.TrimSpace(event.PlainText) == "" {
 		return event
 	}

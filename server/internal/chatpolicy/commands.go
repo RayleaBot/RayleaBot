@@ -1,4 +1,4 @@
-package app
+package chatpolicy
 
 import (
 	"strings"
@@ -16,7 +16,7 @@ type commandPolicyContext struct {
 	PrimaryPluginID  string
 }
 
-func (s *eventIngressService) commandInfoForEvent(event adapterintake.NormalizedEvent) *permission.CommandInfo {
+func (s *Service) CommandInfoForEvent(event adapterintake.NormalizedEvent) *permission.CommandInfo {
 	commandName := commandNameFromEvent(event)
 	if commandName == "" {
 		return nil
@@ -29,7 +29,7 @@ func (s *eventIngressService) commandInfoForEvent(event adapterintake.Normalized
 	return commandContext.PermissionInfo
 }
 
-func (s *eventIngressService) commandPolicyContextForEvent(event adapterintake.NormalizedEvent) *commandPolicyContext {
+func (s *Service) commandPolicyContextForEvent(event adapterintake.NormalizedEvent) *commandPolicyContext {
 	commandName := commandNameFromEvent(event)
 	if commandName == "" {
 		return nil
@@ -41,8 +41,8 @@ func (s *eventIngressService) commandPolicyContextForEvent(event adapterintake.N
 		PermissionInfo: &permission.CommandInfo{Permission: requiredLevel},
 	}
 	currentConfig := config.Config{}
-	if s != nil && s.state != nil {
-		currentConfig = s.state.Config
+	if s != nil {
+		currentConfig = s.config()
 	}
 	if s != nil && s.plugins != nil {
 		for _, snapshot := range s.plugins.List() {

@@ -1,4 +1,4 @@
-package app
+package chatpolicy
 
 import (
 	"strings"
@@ -8,7 +8,7 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/permission"
 )
 
-func (s *eventIngressService) logCommandPolicyRejection(event adapterintake.NormalizedEvent, verdict permission.Verdict, commandContext *commandPolicyContext) {
+func (s *Service) logCommandPolicyRejection(event adapterintake.NormalizedEvent, verdict permission.Verdict, commandContext *commandPolicyContext) {
 	if s == nil || s.bridge == nil || commandContext == nil {
 		return
 	}

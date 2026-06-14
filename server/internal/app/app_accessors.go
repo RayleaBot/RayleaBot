@@ -67,6 +67,9 @@ func (a *App) SetBridge(eventBridge *bridge.Bridge) {
 	a.pluginStack.Bridge = eventBridge
 	if a.services.eventIngress != nil {
 		a.services.eventIngress.bridge = eventBridge
+		if a.services.eventIngress.policy != nil {
+			a.services.eventIngress.policy.SetBridge(eventBridge)
+		}
 	}
 	if a.httpHandlers.eventsWS != nil {
 		a.httpHandlers.eventsWS.SetBridge(eventBridge)

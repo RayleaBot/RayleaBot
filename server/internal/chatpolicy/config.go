@@ -1,4 +1,4 @@
-package app
+package chatpolicy
 
 import (
 	"strings"
@@ -8,7 +8,7 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/permission"
 )
 
-type chatPolicyConfigSnapshot struct {
+type ConfigSnapshot struct {
 	SuperAdmins           []string
 	DefaultLevel          string
 	UserCommandRateLimit  string
@@ -17,7 +17,7 @@ type chatPolicyConfigSnapshot struct {
 }
 
 func newPermissionChecker(cfg config.Config, whitelistRepo permission.WhitelistRepository, whitelistState permission.WhitelistStateRepository, blacklistRepo permission.BlacklistRepository) *permission.Checker {
-	settings := resolveChatPolicyConfig(cfg)
+	settings := ResolveConfig(cfg)
 	userLimit := parseCooldownRateLimitWithFallback(settings.UserCommandRateLimit, config.DefaultUserCommandRateLimit)
 	groupLimit := parseCooldownRateLimitWithFallback(settings.GroupCommandRateLimit, config.DefaultGroupCommandRateLimit)
 
@@ -43,7 +43,7 @@ func parseCooldownRateLimit(raw string) permission.RateLimit {
 }
 
 func commandPermissionDefaultLevel(cfg config.Config) string {
-	defaultLevel := strings.TrimSpace(resolveChatPolicyConfig(cfg).DefaultLevel)
+	defaultLevel := strings.TrimSpace(ResolveConfig(cfg).DefaultLevel)
 	switch defaultLevel {
 	case "super_admin", "group_admin", "everyone":
 		return defaultLevel
@@ -53,11 +53,11 @@ func commandPermissionDefaultLevel(cfg config.Config) string {
 }
 
 func cooldownReplyEnabled(cfg config.Config) bool {
-	return resolveChatPolicyConfig(cfg).CooldownReplyEnabled
+	return ResolveConfig(cfg).CooldownReplyEnabled
 }
 
-func resolveChatPolicyConfig(cfg config.Config) chatPolicyConfigSnapshot {
-	settings := chatPolicyConfigSnapshot{
+func ResolveConfig(cfg config.Config) ConfigSnapshot {
+	settings := ConfigSnapshot{
 		SuperAdmins:           append([]string(nil), cfg.Admin.SuperAdmins...),
 		DefaultLevel:          strings.TrimSpace(cfg.Permission.DefaultLevel),
 		UserCommandRateLimit:  strings.TrimSpace(cfg.User.CommandRateLimit),

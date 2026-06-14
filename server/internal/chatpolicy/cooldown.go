@@ -1,4 +1,4 @@
-package app
+package chatpolicy
 
 import (
 	"context"
@@ -11,10 +11,10 @@ import (
 )
 
 const (
-	cooldownReplyText = "命令触发冷却，请稍后再试。"
+	CooldownReplyText = "命令触发冷却，请稍后再试。"
 )
 
-func (s *eventIngressService) sendCooldownReply(ctx context.Context, event adapterintake.NormalizedEvent) {
+func (s *Service) sendCooldownReply(ctx context.Context, event adapterintake.NormalizedEvent) {
 	if s == nil || s.outboundSender == nil {
 		return
 	}
@@ -33,7 +33,7 @@ func (s *eventIngressService) sendCooldownReply(ctx context.Context, event adapt
 		if messageID := strings.TrimSpace(event.MessageID); messageID != "" {
 			segments := []adapteroutbound.OutboundMessageSegment{{
 				Type: "text",
-				Data: map[string]any{"text": cooldownReplyText},
+				Data: map[string]any{"text": CooldownReplyText},
 			}}
 			attempt = outbound.SendAttempt{
 				ActionKind: "message.reply",
@@ -70,7 +70,7 @@ func (s *eventIngressService) sendCooldownReply(ctx context.Context, event adapt
 		if targetID := strings.TrimSpace(event.ConversationID); targetID != "" {
 			segments := []adapteroutbound.OutboundMessageSegment{{
 				Type: "text",
-				Data: map[string]any{"text": cooldownReplyText},
+				Data: map[string]any{"text": CooldownReplyText},
 			}}
 			attempt = outbound.SendAttempt{
 				ActionKind: "message.send",
@@ -104,21 +104,21 @@ func (s *eventIngressService) sendCooldownReply(ctx context.Context, event adapt
 		return
 	}
 
-	if s.state != nil && s.state.Logger != nil && strings.TrimSpace(attempt.ActionKind) != "" {
-		outbound.LogSendOutcome(s.state.Logger, outbound.SendLogContext{
+	if s.logger != nil && strings.TrimSpace(attempt.ActionKind) != "" {
+		outbound.LogSendOutcome(s.logger, outbound.SendLogContext{
 			TargetLabel: buildCooldownTargetLabel(ctx, event, s.outboundSender),
 		}, attempt, result, err)
 	}
 }
 
-func (s *eventIngressService) waitOutboundLimit(ctx context.Context, request outbound.MessageLimitRequest) error {
+func (s *Service) waitOutboundLimit(ctx context.Context, request outbound.MessageLimitRequest) error {
 	if s == nil || s.outboundLimiter == nil {
 		return nil
 	}
 	return s.outboundLimiter.Wait(ctx, request)
 }
 
-func buildCooldownTargetLabel(ctx context.Context, event adapterintake.NormalizedEvent, sender outboundActionSender) string {
+func buildCooldownTargetLabel(ctx context.Context, event adapterintake.NormalizedEvent, sender OutboundSender) string {
 	targetType := strings.TrimSpace(event.ConversationType)
 	targetID := strings.TrimSpace(event.ConversationID)
 	targetName := ""

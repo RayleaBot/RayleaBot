@@ -14,6 +14,7 @@ import (
 	adapterintake "github.com/RayleaBot/RayleaBot/server/internal/adapter/intake"
 	adapteroutbound "github.com/RayleaBot/RayleaBot/server/internal/adapter/outbound"
 	"github.com/RayleaBot/RayleaBot/server/internal/bridge"
+	"github.com/RayleaBot/RayleaBot/server/internal/chatpolicy"
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/dispatch"
 	"github.com/RayleaBot/RayleaBot/server/internal/logging"
@@ -59,7 +60,7 @@ func TestCommandInfoForEventUsesDefaultLevelForOmittedPermission(t *testing.T) {
 func TestResolveChatPolicyConfigUsesConfiguredFields(t *testing.T) {
 	t.Parallel()
 
-	settings := resolveChatPolicyConfig(config.Config{
+	settings := chatpolicy.ResolveConfig(config.Config{
 		Admin:      config.AdminConfig{SuperAdmins: []string{"canonical-admin"}},
 		Permission: config.PermissionConfig{DefaultLevel: "group_admin"},
 		User: config.UserConfig{
@@ -539,8 +540,8 @@ func TestApplyChatPolicySendsCooldownReplyForGroupCommand(t *testing.T) {
 	if sender.replyCount != 1 {
 		t.Fatalf("replyCount = %d, want 1", sender.replyCount)
 	}
-	if sender.lastReplyText != cooldownReplyText {
-		t.Fatalf("reply text = %q, want %q", sender.lastReplyText, cooldownReplyText)
+	if sender.lastReplyText != chatpolicy.CooldownReplyText {
+		t.Fatalf("reply text = %q, want %q", sender.lastReplyText, chatpolicy.CooldownReplyText)
 	}
 }
 
@@ -1719,16 +1720,16 @@ func TestApplyHotReloadableFieldsReloadsCommandPolicy(t *testing.T) {
 	if restartRequired {
 		t.Fatal("restartRequired = true, want false for hot-reloadable fields")
 	}
-	if !app.services.eventIngress.commandParser.Parse("!ping").IsCommand {
+	if !app.services.eventIngress.policy.CommandParser().Parse("!ping").IsCommand {
 		t.Fatal("new command prefix was not applied")
 	}
-	if app.services.eventIngress.commandParser.Parse("/ping").IsCommand {
+	if app.services.eventIngress.policy.CommandParser().Parse("/ping").IsCommand {
 		t.Fatal("old command prefix should no longer be active")
 	}
-	if verdict := app.services.eventIngress.permissionChecker.Check(context.Background(), "42", "member", "", &permission.CommandInfo{Permission: "super_admin"}); !verdict.Allowed {
+	if verdict := app.services.eventIngress.policy.PermissionChecker().Check(context.Background(), "42", "member", "", &permission.CommandInfo{Permission: "super_admin"}); !verdict.Allowed {
 		t.Fatalf("new super admin should bypass command checks: %#v", verdict)
 	}
-	if verdict := app.services.eventIngress.permissionChecker.Check(context.Background(), "1", "member", "", &permission.CommandInfo{Permission: "super_admin"}); verdict.Allowed {
+	if verdict := app.services.eventIngress.policy.PermissionChecker().Check(context.Background(), "1", "member", "", &permission.CommandInfo{Permission: "super_admin"}); verdict.Allowed {
 		t.Fatalf("old super admin should no longer bypass command checks: %#v", verdict)
 	}
 	if app.state.Config.Storage.FileMaxBytes != 8192 || app.state.Config.Storage.PluginWorkDirMB != 64 {
