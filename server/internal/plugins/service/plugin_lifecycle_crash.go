@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
-	"github.com/RayleaBot/RayleaBot/server/internal/runtime"
+	runtimemanager "github.com/RayleaBot/RayleaBot/server/internal/runtime/manager"
 )
 
 func (c *Controller) handleCrash(pluginID string, crashCount int, _ string) {
@@ -25,15 +25,15 @@ func (c *Controller) handleCrash(pluginID string, crashCount int, _ string) {
 	snapshot, ok := c.plugins.Get(pluginID)
 	if !ok || snapshot.DesiredState != "enabled" {
 		manager.SetStopped()
-		_, _ = c.plugins.SetRuntimeState(pluginID, string(runtime.StateStopped))
+		_, _ = c.plugins.SetRuntimeState(pluginID, string(runtimemanager.StateStopped))
 		return
 	}
 
-	maxRetries := runtime.DefaultMaxCrashRetries
+	maxRetries := runtimemanager.DefaultMaxCrashRetries
 	if crashCount >= maxRetries {
 		manager.SetDeadLetterState()
 		runtimeSnapshot := manager.Snapshot()
-		_, _ = c.plugins.SetRuntimeState(pluginID, string(runtime.StateDeadLetter))
+		_, _ = c.plugins.SetRuntimeState(pluginID, string(runtimemanager.StateDeadLetter))
 		if c.plugins != nil && runtimeSnapshot.EnteredDeadLetterAt != nil {
 			_, _ = c.plugins.SetDeadLetterSnapshot(pluginID, plugins.DeadLetterSnapshot{
 				EnteredAt:        *runtimeSnapshot.EnteredDeadLetterAt,
@@ -58,11 +58,11 @@ func (c *Controller) handleCrash(pluginID string, crashCount int, _ string) {
 	}
 
 	cfg := c.config().Runtime
-	delay := runtime.CrashBackoff(crashCount, cfg.CrashBackoffInitialSeconds, cfg.CrashBackoffMaxSeconds)
+	delay := runtimemanager.CrashBackoff(crashCount, cfg.CrashBackoffInitialSeconds, cfg.CrashBackoffMaxSeconds)
 	nextRetry := time.Now().Add(delay)
 
 	manager.SetBackoffState(nextRetry)
-	_, _ = c.plugins.SetRuntimeState(pluginID, string(runtime.StateBackoff))
+	_, _ = c.plugins.SetRuntimeState(pluginID, string(runtimemanager.StateBackoff))
 
 	if c.logger != nil {
 		c.logger.Info(
@@ -93,7 +93,7 @@ func (c *Controller) backoffRestart(pluginID string, delay time.Duration) {
 		if manager, ok := c.runtimes.Get(pluginID); ok && manager != nil {
 			manager.SetStopped()
 		}
-		_, _ = c.plugins.SetRuntimeState(pluginID, string(runtime.StateStopped))
+		_, _ = c.plugins.SetRuntimeState(pluginID, string(runtimemanager.StateStopped))
 		return
 	}
 
@@ -101,7 +101,7 @@ func (c *Controller) backoffRestart(pluginID string, delay time.Duration) {
 	if !ok || manager == nil {
 		return
 	}
-	if manager.Snapshot().State != runtime.StateBackoff {
+	if manager.Snapshot().State != runtimemanager.StateBackoff {
 		return
 	}
 
@@ -110,9 +110,9 @@ func (c *Controller) backoffRestart(pluginID string, delay time.Duration) {
 	ctx, cancel := context.WithTimeout(context.Background(), runtimeInitTimeout(c.config().Runtime))
 	defer cancel()
 
-	_, _ = c.plugins.SetRuntimeState(pluginID, string(runtime.StateStarting))
+	_, _ = c.plugins.SetRuntimeState(pluginID, string(runtimemanager.StateStarting))
 	if err := c.startRuntime(ctx, pluginID, botID, manager); err != nil {
 		c.logLifecycleWarn("restart plugin after crash backoff", pluginID, err)
-		_, _ = c.plugins.SetRuntimeState(pluginID, string(runtime.StateStopped))
+		_, _ = c.plugins.SetRuntimeState(pluginID, string(runtimemanager.StateStopped))
 	}
 }

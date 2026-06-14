@@ -5,7 +5,7 @@ import (
 
 	internalconfig "github.com/RayleaBot/RayleaBot/server/internal/config"
 	managementhttp "github.com/RayleaBot/RayleaBot/server/internal/management/http"
-	"github.com/RayleaBot/RayleaBot/server/internal/render"
+	renderservice "github.com/RayleaBot/RayleaBot/server/internal/render/service"
 )
 
 func normalizeConfigApplyEffects(e *managementhttp.ConfigApplyEffects) {
@@ -47,7 +47,7 @@ func (s *configHTTPServiceImpl) ApplyHotReloadableFields(newCfg internalconfig.C
 		newCfg.Render.FooterTemplate != oldCfg.Render.FooterTemplate ||
 		newCfg.Render.DefaultOutput != oldCfg.Render.DefaultOutput ||
 		newCfg.Render.DeviceScalePercent != oldCfg.Render.DeviceScalePercent) {
-		s.renderer.UpdateRuntimeConfig(render.RuntimeConfig{
+		s.renderer.UpdateRuntimeConfig(renderservice.RuntimeConfig{
 			QueueMaxLength:     newCfg.Render.QueueMaxLength,
 			QueueWaitTimeout:   time.Duration(newCfg.Render.QueueWaitTimeoutSeconds) * time.Second,
 			RenderTimeout:      time.Duration(newCfg.Render.TimeoutSeconds) * time.Second,

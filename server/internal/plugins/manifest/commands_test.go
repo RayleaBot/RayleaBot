@@ -1,13 +1,14 @@
 package pluginmanifest
 
 import (
+	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	"reflect"
 	"testing"
 )
 
 func TestProjectCommandsUsesDefaultDynamicSetting(t *testing.T) {
-	snapshot := Snapshot{
-		DynamicCommands: []DynamicCommandDecl{{
+	snapshot := plugins.Snapshot{
+		DynamicCommands: []plugins.DynamicCommandDecl{{
 			ID:          "fortune",
 			SettingsKey: "trigger_commands",
 			Description: "查看今日运势",
@@ -33,8 +34,8 @@ func TestProjectCommandsUsesDefaultDynamicSetting(t *testing.T) {
 }
 
 func TestProjectCommandsUsesPersistedDynamicSetting(t *testing.T) {
-	snapshot := Snapshot{
-		DynamicCommands: []DynamicCommandDecl{{
+	snapshot := plugins.Snapshot{
+		DynamicCommands: []plugins.DynamicCommandDecl{{
 			ID:          "fortune",
 			SettingsKey: "trigger_commands",
 			Description: "查看今日运势",
@@ -56,8 +57,8 @@ func TestProjectCommandsUsesPersistedDynamicSetting(t *testing.T) {
 }
 
 func TestProjectCommandsKeepsExplicitEmptyDynamicSetting(t *testing.T) {
-	snapshot := Snapshot{
-		DynamicCommands: []DynamicCommandDecl{{
+	snapshot := plugins.Snapshot{
+		DynamicCommands: []plugins.DynamicCommandDecl{{
 			ID:          "fortune",
 			SettingsKey: "trigger_commands",
 			Description: "查看今日运势",
@@ -76,8 +77,8 @@ func TestProjectCommandsKeepsExplicitEmptyDynamicSetting(t *testing.T) {
 }
 
 func TestProjectCommandsIgnoresWhitespaceDynamicTokens(t *testing.T) {
-	snapshot := Snapshot{
-		DynamicCommands: []DynamicCommandDecl{{
+	snapshot := plugins.Snapshot{
+		DynamicCommands: []plugins.DynamicCommandDecl{{
 			ID:          "fortune",
 			SettingsKey: "trigger_commands",
 			Description: "查看今日运势",
@@ -94,8 +95,8 @@ func TestProjectCommandsIgnoresWhitespaceDynamicTokens(t *testing.T) {
 }
 
 func TestProjectCommandsMarksManifestCommands(t *testing.T) {
-	snapshot := Snapshot{
-		ManifestCommands: []Command{{
+	snapshot := plugins.Snapshot{
+		ManifestCommands: []plugins.Command{{
 			Name:    " 订阅状态 ",
 			Aliases: []string{"状态？", "订阅📡", "状态？", "订阅 状态"},
 		}},

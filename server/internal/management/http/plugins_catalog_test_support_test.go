@@ -1,6 +1,7 @@
 package managementhttp
 
 import (
+	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	"sort"
 	"sync"
 )
@@ -8,46 +9,46 @@ import (
 type testCatalog struct {
 	mu    sync.RWMutex
 	order []string
-	items map[string]Snapshot
+	items map[string]plugins.Snapshot
 }
 
-func newTestCatalog(entries []Snapshot) *testCatalog {
+func newTestCatalog(entries []plugins.Snapshot) *testCatalog {
 	catalog := &testCatalog{}
 	catalog.Replace(entries)
 	return catalog
 }
 
-func (c *testCatalog) List() []Snapshot {
+func (c *testCatalog) List() []plugins.Snapshot {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 
-	result := make([]Snapshot, 0, len(c.order))
+	result := make([]plugins.Snapshot, 0, len(c.order))
 	for _, pluginID := range c.order {
-		result = append(result, CloneSnapshot(c.items[pluginID]))
+		result = append(result, plugins.CloneSnapshot(c.items[pluginID]))
 	}
 	return result
 }
 
-func (c *testCatalog) Get(pluginID string) (Snapshot, bool) {
+func (c *testCatalog) Get(pluginID string) (plugins.Snapshot, bool) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 
 	snapshot, ok := c.items[pluginID]
 	if !ok {
-		return Snapshot{}, false
+		return plugins.Snapshot{}, false
 	}
-	return CloneSnapshot(snapshot), true
+	return plugins.CloneSnapshot(snapshot), true
 }
 
-func (c *testCatalog) Replace(entries []Snapshot) {
+func (c *testCatalog) Replace(entries []plugins.Snapshot) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	items := make(map[string]Snapshot, len(entries))
+	items := make(map[string]plugins.Snapshot, len(entries))
 	order := make([]string, 0, len(entries))
 	seen := map[string]struct{}{}
 	for _, entry := range entries {
-		items[entry.PluginID] = CloneSnapshot(entry)
+		items[entry.PluginID] = plugins.CloneSnapshot(entry)
 		if _, ok := seen[entry.PluginID]; ok {
 			continue
 		}
@@ -59,19 +60,19 @@ func (c *testCatalog) Replace(entries []Snapshot) {
 	c.order = order
 }
 
-func (c *testCatalog) SetDesiredState(pluginID string, desired string) (Snapshot, error) {
+func (c *testCatalog) SetDesiredState(pluginID string, desired string) (plugins.Snapshot, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
 	entry, ok := c.items[pluginID]
 	if !ok {
-		return Snapshot{}, ErrPluginNotFound
+		return plugins.Snapshot{}, plugins.ErrPluginNotFound
 	}
 	if entry.RegistrationState != "installed" || entry.DesiredState == desired {
-		return Snapshot{}, ErrStateConflict
+		return plugins.Snapshot{}, plugins.ErrStateConflict
 	}
 	entry.DesiredState = desired
-	entry.DisplayState = DefaultDisplayState(entry)
+	entry.DisplayState = plugins.DefaultDisplayState(entry)
 	c.items[pluginID] = entry
-	return CloneSnapshot(entry), nil
+	return plugins.CloneSnapshot(entry), nil
 }

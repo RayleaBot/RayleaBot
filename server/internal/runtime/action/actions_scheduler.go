@@ -3,10 +3,12 @@ package action
 import (
 	"encoding/json"
 	"strings"
+
+	runtimeprotocol "github.com/RayleaBot/RayleaBot/server/internal/runtime/protocol"
 )
 
 func parseSchedulerCreateAction(raw json.RawMessage) (*Action, error) {
-	var frame protocolActionSchedulerCreateFrame
+	var frame runtimeprotocol.ProtocolActionSchedulerCreateFrame
 	if err := json.Unmarshal(raw, &frame); err != nil {
 		return nil, errorf(codePluginProtocolViolation, "plugin returned malformed scheduler.create data", err)
 	}

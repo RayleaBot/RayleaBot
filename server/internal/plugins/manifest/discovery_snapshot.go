@@ -1,13 +1,14 @@
 package pluginmanifest
 
 import (
+	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	"log/slog"
 	"path/filepath"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/schema"
 )
 
-func LoadSnapshot(infoPath, sourceRoot, repoRoot string, validator *schema.Validator, maxSummaryChars int, logger *slog.Logger) (Snapshot, bool, error) {
+func LoadSnapshot(infoPath, sourceRoot, repoRoot string, validator *schema.Validator, maxSummaryChars int, logger *slog.Logger) (plugins.Snapshot, bool, error) {
 	document, err := schema.LoadJSONFile(infoPath)
 	if err != nil {
 		if logger != nil {
@@ -19,7 +20,7 @@ func LoadSnapshot(infoPath, sourceRoot, repoRoot string, validator *schema.Valid
 				"err", err.Error(),
 			)
 		}
-		return Snapshot{}, false, nil
+		return plugins.Snapshot{}, false, nil
 	}
 
 	manifest, ok := document.(map[string]any)
@@ -32,7 +33,7 @@ func LoadSnapshot(infoPath, sourceRoot, repoRoot string, validator *schema.Valid
 				"source_root", sourceRoot,
 			)
 		}
-		return Snapshot{}, false, nil
+		return plugins.Snapshot{}, false, nil
 	}
 
 	pluginID, ok := extractStringField(manifest, "id")
@@ -45,12 +46,12 @@ func LoadSnapshot(infoPath, sourceRoot, repoRoot string, validator *schema.Valid
 				"source_root", sourceRoot,
 			)
 		}
-		return Snapshot{}, false, nil
+		return plugins.Snapshot{}, false, nil
 	}
 
 	defaultConfig, defaultConfigErr := manifestDefaultConfig(manifest, filepath.Dir(infoPath))
 
-	snapshot := Snapshot{
+	snapshot := plugins.Snapshot{
 		PluginID:           pluginID,
 		Name:               stringField(manifest, "name"),
 		Role:               manifestRole(manifest, sourceRoot),

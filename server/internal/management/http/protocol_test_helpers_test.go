@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/RayleaBot/RayleaBot/server/internal/adapter"
+	adaptershell "github.com/RayleaBot/RayleaBot/server/internal/adapter/shell"
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 )
 
@@ -18,7 +18,7 @@ func defaultAdapterTestConfig() config.AdapterConfig {
 	}
 }
 
-func waitForAdapterState(t *testing.T, shell *adapter.Shell, want adapter.State, timeout time.Duration) {
+func waitForAdapterState(t *testing.T, shell *adaptershell.Shell, want adaptershell.State, timeout time.Duration) {
 	t.Helper()
 
 	deadline := time.Now().Add(timeout)
@@ -32,21 +32,21 @@ func waitForAdapterState(t *testing.T, shell *adapter.Shell, want adapter.State,
 	t.Fatalf("timed out waiting for adapter state %s, got %s", want, shell.Snapshot().State)
 }
 
-func waitForRuntimeInfo(t *testing.T, shell *adapter.Shell, transport adapter.TransportKey, wantProvider string, timeout time.Duration) {
+func waitForRuntimeInfo(t *testing.T, shell *adaptershell.Shell, transport adaptershell.TransportKey, wantProvider string, timeout time.Duration) {
 	t.Helper()
 
 	deadline := time.Now().Add(timeout)
 	for time.Now().Before(deadline) {
 		snapshot := shell.Snapshot()
-		var info adapter.TransportRuntimeInfo
+		var info adaptershell.TransportRuntimeInfo
 		switch transport {
-		case adapter.TransportForwardWS:
+		case adaptershell.TransportForwardWS:
 			info = snapshot.ForwardWS.RuntimeInfo
-		case adapter.TransportReverseWS:
+		case adaptershell.TransportReverseWS:
 			info = snapshot.ReverseWS.RuntimeInfo
-		case adapter.TransportHTTPAPI:
+		case adaptershell.TransportHTTPAPI:
 			info = snapshot.HTTPAPI.RuntimeInfo
-		case adapter.TransportWebhook:
+		case adaptershell.TransportWebhook:
 			info = snapshot.Webhook.RuntimeInfo
 		}
 		if info.Provider == wantProvider {

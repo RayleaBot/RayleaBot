@@ -3,7 +3,7 @@ package app
 import (
 	"context"
 
-	source "github.com/RayleaBot/RayleaBot/server/internal/bilibili"
+	bilibilisession "github.com/RayleaBot/RayleaBot/server/internal/bilibili/session"
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/governance"
 	"github.com/RayleaBot/RayleaBot/server/internal/localaction"
@@ -32,7 +32,7 @@ func buildLocalActionService(
 	grantView *pluginservice.GrantView,
 	governanceService *governance.Service,
 	thirdPartyService *thirdparty.Service,
-	bilibiliSession *source.SessionClient,
+	bilibiliSession *bilibilisession.SessionClient,
 ) *localaction.Service {
 	return localaction.New(localaction.Deps{
 		CurrentConfig:    func() config.Config { return runtimeState.Config },

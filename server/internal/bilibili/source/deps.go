@@ -5,9 +5,10 @@ import (
 	"net/http"
 	"time"
 
+	bilibiliSession "github.com/RayleaBot/RayleaBot/server/internal/bilibili/session"
 	"github.com/RayleaBot/RayleaBot/server/internal/dispatch"
 	"github.com/RayleaBot/RayleaBot/server/internal/pluginconfig"
-	"github.com/RayleaBot/RayleaBot/server/internal/runtime"
+	runtimeprotocol "github.com/RayleaBot/RayleaBot/server/internal/runtime/protocol"
 	"github.com/RayleaBot/RayleaBot/server/internal/storage"
 	"github.com/RayleaBot/RayleaBot/server/internal/thirdparty"
 )
@@ -29,7 +30,7 @@ const (
 )
 
 type Dispatcher interface {
-	Dispatch(context.Context, runtime.Event, string) []dispatch.DeliveryResult
+	Dispatch(context.Context, runtimeprotocol.Event, string) []dispatch.DeliveryResult
 }
 
 type Deps struct {
@@ -39,8 +40,8 @@ type Deps struct {
 	Dispatcher    Dispatcher
 	NotifyStatus  func(Status)
 	HTTPTransport http.RoundTripper
-	Session       *SessionClient
-	Identity      *IdentityProvider
+	Session       *bilibiliSession.SessionClient
+	Identity      *bilibiliSession.IdentityProvider
 	ProxyPool     *ProxyPool
 	Now           func() time.Time
 }

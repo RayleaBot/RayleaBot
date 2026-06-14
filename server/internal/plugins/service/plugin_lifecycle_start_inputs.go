@@ -6,27 +6,27 @@ import (
 
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
-	"github.com/RayleaBot/RayleaBot/server/internal/runtime"
+	runtimespec "github.com/RayleaBot/RayleaBot/server/internal/runtime/spec"
 )
 
-func (c *Controller) buildStartInputs(ctx context.Context, pluginID, botID string) (runtime.Spec, runtime.InitPayload, error) {
+func (c *Controller) buildStartInputs(ctx context.Context, pluginID, botID string) (runtimespec.Spec, runtimespec.InitPayload, error) {
 	return c.buildStartInputsWithCapabilities(pluginID, botID, c.grants.grantedCapabilities(ctx, pluginID))
 }
 
-func (c *Controller) buildStartInputsWithCapabilities(pluginID, botID string, capabilities []string) (runtime.Spec, runtime.InitPayload, error) {
+func (c *Controller) buildStartInputsWithCapabilities(pluginID, botID string, capabilities []string) (runtimespec.Spec, runtimespec.InitPayload, error) {
 	snapshot, ok := c.plugins.Get(pluginID)
 	if !ok {
-		return runtime.Spec{}, runtime.InitPayload{}, plugins.ErrPluginNotFound
+		return runtimespec.Spec{}, runtimespec.InitPayload{}, plugins.ErrPluginNotFound
 	}
 
 	cfg := c.config()
-	spec, err := runtime.BuildSpec(snapshot, c.repoRoot, cfg.Runtime)
+	spec, err := runtimespec.BuildSpec(snapshot, c.repoRoot, cfg.Runtime)
 	if err != nil {
-		return runtime.Spec{}, runtime.InitPayload{}, err
+		return runtimespec.Spec{}, runtimespec.InitPayload{}, err
 	}
 
-	payload := runtime.InitPayload{
-		Bot: runtime.BotInfo{
+	payload := runtimespec.InitPayload{
+		Bot: runtimespec.BotInfo{
 			ID: strings.TrimSpace(botID),
 		},
 		Capabilities:    append([]string(nil), capabilities...),

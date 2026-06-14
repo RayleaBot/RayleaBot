@@ -1,6 +1,11 @@
 package shell
 
-import "strings"
+import (
+	"strings"
+
+	adapterapi "github.com/RayleaBot/RayleaBot/server/internal/adapter/api"
+	adapterintake "github.com/RayleaBot/RayleaBot/server/internal/adapter/intake"
+)
 
 func groupNameFromPayload(payload map[string]any) string {
 	if len(payload) == 0 {
@@ -13,7 +18,7 @@ func groupNameFromPayload(payload map[string]any) string {
 	return payloadStringValue(onebot["group_name"])
 }
 
-func cloneNormalizedEvent(event NormalizedEvent) NormalizedEvent {
+func cloneNormalizedEvent(event adapterintake.NormalizedEvent) adapterintake.NormalizedEvent {
 	cloned := event
 	cloned.PayloadFields = cloneEventMap(event.PayloadFields)
 	return cloned
@@ -104,7 +109,7 @@ func syncSenderPayload(payload map[string]any, sender map[string]any) {
 	payload["onebot"] = onebot
 }
 
-func mergeGroupMemberInfo(sender map[string]any, info GroupMemberInfo) {
+func mergeGroupMemberInfo(sender map[string]any, info adapterapi.GroupMemberInfo) {
 	if payloadStringValue(sender["card"]) == "" && strings.TrimSpace(info.Card) != "" {
 		sender["card"] = info.Card
 	}
@@ -119,7 +124,7 @@ func mergeGroupMemberInfo(sender map[string]any, info GroupMemberInfo) {
 	}
 }
 
-func mergeStrangerInfo(sender map[string]any, info StrangerInfo) {
+func mergeStrangerInfo(sender map[string]any, info adapterapi.StrangerInfo) {
 	if payloadStringValue(sender["nickname"]) == "" && strings.TrimSpace(info.Nickname) != "" {
 		sender["nickname"] = info.Nickname
 	}

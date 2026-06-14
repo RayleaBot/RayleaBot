@@ -3,26 +3,26 @@ package app
 import (
 	"testing"
 
-	"github.com/RayleaBot/RayleaBot/server/internal/adapter"
+	adapterintake "github.com/RayleaBot/RayleaBot/server/internal/adapter/intake"
 )
 
 func TestReplyTargetCacheStoresRecentEventTargets(t *testing.T) {
 	t.Parallel()
 
 	cache := newReplyTargetCache(2)
-	cache.Record(adapter.NormalizedEvent{
+	cache.Record(adapterintake.NormalizedEvent{
 		EventID:          "evt-1",
 		MessageID:        "msg-1",
 		ConversationType: "group",
 		ConversationID:   "2001",
 	})
-	cache.Record(adapter.NormalizedEvent{
+	cache.Record(adapterintake.NormalizedEvent{
 		EventID:          "evt-2",
 		MessageID:        "msg-2",
 		ConversationType: "private",
 		ConversationID:   "3001",
 	})
-	cache.Record(adapter.NormalizedEvent{
+	cache.Record(adapterintake.NormalizedEvent{
 		EventID:          "evt-3",
 		MessageID:        "msg-3",
 		ConversationType: "group",

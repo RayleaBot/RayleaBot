@@ -1,18 +1,23 @@
 package service
 
-import "time"
+import (
+	"time"
 
-func newValidationStatus(valid bool, issueCount int) TemplateValidationStatus {
-	return TemplateValidationStatus{
+	renderrepo "github.com/RayleaBot/RayleaBot/server/internal/render/repository"
+	rendertemplates "github.com/RayleaBot/RayleaBot/server/internal/render/templates"
+)
+
+func newValidationStatus(valid bool, issueCount int) renderrepo.TemplateValidationStatus {
+	return renderrepo.TemplateValidationStatus{
 		Valid:      valid,
 		CheckedAt:  time.Now().UTC().Format(time.RFC3339Nano),
 		IssueCount: issueCount,
 	}
 }
 
-func issuesOrEmpty(issues []TemplateValidationIssue) []TemplateValidationIssue {
+func issuesOrEmpty(issues []rendertemplates.TemplateValidationIssue) []rendertemplates.TemplateValidationIssue {
 	if len(issues) == 0 {
-		return []TemplateValidationIssue{}
+		return []rendertemplates.TemplateValidationIssue{}
 	}
 	return issues
 }

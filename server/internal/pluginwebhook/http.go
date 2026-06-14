@@ -10,7 +10,7 @@ import (
 
 	"github.com/RayleaBot/RayleaBot/server/internal/dispatch"
 	"github.com/RayleaBot/RayleaBot/server/internal/httpapi"
-	"github.com/RayleaBot/RayleaBot/server/internal/runtime"
+	runtimeprotocol "github.com/RayleaBot/RayleaBot/server/internal/runtime/protocol"
 )
 
 func (s *Service) HandleWebhook() http.HandlerFunc {
@@ -122,18 +122,18 @@ func (s *Service) HandleWebhook() http.HandlerFunc {
 			webhookMeta["client_event_id"] = replayDecision.eventID
 		}
 
-		result := s.dispatcher.DispatchToPlugin(r.Context(), pluginID, runtime.Event{
+		result := s.dispatcher.DispatchToPlugin(r.Context(), pluginID, runtimeprotocol.Event{
 			EventID:        eventID,
 			SourceProtocol: "webhook",
 			SourceAdapter:  "webhook.gateway",
 			EventType:      "webhook.received",
 			Timestamp:      nowTime.Unix(),
-			Target: &runtime.EventTarget{
+			Target: &runtimeprotocol.EventTarget{
 				Type: "webhook",
 				ID:   route,
 				Name: route,
 			},
-			Actor: &runtime.EventActor{
+			Actor: &runtimeprotocol.EventActor{
 				ID:   webhookRemoteIP(r.RemoteAddr),
 				Role: "remote",
 			},

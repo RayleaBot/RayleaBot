@@ -3,10 +3,10 @@ package localaction
 import (
 	"context"
 
-	"github.com/RayleaBot/RayleaBot/server/internal/runtime"
+	runtimeprotocol "github.com/RayleaBot/RayleaBot/server/internal/runtime/protocol"
 )
 
-func (s *Service) renderImageData(ctx context.Context, templateID string, data map[string]any, parentEvent runtime.Event) map[string]any {
+func (s *Service) renderImageData(ctx context.Context, templateID string, data map[string]any, parentEvent runtimeprotocol.Event) map[string]any {
 	if !s.templateAcceptsRenderIdentity(ctx, templateID) {
 		return data
 	}

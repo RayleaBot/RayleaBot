@@ -1,7 +1,7 @@
 package managementhttp
 
 import (
-	source "github.com/RayleaBot/RayleaBot/server/internal/bilibili"
+	bilibilisource "github.com/RayleaBot/RayleaBot/server/internal/bilibili/source"
 	managementevents "github.com/RayleaBot/RayleaBot/server/internal/management/events"
 )
 
@@ -38,7 +38,7 @@ type bilibiliSourceRestartResponse struct {
 	Status   bilibiliSourceStatusResponse `json:"status"`
 }
 
-func bilibiliSourceStatusResponseFrom(status source.Status) bilibiliSourceStatusResponse {
+func bilibiliSourceStatusResponseFrom(status bilibilisource.Status) bilibiliSourceStatusResponse {
 	return bilibiliSourceStatusResponse{
 		Status:  status.Status,
 		Summary: status.Summary,

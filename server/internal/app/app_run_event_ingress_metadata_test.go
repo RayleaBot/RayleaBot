@@ -6,32 +6,32 @@ import (
 	"testing"
 	"time"
 
-	"github.com/RayleaBot/RayleaBot/server/internal/adapter"
+	adapterintake "github.com/RayleaBot/RayleaBot/server/internal/adapter/intake"
 	"github.com/RayleaBot/RayleaBot/server/internal/bridge"
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/dispatch"
-	"github.com/RayleaBot/RayleaBot/server/internal/runtime"
+	runtimeprotocol "github.com/RayleaBot/RayleaBot/server/internal/runtime/protocol"
 )
 
 type metadataEnricherStub struct {
 	calls int
 }
 
-func (s *metadataEnricherStub) EnrichEventMetadata(_ context.Context, event adapter.NormalizedEvent) adapter.NormalizedEvent {
+func (s *metadataEnricherStub) EnrichEventMetadata(_ context.Context, event adapterintake.NormalizedEvent) adapterintake.NormalizedEvent {
 	s.calls++
 	event.TargetName = "测试群"
 	return event
 }
 
 type eventIngressDispatcherStub struct {
-	events []runtime.Event
+	events []runtimeprotocol.Event
 }
 
 func (*eventIngressDispatcherStub) HasDeliverablePlugins() bool {
 	return true
 }
 
-func (s *eventIngressDispatcherStub) Dispatch(_ context.Context, event runtime.Event, _ string) []dispatch.DeliveryResult {
+func (s *eventIngressDispatcherStub) Dispatch(_ context.Context, event runtimeprotocol.Event, _ string) []dispatch.DeliveryResult {
 	s.events = append(s.events, event)
 	return []dispatch.DeliveryResult{{
 		PluginID: "echo",
@@ -48,8 +48,8 @@ func TestEventIngressEnrichesMetadataBeforeBridgeDispatch(t *testing.T) {
 	enricher := &metadataEnricherStub{}
 	application.services.eventIngress.metadataEnricher = enricher
 
-	application.handleAdapterEvent(context.Background(), adapter.NormalizedEvent{
-		Kind:             adapter.EventKindMessage,
+	application.handleAdapterEvent(context.Background(), adapterintake.NormalizedEvent{
+		Kind:             adapterintake.EventKindMessage,
 		EventID:          "onebot11-message-1001",
 		BotID:            "10001",
 		SourceProtocol:   "onebot11",

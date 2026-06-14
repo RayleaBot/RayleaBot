@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	bilibiliSession "github.com/RayleaBot/RayleaBot/server/internal/bilibili/session"
 	"github.com/RayleaBot/RayleaBot/server/internal/thirdparty"
 )
 
@@ -107,13 +108,13 @@ func bilibiliProfileURL(uid string) string {
 	return "https://space.bilibili.com/" + uid + "/"
 }
 func normalizeRoomConnectionState(state string, lastError string) string {
-	if isBilibiliRiskControlErrorText(lastError) {
+	if bilibiliSession.IsRiskControlErrorText(lastError) {
 		return StateIdle
 	}
 	return firstNonEmpty(state, StateIdle)
 }
 func roomMonitorLastError(value string) string {
-	if isBilibiliRiskControlErrorText(value) {
+	if bilibiliSession.IsRiskControlErrorText(value) {
 		return ""
 	}
 	return value

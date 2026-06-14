@@ -7,6 +7,9 @@ import (
 	"path/filepath"
 	"testing"
 	"time"
+
+	renderplugins "github.com/RayleaBot/RayleaBot/server/internal/render/plugins"
+	rendertemplates "github.com/RayleaBot/RayleaBot/server/internal/render/templates"
 )
 
 func TestLookupTemplateAssetRespectsSystemResourceRoot(t *testing.T) {
@@ -54,7 +57,7 @@ func TestLookupTemplateAssetRespectsSystemResourceRoot(t *testing.T) {
 
 	for _, path := range []string{"../../outside.txt", "template.HTML", "styles.css", "input.Schema.json", "preview.json", "missing.png"} {
 		_, err := service.LookupTemplateAsset(context.Background(), "help.menu", path)
-		var renderErr *Error
+		var renderErr *rendertemplates.Error
 		if !errors.As(err, &renderErr) || renderErr.Code != "platform.resource_missing" {
 			t.Fatalf("LookupTemplateAsset(%q) error = %v, want platform.resource_missing", path, err)
 		}
@@ -119,7 +122,7 @@ func TestLookupTemplateAssetRejectsRegisteredSourceFiles(t *testing.T) {
 
 	for _, path := range []string{"template.json", "views/card.gohtml", "css/card.main.css", "schema/input.json", "preview.json"} {
 		_, err := service.LookupTemplateAsset(context.Background(), "custom.card", path)
-		var renderErr *Error
+		var renderErr *rendertemplates.Error
 		if !errors.As(err, &renderErr) || renderErr.Code != "platform.resource_missing" {
 			t.Fatalf("LookupTemplateAsset(%q) error = %v, want platform.resource_missing", path, err)
 		}
@@ -160,7 +163,7 @@ func TestLookupTemplateAssetRespectsPluginPackageRoot(t *testing.T) {
 			t.Fatalf("Close: %v", err)
 		}
 	})
-	if err := service.SyncPluginTemplates(context.Background(), []PluginTemplateSource{{
+	if err := service.SyncPluginTemplates(context.Background(), []renderplugins.Source{{
 		PluginID:     "weather-card",
 		Dir:          pluginTemplateDir,
 		ResourceRoot: pluginRoot,
@@ -177,7 +180,7 @@ func TestLookupTemplateAssetRespectsPluginPackageRoot(t *testing.T) {
 	}
 
 	_, err = service.LookupTemplateAsset(context.Background(), "plugin.weather-card.card", "../../../outside.txt")
-	var renderErr *Error
+	var renderErr *rendertemplates.Error
 	if !errors.As(err, &renderErr) || renderErr.Code != "platform.resource_missing" {
 		t.Fatalf("expected escaped plugin path rejection, got %v", err)
 	}

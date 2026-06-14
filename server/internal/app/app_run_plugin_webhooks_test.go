@@ -20,29 +20,31 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/dispatch"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
-	"github.com/RayleaBot/RayleaBot/server/internal/runtime"
+	runtimeaction "github.com/RayleaBot/RayleaBot/server/internal/runtime/action"
+	runtimemanager "github.com/RayleaBot/RayleaBot/server/internal/runtime/manager"
+	runtimeprotocol "github.com/RayleaBot/RayleaBot/server/internal/runtime/protocol"
 	"github.com/RayleaBot/RayleaBot/server/internal/secrets"
 	"github.com/RayleaBot/RayleaBot/server/internal/storage"
 	"github.com/go-chi/chi/v5"
 )
 
 type capturingRuntime struct {
-	events chan runtime.Event
+	events chan runtimeprotocol.Event
 }
 
-func (r *capturingRuntime) DeliverEvent(_ context.Context, event runtime.Event) (runtime.Delivery, error) {
+func (r *capturingRuntime) DeliverEvent(_ context.Context, event runtimeprotocol.Event) (runtimemanager.Delivery, error) {
 	select {
 	case r.events <- event:
 	default:
 	}
-	return runtime.Delivery{
+	return runtimemanager.Delivery{
 		RequestID: "event_webhook_1",
 		Result:    map[string]any{},
 	}, nil
 }
 
-func (r *capturingRuntime) Snapshot() runtime.Snapshot {
-	return runtime.Snapshot{State: runtime.StateRunning}
+func (r *capturingRuntime) Snapshot() runtimemanager.Snapshot {
+	return runtimemanager.Snapshot{State: runtimemanager.StateRunning}
 }
 
 func TestHandlePluginWebhookAcceptsSignedRequestAndDispatchesEvent(t *testing.T) {
@@ -86,14 +88,14 @@ func TestHandlePluginWebhookAcceptsSignedRequestAndDispatchesEvent(t *testing.T)
 	application.setTestLocalActions(grantRepo, nil, nil, nil, nil, dispatcher, nil, nil, nil, nil)
 	application.setTestWebhookService(secretStore, dispatcher, nil, registry)
 
-	fakeRuntime := &capturingRuntime{events: make(chan runtime.Event, 1)}
+	fakeRuntime := &capturingRuntime{events: make(chan runtimeprotocol.Event, 1)}
 	application.pluginStack.Dispatcher.Register("repo-watcher", fakeRuntime, []string{"webhook.received"}, nil, 1)
 
 	if err := application.platform.Secrets.Set(context.Background(), "webhook.github.secret", []byte("fixture-webhook-secret")); err != nil {
 		t.Fatalf("set webhook secret: %v", err)
 	}
 
-	if _, err := application.executeLocalAction(context.Background(), "repo-watcher", "req_webhook_register", runtime.Action{
+	if _, err := application.executeLocalAction(context.Background(), "repo-watcher", "req_webhook_register", runtimeaction.Action{
 		Kind:                   "event.expose_webhook",
 		WebhookRoute:           "github",
 		WebhookMethods:         []string{"POST"},
@@ -101,7 +103,7 @@ func TestHandlePluginWebhookAcceptsSignedRequestAndDispatchesEvent(t *testing.T)
 		WebhookHeader:          "X-Hub-Signature-256",
 		WebhookSecretRef:       "webhook.github.secret",
 		WebhookSignaturePrefix: "sha256=",
-		WebhookReplayProtection: &runtime.WebhookReplayProtection{
+		WebhookReplayProtection: &runtimeaction.WebhookReplayProtection{
 			TimestampHeader:  "X-Raylea-Timestamp",
 			EventIDHeader:    "X-Raylea-Event-Id",
 			ToleranceSeconds: 300,
@@ -204,14 +206,14 @@ func TestHandlePluginWebhookRejectsOversizedBody(t *testing.T) {
 	application.setTestLocalActions(grantRepo, nil, nil, nil, nil, dispatcher, nil, nil, nil, nil)
 	application.setTestWebhookService(secretStore, dispatcher, nil, registry)
 
-	fakeRuntime := &capturingRuntime{events: make(chan runtime.Event, 1)}
+	fakeRuntime := &capturingRuntime{events: make(chan runtimeprotocol.Event, 1)}
 	application.pluginStack.Dispatcher.Register("repo-watcher", fakeRuntime, []string{"webhook.received"}, nil, 1)
 
 	if err := application.platform.Secrets.Set(context.Background(), "webhook.github.secret", []byte("fixture-webhook-secret")); err != nil {
 		t.Fatalf("set webhook secret: %v", err)
 	}
 
-	if _, err := application.executeLocalAction(context.Background(), "repo-watcher", "req_webhook_register", runtime.Action{
+	if _, err := application.executeLocalAction(context.Background(), "repo-watcher", "req_webhook_register", runtimeaction.Action{
 		Kind:                   "event.expose_webhook",
 		WebhookRoute:           "github",
 		WebhookMethods:         []string{"POST"},
@@ -219,7 +221,7 @@ func TestHandlePluginWebhookRejectsOversizedBody(t *testing.T) {
 		WebhookHeader:          "X-Hub-Signature-256",
 		WebhookSecretRef:       "webhook.github.secret",
 		WebhookSignaturePrefix: "sha256=",
-		WebhookReplayProtection: &runtime.WebhookReplayProtection{
+		WebhookReplayProtection: &runtimeaction.WebhookReplayProtection{
 			TimestampHeader:  "X-Raylea-Timestamp",
 			EventIDHeader:    "X-Raylea-Event-Id",
 			ToleranceSeconds: 300,

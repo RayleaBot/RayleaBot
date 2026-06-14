@@ -3,6 +3,8 @@ package source
 import (
 	"context"
 
+	bilibiliCaptcha "github.com/RayleaBot/RayleaBot/server/internal/bilibili/captcha"
+	bilibiliSession "github.com/RayleaBot/RayleaBot/server/internal/bilibili/session"
 	"github.com/RayleaBot/RayleaBot/server/internal/thirdparty"
 )
 
@@ -18,7 +20,7 @@ func (s *Source) handleAccountRequestError(ctx context.Context, account thirdpar
 	if err == nil || account.Platform == "" || account.AccountID == "" {
 		return accountRequestErrorNone
 	}
-	if isBilibiliAuthError(err) {
+	if bilibiliSession.IsAuthError(err) {
 		checkedAt := s.now()
 		_ = s.accounts.UpdateCredentialStatus(ctx, account.Platform, account.AccountID, account.Profile, thirdparty.CredentialStatus{
 			State:     thirdparty.CredentialInvalid,
@@ -28,7 +30,7 @@ func (s *Source) handleAccountRequestError(ctx context.Context, account thirdpar
 		s.stopRoomTasks()
 		return accountRequestErrorAuth
 	}
-	if bilibErr := asBilibiliError(err); bilibErr != nil && bilibErr.Kind == ErrorCaptcha {
+	if bilibErr := bilibiliSession.AsError(err); bilibErr != nil && bilibErr.Kind == bilibiliSession.ErrorCaptcha {
 		s.rememberRequestCooldown(scope, account, cookie, err)
 		go s.tryCaptchaRecovery(ctx, account, cookie, err)
 		return accountRequestErrorCooldown
@@ -41,11 +43,11 @@ func (s *Source) handleAccountRequestError(ctx context.Context, account thirdpar
 }
 
 func (s *Source) tryCaptchaRecovery(ctx context.Context, account thirdparty.Account, cookie string, err error) {
-	biliErr := asBilibiliError(err)
+	biliErr := bilibiliSession.AsError(err)
 	if biliErr == nil {
 		return
 	}
-	vVoucher := ExtractVVoucher([]byte(biliErr.Body))
+	vVoucher := bilibiliCaptcha.ExtractVVoucher([]byte(biliErr.Body))
 	if vVoucher == "" {
 		return
 	}

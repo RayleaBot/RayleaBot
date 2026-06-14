@@ -4,10 +4,12 @@ import (
 	"context"
 	"fmt"
 	"strings"
+
+	bilibiliLive "github.com/RayleaBot/RayleaBot/server/internal/bilibili/live"
 )
 
-func (s *Source) emitLiveTransition(ctx context.Context, subject Subject, item liveStatusItem, liveStatus int, source string) {
-	liveStatus = normalizeLiveStatus(liveStatus)
+func (s *Source) emitLiveTransition(ctx context.Context, subject Subject, item bilibiliLive.StatusItem, liveStatus int, source string) {
+	liveStatus = bilibiliLive.NormalizeStatus(liveStatus)
 	state := s.loadRoomState(ctx, subject.UID)
 	if state.UID == "" {
 		state.UID = subject.UID
@@ -18,8 +20,8 @@ func (s *Source) emitLiveTransition(ctx context.Context, subject Subject, item l
 	}
 	state.Name = firstNonEmpty(item.UName, subject.Name, state.Name)
 	state.Face = firstNonEmpty(normalizeURL(item.Face), subject.AvatarURL, state.Face)
-	state.CoverURL = firstNonEmpty(firstLiveImageURL(item), state.CoverURL)
-	state.LiveStartedAt = liveTimeFromItem(item)
+	state.CoverURL = firstNonEmpty(bilibiliLive.FirstImageURL(item), state.CoverURL)
+	state.LiveStartedAt = bilibiliLive.TimeFromItem(item)
 	state.ConnectionState = firstNonEmpty(state.ConnectionState, StateIdle)
 	if state.LiveStatus == liveStatus && source != "status" {
 		s.setRoomState(ctx, state)
@@ -86,7 +88,7 @@ func (s *Source) emitLiveTransition(ctx context.Context, subject Subject, item l
 }
 
 func (s *Source) emitSyntheticLiveTransition(ctx context.Context, subject Subject, roomID string, liveStatus int) {
-	item := liveStatusItem{
+	item := bilibiliLive.StatusItem{
 		UID:        subject.UID,
 		UName:      subject.Name,
 		Face:       subject.AvatarURL,

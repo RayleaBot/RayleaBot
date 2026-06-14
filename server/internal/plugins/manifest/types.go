@@ -18,18 +18,6 @@ const (
 	CommandSourceDynamic  = plugins.CommandSourceDynamic
 )
 
-type Snapshot = plugins.Snapshot
-type Command = plugins.Command
-type DynamicCommandDecl = plugins.DynamicCommandDecl
-type WebhookScope = plugins.WebhookScope
-type Screenshot = plugins.Screenshot
-type ManagementUI = plugins.ManagementUI
-type ManagementUIPage = plugins.ManagementUIPage
-type RenderTemplate = plugins.RenderTemplate
-type Help = plugins.Help
-type HelpGroup = plugins.HelpGroup
-type HelpItem = plugins.HelpItem
-
 func cloneMap(values map[string]any) map[string]any {
 	return plugins.CloneSettings(values)
 }

@@ -6,6 +6,8 @@ import (
 	"strings"
 	"time"
 
+	adaptercache "github.com/RayleaBot/RayleaBot/server/internal/adapter/cache"
+	adapteroutbound "github.com/RayleaBot/RayleaBot/server/internal/adapter/outbound"
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 )
 
@@ -46,9 +48,9 @@ func newTransportSnapshot(cfg config.OneBotConfig) Snapshot {
 func (s *Shell) markTransportPrimed() {
 	s.mu.Lock()
 	s.snapshot = newTransportSnapshot(s.cfg)
-	s.pendingResponses = make(map[string]chan apiResponse)
+	s.pendingResponses = make(map[string]chan adapteroutbound.APIResponse)
 	s.recentEventIDs = make(map[string]time.Time)
-	s.identityCache = NewIdentityCache(defaultIdentityCacheTTL)
+	s.identityCache = adaptercache.NewIdentityCache(defaultIdentityCacheTTL)
 	if s.snapshot.ReverseWS.Enabled && s.snapshot.ReverseWS.Configured {
 		s.snapshot.ReverseWS.State = TransportStateListening
 	}

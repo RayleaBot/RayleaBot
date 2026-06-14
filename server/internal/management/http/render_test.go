@@ -12,10 +12,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/go-chi/chi/v5"
-
-	"github.com/RayleaBot/RayleaBot/server/internal/render"
+	renderbrowser "github.com/RayleaBot/RayleaBot/server/internal/render/browser"
+	renderservice "github.com/RayleaBot/RayleaBot/server/internal/render/service"
 	"github.com/RayleaBot/RayleaBot/server/internal/storage"
+	"github.com/go-chi/chi/v5"
 )
 
 var (
@@ -25,7 +25,7 @@ var (
 
 type staticRenderRunner struct{}
 
-func (staticRenderRunner) Render(_ context.Context, doc render.Document) ([]byte, error) {
+func (staticRenderRunner) Render(_ context.Context, doc renderbrowser.Document) ([]byte, error) {
 	if doc.Output == "jpeg" {
 		return append([]byte(nil), renderTestJPEGBytes...), nil
 	}
@@ -207,7 +207,7 @@ func TestRenderTemplateEditorRoutesAreRemoved(t *testing.T) {
 
 type renderHTTPFixture struct {
 	router   http.Handler
-	renderer *render.Service
+	renderer *renderservice.Service
 	cleanup  func()
 }
 
@@ -225,7 +225,7 @@ func newRenderHTTPFixture(t *testing.T) renderHTTPFixture {
 		t.Fatalf("open sqlite store: %v", err)
 	}
 
-	renderer, err := render.NewService(render.Options{
+	renderer, err := renderservice.NewService(renderservice.Options{
 		RepoRoot:           repoRoot,
 		OutputRoot:         filepath.Join(root, "render-output"),
 		Store:              store,

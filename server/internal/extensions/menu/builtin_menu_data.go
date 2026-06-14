@@ -1,14 +1,14 @@
 package menu
 
 import (
-	"github.com/RayleaBot/RayleaBot/server/internal/adapter"
+	adapterintake "github.com/RayleaBot/RayleaBot/server/internal/adapter/intake"
 	"github.com/RayleaBot/RayleaBot/server/internal/localaction"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
-	"github.com/RayleaBot/RayleaBot/server/internal/render"
-	"github.com/RayleaBot/RayleaBot/server/internal/runtime"
+	renderservice "github.com/RayleaBot/RayleaBot/server/internal/render/service"
+	runtimeprotocol "github.com/RayleaBot/RayleaBot/server/internal/runtime/protocol"
 )
 
-func (s *Service) buildBuiltinMenuData(event adapter.NormalizedEvent, target string) builtinMenuRenderData {
+func (s *Service) buildBuiltinMenuData(event adapterintake.NormalizedEvent, target string) builtinMenuRenderData {
 	items := s.visibleBuiltinMenuItems(event)
 	runtimeEvent := runtimeEventFromAdapter(event)
 	cfg := s.config()
@@ -17,7 +17,7 @@ func (s *Service) buildBuiltinMenuData(event adapter.NormalizedEvent, target str
 			data := s.withBuiltinMenuIdentity(builtinPluginMenuData(item, cfg), runtimeEvent)
 			return builtinMenuRenderData{
 				Data: data,
-				Plugin: &render.PluginContext{
+				Plugin: &renderservice.PluginContext{
 					Name:    stringValueFromMap(item, "plugin_name"),
 					Version: stringValueFromMap(item, "plugin_version"),
 				},
@@ -28,7 +28,7 @@ func (s *Service) buildBuiltinMenuData(event adapter.NormalizedEvent, target str
 	return builtinMenuRenderData{Data: s.withBuiltinMenuIdentity(builtinRootMenuData(items, cfg), runtimeEvent)}
 }
 
-func (s *Service) visibleBuiltinMenuItems(event adapter.NormalizedEvent) []map[string]any {
+func (s *Service) visibleBuiltinMenuItems(event adapterintake.NormalizedEvent) []map[string]any {
 	if s == nil || s.plugins == nil {
 		return []map[string]any{}
 	}
@@ -63,19 +63,19 @@ func (s *Service) visibleBuiltinMenuItems(event adapter.NormalizedEvent) []map[s
 	return items
 }
 
-func runtimeEventFromAdapter(event adapter.NormalizedEvent) runtime.Event {
-	result := runtime.Event{
+func runtimeEventFromAdapter(event adapterintake.NormalizedEvent) runtimeprotocol.Event {
+	result := runtimeprotocol.Event{
 		EventID:        event.EventID,
 		SourceProtocol: event.SourceProtocol,
 		SourceAdapter:  event.SourceAdapter,
 		EventType:      event.EventType,
 		Timestamp:      event.Timestamp,
-		Actor: &runtime.EventActor{
+		Actor: &runtimeprotocol.EventActor{
 			ID:       event.SenderID,
 			Nickname: event.ActorNickname,
 			Role:     event.ActorRole,
 		},
-		Target: &runtime.EventTarget{
+		Target: &runtimeprotocol.EventTarget{
 			Type: event.ConversationType,
 			ID:   event.ConversationID,
 			Name: event.TargetName,
@@ -84,9 +84,9 @@ func runtimeEventFromAdapter(event adapter.NormalizedEvent) runtime.Event {
 		PayloadFields: event.PayloadFields,
 	}
 	if event.PlainText != "" || len(event.Segments) > 0 {
-		result.Message = &runtime.EventMessage{PlainText: event.PlainText}
+		result.Message = &runtimeprotocol.EventMessage{PlainText: event.PlainText}
 		for _, segment := range event.Segments {
-			result.Message.Segments = append(result.Message.Segments, runtime.EventSegment{
+			result.Message.Segments = append(result.Message.Segments, runtimeprotocol.EventSegment{
 				Type: segment.Type,
 				Data: segment.Data,
 			})
@@ -95,7 +95,7 @@ func runtimeEventFromAdapter(event adapter.NormalizedEvent) runtime.Event {
 	return result
 }
 
-func (s *Service) withBuiltinMenuIdentity(data map[string]any, event runtime.Event) map[string]any {
+func (s *Service) withBuiltinMenuIdentity(data map[string]any, event runtimeprotocol.Event) map[string]any {
 	if data == nil {
 		data = map[string]any{}
 	}

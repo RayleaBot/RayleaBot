@@ -6,9 +6,8 @@ import (
 	"net/http"
 	"time"
 
-	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
-
-	"github.com/RayleaBot/RayleaBot/server/internal/adapter"
+	adapterintake "github.com/RayleaBot/RayleaBot/server/internal/adapter/intake"
+	adaptershell "github.com/RayleaBot/RayleaBot/server/internal/adapter/shell"
 	"github.com/RayleaBot/RayleaBot/server/internal/bridge"
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/dispatch"
@@ -24,12 +23,14 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/pluginfile"
 	"github.com/RayleaBot/RayleaBot/server/internal/pluginkv"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
+	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
 	pluginservice "github.com/RayleaBot/RayleaBot/server/internal/plugins/service"
 	"github.com/RayleaBot/RayleaBot/server/internal/pluginui"
 	"github.com/RayleaBot/RayleaBot/server/internal/pluginwebhook"
 	"github.com/RayleaBot/RayleaBot/server/internal/recovery"
-	"github.com/RayleaBot/RayleaBot/server/internal/render"
-	"github.com/RayleaBot/RayleaBot/server/internal/runtime"
+	renderservice "github.com/RayleaBot/RayleaBot/server/internal/render/service"
+	runtimeaction "github.com/RayleaBot/RayleaBot/server/internal/runtime/action"
+	runtimeprotocol "github.com/RayleaBot/RayleaBot/server/internal/runtime/protocol"
 	"github.com/RayleaBot/RayleaBot/server/internal/scheduler"
 	"github.com/RayleaBot/RayleaBot/server/internal/secrets"
 	"github.com/RayleaBot/RayleaBot/server/internal/tasks"
@@ -101,7 +102,7 @@ func (a *App) setTestEventIngressWithGovernance(catalog *plugincatalog.Catalog, 
 	})
 }
 
-func (a *App) setTestLifecycle(catalog *plugincatalog.Catalog, desiredRepo plugins.DesiredStateRepository, grantRepo plugins.GrantRepository, runtimes *runtimeRegistry, dispatcher *dispatch.Dispatcher, pluginConfigRepo pluginconfig.Repository, adapterShell *adapter.Shell, webhooks *pluginwebhook.Registry) {
+func (a *App) setTestLifecycle(catalog *plugincatalog.Catalog, desiredRepo plugins.DesiredStateRepository, grantRepo plugins.GrantRepository, runtimes *runtimeRegistry, dispatcher *dispatch.Dispatcher, pluginConfigRepo pluginconfig.Repository, adapterShell *adaptershell.Shell, webhooks *pluginwebhook.Registry) {
 	if a == nil {
 		return
 	}
@@ -134,7 +135,7 @@ func (a *App) setTestLifecycle(catalog *plugincatalog.Catalog, desiredRepo plugi
 	})
 }
 
-func (a *App) setTestLocalActions(grantRepo plugins.GrantRepository, pluginConfigRepo pluginconfig.Repository, pluginFiles *pluginfile.Service, pluginKV pluginkv.Repository, schedulerEngine *scheduler.Engine, dispatcher *dispatch.Dispatcher, rendererService *render.Service, adapterShell *adapter.Shell, limiter *localaction.PluginLogLimiter, webhookService *pluginwebhook.Service) {
+func (a *App) setTestLocalActions(grantRepo plugins.GrantRepository, pluginConfigRepo pluginconfig.Repository, pluginFiles *pluginfile.Service, pluginKV pluginkv.Repository, schedulerEngine *scheduler.Engine, dispatcher *dispatch.Dispatcher, rendererService *renderservice.Service, adapterShell *adaptershell.Shell, limiter *localaction.PluginLogLimiter, webhookService *pluginwebhook.Service) {
 	if a == nil {
 		return
 	}
@@ -184,7 +185,7 @@ func (a *App) setTestLocalActions(grantRepo plugins.GrantRepository, pluginConfi
 	}
 }
 
-func (a *App) setTestSystem(taskRegistry *tasks.Registry, taskExecutor *tasks.Executor, rendererService *render.Service, logRepository logging.Repository) {
+func (a *App) setTestSystem(taskRegistry *tasks.Registry, taskExecutor *tasks.Executor, rendererService *renderservice.Service, logRepository logging.Repository) {
 	if a == nil {
 		return
 	}
@@ -231,31 +232,31 @@ func (a *App) setTestWebhookService(secretStore secrets.Store, dispatcher *dispa
 	}
 }
 
-func (a *App) executeLocalAction(ctx context.Context, pluginID, requestID string, action runtime.Action) (map[string]any, error) {
-	return a.services.localActions.Execute(ctx, pluginID, requestID, action, runtime.Event{})
+func (a *App) executeLocalAction(ctx context.Context, pluginID, requestID string, action runtimeaction.Action) (map[string]any, error) {
+	return a.services.localActions.Execute(ctx, pluginID, requestID, action, runtimeprotocol.Event{})
 }
 
-func (a *App) executeOneBotLocalAction(ctx context.Context, pluginID, requestID string, action runtime.Action) (map[string]any, error) {
-	return a.services.localActions.Execute(ctx, pluginID, requestID, action, runtime.Event{})
+func (a *App) executeOneBotLocalAction(ctx context.Context, pluginID, requestID string, action runtimeaction.Action) (map[string]any, error) {
+	return a.services.localActions.Execute(ctx, pluginID, requestID, action, runtimeprotocol.Event{})
 }
 
-func (a *App) executeLocalActionForEvent(ctx context.Context, pluginID, requestID string, action runtime.Action, parentEvent runtime.Event) (map[string]any, error) {
+func (a *App) executeLocalActionForEvent(ctx context.Context, pluginID, requestID string, action runtimeaction.Action, parentEvent runtimeprotocol.Event) (map[string]any, error) {
 	return a.services.localActions.Execute(ctx, pluginID, requestID, action, parentEvent)
 }
 
-func (a *App) commandInfoForEvent(event adapter.NormalizedEvent) *permission.CommandInfo {
+func (a *App) commandInfoForEvent(event adapterintake.NormalizedEvent) *permission.CommandInfo {
 	return a.services.eventIngress.commandInfoForEvent(event)
 }
 
-func (a *App) enrichCommandEvent(event adapter.NormalizedEvent) adapter.NormalizedEvent {
+func (a *App) enrichCommandEvent(event adapterintake.NormalizedEvent) adapterintake.NormalizedEvent {
 	return a.services.eventIngress.enrichCommandEvent(event)
 }
 
-func (a *App) handleAdapterEvent(ctx context.Context, event adapter.NormalizedEvent) {
+func (a *App) handleAdapterEvent(ctx context.Context, event adapterintake.NormalizedEvent) {
 	a.services.eventIngress.HandleAdapterEvent(ctx, event)
 }
 
-func (a *App) applyChatPolicy(ctx context.Context, event adapter.NormalizedEvent) (adapter.NormalizedEvent, bool) {
+func (a *App) applyChatPolicy(ctx context.Context, event adapterintake.NormalizedEvent) (adapterintake.NormalizedEvent, bool) {
 	return a.services.eventIngress.applyChatPolicy(ctx, event)
 }
 
@@ -374,9 +375,6 @@ type pluginManagementUIHTTPDeps struct {
 	notifyConfigChange func(context.Context, string)
 	refreshCommands    func(context.Context, string, map[string]any)
 }
-
-type pluginSettingsResponse = pluginui.PluginSettingsResponse
-type pluginSettingsUpdateResponse = pluginui.PluginSettingsUpdateResponse
 
 type pluginManagementUIHTTPHandlers struct {
 	*pluginui.Handlers

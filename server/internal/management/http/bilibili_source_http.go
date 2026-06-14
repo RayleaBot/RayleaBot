@@ -5,7 +5,8 @@ import (
 	"net/http"
 	"time"
 
-	source "github.com/RayleaBot/RayleaBot/server/internal/bilibili"
+	bilibilisession "github.com/RayleaBot/RayleaBot/server/internal/bilibili/session"
+	bilibilisource "github.com/RayleaBot/RayleaBot/server/internal/bilibili/source"
 )
 
 type BilibiliHandlers struct {
@@ -15,13 +16,13 @@ type BilibiliHandlers struct {
 }
 
 type bilibiliSourceStatusService interface {
-	Status(context.Context) source.Status
-	Restart() source.Status
+	Status(context.Context) bilibilisource.Status
+	Restart() bilibilisource.Status
 }
 
 type bilibiliQRCodeLoginService interface {
-	Create(context.Context) (source.QRLoginCreateResult, error)
-	Poll(context.Context, string) (source.QRLoginPollResult, error)
+	Create(context.Context) (bilibilisession.QRLoginCreateResult, error)
+	Poll(context.Context, string) (bilibilisession.QRLoginPollResult, error)
 }
 
 func NewBilibiliHandlers(sourceService bilibiliSourceStatusService, qrLogin bilibiliQRCodeLoginService, transport http.RoundTripper) *BilibiliHandlers {

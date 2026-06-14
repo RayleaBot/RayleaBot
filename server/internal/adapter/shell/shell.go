@@ -10,6 +10,9 @@ import (
 
 	"github.com/coder/websocket"
 
+	adaptercache "github.com/RayleaBot/RayleaBot/server/internal/adapter/cache"
+	adapterintake "github.com/RayleaBot/RayleaBot/server/internal/adapter/intake"
+	adapteroutbound "github.com/RayleaBot/RayleaBot/server/internal/adapter/outbound"
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 )
 
@@ -57,15 +60,15 @@ type Shell struct {
 	started          bool
 	stopping         bool
 	supervisorCtx    context.Context
-	eventHandler     func(context.Context, NormalizedEvent)
+	eventHandler     func(context.Context, adapterintake.NormalizedEvent)
 	readyHandler     func(context.Context)
 	stateHandler     func(Snapshot)
-	eventQueue       chan NormalizedEvent
+	eventQueue       chan adapterintake.NormalizedEvent
 	nextEcho         uint64
-	pendingResponses map[string]chan apiResponse
+	pendingResponses map[string]chan adapteroutbound.APIResponse
 	httpClient       *http.Client
 	recentEventIDs   map[string]time.Time
-	identityCache    *IdentityCache
+	identityCache    *adaptercache.IdentityCache
 	dedupDrops       uint64
 	metrics          MetricsObserver
 }
@@ -116,13 +119,13 @@ func newShell(cfg config.OneBotConfig, adapterCfg config.AdapterConfig, logger *
 		logger:           logger,
 		deps:             deps,
 		snapshot:         newTransportSnapshot(cfg),
-		eventQueue:       make(chan NormalizedEvent, 16),
-		pendingResponses: make(map[string]chan apiResponse),
+		eventQueue:       make(chan adapterintake.NormalizedEvent, 16),
+		pendingResponses: make(map[string]chan adapteroutbound.APIResponse),
 		httpClient: &http.Client{
 			Timeout: deps.connectTimeout,
 		},
 		recentEventIDs: make(map[string]time.Time),
-		identityCache:  NewIdentityCache(defaultIdentityCacheTTL),
+		identityCache:  adaptercache.NewIdentityCache(defaultIdentityCacheTTL),
 	}
 }
 func (s *Shell) Snapshot() Snapshot {
@@ -130,7 +133,7 @@ func (s *Shell) Snapshot() Snapshot {
 	defer s.mu.RUnlock()
 	return cloneSnapshot(s.snapshot)
 }
-func (s *Shell) SetEventHandler(handler func(context.Context, NormalizedEvent)) {
+func (s *Shell) SetEventHandler(handler func(context.Context, adapterintake.NormalizedEvent)) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.eventHandler = handler

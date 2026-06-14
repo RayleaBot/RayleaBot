@@ -6,12 +6,13 @@ import (
 	"net/http"
 	"strings"
 
+	bilibiliLive "github.com/RayleaBot/RayleaBot/server/internal/bilibili/live"
 	"github.com/RayleaBot/RayleaBot/server/internal/thirdparty"
 )
 
-func (s *Source) fetchLiveStatuses(ctx context.Context, subjects []Subject) (map[string]liveStatusItem, error) {
+func (s *Source) fetchLiveStatuses(ctx context.Context, subjects []Subject) (map[string]bilibiliLive.StatusItem, error) {
 	if len(subjects) == 0 {
-		return map[string]liveStatusItem{}, nil
+		return map[string]bilibiliLive.StatusItem{}, nil
 	}
 	values := make([]string, 0, len(subjects))
 	for _, subject := range subjects {
@@ -20,13 +21,13 @@ func (s *Source) fetchLiveStatuses(ctx context.Context, subjects []Subject) (map
 		}
 	}
 	if len(values) == 0 {
-		return map[string]liveStatusItem{}, nil
+		return map[string]bilibiliLive.StatusItem{}, nil
 	}
-	var doc liveStatusDocument
-	if err := s.requestJSON(ctx, http.MethodGet, liveStatusBatchURL+"?"+strings.Join(values, "&"), "", nil, &doc); err != nil {
+	var doc bilibiliLive.StatusDocument
+	if err := s.requestJSON(ctx, http.MethodGet, bilibiliLive.StatusBatchURL+"?"+strings.Join(values, "&"), "", nil, &doc); err != nil {
 		return nil, err
 	}
-	result := make(map[string]liveStatusItem, len(doc.Data))
+	result := make(map[string]bilibiliLive.StatusItem, len(doc.Data))
 	for uid, item := range doc.Data {
 		key := strings.TrimSpace(uid)
 		if key == "" {
@@ -39,9 +40,9 @@ func (s *Source) fetchLiveStatuses(ctx context.Context, subjects []Subject) (map
 	return result, nil
 }
 
-func (s *Source) fetchDanmuInfo(ctx context.Context, roomID, cookie string) (danmuInfoDocument, error) {
-	var doc danmuInfoDocument
-	if err := s.requestSignedJSON(ctx, http.MethodGet, fmt.Sprintf(liveDanmuInfoURL, roomID), cookie, nil, &doc); err != nil {
+func (s *Source) fetchDanmuInfo(ctx context.Context, roomID, cookie string) (bilibiliLive.DanmuInfoDocument, error) {
+	var doc bilibiliLive.DanmuInfoDocument
+	if err := s.requestSignedJSON(ctx, http.MethodGet, fmt.Sprintf(bilibiliLive.DanmuInfoURL, roomID), cookie, nil, &doc); err != nil {
 		return doc, err
 	}
 	if strings.TrimSpace(doc.Data.Token) == "" {
@@ -81,6 +82,6 @@ func (s *Source) pollLiveFallback(ctx context.Context, subjects map[string]Subje
 		if !ok {
 			continue
 		}
-		s.emitLiveTransition(ctx, subject, item, normalizeLiveStatus(item.LiveStatus), "fallback")
+		s.emitLiveTransition(ctx, subject, item, bilibiliLive.NormalizeStatus(item.LiveStatus), "fallback")
 	}
 }

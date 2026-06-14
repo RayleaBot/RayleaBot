@@ -13,7 +13,7 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/dispatch"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	"github.com/RayleaBot/RayleaBot/server/internal/pluginwebhook"
-	"github.com/RayleaBot/RayleaBot/server/internal/runtime"
+	runtimemanager "github.com/RayleaBot/RayleaBot/server/internal/runtime/manager"
 )
 
 var errPersistFailure = errors.New("persist failure")
@@ -52,7 +52,7 @@ func TestHandleCrashDeadLetterCleansUpWebhooks(t *testing.T) {
 			Enforce:          true,
 		},
 	})
-	runtimes := newRuntimeRegistry(logger, runtime.Options{})
+	runtimes := newRuntimeRegistry(logger, runtimemanager.Options{})
 	manager := runtimes.GetOrCreate("repo-watcher")
 	if manager == nil {
 		t.Fatal("expected runtime manager")
@@ -64,11 +64,11 @@ func TestHandleCrashDeadLetterCleansUpWebhooks(t *testing.T) {
 		t.Fatal("seed registration was not stored")
 	}
 
-	application.services.pluginLifecycle.handleCrash("repo-watcher", runtime.DefaultMaxCrashRetries, "plugin.internal_error")
+	application.services.pluginLifecycle.handleCrash("repo-watcher", runtimemanager.DefaultMaxCrashRetries, "plugin.internal_error")
 
 	snapshot := manager.Snapshot()
-	if snapshot.State != runtime.StateDeadLetter {
-		t.Fatalf("runtime state = %q, want %q", snapshot.State, runtime.StateDeadLetter)
+	if snapshot.State != runtimemanager.StateDeadLetter {
+		t.Fatalf("runtime state = %q, want %q", snapshot.State, runtimemanager.StateDeadLetter)
 	}
 	if snapshot.EnteredDeadLetterAt == nil {
 		t.Fatal("EnteredDeadLetterAt was not recorded after dead_letter entry")
@@ -77,7 +77,7 @@ func TestHandleCrashDeadLetterCleansUpWebhooks(t *testing.T) {
 		t.Fatal("webhook registration should be removed when entering dead_letter")
 	}
 
-	if got, ok := catalog.Get("repo-watcher"); !ok || got.RuntimeState != string(runtime.StateDeadLetter) {
+	if got, ok := catalog.Get("repo-watcher"); !ok || got.RuntimeState != string(runtimemanager.StateDeadLetter) {
 		t.Fatalf("catalog runtime_state = %q ok=%v, want dead_letter", got.RuntimeState, ok)
 	}
 }
@@ -106,7 +106,7 @@ func TestRecoverFromDeadLetterRejectsRunning(t *testing.T) {
 	}})
 	dispatcher := dispatch.New(logger, nil, nil, 16)
 	registry := pluginwebhook.NewRegistry()
-	runtimes := newRuntimeRegistry(logger, runtime.Options{})
+	runtimes := newRuntimeRegistry(logger, runtimemanager.Options{})
 	manager := runtimes.GetOrCreate("weather")
 	if manager == nil {
 		t.Fatal("expected runtime manager")
@@ -160,12 +160,12 @@ func TestRecoverFromDeadLetterPersistFailureLeavesManagerInDeadLetter(t *testing
 		Valid:             true,
 		RegistrationState: "installed",
 		DesiredState:      "disabled", // recovery must persist desired_state=enabled
-		RuntimeState:      string(runtime.StateDeadLetter),
-		DisplayState:      string(runtime.StateDeadLetter),
+		RuntimeState:      string(runtimemanager.StateDeadLetter),
+		DisplayState:      string(runtimemanager.StateDeadLetter),
 	}})
 	dispatcher := dispatch.New(logger, nil, nil, 16)
 	registry := pluginwebhook.NewRegistry()
-	runtimes := newRuntimeRegistry(logger, runtime.Options{})
+	runtimes := newRuntimeRegistry(logger, runtimemanager.Options{})
 	manager := runtimes.GetOrCreate("weather")
 	if manager == nil {
 		t.Fatal("expected runtime manager")
@@ -182,13 +182,13 @@ func TestRecoverFromDeadLetterPersistFailureLeavesManagerInDeadLetter(t *testing
 	}
 
 	snapshot := manager.Snapshot()
-	if snapshot.State != runtime.StateDeadLetter {
+	if snapshot.State != runtimemanager.StateDeadLetter {
 		t.Fatalf("manager state after persist failure = %q, want dead_letter", snapshot.State)
 	}
 	if got, ok := catalog.Get("weather"); !ok || got.DesiredState != "disabled" {
 		t.Fatalf("catalog desired_state = %q ok=%v, want disabled", got.DesiredState, ok)
 	}
-	if got, ok := catalog.Get("weather"); !ok || got.RuntimeState != string(runtime.StateDeadLetter) {
+	if got, ok := catalog.Get("weather"); !ok || got.RuntimeState != string(runtimemanager.StateDeadLetter) {
 		t.Fatalf("catalog runtime_state = %q ok=%v, want dead_letter", got.RuntimeState, ok)
 	}
 }

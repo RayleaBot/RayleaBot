@@ -3,10 +3,10 @@ package app
 import (
 	"context"
 
-	"github.com/RayleaBot/RayleaBot/server/internal/adapter"
+	adapterintake "github.com/RayleaBot/RayleaBot/server/internal/adapter/intake"
 )
 
-func (s *eventIngressService) HandleAdapterEvent(ctx context.Context, event adapter.NormalizedEvent) {
+func (s *eventIngressService) HandleAdapterEvent(ctx context.Context, event adapterintake.NormalizedEvent) {
 	if s == nil {
 		return
 	}
@@ -33,7 +33,7 @@ func (s *eventIngressService) HandleAdapterEvent(ctx context.Context, event adap
 	}
 }
 
-func (s *eventIngressService) enrichEventMetadata(ctx context.Context, event adapter.NormalizedEvent) adapter.NormalizedEvent {
+func (s *eventIngressService) enrichEventMetadata(ctx context.Context, event adapterintake.NormalizedEvent) adapterintake.NormalizedEvent {
 	if s == nil || s.metadataEnricher == nil {
 		return event
 	}

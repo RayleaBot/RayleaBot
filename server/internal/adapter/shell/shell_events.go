@@ -2,10 +2,12 @@ package shell
 
 import (
 	"context"
+
+	adapterintake "github.com/RayleaBot/RayleaBot/server/internal/adapter/intake"
 )
 
-func (s *Shell) forwardSupportedEvent(ctx context.Context, transport TransportKey, frame classifiedFrame) {
-	if frame.Summary.Category != FrameCategoryEvent {
+func (s *Shell) forwardSupportedEvent(ctx context.Context, transport TransportKey, frame adapterintake.ClassifiedFrame) {
+	if frame.Summary.Category != adapterintake.FrameCategoryEvent {
 		return
 	}
 
@@ -54,7 +56,7 @@ func (s *Shell) forwardSupportedEvent(ctx context.Context, transport TransportKe
 		)
 	}
 }
-func (s *Shell) currentEventHandler() func(context.Context, NormalizedEvent) {
+func (s *Shell) currentEventHandler() func(context.Context, adapterintake.NormalizedEvent) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	return s.eventHandler

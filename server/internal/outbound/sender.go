@@ -5,8 +5,9 @@ import (
 	"errors"
 	"strings"
 
-	"github.com/RayleaBot/RayleaBot/server/internal/adapter"
-	"github.com/RayleaBot/RayleaBot/server/internal/runtime"
+	adapteroutbound "github.com/RayleaBot/RayleaBot/server/internal/adapter/outbound"
+	runtimeaction "github.com/RayleaBot/RayleaBot/server/internal/runtime/action"
+	runtimeprotocol "github.com/RayleaBot/RayleaBot/server/internal/runtime/protocol"
 )
 
 const (
@@ -16,8 +17,8 @@ const (
 )
 
 type ActionSender interface {
-	SendMessage(context.Context, adapter.OutboundMessageSend) (adapter.SendMessageResult, error)
-	SendReply(context.Context, adapter.OutboundMessageReply) (adapter.SendMessageResult, error)
+	SendMessage(context.Context, adapteroutbound.OutboundMessageSend) (adapteroutbound.SendMessageResult, error)
+	SendReply(context.Context, adapteroutbound.OutboundMessageReply) (adapteroutbound.SendMessageResult, error)
 }
 
 type ReplyTarget struct {
@@ -37,9 +38,9 @@ type ReplyTargetResolver interface {
 	ResolveReplyTarget(eventID string) (ReplyTarget, bool)
 }
 
-func SendAction(ctx context.Context, sender ActionSender, resolver ReplyTargetResolver, origin runtime.Event, action runtime.Action) (SendResult, error) {
+func SendAction(ctx context.Context, sender ActionSender, resolver ReplyTargetResolver, origin runtimeprotocol.Event, action runtimeaction.Action) (SendResult, error) {
 	if sender == nil {
-		return SendResult{DeliveryKind: action.Kind}, &adapter.Error{
+		return SendResult{DeliveryKind: action.Kind}, &adapteroutbound.Error{
 			Code:    codeAdapterSendFailed,
 			Message: "adapter outbound sender is not available",
 		}
@@ -47,7 +48,7 @@ func SendAction(ctx context.Context, sender ActionSender, resolver ReplyTargetRe
 
 	switch action.Kind {
 	case "message.send":
-		result, err := sender.SendMessage(ctx, adapter.OutboundMessageSend{
+		result, err := sender.SendMessage(ctx, adapteroutbound.OutboundMessageSend{
 			TargetType: action.TargetType,
 			TargetID:   action.TargetID,
 			Segments:   toAdapterSegments(action.MessageSegments),
@@ -61,23 +62,23 @@ func SendAction(ctx context.Context, sender ActionSender, resolver ReplyTargetRe
 	case "message.reply":
 		return sendReplyAction(ctx, sender, resolver, origin, action)
 	default:
-		return SendResult{DeliveryKind: action.Kind}, &adapter.Error{
+		return SendResult{DeliveryKind: action.Kind}, &adapteroutbound.Error{
 			Code:    codePluginProtocolViolation,
 			Message: "received unsupported outbound action kind",
 		}
 	}
 }
 
-func sendReplyAction(ctx context.Context, sender ActionSender, resolver ReplyTargetResolver, _ runtime.Event, action runtime.Action) (SendResult, error) {
+func sendReplyAction(ctx context.Context, sender ActionSender, resolver ReplyTargetResolver, _ runtimeprotocol.Event, action runtimeaction.Action) (SendResult, error) {
 	replyTarget, ok := resolveReplyTarget(action, resolver)
 	if !ok {
-		return SendResult{DeliveryKind: "message.reply"}, &adapter.Error{
+		return SendResult{DeliveryKind: "message.reply"}, &adapteroutbound.Error{
 			Code:    codeAdapterReplyTargetMissing,
 			Message: "reply target is not available in the current event window",
 		}
 	}
 
-	replyRequest := adapter.OutboundMessageReply{
+	replyRequest := adapteroutbound.OutboundMessageReply{
 		TargetType:       replyTarget.TargetType,
 		TargetID:         replyTarget.TargetID,
 		ReplyToMessageID: replyTarget.MessageID,
@@ -93,7 +94,7 @@ func sendReplyAction(ctx context.Context, sender ActionSender, resolver ReplyTar
 		}, nil
 	}
 
-	var adapterErr *adapter.Error
+	var adapterErr *adapteroutbound.Error
 	if !action.FallbackToSendIfMissing || !errors.As(err, &adapterErr) || adapterErr.Code != codeAdapterReplyTargetMissing {
 		return SendResult{
 			DeliveryKind: "message.reply",
@@ -102,7 +103,7 @@ func sendReplyAction(ctx context.Context, sender ActionSender, resolver ReplyTar
 		}, err
 	}
 
-	fallbackResult, fallbackErr := sender.SendMessage(ctx, adapter.OutboundMessageSend{
+	fallbackResult, fallbackErr := sender.SendMessage(ctx, adapteroutbound.OutboundMessageSend{
 		TargetType: replyTarget.TargetType,
 		TargetID:   replyTarget.TargetID,
 		Segments:   stripReplySegments(toAdapterSegments(action.MessageSegments)),
@@ -115,7 +116,7 @@ func sendReplyAction(ctx context.Context, sender ActionSender, resolver ReplyTar
 	}, fallbackErr
 }
 
-func resolveReplyTarget(action runtime.Action, resolver ReplyTargetResolver) (ReplyTarget, bool) {
+func resolveReplyTarget(action runtimeaction.Action, resolver ReplyTargetResolver) (ReplyTarget, bool) {
 	replyToEventID := strings.TrimSpace(action.ReplyToEventID)
 	if replyToEventID == "" || resolver == nil {
 		return ReplyTarget{}, false
@@ -127,17 +128,17 @@ func resolveReplyTarget(action runtime.Action, resolver ReplyTargetResolver) (Re
 	return target, target.MessageID != "" && target.TargetType != "" && target.TargetID != ""
 }
 
-func toAdapterSegments(segments []runtime.ActionSegment) []adapter.OutboundMessageSegment {
+func toAdapterSegments(segments []runtimeaction.ActionSegment) []adapteroutbound.OutboundMessageSegment {
 	if len(segments) == 0 {
 		return nil
 	}
-	items := make([]adapter.OutboundMessageSegment, 0, len(segments))
+	items := make([]adapteroutbound.OutboundMessageSegment, 0, len(segments))
 	for _, segment := range segments {
 		data := make(map[string]any, len(segment.Data))
 		for key, value := range segment.Data {
 			data[key] = value
 		}
-		items = append(items, adapter.OutboundMessageSegment{
+		items = append(items, adapteroutbound.OutboundMessageSegment{
 			Type: segment.Type,
 			Data: data,
 		})
@@ -145,11 +146,11 @@ func toAdapterSegments(segments []runtime.ActionSegment) []adapter.OutboundMessa
 	return items
 }
 
-func stripReplySegments(segments []adapter.OutboundMessageSegment) []adapter.OutboundMessageSegment {
+func stripReplySegments(segments []adapteroutbound.OutboundMessageSegment) []adapteroutbound.OutboundMessageSegment {
 	if len(segments) == 0 {
 		return nil
 	}
-	items := make([]adapter.OutboundMessageSegment, 0, len(segments))
+	items := make([]adapteroutbound.OutboundMessageSegment, 0, len(segments))
 	for _, segment := range segments {
 		if strings.TrimSpace(segment.Type) == "reply" {
 			continue

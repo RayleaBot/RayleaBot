@@ -4,18 +4,18 @@ import (
 	"context"
 	"strings"
 
-	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
-
-	"github.com/RayleaBot/RayleaBot/server/internal/adapter"
+	adapterintake "github.com/RayleaBot/RayleaBot/server/internal/adapter/intake"
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
+	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
 	pluginservice "github.com/RayleaBot/RayleaBot/server/internal/plugins/service"
-	"github.com/RayleaBot/RayleaBot/server/internal/runtime"
+	runtimemanager "github.com/RayleaBot/RayleaBot/server/internal/runtime/manager"
+	runtimespec "github.com/RayleaBot/RayleaBot/server/internal/runtime/spec"
 )
 
 type runtimeStarter interface {
-	Snapshot() runtime.Snapshot
-	Start(context.Context, runtime.Spec, runtime.InitPayload) error
+	Snapshot() runtimemanager.Snapshot
+	Start(context.Context, runtimespec.Spec, runtimespec.InitPayload) error
 }
 
 func ensureRuntimeStartedForEvent(
@@ -24,7 +24,7 @@ func ensureRuntimeStartedForEvent(
 	catalog *plugincatalog.Catalog,
 	repoRoot string,
 	cfg config.Config,
-	event adapter.NormalizedEvent,
+	event adapterintake.NormalizedEvent,
 ) (plugins.Snapshot, bool, error) {
 	return ensureRuntimeStartedForBot(ctx, manager, catalog, repoRoot, cfg, strings.TrimSpace(event.BotID), nil)
 }
@@ -41,7 +41,7 @@ func ensureRuntimeStartedForBot(
 	if manager == nil || catalog == nil {
 		return plugins.Snapshot{}, false, nil
 	}
-	if manager.Snapshot().State != runtime.StateStopped {
+	if manager.Snapshot().State != runtimemanager.StateStopped {
 		return plugins.Snapshot{}, false, nil
 	}
 	botID = strings.TrimSpace(botID)
@@ -51,13 +51,13 @@ func ensureRuntimeStartedForBot(
 		return plugins.Snapshot{}, false, nil
 	}
 
-	spec, err := runtime.BuildSpec(snapshot, repoRoot, cfg.Runtime)
+	spec, err := runtimespec.BuildSpec(snapshot, repoRoot, cfg.Runtime)
 	if err != nil {
 		return snapshot, false, err
 	}
 
-	payload := runtime.InitPayload{
-		Bot: runtime.BotInfo{
+	payload := runtimespec.InitPayload{
+		Bot: runtimespec.BotInfo{
 			ID: botID,
 		},
 		Capabilities:    append([]string(nil), grantedCapabilities...),

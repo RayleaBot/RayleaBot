@@ -6,23 +6,25 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+
+	adapteroutbound "github.com/RayleaBot/RayleaBot/server/internal/adapter/outbound"
 )
 
-func (s *Shell) doHTTPAPIRequest(ctx context.Context, request apiCallRequest) (apiResponse, error) {
+func (s *Shell) doHTTPAPIRequest(ctx context.Context, request adapteroutbound.APICallRequest) (adapteroutbound.APIResponse, error) {
 	snapshot := s.Snapshot()
 	endpoint := strings.TrimSpace(s.cfg.HTTPAPI.URL)
 	if endpoint == "" || !snapshot.HTTPAPI.Enabled || !snapshot.HTTPAPI.Configured {
-		return apiResponse{}, errorf(errorCodeConnectionLost, "adapter transport is not connected", nil)
+		return adapteroutbound.APIResponse{}, errorf(errorCodeConnectionLost, "adapter transport is not connected", nil)
 	}
 
 	body, err := json.Marshal(request)
 	if err != nil {
-		return apiResponse{}, errorf(errorCodeHTTPAPIInvalidResponse, "encode OneBot HTTP request failed", err)
+		return adapteroutbound.APIResponse{}, errorf(errorCodeHTTPAPIInvalidResponse, "encode OneBot HTTP request failed", err)
 	}
 
 	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, strings.NewReader(string(body)))
 	if err != nil {
-		return apiResponse{}, errorf(errorCodeHTTPAPIRequestFailed, "build OneBot HTTP request failed", err)
+		return adapteroutbound.APIResponse{}, errorf(errorCodeHTTPAPIRequestFailed, "build OneBot HTTP request failed", err)
 	}
 	httpReq.Header.Set("Content-Type", "application/json")
 	if accessToken := strings.TrimSpace(s.cfg.HTTPAPI.AccessToken); accessToken != "" {
@@ -32,13 +34,13 @@ func (s *Shell) doHTTPAPIRequest(ctx context.Context, request apiCallRequest) (a
 	resp, err := s.httpClient.Do(httpReq)
 	if err != nil {
 		s.markTransportFailure(TransportHTTPAPI, TransportStateReconnecting, errorCodeHTTPAPIRequestFailed, err)
-		return apiResponse{}, errorf(errorCodeHTTPAPIRequestFailed, "OneBot HTTP API request failed", err)
+		return adapteroutbound.APIResponse{}, errorf(errorCodeHTTPAPIRequestFailed, "OneBot HTTP API request failed", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden {
 		s.markTransportFailure(TransportHTTPAPI, TransportStateAuthFailed, errorCodeHTTPAPIAuthFailed, fmt.Errorf("status %d", resp.StatusCode))
-		return apiResponse{}, errorf(errorCodeHTTPAPIAuthFailed, "OneBot HTTP API authentication failed", nil)
+		return adapteroutbound.APIResponse{}, errorf(errorCodeHTTPAPIAuthFailed, "OneBot HTTP API authentication failed", nil)
 	}
 
 	var decoded struct {
@@ -50,7 +52,7 @@ func (s *Shell) doHTTPAPIRequest(ctx context.Context, request apiCallRequest) (a
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&decoded); err != nil {
 		s.markTransportFailure(TransportHTTPAPI, TransportStateReconnecting, errorCodeHTTPAPIInvalidResponse, err)
-		return apiResponse{}, errorf(errorCodeHTTPAPIInvalidResponse, "OneBot HTTP API response is invalid", err)
+		return adapteroutbound.APIResponse{}, errorf(errorCodeHTTPAPIInvalidResponse, "OneBot HTTP API response is invalid", err)
 	}
 
 	s.mu.Lock()
@@ -65,7 +67,7 @@ func (s *Shell) doHTTPAPIRequest(ctx context.Context, request apiCallRequest) (a
 	s.emitStateSnapshot(handler, snapshot)
 
 	echo, _ := frameEcho(decoded.Echo)
-	return apiResponse{
+	return adapteroutbound.APIResponse{
 		Echo:    echo,
 		Status:  frameStatusText(decoded.Status),
 		RetCode: decoded.RetCode,

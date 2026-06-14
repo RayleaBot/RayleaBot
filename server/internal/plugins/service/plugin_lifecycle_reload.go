@@ -6,7 +6,8 @@ import (
 	"strings"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
-	"github.com/RayleaBot/RayleaBot/server/internal/runtime"
+	runtimemanager "github.com/RayleaBot/RayleaBot/server/internal/runtime/manager"
+	runtimespec "github.com/RayleaBot/RayleaBot/server/internal/runtime/spec"
 )
 
 func (c *Controller) reloadPluginAsync(pluginID, botID string, taskID string) {
@@ -21,7 +22,7 @@ func (c *Controller) reloadPluginAsync(pluginID, botID string, taskID string) {
 
 	snapshot, ok := c.plugins.Get(pluginID)
 	if !ok || snapshot.DesiredState != "enabled" {
-		_, _ = c.plugins.SetRuntimeState(pluginID, string(runtime.StateStopped))
+		_, _ = c.plugins.SetRuntimeState(pluginID, string(runtimemanager.StateStopped))
 		c.failReloadTask(taskID, pluginID, "platform.invalid_request", "插件当前不可重载")
 		return
 	}
@@ -37,7 +38,7 @@ func (c *Controller) reloadPluginAsync(pluginID, botID string, taskID string) {
 		manager := c.runtimes.GetOrCreate(pluginID)
 		if err := c.startRuntime(ctx, pluginID, botID, manager); err != nil {
 			c.logLifecycleWarn("start plugin runtime during reload", pluginID, err)
-			_, _ = c.plugins.SetRuntimeState(pluginID, string(runtime.StateStopped))
+			_, _ = c.plugins.SetRuntimeState(pluginID, string(runtimemanager.StateStopped))
 			c.failReloadTaskForError(taskID, pluginID, err, "插件重载失败")
 			return
 		}
@@ -46,29 +47,29 @@ func (c *Controller) reloadPluginAsync(pluginID, botID string, taskID string) {
 	}
 
 	switch current.Snapshot().State {
-	case runtime.StateStopped:
+	case runtimemanager.StateStopped:
 		c.updateReloadTask(taskID, 30, "启动插件运行时")
 		if err := c.startRuntime(ctx, pluginID, botID, current); err != nil {
 			c.logLifecycleWarn("start stopped plugin runtime during reload", pluginID, err)
-			_, _ = c.plugins.SetRuntimeState(pluginID, string(runtime.StateStopped))
+			_, _ = c.plugins.SetRuntimeState(pluginID, string(runtimemanager.StateStopped))
 			c.failReloadTaskForError(taskID, pluginID, err, "插件重载失败")
 			return
 		}
 		c.finishReloadTask(taskID, pluginID)
 		return
-	case runtime.StateBackoff, runtime.StateCrashed, runtime.StateDeadLetter:
+	case runtimemanager.StateBackoff, runtimemanager.StateCrashed, runtimemanager.StateDeadLetter:
 		current.ResetCrashCount()
 		current.SetStopped()
 		c.updateReloadTask(taskID, 30, "重置插件运行时")
 		if err := c.startRuntime(ctx, pluginID, botID, current); err != nil {
 			c.logLifecycleWarn("restart plugin runtime during reload", pluginID, err)
-			_, _ = c.plugins.SetRuntimeState(pluginID, string(runtime.StateStopped))
+			_, _ = c.plugins.SetRuntimeState(pluginID, string(runtimemanager.StateStopped))
 			c.failReloadTaskForError(taskID, pluginID, err, "插件重载失败")
 			return
 		}
 		c.finishReloadTask(taskID, pluginID)
 		return
-	case runtime.StateStarting, runtime.StateStopping:
+	case runtimemanager.StateStarting, runtimemanager.StateStopping:
 		c.failReloadTask(taskID, pluginID, "platform.invalid_request", "插件运行时正在切换状态")
 		return
 	}
@@ -77,7 +78,7 @@ func (c *Controller) reloadPluginAsync(pluginID, botID string, taskID string) {
 	spec, payload, err := c.buildStartInputs(ctx, pluginID, botID)
 	if err != nil {
 		c.logLifecycleWarn("build runtime spec for plugin reload", pluginID, err)
-		_, _ = c.plugins.SetRuntimeState(pluginID, string(runtime.StateStopped))
+		_, _ = c.plugins.SetRuntimeState(pluginID, string(runtimemanager.StateStopped))
 		c.failReloadTaskForError(taskID, pluginID, err, "插件重载失败")
 		return
 	}
@@ -86,14 +87,14 @@ func (c *Controller) reloadPluginAsync(pluginID, botID string, taskID string) {
 	c.updateReloadTask(taskID, 60, "重载插件运行时")
 	if err := c.dispatcher.ReloadPlugin(ctx, pluginID, current, newManager, spec, payload, dispatchCommands(snapshot.Commands)); err != nil {
 		c.logLifecycleWarn("reload plugin runtime", pluginID, err)
-		_, _ = c.plugins.SetRuntimeState(pluginID, string(runtime.StateRunning))
+		_, _ = c.plugins.SetRuntimeState(pluginID, string(runtimemanager.StateRunning))
 		c.failReloadTaskForError(taskID, pluginID, err, "插件重载失败")
 		return
 	}
 
 	c.runtimes.Replace(pluginID, newManager)
 	newManager.ResetCrashCount()
-	_, _ = c.plugins.SetRuntimeState(pluginID, string(runtime.StateRunning))
+	_, _ = c.plugins.SetRuntimeState(pluginID, string(runtimemanager.StateRunning))
 	c.clearBotIdentity(pluginID)
 	c.afterRuntimeRegistered(ctx, pluginID, botID)
 	c.finishReloadTask(taskID, pluginID)
@@ -108,7 +109,7 @@ func (c *Controller) failReloadTaskForError(taskID string, pluginID string, err 
 		message = "插件重载超时"
 	}
 
-	var runtimeErr *runtime.Error
+	var runtimeErr *runtimemanager.Error
 	if errors.As(err, &runtimeErr) {
 		if strings.TrimSpace(runtimeErr.Code) != "" {
 			code = runtimeErr.Code
@@ -117,6 +118,17 @@ func (c *Controller) failReloadTaskForError(taskID string, pluginID string, err 
 			message = runtimeErr.Message
 		}
 	} else {
+		var specErr *runtimespec.Error
+		if errors.As(err, &specErr) {
+			if strings.TrimSpace(specErr.Code) != "" {
+				code = specErr.Code
+			}
+			if strings.TrimSpace(specErr.Message) != "" {
+				message = specErr.Message
+			}
+			c.failReloadTask(taskID, pluginID, code, message)
+			return
+		}
 		var pending *plugins.PermissionPendingError
 		if errors.As(err, &pending) {
 			code = "plugin.permission_pending"

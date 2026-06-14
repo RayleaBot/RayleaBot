@@ -4,27 +4,28 @@ import (
 	"context"
 	"testing"
 
-	"github.com/RayleaBot/RayleaBot/server/internal/adapter"
-	"github.com/RayleaBot/RayleaBot/server/internal/runtime"
+	adapteroutbound "github.com/RayleaBot/RayleaBot/server/internal/adapter/outbound"
+	runtimeaction "github.com/RayleaBot/RayleaBot/server/internal/runtime/action"
+	runtimeprotocol "github.com/RayleaBot/RayleaBot/server/internal/runtime/protocol"
 )
 
 type stubSender struct {
-	sendRequest  adapter.OutboundMessageSend
-	replyRequest adapter.OutboundMessageReply
+	sendRequest  adapteroutbound.OutboundMessageSend
+	replyRequest adapteroutbound.OutboundMessageReply
 	replyErr     error
 }
 
-func (s *stubSender) SendMessage(_ context.Context, request adapter.OutboundMessageSend) (adapter.SendMessageResult, error) {
+func (s *stubSender) SendMessage(_ context.Context, request adapteroutbound.OutboundMessageSend) (adapteroutbound.SendMessageResult, error) {
 	s.sendRequest = request
-	return adapter.SendMessageResult{MessageID: "send-1"}, nil
+	return adapteroutbound.SendMessageResult{MessageID: "send-1"}, nil
 }
 
-func (s *stubSender) SendReply(_ context.Context, request adapter.OutboundMessageReply) (adapter.SendMessageResult, error) {
+func (s *stubSender) SendReply(_ context.Context, request adapteroutbound.OutboundMessageReply) (adapteroutbound.SendMessageResult, error) {
 	s.replyRequest = request
 	if s.replyErr != nil {
-		return adapter.SendMessageResult{}, s.replyErr
+		return adapteroutbound.SendMessageResult{}, s.replyErr
 	}
-	return adapter.SendMessageResult{MessageID: "reply-1"}, nil
+	return adapteroutbound.SendMessageResult{MessageID: "reply-1"}, nil
 }
 
 type stubReplyTargets map[string]ReplyTarget
@@ -38,11 +39,11 @@ func TestSendActionRoutesMessageSend(t *testing.T) {
 	t.Parallel()
 
 	sender := &stubSender{}
-	result, err := SendAction(context.Background(), sender, nil, runtime.Event{}, runtime.Action{
+	result, err := SendAction(context.Background(), sender, nil, runtimeprotocol.Event{}, runtimeaction.Action{
 		Kind:       "message.send",
 		TargetType: "group",
 		TargetID:   "10001",
-		MessageSegments: []runtime.ActionSegment{
+		MessageSegments: []runtimeaction.ActionSegment{
 			{Type: "text", Data: map[string]any{"text": "hello"}},
 		},
 	})
@@ -64,7 +65,7 @@ func TestSendActionFallsBackToSendWhenReplyTargetIsMissingAtAdapterLevel(t *test
 	t.Parallel()
 
 	sender := &stubSender{
-		replyErr: &adapter.Error{Code: codeAdapterReplyTargetMissing, Message: "missing"},
+		replyErr: &adapteroutbound.Error{Code: codeAdapterReplyTargetMissing, Message: "missing"},
 	}
 	resolver := stubReplyTargets{
 		"evt_1": {
@@ -73,11 +74,11 @@ func TestSendActionFallsBackToSendWhenReplyTargetIsMissingAtAdapterLevel(t *test
 			TargetID:   "10001",
 		},
 	}
-	result, err := SendAction(context.Background(), sender, resolver, runtime.Event{}, runtime.Action{
+	result, err := SendAction(context.Background(), sender, resolver, runtimeprotocol.Event{}, runtimeaction.Action{
 		Kind:                    "message.reply",
 		ReplyToEventID:          "evt_1",
 		FallbackToSendIfMissing: true,
-		MessageSegments: []runtime.ActionSegment{
+		MessageSegments: []runtimeaction.ActionSegment{
 			{Type: "reply", Data: map[string]any{"id": "msg_1"}},
 			{Type: "text", Data: map[string]any{"text": "fallback"}},
 		},

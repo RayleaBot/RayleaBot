@@ -7,7 +7,7 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/auth"
 	"github.com/RayleaBot/RayleaBot/server/internal/metrics"
 	plugindiscovery "github.com/RayleaBot/RayleaBot/server/internal/plugins/discovery"
-	"github.com/RayleaBot/RayleaBot/server/internal/render"
+	renderbrowser "github.com/RayleaBot/RayleaBot/server/internal/render/browser"
 )
 
 type Options struct {
@@ -17,7 +17,7 @@ type Options struct {
 	PluginRepoRoot        string
 	PluginSchemaPath      string
 	PluginRoots           []plugindiscovery.ScanRoot
-	RenderRunner          render.Runner
+	RenderRunner          renderbrowser.Runner
 	BilibiliHTTPTransport http.RoundTripper
 	BilibiliClock         func() time.Time
 }

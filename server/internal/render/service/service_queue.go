@@ -1,5 +1,9 @@
 package service
 
+import (
+	rendertemplates "github.com/RayleaBot/RayleaBot/server/internal/render/templates"
+)
+
 func (s *Service) reserveSlot() error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -10,7 +14,7 @@ func (s *Service) reserveSlot() error {
 	}
 	if s.activeRequests >= limit {
 		s.publishQueueDepthLocked()
-		return &Error{
+		return &rendertemplates.Error{
 			Code:    "platform.render_queue_full",
 			Message: "render queue is full",
 		}

@@ -7,10 +7,11 @@ import (
 	"net/http"
 	"strings"
 
+	adapterintake "github.com/RayleaBot/RayleaBot/server/internal/adapter/intake"
 	"github.com/coder/websocket"
 )
 
-func (s *Shell) waitForReadyFrame(ctx context.Context, transport TransportKey, conn *websocket.Conn) (FrameSummary, error) {
+func (s *Shell) waitForReadyFrame(ctx context.Context, transport TransportKey, conn *websocket.Conn) (adapterintake.FrameSummary, error) {
 	waitingForFirstFrame := true
 
 	for {
@@ -20,15 +21,15 @@ func (s *Shell) waitForReadyFrame(ctx context.Context, transport TransportKey, c
 		if err != nil {
 			if errors.Is(err, context.DeadlineExceeded) {
 				if waitingForFirstFrame {
-					return FrameSummary{}, fmt.Errorf("timed out waiting for first frame: %w", err)
+					return adapterintake.FrameSummary{}, fmt.Errorf("timed out waiting for first frame: %w", err)
 				}
-				return FrameSummary{}, fmt.Errorf("timed out waiting for ready frame: %w", err)
+				return adapterintake.FrameSummary{}, fmt.Errorf("timed out waiting for ready frame: %w", err)
 			}
-			return FrameSummary{}, err
+			return adapterintake.FrameSummary{}, err
 		}
 
 		if err := s.recordAndValidateFrame(transport, frame); err != nil {
-			return FrameSummary{}, err
+			return adapterintake.FrameSummary{}, err
 		}
 		if isReadySummary(frame.Summary) {
 			return frame.Summary, nil
@@ -59,7 +60,7 @@ func (s *Shell) readContext(ctx context.Context) (context.Context, context.Cance
 	timeout := s.provisionalReadTimeout(snapshot)
 	return context.WithTimeout(ctx, timeout)
 }
-func (s *Shell) recordAndValidateFrame(transport TransportKey, frame classifiedFrame) error {
+func (s *Shell) recordAndValidateFrame(transport TransportKey, frame adapterintake.ClassifiedFrame) error {
 	snapshot := s.recordFrame(frame)
 
 	switch {
@@ -77,7 +78,7 @@ func (s *Shell) recordAndValidateFrame(transport TransportKey, frame classifiedF
 			"endpoint", s.transportEndpoint(transport),
 		)
 		return nil
-	case frame.Summary.Category == FrameCategoryInvalid:
+	case frame.Summary.Category == adapterintake.FrameCategoryInvalid:
 		s.logger.Warn(
 			"invalid OneBot frame received",
 			"component", "adapter",
@@ -104,8 +105,8 @@ func (s *Shell) recordAndValidateFrame(transport TransportKey, frame classifiedF
 
 	return nil
 }
-func isIgnoredAPIResponse(frame classifiedFrame) bool {
-	return frame.Summary.Category == FrameCategoryUnknown && frame.Summary.Type == "api.response.ignored"
+func isIgnoredAPIResponse(frame adapterintake.ClassifiedFrame) bool {
+	return frame.Summary.Category == adapterintake.FrameCategoryUnknown && frame.Summary.Type == "api.response.ignored"
 }
 func echoValueType(value any) string {
 	if value == nil {
@@ -113,10 +114,10 @@ func echoValueType(value any) string {
 	}
 	return fmt.Sprintf("%T", value)
 }
-func (s *Shell) readFrame(ctx context.Context, conn *websocket.Conn) (classifiedFrame, error) {
+func (s *Shell) readFrame(ctx context.Context, conn *websocket.Conn) (adapterintake.ClassifiedFrame, error) {
 	messageType, payload, err := conn.Read(ctx)
 	if err != nil {
-		return classifiedFrame{}, err
+		return adapterintake.ClassifiedFrame{}, err
 	}
 
 	return classifyFrame(messageType, payload, s.deps.now()), nil

@@ -9,7 +9,10 @@ import (
 	"time"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/deps"
+	renderartifact "github.com/RayleaBot/RayleaBot/server/internal/render/artifact"
+	renderbrowser "github.com/RayleaBot/RayleaBot/server/internal/render/browser"
 	renderrepo "github.com/RayleaBot/RayleaBot/server/internal/render/repository"
+	rendertemplates "github.com/RayleaBot/RayleaBot/server/internal/render/templates"
 )
 
 const (
@@ -83,7 +86,7 @@ func NewService(options Options) (*Service, error) {
 
 	runner := options.Runner
 	if runner == nil {
-		runner = NewChromiumRunner(ChromiumOptions{
+		runner = renderbrowser.NewChromiumRunner(renderbrowser.ChromiumOptions{
 			BrowserPath: browserPath,
 			BrowserArgs: options.BrowserArgs,
 		})
@@ -107,9 +110,9 @@ func NewService(options Options) (*Service, error) {
 		defaultOutput:      defaultOutput,
 		deviceScalePercent: deviceScalePercent,
 		templateRepo:       templateRepo,
-		templateRoots:      map[string]templateRoot{},
-		cache:              map[string]Result{},
-		artifacts:          map[string]Artifact{},
+		templateRoots:      map[string]rendertemplates.Root{},
+		cache:              map[string]renderartifact.Result{},
+		artifacts:          map[string]renderartifact.Artifact{},
 		previewHTMLCache:   map[string]PreviewHTML{},
 	}
 

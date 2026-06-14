@@ -4,15 +4,14 @@ import (
 	"context"
 	"log/slog"
 
-	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
-
-	"github.com/RayleaBot/RayleaBot/server/internal/adapter"
+	adapterintake "github.com/RayleaBot/RayleaBot/server/internal/adapter/intake"
 	"github.com/RayleaBot/RayleaBot/server/internal/auth"
 	"github.com/RayleaBot/RayleaBot/server/internal/bridge"
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/console"
 	"github.com/RayleaBot/RayleaBot/server/internal/logging"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
+	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
 	"github.com/RayleaBot/RayleaBot/server/internal/storage"
 	"github.com/RayleaBot/RayleaBot/server/internal/tasks"
 )
@@ -74,7 +73,7 @@ func (a *App) SetBridge(eventBridge *bridge.Bridge) {
 	}
 }
 
-func (a *App) HandleAdapterEvent(ctx context.Context, event adapter.NormalizedEvent) {
+func (a *App) HandleAdapterEvent(ctx context.Context, event adapterintake.NormalizedEvent) {
 	if a == nil || a.services.eventIngress == nil {
 		return
 	}

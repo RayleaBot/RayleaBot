@@ -4,6 +4,8 @@ import (
 	"net/http"
 	"time"
 
+	adaptercache "github.com/RayleaBot/RayleaBot/server/internal/adapter/cache"
+	adapteroutbound "github.com/RayleaBot/RayleaBot/server/internal/adapter/outbound"
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 )
 
@@ -17,9 +19,9 @@ func (s *Shell) applyConfig(nextCfg config.OneBotConfig, nextAdapterCfg config.A
 		Timeout: s.deps.connectTimeout,
 	}
 	s.snapshot = newTransportSnapshot(nextCfg)
-	s.pendingResponses = make(map[string]chan apiResponse)
+	s.pendingResponses = make(map[string]chan adapteroutbound.APIResponse)
 	s.recentEventIDs = make(map[string]time.Time)
-	s.identityCache = NewIdentityCache(defaultIdentityCacheTTL)
+	s.identityCache = adaptercache.NewIdentityCache(defaultIdentityCacheTTL)
 	snapshot := cloneSnapshot(s.snapshot)
 	handler := s.stateHandler
 	s.mu.Unlock()

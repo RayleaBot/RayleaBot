@@ -3,10 +3,10 @@ package bridge
 import (
 	"time"
 
-	"github.com/RayleaBot/RayleaBot/server/internal/adapter"
+	adapterintake "github.com/RayleaBot/RayleaBot/server/internal/adapter/intake"
 )
 
-func (b *Bridge) recordIgnored(event adapter.NormalizedEvent, observedAt time.Time) {
+func (b *Bridge) recordIgnored(event adapterintake.NormalizedEvent, observedAt time.Time) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
@@ -23,7 +23,7 @@ func (b *Bridge) recordIgnored(event adapter.NormalizedEvent, observedAt time.Ti
 	}
 }
 
-func (b *Bridge) recordRejected(event adapter.NormalizedEvent, observedAt time.Time, code, message string) {
+func (b *Bridge) recordRejected(event adapterintake.NormalizedEvent, observedAt time.Time, code, message string) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
@@ -40,7 +40,7 @@ func (b *Bridge) recordRejected(event adapter.NormalizedEvent, observedAt time.T
 	}
 }
 
-func (b *Bridge) recordError(event adapter.NormalizedEvent, observedAt time.Time, code, message string) {
+func (b *Bridge) recordError(event adapterintake.NormalizedEvent, observedAt time.Time, code, message string) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
@@ -58,7 +58,7 @@ func (b *Bridge) recordError(event adapter.NormalizedEvent, observedAt time.Time
 	b.emitObservabilityLocked(observedAt, OutcomeError)
 }
 
-func (b *Bridge) recordDelivered(event adapter.NormalizedEvent, observedAt time.Time) {
+func (b *Bridge) recordDelivered(event adapterintake.NormalizedEvent, observedAt time.Time) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 

@@ -9,7 +9,7 @@ import (
 
 	"github.com/RayleaBot/RayleaBot/server/internal/dispatch"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
-	"github.com/RayleaBot/RayleaBot/server/internal/runtime"
+	runtimeprotocol "github.com/RayleaBot/RayleaBot/server/internal/runtime/protocol"
 	"github.com/RayleaBot/RayleaBot/server/internal/scheduler"
 )
 
@@ -39,14 +39,14 @@ func (c *Controller) HandleSchedulerTrigger(ctx context.Context, job scheduler.J
 
 	pluginName := schedulerPluginDisplayName(snapshot, pluginID)
 
-	result := c.dispatcher.DispatchToPlugin(ctx, pluginID, runtime.Event{
+	result := c.dispatcher.DispatchToPlugin(ctx, pluginID, runtimeprotocol.Event{
 		EventID:        fmt.Sprintf("scheduler-%s-%d", job.JobID, time.Now().UnixNano()),
 		SourceProtocol: "scheduler",
 		SourceAdapter:  "scheduler.internal",
 		EventType:      "scheduler.trigger",
 		Timestamp:      startedAt.Unix(),
 		PayloadFields:  schedulerPayloadFields(job),
-		SchedulerLog: &runtime.SchedulerLogContext{
+		SchedulerLog: &runtimeprotocol.SchedulerLogContext{
 			JobID:      job.JobID,
 			PluginName: pluginName,
 			TaskName:   taskName,

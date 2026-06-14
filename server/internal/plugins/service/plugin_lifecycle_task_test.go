@@ -12,7 +12,7 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/dispatch"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
-	"github.com/RayleaBot/RayleaBot/server/internal/runtime"
+	runtimemanager "github.com/RayleaBot/RayleaBot/server/internal/runtime/manager"
 	"github.com/RayleaBot/RayleaBot/server/internal/tasks"
 )
 
@@ -34,7 +34,7 @@ func TestReloadCreatesPluginReloadTask(t *testing.T) {
 		catalog,
 		nil,
 		nil,
-		newRuntimeRegistry(slog.Default(), runtime.Options{}),
+		newRuntimeRegistry(slog.Default(), runtimemanager.Options{}),
 		dispatch.New(slog.Default(), nil, nil, 16),
 		nil,
 		nil,
@@ -80,7 +80,7 @@ func TestReloadRejectedBeforeAcceptanceDoesNotCreateTask(t *testing.T) {
 		catalog,
 		nil,
 		nil,
-		newRuntimeRegistry(slog.Default(), runtime.Options{}),
+		newRuntimeRegistry(slog.Default(), runtimemanager.Options{}),
 		dispatch.New(slog.Default(), nil, nil, 16),
 		nil,
 		nil,

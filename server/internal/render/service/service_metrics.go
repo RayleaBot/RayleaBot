@@ -3,6 +3,9 @@ package service
 import (
 	"errors"
 	"time"
+
+	renderartifact "github.com/RayleaBot/RayleaBot/server/internal/render/artifact"
+	rendertemplates "github.com/RayleaBot/RayleaBot/server/internal/render/templates"
 )
 
 func (s *Service) SetMetricsObserver(observer MetricsObserver) {
@@ -31,9 +34,9 @@ func (s *Service) recordRenderMetric(outcome string, duration time.Duration) {
 	observer.ObserveRenderDuration(outcome, duration)
 }
 
-func renderOutcome(result Result, err error) string {
+func renderOutcome(result renderartifact.Result, err error) string {
 	if err != nil {
-		var renderErr *Error
+		var renderErr *rendertemplates.Error
 		if errors.As(err, &renderErr) {
 			switch renderErr.Code {
 			case "platform.render_queue_full":

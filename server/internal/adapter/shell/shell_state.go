@@ -3,10 +3,11 @@ package shell
 import (
 	"time"
 
+	adapterintake "github.com/RayleaBot/RayleaBot/server/internal/adapter/intake"
 	"github.com/coder/websocket"
 )
 
-func (s *Shell) recordFrame(frame classifiedFrame) Snapshot {
+func (s *Shell) recordFrame(frame adapterintake.ClassifiedFrame) Snapshot {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 

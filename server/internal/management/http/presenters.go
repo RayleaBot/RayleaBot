@@ -3,10 +3,11 @@ package managementhttp
 import (
 	"strings"
 
-	"github.com/RayleaBot/RayleaBot/server/internal/render"
+	renderrepo "github.com/RayleaBot/RayleaBot/server/internal/render/repository"
+	renderservice "github.com/RayleaBot/RayleaBot/server/internal/render/service"
 )
 
-func toRenderTemplateSummary(item render.TemplateSummary) renderTemplateSummary {
+func toRenderTemplateSummary(item renderrepo.TemplateSummary) renderTemplateSummary {
 	return renderTemplateSummary{
 		ID:             item.ID,
 		Version:        item.Version,
@@ -18,7 +19,7 @@ func toRenderTemplateSummary(item render.TemplateSummary) renderTemplateSummary 
 	}
 }
 
-func toRenderTemplateDetail(detail render.TemplateDetail, source render.TemplateSource, previewData map[string]any) renderTemplateDetail {
+func toRenderTemplateDetail(detail renderrepo.TemplateDetail, source renderrepo.TemplateSource, previewData map[string]any) renderTemplateDetail {
 	return renderTemplateDetail{
 		ID:              detail.ID,
 		Version:         detail.Version,
@@ -32,7 +33,7 @@ func toRenderTemplateDetail(detail render.TemplateDetail, source render.Template
 	}
 }
 
-func toRenderTemplatePreviewHTMLResponse(result render.PreviewHTML) renderTemplatePreviewHTMLResponse {
+func toRenderTemplatePreviewHTMLResponse(result renderservice.PreviewHTML) renderTemplatePreviewHTMLResponse {
 	return renderTemplatePreviewHTMLResponse{
 		TemplateID: result.TemplateID,
 		RevisionID: result.RevisionID,
@@ -42,7 +43,7 @@ func toRenderTemplatePreviewHTMLResponse(result render.PreviewHTML) renderTempla
 	}
 }
 
-func toRenderTemplateSource(source render.TemplateSourceInfo) renderTemplateSource {
+func toRenderTemplateSource(source renderrepo.TemplateSourceInfo) renderTemplateSource {
 	if source.Type != "plugin" {
 		return renderTemplateSource{Type: "system", PluginID: nil, LocalID: nil}
 	}

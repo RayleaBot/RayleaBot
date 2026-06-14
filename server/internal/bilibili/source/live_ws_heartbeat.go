@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"net/http"
 	"time"
+
+	bilibiliLive "github.com/RayleaBot/RayleaBot/server/internal/bilibili/live"
 )
 
 func (s *Source) startLiveHTTPHeartbeat(ctx context.Context, roomID, cookie string, done <-chan struct{}) {
@@ -18,10 +20,10 @@ func (s *Source) startLiveHTTPHeartbeat(ctx context.Context, roomID, cookie stri
 		case <-done:
 			return
 		case <-ticker.C:
-			hbData := fmt.Sprintf(`{"room_id":%d,"hb_type":1}`, parseInt(roomID))
+			hbData := fmt.Sprintf(`{"room_id":%d,"hb_type":1}`, bilibiliLive.ParseInt(roomID))
 			hbEncoded := make([]byte, base64.StdEncoding.EncodedLen(len(hbData)))
 			base64.StdEncoding.Encode(hbEncoded, []byte(hbData))
-			hbURL := fmt.Sprintf("%s?pf=web&hb=%s", liveHeartbeatURL, string(hbEncoded))
+			hbURL := fmt.Sprintf("%s?pf=web&hb=%s", bilibiliLive.HeartbeatURL, string(hbEncoded))
 			hbReq, _ := http.NewRequestWithContext(ctx, http.MethodPost, hbURL, nil)
 			s.identity.ApplyLiveHeaders(hbReq, http.MethodPost)
 			if cookie != "" {

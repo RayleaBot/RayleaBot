@@ -8,19 +8,22 @@ import (
 	"time"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/dispatch"
-	"github.com/RayleaBot/RayleaBot/server/internal/render"
-	"github.com/RayleaBot/RayleaBot/server/internal/runtime"
+	renderservice "github.com/RayleaBot/RayleaBot/server/internal/render/service"
+	rendertemplates "github.com/RayleaBot/RayleaBot/server/internal/render/templates"
+	runtimeaction "github.com/RayleaBot/RayleaBot/server/internal/runtime/action"
+	runtimemanager "github.com/RayleaBot/RayleaBot/server/internal/runtime/manager"
+	runtimeprotocol "github.com/RayleaBot/RayleaBot/server/internal/runtime/protocol"
 )
 
-func (s *Service) executeRenderImage(ctx context.Context, pluginID string, action runtime.Action, parentEvent runtime.Event) (map[string]any, error) {
+func (s *Service) executeRenderImage(ctx context.Context, pluginID string, action runtimeaction.Action, parentEvent runtimeprotocol.Event) (map[string]any, error) {
 	if s == nil || s.grants == nil || !s.grants.CapabilityGranted(ctx, pluginID, "render.image") {
-		return nil, &runtime.Error{
+		return nil, &runtimemanager.Error{
 			Code:    "permission.scope_violation",
 			Message: "render.image capability is not granted",
 		}
 	}
 	if s.renderer == nil {
-		return nil, &runtime.Error{
+		return nil, &runtimemanager.Error{
 			Code:    "plugin.internal_error",
 			Message: "render.image service is not available",
 		}
@@ -28,15 +31,15 @@ func (s *Service) executeRenderImage(ctx context.Context, pluginID string, actio
 
 	templateID, err := s.renderer.ResolvePluginTemplate(ctx, pluginID, action.RenderTemplate)
 	if err != nil {
-		var renderErr *render.Error
+		var renderErr *rendertemplates.Error
 		if errors.As(err, &renderErr) && renderErr.Code == "permission.scope_violation" {
-			return nil, &runtime.Error{
+			return nil, &runtimemanager.Error{
 				Code:    "permission.scope_violation",
 				Message: renderErr.Message,
 				Err:     err,
 			}
 		}
-		return nil, &runtime.Error{
+		return nil, &runtimemanager.Error{
 			Code:    "plugin.internal_error",
 			Message: "render.image failed",
 			Err:     err,
@@ -45,7 +48,7 @@ func (s *Service) executeRenderImage(ctx context.Context, pluginID string, actio
 
 	renderData := s.renderImageData(ctx, templateID, action.RenderData, parentEvent)
 
-	result, err := s.renderer.Render(ctx, render.Request{
+	result, err := s.renderer.Render(ctx, renderservice.Request{
 		Template: templateID,
 		Theme:    action.RenderTheme,
 		Output:   action.RenderOutput,
@@ -53,7 +56,7 @@ func (s *Service) executeRenderImage(ctx context.Context, pluginID string, actio
 		Plugin:   s.renderPluginContext(pluginID),
 	})
 	if err != nil {
-		return nil, &runtime.Error{
+		return nil, &runtimemanager.Error{
 			Code:    "plugin.internal_error",
 			Message: "render.image failed",
 			Err:     err,
@@ -69,8 +72,8 @@ func (s *Service) executeRenderImage(ctx context.Context, pluginID string, actio
 	}, nil
 }
 
-func (s *Service) renderPluginContext(pluginID string) *render.PluginContext {
-	context := &render.PluginContext{
+func (s *Service) renderPluginContext(pluginID string) *renderservice.PluginContext {
+	context := &renderservice.PluginContext{
 		Name: strings.TrimSpace(pluginID),
 	}
 	if s == nil || s.grants == nil {
@@ -94,13 +97,13 @@ func (s *Service) dispatchPluginConfigChanged(ctx context.Context, pluginID stri
 		return
 	}
 
-	result := s.dispatcher.DispatchToPlugin(ctx, pluginID, runtime.Event{
+	result := s.dispatcher.DispatchToPlugin(ctx, pluginID, runtimeprotocol.Event{
 		EventID:        fmt.Sprintf("config-changed-%s-%d", pluginID, time.Now().UnixNano()),
 		SourceProtocol: "platform",
 		SourceAdapter:  "config.internal",
 		EventType:      "config.changed",
 		Timestamp:      time.Now().Unix(),
-		Target: &runtime.EventTarget{
+		Target: &runtimeprotocol.EventTarget{
 			Type: "plugin",
 			ID:   pluginID,
 			Name: pluginID,
@@ -122,9 +125,9 @@ func (s *Service) DispatchPluginConfigChanged(ctx context.Context, pluginID stri
 	s.dispatchPluginConfigChanged(ctx, pluginID)
 }
 
-func (s *Service) executeExposeWebhook(ctx context.Context, pluginID string, action runtime.Action) (map[string]any, error) {
+func (s *Service) executeExposeWebhook(ctx context.Context, pluginID string, action runtimeaction.Action) (map[string]any, error) {
 	if s == nil || s.webhookGateway == nil {
-		return nil, &runtime.Error{
+		return nil, &runtimemanager.Error{
 			Code:    "plugin.internal_error",
 			Message: "webhook gateway is not available",
 		}

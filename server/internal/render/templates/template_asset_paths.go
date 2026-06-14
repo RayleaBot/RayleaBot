@@ -3,6 +3,8 @@ package templates
 import (
 	"path/filepath"
 	"strings"
+
+	renderrepo "github.com/RayleaBot/RayleaBot/server/internal/render/repository"
 )
 
 func ResolveAssetPath(root Root, relativePath string) (string, error) {
@@ -33,7 +35,7 @@ func ResolveAssetPath(root Root, relativePath string) (string, error) {
 	return candidate, nil
 }
 
-func ManagedSourcePaths(templateDir string, files TemplateFiles) []string {
+func ManagedSourcePaths(templateDir string, files renderrepo.TemplateFiles) []string {
 	relativePaths := []string{
 		ManifestFilename,
 		DefaultPreviewData,

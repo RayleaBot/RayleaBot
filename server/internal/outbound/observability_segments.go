@@ -3,10 +3,10 @@ package outbound
 import (
 	"strings"
 
-	"github.com/RayleaBot/RayleaBot/server/internal/adapter"
+	adapteroutbound "github.com/RayleaBot/RayleaBot/server/internal/adapter/outbound"
 )
 
-func cloneOutboundSegments(segments []adapter.OutboundMessageSegment) []map[string]any {
+func cloneOutboundSegments(segments []adapteroutbound.OutboundMessageSegment) []map[string]any {
 	if len(segments) == 0 {
 		return []map[string]any{}
 	}

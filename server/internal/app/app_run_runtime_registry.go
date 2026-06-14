@@ -6,30 +6,30 @@ import (
 	"log/slog"
 	"sync"
 
-	"github.com/RayleaBot/RayleaBot/server/internal/runtime"
+	runtimemanager "github.com/RayleaBot/RayleaBot/server/internal/runtime/manager"
 )
 
 type runtimeRegistry struct {
 	logger  *slog.Logger
-	options runtime.Options
+	options runtimemanager.Options
 
 	mu      sync.RWMutex
-	onCrash runtime.CrashCallback
-	items   map[string]*runtime.Manager
+	onCrash runtimemanager.CrashCallback
+	items   map[string]*runtimemanager.Manager
 }
 
-func newRuntimeRegistry(logger *slog.Logger, options runtime.Options) *runtimeRegistry {
+func newRuntimeRegistry(logger *slog.Logger, options runtimemanager.Options) *runtimeRegistry {
 	if logger == nil {
 		logger = slog.Default()
 	}
 	return &runtimeRegistry{
 		logger:  logger,
 		options: options,
-		items:   make(map[string]*runtime.Manager),
+		items:   make(map[string]*runtimemanager.Manager),
 	}
 }
 
-func (r *runtimeRegistry) SetOnCrash(callback runtime.CrashCallback) {
+func (r *runtimeRegistry) SetOnCrash(callback runtimemanager.CrashCallback) {
 	if r == nil {
 		return
 	}
@@ -43,7 +43,7 @@ func (r *runtimeRegistry) SetOnCrash(callback runtime.CrashCallback) {
 	}
 }
 
-func (r *runtimeRegistry) Get(pluginID string) (*runtime.Manager, bool) {
+func (r *runtimeRegistry) Get(pluginID string) (*runtimemanager.Manager, bool) {
 	if r == nil {
 		return nil, false
 	}
@@ -55,7 +55,7 @@ func (r *runtimeRegistry) Get(pluginID string) (*runtime.Manager, bool) {
 	return manager, ok
 }
 
-func (r *runtimeRegistry) GetOrCreate(pluginID string) *runtime.Manager {
+func (r *runtimeRegistry) GetOrCreate(pluginID string) *runtimemanager.Manager {
 	if r == nil {
 		return nil
 	}
@@ -67,23 +67,23 @@ func (r *runtimeRegistry) GetOrCreate(pluginID string) *runtime.Manager {
 		return manager
 	}
 
-	manager := runtime.New(r.logger, r.options)
+	manager := runtimemanager.New(r.logger, r.options)
 	manager.SetOnCrash(r.onCrash)
 	r.items[pluginID] = manager
 	return manager
 }
 
-func (r *runtimeRegistry) NewDetached() *runtime.Manager {
+func (r *runtimeRegistry) NewDetached() *runtimemanager.Manager {
 	if r == nil {
 		return nil
 	}
 
-	manager := runtime.New(r.logger, r.options)
+	manager := runtimemanager.New(r.logger, r.options)
 	manager.SetOnCrash(r.onCrash)
 	return manager
 }
 
-func (r *runtimeRegistry) Replace(pluginID string, manager *runtime.Manager) *runtime.Manager {
+func (r *runtimeRegistry) Replace(pluginID string, manager *runtimemanager.Manager) *runtimemanager.Manager {
 	if r == nil || manager == nil {
 		return nil
 	}
@@ -97,7 +97,7 @@ func (r *runtimeRegistry) Replace(pluginID string, manager *runtime.Manager) *ru
 	return previous
 }
 
-func (r *runtimeRegistry) Delete(pluginID string) *runtime.Manager {
+func (r *runtimeRegistry) Delete(pluginID string) *runtimemanager.Manager {
 	if r == nil {
 		return nil
 	}
@@ -121,7 +121,7 @@ func (r *runtimeRegistry) ActiveCount() int {
 	active := 0
 	for _, manager := range r.items {
 		switch manager.Snapshot().State {
-		case runtime.StateStarting, runtime.StateRunning, runtime.StateStopping:
+		case runtimemanager.StateStarting, runtimemanager.StateRunning, runtimemanager.StateStopping:
 			active++
 		}
 	}
@@ -134,7 +134,7 @@ func (r *runtimeRegistry) StopAll(ctx context.Context) error {
 	}
 
 	r.mu.RLock()
-	managers := make([]*runtime.Manager, 0, len(r.items))
+	managers := make([]*runtimemanager.Manager, 0, len(r.items))
 	for _, manager := range r.items {
 		managers = append(managers, manager)
 	}

@@ -3,10 +3,12 @@ package action
 import (
 	"encoding/json"
 	"strings"
+
+	runtimeprotocol "github.com/RayleaBot/RayleaBot/server/internal/runtime/protocol"
 )
 
 func parseEventExposeWebhookAction(raw json.RawMessage) (*Action, error) {
-	var frame protocolActionEventExposeWebhookFrame
+	var frame runtimeprotocol.ProtocolActionEventExposeWebhookFrame
 	if err := json.Unmarshal(raw, &frame); err != nil {
 		return nil, errorf(codePluginProtocolViolation, "plugin returned malformed event.expose_webhook data", err)
 	}

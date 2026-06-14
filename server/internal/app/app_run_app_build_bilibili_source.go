@@ -1,7 +1,8 @@
 package app
 
 import (
-	source "github.com/RayleaBot/RayleaBot/server/internal/bilibili"
+	bilibilisession "github.com/RayleaBot/RayleaBot/server/internal/bilibili/session"
+	bilibilisource "github.com/RayleaBot/RayleaBot/server/internal/bilibili/source"
 	managementevents "github.com/RayleaBot/RayleaBot/server/internal/management/events"
 	"github.com/RayleaBot/RayleaBot/server/internal/thirdparty"
 )
@@ -10,11 +11,11 @@ func buildBilibiliSourceService(
 	platform appPlatform,
 	pluginStack appPlugins,
 	thirdPartyService *thirdparty.Service,
-	bilibiliSession *source.SessionClient,
+	bilibiliSession *bilibilisession.SessionClient,
 	bilibiliEvents *managementevents.BilibiliSourceService,
 	options Options,
-) (*source.Source, error) {
-	return source.NewSource(source.Deps{
+) (*bilibilisource.Source, error) {
+	return bilibilisource.NewSource(bilibilisource.Deps{
 		Store:         platform.Storage,
 		Accounts:      thirdPartyService,
 		PluginConfig:  pluginStack.pluginConfig,

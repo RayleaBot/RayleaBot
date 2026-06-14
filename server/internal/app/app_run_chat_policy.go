@@ -4,11 +4,11 @@ import (
 	"context"
 	"strings"
 
-	"github.com/RayleaBot/RayleaBot/server/internal/adapter"
+	adapterintake "github.com/RayleaBot/RayleaBot/server/internal/adapter/intake"
 	"github.com/RayleaBot/RayleaBot/server/internal/permission"
 )
 
-func (s *eventIngressService) applyChatPolicy(ctx context.Context, event adapter.NormalizedEvent) (adapter.NormalizedEvent, bool) {
+func (s *eventIngressService) applyChatPolicy(ctx context.Context, event adapterintake.NormalizedEvent) (adapterintake.NormalizedEvent, bool) {
 	enriched := s.enrichCommandEvent(event)
 	if s == nil || s.permissionChecker == nil || !shouldEvaluateChatPolicy(enriched) {
 		return enriched, true
@@ -40,16 +40,16 @@ func (s *eventIngressService) applyChatPolicy(ctx context.Context, event adapter
 	return enriched, false
 }
 
-func shouldEvaluateChatPolicy(event adapter.NormalizedEvent) bool {
+func shouldEvaluateChatPolicy(event adapterintake.NormalizedEvent) bool {
 	switch event.Kind {
-	case adapter.EventKindMessageText, adapter.EventKindMessage, adapter.EventKindNotice:
+	case adapterintake.EventKindMessageText, adapterintake.EventKindMessage, adapterintake.EventKindNotice:
 		return true
 	default:
 		return false
 	}
 }
 
-func commandGroupID(event adapter.NormalizedEvent) string {
+func commandGroupID(event adapterintake.NormalizedEvent) string {
 	if event.ConversationType != "group" {
 		return ""
 	}

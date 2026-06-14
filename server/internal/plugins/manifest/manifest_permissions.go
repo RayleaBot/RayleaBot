@@ -1,5 +1,7 @@
 package pluginmanifest
 
+import "github.com/RayleaBot/RayleaBot/server/internal/plugins"
+
 func manifestPermissionList(document map[string]any, key string) []string {
 	permissions, ok := document["permissions"].(map[string]any)
 	if !ok {
@@ -28,7 +30,7 @@ func manifestScopeList(document map[string]any, key string) []string {
 	return stringListField(scopes, key)
 }
 
-func manifestWebhookScopes(document map[string]any) []WebhookScope {
+func manifestWebhookScopes(document map[string]any) []plugins.WebhookScope {
 	permissions, ok := document["permissions"].(map[string]any)
 	if !ok {
 		return nil
@@ -42,13 +44,13 @@ func manifestWebhookScopes(document map[string]any) []WebhookScope {
 		return nil
 	}
 
-	items := make([]WebhookScope, 0, len(values))
+	items := make([]plugins.WebhookScope, 0, len(values))
 	for _, value := range values {
 		item, ok := value.(map[string]any)
 		if !ok {
 			continue
 		}
-		scope := WebhookScope{
+		scope := plugins.WebhookScope{
 			Route:           stringField(item, "route"),
 			AuthStrategy:    stringField(item, "auth_strategy"),
 			Header:          stringField(item, "header"),

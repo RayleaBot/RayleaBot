@@ -4,6 +4,8 @@ import (
 	"net/url"
 	"path/filepath"
 	"strings"
+
+	rendertemplates "github.com/RayleaBot/RayleaBot/server/internal/render/templates"
 )
 
 func (s *Service) rememberTemplateRoot(templateID, templateDir, resourceRoot string) {
@@ -23,7 +25,7 @@ func (s *Service) rememberTemplateRoot(templateID, templateDir, resourceRoot str
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.templateRoots[strings.TrimSpace(templateID)] = templateRoot{
+	s.templateRoots[strings.TrimSpace(templateID)] = rendertemplates.Root{
 		TemplateDir:  absoluteTemplateDir,
 		ResourceRoot: absoluteResourceRoot,
 	}
@@ -43,9 +45,9 @@ func (s *Service) templateDirFor(templateID string) string {
 	return filepath.Join(s.templatesRoot, filepath.Clean(templateID))
 }
 
-func (s *Service) templateRootFor(templateID string) templateRoot {
+func (s *Service) templateRootFor(templateID string) rendertemplates.Root {
 	if s == nil {
-		return templateRoot{}
+		return rendertemplates.Root{}
 	}
 	templateID = strings.TrimSpace(templateID)
 	s.mu.RLock()
@@ -55,7 +57,7 @@ func (s *Service) templateRootFor(templateID string) templateRoot {
 		return root
 	}
 	templateDir := filepath.Join(s.templatesRoot, filepath.Clean(templateID))
-	return templateRoot{
+	return rendertemplates.Root{
 		TemplateDir:  templateDir,
 		ResourceRoot: s.templatesRoot,
 	}

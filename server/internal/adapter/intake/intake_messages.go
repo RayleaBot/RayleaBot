@@ -5,6 +5,7 @@ import (
 	"strings"
 	"time"
 
+	adaptersegments "github.com/RayleaBot/RayleaBot/server/internal/adapter/segments"
 	"github.com/RayleaBot/RayleaBot/server/internal/textsafe"
 )
 
@@ -65,7 +66,7 @@ func normalizeMessageLikeEvent(frame OneBotFrame, observedAt time.Time, sent boo
 	}
 
 	segments := parseFrameMessage(frame)
-	plainText := strings.TrimSpace(segmentsToPlainText(segments))
+	plainText := strings.TrimSpace(adaptersegments.ToPlainText(segments))
 	if plainText == "" {
 		plainText = strings.TrimSpace(textsafe.SanitizeString(frame.RawMessage))
 	}
@@ -116,17 +117,17 @@ func normalizeMessageLikeEvent(frame OneBotFrame, observedAt time.Time, sent boo
 
 // parseFrameMessage extracts segments from the OneBot frame Message field,
 // falling back to CQ code parsing from RawMessage.
-func parseFrameMessage(frame OneBotFrame) []MessageSegment {
+func parseFrameMessage(frame OneBotFrame) []adaptersegments.MessageSegment {
 	if len(frame.Message) > 0 {
 		trimmed := strings.TrimSpace(string(frame.Message))
 		if len(trimmed) > 0 && trimmed[0] == '[' {
-			if segments, err := parseMessageArray(frame.Message); err == nil && len(segments) > 0 {
+			if segments, err := adaptersegments.ParseMessageArray(frame.Message); err == nil && len(segments) > 0 {
 				return segments
 			}
 		}
 	}
 	if frame.RawMessage != "" {
-		return parseCQString(frame.RawMessage)
+		return adaptersegments.ParseCQString(frame.RawMessage)
 	}
 	return nil
 }

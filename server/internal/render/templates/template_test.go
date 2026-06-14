@@ -3,10 +3,12 @@ package templates
 import (
 	"strings"
 	"testing"
+
+	renderrepo "github.com/RayleaBot/RayleaBot/server/internal/render/repository"
 )
 
 func TestSafeHTML(t *testing.T) {
-	bundle, err := BuildSourceBundle("test-safe-html", TemplateSource{
+	bundle, err := BuildSourceBundle("test-safe-html", renderrepo.TemplateSource{
 		ManifestJSON: map[string]any{
 			"id":     "test-safe-html",
 			"width":  100,
@@ -39,7 +41,7 @@ func TestSafeHTML(t *testing.T) {
 }
 
 func TestToJSON(t *testing.T) {
-	bundle, err := BuildSourceBundle("test-to-json", TemplateSource{
+	bundle, err := BuildSourceBundle("test-to-json", renderrepo.TemplateSource{
 		ManifestJSON: map[string]any{
 			"id":     "test-to-json",
 			"width":  100,

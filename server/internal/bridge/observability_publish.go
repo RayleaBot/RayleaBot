@@ -4,7 +4,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/RayleaBot/RayleaBot/server/internal/adapter"
+	adapterintake "github.com/RayleaBot/RayleaBot/server/internal/adapter/intake"
 )
 
 func (b *Bridge) PublishDispatcherRuntime(data DispatcherRuntimeData) {
@@ -30,7 +30,7 @@ func (b *Bridge) PublishDispatcherRuntime(data DispatcherRuntimeData) {
 func (b *Bridge) emitObservabilityLocked(observedAt time.Time, outcome Outcome) {
 	lastKind := b.snapshot.LastEventKind
 	if lastKind == "" {
-		lastKind = adapter.EventKindMessageText
+		lastKind = adapterintake.EventKindMessageText
 	}
 	data := ObservabilityData{
 		ObservabilityScope:  observabilityScopeBridge,

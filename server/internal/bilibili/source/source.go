@@ -8,6 +8,8 @@ import (
 	"sync"
 	"time"
 
+	bilibiliCaptcha "github.com/RayleaBot/RayleaBot/server/internal/bilibili/captcha"
+	bilibiliSession "github.com/RayleaBot/RayleaBot/server/internal/bilibili/session"
 	"github.com/RayleaBot/RayleaBot/server/internal/thirdparty"
 )
 
@@ -36,8 +38,8 @@ type Source struct {
 	dispatcher   Dispatcher
 	notifyStatus func(Status)
 	client       *http.Client
-	session      *SessionClient
-	identity     *IdentityProvider
+	session      *bilibiliSession.SessionClient
+	identity     *bilibiliSession.IdentityProvider
 	now          func() time.Time
 
 	mu                   sync.RWMutex
@@ -51,7 +53,7 @@ type Source struct {
 	dynamicAccountOffset int
 	griskID              string
 	griskMu              sync.Mutex
-	captchaClient        *CaptchaClient
+	captchaClient        *bilibiliCaptcha.CaptchaClient
 }
 type liveRoomTask struct {
 	ctx               context.Context
@@ -95,7 +97,7 @@ func NewSource(deps Deps) (*Source, error) {
 	}
 	identity := deps.Identity
 	if identity == nil {
-		identity = NewIdentityProvider(now)
+		identity = bilibiliSession.NewIdentityProvider(now)
 	}
 	source := &Source{
 		read:         deps.Store.Read,
@@ -115,10 +117,10 @@ func NewSource(deps Deps) (*Source, error) {
 		cooldowns:         make(map[string]requestCooldown),
 		autoFollowChecked: make(map[string]time.Time),
 		restart:           make(chan struct{}, 1),
-		captchaClient:     NewCaptchaClient(transport, identity),
+		captchaClient:     bilibiliCaptcha.NewCaptchaClient(transport, identity),
 	}
 	if source.session == nil {
-		source.session = NewSessionClient(transport, now, identity)
+		source.session = bilibiliSession.NewSessionClient(transport, now, identity)
 	}
 	source.status = Status{
 		Status:  StateIdle,

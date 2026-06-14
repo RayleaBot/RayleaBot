@@ -3,6 +3,8 @@ package action
 import (
 	"encoding/json"
 	"testing"
+
+	runtimeprotocol "github.com/RayleaBot/RayleaBot/server/internal/runtime/protocol"
 )
 
 func TestParseOneBotFamilyActionAcceptsObjectData(t *testing.T) {
@@ -30,7 +32,7 @@ func TestParseOneBotFamilyActionRejectsNonObjectData(t *testing.T) {
 func TestParseOutboundActionSegmentAcceptsExtendedSegmentTypes(t *testing.T) {
 	t.Parallel()
 
-	segment, err := parseOutboundActionSegment(protocolSegmentFrame{
+	segment, err := parseOutboundActionSegment(runtimeprotocol.ProtocolSegmentFrame{
 		Type: "markdown",
 		Data: map[string]any{"content": "**天气**"},
 	}, 1)

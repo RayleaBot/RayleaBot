@@ -5,6 +5,7 @@ import (
 	"errors"
 	"strings"
 
+	bilibiliSession "github.com/RayleaBot/RayleaBot/server/internal/bilibili/session"
 	"github.com/RayleaBot/RayleaBot/server/internal/secrets"
 	"github.com/RayleaBot/RayleaBot/server/internal/thirdparty"
 )
@@ -42,7 +43,7 @@ func (s *Source) accountCookieFromOffset(ctx context.Context, offset int) (third
 			if s.session != nil {
 				prepared, prepareErr := s.session.PrepareCookie(ctx, cookie)
 				if prepareErr != nil {
-					if isBilibiliAuthError(prepareErr) {
+					if bilibiliSession.IsAuthError(prepareErr) {
 						checkedAt := s.now()
 						_ = s.accounts.UpdateCredentialStatus(ctx, account.Platform, account.AccountID, account.Profile, thirdparty.CredentialStatus{
 							State:     thirdparty.CredentialInvalid,

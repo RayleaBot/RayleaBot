@@ -17,6 +17,7 @@ import (
 	runtimeaction "github.com/RayleaBot/RayleaBot/server/internal/runtime/action"
 	runtimeprocess "github.com/RayleaBot/RayleaBot/server/internal/runtime/process"
 	runtimeprotocol "github.com/RayleaBot/RayleaBot/server/internal/runtime/protocol"
+	runtimespec "github.com/RayleaBot/RayleaBot/server/internal/runtime/spec"
 )
 
 func TestManagerStartInitAckSuccess(t *testing.T) {
@@ -67,7 +68,7 @@ func TestManagerStartOmitsBotWhenUnavailable(t *testing.T) {
 	manager := testManager()
 	spec := helperSpec(t, "success", recordPath)
 	payload := testInitPayload()
-	payload.Bot = BotInfo{}
+	payload.Bot = runtimespec.BotInfo{}
 
 	if err := manager.Start(context.Background(), spec, payload); err != nil {
 		t.Fatalf("start runtime without bot identity: %v", err)
@@ -251,24 +252,24 @@ func TestManagerDeliverEventReturnsResult(t *testing.T) {
 func TestBuildEventFrameIncludesOneBotPayload(t *testing.T) {
 	t.Parallel()
 
-	frame := runtimeprotocol.BuildEventFrame(Event{
+	frame := runtimeprotocol.BuildEventFrame(runtimeprotocol.Event{
 		EventID:        "evt-onebot-1",
 		SourceProtocol: "onebot11",
 		SourceAdapter:  "adapter.onebot11",
 		EventType:      "message_sent.group",
 		Timestamp:      1_729_679_125,
-		Actor: &EventActor{
+		Actor: &runtimeprotocol.EventActor{
 			ID:       "10001",
 			Nickname: "--",
 			Role:     "owner",
 		},
-		Target: &EventTarget{
+		Target: &runtimeprotocol.EventTarget{
 			Type: "group",
 			ID:   "20001",
 		},
-		Message: &EventMessage{
+		Message: &runtimeprotocol.EventMessage{
 			PlainText: "您好",
-			Segments: []EventSegment{{
+			Segments: []runtimeprotocol.EventSegment{{
 				Type: "text",
 				Data: map[string]any{"text": "您好"},
 			}},
@@ -321,7 +322,7 @@ func TestBuildEventFrameIncludesOneBotPayload(t *testing.T) {
 func TestBuildEventFrameIncludesBilibiliRichDynamicPayload(t *testing.T) {
 	t.Parallel()
 
-	frame := runtimeprotocol.BuildEventFrame(Event{
+	frame := runtimeprotocol.BuildEventFrame(runtimeprotocol.Event{
 		EventID:        "evt-bilibili-rich-1",
 		SourceProtocol: "bilibili",
 		SourceAdapter:  "bilibili.source",
@@ -401,16 +402,16 @@ func TestBuildEventFrameIncludesBilibiliRichDynamicPayload(t *testing.T) {
 func TestBuildEventFrameIncludesMetaOneBotPayload(t *testing.T) {
 	t.Parallel()
 
-	frame := runtimeprotocol.BuildEventFrame(Event{
+	frame := runtimeprotocol.BuildEventFrame(runtimeprotocol.Event{
 		EventID:        "evt-onebot-meta-1",
 		SourceProtocol: "onebot11",
 		SourceAdapter:  "adapter.onebot11",
 		EventType:      "meta.heartbeat",
 		Timestamp:      1_729_679_130,
-		Actor: &EventActor{
+		Actor: &runtimeprotocol.EventActor{
 			ID: "10001",
 		},
-		Target: &EventTarget{
+		Target: &runtimeprotocol.EventTarget{
 			Type: "bot",
 			ID:   "10001",
 		},
@@ -604,10 +605,10 @@ func TestManagerDeliverEventProcessesLocalActionsBeforeTerminalResult(t *testing
 
 	var (
 		mu      sync.Mutex
-		actions []Action
+		actions []runtimeaction.Action
 	)
 	manager := testManagerWithOptions(Options{
-		ExecuteLocalAction: func(_ context.Context, pluginID string, requestID string, action Action, parentEvent Event) (map[string]any, error) {
+		ExecuteLocalAction: func(_ context.Context, pluginID string, requestID string, action runtimeaction.Action, parentEvent runtimeprotocol.Event) (map[string]any, error) {
 			mu.Lock()
 			actions = append(actions, action)
 			mu.Unlock()
@@ -673,7 +674,7 @@ func TestManagerDeliverEventWritesLocalActionErrorAndContinues(t *testing.T) {
 	t.Parallel()
 
 	manager := testManagerWithOptions(Options{
-		ExecuteLocalAction: func(_ context.Context, _ string, _ string, action Action, _ Event) (map[string]any, error) {
+		ExecuteLocalAction: func(_ context.Context, _ string, _ string, action runtimeaction.Action, _ runtimeprotocol.Event) (map[string]any, error) {
 			if action.Kind != "logger.write" {
 				t.Fatalf("unexpected local action: %#v", action)
 			}
@@ -703,7 +704,7 @@ func TestManagerDeliverEventWritesLocalActionErrorDetailsAndContinues(t *testing
 	t.Parallel()
 
 	manager := testManagerWithOptions(Options{
-		ExecuteLocalAction: func(_ context.Context, _ string, _ string, action Action, _ Event) (map[string]any, error) {
+		ExecuteLocalAction: func(_ context.Context, _ string, _ string, action runtimeaction.Action, _ runtimeprotocol.Event) (map[string]any, error) {
 			if action.Kind != "logger.write" {
 				t.Fatalf("unexpected local action: %#v", action)
 			}
@@ -764,7 +765,7 @@ func TestManagerDeliverEventProcessesConcurrentLocalActionsWithinOneSession(t *t
 	started := make(chan string, 2)
 	release := make(chan struct{})
 	manager := testManagerWithOptions(Options{
-		ExecuteLocalAction: func(_ context.Context, pluginID string, requestID string, action Action, _ Event) (map[string]any, error) {
+		ExecuteLocalAction: func(_ context.Context, pluginID string, requestID string, action runtimeaction.Action, _ runtimeprotocol.Event) (map[string]any, error) {
 			if pluginID != "helper-plugin" {
 				t.Fatalf("pluginID = %q, want helper-plugin", pluginID)
 			}
@@ -829,7 +830,7 @@ func TestManagerDeliverEventRejectsTerminalFrameBeforePendingLocalActionsComplet
 
 	release := make(chan struct{})
 	manager := testManagerWithOptions(Options{
-		ExecuteLocalAction: func(context.Context, string, string, Action, Event) (map[string]any, error) {
+		ExecuteLocalAction: func(context.Context, string, string, runtimeaction.Action, runtimeprotocol.Event) (map[string]any, error) {
 			<-release
 			return map[string]any{}, nil
 		},
@@ -853,7 +854,7 @@ func TestManagerDeliverEventRejectsLocalActionUsingEventRequestID(t *testing.T) 
 	t.Parallel()
 
 	manager := testManagerWithOptions(Options{
-		ExecuteLocalAction: func(context.Context, string, string, Action, Event) (map[string]any, error) {
+		ExecuteLocalAction: func(context.Context, string, string, runtimeaction.Action, runtimeprotocol.Event) (map[string]any, error) {
 			t.Fatal("ExecuteLocalAction should not be called when request_id reuses the event request_id")
 			return nil, nil
 		},
@@ -878,7 +879,7 @@ func TestManagerDeliverEventConcurrentSessionsDoNotBlockOnSlowLocalAction(t *tes
 	startedSlow := make(chan string, 1)
 	releaseSlow := make(chan struct{})
 	manager := testManagerWithRequestIDs(Options{
-		ExecuteLocalAction: func(_ context.Context, pluginID string, requestID string, action Action, _ Event) (map[string]any, error) {
+		ExecuteLocalAction: func(_ context.Context, pluginID string, requestID string, action runtimeaction.Action, _ runtimeprotocol.Event) (map[string]any, error) {
 			if pluginID != "helper-plugin" {
 				t.Fatalf("pluginID = %q, want helper-plugin", pluginID)
 			}
@@ -1165,7 +1166,7 @@ func TestParseEventExposeWebhookAction(t *testing.T) {
 		"source_ips": ["192.0.2.0/24"],
 		"replay_protection": {
 			"timestamp_header": "X-Raylea-Timestamp",
-			"event_id_header": "X-Raylea-Event-Id",
+			"event_id_header": "X-Raylea-runtimeprotocol.Event-Id",
 			"tolerance_seconds": 300,
 			"enforce": true
 		}
@@ -1183,7 +1184,7 @@ func TestParseEventExposeWebhookAction(t *testing.T) {
 		t.Fatalf("missing replay_protection on action")
 	}
 	if action.WebhookReplayProtection.TimestampHeader != "X-Raylea-Timestamp" ||
-		action.WebhookReplayProtection.EventIDHeader != "X-Raylea-Event-Id" ||
+		action.WebhookReplayProtection.EventIDHeader != "X-Raylea-runtimeprotocol.Event-Id" ||
 		action.WebhookReplayProtection.ToleranceSeconds != 300 ||
 		!action.WebhookReplayProtection.Enforce {
 		t.Fatalf("unexpected replay_protection: %+v", action.WebhookReplayProtection)
@@ -1367,7 +1368,7 @@ func TestManagerStopIgnoresPluginThatAlreadyExited(t *testing.T) {
 	}
 }
 
-func helperSpec(t *testing.T, scenario string, recordPath string) Spec {
+func helperSpec(t *testing.T, scenario string, recordPath string) runtimespec.Spec {
 	t.Helper()
 
 	return helperSpecWithTimings(
@@ -1380,7 +1381,7 @@ func helperSpec(t *testing.T, scenario string, recordPath string) Spec {
 	)
 }
 
-func helperSpecWithEventTimeout(t *testing.T, scenario string, recordPath string, eventTimeout time.Duration) Spec {
+func helperSpecWithEventTimeout(t *testing.T, scenario string, recordPath string, eventTimeout time.Duration) runtimespec.Spec {
 	t.Helper()
 
 	spec := helperSpec(t, scenario, recordPath)
@@ -1388,7 +1389,7 @@ func helperSpecWithEventTimeout(t *testing.T, scenario string, recordPath string
 	return spec
 }
 
-func helperSpecWithConcurrency(t *testing.T, scenario string, recordPath string, concurrency int) Spec {
+func helperSpecWithConcurrency(t *testing.T, scenario string, recordPath string, concurrency int) runtimespec.Spec {
 	t.Helper()
 
 	spec := helperSpec(t, scenario, recordPath)
@@ -1399,7 +1400,7 @@ func helperSpecWithConcurrency(t *testing.T, scenario string, recordPath string,
 	return spec
 }
 
-func helperSpecWithTimings(t *testing.T, scenario string, recordPath string, initTimeout time.Duration, initMaxTotal time.Duration, shutdownGrace time.Duration) Spec {
+func helperSpecWithTimings(t *testing.T, scenario string, recordPath string, initTimeout time.Duration, initMaxTotal time.Duration, shutdownGrace time.Duration) runtimespec.Spec {
 	t.Helper()
 
 	executable, err := os.Executable()
@@ -1414,7 +1415,7 @@ func helperSpecWithTimings(t *testing.T, scenario string, recordPath string, ini
 		env = append(env, "RAYLEABOT_RUNTIME_RECORD="+recordPath)
 	}
 
-	return Spec{
+	return runtimespec.Spec{
 		PluginID:             "helper-plugin",
 		Runtime:              "test",
 		Command:              executable,
@@ -1430,9 +1431,9 @@ func helperSpecWithTimings(t *testing.T, scenario string, recordPath string, ini
 	}
 }
 
-func testInitPayload() InitPayload {
-	return InitPayload{
-		Bot: BotInfo{
+func testInitPayload() runtimespec.InitPayload {
+	return runtimespec.InitPayload{
+		Bot: runtimespec.BotInfo{
 			ID:       "bot-1",
 			Nickname: "RayleaBot",
 		},
@@ -1442,30 +1443,30 @@ func testInitPayload() InitPayload {
 	}
 }
 
-func testRuntimeEvent() Event {
-	return Event{
+func testRuntimeEvent() runtimeprotocol.Event {
+	return runtimeprotocol.Event{
 		EventID:        "evt-1",
 		SourceProtocol: "onebot11",
 		SourceAdapter:  "adapter.onebot11",
 		EventType:      "message.group",
 		Timestamp:      time.Unix(1_700_000_200, 0).Unix(),
-		Actor: &EventActor{
+		Actor: &runtimeprotocol.EventActor{
 			ID: "3001",
 		},
-		Target: &EventTarget{
+		Target: &runtimeprotocol.EventTarget{
 			Type: "group",
 			ID:   "2001",
 		},
-		Message: &EventMessage{
+		Message: &runtimeprotocol.EventMessage{
 			PlainText: "hello from adapter bridge",
 		},
 	}
 }
 
-func testRuntimeEventWithTarget(targetID string) Event {
+func testRuntimeEventWithTarget(targetID string) runtimeprotocol.Event {
 	event := testRuntimeEvent()
 	event.EventID = "evt-" + targetID
-	event.Target = &EventTarget{
+	event.Target = &runtimeprotocol.EventTarget{
 		Type: "group",
 		ID:   targetID,
 	}

@@ -1,15 +1,18 @@
 package managementhttp
 
-import "strings"
+import (
+	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
+	"strings"
+)
 
-func pluginDisplayName(snapshot Snapshot) string {
+func pluginDisplayName(snapshot plugins.Snapshot) string {
 	if strings.TrimSpace(snapshot.Name) != "" {
 		return snapshot.Name
 	}
 	return snapshot.PluginID
 }
 
-func effectivePluginRole(snapshot Snapshot) string {
+func effectivePluginRole(snapshot plugins.Snapshot) string {
 	if strings.TrimSpace(snapshot.Role) != "" {
 		return snapshot.Role
 	}
@@ -25,7 +28,7 @@ func effectivePluginRole(snapshot Snapshot) string {
 	}
 }
 
-func buildPluginSource(snapshot Snapshot) pluginSourceResponse {
+func buildPluginSource(snapshot plugins.Snapshot) pluginSourceResponse {
 	root := snapshot.SourceRoot
 	if root == "" && len(snapshot.SourceRoots) > 0 {
 		root = snapshot.SourceRoots[0]
@@ -38,7 +41,7 @@ func buildPluginSource(snapshot Snapshot) pluginSourceResponse {
 	}
 }
 
-func isVerifiedPluginSource(snapshot Snapshot) bool {
+func isVerifiedPluginSource(snapshot plugins.Snapshot) bool {
 	switch snapshot.SourceRoot {
 	case "plugins/builtin", "examples/plugins", "plugins/dev":
 		return true
@@ -47,7 +50,7 @@ func isVerifiedPluginSource(snapshot Snapshot) bool {
 	}
 }
 
-func buildPluginTrust(role string, snapshot Snapshot) pluginTrustResponse {
+func buildPluginTrust(role string, snapshot plugins.Snapshot) pluginTrustResponse {
 	switch role {
 	case "builtin":
 		return pluginTrustResponse{Level: "official", Label: "官方"}

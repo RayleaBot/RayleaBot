@@ -4,13 +4,13 @@ import (
 	"context"
 	"log/slog"
 
-	"github.com/RayleaBot/RayleaBot/server/internal/adapter"
+	adaptershell "github.com/RayleaBot/RayleaBot/server/internal/adapter/shell"
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/dispatch"
 	"github.com/RayleaBot/RayleaBot/server/internal/pluginconfig"
 	"github.com/RayleaBot/RayleaBot/server/internal/pluginfile"
 	"github.com/RayleaBot/RayleaBot/server/internal/pluginkv"
-	"github.com/RayleaBot/RayleaBot/server/internal/render"
+	renderservice "github.com/RayleaBot/RayleaBot/server/internal/render/service"
 	"github.com/RayleaBot/RayleaBot/server/internal/scheduler"
 	"github.com/RayleaBot/RayleaBot/server/internal/secrets"
 )
@@ -26,8 +26,8 @@ type Deps struct {
 	Secrets          secrets.Store
 	Scheduler        *scheduler.Engine
 	Dispatcher       *dispatch.Dispatcher
-	Renderer         *render.Service
-	Adapter          *adapter.Shell
+	Renderer         *renderservice.Service
+	Adapter          *adaptershell.Shell
 	PluginLogLimiter *PluginLogLimiter
 	Governance       GovernanceService
 	ThirdParty       ThirdPartyAccounts
@@ -46,8 +46,8 @@ type Service struct {
 	secrets          secrets.Store
 	scheduler        *scheduler.Engine
 	dispatcher       *dispatch.Dispatcher
-	renderer         *render.Service
-	adapter          *adapter.Shell
+	renderer         *renderservice.Service
+	adapter          *adaptershell.Shell
 	webhookGateway   WebhookGateway
 	pluginLogLimiter *PluginLogLimiter
 	governance       GovernanceService

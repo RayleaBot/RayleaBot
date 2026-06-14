@@ -3,15 +3,14 @@ package app
 import (
 	"sync/atomic"
 
-	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
-
-	"github.com/RayleaBot/RayleaBot/server/internal/adapter"
+	adaptershell "github.com/RayleaBot/RayleaBot/server/internal/adapter/shell"
 	"github.com/RayleaBot/RayleaBot/server/internal/auth"
 	"github.com/RayleaBot/RayleaBot/server/internal/logging"
 	managementevents "github.com/RayleaBot/RayleaBot/server/internal/management/events"
 	managementhttp "github.com/RayleaBot/RayleaBot/server/internal/management/http"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
-	"github.com/RayleaBot/RayleaBot/server/internal/render"
+	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
+	renderservice "github.com/RayleaBot/RayleaBot/server/internal/render/service"
 	"github.com/RayleaBot/RayleaBot/server/internal/storage"
 	"github.com/RayleaBot/RayleaBot/server/internal/tasks"
 )
@@ -19,10 +18,10 @@ import (
 type systemService struct {
 	state            *appRuntimeState
 	auth             *auth.Manager
-	adapter          *adapter.Shell
+	adapter          *adaptershell.Shell
 	plugins          *plugincatalog.Catalog
 	runtimes         *runtimeRegistry
-	renderer         *render.Service
+	renderer         *renderservice.Service
 	storage          *storage.Store
 	pluginRepository plugins.DesiredStateRepository
 	taskExecutor     *tasks.Executor

@@ -81,7 +81,7 @@ type Image struct {
 	Height int
 }
 
-type RoomState struct {
+type roomState struct {
 	UID             string
 	RoomID          string
 	Name            string
@@ -95,5 +95,3 @@ type RoomState struct {
 	LastError       string
 	UpdatedAt       time.Time
 }
-
-type roomState = RoomState

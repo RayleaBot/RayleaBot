@@ -45,7 +45,7 @@ func (s *Service) RefreshBrowserPath(browserPath string) {
 		s.mu.Unlock()
 		return
 	}
-	s.runner = NewChromiumRunner(ChromiumOptions{
+	s.runner = renderbrowser.NewChromiumRunner(renderbrowser.ChromiumOptions{
 		BrowserPath: trimmed,
 		BrowserArgs: browserArgs,
 	})
@@ -53,7 +53,7 @@ func (s *Service) RefreshBrowserPath(browserPath string) {
 	_ = closeRenderRunner(oldRunner)
 }
 
-func (s *Service) currentRunner() Runner {
+func (s *Service) currentRunner() renderbrowser.Runner {
 	if s == nil {
 		return nil
 	}
@@ -77,7 +77,7 @@ func (s *Service) acquireAllWorkerSlots() func() {
 	}
 }
 
-func closeRenderRunner(runner Runner) error {
+func closeRenderRunner(runner renderbrowser.Runner) error {
 	closeable, ok := runner.(closeableRunner)
 	if !ok || closeable == nil {
 		return nil

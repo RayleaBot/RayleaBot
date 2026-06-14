@@ -13,7 +13,7 @@ import (
 
 	"github.com/RayleaBot/RayleaBot/server/internal/httpapi"
 	managementhttp "github.com/RayleaBot/RayleaBot/server/internal/management/http"
-	"github.com/RayleaBot/RayleaBot/server/internal/render"
+	renderservice "github.com/RayleaBot/RayleaBot/server/internal/render/service"
 )
 
 func buildAppHTTPServer(deps httpServerDeps) (http.Handler, *http.Server) {
@@ -42,7 +42,7 @@ func buildAppHTTPServer(deps httpServerDeps) (http.Handler, *http.Server) {
 	return router, server
 }
 
-func logConfiguredServer(state *appRuntimeState, renderer *render.Service, listenAddr string) {
+func logConfiguredServer(state *appRuntimeState, renderer *renderservice.Service, listenAddr string) {
 	state.Logger.Info(
 		"configuration loaded",
 		"component", "config",

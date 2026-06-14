@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/RayleaBot/RayleaBot/server/internal/adapter"
+	adapteroutbound "github.com/RayleaBot/RayleaBot/server/internal/adapter/outbound"
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 )
 
@@ -67,7 +67,7 @@ func TestMessageRateLimiterReturnsPlatformRateLimitedAfterWaitLimit(t *testing.T
 	if err == nil {
 		t.Fatal("second Wait() error = nil, want platform.rate_limited")
 	}
-	var adapterErr *adapter.Error
+	var adapterErr *adapteroutbound.Error
 	if !errors.As(err, &adapterErr) || adapterErr.Code != "platform.rate_limited" {
 		t.Fatalf("error = %#v, want platform.rate_limited", err)
 	}

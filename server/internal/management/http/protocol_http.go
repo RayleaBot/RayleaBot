@@ -3,7 +3,7 @@ package managementhttp
 import (
 	"sync"
 
-	"github.com/RayleaBot/RayleaBot/server/internal/adapter"
+	adaptershell "github.com/RayleaBot/RayleaBot/server/internal/adapter/shell"
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	managementevents "github.com/RayleaBot/RayleaBot/server/internal/management/events"
 )
@@ -14,13 +14,13 @@ type ConfigSource interface {
 
 type ProtocolService struct {
 	config      ConfigSource
-	adapter     *adapter.Shell
+	adapter     *adaptershell.Shell
 	mu          sync.RWMutex
 	nextSubID   uint64
 	subscribers map[uint64]chan managementevents.Frame
 }
 
-func NewProtocolService(configSource ConfigSource, adapterShell *adapter.Shell) *ProtocolService {
+func NewProtocolService(configSource ConfigSource, adapterShell *adaptershell.Shell) *ProtocolService {
 	return &ProtocolService{
 		config:      configSource,
 		adapter:     adapterShell,

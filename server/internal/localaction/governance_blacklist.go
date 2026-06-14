@@ -3,7 +3,8 @@ package localaction
 import (
 	"context"
 
-	"github.com/RayleaBot/RayleaBot/server/internal/runtime"
+	runtimeaction "github.com/RayleaBot/RayleaBot/server/internal/runtime/action"
+	runtimemanager "github.com/RayleaBot/RayleaBot/server/internal/runtime/manager"
 )
 
 func (s *Service) executeGovernanceBlacklistRead(ctx context.Context, pluginID string) (map[string]any, error) {
@@ -21,7 +22,7 @@ func (s *Service) executeGovernanceBlacklistRead(ctx context.Context, pluginID s
 	}, nil
 }
 
-func (s *Service) executeGovernanceBlacklistWrite(ctx context.Context, pluginID string, action runtime.Action) (map[string]any, error) {
+func (s *Service) executeGovernanceBlacklistWrite(ctx context.Context, pluginID string, action runtimeaction.Action) (map[string]any, error) {
 	if err := s.requireGovernanceCapability(ctx, pluginID, "governance.blacklist.write"); err != nil {
 		return nil, err
 	}
@@ -46,7 +47,7 @@ func (s *Service) executeGovernanceBlacklistWrite(ctx context.Context, pluginID 
 			"deleted": true,
 		}, nil
 	default:
-		return nil, &runtime.Error{
+		return nil, &runtimemanager.Error{
 			Code:    "plugin.protocol_violation",
 			Message: "governance.blacklist.write uses unsupported operation",
 		}

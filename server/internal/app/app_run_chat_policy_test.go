@@ -11,9 +11,8 @@ import (
 	"testing"
 	"time"
 
-	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
-
-	"github.com/RayleaBot/RayleaBot/server/internal/adapter"
+	adapterintake "github.com/RayleaBot/RayleaBot/server/internal/adapter/intake"
+	adapteroutbound "github.com/RayleaBot/RayleaBot/server/internal/adapter/outbound"
 	"github.com/RayleaBot/RayleaBot/server/internal/bridge"
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/dispatch"
@@ -21,7 +20,8 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/outbound"
 	"github.com/RayleaBot/RayleaBot/server/internal/permission"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
-	"github.com/RayleaBot/RayleaBot/server/internal/runtime"
+	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
+	runtimeprotocol "github.com/RayleaBot/RayleaBot/server/internal/runtime/protocol"
 )
 
 func TestCommandInfoForEventUsesDefaultLevelForOmittedPermission(t *testing.T) {
@@ -45,7 +45,7 @@ func TestCommandInfoForEventUsesDefaultLevelForOmittedPermission(t *testing.T) {
 		}},
 	}}), nil, nil, nil)
 
-	info := application.commandInfoForEvent(application.enrichCommandEvent(adapter.NormalizedEvent{
+	info := application.commandInfoForEvent(application.enrichCommandEvent(adapterintake.NormalizedEvent{
 		PlainText: "/weather-admin",
 	}))
 	if info == nil {
@@ -97,8 +97,8 @@ func TestHandleAdapterEventBlocksBlacklistedMessageBeforeBridge(t *testing.T) {
 	application := newTestAppState(config.Config{}, nil)
 	application.setTestEventIngress(nil, repo, nil, bridge.New(slog.Default(), dispatcherClient))
 
-	application.handleAdapterEvent(context.Background(), adapter.NormalizedEvent{
-		Kind:             adapter.EventKindMessage,
+	application.handleAdapterEvent(context.Background(), adapterintake.NormalizedEvent{
+		Kind:             adapterintake.EventKindMessage,
 		EventID:          "evt-1",
 		SourceProtocol:   "onebot11",
 		SourceAdapter:    "adapter.onebot11",
@@ -125,8 +125,8 @@ func TestHandleAdapterEventKeepsBlacklistedNonCommandMessageSilent(t *testing.T)
 	application := newTestAppState(config.Config{}, logger)
 	application.setTestEventIngress(nil, repo, nil, bridge.New(logger, dispatcherClient))
 
-	application.handleAdapterEvent(context.Background(), adapter.NormalizedEvent{
-		Kind:             adapter.EventKindMessage,
+	application.handleAdapterEvent(context.Background(), adapterintake.NormalizedEvent{
+		Kind:             adapterintake.EventKindMessage,
 		EventID:          "evt-blacklist-silent-1",
 		SourceProtocol:   "onebot11",
 		SourceAdapter:    "adapter.onebot11",
@@ -174,8 +174,8 @@ func TestHandleAdapterEventBlocksCommandWhenNotWhitelistedBeforeBridge(t *testin
 		bridge.New(slog.Default(), dispatcherClient),
 	)
 
-	application.handleAdapterEvent(context.Background(), adapter.NormalizedEvent{
-		Kind:             adapter.EventKindMessage,
+	application.handleAdapterEvent(context.Background(), adapterintake.NormalizedEvent{
+		Kind:             adapterintake.EventKindMessage,
 		EventID:          "evt-white-1",
 		SourceProtocol:   "onebot11",
 		SourceAdapter:    "adapter.onebot11",
@@ -221,8 +221,8 @@ func TestHandleAdapterEventLogsWhitelistedCommandRejection(t *testing.T) {
 		bridge.New(logger, dispatcherClient),
 	)
 
-	application.handleAdapterEvent(context.Background(), adapter.NormalizedEvent{
-		Kind:             adapter.EventKindMessage,
+	application.handleAdapterEvent(context.Background(), adapterintake.NormalizedEvent{
+		Kind:             adapterintake.EventKindMessage,
 		EventID:          "evt-white-log-1",
 		SourceProtocol:   "onebot11",
 		SourceAdapter:    "adapter.onebot11",
@@ -291,8 +291,8 @@ func TestHandleAdapterEventLogsBlacklistedCommandRejection(t *testing.T) {
 		bridge.New(logger, dispatcherClient),
 	)
 
-	application.handleAdapterEvent(context.Background(), adapter.NormalizedEvent{
-		Kind:             adapter.EventKindMessage,
+	application.handleAdapterEvent(context.Background(), adapterintake.NormalizedEvent{
+		Kind:             adapterintake.EventKindMessage,
 		EventID:          "evt-blacklist-log-1",
 		SourceProtocol:   "onebot11",
 		SourceAdapter:    "adapter.onebot11",
@@ -352,8 +352,8 @@ func TestHandleAdapterEventUsesMostStrictMatchingCommandPermission(t *testing.T)
 		},
 	}), nil, nil, bridge.New(slog.Default(), dispatcherClient))
 
-	application.handleAdapterEvent(context.Background(), adapter.NormalizedEvent{
-		Kind:             adapter.EventKindMessage,
+	application.handleAdapterEvent(context.Background(), adapterintake.NormalizedEvent{
+		Kind:             adapterintake.EventKindMessage,
 		EventID:          "evt-ops",
 		SourceProtocol:   "onebot11",
 		SourceAdapter:    "adapter.onebot11",
@@ -401,8 +401,8 @@ func TestHandleAdapterEventLogsPermissionDeniedCommandRejection(t *testing.T) {
 		bridge.New(logger, dispatcherClient),
 	)
 
-	application.handleAdapterEvent(context.Background(), adapter.NormalizedEvent{
-		Kind:             adapter.EventKindMessage,
+	application.handleAdapterEvent(context.Background(), adapterintake.NormalizedEvent{
+		Kind:             adapterintake.EventKindMessage,
 		EventID:          "evt-permission-log-1",
 		SourceProtocol:   "onebot11",
 		SourceAdapter:    "adapter.onebot11",
@@ -461,8 +461,8 @@ func TestHandleAdapterEventLogsConflictingCommandRejectionWithoutPluginID(t *tes
 		},
 	}), nil, nil, bridge.New(logger, dispatcherClient))
 
-	application.handleAdapterEvent(context.Background(), adapter.NormalizedEvent{
-		Kind:             adapter.EventKindMessage,
+	application.handleAdapterEvent(context.Background(), adapterintake.NormalizedEvent{
+		Kind:             adapterintake.EventKindMessage,
 		EventID:          "evt-conflict-log-1",
 		SourceProtocol:   "onebot11",
 		SourceAdapter:    "adapter.onebot11",
@@ -515,8 +515,8 @@ func TestApplyChatPolicySendsCooldownReplyForGroupCommand(t *testing.T) {
 			Permission: "everyone",
 		}},
 	}}), nil, sender, nil)
-	event := adapter.NormalizedEvent{
-		Kind:             adapter.EventKindMessage,
+	event := adapterintake.NormalizedEvent{
+		Kind:             adapterintake.EventKindMessage,
 		EventID:          "evt-weather",
 		SourceProtocol:   "onebot11",
 		SourceAdapter:    "adapter.onebot11",
@@ -550,7 +550,7 @@ func TestApplyChatPolicyAppliesTargetLimitToCooldownReply(t *testing.T) {
 	logger, stream := newAppTestLogger()
 	sender := &recordingOutboundSender{}
 	limiter := &recordingAppOutboundLimiter{
-		err: &adapter.Error{Code: "platform.rate_limited", Message: "outbound message rate limit exceeded"},
+		err: &adapteroutbound.Error{Code: "platform.rate_limited", Message: "outbound message rate limit exceeded"},
 	}
 	cfg := config.Config{
 		Command: &config.CommandConfig{
@@ -578,8 +578,8 @@ func TestApplyChatPolicyAppliesTargetLimitToCooldownReply(t *testing.T) {
 	}}), nil, sender, bridge.New(logger, &recordingDispatcherClient{}))
 	application.services.eventIngress.outboundLimiter = limiter
 
-	event := adapter.NormalizedEvent{
-		Kind:             adapter.EventKindMessage,
+	event := adapterintake.NormalizedEvent{
+		Kind:             adapterintake.EventKindMessage,
 		EventID:          "evt-weather-target-limit",
 		SourceProtocol:   "onebot11",
 		SourceAdapter:    "adapter.onebot11",
@@ -647,8 +647,8 @@ func TestApplyChatPolicyCancelsCooldownReplyTargetLimit(t *testing.T) {
 	}}), nil, sender, nil)
 	application.services.eventIngress.outboundLimiter = limiter
 
-	event := adapter.NormalizedEvent{
-		Kind:             adapter.EventKindMessage,
+	event := adapterintake.NormalizedEvent{
+		Kind:             adapterintake.EventKindMessage,
 		EventID:          "evt-weather-cancelled-limit",
 		SourceProtocol:   "onebot11",
 		SourceAdapter:    "adapter.onebot11",
@@ -706,8 +706,8 @@ func TestApplyChatPolicyUsesCanonicalUserCooldownForPrivateCommand(t *testing.T)
 			Name: "help",
 		}},
 	}}), nil, nil, nil)
-	event := adapter.NormalizedEvent{
-		Kind:             adapter.EventKindMessage,
+	event := adapterintake.NormalizedEvent{
+		Kind:             adapterintake.EventKindMessage,
 		EventID:          "evt-help-private-canonical",
 		SourceProtocol:   "onebot11",
 		SourceAdapter:    "adapter.onebot11",
@@ -755,8 +755,8 @@ func TestApplyChatPolicyUsesCanonicalUserCooldownForGroupCommand(t *testing.T) {
 			Name: "weather",
 		}},
 	}}), nil, nil, nil)
-	event := adapter.NormalizedEvent{
-		Kind:             adapter.EventKindMessage,
+	event := adapterintake.NormalizedEvent{
+		Kind:             adapterintake.EventKindMessage,
 		EventID:          "evt-weather-group-user-canonical",
 		SourceProtocol:   "onebot11",
 		SourceAdapter:    "adapter.onebot11",
@@ -807,8 +807,8 @@ func TestApplyChatPolicyUsesCanonicalGroupCooldown(t *testing.T) {
 			Name: "weather",
 		}},
 	}}), nil, nil, nil)
-	firstEvent := adapter.NormalizedEvent{
-		Kind:             adapter.EventKindMessage,
+	firstEvent := adapterintake.NormalizedEvent{
+		Kind:             adapterintake.EventKindMessage,
 		EventID:          "evt-weather-group-group-canonical-1",
 		SourceProtocol:   "onebot11",
 		SourceAdapter:    "adapter.onebot11",
@@ -862,8 +862,8 @@ func TestApplyChatPolicyUsesCanonicalCooldownReplyFlag(t *testing.T) {
 			Name: "weather",
 		}},
 	}}), nil, sender, nil)
-	event := adapter.NormalizedEvent{
-		Kind:             adapter.EventKindMessage,
+	event := adapterintake.NormalizedEvent{
+		Kind:             adapterintake.EventKindMessage,
 		EventID:          "evt-weather-canonical-reply-flag",
 		SourceProtocol:   "onebot11",
 		SourceAdapter:    "adapter.onebot11",
@@ -921,8 +921,8 @@ func TestApplyChatPolicyUsesCanonicalPermissionAndSuperAdmin(t *testing.T) {
 		}},
 	}}), nil, nil, nil)
 
-	memberEvent := adapter.NormalizedEvent{
-		Kind:             adapter.EventKindMessage,
+	memberEvent := adapterintake.NormalizedEvent{
+		Kind:             adapterintake.EventKindMessage,
 		EventID:          "evt-ops-canonical-member",
 		SourceProtocol:   "onebot11",
 		SourceAdapter:    "adapter.onebot11",
@@ -985,8 +985,8 @@ func TestHandleAdapterEventSendsBuiltinMenuImageWithoutPluginDispatch(t *testing
 		}},
 	}}), nil, sender, bridge.New(slog.Default(), dispatcher))
 
-	application.handleAdapterEvent(context.Background(), adapter.NormalizedEvent{
-		Kind:             adapter.EventKindMessage,
+	application.handleAdapterEvent(context.Background(), adapterintake.NormalizedEvent{
+		Kind:             adapterintake.EventKindMessage,
 		EventID:          "evt-builtin-menu",
 		BotID:            "10001",
 		SourceProtocol:   "onebot11",
@@ -1082,8 +1082,8 @@ func TestHandleAdapterEventUsesIndependentBuiltinMenuPrefix(t *testing.T) {
 		}},
 	}}), nil, sender, bridge.New(slog.Default(), dispatcher))
 
-	application.handleAdapterEvent(context.Background(), adapter.NormalizedEvent{
-		Kind:             adapter.EventKindMessage,
+	application.handleAdapterEvent(context.Background(), adapterintake.NormalizedEvent{
+		Kind:             adapterintake.EventKindMessage,
 		EventID:          "evt-builtin-menu-prefix",
 		SourceProtocol:   "onebot11",
 		SourceAdapter:    "adapter.onebot11",
@@ -1128,8 +1128,8 @@ func TestApplyChatPolicyDoesNotTreatPluginCommandAsBuiltinWhenMenuPrefixDiffers(
 		}},
 	}}), nil, nil, bridge.New(slog.Default(), &recordingDispatcherClient{}))
 
-	_, allowed := application.applyChatPolicy(context.Background(), adapter.NormalizedEvent{
-		Kind:             adapter.EventKindMessage,
+	_, allowed := application.applyChatPolicy(context.Background(), adapterintake.NormalizedEvent{
+		Kind:             adapterintake.EventKindMessage,
 		EventID:          "evt-plugin-help-policy",
 		SourceProtocol:   "onebot11",
 		SourceAdapter:    "adapter.onebot11",
@@ -1183,8 +1183,8 @@ func TestHandleAdapterEventRendersBuiltinMenuPluginPrefixesAsSingleUsage(t *test
 		}},
 	}}), nil, sender, bridge.New(slog.Default(), &recordingDispatcherClient{}))
 
-	application.handleAdapterEvent(context.Background(), adapter.NormalizedEvent{
-		Kind:             adapter.EventKindMessage,
+	application.handleAdapterEvent(context.Background(), adapterintake.NormalizedEvent{
+		Kind:             adapterintake.EventKindMessage,
 		EventID:          "evt-builtin-plugin-menu-prefix-group",
 		SourceProtocol:   "onebot11",
 		SourceAdapter:    "adapter.onebot11",
@@ -1251,8 +1251,8 @@ func TestHandleAdapterEventMatchesBuiltinPluginSuffixHelp(t *testing.T) {
 		}},
 	}}), nil, sender, bridge.New(slog.Default(), &recordingDispatcherClient{}))
 
-	application.handleAdapterEvent(context.Background(), adapter.NormalizedEvent{
-		Kind:             adapter.EventKindMessage,
+	application.handleAdapterEvent(context.Background(), adapterintake.NormalizedEvent{
+		Kind:             adapterintake.EventKindMessage,
 		EventID:          "evt-builtin-menu-suffix",
 		SourceProtocol:   "onebot11",
 		SourceAdapter:    "adapter.onebot11",
@@ -1296,8 +1296,8 @@ func TestHandleAdapterEventSkipsMissingBuiltinPluginMenuTarget(t *testing.T) {
 		}},
 	}}), nil, sender, bridge.New(slog.Default(), dispatcher))
 
-	application.handleAdapterEvent(context.Background(), adapter.NormalizedEvent{
-		Kind:             adapter.EventKindMessage,
+	application.handleAdapterEvent(context.Background(), adapterintake.NormalizedEvent{
+		Kind:             adapterintake.EventKindMessage,
 		EventID:          "evt-missing-builtin-menu-target",
 		SourceProtocol:   "onebot11",
 		SourceAdapter:    "adapter.onebot11",
@@ -1343,8 +1343,8 @@ func TestHandleAdapterEventDoesNotTreatExactPluginCommandAsBuiltinSuffixMenu(t *
 		}},
 	}}), nil, sender, bridge.New(slog.Default(), dispatcher))
 
-	application.handleAdapterEvent(context.Background(), adapter.NormalizedEvent{
-		Kind:             adapter.EventKindMessage,
+	application.handleAdapterEvent(context.Background(), adapterintake.NormalizedEvent{
+		Kind:             adapterintake.EventKindMessage,
 		EventID:          "evt-plugin-command-help-suffix",
 		SourceProtocol:   "onebot11",
 		SourceAdapter:    "adapter.onebot11",
@@ -1391,8 +1391,8 @@ func TestHandleAdapterEventBlocksBuiltinMenuWhenBlacklistApplies(t *testing.T) {
 		}},
 	}}), repo, sender, bridge.New(slog.Default(), dispatcher))
 
-	application.handleAdapterEvent(context.Background(), adapter.NormalizedEvent{
-		Kind:             adapter.EventKindMessage,
+	application.handleAdapterEvent(context.Background(), adapterintake.NormalizedEvent{
+		Kind:             adapterintake.EventKindMessage,
 		EventID:          "evt-builtin-menu-blacklist",
 		SourceProtocol:   "onebot11",
 		SourceAdapter:    "adapter.onebot11",
@@ -1444,8 +1444,8 @@ func TestHandleAdapterEventBlocksBuiltinMenuWhenCooldownApplies(t *testing.T) {
 		}},
 	}}), nil, sender, bridge.New(slog.Default(), dispatcher))
 
-	event := adapter.NormalizedEvent{
-		Kind:             adapter.EventKindMessage,
+	event := adapterintake.NormalizedEvent{
+		Kind:             adapterintake.EventKindMessage,
 		EventID:          "evt-builtin-menu-cooldown",
 		SourceProtocol:   "onebot11",
 		SourceAdapter:    "adapter.onebot11",
@@ -1499,8 +1499,8 @@ func TestApplyChatPolicyLogsCooldownReplySuccess(t *testing.T) {
 		}},
 	}}), nil, sender, bridge.New(logger, &recordingDispatcherClient{}))
 
-	event := adapter.NormalizedEvent{
-		Kind:             adapter.EventKindMessage,
+	event := adapterintake.NormalizedEvent{
+		Kind:             adapterintake.EventKindMessage,
 		EventID:          "evt-weather-log-success",
 		SourceProtocol:   "onebot11",
 		SourceAdapter:    "adapter.onebot11",
@@ -1557,7 +1557,7 @@ func TestApplyChatPolicyLogsCooldownReplyFailure(t *testing.T) {
 
 	logger, stream := newAppTestLogger()
 	sender := &recordingOutboundSender{
-		replyErr: &adapter.Error{Code: "adapter.send_failed", Message: "cooldown reply blocked"},
+		replyErr: &adapteroutbound.Error{Code: "adapter.send_failed", Message: "cooldown reply blocked"},
 	}
 	cfg := config.Config{
 		Command: &config.CommandConfig{
@@ -1584,8 +1584,8 @@ func TestApplyChatPolicyLogsCooldownReplyFailure(t *testing.T) {
 		}},
 	}}), nil, sender, bridge.New(logger, &recordingDispatcherClient{}))
 
-	event := adapter.NormalizedEvent{
-		Kind:             adapter.EventKindMessage,
+	event := adapterintake.NormalizedEvent{
+		Kind:             adapterintake.EventKindMessage,
 		EventID:          "evt-weather-log-failure",
 		SourceProtocol:   "onebot11",
 		SourceAdapter:    "adapter.onebot11",
@@ -1757,7 +1757,7 @@ func (r *recordingDispatcherClient) HasDeliverablePlugins() bool {
 	return true
 }
 
-func (r *recordingDispatcherClient) Dispatch(_ context.Context, _ runtime.Event, _ string) []dispatch.DeliveryResult {
+func (r *recordingDispatcherClient) Dispatch(_ context.Context, _ runtimeprotocol.Event, _ string) []dispatch.DeliveryResult {
 	r.deliverCount++
 	return []dispatch.DeliveryResult{{
 		PluginID: "test",
@@ -1776,18 +1776,18 @@ type recordingOutboundSender struct {
 	messageErr       error
 }
 
-func (s *recordingOutboundSender) SendMessage(_ context.Context, action adapter.OutboundMessageSend) (adapter.SendMessageResult, error) {
+func (s *recordingOutboundSender) SendMessage(_ context.Context, action adapteroutbound.OutboundMessageSend) (adapteroutbound.SendMessageResult, error) {
 	s.messageCount++
 	s.lastMessageText = firstTextSegment(action.Segments)
 	s.lastMessageImage = firstImageSegment(action.Segments)
-	return adapter.SendMessageResult{MessageID: "msg-1"}, s.messageErr
+	return adapteroutbound.SendMessageResult{MessageID: "msg-1"}, s.messageErr
 }
 
-func (s *recordingOutboundSender) SendReply(_ context.Context, action adapter.OutboundMessageReply) (adapter.SendMessageResult, error) {
+func (s *recordingOutboundSender) SendReply(_ context.Context, action adapteroutbound.OutboundMessageReply) (adapteroutbound.SendMessageResult, error) {
 	s.replyCount++
 	s.lastReplyText = firstTextSegment(action.Segments)
 	s.lastReplyImage = firstImageSegment(action.Segments)
-	return adapter.SendMessageResult{MessageID: "msg-2"}, s.replyErr
+	return adapteroutbound.SendMessageResult{MessageID: "msg-2"}, s.replyErr
 }
 
 type recordingAppOutboundLimiter struct {
@@ -1816,12 +1816,12 @@ type contextAwareOutboundLimiter struct {
 func (l *contextAwareOutboundLimiter) Wait(ctx context.Context, _ outbound.MessageLimitRequest) error {
 	l.ctxErr = ctx.Err()
 	if l.ctxErr != nil {
-		return &adapter.Error{Code: "platform.rate_limited", Message: "outbound message rate limit exceeded"}
+		return &adapteroutbound.Error{Code: "platform.rate_limited", Message: "outbound message rate limit exceeded"}
 	}
 	return nil
 }
 
-func firstTextSegment(segments []adapter.OutboundMessageSegment) string {
+func firstTextSegment(segments []adapteroutbound.OutboundMessageSegment) string {
 	for _, segment := range segments {
 		if segment.Type != "text" {
 			continue
@@ -1833,7 +1833,7 @@ func firstTextSegment(segments []adapter.OutboundMessageSegment) string {
 	return ""
 }
 
-func firstImageSegment(segments []adapter.OutboundMessageSegment) string {
+func firstImageSegment(segments []adapteroutbound.OutboundMessageSegment) string {
 	for _, segment := range segments {
 		if segment.Type != "image" {
 			continue

@@ -2,13 +2,14 @@ package managementhttp
 
 import (
 	"encoding/json"
+	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	"net/http"
 	"time"
 
 	"github.com/go-chi/chi/v5"
 )
 
-func newListGrantsHandler(catalog CatalogView, repo GrantRepository, autoGrantProvider autoGrantCapabilitiesProvider) http.HandlerFunc {
+func newListGrantsHandler(catalog plugins.CatalogView, repo plugins.GrantRepository, autoGrantProvider autoGrantCapabilitiesProvider) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		pluginID := chi.URLParam(r, "plugin_id")
 		snapshot, ok := catalog.Get(pluginID)
@@ -21,12 +22,12 @@ func newListGrantsHandler(catalog CatalogView, repo GrantRepository, autoGrantPr
 			writeError(w, r, http.StatusInternalServerError, "platform.internal_error", "内部错误", "errors.platform.internal_error", nil)
 			return
 		}
-		effective := ComputeEffectiveGrants(snapshot, providedAutoGrantCapabilities(autoGrantProvider), persisted)
+		effective := plugins.ComputeEffectiveGrants(snapshot, providedAutoGrantCapabilities(autoGrantProvider), persisted)
 		writeJSON(w, http.StatusOK, grantsListResponse{Items: buildGrantResponses(effective)})
 	}
 }
 
-func newGrantHandler(catalog CatalogView, repo GrantRepository) http.HandlerFunc {
+func newGrantHandler(catalog plugins.CatalogView, repo plugins.GrantRepository) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		pluginID := chi.URLParam(r, "plugin_id")
 		snapshot, ok := catalog.Get(pluginID)
@@ -58,7 +59,7 @@ func newGrantHandler(catalog CatalogView, repo GrantRepository) http.HandlerFunc
 			writeError(w, r, http.StatusBadRequest, codeInvalidRequest, "请求参数不合法", "errors.platform.invalid_request", nil)
 			return
 		}
-		grant := PluginGrant{
+		grant := plugins.PluginGrant{
 			PluginID:   pluginID,
 			Capability: req.Capability,
 			ScopeJSON:  BuildScopeJSON(snapshot),
@@ -74,7 +75,7 @@ func newGrantHandler(catalog CatalogView, repo GrantRepository) http.HandlerFunc
 			PluginID:   grant.PluginID,
 			Capability: grant.Capability,
 			GrantedAt:  &grantedAt,
-			Source:     string(GrantSourcePersisted),
+			Source:     string(plugins.GrantSourcePersisted),
 		}
 		if grant.ExpiresAt != nil {
 			value := grant.ExpiresAt.UTC().Format(time.RFC3339)
@@ -84,7 +85,7 @@ func newGrantHandler(catalog CatalogView, repo GrantRepository) http.HandlerFunc
 	}
 }
 
-func newRevokeGrantHandler(catalog CatalogView, repo GrantRepository) http.HandlerFunc {
+func newRevokeGrantHandler(catalog plugins.CatalogView, repo plugins.GrantRepository) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		pluginID := chi.URLParam(r, "plugin_id")
 		capability := chi.URLParam(r, "capability")

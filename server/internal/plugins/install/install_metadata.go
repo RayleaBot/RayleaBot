@@ -6,7 +6,7 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 )
 
-func (s *InstallService) buildPackageMetadata(request InstallRequest, snapshot plugins.Snapshot, candidateDir string) (plugins.PackageMetadata, error) {
+func (s *InstallService) buildPackageMetadata(request plugins.InstallRequest, snapshot plugins.Snapshot, candidateDir string) (plugins.PackageMetadata, error) {
 	manifestHash, err := s.deps.hashFile(filepath.Join(candidateDir, "info.json"))
 	if err != nil {
 		return plugins.PackageMetadata{}, installError(codePluginInstallFailed, "计算插件 manifest 哈希失败", "计算插件 manifest 哈希失败")

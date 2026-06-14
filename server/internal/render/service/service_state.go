@@ -5,7 +5,10 @@ import (
 	"sync"
 	"time"
 
+	renderartifact "github.com/RayleaBot/RayleaBot/server/internal/render/artifact"
+	renderbrowser "github.com/RayleaBot/RayleaBot/server/internal/render/browser"
 	renderrepo "github.com/RayleaBot/RayleaBot/server/internal/render/repository"
+	rendertemplates "github.com/RayleaBot/RayleaBot/server/internal/render/templates"
 )
 
 type Service struct {
@@ -14,13 +17,13 @@ type Service struct {
 	outputRoot     string
 	browserPath    string
 	browserArgs    []string
-	runner         Runner
+	runner         renderbrowser.Runner
 	workerSem      chan struct{}
 	workerCount    int
 	logger         *slog.Logger
 	templateRepo   *renderrepo.SQLiteTemplateRepository
 	templateSyncMu sync.Mutex
-	templateRoots  map[string]templateRoot
+	templateRoots  map[string]rendertemplates.Root
 
 	mu                 sync.RWMutex
 	queueMaxLength     int
@@ -31,15 +34,13 @@ type Service struct {
 	defaultOutput      string
 	deviceScalePercent int
 	activeRequests     int
-	cache              map[string]Result
-	artifacts          map[string]Artifact
+	cache              map[string]renderartifact.Result
+	artifacts          map[string]renderartifact.Artifact
 	previewHTMLCache   map[string]PreviewHTML
 
 	metricsMu sync.RWMutex
 	metrics   MetricsObserver
 }
-
-type templateRoot = Root
 
 // MetricsObserver routes render service outcomes into the Prometheus registry.
 type MetricsObserver interface {

@@ -4,44 +4,28 @@ import (
 	"context"
 	"fmt"
 
+	adapterintake "github.com/RayleaBot/RayleaBot/server/internal/adapter/intake"
 	adapteroutbound "github.com/RayleaBot/RayleaBot/server/internal/adapter/outbound"
 )
 
-const (
-	errorCodeSendFailed         = adapteroutbound.ErrorCodeSendFailed
-	errorCodeReplyTargetMissing = adapteroutbound.ErrorCodeReplyTargetMissing
-)
-
-type Error = adapteroutbound.Error
-type OutboundMessageSend = adapteroutbound.OutboundMessageSend
-type OutboundMessageReply = adapteroutbound.OutboundMessageReply
-type OutboundMessageSegment = adapteroutbound.OutboundMessageSegment
-type SendMessageResult = adapteroutbound.SendMessageResult
-type apiCallRequest = adapteroutbound.APICallRequest
-type apiResponse = adapteroutbound.APIResponse
-
-func errorf(code, message string, err error) *Error {
+func errorf(code, message string, err error) *adapteroutbound.Error {
 	return adapteroutbound.Errorf(code, message, err)
-}
-
-func OutboundSegmentsToPlainText(segments []OutboundMessageSegment) string {
-	return adapteroutbound.OutboundSegmentsToPlainText(segments)
 }
 
 func oneBotTargetValue(targetID string) any {
 	return adapteroutbound.OneBotTargetValue(targetID)
 }
 
-func (s *Shell) SendMessage(ctx context.Context, action OutboundMessageSend) (SendMessageResult, error) {
+func (s *Shell) SendMessage(ctx context.Context, action adapteroutbound.OutboundMessageSend) (adapteroutbound.SendMessageResult, error) {
 	return adapteroutbound.NewSender(shellOutboundTransport{s: s}).SendMessage(ctx, action)
 }
 
-func (s *Shell) SendReply(ctx context.Context, action OutboundMessageReply) (SendMessageResult, error) {
+func (s *Shell) SendReply(ctx context.Context, action adapteroutbound.OutboundMessageReply) (adapteroutbound.SendMessageResult, error) {
 	return adapteroutbound.NewSender(shellOutboundTransport{s: s}).SendReply(ctx, action)
 }
 
-func (s *Shell) routeAPIResponse(frame classifiedFrame) {
-	if frame.Summary.Category != FrameCategoryAPIResponse {
+func (s *Shell) routeAPIResponse(frame adapterintake.ClassifiedFrame) {
+	if frame.Summary.Category != adapterintake.FrameCategoryAPIResponse {
 		return
 	}
 
@@ -90,7 +74,7 @@ func (s *Shell) nextRequestEcho() string {
 	return fmt.Sprintf("adapter-%d", s.nextEcho)
 }
 
-func (s *Shell) registerPendingResponse(echo string, responseCh chan apiResponse) {
+func (s *Shell) registerPendingResponse(echo string, responseCh chan adapteroutbound.APIResponse) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -104,7 +88,7 @@ func (s *Shell) dropPendingResponse(echo string) {
 	delete(s.pendingResponses, echo)
 }
 
-func (s *Shell) takePendingResponse(echo string) (chan apiResponse, bool) {
+func (s *Shell) takePendingResponse(echo string) (chan adapteroutbound.APIResponse, bool) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -123,13 +107,13 @@ func (t shellOutboundTransport) NextEcho() string {
 	return t.s.nextRequestEcho()
 }
 
-func (t shellOutboundTransport) SendWebSocket(ctx context.Context, request adapteroutbound.SendMsgRequest) (apiResponse, bool, error) {
+func (t shellOutboundTransport) SendWebSocket(ctx context.Context, request adapteroutbound.SendMsgRequest) (adapteroutbound.APIResponse, bool, error) {
 	conn, _, snapshot := t.s.currentWSConn()
 	if conn == nil || snapshot.State != StateConnected {
-		return apiResponse{}, false, nil
+		return adapteroutbound.APIResponse{}, false, nil
 	}
 
-	responseCh := make(chan apiResponse, 1)
+	responseCh := make(chan adapteroutbound.APIResponse, 1)
 	t.s.registerPendingResponse(request.Echo, responseCh)
 	defer t.s.dropPendingResponse(request.Echo)
 
@@ -137,18 +121,18 @@ func (t shellOutboundTransport) SendWebSocket(ctx context.Context, request adapt
 	writeErr := adapteroutbound.WriteJSON(ctx, conn, request)
 	t.s.sendMu.Unlock()
 	if writeErr != nil {
-		return apiResponse{}, true, errorf(errorCodeSendFailed, "write send_msg request", writeErr)
+		return adapteroutbound.APIResponse{}, true, errorf(adapteroutbound.ErrorCodeSendFailed, "write send_msg request", writeErr)
 	}
 
 	select {
 	case response := <-responseCh:
 		return response, true, nil
 	case <-ctx.Done():
-		return apiResponse{}, true, errorf(errorCodeSendFailed, "adapter send_msg response timed out", ctx.Err())
+		return adapteroutbound.APIResponse{}, true, errorf(adapteroutbound.ErrorCodeSendFailed, "adapter send_msg response timed out", ctx.Err())
 	}
 }
 
-func (t shellOutboundTransport) DoHTTPAPI(ctx context.Context, request adapteroutbound.APICallRequest) (apiResponse, error) {
+func (t shellOutboundTransport) DoHTTPAPI(ctx context.Context, request adapteroutbound.APICallRequest) (adapteroutbound.APIResponse, error) {
 	return t.s.doHTTPAPIRequest(ctx, request)
 }
 

@@ -8,7 +8,7 @@ import (
 	renderplugins "github.com/RayleaBot/RayleaBot/server/internal/render/plugins"
 )
 
-func (s *Service) SyncPluginTemplates(ctx context.Context, sources []PluginTemplateSource) error {
+func (s *Service) SyncPluginTemplates(ctx context.Context, sources []renderplugins.Source) error {
 	if s == nil {
 		return nil
 	}

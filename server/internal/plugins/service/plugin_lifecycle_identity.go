@@ -6,9 +6,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/RayleaBot/RayleaBot/server/internal/adapter"
+	adapterintake "github.com/RayleaBot/RayleaBot/server/internal/adapter/intake"
+	adaptershell "github.com/RayleaBot/RayleaBot/server/internal/adapter/shell"
 	"github.com/RayleaBot/RayleaBot/server/internal/dispatch"
-	"github.com/RayleaBot/RayleaBot/server/internal/runtime"
+	runtimeprotocol "github.com/RayleaBot/RayleaBot/server/internal/runtime/protocol"
 )
 
 func (c *Controller) HandleAdapterReady(ctx context.Context) {
@@ -20,7 +21,7 @@ func (c *Controller) HandleAdapterReady(ctx context.Context) {
 	c.broadcastBotIdentityChanged(ctx, botID)
 }
 
-func (c *Controller) HandleAdapterEvent(ctx context.Context, event adapter.NormalizedEvent) {
+func (c *Controller) HandleAdapterEvent(ctx context.Context, event adapterintake.NormalizedEvent) {
 	if c == nil {
 		return
 	}
@@ -56,13 +57,13 @@ func (c *Controller) dispatchBotIdentityChangedToPlugin(ctx context.Context, plu
 	}
 
 	now := time.Now()
-	result := c.dispatcher.DispatchToPlugin(ctx, pluginID, runtime.Event{
+	result := c.dispatcher.DispatchToPlugin(ctx, pluginID, runtimeprotocol.Event{
 		EventID:        fmt.Sprintf("onebot11-bot-identity-%d-%s", now.UnixNano(), botID),
 		SourceProtocol: "onebot11",
 		SourceAdapter:  "adapter.onebot11",
 		EventType:      "bot.identity.changed",
 		Timestamp:      now.Unix(),
-		Target: &runtime.EventTarget{
+		Target: &runtimeprotocol.EventTarget{
 			Type: "bot",
 			ID:   botID,
 		},
@@ -109,7 +110,7 @@ func (c *Controller) currentBotID() string {
 		return ""
 	}
 	snapshot := c.adapter.Snapshot()
-	if snapshot.State != adapter.StateConnected {
+	if snapshot.State != adaptershell.StateConnected {
 		return ""
 	}
 	return strings.TrimSpace(snapshot.BotID)

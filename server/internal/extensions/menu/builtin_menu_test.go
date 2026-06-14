@@ -4,11 +4,10 @@ import (
 	"reflect"
 	"testing"
 
-	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
-
-	"github.com/RayleaBot/RayleaBot/server/internal/adapter"
+	adapterintake "github.com/RayleaBot/RayleaBot/server/internal/adapter/intake"
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
+	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
 )
 
 func TestBuiltinRootMenuDataUsesBuiltinMenuPrefixesAndTriggerExamples(t *testing.T) {
@@ -40,8 +39,8 @@ func TestBuiltinRootMenuDataUsesBuiltinMenuPrefixesAndTriggerExamples(t *testing
 		}}),
 	})
 
-	payload := service.buildBuiltinMenuData(adapter.NormalizedEvent{
-		Kind:             adapter.EventKindMessage,
+	payload := service.buildBuiltinMenuData(adapterintake.NormalizedEvent{
+		Kind:             adapterintake.EventKindMessage,
 		ConversationType: "private",
 		ConversationID:   "10002",
 		SenderID:         "10002",
@@ -294,7 +293,7 @@ func TestVisibleBuiltinHelpInheritsCommandPermission(t *testing.T) {
 		}},
 	}
 
-	memberEvent := runtimeEventFromAdapter(adapter.NormalizedEvent{ActorRole: "member"})
+	memberEvent := runtimeEventFromAdapter(adapterintake.NormalizedEvent{ActorRole: "member"})
 	memberCommands := visibleBuiltinCommands(commands, cfg, memberEvent)
 	memberHelp := visibleBuiltinHelp(help, commands, memberCommands, cfg, memberEvent)
 	memberMenu := buildBuiltinHelp(memberHelp, commands, cfg)
@@ -316,7 +315,7 @@ func TestVisibleBuiltinHelpInheritsCommandPermission(t *testing.T) {
 		t.Fatalf("member command permission_label = %#v, want 所有人", got)
 	}
 
-	superEvent := runtimeEventFromAdapter(adapter.NormalizedEvent{
+	superEvent := runtimeEventFromAdapter(adapterintake.NormalizedEvent{
 		SenderID:  "10001",
 		ActorRole: "member",
 	})

@@ -11,15 +11,17 @@ import (
 	"testing"
 	"time"
 
-	"github.com/RayleaBot/RayleaBot/server/internal/adapter"
+	adaptershell "github.com/RayleaBot/RayleaBot/server/internal/adapter/shell"
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/dispatch"
 	"github.com/RayleaBot/RayleaBot/server/internal/pluginconfig"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
 	"github.com/RayleaBot/RayleaBot/server/internal/pluginwebhook"
-	"github.com/RayleaBot/RayleaBot/server/internal/render"
-	"github.com/RayleaBot/RayleaBot/server/internal/runtime"
+	renderbrowser "github.com/RayleaBot/RayleaBot/server/internal/render/browser"
+	renderservice "github.com/RayleaBot/RayleaBot/server/internal/render/service"
+	runtimemanager "github.com/RayleaBot/RayleaBot/server/internal/runtime/manager"
+	runtimeprotocol "github.com/RayleaBot/RayleaBot/server/internal/runtime/protocol"
 	"github.com/RayleaBot/RayleaBot/server/internal/storage"
 	"github.com/RayleaBot/RayleaBot/server/internal/tasks"
 )
@@ -66,7 +68,7 @@ func (a *testApp) setTestSystem(taskRegistry *tasks.Registry, _ any, _ any, _ an
 	a.platform.Tasks = taskRegistry
 }
 
-func (a *testApp) setTestLifecycle(catalog *plugincatalog.Catalog, desiredRepo plugins.DesiredStateRepository, grantRepo plugins.GrantRepository, runtimes *testRuntimeRegistry, dispatcher *dispatch.Dispatcher, pluginConfigRepo pluginconfig.Repository, adapterShell *adapter.Shell, webhooks *pluginwebhook.Registry) {
+func (a *testApp) setTestLifecycle(catalog *plugincatalog.Catalog, desiredRepo plugins.DesiredStateRepository, grantRepo plugins.GrantRepository, runtimes *testRuntimeRegistry, dispatcher *dispatch.Dispatcher, pluginConfigRepo pluginconfig.Repository, adapterShell *adaptershell.Shell, webhooks *pluginwebhook.Registry) {
 	if a == nil {
 		return
 	}
@@ -91,25 +93,25 @@ func (a *testApp) setTestLifecycle(catalog *plugincatalog.Catalog, desiredRepo p
 
 type testRuntimeRegistry struct {
 	logger  *slog.Logger
-	options runtime.Options
+	options runtimemanager.Options
 
 	mu      sync.RWMutex
-	onCrash runtime.CrashCallback
-	items   map[string]*runtime.Manager
+	onCrash runtimemanager.CrashCallback
+	items   map[string]*runtimemanager.Manager
 }
 
-func newRuntimeRegistry(logger *slog.Logger, options runtime.Options) *testRuntimeRegistry {
+func newRuntimeRegistry(logger *slog.Logger, options runtimemanager.Options) *testRuntimeRegistry {
 	if logger == nil {
 		logger = slog.Default()
 	}
 	return &testRuntimeRegistry{
 		logger:  logger,
 		options: options,
-		items:   make(map[string]*runtime.Manager),
+		items:   make(map[string]*runtimemanager.Manager),
 	}
 }
 
-func (r *testRuntimeRegistry) Get(pluginID string) (*runtime.Manager, bool) {
+func (r *testRuntimeRegistry) Get(pluginID string) (*runtimemanager.Manager, bool) {
 	if r == nil {
 		return nil, false
 	}
@@ -119,7 +121,7 @@ func (r *testRuntimeRegistry) Get(pluginID string) (*runtime.Manager, bool) {
 	return manager, ok
 }
 
-func (r *testRuntimeRegistry) GetOrCreate(pluginID string) *runtime.Manager {
+func (r *testRuntimeRegistry) GetOrCreate(pluginID string) *runtimemanager.Manager {
 	if r == nil {
 		return nil
 	}
@@ -128,22 +130,22 @@ func (r *testRuntimeRegistry) GetOrCreate(pluginID string) *runtime.Manager {
 	if manager, ok := r.items[pluginID]; ok {
 		return manager
 	}
-	manager := runtime.New(r.logger, r.options)
+	manager := runtimemanager.New(r.logger, r.options)
 	manager.SetOnCrash(r.onCrash)
 	r.items[pluginID] = manager
 	return manager
 }
 
-func (r *testRuntimeRegistry) NewDetached() *runtime.Manager {
+func (r *testRuntimeRegistry) NewDetached() *runtimemanager.Manager {
 	if r == nil {
 		return nil
 	}
-	manager := runtime.New(r.logger, r.options)
+	manager := runtimemanager.New(r.logger, r.options)
 	manager.SetOnCrash(r.onCrash)
 	return manager
 }
 
-func (r *testRuntimeRegistry) Replace(pluginID string, manager *runtime.Manager) *runtime.Manager {
+func (r *testRuntimeRegistry) Replace(pluginID string, manager *runtimemanager.Manager) *runtimemanager.Manager {
 	if r == nil || manager == nil {
 		return nil
 	}
@@ -155,7 +157,7 @@ func (r *testRuntimeRegistry) Replace(pluginID string, manager *runtime.Manager)
 	return previous
 }
 
-func (r *testRuntimeRegistry) Delete(pluginID string) *runtime.Manager {
+func (r *testRuntimeRegistry) Delete(pluginID string) *runtimemanager.Manager {
 	if r == nil {
 		return nil
 	}
@@ -171,22 +173,22 @@ func newPluginWebhookRegistry() *pluginwebhook.Registry {
 }
 
 type capturingRuntime struct {
-	events chan runtime.Event
+	events chan runtimeprotocol.Event
 }
 
-func (r *capturingRuntime) DeliverEvent(_ context.Context, event runtime.Event) (runtime.Delivery, error) {
+func (r *capturingRuntime) DeliverEvent(_ context.Context, event runtimeprotocol.Event) (runtimemanager.Delivery, error) {
 	select {
 	case r.events <- event:
 	default:
 	}
-	return runtime.Delivery{
+	return runtimemanager.Delivery{
 		RequestID: "event_test_1",
 		Result:    map[string]any{},
 	}, nil
 }
 
-func (r *capturingRuntime) Snapshot() runtime.Snapshot {
-	return runtime.Snapshot{State: runtime.StateRunning}
+func (r *capturingRuntime) Snapshot() runtimemanager.Snapshot {
+	return runtimemanager.Snapshot{State: runtimemanager.StateRunning}
 }
 
 var (
@@ -196,10 +198,10 @@ var (
 
 type captureRenderRunner struct {
 	mu   sync.Mutex
-	docs []render.Document
+	docs []renderbrowser.Document
 }
 
-func (r *captureRenderRunner) Render(_ context.Context, doc render.Document) ([]byte, error) {
+func (r *captureRenderRunner) Render(_ context.Context, doc renderbrowser.Document) ([]byte, error) {
 	r.mu.Lock()
 	r.docs = append(r.docs, doc)
 	r.mu.Unlock()
@@ -218,7 +220,7 @@ func (r *captureRenderRunner) lastHTML() string {
 	return r.docs[len(r.docs)-1].HTML
 }
 
-func newRenderServiceForRepo(t *testing.T, repoRoot string, root string, runner render.Runner) *render.Service {
+func newRenderServiceForRepo(t *testing.T, repoRoot string, root string, runner renderbrowser.Runner) *renderservice.Service {
 	t.Helper()
 
 	store, err := storage.Open(filepath.Join(root, "render-state.db"))
@@ -229,7 +231,7 @@ func newRenderServiceForRepo(t *testing.T, repoRoot string, root string, runner 
 		_ = store.Close()
 	})
 
-	service, err := render.NewService(render.Options{
+	service, err := renderservice.NewService(renderservice.Options{
 		RepoRoot:           repoRoot,
 		OutputRoot:         root,
 		Store:              store,
@@ -241,7 +243,7 @@ func newRenderServiceForRepo(t *testing.T, repoRoot string, root string, runner 
 		MaxRenderDataBytes: 1 << 20,
 	})
 	if err != nil {
-		t.Fatalf("render.NewService: %v", err)
+		t.Fatalf("renderservice.NewService: %v", err)
 	}
 	t.Cleanup(func() {
 		_ = service.Close()

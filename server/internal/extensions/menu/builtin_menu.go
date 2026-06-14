@@ -5,12 +5,13 @@ import (
 	"log/slog"
 	"strings"
 
-	"github.com/RayleaBot/RayleaBot/server/internal/adapter"
+	adapterintake "github.com/RayleaBot/RayleaBot/server/internal/adapter/intake"
+	adapteroutbound "github.com/RayleaBot/RayleaBot/server/internal/adapter/outbound"
 	"github.com/RayleaBot/RayleaBot/server/internal/command"
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/outbound"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
-	"github.com/RayleaBot/RayleaBot/server/internal/render"
+	renderservice "github.com/RayleaBot/RayleaBot/server/internal/render/service"
 )
 
 const (
@@ -19,14 +20,14 @@ const (
 )
 
 type Sender interface {
-	SendMessage(context.Context, adapter.OutboundMessageSend) (adapter.SendMessageResult, error)
-	SendReply(context.Context, adapter.OutboundMessageReply) (adapter.SendMessageResult, error)
+	SendMessage(context.Context, adapteroutbound.OutboundMessageSend) (adapteroutbound.SendMessageResult, error)
+	SendReply(context.Context, adapteroutbound.OutboundMessageReply) (adapteroutbound.SendMessageResult, error)
 }
 
 type Deps struct {
 	CurrentConfig func() config.Config
 	Plugins       plugins.CatalogView
-	Renderer      *render.Service
+	Renderer      *renderservice.Service
 	Sender        Sender
 	WaitOutbound  func(context.Context, outbound.MessageLimitRequest) error
 	Logger        *slog.Logger
@@ -35,7 +36,7 @@ type Deps struct {
 type Service struct {
 	currentConfig func() config.Config
 	plugins       plugins.CatalogView
-	renderer      *render.Service
+	renderer      *renderservice.Service
 	sender        Sender
 	waitOutbound  func(context.Context, outbound.MessageLimitRequest) error
 	logger        *slog.Logger
@@ -50,7 +51,7 @@ type Request struct {
 
 type builtinMenuRenderData struct {
 	Data   map[string]any
-	Plugin *render.PluginContext
+	Plugin *renderservice.PluginContext
 }
 
 func New(deps Deps) *Service {
@@ -64,7 +65,7 @@ func New(deps Deps) *Service {
 	}
 }
 
-func (s *Service) Handle(ctx context.Context, event adapter.NormalizedEvent) bool {
+func (s *Service) Handle(ctx context.Context, event adapterintake.NormalizedEvent) bool {
 	request := s.Match(event)
 	if !request.Matched {
 		return false
@@ -90,7 +91,7 @@ func (s *Service) Handle(ctx context.Context, event adapter.NormalizedEvent) boo
 	return true
 }
 
-func (s *Service) Match(event adapter.NormalizedEvent) Request {
+func (s *Service) Match(event adapterintake.NormalizedEvent) Request {
 	if s == nil || strings.TrimSpace(event.PlainText) == "" {
 		return Request{}
 	}

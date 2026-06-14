@@ -20,7 +20,7 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	pluginservice "github.com/RayleaBot/RayleaBot/server/internal/plugins/service"
 	"github.com/RayleaBot/RayleaBot/server/internal/pluginui"
-	"github.com/RayleaBot/RayleaBot/server/internal/runtime"
+	runtimeprotocol "github.com/RayleaBot/RayleaBot/server/internal/runtime/protocol"
 	"github.com/RayleaBot/RayleaBot/server/internal/secrets"
 	"github.com/RayleaBot/RayleaBot/server/internal/storage"
 	"github.com/go-chi/chi/v5"
@@ -220,7 +220,7 @@ func TestHandlePluginSettingsGetMergesDefaultsAndPersistedValues(t *testing.T) {
 		t.Fatalf("status = %d, want 200; body=%s", recorder.Code, recorder.Body.String())
 	}
 
-	var response pluginSettingsResponse
+	var response pluginui.PluginSettingsResponse
 	if err := json.Unmarshal(recorder.Body.Bytes(), &response); err != nil {
 		t.Fatalf("decode response: %v", err)
 	}
@@ -274,7 +274,7 @@ func TestHandlePluginSettingsPutDispatchesConfigChanged(t *testing.T) {
 		nil,
 		nil,
 	)
-	fakeRuntime := &capturingRuntime{events: make(chan runtime.Event, 1)}
+	fakeRuntime := &capturingRuntime{events: make(chan runtimeprotocol.Event, 1)}
 	dispatcher.Register("example-config-panel", fakeRuntime, []string{"config.changed"}, nil, 1)
 
 	handlers := newPluginManagementUIHTTPHandlers(pluginManagementUIHTTPDeps{
@@ -298,7 +298,7 @@ func TestHandlePluginSettingsPutDispatchesConfigChanged(t *testing.T) {
 		t.Fatalf("status = %d, want 200; body=%s", recorder.Code, recorder.Body.String())
 	}
 
-	var response pluginSettingsUpdateResponse
+	var response pluginui.PluginSettingsUpdateResponse
 	if err := json.Unmarshal(recorder.Body.Bytes(), &response); err != nil {
 		t.Fatalf("decode response: %v", err)
 	}

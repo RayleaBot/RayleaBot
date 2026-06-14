@@ -1,8 +1,11 @@
 package managementhttp
 
-import "strings"
+import (
+	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
+	"strings"
+)
 
-func buildPluginCommands(snapshot Snapshot) []pluginCommandResponse {
+func buildPluginCommands(snapshot plugins.Snapshot) []pluginCommandResponse {
 	if !snapshot.Valid || snapshot.RegistrationState != "installed" || len(snapshot.Commands) == 0 {
 		return []pluginCommandResponse{}
 	}
@@ -23,8 +26,8 @@ func buildPluginCommands(snapshot Snapshot) []pluginCommandResponse {
 	return items
 }
 
-func buildPluginHelp(snapshot Snapshot) pluginHelpResponse {
-	view := buildHelpView(snapshot)
+func buildPluginHelp(snapshot plugins.Snapshot) pluginHelpResponse {
+	view := plugins.BuildHelpView(snapshot)
 	if view == nil {
 		return pluginHelpResponse{Groups: []pluginHelpGroupResponse{}}
 	}
@@ -56,10 +59,10 @@ func buildPluginHelp(snapshot Snapshot) pluginHelpResponse {
 
 func commandSourceOrDefault(source string) string {
 	source = strings.TrimSpace(source)
-	if source == CommandSourceDynamic {
-		return CommandSourceDynamic
+	if source == plugins.CommandSourceDynamic {
+		return plugins.CommandSourceDynamic
 	}
-	return CommandSourceManifest
+	return plugins.CommandSourceManifest
 }
 
 func normalizeStringList(values []string) []string {

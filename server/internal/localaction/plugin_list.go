@@ -4,12 +4,14 @@ import (
 	"context"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
-	"github.com/RayleaBot/RayleaBot/server/internal/runtime"
+	runtimeaction "github.com/RayleaBot/RayleaBot/server/internal/runtime/action"
+	runtimemanager "github.com/RayleaBot/RayleaBot/server/internal/runtime/manager"
+	runtimeprotocol "github.com/RayleaBot/RayleaBot/server/internal/runtime/protocol"
 )
 
-func (s *Service) executePluginList(ctx context.Context, pluginID string, action runtime.Action, parentEvent runtime.Event) (map[string]any, error) {
+func (s *Service) executePluginList(ctx context.Context, pluginID string, action runtimeaction.Action, parentEvent runtimeprotocol.Event) (map[string]any, error) {
 	if s == nil || s.grants == nil || !s.grants.CapabilityGranted(ctx, pluginID, "plugin.list") {
-		return nil, &runtime.Error{
+		return nil, &runtimemanager.Error{
 			Code:    "permission.scope_violation",
 			Message: "plugin.list capability is not granted",
 		}

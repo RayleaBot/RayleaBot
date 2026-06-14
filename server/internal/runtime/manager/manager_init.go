@@ -7,6 +7,7 @@ import (
 	"time"
 
 	runtimeprocess "github.com/RayleaBot/RayleaBot/server/internal/runtime/process"
+	runtimeprotocol "github.com/RayleaBot/RayleaBot/server/internal/runtime/protocol"
 )
 
 func (m *Manager) awaitInitAck(ctx context.Context, handle *runtimeprocess.Handle, requestID string) ([]string, *Error) {
@@ -35,7 +36,7 @@ func (m *Manager) awaitInitAck(ctx context.Context, handle *runtimeprocess.Handl
 			if err != nil {
 				return nil, err
 			}
-			if status == initResponseReady {
+			if status == runtimeprotocol.InitResponseReady {
 				return payload, nil
 			}
 			summary := ""
@@ -69,60 +70,60 @@ func (m *Manager) awaitInitAck(ctx context.Context, handle *runtimeprocess.Handl
 	}
 }
 
-func (m *Manager) parseInitResponse(line []byte, pluginID string, requestID string) (initResponseStatus, []string, *Error) {
-	var envelope frameEnvelope
+func (m *Manager) parseInitResponse(line []byte, pluginID string, requestID string) (runtimeprotocol.InitResponseStatus, []string, *Error) {
+	var envelope runtimeprotocol.FrameEnvelope
 	if err := json.Unmarshal(line, &envelope); err != nil {
-		return initResponseWait, nil, errorf(codePluginProtocolViolation, "plugin returned malformed protocol json", err)
+		return runtimeprotocol.InitResponseWait, nil, errorf(codePluginProtocolViolation, "plugin returned malformed protocol json", err)
 	}
 
 	if envelope.ProtocolVersion != "1" {
-		return initResponseWait, nil, errorf(codePluginProtocolViolation, "plugin returned an unsupported protocol_version", nil)
+		return runtimeprotocol.InitResponseWait, nil, errorf(codePluginProtocolViolation, "plugin returned an unsupported protocol_version", nil)
 	}
 	if envelope.PluginID == "" || envelope.PluginID != pluginID {
-		return initResponseWait, nil, errorf(codePluginProtocolViolation, "plugin returned a mismatched plugin_id", nil)
+		return runtimeprotocol.InitResponseWait, nil, errorf(codePluginProtocolViolation, "plugin returned a mismatched plugin_id", nil)
 	}
 	if envelope.RequestID == "" || envelope.RequestID != requestID {
-		return initResponseWait, nil, errorf(codePluginProtocolViolation, "plugin returned a mismatched request_id", nil)
+		return runtimeprotocol.InitResponseWait, nil, errorf(codePluginProtocolViolation, "plugin returned a mismatched request_id", nil)
 	}
 
 	switch envelope.Type {
 	case "init_progress":
-		var progress initProgressFrame
+		var progress runtimeprotocol.InitProgressFrame
 		if err := json.Unmarshal(line, &progress); err != nil {
-			return initResponseWait, nil, errorf(codePluginProtocolViolation, "plugin returned malformed init_progress", err)
+			return runtimeprotocol.InitResponseWait, nil, errorf(codePluginProtocolViolation, "plugin returned malformed init_progress", err)
 		}
 
 		summary := strings.TrimSpace(progress.Summary)
 		if summary == "" {
-			return initResponseWait, nil, errorf(codePluginProtocolViolation, "plugin init_progress is missing summary", nil)
+			return runtimeprotocol.InitResponseWait, nil, errorf(codePluginProtocolViolation, "plugin init_progress is missing summary", nil)
 		}
-		return initResponseWait, []string{summary}, nil
+		return runtimeprotocol.InitResponseWait, []string{summary}, nil
 	case "init_ack":
-		var ack initAckFrame
+		var ack runtimeprotocol.InitAckFrame
 		if err := json.Unmarshal(line, &ack); err != nil {
-			return initResponseWait, nil, errorf(codePluginProtocolViolation, "plugin returned malformed init_ack", err)
+			return runtimeprotocol.InitResponseWait, nil, errorf(codePluginProtocolViolation, "plugin returned malformed init_ack", err)
 		}
 		if ack.Status == "ready" {
-			return initResponseReady, append([]string(nil), ack.Subscriptions...), nil
+			return runtimeprotocol.InitResponseReady, append([]string(nil), ack.Subscriptions...), nil
 		}
 		if ack.Status == "error" {
 			message := strings.TrimSpace(ack.ErrorMessage)
 			if message == "" {
 				message = "plugin reported init error"
 			}
-			return initResponseWait, nil, errorf(codePluginInternalError, message, nil)
+			return runtimeprotocol.InitResponseWait, nil, errorf(codePluginInternalError, message, nil)
 		}
-		return initResponseWait, nil, errorf(codePluginProtocolViolation, "plugin returned unsupported init_ack status", nil)
+		return runtimeprotocol.InitResponseWait, nil, errorf(codePluginProtocolViolation, "plugin returned unsupported init_ack status", nil)
 	case "error":
-		var frame errorFrame
+		var frame runtimeprotocol.ErrorFrame
 		if err := json.Unmarshal(line, &frame); err != nil {
-			return initResponseWait, nil, errorf(codePluginProtocolViolation, "plugin returned malformed error frame", err)
+			return runtimeprotocol.InitResponseWait, nil, errorf(codePluginProtocolViolation, "plugin returned malformed error frame", err)
 		}
 		if frame.Code == "" || frame.Message == "" {
-			return initResponseWait, nil, errorf(codePluginProtocolViolation, "plugin error frame is missing code or message", nil)
+			return runtimeprotocol.InitResponseWait, nil, errorf(codePluginProtocolViolation, "plugin error frame is missing code or message", nil)
 		}
-		return initResponseWait, nil, errorWithDetails(frame.Code, frame.Message, frame.Details, nil)
+		return runtimeprotocol.InitResponseWait, nil, errorWithDetails(frame.Code, frame.Message, frame.Details, nil)
 	default:
-		return initResponseWait, nil, errorf(codePluginProtocolViolation, "plugin returned an unexpected protocol message during init", nil)
+		return runtimeprotocol.InitResponseWait, nil, errorf(codePluginProtocolViolation, "plugin returned an unexpected protocol message during init", nil)
 	}
 }

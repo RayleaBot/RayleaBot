@@ -29,7 +29,7 @@ func TestInstallServiceInstallsLocalDirectoryAndRefreshesCatalog(t *testing.T) {
 	service, catalog := newInstallTestService(t, repoRoot, registry, nil, repository, installerDeps{})
 	defer service.Close()
 
-	taskID, err := service.Accept(context.Background(), InstallRequest{
+	taskID, err := service.Accept(context.Background(), plugins.InstallRequest{
 		SourceType: "local_directory",
 		Source:     sourceDir,
 	})
@@ -94,7 +94,7 @@ func TestInstallServiceInvokesAfterSuccessCallback(t *testing.T) {
 		return nil
 	})
 
-	taskID, err := service.Accept(context.Background(), InstallRequest{
+	taskID, err := service.Accept(context.Background(), plugins.InstallRequest{
 		SourceType: "local_directory",
 		Source:     sourceDir,
 	})
@@ -134,7 +134,7 @@ func TestInstallServiceFailsWhenAfterSuccessCallbackFails(t *testing.T) {
 		return fmt.Errorf("sync plugin render template callback-fail-weather: source conflict")
 	})
 
-	taskID, err := service.Accept(context.Background(), InstallRequest{
+	taskID, err := service.Accept(context.Background(), plugins.InstallRequest{
 		SourceType: "local_directory",
 		Source:     sourceDir,
 	})
@@ -172,7 +172,7 @@ func TestInstallServiceInstallsLocalZip(t *testing.T) {
 	service, catalog := newInstallTestService(t, repoRoot, registry, nil, &stubInstallRepository{}, installerDeps{})
 	defer service.Close()
 
-	taskID, err := service.Accept(context.Background(), InstallRequest{
+	taskID, err := service.Accept(context.Background(), plugins.InstallRequest{
 		SourceType: "local_zip",
 		Source:     archivePath,
 	})
@@ -204,7 +204,7 @@ func TestInstallServiceRejectsInvalidRenderTemplatePackage(t *testing.T) {
 	})
 	defer service.Close()
 
-	taskID, err := service.Accept(context.Background(), InstallRequest{
+	taskID, err := service.Accept(context.Background(), plugins.InstallRequest{
 		SourceType: "local_directory",
 		Source:     sourceDir,
 	})
@@ -234,7 +234,7 @@ func TestInstallServiceInstallsRenderTemplatePackage(t *testing.T) {
 	service.SetRenderTemplateValidator(validateInstallRenderTemplates)
 	defer service.Close()
 
-	taskID, err := service.Accept(context.Background(), InstallRequest{
+	taskID, err := service.Accept(context.Background(), plugins.InstallRequest{
 		SourceType: "local_directory",
 		Source:     sourceDir,
 	})
@@ -268,7 +268,7 @@ func TestInstallServiceRejectsInvalidRenderTemplateManifest(t *testing.T) {
 	service.SetRenderTemplateValidator(validateInstallRenderTemplates)
 	defer service.Close()
 
-	taskID, err := service.Accept(context.Background(), InstallRequest{
+	taskID, err := service.Accept(context.Background(), plugins.InstallRequest{
 		SourceType: "local_directory",
 		Source:     sourceDir,
 	})
@@ -302,7 +302,7 @@ func TestInstallServiceFailsDuplicatePluginID(t *testing.T) {
 	service, _ := newInstallTestService(t, repoRoot, registry, existing, &stubInstallRepository{}, installerDeps{})
 	defer service.Close()
 
-	taskID, err := service.Accept(context.Background(), InstallRequest{
+	taskID, err := service.Accept(context.Background(), plugins.InstallRequest{
 		SourceType: "local_directory",
 		Source:     sourceDir,
 	})
@@ -341,7 +341,7 @@ func TestInstallServiceCancelsRunningTask(t *testing.T) {
 	service, _ := newInstallTestService(t, repoRoot, registry, nil, &stubInstallRepository{}, deps)
 	defer service.Close()
 
-	taskID, err := service.Accept(context.Background(), InstallRequest{
+	taskID, err := service.Accept(context.Background(), plugins.InstallRequest{
 		SourceType: "local_directory",
 		Source:     sourceDir,
 	})
@@ -377,7 +377,7 @@ func TestInstallServiceBlocksInstallScriptsWithoutAuthorization(t *testing.T) {
 	service, _ := newInstallTestService(t, repoRoot, registry, nil, &stubInstallRepository{}, installerDeps{})
 	defer service.Close()
 
-	taskID, err := service.Accept(context.Background(), InstallRequest{
+	taskID, err := service.Accept(context.Background(), plugins.InstallRequest{
 		SourceType: "local_directory",
 		Source:     sourceDir,
 	})
@@ -440,14 +440,14 @@ func TestInstallServicePreparesRuntimeDependencies(t *testing.T) {
 	})
 	defer service.Close()
 
-	pythonTaskID, err := service.Accept(context.Background(), InstallRequest{
+	pythonTaskID, err := service.Accept(context.Background(), plugins.InstallRequest{
 		SourceType: "local_directory",
 		Source:     pythonSource,
 	})
 	if err != nil {
 		t.Fatalf("python Accept failed: %v", err)
 	}
-	nodeTaskID, err := service.Accept(context.Background(), InstallRequest{
+	nodeTaskID, err := service.Accept(context.Background(), plugins.InstallRequest{
 		SourceType:          "local_directory",
 		Source:              nodeSource,
 		AllowInstallScripts: true,

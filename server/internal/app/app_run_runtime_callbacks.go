@@ -3,7 +3,7 @@ package app
 import (
 	"context"
 
-	"github.com/RayleaBot/RayleaBot/server/internal/adapter"
+	adaptershell "github.com/RayleaBot/RayleaBot/server/internal/adapter/shell"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	pluginservice "github.com/RayleaBot/RayleaBot/server/internal/plugins/service"
 )
@@ -51,7 +51,7 @@ func configureAppRuntimeCallbacks(application *App, schedulerTriggers *scheduler
 	if application.pluginStack.Adapter != nil {
 		application.pluginStack.Adapter.SetEventHandler(eventIngress.HandleAdapterEvent)
 		application.pluginStack.Adapter.SetReadyHandler(eventIngress.HandleAdapterReady)
-		application.pluginStack.Adapter.SetStateHandler(func(adapter.Snapshot) {
+		application.pluginStack.Adapter.SetStateHandler(func(adaptershell.Snapshot) {
 			systemService.PublishStatusSnapshot()
 			protocolService.PublishSnapshot()
 		})

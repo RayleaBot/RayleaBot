@@ -4,11 +4,12 @@ import (
 	"context"
 
 	runtimeprocess "github.com/RayleaBot/RayleaBot/server/internal/runtime/process"
+	runtimeprotocol "github.com/RayleaBot/RayleaBot/server/internal/runtime/protocol"
 )
 
 type eventSession struct {
 	requestID          string
-	event              Event
+	event              runtimeprotocol.Event
 	ctx                context.Context
 	cancel             context.CancelFunc
 	done               chan struct{}
@@ -25,7 +26,7 @@ type pingRequest struct {
 	completed bool
 }
 
-func (m *Manager) registerEventSession(ctx context.Context, handle *runtimeprocess.Handle, requestID string, event Event) (*eventSession, *Error) {
+func (m *Manager) registerEventSession(ctx context.Context, handle *runtimeprocess.Handle, requestID string, event runtimeprotocol.Event) (*eventSession, *Error) {
 	sessionCtx, cancel := context.WithCancel(ctx)
 
 	m.mu.Lock()

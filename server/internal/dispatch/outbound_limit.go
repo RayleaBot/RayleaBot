@@ -5,7 +5,7 @@ import (
 	"strings"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/outbound"
-	"github.com/RayleaBot/RayleaBot/server/internal/runtime"
+	runtimeaction "github.com/RayleaBot/RayleaBot/server/internal/runtime/action"
 )
 
 func (d *Dispatcher) waitOutboundLimit(ctx context.Context, request outbound.MessageLimitRequest) error {
@@ -21,7 +21,7 @@ func (d *Dispatcher) waitOutboundLimit(ctx context.Context, request outbound.Mes
 	return limiter.Wait(ctx, request)
 }
 
-func (d *Dispatcher) limitTargetForAction(action runtime.Action) (string, string) {
+func (d *Dispatcher) limitTargetForAction(action runtimeaction.Action) (string, string) {
 	if action.Kind == "message.reply" && d != nil && d.resolver != nil {
 		if target, ok := d.resolver.ResolveReplyTarget(strings.TrimSpace(action.ReplyToEventID)); ok {
 			return target.TargetType, target.TargetID

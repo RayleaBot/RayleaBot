@@ -6,12 +6,13 @@ import (
 	"unicode/utf8"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/pluginhttp"
-	"github.com/RayleaBot/RayleaBot/server/internal/runtime"
+	runtimeaction "github.com/RayleaBot/RayleaBot/server/internal/runtime/action"
+	runtimemanager "github.com/RayleaBot/RayleaBot/server/internal/runtime/manager"
 )
 
-func (s *Service) executeHTTPRequest(ctx context.Context, pluginID string, action runtime.Action) (map[string]any, error) {
+func (s *Service) executeHTTPRequest(ctx context.Context, pluginID string, action runtimeaction.Action) (map[string]any, error) {
 	if s == nil || s.grants == nil || !s.grants.CapabilityGranted(ctx, pluginID, "http.request") {
-		return nil, &runtime.Error{
+		return nil, &runtimemanager.Error{
 			Code:    "permission.scope_violation",
 			Message: "http.request capability is not granted",
 		}
@@ -30,7 +31,7 @@ func (s *Service) executeHTTPRequest(ctx context.Context, pluginID string, actio
 	if bilibiliCookieApplied && s.bilibiliSession != nil && isBilibiliURLForWBI(requestURL) {
 		signedURL, err := s.bilibiliSession.SignURL(ctx, requestURL, headers["Cookie"])
 		if err != nil {
-			return nil, &runtime.Error{
+			return nil, &runtimemanager.Error{
 				Code:    "plugin.internal_error",
 				Message: "http.request failed",
 				Err:     err,
@@ -47,19 +48,19 @@ func (s *Service) executeHTTPRequest(ctx context.Context, pluginID string, actio
 		ActionTimeout: currentHTTPActionTimeout(action),
 	}, scopeHosts)
 	if err == pluginhttp.ErrScopeViolation {
-		return nil, &runtime.Error{
+		return nil, &runtimemanager.Error{
 			Code:    "permission.scope_violation",
 			Message: "http.request target is outside the granted scope",
 		}
 	}
 	if err == pluginhttp.ErrInvalidRequest {
-		return nil, &runtime.Error{
+		return nil, &runtimemanager.Error{
 			Code:    "platform.invalid_request",
 			Message: "http.request request is invalid",
 		}
 	}
 	if err != nil {
-		return nil, &runtime.Error{
+		return nil, &runtimemanager.Error{
 			Code:    "plugin.internal_error",
 			Message: "http.request failed",
 			Err:     err,

@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
-	"github.com/RayleaBot/RayleaBot/server/internal/runtime"
+	runtimemanager "github.com/RayleaBot/RayleaBot/server/internal/runtime/manager"
 )
 
 func (c *Controller) stopAndResetPlugin(pluginID string) {
@@ -40,12 +40,12 @@ func (c *Controller) stopPlugin(ctx context.Context, pluginID string, remove boo
 
 	manager, ok := c.runtimes.Get(pluginID)
 	if !ok || manager == nil {
-		_, _ = c.plugins.SetRuntimeState(pluginID, string(runtime.StateStopped))
+		_, _ = c.plugins.SetRuntimeState(pluginID, string(runtimemanager.StateStopped))
 		return
 	}
 
 	switch manager.Snapshot().State {
-	case runtime.StateBackoff, runtime.StateCrashed, runtime.StateDeadLetter, runtime.StateStopped:
+	case runtimemanager.StateBackoff, runtimemanager.StateCrashed, runtimemanager.StateDeadLetter, runtimemanager.StateStopped:
 		manager.ResetCrashCount()
 		manager.SetStopped()
 	default:
@@ -61,7 +61,7 @@ func (c *Controller) stopPlugin(ctx context.Context, pluginID string, remove boo
 	if c.webhooks != nil {
 		c.webhooks.DeletePlugin(pluginID)
 	}
-	_, _ = c.plugins.SetRuntimeState(pluginID, string(runtime.StateStopped))
+	_, _ = c.plugins.SetRuntimeState(pluginID, string(runtimemanager.StateStopped))
 }
 
 func (c *Controller) disablePluginForPermissionLoss(ctx context.Context, pluginID string) {

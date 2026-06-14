@@ -9,10 +9,11 @@ import (
 	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
-	"github.com/RayleaBot/RayleaBot/server/internal/render"
+	renderplugins "github.com/RayleaBot/RayleaBot/server/internal/render/plugins"
+	renderservice "github.com/RayleaBot/RayleaBot/server/internal/render/service"
 )
 
-func SyncCatalogRenderTemplates(ctx context.Context, renderer *render.Service, catalog *plugincatalog.Catalog) error {
+func SyncCatalogRenderTemplates(ctx context.Context, renderer *renderservice.Service, catalog *plugincatalog.Catalog) error {
 	if renderer == nil || catalog == nil {
 		return nil
 	}
@@ -20,23 +21,23 @@ func SyncCatalogRenderTemplates(ctx context.Context, renderer *render.Service, c
 }
 
 func ValidatePluginRenderTemplates(snapshot plugins.Snapshot) error {
-	var sources []render.PluginTemplateSource
+	var sources []renderplugins.Source
 	for _, declared := range snapshot.RenderTemplates {
 		dir, ok := pluginPackageRelativeDir(snapshot.PackageRootPath, declared.Path)
 		if !ok {
 			return fmt.Errorf("plugin render template path %q is invalid", declared.Path)
 		}
-		sources = append(sources, render.PluginTemplateSource{
+		sources = append(sources, renderplugins.Source{
 			PluginID:     snapshot.PluginID,
 			Dir:          dir,
 			ResourceRoot: snapshot.PackageRootPath,
 		})
 	}
-	return render.ValidatePluginTemplateSources(sources)
+	return renderplugins.ValidateSources(sources)
 }
 
-func pluginRenderTemplateSources(snapshots []plugins.Snapshot) []render.PluginTemplateSource {
-	var sources []render.PluginTemplateSource
+func pluginRenderTemplateSources(snapshots []plugins.Snapshot) []renderplugins.Source {
+	var sources []renderplugins.Source
 	seen := map[string]struct{}{}
 	for _, snapshot := range snapshots {
 		if !snapshot.Valid || snapshot.RegistrationState != "installed" {
@@ -52,14 +53,14 @@ func pluginRenderTemplateSources(snapshots []plugins.Snapshot) []render.PluginTe
 				continue
 			}
 			seen[key] = struct{}{}
-			sources = append(sources, render.PluginTemplateSource{
+			sources = append(sources, renderplugins.Source{
 				PluginID:     snapshot.PluginID,
 				Dir:          dir,
 				ResourceRoot: snapshot.PackageRootPath,
 			})
 		}
 	}
-	return render.PluginTemplateSourcesFromManifests(sources)
+	return renderplugins.SourcesFromManifests(sources)
 }
 
 func pluginPackageRelativeDir(packageRoot, relativePath string) (string, bool) {

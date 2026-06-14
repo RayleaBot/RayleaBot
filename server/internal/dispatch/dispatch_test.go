@@ -10,28 +10,30 @@ import (
 	"testing"
 	"time"
 
-	"github.com/RayleaBot/RayleaBot/server/internal/adapter"
+	adapteroutbound "github.com/RayleaBot/RayleaBot/server/internal/adapter/outbound"
 	"github.com/RayleaBot/RayleaBot/server/internal/logging"
 	"github.com/RayleaBot/RayleaBot/server/internal/outbound"
-	"github.com/RayleaBot/RayleaBot/server/internal/runtime"
+	runtimeaction "github.com/RayleaBot/RayleaBot/server/internal/runtime/action"
+	runtimemanager "github.com/RayleaBot/RayleaBot/server/internal/runtime/manager"
+	runtimeprotocol "github.com/RayleaBot/RayleaBot/server/internal/runtime/protocol"
 )
 
 type fakeDeliverer struct {
 	mu       sync.Mutex
-	events   []runtime.Event
-	delivery runtime.Delivery
+	events   []runtimeprotocol.Event
+	delivery runtimemanager.Delivery
 	err      error
-	started  chan runtime.Event
+	started  chan runtimeprotocol.Event
 	blockCh  chan struct{} // if non-nil, block until closed
-	state    runtime.State
+	state    runtimemanager.State
 }
 
 type recordingSchedulerRunRecorder struct {
 	mu      sync.Mutex
-	entries []runtime.SchedulerRunResult
+	entries []runtimeprotocol.SchedulerRunResult
 }
 
-func (r *recordingSchedulerRunRecorder) RecordSchedulerRunResult(_ context.Context, result runtime.SchedulerRunResult) error {
+func (r *recordingSchedulerRunRecorder) RecordSchedulerRunResult(_ context.Context, result runtimeprotocol.SchedulerRunResult) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.entries = append(r.entries, result)
@@ -44,21 +46,21 @@ func (r *recordingSchedulerRunRecorder) count() int {
 	return len(r.entries)
 }
 
-func (r *recordingSchedulerRunRecorder) results() []runtime.SchedulerRunResult {
+func (r *recordingSchedulerRunRecorder) results() []runtimeprotocol.SchedulerRunResult {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	return append([]runtime.SchedulerRunResult(nil), r.entries...)
+	return append([]runtimeprotocol.SchedulerRunResult(nil), r.entries...)
 }
 
-func (f *fakeDeliverer) Snapshot() runtime.Snapshot {
+func (f *fakeDeliverer) Snapshot() runtimemanager.Snapshot {
 	state := f.state
 	if state == "" {
-		state = runtime.StateRunning
+		state = runtimemanager.StateRunning
 	}
-	return runtime.Snapshot{State: state}
+	return runtimemanager.Snapshot{State: state}
 }
 
-func (f *fakeDeliverer) DeliverEvent(_ context.Context, event runtime.Event) (runtime.Delivery, error) {
+func (f *fakeDeliverer) DeliverEvent(_ context.Context, event runtimeprotocol.Event) (runtimemanager.Delivery, error) {
 	f.mu.Lock()
 	f.events = append(f.events, event)
 	f.mu.Unlock()
@@ -78,7 +80,7 @@ func (f *fakeDeliverer) eventCount() int {
 	return len(f.events)
 }
 
-func (f *fakeDeliverer) setState(state runtime.State) {
+func (f *fakeDeliverer) setState(state runtimemanager.State) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.state = state
@@ -86,15 +88,15 @@ func (f *fakeDeliverer) setState(state runtime.State) {
 
 type fakeSender struct {
 	mu          sync.Mutex
-	messages    []adapter.OutboundMessageSend
-	replies     []adapter.OutboundMessageReply
-	sendResult  adapter.SendMessageResult
-	replyResult adapter.SendMessageResult
+	messages    []adapteroutbound.OutboundMessageSend
+	replies     []adapteroutbound.OutboundMessageReply
+	sendResult  adapteroutbound.SendMessageResult
+	replyResult adapteroutbound.SendMessageResult
 	sendErr     error
 	replyErr    error
 }
 
-func (f *fakeSender) SendMessage(_ context.Context, msg adapter.OutboundMessageSend) (adapter.SendMessageResult, error) {
+func (f *fakeSender) SendMessage(_ context.Context, msg adapteroutbound.OutboundMessageSend) (adapteroutbound.SendMessageResult, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.messages = append(f.messages, msg)
@@ -105,7 +107,7 @@ func (f *fakeSender) SendMessage(_ context.Context, msg adapter.OutboundMessageS
 	return result, f.sendErr
 }
 
-func (f *fakeSender) SendReply(_ context.Context, reply adapter.OutboundMessageReply) (adapter.SendMessageResult, error) {
+func (f *fakeSender) SendReply(_ context.Context, reply adapteroutbound.OutboundMessageReply) (adapteroutbound.SendMessageResult, error) {
 	f.mu.Lock()
 	f.replies = append(f.replies, reply)
 	f.mu.Unlock()
@@ -145,20 +147,20 @@ func (l *recordingOutboundLimiter) lastRequest() outbound.MessageLimitRequest {
 	return l.requests[len(l.requests)-1]
 }
 
-func testEvent() runtime.Event {
-	return runtime.Event{
+func testEvent() runtimeprotocol.Event {
+	return runtimeprotocol.Event{
 		EventID:        "test-evt-1",
 		SourceProtocol: "onebot11",
 		SourceAdapter:  "adapter.onebot11",
 		EventType:      "message.group",
 		Timestamp:      time.Now().Unix(),
-		Actor:          &runtime.EventActor{ID: "100", Nickname: "测试用户A"},
-		Target:         &runtime.EventTarget{Type: "group", ID: "200", Name: "测试群"},
-		Message:        &runtime.EventMessage{PlainText: "hello"},
+		Actor:          &runtimeprotocol.EventActor{ID: "100", Nickname: "测试用户A"},
+		Target:         &runtimeprotocol.EventTarget{Type: "group", ID: "200", Name: "测试群"},
+		Message:        &runtimeprotocol.EventMessage{PlainText: "hello"},
 	}
 }
 
-func testEventWithCommand(commandName string) runtime.Event {
+func testEventWithCommand(commandName string) runtimeprotocol.Event {
 	event := testEvent()
 	event.PayloadFields = map[string]any{
 		"command": commandName,
@@ -166,14 +168,14 @@ func testEventWithCommand(commandName string) runtime.Event {
 	return event
 }
 
-func testEventWithTarget(targetID string) runtime.Event {
+func testEventWithTarget(targetID string) runtimeprotocol.Event {
 	event := testEvent()
 	event.EventID = "test-evt-" + targetID
-	event.Target = &runtime.EventTarget{Type: "group", ID: targetID}
+	event.Target = &runtimeprotocol.EventTarget{Type: "group", ID: targetID}
 	return event
 }
 
-func waitForStartedEvent(t *testing.T, started <-chan runtime.Event) runtime.Event {
+func waitForStartedEvent(t *testing.T, started <-chan runtimeprotocol.Event) runtimeprotocol.Event {
 	t.Helper()
 
 	select {
@@ -181,7 +183,7 @@ func waitForStartedEvent(t *testing.T, started <-chan runtime.Event) runtime.Eve
 		return event
 	case <-time.After(500 * time.Millisecond):
 		t.Fatal("expected event delivery to start")
-		return runtime.Event{}
+		return runtimeprotocol.Event{}
 	}
 }
 
@@ -252,8 +254,8 @@ func TestDispatchFanOutToMultiplePlugins(t *testing.T) {
 	d := New(slog.Default(), sender, nil, 16)
 	defer d.Close()
 
-	rt1 := &fakeDeliverer{delivery: runtime.Delivery{Result: map[string]any{"ok": true}}}
-	rt2 := &fakeDeliverer{delivery: runtime.Delivery{Result: map[string]any{"ok": true}}}
+	rt1 := &fakeDeliverer{delivery: runtimemanager.Delivery{Result: map[string]any{"ok": true}}}
+	rt2 := &fakeDeliverer{delivery: runtimemanager.Delivery{Result: map[string]any{"ok": true}}}
 
 	d.Register("plugin-a", rt1, nil, nil, 1)
 	d.Register("plugin-b", rt2, nil, nil, 1)
@@ -279,16 +281,16 @@ func TestDispatchRecordsSchedulerSuccessWithoutCompletionLog(t *testing.T) {
 	defer d.Close()
 	recorder := &recordingSchedulerRunRecorder{}
 
-	rt := &fakeDeliverer{delivery: runtime.Delivery{Result: map[string]any{"handled": true}}}
+	rt := &fakeDeliverer{delivery: runtimemanager.Delivery{Result: map[string]any{"handled": true}}}
 	d.Register("weather", rt, []string{"scheduler.trigger"}, nil, 1)
 
-	result := d.DispatchToPlugin(context.Background(), "weather", runtime.Event{
+	result := d.DispatchToPlugin(context.Background(), "weather", runtimeprotocol.Event{
 		EventID:        "scheduler-daily_report-1",
 		SourceProtocol: "scheduler",
 		SourceAdapter:  "scheduler.internal",
 		EventType:      "scheduler.trigger",
 		Timestamp:      time.Now().Unix(),
-		SchedulerLog: &runtime.SchedulerLogContext{
+		SchedulerLog: &runtimeprotocol.SchedulerLogContext{
 			JobID:      "daily_report",
 			PluginName: "天气插件",
 			TaskName:   "daily_report",
@@ -323,16 +325,16 @@ func TestDispatchLogsAndRecordsSchedulerFailure(t *testing.T) {
 	defer d.Close()
 	recorder := &recordingSchedulerRunRecorder{}
 
-	rt := &fakeDeliverer{err: &runtime.Error{Code: "plugin.event_timeout", Message: "plugin event response timed out"}}
+	rt := &fakeDeliverer{err: &runtimemanager.Error{Code: "plugin.event_timeout", Message: "plugin event response timed out"}}
 	d.Register("weather", rt, []string{"scheduler.trigger"}, nil, 1)
 
-	result := d.DispatchToPlugin(context.Background(), "weather", runtime.Event{
+	result := d.DispatchToPlugin(context.Background(), "weather", runtimeprotocol.Event{
 		EventID:        "scheduler-daily_report-2",
 		SourceProtocol: "scheduler",
 		SourceAdapter:  "scheduler.internal",
 		EventType:      "scheduler.trigger",
 		Timestamp:      time.Now().Unix(),
-		SchedulerLog: &runtime.SchedulerLogContext{
+		SchedulerLog: &runtimeprotocol.SchedulerLogContext{
 			JobID:      "daily_report",
 			PluginName: "天气插件",
 			TaskName:   "daily_report",
@@ -365,8 +367,8 @@ func TestDispatchDirectedDeliveryByCommand(t *testing.T) {
 	d := New(slog.Default(), sender, nil, 16)
 	defer d.Close()
 
-	rt1 := &fakeDeliverer{delivery: runtime.Delivery{Result: map[string]any{"ok": true}}}
-	rt2 := &fakeDeliverer{delivery: runtime.Delivery{Result: map[string]any{"ok": true}}}
+	rt1 := &fakeDeliverer{delivery: runtimemanager.Delivery{Result: map[string]any{"ok": true}}}
+	rt2 := &fakeDeliverer{delivery: runtimemanager.Delivery{Result: map[string]any{"ok": true}}}
 
 	d.Register("weather", rt1, nil, []CommandDecl{
 		{Name: "weather", Aliases: []string{"天气"}},
@@ -397,7 +399,7 @@ func TestDispatchDirectedDeliveryByAlias(t *testing.T) {
 	d := New(slog.Default(), sender, nil, 16)
 	defer d.Close()
 
-	rt1 := &fakeDeliverer{delivery: runtime.Delivery{Result: map[string]any{"ok": true}}}
+	rt1 := &fakeDeliverer{delivery: runtimemanager.Delivery{Result: map[string]any{"ok": true}}}
 	d.Register("weather", rt1, nil, []CommandDecl{
 		{Name: "weather", Aliases: []string{"天气"}},
 	}, 1)
@@ -413,8 +415,8 @@ func TestDispatchFallbackWhenNoCommandMatch(t *testing.T) {
 	d := New(slog.Default(), sender, nil, 16)
 	defer d.Close()
 
-	rt1 := &fakeDeliverer{delivery: runtime.Delivery{Result: map[string]any{"ok": true}}}
-	rt2 := &fakeDeliverer{delivery: runtime.Delivery{Result: map[string]any{"ok": true}}}
+	rt1 := &fakeDeliverer{delivery: runtimemanager.Delivery{Result: map[string]any{"ok": true}}}
+	rt2 := &fakeDeliverer{delivery: runtimemanager.Delivery{Result: map[string]any{"ok": true}}}
 
 	d.Register("plugin-a", rt1, nil, nil, 1)
 	d.Register("plugin-b", rt2, nil, nil, 1)
@@ -430,8 +432,8 @@ func TestDispatchSubscriptionFiltering(t *testing.T) {
 	d := New(slog.Default(), sender, nil, 16)
 	defer d.Close()
 
-	rt1 := &fakeDeliverer{delivery: runtime.Delivery{Result: map[string]any{"ok": true}}}
-	rt2 := &fakeDeliverer{delivery: runtime.Delivery{Result: map[string]any{"ok": true}}}
+	rt1 := &fakeDeliverer{delivery: runtimemanager.Delivery{Result: map[string]any{"ok": true}}}
+	rt2 := &fakeDeliverer{delivery: runtimemanager.Delivery{Result: map[string]any{"ok": true}}}
 
 	d.Register("msg-only", rt1, []string{"message.group", "message.private"}, nil, 1)
 	d.Register("notice-only", rt2, []string{"notice.member_increase"}, nil, 1)
@@ -450,10 +452,10 @@ func TestDispatchSkipsNonRunningRuntimes(t *testing.T) {
 	d := New(slog.Default(), sender, nil, 16)
 	defer d.Close()
 
-	rtRunning := &fakeDeliverer{delivery: runtime.Delivery{Result: map[string]any{"ok": true}}}
+	rtRunning := &fakeDeliverer{delivery: runtimemanager.Delivery{Result: map[string]any{"ok": true}}}
 	rtBackoff := &fakeDeliverer{
-		state:    runtime.StateBackoff,
-		delivery: runtime.Delivery{Result: map[string]any{"ok": true}},
+		state:    runtimemanager.StateBackoff,
+		delivery: runtimemanager.Delivery{Result: map[string]any{"ok": true}},
 	}
 
 	d.Register("running", rtRunning, nil, nil, 1)
@@ -492,7 +494,7 @@ func TestDispatchQueueOverflow(t *testing.T) {
 
 	blocker := &fakeDeliverer{
 		blockCh:  make(chan struct{}),
-		delivery: runtime.Delivery{Result: map[string]any{"ok": true}},
+		delivery: runtimemanager.Delivery{Result: map[string]any{"ok": true}},
 	}
 	d.Register("blocker", blocker, nil, nil, 1)
 
@@ -524,8 +526,8 @@ func TestDispatchDifferentTargetsRunConcurrently(t *testing.T) {
 	defer d.Close()
 
 	rt := &fakeDeliverer{
-		delivery: runtime.Delivery{Result: map[string]any{"ok": true}},
-		started:  make(chan runtime.Event, 2),
+		delivery: runtimemanager.Delivery{Result: map[string]any{"ok": true}},
+		started:  make(chan runtimeprotocol.Event, 2),
 		blockCh:  make(chan struct{}),
 	}
 	d.Register("parallel", rt, nil, nil, 2)
@@ -551,8 +553,8 @@ func TestDispatchSameTargetPreservesFIFO(t *testing.T) {
 	defer d.Close()
 
 	rt := &fakeDeliverer{
-		delivery: runtime.Delivery{Result: map[string]any{"ok": true}},
-		started:  make(chan runtime.Event, 2),
+		delivery: runtimemanager.Delivery{Result: map[string]any{"ok": true}},
+		started:  make(chan runtimeprotocol.Event, 2),
 		blockCh:  make(chan struct{}),
 	}
 	d.Register("ordered", rt, nil, nil, 2)
@@ -587,7 +589,7 @@ func TestDispatchDeregister(t *testing.T) {
 	d := New(slog.Default(), sender, nil, 16)
 	defer d.Close()
 
-	rt := &fakeDeliverer{delivery: runtime.Delivery{Result: map[string]any{"ok": true}}}
+	rt := &fakeDeliverer{delivery: runtimemanager.Delivery{Result: map[string]any{"ok": true}}}
 	d.Register("test", rt, nil, nil, 1)
 	d.Deregister("test")
 
@@ -603,8 +605,8 @@ func TestDispatchDeregisterWaitsForActiveLane(t *testing.T) {
 	defer d.Close()
 
 	rt := &fakeDeliverer{
-		delivery: runtime.Delivery{Result: map[string]any{"ok": true}},
-		started:  make(chan runtime.Event, 1),
+		delivery: runtimemanager.Delivery{Result: map[string]any{"ok": true}},
+		started:  make(chan runtimeprotocol.Event, 1),
 		blockCh:  make(chan struct{}),
 	}
 	d.Register("test", rt, nil, nil, 2)
@@ -639,8 +641,8 @@ func TestDispatchToPluginRejectsNonRunningRuntime(t *testing.T) {
 	defer d.Close()
 
 	rt := &fakeDeliverer{
-		state:    runtime.StateBackoff,
-		delivery: runtime.Delivery{Result: map[string]any{"ok": true}},
+		state:    runtimemanager.StateBackoff,
+		delivery: runtimemanager.Delivery{Result: map[string]any{"ok": true}},
 	}
 	d.Register("test", rt, nil, nil, 1)
 
@@ -664,7 +666,7 @@ func TestDispatchSkipsQueuedEventWhenRuntimeStopsBeforeDelivery(t *testing.T) {
 	defer d.Close()
 
 	rt := &fakeDeliverer{
-		delivery: runtime.Delivery{Result: map[string]any{"ok": true}},
+		delivery: runtimemanager.Delivery{Result: map[string]any{"ok": true}},
 		blockCh:  make(chan struct{}),
 	}
 	d.Register("test", rt, nil, nil, 1)
@@ -679,7 +681,7 @@ func TestDispatchSkipsQueuedEventWhenRuntimeStopsBeforeDelivery(t *testing.T) {
 	if len(results) != 1 || results[0].Outcome != OutcomeDelivered {
 		t.Fatalf("unexpected queued dispatch result: %#v", results)
 	}
-	rt.setState(runtime.StateStarting)
+	rt.setState(runtimemanager.StateStarting)
 	close(rt.blockCh)
 
 	time.Sleep(80 * time.Millisecond)
@@ -693,12 +695,12 @@ func TestDispatchActionExecution(t *testing.T) {
 	d := New(slog.Default(), sender, nil, 16)
 	defer d.Close()
 
-	rt := &fakeDeliverer{delivery: runtime.Delivery{
-		Action: &runtime.Action{
+	rt := &fakeDeliverer{delivery: runtimemanager.Delivery{
+		Action: &runtimeaction.Action{
 			Kind:       "message.send",
 			TargetType: "group",
 			TargetID:   "200",
-			MessageSegments: []runtime.ActionSegment{{
+			MessageSegments: []runtimeaction.ActionSegment{{
 				Type: "text",
 				Data: map[string]any{"text": "reply text"},
 			}},
@@ -728,12 +730,12 @@ func TestDispatchActionExecutionWithRichSegments(t *testing.T) {
 	d := New(slog.Default(), sender, nil, 16)
 	defer d.Close()
 
-	rt := &fakeDeliverer{delivery: runtime.Delivery{
-		Action: &runtime.Action{
+	rt := &fakeDeliverer{delivery: runtimemanager.Delivery{
+		Action: &runtimeaction.Action{
 			Kind:       "message.send",
 			TargetType: "group",
 			TargetID:   "200",
-			MessageSegments: []runtime.ActionSegment{
+			MessageSegments: []runtimeaction.ActionSegment{
 				{Type: "at", Data: map[string]any{"user_id": "300"}},
 				{Type: "text", Data: map[string]any{"text": " rich dispatch"}},
 			},
@@ -769,11 +771,11 @@ func TestDispatchActionExecutionUsesReplyTargetForOutboundLimiter(t *testing.T) 
 	d.SetOutboundLimiter(limiter)
 	defer d.Close()
 
-	rt := &fakeDeliverer{delivery: runtime.Delivery{
-		Action: &runtime.Action{
+	rt := &fakeDeliverer{delivery: runtimemanager.Delivery{
+		Action: &runtimeaction.Action{
 			Kind:           "message.reply",
 			ReplyToEventID: "evt_reply_target",
-			MessageSegments: []runtime.ActionSegment{{
+			MessageSegments: []runtimeaction.ActionSegment{{
 				Type: "text",
 				Data: map[string]any{"text": "reply text"},
 			}},
@@ -796,19 +798,19 @@ func TestDispatchActionExecutionLogsRateLimitedOutcome(t *testing.T) {
 	logger, stream := newDispatchTestLogger()
 	sender := &fakeSender{}
 	limiter := &recordingOutboundLimiter{
-		err: &adapter.Error{Code: "platform.rate_limited", Message: "outbound message rate limit exceeded"},
+		err: &adapteroutbound.Error{Code: "platform.rate_limited", Message: "outbound message rate limit exceeded"},
 	}
 	d := New(logger, sender, nil, 16)
 	d.SetOutboundLimiter(limiter)
 	defer d.Close()
 
-	rt := &fakeDeliverer{delivery: runtime.Delivery{
+	rt := &fakeDeliverer{delivery: runtimemanager.Delivery{
 		RequestID: "req_runtime_delivery_rate_limited",
-		Action: &runtime.Action{
+		Action: &runtimeaction.Action{
 			Kind:       "message.send",
 			TargetType: "group",
 			TargetID:   "200",
-			MessageSegments: []runtime.ActionSegment{{
+			MessageSegments: []runtimeaction.ActionSegment{{
 				Type: "text",
 				Data: map[string]any{"text": "limited"},
 			}},
@@ -843,13 +845,13 @@ func TestDispatchActionExecutionRejectsMissingMessageSendCapability(t *testing.T
 	})
 	defer d.Close()
 
-	rt := &fakeDeliverer{delivery: runtime.Delivery{
+	rt := &fakeDeliverer{delivery: runtimemanager.Delivery{
 		RequestID: "req_runtime_delivery_permission_send",
-		Action: &runtime.Action{
+		Action: &runtimeaction.Action{
 			Kind:       "message.send",
 			TargetType: "group",
 			TargetID:   "200",
-			MessageSegments: []runtime.ActionSegment{{
+			MessageSegments: []runtimeaction.ActionSegment{{
 				Type: "text",
 				Data: map[string]any{"text": "should be denied"},
 			}},
@@ -893,12 +895,12 @@ func TestDispatchActionExecutionRejectsMissingMessageReplyCapability(t *testing.
 	})
 	defer d.Close()
 
-	rt := &fakeDeliverer{delivery: runtime.Delivery{
+	rt := &fakeDeliverer{delivery: runtimemanager.Delivery{
 		RequestID: "req_runtime_delivery_permission_reply",
-		Action: &runtime.Action{
+		Action: &runtimeaction.Action{
 			Kind:           "message.reply",
 			ReplyToEventID: "evt_reply_target",
-			MessageSegments: []runtime.ActionSegment{{
+			MessageSegments: []runtimeaction.ActionSegment{{
 				Type: "text",
 				Data: map[string]any{"text": "reply denied"},
 			}},
@@ -930,18 +932,18 @@ func TestDispatchLogsOutboundMessageSuccess(t *testing.T) {
 
 	logger, stream := newDispatchTestLogger()
 	sender := &fakeSender{
-		sendResult: adapter.SendMessageResult{MessageID: "send-100"},
+		sendResult: adapteroutbound.SendMessageResult{MessageID: "send-100"},
 	}
 	d := New(logger, sender, nil, 16)
 	defer d.Close()
 
-	rt := &fakeDeliverer{delivery: runtime.Delivery{
+	rt := &fakeDeliverer{delivery: runtimemanager.Delivery{
 		RequestID: "req_runtime_delivery_0001",
-		Action: &runtime.Action{
+		Action: &runtimeaction.Action{
 			Kind:       "message.send",
 			TargetType: "group",
 			TargetID:   "200",
-			MessageSegments: []runtime.ActionSegment{{
+			MessageSegments: []runtimeaction.ActionSegment{{
 				Type: "text",
 				Data: map[string]any{"text": "hello dispatch"},
 			}},
@@ -994,18 +996,18 @@ func TestDispatchLogsOutboundMessageFailure(t *testing.T) {
 
 	logger, stream := newDispatchTestLogger()
 	sender := &fakeSender{
-		sendErr: &adapter.Error{Code: "adapter.send_failed", Message: "send rejected by upstream"},
+		sendErr: &adapteroutbound.Error{Code: "adapter.send_failed", Message: "send rejected by upstream"},
 	}
 	d := New(logger, sender, nil, 16)
 	defer d.Close()
 
-	rt := &fakeDeliverer{delivery: runtime.Delivery{
+	rt := &fakeDeliverer{delivery: runtimemanager.Delivery{
 		RequestID: "req_runtime_delivery_0002",
-		Action: &runtime.Action{
+		Action: &runtimeaction.Action{
 			Kind:       "message.send",
 			TargetType: "group",
 			TargetID:   "200",
-			MessageSegments: []runtime.ActionSegment{{
+			MessageSegments: []runtimeaction.ActionSegment{{
 				Type: "text",
 				Data: map[string]any{"text": "hello dispatch"},
 			}},
@@ -1040,8 +1042,8 @@ func TestDispatchLogsReplyFallbackUsingActualDeliveryKind(t *testing.T) {
 
 	logger, stream := newDispatchTestLogger()
 	sender := &fakeSender{
-		replyErr:   &adapter.Error{Code: "adapter.reply_target_missing", Message: "reply target missing"},
-		sendResult: adapter.SendMessageResult{MessageID: "send-200"},
+		replyErr:   &adapteroutbound.Error{Code: "adapter.reply_target_missing", Message: "reply target missing"},
+		sendResult: adapteroutbound.SendMessageResult{MessageID: "send-200"},
 	}
 	resolver := fakeReplyTargets{
 		"evt_reply_target": {
@@ -1053,13 +1055,13 @@ func TestDispatchLogsReplyFallbackUsingActualDeliveryKind(t *testing.T) {
 	d := New(logger, sender, resolver, 16)
 	defer d.Close()
 
-	rt := &fakeDeliverer{delivery: runtime.Delivery{
+	rt := &fakeDeliverer{delivery: runtimemanager.Delivery{
 		RequestID: "req_runtime_delivery_0003",
-		Action: &runtime.Action{
+		Action: &runtimeaction.Action{
 			Kind:                    "message.reply",
 			ReplyToEventID:          "evt_reply_target",
 			FallbackToSendIfMissing: true,
-			MessageSegments: []runtime.ActionSegment{{
+			MessageSegments: []runtimeaction.ActionSegment{{
 				Type: "text",
 				Data: map[string]any{"text": "fallback reply"},
 			}},
@@ -1100,18 +1102,18 @@ func TestDispatchLogsOutboundMessageWithoutCommandContext(t *testing.T) {
 
 	logger, stream := newDispatchTestLogger()
 	sender := &fakeSender{
-		sendResult: adapter.SendMessageResult{MessageID: "send-300"},
+		sendResult: adapteroutbound.SendMessageResult{MessageID: "send-300"},
 	}
 	d := New(logger, sender, nil, 16)
 	defer d.Close()
 
-	rt := &fakeDeliverer{delivery: runtime.Delivery{
+	rt := &fakeDeliverer{delivery: runtimemanager.Delivery{
 		RequestID: "req_runtime_delivery_0004",
-		Action: &runtime.Action{
+		Action: &runtimeaction.Action{
 			Kind:       "message.send",
 			TargetType: "group",
 			TargetID:   "200",
-			MessageSegments: []runtime.ActionSegment{{
+			MessageSegments: []runtimeaction.ActionSegment{{
 				Type: "text",
 				Data: map[string]any{"text": "hello dispatch"},
 			}},
@@ -1137,7 +1139,7 @@ func TestDispatcherWindowFlushPublishesDeltas(t *testing.T) {
 	d := New(slog.Default(), sender, nil, 16)
 	defer d.Close()
 
-	rt := &fakeDeliverer{delivery: runtime.Delivery{Result: map[string]any{}}}
+	rt := &fakeDeliverer{delivery: runtimemanager.Delivery{Result: map[string]any{}}}
 	d.Register("p", rt, []string{"message.group"}, nil, 1)
 
 	pub := &recordingRuntimePublisher{}
@@ -1155,7 +1157,7 @@ func TestDispatcherWindowFlushPublishesDeltas(t *testing.T) {
 		t.Fatalf("unexpected snapshot: %+v", first)
 	}
 
-	noTarget := runtime.Event{
+	noTarget := runtimeprotocol.Event{
 		EventID:        "evt-no-target",
 		SourceProtocol: "onebot11",
 		SourceAdapter:  "adapter.onebot11",
@@ -1181,7 +1183,7 @@ func TestDispatcherFlushDropsByReasonRecordsQueueFull(t *testing.T) {
 
 	blocker := &fakeDeliverer{
 		blockCh:  make(chan struct{}),
-		delivery: runtime.Delivery{Result: map[string]any{"ok": true}},
+		delivery: runtimemanager.Delivery{Result: map[string]any{"ok": true}},
 	}
 	d.Register("blocker", blocker, nil, nil, 1)
 
@@ -1301,12 +1303,12 @@ func TestDispatchActionExecutionRecordsOutboundMetrics(t *testing.T) {
 	metrics := newRecordingDispatchMetrics()
 	d.SetMetricsObserver(metrics)
 
-	rt := &fakeDeliverer{delivery: runtime.Delivery{
-		Action: &runtime.Action{
+	rt := &fakeDeliverer{delivery: runtimemanager.Delivery{
+		Action: &runtimeaction.Action{
 			Kind:       "message.send",
 			TargetType: "group",
 			TargetID:   "200",
-			MessageSegments: []runtime.ActionSegment{{
+			MessageSegments: []runtimeaction.ActionSegment{{
 				Type: "text",
 				Data: map[string]any{"text": "metric reply"},
 			}},

@@ -7,9 +7,11 @@ import (
 	"os/exec"
 
 	runtimeprocess "github.com/RayleaBot/RayleaBot/server/internal/runtime/process"
+	runtimeprotocol "github.com/RayleaBot/RayleaBot/server/internal/runtime/protocol"
+	runtimespec "github.com/RayleaBot/RayleaBot/server/internal/runtime/spec"
 )
 
-func (m *Manager) Start(ctx context.Context, spec Spec, payload InitPayload) error {
+func (m *Manager) Start(ctx context.Context, spec runtimespec.Spec, payload runtimespec.InitPayload) error {
 	if len(payload.CommandPrefixes) == 0 {
 		return errorf(codePlatformInvalidRequest, "init payload command_prefixes is required", nil)
 	}
@@ -80,21 +82,21 @@ func (m *Manager) Start(ctx context.Context, spec Spec, payload InitPayload) err
 		"entry_path", spec.EntryPath,
 	)
 
-	var bot *botFrame
+	var bot *runtimeprotocol.BotFrame
 	if payload.Bot.ID != "" {
-		bot = &botFrame{
+		bot = &runtimeprotocol.BotFrame{
 			ID:       payload.Bot.ID,
 			Nickname: payload.Bot.Nickname,
 		}
 	}
-	var permissions *permissionsFrame
+	var permissions *runtimeprotocol.PermissionsFrame
 	if len(payload.SuperAdmins) > 0 {
-		permissions = &permissionsFrame{
+		permissions = &runtimeprotocol.PermissionsFrame{
 			SuperAdmins: append([]string(nil), payload.SuperAdmins...),
 		}
 	}
 
-	if err := handle.WriteJSONLine(initFrame{
+	if err := handle.WriteJSONLine(runtimeprotocol.InitFrame{
 		ProtocolVersion: "1",
 		Type:            "init",
 		Timestamp:       m.deps.now().Unix(),
@@ -138,7 +140,7 @@ func (m *Manager) Start(ctx context.Context, spec Spec, payload InitPayload) err
 	return nil
 }
 
-func processSpec(spec Spec) runtimeprocess.Spec {
+func processSpec(spec runtimespec.Spec) runtimeprocess.Spec {
 	return runtimeprocess.Spec{
 		PluginID:             spec.PluginID,
 		InitTimeout:          spec.InitTimeout,

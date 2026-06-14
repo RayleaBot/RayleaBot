@@ -5,10 +5,10 @@ import (
 	"strings"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/outbound"
-	"github.com/RayleaBot/RayleaBot/server/internal/runtime"
+	runtimeprotocol "github.com/RayleaBot/RayleaBot/server/internal/runtime/protocol"
 )
 
-func buildOutboundTargetLabel(ctx context.Context, event runtime.Event, targetType, targetID string, sender outbound.ActionSender) string {
+func buildOutboundTargetLabel(ctx context.Context, event runtimeprotocol.Event, targetType, targetID string, sender outbound.ActionSender) string {
 	targetName := ""
 	if event.Target != nil &&
 		strings.TrimSpace(event.Target.Type) == strings.TrimSpace(targetType) &&

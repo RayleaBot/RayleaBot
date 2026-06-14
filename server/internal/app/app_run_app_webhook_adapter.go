@@ -4,11 +4,11 @@ import (
 	"context"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/metrics"
-	"github.com/RayleaBot/RayleaBot/server/internal/runtime"
+	runtimeaction "github.com/RayleaBot/RayleaBot/server/internal/runtime/action"
 )
 
 type webhookGateway interface {
-	Expose(context.Context, string, runtime.Action) (map[string]any, error)
+	Expose(context.Context, string, runtimeaction.Action) (map[string]any, error)
 }
 
 // webhookReplayMetricsAdapter exposes the metrics.Registry replay counter

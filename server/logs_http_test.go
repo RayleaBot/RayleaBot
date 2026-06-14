@@ -3,6 +3,13 @@ package server
 import (
 	"context"
 	"encoding/json"
+
+	adapterintake "github.com/RayleaBot/RayleaBot/server/internal/adapter/intake"
+	adaptersegments "github.com/RayleaBot/RayleaBot/server/internal/adapter/segments"
+	internalapp "github.com/RayleaBot/RayleaBot/server/internal/app"
+	"github.com/RayleaBot/RayleaBot/server/internal/logging"
+	plugindiscovery "github.com/RayleaBot/RayleaBot/server/internal/plugins/discovery"
+
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
@@ -10,11 +17,6 @@ import (
 	"strings"
 	"testing"
 	"time"
-
-	"github.com/RayleaBot/RayleaBot/server/internal/adapter"
-	internalapp "github.com/RayleaBot/RayleaBot/server/internal/app"
-	"github.com/RayleaBot/RayleaBot/server/internal/logging"
-	plugindiscovery "github.com/RayleaBot/RayleaBot/server/internal/plugins/discovery"
 )
 
 func TestLogsListReturnsFilteredSummaries(t *testing.T) {
@@ -1358,10 +1360,10 @@ func putWhitelistState(t *testing.T, baseURL, token string, enabled bool) {
 	}
 }
 
-func commandRejectionEvent() adapter.NormalizedEvent {
+func commandRejectionEvent() adapterintake.NormalizedEvent {
 	now := time.Now()
-	return adapter.NormalizedEvent{
-		Kind:             adapter.EventKindMessage,
+	return adapterintake.NormalizedEvent{
+		Kind:             adapterintake.EventKindMessage,
 		EventID:          "evt-command-rejected-echo",
 		BotID:            "10001",
 		SourceProtocol:   "onebot11",
@@ -1373,7 +1375,7 @@ func commandRejectionEvent() adapter.NormalizedEvent {
 		SenderID:         "30001",
 		MessageID:        "90001",
 		PlainText:        "/echo",
-		Segments: []adapter.MessageSegment{{
+		Segments: []adaptersegments.MessageSegment{{
 			Type: "text",
 			Data: map[string]any{"text": "/echo"},
 		}},
@@ -1537,8 +1539,8 @@ func TestLogsListReadsPersistedBridgeMessageAcrossRestart(t *testing.T) {
 	appA.SetBridge(newPersistentEventsBridge(appA))
 	_ = issueLoginToken(t, appA)
 
-	event := adapter.NormalizedEvent{
-		Kind:             adapter.EventKindMessageText,
+	event := adapterintake.NormalizedEvent{
+		Kind:             adapterintake.EventKindMessageText,
 		EventID:          "onebot11-message-40002",
 		BotID:            "10001",
 		SourceProtocol:   "onebot11",

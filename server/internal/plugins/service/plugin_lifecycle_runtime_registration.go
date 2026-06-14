@@ -5,7 +5,7 @@ import (
 	"strings"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
-	"github.com/RayleaBot/RayleaBot/server/internal/runtime"
+	runtimemanager "github.com/RayleaBot/RayleaBot/server/internal/runtime/manager"
 )
 
 func (c *Controller) afterRuntimeRegistered(ctx context.Context, pluginID string, initBotID string) {
@@ -21,7 +21,7 @@ func (c *Controller) afterRuntimeRegistered(ctx context.Context, pluginID string
 	c.dispatchBotIdentityChangedToPlugin(ctx, pluginID, currentBotID)
 }
 
-func (c *Controller) registerRuntimeIfNeeded(pluginID string, manager *runtime.Manager) {
+func (c *Controller) registerRuntimeIfNeeded(pluginID string, manager *runtimemanager.Manager) {
 	if c == nil || c.dispatcher == nil || manager == nil {
 		return
 	}
@@ -35,7 +35,7 @@ func (c *Controller) registerRuntimeIfNeeded(pluginID string, manager *runtime.M
 	c.registerRuntime(pluginID, snapshot, manager)
 }
 
-func (c *Controller) registerRuntime(pluginID string, snapshot plugins.Snapshot, manager *runtime.Manager) {
+func (c *Controller) registerRuntime(pluginID string, snapshot plugins.Snapshot, manager *runtimemanager.Manager) {
 	if c == nil || c.dispatcher == nil || manager == nil {
 		return
 	}

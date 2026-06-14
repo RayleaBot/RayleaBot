@@ -11,13 +11,13 @@ import (
 
 	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
 
-	"github.com/coder/websocket"
-	"github.com/coder/websocket/wsjson"
-
-	"github.com/RayleaBot/RayleaBot/server/internal/adapter"
+	adaptershell "github.com/RayleaBot/RayleaBot/server/internal/adapter/shell"
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
-	"github.com/RayleaBot/RayleaBot/server/internal/runtime"
+	runtimeaction "github.com/RayleaBot/RayleaBot/server/internal/runtime/action"
+	runtimemanager "github.com/RayleaBot/RayleaBot/server/internal/runtime/manager"
+	"github.com/coder/websocket"
+	"github.com/coder/websocket/wsjson"
 )
 
 func TestExecuteOneBotLocalActionMessageHistoryGet(t *testing.T) {
@@ -70,7 +70,7 @@ func TestExecuteOneBotLocalActionMessageHistoryGet(t *testing.T) {
 	}))
 	defer server.Close()
 
-	shell := adapter.NewForTest(config.OneBotConfig{
+	shell := adaptershell.NewForTest(config.OneBotConfig{
 		ForwardWS: config.OneBotTransportConfig{
 			Enabled: true,
 			URL:     "ws" + server.URL[len("http"):],
@@ -81,7 +81,7 @@ func TestExecuteOneBotLocalActionMessageHistoryGet(t *testing.T) {
 	defer cancel()
 
 	shell.Start(ctx)
-	waitForAdapterState(t, shell, adapter.StateConnected, time.Second)
+	waitForAdapterState(t, shell, adaptershell.StateConnected, time.Second)
 
 	application := newTestAppState(config.Config{
 		Permission: config.PermissionConfig{
@@ -90,7 +90,7 @@ func TestExecuteOneBotLocalActionMessageHistoryGet(t *testing.T) {
 	}, slog.New(slog.NewTextHandler(io.Discard, nil)))
 	application.setTestLocalActions(nil, nil, nil, nil, nil, nil, nil, shell, nil, nil)
 
-	result, err := application.executeOneBotLocalAction(context.Background(), "weather", "req_hist", runtime.Action{
+	result, err := application.executeOneBotLocalAction(context.Background(), "weather", "req_hist", runtimeaction.Action{
 		Kind: "message.history.get",
 		RawData: map[string]any{
 			"conversation_type": "group",
@@ -144,9 +144,9 @@ func TestExecuteOneBotLocalActionProviderMismatch(t *testing.T) {
 			AutoGrantCapabilities: []string{"provider.napcat.message_emoji.like.set"},
 		},
 	}, nil)
-	application.setTestLocalActions(nil, nil, nil, nil, nil, nil, nil, &adapter.Shell{}, nil, nil)
+	application.setTestLocalActions(nil, nil, nil, nil, nil, nil, nil, &adaptershell.Shell{}, nil, nil)
 
-	_, err := application.executeOneBotLocalAction(context.Background(), "weather", "req_provider", runtime.Action{
+	_, err := application.executeOneBotLocalAction(context.Background(), "weather", "req_provider", runtimeaction.Action{
 		Kind: "provider.napcat.message_emoji.like.set",
 		RawData: map[string]any{
 			"message_id": "8899",
@@ -233,7 +233,7 @@ func TestExecuteOneBotLocalActionProviderExtensionUsesDetectedProvider(t *testin
 	}))
 	defer server.Close()
 
-	shell := adapter.New(config.OneBotConfig{
+	shell := adaptershell.New(config.OneBotConfig{
 		ForwardWS: config.OneBotTransportConfig{
 			Enabled: true,
 			URL:     "ws" + server.URL[len("http"):],
@@ -242,8 +242,8 @@ func TestExecuteOneBotLocalActionProviderExtensionUsesDetectedProvider(t *testin
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	shell.Start(ctx)
-	waitForAdapterState(t, shell, adapter.StateConnected, time.Second)
-	waitForRuntimeInfo(t, shell, adapter.TransportForwardWS, "napcat", time.Second)
+	waitForAdapterState(t, shell, adaptershell.StateConnected, time.Second)
+	waitForRuntimeInfo(t, shell, adaptershell.TransportForwardWS, "napcat", time.Second)
 
 	application := newTestAppState(config.Config{
 		Permission: config.PermissionConfig{
@@ -252,7 +252,7 @@ func TestExecuteOneBotLocalActionProviderExtensionUsesDetectedProvider(t *testin
 	}, nil)
 	application.setTestLocalActions(nil, nil, nil, nil, nil, nil, nil, shell, nil, nil)
 
-	_, err := application.executeOneBotLocalAction(context.Background(), "weather", "req_provider", runtime.Action{
+	_, err := application.executeOneBotLocalAction(context.Background(), "weather", "req_provider", runtimeaction.Action{
 		Kind: "provider.napcat.message_emoji.like.set",
 		RawData: map[string]any{
 			"message_id": "8899",
@@ -285,9 +285,9 @@ func TestExecuteOneBotLocalActionRejectsMissingCapability(t *testing.T) {
 	t.Parallel()
 
 	application := newTestAppState(config.Config{}, nil)
-	application.setTestLocalActions(nil, nil, nil, nil, nil, nil, nil, &adapter.Shell{}, nil, nil)
+	application.setTestLocalActions(nil, nil, nil, nil, nil, nil, nil, &adaptershell.Shell{}, nil, nil)
 
-	_, err := application.executeOneBotLocalAction(context.Background(), "weather", "req_provider", runtime.Action{
+	_, err := application.executeOneBotLocalAction(context.Background(), "weather", "req_provider", runtimeaction.Action{
 		Kind: "message.history.get",
 		RawData: map[string]any{
 			"conversation_type": "group",
@@ -313,9 +313,9 @@ func TestExecuteOneBotLocalActionConnectionLossKeepsPluginRunning(t *testing.T) 
 		DesiredState:      "enabled",
 		RuntimeState:      "running",
 	}})
-	application.setTestLocalActions(nil, nil, nil, nil, nil, nil, nil, &adapter.Shell{}, nil, nil)
+	application.setTestLocalActions(nil, nil, nil, nil, nil, nil, nil, &adaptershell.Shell{}, nil, nil)
 
-	_, err := application.executeOneBotLocalAction(context.Background(), "weather", "req_hist_disconnected", runtime.Action{
+	_, err := application.executeOneBotLocalAction(context.Background(), "weather", "req_hist_disconnected", runtimeaction.Action{
 		Kind: "message.history.get",
 		RawData: map[string]any{
 			"conversation_type": "group",
@@ -328,12 +328,12 @@ func TestExecuteOneBotLocalActionConnectionLossKeepsPluginRunning(t *testing.T) 
 	if !ok {
 		t.Fatal("plugin missing from catalog")
 	}
-	if snapshot.RuntimeState != string(runtime.StateRunning) {
+	if snapshot.RuntimeState != string(runtimemanager.StateRunning) {
 		t.Fatalf("runtime_state = %q, want running", snapshot.RuntimeState)
 	}
 }
 
-func waitForAdapterState(t *testing.T, shell *adapter.Shell, want adapter.State, timeout time.Duration) {
+func waitForAdapterState(t *testing.T, shell *adaptershell.Shell, want adaptershell.State, timeout time.Duration) {
 	t.Helper()
 
 	deadline := time.Now().Add(timeout)
@@ -347,21 +347,21 @@ func waitForAdapterState(t *testing.T, shell *adapter.Shell, want adapter.State,
 	t.Fatalf("timed out waiting for adapter state %s, got %s", want, shell.Snapshot().State)
 }
 
-func waitForRuntimeInfo(t *testing.T, shell *adapter.Shell, transport adapter.TransportKey, wantProvider string, timeout time.Duration) {
+func waitForRuntimeInfo(t *testing.T, shell *adaptershell.Shell, transport adaptershell.TransportKey, wantProvider string, timeout time.Duration) {
 	t.Helper()
 
 	deadline := time.Now().Add(timeout)
 	for time.Now().Before(deadline) {
 		snapshot := shell.Snapshot()
-		var info adapter.TransportRuntimeInfo
+		var info adaptershell.TransportRuntimeInfo
 		switch transport {
-		case adapter.TransportForwardWS:
+		case adaptershell.TransportForwardWS:
 			info = snapshot.ForwardWS.RuntimeInfo
-		case adapter.TransportReverseWS:
+		case adaptershell.TransportReverseWS:
 			info = snapshot.ReverseWS.RuntimeInfo
-		case adapter.TransportHTTPAPI:
+		case adaptershell.TransportHTTPAPI:
 			info = snapshot.HTTPAPI.RuntimeInfo
-		case adapter.TransportWebhook:
+		case adaptershell.TransportWebhook:
 			info = snapshot.Webhook.RuntimeInfo
 		}
 		if info.Provider == wantProvider {

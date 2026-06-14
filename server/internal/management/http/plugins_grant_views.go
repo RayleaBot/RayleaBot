@@ -2,6 +2,7 @@ package managementhttp
 
 import (
 	"context"
+	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	"time"
 )
 
@@ -9,17 +10,17 @@ func providedAutoGrantCapabilities(provider autoGrantCapabilitiesProvider) []str
 	if provider == nil {
 		return nil
 	}
-	return dedupeCapabilities(provider())
+	return plugins.DedupeCapabilities(provider())
 }
 
-func loadPersistedGrants(ctx context.Context, repo GrantRepository, pluginID string) ([]PluginGrant, error) {
+func loadPersistedGrants(ctx context.Context, repo plugins.GrantRepository, pluginID string) ([]plugins.PluginGrant, error) {
 	if repo == nil {
 		return nil, nil
 	}
 	return repo.LoadGrants(ctx, pluginID)
 }
 
-func buildGrantResponses(grants []EffectiveGrant) []grantResponse {
+func buildGrantResponses(grants []plugins.EffectiveGrant) []grantResponse {
 	if len(grants) == 0 {
 		return []grantResponse{}
 	}
@@ -44,7 +45,7 @@ func buildGrantResponses(grants []EffectiveGrant) []grantResponse {
 	return items
 }
 
-func buildPermissionResponses(summaries []PermissionSummary) []pluginPermissionResponse {
+func buildPermissionResponses(summaries []plugins.PermissionSummary) []pluginPermissionResponse {
 	if len(summaries) == 0 {
 		return []pluginPermissionResponse{}
 	}

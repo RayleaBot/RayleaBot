@@ -7,6 +7,8 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+
+	bilibiliSession "github.com/RayleaBot/RayleaBot/server/internal/bilibili/session"
 )
 
 func (s *Source) requestJSON(ctx context.Context, method, rawURL, cookie string, body io.Reader, target any) error {
@@ -24,14 +26,14 @@ func (s *Source) requestJSONOnce(ctx context.Context, method, rawURL, cookie str
 	s.griskMu.Lock()
 	grisk := s.griskID
 	s.griskMu.Unlock()
-	if grisk != "" && isBilibiliURLForWBI(rawURL) {
+	if grisk != "" && bilibiliSession.IsBilibiliURLForWBI(rawURL) {
 		sep := "&"
 		if !strings.Contains(rawURL, "?") {
 			sep = "?"
 		}
 		rawURL = rawURL + sep + "gaia_vtoken=" + grisk
 	}
-	if needWBI && s.session != nil && isBilibiliURLForWBI(rawURL) {
+	if needWBI && s.session != nil && bilibiliSession.IsBilibiliURLForWBI(rawURL) {
 		signedURL, err := s.session.SignURL(ctx, rawURL, cookie)
 		if err != nil {
 			return err
@@ -60,8 +62,8 @@ func (s *Source) requestJSONOnce(ctx context.Context, method, rawURL, cookie str
 		return err
 	}
 	if response.StatusCode < 200 || response.StatusCode >= 300 {
-		err := &Error{Kind: classifyHTTPStatus(response.StatusCode), HTTPStatus: response.StatusCode, Message: responseExcerpt(responseBody)}
-		if needWBI && allowRetry && body == nil && s.session != nil && shouldRetryWBI(err) {
+		err := &bilibiliSession.Error{Kind: bilibiliSession.ClassifyHTTPStatus(response.StatusCode), HTTPStatus: response.StatusCode, Message: responseExcerpt(responseBody)}
+		if needWBI && allowRetry && body == nil && s.session != nil && bilibiliSession.ShouldRetryWBI(err) {
 			s.session.InvalidateWBI()
 			return s.requestJSONOnce(ctx, method, rawURL, cookie, body, target, needWBI, false)
 		}
@@ -73,13 +75,13 @@ func (s *Source) requestJSONOnce(ctx context.Context, method, rawURL, cookie str
 			code := intValue(values["code"])
 			if code != 0 {
 				message := firstNonEmpty(stringValue(values["message"]), stringValue(values["msg"]))
-				return apiError(response.StatusCode, code, message, responseBody)
+				return bilibiliSession.APIError(response.StatusCode, code, message, responseBody)
 			}
 		}
 		return nil
 	}
 	if err := json.Unmarshal(responseBody, target); err != nil {
-		return &Error{Kind: ErrorInvalidResponse, HTTPStatus: response.StatusCode, Message: responseExcerpt(responseBody), Err: err}
+		return &bilibiliSession.Error{Kind: bilibiliSession.ErrorInvalidResponse, HTTPStatus: response.StatusCode, Message: responseExcerpt(responseBody), Err: err}
 	}
 	code := intFromMap(target, "code")
 	if code != 0 {
@@ -87,8 +89,8 @@ func (s *Source) requestJSONOnce(ctx context.Context, method, rawURL, cookie str
 		if message == "" {
 			message = stringFromMap(target, "msg")
 		}
-		err := apiError(response.StatusCode, code, message, responseBody)
-		if needWBI && allowRetry && body == nil && s.session != nil && shouldRetryWBI(err) {
+		err := bilibiliSession.APIError(response.StatusCode, code, message, responseBody)
+		if needWBI && allowRetry && body == nil && s.session != nil && bilibiliSession.ShouldRetryWBI(err) {
 			s.session.InvalidateWBI()
 			return s.requestJSONOnce(ctx, method, rawURL, cookie, body, target, needWBI, false)
 		}

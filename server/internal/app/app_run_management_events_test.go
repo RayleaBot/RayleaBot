@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	source "github.com/RayleaBot/RayleaBot/server/internal/bilibili"
+	bilibilisource "github.com/RayleaBot/RayleaBot/server/internal/bilibili/source"
 	managementevents "github.com/RayleaBot/RayleaBot/server/internal/management/events"
 )
 
@@ -75,23 +75,23 @@ func TestPluginStateEventFrameKeepsContractFieldNames(t *testing.T) {
 func TestBilibiliSourceStatusEventIncludesDiagnosis(t *testing.T) {
 	t.Parallel()
 
-	status := source.Status{
-		Status:  source.StateDegraded,
+	status := bilibilisource.Status{
+		Status:  bilibilisource.StateDegraded,
 		Summary: "Bilibili 事件源运行受限",
-		Live: source.LiveStatus{
+		Live: bilibilisource.LiveStatus{
 			WatchedRooms:    1,
 			FallbackPolling: true,
 			LastError:       "直播间连接失败",
 		},
-		Diagnosis: source.Diagnosis{
+		Diagnosis: bilibilisource.Diagnosis{
 			Level:       "attention",
 			Headline:    "直播备用检查中",
 			Description: "部分直播长连接不可用，系统正在使用接口检查直播状态。",
-			Causes: []source.DiagnosisCause{
+			Causes: []bilibilisource.DiagnosisCause{
 				{Scope: "live", Code: "live_fallback", Title: "直播实时连接受限", Detail: "直播状态仍会检查。"},
 			},
 			Impacts:   []string{"直播状态仍会检查，但实时性可能降低。"},
-			Actions:   []source.DiagnosisAction{{Kind: "restart_source", Label: "重启事件源", Primary: true}},
+			Actions:   []bilibilisource.DiagnosisAction{{Kind: "restart_source", Label: "重启事件源", Primary: true}},
 			UpdatedAt: time.Date(2026, 6, 8, 8, 30, 0, 0, time.UTC),
 		},
 	}

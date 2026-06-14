@@ -7,6 +7,7 @@ import (
 	"net/url"
 	"strings"
 
+	bilibiliDynamic "github.com/RayleaBot/RayleaBot/server/internal/bilibili/dynamic"
 	"github.com/RayleaBot/RayleaBot/server/internal/thirdparty"
 )
 
@@ -31,8 +32,8 @@ func (s *Source) autoFollow(ctx context.Context, subjects map[string]Subject, ac
 		if !s.shouldCheckAutoFollow(subject.UID, account, cookie) {
 			continue
 		}
-		var relation relationDocument
-		if err := s.requestSignedJSON(ctx, http.MethodGet, fmt.Sprintf(relationURL, subject.UID), cookie, nil, &relation); err != nil {
+		var relation bilibiliDynamic.RelationDocument
+		if err := s.requestSignedJSON(ctx, http.MethodGet, fmt.Sprintf(bilibiliDynamic.RelationURL, subject.UID), cookie, nil, &relation); err != nil {
 			_ = s.handleAccountRequestError(ctx, account, cookie, bilibiliRequestCooldownAutoFollow, err)
 			continue
 		}
@@ -46,7 +47,7 @@ func (s *Source) autoFollow(ctx context.Context, subjects map[string]Subject, ac
 			"re_src": {"11"},
 			"csrf":   {csrf},
 		}
-		if err := s.requestSignedJSON(ctx, http.MethodPost, followURL, cookie, formBody(body), nil); err != nil {
+		if err := s.requestSignedJSON(ctx, http.MethodPost, bilibiliDynamic.FollowURL, cookie, formBody(body), nil); err != nil {
 			_ = s.handleAccountRequestError(ctx, account, cookie, bilibiliRequestCooldownAutoFollow, err)
 			continue
 		}

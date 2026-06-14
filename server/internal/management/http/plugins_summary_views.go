@@ -1,19 +1,20 @@
 package managementhttp
 
 import (
+	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	"strings"
 	"time"
 )
 
-func buildPluginSummary(catalog CatalogView, snapshot Snapshot) pluginSummaryResponse {
+func buildPluginSummary(catalog plugins.CatalogView, snapshot plugins.Snapshot) pluginSummaryResponse {
 	if catalog == nil {
 		return toPluginSummary(snapshot, nil)
 	}
-	conflicts := detectCommandConflicts(catalog.List())
+	conflicts := plugins.DetectCommandConflicts(catalog.List())
 	return toPluginSummary(snapshot, conflicts[snapshot.PluginID])
 }
 
-func toPluginSummary(snapshot Snapshot, conflicts []string) pluginSummaryResponse {
+func toPluginSummary(snapshot plugins.Snapshot, conflicts []string) pluginSummaryResponse {
 	role := effectivePluginRole(snapshot)
 	return pluginSummaryResponse{
 		ID:                snapshot.PluginID,
@@ -35,7 +36,7 @@ func toPluginSummary(snapshot Snapshot, conflicts []string) pluginSummaryRespons
 	}
 }
 
-func buildPluginDeadLetter(snapshot Snapshot) *pluginDeadLetterResponse {
+func buildPluginDeadLetter(snapshot plugins.Snapshot) *pluginDeadLetterResponse {
 	if snapshot.RuntimeState != "dead_letter" || snapshot.DeadLetter == nil {
 		return nil
 	}
@@ -52,8 +53,4 @@ func normalizeConflictList(conflicts []string) []string {
 		return []string{}
 	}
 	return append([]string(nil), conflicts...)
-}
-
-func detectCommandConflicts(snapshots []Snapshot) map[string][]string {
-	return DetectCommandConflicts(snapshots)
 }

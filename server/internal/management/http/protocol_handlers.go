@@ -14,7 +14,7 @@ type protocolAcceptedResponse struct {
 }
 
 type protocolHTTPService interface {
-	currentOneBot11ProtocolSnapshot() oneBot11ProtocolSnapshotResponse
+	currentOneBot11ProtocolSnapshot() oneBot11ProtocolSnapshotView
 	currentOneBot11ProtocolTargets(context.Context) oneBot11ProtocolTargetsResponse
 	resolveOneBot11Identities(context.Context, []oneBot11IdentityResolveItem) oneBot11IdentityResolveResponse
 	currentOneBot11ProtocolCompatibility() (oneBot11ProtocolCompatibilityResponse, error)

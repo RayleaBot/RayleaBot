@@ -21,7 +21,7 @@ import (
 	managementhttp "github.com/RayleaBot/RayleaBot/server/internal/management/http"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	"github.com/RayleaBot/RayleaBot/server/internal/recovery"
-	"github.com/RayleaBot/RayleaBot/server/internal/render"
+	renderservice "github.com/RayleaBot/RayleaBot/server/internal/render/service"
 	"github.com/RayleaBot/RayleaBot/server/internal/storage"
 	"github.com/RayleaBot/RayleaBot/server/internal/tasks"
 )
@@ -284,7 +284,7 @@ func TestHandleSystemRuntimeBootstrapRefreshesChromiumDiagnostics(t *testing.T) 
 	t.Cleanup(func() {
 		_ = store.Close()
 	})
-	renderer, err := render.NewService(render.Options{
+	renderer, err := renderservice.NewService(renderservice.Options{
 		RepoRoot:   repoRoot,
 		OutputRoot: filepath.Join(repoRoot, "render-out"),
 		Store:      store,

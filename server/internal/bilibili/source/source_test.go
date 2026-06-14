@@ -11,8 +11,10 @@ import (
 	"testing"
 	"time"
 
+	bilibiliDynamic "github.com/RayleaBot/RayleaBot/server/internal/bilibili/dynamic"
+	bilibiliLive "github.com/RayleaBot/RayleaBot/server/internal/bilibili/live"
 	"github.com/RayleaBot/RayleaBot/server/internal/dispatch"
-	"github.com/RayleaBot/RayleaBot/server/internal/runtime"
+	runtimeprotocol "github.com/RayleaBot/RayleaBot/server/internal/runtime/protocol"
 	"github.com/RayleaBot/RayleaBot/server/internal/secrets"
 	"github.com/RayleaBot/RayleaBot/server/internal/storage"
 	"github.com/RayleaBot/RayleaBot/server/internal/thirdparty"
@@ -31,7 +33,7 @@ func TestLiveTransitionDispatchesStartedEndedAndDeduplicates(t *testing.T) {
 		AvatarURL: "https://i0.hdslb.com/bfs/face/default.jpg",
 		Services:  map[string]bool{"live": true},
 	}
-	item := liveStatusItem{
+	item := bilibiliLive.StatusItem{
 		UID:           "123456",
 		UName:         "测试主播",
 		Face:          "//i0.hdslb.com/bfs/face/live.jpg",
@@ -1540,7 +1542,7 @@ func TestRequestJSONIncludesHTTPStatusAndResponseBodyInErrors(t *testing.T) {
 	})
 
 	var document map[string]any
-	err := source.requestJSON(context.Background(), http.MethodGet, dynamicFeedURL, "SESSDATA=fixture;", nil, &document)
+	err := source.requestJSON(context.Background(), http.MethodGet, bilibiliDynamic.FeedURL, "SESSDATA=fixture;", nil, &document)
 
 	if err == nil {
 		t.Fatalf("expected requestJSON error")
@@ -1566,7 +1568,7 @@ func TestRequestJSONIncludesHTTPFailureBody(t *testing.T) {
 	})
 
 	var document map[string]any
-	err := source.requestJSON(context.Background(), http.MethodGet, dynamicFeedURL, "SESSDATA=fixture;", nil, &document)
+	err := source.requestJSON(context.Background(), http.MethodGet, bilibiliDynamic.FeedURL, "SESSDATA=fixture;", nil, &document)
 
 	if err == nil {
 		t.Fatalf("expected requestJSON error")
@@ -1586,7 +1588,7 @@ func TestRequestJSONWithoutTargetStillChecksBilibiliCode(t *testing.T) {
 		return jsonResponse(`{"code":-111,"message":"csrf 校验失败"}`), nil
 	})
 
-	err := source.requestJSON(context.Background(), http.MethodPost, followURL, "SESSDATA=fixture; bili_jct=csrf;", strings.NewReader("csrf=csrf"), nil)
+	err := source.requestJSON(context.Background(), http.MethodPost, bilibiliDynamic.FollowURL, "SESSDATA=fixture; bili_jct=csrf;", strings.NewReader("csrf=csrf"), nil)
 
 	if err == nil {
 		t.Fatalf("expected requestJSON error")
@@ -1696,10 +1698,10 @@ func seedBilibiliAccount(t *testing.T, source *Source, ctx context.Context) {
 }
 
 type dispatchRecorder struct {
-	events []runtime.Event
+	events []runtimeprotocol.Event
 }
 
-func (r *dispatchRecorder) Dispatch(_ context.Context, event runtime.Event, _ string) []dispatch.DeliveryResult {
+func (r *dispatchRecorder) Dispatch(_ context.Context, event runtimeprotocol.Event, _ string) []dispatch.DeliveryResult {
 	r.events = append(r.events, event)
 	return []dispatch.DeliveryResult{{PluginID: subscriptionHubPluginID, Outcome: dispatch.OutcomeDelivered}}
 }
@@ -1749,7 +1751,7 @@ func jsonResponse(body string) *http.Response {
 	}
 }
 
-func bilibiliPayload(t *testing.T, event runtime.Event) map[string]any {
+func bilibiliPayload(t *testing.T, event runtimeprotocol.Event) map[string]any {
 	t.Helper()
 	payload, ok := event.PayloadFields["bilibili"].(map[string]any)
 	if !ok {

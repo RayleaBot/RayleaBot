@@ -5,6 +5,8 @@ import (
 	"time"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/console"
+	runtimeaction "github.com/RayleaBot/RayleaBot/server/internal/runtime/action"
+	runtimeprotocol "github.com/RayleaBot/RayleaBot/server/internal/runtime/protocol"
 )
 
 type State string
@@ -44,7 +46,7 @@ type managerDeps struct {
 	requestID func() string
 }
 
-type LocalActionExecutor func(context.Context, string, string, Action, Event) (map[string]any, error)
+type LocalActionExecutor func(context.Context, string, string, runtimeaction.Action, runtimeprotocol.Event) (map[string]any, error)
 
 type Options struct {
 	Console                    *console.Stream

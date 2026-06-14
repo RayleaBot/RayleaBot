@@ -3,6 +3,8 @@ package action
 import (
 	"encoding/json"
 	"strings"
+
+	runtimeprotocol "github.com/RayleaBot/RayleaBot/server/internal/runtime/protocol"
 )
 
 func parseGovernanceBlacklistReadAction(raw json.RawMessage) (*Action, error) {
@@ -13,7 +15,7 @@ func parseGovernanceBlacklistReadAction(raw json.RawMessage) (*Action, error) {
 }
 
 func parseGovernanceBlacklistWriteAction(raw json.RawMessage) (*Action, error) {
-	var frame protocolActionGovernanceBlacklistWriteFrame
+	var frame runtimeprotocol.ProtocolActionGovernanceBlacklistWriteFrame
 	if err := json.Unmarshal(raw, &frame); err != nil {
 		return nil, errorf(codePluginProtocolViolation, "plugin returned malformed governance.blacklist.write data", err)
 	}
@@ -65,7 +67,7 @@ func parseGovernanceWhitelistReadAction(raw json.RawMessage) (*Action, error) {
 }
 
 func parseGovernanceWhitelistWriteAction(raw json.RawMessage) (*Action, error) {
-	var frame protocolActionGovernanceWhitelistWriteFrame
+	var frame runtimeprotocol.ProtocolActionGovernanceWhitelistWriteFrame
 	if err := json.Unmarshal(raw, &frame); err != nil {
 		return nil, errorf(codePluginProtocolViolation, "plugin returned malformed governance.whitelist.write data", err)
 	}

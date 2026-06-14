@@ -9,6 +9,7 @@ import (
 	"time"
 
 	renderplugins "github.com/RayleaBot/RayleaBot/server/internal/render/plugins"
+	rendertemplates "github.com/RayleaBot/RayleaBot/server/internal/render/templates"
 )
 
 func TestServiceSyncsPluginTemplatesAndUsesPluginAssetDigest(t *testing.T) {
@@ -46,7 +47,7 @@ func TestServiceSyncsPluginTemplatesAndUsesPluginAssetDigest(t *testing.T) {
 			t.Fatalf("Close: %v", err)
 		}
 	})
-	if err := service.SyncPluginTemplates(context.Background(), []PluginTemplateSource{{
+	if err := service.SyncPluginTemplates(context.Background(), []renderplugins.Source{{
 		PluginID: "weather-card",
 		Dir:      pluginTemplateDir,
 	}}); err != nil {
@@ -123,7 +124,7 @@ func TestValidatePluginTemplateSourcesRejectsEscapedTemplateFiles(t *testing.T) 
 		}
 	}
 
-	err := renderplugins.ValidateSources([]PluginTemplateSource{{
+	err := renderplugins.ValidateSources([]renderplugins.Source{{
 		PluginID: "weather-card",
 		Dir:      templateDir,
 	}})
@@ -160,7 +161,7 @@ func TestValidatePluginTemplateSourcesRejectsUnsafeLocalID(t *testing.T) {
 		}
 	}
 
-	err := renderplugins.ValidateSources([]PluginTemplateSource{{
+	err := renderplugins.ValidateSources([]renderplugins.Source{{
 		PluginID: "weather-card",
 		Dir:      templateDir,
 	}})
@@ -198,7 +199,7 @@ func TestServiceRejectsTemplateSourceConflicts(t *testing.T) {
 		}
 	})
 
-	err = service.SyncPluginTemplates(context.Background(), []PluginTemplateSource{{
+	err = service.SyncPluginTemplates(context.Background(), []renderplugins.Source{{
 		PluginID: "weather-card",
 		Dir:      pluginTemplateDir,
 	}})
@@ -233,7 +234,7 @@ func TestServiceRemovePluginTemplatesKeepsArtifacts(t *testing.T) {
 			t.Fatalf("Close: %v", err)
 		}
 	})
-	if err := service.SyncPluginTemplates(context.Background(), []PluginTemplateSource{{
+	if err := service.SyncPluginTemplates(context.Background(), []renderplugins.Source{{
 		PluginID: "weather-card",
 		Dir:      pluginTemplateDir,
 	}}); err != nil {
@@ -294,7 +295,7 @@ func TestServiceResolvePluginTemplateChecksDottedPluginIDOwner(t *testing.T) {
 			t.Fatalf("Close: %v", err)
 		}
 	})
-	if err := service.SyncPluginTemplates(context.Background(), []PluginTemplateSource{{
+	if err := service.SyncPluginTemplates(context.Background(), []renderplugins.Source{{
 		PluginID: "com.weather",
 		Dir:      pluginTemplateDir,
 	}}); err != nil {
@@ -310,7 +311,7 @@ func TestServiceResolvePluginTemplateChecksDottedPluginIDOwner(t *testing.T) {
 	}
 
 	_, err = service.ResolvePluginTemplate(context.Background(), "com", "plugin.com.weather.card")
-	var renderErr *Error
+	var renderErr *rendertemplates.Error
 	if !errors.As(err, &renderErr) || renderErr.Code != "permission.scope_violation" {
 		t.Fatalf("expected permission.scope_violation, got %v", err)
 	}

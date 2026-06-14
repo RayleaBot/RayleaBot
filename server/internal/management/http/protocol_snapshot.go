@@ -1,21 +1,23 @@
 package managementhttp
 
-import "github.com/RayleaBot/RayleaBot/server/internal/adapter"
+import (
+	adaptershell "github.com/RayleaBot/RayleaBot/server/internal/adapter/shell"
+)
 
-func (s *ProtocolService) currentOneBot11ProtocolSnapshot() oneBot11ProtocolSnapshotResponse {
-	adapterSnapshot := adapter.Snapshot{}
+func (s *ProtocolService) currentOneBot11ProtocolSnapshot() oneBot11ProtocolSnapshotView {
+	adapterSnapshot := adaptershell.Snapshot{}
 	if s.adapter != nil {
 		adapterSnapshot = s.adapter.Snapshot()
 	}
 
 	transports := []struct {
-		key      adapter.TransportKey
-		snapshot adapter.TransportSnapshot
+		key      adaptershell.TransportKey
+		snapshot adaptershell.TransportSnapshot
 	}{
-		{key: adapter.TransportReverseWS, snapshot: adapterSnapshot.ReverseWS},
-		{key: adapter.TransportForwardWS, snapshot: adapterSnapshot.ForwardWS},
-		{key: adapter.TransportHTTPAPI, snapshot: adapterSnapshot.HTTPAPI},
-		{key: adapter.TransportWebhook, snapshot: adapterSnapshot.Webhook},
+		{key: adaptershell.TransportReverseWS, snapshot: adapterSnapshot.ReverseWS},
+		{key: adaptershell.TransportForwardWS, snapshot: adapterSnapshot.ForwardWS},
+		{key: adaptershell.TransportHTTPAPI, snapshot: adapterSnapshot.HTTPAPI},
+		{key: adaptershell.TransportWebhook, snapshot: adapterSnapshot.Webhook},
 	}
 
 	configured := make([]string, 0, len(transports))
@@ -47,7 +49,7 @@ func (s *ProtocolService) currentOneBot11ProtocolSnapshot() oneBot11ProtocolSnap
 	}
 
 	readiness := protocolReadinessStatus(adapterSnapshot)
-	return oneBot11ProtocolSnapshotResponse{
+	return oneBot11ProtocolSnapshotView{
 		Protocol:              "onebot11",
 		Provider:              adapterSnapshot.DetectedProvider(),
 		ConfiguredTransports:  configured,
@@ -59,16 +61,16 @@ func (s *ProtocolService) currentOneBot11ProtocolSnapshot() oneBot11ProtocolSnap
 	}
 }
 
-func (s *ProtocolService) transportIngressEnabled(transport adapter.TransportKey) bool {
+func (s *ProtocolService) transportIngressEnabled(transport adaptershell.TransportKey) bool {
 	if s == nil || s.adapter == nil {
 		return false
 	}
 
 	snapshot := s.adapter.Snapshot()
 	switch transport {
-	case adapter.TransportReverseWS:
+	case adaptershell.TransportReverseWS:
 		return snapshot.ReverseWS.Enabled && snapshot.ReverseWS.Configured
-	case adapter.TransportWebhook:
+	case adaptershell.TransportWebhook:
 		return snapshot.Webhook.Enabled && snapshot.Webhook.Configured
 	default:
 		return false

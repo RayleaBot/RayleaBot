@@ -7,12 +7,13 @@ import (
 	"time"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/httpapi"
-	"github.com/RayleaBot/RayleaBot/server/internal/render"
+	renderbrowser "github.com/RayleaBot/RayleaBot/server/internal/render/browser"
+	renderservice "github.com/RayleaBot/RayleaBot/server/internal/render/service"
 )
 
-func buildRenderService(state appBuildState, platform appPlatform, renderRunner render.Runner) (*render.Service, error) {
+func buildRenderService(state appBuildState, platform appPlatform, renderRunner renderbrowser.Runner) (*renderservice.Service, error) {
 	renderBrowserPath := prepareRenderBrowserPath(context.Background(), state.core.Logger, state.discoverySpec.repoRoot, state.core.Config.Render.BrowserPath)
-	renderService, err := render.NewService(render.Options{
+	renderService, err := renderservice.NewService(renderservice.Options{
 		RepoRoot:           state.discoverySpec.repoRoot,
 		OutputRoot:         filepath.Join(filepath.Dir(platform.Storage.Path), "render"),
 		Store:              platform.Storage,

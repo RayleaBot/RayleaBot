@@ -5,27 +5,28 @@ import (
 	"strings"
 	"time"
 
-	"github.com/RayleaBot/RayleaBot/server/internal/adapter"
+	adapterintake "github.com/RayleaBot/RayleaBot/server/internal/adapter/intake"
+	adapteroutbound "github.com/RayleaBot/RayleaBot/server/internal/adapter/outbound"
 	"github.com/RayleaBot/RayleaBot/server/internal/outbound"
 )
 
-func (s *Service) sendBuiltinMenuImage(ctx context.Context, event adapter.NormalizedEvent, commandName string, imagePath string) {
-	segments := []adapter.OutboundMessageSegment{{
+func (s *Service) sendBuiltinMenuImage(ctx context.Context, event adapterintake.NormalizedEvent, commandName string, imagePath string) {
+	segments := []adapteroutbound.OutboundMessageSegment{{
 		Type: "image",
 		Data: map[string]any{"file": imagePath},
 	}}
 	s.sendBuiltinMenuSegments(ctx, event, commandName, segments)
 }
 
-func (s *Service) sendBuiltinMenuText(ctx context.Context, event adapter.NormalizedEvent, commandName string, text string) {
-	segments := []adapter.OutboundMessageSegment{{
+func (s *Service) sendBuiltinMenuText(ctx context.Context, event adapterintake.NormalizedEvent, commandName string, text string) {
+	segments := []adapteroutbound.OutboundMessageSegment{{
 		Type: "text",
 		Data: map[string]any{"text": text},
 	}}
 	s.sendBuiltinMenuSegments(ctx, event, commandName, segments)
 }
 
-func (s *Service) sendBuiltinMenuSegments(ctx context.Context, event adapter.NormalizedEvent, commandName string, segments []adapter.OutboundMessageSegment) {
+func (s *Service) sendBuiltinMenuSegments(ctx context.Context, event adapterintake.NormalizedEvent, commandName string, segments []adapteroutbound.OutboundMessageSegment) {
 	if s == nil || s.sender == nil {
 		return
 	}
@@ -75,7 +76,7 @@ func (s *Service) sendBuiltinMenuSegments(ctx context.Context, event adapter.Nor
 	sendCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 	if targetType == "group" && strings.TrimSpace(event.MessageID) != "" {
-		result, err := s.sender.SendReply(sendCtx, adapter.OutboundMessageReply{
+		result, err := s.sender.SendReply(sendCtx, adapteroutbound.OutboundMessageReply{
 			TargetType:       targetType,
 			TargetID:         targetID,
 			ReplyToMessageID: strings.TrimSpace(event.MessageID),
@@ -90,7 +91,7 @@ func (s *Service) sendBuiltinMenuSegments(ctx context.Context, event adapter.Nor
 		}, err)
 		return
 	}
-	result, err := s.sender.SendMessage(sendCtx, adapter.OutboundMessageSend{
+	result, err := s.sender.SendMessage(sendCtx, adapteroutbound.OutboundMessageSend{
 		TargetType: targetType,
 		TargetID:   targetID,
 		Segments:   segments,

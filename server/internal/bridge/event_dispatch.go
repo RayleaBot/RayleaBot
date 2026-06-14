@@ -4,10 +4,10 @@ import (
 	"strings"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/dispatch"
-	"github.com/RayleaBot/RayleaBot/server/internal/runtime"
+	runtimeprotocol "github.com/RayleaBot/RayleaBot/server/internal/runtime/protocol"
 )
 
-func bridgeCommandName(event runtime.Event) string {
+func bridgeCommandName(event runtimeprotocol.Event) string {
 	if event.PayloadFields == nil {
 		return ""
 	}

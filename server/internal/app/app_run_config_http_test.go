@@ -15,11 +15,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/RayleaBot/RayleaBot/server/internal/adapter"
+	adaptershell "github.com/RayleaBot/RayleaBot/server/internal/adapter/shell"
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	managementhttp "github.com/RayleaBot/RayleaBot/server/internal/management/http"
 	"github.com/RayleaBot/RayleaBot/server/internal/outbound"
-	"github.com/RayleaBot/RayleaBot/server/internal/render"
+	renderbrowser "github.com/RayleaBot/RayleaBot/server/internal/render/browser"
+	renderservice "github.com/RayleaBot/RayleaBot/server/internal/render/service"
 	"github.com/RayleaBot/RayleaBot/server/internal/storage"
 )
 
@@ -195,7 +196,7 @@ func TestApplyHotReloadableFieldsFallsBackToRestartRequiredWhenAdapterReloadFail
 	}
 	app := newTestAppState(baseConfig, logger)
 
-	adapterShell := adapter.New(baseConfig.OneBot, baseConfig.Adapter, logger)
+	adapterShell := adaptershell.New(baseConfig.OneBot, baseConfig.Adapter, logger)
 	startCtx, cancelStart := context.WithCancel(context.Background())
 	adapterShell.Start(startCtx)
 	cancelStart()
@@ -286,7 +287,7 @@ func TestHandleConfigPutHotReloadsRenderDefaults(t *testing.T) {
 	repoRoot := t.TempDir()
 	writeConfigHTTPRenderTemplateSeed(t, filepath.Join(repoRoot, "templates"), "help.menu")
 	runner := &recordingConfigRenderRunner{}
-	renderer, err := render.NewService(render.Options{
+	renderer, err := renderservice.NewService(renderservice.Options{
 		RepoRoot:           repoRoot,
 		OutputRoot:         filepath.Join(t.TempDir(), "render-output"),
 		Store:              openAppTestStorage(t),
@@ -344,7 +345,7 @@ func TestHandleConfigPutHotReloadsRenderDefaults(t *testing.T) {
 		t.Fatalf("applied_now = %#v", response.ApplyEffects.AppliedNow)
 	}
 
-	result, err := renderer.Render(context.Background(), render.Request{
+	result, err := renderer.Render(context.Background(), renderservice.Request{
 		Template: "help.menu",
 		Data: map[string]any{
 			"title": "帮助菜单",
@@ -500,10 +501,10 @@ type recordingConfigOutboundLimiter struct {
 
 type recordingConfigRenderRunner struct {
 	mu   sync.Mutex
-	docs []render.Document
+	docs []renderbrowser.Document
 }
 
-func (r *recordingConfigRenderRunner) Render(_ context.Context, doc render.Document) ([]byte, error) {
+func (r *recordingConfigRenderRunner) Render(_ context.Context, doc renderbrowser.Document) ([]byte, error) {
 	r.mu.Lock()
 	r.docs = append(r.docs, doc)
 	r.mu.Unlock()
@@ -513,11 +514,11 @@ func (r *recordingConfigRenderRunner) Render(_ context.Context, doc render.Docum
 	return []byte{137, 80, 78, 71}, nil
 }
 
-func (r *recordingConfigRenderRunner) lastDocument() (render.Document, bool) {
+func (r *recordingConfigRenderRunner) lastDocument() (renderbrowser.Document, bool) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	if len(r.docs) == 0 {
-		return render.Document{}, false
+		return renderbrowser.Document{}, false
 	}
 	return r.docs[len(r.docs)-1], true
 }

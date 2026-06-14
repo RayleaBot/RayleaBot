@@ -5,7 +5,7 @@ import (
 	"errors"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
-	"github.com/RayleaBot/RayleaBot/server/internal/runtime"
+	runtimemanager "github.com/RayleaBot/RayleaBot/server/internal/runtime/manager"
 )
 
 func (c *Controller) Enable(ctx context.Context, pluginID string) (plugins.Snapshot, error) {
@@ -34,7 +34,7 @@ func (c *Controller) Enable(ctx context.Context, pluginID string) (plugins.Snaps
 		return plugins.Snapshot{}, err
 	}
 
-	if runtimeSnapshot, runtimeErr := c.plugins.SetRuntimeState(updated.PluginID, string(runtime.StateStarting)); runtimeErr == nil {
+	if runtimeSnapshot, runtimeErr := c.plugins.SetRuntimeState(updated.PluginID, string(runtimemanager.StateStarting)); runtimeErr == nil {
 		updated = runtimeSnapshot
 	}
 	go c.startPluginAsync(updated.PluginID, c.currentBotID())

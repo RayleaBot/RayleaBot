@@ -5,7 +5,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/RayleaBot/RayleaBot/server/internal/adapter"
+	adapterintake "github.com/RayleaBot/RayleaBot/server/internal/adapter/intake"
 	"github.com/RayleaBot/RayleaBot/server/internal/outbound"
 )
 
@@ -34,7 +34,7 @@ func newReplyTargetCache(limit int) *replyTargetCache {
 	}
 }
 
-func (c *replyTargetCache) Record(event adapter.NormalizedEvent) {
+func (c *replyTargetCache) Record(event adapterintake.NormalizedEvent) {
 	if c == nil {
 		return
 	}

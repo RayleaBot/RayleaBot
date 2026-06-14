@@ -4,10 +4,12 @@ import (
 	"context"
 	"errors"
 
+	runtimeaction "github.com/RayleaBot/RayleaBot/server/internal/runtime/action"
 	runtimeprocess "github.com/RayleaBot/RayleaBot/server/internal/runtime/process"
+	runtimeprotocol "github.com/RayleaBot/RayleaBot/server/internal/runtime/protocol"
 )
 
-func (m *Manager) executeLocalAction(ctx context.Context, handle *runtimeprocess.Handle, parentRequestID string, requestID string, action Action, parentEvent Event) {
+func (m *Manager) executeLocalAction(ctx context.Context, handle *runtimeprocess.Handle, parentRequestID string, requestID string, action runtimeaction.Action, parentEvent runtimeprotocol.Event) {
 	if m.opts.ExecuteLocalAction == nil {
 		if err := m.writeLocalError(handle, parentRequestID, requestID, codePluginInternalError, "plugin local action executor is not available", nil); err != nil {
 			m.failRuntime(handle, err.Code, err.Message, err.Err)

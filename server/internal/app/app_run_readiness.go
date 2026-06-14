@@ -3,7 +3,7 @@ package app
 import (
 	"strings"
 
-	"github.com/RayleaBot/RayleaBot/server/internal/adapter"
+	adaptershell "github.com/RayleaBot/RayleaBot/server/internal/adapter/shell"
 	"github.com/RayleaBot/RayleaBot/server/internal/health"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 )
@@ -137,9 +137,9 @@ func normalizeReadinessReport(report health.ReadinessReport) health.ReadinessRep
 	return report
 }
 
-func stateOrIdle(state adapter.State) adapter.State {
+func stateOrIdle(state adaptershell.State) adaptershell.State {
 	if state == "" {
-		return adapter.StateIdle
+		return adaptershell.StateIdle
 	}
 	return state
 }

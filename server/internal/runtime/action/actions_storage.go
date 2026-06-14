@@ -3,10 +3,12 @@ package action
 import (
 	"encoding/json"
 	"strings"
+
+	runtimeprotocol "github.com/RayleaBot/RayleaBot/server/internal/runtime/protocol"
 )
 
 func parseStorageKVAction(raw json.RawMessage) (*Action, error) {
-	var frame protocolActionStorageKVFrame
+	var frame runtimeprotocol.ProtocolActionStorageKVFrame
 	if err := json.Unmarshal(raw, &frame); err != nil {
 		return nil, errorf(codePluginProtocolViolation, "plugin returned malformed storage.kv data", err)
 	}
@@ -55,7 +57,7 @@ func parseStorageKVAction(raw json.RawMessage) (*Action, error) {
 }
 
 func parseStorageFileAction(raw json.RawMessage) (*Action, error) {
-	var frame protocolActionStorageFileFrame
+	var frame runtimeprotocol.ProtocolActionStorageFileFrame
 	if err := json.Unmarshal(raw, &frame); err != nil {
 		return nil, errorf(codePluginProtocolViolation, "plugin returned malformed storage.file data", err)
 	}

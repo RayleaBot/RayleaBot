@@ -3,7 +3,7 @@ package app
 import (
 	"context"
 
-	source "github.com/RayleaBot/RayleaBot/server/internal/bilibili"
+	bilibilisession "github.com/RayleaBot/RayleaBot/server/internal/bilibili/session"
 	managementevents "github.com/RayleaBot/RayleaBot/server/internal/management/events"
 	managementhttp "github.com/RayleaBot/RayleaBot/server/internal/management/http"
 	"github.com/RayleaBot/RayleaBot/server/internal/metrics"
@@ -15,8 +15,8 @@ type appServiceBuildResult struct {
 	services              appServices
 	runtimes              *runtimeRegistry
 	status                *managementevents.ServiceStatusService
-	bilibiliAccountClient *source.AccountClient
-	bilibiliQRLogin       *source.QRLoginService
+	bilibiliAccountClient *bilibilisession.AccountClient
+	bilibiliQRLogin       *bilibilisession.QRLoginService
 }
 
 func buildAppServices(
@@ -36,7 +36,7 @@ func buildAppServices(
 	if err != nil {
 		return appServiceBuildResult{}, err
 	}
-	bilibiliSession := source.NewSessionClient(options.BilibiliHTTPTransport, options.BilibiliClock, nil)
+	bilibiliSession := bilibilisession.NewSessionClient(options.BilibiliHTTPTransport, options.BilibiliClock, nil)
 	localActions := buildLocalActionService(runtimeState, platform, pluginStack, grantView, governanceService, thirdPartyService, bilibiliSession)
 	configureLocalActionService(localActions, pluginStack)
 	runtimeRegistry := buildRuntimeRegistryForApp(buildState, runtimeState, platform, localActions)
@@ -116,7 +116,7 @@ func buildAppServices(
 		},
 		runtimes:              runtimeRegistry,
 		status:                serviceStatusService,
-		bilibiliAccountClient: source.NewAccountClient(options.BilibiliHTTPTransport, options.BilibiliClock, nil),
-		bilibiliQRLogin:       source.NewQRLoginService(options.BilibiliHTTPTransport, options.BilibiliClock),
+		bilibiliAccountClient: bilibilisession.NewAccountClient(options.BilibiliHTTPTransport, options.BilibiliClock, nil),
+		bilibiliQRLogin:       bilibilisession.NewQRLoginService(options.BilibiliHTTPTransport, options.BilibiliClock),
 	}, nil
 }

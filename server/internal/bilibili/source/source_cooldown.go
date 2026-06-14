@@ -4,15 +4,16 @@ import (
 	"strings"
 	"time"
 
+	bilibiliSession "github.com/RayleaBot/RayleaBot/server/internal/bilibili/session"
 	"github.com/RayleaBot/RayleaBot/server/internal/thirdparty"
 )
 
 func isBilibiliRequestCooldownError(err error) bool {
-	biliErr := asBilibiliError(err)
+	biliErr := bilibiliSession.AsError(err)
 	if biliErr == nil {
 		return false
 	}
-	return biliErr.Kind == ErrorRiskControl || biliErr.Kind == ErrorRateLimit
+	return biliErr.Kind == bilibiliSession.ErrorRiskControl || biliErr.Kind == bilibiliSession.ErrorRateLimit
 }
 
 func (s *Source) requestCooldownDelay(scope string, account thirdparty.Account, cookie string) time.Duration {

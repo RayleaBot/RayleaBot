@@ -8,24 +8,25 @@ import (
 	"strings"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
-	"github.com/RayleaBot/RayleaBot/server/internal/runtime"
+	runtimeaction "github.com/RayleaBot/RayleaBot/server/internal/runtime/action"
+	runtimemanager "github.com/RayleaBot/RayleaBot/server/internal/runtime/manager"
 )
 
-func (s *Service) Expose(ctx context.Context, pluginID string, action runtime.Action) (map[string]any, error) {
+func (s *Service) Expose(ctx context.Context, pluginID string, action runtimeaction.Action) (map[string]any, error) {
 	if s == nil || s.grants == nil || !s.grants.CapabilityGranted(ctx, pluginID, "event.expose_webhook") {
-		return nil, &runtime.Error{
+		return nil, &runtimemanager.Error{
 			Code:    "permission.scope_violation",
 			Message: "event.expose_webhook capability is not granted",
 		}
 	}
 	if s.registry == nil {
-		return nil, &runtime.Error{
+		return nil, &runtimemanager.Error{
 			Code:    "plugin.internal_error",
 			Message: "webhook gateway is not available",
 		}
 	}
 	if action.WebhookReplayProtection == nil {
-		return nil, &runtime.Error{
+		return nil, &runtimemanager.Error{
 			Code:    "plugin.protocol_violation",
 			Message: "event.expose_webhook requires replay_protection",
 		}
@@ -33,7 +34,7 @@ func (s *Service) Expose(ctx context.Context, pluginID string, action runtime.Ac
 
 	scope, ok := s.grants.GrantedWebhookScope(ctx, pluginID, action.WebhookRoute)
 	if !ok {
-		return nil, &runtime.Error{
+		return nil, &runtimemanager.Error{
 			Code:    "permission.scope_violation",
 			Message: "event.expose_webhook route is outside the granted scope",
 		}
@@ -41,7 +42,7 @@ func (s *Service) Expose(ctx context.Context, pluginID string, action runtime.Ac
 	if strings.TrimSpace(scope.AuthStrategy) != strings.TrimSpace(action.WebhookAuthStrategy) ||
 		strings.TrimSpace(scope.Header) != strings.TrimSpace(action.WebhookHeader) ||
 		strings.TrimSpace(scope.SecretRef) != strings.TrimSpace(action.WebhookSecretRef) {
-		return nil, &runtime.Error{
+		return nil, &runtimemanager.Error{
 			Code:    "permission.scope_violation",
 			Message: "event.expose_webhook settings exceed the granted scope",
 		}
@@ -49,7 +50,7 @@ func (s *Service) Expose(ctx context.Context, pluginID string, action runtime.Ac
 
 	sourceIPs := selectWebhookSourceIPs(scope.SourceIPs, action.WebhookSourceIPs)
 	if !webhookSourceIPsWithinScope(scope.SourceIPs, sourceIPs) {
-		return nil, &runtime.Error{
+		return nil, &runtimemanager.Error{
 			Code:    "permission.scope_violation",
 			Message: "event.expose_webhook source_ips exceed the granted scope",
 		}

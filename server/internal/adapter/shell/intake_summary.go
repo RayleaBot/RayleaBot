@@ -1,8 +1,12 @@
 package shell
 
-import "fmt"
+import (
+	"fmt"
 
-func applyFrameSummary(snapshot *Snapshot, frame classifiedFrame) {
+	adapterintake "github.com/RayleaBot/RayleaBot/server/internal/adapter/intake"
+)
+
+func applyFrameSummary(snapshot *Snapshot, frame adapterintake.ClassifiedFrame) {
 	if snapshot == nil {
 		return
 	}
@@ -15,13 +19,13 @@ func applyFrameSummary(snapshot *Snapshot, frame classifiedFrame) {
 		snapshot.BotID = fmt.Sprintf("%d", frame.Frame.SelfID)
 	}
 
-	if summary.Category == FrameCategoryInvalid {
+	if summary.Category == adapterintake.FrameCategoryInvalid {
 		snapshot.InvalidReceivedFrames++
 	} else {
 		snapshot.LastFrameAt = cloneTime(&summary.ObservedAt)
 	}
 
-	if summary.Category == FrameCategoryHeartbeat {
+	if summary.Category == adapterintake.FrameCategoryHeartbeat {
 		snapshot.HeartbeatSeen = true
 		snapshot.LastHeartbeatAt = cloneTime(&summary.ObservedAt)
 		if summary.HeartbeatInterval > 0 {
@@ -30,10 +34,10 @@ func applyFrameSummary(snapshot *Snapshot, frame classifiedFrame) {
 	}
 }
 
-func isReadySummary(summary FrameSummary) bool {
-	return summary.Category == FrameCategoryLifecycleReady || summary.Category == FrameCategoryHeartbeat
+func isReadySummary(summary adapterintake.FrameSummary) bool {
+	return summary.Category == adapterintake.FrameCategoryLifecycleReady || summary.Category == adapterintake.FrameCategoryHeartbeat
 }
 
-func isLifecycleDisable(frame oneBotFrame) bool {
+func isLifecycleDisable(frame adapterintake.OneBotFrame) bool {
 	return frame.PostType == "meta_event" && frame.MetaEventType == "lifecycle" && frame.SubType == "disable"
 }

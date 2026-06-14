@@ -3,10 +3,12 @@ package action
 import (
 	"encoding/json"
 	"strings"
+
+	runtimeprotocol "github.com/RayleaBot/RayleaBot/server/internal/runtime/protocol"
 )
 
 func parseLoggerWriteAction(raw json.RawMessage) (*Action, error) {
-	var frame protocolActionLoggerWriteFrame
+	var frame runtimeprotocol.ProtocolActionLoggerWriteFrame
 	if err := json.Unmarshal(raw, &frame); err != nil {
 		return nil, errorf(codePluginProtocolViolation, "plugin returned malformed logger.write data", err)
 	}
@@ -32,7 +34,7 @@ func parseLoggerWriteAction(raw json.RawMessage) (*Action, error) {
 }
 
 func parseConfigReadAction(raw json.RawMessage) (*Action, error) {
-	var frame protocolActionConfigReadFrame
+	var frame runtimeprotocol.ProtocolActionConfigReadFrame
 	if err := json.Unmarshal(raw, &frame); err != nil {
 		return nil, errorf(codePluginProtocolViolation, "plugin returned malformed config.read data", err)
 	}
@@ -60,7 +62,7 @@ func parseConfigReadAction(raw json.RawMessage) (*Action, error) {
 }
 
 func parsePluginListAction(raw json.RawMessage) (*Action, error) {
-	var frame protocolActionPluginListFrame
+	var frame runtimeprotocol.ProtocolActionPluginListFrame
 	payload := map[string]json.RawMessage{}
 	if len(raw) > 0 && string(raw) != "null" {
 		if err := json.Unmarshal(raw, &frame); err != nil {
@@ -88,7 +90,7 @@ func parsePluginListAction(raw json.RawMessage) (*Action, error) {
 }
 
 func parseSecretReadAction(raw json.RawMessage) (*Action, error) {
-	var frame protocolActionSecretReadFrame
+	var frame runtimeprotocol.ProtocolActionSecretReadFrame
 	if err := json.Unmarshal(raw, &frame); err != nil {
 		return nil, errorf(codePluginProtocolViolation, "plugin returned malformed secret.read data", err)
 	}
@@ -101,7 +103,7 @@ func parseSecretReadAction(raw json.RawMessage) (*Action, error) {
 }
 
 func parseConfigWriteAction(raw json.RawMessage) (*Action, error) {
-	var frame protocolActionConfigWriteFrame
+	var frame runtimeprotocol.ProtocolActionConfigWriteFrame
 	if err := json.Unmarshal(raw, &frame); err != nil {
 		return nil, errorf(codePluginProtocolViolation, "plugin returned malformed config.write data", err)
 	}

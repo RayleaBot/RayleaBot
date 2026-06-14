@@ -21,8 +21,6 @@ type protocolTransportStatusResponse struct {
 	Nickname        string `json:"nickname,omitempty"`
 }
 
-type oneBot11ProtocolSnapshotResponse = oneBot11ProtocolSnapshotView
-
 type oneBot11ProtocolSnapshotView struct {
 	Protocol              string                            `json:"protocol"`
 	Provider              string                            `json:"provider"`

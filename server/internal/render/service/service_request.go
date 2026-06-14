@@ -3,6 +3,8 @@ package service
 import (
 	"encoding/json"
 	"strings"
+
+	rendertemplates "github.com/RayleaBot/RayleaBot/server/internal/render/templates"
 )
 
 func (s *Service) normalizeRequest(request Request) (Request, []byte, error) {
@@ -11,7 +13,7 @@ func (s *Service) normalizeRequest(request Request) (Request, []byte, error) {
 	request.Output = strings.ToLower(strings.TrimSpace(request.Output))
 
 	if request.Template == "" {
-		return Request{}, nil, &Error{Code: "platform.invalid_request", Message: "render template is required"}
+		return Request{}, nil, &rendertemplates.Error{Code: "platform.invalid_request", Message: "render template is required"}
 	}
 	if request.Theme == "" {
 		request.Theme = "default"
@@ -22,7 +24,7 @@ func (s *Service) normalizeRequest(request Request) (Request, []byte, error) {
 	case "png":
 	case "jpeg":
 	default:
-		return Request{}, nil, &Error{Code: "platform.invalid_request", Message: "render output must be png or jpeg"}
+		return Request{}, nil, &rendertemplates.Error{Code: "platform.invalid_request", Message: "render output must be png or jpeg"}
 	}
 	if request.Data == nil {
 		request.Data = map[string]any{}
@@ -32,10 +34,10 @@ func (s *Service) normalizeRequest(request Request) (Request, []byte, error) {
 
 	payloadBytes, err := json.Marshal(request.Data)
 	if err != nil {
-		return Request{}, nil, &Error{Code: "platform.invalid_request", Message: "render data is not serializable", Err: err}
+		return Request{}, nil, &rendertemplates.Error{Code: "platform.invalid_request", Message: "render data is not serializable", Err: err}
 	}
 	if len(payloadBytes) > s.currentMaxRenderDataBytes() {
-		return Request{}, nil, &Error{
+		return Request{}, nil, &rendertemplates.Error{
 			Code:    "platform.render_input_too_large",
 			Message: "render input exceeds the configured size limit",
 		}

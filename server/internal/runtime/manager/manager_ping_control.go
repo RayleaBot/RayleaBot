@@ -3,6 +3,8 @@ package manager
 import (
 	"context"
 	"time"
+
+	runtimeprotocol "github.com/RayleaBot/RayleaBot/server/internal/runtime/protocol"
 )
 
 func (m *Manager) Ping(ctx context.Context) error {
@@ -19,7 +21,7 @@ func (m *Manager) Ping(ctx context.Context) error {
 		return runtimeErr
 	}
 
-	if err := handle.WriteJSONLine(pingFrame{
+	if err := handle.WriteJSONLine(runtimeprotocol.PingFrame{
 		ProtocolVersion: "1",
 		Type:            "ping",
 		Timestamp:       m.deps.now().Unix(),

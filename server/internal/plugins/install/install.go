@@ -22,8 +22,6 @@ const (
 	codeResourceMissing     = "platform.resource_missing"
 )
 
-type InstallRequest = plugins.InstallRequest
-
 type installerDeps struct {
 	now           func() time.Time
 	copyDir       func(context.Context, string, string) error
@@ -67,7 +65,7 @@ type InstallService struct {
 
 type installJob struct {
 	taskID  string
-	request InstallRequest
+	request plugins.InstallRequest
 	ctx     context.Context
 }
 

@@ -10,7 +10,7 @@ import (
 
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
-	"github.com/RayleaBot/RayleaBot/server/internal/runtime"
+	runtimeaction "github.com/RayleaBot/RayleaBot/server/internal/runtime/action"
 )
 
 func TestExecuteHTTPRequestUsesGrantedScopeAndReturnsText(t *testing.T) {
@@ -56,7 +56,7 @@ func TestExecuteHTTPRequestUsesGrantedScopeAndReturnsText(t *testing.T) {
 		nil,
 	)
 
-	result, err := application.executeLocalAction(context.Background(), "scope-cache", "req_http_1", runtime.Action{
+	result, err := application.executeLocalAction(context.Background(), "scope-cache", "req_http_1", runtimeaction.Action{
 		Kind:       "http.request",
 		HTTPMethod: "GET",
 		HTTPURL:    server.URL + "/v1/data",
@@ -107,7 +107,7 @@ func TestExecuteHTTPRequestRejectsPrivateHostWithoutAllowlist(t *testing.T) {
 		nil,
 	)
 
-	_, err := application.executeLocalAction(context.Background(), "scope-cache", "req_http_2", runtime.Action{
+	_, err := application.executeLocalAction(context.Background(), "scope-cache", "req_http_2", runtimeaction.Action{
 		Kind:       "http.request",
 		HTTPMethod: "GET",
 		HTTPURL:    server.URL + "/v1/data",

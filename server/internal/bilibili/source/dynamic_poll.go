@@ -7,6 +7,7 @@ import (
 	"net/url"
 	"strings"
 
+	bilibiliDynamic "github.com/RayleaBot/RayleaBot/server/internal/bilibili/dynamic"
 	"github.com/RayleaBot/RayleaBot/server/internal/bilibili/fingerprint"
 	"github.com/RayleaBot/RayleaBot/server/internal/thirdparty"
 )
@@ -29,12 +30,12 @@ func (s *Source) pollDynamics(ctx context.Context, subjects map[string]Subject, 
 		return
 	}
 	dmImg := fingerprint.GetDmImg()
-	feedURL := dynamicFeedURL +
+	feedURL := bilibiliDynamic.FeedURL +
 		"&dm_img_list=" + url.QueryEscape(dmImg.DmImgList) +
 		"&dm_img_str=" + url.QueryEscape(dmImg.DmImgStr) +
 		"&dm_cover_img_str=" + url.QueryEscape(dmImg.DmCoverImgStr) +
 		"&dm_img_inter=" + url.QueryEscape(dmImg.DmImgInter)
-	var doc dynamicFeedDocument
+	var doc bilibiliDynamic.FeedDocument
 	if err := s.requestSignedJSON(ctx, http.MethodGet, feedURL, cookie, nil, &doc); err != nil {
 		_ = s.handleAccountRequestError(ctx, account, cookie, bilibiliRequestCooldownDynamic, err)
 		s.setDynamicError(err)

@@ -3,12 +3,13 @@ package managementhttp
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	"net/http"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/tasks"
 )
 
-func newInstallHandler(catalog CatalogView, taskRegistry *tasks.Registry, installer InstallCoordinator) http.HandlerFunc {
+func newInstallHandler(catalog plugins.CatalogView, taskRegistry *tasks.Registry, installer plugins.InstallCoordinator) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req pluginInstallRequest
 		decoder := json.NewDecoder(r.Body)
@@ -24,7 +25,7 @@ func newInstallHandler(catalog CatalogView, taskRegistry *tasks.Registry, instal
 		}
 
 		if installer != nil {
-			taskID, err := installer.Accept(r.Context(), InstallRequest{
+			taskID, err := installer.Accept(r.Context(), plugins.InstallRequest{
 				SourceType:          req.SourceType,
 				Source:              req.Source,
 				AllowInstallScripts: req.AllowInstallScripts,

@@ -5,25 +5,24 @@ import (
 	"log/slog"
 	"sync"
 
-	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
-
-	"github.com/RayleaBot/RayleaBot/server/internal/adapter"
+	adaptershell "github.com/RayleaBot/RayleaBot/server/internal/adapter/shell"
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/dispatch"
 	"github.com/RayleaBot/RayleaBot/server/internal/pluginconfig"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
+	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
 	"github.com/RayleaBot/RayleaBot/server/internal/pluginwebhook"
-	"github.com/RayleaBot/RayleaBot/server/internal/runtime"
+	runtimemanager "github.com/RayleaBot/RayleaBot/server/internal/runtime/manager"
 	"github.com/RayleaBot/RayleaBot/server/internal/scheduler"
 	"github.com/RayleaBot/RayleaBot/server/internal/tasks"
 )
 
 type RuntimeRegistry interface {
-	Get(pluginID string) (*runtime.Manager, bool)
-	GetOrCreate(pluginID string) *runtime.Manager
-	NewDetached() *runtime.Manager
-	Replace(pluginID string, manager *runtime.Manager) *runtime.Manager
-	Delete(pluginID string) *runtime.Manager
+	Get(pluginID string) (*runtimemanager.Manager, bool)
+	GetOrCreate(pluginID string) *runtimemanager.Manager
+	NewDetached() *runtimemanager.Manager
+	Replace(pluginID string, manager *runtimemanager.Manager) *runtimemanager.Manager
+	Delete(pluginID string) *runtimemanager.Manager
 }
 
 type Deps struct {
@@ -37,7 +36,7 @@ type Deps struct {
 	Dispatcher          *dispatch.Dispatcher
 	Scheduler           *scheduler.Engine
 	PluginConfig        pluginconfig.Repository
-	Adapter             *adapter.Shell
+	Adapter             *adaptershell.Shell
 	Webhooks            *pluginwebhook.Registry
 	Tasks               *tasks.Registry
 	OnRecoveryChange    func(string)
@@ -56,7 +55,7 @@ type Controller struct {
 	dispatcher          *dispatch.Dispatcher
 	scheduler           *scheduler.Engine
 	pluginConfig        pluginconfig.Repository
-	adapter             *adapter.Shell
+	adapter             *adaptershell.Shell
 	webhooks            *pluginwebhook.Registry
 	tasks               *tasks.Registry
 	onRecoveryChange    func(string)

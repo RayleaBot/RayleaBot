@@ -1,10 +1,11 @@
 package api
 
-import adaptercache "github.com/RayleaBot/RayleaBot/server/internal/adapter/cache"
-
 const ErrorCodeAPICallFailed = "adapter.api_call_failed"
 
-type LoginInfo = adaptercache.LoginInfo
+type LoginInfo struct {
+	ID       string
+	Nickname string
+}
 
 // VersionInfo holds implementation metadata returned by get_version_info.
 type VersionInfo struct {
@@ -13,9 +14,16 @@ type VersionInfo struct {
 	AppVersion      string
 }
 
-type GroupMemberInfo = adaptercache.GroupMemberInfo
+type GroupMemberInfo struct {
+	Role     string
+	Nickname string
+	Card     string
+	Title    string
+}
 
-type GroupInfo = adaptercache.GroupInfo
+type GroupInfo struct {
+	Name string
+}
 
 // GroupTarget holds a selectable OneBot11 group target.
 type GroupTarget struct {
@@ -29,4 +37,6 @@ type FriendTarget struct {
 	Nickname string
 }
 
-type StrangerInfo = adaptercache.StrangerInfo
+type StrangerInfo struct {
+	Nickname string
+}

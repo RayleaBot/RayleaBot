@@ -3,10 +3,12 @@ package action
 import (
 	"encoding/json"
 	"strings"
+
+	runtimeprotocol "github.com/RayleaBot/RayleaBot/server/internal/runtime/protocol"
 )
 
 func parseHTTPRequestAction(raw json.RawMessage) (*Action, error) {
-	var frame protocolActionHTTPRequestFrame
+	var frame runtimeprotocol.ProtocolActionHTTPRequestFrame
 	if err := json.Unmarshal(raw, &frame); err != nil {
 		return nil, errorf(codePluginProtocolViolation, "plugin returned malformed http.request data", err)
 	}

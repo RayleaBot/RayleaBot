@@ -6,7 +6,7 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/httpapi"
-	"github.com/RayleaBot/RayleaBot/server/internal/render"
+	renderservice "github.com/RayleaBot/RayleaBot/server/internal/render/service"
 )
 
 func (h *RenderHandlers) HandleSystemRenderTemplatePreviewHTML() http.HandlerFunc {
@@ -23,7 +23,7 @@ func (h *RenderHandlers) HandleSystemRenderTemplatePreviewHTML() http.HandlerFun
 			return
 		}
 
-		result, err := h.renderer.PreviewHTML(r.Context(), render.Request{
+		result, err := h.renderer.PreviewHTML(r.Context(), renderservice.Request{
 			Template: templateID,
 			Theme:    request.Theme,
 			Data:     request.Data,

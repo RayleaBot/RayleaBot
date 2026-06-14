@@ -21,9 +21,6 @@ const (
 
 var templateIDPattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]*$`)
 
-type TemplateSource = renderrepo.TemplateSource
-type TemplateFiles = renderrepo.TemplateFiles
-
 type Root struct {
 	TemplateDir  string
 	ResourceRoot string
@@ -56,7 +53,7 @@ func (e *Error) Unwrap() error {
 }
 
 type TemplateDraft struct {
-	Source TemplateSource `json:"source"`
+	Source renderrepo.TemplateSource `json:"source"`
 }
 
 type TemplateValidationIssue struct {
@@ -84,8 +81,8 @@ type Manifest struct {
 type SourceBundle struct {
 	Manifest           Manifest
 	NormalizedManifest map[string]any
-	Source             TemplateSource
-	Files              TemplateFiles
+	Source             renderrepo.TemplateSource
+	Files              renderrepo.TemplateFiles
 	Digest             string
 }
 
@@ -97,6 +94,6 @@ type CompiledTemplate struct {
 }
 
 type Seed struct {
-	Source   TemplateSource
+	Source   renderrepo.TemplateSource
 	Compiled *CompiledTemplate
 }

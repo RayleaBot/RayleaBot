@@ -4,7 +4,7 @@ import (
 	"time"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
-	"github.com/RayleaBot/RayleaBot/server/internal/runtime"
+	runtimeaction "github.com/RayleaBot/RayleaBot/server/internal/runtime/action"
 )
 
 func currentHTTPTimeout(cfg config.Config) time.Duration {
@@ -25,7 +25,7 @@ func currentHTTPMaxRetries(cfg config.Config) int {
 	return cfg.HTTP.MaxRetries
 }
 
-func currentHTTPActionTimeout(action runtime.Action) time.Duration {
+func currentHTTPActionTimeout(action runtimeaction.Action) time.Duration {
 	if action.HTTPTimeoutSeconds <= 0 {
 		return 0
 	}

@@ -8,14 +8,14 @@ import (
 
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/dispatch"
-	"github.com/RayleaBot/RayleaBot/server/internal/runtime"
+	runtimeprotocol "github.com/RayleaBot/RayleaBot/server/internal/runtime/protocol"
 )
 
 func TestBroadcastBotIdentityChangedDispatchesToRunningPlugin(t *testing.T) {
 	t.Parallel()
 
 	dispatcher := dispatch.New(slog.Default(), nil, nil, 16)
-	fakeRuntime := &capturingRuntime{events: make(chan runtime.Event, 1)}
+	fakeRuntime := &capturingRuntime{events: make(chan runtimeprotocol.Event, 1)}
 	dispatcher.Register("weather", fakeRuntime, []string{"message.group"}, nil, 1)
 
 	controller := NewController(Deps{

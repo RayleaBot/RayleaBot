@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/dispatch"
-	"github.com/RayleaBot/RayleaBot/server/internal/runtime"
+	runtimeprotocol "github.com/RayleaBot/RayleaBot/server/internal/runtime/protocol"
 )
 
 const (
@@ -88,7 +88,7 @@ type ObservabilityData struct {
 
 type dispatcherClient interface {
 	HasDeliverablePlugins() bool
-	Dispatch(context.Context, runtime.Event, string) []dispatch.DeliveryResult
+	Dispatch(context.Context, runtimeprotocol.Event, string) []dispatch.DeliveryResult
 }
 
 type CommandPolicyRejection struct {

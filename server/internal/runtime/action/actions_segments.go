@@ -1,8 +1,12 @@
 package action
 
-import "strings"
+import (
+	"strings"
 
-func parseOutboundActionSegments(raw []protocolSegmentFrame) ([]ActionSegment, error) {
+	runtimeprotocol "github.com/RayleaBot/RayleaBot/server/internal/runtime/protocol"
+)
+
+func parseOutboundActionSegments(raw []runtimeprotocol.ProtocolSegmentFrame) ([]ActionSegment, error) {
 	if len(raw) == 0 {
 		return nil, errorf(codePluginProtocolViolation, "plugin action frame is missing required rich message segments", nil)
 	}
@@ -18,7 +22,7 @@ func parseOutboundActionSegments(raw []protocolSegmentFrame) ([]ActionSegment, e
 	return segments, nil
 }
 
-func parseOutboundActionSegment(segment protocolSegmentFrame, index int) (ActionSegment, error) {
+func parseOutboundActionSegment(segment runtimeprotocol.ProtocolSegmentFrame, index int) (ActionSegment, error) {
 	segmentType := strings.TrimSpace(segment.Type)
 	data := cloneActionSegmentData(segment.Data)
 

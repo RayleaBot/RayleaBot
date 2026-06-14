@@ -2,13 +2,14 @@ package managementhttp
 
 import (
 	"context"
+	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	"net/http"
 	"time"
 
 	"github.com/go-chi/chi/v5"
 )
 
-func newEnableHandler(catalog CatalogView, repo DesiredStateRepository, controller DesiredStateController, grantRepo GrantRepository, autoGrantProvider autoGrantCapabilitiesProvider) http.HandlerFunc {
+func newEnableHandler(catalog plugins.CatalogView, repo plugins.DesiredStateRepository, controller DesiredStateController, grantRepo plugins.GrantRepository, autoGrantProvider autoGrantCapabilitiesProvider) http.HandlerFunc {
 	var action desiredStateAction
 	if controller != nil {
 		action = controller.Enable
@@ -16,7 +17,7 @@ func newEnableHandler(catalog CatalogView, repo DesiredStateRepository, controll
 	return newDesiredStateHandler(catalog, repo, "enabled", action, grantRepo, autoGrantProvider)
 }
 
-func newDisableHandler(catalog CatalogView, repo DesiredStateRepository, controller DesiredStateController, grantRepo GrantRepository, autoGrantProvider autoGrantCapabilitiesProvider) http.HandlerFunc {
+func newDisableHandler(catalog plugins.CatalogView, repo plugins.DesiredStateRepository, controller DesiredStateController, grantRepo plugins.GrantRepository, autoGrantProvider autoGrantCapabilitiesProvider) http.HandlerFunc {
 	var action desiredStateAction
 	if controller != nil {
 		action = controller.Disable
@@ -24,9 +25,9 @@ func newDisableHandler(catalog CatalogView, repo DesiredStateRepository, control
 	return newDesiredStateHandler(catalog, repo, "disabled", action, grantRepo, autoGrantProvider)
 }
 
-type desiredStateAction func(context.Context, string) (Snapshot, error)
+type desiredStateAction func(context.Context, string) (plugins.Snapshot, error)
 
-func newDesiredStateHandler(catalog CatalogView, repo DesiredStateRepository, desiredState string, action desiredStateAction, grantRepo GrantRepository, autoGrantProvider autoGrantCapabilitiesProvider) http.HandlerFunc {
+func newDesiredStateHandler(catalog plugins.CatalogView, repo plugins.DesiredStateRepository, desiredState string, action desiredStateAction, grantRepo plugins.GrantRepository, autoGrantProvider autoGrantCapabilitiesProvider) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		pluginID := chi.URLParam(r, "plugin_id")
 		if action != nil {
@@ -57,7 +58,7 @@ func newDesiredStateHandler(catalog CatalogView, repo DesiredStateRepository, de
 	}
 }
 
-func newReloadHandler(catalog CatalogView, controller DesiredStateController, grantRepo GrantRepository, autoGrantProvider autoGrantCapabilitiesProvider) http.HandlerFunc {
+func newReloadHandler(catalog plugins.CatalogView, controller DesiredStateController, grantRepo plugins.GrantRepository, autoGrantProvider autoGrantCapabilitiesProvider) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		pluginID := chi.URLParam(r, "plugin_id")
 		if controller == nil {
@@ -73,7 +74,7 @@ func newReloadHandler(catalog CatalogView, controller DesiredStateController, gr
 	}
 }
 
-func newDeadLetterRecoverHandler(catalog CatalogView, controller DesiredStateController, grantRepo GrantRepository, autoGrantProvider autoGrantCapabilitiesProvider) http.HandlerFunc {
+func newDeadLetterRecoverHandler(catalog plugins.CatalogView, controller DesiredStateController, grantRepo plugins.GrantRepository, autoGrantProvider autoGrantCapabilitiesProvider) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		pluginID := chi.URLParam(r, "plugin_id")
 		if controller == nil {
@@ -89,7 +90,7 @@ func newDeadLetterRecoverHandler(catalog CatalogView, controller DesiredStateCon
 	}
 }
 
-func writePluginDetailResponse(w http.ResponseWriter, r *http.Request, catalog CatalogView, snapshot Snapshot, grantRepo GrantRepository, autoGrantProvider autoGrantCapabilitiesProvider) {
+func writePluginDetailResponse(w http.ResponseWriter, r *http.Request, catalog plugins.CatalogView, snapshot plugins.Snapshot, grantRepo plugins.GrantRepository, autoGrantProvider autoGrantCapabilitiesProvider) {
 	response, buildErr := buildPluginDetailResponse(r.Context(), catalog, snapshot, grantRepo, autoGrantProvider)
 	if buildErr != nil {
 		writeError(w, r, http.StatusInternalServerError, "platform.internal_error", "内部错误", "errors.platform.internal_error", nil)
@@ -102,7 +103,7 @@ type UninstallCoordinator interface {
 	Accept(ctx context.Context, pluginID string) (string, error)
 }
 
-func newUninstallHandler(catalog CatalogView, coordinator UninstallCoordinator) http.HandlerFunc {
+func newUninstallHandler(catalog plugins.CatalogView, coordinator UninstallCoordinator) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		pluginID := chi.URLParam(r, "plugin_id")
 		snapshot, ok := catalog.Get(pluginID)
@@ -127,16 +128,16 @@ func newUninstallHandler(catalog CatalogView, coordinator UninstallCoordinator) 
 	}
 }
 
-func validateDesiredStateChange(catalog CatalogView, pluginID string, desired string) error {
+func validateDesiredStateChange(catalog plugins.CatalogView, pluginID string, desired string) error {
 	snapshot, ok := catalog.Get(pluginID)
 	if !ok {
-		return ErrPluginNotFound
+		return plugins.ErrPluginNotFound
 	}
 	if snapshot.RegistrationState != "installed" {
-		return ErrStateConflict
+		return plugins.ErrStateConflict
 	}
 	if snapshot.DesiredState == desired {
-		return ErrStateConflict
+		return plugins.ErrStateConflict
 	}
 	return nil
 }

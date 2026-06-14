@@ -6,49 +6,39 @@ import (
 	adapterapi "github.com/RayleaBot/RayleaBot/server/internal/adapter/api"
 )
 
-const errorCodeAPICallFailed = adapterapi.ErrorCodeAPICallFailed
-
-type LoginInfo = adapterapi.LoginInfo
-type VersionInfo = adapterapi.VersionInfo
-type GroupMemberInfo = adapterapi.GroupMemberInfo
-type GroupInfo = adapterapi.GroupInfo
-type GroupTarget = adapterapi.GroupTarget
-type FriendTarget = adapterapi.FriendTarget
-type StrangerInfo = adapterapi.StrangerInfo
-
-func (s *Shell) GetLoginInfo(ctx context.Context) (LoginInfo, error) {
+func (s *Shell) GetLoginInfo(ctx context.Context) (adapterapi.LoginInfo, error) {
 	return adapterapi.NewClient(shellAPICaller{s: s}).GetLoginInfo(ctx)
 }
 
-func (s *Shell) GetVersionInfo(ctx context.Context) (VersionInfo, error) {
+func (s *Shell) GetVersionInfo(ctx context.Context) (adapterapi.VersionInfo, error) {
 	return adapterapi.NewClient(shellAPICaller{s: s}).GetVersionInfo(ctx)
 }
 
-func (s *Shell) getVersionInfoOnTransport(ctx context.Context, transport TransportKey) (VersionInfo, error) {
+func (s *Shell) getVersionInfoOnTransport(ctx context.Context, transport TransportKey) (adapterapi.VersionInfo, error) {
 	return adapterapi.NewClient(shellAPICaller{s: s}).GetVersionInfoOnTransport(ctx, string(transport))
 }
 
-func (s *Shell) getLoginInfoOnTransport(ctx context.Context, transport TransportKey) (LoginInfo, error) {
+func (s *Shell) getLoginInfoOnTransport(ctx context.Context, transport TransportKey) (adapterapi.LoginInfo, error) {
 	return adapterapi.NewClient(shellAPICaller{s: s}).GetLoginInfoOnTransport(ctx, string(transport))
 }
 
-func (s *Shell) GetGroupMemberInfo(ctx context.Context, groupID, userID string) (GroupMemberInfo, error) {
+func (s *Shell) GetGroupMemberInfo(ctx context.Context, groupID, userID string) (adapterapi.GroupMemberInfo, error) {
 	return adapterapi.NewClient(shellAPICaller{s: s}).GetGroupMemberInfo(ctx, groupID, userID)
 }
 
-func (s *Shell) GetGroupInfo(ctx context.Context, groupID string) (GroupInfo, error) {
+func (s *Shell) GetGroupInfo(ctx context.Context, groupID string) (adapterapi.GroupInfo, error) {
 	return adapterapi.NewClient(shellAPICaller{s: s}).GetGroupInfo(ctx, groupID)
 }
 
-func (s *Shell) GetStrangerInfo(ctx context.Context, userID string) (StrangerInfo, error) {
+func (s *Shell) GetStrangerInfo(ctx context.Context, userID string) (adapterapi.StrangerInfo, error) {
 	return adapterapi.NewClient(shellAPICaller{s: s}).GetStrangerInfo(ctx, userID)
 }
 
-func (s *Shell) ListGroups(ctx context.Context) ([]GroupTarget, error) {
+func (s *Shell) ListGroups(ctx context.Context) ([]adapterapi.GroupTarget, error) {
 	return adapterapi.NewClient(shellAPICaller{s: s}).ListGroups(ctx)
 }
 
-func (s *Shell) ListFriends(ctx context.Context) ([]FriendTarget, error) {
+func (s *Shell) ListFriends(ctx context.Context) ([]adapterapi.FriendTarget, error) {
 	return adapterapi.NewClient(shellAPICaller{s: s}).ListFriends(ctx)
 }
 

@@ -2,10 +2,11 @@ package managementhttp
 
 import (
 	"context"
+	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	"strings"
 )
 
-func buildPluginDependencies(snapshot Snapshot) *pluginDependenciesResponse {
+func buildPluginDependencies(snapshot plugins.Snapshot) *pluginDependenciesResponse {
 	if len(snapshot.PythonDependencies) == 0 && len(snapshot.NodeDependencies) == 0 {
 		return nil
 	}
@@ -16,7 +17,7 @@ func buildPluginDependencies(snapshot Snapshot) *pluginDependenciesResponse {
 	}
 }
 
-func buildPluginScopes(snapshot Snapshot) *pluginScopesResponse {
+func buildPluginScopes(snapshot plugins.Snapshot) *pluginScopesResponse {
 	if len(snapshot.ScopeHTTPHosts) == 0 && len(snapshot.ScopeStorageRoots) == 0 && len(snapshot.ScopeWebhooks) == 0 {
 		return nil
 	}
@@ -41,7 +42,7 @@ func buildPluginScopes(snapshot Snapshot) *pluginScopesResponse {
 	return response
 }
 
-func buildPluginScreenshots(snapshot Snapshot) []pluginScreenshotResponse {
+func buildPluginScreenshots(snapshot plugins.Snapshot) []pluginScreenshotResponse {
 	if len(snapshot.Screenshots) == 0 {
 		return nil
 	}
@@ -63,7 +64,7 @@ func buildPluginScreenshots(snapshot Snapshot) []pluginScreenshotResponse {
 	return items
 }
 
-func buildPluginManagementUI(snapshot Snapshot) *pluginManagementUIResponse {
+func buildPluginManagementUI(snapshot plugins.Snapshot) *pluginManagementUIResponse {
 	if snapshot.ManagementUI == nil {
 		return nil
 	}
@@ -88,7 +89,7 @@ func buildPluginManagementUI(snapshot Snapshot) *pluginManagementUIResponse {
 	return response
 }
 
-func buildPluginRenderTemplates(snapshot Snapshot) []pluginRenderTemplateResponse {
+func buildPluginRenderTemplates(snapshot plugins.Snapshot) []pluginRenderTemplateResponse {
 	if len(snapshot.RenderTemplates) == 0 {
 		return nil
 	}
@@ -106,14 +107,14 @@ func buildPluginRenderTemplates(snapshot Snapshot) []pluginRenderTemplateRespons
 	return items
 }
 
-func buildPluginDetailResponse(ctx context.Context, catalog CatalogView, snapshot Snapshot, repo GrantRepository, autoGrantProvider autoGrantCapabilitiesProvider) (pluginDetailResponse, error) {
+func buildPluginDetailResponse(ctx context.Context, catalog plugins.CatalogView, snapshot plugins.Snapshot, repo plugins.GrantRepository, autoGrantProvider autoGrantCapabilitiesProvider) (pluginDetailResponse, error) {
 	summary := buildPluginSummary(catalog, snapshot)
 	persisted, err := loadPersistedGrants(ctx, repo, snapshot.PluginID)
 	if err != nil {
 		return pluginDetailResponse{}, err
 	}
-	effective := ComputeEffectiveGrants(snapshot, providedAutoGrantCapabilities(autoGrantProvider), persisted)
-	permissions := BuildPermissionSummaries(snapshot, effective)
+	effective := plugins.ComputeEffectiveGrants(snapshot, providedAutoGrantCapabilities(autoGrantProvider), persisted)
+	permissions := plugins.BuildPermissionSummaries(snapshot, effective)
 	return pluginDetailResponse{
 		Plugin: pluginDetailPluginResponse{
 			ID:                   summary.ID,
@@ -132,7 +133,7 @@ func buildPluginDetailResponse(ctx context.Context, catalog CatalogView, snapsho
 			DataSchemaVersion:    strings.TrimSpace(snapshot.DataSchemaVersion),
 			Concurrency:          snapshot.Concurrency,
 			Platforms:            normalizeStringList(snapshot.Platforms),
-			DefaultConfig:        cloneMap(snapshot.DefaultConfig),
+			DefaultConfig:        plugins.CloneMap(snapshot.DefaultConfig),
 			DeclaredCapabilities: normalizeStringList(snapshot.DeclaredCapabilities),
 			Dependencies:         buildPluginDependencies(snapshot),
 			Scopes:               buildPluginScopes(snapshot),

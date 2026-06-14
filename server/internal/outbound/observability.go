@@ -5,7 +5,7 @@ import (
 	"log/slog"
 	"strings"
 
-	"github.com/RayleaBot/RayleaBot/server/internal/adapter"
+	adapteroutbound "github.com/RayleaBot/RayleaBot/server/internal/adapter/outbound"
 )
 
 func LogSendOutcome(logger *slog.Logger, context SendLogContext, attempt SendAttempt, result SendResult, err error) {
@@ -28,7 +28,7 @@ func LogSendOutcome(logger *slog.Logger, context SendLogContext, attempt SendAtt
 		deliveryKind = strings.TrimSpace(attempt.ActionKind)
 	}
 
-	plainText := strings.TrimSpace(adapter.OutboundSegmentsToPlainText(attempt.Segments))
+	plainText := strings.TrimSpace(adapteroutbound.OutboundSegmentsToPlainText(attempt.Segments))
 	if plainText == "" {
 		plainText = "[empty message]"
 	}
@@ -88,7 +88,7 @@ func LogSendOutcome(logger *slog.Logger, context SendLogContext, attempt SendAtt
 }
 
 func errorDetails(err error) (string, string) {
-	var adapterErr *adapter.Error
+	var adapterErr *adapteroutbound.Error
 	if errors.As(err, &adapterErr) {
 		reason := strings.TrimSpace(adapterErr.Message)
 		if reason == "" {

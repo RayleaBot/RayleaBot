@@ -5,9 +5,11 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+
+	renderrepo "github.com/RayleaBot/RayleaBot/server/internal/render/repository"
 )
 
-func BuildSourceBundle(expectedTemplateID string, source TemplateSource) (SourceBundle, error) {
+func BuildSourceBundle(expectedTemplateID string, source renderrepo.TemplateSource) (SourceBundle, error) {
 	manifest, normalizedManifest, err := parseTemplateManifest(expectedTemplateID, source.ManifestJSON)
 	if err != nil {
 		return SourceBundle{}, &Error{
@@ -39,7 +41,7 @@ func BuildSourceBundle(expectedTemplateID string, source TemplateSource) (Source
 		}
 	}
 
-	normalizedSource := TemplateSource{
+	normalizedSource := renderrepo.TemplateSource{
 		ManifestJSON:    normalizedManifest,
 		HTML:            source.HTML,
 		Stylesheet:      source.Stylesheet,
@@ -50,7 +52,7 @@ func BuildSourceBundle(expectedTemplateID string, source TemplateSource) (Source
 		Manifest:           manifest,
 		NormalizedManifest: normalizedManifest,
 		Source:             normalizedSource,
-		Files: TemplateFiles{
+		Files: renderrepo.TemplateFiles{
 			Manifest:    ManifestFilename,
 			HTML:        manifest.EntryHTML,
 			Stylesheet:  manifest.Stylesheet,
@@ -78,7 +80,7 @@ func normalizeOptionalJSONObject(raw map[string]any, field string) (map[string]a
 	return normalized, nil
 }
 
-func DigestSource(source TemplateSource) string {
+func DigestSource(source renderrepo.TemplateSource) string {
 	payload := struct {
 		ManifestJSON    map[string]any `json:"manifest_json"`
 		HTML            string         `json:"html"`

@@ -3,9 +3,8 @@ package app
 import (
 	"context"
 
-	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
-
-	"github.com/RayleaBot/RayleaBot/server/internal/adapter"
+	adapterintake "github.com/RayleaBot/RayleaBot/server/internal/adapter/intake"
+	adaptershell "github.com/RayleaBot/RayleaBot/server/internal/adapter/shell"
 	"github.com/RayleaBot/RayleaBot/server/internal/auth"
 	"github.com/RayleaBot/RayleaBot/server/internal/bridge"
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
@@ -19,16 +18,17 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/outbound"
 	"github.com/RayleaBot/RayleaBot/server/internal/permission"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
+	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
 	pluginservice "github.com/RayleaBot/RayleaBot/server/internal/plugins/service"
 	"github.com/RayleaBot/RayleaBot/server/internal/pluginui"
 	"github.com/RayleaBot/RayleaBot/server/internal/pluginwebhook"
-	"github.com/RayleaBot/RayleaBot/server/internal/render"
+	renderservice "github.com/RayleaBot/RayleaBot/server/internal/render/service"
 	"github.com/RayleaBot/RayleaBot/server/internal/storage"
 	"github.com/RayleaBot/RayleaBot/server/internal/tasks"
 )
 
 type eventMetadataEnricher interface {
-	EnrichEventMetadata(context.Context, adapter.NormalizedEvent) adapter.NormalizedEvent
+	EnrichEventMetadata(context.Context, adapterintake.NormalizedEvent) adapterintake.NormalizedEvent
 }
 
 type eventIngressDeps struct {
@@ -37,7 +37,7 @@ type eventIngressDeps struct {
 	replyTargets     *replyTargetCache
 	outboundSender   outboundActionSender
 	outboundLimiter  outbound.MessageLimiter
-	renderer         *render.Service
+	renderer         *renderservice.Service
 	menu             *menuext.Service
 	bridge           *bridge.Bridge
 	lifecycle        *pluginservice.Controller
@@ -50,10 +50,10 @@ type eventIngressDeps struct {
 type systemServiceDeps struct {
 	state            *appRuntimeState
 	auth             *auth.Manager
-	adapter          *adapter.Shell
+	adapter          *adaptershell.Shell
 	plugins          *plugincatalog.Catalog
 	runtimes         *runtimeRegistry
-	renderer         *render.Service
+	renderer         *renderservice.Service
 	storage          *storage.Store
 	pluginRepository plugins.DesiredStateRepository
 	taskExecutor     *tasks.Executor
@@ -64,7 +64,7 @@ type configHTTPDeps struct {
 	state            *appRuntimeState
 	logs             *logging.Stream
 	logRepository    logging.Repository
-	renderer         *render.Service
+	renderer         *renderservice.Service
 	pluginLogLimiter *localaction.PluginLogLimiter
 	outboundLimiter  interface{ ApplyConfig(config.Config) }
 	protocol         *managementhttp.ProtocolService
@@ -82,7 +82,7 @@ type httpServerDeps struct {
 	pluginRepository   plugins.DesiredStateRepository
 	grantRepository    plugins.GrantRepository
 	pluginLifecycle    *pluginservice.Controller
-	renderer           *render.Service
+	renderer           *renderservice.Service
 	configHandler      *managementhttp.ConfigHandlers
 	authHandler        *managementhttp.AuthHandlers
 	managementHandler  *managementhttp.ManagementHandlers

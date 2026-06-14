@@ -1,15 +1,16 @@
 package managementhttp
 
 import (
+	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
 )
 
-func newListHandler(catalog CatalogView) http.HandlerFunc {
+func newListHandler(catalog plugins.CatalogView) http.HandlerFunc {
 	return func(w http.ResponseWriter, _ *http.Request) {
 		snapshots := catalog.List()
-		conflicts := detectCommandConflicts(snapshots)
+		conflicts := plugins.DetectCommandConflicts(snapshots)
 		items := make([]pluginSummaryResponse, 0, len(snapshots))
 		for _, snapshot := range snapshots {
 			items = append(items, toPluginSummary(snapshot, conflicts[snapshot.PluginID]))
@@ -19,7 +20,7 @@ func newListHandler(catalog CatalogView) http.HandlerFunc {
 	}
 }
 
-func newDetailHandler(catalog CatalogView, grantRepo GrantRepository, autoGrantProvider autoGrantCapabilitiesProvider) http.HandlerFunc {
+func newDetailHandler(catalog plugins.CatalogView, grantRepo plugins.GrantRepository, autoGrantProvider autoGrantCapabilitiesProvider) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		pluginID := chi.URLParam(r, "plugin_id")
 		snapshot, ok := catalog.Get(pluginID)
@@ -43,7 +44,7 @@ func newDetailHandler(catalog CatalogView, grantRepo GrantRepository, autoGrantP
 			details := map[string]any{
 				"plugin_id": pluginID,
 			}
-			if snapshot.DisplayState == displayConflict {
+			if snapshot.DisplayState == plugins.DisplayStateConflict {
 				details["kind"] = "plugin_id_conflict"
 				details["manifest_paths"] = snapshot.ConflictPaths
 				details["source_roots"] = snapshot.SourceRoots

@@ -5,10 +5,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/RayleaBot/RayleaBot/server/internal/adapter"
+	adapterintake "github.com/RayleaBot/RayleaBot/server/internal/adapter/intake"
 )
 
-func (b *Bridge) HandleAdapterEvent(ctx context.Context, event adapter.NormalizedEvent) Outcome {
+func (b *Bridge) HandleAdapterEvent(ctx context.Context, event adapterintake.NormalizedEvent) Outcome {
 	now := time.Now().UTC()
 
 	if !isSupportedEvent(event) {
@@ -63,7 +63,7 @@ func (b *Bridge) HandleAdapterEvent(ctx context.Context, event adapter.Normalize
 	return OutcomeError
 }
 
-func (b *Bridge) LogCommandPolicyRejected(event adapter.NormalizedEvent, rejection CommandPolicyRejection) {
+func (b *Bridge) LogCommandPolicyRejected(event adapterintake.NormalizedEvent, rejection CommandPolicyRejection) {
 	if b == nil {
 		return
 	}

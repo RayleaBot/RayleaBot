@@ -7,7 +7,7 @@ import (
 	runtimeprotocol "github.com/RayleaBot/RayleaBot/server/internal/runtime/protocol"
 )
 
-func (m *Manager) DeliverEvent(ctx context.Context, event Event) (Delivery, error) {
+func (m *Manager) DeliverEvent(ctx context.Context, event runtimeprotocol.Event) (Delivery, error) {
 	if event.EventID == "" || event.SourceProtocol == "" || event.SourceAdapter == "" || event.EventType == "" || event.Timestamp <= 0 {
 		return Delivery{}, errorf(codePlatformInvalidRequest, "event payload is missing required fields", nil)
 	}

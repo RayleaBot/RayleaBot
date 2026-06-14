@@ -4,7 +4,7 @@ import (
 	"context"
 	"strings"
 
-	"github.com/RayleaBot/RayleaBot/server/internal/adapter"
+	adapterintake "github.com/RayleaBot/RayleaBot/server/internal/adapter/intake"
 	"github.com/RayleaBot/RayleaBot/server/internal/logging"
 	"github.com/RayleaBot/RayleaBot/server/internal/outbound"
 )
@@ -23,7 +23,7 @@ func (s *Service) logBuiltinMenuError(err error) {
 	s.logger.Warn("builtin menu response failed", "component", "app", "error", err)
 }
 
-func (s *Service) logBuiltinMenuTrigger(_ context.Context, event adapter.NormalizedEvent, request Request) {
+func (s *Service) logBuiltinMenuTrigger(_ context.Context, event adapterintake.NormalizedEvent, request Request) {
 	if s == nil || s.logger == nil {
 		return
 	}
@@ -56,7 +56,7 @@ func (s *Service) logBuiltinMenuTrigger(_ context.Context, event adapter.Normali
 	s.logger.Info(summary, fields...)
 }
 
-func (s *Service) builtinMenuTargetLabel(ctx context.Context, event adapter.NormalizedEvent) string {
+func (s *Service) builtinMenuTargetLabel(ctx context.Context, event adapterintake.NormalizedEvent) string {
 	targetType := strings.TrimSpace(event.ConversationType)
 	targetID := strings.TrimSpace(event.ConversationID)
 	targetName := strings.TrimSpace(event.TargetName)

@@ -3,12 +3,12 @@ package app
 import (
 	"strings"
 
-	"github.com/RayleaBot/RayleaBot/server/internal/adapter"
+	adapterintake "github.com/RayleaBot/RayleaBot/server/internal/adapter/intake"
 	"github.com/RayleaBot/RayleaBot/server/internal/bridge"
 	"github.com/RayleaBot/RayleaBot/server/internal/permission"
 )
 
-func (s *eventIngressService) logCommandPolicyRejection(event adapter.NormalizedEvent, verdict permission.Verdict, commandContext *commandPolicyContext) {
+func (s *eventIngressService) logCommandPolicyRejection(event adapterintake.NormalizedEvent, verdict permission.Verdict, commandContext *commandPolicyContext) {
 	if s == nil || s.bridge == nil || commandContext == nil {
 		return
 	}

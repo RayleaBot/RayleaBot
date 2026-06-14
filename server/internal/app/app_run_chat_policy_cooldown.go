@@ -5,7 +5,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/RayleaBot/RayleaBot/server/internal/adapter"
+	adapterintake "github.com/RayleaBot/RayleaBot/server/internal/adapter/intake"
+	adapteroutbound "github.com/RayleaBot/RayleaBot/server/internal/adapter/outbound"
 	"github.com/RayleaBot/RayleaBot/server/internal/outbound"
 )
 
@@ -13,7 +14,7 @@ const (
 	cooldownReplyText = "命令触发冷却，请稍后再试。"
 )
 
-func (s *eventIngressService) sendCooldownReply(ctx context.Context, event adapter.NormalizedEvent) {
+func (s *eventIngressService) sendCooldownReply(ctx context.Context, event adapterintake.NormalizedEvent) {
 	if s == nil || s.outboundSender == nil {
 		return
 	}
@@ -30,7 +31,7 @@ func (s *eventIngressService) sendCooldownReply(ctx context.Context, event adapt
 	switch strings.TrimSpace(event.ConversationType) {
 	case "group":
 		if messageID := strings.TrimSpace(event.MessageID); messageID != "" {
-			segments := []adapter.OutboundMessageSegment{{
+			segments := []adapteroutbound.OutboundMessageSegment{{
 				Type: "text",
 				Data: map[string]any{"text": cooldownReplyText},
 			}}
@@ -53,7 +54,7 @@ func (s *eventIngressService) sendCooldownReply(ctx context.Context, event adapt
 				break
 			}
 			sendCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
-			sendResult, sendErr := s.outboundSender.SendReply(sendCtx, adapter.OutboundMessageReply{
+			sendResult, sendErr := s.outboundSender.SendReply(sendCtx, adapteroutbound.OutboundMessageReply{
 				TargetType:       "group",
 				TargetID:         strings.TrimSpace(event.ConversationID),
 				ReplyToMessageID: messageID,
@@ -67,7 +68,7 @@ func (s *eventIngressService) sendCooldownReply(ctx context.Context, event adapt
 		fallthrough
 	case "private":
 		if targetID := strings.TrimSpace(event.ConversationID); targetID != "" {
-			segments := []adapter.OutboundMessageSegment{{
+			segments := []adapteroutbound.OutboundMessageSegment{{
 				Type: "text",
 				Data: map[string]any{"text": cooldownReplyText},
 			}}
@@ -90,7 +91,7 @@ func (s *eventIngressService) sendCooldownReply(ctx context.Context, event adapt
 				break
 			}
 			sendCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
-			sendResult, sendErr := s.outboundSender.SendMessage(sendCtx, adapter.OutboundMessageSend{
+			sendResult, sendErr := s.outboundSender.SendMessage(sendCtx, adapteroutbound.OutboundMessageSend{
 				TargetType: strings.TrimSpace(event.ConversationType),
 				TargetID:   targetID,
 				Segments:   segments,
@@ -117,7 +118,7 @@ func (s *eventIngressService) waitOutboundLimit(ctx context.Context, request out
 	return s.outboundLimiter.Wait(ctx, request)
 }
 
-func buildCooldownTargetLabel(ctx context.Context, event adapter.NormalizedEvent, sender outboundActionSender) string {
+func buildCooldownTargetLabel(ctx context.Context, event adapterintake.NormalizedEvent, sender outboundActionSender) string {
 	targetType := strings.TrimSpace(event.ConversationType)
 	targetID := strings.TrimSpace(event.ConversationID)
 	targetName := ""

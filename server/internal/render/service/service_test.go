@@ -12,6 +12,7 @@ import (
 	"time"
 
 	renderbrowser "github.com/RayleaBot/RayleaBot/server/internal/render/browser"
+	rendertemplates "github.com/RayleaBot/RayleaBot/server/internal/render/templates"
 )
 
 func TestNewServiceSkipsInvalidTemplateDirectories(t *testing.T) {
@@ -100,7 +101,7 @@ func TestServiceCloseClosesRunner(t *testing.T) {
 func TestRefreshBrowserPathReplacesAndClosesDefaultChromiumRunner(t *testing.T) {
 	t.Parallel()
 
-	oldChromiumRunner := NewChromiumRunner(ChromiumOptions{BrowserPath: "old-browser"})
+	oldChromiumRunner := renderbrowser.NewChromiumRunner(renderbrowser.ChromiumOptions{BrowserPath: "old-browser"})
 	service := &Service{
 		runner:      oldChromiumRunner,
 		browserArgs: []string{"--disable-dev-shm-usage"},
@@ -294,7 +295,7 @@ func TestServicePreviewHTMLReusesValidationAndSkipsRunnerAndArtifacts(t *testing
 			"title": make(chan int),
 		},
 	})
-	var renderErr *Error
+	var renderErr *rendertemplates.Error
 	if !errors.As(err, &renderErr) || renderErr.Code != "platform.invalid_request" {
 		t.Fatalf("expected invalid request for unserializable input, got %v", err)
 	}

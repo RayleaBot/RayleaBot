@@ -4,7 +4,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/RayleaBot/RayleaBot/server/internal/runtime"
+	runtimemanager "github.com/RayleaBot/RayleaBot/server/internal/runtime/manager"
 )
 
 func assertRuntimeErrorCode(t *testing.T, err error, want string) {
@@ -14,9 +14,9 @@ func assertRuntimeErrorCode(t *testing.T, err error, want string) {
 		t.Fatalf("expected runtime error %q, got nil", want)
 	}
 
-	var runtimeErr *runtime.Error
+	var runtimeErr *runtimemanager.Error
 	if !errors.As(err, &runtimeErr) {
-		t.Fatalf("expected *runtime.Error, got %T", err)
+		t.Fatalf("expected *runtimemanager.Error, got %T", err)
 	}
 	if runtimeErr.Code != want {
 		t.Fatalf("unexpected runtime error code: got %q want %q", runtimeErr.Code, want)

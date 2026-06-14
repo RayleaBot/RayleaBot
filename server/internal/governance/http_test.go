@@ -168,7 +168,7 @@ func TestGovernanceBlacklistAndWhitelistRoundTrip(t *testing.T) {
 		t.Fatalf("blacklist list status = %d, want 200; body=%s", listResp.Code, listResp.Body.String())
 	}
 
-	var blacklistPayload governanceBlacklistResponse
+	var blacklistPayload BlacklistSnapshot
 	if err := json.Unmarshal(listResp.Body.Bytes(), &blacklistPayload); err != nil {
 		t.Fatalf("decode blacklist response: %v", err)
 	}
@@ -211,7 +211,7 @@ func TestGovernanceBlacklistAndWhitelistRoundTrip(t *testing.T) {
 		t.Fatalf("whitelist list status = %d, want 200; body=%s", getWhitelistResp.Code, getWhitelistResp.Body.String())
 	}
 
-	var whitelistPayload governanceWhitelistResponse
+	var whitelistPayload WhitelistSnapshot
 	if err := json.Unmarshal(getWhitelistResp.Body.Bytes(), &whitelistPayload); err != nil {
 		t.Fatalf("decode whitelist response: %v", err)
 	}
@@ -271,7 +271,7 @@ func TestGovernanceCommandPolicyProjection(t *testing.T) {
 		t.Fatalf("status = %d, want 200; body=%s", resp.Code, resp.Body.String())
 	}
 
-	var payload governanceCommandPolicyResponse
+	var payload CommandPolicyResponse
 	if err := json.Unmarshal(resp.Body.Bytes(), &payload); err != nil {
 		t.Fatalf("decode response: %v", err)
 	}

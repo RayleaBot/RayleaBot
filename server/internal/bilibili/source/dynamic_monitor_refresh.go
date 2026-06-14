@@ -7,6 +7,7 @@ import (
 	"net/url"
 	"strings"
 
+	bilibiliDynamic "github.com/RayleaBot/RayleaBot/server/internal/bilibili/dynamic"
 	"github.com/RayleaBot/RayleaBot/server/internal/bilibili/fingerprint"
 	"github.com/RayleaBot/RayleaBot/server/internal/thirdparty"
 )
@@ -62,12 +63,12 @@ func (s *Source) fetchMonitorLatestDynamic(ctx context.Context, subject Subject,
 		return BilibiliEvent{}, false, nil
 	}
 	dmImg := fingerprint.GetDmImg()
-	feedURL := fmt.Sprintf(dynamicSpaceFeedURL, subject.UID) +
+	feedURL := fmt.Sprintf(bilibiliDynamic.SpaceFeedURL, subject.UID) +
 		"&dm_img_list=" + url.QueryEscape(dmImg.DmImgList) +
 		"&dm_img_str=" + url.QueryEscape(dmImg.DmImgStr) +
 		"&dm_cover_img_str=" + url.QueryEscape(dmImg.DmCoverImgStr) +
 		"&dm_img_inter=" + url.QueryEscape(dmImg.DmImgInter)
-	var doc dynamicFeedDocument
+	var doc bilibiliDynamic.FeedDocument
 	if err := s.requestSignedJSON(ctx, http.MethodGet, feedURL, cookie, nil, &doc); err != nil {
 		return BilibiliEvent{}, false, err
 	}

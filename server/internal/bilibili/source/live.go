@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	bilibiliLive "github.com/RayleaBot/RayleaBot/server/internal/bilibili/live"
 	"github.com/RayleaBot/RayleaBot/server/internal/thirdparty"
 )
 
@@ -65,7 +66,7 @@ func (s *Source) connectLiveRoom(ctx context.Context, subject Subject, cookie st
 			UID:             subject.UID,
 			Name:            firstNonEmpty(item.UName, subject.Name),
 			Face:            firstNonEmpty(normalizeURL(item.Face), subject.AvatarURL),
-			LiveStatus:      normalizeLiveStatus(item.LiveStatus),
+			LiveStatus:      bilibiliLive.NormalizeStatus(item.LiveStatus),
 			ConnectionState: StateIdle,
 		}
 		s.setRoomState(ctx, state)
@@ -77,9 +78,9 @@ func (s *Source) connectLiveRoom(ctx context.Context, subject Subject, cookie st
 	state.RoomID = roomID
 	state.Name = firstNonEmpty(item.UName, subject.Name)
 	state.Face = firstNonEmpty(normalizeURL(item.Face), subject.AvatarURL)
-	state.CoverURL = firstLiveImageURL(item)
-	state.LiveStatus = normalizeLiveStatus(item.LiveStatus)
-	state.LiveStartedAt = liveTimeFromItem(item)
+	state.CoverURL = bilibiliLive.FirstImageURL(item)
+	state.LiveStatus = bilibiliLive.NormalizeStatus(item.LiveStatus)
+	state.LiveStartedAt = bilibiliLive.TimeFromItem(item)
 	state.ConnectionState = StateConnecting
 	state.LastError = ""
 	s.setRoomState(ctx, state)

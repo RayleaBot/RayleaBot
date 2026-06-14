@@ -4,7 +4,7 @@ import (
 	"context"
 	"strings"
 
-	"github.com/RayleaBot/RayleaBot/server/internal/runtime"
+	runtimeprotocol "github.com/RayleaBot/RayleaBot/server/internal/runtime/protocol"
 )
 
 func (s *Source) dispatchEvent(ctx context.Context, event BilibiliEvent) {
@@ -49,7 +49,7 @@ func (s *Source) dispatchEvent(ctx context.Context, event BilibiliEvent) {
 	if ts <= 0 {
 		ts = s.now().Unix()
 	}
-	s.dispatcher.Dispatch(ctx, runtime.Event{
+	s.dispatcher.Dispatch(ctx, runtimeprotocol.Event{
 		EventID:        event.EventType + ":" + event.UID + ":" + event.ID,
 		SourceProtocol: sourceProtocol,
 		SourceAdapter:  sourceAdapter,

@@ -4,6 +4,9 @@ import (
 	"context"
 	"strings"
 	"time"
+
+	adaptercache "github.com/RayleaBot/RayleaBot/server/internal/adapter/cache"
+	adapterintake "github.com/RayleaBot/RayleaBot/server/internal/adapter/intake"
 )
 
 const (
@@ -11,7 +14,7 @@ const (
 	defaultIdentityLookupTimeout = 1500 * time.Millisecond
 )
 
-func (s *Shell) EnrichEventMetadata(ctx context.Context, event NormalizedEvent) NormalizedEvent {
+func (s *Shell) EnrichEventMetadata(ctx context.Context, event adapterintake.NormalizedEvent) adapterintake.NormalizedEvent {
 	if s == nil || strings.TrimSpace(event.SourceProtocol) != "onebot11" {
 		return event
 	}
@@ -29,7 +32,7 @@ func (s *Shell) EnrichEventMetadata(ctx context.Context, event NormalizedEvent) 
 		if groupName := groupNameFromPayload(enriched.PayloadFields); groupID != "" && groupName != "" {
 			enriched.TargetName = groupName
 			if cache := s.currentIdentityCache(); cache != nil {
-				cache.SetGroupInfo(groupID, GroupInfo{Name: groupName})
+				cache.SetGroupInfo(groupID, adaptercache.GroupInfo{Name: groupName})
 			}
 		}
 		if strings.TrimSpace(enriched.TargetName) == "" {

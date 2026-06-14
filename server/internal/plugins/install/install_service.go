@@ -8,7 +8,7 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/tasks"
 )
 
-func (s *InstallService) Accept(_ context.Context, request InstallRequest) (string, error) {
+func (s *InstallService) Accept(_ context.Context, request plugins.InstallRequest) (string, error) {
 	taskID, err := s.registry.Create("plugin.install", "install plugin from "+request.SourceType+": "+request.Source)
 	if err != nil {
 		return "", err

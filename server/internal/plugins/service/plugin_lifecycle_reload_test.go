@@ -18,8 +18,8 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/dispatch"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	plugindiscovery "github.com/RayleaBot/RayleaBot/server/internal/plugins/discovery"
-	"github.com/RayleaBot/RayleaBot/server/internal/render"
-	"github.com/RayleaBot/RayleaBot/server/internal/runtime"
+	renderservice "github.com/RayleaBot/RayleaBot/server/internal/render/service"
+	runtimemanager "github.com/RayleaBot/RayleaBot/server/internal/runtime/manager"
 	"github.com/RayleaBot/RayleaBot/server/internal/schema"
 )
 
@@ -118,7 +118,7 @@ func TestReloadRefreshesManifestCommandsAndScopes(t *testing.T) {
 		catalog,
 		nil,
 		nil,
-		newRuntimeRegistry(slog.Default(), runtime.Options{}),
+		newRuntimeRegistry(slog.Default(), runtimemanager.Options{}),
 		dispatch.New(slog.Default(), nil, nil, 16),
 		nil,
 		nil,
@@ -210,7 +210,7 @@ func TestReloadSyncsPluginRenderTemplates(t *testing.T) {
 		t.Fatalf("initial sync plugin render templates: %v", err)
 	}
 
-	request := render.Request{
+	request := renderservice.Request{
 		Template: "plugin.weather-card.card",
 		Output:   "png",
 		Data: map[string]any{
@@ -238,7 +238,7 @@ func TestReloadSyncsPluginRenderTemplates(t *testing.T) {
 		catalog,
 		nil,
 		nil,
-		newRuntimeRegistry(slog.Default(), runtime.Options{}),
+		newRuntimeRegistry(slog.Default(), runtimemanager.Options{}),
 		dispatch.New(slog.Default(), nil, nil, 16),
 		nil,
 		nil,
@@ -282,7 +282,7 @@ func TestReloadReturnsTemplateSyncErrorBeforeStartingRuntime(t *testing.T) {
 		catalog,
 		nil,
 		nil,
-		newRuntimeRegistry(slog.Default(), runtime.Options{}),
+		newRuntimeRegistry(slog.Default(), runtimemanager.Options{}),
 		dispatch.New(slog.Default(), nil, nil, 16),
 		nil,
 		nil,
@@ -332,7 +332,7 @@ func TestPluginRuntimeStartInputsIncludeSuperAdmins(t *testing.T) {
 		catalog,
 		nil,
 		nil,
-		newRuntimeRegistry(slog.Default(), runtime.Options{}),
+		newRuntimeRegistry(slog.Default(), runtimemanager.Options{}),
 		dispatch.New(slog.Default(), nil, nil, 16),
 		nil,
 		nil,
@@ -432,7 +432,7 @@ func TestStartRuntimeDisablesPluginWhenGrantExpired(t *testing.T) {
 		GrantedAt:  time.Now().UTC().Add(-2 * time.Hour),
 		ExpiresAt:  timePtr(time.Now().UTC().Add(-time.Hour)),
 	}})
-	manager := runtime.New(slog.Default(), runtime.Options{})
+	manager := runtimemanager.New(slog.Default(), runtimemanager.Options{})
 
 	err := controller.startRuntime(context.Background(), "weather", "10001", manager)
 	if err == nil {
@@ -543,7 +543,7 @@ func newLifecycleControllerForGrantTests(t *testing.T, grants []plugins.PluginGr
 				"weather": grants,
 			},
 		},
-		newRuntimeRegistry(slog.Default(), runtime.Options{}),
+		newRuntimeRegistry(slog.Default(), runtimemanager.Options{}),
 		dispatch.New(slog.Default(), nil, nil, 16),
 		nil,
 		nil,

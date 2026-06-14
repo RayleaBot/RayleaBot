@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/RayleaBot/RayleaBot/server/internal/runtime"
+	runtimemanager "github.com/RayleaBot/RayleaBot/server/internal/runtime/manager"
 )
 
 func projectOneBotMessageHistoryGet(raw map[string]any) (string, map[string]any, error) {
@@ -28,7 +28,7 @@ func projectOneBotMessageHistoryGet(raw map[string]any) (string, map[string]any,
 		historyParams["user_id"] = oneBotAPIValue(conversationID)
 		return "get_friend_msg_history", historyParams, nil
 	default:
-		return "", nil, &runtime.Error{
+		return "", nil, &runtimemanager.Error{
 			Code:    "plugin.protocol_violation",
 			Message: "onebot action missing conversation_type",
 		}
@@ -77,7 +77,7 @@ func projectOneBotMessageForwardSend(raw map[string]any) (string, map[string]any
 		delete(params, "target_type")
 		return "send_private_forward_msg", params, nil
 	default:
-		return "", nil, &runtime.Error{
+		return "", nil, &runtimemanager.Error{
 			Code:    "plugin.protocol_violation",
 			Message: "onebot action missing target_type",
 		}
@@ -102,7 +102,7 @@ func projectOneBotMessageReadMark(raw map[string]any) (string, map[string]any, e
 	case "private":
 		return "mark_private_msg_as_read", map[string]any{"user_id": oneBotAPIValue(targetID)}, nil
 	default:
-		return "", nil, &runtime.Error{
+		return "", nil, &runtimemanager.Error{
 			Code:    "plugin.protocol_violation",
 			Message: "onebot action missing conversation_type",
 		}

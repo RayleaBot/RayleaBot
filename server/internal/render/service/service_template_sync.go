@@ -5,6 +5,9 @@ import (
 	"fmt"
 	"path/filepath"
 	"time"
+
+	renderrepo "github.com/RayleaBot/RayleaBot/server/internal/render/repository"
+	rendertemplates "github.com/RayleaBot/RayleaBot/server/internal/render/templates"
 )
 
 func (s *Service) syncTemplatesFromFiles(ctx context.Context) error {
@@ -15,21 +18,21 @@ func (s *Service) syncTemplatesFromFiles(ctx context.Context) error {
 	s.templateSyncMu.Lock()
 	defer s.templateSyncMu.Unlock()
 
-	Seeds, err := DiscoverSeeds(s.templatesRoot, s.logger)
+	Seeds, err := rendertemplates.DiscoverSeeds(s.templatesRoot, s.logger)
 	if err != nil {
 		return err
 	}
 
-	for _, templateID := range sortedTemplateIDs(Seeds) {
+	for _, templateID := range rendertemplates.SortedIDs(Seeds) {
 		seed := Seeds[templateID]
 		templateDir := filepath.Join(s.templatesRoot, filepath.Clean(templateID))
-		if err := s.syncTemplateSeed(ctx, templateID, seed, TemplateSourceInfo{Type: "system"}, templateDir, s.templatesRoot); err != nil {
+		if err := s.syncTemplateSeed(ctx, templateID, seed, renderrepo.TemplateSourceInfo{Type: "system"}, templateDir, s.templatesRoot); err != nil {
 			return fmt.Errorf("sync render template %s: %w", templateID, err)
 		}
 	}
 	return nil
 }
-func (s *Service) syncTemplateSeed(ctx context.Context, templateID string, seed Seed, sourceInfo TemplateSourceInfo, templateDir string, resourceRoot string) error {
+func (s *Service) syncTemplateSeed(ctx context.Context, templateID string, seed rendertemplates.Seed, sourceInfo renderrepo.TemplateSourceInfo, templateDir string, resourceRoot string) error {
 	savedAt := time.Now().UTC().Format(time.RFC3339Nano)
 	revision := newStoredRevision(
 		templateID,
@@ -39,7 +42,7 @@ func (s *Service) syncTemplateSeed(ctx context.Context, templateID string, seed 
 		nil,
 		savedAt,
 	)
-	changed, err := s.templateRepo.SyncTemplateRevision(ctx, revision, TemplateValidationStatus{
+	changed, err := s.templateRepo.SyncTemplateRevision(ctx, revision, renderrepo.TemplateValidationStatus{
 		Valid:      true,
 		CheckedAt:  savedAt,
 		IssueCount: 0,

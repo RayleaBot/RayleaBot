@@ -3,7 +3,7 @@ package app
 import (
 	"strings"
 
-	"github.com/RayleaBot/RayleaBot/server/internal/adapter"
+	adapterintake "github.com/RayleaBot/RayleaBot/server/internal/adapter/intake"
 	"github.com/RayleaBot/RayleaBot/server/internal/command"
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	menuext "github.com/RayleaBot/RayleaBot/server/internal/extensions/menu"
@@ -44,7 +44,7 @@ func runtimeCommandPrefixes(cfg config.Config) []string {
 	return []string{"/"}
 }
 
-func (s *eventIngressService) enrichCommandEvent(event adapter.NormalizedEvent) adapter.NormalizedEvent {
+func (s *eventIngressService) enrichCommandEvent(event adapterintake.NormalizedEvent) adapterintake.NormalizedEvent {
 	if s == nil || s.commandParser == nil || strings.TrimSpace(event.PlainText) == "" {
 		return event
 	}

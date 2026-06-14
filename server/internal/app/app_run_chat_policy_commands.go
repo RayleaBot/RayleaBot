@@ -3,7 +3,7 @@ package app
 import (
 	"strings"
 
-	"github.com/RayleaBot/RayleaBot/server/internal/adapter"
+	adapterintake "github.com/RayleaBot/RayleaBot/server/internal/adapter/intake"
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/permission"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
@@ -16,7 +16,7 @@ type commandPolicyContext struct {
 	PrimaryPluginID  string
 }
 
-func (s *eventIngressService) commandInfoForEvent(event adapter.NormalizedEvent) *permission.CommandInfo {
+func (s *eventIngressService) commandInfoForEvent(event adapterintake.NormalizedEvent) *permission.CommandInfo {
 	commandName := commandNameFromEvent(event)
 	if commandName == "" {
 		return nil
@@ -29,7 +29,7 @@ func (s *eventIngressService) commandInfoForEvent(event adapter.NormalizedEvent)
 	return commandContext.PermissionInfo
 }
 
-func (s *eventIngressService) commandPolicyContextForEvent(event adapter.NormalizedEvent) *commandPolicyContext {
+func (s *eventIngressService) commandPolicyContextForEvent(event adapterintake.NormalizedEvent) *commandPolicyContext {
 	commandName := commandNameFromEvent(event)
 	if commandName == "" {
 		return nil
@@ -74,7 +74,7 @@ func (s *eventIngressService) commandPolicyContextForEvent(event adapter.Normali
 	return context
 }
 
-func commandNameFromEvent(event adapter.NormalizedEvent) string {
+func commandNameFromEvent(event adapterintake.NormalizedEvent) string {
 	if event.PayloadFields == nil {
 		return ""
 	}

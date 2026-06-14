@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	adapteroutbound "github.com/RayleaBot/RayleaBot/server/internal/adapter/outbound"
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 )
 
@@ -50,9 +51,9 @@ func TestCallAPIAnyHTTPFallbackClearsAuthIssueAfterSuccess(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected first HTTP API call to fail")
 	}
-	var adapterErr *Error
+	var adapterErr *adapteroutbound.Error
 	if !errors.As(err, &adapterErr) {
-		t.Fatalf("expected *adapter.Error, got %T", err)
+		t.Fatalf("expected *adapteroutbound.Error, got %T", err)
 	}
 	if adapterErr.Code != errorCodeHTTPAPIAuthFailed {
 		t.Fatalf("unexpected adapter error code: got %q want %q", adapterErr.Code, errorCodeHTTPAPIAuthFailed)
@@ -104,9 +105,9 @@ func TestAcceptWebhookPayloadClearsInvalidPayloadIssueAfterSuccess(t *testing.T)
 	if err == nil {
 		t.Fatal("expected invalid webhook payload to fail")
 	}
-	var adapterErr *Error
+	var adapterErr *adapteroutbound.Error
 	if !errors.As(err, &adapterErr) {
-		t.Fatalf("expected *adapter.Error, got %T", err)
+		t.Fatalf("expected *adapteroutbound.Error, got %T", err)
 	}
 	if adapterErr.Code != errorCodeWebhookInvalidPayload {
 		t.Fatalf("unexpected webhook error code: got %q want %q", adapterErr.Code, errorCodeWebhookInvalidPayload)

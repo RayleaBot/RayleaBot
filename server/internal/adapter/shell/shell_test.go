@@ -16,6 +16,8 @@ import (
 	"github.com/coder/websocket"
 	"github.com/coder/websocket/wsjson"
 
+	adapterintake "github.com/RayleaBot/RayleaBot/server/internal/adapter/intake"
+	adapteroutbound "github.com/RayleaBot/RayleaBot/server/internal/adapter/outbound"
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/logging"
 )
@@ -78,8 +80,8 @@ func TestShellReachesConnectedAfterReadyFrame(t *testing.T) {
 	if snapshot.InvalidReceivedFrames != 0 {
 		t.Fatalf("unexpected invalid frame count: got %d want 0", snapshot.InvalidReceivedFrames)
 	}
-	if snapshot.LastFrameCategory != FrameCategoryLifecycleReady {
-		t.Fatalf("unexpected last frame category: got %s want %s", snapshot.LastFrameCategory, FrameCategoryLifecycleReady)
+	if snapshot.LastFrameCategory != adapterintake.FrameCategoryLifecycleReady {
+		t.Fatalf("unexpected last frame category: got %s want %s", snapshot.LastFrameCategory, adapterintake.FrameCategoryLifecycleReady)
 	}
 	if snapshot.LastFrameType != "meta.lifecycle.enable" {
 		t.Fatalf("unexpected last frame type: got %q want %q", snapshot.LastFrameType, "meta.lifecycle.enable")
@@ -262,10 +264,10 @@ func TestShellReloadReconnectsWithNewForwardTransportAndKeepsSendUsable(t *testi
 
 	waitForState(t, shell, StateConnected, 500*time.Millisecond)
 
-	result, err := shell.SendMessage(context.Background(), OutboundMessageSend{
+	result, err := shell.SendMessage(context.Background(), adapteroutbound.OutboundMessageSend{
 		TargetType: "group",
 		TargetID:   "2001",
-		Segments: []OutboundMessageSegment{{
+		Segments: []adapteroutbound.OutboundMessageSegment{{
 			Type: "text",
 			Data: map[string]any{"text": "hello after reload"},
 		}},
@@ -364,8 +366,8 @@ func TestShellWaitsForReadyFrameWhileTrafficContinues(t *testing.T) {
 	if snapshot.InvalidReceivedFrames != 0 {
 		t.Fatalf("unexpected invalid frame count: got %d want 0", snapshot.InvalidReceivedFrames)
 	}
-	if snapshot.LastFrameCategory != FrameCategoryLifecycleReady {
-		t.Fatalf("unexpected last frame category: got %s want %s", snapshot.LastFrameCategory, FrameCategoryLifecycleReady)
+	if snapshot.LastFrameCategory != adapterintake.FrameCategoryLifecycleReady {
+		t.Fatalf("unexpected last frame category: got %s want %s", snapshot.LastFrameCategory, adapterintake.FrameCategoryLifecycleReady)
 	}
 
 	stopCtx, stopCancel := context.WithTimeout(context.Background(), time.Second)
@@ -428,8 +430,8 @@ func TestShellHeartbeatUpdatesIntakeObservability(t *testing.T) {
 	if snapshot.LastHeartbeatAt == nil {
 		t.Fatal("expected LastHeartbeatAt to be populated")
 	}
-	if snapshot.LastFrameCategory != FrameCategoryHeartbeat {
-		t.Fatalf("unexpected last frame category: got %s want %s", snapshot.LastFrameCategory, FrameCategoryHeartbeat)
+	if snapshot.LastFrameCategory != adapterintake.FrameCategoryHeartbeat {
+		t.Fatalf("unexpected last frame category: got %s want %s", snapshot.LastFrameCategory, adapterintake.FrameCategoryHeartbeat)
 	}
 	if snapshot.LastFrameType != "meta.heartbeat" {
 		t.Fatalf("unexpected last frame type: got %q want %q", snapshot.LastFrameType, "meta.heartbeat")
@@ -492,8 +494,8 @@ func TestShellTreatsLifecycleConnectAsReadyAndKeepsSessionOpen(t *testing.T) {
 	if snapshot.State != StateConnected {
 		t.Fatalf("unexpected state: got %s want %s", snapshot.State, StateConnected)
 	}
-	if snapshot.LastFrameCategory != FrameCategoryLifecycleReady {
-		t.Fatalf("unexpected last frame category: got %s want %s", snapshot.LastFrameCategory, FrameCategoryLifecycleReady)
+	if snapshot.LastFrameCategory != adapterintake.FrameCategoryLifecycleReady {
+		t.Fatalf("unexpected last frame category: got %s want %s", snapshot.LastFrameCategory, adapterintake.FrameCategoryLifecycleReady)
 	}
 	if snapshot.LastFrameType != "meta.lifecycle.connect" {
 		t.Fatalf("unexpected last frame type: got %q want %q", snapshot.LastFrameType, "meta.lifecycle.connect")
@@ -552,8 +554,8 @@ func TestShellAcceptsBinaryReadyFrame(t *testing.T) {
 	if snapshot.InvalidReceivedFrames != 0 {
 		t.Fatalf("unexpected invalid frame count: got %d want 0", snapshot.InvalidReceivedFrames)
 	}
-	if snapshot.LastFrameCategory != FrameCategoryHeartbeat {
-		t.Fatalf("unexpected last frame category: got %s want %s", snapshot.LastFrameCategory, FrameCategoryHeartbeat)
+	if snapshot.LastFrameCategory != adapterintake.FrameCategoryHeartbeat {
+		t.Fatalf("unexpected last frame category: got %s want %s", snapshot.LastFrameCategory, adapterintake.FrameCategoryHeartbeat)
 	}
 
 	stopCtx, stopCancel := context.WithTimeout(context.Background(), time.Second)
@@ -617,8 +619,8 @@ func TestShellInvalidFrameIncrementsInvalidCounter(t *testing.T) {
 	if snapshot.TotalReceivedFrames != 2 {
 		t.Fatalf("unexpected total frame count: got %d want 2", snapshot.TotalReceivedFrames)
 	}
-	if snapshot.LastFrameCategory != FrameCategoryInvalid {
-		t.Fatalf("unexpected last frame category: got %s want %s", snapshot.LastFrameCategory, FrameCategoryInvalid)
+	if snapshot.LastFrameCategory != adapterintake.FrameCategoryInvalid {
+		t.Fatalf("unexpected last frame category: got %s want %s", snapshot.LastFrameCategory, adapterintake.FrameCategoryInvalid)
 	}
 	if snapshot.LastFrameType != "invalid" {
 		t.Fatalf("unexpected last frame type: got %q want %q", snapshot.LastFrameType, "invalid")
@@ -692,8 +694,8 @@ func TestShellUnknownFrameIsClassifiedConservatively(t *testing.T) {
 	if snapshot.InvalidReceivedFrames != 0 {
 		t.Fatalf("unexpected invalid frame count: got %d want 0", snapshot.InvalidReceivedFrames)
 	}
-	if snapshot.LastFrameCategory != FrameCategoryUnknown {
-		t.Fatalf("unexpected last frame category: got %s want %s", snapshot.LastFrameCategory, FrameCategoryUnknown)
+	if snapshot.LastFrameCategory != adapterintake.FrameCategoryUnknown {
+		t.Fatalf("unexpected last frame category: got %s want %s", snapshot.LastFrameCategory, adapterintake.FrameCategoryUnknown)
 	}
 	if snapshot.LastFrameType != "unknown" {
 		t.Fatalf("unexpected last frame type: got %q want %q", snapshot.LastFrameType, "unknown")
@@ -769,8 +771,8 @@ func TestShellNonStringEchoDoesNotTriggerReconnect(t *testing.T) {
 	if snapshot.InvalidReceivedFrames != 0 {
 		t.Fatalf("unexpected invalid frame count: got %d want 0", snapshot.InvalidReceivedFrames)
 	}
-	if snapshot.LastFrameCategory != FrameCategoryUnknown {
-		t.Fatalf("unexpected last frame category: got %s want %s", snapshot.LastFrameCategory, FrameCategoryUnknown)
+	if snapshot.LastFrameCategory != adapterintake.FrameCategoryUnknown {
+		t.Fatalf("unexpected last frame category: got %s want %s", snapshot.LastFrameCategory, adapterintake.FrameCategoryUnknown)
 	}
 	if snapshot.LastFrameType != "api.response.ignored" {
 		t.Fatalf("unexpected last frame type: got %q want %q", snapshot.LastFrameType, "api.response.ignored")
@@ -918,8 +920,8 @@ func TestShellEventFrameIsConsumedWithoutSideEffects(t *testing.T) {
 	if snapshot.InvalidReceivedFrames != 0 {
 		t.Fatalf("unexpected invalid frame count: got %d want 0", snapshot.InvalidReceivedFrames)
 	}
-	if snapshot.LastFrameCategory != FrameCategoryEvent {
-		t.Fatalf("unexpected last frame category: got %s want %s", snapshot.LastFrameCategory, FrameCategoryEvent)
+	if snapshot.LastFrameCategory != adapterintake.FrameCategoryEvent {
+		t.Fatalf("unexpected last frame category: got %s want %s", snapshot.LastFrameCategory, adapterintake.FrameCategoryEvent)
 	}
 	if snapshot.LastFrameType != "message" {
 		t.Fatalf("unexpected last frame type: got %q want %q", snapshot.LastFrameType, "message")
@@ -1371,10 +1373,10 @@ func TestShellSendMessageWritesSendMsgRequestAndReturnsMessageID(t *testing.T) {
 	shell.Start(ctx)
 	waitForState(t, shell, StateConnected, 500*time.Millisecond)
 
-	result, err := shell.SendMessage(context.Background(), OutboundMessageSend{
+	result, err := shell.SendMessage(context.Background(), adapteroutbound.OutboundMessageSend{
 		TargetType: "group",
 		TargetID:   "2001",
-		Segments: []OutboundMessageSegment{{
+		Segments: []adapteroutbound.OutboundMessageSegment{{
 			Type: "text",
 			Data: map[string]any{"text": "hello outbound"},
 		}},
@@ -1497,10 +1499,10 @@ func TestShellSendMessageReturnsAdapterSendFailed(t *testing.T) {
 	shell.Start(ctx)
 	waitForState(t, shell, StateConnected, 500*time.Millisecond)
 
-	_, err := shell.SendMessage(context.Background(), OutboundMessageSend{
+	_, err := shell.SendMessage(context.Background(), adapteroutbound.OutboundMessageSend{
 		TargetType: "private",
 		TargetID:   "3001",
-		Segments: []OutboundMessageSegment{{
+		Segments: []adapteroutbound.OutboundMessageSegment{{
 			Type: "text",
 			Data: map[string]any{"text": "hello outbound"},
 		}},
@@ -1508,12 +1510,12 @@ func TestShellSendMessageReturnsAdapterSendFailed(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected SendMessage to fail")
 	}
-	var adapterErr *Error
+	var adapterErr *adapteroutbound.Error
 	if !errors.As(err, &adapterErr) {
-		t.Fatalf("expected *adapter.Error, got %T", err)
+		t.Fatalf("expected *adapteroutbound.Error, got %T", err)
 	}
-	if adapterErr.Code != errorCodeSendFailed {
-		t.Fatalf("unexpected adapter error code: got %q want %q", adapterErr.Code, errorCodeSendFailed)
+	if adapterErr.Code != adapteroutbound.ErrorCodeSendFailed {
+		t.Fatalf("unexpected adapter error code: got %q want %q", adapterErr.Code, adapteroutbound.ErrorCodeSendFailed)
 	}
 
 	stopCtx, stopCancel := context.WithTimeout(context.Background(), time.Second)
@@ -1581,11 +1583,11 @@ func TestShellSendReplyWritesReplySegmentRequestAndReturnsMessageID(t *testing.T
 	shell.Start(ctx)
 	waitForState(t, shell, StateConnected, 500*time.Millisecond)
 
-	result, err := shell.SendReply(context.Background(), OutboundMessageReply{
+	result, err := shell.SendReply(context.Background(), adapteroutbound.OutboundMessageReply{
 		TargetType:       "group",
 		TargetID:         "2001",
 		ReplyToMessageID: "98765",
-		Segments: []OutboundMessageSegment{{
+		Segments: []adapteroutbound.OutboundMessageSegment{{
 			Type: "text",
 			Data: map[string]any{"text": "reply text"},
 		}},
@@ -1703,10 +1705,10 @@ func TestShellSendMessageWritesRichSegmentArray(t *testing.T) {
 	shell.Start(ctx)
 	waitForState(t, shell, StateConnected, 500*time.Millisecond)
 
-	_, err := shell.SendMessage(context.Background(), OutboundMessageSend{
+	_, err := shell.SendMessage(context.Background(), adapteroutbound.OutboundMessageSend{
 		TargetType: "group",
 		TargetID:   "2001",
-		Segments: []OutboundMessageSegment{
+		Segments: []adapteroutbound.OutboundMessageSegment{
 			{Type: "at", Data: map[string]any{"user_id": "3001"}},
 			{Type: "text", Data: map[string]any{"text": " rich outbound"}},
 			{Type: "image", Data: map[string]any{"url": "https://example.test/rich.png"}},
@@ -1803,11 +1805,11 @@ func TestShellSendReplyMapsReplyTargetMissing(t *testing.T) {
 	shell.Start(ctx)
 	waitForState(t, shell, StateConnected, 500*time.Millisecond)
 
-	_, err := shell.SendReply(context.Background(), OutboundMessageReply{
+	_, err := shell.SendReply(context.Background(), adapteroutbound.OutboundMessageReply{
 		TargetType:       "group",
 		TargetID:         "2001",
 		ReplyToMessageID: "98765",
-		Segments: []OutboundMessageSegment{{
+		Segments: []adapteroutbound.OutboundMessageSegment{{
 			Type: "text",
 			Data: map[string]any{"text": "reply text"},
 		}},
@@ -1816,12 +1818,12 @@ func TestShellSendReplyMapsReplyTargetMissing(t *testing.T) {
 		t.Fatal("expected SendReply to fail")
 	}
 
-	var adapterErr *Error
+	var adapterErr *adapteroutbound.Error
 	if !errors.As(err, &adapterErr) {
-		t.Fatalf("expected *adapter.Error, got %T", err)
+		t.Fatalf("expected *adapteroutbound.Error, got %T", err)
 	}
-	if adapterErr.Code != errorCodeReplyTargetMissing {
-		t.Fatalf("unexpected adapter error code: got %q want %q", adapterErr.Code, errorCodeReplyTargetMissing)
+	if adapterErr.Code != adapteroutbound.ErrorCodeReplyTargetMissing {
+		t.Fatalf("unexpected adapter error code: got %q want %q", adapterErr.Code, adapteroutbound.ErrorCodeReplyTargetMissing)
 	}
 
 	stopCtx, stopCancel := context.WithTimeout(context.Background(), time.Second)

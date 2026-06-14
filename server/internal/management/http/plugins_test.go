@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	"net/http"
 	"net/http/httptest"
 	"reflect"
@@ -41,7 +42,7 @@ func (r *stubDesiredStateRepository) DeleteDesiredState(_ context.Context, _ str
 	return nil
 }
 
-func setupRouter(entries []Snapshot) (chi.Router, CatalogView, *tasks.Registry, *stubDesiredStateRepository) {
+func setupRouter(entries []plugins.Snapshot) (chi.Router, plugins.CatalogView, *tasks.Registry, *stubDesiredStateRepository) {
 	catalog := newTestCatalog(entries)
 	taskRegistry := tasks.NewRegistry()
 	repo := &stubDesiredStateRepository{}
@@ -53,29 +54,29 @@ func setupRouter(entries []Snapshot) (chi.Router, CatalogView, *tasks.Registry, 
 }
 
 type stubDesiredStateController struct {
-	enableResult  Snapshot
+	enableResult  plugins.Snapshot
 	enableErr     error
-	disableResult Snapshot
+	disableResult plugins.Snapshot
 	disableErr    error
-	reloadResult  Snapshot
+	reloadResult  plugins.Snapshot
 	reloadErr     error
-	recoverResult Snapshot
+	recoverResult plugins.Snapshot
 	recoverErr    error
 }
 
-func (s *stubDesiredStateController) Enable(_ context.Context, _ string) (Snapshot, error) {
+func (s *stubDesiredStateController) Enable(_ context.Context, _ string) (plugins.Snapshot, error) {
 	return s.enableResult, s.enableErr
 }
 
-func (s *stubDesiredStateController) Disable(_ context.Context, _ string) (Snapshot, error) {
+func (s *stubDesiredStateController) Disable(_ context.Context, _ string) (plugins.Snapshot, error) {
 	return s.disableResult, s.disableErr
 }
 
-func (s *stubDesiredStateController) Reload(_ context.Context, _ string) (Snapshot, error) {
+func (s *stubDesiredStateController) Reload(_ context.Context, _ string) (plugins.Snapshot, error) {
 	return s.reloadResult, s.reloadErr
 }
 
-func (s *stubDesiredStateController) RecoverFromDeadLetter(_ context.Context, _ string) (Snapshot, error) {
+func (s *stubDesiredStateController) RecoverFromDeadLetter(_ context.Context, _ string) (plugins.Snapshot, error) {
 	return s.recoverResult, s.recoverErr
 }
 
@@ -94,7 +95,7 @@ func decodeErrorEnvelope(t fataler, body []byte) errorEnvelope {
 func TestListHandler_ReturnsPluginMetadata(t *testing.T) {
 	t.Parallel()
 
-	catalog := newTestCatalog([]Snapshot{{
+	catalog := newTestCatalog([]plugins.Snapshot{{
 		PluginID:          "weather",
 		Name:              "Weather",
 		Version:           "1.2.3",
@@ -262,7 +263,7 @@ func TestProperty_NonExistentPluginReturns404(t *testing.T) {
 func TestProperty_ErrorResponseSchemaConsistency(t *testing.T) {
 	rapid.Check(t, func(t *rapid.T) {
 		// Build a catalog with one installed+enabled plugin for 409 scenarios.
-		catalog := newTestCatalog([]Snapshot{{
+		catalog := newTestCatalog([]plugins.Snapshot{{
 			PluginID:          "existing",
 			Name:              "Existing Plugin",
 			Version:           "1.0.0",
@@ -397,7 +398,7 @@ func TestInstallHandler_AllowsExplicitInstallScriptAuthorization(t *testing.T) {
 // TestEnableHandler_Success: enable a disabled+installed plugin returns 200.
 // Reproduces fixture ok.plugins-enable-response.yaml.
 func TestEnableHandler_Success(t *testing.T) {
-	router, _, _, repo := setupRouter([]Snapshot{{
+	router, _, _, repo := setupRouter([]plugins.Snapshot{{
 		PluginID:          "weather",
 		Name:              "Weather",
 		Version:           "1.0.0",
@@ -435,7 +436,7 @@ func TestEnableHandler_Success(t *testing.T) {
 // TestDisableHandler_RuntimeStillStopping: disable an enabled plugin returns 200.
 // runtime_state may still be "stopping". Reproduces fixture edge.plugins-disable-response.yaml.
 func TestDisableHandler_RuntimeStillStopping(t *testing.T) {
-	router, _, _, repo := setupRouter([]Snapshot{{
+	router, _, _, repo := setupRouter([]plugins.Snapshot{{
 		PluginID:          "weather",
 		Name:              "Weather",
 		Version:           "1.0.0",
@@ -480,7 +481,7 @@ func TestDisableHandler_RuntimeStillStopping(t *testing.T) {
 func TestEnableHandler_ReturnsPermissionPendingForScopeChange(t *testing.T) {
 	t.Parallel()
 
-	catalog := newTestCatalog([]Snapshot{{
+	catalog := newTestCatalog([]plugins.Snapshot{{
 		PluginID:          "weather",
 		Valid:             true,
 		RegistrationState: "installed",
@@ -488,7 +489,7 @@ func TestEnableHandler_ReturnsPermissionPendingForScopeChange(t *testing.T) {
 		RuntimeState:      "stopped",
 	}})
 	controller := &stubDesiredStateController{
-		enableErr: &PermissionPendingError{
+		enableErr: &plugins.PermissionPendingError{
 			PluginID:     "weather",
 			ScopeChanged: true,
 		},
@@ -528,7 +529,7 @@ func TestDetailHandler_ReturnsPermissionSummaries(t *testing.T) {
 	t.Parallel()
 
 	repo := &stubGrantRepository{
-		grants: map[string][]PluginGrant{
+		grants: map[string][]plugins.PluginGrant{
 			"weather": {{
 				PluginID:   "weather",
 				Capability: "logger.write",
@@ -536,7 +537,7 @@ func TestDetailHandler_ReturnsPermissionSummaries(t *testing.T) {
 			}},
 		},
 	}
-	catalog := newTestCatalog([]Snapshot{{
+	catalog := newTestCatalog([]plugins.Snapshot{{
 		PluginID:            "weather",
 		Name:                "Weather",
 		Valid:               true,
@@ -567,10 +568,10 @@ func TestDetailHandler_ReturnsPermissionSummaries(t *testing.T) {
 	if len(resp.Plugin.Permissions) != 2 {
 		t.Fatalf("len(permissions) = %d, want 2", len(resp.Plugin.Permissions))
 	}
-	if resp.Plugin.Permissions[0].Capability != "http.request" || resp.Plugin.Permissions[0].Source != string(PermissionSourceConfigAuto) {
+	if resp.Plugin.Permissions[0].Capability != "http.request" || resp.Plugin.Permissions[0].Source != string(plugins.PermissionSourceConfigAuto) {
 		t.Fatalf("unexpected first permission: %#v", resp.Plugin.Permissions[0])
 	}
-	if resp.Plugin.Permissions[1].Capability != "logger.write" || resp.Plugin.Permissions[1].Source != string(PermissionSourcePersisted) {
+	if resp.Plugin.Permissions[1].Capability != "logger.write" || resp.Plugin.Permissions[1].Source != string(plugins.PermissionSourcePersisted) {
 		t.Fatalf("unexpected second permission: %#v", resp.Plugin.Permissions[1])
 	}
 }
@@ -578,7 +579,7 @@ func TestDetailHandler_ReturnsPermissionSummaries(t *testing.T) {
 func TestDetailHandler_ReturnsBuiltinAutoPermissions(t *testing.T) {
 	t.Parallel()
 
-	catalog := newTestCatalog([]Snapshot{{
+	catalog := newTestCatalog([]plugins.Snapshot{{
 		PluginID:            "raylea.echo",
 		Name:                "Echo",
 		Valid:               true,
@@ -608,11 +609,11 @@ func TestDetailHandler_ReturnsBuiltinAutoPermissions(t *testing.T) {
 		t.Fatalf("len(permissions) = %d, want 1", len(resp.Plugin.Permissions))
 	}
 	for _, permission := range resp.Plugin.Permissions {
-		if permission.Source != string(PermissionSourceBuiltinAuto) {
-			t.Fatalf("permission source = %q, want %q", permission.Source, PermissionSourceBuiltinAuto)
+		if permission.Source != string(plugins.PermissionSourceBuiltinAuto) {
+			t.Fatalf("permission source = %q, want %q", permission.Source, plugins.PermissionSourceBuiltinAuto)
 		}
-		if permission.Status != string(PermissionStatusGranted) {
-			t.Fatalf("permission status = %q, want %q", permission.Status, PermissionStatusGranted)
+		if permission.Status != string(plugins.PermissionStatusGranted) {
+			t.Fatalf("permission status = %q, want %q", permission.Status, plugins.PermissionStatusGranted)
 		}
 	}
 }
@@ -620,19 +621,19 @@ func TestDetailHandler_ReturnsBuiltinAutoPermissions(t *testing.T) {
 func TestDetailHandlerReturnsHelpProjection(t *testing.T) {
 	t.Parallel()
 
-	catalog := newTestCatalog([]Snapshot{{
+	catalog := newTestCatalog([]plugins.Snapshot{{
 		PluginID:          "weather",
 		Name:              "Weather",
 		Valid:             true,
 		RegistrationState: "installed",
 		DesiredState:      "enabled",
 		RuntimeState:      "running",
-		Help: &Help{
+		Help: &plugins.Help{
 			Title:   "Weather",
 			Summary: "天气菜单",
-			Groups: []HelpGroup{{
+			Groups: []plugins.HelpGroup{{
 				Title: "查询",
-				Items: []HelpItem{{
+				Items: []plugins.HelpItem{{
 					Title:       "城市天气",
 					Description: "查询城市天气",
 					Usage:       "/weather 上海",
@@ -672,7 +673,7 @@ func TestDetailHandlerReturnsHelpProjection(t *testing.T) {
 func TestDetailHandler_ReturnsManagementUI(t *testing.T) {
 	t.Parallel()
 
-	catalog := newTestCatalog([]Snapshot{{
+	catalog := newTestCatalog([]plugins.Snapshot{{
 		PluginID:          "example-config-panel",
 		Name:              "Example Config Panel",
 		Valid:             true,
@@ -680,8 +681,8 @@ func TestDetailHandler_ReturnsManagementUI(t *testing.T) {
 		DesiredState:      "disabled",
 		RuntimeState:      "stopped",
 		DisplayState:      "disabled",
-		ManagementUI: &ManagementUI{
-			Pages: []ManagementUIPage{
+		ManagementUI: &plugins.ManagementUI{
+			Pages: []plugins.ManagementUIPage{
 				{ID: "config", Label: "配置页面", Entry: "web/index.html"},
 				{ID: "secrets", Label: "密钥设置", Entry: "web/secrets.html"},
 			},
@@ -717,7 +718,7 @@ func TestDetailHandler_ReturnsManagementUI(t *testing.T) {
 func TestDetailHandler_ReturnsRenderTemplates(t *testing.T) {
 	t.Parallel()
 
-	catalog := newTestCatalog([]Snapshot{{
+	catalog := newTestCatalog([]plugins.Snapshot{{
 		PluginID:          "weather-card",
 		Name:              "Weather Card",
 		Valid:             true,
@@ -725,7 +726,7 @@ func TestDetailHandler_ReturnsRenderTemplates(t *testing.T) {
 		DesiredState:      "disabled",
 		RuntimeState:      "stopped",
 		DisplayState:      "disabled",
-		RenderTemplates:   []RenderTemplate{{Path: "templates/card"}},
+		RenderTemplates:   []plugins.RenderTemplate{{Path: "templates/card"}},
 	}})
 	router := chi.NewRouter()
 	router.Get("/api/plugins/{plugin_id}", newDetailHandler(catalog, nil, nil))
@@ -750,7 +751,7 @@ func TestDetailHandler_ReturnsRenderTemplates(t *testing.T) {
 
 // TestEnableHandler_AlreadyEnabled_409: enable already-enabled plugin returns 409.
 func TestEnableHandler_AlreadyEnabled_409(t *testing.T) {
-	router, _, _, repo := setupRouter([]Snapshot{{
+	router, _, _, repo := setupRouter([]plugins.Snapshot{{
 		PluginID:          "weather",
 		Name:              "Weather",
 		Version:           "1.0.0",
@@ -780,7 +781,7 @@ func TestEnableHandler_AlreadyEnabled_409(t *testing.T) {
 
 // TestDisableHandler_AlreadyDisabled_409: disable already-disabled plugin returns 409.
 func TestDisableHandler_AlreadyDisabled_409(t *testing.T) {
-	router, _, _, repo := setupRouter([]Snapshot{{
+	router, _, _, repo := setupRouter([]plugins.Snapshot{{
 		PluginID:          "weather",
 		Name:              "Weather",
 		Version:           "1.0.0",
@@ -810,7 +811,7 @@ func TestDisableHandler_AlreadyDisabled_409(t *testing.T) {
 
 // TestEnableHandler_RemovedPlugin_409: enable plugin with registration_state=removed returns 409.
 func TestEnableHandler_RemovedPlugin_409(t *testing.T) {
-	router, _, _, repo := setupRouter([]Snapshot{{
+	router, _, _, repo := setupRouter([]plugins.Snapshot{{
 		PluginID:          "old_plugin",
 		Name:              "Old Plugin",
 		Version:           "1.0.0",
@@ -882,12 +883,12 @@ func TestInstallHandler_MalformedJSON_400(t *testing.T) {
 // --- Grants scope validation tests ---
 
 type stubGrantRepository struct {
-	grants map[string][]PluginGrant
+	grants map[string][]plugins.PluginGrant
 }
 
-func (r *stubGrantRepository) LoadGrants(_ context.Context, pluginID string) ([]PluginGrant, error) {
+func (r *stubGrantRepository) LoadGrants(_ context.Context, pluginID string) ([]plugins.PluginGrant, error) {
 	now := time.Now().UTC()
-	var active []PluginGrant
+	var active []plugins.PluginGrant
 	for _, grant := range r.grants[pluginID] {
 		if grant.ExpiresAt != nil && !grant.ExpiresAt.After(now) {
 			continue
@@ -908,9 +909,9 @@ func (r *stubGrantRepository) LoadAllGrants(_ context.Context) (map[string][]str
 	return result, nil
 }
 
-func (r *stubGrantRepository) SaveGrant(_ context.Context, grant PluginGrant) error {
+func (r *stubGrantRepository) SaveGrant(_ context.Context, grant plugins.PluginGrant) error {
 	if r.grants == nil {
-		r.grants = make(map[string][]PluginGrant)
+		r.grants = make(map[string][]plugins.PluginGrant)
 	}
 	items := r.grants[grant.PluginID]
 	for i, existing := range items {
@@ -940,11 +941,11 @@ func (r *stubGrantRepository) DeleteAllGrants(_ context.Context, pluginID string
 	return nil
 }
 
-func grantsRouter(entries []Snapshot, grantRepo GrantRepository) chi.Router {
+func grantsRouter(entries []plugins.Snapshot, grantRepo plugins.GrantRepository) chi.Router {
 	return grantsRouterWithAutoGrants(entries, grantRepo, nil)
 }
 
-func grantsRouterWithAutoGrants(entries []Snapshot, grantRepo GrantRepository, autoGrants []string) chi.Router {
+func grantsRouterWithAutoGrants(entries []plugins.Snapshot, grantRepo plugins.GrantRepository, autoGrants []string) chi.Router {
 	catalog := newTestCatalog(entries)
 	router := chi.NewRouter()
 	RegisterPluginRoutes(router, catalog, nil, nil, nil, nil, nil, grantRepo, func() []string {
@@ -957,7 +958,7 @@ func TestGrantHandler_ValidCapability(t *testing.T) {
 	t.Parallel()
 
 	repo := &stubGrantRepository{}
-	router := grantsRouter([]Snapshot{{
+	router := grantsRouter([]plugins.Snapshot{{
 		PluginID:             "weather",
 		Valid:                true,
 		RegistrationState:    "installed",
@@ -986,8 +987,8 @@ func TestGrantHandler_ValidCapability(t *testing.T) {
 	if resp.Capability != "http.request" {
 		t.Fatalf("capability = %q, want http.request", resp.Capability)
 	}
-	if resp.Source != string(GrantSourcePersisted) {
-		t.Fatalf("source = %q, want %q", resp.Source, GrantSourcePersisted)
+	if resp.Source != string(plugins.GrantSourcePersisted) {
+		t.Fatalf("source = %q, want %q", resp.Source, plugins.GrantSourcePersisted)
 	}
 	if resp.GrantedAt == nil || *resp.GrantedAt == "" {
 		t.Fatalf("granted_at = %#v, want populated timestamp", resp.GrantedAt)
@@ -1001,7 +1002,7 @@ func TestGrantHandler_AcceptsMultiSegmentCapability(t *testing.T) {
 	t.Parallel()
 
 	repo := &stubGrantRepository{}
-	router := grantsRouter([]Snapshot{{
+	router := grantsRouter([]plugins.Snapshot{{
 		PluginID:             "weather",
 		Valid:                true,
 		RegistrationState:    "installed",
@@ -1027,7 +1028,7 @@ func TestGrantHandler_AcceptsProviderCapability(t *testing.T) {
 	t.Parallel()
 
 	repo := &stubGrantRepository{}
-	router := grantsRouter([]Snapshot{{
+	router := grantsRouter([]plugins.Snapshot{{
 		PluginID:            "weather",
 		Valid:               true,
 		RegistrationState:   "installed",
@@ -1052,7 +1053,7 @@ func TestGrantHandler_RejectsInvalidCapabilityFormat(t *testing.T) {
 	t.Parallel()
 
 	repo := &stubGrantRepository{}
-	router := grantsRouter([]Snapshot{{
+	router := grantsRouter([]plugins.Snapshot{{
 		PluginID:             "weather",
 		Valid:                true,
 		RegistrationState:    "installed",
@@ -1079,7 +1080,7 @@ func TestGrantHandler_RejectsUndeclaredCapability(t *testing.T) {
 	t.Parallel()
 
 	repo := &stubGrantRepository{}
-	router := grantsRouter([]Snapshot{{
+	router := grantsRouter([]plugins.Snapshot{{
 		PluginID:             "weather",
 		Valid:                true,
 		RegistrationState:    "installed",
@@ -1111,7 +1112,7 @@ func TestGrantHandler_AcceptsOptionalPermission(t *testing.T) {
 	t.Parallel()
 
 	repo := &stubGrantRepository{}
-	router := grantsRouter([]Snapshot{{
+	router := grantsRouter([]plugins.Snapshot{{
 		PluginID:            "weather",
 		Valid:               true,
 		RegistrationState:   "installed",
@@ -1154,7 +1155,7 @@ func TestGrantHandler_AcceptsFutureExpiry(t *testing.T) {
 	t.Parallel()
 
 	repo := &stubGrantRepository{}
-	router := grantsRouter([]Snapshot{{
+	router := grantsRouter([]plugins.Snapshot{{
 		PluginID:             "weather",
 		Valid:                true,
 		RegistrationState:    "installed",
@@ -1183,8 +1184,8 @@ func TestGrantHandler_AcceptsFutureExpiry(t *testing.T) {
 	if resp.ExpiresAt == nil || *resp.ExpiresAt != expiresAt {
 		t.Fatalf("expires_at = %#v, want %q", resp.ExpiresAt, expiresAt)
 	}
-	if resp.Source != string(GrantSourcePersisted) {
-		t.Fatalf("source = %q, want %q", resp.Source, GrantSourcePersisted)
+	if resp.Source != string(plugins.GrantSourcePersisted) {
+		t.Fatalf("source = %q, want %q", resp.Source, plugins.GrantSourcePersisted)
 	}
 }
 
@@ -1192,7 +1193,7 @@ func TestGrantHandler_RejectsInvalidExpiry(t *testing.T) {
 	t.Parallel()
 
 	repo := &stubGrantRepository{}
-	router := grantsRouter([]Snapshot{{
+	router := grantsRouter([]plugins.Snapshot{{
 		PluginID:             "weather",
 		Valid:                true,
 		RegistrationState:    "installed",
@@ -1227,7 +1228,7 @@ func TestListGrantsHandler_OmitsExpiredGrant(t *testing.T) {
 	future := now.Add(time.Hour)
 	past := now.Add(-time.Hour)
 	repo := &stubGrantRepository{
-		grants: map[string][]PluginGrant{
+		grants: map[string][]plugins.PluginGrant{
 			"weather": {
 				{
 					PluginID:   "weather",
@@ -1249,7 +1250,7 @@ func TestListGrantsHandler_OmitsExpiredGrant(t *testing.T) {
 			},
 		},
 	}
-	router := grantsRouter([]Snapshot{{
+	router := grantsRouter([]plugins.Snapshot{{
 		PluginID:          "weather",
 		Valid:             true,
 		RegistrationState: "installed",
@@ -1273,7 +1274,7 @@ func TestListGrantsHandler_OmitsExpiredGrant(t *testing.T) {
 	if len(resp.Items) != 2 {
 		t.Fatalf("len(items) = %d, want 2", len(resp.Items))
 	}
-	if resp.Items[0].Source != string(GrantSourcePersisted) || resp.Items[0].GrantedAt == nil {
+	if resp.Items[0].Source != string(plugins.GrantSourcePersisted) || resp.Items[0].GrantedAt == nil {
 		t.Fatalf("unexpected first grant: %#v", resp.Items[0])
 	}
 	if resp.Items[1].ExpiresAt == nil {
@@ -1286,7 +1287,7 @@ func TestListGrantsHandler_ReturnsEffectiveGrantSources(t *testing.T) {
 
 	now := time.Now().UTC()
 	repo := &stubGrantRepository{
-		grants: map[string][]PluginGrant{
+		grants: map[string][]plugins.PluginGrant{
 			"weather": {{
 				PluginID:   "weather",
 				Capability: "logger.write",
@@ -1294,7 +1295,7 @@ func TestListGrantsHandler_ReturnsEffectiveGrantSources(t *testing.T) {
 			}},
 		},
 	}
-	router := grantsRouterWithAutoGrants([]Snapshot{{
+	router := grantsRouterWithAutoGrants([]plugins.Snapshot{{
 		PluginID:            "weather",
 		Valid:               true,
 		RegistrationState:   "installed",
@@ -1320,10 +1321,10 @@ func TestListGrantsHandler_ReturnsEffectiveGrantSources(t *testing.T) {
 	if len(resp.Items) != 2 {
 		t.Fatalf("len(items) = %d, want 2", len(resp.Items))
 	}
-	if resp.Items[0].Capability != "logger.write" || resp.Items[0].Source != string(GrantSourcePersisted) {
+	if resp.Items[0].Capability != "logger.write" || resp.Items[0].Source != string(plugins.GrantSourcePersisted) {
 		t.Fatalf("unexpected persisted grant: %#v", resp.Items[0])
 	}
-	if resp.Items[1].Capability != "scheduler.create" || resp.Items[1].Source != string(GrantSourceConfigAuto) {
+	if resp.Items[1].Capability != "scheduler.create" || resp.Items[1].Source != string(plugins.GrantSourceConfigAuto) {
 		t.Fatalf("unexpected config auto grant: %#v", resp.Items[1])
 	}
 	if resp.Items[1].GrantedAt != nil {
@@ -1357,7 +1358,7 @@ func TestListGrantsHandler_ReturnsBuiltinAutoGrant(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			router := grantsRouter([]Snapshot{{
+			router := grantsRouter([]plugins.Snapshot{{
 				PluginID:            tc.pluginID,
 				Valid:               true,
 				SourceRoot:          "plugins/builtin",
@@ -1383,7 +1384,7 @@ func TestListGrantsHandler_ReturnsBuiltinAutoGrant(t *testing.T) {
 
 			gotCapabilities := make([]string, 0, len(resp.Items))
 			for _, item := range resp.Items {
-				if item.Source != string(GrantSourceBuiltinAuto) {
+				if item.Source != string(plugins.GrantSourceBuiltinAuto) {
 					t.Fatalf("unexpected builtin auto grant source: %#v", item)
 				}
 				if item.GrantedAt != nil || item.ExpiresAt != nil {
@@ -1404,7 +1405,7 @@ func TestListGrantsHandler_ReturnsBuiltinAutoGrant(t *testing.T) {
 func TestRecoverFromDeadLetterHandler_Success(t *testing.T) {
 	t.Parallel()
 
-	catalog := newTestCatalog([]Snapshot{{
+	catalog := newTestCatalog([]plugins.Snapshot{{
 		PluginID:          "weather",
 		Valid:             true,
 		RegistrationState: "installed",
@@ -1413,7 +1414,7 @@ func TestRecoverFromDeadLetterHandler_Success(t *testing.T) {
 		DisplayState:      "dead_letter",
 	}})
 	controller := &stubDesiredStateController{
-		recoverResult: Snapshot{
+		recoverResult: plugins.Snapshot{
 			PluginID:          "weather",
 			Valid:             true,
 			RegistrationState: "installed",
@@ -1454,7 +1455,7 @@ func TestRecoverFromDeadLetterHandler_Success(t *testing.T) {
 func TestRecoverFromDeadLetterHandler_NotInDeadLetter(t *testing.T) {
 	t.Parallel()
 
-	catalog := newTestCatalog([]Snapshot{{
+	catalog := newTestCatalog([]plugins.Snapshot{{
 		PluginID:          "weather",
 		Valid:             true,
 		RegistrationState: "installed",
@@ -1463,7 +1464,7 @@ func TestRecoverFromDeadLetterHandler_NotInDeadLetter(t *testing.T) {
 		DisplayState:      "running",
 	}})
 	controller := &stubDesiredStateController{
-		recoverErr: ErrPluginNotInDeadLetter,
+		recoverErr: plugins.ErrPluginNotInDeadLetter,
 	}
 	router := chi.NewRouter()
 	RegisterPluginRoutes(router, catalog, nil, nil, nil, controller, nil, nil, nil)
@@ -1494,7 +1495,7 @@ func TestRecoverFromDeadLetterHandler_NotFound(t *testing.T) {
 
 	catalog := newTestCatalog(nil)
 	controller := &stubDesiredStateController{
-		recoverErr: ErrPluginNotFound,
+		recoverErr: plugins.ErrPluginNotFound,
 	}
 	router := chi.NewRouter()
 	RegisterPluginRoutes(router, catalog, nil, nil, nil, controller, nil, nil, nil)

@@ -5,10 +5,10 @@ import (
 	"strings"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
-	"github.com/RayleaBot/RayleaBot/server/internal/runtime"
+	runtimeprotocol "github.com/RayleaBot/RayleaBot/server/internal/runtime/protocol"
 )
 
-func RenderIdentityData(cfg config.Config, event runtime.Event) RenderIdentity {
+func RenderIdentityData(cfg config.Config, event runtimeprotocol.Event) RenderIdentity {
 	actor := event.Actor
 	target := event.Target
 	onebot := objectValue(event.PayloadFields["onebot"])

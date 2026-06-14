@@ -4,31 +4,31 @@ import (
 	"testing"
 	"time"
 
-	source "github.com/RayleaBot/RayleaBot/server/internal/bilibili"
+	bilibilisource "github.com/RayleaBot/RayleaBot/server/internal/bilibili/source"
 )
 
 func TestBilibiliSourceStatusResponseIncludesDiagnosis(t *testing.T) {
 	t.Parallel()
 
 	retryAt := time.Date(2026, 6, 8, 8, 35, 0, 0, time.UTC)
-	status := source.Status{
-		Status:  source.StateDegraded,
+	status := bilibilisource.Status{
+		Status:  bilibilisource.StateDegraded,
 		Summary: "Bilibili 事件源运行受限",
-		Live: source.LiveStatus{
+		Live: bilibilisource.LiveStatus{
 			WatchedRooms:    1,
 			FallbackPolling: true,
 			LastError:       "code -352",
 		},
-		Dynamic: source.DynamicStatus{
+		Dynamic: bilibilisource.DynamicStatus{
 			Enabled:         true,
 			IntervalSeconds: 10,
 			WatchedUIDs:     1,
 		},
-		Diagnosis: source.Diagnosis{
+		Diagnosis: bilibilisource.Diagnosis{
 			Level:       "attention",
 			Headline:    "平台风控等待中",
 			Description: "Bilibili 暂时限制部分请求，系统会在等待结束后自动恢复检查。",
-			Causes: []source.DiagnosisCause{
+			Causes: []bilibilisource.DiagnosisCause{
 				{
 					Scope:     "live",
 					Code:      "platform_risk_control",
@@ -39,7 +39,7 @@ func TestBilibiliSourceStatusResponseIncludesDiagnosis(t *testing.T) {
 				},
 			},
 			Impacts:   []string{"动态接收不受影响。", "CK 有效，无需重新登录。"},
-			Actions:   []source.DiagnosisAction{{Kind: "wait", Label: "等待平台恢复", Primary: true}},
+			Actions:   []bilibilisource.DiagnosisAction{{Kind: "wait", Label: "等待平台恢复", Primary: true}},
 			UpdatedAt: time.Date(2026, 6, 8, 8, 30, 0, 0, time.UTC),
 		},
 	}

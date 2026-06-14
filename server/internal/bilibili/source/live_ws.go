@@ -8,15 +8,15 @@ import (
 )
 
 func (s *Source) consumeLiveWebSocket(ctx context.Context, subject Subject, roomID, wsURL, token, cookie string) error {
-	headers := liveWSHeaders(s.identity, cookie)
+	headers := bilibiliLive.Headers(s.identity, cookie)
 	conn, _, err := websocket.Dial(ctx, wsURL, &websocket.DialOptions{HTTPHeader: headers, HTTPClient: s.client})
 	if err != nil {
 		return err
 	}
 	defer conn.CloseNow()
 
-	verifyBytes := liveWSVerifyPayload(roomID, token, cookie)
-	if err := conn.Write(ctx, websocket.MessageBinary, liveWSPack(verifyBytes, 1, liveWSOpVerify)); err != nil {
+	verifyBytes := bilibiliLive.VerifyPayload(roomID, token, cookie)
+	if err := conn.Write(ctx, websocket.MessageBinary, bilibiliLive.Pack(verifyBytes, 1, bilibiliLive.WSOpVerify)); err != nil {
 		return err
 	}
 	state := s.loadRoomState(ctx, subject.UID)
@@ -37,7 +37,7 @@ func (s *Source) consumeLiveWebSocket(ctx context.Context, subject Subject, room
 		if messageType != websocket.MessageBinary {
 			continue
 		}
-		events, err := liveWSUnpack(data)
+		events, err := bilibiliLive.Unpack(data)
 		if err != nil {
 			return err
 		}

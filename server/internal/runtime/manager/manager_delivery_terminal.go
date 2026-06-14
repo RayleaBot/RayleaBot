@@ -4,21 +4,22 @@ import (
 	"encoding/json"
 
 	runtimeaction "github.com/RayleaBot/RayleaBot/server/internal/runtime/action"
+	runtimeprotocol "github.com/RayleaBot/RayleaBot/server/internal/runtime/protocol"
 )
 
-func parseEventEnvelope(line []byte, pluginID string) (frameEnvelope, error) {
-	var envelope frameEnvelope
+func parseEventEnvelope(line []byte, pluginID string) (runtimeprotocol.FrameEnvelope, error) {
+	var envelope runtimeprotocol.FrameEnvelope
 	if err := json.Unmarshal(line, &envelope); err != nil {
-		return frameEnvelope{}, errorf(codePluginProtocolViolation, "plugin returned malformed protocol json", err)
+		return runtimeprotocol.FrameEnvelope{}, errorf(codePluginProtocolViolation, "plugin returned malformed protocol json", err)
 	}
 	if envelope.ProtocolVersion != "1" {
-		return frameEnvelope{}, errorf(codePluginProtocolViolation, "plugin returned an unsupported protocol_version", nil)
+		return runtimeprotocol.FrameEnvelope{}, errorf(codePluginProtocolViolation, "plugin returned an unsupported protocol_version", nil)
 	}
 	if envelope.PluginID == "" || envelope.PluginID != pluginID {
-		return frameEnvelope{}, errorf(codePluginProtocolViolation, "plugin returned a mismatched plugin_id", nil)
+		return runtimeprotocol.FrameEnvelope{}, errorf(codePluginProtocolViolation, "plugin returned a mismatched plugin_id", nil)
 	}
 	if envelope.RequestID == "" {
-		return frameEnvelope{}, errorf(codePluginProtocolViolation, "plugin returned a mismatched request_id", nil)
+		return runtimeprotocol.FrameEnvelope{}, errorf(codePluginProtocolViolation, "plugin returned a mismatched request_id", nil)
 	}
 	return envelope, nil
 }
@@ -37,7 +38,7 @@ func decodeTerminalDelivery(eventRequestID string, line []byte, frameType string
 }
 
 func decodeTerminalAction(eventRequestID string, line []byte) (Delivery, bool, error) {
-	var frame actionFrame
+	var frame runtimeprotocol.ActionFrame
 	if err := json.Unmarshal(line, &frame); err != nil {
 		return Delivery{}, false, errorf(codePluginProtocolViolation, "plugin returned malformed action frame", err)
 	}
@@ -49,7 +50,7 @@ func decodeTerminalAction(eventRequestID string, line []byte) (Delivery, bool, e
 }
 
 func decodeTerminalResult(eventRequestID string, line []byte) (Delivery, bool, error) {
-	var frame resultFrame
+	var frame runtimeprotocol.ResultFrame
 	if err := json.Unmarshal(line, &frame); err != nil {
 		return Delivery{}, false, errorf(codePluginProtocolViolation, "plugin returned malformed result frame", err)
 	}
@@ -63,7 +64,7 @@ func decodeTerminalResult(eventRequestID string, line []byte) (Delivery, bool, e
 }
 
 func decodeTerminalError(eventRequestID string, line []byte) (Delivery, bool, error) {
-	var frame errorFrame
+	var frame runtimeprotocol.ErrorFrame
 	if err := json.Unmarshal(line, &frame); err != nil {
 		return Delivery{}, false, errorf(codePluginProtocolViolation, "plugin returned malformed error frame", err)
 	}

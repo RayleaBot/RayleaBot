@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/RayleaBot/RayleaBot/server/internal/runtime"
+	runtimemanager "github.com/RayleaBot/RayleaBot/server/internal/runtime/manager"
 )
 
 func TestReloadPluginSwapsRuntime(t *testing.T) {
@@ -14,8 +14,8 @@ func TestReloadPluginSwapsRuntime(t *testing.T) {
 	d := New(slog.Default(), sender, nil, 16)
 	defer d.Close()
 
-	oldRT := &fakeDeliverer{delivery: runtime.Delivery{Result: map[string]any{"version": "old"}}}
-	newRT := &fakeDeliverer{delivery: runtime.Delivery{Result: map[string]any{"version": "new"}}}
+	oldRT := &fakeDeliverer{delivery: runtimemanager.Delivery{Result: map[string]any{"version": "old"}}}
+	newRT := &fakeDeliverer{delivery: runtimemanager.Delivery{Result: map[string]any{"version": "new"}}}
 
 	d.Register("test-plugin", oldRT, nil, nil, 1)
 

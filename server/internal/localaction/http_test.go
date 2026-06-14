@@ -6,9 +6,10 @@ import (
 	"strings"
 	"testing"
 
-	source "github.com/RayleaBot/RayleaBot/server/internal/bilibili"
+	bilibilisession "github.com/RayleaBot/RayleaBot/server/internal/bilibili/session"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
-	"github.com/RayleaBot/RayleaBot/server/internal/runtime"
+	runtimeaction "github.com/RayleaBot/RayleaBot/server/internal/runtime/action"
+	runtimemanager "github.com/RayleaBot/RayleaBot/server/internal/runtime/manager"
 	"github.com/RayleaBot/RayleaBot/server/internal/secrets"
 	"github.com/RayleaBot/RayleaBot/server/internal/thirdparty"
 )
@@ -51,7 +52,7 @@ func TestApplyBilibiliCookiePreparesAndStoresUpdatedCookie(t *testing.T) {
 	service := &Service{
 		thirdParty: accounts,
 		bilibiliSession: &stubBilibiliSession{
-			prepared: source.PreparedCookie{
+			prepared: bilibilisession.PreparedCookie{
 				Cookie:   "SESSDATA=new; bili_jct=csrf; buvid3=device;",
 				Enriched: true,
 			},
@@ -86,17 +87,17 @@ func TestExecuteHTTPRequestReturnsBilibiliSignError(t *testing.T) {
 			cookies:  map[string]string{"primary": "SESSDATA=fixture; bili_jct=csrf;"},
 		},
 		bilibiliSession: &stubBilibiliSession{
-			prepared: source.PreparedCookie{Cookie: "SESSDATA=fixture; bili_jct=csrf;"},
+			prepared: bilibilisession.PreparedCookie{Cookie: "SESSDATA=fixture; bili_jct=csrf;"},
 			signErr:  errors.New("sign failed"),
 		},
 	}
 
-	_, err := service.executeHTTPRequest(context.Background(), subscriptionHubPluginID, runtime.Action{
+	_, err := service.executeHTTPRequest(context.Background(), subscriptionHubPluginID, runtimeaction.Action{
 		HTTPMethod: "GET",
 		HTTPURL:    "https://api.bilibili.com/x/polymer/web-dynamic/v1/feed/all",
 	})
 
-	var runtimeErr *runtime.Error
+	var runtimeErr *runtimemanager.Error
 	if !errors.As(err, &runtimeErr) {
 		t.Fatalf("expected runtime error, got %#v", err)
 	}
@@ -251,13 +252,13 @@ func (s *stubThirdPartyAccounts) UpdateCookie(_ context.Context, account thirdpa
 }
 
 type stubBilibiliSession struct {
-	prepared source.PreparedCookie
+	prepared bilibilisession.PreparedCookie
 	err      error
 	signed   string
 	signErr  error
 }
 
-func (s *stubBilibiliSession) PrepareCookie(context.Context, string) (source.PreparedCookie, error) {
+func (s *stubBilibiliSession) PrepareCookie(context.Context, string) (bilibilisession.PreparedCookie, error) {
 	return s.prepared, s.err
 }
 

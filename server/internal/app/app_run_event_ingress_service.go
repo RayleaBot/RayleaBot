@@ -3,22 +3,21 @@ package app
 import (
 	"context"
 
-	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
-
-	"github.com/RayleaBot/RayleaBot/server/internal/adapter"
+	adapteroutbound "github.com/RayleaBot/RayleaBot/server/internal/adapter/outbound"
 	"github.com/RayleaBot/RayleaBot/server/internal/bridge"
 	"github.com/RayleaBot/RayleaBot/server/internal/command"
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	menuext "github.com/RayleaBot/RayleaBot/server/internal/extensions/menu"
 	"github.com/RayleaBot/RayleaBot/server/internal/outbound"
 	"github.com/RayleaBot/RayleaBot/server/internal/permission"
+	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
 	pluginservice "github.com/RayleaBot/RayleaBot/server/internal/plugins/service"
-	"github.com/RayleaBot/RayleaBot/server/internal/render"
+	renderservice "github.com/RayleaBot/RayleaBot/server/internal/render/service"
 )
 
 type outboundActionSender interface {
-	SendMessage(context.Context, adapter.OutboundMessageSend) (adapter.SendMessageResult, error)
-	SendReply(context.Context, adapter.OutboundMessageReply) (adapter.SendMessageResult, error)
+	SendMessage(context.Context, adapteroutbound.OutboundMessageSend) (adapteroutbound.SendMessageResult, error)
+	SendReply(context.Context, adapteroutbound.OutboundMessageReply) (adapteroutbound.SendMessageResult, error)
 }
 
 type eventIngressService struct {
@@ -27,7 +26,7 @@ type eventIngressService struct {
 	replyTargets      *replyTargetCache
 	outboundSender    outboundActionSender
 	outboundLimiter   outbound.MessageLimiter
-	renderer          *render.Service
+	renderer          *renderservice.Service
 	menu              *menuext.Service
 	bridge            *bridge.Bridge
 	lifecycle         *pluginservice.Controller

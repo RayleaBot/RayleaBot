@@ -7,11 +7,11 @@ import (
 	menuext "github.com/RayleaBot/RayleaBot/server/internal/extensions/menu"
 	"github.com/RayleaBot/RayleaBot/server/internal/localaction"
 	"github.com/RayleaBot/RayleaBot/server/internal/outbound"
-	"github.com/RayleaBot/RayleaBot/server/internal/runtime"
+	runtimemanager "github.com/RayleaBot/RayleaBot/server/internal/runtime/manager"
 )
 
 func buildRuntimeRegistryForApp(buildState appBuildState, runtimeState *appRuntimeState, platform appPlatform, localActions *localaction.Service) *runtimeRegistry {
-	return newRuntimeRegistry(runtimeState.Logger, runtime.Options{
+	return newRuntimeRegistry(runtimeState.Logger, runtimemanager.Options{
 		Console:                    platform.Console,
 		RedactText:                 buildState.managementRedact,
 		StderrRateLimitBytesPerSec: buildState.core.Config.Runtime.StderrRateLimitBytesPerSec,

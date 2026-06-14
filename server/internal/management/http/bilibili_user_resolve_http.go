@@ -6,9 +6,9 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
-)
 
-import "github.com/RayleaBot/RayleaBot/server/internal/httpapi"
+	"github.com/RayleaBot/RayleaBot/server/internal/httpapi"
+)
 
 func (h *BilibiliHandlers) HandleBilibiliUserResolve() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {

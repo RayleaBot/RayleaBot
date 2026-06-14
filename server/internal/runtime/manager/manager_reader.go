@@ -5,6 +5,7 @@ import (
 
 	runtimeaction "github.com/RayleaBot/RayleaBot/server/internal/runtime/action"
 	runtimeprocess "github.com/RayleaBot/RayleaBot/server/internal/runtime/process"
+	runtimeprotocol "github.com/RayleaBot/RayleaBot/server/internal/runtime/protocol"
 )
 
 func (m *Manager) readRuntimeFrames(handle *runtimeprocess.Handle) {
@@ -73,7 +74,7 @@ func (m *Manager) routeRuntimeFrame(handle *runtimeprocess.Handle, line []byte) 
 	return errorf(codePluginProtocolViolation, "plugin returned an unexpected protocol message during runtime delivery", nil)
 }
 
-func (m *Manager) routeTerminalFrameLocked(session *eventSession, envelope frameEnvelope, line []byte) *Error {
+func (m *Manager) routeTerminalFrameLocked(session *eventSession, envelope runtimeprotocol.FrameEnvelope, line []byte) *Error {
 	if session.pendingLocalAction > 0 {
 		return errorf(codePluginProtocolViolation, "plugin returned a terminal frame before all local actions completed", nil)
 	}

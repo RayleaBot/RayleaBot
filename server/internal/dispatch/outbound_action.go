@@ -5,12 +5,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/RayleaBot/RayleaBot/server/internal/adapter"
+	adapteroutbound "github.com/RayleaBot/RayleaBot/server/internal/adapter/outbound"
 	"github.com/RayleaBot/RayleaBot/server/internal/outbound"
-	"github.com/RayleaBot/RayleaBot/server/internal/runtime"
+	runtimeaction "github.com/RayleaBot/RayleaBot/server/internal/runtime/action"
+	runtimeprotocol "github.com/RayleaBot/RayleaBot/server/internal/runtime/protocol"
 )
 
-func (d *Dispatcher) executeAction(ctx context.Context, pluginID string, requestID string, event runtime.Event, action runtime.Action) {
+func (d *Dispatcher) executeAction(ctx context.Context, pluginID string, requestID string, event runtimeprotocol.Event, action runtimeaction.Action) {
 	if d.sender == nil {
 		return
 	}
@@ -43,7 +44,7 @@ func (d *Dispatcher) executeAction(ctx context.Context, pluginID string, request
 			DeliveryKind: action.Kind,
 			TargetType:   targetType,
 			TargetID:     targetID,
-		}, &adapter.Error{
+		}, &adapteroutbound.Error{
 			Code:    "permission.scope_violation",
 			Message: action.Kind + " capability is not granted",
 		})

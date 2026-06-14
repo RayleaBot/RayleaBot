@@ -5,7 +5,7 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/localaction"
 	"github.com/RayleaBot/RayleaBot/server/internal/logging"
 	"github.com/RayleaBot/RayleaBot/server/internal/permission"
-	"github.com/RayleaBot/RayleaBot/server/internal/render"
+	renderservice "github.com/RayleaBot/RayleaBot/server/internal/render/service"
 )
 
 type configHTTPServiceImpl struct {
@@ -39,7 +39,7 @@ func newConfigHTTPService(deps configHTTPDeps) *configHTTPServiceImpl {
 }
 
 type renderRuntimeConfigUpdater interface {
-	UpdateRuntimeConfig(render.RuntimeConfig)
+	UpdateRuntimeConfig(renderservice.RuntimeConfig)
 }
 
 type configProtocolReloader interface {

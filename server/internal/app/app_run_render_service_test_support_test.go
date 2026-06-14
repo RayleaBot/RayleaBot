@@ -8,7 +8,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/RayleaBot/RayleaBot/server/internal/render"
+	renderbrowser "github.com/RayleaBot/RayleaBot/server/internal/render/browser"
+	renderservice "github.com/RayleaBot/RayleaBot/server/internal/render/service"
 	"github.com/RayleaBot/RayleaBot/server/internal/storage"
 )
 
@@ -19,7 +20,7 @@ var (
 
 type staticRenderRunner struct{}
 
-func (staticRenderRunner) Render(_ context.Context, doc render.Document) ([]byte, error) {
+func (staticRenderRunner) Render(_ context.Context, doc renderbrowser.Document) ([]byte, error) {
 	if doc.Output == "jpeg" {
 		return append([]byte(nil), testRenderJPEGBytes...), nil
 	}
@@ -28,10 +29,10 @@ func (staticRenderRunner) Render(_ context.Context, doc render.Document) ([]byte
 
 type captureRenderRunner struct {
 	mu   sync.Mutex
-	docs []render.Document
+	docs []renderbrowser.Document
 }
 
-func (r *captureRenderRunner) Render(_ context.Context, doc render.Document) ([]byte, error) {
+func (r *captureRenderRunner) Render(_ context.Context, doc renderbrowser.Document) ([]byte, error) {
 	r.mu.Lock()
 	r.docs = append(r.docs, doc)
 	r.mu.Unlock()
@@ -51,7 +52,7 @@ func (r *captureRenderRunner) lastHTML() string {
 	return r.docs[len(r.docs)-1].HTML
 }
 
-func newRenderService(t *testing.T, root string) *render.Service {
+func newRenderService(t *testing.T, root string) *renderservice.Service {
 	t.Helper()
 
 	repoRoot, err := filepath.Abs(filepath.Join("..", "..", ".."))
@@ -61,7 +62,7 @@ func newRenderService(t *testing.T, root string) *render.Service {
 	return newRenderServiceForRepo(t, repoRoot, root, staticRenderRunner{})
 }
 
-func newRenderServiceForRepo(t *testing.T, repoRoot string, root string, runner render.Runner) *render.Service {
+func newRenderServiceForRepo(t *testing.T, repoRoot string, root string, runner renderbrowser.Runner) *renderservice.Service {
 	t.Helper()
 
 	store, err := storage.Open(filepath.Join(root, "render-state.db"))
@@ -72,7 +73,7 @@ func newRenderServiceForRepo(t *testing.T, repoRoot string, root string, runner 
 		_ = store.Close()
 	})
 
-	service, err := render.NewService(render.Options{
+	service, err := renderservice.NewService(renderservice.Options{
 		RepoRoot:           repoRoot,
 		OutputRoot:         root,
 		Store:              store,

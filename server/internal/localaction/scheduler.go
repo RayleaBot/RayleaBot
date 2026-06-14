@@ -5,18 +5,19 @@ import (
 	"encoding/json"
 	"time"
 
-	"github.com/RayleaBot/RayleaBot/server/internal/runtime"
+	runtimeaction "github.com/RayleaBot/RayleaBot/server/internal/runtime/action"
+	runtimemanager "github.com/RayleaBot/RayleaBot/server/internal/runtime/manager"
 )
 
-func (s *Service) executeSchedulerCreate(ctx context.Context, pluginID string, action runtime.Action) (map[string]any, error) {
+func (s *Service) executeSchedulerCreate(ctx context.Context, pluginID string, action runtimeaction.Action) (map[string]any, error) {
 	if s == nil || s.grants == nil || !s.grants.CapabilityGranted(ctx, pluginID, "scheduler.create") {
-		return nil, &runtime.Error{
+		return nil, &runtimemanager.Error{
 			Code:    "permission.scope_violation",
 			Message: "scheduler.create capability is not granted",
 		}
 	}
 	if s.scheduler == nil {
-		return nil, &runtime.Error{
+		return nil, &runtimemanager.Error{
 			Code:    "plugin.internal_error",
 			Message: "scheduler engine is not available",
 		}
@@ -24,7 +25,7 @@ func (s *Service) executeSchedulerCreate(ctx context.Context, pluginID string, a
 
 	payloadBytes, err := json.Marshal(action.SchedulerPayload)
 	if err != nil {
-		return nil, &runtime.Error{
+		return nil, &runtimemanager.Error{
 			Code:    "plugin.internal_error",
 			Message: "scheduler.create payload is invalid",
 			Err:     err,
@@ -32,7 +33,7 @@ func (s *Service) executeSchedulerCreate(ctx context.Context, pluginID string, a
 	}
 	job, err := s.scheduler.UpsertTaskWithLabel(ctx, pluginID, action.SchedulerTaskID, action.SchedulerLogLabel, action.SchedulerCron, payloadBytes)
 	if err != nil {
-		return nil, &runtime.Error{Code: "plugin.internal_error", Message: "scheduler.create failed", Err: err}
+		return nil, &runtimemanager.Error{Code: "plugin.internal_error", Message: "scheduler.create failed", Err: err}
 	}
 	return map[string]any{
 		"task_id":  job.JobID,

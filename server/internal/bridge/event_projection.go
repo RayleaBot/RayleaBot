@@ -3,23 +3,24 @@ package bridge
 import (
 	"strings"
 
-	"github.com/RayleaBot/RayleaBot/server/internal/adapter"
-	"github.com/RayleaBot/RayleaBot/server/internal/runtime"
+	adapterintake "github.com/RayleaBot/RayleaBot/server/internal/adapter/intake"
+	adaptersegments "github.com/RayleaBot/RayleaBot/server/internal/adapter/segments"
+	runtimeprotocol "github.com/RayleaBot/RayleaBot/server/internal/runtime/protocol"
 )
 
-func runtimeEventFromAdapter(event adapter.NormalizedEvent) runtime.Event {
-	runtimeEvent := runtime.Event{
+func runtimeEventFromAdapter(event adapterintake.NormalizedEvent) runtimeprotocol.Event {
+	runtimeEvent := runtimeprotocol.Event{
 		EventID:        event.EventID,
 		SourceProtocol: event.SourceProtocol,
 		SourceAdapter:  event.SourceAdapter,
 		EventType:      event.EventType,
 		Timestamp:      event.Timestamp,
-		Actor: &runtime.EventActor{
+		Actor: &runtimeprotocol.EventActor{
 			ID:       event.SenderID,
 			Nickname: event.ActorNickname,
 			Role:     event.ActorRole,
 		},
-		Target: &runtime.EventTarget{
+		Target: &runtimeprotocol.EventTarget{
 			Type: bridgeTargetType(event),
 			ID:   bridgeTargetID(event),
 			Name: event.TargetName,
@@ -28,7 +29,7 @@ func runtimeEventFromAdapter(event adapter.NormalizedEvent) runtime.Event {
 		MessageID:     event.MessageID,
 	}
 	if event.PlainText != "" || len(event.Segments) > 0 {
-		runtimeEvent.Message = &runtime.EventMessage{
+		runtimeEvent.Message = &runtimeprotocol.EventMessage{
 			PlainText: event.PlainText,
 			Segments:  runtimeSegmentsFromAdapter(event.Segments),
 		}
@@ -36,13 +37,13 @@ func runtimeEventFromAdapter(event adapter.NormalizedEvent) runtime.Event {
 	return runtimeEvent
 }
 
-func runtimeSegmentsFromAdapter(segments []adapter.MessageSegment) []runtime.EventSegment {
+func runtimeSegmentsFromAdapter(segments []adaptersegments.MessageSegment) []runtimeprotocol.EventSegment {
 	if len(segments) == 0 {
 		return nil
 	}
-	projected := make([]runtime.EventSegment, 0, len(segments))
+	projected := make([]runtimeprotocol.EventSegment, 0, len(segments))
 	for _, seg := range segments {
-		projected = append(projected, runtime.EventSegment{
+		projected = append(projected, runtimeprotocol.EventSegment{
 			Type: seg.Type,
 			Data: seg.Data,
 		})
@@ -50,14 +51,14 @@ func runtimeSegmentsFromAdapter(segments []adapter.MessageSegment) []runtime.Eve
 	return projected
 }
 
-func bridgeTargetType(event adapter.NormalizedEvent) string {
+func bridgeTargetType(event adapterintake.NormalizedEvent) string {
 	if strings.TrimSpace(event.TargetType) != "" {
 		return event.TargetType
 	}
 	return event.ConversationType
 }
 
-func bridgeTargetID(event adapter.NormalizedEvent) string {
+func bridgeTargetID(event adapterintake.NormalizedEvent) string {
 	if strings.TrimSpace(event.TargetID) != "" {
 		return event.TargetID
 	}

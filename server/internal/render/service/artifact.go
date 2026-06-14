@@ -4,12 +4,10 @@ import (
 	"errors"
 
 	renderartifact "github.com/RayleaBot/RayleaBot/server/internal/render/artifact"
+	rendertemplates "github.com/RayleaBot/RayleaBot/server/internal/render/templates"
 )
 
-type Result = renderartifact.Result
-type Artifact = renderartifact.Artifact
-
-func (s *Service) cachedResult(cacheKey string) (Result, bool) {
+func (s *Service) cachedResult(cacheKey string) (renderartifact.Result, bool) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	result, ok := s.cache[cacheKey]
@@ -41,10 +39,10 @@ func buildArtifactID(cacheKey string) string {
 	return renderartifact.BuildArtifactID(cacheKey)
 }
 
-func (s *Service) persistArtifact(request Request, cacheKey string, content []byte) (Result, error) {
+func (s *Service) persistArtifact(request Request, cacheKey string, content []byte) (renderartifact.Result, error) {
 	result, artifact, err := renderartifact.Persist(s.outputRoot, artifactRequest(request), cacheKey, content)
 	if err != nil {
-		return Result{}, err
+		return renderartifact.Result{}, err
 	}
 
 	s.mu.Lock()
@@ -67,9 +65,9 @@ func (s *Service) loadArtifacts() error {
 	return nil
 }
 
-func (s *Service) LookupArtifact(artifactID string) (Artifact, error) {
+func (s *Service) LookupArtifact(artifactID string) (renderartifact.Artifact, error) {
 	if s == nil {
-		return Artifact{}, &Error{Code: "platform.resource_missing", Message: "render service is not available"}
+		return renderartifact.Artifact{}, &rendertemplates.Error{Code: "platform.resource_missing", Message: "render service is not available"}
 	}
 
 	s.mu.RLock()
@@ -83,9 +81,9 @@ func (s *Service) LookupArtifact(artifactID string) (Artifact, error) {
 	if err != nil {
 		var artifactErr *renderartifact.Error
 		if errors.As(err, &artifactErr) {
-			return Artifact{}, &Error{Code: artifactErr.Code, Message: artifactErr.Message, Err: artifactErr.Err}
+			return renderartifact.Artifact{}, &rendertemplates.Error{Code: artifactErr.Code, Message: artifactErr.Message, Err: artifactErr.Err}
 		}
-		return Artifact{}, err
+		return renderartifact.Artifact{}, err
 	}
 
 	s.mu.Lock()

@@ -8,11 +8,9 @@ import (
 	"sync/atomic"
 	"time"
 
-	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
-
-	"github.com/RayleaBot/RayleaBot/server/internal/adapter"
+	adaptershell "github.com/RayleaBot/RayleaBot/server/internal/adapter/shell"
 	"github.com/RayleaBot/RayleaBot/server/internal/auth"
-	source "github.com/RayleaBot/RayleaBot/server/internal/bilibili"
+	bilibilisource "github.com/RayleaBot/RayleaBot/server/internal/bilibili/source"
 	"github.com/RayleaBot/RayleaBot/server/internal/bridge"
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/console"
@@ -28,10 +26,11 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/pluginfile"
 	"github.com/RayleaBot/RayleaBot/server/internal/pluginkv"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
+	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
 	pluginservice "github.com/RayleaBot/RayleaBot/server/internal/plugins/service"
 	"github.com/RayleaBot/RayleaBot/server/internal/pluginwebhook"
 	"github.com/RayleaBot/RayleaBot/server/internal/recovery"
-	"github.com/RayleaBot/RayleaBot/server/internal/render"
+	renderservice "github.com/RayleaBot/RayleaBot/server/internal/render/service"
 	"github.com/RayleaBot/RayleaBot/server/internal/scheduler"
 	"github.com/RayleaBot/RayleaBot/server/internal/secrets"
 	"github.com/RayleaBot/RayleaBot/server/internal/storage"
@@ -64,7 +63,7 @@ type appPlatform struct {
 
 type appPlugins struct {
 	Plugins           *plugincatalog.Catalog
-	Adapter           *adapter.Shell
+	Adapter           *adaptershell.Shell
 	Bridge            *bridge.Bridge
 	Dispatcher        *dispatch.Dispatcher
 	replyTargets      *replyTargetCache
@@ -80,7 +79,7 @@ type appPlugins struct {
 	whitelistRepo     permission.WhitelistRepository
 	whitelistState    permission.WhitelistStateRepository
 	webhooks          *pluginwebhook.Registry
-	renderer          *render.Service
+	renderer          *renderservice.Service
 	pluginLogLimiter  *localaction.PluginLogLimiter
 	outboundLimiter   *outbound.MessageRateLimiter
 }
@@ -96,7 +95,7 @@ type appServices struct {
 	logs             *logService
 	system           *systemService
 	thirdParty       *thirdparty.Service
-	bilibiliSource   *source.Source
+	bilibiliSource   *bilibilisource.Source
 	bilibiliEvents   *managementevents.BilibiliSourceService
 }
 

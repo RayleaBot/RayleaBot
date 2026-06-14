@@ -4,11 +4,15 @@ import (
 	"context"
 	"errors"
 	"time"
+
+	renderartifact "github.com/RayleaBot/RayleaBot/server/internal/render/artifact"
+	renderbrowser "github.com/RayleaBot/RayleaBot/server/internal/render/browser"
+	rendertemplates "github.com/RayleaBot/RayleaBot/server/internal/render/templates"
 )
 
-func (s *Service) Render(ctx context.Context, request Request) (Result, error) {
+func (s *Service) Render(ctx context.Context, request Request) (renderartifact.Result, error) {
 	if s == nil {
-		return Result{}, &Error{Code: "platform.resource_missing", Message: "render service is not available"}
+		return renderartifact.Result{}, &rendertemplates.Error{Code: "platform.resource_missing", Message: "render service is not available"}
 	}
 
 	startedAt := time.Now()
@@ -17,22 +21,22 @@ func (s *Service) Render(ctx context.Context, request Request) (Result, error) {
 	return result, err
 }
 
-func (s *Service) renderInternal(ctx context.Context, request Request) (Result, error) {
+func (s *Service) renderInternal(ctx context.Context, request Request) (renderartifact.Result, error) {
 	normalized, payloadBytes, err := s.normalizeRequest(request)
 	if err != nil {
-		return Result{}, err
+		return renderartifact.Result{}, err
 	}
 
 	if err := s.syncTemplatesFromFiles(ctx); err != nil {
-		return Result{}, err
+		return renderartifact.Result{}, err
 	}
 
 	compiled, _, cacheVersion, cacheDigest, err := s.resolveCompiledTemplate(ctx, normalized)
 	if err != nil {
-		return Result{}, err
+		return renderartifact.Result{}, err
 	}
 	templateDir := s.templateDirFor(normalized.Template)
-	resourceDigest := ResourceDigest(templateDir)
+	resourceDigest := rendertemplates.ResourceDigest(templateDir)
 	deviceScalePercent := s.currentDeviceScalePercent()
 	cacheKey := buildCacheKey(normalized, cacheVersion, cacheDigest, resourceDigest, deviceScalePercent, payloadBytes)
 	if cached, ok := s.cachedResult(cacheKey); ok {
@@ -41,7 +45,7 @@ func (s *Service) renderInternal(ctx context.Context, request Request) (Result, 
 	}
 
 	if err := s.reserveSlot(); err != nil {
-		return Result{}, err
+		return renderartifact.Result{}, err
 	}
 	defer s.releaseSlot()
 
@@ -55,7 +59,7 @@ func (s *Service) renderInternal(ctx context.Context, request Request) (Result, 
 	select {
 	case s.workerSem <- struct{}{}:
 	case <-queueCtx.Done():
-		return Result{}, &Error{
+		return renderartifact.Result{}, &rendertemplates.Error{
 			Code:    "platform.render_timeout",
 			Message: "render queue wait timed out",
 			Err:     queueCtx.Err(),
@@ -72,7 +76,7 @@ func (s *Service) renderInternal(ctx context.Context, request Request) (Result, 
 
 	html, err := compiled.RenderHTML(normalized.Theme, normalized.Data)
 	if err != nil {
-		return Result{}, wrapRenderError(err, "render template execution failed")
+		return renderartifact.Result{}, wrapRenderError(err, "render template execution failed")
 	}
 
 	renderCtx := ctx
@@ -84,9 +88,9 @@ func (s *Service) renderInternal(ctx context.Context, request Request) (Result, 
 
 	runner := s.currentRunner()
 	if runner == nil {
-		return Result{}, &Error{Code: "platform.resource_missing", Message: "render runner is not available"}
+		return renderartifact.Result{}, &rendertemplates.Error{Code: "platform.resource_missing", Message: "render runner is not available"}
 	}
-	content, err := runner.Render(renderCtx, Document{
+	content, err := runner.Render(renderCtx, renderbrowser.Document{
 		Template:          normalized.Template,
 		Theme:             normalized.Theme,
 		Output:            normalized.Output,
@@ -99,18 +103,18 @@ func (s *Service) renderInternal(ctx context.Context, request Request) (Result, 
 	})
 	if err != nil {
 		if errors.Is(renderCtx.Err(), context.DeadlineExceeded) || errors.Is(err, context.DeadlineExceeded) {
-			return Result{}, &Error{
+			return renderartifact.Result{}, &rendertemplates.Error{
 				Code:    "platform.render_timeout",
 				Message: "render execution timed out",
 				Err:     err,
 			}
 		}
-		return Result{}, wrapRenderError(err, "render execution failed")
+		return renderartifact.Result{}, wrapRenderError(err, "render execution failed")
 	}
 
 	result, err := s.persistArtifact(normalized, cacheKey, content)
 	if err != nil {
-		return Result{}, err
+		return renderartifact.Result{}, err
 	}
 
 	s.mu.Lock()
@@ -121,11 +125,11 @@ func (s *Service) renderInternal(ctx context.Context, request Request) (Result, 
 }
 
 func wrapRenderError(err error, message string) error {
-	var renderErr *Error
+	var renderErr *rendertemplates.Error
 	if errors.As(err, &renderErr) {
 		return renderErr
 	}
-	return &Error{
+	return &rendertemplates.Error{
 		Code:    "platform.internal_error",
 		Message: message,
 		Err:     err,

@@ -5,13 +5,13 @@ import (
 	"net/http"
 	"strings"
 
-	source "github.com/RayleaBot/RayleaBot/server/internal/bilibili"
+	bilibilisource "github.com/RayleaBot/RayleaBot/server/internal/bilibili/source"
 	"github.com/RayleaBot/RayleaBot/server/internal/httpapi"
 	"github.com/RayleaBot/RayleaBot/server/internal/thirdparty"
 )
 
 type thirdPartyMonitorService interface {
-	MonitorSnapshot(context.Context) (source.MonitorSnapshot, error)
+	MonitorSnapshot(context.Context) (bilibilisource.MonitorSnapshot, error)
 }
 
 func (h *ThirdPartyHandlers) HandleThirdPartyMonitorList() http.HandlerFunc {

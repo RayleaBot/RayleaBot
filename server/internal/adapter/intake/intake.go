@@ -3,6 +3,8 @@ package intake
 import (
 	"encoding/json"
 	"time"
+
+	adaptersegments "github.com/RayleaBot/RayleaBot/server/internal/adapter/segments"
 )
 
 type FrameCategory string
@@ -46,7 +48,7 @@ type NormalizedEvent struct {
 	TargetType       string
 	TargetID         string
 	PlainText        string
-	Segments         []MessageSegment
+	Segments         []adaptersegments.MessageSegment
 	MessageID        string
 	ActorNickname    string
 	ActorRole        string

@@ -1,10 +1,14 @@
 package service
 
-import "context"
+import (
+	"context"
+
+	rendertemplates "github.com/RayleaBot/RayleaBot/server/internal/render/templates"
+)
 
 func (s *Service) PreviewHTML(ctx context.Context, request Request) (PreviewHTML, error) {
 	if s == nil {
-		return PreviewHTML{}, &Error{Code: "platform.resource_missing", Message: "render service is not available"}
+		return PreviewHTML{}, &rendertemplates.Error{Code: "platform.resource_missing", Message: "render service is not available"}
 	}
 
 	normalized, payloadBytes, err := s.normalizeRequest(request)

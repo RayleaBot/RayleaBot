@@ -3,12 +3,13 @@ package plugininstall
 import (
 	"context"
 	"errors"
+	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	"net/url"
 	"os"
 	"path/filepath"
 )
 
-func (s *InstallService) prepareSource(ctx context.Context, request InstallRequest) (string, string, func(), error) {
+func (s *InstallService) prepareSource(ctx context.Context, request plugins.InstallRequest) (string, string, func(), error) {
 	if err := os.MkdirAll(s.installedRoot, 0o755); err != nil {
 		return "", "", func() {}, installError(codePluginInstallFailed, "创建插件安装目录失败", "创建插件安装目录失败")
 	}

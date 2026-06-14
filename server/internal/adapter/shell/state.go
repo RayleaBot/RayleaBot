@@ -1,6 +1,10 @@
 package shell
 
-import "time"
+import (
+	"time"
+
+	adapterintake "github.com/RayleaBot/RayleaBot/server/internal/adapter/intake"
+)
 
 type State string
 type TransportKey string
@@ -69,7 +73,7 @@ type Snapshot struct {
 	TotalReceivedFrames   uint64
 	InvalidReceivedFrames uint64
 	HeartbeatSeen         bool
-	LastFrameCategory     FrameCategory
+	LastFrameCategory     adapterintake.FrameCategory
 	LastFrameType         string
 }
 

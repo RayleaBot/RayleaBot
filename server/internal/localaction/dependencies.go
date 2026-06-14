@@ -3,10 +3,10 @@ package localaction
 import (
 	"context"
 
-	source "github.com/RayleaBot/RayleaBot/server/internal/bilibili"
+	bilibilisession "github.com/RayleaBot/RayleaBot/server/internal/bilibili/session"
 	"github.com/RayleaBot/RayleaBot/server/internal/governance"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
-	"github.com/RayleaBot/RayleaBot/server/internal/runtime"
+	runtimeaction "github.com/RayleaBot/RayleaBot/server/internal/runtime/action"
 	"github.com/RayleaBot/RayleaBot/server/internal/thirdparty"
 )
 
@@ -19,7 +19,7 @@ type GrantView interface {
 }
 
 type WebhookGateway interface {
-	Expose(context.Context, string, runtime.Action) (map[string]any, error)
+	Expose(context.Context, string, runtimeaction.Action) (map[string]any, error)
 }
 
 type GovernanceService interface {
@@ -41,7 +41,7 @@ type ThirdPartyAccounts interface {
 }
 
 type BilibiliSession interface {
-	PrepareCookie(context.Context, string) (source.PreparedCookie, error)
+	PrepareCookie(context.Context, string) (bilibilisession.PreparedCookie, error)
 	SignURL(context.Context, string, string) (string, error)
 	InvalidateWBI()
 }

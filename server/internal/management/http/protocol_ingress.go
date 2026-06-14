@@ -3,9 +3,8 @@ package managementhttp
 import (
 	"context"
 
+	adaptershell "github.com/RayleaBot/RayleaBot/server/internal/adapter/shell"
 	"github.com/coder/websocket"
-
-	"github.com/RayleaBot/RayleaBot/server/internal/adapter"
 )
 
 func (s *ProtocolService) reverseWSIngressAvailable() bool {
@@ -13,7 +12,7 @@ func (s *ProtocolService) reverseWSIngressAvailable() bool {
 }
 
 func (s *ProtocolService) reverseWSIngressEnabled() bool {
-	return s.transportIngressEnabled(adapter.TransportReverseWS)
+	return s.transportIngressEnabled(adaptershell.TransportReverseWS)
 }
 
 func (s *ProtocolService) reverseWSAccessToken() string {
@@ -42,7 +41,7 @@ func (s *ProtocolService) webhookIngressAvailable() bool {
 }
 
 func (s *ProtocolService) webhookIngressEnabled() bool {
-	return s.transportIngressEnabled(adapter.TransportWebhook)
+	return s.transportIngressEnabled(adaptershell.TransportWebhook)
 }
 
 func (s *ProtocolService) webhookAccessToken() string {

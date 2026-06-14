@@ -5,9 +5,10 @@
 package metrics
 
 import (
+	"net/http"
+
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"net/http"
 )
 
 const namespace = "raylea"
@@ -19,17 +20,17 @@ const namespace = "raylea"
 type Registry struct {
 	registry *prometheus.Registry
 
-	EventPipelineStage   *prometheus.CounterVec
-	PluginRuntimeState   *prometheus.GaugeVec
-	TaskExecutionLatency *prometheus.HistogramVec
-	RenderQueueDepth     prometheus.Gauge
-	RenderDuration       *prometheus.HistogramVec
-	OutboundSendTotal    *prometheus.CounterVec
-	OutboundSendDuration *prometheus.HistogramVec
-	DispatcherDropTotal  *prometheus.CounterVec
-	DispatcherQueueDepth *prometheus.GaugeVec
-	AdapterDedupDrops    prometheus.Counter
-	BridgeIgnoredTotal   prometheus.Counter
+	EventPipelineStage    *prometheus.CounterVec
+	PluginRuntimeState    *prometheus.GaugeVec
+	TaskExecutionLatency  *prometheus.HistogramVec
+	RenderQueueDepth      prometheus.Gauge
+	RenderDuration        *prometheus.HistogramVec
+	OutboundSendTotal     *prometheus.CounterVec
+	OutboundSendDuration  *prometheus.HistogramVec
+	DispatcherDropTotal   *prometheus.CounterVec
+	DispatcherQueueDepth  *prometheus.GaugeVec
+	AdapterDedupDrops     prometheus.Counter
+	BridgeIgnoredTotal    prometheus.Counter
 	WebhookReplayObserved *prometheus.CounterVec
 }
 

@@ -4,10 +4,10 @@ import (
 	"strings"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
-	"github.com/RayleaBot/RayleaBot/server/internal/runtime"
+	runtimeprotocol "github.com/RayleaBot/RayleaBot/server/internal/runtime/protocol"
 )
 
-func (s *Service) visiblePluginListCommandsForCaller(commands []plugins.CommandView, event runtime.Event) []plugins.CommandView {
+func (s *Service) visiblePluginListCommandsForCaller(commands []plugins.CommandView, event runtimeprotocol.Event) []plugins.CommandView {
 	if len(commands) == 0 {
 		return []plugins.CommandView{}
 	}
@@ -24,7 +24,7 @@ func (s *Service) visiblePluginListCommandsForCaller(commands []plugins.CommandV
 	return visible
 }
 
-func (s *Service) visiblePluginListHelpForCaller(help *plugins.HelpView, allCommands []plugins.CommandView, visibleCommands []plugins.CommandView, event runtime.Event) *plugins.HelpView {
+func (s *Service) visiblePluginListHelpForCaller(help *plugins.HelpView, allCommands []plugins.CommandView, visibleCommands []plugins.CommandView, event runtimeprotocol.Event) *plugins.HelpView {
 	if help == nil {
 		return nil
 	}

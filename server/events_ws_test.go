@@ -10,12 +10,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/coder/websocket"
-
-	"github.com/RayleaBot/RayleaBot/server/internal/adapter"
+	adapterintake "github.com/RayleaBot/RayleaBot/server/internal/adapter/intake"
 	"github.com/RayleaBot/RayleaBot/server/internal/bridge"
 	"github.com/RayleaBot/RayleaBot/server/internal/dispatch"
-	"github.com/RayleaBot/RayleaBot/server/internal/runtime"
+	runtimeprotocol "github.com/RayleaBot/RayleaBot/server/internal/runtime/protocol"
+	"github.com/coder/websocket"
 )
 
 func TestEventsWebSocketDeliversBridgeRuntimeFrame(t *testing.T) {
@@ -65,7 +64,7 @@ func TestEventsWebSocketDeliversBridgeRuntimeFrame(t *testing.T) {
 	if data["summary"] == "" {
 		t.Fatalf("expected non-empty summary")
 	}
-	if data["last_supported_event_kind"] != string(adapter.EventKindMessageText) {
+	if data["last_supported_event_kind"] != string(adapterintake.EventKindMessageText) {
 		t.Fatalf("unexpected last_supported_event_kind: got %#v", data["last_supported_event_kind"])
 	}
 	if data["last_delivery_outcome"] != string(bridge.OutcomeDelivered) {
@@ -346,7 +345,7 @@ func (s *eventsDispatchStub) HasDeliverablePlugins() bool {
 	return s.deliverable
 }
 
-func (s *eventsDispatchStub) Dispatch(context.Context, runtime.Event, string) []dispatch.DeliveryResult {
+func (s *eventsDispatchStub) Dispatch(context.Context, runtimeprotocol.Event, string) []dispatch.DeliveryResult {
 	return append([]dispatch.DeliveryResult(nil), s.results...)
 }
 
@@ -399,9 +398,9 @@ func websocketURL(httpURL string) string {
 	return "ws://" + strings.TrimPrefix(httpURL, "http://")
 }
 
-func testBridgeEvent() adapter.NormalizedEvent {
-	return adapter.NormalizedEvent{
-		Kind:             adapter.EventKindMessageText,
+func testBridgeEvent() adapterintake.NormalizedEvent {
+	return adapterintake.NormalizedEvent{
+		Kind:             adapterintake.EventKindMessageText,
 		EventID:          "onebot11-message-1001",
 		BotID:            "10001",
 		SourceProtocol:   "onebot11",

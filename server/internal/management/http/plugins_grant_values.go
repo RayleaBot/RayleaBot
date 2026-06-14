@@ -3,6 +3,7 @@ package managementhttp
 import (
 	"encoding/json"
 	"errors"
+	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	"strings"
 	"time"
 )
@@ -30,7 +31,7 @@ func parseGrantRequestExpiry(value *string) (*time.Time, error) {
 
 // isCapabilityDeclared checks whether a capability is declared in the plugin's
 // manifest via capabilities, permissions.required, or permissions.optional.
-func isCapabilityDeclared(snapshot Snapshot, capability string) bool {
+func isCapabilityDeclared(snapshot plugins.Snapshot, capability string) bool {
 	for _, c := range snapshot.DeclaredCapabilities {
 		if c == capability {
 			return true
@@ -51,7 +52,7 @@ func isCapabilityDeclared(snapshot Snapshot, capability string) bool {
 
 // BuildScopeJSON constructs a JSON string from the plugin manifest's scope
 // boundaries for persistence alongside the grant.
-func BuildScopeJSON(snapshot Snapshot) string {
+func BuildScopeJSON(snapshot plugins.Snapshot) string {
 	if len(snapshot.ScopeHTTPHosts) == 0 && len(snapshot.ScopeStorageRoots) == 0 && len(snapshot.ScopeWebhooks) == 0 {
 		return ""
 	}

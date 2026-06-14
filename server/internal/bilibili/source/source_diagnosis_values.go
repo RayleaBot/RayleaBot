@@ -3,6 +3,8 @@ package source
 import (
 	"strings"
 	"time"
+
+	bilibiliSession "github.com/RayleaBot/RayleaBot/server/internal/bilibili/session"
 )
 
 func normalizeCooldownScope(scope string) string {
@@ -19,8 +21,8 @@ func normalizeCooldownScope(scope string) string {
 }
 
 func cooldownCode(err error) string {
-	biliErr := asBilibiliError(err)
-	if biliErr != nil && biliErr.Kind == ErrorRateLimit {
+	biliErr := bilibiliSession.AsError(err)
+	if biliErr != nil && biliErr.Kind == bilibiliSession.ErrorRateLimit {
 		return "platform_rate_limit"
 	}
 	return "platform_risk_control"

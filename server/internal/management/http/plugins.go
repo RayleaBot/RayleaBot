@@ -1,11 +1,12 @@
 package managementhttp
 
 import (
+	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	"github.com/RayleaBot/RayleaBot/server/internal/tasks"
 	"github.com/go-chi/chi/v5"
 )
 
-func RegisterPluginRoutes(router chi.Router, catalog CatalogView, taskRegistry *tasks.Registry, repo DesiredStateRepository, installer InstallCoordinator, controller DesiredStateController, uninstaller UninstallCoordinator, grantRepo GrantRepository, autoGrantProvider autoGrantCapabilitiesProvider) {
+func RegisterPluginRoutes(router chi.Router, catalog plugins.CatalogView, taskRegistry *tasks.Registry, repo plugins.DesiredStateRepository, installer plugins.InstallCoordinator, controller DesiredStateController, uninstaller UninstallCoordinator, grantRepo plugins.GrantRepository, autoGrantProvider autoGrantCapabilitiesProvider) {
 	if catalog == nil {
 		catalog = emptyCatalogView{}
 	}
@@ -25,14 +26,14 @@ func RegisterPluginRoutes(router chi.Router, catalog CatalogView, taskRegistry *
 
 type emptyCatalogView struct{}
 
-func (emptyCatalogView) List() []Snapshot {
+func (emptyCatalogView) List() []plugins.Snapshot {
 	return nil
 }
 
-func (emptyCatalogView) Get(string) (Snapshot, bool) {
-	return Snapshot{}, false
+func (emptyCatalogView) Get(string) (plugins.Snapshot, bool) {
+	return plugins.Snapshot{}, false
 }
 
-func (emptyCatalogView) SetDesiredState(string, string) (Snapshot, error) {
-	return Snapshot{}, ErrPluginNotFound
+func (emptyCatalogView) SetDesiredState(string, string) (plugins.Snapshot, error) {
+	return plugins.Snapshot{}, plugins.ErrPluginNotFound
 }

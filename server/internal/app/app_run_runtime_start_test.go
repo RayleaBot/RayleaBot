@@ -7,12 +7,12 @@ import (
 	goruntime "runtime"
 	"testing"
 
-	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
-
-	"github.com/RayleaBot/RayleaBot/server/internal/adapter"
+	adapterintake "github.com/RayleaBot/RayleaBot/server/internal/adapter/intake"
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
-	"github.com/RayleaBot/RayleaBot/server/internal/runtime"
+	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
+	runtimemanager "github.com/RayleaBot/RayleaBot/server/internal/runtime/manager"
+	runtimespec "github.com/RayleaBot/RayleaBot/server/internal/runtime/spec"
 )
 
 func TestEnsureRuntimeStartedForEventStartsFirstEnabledInstalledPlugin(t *testing.T) {
@@ -49,7 +49,7 @@ func TestEnsureRuntimeStartedForEventStartsFirstEnabledInstalledPlugin(t *testin
 		},
 	})
 	manager := &fakeRuntimeStarter{
-		snapshot: runtime.Snapshot{State: runtime.StateStopped},
+		snapshot: runtimemanager.Snapshot{State: runtimemanager.StateStopped},
 	}
 
 	snapshot, started, err := ensureRuntimeStartedForEvent(
@@ -63,7 +63,7 @@ func TestEnsureRuntimeStartedForEventStartsFirstEnabledInstalledPlugin(t *testin
 			},
 			Command: &config.CommandConfig{Prefixes: []string{"!", "/"}},
 		},
-		adapter.NormalizedEvent{BotID: "10001"},
+		adapterintake.NormalizedEvent{BotID: "10001"},
 	)
 	if err != nil {
 		t.Fatalf("ensure runtime started: %v", err)
@@ -95,7 +95,7 @@ func TestEnsureRuntimeStartedForEventSkipsWhenRuntimeIsAlreadyRunning(t *testing
 	t.Parallel()
 
 	manager := &fakeRuntimeStarter{
-		snapshot: runtime.Snapshot{State: runtime.StateRunning},
+		snapshot: runtimemanager.Snapshot{State: runtimemanager.StateRunning},
 	}
 	catalog := plugincatalog.New([]plugins.Snapshot{
 		{
@@ -115,7 +115,7 @@ func TestEnsureRuntimeStartedForEventSkipsWhenRuntimeIsAlreadyRunning(t *testing
 		catalog,
 		t.TempDir(),
 		config.Config{},
-		adapter.NormalizedEvent{BotID: "10001"},
+		adapterintake.NormalizedEvent{BotID: "10001"},
 	)
 	if err != nil {
 		t.Fatalf("ensure runtime started: %v", err)
@@ -136,7 +136,7 @@ func TestEnsureRuntimeStartedForEventAllowsMissingBotID(t *testing.T) {
 	createPluginEntry(t, repoRoot, "plugins/installed/hello-node", "index.js")
 
 	manager := &fakeRuntimeStarter{
-		snapshot: runtime.Snapshot{State: runtime.StateStopped},
+		snapshot: runtimemanager.Snapshot{State: runtimemanager.StateStopped},
 	}
 	catalog := plugincatalog.New([]plugins.Snapshot{
 		{
@@ -156,7 +156,7 @@ func TestEnsureRuntimeStartedForEventAllowsMissingBotID(t *testing.T) {
 		catalog,
 		repoRoot,
 		config.Config{},
-		adapter.NormalizedEvent{},
+		adapterintake.NormalizedEvent{},
 	)
 	if err != nil {
 		t.Fatalf("ensure runtime started without bot id: %v", err)
@@ -177,7 +177,7 @@ func TestEnsureRuntimeStartedForEventSkipsDisabledPlugin(t *testing.T) {
 	createPluginEntry(t, repoRoot, "plugins/installed/hello-node", "index.js")
 
 	manager := &fakeRuntimeStarter{
-		snapshot: runtime.Snapshot{State: runtime.StateStopped},
+		snapshot: runtimemanager.Snapshot{State: runtimemanager.StateStopped},
 	}
 	catalog := plugincatalog.New([]plugins.Snapshot{
 		{
@@ -197,7 +197,7 @@ func TestEnsureRuntimeStartedForEventSkipsDisabledPlugin(t *testing.T) {
 		catalog,
 		repoRoot,
 		config.Config{},
-		adapter.NormalizedEvent{BotID: "10001"},
+		adapterintake.NormalizedEvent{BotID: "10001"},
 	)
 	if err != nil {
 		t.Fatalf("ensure runtime started: %v", err)
@@ -211,18 +211,18 @@ func TestEnsureRuntimeStartedForEventSkipsDisabledPlugin(t *testing.T) {
 }
 
 type fakeRuntimeStarter struct {
-	snapshot       runtime.Snapshot
+	snapshot       runtimemanager.Snapshot
 	startCount     int
-	startedSpec    runtime.Spec
-	startedPayload runtime.InitPayload
+	startedSpec    runtimespec.Spec
+	startedPayload runtimespec.InitPayload
 	startErr       error
 }
 
-func (f *fakeRuntimeStarter) Snapshot() runtime.Snapshot {
+func (f *fakeRuntimeStarter) Snapshot() runtimemanager.Snapshot {
 	return f.snapshot
 }
 
-func (f *fakeRuntimeStarter) Start(_ context.Context, spec runtime.Spec, payload runtime.InitPayload) error {
+func (f *fakeRuntimeStarter) Start(_ context.Context, spec runtimespec.Spec, payload runtimespec.InitPayload) error {
 	f.startCount++
 	f.startedSpec = spec
 	f.startedPayload = payload
@@ -230,9 +230,9 @@ func (f *fakeRuntimeStarter) Start(_ context.Context, spec runtime.Spec, payload
 		return f.startErr
 	}
 
-	f.snapshot = runtime.Snapshot{
+	f.snapshot = runtimemanager.Snapshot{
 		PluginID: spec.PluginID,
-		State:    runtime.StateRunning,
+		State:    runtimemanager.StateRunning,
 	}
 	return nil
 }

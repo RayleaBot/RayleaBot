@@ -10,6 +10,9 @@ import (
 	"testing"
 	"time"
 
+	adapterapi "github.com/RayleaBot/RayleaBot/server/internal/adapter/api"
+	adaptercache "github.com/RayleaBot/RayleaBot/server/internal/adapter/cache"
+	adapteroutbound "github.com/RayleaBot/RayleaBot/server/internal/adapter/outbound"
 	"github.com/coder/websocket"
 	"github.com/coder/websocket/wsjson"
 )
@@ -154,12 +157,12 @@ func TestGetLoginInfoReturnsErrorOnFailedResponse(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected GetLoginInfo to fail")
 	}
-	var adapterErr *Error
+	var adapterErr *adapteroutbound.Error
 	if !errors.As(err, &adapterErr) {
-		t.Fatalf("expected *adapter.Error, got %T", err)
+		t.Fatalf("expected *adapteroutbound.Error, got %T", err)
 	}
-	if adapterErr.Code != errorCodeAPICallFailed {
-		t.Fatalf("unexpected error code: got %q want %q", adapterErr.Code, errorCodeAPICallFailed)
+	if adapterErr.Code != adapterapi.ErrorCodeAPICallFailed {
+		t.Fatalf("unexpected error code: got %q want %q", adapterErr.Code, adapterapi.ErrorCodeAPICallFailed)
 	}
 
 	stopCtx, stopCancel := context.WithTimeout(context.Background(), time.Second)
@@ -309,12 +312,12 @@ func TestGetVersionInfoReturnsErrorOnFailedResponse(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected GetVersionInfo to fail")
 	}
-	var adapterErr *Error
+	var adapterErr *adapteroutbound.Error
 	if !errors.As(err, &adapterErr) {
-		t.Fatalf("expected *adapter.Error, got %T", err)
+		t.Fatalf("expected *adapteroutbound.Error, got %T", err)
 	}
-	if adapterErr.Code != errorCodeAPICallFailed {
-		t.Fatalf("unexpected error code: got %q want %q", adapterErr.Code, errorCodeAPICallFailed)
+	if adapterErr.Code != adapterapi.ErrorCodeAPICallFailed {
+		t.Fatalf("unexpected error code: got %q want %q", adapterErr.Code, adapterapi.ErrorCodeAPICallFailed)
 	}
 
 	stopCtx, stopCancel := context.WithTimeout(context.Background(), time.Second)
@@ -887,9 +890,9 @@ func TestCallAPIReturnsErrorWhenNotConnected(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected callAPI to fail when not connected")
 	}
-	var adapterErr *Error
+	var adapterErr *adapteroutbound.Error
 	if !errors.As(err, &adapterErr) {
-		t.Fatalf("expected *adapter.Error, got %T", err)
+		t.Fatalf("expected *adapteroutbound.Error, got %T", err)
 	}
 	if adapterErr.Code != errorCodeConnectionLost {
 		t.Fatalf("unexpected error code: got %q want %q", adapterErr.Code, errorCodeConnectionLost)
@@ -900,24 +903,24 @@ func TestIdentityCacheTTLExpiry(t *testing.T) {
 
 	t.Parallel()
 
-	cache := NewIdentityCache(50 * time.Millisecond)
+	cache := adaptercache.NewIdentityCache(50 * time.Millisecond)
 
-	cache.SetLogin(LoginInfo{ID: "1", Nickname: "Bot"})
+	cache.SetLogin(adaptercache.LoginInfo{ID: "1", Nickname: "Bot"})
 	if info, ok := cache.GetLogin(); !ok || info.ID != "1" {
 		t.Fatalf("expected cached login, got ok=%v info=%+v", ok, info)
 	}
 
-	cache.SetGroupInfo("g1", GroupInfo{Name: "Group 1"})
+	cache.SetGroupInfo("g1", adaptercache.GroupInfo{Name: "Group 1"})
 	if info, ok := cache.GetGroupInfo("g1"); !ok || info.Name != "Group 1" {
 		t.Fatalf("expected cached group info, got ok=%v info=%+v", ok, info)
 	}
 
-	cache.SetGroupMemberInfo("g1", "u1", GroupMemberInfo{Role: "owner", Nickname: "测试用户A", Card: "A"})
+	cache.SetGroupMemberInfo("g1", "u1", adaptercache.GroupMemberInfo{Role: "owner", Nickname: "测试用户A", Card: "A"})
 	if info, ok := cache.GetGroupMemberInfo("g1", "u1"); !ok || info.Role != "owner" {
 		t.Fatalf("expected cached member info, got ok=%v info=%+v", ok, info)
 	}
 
-	cache.SetStrangerInfo("u2", StrangerInfo{Nickname: "测试用户B"})
+	cache.SetStrangerInfo("u2", adaptercache.StrangerInfo{Nickname: "测试用户B"})
 	if info, ok := cache.GetStrangerInfo("u2"); !ok || info.Nickname != "测试用户B" {
 		t.Fatalf("expected cached stranger info, got ok=%v info=%+v", ok, info)
 	}
@@ -943,12 +946,12 @@ func TestIdentityCacheClearInvalidatesAll(t *testing.T) {
 
 	t.Parallel()
 
-	cache := NewIdentityCache(10 * time.Minute)
+	cache := adaptercache.NewIdentityCache(10 * time.Minute)
 
-	cache.SetLogin(LoginInfo{ID: "1", Nickname: "Bot"})
-	cache.SetGroupInfo("g1", GroupInfo{Name: "Group"})
-	cache.SetGroupMemberInfo("g1", "u1", GroupMemberInfo{Role: "member"})
-	cache.SetStrangerInfo("u2", StrangerInfo{Nickname: "测试用户B"})
+	cache.SetLogin(adaptercache.LoginInfo{ID: "1", Nickname: "Bot"})
+	cache.SetGroupInfo("g1", adaptercache.GroupInfo{Name: "Group"})
+	cache.SetGroupMemberInfo("g1", "u1", adaptercache.GroupMemberInfo{Role: "member"})
+	cache.SetStrangerInfo("u2", adaptercache.StrangerInfo{Nickname: "测试用户B"})
 
 	cache.Clear()
 
@@ -969,12 +972,12 @@ func TestIdentityCacheClearInvalidatesAll(t *testing.T) {
 func TestIdentityCacheInvalidatesSpecificGroupEntries(t *testing.T) {
 	t.Parallel()
 
-	cache := NewIdentityCache(10 * time.Minute)
-	cache.SetGroupInfo("g1", GroupInfo{Name: "Group 1"})
-	cache.SetGroupInfo("g2", GroupInfo{Name: "Group 2"})
-	cache.SetGroupMemberInfo("g1", "u1", GroupMemberInfo{Role: "member"})
-	cache.SetGroupMemberInfo("g1", "u2", GroupMemberInfo{Role: "admin"})
-	cache.SetGroupMemberInfo("g2", "u1", GroupMemberInfo{Role: "owner"})
+	cache := adaptercache.NewIdentityCache(10 * time.Minute)
+	cache.SetGroupInfo("g1", adaptercache.GroupInfo{Name: "Group 1"})
+	cache.SetGroupInfo("g2", adaptercache.GroupInfo{Name: "Group 2"})
+	cache.SetGroupMemberInfo("g1", "u1", adaptercache.GroupMemberInfo{Role: "member"})
+	cache.SetGroupMemberInfo("g1", "u2", adaptercache.GroupMemberInfo{Role: "admin"})
+	cache.SetGroupMemberInfo("g2", "u1", adaptercache.GroupMemberInfo{Role: "owner"})
 
 	cache.InvalidateGroupInfo("g1")
 	if _, ok := cache.GetGroupInfo("g1"); ok {

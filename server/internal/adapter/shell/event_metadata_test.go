@@ -9,6 +9,9 @@ import (
 	"testing"
 	"time"
 
+	adapterapi "github.com/RayleaBot/RayleaBot/server/internal/adapter/api"
+	adapterintake "github.com/RayleaBot/RayleaBot/server/internal/adapter/intake"
+	adapteroutbound "github.com/RayleaBot/RayleaBot/server/internal/adapter/outbound"
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 )
 
@@ -21,7 +24,7 @@ func TestEnrichEventMetadataHydratesGroupContextAndUsesCache(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		defer r.Body.Close()
 
-		var request apiCallRequest
+		var request adapteroutbound.APICallRequest
 		if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
 			t.Fatalf("decode request: %v", err)
 		}
@@ -63,7 +66,7 @@ func TestEnrichEventMetadataHydratesGroupContextAndUsesCache(t *testing.T) {
 		sleep:          blockingSleep,
 	})
 
-	event := NormalizedEvent{
+	event := adapterintake.NormalizedEvent{
 		BotID:            "10001",
 		SourceProtocol:   "onebot11",
 		EventType:        "message.group",
@@ -118,7 +121,7 @@ func TestEnrichEventMetadataHydratesPrivateNicknameAndUsesCache(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		defer r.Body.Close()
 
-		var request apiCallRequest
+		var request adapteroutbound.APICallRequest
 		if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
 			t.Fatalf("decode request: %v", err)
 		}
@@ -147,7 +150,7 @@ func TestEnrichEventMetadataHydratesPrivateNicknameAndUsesCache(t *testing.T) {
 		sleep:          blockingSleep,
 	})
 
-	event := NormalizedEvent{
+	event := adapterintake.NormalizedEvent{
 		BotID:            "10001",
 		SourceProtocol:   "onebot11",
 		EventType:        "message.private",
@@ -193,7 +196,7 @@ func TestEnrichEventMetadataRefreshesGroupNameAfterNotice(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		defer r.Body.Close()
 
-		var request apiCallRequest
+		var request adapteroutbound.APICallRequest
 		if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
 			t.Fatalf("decode request: %v", err)
 		}
@@ -223,7 +226,7 @@ func TestEnrichEventMetadataRefreshesGroupNameAfterNotice(t *testing.T) {
 		sleep:          blockingSleep,
 	})
 
-	event := NormalizedEvent{
+	event := adapterintake.NormalizedEvent{
 		BotID:            "10001",
 		SourceProtocol:   "onebot11",
 		EventType:        "message.group",
@@ -244,7 +247,7 @@ func TestEnrichEventMetadataRefreshesGroupNameAfterNotice(t *testing.T) {
 		t.Fatalf("unexpected first target name: %#v", enriched.TargetName)
 	}
 
-	shell.EnrichEventMetadata(context.Background(), NormalizedEvent{
+	shell.EnrichEventMetadata(context.Background(), adapterintake.NormalizedEvent{
 		BotID:            "10001",
 		SourceProtocol:   "onebot11",
 		EventType:        "notice.group_name",
@@ -278,7 +281,7 @@ func TestIdentityCacheRefreshesGroupNameAfterRawNoticeFrame(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		defer r.Body.Close()
 
-		var request apiCallRequest
+		var request adapteroutbound.APICallRequest
 		if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
 			t.Fatalf("decode request: %v", err)
 		}
@@ -308,7 +311,7 @@ func TestIdentityCacheRefreshesGroupNameAfterRawNoticeFrame(t *testing.T) {
 		sleep:          blockingSleep,
 	})
 
-	event := NormalizedEvent{
+	event := adapterintake.NormalizedEvent{
 		BotID:            "10001",
 		SourceProtocol:   "onebot11",
 		EventType:        "message.group",
@@ -324,7 +327,7 @@ func TestIdentityCacheRefreshesGroupNameAfterRawNoticeFrame(t *testing.T) {
 		t.Fatalf("unexpected first target name: %#v", enriched.TargetName)
 	}
 
-	shell.invalidateIdentityCacheForFrame(oneBotFrame{
+	shell.invalidateIdentityCacheForFrame(adapterintake.OneBotFrame{
 		PostType:   "notice",
 		NoticeType: "group_name",
 		GroupID:    20001,
@@ -348,7 +351,7 @@ func TestEnrichEventMetadataUsesMessageGroupNameOverCachedLookup(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		defer r.Body.Close()
 
-		var request apiCallRequest
+		var request adapteroutbound.APICallRequest
 		if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
 			t.Fatalf("decode request: %v", err)
 		}
@@ -377,7 +380,7 @@ func TestEnrichEventMetadataUsesMessageGroupNameOverCachedLookup(t *testing.T) {
 		sleep:          blockingSleep,
 	})
 
-	event := NormalizedEvent{
+	event := adapterintake.NormalizedEvent{
 		BotID:            "10001",
 		SourceProtocol:   "onebot11",
 		EventType:        "message.group",
@@ -420,7 +423,7 @@ func TestEnrichEventMetadataUsesMessageGroupNameOverCachedLookup(t *testing.T) {
 func TestEnrichEventMetadataRefreshesMemberInfoAfterCardNotice(t *testing.T) {
 	t.Parallel()
 
-	members := []GroupMemberInfo{
+	members := []adapterapi.GroupMemberInfo{
 		{Nickname: "旧昵称", Card: "旧名片", Role: "member", Title: "旧头衔"},
 		{Nickname: "新昵称", Card: "新名片", Role: "admin", Title: "新头衔"},
 	}
@@ -429,7 +432,7 @@ func TestEnrichEventMetadataRefreshesMemberInfoAfterCardNotice(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		defer r.Body.Close()
 
-		var request apiCallRequest
+		var request adapteroutbound.APICallRequest
 		if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
 			t.Fatalf("decode request: %v", err)
 		}
@@ -462,7 +465,7 @@ func TestEnrichEventMetadataRefreshesMemberInfoAfterCardNotice(t *testing.T) {
 		sleep:          blockingSleep,
 	})
 
-	event := NormalizedEvent{
+	event := adapterintake.NormalizedEvent{
 		BotID:            "10001",
 		SourceProtocol:   "onebot11",
 		EventType:        "message.group",
@@ -486,7 +489,7 @@ func TestEnrichEventMetadataRefreshesMemberInfoAfterCardNotice(t *testing.T) {
 		t.Fatalf("unexpected first sender: actor=%q role=%q sender=%#v", first.ActorNickname, first.ActorRole, firstSender)
 	}
 
-	shell.EnrichEventMetadata(context.Background(), NormalizedEvent{
+	shell.EnrichEventMetadata(context.Background(), adapterintake.NormalizedEvent{
 		BotID:            "10001",
 		SourceProtocol:   "onebot11",
 		EventType:        "notice.group_card",

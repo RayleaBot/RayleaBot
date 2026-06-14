@@ -1,12 +1,13 @@
 package pluginmanifest
 
 import (
+	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	"strings"
 	"unicode"
 )
 
-func ProjectCommands(snapshot Snapshot, settings map[string]any) []Command {
-	items := make([]Command, 0, len(snapshot.ManifestCommands)+len(snapshot.DynamicCommands))
+func ProjectCommands(snapshot plugins.Snapshot, settings map[string]any) []plugins.Command {
+	items := make([]plugins.Command, 0, len(snapshot.ManifestCommands)+len(snapshot.DynamicCommands))
 	for _, command := range snapshot.ManifestCommands {
 		normalized := command
 		normalized.CommandSource = CommandSourceManifest
@@ -33,7 +34,7 @@ func ProjectCommands(snapshot Snapshot, settings map[string]any) []Command {
 		if usageArgs := strings.TrimSpace(declaration.UsageArgs); usageArgs != "" {
 			usage = name + " " + usageArgs
 		}
-		items = append(items, Command{
+		items = append(items, plugins.Command{
 			Name:          name,
 			Aliases:       append([]string(nil), tokens[1:]...),
 			Description:   strings.TrimSpace(declaration.Description),

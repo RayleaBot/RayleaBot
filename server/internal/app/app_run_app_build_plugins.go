@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/RayleaBot/RayleaBot/server/internal/adapter"
+	adaptershell "github.com/RayleaBot/RayleaBot/server/internal/adapter/shell"
 	"github.com/RayleaBot/RayleaBot/server/internal/bridge"
 	"github.com/RayleaBot/RayleaBot/server/internal/dispatch"
 	"github.com/RayleaBot/RayleaBot/server/internal/localaction"
@@ -14,7 +14,7 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/pluginfile"
 	pluginservice "github.com/RayleaBot/RayleaBot/server/internal/plugins/service"
 	"github.com/RayleaBot/RayleaBot/server/internal/pluginwebhook"
-	"github.com/RayleaBot/RayleaBot/server/internal/render"
+	renderbrowser "github.com/RayleaBot/RayleaBot/server/internal/render/browser"
 )
 
 const dispatcherRuntimeFlushInterval = 10 * time.Second
@@ -22,9 +22,9 @@ const dispatcherRuntimeFlushInterval = 10 * time.Second
 func buildAppPlugins(
 	state appBuildState,
 	platform appPlatform,
-	renderRunner render.Runner,
+	renderRunner renderbrowser.Runner,
 ) (appPlugins, error) {
-	adapterShell := adapter.New(state.core.Config.OneBot, state.core.Config.Adapter, state.core.Logger)
+	adapterShell := adaptershell.New(state.core.Config.OneBot, state.core.Config.Adapter, state.core.Logger)
 	replyTargets := newReplyTargetCache(defaultReplyTargetCacheSize)
 	eventDispatcher := dispatch.New(state.core.Logger, adapterShell, replyTargets, state.core.Config.Runtime.MaxPendingEventsPerPlugin)
 	outboundLimiter := outbound.NewMessageRateLimiter(state.core.Config)

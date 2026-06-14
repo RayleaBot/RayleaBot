@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/RayleaBot/RayleaBot/server/internal/adapter"
+	adapteroutbound "github.com/RayleaBot/RayleaBot/server/internal/adapter/outbound"
 	"github.com/RayleaBot/RayleaBot/server/internal/logging"
 )
 
@@ -59,7 +59,7 @@ func TestLogSendOutcomeUsesPlatformSummaryWithoutPluginContext(t *testing.T) {
 		ActionKind: "message.send",
 		TargetType: "group",
 		TargetID:   "200",
-		Segments: []adapter.OutboundMessageSegment{{
+		Segments: []adapteroutbound.OutboundMessageSegment{{
 			Type: "text",
 			Data: map[string]any{"text": "cooldown reply"},
 		}},
@@ -91,7 +91,7 @@ func TestLogSendOutcomeUsesPlatformFailureSummaryWithoutPluginContext(t *testing
 		ActionKind: "message.send",
 		TargetType: "private",
 		TargetID:   "300",
-		Segments: []adapter.OutboundMessageSegment{{
+		Segments: []adapteroutbound.OutboundMessageSegment{{
 			Type: "text",
 			Data: map[string]any{"text": "cooldown reply"},
 		}},
@@ -99,7 +99,7 @@ func TestLogSendOutcomeUsesPlatformFailureSummaryWithoutPluginContext(t *testing
 		DeliveryKind: "message.send",
 		TargetType:   "private",
 		TargetID:     "300",
-	}, &adapter.Error{
+	}, &adapteroutbound.Error{
 		Code:    "adapter.send_failed",
 		Message: "send rejected by upstream",
 	})

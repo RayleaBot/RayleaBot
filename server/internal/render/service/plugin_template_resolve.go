@@ -8,16 +8,17 @@ import (
 	"strings"
 
 	renderplugins "github.com/RayleaBot/RayleaBot/server/internal/render/plugins"
+	rendertemplates "github.com/RayleaBot/RayleaBot/server/internal/render/templates"
 )
 
 func (s *Service) ResolvePluginTemplate(ctx context.Context, pluginID, requested string) (string, error) {
 	if s == nil {
-		return "", &Error{Code: "platform.resource_missing", Message: "render service is not available"}
+		return "", &rendertemplates.Error{Code: "platform.resource_missing", Message: "render service is not available"}
 	}
 	pluginID = strings.TrimSpace(pluginID)
 	requested = strings.TrimSpace(requested)
 	if requested == "" {
-		return "", &Error{Code: "platform.invalid_request", Message: "render template is required"}
+		return "", &rendertemplates.Error{Code: "platform.invalid_request", Message: "render template is required"}
 	}
 	if err := s.syncTemplatesFromFiles(ctx); err != nil {
 		return "", err
@@ -26,7 +27,7 @@ func (s *Service) ResolvePluginTemplate(ctx context.Context, pluginID, requested
 	if strings.HasPrefix(requested, "plugin.") {
 		ownerPluginID, _, ok := renderplugins.ParseFormalID(requested)
 		if !ok || pluginID == "" || ownerPluginID != pluginID {
-			return "", &Error{
+			return "", &rendertemplates.Error{
 				Code:    "permission.scope_violation",
 				Message: "plugin render template belongs to another plugin",
 			}
@@ -39,7 +40,7 @@ func (s *Service) ResolvePluginTemplate(ctx context.Context, pluginID, requested
 			return "", fmt.Errorf("get plugin render template %s: %w", requested, err)
 		}
 		if detail.Source.Type == "plugin" && detail.Source.PluginID != pluginID {
-			return "", &Error{
+			return "", &rendertemplates.Error{
 				Code:    "permission.scope_violation",
 				Message: "plugin render template belongs to another plugin",
 			}

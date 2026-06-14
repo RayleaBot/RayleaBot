@@ -2,17 +2,18 @@ package pluginmanifest
 
 import (
 	"fmt"
+	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	"path/filepath"
 	"strings"
 )
 
-func manifestScreenshots(document map[string]any) []Screenshot {
+func manifestScreenshots(document map[string]any) []plugins.Screenshot {
 	values, ok := document["screenshots"].([]any)
 	if !ok {
 		return nil
 	}
 
-	items := make([]Screenshot, 0, len(values))
+	items := make([]plugins.Screenshot, 0, len(values))
 	for _, value := range values {
 		item, ok := value.(map[string]any)
 		if !ok {
@@ -22,7 +23,7 @@ func manifestScreenshots(document map[string]any) []Screenshot {
 		if path == "" {
 			continue
 		}
-		items = append(items, Screenshot{
+		items = append(items, plugins.Screenshot{
 			Path: path,
 			Alt:  stringField(item, "alt"),
 		})
@@ -30,7 +31,7 @@ func manifestScreenshots(document map[string]any) []Screenshot {
 	return items
 }
 
-func manifestManagementUI(document map[string]any) *ManagementUI {
+func manifestManagementUI(document map[string]any) *plugins.ManagementUI {
 	value, ok := document["management_ui"].(map[string]any)
 	if !ok {
 		return nil
@@ -41,24 +42,24 @@ func manifestManagementUI(document map[string]any) *ManagementUI {
 		return nil
 	}
 
-	return &ManagementUI{
+	return &plugins.ManagementUI{
 		Pages: pages,
 	}
 }
 
-func manifestManagementUIPages(document map[string]any) []ManagementUIPage {
+func manifestManagementUIPages(document map[string]any) []plugins.ManagementUIPage {
 	values, ok := document["pages"].([]any)
 	if !ok {
 		return nil
 	}
 
-	items := make([]ManagementUIPage, 0, len(values))
+	items := make([]plugins.ManagementUIPage, 0, len(values))
 	for _, value := range values {
 		item, ok := value.(map[string]any)
 		if !ok {
 			continue
 		}
-		items = append(items, ManagementUIPage{
+		items = append(items, plugins.ManagementUIPage{
 			ID:    stringField(item, "id"),
 			Label: stringField(item, "label"),
 			Entry: stringField(item, "entry"),
@@ -67,7 +68,7 @@ func manifestManagementUIPages(document map[string]any) []ManagementUIPage {
 	return items
 }
 
-func validateManagementUIPages(managementUI *ManagementUI) error {
+func validateManagementUIPages(managementUI *plugins.ManagementUI) error {
 	if managementUI == nil || len(managementUI.Pages) == 0 {
 		return nil
 	}
@@ -95,13 +96,13 @@ func pathDirectory(value string) string {
 	return cleaned[:index]
 }
 
-func manifestRenderTemplates(document map[string]any) []RenderTemplate {
+func manifestRenderTemplates(document map[string]any) []plugins.RenderTemplate {
 	values, ok := document["render_templates"].([]any)
 	if !ok {
 		return nil
 	}
 
-	items := make([]RenderTemplate, 0, len(values))
+	items := make([]plugins.RenderTemplate, 0, len(values))
 	for _, value := range values {
 		item, ok := value.(map[string]any)
 		if !ok {
@@ -111,7 +112,7 @@ func manifestRenderTemplates(document map[string]any) []RenderTemplate {
 		if path == "" {
 			continue
 		}
-		items = append(items, RenderTemplate{Path: path})
+		items = append(items, plugins.RenderTemplate{Path: path})
 	}
 	return items
 }

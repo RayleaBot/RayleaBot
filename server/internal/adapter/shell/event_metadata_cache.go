@@ -1,8 +1,12 @@
 package shell
 
-import adaptercache "github.com/RayleaBot/RayleaBot/server/internal/adapter/cache"
+import (
+	adapterintake "github.com/RayleaBot/RayleaBot/server/internal/adapter/intake"
 
-func (s *Shell) invalidateIdentityCacheForEvent(event NormalizedEvent) {
+	adaptercache "github.com/RayleaBot/RayleaBot/server/internal/adapter/cache"
+)
+
+func (s *Shell) invalidateIdentityCacheForEvent(event adapterintake.NormalizedEvent) {
 	if cache := s.currentIdentityCache(); cache != nil {
 		cache.InvalidateForEvent(adaptercache.EventInvalidation{
 			EventType:      event.EventType,
@@ -13,7 +17,7 @@ func (s *Shell) invalidateIdentityCacheForEvent(event NormalizedEvent) {
 	}
 }
 
-func (s *Shell) invalidateIdentityCacheForFrame(frame oneBotFrame) {
+func (s *Shell) invalidateIdentityCacheForFrame(frame adapterintake.OneBotFrame) {
 	if cache := s.currentIdentityCache(); cache != nil {
 		cache.InvalidateForFrame(adaptercache.FrameInvalidation{
 			PostType:   frame.PostType,

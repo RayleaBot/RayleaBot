@@ -4,27 +4,27 @@ import (
 	"sync"
 	"time"
 
-	source "github.com/RayleaBot/RayleaBot/server/internal/bilibili"
+	bilibilisource "github.com/RayleaBot/RayleaBot/server/internal/bilibili/source"
 )
 
 type BilibiliSourceService struct {
 	mu          sync.Mutex
 	subscribers map[uint64]chan Frame
 	nextID      uint64
-	current     source.Status
+	current     bilibilisource.Status
 }
 
 func NewBilibiliSourceService() *BilibiliSourceService {
 	return &BilibiliSourceService{
 		subscribers: make(map[uint64]chan Frame),
-		current: source.Status{
-			Status:  source.StateIdle,
+		current: bilibilisource.Status{
+			Status:  bilibilisource.StateIdle,
 			Summary: "Bilibili 事件源等待订阅",
 		},
 	}
 }
 
-func (s *BilibiliSourceService) Publish(status source.Status) {
+func (s *BilibiliSourceService) Publish(status bilibilisource.Status) {
 	if s == nil {
 		return
 	}
@@ -46,7 +46,7 @@ func (s *BilibiliSourceService) Publish(status source.Status) {
 
 func (s *BilibiliSourceService) CurrentEvent() Frame {
 	if s == nil {
-		return bilibiliSourceStatusEventFrame(source.Status{Status: source.StateIdle, Summary: "Bilibili 事件源等待订阅"})
+		return bilibiliSourceStatusEventFrame(bilibilisource.Status{Status: bilibilisource.StateIdle, Summary: "Bilibili 事件源等待订阅"})
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -91,11 +91,11 @@ type BilibiliSourcePayload struct {
 	Diagnosis          BilibiliSourceDiagnosis `json:"diagnosis"`
 }
 
-func BilibiliSourceStatusFrame(status source.Status) Frame {
+func BilibiliSourceStatusFrame(status bilibilisource.Status) Frame {
 	return bilibiliSourceStatusEventFrame(status)
 }
 
-func bilibiliSourceStatusEventFrame(status source.Status) Frame {
+func bilibiliSourceStatusEventFrame(status bilibilisource.Status) Frame {
 	var lastEventAt *string
 	if value := newestTimeString(status.Live.LastEventAt, status.Dynamic.LastEventAt); value != "" {
 		lastEventAt = &value
@@ -162,10 +162,10 @@ type BilibiliSourceDiagnosisAction struct {
 	Primary bool    `json:"primary"`
 }
 
-func BilibiliSourceDiagnosisFrom(status source.Status) BilibiliSourceDiagnosis {
+func BilibiliSourceDiagnosisFrom(status bilibilisource.Status) BilibiliSourceDiagnosis {
 	diagnosis := status.Diagnosis
 	if diagnosis.Level == "" || diagnosis.Headline == "" || diagnosis.UpdatedAt.IsZero() {
-		diagnosis = source.DiagnosisForStatus(status, time.Now().UTC())
+		diagnosis = bilibilisource.DiagnosisForStatus(status, time.Now().UTC())
 	}
 	causes := make([]BilibiliSourceDiagnosisCause, 0, len(diagnosis.Causes))
 	for _, cause := range diagnosis.Causes {

@@ -3,6 +3,8 @@ package manager
 import (
 	"context"
 	"time"
+
+	runtimeprotocol "github.com/RayleaBot/RayleaBot/server/internal/runtime/protocol"
 )
 
 func (m *Manager) Stop(ctx context.Context) error {
@@ -43,7 +45,7 @@ func (m *Manager) Stop(ctx context.Context) error {
 		"runtime_state", string(StateStopping),
 	)
 
-	writeErr := handle.WriteJSONLine(shutdownFrame{
+	writeErr := handle.WriteJSONLine(runtimeprotocol.ShutdownFrame{
 		ProtocolVersion: "1",
 		Type:            "shutdown",
 		Timestamp:       m.deps.now().Unix(),

@@ -5,9 +5,10 @@ import (
 	"encoding/json"
 
 	renderrepo "github.com/RayleaBot/RayleaBot/server/internal/render/repository"
+	rendertemplates "github.com/RayleaBot/RayleaBot/server/internal/render/templates"
 )
 
-func newStoredRevision(templateID, revisionID string, compiled *CompiledTemplate, kind string, message *string, savedAt string) renderrepo.StoredTemplateRevision {
+func newStoredRevision(templateID, revisionID string, compiled *rendertemplates.CompiledTemplate, kind string, message *string, savedAt string) renderrepo.StoredTemplateRevision {
 	manifestJSON, _ := json.Marshal(compiled.Bundle.NormalizedManifest)
 	inputSchemaJSON := sql.NullString{}
 	if compiled.Bundle.Source.InputSchemaJSON != nil {

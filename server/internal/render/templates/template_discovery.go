@@ -7,6 +7,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	renderrepo "github.com/RayleaBot/RayleaBot/server/internal/render/repository"
 )
 
 func DiscoverSeeds(root string, logger *slog.Logger) (map[string]Seed, error) {
@@ -105,7 +107,7 @@ func LoadSeed(templateDir string) (Seed, error) {
 		}
 	}
 
-	source := TemplateSource{
+	source := renderrepo.TemplateSource{
 		ManifestJSON:    normalizedManifest,
 		HTML:            string(htmlBytes),
 		Stylesheet:      string(stylesheetBytes),

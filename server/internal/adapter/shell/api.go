@@ -3,6 +3,9 @@ package shell
 import (
 	"context"
 	"fmt"
+
+	adapterapi "github.com/RayleaBot/RayleaBot/server/internal/adapter/api"
+	adapteroutbound "github.com/RayleaBot/RayleaBot/server/internal/adapter/outbound"
 )
 
 // callAPI sends a generic OneBot11 API request and waits for the matched
@@ -15,7 +18,7 @@ func (s *Shell) callAPI(ctx context.Context, action string, params map[string]an
 	}
 	data, ok := responseData.(map[string]any)
 	if !ok {
-		return nil, errorf(errorCodeAPICallFailed, fmt.Sprintf("%s returned a non-object payload", action), nil)
+		return nil, errorf(adapterapi.ErrorCodeAPICallFailed, fmt.Sprintf("%s returned a non-object payload", action), nil)
 	}
 	return data, nil
 }
@@ -27,7 +30,7 @@ func (s *Shell) callAPIOnTransport(ctx context.Context, transport TransportKey, 
 	}
 	data, ok := responseData.(map[string]any)
 	if !ok {
-		return nil, errorf(errorCodeAPICallFailed, fmt.Sprintf("%s returned a non-object payload", action), nil)
+		return nil, errorf(adapterapi.ErrorCodeAPICallFailed, fmt.Sprintf("%s returned a non-object payload", action), nil)
 	}
 	return data, nil
 }
@@ -38,7 +41,7 @@ func (s *Shell) CallAPIAny(ctx context.Context, action string, params map[string
 
 func (s *Shell) callAPIAnyOnTransport(ctx context.Context, transport TransportKey, action string, params map[string]any) (any, error) {
 	echo := s.nextRequestEcho()
-	request := apiCallRequest{
+	request := adapteroutbound.APICallRequest{
 		Action: action,
 		Params: params,
 		Echo:   echo,
@@ -51,7 +54,7 @@ func (s *Shell) callAPIAnyOnTransport(ctx context.Context, transport TransportKe
 			if conn == nil || snapshot.State != StateConnected {
 				return nil, errorf(errorCodeConnectionLost, "adapter transport is not connected", nil)
 			}
-			responseCh := make(chan apiResponse, 1)
+			responseCh := make(chan adapteroutbound.APIResponse, 1)
 			s.registerPendingResponse(echo, responseCh)
 			defer s.dropPendingResponse(echo)
 
@@ -59,7 +62,7 @@ func (s *Shell) callAPIAnyOnTransport(ctx context.Context, transport TransportKe
 			writeErr := wsjsonWrite(ctx, conn, request)
 			s.sendMu.Unlock()
 			if writeErr != nil {
-				return nil, errorf(errorCodeAPICallFailed, fmt.Sprintf("%s request failed", action), writeErr)
+				return nil, errorf(adapterapi.ErrorCodeAPICallFailed, fmt.Sprintf("%s request failed", action), writeErr)
 			}
 
 			select {
@@ -69,13 +72,13 @@ func (s *Shell) callAPIAnyOnTransport(ctx context.Context, transport TransportKe
 					if response.Wording != "" {
 						message = response.Wording
 					}
-					return nil, errorf(errorCodeAPICallFailed, message, nil)
+					return nil, errorf(adapterapi.ErrorCodeAPICallFailed, message, nil)
 				}
 				result := normalizeAPIResult(response.Data)
 				s.invalidateIdentityCacheForAPICall(action, params)
 				return result, nil
 			case <-ctx.Done():
-				return nil, errorf(errorCodeAPICallFailed, fmt.Sprintf("%s response timed out", action), ctx.Err())
+				return nil, errorf(adapterapi.ErrorCodeAPICallFailed, fmt.Sprintf("%s response timed out", action), ctx.Err())
 			}
 		case TransportHTTPAPI:
 			response, err := s.doHTTPAPIRequest(ctx, request)
@@ -87,7 +90,7 @@ func (s *Shell) callAPIAnyOnTransport(ctx context.Context, transport TransportKe
 				if response.Wording != "" {
 					message = response.Wording
 				}
-				return nil, errorf(errorCodeAPICallFailed, message, nil)
+				return nil, errorf(adapterapi.ErrorCodeAPICallFailed, message, nil)
 			}
 			result := normalizeAPIResult(response.Data)
 			s.invalidateIdentityCacheForAPICall(action, params)
@@ -99,7 +102,7 @@ func (s *Shell) callAPIAnyOnTransport(ctx context.Context, transport TransportKe
 
 	conn, _, snapshot := s.currentWSConn()
 	if conn != nil && snapshot.State == StateConnected {
-		responseCh := make(chan apiResponse, 1)
+		responseCh := make(chan adapteroutbound.APIResponse, 1)
 		s.registerPendingResponse(echo, responseCh)
 		defer s.dropPendingResponse(echo)
 
@@ -107,7 +110,7 @@ func (s *Shell) callAPIAnyOnTransport(ctx context.Context, transport TransportKe
 		writeErr := wsjsonWrite(ctx, conn, request)
 		s.sendMu.Unlock()
 		if writeErr != nil {
-			return nil, errorf(errorCodeAPICallFailed, fmt.Sprintf("write %s request", action), writeErr)
+			return nil, errorf(adapterapi.ErrorCodeAPICallFailed, fmt.Sprintf("write %s request", action), writeErr)
 		}
 
 		select {
@@ -117,13 +120,13 @@ func (s *Shell) callAPIAnyOnTransport(ctx context.Context, transport TransportKe
 				if response.Wording != "" {
 					message = response.Wording
 				}
-				return nil, errorf(errorCodeAPICallFailed, message, nil)
+				return nil, errorf(adapterapi.ErrorCodeAPICallFailed, message, nil)
 			}
 			result := normalizeAPIResult(response.Data)
 			s.invalidateIdentityCacheForAPICall(action, params)
 			return result, nil
 		case <-ctx.Done():
-			return nil, errorf(errorCodeAPICallFailed, fmt.Sprintf("%s response timed out", action), ctx.Err())
+			return nil, errorf(adapterapi.ErrorCodeAPICallFailed, fmt.Sprintf("%s response timed out", action), ctx.Err())
 		}
 	}
 
@@ -136,7 +139,7 @@ func (s *Shell) callAPIAnyOnTransport(ctx context.Context, transport TransportKe
 		if response.Wording != "" {
 			message = response.Wording
 		}
-		return nil, errorf(errorCodeAPICallFailed, message, nil)
+		return nil, errorf(adapterapi.ErrorCodeAPICallFailed, message, nil)
 	}
 	result := normalizeAPIResult(response.Data)
 	s.invalidateIdentityCacheForAPICall(action, params)

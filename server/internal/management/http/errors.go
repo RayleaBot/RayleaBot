@@ -4,11 +4,11 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/RayleaBot/RayleaBot/server/internal/render"
+	rendertemplates "github.com/RayleaBot/RayleaBot/server/internal/render/templates"
 )
 
 func writeRenderTemplateError(w http.ResponseWriter, r *http.Request, err error) {
-	var renderErr *render.Error
+	var renderErr *rendertemplates.Error
 	if !errors.As(err, &renderErr) {
 		writeAppError(w, r, http.StatusInternalServerError, codeInternalError, "内部错误", "errors.platform.internal_error", nil)
 		return

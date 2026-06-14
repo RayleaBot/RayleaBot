@@ -1,12 +1,14 @@
 package pluginmanifest
 
-func manifestHelp(document map[string]any) *Help {
+import "github.com/RayleaBot/RayleaBot/server/internal/plugins"
+
+func manifestHelp(document map[string]any) *plugins.Help {
 	value, ok := document["help"].(map[string]any)
 	if !ok {
 		return nil
 	}
 
-	help := &Help{
+	help := &plugins.Help{
 		Title:   stringField(value, "title"),
 		Summary: stringField(value, "summary"),
 	}
@@ -20,7 +22,7 @@ func manifestHelp(document map[string]any) *Help {
 		if !ok {
 			continue
 		}
-		group := HelpGroup{
+		group := plugins.HelpGroup{
 			Title: stringField(groupMap, "title"),
 		}
 		rawItems, ok := groupMap["items"].([]any)
@@ -36,7 +38,7 @@ func manifestHelp(document map[string]any) *Help {
 			if title == "" {
 				continue
 			}
-			group.Items = append(group.Items, HelpItem{
+			group.Items = append(group.Items, plugins.HelpItem{
 				Title:       title,
 				Description: stringField(itemMap, "description"),
 				Usage:       stringField(itemMap, "usage"),
@@ -51,13 +53,13 @@ func manifestHelp(document map[string]any) *Help {
 	return help
 }
 
-func manifestCommands(document map[string]any) []Command {
+func manifestCommands(document map[string]any) []plugins.Command {
 	values, ok := document["commands"].([]any)
 	if !ok {
 		return nil
 	}
 
-	commands := make([]Command, 0, len(values))
+	commands := make([]plugins.Command, 0, len(values))
 	for _, value := range values {
 		item, ok := value.(map[string]any)
 		if !ok {
@@ -67,7 +69,7 @@ func manifestCommands(document map[string]any) []Command {
 		if name == "" {
 			continue
 		}
-		command := Command{
+		command := plugins.Command{
 			Name:          name,
 			Aliases:       stringListField(item, "aliases"),
 			Description:   stringField(item, "description"),
@@ -80,13 +82,13 @@ func manifestCommands(document map[string]any) []Command {
 	return commands
 }
 
-func manifestDynamicCommands(document map[string]any) []DynamicCommandDecl {
+func manifestDynamicCommands(document map[string]any) []plugins.DynamicCommandDecl {
 	values, ok := document["dynamic_commands"].([]any)
 	if !ok {
 		return nil
 	}
 
-	commands := make([]DynamicCommandDecl, 0, len(values))
+	commands := make([]plugins.DynamicCommandDecl, 0, len(values))
 	for _, value := range values {
 		item, ok := value.(map[string]any)
 		if !ok {
@@ -97,7 +99,7 @@ func manifestDynamicCommands(document map[string]any) []DynamicCommandDecl {
 		if id == "" || settingsKey == "" {
 			continue
 		}
-		commands = append(commands, DynamicCommandDecl{
+		commands = append(commands, plugins.DynamicCommandDecl{
 			ID:          id,
 			SettingsKey: settingsKey,
 			Description: stringField(item, "description"),

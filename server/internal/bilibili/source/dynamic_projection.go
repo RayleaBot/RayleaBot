@@ -2,16 +2,6 @@ package source
 
 import bilibiliDynamic "github.com/RayleaBot/RayleaBot/server/internal/bilibili/dynamic"
 
-const (
-	dynamicFeedURL      = bilibiliDynamic.FeedURL
-	dynamicSpaceFeedURL = bilibiliDynamic.SpaceFeedURL
-	relationURL         = bilibiliDynamic.RelationURL
-	followURL           = bilibiliDynamic.FollowURL
-)
-
-type dynamicFeedDocument = bilibiliDynamic.FeedDocument
-type relationDocument = bilibiliDynamic.RelationDocument
-
 type monitorDynamicCandidate struct {
 	Event  BilibiliEvent
 	Pinned bool

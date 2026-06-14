@@ -4,6 +4,7 @@ import (
 	"log/slog"
 	"time"
 
+	renderbrowser "github.com/RayleaBot/RayleaBot/server/internal/render/browser"
 	"github.com/RayleaBot/RayleaBot/server/internal/storage"
 )
 
@@ -11,7 +12,7 @@ type Options struct {
 	RepoRoot           string
 	OutputRoot         string
 	Store              *storage.Store
-	Runner             Runner
+	Runner             renderbrowser.Runner
 	WorkerCount        int
 	BrowserArgs        []string
 	BrowserPath        string
