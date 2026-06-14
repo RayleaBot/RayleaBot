@@ -13,7 +13,7 @@ import (
 	"pgregory.net/rapid"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/auth"
-	managementhttp "github.com/RayleaBot/RayleaBot/server/internal/management/http"
+	authhttp "github.com/RayleaBot/RayleaBot/server/internal/management/authhttp"
 )
 
 // newPropertyAuthManager creates a deterministic auth.Manager for property tests.
@@ -65,7 +65,7 @@ func dummyHandler() (http.Handler, func() bool, func() (auth.Claims, bool)) {
 
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		called = true
-		gotClaims, gotOK = managementhttp.ClaimsFromContext(r.Context())
+		gotClaims, gotOK = authhttp.ClaimsFromContext(r.Context())
 		w.WriteHeader(http.StatusOK)
 	})
 
@@ -96,7 +96,7 @@ func TestPropertyTokenExtraction(t *testing.T) {
 	t.Parallel()
 
 	manager := newPropertyAuthManager(t)
-	middleware := managementhttp.RequireAuth(manager)
+	middleware := authhttp.RequireAuth(manager)
 
 	rapid.Check(t, func(t *rapid.T) {
 		// Generate a random token string (non-empty, no leading/trailing whitespace, printable ASCII).
@@ -129,7 +129,7 @@ func TestPropertyTokenExtraction(t *testing.T) {
 	// Also verify that valid tokens with Bearer prefix are correctly extracted and validated.
 	rapid.Check(t, func(t *rapid.T) {
 		manager := newPropertyAuthManagerWithMax(t, 10)
-		middleware := managementhttp.RequireAuth(manager)
+		middleware := authhttp.RequireAuth(manager)
 
 		subject := rapid.StringMatching(`[a-z]{3,12}`).Draw(t, "subject")
 		validToken := issueToken(t, manager, subject)
@@ -166,7 +166,7 @@ func TestPropertyInvalidAuthUniformRejection(t *testing.T) {
 	t.Parallel()
 
 	manager := newPropertyAuthManager(t)
-	middleware := managementhttp.RequireAuth(manager)
+	middleware := authhttp.RequireAuth(manager)
 
 	// Scenario generator: one of four invalid auth scenarios.
 	type scenario struct {
@@ -249,7 +249,7 @@ func TestPropertyRequestIDUniqueness(t *testing.T) {
 	t.Parallel()
 
 	manager := newPropertyAuthManager(t)
-	middleware := managementhttp.RequireAuth(manager)
+	middleware := authhttp.RequireAuth(manager)
 
 	// Collect request_ids from multiple rejection responses and verify uniqueness.
 	const batchSize = 50
@@ -289,7 +289,7 @@ func TestPropertyValidTokenClaimsContext(t *testing.T) {
 
 	rapid.Check(t, func(t *rapid.T) {
 		manager := newPropertyAuthManagerWithMax(t, 10)
-		middleware := managementhttp.RequireAuth(manager)
+		middleware := authhttp.RequireAuth(manager)
 
 		subject := rapid.StringMatching(`[a-z]{3,12}`).Draw(t, "subject")
 		token, expectedClaims, err := manager.Issue(subject)
@@ -339,7 +339,7 @@ func TestPropertyWebSocketQueryParamFallback(t *testing.T) {
 
 	rapid.Check(t, func(t *rapid.T) {
 		manager := newPropertyAuthManagerWithMax(t, 10)
-		middleware := managementhttp.RequireAuth(manager)
+		middleware := authhttp.RequireAuth(manager)
 
 		subject := rapid.StringMatching(`[a-z]{3,12}`).Draw(t, "subject")
 		token := issueToken(t, manager, subject)
@@ -378,7 +378,7 @@ func TestPropertyAuthHeaderPrecedence(t *testing.T) {
 	rapid.Check(t, func(t *rapid.T) {
 		// Create a fresh manager per iteration to avoid hitting max sessions across iterations.
 		manager := newPropertyAuthManagerWithMax(t, 10)
-		middleware := managementhttp.RequireAuth(manager)
+		middleware := authhttp.RequireAuth(manager)
 
 		subjectA := rapid.StringMatching(`[a-z]{3,6}`).Draw(t, "subject_a")
 		subjectB := rapid.StringMatching(`[a-z]{3,6}`).Draw(t, "subject_b")
@@ -441,7 +441,7 @@ func TestPropertyUnauthenticatedContextZeroValue(t *testing.T) {
 			ctx = context.TODO()
 		}
 
-		claims, ok := managementhttp.ClaimsFromContext(ctx)
+		claims, ok := authhttp.ClaimsFromContext(ctx)
 		if ok {
 			t.Fatal("expected ok=false for unauthenticated context")
 		}

@@ -4,7 +4,6 @@ import (
 	"flag"
 	"os"
 
-	"github.com/RayleaBot/RayleaBot/server/internal/app"
 	"github.com/RayleaBot/RayleaBot/server/internal/bootstrap"
 	"github.com/RayleaBot/RayleaBot/server/internal/cli"
 	"github.com/RayleaBot/RayleaBot/server/internal/logging"
@@ -41,7 +40,7 @@ func main() {
 		"schema_path", schemaPath,
 	)
 
-	application, err := bootstrap.New(app.Options{
+	application, err := bootstrap.New(bootstrap.Options{
 		ConfigPath: configPath,
 		SchemaPath: schemaPath,
 	})

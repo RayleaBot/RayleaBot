@@ -1,24 +1,11 @@
 package deps
 
-type Manifest struct {
-	ManifestVersion int        `json:"manifest_version"`
-	Resources       []Resource `json:"resources"`
-}
-type ResourceSource struct {
-	URL   string `json:"url"`
-	Kind  string `json:"kind"`
-	Label string `json:"label,omitempty"`
-}
-type Resource struct {
-	ID            string              `json:"id"`
-	Kind          string              `json:"kind"`
-	Version       string              `json:"version"`
-	Platform      string              `json:"platform"`
-	Sources       []ResourceSource    `json:"sources"`
-	SHA256        string              `json:"sha256"`
-	ArchiveFormat string              `json:"archive_format"`
-	Entrypoints   map[string][]string `json:"entrypoints"`
-}
+import depsmanifest "github.com/RayleaBot/RayleaBot/server/internal/deps/manifest"
+
+type Manifest = depsmanifest.Manifest
+type ResourceSource = depsmanifest.ResourceSource
+type Resource = depsmanifest.Resource
+
 type PreparedResource struct {
 	Resource    Resource
 	Root        string

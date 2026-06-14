@@ -3,7 +3,6 @@ package service
 import (
 	"context"
 	"fmt"
-	"strings"
 
 	renderplugins "github.com/RayleaBot/RayleaBot/server/internal/render/plugins"
 )
@@ -46,12 +45,6 @@ func (s *Service) RemovePluginTemplates(ctx context.Context, pluginID string) er
 	}
 
 	prefix := renderplugins.Prefix(pluginID)
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	for templateID := range s.templateRoots {
-		if strings.HasPrefix(templateID, prefix) {
-			delete(s.templateRoots, templateID)
-		}
-	}
+	s.templateRoots.RemovePrefix(prefix)
 	return nil
 }

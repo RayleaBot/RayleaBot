@@ -60,20 +60,6 @@ func runtimeInitTimeout(cfg config.RuntimeConfig) time.Duration {
 	return time.Duration(seconds+5) * time.Second
 }
 
-func scopeChangedSinceGrant(ctx context.Context, repo plugins.GrantRepository, snapshot plugins.Snapshot) bool {
-	grants, err := repo.LoadGrants(ctx, snapshot.PluginID)
-	if err != nil || len(grants) == 0 {
-		return false
-	}
-	currentScope := plugins.BuildScopeJSON(snapshot)
-	for _, g := range grants {
-		if g.ScopeJSON != currentScope {
-			return true
-		}
-	}
-	return false
-}
-
 func (c *Controller) seedPluginDefaultConfig(ctx context.Context, snapshot plugins.Snapshot) error {
 	if c == nil || c.pluginConfig == nil || len(snapshot.DefaultConfig) == 0 {
 		return nil

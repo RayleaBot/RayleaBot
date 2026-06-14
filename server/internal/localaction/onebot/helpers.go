@@ -1,4 +1,4 @@
-package localaction
+package onebot
 
 import (
 	"fmt"
@@ -7,7 +7,7 @@ import (
 	runtimemanager "github.com/RayleaBot/RayleaBot/server/internal/runtime/manager"
 )
 
-func requiredActionString(data map[string]any, key string) (string, error) {
+func requiredString(data map[string]any, key string) (string, error) {
 	if len(data) == 0 {
 		return "", &runtimemanager.Error{
 			Code:    "plugin.protocol_violation",
@@ -31,7 +31,7 @@ func requiredActionString(data map[string]any, key string) (string, error) {
 	return text, nil
 }
 
-func optionalActionString(data map[string]any, key string) (string, bool) {
+func optionalString(data map[string]any, key string) (string, bool) {
 	if len(data) == 0 {
 		return "", false
 	}
@@ -55,7 +55,7 @@ func normalizeNumericValue(value any) any {
 	}
 }
 
-func oneBotAPIValue(raw string) any {
+func apiValue(raw string) any {
 	raw = strings.TrimSpace(raw)
 	if raw == "" {
 		return ""

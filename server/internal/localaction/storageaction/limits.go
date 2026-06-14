@@ -1,9 +1,16 @@
-package localaction
+package storageaction
 
 import (
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/pluginfile"
 	"github.com/RayleaBot/RayleaBot/server/internal/pluginkv"
+)
+
+const (
+	defaultKVValueMaxBytes      = 65536
+	defaultKVTotalLimitMegabyte = 16
+	defaultFileMaxBytes         = 10 * 1024 * 1024
+	defaultPluginWorkdirMB      = 256
 )
 
 func currentKVLimits(cfg config.Config) pluginkv.Limits {

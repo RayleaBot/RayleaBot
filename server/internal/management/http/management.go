@@ -3,6 +3,7 @@ package managementhttp
 import (
 	"net/http"
 
+	authhttp "github.com/RayleaBot/RayleaBot/server/internal/management/authhttp"
 	"github.com/RayleaBot/RayleaBot/server/internal/recovery"
 )
 
@@ -32,7 +33,7 @@ func (h *ManagementHandlers) HandleSetupStatus() http.HandlerFunc {
 
 func (h *ManagementHandlers) HandleSessionLogout() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		claims, ok := ClaimsFromContext(r.Context())
+		claims, ok := authhttp.ClaimsFromContext(r.Context())
 		if !ok || claims.SessionID == "" {
 			writeAuthError(w, r, http.StatusUnauthorized, codePermissionDenied, "当前用户无权执行该操作", "errors.permission.denied")
 			return

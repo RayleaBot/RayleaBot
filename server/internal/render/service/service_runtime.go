@@ -1,6 +1,10 @@
 package service
 
-import "strings"
+import (
+	"strings"
+
+	renderworker "github.com/RayleaBot/RayleaBot/server/internal/render/worker"
+)
 
 func (s *Service) UpdateRuntimeConfig(config RuntimeConfig) {
 	if s == nil {
@@ -10,15 +14,11 @@ func (s *Service) UpdateRuntimeConfig(config RuntimeConfig) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	if config.QueueMaxLength > 0 {
-		s.queueMaxLength = config.QueueMaxLength
-	}
-	if config.QueueWaitTimeout > 0 {
-		s.queueWaitTimeout = config.QueueWaitTimeout
-	}
-	if config.RenderTimeout > 0 {
-		s.renderTimeout = config.RenderTimeout
-	}
+	s.worker.UpdateLimits(renderworker.Limits{
+		QueueMaxLength:   config.QueueMaxLength,
+		QueueWaitTimeout: config.QueueWaitTimeout,
+		RenderTimeout:    config.RenderTimeout,
+	})
 	if strings.TrimSpace(config.FooterTemplate) != "" {
 		s.footerTemplate = config.FooterTemplate
 	}

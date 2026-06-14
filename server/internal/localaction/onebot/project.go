@@ -1,4 +1,4 @@
-package localaction
+package onebot
 
 import (
 	"fmt"
@@ -7,12 +7,12 @@ import (
 	runtimemanager "github.com/RayleaBot/RayleaBot/server/internal/runtime/manager"
 )
 
-func projectOneBotMessageHistoryGet(raw map[string]any) (string, map[string]any, error) {
-	conversationType, err := requiredActionString(raw, "conversation_type")
+func projectMessageHistoryGet(raw map[string]any) (string, map[string]any, error) {
+	conversationType, err := requiredString(raw, "conversation_type")
 	if err != nil {
 		return "", nil, err
 	}
-	conversationID, err := requiredActionString(raw, "conversation_id")
+	conversationID, err := requiredString(raw, "conversation_id")
 	if err != nil {
 		return "", nil, err
 	}
@@ -22,10 +22,10 @@ func projectOneBotMessageHistoryGet(raw map[string]any) (string, map[string]any,
 	}
 	switch conversationType {
 	case "group":
-		historyParams["group_id"] = oneBotAPIValue(conversationID)
+		historyParams["group_id"] = apiValue(conversationID)
 		return "get_group_msg_history", historyParams, nil
 	case "private":
-		historyParams["user_id"] = oneBotAPIValue(conversationID)
+		historyParams["user_id"] = apiValue(conversationID)
 		return "get_friend_msg_history", historyParams, nil
 	default:
 		return "", nil, &runtimemanager.Error{
@@ -35,13 +35,13 @@ func projectOneBotMessageHistoryGet(raw map[string]any) (string, map[string]any,
 	}
 }
 
-func projectOneBotMessageForwardGet(raw map[string]any) (string, map[string]any, error) {
-	params, err := normalizeActionParams(raw)
+func projectMessageForwardGet(raw map[string]any) (string, map[string]any, error) {
+	params, err := normalizeParams(raw)
 	if err != nil {
 		return "", nil, err
 	}
-	if _, err := requiredActionString(raw, "message_id"); err != nil {
-		if _, altErr := requiredActionString(raw, "forward_id"); altErr != nil {
+	if _, err := requiredString(raw, "message_id"); err != nil {
+		if _, altErr := requiredString(raw, "forward_id"); altErr != nil {
 			return "", nil, err
 		}
 	}
@@ -52,27 +52,27 @@ func projectOneBotMessageForwardGet(raw map[string]any) (string, map[string]any,
 	return "get_forward_msg", params, nil
 }
 
-func projectOneBotMessageForwardSend(raw map[string]any) (string, map[string]any, error) {
-	params, err := normalizeActionParams(raw)
+func projectMessageForwardSend(raw map[string]any) (string, map[string]any, error) {
+	params, err := normalizeParams(raw)
 	if err != nil {
 		return "", nil, err
 	}
-	targetType, err := requiredActionString(raw, "target_type")
+	targetType, err := requiredString(raw, "target_type")
 	if err != nil {
 		return "", nil, err
 	}
-	targetID, err := requiredActionString(raw, "target_id")
+	targetID, err := requiredString(raw, "target_id")
 	if err != nil {
 		return "", nil, err
 	}
 	switch targetType {
 	case "group":
-		params["group_id"] = oneBotAPIValue(targetID)
+		params["group_id"] = apiValue(targetID)
 		delete(params, "target_id")
 		delete(params, "target_type")
 		return "send_group_forward_msg", params, nil
 	case "private":
-		params["user_id"] = oneBotAPIValue(targetID)
+		params["user_id"] = apiValue(targetID)
 		delete(params, "target_id")
 		delete(params, "target_type")
 		return "send_private_forward_msg", params, nil
@@ -84,23 +84,23 @@ func projectOneBotMessageForwardSend(raw map[string]any) (string, map[string]any
 	}
 }
 
-func projectOneBotMessageReadMark(raw map[string]any) (string, map[string]any, error) {
-	if messageID, ok := optionalActionString(raw, "message_id"); ok {
-		return "mark_msg_as_read", map[string]any{"message_id": oneBotAPIValue(messageID)}, nil
+func projectMessageReadMark(raw map[string]any) (string, map[string]any, error) {
+	if messageID, ok := optionalString(raw, "message_id"); ok {
+		return "mark_msg_as_read", map[string]any{"message_id": apiValue(messageID)}, nil
 	}
-	targetType, err := requiredActionString(raw, "conversation_type")
+	targetType, err := requiredString(raw, "conversation_type")
 	if err != nil {
 		return "", nil, err
 	}
-	targetID, err := requiredActionString(raw, "conversation_id")
+	targetID, err := requiredString(raw, "conversation_id")
 	if err != nil {
 		return "", nil, err
 	}
 	switch targetType {
 	case "group":
-		return "mark_group_msg_as_read", map[string]any{"group_id": oneBotAPIValue(targetID)}, nil
+		return "mark_group_msg_as_read", map[string]any{"group_id": apiValue(targetID)}, nil
 	case "private":
-		return "mark_private_msg_as_read", map[string]any{"user_id": oneBotAPIValue(targetID)}, nil
+		return "mark_private_msg_as_read", map[string]any{"user_id": apiValue(targetID)}, nil
 	default:
 		return "", nil, &runtimemanager.Error{
 			Code:    "plugin.protocol_violation",
@@ -109,8 +109,8 @@ func projectOneBotMessageReadMark(raw map[string]any) (string, map[string]any, e
 	}
 }
 
-func projectOneBotGroupBanSet(raw map[string]any) (string, map[string]any, error) {
-	params, err := normalizeActionParams(raw)
+func projectGroupBanSet(raw map[string]any) (string, map[string]any, error) {
+	params, err := normalizeParams(raw)
 	if err != nil {
 		return "", nil, err
 	}
@@ -123,24 +123,24 @@ func projectOneBotGroupBanSet(raw map[string]any) (string, map[string]any, error
 	return "set_group_ban", params, nil
 }
 
-func projectOneBotGroupFilesList(raw map[string]any) (string, map[string]any, error) {
-	params, err := normalizeActionParams(raw)
+func projectGroupFilesList(raw map[string]any) (string, map[string]any, error) {
+	params, err := normalizeParams(raw)
 	if err != nil {
 		return "", nil, err
 	}
-	if folderID, ok := optionalActionString(raw, "folder_id"); ok {
+	if folderID, ok := optionalString(raw, "folder_id"); ok {
 		params["folder_id"] = folderID
 		return "get_group_files_by_folder", params, nil
 	}
 	return "get_group_root_files", params, nil
 }
 
-func projectOneBotGroupFilesDelete(raw map[string]any) (string, map[string]any, error) {
-	params, err := normalizeActionParams(raw)
+func projectGroupFilesDelete(raw map[string]any) (string, map[string]any, error) {
+	params, err := normalizeParams(raw)
 	if err != nil {
 		return "", nil, err
 	}
-	if folderID, ok := optionalActionString(raw, "folder_id"); ok && folderID != "" {
+	if folderID, ok := optionalString(raw, "folder_id"); ok && folderID != "" {
 		return "delete_group_folder", map[string]any{
 			"group_id":  params["group_id"],
 			"folder_id": folderID,

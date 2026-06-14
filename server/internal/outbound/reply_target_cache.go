@@ -1,4 +1,4 @@
-package app
+package outbound
 
 import (
 	"container/list"
@@ -6,12 +6,11 @@ import (
 	"sync"
 
 	adapterintake "github.com/RayleaBot/RayleaBot/server/internal/adapter/intake"
-	"github.com/RayleaBot/RayleaBot/server/internal/outbound"
 )
 
-const defaultReplyTargetCacheSize = 10000
+const DefaultReplyTargetCacheSize = 10000
 
-type replyTargetCache struct {
+type ReplyTargetCache struct {
 	mu    sync.Mutex
 	limit int
 	order *list.List
@@ -20,21 +19,21 @@ type replyTargetCache struct {
 
 type replyTargetEntry struct {
 	EventID string
-	Target  outbound.ReplyTarget
+	Target  ReplyTarget
 }
 
-func newReplyTargetCache(limit int) *replyTargetCache {
+func NewReplyTargetCache(limit int) *ReplyTargetCache {
 	if limit <= 0 {
-		limit = defaultReplyTargetCacheSize
+		limit = DefaultReplyTargetCacheSize
 	}
-	return &replyTargetCache{
+	return &ReplyTargetCache{
 		limit: limit,
 		order: list.New(),
 		items: make(map[string]*list.Element, limit),
 	}
 }
 
-func (c *replyTargetCache) Record(event adapterintake.NormalizedEvent) {
+func (c *ReplyTargetCache) Record(event adapterintake.NormalizedEvent) {
 	if c == nil {
 		return
 	}
@@ -53,7 +52,7 @@ func (c *replyTargetCache) Record(event adapterintake.NormalizedEvent) {
 	if existing, ok := c.items[eventID]; ok {
 		existing.Value = replyTargetEntry{
 			EventID: eventID,
-			Target: outbound.ReplyTarget{
+			Target: ReplyTarget{
 				MessageID:  messageID,
 				TargetType: targetType,
 				TargetID:   targetID,
@@ -65,7 +64,7 @@ func (c *replyTargetCache) Record(event adapterintake.NormalizedEvent) {
 
 	element := c.order.PushFront(replyTargetEntry{
 		EventID: eventID,
-		Target: outbound.ReplyTarget{
+		Target: ReplyTarget{
 			MessageID:  messageID,
 			TargetType: targetType,
 			TargetID:   targetID,
@@ -84,14 +83,14 @@ func (c *replyTargetCache) Record(event adapterintake.NormalizedEvent) {
 	}
 }
 
-func (c *replyTargetCache) ResolveReplyTarget(eventID string) (outbound.ReplyTarget, bool) {
+func (c *ReplyTargetCache) ResolveReplyTarget(eventID string) (ReplyTarget, bool) {
 	if c == nil {
-		return outbound.ReplyTarget{}, false
+		return ReplyTarget{}, false
 	}
 
 	eventID = strings.TrimSpace(eventID)
 	if eventID == "" {
-		return outbound.ReplyTarget{}, false
+		return ReplyTarget{}, false
 	}
 
 	c.mu.Lock()
@@ -99,7 +98,7 @@ func (c *replyTargetCache) ResolveReplyTarget(eventID string) (outbound.ReplyTar
 
 	element, ok := c.items[eventID]
 	if !ok {
-		return outbound.ReplyTarget{}, false
+		return ReplyTarget{}, false
 	}
 	c.order.MoveToFront(element)
 	entry, _ := element.Value.(replyTargetEntry)

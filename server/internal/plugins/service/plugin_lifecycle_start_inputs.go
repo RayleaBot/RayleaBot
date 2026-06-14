@@ -10,7 +10,7 @@ import (
 )
 
 func (c *Controller) buildStartInputs(ctx context.Context, pluginID, botID string) (runtimespec.Spec, runtimespec.InitPayload, error) {
-	return c.buildStartInputsWithCapabilities(pluginID, botID, c.grants.grantedCapabilities(ctx, pluginID))
+	return c.buildStartInputsWithCapabilities(pluginID, botID, c.grants.GrantedCapabilities(ctx, pluginID))
 }
 
 func (c *Controller) buildStartInputsWithCapabilities(pluginID, botID string, capabilities []string) (runtimespec.Spec, runtimespec.InitPayload, error) {

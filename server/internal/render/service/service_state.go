@@ -6,9 +6,9 @@ import (
 	"time"
 
 	renderartifact "github.com/RayleaBot/RayleaBot/server/internal/render/artifact"
-	renderbrowser "github.com/RayleaBot/RayleaBot/server/internal/render/browser"
+	rendercatalog "github.com/RayleaBot/RayleaBot/server/internal/render/catalog"
 	renderrepo "github.com/RayleaBot/RayleaBot/server/internal/render/repository"
-	rendertemplates "github.com/RayleaBot/RayleaBot/server/internal/render/templates"
+	renderworker "github.com/RayleaBot/RayleaBot/server/internal/render/worker"
 )
 
 type Service struct {
@@ -17,23 +17,17 @@ type Service struct {
 	outputRoot     string
 	browserPath    string
 	browserArgs    []string
-	runner         renderbrowser.Runner
-	workerSem      chan struct{}
-	workerCount    int
+	worker         *renderworker.Worker
 	logger         *slog.Logger
 	templateRepo   *renderrepo.SQLiteTemplateRepository
 	templateSyncMu sync.Mutex
-	templateRoots  map[string]rendertemplates.Root
+	templateRoots  *rendercatalog.Roots
 
 	mu                 sync.RWMutex
-	queueMaxLength     int
-	queueWaitTimeout   time.Duration
-	renderTimeout      time.Duration
 	maxRenderDataBytes int
 	footerTemplate     string
 	defaultOutput      string
 	deviceScalePercent int
-	activeRequests     int
 	cache              map[string]renderartifact.Result
 	artifacts          map[string]renderartifact.Artifact
 	previewHTMLCache   map[string]PreviewHTML

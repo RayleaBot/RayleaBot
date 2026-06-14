@@ -8,6 +8,8 @@ import (
 	"sort"
 	"strings"
 	"testing"
+
+	localonebot "github.com/RayleaBot/RayleaBot/server/internal/localaction/onebot"
 )
 
 func TestOneBotActionRegistryMatchesContractsAndSDKHelpers(t *testing.T) {
@@ -55,7 +57,7 @@ func pythonSDKExposesOneBotAction(content string, kind string) bool {
 func TestOneBotActionRegistrySpecsAreComplete(t *testing.T) {
 	t.Parallel()
 
-	for kind, spec := range oneBotActionRegistry {
+	for kind, spec := range localonebot.Registry() {
 		if strings.TrimSpace(spec.Kind) == "" || spec.Kind != kind {
 			t.Fatalf("registry key %q has mismatched spec kind %q", kind, spec.Kind)
 		}
@@ -139,7 +141,7 @@ func stringSet(items []string) map[string]bool {
 func oneBotRegistryKinds() ([]string, []string) {
 	var generic []string
 	var provider []string
-	for kind, spec := range oneBotActionRegistry {
+	for kind, spec := range localonebot.Registry() {
 		if spec.Provider == "" {
 			generic = append(generic, kind)
 		} else {

@@ -1,11 +1,11 @@
-package localaction
+package onebot
 
 import (
 	"fmt"
 	"strings"
 )
 
-func normalizeActionParams(raw map[string]any) (map[string]any, error) {
+func normalizeParams(raw map[string]any) (map[string]any, error) {
 	if len(raw) == 0 {
 		return map[string]any{}, nil
 	}
@@ -25,7 +25,7 @@ func normalizeActionParams(raw map[string]any) (map[string]any, error) {
 		case "emoji":
 			params["emoji_id"] = value
 		case "target_id", "user_id", "group_id", "message_id":
-			params[normalizedKey] = oneBotAPIValue(fmt.Sprint(value))
+			params[normalizedKey] = apiValue(fmt.Sprint(value))
 		default:
 			params[normalizedKey] = value
 		}
@@ -33,7 +33,7 @@ func normalizeActionParams(raw map[string]any) (map[string]any, error) {
 	return params, nil
 }
 
-func defaultOneBotActionResult(collectionKey string, result any) map[string]any {
+func defaultResult(collectionKey string, result any) map[string]any {
 	switch typed := result.(type) {
 	case nil:
 		return map[string]any{"ok": true}
@@ -43,13 +43,13 @@ func defaultOneBotActionResult(collectionKey string, result any) map[string]any 
 		}
 		return typed
 	case []any:
-		return map[string]any{oneBotCollectionKeyOrDefault(collectionKey): typed}
+		return map[string]any{collectionKeyOrDefault(collectionKey): typed}
 	default:
 		return map[string]any{"value": typed}
 	}
 }
 
-func oneBotCollectionKeyOrDefault(collectionKey string) string {
+func collectionKeyOrDefault(collectionKey string) string {
 	if strings.TrimSpace(collectionKey) == "" {
 		return "items"
 	}

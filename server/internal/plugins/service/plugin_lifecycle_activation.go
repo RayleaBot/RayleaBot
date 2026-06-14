@@ -7,7 +7,7 @@ import (
 )
 
 func (c *Controller) validateActivation(ctx context.Context, snapshot plugins.Snapshot) ([]string, error) {
-	granted := c.grants.grantedCapabilities(ctx, snapshot.PluginID)
+	granted := c.grants.GrantedCapabilities(ctx, snapshot.PluginID)
 	if missing := missingCapabilities(snapshot.RequiredPermissions, granted); len(missing) > 0 {
 		return granted, &plugins.PermissionPendingError{
 			PluginID:            snapshot.PluginID,
@@ -15,12 +15,10 @@ func (c *Controller) validateActivation(ctx context.Context, snapshot plugins.Sn
 		}
 	}
 
-	if c.grants != nil && c.grants.grantRepository != nil {
-		if changed := scopeChangedSinceGrant(ctx, c.grants.grantRepository, snapshot); changed {
-			return granted, &plugins.PermissionPendingError{
-				PluginID:     snapshot.PluginID,
-				ScopeChanged: true,
-			}
+	if c.grants != nil && c.grants.ScopeChangedSinceGrant(ctx, snapshot) {
+		return granted, &plugins.PermissionPendingError{
+			PluginID:     snapshot.PluginID,
+			ScopeChanged: true,
 		}
 	}
 

@@ -25,7 +25,7 @@ func buildAppPlugins(
 	renderRunner renderbrowser.Runner,
 ) (appPlugins, error) {
 	adapterShell := adaptershell.New(state.core.Config.OneBot, state.core.Config.Adapter, state.core.Logger)
-	replyTargets := newReplyTargetCache(defaultReplyTargetCacheSize)
+	replyTargets := outbound.NewReplyTargetCache(outbound.DefaultReplyTargetCacheSize)
 	eventDispatcher := dispatch.New(state.core.Logger, adapterShell, replyTargets, state.core.Config.Runtime.MaxPendingEventsPerPlugin)
 	outboundLimiter := outbound.NewMessageRateLimiter(state.core.Config)
 	eventDispatcher.SetOutboundLimiter(outboundLimiter)

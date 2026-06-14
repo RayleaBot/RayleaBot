@@ -1,4 +1,4 @@
-package managementhttp
+package authhttp
 
 import (
 	"context"
@@ -6,7 +6,10 @@ import (
 	"strings"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/auth"
+	"github.com/RayleaBot/RayleaBot/server/internal/httpapi"
 )
+
+const permissionDeniedCode = "permission.denied"
 
 // claimsKey is an unexported type used as the context key for storing auth.Claims,
 // preventing external packages from accidentally overwriting the value.
@@ -26,13 +29,13 @@ func RequireAuth(authManager *auth.Manager) func(http.Handler) http.Handler {
 			}
 
 			if strings.TrimSpace(token) == "" {
-				writeAuthError(w, r, http.StatusUnauthorized, codePermissionDenied, "当前用户无权执行该操作", "errors.permission.denied")
+				writePermissionDenied(w, r)
 				return
 			}
 
 			claims, err := authManager.Validate(token)
 			if err != nil {
-				writeAuthError(w, r, http.StatusUnauthorized, codePermissionDenied, "当前用户无权执行该操作", "errors.permission.denied")
+				writePermissionDenied(w, r)
 				return
 			}
 
@@ -68,4 +71,16 @@ func extractBearerToken(r *http.Request) string {
 	}
 
 	return header[len(prefix):]
+}
+
+func writePermissionDenied(w http.ResponseWriter, r *http.Request) {
+	httpapi.WriteError(
+		w,
+		r,
+		http.StatusUnauthorized,
+		permissionDeniedCode,
+		"当前用户无权执行该操作",
+		"errors.permission.denied",
+		nil,
+	)
 }

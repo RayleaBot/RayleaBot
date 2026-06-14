@@ -2,13 +2,11 @@ package service
 
 import (
 	"context"
-	"database/sql"
-	"errors"
 	"fmt"
 	"os"
-	"path/filepath"
 	"strings"
 
+	rendercatalog "github.com/RayleaBot/RayleaBot/server/internal/render/catalog"
 	rendertemplates "github.com/RayleaBot/RayleaBot/server/internal/render/templates"
 )
 
@@ -37,7 +35,7 @@ func (s *Service) LookupTemplateAsset(ctx context.Context, templateID string, re
 	if err != nil {
 		return TemplateAsset{}, err
 	}
-	isSourcePath, err := s.isManagedTemplateSourcePath(ctx, assetPath)
+	isSourcePath, err := rendercatalog.IsManagedTemplateSourcePath(ctx, s.templateRepo, s.templateRoots, assetPath)
 	if err != nil {
 		return TemplateAsset{}, err
 	}
@@ -56,36 +54,4 @@ func (s *Service) LookupTemplateAsset(ctx context.Context, templateID string, re
 	}
 
 	return TemplateAsset{Path: assetPath}, nil
-}
-
-func (s *Service) isManagedTemplateSourcePath(ctx context.Context, candidate string) (bool, error) {
-	absoluteCandidate, err := filepath.Abs(candidate)
-	if err != nil {
-		return false, err
-	}
-	items, err := s.templateRepo.ListTemplateSummaries(ctx)
-	if err != nil {
-		return false, fmt.Errorf("list render templates for asset lookup: %w", err)
-	}
-
-	for _, item := range items {
-		detail, err := s.templateRepo.GetTemplateDetail(ctx, item.ID)
-		if err != nil {
-			if errors.Is(err, sql.ErrNoRows) {
-				continue
-			}
-			return false, fmt.Errorf("get render template %s for asset lookup: %w", item.ID, err)
-		}
-
-		root := s.templateRootFor(item.ID)
-		if root.TemplateDir == "" {
-			continue
-		}
-		for _, sourcePath := range rendertemplates.ManagedSourcePaths(root.TemplateDir, detail.Files) {
-			if rendertemplates.SameFilePath(absoluteCandidate, sourcePath) {
-				return true, nil
-			}
-		}
-	}
-	return false, nil
 }

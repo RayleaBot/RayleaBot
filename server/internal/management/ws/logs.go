@@ -10,7 +10,7 @@ import (
 	"github.com/coder/websocket/wsjson"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/logging"
-	managementhttp "github.com/RayleaBot/RayleaBot/server/internal/management/http"
+	authhttp "github.com/RayleaBot/RayleaBot/server/internal/management/authhttp"
 )
 
 type logFrame struct {
@@ -22,7 +22,7 @@ type logFrame struct {
 
 func (h *LogsHandler) HandleLogsWebSocket() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if _, ok := managementhttp.ClaimsFromContext(r.Context()); !ok {
+		if _, ok := authhttp.ClaimsFromContext(r.Context()); !ok {
 			http.Error(w, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
 			return
 		}

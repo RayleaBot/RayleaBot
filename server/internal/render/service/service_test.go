@@ -13,6 +13,7 @@ import (
 
 	renderbrowser "github.com/RayleaBot/RayleaBot/server/internal/render/browser"
 	rendertemplates "github.com/RayleaBot/RayleaBot/server/internal/render/templates"
+	renderworker "github.com/RayleaBot/RayleaBot/server/internal/render/worker"
 )
 
 func TestNewServiceSkipsInvalidTemplateDirectories(t *testing.T) {
@@ -103,19 +104,22 @@ func TestRefreshBrowserPathReplacesAndClosesDefaultChromiumRunner(t *testing.T) 
 
 	oldChromiumRunner := renderbrowser.NewChromiumRunner(renderbrowser.ChromiumOptions{BrowserPath: "old-browser"})
 	service := &Service{
-		runner:      oldChromiumRunner,
 		browserArgs: []string{"--disable-dev-shm-usage"},
-		workerSem:   make(chan struct{}, 1),
+		worker: renderworker.New(renderworker.Config{
+			Runner:      oldChromiumRunner,
+			WorkerCount: 1,
+		}),
 	}
-	oldRunner := service.runner
+	oldRunner := service.currentRunner()
 
 	service.RefreshBrowserPath("new-browser")
 
-	if service.runner == oldRunner {
+	currentRunner := service.currentRunner()
+	if currentRunner == oldRunner {
 		t.Fatal("expected default chromium runner to be replaced")
 	}
-	if !renderbrowser.IsChromiumRunner(service.runner) {
-		t.Fatalf("expected chromium runner, got %T", service.runner)
+	if !renderbrowser.IsChromiumRunner(currentRunner) {
+		t.Fatalf("expected chromium runner, got %T", currentRunner)
 	}
 }
 
@@ -123,11 +127,11 @@ func TestRefreshBrowserPathKeepsInjectedRunner(t *testing.T) {
 	t.Parallel()
 
 	runner := &fakeCloseableRunner{}
-	service := &Service{runner: runner}
+	service := &Service{worker: renderworker.New(renderworker.Config{Runner: runner, WorkerCount: 1})}
 
 	service.RefreshBrowserPath("new-browser")
 
-	if service.runner != runner {
+	if service.currentRunner() != runner {
 		t.Fatal("expected injected runner to remain unchanged")
 	}
 	if runner.closeCount() != 0 {

@@ -2,25 +2,19 @@ package deps
 
 import (
 	"context"
-	"fmt"
-	"os/exec"
-	"strings"
+
+	depsarchive "github.com/RayleaBot/RayleaBot/server/internal/deps/archive"
 )
 
 func extractTarXzWithProgress(ctx context.Context, archivePath, destRoot string, progress func(extractProgress)) error {
-	if progress != nil {
-		progress(extractProgress{Progress: 0})
-	}
-	cmd := exec.CommandContext(ctx, "tar", "-xf", archivePath, "-C", destRoot)
-	output, err := cmd.CombinedOutput()
-	if err != nil {
-		if len(output) == 0 {
-			return err
+	return depsarchive.TarXzWithProgress(ctx, archivePath, destRoot, func(event depsarchive.Progress) {
+		if progress == nil {
+			return
 		}
-		return fmt.Errorf("%w: %s", err, strings.TrimSpace(string(output)))
-	}
-	if progress != nil {
-		progress(extractProgress{Progress: 100})
-	}
-	return nil
+		progress(extractProgress{
+			ExtractedEntries: event.ExtractedEntries,
+			TotalEntries:     event.TotalEntries,
+			Progress:         event.Progress,
+		})
+	})
 }

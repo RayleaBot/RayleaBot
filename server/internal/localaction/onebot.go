@@ -4,22 +4,21 @@ import (
 	"context"
 
 	adapteroutbound "github.com/RayleaBot/RayleaBot/server/internal/adapter/outbound"
+	localonebot "github.com/RayleaBot/RayleaBot/server/internal/localaction/onebot"
 	runtimeaction "github.com/RayleaBot/RayleaBot/server/internal/runtime/action"
 	runtimemanager "github.com/RayleaBot/RayleaBot/server/internal/runtime/manager"
 )
 
 func runtimeIsOneBotLocalAction(kind string) bool {
-	spec, ok := lookupOneBotActionSpec(kind)
-	return ok && spec.Provider == ""
+	return localonebot.IsLocalAction(kind)
 }
 
 func runtimeIsProviderExtensionAction(kind string) bool {
-	spec, ok := lookupOneBotActionSpec(kind)
-	return ok && spec.Provider != ""
+	return localonebot.IsProviderExtensionAction(kind)
 }
 
 func (s *Service) executeOneBotLocalAction(ctx context.Context, pluginID string, action runtimeaction.Action) (map[string]any, error) {
-	spec, ok := lookupOneBotActionSpec(action.Kind)
+	spec, ok := localonebot.Lookup(action.Kind)
 	if !ok {
 		return nil, &runtimemanager.Error{
 			Code:    "plugin.protocol_violation",
@@ -69,7 +68,7 @@ func toRuntimeActionError(err error) error {
 	}
 }
 
-func (s *Service) projectOneBotAction(ctx context.Context, spec OneBotActionSpec, action runtimeaction.Action) (string, map[string]any, error) {
+func (s *Service) projectOneBotAction(ctx context.Context, spec localonebot.Spec, action runtimeaction.Action) (string, map[string]any, error) {
 	if spec.Provider == "" {
 		return spec.Project(action.RawData)
 	}

@@ -11,7 +11,7 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/console"
-	managementhttp "github.com/RayleaBot/RayleaBot/server/internal/management/http"
+	authhttp "github.com/RayleaBot/RayleaBot/server/internal/management/authhttp"
 )
 
 type consoleFrame struct {
@@ -30,7 +30,7 @@ type consoleFrameData struct {
 
 func (h *ConsoleHandler) HandlePluginConsoleWebSocket() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if _, ok := managementhttp.ClaimsFromContext(r.Context()); !ok {
+		if _, ok := authhttp.ClaimsFromContext(r.Context()); !ok {
 			http.Error(w, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
 			return
 		}

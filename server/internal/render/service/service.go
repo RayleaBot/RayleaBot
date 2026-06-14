@@ -11,8 +11,9 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/deps"
 	renderartifact "github.com/RayleaBot/RayleaBot/server/internal/render/artifact"
 	renderbrowser "github.com/RayleaBot/RayleaBot/server/internal/render/browser"
+	rendercatalog "github.com/RayleaBot/RayleaBot/server/internal/render/catalog"
 	renderrepo "github.com/RayleaBot/RayleaBot/server/internal/render/repository"
-	rendertemplates "github.com/RayleaBot/RayleaBot/server/internal/render/templates"
+	renderworker "github.com/RayleaBot/RayleaBot/server/internal/render/worker"
 )
 
 const (
@@ -98,23 +99,25 @@ func NewService(options Options) (*Service, error) {
 		outputRoot:         outputRoot,
 		browserPath:        browserPath,
 		browserArgs:        append([]string(nil), options.BrowserArgs...),
-		runner:             runner,
-		workerSem:          make(chan struct{}, workerCount),
-		workerCount:        workerCount,
 		logger:             options.Logger,
-		queueMaxLength:     queueMaxLength,
-		queueWaitTimeout:   queueWaitTimeout,
-		renderTimeout:      renderTimeout,
 		maxRenderDataBytes: maxRenderDataBytes,
 		footerTemplate:     footerTemplate,
 		defaultOutput:      defaultOutput,
 		deviceScalePercent: deviceScalePercent,
 		templateRepo:       templateRepo,
-		templateRoots:      map[string]rendertemplates.Root{},
+		templateRoots:      rendercatalog.NewRoots(templatesRoot),
 		cache:              map[string]renderartifact.Result{},
 		artifacts:          map[string]renderartifact.Artifact{},
 		previewHTMLCache:   map[string]PreviewHTML{},
 	}
+	service.worker = renderworker.New(renderworker.Config{
+		Runner:           runner,
+		WorkerCount:      workerCount,
+		QueueMaxLength:   queueMaxLength,
+		QueueWaitTimeout: queueWaitTimeout,
+		RenderTimeout:    renderTimeout,
+		OnQueueDepth:     service.publishQueueDepth,
+	})
 
 	if err := service.syncTemplatesFromFiles(context.Background()); err != nil {
 		return nil, err

@@ -8,6 +8,7 @@ import (
 	renderartifact "github.com/RayleaBot/RayleaBot/server/internal/render/artifact"
 	renderbrowser "github.com/RayleaBot/RayleaBot/server/internal/render/browser"
 	rendertemplates "github.com/RayleaBot/RayleaBot/server/internal/render/templates"
+	renderworker "github.com/RayleaBot/RayleaBot/server/internal/render/worker"
 )
 
 func (s *Service) Render(ctx context.Context, request Request) (renderartifact.Result, error) {
@@ -44,30 +45,11 @@ func (s *Service) renderInternal(ctx context.Context, request Request) (renderar
 		return cached, nil
 	}
 
-	if err := s.reserveSlot(); err != nil {
+	releaseWorker, err := s.worker.Acquire(ctx)
+	if err != nil {
 		return renderartifact.Result{}, err
 	}
-	defer s.releaseSlot()
-
-	queueCtx := ctx
-	if timeout := s.currentQueueWaitTimeout(); timeout > 0 {
-		var cancel context.CancelFunc
-		queueCtx, cancel = context.WithTimeout(ctx, timeout)
-		defer cancel()
-	}
-
-	select {
-	case s.workerSem <- struct{}{}:
-	case <-queueCtx.Done():
-		return renderartifact.Result{}, &rendertemplates.Error{
-			Code:    "platform.render_timeout",
-			Message: "render queue wait timed out",
-			Err:     queueCtx.Err(),
-		}
-	}
-	defer func() {
-		<-s.workerSem
-	}()
+	defer releaseWorker()
 
 	if cached, ok := s.cachedResult(cacheKey); ok {
 		cached.FromCache = true
@@ -79,12 +61,8 @@ func (s *Service) renderInternal(ctx context.Context, request Request) (renderar
 		return renderartifact.Result{}, wrapRenderError(err, "render template execution failed")
 	}
 
-	renderCtx := ctx
-	if timeout := s.currentRenderTimeout(); timeout > 0 {
-		var cancel context.CancelFunc
-		renderCtx, cancel = context.WithTimeout(ctx, timeout)
-		defer cancel()
-	}
+	renderCtx, cancel := s.worker.RenderContext(ctx)
+	defer cancel()
 
 	runner := s.currentRunner()
 	if runner == nil {
@@ -102,14 +80,7 @@ func (s *Service) renderInternal(ctx context.Context, request Request) (renderar
 		HTML:              html,
 	})
 	if err != nil {
-		if errors.Is(renderCtx.Err(), context.DeadlineExceeded) || errors.Is(err, context.DeadlineExceeded) {
-			return renderartifact.Result{}, &rendertemplates.Error{
-				Code:    "platform.render_timeout",
-				Message: "render execution timed out",
-				Err:     err,
-			}
-		}
-		return renderartifact.Result{}, wrapRenderError(err, "render execution failed")
+		return renderartifact.Result{}, wrapRenderError(renderworker.WrapRenderError(renderCtx, err), "render execution failed")
 	}
 
 	result, err := s.persistArtifact(normalized, cacheKey, content)

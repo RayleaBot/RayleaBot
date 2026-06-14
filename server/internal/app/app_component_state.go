@@ -66,7 +66,7 @@ type appPlugins struct {
 	Adapter           *adaptershell.Shell
 	Bridge            *bridge.Bridge
 	Dispatcher        *dispatch.Dispatcher
-	replyTargets      *replyTargetCache
+	replyTargets      *outbound.ReplyTargetCache
 	outboundSender    outboundActionSender
 	PluginInstaller   plugins.InstallCoordinator
 	PluginUninstaller plugins.UninstallCoordinator

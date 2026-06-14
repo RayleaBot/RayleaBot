@@ -1,4 +1,4 @@
-package localaction
+package httpaction
 
 import (
 	"time"
@@ -7,17 +7,22 @@ import (
 	runtimeaction "github.com/RayleaBot/RayleaBot/server/internal/runtime/action"
 )
 
-func currentHTTPTimeout(cfg config.Config) time.Duration {
+const (
+	defaultTimeoutSeconds = 10
+	defaultMaxRetries     = 2
+)
+
+func currentTimeout(cfg config.Config) time.Duration {
 	seconds := cfg.HTTP.TimeoutSeconds
 	if seconds <= 0 {
-		seconds = defaultHTTPTimeoutSeconds
+		seconds = defaultTimeoutSeconds
 	}
 	return time.Duration(seconds) * time.Second
 }
 
-func currentHTTPMaxRetries(cfg config.Config) int {
+func currentMaxRetries(cfg config.Config) int {
 	if cfg.HTTP.MaxRetries < 0 {
-		return defaultHTTPMaxRetries
+		return defaultMaxRetries
 	}
 	if cfg.HTTP.MaxRetries == 0 {
 		return 0
@@ -25,14 +30,14 @@ func currentHTTPMaxRetries(cfg config.Config) int {
 	return cfg.HTTP.MaxRetries
 }
 
-func currentHTTPActionTimeout(action runtimeaction.Action) time.Duration {
+func currentActionTimeout(action runtimeaction.Action) time.Duration {
 	if action.HTTPTimeoutSeconds <= 0 {
 		return 0
 	}
 	return time.Duration(action.HTTPTimeoutSeconds) * time.Second
 }
 
-func cloneHTTPHeaders(headers map[string]string) map[string]string {
+func CloneHeaders(headers map[string]string) map[string]string {
 	if len(headers) == 0 {
 		return map[string]string{}
 	}

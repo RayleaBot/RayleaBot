@@ -34,7 +34,7 @@ type eventMetadataEnricher interface {
 type eventIngressDeps struct {
 	state            *appRuntimeState
 	plugins          *plugincatalog.Catalog
-	replyTargets     *replyTargetCache
+	replyTargets     *outbound.ReplyTargetCache
 	outboundSender   outboundActionSender
 	outboundLimiter  outbound.MessageLimiter
 	renderer         *renderservice.Service

@@ -18,7 +18,7 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/deps"
 	"github.com/RayleaBot/RayleaBot/server/internal/health"
-	managementhttp "github.com/RayleaBot/RayleaBot/server/internal/management/http"
+	authhttp "github.com/RayleaBot/RayleaBot/server/internal/management/authhttp"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	"github.com/RayleaBot/RayleaBot/server/internal/recovery"
 	renderservice "github.com/RayleaBot/RayleaBot/server/internal/render/service"
@@ -127,7 +127,7 @@ func TestHandleSystemRecoveryConfirmAcceptsTaskAndPersistsAudit(t *testing.T) {
 
 	application := newTaskOnlyApp(t, repoRoot)
 	request := httptest.NewRequest(http.MethodPost, "/api/system/recovery/confirm", stringsNewReader(`{"review_ids":["`+initial.SkippedPlugins[0].ReviewID+`"],"note":"已确认当前跳过状态。"}`))
-	request = request.WithContext(managementhttp.ContextWithClaims(request.Context(), auth.Claims{Subject: "alice"}))
+	request = request.WithContext(authhttp.ContextWithClaims(request.Context(), auth.Claims{Subject: "alice"}))
 	request.Header.Set("Content-Type", "application/json")
 	recorder := httptest.NewRecorder()
 
@@ -191,7 +191,7 @@ func TestHandleSystemRecoveryConfirmRejectsUnknownReviewID(t *testing.T) {
 
 	application := newTaskOnlyApp(t, repoRoot)
 	request := httptest.NewRequest(http.MethodPost, "/api/system/recovery/confirm", stringsNewReader(`{"review_ids":["review_missing"]}`))
-	request = request.WithContext(managementhttp.ContextWithClaims(request.Context(), auth.Claims{Subject: "alice"}))
+	request = request.WithContext(authhttp.ContextWithClaims(request.Context(), auth.Claims{Subject: "alice"}))
 	request.Header.Set("Content-Type", "application/json")
 	recorder := httptest.NewRecorder()
 

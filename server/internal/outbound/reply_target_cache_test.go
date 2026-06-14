@@ -1,4 +1,4 @@
-package app
+package outbound
 
 import (
 	"testing"
@@ -9,7 +9,7 @@ import (
 func TestReplyTargetCacheStoresRecentEventTargets(t *testing.T) {
 	t.Parallel()
 
-	cache := newReplyTargetCache(2)
+	cache := NewReplyTargetCache(2)
 	cache.Record(adapterintake.NormalizedEvent{
 		EventID:          "evt-1",
 		MessageID:        "msg-1",

@@ -2,20 +2,7 @@ package service
 
 import (
 	"strings"
-	"time"
 )
-
-func (s *Service) currentQueueWaitTimeout() time.Duration {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	return s.queueWaitTimeout
-}
-
-func (s *Service) currentRenderTimeout() time.Duration {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	return s.renderTimeout
-}
 
 func (s *Service) currentMaxRenderDataBytes() int {
 	s.mu.RLock()

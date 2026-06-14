@@ -3,6 +3,8 @@ package managementhttp
 import (
 	"net/http"
 	"strings"
+
+	authhttp "github.com/RayleaBot/RayleaBot/server/internal/management/authhttp"
 )
 
 func (h *SystemHandlers) HandleSystemRecoveryRecheck() http.HandlerFunc {
@@ -45,7 +47,7 @@ func (h *SystemHandlers) HandleSystemRecoveryConfirm() http.HandlerFunc {
 			return
 		}
 
-		claims, ok := ClaimsFromContext(r.Context())
+		claims, ok := authhttp.ClaimsFromContext(r.Context())
 		if !ok || strings.TrimSpace(claims.Subject) == "" {
 			writeAuthError(w, r, http.StatusUnauthorized, codePermissionDenied, "当前用户无权执行该操作", "errors.permission.denied")
 			return

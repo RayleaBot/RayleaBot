@@ -2,7 +2,8 @@ package deps
 
 import (
 	"context"
-	"reflect"
+
+	depsdownload "github.com/RayleaBot/RayleaBot/server/internal/deps/download"
 )
 
 func downloadWithProgress(ctx context.Context, rawURL, destPath string, downloader func(context.Context, string, string) error, progress func(downloadProgress)) error {
@@ -12,14 +13,19 @@ func downloadWithProgress(ctx context.Context, rawURL, destPath string, download
 	return downloader(ctx, rawURL, destPath)
 }
 
+func downloadProgressAdapter(progress func(downloadProgress)) func(depsdownload.Progress) {
+	return func(event depsdownload.Progress) {
+		if progress == nil {
+			return
+		}
+		progress(downloadProgress{
+			DownloadedBytes: event.DownloadedBytes,
+			TotalBytes:      event.TotalBytes,
+			Progress:        event.Progress,
+		})
+	}
+}
+
 func sameFunction(left, right any) bool {
-	if left == nil || right == nil {
-		return false
-	}
-	leftValue := reflect.ValueOf(left)
-	rightValue := reflect.ValueOf(right)
-	if leftValue.Kind() != reflect.Func || rightValue.Kind() != reflect.Func {
-		return false
-	}
-	return leftValue.Pointer() == rightValue.Pointer()
+	return depsdownload.SameFunction(left, right)
 }

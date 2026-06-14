@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	bilibilisession "github.com/RayleaBot/RayleaBot/server/internal/bilibili/session"
+	"github.com/RayleaBot/RayleaBot/server/internal/localaction/httpaction"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	runtimeaction "github.com/RayleaBot/RayleaBot/server/internal/runtime/action"
 	runtimemanager "github.com/RayleaBot/RayleaBot/server/internal/runtime/manager"
@@ -22,10 +23,15 @@ func TestApplyBilibiliCookieUsesConfiguredAccount(t *testing.T) {
 		accounts: []thirdparty.Account{account},
 		cookies:  map[string]string{"primary": "SESSDATA=fixture; bili_jct=csrf;"},
 	}
-	service := &Service{thirdParty: accounts}
 	headers := map[string]string{"Accept": "application/json"}
 
-	usedAccount, applied := service.applyBilibiliCookie(context.Background(), subscriptionHubPluginID, "https://api.bilibili.com/x/web-interface/nav", []string{"api.bilibili.com"}, headers)
+	usedAccount, applied := httpaction.ApplyBilibiliCookie(context.Background(), httpaction.BilibiliCookieRequest{
+		PluginID:   httpaction.SubscriptionHubPluginID,
+		RawURL:     "https://api.bilibili.com/x/web-interface/nav",
+		ScopeHosts: []string{"api.bilibili.com"},
+		Headers:    headers,
+		ThirdParty: accounts,
+	})
 
 	if !applied {
 		t.Fatalf("expected Bilibili cookie to be applied")
@@ -49,18 +55,22 @@ func TestApplyBilibiliCookiePreparesAndStoresUpdatedCookie(t *testing.T) {
 		accounts: []thirdparty.Account{account},
 		cookies:  map[string]string{"primary": "SESSDATA=old; bili_jct=csrf;"},
 	}
-	service := &Service{
-		thirdParty: accounts,
-		bilibiliSession: &stubBilibiliSession{
-			prepared: bilibilisession.PreparedCookie{
-				Cookie:   "SESSDATA=new; bili_jct=csrf; buvid3=device;",
-				Enriched: true,
-			},
+	session := &stubBilibiliSession{
+		prepared: bilibilisession.PreparedCookie{
+			Cookie:   "SESSDATA=new; bili_jct=csrf; buvid3=device;",
+			Enriched: true,
 		},
 	}
 	headers := map[string]string{}
 
-	usedAccount, applied := service.applyBilibiliCookie(context.Background(), subscriptionHubPluginID, "https://api.bilibili.com/x/web-interface/nav", []string{"api.bilibili.com"}, headers)
+	usedAccount, applied := httpaction.ApplyBilibiliCookie(context.Background(), httpaction.BilibiliCookieRequest{
+		PluginID:   httpaction.SubscriptionHubPluginID,
+		RawURL:     "https://api.bilibili.com/x/web-interface/nav",
+		ScopeHosts: []string{"api.bilibili.com"},
+		Headers:    headers,
+		ThirdParty: accounts,
+		Session:    session,
+	})
 
 	if !applied || usedAccount.AccountID != "primary" {
 		t.Fatalf("expected prepared Bilibili cookie to be applied, got account=%#v applied=%v", usedAccount, applied)
@@ -92,7 +102,7 @@ func TestExecuteHTTPRequestReturnsBilibiliSignError(t *testing.T) {
 		},
 	}
 
-	_, err := service.executeHTTPRequest(context.Background(), subscriptionHubPluginID, runtimeaction.Action{
+	_, err := service.executeHTTPRequest(context.Background(), httpaction.SubscriptionHubPluginID, runtimeaction.Action{
 		HTTPMethod: "GET",
 		HTTPURL:    "https://api.bilibili.com/x/polymer/web-dynamic/v1/feed/all",
 	})
@@ -109,13 +119,19 @@ func TestExecuteHTTPRequestReturnsBilibiliSignError(t *testing.T) {
 func TestApplyBilibiliCookieSkipsNonBilibiliHosts(t *testing.T) {
 	t.Parallel()
 
-	service := &Service{thirdParty: &stubThirdPartyAccounts{
+	accounts := &stubThirdPartyAccounts{
 		accounts: []thirdparty.Account{{Platform: thirdparty.PlatformBilibili, AccountID: "primary"}},
 		cookies:  map[string]string{"primary": "SESSDATA=fixture;"},
-	}}
+	}
 	headers := map[string]string{}
 
-	_, applied := service.applyBilibiliCookie(context.Background(), subscriptionHubPluginID, "https://example.com/api", []string{"example.com"}, headers)
+	_, applied := httpaction.ApplyBilibiliCookie(context.Background(), httpaction.BilibiliCookieRequest{
+		PluginID:   httpaction.SubscriptionHubPluginID,
+		RawURL:     "https://example.com/api",
+		ScopeHosts: []string{"example.com"},
+		Headers:    headers,
+		ThirdParty: accounts,
+	})
 
 	if applied {
 		t.Fatalf("unexpected cookie application for non-Bilibili host")
@@ -128,13 +144,19 @@ func TestApplyBilibiliCookieSkipsNonBilibiliHosts(t *testing.T) {
 func TestApplyBilibiliCookieKeepsPluginCookie(t *testing.T) {
 	t.Parallel()
 
-	service := &Service{thirdParty: &stubThirdPartyAccounts{
+	accounts := &stubThirdPartyAccounts{
 		accounts: []thirdparty.Account{{Platform: thirdparty.PlatformBilibili, AccountID: "primary"}},
 		cookies:  map[string]string{"primary": "SESSDATA=fixture;"},
-	}}
+	}
 	headers := map[string]string{"cookie": "SESSDATA=plugin;"}
 
-	_, applied := service.applyBilibiliCookie(context.Background(), subscriptionHubPluginID, "https://api.live.bilibili.com/room/v1/Room/get_info", []string{"api.live.bilibili.com"}, headers)
+	_, applied := httpaction.ApplyBilibiliCookie(context.Background(), httpaction.BilibiliCookieRequest{
+		PluginID:   httpaction.SubscriptionHubPluginID,
+		RawURL:     "https://api.live.bilibili.com/room/v1/Room/get_info",
+		ScopeHosts: []string{"api.live.bilibili.com"},
+		Headers:    headers,
+		ThirdParty: accounts,
+	})
 
 	if applied {
 		t.Fatalf("unexpected cookie application when plugin already provided Cookie")
@@ -151,10 +173,15 @@ func TestApplyBilibiliCookieRequiresGrantedHost(t *testing.T) {
 		accounts: []thirdparty.Account{{Platform: thirdparty.PlatformBilibili, AccountID: "primary"}},
 		cookies:  map[string]string{"primary": "SESSDATA=fixture;"},
 	}
-	service := &Service{thirdParty: accounts}
 	headers := map[string]string{}
 
-	_, applied := service.applyBilibiliCookie(context.Background(), subscriptionHubPluginID, "https://api.bilibili.com/x/web-interface/nav", []string{"example.com"}, headers)
+	_, applied := httpaction.ApplyBilibiliCookie(context.Background(), httpaction.BilibiliCookieRequest{
+		PluginID:   httpaction.SubscriptionHubPluginID,
+		RawURL:     "https://api.bilibili.com/x/web-interface/nav",
+		ScopeHosts: []string{"example.com"},
+		Headers:    headers,
+		ThirdParty: accounts,
+	})
 
 	if applied {
 		t.Fatalf("unexpected cookie application without granted host")
@@ -167,13 +194,19 @@ func TestApplyBilibiliCookieRequiresGrantedHost(t *testing.T) {
 func TestApplyBilibiliCookieRequiresSubscriptionHubPlugin(t *testing.T) {
 	t.Parallel()
 
-	service := &Service{thirdParty: &stubThirdPartyAccounts{
+	accounts := &stubThirdPartyAccounts{
 		accounts: []thirdparty.Account{{Platform: thirdparty.PlatformBilibili, AccountID: "primary"}},
 		cookies:  map[string]string{"primary": "SESSDATA=fixture;"},
-	}}
+	}
 	headers := map[string]string{}
 
-	_, applied := service.applyBilibiliCookie(context.Background(), "raylea.other-plugin", "https://api.bilibili.com/x/web-interface/nav", []string{"api.bilibili.com"}, headers)
+	_, applied := httpaction.ApplyBilibiliCookie(context.Background(), httpaction.BilibiliCookieRequest{
+		PluginID:   "raylea.other-plugin",
+		RawURL:     "https://api.bilibili.com/x/web-interface/nav",
+		ScopeHosts: []string{"api.bilibili.com"},
+		Headers:    headers,
+		ThirdParty: accounts,
+	})
 
 	if applied {
 		t.Fatalf("unexpected cookie application for a non-subscription-hub plugin")
@@ -201,8 +234,8 @@ func TestIsBilibiliURL(t *testing.T) {
 		tt := tt
 		t.Run(tt.rawURL, func(t *testing.T) {
 			t.Parallel()
-			if got := isBilibiliURL(tt.rawURL); got != tt.want {
-				t.Fatalf("isBilibiliURL(%q) = %v, want %v", tt.rawURL, got, tt.want)
+			if got := httpaction.IsBilibiliURL(tt.rawURL); got != tt.want {
+				t.Fatalf("IsBilibiliURL(%q) = %v, want %v", tt.rawURL, got, tt.want)
 			}
 		})
 	}

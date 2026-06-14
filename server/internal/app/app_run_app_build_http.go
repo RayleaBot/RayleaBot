@@ -12,6 +12,7 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/httpapi"
+	authhttp "github.com/RayleaBot/RayleaBot/server/internal/management/authhttp"
 	managementhttp "github.com/RayleaBot/RayleaBot/server/internal/management/http"
 	renderservice "github.com/RayleaBot/RayleaBot/server/internal/render/service"
 )
@@ -22,7 +23,7 @@ func buildAppHTTPServer(deps httpServerDeps) (http.Handler, *http.Server) {
 
 	registerAppPublicRoutes(router, deps)
 	router.Group(func(r chi.Router) {
-		r.Use(managementhttp.RequireAuth(deps.auth))
+		r.Use(authhttp.RequireAuth(deps.auth))
 		registerAppProtectedRoutes(r, deps)
 	})
 	router.NotFound(managementhttp.NewManagementUIHandler(deps.state.repoRoot))
