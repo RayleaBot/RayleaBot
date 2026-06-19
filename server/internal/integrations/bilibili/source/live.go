@@ -9,6 +9,9 @@ import (
 	"time"
 
 	bilibiliLive "github.com/RayleaBot/RayleaBot/server/internal/integrations/bilibili/live"
+	bilibilimonitoring "github.com/RayleaBot/RayleaBot/server/internal/integrations/bilibili/monitoring"
+	sourcestate "github.com/RayleaBot/RayleaBot/server/internal/integrations/bilibili/source/state"
+	bilibilivalues "github.com/RayleaBot/RayleaBot/server/internal/integrations/bilibili/values"
 	"github.com/RayleaBot/RayleaBot/server/internal/thirdparty"
 	"github.com/coder/websocket"
 )
@@ -32,13 +35,13 @@ func (s *Source) runLiveRoom(ctx context.Context, subject Subject, account third
 				s.setLiveError(err)
 				return
 			}
-			state := s.loadRoomState(ctx, subject.UID)
+			state := s.stateStore.LoadRoom(ctx, subject.UID, StateIdle)
 			state.UID = subject.UID
-			state.Name = firstNonEmpty(state.Name, subject.Name)
-			state.Face = firstNonEmpty(state.Face, subject.AvatarURL)
+			state.Name = bilibilivalues.FirstNonEmpty(state.Name, subject.Name)
+			state.Face = bilibilivalues.FirstNonEmpty(state.Face, subject.AvatarURL)
 			state.ConnectionState = StateDegraded
 			state.LastError = err.Error()
-			s.setRoomState(ctx, state)
+			s.stateStore.SetRoom(ctx, state)
 			s.setLiveError(err)
 		} else {
 			s.clearRequestCooldown(bilibiliRequestCooldownLive, account, cookie)
@@ -63,30 +66,30 @@ func (s *Source) connectLiveRoom(ctx context.Context, subject Subject, cookie st
 	if !ok {
 		return fmt.Errorf("live room status missing for uid %s", subject.UID)
 	}
-	roomID := strings.TrimSpace(stringValue(item.RoomID))
+	roomID := strings.TrimSpace(bilibilivalues.String(item.RoomID))
 	if roomID == "" || roomID == "0" {
-		state := roomState{
+		state := sourcestate.Room{
 			UID:             subject.UID,
-			Name:            firstNonEmpty(item.UName, subject.Name),
-			Face:            firstNonEmpty(normalizeURL(item.Face), subject.AvatarURL),
+			Name:            bilibilivalues.FirstNonEmpty(item.UName, subject.Name),
+			Face:            bilibilivalues.FirstNonEmpty(bilibilivalues.NormalizeURL(item.Face), subject.AvatarURL),
 			LiveStatus:      bilibiliLive.NormalizeStatus(item.LiveStatus),
 			ConnectionState: StateIdle,
 		}
-		s.setRoomState(ctx, state)
+		s.stateStore.SetRoom(ctx, state)
 		return fmt.Errorf("uid %s has no live room", subject.UID)
 	}
 
-	state := s.loadRoomState(ctx, subject.UID)
+	state := s.stateStore.LoadRoom(ctx, subject.UID, StateIdle)
 	state.UID = subject.UID
 	state.RoomID = roomID
-	state.Name = firstNonEmpty(item.UName, subject.Name)
-	state.Face = firstNonEmpty(normalizeURL(item.Face), subject.AvatarURL)
+	state.Name = bilibilivalues.FirstNonEmpty(item.UName, subject.Name)
+	state.Face = bilibilivalues.FirstNonEmpty(bilibilivalues.NormalizeURL(item.Face), subject.AvatarURL)
 	state.CoverURL = bilibiliLive.FirstImageURL(item)
 	state.LiveStatus = bilibiliLive.NormalizeStatus(item.LiveStatus)
 	state.LiveStartedAt = bilibiliLive.TimeFromItem(item)
 	state.ConnectionState = StateConnecting
 	state.LastError = ""
-	s.setRoomState(ctx, state)
+	s.stateStore.SetRoom(ctx, state)
 	if state.LiveStatus == 1 {
 		s.emitLiveTransition(ctx, subject, item, state.LiveStatus, "status")
 	}
@@ -119,21 +122,21 @@ func (s *Source) connectLiveRoom(ctx context.Context, subject Subject, cookie st
 
 func (s *Source) emitLiveTransition(ctx context.Context, subject Subject, item bilibiliLive.StatusItem, liveStatus int, source string) {
 	liveStatus = bilibiliLive.NormalizeStatus(liveStatus)
-	state := s.loadRoomState(ctx, subject.UID)
+	state := s.stateStore.LoadRoom(ctx, subject.UID, StateIdle)
 	if state.UID == "" {
 		state.UID = subject.UID
 	}
-	roomID := strings.TrimSpace(stringValue(item.RoomID))
+	roomID := strings.TrimSpace(bilibilivalues.String(item.RoomID))
 	if roomID != "" {
 		state.RoomID = roomID
 	}
-	state.Name = firstNonEmpty(item.UName, subject.Name, state.Name)
-	state.Face = firstNonEmpty(normalizeURL(item.Face), subject.AvatarURL, state.Face)
-	state.CoverURL = firstNonEmpty(bilibiliLive.FirstImageURL(item), state.CoverURL)
+	state.Name = bilibilivalues.FirstNonEmpty(item.UName, subject.Name, state.Name)
+	state.Face = bilibilivalues.FirstNonEmpty(bilibilivalues.NormalizeURL(item.Face), subject.AvatarURL, state.Face)
+	state.CoverURL = bilibilivalues.FirstNonEmpty(bilibiliLive.FirstImageURL(item), state.CoverURL)
 	state.LiveStartedAt = bilibiliLive.TimeFromItem(item)
-	state.ConnectionState = firstNonEmpty(state.ConnectionState, StateIdle)
+	state.ConnectionState = bilibilivalues.FirstNonEmpty(state.ConnectionState, StateIdle)
 	if state.LiveStatus == liveStatus && source != "status" {
-		s.setRoomState(ctx, state)
+		s.stateStore.SetRoom(ctx, state)
 		return
 	}
 	state.LiveStatus = liveStatus
@@ -141,58 +144,21 @@ func (s *Source) emitLiveTransition(ctx context.Context, subject Subject, item b
 	state.LastEventAt = &now
 	state.LastError = ""
 
-	eventType := EventLiveStarted
-	liveEvent := "started"
-	statusLabel := "直播中"
-	title := firstNonEmpty(item.Title, "直播间已开播")
-	summary := "直播中"
-	pubTS := state.LiveStartedAt
-	if liveStatus == 0 {
-		eventType = EventLiveEnded
-		liveEvent = "ended"
-		statusLabel = "直播结束"
-		title = firstNonEmpty(item.Title, "直播结束")
-		summary = "直播结束"
-		pubTS = now.Unix()
-	}
-	if pubTS <= 0 {
-		pubTS = now.Unix()
-	}
-	eventID := fmt.Sprintf("live-%s-%s-%s-%d", subject.UID, state.RoomID, liveEvent, pubTS)
-	state.LiveEventID = eventID
-	s.setRoomState(ctx, state)
-	seenKey := eventType + ":" + eventID
-	if !s.markSeen(ctx, seenKey, subject.UID, eventType, eventID) {
+	event := bilibilimonitoring.LiveTransitionEvent(bilibilimonitoring.LiveTransitionInput{
+		Subject:       subject,
+		Item:          item,
+		RoomID:        state.RoomID,
+		Name:          state.Name,
+		Face:          state.Face,
+		LiveStartedAt: state.LiveStartedAt,
+		LiveStatus:    liveStatus,
+		Now:           now,
+	})
+	state.LiveEventID = event.ID
+	s.stateStore.SetRoom(ctx, state)
+	seenKey := event.EventType + ":" + event.ID
+	if !s.markSeen(ctx, seenKey, subject.UID, event.EventType, event.ID) {
 		return
-	}
-	liveStatusCopy := liveStatus
-	event := BilibiliEvent{
-		EventType: EventLiveStarted,
-		Kind:      "live",
-		UID:       subject.UID,
-		ID:        eventID,
-		RoomID:    state.RoomID,
-		Service:   "live",
-		Title:     title,
-		Summary:   summary,
-		URL:       firstNonEmpty(item.URL, "https://live.bilibili.com/"+state.RoomID),
-		PubTS:     pubTS,
-		CreatedAt: formatTime(pubTS),
-		Author: Author{
-			UID:    subject.UID,
-			Name:   firstNonEmpty(state.Name, subject.Name, subject.UID),
-			Avatar: state.Face,
-		},
-		Images:      liveImages(item),
-		LiveStatus:  &liveStatusCopy,
-		LiveEvent:   liveEvent,
-		StatusLabel: statusLabel,
-	}
-	event.EventType = eventType
-	if liveStatus == 1 {
-		event.LiveStartedAt = formatTime(pubTS)
-	} else {
-		event.LiveDetectedAt = formatTime(now.Unix())
 	}
 	s.dispatchEvent(ctx, event)
 }
@@ -208,18 +174,6 @@ func (s *Source) emitSyntheticLiveTransition(ctx context.Context, subject Subjec
 		URL:        "https://live.bilibili.com/" + roomID,
 	}
 	s.emitLiveTransition(ctx, subject, item, liveStatus, "websocket")
-}
-
-func liveImages(item bilibiliLive.StatusItem) []Image {
-	images := bilibiliLive.Images(item)
-	if len(images) == 0 {
-		return nil
-	}
-	result := make([]Image, 0, len(images))
-	for _, image := range images {
-		result = append(result, Image{URL: image.URL, Width: image.Width, Height: image.Height})
-	}
-	return result
 }
 
 func (s *Source) fetchLiveStatuses(ctx context.Context, subjects []Subject) (map[string]bilibiliLive.StatusItem, error) {
@@ -243,7 +197,7 @@ func (s *Source) fetchLiveStatuses(ctx context.Context, subjects []Subject) (map
 	for uid, item := range doc.Data {
 		key := strings.TrimSpace(uid)
 		if key == "" {
-			key = strings.TrimSpace(stringValue(item.UID))
+			key = strings.TrimSpace(bilibilivalues.String(item.UID))
 		}
 		if key != "" {
 			result[key] = item
@@ -268,7 +222,7 @@ func (s *Source) pollLiveFallback(ctx context.Context, subjects map[string]Subje
 		return
 	}
 	if delay := s.requestCooldownDelay(bilibiliRequestCooldownLive, account, cookie); delay > 0 {
-		s.setLiveError(fmt.Errorf("Bilibili 直播检查因平台风控暂停，剩余 %s", formatCooldownDelay(delay)))
+		s.setLiveError(fmt.Errorf("Bilibili 直播检查因平台风控暂停，剩余 %s", bilibilivalues.FormatCooldownDelay(delay)))
 		return
 	}
 	liveSubjects := make([]Subject, 0)
@@ -310,10 +264,10 @@ func (s *Source) consumeLiveWebSocket(ctx context.Context, subject Subject, room
 	if err := conn.Write(ctx, websocket.MessageBinary, bilibiliLive.Pack(verifyBytes, 1, bilibiliLive.WSOpVerify)); err != nil {
 		return err
 	}
-	state := s.loadRoomState(ctx, subject.UID)
+	state := s.stateStore.LoadRoom(ctx, subject.UID, StateIdle)
 	state.ConnectionState = StateConnected
 	state.LastError = ""
-	s.setRoomState(ctx, state)
+	s.stateStore.SetRoom(ctx, state)
 
 	heartbeatDone := make(chan struct{})
 	defer close(heartbeatDone)
@@ -339,7 +293,7 @@ func (s *Source) consumeLiveWebSocket(ctx context.Context, subject Subject, room
 }
 
 func (s *Source) handleLiveWebSocketEvent(ctx context.Context, subject Subject, roomID string, event map[string]any) {
-	cmd := strings.TrimSpace(stringValue(event["cmd"]))
+	cmd := strings.TrimSpace(bilibilivalues.String(event["cmd"]))
 	if strings.Contains(cmd, ":") {
 		cmd = strings.SplitN(cmd, ":", 2)[0]
 	}

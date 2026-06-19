@@ -7,6 +7,8 @@ import (
 	"time"
 
 	bilibiliSession "github.com/RayleaBot/RayleaBot/server/internal/integrations/bilibili/session"
+	sourcestate "github.com/RayleaBot/RayleaBot/server/internal/integrations/bilibili/source/state"
+	bilibilivalues "github.com/RayleaBot/RayleaBot/server/internal/integrations/bilibili/values"
 	"github.com/RayleaBot/RayleaBot/server/internal/thirdparty"
 )
 
@@ -26,17 +28,17 @@ func (s *Source) MonitorSnapshot(ctx context.Context) (MonitorSnapshot, error) {
 	if err := s.refreshMonitorDynamics(ctx, subjects); err != nil {
 		s.setDynamicError(err)
 	}
-	dynamics := s.loadDynamicSnapshots(ctx)
+	dynamics := s.stateStore.LoadDynamics(ctx)
 	for _, subject := range sortedSubjects(subjects) {
-		room := s.loadRoomState(ctx, subject.UID)
+		room := s.stateStore.LoadRoom(ctx, subject.UID, StateIdle)
 		dynamic := dynamics[subject.UID]
-		if !hasDynamicService(subject.Services) {
-			dynamic = dynamicSnapshot{}
+		if !bilibilivalues.HasDynamicService(subject.Services) {
+			dynamic = sourcestate.Dynamic{}
 		}
 		item := MonitorItem{
 			UID:        subject.UID,
-			Username:   firstNonEmpty(room.Name, dynamic.Username, subject.Name, subject.UID),
-			AvatarURL:  firstNonEmpty(room.Face, dynamic.AvatarURL, subject.AvatarURL),
+			Username:   bilibilivalues.FirstNonEmpty(room.Name, dynamic.Username, subject.Name, subject.UID),
+			AvatarURL:  bilibilivalues.FirstNonEmpty(room.Face, dynamic.AvatarURL, subject.AvatarURL),
 			ProfileURL: bilibiliProfileURL(subject.UID),
 			Services:   sortedServiceNames(subject.Services),
 			Dynamic:    dynamic.MonitorDynamic(),
@@ -76,7 +78,7 @@ func sortedServiceNames(services map[string]bool) []string {
 	sort.Strings(items)
 	return items
 }
-func monitorLiveFromRoom(room roomState) MonitorLive {
+func monitorLiveFromRoom(room sourcestate.Room) MonitorLive {
 	live := MonitorLive{
 		RoomID:          room.RoomID,
 		RoomName:        room.Name,
@@ -111,7 +113,7 @@ func normalizeRoomConnectionState(state string, lastError string) string {
 	if bilibiliSession.IsRiskControlErrorText(lastError) {
 		return StateIdle
 	}
-	return firstNonEmpty(state, StateIdle)
+	return bilibilivalues.FirstNonEmpty(state, StateIdle)
 }
 func roomMonitorLastError(value string) string {
 	if bilibiliSession.IsRiskControlErrorText(value) {
@@ -119,20 +121,11 @@ func roomMonitorLastError(value string) string {
 	}
 	return value
 }
-func (item dynamicSnapshot) MonitorDynamic() *MonitorDynamic {
-	if item.UID == "" || item.DynamicID == "" {
-		return nil
-	}
-	return &MonitorDynamic{
-		LastID:      item.DynamicID,
-		Service:     item.Service,
-		Title:       item.Title,
-		Summary:     item.Summary,
-		URL:         item.URL,
-		Images:      item.Images,
-		PublishedAt: item.PublishedAt,
-		ObservedAt:  item.ObservedAt,
-	}
+func (s *Source) roomConnectionCounts(ctx context.Context, watchedUIDs map[string]bool) (int, int) {
+	return s.stateStore.RoomConnectionCounts(ctx, watchedUIDs, StateConnected, map[string]bool{
+		StateFailed:   true,
+		StateDegraded: true,
+	})
 }
 func latestTime(values ...time.Time) time.Time {
 	var latest time.Time

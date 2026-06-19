@@ -14,6 +14,7 @@ import (
 
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/deps"
+	"github.com/RayleaBot/RayleaBot/server/internal/system/startup"
 )
 
 func TestAutoPrepareRuntimeEnvironmentsPreparesStartupManagedRuntimes(t *testing.T) {
@@ -219,7 +220,7 @@ func TestManagedRuntimeDiagnosticsUsesStartupFailureReason(t *testing.T) {
 	application := newTestAppState(config.Config{}, nil)
 	application.state.repoRoot = repoRoot
 	application.setTestSystem(nil, nil, nil, nil)
-	issue := startupRuntimeFailureIssue("python-runtime", &deps.BootstrapError{
+	issue := startup.FailureIssue("python-runtime", &deps.BootstrapError{
 		Kind:        "python-runtime",
 		Stage:       "download",
 		Remediation: "请联网准备 Python 运行环境。",

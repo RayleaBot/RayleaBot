@@ -17,12 +17,11 @@ type Grants interface {
 }
 
 type Request struct {
-	PluginID        string
-	Action          runtimeaction.Action
-	Config          config.Config
-	Grants          Grants
-	ThirdParty      ThirdPartyAccounts
-	BilibiliSession BilibiliSession
+	PluginID           string
+	Action             runtimeaction.Action
+	Config             config.Config
+	Grants             Grants
+	CredentialInjector CredentialInjector
 }
 
 func Execute(ctx context.Context, req Request) (map[string]any, error) {
@@ -40,17 +39,15 @@ func Execute(ctx context.Context, req Request) (map[string]any, error) {
 	})
 	scopeHosts := req.Grants.GrantedHTTPHosts(ctx, req.PluginID)
 	headers := CloneHeaders(req.Action.HTTPHeaders)
-	bilibiliAccount, bilibiliCookieApplied := ApplyBilibiliCookie(ctx, BilibiliCookieRequest{
-		PluginID:   req.PluginID,
-		RawURL:     req.Action.HTTPURL,
-		ScopeHosts: scopeHosts,
-		Headers:    headers,
-		ThirdParty: req.ThirdParty,
-		Session:    req.BilibiliSession,
-	})
 	requestURL := req.Action.HTTPURL
-	if bilibiliCookieApplied && req.BilibiliSession != nil && isBilibiliURLForWBI(requestURL) {
-		signedURL, err := req.BilibiliSession.SignURL(ctx, requestURL, headers["Cookie"])
+	var afterSuccess func(context.Context) error
+	if req.CredentialInjector != nil {
+		credentials, err := req.CredentialInjector.Inject(ctx, CredentialRequest{
+			PluginID:   req.PluginID,
+			RawURL:     req.Action.HTTPURL,
+			ScopeHosts: scopeHosts,
+			Headers:    headers,
+		})
 		if err != nil {
 			return nil, &runtimemanager.Error{
 				Code:    "plugin.internal_error",
@@ -58,7 +55,10 @@ func Execute(ctx context.Context, req Request) (map[string]any, error) {
 				Err:     err,
 			}
 		}
-		requestURL = signedURL
+		if credentials.URL != "" {
+			requestURL = credentials.URL
+		}
+		afterSuccess = credentials.AfterSuccess
 	}
 
 	response, err := client.Do(ctx, pluginhttp.Request{
@@ -87,8 +87,8 @@ func Execute(ctx context.Context, req Request) (map[string]any, error) {
 			Err:     err,
 		}
 	}
-	if bilibiliCookieApplied {
-		_ = req.ThirdParty.MarkUsed(ctx, bilibiliAccount)
+	if afterSuccess != nil {
+		_ = afterSuccess(ctx)
 	}
 
 	result := map[string]any{

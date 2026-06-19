@@ -656,88 +656,6 @@ func TestExecuteStorageKVRoundTrip(t *testing.T) {
 	}
 }
 
-func TestExecuteConfigReadWriteRoundTrip(t *testing.T) {
-	t.Parallel()
-
-	store, err := storage.Open(filepath.Join(t.TempDir(), "state.db"))
-	if err != nil {
-		t.Fatalf("storage.Open: %v", err)
-	}
-	defer store.Close()
-
-	repo, err := pluginconfig.NewSQLiteRepository(store)
-	if err != nil {
-		t.Fatalf("NewSQLiteRepository: %v", err)
-	}
-
-	application := newTestAppState(config.Config{
-		Permission: config.PermissionConfig{
-			AutoGrantCapabilities: []string{"config.read", "config.write"},
-		},
-	}, slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)))
-	application.setTestLocalActions(
-		&stubLifecycleGrantRepository{grants: map[string][]plugins.PluginGrant{}},
-		repo,
-		nil,
-		nil,
-		nil,
-		nil,
-		nil,
-		nil,
-		nil,
-		nil,
-	)
-
-	if _, err := repo.SeedDefaults(context.Background(), "weather", map[string]any{
-		"default_city": "北京",
-		"unit":         "celsius",
-	}); err != nil {
-		t.Fatalf("SeedDefaults: %v", err)
-	}
-
-	readResult, err := application.executeLocalAction(context.Background(), "weather", "req_config_1", runtimeaction.Action{
-		Kind:       "config.read",
-		ConfigKeys: []string{"default_city", "unit", "missing"},
-	})
-	if err != nil {
-		t.Fatalf("config.read failed: %v", err)
-	}
-	values, _ := readResult["values"].(map[string]any)
-	if values["default_city"] != "北京" || values["unit"] != "celsius" {
-		t.Fatalf("unexpected config.read values: %#v", values)
-	}
-	if _, ok := values["missing"]; ok {
-		t.Fatalf("missing key should not be returned: %#v", values)
-	}
-
-	writeResult, err := application.executeLocalAction(context.Background(), "weather", "req_config_2", runtimeaction.Action{
-		Kind: "config.write",
-		ConfigValues: map[string]any{
-			"default_city": "上海",
-			"unit":         "fahrenheit",
-		},
-	})
-	if err != nil {
-		t.Fatalf("config.write failed: %v", err)
-	}
-	changedKeys, _ := writeResult["changed_keys"].([]string)
-	if len(changedKeys) != 2 || changedKeys[0] != "default_city" || changedKeys[1] != "unit" {
-		t.Fatalf("unexpected changed_keys: %#v", writeResult["changed_keys"])
-	}
-
-	readResult, err = application.executeLocalAction(context.Background(), "weather", "req_config_3", runtimeaction.Action{
-		Kind:       "config.read",
-		ConfigKeys: []string{"default_city", "unit"},
-	})
-	if err != nil {
-		t.Fatalf("config.read second call failed: %v", err)
-	}
-	values, _ = readResult["values"].(map[string]any)
-	if values["default_city"] != "上海" || values["unit"] != "fahrenheit" {
-		t.Fatalf("unexpected updated config values: %#v", values)
-	}
-}
-
 func TestExecuteConfigWriteDispatchesConfigChanged(t *testing.T) {
 	t.Parallel()
 
@@ -802,9 +720,9 @@ func TestExecuteGovernanceActionsRejectMissingCapability(t *testing.T) {
 	defer store.Close()
 
 	application := newTestAppState(config.Config{}, slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)))
-	application.pluginStack.blacklistRepo = permission.NewSQLiteBlacklistRepository(store.Read, store.Write)
-	application.pluginStack.whitelistRepo = permission.NewSQLiteWhitelistRepository(store.Read, store.Write)
-	application.pluginStack.whitelistState = permission.NewSQLiteWhitelistStateRepository(store.Read, store.Write)
+	application.pluginStack.BlacklistRepo = permission.NewSQLiteBlacklistRepository(store.Read, store.Write)
+	application.pluginStack.WhitelistRepo = permission.NewSQLiteWhitelistRepository(store.Read, store.Write)
+	application.pluginStack.WhitelistState = permission.NewSQLiteWhitelistStateRepository(store.Read, store.Write)
 	application.setTestLocalActions(
 		&stubLifecycleGrantRepository{grants: map[string][]plugins.PluginGrant{}},
 		nil,
@@ -844,9 +762,9 @@ func TestExecuteGovernanceActionsRoundTrip(t *testing.T) {
 			},
 		},
 	}, slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)))
-	application.pluginStack.blacklistRepo = permission.NewSQLiteBlacklistRepository(store.Read, store.Write)
-	application.pluginStack.whitelistRepo = permission.NewSQLiteWhitelistRepository(store.Read, store.Write)
-	application.pluginStack.whitelistState = permission.NewSQLiteWhitelistStateRepository(store.Read, store.Write)
+	application.pluginStack.BlacklistRepo = permission.NewSQLiteBlacklistRepository(store.Read, store.Write)
+	application.pluginStack.WhitelistRepo = permission.NewSQLiteWhitelistRepository(store.Read, store.Write)
+	application.pluginStack.WhitelistState = permission.NewSQLiteWhitelistStateRepository(store.Read, store.Write)
 	application.pluginStack.Plugins = plugincatalog.New([]plugins.Snapshot{{
 		PluginID:          "weather",
 		Name:              "Weather",
@@ -969,9 +887,9 @@ func TestExecuteGovernanceWritePublishesGovernanceChanged(t *testing.T) {
 			AutoGrantCapabilities: []string{"governance.blacklist.write"},
 		},
 	}, slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)))
-	application.pluginStack.blacklistRepo = permission.NewSQLiteBlacklistRepository(store.Read, store.Write)
-	application.pluginStack.whitelistRepo = permission.NewSQLiteWhitelistRepository(store.Read, store.Write)
-	application.pluginStack.whitelistState = permission.NewSQLiteWhitelistStateRepository(store.Read, store.Write)
+	application.pluginStack.BlacklistRepo = permission.NewSQLiteBlacklistRepository(store.Read, store.Write)
+	application.pluginStack.WhitelistRepo = permission.NewSQLiteWhitelistRepository(store.Read, store.Write)
+	application.pluginStack.WhitelistState = permission.NewSQLiteWhitelistStateRepository(store.Read, store.Write)
 	application.setTestLocalActions(
 		&stubLifecycleGrantRepository{grants: map[string][]plugins.PluginGrant{}},
 		nil,
@@ -985,7 +903,7 @@ func TestExecuteGovernanceWritePublishesGovernanceChanged(t *testing.T) {
 		nil,
 	)
 
-	events, unsubscribe := application.services.governanceEvents.Subscribe(1)
+	events, unsubscribe := application.services.GovernanceEvents.Subscribe(1)
 	defer unsubscribe()
 
 	if _, err := application.executeLocalAction(context.Background(), "governance-helper", "req_governance_publish", runtimeaction.Action{
@@ -1158,7 +1076,7 @@ func TestExecuteExposeWebhookRegistersGateway(t *testing.T) {
 		t.Fatalf("unexpected webhook url: %#v", urlValue)
 	}
 
-	registration, ok := application.pluginStack.webhooks.Get("repo-watcher", "github")
+	registration, ok := application.pluginStack.Webhooks.Get("repo-watcher", "github")
 	if !ok {
 		t.Fatal("expected webhook registration to be stored")
 	}

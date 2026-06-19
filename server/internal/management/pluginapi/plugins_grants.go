@@ -2,12 +2,19 @@ package pluginapi
 
 import (
 	"encoding/json"
-	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	"net/http"
 	"time"
 
+	"github.com/RayleaBot/RayleaBot/server/internal/management/pluginapi/view"
+	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	"github.com/go-chi/chi/v5"
 )
+
+func registerPluginGrantRoutes(router chi.Router, catalog plugins.CatalogView, repo plugins.GrantRepository, autoGrantProvider autoGrantCapabilitiesProvider) {
+	router.Get("/api/plugins/{plugin_id}/grants", newListGrantsHandler(catalog, repo, autoGrantProvider))
+	router.Post("/api/plugins/{plugin_id}/grants", newGrantHandler(catalog, repo))
+	router.Delete("/api/plugins/{plugin_id}/grants/{capability}", newRevokeGrantHandler(catalog, repo))
+}
 
 func newListGrantsHandler(catalog plugins.CatalogView, repo plugins.GrantRepository, autoGrantProvider autoGrantCapabilitiesProvider) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -23,7 +30,7 @@ func newListGrantsHandler(catalog plugins.CatalogView, repo plugins.GrantReposit
 			return
 		}
 		effective := plugins.ComputeEffectiveGrants(snapshot, providedAutoGrantCapabilities(autoGrantProvider), persisted)
-		writeJSON(w, http.StatusOK, grantsListResponse{Items: buildGrantResponses(effective)})
+		writeJSON(w, http.StatusOK, view.GrantsListResponse{Items: view.BuildGrantResponses(effective)})
 	}
 }
 
@@ -50,7 +57,7 @@ func newGrantHandler(catalog plugins.CatalogView, repo plugins.GrantRepository) 
 			writeError(w, r, http.StatusBadRequest, codeInvalidRequest, "capability 名称格式不合法", "errors.platform.invalid_request", map[string]any{"capability": req.Capability})
 			return
 		}
-		if !isCapabilityDeclared(snapshot, req.Capability) {
+		if !view.IsCapabilityDeclared(snapshot, req.Capability) {
 			writeError(w, r, http.StatusBadRequest, codeInvalidRequest, "capability 未在插件 manifest 中声明", "errors.platform.invalid_request", map[string]any{"capability": req.Capability, "plugin_id": pluginID})
 			return
 		}
@@ -62,7 +69,7 @@ func newGrantHandler(catalog plugins.CatalogView, repo plugins.GrantRepository) 
 		grant := plugins.PluginGrant{
 			PluginID:   pluginID,
 			Capability: req.Capability,
-			ScopeJSON:  BuildScopeJSON(snapshot),
+			ScopeJSON:  view.BuildScopeJSON(snapshot),
 			GrantedAt:  time.Now().UTC(),
 			ExpiresAt:  expiresAt,
 		}
@@ -71,7 +78,7 @@ func newGrantHandler(catalog plugins.CatalogView, repo plugins.GrantRepository) 
 			return
 		}
 		grantedAt := grant.GrantedAt.UTC().Format(time.RFC3339)
-		response := grantResponse{
+		response := view.GrantResponse{
 			PluginID:   grant.PluginID,
 			Capability: grant.Capability,
 			GrantedAt:  &grantedAt,

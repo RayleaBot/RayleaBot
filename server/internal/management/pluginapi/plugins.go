@@ -11,17 +11,11 @@ func RegisterPluginRoutes(router chi.Router, catalog plugins.CatalogView, taskRe
 		catalog = emptyCatalogView{}
 	}
 
-	router.Get("/api/plugins", newListHandler(catalog))
-	router.Get("/api/plugins/{plugin_id}", newDetailHandler(catalog, grantRepo, autoGrantProvider))
-	router.Post("/api/plugins/install", newInstallHandler(catalog, taskRegistry, installer))
-	router.Post("/api/plugins/{plugin_id}/enable", newEnableHandler(catalog, repo, controller, grantRepo, autoGrantProvider))
-	router.Post("/api/plugins/{plugin_id}/disable", newDisableHandler(catalog, repo, controller, grantRepo, autoGrantProvider))
-	router.Post("/api/plugins/{plugin_id}/reload", newReloadHandler(catalog, controller, grantRepo, autoGrantProvider))
-	router.Post("/api/plugins/{plugin_id}/dead_letter/recover", newDeadLetterRecoverHandler(catalog, controller, grantRepo, autoGrantProvider))
-	router.Delete("/api/plugins/{plugin_id}", newUninstallHandler(catalog, uninstaller))
-	router.Get("/api/plugins/{plugin_id}/grants", newListGrantsHandler(catalog, grantRepo, autoGrantProvider))
-	router.Post("/api/plugins/{plugin_id}/grants", newGrantHandler(catalog, grantRepo))
-	router.Delete("/api/plugins/{plugin_id}/grants/{capability}", newRevokeGrantHandler(catalog, grantRepo))
+	registerPluginReadRoutes(router, catalog, grantRepo, autoGrantProvider)
+	registerPluginInstallRoutes(router, catalog, taskRegistry, installer)
+	registerPluginLifecycleRoutes(router, catalog, repo, controller, uninstaller, grantRepo, autoGrantProvider)
+	registerPluginDeadLetterRoutes(router, catalog, controller, grantRepo, autoGrantProvider)
+	registerPluginGrantRoutes(router, catalog, grantRepo, autoGrantProvider)
 }
 
 type emptyCatalogView struct{}

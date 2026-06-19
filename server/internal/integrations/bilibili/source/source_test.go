@@ -13,6 +13,9 @@ import (
 
 	bilibiliDynamic "github.com/RayleaBot/RayleaBot/server/internal/integrations/bilibili/dynamic"
 	bilibiliLive "github.com/RayleaBot/RayleaBot/server/internal/integrations/bilibili/live"
+	bilibilimonitoring "github.com/RayleaBot/RayleaBot/server/internal/integrations/bilibili/monitoring"
+	sourcestate "github.com/RayleaBot/RayleaBot/server/internal/integrations/bilibili/source/state"
+	bilibilisubscriptions "github.com/RayleaBot/RayleaBot/server/internal/integrations/bilibili/subscriptions"
 	runtimeprotocol "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime/protocol"
 	"github.com/RayleaBot/RayleaBot/server/internal/secrets"
 	"github.com/RayleaBot/RayleaBot/server/internal/storage"
@@ -190,7 +193,7 @@ func TestPollDynamicsDispatchesWatchedUpdatesAndDeduplicates(t *testing.T) {
 	if !ok || author["uid"] != "123456" || author["name"] != "测试 UP" {
 		t.Fatalf("unexpected dynamic author payload: %#v", payload["author"])
 	}
-	snapshots := source.loadDynamicSnapshots(ctx)
+	snapshots := source.stateStore.LoadDynamics(ctx)
 	monitor := snapshots["123456"].MonitorDynamic()
 	if monitor == nil || monitor.LastID != "90001" || monitor.Title != "新视频标题" {
 		t.Fatalf("unexpected monitor dynamic snapshot: %#v", monitor)
@@ -208,7 +211,7 @@ func TestDynamicEventVideoURLUsesArchiveIDOrDynamicPage(t *testing.T) {
 		},
 	}
 
-	withBVID, ok := dynamicEventFromItem(map[string]any{
+	withBVID, ok := bilibilimonitoring.DynamicEventFromItem(map[string]any{
 		"id_str": "100000000000000004",
 		"type":   "DYNAMIC_TYPE_AV",
 		"modules": map[string]any{
@@ -225,7 +228,7 @@ func TestDynamicEventVideoURLUsesArchiveIDOrDynamicPage(t *testing.T) {
 		t.Fatalf("dynamic video url with bvid = %#v, ok=%v", withBVID, ok)
 	}
 
-	withoutArchiveID, ok := dynamicEventFromItem(map[string]any{
+	withoutArchiveID, ok := bilibilimonitoring.DynamicEventFromItem(map[string]any{
 		"id_str": "100000000000000004",
 		"type":   "DYNAMIC_TYPE_AV",
 		"modules": map[string]any{
@@ -254,7 +257,7 @@ func TestDynamicEventOpusImageTextIncludesRichSummaryAndSingleImage(t *testing.T
 		},
 	}
 
-	event, ok := dynamicEventFromItem(map[string]any{
+	event, ok := bilibilimonitoring.DynamicEventFromItem(map[string]any{
 		"id_str": "100000000000000002",
 		"type":   "DYNAMIC_TYPE_DRAW",
 		"modules": map[string]any{
@@ -332,7 +335,7 @@ func TestDynamicEventRepostIncludesOriginalRichTextAndImages(t *testing.T) {
 		},
 	}
 
-	event, ok := dynamicEventFromItem(map[string]any{
+	event, ok := bilibilimonitoring.DynamicEventFromItem(map[string]any{
 		"id_str": "100000000000000005",
 		"type":   "DYNAMIC_TYPE_FORWARD",
 		"modules": map[string]any{
@@ -628,7 +631,7 @@ func TestMonitorSnapshotMergesSubjectsRoomsAndDynamicSnapshots(t *testing.T) {
 	ctx := context.Background()
 	seedBilibiliAccount(t, source, ctx)
 	eventTime := time.Date(2026, 6, 8, 8, 19, 30, 0, time.UTC)
-	source.setRoomState(ctx, roomState{
+	source.stateStore.SetRoom(ctx, sourcestate.Room{
 		UID:             "123456",
 		RoomID:          "10001",
 		Name:            "直播间标题",
@@ -701,7 +704,7 @@ func TestMonitorSnapshotRefreshesLatestDynamicWithoutDispatch(t *testing.T) {
 	})
 	ctx := context.Background()
 	seedBilibiliAccount(t, source, ctx)
-	source.setDynamicSnapshot(ctx, BilibiliEvent{
+	source.stateStore.SetDynamic(ctx, BilibiliEvent{
 		UID:     "123456",
 		ID:      "old-90001",
 		Service: "video",
@@ -929,7 +932,7 @@ func TestMonitorSnapshotClearsDynamicWhenSpaceFeedHasNoDisplayableItem(t *testin
 	})
 	ctx := context.Background()
 	seedBilibiliAccount(t, source, ctx)
-	source.setDynamicSnapshot(ctx, BilibiliEvent{
+	source.stateStore.SetDynamic(ctx, BilibiliEvent{
 		UID:     "123456",
 		ID:      "old-90001",
 		Service: "video",
@@ -968,7 +971,7 @@ func TestMonitorSnapshotDoesNotShowDynamicForLiveOnlySubject(t *testing.T) {
 		},
 	})
 	ctx := context.Background()
-	source.setDynamicSnapshot(ctx, BilibiliEvent{
+	source.stateStore.SetDynamic(ctx, BilibiliEvent{
 		UID:     "123456",
 		ID:      "old-90001",
 		Service: "video",
@@ -1068,7 +1071,7 @@ func TestMonitorSnapshotSuppressesStoredRiskControlRoomErrors(t *testing.T) {
 		},
 	})
 	ctx := context.Background()
-	source.setRoomState(ctx, roomState{
+	source.stateStore.SetRoom(ctx, sourcestate.Room{
 		UID:             "123456",
 		Name:            "测试 UP",
 		Face:            "https://i0.hdslb.com/bfs/face/live.jpg",
@@ -1111,7 +1114,7 @@ func TestMonitorSnapshotDoesNotGuessLiveEndedAtFromRoomUpdate(t *testing.T) {
 		},
 	})
 	ctx := context.Background()
-	source.setRoomState(ctx, roomState{
+	source.stateStore.SetRoom(ctx, sourcestate.Room{
 		UID:             "123456",
 		Name:            "测试 UP",
 		LiveStatus:      0,
@@ -1317,7 +1320,7 @@ func TestSourceDiagnosisExplainsLiveFallback(t *testing.T) {
 
 	source, _ := newTestSource(t, time.Date(2026, 6, 8, 8, 24, 0, 0, time.UTC), nil)
 	ctx := context.Background()
-	source.setRoomState(ctx, roomState{
+	source.stateStore.SetRoom(ctx, sourcestate.Room{
 		UID:             "123456",
 		ConnectionState: StateDegraded,
 		LastError:       "直播间 123456 连接失败",
@@ -1460,12 +1463,12 @@ func TestUpdateWatchCountsIgnoresUnwatchedRoomState(t *testing.T) {
 
 	source, _ := newTestSource(t, time.Date(2026, 6, 8, 8, 13, 0, 0, time.UTC), nil)
 	ctx := context.Background()
-	source.setRoomState(ctx, roomState{
+	source.stateStore.SetRoom(ctx, sourcestate.Room{
 		UID:             "old",
 		ConnectionState: StateFailed,
 		UpdatedAt:       time.Date(2026, 6, 8, 8, 12, 0, 0, time.UTC),
 	})
-	source.setRoomState(ctx, roomState{
+	source.stateStore.SetRoom(ctx, sourcestate.Room{
 		UID:             "123456",
 		ConnectionState: StateConnected,
 		UpdatedAt:       time.Date(2026, 6, 8, 8, 12, 0, 0, time.UTC),
@@ -1519,9 +1522,9 @@ func TestPrimaryAccountCookieSkipsInvalidCredentials(t *testing.T) {
 		t.Fatalf("upsert valid account: %v", err)
 	}
 
-	account, cookie, err := source.primaryAccountCookie(ctx)
+	account, cookie, err := source.accountUsage.PrimaryCookie(ctx)
 	if err != nil {
-		t.Fatalf("primaryAccountCookie: %v", err)
+		t.Fatalf("PrimaryCookie: %v", err)
 	}
 	if account.AccountID != "valid" || !strings.Contains(cookie, "SESSDATA=valid;") {
 		t.Fatalf("unexpected primary account %q cookie %q", account.AccountID, cookie)
@@ -1624,7 +1627,7 @@ func newTestSourceWithPluginConfig(t *testing.T, now time.Time, handler func(*ht
 	source, err := NewSource(Deps{
 		Store:         Store{Read: store.Read, Write: store.Write},
 		Accounts:      accounts,
-		PluginConfig:  pluginConfig,
+		Subjects:      bilibilisubscriptions.NewPluginConfigProvider(pluginConfig),
 		Dispatcher:    recorder,
 		HTTPTransport: roundTripFunc(handler),
 		Now:           func() time.Time { return now },

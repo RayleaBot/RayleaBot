@@ -11,7 +11,6 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/health"
 	"github.com/RayleaBot/RayleaBot/server/internal/logging"
-	managementevents "github.com/RayleaBot/RayleaBot/server/internal/management/events"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	"github.com/RayleaBot/RayleaBot/server/internal/recovery"
 	"github.com/RayleaBot/RayleaBot/server/internal/storage"
@@ -297,4 +296,7 @@ func (s *Service) setRecoverySummary(summary *recovery.CompatibilitySummary) {
 	s.recoverySummary = &copied
 }
 
-var _ managementevents.ServiceStatusProvider = (*Service)(nil)
+var _ interface {
+	SystemStatus() string
+	CurrentReadiness() health.ReadinessReport
+} = (*Service)(nil)

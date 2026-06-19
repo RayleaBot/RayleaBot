@@ -10,6 +10,7 @@ import (
 
 	adaptercache "github.com/RayleaBot/RayleaBot/server/internal/bot/adapter/onebot11/cache"
 	adapteroutbound "github.com/RayleaBot/RayleaBot/server/internal/bot/adapter/onebot11/outbound"
+	adapterbackoff "github.com/RayleaBot/RayleaBot/server/internal/bot/adapter/onebot11/shell/backoff"
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 )
 
@@ -145,17 +146,17 @@ func nextConnectTimeout(previousCfg config.AdapterConfig, nextCfg config.Adapter
 	return time.Duration(maxInt(nextCfg.ConnectTimeoutSeconds, 1)) * time.Second
 }
 
-func nextBackoff(previousCfg config.AdapterConfig, nextCfg config.AdapterConfig, current *Backoff) *Backoff {
+func nextBackoff(previousCfg config.AdapterConfig, nextCfg config.AdapterConfig, current *adapterbackoff.Backoff) *adapterbackoff.Backoff {
 	if reconnectSettingsEqual(previousCfg, nextCfg) && current != nil {
 		return current
 	}
 
 	var randFloat func() float64
 	if current != nil {
-		randFloat = current.randFloat
+		randFloat = current.RandFloat()
 	}
 
-	return NewBackoff(
+	return adapterbackoff.New(
 		nextCfg.ReconnectInitialSeconds,
 		nextCfg.ReconnectMultiplier,
 		nextCfg.ReconnectMaxSeconds,

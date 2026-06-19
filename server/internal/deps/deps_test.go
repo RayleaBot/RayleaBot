@@ -13,6 +13,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	depsarchive "github.com/RayleaBot/RayleaBot/server/internal/deps/archive"
 )
 
 func TestManifestPlatformNormalizesWindowsAMD64(t *testing.T) {
@@ -806,8 +808,12 @@ func TestExtractZipReportsEntryProgress(t *testing.T) {
 	})
 	var events []extractProgress
 
-	if err := extractZipWithProgress(archivePath, t.TempDir(), func(event extractProgress) {
-		events = append(events, event)
+	if err := depsarchive.ZipWithProgress(archivePath, t.TempDir(), func(event depsarchive.Progress) {
+		events = append(events, extractProgress{
+			ExtractedEntries: event.ExtractedEntries,
+			TotalEntries:     event.TotalEntries,
+			Progress:         event.Progress,
+		})
 	}); err != nil {
 		t.Fatalf("extractZipWithProgress failed: %v", err)
 	}
@@ -831,8 +837,12 @@ func TestExtractTarGzReportsEntryProgress(t *testing.T) {
 	})
 	var events []extractProgress
 
-	if err := extractTarGzWithProgress(archivePath, t.TempDir(), func(event extractProgress) {
-		events = append(events, event)
+	if err := depsarchive.TarGzWithProgress(archivePath, t.TempDir(), func(event depsarchive.Progress) {
+		events = append(events, extractProgress{
+			ExtractedEntries: event.ExtractedEntries,
+			TotalEntries:     event.TotalEntries,
+			Progress:         event.Progress,
+		})
 	}); err != nil {
 		t.Fatalf("extractTarGzWithProgress failed: %v", err)
 	}

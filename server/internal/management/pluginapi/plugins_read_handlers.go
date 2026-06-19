@@ -1,22 +1,28 @@
 package pluginapi
 
 import (
-	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	"net/http"
 
+	"github.com/RayleaBot/RayleaBot/server/internal/management/pluginapi/view"
+	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	"github.com/go-chi/chi/v5"
 )
+
+func registerPluginReadRoutes(router chi.Router, catalog plugins.CatalogView, grantRepo plugins.GrantRepository, autoGrantProvider autoGrantCapabilitiesProvider) {
+	router.Get("/api/plugins", newListHandler(catalog))
+	router.Get("/api/plugins/{plugin_id}", newDetailHandler(catalog, grantRepo, autoGrantProvider))
+}
 
 func newListHandler(catalog plugins.CatalogView) http.HandlerFunc {
 	return func(w http.ResponseWriter, _ *http.Request) {
 		snapshots := catalog.List()
 		conflicts := plugins.DetectCommandConflicts(snapshots)
-		items := make([]pluginSummaryResponse, 0, len(snapshots))
+		items := make([]view.SummaryResponse, 0, len(snapshots))
 		for _, snapshot := range snapshots {
-			items = append(items, toPluginSummary(snapshot, conflicts[snapshot.PluginID]))
+			items = append(items, view.ToSummary(snapshot, conflicts[snapshot.PluginID]))
 		}
 
-		writeJSON(w, http.StatusOK, pluginListResponse{Items: items})
+		writeJSON(w, http.StatusOK, view.ListResponse{Items: items})
 	}
 }
 

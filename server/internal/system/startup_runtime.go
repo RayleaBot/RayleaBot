@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/deps"
-	"github.com/RayleaBot/RayleaBot/server/internal/recovery"
+	"github.com/RayleaBot/RayleaBot/server/internal/system/startup"
 )
 
 var inspectStartupRuntime = func(repoRoot, kind string) (*deps.BootstrapInspection, error) {
@@ -22,47 +22,19 @@ var prepareStartupRuntimeWithProgress = func(ctx context.Context, repoRoot, kind
 	return deps.NewManager(repoRoot).PrepareWithReportOptions(ctx, kind, deps.PrepareOptions{Progress: progress})
 }
 
-type StartupRuntimePhase string
-
-const (
-	StartupRuntimePending     StartupRuntimePhase = "pending"
-	StartupRuntimeReady       StartupRuntimePhase = "ready"
-	StartupRuntimeFailed      StartupRuntimePhase = "failed"
-	StartupRuntimeNotRequired StartupRuntimePhase = "not_required"
-)
-
-type StartupRuntimeState struct {
-	Phase StartupRuntimePhase
-	Issue *recovery.CompatibilityIssue
-}
+type StartupRuntimePhase = startup.Phase
+type StartupRuntimeState = startup.State
 
 type startupRuntimePhase = StartupRuntimePhase
 type startupRuntimeState = StartupRuntimeState
 
 const (
+	StartupRuntimePending     = startup.PhasePending
+	StartupRuntimeReady       = startup.PhaseReady
+	StartupRuntimeFailed      = startup.PhaseFailed
+	StartupRuntimeNotRequired = startup.PhaseNotRequired
 	startupRuntimePending     = StartupRuntimePending
 	startupRuntimeReady       = StartupRuntimeReady
 	startupRuntimeFailed      = StartupRuntimeFailed
 	startupRuntimeNotRequired = StartupRuntimeNotRequired
 )
-
-func startupRuntimeKinds() []string {
-	return []string{"chromium", "python-runtime", "nodejs-runtime"}
-}
-
-func startupManagedRuntimeDiagnosticKinds() []string {
-	return []string{"python-runtime", "nodejs-runtime"}
-}
-
-func startupRuntimeLabel(kind string) string {
-	switch kind {
-	case "chromium":
-		return "Chromium 浏览环境"
-	case "python-runtime":
-		return "Python 运行环境"
-	case "nodejs-runtime":
-		return "Node.js / npm 环境"
-	default:
-		return deps.ManagedResourceLabel(kind)
-	}
-}

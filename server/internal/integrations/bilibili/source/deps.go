@@ -6,23 +6,26 @@ import (
 	"net/http"
 	"time"
 
+	bilibilidiagnostics "github.com/RayleaBot/RayleaBot/server/internal/integrations/bilibili/diagnostics"
+	bilibilimonitoring "github.com/RayleaBot/RayleaBot/server/internal/integrations/bilibili/monitoring"
 	bilibiliproxy "github.com/RayleaBot/RayleaBot/server/internal/integrations/bilibili/proxy"
 	bilibiliSession "github.com/RayleaBot/RayleaBot/server/internal/integrations/bilibili/session"
+	bilibilisubscriptions "github.com/RayleaBot/RayleaBot/server/internal/integrations/bilibili/subscriptions"
 	runtimeprotocol "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime/protocol"
 	"github.com/RayleaBot/RayleaBot/server/internal/thirdparty"
 )
 
 const (
-	StateDisabled   = "disabled"
-	StateIdle       = "idle"
-	StateConnecting = "connecting"
-	StateConnected  = "connected"
-	StateDegraded   = "degraded"
-	StateFailed     = "failed"
+	StateDisabled   = bilibilidiagnostics.StateDisabled
+	StateIdle       = bilibilidiagnostics.StateIdle
+	StateConnecting = bilibilidiagnostics.StateConnecting
+	StateConnected  = bilibilidiagnostics.StateConnected
+	StateDegraded   = bilibilidiagnostics.StateDegraded
+	StateFailed     = bilibilidiagnostics.StateFailed
 
-	EventLiveStarted      = "bilibili.live.started"
-	EventLiveEnded        = "bilibili.live.ended"
-	EventDynamicPublished = "bilibili.dynamic.published"
+	EventLiveStarted      = bilibilimonitoring.EventLiveStarted
+	EventLiveEnded        = bilibilimonitoring.EventLiveEnded
+	EventDynamicPublished = bilibilimonitoring.EventDynamicPublished
 
 	sourceProtocol = "bilibili"
 	sourceAdapter  = "bilibili.source"
@@ -40,18 +43,37 @@ type Store struct {
 type ProxyConfig = bilibiliproxy.ProxyConfig
 type ProxyPool = bilibiliproxy.ProxyPool
 
+type Status = bilibilidiagnostics.Status
+type Diagnosis = bilibilidiagnostics.Diagnosis
+type DiagnosisCause = bilibilidiagnostics.DiagnosisCause
+type DiagnosisAction = bilibilidiagnostics.DiagnosisAction
+type LiveStatus = bilibilidiagnostics.LiveStatus
+type DynamicStatus = bilibilidiagnostics.DynamicStatus
+type requestCooldown = bilibilidiagnostics.Cooldown
+
+type MonitorSnapshot = bilibilimonitoring.MonitorSnapshot
+type MonitorItem = bilibilimonitoring.MonitorItem
+type MonitorDynamic = bilibilimonitoring.MonitorDynamic
+type MonitorLive = bilibilimonitoring.MonitorLive
+type BilibiliEvent = bilibilimonitoring.Event
+type BilibiliOriginal = bilibilimonitoring.Original
+type BilibiliTopic = bilibilimonitoring.Topic
+type Author = bilibilimonitoring.Author
+type Image = bilibilimonitoring.Image
+type Subject = bilibilisubscriptions.Subject
+
 func NewProxyPool(configs []ProxyConfig) *ProxyPool {
 	return bilibiliproxy.NewProxyPool(configs)
 }
 
-type PluginConfigReader interface {
-	ReadAll(context.Context, string) (map[string]any, error)
+type SubjectProvider interface {
+	LoadSubjects(context.Context) (map[string]bilibilisubscriptions.Subject, error)
 }
 
 type Deps struct {
 	Store         Store
 	Accounts      *thirdparty.Service
-	PluginConfig  PluginConfigReader
+	Subjects      SubjectProvider
 	Dispatcher    Dispatcher
 	NotifyStatus  func(Status)
 	HTTPTransport http.RoundTripper

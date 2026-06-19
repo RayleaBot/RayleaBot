@@ -22,8 +22,8 @@ func (a *App) Close() error {
 		cancel()
 		a.runtimes = nil
 	}
-	if a != nil && a.services.bilibiliSource != nil {
-		a.services.bilibiliSource = nil
+	if a != nil && a.services.BilibiliSource != nil {
+		a.services.BilibiliSource = nil
 	}
 	if a != nil && a.pluginStack.Dispatcher != nil {
 		a.pluginStack.Dispatcher.Close()
@@ -35,11 +35,11 @@ func (a *App) Close() error {
 		}
 		a.pluginStack.PluginInstaller = nil
 	}
-	if a != nil && a.platform.taskExecutor != nil {
-		if err := a.platform.taskExecutor.Close(); err != nil {
+	if a != nil && a.platform.TaskExecutor != nil {
+		if err := a.platform.TaskExecutor.Close(); err != nil {
 			errs = append(errs, fmt.Errorf("close task executor: %w", err))
 		}
-		a.platform.taskExecutor = nil
+		a.platform.TaskExecutor = nil
 	}
 	if a != nil && a.pluginStack.PluginUninstaller != nil {
 		if closer, ok := a.pluginStack.PluginUninstaller.(interface{ Close() error }); ok {
@@ -49,11 +49,11 @@ func (a *App) Close() error {
 		}
 		a.pluginStack.PluginUninstaller = nil
 	}
-	if a != nil && a.pluginStack.renderer != nil {
-		if err := a.pluginStack.renderer.Close(); err != nil {
+	if a != nil && a.pluginStack.Renderer != nil {
+		if err := a.pluginStack.Renderer.Close(); err != nil {
 			errs = append(errs, fmt.Errorf("close render service: %w", err))
 		}
-		a.pluginStack.renderer = nil
+		a.pluginStack.Renderer = nil
 	}
 	if a != nil && a.platform.Logs != nil {
 		a.platform.Logs.Close()

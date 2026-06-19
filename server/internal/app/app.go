@@ -4,6 +4,10 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/RayleaBot/RayleaBot/server/internal/app/httpwire"
+	appplatform "github.com/RayleaBot/RayleaBot/server/internal/app/platform"
+	"github.com/RayleaBot/RayleaBot/server/internal/app/pluginstack"
+	"github.com/RayleaBot/RayleaBot/server/internal/app/servicegraph"
 	"github.com/RayleaBot/RayleaBot/server/internal/auth"
 	"github.com/RayleaBot/RayleaBot/server/internal/health"
 	"github.com/RayleaBot/RayleaBot/server/internal/metrics"
@@ -46,20 +50,48 @@ func New(options Options) (*App, error) {
 		return nil, err
 	}
 
-	schedulerTriggers := newSchedulerTriggerProxy()
-	platformState, err := buildAppPlatform(buildState, schedulerTriggers.Handle)
+	schedulerTriggers := appplatform.NewTriggerProxy()
+	platformState, err := appplatform.Build(appplatform.Deps{
+		ConfigPath:       buildState.options.ConfigPath,
+		Config:           buildState.core.Config,
+		Logger:           buildState.core.Logger,
+		AuthOptions:      buildState.options.AuthOptions,
+		Tasks:            buildState.taskRegistry,
+		TaskExecutor:     buildState.taskExecutor,
+		Logs:             buildState.logStream,
+		SchedulerTrigger: schedulerTriggers.Handle,
+	})
 	if err != nil {
 		return nil, err
 	}
 
-	pluginState, err := buildAppPlugins(buildState, platformState, options.RenderRunner)
+	pluginState, err := pluginstack.Build(pluginstack.Deps{
+		Config:       buildState.core.Config,
+		Logger:       buildState.core.Logger,
+		Discovery:    buildState.discoverySpec,
+		Validator:    buildState.pluginValidator,
+		Catalog:      buildState.pluginCatalog,
+		Tasks:        buildState.taskRegistry,
+		Platform:     platformState,
+		RenderRunner: options.RenderRunner,
+	})
 	if err != nil {
 		return nil, err
 	}
 
 	state := newAppRuntimeState(buildState)
-	metricRegistry, stopRuntimeStateGauge := wireAppMetrics(platformState, pluginState)
-	serviceBuild, err := buildAppServices(buildState, state, platformState, pluginState, metricRegistry, options)
+	metricRegistry, stopRuntimeStateGauge := pluginstack.WireMetrics(platformState, pluginState)
+	serviceBuild, err := servicegraph.Build(servicegraph.BuildDeps{
+		Runtime:               state,
+		Platform:              platformState,
+		Plugins:               pluginState,
+		Metrics:               metricRegistry,
+		Discovery:             buildState.discoverySpec,
+		PluginValidator:       buildState.pluginValidator,
+		ManagementRedact:      buildState.managementRedact,
+		BilibiliHTTPTransport: options.BilibiliHTTPTransport,
+		BilibiliClock:         options.BilibiliClock,
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -68,13 +100,27 @@ func New(options Options) (*App, error) {
 		state:                   state,
 		platform:                platformState,
 		pluginStack:             pluginState,
-		services:                serviceBuild.services,
-		runtimes:                serviceBuild.runtimes,
+		services:                serviceBuild.Services,
+		runtimes:                serviceBuild.Runtimes,
 		metrics:                 metricRegistry,
 		metricsRuntimeGaugeStop: stopRuntimeStateGauge,
 	}
 	configureAppRuntimeCallbacks(application, schedulerTriggers)
-	configureAppHTTP(application, serviceBuild, options)
+	httpState := httpwire.Build(httpwire.BuildDeps{
+		Runtime:               state,
+		Platform:              platformState,
+		Plugins:               pluginState,
+		Services:              serviceBuild.Services,
+		Status:                serviceBuild.Status,
+		BilibiliAccountClient: serviceBuild.BilibiliAccountClient,
+		BilibiliQRLogin:       serviceBuild.BilibiliQRLogin,
+		Metrics:               metricRegistry,
+		BilibiliHTTPTransport: options.BilibiliHTTPTransport,
+		RequestShutdown:       application.requestShutdown,
+	})
+	application.process.router = httpState.Router
+	application.process.server = httpState.Server
+	application.httpHandlers = httpState.Handlers
 	return application, nil
 }
 

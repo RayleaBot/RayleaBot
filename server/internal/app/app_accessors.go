@@ -42,14 +42,14 @@ func (a *App) SetAuthManager(manager *auth.Manager) {
 		return
 	}
 	a.platform.Auth = manager
-	if a.httpHandlers.auth != nil {
-		a.httpHandlers.auth.SetAuthManager(manager)
+	if a.httpHandlers.Auth != nil {
+		a.httpHandlers.Auth.SetAuthManager(manager)
 	}
-	if a.httpHandlers.management != nil {
-		a.httpHandlers.management.SetAuthManager(manager)
+	if a.httpHandlers.Management != nil {
+		a.httpHandlers.Management.SetAuthManager(manager)
 	}
-	if a.services.system != nil {
-		a.services.system.SetAuth(manager)
+	if a.services.System != nil {
+		a.services.System.SetAuth(manager)
 	}
 }
 
@@ -65,19 +65,19 @@ func (a *App) SetBridge(eventBridge *bridge.Bridge) {
 		return
 	}
 	a.pluginStack.Bridge = eventBridge
-	if a.services.eventIngress != nil {
-		a.services.eventIngress.SetBridge(eventBridge)
+	if a.services.EventIngress != nil {
+		a.services.EventIngress.SetBridge(eventBridge)
 	}
-	if a.httpHandlers.eventsWS != nil {
-		a.httpHandlers.eventsWS.SetBridge(eventBridge)
+	if a.httpHandlers.EventsWS != nil {
+		a.httpHandlers.EventsWS.SetBridge(eventBridge)
 	}
 }
 
 func (a *App) HandleAdapterEvent(ctx context.Context, event adapterintake.NormalizedEvent) {
-	if a == nil || a.services.eventIngress == nil {
+	if a == nil || a.services.EventIngress == nil {
 		return
 	}
-	a.services.eventIngress.HandleAdapterEvent(ctx, event)
+	a.services.EventIngress.HandleAdapterEvent(ctx, event)
 }
 
 func (a *App) Logs() *logging.Stream {
@@ -92,11 +92,11 @@ func (a *App) SetLogRepository(repository logging.Repository) {
 		return
 	}
 	a.platform.LogRepository = repository
-	if a.services.logs != nil {
-		a.services.logs.SetRepository(repository)
+	if a.services.Logs != nil {
+		a.services.Logs.SetRepository(repository)
 	}
-	if a.services.system != nil {
-		a.services.system.SetLogRepository(repository)
+	if a.services.System != nil {
+		a.services.System.SetLogRepository(repository)
 	}
 }
 
@@ -140,7 +140,7 @@ func (a *App) SetPluginInstaller(installer plugins.InstallCoordinator) {
 		return
 	}
 	a.pluginStack.PluginInstaller = installer
-	if a.httpHandlers.tasks != nil {
-		a.httpHandlers.tasks.SetPluginInstaller(installer)
+	if a.httpHandlers.Tasks != nil {
+		a.httpHandlers.Tasks.SetPluginInstaller(installer)
 	}
 }

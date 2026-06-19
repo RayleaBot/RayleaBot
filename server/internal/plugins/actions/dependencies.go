@@ -2,12 +2,16 @@ package actions
 
 import (
 	"context"
-	"time"
 
-	"github.com/RayleaBot/RayleaBot/server/internal/governance"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
+	"github.com/RayleaBot/RayleaBot/server/internal/plugins/actions/configaction"
+	"github.com/RayleaBot/RayleaBot/server/internal/plugins/actions/governanceaction"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins/actions/httpaction"
-	runtimeaction "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime/action"
+	"github.com/RayleaBot/RayleaBot/server/internal/plugins/actions/onebot"
+	"github.com/RayleaBot/RayleaBot/server/internal/plugins/actions/renderaction"
+	"github.com/RayleaBot/RayleaBot/server/internal/plugins/actions/scheduleraction"
+	"github.com/RayleaBot/RayleaBot/server/internal/plugins/actions/secretaction"
+	"github.com/RayleaBot/RayleaBot/server/internal/plugins/actions/webhookaction"
 )
 
 type GrantView interface {
@@ -18,103 +22,32 @@ type GrantView interface {
 	ListPluginSnapshots() []plugins.Snapshot
 }
 
-type WebhookGateway interface {
-	Expose(context.Context, string, runtimeaction.Action) (map[string]any, error)
-}
+type WebhookGateway = webhookaction.Gateway
 
-type PluginConfigRepository interface {
-	Read(context.Context, string, []string) (map[string]any, error)
-	ReadAll(context.Context, string) (map[string]any, error)
-	Write(context.Context, string, map[string]any) ([]string, error)
-}
+type PluginConfigRepository = configaction.Repository
 
-type OneBotAdapter interface {
-	CallAPIAny(context.Context, string, map[string]any) (any, error)
-	DetectedProvider() string
-}
+type OneBotAdapter = onebot.Adapter
 
-type ConfigChangeDispatchResult struct {
-	Delivered bool
-	Outcome   string
-	ErrorCode string
-}
+type ConfigChangeDispatchResult = configaction.DispatchResult
 
-type ConfigChangeDispatcher func(context.Context, string) ConfigChangeDispatchResult
+type ConfigChangeDispatcher = configaction.Dispatcher
 
-type ScheduledTask struct {
-	JobID   string
-	NextRun time.Time
-}
+type ScheduledTask = scheduleraction.Task
 
-type SchedulerCreateFunc func(context.Context, string, string, string, string, []byte) (ScheduledTask, error)
+type SchedulerCreateFunc = scheduleraction.CreateFunc
 
-type SecretReader interface {
-	ReadPluginSecret(context.Context, string) (string, bool, error)
-}
+type SecretReader = secretaction.Reader
 
-type Renderer interface {
-	ResolvePluginTemplate(context.Context, string, string) (string, error)
-	RenderImage(context.Context, RenderImageRequest) (RenderImageResult, error)
-	TemplateAcceptsRenderIdentity(context.Context, string) bool
-}
+type Renderer = renderaction.Renderer
 
-type RenderImageRequest struct {
-	Template string
-	Theme    string
-	Output   string
-	Data     map[string]any
-	Plugin   RenderPluginContext
-}
+type RenderImageRequest = renderaction.ImageRequest
 
-type RenderPluginContext struct {
-	Name    string
-	Version string
-}
+type RenderPluginContext = renderaction.PluginContext
 
-type RenderImageResult struct {
-	ArtifactID string
-	ImagePath  string
-	MIME       string
-	CacheKey   string
-}
+type RenderImageResult = renderaction.ImageResult
 
-type RenderTemplateError struct {
-	Code    string
-	Message string
-	Err     error
-}
+type RenderTemplateError = renderaction.TemplateError
 
-func (e *RenderTemplateError) Error() string {
-	if e == nil {
-		return ""
-	}
-	if e.Message != "" {
-		return e.Message
-	}
-	if e.Err != nil {
-		return e.Err.Error()
-	}
-	return e.Code
-}
+type GovernanceService = governanceaction.Service
 
-func (e *RenderTemplateError) Unwrap() error {
-	if e == nil {
-		return nil
-	}
-	return e.Err
-}
-
-type GovernanceService interface {
-	ReadBlacklist(context.Context) (governance.BlacklistSnapshot, error)
-	UpsertBlacklistEntry(context.Context, string, string, string) (governance.EntryResponse, error)
-	DeleteBlacklistEntry(context.Context, string, string) error
-	ReadWhitelist(context.Context) (governance.WhitelistSnapshot, error)
-	SetWhitelistEnabled(context.Context, bool) (governance.WhitelistStateResponse, error)
-	UpsertWhitelistEntry(context.Context, string, string, string) (governance.EntryResponse, error)
-	DeleteWhitelistEntry(context.Context, string, string) error
-	ReadCommandPolicy(context.Context) (governance.CommandPolicyResponse, error)
-}
-
-type ThirdPartyAccounts = httpaction.ThirdPartyAccounts
-
-type BilibiliSession = httpaction.BilibiliSession
+type HTTPCredentialInjector = httpaction.CredentialInjector

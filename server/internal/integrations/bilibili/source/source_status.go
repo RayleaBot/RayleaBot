@@ -5,6 +5,10 @@ import (
 	"encoding/json"
 	"sort"
 	"time"
+
+	bilibilidiagnostics "github.com/RayleaBot/RayleaBot/server/internal/integrations/bilibili/diagnostics"
+	bilibilimonitoring "github.com/RayleaBot/RayleaBot/server/internal/integrations/bilibili/monitoring"
+	runtimeprotocol "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime/protocol"
 )
 
 func (s *Source) Status(ctx context.Context) Status {
@@ -61,6 +65,41 @@ func (s *Source) persistStatus(ctx context.Context, status Status) error {
 		string(raw), s.now().Format(time.RFC3339),
 	)
 	return err
+}
+func (s *Source) markSeen(ctx context.Context, key, uid, eventType, sourceID string) bool {
+	return s.stateStore.MarkSeen(ctx, key, uid, eventType, sourceID)
+}
+func (s *Source) dispatchEvent(ctx context.Context, event BilibiliEvent) {
+	ts := event.PubTS
+	if ts <= 0 {
+		ts = s.now().Unix()
+	}
+	s.dispatcher.Dispatch(ctx, runtimeprotocol.Event{
+		EventID:        event.EventType + ":" + event.UID + ":" + event.ID,
+		SourceProtocol: sourceProtocol,
+		SourceAdapter:  sourceAdapter,
+		EventType:      event.EventType,
+		Timestamp:      ts,
+		PayloadFields: map[string]any{
+			"bilibili": bilibilimonitoring.Payload(event),
+		},
+	}, "")
+	now := s.now()
+	s.mu.Lock()
+	switch event.Kind {
+	case "live":
+		s.status.Live.LastEventAt = &now
+		s.status.Live.LastError = ""
+	case "dynamic":
+		s.status.Dynamic.LastEventAt = &now
+		s.status.Dynamic.LastError = ""
+	}
+	s.status.Status = s.deriveStateLocked()
+	s.status.Summary = sourceSummary(s.status.Status)
+	s.status.Diagnosis = s.diagnosisForStatusLocked(s.status, nil)
+	status := s.status
+	s.mu.Unlock()
+	s.publishStatus(ctx, status)
 }
 func (s *Source) setLiveError(err error) {
 	if err == nil {
@@ -127,4 +166,28 @@ func (s *Source) activeCooldownsLocked() []requestCooldown {
 		return items[i].Scope < items[j].Scope
 	})
 	return items
+}
+
+func DiagnosisForStatus(status Status, now time.Time) Diagnosis {
+	return diagnosisForStatusAt(status, nil, now)
+}
+
+func diagnosisForStatusAt(status Status, cooldowns []requestCooldown, now time.Time) Diagnosis {
+	return bilibilidiagnostics.ForStatus(status, cooldowns, now)
+}
+
+func sourceSummary(state string) string {
+	return bilibilidiagnostics.Summary(state)
+}
+
+func normalizeSourceState(state string) string {
+	return bilibilidiagnostics.NormalizeState(state)
+}
+
+func normalizeCooldownScope(scope string) string {
+	return bilibilidiagnostics.NormalizeCooldownScope(scope)
+}
+
+func cooldownCode(err error) string {
+	return bilibilidiagnostics.CooldownCode(err)
 }

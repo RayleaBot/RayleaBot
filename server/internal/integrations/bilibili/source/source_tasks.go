@@ -4,6 +4,7 @@ import (
 	"context"
 	"strings"
 
+	bilibilivalues "github.com/RayleaBot/RayleaBot/server/internal/integrations/bilibili/values"
 	"github.com/RayleaBot/RayleaBot/server/internal/thirdparty"
 )
 
@@ -16,7 +17,7 @@ func (s *Source) ensureRoomTasks(ctx context.Context, subjects map[string]Subjec
 			}
 		}
 	}
-	fingerprint := cookieFingerprint(cookie)
+	fingerprint := bilibilivalues.CookieFingerprint(cookie)
 	s.mu.Lock()
 	for uid, task := range s.roomTasks {
 		if _, ok := needed[uid]; !ok {
@@ -60,7 +61,7 @@ func (s *Source) updateWatchCounts(ctx context.Context, subjects map[string]Subj
 			liveWatched++
 			liveUIDs[subject.UID] = true
 		}
-		if hasDynamicService(subject.Services) {
+		if bilibilivalues.HasDynamicService(subject.Services) {
 			dynamicWatched++
 		}
 	}

@@ -9,6 +9,8 @@ import (
 
 	bilibiliDynamic "github.com/RayleaBot/RayleaBot/server/internal/integrations/bilibili/dynamic"
 	"github.com/RayleaBot/RayleaBot/server/internal/integrations/bilibili/fingerprint"
+	bilibilimonitoring "github.com/RayleaBot/RayleaBot/server/internal/integrations/bilibili/monitoring"
+	bilibilivalues "github.com/RayleaBot/RayleaBot/server/internal/integrations/bilibili/values"
 	"github.com/RayleaBot/RayleaBot/server/internal/thirdparty"
 )
 
@@ -18,7 +20,7 @@ func (s *Source) pollDynamics(ctx context.Context, subjects map[string]Subject, 
 	}
 	watched := make(map[string]Subject)
 	for uid, subject := range subjects {
-		if hasDynamicService(subject.Services) {
+		if bilibilivalues.HasDynamicService(subject.Services) {
 			watched[uid] = subject
 		}
 	}
@@ -26,7 +28,7 @@ func (s *Source) pollDynamics(ctx context.Context, subjects map[string]Subject, 
 		return
 	}
 	if delay := s.requestCooldownDelay(bilibiliRequestCooldownDynamic, account, cookie); delay > 0 {
-		s.setDynamicError(fmt.Errorf("Bilibili 动态检查因平台风控暂停，剩余 %s", formatCooldownDelay(delay)))
+		s.setDynamicError(fmt.Errorf("Bilibili 动态检查因平台风控暂停，剩余 %s", bilibilivalues.FormatCooldownDelay(delay)))
 		return
 	}
 	dmImg := fingerprint.GetDmImg()
@@ -55,14 +57,14 @@ func (s *Source) pollDynamics(ctx context.Context, subjects map[string]Subject, 
 	initialized := s.initializedDynamicUIDs(ctx, watched)
 	s.ensureDynamicBaselines(ctx, watched)
 	for _, item := range append(doc.Data.Items, doc.Data.Cards...) {
-		event, ok := dynamicEventFromItem(item, watched)
+		event, ok := bilibilimonitoring.DynamicEventFromItem(item, watched)
 		if !ok {
 			continue
 		}
 		if !s.markSeen(ctx, EventDynamicPublished+":"+event.ID, event.UID, EventDynamicPublished, event.ID) {
 			continue
 		}
-		s.setDynamicSnapshot(ctx, event)
+		s.stateStore.SetDynamic(ctx, event)
 		if !initialized[event.UID] {
 			continue
 		}
@@ -82,7 +84,7 @@ func (s *Source) autoFollow(ctx context.Context, subjects map[string]Subject, ac
 		return
 	}
 	for _, subject := range sortedSubjects(subjects) {
-		if !hasDynamicService(subject.Services) {
+		if !bilibilivalues.HasDynamicService(subject.Services) {
 			continue
 		}
 		if account.AccountID != "" && subject.UID == account.AccountID {
@@ -106,7 +108,7 @@ func (s *Source) autoFollow(ctx context.Context, subjects map[string]Subject, ac
 			"re_src": {"11"},
 			"csrf":   {csrf},
 		}
-		if err := s.requestSignedJSON(ctx, http.MethodPost, bilibiliDynamic.FollowURL, cookie, formBody(body), nil); err != nil {
+		if err := s.requestSignedJSON(ctx, http.MethodPost, bilibiliDynamic.FollowURL, cookie, bilibilivalues.FormBody(body), nil); err != nil {
 			_ = s.handleAccountRequestError(ctx, account, cookie, bilibiliRequestCooldownAutoFollow, err)
 			continue
 		}
@@ -143,21 +145,21 @@ func biliJCT(cookie string) string {
 func (s *Source) refreshMonitorDynamics(ctx context.Context, subjects map[string]Subject) error {
 	watched := make(map[string]Subject)
 	for uid, subject := range subjects {
-		if hasDynamicService(subject.Services) {
+		if bilibilivalues.HasDynamicService(subject.Services) {
 			watched[uid] = subject
 		}
 	}
 	if len(watched) == 0 {
 		return nil
 	}
-	account, cookie, err := s.accountCookieForDynamic(ctx)
+	account, cookie, err := s.accountUsage.DynamicCookie(ctx)
 	if err != nil {
 		s.clearDynamicSnapshots(ctx, watched)
 		return err
 	}
 	if delay := s.requestCooldownDelay(bilibiliRequestCooldownDynamic, account, cookie); delay > 0 {
 		s.clearDynamicSnapshots(ctx, watched)
-		return fmt.Errorf("Bilibili 动态检查因平台风控暂停，剩余 %s", formatCooldownDelay(delay))
+		return fmt.Errorf("Bilibili 动态检查因平台风控暂停，剩余 %s", bilibilivalues.FormatCooldownDelay(delay))
 	}
 	for _, subject := range sortedSubjects(watched) {
 		event, ok, err := s.fetchMonitorLatestDynamic(ctx, subject, account, cookie)
@@ -167,10 +169,10 @@ func (s *Source) refreshMonitorDynamics(ctx context.Context, subjects map[string
 			return err
 		}
 		if ok {
-			s.setDynamicSnapshot(ctx, event)
+			s.stateStore.SetDynamic(ctx, event)
 			continue
 		}
-		s.clearDynamicSnapshot(ctx, subject.UID)
+		s.stateStore.ClearDynamic(ctx, subject.UID)
 	}
 	s.clearRequestCooldown(bilibiliRequestCooldownDynamic, account, cookie)
 	now := s.now()
@@ -204,35 +206,26 @@ func (s *Source) fetchMonitorLatestDynamic(ctx context.Context, subject Subject,
 		UID:       subject.UID,
 		Name:      subject.Name,
 		AvatarURL: subject.AvatarURL,
-		Services:  allDynamicServices(),
+		Services:  bilibilimonitoring.AllDynamicServices(),
 	}}
-	candidates := []monitorDynamicCandidate{}
+	candidates := []bilibilimonitoring.DynamicCandidate{}
 	for index, item := range append(doc.Data.Items, doc.Data.Cards...) {
-		event, ok := dynamicEventFromItem(item, watched)
+		event, ok := bilibilimonitoring.DynamicEventFromItem(item, watched)
 		if ok {
-			candidates = append(candidates, monitorDynamicCandidate{
+			candidates = append(candidates, bilibilimonitoring.DynamicCandidate{
 				Event:  event,
-				Pinned: dynamicItemPinned(item),
+				Pinned: bilibilimonitoring.DynamicItemPinned(item),
 				Index:  index,
 			})
 		}
 	}
-	return latestMonitorDynamicCandidate(candidates)
-}
-
-func allDynamicServices() map[string]bool {
-	return map[string]bool{
-		"video":      true,
-		"image_text": true,
-		"article":    true,
-		"repost":     true,
-	}
+	return bilibilimonitoring.LatestDynamicCandidate(candidates)
 }
 
 func (s *Source) initializedDynamicUIDs(ctx context.Context, subjects map[string]Subject) map[string]bool {
 	result := make(map[string]bool, len(subjects))
 	for uid := range subjects {
-		result[uid] = s.hasSeenDynamic(ctx, uid)
+		result[uid] = s.stateStore.HasSeen(ctx, uid, EventDynamicPublished)
 	}
 	return result
 }
@@ -244,207 +237,8 @@ func (s *Source) ensureDynamicBaselines(ctx context.Context, subjects map[string
 	}
 }
 
-func (s *Source) hasSeenDynamic(ctx context.Context, uid string) bool {
-	var exists int
-	err := s.read.QueryRowContext(ctx,
-		`SELECT 1 FROM bilibili_source_seen WHERE uid = ? AND event_type = ? LIMIT 1`,
-		uid, EventDynamicPublished,
-	).Scan(&exists)
-	return err == nil && exists == 1
-}
-
-type monitorDynamicCandidate struct {
-	Event  BilibiliEvent
-	Pinned bool
-	Index  int
-}
-
-func dynamicEventFromItem(item map[string]any, watched map[string]Subject) (BilibiliEvent, bool) {
-	event, ok := bilibiliDynamic.EventFromItem(item, dynamicSubjects(watched))
-	if !ok {
-		return BilibiliEvent{}, false
+func (s *Source) clearDynamicSnapshots(ctx context.Context, subjects map[string]Subject) {
+	for uid := range subjects {
+		s.stateStore.ClearDynamic(ctx, uid)
 	}
-	return sourceEvent(event), true
-}
-
-func latestMonitorDynamicCandidate(candidates []monitorDynamicCandidate) (BilibiliEvent, bool, error) {
-	dynamicCandidates := make([]bilibiliDynamic.MonitorCandidate, 0, len(candidates))
-	for _, candidate := range candidates {
-		dynamicCandidates = append(dynamicCandidates, bilibiliDynamic.MonitorCandidate{
-			Event:  dynamicEvent(candidate.Event),
-			Pinned: candidate.Pinned,
-			Index:  candidate.Index,
-		})
-	}
-	event, ok, err := bilibiliDynamic.LatestMonitorCandidate(dynamicCandidates)
-	if !ok || err != nil {
-		return BilibiliEvent{}, ok, err
-	}
-	return sourceEvent(event), true, nil
-}
-
-func dynamicItemPinned(item map[string]any) bool {
-	return bilibiliDynamic.DynamicItemPinned(item)
-}
-
-func dynamicSubjects(watched map[string]Subject) map[string]bilibiliDynamic.Subject {
-	result := make(map[string]bilibiliDynamic.Subject, len(watched))
-	for uid, subject := range watched {
-		result[uid] = bilibiliDynamic.Subject{
-			UID:       subject.UID,
-			Name:      subject.Name,
-			AvatarURL: subject.AvatarURL,
-			RoomID:    subject.RoomID,
-			Services:  subject.Services,
-		}
-	}
-	return result
-}
-
-func sourceEvent(event bilibiliDynamic.BilibiliEvent) BilibiliEvent {
-	liveStatus := (*int)(nil)
-	if event.LiveStatus != nil {
-		value := *event.LiveStatus
-		liveStatus = &value
-	}
-	return BilibiliEvent{
-		EventType:      event.EventType,
-		Kind:           event.Kind,
-		UID:            event.UID,
-		ID:             event.ID,
-		RoomID:         event.RoomID,
-		Service:        event.Service,
-		Title:          event.Title,
-		Summary:        event.Summary,
-		SummaryHTML:    event.SummaryHTML,
-		URL:            event.URL,
-		PubTS:          event.PubTS,
-		CreatedAt:      event.CreatedAt,
-		Author:         sourceAuthor(event.Author),
-		Images:         sourceImages(event.Images),
-		Topic:          sourceTopic(event.Topic),
-		Original:       sourceOriginal(event.Original),
-		LiveStatus:     liveStatus,
-		LiveEvent:      event.LiveEvent,
-		StatusLabel:    event.StatusLabel,
-		LiveStartedAt:  event.LiveStartedAt,
-		LiveDetectedAt: event.LiveDetectedAt,
-		DynamicType:    event.DynamicType,
-	}
-}
-
-func dynamicEvent(event BilibiliEvent) bilibiliDynamic.BilibiliEvent {
-	liveStatus := (*int)(nil)
-	if event.LiveStatus != nil {
-		value := *event.LiveStatus
-		liveStatus = &value
-	}
-	return bilibiliDynamic.BilibiliEvent{
-		EventType:      event.EventType,
-		Kind:           event.Kind,
-		UID:            event.UID,
-		ID:             event.ID,
-		RoomID:         event.RoomID,
-		Service:        event.Service,
-		Title:          event.Title,
-		Summary:        event.Summary,
-		SummaryHTML:    event.SummaryHTML,
-		URL:            event.URL,
-		PubTS:          event.PubTS,
-		CreatedAt:      event.CreatedAt,
-		Author:         dynamicAuthorValue(event.Author),
-		Images:         dynamicImages(event.Images),
-		Topic:          dynamicTopicValue(event.Topic),
-		Original:       dynamicOriginal(event.Original),
-		LiveStatus:     liveStatus,
-		LiveEvent:      event.LiveEvent,
-		StatusLabel:    event.StatusLabel,
-		LiveStartedAt:  event.LiveStartedAt,
-		LiveDetectedAt: event.LiveDetectedAt,
-		DynamicType:    event.DynamicType,
-	}
-}
-
-func sourceOriginal(original *bilibiliDynamic.BilibiliOriginal) *BilibiliOriginal {
-	if original == nil {
-		return nil
-	}
-	return &BilibiliOriginal{
-		ID:          original.ID,
-		Service:     original.Service,
-		Title:       original.Title,
-		Summary:     original.Summary,
-		SummaryHTML: original.SummaryHTML,
-		URL:         original.URL,
-		PubTS:       original.PubTS,
-		CreatedAt:   original.CreatedAt,
-		Author:      sourceAuthor(original.Author),
-		Images:      sourceImages(original.Images),
-		Topic:       sourceTopic(original.Topic),
-		DynamicType: original.DynamicType,
-	}
-}
-
-func dynamicOriginal(original *BilibiliOriginal) *bilibiliDynamic.BilibiliOriginal {
-	if original == nil {
-		return nil
-	}
-	return &bilibiliDynamic.BilibiliOriginal{
-		ID:          original.ID,
-		Service:     original.Service,
-		Title:       original.Title,
-		Summary:     original.Summary,
-		SummaryHTML: original.SummaryHTML,
-		URL:         original.URL,
-		PubTS:       original.PubTS,
-		CreatedAt:   original.CreatedAt,
-		Author:      dynamicAuthorValue(original.Author),
-		Images:      dynamicImages(original.Images),
-		Topic:       dynamicTopicValue(original.Topic),
-		DynamicType: original.DynamicType,
-	}
-}
-
-func sourceTopic(topic *bilibiliDynamic.BilibiliTopic) *BilibiliTopic {
-	if topic == nil {
-		return nil
-	}
-	return &BilibiliTopic{ID: topic.ID, Name: topic.Name, JumpURL: topic.JumpURL}
-}
-
-func dynamicTopicValue(topic *BilibiliTopic) *bilibiliDynamic.BilibiliTopic {
-	if topic == nil {
-		return nil
-	}
-	return &bilibiliDynamic.BilibiliTopic{ID: topic.ID, Name: topic.Name, JumpURL: topic.JumpURL}
-}
-
-func sourceAuthor(author bilibiliDynamic.Author) Author {
-	return Author{UID: author.UID, Name: author.Name, Avatar: author.Avatar}
-}
-
-func dynamicAuthorValue(author Author) bilibiliDynamic.Author {
-	return bilibiliDynamic.Author{UID: author.UID, Name: author.Name, Avatar: author.Avatar}
-}
-
-func sourceImages(images []bilibiliDynamic.Image) []Image {
-	if len(images) == 0 {
-		return nil
-	}
-	result := make([]Image, 0, len(images))
-	for _, image := range images {
-		result = append(result, Image{URL: image.URL, Width: image.Width, Height: image.Height})
-	}
-	return result
-}
-
-func dynamicImages(images []Image) []bilibiliDynamic.Image {
-	if len(images) == 0 {
-		return nil
-	}
-	result := make([]bilibiliDynamic.Image, 0, len(images))
-	for _, image := range images {
-		result = append(result, bilibiliDynamic.Image{URL: image.URL, Width: image.Width, Height: image.Height})
-	}
-	return result
 }

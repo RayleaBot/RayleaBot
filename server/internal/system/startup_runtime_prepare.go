@@ -5,13 +5,14 @@ import (
 	"strings"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/deps"
+	"github.com/RayleaBot/RayleaBot/server/internal/system/startup"
 )
 
 func (s *Service) startupRequiredRuntimeKinds() []string {
 	if s == nil {
 		return nil
 	}
-	kinds := make([]string, 0, len(startupRuntimeKinds()))
+	kinds := make([]string, 0, len(startup.Kinds()))
 	if strings.TrimSpace(s.config().Render.BrowserPath) == "" {
 		kinds = append(kinds, "chromium")
 	}
@@ -39,7 +40,7 @@ func (s *Service) autoPrepareRuntimeEnvironments(ctx context.Context) {
 		if err != nil {
 			issue := runtimeInspectionIssue(kind, err)
 			s.setStartupRuntimeState(kind, startupRuntimeFailed, &issue)
-			logStartupRuntimeFailure(s.currentLogger(), kind, err)
+			startup.LogFailure(s.currentLogger(), kind, err)
 			continue
 		}
 		if !inspection.MetadataComplete {
@@ -52,7 +53,7 @@ func (s *Service) autoPrepareRuntimeEnvironments(ctx context.Context) {
 			continue
 		}
 
-		label := startupRuntimeLabel(kind)
+		label := startup.Label(kind)
 		s.setStartupRuntimeState(kind, startupRuntimePending, nil)
 		if s.currentLogger() != nil {
 			s.currentLogger().Info(
@@ -65,12 +66,12 @@ func (s *Service) autoPrepareRuntimeEnvironments(ctx context.Context) {
 		}
 
 		report, err := prepareStartupRuntimeWithProgress(ctx, s.repoRootPath(), kind, func(event deps.PrepareProgress) {
-			logStartupRuntimeProgress(s.currentLogger(), event)
+			startup.LogProgress(s.currentLogger(), event)
 		})
 		if err != nil {
-			issue := startupRuntimeFailureIssue(kind, err)
+			issue := startup.FailureIssue(kind, err)
 			s.setStartupRuntimeState(kind, startupRuntimeFailed, &issue)
-			logStartupRuntimeFailure(s.currentLogger(), kind, err)
+			startup.LogFailure(s.currentLogger(), kind, err)
 			continue
 		}
 

@@ -2,12 +2,19 @@ package pluginapi
 
 import (
 	"context"
-	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	"net/http"
 	"time"
 
+	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	"github.com/go-chi/chi/v5"
 )
+
+func registerPluginLifecycleRoutes(router chi.Router, catalog plugins.CatalogView, repo plugins.DesiredStateRepository, controller DesiredStateController, uninstaller UninstallCoordinator, grantRepo plugins.GrantRepository, autoGrantProvider autoGrantCapabilitiesProvider) {
+	router.Post("/api/plugins/{plugin_id}/enable", newEnableHandler(catalog, repo, controller, grantRepo, autoGrantProvider))
+	router.Post("/api/plugins/{plugin_id}/disable", newDisableHandler(catalog, repo, controller, grantRepo, autoGrantProvider))
+	router.Post("/api/plugins/{plugin_id}/reload", newReloadHandler(catalog, controller, grantRepo, autoGrantProvider))
+	router.Delete("/api/plugins/{plugin_id}", newUninstallHandler(catalog, uninstaller))
+}
 
 func newEnableHandler(catalog plugins.CatalogView, repo plugins.DesiredStateRepository, controller DesiredStateController, grantRepo plugins.GrantRepository, autoGrantProvider autoGrantCapabilitiesProvider) http.HandlerFunc {
 	var action desiredStateAction
@@ -66,22 +73,6 @@ func newReloadHandler(catalog plugins.CatalogView, controller DesiredStateContro
 			return
 		}
 		snapshot, err := controller.Reload(r.Context(), pluginID)
-		if err == nil {
-			writePluginDetailResponse(w, r, catalog, snapshot, grantRepo, autoGrantProvider)
-			return
-		}
-		writeDesiredStateError(w, r, pluginID, err)
-	}
-}
-
-func newDeadLetterRecoverHandler(catalog plugins.CatalogView, controller DesiredStateController, grantRepo plugins.GrantRepository, autoGrantProvider autoGrantCapabilitiesProvider) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		pluginID := chi.URLParam(r, "plugin_id")
-		if controller == nil {
-			writeError(w, r, http.StatusInternalServerError, "platform.internal_error", "内部错误", "errors.platform.internal_error", nil)
-			return
-		}
-		snapshot, err := controller.RecoverFromDeadLetter(r.Context(), pluginID)
 		if err == nil {
 			writePluginDetailResponse(w, r, catalog, snapshot, grantRepo, autoGrantProvider)
 			return

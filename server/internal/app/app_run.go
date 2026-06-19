@@ -16,7 +16,7 @@ func (a *App) Run(ctx context.Context) error {
 	a.setRunCancel(cancel)
 	defer a.clearRunCancel()
 
-	a.services.system.AutoPrepareRuntimeEnvironments(runCtx)
+	a.services.System.AutoPrepareRuntimeEnvironments(runCtx)
 	if err := runCtx.Err(); err != nil {
 		closeErr := a.Close()
 		if closeErr != nil {
@@ -24,14 +24,14 @@ func (a *App) Run(ctx context.Context) error {
 		}
 		return err
 	}
-	if a.services.pluginLifecycle != nil {
-		go a.services.pluginLifecycle.ReconcileRuntime(runCtx, a.services.pluginLifecycle.CurrentBotID())
+	if a.services.PluginLifecycle != nil {
+		go a.services.PluginLifecycle.ReconcileRuntime(runCtx, a.services.PluginLifecycle.CurrentBotID())
 	}
 	storage.StartSnapshotLoop(runCtx, a.platform.Storage, a.state.Logger)
 	a.pluginStack.Adapter.Start(runCtx)
 	a.platform.Scheduler.Start(runCtx)
-	if a.services.bilibiliSource != nil {
-		go a.services.bilibiliSource.Start(runCtx)
+	if a.services.BilibiliSource != nil {
+		go a.services.BilibiliSource.Start(runCtx)
 	}
 
 	go func() {

@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	bilibiliSession "github.com/RayleaBot/RayleaBot/server/internal/integrations/bilibili/session"
+	bilibilivalues "github.com/RayleaBot/RayleaBot/server/internal/integrations/bilibili/values"
 )
 
 func (s *Source) requestJSON(ctx context.Context, method, rawURL, cookie string, body io.Reader, target any) error {
@@ -72,9 +73,9 @@ func (s *Source) requestJSONOnce(ctx context.Context, method, rawURL, cookie str
 	if target == nil {
 		var values map[string]any
 		if json.Unmarshal(responseBody, &values) == nil {
-			code := intValue(values["code"])
+			code := bilibilivalues.Int(values["code"])
 			if code != 0 {
-				message := firstNonEmpty(stringValue(values["message"]), stringValue(values["msg"]))
+				message := bilibilivalues.FirstNonEmpty(bilibilivalues.String(values["message"]), bilibilivalues.String(values["msg"]))
 				return bilibiliSession.APIError(response.StatusCode, code, message, responseBody)
 			}
 		}
@@ -83,11 +84,11 @@ func (s *Source) requestJSONOnce(ctx context.Context, method, rawURL, cookie str
 	if err := json.Unmarshal(responseBody, target); err != nil {
 		return &bilibiliSession.Error{Kind: bilibiliSession.ErrorInvalidResponse, HTTPStatus: response.StatusCode, Message: responseExcerpt(responseBody), Err: err}
 	}
-	code := intFromMap(target, "code")
+	code := bilibilivalues.IntFromMap(target, "code")
 	if code != 0 {
-		message := stringFromMap(target, "message")
+		message := bilibilivalues.StringFromMap(target, "message")
 		if message == "" {
-			message = stringFromMap(target, "msg")
+			message = bilibilivalues.StringFromMap(target, "msg")
 		}
 		err := bilibiliSession.APIError(response.StatusCode, code, message, responseBody)
 		if needWBI && allowRetry && body == nil && s.session != nil && bilibiliSession.ShouldRetryWBI(err) {
@@ -110,5 +111,5 @@ func responseExcerpt(body []byte) string {
 	if text == "" {
 		return "<empty>"
 	}
-	return truncate(text, 600)
+	return bilibilivalues.Truncate(text, 600)
 }

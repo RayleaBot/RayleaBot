@@ -13,6 +13,7 @@ import (
 	adaptercache "github.com/RayleaBot/RayleaBot/server/internal/bot/adapter/onebot11/cache"
 	adapterintake "github.com/RayleaBot/RayleaBot/server/internal/bot/adapter/onebot11/intake"
 	adapteroutbound "github.com/RayleaBot/RayleaBot/server/internal/bot/adapter/onebot11/outbound"
+	adapterbackoff "github.com/RayleaBot/RayleaBot/server/internal/bot/adapter/onebot11/shell/backoff"
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 )
 
@@ -40,7 +41,7 @@ type shellDeps struct {
 	dial            dialFunc
 	sleep           sleepFunc
 	connectTimeout  time.Duration
-	backoff         *Backoff
+	backoff         *adapterbackoff.Backoff
 	skipRuntimeInfo bool
 }
 type Shell struct {
@@ -104,7 +105,7 @@ func newShell(cfg config.OneBotConfig, adapterCfg config.AdapterConfig, logger *
 		deps.connectTimeout = time.Duration(maxInt(adapterCfg.ConnectTimeoutSeconds, 1)) * time.Second
 	}
 	if deps.backoff == nil {
-		deps.backoff = NewBackoff(
+		deps.backoff = adapterbackoff.New(
 			adapterCfg.ReconnectInitialSeconds,
 			adapterCfg.ReconnectMultiplier,
 			adapterCfg.ReconnectMaxSeconds,

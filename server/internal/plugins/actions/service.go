@@ -23,78 +23,69 @@ type Deps struct {
 	Adapter          OneBotAdapter
 	PluginLogLimiter *PluginLogLimiter
 	Governance       GovernanceService
-	ThirdParty       ThirdPartyAccounts
-	BilibiliSession  BilibiliSession
+	HTTPCredentials  HTTPCredentialInjector
 	RefreshCommands  func(context.Context, string, map[string]any)
 	ActionRegistry   *Registry
 }
 
 type Service struct {
-	currentConfig    func() config.Config
-	logger           *slog.Logger
-	redactText       func(string) string
-	grants           GrantView
-	pluginConfig     PluginConfigRepository
-	pluginFiles      storageaction.FileStore
-	pluginKV         storageaction.KVRepository
-	secrets          SecretReader
-	scheduler        SchedulerCreateFunc
-	dispatcher       ConfigChangeDispatcher
-	renderer         Renderer
-	adapter          OneBotAdapter
-	webhookGateway   WebhookGateway
-	pluginLogLimiter *PluginLogLimiter
-	governance       GovernanceService
-	thirdParty       ThirdPartyAccounts
-	bilibiliSession  BilibiliSession
-	refreshCommands  func(context.Context, string, map[string]any)
-	actionRegistry   *Registry
+	actionRegistry *Registry
+	runtimeHooks   *runtimeHooks
+}
+
+type runtimeHooks struct {
+	refreshCommands func(context.Context, string, map[string]any)
+	webhookGateway  WebhookGateway
 }
 
 func New(deps Deps) *Service {
-	registry := deps.ActionRegistry
-	if registry == nil {
-		registry = DefaultRegistry()
+	hooks := &runtimeHooks{
+		refreshCommands: deps.RefreshCommands,
 	}
-	return &Service{
-		currentConfig:    deps.CurrentConfig,
-		logger:           deps.Logger,
-		redactText:       deps.RedactText,
-		grants:           deps.Grants,
-		pluginConfig:     deps.PluginConfig,
-		pluginFiles:      deps.PluginFiles,
-		pluginKV:         deps.PluginKV,
-		secrets:          deps.Secrets,
-		scheduler:        deps.Scheduler,
-		dispatcher:       deps.Dispatcher,
-		renderer:         deps.Renderer,
-		adapter:          deps.Adapter,
-		pluginLogLimiter: deps.PluginLogLimiter,
-		governance:       deps.Governance,
-		thirdParty:       deps.ThirdParty,
-		bilibiliSession:  deps.BilibiliSession,
-		refreshCommands:  deps.RefreshCommands,
-		actionRegistry:   registry,
+	service := &Service{
+		runtimeHooks: hooks,
 	}
+	if deps.ActionRegistry != nil {
+		service.actionRegistry = deps.ActionRegistry
+	} else {
+		service.actionRegistry = defaultRegistry(registryDeps{
+			currentConfig:    deps.CurrentConfig,
+			logger:           deps.Logger,
+			redactText:       deps.RedactText,
+			grants:           deps.Grants,
+			pluginConfig:     deps.PluginConfig,
+			pluginFiles:      deps.PluginFiles,
+			pluginKV:         deps.PluginKV,
+			secrets:          deps.Secrets,
+			scheduler:        deps.Scheduler,
+			dispatcher:       deps.Dispatcher,
+			renderer:         deps.Renderer,
+			adapter:          deps.Adapter,
+			pluginLogLimiter: deps.PluginLogLimiter,
+			governance:       deps.Governance,
+			httpCredentials:  deps.HTTPCredentials,
+			runtimeHooks:     hooks,
+		})
+	}
+	return service
 }
 
 func (s *Service) SetRefreshPluginCommands(refresh func(context.Context, string, map[string]any)) {
 	if s == nil {
 		return
 	}
-	s.refreshCommands = refresh
+	if s.runtimeHooks == nil {
+		s.runtimeHooks = &runtimeHooks{}
+	}
+	s.runtimeHooks.refreshCommands = refresh
 }
 
 func (s *Service) SetWebhookGateway(gateway WebhookGateway) {
 	if s == nil {
 		return
 	}
-	s.webhookGateway = gateway
-}
-
-func (s *Service) config() config.Config {
-	if s == nil || s.currentConfig == nil {
-		return config.Config{}
+	if s.runtimeHooks == nil {
+		s.runtimeHooks = &runtimeHooks{}
 	}
-	return s.currentConfig()
+	s.runtimeHooks.webhookGateway = gateway
 }

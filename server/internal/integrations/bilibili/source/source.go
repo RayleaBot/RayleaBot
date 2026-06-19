@@ -8,14 +8,14 @@ import (
 	"sync"
 	"time"
 
+	bilibiliAccountUsage "github.com/RayleaBot/RayleaBot/server/internal/integrations/bilibili/accountusage"
 	bilibiliCaptcha "github.com/RayleaBot/RayleaBot/server/internal/integrations/bilibili/captcha"
 	bilibiliSession "github.com/RayleaBot/RayleaBot/server/internal/integrations/bilibili/session"
+	sourcestate "github.com/RayleaBot/RayleaBot/server/internal/integrations/bilibili/source/state"
 	"github.com/RayleaBot/RayleaBot/server/internal/thirdparty"
 )
 
 const (
-	subscriptionHubPluginID = "raylea.subscription-hub"
-
 	defaultDynamicIntervalSeconds     = 10
 	defaultFallbackIntervalSeconds    = 10
 	defaultRefreshIntervalSeconds     = 15
@@ -31,10 +31,10 @@ const (
 type Source struct {
 	read         *sql.DB
 	write        *sql.DB
+	stateStore   *sourcestate.Repository
 	accounts     *thirdparty.Service
-	pluginConfig interface {
-		ReadAll(context.Context, string) (map[string]any, error)
-	}
+	accountUsage *bilibiliAccountUsage.Manager
+	subjects     SubjectProvider
 	dispatcher   Dispatcher
 	notifyStatus func(Status)
 	client       *http.Client
@@ -42,31 +42,22 @@ type Source struct {
 	identity     *bilibiliSession.IdentityProvider
 	now          func() time.Time
 
-	mu                   sync.RWMutex
-	requestMu            sync.Mutex
-	status               Status
-	roomTasks            map[string]liveRoomTask
-	cooldowns            map[string]requestCooldown
-	autoFollowChecked    map[string]time.Time
-	restart              chan struct{}
-	liveAccountOffset    int
-	dynamicAccountOffset int
-	griskID              string
-	griskMu              sync.Mutex
-	captchaClient        *bilibiliCaptcha.CaptchaClient
+	mu                sync.RWMutex
+	requestMu         sync.Mutex
+	status            Status
+	roomTasks         map[string]liveRoomTask
+	cooldowns         map[string]requestCooldown
+	autoFollowChecked map[string]time.Time
+	restart           chan struct{}
+	griskID           string
+	griskMu           sync.Mutex
+	captchaClient     *bilibiliCaptcha.CaptchaClient
 }
 type liveRoomTask struct {
 	ctx               context.Context
 	cancel            context.CancelFunc
 	cookieFingerprint string
 	accountID         string
-}
-type requestCooldown struct {
-	Attempts  int
-	Until     time.Time
-	LastError string
-	Scope     string
-	Code      string
 }
 
 func NewSource(deps Deps) (*Source, error) {
@@ -76,8 +67,8 @@ func NewSource(deps Deps) (*Source, error) {
 	if deps.Accounts == nil {
 		return nil, errors.New("third-party account service is required")
 	}
-	if deps.PluginConfig == nil {
-		return nil, errors.New("plugin config repository is required")
+	if deps.Subjects == nil {
+		return nil, errors.New("bilibili subject provider is required")
 	}
 	if deps.Dispatcher == nil {
 		return nil, errors.New("dispatcher is required")
@@ -102,8 +93,9 @@ func NewSource(deps Deps) (*Source, error) {
 	source := &Source{
 		read:         deps.Store.Read,
 		write:        deps.Store.Write,
+		stateStore:   sourcestate.New(deps.Store.Read, deps.Store.Write, now),
 		accounts:     deps.Accounts,
-		pluginConfig: deps.PluginConfig,
+		subjects:     deps.Subjects,
 		dispatcher:   deps.Dispatcher,
 		notifyStatus: deps.NotifyStatus,
 		client: &http.Client{
@@ -122,6 +114,7 @@ func NewSource(deps Deps) (*Source, error) {
 	if source.session == nil {
 		source.session = bilibiliSession.NewSessionClient(transport, now, identity)
 	}
+	source.accountUsage = bilibiliAccountUsage.New(deps.Accounts, source.session, now)
 	source.status = Status{
 		Status:  StateIdle,
 		Summary: sourceSummary(StateIdle),

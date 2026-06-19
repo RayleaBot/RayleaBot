@@ -577,7 +577,7 @@ func TestApplyChatPolicyAppliesTargetLimitToCooldownReply(t *testing.T) {
 			Permission: "everyone",
 		}},
 	}}), nil, sender, bridge.New(logger, &recordingDispatcherClient{}))
-	application.services.eventIngress.SetOutboundLimiter(limiter)
+	application.services.EventIngress.SetOutboundLimiter(limiter)
 
 	event := adapterintake.NormalizedEvent{
 		Kind:             adapterintake.EventKindMessage,
@@ -646,7 +646,7 @@ func TestApplyChatPolicyCancelsCooldownReplyTargetLimit(t *testing.T) {
 			Permission: "everyone",
 		}},
 	}}), nil, sender, nil)
-	application.services.eventIngress.SetOutboundLimiter(limiter)
+	application.services.EventIngress.SetOutboundLimiter(limiter)
 
 	event := adapterintake.NormalizedEvent{
 		Kind:             adapterintake.EventKindMessage,
@@ -969,7 +969,7 @@ func TestHandleAdapterEventSendsBuiltinMenuImageWithoutPluginDispatch(t *testing
 		}},
 		Permission: config.PermissionConfig{DefaultLevel: "everyone"},
 	}, logger)
-	application.pluginStack.renderer = newRenderServiceForRepo(t, repoRoot, renderRoot, runner)
+	application.pluginStack.Renderer = newRenderServiceForRepo(t, repoRoot, renderRoot, runner)
 	application.setTestEventIngress(plugincatalog.New([]plugins.Snapshot{{
 		PluginID:          "weather",
 		Name:              "天气",
@@ -1069,7 +1069,7 @@ func TestHandleAdapterEventUsesIndependentBuiltinMenuPrefix(t *testing.T) {
 		}},
 		Permission: config.PermissionConfig{DefaultLevel: "everyone"},
 	}, nil)
-	application.pluginStack.renderer = newRenderService(t, t.TempDir())
+	application.pluginStack.Renderer = newRenderService(t, t.TempDir())
 	application.setTestEventIngress(plugincatalog.New([]plugins.Snapshot{{
 		PluginID:          "fortune",
 		Name:              "运势",
@@ -1166,7 +1166,7 @@ func TestHandleAdapterEventRendersBuiltinMenuPluginPrefixesAsSingleUsage(t *test
 		}},
 		Permission: config.PermissionConfig{DefaultLevel: "everyone"},
 	}, nil)
-	application.pluginStack.renderer = newRenderServiceForRepo(t, repoRoot, renderRoot, runner)
+	application.pluginStack.Renderer = newRenderServiceForRepo(t, repoRoot, renderRoot, runner)
 	application.setTestEventIngress(plugincatalog.New([]plugins.Snapshot{{
 		PluginID:          "subscription-hub",
 		Name:              "订阅中心",
@@ -1237,7 +1237,7 @@ func TestHandleAdapterEventMatchesBuiltinPluginSuffixHelp(t *testing.T) {
 		Builtin:    config.BuiltinConfig{Menu: config.BuiltinMenuConfig{Commands: []string{"help", "帮助"}}},
 		Permission: config.PermissionConfig{DefaultLevel: "everyone"},
 	}, nil)
-	application.pluginStack.renderer = newRenderService(t, t.TempDir())
+	application.pluginStack.Renderer = newRenderService(t, t.TempDir())
 	application.setTestEventIngress(plugincatalog.New([]plugins.Snapshot{{
 		PluginID:          "fortune",
 		Name:              "运势",
@@ -1282,7 +1282,7 @@ func TestHandleAdapterEventSkipsMissingBuiltinPluginMenuTarget(t *testing.T) {
 		Builtin:    config.BuiltinConfig{Menu: config.BuiltinMenuConfig{Commands: []string{"help", "帮助"}}},
 		Permission: config.PermissionConfig{DefaultLevel: "everyone"},
 	}, nil)
-	application.pluginStack.renderer = newRenderService(t, t.TempDir())
+	application.pluginStack.Renderer = newRenderService(t, t.TempDir())
 	application.setTestEventIngress(plugincatalog.New([]plugins.Snapshot{{
 		PluginID:          "fortune",
 		Name:              "运势",
@@ -1330,7 +1330,7 @@ func TestHandleAdapterEventDoesNotTreatExactPluginCommandAsBuiltinSuffixMenu(t *
 		Builtin:    config.BuiltinConfig{Menu: config.BuiltinMenuConfig{Commands: []string{"help", "帮助"}}},
 		Permission: config.PermissionConfig{DefaultLevel: "everyone"},
 	}, nil)
-	application.pluginStack.renderer = newRenderService(t, t.TempDir())
+	application.pluginStack.Renderer = newRenderService(t, t.TempDir())
 	application.setTestEventIngress(plugincatalog.New([]plugins.Snapshot{{
 		PluginID:          "custom-help",
 		Name:              "Custom Help",
@@ -1379,7 +1379,7 @@ func TestHandleAdapterEventBlocksBuiltinMenuWhenBlacklistApplies(t *testing.T) {
 		Builtin:    config.BuiltinConfig{Menu: config.BuiltinMenuConfig{Commands: []string{"help"}}},
 		Permission: config.PermissionConfig{DefaultLevel: "everyone"},
 	}, nil)
-	application.pluginStack.renderer = newRenderService(t, t.TempDir())
+	application.pluginStack.Renderer = newRenderService(t, t.TempDir())
 	application.setTestEventIngress(plugincatalog.New([]plugins.Snapshot{{
 		PluginID:          "weather",
 		Valid:             true,
@@ -1432,7 +1432,7 @@ func TestHandleAdapterEventBlocksBuiltinMenuWhenCooldownApplies(t *testing.T) {
 		},
 		Group: config.GroupConfig{CommandRateLimit: "10/1h"},
 	}, nil)
-	application.pluginStack.renderer = newRenderService(t, t.TempDir())
+	application.pluginStack.Renderer = newRenderService(t, t.TempDir())
 	application.setTestEventIngress(plugincatalog.New([]plugins.Snapshot{{
 		PluginID:          "weather",
 		Valid:             true,
@@ -1673,8 +1673,8 @@ func TestApplyHotReloadableFieldsReloadsCommandPolicy(t *testing.T) {
 	}
 	app := newTestAppState(cfg, nil)
 	app.setTestEventIngress(nil, repo, nil, nil)
-	app.pluginStack.outboundLimiter = outbound.NewMessageRateLimiter(cfg)
-	if err := app.pluginStack.outboundLimiter.Wait(context.Background(), outbound.MessageLimitRequest{
+	app.pluginStack.OutboundLimiter = outbound.NewMessageRateLimiter(cfg)
+	if err := app.pluginStack.OutboundLimiter.Wait(context.Background(), outbound.MessageLimitRequest{
 		PluginID:   "weather",
 		TargetType: "group",
 		TargetID:   "20001",
@@ -1720,16 +1720,16 @@ func TestApplyHotReloadableFieldsReloadsCommandPolicy(t *testing.T) {
 	if restartRequired {
 		t.Fatal("restartRequired = true, want false for hot-reloadable fields")
 	}
-	if !app.services.eventIngress.Policy().CommandParser().Parse("!ping").IsCommand {
+	if !app.services.EventIngress.Policy().CommandParser().Parse("!ping").IsCommand {
 		t.Fatal("new command prefix was not applied")
 	}
-	if app.services.eventIngress.Policy().CommandParser().Parse("/ping").IsCommand {
+	if app.services.EventIngress.Policy().CommandParser().Parse("/ping").IsCommand {
 		t.Fatal("old command prefix should no longer be active")
 	}
-	if verdict := app.services.eventIngress.Policy().PermissionChecker().Check(context.Background(), "42", "member", "", &permission.CommandInfo{Permission: "super_admin"}); !verdict.Allowed {
+	if verdict := app.services.EventIngress.Policy().PermissionChecker().Check(context.Background(), "42", "member", "", &permission.CommandInfo{Permission: "super_admin"}); !verdict.Allowed {
 		t.Fatalf("new super admin should bypass command checks: %#v", verdict)
 	}
-	if verdict := app.services.eventIngress.Policy().PermissionChecker().Check(context.Background(), "1", "member", "", &permission.CommandInfo{Permission: "super_admin"}); verdict.Allowed {
+	if verdict := app.services.EventIngress.Policy().PermissionChecker().Check(context.Background(), "1", "member", "", &permission.CommandInfo{Permission: "super_admin"}); verdict.Allowed {
 		t.Fatalf("old super admin should no longer bypass command checks: %#v", verdict)
 	}
 	if app.state.Config.Storage.FileMaxBytes != 8192 || app.state.Config.Storage.PluginWorkDirMB != 64 {
@@ -1741,7 +1741,7 @@ func TestApplyHotReloadableFieldsReloadsCommandPolicy(t *testing.T) {
 	if len(app.state.Config.HTTP.AllowPrivateHosts) != 1 || app.state.Config.HTTP.AllowPrivateHosts[0] != "127.0.0.1" {
 		t.Fatalf("http allow_private_hosts was not hot reloaded: %+v", app.state.Config.HTTP.AllowPrivateHosts)
 	}
-	if err := app.pluginStack.outboundLimiter.Wait(context.Background(), outbound.MessageLimitRequest{
+	if err := app.pluginStack.OutboundLimiter.Wait(context.Background(), outbound.MessageLimitRequest{
 		PluginID:   "weather",
 		TargetType: "group",
 		TargetID:   "20002",

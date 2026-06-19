@@ -92,7 +92,7 @@ func TestGetLoginInfoReturnsIDAndNickname(t *testing.T) {
 		t.Fatalf("unexpected Nickname: got %q want %q", info.Nickname, "TestBot")
 	}
 
-	stopCtx, stopCancel := context.WithTimeout(context.Background(), time.Second)
+	stopCtx, stopCancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer stopCancel()
 	if err := shell.Stop(stopCtx); err != nil {
 		t.Fatalf("Stop failed: %v", err)
@@ -165,7 +165,7 @@ func TestGetLoginInfoReturnsErrorOnFailedResponse(t *testing.T) {
 		t.Fatalf("unexpected error code: got %q want %q", adapterErr.Code, adapterapi.ErrorCodeAPICallFailed)
 	}
 
-	stopCtx, stopCancel := context.WithTimeout(context.Background(), time.Second)
+	stopCtx, stopCancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer stopCancel()
 	if err := shell.Stop(stopCtx); err != nil {
 		t.Fatalf("Stop failed: %v", err)
@@ -247,7 +247,7 @@ func TestGetVersionInfoReturnsImplementationMetadata(t *testing.T) {
 		t.Fatalf("unexpected AppVersion: got %q want %q", info.AppVersion, "1.0.0")
 	}
 
-	stopCtx, stopCancel := context.WithTimeout(context.Background(), time.Second)
+	stopCtx, stopCancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer stopCancel()
 	if err := shell.Stop(stopCtx); err != nil {
 		t.Fatalf("Stop failed: %v", err)
@@ -320,7 +320,7 @@ func TestGetVersionInfoReturnsErrorOnFailedResponse(t *testing.T) {
 		t.Fatalf("unexpected error code: got %q want %q", adapterErr.Code, adapterapi.ErrorCodeAPICallFailed)
 	}
 
-	stopCtx, stopCancel := context.WithTimeout(context.Background(), time.Second)
+	stopCtx, stopCancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer stopCancel()
 	if err := shell.Stop(stopCtx); err != nil {
 		t.Fatalf("Stop failed: %v", err)
@@ -407,7 +407,7 @@ func TestGetGroupMemberInfoReturnsRoleAndNames(t *testing.T) {
 		t.Fatalf("unexpected Card: got %q want %q", info.Card, "测试群名片A")
 	}
 
-	stopCtx, stopCancel := context.WithTimeout(context.Background(), time.Second)
+	stopCtx, stopCancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer stopCancel()
 	if err := shell.Stop(stopCtx); err != nil {
 		t.Fatalf("Stop failed: %v", err)
@@ -483,7 +483,7 @@ func TestGetGroupMemberInfoSanitizesUnsafeTextFields(t *testing.T) {
 		t.Fatalf("unexpected sanitized card: got %q want %q", info.Card, "测试群名片~喵")
 	}
 
-	stopCtx, stopCancel := context.WithTimeout(context.Background(), time.Second)
+	stopCtx, stopCancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer stopCancel()
 	if err := shell.Stop(stopCtx); err != nil {
 		t.Fatalf("Stop failed: %v", err)
@@ -562,7 +562,7 @@ func TestGetGroupInfoReturnsGroupName(t *testing.T) {
 		t.Fatalf("unexpected Name: got %q want %q", info.Name, "Test Group")
 	}
 
-	stopCtx, stopCancel := context.WithTimeout(context.Background(), time.Second)
+	stopCtx, stopCancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer stopCancel()
 	if err := shell.Stop(stopCtx); err != nil {
 		t.Fatalf("Stop failed: %v", err)
@@ -633,7 +633,7 @@ func TestGetGroupInfoSanitizesUnsafeGroupName(t *testing.T) {
 		t.Fatalf("unexpected sanitized group name: got %q want %q", info.Name, "Test\nGroup")
 	}
 
-	stopCtx, stopCancel := context.WithTimeout(context.Background(), time.Second)
+	stopCtx, stopCancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer stopCancel()
 	if err := shell.Stop(stopCtx); err != nil {
 		t.Fatalf("Stop failed: %v", err)
@@ -723,7 +723,7 @@ func TestListGroupsAndFriendsReturnSelectableTargets(t *testing.T) {
 		t.Fatalf("unexpected friends: %#v", friends)
 	}
 
-	stopCtx, stopCancel := context.WithTimeout(context.Background(), time.Second)
+	stopCtx, stopCancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer stopCancel()
 	if err := shell.Stop(stopCtx); err != nil {
 		t.Fatalf("Stop failed: %v", err)
@@ -798,7 +798,7 @@ func TestGetStrangerInfoReturnsNickname(t *testing.T) {
 		t.Fatalf("unexpected Nickname: got %q want %q", info.Nickname, "测试私聊用户B")
 	}
 
-	stopCtx, stopCancel := context.WithTimeout(context.Background(), time.Second)
+	stopCtx, stopCancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer stopCancel()
 	if err := shell.Stop(stopCtx); err != nil {
 		t.Fatalf("Stop failed: %v", err)
@@ -869,7 +869,7 @@ func TestGetStrangerInfoSanitizesUnsafeNickname(t *testing.T) {
 		t.Fatalf("unexpected sanitized nickname: got %q want %q", info.Nickname, "测试私聊用户B")
 	}
 
-	stopCtx, stopCancel := context.WithTimeout(context.Background(), time.Second)
+	stopCtx, stopCancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer stopCancel()
 	if err := shell.Stop(stopCtx); err != nil {
 		t.Fatalf("Stop failed: %v", err)

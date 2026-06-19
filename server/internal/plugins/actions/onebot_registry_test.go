@@ -110,6 +110,17 @@ func TestBaseActionHandlersMatchLocalActionCapabilities(t *testing.T) {
 	}
 }
 
+func TestDefaultRegistryRegistersOneBotHandlers(t *testing.T) {
+	t.Parallel()
+
+	registry := defaultRegistry(registryDeps{})
+	for kind := range localonebot.Registry() {
+		if _, ok := registry.handlers[kind]; !ok {
+			t.Fatalf("default registry is missing OneBot handler %q", kind)
+		}
+	}
+}
+
 func contractEnum(t *testing.T, path string, defName string) []string {
 	t.Helper()
 

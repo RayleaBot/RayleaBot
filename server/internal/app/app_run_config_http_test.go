@@ -15,6 +15,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/RayleaBot/RayleaBot/server/internal/app/httpwire"
 	adaptershell "github.com/RayleaBot/RayleaBot/server/internal/bot/adapter/onebot11/shell"
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/management/configapi"
@@ -201,7 +202,7 @@ func TestApplyHotReloadableFieldsFallsBackToRestartRequiredWhenAdapterReloadFail
 	startCtx, cancelStart := context.WithCancel(context.Background())
 	adapterShell.Start(startCtx)
 	cancelStart()
-	app.services.protocol = protocolapi.NewService(app.state, adapterShell)
+	app.services.Protocol = protocolapi.NewService(app.state, adapterShell)
 	t.Cleanup(func() {
 		stopCtx, cancel := context.WithTimeout(context.Background(), time.Second)
 		defer cancel()
@@ -263,7 +264,7 @@ func TestApplyHotReloadableFieldsClassifiesRenderDefaultsAsAppliedNow(t *testing
 	newCfg.Render.DefaultOutput = "jpeg"
 	newCfg.Render.DeviceScalePercent = 200
 
-	effects := classifyConfigApplyEffects(oldCfg, newCfg)
+	effects := httpwire.ClassifyConfigApplyEffects(oldCfg, newCfg)
 	if !reflect.DeepEqual(effects.AppliedNow, []string{
 		"render.default_output",
 		"render.device_scale_percent",
@@ -312,14 +313,14 @@ func TestHandleConfigPutHotReloadsRenderDefaults(t *testing.T) {
 
 	app := newTestAppState(cfg, nil)
 	app.state.Summary = summary
-	document := configDocumentFromTyped(cfg)
+	document := httpwire.ConfigDocumentFromTyped(cfg)
 	renderDoc := document["render"].(map[string]any)
 	renderDoc["default_output"] = "jpeg"
 	renderDoc["device_scale_percent"] = 200
 
-	handler := configapi.NewHandlers(newConfigHTTPService(configHTTPDeps{
-		state:    app.state,
-		renderer: renderer,
+	handler := configapi.NewHandlers(httpwire.NewConfigService(httpwire.ConfigDeps{
+		Runtime:  app.state,
+		Renderer: renderer,
 	}))
 	body, err := json.Marshal(document)
 	if err != nil {
@@ -471,7 +472,7 @@ func TestHandleConfigPutHotReloadsOutboundLimiterMessageFields(t *testing.T) {
 				t.Fatalf("prime outbound limiter: %v", err)
 			}
 
-			document := configDocumentFromTyped(app.state.Config)
+			document := httpwire.ConfigDocumentFromTyped(app.state.Config)
 			tt.mutate(t, document)
 			response := putConfigDocument(t, app, limiter, document)
 
@@ -591,7 +592,7 @@ func newConfigHTTPOutboundLimiterFixture(t *testing.T, message config.MessageCon
 		t.Fatalf("load default config: %v", err)
 	}
 
-	document := configDocumentFromTyped(cfg)
+	document := httpwire.ConfigDocumentFromTyped(cfg)
 	messageDoc := messageSection(t, document)
 	messageDoc["rate_limit_per_plugin"] = message.RateLimitPerPlugin
 	messageDoc["rate_limit_per_target"] = message.RateLimitPerTarget
@@ -615,9 +616,9 @@ func putConfigDocument(t *testing.T, app *App, limiter *recordingConfigOutboundL
 		t.Fatalf("marshal config request: %v", err)
 	}
 
-	handler := configapi.NewHandlers(newConfigHTTPService(configHTTPDeps{
-		state:           app.state,
-		outboundLimiter: limiter,
+	handler := configapi.NewHandlers(httpwire.NewConfigService(httpwire.ConfigDeps{
+		Runtime:         app.state,
+		OutboundLimiter: limiter,
 	}))
 	request := httptest.NewRequest(http.MethodPut, "/api/config", bytes.NewReader(body))
 	recorder := httptest.NewRecorder()

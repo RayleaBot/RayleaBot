@@ -9,10 +9,10 @@ import (
 )
 
 func configureAppRuntimeCallbacks(application *App, schedulerTriggers *schedulerTriggerProxy) {
-	systemService := application.services.system
-	lifecycle := application.services.pluginLifecycle
-	eventIngress := application.services.eventIngress
-	protocolService := application.services.protocol
+	systemService := application.services.System
+	lifecycle := application.services.PluginLifecycle
+	eventIngress := application.services.EventIngress
+	protocolService := application.services.Protocol
 
 	systemService.BindShutdownFlag(&application.process.shuttingDown)
 	systemService.RefreshRecoverySummary()
@@ -20,7 +20,7 @@ func configureAppRuntimeCallbacks(application *App, schedulerTriggers *scheduler
 
 	if installer, ok := application.pluginStack.PluginInstaller.(interface{ SetAfterSuccess(func(string) error) }); ok {
 		installer.SetAfterSuccess(func(string) error {
-			if err := renderplugintemplates.SyncCatalogRenderTemplates(context.Background(), application.pluginStack.renderer, application.pluginStack.Plugins); err != nil {
+			if err := renderplugintemplates.SyncCatalogRenderTemplates(context.Background(), application.pluginStack.Renderer, application.pluginStack.Plugins); err != nil {
 				return err
 			}
 			systemService.ReconcileRecoverySummaryBestEffort("plugin.install")
@@ -38,10 +38,10 @@ func configureAppRuntimeCallbacks(application *App, schedulerTriggers *scheduler
 	}); ok {
 		uninstaller.SetStopPlugin(lifecycle.StopAndResetPlugin)
 		uninstaller.SetAfterSuccess(func(pluginID string) {
-			if application.pluginStack.renderer != nil {
-				_ = application.pluginStack.renderer.RemovePluginTemplates(context.Background(), pluginID)
+			if application.pluginStack.Renderer != nil {
+				_ = application.pluginStack.Renderer.RemovePluginTemplates(context.Background(), pluginID)
 			}
-			_ = renderplugintemplates.SyncCatalogRenderTemplates(context.Background(), application.pluginStack.renderer, application.pluginStack.Plugins)
+			_ = renderplugintemplates.SyncCatalogRenderTemplates(context.Background(), application.pluginStack.Renderer, application.pluginStack.Plugins)
 			systemService.ReconcileRecoverySummaryBestEffort("plugin.uninstall")
 		})
 	}

@@ -5,6 +5,7 @@ import (
 	"time"
 
 	bilibiliSession "github.com/RayleaBot/RayleaBot/server/internal/integrations/bilibili/session"
+	bilibilivalues "github.com/RayleaBot/RayleaBot/server/internal/integrations/bilibili/values"
 	"github.com/RayleaBot/RayleaBot/server/internal/thirdparty"
 )
 
@@ -76,10 +77,10 @@ func requestCooldownKey(scope string, account thirdparty.Account, cookie string)
 	}
 	accountKey := strings.TrimSpace(account.Platform + ":" + account.AccountID)
 	if accountKey == ":" {
-		accountKey = cookieFingerprint(cookie)
+		accountKey = bilibilivalues.CookieFingerprint(cookie)
 	}
 	if accountKey == "" {
 		return ""
 	}
-	return scope + ":" + accountKey + ":" + cookieFingerprint(cookie)
+	return scope + ":" + accountKey + ":" + bilibilivalues.CookieFingerprint(cookie)
 }

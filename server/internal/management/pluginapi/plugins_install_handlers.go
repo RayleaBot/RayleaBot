@@ -3,11 +3,16 @@ package pluginapi
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	"net/http"
 
+	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	"github.com/RayleaBot/RayleaBot/server/internal/tasks"
+	"github.com/go-chi/chi/v5"
 )
+
+func registerPluginInstallRoutes(router chi.Router, catalog plugins.CatalogView, taskRegistry *tasks.Registry, installer plugins.InstallCoordinator) {
+	router.Post("/api/plugins/install", newInstallHandler(catalog, taskRegistry, installer))
+}
 
 func newInstallHandler(catalog plugins.CatalogView, taskRegistry *tasks.Registry, installer plugins.InstallCoordinator) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {

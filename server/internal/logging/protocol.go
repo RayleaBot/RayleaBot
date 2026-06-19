@@ -72,6 +72,10 @@ func protocolFromSource(source string) string {
 }
 
 func protocolSources(protocol string) []string {
+	return SourcesForProtocol(protocol)
+}
+
+func SourcesForProtocol(protocol string) []string {
 	switch strings.TrimSpace(protocol) {
 	case ProtocolOneBot11:
 		return []string{"adapter", "adapter.onebot11", "bridge"}

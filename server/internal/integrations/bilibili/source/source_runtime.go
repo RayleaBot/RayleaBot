@@ -60,8 +60,8 @@ func (s *Source) reconcile(ctx context.Context, subjectsRef *map[string]Subject,
 		return
 	}
 	*subjectsRef = subjects
-	liveAccount, liveCookie, liveErr := s.accountCookieForLive(ctx)
-	dynamicAccount, dynamicCookie, dynamicErr := s.accountCookieForDynamic(ctx)
+	liveAccount, liveCookie, liveErr := s.accountUsage.LiveCookie(ctx)
+	dynamicAccount, dynamicCookie, dynamicErr := s.accountUsage.DynamicCookie(ctx)
 	*liveAccountRef = liveAccount
 	*liveCookieRef = liveCookie
 	*dynamicAccountRef = dynamicAccount
@@ -77,4 +77,11 @@ func (s *Source) reconcile(ctx context.Context, subjectsRef *map[string]Subject,
 	}
 	s.ensureRoomTasks(ctx, subjects, liveAccount, liveCookie)
 	s.updateWatchCounts(ctx, subjects)
+}
+
+func (s *Source) loadSubjects(ctx context.Context) (map[string]Subject, error) {
+	if s == nil || s.subjects == nil {
+		return map[string]Subject{}, nil
+	}
+	return s.subjects.LoadSubjects(ctx)
 }

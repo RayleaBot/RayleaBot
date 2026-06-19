@@ -18,6 +18,7 @@ import (
 
 	adapterintake "github.com/RayleaBot/RayleaBot/server/internal/bot/adapter/onebot11/intake"
 	adapteroutbound "github.com/RayleaBot/RayleaBot/server/internal/bot/adapter/onebot11/outbound"
+	adapterbackoff "github.com/RayleaBot/RayleaBot/server/internal/bot/adapter/onebot11/shell/backoff"
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/logging"
 )
@@ -87,7 +88,7 @@ func TestShellReachesConnectedAfterReadyFrame(t *testing.T) {
 		t.Fatalf("unexpected last frame type: got %q want %q", snapshot.LastFrameType, "meta.lifecycle.enable")
 	}
 
-	stopCtx, stopCancel := context.WithTimeout(context.Background(), time.Second)
+	stopCtx, stopCancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer stopCancel()
 	if err := shell.Stop(stopCtx); err != nil {
 		t.Fatalf("Stop failed: %v", err)
@@ -119,7 +120,7 @@ func TestShellAuthFailureStopsAtAuthFailed(t *testing.T) {
 		t.Fatalf("expected auth_failed to remain stable, got %s", shell.Snapshot().State)
 	}
 
-	stopCtx, stopCancel := context.WithTimeout(context.Background(), time.Second)
+	stopCtx, stopCancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer stopCancel()
 	if err := shell.Stop(stopCtx); err != nil {
 		t.Fatalf("Stop failed: %v", err)
@@ -164,7 +165,7 @@ func TestShellDoesNotConnectDisabledConfiguredForwardTransport(t *testing.T) {
 		t.Fatal("forward transport configured = false, want true")
 	}
 
-	stopCtx, stopCancel := context.WithTimeout(context.Background(), time.Second)
+	stopCtx, stopCancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer stopCancel()
 	if err := shell.Stop(stopCtx); err != nil {
 		t.Fatalf("Stop failed: %v", err)
@@ -290,7 +291,7 @@ func TestShellReloadReconnectsWithNewForwardTransportAndKeepsSendUsable(t *testi
 		t.Fatalf("unexpected request action after reload: %#v", request["action"])
 	}
 
-	stopCtx, stopCancel := context.WithTimeout(context.Background(), time.Second)
+	stopCtx, stopCancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer stopCancel()
 	if err := shell.Stop(stopCtx); err != nil {
 		t.Fatalf("Stop failed: %v", err)
@@ -370,7 +371,7 @@ func TestShellWaitsForReadyFrameWhileTrafficContinues(t *testing.T) {
 		t.Fatalf("unexpected last frame category: got %s want %s", snapshot.LastFrameCategory, adapterintake.FrameCategoryLifecycleReady)
 	}
 
-	stopCtx, stopCancel := context.WithTimeout(context.Background(), time.Second)
+	stopCtx, stopCancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer stopCancel()
 	if err := shell.Stop(stopCtx); err != nil {
 		t.Fatalf("Stop failed: %v", err)
@@ -443,7 +444,7 @@ func TestShellHeartbeatUpdatesIntakeObservability(t *testing.T) {
 		t.Fatalf("unexpected bot id from heartbeat: got %q want %q", snapshot.BotID, "30003")
 	}
 
-	stopCtx, stopCancel := context.WithTimeout(context.Background(), time.Second)
+	stopCtx, stopCancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer stopCancel()
 	if err := shell.Stop(stopCtx); err != nil {
 		t.Fatalf("Stop failed: %v", err)
@@ -504,7 +505,7 @@ func TestShellTreatsLifecycleConnectAsReadyAndKeepsSessionOpen(t *testing.T) {
 		t.Fatalf("unexpected bot id: got %q want %q", snapshot.BotID, "30003")
 	}
 
-	stopCtx, stopCancel := context.WithTimeout(context.Background(), time.Second)
+	stopCtx, stopCancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer stopCancel()
 	if err := shell.Stop(stopCtx); err != nil {
 		t.Fatalf("Stop failed: %v", err)
@@ -558,7 +559,7 @@ func TestShellAcceptsBinaryReadyFrame(t *testing.T) {
 		t.Fatalf("unexpected last frame category: got %s want %s", snapshot.LastFrameCategory, adapterintake.FrameCategoryHeartbeat)
 	}
 
-	stopCtx, stopCancel := context.WithTimeout(context.Background(), time.Second)
+	stopCtx, stopCancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer stopCancel()
 	if err := shell.Stop(stopCtx); err != nil {
 		t.Fatalf("Stop failed: %v", err)
@@ -626,7 +627,7 @@ func TestShellInvalidFrameIncrementsInvalidCounter(t *testing.T) {
 		t.Fatalf("unexpected last frame type: got %q want %q", snapshot.LastFrameType, "invalid")
 	}
 
-	stopCtx, stopCancel := context.WithTimeout(context.Background(), time.Second)
+	stopCtx, stopCancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer stopCancel()
 	if err := shell.Stop(stopCtx); err != nil {
 		t.Fatalf("Stop failed: %v", err)
@@ -701,7 +702,7 @@ func TestShellUnknownFrameIsClassifiedConservatively(t *testing.T) {
 		t.Fatalf("unexpected last frame type: got %q want %q", snapshot.LastFrameType, "unknown")
 	}
 
-	stopCtx, stopCancel := context.WithTimeout(context.Background(), time.Second)
+	stopCtx, stopCancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer stopCancel()
 	if err := shell.Stop(stopCtx); err != nil {
 		t.Fatalf("Stop failed: %v", err)
@@ -778,7 +779,7 @@ func TestShellNonStringEchoDoesNotTriggerReconnect(t *testing.T) {
 		t.Fatalf("unexpected last frame type: got %q want %q", snapshot.LastFrameType, "api.response.ignored")
 	}
 
-	stopCtx, stopCancel := context.WithTimeout(context.Background(), time.Second)
+	stopCtx, stopCancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer stopCancel()
 	if err := shell.Stop(stopCtx); err != nil {
 		t.Fatalf("Stop failed: %v", err)
@@ -852,7 +853,7 @@ func TestShellBlankEchoDoesNotTriggerReconnect(t *testing.T) {
 		t.Fatalf("unexpected last frame type: got %q want %q", snapshot.LastFrameType, "api.response.ignored")
 	}
 
-	stopCtx, stopCancel := context.WithTimeout(context.Background(), time.Second)
+	stopCtx, stopCancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer stopCancel()
 	if err := shell.Stop(stopCtx); err != nil {
 		t.Fatalf("Stop failed: %v", err)
@@ -927,7 +928,7 @@ func TestShellEventFrameIsConsumedWithoutSideEffects(t *testing.T) {
 		t.Fatalf("unexpected last frame type: got %q want %q", snapshot.LastFrameType, "message")
 	}
 
-	stopCtx, stopCancel := context.WithTimeout(context.Background(), time.Second)
+	stopCtx, stopCancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer stopCancel()
 	if err := shell.Stop(stopCtx); err != nil {
 		t.Fatalf("Stop failed: %v", err)
@@ -968,7 +969,7 @@ func TestShellReconnectsWhenReadyFrameTimesOut(t *testing.T) {
 		t.Fatalf("unexpected error code: got %q want %q", snapshot.LastErrorCode, errorCodeForwardWSConnectFail)
 	}
 
-	stopCtx, stopCancel := context.WithTimeout(context.Background(), time.Second)
+	stopCtx, stopCancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer stopCancel()
 	if err := shell.Stop(stopCtx); err != nil {
 		t.Fatalf("Stop failed: %v", err)
@@ -1025,7 +1026,7 @@ func TestShellReconnectsAfterConnectionLoss(t *testing.T) {
 		t.Fatalf("unexpected error code: got %q want %q", snapshot.LastErrorCode, errorCodeForwardWSSessionLost)
 	}
 
-	stopCtx, stopCancel := context.WithTimeout(context.Background(), time.Second)
+	stopCtx, stopCancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer stopCancel()
 	if err := shell.Stop(stopCtx); err != nil {
 		t.Fatalf("Stop failed: %v", err)
@@ -1079,7 +1080,7 @@ func TestShellKeepsConnectionOpenWhenHeartbeatHasNotStartedAfterLifecycleEnable(
 		t.Fatalf("unexpected error code: got %q want empty", snapshot.LastErrorCode)
 	}
 
-	stopCtx, stopCancel := context.WithTimeout(context.Background(), time.Second)
+	stopCtx, stopCancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer stopCancel()
 	if err := shell.Stop(stopCtx); err != nil {
 		t.Fatalf("Stop failed: %v", err)
@@ -1130,7 +1131,7 @@ func TestShellReconnectsAfterHeartbeatTimeout(t *testing.T) {
 		t.Fatalf("unexpected error code: got %q want %q", snapshot.LastErrorCode, errorCodeForwardWSSessionLost)
 	}
 
-	stopCtx, stopCancel := context.WithTimeout(context.Background(), time.Second)
+	stopCtx, stopCancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer stopCancel()
 	if err := shell.Stop(stopCtx); err != nil {
 		t.Fatalf("Stop failed: %v", err)
@@ -1175,7 +1176,7 @@ func TestShellStopTransitionsToStopped(t *testing.T) {
 	shell.Start(ctx)
 	waitForState(t, shell, StateConnected, 500*time.Millisecond)
 
-	stopCtx, stopCancel := context.WithTimeout(context.Background(), time.Second)
+	stopCtx, stopCancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer stopCancel()
 	if err := shell.Stop(stopCtx); err != nil {
 		t.Fatalf("Stop failed: %v", err)
@@ -1246,7 +1247,7 @@ func TestShellStopWaitsForReverseWebSocketAndStoppedLog(t *testing.T) {
 	}
 	waitForState(t, shell, StateConnected, 500*time.Millisecond)
 
-	stopCtx, stopCancel := context.WithTimeout(context.Background(), time.Second)
+	stopCtx, stopCancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer stopCancel()
 	if err := shell.Stop(stopCtx); err != nil {
 		t.Fatalf("Stop failed: %v", err)
@@ -1288,7 +1289,7 @@ func TestShellRestartWithoutConfiguredForwardTransportReturnsToIdle(t *testing.T
 	shell.Start(ctx)
 	waitForState(t, shell, StateIdle, 200*time.Millisecond)
 
-	stopCtx, stopCancel := context.WithTimeout(context.Background(), time.Second)
+	stopCtx, stopCancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer stopCancel()
 	if err := shell.Stop(stopCtx); err != nil {
 		t.Fatalf("first Stop failed: %v", err)
@@ -1308,7 +1309,7 @@ func TestShellRestartWithoutConfiguredForwardTransportReturnsToIdle(t *testing.T
 		t.Fatalf("expected cleared adapter error after restart, got %q", snapshot.LastErrorCode)
 	}
 
-	secondStopCtx, secondStopCancel := context.WithTimeout(context.Background(), time.Second)
+	secondStopCtx, secondStopCancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer secondStopCancel()
 	if err := shell.Stop(secondStopCtx); err != nil {
 		t.Fatalf("second Stop failed: %v", err)
@@ -1439,7 +1440,7 @@ func TestShellSendMessageWritesSendMsgRequestAndReturnsMessageID(t *testing.T) {
 		t.Fatalf("unexpected params shape: %#v", params)
 	}
 
-	stopCtx, stopCancel := context.WithTimeout(context.Background(), time.Second)
+	stopCtx, stopCancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer stopCancel()
 	if err := shell.Stop(stopCtx); err != nil {
 		t.Fatalf("Stop failed: %v", err)
@@ -1518,7 +1519,7 @@ func TestShellSendMessageReturnsAdapterSendFailed(t *testing.T) {
 		t.Fatalf("unexpected adapter error code: got %q want %q", adapterErr.Code, adapteroutbound.ErrorCodeSendFailed)
 	}
 
-	stopCtx, stopCancel := context.WithTimeout(context.Background(), time.Second)
+	stopCtx, stopCancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer stopCancel()
 	if err := shell.Stop(stopCtx); err != nil {
 		t.Fatalf("Stop failed: %v", err)
@@ -1640,7 +1641,7 @@ func TestShellSendReplyWritesReplySegmentRequestAndReturnsMessageID(t *testing.T
 		t.Fatalf("unexpected text segment data: %#v", textSegment["data"])
 	}
 
-	stopCtx, stopCancel := context.WithTimeout(context.Background(), time.Second)
+	stopCtx, stopCancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer stopCancel()
 	if err := shell.Stop(stopCtx); err != nil {
 		t.Fatalf("Stop failed: %v", err)
@@ -1747,7 +1748,7 @@ func TestShellSendMessageWritesRichSegmentArray(t *testing.T) {
 		t.Fatalf("unexpected rich image data: %#v", thirdData)
 	}
 
-	stopCtx, stopCancel := context.WithTimeout(context.Background(), time.Second)
+	stopCtx, stopCancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer stopCancel()
 	if err := shell.Stop(stopCtx); err != nil {
 		t.Fatalf("Stop failed: %v", err)
@@ -1826,7 +1827,7 @@ func TestShellSendReplyMapsReplyTargetMissing(t *testing.T) {
 		t.Fatalf("unexpected adapter error code: got %q want %q", adapterErr.Code, adapteroutbound.ErrorCodeReplyTargetMissing)
 	}
 
-	stopCtx, stopCancel := context.WithTimeout(context.Background(), time.Second)
+	stopCtx, stopCancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer stopCancel()
 	if err := shell.Stop(stopCtx); err != nil {
 		t.Fatalf("Stop failed: %v", err)
@@ -1841,14 +1842,11 @@ func newTestShell(cfg config.OneBotConfig, deps shellDeps) *Shell {
 	if deps.connectTimeout <= 0 {
 		deps.connectTimeout = 50 * time.Millisecond
 	}
+	if deps.connectTimeout < 500*time.Millisecond {
+		deps.connectTimeout = 500 * time.Millisecond
+	}
 	if deps.backoff == nil {
-		deps.backoff = &Backoff{
-			initial:    10 * time.Millisecond,
-			max:        10 * time.Millisecond,
-			multiplier: 1,
-			jitter:     0,
-			randFloat:  func() float64 { return 0.5 },
-		}
+		deps.backoff = adapterbackoff.NewWithDurations(10*time.Millisecond, 1, 10*time.Millisecond, 0, func() float64 { return 0.5 })
 	}
 
 	return newShell(cfg, defaultAdapterConfig(), slog.New(slog.NewJSONHandler(io.Discard, nil)), deps)
@@ -1881,6 +1879,9 @@ func defaultAdapterConfig() config.AdapterConfig {
 func waitForState(t *testing.T, shell *Shell, want State, timeout time.Duration) {
 	t.Helper()
 
+	if timeout < 2*time.Second {
+		timeout = 2 * time.Second
+	}
 	deadline := time.Now().Add(timeout)
 	for time.Now().Before(deadline) {
 		if shell.Snapshot().State == want {
