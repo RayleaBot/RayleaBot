@@ -10,39 +10,17 @@ import (
 )
 
 const (
-	maxProductionFilesPerDir = 19
-	maxTestFilesPerDir       = 20
-	maxProductionFileLines   = 600
-	managementImportPrefix   = "github.com/RayleaBot/RayleaBot/server/internal/management/"
+	// maxProductionFileLines is a loose safety ceiling that only catches
+	// pathologically large files. It is NOT an architectural boundary: package
+	// responsibility is expressed through dependency direction and type
+	// cohesion (see TestCompositionRootLayering / TestDomainPackagesDoNotImportApp),
+	// not file or line counts.
+	maxProductionFileLines = 1500
+
+	modulePrefix           = "github.com/RayleaBot/RayleaBot/server/internal/"
+	managementImportPrefix = modulePrefix + "management/"
+	appImportPrefix        = modulePrefix + "app"
 )
-
-func TestServerPackageFileCountsStayBounded(t *testing.T) {
-	serverRoot := testServerRoot(t)
-	counts := map[string]struct {
-		production int
-		tests      int
-	}{}
-
-	walkGoFiles(t, serverRoot, func(path string) {
-		dir := filepath.Dir(path)
-		entry := counts[dir]
-		if strings.HasSuffix(path, "_test.go") {
-			entry.tests++
-		} else {
-			entry.production++
-		}
-		counts[dir] = entry
-	})
-
-	for dir, count := range counts {
-		if count.production > maxProductionFilesPerDir {
-			t.Errorf("%s has %d production Go files, want <= %d", relPath(t, serverRoot, dir), count.production, maxProductionFilesPerDir)
-		}
-		if count.tests > maxTestFilesPerDir {
-			t.Errorf("%s has %d test Go files, want <= %d", relPath(t, serverRoot, dir), count.tests, maxTestFilesPerDir)
-		}
-	}
-}
 
 func TestManagementPackagesDoNotLeakIntoDomainPackages(t *testing.T) {
 	serverRoot := testServerRoot(t)
@@ -53,15 +31,78 @@ func TestManagementPackagesDoNotLeakIntoDomainPackages(t *testing.T) {
 			return
 		}
 
-		fileSet := token.NewFileSet()
-		parsed, err := parser.ParseFile(fileSet, path, nil, parser.ImportsOnly)
-		if err != nil {
-			t.Fatalf("parse %s imports: %v", relPath(t, serverRoot, path), err)
-		}
-		for _, imported := range parsed.Imports {
-			importPath := strings.Trim(imported.Path.Value, `"`)
+		for _, importPath := range fileImports(t, serverRoot, path) {
 			if strings.HasPrefix(importPath, managementImportPrefix) {
 				t.Errorf("%s imports management package %s", relPath(t, serverRoot, path), importPath)
+			}
+		}
+	})
+}
+
+// TestCompositionRootLayering enforces the one-directional assembly order of
+// the app composition root: platform -> pluginstack -> servicegraph -> httpwire.
+// A lower layer must never import a higher one, and only internal/app itself may
+// reach across all four sub-packages.
+func TestCompositionRootLayering(t *testing.T) {
+	serverRoot := testServerRoot(t)
+	appRoot := filepath.Join(serverRoot, "internal", "app")
+
+	const (
+		platform    = appImportPrefix + "/platform"
+		pluginstack = appImportPrefix + "/pluginstack"
+		servicegraph = appImportPrefix + "/servicegraph"
+		httpwire    = appImportPrefix + "/httpwire"
+	)
+	// forbidden maps a sub-package directory to the higher layers it must not import.
+	forbidden := map[string][]string{
+		"platform":     {pluginstack, servicegraph, httpwire},
+		"pluginstack":  {servicegraph, httpwire},
+		"servicegraph": {httpwire},
+	}
+
+	for subDir, higherLayers := range forbidden {
+		dir := filepath.Join(appRoot, subDir)
+		walkGoFiles(t, dir, func(path string) {
+			if strings.HasSuffix(path, "_test.go") {
+				return
+			}
+			for _, importPath := range fileImports(t, serverRoot, path) {
+				for _, higher := range higherLayers {
+					if importPath == higher || strings.HasPrefix(importPath, higher+"/") {
+						t.Errorf("%s imports higher composition layer %s", relPath(t, serverRoot, path), importPath)
+					}
+				}
+			}
+		})
+	}
+}
+
+// TestDomainPackagesDoNotImportApp forbids domain packages from importing the
+// composition root. Only the entry/assembly layer (internal/app,
+// internal/bootstrap), test harnesses (internal/testapp) and the server/tests
+// tree may depend on internal/app or internal/app/httpwire.
+func TestDomainPackagesDoNotImportApp(t *testing.T) {
+	serverRoot := testServerRoot(t)
+	internalRoot := filepath.Join(serverRoot, "internal")
+
+	exempt := []string{
+		filepath.Join(internalRoot, "app"),
+		filepath.Join(internalRoot, "bootstrap"),
+		filepath.Join(internalRoot, "testapp"),
+	}
+
+	walkGoFiles(t, internalRoot, func(path string) {
+		if strings.HasSuffix(path, "_test.go") {
+			return
+		}
+		for _, root := range exempt {
+			if pathWithin(path, root) {
+				return
+			}
+		}
+		for _, importPath := range fileImports(t, serverRoot, path) {
+			if importPath == appImportPrefix || strings.HasPrefix(importPath, appImportPrefix+"/") {
+				t.Errorf("%s imports composition root %s", relPath(t, serverRoot, path), importPath)
 			}
 		}
 	})
@@ -82,6 +123,21 @@ func TestProductionFilesStayReadable(t *testing.T) {
 			t.Errorf("%s has %d lines, want <= %d", relPath(t, serverRoot, path), lineCount, maxProductionFileLines)
 		}
 	})
+}
+
+func fileImports(t *testing.T, serverRoot, path string) []string {
+	t.Helper()
+
+	fileSet := token.NewFileSet()
+	parsed, err := parser.ParseFile(fileSet, path, nil, parser.ImportsOnly)
+	if err != nil {
+		t.Fatalf("parse %s imports: %v", relPath(t, serverRoot, path), err)
+	}
+	imports := make([]string, 0, len(parsed.Imports))
+	for _, imported := range parsed.Imports {
+		imports = append(imports, strings.Trim(imported.Path.Value, `"`))
+	}
+	return imports
 }
 
 func testServerRoot(t *testing.T) string {

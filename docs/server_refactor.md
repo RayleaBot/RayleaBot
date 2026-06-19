@@ -1,6 +1,6 @@
 # Server Structure Baseline
 
-本文档记录 `server/` 的结构边界、包规模约束和验证入口。
+本文档记录 `server/` 的结构边界、依赖方向和验证入口。
 
 ## 结构边界
 
@@ -11,6 +11,7 @@
 | `server/internal/app/pluginstack` | 插件主链组装，包括 catalog、adapter、bridge、dispatcher、render、plugin repository、grant repository |
 | `server/internal/app/servicegraph` | 应用服务组装，包括 local actions、runtime registry、system、plugin lifecycle、event ingress、protocol、webhook、governance、third-party、Bilibili source |
 | `server/internal/app/httpwire` | HTTP server、management handlers、WebSocket handlers 和路由模块组装 |
+| `server/internal/bootstrap` | `cmd/raylea-server` 与 `internal/app` 之间的入口装配层 |
 | `server/internal/management/router` | 管理面公共路由、受保护路由、管理 UI fallback 和健康检查 |
 | `server/internal/management/*api` | 各管理面 HTTP API 子域的 handler、request、response 和路由注册 |
 | `server/internal/management/pluginapi/view` | 插件管理 API 的列表、详情、授权和 dead-letter response 投影 |
@@ -25,42 +26,31 @@
 | `server/internal/system/startup` | 启动运行环境阶段、标签、日志字段和失败归因 |
 | `server/internal/bot/adapter/onebot11/shell/backoff` | OneBot11 shell 重连退避算法 |
 
-## 包规模约束
+## 包职责原则
 
-`server/tests/architecture` 维护结构回归检查：
+职责边界由**依赖方向**和**类型内聚**表达，不由文件数或行数表达。
 
-| 约束 | 上限 |
-| --- | ---: |
-| 单目录生产 Go 文件数 | 19 |
-| 单目录测试 Go 文件数 | 20 |
-| 单个生产 Go 文件行数 | 600 |
+- 一个类型的方法散落到多个文件，不构成职责边界。包内职责过重时，按职责抽出**协作者类型**或**子包**（各自持有自身状态与测试），让原类型退化为协调器；不要按方法前缀把同一类型切成更多文件。
+- 同一职责被拆成多个微文件（例如把 handler 与其专用 request/response 类型拆成 `_handlers.go` + `_types.go`）时，合并回同一文件。
+- 生成物、测试工具和构建产物不承担业务边界职责。
 
-生成物、测试工具和构建产物不承担业务边界职责。生产包超出上限时，需要拆出明确职责包；同一职责被拆成多个小文件时，可以合并到同一文件。
+`server/tests/architecture` 维护结构回归检查。其中行数检查仅作为拦截病态文件的宽松安全网（单个生产 Go 文件 ≤ 1500 行），不作为拆分驱动指标。
 
 ## 依赖方向
 
 - `contracts/` 是 HTTP、WebSocket、schema、错误码和发布元数据的正式来源。
 - `management/*api` 只承担管理面入口和 DTO 投影，不作为领域服务模型来源。
-- `server/internal/app` 可以依赖多个子系统；其它生产包不得通过管理面 API 类型表达业务状态。
+- composition root 单向装配：`platform → pluginstack → servicegraph → httpwire`。下层不得 import 上层，只有 `internal/app` 可同时 import 这四个子包。
+- 领域包不得 import composition root：除入口/装配层（`internal/app`、`internal/bootstrap`）、测试 harness（`internal/testapp`）和 `server/tests/**` 外，`internal/` 下生产代码不得 import `internal/app` 或 `internal/app/httpwire`。
 - `server/internal/app/httpwire` 负责把运行时配置投影为管理面 handler 所需配置。
 - `auth` 持有认证基础设施；管理面登录 handler 只消费认证接口和登录失败计数接口。
 - `plugins/actions` 通过 registry 分发 local action；每个 action 子包只持有自身需要的依赖。
 
-`server/tests/architecture` 禁止 `server/internal/app` 与 `server/internal/management` 之外的生产代码 import `server/internal/management/*`。
+`server/tests/architecture` 强制：
 
-## 规模边界目录
-
-| 目录 | 生产 Go 文件数 |
-| --- | ---: |
-| `server/internal/render/service` | 19 |
-| `server/internal/plugins/runtime/manager` | 19 |
-| `server/internal/bot/adapter/onebot11/shell` | 19 |
-| `server/internal/dispatch` | 18 |
-| `server/internal/system` | 18 |
-| `server/internal/integrations/bilibili/session` | 18 |
-| `server/internal/plugins/install` | 18 |
-
-这些目录接近包规模上限。新增职责进入这些目录时，需要优先拆出子包或迁入已有职责包。
+- `TestManagementPackagesDoNotLeakIntoDomainPackages`：`internal/app` 与 `internal/management` 之外的生产代码不得 import `internal/management/*`。
+- `TestCompositionRootLayering`：composition root 子包遵守单向装配顺序。
+- `TestDomainPackagesDoNotImportApp`：领域包不得 import composition root。
 
 ## 验证入口
 
