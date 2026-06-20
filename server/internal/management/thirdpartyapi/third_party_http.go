@@ -10,11 +10,12 @@ import (
 )
 
 type ThirdPartyHandlers struct {
-	accounts         thirdPartyAccountService
-	accountValidator thirdPartyCredentialValidator
-	qrLogin          thirdPartyQRCodeLoginService
-	monitors         thirdPartyMonitorService
-	mediaClient      *http.Client
+	accounts                 thirdPartyAccountService
+	accountValidator         thirdPartyCredentialValidator
+	platformAccountValidator *thirdpartylogin.AccountValidator
+	qrLogin                  thirdPartyQRCodeLoginService
+	monitors                 thirdPartyMonitorService
+	mediaClient              *http.Client
 }
 
 type thirdPartyAccountService interface {
@@ -37,10 +38,11 @@ func NewThirdPartyHandlers(accounts thirdPartyAccountService, accountValidator t
 		transport = http.DefaultTransport
 	}
 	return &ThirdPartyHandlers{
-		accounts:         accounts,
-		accountValidator: accountValidator,
-		qrLogin:          qrLogin,
-		monitors:         monitors,
-		mediaClient:      &http.Client{Transport: transport, Timeout: 20 * time.Second},
+		accounts:                 accounts,
+		accountValidator:         accountValidator,
+		platformAccountValidator: thirdpartylogin.NewAccountValidator(transport, nil),
+		qrLogin:                  qrLogin,
+		monitors:                 monitors,
+		mediaClient:              &http.Client{Transport: transport, Timeout: 20 * time.Second},
 	}
 }

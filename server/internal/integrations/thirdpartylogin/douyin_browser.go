@@ -4,29 +4,29 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/chromedp/cdproto/network"
-	"github.com/chromedp/cdproto/page"
 	"github.com/chromedp/chromedp"
 )
 
 const (
-	douyinBrowserLoginURL    = "https://www.douyin.com/login_page?service=https%3A%2F%2Fwww.douyin.com%2F"
-	douyinBrowserCreateMatch = "/passport/web/get_qrcode/"
-	douyinBrowserPollMatch   = "/passport/web/check_qrconnect/"
+	douyinBrowserLoginURL = "https://www.douyin.com/login_page?service=https%3A%2F%2Fwww.douyin.com%2F"
 )
 
 type douyinBrowserOptions struct {
 	BrowserPath string
 	BrowserArgs []string
+	Transport   http.RoundTripper
 }
 
 type chromedpDouyinBrowser struct {
 	browserPath string
 	browserArgs []string
+	client      *http.Client
 
 	mu       sync.Mutex
 	sessions map[string]*douyinBrowserRuntime
@@ -36,12 +36,14 @@ type douyinBrowserRuntime struct {
 	ctx       context.Context
 	cancel    context.CancelFunc
 	expiresAt time.Time
+	cookies   map[string]string
 }
 
 func newChromedpDouyinBrowser(options douyinBrowserOptions) *chromedpDouyinBrowser {
 	return &chromedpDouyinBrowser{
 		browserPath: strings.TrimSpace(options.BrowserPath),
 		browserArgs: append([]string(nil), options.BrowserArgs...),
+		client:      newHTTPClient(options.Transport),
 		sessions:    make(map[string]*douyinBrowserRuntime),
 	}
 }
@@ -51,71 +53,40 @@ func (b *chromedpDouyinBrowser) Create(ctx context.Context, now time.Time) (douy
 	runCtx, cancelRun := context.WithTimeout(tabCtx, 35*time.Second)
 	defer cancelRun()
 
-	var body string
 	err := chromedp.Run(runCtx,
-		chromedp.ActionFunc(func(ctx context.Context) error {
-			_, err := page.AddScriptToEvaluateOnNewDocument(douyinBrowserCaptureScript).Do(ctx)
-			return err
-		}),
 		network.Enable(),
 		chromedp.Navigate(douyinBrowserLoginURL),
 		chromedp.WaitReady("body"),
-		waitDouyinCapturedBody(douyinBrowserCreateMatch, &body),
 	)
 	if err != nil {
 		cancel()
 		return douyinBrowserCreateResult{}, err
 	}
-
-	var response struct {
-		Message string `json:"message"`
-		Data    struct {
-			ErrorCode      int    `json:"error_code"`
-			Description    string `json:"description"`
-			Token          string `json:"token"`
-			QRCodeIndexURL string `json:"qrcode_index_url"`
-			ExpireTime     int64  `json:"expire_time"`
-		} `json:"data"`
-	}
-	if err := json.Unmarshal([]byte(body), &response); err != nil {
+	cookies, err := b.cookies(tabCtx)
+	if err != nil {
 		cancel()
-		return douyinBrowserCreateResult{}, fmt.Errorf("decode douyin qrcode create response: %w", err)
+		return douyinBrowserCreateResult{}, err
 	}
-	if response.Data.ErrorCode != 0 {
+	result, err := createDouyinQRCode(ctx, b.client, now, cookies)
+	if err != nil {
 		cancel()
-		return douyinBrowserCreateResult{}, fmt.Errorf("douyin qrcode create failed: %s", firstNonEmpty(response.Data.Description, response.Message, "invalid response"))
-	}
-	token := strings.TrimSpace(response.Data.Token)
-	qrcodeURL := strings.TrimSpace(response.Data.QRCodeIndexURL)
-	if token == "" || qrcodeURL == "" {
-		cancel()
-		return douyinBrowserCreateResult{}, fmt.Errorf("douyin qrcode create missing token or qrcode url")
-	}
-
-	expiresAt := now.Add(3 * time.Minute)
-	if response.Data.ExpireTime > 0 {
-		remoteExpiresAt := time.Unix(response.Data.ExpireTime, 0).UTC()
-		if remoteExpiresAt.After(now) {
-			expiresAt = remoteExpiresAt
-		}
+		return douyinBrowserCreateResult{}, err
 	}
 
 	b.mu.Lock()
-	if old := b.sessions[token]; old != nil {
+	if old := b.sessions[result.Token]; old != nil {
 		old.cancel()
 	}
-	b.sessions[token] = &douyinBrowserRuntime{
+	b.sessions[result.Token] = &douyinBrowserRuntime{
 		ctx:       tabCtx,
 		cancel:    cancel,
-		expiresAt: expiresAt,
+		expiresAt: result.ExpiresAt,
+		cookies:   cloneStringMap(cookies),
 	}
 	b.mu.Unlock()
 
-	return douyinBrowserCreateResult{
-		Token:     token,
-		QRCodeURL: qrcodeURL,
-		ExpiresAt: expiresAt,
-	}, nil
+	result.Cookies = cloneStringMap(cookies)
+	return result, nil
 }
 
 func (b *chromedpDouyinBrowser) Poll(ctx context.Context, token string) (douyinBrowserPollResult, error) {
@@ -131,52 +102,22 @@ func (b *chromedpDouyinBrowser) Poll(ctx context.Context, token string) (douyinB
 		return douyinBrowserPollResult{State: StateExpired}, nil
 	}
 
-	runCtx, cancelRun := context.WithTimeout(session.ctx, 10*time.Second)
-	defer cancelRun()
-
-	var body string
-	if err := chromedp.Run(runCtx, latestDouyinCapturedBody(douyinBrowserPollMatch, &body)); err != nil {
+	cookies := cloneStringMap(session.cookies)
+	result, err := pollDouyinQRCode(ctx, b.client, time.Now().UTC(), token, cookies)
+	if err != nil {
 		return douyinBrowserPollResult{}, err
 	}
-	if strings.TrimSpace(body) == "" {
-		return douyinBrowserPollResult{State: StatePendingScan}, nil
-	}
-
-	var response struct {
-		Message string `json:"message"`
-		Data    struct {
-			ErrorCode   int             `json:"error_code"`
-			Description string          `json:"description"`
-			Status      json.RawMessage `json:"status"`
-		} `json:"data"`
-	}
-	if err := json.Unmarshal([]byte(body), &response); err != nil {
-		return douyinBrowserPollResult{}, fmt.Errorf("decode douyin qrcode poll response: %w", err)
-	}
-	if response.Data.ErrorCode != 0 {
-		return douyinBrowserPollResult{}, fmt.Errorf("douyin qrcode poll failed: %s", firstNonEmpty(response.Data.Description, response.Message, "invalid response"))
-	}
-
-	switch douyinStatus(response.Data.Status) {
-	case "1", "new":
-		return douyinBrowserPollResult{State: StatePendingScan}, nil
-	case "2", "scanned":
-		return douyinBrowserPollResult{State: StatePendingConfirm}, nil
-	case "3", "confirmed", "success", "succeeded":
-		cookies, err := b.waitLoginCookies(session.ctx, 3*time.Second)
-		if err != nil {
-			return douyinBrowserPollResult{}, err
+	if result.State == StateSucceeded && !douyinHasLoginCookie(cookies) {
+		if browserCookies, err := b.waitLoginCookies(session.ctx, 3*time.Second); err == nil {
+			for key, value := range browserCookies {
+				cookies[key] = value
+			}
+			result.Cookie = cookieHeader(cookies)
+			result.Cookies = cloneStringMap(cookies)
 		}
-		return douyinBrowserPollResult{
-			State:   StateSucceeded,
-			Cookie:  cookieHeader(cookies),
-			Cookies: cookies,
-		}, nil
-	case "4", "5", "expired", "canceled", "cancelled":
-		return douyinBrowserPollResult{State: StateExpired}, nil
-	default:
-		return douyinBrowserPollResult{}, fmt.Errorf("douyin qrcode poll status %s", string(response.Data.Status))
 	}
+	session.cookies = cloneStringMap(cookies)
+	return result, nil
 }
 
 func (b *chromedpDouyinBrowser) Close(token string) {
@@ -261,39 +202,6 @@ func newDouyinBrowserContext(browserPath string, browserArgs []string) (context.
 	}
 }
 
-func waitDouyinCapturedBody(pattern string, body *string) chromedp.Action {
-	return chromedp.ActionFunc(func(ctx context.Context) error {
-		for {
-			if err := latestDouyinCapturedBody(pattern, body).Do(ctx); err != nil {
-				return err
-			}
-			if strings.TrimSpace(*body) != "" {
-				return nil
-			}
-			select {
-			case <-ctx.Done():
-				return ctx.Err()
-			case <-time.After(250 * time.Millisecond):
-			}
-		}
-	})
-}
-
-func latestDouyinCapturedBody(pattern string, body *string) chromedp.Action {
-	expression := fmt.Sprintf(`(() => {
-		const pattern = %q;
-		const captures = window.__rayleaDouyinQRCaptures || [];
-		for (let i = captures.length - 1; i >= 0; i--) {
-			const item = captures[i];
-			if (item && typeof item.url === "string" && item.url.includes(pattern)) {
-				return item.body || "";
-			}
-		}
-		return "";
-	})()`, pattern)
-	return chromedp.Evaluate(expression, body)
-}
-
 func douyinStatus(raw json.RawMessage) string {
 	value := strings.TrimSpace(string(raw))
 	if value == "" || value == "null" {
@@ -345,48 +253,3 @@ func douyinAllocatorFlags(arguments []string) []chromedp.ExecAllocatorOption {
 	}
 	return flags
 }
-
-const douyinBrowserCaptureScript = `
-(() => {
-  if (window.__rayleaDouyinQRHookInstalled) return;
-  window.__rayleaDouyinQRHookInstalled = true;
-  window.__rayleaDouyinQRCaptures = [];
-  const capture = (url, status, body) => {
-    try {
-      const item = { url: String(url || ""), status: Number(status || 0), body: String(body || ""), ts: Date.now() };
-      if (item.url.includes("/passport/web/get_qrcode/") || item.url.includes("/passport/web/check_qrconnect/")) {
-        window.__rayleaDouyinQRCaptures.push(item);
-        if (window.__rayleaDouyinQRCaptures.length > 50) {
-          window.__rayleaDouyinQRCaptures.shift();
-        }
-      }
-    } catch (_) {}
-  };
-  const originalFetch = window.fetch;
-  if (originalFetch) {
-    window.fetch = function(input, init) {
-      const requestedURL = typeof input === "string" ? input : (input && input.url) || "";
-      return originalFetch.apply(this, arguments).then((response) => {
-        try {
-          response.clone().text().then((body) => capture(requestedURL || response.url, response.status, body)).catch(() => {});
-        } catch (_) {}
-        return response;
-      });
-    };
-  }
-  const originalOpen = XMLHttpRequest.prototype.open;
-  const originalSend = XMLHttpRequest.prototype.send;
-  XMLHttpRequest.prototype.open = function(method, url) {
-    this.__rayleaDouyinQRURL = url;
-    return originalOpen.apply(this, arguments);
-  };
-  XMLHttpRequest.prototype.send = function() {
-    this.addEventListener("load", function() {
-      try {
-        capture(this.responseURL || this.__rayleaDouyinQRURL, this.status, this.responseText);
-      } catch (_) {}
-    });
-    return originalSend.apply(this, arguments);
-  };
-})();
-`

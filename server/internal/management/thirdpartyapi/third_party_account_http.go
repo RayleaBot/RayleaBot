@@ -58,10 +58,21 @@ func (h *ThirdPartyHandlers) HandleThirdPartyAccountDelete() http.HandlerFunc {
 
 func (h *ThirdPartyHandlers) credentialValidator(platform string) func(context.Context, string) (thirdparty.AccountProfile, thirdparty.CredentialStatus, error) {
 	normalized, err := thirdparty.NormalizePlatform(platform)
-	if err != nil || normalized != thirdparty.PlatformBilibili || h.accountValidator == nil {
+	if err != nil {
 		return nil
 	}
-	return h.accountValidator.CheckCookie
+	if normalized == thirdparty.PlatformBilibili {
+		if h.accountValidator == nil {
+			return nil
+		}
+		return h.accountValidator.CheckCookie
+	}
+	if h.platformAccountValidator == nil {
+		return nil
+	}
+	return func(ctx context.Context, cookie string) (thirdparty.AccountProfile, thirdparty.CredentialStatus, error) {
+		return h.platformAccountValidator.CheckCookie(ctx, normalized, cookie)
+	}
 }
 
 func writeThirdPartyAccountError(w http.ResponseWriter, r *http.Request, err error) {

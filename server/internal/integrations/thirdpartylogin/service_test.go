@@ -68,6 +68,10 @@ func TestServiceWeiboQRCodeLoginStatesAndCookie(t *testing.T) {
 			return loginRedirectResponse(request, "https://weibo.com/u/1", &http.Cookie{Name: "SUB", Value: "fixture"})
 		case "weibo.com/u/1":
 			return loginJSONResponse(request, http.StatusOK, `{}`, &http.Cookie{Name: "SUBP", Value: "fixture"})
+		case "m.weibo.cn/api/config":
+			return loginJSONResponse(request, http.StatusOK, `{"data":{"uid":"123456","screen_name":"微博用户","avatar_hd":"https://weibo.com/avatar.jpg"}}`)
+		case "m.weibo.cn/api/container/getIndex", "weibo.com/ajax/profile/info":
+			return loginJSONResponse(request, http.StatusOK, `{"data":{}}`)
 		default:
 			return nil, fmt.Errorf("unexpected request: %s %s", request.Method, request.URL.String())
 		}
@@ -95,6 +99,9 @@ func TestServiceWeiboQRCodeLoginStatesAndCookie(t *testing.T) {
 	}
 	if succeeded.State != StateSucceeded || !strings.Contains(succeeded.Cookie, "SUB=fixture;") || !strings.Contains(succeeded.Cookie, "SUBP=fixture;") {
 		t.Fatalf("unexpected succeeded response: %#v", succeeded)
+	}
+	if succeeded.Account.UID != "123456" || succeeded.Account.Nickname != "微博用户" || succeeded.Account.AvatarURL == "" {
+		t.Fatalf("unexpected weibo account profile: %#v", succeeded.Account)
 	}
 }
 
@@ -167,6 +174,48 @@ func TestDouyinStatusValues(t *testing.T) {
 		if got := douyinStatus([]byte(raw)); got != want {
 			t.Fatalf("douyinStatus(%s) = %q, want %q", raw, got, want)
 		}
+	}
+}
+
+func TestDouyinQRCodeHTTPFlowUsesSSOParameters(t *testing.T) {
+	t.Parallel()
+
+	now := time.Date(2026, 6, 8, 8, 0, 0, 0, time.UTC)
+	provider := newDouyinProvider(newHTTPClient(loginRoundTripFunc(func(request *http.Request) (*http.Response, error) {
+		switch request.URL.Host + request.URL.Path {
+		case "sso.douyin.com/get_qrcode/":
+			if request.URL.Query().Get("aid") != douyinAid || request.URL.Query().Get("service") != douyinServiceURL {
+				return nil, fmt.Errorf("unexpected douyin create query: %s", request.URL.RawQuery)
+			}
+			return loginJSONResponse(request, http.StatusOK, `{"data":{"token":"douyin-token","qrcode_index_url":"https://api.amemv.com/scan?token=douyin-token"}}`, &http.Cookie{Name: "ttwid", Value: "seed"})
+		case "sso.douyin.com/check_qrconnect/":
+			if request.URL.Query().Get("aid") != douyinAid || request.URL.Query().Get("service") != douyinServiceURL || request.URL.Query().Get("token") != "douyin-token" {
+				return nil, fmt.Errorf("unexpected douyin poll query: %s", request.URL.RawQuery)
+			}
+			return loginJSONResponse(request, http.StatusOK, `{"data":{"status":3,"redirect_url":"https://www.douyin.com/passport/sso/login/callback/?ticket=douyin-ticket"}}`)
+		case "www.douyin.com/passport/sso/login/callback/":
+			if request.URL.Query().Get("ticket") != "douyin-ticket" {
+				return nil, fmt.Errorf("unexpected douyin callback query: %s", request.URL.RawQuery)
+			}
+			return loginJSONResponse(request, http.StatusOK, `{}`, &http.Cookie{Name: "sessionid", Value: "fixture"})
+		default:
+			return nil, fmt.Errorf("unexpected request: %s %s", request.Method, request.URL.String())
+		}
+	})), nil)
+
+	session, err := provider.Create(context.Background(), now)
+	if err != nil {
+		t.Fatalf("create douyin qrcode: %v", err)
+	}
+	if session.Token != "douyin-token" || !strings.Contains(session.QRCodeURL, "douyin-token") || session.Cookies["ttwid"] != "seed" {
+		t.Fatalf("unexpected douyin create session: %#v", session)
+	}
+	succeeded, err := provider.Poll(context.Background(), session, now)
+	if err != nil {
+		t.Fatalf("poll douyin qrcode: %v", err)
+	}
+	if succeeded.State != StateSucceeded || !strings.Contains(succeeded.Cookie, "sessionid=fixture;") {
+		t.Fatalf("unexpected douyin success session: %#v", succeeded)
 	}
 }
 
@@ -263,6 +312,47 @@ func TestServiceNeteaseMusicQRCodeLoginStatesCookieAndAccount(t *testing.T) {
 		t.Fatalf("unexpected succeeded response: %#v", succeeded)
 	}
 	if succeeded.Account.UID != "123456789" || succeeded.Account.Nickname != "网易云音乐账号" || succeeded.Account.AvatarURL == "" {
+		t.Fatalf("unexpected succeeded account: %#v", succeeded.Account)
+	}
+}
+
+func TestServiceNeteaseMusicQRCodeLoginUsesPendingProfileOnSuccess(t *testing.T) {
+	now := time.Date(2026, 6, 8, 8, 0, 0, 0, time.UTC)
+	checks := 0
+	service := NewService(loginRoundTripFunc(func(request *http.Request) (*http.Response, error) {
+		switch request.URL.Host + request.URL.Path {
+		case "music.163.com/weapi/login/qrcode/unikey":
+			return loginJSONResponse(request, http.StatusOK, `{"code":200,"unikey":"netease-key"}`)
+		case "music.163.com/weapi/login/qrcode/client/login":
+			checks++
+			if checks == 1 {
+				return loginJSONResponse(request, http.StatusOK, `{"code":802,"profile":{"userId":123456789,"nickname":"待确认账号","avatarUrl":"https://p1.music.126.net/avatar.jpg"}}`)
+			}
+			return loginJSONResponse(request, http.StatusOK, `{"code":803}`, &http.Cookie{Name: "MUSIC_U", Value: "fixture"})
+		default:
+			return nil, fmt.Errorf("unexpected request: %s %s", request.Method, request.URL.String())
+		}
+	}), func() time.Time { return now })
+
+	create, err := service.Create(context.Background(), thirdparty.PlatformNeteaseMusic)
+	if err != nil {
+		t.Fatalf("create netease music qrcode login: %v", err)
+	}
+	pending, err := service.Poll(context.Background(), thirdparty.PlatformNeteaseMusic, create.LoginID)
+	if err != nil {
+		t.Fatalf("poll pending netease music qrcode login: %v", err)
+	}
+	if pending.State != StatePendingConfirm || pending.Account.Nickname != "待确认账号" {
+		t.Fatalf("unexpected pending response: %#v", pending)
+	}
+	succeeded, err := service.Poll(context.Background(), thirdparty.PlatformNeteaseMusic, create.LoginID)
+	if err != nil {
+		t.Fatalf("poll succeeded netease music qrcode login: %v", err)
+	}
+	if succeeded.State != StateSucceeded || !strings.Contains(succeeded.Cookie, "MUSIC_U=fixture;") {
+		t.Fatalf("unexpected succeeded response: %#v", succeeded)
+	}
+	if succeeded.Account.UID != "123456789" || succeeded.Account.Nickname != "待确认账号" || succeeded.Account.AvatarURL == "" {
 		t.Fatalf("unexpected succeeded account: %#v", succeeded.Account)
 	}
 }

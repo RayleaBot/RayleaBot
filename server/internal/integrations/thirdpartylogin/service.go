@@ -47,6 +47,7 @@ func NewServiceWithOptions(options Options) *Service {
 		douyinBrowser = newChromedpDouyinBrowser(douyinBrowserOptions{
 			BrowserPath: options.BrowserPath,
 			BrowserArgs: options.BrowserArgs,
+			Transport:   options.Transport,
 		})
 	}
 	return &Service{

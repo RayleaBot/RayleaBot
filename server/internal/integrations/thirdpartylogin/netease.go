@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -15,8 +16,10 @@ import (
 )
 
 const (
+	neteaseHomeURL        = "https://music.163.com/"
 	neteaseQRCodeKeyURL   = "https://music.163.com/weapi/login/qrcode/unikey?csrf_token="
 	neteaseQRCodeCheckURL = "https://music.163.com/weapi/login/qrcode/client/login?csrf_token="
+	neteaseAccountURL     = "https://music.163.com/weapi/w/nuser/account/get?csrf_token="
 )
 
 type neteaseMusicProvider struct {
@@ -36,11 +39,15 @@ func (p *neteaseMusicProvider) Create(ctx context.Context, now time.Time) (login
 		"deviceId": deviceID,
 		"os":       "pc",
 	}
+	_ = followGet(ctx, p.client, neteaseHomeURL, neteaseHeaders(), cookies)
 	var response struct {
 		Code   int    `json:"code"`
 		UniKey string `json:"unikey"`
 	}
-	form, err := neteaseWEAPIForm(`{"type":1}`)
+	form, err := neteaseWEAPIFormPayload(map[string]any{
+		"type":       1,
+		"csrf_token": strings.TrimSpace(cookies["__csrf"]),
+	})
 	if err != nil {
 		return loginSession{}, err
 	}
@@ -74,20 +81,12 @@ func (p *neteaseMusicProvider) Poll(ctx context.Context, session loginSession, _
 	if strings.TrimSpace(cookies["os"]) == "" {
 		cookies["os"] = "pc"
 	}
-	var response struct {
-		Code    int    `json:"code"`
-		Message string `json:"message"`
-		Cookie  string `json:"cookie"`
-		Account struct {
-			ID int64 `json:"id"`
-		} `json:"account"`
-		Profile struct {
-			UserID    int64  `json:"userId"`
-			Nickname  string `json:"nickname"`
-			AvatarURL string `json:"avatarUrl"`
-		} `json:"profile"`
-	}
-	form, err := neteaseWEAPIForm(`{"type":1,"key":"` + escapeJSONString(key) + `"}`)
+	var response neteaseLoginResponse
+	form, err := neteaseWEAPIFormPayload(map[string]any{
+		"type":       1,
+		"key":        key,
+		"csrf_token": strings.TrimSpace(cookies["__csrf"]),
+	})
 	if err != nil {
 		return session, err
 	}
@@ -99,13 +98,28 @@ func (p *neteaseMusicProvider) Poll(ctx context.Context, session loginSession, _
 		session.State = StatePendingScan
 	case 802:
 		session.State = StatePendingConfirm
+		if profile := neteaseProfile(response); !accountProfileEmpty(profile) {
+			session.Account = profile
+		}
 	case 803:
 		session.State = StateSucceeded
+		for key, value := range cookieMapFromHeader(response.Cookie) {
+			cookies[key] = value
+		}
 		session.Cookie = firstNonEmpty(response.Cookie, cookieHeader(cookies))
 		if strings.TrimSpace(session.Cookie) == "" {
 			return session, fmt.Errorf("netease music qrcode login succeeded without cookies")
 		}
-		session.Account = neteaseProfile(response)
+		profile := neteaseProfile(response)
+		if accountProfileEmpty(profile) {
+			profile = session.Account
+		}
+		if accountProfileEmpty(profile) {
+			if fetched, err := fetchNeteaseAccountProfile(ctx, p.client, cookies); err == nil {
+				profile = fetched
+			}
+		}
+		session.Account = profile
 	case 800:
 		session.State = StateExpired
 	default:
@@ -136,7 +150,7 @@ func neteaseChainID(deviceID string, now time.Time) string {
 	return fmt.Sprintf("v1_%s_web_login_%d", strings.TrimSpace(deviceID), now.UnixMilli())
 }
 
-func neteaseProfile(response struct {
+type neteaseLoginResponse struct {
 	Code    int    `json:"code"`
 	Message string `json:"message"`
 	Cookie  string `json:"cookie"`
@@ -148,7 +162,9 @@ func neteaseProfile(response struct {
 		Nickname  string `json:"nickname"`
 		AvatarURL string `json:"avatarUrl"`
 	} `json:"profile"`
-}) thirdparty.AccountProfile {
+}
+
+func neteaseProfile(response neteaseLoginResponse) thirdparty.AccountProfile {
 	uid := response.Profile.UserID
 	if uid == 0 {
 		uid = response.Account.ID
@@ -161,4 +177,34 @@ func neteaseProfile(response struct {
 		Nickname:  strings.TrimSpace(response.Profile.Nickname),
 		AvatarURL: strings.TrimSpace(response.Profile.AvatarURL),
 	}
+}
+
+func neteaseWEAPIFormPayload(payload map[string]any) (url.Values, error) {
+	encoded, err := json.Marshal(payload)
+	if err != nil {
+		return nil, err
+	}
+	return neteaseWEAPIForm(string(encoded))
+}
+
+func fetchNeteaseAccountProfile(ctx context.Context, client *http.Client, cookies map[string]string) (thirdparty.AccountProfile, error) {
+	form, err := neteaseWEAPIFormPayload(map[string]any{
+		"csrf_token": strings.TrimSpace(cookies["__csrf"]),
+	})
+	if err != nil {
+		return thirdparty.AccountProfile{}, err
+	}
+	var response neteaseLoginResponse
+	if _, err := postFormJSON(ctx, client, neteaseAccountURL, form, neteaseHeaders(), cookies, &response); err != nil {
+		return thirdparty.AccountProfile{}, err
+	}
+	profile := neteaseProfile(response)
+	if accountProfileEmpty(profile) {
+		return thirdparty.AccountProfile{}, fmt.Errorf("netease music profile unavailable")
+	}
+	return profile, nil
+}
+
+func neteaseHasLoginCookie(cookies map[string]string) bool {
+	return strings.TrimSpace(cookies["MUSIC_U"]) != ""
 }

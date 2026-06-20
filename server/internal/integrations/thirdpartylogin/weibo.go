@@ -115,7 +115,11 @@ func (p *weiboProvider) Poll(ctx context.Context, session loginSession, _ time.T
 		}
 		session.State = StateSucceeded
 		session.Cookie = cookieHeader(cookies)
-		session.Account = thirdparty.AccountProfile{}
+		if profile, err := fetchWeiboAccountProfile(ctx, p.client, cookies); err == nil {
+			session.Account = profile
+		} else {
+			session.Account = thirdparty.AccountProfile{}
+		}
 	case 50114001:
 		session.State = StatePendingScan
 	case 50114002:
