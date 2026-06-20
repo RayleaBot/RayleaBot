@@ -1,12 +1,13 @@
 import copy
 
+from .platforms import normalize_platform, safe_subject_id
+from .services import normalize_services
 
 SETTINGS_KEYS = [
     "enabled",
     "subscriptions",
 ]
 
-SERVICE_KINDS = {"live", "video", "image_text", "article", "repost", "all"}
 DEFAULT_SETTINGS = {
     "enabled": True,
     "subscriptions": [],
@@ -37,20 +38,21 @@ def normalize_subscriptions(value):
     for item in source:
         if not isinstance(item, dict):
             continue
-        uid = digits(item.get("uid"))
+        platform = normalize_platform(item.get("platform"))
+        uid = safe_subject_id(item.get("uid"), platform)
         target_type = str(item.get("target_type") or "").strip()
         target_id = str(item.get("target_id") or "").strip()
         if not uid or target_type not in {"group", "private"} or not target_id:
             continue
-        subscription_id = safe_id(item.get("id")) or f"bilibili-{uid}-{target_type}-{target_id}"
+        subscription_id = safe_id(item.get("id")) or f"{platform}-{uid}-{target_type}-{target_id}"
         dedupe = subscription_id
         if dedupe in seen:
             continue
         seen.add(dedupe)
-        services = normalize_services(item.get("services"))
+        services = normalize_services(item.get("services"), platform)
         subscription = {
             "id": subscription_id,
-            "platform": "bilibili",
+            "platform": platform,
             "uid": uid,
             "name": str(item.get("name") or uid).strip() or uid,
             "target_type": target_type,
@@ -65,19 +67,6 @@ def normalize_subscriptions(value):
                 subscription[key] = text
         items.append(subscription)
     return items
-
-
-def normalize_services(value):
-    source = value if isinstance(value, list) else ["all"]
-    result = []
-    seen = set()
-    for item in source:
-        service = str(item or "").strip()
-        if service not in SERVICE_KINDS or service in seen:
-            continue
-        seen.add(service)
-        result.append(service)
-    return result or ["all"]
 
 
 def normalize_subscribers(value):

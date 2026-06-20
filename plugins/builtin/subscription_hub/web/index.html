@@ -14,7 +14,7 @@
         <div>
           <p class="eyebrow" translate="no">raylea.subscription-hub</p>
           <h1 id="page-title">订阅设置</h1>
-          <p id="page-subtitle">按 Bilibili UP 管理推送对象</p>
+          <p id="page-subtitle">按平台账号管理推送对象</p>
         </div>
         <div class="status-pill" id="status-text" aria-live="polite">正在等待宿主初始化…</div>
       </header>
@@ -46,7 +46,7 @@
         <div class="section-title section-title--inline">
           <div>
             <h2>订阅管理</h2>
-            <p>同一 UP 的群聊和私聊目标合并在同一卡片编辑。</p>
+            <p>同一平台账号的群聊和私聊目标合并在同一卡片编辑。</p>
           </div>
           <button type="button" id="add-subscription-button" class="button button--primary-accent">添加订阅</button>
         </div>
@@ -54,7 +54,7 @@
         <div class="toolbar" role="search">
           <label class="field field--search" for="subscription-search-input">
             <span>搜索</span>
-            <input id="subscription-search-input" name="subscription_search" type="search" autocomplete="off" placeholder="搜索 UID、UP 名称、推送对象或订阅人…" />
+            <input id="subscription-search-input" name="subscription_search" type="search" autocomplete="off" placeholder="搜索平台、账号、推送对象或订阅人…" />
           </label>
           <label class="field" for="status-filter-input">
             <span>状态</span>
@@ -73,6 +73,12 @@
               <option value="image_text">图文</option>
               <option value="article">文章</option>
               <option value="repost">转发</option>
+              <option value="post">微博</option>
+              <option value="image">图片</option>
+              <option value="song">歌曲</option>
+              <option value="album">专辑</option>
+              <option value="playlist">歌单</option>
+              <option value="artist">音乐人</option>
             </select>
           </label>
         </div>

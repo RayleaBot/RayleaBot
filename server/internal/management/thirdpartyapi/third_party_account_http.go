@@ -36,12 +36,7 @@ func (h *ThirdPartyHandlers) HandleThirdPartyAccountUpsert() http.HandlerFunc {
 			Label:     *body.Label,
 			Enabled:   *body.Enabled,
 			Cookie:    body.Cookie,
-			Validate: func(ctx context.Context, cookie string) (thirdparty.AccountProfile, thirdparty.CredentialStatus, error) {
-				if h.accountValidator == nil {
-					return thirdparty.AccountProfile{}, thirdparty.CredentialStatus{}, nil
-				}
-				return h.accountValidator.CheckCookie(ctx, cookie)
-			},
+			Validate:  h.credentialValidator(chi.URLParam(r, "platform")),
 		})
 		if err != nil {
 			writeThirdPartyAccountError(w, r, err)
@@ -59,6 +54,14 @@ func (h *ThirdPartyHandlers) HandleThirdPartyAccountDelete() http.HandlerFunc {
 		}
 		w.WriteHeader(http.StatusNoContent)
 	}
+}
+
+func (h *ThirdPartyHandlers) credentialValidator(platform string) func(context.Context, string) (thirdparty.AccountProfile, thirdparty.CredentialStatus, error) {
+	normalized, err := thirdparty.NormalizePlatform(platform)
+	if err != nil || normalized != thirdparty.PlatformBilibili || h.accountValidator == nil {
+		return nil
+	}
+	return h.accountValidator.CheckCookie
 }
 
 func writeThirdPartyAccountError(w http.ResponseWriter, r *http.Request, err error) {

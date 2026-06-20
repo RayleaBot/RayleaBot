@@ -162,6 +162,68 @@ func TestInjectorSkipsNonBilibiliHosts(t *testing.T) {
 	}
 }
 
+func TestInjectorUsesConfiguredWeiboAccount(t *testing.T) {
+	t.Parallel()
+
+	account := thirdparty.Account{Platform: thirdparty.PlatformWeibo, AccountID: "primary"}
+	accounts := &stubAccounts{
+		accounts: []thirdparty.Account{account},
+		cookies:  map[string]string{"primary": "SUB=fixture;"},
+	}
+	headers := map[string]string{}
+
+	result, err := NewInjector(accounts, &stubSession{signErr: errors.New("unexpected sign")}).Inject(context.Background(), httpaction.CredentialRequest{
+		PluginID:   SubscriptionHubPluginID,
+		RawURL:     "https://m.weibo.cn/statuses/show?id=123456",
+		ScopeHosts: []string{"m.weibo.cn"},
+		Headers:    headers,
+	})
+	if err != nil {
+		t.Fatalf("Inject failed: %v", err)
+	}
+	if got := headers["Cookie"]; got != "SUB=fixture;" {
+		t.Fatalf("unexpected Cookie header: %q", got)
+	}
+	if result.URL != "" {
+		t.Fatalf("unexpected signed URL for Weibo: %q", result.URL)
+	}
+	if result.AfterSuccess == nil {
+		t.Fatalf("expected success callback")
+	}
+	if err := result.AfterSuccess(context.Background()); err != nil {
+		t.Fatalf("AfterSuccess failed: %v", err)
+	}
+	if len(accounts.marked) != 1 || accounts.marked[0] != "primary" {
+		t.Fatalf("unexpected marked accounts: %#v", accounts.marked)
+	}
+}
+
+func TestInjectorDoesNotUseBilibiliCookieForWeibo(t *testing.T) {
+	t.Parallel()
+
+	accounts := &stubAccounts{
+		accounts: []thirdparty.Account{{Platform: thirdparty.PlatformBilibili, AccountID: "primary"}},
+		cookies:  map[string]string{"primary": "SESSDATA=fixture;"},
+	}
+	headers := map[string]string{}
+
+	result, err := NewInjector(accounts, nil).Inject(context.Background(), httpaction.CredentialRequest{
+		PluginID:   SubscriptionHubPluginID,
+		RawURL:     "https://m.weibo.cn/statuses/show?id=123456",
+		ScopeHosts: []string{"m.weibo.cn"},
+		Headers:    headers,
+	})
+	if err != nil {
+		t.Fatalf("Inject failed: %v", err)
+	}
+	if result.AfterSuccess != nil {
+		t.Fatalf("unexpected success callback")
+	}
+	if _, ok := headers["Cookie"]; ok {
+		t.Fatalf("unexpected Cookie header: %#v", headers)
+	}
+}
+
 func TestInjectorKeepsPluginCookie(t *testing.T) {
 	t.Parallel()
 
@@ -289,6 +351,31 @@ func TestIsBilibiliURLForWBI(t *testing.T) {
 	}
 }
 
+func TestPlatformForURL(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		rawURL string
+		want   string
+	}{
+		{rawURL: "https://api.bilibili.com/x/web-interface/nav", want: thirdparty.PlatformBilibili},
+		{rawURL: "https://m.weibo.cn/statuses/show?id=123", want: thirdparty.PlatformWeibo},
+		{rawURL: "https://v.douyin.com/abc/", want: thirdparty.PlatformDouyin},
+		{rawURL: "https://webcast.amemv.com/douyin/webcast/reflow/123", want: thirdparty.PlatformDouyin},
+		{rawURL: "https://music.163.com/song?id=123", want: thirdparty.PlatformNeteaseMusic},
+		{rawURL: "https://example.com/song?id=123", want: ""},
+	}
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.rawURL, func(t *testing.T) {
+			t.Parallel()
+			if got := PlatformForURL(tt.rawURL); got != tt.want {
+				t.Fatalf("PlatformForURL(%q) = %q, want %q", tt.rawURL, got, tt.want)
+			}
+		})
+	}
+}
+
 type stubAccounts struct {
 	accounts []thirdparty.Account
 	cookies  map[string]string
@@ -296,8 +383,14 @@ type stubAccounts struct {
 	marked   []string
 }
 
-func (s *stubAccounts) ListEnabled(context.Context, string) ([]thirdparty.Account, error) {
-	return append([]thirdparty.Account(nil), s.accounts...), nil
+func (s *stubAccounts) ListEnabled(_ context.Context, platform string) ([]thirdparty.Account, error) {
+	items := make([]thirdparty.Account, 0, len(s.accounts))
+	for _, account := range s.accounts {
+		if platform == "" || account.Platform == platform {
+			items = append(items, account)
+		}
+	}
+	return items, nil
 }
 
 func (s *stubAccounts) ReadCookie(_ context.Context, account thirdparty.Account) (string, error) {

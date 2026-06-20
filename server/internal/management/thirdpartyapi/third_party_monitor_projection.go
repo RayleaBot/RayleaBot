@@ -3,6 +3,7 @@ package thirdpartyapi
 import (
 	"sort"
 	"strings"
+	"time"
 
 	bilibilisource "github.com/RayleaBot/RayleaBot/server/internal/integrations/bilibili/source"
 )
@@ -63,6 +64,14 @@ func thirdPartyMonitorsResponseFrom(snapshot bilibilisource.MonitorSnapshot) thi
 		Platform:  snapshot.Platform,
 		Items:     items,
 		UpdatedAt: timeString(snapshot.UpdatedAt),
+	}
+}
+
+func emptyThirdPartyMonitorsResponse(platform string, updatedAt time.Time) thirdPartyMonitorsResponse {
+	return thirdPartyMonitorsResponse{
+		Platform:  platform,
+		Items:     []thirdPartyMonitorItem{},
+		UpdatedAt: timeString(updatedAt),
 	}
 }
 

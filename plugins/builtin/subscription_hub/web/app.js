@@ -84,46 +84,115 @@
     };
   }
 
+  // ../plugins/builtin/subscription_hub/web/platforms.js
+  var PLATFORM_OPTIONS = [
+    { value: "bilibili", label: "Bilibili", subjectLabel: "UID", inputPlaceholder: "UID \u6216 Bilibili \u7528\u6237\u540D" },
+    { value: "weibo", label: "\u5FAE\u535A", subjectLabel: "UID", inputPlaceholder: "UID \u6216\u5FAE\u535A\u4E3B\u9875\u6807\u8BC6" },
+    { value: "douyin", label: "\u6296\u97F3", subjectLabel: "\u6296\u97F3\u53F7", inputPlaceholder: "\u6296\u97F3\u53F7\u6216\u4E3B\u9875\u6807\u8BC6" },
+    { value: "netease_music", label: "\u7F51\u6613\u4E91\u97F3\u4E50", subjectLabel: "ID", inputPlaceholder: "\u6B4C\u66F2\u3001\u6B4C\u5355\u3001\u4E13\u8F91\u6216\u97F3\u4E50\u4EBA ID" }
+  ];
+  var PLATFORM_MAP = new Map(PLATFORM_OPTIONS.map((item) => [item.value, item]));
+  function normalizePlatform(value) {
+    const platform = String(value ?? "").trim();
+    return PLATFORM_MAP.has(platform) ? platform : "bilibili";
+  }
+  function platformMeta(platform) {
+    return PLATFORM_MAP.get(normalizePlatform(platform)) || PLATFORM_OPTIONS[0];
+  }
+  function platformLabel(platform) {
+    return platformMeta(platform).label;
+  }
+  function subjectLabel(platform) {
+    return platformMeta(platform).subjectLabel;
+  }
+  function inputPlaceholder(platform) {
+    return platformMeta(platform).inputPlaceholder;
+  }
+  function safeSubjectId(value, platform = "bilibili") {
+    const text = String(value ?? "").trim();
+    if (normalizePlatform(platform) === "bilibili") {
+      return /^[0-9]+$/.test(text) ? text : "";
+    }
+    return [...text].filter((char) => /[\p{L}\p{N}_.-]/u.test(char)).join("").replace(/^[_.-]+|[_.-]+$/g, "").slice(0, 96);
+  }
+
   // ../plugins/builtin/subscription_hub/web/services.js
-  var SERVICE_ORDER = ["all", "live", "video", "image_text", "article", "repost"];
-  var SERVICE_TYPES = SERVICE_ORDER.filter((service) => service !== "all");
-  var SERVICE_LABELS = {
-    all: "\u5168\u90E8",
-    live: "\u76F4\u64AD",
-    video: "\u89C6\u9891",
-    image_text: "\u56FE\u6587",
-    article: "\u6587\u7AE0",
-    repost: "\u8F6C\u53D1"
+  var PLATFORM_SERVICE_LABELS = {
+    bilibili: {
+      all: "\u5168\u90E8",
+      live: "\u76F4\u64AD",
+      video: "\u89C6\u9891",
+      image_text: "\u56FE\u6587",
+      article: "\u6587\u7AE0",
+      repost: "\u8F6C\u53D1"
+    },
+    weibo: {
+      all: "\u5168\u90E8",
+      post: "\u5FAE\u535A",
+      image: "\u56FE\u7247",
+      video: "\u89C6\u9891",
+      repost: "\u8F6C\u53D1"
+    },
+    douyin: {
+      all: "\u5168\u90E8",
+      video: "\u89C6\u9891",
+      image_text: "\u56FE\u6587",
+      live: "\u76F4\u64AD"
+    },
+    netease_music: {
+      all: "\u5168\u90E8",
+      song: "\u6B4C\u66F2",
+      album: "\u4E13\u8F91",
+      playlist: "\u6B4C\u5355",
+      artist: "\u97F3\u4E50\u4EBA"
+    }
   };
+  var SERVICE_LABELS = PLATFORM_SERVICE_LABELS.bilibili;
+  var SERVICE_ORDER = Object.keys(SERVICE_LABELS);
+  var SERVICE_TYPES = SERVICE_ORDER.filter((service) => service !== "all");
   function trim(value) {
     return String(value ?? "").trim();
   }
   function unique(values) {
     return [...new Set(values.map(trim).filter(Boolean))];
   }
-  function normalizeServices(value) {
-    const services = unique(Array.isArray(value) ? value : ["all"]).filter((item) => SERVICE_ORDER.includes(item));
+  function serviceLabels(platform = "bilibili") {
+    return PLATFORM_SERVICE_LABELS[normalizePlatform(platform)] || SERVICE_LABELS;
+  }
+  function serviceOrder(platform = "bilibili") {
+    return Object.keys(serviceLabels(platform));
+  }
+  function serviceTypes(platform = "bilibili") {
+    return serviceOrder(platform).filter((service) => service !== "all");
+  }
+  function serviceLabel(service, platform = "bilibili") {
+    return serviceLabels(platform)[service] || service;
+  }
+  function normalizeServices(value, platform = "bilibili") {
+    const order = serviceOrder(platform);
+    const types = serviceTypes(platform);
+    const services = unique(Array.isArray(value) ? value : ["all"]).filter((item) => order.includes(item));
     if (!services.length || services.includes("all")) {
       return ["all"];
     }
-    const selected = SERVICE_TYPES.filter((service) => services.includes(service));
-    return selected.length === SERVICE_TYPES.length ? ["all"] : selected;
+    const selected = types.filter((service) => services.includes(service));
+    return selected.length === types.length ? ["all"] : selected;
   }
-  function serviceCheckboxValues(value) {
+  function serviceCheckboxValues(value, platform = "bilibili") {
     if (Array.isArray(value) && value.length === 0) {
       return /* @__PURE__ */ new Set();
     }
-    const services = normalizeServices(value);
+    const services = normalizeServices(value, platform);
     if (services.includes("all")) {
-      return new Set(SERVICE_ORDER);
+      return new Set(serviceOrder(platform));
     }
     return new Set(services);
   }
   function hasServiceSelection(value) {
     return !(Array.isArray(value) && value.length === 0);
   }
-  function servicesKey(services) {
-    return normalizeServices(services).join(",");
+  function servicesKey(services, platform = "bilibili") {
+    return normalizeServices(services, platform).join(",");
   }
 
   // ../plugins/builtin/subscription_hub/web/subscribers.js
@@ -253,22 +322,28 @@
     if (!value || typeof value !== "object") {
       return null;
     }
-    const uid = trim(value.uid);
+    const platform = normalizePlatform(value.platform);
+    const uid = safeSubjectId(value.uid, platform);
     const targetType = trim(value.target_type);
     const targetId = trim(value.target_id);
     if (!/^[0-9]+$/.test(uid) || !["group", "private"].includes(targetType) || !/^[0-9]+$/.test(targetId)) {
+      if (platform === "bilibili") {
+        return null;
+      }
+    }
+    if (!uid || !["group", "private"].includes(targetType) || !/^[0-9]+$/.test(targetId)) {
       return null;
     }
     return {
       id: trim(value.id),
-      platform: "bilibili",
+      platform,
       uid,
       name: trim(value.name) || uid,
       avatar_url: trim(value.avatar_url),
       target_type: targetType,
       target_id: targetId,
       target_name: trim(value.target_name),
-      services: normalizeServices(value.services),
+      services: normalizeServices(value.services, platform),
       subscribers: Array.isArray(value.subscribers) ? value.subscribers.map(normalizeSubscriber).filter(Boolean) : [],
       enabled: value.enabled !== false
     };
@@ -283,6 +358,7 @@
   function createBlankRow(rowId) {
     return {
       row_id: rowId,
+      platform: "bilibili",
       uid: "",
       name: "",
       avatar_url: "",
@@ -304,10 +380,12 @@
   function buildRowsFromSettings(settings) {
     const grouped = /* @__PURE__ */ new Map();
     for (const subscription of settings.subscriptions || []) {
-      let row = grouped.get(subscription.uid);
+      const groupKey = `${subscription.platform}:${subscription.uid}`;
+      let row = grouped.get(groupKey);
       if (!row) {
         row = {
-          row_id: `uid-${subscription.uid}`,
+          row_id: `${subscription.platform}-${subscription.uid}`,
+          platform: subscription.platform,
           uid: subscription.uid,
           name: subscription.name || subscription.uid,
           avatar_url: subscription.avatar_url || "",
@@ -317,7 +395,7 @@
           resolve_message: "",
           candidates: [],
           enabled: false,
-          services: normalizeServices(subscription.services),
+          services: normalizeServices(subscription.services, subscription.platform),
           service_mode: "common",
           target_mode: subscription.target_type || "group",
           targets: [],
@@ -325,7 +403,7 @@
           edit_mode: false,
           _editSnapshot: null
         };
-        grouped.set(subscription.uid, row);
+        grouped.set(groupKey, row);
       }
       row.enabled = row.enabled || subscription.enabled !== false;
       row.avatar_url = row.avatar_url || subscription.avatar_url || "";
@@ -338,7 +416,7 @@
         target_type: subscription.target_type,
         target_id: subscription.target_id,
         target_name: subscription.target_name || "",
-        services: normalizeServices(subscription.services)
+        services: normalizeServices(subscription.services, subscription.platform)
       });
       for (const subscriber of subscription.subscribers || []) {
         if (subscriber.id) {
@@ -349,7 +427,7 @@
     const rows = [...grouped.values()];
     for (const row of rows) {
       row.subscriber_ids = unique(row.subscriber_ids);
-      const serviceKeys = unique(row.targets.map((target) => servicesKey(target.services)));
+      const serviceKeys = unique(row.targets.map((target) => servicesKey(target.services, row.platform)));
       if (serviceKeys.length > 1) {
         row.service_mode = "mixed";
       } else if (serviceKeys.length === 1) {
@@ -367,19 +445,20 @@
     const targets = targetsByKey || /* @__PURE__ */ new Map();
     const subscriptions = [];
     for (const row of rows || []) {
+      const platform = normalizePlatform(row.platform);
       for (const target of row.targets || []) {
         const live = targets.get(target.key);
         const targetName = live ? live.label : target.target_name;
         subscriptions.push({
-          id: target.subscription_id || `bilibili-${row.uid}-${target.target_type}-${target.target_id}`,
-          platform: "bilibili",
+          id: target.subscription_id || `${platform}-${row.uid}-${target.target_type}-${target.target_id}`,
+          platform,
           uid: row.uid,
           name: row.name,
           avatar_url: row.avatar_url,
           target_type: target.target_type,
           target_id: target.target_id,
           target_name: targetName,
-          services: normalizeServices(row.service_mode === "mixed" ? target.services : row.services),
+          services: normalizeServices(row.service_mode === "mixed" ? target.services : row.services, platform),
           subscribers: (row.subscriber_ids || []).map((userId) => ({ id: trim(userId) })),
           enabled: row.enabled
         });
@@ -396,8 +475,9 @@
     const map = context && context.targetMap ? context.targetMap : /* @__PURE__ */ new Map();
     const targetsLoaded = Boolean(context && context.targetsLoaded);
     const errors = [];
-    if (!row.resolved || !numericPattern.test(row.uid) || !row.name) {
-      errors.push("UP \u672A\u5B8C\u6210\u6821\u9A8C");
+    const uid = trim(row.uid);
+    if (!row.resolved || !safeSubjectId(uid, row.platform) || !row.name) {
+      errors.push(`${platformLabel(row.platform)} ${subjectLabel(row.platform)} \u672A\u5B8C\u6210`);
     }
     if (!targetsLoaded) {
       errors.push("\u63A8\u9001\u5BF9\u8C61\u672A\u8F7D\u5165");
@@ -476,17 +556,17 @@
   }
 
   // ../plugins/builtin/subscription_hub/web/render/service-picker.js
-  function serviceTagsHTML(services) {
-    return serviceCheckboxValues(services).has("all") ? '<span class="service-tag">\u5168\u90E8</span>' : [...serviceCheckboxValues(services)].map((service) => `
-      <span class="service-tag">${escapeHTML(SERVICE_LABELS[service] || service)}</span>
+  function serviceTagsHTML(services, platform = "bilibili") {
+    return serviceCheckboxValues(services, platform).has("all") ? '<span class="service-tag">\u5168\u90E8</span>' : [...serviceCheckboxValues(services, platform)].map((service) => `
+      <span class="service-tag">${escapeHTML(serviceLabel(service, platform))}</span>
     `).join("");
   }
-  function renderServiceCheckboxes(rowId, targetKeyValue, services) {
-    const active = serviceCheckboxValues(services);
-    return SERVICE_ORDER.map((service) => `
+  function renderServiceCheckboxes(rowId, targetKeyValue, services, platform = "bilibili") {
+    const active = serviceCheckboxValues(services, platform);
+    return serviceOrder(platform).map((service) => `
     <label>
       <input type="checkbox" class="service-checkbox" data-row-id="${escapeHTML(rowId)}" data-target-key="${escapeHTML(targetKeyValue)}" value="${escapeHTML(service)}" ${active.has(service) ? "checked" : ""} />
-      ${escapeHTML(SERVICE_LABELS[service])}
+      ${escapeHTML(serviceLabel(service, platform))}
     </label>
   `).join("");
   }
@@ -494,7 +574,7 @@
     if (row.service_mode === "mixed") {
       return renderMixedServices(row, context.targetMap);
     }
-    return `<div class="inline-checks" aria-label="\u63A8\u9001\u7C7B\u578B">${renderServiceCheckboxes(row.row_id, "common", row.services)}</div>`;
+    return `<div class="inline-checks" aria-label="\u63A8\u9001\u7C7B\u578B">${renderServiceCheckboxes(row.row_id, "common", row.services, row.platform)}</div>`;
   }
   function renderMixedServices(row, map) {
     return `
@@ -503,7 +583,7 @@
       ${row.targets.map((target) => `
         <div class="target-service-line">
           <span class="row-note">${escapeHTML(targetDisplay(target, map))}</span>
-          <div class="inline-checks">${renderServiceCheckboxes(row.row_id, target.key, target.services)}</div>
+          <div class="inline-checks">${renderServiceCheckboxes(row.row_id, target.key, target.services, row.platform)}</div>
         </div>
       `).join("")}
     </div>
@@ -571,9 +651,12 @@
 
   // ../plugins/builtin/subscription_hub/web/render/row-edit.js
   function renderRowEdit(row, context) {
-    const title = row.name || row.uid || "\u672A\u6821\u9A8C UP";
-    const subtitle = row.uid ? `UID ${row.uid}` : "\u8F93\u5165 UID \u6216 Bilibili \u7528\u6237\u540D\u540E\u6821\u9A8C";
+    const title = row.name || row.uid || `\u672A\u8BBE\u7F6E${platformLabel(row.platform)}\u5BF9\u8C61`;
+    const subtitle = row.uid ? `${subjectLabel(row.platform)} ${row.uid}` : inputPlaceholder(row.platform);
     const upAvatar = avatarHTML(row.avatar_url, title, "avatar--up", title);
+    const platformOptions = PLATFORM_OPTIONS.map((option) => `
+    <option value="${escapeHTML(option.value)}" ${row.platform === option.value ? "selected" : ""}>${escapeHTML(option.label)}</option>
+  `).join("");
     const candidates = row.candidates.length ? `<div class="candidate-list">${row.candidates.map((candidate) => `
         <button type="button" class="button candidate-button" data-action="choose-candidate" data-row-id="${escapeHTML(row.row_id)}" data-user='${escapeHTML(JSON.stringify(candidate))}'>
           ${avatarHTML(candidate.avatar_url, candidate.name, "avatar--candidate", candidate.name)}
@@ -596,10 +679,11 @@
 
       <div class="sub-card__body">
         <div class="sub-card__section">
-          <div class="sub-card__section-title">UP \u4FE1\u606F</div>
+          <div class="sub-card__section-title">\u8BA2\u9605\u5BF9\u8C61</div>
           <div class="up-input-line">
-            <input class="up-query-input" data-row-id="${escapeHTML(row.row_id)}" type="text" autocomplete="off" value="${escapeHTML(row.query)}" placeholder="UID \u6216 Bilibili \u7528\u6237\u540D" />
-            <button type="button" class="button button--small" data-action="resolve-up" data-row-id="${escapeHTML(row.row_id)}">\u6821\u9A8C</button>
+            <select class="platform-select" data-row-id="${escapeHTML(row.row_id)}" autocomplete="off" aria-label="\u5E73\u53F0">${platformOptions}</select>
+            <input class="up-query-input" data-row-id="${escapeHTML(row.row_id)}" type="text" autocomplete="off" value="${escapeHTML(row.query)}" placeholder="${escapeHTML(inputPlaceholder(row.platform))}" />
+            <button type="button" class="button button--small" data-action="resolve-up" data-row-id="${escapeHTML(row.row_id)}">${row.platform === "bilibili" ? "\u6821\u9A8C" : "\u4F7F\u7528"}</button>
           </div>
           ${row.resolve_message ? `<div class="row-note">${escapeHTML(row.resolve_message)}</div>` : ""}
           ${candidates}
@@ -646,10 +730,10 @@
   // ../plugins/builtin/subscription_hub/web/render/row-view.js
   function renderRowView(row, context) {
     const map = context.targetMap;
-    const title = row.name || row.uid || "\u672A\u6821\u9A8C UP";
-    const subtitle = row.uid ? `UID ${row.uid}` : "\u8F93\u5165 UID \u6216 Bilibili \u7528\u6237\u540D\u540E\u6821\u9A8C";
+    const title = row.name || row.uid || `\u672A\u8BBE\u7F6E${platformLabel(row.platform)}\u5BF9\u8C61`;
+    const subtitle = row.uid ? `${platformLabel(row.platform)} \xB7 ${subjectLabel(row.platform)} ${row.uid}` : platformLabel(row.platform);
     const upAvatar = avatarHTML(row.avatar_url, title, "avatar--up", title);
-    const services = row.service_mode === "mixed" ? '<span class="service-tag">\u76EE\u6807\u914D\u7F6E\u4E0D\u540C</span>' : serviceTagsHTML(row.services);
+    const services = row.service_mode === "mixed" ? '<span class="service-tag">\u76EE\u6807\u914D\u7F6E\u4E0D\u540C</span>' : serviceTagsHTML(row.services, row.platform);
     const targetSummaryItems = row.targets.map((target) => ({
       avatar_url: targetAvatar(target, map),
       label: targetDisplay(target, map)
@@ -832,7 +916,8 @@
       row.query,
       ...row.targets.map((target) => `${target.target_id} ${target.target_name || ""}`),
       ...row.targets.map((target) => map.get(target.key)?.label || ""),
-      ...row.subscriber_ids
+      ...row.subscriber_ids,
+      platformLabel(row.platform)
     ].join(" ").toLowerCase();
   }
   function rowVisible(row) {
@@ -954,20 +1039,21 @@
     row.edit_mode = false;
     markDirty();
   }
-  function readCheckedServices(rowId, targetKeyValue, changedService, isChecked) {
+  function readCheckedServices(row, targetKeyValue, changedService, isChecked) {
     if (changedService === "all") {
       return isChecked ? ["all"] : [];
     }
-    const checkedServices = [...elements.list.querySelectorAll(`.service-checkbox[data-row-id="${selectorValue(rowId)}"][data-target-key="${selectorValue(targetKeyValue)}"]:checked`)].map((input) => input.value).filter((service) => service !== "all");
-    if (SERVICE_TYPES.every((service) => checkedServices.includes(service))) {
+    const types = serviceTypes(row.platform);
+    const checkedServices = [...elements.list.querySelectorAll(`.service-checkbox[data-row-id="${selectorValue(row.row_id)}"][data-target-key="${selectorValue(targetKeyValue)}"]:checked`)].map((input) => input.value).filter((service) => service !== "all");
+    if (types.every((service) => checkedServices.includes(service))) {
       return ["all"];
     }
-    return SERVICE_TYPES.filter((service) => checkedServices.includes(service));
+    return types.filter((service) => checkedServices.includes(service));
   }
   function updateService(row, targetKeyValue, changedService, isChecked) {
     if (targetKeyValue === "common") {
       row.service_mode = "common";
-      row.services = readCheckedServices(row.row_id, "common", changedService, isChecked);
+      row.services = readCheckedServices(row, "common", changedService, isChecked);
       for (const target2 of row.targets) {
         target2.services = row.services;
       }
@@ -975,8 +1061,8 @@
     }
     const target = row.targets.find((item) => item.key === targetKeyValue);
     if (target) {
-      target.services = readCheckedServices(row.row_id, targetKeyValue, changedService, isChecked);
-      const serviceKeys = unique(row.targets.map((item) => servicesKey(item.services)));
+      target.services = readCheckedServices(row, targetKeyValue, changedService, isChecked);
+      const serviceKeys = unique(row.targets.map((item) => servicesKey(item.services, row.platform)));
       row.service_mode = serviceKeys.length > 1 ? "mixed" : "common";
       if (row.service_mode === "common" && row.targets[0]) {
         row.services = row.targets[0].services;
@@ -986,6 +1072,14 @@
   function requestTargets() {
     setStatus("\u6B63\u5728\u5237\u65B0\u63A8\u9001\u5BF9\u8C61\u2026");
     bridge.reloadTargets();
+  }
+  function requestResolve(row, immediate) {
+    if (normalizePlatform(row.platform) !== "bilibili") {
+      applyManualResolved(row);
+      markDirty();
+      return;
+    }
+    requestBilibiliResolve(row, immediate);
   }
   function requestBilibiliResolve(row, immediate) {
     const query = trim(row.query);
@@ -1022,6 +1116,17 @@
     row.resolve_state = row.resolved ? "resolved" : "error";
     row.candidates = [];
   }
+  function applyManualResolved(row) {
+    const query = trim(row.query);
+    const uid = safeSubjectId(query, row.platform);
+    row.uid = uid;
+    row.name = query;
+    row.avatar_url = "";
+    row.resolved = Boolean(uid && query);
+    row.resolve_state = row.resolved ? "resolved" : "error";
+    row.resolve_message = row.resolved ? `${platformLabel(row.platform)}\u5BF9\u8C61\u5DF2\u8BBE\u7F6E\u3002` : "\u8BF7\u586B\u5199\u5E73\u53F0\u6807\u8BC6\u3002";
+    row.candidates = [];
+  }
   function applyBilibiliResolved(message) {
     const request = state.requests.pending.get(message.request_id);
     if (!request || request.kind !== "bilibili-user") {
@@ -1029,7 +1134,7 @@
     }
     state.requests.pending.delete(message.request_id);
     const row = findRow(request.row_id);
-    if (!row || request.query !== message.payload.query) {
+    if (!row || row.platform !== "bilibili" || request.query !== message.payload.query) {
       return;
     }
     if (message.payload.exact && message.payload.user) {
@@ -1054,7 +1159,7 @@
       target_type: liveTarget.target_type,
       target_id: liveTarget.target_id,
       target_name: liveTarget.label,
-      services: normalizeServices(services)
+      services: normalizeServices(services, row.platform)
     });
   }
   function updateTargetsFromSelect(row, selectedKeys) {
@@ -1203,7 +1308,7 @@
     }
     const action = button.dataset.action;
     if (action === "resolve-up") {
-      requestBilibiliResolve(row, true);
+      requestResolve(row, true);
       return;
     }
     if (action === "choose-candidate") {
@@ -1281,7 +1386,12 @@
       row.resolve_message = "";
       row.candidates = [];
       state.ui.dirty = true;
-      requestBilibiliResolve(row, false);
+      if (row.platform === "bilibili") {
+        requestResolve(row, false);
+      } else {
+        applyManualResolved(row);
+        refreshValidationAndPage(input.closest(".sub-card"), row);
+      }
     }
   }
   function handleListChange(event) {
@@ -1293,6 +1403,24 @@
     if (input.classList.contains("service-checkbox")) {
       updateService(row, input.dataset.targetKey, input.value, input.checked);
       markDirtyWithRowRefresh(row, refreshRowServiceEditor);
+      return;
+    }
+    if (input.classList.contains("platform-select")) {
+      row.platform = normalizePlatform(input.value);
+      row.uid = "";
+      row.name = "";
+      row.avatar_url = "";
+      row.query = "";
+      row.resolved = false;
+      row.resolve_state = "idle";
+      row.resolve_message = "";
+      row.candidates = [];
+      row.services = ["all"];
+      for (const target of row.targets) {
+        target.services = ["all"];
+      }
+      row.service_mode = "common";
+      markDirty();
       return;
     }
     if (input.classList.contains("row-enabled-input")) {

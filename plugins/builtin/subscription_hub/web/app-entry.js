@@ -7,12 +7,13 @@ import {
 } from './model.js'
 import { buildSettingsPayload } from './settings-payload.js'
 import {
-  SERVICE_TYPES,
   normalizeServices,
+  serviceTypes,
   servicesKey,
   trim,
   unique,
 } from './services.js'
+import { normalizePlatform, platformLabel, safeSubjectId } from './platforms.js'
 import {
   buildIdentityRequests,
   collectSubscriberAvatars,
@@ -181,6 +182,7 @@ function rowSearchText(row) {
     ...row.targets.map((target) => `${target.target_id} ${target.target_name || ''}`),
     ...row.targets.map((target) => map.get(target.key)?.label || ''),
     ...row.subscriber_ids,
+    platformLabel(row.platform),
   ].join(' ').toLowerCase()
 }
 
@@ -322,23 +324,24 @@ function finishEdit(row) {
   markDirty()
 }
 
-function readCheckedServices(rowId, targetKeyValue, changedService, isChecked) {
+function readCheckedServices(row, targetKeyValue, changedService, isChecked) {
   if (changedService === 'all') {
     return isChecked ? ['all'] : []
   }
-  const checkedServices = [...elements.list.querySelectorAll(`.service-checkbox[data-row-id="${selectorValue(rowId)}"][data-target-key="${selectorValue(targetKeyValue)}"]:checked`)]
+  const types = serviceTypes(row.platform)
+  const checkedServices = [...elements.list.querySelectorAll(`.service-checkbox[data-row-id="${selectorValue(row.row_id)}"][data-target-key="${selectorValue(targetKeyValue)}"]:checked`)]
     .map((input) => input.value)
     .filter((service) => service !== 'all')
-  if (SERVICE_TYPES.every((service) => checkedServices.includes(service))) {
+  if (types.every((service) => checkedServices.includes(service))) {
     return ['all']
   }
-  return SERVICE_TYPES.filter((service) => checkedServices.includes(service))
+  return types.filter((service) => checkedServices.includes(service))
 }
 
 function updateService(row, targetKeyValue, changedService, isChecked) {
   if (targetKeyValue === 'common') {
     row.service_mode = 'common'
-    row.services = readCheckedServices(row.row_id, 'common', changedService, isChecked)
+    row.services = readCheckedServices(row, 'common', changedService, isChecked)
     for (const target of row.targets) {
       target.services = row.services
     }
@@ -346,8 +349,8 @@ function updateService(row, targetKeyValue, changedService, isChecked) {
   }
   const target = row.targets.find((item) => item.key === targetKeyValue)
   if (target) {
-    target.services = readCheckedServices(row.row_id, targetKeyValue, changedService, isChecked)
-    const serviceKeys = unique(row.targets.map((item) => servicesKey(item.services)))
+    target.services = readCheckedServices(row, targetKeyValue, changedService, isChecked)
+    const serviceKeys = unique(row.targets.map((item) => servicesKey(item.services, row.platform)))
     row.service_mode = serviceKeys.length > 1 ? 'mixed' : 'common'
     if (row.service_mode === 'common' && row.targets[0]) {
       row.services = row.targets[0].services
@@ -358,6 +361,15 @@ function updateService(row, targetKeyValue, changedService, isChecked) {
 function requestTargets() {
   setStatus('正在刷新推送对象…')
   bridge.reloadTargets()
+}
+
+function requestResolve(row, immediate) {
+  if (normalizePlatform(row.platform) !== 'bilibili') {
+    applyManualResolved(row)
+    markDirty()
+    return
+  }
+  requestBilibiliResolve(row, immediate)
 }
 
 function requestBilibiliResolve(row, immediate) {
@@ -397,6 +409,18 @@ function applyResolvedUser(row, user) {
   row.candidates = []
 }
 
+function applyManualResolved(row) {
+  const query = trim(row.query)
+  const uid = safeSubjectId(query, row.platform)
+  row.uid = uid
+  row.name = query
+  row.avatar_url = ''
+  row.resolved = Boolean(uid && query)
+  row.resolve_state = row.resolved ? 'resolved' : 'error'
+  row.resolve_message = row.resolved ? `${platformLabel(row.platform)}对象已设置。` : '请填写平台标识。'
+  row.candidates = []
+}
+
 function applyBilibiliResolved(message) {
   const request = state.requests.pending.get(message.request_id)
   if (!request || request.kind !== 'bilibili-user') {
@@ -404,7 +428,7 @@ function applyBilibiliResolved(message) {
   }
   state.requests.pending.delete(message.request_id)
   const row = findRow(request.row_id)
-  if (!row || request.query !== message.payload.query) {
+  if (!row || row.platform !== 'bilibili' || request.query !== message.payload.query) {
     return
   }
   if (message.payload.exact && message.payload.user) {
@@ -430,7 +454,7 @@ function addTargetToRow(row, liveTarget) {
     target_type: liveTarget.target_type,
     target_id: liveTarget.target_id,
     target_name: liveTarget.label,
-    services: normalizeServices(services),
+    services: normalizeServices(services, row.platform),
   })
 }
 
@@ -593,7 +617,7 @@ function handleListClick(event) {
   }
   const action = button.dataset.action
   if (action === 'resolve-up') {
-    requestBilibiliResolve(row, true)
+    requestResolve(row, true)
     return
   }
   if (action === 'choose-candidate') {
@@ -672,7 +696,12 @@ function handleListInput(event) {
     row.resolve_message = ''
     row.candidates = []
     state.ui.dirty = true
-    requestBilibiliResolve(row, false)
+    if (row.platform === 'bilibili') {
+      requestResolve(row, false)
+    } else {
+      applyManualResolved(row)
+      refreshValidationAndPage(input.closest('.sub-card'), row)
+    }
   }
 }
 
@@ -685,6 +714,24 @@ function handleListChange(event) {
   if (input.classList.contains('service-checkbox')) {
     updateService(row, input.dataset.targetKey, input.value, input.checked)
     markDirtyWithRowRefresh(row, refreshRowServiceEditor)
+    return
+  }
+  if (input.classList.contains('platform-select')) {
+    row.platform = normalizePlatform(input.value)
+    row.uid = ''
+    row.name = ''
+    row.avatar_url = ''
+    row.query = ''
+    row.resolved = false
+    row.resolve_state = 'idle'
+    row.resolve_message = ''
+    row.candidates = []
+    row.services = ['all']
+    for (const target of row.targets) {
+      target.services = ['all']
+    }
+    row.service_mode = 'common'
+    markDirty()
     return
   }
   if (input.classList.contains('row-enabled-input')) {

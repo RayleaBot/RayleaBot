@@ -253,6 +253,7 @@ h3 {
 .field textarea,
 .target-select,
 .up-query-input,
+.platform-select,
 .subscriber-input {
   width: 100%;
   min-width: 0;
@@ -266,6 +267,7 @@ h3 {
 .field input,
 .field select,
 .up-query-input,
+.platform-select,
 .subscriber-input {
   height: 38px;
   padding: 0 12px;
@@ -276,6 +278,7 @@ h3 {
 .field textarea:focus,
 .target-select:focus,
 .up-query-input:focus,
+.platform-select:focus,
 .subscriber-input:focus {
   border-color: var(--accent);
   box-shadow: 0 0 0 3px rgba(22, 104, 220, 0.12);
@@ -613,6 +616,10 @@ h3 {
   min-width: 0;
 }
 
+.platform-select {
+  flex: 0 0 128px;
+}
+
 .candidate-list {
   display: flex;
   flex-wrap: wrap;
@@ -936,5 +943,13 @@ h3 {
 
   .footer-buttons .button {
     flex: 1 1 auto;
+  }
+
+  .up-input-line {
+    flex-wrap: wrap;
+  }
+
+  .platform-select {
+    flex: 1 1 130px;
   }
 }

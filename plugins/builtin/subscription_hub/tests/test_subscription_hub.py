@@ -17,12 +17,14 @@ from main import (
     SubscriptionHubPlugin,
     UNSUBSCRIBE_BILIBILI_USAGE,
     add_bilibili_subscription,
+    add_platform_subscription,
     build_status_text,
     format_subscription_list,
     normalize_bilibili_event_payload,
     parse_bilibili_command_args,
     preview_response_document,
     remove_bilibili_subscription,
+    remove_platform_subscription,
     subscription_matches_event,
 )
 from rendering import build_render_data
@@ -273,15 +275,30 @@ class SubscriptionHubTests(unittest.TestCase):
         self.assertEqual([{"id": "subscriptions", "label": "订阅设置", "entry": "web/index.html"}], manifest["management_ui"]["pages"])
         self.assertIn("event.subscribe", manifest["capabilities"])
         self.assertIn("http.request", manifest["capabilities"])
-        self.assertEqual(["api.bilibili.com", "api.live.bilibili.com"], manifest["capability_parameters"]["http_hosts"])
+        self.assertEqual([
+            "api.bilibili.com",
+            "api.live.bilibili.com",
+            "m.weibo.cn",
+            "www.douyin.com",
+            "v.douyin.com",
+            "www.iesdouyin.com",
+            "music.163.com",
+            "163cn.tv",
+        ], manifest["capability_parameters"]["http_hosts"])
         self.assertNotIn("scheduler.create", manifest["capabilities"])
         self.assertNotIn("secret.read", manifest["capabilities"])
         self.assertNotIn("permissions", manifest)
         usages = [item["usage"] for item in manifest["commands"]]
         self.assertIn("/b站搜索up UP昵称关键词", usages)
+        self.assertIn("/订阅微博推送 [微博|图片|视频|转发] UID或主页标识", usages)
+        self.assertIn("/订阅抖音推送 [视频|图文|直播] 抖音号或主页标识", usages)
+        self.assertIn("/订阅网易云音乐推送 [歌曲|专辑|歌单|音乐人] ID或主页标识", usages)
         self.assertIn("/立即检查订阅", usages)
         help_text = json.dumps(manifest["help"], ensure_ascii=False)
         self.assertIn("搜索 Bilibili UP", help_text)
+        self.assertIn("订阅微博", help_text)
+        self.assertIn("订阅抖音", help_text)
+        self.assertIn("订阅网易云音乐", help_text)
         self.assertIn("Web 三方账号页面", help_text)
         self.assertNotIn("轮询", help_text)
 
@@ -313,6 +330,41 @@ class SubscriptionHubTests(unittest.TestCase):
         self.assertEqual(settings["subscriptions"][0]["services"], ["video", "live"])
         self.assertEqual(settings["subscriptions"][0]["target_name"], "测试群")
         self.assertEqual(settings["subscriptions"][0]["subscribers"][0]["group_nickname"], "群名片")
+
+    def test_merge_settings_accepts_supported_platform_subscriptions(self):
+        settings = merge_settings({}, {
+            "subscriptions": [
+                {
+                    "platform": "weibo",
+                    "uid": "7556659984",
+                    "name": "测试微博",
+                    "target_type": "group",
+                    "target_id": "10000",
+                    "services": ["post", "video", "invalid"],
+                },
+                {
+                    "platform": "douyin",
+                    "uid": "douyin-test",
+                    "name": "测试抖音",
+                    "target_type": "group",
+                    "target_id": "10000",
+                    "services": ["video", "live"],
+                },
+                {
+                    "platform": "netease_music",
+                    "uid": "12345",
+                    "name": "测试歌单",
+                    "target_type": "private",
+                    "target_id": "42",
+                    "services": ["song", "playlist"],
+                },
+            ],
+        })
+
+        self.assertEqual([item["platform"] for item in settings["subscriptions"]], ["weibo", "douyin", "netease_music"])
+        self.assertEqual(settings["subscriptions"][0]["services"], ["post", "video"])
+        self.assertEqual(settings["subscriptions"][1]["services"], ["video", "live"])
+        self.assertEqual(settings["subscriptions"][2]["services"], ["song", "playlist"])
 
     def test_parse_bilibili_command_args_supports_optional_service(self):
         self.assertEqual(parse_bilibili_command_args(["直播", "123456"]), {
@@ -349,6 +401,40 @@ class SubscriptionHubTests(unittest.TestCase):
 
         self.assertFalse(result["ok"])
         self.assertEqual(result["message"], SUBSCRIBE_BILIBILI_USAGE)
+
+    def test_subscribe_platform_command_saves_weibo_subscription(self):
+        settings = merge_settings({}, {"subscriptions": []})
+        ctx = FakeContext(args=["视频", "7556659984"], target_name="测试群")
+
+        result = add_platform_subscription(settings, ctx, "weibo")
+
+        self.assertTrue(result["ok"])
+        self.assertIn("已订阅 微博", result["message"])
+        self.assertEqual(settings["subscriptions"][0]["platform"], "weibo")
+        self.assertEqual(settings["subscriptions"][0]["uid"], "7556659984")
+        self.assertEqual(settings["subscriptions"][0]["services"], ["video"])
+        self.assertEqual(settings["subscriptions"][0]["target_name"], "测试群")
+
+    def test_unsubscribe_platform_command_removes_matching_subscription(self):
+        settings = merge_settings({}, {
+            "subscriptions": [{
+                "id": "douyin-douyin-test-group-10000",
+                "platform": "douyin",
+                "uid": "douyin-test",
+                "name": "测试抖音",
+                "target_type": "group",
+                "target_id": "10000",
+                "services": ["video"],
+                "subscribers": [],
+                "enabled": True,
+            }],
+        })
+        ctx = FakeContext(args=["视频", "douyin-test"])
+
+        result = remove_platform_subscription(settings, ctx, "douyin")
+
+        self.assertTrue(result["ok"])
+        self.assertEqual(settings["subscriptions"], [])
 
     def test_bilibili_user_search_returns_multiple_candidates(self):
         plugin = SubscriptionHubPlugin()
@@ -412,7 +498,7 @@ class SubscriptionHubTests(unittest.TestCase):
     def test_status_text_points_to_platform_source(self):
         text = build_status_text(self.subscription_settings())
 
-        self.assertIn("平台 Bilibili 实时源", text)
+        self.assertIn("Bilibili、微博、抖音、网易云音乐", text)
         self.assertIn("Web 三方账号页面", text)
         self.assertNotIn("轮询", text)
 
@@ -423,6 +509,59 @@ class SubscriptionHubTests(unittest.TestCase):
         self.assertIn("群聊 10000", text)
         self.assertIn("测试 UP（UID 123456）", text)
         self.assertIn("视频", text)
+
+    def test_message_handler_parses_weibo_link(self):
+        plugin = SubscriptionHubPlugin()
+        ctx = FakeContext(
+            plain_text="看看 https://m.weibo.cn/status/501234567890",
+            http_responses=[{
+                "status_code": 200,
+                "body_text": json.dumps({
+                    "ok": 1,
+                    "data": {
+                        "text": "测试微博正文",
+                        "user": {"screen_name": "测试微博账号"},
+                    },
+                }, ensure_ascii=False),
+            }],
+        )
+
+        plugin.handle_message(ctx)
+
+        self.assertEqual(ctx.results[-1]["platform"], "weibo")
+        self.assertIn("微博链接解析", ctx.texts[0])
+        self.assertIn("测试微博正文", ctx.texts[0])
+        self.assertEqual(ctx.http_requests[0]["url"], "https://m.weibo.cn/statuses/show?id=501234567890")
+
+    def test_message_handler_parses_netease_song_link(self):
+        plugin = SubscriptionHubPlugin()
+        ctx = FakeContext(
+            plain_text="https://music.163.com/#/song?id=1974443814",
+            http_responses=[{
+                "status_code": 200,
+                "body_text": json.dumps({
+                    "songs": [{
+                        "name": "测试歌曲",
+                        "artists": [{"name": "测试歌手"}],
+                    }],
+                }, ensure_ascii=False),
+            }],
+        )
+
+        plugin.handle_message(ctx)
+
+        self.assertEqual(ctx.results[-1]["platform"], "netease_music")
+        self.assertIn("网易云音乐链接解析", ctx.texts[0])
+        self.assertIn("测试歌曲", ctx.texts[0])
+
+    def test_message_handler_ignores_plain_message(self):
+        plugin = SubscriptionHubPlugin()
+        ctx = FakeContext(plain_text="普通消息")
+
+        plugin.handle_message(ctx)
+
+        self.assertEqual(ctx.results[-1], {"handled": False})
+        self.assertEqual(ctx.texts, [])
 
     def test_normalize_event_payload_fills_author_and_filters_images(self):
         payload = self.dynamic_event_payload(author={}, images=[{"url": "https://i0.hdslb.com/a.jpg"}, "bad"])

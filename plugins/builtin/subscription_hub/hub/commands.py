@@ -16,12 +16,15 @@ from .http_utils import (
     response_details_text,
     sentence_text,
 )
+from .platforms import platform_name, safe_subject_id, subject_label, subject_text
 from .services import digits, merge_services, normalize_service_token, remove_services, services_text
 from .subscriptions import (
     current_subscriber,
     current_target,
     find_bilibili_subscription,
     find_bilibili_subscription_by_name,
+    find_subscription,
+    find_subscription_by_name,
     merge_subscriber,
     subscription_id_for,
     user_label,
@@ -31,6 +34,18 @@ from .subscriptions import (
 SUBSCRIBE_BILIBILI_USAGE = "用法：/订阅b站推送 [直播|视频|图文|文章|转发] UID或昵称；类型可选，不填表示全部类型。"
 UNSUBSCRIBE_BILIBILI_USAGE = "用法：/取消b站推送 [直播|视频|图文|文章|转发] UID或昵称；类型可选，不填表示全部类型。"
 BILIBILI_SEARCH_UP_USAGE = "用法：/b站搜索up UP昵称关键词"
+
+SUBSCRIBE_USAGE_BY_PLATFORM = {
+    "weibo": "用法：/订阅微博推送 [微博|图片|视频|转发] UID或主页标识；类型可选，不填表示全部类型。",
+    "douyin": "用法：/订阅抖音推送 [视频|图文|直播] 抖音号或主页标识；类型可选，不填表示全部类型。",
+    "netease_music": "用法：/订阅网易云音乐推送 [歌曲|专辑|歌单|音乐人] ID或主页标识；类型可选，不填表示全部类型。",
+}
+
+UNSUBSCRIBE_USAGE_BY_PLATFORM = {
+    "weibo": "用法：/取消微博推送 [微博|图片|视频|转发] UID或主页标识；类型可选，不填表示全部类型。",
+    "douyin": "用法：/取消抖音推送 [视频|图文|直播] 抖音号或主页标识；类型可选，不填表示全部类型。",
+    "netease_music": "用法：/取消网易云音乐推送 [歌曲|专辑|歌单|音乐人] ID或主页标识；类型可选，不填表示全部类型。",
+}
 
 
 def add_bilibili_subscription(settings, ctx):
@@ -133,6 +148,74 @@ def remove_bilibili_subscription(settings, ctx):
     return {"ok": True, "message": message}
 
 
+def add_platform_subscription(settings, ctx, platform):
+    parsed = parse_platform_command_args(ctx.args, platform)
+    if parsed["error"] or not parsed["query"]:
+        return {"ok": False, "message": SUBSCRIBE_USAGE_BY_PLATFORM[platform]}
+    target = current_target(ctx)
+    if not target["target_id"]:
+        return {"ok": False, "message": "当前会话无法绑定订阅目标。"}
+    user = resolve_manual_subject(platform, parsed["query"])
+    if not user["ok"]:
+        return {"ok": False, "message": user["message"]}
+
+    subscriptions = list(settings.get("subscriptions") or [])
+    subscription = find_subscription({"subscriptions": subscriptions}, platform, user["uid"], target)
+    if not subscription:
+        subscription_id = subscription_id_for(platform, user["uid"], target["target_type"], target["target_id"])
+        subscription = {
+            "id": subscription_id,
+            "platform": platform,
+            "uid": user["uid"],
+            "name": user["name"],
+            "target_type": target["target_type"],
+            "target_id": target["target_id"],
+            "services": [],
+            "subscribers": [],
+            "enabled": True,
+        }
+        if target.get("target_name"):
+            subscription["target_name"] = target["target_name"]
+        subscriptions.append(subscription)
+
+    subscription["platform"] = platform
+    subscription["uid"] = user["uid"]
+    subscription["name"] = user["name"]
+    subscription["target_type"] = target["target_type"]
+    subscription["target_id"] = target["target_id"]
+    if target.get("target_name"):
+        subscription["target_name"] = target["target_name"]
+    subscription["enabled"] = True
+    subscription["services"] = merge_services(subscription.get("services"), parsed["services"], platform)
+    subscription["subscribers"] = merge_subscriber(subscription.get("subscribers"), current_subscriber(ctx))
+    settings["subscriptions"] = subscriptions
+    return {"ok": True, "message": f"已订阅 {platform_name(platform)} {subject_text(user, platform)}：{services_text(subscription['services'], platform)}"}
+
+
+def remove_platform_subscription(settings, ctx, platform):
+    parsed = parse_platform_command_args(ctx.args, platform)
+    if parsed["error"] or not parsed["query"]:
+        return {"ok": False, "message": UNSUBSCRIBE_USAGE_BY_PLATFORM[platform]}
+    target = current_target(ctx)
+    user = resolve_manual_subject_for_removal(settings, platform, parsed["query"], target)
+    if not user["ok"]:
+        return {"ok": False, "message": user["message"]}
+    subscriptions = list(settings.get("subscriptions") or [])
+    subscription = find_subscription({"subscriptions": subscriptions}, platform, user["uid"], target)
+    if not subscription:
+        return {"ok": False, "message": f"当前会话没有订阅 {platform_name(platform)} {subject_text(user, platform)}。"}
+
+    remaining = remove_services(subscription.get("services"), parsed["services"], platform)
+    if remaining:
+        subscription["services"] = remaining
+        message = f"已取消 {platform_name(platform)} {subject_text(user, platform)}：{services_text(parsed['services'], platform)}"
+    else:
+        subscriptions = [item for item in subscriptions if item is not subscription]
+        message = f"已取消 {platform_name(platform)} {subject_text(user, platform)} 的当前会话订阅。"
+    settings["subscriptions"] = subscriptions
+    return {"ok": True, "message": message}
+
+
 def parse_bilibili_command_args(args):
     values = [str(item or "").strip() for item in args or [] if str(item or "").strip()]
     service = "all"
@@ -147,6 +230,23 @@ def parse_bilibili_command_args(args):
     if not service and not error:
         service = "all"
     uid = digits(query)
+    return {"services": [service] if service else [], "uid": uid, "query": query, "error": error}
+
+
+def parse_platform_command_args(args, platform):
+    values = [str(item or "").strip() for item in args or [] if str(item or "").strip()]
+    service = "all"
+    query = ""
+    error = False
+    if len(values) == 1:
+        query = values[0]
+    elif len(values) >= 2:
+        service = normalize_service_token(values[0], platform)
+        query = values[1]
+        error = not service
+    if not service and not error:
+        service = "all"
+    uid = safe_subject_id(query, platform)
     return {"services": [service] if service else [], "uid": uid, "query": query, "error": error}
 
 
@@ -230,3 +330,44 @@ def resolve_bilibili_user_for_removal(settings, ctx, query, target):
                     "name": str(subscription.get("name") or uid).strip() or uid,
                 }
     return resolve_bilibili_user(settings, ctx, text)
+
+
+def resolve_manual_subject(platform, query):
+    text = str(query or "").strip()
+    uid = safe_subject_id(text, platform)
+    if not uid:
+        return {"ok": False, "message": f"请填写 {platform_name(platform)} {subject_label(platform)} 或主页标识。"}
+    return {
+        "ok": True,
+        "platform": platform,
+        "uid": uid,
+        "name": text,
+    }
+
+
+def resolve_manual_subject_for_removal(settings, platform, query, target):
+    text = str(query or "").strip()
+    uid = safe_subject_id(text, platform)
+    if uid:
+        subscription = find_subscription(settings, platform, uid, target)
+        if subscription:
+            return {
+                "ok": True,
+                "platform": platform,
+                "uid": uid,
+                "name": str(subscription.get("name") or uid).strip() or uid,
+            }
+    subscription = find_subscription_by_name(settings, platform, text, target)
+    if subscription:
+        uid = str(subscription.get("uid") or "").strip()
+        if uid:
+            return {
+                "ok": True,
+                "platform": platform,
+                "uid": uid,
+                "name": str(subscription.get("name") or uid).strip() or uid,
+            }
+    resolved = resolve_manual_subject(platform, text)
+    if resolved["ok"]:
+        return {"ok": False, "message": f"当前会话没有订阅 {platform_name(platform)} {subject_text(resolved, platform)}。"}
+    return resolved

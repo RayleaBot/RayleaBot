@@ -25,5 +25,47 @@ response:
           enabled: true
           last_used_at: "2026-06-08T08:10:05Z"
         updated_at: "2026-06-08T08:00:00Z"
+      - platform: weibo
+        account_id: primary
+        label: 微博主账号
+        enabled: true
+        configured: true
+        profile: null
+        credential:
+          state: unknown
+          checked_at: "2026-06-08T08:01:01Z"
+          last_error: ""
+        polling:
+          enabled: true
+          last_used_at: null
+        updated_at: "2026-06-08T08:01:00Z"
+      - platform: douyin
+        account_id: primary
+        label: 抖音主账号
+        enabled: true
+        configured: true
+        profile: null
+        credential:
+          state: unknown
+          checked_at: "2026-06-08T08:02:01Z"
+          last_error: ""
+        polling:
+          enabled: true
+          last_used_at: null
+        updated_at: "2026-06-08T08:02:00Z"
+      - platform: netease_music
+        account_id: primary
+        label: 网易云音乐主账号
+        enabled: true
+        configured: true
+        profile: null
+        credential:
+          state: unknown
+          checked_at: "2026-06-08T08:03:01Z"
+          last_error: ""
+        polling:
+          enabled: true
+          last_used_at: null
+        updated_at: "2026-06-08T08:03:00Z"
 expect:
   valid: true

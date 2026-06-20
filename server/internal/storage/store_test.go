@@ -114,6 +114,79 @@ func TestOpenCanReopenCurrentSchemaDatabase(t *testing.T) {
 	}
 }
 
+func TestThirdPartyAccountsAcceptSupportedPlatforms(t *testing.T) {
+	t.Parallel()
+
+	store := openTestStore(t)
+	for _, platform := range []string{"bilibili", "weibo", "douyin", "netease_music"} {
+		if _, err := store.Write.Exec(
+			`INSERT INTO third_party_accounts (platform, account_id, label, enabled, secret_key, updated_at) VALUES (?, ?, ?, 1, ?, ?)`,
+			platform,
+			"primary",
+			platform+" account",
+			"third_party:"+platform+":primary:cookie",
+			"2026-06-08T08:00:00Z",
+		); err != nil {
+			t.Fatalf("insert %s third-party account: %v", platform, err)
+		}
+	}
+}
+
+func TestOpenMigratesThirdPartyAccountPlatformCheck(t *testing.T) {
+	t.Parallel()
+
+	databasePath := filepath.Join(t.TempDir(), "state.db")
+	db, err := sql.Open(sqliteDriverName, databasePath)
+	if err != nil {
+		t.Fatalf("open fixture sqlite: %v", err)
+	}
+	if _, err := db.Exec(`CREATE TABLE third_party_accounts (
+    platform TEXT NOT NULL CHECK (platform IN ('bilibili')),
+    account_id TEXT NOT NULL,
+    label TEXT NOT NULL DEFAULT '',
+    enabled INTEGER NOT NULL DEFAULT 1 CHECK (enabled IN (0, 1)),
+    secret_key TEXT NOT NULL,
+    profile_uid TEXT NOT NULL DEFAULT '',
+    profile_nickname TEXT NOT NULL DEFAULT '',
+    profile_avatar_url TEXT NOT NULL DEFAULT '',
+    credential_state TEXT NOT NULL DEFAULT 'unknown' CHECK (credential_state IN ('unknown', 'valid', 'invalid')),
+    credential_checked_at TEXT,
+    credential_last_error TEXT NOT NULL DEFAULT '',
+    last_used_at TEXT,
+    proxy_url TEXT NOT NULL DEFAULT '',
+    proxy_enabled INTEGER NOT NULL DEFAULT 0 CHECK (proxy_enabled IN (0, 1)),
+    updated_at TEXT NOT NULL,
+    PRIMARY KEY (platform, account_id)
+)`); err != nil {
+		t.Fatalf("create legacy third_party_accounts: %v", err)
+	}
+	if _, err := db.Exec(
+		`INSERT INTO third_party_accounts (platform, account_id, label, enabled, secret_key, updated_at) VALUES ('bilibili', 'primary', '主账号', 1, 'third_party:bilibili:primary:cookie', '2026-06-08T08:00:00Z')`,
+	); err != nil {
+		t.Fatalf("insert legacy third-party account: %v", err)
+	}
+	if err := db.Close(); err != nil {
+		t.Fatalf("close fixture sqlite: %v", err)
+	}
+
+	store := mustOpenStore(t, databasePath)
+	defer store.Close()
+
+	var label string
+	if err := store.Read.QueryRow(`SELECT label FROM third_party_accounts WHERE platform = 'bilibili' AND account_id = 'primary'`).Scan(&label); err != nil {
+		t.Fatalf("read migrated bilibili account: %v", err)
+	}
+	if label != "主账号" {
+		t.Fatalf("migrated label = %q, want 主账号", label)
+	}
+	if _, err := store.Write.Exec(
+		`INSERT INTO third_party_accounts (platform, account_id, label, enabled, secret_key, updated_at) VALUES ('weibo', 'primary', '微博主账号', 1, 'third_party:weibo:primary:cookie', '2026-06-08T08:01:00Z')`,
+	); err != nil {
+		t.Fatalf("insert weibo account after migration: %v", err)
+	}
+	assertTableMissing(t, store.Read, "third_party_accounts_legacy")
+}
+
 func TestOpenQuarantinesMalformedDatabaseAndCreatesFreshStore(t *testing.T) {
 	t.Parallel()
 

@@ -29,13 +29,16 @@ from hub.commands import (
     BILIBILI_SEARCH_UP_USAGE,
     SUBSCRIBE_BILIBILI_USAGE,
     UNSUBSCRIBE_BILIBILI_USAGE,
+    add_platform_subscription,
     add_bilibili_subscription,
     parse_bilibili_command_args,
+    remove_platform_subscription,
     remove_bilibili_subscription,
     search_bilibili_users,
 )
 from hub.events import normalize_bilibili_event_payload, subscription_matches_event
 from hub.http_utils import is_http_capability_error, preview_response_document
+from hub.link_parser import format_link_preview, parse_supported_link, resolve_link_preview
 from hub.preview import (
     first_arg,
     parse_preview_service,
@@ -129,6 +132,40 @@ class SubscriptionHubPlugin(RayleaBotPlugin):
         ctx.send_text(result["message"])
         ctx.send_result({"handled": True})
 
+    @command("订阅微博推送")
+    def handle_subscribe_weibo(self, ctx):
+        self.handle_platform_subscription_command(ctx, "weibo", add=True)
+
+    @command("取消微博推送")
+    def handle_unsubscribe_weibo(self, ctx):
+        self.handle_platform_subscription_command(ctx, "weibo", add=False)
+
+    @command("订阅抖音推送")
+    def handle_subscribe_douyin(self, ctx):
+        self.handle_platform_subscription_command(ctx, "douyin", add=True)
+
+    @command("取消抖音推送")
+    def handle_unsubscribe_douyin(self, ctx):
+        self.handle_platform_subscription_command(ctx, "douyin", add=False)
+
+    @command("订阅网易云音乐推送")
+    def handle_subscribe_netease_music(self, ctx):
+        self.handle_platform_subscription_command(ctx, "netease_music", add=True)
+
+    @command("取消网易云音乐推送")
+    def handle_unsubscribe_netease_music(self, ctx):
+        self.handle_platform_subscription_command(ctx, "netease_music", add=False)
+
+    def handle_platform_subscription_command(self, ctx, platform, add):
+        settings = self.load_settings(ctx)
+        result = add_platform_subscription(settings, ctx, platform) if add else remove_platform_subscription(settings, ctx, platform)
+        if result["ok"]:
+            self.save_settings(ctx, settings)
+            self._settings = copy.deepcopy(settings)
+            self._settings_loaded = True
+        ctx.send_text(result["message"])
+        ctx.send_result({"handled": True})
+
     @command("b站搜索up", aliases=["b站搜索UP", "B站搜索up", "B站搜索UP"])
     def handle_bilibili_user_search(self, ctx):
         result = search_bilibili_users(ctx)
@@ -147,6 +184,24 @@ class SubscriptionHubPlugin(RayleaBotPlugin):
         ctx.send_text(format_subscription_list(settings, current_target(ctx), platform="bilibili", title="Bilibili 订阅列表"))
         ctx.send_result({"handled": True})
 
+    @command("微博订阅列表")
+    def handle_weibo_subscription_list(self, ctx):
+        settings = self.load_settings(ctx)
+        ctx.send_text(format_subscription_list(settings, current_target(ctx), platform="weibo", title="微博订阅列表"))
+        ctx.send_result({"handled": True})
+
+    @command("抖音订阅列表")
+    def handle_douyin_subscription_list(self, ctx):
+        settings = self.load_settings(ctx)
+        ctx.send_text(format_subscription_list(settings, current_target(ctx), platform="douyin", title="抖音订阅列表"))
+        ctx.send_result({"handled": True})
+
+    @command("网易云音乐订阅列表")
+    def handle_netease_music_subscription_list(self, ctx):
+        settings = self.load_settings(ctx)
+        ctx.send_text(format_subscription_list(settings, current_target(ctx), platform="netease_music", title="网易云音乐订阅列表"))
+        ctx.send_result({"handled": True})
+
     @command("全部订阅列表")
     def handle_all_subscription_list(self, ctx):
         settings = self.load_settings(ctx)
@@ -157,6 +212,24 @@ class SubscriptionHubPlugin(RayleaBotPlugin):
     def handle_all_bilibili_subscription_list(self, ctx):
         settings = self.load_settings(ctx)
         ctx.send_text(format_subscription_list(settings, None, platform="bilibili", title="全部 Bilibili 订阅列表"))
+        ctx.send_result({"handled": True})
+
+    @command("全部微博订阅列表")
+    def handle_all_weibo_subscription_list(self, ctx):
+        settings = self.load_settings(ctx)
+        ctx.send_text(format_subscription_list(settings, None, platform="weibo", title="全部微博订阅列表"))
+        ctx.send_result({"handled": True})
+
+    @command("全部抖音订阅列表")
+    def handle_all_douyin_subscription_list(self, ctx):
+        settings = self.load_settings(ctx)
+        ctx.send_text(format_subscription_list(settings, None, platform="douyin", title="全部抖音订阅列表"))
+        ctx.send_result({"handled": True})
+
+    @command("全部网易云音乐订阅列表")
+    def handle_all_netease_music_subscription_list(self, ctx):
+        settings = self.load_settings(ctx)
+        ctx.send_text(format_subscription_list(settings, None, platform="netease_music", title="全部网易云音乐订阅列表"))
         ctx.send_result({"handled": True})
 
     @command("立即检查订阅")
@@ -266,6 +339,23 @@ class SubscriptionHubPlugin(RayleaBotPlugin):
     def handle_config_changed(self, ctx):
         self.load_settings(ctx, force=True)
         ctx.send_result({"handled": True})
+
+    @event_handler("message.group")
+    def handle_group_message(self, ctx):
+        self.handle_message(ctx)
+
+    @event_handler("message.private")
+    def handle_private_message(self, ctx):
+        self.handle_message(ctx)
+
+    def handle_message(self, ctx):
+        ref = parse_supported_link(ctx.plain_text)
+        if not ref:
+            ctx.send_result({"handled": False})
+            return
+        resolved = resolve_link_preview(ctx, ref)
+        ctx.send_text(format_link_preview(resolved))
+        ctx.send_result({"handled": True, "platform": resolved.get("platform"), "kind": resolved.get("kind")})
 
     @event_handler("bilibili.live.started")
     def handle_bilibili_live_started(self, ctx):

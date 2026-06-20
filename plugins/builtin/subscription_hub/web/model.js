@@ -1,4 +1,5 @@
 import { normalizeServices, servicesKey, trim, unique } from './services.js'
+import { normalizePlatform, safeSubjectId } from './platforms.js'
 import { normalizeSubscriber } from './subscribers.js'
 import { targetKey } from './targets.js'
 
@@ -6,22 +7,28 @@ export function normalizeSubscription(value) {
   if (!value || typeof value !== 'object') {
     return null
   }
-  const uid = trim(value.uid)
+  const platform = normalizePlatform(value.platform)
+  const uid = safeSubjectId(value.uid, platform)
   const targetType = trim(value.target_type)
   const targetId = trim(value.target_id)
   if (!/^[0-9]+$/.test(uid) || !['group', 'private'].includes(targetType) || !/^[0-9]+$/.test(targetId)) {
+    if (platform === 'bilibili') {
+      return null
+    }
+  }
+  if (!uid || !['group', 'private'].includes(targetType) || !/^[0-9]+$/.test(targetId)) {
     return null
   }
   return {
     id: trim(value.id),
-    platform: 'bilibili',
+    platform,
     uid,
     name: trim(value.name) || uid,
     avatar_url: trim(value.avatar_url),
     target_type: targetType,
     target_id: targetId,
     target_name: trim(value.target_name),
-    services: normalizeServices(value.services),
+    services: normalizeServices(value.services, platform),
     subscribers: Array.isArray(value.subscribers)
       ? value.subscribers.map(normalizeSubscriber).filter(Boolean)
       : [],
@@ -42,6 +49,7 @@ export function normalizeSettings(value) {
 export function createBlankRow(rowId) {
   return {
     row_id: rowId,
+    platform: 'bilibili',
     uid: '',
     name: '',
     avatar_url: '',
@@ -64,10 +72,12 @@ export function createBlankRow(rowId) {
 export function buildRowsFromSettings(settings) {
   const grouped = new Map()
   for (const subscription of settings.subscriptions || []) {
-    let row = grouped.get(subscription.uid)
+    const groupKey = `${subscription.platform}:${subscription.uid}`
+    let row = grouped.get(groupKey)
     if (!row) {
       row = {
-        row_id: `uid-${subscription.uid}`,
+        row_id: `${subscription.platform}-${subscription.uid}`,
+        platform: subscription.platform,
         uid: subscription.uid,
         name: subscription.name || subscription.uid,
         avatar_url: subscription.avatar_url || '',
@@ -77,7 +87,7 @@ export function buildRowsFromSettings(settings) {
         resolve_message: '',
         candidates: [],
         enabled: false,
-        services: normalizeServices(subscription.services),
+        services: normalizeServices(subscription.services, subscription.platform),
         service_mode: 'common',
         target_mode: subscription.target_type || 'group',
         targets: [],
@@ -85,7 +95,7 @@ export function buildRowsFromSettings(settings) {
         edit_mode: false,
         _editSnapshot: null,
       }
-      grouped.set(subscription.uid, row)
+      grouped.set(groupKey, row)
     }
     row.enabled = row.enabled || subscription.enabled !== false
     row.avatar_url = row.avatar_url || subscription.avatar_url || ''
@@ -99,7 +109,7 @@ export function buildRowsFromSettings(settings) {
       target_type: subscription.target_type,
       target_id: subscription.target_id,
       target_name: subscription.target_name || '',
-      services: normalizeServices(subscription.services),
+      services: normalizeServices(subscription.services, subscription.platform),
     })
     for (const subscriber of subscription.subscribers || []) {
       if (subscriber.id) {
@@ -111,7 +121,7 @@ export function buildRowsFromSettings(settings) {
   const rows = [...grouped.values()]
   for (const row of rows) {
     row.subscriber_ids = unique(row.subscriber_ids)
-    const serviceKeys = unique(row.targets.map((target) => servicesKey(target.services)))
+    const serviceKeys = unique(row.targets.map((target) => servicesKey(target.services, row.platform)))
     if (serviceKeys.length > 1) {
       row.service_mode = 'mixed'
     } else if (serviceKeys.length === 1) {

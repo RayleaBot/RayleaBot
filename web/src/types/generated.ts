@@ -1727,7 +1727,7 @@ export interface components {
             };
         };
         /** @enum {string} */
-        ThirdPartyPlatform: "bilibili";
+        ThirdPartyPlatform: "bilibili" | "weibo" | "douyin" | "netease_music";
         ThirdPartyAccountSummary: {
             platform: components["schemas"]["ThirdPartyPlatform"];
             account_id: string;

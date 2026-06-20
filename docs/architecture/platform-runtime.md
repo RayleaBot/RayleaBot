@@ -14,7 +14,7 @@
 
 - SQLite 是唯一正式状态库，负责鉴权、任务、插件实例、日志、调度、三方账号摘要和 Bilibili source 状态持久化。
 - `data/` 保存状态库、插件业务数据和 Launcher 本地设置；`cache/` 保存可重建缓存；`logs/` 保存结构化日志与诊断输出。
-- 敏感信息通过受控 secret store 管理，不把明文 secret 放入公开用户配置；Bilibili CK 使用三方账号 secret 命名空间保存。
+- 敏感信息通过受控 secret store 管理，不把明文 secret 放入公开用户配置；平台 Cookie / CK 使用三方账号 secret 命名空间保存。
 - 管理日志、插件日志和诊断导出复用同一套结构化摘要口径。
 
 ## 恢复、诊断与运行环境准备

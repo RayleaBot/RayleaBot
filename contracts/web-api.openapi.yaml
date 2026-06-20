@@ -113,8 +113,10 @@ x-fixtures:
   - fixtures/web-api/ok.plugins-uninstall-accepted.yaml
   - fixtures/web-api/ok.third-party-accounts-list.yaml
   - fixtures/web-api/ok.third-party-account-upsert.yaml
+  - fixtures/web-api/ok.third-party-account-upsert-weibo.yaml
   - fixtures/web-api/ok.third-party-account-delete.yaml
   - fixtures/web-api/ok.third-party-monitors-bilibili.yaml
+  - fixtures/web-api/ok.third-party-monitors-weibo-empty.yaml
   - fixtures/web-api/ok.third-party-media-bilibili-image.yaml
   - fixtures/web-api/invalid.third-party-media-unsupported-url.yaml
   - fixtures/web-api/ok.bilibili-login-qrcode-create.yaml
@@ -3417,7 +3419,7 @@ components:
 
     ThirdPartyPlatform:
       type: string
-      enum: [bilibili]
+      enum: [bilibili, weibo, douyin, netease_music]
 
     ThirdPartyAccountSummary:
       type: object

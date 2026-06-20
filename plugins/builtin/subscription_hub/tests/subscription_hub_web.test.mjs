@@ -156,6 +156,46 @@ test('pure model groups subscriptions by Bilibili UID and payload splits them ba
   ])
 })
 
+test('pure model keeps equal IDs separated across platforms', () => {
+  const settings = normalizeSettings({
+    enabled: true,
+    subscriptions: [{
+      id: 'bilibili-123456-group-5050',
+      platform: 'bilibili',
+      uid: '123456',
+      name: '测试 UP',
+      target_type: 'group',
+      target_id: '5050',
+      services: ['video'],
+      subscribers: [],
+      enabled: true,
+    }, {
+      id: 'weibo-123456-group-5050',
+      platform: 'weibo',
+      uid: '123456',
+      name: '测试微博',
+      target_type: 'group',
+      target_id: '5050',
+      services: ['post'],
+      subscribers: [],
+      enabled: true,
+    }],
+  })
+  const rows = buildRowsFromSettings(settings)
+  const payload = buildSettingsPayload(settings, rows, targetMap(normalizeTargets(targetsPayload)))
+
+  assert.equal(rows.length, 2)
+  assert.deepEqual(rows.map((row) => row.platform).sort(), ['bilibili', 'weibo'])
+  assert.deepEqual(payload.subscriptions.map((item) => ({
+    platform: item.platform,
+    uid: item.uid,
+    services: item.services,
+  })).sort((a, b) => a.platform.localeCompare(b.platform)), [
+    { platform: 'bilibili', uid: '123456', services: ['video'] },
+    { platform: 'weibo', uid: '123456', services: ['post'] },
+  ])
+})
+
 test('groups subscriptions by Bilibili UID and hides raw maintenance fields', () => {
   const { dom } = createPage()
   const document = dom.window.document
@@ -406,4 +446,33 @@ test('new row must resolve Bilibili user before saving', () => {
 
   document.querySelector('.target-option').click()
   assert.equal(document.querySelector('#save-button').disabled, false)
+})
+
+test('new Weibo row uses manual subject and saves platform services', () => {
+  const { dom, messages } = createPage(defaultSettings)
+  const document = dom.window.document
+
+  document.querySelector('#add-subscription-button').click()
+  const platformSelect = document.querySelector('.platform-select')
+  platformSelect.value = 'weibo'
+  platformSelect.dispatchEvent(new dom.window.Event('change', { bubbles: true }))
+
+  const input = document.querySelector('.up-query-input')
+  input.value = '7556659984'
+  input.dispatchEvent(new dom.window.Event('input', { bubbles: true }))
+  document.querySelector('.target-option').click()
+
+  let inputs = commonServiceInputs(document)
+  inputs.all.click()
+  inputs = commonServiceInputs(document)
+  inputs.video.click()
+
+  assert.equal(document.querySelector('#save-button').disabled, false)
+  document.querySelector('#save-button').click()
+
+  const values = saveMessage(messages).payload.values
+  assert.equal(values.subscriptions.length, 1)
+  assert.equal(values.subscriptions[0].platform, 'weibo')
+  assert.equal(values.subscriptions[0].uid, '7556659984')
+  assert.deepEqual(plain(values.subscriptions[0].services), ['video'])
 })

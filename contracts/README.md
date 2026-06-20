@@ -125,7 +125,7 @@
 - `GET /api/bilibili/source/status`
 - `POST /api/bilibili/source/restart`
 
-其中当前正式平台固定为 `bilibili`；三方账号响应只暴露账号摘要、凭据状态和保存状态，不暴露 CK 明文。
+其中正式平台为 `bilibili`、`weibo`、`douyin`、`netease_music`；三方账号响应只暴露账号摘要、凭据状态和保存状态，不暴露 Cookie / CK 明文。Bilibili source 状态、扫码登录和用户解析接口仍限定为 Bilibili。
 
 当前已进入 OpenAPI 冻结范围的 plugin settings surface：
 

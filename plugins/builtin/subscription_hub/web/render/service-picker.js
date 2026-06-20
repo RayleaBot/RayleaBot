@@ -1,21 +1,21 @@
-import { SERVICE_LABELS, SERVICE_ORDER, serviceCheckboxValues } from '../services.js'
+import { serviceCheckboxValues, serviceLabel, serviceOrder } from '../services.js'
 import { targetDisplay } from '../targets.js'
 import { escapeHTML } from './html.js'
 
-export function serviceTagsHTML(services) {
-  return serviceCheckboxValues(services).has('all')
+export function serviceTagsHTML(services, platform = 'bilibili') {
+  return serviceCheckboxValues(services, platform).has('all')
     ? '<span class="service-tag">全部</span>'
-    : [...serviceCheckboxValues(services)].map((service) => `
-      <span class="service-tag">${escapeHTML(SERVICE_LABELS[service] || service)}</span>
+    : [...serviceCheckboxValues(services, platform)].map((service) => `
+      <span class="service-tag">${escapeHTML(serviceLabel(service, platform))}</span>
     `).join('')
 }
 
-export function renderServiceCheckboxes(rowId, targetKeyValue, services) {
-  const active = serviceCheckboxValues(services)
-  return SERVICE_ORDER.map((service) => `
+export function renderServiceCheckboxes(rowId, targetKeyValue, services, platform = 'bilibili') {
+  const active = serviceCheckboxValues(services, platform)
+  return serviceOrder(platform).map((service) => `
     <label>
       <input type="checkbox" class="service-checkbox" data-row-id="${escapeHTML(rowId)}" data-target-key="${escapeHTML(targetKeyValue)}" value="${escapeHTML(service)}" ${active.has(service) ? 'checked' : ''} />
-      ${escapeHTML(SERVICE_LABELS[service])}
+      ${escapeHTML(serviceLabel(service, platform))}
     </label>
   `).join('')
 }
@@ -24,7 +24,7 @@ export function renderServiceEditor(row, context) {
   if (row.service_mode === 'mixed') {
     return renderMixedServices(row, context.targetMap)
   }
-  return `<div class="inline-checks" aria-label="推送类型">${renderServiceCheckboxes(row.row_id, 'common', row.services)}</div>`
+  return `<div class="inline-checks" aria-label="推送类型">${renderServiceCheckboxes(row.row_id, 'common', row.services, row.platform)}</div>`
 }
 
 export function renderMixedServices(row, map) {
@@ -34,7 +34,7 @@ export function renderMixedServices(row, map) {
       ${row.targets.map((target) => `
         <div class="target-service-line">
           <span class="row-note">${escapeHTML(targetDisplay(target, map))}</span>
-          <div class="inline-checks">${renderServiceCheckboxes(row.row_id, target.key, target.services)}</div>
+          <div class="inline-checks">${renderServiceCheckboxes(row.row_id, target.key, target.services, row.platform)}</div>
         </div>
       `).join('')}
     </div>

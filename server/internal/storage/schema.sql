@@ -151,7 +151,7 @@ CREATE INDEX IF NOT EXISTS idx_system_configs_namespace
     ON system_configs (namespace);
 
 CREATE TABLE IF NOT EXISTS third_party_accounts (
-    platform TEXT NOT NULL CHECK (platform IN ('bilibili')),
+    platform TEXT NOT NULL CHECK (platform IN ('bilibili', 'weibo', 'douyin', 'netease_music')),
     account_id TEXT NOT NULL,
     label TEXT NOT NULL DEFAULT '',
     enabled INTEGER NOT NULL DEFAULT 1 CHECK (enabled IN (0, 1)),

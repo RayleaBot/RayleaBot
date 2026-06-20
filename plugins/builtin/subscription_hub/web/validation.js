@@ -1,4 +1,5 @@
 import { hasServiceSelection, trim, unique } from './services.js'
+import { platformLabel, safeSubjectId, subjectLabel } from './platforms.js'
 import { numericPattern } from './subscribers.js'
 import { targetDisplay } from './targets.js'
 
@@ -6,8 +7,9 @@ export function validateRow(row, context) {
   const map = context && context.targetMap ? context.targetMap : new Map()
   const targetsLoaded = Boolean(context && context.targetsLoaded)
   const errors = []
-  if (!row.resolved || !numericPattern.test(row.uid) || !row.name) {
-    errors.push('UP 未完成校验')
+  const uid = trim(row.uid)
+  if (!row.resolved || !safeSubjectId(uid, row.platform) || !row.name) {
+    errors.push(`${platformLabel(row.platform)} ${subjectLabel(row.platform)} 未完成`)
   }
   if (!targetsLoaded) {
     errors.push('推送对象未载入')

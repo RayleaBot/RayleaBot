@@ -1,4 +1,5 @@
-from .services import SERVICE_NAMES, services_text, subscription_id_for
+from .platforms import platform_name, subject_text
+from .services import services_text, subscription_id_for
 
 
 def current_target(ctx):
@@ -96,13 +97,13 @@ def merge_subscriber(existing, subscriber):
     return items
 
 
-def find_bilibili_subscription(settings, uid, target):
-    subscription_id = subscription_id_for("bilibili", uid, target["target_type"], target["target_id"])
+def find_subscription(settings, platform, uid, target):
+    subscription_id = subscription_id_for(platform, uid, target["target_type"], target["target_id"])
     return next((
         item for item in settings.get("subscriptions") or []
         if item.get("id") == subscription_id
         or (
-            item.get("platform") == "bilibili"
+            item.get("platform") == platform
             and str(item.get("uid") or "").strip() == str(uid or "").strip()
             and item.get("target_type") == target["target_type"]
             and item.get("target_id") == target["target_id"]
@@ -110,23 +111,29 @@ def find_bilibili_subscription(settings, uid, target):
     ), None)
 
 
-def find_bilibili_subscription_by_name(settings, name, target):
+def find_subscription_by_name(settings, platform, name, target):
     text = str(name or "").strip()
     if not text:
         return None
     return next((
         item for item in settings.get("subscriptions") or []
-        if item.get("platform") == "bilibili"
+        if item.get("platform") == platform
         and item.get("target_type") == target["target_type"]
         and item.get("target_id") == target["target_id"]
         and str(item.get("name") or "").strip() == text
     ), None)
 
 
+def find_bilibili_subscription(settings, uid, target):
+    return find_subscription(settings, "bilibili", uid, target)
+
+
+def find_bilibili_subscription_by_name(settings, name, target):
+    return find_subscription_by_name(settings, "bilibili", name, target)
+
+
 def user_label(user):
-    name = str(user.get("name") or "").strip()
-    uid = str(user.get("uid") or "").strip()
-    return f"{name}（UID {uid}）" if name and uid and name != uid else uid or name
+    return subject_text(user, user.get("platform") or "bilibili")
 
 
 def format_subscription_list(settings, target, platform=None, title="订阅列表"):
@@ -142,10 +149,9 @@ def format_subscription_list(settings, target, platform=None, title="订阅列�
     lines = [title]
     for item in items:
         target_label = "私聊" if item.get("target_type") == "private" else "群聊"
-        name = str(item.get("name") or item.get("uid") or "").strip()
-        uid = str(item.get("uid") or "").strip()
-        subject = f"{name}（UID {uid}）" if name and uid and name != uid else uid or name
-        lines.append(f"{target_label} {item.get('target_id')} · Bilibili {subject} · {services_text(item.get('services'))} · 订阅人：{subscribers_text(item)}")
+        item_platform = item.get("platform") or "bilibili"
+        subject = subject_text(item, item_platform)
+        lines.append(f"{target_label} {item.get('target_id')} · {platform_name(item_platform)} {subject} · {services_text(item.get('services'), item_platform)} · 订阅人：{subscribers_text(item)}")
     return "\n".join(lines)
 
 
@@ -165,6 +171,7 @@ def build_status_text(settings):
         "订阅中心",
         f"状态：{'启用' if settings.get('enabled', True) else '停用'}",
         f"订阅：{enabled_subscriptions}/{len(subscriptions)}",
-        "事件源：平台 Bilibili 实时源",
-        "账号：Web 三方账号页面管理 Bilibili CK",
+        "平台：Bilibili、微博、抖音、网易云音乐",
+        "事件源：Bilibili 实时源；微博、抖音、网易云音乐支持账号与订阅配置、链接解析",
+        "账号：Web 三方账号页面管理平台 Cookie",
     ])

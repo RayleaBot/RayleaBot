@@ -1,0 +1,30 @@
+contract: contracts/web-api.openapi.yaml
+case: ok
+description: Third-party account upsert accepts a Weibo cookie and reports the account as configured.
+request:
+  method: PUT
+  path: /api/third-party/accounts/weibo/primary
+  body:
+    label: 微博主账号
+    enabled: true
+    cookie: "SUB=fixture;"
+response:
+  status: 200
+  body:
+    account:
+      platform: weibo
+      account_id: primary
+      label: 微博主账号
+      enabled: true
+      configured: true
+      profile: null
+      credential:
+        state: unknown
+        checked_at: "2026-06-08T08:01:01Z"
+        last_error: ""
+      polling:
+        enabled: true
+        last_used_at: null
+      updated_at: "2026-06-08T08:01:00Z"
+expect:
+  valid: true

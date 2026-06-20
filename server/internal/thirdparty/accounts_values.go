@@ -10,10 +10,16 @@ import (
 
 func normalizePlatform(value string) (string, error) {
 	platform := strings.TrimSpace(strings.ToLower(value))
-	if platform != PlatformBilibili {
-		return "", fmt.Errorf("%w: unsupported platform", ErrInvalidAccount)
+	for _, supported := range SupportedPlatforms() {
+		if platform == supported {
+			return platform, nil
+		}
 	}
-	return platform, nil
+	return "", fmt.Errorf("%w: unsupported platform", ErrInvalidAccount)
+}
+
+func NormalizePlatform(value string) (string, error) {
+	return normalizePlatform(value)
 }
 
 func normalizeAccountID(value string) (string, error) {

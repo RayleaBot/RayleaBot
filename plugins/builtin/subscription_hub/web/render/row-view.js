@@ -1,4 +1,5 @@
 import { subscriberAvatarURL } from '../subscribers.js'
+import { platformLabel, subjectLabel } from '../platforms.js'
 import { targetAvatar, targetDisplay } from '../targets.js'
 import { avatarHTML, avatarStackHTML, escapeHTML } from './html.js'
 import { serviceTagsHTML } from './service-picker.js'
@@ -6,12 +7,12 @@ import { renderValidationBadge } from './status.js'
 
 export function renderRowView(row, context) {
   const map = context.targetMap
-  const title = row.name || row.uid || '未校验 UP'
-  const subtitle = row.uid ? `UID ${row.uid}` : '输入 UID 或 Bilibili 用户名后校验'
+  const title = row.name || row.uid || `未设置${platformLabel(row.platform)}对象`
+  const subtitle = row.uid ? `${platformLabel(row.platform)} · ${subjectLabel(row.platform)} ${row.uid}` : platformLabel(row.platform)
   const upAvatar = avatarHTML(row.avatar_url, title, 'avatar--up', title)
   const services = row.service_mode === 'mixed'
     ? '<span class="service-tag">目标配置不同</span>'
-    : serviceTagsHTML(row.services)
+    : serviceTagsHTML(row.services, row.platform)
   const targetSummaryItems = row.targets.map((target) => ({
     avatar_url: targetAvatar(target, map),
     label: targetDisplay(target, map),

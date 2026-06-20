@@ -1,0 +1,14 @@
+contract: contracts/web-api.openapi.yaml
+case: ok
+description: Third-party monitors return an empty list for a platform without a built-in source snapshot.
+request:
+  method: GET
+  path: /api/third-party/monitors?platform=weibo
+response:
+  status: 200
+  body:
+    platform: weibo
+    items: []
+    updated_at: "2026-06-08T08:11:05Z"
+expect:
+  valid: true

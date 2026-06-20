@@ -1,13 +1,17 @@
 import { avatarHTML, escapeHTML } from './html.js'
+import { PLATFORM_OPTIONS, inputPlaceholder, platformLabel, subjectLabel } from '../platforms.js'
 import { renderServiceEditor } from './service-picker.js'
 import { renderSubscriberEditor } from './subscriber-editor.js'
 import { renderRowValidation } from './status.js'
 import { renderSelectedTargets, renderTargetOptions } from './target-picker.js'
 
 export function renderRowEdit(row, context) {
-  const title = row.name || row.uid || '未校验 UP'
-  const subtitle = row.uid ? `UID ${row.uid}` : '输入 UID 或 Bilibili 用户名后校验'
+  const title = row.name || row.uid || `未设置${platformLabel(row.platform)}对象`
+  const subtitle = row.uid ? `${subjectLabel(row.platform)} ${row.uid}` : inputPlaceholder(row.platform)
   const upAvatar = avatarHTML(row.avatar_url, title, 'avatar--up', title)
+  const platformOptions = PLATFORM_OPTIONS.map((option) => `
+    <option value="${escapeHTML(option.value)}" ${row.platform === option.value ? 'selected' : ''}>${escapeHTML(option.label)}</option>
+  `).join('')
   const candidates = row.candidates.length
     ? `<div class="candidate-list">${row.candidates.map((candidate) => `
         <button type="button" class="button candidate-button" data-action="choose-candidate" data-row-id="${escapeHTML(row.row_id)}" data-user='${escapeHTML(JSON.stringify(candidate))}'>
@@ -33,10 +37,11 @@ export function renderRowEdit(row, context) {
 
       <div class="sub-card__body">
         <div class="sub-card__section">
-          <div class="sub-card__section-title">UP 信息</div>
+          <div class="sub-card__section-title">订阅对象</div>
           <div class="up-input-line">
-            <input class="up-query-input" data-row-id="${escapeHTML(row.row_id)}" type="text" autocomplete="off" value="${escapeHTML(row.query)}" placeholder="UID 或 Bilibili 用户名" />
-            <button type="button" class="button button--small" data-action="resolve-up" data-row-id="${escapeHTML(row.row_id)}">校验</button>
+            <select class="platform-select" data-row-id="${escapeHTML(row.row_id)}" autocomplete="off" aria-label="平台">${platformOptions}</select>
+            <input class="up-query-input" data-row-id="${escapeHTML(row.row_id)}" type="text" autocomplete="off" value="${escapeHTML(row.query)}" placeholder="${escapeHTML(inputPlaceholder(row.platform))}" />
+            <button type="button" class="button button--small" data-action="resolve-up" data-row-id="${escapeHTML(row.row_id)}">${row.platform === 'bilibili' ? '校验' : '使用'}</button>
           </div>
           ${row.resolve_message ? `<div class="row-note">${escapeHTML(row.resolve_message)}</div>` : ''}
           ${candidates}

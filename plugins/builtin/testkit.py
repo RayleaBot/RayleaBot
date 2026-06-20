@@ -9,6 +9,8 @@ class FakePluginContext:
         target_type="group",
         target_id="10000",
         target_name=None,
+        event_type="message.group",
+        plain_text="",
         actor=None,
         payload=None,
         super_admins=None,
@@ -22,6 +24,8 @@ class FakePluginContext:
         self.request_id = request_id
         self.target_type = target_type
         self.target_id = target_id
+        self.event_type = event_type
+        self.plain_text = plain_text
         self.target = {"type": target_type, "id": target_id}
         if target_name:
             self.target["name"] = target_name

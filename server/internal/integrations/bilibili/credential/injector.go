@@ -39,17 +39,18 @@ func NewInjector(accounts Accounts, session Session) *Injector {
 }
 
 func (i *Injector) Inject(ctx context.Context, req httpaction.CredentialRequest) (httpaction.CredentialResult, error) {
-	if i == nil || i.Accounts == nil || req.Headers == nil || req.PluginID != SubscriptionHubPluginID || !IsBilibiliURL(req.RawURL) || !urlHostDeclared(req.RawURL, req.ScopeHosts) || hasHeader(req.Headers, "Cookie") {
+	platform := PlatformForURL(req.RawURL)
+	if i == nil || i.Accounts == nil || req.Headers == nil || req.PluginID != SubscriptionHubPluginID || platform == "" || !urlHostDeclared(req.RawURL, req.ScopeHosts) || hasHeader(req.Headers, "Cookie") {
 		return httpaction.CredentialResult{}, nil
 	}
-	accounts, err := i.Accounts.ListEnabled(ctx, thirdparty.PlatformBilibili)
+	accounts, err := i.Accounts.ListEnabled(ctx, platform)
 	if err != nil {
 		return httpaction.CredentialResult{}, nil
 	}
 	for _, account := range accounts {
 		cookie, err := i.Accounts.ReadCookie(ctx, account)
 		if err == nil && strings.TrimSpace(cookie) != "" {
-			result, err := i.injectAccountCookie(ctx, req, account, cookie)
+			result, err := i.injectAccountCookie(ctx, req, account, cookie, platform)
 			if err != nil {
 				return httpaction.CredentialResult{}, err
 			}
@@ -62,8 +63,8 @@ func (i *Injector) Inject(ctx context.Context, req httpaction.CredentialRequest)
 	return httpaction.CredentialResult{}, nil
 }
 
-func (i *Injector) injectAccountCookie(ctx context.Context, req httpaction.CredentialRequest, account thirdparty.Account, cookie string) (httpaction.CredentialResult, error) {
-	if i.Session != nil {
+func (i *Injector) injectAccountCookie(ctx context.Context, req httpaction.CredentialRequest, account thirdparty.Account, cookie string, platform string) (httpaction.CredentialResult, error) {
+	if platform == thirdparty.PlatformBilibili && i.Session != nil {
 		prepared, err := i.Session.PrepareCookie(ctx, cookie)
 		if err != nil {
 			return httpaction.CredentialResult{}, nil
@@ -81,7 +82,7 @@ func (i *Injector) injectAccountCookie(ctx context.Context, req httpaction.Crede
 			return i.Accounts.MarkUsed(ctx, account)
 		},
 	}
-	if i.Session != nil && IsBilibiliURLForWBI(req.RawURL) {
+	if platform == thirdparty.PlatformBilibili && i.Session != nil && IsBilibiliURLForWBI(req.RawURL) {
 		signedURL, err := i.Session.SignURL(ctx, req.RawURL, cookie)
 		if err != nil {
 			return httpaction.CredentialResult{}, err
@@ -91,13 +92,39 @@ func (i *Injector) injectAccountCookie(ctx context.Context, req httpaction.Crede
 	return result, nil
 }
 
+func PlatformForURL(rawURL string) string {
+	if IsBilibiliURL(rawURL) {
+		return thirdparty.PlatformBilibili
+	}
+	if isURLForHosts(rawURL, "weibo.com", "weibo.cn", "m.weibo.cn") {
+		return thirdparty.PlatformWeibo
+	}
+	if isURLForHosts(rawURL, "douyin.com", "iesdouyin.com", "amemv.com") {
+		return thirdparty.PlatformDouyin
+	}
+	if isURLForHosts(rawURL, "music.163.com", "163cn.tv") {
+		return thirdparty.PlatformNeteaseMusic
+	}
+	return ""
+}
+
 func IsBilibiliURL(rawURL string) bool {
+	return isURLForHosts(rawURL, "bilibili.com")
+}
+
+func isURLForHosts(rawURL string, roots ...string) bool {
 	parsed, err := url.Parse(rawURL)
 	if err != nil {
 		return false
 	}
 	host := strings.ToLower(strings.TrimSpace(parsed.Hostname()))
-	return host == "bilibili.com" || strings.HasSuffix(host, ".bilibili.com")
+	for _, root := range roots {
+		root = strings.ToLower(strings.TrimSpace(root))
+		if host == root || strings.HasSuffix(host, "."+root) {
+			return true
+		}
+	}
+	return false
 }
 
 func IsBilibiliURLForWBI(rawURL string) bool {

@@ -111,11 +111,12 @@
   - plugin webhook registry, auth validation, on-demand runtime start, and `webhook.received`
   - recovery summary refresh, backup, diagnostics export, and runtime bootstrap tasks
 - third-party and Bilibili services：
-  - Bilibili CK account summaries and credential save / delete status
+  - Bilibili、微博、抖音、网易云音乐账号摘要和凭据保存 / 删除状态
   - Bilibili cookie validation through account profile lookup
   - Bilibili QR login session create / poll
   - built-in Bilibili source lifecycle, status, restart, diagnosis, and `/ws/events` status updates
   - subscription hub config readout for Bilibili live / dynamic monitoring targets
+  - empty third-party monitor projection for 微博、抖音、网易云音乐
   - `bilibili.live.started`、`bilibili.live.ended`、`bilibili.dynamic.published` event dispatch
   - controlled Bilibili media proxy for management UI images
 - runtime metrics：
@@ -169,8 +170,9 @@
 - 单实例、单活跃 OneBot 主模型
 - 插件 runtime 通过正式 local action surface 访问平台能力
 - App 负责组装、运行和关闭；事件入口、协议入口、Webhook 网关、本地动作和系统能力分别由独立服务承载
-- 内置三方平台当前只支持 Bilibili
-- Bilibili CK 值只保存在 secret store；HTTP 响应只暴露账号摘要与凭据状态
+- 内置三方账号平台包含 Bilibili、微博、抖音和网易云音乐
+- Cookie / CK 值只保存在 secret store；HTTP 响应只暴露账号摘要与凭据状态
+- Bilibili source、扫码登录、用户解析和三方媒体代理为 Bilibili 专属服务
 
 ## 默认命令
 

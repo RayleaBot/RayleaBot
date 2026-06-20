@@ -16,7 +16,12 @@ import RetryPanel from '@/components/RetryPanel.vue'
 import { t } from '@/i18n'
 import { getDisplayErrorMessage } from '@/lib/error-text'
 import { formatDateTime } from '@/lib/format'
-import { useThirdPartyAccountsStore } from '@/stores/third-party-accounts'
+import {
+  thirdPartyPlatformLabels,
+  thirdPartyPlatformOrder,
+  useThirdPartyAccountsStore,
+  type ThirdPartyPlatform,
+} from '@/stores/third-party-accounts'
 import type {
   BilibiliQRCodeLoginCreateResponse,
   BilibiliQRCodeLoginPollResponse,
@@ -26,6 +31,7 @@ import type {
 } from '@/types/api'
 
 interface AccountDraft {
+  platform: ThirdPartyPlatform
   account_id: string
   label: string
   enabled: boolean
@@ -37,6 +43,18 @@ interface AccountDraft {
 interface AccountDraftEntry {
   key: string
   draft: AccountDraft
+}
+
+interface PlatformSection {
+  platform: ThirdPartyPlatform
+  label: string
+  addLabel: string
+  accounts: ThirdPartyAccountSummary[]
+  draftEntries: AccountDraftEntry[]
+  configuredCount: number
+  enabledCount: number
+  supportsQRCode: boolean
+  cookiePlaceholder: string
 }
 
 interface QRLoginState {
@@ -53,7 +71,8 @@ const qrPollIntervalMs = 2000
 
 const store = useThirdPartyAccountsStore()
 const {
-  bilibiliAccounts,
+  accounts,
+  accountsByPlatform,
   deletingAccountId,
   error,
   loading,
@@ -70,7 +89,7 @@ const draftSequence = ref(0)
 let qrPollTimer: number | undefined
 
 const pageErrorToast = computed(() => (
-  error.value && bilibiliAccounts.value.length > 0
+  error.value && accounts.value.length > 0
     ? {
         key: `third-party-accounts-error:${error.value}`,
         level: 'error' as const,
@@ -81,14 +100,28 @@ const pageErrorToast = computed(() => (
 
 useToastFeedback(pageErrorToast)
 
-const fatalError = computed(() => error.value && bilibiliAccounts.value.length === 0)
-const hasAccounts = computed(() => bilibiliAccounts.value.length > 0)
-const configuredAccountCount = computed(() => bilibiliAccounts.value.filter((account) => account.configured).length)
-const enabledAccountCount = computed(() => bilibiliAccounts.value.filter((account) => account.enabled).length)
+const fatalError = computed(() => error.value && accounts.value.length === 0)
+const hasAccounts = computed(() => accounts.value.length > 0)
+const configuredAccountCount = computed(() => accounts.value.filter((account) => account.configured).length)
+const enabledAccountCount = computed(() => accounts.value.filter((account) => account.enabled).length)
 const activeDraftEntries = computed<AccountDraftEntry[]>(() => Object.entries(drafts)
   .filter(([, draft]) => draft.isNew)
   .map(([key, draft]) => ({ key, draft })))
 const hasEditorCards = computed(() => activeDraftEntries.value.length > 0)
+const platformSections = computed<PlatformSection[]>(() => thirdPartyPlatformOrder.map((platform) => {
+  const platformAccounts = accountsByPlatform.value[platform] || []
+  return {
+    platform,
+    label: platformLabel(platform),
+    addLabel: addAccountLabel(platform),
+    accounts: platformAccounts,
+    draftEntries: activeDraftEntries.value.filter((entry) => entry.draft.platform === platform),
+    configuredCount: platformAccounts.filter((account) => account.configured).length,
+    enabledCount: platformAccounts.filter((account) => account.enabled).length,
+    supportsQRCode: platform === 'bilibili',
+    cookiePlaceholder: platform === 'bilibili' ? 'SESSDATA=...' : 'Cookie',
+  }
+}))
 
 onMounted(() => {
   void loadPage()
@@ -108,6 +141,7 @@ async function loadPage() {
 
 function draftFromAccount(account: ThirdPartyAccountSummary): AccountDraft {
   return {
+    platform: account.platform,
     account_id: account.account_id,
     label: account.label || account.profile?.nickname || account.account_id,
     enabled: account.enabled,
@@ -116,11 +150,12 @@ function draftFromAccount(account: ThirdPartyAccountSummary): AccountDraft {
   }
 }
 
-function addDraft() {
-  const key = newDraftKey()
+function addDraft(platform: ThirdPartyPlatform = 'bilibili') {
+  const key = newDraftKey(platform)
   drafts[key] = {
-    account_id: nextAccountId(),
-    label: 'Bilibili CK',
+    platform,
+    account_id: nextAccountId(platform),
+    label: `${platformLabel(platform)} Cookie`,
     enabled: true,
     configured: false,
     cookie: '',
@@ -130,7 +165,7 @@ function addDraft() {
 }
 
 function beginEdit(account: ThirdPartyAccountSummary) {
-  const key = accountKey(account.account_id)
+  const key = accountKey(account)
   drafts[key] = draftFromAccount(account)
   editingAccountKey.value = key
 }
@@ -162,7 +197,7 @@ async function saveDraft(key: string) {
     notifyError(t('builtinFeatures.thirdPartyAccounts.labelRequired'))
     return
   }
-  if (draft.isNew && bilibiliAccounts.value.some((account) => account.account_id === accountId)) {
+  if (draft.isNew && (accountsByPlatform.value[draft.platform] || []).some((account) => account.account_id === accountId)) {
     notifyError(t('builtinFeatures.thirdPartyAccounts.accountIdExists'))
     return
   }
@@ -173,7 +208,7 @@ async function saveDraft(key: string) {
     return
   }
   try {
-    await store.saveBilibiliAccount(accountId, {
+    await store.saveAccount(draft.platform, accountId, {
       label,
       enabled: draft.enabled,
       ...(cookie ? { cookie } : {}),
@@ -187,8 +222,8 @@ async function saveDraft(key: string) {
 
 async function deleteAccount(account: ThirdPartyAccountSummary) {
   try {
-    await store.deleteBilibiliAccount(account.account_id)
-    cancelEdit(accountKey(account.account_id))
+    await store.deleteAccount(account.platform, account.account_id)
+    cancelEdit(accountKey(account))
     notifySuccess(t('builtinFeatures.thirdPartyAccounts.deleted'))
   } catch (err) {
     notifyError(getDisplayErrorMessage(err))
@@ -200,6 +235,9 @@ function deleteDraft(key: string) {
 }
 
 async function startQRCodeLogin(key: string) {
+  if (drafts[key]?.platform !== 'bilibili') {
+    return
+  }
   try {
     const response = await store.createBilibiliQRCodeLogin()
     setQRLogin(key, response)
@@ -266,28 +304,53 @@ async function pollActiveQRLogins() {
   }))
 }
 
-function accountKey(value: string) {
-  return `bilibili:${value}`
+function accountKey(account: Pick<ThirdPartyAccountSummary, 'platform' | 'account_id'>) {
+  return operationKey(account.platform, account.account_id)
 }
 
-function newDraftKey() {
+function newDraftKey(platform: ThirdPartyPlatform) {
   draftSequence.value += 1
-  return `bilibili-draft:${draftSequence.value}`
+  return `${platform}-draft:${draftSequence.value}`
 }
 
-function nextAccountId() {
+function nextAccountId(platform: ThirdPartyPlatform) {
   const used = new Set([
-    ...bilibiliAccounts.value.map((account) => normalizeAccountId(account.account_id)),
-    ...activeDraftEntries.value.map((entry) => normalizeAccountId(entry.draft.account_id)),
+    ...(accountsByPlatform.value[platform] || []).map((account) => normalizeAccountId(account.account_id)),
+    ...activeDraftEntries.value
+      .filter((entry) => entry.draft.platform === platform)
+      .map((entry) => normalizeAccountId(entry.draft.account_id)),
   ])
   if (!used.has('primary')) {
     return 'primary'
   }
   let index = 2
-  while (used.has(`bilibili-${index}`)) {
+  while (used.has(`${platform}-${index}`)) {
     index += 1
   }
-  return `bilibili-${index}`
+  return `${platform}-${index}`
+}
+
+function operationKey(platform: ThirdPartyPlatform, accountId: string) {
+  return `${platform}:${accountId}`
+}
+
+function platformLabel(platform: ThirdPartyPlatform) {
+  return thirdPartyPlatformLabels[platform] || platform
+}
+
+function addAccountLabel(platform: ThirdPartyPlatform) {
+  switch (platform) {
+    case 'bilibili':
+      return t('builtinFeatures.thirdPartyAccounts.addBilibili')
+    case 'weibo':
+      return t('builtinFeatures.thirdPartyAccounts.addWeibo')
+    case 'douyin':
+      return t('builtinFeatures.thirdPartyAccounts.addDouyin')
+    case 'netease_music':
+      return t('builtinFeatures.thirdPartyAccounts.addNeteaseMusic')
+    default:
+      return t('builtinFeatures.thirdPartyAccounts.addAccount')
+  }
 }
 
 function normalizeAccountId(value: string) {
@@ -337,7 +400,18 @@ function displayName(account: ThirdPartyAccountSummary) {
 }
 
 function displayUid(account: ThirdPartyAccountSummary) {
-  return account.profile?.uid || account.account_id
+  const value = account.profile?.uid || account.account_id
+  switch (account.platform) {
+    case 'bilibili':
+    case 'weibo':
+      return `UID ${value}`
+    case 'douyin':
+      return `抖音号 ${value}`
+    case 'netease_music':
+      return `ID ${value}`
+    default:
+      return value
+  }
 }
 
 function avatarText(account: ThirdPartyAccountSummary) {
@@ -382,229 +456,254 @@ function timeText(value?: string | null) {
             <h2>{{ t('builtinFeatures.thirdPartyAccounts.accountTitle') }}</h2>
             <p>{{ t('builtinFeatures.thirdPartyAccounts.accountSummary', { configured: configuredAccountCount, enabled: enabledAccountCount }) }}</p>
           </div>
-          <div class="accounts-panel__actions">
-            <a-button type="primary" @click="addDraft">
-              <template #icon><PlusOutlined /></template>
-              {{ t('builtinFeatures.thirdPartyAccounts.addBilibili') }}
-            </a-button>
-          </div>
         </div>
 
         <div v-if="!hasAccounts && !hasEditorCards" class="accounts-empty">
           <span>{{ t('builtinFeatures.thirdPartyAccounts.noAccounts') }}</span>
-          <a-button type="primary" size="small" @click="addDraft">
-            <template #icon><PlusOutlined /></template>
-            {{ t('builtinFeatures.thirdPartyAccounts.addBilibili') }}
-          </a-button>
+          <div class="accounts-empty__actions">
+            <a-button
+              v-for="section in platformSections"
+              :key="section.platform"
+              type="primary"
+              size="small"
+              @click="addDraft(section.platform)"
+            >
+              <template #icon><PlusOutlined /></template>
+              {{ section.addLabel }}
+            </a-button>
+          </div>
         </div>
 
-        <div v-else class="accounts-grid">
-          <article
-            v-for="entry in activeDraftEntries"
-            :key="entry.key"
-            class="account-card account-card--editing"
+        <div v-if="hasAccounts || hasEditorCards" class="platform-stack">
+          <section
+            v-for="section in platformSections"
+            :key="section.platform"
+            class="platform-section"
           >
-            <div class="account-card__head">
-              <a-avatar class="account-avatar account-avatar--draft" :size="48" data-testid="bilibili-account-avatar-fallback">
-                <template #icon><UserOutlined /></template>
-              </a-avatar>
+            <div class="platform-section__header">
               <div>
-                <span class="account-platform">Bilibili</span>
-                <strong>{{ entry.draft.label || entry.draft.account_id }}</strong>
-                <small>{{ entry.draft.account_id }}</small>
+                <h3>{{ section.label }}</h3>
+                <p>{{ t('builtinFeatures.thirdPartyAccounts.accountSummary', { configured: section.configuredCount, enabled: section.enabledCount }) }}</p>
               </div>
-            </div>
-            <div class="account-editor">
-              <div class="account-editor-grid">
-                <a-form-item :label="t('builtinFeatures.thirdPartyAccounts.accountId')">
-                  <a-input v-model:value="entry.draft.account_id" autocomplete="off" />
-                </a-form-item>
-                <a-form-item :label="t('builtinFeatures.thirdPartyAccounts.label')">
-                  <a-input v-model:value="entry.draft.label" autocomplete="off" />
-                </a-form-item>
-                <a-form-item :label="t('builtinFeatures.thirdPartyAccounts.enabled')">
-                  <a-switch
-                    v-model:checked="entry.draft.enabled"
-                    :checked-children="t('builtinFeatures.thirdPartyAccounts.enabled')"
-                    :un-checked-children="t('builtinFeatures.thirdPartyAccounts.disabled')"
-                  />
-                </a-form-item>
-              </div>
-              <a-form-item :label="t('builtinFeatures.thirdPartyAccounts.cookie')">
-                <a-textarea
-                  v-model:value="entry.draft.cookie"
-                  :auto-size="{ minRows: 3, maxRows: 5 }"
-                  autocomplete="off"
-                  spellcheck="false"
-                  placeholder="SESSDATA=..."
-                />
-              </a-form-item>
-              <div v-if="qrLogins[entry.key]" class="qr-panel">
-                <a-qrcode
-                  :value="qrLogins[entry.key].qrcodeUrl"
-                  :status="qrStatus(qrLogins[entry.key])"
-                  :size="168"
-                  bordered
-                />
-                <div>
-                  <strong>{{ qrStatusText(qrLogins[entry.key]) }}</strong>
-                  <p>{{ qrLogins[entry.key].accountNickname || t('builtinFeatures.thirdPartyAccounts.qrScanWithBilibili') }}</p>
-                  <small>{{ t('builtinFeatures.thirdPartyAccounts.qrExpiresAt', { time: timeText(qrLogins[entry.key].expiresAt) }) }}</small>
-                </div>
-              </div>
-              <div class="account-editor-actions">
-                <a-button :loading="qrcodeCreating || qrcodePollingLoginId === qrLogins[entry.key]?.loginId" @click="startQRCodeLogin(entry.key)">
-                  <template #icon><QrcodeOutlined /></template>
-                  {{ t('builtinFeatures.thirdPartyAccounts.scanLogin') }}
-                </a-button>
-                <a-button danger @click="deleteDraft(entry.key)">
-                  <template #icon><DeleteOutlined /></template>
-                  {{ t('builtinFeatures.thirdPartyAccounts.cancel') }}
-                </a-button>
-                <a-button type="primary" :loading="savingAccountId === normalizeAccountId(entry.draft.account_id)" @click="saveDraft(entry.key)">
-                  <template #icon><SaveOutlined /></template>
-                  {{ t('builtinFeatures.thirdPartyAccounts.save') }}
-                </a-button>
-              </div>
-            </div>
-          </article>
-
-          <article
-            v-for="account in bilibiliAccounts"
-            :key="account.account_id"
-            :class="['account-card', { 'account-card--editing': isEditing(accountKey(account.account_id)) }]"
-          >
-            <div class="account-card__head">
-              <a-avatar class="account-avatar" :size="52">
-                <img
-                  v-if="accountAvatarSrc(account)"
-                  class="account-avatar__image"
-                  data-testid="bilibili-account-avatar-image"
-                  :src="accountAvatarSrc(account)"
-                  :alt="displayName(account)"
-                  draggable="false"
-                  loading="lazy"
-                  referrerpolicy="no-referrer"
-                  @error="markAvatarFailed(account)"
-                >
-                <template v-else>
-                  <span data-testid="bilibili-account-avatar-fallback">{{ avatarText(account) }}</span>
-                </template>
-              </a-avatar>
-              <div>
-                <span class="account-platform">Bilibili</span>
-                <strong>{{ displayName(account) }}</strong>
-                <small>UID {{ displayUid(account) }}</small>
-              </div>
-            </div>
-
-            <div class="account-card__badges">
-              <a-tag :color="account.enabled ? 'blue' : 'default'">
-                {{ account.enabled ? t('builtinFeatures.thirdPartyAccounts.enabled') : t('builtinFeatures.thirdPartyAccounts.disabled') }}
-              </a-tag>
-              <a-tag :color="account.configured ? 'green' : 'default'">
-                {{ account.configured ? t('builtinFeatures.thirdPartyAccounts.configured') : t('builtinFeatures.thirdPartyAccounts.notConfigured') }}
-              </a-tag>
-              <a-tag :color="credentialMeta(account.credential.state).color">
-                {{ credentialMeta(account.credential.state).label }}
-              </a-tag>
-            </div>
-
-            <dl class="account-card__facts">
-              <div>
-                <dt>{{ t('builtinFeatures.thirdPartyAccounts.accountId') }}</dt>
-                <dd>{{ account.account_id }}</dd>
-              </div>
-              <div>
-                <dt>{{ t('builtinFeatures.thirdPartyAccounts.polling') }}</dt>
-                <dd>{{ account.polling.enabled ? t('builtinFeatures.thirdPartyAccounts.enabled') : t('builtinFeatures.thirdPartyAccounts.disabled') }}</dd>
-              </div>
-              <div>
-                <dt>{{ t('builtinFeatures.thirdPartyAccounts.lastUsedAt') }}</dt>
-                <dd>{{ timeText(account.polling.last_used_at) }}</dd>
-              </div>
-              <div>
-                <dt>{{ t('builtinFeatures.thirdPartyAccounts.credentialCheckedAt') }}</dt>
-                <dd>{{ timeText(account.credential.checked_at) }}</dd>
-              </div>
-              <div>
-                <dt>{{ t('builtinFeatures.thirdPartyAccounts.updatedAt', { time: '' }).trim() }}</dt>
-                <dd>{{ timeText(account.updated_at) }}</dd>
-              </div>
-            </dl>
-
-            <p v-if="account.credential.last_error" class="account-card__error">
-              {{ account.credential.last_error }}
-            </p>
-
-            <div v-if="!isEditing(accountKey(account.account_id))" class="account-card__actions">
-              <a-button size="small" @click="beginEdit(account)">
-                <template #icon><EditOutlined /></template>
-                {{ t('builtinFeatures.thirdPartyAccounts.edit') }}
-              </a-button>
-              <a-button danger size="small" :loading="deletingAccountId === account.account_id" @click="deleteAccount(account)">
-                <template #icon><DeleteOutlined /></template>
-                {{ t('builtinFeatures.thirdPartyAccounts.delete') }}
+              <a-button type="primary" size="small" @click="addDraft(section.platform)">
+                <template #icon><PlusOutlined /></template>
+                {{ section.addLabel }}
               </a-button>
             </div>
 
-            <div v-else class="account-editor">
-              <div class="account-editor-grid">
-                <a-form-item :label="t('builtinFeatures.thirdPartyAccounts.accountId')">
-                  <a-input v-model:value="drafts[accountKey(account.account_id)].account_id" disabled autocomplete="off" />
-                </a-form-item>
-                <a-form-item :label="t('builtinFeatures.thirdPartyAccounts.label')">
-                  <a-input v-model:value="drafts[accountKey(account.account_id)].label" autocomplete="off" />
-                </a-form-item>
-                <a-form-item :label="t('builtinFeatures.thirdPartyAccounts.enabled')">
-                  <a-switch
-                    v-model:checked="drafts[accountKey(account.account_id)].enabled"
-                    :checked-children="t('builtinFeatures.thirdPartyAccounts.enabled')"
-                    :un-checked-children="t('builtinFeatures.thirdPartyAccounts.disabled')"
-                  />
-                </a-form-item>
-              </div>
-              <a-form-item :label="t('builtinFeatures.thirdPartyAccounts.cookie')" :extra="t('builtinFeatures.thirdPartyAccounts.keepCookie')">
-                <a-textarea
-                  v-model:value="drafts[accountKey(account.account_id)].cookie"
-                  :auto-size="{ minRows: 3, maxRows: 5 }"
-                  autocomplete="off"
-                  spellcheck="false"
-                  placeholder="SESSDATA=..."
-                />
-              </a-form-item>
-              <div v-if="qrLogins[accountKey(account.account_id)]" class="qr-panel">
-                <a-qrcode
-                  :value="qrLogins[accountKey(account.account_id)].qrcodeUrl"
-                  :status="qrStatus(qrLogins[accountKey(account.account_id)])"
-                  :size="168"
-                  bordered
-                />
-                <div>
-                  <strong>{{ qrStatusText(qrLogins[accountKey(account.account_id)]) }}</strong>
-                  <p>{{ qrLogins[accountKey(account.account_id)].accountNickname || t('builtinFeatures.thirdPartyAccounts.qrScanWithBilibili') }}</p>
-                  <small>{{ t('builtinFeatures.thirdPartyAccounts.qrExpiresAt', { time: timeText(qrLogins[accountKey(account.account_id)].expiresAt) }) }}</small>
-                </div>
-              </div>
-              <div class="account-editor-actions">
-                <a-button :loading="qrcodeCreating || qrcodePollingLoginId === qrLogins[accountKey(account.account_id)]?.loginId" @click="startQRCodeLogin(accountKey(account.account_id))">
-                  <template #icon><QrcodeOutlined /></template>
-                  {{ t('builtinFeatures.thirdPartyAccounts.scanLogin') }}
-                </a-button>
-                <a-button danger :loading="deletingAccountId === account.account_id" @click="deleteAccount(account)">
-                  <template #icon><DeleteOutlined /></template>
-                  {{ t('builtinFeatures.thirdPartyAccounts.delete') }}
-                </a-button>
-                <a-button @click="cancelEdit(accountKey(account.account_id))">
-                  {{ t('builtinFeatures.thirdPartyAccounts.cancel') }}
-                </a-button>
-                <a-button type="primary" :loading="savingAccountId === account.account_id" @click="saveDraft(accountKey(account.account_id))">
-                  <template #icon><SaveOutlined /></template>
-                  {{ t('builtinFeatures.thirdPartyAccounts.save') }}
-                </a-button>
-              </div>
+            <div v-if="section.accounts.length === 0 && section.draftEntries.length === 0" class="accounts-empty accounts-empty--compact">
+              <span>{{ t('builtinFeatures.thirdPartyAccounts.noPlatformAccounts', { platform: section.label }) }}</span>
             </div>
-          </article>
+
+            <div v-else class="accounts-grid">
+              <article
+                v-for="entry in section.draftEntries"
+                :key="entry.key"
+                class="account-card account-card--editing"
+              >
+                <div class="account-card__head">
+                  <a-avatar class="account-avatar account-avatar--draft" :size="48" data-testid="bilibili-account-avatar-fallback">
+                    <template #icon><UserOutlined /></template>
+                  </a-avatar>
+                  <div>
+                    <span class="account-platform">{{ section.label }}</span>
+                    <strong>{{ entry.draft.label || entry.draft.account_id }}</strong>
+                    <small>{{ entry.draft.account_id }}</small>
+                  </div>
+                </div>
+                <div class="account-editor">
+                  <div class="account-editor-grid">
+                    <a-form-item :label="t('builtinFeatures.thirdPartyAccounts.accountId')">
+                      <a-input v-model:value="entry.draft.account_id" autocomplete="off" />
+                    </a-form-item>
+                    <a-form-item :label="t('builtinFeatures.thirdPartyAccounts.label')">
+                      <a-input v-model:value="entry.draft.label" autocomplete="off" />
+                    </a-form-item>
+                    <a-form-item :label="t('builtinFeatures.thirdPartyAccounts.enabled')">
+                      <a-switch
+                        v-model:checked="entry.draft.enabled"
+                        :checked-children="t('builtinFeatures.thirdPartyAccounts.enabled')"
+                        :un-checked-children="t('builtinFeatures.thirdPartyAccounts.disabled')"
+                      />
+                    </a-form-item>
+                  </div>
+                  <a-form-item :label="t('builtinFeatures.thirdPartyAccounts.cookie')">
+                    <a-textarea
+                      v-model:value="entry.draft.cookie"
+                      :auto-size="{ minRows: 3, maxRows: 5 }"
+                      autocomplete="off"
+                      spellcheck="false"
+                      :placeholder="section.cookiePlaceholder"
+                    />
+                  </a-form-item>
+                  <div v-if="section.supportsQRCode && qrLogins[entry.key]" class="qr-panel">
+                    <a-qrcode
+                      :value="qrLogins[entry.key].qrcodeUrl"
+                      :status="qrStatus(qrLogins[entry.key])"
+                      :size="168"
+                      bordered
+                    />
+                    <div>
+                      <strong>{{ qrStatusText(qrLogins[entry.key]) }}</strong>
+                      <p>{{ qrLogins[entry.key].accountNickname || t('builtinFeatures.thirdPartyAccounts.qrScanWithBilibili') }}</p>
+                      <small>{{ t('builtinFeatures.thirdPartyAccounts.qrExpiresAt', { time: timeText(qrLogins[entry.key].expiresAt) }) }}</small>
+                    </div>
+                  </div>
+                  <div class="account-editor-actions">
+                    <a-button v-if="section.supportsQRCode" :loading="qrcodeCreating || qrcodePollingLoginId === qrLogins[entry.key]?.loginId" @click="startQRCodeLogin(entry.key)">
+                      <template #icon><QrcodeOutlined /></template>
+                      {{ t('builtinFeatures.thirdPartyAccounts.scanLogin') }}
+                    </a-button>
+                    <a-button danger @click="deleteDraft(entry.key)">
+                      <template #icon><DeleteOutlined /></template>
+                      {{ t('builtinFeatures.thirdPartyAccounts.cancel') }}
+                    </a-button>
+                    <a-button type="primary" :loading="savingAccountId === operationKey(entry.draft.platform, normalizeAccountId(entry.draft.account_id))" @click="saveDraft(entry.key)">
+                      <template #icon><SaveOutlined /></template>
+                      {{ t('builtinFeatures.thirdPartyAccounts.save') }}
+                    </a-button>
+                  </div>
+                </div>
+              </article>
+
+              <article
+                v-for="account in section.accounts"
+                :key="accountKey(account)"
+                :class="['account-card', { 'account-card--editing': isEditing(accountKey(account)) }]"
+              >
+                <div class="account-card__head">
+                  <a-avatar class="account-avatar" :size="52">
+                    <img
+                      v-if="accountAvatarSrc(account)"
+                      class="account-avatar__image"
+                      data-testid="bilibili-account-avatar-image"
+                      :src="accountAvatarSrc(account)"
+                      :alt="displayName(account)"
+                      draggable="false"
+                      loading="lazy"
+                      referrerpolicy="no-referrer"
+                      @error="markAvatarFailed(account)"
+                    >
+                    <template v-else>
+                      <span data-testid="bilibili-account-avatar-fallback">{{ avatarText(account) }}</span>
+                    </template>
+                  </a-avatar>
+                  <div>
+                    <span class="account-platform">{{ platformLabel(account.platform) }}</span>
+                    <strong>{{ displayName(account) }}</strong>
+                    <small>{{ displayUid(account) }}</small>
+                  </div>
+                </div>
+
+                <div class="account-card__badges">
+                  <a-tag :color="account.enabled ? 'blue' : 'default'">
+                    {{ account.enabled ? t('builtinFeatures.thirdPartyAccounts.enabled') : t('builtinFeatures.thirdPartyAccounts.disabled') }}
+                  </a-tag>
+                  <a-tag :color="account.configured ? 'green' : 'default'">
+                    {{ account.configured ? t('builtinFeatures.thirdPartyAccounts.configured') : t('builtinFeatures.thirdPartyAccounts.notConfigured') }}
+                  </a-tag>
+                  <a-tag :color="credentialMeta(account.credential.state).color">
+                    {{ credentialMeta(account.credential.state).label }}
+                  </a-tag>
+                </div>
+
+                <dl class="account-card__facts">
+                  <div>
+                    <dt>{{ t('builtinFeatures.thirdPartyAccounts.accountId') }}</dt>
+                    <dd>{{ account.account_id }}</dd>
+                  </div>
+                  <div>
+                    <dt>{{ t('builtinFeatures.thirdPartyAccounts.polling') }}</dt>
+                    <dd>{{ account.polling.enabled ? t('builtinFeatures.thirdPartyAccounts.enabled') : t('builtinFeatures.thirdPartyAccounts.disabled') }}</dd>
+                  </div>
+                  <div>
+                    <dt>{{ t('builtinFeatures.thirdPartyAccounts.lastUsedAt') }}</dt>
+                    <dd>{{ timeText(account.polling.last_used_at) }}</dd>
+                  </div>
+                  <div>
+                    <dt>{{ t('builtinFeatures.thirdPartyAccounts.credentialCheckedAt') }}</dt>
+                    <dd>{{ timeText(account.credential.checked_at) }}</dd>
+                  </div>
+                  <div>
+                    <dt>{{ t('builtinFeatures.thirdPartyAccounts.updatedAt', { time: '' }).trim() }}</dt>
+                    <dd>{{ timeText(account.updated_at) }}</dd>
+                  </div>
+                </dl>
+
+                <p v-if="account.credential.last_error" class="account-card__error">
+                  {{ account.credential.last_error }}
+                </p>
+
+                <div v-if="!isEditing(accountKey(account))" class="account-card__actions">
+                  <a-button size="small" @click="beginEdit(account)">
+                    <template #icon><EditOutlined /></template>
+                    {{ t('builtinFeatures.thirdPartyAccounts.edit') }}
+                  </a-button>
+                  <a-button danger size="small" :loading="deletingAccountId === operationKey(account.platform, account.account_id)" @click="deleteAccount(account)">
+                    <template #icon><DeleteOutlined /></template>
+                    {{ t('builtinFeatures.thirdPartyAccounts.delete') }}
+                  </a-button>
+                </div>
+
+                <div v-else class="account-editor">
+                  <div class="account-editor-grid">
+                    <a-form-item :label="t('builtinFeatures.thirdPartyAccounts.accountId')">
+                      <a-input v-model:value="drafts[accountKey(account)].account_id" disabled autocomplete="off" />
+                    </a-form-item>
+                    <a-form-item :label="t('builtinFeatures.thirdPartyAccounts.label')">
+                      <a-input v-model:value="drafts[accountKey(account)].label" autocomplete="off" />
+                    </a-form-item>
+                    <a-form-item :label="t('builtinFeatures.thirdPartyAccounts.enabled')">
+                      <a-switch
+                        v-model:checked="drafts[accountKey(account)].enabled"
+                        :checked-children="t('builtinFeatures.thirdPartyAccounts.enabled')"
+                        :un-checked-children="t('builtinFeatures.thirdPartyAccounts.disabled')"
+                      />
+                    </a-form-item>
+                  </div>
+                  <a-form-item :label="t('builtinFeatures.thirdPartyAccounts.cookie')" :extra="t('builtinFeatures.thirdPartyAccounts.keepCookie')">
+                    <a-textarea
+                      v-model:value="drafts[accountKey(account)].cookie"
+                      :auto-size="{ minRows: 3, maxRows: 5 }"
+                      autocomplete="off"
+                      spellcheck="false"
+                      :placeholder="section.cookiePlaceholder"
+                    />
+                  </a-form-item>
+                  <div v-if="section.supportsQRCode && qrLogins[accountKey(account)]" class="qr-panel">
+                    <a-qrcode
+                      :value="qrLogins[accountKey(account)].qrcodeUrl"
+                      :status="qrStatus(qrLogins[accountKey(account)])"
+                      :size="168"
+                      bordered
+                    />
+                    <div>
+                      <strong>{{ qrStatusText(qrLogins[accountKey(account)]) }}</strong>
+                      <p>{{ qrLogins[accountKey(account)].accountNickname || t('builtinFeatures.thirdPartyAccounts.qrScanWithBilibili') }}</p>
+                      <small>{{ t('builtinFeatures.thirdPartyAccounts.qrExpiresAt', { time: timeText(qrLogins[accountKey(account)].expiresAt) }) }}</small>
+                    </div>
+                  </div>
+                  <div class="account-editor-actions">
+                    <a-button v-if="section.supportsQRCode" :loading="qrcodeCreating || qrcodePollingLoginId === qrLogins[accountKey(account)]?.loginId" @click="startQRCodeLogin(accountKey(account))">
+                      <template #icon><QrcodeOutlined /></template>
+                      {{ t('builtinFeatures.thirdPartyAccounts.scanLogin') }}
+                    </a-button>
+                    <a-button danger :loading="deletingAccountId === operationKey(account.platform, account.account_id)" @click="deleteAccount(account)">
+                      <template #icon><DeleteOutlined /></template>
+                      {{ t('builtinFeatures.thirdPartyAccounts.delete') }}
+                    </a-button>
+                    <a-button @click="cancelEdit(accountKey(account))">
+                      {{ t('builtinFeatures.thirdPartyAccounts.cancel') }}
+                    </a-button>
+                    <a-button type="primary" :loading="savingAccountId === operationKey(account.platform, account.account_id)" @click="saveDraft(accountKey(account))">
+                      <template #icon><SaveOutlined /></template>
+                      {{ t('builtinFeatures.thirdPartyAccounts.save') }}
+                    </a-button>
+                  </div>
+                </div>
+              </article>
+            </div>
+          </section>
         </div>
       </section>
     </div>
@@ -672,6 +771,51 @@ function timeText(value?: string | null) {
   border-radius: var(--radius-md);
   background: var(--surface-soft);
   color: var(--muted);
+}
+
+.accounts-empty--compact {
+  min-height: 48px;
+}
+
+.accounts-empty__actions,
+.platform-stack,
+.platform-section {
+  display: grid;
+  gap: var(--space-sm);
+}
+
+.accounts-empty__actions {
+  grid-template-columns: repeat(auto-fit, minmax(140px, max-content));
+  justify-content: end;
+}
+
+.platform-stack {
+  gap: var(--space-lg);
+}
+
+.platform-section {
+  min-width: 0;
+}
+
+.platform-section__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+  min-width: 0;
+}
+
+.platform-section__header h3 {
+  margin: 0;
+  color: var(--text);
+  font-size: 0.96rem;
+  font-weight: 650;
+}
+
+.platform-section__header p {
+  margin: 3px 0 0;
+  color: var(--muted);
+  font-size: 0.78rem;
 }
 
 .accounts-grid {
@@ -900,6 +1044,8 @@ function timeText(value?: string | null) {
 
   .accounts-panel__header,
   .accounts-panel__actions,
+  .accounts-empty__actions,
+  .platform-section__header,
   .account-card__actions,
   .account-editor-actions,
   .accounts-empty,
@@ -909,6 +1055,8 @@ function timeText(value?: string | null) {
   }
 
   .accounts-panel__actions :deep(.ant-btn),
+  .accounts-empty__actions :deep(.ant-btn),
+  .platform-section__header :deep(.ant-btn),
   .account-card__actions :deep(.ant-btn),
   .account-editor-actions :deep(.ant-btn),
   .accounts-empty :deep(.ant-btn) {

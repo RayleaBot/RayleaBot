@@ -11,7 +11,12 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/storage"
 )
 
-const PlatformBilibili = "bilibili"
+const (
+	PlatformBilibili     = "bilibili"
+	PlatformWeibo        = "weibo"
+	PlatformDouyin       = "douyin"
+	PlatformNeteaseMusic = "netease_music"
+)
 
 var accountIDPattern = regexp.MustCompile(`^[a-z0-9](?:[a-z0-9_.-]{0,62}[a-z0-9])?$`)
 
@@ -57,6 +62,10 @@ type CredentialStatus struct {
 	State     string
 	CheckedAt *time.Time
 	LastError string
+}
+
+func SupportedPlatforms() []string {
+	return []string{PlatformBilibili, PlatformWeibo, PlatformDouyin, PlatformNeteaseMusic}
 }
 
 type Service struct {

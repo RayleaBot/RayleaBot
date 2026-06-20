@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/httpapi"
 	bilibilisource "github.com/RayleaBot/RayleaBot/server/internal/integrations/bilibili/source"
@@ -20,8 +21,13 @@ func (h *ThirdPartyHandlers) HandleThirdPartyMonitorList() http.HandlerFunc {
 		if platform == "" {
 			platform = thirdparty.PlatformBilibili
 		}
-		if platform != thirdparty.PlatformBilibili {
+		normalized, err := thirdparty.NormalizePlatform(platform)
+		if err != nil {
 			httpapi.WriteError(w, r, http.StatusBadRequest, "platform.invalid_request", "三方监控平台不正确", "errors.platform.invalid_request", nil)
+			return
+		}
+		if normalized != thirdparty.PlatformBilibili {
+			httpapi.WriteJSON(w, http.StatusOK, emptyThirdPartyMonitorsResponse(normalized, time.Now().UTC()))
 			return
 		}
 		if h.monitors == nil {
