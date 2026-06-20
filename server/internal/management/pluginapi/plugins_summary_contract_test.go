@@ -121,22 +121,19 @@ func TestListPluginsReturnsContractShape(t *testing.T) {
 			t.Fatalf("expected item object, got %#v", item)
 		}
 		allowed := map[string]bool{
-			"id":                 true,
-			"name":               true,
-			"version":            true,
-			"description":        true,
-			"author":             true,
-			"role":               true,
-			"registration_state": true,
-			"desired_state":      true,
-			"runtime_state":      true,
-			"display_state":      true,
-			"source":             true,
-			"trust":              true,
-			"commands":           true,
-			"help":               true,
-			"command_conflicts":  true,
-			"dead_letter":        true,
+			"id":                true,
+			"name":              true,
+			"version":           true,
+			"description":       true,
+			"author":            true,
+			"role":              true,
+			"state":             true,
+			"state_diagnosis":   true,
+			"source":            true,
+			"trust":             true,
+			"commands":          true,
+			"help":              true,
+			"command_conflicts": true,
 		}
 		for key := range itemMap {
 			if !allowed[key] {
@@ -147,6 +144,9 @@ func TestListPluginsReturnsContractShape(t *testing.T) {
 	}
 
 	builtin := byID["raylea.echo"]
+	if builtin["state"] != "running" {
+		t.Fatalf("raylea.echo state = %v, want running", builtin["state"])
+	}
 	if builtin["role"] != "builtin" {
 		t.Fatalf("raylea.echo role = %v, want builtin", builtin["role"])
 	}

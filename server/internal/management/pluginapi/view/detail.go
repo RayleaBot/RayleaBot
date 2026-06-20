@@ -139,16 +139,13 @@ func BuildDetail(catalog plugins.CatalogView, snapshot plugins.Snapshot) DetailR
 			ManagementUI:         buildPluginManagementUI(snapshot),
 			RenderTemplates:      buildPluginRenderTemplates(snapshot),
 			SystemDependencies:   NormalizeStringList(snapshot.SystemDependencies),
-			RegistrationState:    summary.RegistrationState,
-			DesiredState:         summary.DesiredState,
-			RuntimeState:         summary.RuntimeState,
-			DisplayState:         summary.DisplayState,
+			State:                summary.State,
+			StateDiagnosis:       summary.StateDiagnosis,
 			Source:               summary.Source,
 			Trust:                summary.Trust,
 			Commands:             summary.Commands,
 			Help:                 summary.Help,
 			CommandConflicts:     summary.CommandConflicts,
-			DeadLetter:           summary.DeadLetter,
 		},
 	}
 }

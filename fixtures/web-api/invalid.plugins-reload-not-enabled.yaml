@@ -1,6 +1,6 @@
 contract: contracts/web-api.openapi.yaml
 case: invalid
-description: Reload is rejected when desired_state is not enabled.
+description: Reload is rejected when the plugin is disabled.
 request:
   method: POST
   path: /api/plugins/weather/reload
@@ -17,4 +17,4 @@ response:
 expect:
   valid: true
   notes:
-    - Reload requires desired_state=enabled.
+    - Reload requires an enabled plugin.

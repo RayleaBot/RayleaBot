@@ -127,10 +127,7 @@ describe('CommandsPage', () => {
         id: 'raylea.fortune',
         name: '运势',
         role: 'builtin',
-        registration_state: 'installed',
-        desired_state: 'enabled',
-        runtime_state: 'running',
-        display_state: 'running',
+        state: 'running',
         commands: [
           {
             name: '我的运势',
@@ -147,10 +144,7 @@ describe('CommandsPage', () => {
         id: 'raylea.echo',
         name: 'Echo',
         role: 'builtin',
-        registration_state: 'installed',
-        desired_state: 'disabled',
-        runtime_state: 'stopped',
-        display_state: 'disabled',
+        state: 'disabled',
         commands: [
           {
             name: 'echo',

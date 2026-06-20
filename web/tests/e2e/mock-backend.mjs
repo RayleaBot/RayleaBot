@@ -578,10 +578,8 @@ function toPluginSummary(plugin) {
     id: plugin.id,
     name: plugin.name,
     role: plugin.role,
-    registration_state: plugin.registration_state,
-    desired_state: plugin.desired_state,
-    runtime_state: plugin.runtime_state,
-    display_state: plugin.display_state,
+    state: plugin.state,
+    state_diagnosis: structuredClone(plugin.state_diagnosis),
     source: structuredClone(plugin.source),
     trust: structuredClone(plugin.trust),
     commands: structuredClone(plugin.commands ?? []),
@@ -1825,10 +1823,9 @@ const server = http.createServer(async (request, response) => {
       timestamp: new Date().toISOString(),
       data: {
         plugin_id: pluginId,
-        registration_state: state.plugins[pluginId].registration_state,
-        desired_state: state.plugins[pluginId].desired_state,
-        runtime_state: state.plugins[pluginId].runtime_state,
-        display_state: state.plugins[pluginId].display_state,
+        state: state.plugins[pluginId].state,
+        commands: structuredClone(state.plugins[pluginId].commands ?? []),
+        command_conflicts: structuredClone(state.plugins[pluginId].command_conflicts ?? []),
       },
     })
     json(response, 200, pluginDetailBody(pluginId))
@@ -1848,10 +1845,9 @@ const server = http.createServer(async (request, response) => {
       timestamp: new Date().toISOString(),
       data: {
         plugin_id: pluginId,
-        registration_state: state.plugins[pluginId].registration_state,
-        desired_state: state.plugins[pluginId].desired_state,
-        runtime_state: state.plugins[pluginId].runtime_state,
-        display_state: state.plugins[pluginId].display_state,
+        state: state.plugins[pluginId].state,
+        commands: structuredClone(state.plugins[pluginId].commands ?? []),
+        command_conflicts: structuredClone(state.plugins[pluginId].command_conflicts ?? []),
       },
     })
     json(response, 200, pluginDetailBody(pluginId))

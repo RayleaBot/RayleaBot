@@ -356,7 +356,7 @@
   <text class="chip-title" x="1414" y="872" text-anchor="middle">crash recovery</text>
   <rect class="chip-violet" x="1486" y="856" width="170" height="22" rx="5"/>
   <text class="chip-title" x="1571" y="872" text-anchor="middle">Dispatcher 注册</text>
-  <text class="module-text" x="1400" y="902" text-anchor="middle">backoff 受控重启 · 超阈值进入 dead_letter</text>
+  <text class="module-text" x="1400" y="902" text-anchor="middle">backoff 受控重启 · 超阈值进入 failed</text>
 
   <rect class="card-violet" x="1700" y="816" width="560" height="100" rx="10" filter="url(#card-shadow)"/>
   <text class="module-title" x="1980" y="842" text-anchor="middle">Runtime Registry</text>
@@ -413,7 +413,7 @@
   <text class="module-text" x="2047" y="990" text-anchor="middle">stopped → starting → running</text>
   <text class="module-text" x="2047" y="1010" text-anchor="middle">running → stopping → stopped</text>
   <text class="module-text" x="2047" y="1030" text-anchor="middle">crashed → backoff → starting</text>
-  <text class="module-text" x="2047" y="1046" text-anchor="middle" style="font-style:italic;">超阈值 → dead_letter</text>
+  <text class="module-text" x="2047" y="1046" text-anchor="middle" style="font-style:italic;">超阈值 → failed</text>
 
   <rect class="lane" x="508" y="1078" width="1780" height="222" rx="14"/>
   <text class="lane-label" x="526" y="1102">PLATFORM CAPABILITIES · 平台能力（经 Local Action Service 受控访问）</text>
@@ -662,7 +662,7 @@
     <path class="arrow-state" d="M 622 13 L 641 13 L 641 -12 L 141 -12"/>
     <path class="arrow-state-dashed" d="M 481 26 L 481 56 L 700 56 L 700 26"/>
     <rect class="chip-slate" x="660" y="0" width="98" height="26" rx="6"/>
-    <text class="state-text" x="709" y="17" text-anchor="middle">dead_letter</text>
+    <text class="state-text" x="709" y="17" text-anchor="middle">failed</text>
   </g>
 
   <text class="col-header" x="880" y="1800">② TASKS · 6 态</text>
@@ -706,7 +706,7 @@
 
   <text class="col-header" x="108" y="1890">状态轨迹说明</text>
   <text class="resource-text" x="108" y="1910">· Plugin Runtime：stopped → starting → running → stopping → stopped</text>
-  <text class="resource-text" x="108" y="1928">· 异常恢复：crashed → backoff → starting；超阈值进入 dead_letter</text>
+  <text class="resource-text" x="108" y="1928">· 异常恢复：crashed → backoff → starting；超阈值进入 failed</text>
   <text class="resource-text" x="108" y="1946">· Tasks：服务重启中断的任务落在 interrupted</text>
   <text class="resource-text" x="1200" y="1910">· OneBot Transport readiness_status：ready / degraded / failed / setup_required</text>
   <text class="resource-text" x="1200" y="1928">· active_transports 不压缩为单值，WS / HTTP / webhook 可同时处于激活</text>

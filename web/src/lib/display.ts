@@ -2,10 +2,8 @@ import type {
   ConnectionStatus,
   LogLevel,
   LogProtocol,
-  PluginDesiredState,
   PluginRole,
-  PluginRuntimeState,
-  PluginRegistrationState,
+  PluginState,
   RecoveryCompatibilitySummary,
   ReadinessStatusResponse,
   SystemStatusResponse,
@@ -49,20 +47,8 @@ export function getTaskStatusLabel(status?: TaskStatus) {
   return status ? t(`display.taskStatuses.${status}`) : t('display.empty')
 }
 
-export function getPluginRegistrationStateLabel(status?: PluginRegistrationState) {
-  return status ? translated(`display.pluginRegistrationStates.${status}`, status) : t('display.empty')
-}
-
-export function getPluginDesiredStateLabel(status?: PluginDesiredState) {
-  return status ? translated(`display.pluginDesiredStates.${status}`, status) : t('display.empty')
-}
-
-export function getPluginRuntimeStateLabel(status?: PluginRuntimeState) {
-  return status ? translated(`display.pluginRuntimeStates.${status}`, status) : t('display.empty')
-}
-
-export function getPluginDisplayStateLabel(status?: string) {
-  return status ? translated(`display.pluginDisplayStates.${status}`, status) : t('display.empty')
+export function getPluginStateLabel(status?: PluginState | string) {
+  return status ? translated(`display.pluginStates.${status}`, status) : t('display.empty')
 }
 
 export function getPluginRoleLabel(role?: PluginRole) {

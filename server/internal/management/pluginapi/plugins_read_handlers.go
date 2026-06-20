@@ -46,32 +46,6 @@ func newDetailHandler(catalog plugins.CatalogView) http.HandlerFunc {
 			return
 		}
 
-		if !snapshot.Valid {
-			details := map[string]any{
-				"plugin_id": pluginID,
-			}
-			if snapshot.DisplayState == plugins.DisplayStateConflict {
-				details["kind"] = "plugin_id_conflict"
-				details["manifest_paths"] = snapshot.ConflictPaths
-				details["source_roots"] = snapshot.SourceRoots
-			} else {
-				details["kind"] = "invalid_manifest"
-				details["manifest_path"] = snapshot.ManifestPath
-				details["validation_summary"] = snapshot.ValidationSummary
-			}
-
-			writeError(
-				w,
-				r,
-				http.StatusConflict,
-				codeInvalidRequest,
-				"请求参数不合法",
-				"errors.platform.invalid_request",
-				details,
-			)
-			return
-		}
-
 		writeJSON(w, http.StatusOK, buildPluginDetailResponse(catalog, snapshot))
 	}
 }

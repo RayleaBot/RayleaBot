@@ -6,7 +6,7 @@ export const plugins = {
   stats: {
     total: '全部插件',
     running: '运行中',
-    stopped: '已停止',
+    disabled: '已停用',
     alert: '异常 / 冲突',
   },
   layout: {
@@ -63,10 +63,7 @@ export const plugins = {
     source: '来源',
     commands: '插件指令',
     conflicts: '命令冲突',
-    registration: '注册状态',
-    desired: '启用状态',
-    runtime: '运行状态',
-    display: '显示状态',
+    state: '状态',
     actions: '操作',
     capability: '能力标识',
     permission: '权限',
@@ -257,7 +254,6 @@ export const plugins = {
     unverifiedSource: '未验证来源',
     enabledButStopped: '已启用未运行',
     runtimeIssue: '运行异常',
-    retrying: '重试中',
-    removed: '已移除',
+    invalidManifest: '清单异常',
   },
 } as const

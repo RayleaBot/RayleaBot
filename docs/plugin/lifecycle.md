@@ -27,8 +27,8 @@
 - 插件启用时由 per-plugin runtime manager 启动子进程并完成 `init -> init_ack` 握手；OneBot 协议身份可用时通过 `init.bot` 或 `bot.identity.changed` 提供给插件。
 - 运行中通过 `ping/pong` 保活。
 - 停止时先停止接收新事件，等待活跃会话排空，再发送 `shutdown`。
-- 插件崩溃后进入受控 backoff；超过阈值后进入 `dead_letter`，平台同步移除该插件已注册的 webhook 路由，等待人工干预。
-- `dead_letter` 状态可通过 `POST /api/plugins/{plugin_id}/dead_letter/recover` 进入受控冷启动尝试：服务端重置 crash 计数并重新拉起 runtime；若插件 `desired_state=disabled` 则同步置回 `enabled`。
+- 插件崩溃后进入受控重试等待；超过阈值后投影为 `state=failed` 且 `state_diagnosis.kind=recovery_required`，平台同步移除该插件已注册的 webhook 路由，等待人工干预。
+- `POST /api/plugins/{plugin_id}/recover` 触发受控冷启动尝试：服务端重置 crash 计数并重新拉起 runtime。
 - 热重载保持正式的 start-before-stop / zero-gap reload 语义。
 
 ## 安装、升级与卸载

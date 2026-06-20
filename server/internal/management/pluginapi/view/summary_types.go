@@ -1,22 +1,21 @@
 package view
 
+import "github.com/RayleaBot/RayleaBot/server/internal/plugins"
+
 type SummaryResponse struct {
-	ID                string              `json:"id"`
-	Name              string              `json:"name"`
-	Version           string              `json:"version,omitempty"`
-	Description       string              `json:"description,omitempty"`
-	Author            string              `json:"author,omitempty"`
-	Role              string              `json:"role"`
-	RegistrationState string              `json:"registration_state"`
-	DesiredState      string              `json:"desired_state"`
-	RuntimeState      string              `json:"runtime_state"`
-	DisplayState      string              `json:"display_state"`
-	Source            SourceResponse      `json:"source"`
-	Trust             TrustResponse       `json:"trust"`
-	Commands          []CommandResponse   `json:"commands"`
-	Help              HelpResponse        `json:"help"`
-	CommandConflicts  []string            `json:"command_conflicts"`
-	DeadLetter        *DeadLetterResponse `json:"dead_letter,omitempty"`
+	ID               string                  `json:"id"`
+	Name             string                  `json:"name"`
+	Version          string                  `json:"version,omitempty"`
+	Description      string                  `json:"description,omitempty"`
+	Author           string                  `json:"author,omitempty"`
+	Role             string                  `json:"role"`
+	State            string                  `json:"state"`
+	StateDiagnosis   *plugins.StateDiagnosis `json:"state_diagnosis,omitempty"`
+	Source           SourceResponse          `json:"source"`
+	Trust            TrustResponse           `json:"trust"`
+	Commands         []CommandResponse       `json:"commands"`
+	Help             HelpResponse            `json:"help"`
+	CommandConflicts []string                `json:"command_conflicts"`
 }
 
 type CommandResponse struct {

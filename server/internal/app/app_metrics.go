@@ -16,5 +16,5 @@ func wireMetrics(platform appplatform.State, events eventstack.State, renderer *
 	events.Adapter.SetMetricsObserver(metrics.NewAdapterObserver(registry))
 	platform.TaskExecutor.SetMetricsObserver(metrics.NewTaskObserver(registry))
 	renderer.SetMetricsObserver(metrics.NewRenderObserver(registry))
-	return registry, lifecyclemetrics.StartPluginRuntimeStateGaugeRefresh(registry, plugins.Plugins)
+	return registry, lifecyclemetrics.StartPluginStateGaugeRefresh(registry, plugins.Plugins)
 }

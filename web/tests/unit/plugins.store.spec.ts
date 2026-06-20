@@ -18,8 +18,8 @@ describe('plugins store', () => {
   it('sorts plugins by id after upsert', () => {
     const store = usePluginsStore()
 
-    store.upsert({ id: 'zeta', registration_state: 'installed', desired_state: 'disabled', runtime_state: 'stopped' })
-    store.upsert({ id: 'alpha', registration_state: 'installed', desired_state: 'disabled', runtime_state: 'stopped' })
+    store.upsert({ id: 'zeta', state: 'disabled' })
+    store.upsert({ id: 'alpha', state: 'disabled' })
 
     expect(store.sortedItems.map((item) => item.id)).toEqual(['alpha', 'zeta'])
   })
@@ -30,9 +30,7 @@ describe('plugins store', () => {
         id: 'weather',
         name: 'weather',
         role: 'user',
-        registration_state: 'installed',
-        desired_state: 'enabled',
-        runtime_state: 'running',
+        state: 'running',
         commands: [
           { name: 'weather', command_source: 'manifest' },
         ],
@@ -40,15 +38,14 @@ describe('plugins store', () => {
     })))
 
     const store = usePluginsStore()
-    store.upsert({ id: 'weather', registration_state: 'installed', desired_state: 'disabled', runtime_state: 'stopped' })
+    store.upsert({ id: 'weather', state: 'disabled' })
 
     const promise = store.executeAction('weather', 'enable')
     expect(store.actionPending.weather).toBe('enable')
     await promise
 
     expect(store.actionPending.weather).toBeNull()
-    expect(store.items[0].desired_state).toBe('enabled')
-    expect(store.items[0].runtime_state).toBe('running')
+    expect(store.items[0].state).toBe('running')
     expect(store.items[0].commands).toEqual([{ name: 'weather', command_source: 'manifest' }])
   })
 
@@ -59,18 +56,14 @@ describe('plugins store', () => {
       id: 'weather',
       name: 'Weather',
       role: 'user',
-      registration_state: 'installed',
-      desired_state: 'enabled',
-      runtime_state: 'running',
+      state: 'running',
       commands: [{ name: 'weather', command_source: 'manifest' }],
       command_conflicts: [],
     })
 
     store.upsert({
       id: 'weather',
-      registration_state: 'installed',
-      desired_state: 'enabled',
-      runtime_state: 'starting',
+      state: 'starting',
     })
 
     expect(store.items[0].commands).toEqual([{ name: 'weather', command_source: 'manifest' }])
@@ -95,9 +88,7 @@ describe('plugins store', () => {
         id: 'calendar',
         name: 'Calendar',
         role: 'user',
-        registration_state: 'installed',
-        desired_state: 'enabled',
-        runtime_state: 'running',
+        state: 'running',
       },
     }))
     await secondRequest
@@ -107,9 +98,7 @@ describe('plugins store', () => {
         id: 'weather',
         name: 'Weather',
         role: 'user',
-        registration_state: 'installed',
-        desired_state: 'disabled',
-        runtime_state: 'stopped',
+        state: 'disabled',
       },
     }))
     await firstRequest

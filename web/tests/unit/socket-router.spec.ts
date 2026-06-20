@@ -117,10 +117,7 @@ describe('socket frame router', () => {
       timestamp: '2026-04-05T08:00:00Z',
       data: {
         plugin_id: 'weather',
-        registration_state: 'installed',
-        desired_state: 'enabled',
-        runtime_state: 'running',
-        display_state: 'running',
+        state: 'running',
       },
     })
     router.handleEventsFrame({
@@ -153,10 +150,7 @@ describe('socket frame router', () => {
     expect(dependencies.system.applyEvent).toHaveBeenCalledTimes(2)
     expect(dependencies.plugins.upsert).toHaveBeenCalledWith({
       id: 'weather',
-      registration_state: 'installed',
-      desired_state: 'enabled',
-      runtime_state: 'running',
-      display_state: 'running',
+        state: 'running',
     })
     expect(dependencies.schedulerJobs.scheduleDataSourceRefresh).toHaveBeenCalledTimes(1)
     expect(dependencies.protocols.applySnapshot).toHaveBeenCalledTimes(1)

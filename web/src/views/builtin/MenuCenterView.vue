@@ -48,7 +48,7 @@ const effectiveMenuPrefixes = computed(() => draftPrefixes.value.length > 0 ? dr
 const primaryMenuPrefix = computed(() => getPrimaryCommandPrefix(effectiveMenuPrefixes.value))
 
 const enabledPlugins = computed(() => sortedItems.value
-  .filter((plugin) => plugin.registration_state === 'installed' && plugin.desired_state === 'enabled')
+  .filter((plugin) => plugin.state === 'running')
   .sort((left, right) => compareLabel(left.name, right.name) || compareLabel(left.id, right.id)))
 
 const selectedPlugin = computed(() => (

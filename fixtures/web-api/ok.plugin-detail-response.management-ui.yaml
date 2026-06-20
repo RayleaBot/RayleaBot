@@ -32,10 +32,7 @@ response:
           - id: secrets
             label: 密钥设置
             entry: web/secrets.html
-      registration_state: installed
-      desired_state: disabled
-      runtime_state: stopped
-      display_state: disabled
+      state: disabled
       source:
         root: examples/plugins
         package_source_type: local_directory

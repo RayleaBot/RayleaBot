@@ -42,11 +42,8 @@ func TestPluginStateEventFrameKeepsContractFieldNames(t *testing.T) {
 	t.Parallel()
 
 	frame := NewReceivedFrame(PluginStatePayload{
-		PluginID:          "weather",
-		RegistrationState: "installed",
-		DesiredState:      "enabled",
-		RuntimeState:      "running",
-		DisplayState:      "running",
+		PluginID: "weather",
+		State:    "running",
 		Commands: []PluginCommandItem{
 			{
 				Name:          "weather",
@@ -64,7 +61,7 @@ func TestPluginStateEventFrameKeepsContractFieldNames(t *testing.T) {
 	if err := json.Unmarshal(encoded, &payload); err != nil {
 		t.Fatalf("unmarshal payload: %v", err)
 	}
-	for _, key := range []string{"plugin_id", "registration_state", "desired_state", "runtime_state", "display_state", "commands", "command_conflicts"} {
+	for _, key := range []string{"plugin_id", "state", "commands", "command_conflicts"} {
 		if _, ok := payload[key]; !ok {
 			t.Fatalf("missing field %q in %s", key, encoded)
 		}

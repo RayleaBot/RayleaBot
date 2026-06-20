@@ -7,7 +7,7 @@
 - `cmd/raylea-server` 入口、`-config` / `-config-schema` flags；`-config-schema` 默认使用内置配置 schema
 - `config/user.yaml` 读取与内置配置 schema 校验；`contracts/config.user.schema.json` 是源码中的正式来源
 - `GET /healthz`、`GET /readyz`
-- SQLite store、current schema bootstrap、auth persistence、task persistence、plugin desired_state persistence、secret store、third-party account persistence、Bilibili source state persistence
+- SQLite store、current schema bootstrap、auth persistence、task persistence、plugin enable intent persistence、secret store、third-party account persistence、Bilibili source state persistence
 - plugin discovery：当前扫描 `plugins/builtin` 与 `plugins/installed`；`examples/plugins` 仅保留示例职责
 - management auth surface：
   - `POST /api/setup/admin`
@@ -63,7 +63,7 @@
 - `PUT /api/plugins/{plugin_id}/settings`
 - `GET /api/plugins/{plugin_id}/secrets`
 - `PUT /api/plugins/{plugin_id}/secrets`
-- `POST /api/plugins/{plugin_id}/dead_letter/recover`
+- `POST /api/plugins/{plugin_id}/recover`
 - `POST /api/webhooks/{plugin_id}/{route}`
 - `/ws/events`
 - `/ws/tasks`
@@ -88,7 +88,7 @@
   - `ping` / `pong`
   - `shutdown`
   - local action RPC for `logger.write`、`storage.kv`、`storage.file`、`http.request`、`config.read`、`config.write`、`scheduler.create`、`event.expose_webhook`、`render.image`
-  - crash / backoff / dead_letter
+  - crash / retry backoff / recovery-required failure
 - multi-plugin runtime mainline：
   - per-plugin runtime manager
   - bridge event validation and observability

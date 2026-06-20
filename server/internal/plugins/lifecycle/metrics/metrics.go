@@ -1,52 +1,48 @@
 package metrics
 
 import (
-	"strings"
 	"time"
 
 	coremetrics "github.com/RayleaBot/RayleaBot/server/internal/metrics"
+	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
 )
 
-// pluginRuntimeStates enumerates formal runtime states so stale gauge buckets reset to zero.
-var pluginRuntimeStates = []string{
-	"stopped",
-	"starting",
-	"running",
-	"stopping",
-	"crashed",
-	"backoff",
-	"dead_letter",
+var pluginStates = []string{
+	plugins.PluginStateDisabled,
+	plugins.PluginStateEnabled,
+	plugins.PluginStateStarting,
+	plugins.PluginStateRunning,
+	plugins.PluginStateStopping,
+	plugins.PluginStateFailed,
+	plugins.PluginStateInvalid,
 }
 
-func RefreshPluginRuntimeStateGauge(registry *coremetrics.Registry, catalog *plugincatalog.Catalog) {
-	if registry == nil || registry.PluginRuntimeState == nil || catalog == nil {
+func RefreshPluginStateGauge(registry *coremetrics.Registry, catalog *plugincatalog.Catalog) {
+	if registry == nil || registry.PluginState == nil || catalog == nil {
 		return
 	}
-	counts := make(map[string]int, len(pluginRuntimeStates))
-	for _, state := range pluginRuntimeStates {
+	counts := make(map[string]int, len(pluginStates))
+	for _, state := range pluginStates {
 		counts[state] = 0
 	}
 	for _, snapshot := range catalog.List() {
-		state := strings.TrimSpace(snapshot.RuntimeState)
-		if state == "" {
-			continue
-		}
+		state, _ := plugins.ProjectState(snapshot)
 		if _, ok := counts[state]; !ok {
 			counts[state] = 0
 		}
 		counts[state]++
 	}
 	for state, count := range counts {
-		registry.PluginRuntimeState.WithLabelValues(state).Set(float64(count))
+		registry.PluginState.WithLabelValues(state).Set(float64(count))
 	}
 }
 
-func StartPluginRuntimeStateGaugeRefresh(registry *coremetrics.Registry, catalog *plugincatalog.Catalog) (stop func()) {
+func StartPluginStateGaugeRefresh(registry *coremetrics.Registry, catalog *plugincatalog.Catalog) (stop func()) {
 	if registry == nil || catalog == nil {
 		return func() {}
 	}
-	RefreshPluginRuntimeStateGauge(registry, catalog)
+	RefreshPluginStateGauge(registry, catalog)
 	events, unsubscribe := catalog.Subscribe(16)
 	done := make(chan struct{})
 	go func() {
@@ -59,9 +55,9 @@ func StartPluginRuntimeStateGaugeRefresh(registry *coremetrics.Registry, catalog
 				if !ok {
 					return
 				}
-				RefreshPluginRuntimeStateGauge(registry, catalog)
+				RefreshPluginStateGauge(registry, catalog)
 			case <-ticker.C:
-				RefreshPluginRuntimeStateGauge(registry, catalog)
+				RefreshPluginStateGauge(registry, catalog)
 			}
 		}
 	}()

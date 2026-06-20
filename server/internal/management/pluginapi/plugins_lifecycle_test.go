@@ -63,16 +63,16 @@ func TestEnableHandler_Success(t *testing.T) {
 	if resp.Plugin.ID != "weather" {
 		t.Fatalf("plugin.id = %q, want weather", resp.Plugin.ID)
 	}
-	if resp.Plugin.DesiredState != "enabled" {
-		t.Fatalf("plugin.desired_state = %q, want enabled", resp.Plugin.DesiredState)
+	if resp.Plugin.State != "enabled" {
+		t.Fatalf("plugin.state = %q, want enabled", resp.Plugin.State)
 	}
 	if repo.saved["weather"] != "enabled" {
-		t.Fatalf("persisted desired_state = %q, want enabled", repo.saved["weather"])
+		t.Fatalf("persisted enable intent = %q, want enabled", repo.saved["weather"])
 	}
 }
 
 // TestDisableHandler_RuntimeStillStopping: disable an enabled plugin returns 200.
-// runtime_state may still be "stopping". Reproduces fixture edge.plugins-disable-response.yaml.
+// The runtime may still be stopping. Reproduces fixture edge.plugins-disable-response.yaml.
 func TestDisableHandler_RuntimeStillStopping(t *testing.T) {
 	router, _, _, repo := setupRouter([]plugins.Snapshot{{
 		PluginID:          "weather",
@@ -101,18 +101,11 @@ func TestDisableHandler_RuntimeStillStopping(t *testing.T) {
 	if resp.Plugin.ID != "weather" {
 		t.Fatalf("plugin.id = %q, want weather", resp.Plugin.ID)
 	}
-	if resp.Plugin.DesiredState != "disabled" {
-		t.Fatalf("plugin.desired_state = %q, want disabled", resp.Plugin.DesiredState)
-	}
-	if resp.Plugin.RegistrationState != "installed" {
-		t.Fatalf("plugin.registration_state = %q, want installed", resp.Plugin.RegistrationState)
-	}
-	// runtime_state may still be "stopping" — that's allowed by the contract.
-	if resp.Plugin.RuntimeState != "stopping" {
-		t.Fatalf("plugin.runtime_state = %q, want stopping", resp.Plugin.RuntimeState)
+	if resp.Plugin.State != "stopping" {
+		t.Fatalf("plugin.state = %q, want stopping", resp.Plugin.State)
 	}
 	if repo.saved["weather"] != "disabled" {
-		t.Fatalf("persisted desired_state = %q, want disabled", repo.saved["weather"])
+		t.Fatalf("persisted enable intent = %q, want disabled", repo.saved["weather"])
 	}
 }
 
@@ -141,7 +134,7 @@ func TestEnableHandler_AlreadyEnabled_409(t *testing.T) {
 		t.Fatal("error.code is empty")
 	}
 	if _, ok := repo.saved["weather"]; ok {
-		t.Fatal("state conflict should not persist desired_state")
+		t.Fatal("state conflict should not persist enable intent")
 	}
 }
 
@@ -171,11 +164,11 @@ func TestDisableHandler_AlreadyDisabled_409(t *testing.T) {
 		t.Fatal("error.code is empty")
 	}
 	if _, ok := repo.saved["weather"]; ok {
-		t.Fatal("state conflict should not persist desired_state")
+		t.Fatal("state conflict should not persist enable intent")
 	}
 }
 
-// TestEnableHandler_RemovedPlugin_409: enable plugin with registration_state=removed returns 409.
+// TestEnableHandler_RemovedPlugin_409: enable a removed plugin returns 409.
 func TestEnableHandler_RemovedPlugin_409(t *testing.T) {
 	router, _, _, repo := setupRouter([]plugins.Snapshot{{
 		PluginID:          "old_plugin",
@@ -201,6 +194,6 @@ func TestEnableHandler_RemovedPlugin_409(t *testing.T) {
 		t.Fatal("error.code is empty")
 	}
 	if _, ok := repo.saved["old_plugin"]; ok {
-		t.Fatal("removed plugin should not persist desired_state")
+		t.Fatal("removed plugin should not persist enable intent")
 	}
 }

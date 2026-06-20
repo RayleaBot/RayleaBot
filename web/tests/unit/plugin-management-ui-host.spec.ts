@@ -22,10 +22,7 @@ function buildPlugin(overrides: Record<string, unknown> = {}) {
     id: 'example-config-panel',
     name: 'Example Config Panel',
     role: 'example',
-    registration_state: 'installed',
-    desired_state: 'disabled',
-    runtime_state: 'stopped',
-    display_state: 'disabled',
+        state: 'disabled',
     version: '0.1.0',
     description: 'Python example plugin demonstrating config.read and config.write.',
     source: {

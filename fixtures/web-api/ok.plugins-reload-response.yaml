@@ -1,6 +1,6 @@
 contract: contracts/web-api.openapi.yaml
 case: ok
-description: Reload restarts the runtime without changing desired_state.
+description: Reload restarts the runtime and returns the latest plugin state.
 request:
   method: POST
   path: /api/plugins/weather/reload
@@ -11,10 +11,7 @@ response:
       id: weather
       name: Weather
       role: user
-      registration_state: installed
-      desired_state: enabled
-      runtime_state: starting
-      display_state: enabling
+      state: starting
       source:
         root: plugins/installed
         package_source_type: local_zip
@@ -36,5 +33,4 @@ response:
 expect:
   valid: true
   notes:
-    - desired_state remains enabled throughout reload.
-    - runtime_state transitions through stopping then starting.
+    - state transitions through stopping and starting while the runtime restarts.

@@ -21,7 +21,7 @@ type Registry struct {
 	registry *prometheus.Registry
 
 	EventPipelineStage    *prometheus.CounterVec
-	PluginRuntimeState    *prometheus.GaugeVec
+	PluginState           *prometheus.GaugeVec
 	TaskExecutionLatency  *prometheus.HistogramVec
 	RenderQueueDepth      prometheus.Gauge
 	RenderDuration        *prometheus.HistogramVec
@@ -47,10 +47,10 @@ func New() *Registry {
 		Help:      "Events flowing through each pipeline stage by outcome.",
 	}, []string{"stage", "outcome"})
 
-	r.PluginRuntimeState = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+	r.PluginState = prometheus.NewGaugeVec(prometheus.GaugeOpts{
 		Namespace: namespace,
-		Name:      "plugin_runtime_state",
-		Help:      "Current count of plugin runtimes per state.",
+		Name:      "plugin_state",
+		Help:      "Current count of plugins per state.",
 	}, []string{"state"})
 
 	r.TaskExecutionLatency = prometheus.NewHistogramVec(prometheus.HistogramOpts{
@@ -118,7 +118,7 @@ func New() *Registry {
 
 	reg.MustRegister(
 		r.EventPipelineStage,
-		r.PluginRuntimeState,
+		r.PluginState,
 		r.TaskExecutionLatency,
 		r.RenderQueueDepth,
 		r.RenderDuration,

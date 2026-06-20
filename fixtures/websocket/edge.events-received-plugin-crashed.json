@@ -7,17 +7,21 @@
     "timestamp": "2026-03-17T09:35:00Z",
     "data": {
       "plugin_id": "weather",
-      "registration_state": "installed",
-      "desired_state": "enabled",
-      "runtime_state": "backoff",
-      "display_state": "backoff"
+      "state": "failed",
+      "state_diagnosis": {
+        "kind": "retrying",
+        "summary": "plugin runtime is waiting before retry",
+        "recoverable": false
+      },
+      "commands": [],
+      "command_conflicts": []
     }
   },
   "expect": {
     "valid": true,
     "notes": [
-      "Plugin crashed and entered exponential backoff before automatic restart.",
-      "runtime_state transitions: running -> crashed -> backoff -> starting -> running (or dead_letter)."
+      "Plugin crashed and entered a retry wait before automatic restart.",
+      "Failed plugins that can restart automatically use state_diagnosis.kind=retrying."
     ]
   }
 }

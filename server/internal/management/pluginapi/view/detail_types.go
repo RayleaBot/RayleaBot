@@ -1,5 +1,7 @@
 package view
 
+import "github.com/RayleaBot/RayleaBot/server/internal/plugins"
+
 type DependenciesResponse struct {
 	Python []string `json:"python,omitempty"`
 	NodeJS []string `json:"nodejs,omitempty"`
@@ -68,16 +70,13 @@ type DetailPluginResponse struct {
 	ManagementUI         *ManagementUIResponse         `json:"management_ui,omitempty"`
 	RenderTemplates      []RenderTemplateResponse      `json:"render_templates,omitempty"`
 	SystemDependencies   []string                      `json:"system_dependencies,omitempty"`
-	RegistrationState    string                        `json:"registration_state"`
-	DesiredState         string                        `json:"desired_state"`
-	RuntimeState         string                        `json:"runtime_state"`
-	DisplayState         string                        `json:"display_state"`
+	State                string                        `json:"state"`
+	StateDiagnosis       *plugins.StateDiagnosis       `json:"state_diagnosis,omitempty"`
 	Source               SourceResponse                `json:"source"`
 	Trust                TrustResponse                 `json:"trust"`
 	Commands             []CommandResponse             `json:"commands"`
 	Help                 HelpResponse                  `json:"help"`
 	CommandConflicts     []string                      `json:"command_conflicts"`
-	DeadLetter           *DeadLetterResponse           `json:"dead_letter,omitempty"`
 }
 
 type DetailResponse struct {

@@ -41,10 +41,7 @@ function createPlugin(overrides: Partial<PluginSummary>): PluginSummary {
     id: 'weather',
     name: 'Weather',
     role: 'user',
-    registration_state: 'installed',
-    desired_state: 'enabled',
-    runtime_state: 'running',
-    display_state: 'running',
+        state: 'running',
     source: {
       root: 'plugins/installed',
       verified: false,

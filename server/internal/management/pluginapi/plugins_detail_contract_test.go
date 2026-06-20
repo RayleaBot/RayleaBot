@@ -51,13 +51,10 @@ func TestGetPluginReturnsValidSnapshot(t *testing.T) {
 
 	want := map[string]any{
 		"plugin": map[string]any{
-			"id":                 "hello-python",
-			"name":               "Hello Python",
-			"role":               "example",
-			"registration_state": "installed",
-			"desired_state":      "disabled",
-			"runtime_state":      "stopped",
-			"display_state":      "discovered",
+			"id":    "hello-python",
+			"name":  "Hello Python",
+			"role":  "example",
+			"state": "disabled",
 			"source": map[string]any{
 				"root":     "examples/plugins",
 				"verified": true,
@@ -220,7 +217,7 @@ func TestGetPluginReturns404WhenMissing(t *testing.T) {
 	}
 }
 
-func TestInvalidPluginAppearsInListButDetailReturns409(t *testing.T) {
+func TestInvalidPluginAppearsInListAndDetail(t *testing.T) {
 	t.Parallel()
 
 	snapshot := plugins.Snapshot{
@@ -257,22 +254,22 @@ func TestInvalidPluginAppearsInListButDetailReturns409(t *testing.T) {
 	detailRequest := httptest.NewRequest("GET", "/api/plugins/unsupported-binary-tool", nil)
 	detailRecorder := httptest.NewRecorder()
 	router.ServeHTTP(detailRecorder, detailRequest)
-	if detailRecorder.Code != 409 {
-		t.Fatalf("unexpected detail status: got %d want 409", detailRecorder.Code)
+	if detailRecorder.Code != 200 {
+		t.Fatalf("unexpected detail status: got %d want 200", detailRecorder.Code)
 	}
 
 	detailBody := decodeBody(t, detailRecorder.Body.Bytes())
-	errorBody := detailBody["error"].(map[string]any)
-	if errorBody["code"] != "platform.invalid_request" {
-		t.Fatalf("unexpected error code: %#v", errorBody["code"])
+	plugin := detailBody["plugin"].(map[string]any)
+	if plugin["state"] != "invalid" {
+		t.Fatalf("unexpected plugin state: %#v", plugin["state"])
 	}
-	details := errorBody["details"].(map[string]any)
-	if details["kind"] != "invalid_manifest" {
-		t.Fatalf("unexpected error kind: %#v", details["kind"])
+	diagnosis := plugin["state_diagnosis"].(map[string]any)
+	if diagnosis["kind"] != "invalid_manifest" {
+		t.Fatalf("unexpected diagnosis kind: %#v", diagnosis["kind"])
 	}
 }
 
-func TestConflictPluginDetailReturns409(t *testing.T) {
+func TestConflictPluginDetailReturnsInvalidState(t *testing.T) {
 	t.Parallel()
 
 	router := pluginRouter(t, plugincatalog.New([]plugins.Snapshot{
@@ -317,20 +314,20 @@ func TestConflictPluginDetailReturns409(t *testing.T) {
 	recorder := httptest.NewRecorder()
 	router.ServeHTTP(recorder, request)
 
-	if recorder.Code != 409 {
-		t.Fatalf("unexpected status: got %d want 409", recorder.Code)
+	if recorder.Code != 200 {
+		t.Fatalf("unexpected status: got %d want 200", recorder.Code)
 	}
 
 	body := decodeBody(t, recorder.Body.Bytes())
-	errorBody := body["error"].(map[string]any)
-	if errorBody["code"] != "platform.invalid_request" {
-		t.Fatalf("unexpected error code: %#v", errorBody["code"])
+	plugin := body["plugin"].(map[string]any)
+	if plugin["state"] != "invalid" {
+		t.Fatalf("unexpected plugin state: %#v", plugin["state"])
 	}
-	details := errorBody["details"].(map[string]any)
-	if details["kind"] != "plugin_id_conflict" {
-		t.Fatalf("unexpected conflict kind: %#v", details["kind"])
+	diagnosis := plugin["state_diagnosis"].(map[string]any)
+	if diagnosis["kind"] != "plugin_id_conflict" {
+		t.Fatalf("unexpected conflict kind: %#v", diagnosis["kind"])
 	}
-	if len(details["manifest_paths"].([]any)) != 2 {
-		t.Fatalf("unexpected manifest_paths length: %#v", details["manifest_paths"])
+	if len(diagnosis["manifest_paths"].([]any)) != 2 {
+		t.Fatalf("unexpected manifest_paths length: %#v", diagnosis["manifest_paths"])
 	}
 }

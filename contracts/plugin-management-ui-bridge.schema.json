@@ -65,7 +65,7 @@
       "additionalProperties": false,
       "required": [
         "name",
-        "display_state"
+        "state"
       ],
       "properties": {
         "name": {
@@ -80,9 +80,17 @@
           "type": "string",
           "minLength": 1
         },
-        "display_state": {
+        "state": {
           "type": "string",
-          "minLength": 1
+          "enum": [
+            "disabled",
+            "enabled",
+            "starting",
+            "running",
+            "stopping",
+            "failed",
+            "invalid"
+          ]
         }
       }
     },

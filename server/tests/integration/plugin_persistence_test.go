@@ -65,11 +65,8 @@ func TestPluginDesiredStatePersistsAcrossRestart(t *testing.T) {
 	if builtinEcho == nil {
 		t.Fatal("expected raylea.echo in plugin list")
 	}
-	if builtinEcho["desired_state"] != "disabled" {
-		t.Fatalf("unexpected persisted desired_state: got %#v want disabled", builtinEcho["desired_state"])
-	}
-	if builtinEcho["runtime_state"] != "stopped" {
-		t.Fatalf("unexpected runtime_state after restart: got %#v want stopped", builtinEcho["runtime_state"])
+	if builtinEcho["state"] != "disabled" {
+		t.Fatalf("unexpected persisted state: got %#v want disabled", builtinEcho["state"])
 	}
 }
 

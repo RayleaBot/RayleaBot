@@ -81,7 +81,7 @@
 
 当前基础：
 
-- 配置 schema 校验、SQLite schema bootstrap、auth persistence、task persistence、plugin desired_state、secret store、scheduler persistence、三方账号摘要、Bilibili source 状态、日志持久化、聊天侧 permission / blacklist / cooldown 已全部接入 server 主路径。
+- 配置 schema 校验、SQLite schema bootstrap、auth persistence、task persistence、plugin enable intent persistence、secret store、scheduler persistence、三方账号摘要、Bilibili source 状态、日志持久化、聊天侧 permission / blacklist / cooldown 已全部接入 server 主路径。
 
 进入本阶段时应继续遵守：
 

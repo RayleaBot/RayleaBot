@@ -18,7 +18,7 @@ interface PluginManagementUIHostInitPayload {
     name: string
     version?: string
     description?: string
-    display_state: string
+    state: string
   }
   trust: {
     level: NonNullable<PluginDetail['trust']>['level']
@@ -607,7 +607,7 @@ function postHostInit(settings: Record<string, unknown>, secrets: Record<string,
       name: props.plugin.name ?? props.plugin.id,
       version: props.plugin.version ?? undefined,
       description: props.plugin.description ?? undefined,
-      display_state: props.plugin.display_state,
+      state: props.plugin.state,
     },
     trust: {
       level: props.plugin.trust?.level ?? 'third_party',

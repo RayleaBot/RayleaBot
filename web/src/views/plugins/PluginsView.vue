@@ -28,11 +28,8 @@ import AppPage from '@/components/page/AppPage.vue'
 import PluginCommandsPanel from '@/components/PluginCommandsPanel.vue'
 import RetryPanel from '@/components/RetryPanel.vue'
 import {
-  getPluginDesiredStateLabel,
-  getPluginDisplayStateLabel,
-  getPluginRegistrationStateLabel,
   getPluginRoleLabel,
-  getPluginRuntimeStateLabel,
+  getPluginStateLabel,
 } from '@/lib/display'
 import { getDisplayErrorMessage } from '@/lib/error-text'
 import { t } from '@/i18n'
@@ -61,7 +58,7 @@ const installForm = reactive<PluginInstallRequest>({
 })
 
 const searchQuery = ref('')
-const filterState = ref<'all' | 'running' | 'stopped' | 'alert'>('all')
+const filterState = ref<'all' | 'running' | 'disabled' | 'alert'>('all')
 const filterSource = ref<'all' | 'official' | 'community'>('all')
 
 const isTestEnv = computed(() => {
@@ -85,13 +82,12 @@ function changeLayoutMode(mode: 'grid' | 'list') {
   }
 }
 
-const runningCount = computed(() => sortedItems.value.filter((item) => item.runtime_state === 'running').length)
-const stoppedCount = computed(() => sortedItems.value.filter((item) => item.runtime_state === 'stopped').length)
+const runningCount = computed(() => sortedItems.value.filter((item) => item.state === 'running').length)
+const disabledCount = computed(() => sortedItems.value.filter((item) => item.state === 'disabled').length)
 const alertCount = computed(() =>
   sortedItems.value.filter((item) =>
-    item.runtime_state === 'crashed' ||
-    item.runtime_state === 'dead_letter' ||
-    item.runtime_state === 'backoff' ||
+    item.state === 'failed' ||
+    item.state === 'invalid' ||
     (item.command_conflicts?.length ?? 0) > 0
   ).length
 )
@@ -176,16 +172,13 @@ const filteredItems = computed(() => {
 
     // 2. Filter State
     if (filterState.value === 'running') {
-      if (item.runtime_state !== 'running') return false
-    } else if (filterState.value === 'stopped') {
-      if (item.runtime_state !== 'stopped') return false
+      if (item.state !== 'running') return false
+    } else if (filterState.value === 'disabled') {
+      if (item.state !== 'disabled') return false
     } else if (filterState.value === 'alert') {
       const hasConflicts = (item.command_conflicts?.length ?? 0) > 0
-      const hasRuntimeIssue =
-        item.runtime_state === 'crashed' ||
-        item.runtime_state === 'dead_letter' ||
-        item.runtime_state === 'backoff'
-      if (!hasConflicts && !hasRuntimeIssue) return false
+      const hasIssue = item.state === 'failed' || item.state === 'invalid'
+      if (!hasConflicts && !hasIssue) return false
     }
 
     // 3. Filter Source
@@ -209,7 +202,7 @@ const tableColumns = computed(() => [
   { title: t('plugins.fields.description'), key: 'description', dataIndex: 'description', width: 320 },
   { title: t('plugins.fields.source'), key: 'source', dataIndex: 'source', width: 220 },
   { title: t('plugins.fields.commands'), key: 'commands', dataIndex: 'commands', width: 300 },
-  { title: t('plugins.fields.runtime'), key: 'runtime', dataIndex: 'runtime_state', width: 300 },
+  { title: t('plugins.fields.state'), key: 'state', dataIndex: 'state', width: 300 },
   { title: t('plugins.fields.actions'), key: 'actions', dataIndex: 'actions', width: 396 },
 ])
 
@@ -229,15 +222,11 @@ function getPluginHealthNotices(row: (typeof sortedItems.value)[number]) {
     notices.push({ label: t('plugins.health.unverifiedSource'), tone: 'info' })
   }
 
-  if (row.registration_state === 'removed') {
-    notices.push({ label: t('plugins.health.removed'), tone: 'danger' })
-  }
-
-  if (row.runtime_state === 'crashed' || row.runtime_state === 'dead_letter') {
+  if (row.state === 'failed') {
     notices.push({ label: t('plugins.health.runtimeIssue'), tone: 'danger' })
-  } else if (row.runtime_state === 'backoff') {
-    notices.push({ label: t('plugins.health.retrying'), tone: 'warning' })
-  } else if (row.desired_state === 'enabled' && row.runtime_state === 'stopped') {
+  } else if (row.state === 'invalid') {
+    notices.push({ label: t('plugins.health.invalidManifest'), tone: 'danger' })
+  } else if (row.state === 'enabled') {
     notices.push({ label: t('plugins.health.enabledButStopped'), tone: 'warning' })
   }
 
@@ -286,9 +275,10 @@ function getTagColor(tone: HealthNoticeTone) {
   return 'default'
 }
 
-function getRuntimeColor(state?: string) {
+function getStateColor(state?: string) {
   if (state === 'running') return 'success'
-  if (state === 'stopped') return 'default'
+  if (state === 'disabled') return 'default'
+  if (state === 'enabled' || state === 'starting' || state === 'stopping') return 'warning'
   return 'error'
 }
 
@@ -313,8 +303,8 @@ function openSummary(id: string) {
   summaryDrawerVisible.value = true
 }
 
-function getToggleAction(desiredState?: string) {
-  return desiredState === 'enabled' ? 'disable' : 'enable'
+function getToggleAction(state?: string) {
+  return state === 'disabled' ? 'enable' : 'disable'
 }
 
 async function reloadPlugin(pluginId: string) {
@@ -372,13 +362,13 @@ async function submitInstall() {
             <span class="stat-value">{{ runningCount }}</span>
           </div>
         </div>
-        <div class="stat-card" @click="filterState = 'stopped'" :class="{ active: filterState === 'stopped' }">
-          <div class="stat-icon-wrapper stopped">
+        <div class="stat-card" @click="filterState = 'disabled'" :class="{ active: filterState === 'disabled' }">
+          <div class="stat-icon-wrapper disabled">
             <PauseCircleOutlined />
           </div>
           <div class="stat-info">
-            <span class="stat-label">{{ t('plugins.stats.stopped') }}</span>
-            <span class="stat-value">{{ stoppedCount }}</span>
+            <span class="stat-label">{{ t('plugins.stats.disabled') }}</span>
+            <span class="stat-value">{{ disabledCount }}</span>
           </div>
         </div>
         <div class="stat-card" @click="filterState = 'alert'" :class="{ active: filterState === 'alert' }">
@@ -414,7 +404,7 @@ async function submitInstall() {
               <a-radio-group v-model:value="filterState" button-style="solid" class="filter-radio-group">
                 <a-radio-button value="all">{{ t('plugins.filter.stateAll') }}</a-radio-button>
                 <a-radio-button value="running">{{ t('plugins.stats.running') }}</a-radio-button>
-                <a-radio-button value="stopped">{{ t('plugins.stats.stopped') }}</a-radio-button>
+                <a-radio-button value="disabled">{{ t('plugins.stats.disabled') }}</a-radio-button>
                 <a-radio-button value="alert">{{ t('plugins.stats.alert') }}</a-radio-button>
               </a-radio-group>
 
@@ -469,14 +459,14 @@ async function submitInstall() {
               v-for="item in filteredItems"
               :key="item.id"
               class="plugin-grid-card"
-              :class="`status-${item.runtime_state}`"
+              :class="`status-${item.state}`"
             >
               <div class="card-header">
                 <div class="plugin-avatar-wrapper">
                   <div class="plugin-avatar" :style="{ background: getPluginGradient(item.id) }">
                     <span class="avatar-initials">{{ getPluginInitials(item.name) }}</span>
                   </div>
-                  <span class="status-indicator-dot" :class="item.runtime_state" />
+                  <span class="status-indicator-dot" :class="item.state" />
                 </div>
 
                 <div class="plugin-identity">
@@ -516,8 +506,7 @@ async function submitInstall() {
 
                 <div class="grid-plugin-states">
                   <div class="state-badges">
-                    <a-tag size="small" color="blue">{{ getPluginDesiredStateLabel(item.desired_state) }}</a-tag>
-                    <a-tag size="small" :color="getRuntimeColor(item.runtime_state)">{{ getPluginRuntimeStateLabel(item.runtime_state) }}</a-tag>
+                    <a-tag size="small" :color="getStateColor(item.state)">{{ getPluginStateLabel(item.state) }}</a-tag>
                   </div>
                   <div v-if="getPluginHealthNotices(item).length > 0" class="plugin-health-notices grid-notices">
                     <a-tag
@@ -590,12 +579,12 @@ async function submitInstall() {
                 <div class="action-controls-group">
                   <PluginPowerButton
                     compact
-                    :checked="item.desired_state === 'enabled'"
+                    :checked="item.state !== 'disabled'"
                     :data-testid="`plugin-enable-button-${item.id}`"
                     :loading="actionPending[item.id] === 'enable' || actionPending[item.id] === 'disable'"
                     :checked-label="t('plugins.actions.enable')"
                     :unchecked-label="t('plugins.actions.disable')"
-                    @click="pluginsStore.executeAction(item.id, getToggleAction(item.desired_state))"
+                    @click="pluginsStore.executeAction(item.id, getToggleAction(item.state))"
                   />
                 </div>
               </div>
@@ -694,11 +683,10 @@ async function submitInstall() {
               <span v-else class="plugin-command-empty">{{ t('plugins.empty.commands') }}</span>
             </template>
 
-            <template v-else-if="column.key === 'runtime'">
+            <template v-else-if="column.key === 'state'">
               <div class="plugin-cell-status">
                 <div class="plugin-status-badges">
-                  <a-tag size="small" color="blue" :aria-label="`期望状态：${getPluginDesiredStateLabel(record.desired_state)}`">{{ getPluginDesiredStateLabel(record.desired_state) }}</a-tag>
-                  <a-tag size="small" :color="getRuntimeColor(record.runtime_state)" :aria-label="`运行状态：${getPluginRuntimeStateLabel(record.runtime_state)}`">{{ getPluginRuntimeStateLabel(record.runtime_state) }}</a-tag>
+                  <a-tag size="small" :color="getStateColor(record.state)" :aria-label="`状态：${getPluginStateLabel(record.state)}`">{{ getPluginStateLabel(record.state) }}</a-tag>
                 </div>
                 <div v-if="getPluginHealthNotices(record).length > 0" class="plugin-health-notices">
                   <a-tag
@@ -723,12 +711,12 @@ async function submitInstall() {
 
                 <PluginPowerButton
                   compact
-                  :checked="record.desired_state === 'enabled'"
+                  :checked="record.state !== 'disabled'"
                   :data-testid="`plugin-enable-button-${record.id}`"
                   :loading="actionPending[record.id] === 'enable' || actionPending[record.id] === 'disable'"
                   :checked-label="t('plugins.actions.enable')"
                   :unchecked-label="t('plugins.actions.disable')"
-                  @click="pluginsStore.executeAction(record.id, getToggleAction(record.desired_state))"
+                  @click="pluginsStore.executeAction(record.id, getToggleAction(record.state))"
                 />
                 <a-button
                   size="small"
@@ -796,13 +784,7 @@ async function submitInstall() {
           <a-descriptions :column="1" bordered size="small">
             <a-descriptions-item :label="t('plugins.fields.role')">{{ getPluginRoleLabel(summaryPlugin.role) }}</a-descriptions-item>
             <a-descriptions-item :label="t('plugins.fields.trust')">{{ summaryPlugin.trust?.label ?? t('display.empty') }}</a-descriptions-item>
-            <a-descriptions-item :label="t('plugins.fields.registration')">{{ getPluginRegistrationStateLabel(summaryPlugin.registration_state) }}</a-descriptions-item>
-            <a-descriptions-item :label="t('plugins.fields.desired')">{{ getPluginDesiredStateLabel(summaryPlugin.desired_state) }}</a-descriptions-item>
-            <a-descriptions-item :label="t('plugins.fields.runtime')">{{ getPluginRuntimeStateLabel(summaryPlugin.runtime_state) }}</a-descriptions-item>
-            <a-descriptions-item :label="t('plugins.fields.display')">
-              {{ getPluginDisplayStateLabel(summaryPlugin.display_state) }}
-              <small v-if="summaryPlugin.display_state"> · {{ summaryPlugin.display_state }}</small>
-            </a-descriptions-item>
+            <a-descriptions-item :label="t('plugins.fields.state')">{{ getPluginStateLabel(summaryPlugin.state) }}</a-descriptions-item>
             <a-descriptions-item :label="t('plugins.fields.source')">{{ summaryPlugin.source?.root ?? t('display.empty') }}</a-descriptions-item>
             <a-descriptions-item :label="t('plugins.fields.sourceRef')">
               {{ summaryPlugin.source?.package_source_ref ?? summaryPlugin.source?.package_source_type ?? t('display.empty') }}
@@ -906,7 +888,7 @@ async function submitInstall() {
     background: color-mix(in srgb, var(--success) 12%, transparent);
     color: var(--success);
   }
-  &.stopped {
+  &.disabled {
     background: rgba(100, 116, 139, 0.12);
     color: var(--muted);
   }
@@ -1064,14 +1046,16 @@ async function submitInstall() {
   &.status-running::after {
     background: var(--success);
   }
-  &.status-stopped::after {
+  &.status-disabled::after {
     background: #64748b;
   }
-  &.status-crashed::after,
-  &.status-dead_letter::after {
+  &.status-failed::after,
+  &.status-invalid::after {
     background: var(--danger);
   }
-  &.status-backoff::after {
+  &.status-starting::after,
+  &.status-stopping::after,
+  &.status-enabled::after {
     background: var(--warning);
   }
 }
@@ -1120,14 +1104,14 @@ async function submitInstall() {
     background-color: var(--success);
     animation: status-pulse 2s infinite;
   }
-  &.stopped {
+  &.disabled {
     background-color: #64748b;
   }
-  &.crashed, &.dead_letter {
+  &.failed, &.invalid {
     background-color: var(--danger);
     animation: status-pulse 1.5s infinite;
   }
-  &.backoff {
+  &.starting, &.stopping, &.enabled {
     background-color: var(--warning);
     animation: status-pulse 2s infinite;
   }

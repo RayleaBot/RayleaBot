@@ -12,7 +12,7 @@ import (
 
 // TestRecoverFromDeadLetterHandler_Success verifies the recover endpoint
 // returns the plugin detail snapshot when the controller succeeds.
-// Reproduces fixture ok.plugins-dead-letter-recover-response.yaml.
+// Reproduces fixture ok.plugins-recover-response.yaml.
 func TestRecoverFromDeadLetterHandler_Success(t *testing.T) {
 	t.Parallel()
 
@@ -37,7 +37,7 @@ func TestRecoverFromDeadLetterHandler_Success(t *testing.T) {
 	router := chi.NewRouter()
 	RegisterPluginRoutes(router, catalog, nil, nil, nil, controller, nil)
 
-	req := httptest.NewRequest(http.MethodPost, "/api/plugins/weather/dead_letter/recover", nil)
+	req := httptest.NewRequest(http.MethodPost, "/api/plugins/weather/recover", nil)
 	rec := httptest.NewRecorder()
 	router.ServeHTTP(rec, req)
 
@@ -48,22 +48,17 @@ func TestRecoverFromDeadLetterHandler_Success(t *testing.T) {
 	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
 		t.Fatalf("decode response: %v", err)
 	}
-	if resp.Plugin.RuntimeState != "starting" {
-		t.Fatalf("runtime_state = %q, want starting", resp.Plugin.RuntimeState)
+	if resp.Plugin.State != "starting" {
+		t.Fatalf("state = %q, want starting", resp.Plugin.State)
 	}
-	if resp.Plugin.DesiredState != "enabled" {
-		t.Fatalf("desired_state = %q, want enabled", resp.Plugin.DesiredState)
-	}
-	if resp.Plugin.DeadLetter != nil {
-		t.Fatalf("dead_letter should be cleared, got %+v", resp.Plugin.DeadLetter)
+	if resp.Plugin.StateDiagnosis != nil {
+		t.Fatalf("state_diagnosis should be cleared, got %+v", resp.Plugin.StateDiagnosis)
 	}
 }
 
-// TestRecoverFromDeadLetterHandler_NotInDeadLetter verifies the recover
-// endpoint returns 409 plugin.not_in_dead_letter when the runtime is not
-// currently in dead_letter. Reproduces fixture
-// invalid.plugins-dead-letter-recover-not-in-dead-letter.yaml.
-func TestRecoverFromDeadLetterHandler_NotInDeadLetter(t *testing.T) {
+// TestRecoverFromDeadLetterHandler_NotRecoverable verifies the recover endpoint
+// returns 409 plugin.not_recoverable when the runtime is not recoverable.
+func TestRecoverFromDeadLetterHandler_NotRecoverable(t *testing.T) {
 	t.Parallel()
 
 	catalog := newTestCatalog([]plugins.Snapshot{{
@@ -80,7 +75,7 @@ func TestRecoverFromDeadLetterHandler_NotInDeadLetter(t *testing.T) {
 	router := chi.NewRouter()
 	RegisterPluginRoutes(router, catalog, nil, nil, nil, controller, nil)
 
-	req := httptest.NewRequest(http.MethodPost, "/api/plugins/weather/dead_letter/recover", nil)
+	req := httptest.NewRequest(http.MethodPost, "/api/plugins/weather/recover", nil)
 	rec := httptest.NewRecorder()
 	router.ServeHTTP(rec, req)
 
@@ -88,11 +83,11 @@ func TestRecoverFromDeadLetterHandler_NotInDeadLetter(t *testing.T) {
 		t.Fatalf("status = %d, want 409; body = %s", rec.Code, rec.Body.String())
 	}
 	env := decodeErrorEnvelope(t, rec.Body.Bytes())
-	if env.Error.Code != "plugin.not_in_dead_letter" {
-		t.Fatalf("error.code = %q, want plugin.not_in_dead_letter", env.Error.Code)
+	if env.Error.Code != "plugin.not_recoverable" {
+		t.Fatalf("error.code = %q, want plugin.not_recoverable", env.Error.Code)
 	}
-	if env.Error.MessageKey != "errors.plugin.not_in_dead_letter" {
-		t.Fatalf("error.message_key = %q, want errors.plugin.not_in_dead_letter", env.Error.MessageKey)
+	if env.Error.MessageKey != "errors.plugin.not_recoverable" {
+		t.Fatalf("error.message_key = %q, want errors.plugin.not_recoverable", env.Error.MessageKey)
 	}
 	if env.Error.Details["plugin_id"] != "weather" {
 		t.Fatalf("details.plugin_id = %#v, want weather", env.Error.Details["plugin_id"])
@@ -111,7 +106,7 @@ func TestRecoverFromDeadLetterHandler_NotFound(t *testing.T) {
 	router := chi.NewRouter()
 	RegisterPluginRoutes(router, catalog, nil, nil, nil, controller, nil)
 
-	req := httptest.NewRequest(http.MethodPost, "/api/plugins/missing/dead_letter/recover", nil)
+	req := httptest.NewRequest(http.MethodPost, "/api/plugins/missing/recover", nil)
 	rec := httptest.NewRecorder()
 	router.ServeHTTP(rec, req)
 

@@ -149,11 +149,8 @@ func TestPluginInstallRouteExecutesTaskAndRefreshesCatalog(t *testing.T) {
 	if plugin["id"] != "weather-install" {
 		t.Fatalf("unexpected plugin id: got %#v want %q", plugin["id"], "weather-install")
 	}
-	if plugin["registration_state"] != "installed" {
-		t.Fatalf("unexpected registration_state: got %#v want %q", plugin["registration_state"], "installed")
-	}
-	if plugin["desired_state"] != "disabled" {
-		t.Fatalf("unexpected desired_state: got %#v want %q", plugin["desired_state"], "disabled")
+	if plugin["state"] != "disabled" {
+		t.Fatalf("unexpected state: got %#v want %q", plugin["state"], "disabled")
 	}
 
 	if _, err := os.Stat(filepath.Join(installedRoot, "weather-install", "info.json")); err != nil {

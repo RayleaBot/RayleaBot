@@ -122,7 +122,7 @@ func TestRegisterManagementRoutes(t *testing.T) {
 		"POST /api/plugins/{plugin_id}/disable",
 		"POST /api/plugins/{plugin_id}/enable",
 		"POST /api/plugins/{plugin_id}/reload",
-		"POST /api/plugins/{plugin_id}/dead_letter/recover",
+		"POST /api/plugins/{plugin_id}/recover",
 		"POST /api/plugins/install",
 		"POST /api/protocols/onebot11/identities/resolve",
 		"POST /api/protocols/onebot11/webhook",

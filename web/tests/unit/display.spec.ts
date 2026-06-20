@@ -3,9 +3,8 @@ import { describe, expect, it } from 'vitest'
 import {
   getConnectionChannelLabel,
   getConnectionStatusLabel,
-  getPluginDisplayStateLabel,
   getLogLevelLabel,
-  getPluginRuntimeStateLabel,
+  getPluginStateLabel,
   getSystemStatusLabel,
   getTaskStatusLabel,
   getTaskTypeLabel,
@@ -22,8 +21,8 @@ describe('display helpers', () => {
   it('renders chinese labels for task, plugin, log, and system states', () => {
     expect(getTaskTypeLabel('runtime.bootstrap')).toBe('准备运行环境')
     expect(getTaskStatusLabel('succeeded')).toBe('已完成')
-    expect(getPluginRuntimeStateLabel('running')).toBe('运行中')
-    expect(getPluginDisplayStateLabel('discovered')).toBe('已识别')
+    expect(getPluginStateLabel('running')).toBe('运行中')
+    expect(getPluginStateLabel('invalid')).toBe('清单异常')
     expect(getLogLevelLabel('warn')).toBe('警告')
     expect(getSystemStatusLabel('shutting_down')).toBe('停止中')
   })

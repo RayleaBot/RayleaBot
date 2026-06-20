@@ -1,6 +1,6 @@
 contract: contracts/web-api.openapi.yaml
 case: edge
-description: Plugin detail surfaces the dead_letter summary while the runtime is in dead_letter.
+description: Plugin detail surfaces recovery diagnostics while the runtime needs manual recovery.
 request:
   method: GET
   path: /api/plugins/weather
@@ -11,10 +11,15 @@ response:
       id: weather
       name: Weather
       role: user
-      registration_state: installed
-      desired_state: enabled
-      runtime_state: dead_letter
-      display_state: dead_letter
+      state: failed
+      state_diagnosis:
+        kind: recovery_required
+        summary: plugin runtime requires manual recovery
+        entered_at: '2026-05-13T08:00:00Z'
+        crash_count: 5
+        last_error_code: plugin.internal_error
+        last_error_message: plugin exited unexpectedly
+        recoverable: true
       source:
         root: plugins/installed
         package_source_type: local_zip
@@ -33,14 +38,8 @@ response:
           permission: member
           command_source: manifest
       command_conflicts: []
-      dead_letter:
-        entered_at: '2026-05-13T08:00:00Z'
-        crash_count: 5
-        last_error_code: plugin.internal_error
-        last_error_message: plugin exited unexpectedly
 expect:
   valid: true
   notes:
-    - dead_letter is populated only while runtime_state equals dead_letter.
-    - crash_count reflects the cumulative crash count up to the moment dead_letter was entered.
-    - last_error_message has been redacted before reaching this surface.
+    - state_diagnosis contains the recovery summary for failed plugins that need manual recovery.
+    - last_error_message is redacted before reaching this surface.

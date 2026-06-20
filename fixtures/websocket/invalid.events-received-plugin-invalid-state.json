@@ -7,14 +7,13 @@
     "timestamp": "2026-04-18T09:35:00Z",
     "data": {
       "plugin_id": "weather",
-      "registration_state": "installed",
-      "desired_state": "enabled",
-      "runtime_state": "running",
-      "display_state": "paused"
+      "state": "paused",
+      "commands": [],
+      "command_conflicts": []
     }
   },
   "expect": {
     "valid": false,
-    "reason": "display_state must stay within the formal plugin lifecycle enum."
+    "reason": "state must stay within the formal plugin lifecycle enum."
   }
 }

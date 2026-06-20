@@ -39,7 +39,7 @@
   - 当前已冻结的管理 HTTP 接口
   - 当前包含 setup / session、loopback launcher bootstrap、config snapshot/update、protocol snapshot / compatibility、OneBot target / identity resolution、plugin lifecycle、plugin rich detail、plugin settings、plugin secrets、third-party accounts、third-party monitors、third-party media、Bilibili QR login、Bilibili user resolve、Bilibili source status / restart、governance 管理面、tasks / logs / system / metrics surfaces、scheduler 任务列表与手动触发、recovery recheck / confirm、runtime bootstrap、render templates、preview HTML 与模板资源读取面
   - `PUT /api/config` response 固定返回 `apply_effects.applied_now`、`apply_effects.reloaded_now`、`apply_effects.restart_required_fields`
-  - plugin lifecycle surface 统一使用正式 `display_state` 枚举
+  - plugin lifecycle surface 统一使用正式 `state` 枚举与可选 `state_diagnosis`
 - `websocket-events.yaml`
   - 当前已冻结的管理 WebSocket envelope、事件名和 payload 约束
   - `events.received` 的通用 `event_type + summary` 分支当前包含 `governance.changed`；Bilibili source status 使用独立 `source: bilibili` 分支
@@ -174,7 +174,7 @@
 
 - `PUT /api/config` response 使用 `apply_effects.applied_now`、`apply_effects.reloaded_now`、`apply_effects.restart_required_fields`
 - `restart_required` 与 `apply_effects.restart_required_fields` 保持一致
-- `/api/plugins`、`/api/plugins/{plugin_id}`、enable / disable / reload 响应与 `/ws/events` 插件生命周期分支统一使用正式 `display_state` 枚举
+- `/api/plugins`、`/api/plugins/{plugin_id}`、enable / disable / reload / recover 响应与 `/ws/events` 插件生命周期分支统一使用正式 `state` 枚举与可选 `state_diagnosis`
 
 当前已进入 OpenAPI 冻结范围的 recovery / runtime task surface：
 

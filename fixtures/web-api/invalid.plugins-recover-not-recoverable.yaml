@@ -1,0 +1,20 @@
+contract: contracts/web-api.openapi.yaml
+case: invalid
+description: Recover endpoint refuses plugins whose failure state is not recoverable.
+request:
+  method: POST
+  path: /api/plugins/weather/recover
+response:
+  status: 409
+  body:
+    error:
+      code: plugin.not_recoverable
+      message: 插件当前不可恢复
+      message_key: errors.plugin.not_recoverable
+      details:
+        state: running
+expect:
+  valid: true
+  notes:
+    - 409 is the formal status when the plugin is not recoverable.
+    - Use enable / disable / reload for normal lifecycle transitions.

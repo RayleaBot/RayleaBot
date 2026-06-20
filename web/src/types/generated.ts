@@ -742,7 +742,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List registered plugins with tri-layer state snapshots. */
+        /** List registered plugins with a single lifecycle state. */
         get: operations["listPlugins"];
         put?: never;
         post?: never;
@@ -761,7 +761,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Set the plugin desired_state to enabled. */
+        /** Enable a plugin. */
         post: operations["enablePlugin"];
         delete?: never;
         options?: never;
@@ -778,7 +778,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Set the plugin desired_state to disabled. */
+        /** Disable a plugin. */
         post: operations["disablePlugin"];
         delete?: never;
         options?: never;
@@ -795,7 +795,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Restart the plugin runtime without changing desired_state. */
+        /** Restart the plugin runtime. */
         post: operations["reloadPlugin"];
         delete?: never;
         options?: never;
@@ -803,7 +803,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/plugins/{plugin_id}/dead_letter/recover": {
+    "/api/plugins/{plugin_id}/recover": {
         parameters: {
             query?: never;
             header?: never;
@@ -813,11 +813,11 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Restart a plugin that exhausted its crash retries.
-         * @description Reset the plugin's crash counter and start the runtime again. Only accepted when the current runtime_state is `dead_letter`; any other state returns 409 with `plugin.not_in_dead_letter`. The plugin's webhook routes were already removed when it entered dead_letter and remain removed until the recovered runtime registers them again.
+         * Recover a failed plugin runtime.
+         * @description Reset the plugin's crash counter and start the runtime again. Only accepted for failed plugins that require manual recovery; any other state returns 409 with `plugin.not_recoverable`.
          *
          */
-        post: operations["recoverPluginFromDeadLetter"];
+        post: operations["recoverPlugin"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1562,13 +1562,23 @@ export interface components {
             commands: components["schemas"]["GovernanceCommandPolicyEntry"][];
         };
         /** @enum {string} */
-        PluginRegistrationState: "installed" | "removed";
-        /** @enum {string} */
-        PluginDesiredState: "enabled" | "disabled";
-        /** @enum {string} */
-        PluginRuntimeState: "starting" | "running" | "stopping" | "crashed" | "backoff" | "dead_letter" | "stopped";
-        /** @enum {string} */
-        PluginDisplayState: "discovered" | "invalid_manifest" | "conflict" | "removed" | "enabled" | "enabling" | "running" | "disabling" | "stopping" | "crashed" | "backoff" | "dead_letter" | "disabled";
+        PluginState: "disabled" | "enabled" | "starting" | "running" | "stopping" | "failed" | "invalid";
+        PluginStateDiagnosis: {
+            /** @enum {string} */
+            kind: "invalid_manifest" | "plugin_id_conflict" | "crashed" | "retrying" | "recovery_required";
+            summary?: string;
+            manifest_path?: string;
+            manifest_paths?: string[];
+            source_roots?: string[];
+            last_error_code?: string;
+            last_error_message?: string;
+            crash_count?: number;
+            /** Format: date-time */
+            entered_at?: string;
+            /** Format: date-time */
+            retry_at?: string;
+            recoverable?: boolean;
+        };
         /** @enum {string} */
         PluginRole: "builtin" | "user" | "example" | "dev";
         /** @enum {string} */
@@ -1605,28 +1615,13 @@ export interface components {
             description?: string;
             author?: string;
             role: components["schemas"]["PluginRole"];
-            registration_state: components["schemas"]["PluginRegistrationState"];
-            desired_state: components["schemas"]["PluginDesiredState"];
-            runtime_state: components["schemas"]["PluginRuntimeState"];
-            display_state: components["schemas"]["PluginDisplayState"];
+            state: components["schemas"]["PluginState"];
+            state_diagnosis?: components["schemas"]["PluginStateDiagnosis"];
             source?: components["schemas"]["PluginSourceSummary"];
             trust?: components["schemas"]["PluginTrustSummary"];
             commands: components["schemas"]["PluginCommandSummary"][];
             help: components["schemas"]["PluginHelp"];
             command_conflicts?: string[];
-            dead_letter?: components["schemas"]["PluginDeadLetterSummary"];
-        };
-        /** @description Present only when runtime_state equals `dead_letter`. Captures
-         *     the moment the runtime exhausted its crash-restart budget so the
-         *     management surface can show dwell time and the most recent
-         *     crash error without scraping logs.
-         *      */
-        PluginDeadLetterSummary: {
-            /** Format: date-time */
-            entered_at: string;
-            crash_count: number;
-            last_error_code?: string;
-            last_error_message?: string;
         };
         PluginHelpItem: {
             title: string;
@@ -3469,7 +3464,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Desired state updated. The runtime may still be catching up. */
+            /** @description Plugin enable accepted. */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -3495,7 +3490,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Desired state updated. The runtime may still be stopping the plugin. */
+            /** @description Plugin disable accepted. */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -3535,7 +3530,7 @@ export interface operations {
             default: components["responses"]["Error"];
         };
     };
-    recoverPluginFromDeadLetter: {
+    recoverPlugin: {
         parameters: {
             query?: never;
             header?: never;

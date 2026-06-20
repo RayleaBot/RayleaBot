@@ -1,15 +1,41 @@
 # State Model
 
-本文档说明 RayleaBot 当前已落地的核心状态机，覆盖插件运行时、插件期望状态、后台任务、OneBot11 连接状态和 Bilibili source 状态。
+本文档说明 RayleaBot 当前已落地的核心状态机，覆盖插件状态、后台任务、OneBot11 连接状态和 Bilibili source 状态。
 
 正式枚举值以 `contracts/` 和当前实现常量为准。
 
-## 一、插件 Runtime 状态
+## 一、插件状态
+
+管理 HTTP、管理 WebSocket、插件管理页 bridge、`plugin.list` local action 和系统 metrics 使用统一插件状态：
+
+| 状态 | 含义 |
+| --- | --- |
+| `disabled` | 插件未启用，运行时未启动 |
+| `enabled` | 插件已启用，等待运行时启动或当前未运行 |
+| `starting` | 插件运行时正在启动 |
+| `running` | 插件运行时已完成握手并可处理事件 |
+| `stopping` | 插件运行时正在停止 |
+| `failed` | 插件运行时崩溃、等待自动重试或需要人工恢复 |
+| `invalid` | 插件 manifest 无效或插件 ID 冲突 |
+
+`state_diagnosis` 提供异常状态的细节：
+
+| kind | 含义 |
+| --- | --- |
+| `invalid_manifest` | manifest 校验失败 |
+| `plugin_id_conflict` | 多个插件目录声明相同插件 ID |
+| `crashed` | 运行时异常退出 |
+| `retrying` | 运行时等待受控重启 |
+| `recovery_required` | 运行时超过自动恢复阈值，可通过 `POST /api/plugins/{plugin_id}/recover` 触发受控冷启动 |
+
+`/api/system/metrics` 使用 `raylea_plugin_state{state="..."}` 统计各状态插件数量。
+
+## 二、插件内部运行时状态
 
 ```plain
 stopped -> starting -> running -> stopping -> stopped
-running / starting -> crashed -> backoff -> starting
-crashed -> dead_letter
+running / starting -> crashed -> retry wait -> starting
+crashed -> recovery required
 ```
 
 | 状态 | 含义 |
@@ -19,18 +45,10 @@ crashed -> dead_letter
 | `running` | 已完成握手并处理事件 |
 | `stopping` | 已发送 `shutdown`，等待子进程退出 |
 | `crashed` | 子进程异常退出 |
-| `backoff` | 等待受控重启 |
-| `dead_letter` | 超过自动恢复阈值，等待人工处理；管理面通过 `POST /api/plugins/{plugin_id}/dead_letter/recover` 触发受控冷启动尝试 |
+| `backoff` | 内部等待受控重启，管理面投影为 `failed` + `retrying` |
+| recovery required | 超过自动恢复阈值，管理面投影为 `failed` + `recovery_required` |
 
-## 二、插件注册状态与 Desired State
-
-| 字段 | 值 |
-| --- | --- |
-| `registration_state` | `installed` / `removed` |
-| `desired_state` | `enabled` / `disabled` |
-
-- `desired_state` 持久化保存。
-- runtime 状态由 per-plugin runtime manager 维护，并通过管理面投影到用户可见状态。
+插件启用意图持久化保存。运行时状态由 per-plugin runtime manager 维护，并通过管理面投影到用户可见状态。
 
 ## 三、后台任务状态
 
@@ -61,15 +79,7 @@ running -> interrupted   # 服务重启
 - `recovery.confirm`
 - `runtime.bootstrap`
 
-## 四、Grant 时效
-
-| 条件 | 生效语义 |
-| --- | --- |
-| `expires_at` 为空 | 永久有效 |
-| `expires_at` 在未来 | 在到期前有效 |
-| `expires_at` 已过期 | 不投影到运行时能力列表 |
-
-## 五、OneBot11 Adapter 聚合状态
+## 四、OneBot11 Adapter 聚合状态
 
 | 状态 | 含义 |
 | --- | --- |
@@ -80,7 +90,7 @@ running -> interrupted   # 服务重启
 | `reconnecting` | 链路中断后按 backoff 重连 |
 | `stopped` | 连接流程被主动停止 |
 
-## 六、OneBot11 协议快照状态
+## 五、OneBot11 协议快照状态
 
 ### readiness_status
 
@@ -108,7 +118,7 @@ running -> interrupted   # 服务重启
 | `reconnecting` | 该传输正在按 backoff 重试 |
 | `stopped` | 该传输已停止 |
 
-## 七、Bilibili Source 状态
+## 六、Bilibili Source 状态
 
 | 状态 | 含义 |
 | --- | --- |

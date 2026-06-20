@@ -18,7 +18,7 @@ import type {
   TaskAcceptedResponse,
 } from '@/types/api'
 
-type PluginUpsert = Partial<PluginSummary> & Pick<PluginSummary, 'id' | 'registration_state' | 'desired_state' | 'runtime_state' | 'display_state'>
+type PluginUpsert = Partial<PluginSummary> & Pick<PluginSummary, 'id' | 'state'>
 
 export const usePluginsStore = defineStore('plugins', () => {
   const items = ref<PluginSummary[]>([])
@@ -92,10 +92,8 @@ export const usePluginsStore = defineStore('plugins', () => {
       description: plugin.description ?? previous?.description,
       author: plugin.author ?? previous?.author,
       role: plugin.role ?? previous?.role ?? 'user',
-      registration_state: plugin.registration_state,
-      desired_state: plugin.desired_state,
-      runtime_state: plugin.runtime_state,
-      display_state: plugin.display_state ?? previous?.display_state,
+      state: plugin.state,
+      state_diagnosis: plugin.state_diagnosis,
       source: plugin.source ?? previous?.source,
       trust: plugin.trust ?? previous?.trust,
       commands: plugin.commands ?? previous?.commands ?? [],

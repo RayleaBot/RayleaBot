@@ -60,9 +60,9 @@ func (h *Handlers) resolveSettingsSnapshot(w http.ResponseWriter, r *http.Reques
 
 	if snapshot.RegistrationState != "installed" {
 		httpapi.WriteError(w, r, http.StatusConflict, "platform.invalid_request", "请求参数不合法", "errors.platform.invalid_request", map[string]any{
-			"plugin_id":          pluginID,
-			"kind":               "plugin_not_installed",
-			"registration_state": snapshot.RegistrationState,
+			"plugin_id": pluginID,
+			"kind":      "plugin_not_installed",
+			"installed": false,
 		})
 		return plugins.Snapshot{}, false
 	}

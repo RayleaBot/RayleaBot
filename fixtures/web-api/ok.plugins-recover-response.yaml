@@ -1,9 +1,9 @@
 contract: contracts/web-api.openapi.yaml
 case: ok
-description: Recovery from dead_letter resets the crash counter and starts the runtime again.
+description: Recover resets the crash counter and starts the runtime again.
 request:
   method: POST
-  path: /api/plugins/weather/dead_letter/recover
+  path: /api/plugins/weather/recover
 response:
   status: 200
   body:
@@ -11,10 +11,7 @@ response:
       id: weather
       name: Weather
       role: user
-      registration_state: installed
-      desired_state: enabled
-      runtime_state: starting
-      display_state: enabling
+      state: starting
       source:
         root: plugins/installed
         package_source_type: local_zip
@@ -36,6 +33,5 @@ response:
 expect:
   valid: true
   notes:
-    - dead_letter summary clears once the runtime starts again.
-    - desired_state stays at enabled; the recovery never flips it.
-    - runtime_state transitions from dead_letter to starting and finally to running.
+    - state_diagnosis clears once the runtime starts again.
+    - state transitions from failed to starting and then running.

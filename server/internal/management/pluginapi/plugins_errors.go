@@ -14,7 +14,7 @@ func writeDesiredStateError(w http.ResponseWriter, r *http.Request, pluginID str
 		return
 	}
 	if errors.Is(err, plugins.ErrPluginNotInDeadLetter) {
-		writeError(w, r, 409, "plugin.not_in_dead_letter", "插件当前不处于 dead_letter 状态", "errors.plugin.not_in_dead_letter", map[string]any{"plugin_id": pluginID})
+		writeError(w, r, 409, "plugin.not_recoverable", "插件当前不可恢复", "errors.plugin.not_recoverable", map[string]any{"plugin_id": pluginID})
 		return
 	}
 	if errors.Is(err, plugins.ErrStateConflict) {

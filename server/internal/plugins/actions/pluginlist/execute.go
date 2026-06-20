@@ -44,16 +44,16 @@ func Execute(ctx context.Context, req Request) (map[string]any, error) {
 			help = VisibleHelpForCaller(view.Help, view.Commands, commands, cfg, req.ParentEvent)
 		}
 		item := map[string]any{
-			"id":                 view.ID,
-			"name":               view.Name,
-			"description":        view.Description,
-			"role":               view.Role,
-			"registration_state": view.RegistrationState,
-			"desired_state":      view.DesiredState,
-			"runtime_state":      view.RuntimeState,
-			"display_state":      view.DisplayState,
-			"commands":           BuildCommands(commands),
-			"command_conflicts":  append([]string(nil), view.CommandConflicts...),
+			"id":                view.ID,
+			"name":              view.Name,
+			"description":       view.Description,
+			"role":              view.Role,
+			"state":             view.State,
+			"commands":          BuildCommands(commands),
+			"command_conflicts": append([]string(nil), view.CommandConflicts...),
+		}
+		if view.StateDiagnosis != nil {
+			item["state_diagnosis"] = view.StateDiagnosis
 		}
 		if help != nil {
 			item["help"] = BuildHelp(help)

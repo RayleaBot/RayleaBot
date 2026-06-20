@@ -175,10 +175,7 @@ describe('PluginDetailPage', () => {
       id: 'weather',
       name: 'Weather',
       role: 'user',
-      registration_state: 'installed',
-      desired_state: 'enabled',
-      runtime_state: 'running',
-      display_state: 'discovered',
+        state: 'running',
       version: '1.4.2',
       runtime: 'python',
       type: 'managed_runtime',
@@ -333,7 +330,7 @@ describe('PluginDetailPage', () => {
     expect(wrapper.text()).toContain('Weather')
     expect(wrapper.text()).toContain('未验证来源')
     expect(wrapper.text()).toContain('plugins/installed')
-    expect(wrapper.text()).toContain('已识别')
+    expect(wrapper.text()).toContain('运行中')
     expect(wrapper.text()).toContain('我的运势')
     expect(wrapper.text()).not.toContain('fortune')
     expect(wrapper.find('.console-terminal').exists()).toBe(true)
@@ -374,10 +371,7 @@ describe('PluginDetailPage', () => {
       id: 'weather',
       name: 'Weather',
       role: 'user',
-      registration_state: 'installed',
-      desired_state: 'enabled',
-      runtime_state: 'running',
-      display_state: 'discovered',
+        state: 'running',
       source: {
         root: 'plugins/installed',
         package_source_type: 'local_zip',
@@ -428,10 +422,7 @@ describe('PluginDetailPage', () => {
       id: 'weather',
       name: 'Weather',
       role: 'user',
-      registration_state: 'installed',
-      desired_state: 'enabled',
-      runtime_state: 'running',
-      display_state: 'discovered',
+        state: 'running',
       source: {
         root: 'plugins/installed',
         package_source_type: 'local_zip',
@@ -509,10 +500,7 @@ describe('PluginDetailPage', () => {
       id: 'weather',
       name: 'Weather',
       role: 'user',
-      registration_state: 'installed',
-      desired_state: 'enabled',
-      runtime_state: 'running',
-      display_state: 'discovered',
+        state: 'running',
       source: {
         root: 'plugins/installed',
         package_source_type: 'local_zip',
@@ -574,10 +562,7 @@ describe('PluginDetailPage', () => {
           id: 'weather',
           name: 'Weather',
           role: 'user',
-          registration_state: 'installed',
-          desired_state: 'enabled',
-          runtime_state: 'running',
-          display_state: 'discovered',
+        state: 'running',
           source: {
             root: 'plugins/installed',
             package_source_type: 'local_zip',
@@ -628,10 +613,7 @@ describe('PluginDetailPage', () => {
       id: 'example-config-panel',
       name: 'Example Config Panel',
       role: 'example',
-      registration_state: 'installed',
-      desired_state: 'disabled',
-      runtime_state: 'stopped',
-      display_state: 'disabled',
+        state: 'disabled',
       version: '0.1.0',
       runtime: 'python',
       type: 'managed_runtime',
@@ -727,10 +709,7 @@ describe('PluginDetailPage', () => {
       id: 'example-config-panel',
       name: 'Example Config Panel',
       role: 'example',
-      registration_state: 'installed',
-      desired_state: 'disabled',
-      runtime_state: 'stopped',
-      display_state: 'disabled',
+        state: 'disabled',
       version: '0.1.0',
       runtime: 'python',
       type: 'managed_runtime',

@@ -27,10 +27,8 @@ export type BilibiliSourceStatusEvent = Extract<EventsPayload, { source: string 
 
 export interface PluginSocketProjection {
   id: string
-  registration_state: PluginStateEvent['registration_state']
-  desired_state: PluginStateEvent['desired_state']
-  runtime_state: PluginStateEvent['runtime_state']
-  display_state: PluginStateEvent['display_state']
+  state: PluginStateEvent['state']
+  state_diagnosis?: PluginStateEvent['state_diagnosis']
   commands?: PluginCommandSummary[]
   command_conflicts?: string[]
 }

@@ -16,23 +16,21 @@ func BuildSummary(catalog plugins.CatalogView, snapshot plugins.Snapshot) Summar
 
 func ToSummary(snapshot plugins.Snapshot, conflicts []string) SummaryResponse {
 	role := effectivePluginRole(snapshot)
+	state, diagnosis := plugins.ProjectState(snapshot)
 	return SummaryResponse{
-		ID:                snapshot.PluginID,
-		Name:              pluginDisplayName(snapshot),
-		Version:           strings.TrimSpace(snapshot.Version),
-		Description:       strings.TrimSpace(snapshot.Description),
-		Author:            strings.TrimSpace(snapshot.Author),
-		Role:              role,
-		RegistrationState: snapshot.RegistrationState,
-		DesiredState:      snapshot.DesiredState,
-		RuntimeState:      snapshot.RuntimeState,
-		DisplayState:      snapshot.DisplayState,
-		Source:            buildPluginSource(snapshot),
-		Trust:             buildPluginTrust(role, snapshot),
-		Commands:          buildPluginCommands(snapshot),
-		Help:              buildPluginHelp(snapshot),
-		CommandConflicts:  normalizeConflictList(conflicts),
-		DeadLetter:        BuildDeadLetter(snapshot),
+		ID:               snapshot.PluginID,
+		Name:             pluginDisplayName(snapshot),
+		Version:          strings.TrimSpace(snapshot.Version),
+		Description:      strings.TrimSpace(snapshot.Description),
+		Author:           strings.TrimSpace(snapshot.Author),
+		Role:             role,
+		State:            state,
+		StateDiagnosis:   diagnosis,
+		Source:           buildPluginSource(snapshot),
+		Trust:            buildPluginTrust(role, snapshot),
+		Commands:         buildPluginCommands(snapshot),
+		Help:             buildPluginHelp(snapshot),
+		CommandConflicts: normalizeConflictList(conflicts),
 	}
 }
 

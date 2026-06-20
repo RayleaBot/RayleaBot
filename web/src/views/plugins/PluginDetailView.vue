@@ -20,11 +20,8 @@ import {
   getConnectionStatusLabel,
   getPluginCapabilityLabel,
   getPluginCapabilityRawTitle,
-  getPluginDisplayStateLabel,
-  getPluginDesiredStateLabel,
-  getPluginRegistrationStateLabel,
   getPluginRoleLabel,
-  getPluginRuntimeStateLabel,
+  getPluginStateLabel,
 } from '@/lib/display'
 import { getDisplayErrorMessage } from '@/lib/error-text'
 import { formatDateTime } from '@/lib/format'
@@ -131,28 +128,10 @@ const pluginInitial = computed(() => pluginDisplayName.value.trim().slice(0, 1).
 const sourceRefText = computed(() => currentPlugin.value?.source?.package_source_ref ?? currentPlugin.value?.source?.package_source_type ?? '')
 const statusSummaryItems = computed(() => [
   {
-    key: 'registration',
-    label: t('plugins.fields.registration'),
-    value: getPluginRegistrationStateLabel(currentPlugin.value?.registration_state),
-    raw: currentPlugin.value?.registration_state,
-  },
-  {
-    key: 'desired',
-    label: t('plugins.fields.desired'),
-    value: getPluginDesiredStateLabel(currentPlugin.value?.desired_state),
-    raw: currentPlugin.value?.desired_state,
-  },
-  {
-    key: 'runtime',
-    label: t('plugins.fields.runtime'),
-    value: getPluginRuntimeStateLabel(currentPlugin.value?.runtime_state),
-    raw: currentPlugin.value?.runtime_state,
-  },
-  {
-    key: 'display',
-    label: t('plugins.fields.display'),
-    value: getPluginDisplayStateLabel(currentPlugin.value?.display_state),
-    raw: currentPlugin.value?.display_state,
+    key: 'state',
+    label: t('plugins.fields.state'),
+    value: getPluginStateLabel(currentPlugin.value?.state),
+    raw: currentPlugin.value?.state,
   },
 ])
 const heroFacts = computed(() => [
@@ -240,7 +219,7 @@ async function runAction(action: 'enable' | 'disable' | 'reload') {
 }
 
 function getToggleAction() {
-  return current.value?.desired_state === 'enabled' ? 'disable' : 'enable'
+  return current.value?.state === 'disabled' ? 'enable' : 'disable'
 }
 
 async function uninstallPlugin() {
@@ -516,7 +495,7 @@ watch(
     <template #extra>
       <div class="table-actions plugin-detail-actions">
         <PluginPowerButton
-          :checked="current?.desired_state === 'enabled'"
+          :checked="current?.state !== 'disabled'"
           :loading="actionPending[pluginId] === 'enable' || actionPending[pluginId] === 'disable'"
           :disabled="!current"
           :checked-label="t('plugins.actions.enable')"

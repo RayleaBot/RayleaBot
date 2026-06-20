@@ -1,6 +1,6 @@
 contract: contracts/web-api.openapi.yaml
 case: ok
-description: Enable is synchronous and only updates desired_state.
+description: Enable is synchronous and returns the latest plugin state.
 request:
   method: POST
   path: /api/plugins/weather/enable
@@ -11,10 +11,7 @@ response:
       id: weather
       name: Weather
       role: user
-      registration_state: installed
-      desired_state: enabled
-      runtime_state: starting
-      display_state: enabling
+      state: starting
       source:
         root: plugins/installed
         package_source_type: local_zip
@@ -37,4 +34,4 @@ expect:
   valid: true
   notes:
     - No task_id is returned.
-    - runtime_state is allowed to lag behind desired_state.
+    - state may be starting while the runtime is still booting.
