@@ -16,16 +16,6 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/logging"
 )
 
-type appCore struct {
-	Config     config.Config
-	Summary    config.Summary
-	Logger     *slog.Logger
-	LogLevel   *logging.LevelController
-	repoRoot   string
-	redactText func(string) string
-	startedAt  time.Time
-}
-
 type appPlatform = appplatform.State
 type schedulerTriggerProxy = appplatform.TriggerProxy
 type appPlugins = pluginstack.State
