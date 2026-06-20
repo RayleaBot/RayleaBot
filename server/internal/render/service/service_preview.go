@@ -25,7 +25,7 @@ func (s *Service) PreviewHTML(ctx context.Context, request Request) (PreviewHTML
 		return PreviewHTML{}, err
 	}
 	cacheKey := buildPreviewHTMLCacheKey(normalized, revisionID, payloadBytes)
-	if cached, ok := s.cachedPreviewHTML(cacheKey); ok {
+	if cached, ok := s.artifactStore.cachedPreviewHTML(cacheKey); ok {
 		return cached, nil
 	}
 	html, err := compiled.RenderHTML(normalized.Theme, normalized.Data)
@@ -40,6 +40,6 @@ func (s *Service) PreviewHTML(ctx context.Context, request Request) (PreviewHTML
 		Height:     compiled.Bundle.Manifest.Height,
 		HTML:       html,
 	}
-	s.cachePreviewHTML(cacheKey, preview)
+	s.artifactStore.cachePreviewHTML(cacheKey, preview)
 	return preview, nil
 }

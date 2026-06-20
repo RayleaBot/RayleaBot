@@ -2,29 +2,108 @@ package service
 
 import (
 	"errors"
+	"sync"
 
 	renderartifact "github.com/RayleaBot/RayleaBot/server/internal/render/artifact"
 	rendertemplates "github.com/RayleaBot/RayleaBot/server/internal/render/templates"
 )
 
-func (s *Service) cachedResult(cacheKey string) (renderartifact.Result, bool) {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	result, ok := s.cache[cacheKey]
+// artifactStore owns the rendered-artifact and preview caches together with the
+// on-disk output root. It guards its own maps so artifact access never contends
+// with the render service's runtime-config lock.
+type artifactStore struct {
+	outputRoot string
+
+	mu               sync.RWMutex
+	cache            map[string]renderartifact.Result
+	artifacts        map[string]renderartifact.Artifact
+	previewHTMLCache map[string]PreviewHTML
+}
+
+func newArtifactStore(outputRoot string) *artifactStore {
+	return &artifactStore{
+		outputRoot:       outputRoot,
+		cache:            map[string]renderartifact.Result{},
+		artifacts:        map[string]renderartifact.Artifact{},
+		previewHTMLCache: map[string]PreviewHTML{},
+	}
+}
+
+func (a *artifactStore) cachedResult(cacheKey string) (renderartifact.Result, bool) {
+	a.mu.RLock()
+	defer a.mu.RUnlock()
+	result, ok := a.cache[cacheKey]
 	return result, ok
 }
 
-func (s *Service) cachedPreviewHTML(cacheKey string) (PreviewHTML, bool) {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	preview, ok := s.previewHTMLCache[cacheKey]
+func (a *artifactStore) cacheResult(cacheKey string, result renderartifact.Result) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	a.cache[cacheKey] = result
+}
+
+func (a *artifactStore) cachedPreviewHTML(cacheKey string) (PreviewHTML, bool) {
+	a.mu.RLock()
+	defer a.mu.RUnlock()
+	preview, ok := a.previewHTMLCache[cacheKey]
 	return preview, ok
 }
 
-func (s *Service) cachePreviewHTML(cacheKey string, preview PreviewHTML) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	s.previewHTMLCache[cacheKey] = preview
+func (a *artifactStore) cachePreviewHTML(cacheKey string, preview PreviewHTML) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	a.previewHTMLCache[cacheKey] = preview
+}
+
+func (a *artifactStore) persist(request Request, cacheKey string, content []byte) (renderartifact.Result, error) {
+	result, artifact, err := renderartifact.Persist(a.outputRoot, artifactRequest(request), cacheKey, content)
+	if err != nil {
+		return renderartifact.Result{}, err
+	}
+
+	a.mu.Lock()
+	a.artifacts[artifact.ArtifactID] = artifact
+	a.mu.Unlock()
+	return result, nil
+}
+
+func (a *artifactStore) load() error {
+	cache, artifacts, err := renderartifact.Load(a.outputRoot)
+	if err != nil {
+		return err
+	}
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	for cacheKey, result := range cache {
+		a.cache[cacheKey] = result
+	}
+	for artifactID, artifact := range artifacts {
+		a.artifacts[artifactID] = artifact
+	}
+	return nil
+}
+
+func (a *artifactStore) lookup(artifactID string) (renderartifact.Artifact, error) {
+	a.mu.RLock()
+	if artifact, ok := a.artifacts[artifactID]; ok {
+		a.mu.RUnlock()
+		return artifact, nil
+	}
+	a.mu.RUnlock()
+
+	artifact, err := renderartifact.Lookup(a.outputRoot, artifactID)
+	if err != nil {
+		var artifactErr *renderartifact.Error
+		if errors.As(err, &artifactErr) {
+			return renderartifact.Artifact{}, &rendertemplates.Error{Code: artifactErr.Code, Message: artifactErr.Message, Err: artifactErr.Err}
+		}
+		return renderartifact.Artifact{}, err
+	}
+
+	a.mu.Lock()
+	a.artifacts[artifactID] = artifact
+	a.mu.Unlock()
+	return artifact, nil
 }
 
 func buildCacheKey(request Request, version string, sourceDigest string, resourceDigest string, deviceScalePercent int, payloadBytes []byte) string {
@@ -37,59 +116,6 @@ func buildPreviewHTMLCacheKey(request Request, revisionID string, payloadBytes [
 
 func buildArtifactID(cacheKey string) string {
 	return renderartifact.BuildArtifactID(cacheKey)
-}
-
-func (s *Service) persistArtifact(request Request, cacheKey string, content []byte) (renderartifact.Result, error) {
-	result, artifact, err := renderartifact.Persist(s.outputRoot, artifactRequest(request), cacheKey, content)
-	if err != nil {
-		return renderartifact.Result{}, err
-	}
-
-	s.mu.Lock()
-	s.artifacts[artifact.ArtifactID] = artifact
-	s.mu.Unlock()
-	return result, nil
-}
-
-func (s *Service) loadArtifacts() error {
-	cache, artifacts, err := renderartifact.Load(s.outputRoot)
-	if err != nil {
-		return err
-	}
-	for cacheKey, result := range cache {
-		s.cache[cacheKey] = result
-	}
-	for artifactID, artifact := range artifacts {
-		s.artifacts[artifactID] = artifact
-	}
-	return nil
-}
-
-func (s *Service) LookupArtifact(artifactID string) (renderartifact.Artifact, error) {
-	if s == nil {
-		return renderartifact.Artifact{}, &rendertemplates.Error{Code: "platform.resource_missing", Message: "render service is not available"}
-	}
-
-	s.mu.RLock()
-	if artifact, ok := s.artifacts[artifactID]; ok {
-		s.mu.RUnlock()
-		return artifact, nil
-	}
-	s.mu.RUnlock()
-
-	artifact, err := renderartifact.Lookup(s.outputRoot, artifactID)
-	if err != nil {
-		var artifactErr *renderartifact.Error
-		if errors.As(err, &artifactErr) {
-			return renderartifact.Artifact{}, &rendertemplates.Error{Code: artifactErr.Code, Message: artifactErr.Message, Err: artifactErr.Err}
-		}
-		return renderartifact.Artifact{}, err
-	}
-
-	s.mu.Lock()
-	s.artifacts[artifactID] = artifact
-	s.mu.Unlock()
-	return artifact, nil
 }
 
 func artifactRequest(request Request) renderartifact.Request {
