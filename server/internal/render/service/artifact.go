@@ -114,10 +114,6 @@ func buildPreviewHTMLCacheKey(request Request, revisionID string, payloadBytes [
 	return renderartifact.BuildPreviewHTMLCacheKey(artifactRequest(request), revisionID, payloadBytes)
 }
 
-func buildArtifactID(cacheKey string) string {
-	return renderartifact.BuildArtifactID(cacheKey)
-}
-
 func artifactRequest(request Request) renderartifact.Request {
 	return renderartifact.Request{
 		Template: request.Template,

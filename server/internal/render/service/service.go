@@ -29,7 +29,6 @@ const (
 	defaultDeviceScalePct   = 100
 	developmentVersion      = "开发版本"
 	systemTemplatePlugin    = "系统模板"
-	renderCacheVersion      = "render-cache-v3-template-sources"
 )
 
 var revisionCounter uint64
