@@ -13,6 +13,7 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/governance"
 	bilibilisession "github.com/RayleaBot/RayleaBot/server/internal/integrations/bilibili/session"
 	bilibilisource "github.com/RayleaBot/RayleaBot/server/internal/integrations/bilibili/source"
+	thirdpartylogin "github.com/RayleaBot/RayleaBot/server/internal/integrations/thirdpartylogin"
 	"github.com/RayleaBot/RayleaBot/server/internal/logging"
 	managementevents "github.com/RayleaBot/RayleaBot/server/internal/management/events"
 	"github.com/RayleaBot/RayleaBot/server/internal/management/protocolapi"
@@ -53,18 +54,19 @@ type BuildDeps struct {
 }
 
 type Services struct {
-	LocalActions     *localaction.Service
-	PluginLifecycle  *pluginservice.Controller
-	EventIngress     *eventingress.Service
-	Protocol         *protocolapi.Service
-	PluginWebhooks   *pluginwebhook.Service
-	Governance       *governance.Service
-	GovernanceEvents *managementevents.GovernanceService
-	Logs             *logging.ManagementService
-	System           *systemsvc.Service
-	ThirdParty       *thirdparty.Service
-	BilibiliSource   *bilibilisource.Source
-	BilibiliEvents   *managementevents.BilibiliSourceService
+	LocalActions      *localaction.Service
+	PluginLifecycle   *pluginservice.Controller
+	EventIngress      *eventingress.Service
+	Protocol          *protocolapi.Service
+	PluginWebhooks    *pluginwebhook.Service
+	Governance        *governance.Service
+	GovernanceEvents  *managementevents.GovernanceService
+	Logs              *logging.ManagementService
+	System            *systemsvc.Service
+	ThirdParty        *thirdparty.Service
+	ThirdPartyQRLogin *thirdpartylogin.Service
+	BilibiliSource    *bilibilisource.Source
+	BilibiliEvents    *managementevents.BilibiliSourceService
 }
 
 type BuildResult struct {
@@ -91,6 +93,7 @@ func Build(deps BuildDeps) (BuildResult, error) {
 	if err != nil {
 		return BuildResult{}, err
 	}
+	thirdPartyQRLogin := thirdpartylogin.NewService(deps.BilibiliHTTPTransport, deps.BilibiliClock)
 	bilibiliSession := bilibilisession.NewSessionClient(deps.BilibiliHTTPTransport, deps.BilibiliClock, nil)
 	localActions := buildLocalActionService(runtimeState, platform, pluginStack, eventStack, renderer, capabilityView, governanceService, thirdPartyService, bilibiliSession)
 	configureLocalActionService(localActions, pluginStack, eventStack)
@@ -148,18 +151,19 @@ func Build(deps BuildDeps) (BuildResult, error) {
 
 	return BuildResult{
 		Services: Services{
-			LocalActions:     localActions,
-			PluginLifecycle:  lifecycle,
-			EventIngress:     eventIngress,
-			Protocol:         protocolService,
-			PluginWebhooks:   pluginWebhooks,
-			Governance:       governanceService,
-			GovernanceEvents: governanceEvents,
-			Logs:             logService,
-			System:           systemService,
-			ThirdParty:       thirdPartyService,
-			BilibiliSource:   bilibiliSource,
-			BilibiliEvents:   bilibiliEvents,
+			LocalActions:      localActions,
+			PluginLifecycle:   lifecycle,
+			EventIngress:      eventIngress,
+			Protocol:          protocolService,
+			PluginWebhooks:    pluginWebhooks,
+			Governance:        governanceService,
+			GovernanceEvents:  governanceEvents,
+			Logs:              logService,
+			System:            systemService,
+			ThirdParty:        thirdPartyService,
+			ThirdPartyQRLogin: thirdPartyQRLogin,
+			BilibiliSource:    bilibiliSource,
+			BilibiliEvents:    bilibiliEvents,
 		},
 		Runtimes:              runtimeRegistry,
 		Status:                serviceStatusService,

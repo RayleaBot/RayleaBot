@@ -930,6 +930,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/third-party/accounts/{platform}/login/qrcode": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Start a third-party QR code login session. */
+        post: operations["createThirdPartyQRCodeLogin"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/third-party/accounts/{platform}/login/qrcode/{login_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Poll a third-party QR code login session. */
+        get: operations["pollThirdPartyQRCodeLogin"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/third-party/monitors": {
         parameters: {
             query?: never;
@@ -1774,6 +1808,25 @@ export interface components {
             account: components["schemas"]["ThirdPartyAccountSummary"];
         };
         /** @enum {string} */
+        ThirdPartyQRCodeLoginState: "pending_scan" | "pending_confirm" | "expired" | "succeeded";
+        ThirdPartyQRCodeLoginCreateResponse: {
+            platform: components["schemas"]["ThirdPartyPlatform"];
+            login_id: string;
+            qrcode_url: string;
+            /** Format: date-time */
+            expires_at: string;
+            state: components["schemas"]["ThirdPartyQRCodeLoginState"];
+        };
+        ThirdPartyQRCodeLoginPollResponse: {
+            platform: components["schemas"]["ThirdPartyPlatform"];
+            login_id: string;
+            state: components["schemas"]["ThirdPartyQRCodeLoginState"];
+            /** Format: date-time */
+            expires_at: string;
+            cookie: string | null;
+            account: components["schemas"]["ThirdPartyAccountProfile"] | null;
+        };
+        /** @enum {string} */
         ThirdPartyMonitorService: "live" | "video" | "image_text" | "article" | "repost";
         ThirdPartyMonitorImage: {
             url: string;
@@ -2360,6 +2413,7 @@ export interface components {
         ThirdPartyPlatform: components["schemas"]["ThirdPartyPlatform"];
         ThirdPartyAccountId: string;
         BilibiliQRCodeLoginId: string;
+        ThirdPartyQRCodeLoginId: string;
     };
     requestBodies: never;
     headers: never;
@@ -3819,6 +3873,57 @@ export interface operations {
                 };
                 content?: never;
             };
+            401: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    createThirdPartyQRCodeLogin: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                platform: components["parameters"]["ThirdPartyPlatform"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description QR code login session created. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ThirdPartyQRCodeLoginCreateResponse"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    pollThirdPartyQRCodeLogin: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                platform: components["parameters"]["ThirdPartyPlatform"];
+                login_id: components["parameters"]["ThirdPartyQRCodeLoginId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Current QR code login state. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ThirdPartyQRCodeLoginPollResponse"];
+                };
+            };
+            400: components["responses"]["Error"];
             401: components["responses"]["Error"];
             default: components["responses"]["Error"];
         };

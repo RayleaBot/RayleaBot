@@ -1,0 +1,16 @@
+contract: contracts/web-api.openapi.yaml
+case: ok
+description: NetEase Cloud Music QR code login create returns a short-lived login session.
+request:
+  method: POST
+  path: /api/third-party/accounts/netease_music/login/qrcode
+response:
+  status: 200
+  body:
+    platform: netease_music
+    login_id: netease_music_qr_20260608_001
+    qrcode_url: "https://music.163.com/login?codekey=fixture-netease-key"
+    expires_at: "2026-06-08T08:03:00Z"
+    state: pending_scan
+expect:
+  valid: true

@@ -2617,7 +2617,7 @@ test('third-party accounts show Bilibili CK cards and QR login fills the editor'
 
   await page.getByRole('button', { name: '添加 Bilibili CK' }).first().click()
   await page.getByRole('button', { name: '添加 Bilibili CK' }).first().click()
-  const draftCards = page.locator('.account-card--editing').filter({ hasText: 'Bilibili CK' })
+  const draftCards = page.locator('.account-card--editing').filter({ hasText: 'Bilibili Cookie' })
   await expect(draftCards).toHaveCount(2)
   await expectThirdPartyAccountCardsContained(page)
   await page.setViewportSize({ width: 390, height: 844 })
@@ -2642,6 +2642,45 @@ test('third-party accounts show Bilibili CK cards and QR login fills the editor'
   await expect(savedQRCodeAccountCard).toContainText('CK 有效')
   await expect(savedQRCodeAccountCard.getByTestId('bilibili-account-avatar-image')).toBeVisible()
   await expectThirdPartyAccountCardsContained(page)
+
+  const additionalQRLogins = [
+    {
+      addLabel: '添加微博 Cookie',
+      draftTitle: '微博 Cookie',
+      prompt: '使用微博客户端扫码。',
+      cookie: /SUB=fixture/,
+      savedAccountId: 'weibo-2',
+    },
+    {
+      addLabel: '添加抖音 Cookie',
+      draftTitle: '抖音 Cookie',
+      prompt: '使用抖音客户端扫码。',
+      cookie: /sessionid=fixture/,
+      savedAccountId: 'douyin-2',
+    },
+    {
+      addLabel: '添加网易云音乐 Cookie',
+      draftTitle: '网易云音乐 Cookie',
+      prompt: '使用网易云音乐客户端扫码。',
+      cookie: /MUSIC_U=fixture/,
+      savedAccountId: '123456789',
+    },
+  ]
+  for (const item of additionalQRLogins) {
+    const editingCount = await page.locator('.account-card--editing').count()
+    await page.getByRole('button', { name: item.addLabel }).first().click()
+    const platformDraftCard = page.locator('.account-card--editing').nth(editingCount)
+    await expect(platformDraftCard).toContainText(item.draftTitle)
+    await platformDraftCard.getByRole('button', { name: '扫码获取 CK' }).click()
+    await expect(platformDraftCard.locator('.qr-panel')).toContainText(item.prompt)
+    await expect(platformDraftCard.locator('.qr-panel')).toContainText('等待确认')
+    await expect(platformDraftCard.locator('textarea')).toHaveValue(item.cookie, { timeout: 5000 })
+    await platformDraftCard.getByRole('button', { name: /保\s*存/ }).click()
+    const savedAccountCard = page.locator('.account-card').filter({ hasText: `账号 ID${item.savedAccountId}` }).first()
+    await expect(savedAccountCard).toBeVisible()
+    await expect(savedAccountCard).toContainText('已配置')
+    await expectThirdPartyAccountCardsContained(page)
+  }
 })
 
 test('third-party monitoring shows Bilibili targets with realtime updates', async ({ page, request }) => {

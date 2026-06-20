@@ -84,6 +84,15 @@ const fixtures = {
   bilibiliQRCodeCreate: await readFixture('fixtures/web-api/ok.bilibili-login-qrcode-create.yaml'),
   bilibiliQRCodePollPending: await readFixture('fixtures/web-api/ok.bilibili-login-qrcode-poll-pending.yaml'),
   bilibiliQRCodePollSucceeded: await readFixture('fixtures/web-api/ok.bilibili-login-qrcode-poll-succeeded.yaml'),
+  thirdPartyQRCodeCreateWeibo: await readFixture('fixtures/web-api/ok.third-party-login-qrcode-create-weibo.yaml'),
+  thirdPartyQRCodePollWeiboPending: await readFixture('fixtures/web-api/ok.third-party-login-qrcode-poll-weibo-pending.yaml'),
+  thirdPartyQRCodePollWeiboSucceeded: await readFixture('fixtures/web-api/ok.third-party-login-qrcode-poll-weibo-succeeded.yaml'),
+  thirdPartyQRCodeCreateDouyin: await readFixture('fixtures/web-api/ok.third-party-login-qrcode-create-douyin.yaml'),
+  thirdPartyQRCodePollDouyinPending: await readFixture('fixtures/web-api/ok.third-party-login-qrcode-poll-douyin-pending.yaml'),
+  thirdPartyQRCodePollDouyinSucceeded: await readFixture('fixtures/web-api/ok.third-party-login-qrcode-poll-douyin-succeeded.yaml'),
+  thirdPartyQRCodeCreateNeteaseMusic: await readFixture('fixtures/web-api/ok.third-party-login-qrcode-create-netease-music.yaml'),
+  thirdPartyQRCodePollNeteaseMusicPending: await readFixture('fixtures/web-api/ok.third-party-login-qrcode-poll-netease-music-pending.yaml'),
+  thirdPartyQRCodePollNeteaseMusicSucceeded: await readFixture('fixtures/web-api/ok.third-party-login-qrcode-poll-netease-music-succeeded.yaml'),
   wsLogs: await readFixture('fixtures/websocket/ok.logs-appended.protocol-onebot11.json'),
   wsTasks: await readFixture('fixtures/websocket/ok.tasks-updated-running.json'),
   wsEvents: await readFixture('fixtures/websocket/edge.events-received-degraded.json'),
@@ -128,6 +137,7 @@ function baseState() {
       .map(localizeBilibiliMonitorMedia),
     bilibiliSourceStatus: structuredClone(fixtures.bilibiliSourceStatus.response.body),
     bilibiliQRCodePolls: {},
+    thirdPartyQRCodePolls: {},
     renderTemplates: createRenderTemplateState(),
     schedulerJobs: structuredClone(fixtures.schedulerJobsList.response.body.items),
     systemStatus: structuredClone(fixtures.systemStatus.response.body),
@@ -257,6 +267,48 @@ function localizeBilibiliAccountAvatar(account) {
     account.profile.avatar_url = bilibiliAvatarUrl
   }
   return account
+}
+
+const thirdPartyAccountPlatforms = ['bilibili', 'weibo', 'douyin', 'netease_music']
+
+function thirdPartyQRCodeFixtures(platform) {
+  switch (platform) {
+    case 'weibo':
+      return {
+        create: fixtures.thirdPartyQRCodeCreateWeibo,
+        pending: fixtures.thirdPartyQRCodePollWeiboPending,
+        succeeded: fixtures.thirdPartyQRCodePollWeiboSucceeded,
+      }
+    case 'douyin':
+      return {
+        create: fixtures.thirdPartyQRCodeCreateDouyin,
+        pending: fixtures.thirdPartyQRCodePollDouyinPending,
+        succeeded: fixtures.thirdPartyQRCodePollDouyinSucceeded,
+      }
+    case 'netease_music':
+      return {
+        create: fixtures.thirdPartyQRCodeCreateNeteaseMusic,
+        pending: fixtures.thirdPartyQRCodePollNeteaseMusicPending,
+        succeeded: fixtures.thirdPartyQRCodePollNeteaseMusicSucceeded,
+      }
+    default:
+      return null
+  }
+}
+
+function thirdPartyQRCodePollKey(platform, loginId) {
+  return `${platform}:${loginId}`
+}
+
+function defaultCredentialStatus(platform) {
+  if (platform === 'bilibili') {
+    return structuredClone(fixtures.thirdPartyAccountUpsert.response.body.account.credential)
+  }
+  return {
+    state: 'unknown',
+    checked_at: new Date().toISOString(),
+    last_error: '',
+  }
 }
 
 function localizeBilibiliMonitorMedia(item) {
@@ -1585,27 +1637,39 @@ const server = http.createServer(async (request, response) => {
     const platform = decodeURIComponent(segments[4] ?? '')
     const accountId = decodeURIComponent(segments[5] ?? '')
     const payload = await parseBody(request)
-    if (platform !== 'bilibili' || !accountId || !payload || typeof payload.label !== 'string' || typeof payload.enabled !== 'boolean') {
+    if (!thirdPartyAccountPlatforms.includes(platform) || !accountId || !payload || typeof payload.label !== 'string' || typeof payload.enabled !== 'boolean') {
       json(response, 400, errorEnvelope('platform.invalid_request', 'third-party account payload is invalid', 'req_third_party_account_invalid'))
       return
     }
 
-    const fixtureAccount = structuredClone(fixtures.thirdPartyAccountUpsert.response.body.account)
     const previous = state.thirdPartyAccounts.find((item) => item.platform === platform && item.account_id === accountId)
+    const fixtureAccount = platform === 'bilibili'
+      ? structuredClone(fixtures.thirdPartyAccountUpsert.response.body.account)
+      : null
+    const succeededFixture = thirdPartyQRCodeFixtures(platform)?.succeeded?.response.body
     const nextAccount = {
-      ...fixtureAccount,
+      ...(fixtureAccount ?? {}),
       ...(previous ?? {}),
       platform,
       account_id: accountId,
       label: payload.label,
       enabled: payload.enabled,
       configured: previous?.configured || Boolean(payload.cookie),
+      profile: previous?.profile ?? null,
+      credential: previous?.credential ?? defaultCredentialStatus(platform),
+      polling: {
+        enabled: payload.enabled && (previous?.configured || Boolean(payload.cookie)),
+        last_used_at: previous?.polling?.last_used_at ?? null,
+      },
       updated_at: new Date().toISOString(),
     }
     if (payload.cookie) {
-      nextAccount.profile = structuredClone(fixtureAccount.profile)
-      nextAccount.credential = structuredClone(fixtureAccount.credential)
+      nextAccount.profile = platform === 'bilibili'
+        ? structuredClone(fixtureAccount.profile)
+        : structuredClone(succeededFixture?.account ?? previous?.profile ?? null)
+      nextAccount.credential = defaultCredentialStatus(platform)
       nextAccount.configured = true
+      nextAccount.polling.enabled = payload.enabled
     }
     localizeBilibiliAccountAvatar(nextAccount)
     state.thirdPartyAccounts = [
@@ -1613,6 +1677,49 @@ const server = http.createServer(async (request, response) => {
       nextAccount,
     ].sort((left, right) => left.account_id.localeCompare(right.account_id))
     json(response, 200, { account: structuredClone(nextAccount) })
+    return
+  }
+
+  if (pathname.startsWith('/api/third-party/accounts/') && pathname.endsWith('/login/qrcode') && request.method === 'POST') {
+    if (!requireAuth(request, response)) {
+      return
+    }
+
+    const segments = pathname.split('/')
+    const platform = decodeURIComponent(segments[4] ?? '')
+    const fixture = thirdPartyQRCodeFixtures(platform)?.create
+    if (!fixture) {
+      json(response, 400, errorEnvelope('platform.invalid_request', 'third-party qrcode platform is invalid', 'req_third_party_qr_invalid'))
+      return
+    }
+    const body = structuredClone(fixture.response.body)
+    state.thirdPartyQRCodePolls[thirdPartyQRCodePollKey(platform, body.login_id)] = 0
+    json(response, fixture.response.status, body)
+    return
+  }
+
+  if (pathname.startsWith('/api/third-party/accounts/') && request.method === 'GET') {
+    if (!requireAuth(request, response)) {
+      return
+    }
+
+    const segments = pathname.split('/')
+    const platform = decodeURIComponent(segments[4] ?? '')
+    const loginId = decodeURIComponent(segments[7] ?? '')
+    const fixturesForPlatform = thirdPartyQRCodeFixtures(platform)
+    const pollKey = thirdPartyQRCodePollKey(platform, loginId)
+    if (segments[5] !== 'login' || segments[6] !== 'qrcode' || !fixturesForPlatform || !loginId || !(pollKey in state.thirdPartyQRCodePolls)) {
+      json(response, 400, errorEnvelope('platform.invalid_request', 'qr login session not found', 'req_third_party_qr_missing'))
+      return
+    }
+    state.thirdPartyQRCodePolls[pollKey] += 1
+    const fixture = state.thirdPartyQRCodePolls[pollKey] > 1
+      ? fixturesForPlatform.succeeded
+      : fixturesForPlatform.pending
+    json(response, fixture.response.status, {
+      ...structuredClone(fixture.response.body),
+      login_id: loginId,
+    })
     return
   }
 

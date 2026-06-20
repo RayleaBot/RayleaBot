@@ -55,7 +55,7 @@ func Build(deps BuildDeps) State {
 	renderHandler := renderapi.NewHandlers(renderer)
 	systemHandler := systemapi.NewHandlers(services.System, platformState.Scheduler)
 	protocolHandler := protocolapi.NewHandlers(services.Protocol)
-	thirdPartyHandler := thirdpartyapi.NewThirdPartyHandlers(services.ThirdParty, deps.BilibiliAccountClient, services.BilibiliSource, deps.BilibiliHTTPTransport)
+	thirdPartyHandler := thirdpartyapi.NewThirdPartyHandlers(services.ThirdParty, deps.BilibiliAccountClient, services.ThirdPartyQRLogin, services.BilibiliSource, deps.BilibiliHTTPTransport)
 	bilibiliHandler := bilibiliapi.NewBilibiliHandlers(services.BilibiliSource, deps.BilibiliQRLogin, deps.BilibiliHTTPTransport)
 	eventsWS := managementws.NewEventsHandler(eventState.Bridge, pluginState.Plugins, services.Protocol, deps.Status, services.GovernanceEvents, services.BilibiliEvents)
 	tasksWS := managementws.NewTasksHandler(platformState.Tasks)

@@ -10,6 +10,8 @@ import type {
   ThirdPartyAccountUpsertRequest,
   ThirdPartyAccountUpsertResponse,
   ThirdPartyAccountsResponse,
+  ThirdPartyQRCodeLoginCreateResponse,
+  ThirdPartyQRCodeLoginPollResponse,
 } from '@/types/api'
 
 export type ThirdPartyPlatform = ThirdPartyAccountSummary['platform']
@@ -101,11 +103,42 @@ export const useThirdPartyAccountsStore = defineStore('third-party-accounts', ()
     }
   }
 
+  async function createQRCodeLogin(platform: ThirdPartyPlatform): Promise<ThirdPartyQRCodeLoginCreateResponse> {
+    if (platform === 'bilibili') {
+      const response = await createBilibiliQRCodeLogin()
+      return { ...response, platform }
+    }
+    qrcodeCreating.value = true
+    try {
+      return await apiRequest<ThirdPartyQRCodeLoginCreateResponse>(
+        `/api/third-party/accounts/${encodeURIComponent(platform)}/login/qrcode`,
+        { method: 'POST' },
+      )
+    } finally {
+      qrcodeCreating.value = false
+    }
+  }
+
   async function pollBilibiliQRCodeLogin(loginId: string) {
     qrcodePollingLoginId.value = loginId
     try {
       return await apiRequest<BilibiliQRCodeLoginPollResponse>(
         `/api/bilibili/login/qrcode/${encodeURIComponent(loginId)}`,
+      )
+    } finally {
+      qrcodePollingLoginId.value = null
+    }
+  }
+
+  async function pollQRCodeLogin(platform: ThirdPartyPlatform, loginId: string): Promise<ThirdPartyQRCodeLoginPollResponse> {
+    if (platform === 'bilibili') {
+      const response = await pollBilibiliQRCodeLogin(loginId)
+      return { ...response, platform }
+    }
+    qrcodePollingLoginId.value = loginId
+    try {
+      return await apiRequest<ThirdPartyQRCodeLoginPollResponse>(
+        `/api/third-party/accounts/${encodeURIComponent(platform)}/login/qrcode/${encodeURIComponent(loginId)}`,
       )
     } finally {
       qrcodePollingLoginId.value = null
@@ -136,10 +169,12 @@ export const useThirdPartyAccountsStore = defineStore('third-party-accounts', ()
     qrcodePollingLoginId,
     savingAccountId,
     createBilibiliQRCodeLogin,
+    createQRCodeLogin,
     deleteAccount,
     deleteBilibiliAccount,
     fetchAll,
     pollBilibiliQRCodeLogin,
+    pollQRCodeLogin,
     saveAccount,
     saveBilibiliAccount,
   }

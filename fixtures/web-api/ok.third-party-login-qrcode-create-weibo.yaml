@@ -1,0 +1,16 @@
+contract: contracts/web-api.openapi.yaml
+case: ok
+description: Weibo QR code login create returns a short-lived login session.
+request:
+  method: POST
+  path: /api/third-party/accounts/weibo/login/qrcode
+response:
+  status: 200
+  body:
+    platform: weibo
+    login_id: weibo_qr_20260608_001
+    qrcode_url: "https://passport.weibo.cn/signin/qrcode/scan?qr=fixture-weibo-qr"
+    expires_at: "2026-06-08T08:03:00Z"
+    state: pending_scan
+expect:
+  valid: true

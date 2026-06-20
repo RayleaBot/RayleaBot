@@ -1,0 +1,17 @@
+contract: contracts/web-api.openapi.yaml
+case: ok
+description: Weibo QR code login poll returns a cookie after confirmation.
+request:
+  method: GET
+  path: /api/third-party/accounts/weibo/login/qrcode/weibo_qr_20260608_001
+response:
+  status: 200
+  body:
+    platform: weibo
+    login_id: weibo_qr_20260608_001
+    state: succeeded
+    expires_at: "2026-06-08T08:03:00Z"
+    cookie: "SUB=fixture; SUBP=fixture; ALF=1799999999;"
+    account: null
+expect:
+  valid: true

@@ -1,0 +1,20 @@
+contract: contracts/web-api.openapi.yaml
+case: ok
+description: NetEase Cloud Music QR code login poll returns a cookie and account profile after confirmation.
+request:
+  method: GET
+  path: /api/third-party/accounts/netease_music/login/qrcode/netease_music_qr_20260608_001
+response:
+  status: 200
+  body:
+    platform: netease_music
+    login_id: netease_music_qr_20260608_001
+    state: succeeded
+    expires_at: "2026-06-08T08:03:00Z"
+    cookie: "MUSIC_U=fixture; __csrf=fixture;"
+    account:
+      uid: "123456789"
+      nickname: 网易云音乐账号
+      avatar_url: "https://p1.music.126.net/fixture/avatar.jpg"
+expect:
+  valid: true

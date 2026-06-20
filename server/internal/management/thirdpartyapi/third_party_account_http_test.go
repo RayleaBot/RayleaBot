@@ -47,7 +47,7 @@ func TestThirdPartyAccountUpsertAcceptsWeiboCookie(t *testing.T) {
 	t.Parallel()
 
 	accounts := &stubThirdPartyAccounts{}
-	handler := NewThirdPartyHandlers(accounts, nil, nil, nil)
+	handler := NewThirdPartyHandlers(accounts, nil, nil, nil, nil)
 	router := chi.NewRouter()
 	router.Put("/api/third-party/accounts/{platform}/{account_id}", handler.HandleThirdPartyAccountUpsert())
 	request := httptest.NewRequest(http.MethodPut, "/api/third-party/accounts/weibo/primary", strings.NewReader(`{"label":"微博主账号","enabled":true,"cookie":"SUB=fixture;"}`))

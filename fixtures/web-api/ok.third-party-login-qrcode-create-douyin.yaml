@@ -1,0 +1,16 @@
+contract: contracts/web-api.openapi.yaml
+case: ok
+description: Douyin QR code login create returns a short-lived login session.
+request:
+  method: POST
+  path: /api/third-party/accounts/douyin/login/qrcode
+response:
+  status: 200
+  body:
+    platform: douyin
+    login_id: douyin_qr_20260608_001
+    qrcode_url: "https://sso.douyin.com/check_qrconnect/?token=fixture-douyin-token"
+    expires_at: "2026-06-08T08:03:00Z"
+    state: pending_scan
+expect:
+  valid: true

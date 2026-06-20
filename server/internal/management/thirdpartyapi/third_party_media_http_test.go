@@ -20,7 +20,7 @@ func (fn mediaRoundTripFunc) RoundTrip(request *http.Request) (*http.Response, e
 func TestThirdPartyMediaRejectsUnsupportedContentType(t *testing.T) {
 	t.Parallel()
 
-	handler := NewThirdPartyHandlers(nil, nil, nil, mediaRoundTripFunc(func(request *http.Request) (*http.Response, error) {
+	handler := NewThirdPartyHandlers(nil, nil, nil, nil, mediaRoundTripFunc(func(request *http.Request) (*http.Response, error) {
 		return &http.Response{
 			StatusCode: http.StatusOK,
 			Header:     http.Header{"Content-Type": []string{"text/plain"}},

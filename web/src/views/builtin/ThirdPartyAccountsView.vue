@@ -23,11 +23,11 @@ import {
   type ThirdPartyPlatform,
 } from '@/stores/third-party-accounts'
 import type {
-  BilibiliQRCodeLoginCreateResponse,
-  BilibiliQRCodeLoginPollResponse,
-  BilibiliQRCodeLoginState,
   ThirdPartyAccountSummary,
   ThirdPartyCredentialState,
+  ThirdPartyQRCodeLoginCreateResponse,
+  ThirdPartyQRCodeLoginPollResponse,
+  ThirdPartyQRCodeLoginState,
 } from '@/types/api'
 
 interface AccountDraft {
@@ -58,10 +58,11 @@ interface PlatformSection {
 }
 
 interface QRLoginState {
+  platform: ThirdPartyPlatform
   loginId: string
   qrcodeUrl: string
   expiresAt: string
-  state: BilibiliQRCodeLoginState
+  state: ThirdPartyQRCodeLoginState
   cookie: string
   accountNickname: string
   accountUid: string
@@ -118,7 +119,7 @@ const platformSections = computed<PlatformSection[]>(() => thirdPartyPlatformOrd
     draftEntries: activeDraftEntries.value.filter((entry) => entry.draft.platform === platform),
     configuredCount: platformAccounts.filter((account) => account.configured).length,
     enabledCount: platformAccounts.filter((account) => account.enabled).length,
-    supportsQRCode: platform === 'bilibili',
+    supportsQRCode: supportsQRCode(platform),
     cookiePlaceholder: platform === 'bilibili' ? 'SESSDATA=...' : 'Cookie',
   }
 }))
@@ -235,11 +236,12 @@ function deleteDraft(key: string) {
 }
 
 async function startQRCodeLogin(key: string) {
-  if (drafts[key]?.platform !== 'bilibili') {
+  const platform = drafts[key]?.platform
+  if (!platform || !supportsQRCode(platform)) {
     return
   }
   try {
-    const response = await store.createBilibiliQRCodeLogin()
+    const response = await store.createQRCodeLogin(platform)
     setQRLogin(key, response)
     scheduleQRPolling()
   } catch (err) {
@@ -247,24 +249,27 @@ async function startQRCodeLogin(key: string) {
   }
 }
 
-function setQRLogin(key: string, response: BilibiliQRCodeLoginCreateResponse | BilibiliQRCodeLoginPollResponse) {
+function setQRLogin(key: string, response: ThirdPartyQRCodeLoginCreateResponse | ThirdPartyQRCodeLoginPollResponse) {
   const previous = qrLogins[key]
+  const cookie = 'cookie' in response ? response.cookie : null
+  const account = 'account' in response ? response.account : null
   qrLogins[key] = {
+    platform: response.platform,
     loginId: response.login_id,
     qrcodeUrl: 'qrcode_url' in response ? response.qrcode_url : previous?.qrcodeUrl || '',
     expiresAt: response.expires_at,
     state: response.state,
-    cookie: response.cookie || previous?.cookie || '',
-    accountNickname: response.account?.nickname || previous?.accountNickname || '',
-    accountUid: response.account?.uid || previous?.accountUid || '',
+    cookie: cookie || previous?.cookie || '',
+    accountNickname: account?.nickname || previous?.accountNickname || '',
+    accountUid: account?.uid || previous?.accountUid || '',
   }
-  if (response.cookie && drafts[key]) {
-    drafts[key].cookie = response.cookie
-    if (response.account?.uid) {
-      drafts[key].account_id = normalizeAccountId(response.account.uid)
+  if (cookie && drafts[key]) {
+    drafts[key].cookie = cookie
+    if (account?.uid) {
+      drafts[key].account_id = normalizeAccountId(account.uid)
     }
-    if (response.account?.nickname) {
-      drafts[key].label = response.account.nickname
+    if (account?.nickname) {
+      drafts[key].label = account.nickname
     }
   }
 }
@@ -295,7 +300,7 @@ async function pollActiveQRLogins() {
   }
   await Promise.all(active.map(async ([key, qr]) => {
     try {
-      const response = await store.pollBilibiliQRCodeLogin(qr.loginId)
+      const response = await store.pollQRCodeLogin(qr.platform, qr.loginId)
       setQRLogin(key, response)
     } catch (err) {
       notifyError(getDisplayErrorMessage(err))
@@ -353,6 +358,10 @@ function addAccountLabel(platform: ThirdPartyPlatform) {
   }
 }
 
+function supportsQRCode(platform: ThirdPartyPlatform) {
+  return platform === 'bilibili' || platform === 'weibo' || platform === 'douyin' || platform === 'netease_music'
+}
+
 function normalizeAccountId(value: string) {
   return value.trim().toLowerCase().replace(/[^a-z0-9_.-]+/g, '').replace(/^[._-]+|[._-]+$/g, '').slice(0, 64)
 }
@@ -392,6 +401,20 @@ function qrStatusText(qr?: QRLoginState) {
     case 'pending_scan':
     default:
       return t('builtinFeatures.thirdPartyAccounts.qrPendingScan')
+  }
+}
+
+function qrScanPrompt(platform?: ThirdPartyPlatform) {
+  switch (platform) {
+    case 'weibo':
+      return t('builtinFeatures.thirdPartyAccounts.qrScanWithWeibo')
+    case 'douyin':
+      return t('builtinFeatures.thirdPartyAccounts.qrScanWithDouyin')
+    case 'netease_music':
+      return t('builtinFeatures.thirdPartyAccounts.qrScanWithNeteaseMusic')
+    case 'bilibili':
+    default:
+      return t('builtinFeatures.thirdPartyAccounts.qrScanWithBilibili')
   }
 }
 
@@ -545,7 +568,7 @@ function timeText(value?: string | null) {
                     />
                     <div>
                       <strong>{{ qrStatusText(qrLogins[entry.key]) }}</strong>
-                      <p>{{ qrLogins[entry.key].accountNickname || t('builtinFeatures.thirdPartyAccounts.qrScanWithBilibili') }}</p>
+                      <p>{{ qrLogins[entry.key].accountNickname || qrScanPrompt(qrLogins[entry.key].platform) }}</p>
                       <small>{{ t('builtinFeatures.thirdPartyAccounts.qrExpiresAt', { time: timeText(qrLogins[entry.key].expiresAt) }) }}</small>
                     </div>
                   </div>
@@ -679,7 +702,7 @@ function timeText(value?: string | null) {
                     />
                     <div>
                       <strong>{{ qrStatusText(qrLogins[accountKey(account)]) }}</strong>
-                      <p>{{ qrLogins[accountKey(account)].accountNickname || t('builtinFeatures.thirdPartyAccounts.qrScanWithBilibili') }}</p>
+                      <p>{{ qrLogins[accountKey(account)].accountNickname || qrScanPrompt(qrLogins[accountKey(account)].platform) }}</p>
                       <small>{{ t('builtinFeatures.thirdPartyAccounts.qrExpiresAt', { time: timeText(qrLogins[accountKey(account)].expiresAt) }) }}</small>
                     </div>
                   </div>

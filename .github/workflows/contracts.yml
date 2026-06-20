@@ -665,6 +665,8 @@ jobs:
               '/api/launcher/shutdown',
               '/api/config',
               '/api/third-party/accounts',
+              '/api/third-party/accounts/{platform}/login/qrcode',
+              '/api/third-party/accounts/{platform}/login/qrcode/{login_id}',
               '/api/third-party/accounts/{platform}/{account_id}',
               '/api/third-party/monitors',
               '/api/bilibili/login/qrcode',

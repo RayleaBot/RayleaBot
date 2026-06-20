@@ -122,6 +122,15 @@ x-fixtures:
   - fixtures/web-api/ok.bilibili-login-qrcode-create.yaml
   - fixtures/web-api/ok.bilibili-login-qrcode-poll-pending.yaml
   - fixtures/web-api/ok.bilibili-login-qrcode-poll-succeeded.yaml
+  - fixtures/web-api/ok.third-party-login-qrcode-create-weibo.yaml
+  - fixtures/web-api/ok.third-party-login-qrcode-poll-weibo-pending.yaml
+  - fixtures/web-api/ok.third-party-login-qrcode-poll-weibo-succeeded.yaml
+  - fixtures/web-api/ok.third-party-login-qrcode-create-douyin.yaml
+  - fixtures/web-api/ok.third-party-login-qrcode-poll-douyin-pending.yaml
+  - fixtures/web-api/ok.third-party-login-qrcode-poll-douyin-succeeded.yaml
+  - fixtures/web-api/ok.third-party-login-qrcode-create-netease-music.yaml
+  - fixtures/web-api/ok.third-party-login-qrcode-poll-netease-music-pending.yaml
+  - fixtures/web-api/ok.third-party-login-qrcode-poll-netease-music-succeeded.yaml
   - fixtures/web-api/ok.bilibili-user-resolve.yaml
   - fixtures/web-api/ok.bilibili-source-status.yaml
   - fixtures/web-api/ok.bilibili-source-restart.yaml
@@ -1498,6 +1507,51 @@ paths:
         default:
           $ref: '#/components/responses/Error'
 
+  /api/third-party/accounts/{platform}/login/qrcode:
+    post:
+      summary: Start a third-party QR code login session.
+      operationId: createThirdPartyQRCodeLogin
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ThirdPartyPlatform'
+      responses:
+        '200':
+          description: QR code login session created.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ThirdPartyQRCodeLoginCreateResponse'
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+        default:
+          $ref: '#/components/responses/Error'
+
+  /api/third-party/accounts/{platform}/login/qrcode/{login_id}:
+    get:
+      summary: Poll a third-party QR code login session.
+      operationId: pollThirdPartyQRCodeLogin
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ThirdPartyPlatform'
+        - $ref: '#/components/parameters/ThirdPartyQRCodeLoginId'
+      responses:
+        '200':
+          description: Current QR code login state.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ThirdPartyQRCodeLoginPollResponse'
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+        default:
+          $ref: '#/components/responses/Error'
+
   /api/third-party/monitors:
     get:
       summary: List third-party monitoring targets for the selected platform.
@@ -1786,6 +1840,13 @@ components:
         type: string
         pattern: '^[a-z0-9](?:[a-z0-9_.-]{0,62}[a-z0-9])?$'
     BilibiliQRCodeLoginId:
+      name: login_id
+      in: path
+      required: true
+      schema:
+        type: string
+        pattern: '^[a-z0-9](?:[a-z0-9_.-]{0,126}[a-z0-9])?$'
+    ThirdPartyQRCodeLoginId:
       name: login_id
       in: path
       required: true
@@ -3529,6 +3590,52 @@ components:
       properties:
         account:
           $ref: '#/components/schemas/ThirdPartyAccountSummary'
+
+    ThirdPartyQRCodeLoginState:
+      type: string
+      enum: [pending_scan, pending_confirm, expired, succeeded]
+
+    ThirdPartyQRCodeLoginCreateResponse:
+      type: object
+      additionalProperties: false
+      required: [platform, login_id, qrcode_url, expires_at, state]
+      properties:
+        platform:
+          $ref: '#/components/schemas/ThirdPartyPlatform'
+        login_id:
+          type: string
+          pattern: '^[a-z0-9](?:[a-z0-9_.-]{0,126}[a-z0-9])?$'
+        qrcode_url:
+          type: string
+          minLength: 1
+        expires_at:
+          type: string
+          format: date-time
+        state:
+          $ref: '#/components/schemas/ThirdPartyQRCodeLoginState'
+
+    ThirdPartyQRCodeLoginPollResponse:
+      type: object
+      additionalProperties: false
+      required: [platform, login_id, state, expires_at, cookie, account]
+      properties:
+        platform:
+          $ref: '#/components/schemas/ThirdPartyPlatform'
+        login_id:
+          type: string
+          pattern: '^[a-z0-9](?:[a-z0-9_.-]{0,126}[a-z0-9])?$'
+        state:
+          $ref: '#/components/schemas/ThirdPartyQRCodeLoginState'
+        expires_at:
+          type: string
+          format: date-time
+        cookie:
+          type: string
+          nullable: true
+        account:
+          oneOf:
+            - $ref: '#/components/schemas/ThirdPartyAccountProfile'
+            - type: 'null'
 
     ThirdPartyMonitorService:
       type: string
