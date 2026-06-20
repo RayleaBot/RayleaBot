@@ -7,11 +7,11 @@ import (
 	"github.com/go-chi/chi/v5"
 )
 
-func registerPluginDeadLetterRoutes(router chi.Router, catalog plugins.CatalogView, controller DesiredStateController, grantRepo plugins.GrantRepository, autoGrantProvider autoGrantCapabilitiesProvider) {
-	router.Post("/api/plugins/{plugin_id}/dead_letter/recover", newDeadLetterRecoverHandler(catalog, controller, grantRepo, autoGrantProvider))
+func registerPluginDeadLetterRoutes(router chi.Router, catalog plugins.CatalogView, controller DesiredStateController) {
+	router.Post("/api/plugins/{plugin_id}/dead_letter/recover", newDeadLetterRecoverHandler(catalog, controller))
 }
 
-func newDeadLetterRecoverHandler(catalog plugins.CatalogView, controller DesiredStateController, grantRepo plugins.GrantRepository, autoGrantProvider autoGrantCapabilitiesProvider) http.HandlerFunc {
+func newDeadLetterRecoverHandler(catalog plugins.CatalogView, controller DesiredStateController) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		pluginID := chi.URLParam(r, "plugin_id")
 		if controller == nil {
@@ -20,7 +20,7 @@ func newDeadLetterRecoverHandler(catalog plugins.CatalogView, controller Desired
 		}
 		snapshot, err := controller.RecoverFromDeadLetter(r.Context(), pluginID)
 		if err == nil {
-			writePluginDetailResponse(w, r, catalog, snapshot, grantRepo, autoGrantProvider)
+			writePluginDetailResponse(w, catalog, snapshot)
 			return
 		}
 		writeDesiredStateError(w, r, pluginID, err)

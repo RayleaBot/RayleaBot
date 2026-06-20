@@ -63,8 +63,8 @@ func TestHandlePluginWebhookAcceptsSignedRequestAndDispatchesEvent(t *testing.T)
 
 	dispatcher := dispatch.New(slog.Default(), nil, nil, 16)
 	registry := newPluginWebhookRegistry()
-	grantRepo := &stubLifecycleGrantRepository{
-		grants: map[string][]plugins.PluginGrant{
+	capabilityRepo := &stubCapabilityView{
+		capabilities: map[string][]stubCapability{
 			"repo-watcher": {{
 				PluginID:   "repo-watcher",
 				Capability: "event.expose_webhook",
@@ -80,12 +80,9 @@ func TestHandlePluginWebhookAcceptsSignedRequestAndDispatchesEvent(t *testing.T)
 			Host: "127.0.0.1",
 			Port: 8080,
 		},
-		Permission: config.PermissionConfig{
-			AutoGrantCapabilities: []string{"event.expose_webhook", "event.raw_payload"},
-		},
 	}, slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)))
 	application.pluginStack.Plugins = plugincatalog.New([]plugins.Snapshot{{PluginID: "repo-watcher", Name: "Repo Watcher", Valid: true, RegistrationState: "installed", DesiredState: "enabled", RuntimeState: "running"}})
-	application.setTestLocalActions(grantRepo, nil, nil, nil, nil, dispatcher, nil, nil, nil, nil)
+	application.setTestLocalActions(capabilityRepo, nil, nil, nil, nil, dispatcher, nil, nil, nil, nil)
 	application.setTestWebhookService(secretStore, dispatcher, nil, registry)
 
 	fakeRuntime := &capturingRuntime{events: make(chan runtimeprotocol.Event, 1)}
@@ -181,8 +178,8 @@ func TestHandlePluginWebhookRejectsOversizedBody(t *testing.T) {
 
 	dispatcher := dispatch.New(slog.Default(), nil, nil, 16)
 	registry := newPluginWebhookRegistry()
-	grantRepo := &stubLifecycleGrantRepository{
-		grants: map[string][]plugins.PluginGrant{
+	capabilityRepo := &stubCapabilityView{
+		capabilities: map[string][]stubCapability{
 			"repo-watcher": {{
 				PluginID:   "repo-watcher",
 				Capability: "event.expose_webhook",
@@ -198,12 +195,9 @@ func TestHandlePluginWebhookRejectsOversizedBody(t *testing.T) {
 			Host: "127.0.0.1",
 			Port: 8080,
 		},
-		Permission: config.PermissionConfig{
-			AutoGrantCapabilities: []string{"event.expose_webhook", "event.raw_payload"},
-		},
 	}, slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)))
 	application.pluginStack.Plugins = plugincatalog.New([]plugins.Snapshot{{PluginID: "repo-watcher", Name: "Repo Watcher", Valid: true, RegistrationState: "installed", DesiredState: "enabled", RuntimeState: "running"}})
-	application.setTestLocalActions(grantRepo, nil, nil, nil, nil, dispatcher, nil, nil, nil, nil)
+	application.setTestLocalActions(capabilityRepo, nil, nil, nil, nil, dispatcher, nil, nil, nil, nil)
 	application.setTestWebhookService(secretStore, dispatcher, nil, registry)
 
 	fakeRuntime := &capturingRuntime{events: make(chan runtimeprotocol.Event, 1)}

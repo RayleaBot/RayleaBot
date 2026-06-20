@@ -487,18 +487,6 @@ export function getPluginSettingsConfigSections(): ConfigSectionDefinition[] {
       ],
     },
     {
-      key: 'permission',
-      title: t('plugins.settings.sections.authorization'),
-      fields: [
-        {
-          path: 'permission.auto_grant_capabilities',
-          label: t('config.fields.permissionAutoGrantCapabilities'),
-          type: 'list',
-          description: t('plugins.settings.hints.autoGrantCapabilities'),
-        },
-      ],
-    },
-    {
       key: 'log',
       title: t('plugins.settings.sections.log'),
       fields: [

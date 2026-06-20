@@ -8,7 +8,6 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/app/pluginstack"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	plugindiscovery "github.com/RayleaBot/RayleaBot/server/internal/plugins/discovery"
-	plugingrants "github.com/RayleaBot/RayleaBot/server/internal/plugins/grants"
 	pluginservice "github.com/RayleaBot/RayleaBot/server/internal/plugins/lifecycle"
 	pluginmanifestrefresh "github.com/RayleaBot/RayleaBot/server/internal/plugins/manifestrefresh"
 	runtimeregistry "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime/registry"
@@ -24,7 +23,6 @@ func buildPluginLifecycle(
 	pluginStack pluginstack.State,
 	eventStack eventstack.State,
 	renderer *renderservice.Service,
-	grantView *plugingrants.View,
 	runtimeRegistry *runtimeregistry.Registry,
 	systemService *systemsvc.Service,
 ) *pluginservice.Controller {
@@ -35,7 +33,6 @@ func buildPluginLifecycle(
 		Logger:           runtimeState.RuntimeLogger(),
 		Plugins:          pluginStack.Plugins,
 		DesiredStateRepo: pluginStack.PluginRepository,
-		Grants:           grantView,
 		Runtimes:         runtimeRegistry,
 		Dispatcher:       eventStack.Dispatcher,
 		Scheduler:        platform.Scheduler,
@@ -84,7 +81,7 @@ func buildPluginWebhookGateway(
 	pluginStack pluginstack.State,
 	eventStack eventstack.State,
 	lifecycle *pluginservice.Controller,
-	grantView *plugingrants.View,
+	capabilityView pluginwebhook.CapabilityView,
 ) *pluginwebhook.Service {
 	return pluginwebhook.New(pluginwebhook.Deps{
 		CurrentConfig: runtimeState.CurrentConfig,
@@ -94,6 +91,6 @@ func buildPluginWebhookGateway(
 		Plugins:       pluginStack.Plugins,
 		Dispatcher:    eventStack.Dispatcher,
 		Runtime:       lifecycle,
-		Grants:        grantView,
+		Capabilities:  capabilityView,
 	})
 }

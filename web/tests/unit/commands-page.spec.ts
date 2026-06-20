@@ -38,7 +38,6 @@ function createFixtureConfig(prefixes: string[]): ConfigDocument {
     },
     permission: {
       default_level: 'everyone',
-      auto_grant_capabilities: [],
     },
     render: {
       worker_count: 1,

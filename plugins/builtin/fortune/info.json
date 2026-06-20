@@ -29,17 +29,6 @@
     "config.write",
     "logger.write"
   ],
-  "permissions": {
-    "required": [
-      "message.send",
-      "render.image",
-      "storage.kv",
-      "config.read",
-      "config.write",
-      "logger.write"
-    ],
-    "optional": []
-  },
   "dynamic_commands": [
     {
       "id": "fortune",

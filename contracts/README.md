@@ -37,16 +37,17 @@
   - 统一错误码命名、默认消息资源键、HTTP 语义和适用范围
 - `web-api.openapi.yaml`
   - 当前已冻结的管理 HTTP 接口
-  - 当前包含 setup / session、loopback launcher bootstrap、config snapshot/update、protocol snapshot / compatibility、OneBot target / identity resolution、plugin lifecycle、plugin grants、plugin rich detail、plugin settings、plugin secrets、third-party accounts、third-party monitors、third-party media、Bilibili QR login、Bilibili user resolve、Bilibili source status / restart、governance 管理面、tasks / logs / system / metrics surfaces、scheduler 任务列表与手动触发、recovery recheck / confirm、runtime bootstrap、render templates、preview HTML 与模板资源读取面
+  - 当前包含 setup / session、loopback launcher bootstrap、config snapshot/update、protocol snapshot / compatibility、OneBot target / identity resolution、plugin lifecycle、plugin rich detail、plugin settings、plugin secrets、third-party accounts、third-party monitors、third-party media、Bilibili QR login、Bilibili user resolve、Bilibili source status / restart、governance 管理面、tasks / logs / system / metrics surfaces、scheduler 任务列表与手动触发、recovery recheck / confirm、runtime bootstrap、render templates、preview HTML 与模板资源读取面
   - `PUT /api/config` response 固定返回 `apply_effects.applied_now`、`apply_effects.reloaded_now`、`apply_effects.restart_required_fields`
   - plugin lifecycle surface 统一使用正式 `display_state` 枚举
 - `websocket-events.yaml`
   - 当前已冻结的管理 WebSocket envelope、事件名和 payload 约束
   - `events.received` 的通用 `event_type + summary` 分支当前包含 `governance.changed`；Bilibili source status 使用独立 `source: bilibili` 分支
 - `plugin-info.schema.json`
-  - 插件 `info.json` 的安装前静态校验、兼容性门禁、权限声明和迁移判断边界
+  - 插件 `info.json` 的安装前静态校验、兼容性门禁、能力声明、能力参数和迁移判断边界
   - 当前已冻结 `default_config`、`default_config_file`、`role`、`icon`、`repo`、`homepage`、`keywords`、`screenshots`、`system_dependencies`、`platforms`、`management_ui`、`render_templates`、`help` 与插件详情页投影所需 metadata
-  - `capabilities`、`permissions.required` 与 `permissions.optional` 共用同一套正式 capability 集合，覆盖基础 local action、治理 local action、冻结的 OneBot 单动作能力与 3 个正式 provider 扩展动作
+  - `capabilities` 使用正式 capability 集合，覆盖基础 local action、治理 local action、冻结的 OneBot 单动作能力与 3 个正式 provider 扩展动作
+  - `capability_parameters` 表达 `http.request`、`storage.file` 与 `event.expose_webhook` 的边界参数
   - `concurrency` 省略时按 `1` 处理，声明值用于插件事件并发 opt-in
   - command `permission` 省略时使用 `permission.default_level`
 - `plugin-management-ui.yaml`
@@ -125,14 +126,6 @@
 - `POST /api/bilibili/source/restart`
 
 其中当前正式平台固定为 `bilibili`；三方账号响应只暴露账号摘要、凭据状态和保存状态，不暴露 CK 明文。
-
-当前已进入 OpenAPI 冻结范围的 plugin grants surface：
-
-- `GET /api/plugins/{plugin_id}/grants`
-- `POST /api/plugins/{plugin_id}/grants`
-- `DELETE /api/plugins/{plugin_id}/grants/{capability}`
-
-其中 grant request / response / list item 支持可选 `expires_at`，用于表达当前生效授权的时效窗口。
 
 当前已进入 OpenAPI 冻结范围的 plugin settings surface：
 

@@ -9,7 +9,7 @@ import (
 
 var (
 	ErrInvalidRequest = errors.New("plugin http request is invalid")
-	ErrScopeViolation = errors.New("plugin http request violates granted scope")
+	ErrScopeViolation = errors.New("plugin http request violates declared capability parameters")
 )
 
 type Resolver interface {

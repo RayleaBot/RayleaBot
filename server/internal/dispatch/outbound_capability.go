@@ -2,7 +2,7 @@ package dispatch
 
 import "context"
 
-func (d *Dispatcher) capabilityGranted(ctx context.Context, pluginID string, capability string) bool {
+func (d *Dispatcher) capabilityDeclared(ctx context.Context, pluginID string, capability string) bool {
 	if d == nil {
 		return false
 	}

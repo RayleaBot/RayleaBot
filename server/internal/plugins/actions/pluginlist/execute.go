@@ -10,8 +10,8 @@ import (
 	runtimeprotocol "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime/protocol"
 )
 
-type Grants interface {
-	CapabilityGranted(context.Context, string, string) bool
+type CapabilityView interface {
+	CapabilityDeclared(context.Context, string, string) bool
 	ListPluginSnapshots() []plugins.Snapshot
 }
 
@@ -19,19 +19,19 @@ type Request struct {
 	PluginID      string
 	Action        runtimeaction.Action
 	ParentEvent   runtimeprotocol.Event
-	Grants        Grants
+	Capabilities  CapabilityView
 	CurrentConfig func() config.Config
 }
 
 func Execute(ctx context.Context, req Request) (map[string]any, error) {
-	if req.Grants == nil || !req.Grants.CapabilityGranted(ctx, req.PluginID, "plugin.list") {
+	if req.Capabilities == nil || !req.Capabilities.CapabilityDeclared(ctx, req.PluginID, "plugin.list") {
 		return nil, &runtimemanager.Error{
-			Code:    "permission.scope_violation",
-			Message: "plugin.list capability is not granted",
+			Code:    "plugin.capability_violation",
+			Message: "plugin.list capability is not declared",
 		}
 	}
 
-	snapshots := req.Grants.ListPluginSnapshots()
+	snapshots := req.Capabilities.ListPluginSnapshots()
 	conflicts := plugins.DetectCommandConflicts(snapshots)
 	items := make([]map[string]any, 0, len(snapshots))
 	for _, snapshot := range snapshots {

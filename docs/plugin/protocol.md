@@ -14,7 +14,7 @@
 
 | 方向 | 消息 | 作用 |
 | --- | --- | --- |
-| server -> plugin | `init` | 传递配置快照、授权结果和启动上下文 |
+| server -> plugin | `init` | 传递配置快照、声明能力和启动上下文 |
 | plugin -> server | `init_progress` | 可选启动进度上报 |
 | plugin -> server | `init_ack` | 宣告握手完成并进入可运行态 |
 | server -> plugin | `shutdown` | 要求插件按受控窗口退出 |
@@ -22,6 +22,7 @@
 - 启动后平台会发送 `ping`，插件返回 `pong` 做保活。
 - 插件异常退出会进入崩溃恢复路径，而不是默默消失。
 - `init.command_prefixes` 提供当前生效的命令前缀列表，至少包含一项。
+- `init.capabilities` 提供插件 manifest 中声明的平台能力集合。
 - `init.bot` 在 OneBot 身份可用时提供当前 bot 身份；协议身份不可用时该字段缺省。
 - `init.permissions.super_admins` 提供当前平台超级管理员账号 ID 列表。
 
@@ -62,7 +63,7 @@
 ### 身份不可用期间的出站语义
 
 - `init.bot` 缺失或 `bot.identity.changed` 携带空 `self_id` 时，平台视该插件的 OneBot 身份为不可用：
-  - `message.send`、`message.reply`、`message.delete`、`reaction.set` 及任何依赖 `self_id` 的 `onebot.*` action 会被平台拒绝；拒绝以正式协议 `error` 帧返回，`error.code=plugin.permission_pending` 或 `error.code=adapter.connection_lost`，由具体根因决定。
+  - `message.send`、`message.reply`、`message.delete`、`reaction.set` 及任何依赖 `self_id` 的 `onebot.*` action 会被平台拒绝；拒绝以正式协议 `error` 帧返回，`error.code=adapter.connection_lost` 或对应 adapter 错误码。
   - 不依赖身份的 local action（`config.*`、`storage.*`、`logger.write`、`http.request`、`render.image` 等）保持可用。
 - 插件代码应订阅 `bot.identity.changed` 并在身份重新可用时刷新本地缓存的会话上下文。
 - SDK 提供阻塞等待入口：Python `RayleaBotPlugin.await_bot_identity(timeout_seconds)` 与 Node.js `plugin.awaitBotIdentity(timeoutMs)` / `EventContext.awaitBotIdentity(timeoutMs)`。两者在身份已可用时立即返回当前 `bot_id` / `botId`；否则阻塞直至身份可用或超时，超时返回空字符串。

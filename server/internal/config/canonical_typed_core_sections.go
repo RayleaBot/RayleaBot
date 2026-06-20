@@ -51,7 +51,6 @@ func configAdminDocument(cfg Config) map[string]any {
 
 func configPermissionDocument(cfg Config) map[string]any {
 	return map[string]any{
-		"default_level":           cfg.Permission.DefaultLevel,
-		"auto_grant_capabilities": append([]string{}, cfg.Permission.AutoGrantCapabilities...),
+		"default_level": cfg.Permission.DefaultLevel,
 	}
 }

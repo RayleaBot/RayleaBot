@@ -678,7 +678,7 @@ func TestManagerDeliverEventWritesLocalActionErrorAndContinues(t *testing.T) {
 			if action.Kind != "logger.write" {
 				t.Fatalf("unexpected local action: %#v", action)
 			}
-			return nil, errorf("permission.scope_violation", "capability not granted", nil)
+			return nil, errorf("plugin.capability_violation", "capability not declared", nil)
 		},
 	})
 	spec := helperSpec(t, "event-local-action-error-then-result", "")
@@ -691,8 +691,8 @@ func TestManagerDeliverEventWritesLocalActionErrorAndContinues(t *testing.T) {
 	if err != nil {
 		t.Fatalf("deliver event: %v", err)
 	}
-	if got, _ := delivery.Result["local_error_code"].(string); got != "permission.scope_violation" {
-		t.Fatalf("local_error_code = %q, want %q", got, "permission.scope_violation")
+	if got, _ := delivery.Result["local_error_code"].(string); got != "plugin.capability_violation" {
+		t.Fatalf("local_error_code = %q, want %q", got, "plugin.capability_violation")
 	}
 
 	if err := manager.Stop(context.Background()); err != nil {
@@ -709,8 +709,8 @@ func TestManagerDeliverEventWritesLocalActionErrorDetailsAndContinues(t *testing
 				t.Fatalf("unexpected local action: %#v", action)
 			}
 			return nil, &Error{
-				Code:    "permission.scope_violation",
-				Message: "capability not granted",
+				Code:    "plugin.capability_violation",
+				Message: "capability not declared",
 				Details: map[string]any{
 					"missing_capability": "logger.write",
 					"scope":              "management.logs:write",

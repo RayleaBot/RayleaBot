@@ -37,7 +37,7 @@ func TestExecuteLocalActionRejectsMissingCapability(t *testing.T) {
 
 	application := newTestAppState(config.Config{}, slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)))
 	application.setTestLocalActions(
-		&stubLifecycleGrantRepository{grants: map[string][]plugins.PluginGrant{}},
+		&stubCapabilityView{capabilities: map[string][]stubCapability{}},
 		nil,
 		nil,
 		nil,
@@ -54,23 +54,23 @@ func TestExecuteLocalActionRejectsMissingCapability(t *testing.T) {
 		StorageOperation: "get",
 		StorageKey:       "notice:last_join",
 	})
-	assertRuntimeErrorCode(t, err, "permission.scope_violation")
+	assertRuntimeErrorCode(t, err, "plugin.capability_violation")
 }
 
-func TestExecutePluginListUsesBuiltinAutoGrant(t *testing.T) {
+func TestExecutePluginListUsesDeclaredCapability(t *testing.T) {
 	t.Parallel()
 
 	application := newTestAppState(config.Config{}, slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)))
 	application.pluginStack.Plugins = plugincatalog.New([]plugins.Snapshot{
 		{
-			PluginID:            "raylea.echo",
-			Name:                "Echo",
-			SourceRoot:          "plugins/builtin",
-			Valid:               true,
-			RegistrationState:   "installed",
-			DesiredState:        "enabled",
-			RuntimeState:        "running",
-			RequiredPermissions: []string{"plugin.list"},
+			PluginID:             "raylea.echo",
+			Name:                 "Echo",
+			SourceRoot:           "plugins/builtin",
+			Valid:                true,
+			RegistrationState:    "installed",
+			DesiredState:         "enabled",
+			RuntimeState:         "running",
+			DeclaredCapabilities: []string{"plugin.list"},
 			Commands: []plugins.Command{{
 				Name:          "echo",
 				Description:   "复读内容",
@@ -94,7 +94,7 @@ func TestExecutePluginListUsesBuiltinAutoGrant(t *testing.T) {
 		},
 	})
 	application.setTestLocalActions(
-		&stubLifecycleGrantRepository{grants: map[string][]plugins.PluginGrant{}},
+		nil,
 		nil,
 		nil,
 		nil,
@@ -279,14 +279,14 @@ func newPluginListVisibilityTestApp(cfg config.Config) *serviceHarness {
 	application := newTestAppState(cfg, slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)))
 	application.pluginStack.Plugins = plugincatalog.New([]plugins.Snapshot{
 		{
-			PluginID:            "raylea.echo",
-			Name:                "Echo",
-			SourceRoot:          "plugins/builtin",
-			Valid:               true,
-			RegistrationState:   "installed",
-			DesiredState:        "enabled",
-			RuntimeState:        "running",
-			RequiredPermissions: []string{"plugin.list"},
+			PluginID:             "raylea.echo",
+			Name:                 "Echo",
+			SourceRoot:           "plugins/builtin",
+			Valid:                true,
+			RegistrationState:    "installed",
+			DesiredState:         "enabled",
+			RuntimeState:         "running",
+			DeclaredCapabilities: []string{"plugin.list"},
 		},
 		{
 			PluginID:          "raylea.tools",
@@ -320,7 +320,7 @@ func newPluginListVisibilityTestApp(cfg config.Config) *serviceHarness {
 		},
 	})
 	application.setTestLocalActions(
-		&stubLifecycleGrantRepository{grants: map[string][]plugins.PluginGrant{}},
+		nil,
 		nil,
 		nil,
 		nil,
@@ -446,14 +446,14 @@ func TestExecuteSecretReadReturnsPluginScopedValue(t *testing.T) {
 
 	application := newTestAppState(config.Config{}, slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)))
 	application.pluginStack.Plugins = plugincatalog.New([]plugins.Snapshot{{
-		PluginID:            "subscription-hub",
-		Valid:               true,
-		RegistrationState:   "installed",
-		RequiredPermissions: []string{"secret.read"},
+		PluginID:             "subscription-hub",
+		Valid:                true,
+		RegistrationState:    "installed",
+		DeclaredCapabilities: []string{"secret.read"},
 	}})
 	application.platform.Secrets = secretStore
 	application.setTestLocalActions(
-		&stubLifecycleGrantRepository{grants: map[string][]plugins.PluginGrant{
+		&stubCapabilityView{capabilities: map[string][]stubCapability{
 			"subscription-hub": {{
 				PluginID:   "subscription-hub",
 				Capability: "secret.read",
@@ -498,7 +498,7 @@ func TestExecuteSecretReadRejectsInvalidKey(t *testing.T) {
 
 	application := newTestAppState(config.Config{}, slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)))
 	application.setTestLocalActions(
-		&stubLifecycleGrantRepository{grants: map[string][]plugins.PluginGrant{
+		&stubCapabilityView{capabilities: map[string][]stubCapability{
 			"subscription-hub": {{
 				PluginID:   "subscription-hub",
 				Capability: "secret.read",
@@ -527,9 +527,6 @@ func TestExecuteLoggerWriteAppliesRateLimit(t *testing.T) {
 
 	buffer := &bytes.Buffer{}
 	application := newTestAppState(config.Config{
-		Permission: config.PermissionConfig{
-			AutoGrantCapabilities: []string{"logger.write"},
-		},
 		Log: config.LogConfig{
 			RateLimitPerPlugin: "1/1h",
 		},
@@ -538,7 +535,9 @@ func TestExecuteLoggerWriteAppliesRateLimit(t *testing.T) {
 		return text
 	}
 	application.setTestLocalActions(
-		nil,
+		&stubCapabilityView{capabilities: map[string][]stubCapability{
+			"notice-logger": {{PluginID: "notice-logger", Capability: "logger.write"}},
+		}},
 		nil,
 		nil,
 		nil,
@@ -587,8 +586,8 @@ func TestExecuteStorageKVRoundTrip(t *testing.T) {
 		},
 	}, slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)))
 	application.setTestLocalActions(
-		&stubLifecycleGrantRepository{
-			grants: map[string][]plugins.PluginGrant{
+		&stubCapabilityView{
+			capabilities: map[string][]stubCapability{
 				"notice-logger": {{
 					PluginID:   "notice-logger",
 					Capability: "storage.kv",
@@ -671,13 +670,11 @@ func TestExecuteConfigWriteDispatchesConfigChanged(t *testing.T) {
 	}
 
 	dispatcher := dispatch.New(slog.Default(), nil, nil, 16)
-	application := newTestAppState(config.Config{
-		Permission: config.PermissionConfig{
-			AutoGrantCapabilities: []string{"config.write"},
-		},
-	}, slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)))
+	application := newTestAppState(config.Config{}, slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)))
 	application.setTestLocalActions(
-		&stubLifecycleGrantRepository{grants: map[string][]plugins.PluginGrant{}},
+		&stubCapabilityView{capabilities: map[string][]stubCapability{
+			"weather": {{PluginID: "weather", Capability: "config.write"}},
+		}},
 		repo,
 		nil,
 		nil,
@@ -724,7 +721,7 @@ func TestExecuteGovernanceActionsRejectMissingCapability(t *testing.T) {
 	application.whitelistRepo = permission.NewSQLiteWhitelistRepository(store.Read, store.Write)
 	application.whitelistState = permission.NewSQLiteWhitelistStateRepository(store.Read, store.Write)
 	application.setTestLocalActions(
-		&stubLifecycleGrantRepository{grants: map[string][]plugins.PluginGrant{}},
+		&stubCapabilityView{capabilities: map[string][]stubCapability{}},
 		nil,
 		nil,
 		nil,
@@ -739,7 +736,7 @@ func TestExecuteGovernanceActionsRejectMissingCapability(t *testing.T) {
 	_, err = application.executeLocalAction(context.Background(), "governance-helper", "req_governance_unauthorized", runtimeaction.Action{
 		Kind: "governance.blacklist.read",
 	})
-	assertRuntimeErrorCode(t, err, "permission.scope_violation")
+	assertRuntimeErrorCode(t, err, "plugin.capability_violation")
 }
 
 func TestExecuteGovernanceActionsRoundTrip(t *testing.T) {
@@ -751,17 +748,7 @@ func TestExecuteGovernanceActionsRoundTrip(t *testing.T) {
 	}
 	defer store.Close()
 
-	application := newTestAppState(config.Config{
-		Permission: config.PermissionConfig{
-			AutoGrantCapabilities: []string{
-				"governance.blacklist.read",
-				"governance.blacklist.write",
-				"governance.whitelist.read",
-				"governance.whitelist.write",
-				"governance.command_policy.read",
-			},
-		},
-	}, slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)))
+	application := newTestAppState(config.Config{}, slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)))
 	application.blacklistRepo = permission.NewSQLiteBlacklistRepository(store.Read, store.Write)
 	application.whitelistRepo = permission.NewSQLiteWhitelistRepository(store.Read, store.Write)
 	application.whitelistState = permission.NewSQLiteWhitelistStateRepository(store.Read, store.Write)
@@ -771,13 +758,28 @@ func TestExecuteGovernanceActionsRoundTrip(t *testing.T) {
 		Valid:             true,
 		RegistrationState: "installed",
 		DesiredState:      "enabled",
+		DeclaredCapabilities: []string{
+			"governance.blacklist.read",
+			"governance.blacklist.write",
+			"governance.whitelist.read",
+			"governance.whitelist.write",
+			"governance.command_policy.read",
+		},
 		Commands: []plugins.Command{
 			{Name: "forecast", Permission: "group_admin", Aliases: []string{"fc"}, CommandSource: plugins.CommandSourceManifest},
 			{Name: "current", CommandSource: plugins.CommandSourceManifest},
 		},
 	}})
 	application.setTestLocalActions(
-		&stubLifecycleGrantRepository{grants: map[string][]plugins.PluginGrant{}},
+		&stubCapabilityView{capabilities: map[string][]stubCapability{
+			"governance-helper": {
+				{PluginID: "governance-helper", Capability: "governance.blacklist.read"},
+				{PluginID: "governance-helper", Capability: "governance.blacklist.write"},
+				{PluginID: "governance-helper", Capability: "governance.whitelist.read"},
+				{PluginID: "governance-helper", Capability: "governance.whitelist.write"},
+				{PluginID: "governance-helper", Capability: "governance.command_policy.read"},
+			},
+		}},
 		nil,
 		nil,
 		nil,
@@ -882,16 +884,14 @@ func TestExecuteGovernanceWritePublishesGovernanceChanged(t *testing.T) {
 	}
 	defer store.Close()
 
-	application := newTestAppState(config.Config{
-		Permission: config.PermissionConfig{
-			AutoGrantCapabilities: []string{"governance.blacklist.write"},
-		},
-	}, slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)))
+	application := newTestAppState(config.Config{}, slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)))
 	application.blacklistRepo = permission.NewSQLiteBlacklistRepository(store.Read, store.Write)
 	application.whitelistRepo = permission.NewSQLiteWhitelistRepository(store.Read, store.Write)
 	application.whitelistState = permission.NewSQLiteWhitelistStateRepository(store.Read, store.Write)
 	application.setTestLocalActions(
-		&stubLifecycleGrantRepository{grants: map[string][]plugins.PluginGrant{}},
+		&stubCapabilityView{capabilities: map[string][]stubCapability{
+			"governance-helper": {{PluginID: "governance-helper", Capability: "governance.blacklist.write"}},
+		}},
 		nil,
 		nil,
 		nil,
@@ -949,19 +949,16 @@ func TestExecuteSchedulerCreateUpsertDoesNotWriteManagementLog(t *testing.T) {
 		t.Fatalf("scheduler.New: %v", err)
 	}
 
-	application := newTestAppState(config.Config{
-		Permission: config.PermissionConfig{
-			AutoGrantCapabilities: []string{"scheduler.create"},
-		},
-	}, slog.New(slog.NewTextHandler(buffer, nil)))
+	application := newTestAppState(config.Config{}, slog.New(slog.NewTextHandler(buffer, nil)))
 	application.pluginStack.Plugins = plugincatalog.New([]plugins.Snapshot{{
-		PluginID:          "weather",
-		Name:              "天气插件",
-		Valid:             true,
-		RegistrationState: "installed",
+		PluginID:             "weather",
+		Name:                 "天气插件",
+		Valid:                true,
+		RegistrationState:    "installed",
+		DeclaredCapabilities: []string{"scheduler.create"},
 	}})
 	application.setTestLocalActions(
-		&stubLifecycleGrantRepository{grants: map[string][]plugins.PluginGrant{}},
+		nil,
 		nil,
 		nil,
 		nil,
@@ -1028,8 +1025,8 @@ func TestExecuteSchedulerCreateUpsertDoesNotWriteManagementLog(t *testing.T) {
 func TestExecuteExposeWebhookRegistersGateway(t *testing.T) {
 	t.Parallel()
 
-	grantRepo := &stubLifecycleGrantRepository{
-		grants: map[string][]plugins.PluginGrant{
+	capabilityRepo := &stubCapabilityView{
+		capabilities: map[string][]stubCapability{
 			"repo-watcher": {{
 				PluginID:   "repo-watcher",
 				Capability: "event.expose_webhook",
@@ -1042,12 +1039,9 @@ func TestExecuteExposeWebhookRegistersGateway(t *testing.T) {
 			Host: "127.0.0.1",
 			Port: 8080,
 		},
-		Permission: config.PermissionConfig{
-			AutoGrantCapabilities: []string{"event.expose_webhook"},
-		},
 	}, slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)))
 	registry := newPluginWebhookRegistry()
-	application.setTestLocalActions(grantRepo, nil, nil, nil, nil, nil, nil, nil, nil, nil)
+	application.setTestLocalActions(capabilityRepo, nil, nil, nil, nil, nil, nil, nil, nil, nil)
 	application.setTestWebhookService(nil, nil, nil, registry)
 
 	result, err := application.executeLocalAction(context.Background(), "repo-watcher", "req_webhook_1", runtimeaction.Action{
@@ -1098,8 +1092,8 @@ func TestExecuteStorageFileRoundTrip(t *testing.T) {
 		},
 	}, slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)))
 	application.setTestLocalActions(
-		&stubLifecycleGrantRepository{
-			grants: map[string][]plugins.PluginGrant{
+		&stubCapabilityView{
+			capabilities: map[string][]stubCapability{
 				"scope-cache": {{
 					PluginID:   "scope-cache",
 					Capability: "storage.file",
@@ -1170,8 +1164,8 @@ func TestExecuteStorageFileRejectsMissingScope(t *testing.T) {
 
 	application := newTestAppState(config.Config{}, slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)))
 	application.setTestLocalActions(
-		&stubLifecycleGrantRepository{
-			grants: map[string][]plugins.PluginGrant{
+		&stubCapabilityView{
+			capabilities: map[string][]stubCapability{
 				"scope-cache": {{
 					PluginID:   "scope-cache",
 					Capability: "storage.file",
@@ -1196,5 +1190,5 @@ func TestExecuteStorageFileRejectsMissingScope(t *testing.T) {
 		StorageRoot:      "plugin_data",
 		StoragePath:      "cache/example.txt",
 	})
-	assertRuntimeErrorCode(t, err, "permission.scope_violation")
+	assertRuntimeErrorCode(t, err, "plugin.capability_violation")
 }

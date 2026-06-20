@@ -36,8 +36,7 @@
       "login_fail_window_seconds": 300
     },
     "permission": {
-      "default_level": "everyone",
-      "auto_grant_capabilities": []
+      "default_level": "everyone"
     },
     "render": {
       "worker_count": 1,

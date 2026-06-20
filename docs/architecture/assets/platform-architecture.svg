@@ -343,7 +343,7 @@
   <rect class="chip-violet" x="866" y="856" width="100" height="22" rx="5"/>
   <text class="chip-title" x="916" y="872" text-anchor="middle">manifest</text>
   <rect class="chip-violet" x="972" y="856" width="108" height="22" rx="5"/>
-  <text class="chip-title" x="1026" y="872" text-anchor="middle">grants</text>
+  <text class="chip-title" x="1026" y="872" text-anchor="middle">capability</text>
   <text class="module-text" x="820" y="902" text-anchor="middle">desired-state：enabled / disabled ·  registration：installed / removed</text>
 
   <rect class="card-violet" x="1120" y="816" width="560" height="100" rx="10" filter="url(#card-shadow)"/>
@@ -496,7 +496,7 @@
   <rect class="chip-emerald" x="2368" y="466" width="156" height="22" rx="5"/>
   <text class="chip-title" x="2446" y="482" text-anchor="middle">plugin_packages</text>
   <rect class="chip-emerald" x="2532" y="466" width="156" height="22" rx="5"/>
-  <text class="chip-title" x="2610" y="482" text-anchor="middle">plugin_grants</text>
+  <text class="chip-title" x="2610" y="482" text-anchor="middle">plugin_kv</text>
   <rect class="chip-emerald" x="2368" y="494" width="156" height="22" rx="5"/>
   <text class="chip-title" x="2446" y="510" text-anchor="middle">tasks</text>
   <rect class="chip-emerald" x="2532" y="494" width="156" height="22" rx="5"/>
@@ -773,7 +773,7 @@
   <text class="badge-text" x="934" y="1495" text-anchor="middle">12</text>
 
   <path class="arrow-dim" d="M 448 746 C 490 780, 520 816, 540 842"/>
-  <text class="label" x="452" y="742">安装 · manifest · grants</text>
+  <text class="label" x="452" y="742">安装 · manifest · capability</text>
 
   <path class="arrow-webhook" d="M 448 930 L 1430 930 L 1430 944"/>
   <text class="label-bold" x="920" y="922" text-anchor="middle" style="fill:#be123c;">外部 webhook 直入 → Plugin Webhook Service</text>

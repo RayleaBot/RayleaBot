@@ -37,7 +37,7 @@ response:
       dependencies:
         python:
           - httpx==0.28.1
-      scopes:
+      capability_parameters:
         http_hosts:
           - api.weather.example
         storage_roots:
@@ -90,21 +90,5 @@ response:
                 permission: everyone
       command_conflicts:
         - weather
-      permissions:
-        - capability: http.request
-          requirement: required
-          status: granted
-          source: persisted
-          expires_at: null
-        - capability: logger.write
-          requirement: optional
-          status: granted
-          source: config_auto
-          expires_at: null
-        - capability: render.image
-          requirement: optional
-          status: not_granted
-          source: none
-          expires_at: null
 expect:
   valid: true

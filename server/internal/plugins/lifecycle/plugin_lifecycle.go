@@ -24,12 +24,6 @@ type RuntimeRegistry interface {
 	Delete(pluginID string) *runtimemanager.Manager
 }
 
-type GrantPolicy interface {
-	GrantedCapabilities(context.Context, string) []string
-	GrantedHTTPHosts(context.Context, string) []string
-	ScopeChangedSinceGrant(context.Context, plugins.Snapshot) bool
-}
-
 type BotIdentitySource interface {
 	CurrentBotID() string
 }
@@ -40,7 +34,6 @@ type Deps struct {
 	Logger              *slog.Logger
 	Plugins             *plugincatalog.Catalog
 	DesiredStateRepo    plugins.DesiredStateRepository
-	Grants              GrantPolicy
 	Runtimes            RuntimeRegistry
 	Dispatcher          *dispatch.Dispatcher
 	Scheduler           *scheduler.Engine
@@ -59,7 +52,6 @@ type Controller struct {
 	logger              *slog.Logger
 	plugins             *plugincatalog.Catalog
 	desiredStateRepo    plugins.DesiredStateRepository
-	grants              GrantPolicy
 	runtimes            RuntimeRegistry
 	dispatcher          *dispatch.Dispatcher
 	scheduler           *scheduler.Engine
@@ -82,7 +74,6 @@ func NewController(deps Deps) *Controller {
 		logger:              deps.Logger,
 		plugins:             deps.Plugins,
 		desiredStateRepo:    deps.DesiredStateRepo,
-		grants:              deps.Grants,
 		runtimes:            deps.Runtimes,
 		dispatcher:          deps.Dispatcher,
 		scheduler:           deps.Scheduler,

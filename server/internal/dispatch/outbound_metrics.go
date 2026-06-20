@@ -35,8 +35,8 @@ func outboundOutcome(err error) string {
 	var adapterErr *adapteroutbound.Error
 	if errors.As(err, &adapterErr) {
 		switch adapterErr.Code {
-		case "permission.scope_violation":
-			return "scope_violation"
+		case "plugin.capability_violation":
+			return "capability_violation"
 		case "adapter.reply_target_missing":
 			return "reply_target_missing"
 		}

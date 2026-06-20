@@ -27,7 +27,7 @@ func ensureRuntimeStartedForEvent(
 	cfg config.Config,
 	event adapterintake.NormalizedEvent,
 ) (plugins.Snapshot, bool, error) {
-	return ensureRuntimeStartedForBot(ctx, manager, catalog, repoRoot, cfg, strings.TrimSpace(event.BotID), nil)
+	return ensureRuntimeStartedForBot(ctx, manager, catalog, repoRoot, cfg, strings.TrimSpace(event.BotID))
 }
 
 func ensureRuntimeStartedForBot(
@@ -37,7 +37,6 @@ func ensureRuntimeStartedForBot(
 	repoRoot string,
 	cfg config.Config,
 	botID string,
-	grantedCapabilities []string,
 ) (plugins.Snapshot, bool, error) {
 	if manager == nil || catalog == nil {
 		return plugins.Snapshot{}, false, nil
@@ -47,10 +46,11 @@ func ensureRuntimeStartedForBot(
 	}
 	botID = strings.TrimSpace(botID)
 
-	snapshot, ok := selectRuntimeStartupPlugin(catalog, grantedCapabilities)
+	snapshot, ok := selectRuntimeStartupPlugin(catalog)
 	if !ok {
 		return plugins.Snapshot{}, false, nil
 	}
+	capabilities := plugins.DedupeCapabilities(snapshot.DeclaredCapabilities)
 
 	spec, err := runtimespec.BuildSpec(snapshot, repoRoot, cfg.Runtime)
 	if err != nil {
@@ -61,7 +61,7 @@ func ensureRuntimeStartedForBot(
 		Bot: runtimespec.BotInfo{
 			ID: botID,
 		},
-		Capabilities:    append([]string(nil), grantedCapabilities...),
+		Capabilities:    capabilities,
 		SuperAdmins:     pluginservice.PluginRuntimeSuperAdmins(cfg),
 		CommandPrefixes: chatpolicy.RuntimeCommandPrefixes(cfg),
 	}
@@ -73,7 +73,7 @@ func ensureRuntimeStartedForBot(
 	return snapshot, true, nil
 }
 
-func selectRuntimeStartupPlugin(catalog *plugincatalog.Catalog, grantedCapabilities []string) (plugins.Snapshot, bool) {
+func selectRuntimeStartupPlugin(catalog *plugincatalog.Catalog) (plugins.Snapshot, bool) {
 	if catalog == nil {
 		return plugins.Snapshot{}, false
 	}
@@ -81,8 +81,7 @@ func selectRuntimeStartupPlugin(catalog *plugincatalog.Catalog, grantedCapabilit
 	for _, snapshot := range catalog.List() {
 		if snapshot.Valid &&
 			snapshot.RegistrationState == "installed" &&
-			snapshot.DesiredState == "enabled" &&
-			len(pluginservice.MissingCapabilities(snapshot.RequiredPermissions, grantedCapabilities)) == 0 {
+			snapshot.DesiredState == "enabled" {
 			return snapshot, true
 		}
 	}

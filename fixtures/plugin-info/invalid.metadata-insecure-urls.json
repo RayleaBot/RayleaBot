@@ -12,11 +12,7 @@
     "entry": "plugin.py",
     "license": "MIT",
     "repo": "http://github.com/RayleaBot/plugins-weather",
-    "homepage": "http://plugins.rayleabot.local/weather",
-    "permissions": {
-      "required": [],
-      "optional": []
-    }
+    "homepage": "http://plugins.rayleabot.local/weather"
   },
   "expect": {
     "valid": false

@@ -123,8 +123,6 @@ type Snapshot struct {
 	DisplayState          string
 	DeadLetter            *DeadLetterSnapshot
 	ConflictPaths         []string
-	RequiredPermissions   []string
-	OptionalPermissions   []string
 	DeclaredCapabilities  []string
 	PythonDependencies    []string
 	NodeDependencies      []string
@@ -171,20 +169,4 @@ type PackageRepository interface {
 
 type PackageMetadataLoader interface {
 	LoadAllPackageMetadata(context.Context) (map[string]PackageMetadata, error)
-}
-
-type PluginGrant struct {
-	PluginID   string
-	Capability string
-	ScopeJSON  string
-	GrantedAt  time.Time
-	ExpiresAt  *time.Time
-}
-
-type GrantRepository interface {
-	LoadGrants(ctx context.Context, pluginID string) ([]PluginGrant, error)
-	LoadAllGrants(ctx context.Context) (map[string][]string, error)
-	SaveGrant(ctx context.Context, grant PluginGrant) error
-	DeleteGrant(ctx context.Context, pluginID, capability string) error
-	DeleteAllGrants(ctx context.Context, pluginID string) error
 }

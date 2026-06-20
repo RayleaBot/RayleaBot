@@ -5,7 +5,6 @@ import (
 	"errors"
 	"strings"
 
-	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	runtimemanager "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime/manager"
 	runtimespec "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime/spec"
 )
@@ -26,12 +25,6 @@ func (c *Controller) reloadPluginAsync(pluginID, botID string, taskID string) {
 		c.failReloadTask(taskID, pluginID, "platform.invalid_request", "插件当前不可重载")
 		return
 	}
-	if _, err := c.validateActivation(ctx, snapshot); err != nil {
-		c.disablePluginForPermissionLoss(ctx, pluginID)
-		c.failReloadTaskForError(taskID, pluginID, err, "插件重载失败")
-		return
-	}
-
 	current, ok := c.runtimes.Get(pluginID)
 	if !ok || current == nil {
 		c.updateReloadTask(taskID, 30, "启动插件运行时")
@@ -129,11 +122,7 @@ func (c *Controller) failReloadTaskForError(taskID string, pluginID string, err 
 			c.failReloadTask(taskID, pluginID, code, message)
 			return
 		}
-		var pending *plugins.PermissionPendingError
-		if errors.As(err, &pending) {
-			code = "plugin.permission_pending"
-			message = pending.Error()
-		} else if strings.TrimSpace(err.Error()) != "" {
+		if strings.TrimSpace(err.Error()) != "" {
 			message = err.Error()
 		}
 	}

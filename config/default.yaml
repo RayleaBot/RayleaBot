@@ -61,7 +61,6 @@ onebot:
         enabled: false
         url: ""
 permission:
-    auto_grant_capabilities: []
     default_level: everyone
 render:
     browser_args:

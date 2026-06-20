@@ -16,38 +16,38 @@ type DesiredStateController interface {
 	RecoverFromDeadLetter(context.Context, string) (plugins.Snapshot, error)
 }
 
-func registerPluginLifecycleRoutes(router chi.Router, catalog plugins.CatalogView, repo plugins.DesiredStateRepository, controller DesiredStateController, uninstaller UninstallCoordinator, grantRepo plugins.GrantRepository, autoGrantProvider autoGrantCapabilitiesProvider) {
-	router.Post("/api/plugins/{plugin_id}/enable", newEnableHandler(catalog, repo, controller, grantRepo, autoGrantProvider))
-	router.Post("/api/plugins/{plugin_id}/disable", newDisableHandler(catalog, repo, controller, grantRepo, autoGrantProvider))
-	router.Post("/api/plugins/{plugin_id}/reload", newReloadHandler(catalog, controller, grantRepo, autoGrantProvider))
+func registerPluginLifecycleRoutes(router chi.Router, catalog plugins.CatalogView, repo plugins.DesiredStateRepository, controller DesiredStateController, uninstaller UninstallCoordinator) {
+	router.Post("/api/plugins/{plugin_id}/enable", newEnableHandler(catalog, repo, controller))
+	router.Post("/api/plugins/{plugin_id}/disable", newDisableHandler(catalog, repo, controller))
+	router.Post("/api/plugins/{plugin_id}/reload", newReloadHandler(catalog, controller))
 	router.Delete("/api/plugins/{plugin_id}", newUninstallHandler(catalog, uninstaller))
 }
 
-func newEnableHandler(catalog plugins.CatalogView, repo plugins.DesiredStateRepository, controller DesiredStateController, grantRepo plugins.GrantRepository, autoGrantProvider autoGrantCapabilitiesProvider) http.HandlerFunc {
+func newEnableHandler(catalog plugins.CatalogView, repo plugins.DesiredStateRepository, controller DesiredStateController) http.HandlerFunc {
 	var action desiredStateAction
 	if controller != nil {
 		action = controller.Enable
 	}
-	return newDesiredStateHandler(catalog, repo, "enabled", action, grantRepo, autoGrantProvider)
+	return newDesiredStateHandler(catalog, repo, "enabled", action)
 }
 
-func newDisableHandler(catalog plugins.CatalogView, repo plugins.DesiredStateRepository, controller DesiredStateController, grantRepo plugins.GrantRepository, autoGrantProvider autoGrantCapabilitiesProvider) http.HandlerFunc {
+func newDisableHandler(catalog plugins.CatalogView, repo plugins.DesiredStateRepository, controller DesiredStateController) http.HandlerFunc {
 	var action desiredStateAction
 	if controller != nil {
 		action = controller.Disable
 	}
-	return newDesiredStateHandler(catalog, repo, "disabled", action, grantRepo, autoGrantProvider)
+	return newDesiredStateHandler(catalog, repo, "disabled", action)
 }
 
 type desiredStateAction func(context.Context, string) (plugins.Snapshot, error)
 
-func newDesiredStateHandler(catalog plugins.CatalogView, repo plugins.DesiredStateRepository, desiredState string, action desiredStateAction, grantRepo plugins.GrantRepository, autoGrantProvider autoGrantCapabilitiesProvider) http.HandlerFunc {
+func newDesiredStateHandler(catalog plugins.CatalogView, repo plugins.DesiredStateRepository, desiredState string, action desiredStateAction) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		pluginID := chi.URLParam(r, "plugin_id")
 		if action != nil {
 			snapshot, err := action(r.Context(), pluginID)
 			if err == nil {
-				writePluginDetailResponse(w, r, catalog, snapshot, grantRepo, autoGrantProvider)
+				writePluginDetailResponse(w, catalog, snapshot)
 				return
 			}
 			writeDesiredStateError(w, r, pluginID, err)
@@ -65,14 +65,14 @@ func newDesiredStateHandler(catalog plugins.CatalogView, repo plugins.DesiredSta
 		}
 		snapshot, err := catalog.SetDesiredState(pluginID, desiredState)
 		if err == nil {
-			writePluginDetailResponse(w, r, catalog, snapshot, grantRepo, autoGrantProvider)
+			writePluginDetailResponse(w, catalog, snapshot)
 			return
 		}
 		writeDesiredStateError(w, r, pluginID, err)
 	}
 }
 
-func newReloadHandler(catalog plugins.CatalogView, controller DesiredStateController, grantRepo plugins.GrantRepository, autoGrantProvider autoGrantCapabilitiesProvider) http.HandlerFunc {
+func newReloadHandler(catalog plugins.CatalogView, controller DesiredStateController) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		pluginID := chi.URLParam(r, "plugin_id")
 		if controller == nil {
@@ -81,20 +81,15 @@ func newReloadHandler(catalog plugins.CatalogView, controller DesiredStateContro
 		}
 		snapshot, err := controller.Reload(r.Context(), pluginID)
 		if err == nil {
-			writePluginDetailResponse(w, r, catalog, snapshot, grantRepo, autoGrantProvider)
+			writePluginDetailResponse(w, catalog, snapshot)
 			return
 		}
 		writeDesiredStateError(w, r, pluginID, err)
 	}
 }
 
-func writePluginDetailResponse(w http.ResponseWriter, r *http.Request, catalog plugins.CatalogView, snapshot plugins.Snapshot, grantRepo plugins.GrantRepository, autoGrantProvider autoGrantCapabilitiesProvider) {
-	response, buildErr := buildPluginDetailResponse(r.Context(), catalog, snapshot, grantRepo, autoGrantProvider)
-	if buildErr != nil {
-		writeError(w, r, http.StatusInternalServerError, "platform.internal_error", "内部错误", "errors.platform.internal_error", nil)
-		return
-	}
-	writeJSON(w, http.StatusOK, response)
+func writePluginDetailResponse(w http.ResponseWriter, catalog plugins.CatalogView, snapshot plugins.Snapshot) {
+	writeJSON(w, http.StatusOK, buildPluginDetailResponse(catalog, snapshot))
 }
 
 type UninstallCoordinator interface {

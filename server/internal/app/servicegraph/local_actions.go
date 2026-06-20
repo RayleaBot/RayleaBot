@@ -11,7 +11,7 @@ import (
 	bilibilicredential "github.com/RayleaBot/RayleaBot/server/internal/integrations/bilibili/credential"
 	bilibilisession "github.com/RayleaBot/RayleaBot/server/internal/integrations/bilibili/session"
 	localaction "github.com/RayleaBot/RayleaBot/server/internal/plugins/actions"
-	plugingrants "github.com/RayleaBot/RayleaBot/server/internal/plugins/grants"
+	plugincapabilityview "github.com/RayleaBot/RayleaBot/server/internal/plugins/capabilityview"
 	lifecyclecommands "github.com/RayleaBot/RayleaBot/server/internal/plugins/lifecycle/commands"
 	renderservice "github.com/RayleaBot/RayleaBot/server/internal/render/service"
 	"github.com/RayleaBot/RayleaBot/server/internal/thirdparty"
@@ -23,7 +23,7 @@ func buildLocalActionService(
 	pluginStack pluginstack.State,
 	eventStack eventstack.State,
 	renderer *renderservice.Service,
-	grantView *plugingrants.View,
+	capabilityView *plugincapabilityview.View,
 	governanceService *governance.Service,
 	thirdPartyService *thirdparty.Service,
 	bilibiliSession *bilibilisession.SessionClient,
@@ -32,7 +32,7 @@ func buildLocalActionService(
 		CurrentConfig:    runtimeState.CurrentConfig,
 		Logger:           runtimeState.RuntimeLogger(),
 		RedactText:       runtimeState.RedactString,
-		Grants:           grantView,
+		Capabilities:     capabilityView,
 		PluginConfig:     pluginStack.PluginConfig,
 		PluginFiles:      pluginStack.PluginFiles,
 		PluginKV:         pluginStack.PluginKV,

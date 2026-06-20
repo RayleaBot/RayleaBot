@@ -10,8 +10,8 @@ import (
 	runtimemanager "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime/manager"
 )
 
-type Grants interface {
-	CapabilityGranted(context.Context, string, string) bool
+type CapabilityView interface {
+	CapabilityDeclared(context.Context, string, string) bool
 }
 
 type Limiter interface {
@@ -19,20 +19,20 @@ type Limiter interface {
 }
 
 type Request struct {
-	PluginID   string
-	RequestID  string
-	Action     runtimeaction.Action
-	Grants     Grants
-	Logger     *slog.Logger
-	RedactText func(string) string
-	Limiter    Limiter
+	PluginID     string
+	RequestID    string
+	Action       runtimeaction.Action
+	Capabilities CapabilityView
+	Logger       *slog.Logger
+	RedactText   func(string) string
+	Limiter      Limiter
 }
 
 func Execute(ctx context.Context, req Request) (map[string]any, error) {
-	if req.Grants == nil || !req.Grants.CapabilityGranted(ctx, req.PluginID, "logger.write") {
+	if req.Capabilities == nil || !req.Capabilities.CapabilityDeclared(ctx, req.PluginID, "logger.write") {
 		return nil, &runtimemanager.Error{
-			Code:    "permission.scope_violation",
-			Message: "logger.write capability is not granted",
+			Code:    "plugin.capability_violation",
+			Message: "logger.write capability is not declared",
 		}
 	}
 	if req.Limiter != nil && !req.Limiter.Allow(req.PluginID) {

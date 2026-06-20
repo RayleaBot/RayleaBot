@@ -14,11 +14,7 @@
     "system_dependencies": [
       "OneBot11 connection",
       "OneBot11 connection"
-    ],
-    "permissions": {
-      "required": [],
-      "optional": []
-    }
+    ]
   },
   "expect": {
     "valid": false

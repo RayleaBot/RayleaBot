@@ -17,7 +17,7 @@ func TestExecuteHTTPRequestReturnsCredentialInjectorError(t *testing.T) {
 	t.Parallel()
 
 	service := New(Deps{
-		Grants: &stubGrantView{
+		Capabilities: &stubCapabilityView{
 			capabilities: map[string]bool{"http.request": true},
 			httpHosts:    []string{"api.example.test"},
 		},
@@ -47,27 +47,27 @@ func (s stubHTTPCredentials) Inject(context.Context, httpaction.CredentialReques
 	return httpaction.CredentialResult{}, s.err
 }
 
-type stubGrantView struct {
+type stubCapabilityView struct {
 	capabilities map[string]bool
 	httpHosts    []string
 }
 
-func (s *stubGrantView) CapabilityGranted(_ context.Context, _ string, capability string) bool {
+func (s *stubCapabilityView) CapabilityDeclared(_ context.Context, _ string, capability string) bool {
 	return s.capabilities[capability]
 }
 
-func (s *stubGrantView) StorageRootGranted(context.Context, string, string) bool {
+func (s *stubCapabilityView) StorageRootAllowed(context.Context, string, string) bool {
 	return false
 }
 
-func (s *stubGrantView) GrantedHTTPHosts(context.Context, string) []string {
+func (s *stubCapabilityView) HTTPHosts(context.Context, string) []string {
 	return append([]string(nil), s.httpHosts...)
 }
 
-func (s *stubGrantView) GrantedWebhookScope(context.Context, string, string) (plugins.WebhookScope, bool) {
+func (s *stubCapabilityView) WebhookParameters(context.Context, string, string) (plugins.WebhookScope, bool) {
 	return plugins.WebhookScope{}, false
 }
 
-func (s *stubGrantView) ListPluginSnapshots() []plugins.Snapshot {
+func (s *stubCapabilityView) ListPluginSnapshots() []plugins.Snapshot {
 	return nil
 }

@@ -80,7 +80,6 @@ func TestGetPluginReturnsValidSnapshot(t *testing.T) {
 				"groups": []any{},
 			},
 			"command_conflicts": []any{},
-			"permissions":       []any{},
 		},
 	}
 	if !reflect.DeepEqual(body, want) {
@@ -138,8 +137,6 @@ func TestGetPluginReturnsRichMetadataDetail(t *testing.T) {
 				Usage:       "weather <城市>",
 				Permission:  "member",
 			}},
-			RequiredPermissions: []string{"http.request"},
-			OptionalPermissions: []string{"logger.write", "render.image"},
 		},
 	}))
 
@@ -175,12 +172,12 @@ func TestGetPluginReturnsRichMetadataDetail(t *testing.T) {
 	if !reflect.DeepEqual(dependencies["python"], []any{"httpx==0.28.1"}) {
 		t.Fatalf("unexpected dependencies: %#v", dependencies)
 	}
-	scopes := plugin["scopes"].(map[string]any)
-	if !reflect.DeepEqual(scopes["http_hosts"], []any{"api.weather.example"}) {
-		t.Fatalf("unexpected scope http_hosts: %#v", scopes["http_hosts"])
+	capabilityParameters := plugin["capability_parameters"].(map[string]any)
+	if !reflect.DeepEqual(capabilityParameters["http_hosts"], []any{"api.weather.example"}) {
+		t.Fatalf("unexpected capability parameter http_hosts: %#v", capabilityParameters["http_hosts"])
 	}
-	if !reflect.DeepEqual(scopes["storage_roots"], []any{"plugin_data"}) {
-		t.Fatalf("unexpected scope storage_roots: %#v", scopes["storage_roots"])
+	if !reflect.DeepEqual(capabilityParameters["storage_roots"], []any{"plugin_data"}) {
+		t.Fatalf("unexpected capability parameter storage_roots: %#v", capabilityParameters["storage_roots"])
 	}
 	screenshots := plugin["screenshots"].([]any)
 	if len(screenshots) != 1 {

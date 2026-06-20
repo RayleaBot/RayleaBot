@@ -19,16 +19,7 @@
       "message.history.get",
       "group.member.list",
       "provider.napcat.group.sign.set"
-    ],
-    "permissions": {
-      "required": [
-        "message.history.get",
-        "group.member.list"
-      ],
-      "optional": [
-        "provider.napcat.group.sign.set"
-      ]
-    }
+    ]
   },
   "expect": {
     "valid": true

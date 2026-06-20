@@ -39,27 +39,11 @@
     "user.info.get",
     "group.member.get"
   ],
-  "permissions": {
-    "required": [
-      "message.send",
-      "render.image",
-      "storage.kv",
-      "config.read",
-      "config.write",
-      "logger.write",
-      "http.request",
-      "friend.list",
-      "group.list",
-      "user.info.get",
-      "group.member.get"
-    ],
-    "optional": [],
-    "scopes": {
-      "http_hosts": [
-        "api.bilibili.com",
-        "api.live.bilibili.com"
-      ]
-    }
+  "capability_parameters": {
+    "http_hosts": [
+      "api.bilibili.com",
+      "api.live.bilibili.com"
+    ]
   },
   "commands": [
     {

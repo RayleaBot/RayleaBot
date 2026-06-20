@@ -8,9 +8,9 @@ import (
 	"github.com/go-chi/chi/v5"
 )
 
-func registerPluginReadRoutes(router chi.Router, catalog plugins.CatalogView, grantRepo plugins.GrantRepository, autoGrantProvider autoGrantCapabilitiesProvider) {
+func registerPluginReadRoutes(router chi.Router, catalog plugins.CatalogView) {
 	router.Get("/api/plugins", newListHandler(catalog))
-	router.Get("/api/plugins/{plugin_id}", newDetailHandler(catalog, grantRepo, autoGrantProvider))
+	router.Get("/api/plugins/{plugin_id}", newDetailHandler(catalog))
 }
 
 func newListHandler(catalog plugins.CatalogView) http.HandlerFunc {
@@ -26,7 +26,7 @@ func newListHandler(catalog plugins.CatalogView) http.HandlerFunc {
 	}
 }
 
-func newDetailHandler(catalog plugins.CatalogView, grantRepo plugins.GrantRepository, autoGrantProvider autoGrantCapabilitiesProvider) http.HandlerFunc {
+func newDetailHandler(catalog plugins.CatalogView) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		pluginID := chi.URLParam(r, "plugin_id")
 		snapshot, ok := catalog.Get(pluginID)
@@ -72,11 +72,10 @@ func newDetailHandler(catalog plugins.CatalogView, grantRepo plugins.GrantReposi
 			return
 		}
 
-		response, err := buildPluginDetailResponse(r.Context(), catalog, snapshot, grantRepo, autoGrantProvider)
-		if err != nil {
-			writeError(w, r, http.StatusInternalServerError, "platform.internal_error", "内部错误", "errors.platform.internal_error", nil)
-			return
-		}
-		writeJSON(w, http.StatusOK, response)
+		writeJSON(w, http.StatusOK, buildPluginDetailResponse(catalog, snapshot))
 	}
+}
+
+func buildPluginDetailResponse(catalog plugins.CatalogView, snapshot plugins.Snapshot) view.DetailResponse {
+	return view.BuildDetail(catalog, snapshot)
 }

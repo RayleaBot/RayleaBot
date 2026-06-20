@@ -20,17 +20,6 @@
     "governance.whitelist.write",
     "governance.command_policy.read"
   ],
-  "permissions": {
-    "required": [
-      "message.send",
-      "governance.blacklist.read",
-      "governance.blacklist.write",
-      "governance.whitelist.read",
-      "governance.whitelist.write",
-      "governance.command_policy.read"
-    ],
-    "optional": []
-  },
   "commands": [
     {
       "name": "governance_demo",

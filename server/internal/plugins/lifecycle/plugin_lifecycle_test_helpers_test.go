@@ -17,7 +17,6 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
 	pluginconfig "github.com/RayleaBot/RayleaBot/server/internal/plugins/configstore"
-	plugingrants "github.com/RayleaBot/RayleaBot/server/internal/plugins/grants"
 	runtimemanager "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime/manager"
 	runtimeprotocol "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime/protocol"
 	pluginwebhook "github.com/RayleaBot/RayleaBot/server/internal/plugins/webhook"
@@ -69,7 +68,7 @@ func (a *testApp) setTestSystem(taskRegistry *tasks.Registry, _ any, _ any, _ an
 	a.platform.Tasks = taskRegistry
 }
 
-func (a *testApp) setTestLifecycle(catalog *plugincatalog.Catalog, desiredRepo plugins.DesiredStateRepository, grantRepo plugins.GrantRepository, runtimes *testRuntimeRegistry, dispatcher *dispatch.Dispatcher, pluginConfigRepo pluginconfig.Repository, adapterShell *adaptershell.Shell, webhooks *pluginwebhook.Registry) {
+func (a *testApp) setTestLifecycle(catalog *plugincatalog.Catalog, desiredRepo plugins.DesiredStateRepository, runtimes *testRuntimeRegistry, dispatcher *dispatch.Dispatcher, pluginConfigRepo pluginconfig.Repository, adapterShell *adaptershell.Shell, webhooks *pluginwebhook.Registry) {
 	if a == nil {
 		return
 	}
@@ -79,16 +78,12 @@ func (a *testApp) setTestLifecycle(catalog *plugincatalog.Catalog, desiredRepo p
 		Logger:           a.state.Logger,
 		Plugins:          catalog,
 		DesiredStateRepo: desiredRepo,
-		Grants: plugingrants.NewView(plugingrants.ViewDeps{
-			Plugins:         catalog,
-			GrantRepository: grantRepo,
-		}),
-		Runtimes:     runtimes,
-		Dispatcher:   dispatcher,
-		PluginConfig: pluginConfigRepo,
-		Adapter:      adapterShell,
-		Webhooks:     webhooks,
-		Tasks:        a.platform.Tasks,
+		Runtimes:         runtimes,
+		Dispatcher:       dispatcher,
+		PluginConfig:     pluginConfigRepo,
+		Adapter:          adapterShell,
+		Webhooks:         webhooks,
+		Tasks:            a.platform.Tasks,
 	})
 }
 

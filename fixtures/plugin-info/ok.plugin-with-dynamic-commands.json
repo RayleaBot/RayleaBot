@@ -17,10 +17,6 @@
     "capabilities": [
       "event.subscribe"
     ],
-    "permissions": {
-      "required": [],
-      "optional": []
-    },
     "default_config": {
       "trigger_commands": [
         "我的运势",

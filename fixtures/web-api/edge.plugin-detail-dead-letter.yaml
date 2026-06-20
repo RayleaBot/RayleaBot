@@ -38,12 +38,6 @@ response:
         crash_count: 5
         last_error_code: plugin.internal_error
         last_error_message: plugin exited unexpectedly
-      permissions:
-        - capability: http.request
-          requirement: required
-          status: granted
-          source: persisted
-          expires_at: null
 expect:
   valid: true
   notes:

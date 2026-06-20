@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"encoding/json"
 	"log/slog"
 	"net/http"
 	"sync/atomic"
@@ -30,10 +31,10 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/permission"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	localaction "github.com/RayleaBot/RayleaBot/server/internal/plugins/actions"
+	plugincapabilityview "github.com/RayleaBot/RayleaBot/server/internal/plugins/capabilityview"
 	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
 	pluginconfig "github.com/RayleaBot/RayleaBot/server/internal/plugins/configstore"
 	pluginfile "github.com/RayleaBot/RayleaBot/server/internal/plugins/filestore"
-	plugingrants "github.com/RayleaBot/RayleaBot/server/internal/plugins/grants"
 	pluginkv "github.com/RayleaBot/RayleaBot/server/internal/plugins/kvstore"
 	pluginservice "github.com/RayleaBot/RayleaBot/server/internal/plugins/lifecycle"
 	pluginui "github.com/RayleaBot/RayleaBot/server/internal/plugins/managementui"
@@ -53,14 +54,15 @@ import (
 // same way the composition root does, but without building a full *app.App. It
 // lets service-level tests construct exactly the collaborators they exercise.
 type serviceHarness struct {
-	state       *harnessState
-	process     harnessProcess
-	platform    appplatform.State
-	pluginStack pluginstack.State
-	renderStack renderstack.State
-	eventStack  eventstack.State
-	services    servicegraph.Services
-	runtimes    *runtimeregistry.Registry
+	state        *harnessState
+	process      harnessProcess
+	platform     appplatform.State
+	pluginStack  pluginstack.State
+	renderStack  renderstack.State
+	eventStack   eventstack.State
+	services     servicegraph.Services
+	runtimes     *runtimeregistry.Registry
+	capabilities localaction.CapabilityView
 
 	blacklistRepo  permission.BlacklistRepository
 	whitelistRepo  permission.WhitelistRepository
@@ -171,15 +173,6 @@ func defaultAdapterTestConfig() config.AdapterConfig {
 	}
 }
 
-func testAutoGrantCapabilities(state *harnessState) func() []string {
-	return func() []string {
-		if state == nil {
-			return nil
-		}
-		return append([]string(nil), state.Config.Permission.AutoGrantCapabilities...)
-	}
-}
-
 func (a *serviceHarness) setTestEventIngress(catalog *plugincatalog.Catalog, blacklistRepo permission.BlacklistRepository, sender eventingress.OutboundActionSender, eventBridge *bridge.Bridge) {
 	a.setTestEventIngressWithGovernance(catalog, nil, nil, blacklistRepo, sender, eventBridge)
 }
@@ -223,13 +216,12 @@ func (a *serviceHarness) setTestEventIngressWithGovernance(catalog *plugincatalo
 	})
 }
 
-func (a *serviceHarness) setTestLifecycle(catalog *plugincatalog.Catalog, desiredRepo plugins.DesiredStateRepository, grantRepo plugins.GrantRepository, runtimes *runtimeregistry.Registry, dispatcher *dispatch.Dispatcher, pluginConfigRepo pluginconfig.Repository, adapterShell *adaptershell.Shell, webhooks *pluginwebhook.Registry) {
+func (a *serviceHarness) setTestLifecycle(catalog *plugincatalog.Catalog, desiredRepo plugins.DesiredStateRepository, _ any, runtimes *runtimeregistry.Registry, dispatcher *dispatch.Dispatcher, pluginConfigRepo pluginconfig.Repository, adapterShell *adaptershell.Shell, webhooks *pluginwebhook.Registry) {
 	if a == nil {
 		return
 	}
 	a.pluginStack.Plugins = catalog
 	a.pluginStack.PluginRepository = desiredRepo
-	a.pluginStack.GrantRepository = grantRepo
 	a.runtimes = runtimes
 	a.eventStack.Dispatcher = dispatcher
 	a.pluginStack.PluginConfig = pluginConfigRepo
@@ -241,26 +233,24 @@ func (a *serviceHarness) setTestLifecycle(catalog *plugincatalog.Catalog, desire
 		Logger:           a.state.Logger,
 		Plugins:          catalog,
 		DesiredStateRepo: desiredRepo,
-		Grants: plugingrants.NewView(plugingrants.ViewDeps{
-			Plugins:               catalog,
-			GrantRepository:       grantRepo,
-			AutoGrantCapabilities: testAutoGrantCapabilities(a.state),
-		}),
-		Runtimes:     runtimes,
-		Dispatcher:   dispatcher,
-		Scheduler:    a.platform.Scheduler,
-		PluginConfig: pluginConfigRepo,
-		Adapter:      adapterShell,
-		Webhooks:     webhooks,
-		Tasks:        a.platform.Tasks,
+		Runtimes:         runtimes,
+		Dispatcher:       dispatcher,
+		Scheduler:        a.platform.Scheduler,
+		PluginConfig:     pluginConfigRepo,
+		Adapter:          adapterShell,
+		Webhooks:         webhooks,
+		Tasks:            a.platform.Tasks,
 	})
 }
 
-func (a *serviceHarness) setTestLocalActions(grantRepo plugins.GrantRepository, pluginConfigRepo pluginconfig.Repository, pluginFiles *pluginfile.Service, pluginKV pluginkv.Repository, schedulerEngine *scheduler.Engine, dispatcher *dispatch.Dispatcher, rendererService *renderservice.Service, adapterShell *adaptershell.Shell, limiter *localaction.PluginLogLimiter, webhookService *pluginwebhook.Service) {
+func (a *serviceHarness) setTestLocalActions(capabilities localaction.CapabilityView, pluginConfigRepo pluginconfig.Repository, pluginFiles *pluginfile.Service, pluginKV pluginkv.Repository, schedulerEngine *scheduler.Engine, dispatcher *dispatch.Dispatcher, rendererService *renderservice.Service, adapterShell *adaptershell.Shell, limiter *localaction.PluginLogLimiter, webhookService *pluginwebhook.Service) {
 	if a == nil {
 		return
 	}
-	a.pluginStack.GrantRepository = grantRepo
+	a.capabilities = capabilities
+	if a.capabilities == nil {
+		a.capabilities = a.currentCapabilityView()
+	}
 	a.pluginStack.PluginConfig = pluginConfigRepo
 	a.pluginStack.PluginFiles = pluginFiles
 	a.pluginStack.PluginKV = pluginKV
@@ -281,14 +271,10 @@ func (a *serviceHarness) setTestLocalActions(grantRepo plugins.GrantRepository, 
 		NotifyChanged:  a.services.GovernanceEvents.PublishChanged,
 	})
 	a.services.LocalActions = localaction.New(localaction.Deps{
-		CurrentConfig: func() config.Config { return a.state.Config },
-		Logger:        a.state.Logger,
-		RedactText:    a.state.redactString,
-		Grants: plugingrants.NewView(plugingrants.ViewDeps{
-			Plugins:               a.pluginStack.Plugins,
-			GrantRepository:       grantRepo,
-			AutoGrantCapabilities: testAutoGrantCapabilities(a.state),
-		}),
+		CurrentConfig:    func() config.Config { return a.state.Config },
+		Logger:           a.state.Logger,
+		RedactText:       a.state.redactString,
+		Capabilities:     a.capabilities,
 		PluginConfig:     pluginConfigRepo,
 		PluginFiles:      pluginFiles,
 		PluginKV:         pluginKV,
@@ -345,11 +331,7 @@ func (a *serviceHarness) setTestWebhookService(secretStore secrets.Store, dispat
 		Plugins:       a.pluginStack.Plugins,
 		Dispatcher:    dispatcher,
 		Runtime:       lifecycle,
-		Grants: plugingrants.NewView(plugingrants.ViewDeps{
-			Plugins:               a.pluginStack.Plugins,
-			GrantRepository:       a.pluginStack.GrantRepository,
-			AutoGrantCapabilities: testAutoGrantCapabilities(a.state),
-		}),
+		Capabilities:  a.currentCapabilityView(),
 	})
 	if a.services.LocalActions != nil {
 		a.services.LocalActions.SetWebhookGateway(a.services.PluginWebhooks)
@@ -445,43 +427,121 @@ func newPluginLogLimiter(cfg config.Config) *localaction.PluginLogLimiter {
 	return localaction.NewPluginLogLimiter(cfg)
 }
 
-type stubLifecycleGrantRepository struct {
-	grants map[string][]plugins.PluginGrant
+func (a *serviceHarness) currentCapabilityView() localaction.CapabilityView {
+	if a == nil {
+		return nil
+	}
+	if a.capabilities != nil {
+		return a.capabilities
+	}
+	if a.pluginStack.Plugins == nil {
+		a.capabilities = &stubCapabilityView{capabilities: map[string][]stubCapability{}}
+		return a.capabilities
+	}
+	a.capabilities = plugincapabilityview.New(plugincapabilityview.Deps{Plugins: a.pluginStack.Plugins})
+	return a.capabilities
 }
 
-func (r *stubLifecycleGrantRepository) LoadGrants(_ context.Context, pluginID string) ([]plugins.PluginGrant, error) {
-	now := time.Now().UTC()
-	var active []plugins.PluginGrant
-	for _, grant := range r.grants[pluginID] {
-		if grant.ExpiresAt != nil && !grant.ExpiresAt.After(now) {
+type stubCapability struct {
+	PluginID   string
+	Capability string
+	ScopeJSON  string
+}
+
+type stubCapabilityView struct {
+	capabilities map[string][]stubCapability
+}
+
+func stubCapabilityViewFor(pluginID string, capabilities ...string) *stubCapabilityView {
+	view := &stubCapabilityView{capabilities: map[string][]stubCapability{}}
+	for _, capability := range capabilities {
+		view.capabilities[pluginID] = append(view.capabilities[pluginID], stubCapability{
+			PluginID:   pluginID,
+			Capability: capability,
+		})
+	}
+	return view
+}
+
+func (v *stubCapabilityView) CapabilityDeclared(_ context.Context, pluginID string, capability string) bool {
+	if v == nil {
+		return false
+	}
+	for _, item := range v.capabilities[pluginID] {
+		if item.Capability == capability {
+			return true
+		}
+	}
+	return false
+}
+
+func (v *stubCapabilityView) StorageRootAllowed(_ context.Context, pluginID string, root string) bool {
+	for _, item := range v.capabilities[pluginID] {
+		if item.Capability != "storage.file" {
 			continue
 		}
-		active = append(active, grant)
-	}
-	return active, nil
-}
-
-func (r *stubLifecycleGrantRepository) LoadAllGrants(_ context.Context) (map[string][]string, error) {
-	result := make(map[string][]string)
-	for pluginID := range r.grants {
-		items, _ := r.LoadGrants(context.Background(), pluginID)
-		for _, grant := range items {
-			result[pluginID] = append(result[pluginID], grant.Capability)
+		for _, declared := range parseStubScopeList(item.ScopeJSON, "storage_roots") {
+			if declared == root {
+				return true
+			}
 		}
 	}
-	return result, nil
+	return false
 }
 
-func (r *stubLifecycleGrantRepository) SaveGrant(context.Context, plugins.PluginGrant) error {
+func (v *stubCapabilityView) HTTPHosts(_ context.Context, pluginID string) []string {
+	for _, item := range v.capabilities[pluginID] {
+		if item.Capability == "http.request" {
+			return parseStubScopeList(item.ScopeJSON, "http_hosts")
+		}
+	}
 	return nil
 }
 
-func (r *stubLifecycleGrantRepository) DeleteGrant(context.Context, string, string) error {
+func (v *stubCapabilityView) WebhookParameters(_ context.Context, pluginID string, route string) (plugins.WebhookScope, bool) {
+	for _, item := range v.capabilities[pluginID] {
+		if item.Capability != "event.expose_webhook" {
+			continue
+		}
+		for _, scope := range parseStubWebhookScopes(item.ScopeJSON) {
+			if scope.Route == route {
+				return scope, true
+			}
+		}
+	}
+	return plugins.WebhookScope{}, false
+}
+
+func (v *stubCapabilityView) ListPluginSnapshots() []plugins.Snapshot {
 	return nil
 }
 
-func (r *stubLifecycleGrantRepository) DeleteAllGrants(context.Context, string) error {
-	return nil
+func parseStubScopeList(scopeJSON string, key string) []string {
+	var payload map[string]any
+	if err := json.Unmarshal([]byte(scopeJSON), &payload); err != nil {
+		return nil
+	}
+	raw, ok := payload[key].([]any)
+	if !ok {
+		return nil
+	}
+	values := make([]string, 0, len(raw))
+	for _, item := range raw {
+		if value, ok := item.(string); ok && value != "" {
+			values = append(values, value)
+		}
+	}
+	return values
+}
+
+func parseStubWebhookScopes(scopeJSON string) []plugins.WebhookScope {
+	var payload struct {
+		Webhooks []plugins.WebhookScope `json:"webhooks"`
+	}
+	if err := json.Unmarshal([]byte(scopeJSON), &payload); err != nil {
+		return nil
+	}
+	return payload.Webhooks
 }
 
 func (a *serviceHarness) dispatchPluginConfigChanged(ctx context.Context, pluginID string) {

@@ -197,21 +197,12 @@
     "permission": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["default_level", "auto_grant_capabilities"],
+      "required": ["default_level"],
       "properties": {
         "default_level": {
           "type": "string",
           "enum": ["super_admin", "group_admin", "everyone"],
           "default": "everyone"
-        },
-        "auto_grant_capabilities": {
-          "type": "array",
-          "default": [],
-          "items": {
-            "type": "string",
-            "minLength": 1
-          },
-          "uniqueItems": true
         }
       }
     },

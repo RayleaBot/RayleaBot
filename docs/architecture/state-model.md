@@ -1,6 +1,6 @@
 # State Model
 
-本文档说明 RayleaBot 当前已落地的核心状态机，覆盖插件运行时、插件期望状态、后台任务、授权时效、OneBot11 连接状态和 Bilibili source 状态。
+本文档说明 RayleaBot 当前已落地的核心状态机，覆盖插件运行时、插件期望状态、后台任务、OneBot11 连接状态和 Bilibili source 状态。
 
 正式枚举值以 `contracts/` 和当前实现常量为准。
 

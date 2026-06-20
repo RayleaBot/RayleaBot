@@ -18,10 +18,6 @@ func (c *Controller) reconcileRuntime(ctx context.Context, botID string) {
 		if snapshot.RegistrationState != "installed" || snapshot.DesiredState != "enabled" || !snapshot.Valid {
 			continue
 		}
-		if _, err := c.validateActivation(ctx, snapshot); err != nil {
-			c.disablePluginForPermissionLoss(ctx, snapshot.PluginID)
-			continue
-		}
 		if err := c.ensurePluginRunning(ctx, snapshot.PluginID, botID); err != nil {
 			c.logLifecycleWarn("plugin runtime reconcile failed", snapshot.PluginID, err)
 		}
@@ -86,16 +82,11 @@ func (c *Controller) startRuntime(ctx context.Context, pluginID, botID string, m
 		return nil
 	}
 
-	granted, err := c.validateActivation(ctx, snapshot)
-	if err != nil {
-		c.disablePluginForPermissionLoss(ctx, pluginID)
-		return err
-	}
 	if err := c.seedPluginDefaultConfig(ctx, snapshot); err != nil {
 		return err
 	}
 
-	spec, payload, err := c.buildStartInputsWithCapabilities(pluginID, botID, granted)
+	spec, payload, err := c.buildStartInputsWithCapabilities(pluginID, botID, c.declaredCapabilities(snapshot))
 	if err != nil {
 		return err
 	}

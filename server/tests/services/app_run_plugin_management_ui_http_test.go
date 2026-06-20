@@ -263,7 +263,7 @@ func TestHandlePluginSettingsPutDispatchesConfigChanged(t *testing.T) {
 	}})
 	application.pluginStack.Plugins = catalog
 	application.setTestLocalActions(
-		&stubLifecycleGrantRepository{grants: map[string][]plugins.PluginGrant{}},
+		&stubCapabilityView{capabilities: map[string][]stubCapability{}},
 		repo,
 		nil,
 		nil,

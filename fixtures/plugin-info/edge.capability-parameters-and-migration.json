@@ -11,7 +11,7 @@
     "runtime": "nodejs",
     "entry": "dist/index.js",
     "license": "MIT",
-    "description": "Node.js plugin exercising permission regrant and migration boundaries",
+    "description": "Node.js plugin exercising capability parameters and migration boundaries",
     "author": "raylea",
     "sdk_min_version": "0.1.0",
     "runtime_version": ">=24.14.0",
@@ -27,30 +27,22 @@
       "http.request",
       "logger.write"
     ],
-    "permissions": {
-      "required": [
-        "http.request"
-      ],
-      "optional": [
-        "event.subscribe"
-      ],
-      "scopes": {
-        "http_hosts": [
-          "api.weather.example"
-        ]
-      }
-    },
     "dependencies": {
       "nodejs": [
         "undici@^6.0.0"
       ]
     },
-    "require_install_scripts": false
+    "require_install_scripts": false,
+    "capability_parameters": {
+      "http_hosts": [
+        "api.weather.example"
+      ]
+    }
   },
   "expect": {
     "valid": true,
     "notes": [
-      "If compared with an older manifest that had fewer required permissions or narrower scopes, this package should trigger regrant review.",
+      "Capability parameters bound the plugin runtime inputs for http.request and related local actions.",
       "Because data_schema_version is present, an upgrade across versions should also enter the plugin migration decision path."
     ]
   }

@@ -10,7 +10,6 @@ import (
 	"reflect"
 	"strings"
 	"testing"
-	"time"
 
 	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
 
@@ -25,80 +24,19 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/schema"
 )
 
-func TestReloadDisablesPluginWhenGrantExpired(t *testing.T) {
-	t.Parallel()
-
-	controller, catalog := newLifecycleControllerForGrantTests(t, []plugins.PluginGrant{{
-		PluginID:   "weather",
-		Capability: "http.request",
-		GrantedAt:  time.Now().UTC().Add(-2 * time.Hour),
-		ExpiresAt:  timePtr(time.Now().UTC().Add(-time.Hour)),
-	}})
-
-	_, err := controller.Reload(context.Background(), "weather")
-	if err == nil {
-		t.Fatal("expected Reload to fail for expired required grant")
-	}
-	if _, ok := err.(*plugins.PermissionPendingError); !ok {
-		t.Fatalf("err = %T, want *plugins.PermissionPendingError", err)
-	}
-
-	snapshot, ok := catalog.Get("weather")
-	if !ok {
-		t.Fatal("plugin missing from catalog")
-	}
-	if snapshot.DesiredState != "disabled" {
-		t.Fatalf("desired_state = %q, want disabled", snapshot.DesiredState)
-	}
-}
-
-func TestReloadReturnsPermissionPendingWhenGrantScopeChanged(t *testing.T) {
-	t.Parallel()
-
-	controller, catalog := newLifecycleControllerForGrantTests(t, []plugins.PluginGrant{{
-		PluginID:   "weather",
-		Capability: "http.request",
-		GrantedAt:  time.Now().UTC().Add(-2 * time.Hour),
-		ScopeJSON:  `{"http_hosts":["api.example"]}`,
-	}})
-
-	_, err := controller.Reload(context.Background(), "weather")
-	if err == nil {
-		t.Fatal("expected Reload to fail when grant scope changed")
-	}
-	pending, ok := err.(*plugins.PermissionPendingError)
-	if !ok {
-		t.Fatalf("err = %T, want *plugins.PermissionPendingError", err)
-	}
-	if !pending.ScopeChanged {
-		t.Fatalf("ScopeChanged = %v, want true", pending.ScopeChanged)
-	}
-	if len(pending.MissingCapabilities) != 0 {
-		t.Fatalf("MissingCapabilities = %#v, want empty", pending.MissingCapabilities)
-	}
-
-	snapshot, ok := catalog.Get("weather")
-	if !ok {
-		t.Fatal("plugin missing from catalog")
-	}
-	if snapshot.DesiredState != "disabled" {
-		t.Fatalf("desired_state = %q, want disabled", snapshot.DesiredState)
-	}
-}
-
-func TestReloadRefreshesManifestCommandsAndScopes(t *testing.T) {
+func TestReloadRefreshesManifestCommandsAndCapabilityParameters(t *testing.T) {
 	t.Parallel()
 
 	catalog := plugincatalog.New([]plugins.Snapshot{{
-		PluginID:            "raylea.subscription-hub",
-		Name:                "Subscription Hub",
-		Valid:               true,
-		SourceRoot:          "plugins/builtin",
-		RegistrationState:   "installed",
-		DesiredState:        "enabled",
-		RuntimeState:        "running",
-		RequiredPermissions: []string{"http.request"},
-		ScopeHTTPHosts:      []string{"old.example"},
+		PluginID:             "raylea.subscription-hub",
+		Name:                 "Subscription Hub",
+		Valid:                true,
+		SourceRoot:           "plugins/builtin",
+		RegistrationState:    "installed",
+		DesiredState:         "enabled",
+		RuntimeState:         "running",
+		DeclaredCapabilities: []string{"http.request"},
+		ScopeHTTPHosts:       []string{"old.example"},
 		Commands: []plugins.Command{{
 			Name:          "订阅b站推送",
 			Usage:         "/订阅b站推送 UID",
@@ -119,7 +57,6 @@ func TestReloadRefreshesManifestCommandsAndScopes(t *testing.T) {
 	app.setTestLifecycle(
 		catalog,
 		nil,
-		nil,
 		newRuntimeRegistry(slog.Default(), runtimemanager.Options{}),
 		dispatch.New(slog.Default(), nil, nil, 16),
 		nil,
@@ -129,15 +66,15 @@ func TestReloadRefreshesManifestCommandsAndScopes(t *testing.T) {
 	app.services.pluginLifecycle.refreshManifest = func(ctx context.Context, pluginID string) (plugins.Snapshot, error) {
 		return pluginmanifestrefresh.RefreshPluginManifest(ctx, catalog, nil, pluginID, func() ([]plugins.Snapshot, error) {
 			return []plugins.Snapshot{{
-				PluginID:            "raylea.subscription-hub",
-				Name:                "Subscription Hub",
-				Valid:               true,
-				SourceRoot:          "plugins/builtin",
-				RegistrationState:   "installed",
-				DesiredState:        "enabled",
-				RuntimeState:        "stopped",
-				RequiredPermissions: []string{"http.request"},
-				ScopeHTTPHosts:      []string{"api.bilibili.com", "api.live.bilibili.com"},
+				PluginID:             "raylea.subscription-hub",
+				Name:                 "Subscription Hub",
+				Valid:                true,
+				SourceRoot:           "plugins/builtin",
+				RegistrationState:    "installed",
+				DesiredState:         "enabled",
+				RuntimeState:         "stopped",
+				DeclaredCapabilities: []string{"http.request"},
+				ScopeHTTPHosts:       []string{"api.bilibili.com", "api.live.bilibili.com"},
 				ManifestCommands: []plugins.Command{{
 					Name:          "订阅b站推送",
 					Usage:         "/订阅b站推送 UID或昵称",
@@ -182,9 +119,11 @@ func TestReloadRefreshesManifestCommandsAndScopes(t *testing.T) {
 	if got := snapshot.Help.Groups[0].Items[0].Usage; got != "/订阅b站推送 UID或昵称" {
 		t.Fatalf("help usage = %q, want UID或昵称", got)
 	}
-	hosts := app.services.pluginLifecycle.grants.GrantedHTTPHosts(context.Background(), "raylea.subscription-hub")
-	if !reflect.DeepEqual(hosts, []string{"api.bilibili.com", "api.live.bilibili.com"}) {
-		t.Fatalf("http hosts = %#v, want Bilibili hosts", hosts)
+	if !reflect.DeepEqual(snapshot.DeclaredCapabilities, []string{"http.request"}) {
+		t.Fatalf("declared_capabilities = %#v, want http.request", snapshot.DeclaredCapabilities)
+	}
+	if !reflect.DeepEqual(snapshot.ScopeHTTPHosts, []string{"api.bilibili.com", "api.live.bilibili.com"}) {
+		t.Fatalf("http hosts = %#v, want Bilibili hosts", snapshot.ScopeHTTPHosts)
 	}
 }
 
@@ -239,7 +178,6 @@ func TestReloadSyncsPluginRenderTemplates(t *testing.T) {
 	app.setTestLifecycle(
 		catalog,
 		nil,
-		nil,
 		newRuntimeRegistry(slog.Default(), runtimemanager.Options{}),
 		dispatch.New(slog.Default(), nil, nil, 16),
 		nil,
@@ -282,7 +220,6 @@ func TestReloadReturnsTemplateSyncErrorBeforeStartingRuntime(t *testing.T) {
 	app := newTestAppState(config.Config{}, slog.Default())
 	app.setTestLifecycle(
 		catalog,
-		nil,
 		nil,
 		newRuntimeRegistry(slog.Default(), runtimemanager.Options{}),
 		dispatch.New(slog.Default(), nil, nil, 16),
@@ -332,7 +269,6 @@ func TestPluginRuntimeStartInputsIncludeSuperAdmins(t *testing.T) {
 	app.state.repoRoot = repoRoot
 	app.setTestLifecycle(
 		catalog,
-		nil,
 		nil,
 		newRuntimeRegistry(slog.Default(), runtimemanager.Options{}),
 		dispatch.New(slog.Default(), nil, nil, 16),
@@ -404,55 +340,6 @@ func TestRefreshPluginManifestReadsUpdatedManifestFile(t *testing.T) {
 	}
 }
 
-func TestReconcileRuntimeDisablesPluginWhenGrantExpired(t *testing.T) {
-	t.Parallel()
-
-	controller, catalog := newLifecycleControllerForGrantTests(t, []plugins.PluginGrant{{
-		PluginID:   "weather",
-		Capability: "http.request",
-		GrantedAt:  time.Now().UTC().Add(-2 * time.Hour),
-		ExpiresAt:  timePtr(time.Now().UTC().Add(-time.Hour)),
-	}})
-
-	controller.reconcileRuntime(context.Background(), "10001")
-
-	snapshot, ok := catalog.Get("weather")
-	if !ok {
-		t.Fatal("plugin missing from catalog")
-	}
-	if snapshot.DesiredState != "disabled" {
-		t.Fatalf("desired_state = %q, want disabled", snapshot.DesiredState)
-	}
-}
-
-func TestStartRuntimeDisablesPluginWhenGrantExpired(t *testing.T) {
-	t.Parallel()
-
-	controller, catalog := newLifecycleControllerForGrantTests(t, []plugins.PluginGrant{{
-		PluginID:   "weather",
-		Capability: "http.request",
-		GrantedAt:  time.Now().UTC().Add(-2 * time.Hour),
-		ExpiresAt:  timePtr(time.Now().UTC().Add(-time.Hour)),
-	}})
-	manager := runtimemanager.New(slog.Default(), runtimemanager.Options{})
-
-	err := controller.startRuntime(context.Background(), "weather", "10001", manager)
-	if err == nil {
-		t.Fatal("expected startRuntime to fail for expired grant")
-	}
-	if _, ok := err.(*plugins.PermissionPendingError); !ok {
-		t.Fatalf("err = %T, want *plugins.PermissionPendingError", err)
-	}
-
-	snapshot, ok := catalog.Get("weather")
-	if !ok {
-		t.Fatal("plugin missing from catalog")
-	}
-	if snapshot.DesiredState != "disabled" {
-		t.Fatalf("desired_state = %q, want disabled", snapshot.DesiredState)
-	}
-}
-
 func compilePluginValidatorForLifecycleTest(t *testing.T) *schema.Validator {
 	t.Helper()
 
@@ -482,13 +369,10 @@ func writeLifecyclePluginManifest(t *testing.T, path, usage, host string) {
   "license": "MIT",
   "description": "Subscription hub",
   "author": "raylea",
-  "permissions": {
-    "required": ["http.request"],
-    "optional": [],
-    "scopes": {
-      "http_hosts": [` + quoteLifecycleJSON(host) + `]
-    }
-  },
+	"capabilities": ["http.request"],
+	"capability_parameters": {
+	  "http_hosts": [` + quoteLifecycleJSON(host) + `]
+	},
   "commands": [
     {
       "name": "订阅b站推送",
@@ -523,76 +407,4 @@ func writeLifecyclePluginManifest(t *testing.T, path, usage, host string) {
 func quoteLifecycleJSON(value string) string {
 	data, _ := json.Marshal(value)
 	return string(data)
-}
-
-func newLifecycleControllerForGrantTests(t *testing.T, grants []plugins.PluginGrant) (*Controller, *plugincatalog.Catalog) {
-	t.Helper()
-
-	catalog := plugincatalog.New([]plugins.Snapshot{{
-		PluginID:            "weather",
-		Valid:               true,
-		RegistrationState:   "installed",
-		DesiredState:        "enabled",
-		RuntimeState:        "running",
-		RequiredPermissions: []string{"http.request"},
-	}})
-	app := newTestAppState(config.Config{}, slog.Default())
-	app.setTestLifecycle(
-		catalog,
-		nil,
-		&stubLifecycleGrantRepository{
-			grants: map[string][]plugins.PluginGrant{
-				"weather": grants,
-			},
-		},
-		newRuntimeRegistry(slog.Default(), runtimemanager.Options{}),
-		dispatch.New(slog.Default(), nil, nil, 16),
-		nil,
-		nil,
-		newPluginWebhookRegistry(),
-	)
-	return app.services.pluginLifecycle, catalog
-}
-
-type stubLifecycleGrantRepository struct {
-	grants map[string][]plugins.PluginGrant
-}
-
-func (r *stubLifecycleGrantRepository) LoadGrants(_ context.Context, pluginID string) ([]plugins.PluginGrant, error) {
-	now := time.Now().UTC()
-	var active []plugins.PluginGrant
-	for _, grant := range r.grants[pluginID] {
-		if grant.ExpiresAt != nil && !grant.ExpiresAt.After(now) {
-			continue
-		}
-		active = append(active, grant)
-	}
-	return active, nil
-}
-
-func (r *stubLifecycleGrantRepository) LoadAllGrants(_ context.Context) (map[string][]string, error) {
-	result := make(map[string][]string)
-	for pluginID := range r.grants {
-		items, _ := r.LoadGrants(context.Background(), pluginID)
-		for _, grant := range items {
-			result[pluginID] = append(result[pluginID], grant.Capability)
-		}
-	}
-	return result, nil
-}
-
-func (r *stubLifecycleGrantRepository) SaveGrant(context.Context, plugins.PluginGrant) error {
-	return nil
-}
-
-func (r *stubLifecycleGrantRepository) DeleteGrant(context.Context, string, string) error {
-	return nil
-}
-
-func (r *stubLifecycleGrantRepository) DeleteAllGrants(context.Context, string) error {
-	return nil
-}
-
-func timePtr(value time.Time) *time.Time {
-	return &value
 }

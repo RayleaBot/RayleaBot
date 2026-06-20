@@ -26,7 +26,7 @@ func TestExecuteConfigReadWriteRoundTrip(t *testing.T) {
 	}
 
 	service := New(Deps{
-		Grants: &stubGrantView{capabilities: map[string]bool{
+		Capabilities: &stubCapabilityView{capabilities: map[string]bool{
 			"config.read":  true,
 			"config.write": true,
 		}},

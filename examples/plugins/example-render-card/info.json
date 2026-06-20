@@ -16,13 +16,6 @@
     "message.send",
     "render.image"
   ],
-  "permissions": {
-    "required": [
-      "message.send",
-      "render.image"
-    ],
-    "optional": []
-  },
   "render_templates": [
     {
       "path": "templates/card"

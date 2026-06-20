@@ -2,14 +2,6 @@ package manifest
 
 import "github.com/RayleaBot/RayleaBot/server/internal/plugins"
 
-func manifestPermissionList(document map[string]any, key string) []string {
-	permissions, ok := document["permissions"].(map[string]any)
-	if !ok {
-		return nil
-	}
-	return stringListField(permissions, key)
-}
-
 func manifestDependencyList(document map[string]any, key string) []string {
 	dependencies, ok := document["dependencies"].(map[string]any)
 	if !ok {
@@ -18,28 +10,20 @@ func manifestDependencyList(document map[string]any, key string) []string {
 	return stringListField(dependencies, key)
 }
 
-func manifestScopeList(document map[string]any, key string) []string {
-	permissions, ok := document["permissions"].(map[string]any)
+func manifestCapabilityParameterList(document map[string]any, key string) []string {
+	parameters, ok := document["capability_parameters"].(map[string]any)
 	if !ok {
 		return nil
 	}
-	scopes, ok := permissions["scopes"].(map[string]any)
-	if !ok {
-		return nil
-	}
-	return stringListField(scopes, key)
+	return stringListField(parameters, key)
 }
 
-func manifestWebhookScopes(document map[string]any) []plugins.WebhookScope {
-	permissions, ok := document["permissions"].(map[string]any)
+func manifestWebhookParameters(document map[string]any) []plugins.WebhookScope {
+	parameters, ok := document["capability_parameters"].(map[string]any)
 	if !ok {
 		return nil
 	}
-	scopes, ok := permissions["scopes"].(map[string]any)
-	if !ok {
-		return nil
-	}
-	values, ok := scopes["webhooks"].([]any)
+	values, ok := parameters["webhooks"].([]any)
 	if !ok {
 		return nil
 	}

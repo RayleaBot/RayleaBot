@@ -16,11 +16,7 @@
     "capabilities": [
       "event.subscribe",
       "message.kick"
-    ],
-    "permissions": {
-      "required": [],
-      "optional": []
-    }
+    ]
   },
   "expect": {
     "valid": false

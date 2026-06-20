@@ -8,8 +8,8 @@ import (
 	runtimemanager "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime/manager"
 )
 
-type Grants interface {
-	CapabilityGranted(context.Context, string, string) bool
+type CapabilityView interface {
+	CapabilityDeclared(context.Context, string, string) bool
 }
 
 type Repository interface {
@@ -31,7 +31,7 @@ type CommandRefresher func(context.Context, string, map[string]any)
 type Request struct {
 	PluginID        string
 	Action          runtimeaction.Action
-	Grants          Grants
+	Capabilities    CapabilityView
 	Repository      Repository
 	RefreshCommands CommandRefresher
 	Dispatcher      Dispatcher
@@ -39,10 +39,10 @@ type Request struct {
 }
 
 func ExecuteRead(ctx context.Context, req Request) (map[string]any, error) {
-	if req.Grants == nil || !req.Grants.CapabilityGranted(ctx, req.PluginID, "config.read") {
+	if req.Capabilities == nil || !req.Capabilities.CapabilityDeclared(ctx, req.PluginID, "config.read") {
 		return nil, &runtimemanager.Error{
-			Code:    "permission.scope_violation",
-			Message: "config.read capability is not granted",
+			Code:    "plugin.capability_violation",
+			Message: "config.read capability is not declared",
 		}
 	}
 	if req.Repository == nil {
@@ -62,10 +62,10 @@ func ExecuteRead(ctx context.Context, req Request) (map[string]any, error) {
 }
 
 func ExecuteWrite(ctx context.Context, req Request) (map[string]any, error) {
-	if req.Grants == nil || !req.Grants.CapabilityGranted(ctx, req.PluginID, "config.write") {
+	if req.Capabilities == nil || !req.Capabilities.CapabilityDeclared(ctx, req.PluginID, "config.write") {
 		return nil, &runtimemanager.Error{
-			Code:    "permission.scope_violation",
-			Message: "config.write capability is not granted",
+			Code:    "plugin.capability_violation",
+			Message: "config.write capability is not declared",
 		}
 	}
 	if req.Repository == nil {

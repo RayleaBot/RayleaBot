@@ -33,9 +33,9 @@ type Registration struct {
 	ReplayProtection ReplayProtection
 }
 
-type GrantView interface {
-	CapabilityGranted(context.Context, string, string) bool
-	GrantedWebhookScope(context.Context, string, string) (plugins.WebhookScope, bool)
+type CapabilityView interface {
+	CapabilityDeclared(context.Context, string, string) bool
+	WebhookParameters(context.Context, string, string) (plugins.WebhookScope, bool)
 }
 
 type RuntimeEnsurer interface {
@@ -51,7 +51,7 @@ type Deps struct {
 	Plugins       plugins.CatalogView
 	Dispatcher    *dispatch.Dispatcher
 	Runtime       RuntimeEnsurer
-	Grants        GrantView
+	Capabilities  CapabilityView
 }
 
 type Service struct {
@@ -62,7 +62,7 @@ type Service struct {
 	plugins       plugins.CatalogView
 	dispatcher    *dispatch.Dispatcher
 	runtime       RuntimeEnsurer
-	grants        GrantView
+	capabilities  CapabilityView
 
 	dedup   *replayCache
 	now     func() time.Time
@@ -85,7 +85,7 @@ func New(deps Deps) *Service {
 		plugins:       deps.Plugins,
 		dispatcher:    deps.Dispatcher,
 		runtime:       deps.Runtime,
-		grants:        deps.Grants,
+		capabilities:  deps.Capabilities,
 		dedup:         newReplayCache(),
 		now:           time.Now,
 	}

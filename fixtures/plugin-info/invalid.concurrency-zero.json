@@ -11,11 +11,7 @@
     "runtime": "nodejs",
     "entry": "plugin.mjs",
     "license": "MIT",
-    "concurrency": 0,
-    "permissions": {
-      "required": [],
-      "optional": []
-    }
+    "concurrency": 0
   },
   "expect": {
     "valid": false,

@@ -10,12 +10,12 @@ input:
       http_status: 409
       retryable: false
       applies_to: [http, websocket, task]
-    - code: plugin.permission_pending
-      message_key: errors.plugin.permission_pending
-      message: 插件尚未完成权限授权
-      description: Required capabilities are still waiting for approval.
-      http_status: 409
-      retryable: true
-      applies_to: [http, websocket, task]
+    - code: plugin.capability_violation
+      message_key: errors.plugin.capability_violation
+      message: 插件访问未声明能力
+      description: The plugin used a capability that is absent from its manifest declaration or outside its declared capability parameters.
+      http_status: 403
+      retryable: false
+      applies_to: [http, websocket, plugin_protocol, task]
 expect:
   valid: true

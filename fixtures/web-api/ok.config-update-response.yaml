@@ -48,7 +48,6 @@ request:
       login_fail_window_seconds: 300
     permission:
       default_level: everyone
-      auto_grant_capabilities: []
     render:
       worker_count: 1
       browser_args:
@@ -163,7 +162,6 @@ response:
         login_fail_window_seconds: 300
       permission:
         default_level: everyone
-        auto_grant_capabilities: []
       render:
         worker_count: 1
         browser_args:

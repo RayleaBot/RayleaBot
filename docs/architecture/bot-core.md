@@ -18,7 +18,7 @@
 | Protocol Service | 负责协议快照、OneBot 回连入口和 Webhook 协议入口 |
 | Plugin Webhook Service | 负责插件 webhook 注册、鉴权、按需拉起和事件投递 |
 | Scheduler | 负责定时触发和一次性任务 |
-| Capability Grant Manager | 负责插件能力授权与时效过滤 |
+| Capability View | 提供插件声明能力与能力参数查询 |
 | Config Manager | 负责配置读取、校验、覆盖与热更新入口 |
 | Logger | 负责统一结构化日志输出 |
 | Render Service | 负责模板渲染、结果缓存与 artifact 管理 |

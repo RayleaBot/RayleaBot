@@ -8,7 +8,7 @@
 | --- | --- |
 | `server/internal/app` | 应用生命周期、关闭流程、运行状态和 composition root |
 | `server/internal/app/platform` | 配置加载后的基础设施组装，包括 SQLite、auth、secret、tasks、scheduler、logging、console |
-| `server/internal/app/pluginstack` | 插件状态组装，包括 catalog、plugin repository、settings、KV、file store、install、uninstall、grants、webhook registry 和 plugin log limiter |
+| `server/internal/app/pluginstack` | 插件状态组装，包括 catalog、plugin repository、settings、KV、file store、install、uninstall、webhook registry 和 plugin log limiter |
 | `server/internal/app/renderstack` | Render Service、浏览器路径准备、插件模板同步和渲染资源关闭 |
 | `server/internal/app/eventstack` | OneBot11 shell、Bridge、Dispatcher、ReplyTarget、OutboundLimiter 和 dispatcher observability flush |
 | `server/internal/app/actionwire` | local action 对 scheduler、config changed、secret reader 和 renderer 的内部适配 |
@@ -17,7 +17,7 @@
 | `server/internal/bootstrap` | `cmd/raylea-server` 与 `internal/app` 之间的入口装配层 |
 | `server/internal/management/router` | 管理面公共路由、受保护路由、管理 UI fallback 和健康检查 |
 | `server/internal/management/*api` | 各管理面 HTTP API 子域的 handler、request、response 和路由注册 |
-| `server/internal/management/pluginapi/view` | 插件管理 API 的列表、详情、授权和 dead-letter response 投影 |
+| `server/internal/management/pluginapi/view` | 插件管理 API 的列表、详情和 dead-letter response 投影 |
 | `server/internal/management/ws` | 管理面 WebSocket 入口 |
 | `server/internal/management/events` | 管理面 WebSocket event frame 与 payload 投影 |
 | `server/internal/plugins/actions` | 插件 local action registry 和公共入口 |

@@ -9,8 +9,6 @@ func cloneSnapshot(snapshot Snapshot) Snapshot {
 	cloned.Platforms = append([]string(nil), snapshot.Platforms...)
 	cloned.Keywords = append([]string(nil), snapshot.Keywords...)
 	cloned.SystemDependencies = append([]string(nil), snapshot.SystemDependencies...)
-	cloned.RequiredPermissions = append([]string(nil), snapshot.RequiredPermissions...)
-	cloned.OptionalPermissions = append([]string(nil), snapshot.OptionalPermissions...)
 	cloned.DeclaredCapabilities = append([]string(nil), snapshot.DeclaredCapabilities...)
 	cloned.PythonDependencies = append([]string(nil), snapshot.PythonDependencies...)
 	cloned.NodeDependencies = append([]string(nil), snapshot.NodeDependencies...)

@@ -71,25 +71,14 @@ func managementRouterDeps(deps serverDeps) managementrouter.Deps {
 				r.Get("/ws/plugins/{id}/console", deps.consoleWS.HandlePluginConsoleWebSocket())
 			}),
 			pluginapi.RouteDeps{
-				Catalog:               deps.plugins,
-				TaskRegistry:          deps.tasks,
-				Repository:            deps.pluginRepository,
-				Installer:             deps.pluginInstaller,
-				Uninstaller:           deps.pluginUninstaller,
-				Lifecycle:             deps.pluginLifecycle,
-				GrantRepository:       deps.grantRepository,
-				AutoGrantCapabilities: currentPluginAutoGrantCapabilities(deps.runtime),
+				Catalog:      deps.plugins,
+				TaskRegistry: deps.tasks,
+				Repository:   deps.pluginRepository,
+				Installer:    deps.pluginInstaller,
+				Uninstaller:  deps.pluginUninstaller,
+				Lifecycle:    deps.pluginLifecycle,
 			},
 		},
-	}
-}
-
-func currentPluginAutoGrantCapabilities(state RuntimeState) func() []string {
-	return func() []string {
-		if state == nil {
-			return nil
-		}
-		return append([]string(nil), state.CurrentConfig().Permission.AutoGrantCapabilities...)
 	}
 }
 

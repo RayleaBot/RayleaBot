@@ -773,18 +773,14 @@ func TestDiscoverManifestWebhookScopes(t *testing.T) {
 		t.Fatalf("fixture input should be an object, got %T", fixture.Input)
 	}
 	input["capabilities"] = []any{"event.subscribe", "event.expose_webhook"}
-	input["permissions"] = map[string]any{
-		"required": []any{"event.expose_webhook"},
-		"optional": []any{},
-		"scopes": map[string]any{
-			"webhooks": []any{
-				map[string]any{
-					"route":         "github",
-					"auth_strategy": "hmac_sha256",
-					"header":        "X-Hub-Signature-256",
-					"secret_ref":    "webhook.github.secret",
-					"source_ips":    []any{"192.0.2.0/24"},
-				},
+	input["capability_parameters"] = map[string]any{
+		"webhooks": []any{
+			map[string]any{
+				"route":         "github",
+				"auth_strategy": "hmac_sha256",
+				"header":        "X-Hub-Signature-256",
+				"secret_ref":    "webhook.github.secret",
+				"source_ips":    []any{"192.0.2.0/24"},
 			},
 		},
 	}

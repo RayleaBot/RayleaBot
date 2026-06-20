@@ -15,11 +15,7 @@
       {
         "alt": "缺少路径"
       }
-    ],
-    "permissions": {
-      "required": [],
-      "optional": []
-    }
+    ]
   },
   "expect": {
     "valid": false

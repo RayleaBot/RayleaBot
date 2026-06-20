@@ -14,12 +14,5 @@
     "event.subscribe",
     "logger.write",
     "storage.kv"
-  ],
-  "permissions": {
-    "required": [
-      "logger.write",
-      "storage.kv"
-    ],
-    "optional": []
-  }
+  ]
 }

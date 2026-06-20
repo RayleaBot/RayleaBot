@@ -15,13 +15,7 @@
     "author": "raylea",
     "capabilities": [
       "provider.napcat.group.member.kick"
-    ],
-    "permissions": {
-      "required": [
-        "provider.napcat.group.member.kick"
-      ],
-      "optional": []
-    }
+    ]
   },
   "expect": {
     "valid": false

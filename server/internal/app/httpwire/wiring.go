@@ -84,7 +84,6 @@ func Build(deps BuildDeps) State {
 		pluginInstaller:    pluginState.PluginInstaller,
 		pluginUninstaller:  pluginState.PluginUninstaller,
 		pluginRepository:   pluginState.PluginRepository,
-		grantRepository:    pluginState.GrantRepository,
 		pluginLifecycle:    services.PluginLifecycle,
 		renderer:           renderer,
 		configHandler:      configHandler,

@@ -605,7 +605,7 @@ test('setup-required deep links return to the target after initialization', asyn
   await expect(page).toHaveURL(/\/plugins\?token=launcher_token_fixture_0001$/)
 })
 
-test('plugin management flow covers install, grants and console recovery', async ({ page, request }) => {
+test('plugin management flow covers install, manifest detail and console recovery', async ({ page, request }) => {
   await resetBackend(request, true)
   await login(page)
 
@@ -639,26 +639,8 @@ test('plugin management flow covers install, grants and console recovery', async
   await expect(page.getByText('命令冲突').first()).toBeVisible()
   await expect(page.getByRole('tab', { name: '插件指令' })).toBeVisible()
   await expect(page.getByText('查询天气')).toBeVisible()
-
-  await page.getByRole('tab', { name: /权限与授权/ }).click()
-  await expect(page.getByRole('button', { name: '处理权限' })).toBeVisible()
-  await page.getByRole('button', { name: '处理权限' }).click()
-  const renderPermissionChoice = page.locator('.permission-dialog-list .ant-checkbox-wrapper').filter({ hasText: '生成渲染图片' })
-  await expect(renderPermissionChoice).toContainText('生成渲染图片')
-  await expect(renderPermissionChoice.locator('[title="原始能力：render.image"]')).toBeVisible()
-  await page.getByRole('checkbox', { name: /render\.image/ }).check()
-  await Promise.all([
-    page.waitForResponse((response) => (
-      response.request().method() === 'POST'
-      && response.url().includes('/api/plugins/weather/grants')
-    )),
-    page.getByRole('button', { name: '授权选中项' }).click(),
-  ])
-
-  const renderPermission = page.locator('.permission-item').filter({ hasText: '生成渲染图片' })
-  await expect(renderPermission.locator('[title="原始能力：render.image"]')).toBeVisible()
-  await expect(renderPermission).toContainText('已授权')
-  await expect(renderPermission).toContainText('手动授权')
+  await expect(page.locator('[title="原始能力：render.image"]')).toBeVisible()
+  await expect(page.getByText('能力参数').first()).toBeVisible()
 
   await page.getByRole('tab', { name: '实时控制台' }).click()
   await expect(page.locator('.console-terminal').first()).toBeVisible()
@@ -816,56 +798,6 @@ test('permission policy page edits command policy config', async ({ page, reques
   await page.goto('/permission-policy')
   await expect(page.getByRole('heading', { name: '权限策略', level: 1 })).toBeVisible()
   await expect(page.getByTestId('permission-policy-save-status')).toHaveCount(0)
-})
-
-test('plugin enable resumes after scope confirmation', async ({ page, request }) => {
-  await resetBackend(request, true, {
-    failPluginEnableScopeChangedOnce: true,
-  })
-  await login(page)
-
-  await page.goto('/plugins/weather')
-  await expect(page.getByRole('heading', { name: 'weather' })).toBeVisible()
-  await expect(page.getByText('未验证来源').first()).toBeVisible()
-  const powerSwitch = page.locator('.plugin-detail-actions .plugin-holo-button')
-  await Promise.all([
-    page.waitForResponse((response) => (
-      response.request().method() === 'POST'
-      && response.url().includes('/api/plugins/weather/disable')
-      && response.status() === 200
-    )),
-    powerSwitch.click(),
-  ])
-
-  const enableSwitch = page.getByRole('switch', { name: '当前停用，点击切换为启用' })
-  await expect(enableSwitch).toBeEnabled()
-
-  await enableSwitch.click()
-
-  const dialog = page.getByRole('dialog', { name: '重新确认插件权限' })
-  await expect(dialog).toBeVisible()
-  await expect(dialog).toContainText('作用域发生变化')
-  await expect(dialog).toContainText('发起 HTTP 请求')
-  await expect(dialog.locator('[title="原始能力：http.request"]')).toBeVisible()
-  await expect(dialog).not.toContainText('当前未声明权限')
-
-  await Promise.all([
-    page.waitForResponse((response) => (
-      response.request().method() === 'POST'
-      && response.url().includes('/api/plugins/weather/grants')
-      && response.status() === 200
-    )),
-    page.waitForResponse((response) => (
-      response.request().method() === 'POST'
-      && response.url().includes('/api/plugins/weather/enable')
-      && response.status() === 200
-    )),
-    dialog.getByRole('button', { name: '重新确认选中项' }).click(),
-  ])
-
-  await expect(dialog).toBeHidden()
-  await expect(page.getByText('权限与授权')).toBeVisible()
-  await expect(page.locator('.permission-item').filter({ hasText: '发起 HTTP 请求' })).toContainText('手动授权')
 })
 
 test('plugin management ui reads and saves plugin settings inside the detail page', async ({ page, request }) => {
@@ -1800,8 +1732,6 @@ test('plugin settings page edits plugin global config', async ({ page, request }
   await commandPrefixesInput.press('Enter')
   await expect(page.getByTestId('plugin-settings-unsaved-status')).toContainText('有未保存更改')
 
-  await page.getByLabel('自动授权能力').fill('logger.write\nmessage.send')
-
   await fillRateLimit(page, '插件日志速率限制', '300', '10')
   await expect(
     page.locator('.plugin-settings-setting-row').filter({ hasText: '插件日志速率限制' }).locator('.plugin-settings-rate-preview'),
@@ -1826,7 +1756,6 @@ test('plugin settings page edits plugin global config', async ({ page, request }
   await page.goto('/config')
   await expect(page.getByRole('heading', { name: '配置', level: 1 })).toBeVisible()
   await expect(page.locator('.config-page')).not.toContainText('命令前缀')
-  await expect(page.locator('.config-page')).not.toContainText('自动授权能力')
   await expect(page.locator('.config-page')).not.toContainText('插件日志速率限制')
   await expect(page.locator('.config-page')).not.toContainText('插件消息速率限制')
   await expect(page.locator('.config-page')).not.toContainText('插件工作目录软上限')

@@ -5,7 +5,6 @@ import { flushPromises, mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMemoryHistory, createRouter } from 'vue-router'
 
-import { ApiError } from '@/lib/http'
 import VirtualDataViewport from '@/components/VirtualDataViewport.vue'
 import PluginManagementUIHost from '@/components/plugins/PluginManagementUIHost.vue'
 import PluginDetailPage from '@/views/plugins/PluginDetailView.vue'
@@ -43,7 +42,6 @@ function createFixtureConfig(prefixes: string[]): ConfigDocument {
     },
     permission: {
       default_level: 'everyone',
-      auto_grant_capabilities: [],
     },
     render: {
       worker_count: 1,
@@ -163,7 +161,7 @@ describe('PluginDetailPage', () => {
     setActivePinia(createPinia())
   })
 
-  it('renders grants and reconnects the console stream', async () => {
+  it('renders manifest metadata and reconnects the console stream', async () => {
     const router = createPluginRouter()
     await router.push('/plugins/weather')
     await router.isReady()
@@ -202,7 +200,7 @@ describe('PluginDetailPage', () => {
       dependencies: {
         python: ['httpx==0.28.1'],
       },
-      scopes: {
+      capability_parameters: {
         http_hosts: ['api.weather.example'],
         storage_roots: ['plugin_data'],
       },
@@ -239,26 +237,6 @@ describe('PluginDetailPage', () => {
         },
       ],
       command_conflicts: [],
-      permissions: [
-        {
-          capability: 'http.request',
-          requirement: 'required',
-          status: 'granted',
-          source: 'persisted',
-          expires_at: null,
-        },
-      ],
-    }
-    pluginsStore.grants = {
-      weather: [
-        {
-          plugin_id: 'weather',
-          capability: 'http.request',
-          granted_at: '2026-03-22T10:00:00Z',
-          source: 'persisted',
-          expires_at: null,
-        },
-      ],
     }
     pluginConsoleStore.appendConsole({
       plugin_id: 'weather',
@@ -292,7 +270,6 @@ describe('PluginDetailPage', () => {
     configStore.document = createFixtureConfig(['#'])
     vi.spyOn(configStore, 'fetchConfig').mockResolvedValue(undefined)
     vi.spyOn(pluginsStore, 'fetchDetail').mockResolvedValue(pluginsStore.current)
-    vi.spyOn(pluginsStore, 'fetchGrants').mockResolvedValue(pluginsStore.grants.weather)
     const historySpy = vi.spyOn(pluginConsoleStore, 'fetchOutboundConsoleHistory').mockResolvedValue([])
     vi.spyOn(socketStore, 'setConsolePlugin').mockImplementation(() => undefined)
     const reconnectSpy = vi.spyOn(socketStore, 'reconnectConsole').mockImplementation(() => undefined)
@@ -316,7 +293,6 @@ describe('PluginDetailPage', () => {
     expect(wrapper.text()).toContain('运行配置')
     expect(wrapper.text()).toContain('插件指令')
     expect(wrapper.text()).toContain('动态指令')
-    expect(wrapper.text()).toContain('权限与授权')
     expect(wrapper.text()).toContain('实时控制台')
     expect(wrapper.text()).toContain('1.4.2')
     expect(wrapper.text()).toContain('managed_runtime')
@@ -338,7 +314,6 @@ describe('PluginDetailPage', () => {
     expect(wrapper.find('[title="原始能力：http.request"]').exists()).toBe(true)
     expect(wrapper.find('[title="原始能力：logger.write"]').exists()).toBe(true)
     expect(wrapper.find('[title="原始能力：render.image"]').exists()).toBe(true)
-    expect(wrapper.text()).toContain('手动授权')
     expect(wrapper.text()).toContain('查看今日运势')
     expect(wrapper.text()).toContain('所有成员')
     expect(wrapper.text()).toContain('#我的运势')
@@ -415,7 +390,6 @@ describe('PluginDetailPage', () => {
       },
       commands: [],
       command_conflicts: [],
-      permissions: [],
     }
     pluginConsoleStore.appendConsole({
       plugin_id: 'weather',
@@ -425,7 +399,6 @@ describe('PluginDetailPage', () => {
     })
 
     vi.spyOn(pluginsStore, 'fetchDetail').mockResolvedValue(pluginsStore.current)
-    vi.spyOn(pluginsStore, 'fetchGrants').mockResolvedValue([])
     vi.spyOn(pluginConsoleStore, 'fetchOutboundConsoleHistory').mockResolvedValue([])
     vi.spyOn(socketStore, 'setConsolePlugin').mockImplementation(() => undefined)
 
@@ -471,7 +444,6 @@ describe('PluginDetailPage', () => {
       },
       commands: [],
       command_conflicts: [],
-      permissions: [],
     }
 
     pluginConsoleStore.appendConsole({
@@ -490,7 +462,6 @@ describe('PluginDetailPage', () => {
     }
 
     vi.spyOn(pluginsStore, 'fetchDetail').mockResolvedValue(pluginsStore.current)
-    vi.spyOn(pluginsStore, 'fetchGrants').mockResolvedValue([])
     vi.spyOn(pluginConsoleStore, 'fetchOutboundConsoleHistory').mockResolvedValue([])
     vi.spyOn(socketStore, 'setConsolePlugin').mockImplementation(() => undefined)
 
@@ -525,125 +496,6 @@ describe('PluginDetailPage', () => {
     expect(getViewportMetrics(wrapper).scrollTop).toBe(0)
   })
 
-  it('reconfirms persisted grants when enabling requires scope review', async () => {
-    const router = createPluginRouter()
-    await router.push('/plugins/weather')
-    await router.isReady()
-
-    const pluginsStore = usePluginsStore()
-    const pluginConsoleStore = usePluginConsoleStore()
-    const socketStore = useSocketStore()
-
-    pluginsStore.current = {
-      id: 'weather',
-      name: 'Weather',
-      role: 'user',
-      registration_state: 'installed',
-      desired_state: 'disabled',
-      runtime_state: 'stopped',
-      display_state: 'disabled',
-      source: {
-        root: 'plugins/installed',
-        package_source_type: 'local_zip',
-        package_source_ref: 'C:/plugins/weather.zip',
-        verified: false,
-      },
-      trust: {
-        level: 'unverified',
-        label: '未验证来源',
-      },
-      commands: [],
-      command_conflicts: [],
-      permissions: [
-        {
-          capability: 'http.request',
-          requirement: 'required',
-          status: 'granted',
-          source: 'persisted',
-          expires_at: null,
-        },
-        {
-          capability: 'logger.write',
-          requirement: 'optional',
-          status: 'granted',
-          source: 'config_auto',
-          expires_at: null,
-        },
-      ],
-    }
-    pluginsStore.grants = {
-      weather: [
-        {
-          plugin_id: 'weather',
-          capability: 'http.request',
-          granted_at: '2026-03-22T10:00:00Z',
-          source: 'persisted',
-          expires_at: null,
-        },
-      ],
-    }
-
-    vi.spyOn(pluginsStore, 'fetchDetail').mockResolvedValue(pluginsStore.current)
-    vi.spyOn(pluginsStore, 'fetchGrants').mockResolvedValue(pluginsStore.grants.weather)
-    vi.spyOn(pluginConsoleStore, 'fetchOutboundConsoleHistory').mockResolvedValue([])
-    vi.spyOn(socketStore, 'setConsolePlugin').mockImplementation(() => undefined)
-    vi.spyOn(socketStore, 'reconnectConsole').mockImplementation(() => undefined)
-
-    const executeActionSpy = vi.spyOn(pluginsStore, 'executeAction')
-      .mockRejectedValueOnce(new ApiError(
-        '插件所需能力尚未获批',
-        409,
-        'plugin.permission_pending',
-        'req_permission_pending_scope_changed',
-        {
-          plugin_id: 'weather',
-          scope_changed: true,
-        },
-        'errors.plugin.permission_pending',
-      ))
-      .mockResolvedValueOnce({
-        ...pluginsStore.current,
-        desired_state: 'enabled',
-        runtime_state: 'starting',
-        display_state: 'enabling',
-      })
-    const grantCapabilitySpy = vi.spyOn(pluginsStore, 'grantCapability').mockResolvedValue({
-      plugin_id: 'weather',
-      capability: 'http.request',
-      granted_at: '2026-03-22T10:05:00Z',
-      source: 'persisted',
-      expires_at: null,
-    })
-
-    const wrapper = mount(PluginDetailPage, {
-      global: {
-        plugins: [Antd, router],
-      },
-    })
-
-    await flushPromises()
-
-    await wrapper.find('.plugin-holo-button').trigger('click')
-    await flushPromises()
-
-    const bodyText = () => document.body.textContent ?? ''
-    expect(bodyText()).toContain('重新确认插件权限')
-    expect(bodyText()).toContain('作用域发生变化')
-    expect(bodyText()).toContain('发起 HTTP 请求')
-    expect(document.body.querySelector('[title="原始能力：http.request"]')).not.toBeNull()
-    expect(bodyText()).not.toContain('当前未声明权限')
-
-    const confirmButton = Array.from(document.body.querySelectorAll('button')).find(
-      (candidate) => candidate.textContent?.includes('重新确认选中项'),
-    ) as HTMLButtonElement | undefined
-    expect(confirmButton).toBeTruthy()
-    confirmButton!.click()
-    await flushPromises()
-
-    expect(grantCapabilitySpy).toHaveBeenCalledWith('weather', { capability: 'http.request' })
-    expect(executeActionSpy).toHaveBeenCalledTimes(2)
-  })
-
   it('escapes unsafe control characters in console output', async () => {
     const router = createPluginRouter()
     await router.push('/plugins/weather')
@@ -673,7 +525,6 @@ describe('PluginDetailPage', () => {
       },
       commands: [],
       command_conflicts: [],
-      permissions: [],
     }
     pluginConsoleStore.appendOutboundLog({
       log_id: 'log_weather_outbound_unsafe_0001',
@@ -687,7 +538,6 @@ describe('PluginDetailPage', () => {
     })
 
     vi.spyOn(pluginsStore, 'fetchDetail').mockResolvedValue(pluginsStore.current)
-    vi.spyOn(pluginsStore, 'fetchGrants').mockResolvedValue([])
     vi.spyOn(pluginConsoleStore, 'fetchOutboundConsoleHistory').mockResolvedValue([])
     vi.spyOn(socketStore, 'setConsolePlugin').mockImplementation(() => undefined)
     vi.spyOn(socketStore, 'reconnectConsole').mockImplementation(() => undefined)
@@ -740,11 +590,9 @@ describe('PluginDetailPage', () => {
           },
           commands: [],
           command_conflicts: [],
-          permissions: [],
         })
       })
     ))
-    vi.spyOn(pluginsStore, 'fetchGrants').mockResolvedValue([])
     vi.spyOn(pluginConsoleStore, 'fetchOutboundConsoleHistory').mockResolvedValue([])
     const setConsolePluginSpy = vi.spyOn(socketStore, 'setConsolePlugin').mockImplementation(() => undefined)
 
@@ -819,22 +667,13 @@ describe('PluginDetailPage', () => {
       },
       commands: [],
       command_conflicts: [],
-      permissions: [
-        {
-          capability: 'config.read',
-          requirement: 'required',
-          status: 'granted',
-          source: 'persisted',
-          expires_at: null,
-        },
-      ],
+      declared_capabilities: ['config.read', 'config.write'],
     } as const
 
     pluginsStore.current = detail
 
     vi.spyOn(configStore, 'fetchConfig').mockResolvedValue(undefined)
     vi.spyOn(pluginsStore, 'fetchDetail').mockResolvedValue(detail)
-    vi.spyOn(pluginsStore, 'fetchGrants').mockResolvedValue([])
     vi.spyOn(pluginConsoleStore, 'fetchOutboundConsoleHistory').mockResolvedValue([])
     vi.spyOn(socketStore, 'setConsolePlugin').mockImplementation(() => undefined)
     vi.spyOn(pluginsStore, 'fetchSettings').mockResolvedValue({
@@ -917,14 +756,13 @@ describe('PluginDetailPage', () => {
       },
       commands: [],
       command_conflicts: [],
-      permissions: [],
+      declared_capabilities: ['config.read'],
     } as const
 
     pluginsStore.current = detail
 
     vi.spyOn(configStore, 'fetchConfig').mockResolvedValue(undefined)
     vi.spyOn(pluginsStore, 'fetchDetail').mockResolvedValue(detail)
-    vi.spyOn(pluginsStore, 'fetchGrants').mockResolvedValue([])
     vi.spyOn(pluginConsoleStore, 'fetchOutboundConsoleHistory').mockResolvedValue([])
     vi.spyOn(socketStore, 'setConsolePlugin').mockImplementation(() => undefined)
 

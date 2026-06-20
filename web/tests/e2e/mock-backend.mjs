@@ -69,11 +69,6 @@ const fixtures = {
   pluginSettings: await readFixture('fixtures/web-api/ok.plugin-settings-response.yaml'),
   pluginSettingsUpdate: await readFixture('fixtures/web-api/ok.plugin-settings-update-response.yaml'),
   pluginUninstallAccepted: await readFixture('fixtures/web-api/ok.plugins-uninstall-accepted.yaml'),
-  pluginGrantsList: await readFixture('fixtures/web-api/ok.plugins-grants-list-response.yaml'),
-  pluginGrant: await readFixture('fixtures/web-api/ok.plugins-grant-response.yaml'),
-  pluginGrantWithExpiry: await readFixture('fixtures/web-api/ok.plugins-grant-with-expiry-response.yaml'),
-  pluginEnableScopeChanged: await readFixture('fixtures/web-api/edge.plugins-enable-permission-pending-scope-changed.yaml'),
-  invalidGrantExpiry: await readFixture('fixtures/web-api/invalid.plugins-grant-invalid-expires-at.yaml'),
   invalidUninstallNotFound: await readFixture('fixtures/web-api/invalid.plugins-uninstall-not-found.yaml'),
   governanceBlacklist: await readFixture('fixtures/web-api/ok.governance-blacklist-response.yaml'),
   governanceBlacklistEntryUpsert: await readFixture('fixtures/web-api/ok.governance-blacklist-entry-upsert.yaml'),
@@ -135,25 +130,6 @@ function baseState() {
     bilibiliQRCodePolls: {},
     renderTemplates: createRenderTemplateState(),
     schedulerJobs: structuredClone(fixtures.schedulerJobsList.response.body.items),
-    grants: {
-      weather: structuredClone(fixtures.pluginGrantsList.response.body.items),
-      'example-config-panel': [
-        {
-          plugin_id: 'example-config-panel',
-          capability: 'config.read',
-          granted_at: '2026-04-19T08:00:00Z',
-          source: 'persisted',
-          expires_at: null,
-        },
-        {
-          plugin_id: 'example-config-panel',
-          capability: 'config.write',
-          granted_at: '2026-04-19T08:00:01Z',
-          source: 'persisted',
-          expires_at: null,
-        },
-      ],
-    },
     systemStatus: structuredClone(fixtures.systemStatus.response.body),
     failures: {
       failPluginsListOnce: false,
@@ -161,7 +137,6 @@ function baseState() {
       failLogsOnce: false,
       failSystemStatusOnce: false,
       failUninstallOnce: false,
-      failPluginEnableScopeChangedOnce: false,
     },
     networkOffline: false,
   }
@@ -794,19 +769,6 @@ function getContentType(filePath) {
   }
 }
 
-function mergePluginPermissions(existingPermissions = [], nextPermissions = []) {
-  const merged = new Map(existingPermissions.map((permission) => [permission.capability, structuredClone(permission)]))
-  for (const permission of nextPermissions) {
-    const previous = merged.get(permission.capability) ?? {}
-    merged.set(permission.capability, {
-      ...previous,
-      ...structuredClone(permission),
-    })
-  }
-
-  return Array.from(merged.values()).sort((left, right) => left.capability.localeCompare(right.capability))
-}
-
 function mergePluginState(pluginId, patch) {
   const previous = state.plugins[pluginId] ?? {}
   state.plugins[pluginId] = {
@@ -816,25 +778,8 @@ function mergePluginState(pluginId, patch) {
     trust: structuredClone(patch.trust ?? previous.trust),
     commands: structuredClone(patch.commands ?? previous.commands ?? []),
     command_conflicts: structuredClone(patch.command_conflicts ?? previous.command_conflicts ?? []),
-    permissions: mergePluginPermissions(previous.permissions ?? [], patch.permissions ?? []),
   }
   return state.plugins[pluginId]
-}
-
-function updatePluginPermission(pluginId, capability, nextState) {
-  const plugin = state.plugins[pluginId]
-  if (!plugin?.permissions) {
-    return
-  }
-
-  plugin.permissions = plugin.permissions.map((permission) => (
-    permission.capability === capability
-      ? {
-        ...permission,
-        ...nextState,
-      }
-      : permission
-  ))
 }
 
 function taskSummary(taskId, taskType, summary) {
@@ -1873,15 +1818,6 @@ const server = http.createServer(async (request, response) => {
     }
 
     const pluginId = pathname.split('/')[3]
-    if (takeFailureFlag('failPluginEnableScopeChangedOnce')) {
-      json(
-        response,
-        fixtures.pluginEnableScopeChanged.response.status,
-        fixtures.pluginEnableScopeChanged.response.body,
-      )
-      return
-    }
-
     mergePluginState(pluginId, fixtures.pluginEnable.response.body.plugin)
     broadcast('events', {
       channel: 'events',
@@ -1968,83 +1904,6 @@ const server = http.createServer(async (request, response) => {
     }
 
     json(response, 200, updatedBody)
-    return
-  }
-
-  if (pathname.startsWith('/api/plugins/') && pathname.endsWith('/grants') && request.method === 'GET') {
-    if (!requireAuth(request, response)) {
-      return
-    }
-
-    const pluginId = pathname.split('/')[3]
-    json(response, 200, {
-      items: state.grants[pluginId] ?? [],
-    })
-    return
-  }
-
-  if (pathname.startsWith('/api/plugins/') && pathname.endsWith('/grants') && request.method === 'POST') {
-    if (!requireAuth(request, response)) {
-      return
-    }
-
-    const pluginId = pathname.split('/')[3]
-    const payload = await parseBody(request)
-    if (payload.expires_at) {
-      const parsed = Date.parse(payload.expires_at)
-      if (!Number.isFinite(parsed) || parsed <= Date.now()) {
-        json(response, fixtures.invalidGrantExpiry.response.status, {
-          error: {
-            ...fixtures.invalidGrantExpiry.response.body.error,
-            message: 'expires_at must be a future UTC RFC3339 timestamp',
-            request_id: 'req_grant_invalid_expiry',
-          },
-        })
-        return
-      }
-    }
-
-    const grantedAt = payload.expires_at
-      ? fixtures.pluginGrantWithExpiry.response.body.granted_at
-      : fixtures.pluginGrant.response.body.granted_at
-
-    const nextGrant = {
-      plugin_id: pluginId,
-      capability: payload.capability,
-      granted_at: grantedAt,
-      source: 'persisted',
-      ...(payload.expires_at ? { expires_at: payload.expires_at } : {}),
-    }
-
-    state.grants[pluginId] = [
-      ...(state.grants[pluginId] ?? []).filter((item) => item.capability !== payload.capability),
-      nextGrant,
-    ].sort((left, right) => left.capability.localeCompare(right.capability))
-
-    updatePluginPermission(pluginId, payload.capability, {
-      status: 'granted',
-      source: 'persisted',
-      expires_at: payload.expires_at ?? null,
-    })
-
-    json(response, 200, nextGrant)
-    return
-  }
-
-  if (pathname.includes('/grants/') && request.method === 'DELETE') {
-    if (!requireAuth(request, response)) {
-      return
-    }
-
-    const pluginId = pathname.split('/')[3]
-    const capability = decodeURIComponent(pathname.split('/')[5])
-    state.grants[pluginId] = (state.grants[pluginId] ?? []).filter((item) => item.capability !== capability)
-    updatePluginPermission(pluginId, capability, {
-      status: 'not_granted',
-      source: 'none',
-      expires_at: null,
-    })
-    noContent(response)
     return
   }
 

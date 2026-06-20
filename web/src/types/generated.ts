@@ -824,41 +824,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/plugins/{plugin_id}/grants": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** List the plugin's currently effective grants. */
-        get: operations["listPluginGrants"];
-        put?: never;
-        /** Grant one declared capability to a plugin. */
-        post: operations["grantPluginCapability"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/plugins/{plugin_id}/grants/{capability}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        /** Revoke one capability grant from a plugin. */
-        delete: operations["revokePluginCapabilityGrant"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/plugins/{plugin_id}/settings": {
         parameters: {
             query?: never;
@@ -1682,22 +1647,6 @@ export interface components {
         PluginListResponse: {
             items: components["schemas"]["PluginSummary"][];
         };
-        /** @enum {string} */
-        PluginPermissionRequirement: "required" | "optional";
-        /** @enum {string} */
-        PluginPermissionStatus: "granted" | "not_granted";
-        /** @enum {string} */
-        PluginGrantSource: "builtin_auto" | "config_auto" | "persisted";
-        /** @enum {string} */
-        PluginPermissionSource: "builtin_auto" | "config_auto" | "persisted" | "none";
-        PluginPermissionSummary: {
-            capability: string;
-            requirement: components["schemas"]["PluginPermissionRequirement"];
-            status: components["schemas"]["PluginPermissionStatus"];
-            source: components["schemas"]["PluginPermissionSource"];
-            /** Format: date-time */
-            expires_at?: string | null;
-        };
         PluginDependencies: {
             python?: string[];
             nodejs?: string[];
@@ -1710,7 +1659,7 @@ export interface components {
             secret_ref: string;
             source_ips?: string[];
         };
-        PluginScopes: {
+        PluginCapabilityParameters: {
             http_hosts?: string[];
             storage_roots?: string[];
             webhooks?: components["schemas"]["PluginWebhookScope"][];
@@ -1731,7 +1680,6 @@ export interface components {
             path: string;
         };
         PluginDetail: components["schemas"]["PluginSummary"] & {
-            permissions: components["schemas"]["PluginPermissionSummary"][];
             version?: string;
             runtime?: components["schemas"]["PluginRuntimeFamily"];
             type?: components["schemas"]["PluginPackageType"];
@@ -1750,7 +1698,7 @@ export interface components {
             };
             declared_capabilities?: string[];
             dependencies?: components["schemas"]["PluginDependencies"];
-            scopes?: components["schemas"]["PluginScopes"];
+            capability_parameters?: components["schemas"]["PluginCapabilityParameters"];
             icon?: string;
             /** Format: uri */
             repo?: string;
@@ -1995,26 +1943,6 @@ export interface components {
             changed_keys: string[];
             values: components["schemas"]["PluginSecretValues"];
         };
-        PluginGrantRequest: {
-            capability: string;
-            /**
-             * Format: date-time
-             * @description Optional absolute UTC RFC3339 expiry timestamp. When omitted, the grant remains valid until revoked.
-             */
-            expires_at?: string;
-        };
-        PluginGrantSummary: {
-            plugin_id: string;
-            capability: string;
-            /** Format: date-time */
-            granted_at?: string | null;
-            source: components["schemas"]["PluginGrantSource"];
-            /** Format: date-time */
-            expires_at?: string | null;
-        };
-        PluginGrantListResponse: {
-            items: components["schemas"]["PluginGrantSummary"][];
-        };
         PluginInstallRequest: {
             /** @enum {string} */
             source_type: "local_zip" | "local_directory" | "remote_url";
@@ -2135,8 +2063,6 @@ export interface components {
                  * @enum {string}
                  */
                 default_level: "super_admin" | "group_admin" | "everyone";
-                /** @default [] */
-                auto_grant_capabilities: string[];
             };
             render: {
                 /**
@@ -3632,85 +3558,6 @@ export interface operations {
             401: components["responses"]["Error"];
             404: components["responses"]["Error"];
             409: components["responses"]["Error"];
-            default: components["responses"]["Error"];
-        };
-    };
-    listPluginGrants: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                plugin_id: components["parameters"]["PluginId"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Current effective grants after expiry filtering. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PluginGrantListResponse"];
-                };
-            };
-            401: components["responses"]["Error"];
-            404: components["responses"]["Error"];
-            default: components["responses"]["Error"];
-        };
-    };
-    grantPluginCapability: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                plugin_id: components["parameters"]["PluginId"];
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["PluginGrantRequest"];
-            };
-        };
-        responses: {
-            /** @description Capability grant persisted. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PluginGrantSummary"];
-                };
-            };
-            400: components["responses"]["Error"];
-            401: components["responses"]["Error"];
-            404: components["responses"]["Error"];
-            default: components["responses"]["Error"];
-        };
-    };
-    revokePluginCapabilityGrant: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                plugin_id: components["parameters"]["PluginId"];
-                capability: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Capability grant revoked. */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            401: components["responses"]["Error"];
-            404: components["responses"]["Error"];
             default: components["responses"]["Error"];
         };
     };

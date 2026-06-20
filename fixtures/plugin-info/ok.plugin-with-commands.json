@@ -17,10 +17,6 @@
     "capabilities": [
       "event.subscribe"
     ],
-    "permissions": {
-      "required": [],
-      "optional": []
-    },
     "default_config": {
       "default_city": "北京",
       "unit": "celsius"
@@ -28,7 +24,10 @@
     "commands": [
       {
         "name": "天气",
-        "aliases": ["weather", "天气？"],
+        "aliases": [
+          "weather",
+          "天气？"
+        ],
         "description": "查询指定城市天气",
         "usage": "/天气 <城市> [--days=N]",
         "permission": "everyone"

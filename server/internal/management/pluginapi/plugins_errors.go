@@ -21,21 +21,6 @@ func writeDesiredStateError(w http.ResponseWriter, r *http.Request, pluginID str
 		writeError(w, r, 409, codeInvalidRequest, "请求参数不合法", "errors.platform.invalid_request", map[string]any{"plugin_id": pluginID})
 		return
 	}
-	var permissionPending *plugins.PermissionPendingError
-	if errors.As(err, &permissionPending) {
-		details := map[string]any{
-			"plugin_id": pluginID,
-		}
-		if len(permissionPending.MissingCapabilities) > 0 {
-			details["missing_capabilities"] = append([]string(nil), permissionPending.MissingCapabilities...)
-		}
-		if permissionPending.ScopeChanged {
-			details["scope_changed"] = true
-		}
-		writeError(w, r, 409, "plugin.permission_pending", "插件所需能力尚未获批", "errors.plugin.permission_pending", details)
-		return
-	}
-
 	writeError(w, r, http.StatusInternalServerError, "platform.internal_error", "内部错误", "errors.platform.internal_error", nil)
 }
 

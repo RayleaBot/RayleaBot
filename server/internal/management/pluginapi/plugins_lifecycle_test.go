@@ -7,7 +7,6 @@ import (
 	"testing"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
-	"github.com/go-chi/chi/v5"
 	"pgregory.net/rapid"
 )
 
@@ -117,52 +116,6 @@ func TestDisableHandler_RuntimeStillStopping(t *testing.T) {
 	}
 }
 
-func TestEnableHandler_ReturnsPermissionPendingForScopeChange(t *testing.T) {
-	t.Parallel()
-
-	catalog := newTestCatalog([]plugins.Snapshot{{
-		PluginID:          "weather",
-		Valid:             true,
-		RegistrationState: "installed",
-		DesiredState:      "disabled",
-		RuntimeState:      "stopped",
-	}})
-	controller := &stubDesiredStateController{
-		enableErr: &plugins.PermissionPendingError{
-			PluginID:     "weather",
-			ScopeChanged: true,
-		},
-	}
-	router := chi.NewRouter()
-	RegisterPluginRoutes(router, catalog, nil, nil, nil, controller, nil, nil, nil)
-
-	req := httptest.NewRequest(http.MethodPost, "/api/plugins/weather/enable", nil)
-	rec := httptest.NewRecorder()
-
-	router.ServeHTTP(rec, req)
-
-	if rec.Code != http.StatusConflict {
-		t.Fatalf("status = %d, want 409; body = %s", rec.Code, rec.Body.String())
-	}
-
-	env := decodeErrorEnvelope(t, rec.Body.Bytes())
-	if env.Error.Code != "plugin.permission_pending" {
-		t.Fatalf("error.code = %q, want plugin.permission_pending", env.Error.Code)
-	}
-	if env.Error.MessageKey != "errors.plugin.permission_pending" {
-		t.Fatalf("error.message_key = %q, want errors.plugin.permission_pending", env.Error.MessageKey)
-	}
-	details := env.Error.Details
-	if details["plugin_id"] != "weather" {
-		t.Fatalf("details.plugin_id = %#v, want weather", details["plugin_id"])
-	}
-	if details["scope_changed"] != true {
-		t.Fatalf("details.scope_changed = %#v, want true", details["scope_changed"])
-	}
-	if _, ok := details["missing_capabilities"]; ok {
-		t.Fatalf("unexpected missing_capabilities: %#v", details["missing_capabilities"])
-	}
-}
 func TestEnableHandler_AlreadyEnabled_409(t *testing.T) {
 	router, _, _, repo := setupRouter([]plugins.Snapshot{{
 		PluginID:          "weather",

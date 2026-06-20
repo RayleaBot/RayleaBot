@@ -11,7 +11,7 @@
 | [Platform Architecture](./platform-architecture.md) | 平台组件分层、运行资源和跨层边界 |
 | [Event Model](./event-model.md) | OneBot11 事件归一化、插件协议消息和管理 WebSocket 事件 |
 | [Message Flow](./message-flow.md) | 消息入站、插件分发、出站发送和定时触发链路 |
-| [State Model](./state-model.md) | 插件运行时、任务、授权时效和连接状态 |
+| [State Model](./state-model.md) | 插件运行时、任务和连接状态 |
 | [Bot Core](./bot-core.md) | 事件分发、命令解析、聊天权限、调度和后台任务 |
 | [Render Service](./render-service.md) | 模板渲染、队列、artifact 与资源边界 |
 | [Platform Runtime](./platform-runtime.md) | 配置、存储、日志、恢复、Launcher 控制面和兼容策略 |
@@ -58,7 +58,7 @@ OneBot11 transport
 | System Service | 负责恢复摘要、运行环境诊断、备份和系统状态 |
 | Third-Party Account Service | 负责内置三方账号摘要、凭据保存状态和 Bilibili CK 校验 |
 | Bilibili Source | 负责内置 Bilibili 直播与动态订阅状态、平台事件投递和诊断 |
-| Capability Grant Manager | 负责插件能力授权与时效过滤 |
+| Capability View | 提供插件声明能力与能力参数查询 |
 | Governance Service | 负责黑白名单、白名单状态、命令策略读取面与聊天侧权限裁决 |
 | HTTP / WebSocket Handlers | 负责按领域暴露管理 API 与实时通道 |
 

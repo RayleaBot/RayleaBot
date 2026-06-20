@@ -41,10 +41,6 @@
     "default_config": {
       "unit": "metric",
       "forecast_days": 3
-    },
-    "permissions": {
-      "required": [],
-      "optional": []
     }
   },
   "expect": {

@@ -69,9 +69,14 @@ def response_excerpt_suffix(excerpt):
     return f"。响应：{excerpt}" if excerpt else "。"
 
 
-def is_http_permission_error(exc):
+def is_http_capability_error(exc):
     code = str(getattr(exc, "code", "") or "").lower()
     message = str(exc or "").lower()
     details = str(getattr(exc, "details", "") or "").lower()
     combined = " ".join([code, message, details])
-    return "permission" in combined or "scope" in combined or "granted" in combined
+    return (
+        "capability" in combined
+        or "capability_parameters" in combined
+        or "http_hosts" in combined
+        or "scope" in combined
+    )

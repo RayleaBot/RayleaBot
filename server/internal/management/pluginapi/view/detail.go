@@ -17,12 +17,12 @@ func buildPluginDependencies(snapshot plugins.Snapshot) *DependenciesResponse {
 	}
 }
 
-func buildPluginScopes(snapshot plugins.Snapshot) *ScopesResponse {
+func buildPluginCapabilityParameters(snapshot plugins.Snapshot) *CapabilityParametersResponse {
 	if len(snapshot.ScopeHTTPHosts) == 0 && len(snapshot.ScopeStorageRoots) == 0 && len(snapshot.ScopeWebhooks) == 0 {
 		return nil
 	}
 
-	response := &ScopesResponse{
+	response := &CapabilityParametersResponse{
 		HTTPHosts:    NormalizeStringList(snapshot.ScopeHTTPHosts),
 		StorageRoots: NormalizeStringList(snapshot.ScopeStorageRoots),
 	}
@@ -107,10 +107,8 @@ func buildPluginRenderTemplates(snapshot plugins.Snapshot) []RenderTemplateRespo
 	return items
 }
 
-func BuildDetail(catalog plugins.CatalogView, snapshot plugins.Snapshot, persisted []plugins.PluginGrant, autoGrants []string) DetailResponse {
+func BuildDetail(catalog plugins.CatalogView, snapshot plugins.Snapshot) DetailResponse {
 	summary := BuildSummary(catalog, snapshot)
-	effective := plugins.ComputeEffectiveGrants(snapshot, plugins.DedupeCapabilities(autoGrants), persisted)
-	permissions := plugins.BuildPermissionSummaries(snapshot, effective)
 	return DetailResponse{
 		Plugin: DetailPluginResponse{
 			ID:                   summary.ID,
@@ -132,7 +130,7 @@ func BuildDetail(catalog plugins.CatalogView, snapshot plugins.Snapshot, persist
 			DefaultConfig:        plugins.CloneMap(snapshot.DefaultConfig),
 			DeclaredCapabilities: NormalizeStringList(snapshot.DeclaredCapabilities),
 			Dependencies:         buildPluginDependencies(snapshot),
-			Scopes:               buildPluginScopes(snapshot),
+			CapabilityParameters: buildPluginCapabilityParameters(snapshot),
 			Icon:                 strings.TrimSpace(snapshot.Icon),
 			Repo:                 strings.TrimSpace(snapshot.Repo),
 			Homepage:             strings.TrimSpace(snapshot.Homepage),
@@ -151,7 +149,6 @@ func BuildDetail(catalog plugins.CatalogView, snapshot plugins.Snapshot, persist
 			Help:                 summary.Help,
 			CommandConflicts:     summary.CommandConflicts,
 			DeadLetter:           summary.DeadLetter,
-			Permissions:          BuildPermissionResponses(permissions),
 		},
 	}
 }

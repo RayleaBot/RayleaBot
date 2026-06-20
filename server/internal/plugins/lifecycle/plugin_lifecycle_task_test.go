@@ -33,7 +33,6 @@ func TestReloadCreatesPluginReloadTask(t *testing.T) {
 	app.setTestLifecycle(
 		catalog,
 		nil,
-		nil,
 		newRuntimeRegistry(slog.Default(), runtimemanager.Options{}),
 		dispatch.New(slog.Default(), nil, nil, 16),
 		nil,
@@ -78,7 +77,6 @@ func TestReloadRejectedBeforeAcceptanceDoesNotCreateTask(t *testing.T) {
 	app.setTestSystem(registry, nil, nil, nil)
 	app.setTestLifecycle(
 		catalog,
-		nil,
 		nil,
 		newRuntimeRegistry(slog.Default(), runtimemanager.Options{}),
 		dispatch.New(slog.Default(), nil, nil, 16),

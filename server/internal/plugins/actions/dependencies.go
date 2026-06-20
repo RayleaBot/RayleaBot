@@ -14,11 +14,11 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins/actions/webhookaction"
 )
 
-type GrantView interface {
-	CapabilityGranted(context.Context, string, string) bool
-	StorageRootGranted(context.Context, string, string) bool
-	GrantedHTTPHosts(context.Context, string) []string
-	GrantedWebhookScope(context.Context, string, string) (plugins.WebhookScope, bool)
+type CapabilityView interface {
+	CapabilityDeclared(context.Context, string, string) bool
+	StorageRootAllowed(context.Context, string, string) bool
+	HTTPHosts(context.Context, string) []string
+	WebhookParameters(context.Context, string, string) (plugins.WebhookScope, bool)
 	ListPluginSnapshots() []plugins.Snapshot
 }
 

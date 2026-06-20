@@ -83,12 +83,10 @@ func TestExecuteOneBotLocalActionMessageHistoryGet(t *testing.T) {
 	shell.Start(ctx)
 	waitForAdapterState(t, shell, adaptershell.StateConnected, time.Second)
 
-	application := newTestAppState(config.Config{
-		Permission: config.PermissionConfig{
-			AutoGrantCapabilities: []string{"message.history.get"},
-		},
-	}, slog.New(slog.NewTextHandler(io.Discard, nil)))
-	application.setTestLocalActions(nil, nil, nil, nil, nil, nil, nil, shell, nil, nil)
+	application := newTestAppState(config.Config{}, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	application.setTestLocalActions(&stubCapabilityView{capabilities: map[string][]stubCapability{
+		"weather": {{PluginID: "weather", Capability: "message.history.get"}},
+	}}, nil, nil, nil, nil, nil, nil, shell, nil, nil)
 
 	result, err := application.executeOneBotLocalAction(context.Background(), "weather", "req_hist", runtimeaction.Action{
 		Kind: "message.history.get",
@@ -139,12 +137,10 @@ func TestExecuteOneBotLocalActionMessageHistoryGet(t *testing.T) {
 func TestExecuteOneBotLocalActionProviderMismatch(t *testing.T) {
 	t.Parallel()
 
-	application := newTestAppState(config.Config{
-		Permission: config.PermissionConfig{
-			AutoGrantCapabilities: []string{"provider.napcat.message_emoji.like.set"},
-		},
-	}, nil)
-	application.setTestLocalActions(nil, nil, nil, nil, nil, nil, nil, &adaptershell.Shell{}, nil, nil)
+	application := newTestAppState(config.Config{}, nil)
+	application.setTestLocalActions(&stubCapabilityView{capabilities: map[string][]stubCapability{
+		"weather": {{PluginID: "weather", Capability: "provider.napcat.message_emoji.like.set"}},
+	}}, nil, nil, nil, nil, nil, nil, &adaptershell.Shell{}, nil, nil)
 
 	_, err := application.executeOneBotLocalAction(context.Background(), "weather", "req_provider", runtimeaction.Action{
 		Kind: "provider.napcat.message_emoji.like.set",
@@ -245,12 +241,10 @@ func TestExecuteOneBotLocalActionProviderExtensionUsesDetectedProvider(t *testin
 	waitForAdapterState(t, shell, adaptershell.StateConnected, time.Second)
 	waitForRuntimeInfo(t, shell, adaptershell.TransportForwardWS, "napcat", time.Second)
 
-	application := newTestAppState(config.Config{
-		Permission: config.PermissionConfig{
-			AutoGrantCapabilities: []string{"provider.napcat.message_emoji.like.set"},
-		},
-	}, nil)
-	application.setTestLocalActions(nil, nil, nil, nil, nil, nil, nil, shell, nil, nil)
+	application := newTestAppState(config.Config{}, nil)
+	application.setTestLocalActions(&stubCapabilityView{capabilities: map[string][]stubCapability{
+		"weather": {{PluginID: "weather", Capability: "provider.napcat.message_emoji.like.set"}},
+	}}, nil, nil, nil, nil, nil, nil, shell, nil, nil)
 
 	_, err := application.executeOneBotLocalAction(context.Background(), "weather", "req_provider", runtimeaction.Action{
 		Kind: "provider.napcat.message_emoji.like.set",
@@ -294,17 +288,13 @@ func TestExecuteOneBotLocalActionRejectsMissingCapability(t *testing.T) {
 			"conversation_id":   "456",
 		},
 	})
-	assertRuntimeErrorCode(t, err, "permission.scope_violation")
+	assertRuntimeErrorCode(t, err, "plugin.capability_violation")
 }
 
 func TestExecuteOneBotLocalActionConnectionLossKeepsPluginRunning(t *testing.T) {
 	t.Parallel()
 
-	application := newTestAppState(config.Config{
-		Permission: config.PermissionConfig{
-			AutoGrantCapabilities: []string{"message.history.get"},
-		},
-	}, nil)
+	application := newTestAppState(config.Config{}, nil)
 	application.pluginStack.Plugins = plugincatalog.New([]plugins.Snapshot{{
 		PluginID:          "weather",
 		Name:              "Weather",
@@ -313,7 +303,9 @@ func TestExecuteOneBotLocalActionConnectionLossKeepsPluginRunning(t *testing.T) 
 		DesiredState:      "enabled",
 		RuntimeState:      "running",
 	}})
-	application.setTestLocalActions(nil, nil, nil, nil, nil, nil, nil, &adaptershell.Shell{}, nil, nil)
+	application.setTestLocalActions(&stubCapabilityView{capabilities: map[string][]stubCapability{
+		"weather": {{PluginID: "weather", Capability: "message.history.get"}},
+	}}, nil, nil, nil, nil, nil, nil, &adaptershell.Shell{}, nil, nil)
 
 	_, err := application.executeOneBotLocalAction(context.Background(), "weather", "req_hist_disconnected", runtimeaction.Action{
 		Kind: "message.history.get",

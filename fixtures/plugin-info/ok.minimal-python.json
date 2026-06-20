@@ -17,11 +17,7 @@
     "capabilities": [
       "event.subscribe",
       "logger.write"
-    ],
-    "permissions": {
-      "required": [],
-      "optional": []
-    }
+    ]
   },
   "expect": {
     "valid": true

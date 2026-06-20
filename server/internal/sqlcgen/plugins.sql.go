@@ -7,17 +7,7 @@ package sqlcgen
 
 import (
 	"context"
-	"database/sql"
 )
-
-const deleteAllGrants = `-- name: DeleteAllGrants :exec
-DELETE FROM plugin_grants WHERE plugin_id = ?
-`
-
-func (q *Queries) DeleteAllGrants(ctx context.Context, pluginID string) error {
-	_, err := q.db.ExecContext(ctx, deleteAllGrants, pluginID)
-	return err
-}
 
 const deleteDesiredState = `-- name: DeleteDesiredState :exec
 DELETE FROM plugin_instances WHERE plugin_id = ?
@@ -28,20 +18,6 @@ func (q *Queries) DeleteDesiredState(ctx context.Context, pluginID string) error
 	return err
 }
 
-const deleteGrant = `-- name: DeleteGrant :exec
-DELETE FROM plugin_grants WHERE plugin_id = ? AND capability = ?
-`
-
-type DeleteGrantParams struct {
-	PluginID   string
-	Capability string
-}
-
-func (q *Queries) DeleteGrant(ctx context.Context, arg DeleteGrantParams) error {
-	_, err := q.db.ExecContext(ctx, deleteGrant, arg.PluginID, arg.Capability)
-	return err
-}
-
 const deletePackageMetadata = `-- name: DeletePackageMetadata :exec
 DELETE FROM plugin_packages WHERE plugin_id = ?
 `
@@ -49,40 +25,6 @@ DELETE FROM plugin_packages WHERE plugin_id = ?
 func (q *Queries) DeletePackageMetadata(ctx context.Context, pluginID string) error {
 	_, err := q.db.ExecContext(ctx, deletePackageMetadata, pluginID)
 	return err
-}
-
-const loadAllGrants = `-- name: LoadAllGrants :many
-SELECT plugin_id, capability, expires_at
-FROM plugin_grants ORDER BY plugin_id, capability
-`
-
-type LoadAllGrantsRow struct {
-	PluginID   string
-	Capability string
-	ExpiresAt  sql.NullString
-}
-
-func (q *Queries) LoadAllGrants(ctx context.Context) ([]LoadAllGrantsRow, error) {
-	rows, err := q.db.QueryContext(ctx, loadAllGrants)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []LoadAllGrantsRow{}
-	for rows.Next() {
-		var i LoadAllGrantsRow
-		if err := rows.Scan(&i.PluginID, &i.Capability, &i.ExpiresAt); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
 }
 
 const loadAllPackageMetadata = `-- name: LoadAllPackageMetadata :many
@@ -153,40 +95,6 @@ func (q *Queries) LoadDesiredStates(ctx context.Context) ([]LoadDesiredStatesRow
 	return items, nil
 }
 
-const loadGrants = `-- name: LoadGrants :many
-SELECT plugin_id, capability, scope_json, granted_at, expires_at
-FROM plugin_grants WHERE plugin_id = ? ORDER BY capability
-`
-
-func (q *Queries) LoadGrants(ctx context.Context, pluginID string) ([]PluginGrant, error) {
-	rows, err := q.db.QueryContext(ctx, loadGrants, pluginID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []PluginGrant{}
-	for rows.Next() {
-		var i PluginGrant
-		if err := rows.Scan(
-			&i.PluginID,
-			&i.Capability,
-			&i.ScopeJson,
-			&i.GrantedAt,
-			&i.ExpiresAt,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const saveDesiredState = `-- name: SaveDesiredState :exec
 INSERT INTO plugin_instances (plugin_id, desired_state, updated_at)
 VALUES (?, ?, ?)
@@ -203,34 +111,6 @@ type SaveDesiredStateParams struct {
 
 func (q *Queries) SaveDesiredState(ctx context.Context, arg SaveDesiredStateParams) error {
 	_, err := q.db.ExecContext(ctx, saveDesiredState, arg.PluginID, arg.DesiredState, arg.UpdatedAt)
-	return err
-}
-
-const saveGrant = `-- name: SaveGrant :exec
-INSERT INTO plugin_grants (plugin_id, capability, scope_json, granted_at, expires_at)
-VALUES (?, ?, ?, ?, ?)
-ON CONFLICT(plugin_id, capability) DO UPDATE SET
-    scope_json = excluded.scope_json,
-    granted_at = excluded.granted_at,
-    expires_at = excluded.expires_at
-`
-
-type SaveGrantParams struct {
-	PluginID   string
-	Capability string
-	ScopeJson  string
-	GrantedAt  string
-	ExpiresAt  sql.NullString
-}
-
-func (q *Queries) SaveGrant(ctx context.Context, arg SaveGrantParams) error {
-	_, err := q.db.ExecContext(ctx, saveGrant,
-		arg.PluginID,
-		arg.Capability,
-		arg.ScopeJson,
-		arg.GrantedAt,
-		arg.ExpiresAt,
-	)
 	return err
 }
 

@@ -108,11 +108,11 @@ test('requestLocalAction preserves structured error details', async () => {
 
 test('requestLocalAction defaults missing error details to an empty object', async () => {
   const error = await requestLocalActionError({
-    code: 'permission.scope_violation',
-    message: 'capability not granted',
+    code: 'plugin.capability_violation',
+    message: 'capability is not declared',
   });
 
   assert.equal(error.name, 'ActionError');
-  assert.equal(error.code, 'permission.scope_violation');
+  assert.equal(error.code, 'plugin.capability_violation');
   assert.deepEqual(error.details, {});
 });

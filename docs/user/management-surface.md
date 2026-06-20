@@ -20,9 +20,9 @@
 | 内置菜单 | `/menu-center` | 查看平台内置菜单、声明命令和当前可用菜单入口 |
 | 三方账号 | `/third-party-accounts` | 管理 Bilibili CK、扫码登录、凭据状态和轮询启用状态 |
 | 三方监控 | `/third-party-monitoring` | 查看 Bilibili 直播与动态订阅状态、诊断和事件源重启入口 |
-| 插件列表 | `/plugins` | 安装、卸载、启用、禁用、重载、授权和查看插件列表 |
-| 插件设置 | `/plugins/settings` | 查看和保存命令前缀、插件授权、插件日志和插件存储设置 |
-| 插件详情 | `/plugins/:id` | 查看 rich manifest metadata、权限、命令、实时控制台和插件内置管理页 |
+| 插件列表 | `/plugins` | 安装、卸载、启用、禁用、重载和查看插件列表 |
+| 插件设置 | `/plugins/settings` | 查看和保存命令前缀、插件日志和插件存储设置 |
+| 插件详情 | `/plugins/:id` | 查看 rich manifest metadata、声明能力、命令、实时控制台和插件内置管理页 |
 | 权限策略 | `/permission-policy` | 查看和保存超级管理员和默认权限 |
 | 黑白名单 | `/access-lists` | 管理白名单、黑名单和白名单启用状态 |
 | 限流中心 | `/rate-limits` | 查看和保存用户命令、群命令、插件消息、目标消息限流和冷却提示 |

@@ -5,7 +5,6 @@ import (
 	"errors"
 	"time"
 
-	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	runtimemanager "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime/manager"
 )
 
@@ -62,19 +61,4 @@ func (c *Controller) stopPlugin(ctx context.Context, pluginID string, remove boo
 		c.webhooks.DeletePlugin(pluginID)
 	}
 	_, _ = c.plugins.SetRuntimeState(pluginID, string(runtimemanager.StateStopped))
-}
-
-func (c *Controller) disablePluginForPermissionLoss(ctx context.Context, pluginID string) {
-	if c == nil {
-		return
-	}
-
-	if err := persistPluginDesiredState(ctx, c.desiredStateRepo, pluginID, "disabled"); err != nil {
-		c.logLifecycleWarn("persist disabled desired_state after permission rejection", pluginID, err)
-	}
-	if _, err := c.plugins.SetDesiredState(pluginID, "disabled"); err != nil && !errors.Is(err, plugins.ErrPluginNotFound) {
-		c.logLifecycleWarn("set disabled desired_state after permission rejection", pluginID, err)
-	}
-	c.stopPlugin(ctx, pluginID, true)
-	c.reconcileRecoverySummaryBestEffort("plugin.permission_disable")
 }

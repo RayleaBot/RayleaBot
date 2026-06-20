@@ -36,7 +36,6 @@ type State struct {
 	PluginConfig      pluginconfig.Repository
 	PluginFiles       *pluginfile.Service
 	PluginKV          pluginkv.Repository
-	GrantRepository   plugins.GrantRepository
 	Webhooks          *pluginwebhook.Registry
 	PluginLogLimiter  *localaction.PluginLogLimiter
 }
@@ -67,7 +66,6 @@ func Build(deps Deps) (State, error) {
 		PluginConfig:      pluginConfigRepository,
 		PluginFiles:       pluginFileService,
 		PluginKV:          pluginKVRepository,
-		GrantRepository:   pluginRepository,
 		Webhooks:          webhookRegistry,
 		PluginLogLimiter:  localaction.NewPluginLogLimiter(deps.Config),
 	}, nil

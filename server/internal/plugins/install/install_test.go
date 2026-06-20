@@ -590,10 +590,6 @@ func writeInstallSourcePlugin(t *testing.T, root, pluginID, runtimeName, entry s
 		"description":             "test plugin",
 		"author":                  "raylea",
 		"capabilities":            []string{"event.subscribe"},
-		"permissions": map[string]any{
-			"required": []string{},
-			"optional": []string{},
-		},
 		"dependencies": map[string]any{
 			"python": append([]string{}, opts.PythonDependencies...),
 			"nodejs": append([]string{}, opts.NodeDependencies...),
@@ -646,10 +642,6 @@ func addRenderTemplateDeclarationToManifest(t *testing.T, pluginRoot, templatePa
 	}
 	manifest["render_templates"] = []map[string]any{{"path": templatePath}}
 	manifest["capabilities"] = []string{"event.subscribe", "render.image"}
-	manifest["permissions"] = map[string]any{
-		"required": []string{"render.image"},
-		"optional": []string{},
-	}
 	encoded, err := json.MarshalIndent(manifest, "", "  ")
 	if err != nil {
 		t.Fatalf("encode manifest: %v", err)

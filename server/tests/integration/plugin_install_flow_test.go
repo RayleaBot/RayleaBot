@@ -206,10 +206,6 @@ func writePluginInstallSource(t *testing.T, root, pluginID, runtimeName, entry s
 		"description":             "test plugin",
 		"author":                  "raylea",
 		"capabilities":            []string{"event.subscribe"},
-		"permissions": map[string]any{
-			"required": []string{},
-			"optional": []string{},
-		},
 	}
 
 	manifestBytes, err := json.MarshalIndent(manifest, "", "  ")

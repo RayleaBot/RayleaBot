@@ -24,13 +24,9 @@ func TestExecuteRenderImageReturnsArtifact(t *testing.T) {
 	t.Parallel()
 
 	renderRoot := filepath.Join(t.TempDir(), "render")
-	application := newTestAppState(config.Config{
-		Permission: config.PermissionConfig{
-			AutoGrantCapabilities: []string{"render.image"},
-		},
-	}, slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)))
+	application := newTestAppState(config.Config{}, slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)))
 	application.setTestLocalActions(
-		&stubLifecycleGrantRepository{grants: map[string][]plugins.PluginGrant{}},
+		stubCapabilityViewFor("help-menu", "render.image"),
 		nil,
 		nil,
 		nil,
@@ -79,20 +75,17 @@ func TestExecuteRenderImageInjectsPluginFooter(t *testing.T) {
 
 	renderRoot := filepath.Join(t.TempDir(), "render")
 	runner := &captureRenderRunner{}
-	application := newTestAppState(config.Config{
-		Permission: config.PermissionConfig{
-			AutoGrantCapabilities: []string{"render.image"},
-		},
-	}, slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)))
+	application := newTestAppState(config.Config{}, slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)))
 	application.pluginStack.Plugins = plugincatalog.New([]plugins.Snapshot{{
-		PluginID:          "help-menu",
-		Name:              "帮助",
-		Version:           "1.0.0",
-		Valid:             true,
-		RegistrationState: "installed",
+		PluginID:             "help-menu",
+		Name:                 "帮助",
+		Version:              "1.0.0",
+		Valid:                true,
+		RegistrationState:    "installed",
+		DeclaredCapabilities: []string{"render.image"},
 	}})
 	application.setTestLocalActions(
-		&stubLifecycleGrantRepository{grants: map[string][]plugins.PluginGrant{}},
+		nil,
 		nil,
 		nil,
 		nil,
@@ -147,14 +140,10 @@ func TestExecuteRenderImageResolvesOwnPluginTemplateShortID(t *testing.T) {
 		t.Fatalf("sync plugin render templates: %v", err)
 	}
 
-	application := newTestAppState(config.Config{
-		Permission: config.PermissionConfig{
-			AutoGrantCapabilities: []string{"render.image"},
-		},
-	}, slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)))
+	application := newTestAppState(config.Config{}, slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)))
 	application.pluginStack.Plugins = catalog
 	application.setTestLocalActions(
-		&stubLifecycleGrantRepository{grants: map[string][]plugins.PluginGrant{}},
+		stubCapabilityViewFor("weather-card", "render.image"),
 		nil,
 		nil,
 		nil,
@@ -218,14 +207,10 @@ func TestExecuteRenderImageRejectsOtherPluginTemplate(t *testing.T) {
 		t.Fatalf("sync plugin render templates: %v", err)
 	}
 
-	application := newTestAppState(config.Config{
-		Permission: config.PermissionConfig{
-			AutoGrantCapabilities: []string{"render.image"},
-		},
-	}, slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)))
+	application := newTestAppState(config.Config{}, slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)))
 	application.pluginStack.Plugins = catalog
 	application.setTestLocalActions(
-		&stubLifecycleGrantRepository{grants: map[string][]plugins.PluginGrant{}},
+		stubCapabilityViewFor("other-plugin", "render.image"),
 		nil,
 		nil,
 		nil,
@@ -246,7 +231,7 @@ func TestExecuteRenderImageRejectsOtherPluginTemplate(t *testing.T) {
 			"title": "天气卡片",
 		},
 	})
-	assertRuntimeErrorCode(t, err, "permission.scope_violation")
+	assertRuntimeErrorCode(t, err, "plugin.capability_violation")
 }
 
 func TestExecuteRenderImageRejectsUnknownOtherPluginTemplate(t *testing.T) {
@@ -257,13 +242,9 @@ func TestExecuteRenderImageRejectsUnknownOtherPluginTemplate(t *testing.T) {
 	if err != nil {
 		t.Fatalf("resolve repo root: %v", err)
 	}
-	application := newTestAppState(config.Config{
-		Permission: config.PermissionConfig{
-			AutoGrantCapabilities: []string{"render.image"},
-		},
-	}, slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)))
+	application := newTestAppState(config.Config{}, slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)))
 	application.setTestLocalActions(
-		&stubLifecycleGrantRepository{grants: map[string][]plugins.PluginGrant{}},
+		stubCapabilityViewFor("other-plugin", "render.image"),
 		nil,
 		nil,
 		nil,
@@ -284,7 +265,7 @@ func TestExecuteRenderImageRejectsUnknownOtherPluginTemplate(t *testing.T) {
 			"title": "天气卡片",
 		},
 	})
-	assertRuntimeErrorCode(t, err, "permission.scope_violation")
+	assertRuntimeErrorCode(t, err, "plugin.capability_violation")
 }
 
 func TestExecuteRenderImageInjectsGroupIdentityFromParentEvent(t *testing.T) {
@@ -300,12 +281,9 @@ func TestExecuteRenderImageInjectsGroupIdentityFromParentEvent(t *testing.T) {
 		Admin: config.AdminConfig{
 			SuperAdmins: []string{"30001"},
 		},
-		Permission: config.PermissionConfig{
-			AutoGrantCapabilities: []string{"render.image"},
-		},
 	}, slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)))
 	application.setTestLocalActions(
-		&stubLifecycleGrantRepository{grants: map[string][]plugins.PluginGrant{}},
+		stubCapabilityViewFor("help-menu", "render.image"),
 		nil,
 		nil,
 		nil,
@@ -390,13 +368,9 @@ func TestExecuteRenderImageInjectsPrivateIdentityWithoutGroup(t *testing.T) {
 	if err != nil {
 		t.Fatalf("resolve repo root: %v", err)
 	}
-	application := newTestAppState(config.Config{
-		Permission: config.PermissionConfig{
-			AutoGrantCapabilities: []string{"render.image"},
-		},
-	}, slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)))
+	application := newTestAppState(config.Config{}, slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)))
 	application.setTestLocalActions(
-		&stubLifecycleGrantRepository{grants: map[string][]plugins.PluginGrant{}},
+		stubCapabilityViewFor("help-menu", "render.image"),
 		nil,
 		nil,
 		nil,
@@ -474,12 +448,9 @@ func TestExecuteRenderImageKeepsPrivateSuperAdminBadge(t *testing.T) {
 		Admin: config.AdminConfig{
 			SuperAdmins: []string{"30002"},
 		},
-		Permission: config.PermissionConfig{
-			AutoGrantCapabilities: []string{"render.image"},
-		},
 	}, slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)))
 	application.setTestLocalActions(
-		&stubLifecycleGrantRepository{grants: map[string][]plugins.PluginGrant{}},
+		stubCapabilityViewFor("help-menu", "render.image"),
 		nil,
 		nil,
 		nil,
@@ -545,12 +516,9 @@ func TestExecuteRenderImageAppliesIdentityBadgeRulesToStatusPanel(t *testing.T) 
 		Admin: config.AdminConfig{
 			SuperAdmins: []string{"30005"},
 		},
-		Permission: config.PermissionConfig{
-			AutoGrantCapabilities: []string{"render.image"},
-		},
 	}, slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)))
 	application.setTestLocalActions(
-		&stubLifecycleGrantRepository{grants: map[string][]plugins.PluginGrant{}},
+		stubCapabilityViewFor("status-panel", "render.image"),
 		nil,
 		nil,
 		nil,
@@ -673,13 +641,9 @@ func TestExecuteRenderImageLeavesNonIdentityTemplateDataUnchanged(t *testing.T) 
 
 	renderRoot := filepath.Join(t.TempDir(), "render")
 	runner := &captureRenderRunner{}
-	application := newTestAppState(config.Config{
-		Permission: config.PermissionConfig{
-			AutoGrantCapabilities: []string{"render.image"},
-		},
-	}, slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)))
+	application := newTestAppState(config.Config{}, slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)))
 	application.setTestLocalActions(
-		&stubLifecycleGrantRepository{grants: map[string][]plugins.PluginGrant{}},
+		stubCapabilityViewFor("plain-card", "render.image"),
 		nil,
 		nil,
 		nil,

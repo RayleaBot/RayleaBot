@@ -40,7 +40,6 @@ func TestOpenBootstrapsSQLiteWithExpectedPragmas(t *testing.T) {
 	assertTableExists(t, store.Read, "admin_sessions")
 	assertTableExists(t, store.Read, "plugin_instances")
 	assertTableExists(t, store.Read, "plugin_packages")
-	assertTableExists(t, store.Read, "plugin_grants")
 	assertTableExists(t, store.Read, "tasks")
 	assertTableExists(t, store.Read, "secret_store")
 	assertTableExists(t, store.Read, "scheduler_jobs")
@@ -66,7 +65,6 @@ func TestOpenBootstrapsSQLiteWithExpectedPragmas(t *testing.T) {
 	assertColumnExists(t, store.Read, "render_template_states", "source_type")
 	assertColumnExists(t, store.Read, "render_template_states", "source_plugin_id")
 	assertColumnExists(t, store.Read, "render_template_states", "source_local_id")
-	assertColumnExists(t, store.Read, "plugin_grants", "expires_at")
 	assertColumnExists(t, store.Read, "third_party_accounts", "profile_uid")
 	assertColumnExists(t, store.Read, "third_party_accounts", "profile_nickname")
 	assertColumnExists(t, store.Read, "third_party_accounts", "profile_avatar_url")
@@ -80,7 +78,6 @@ func TestOpenBootstrapsSQLiteWithExpectedPragmas(t *testing.T) {
 	assertIndexExists(t, store.Read, "idx_management_logs_log_id")
 	assertIndexExists(t, store.Read, "idx_management_logs_boot_ts")
 	assertIndexExists(t, store.Read, "idx_management_logs_source")
-	assertIndexExists(t, store.Read, "idx_plugin_grants_expires_at")
 	assertIndexExists(t, store.Read, "idx_plugin_kv_plugin_id")
 	assertIndexExists(t, store.Read, "idx_system_configs_namespace")
 	assertIndexExists(t, store.Read, "idx_third_party_accounts_platform")
@@ -92,7 +89,7 @@ func TestOpenBootstrapsSQLiteWithExpectedPragmas(t *testing.T) {
 	assertIndexExists(t, store.Read, "idx_render_template_states_source")
 
 	tables := readTables(t, store.Read)
-	if len(tables) != 23 {
+	if len(tables) != 22 {
 		t.Fatalf("unexpected table set: %#v", tables)
 	}
 	assertTableMissing(t, store.Read, "schema_migrations")

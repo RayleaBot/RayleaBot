@@ -10,16 +10,16 @@ import (
 )
 
 func ExecuteFile(ctx context.Context, req Request) (map[string]any, error) {
-	if req.Grants == nil || !req.Grants.CapabilityGranted(ctx, req.PluginID, "storage.file") {
+	if req.Capabilities == nil || !req.Capabilities.CapabilityDeclared(ctx, req.PluginID, "storage.file") {
 		return nil, &runtimemanager.Error{
-			Code:    "permission.scope_violation",
-			Message: "storage.file capability is not granted",
+			Code:    "plugin.capability_violation",
+			Message: "storage.file capability is not declared",
 		}
 	}
-	if !req.Grants.StorageRootGranted(ctx, req.PluginID, req.Action.StorageRoot) {
+	if !req.Capabilities.StorageRootAllowed(ctx, req.PluginID, req.Action.StorageRoot) {
 		return nil, &runtimemanager.Error{
-			Code:    "permission.scope_violation",
-			Message: "storage.file root is outside the granted scope",
+			Code:    "plugin.capability_violation",
+			Message: "storage.file root is outside declared capability parameters",
 		}
 	}
 	if req.Files == nil {

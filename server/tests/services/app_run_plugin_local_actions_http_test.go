@@ -9,11 +9,10 @@ import (
 	"testing"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
-	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	runtimeaction "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime/action"
 )
 
-func TestExecuteHTTPRequestUsesGrantedScopeAndReturnsText(t *testing.T) {
+func TestExecuteHTTPRequestUsesCapabilityedScopeAndReturnsText(t *testing.T) {
 	t.Parallel()
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -36,8 +35,8 @@ func TestExecuteHTTPRequestUsesGrantedScopeAndReturnsText(t *testing.T) {
 		},
 	}, slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)))
 	application.setTestLocalActions(
-		&stubLifecycleGrantRepository{
-			grants: map[string][]plugins.PluginGrant{
+		&stubCapabilityView{
+			capabilities: map[string][]stubCapability{
 				"scope-cache": {{
 					PluginID:   "scope-cache",
 					Capability: "http.request",
@@ -87,8 +86,8 @@ func TestExecuteHTTPRequestRejectsPrivateHostWithoutAllowlist(t *testing.T) {
 		},
 	}, slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)))
 	application.setTestLocalActions(
-		&stubLifecycleGrantRepository{
-			grants: map[string][]plugins.PluginGrant{
+		&stubCapabilityView{
+			capabilities: map[string][]stubCapability{
 				"scope-cache": {{
 					PluginID:   "scope-cache",
 					Capability: "http.request",
@@ -112,5 +111,5 @@ func TestExecuteHTTPRequestRejectsPrivateHostWithoutAllowlist(t *testing.T) {
 		HTTPMethod: "GET",
 		HTTPURL:    server.URL + "/v1/data",
 	})
-	assertRuntimeErrorCode(t, err, "permission.scope_violation")
+	assertRuntimeErrorCode(t, err, "plugin.capability_violation")
 }

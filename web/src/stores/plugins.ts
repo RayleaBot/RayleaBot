@@ -6,9 +6,6 @@ import { apiRequest } from '@/lib/http'
 import type {
   PluginDetail,
   PluginDetailResponse,
-  PluginGrantListResponse,
-  PluginGrantRequest,
-  PluginGrantSummary,
   PluginInstallRequest,
   PluginListResponse,
   PluginSettingsResponse,
@@ -26,14 +23,12 @@ type PluginUpsert = Partial<PluginSummary> & Pick<PluginSummary, 'id' | 'registr
 export const usePluginsStore = defineStore('plugins', () => {
   const items = ref<PluginSummary[]>([])
   const current = ref<PluginDetail | null>(null)
-  const grants = ref<Record<string, PluginGrantSummary[]>>({})
   const settingsByPluginId = ref<Record<string, Record<string, unknown>>>({})
   const secretsByPluginId = ref<Record<string, Record<string, string>>>({})
   const loading = ref(false)
   const detailLoading = ref(false)
   const error = ref<string | null>(null)
   const actionPending = ref<Record<string, string | null>>({})
-  const grantsLoading = ref<Record<string, boolean>>({})
   const settingsLoading = ref<Record<string, boolean>>({})
   const settingsSaving = ref<Record<string, boolean>>({})
   const secretsLoading = ref<Record<string, boolean>>({})
@@ -129,13 +124,6 @@ export const usePluginsStore = defineStore('plugins', () => {
     }
   }
 
-  function setGrantsLoading(pluginId: string, loadingValue: boolean) {
-    grantsLoading.value = {
-      ...grantsLoading.value,
-      [pluginId]: loadingValue,
-    }
-  }
-
   function setSettingsLoading(pluginId: string, loadingValue: boolean) {
     settingsLoading.value = {
       ...settingsLoading.value,
@@ -203,20 +191,6 @@ export const usePluginsStore = defineStore('plugins', () => {
     }
   }
 
-  async function fetchGrants(pluginId: string) {
-    setGrantsLoading(pluginId, true)
-    try {
-      const response = await apiRequest<PluginGrantListResponse>(`/api/plugins/${pluginId}/grants`)
-      grants.value = {
-        ...grants.value,
-        [pluginId]: response.items,
-      }
-      return response.items
-    } finally {
-      setGrantsLoading(pluginId, false)
-    }
-  }
-
   async function fetchSettings(pluginId: string) {
     setSettingsLoading(pluginId, true)
     try {
@@ -248,36 +222,6 @@ export const usePluginsStore = defineStore('plugins', () => {
     } finally {
       setSettingsSaving(pluginId, false)
     }
-  }
-
-  async function grantCapability(pluginId: string, payload: PluginGrantRequest) {
-    setGrantsLoading(pluginId, true)
-    try {
-      const response = await apiRequest<PluginGrantSummary>(`/api/plugins/${pluginId}/grants`, {
-        method: 'POST',
-        body: payload,
-      })
-      await syncPermissionState(pluginId)
-      return response
-    } finally {
-      setGrantsLoading(pluginId, false)
-    }
-  }
-
-  async function revokeGrant(pluginId: string, capability: string) {
-    setGrantsLoading(pluginId, true)
-    try {
-      await apiRequest<void>(`/api/plugins/${pluginId}/grants/${encodeURIComponent(capability)}`, {
-        method: 'DELETE',
-      })
-      await syncPermissionState(pluginId)
-    } finally {
-      setGrantsLoading(pluginId, false)
-    }
-  }
-
-  function getGrants(pluginId: string) {
-    return grants.value[pluginId] ?? []
   }
 
   async function fetchSecrets(pluginId: string) {
@@ -322,20 +266,11 @@ export const usePluginsStore = defineStore('plugins', () => {
     return secretsByPluginId.value[pluginId] ?? {}
   }
 
-  async function syncPermissionState(pluginId: string) {
-    await fetchGrants(pluginId)
-    if (current.value?.id === pluginId) {
-      await fetchDetail(pluginId)
-    }
-  }
-
   return {
     actionPending,
     current,
     detailLoading,
     error,
-    grants,
-    grantsLoading,
     items,
     installPending,
     loading,
@@ -350,14 +285,10 @@ export const usePluginsStore = defineStore('plugins', () => {
     fetchDetail,
     fetchSettings,
     fetchSecrets,
-    fetchGrants,
     fetchList,
-    getGrants,
     getSettings,
     getSecrets,
-    grantCapability,
     installPlugin,
-    revokeGrant,
     uninstallPlugin,
     updateSettings,
     updateSecrets,

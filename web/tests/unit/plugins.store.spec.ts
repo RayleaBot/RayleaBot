@@ -76,45 +76,6 @@ describe('plugins store', () => {
     expect(store.items[0].commands).toEqual([{ name: 'weather', command_source: 'manifest' }])
   })
 
-  it('keeps grants sorted after a persisted grant is saved', async () => {
-    vi.stubGlobal('fetch', vi.fn()
-      .mockResolvedValueOnce(jsonResponse({
-        plugin_id: 'weather',
-        capability: 'render.image',
-        granted_at: '2026-04-05T00:01:00Z',
-        source: 'persisted',
-        expires_at: null,
-      }))
-      .mockResolvedValueOnce(jsonResponse({
-        items: [
-          {
-            plugin_id: 'weather',
-            capability: 'render.image',
-            granted_at: '2026-04-05T00:01:00Z',
-            source: 'persisted',
-            expires_at: null,
-          },
-          {
-            plugin_id: 'weather',
-            capability: 'scheduler.run',
-            granted_at: '2026-04-05T00:00:00Z',
-            source: 'persisted',
-            expires_at: null,
-          },
-        ],
-      })))
-
-    const store = usePluginsStore()
-    store.grants = {
-      weather: [
-        { plugin_id: 'weather', capability: 'scheduler.run', granted_at: '2026-04-05T00:00:00Z', source: 'persisted', expires_at: null },
-      ],
-    }
-
-    await store.grantCapability('weather', { capability: 'render.image' })
-    expect(store.getGrants('weather').map((item) => item.capability)).toEqual(['render.image', 'scheduler.run'])
-  })
-
   it('ignores stale plugin detail responses when a newer request is already in flight', async () => {
     const pendingResponses: Array<(response: Response) => void> = []
 

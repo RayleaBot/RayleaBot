@@ -224,8 +224,7 @@ func TestConfigPutHotReloadsOneBotTransportStateWithoutRestart(t *testing.T) {
 			"login_fail_window_seconds": 300,
 		},
 		"permission": map[string]any{
-			"default_level":           "everyone",
-			"auto_grant_capabilities": []any{},
+			"default_level": "everyone",
 		},
 		"render": map[string]any{
 			"worker_count":               1,

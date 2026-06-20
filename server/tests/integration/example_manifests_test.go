@@ -16,7 +16,7 @@ func TestBundledPluginManifestsMatchContract(t *testing.T) {
 	manifestPaths := []string{
 		filepath.Join("..", "examples", "plugins", "echo-python", "info.json"),
 		filepath.Join("..", "examples", "plugins", "example-config-panel", "info.json"),
-		filepath.Join("..", "examples", "plugins", "example-permission-scope", "info.json"),
+		filepath.Join("..", "examples", "plugins", "example-capability-parameters", "info.json"),
 		filepath.Join("..", "examples", "plugins", "example-plugin-list", "info.json"),
 		filepath.Join("..", "examples", "plugins", "example-render-card", "info.json"),
 		filepath.Join("..", "examples", "plugins", "example-scheduler", "info.json"),
@@ -46,52 +46,49 @@ func TestBundledPluginManifestsDeclareExpectedRuntimeCapabilities(t *testing.T) 
 	t.Parallel()
 
 	for _, tc := range []struct {
-		name             string
-		manifestPath     string
-		wantCapabilities []string
-		wantRequired     []string
+		name                     string
+		manifestPath             string
+		wantCapabilities         []string
+		wantCapabilityParameters map[string][]string
 	}{
 		{
 			name:             "builtin echo",
 			manifestPath:     filepath.Join("..", "plugins", "builtin", "echo", "info.json"),
 			wantCapabilities: []string{"event.subscribe", "message.send"},
-			wantRequired:     []string{"message.send"},
 		},
 		{
 			name:             "echo python",
 			manifestPath:     filepath.Join("..", "examples", "plugins", "echo-python", "info.json"),
 			wantCapabilities: []string{"event.subscribe", "message.send"},
-			wantRequired:     []string{"message.send"},
 		},
 		{
-			name:             "example permission scope",
-			manifestPath:     filepath.Join("..", "examples", "plugins", "example-permission-scope", "info.json"),
+			name:             "example capability parameters",
+			manifestPath:     filepath.Join("..", "examples", "plugins", "example-capability-parameters", "info.json"),
 			wantCapabilities: []string{"event.subscribe", "http.request", "logger.write", "storage.file"},
-			wantRequired:     []string{"http.request", "logger.write", "storage.file"},
-		},
+				wantCapabilityParameters: map[string][]string{
+					"http_hosts":    {"example.com"},
+					"storage_roots": {"plugin_data"},
+				},
+			},
 		{
 			name:             "example plugin list",
 			manifestPath:     filepath.Join("..", "examples", "plugins", "example-plugin-list", "info.json"),
 			wantCapabilities: []string{"event.subscribe", "message.send", "plugin.list"},
-			wantRequired:     []string{"message.send", "plugin.list"},
 		},
 		{
 			name:             "example render card",
 			manifestPath:     filepath.Join("..", "examples", "plugins", "example-render-card", "info.json"),
 			wantCapabilities: []string{"event.subscribe", "message.send", "render.image"},
-			wantRequired:     []string{"message.send", "render.image"},
 		},
 		{
 			name:             "example webhook",
 			manifestPath:     filepath.Join("..", "examples", "plugins", "example-webhook", "info.json"),
 			wantCapabilities: []string{"event.expose_webhook", "event.raw_payload", "event.subscribe", "logger.write"},
-			wantRequired:     []string{"event.expose_webhook", "logger.write"},
 		},
 		{
 			name:             "notice logger",
 			manifestPath:     filepath.Join("..", "examples", "plugins", "notice-logger", "info.json"),
 			wantCapabilities: []string{"event.subscribe", "logger.write", "storage.kv"},
-			wantRequired:     []string{"logger.write", "storage.kv"},
 		},
 	} {
 		tc := tc
@@ -109,13 +106,21 @@ func TestBundledPluginManifestsDeclareExpectedRuntimeCapabilities(t *testing.T) 
 				t.Fatalf("capabilities mismatch for %s: got %#v want %#v", tc.manifestPath, gotCapabilities, sortedStrings(tc.wantCapabilities))
 			}
 
-			permissions, ok := manifest["permissions"].(map[string]any)
-			if !ok {
-				t.Fatalf("permissions should decode to object: %#v", manifest["permissions"])
+			if _, ok := manifest["permissions"]; ok {
+				t.Fatalf("manifest should not declare plugin permissions: %#v", manifest["permissions"])
 			}
-			gotRequired := sortedStringList(permissions["required"])
-			if !reflect.DeepEqual(gotRequired, sortedStrings(tc.wantRequired)) {
-				t.Fatalf("required permissions mismatch for %s: got %#v want %#v", tc.manifestPath, gotRequired, sortedStrings(tc.wantRequired))
+
+			if len(tc.wantCapabilityParameters) > 0 {
+				parameters, ok := manifest["capability_parameters"].(map[string]any)
+				if !ok {
+					t.Fatalf("capability_parameters should decode to object: %#v", manifest["capability_parameters"])
+				}
+				for key, want := range tc.wantCapabilityParameters {
+					got := sortedStringList(parameters[key])
+					if !reflect.DeepEqual(got, sortedStrings(want)) {
+						t.Fatalf("capability parameter %s mismatch for %s: got %#v want %#v", key, tc.manifestPath, got, sortedStrings(want))
+					}
+				}
 			}
 		})
 	}

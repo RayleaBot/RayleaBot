@@ -11,11 +11,7 @@
     "runtime": "python",
     "entry": "plugin.py",
     "license": "MIT",
-    "concurrency": 3,
-    "permissions": {
-      "required": [],
-      "optional": []
-    }
+    "concurrency": 3
   },
   "expect": {
     "valid": true

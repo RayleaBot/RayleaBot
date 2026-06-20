@@ -98,14 +98,6 @@ type ManagementLog struct {
 	DetailsJson string
 }
 
-type PluginGrant struct {
-	PluginID   string
-	Capability string
-	ScopeJson  string
-	GrantedAt  string
-	ExpiresAt  sql.NullString
-}
-
 type PluginInstance struct {
 	PluginID     string
 	DesiredState string

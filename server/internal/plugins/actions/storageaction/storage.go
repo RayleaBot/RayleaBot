@@ -11,9 +11,9 @@ import (
 	runtimemanager "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime/manager"
 )
 
-type Grants interface {
-	CapabilityGranted(context.Context, string, string) bool
-	StorageRootGranted(context.Context, string, string) bool
+type CapabilityView interface {
+	CapabilityDeclared(context.Context, string, string) bool
+	StorageRootAllowed(context.Context, string, string) bool
 }
 
 type KVRepository interface {
@@ -31,19 +31,19 @@ type FileStore interface {
 }
 
 type Request struct {
-	PluginID string
-	Action   runtimeaction.Action
-	Config   config.Config
-	Grants   Grants
-	KV       KVRepository
-	Files    FileStore
+	PluginID     string
+	Action       runtimeaction.Action
+	Config       config.Config
+	Capabilities CapabilityView
+	KV           KVRepository
+	Files        FileStore
 }
 
 func ExecuteKV(ctx context.Context, req Request) (map[string]any, error) {
-	if req.Grants == nil || !req.Grants.CapabilityGranted(ctx, req.PluginID, "storage.kv") {
+	if req.Capabilities == nil || !req.Capabilities.CapabilityDeclared(ctx, req.PluginID, "storage.kv") {
 		return nil, &runtimemanager.Error{
-			Code:    "permission.scope_violation",
-			Message: "storage.kv capability is not granted",
+			Code:    "plugin.capability_violation",
+			Message: "storage.kv capability is not declared",
 		}
 	}
 	if req.KV == nil {

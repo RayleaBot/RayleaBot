@@ -7,7 +7,7 @@
 - `cmd/raylea-server` 入口、`-config` / `-config-schema` flags；`-config-schema` 默认使用内置配置 schema
 - `config/user.yaml` 读取与内置配置 schema 校验；`contracts/config.user.schema.json` 是源码中的正式来源
 - `GET /healthz`、`GET /readyz`
-- SQLite store、current schema bootstrap、auth persistence、task persistence、plugin desired_state persistence、grant persistence、secret store、third-party account persistence、Bilibili source state persistence
+- SQLite store、current schema bootstrap、auth persistence、task persistence、plugin desired_state persistence、secret store、third-party account persistence、Bilibili source state persistence
 - plugin discovery：当前扫描 `plugins/builtin` 与 `plugins/installed`；`examples/plugins` 仅保留示例职责
 - management auth surface：
   - `POST /api/setup/admin`
@@ -71,7 +71,7 @@
 - `/ws/plugins/{id}/console`
 - plugin lifecycle：
   - install / enable / disable / reload / uninstall
-  - grants list / grant / revoke
+  - manifest capability declaration and capability parameter checks
   - builtin plugin 默认发现、默认启用、拒绝卸载
 - OneBot11 adapter：
   - `reverse_ws`、`forward_ws`、`http_api`、`webhook`
@@ -126,10 +126,10 @@
   - command permission enforcement
   - cooldown enforcement
   - optional cooldown reply
-- temporal grants：
-  - `expires_at` persistence
-  - effective-grant filtering
-  - enable / reload / reconcile / crash restart expiry enforcement
+- plugin capability checks：
+  - local action declaration checks
+  - `http_hosts`、`storage_roots`、`webhooks` boundary checks
+  - `plugin.capability_violation` structured errors
 - management log persistence：
   - persisted summary storage
   - `/api/logs` historical queries

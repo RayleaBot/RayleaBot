@@ -12,7 +12,7 @@ type Deps struct {
 	CurrentConfig    func() config.Config
 	Logger           *slog.Logger
 	RedactText       func(string) string
-	Grants           GrantView
+	Capabilities     CapabilityView
 	PluginConfig     PluginConfigRepository
 	PluginFiles      storageaction.FileStore
 	PluginKV         storageaction.KVRepository
@@ -52,7 +52,7 @@ func New(deps Deps) *Service {
 			currentConfig:    deps.CurrentConfig,
 			logger:           deps.Logger,
 			redactText:       deps.RedactText,
-			grants:           deps.Grants,
+			capabilities:     deps.Capabilities,
 			pluginConfig:     deps.PluginConfig,
 			pluginFiles:      deps.PluginFiles,
 			pluginKV:         deps.PluginKV,

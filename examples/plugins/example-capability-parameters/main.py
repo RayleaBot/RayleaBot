@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Example plugin showing scoped http.request and storage.file usage."""
+"""Example plugin showing http.request and storage.file capability parameters."""
 
 import os
 import sys
@@ -9,7 +9,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "..", "sd
 from rayleabot import RayleaBotPlugin, command
 
 
-class PermissionScopePlugin(RayleaBotPlugin):
+class CapabilityParametersPlugin(RayleaBotPlugin):
     def __init__(self):
         super().__init__()
         self.subscribe("message.group", "message.private")
@@ -40,4 +40,4 @@ class PermissionScopePlugin(RayleaBotPlugin):
 
 
 if __name__ == "__main__":
-    PermissionScopePlugin().run()
+    CapabilityParametersPlugin().run()

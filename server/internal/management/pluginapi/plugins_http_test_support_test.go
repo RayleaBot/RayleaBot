@@ -39,8 +39,8 @@ func setupRouter(entries []plugins.Snapshot) (chi.Router, plugins.CatalogView, *
 	repo := &stubDesiredStateRepository{}
 	router := chi.NewRouter()
 	router.Post("/api/plugins/install", newInstallHandler(catalog, taskRegistry, nil))
-	router.Post("/api/plugins/{plugin_id}/enable", newEnableHandler(catalog, repo, nil, nil, nil))
-	router.Post("/api/plugins/{plugin_id}/disable", newDisableHandler(catalog, repo, nil, nil, nil))
+	router.Post("/api/plugins/{plugin_id}/enable", newEnableHandler(catalog, repo, nil))
+	router.Post("/api/plugins/{plugin_id}/disable", newDisableHandler(catalog, repo, nil))
 	return router, catalog, taskRegistry, repo
 }
 

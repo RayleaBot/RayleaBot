@@ -14,16 +14,12 @@
     "event.subscribe",
     "message.send"
   ],
-  "permissions": {
-    "required": [
-      "message.send"
-    ],
-    "optional": []
-  },
   "commands": [
     {
       "name": "echo",
-      "aliases": ["repeat"],
+      "aliases": [
+        "repeat"
+      ],
       "description": "回复收到的消息内容",
       "usage": "/echo <内容>",
       "permission": "everyone"

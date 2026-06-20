@@ -67,7 +67,6 @@ type serverDeps struct {
 	pluginInstaller    plugins.InstallCoordinator
 	pluginUninstaller  plugins.UninstallCoordinator
 	pluginRepository   plugins.DesiredStateRepository
-	grantRepository    plugins.GrantRepository
 	pluginLifecycle    *pluginservice.Controller
 	renderer           *renderservice.Service
 	configHandler      *configapi.Handlers

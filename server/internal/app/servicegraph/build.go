@@ -18,7 +18,7 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/management/protocolapi"
 	"github.com/RayleaBot/RayleaBot/server/internal/metrics"
 	localaction "github.com/RayleaBot/RayleaBot/server/internal/plugins/actions"
-	plugingrants "github.com/RayleaBot/RayleaBot/server/internal/plugins/grants"
+	plugincapabilityview "github.com/RayleaBot/RayleaBot/server/internal/plugins/capabilityview"
 	pluginservice "github.com/RayleaBot/RayleaBot/server/internal/plugins/lifecycle"
 	runtimeregistry "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime/registry"
 	pluginwebhook "github.com/RayleaBot/RayleaBot/server/internal/plugins/webhook"
@@ -83,7 +83,7 @@ func Build(deps BuildDeps) (BuildResult, error) {
 	renderer := deps.Renderer
 	logService := logging.NewManagementService(platform.Logs, platform.LogRepository)
 	policyRepos := buildPolicyRepositories(platform)
-	grantView := buildPluginGrantView(runtimeState, pluginStack, eventStack)
+	capabilityView := buildPluginCapabilityView(pluginStack, eventStack)
 	governanceEvents := managementevents.NewGovernanceService()
 	bilibiliEvents := managementevents.NewBilibiliSourceService()
 	governanceService := buildGovernanceService(runtimeState, pluginStack, policyRepos, governanceEvents)
@@ -92,7 +92,7 @@ func Build(deps BuildDeps) (BuildResult, error) {
 		return BuildResult{}, err
 	}
 	bilibiliSession := bilibilisession.NewSessionClient(deps.BilibiliHTTPTransport, deps.BilibiliClock, nil)
-	localActions := buildLocalActionService(runtimeState, platform, pluginStack, eventStack, renderer, grantView, governanceService, thirdPartyService, bilibiliSession)
+	localActions := buildLocalActionService(runtimeState, platform, pluginStack, eventStack, renderer, capabilityView, governanceService, thirdPartyService, bilibiliSession)
 	configureLocalActionService(localActions, pluginStack, eventStack)
 	runtimeRegistry := buildRuntimeRegistry(runtimeRegistryDeps{
 		Logger:                     runtimeState.RuntimeLogger(),
@@ -119,7 +119,7 @@ func Build(deps BuildDeps) (BuildResult, error) {
 	})
 	serviceStatusService := managementevents.NewServiceStatusService(systemService)
 	systemService.SetStatusPublisher(serviceStatusService)
-	lifecycle := buildPluginLifecycle(deps, platform, pluginStack, eventStack, renderer, grantView, runtimeRegistry, systemService)
+	lifecycle := buildPluginLifecycle(deps, platform, pluginStack, eventStack, renderer, runtimeRegistry, systemService)
 	menuService := buildBuiltinMenuService(runtimeState, pluginStack, eventStack, renderer)
 	eventIngress := eventingress.New(eventingress.Deps{
 		CurrentConfig:    runtimeState.CurrentConfig,
@@ -138,7 +138,7 @@ func Build(deps BuildDeps) (BuildResult, error) {
 		BlacklistRepo:    policyRepos.Blacklist,
 	})
 	protocolService := protocolapi.NewService(runtimeState, eventStack.Adapter)
-	pluginWebhooks := buildPluginWebhookGateway(runtimeState, platform, pluginStack, eventStack, lifecycle, grantView)
+	pluginWebhooks := buildPluginWebhookGateway(runtimeState, platform, pluginStack, eventStack, lifecycle, capabilityView)
 	pluginWebhooks.SetReplayMetrics(metrics.NewWebhookReplayObserver(deps.Metrics))
 	localActions.SetWebhookGateway(pluginWebhooks)
 	bilibiliSource, err := buildBilibiliSourceService(platform, pluginStack, eventStack, thirdPartyService, bilibiliSession, bilibiliEvents, deps)
@@ -168,16 +168,14 @@ func Build(deps BuildDeps) (BuildResult, error) {
 	}, nil
 }
 
-func buildPluginGrantView(runtimeState RuntimeState, pluginStack pluginstack.State, eventStack eventstack.State) *plugingrants.View {
-	grantView := plugingrants.NewView(plugingrants.ViewDeps{
-		Plugins:               pluginStack.Plugins,
-		GrantRepository:       pluginStack.GrantRepository,
-		AutoGrantCapabilities: autoGrantCapabilities(runtimeState),
+func buildPluginCapabilityView(pluginStack pluginstack.State, eventStack eventstack.State) *plugincapabilityview.View {
+	capabilityView := plugincapabilityview.New(plugincapabilityview.Deps{
+		Plugins: pluginStack.Plugins,
 	})
 	if eventStack.Dispatcher != nil {
-		eventStack.Dispatcher.SetCapabilityChecker(grantView.CapabilityGranted)
+		eventStack.Dispatcher.SetCapabilityChecker(capabilityView.CapabilityDeclared)
 	}
-	return grantView
+	return capabilityView
 }
 
 func buildGovernanceService(runtimeState RuntimeState, pluginStack pluginstack.State, policy policyRepositories, events *managementevents.GovernanceService) *governance.Service {
@@ -189,13 +187,4 @@ func buildGovernanceService(runtimeState RuntimeState, pluginStack pluginstack.S
 		WhitelistState: policy.WhitelistState,
 		NotifyChanged:  events.PublishChanged,
 	})
-}
-
-func autoGrantCapabilities(runtimeState RuntimeState) func() []string {
-	return func() []string {
-		if runtimeState == nil {
-			return nil
-		}
-		return append([]string(nil), runtimeState.CurrentConfig().Permission.AutoGrantCapabilities...)
-	}
 }

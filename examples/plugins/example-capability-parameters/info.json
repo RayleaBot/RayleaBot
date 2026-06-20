@@ -1,6 +1,6 @@
 {
-  "id": "example-permission-scope",
-  "name": "Example Permission Scope",
+  "id": "example-capability-parameters",
+  "name": "Example Capability Parameters",
   "version": "0.1.0",
   "manifest_version": "1",
   "plugin_protocol_version": "1",
@@ -9,7 +9,7 @@
   "entry": "main.py",
   "concurrency": 2,
   "license": "MIT",
-  "description": "Python example plugin demonstrating scoped http.request and storage.file usage.",
+  "description": "Python example plugin demonstrating http.request and storage.file capability parameters.",
   "author": "raylea",
   "role": "example",
   "default_config": {
@@ -21,22 +21,6 @@
     "logger.write",
     "storage.file"
   ],
-  "permissions": {
-    "required": [
-      "http.request",
-      "logger.write",
-      "storage.file"
-    ],
-    "optional": [],
-    "scopes": {
-      "http_hosts": [
-        "example.com"
-      ],
-      "storage_roots": [
-        "plugin_data"
-      ]
-    }
-  },
   "commands": [
     {
       "name": "scope_fetch",
@@ -46,5 +30,13 @@
       "description": "Fetch https://example.com/ and cache it into plugin_data.",
       "usage": "/scope_fetch"
     }
-  ]
+  ],
+  "capability_parameters": {
+    "http_hosts": [
+      "example.com"
+    ],
+    "storage_roots": [
+      "plugin_data"
+    ]
+  }
 }

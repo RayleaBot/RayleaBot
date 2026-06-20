@@ -10,14 +10,12 @@ import (
 )
 
 type RouteDeps struct {
-	Catalog               *plugincatalog.Catalog
-	TaskRegistry          *tasks.Registry
-	Repository            plugins.DesiredStateRepository
-	Installer             plugins.InstallCoordinator
-	Uninstaller           plugins.UninstallCoordinator
-	Lifecycle             *pluginservice.Controller
-	GrantRepository       plugins.GrantRepository
-	AutoGrantCapabilities func() []string
+	Catalog      *plugincatalog.Catalog
+	TaskRegistry *tasks.Registry
+	Repository   plugins.DesiredStateRepository
+	Installer    plugins.InstallCoordinator
+	Uninstaller  plugins.UninstallCoordinator
+	Lifecycle    *pluginservice.Controller
 }
 
 func RegisterProtectedRoutes(router chi.Router, deps RouteDeps) {
@@ -33,7 +31,5 @@ func (deps RouteDeps) RegisterProtectedRoutes(router chi.Router) {
 		deps.Installer,
 		deps.Lifecycle,
 		deps.Uninstaller,
-		deps.GrantRepository,
-		deps.AutoGrantCapabilities,
 	)
 }

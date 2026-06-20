@@ -35,7 +35,7 @@ from hub.commands import (
     search_bilibili_users,
 )
 from hub.events import normalize_bilibili_event_payload, subscription_matches_event
-from hub.http_utils import is_http_permission_error, preview_response_document
+from hub.http_utils import is_http_capability_error, preview_response_document
 from hub.preview import (
     first_arg,
     parse_preview_service,
@@ -237,8 +237,8 @@ class SubscriptionHubPlugin(RayleaBotPlugin):
                     return preview_update_from_live_document(document, preview_ref["url"], preview_ref["room_id"], status_document)
                 return {"ok": False, "message": document}
         except ActionError as exc:
-            if is_http_permission_error(exc):
-                return {"ok": False, "message": "Bilibili 链接预览失败：请授予订阅中心 HTTP 请求权限，并重载插件后再试。"}
+            if is_http_capability_error(exc):
+                return {"ok": False, "message": "Bilibili 链接预览失败：请检查订阅中心 manifest 的 http.request 与 capability_parameters.http_hosts，并重载插件后再试。"}
             return {"ok": False, "message": "Bilibili 链接预览失败。"}
         except Exception as exc:
             self.try_log(ctx, "warn", "Bilibili 链接预览失败", {"error": str(exc)})

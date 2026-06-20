@@ -45,9 +45,9 @@ func TestHandleWebhookEnsuresRuntimeWithoutBotID(t *testing.T) {
 			RegistrationState: "installed",
 			DesiredState:      "enabled",
 		}}),
-		Dispatcher: dispatcher,
-		Runtime:    ensurer,
-		Grants:     alwaysGrantView{},
+		Dispatcher:   dispatcher,
+		Runtime:      ensurer,
+		Capabilities: alwaysCapabilityView{},
 	})
 
 	router := chi.NewRouter()
@@ -117,13 +117,13 @@ func (r *webhookRuntime) Snapshot() runtimemanager.Snapshot {
 	return runtimemanager.Snapshot{State: runtimemanager.StateRunning}
 }
 
-type alwaysGrantView struct{}
+type alwaysCapabilityView struct{}
 
-func (alwaysGrantView) CapabilityGranted(context.Context, string, string) bool {
+func (alwaysCapabilityView) CapabilityDeclared(context.Context, string, string) bool {
 	return true
 }
 
-func (alwaysGrantView) GrantedWebhookScope(context.Context, string, string) (plugins.WebhookScope, bool) {
+func (alwaysCapabilityView) WebhookParameters(context.Context, string, string) (plugins.WebhookScope, bool) {
 	return plugins.WebhookScope{}, true
 }
 
