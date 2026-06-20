@@ -89,7 +89,7 @@ func TestHandlePluginWebhookAcceptsSignedRequestAndDispatchesEvent(t *testing.T)
 	application.setTestWebhookService(secretStore, dispatcher, nil, registry)
 
 	fakeRuntime := &capturingRuntime{events: make(chan runtimeprotocol.Event, 1)}
-	application.pluginStack.Dispatcher.Register("repo-watcher", fakeRuntime, []string{"webhook.received"}, nil, 1)
+	application.eventStack.Dispatcher.Register("repo-watcher", fakeRuntime, []string{"webhook.received"}, nil, 1)
 
 	if err := application.platform.Secrets.Set(context.Background(), "webhook.github.secret", []byte("fixture-webhook-secret")); err != nil {
 		t.Fatalf("set webhook secret: %v", err)
@@ -207,7 +207,7 @@ func TestHandlePluginWebhookRejectsOversizedBody(t *testing.T) {
 	application.setTestWebhookService(secretStore, dispatcher, nil, registry)
 
 	fakeRuntime := &capturingRuntime{events: make(chan runtimeprotocol.Event, 1)}
-	application.pluginStack.Dispatcher.Register("repo-watcher", fakeRuntime, []string{"webhook.received"}, nil, 1)
+	application.eventStack.Dispatcher.Register("repo-watcher", fakeRuntime, []string{"webhook.received"}, nil, 1)
 
 	if err := application.platform.Secrets.Set(context.Background(), "webhook.github.secret", []byte("fixture-webhook-secret")); err != nil {
 		t.Fatalf("set webhook secret: %v", err)

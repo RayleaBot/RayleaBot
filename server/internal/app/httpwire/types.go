@@ -4,6 +4,7 @@ import (
 	"log/slog"
 	"net/http"
 
+	"github.com/RayleaBot/RayleaBot/server/internal/app/eventstack"
 	appplatform "github.com/RayleaBot/RayleaBot/server/internal/app/platform"
 	"github.com/RayleaBot/RayleaBot/server/internal/app/pluginstack"
 	"github.com/RayleaBot/RayleaBot/server/internal/app/servicegraph"
@@ -93,6 +94,8 @@ type BuildDeps struct {
 	Runtime               RuntimeState
 	Platform              appplatform.State
 	Plugins               pluginstack.State
+	Events                eventstack.State
+	Renderer              *renderservice.Service
 	Services              servicegraph.Services
 	Status                *managementevents.ServiceStatusService
 	BilibiliAccountClient *bilibilisession.AccountClient

@@ -969,7 +969,7 @@ func TestHandleAdapterEventSendsBuiltinMenuImageWithoutPluginDispatch(t *testing
 		}},
 		Permission: config.PermissionConfig{DefaultLevel: "everyone"},
 	}, logger)
-	application.pluginStack.Renderer = newRenderServiceForRepo(t, repoRoot, renderRoot, runner)
+	application.renderStack.Renderer = newRenderServiceForRepo(t, repoRoot, renderRoot, runner)
 	application.setTestEventIngress(plugincatalog.New([]plugins.Snapshot{{
 		PluginID:          "weather",
 		Name:              "天气",
@@ -1069,7 +1069,7 @@ func TestHandleAdapterEventUsesIndependentBuiltinMenuPrefix(t *testing.T) {
 		}},
 		Permission: config.PermissionConfig{DefaultLevel: "everyone"},
 	}, nil)
-	application.pluginStack.Renderer = newRenderService(t, t.TempDir())
+	application.renderStack.Renderer = newRenderService(t, t.TempDir())
 	application.setTestEventIngress(plugincatalog.New([]plugins.Snapshot{{
 		PluginID:          "fortune",
 		Name:              "运势",
@@ -1166,7 +1166,7 @@ func TestHandleAdapterEventRendersBuiltinMenuPluginPrefixesAsSingleUsage(t *test
 		}},
 		Permission: config.PermissionConfig{DefaultLevel: "everyone"},
 	}, nil)
-	application.pluginStack.Renderer = newRenderServiceForRepo(t, repoRoot, renderRoot, runner)
+	application.renderStack.Renderer = newRenderServiceForRepo(t, repoRoot, renderRoot, runner)
 	application.setTestEventIngress(plugincatalog.New([]plugins.Snapshot{{
 		PluginID:          "subscription-hub",
 		Name:              "订阅中心",
@@ -1237,7 +1237,7 @@ func TestHandleAdapterEventMatchesBuiltinPluginSuffixHelp(t *testing.T) {
 		Builtin:    config.BuiltinConfig{Menu: config.BuiltinMenuConfig{Commands: []string{"help", "帮助"}}},
 		Permission: config.PermissionConfig{DefaultLevel: "everyone"},
 	}, nil)
-	application.pluginStack.Renderer = newRenderService(t, t.TempDir())
+	application.renderStack.Renderer = newRenderService(t, t.TempDir())
 	application.setTestEventIngress(plugincatalog.New([]plugins.Snapshot{{
 		PluginID:          "fortune",
 		Name:              "运势",
@@ -1282,7 +1282,7 @@ func TestHandleAdapterEventSkipsMissingBuiltinPluginMenuTarget(t *testing.T) {
 		Builtin:    config.BuiltinConfig{Menu: config.BuiltinMenuConfig{Commands: []string{"help", "帮助"}}},
 		Permission: config.PermissionConfig{DefaultLevel: "everyone"},
 	}, nil)
-	application.pluginStack.Renderer = newRenderService(t, t.TempDir())
+	application.renderStack.Renderer = newRenderService(t, t.TempDir())
 	application.setTestEventIngress(plugincatalog.New([]plugins.Snapshot{{
 		PluginID:          "fortune",
 		Name:              "运势",
@@ -1330,7 +1330,7 @@ func TestHandleAdapterEventDoesNotTreatExactPluginCommandAsBuiltinSuffixMenu(t *
 		Builtin:    config.BuiltinConfig{Menu: config.BuiltinMenuConfig{Commands: []string{"help", "帮助"}}},
 		Permission: config.PermissionConfig{DefaultLevel: "everyone"},
 	}, nil)
-	application.pluginStack.Renderer = newRenderService(t, t.TempDir())
+	application.renderStack.Renderer = newRenderService(t, t.TempDir())
 	application.setTestEventIngress(plugincatalog.New([]plugins.Snapshot{{
 		PluginID:          "custom-help",
 		Name:              "Custom Help",
@@ -1379,7 +1379,7 @@ func TestHandleAdapterEventBlocksBuiltinMenuWhenBlacklistApplies(t *testing.T) {
 		Builtin:    config.BuiltinConfig{Menu: config.BuiltinMenuConfig{Commands: []string{"help"}}},
 		Permission: config.PermissionConfig{DefaultLevel: "everyone"},
 	}, nil)
-	application.pluginStack.Renderer = newRenderService(t, t.TempDir())
+	application.renderStack.Renderer = newRenderService(t, t.TempDir())
 	application.setTestEventIngress(plugincatalog.New([]plugins.Snapshot{{
 		PluginID:          "weather",
 		Valid:             true,
@@ -1432,7 +1432,7 @@ func TestHandleAdapterEventBlocksBuiltinMenuWhenCooldownApplies(t *testing.T) {
 		},
 		Group: config.GroupConfig{CommandRateLimit: "10/1h"},
 	}, nil)
-	application.pluginStack.Renderer = newRenderService(t, t.TempDir())
+	application.renderStack.Renderer = newRenderService(t, t.TempDir())
 	application.setTestEventIngress(plugincatalog.New([]plugins.Snapshot{{
 		PluginID:          "weather",
 		Valid:             true,
@@ -1673,8 +1673,8 @@ func TestApplyHotReloadableFieldsReloadsCommandPolicy(t *testing.T) {
 	}
 	app := newTestAppState(cfg, nil)
 	app.setTestEventIngress(nil, repo, nil, nil)
-	app.pluginStack.OutboundLimiter = outbound.NewMessageRateLimiter(cfg)
-	if err := app.pluginStack.OutboundLimiter.Wait(context.Background(), outbound.MessageLimitRequest{
+	app.eventStack.OutboundLimiter = outbound.NewMessageRateLimiter(cfg)
+	if err := app.eventStack.OutboundLimiter.Wait(context.Background(), outbound.MessageLimitRequest{
 		PluginID:   "weather",
 		TargetType: "group",
 		TargetID:   "20001",
@@ -1741,7 +1741,7 @@ func TestApplyHotReloadableFieldsReloadsCommandPolicy(t *testing.T) {
 	if len(app.state.Config.HTTP.AllowPrivateHosts) != 1 || app.state.Config.HTTP.AllowPrivateHosts[0] != "127.0.0.1" {
 		t.Fatalf("http allow_private_hosts was not hot reloaded: %+v", app.state.Config.HTTP.AllowPrivateHosts)
 	}
-	if err := app.pluginStack.OutboundLimiter.Wait(context.Background(), outbound.MessageLimitRequest{
+	if err := app.eventStack.OutboundLimiter.Wait(context.Background(), outbound.MessageLimitRequest{
 		PluginID:   "weather",
 		TargetType: "group",
 		TargetID:   "20002",

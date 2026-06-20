@@ -40,23 +40,31 @@ func TestManagementPackagesDoNotLeakIntoDomainPackages(t *testing.T) {
 }
 
 // TestCompositionRootLayering enforces the one-directional assembly order of
-// the app composition root: platform -> pluginstack -> servicegraph -> httpwire.
+// the app composition root:
+// platform -> pluginstack -> renderstack -> eventstack -> servicegraph -> httpwire.
 // A lower layer must never import a higher one, and only internal/app itself may
-// reach across all four sub-packages.
+// reach across all composition sub-packages. actionwire is a leaf helper for
+// service assembly, not a state stack.
 func TestCompositionRootLayering(t *testing.T) {
 	serverRoot := testServerRoot(t)
 	appRoot := filepath.Join(serverRoot, "internal", "app")
 
 	const (
-		platform    = appImportPrefix + "/platform"
-		pluginstack = appImportPrefix + "/pluginstack"
+		platform     = appImportPrefix + "/platform"
+		pluginstack  = appImportPrefix + "/pluginstack"
+		renderstack  = appImportPrefix + "/renderstack"
+		eventstack   = appImportPrefix + "/eventstack"
+		actionwire   = appImportPrefix + "/actionwire"
 		servicegraph = appImportPrefix + "/servicegraph"
-		httpwire    = appImportPrefix + "/httpwire"
+		httpwire     = appImportPrefix + "/httpwire"
 	)
 	// forbidden maps a sub-package directory to the higher layers it must not import.
 	forbidden := map[string][]string{
-		"platform":     {pluginstack, servicegraph, httpwire},
-		"pluginstack":  {servicegraph, httpwire},
+		"platform":     {pluginstack, renderstack, eventstack, actionwire, servicegraph, httpwire},
+		"pluginstack":  {renderstack, eventstack, actionwire, servicegraph, httpwire},
+		"renderstack":  {eventstack, servicegraph, httpwire},
+		"eventstack":   {servicegraph, httpwire},
+		"actionwire":   {renderstack, eventstack, servicegraph, httpwire},
 		"servicegraph": {httpwire},
 	}
 
@@ -74,6 +82,61 @@ func TestCompositionRootLayering(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestPluginStackDoesNotImportEventRenderOrGovernanceWiring(t *testing.T) {
+	serverRoot := testServerRoot(t)
+	pluginStackRoot := filepath.Join(serverRoot, "internal", "app", "pluginstack")
+	forbidden := []string{
+		modulePrefix + "bot/adapter/",
+		modulePrefix + "bridge",
+		modulePrefix + "dispatch",
+		modulePrefix + "eventingress",
+		modulePrefix + "outbound",
+		modulePrefix + "permission",
+		modulePrefix + "render/",
+	}
+
+	walkGoFiles(t, pluginStackRoot, func(path string) {
+		if strings.HasSuffix(path, "_test.go") {
+			return
+		}
+		for _, importPath := range fileImports(t, serverRoot, path) {
+			for _, forbiddenImport := range forbidden {
+				if importPath == forbiddenImport || strings.HasPrefix(importPath, forbiddenImport) {
+					t.Errorf("%s imports non-plugin wiring package %s", relPath(t, serverRoot, path), importPath)
+				}
+			}
+		}
+	})
+}
+
+func TestInternalTreeHasNoEmptyDirectories(t *testing.T) {
+	serverRoot := testServerRoot(t)
+	internalRoot := filepath.Join(serverRoot, "internal")
+
+	if err := filepath.WalkDir(internalRoot, func(path string, entry os.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if !entry.IsDir() {
+			return nil
+		}
+		switch entry.Name() {
+		case ".git", "dist", ".gocache":
+			return filepath.SkipDir
+		}
+		entries, err := os.ReadDir(path)
+		if err != nil {
+			return err
+		}
+		if len(entries) == 0 {
+			t.Errorf("%s is an empty directory", relPath(t, serverRoot, path))
+		}
+		return nil
+	}); err != nil {
+		t.Fatalf("walk %s: %v", internalRoot, err)
 	}
 }
 

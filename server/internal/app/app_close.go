@@ -25,9 +25,8 @@ func (a *App) Close() error {
 	if a != nil && a.services.BilibiliSource != nil {
 		a.services.BilibiliSource = nil
 	}
-	if a != nil && a.pluginStack.Dispatcher != nil {
-		a.pluginStack.Dispatcher.Close()
-		a.pluginStack.Dispatcher = nil
+	if a != nil {
+		a.eventStack.Close()
 	}
 	if a != nil && a.pluginStack.PluginInstaller != nil {
 		if err := a.pluginStack.PluginInstaller.Close(); err != nil {
@@ -49,11 +48,10 @@ func (a *App) Close() error {
 		}
 		a.pluginStack.PluginUninstaller = nil
 	}
-	if a != nil && a.pluginStack.Renderer != nil {
-		if err := a.pluginStack.Renderer.Close(); err != nil {
+	if a != nil && a.renderStack.Renderer != nil {
+		if err := a.renderStack.Close(); err != nil {
 			errs = append(errs, fmt.Errorf("close render service: %w", err))
 		}
-		a.pluginStack.Renderer = nil
 	}
 	if a != nil && a.platform.Logs != nil {
 		a.platform.Logs.Close()
@@ -80,12 +78,12 @@ func (a *App) stopRuntimeManagers(timeout time.Duration) error {
 }
 
 func (a *App) stopAdapter(timeout time.Duration) error {
-	if a == nil || a.pluginStack.Adapter == nil {
+	if a == nil || a.eventStack.Adapter == nil {
 		return nil
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
-	if err := a.pluginStack.Adapter.Stop(ctx); err != nil && !errors.Is(err, context.Canceled) {
+	if err := a.eventStack.Adapter.Stop(ctx); err != nil && !errors.Is(err, context.Canceled) {
 		return err
 	}
 	return nil

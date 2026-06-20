@@ -689,7 +689,7 @@ func TestExecuteConfigWriteDispatchesConfigChanged(t *testing.T) {
 		nil,
 	)
 	fakeRuntime := &capturingRuntime{events: make(chan runtimeprotocol.Event, 1)}
-	application.pluginStack.Dispatcher.Register("weather", fakeRuntime, []string{"config.changed"}, nil, 1)
+	application.eventStack.Dispatcher.Register("weather", fakeRuntime, []string{"config.changed"}, nil, 1)
 
 	if _, err := application.executeLocalAction(context.Background(), "weather", "req_config_changed", runtimeaction.Action{
 		Kind: "config.write",
@@ -720,9 +720,9 @@ func TestExecuteGovernanceActionsRejectMissingCapability(t *testing.T) {
 	defer store.Close()
 
 	application := newTestAppState(config.Config{}, slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)))
-	application.pluginStack.BlacklistRepo = permission.NewSQLiteBlacklistRepository(store.Read, store.Write)
-	application.pluginStack.WhitelistRepo = permission.NewSQLiteWhitelistRepository(store.Read, store.Write)
-	application.pluginStack.WhitelistState = permission.NewSQLiteWhitelistStateRepository(store.Read, store.Write)
+	application.blacklistRepo = permission.NewSQLiteBlacklistRepository(store.Read, store.Write)
+	application.whitelistRepo = permission.NewSQLiteWhitelistRepository(store.Read, store.Write)
+	application.whitelistState = permission.NewSQLiteWhitelistStateRepository(store.Read, store.Write)
 	application.setTestLocalActions(
 		&stubLifecycleGrantRepository{grants: map[string][]plugins.PluginGrant{}},
 		nil,
@@ -762,9 +762,9 @@ func TestExecuteGovernanceActionsRoundTrip(t *testing.T) {
 			},
 		},
 	}, slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)))
-	application.pluginStack.BlacklistRepo = permission.NewSQLiteBlacklistRepository(store.Read, store.Write)
-	application.pluginStack.WhitelistRepo = permission.NewSQLiteWhitelistRepository(store.Read, store.Write)
-	application.pluginStack.WhitelistState = permission.NewSQLiteWhitelistStateRepository(store.Read, store.Write)
+	application.blacklistRepo = permission.NewSQLiteBlacklistRepository(store.Read, store.Write)
+	application.whitelistRepo = permission.NewSQLiteWhitelistRepository(store.Read, store.Write)
+	application.whitelistState = permission.NewSQLiteWhitelistStateRepository(store.Read, store.Write)
 	application.pluginStack.Plugins = plugincatalog.New([]plugins.Snapshot{{
 		PluginID:          "weather",
 		Name:              "Weather",
@@ -887,9 +887,9 @@ func TestExecuteGovernanceWritePublishesGovernanceChanged(t *testing.T) {
 			AutoGrantCapabilities: []string{"governance.blacklist.write"},
 		},
 	}, slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)))
-	application.pluginStack.BlacklistRepo = permission.NewSQLiteBlacklistRepository(store.Read, store.Write)
-	application.pluginStack.WhitelistRepo = permission.NewSQLiteWhitelistRepository(store.Read, store.Write)
-	application.pluginStack.WhitelistState = permission.NewSQLiteWhitelistStateRepository(store.Read, store.Write)
+	application.blacklistRepo = permission.NewSQLiteBlacklistRepository(store.Read, store.Write)
+	application.whitelistRepo = permission.NewSQLiteWhitelistRepository(store.Read, store.Write)
+	application.whitelistState = permission.NewSQLiteWhitelistStateRepository(store.Read, store.Write)
 	application.setTestLocalActions(
 		&stubLifecycleGrantRepository{grants: map[string][]plugins.PluginGrant{}},
 		nil,

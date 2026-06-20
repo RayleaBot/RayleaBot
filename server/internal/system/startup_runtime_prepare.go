@@ -38,13 +38,13 @@ func (s *Service) autoPrepareRuntimeEnvironments(ctx context.Context) {
 
 		inspection, err := inspectStartupRuntime(s.repoRootPath(), kind)
 		if err != nil {
-			issue := runtimeInspectionIssue(kind, err)
+			issue := startup.InspectionIssue(kind, err)
 			s.setStartupRuntimeState(kind, startupRuntimeFailed, &issue)
 			startup.LogFailure(s.currentLogger(), kind, err)
 			continue
 		}
 		if !inspection.MetadataComplete {
-			issue := runtimeMetadataIssue(kind)
+			issue := startup.MetadataIssue(kind)
 			s.setStartupRuntimeState(kind, startupRuntimeFailed, &issue)
 			continue
 		}

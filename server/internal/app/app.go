@@ -4,9 +4,11 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/RayleaBot/RayleaBot/server/internal/app/eventstack"
 	"github.com/RayleaBot/RayleaBot/server/internal/app/httpwire"
 	appplatform "github.com/RayleaBot/RayleaBot/server/internal/app/platform"
 	"github.com/RayleaBot/RayleaBot/server/internal/app/pluginstack"
+	"github.com/RayleaBot/RayleaBot/server/internal/app/renderstack"
 	"github.com/RayleaBot/RayleaBot/server/internal/app/servicegraph"
 	"github.com/RayleaBot/RayleaBot/server/internal/auth"
 	"github.com/RayleaBot/RayleaBot/server/internal/health"
@@ -34,6 +36,8 @@ type App struct {
 	process     appProcessState
 	platform    appPlatform
 	pluginStack appPlugins
+	renderStack appRender
+	eventStack  appEvents
 	services    appServices
 
 	runtimes *runtimeregistry.Registry
@@ -64,27 +68,63 @@ func New(options Options) (*App, error) {
 	if err != nil {
 		return nil, err
 	}
+	var (
+		pluginState           pluginstack.State
+		renderState           renderstack.State
+		eventState            eventstack.State
+		stopRuntimeStateGauge func()
+	)
+	cleanupPartialBuild := func() {
+		partial := &App{
+			platform:                platformState,
+			pluginStack:             pluginState,
+			renderStack:             renderState,
+			eventStack:              eventState,
+			metricsRuntimeGaugeStop: stopRuntimeStateGauge,
+		}
+		_ = partial.Close()
+	}
 
-	pluginState, err := pluginstack.Build(pluginstack.Deps{
-		Config:       buildState.core.Config,
-		Logger:       buildState.core.Logger,
-		Discovery:    buildState.discoverySpec,
-		Validator:    buildState.pluginValidator,
-		Catalog:      buildState.pluginCatalog,
-		Tasks:        buildState.taskRegistry,
-		Platform:     platformState,
-		RenderRunner: options.RenderRunner,
+	pluginState, err = pluginstack.Build(pluginstack.Deps{
+		Config:    buildState.core.Config,
+		Logger:    buildState.core.Logger,
+		Discovery: buildState.discoverySpec,
+		Validator: buildState.pluginValidator,
+		Catalog:   buildState.pluginCatalog,
+		Tasks:     buildState.taskRegistry,
+		Platform:  platformState,
 	})
 	if err != nil {
+		cleanupPartialBuild()
 		return nil, err
 	}
 
+	renderState, err = renderstack.Build(renderstack.Deps{
+		Config:    buildState.core.Config,
+		Logger:    buildState.core.Logger,
+		Discovery: buildState.discoverySpec,
+		Store:     platformState.Storage,
+		Catalog:   pluginState.Plugins,
+		Runner:    options.RenderRunner,
+	})
+	if err != nil {
+		cleanupPartialBuild()
+		return nil, err
+	}
+
+	eventState = eventstack.Build(eventstack.Deps{
+		Config: buildState.core.Config,
+		Logger: buildState.core.Logger,
+	})
+
 	state := newAppRuntimeState(buildState)
-	metricRegistry, stopRuntimeStateGauge := pluginstack.WireMetrics(platformState, pluginState)
+	metricRegistry, stopRuntimeStateGauge := wireMetrics(platformState, eventState, renderState.Renderer, pluginState)
 	serviceBuild, err := servicegraph.Build(servicegraph.BuildDeps{
 		Runtime:               state,
 		Platform:              platformState,
 		Plugins:               pluginState,
+		Events:                eventState,
+		Renderer:              renderState.Renderer,
 		Metrics:               metricRegistry,
 		Discovery:             buildState.discoverySpec,
 		PluginValidator:       buildState.pluginValidator,
@@ -93,6 +133,7 @@ func New(options Options) (*App, error) {
 		BilibiliClock:         options.BilibiliClock,
 	})
 	if err != nil {
+		cleanupPartialBuild()
 		return nil, err
 	}
 
@@ -100,6 +141,8 @@ func New(options Options) (*App, error) {
 		state:                   state,
 		platform:                platformState,
 		pluginStack:             pluginState,
+		renderStack:             renderState,
+		eventStack:              eventState,
 		services:                serviceBuild.Services,
 		runtimes:                serviceBuild.Runtimes,
 		metrics:                 metricRegistry,
@@ -110,6 +153,8 @@ func New(options Options) (*App, error) {
 		Runtime:               state,
 		Platform:              platformState,
 		Plugins:               pluginState,
+		Events:                eventState,
+		Renderer:              renderState.Renderer,
 		Services:              serviceBuild.Services,
 		Status:                serviceBuild.Status,
 		BilibiliAccountClient: serviceBuild.BilibiliAccountClient,
@@ -124,18 +169,8 @@ func New(options Options) (*App, error) {
 	return application, nil
 }
 
-func containsString(items []string, want string) bool {
-	for _, item := range items {
-		if item == want {
-			return true
-		}
-	}
-	return false
-}
-
 type readinessProvider interface {
 	CurrentReadiness() health.ReadinessReport
 }
 
 var _ readinessProvider = (*systemsvc.Service)(nil)
-var _ http.Handler = (http.Handler)(nil)

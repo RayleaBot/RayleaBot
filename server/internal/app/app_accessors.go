@@ -57,14 +57,14 @@ func (a *App) Bridge() *bridge.Bridge {
 	if a == nil {
 		return nil
 	}
-	return a.pluginStack.Bridge
+	return a.eventStack.Bridge
 }
 
 func (a *App) SetBridge(eventBridge *bridge.Bridge) {
 	if a == nil {
 		return
 	}
-	a.pluginStack.Bridge = eventBridge
+	a.eventStack.Bridge = eventBridge
 	if a.services.EventIngress != nil {
 		a.services.EventIngress.SetBridge(eventBridge)
 	}

@@ -7,8 +7,12 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/RayleaBot/RayleaBot/server/internal/app/actionwire"
+	"github.com/RayleaBot/RayleaBot/server/internal/app/eventstack"
+	"github.com/RayleaBot/RayleaBot/server/internal/app/httpwire"
 	appplatform "github.com/RayleaBot/RayleaBot/server/internal/app/platform"
 	"github.com/RayleaBot/RayleaBot/server/internal/app/pluginstack"
+	"github.com/RayleaBot/RayleaBot/server/internal/app/renderstack"
 	"github.com/RayleaBot/RayleaBot/server/internal/app/servicegraph"
 	adapterintake "github.com/RayleaBot/RayleaBot/server/internal/bot/adapter/onebot11/intake"
 	adaptershell "github.com/RayleaBot/RayleaBot/server/internal/bot/adapter/onebot11/shell"
@@ -19,7 +23,6 @@ import (
 	menuext "github.com/RayleaBot/RayleaBot/server/internal/extensions/menu"
 	"github.com/RayleaBot/RayleaBot/server/internal/governance"
 	"github.com/RayleaBot/RayleaBot/server/internal/logging"
-	"github.com/RayleaBot/RayleaBot/server/internal/app/httpwire"
 	"github.com/RayleaBot/RayleaBot/server/internal/management/configapi"
 	managementevents "github.com/RayleaBot/RayleaBot/server/internal/management/events"
 	"github.com/RayleaBot/RayleaBot/server/internal/management/systemapi"
@@ -54,8 +57,14 @@ type serviceHarness struct {
 	process     harnessProcess
 	platform    appplatform.State
 	pluginStack pluginstack.State
+	renderStack renderstack.State
+	eventStack  eventstack.State
 	services    servicegraph.Services
 	runtimes    *runtimeregistry.Registry
+
+	blacklistRepo  permission.BlacklistRepository
+	whitelistRepo  permission.WhitelistRepository
+	whitelistState permission.WhitelistStateRepository
 }
 
 type harnessProcess struct {
@@ -180,21 +189,21 @@ func (a *serviceHarness) setTestEventIngressWithGovernance(catalog *plugincatalo
 		return
 	}
 	a.pluginStack.Plugins = catalog
-	a.pluginStack.WhitelistRepo = whitelistRepo
-	a.pluginStack.WhitelistState = whitelistState
-	a.pluginStack.BlacklistRepo = blacklistRepo
-	a.pluginStack.OutboundSender = sender
-	a.pluginStack.Bridge = eventBridge
+	a.whitelistRepo = whitelistRepo
+	a.whitelistState = whitelistState
+	a.blacklistRepo = blacklistRepo
+	a.eventStack.OutboundSender = sender
+	a.eventStack.Bridge = eventBridge
 	menuService := menuext.New(menuext.Deps{
 		CurrentConfig: func() config.Config { return a.state.Config },
 		Plugins:       catalog,
-		Renderer:      a.pluginStack.Renderer,
+		Renderer:      a.renderStack.Renderer,
 		Sender:        sender,
 		WaitOutbound: func(ctx context.Context, request outbound.MessageLimitRequest) error {
-			if a.pluginStack.OutboundLimiter == nil {
+			if a.eventStack.OutboundLimiter == nil {
 				return nil
 			}
-			return a.pluginStack.OutboundLimiter.Wait(ctx, request)
+			return a.eventStack.OutboundLimiter.Wait(ctx, request)
 		},
 		Logger: a.state.Logger,
 	})
@@ -203,11 +212,11 @@ func (a *serviceHarness) setTestEventIngressWithGovernance(catalog *plugincatalo
 		Logger:           a.state.Logger,
 		Plugins:          catalog,
 		OutboundSender:   sender,
-		OutboundLimiter:  a.pluginStack.OutboundLimiter,
-		Renderer:         a.pluginStack.Renderer,
+		OutboundLimiter:  a.eventStack.OutboundLimiter,
+		Renderer:         a.renderStack.Renderer,
 		Menu:             menuService,
 		Bridge:           eventBridge,
-		MetadataEnricher: a.pluginStack.Adapter,
+		MetadataEnricher: a.eventStack.Adapter,
 		WhitelistRepo:    whitelistRepo,
 		WhitelistState:   whitelistState,
 		BlacklistRepo:    blacklistRepo,
@@ -222,9 +231,9 @@ func (a *serviceHarness) setTestLifecycle(catalog *plugincatalog.Catalog, desire
 	a.pluginStack.PluginRepository = desiredRepo
 	a.pluginStack.GrantRepository = grantRepo
 	a.runtimes = runtimes
-	a.pluginStack.Dispatcher = dispatcher
+	a.eventStack.Dispatcher = dispatcher
 	a.pluginStack.PluginConfig = pluginConfigRepo
-	a.pluginStack.Adapter = adapterShell
+	a.eventStack.Adapter = adapterShell
 	a.pluginStack.Webhooks = webhooks
 	a.services.PluginLifecycle = pluginservice.NewController(pluginservice.Deps{
 		CurrentConfig:    a.state.CurrentConfig,
@@ -256,9 +265,9 @@ func (a *serviceHarness) setTestLocalActions(grantRepo plugins.GrantRepository, 
 	a.pluginStack.PluginFiles = pluginFiles
 	a.pluginStack.PluginKV = pluginKV
 	a.platform.Scheduler = schedulerEngine
-	a.pluginStack.Dispatcher = dispatcher
-	a.pluginStack.Renderer = rendererService
-	a.pluginStack.Adapter = adapterShell
+	a.eventStack.Dispatcher = dispatcher
+	a.renderStack.Renderer = rendererService
+	a.eventStack.Adapter = adapterShell
 	a.pluginStack.PluginLogLimiter = limiter
 	if a.services.GovernanceEvents == nil {
 		a.services.GovernanceEvents = managementevents.NewGovernanceService()
@@ -266,9 +275,9 @@ func (a *serviceHarness) setTestLocalActions(grantRepo plugins.GrantRepository, 
 	a.services.Governance = governance.NewService(governance.Deps{
 		CurrentConfig:  func() config.Config { return a.state.Config },
 		Plugins:        a.pluginStack.Plugins,
-		BlacklistRepo:  a.pluginStack.BlacklistRepo,
-		WhitelistRepo:  a.pluginStack.WhitelistRepo,
-		WhitelistState: a.pluginStack.WhitelistState,
+		BlacklistRepo:  a.blacklistRepo,
+		WhitelistRepo:  a.whitelistRepo,
+		WhitelistState: a.whitelistState,
 		NotifyChanged:  a.services.GovernanceEvents.PublishChanged,
 	})
 	a.services.LocalActions = localaction.New(localaction.Deps{
@@ -283,10 +292,10 @@ func (a *serviceHarness) setTestLocalActions(grantRepo plugins.GrantRepository, 
 		PluginConfig:     pluginConfigRepo,
 		PluginFiles:      pluginFiles,
 		PluginKV:         pluginKV,
-		Secrets:          servicegraph.LocalActionSecretReader(a.platform.Secrets),
-		Scheduler:        servicegraph.LocalActionScheduler(schedulerEngine),
-		Dispatcher:       servicegraph.LocalActionConfigChangedDispatcher(dispatcher),
-		Renderer:         servicegraph.LocalActionRenderer(rendererService),
+		Secrets:          actionwire.SecretReader(a.platform.Secrets),
+		Scheduler:        actionwire.Scheduler(schedulerEngine),
+		Dispatcher:       actionwire.ConfigChangedDispatcher(dispatcher),
+		Renderer:         actionwire.Renderer(rendererService),
 		Adapter:          adapterShell,
 		PluginLogLimiter: limiter,
 		Governance:       a.services.Governance,
@@ -302,7 +311,7 @@ func (a *serviceHarness) setTestSystem(taskRegistry *tasks.Registry, taskExecuto
 	}
 	a.platform.Tasks = taskRegistry
 	a.platform.TaskExecutor = taskExecutor
-	a.pluginStack.Renderer = rendererService
+	a.renderStack.Renderer = rendererService
 	a.services.System = systemsvc.New(systemsvc.Deps{
 		CurrentConfig:    a.state.CurrentConfig,
 		CurrentSummary:   func() config.Summary { return a.state.Summary },
@@ -310,7 +319,7 @@ func (a *serviceHarness) setTestSystem(taskRegistry *tasks.Registry, taskExecuto
 		CurrentStartedAt: func() time.Time { return a.state.startedAt },
 		Logger:           a.state.Logger,
 		Auth:             a.platform.Auth,
-		Adapter:          a.pluginStack.Adapter,
+		Adapter:          a.eventStack.Adapter,
 		Plugins:          a.pluginStack.Plugins,
 		Runtimes:         a.runtimes,
 		Renderer:         rendererService,
@@ -326,7 +335,7 @@ func (a *serviceHarness) setTestWebhookService(secretStore secrets.Store, dispat
 		return
 	}
 	a.platform.Secrets = secretStore
-	a.pluginStack.Dispatcher = dispatcher
+	a.eventStack.Dispatcher = dispatcher
 	a.pluginStack.Webhooks = registry
 	a.services.PluginWebhooks = pluginwebhook.New(pluginwebhook.Deps{
 		CurrentConfig: func() config.Config { return a.state.Config },
@@ -415,9 +424,9 @@ func applyConfigApplyEffects(app *serviceHarness, newCfg config.Config) configap
 		Runtime:          app.state,
 		Logs:             app.platform.Logs,
 		LogRepository:    app.platform.LogRepository,
-		Renderer:         app.pluginStack.Renderer,
+		Renderer:         app.renderStack.Renderer,
 		PluginLogLimiter: app.pluginStack.PluginLogLimiter,
-		OutboundLimiter:  app.pluginStack.OutboundLimiter,
+		OutboundLimiter:  app.eventStack.OutboundLimiter,
 		Protocol:         app.services.Protocol,
 		EventIngress:     app.services.EventIngress,
 	})
@@ -479,7 +488,7 @@ func (a *serviceHarness) dispatchPluginConfigChanged(ctx context.Context, plugin
 	if a == nil {
 		return
 	}
-	dispatch := servicegraph.LocalActionConfigChangedDispatcher(a.pluginStack.Dispatcher)
+	dispatch := actionwire.ConfigChangedDispatcher(a.eventStack.Dispatcher)
 	if dispatch != nil {
 		dispatch(ctx, pluginID)
 	}
