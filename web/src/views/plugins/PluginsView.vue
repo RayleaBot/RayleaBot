@@ -11,12 +11,8 @@ import {
   CheckCircleOutlined,
   PauseCircleOutlined,
   WarningOutlined,
-  InfoCircleOutlined,
   SettingOutlined,
   EyeOutlined,
-  UserOutlined,
-  ArrowRightOutlined,
-  SafetyCertificateOutlined,
 } from '@ant-design/icons-vue'
 
 import AppCard from '@/components/AppCard.vue'
@@ -147,16 +143,31 @@ function isOfficialPlugin(record: (typeof sortedItems.value)[number]) {
   return record.trust?.level === 'official' || record.source?.root?.startsWith('plugins/builtin') === true
 }
 
-function getTrustBadgeTone(record: (typeof sortedItems.value)[number]) {
-  if (
-    isOfficialPlugin(record)
-  ) {
-    return { label: '官方', color: 'blue', icon: SafetyCertificateOutlined }
+function getTrustLabel(record: (typeof sortedItems.value)[number]) {
+  if (isOfficialPlugin(record)) {
+    return t('plugins.trustLabels.official')
   }
   if (record.trust?.level === 'unverified') {
-    return { label: '未验证', color: 'error', icon: WarningOutlined }
+    return t('plugins.trustLabels.unverified')
   }
-  return { label: record.trust?.label || '第三方', color: 'warning', icon: CheckCircleOutlined }
+  return record.trust?.label || t('plugins.trustLabels.thirdParty')
+}
+
+function getTrustBadgeTone(record: (typeof sortedItems.value)[number]) {
+  if (isOfficialPlugin(record)) {
+    return { label: getTrustLabel(record), color: 'blue' }
+  }
+  if (record.trust?.level === 'unverified') {
+    return { label: getTrustLabel(record), color: 'error' }
+  }
+  return { label: getTrustLabel(record), color: 'warning' }
+}
+
+function getSourceTypeLabel(type?: string) {
+  if (type === 'local_zip') return t('plugins.localZip')
+  if (type === 'local_directory') return t('plugins.localDirectory')
+  if (type === 'remote_url') return t('plugins.remoteUrl')
+  return type || t('display.empty')
 }
 
 const filteredItems = computed(() => {
@@ -197,13 +208,13 @@ const filteredItems = computed(() => {
 const summaryPlugin = computed(() => sortedItems.value.find((item) => item.id === summaryPluginId.value) ?? null)
 const tableColumns = computed(() => [
   { title: t('plugins.fields.plugin'), key: 'title', dataIndex: 'name', width: 240 },
-  { title: t('plugins.fields.version'), key: 'version', dataIndex: 'version', width: 96 },
-  { title: t('plugins.fields.author'), key: 'author', dataIndex: 'author', width: 140 },
-  { title: t('plugins.fields.description'), key: 'description', dataIndex: 'description', width: 320 },
-  { title: t('plugins.fields.source'), key: 'source', dataIndex: 'source', width: 220 },
-  { title: t('plugins.fields.commands'), key: 'commands', dataIndex: 'commands', width: 300 },
-  { title: t('plugins.fields.state'), key: 'state', dataIndex: 'state', width: 300 },
-  { title: t('plugins.fields.actions'), key: 'actions', dataIndex: 'actions', width: 396 },
+  { title: t('plugins.fields.version'), key: 'version', dataIndex: 'version', width: 96, className: 'plugin-col-responsive plugin-col-md' },
+  { title: t('plugins.fields.author'), key: 'author', dataIndex: 'author', width: 140, className: 'plugin-col-responsive plugin-col-lg' },
+  { title: t('plugins.fields.description'), key: 'description', dataIndex: 'description', width: 320, className: 'plugin-col-responsive plugin-col-lg' },
+  { title: t('plugins.fields.source'), key: 'source', dataIndex: 'source', width: 220, className: 'plugin-col-responsive plugin-col-md' },
+  { title: t('plugins.fields.commands'), key: 'commands', dataIndex: 'commands', width: 300, className: 'plugin-col-responsive plugin-col-md' },
+  { title: t('plugins.fields.state'), key: 'state', dataIndex: 'state', width: 140 },
+  { title: t('plugins.fields.actions'), key: 'actions', dataIndex: 'actions', width: 280 },
 ])
 
 function getConflictNotice(count: number) {
@@ -489,13 +500,9 @@ async function submitInstall() {
                 <div class="plugin-identity">
                   <div class="name-row">
                     <h4 class="grid-plugin-name" @click="openDetail(item.id)">{{ item.name }}</h4>
-                    <a-tooltip :title="getTrustBadgeTone(item).label">
-                      <component
-                        :is="getTrustBadgeTone(item).icon"
-                        class="trust-icon"
-                        :class="getTrustBadgeTone(item).color"
-                      />
-                    </a-tooltip>
+                    <a-tag size="small" :color="getTrustBadgeTone(item).color">
+                      {{ getTrustBadgeTone(item).label }}
+                    </a-tag>
                   </div>
                   <span class="grid-plugin-id">{{ item.id }}</span>
                 </div>
@@ -507,66 +514,69 @@ async function submitInstall() {
                 </p>
 
                 <div class="grid-plugin-meta">
-                  <div class="meta-item">
-                    <span class="meta-label">{{ t('plugins.fields.version') }}:</span>
-                    <span class="meta-value font-mono">{{ getOptionalDisplayText(item.version) }}</span>
-                  </div>
-                  <div class="meta-item">
-                    <span class="meta-label">{{ t('plugins.fields.author') }}:</span>
-                    <span class="meta-value">{{ getOptionalDisplayText(item.author) }}</span>
-                  </div>
-                  <div class="meta-item">
-                    <span class="meta-label">{{ t('plugins.fields.source') }}:</span>
-                    <span class="meta-value source-root" :title="item.source?.root">{{ item.source?.root ?? t('display.empty') }}</span>
-                  </div>
+                  <span v-if="item.version" class="meta-item meta-version">
+                    v{{ item.version }}
+                  </span>
+                  <span v-if="item.author" class="meta-item meta-author">
+                    {{ t('plugins.fields.author') }} {{ item.author }}
+                  </span>
+                  <span class="meta-item meta-source" :title="item.source?.root">
+                    {{ getSourceTypeLabel(item.source?.package_source_type) }}
+                  </span>
                 </div>
 
-                <div class="grid-plugin-states">
-                  <div class="state-badges">
-                    <a-tag size="small" :color="getStateColor(item.state)">{{ getPluginStateLabel(item.state) }}</a-tag>
-                  </div>
-                  <div v-if="getPluginHealthNotices(item).length > 0" class="plugin-health-notices grid-notices">
-                    <a-tag
-                      v-for="notice in getPluginHealthNotices(item)"
-                      :key="notice.label"
-                      size="small"
-                      :color="getTagColor(notice.tone)"
-                    >
-                      {{ notice.label }}
-                    </a-tag>
-                  </div>
+                <div class="grid-plugin-status-bar">
+                  <a-tag size="small" :color="getStateColor(item.state)">
+                    {{ getPluginStateLabel(item.state) }}
+                  </a-tag>
+                  <a-tag
+                    v-for="notice in getPluginHealthNotices(item)"
+                    :key="notice.label"
+                    size="small"
+                    :color="getTagColor(notice.tone)"
+                  >
+                    {{ notice.label }}
+                  </a-tag>
                 </div>
 
                 <div class="grid-plugin-commands">
-                  <div v-if="item.commands.length > 0" class="plugin-cell-commands">
-                    <div
-                      v-for="command in getVisibleCommands(item.id, item.commands)"
-                      :key="`${item.id}-${command.name}`"
-                      class="plugin-command-chip"
-                    >
-                      <a-tag
+                  <template v-if="item.commands.length > 0">
+                    <div class="plugin-commands-summary">
+                      <span class="commands-summary-text">
+                        {{ t('plugins.commandSummary', { count: item.commands.length }) }}
+                      </span>
+                      <a-button
                         size="small"
-                        :color="isConflictedCommand(command, item.command_conflicts) ? 'warning' : 'success'"
+                        type="link"
+                        class="plugin-command-expander"
+                        @click="toggleCommandExpansion(item.id)"
                       >
-                        {{ command.name }}
-                      </a-tag>
-                      <a-tooltip v-if="command.aliases?.length" :title="getCommandAliasesText(command)">
-                        <small>{{ t('plugins.commandAliasesCount', { count: command.aliases.length }) }}</small>
-                      </a-tooltip>
+                        {{ isCommandsExpanded(item.id)
+                          ? t('plugins.commandCollapse')
+                          : t('plugins.commandExpand') }}
+                      </a-button>
                     </div>
-                    <a-button
-                      v-if="getOverflowCommandCount(item.commands) > 0"
-                      class="plugin-command-expander"
-                      size="small"
-                      type="link"
-                      @click="toggleCommandExpansion(item.id)"
-                    >
-                      {{ isCommandsExpanded(item.id)
-                        ? t('plugins.commandCollapse')
-                        : t('plugins.commandOverflow', { count: getOverflowCommandCount(item.commands) }) }}
-                    </a-button>
-                  </div>
-                  <span v-else class="plugin-command-empty">{{ t('plugins.empty.commands') }}</span>
+                    <div v-if="isCommandsExpanded(item.id)" class="plugin-cell-commands">
+                      <div
+                        v-for="command in item.commands"
+                        :key="`${item.id}-${command.name}`"
+                        class="plugin-command-chip"
+                      >
+                        <a-tag
+                          size="small"
+                          :color="isConflictedCommand(command, item.command_conflicts) ? 'warning' : 'success'"
+                        >
+                          {{ command.name }}
+                        </a-tag>
+                        <a-tooltip v-if="command.aliases?.length" :title="getCommandAliasesText(command)">
+                          <small>{{ t('plugins.commandAliasesCount', { count: command.aliases.length }) }}</small>
+                        </a-tooltip>
+                      </div>
+                    </div>
+                  </template>
+                  <span v-else class="plugin-command-empty">
+                    {{ t('plugins.empty.commands') }}
+                  </span>
                 </div>
               </div>
 
@@ -617,7 +627,7 @@ async function submitInstall() {
           :data-source="filteredItems"
           :pagination="false"
           :row-key="(row) => row.id"
-          :scroll="{ x: 2012 }"
+          :scroll="{ x: 1280 }"
         >
           <template #emptyText>
             <AppEmptyState
@@ -834,7 +844,7 @@ async function submitInstall() {
 .plugins-page-content {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: var(--space-lg);
   flex: 1 1 auto;
   min-height: 0;
 }
@@ -842,14 +852,14 @@ async function submitInstall() {
 .plugins-stats-row {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 14px;
+  gap: var(--space-md);
   width: 100%;
 }
 
 .stat-card {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: var(--space-lg);
   padding: 16px 20px;
   background: var(--surface);
   border: 1px solid var(--border);
@@ -924,7 +934,7 @@ async function submitInstall() {
 }
 
 .stat-label {
-  font-size: 0.84rem;
+  font-size: 0.875rem;
   font-weight: 500;
   color: var(--muted);
 }
@@ -938,20 +948,20 @@ async function submitInstall() {
 
 .plugins-toolbar {
   border-bottom: 1px solid var(--border);
-  padding: 12px 16px;
+  padding: var(--space-md) var(--space-lg);
   background: var(--surface);
 
   :deep(.app-table-toolbar-right) {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: var(--space-sm);
   }
 }
 
 .toolbar-filters {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: var(--space-md);
   flex-wrap: wrap;
 }
 
@@ -989,7 +999,7 @@ async function submitInstall() {
 .layout-switcher {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--space-xs);
   margin-right: 4px;
 }
 
@@ -1022,7 +1032,7 @@ async function submitInstall() {
 }
 
 .plugins-grid-container {
-  padding: 20px;
+  padding: var(--space-xl);
   background: var(--surface-soft);
   flex: 1 1 auto;
   min-height: 0;
@@ -1032,7 +1042,7 @@ async function submitInstall() {
 .plugins-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
-  gap: 20px;
+  gap: var(--space-xl);
 }
 
 .plugin-grid-card {
@@ -1042,46 +1052,44 @@ async function submitInstall() {
   box-shadow: var(--shadow-sm);
   display: flex;
   flex-direction: column;
-  transition: transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1), box-shadow 0.3s cubic-bezier(0.25, 0.8, 0.25, 1), border-color 0.3s cubic-bezier(0.25, 0.8, 0.25, 1), background-color 0.3s cubic-bezier(0.25, 0.8, 0.25, 1), color 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+  transition: transform 0.25s cubic-bezier(0.25, 0.8, 0.25, 1), box-shadow 0.25s cubic-bezier(0.25, 0.8, 0.25, 1), border-color 0.25s cubic-bezier(0.25, 0.8, 0.25, 1), background-color 0.25s cubic-bezier(0.25, 0.8, 0.25, 1), color 0.25s cubic-bezier(0.25, 0.8, 0.25, 1);
   position: relative;
   overflow: hidden;
 
   &:hover {
-    transform: translateY(-4px);
-    box-shadow: 0 12px 24px -10px rgba(15, 23, 42, 0.15), var(--shadow);
-    border-color: var(--border-accent);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px -8px rgba(15, 23, 42, 0.12), var(--shadow);
+    border-color: var(--border-strong);
   }
 
-  &::after {
+  &::before {
     content: '';
     position: absolute;
-    left: 0;
-    top: 0;
-    width: 4px;
-    height: 100%;
+    inset: 0 0 auto;
+    height: 2px;
     background: var(--border);
   }
 
-  &.status-running::after {
+  &.status-running::before {
     background: var(--success);
   }
-  &.status-disabled::after {
-    background: #64748b;
+  &.status-disabled::before {
+    background: var(--muted);
   }
-  &.status-failed::after,
-  &.status-invalid::after {
+  &.status-failed::before,
+  &.status-invalid::before {
     background: var(--danger);
   }
-  &.status-starting::after,
-  &.status-stopping::after,
-  &.status-enabled::after {
+  &.status-starting::before,
+  &.status-stopping::before,
+  &.status-enabled::before {
     background: var(--warning);
   }
 }
 
 .card-header {
   display: flex;
-  gap: 16px;
+  gap: var(--space-lg);
   padding: 20px 20px 14px;
   align-items: center;
 }
@@ -1092,8 +1100,8 @@ async function submitInstall() {
 }
 
 .plugin-avatar {
-  width: 48px;
-  height: 48px;
+  width: 56px;
+  height: 56px;
   border-radius: 12px;
   display: flex;
   align-items: center;
@@ -1104,7 +1112,7 @@ async function submitInstall() {
 
 .avatar-initials {
   font-weight: 700;
-  font-size: 1.1rem;
+  font-size: 1.125rem;
   letter-spacing: -0.5px;
 }
 
@@ -1112,19 +1120,19 @@ async function submitInstall() {
   position: absolute;
   bottom: -2px;
   right: -2px;
-  width: 13px;
-  height: 13px;
+  width: 14px;
+  height: 14px;
   border-radius: 50%;
   border: 2.5px solid var(--surface);
   box-shadow: var(--shadow-sm);
-  background-color: #64748b;
+  background-color: var(--muted);
 
   &.running {
     background-color: var(--success);
     animation: status-pulse 2s infinite;
   }
   &.disabled {
-    background-color: #64748b;
+    background-color: var(--muted);
   }
   &.failed, &.invalid {
     background-color: var(--danger);
@@ -1158,12 +1166,12 @@ async function submitInstall() {
 .name-row {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-sm);
   min-width: 0;
 }
 
 .grid-plugin-name {
-  font-size: 1.05rem;
+  font-size: 1rem;
   font-weight: 600;
   color: var(--text);
   margin: 0;
@@ -1178,18 +1186,9 @@ async function submitInstall() {
   }
 }
 
-.trust-icon {
-  font-size: 0.95rem;
-  flex-shrink: 0;
-
-  &.blue { color: var(--accent); }
-  &.error { color: var(--danger); }
-  &.warning { color: var(--warning); }
-}
-
 .grid-plugin-id {
   font-family: var(--font-mono);
-  font-size: 0.78rem;
+  font-size: 0.75rem;
   color: var(--muted);
   white-space: nowrap;
   overflow: hidden;
@@ -1201,12 +1200,12 @@ async function submitInstall() {
   padding: 0 20px 20px;
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: var(--space-md);
   flex: 1 1 auto;
 }
 
 .grid-plugin-description {
-  font-size: 0.86rem;
+  font-size: 0.875rem;
   color: var(--muted);
   line-height: 1.5;
   margin: 0;
@@ -1214,63 +1213,82 @@ async function submitInstall() {
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
-  height: 2.6rem;
+  min-height: 2.625rem;
 }
 
 .grid-plugin-meta {
   display: flex;
-  flex-direction: column;
-  gap: 6px;
-  padding: 10px 12px;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: 8px 12px;
   background: var(--surface-soft);
   border-radius: 8px;
-  font-size: 0.8rem;
+  font-size: 0.75rem;
+  color: var(--muted);
+  flex-wrap: wrap;
 }
 
 .meta-item {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-}
-
-.meta-label {
-  color: var(--muted);
-  font-weight: 500;
-}
-
-.meta-value {
-  color: var(--text);
+  gap: var(--space-xs);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 70%;
 
-  &.source-root {
+  &:not(:last-child) {
+    position: relative;
+    padding-right: 10px;
+
+    &::after {
+      content: '';
+      position: absolute;
+      right: 0;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 3px;
+      height: 3px;
+      border-radius: 50%;
+      background: var(--border-strong);
+    }
+  }
+
+  &.meta-version {
     font-family: var(--font-mono);
-    font-size: 0.76rem;
+    color: var(--text);
+  }
+
+  &.meta-source {
+    max-width: 45%;
   }
 }
 
-.grid-plugin-states {
+.grid-plugin-status-bar {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 6px;
-}
-
-.state-badges,
-.grid-notices {
-  display: contents;
+  gap: var(--space-sm);
 }
 
 .grid-plugin-commands {
   border-top: 1px dashed var(--border);
-  padding-top: 12px;
+  padding-top: var(--space-md);
+}
+
+.plugin-commands-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+}
+
+.commands-summary-text {
+  font-size: 0.875rem;
+  color: var(--muted);
 }
 
 .plugin-command-empty {
-  font-size: 0.8rem;
+  font-size: 0.875rem;
   color: var(--muted);
   display: block;
 }
@@ -1279,25 +1297,25 @@ async function submitInstall() {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 12px 16px;
+  padding: var(--space-md) var(--space-lg);
   border-top: 1px solid var(--border);
   background: var(--surface-soft);
-  gap: 6px;
+  gap: var(--space-sm);
 }
 
 .action-buttons-group {
   display: flex;
-  gap: 4px;
+  gap: var(--space-xs);
 }
 
 .btn-action {
-  font-size: 0.8rem;
+  font-size: 0.875rem;
   padding: 0 8px;
   height: 28px;
   color: var(--muted);
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--space-xs);
   border-radius: 6px !important;
   transition: background-color 0.25s ease, color 0.25s ease, transform 0.25s cubic-bezier(0.25, 0.8, 0.25, 1);
   font-weight: 500;
@@ -1333,7 +1351,7 @@ async function submitInstall() {
 .action-controls-group {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-sm);
 }
 
 .empty-container {
@@ -1367,6 +1385,22 @@ async function submitInstall() {
   min-height: 0;
   border-radius: 0 0 var(--app-card-radius) var(--app-card-radius);
   overflow: hidden;
+
+  :deep(.plugin-col-responsive) {
+    display: none;
+  }
+
+  @media (min-width: 768px) {
+    :deep(.plugin-col-responsive.plugin-col-md) {
+      display: table-cell;
+    }
+  }
+
+  @media (min-width: 992px) {
+    :deep(.plugin-col-responsive.plugin-col-lg) {
+      display: table-cell;
+    }
+  }
 }
 
 .plugins-data-table :deep(.ant-table-row:hover > td) {
@@ -1376,29 +1410,29 @@ async function submitInstall() {
 .plugin-cell-identity {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--space-xs);
 }
 
 .plugin-name {
-  font-size: 0.95rem;
+  font-size: 1rem;
   color: var(--text);
   font-weight: 600;
 }
 
 .plugin-id {
   font-family: var(--font-mono);
-  font-size: 0.8rem;
+  font-size: 0.75rem;
   color: var(--muted);
 }
 
 .plugin-cell-source {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--space-xs);
 }
 
 .plugin-source-root {
-  font-size: 0.88rem;
+  font-size: 0.875rem;
   color: var(--text);
   white-space: nowrap;
   overflow: hidden;
@@ -1407,13 +1441,13 @@ async function submitInstall() {
 }
 
 .plugin-trust-label {
-  font-size: 0.8rem;
+  font-size: 0.75rem;
   color: var(--muted);
 }
 
 .plugin-cell-version {
   font-family: var(--font-mono);
-  font-size: 0.82rem;
+  font-size: 0.75rem;
   color: var(--muted);
 }
 
@@ -1422,7 +1456,7 @@ async function submitInstall() {
   max-width: 100%;
   overflow: hidden;
   color: var(--muted);
-  font-size: 0.86rem;
+  font-size: 0.875rem;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -1431,7 +1465,7 @@ async function submitInstall() {
   display: -webkit-box;
   overflow: hidden;
   color: var(--muted);
-  font-size: 0.86rem;
+  font-size: 0.875rem;
   line-height: 1.45;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
@@ -1440,14 +1474,14 @@ async function submitInstall() {
 .plugin-cell-status {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--space-sm);
   align-items: flex-start;
 }
 
 .plugin-status-badges,
 .plugin-health-notices {
   display: flex;
-  gap: 6px;
+  gap: var(--space-sm);
   flex-wrap: wrap;
 }
 
@@ -1461,7 +1495,7 @@ async function submitInstall() {
 .plugin-command-chip {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--space-xs);
   min-width: 0;
   flex: 0 1 auto;
 }
@@ -1473,14 +1507,14 @@ async function submitInstall() {
 .plugin-command-chip small,
 .plugin-command-empty {
   color: var(--muted);
-  font-size: 0.8rem;
+  font-size: 0.75rem;
 }
 
 .plugin-command-expander {
   height: 22px;
   padding: 0 6px;
   color: var(--muted);
-  font-size: 0.8rem;
+  font-size: 0.875rem;
   line-height: 20px;
 }
 
@@ -1493,7 +1527,7 @@ async function submitInstall() {
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  gap: 6px;
+  gap: var(--space-sm);
   flex-wrap: wrap;
 }
 
@@ -1506,15 +1540,15 @@ async function submitInstall() {
 }
 
 .drawer-section {
-  padding: 16px 0;
+  padding: var(--space-lg) 0;
   border-bottom: 1px solid var(--border);
 }
 
 .mono-list {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--space-xs);
   strong { font-size: 1rem; font-weight: 600; }
-  small { font-family: var(--font-mono); font-size: 0.8rem; color: var(--muted); }
+  small { font-family: var(--font-mono); font-size: 0.75rem; color: var(--muted); }
 }
 </style>

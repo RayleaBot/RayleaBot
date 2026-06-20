@@ -145,8 +145,15 @@ export const plugins = {
   commandAliasesCount: '{count} 个别名',
   commandOverflow: '还有 {count} 个',
   commandCollapse: '收起',
+  commandExpand: '展开',
+  commandSummary: '{count} 个命令',
   commandExpandAria: '展开 {name} 的其余 {count} 个插件指令',
   commandCollapseAria: '收起 {name} 的插件指令',
+  trustLabels: {
+    official: '官方',
+    thirdParty: '第三方',
+    unverified: '未验证',
+  },
   consoleUnavailable: '控制台连接暂不可用',
   console: {
     ariaLabel: '插件实时控制台',
