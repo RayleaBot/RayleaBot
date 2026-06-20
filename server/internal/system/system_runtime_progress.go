@@ -40,28 +40,28 @@ func runtimePrepareStageSummary(event deps.PrepareProgress) string {
 	}
 	switch event.Stage {
 	case "probe":
-		return "正在测试 " + label + "下载来源"
+		return "正在测试 " + deps.ManagedResourceText(event.Kind, "下载来源")
 	case "download":
 		if event.Status == "succeeded" {
-			return label + "安装包已下载"
+			return deps.ManagedResourceText(event.Kind, "安装包已下载")
 		}
 		return "正在下载 " + label
 	case "verify":
-		return "正在校验 " + label + "安装包"
+		return "正在校验 " + deps.ManagedResourceText(event.Kind, "安装包")
 	case "extract":
 		if event.Status == "succeeded" {
-			return label + "已解压"
+			return deps.ManagedResourceText(event.Kind, "已解压")
 		}
 		return "正在解压 " + label
 	case "cleanup":
 		return "正在清理未完成的 " + label + "目录"
 	case "activate":
 		if event.Status == "succeeded" {
-			return label + "已启用"
+			return deps.ManagedResourceText(event.Kind, "已启用")
 		}
 		return "正在启用 " + label
 	case "complete":
-		return label + "已准备完成"
+		return deps.ManagedResourceText(event.Kind, "已准备完成")
 	default:
 		return "正在准备 " + label
 	}

@@ -35,6 +35,7 @@ func runtimePrepareReportFromDeps(report *deps.PrepareReport) *managedRuntimePre
 		StoreRoot:          report.StoreRoot,
 		UsedPreparedStore:  report.UsedPreparedStore,
 		UsedCachedArchive:  report.UsedCachedArchive,
+		UsedSystemBrowser:  report.UsedSystemBrowser,
 		AttemptedSources:   append([]string{}, report.AttemptedSources...),
 		SelectedSource:     report.SelectedSource,
 		PreparedEntrypoint: report.PreparedEntrypoint,

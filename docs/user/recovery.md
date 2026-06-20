@@ -44,7 +44,7 @@ Launcher 继续提供：
 - 运行时资源问题通过 `runtime.bootstrap` 进入正式任务模型。
 - 任务结果会返回安装包下载位置和解压位置。
 - 安装包下载到 `cache/downloads/runtime/`，运行环境解压到 `.deps/store/<resource-id>/<version>/`。
-- Chromium 仍可通过 `render.browser_path` 显式覆盖。
+- 图片渲染 Chromium 可使用已准备的 `.deps` 浏览器、系统 Chrome / Chromium / Edge，或通过 `render.browser_path` 显式指定。
 
 ## 当前边界
 

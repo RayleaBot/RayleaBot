@@ -12,6 +12,9 @@ import (
 func (m *Manager) ResolvePreparedEntrypoint(kind, name string) (string, error) {
 	prepared, err := m.resolvePreparedResource(kind)
 	if err != nil {
+		if kind == "chromium" && name == "browser" {
+			return m.resolveSystemChromiumEntrypoint(context.Background())
+		}
 		return "", err
 	}
 	path, ok := prepared.Entrypoints[name]
@@ -33,12 +36,61 @@ func (m *Manager) ResolveEntrypoint(ctx context.Context, kind, name string) (str
 	return path, nil
 }
 
+func (m *Manager) resolveSystemChromiumEntrypoint(ctx context.Context) (string, error) {
+	if m == nil || m.findSystemChromium == nil {
+		return "", errSystemChromiumUnavailable
+	}
+	path, err := m.findSystemChromium(ctx)
+	if err != nil {
+		return "", err
+	}
+	path = strings.TrimSpace(path)
+	if path == "" {
+		return "", errSystemChromiumUnavailable
+	}
+	return path, nil
+}
+
+func systemChromiumPreparedResource(path string) *PreparedResource {
+	path = strings.TrimSpace(path)
+	if path == "" {
+		return nil
+	}
+	resource := Resource{
+		ID:       "system-chromium",
+		Kind:     "chromium",
+		Version:  "system",
+		Platform: CurrentPlatform(),
+	}
+	return &PreparedResource{
+		Resource: resource,
+		Root:     filepath.Dir(path),
+		Entrypoints: map[string]string{
+			"browser": path,
+		},
+	}
+}
+
 func (m *Manager) resolvePreparedResource(kind string) (*PreparedResource, error) {
 	manifest, resource, err := m.currentResource(kind)
 	if err != nil {
+		if kind == "chromium" {
+			if path, pathErr := m.resolveSystemChromiumEntrypoint(context.Background()); pathErr == nil {
+				return systemChromiumPreparedResource(path), nil
+			}
+		}
 		return nil, err
 	}
-	return m.resolvePreparedManifestResource(manifest, resource)
+	prepared, err := m.resolvePreparedManifestResource(manifest, resource)
+	if err == nil {
+		return prepared, nil
+	}
+	if kind == "chromium" {
+		if path, pathErr := m.resolveSystemChromiumEntrypoint(context.Background()); pathErr == nil {
+			return systemChromiumPreparedResource(path), nil
+		}
+	}
+	return nil, err
 }
 
 func (m *Manager) resolvePreparedManifestResource(_ *Manifest, resource *Resource) (*PreparedResource, error) {

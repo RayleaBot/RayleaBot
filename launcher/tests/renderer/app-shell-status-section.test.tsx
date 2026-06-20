@@ -181,11 +181,11 @@ describe("AppShellStatusSection", () => {
         runtimePrepare: {
           active: true,
           currentKind: "chromium",
-          summary: "正在下载 Chromium 浏览环境",
+          summary: "正在下载 图片渲染 Chromium",
           resources: [
             {
               kind: "chromium",
-              label: "Chromium 浏览环境",
+              label: "图片渲染 Chromium",
               resourceId: "chromium-windows-x64",
               version: "147.0.7727.24",
               sourceLabel: "Chrome for Testing",
@@ -199,7 +199,7 @@ describe("AppShellStatusSection", () => {
               totalBytes: 2048,
               extractedEntries: null,
               totalEntries: null,
-              summary: "正在下载 Chromium 浏览环境",
+              summary: "正在下载 图片渲染 Chromium",
               error: "",
               updatedAt: "2026-06-06T00:00:00Z",
             },
@@ -210,7 +210,7 @@ describe("AppShellStatusSection", () => {
 
     expect(screen.getByText("准备进度")).toBeInTheDocument();
     expect(screen.getByText("运行环境准备")).toBeInTheDocument();
-    expect(screen.getAllByText("正在下载 Chromium 浏览环境").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("正在下载 图片渲染 Chromium").length).toBeGreaterThan(0);
     expect(screen.getByText("Chrome for Testing · https://example.invalid/chrome.zip")).toBeInTheDocument();
     expect(screen.queryByText("当前限制")).toBeNull();
     expect(screen.queryByText("服务诊断")).toBeNull();

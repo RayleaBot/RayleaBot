@@ -21,7 +21,7 @@ func ensureDownloadedArchiveWithProgress(
 			Stage:    "download",
 			Status:   "succeeded",
 			Progress: 100,
-			Summary:  managedResourceLabel(resource.Kind) + "安装包已下载",
+			Summary:  managedResourceText(resource.Kind, "安装包已下载"),
 		}.withResource(resource, archivePath, storeRoot))
 		return "", nil, nil
 	}
@@ -33,7 +33,7 @@ func ensureDownloadedArchiveWithProgress(
 		emitPrepareProgress(reporter, PrepareProgress{
 			Stage:    "probe",
 			Status:   "running",
-			Summary:  "正在测试 " + managedResourceLabel(resource.Kind) + "下载来源",
+			Summary:  "正在测试 " + managedResourceText(resource.Kind, "下载来源"),
 			Progress: 0,
 		}.withResource(resource, archivePath, storeRoot))
 		selectedSources := sourceSelector(ctx, downloadSources)
@@ -43,7 +43,7 @@ func ensureDownloadedArchiveWithProgress(
 		emitPrepareProgress(reporter, PrepareProgress{
 			Stage:    "probe",
 			Status:   "succeeded",
-			Summary:  managedResourceLabel(resource.Kind) + "下载来源已测试",
+			Summary:  managedResourceText(resource.Kind, "下载来源已测试"),
 			Progress: 100,
 		}.withResource(resource, archivePath, storeRoot))
 	}
@@ -83,7 +83,7 @@ func ensureDownloadedArchiveWithProgress(
 			SourceLabel: strings.TrimSpace(source.Label),
 			SourceURL:   rawURL,
 			Progress:    100,
-			Summary:     "正在校验 " + managedResourceLabel(resource.Kind) + "安装包",
+			Summary:     "正在校验 " + managedResourceText(resource.Kind, "安装包"),
 		}.withResource(resource, archivePath, storeRoot))
 		if err := verifyFileSHA256(tempPath, resource.SHA256); err != nil {
 			_ = os.Remove(tempPath)
@@ -101,7 +101,7 @@ func ensureDownloadedArchiveWithProgress(
 			SourceLabel: strings.TrimSpace(source.Label),
 			SourceURL:   rawURL,
 			Progress:    100,
-			Summary:     managedResourceLabel(resource.Kind) + "安装包已下载",
+			Summary:     managedResourceText(resource.Kind, "安装包已下载"),
 		}.withResource(resource, archivePath, storeRoot))
 		return rawURL, attempted, nil
 	}

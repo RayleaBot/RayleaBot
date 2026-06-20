@@ -3,6 +3,7 @@ package system
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -275,6 +276,9 @@ func TestManagedRuntimeTaskProgressSummarizesSourceProbe(t *testing.T) {
 
 func TestHandleSystemRuntimeBootstrapRefreshesChromiumDiagnostics(t *testing.T) {
 	repoRoot := t.TempDir()
+	t.Cleanup(deps.SetSystemChromiumFinderForTest(func(context.Context) (string, error) {
+		return "", errors.New("system chromium disabled for test")
+	}))
 	writeDepsManifest(t, repoRoot)
 	platform := deps.CurrentPlatform()
 	store, err := storage.Open(filepath.Join(repoRoot, "state.db"))

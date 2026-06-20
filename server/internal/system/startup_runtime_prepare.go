@@ -50,6 +50,9 @@ func (s *Service) autoPrepareRuntimeEnvironments(ctx context.Context) {
 		}
 		if inspection.PreparedStorePresent {
 			s.setStartupRuntimeState(kind, startupRuntimeReady, nil)
+			if kind == "chromium" && s.renderer != nil && strings.TrimSpace(inspection.SystemBrowserPath) != "" {
+				s.renderer.RefreshBrowserPath(inspection.SystemBrowserPath)
+			}
 			continue
 		}
 
@@ -87,6 +90,7 @@ func (s *Service) autoPrepareRuntimeEnvironments(ctx context.Context) {
 				"label", label,
 				"used_cached_archive", report.UsedCachedArchive,
 				"used_prepared_store", report.UsedPreparedStore,
+				"used_system_browser", report.UsedSystemBrowser,
 				"store_root", report.StoreRoot,
 			)
 		}

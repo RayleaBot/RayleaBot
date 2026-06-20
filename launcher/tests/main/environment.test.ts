@@ -82,7 +82,7 @@ describe("inspectLauncherEnvironment", () => {
     };
 
     try {
-      const inspection = await inspectEnvironmentFromNode(settings);
+      const inspection = await inspectEnvironmentFromNode(settings, { findSystemChromium: async () => "" });
 
       expect(inspection.hasBlockingIssues).toBe(false);
       expect(inspection.canBootstrapUserConfig).toBe(true);
@@ -121,7 +121,7 @@ describe("inspectLauncherEnvironment", () => {
     };
 
     try {
-      const inspection = await inspectEnvironmentFromNode(settings);
+      const inspection = await inspectEnvironmentFromNode(settings, { findSystemChromium: async () => "" });
 
       expect(inspection.hasBlockingIssues).toBe(true);
       expect(inspection.checks.some((item) => item.code === "server.executable_missing")).toBe(true);
@@ -158,7 +158,7 @@ describe("inspectLauncherEnvironment", () => {
     };
 
     try {
-      const inspection = await inspectEnvironmentFromNode(settings);
+      const inspection = await inspectEnvironmentFromNode(settings, { findSystemChromium: async () => "" });
       const chromiumCheck = inspection.checks.find((item) => item.code === "chromium.extract_incomplete");
 
       expect(chromiumCheck?.summary).toBe("上次解压未完成。");
@@ -171,6 +171,52 @@ describe("inspectLauncherEnvironment", () => {
       await fs.rm(installRoot, { recursive: true, force: true });
       await fs.rm(settings.workdir, { recursive: true, force: true });
     }
+  });
+
+  test("reports image rendering Chromium ready when a system browser is available", async () => {
+    const inspection = await inspectLauncherEnvironment({
+      serverExecutableExists: true,
+      userConfigExists: true,
+      defaultConfigExists: true,
+      workdirWritable: true,
+      depsManifestExists: true,
+      depsManifestText: buildDepsManifest("windows-x64"),
+      platform: "windows-x64",
+      runtimeResourceStates: {
+        chromium: {
+          archivePath: "C:\\RayleaBot\\cache\\downloads\\runtime\\chromium-test-147.0.7727.24.zip",
+          archiveExists: false,
+          storeRoot: "C:\\RayleaBot\\.deps\\store\\chromium-test\\147.0.7727.24",
+          storeRootExists: false,
+          tempRootPaths: [],
+          preparedStorePresent: false,
+          missingEntrypoints: ["browser"],
+          primaryEntrypoint: "",
+        },
+      },
+      systemChromiumPath: "C:\\Program Files\\Microsoft\\Edge\\Application\\msedge.exe",
+    });
+
+    const chromiumCheck = inspection.checks.find((item) => item.code === "chromium.ready");
+    expect(chromiumCheck?.title).toBe("图片渲染 Chromium");
+    expect(chromiumCheck?.summary).toBe("已找到系统浏览器。");
+    expect(chromiumCheck?.detail).toContain("msedge.exe");
+    expect(inspection.checks.some((item) => item.code === "chromium.not_ready")).toBe(false);
+  });
+
+  test("reports image rendering Chromium ready when the manifest is missing but a system browser is available", async () => {
+    const inspection = await inspectLauncherEnvironment({
+      serverExecutableExists: true,
+      userConfigExists: true,
+      defaultConfigExists: true,
+      workdirWritable: true,
+      depsManifestExists: false,
+      depsManifestPath: "C:\\RayleaBot\\.deps\\manifest.json",
+      systemChromiumPath: "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
+    });
+
+    expect(inspection.checks.some((item) => item.code === "deps.manifest_missing")).toBe(true);
+    expect(inspection.checks.find((item) => item.code === "chromium.ready")?.title).toBe("图片渲染 Chromium");
   });
 
   test("keeps runtime warning summaries separate from their titles", async () => {

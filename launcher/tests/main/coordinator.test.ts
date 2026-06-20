@@ -679,11 +679,11 @@ describe("launcher coordinator", () => {
     processController.runtimePrepare = {
       active: true,
       currentKind: "chromium",
-      summary: "正在下载 Chromium 浏览环境",
+      summary: "正在下载 图片渲染 Chromium",
       resources: [
         {
           kind: "chromium",
-          label: "Chromium 浏览环境",
+          label: "图片渲染 Chromium",
           resourceId: "chromium-windows-x64",
           version: "147.0.7727.24",
           sourceLabel: "Chrome for Testing",
@@ -697,7 +697,7 @@ describe("launcher coordinator", () => {
           totalBytes: 2048,
           extractedEntries: null,
           totalEntries: null,
-          summary: "正在下载 Chromium 浏览环境",
+          summary: "正在下载 图片渲染 Chromium",
           error: "",
           updatedAt: "2026-06-06T00:00:00Z",
         },
@@ -705,9 +705,9 @@ describe("launcher coordinator", () => {
     };
     await new Promise((resolve) => setTimeout(resolve, 20));
 
-    expect(coordinator.snapshot.launcher.runtimePrepare?.summary).toBe("正在下载 Chromium 浏览环境");
+    expect(coordinator.snapshot.launcher.runtimePrepare?.summary).toBe("正在下载 图片渲染 Chromium");
     expect(coordinator.snapshot.launcher.runtimePrepare?.resources[0]?.progress).toBe(42);
-    expect(presentationState(coordinator.snapshot).detail).toContain("正在下载 Chromium 浏览环境");
+    expect(presentationState(coordinator.snapshot).detail).toContain("正在下载 图片渲染 Chromium");
 
     ready = true;
     await startPromise;

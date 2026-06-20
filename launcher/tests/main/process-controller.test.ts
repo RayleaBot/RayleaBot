@@ -303,7 +303,7 @@ describe("ServerProcessController", () => {
       msg: "runtime_prepare_progress",
       ts: "2026-06-06T00:00:00Z",
       resource_kind: "chromium",
-      label: "Chromium 浏览环境",
+      label: "图片渲染 Chromium",
       resource_id: "chromium-windows-x64",
       version: "147.0.7727.24",
       source_label: "Chrome for Testing",
@@ -313,13 +313,13 @@ describe("ServerProcessController", () => {
       stage: "probe",
       status: "running",
       progress: 0,
-      summary: "正在测试 Chromium 浏览环境下载来源",
+      summary: "正在测试 图片渲染 Chromium 下载来源",
     }) + "\n");
     await flushLogWrites();
 
     const snapshot = controller.getRuntimePrepareSnapshot();
     expect(snapshot?.active).toBe(true);
-    expect(snapshot?.summary).toBe("正在测试 Chromium 浏览环境下载来源");
+    expect(snapshot?.summary).toBe("正在测试 图片渲染 Chromium 下载来源");
     expect(snapshot?.resources[0]?.stage).toBe("probe");
     expect(snapshot?.resources[0]?.sourceUrl).toBe("https://example.invalid/chrome.zip");
     expect(snapshot?.resources[0]?.progress).toBe(0);

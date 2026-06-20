@@ -34,6 +34,9 @@ func (m *Manager) PrepareWithReportOptions(ctx context.Context, kind string, opt
 	}
 	manifest, resource, err := m.currentResource(kind)
 	if err != nil {
+		if report, ok := m.prepareSystemChromiumIfAvailable(ctx, kind, nil, nil, options.Progress); ok {
+			return report, nil
+		}
 		return nil, m.classifyBootstrapErrorWithProgress(options.Progress, kind, nil, "manifest", "", nil, err)
 	}
 	report := &PrepareReport{
@@ -48,9 +51,15 @@ func (m *Manager) PrepareWithReportOptions(ctx context.Context, kind string, opt
 		Summary: "正在检查 " + managedResourceLabel(kind),
 	}.withResource(resource, report.ArchivePath, report.StoreRoot))
 	if !manifest.HasPlatform(CurrentPlatform()) {
+		if report, ok := m.prepareSystemChromiumIfAvailable(ctx, kind, report, resource, options.Progress); ok {
+			return report, nil
+		}
 		return nil, m.classifyBootstrapErrorWithProgress(options.Progress, kind, resource, "manifest", "", nil, fmt.Errorf("deps manifest does not include current platform %s", CurrentPlatform()))
 	}
 	if !ResourceMetadataComplete(resource) {
+		if report, ok := m.prepareSystemChromiumIfAvailable(ctx, kind, report, resource, options.Progress); ok {
+			return report, nil
+		}
 		return nil, m.classifyBootstrapErrorWithProgress(options.Progress, kind, resource, "manifest", "", nil, fmt.Errorf("deps resource %s for %s is not bootstrap-ready", kind, CurrentPlatform()))
 	}
 
@@ -62,8 +71,11 @@ func (m *Manager) PrepareWithReportOptions(ctx context.Context, kind string, opt
 			Stage:    "complete",
 			Status:   "succeeded",
 			Progress: 100,
-			Summary:  managedResourceLabel(kind) + "已准备完成",
+			Summary:  managedResourceText(kind, "已准备完成"),
 		}.withResource(resource, report.ArchivePath, report.StoreRoot))
+		return report, nil
+	}
+	if report, ok := m.prepareSystemChromiumIfAvailable(ctx, kind, report, resource, options.Progress); ok {
 		return report, nil
 	}
 
@@ -92,6 +104,9 @@ func (m *Manager) PrepareWithReportOptions(ctx context.Context, kind string, opt
 			Progress: 100,
 			Summary:  managedResourceLabel(kind) + "已准备完成",
 		}.withResource(resource, report.ArchivePath, report.StoreRoot))
+		return report, nil
+	}
+	if report, ok := m.prepareSystemChromiumIfAvailable(ctx, kind, report, resource, options.Progress); ok {
 		return report, nil
 	}
 
@@ -135,7 +150,48 @@ func (m *Manager) PrepareWithReportOptions(ctx context.Context, kind string, opt
 		Stage:    "complete",
 		Status:   "succeeded",
 		Progress: 100,
-		Summary:  managedResourceLabel(kind) + "已准备完成",
+		Summary:  managedResourceText(kind, "已准备完成"),
 	}.withResource(resource, report.ArchivePath, report.StoreRoot))
 	return report, nil
+}
+
+func (m *Manager) prepareSystemChromiumIfAvailable(ctx context.Context, kind string, report *PrepareReport, resource *Resource, reporter PrepareProgressReporter) (*PrepareReport, bool) {
+	if kind != "chromium" {
+		return nil, false
+	}
+	path, err := m.resolveSystemChromiumEntrypoint(ctx)
+	if err != nil {
+		return nil, false
+	}
+	if report == nil {
+		report = systemChromiumPrepareReport(path)
+	} else {
+		report.UsedSystemBrowser = true
+		report.PreparedEntrypoint = path
+		report.Entrypoints = map[string]string{"browser": path}
+	}
+	emitPrepareProgress(reporter, PrepareProgress{
+		Kind:     kind,
+		Label:    managedResourceLabel(kind),
+		Stage:    "complete",
+		Status:   "succeeded",
+		Progress: 100,
+		Summary:  managedResourceText(kind, "已准备完成"),
+	}.withResource(resource, report.ArchivePath, report.StoreRoot))
+	return report, true
+}
+
+func systemChromiumPrepareReport(path string) *PrepareReport {
+	prepared := systemChromiumPreparedResource(path)
+	if prepared == nil {
+		return &PrepareReport{Kind: "chromium"}
+	}
+	return &PrepareReport{
+		Kind:               "chromium",
+		Resource:           prepared.Resource,
+		StoreRoot:          prepared.Root,
+		UsedSystemBrowser:  true,
+		PreparedEntrypoint: path,
+		Entrypoints:        prepared.Entrypoints,
+	}
 }

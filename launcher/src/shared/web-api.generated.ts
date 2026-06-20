@@ -2073,7 +2073,7 @@ export interface components {
                  */
                 browser_args: string[];
                 /**
-                 * @description Chromium executable path. Leave empty to use the bundled binary.
+                 * @description Chromium executable path. Leave empty to use a prepared image rendering Chromium or a system Chromium-family browser.
                  * @default
                  */
                 browser_path: string;

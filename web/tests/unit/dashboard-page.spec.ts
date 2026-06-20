@@ -354,14 +354,14 @@ describe('DashboardPage', () => {
         {
           code: 'platform.resource_missing',
           severity: 'warning',
-          summary: 'Chromium 资源尚未准备完成',
-          remediation: '请先准备 Chromium 浏览环境，或在配置中显式设置浏览器路径。',
+          summary: '图片渲染 Chromium 尚未准备完成',
+          remediation: '请先准备图片渲染 Chromium，或在配置中显式设置浏览器路径。',
         },
         {
           code: 'platform.resource_missing',
           severity: 'warning',
-          summary: 'Chromium 资源尚未准备完成',
-          remediation: '请先准备 Chromium 浏览环境，或在配置中显式设置浏览器路径。',
+          summary: '图片渲染 Chromium 尚未准备完成',
+          remediation: '请先准备图片渲染 Chromium，或在配置中显式设置浏览器路径。',
         },
       ],
     }
@@ -540,8 +540,8 @@ describe('DashboardPage', () => {
           {
             code: 'platform.resource_missing',
             severity: 'warning',
-            summary: 'Chromium 资源尚未准备完成。',
-            remediation: '请先准备 Chromium 浏览环境。',
+            summary: '图片渲染 Chromium 尚未准备完成。',
+            remediation: '请先准备图片渲染 Chromium。',
           },
         ],
         skipped_plugins: [
@@ -647,8 +647,8 @@ describe('DashboardPage', () => {
           {
             code: 'platform.resource_missing',
             severity: 'warning',
-            summary: 'Chromium 资源尚未准备完成。',
-            remediation: '请先准备 Chromium 浏览环境。',
+            summary: '图片渲染 Chromium 尚未准备完成。',
+            remediation: '请先准备图片渲染 Chromium。',
           },
         ],
         skipped_plugins: [],

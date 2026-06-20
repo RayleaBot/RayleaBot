@@ -19,6 +19,7 @@ export interface EnvironmentProbeInput {
   platform?: string;
   longPaths?: string;
   runtimeResourceStates?: Record<string, RuntimeResourceState>;
+  systemChromiumPath?: string;
 }
 
 type EnvironmentCheckDraft = Omit<EnvironmentCheckResult, "scope">;
@@ -60,11 +61,15 @@ type RuntimeResourceDefinition = {
   tempCode: string;
 };
 
+type EnvironmentNodeOptions = {
+  findSystemChromium?: () => Promise<string>;
+};
+
 const runtimeResourceDefinitions: RuntimeResourceDefinition[] = [
   {
     kind: "chromium",
-    title: "Chromium 依赖",
-    label: "Chromium 依赖",
+    title: "图片渲染 Chromium",
+    label: "图片渲染 Chromium",
     requiredEntrypoints: ["browser"],
     readyCode: "chromium.ready",
     missingCode: "chromium.resource_missing",
@@ -246,7 +251,7 @@ function inspectDepsChecks(probe: EnvironmentProbeInput): EnvironmentCheckResult
 
   const manifestPath = probe.depsManifestPath?.trim() || ".deps/manifest.json";
   if (probe.depsManifestExists === false) {
-    return [
+    const checks = [
       withScope({
         code: "deps.manifest_missing",
         title: "运行环境清单",
@@ -256,11 +261,16 @@ function inspectDepsChecks(probe: EnvironmentProbeInput): EnvironmentCheckResult
         remediation: "请恢复 .deps/manifest.json。",
       }),
     ];
+    const systemChromiumPath = stringValue(probe.systemChromiumPath);
+    if (systemChromiumPath) {
+      checks.push(systemChromiumReadyCheck(systemChromiumPath));
+    }
+    return checks;
   }
 
   const manifestText = probe.depsManifestText?.trim() ?? "";
   if (manifestText === "") {
-    return [
+    const checks = [
       withScope({
         code: "deps.manifest_missing",
         title: "运行环境清单",
@@ -270,6 +280,11 @@ function inspectDepsChecks(probe: EnvironmentProbeInput): EnvironmentCheckResult
         remediation: "请恢复 .deps/manifest.json。",
       }),
     ];
+    const systemChromiumPath = stringValue(probe.systemChromiumPath);
+    if (systemChromiumPath) {
+      checks.push(systemChromiumReadyCheck(systemChromiumPath));
+    }
+    return checks;
   }
 
   const manifest = parseDepsManifest(manifestText);
@@ -313,7 +328,12 @@ function inspectDepsChecks(probe: EnvironmentProbeInput): EnvironmentCheckResult
 
   for (const definition of runtimeResourceDefinitions) {
     const resource = platformResources.find((item) => stringValue(item.kind) === definition.kind);
-    checks.push(inspectRuntimeResource(definition, resource, probe.runtimeResourceStates?.[definition.kind]));
+    checks.push(inspectRuntimeResource(
+      definition,
+      resource,
+      probe.runtimeResourceStates?.[definition.kind],
+      stringValue(probe.systemChromiumPath),
+    ));
   }
 
   return checks;
@@ -335,7 +355,12 @@ function inspectRuntimeResource(
   definition: RuntimeResourceDefinition,
   resource: DepsManifestResource | undefined,
   state: RuntimeResourceState | undefined,
+  systemChromiumPath = "",
 ): EnvironmentCheckResult {
+  if (definition.kind === "chromium" && systemChromiumPath && !state?.preparedStorePresent) {
+    return systemChromiumReadyCheck(systemChromiumPath);
+  }
+
   if (!resource) {
     return withScope({
       code: definition.missingCode,
@@ -423,6 +448,17 @@ function inspectRuntimeResource(
   });
 }
 
+function systemChromiumReadyCheck(systemChromiumPath: string): EnvironmentCheckResult {
+  return withScope({
+    code: "chromium.ready",
+    title: "图片渲染 Chromium",
+    severity: "ok",
+    summary: "已找到系统浏览器。",
+    detail: `系统浏览器：${systemChromiumPath}`,
+    remediation: "",
+  });
+}
+
 function runtimeResourceMetadataComplete(resource: DepsManifestResource, requiredEntrypoints: string[]) {
   const id = stringValue(resource.id);
   const version = stringValue(resource.version);
@@ -492,7 +528,10 @@ async function isWorkdirWritable(targetPath: string) {
   }
 }
 
-export async function inspectEnvironmentFromNode(settings: LauncherResolvedSettings): Promise<EnvironmentInspection> {
+export async function inspectEnvironmentFromNode(
+  settings: LauncherResolvedSettings,
+  options: EnvironmentNodeOptions = {},
+): Promise<EnvironmentInspection> {
   const configPath = path.resolve(settings.configPath);
   const defaultConfigPath = path.join(path.dirname(configPath), "default.yaml");
   const depsManifestPath = path.join(settings.installationRoot, ".deps", "manifest.json");
@@ -500,6 +539,8 @@ export async function inspectEnvironmentFromNode(settings: LauncherResolvedSetti
   const runtimeResourceStates = depsManifest.exists && depsManifest.text.trim()
     ? await inspectRuntimeResourceStates(settings.installationRoot, depsManifest.text, currentManifestPlatform())
     : {};
+  const detectSystemChromium = options.findSystemChromium ?? findSystemChromium;
+  const systemChromiumPath = runtimeResourceStates.chromium?.preparedStorePresent ? "" : await detectSystemChromium();
 
   return inspectLauncherEnvironment({
     installationRootExists: await pathExists(settings.installationRoot),
@@ -513,6 +554,7 @@ export async function inspectEnvironmentFromNode(settings: LauncherResolvedSetti
     depsManifestPath,
     platform: currentManifestPlatform(),
     runtimeResourceStates,
+    systemChromiumPath,
   });
 }
 
@@ -622,4 +664,132 @@ function currentManifestPlatform() {
   const platform = process.platform === "win32" ? "windows" : process.platform === "darwin" ? "macos" : process.platform;
   const arch = process.arch === "x64" ? "x64" : process.arch;
   return `${platform}-${arch}`;
+}
+
+async function findSystemChromium() {
+  for (const candidate of systemChromiumCandidates()) {
+    if (await isUsableSystemChromium(candidate)) {
+      return candidate;
+    }
+  }
+  return "";
+}
+
+function systemChromiumCandidates() {
+  const candidates: string[] = [];
+  const add = (value: string | undefined) => {
+    const candidate = value?.trim();
+    if (!candidate) {
+      return;
+    }
+    const normalized = normalizeExecutablePath(candidate);
+    if (candidates.some((item) => normalizeExecutablePath(item) === normalized)) {
+      return;
+    }
+    candidates.push(candidate);
+  };
+  const addEnvPath = (root: string | undefined, ...segments: string[]) => {
+    if (root?.trim()) {
+      add(path.join(root, ...segments));
+    }
+  };
+
+  if (process.platform === "win32") {
+    for (const root of [process.env.ProgramFiles, process.env["ProgramFiles(x86)"], process.env.LocalAppData]) {
+      addEnvPath(root, "Microsoft", "Edge", "Application", "msedge.exe");
+      addEnvPath(root, "Google", "Chrome", "Application", "chrome.exe");
+      addEnvPath(root, "Chromium", "Application", "chromium.exe");
+    }
+    for (const name of ["msedge.exe", "chrome.exe", "chromium.exe"]) {
+      for (const candidate of pathCandidates(name)) {
+        add(candidate);
+      }
+    }
+  } else if (process.platform === "darwin") {
+    for (const root of ["/Applications", process.env.HOME ? path.join(process.env.HOME, "Applications") : ""]) {
+      addEnvPath(root, "Google Chrome.app", "Contents", "MacOS", "Google Chrome");
+      addEnvPath(root, "Chromium.app", "Contents", "MacOS", "Chromium");
+      addEnvPath(root, "Microsoft Edge.app", "Contents", "MacOS", "Microsoft Edge");
+    }
+    for (const name of ["google-chrome", "chromium", "microsoft-edge"]) {
+      for (const candidate of pathCandidates(name)) {
+        add(candidate);
+      }
+    }
+  } else {
+    const names = [
+      "google-chrome",
+      "google-chrome-stable",
+      "chromium",
+      "chromium-browser",
+      "microsoft-edge",
+      "microsoft-edge-stable",
+    ];
+    for (const name of names) {
+      for (const candidate of pathCandidates(name)) {
+        add(candidate);
+      }
+    }
+    for (const name of [
+      "/usr/bin/google-chrome",
+      "/usr/bin/google-chrome-stable",
+      "/usr/bin/chromium",
+      "/usr/bin/chromium-browser",
+      "/snap/bin/chromium",
+      "/opt/google/chrome/chrome",
+      "/opt/microsoft/msedge/msedge",
+    ]) {
+      add(name);
+    }
+  }
+  return candidates;
+}
+
+async function isUsableSystemChromium(candidate: string) {
+  if (!candidate.trim()) {
+    return false;
+  }
+  if (!path.isAbsolute(candidate) || !(await fileExists(candidate))) {
+    return false;
+  }
+  return chromiumExecutablePath(candidate);
+}
+
+function pathCandidates(name: string) {
+  const paths = (process.env.PATH ?? "").split(path.delimiter).filter(Boolean);
+  if (process.platform !== "win32") {
+    return paths.map((entry) => path.join(entry, name));
+  }
+  const extensions = name.toLowerCase().endsWith(".exe")
+    ? [""]
+    : (process.env.PATHEXT ?? ".EXE;.CMD;.BAT").split(";").filter(Boolean);
+  return paths.flatMap((entry) => extensions.map((extension) => path.join(entry, `${name}${extension}`)));
+}
+
+function chromiumExecutablePath(candidate: string) {
+  const normalized = candidate.trim().replace(/\\/g, "/").toLowerCase();
+  const base = path.posix.basename(normalized);
+  return [
+    "chrome",
+    "chrome.exe",
+    "google-chrome",
+    "google-chrome-stable",
+    "chromium",
+    "chromium.exe",
+    "chromium-browser",
+    "msedge",
+    "msedge.exe",
+    "microsoft-edge",
+    "microsoft-edge-stable",
+    "google chrome",
+    "microsoft edge",
+  ].includes(base)
+    || normalized.endsWith("/google chrome.app/contents/macos/google chrome")
+    || normalized.endsWith("/chromium.app/contents/macos/chromium")
+    || normalized.endsWith("/microsoft edge.app/contents/macos/microsoft edge");
+}
+
+function normalizeExecutablePath(value: string) {
+  const normalized = path.normalize(value.trim());
+  return process.platform === "win32" ? normalized.toLowerCase() : normalized;
 }
