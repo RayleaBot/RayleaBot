@@ -232,7 +232,7 @@ func (s *Source) pollLiveFallback(ctx context.Context, subjects map[string]Subje
 		}
 	}
 	if len(liveSubjects) == 0 {
-		s.clearLiveError()
+		s.clearLiveError(ctx)
 		return
 	}
 	items, err := s.fetchLiveStatuses(ctx, liveSubjects)
@@ -242,7 +242,7 @@ func (s *Source) pollLiveFallback(ctx context.Context, subjects map[string]Subje
 		return
 	}
 	s.clearRequestCooldown(bilibiliRequestCooldownLive, account, cookie)
-	s.clearLiveError()
+	s.clearLiveError(ctx)
 	for _, subject := range liveSubjects {
 		item, ok := items[subject.UID]
 		if !ok {

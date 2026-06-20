@@ -1315,6 +1315,86 @@ func TestLiveRiskControlDoesNotBlockDynamicCookieUse(t *testing.T) {
 	}
 }
 
+func TestPollLiveFallbackClearsTransientLiveCheckError(t *testing.T) {
+	t.Parallel()
+
+	now := time.Date(2026, 6, 8, 8, 23, 30, 0, time.UTC)
+	liveRequests := 0
+	source, _ := newTestSourceWithPluginConfig(t, now, func(request *http.Request) (*http.Response, error) {
+		switch request.URL.Host + request.URL.Path {
+		case "api.live.bilibili.com/room/v1/Room/get_status_info_by_uids":
+			liveRequests++
+			if liveRequests == 1 {
+				return nil, io.ErrUnexpectedEOF
+			}
+			return jsonResponse(`{"code":0,"data":{"123456":{
+				"uid":123456,
+				"uname":"测试 UP",
+				"face":"//i0.hdslb.com/bfs/face/up.jpg",
+				"room_id":10001,
+				"title":"直播间标题",
+				"live_status":0,
+				"url":"https://live.bilibili.com/10001"
+			}}}`), nil
+		default:
+			t.Fatalf("unexpected request url: %s", request.URL.String())
+			return nil, nil
+		}
+	}, staticPluginConfig{
+		values: map[string]any{
+			"subscriptions": []any{
+				map[string]any{
+					"enabled":  true,
+					"platform": "bilibili",
+					"uid":      "123456",
+					"name":     "测试 UP",
+					"services": []any{"live", "video"},
+				},
+			},
+		},
+	})
+	ctx := context.Background()
+	var published []Status
+	source.notifyStatus = func(status Status) {
+		published = append(published, status)
+	}
+	subjects := map[string]Subject{
+		"123456": {
+			UID:      "123456",
+			Name:     "测试 UP",
+			Services: map[string]bool{"live": true, "video": true},
+		},
+	}
+	account := thirdparty.Account{Platform: thirdparty.PlatformBilibili, AccountID: "primary"}
+
+	source.updateWatchCounts(ctx, subjects)
+	source.mu.Lock()
+	source.status.Dynamic.LastPollAt = &now
+	source.refreshStatusLocked(nil)
+	source.mu.Unlock()
+
+	source.pollLiveFallback(ctx, subjects, account, monitorCookie)
+	statusAfterError := source.Status(ctx)
+	if statusAfterError.Status != StateConnected || statusAfterError.Diagnosis.Level == "action_required" {
+		t.Fatalf("transient live check error should not require action: %#v", statusAfterError)
+	}
+	if !strings.Contains(statusAfterError.Live.LastError, "unexpected EOF") {
+		t.Fatalf("expected live error to be retained for diagnostics, got %#v", statusAfterError.Live.LastError)
+	}
+
+	source.pollLiveFallback(ctx, subjects, account, monitorCookie)
+	statusAfterRecovery := source.Status(ctx)
+	if statusAfterRecovery.Live.LastError != "" {
+		t.Fatalf("live error should be cleared after successful fallback check: %#v", statusAfterRecovery.Live.LastError)
+	}
+	if statusAfterRecovery.Status != StateConnected || statusAfterRecovery.Diagnosis.Level != "normal" {
+		t.Fatalf("unexpected recovered status: %#v", statusAfterRecovery)
+	}
+	if len(published) == 0 || published[len(published)-1].Live.LastError != "" {
+		t.Fatalf("expected recovered status publication, got %#v", published)
+	}
+}
+
 func TestSourceDiagnosisExplainsLiveFallback(t *testing.T) {
 	t.Parallel()
 
