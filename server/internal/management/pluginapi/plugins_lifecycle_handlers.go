@@ -9,6 +9,13 @@ import (
 	"github.com/go-chi/chi/v5"
 )
 
+type DesiredStateController interface {
+	Enable(context.Context, string) (plugins.Snapshot, error)
+	Disable(context.Context, string) (plugins.Snapshot, error)
+	Reload(context.Context, string) (plugins.Snapshot, error)
+	RecoverFromDeadLetter(context.Context, string) (plugins.Snapshot, error)
+}
+
 func registerPluginLifecycleRoutes(router chi.Router, catalog plugins.CatalogView, repo plugins.DesiredStateRepository, controller DesiredStateController, uninstaller UninstallCoordinator, grantRepo plugins.GrantRepository, autoGrantProvider autoGrantCapabilitiesProvider) {
 	router.Post("/api/plugins/{plugin_id}/enable", newEnableHandler(catalog, repo, controller, grantRepo, autoGrantProvider))
 	router.Post("/api/plugins/{plugin_id}/disable", newDisableHandler(catalog, repo, controller, grantRepo, autoGrantProvider))

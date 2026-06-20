@@ -1,14 +1,28 @@
 package pluginapi
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
+	"regexp"
+	"strings"
 	"time"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/management/pluginapi/view"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	"github.com/go-chi/chi/v5"
 )
+
+type grantRequest struct {
+	Capability string  `json:"capability"`
+	ExpiresAt  *string `json:"expires_at,omitempty"`
+}
+
+// capabilityNamePattern matches the frozen multi-segment capability_name format from contracts/plugin-info.schema.json.
+var capabilityNamePattern = regexp.MustCompile(`^[a-z]+(?:\.[a-z_]+)+$`)
+
+type autoGrantCapabilitiesProvider func() []string
 
 func registerPluginGrantRoutes(router chi.Router, catalog plugins.CatalogView, repo plugins.GrantRepository, autoGrantProvider autoGrantCapabilitiesProvider) {
 	router.Get("/api/plugins/{plugin_id}/grants", newListGrantsHandler(catalog, repo, autoGrantProvider))
@@ -110,4 +124,47 @@ func newRevokeGrantHandler(catalog plugins.CatalogView, repo plugins.GrantReposi
 		}
 		w.WriteHeader(http.StatusNoContent)
 	}
+}
+
+func providedAutoGrantCapabilities(provider autoGrantCapabilitiesProvider) []string {
+	if provider == nil {
+		return nil
+	}
+	return plugins.DedupeCapabilities(provider())
+}
+
+func loadPersistedGrants(ctx context.Context, repo plugins.GrantRepository, pluginID string) ([]plugins.PluginGrant, error) {
+	if repo == nil {
+		return nil, nil
+	}
+	return repo.LoadGrants(ctx, pluginID)
+}
+
+func buildPluginDetailResponse(ctx context.Context, catalog plugins.CatalogView, snapshot plugins.Snapshot, repo plugins.GrantRepository, autoGrantProvider autoGrantCapabilitiesProvider) (view.DetailResponse, error) {
+	persisted, err := loadPersistedGrants(ctx, repo, snapshot.PluginID)
+	if err != nil {
+		return view.DetailResponse{}, err
+	}
+	return view.BuildDetail(catalog, snapshot, persisted, providedAutoGrantCapabilities(autoGrantProvider)), nil
+}
+
+func parseGrantRequestExpiry(value *string) (*time.Time, error) {
+	if value == nil {
+		return nil, nil
+	}
+
+	raw := strings.TrimSpace(*value)
+	if raw == "" || !strings.HasSuffix(raw, "Z") {
+		return nil, errors.New("expires_at must be a UTC RFC3339 timestamp")
+	}
+
+	parsed, err := time.Parse(time.RFC3339Nano, raw)
+	if err != nil {
+		return nil, err
+	}
+	parsed = parsed.UTC()
+	if !parsed.After(time.Now().UTC()) {
+		return nil, errors.New("expires_at must be in the future")
+	}
+	return &parsed, nil
 }
