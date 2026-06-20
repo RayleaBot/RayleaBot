@@ -42,6 +42,10 @@ type provider interface {
 	Poll(context.Context, loginSession, time.Time) (loginSession, error)
 }
 
+type providerSessionCloser interface {
+	Close(loginSession)
+}
+
 type loginSession struct {
 	Platform  string
 	LoginID   string

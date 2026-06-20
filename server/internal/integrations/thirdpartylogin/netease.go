@@ -2,6 +2,8 @@ package thirdpartylogin
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -26,7 +28,14 @@ func newNeteaseMusicProvider(client *http.Client) *neteaseMusicProvider {
 }
 
 func (p *neteaseMusicProvider) Create(ctx context.Context, now time.Time) (loginSession, error) {
-	cookies := map[string]string{}
+	deviceID, err := neteaseDeviceID()
+	if err != nil {
+		return loginSession{}, err
+	}
+	cookies := map[string]string{
+		"deviceId": deviceID,
+		"os":       "pc",
+	}
 	var response struct {
 		Code   int    `json:"code"`
 		UniKey string `json:"unikey"`
@@ -42,10 +51,14 @@ func (p *neteaseMusicProvider) Create(ctx context.Context, now time.Time) (login
 		return loginSession{}, fmt.Errorf("netease music qrcode create code %d", response.Code)
 	}
 	key := strings.TrimSpace(response.UniKey)
+	qrcodeURL := "https://music.163.com/login?" + url.Values{
+		"codekey": {key},
+		"chainId": {neteaseChainID(deviceID, now)},
+	}.Encode()
 	return loginSession{
 		Platform:  thirdparty.PlatformNeteaseMusic,
 		Token:     key,
-		QRCodeURL: "https://music.163.com/login?codekey=" + url.QueryEscape(key),
+		QRCodeURL: qrcodeURL,
 		ExpiresAt: now.Add(3 * time.Minute),
 		State:     StatePendingScan,
 		Cookies:   cookies,
@@ -58,6 +71,9 @@ func (p *neteaseMusicProvider) Poll(ctx context.Context, session loginSession, _
 		return session, ErrLoginSessionNotFound
 	}
 	cookies := cloneStringMap(session.Cookies)
+	if strings.TrimSpace(cookies["os"]) == "" {
+		cookies["os"] = "pc"
+	}
 	var response struct {
 		Code    int    `json:"code"`
 		Message string `json:"message"`
@@ -86,6 +102,9 @@ func (p *neteaseMusicProvider) Poll(ctx context.Context, session loginSession, _
 	case 803:
 		session.State = StateSucceeded
 		session.Cookie = firstNonEmpty(response.Cookie, cookieHeader(cookies))
+		if strings.TrimSpace(session.Cookie) == "" {
+			return session, fmt.Errorf("netease music qrcode login succeeded without cookies")
+		}
 		session.Account = neteaseProfile(response)
 	case 800:
 		session.State = StateExpired
@@ -103,6 +122,18 @@ func neteaseHeaders() map[string]string {
 		"Referer":    "https://music.163.com/",
 		"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
 	}
+}
+
+func neteaseDeviceID() (string, error) {
+	var bytes [26]byte
+	if _, err := rand.Read(bytes[:]); err != nil {
+		return "", err
+	}
+	return strings.ToUpper(hex.EncodeToString(bytes[:])), nil
+}
+
+func neteaseChainID(deviceID string, now time.Time) string {
+	return fmt.Sprintf("v1_%s_web_login_%d", strings.TrimSpace(deviceID), now.UnixMilli())
 }
 
 func neteaseProfile(response struct {

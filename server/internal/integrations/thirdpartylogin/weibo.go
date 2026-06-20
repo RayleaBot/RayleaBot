@@ -100,9 +100,7 @@ func (p *weiboProvider) Poll(ctx context.Context, session loginSession, _ time.T
 	switch response.RetCode {
 	case 20000000:
 		if strings.TrimSpace(response.Data.URL) != "" {
-			if err := followGet(ctx, p.client, response.Data.URL, map[string]string{"User-Agent": weiboUserAgent}, cookies); err != nil {
-				return session, err
-			}
+			_ = followGet(ctx, p.client, response.Data.URL, map[string]string{"User-Agent": weiboUserAgent}, cookies)
 		}
 		if strings.TrimSpace(response.Data.Alt) != "" {
 			altURL := "https://login.sina.com.cn/sso/login.php?" + url.Values{
@@ -110,9 +108,10 @@ func (p *weiboProvider) Poll(ctx context.Context, session loginSession, _ time.T
 				"alt":        {strings.TrimSpace(response.Data.Alt)},
 				"returntype": {"TEXT"},
 			}.Encode()
-			if err := followGet(ctx, p.client, altURL, map[string]string{"User-Agent": weiboUserAgent}, cookies); err != nil {
-				return session, err
-			}
+			_ = followGet(ctx, p.client, altURL, map[string]string{"User-Agent": weiboUserAgent}, cookies)
+		}
+		if !weiboHasLoginCookie(cookies) {
+			return session, fmt.Errorf("weibo qrcode login succeeded without login cookies")
 		}
 		session.State = StateSucceeded
 		session.Cookie = cookieHeader(cookies)
@@ -158,4 +157,13 @@ func weiboScanURL(imageURL, qrid string) string {
 		}
 	}
 	return "https://passport.weibo.cn/signin/qrcode/scan?qr=" + url.QueryEscape(strings.TrimSpace(qrid))
+}
+
+func weiboHasLoginCookie(cookies map[string]string) bool {
+	for _, name := range []string{"SUB", "SUBP"} {
+		if strings.TrimSpace(cookies[name]) != "" {
+			return true
+		}
+	}
+	return false
 }

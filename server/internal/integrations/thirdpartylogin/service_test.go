@@ -18,6 +18,34 @@ func (fn loginRoundTripFunc) RoundTrip(request *http.Request) (*http.Response, e
 	return fn(request)
 }
 
+type fakeDouyinBrowser struct {
+	createResult douyinBrowserCreateResult
+	createErr    error
+	pollResults  []douyinBrowserPollResult
+	pollErr      error
+	closed       []string
+}
+
+func (b *fakeDouyinBrowser) Create(context.Context, time.Time) (douyinBrowserCreateResult, error) {
+	return b.createResult, b.createErr
+}
+
+func (b *fakeDouyinBrowser) Poll(context.Context, string) (douyinBrowserPollResult, error) {
+	if b.pollErr != nil {
+		return douyinBrowserPollResult{}, b.pollErr
+	}
+	if len(b.pollResults) == 0 {
+		return douyinBrowserPollResult{State: StatePendingScan}, nil
+	}
+	result := b.pollResults[0]
+	b.pollResults = b.pollResults[1:]
+	return result, nil
+}
+
+func (b *fakeDouyinBrowser) Close(token string) {
+	b.closed = append(b.closed, token)
+}
+
 func TestServiceWeiboQRCodeLoginStatesAndCookie(t *testing.T) {
 	now := time.Date(2026, 6, 8, 8, 0, 0, 0, time.UTC)
 	checks := 0
@@ -72,23 +100,28 @@ func TestServiceWeiboQRCodeLoginStatesAndCookie(t *testing.T) {
 
 func TestServiceDouyinQRCodeLoginStatesAndCookie(t *testing.T) {
 	now := time.Date(2026, 6, 8, 8, 0, 0, 0, time.UTC)
-	checks := 0
-	service := NewService(loginRoundTripFunc(func(request *http.Request) (*http.Response, error) {
-		switch request.URL.Host + request.URL.Path {
-		case "sso.douyin.com/get_qrcode/":
-			return loginJSONResponse(request, http.StatusOK, `{"error_code":0,"data":{"qrcode":"https://sso.douyin.com/scan?token=douyin-token","token":"douyin-token"}}`)
-		case "sso.douyin.com/check_qrconnect/":
-			checks++
-			if checks == 1 {
-				return loginJSONResponse(request, http.StatusOK, `{"error_code":0,"data":{"error_code":0,"status":2}}`)
-			}
-			return loginJSONResponse(request, http.StatusOK, `{"error_code":0,"data":{"error_code":0,"status":3,"redirect_url":"https://www.douyin.com/passport/sso/login/callback/?ticket=douyin-ticket"}}`)
-		case "www.douyin.com/passport/sso/login/callback/":
-			return loginJSONResponse(request, http.StatusOK, `{}`, &http.Cookie{Name: "sessionid", Value: "fixture"}, &http.Cookie{Name: "sid_guard", Value: "fixture"})
-		default:
-			return nil, fmt.Errorf("unexpected request: %s %s", request.Method, request.URL.String())
-		}
-	}), func() time.Time { return now })
+	browser := &fakeDouyinBrowser{
+		createResult: douyinBrowserCreateResult{
+			Token:     "douyin-token",
+			QRCodeURL: "https://api.amemv.com/ucenter_web/app/aweme/scan_login/index?token=douyin-token",
+			ExpiresAt: now.Add(3 * time.Minute),
+		},
+		pollResults: []douyinBrowserPollResult{
+			{State: StatePendingConfirm},
+			{
+				State:  StateSucceeded,
+				Cookie: "sessionid=fixture; sid_guard=fixture;",
+				Cookies: map[string]string{
+					"sessionid": "fixture",
+					"sid_guard": "fixture",
+				},
+			},
+		},
+	}
+	service := NewServiceWithOptions(Options{
+		Now:           func() time.Time { return now },
+		douyinBrowser: browser,
+	})
 
 	create, err := service.Create(context.Background(), thirdparty.PlatformDouyin)
 	if err != nil {
@@ -113,6 +146,61 @@ func TestServiceDouyinQRCodeLoginStatesAndCookie(t *testing.T) {
 	if succeeded.State != StateSucceeded || !strings.Contains(succeeded.Cookie, "sessionid=fixture;") || !strings.Contains(succeeded.Cookie, "sid_guard=fixture;") {
 		t.Fatalf("unexpected succeeded response: %#v", succeeded)
 	}
+	if len(browser.closed) != 1 || browser.closed[0] != "douyin-token" {
+		t.Fatalf("closed douyin tokens = %#v, want douyin-token", browser.closed)
+	}
+}
+
+func TestDouyinStatusValues(t *testing.T) {
+	t.Parallel()
+
+	cases := map[string]string{
+		`"new"`:       "new",
+		`"scanned"`:   "scanned",
+		`"confirmed"`: "confirmed",
+		`"expired"`:   "expired",
+		`1`:           "1",
+		`2`:           "2",
+		`3`:           "3",
+	}
+	for raw, want := range cases {
+		if got := douyinStatus([]byte(raw)); got != want {
+			t.Fatalf("douyinStatus(%s) = %q, want %q", raw, got, want)
+		}
+	}
+}
+
+func TestServiceDouyinQRCodeLoginRequiresLoginCookie(t *testing.T) {
+	now := time.Date(2026, 6, 8, 8, 0, 0, 0, time.UTC)
+	browser := &fakeDouyinBrowser{
+		createResult: douyinBrowserCreateResult{
+			Token:     "douyin-token",
+			QRCodeURL: "https://api.amemv.com/ucenter_web/app/aweme/scan_login/index?token=douyin-token",
+			ExpiresAt: now.Add(3 * time.Minute),
+		},
+		pollResults: []douyinBrowserPollResult{
+			{
+				State:  StateSucceeded,
+				Cookie: "passport_csrf_token=fixture; ttwid=fixture;",
+				Cookies: map[string]string{
+					"passport_csrf_token": "fixture",
+					"ttwid":               "fixture",
+				},
+			},
+		},
+	}
+	service := NewServiceWithOptions(Options{
+		Now:           func() time.Time { return now },
+		douyinBrowser: browser,
+	})
+
+	create, err := service.Create(context.Background(), thirdparty.PlatformDouyin)
+	if err != nil {
+		t.Fatalf("create douyin qrcode login: %v", err)
+	}
+	if _, err := service.Poll(context.Background(), thirdparty.PlatformDouyin, create.LoginID); err == nil {
+		t.Fatal("poll succeeded douyin qrcode login without login cookie returned nil error")
+	}
 }
 
 func TestServiceNeteaseMusicQRCodeLoginStatesCookieAndAccount(t *testing.T) {
@@ -121,8 +209,17 @@ func TestServiceNeteaseMusicQRCodeLoginStatesCookieAndAccount(t *testing.T) {
 	service := NewService(loginRoundTripFunc(func(request *http.Request) (*http.Response, error) {
 		switch request.URL.Host + request.URL.Path {
 		case "music.163.com/weapi/login/qrcode/unikey":
+			if _, err := request.Cookie("deviceId"); err != nil {
+				return nil, fmt.Errorf("missing netease deviceId cookie")
+			}
+			if cookie, err := request.Cookie("os"); err != nil || cookie.Value != "pc" {
+				return nil, fmt.Errorf("missing netease os cookie")
+			}
 			return loginJSONResponse(request, http.StatusOK, `{"code":200,"unikey":"netease-key"}`)
 		case "music.163.com/weapi/login/qrcode/client/login":
+			if _, err := request.Cookie("deviceId"); err != nil {
+				return nil, fmt.Errorf("missing netease poll deviceId cookie")
+			}
 			checks++
 			if checks == 1 {
 				return loginJSONResponse(request, http.StatusOK, `{"code":802}`)
@@ -146,6 +243,9 @@ func TestServiceNeteaseMusicQRCodeLoginStatesCookieAndAccount(t *testing.T) {
 	if create.Platform != thirdparty.PlatformNeteaseMusic || create.State != StatePendingScan || !strings.Contains(create.QRCodeURL, "netease-key") {
 		t.Fatalf("unexpected create response: %#v", create)
 	}
+	if !strings.Contains(create.QRCodeURL, "chainId=v1_") || !strings.Contains(create.QRCodeURL, "_web_login_") {
+		t.Fatalf("qrcode url missing chainId: %s", create.QRCodeURL)
+	}
 
 	pending, err := service.Poll(context.Background(), thirdparty.PlatformNeteaseMusic, create.LoginID)
 	if err != nil {
@@ -163,6 +263,93 @@ func TestServiceNeteaseMusicQRCodeLoginStatesCookieAndAccount(t *testing.T) {
 		t.Fatalf("unexpected succeeded response: %#v", succeeded)
 	}
 	if succeeded.Account.UID != "123456789" || succeeded.Account.Nickname != "网易云音乐账号" || succeeded.Account.AvatarURL == "" {
+		t.Fatalf("unexpected succeeded account: %#v", succeeded.Account)
+	}
+}
+
+func TestServiceWeiboQRCodeLoginIgnoresPartialCookieExchangeFailure(t *testing.T) {
+	now := time.Date(2026, 6, 8, 8, 0, 0, 0, time.UTC)
+	service := NewService(loginRoundTripFunc(func(request *http.Request) (*http.Response, error) {
+		switch request.URL.Host + request.URL.Path {
+		case "passport.weibo.com/sso/signin":
+			return loginJSONResponse(request, http.StatusOK, `{}`, &http.Cookie{Name: "X-CSRF-TOKEN", Value: "csrf"})
+		case "passport.weibo.com/sso/v2/qrcode/image":
+			return loginJSONResponse(request, http.StatusOK, `{"retcode":20000000,"data":{"qrid":"weibo-token","image":"https://passport.weibo.com/qr"}}`)
+		case "passport.weibo.com/sso/v2/qrcode/check":
+			return loginJSONResponse(request, http.StatusOK, `{"retcode":20000000,"data":{"url":"https://passport.weibo.com/cross","alt":"alt-token"}}`)
+		case "passport.weibo.com/cross":
+			return loginJSONResponse(request, http.StatusBadGateway, `{}`)
+		case "login.sina.com.cn/sso/login.php":
+			return loginJSONResponse(request, http.StatusOK, `{}`, &http.Cookie{Name: "SUB", Value: "fixture"})
+		default:
+			return nil, fmt.Errorf("unexpected request: %s %s", request.Method, request.URL.String())
+		}
+	}), func() time.Time { return now })
+
+	create, err := service.Create(context.Background(), thirdparty.PlatformWeibo)
+	if err != nil {
+		t.Fatalf("create weibo qrcode login: %v", err)
+	}
+	succeeded, err := service.Poll(context.Background(), thirdparty.PlatformWeibo, create.LoginID)
+	if err != nil {
+		t.Fatalf("poll succeeded weibo qrcode login: %v", err)
+	}
+	if succeeded.State != StateSucceeded || !strings.Contains(succeeded.Cookie, "SUB=fixture;") {
+		t.Fatalf("unexpected succeeded response: %#v", succeeded)
+	}
+}
+
+func TestServiceWeiboQRCodeLoginRequiresLoginCookie(t *testing.T) {
+	now := time.Date(2026, 6, 8, 8, 0, 0, 0, time.UTC)
+	service := NewService(loginRoundTripFunc(func(request *http.Request) (*http.Response, error) {
+		switch request.URL.Host + request.URL.Path {
+		case "passport.weibo.com/sso/signin":
+			return loginJSONResponse(request, http.StatusOK, `{}`, &http.Cookie{Name: "X-CSRF-TOKEN", Value: "csrf"})
+		case "passport.weibo.com/sso/v2/qrcode/image":
+			return loginJSONResponse(request, http.StatusOK, `{"retcode":20000000,"data":{"qrid":"weibo-token","image":"https://passport.weibo.com/qr"}}`)
+		case "passport.weibo.com/sso/v2/qrcode/check":
+			return loginJSONResponse(request, http.StatusOK, `{"retcode":20000000,"data":{"url":"https://passport.weibo.com/cross"}}`)
+		case "passport.weibo.com/cross":
+			return loginJSONResponse(request, http.StatusOK, `{}`, &http.Cookie{Name: "X-CSRF-TOKEN", Value: "csrf"})
+		default:
+			return nil, fmt.Errorf("unexpected request: %s %s", request.Method, request.URL.String())
+		}
+	}), func() time.Time { return now })
+
+	create, err := service.Create(context.Background(), thirdparty.PlatformWeibo)
+	if err != nil {
+		t.Fatalf("create weibo qrcode login: %v", err)
+	}
+	if _, err := service.Poll(context.Background(), thirdparty.PlatformWeibo, create.LoginID); err == nil {
+		t.Fatal("poll succeeded without weibo login cookie")
+	}
+}
+
+func TestServiceNeteaseMusicQRCodeLoginBodyCookieWithoutProfile(t *testing.T) {
+	now := time.Date(2026, 6, 8, 8, 0, 0, 0, time.UTC)
+	service := NewService(loginRoundTripFunc(func(request *http.Request) (*http.Response, error) {
+		switch request.URL.Host + request.URL.Path {
+		case "music.163.com/weapi/login/qrcode/unikey":
+			return loginJSONResponse(request, http.StatusOK, `{"code":200,"unikey":"netease-key"}`)
+		case "music.163.com/weapi/login/qrcode/client/login":
+			return loginJSONResponse(request, http.StatusOK, `{"code":803,"cookie":"MUSIC_U=fixture; __csrf=fixture;"}`)
+		default:
+			return nil, fmt.Errorf("unexpected request: %s %s", request.Method, request.URL.String())
+		}
+	}), func() time.Time { return now })
+
+	create, err := service.Create(context.Background(), thirdparty.PlatformNeteaseMusic)
+	if err != nil {
+		t.Fatalf("create netease music qrcode login: %v", err)
+	}
+	succeeded, err := service.Poll(context.Background(), thirdparty.PlatformNeteaseMusic, create.LoginID)
+	if err != nil {
+		t.Fatalf("poll succeeded netease music qrcode login: %v", err)
+	}
+	if succeeded.State != StateSucceeded || succeeded.Cookie != "MUSIC_U=fixture; __csrf=fixture;" {
+		t.Fatalf("unexpected succeeded response: %#v", succeeded)
+	}
+	if succeeded.Account != (thirdparty.AccountProfile{}) {
 		t.Fatalf("unexpected succeeded account: %#v", succeeded.Account)
 	}
 }

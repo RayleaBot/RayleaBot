@@ -174,16 +174,16 @@ func NewService(options Options) (*Service, error) {
 	}
 
 	service := &Service{
-		repoRoot:           repoRoot,
-		templatesRoot:      templatesRoot,
-		outputRoot:         outputRoot,
-		browserPath:        browserPath,
-		browserArgs:        append([]string(nil), options.BrowserArgs...),
-		logger:             options.Logger,
-		config:             newRuntimeConfig(maxRenderDataBytes, footerTemplate, defaultOutput, deviceScalePercent),
-		templateRepo:       templateRepo,
-		templateRoots:      rendercatalog.NewRoots(templatesRoot),
-		artifactStore:      newArtifactStore(outputRoot),
+		repoRoot:      repoRoot,
+		templatesRoot: templatesRoot,
+		outputRoot:    outputRoot,
+		browserPath:   browserPath,
+		browserArgs:   append([]string(nil), options.BrowserArgs...),
+		logger:        options.Logger,
+		config:        newRuntimeConfig(maxRenderDataBytes, footerTemplate, defaultOutput, deviceScalePercent),
+		templateRepo:  templateRepo,
+		templateRoots: rendercatalog.NewRoots(templatesRoot),
+		artifactStore: newArtifactStore(outputRoot),
 	}
 	service.worker = renderworker.New(renderworker.Config{
 		Runner:           runner,
@@ -202,4 +202,11 @@ func NewService(options Options) (*Service, error) {
 	}
 
 	return service, nil
+}
+
+func (s *Service) BrowserLaunchConfig() (string, []string) {
+	if s == nil {
+		return "", nil
+	}
+	return s.browserPath, append([]string(nil), s.browserArgs...)
 }

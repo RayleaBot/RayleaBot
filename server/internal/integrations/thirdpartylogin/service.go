@@ -20,15 +20,39 @@ type Service struct {
 	sessions  map[string]loginSession
 }
 
+type Options struct {
+	Transport   http.RoundTripper
+	Now         func() time.Time
+	BrowserPath string
+	BrowserArgs []string
+
+	douyinBrowser douyinLoginBrowser
+}
+
 func NewService(transport http.RoundTripper, now func() time.Time) *Service {
+	return NewServiceWithOptions(Options{
+		Transport: transport,
+		Now:       now,
+	})
+}
+
+func NewServiceWithOptions(options Options) *Service {
+	now := options.Now
 	if now == nil {
 		now = func() time.Time { return time.Now().UTC() }
 	}
-	client := newHTTPClient(transport)
+	client := newHTTPClient(options.Transport)
+	douyinBrowser := options.douyinBrowser
+	if douyinBrowser == nil {
+		douyinBrowser = newChromedpDouyinBrowser(douyinBrowserOptions{
+			BrowserPath: options.BrowserPath,
+			BrowserArgs: options.BrowserArgs,
+		})
+	}
 	return &Service{
 		providers: map[string]provider{
 			thirdparty.PlatformWeibo:        newWeiboProvider(client),
-			thirdparty.PlatformDouyin:       newDouyinProvider(client),
+			thirdparty.PlatformDouyin:       newDouyinProvider(client, douyinBrowser),
 			thirdparty.PlatformNeteaseMusic: newNeteaseMusicProvider(client),
 		},
 		now:      now,
@@ -90,6 +114,7 @@ func (s *Service) Poll(ctx context.Context, platform, loginID string) (PollResul
 		s.sessions[loginID] = session
 		result := pollResult(session)
 		s.mu.Unlock()
+		closeProviderSession(provider, session)
 		return result, nil
 	}
 	if session.State == StateSucceeded || session.State == StateExpired {
@@ -115,6 +140,9 @@ func (s *Service) Poll(ctx context.Context, platform, loginID string) (PollResul
 	s.sessions[loginID] = next
 	result := pollResult(next)
 	s.mu.Unlock()
+	if next.State == StateSucceeded || next.State == StateExpired {
+		closeProviderSession(provider, next)
+	}
 	return result, nil
 }
 
@@ -134,7 +162,16 @@ func (s *Service) pruneExpiredLocked(now time.Time) {
 	for loginID, session := range s.sessions {
 		if now.After(session.ExpiresAt.Add(5 * time.Minute)) {
 			delete(s.sessions, loginID)
+			if provider := s.providers[session.Platform]; provider != nil {
+				closeProviderSession(provider, session)
+			}
 		}
+	}
+}
+
+func closeProviderSession(provider provider, session loginSession) {
+	if closer, ok := provider.(providerSessionCloser); ok {
+		closer.Close(session)
 	}
 }
 

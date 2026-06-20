@@ -93,7 +93,17 @@ func Build(deps BuildDeps) (BuildResult, error) {
 	if err != nil {
 		return BuildResult{}, err
 	}
-	thirdPartyQRLogin := thirdpartylogin.NewService(deps.BilibiliHTTPTransport, deps.BilibiliClock)
+	browserPath := runtimeState.CurrentConfig().Render.BrowserPath
+	browserArgs := runtimeState.CurrentConfig().Render.BrowserArgs
+	if renderer != nil {
+		browserPath, browserArgs = renderer.BrowserLaunchConfig()
+	}
+	thirdPartyQRLogin := thirdpartylogin.NewServiceWithOptions(thirdpartylogin.Options{
+		Transport:   deps.BilibiliHTTPTransport,
+		Now:         deps.BilibiliClock,
+		BrowserPath: browserPath,
+		BrowserArgs: browserArgs,
+	})
 	bilibiliSession := bilibilisession.NewSessionClient(deps.BilibiliHTTPTransport, deps.BilibiliClock, nil)
 	localActions := buildLocalActionService(runtimeState, platform, pluginStack, eventStack, renderer, capabilityView, governanceService, thirdPartyService, bilibiliSession)
 	configureLocalActionService(localActions, pluginStack, eventStack)
