@@ -86,6 +86,44 @@ describe('PluginsPage', () => {
     expect(executeSpy).toHaveBeenCalledWith('weather', 'disable')
   })
 
+  it('keeps lifecycle switching plugins from sending duplicate actions', async () => {
+    const router = createRouter({
+      history: createMemoryHistory(),
+      routes: [{ path: '/', component: { template: '<div />' } }],
+    })
+    const store = usePluginsStore()
+    store.items = [{
+      id: 'weather',
+      name: 'Weather',
+      role: 'user',
+      state: 'stopping',
+      commands: [],
+      command_conflicts: [],
+    }]
+
+    vi.spyOn(store, 'fetchList').mockResolvedValue(undefined)
+    const executeSpy = vi.spyOn(store, 'executeAction').mockResolvedValue(store.items[0])
+
+    const wrapper = mount(PluginsPage, {
+      global: {
+        plugins: [Antd, router],
+      },
+    })
+
+    await flushPromises()
+    const toggle = wrapper.get('[data-testid="plugin-enable-button-weather"]')
+    const reload = wrapper.get('[data-testid="plugin-reload-button-weather"]')
+
+    expect(toggle.attributes('disabled')).toBeDefined()
+    expect(toggle.attributes('aria-busy')).toBe('true')
+    expect(reload.attributes('disabled')).toBeDefined()
+
+    await toggle.trigger('click')
+    await reload.trigger('click')
+
+    expect(executeSpy).not.toHaveBeenCalled()
+  })
+
   it('shows success feedback when reload action succeeds', async () => {
     const router = createRouter({
       history: createMemoryHistory(),

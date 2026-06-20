@@ -307,6 +307,23 @@ function getToggleAction(state?: string) {
   return state === 'disabled' ? 'enable' : 'disable'
 }
 
+function isPluginLifecycleSwitching(state?: string) {
+  return state === 'starting' || state === 'stopping'
+}
+
+function isToggleLoading(pluginId: string, state?: string) {
+  return actionPending.value[pluginId] === 'enable' ||
+    actionPending.value[pluginId] === 'disable' ||
+    isPluginLifecycleSwitching(state)
+}
+
+function isReloadDisabled(state?: string) {
+  return state === 'disabled' ||
+    state === 'starting' ||
+    state === 'stopping' ||
+    state === 'invalid'
+}
+
 async function reloadPlugin(pluginId: string) {
   try {
     await pluginsStore.executeAction(pluginId, 'reload')
@@ -569,6 +586,7 @@ async function submitInstall() {
                     class="btn-action"
                     :data-testid="`plugin-reload-button-${item.id}`"
                     :loading="actionPending[item.id] === 'reload'"
+                    :disabled="isReloadDisabled(item.state)"
                     @click="reloadPlugin(item.id)"
                   >
                     <template #icon><ReloadOutlined /></template>
@@ -581,7 +599,7 @@ async function submitInstall() {
                     compact
                     :checked="item.state !== 'disabled'"
                     :data-testid="`plugin-enable-button-${item.id}`"
-                    :loading="actionPending[item.id] === 'enable' || actionPending[item.id] === 'disable'"
+                    :loading="isToggleLoading(item.id, item.state)"
                     :checked-label="t('plugins.actions.enable')"
                     :unchecked-label="t('plugins.actions.disable')"
                     @click="pluginsStore.executeAction(item.id, getToggleAction(item.state))"
@@ -713,7 +731,7 @@ async function submitInstall() {
                   compact
                   :checked="record.state !== 'disabled'"
                   :data-testid="`plugin-enable-button-${record.id}`"
-                  :loading="actionPending[record.id] === 'enable' || actionPending[record.id] === 'disable'"
+                  :loading="isToggleLoading(record.id, record.state)"
                   :checked-label="t('plugins.actions.enable')"
                   :unchecked-label="t('plugins.actions.disable')"
                   @click="pluginsStore.executeAction(record.id, getToggleAction(record.state))"
@@ -722,6 +740,7 @@ async function submitInstall() {
                   size="small"
                   :data-testid="`plugin-reload-button-${record.id}`"
                   :loading="actionPending[record.id] === 'reload'"
+                  :disabled="isReloadDisabled(record.state)"
                   @click="reloadPlugin(record.id)"
                 >
                   {{ t('plugins.actions.reload') }}

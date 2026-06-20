@@ -8,6 +8,7 @@ import type {
   PluginDetailResponse,
   PluginInstallRequest,
   PluginListResponse,
+  PluginState,
   PluginSettingsResponse,
   PluginSettingsUpdateRequest,
   PluginSettingsUpdateResponse,
@@ -19,6 +20,8 @@ import type {
 } from '@/types/api'
 
 type PluginUpsert = Partial<PluginSummary> & Pick<PluginSummary, 'id' | 'state'>
+
+const lifecycleRefreshDelaysMs = [700, 1_500, 3_000, 5_000]
 
 export const usePluginsStore = defineStore('plugins', () => {
   const items = ref<PluginSummary[]>([])
@@ -36,6 +39,8 @@ export const usePluginsStore = defineStore('plugins', () => {
   const installPending = ref(false)
   let detailRequestVersion = 0
   let listRequest: Promise<void> | null = null
+  const lifecycleRefreshTimers = new Map<string, ReturnType<typeof setTimeout>>()
+  const lifecycleRefreshAttempts = new Map<string, number>()
 
   const sortedItems = computed(() => [...items.value].sort((left, right) => left.id.localeCompare(right.id)))
 
@@ -50,6 +55,7 @@ export const usePluginsStore = defineStore('plugins', () => {
       try {
         const response = await apiRequest<PluginListResponse>('/api/plugins')
         items.value = response.items
+        reconcileLifecycleRefreshes(response.items)
       } catch (err) {
         error.value = getDisplayErrorMessage(err, 'errors.common.loadFailed')
         throw err
@@ -74,6 +80,7 @@ export const usePluginsStore = defineStore('plugins', () => {
 
       current.value = response.plugin
       upsert(response.plugin)
+      updateLifecycleRefresh(pluginId, response.plugin.state)
       return response.plugin
     } finally {
       if (requestVersion === detailRequestVersion) {
@@ -111,6 +118,87 @@ export const usePluginsStore = defineStore('plugins', () => {
       current.value = {
         ...current.value,
         ...nextPlugin,
+      }
+    }
+
+    if (
+      !isLifecycleTransitionState(plugin.state) ||
+      lifecycleRefreshTimers.has(plugin.id) ||
+      lifecycleRefreshAttempts.has(plugin.id)
+    ) {
+      updateLifecycleRefresh(plugin.id, plugin.state)
+    }
+  }
+
+  function isLifecycleTransitionState(state?: PluginState | string) {
+    return state === 'starting' || state === 'stopping'
+  }
+
+  function clearLifecycleRefresh(pluginId: string) {
+    const timer = lifecycleRefreshTimers.get(pluginId)
+    if (timer) {
+      clearTimeout(timer)
+    }
+    lifecycleRefreshTimers.delete(pluginId)
+    lifecycleRefreshAttempts.delete(pluginId)
+  }
+
+  function getKnownPluginState(pluginId: string) {
+    return items.value.find((item) => item.id === pluginId)?.state ?? (
+      current.value?.id === pluginId ? current.value.state : undefined
+    )
+  }
+
+  async function refreshPluginStateFromServer(pluginId: string) {
+    if (current.value?.id === pluginId) {
+      await fetchDetail(pluginId)
+      return
+    }
+
+    await fetchList()
+  }
+
+  function updateLifecycleRefresh(pluginId: string, state?: PluginState | string) {
+    if (!isLifecycleTransitionState(state)) {
+      clearLifecycleRefresh(pluginId)
+      return
+    }
+
+    if (lifecycleRefreshTimers.has(pluginId)) {
+      return
+    }
+
+    const attempt = lifecycleRefreshAttempts.get(pluginId) ?? 0
+    if (attempt >= lifecycleRefreshDelaysMs.length) {
+      return
+    }
+
+    lifecycleRefreshAttempts.set(pluginId, attempt + 1)
+    lifecycleRefreshTimers.set(pluginId, setTimeout(() => {
+      lifecycleRefreshTimers.delete(pluginId)
+      void refreshPluginStateFromServer(pluginId)
+        .catch(() => undefined)
+        .finally(() => {
+          updateLifecycleRefresh(pluginId, getKnownPluginState(pluginId))
+        })
+    }, lifecycleRefreshDelaysMs[attempt]))
+  }
+
+  function reconcileLifecycleRefreshes(nextItems: PluginSummary[]) {
+    const seenPluginIds = new Set<string>()
+
+    for (const item of nextItems) {
+      seenPluginIds.add(item.id)
+      updateLifecycleRefresh(item.id, item.state)
+    }
+
+    const trackedPluginIds = new Set([
+      ...lifecycleRefreshTimers.keys(),
+      ...lifecycleRefreshAttempts.keys(),
+    ])
+    for (const pluginId of trackedPluginIds) {
+      if (!seenPluginIds.has(pluginId) && current.value?.id !== pluginId) {
+        clearLifecycleRefresh(pluginId)
       }
     }
   }
@@ -160,6 +248,7 @@ export const usePluginsStore = defineStore('plugins', () => {
         current.value = response.plugin
       }
       upsert(response.plugin)
+      updateLifecycleRefresh(pluginId, response.plugin.state)
       return response.plugin
     } finally {
       setPending(pluginId, null)

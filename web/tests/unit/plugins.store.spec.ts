@@ -1,5 +1,5 @@
 import { createPinia, setActivePinia } from 'pinia'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { usePluginsStore } from '@/stores/plugins'
 
@@ -13,6 +13,11 @@ function jsonResponse(body: unknown, status = 200) {
 describe('plugins store', () => {
   beforeEach(() => {
     setActivePinia(createPinia())
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
+    vi.unstubAllGlobals()
   })
 
   it('sorts plugins by id after upsert', () => {
@@ -47,6 +52,44 @@ describe('plugins store', () => {
     expect(store.actionPending.weather).toBeNull()
     expect(store.items[0].state).toBe('running')
     expect(store.items[0].commands).toEqual([{ name: 'weather', command_source: 'manifest' }])
+  })
+
+  it('refreshes transient lifecycle state after an accepted action', async () => {
+    vi.useFakeTimers()
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(jsonResponse({
+        plugin: {
+          id: 'weather',
+          name: 'weather',
+          role: 'user',
+          state: 'stopping',
+          commands: [],
+        },
+      }))
+      .mockResolvedValueOnce(jsonResponse({
+        items: [
+          {
+            id: 'weather',
+            name: 'weather',
+            role: 'user',
+            state: 'disabled',
+            commands: [],
+          },
+        ],
+      }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    const store = usePluginsStore()
+    store.upsert({ id: 'weather', state: 'running' })
+
+    await store.executeAction('weather', 'disable')
+    expect(store.items[0].state).toBe('stopping')
+
+    await vi.advanceTimersByTimeAsync(700)
+
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+    expect(fetchMock.mock.calls[1]?.[0]).toBe('/api/plugins')
+    expect(store.items[0].state).toBe('disabled')
   })
 
   it('preserves existing commands when a runtime event only updates states', () => {
