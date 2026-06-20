@@ -16,7 +16,7 @@ static_route:
   auth: public_readonly
   plugin_requirements:
     valid: true
-    registration_state: installed
+    installed: true
     management_ui_declared: true
   asset_scope:
     root: dirname(management_ui.pages[0].entry)

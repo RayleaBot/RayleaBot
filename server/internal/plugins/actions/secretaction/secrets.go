@@ -11,8 +11,8 @@ import (
 
 var pluginSecretKeyPattern = regexp.MustCompile(`^[a-z0-9](?:[a-z0-9_.-]{0,126}[a-z0-9])?$`)
 
-type Grants interface {
-	CapabilityGranted(context.Context, string, string) bool
+type CapabilityView interface {
+	CapabilityDeclared(context.Context, string, string) bool
 }
 
 type Reader interface {
@@ -20,17 +20,17 @@ type Reader interface {
 }
 
 type Request struct {
-	PluginID string
-	Action   runtimeaction.Action
-	Grants   Grants
-	Reader   Reader
+	PluginID     string
+	Action       runtimeaction.Action
+	Capabilities CapabilityView
+	Reader       Reader
 }
 
 func ExecuteRead(ctx context.Context, req Request) (map[string]any, error) {
-	if req.Grants == nil || !req.Grants.CapabilityGranted(ctx, req.PluginID, "secret.read") {
+	if req.Capabilities == nil || !req.Capabilities.CapabilityDeclared(ctx, req.PluginID, "secret.read") {
 		return nil, &runtimemanager.Error{
-			Code:    "permission.scope_violation",
-			Message: "secret.read capability is not granted",
+			Code:    "plugin.capability_violation",
+			Message: "secret.read capability is not declared",
 		}
 	}
 

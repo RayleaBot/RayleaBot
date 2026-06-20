@@ -69,28 +69,21 @@ function connectionSummary(status: string) {
 function pluginSummary(payload: Extract<EventsPayload, { plugin_id: string }>) {
   const pluginID = payload.plugin_id
 
-  if (payload.registration_state === 'removed') {
-    return `插件 ${pluginID} 已移除`
-  }
-  if (payload.desired_state === 'disabled') {
-    return `插件 ${pluginID} 已停用`
-  }
-
-  switch (payload.runtime_state) {
+  switch (payload.state) {
     case 'running':
       return `插件 ${pluginID} 运行中`
     case 'starting':
       return `插件 ${pluginID} 启动中`
     case 'stopping':
       return `插件 ${pluginID} 停止中`
-    case 'crashed':
+    case 'enabled':
+      return `插件 ${pluginID} 已启用`
+    case 'disabled':
+      return `插件 ${pluginID} 已停用`
+    case 'failed':
       return `插件 ${pluginID} 运行异常`
-    case 'backoff':
-      return `插件 ${pluginID} 正在等待重试`
-    case 'dead_letter':
-      return `插件 ${pluginID} 已进入异常挂起`
-    case 'stopped':
-      return `插件 ${pluginID} 已停止`
+    case 'invalid':
+      return `插件 ${pluginID} 清单异常`
     default:
       return `插件 ${pluginID} 状态已更新`
   }

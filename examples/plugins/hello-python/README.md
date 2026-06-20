@@ -36,4 +36,4 @@ except ActionError as exc:
     )
 ```
 
-若要真正调用这些 helper，需要在 manifest 的 `permissions.required` 或 `permissions.optional` 中声明对应 capability。
+若要真正调用这些 helper，需要在 manifest 的 `capabilities` 中声明对应 capability；`http.request`、`storage.file` 和 `event.expose_webhook` 还需要在 `capability_parameters` 中声明边界参数。

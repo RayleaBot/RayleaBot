@@ -92,10 +92,7 @@ function generatedSource(contract) {
   const consoleProperties = requireObject(consoleEvent.payload_schema.properties, 'plugins.console.payload_schema.properties')
 
   const serviceStatuses = enumFor(branchProperty(serviceBranch, 'service_status'), 'service_status')
-  const registrationStates = enumFor(branchProperty(pluginBranch, 'registration_state'), 'registration_state')
-  const desiredStates = enumFor(branchProperty(pluginBranch, 'desired_state'), 'desired_state')
-  const runtimeStates = enumFor(branchProperty(pluginBranch, 'runtime_state'), 'runtime_state')
-  const displayStates = enumFor(branchProperty(pluginBranch, 'display_state'), 'display_state')
+  const pluginStates = enumFor(branchProperty(pluginBranch, 'state'), 'state')
   const connectionStatuses = enumFor(branchProperty(connectionBranch, 'connection_status'), 'connection_status')
   const bridgeScopes = enumFor(branchProperty(bridgeObservabilityBranch, 'observability_scope'), 'bridge.observability_scope')
   const dispatcherScopes = enumFor(branchProperty(dispatcherObservabilityBranch, 'observability_scope'), 'dispatcher.observability_scope')
@@ -147,12 +144,10 @@ export type ServiceStatusEventPayload = {
 
 export type PluginStateEventPayload = {
   plugin_id: string
-  registration_state: ${union(registrationStates)}
-  desired_state: ${union(desiredStates)}
-  runtime_state: ${union(runtimeStates)}
-  display_state: ${union(displayStates)}
-  commands?: components['schemas']['PluginCommandSummary'][]
-  command_conflicts?: string[]
+  state: ${union(pluginStates)}
+  state_diagnosis?: components['schemas']['PluginStateDiagnosis']
+  commands: components['schemas']['PluginCommandSummary'][]
+  command_conflicts: string[]
 }
 
 export type ConnectionStatusEventPayload = {

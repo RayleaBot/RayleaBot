@@ -1,0 +1,49 @@
+{
+  "contract": "contracts/plugin-info.schema.json",
+  "case": "edge",
+  "input": {
+    "id": "weather-edge",
+    "name": "Weather Edge",
+    "version": "1.2.0",
+    "manifest_version": "1",
+    "plugin_protocol_version": "1",
+    "type": "managed_runtime",
+    "runtime": "nodejs",
+    "entry": "dist/index.js",
+    "license": "MIT",
+    "description": "Node.js plugin exercising capability parameters and migration boundaries",
+    "author": "raylea",
+    "sdk_min_version": "0.1.0",
+    "runtime_version": ">=24.14.0",
+    "min_core_version": "0.1.0",
+    "data_schema_version": "2",
+    "platforms": [
+      "windows-x64",
+      "linux-x64",
+      "macos-arm64"
+    ],
+    "capabilities": [
+      "event.subscribe",
+      "http.request",
+      "logger.write"
+    ],
+    "dependencies": {
+      "nodejs": [
+        "undici@^6.0.0"
+      ]
+    },
+    "require_install_scripts": false,
+    "capability_parameters": {
+      "http_hosts": [
+        "api.weather.example"
+      ]
+    }
+  },
+  "expect": {
+    "valid": true,
+    "notes": [
+      "Capability parameters bound the plugin runtime inputs for http.request and related local actions.",
+      "Because data_schema_version is present, an upgrade across versions should also enter the plugin migration decision path."
+    ]
+  }
+}

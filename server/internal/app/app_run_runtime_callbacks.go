@@ -20,7 +20,7 @@ func configureAppRuntimeCallbacks(application *App, schedulerTriggers *scheduler
 
 	if installer, ok := application.pluginStack.PluginInstaller.(interface{ SetAfterSuccess(func(string) error) }); ok {
 		installer.SetAfterSuccess(func(string) error {
-			if err := renderplugintemplates.SyncCatalogRenderTemplates(context.Background(), application.pluginStack.Renderer, application.pluginStack.Plugins); err != nil {
+			if err := renderplugintemplates.SyncCatalogRenderTemplates(context.Background(), application.renderStack.Renderer, application.pluginStack.Plugins); err != nil {
 				return err
 			}
 			systemService.ReconcileRecoverySummaryBestEffort("plugin.install")
@@ -38,20 +38,20 @@ func configureAppRuntimeCallbacks(application *App, schedulerTriggers *scheduler
 	}); ok {
 		uninstaller.SetStopPlugin(lifecycle.StopAndResetPlugin)
 		uninstaller.SetAfterSuccess(func(pluginID string) {
-			if application.pluginStack.Renderer != nil {
-				_ = application.pluginStack.Renderer.RemovePluginTemplates(context.Background(), pluginID)
+			if application.renderStack.Renderer != nil {
+				_ = application.renderStack.Renderer.RemovePluginTemplates(context.Background(), pluginID)
 			}
-			_ = renderplugintemplates.SyncCatalogRenderTemplates(context.Background(), application.pluginStack.Renderer, application.pluginStack.Plugins)
+			_ = renderplugintemplates.SyncCatalogRenderTemplates(context.Background(), application.renderStack.Renderer, application.pluginStack.Plugins)
 			systemService.ReconcileRecoverySummaryBestEffort("plugin.uninstall")
 		})
 	}
 	if application.runtimes != nil {
 		application.runtimes.SetOnCrash(lifecycle.HandleCrash)
 	}
-	if application.pluginStack.Adapter != nil {
-		application.pluginStack.Adapter.SetEventHandler(eventIngress.HandleAdapterEvent)
-		application.pluginStack.Adapter.SetReadyHandler(eventIngress.HandleAdapterReady)
-		application.pluginStack.Adapter.SetStateHandler(func(adaptershell.Snapshot) {
+	if application.eventStack.Adapter != nil {
+		application.eventStack.Adapter.SetEventHandler(eventIngress.HandleAdapterEvent)
+		application.eventStack.Adapter.SetReadyHandler(eventIngress.HandleAdapterReady)
+		application.eventStack.Adapter.SetStateHandler(func(adaptershell.Snapshot) {
 			systemService.PublishStatusSnapshot()
 			protocolService.PublishSnapshot()
 		})

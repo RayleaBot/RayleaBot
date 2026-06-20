@@ -41,7 +41,6 @@ function createFixtureConfig(): ConfigDocument {
     },
     permission: {
       default_level: 'everyone',
-      auto_grant_capabilities: ['logger.write'],
     },
     render: {
       worker_count: 1,
@@ -138,14 +137,12 @@ describe('PluginSettingsPage', () => {
 
     expect(wrapper.text()).toContain('插件设置')
     expect(wrapper.text()).toContain('命令入口')
-    expect(wrapper.text()).toContain('插件授权')
     expect(wrapper.text()).toContain('日志保护')
     expect(wrapper.text()).toContain('插件存储')
     expect(wrapper.text()).toContain('命令前缀')
     expect(wrapper.text()).not.toContain('保存结果')
     expect(wrapper.text()).not.toContain('脱敏字段')
     expect(wrapper.text()).not.toContain('有未保存更改')
-    expect(wrapper.text()).toContain('自动授权能力')
     expect(wrapper.text()).toContain('插件日志速率限制')
     expect(wrapper.text()).toContain('模板说明')
     expect(wrapper.text()).toContain('模板底部说明')
@@ -156,11 +153,9 @@ describe('PluginSettingsPage', () => {
     expect(wrapper.text()).toContain('当前表示')
     expect(wrapper.text()).not.toContain('插件消息速率限制')
     expect(wrapper.text()).toContain('插件工作目录软上限')
-    expect(wrapper.text()).toContain('每行一个正式能力值')
-    expect(wrapper.text()).toContain('常用示例：message.send、http.request、render.image')
     expect(wrapper.text()).not.toContain('格式使用')
     expect(wrapper.find('.plugin-settings-nav-item').exists()).toBe(false)
-    expect(wrapper.findAll('.plugin-settings-setting-row')).toHaveLength(5)
+    expect(wrapper.findAll('.plugin-settings-setting-row')).toHaveLength(4)
     expect(wrapper.find('[data-testid="plugin-settings-command-prefixes"]').exists()).toBe(true)
     expect(wrapper.get('[data-testid="plugin-settings-save"]').attributes('disabled')).toBeDefined()
   })
@@ -179,10 +174,9 @@ describe('PluginSettingsPage', () => {
         apply_effects: {
           applied_now: [
             'command.prefixes',
-            'permission.auto_grant_capabilities',
-      'log.rate_limit_per_plugin',
-      'render.footer_template',
-      'storage.plugin_workdir_soft_limit_mb',
+            'log.rate_limit_per_plugin',
+            'render.footer_template',
+            'storage.plugin_workdir_soft_limit_mb',
           ],
           reloaded_now: [],
           restart_required_fields: [],
@@ -207,7 +201,6 @@ describe('PluginSettingsPage', () => {
     expect(viewModel.hasUnsavedChanges).toBe(false)
 
     viewModel.writeCommandPrefixTags(['/', '!'])
-    viewModel.writeField('permission.auto_grant_capabilities', 'list', 'logger.write\nmessage.send')
     viewModel.writeField('log.rate_limit_per_plugin', 'rateLimit', '300/10s')
     viewModel.writeField('render.footer_template', 'textarea', 'Footer {{plugin_name}}')
     viewModel.writeField('storage.plugin_workdir_soft_limit_mb', 'number', 512)
@@ -223,7 +216,6 @@ describe('PluginSettingsPage', () => {
     expect(saveSpy).toHaveBeenCalledTimes(1)
     const submitted = saveSpy.mock.calls[0][0]
     expect(submitted.command.prefixes).toEqual(['/', '!'])
-    expect(submitted.permission.auto_grant_capabilities).toEqual(['logger.write', 'message.send'])
     expect(submitted.log.rate_limit_per_plugin).toBe('300/10s')
     expect(submitted.render.footer_template).toBe('Footer {{plugin_name}}')
     expect(submitted.message.rate_limit_per_plugin).toBe('20/10s')

@@ -6,11 +6,9 @@ import { apiRequest } from '@/lib/http'
 import type {
   PluginDetail,
   PluginDetailResponse,
-  PluginGrantListResponse,
-  PluginGrantRequest,
-  PluginGrantSummary,
   PluginInstallRequest,
   PluginListResponse,
+  PluginState,
   PluginSettingsResponse,
   PluginSettingsUpdateRequest,
   PluginSettingsUpdateResponse,
@@ -21,19 +19,19 @@ import type {
   TaskAcceptedResponse,
 } from '@/types/api'
 
-type PluginUpsert = Partial<PluginSummary> & Pick<PluginSummary, 'id' | 'registration_state' | 'desired_state' | 'runtime_state' | 'display_state'>
+type PluginUpsert = Partial<PluginSummary> & Pick<PluginSummary, 'id' | 'state'>
+
+const lifecycleRefreshDelaysMs = [700, 1_500, 3_000, 5_000]
 
 export const usePluginsStore = defineStore('plugins', () => {
   const items = ref<PluginSummary[]>([])
   const current = ref<PluginDetail | null>(null)
-  const grants = ref<Record<string, PluginGrantSummary[]>>({})
   const settingsByPluginId = ref<Record<string, Record<string, unknown>>>({})
   const secretsByPluginId = ref<Record<string, Record<string, string>>>({})
   const loading = ref(false)
   const detailLoading = ref(false)
   const error = ref<string | null>(null)
   const actionPending = ref<Record<string, string | null>>({})
-  const grantsLoading = ref<Record<string, boolean>>({})
   const settingsLoading = ref<Record<string, boolean>>({})
   const settingsSaving = ref<Record<string, boolean>>({})
   const secretsLoading = ref<Record<string, boolean>>({})
@@ -41,6 +39,8 @@ export const usePluginsStore = defineStore('plugins', () => {
   const installPending = ref(false)
   let detailRequestVersion = 0
   let listRequest: Promise<void> | null = null
+  const lifecycleRefreshTimers = new Map<string, ReturnType<typeof setTimeout>>()
+  const lifecycleRefreshAttempts = new Map<string, number>()
 
   const sortedItems = computed(() => [...items.value].sort((left, right) => left.id.localeCompare(right.id)))
 
@@ -55,6 +55,7 @@ export const usePluginsStore = defineStore('plugins', () => {
       try {
         const response = await apiRequest<PluginListResponse>('/api/plugins')
         items.value = response.items
+        reconcileLifecycleRefreshes(response.items)
       } catch (err) {
         error.value = getDisplayErrorMessage(err, 'errors.common.loadFailed')
         throw err
@@ -79,6 +80,7 @@ export const usePluginsStore = defineStore('plugins', () => {
 
       current.value = response.plugin
       upsert(response.plugin)
+      updateLifecycleRefresh(pluginId, response.plugin.state)
       return response.plugin
     } finally {
       if (requestVersion === detailRequestVersion) {
@@ -97,10 +99,8 @@ export const usePluginsStore = defineStore('plugins', () => {
       description: plugin.description ?? previous?.description,
       author: plugin.author ?? previous?.author,
       role: plugin.role ?? previous?.role ?? 'user',
-      registration_state: plugin.registration_state,
-      desired_state: plugin.desired_state,
-      runtime_state: plugin.runtime_state,
-      display_state: plugin.display_state ?? previous?.display_state,
+      state: plugin.state,
+      state_diagnosis: plugin.state_diagnosis,
       source: plugin.source ?? previous?.source,
       trust: plugin.trust ?? previous?.trust,
       commands: plugin.commands ?? previous?.commands ?? [],
@@ -120,19 +120,93 @@ export const usePluginsStore = defineStore('plugins', () => {
         ...nextPlugin,
       }
     }
+
+    if (
+      !isLifecycleTransitionState(plugin.state) ||
+      lifecycleRefreshTimers.has(plugin.id) ||
+      lifecycleRefreshAttempts.has(plugin.id)
+    ) {
+      updateLifecycleRefresh(plugin.id, plugin.state)
+    }
+  }
+
+  function isLifecycleTransitionState(state?: PluginState | string) {
+    return state === 'starting' || state === 'stopping'
+  }
+
+  function clearLifecycleRefresh(pluginId: string) {
+    const timer = lifecycleRefreshTimers.get(pluginId)
+    if (timer) {
+      clearTimeout(timer)
+    }
+    lifecycleRefreshTimers.delete(pluginId)
+    lifecycleRefreshAttempts.delete(pluginId)
+  }
+
+  function getKnownPluginState(pluginId: string) {
+    return items.value.find((item) => item.id === pluginId)?.state ?? (
+      current.value?.id === pluginId ? current.value.state : undefined
+    )
+  }
+
+  async function refreshPluginStateFromServer(pluginId: string) {
+    if (current.value?.id === pluginId) {
+      await fetchDetail(pluginId)
+      return
+    }
+
+    await fetchList()
+  }
+
+  function updateLifecycleRefresh(pluginId: string, state?: PluginState | string) {
+    if (!isLifecycleTransitionState(state)) {
+      clearLifecycleRefresh(pluginId)
+      return
+    }
+
+    if (lifecycleRefreshTimers.has(pluginId)) {
+      return
+    }
+
+    const attempt = lifecycleRefreshAttempts.get(pluginId) ?? 0
+    if (attempt >= lifecycleRefreshDelaysMs.length) {
+      return
+    }
+
+    lifecycleRefreshAttempts.set(pluginId, attempt + 1)
+    lifecycleRefreshTimers.set(pluginId, setTimeout(() => {
+      lifecycleRefreshTimers.delete(pluginId)
+      void refreshPluginStateFromServer(pluginId)
+        .catch(() => undefined)
+        .finally(() => {
+          updateLifecycleRefresh(pluginId, getKnownPluginState(pluginId))
+        })
+    }, lifecycleRefreshDelaysMs[attempt]))
+  }
+
+  function reconcileLifecycleRefreshes(nextItems: PluginSummary[]) {
+    const seenPluginIds = new Set<string>()
+
+    for (const item of nextItems) {
+      seenPluginIds.add(item.id)
+      updateLifecycleRefresh(item.id, item.state)
+    }
+
+    const trackedPluginIds = new Set([
+      ...lifecycleRefreshTimers.keys(),
+      ...lifecycleRefreshAttempts.keys(),
+    ])
+    for (const pluginId of trackedPluginIds) {
+      if (!seenPluginIds.has(pluginId) && current.value?.id !== pluginId) {
+        clearLifecycleRefresh(pluginId)
+      }
+    }
   }
 
   function setPending(pluginId: string, action: string | null) {
     actionPending.value = {
       ...actionPending.value,
       [pluginId]: action,
-    }
-  }
-
-  function setGrantsLoading(pluginId: string, loadingValue: boolean) {
-    grantsLoading.value = {
-      ...grantsLoading.value,
-      [pluginId]: loadingValue,
     }
   }
 
@@ -174,6 +248,7 @@ export const usePluginsStore = defineStore('plugins', () => {
         current.value = response.plugin
       }
       upsert(response.plugin)
+      updateLifecycleRefresh(pluginId, response.plugin.state)
       return response.plugin
     } finally {
       setPending(pluginId, null)
@@ -200,20 +275,6 @@ export const usePluginsStore = defineStore('plugins', () => {
       })
     } finally {
       setPending(pluginId, null)
-    }
-  }
-
-  async function fetchGrants(pluginId: string) {
-    setGrantsLoading(pluginId, true)
-    try {
-      const response = await apiRequest<PluginGrantListResponse>(`/api/plugins/${pluginId}/grants`)
-      grants.value = {
-        ...grants.value,
-        [pluginId]: response.items,
-      }
-      return response.items
-    } finally {
-      setGrantsLoading(pluginId, false)
     }
   }
 
@@ -248,36 +309,6 @@ export const usePluginsStore = defineStore('plugins', () => {
     } finally {
       setSettingsSaving(pluginId, false)
     }
-  }
-
-  async function grantCapability(pluginId: string, payload: PluginGrantRequest) {
-    setGrantsLoading(pluginId, true)
-    try {
-      const response = await apiRequest<PluginGrantSummary>(`/api/plugins/${pluginId}/grants`, {
-        method: 'POST',
-        body: payload,
-      })
-      await syncPermissionState(pluginId)
-      return response
-    } finally {
-      setGrantsLoading(pluginId, false)
-    }
-  }
-
-  async function revokeGrant(pluginId: string, capability: string) {
-    setGrantsLoading(pluginId, true)
-    try {
-      await apiRequest<void>(`/api/plugins/${pluginId}/grants/${encodeURIComponent(capability)}`, {
-        method: 'DELETE',
-      })
-      await syncPermissionState(pluginId)
-    } finally {
-      setGrantsLoading(pluginId, false)
-    }
-  }
-
-  function getGrants(pluginId: string) {
-    return grants.value[pluginId] ?? []
   }
 
   async function fetchSecrets(pluginId: string) {
@@ -322,20 +353,11 @@ export const usePluginsStore = defineStore('plugins', () => {
     return secretsByPluginId.value[pluginId] ?? {}
   }
 
-  async function syncPermissionState(pluginId: string) {
-    await fetchGrants(pluginId)
-    if (current.value?.id === pluginId) {
-      await fetchDetail(pluginId)
-    }
-  }
-
   return {
     actionPending,
     current,
     detailLoading,
     error,
-    grants,
-    grantsLoading,
     items,
     installPending,
     loading,
@@ -350,14 +372,10 @@ export const usePluginsStore = defineStore('plugins', () => {
     fetchDetail,
     fetchSettings,
     fetchSecrets,
-    fetchGrants,
     fetchList,
-    getGrants,
     getSettings,
     getSecrets,
-    grantCapability,
     installPlugin,
-    revokeGrant,
     uninstallPlugin,
     updateSettings,
     updateSecrets,

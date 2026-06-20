@@ -17,8 +17,8 @@ frames:
     timestamp: 1710000208
     plugin_id: notice-logger
     request_id: local_0006
-    code: permission.scope_violation
-    message: capability not granted
+    code: plugin.capability_violation
+    message: capability is not declared
 expect:
   valid: true
   notes:

@@ -42,25 +42,19 @@ export function isPluginCommandConflicted(command: PluginCommandSummary, conflic
 }
 
 export function getPluginCommandAvailability(plugin: PluginSummary): PluginCommandAvailability {
-  if (plugin.registration_state !== 'installed') {
-    return 'not_ready'
-  }
-
-  if (plugin.desired_state === 'disabled') {
-    return 'disabled'
-  }
-
-  switch (plugin.runtime_state) {
+  switch (plugin.state) {
     case 'running':
       return 'available'
     case 'starting':
       return 'starting'
     case 'stopping':
       return 'switching'
-    case 'stopped':
-    case 'backoff':
-    case 'crashed':
-    case 'dead_letter':
+    case 'enabled':
+      return 'starting'
+    case 'disabled':
+      return 'disabled'
+    case 'failed':
+    case 'invalid':
     default:
       return 'not_ready'
   }

@@ -18,12 +18,6 @@
       "event.subscribe",
       "render.image"
     ],
-    "permissions": {
-      "required": [
-        "render.image"
-      ],
-      "optional": []
-    },
     "render_templates": [
       {
         "path": "/templates/card"

@@ -188,7 +188,7 @@ func TestInjectorKeepsPluginCookie(t *testing.T) {
 	}
 }
 
-func TestInjectorRequiresGrantedHost(t *testing.T) {
+func TestInjectorRequiresDeclaredHost(t *testing.T) {
 	t.Parallel()
 
 	accounts := &stubAccounts{
@@ -207,7 +207,7 @@ func TestInjectorRequiresGrantedHost(t *testing.T) {
 		t.Fatalf("Inject failed: %v", err)
 	}
 	if result.AfterSuccess != nil {
-		t.Fatalf("unexpected success callback without granted host")
+		t.Fatalf("unexpected success callback without declared host")
 	}
 	if _, ok := headers["Cookie"]; ok {
 		t.Fatalf("unexpected Cookie header: %#v", headers)

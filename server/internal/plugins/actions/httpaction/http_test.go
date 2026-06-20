@@ -44,7 +44,7 @@ func TestExecuteAppliesCredentialInjectorAndMarksAfterSuccess(t *testing.T) {
 				AllowPrivateHosts: []string{"127.0.0.1"},
 			},
 		},
-		Grants: stubHTTPGrants{
+		Capabilities: stubHTTPCapabilities{
 			capabilities: map[string]bool{"http.request": true},
 			httpHosts:    []string{"127.0.0.1"},
 		},
@@ -83,7 +83,7 @@ func TestExecuteSkipsCredentialSuccessCallbackWhenRequestFails(t *testing.T) {
 			HTTPURL:    "https://api.example.test/v1/data",
 		},
 		Config: config.Config{HTTP: config.HTTPConfig{TimeoutSeconds: 5, MaxRetries: 0}},
-		Grants: stubHTTPGrants{
+		Capabilities: stubHTTPCapabilities{
 			capabilities: map[string]bool{"http.request": true},
 			httpHosts:    []string{"other.example.test"},
 		},
@@ -103,7 +103,7 @@ func TestExecuteSkipsCredentialSuccessCallbackWhenRequestFails(t *testing.T) {
 	if !errors.As(err, &runtimeErr) {
 		t.Fatalf("expected runtime error, got %#v", err)
 	}
-	if runtimeErr.Code != "permission.scope_violation" {
+	if runtimeErr.Code != "plugin.capability_violation" {
 		t.Fatalf("unexpected runtime error: %#v", runtimeErr)
 	}
 	if marked {
@@ -121,7 +121,7 @@ func TestExecuteReturnsCredentialInjectorError(t *testing.T) {
 			HTTPURL:    "https://api.example.test/v1/data",
 		},
 		Config: config.Config{HTTP: config.HTTPConfig{TimeoutSeconds: 5, MaxRetries: 0}},
-		Grants: stubHTTPGrants{
+		Capabilities: stubHTTPCapabilities{
 			capabilities: map[string]bool{"http.request": true},
 			httpHosts:    []string{"api.example.test"},
 		},
@@ -141,16 +141,16 @@ func TestExecuteReturnsCredentialInjectorError(t *testing.T) {
 	}
 }
 
-type stubHTTPGrants struct {
+type stubHTTPCapabilities struct {
 	capabilities map[string]bool
 	httpHosts    []string
 }
 
-func (s stubHTTPGrants) CapabilityGranted(_ context.Context, _ string, capability string) bool {
+func (s stubHTTPCapabilities) CapabilityDeclared(_ context.Context, _ string, capability string) bool {
 	return s.capabilities[capability]
 }
 
-func (s stubHTTPGrants) GrantedHTTPHosts(context.Context, string) []string {
+func (s stubHTTPCapabilities) HTTPHosts(context.Context, string) []string {
 	return append([]string(nil), s.httpHosts...)
 }
 

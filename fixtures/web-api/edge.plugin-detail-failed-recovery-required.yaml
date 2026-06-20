@@ -1,0 +1,45 @@
+contract: contracts/web-api.openapi.yaml
+case: edge
+description: Plugin detail surfaces recovery diagnostics while the runtime needs manual recovery.
+request:
+  method: GET
+  path: /api/plugins/weather
+response:
+  status: 200
+  body:
+    plugin:
+      id: weather
+      name: Weather
+      role: user
+      state: failed
+      state_diagnosis:
+        kind: recovery_required
+        summary: plugin runtime requires manual recovery
+        entered_at: '2026-05-13T08:00:00Z'
+        crash_count: 5
+        last_error_code: plugin.internal_error
+        last_error_message: plugin exited unexpectedly
+        recoverable: true
+      source:
+        root: plugins/installed
+        package_source_type: local_zip
+        package_source_ref: C:/plugins/weather.zip
+        verified: false
+      trust:
+        level: unverified
+        label: 未验证来源
+      commands:
+        - name: weather
+          aliases:
+            - tq
+            - 天气
+          description: 查询天气
+          usage: weather <城市>
+          permission: member
+          command_source: manifest
+      command_conflicts: []
+expect:
+  valid: true
+  notes:
+    - state_diagnosis contains the recovery summary for failed plugins that need manual recovery.
+    - last_error_message is redacted before reaching this surface.

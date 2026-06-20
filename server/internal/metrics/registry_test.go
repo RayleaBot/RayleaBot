@@ -14,7 +14,7 @@ func TestNewRegistersAllFormalMetrics(t *testing.T) {
 		t.Fatal("New returned nil registry")
 	}
 	r.EventPipelineStage.WithLabelValues("adapter", "accepted").Inc()
-	r.PluginRuntimeState.WithLabelValues("running").Set(2)
+	r.PluginState.WithLabelValues("running").Set(2)
 	r.DispatcherDropTotal.WithLabelValues("builtin.echo", "queue_full").Inc()
 	r.RenderQueueDepth.Set(3)
 	r.WebhookReplayObserved.WithLabelValues("rejected").Inc()
@@ -38,7 +38,7 @@ func TestNewRegistersAllFormalMetrics(t *testing.T) {
 
 	expected := []string{
 		`raylea_event_pipeline_stage_total{outcome="accepted",stage="adapter"} 1`,
-		`raylea_plugin_runtime_state{state="running"} 2`,
+		`raylea_plugin_state{state="running"} 2`,
 		`raylea_dispatcher_drop_total{plugin_id="builtin.echo",reason="queue_full"} 1`,
 		`raylea_render_queue_depth 3`,
 		`raylea_plugin_webhook_replay_observed_total{outcome="rejected"} 1`,

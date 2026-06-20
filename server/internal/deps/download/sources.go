@@ -175,7 +175,7 @@ func SourceSummary(kind string, source manifest.ResourceSource) string {
 func managedResourceLabel(kind string) string {
 	switch kind {
 	case "chromium":
-		return "Chromium 浏览环境"
+		return "图片渲染 Chromium"
 	case "python-runtime":
 		return "Python 运行环境"
 	case "nodejs-runtime":

@@ -17,30 +17,21 @@
     "event.raw_payload",
     "logger.write"
   ],
-  "permissions": {
-    "required": [
-      "event.expose_webhook",
-      "logger.write"
-    ],
-    "optional": [
-      "event.raw_payload"
-    ],
-    "scopes": {
-      "webhooks": [
-        {
-          "route": "github",
-          "auth_strategy": "hmac_sha256",
-          "header": "X-Hub-Signature-256",
-          "secret_ref": "webhook.github.secret"
-        }
-      ]
-    }
-  },
   "commands": [
     {
       "name": "webhook_register",
       "description": "Register the example GitHub webhook route.",
       "usage": "/webhook_register"
     }
-  ]
+  ],
+  "capability_parameters": {
+    "webhooks": [
+      {
+        "route": "github",
+        "auth_strategy": "hmac_sha256",
+        "header": "X-Hub-Signature-256",
+        "secret_ref": "webhook.github.secret"
+      }
+    ]
+  }
 }

@@ -21,6 +21,9 @@ response:
       default_config:
         default_city: 北京
         unit: celsius
+      declared_capabilities:
+        - config.read
+        - config.write
       management_ui:
         pages:
           - id: config
@@ -29,10 +32,7 @@ response:
           - id: secrets
             label: 密钥设置
             entry: web/secrets.html
-      registration_state: installed
-      desired_state: disabled
-      runtime_state: stopped
-      display_state: disabled
+      state: disabled
       source:
         root: examples/plugins
         package_source_type: local_directory
@@ -47,16 +47,5 @@ response:
           usage: /config_panel [city]
           command_source: manifest
       command_conflicts: []
-      permissions:
-        - capability: config.read
-          requirement: required
-          status: granted
-          source: persisted
-          expires_at: null
-        - capability: config.write
-          requirement: required
-          status: granted
-          source: persisted
-          expires_at: null
 expect:
   valid: true

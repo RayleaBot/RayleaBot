@@ -244,15 +244,15 @@ codes:
     retryable: true
     applies_to: [http, websocket, task]
 
-  plugin.permission_pending:
-    code: plugin.permission_pending
+  plugin.capability_violation:
+    code: plugin.capability_violation
     domain: plugin
-    message_key: errors.plugin.permission_pending
-    message: 插件尚未完成权限授权
-    description: The plugin requested required capabilities that are missing, expired, or need to be granted again after scope drift, so enablement cannot proceed.
-    http_status: 409
-    retryable: true
-    applies_to: [http, websocket, task]
+    message_key: errors.plugin.capability_violation
+    message: 插件访问未声明能力
+    description: The plugin used a capability that is absent from its manifest declaration or outside its declared capability parameters.
+    http_status: 403
+    retryable: false
+    applies_to: [http, websocket, plugin_protocol, task]
 
   plugin.webhook_replay_rejected:
     code: plugin.webhook_replay_rejected
@@ -284,16 +284,15 @@ codes:
     retryable: false
     applies_to: [http]
 
-  plugin.not_in_dead_letter:
-    code: plugin.not_in_dead_letter
+  plugin.not_recoverable:
+    code: plugin.not_recoverable
     domain: plugin
-    message_key: errors.plugin.not_in_dead_letter
-    message: 插件当前不处于 dead_letter 状态
+    message_key: errors.plugin.not_recoverable
+    message: 插件当前不可恢复
     description: >
-      The dead_letter recovery endpoint only accepts plugins whose runtime_state
-      is currently `dead_letter`. Use enable / disable / reload for normal
-      lifecycle transitions; this code is returned when a recovery attempt is
-      issued against a plugin in any other runtime_state.
+      The plugin recovery endpoint only accepts failed plugins that require
+      manual recovery. Use enable, disable, or reload for normal lifecycle
+      transitions.
     http_status: 409
     retryable: false
     applies_to: [http]
@@ -307,16 +306,6 @@ codes:
       The caller does not have permission for the requested command or management action.
       When returned by the HTTP auth middleware due to a missing or invalid Bearer token,
       the HTTP status code is 401 (Unauthorized) instead of the default 403 (Forbidden).
-    http_status: 403
-    retryable: false
-    applies_to: [http, websocket, plugin_protocol]
-
-  permission.scope_violation:
-    code: permission.scope_violation
-    domain: permission
-    message_key: errors.permission.scope_violation
-    message: 插件访问了未授权作用域
-    description: The plugin attempted to use a capability that was not granted, or tried to access a granted capability outside its authorized scope boundary.
     http_status: 403
     retryable: false
     applies_to: [http, websocket, plugin_protocol]

@@ -86,15 +86,13 @@ func LoadSnapshot(infoPath, sourceRoot, repoRoot string, validator *schema.Valid
 		DesiredState:       defaultDesiredStateForSourceRoot(sourceRoot),
 		RuntimeState:       RuntimeStateStopped,
 	}
-	snapshot.RequiredPermissions = manifestPermissionList(manifest, "required")
-	snapshot.OptionalPermissions = manifestPermissionList(manifest, "optional")
 	snapshot.DeclaredCapabilities = stringListField(manifest, "capabilities")
 	snapshot.PythonDependencies = manifestDependencyList(manifest, "python")
 	snapshot.NodeDependencies = manifestDependencyList(manifest, "nodejs")
 	snapshot.RequireInstallScripts = manifestBoolField(manifest, "require_install_scripts")
-	snapshot.ScopeHTTPHosts = manifestScopeList(manifest, "http_hosts")
-	snapshot.ScopeStorageRoots = manifestScopeList(manifest, "storage_roots")
-	snapshot.ScopeWebhooks = manifestWebhookScopes(manifest)
+	snapshot.ScopeHTTPHosts = manifestCapabilityParameterList(manifest, "http_hosts")
+	snapshot.ScopeStorageRoots = manifestCapabilityParameterList(manifest, "storage_roots")
+	snapshot.ScopeWebhooks = manifestWebhookParameters(manifest)
 	snapshot.ManifestCommands = manifestCommands(manifest)
 	snapshot.DynamicCommands = manifestDynamicCommands(manifest)
 	snapshot.Commands = ProjectCommands(snapshot, snapshot.DefaultConfig)

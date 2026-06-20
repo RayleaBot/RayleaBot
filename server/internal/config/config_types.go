@@ -47,8 +47,7 @@ type AdminConfig struct {
 }
 
 type PermissionConfig struct {
-	DefaultLevel          string   `json:"default_level" yaml:"default_level"`
-	AutoGrantCapabilities []string `json:"auto_grant_capabilities" yaml:"auto_grant_capabilities"`
+	DefaultLevel string `json:"default_level" yaml:"default_level"`
 }
 
 type SchedulerConfig struct {

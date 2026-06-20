@@ -20,10 +20,7 @@ frames:
           name: Echo
           description: 内置测试复读命令
           role: builtin
-          registration_state: installed
-          desired_state: enabled
-          runtime_state: running
-          display_state: running
+          state: running
           commands:
             - name: echo
               description: 复读收到的内容

@@ -18,7 +18,7 @@
 | Protocol Service | 负责协议快照、OneBot 回连入口和 Webhook 协议入口 |
 | Plugin Webhook Service | 负责插件 webhook 注册、鉴权、按需拉起和事件投递 |
 | Scheduler | 负责定时触发和一次性任务 |
-| Capability Grant Manager | 负责插件能力授权与时效过滤 |
+| Capability View | 提供插件声明能力与能力参数查询 |
 | Config Manager | 负责配置读取、校验、覆盖与热更新入口 |
 | Logger | 负责统一结构化日志输出 |
 | Render Service | 负责模板渲染、结果缓存与 artifact 管理 |
@@ -67,7 +67,7 @@
 - Scheduler 使用服务主时区；未显式配置时默认跟随宿主机本地时区。
 - 周期性任务在服务离线期间不补跑，恢复后按下一个匹配时间点触发。
 - 同一插件同一 `task_id` 的调度注册按更新处理，不生成重复任务。
-- 插件被禁用、卸载或进入 `dead_letter` 后，关联调度任务会暂停或移除。
+- 插件被禁用、卸载或进入需要人工恢复的失败状态后，关联调度任务会暂停或移除。
 
 ### 后台任务模型
 

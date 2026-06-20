@@ -29,11 +29,6 @@ func (c *Controller) RecoverFromDeadLetter(ctx context.Context, pluginID string)
 		return plugins.Snapshot{}, plugins.ErrPluginNotInDeadLetter
 	}
 
-	if _, err := c.validateActivation(ctx, snapshot); err != nil {
-		c.disablePluginForPermissionLoss(ctx, pluginID)
-		return plugins.Snapshot{}, err
-	}
-
 	// Persist desired_state and update the catalog before mutating the
 	// runtime manager. If persistence or catalog updates fail, the manager
 	// must stay in dead_letter so a retry can pick the plugin up cleanly;

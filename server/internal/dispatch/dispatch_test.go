@@ -864,7 +864,7 @@ func TestDispatchActionExecutionRejectsMissingMessageSendCapability(t *testing.T
 	summary := waitForDispatchLog(t, stream, func(summary logging.Summary) bool {
 		return summary.RequestID == "req_runtime_delivery_permission_send"
 	})
-	if summary.Details["error_code"] != "permission.scope_violation" {
+	if summary.Details["error_code"] != "plugin.capability_violation" {
 		t.Fatalf("unexpected error code: %#v", summary.Details["error_code"])
 	}
 
@@ -913,7 +913,7 @@ func TestDispatchActionExecutionRejectsMissingMessageReplyCapability(t *testing.
 	summary := waitForDispatchLog(t, stream, func(summary logging.Summary) bool {
 		return summary.RequestID == "req_runtime_delivery_permission_reply"
 	})
-	if summary.Details["error_code"] != "permission.scope_violation" {
+	if summary.Details["error_code"] != "plugin.capability_violation" {
 		t.Fatalf("unexpected error code: %#v", summary.Details["error_code"])
 	}
 

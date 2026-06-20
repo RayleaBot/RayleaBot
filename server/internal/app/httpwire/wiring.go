@@ -3,7 +3,7 @@ package httpwire
 import (
 	"context"
 
-	"github.com/RayleaBot/RayleaBot/server/internal/app/servicegraph"
+	"github.com/RayleaBot/RayleaBot/server/internal/app/actionwire"
 	"github.com/RayleaBot/RayleaBot/server/internal/management/authapi"
 	"github.com/RayleaBot/RayleaBot/server/internal/management/bilibiliapi"
 	"github.com/RayleaBot/RayleaBot/server/internal/management/configapi"
@@ -24,15 +24,17 @@ func Build(deps BuildDeps) State {
 	runtimeState := deps.Runtime
 	platformState := deps.Platform
 	pluginState := deps.Plugins
+	eventState := deps.Events
+	renderer := deps.Renderer
 	services := deps.Services
 
 	configService := NewConfigService(ConfigDeps{
 		Runtime:          runtimeState,
 		Logs:             platformState.Logs,
 		LogRepository:    platformState.LogRepository,
-		Renderer:         pluginState.Renderer,
+		Renderer:         renderer,
 		PluginLogLimiter: pluginState.PluginLogLimiter,
-		OutboundLimiter:  pluginState.OutboundLimiter,
+		OutboundLimiter:  eventState.OutboundLimiter,
 		Protocol:         services.Protocol,
 		EventIngress:     services.EventIngress,
 	})
@@ -50,12 +52,12 @@ func Build(deps BuildDeps) State {
 	governanceHandler := governanceapi.NewHandlersWithService(services.Governance)
 	taskHandler := taskapi.NewHandlers(platformState.Tasks, platformState.TaskExecutor, pluginState.PluginInstaller)
 	logHandler := logapi.NewHandlers(services.Logs)
-	renderHandler := renderapi.NewHandlers(pluginState.Renderer)
+	renderHandler := renderapi.NewHandlers(renderer)
 	systemHandler := systemapi.NewHandlers(services.System, platformState.Scheduler)
 	protocolHandler := protocolapi.NewHandlers(services.Protocol)
 	thirdPartyHandler := thirdpartyapi.NewThirdPartyHandlers(services.ThirdParty, deps.BilibiliAccountClient, services.BilibiliSource, deps.BilibiliHTTPTransport)
 	bilibiliHandler := bilibiliapi.NewBilibiliHandlers(services.BilibiliSource, deps.BilibiliQRLogin, deps.BilibiliHTTPTransport)
-	eventsWS := managementws.NewEventsHandler(pluginState.Bridge, pluginState.Plugins, services.Protocol, deps.Status, services.GovernanceEvents, services.BilibiliEvents)
+	eventsWS := managementws.NewEventsHandler(eventState.Bridge, pluginState.Plugins, services.Protocol, deps.Status, services.GovernanceEvents, services.BilibiliEvents)
 	tasksWS := managementws.NewTasksHandler(platformState.Tasks)
 	logsWS := managementws.NewLogsHandler(services.Logs)
 	consoleWS := managementws.NewConsoleHandler(platformState.Console, pluginState.Plugins)
@@ -64,13 +66,13 @@ func Build(deps BuildDeps) State {
 		PluginConfig: pluginState.PluginConfig,
 		Secrets:      platformState.Secrets,
 		NotifyConfigChange: func(ctx context.Context, pluginID string) {
-			dispatch := servicegraph.LocalActionConfigChangedDispatcher(pluginState.Dispatcher)
+			dispatch := actionwire.ConfigChangedDispatcher(eventState.Dispatcher)
 			if dispatch != nil {
 				dispatch(ctx, pluginID)
 			}
 		},
 		RefreshCommands: func(ctx context.Context, pluginID string, settings map[string]any) {
-			lifecyclecommands.RefreshPluginCommands(pluginState.Plugins, pluginState.Dispatcher, pluginID, settings)
+			lifecyclecommands.RefreshPluginCommands(pluginState.Plugins, eventState.Dispatcher, pluginID, settings)
 		},
 	})
 
@@ -82,9 +84,8 @@ func Build(deps BuildDeps) State {
 		pluginInstaller:    pluginState.PluginInstaller,
 		pluginUninstaller:  pluginState.PluginUninstaller,
 		pluginRepository:   pluginState.PluginRepository,
-		grantRepository:    pluginState.GrantRepository,
 		pluginLifecycle:    services.PluginLifecycle,
-		renderer:           pluginState.Renderer,
+		renderer:           renderer,
 		configHandler:      configHandler,
 		authHandler:        authHandler,
 		managementHandler:  managementHandler,

@@ -17,10 +17,6 @@
     "capabilities": [
       "event.subscribe"
     ],
-    "permissions": {
-      "required": [],
-      "optional": []
-    },
     "default_config_file": "defaults.json",
     "default_config": {
       "unit": "celsius"

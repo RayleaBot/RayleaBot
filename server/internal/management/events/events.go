@@ -1,6 +1,10 @@
 package events
 
-import "time"
+import (
+	"time"
+
+	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
+)
 
 const (
 	channelEvents = "events"
@@ -22,13 +26,11 @@ type ServiceStatusPayload struct {
 }
 
 type PluginStatePayload struct {
-	PluginID          string              `json:"plugin_id"`
-	RegistrationState string              `json:"registration_state"`
-	DesiredState      string              `json:"desired_state"`
-	RuntimeState      string              `json:"runtime_state"`
-	DisplayState      string              `json:"display_state"`
-	Commands          []PluginCommandItem `json:"commands"`
-	CommandConflicts  []string            `json:"command_conflicts"`
+	PluginID         string                  `json:"plugin_id"`
+	State            string                  `json:"state"`
+	StateDiagnosis   *plugins.StateDiagnosis `json:"state_diagnosis,omitempty"`
+	Commands         []PluginCommandItem     `json:"commands"`
+	CommandConflicts []string                `json:"command_conflicts"`
 }
 
 type PluginCommandItem struct {

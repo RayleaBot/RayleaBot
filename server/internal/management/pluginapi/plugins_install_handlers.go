@@ -10,6 +10,12 @@ import (
 	"github.com/go-chi/chi/v5"
 )
 
+type pluginInstallRequest struct {
+	SourceType          string `json:"source_type"`
+	Source              string `json:"source"`
+	AllowInstallScripts bool   `json:"allow_install_scripts,omitempty"`
+}
+
 func registerPluginInstallRoutes(router chi.Router, catalog plugins.CatalogView, taskRegistry *tasks.Registry, installer plugins.InstallCoordinator) {
 	router.Post("/api/plugins/install", newInstallHandler(catalog, taskRegistry, installer))
 }

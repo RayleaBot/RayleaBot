@@ -15,12 +15,6 @@
     "event.subscribe",
     "scheduler.create"
   ],
-  "permissions": {
-    "required": [
-      "scheduler.create"
-    ],
-    "optional": []
-  },
   "commands": [
     {
       "name": "schedule_daily",

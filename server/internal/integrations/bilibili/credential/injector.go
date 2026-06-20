@@ -39,7 +39,7 @@ func NewInjector(accounts Accounts, session Session) *Injector {
 }
 
 func (i *Injector) Inject(ctx context.Context, req httpaction.CredentialRequest) (httpaction.CredentialResult, error) {
-	if i == nil || i.Accounts == nil || req.Headers == nil || req.PluginID != SubscriptionHubPluginID || !IsBilibiliURL(req.RawURL) || !urlHostGranted(req.RawURL, req.ScopeHosts) || hasHeader(req.Headers, "Cookie") {
+	if i == nil || i.Accounts == nil || req.Headers == nil || req.PluginID != SubscriptionHubPluginID || !IsBilibiliURL(req.RawURL) || !urlHostDeclared(req.RawURL, req.ScopeHosts) || hasHeader(req.Headers, "Cookie") {
 		return httpaction.CredentialResult{}, nil
 	}
 	accounts, err := i.Accounts.ListEnabled(ctx, thirdparty.PlatformBilibili)
@@ -109,7 +109,7 @@ func IsBilibiliURLForWBI(rawURL string) bool {
 	return host == "api.bilibili.com" || host == "api.live.bilibili.com"
 }
 
-func urlHostGranted(rawURL string, scopeHosts []string) bool {
+func urlHostDeclared(rawURL string, scopeHosts []string) bool {
 	parsed, err := url.Parse(rawURL)
 	if err != nil {
 		return false

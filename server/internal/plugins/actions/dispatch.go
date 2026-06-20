@@ -36,7 +36,7 @@ type registryDeps struct {
 	currentConfig    func() config.Config
 	logger           *slog.Logger
 	redactText       func(string) string
-	grants           GrantView
+	capabilities     CapabilityView
 	pluginConfig     PluginConfigRepository
 	pluginFiles      storageaction.FileStore
 	pluginKV         storageaction.KVRepository
@@ -97,34 +97,34 @@ var baseActionHandlers = map[string]handlerFactory{
 	"logger.write": func(deps registryDeps) ActionHandler {
 		return func(ctx context.Context, req ActionRequest) (map[string]any, error) {
 			return logaction.Execute(ctx, logaction.Request{
-				PluginID:   req.PluginID,
-				RequestID:  req.RequestID,
-				Action:     req.Action,
-				Grants:     serviceGrants(deps),
-				Logger:     serviceLogger(deps),
-				RedactText: serviceRedactor(deps),
-				Limiter:    servicePluginLogLimiter(deps),
+				PluginID:     req.PluginID,
+				RequestID:    req.RequestID,
+				Action:       req.Action,
+				Capabilities: serviceCapabilities(deps),
+				Logger:       serviceLogger(deps),
+				RedactText:   serviceRedactor(deps),
+				Limiter:      servicePluginLogLimiter(deps),
 			})
 		}
 	},
 	"storage.kv": func(deps registryDeps) ActionHandler {
 		return func(ctx context.Context, req ActionRequest) (map[string]any, error) {
 			return storageaction.ExecuteKV(ctx, storageaction.Request{
-				PluginID: req.PluginID,
-				Action:   req.Action,
-				Config:   serviceConfig(deps),
-				Grants:   serviceGrants(deps),
-				KV:       servicePluginKV(deps),
+				PluginID:     req.PluginID,
+				Action:       req.Action,
+				Config:       serviceConfig(deps),
+				Capabilities: serviceCapabilities(deps),
+				KV:           servicePluginKV(deps),
 			})
 		}
 	},
 	"config.read": func(deps registryDeps) ActionHandler {
 		return func(ctx context.Context, req ActionRequest) (map[string]any, error) {
 			return configaction.ExecuteRead(ctx, configaction.Request{
-				PluginID:   req.PluginID,
-				Action:     req.Action,
-				Grants:     serviceGrants(deps),
-				Repository: servicePluginConfig(deps),
+				PluginID:     req.PluginID,
+				Action:       req.Action,
+				Capabilities: serviceCapabilities(deps),
+				Repository:   servicePluginConfig(deps),
 			})
 		}
 	},
@@ -134,7 +134,7 @@ var baseActionHandlers = map[string]handlerFactory{
 				PluginID:      req.PluginID,
 				Action:        req.Action,
 				ParentEvent:   req.ParentEvent,
-				Grants:        serviceGrants(deps),
+				Capabilities:  serviceCapabilities(deps),
 				CurrentConfig: serviceConfigProvider(deps),
 			})
 		}
@@ -142,10 +142,10 @@ var baseActionHandlers = map[string]handlerFactory{
 	"secret.read": func(deps registryDeps) ActionHandler {
 		return func(ctx context.Context, req ActionRequest) (map[string]any, error) {
 			return secretaction.ExecuteRead(ctx, secretaction.Request{
-				PluginID: req.PluginID,
-				Action:   req.Action,
-				Grants:   serviceGrants(deps),
-				Reader:   serviceSecrets(deps),
+				PluginID:     req.PluginID,
+				Action:       req.Action,
+				Capabilities: serviceCapabilities(deps),
+				Reader:       serviceSecrets(deps),
 			})
 		}
 	},
@@ -154,7 +154,7 @@ var baseActionHandlers = map[string]handlerFactory{
 			return configaction.ExecuteWrite(ctx, configaction.Request{
 				PluginID:        req.PluginID,
 				Action:          req.Action,
-				Grants:          serviceGrants(deps),
+				Capabilities:    serviceCapabilities(deps),
 				Repository:      servicePluginConfig(deps),
 				RefreshCommands: serviceRefreshCommands(deps),
 				Dispatcher:      serviceConfigDispatcher(deps),
@@ -190,11 +190,11 @@ var baseActionHandlers = map[string]handlerFactory{
 	"storage.file": func(deps registryDeps) ActionHandler {
 		return func(ctx context.Context, req ActionRequest) (map[string]any, error) {
 			return storageaction.ExecuteFile(ctx, storageaction.Request{
-				PluginID: req.PluginID,
-				Action:   req.Action,
-				Config:   serviceConfig(deps),
-				Grants:   serviceGrants(deps),
-				Files:    servicePluginFiles(deps),
+				PluginID:     req.PluginID,
+				Action:       req.Action,
+				Config:       serviceConfig(deps),
+				Capabilities: serviceCapabilities(deps),
+				Files:        servicePluginFiles(deps),
 			})
 		}
 	},
@@ -204,7 +204,7 @@ var baseActionHandlers = map[string]handlerFactory{
 				PluginID:           req.PluginID,
 				Action:             req.Action,
 				Config:             serviceConfig(deps),
-				Grants:             serviceGrants(deps),
+				Capabilities:       serviceCapabilities(deps),
 				CredentialInjector: serviceHTTPCredentials(deps),
 			})
 		}
@@ -212,10 +212,10 @@ var baseActionHandlers = map[string]handlerFactory{
 	"scheduler.create": func(deps registryDeps) ActionHandler {
 		return func(ctx context.Context, req ActionRequest) (map[string]any, error) {
 			return scheduleraction.ExecuteCreate(ctx, scheduleraction.Request{
-				PluginID: req.PluginID,
-				Action:   req.Action,
-				Grants:   serviceGrants(deps),
-				Create:   serviceScheduler(deps),
+				PluginID:     req.PluginID,
+				Action:       req.Action,
+				Capabilities: serviceCapabilities(deps),
+				Create:       serviceScheduler(deps),
 			})
 		}
 	},
@@ -234,7 +234,7 @@ var baseActionHandlers = map[string]handlerFactory{
 				PluginID:      req.PluginID,
 				Action:        req.Action,
 				ParentEvent:   req.ParentEvent,
-				Grants:        serviceGrants(deps),
+				Capabilities:  serviceCapabilities(deps),
 				Renderer:      serviceRenderer(deps),
 				CurrentConfig: serviceConfigProvider(deps),
 			})
@@ -263,20 +263,20 @@ func (s *Service) Execute(ctx context.Context, pluginID, requestID string, actio
 func oneBotHandler(deps registryDeps) ActionHandler {
 	return func(ctx context.Context, req ActionRequest) (map[string]any, error) {
 		return localonebot.Execute(ctx, localonebot.Request{
-			PluginID: req.PluginID,
-			Action:   req.Action,
-			Grants:   serviceGrants(deps),
-			Adapter:  serviceAdapter(deps),
+			PluginID:     req.PluginID,
+			Action:       req.Action,
+			Capabilities: serviceCapabilities(deps),
+			Adapter:      serviceAdapter(deps),
 		})
 	}
 }
 
 func governanceRequest(deps registryDeps, req ActionRequest) governanceaction.Request {
 	return governanceaction.Request{
-		PluginID: req.PluginID,
-		Action:   req.Action,
-		Grants:   serviceGrants(deps),
-		Service:  serviceGovernance(deps),
+		PluginID:     req.PluginID,
+		Action:       req.Action,
+		Capabilities: serviceCapabilities(deps),
+		Service:      serviceGovernance(deps),
 	}
 }
 
@@ -302,8 +302,8 @@ func serviceRedactor(deps registryDeps) func(string) string {
 	return deps.redactText
 }
 
-func serviceGrants(deps registryDeps) GrantView {
-	return deps.grants
+func serviceCapabilities(deps registryDeps) CapabilityView {
+	return deps.capabilities
 }
 
 func servicePluginConfig(deps registryDeps) PluginConfigRepository {

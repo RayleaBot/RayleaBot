@@ -16,13 +16,6 @@
     "plugin.list",
     "message.send"
   ],
-  "permissions": {
-    "required": [
-      "message.send",
-      "plugin.list"
-    ],
-    "optional": []
-  },
   "commands": [
     {
       "name": "plugins_demo",

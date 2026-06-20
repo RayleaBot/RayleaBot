@@ -11,7 +11,12 @@ import (
 )
 
 func (c *Controller) buildStartInputs(ctx context.Context, pluginID, botID string) (runtimespec.Spec, runtimespec.InitPayload, error) {
-	return c.buildStartInputsWithCapabilities(pluginID, botID, c.grants.GrantedCapabilities(ctx, pluginID))
+	_ = ctx
+	snapshot, ok := c.plugins.Get(pluginID)
+	if !ok {
+		return runtimespec.Spec{}, runtimespec.InitPayload{}, plugins.ErrPluginNotFound
+	}
+	return c.buildStartInputsWithCapabilities(pluginID, botID, c.declaredCapabilities(snapshot))
 }
 
 func (c *Controller) buildStartInputsWithCapabilities(pluginID, botID string, capabilities []string) (runtimespec.Spec, runtimespec.InitPayload, error) {

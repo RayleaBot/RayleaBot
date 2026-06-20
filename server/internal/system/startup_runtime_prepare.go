@@ -38,18 +38,21 @@ func (s *Service) autoPrepareRuntimeEnvironments(ctx context.Context) {
 
 		inspection, err := inspectStartupRuntime(s.repoRootPath(), kind)
 		if err != nil {
-			issue := runtimeInspectionIssue(kind, err)
+			issue := startup.InspectionIssue(kind, err)
 			s.setStartupRuntimeState(kind, startupRuntimeFailed, &issue)
 			startup.LogFailure(s.currentLogger(), kind, err)
 			continue
 		}
 		if !inspection.MetadataComplete {
-			issue := runtimeMetadataIssue(kind)
+			issue := startup.MetadataIssue(kind)
 			s.setStartupRuntimeState(kind, startupRuntimeFailed, &issue)
 			continue
 		}
 		if inspection.PreparedStorePresent {
 			s.setStartupRuntimeState(kind, startupRuntimeReady, nil)
+			if kind == "chromium" && s.renderer != nil && strings.TrimSpace(inspection.SystemBrowserPath) != "" {
+				s.renderer.RefreshBrowserPath(inspection.SystemBrowserPath)
+			}
 			continue
 		}
 
@@ -87,6 +90,7 @@ func (s *Service) autoPrepareRuntimeEnvironments(ctx context.Context) {
 				"label", label,
 				"used_cached_archive", report.UsedCachedArchive,
 				"used_prepared_store", report.UsedPreparedStore,
+				"used_system_browser", report.UsedSystemBrowser,
 				"store_root", report.StoreRoot,
 			)
 		}

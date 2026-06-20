@@ -9,8 +9,8 @@ import (
 	runtimemanager "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime/manager"
 )
 
-type Grants interface {
-	CapabilityGranted(context.Context, string, string) bool
+type CapabilityView interface {
+	CapabilityDeclared(context.Context, string, string) bool
 }
 
 type Task struct {
@@ -21,17 +21,17 @@ type Task struct {
 type CreateFunc func(context.Context, string, string, string, string, []byte) (Task, error)
 
 type Request struct {
-	PluginID string
-	Action   runtimeaction.Action
-	Grants   Grants
-	Create   CreateFunc
+	PluginID     string
+	Action       runtimeaction.Action
+	Capabilities CapabilityView
+	Create       CreateFunc
 }
 
 func ExecuteCreate(ctx context.Context, req Request) (map[string]any, error) {
-	if req.Grants == nil || !req.Grants.CapabilityGranted(ctx, req.PluginID, "scheduler.create") {
+	if req.Capabilities == nil || !req.Capabilities.CapabilityDeclared(ctx, req.PluginID, "scheduler.create") {
 		return nil, &runtimemanager.Error{
-			Code:    "permission.scope_violation",
-			Message: "scheduler.create capability is not granted",
+			Code:    "plugin.capability_violation",
+			Message: "scheduler.create capability is not declared",
 		}
 	}
 	if req.Create == nil {

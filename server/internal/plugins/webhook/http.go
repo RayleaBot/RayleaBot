@@ -138,7 +138,7 @@ func (s *Service) HandleWebhook() http.HandlerFunc {
 				Role: "remote",
 			},
 			PayloadFields: map[string]any{"webhook": webhookMeta},
-			RawPayload:    s.buildWebhookRawPayload(r, route, body, s.grants.CapabilityGranted(r.Context(), pluginID, "event.raw_payload")),
+			RawPayload:    s.buildWebhookRawPayload(r, route, body, s.capabilities.CapabilityDeclared(r.Context(), pluginID, "event.raw_payload")),
 		})
 		if result.Outcome != dispatch.OutcomeDelivered {
 			httpapi.WriteError(w, r, http.StatusInternalServerError, "platform.internal_error", "内部错误", "errors.platform.internal_error", nil)

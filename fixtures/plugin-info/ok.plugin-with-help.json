@@ -18,10 +18,6 @@
       "event.subscribe",
       "message.send"
     ],
-    "permissions": {
-      "required": [],
-      "optional": []
-    },
     "commands": [
       {
         "name": "订阅状态",

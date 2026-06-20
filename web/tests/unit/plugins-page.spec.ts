@@ -31,10 +31,7 @@ describe('PluginsPage', () => {
       id: 'weather',
       name: 'Weather',
       role: 'user',
-      registration_state: 'installed',
-      desired_state: 'disabled',
-      runtime_state: 'stopped',
-      display_state: 'disabled',
+        state: 'disabled',
       commands: [],
       command_conflicts: [],
     }]
@@ -67,10 +64,7 @@ describe('PluginsPage', () => {
       id: 'weather',
       name: 'Weather',
       role: 'user',
-      registration_state: 'installed',
-      desired_state: 'enabled',
-      runtime_state: 'running',
-      display_state: 'enabled',
+        state: 'running',
       commands: [],
       command_conflicts: [],
     }]
@@ -92,6 +86,44 @@ describe('PluginsPage', () => {
     expect(executeSpy).toHaveBeenCalledWith('weather', 'disable')
   })
 
+  it('keeps lifecycle switching plugins from sending duplicate actions', async () => {
+    const router = createRouter({
+      history: createMemoryHistory(),
+      routes: [{ path: '/', component: { template: '<div />' } }],
+    })
+    const store = usePluginsStore()
+    store.items = [{
+      id: 'weather',
+      name: 'Weather',
+      role: 'user',
+      state: 'stopping',
+      commands: [],
+      command_conflicts: [],
+    }]
+
+    vi.spyOn(store, 'fetchList').mockResolvedValue(undefined)
+    const executeSpy = vi.spyOn(store, 'executeAction').mockResolvedValue(store.items[0])
+
+    const wrapper = mount(PluginsPage, {
+      global: {
+        plugins: [Antd, router],
+      },
+    })
+
+    await flushPromises()
+    const toggle = wrapper.get('[data-testid="plugin-enable-button-weather"]')
+    const reload = wrapper.get('[data-testid="plugin-reload-button-weather"]')
+
+    expect(toggle.attributes('disabled')).toBeDefined()
+    expect(toggle.attributes('aria-busy')).toBe('true')
+    expect(reload.attributes('disabled')).toBeDefined()
+
+    await toggle.trigger('click')
+    await reload.trigger('click')
+
+    expect(executeSpy).not.toHaveBeenCalled()
+  })
+
   it('shows success feedback when reload action succeeds', async () => {
     const router = createRouter({
       history: createMemoryHistory(),
@@ -102,10 +134,7 @@ describe('PluginsPage', () => {
       id: 'weather',
       name: 'Weather',
       role: 'user',
-      registration_state: 'installed',
-      desired_state: 'enabled',
-      runtime_state: 'running',
-      display_state: 'enabled',
+        state: 'running',
       commands: [],
       command_conflicts: [],
     }]
@@ -138,10 +167,7 @@ describe('PluginsPage', () => {
       id: 'weather',
       name: 'Weather',
       role: 'user',
-      registration_state: 'installed',
-      desired_state: 'enabled',
-      runtime_state: 'running',
-      display_state: 'enabled',
+        state: 'running',
       commands: [],
       command_conflicts: [],
     }]
@@ -178,10 +204,7 @@ describe('PluginsPage', () => {
         author: 'raylea',
         description: '提供当前城市天气与未来天气查询。',
         role: 'user',
-        registration_state: 'installed',
-        desired_state: 'enabled',
-        runtime_state: 'running',
-        display_state: 'discovered',
+        state: 'running',
         source: {
           root: 'plugins/installed',
           package_source_type: 'local_zip',
@@ -283,10 +306,7 @@ describe('PluginsPage', () => {
         id: 'builtin-help',
         name: 'Builtin Help',
         role: 'builtin',
-        registration_state: 'installed',
-        desired_state: 'enabled',
-        runtime_state: 'running',
-        display_state: 'running',
+        state: 'running',
         source: {
           root: 'plugins/builtin/help',
           verified: true,
@@ -302,10 +322,7 @@ describe('PluginsPage', () => {
         id: 'verified-third-party',
         name: 'Verified Third Party',
         role: 'user',
-        registration_state: 'installed',
-        desired_state: 'enabled',
-        runtime_state: 'running',
-        display_state: 'running',
+        state: 'running',
         source: {
           root: 'plugins/installed/verified-third-party',
           verified: true,
@@ -354,10 +371,7 @@ describe('PluginsPage', () => {
         id: 'subscription-hub',
         name: '订阅中心',
         role: 'user',
-        registration_state: 'installed',
-        desired_state: 'enabled',
-        runtime_state: 'running',
-        display_state: 'running',
+        state: 'running',
         commands: [
           { name: '订阅状态', command_source: 'manifest' },
           { name: '订阅刷新', command_source: 'manifest' },
@@ -409,10 +423,7 @@ describe('PluginsPage', () => {
         id: 'weather',
         name: 'Weather',
         role: 'user',
-        registration_state: 'installed',
-        desired_state: 'enabled',
-        runtime_state: 'running',
-        display_state: 'running',
+        state: 'running',
         commands: [],
         command_conflicts: [],
       },

@@ -21,10 +21,6 @@ func (c *Controller) Enable(ctx context.Context, pluginID string) (plugins.Snaps
 		return plugins.Snapshot{}, plugins.ErrStateConflict
 	}
 
-	if _, err := c.validateActivation(ctx, snapshot); err != nil {
-		return plugins.Snapshot{}, err
-	}
-
 	if err := persistPluginDesiredState(ctx, c.desiredStateRepo, pluginID, "enabled"); err != nil {
 		return plugins.Snapshot{}, err
 	}

@@ -742,7 +742,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List registered plugins with tri-layer state snapshots. */
+        /** List registered plugins with a single lifecycle state. */
         get: operations["listPlugins"];
         put?: never;
         post?: never;
@@ -761,7 +761,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Set the plugin desired_state to enabled. */
+        /** Enable a plugin. */
         post: operations["enablePlugin"];
         delete?: never;
         options?: never;
@@ -778,7 +778,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Set the plugin desired_state to disabled. */
+        /** Disable a plugin. */
         post: operations["disablePlugin"];
         delete?: never;
         options?: never;
@@ -795,7 +795,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Restart the plugin runtime without changing desired_state. */
+        /** Restart the plugin runtime. */
         post: operations["reloadPlugin"];
         delete?: never;
         options?: never;
@@ -803,7 +803,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/plugins/{plugin_id}/dead_letter/recover": {
+    "/api/plugins/{plugin_id}/recover": {
         parameters: {
             query?: never;
             header?: never;
@@ -813,47 +813,12 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Restart a plugin that exhausted its crash retries.
-         * @description Reset the plugin's crash counter and start the runtime again. Only accepted when the current runtime_state is `dead_letter`; any other state returns 409 with `plugin.not_in_dead_letter`. The plugin's webhook routes were already removed when it entered dead_letter and remain removed until the recovered runtime registers them again.
+         * Recover a failed plugin runtime.
+         * @description Reset the plugin's crash counter and start the runtime again. Only accepted for failed plugins that require manual recovery; any other state returns 409 with `plugin.not_recoverable`.
          *
          */
-        post: operations["recoverPluginFromDeadLetter"];
+        post: operations["recoverPlugin"];
         delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/plugins/{plugin_id}/grants": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** List the plugin's currently effective grants. */
-        get: operations["listPluginGrants"];
-        put?: never;
-        /** Grant one declared capability to a plugin. */
-        post: operations["grantPluginCapability"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/plugins/{plugin_id}/grants/{capability}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        /** Revoke one capability grant from a plugin. */
-        delete: operations["revokePluginCapabilityGrant"];
         options?: never;
         head?: never;
         patch?: never;
@@ -1597,13 +1562,23 @@ export interface components {
             commands: components["schemas"]["GovernanceCommandPolicyEntry"][];
         };
         /** @enum {string} */
-        PluginRegistrationState: "installed" | "removed";
-        /** @enum {string} */
-        PluginDesiredState: "enabled" | "disabled";
-        /** @enum {string} */
-        PluginRuntimeState: "starting" | "running" | "stopping" | "crashed" | "backoff" | "dead_letter" | "stopped";
-        /** @enum {string} */
-        PluginDisplayState: "discovered" | "invalid_manifest" | "conflict" | "removed" | "enabled" | "enabling" | "running" | "disabling" | "stopping" | "crashed" | "backoff" | "dead_letter" | "disabled";
+        PluginState: "disabled" | "enabled" | "starting" | "running" | "stopping" | "failed" | "invalid";
+        PluginStateDiagnosis: {
+            /** @enum {string} */
+            kind: "invalid_manifest" | "plugin_id_conflict" | "crashed" | "retrying" | "recovery_required";
+            summary?: string;
+            manifest_path?: string;
+            manifest_paths?: string[];
+            source_roots?: string[];
+            last_error_code?: string;
+            last_error_message?: string;
+            crash_count?: number;
+            /** Format: date-time */
+            entered_at?: string;
+            /** Format: date-time */
+            retry_at?: string;
+            recoverable?: boolean;
+        };
         /** @enum {string} */
         PluginRole: "builtin" | "user" | "example" | "dev";
         /** @enum {string} */
@@ -1640,28 +1615,13 @@ export interface components {
             description?: string;
             author?: string;
             role: components["schemas"]["PluginRole"];
-            registration_state: components["schemas"]["PluginRegistrationState"];
-            desired_state: components["schemas"]["PluginDesiredState"];
-            runtime_state: components["schemas"]["PluginRuntimeState"];
-            display_state: components["schemas"]["PluginDisplayState"];
+            state: components["schemas"]["PluginState"];
+            state_diagnosis?: components["schemas"]["PluginStateDiagnosis"];
             source?: components["schemas"]["PluginSourceSummary"];
             trust?: components["schemas"]["PluginTrustSummary"];
             commands: components["schemas"]["PluginCommandSummary"][];
             help: components["schemas"]["PluginHelp"];
             command_conflicts?: string[];
-            dead_letter?: components["schemas"]["PluginDeadLetterSummary"];
-        };
-        /** @description Present only when runtime_state equals `dead_letter`. Captures
-         *     the moment the runtime exhausted its crash-restart budget so the
-         *     management surface can show dwell time and the most recent
-         *     crash error without scraping logs.
-         *      */
-        PluginDeadLetterSummary: {
-            /** Format: date-time */
-            entered_at: string;
-            crash_count: number;
-            last_error_code?: string;
-            last_error_message?: string;
         };
         PluginHelpItem: {
             title: string;
@@ -1682,22 +1642,6 @@ export interface components {
         PluginListResponse: {
             items: components["schemas"]["PluginSummary"][];
         };
-        /** @enum {string} */
-        PluginPermissionRequirement: "required" | "optional";
-        /** @enum {string} */
-        PluginPermissionStatus: "granted" | "not_granted";
-        /** @enum {string} */
-        PluginGrantSource: "builtin_auto" | "config_auto" | "persisted";
-        /** @enum {string} */
-        PluginPermissionSource: "builtin_auto" | "config_auto" | "persisted" | "none";
-        PluginPermissionSummary: {
-            capability: string;
-            requirement: components["schemas"]["PluginPermissionRequirement"];
-            status: components["schemas"]["PluginPermissionStatus"];
-            source: components["schemas"]["PluginPermissionSource"];
-            /** Format: date-time */
-            expires_at?: string | null;
-        };
         PluginDependencies: {
             python?: string[];
             nodejs?: string[];
@@ -1710,7 +1654,7 @@ export interface components {
             secret_ref: string;
             source_ips?: string[];
         };
-        PluginScopes: {
+        PluginCapabilityParameters: {
             http_hosts?: string[];
             storage_roots?: string[];
             webhooks?: components["schemas"]["PluginWebhookScope"][];
@@ -1731,7 +1675,6 @@ export interface components {
             path: string;
         };
         PluginDetail: components["schemas"]["PluginSummary"] & {
-            permissions: components["schemas"]["PluginPermissionSummary"][];
             version?: string;
             runtime?: components["schemas"]["PluginRuntimeFamily"];
             type?: components["schemas"]["PluginPackageType"];
@@ -1750,7 +1693,7 @@ export interface components {
             };
             declared_capabilities?: string[];
             dependencies?: components["schemas"]["PluginDependencies"];
-            scopes?: components["schemas"]["PluginScopes"];
+            capability_parameters?: components["schemas"]["PluginCapabilityParameters"];
             icon?: string;
             /** Format: uri */
             repo?: string;
@@ -1995,26 +1938,6 @@ export interface components {
             changed_keys: string[];
             values: components["schemas"]["PluginSecretValues"];
         };
-        PluginGrantRequest: {
-            capability: string;
-            /**
-             * Format: date-time
-             * @description Optional absolute UTC RFC3339 expiry timestamp. When omitted, the grant remains valid until revoked.
-             */
-            expires_at?: string;
-        };
-        PluginGrantSummary: {
-            plugin_id: string;
-            capability: string;
-            /** Format: date-time */
-            granted_at?: string | null;
-            source: components["schemas"]["PluginGrantSource"];
-            /** Format: date-time */
-            expires_at?: string | null;
-        };
-        PluginGrantListResponse: {
-            items: components["schemas"]["PluginGrantSummary"][];
-        };
         PluginInstallRequest: {
             /** @enum {string} */
             source_type: "local_zip" | "local_directory" | "remote_url";
@@ -2135,8 +2058,6 @@ export interface components {
                  * @enum {string}
                  */
                 default_level: "super_admin" | "group_admin" | "everyone";
-                /** @default [] */
-                auto_grant_capabilities: string[];
             };
             render: {
                 /**
@@ -2152,7 +2073,7 @@ export interface components {
                  */
                 browser_args: string[];
                 /**
-                 * @description Chromium executable path. Leave empty to use the bundled binary.
+                 * @description Chromium executable path. Leave empty to use a prepared image rendering Chromium or a system Chromium-family browser.
                  * @default
                  */
                 browser_path: string;
@@ -3543,7 +3464,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Desired state updated. The runtime may still be catching up. */
+            /** @description Plugin enable accepted. */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -3569,7 +3490,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Desired state updated. The runtime may still be stopping the plugin. */
+            /** @description Plugin disable accepted. */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -3609,7 +3530,7 @@ export interface operations {
             default: components["responses"]["Error"];
         };
     };
-    recoverPluginFromDeadLetter: {
+    recoverPlugin: {
         parameters: {
             query?: never;
             header?: never;
@@ -3632,85 +3553,6 @@ export interface operations {
             401: components["responses"]["Error"];
             404: components["responses"]["Error"];
             409: components["responses"]["Error"];
-            default: components["responses"]["Error"];
-        };
-    };
-    listPluginGrants: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                plugin_id: components["parameters"]["PluginId"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Current effective grants after expiry filtering. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PluginGrantListResponse"];
-                };
-            };
-            401: components["responses"]["Error"];
-            404: components["responses"]["Error"];
-            default: components["responses"]["Error"];
-        };
-    };
-    grantPluginCapability: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                plugin_id: components["parameters"]["PluginId"];
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["PluginGrantRequest"];
-            };
-        };
-        responses: {
-            /** @description Capability grant persisted. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PluginGrantSummary"];
-                };
-            };
-            400: components["responses"]["Error"];
-            401: components["responses"]["Error"];
-            404: components["responses"]["Error"];
-            default: components["responses"]["Error"];
-        };
-    };
-    revokePluginCapabilityGrant: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                plugin_id: components["parameters"]["PluginId"];
-                capability: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Capability grant revoked. */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            401: components["responses"]["Error"];
-            404: components["responses"]["Error"];
             default: components["responses"]["Error"];
         };
     };

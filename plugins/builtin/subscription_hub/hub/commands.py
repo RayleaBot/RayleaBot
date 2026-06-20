@@ -12,7 +12,7 @@ from bilibili import (
 
 from .http_utils import (
     bilibili_response_failure,
-    is_http_permission_error,
+    is_http_capability_error,
     response_details_text,
     sentence_text,
 )
@@ -95,8 +95,8 @@ def search_bilibili_users(ctx):
         document = parse_json_response(response)
         result = normalize_user_search_results(document, query)
     except ActionError as exc:
-        if is_http_permission_error(exc):
-            return {"ok": False, "count": 0, "message": "Bilibili UP 搜索失败：请授予订阅中心 HTTP 请求权限，并重载插件后再试。"}
+        if is_http_capability_error(exc):
+            return {"ok": False, "count": 0, "message": "Bilibili UP 搜索失败：请检查订阅中心 manifest 的 http.request 与 capability_parameters.http_hosts，并重载插件后再试。"}
         return {"ok": False, "count": 0, "message": "Bilibili UP 搜索失败。"}
     except Exception:
         return {"ok": False, "count": 0, "message": "Bilibili UP 搜索失败。"}
@@ -195,8 +195,8 @@ def resolve_bilibili_user(settings, ctx, query):
             document = parse_json_response(response)
             result = normalize_user_search(document, text)
     except ActionError as exc:
-        if is_http_permission_error(exc):
-            return {"ok": False, "message": "Bilibili 用户信息读取失败：请授予订阅中心 HTTP 请求权限，并重载插件后再试。"}
+        if is_http_capability_error(exc):
+            return {"ok": False, "message": "Bilibili 用户信息读取失败：请检查订阅中心 manifest 的 http.request 与 capability_parameters.http_hosts，并重载插件后再试。"}
         return {"ok": False, "message": "Bilibili 用户信息读取失败。"}
     except Exception:
         return {"ok": False, "message": "Bilibili 用户信息读取失败。"}

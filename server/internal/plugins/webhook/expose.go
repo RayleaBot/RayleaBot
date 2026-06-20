@@ -13,10 +13,10 @@ import (
 )
 
 func (s *Service) Expose(ctx context.Context, pluginID string, action runtimeaction.Action) (map[string]any, error) {
-	if s == nil || s.grants == nil || !s.grants.CapabilityGranted(ctx, pluginID, "event.expose_webhook") {
+	if s == nil || s.capabilities == nil || !s.capabilities.CapabilityDeclared(ctx, pluginID, "event.expose_webhook") {
 		return nil, &runtimemanager.Error{
-			Code:    "permission.scope_violation",
-			Message: "event.expose_webhook capability is not granted",
+			Code:    "plugin.capability_violation",
+			Message: "event.expose_webhook capability is not declared",
 		}
 	}
 	if s.registry == nil {
@@ -32,27 +32,27 @@ func (s *Service) Expose(ctx context.Context, pluginID string, action runtimeact
 		}
 	}
 
-	scope, ok := s.grants.GrantedWebhookScope(ctx, pluginID, action.WebhookRoute)
+	scope, ok := s.capabilities.WebhookParameters(ctx, pluginID, action.WebhookRoute)
 	if !ok {
 		return nil, &runtimemanager.Error{
-			Code:    "permission.scope_violation",
-			Message: "event.expose_webhook route is outside the granted scope",
+			Code:    "plugin.capability_violation",
+			Message: "event.expose_webhook route is outside declared capability parameters",
 		}
 	}
 	if strings.TrimSpace(scope.AuthStrategy) != strings.TrimSpace(action.WebhookAuthStrategy) ||
 		strings.TrimSpace(scope.Header) != strings.TrimSpace(action.WebhookHeader) ||
 		strings.TrimSpace(scope.SecretRef) != strings.TrimSpace(action.WebhookSecretRef) {
 		return nil, &runtimemanager.Error{
-			Code:    "permission.scope_violation",
-			Message: "event.expose_webhook settings exceed the granted scope",
+			Code:    "plugin.capability_violation",
+			Message: "event.expose_webhook settings exceed the declared capability parameters",
 		}
 	}
 
 	sourceIPs := selectWebhookSourceIPs(scope.SourceIPs, action.WebhookSourceIPs)
 	if !webhookSourceIPsWithinScope(scope.SourceIPs, sourceIPs) {
 		return nil, &runtimemanager.Error{
-			Code:    "permission.scope_violation",
-			Message: "event.expose_webhook source_ips exceed the granted scope",
+			Code:    "plugin.capability_violation",
+			Message: "event.expose_webhook source_ips exceed the declared capability parameters",
 		}
 	}
 

@@ -6,16 +6,15 @@ import (
 	"github.com/go-chi/chi/v5"
 )
 
-func RegisterPluginRoutes(router chi.Router, catalog plugins.CatalogView, taskRegistry *tasks.Registry, repo plugins.DesiredStateRepository, installer plugins.InstallCoordinator, controller DesiredStateController, uninstaller UninstallCoordinator, grantRepo plugins.GrantRepository, autoGrantProvider autoGrantCapabilitiesProvider) {
+func RegisterPluginRoutes(router chi.Router, catalog plugins.CatalogView, taskRegistry *tasks.Registry, repo plugins.DesiredStateRepository, installer plugins.InstallCoordinator, controller DesiredStateController, uninstaller UninstallCoordinator) {
 	if catalog == nil {
 		catalog = emptyCatalogView{}
 	}
 
-	registerPluginReadRoutes(router, catalog, grantRepo, autoGrantProvider)
+	registerPluginReadRoutes(router, catalog)
 	registerPluginInstallRoutes(router, catalog, taskRegistry, installer)
-	registerPluginLifecycleRoutes(router, catalog, repo, controller, uninstaller, grantRepo, autoGrantProvider)
-	registerPluginDeadLetterRoutes(router, catalog, controller, grantRepo, autoGrantProvider)
-	registerPluginGrantRoutes(router, catalog, grantRepo, autoGrantProvider)
+	registerPluginLifecycleRoutes(router, catalog, repo, controller, uninstaller)
+	registerPluginDeadLetterRoutes(router, catalog, controller)
 }
 
 type emptyCatalogView struct{}

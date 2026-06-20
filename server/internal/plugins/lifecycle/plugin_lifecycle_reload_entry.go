@@ -32,11 +32,6 @@ func (c *Controller) Reload(ctx context.Context, pluginID string) (plugins.Snaps
 		}
 	}
 
-	if _, err := c.validateActivation(ctx, snapshot); err != nil {
-		c.disablePluginForPermissionLoss(ctx, pluginID)
-		return plugins.Snapshot{}, err
-	}
-
 	if c.syncRenderTemplates != nil {
 		if err := c.syncRenderTemplates(ctx); err != nil {
 			return plugins.Snapshot{}, err

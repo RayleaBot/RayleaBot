@@ -13,8 +13,8 @@ import (
 	runtimeprotocol "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime/protocol"
 )
 
-type Grants interface {
-	CapabilityGranted(context.Context, string, string) bool
+type CapabilityView interface {
+	CapabilityDeclared(context.Context, string, string) bool
 	ListPluginSnapshots() []plugins.Snapshot
 }
 
@@ -74,16 +74,16 @@ type Request struct {
 	PluginID      string
 	Action        runtimeaction.Action
 	ParentEvent   runtimeprotocol.Event
-	Grants        Grants
+	Capabilities  CapabilityView
 	Renderer      Renderer
 	CurrentConfig func() config.Config
 }
 
 func ExecuteImage(ctx context.Context, req Request) (map[string]any, error) {
-	if req.Grants == nil || !req.Grants.CapabilityGranted(ctx, req.PluginID, "render.image") {
+	if req.Capabilities == nil || !req.Capabilities.CapabilityDeclared(ctx, req.PluginID, "render.image") {
 		return nil, &runtimemanager.Error{
-			Code:    "permission.scope_violation",
-			Message: "render.image capability is not granted",
+			Code:    "plugin.capability_violation",
+			Message: "render.image capability is not declared",
 		}
 	}
 	if req.Renderer == nil {
@@ -96,9 +96,9 @@ func ExecuteImage(ctx context.Context, req Request) (map[string]any, error) {
 	templateID, err := req.Renderer.ResolvePluginTemplate(ctx, req.PluginID, req.Action.RenderTemplate)
 	if err != nil {
 		var renderErr *TemplateError
-		if errors.As(err, &renderErr) && renderErr.Code == "permission.scope_violation" {
+		if errors.As(err, &renderErr) && renderErr.Code == "plugin.capability_violation" {
 			return nil, &runtimemanager.Error{
-				Code:    "permission.scope_violation",
+				Code:    "plugin.capability_violation",
 				Message: renderErr.Message,
 				Err:     err,
 			}
@@ -116,7 +116,7 @@ func ExecuteImage(ctx context.Context, req Request) (map[string]any, error) {
 		Theme:    req.Action.RenderTheme,
 		Output:   req.Action.RenderOutput,
 		Data:     renderData,
-		Plugin:   pluginContext(req.PluginID, req.Grants),
+		Plugin:   pluginContext(req.PluginID, req.Capabilities),
 	})
 	if err != nil {
 		return nil, &runtimemanager.Error{
@@ -159,14 +159,14 @@ func currentConfig(req Request) config.Config {
 	return req.CurrentConfig()
 }
 
-func pluginContext(pluginID string, grants Grants) PluginContext {
+func pluginContext(pluginID string, capabilities CapabilityView) PluginContext {
 	context := PluginContext{
 		Name: strings.TrimSpace(pluginID),
 	}
-	if grants == nil {
+	if capabilities == nil {
 		return context
 	}
-	for _, snapshot := range grants.ListPluginSnapshots() {
+	for _, snapshot := range capabilities.ListPluginSnapshots() {
 		if snapshot.PluginID != pluginID {
 			continue
 		}

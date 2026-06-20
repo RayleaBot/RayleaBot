@@ -120,10 +120,8 @@ export function createSocketFrameRouter(
     if (isPluginStateEvent(frame.data)) {
       dependencies.plugins.upsert({
         id: frame.data.plugin_id,
-        registration_state: frame.data.registration_state,
-        desired_state: frame.data.desired_state,
-        runtime_state: frame.data.runtime_state,
-        display_state: frame.data.display_state,
+        state: frame.data.state,
+        state_diagnosis: frame.data.state_diagnosis,
         commands: frame.data.commands,
         command_conflicts: frame.data.command_conflicts,
       })

@@ -1,6 +1,6 @@
 contract: contracts/web-api.openapi.yaml
 case: ok
-description: Controlled webhook ingress accepts a POST for a granted plugin route.
+description: Controlled webhook ingress accepts a POST for a declared plugin route.
 request:
   method: POST
   path: /api/webhooks/repo-watcher/github

@@ -135,6 +135,22 @@ describe("launcher settings store", () => {
     expect(persisted.advancedOverrides?.workdir).toBe(altWorkdir);
   });
 
+  test("uses server dist build output before legacy server executable path", async () => {
+    const currentRoot = await createTempDir("server-dist-workspace");
+    const serverDistExecutable = path.join(currentRoot, "server", "dist", "raylea-server.exe");
+
+    await createWorkspace(currentRoot);
+    await fs.mkdir(path.dirname(serverDistExecutable), { recursive: true });
+    await fs.writeFile(serverDistExecutable, "binary", "utf8");
+
+    const resolved = await resolveLauncherSettings({
+      installationRoot: currentRoot,
+      closeBehavior: "ask_every_time",
+    }, "win32");
+
+    expect(resolved.serverExecutablePath).toBe(serverDistExecutable);
+  });
+
   test("stores worktree settings in the owner root data directory", async () => {
     const mainRoot = await createTempDir("shared-main-workspace");
     const worktreeRoot = path.join(mainRoot, ".worktrees", "web-cn-redesign");

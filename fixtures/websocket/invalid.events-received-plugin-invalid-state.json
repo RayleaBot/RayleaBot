@@ -1,0 +1,19 @@
+{
+  "contract": "contracts/websocket-events.yaml",
+  "case": "invalid",
+  "frame": {
+    "channel": "events",
+    "type": "events.received",
+    "timestamp": "2026-04-18T09:35:00Z",
+    "data": {
+      "plugin_id": "weather",
+      "state": "paused",
+      "commands": [],
+      "command_conflicts": []
+    }
+  },
+  "expect": {
+    "valid": false,
+    "reason": "state must stay within the formal plugin lifecycle enum."
+  }
+}

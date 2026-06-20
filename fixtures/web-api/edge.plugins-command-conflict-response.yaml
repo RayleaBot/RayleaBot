@@ -12,10 +12,7 @@ response:
         name: Weather
         version: "1.2.3"
         role: user
-        registration_state: installed
-        desired_state: enabled
-        runtime_state: running
-        display_state: running
+        state: running
         source:
           root: plugins/installed
           package_source_type: local_directory
@@ -38,10 +35,7 @@ response:
         name: Weather Admin
         version: "0.2.0"
         role: dev
-        registration_state: installed
-        desired_state: enabled
-        runtime_state: running
-        display_state: running
+        state: running
         source:
           root: plugins/dev
           verified: true

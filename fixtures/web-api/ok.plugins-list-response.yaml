@@ -14,10 +14,7 @@ response:
         description: 提供当前城市天气与未来天气查询。
         author: raylea
         role: builtin
-        registration_state: installed
-        desired_state: enabled
-        runtime_state: running
-        display_state: running
+        state: running
         source:
           root: plugins/builtin
           verified: true
@@ -51,10 +48,7 @@ response:
         description: 查看今日运势。
         author: raylea
         role: user
-        registration_state: installed
-        desired_state: enabled
-        runtime_state: running
-        display_state: running
+        state: running
         source:
           root: plugins/installed
           package_source_type: local_zip

@@ -34,7 +34,7 @@ func (d *Dispatcher) executeAction(ctx context.Context, pluginID string, request
 		Segments:   toOutboundSegments(action.MessageSegments),
 	}
 	targetLabel := buildOutboundTargetLabel(ctx, event, targetType, targetID, d.sender)
-	if !d.capabilityGranted(ctx, pluginID, action.Kind) {
+	if !d.capabilityDeclared(ctx, pluginID, action.Kind) {
 		outbound.LogSendOutcome(d.logger, outbound.SendLogContext{
 			PluginID:    pluginID,
 			RequestID:   requestID,
@@ -45,8 +45,8 @@ func (d *Dispatcher) executeAction(ctx context.Context, pluginID string, request
 			TargetType:   targetType,
 			TargetID:     targetID,
 		}, &adapteroutbound.Error{
-			Code:    "permission.scope_violation",
-			Message: action.Kind + " capability is not granted",
+			Code:    "plugin.capability_violation",
+			Message: action.Kind + " capability is not declared",
 		})
 		return
 	}

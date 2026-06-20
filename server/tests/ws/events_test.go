@@ -227,11 +227,8 @@ func TestEventsWebSocketDeliversPluginStateFrame(t *testing.T) {
 	if data["plugin_id"] != pluginID {
 		t.Fatalf("unexpected plugin_id: got %#v want %q", data["plugin_id"], pluginID)
 	}
-	if data["runtime_state"] != "running" {
-		t.Fatalf("unexpected runtime_state: got %#v want %q", data["runtime_state"], "running")
-	}
-	if data["display_state"] != "running" {
-		t.Fatalf("unexpected display_state: got %#v want %q", data["display_state"], "running")
+	if data["state"] != "running" {
+		t.Fatalf("unexpected state: got %#v want %q", data["state"], "running")
 	}
 }
 

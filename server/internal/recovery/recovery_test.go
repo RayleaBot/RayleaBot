@@ -98,8 +98,8 @@ func TestFinalizeBuildsRuntimeGuidance(t *testing.T) {
 					{
 						Code:        "platform.resource_missing",
 						Severity:    "warning",
-						Summary:     "Chromium 资源尚未准备完成。",
-						Remediation: "请先准备 Chromium 浏览环境，或在配置中显式设置 render.browser_path。",
+						Summary:     "图片渲染 Chromium 尚未准备完成。",
+						Remediation: "请先准备图片渲染 Chromium，或在配置中显式设置 render.browser_path。",
 					},
 				},
 			},
@@ -109,7 +109,7 @@ func TestFinalizeBuildsRuntimeGuidance(t *testing.T) {
 	if summary.Status != "degraded" {
 		t.Fatalf("expected degraded summary, got %#v", summary)
 	}
-	if !slices.Equal(summary.ManualActions, []string{"请先准备 Chromium 浏览环境，或在配置中显式设置 render.browser_path。"}) {
+	if !slices.Equal(summary.ManualActions, []string{"请先准备图片渲染 Chromium，或在配置中显式设置 render.browser_path。"}) {
 		t.Fatalf("unexpected runtime manual actions: %#v", summary.ManualActions)
 	}
 	expectedSteps := []string{
@@ -221,7 +221,7 @@ func TestFinalizeMergesRuntimeAndPluginGuidanceWithoutDuplicates(t *testing.T) {
 					{
 						Code:        "platform.resource_missing",
 						Severity:    "warning",
-						Summary:     "Chromium 资源尚未准备完成。",
+						Summary:     "图片渲染 Chromium 尚未准备完成。",
 						Remediation: "通过管理面、Launcher 或 diagnostics 复核 recovery_summary。",
 					},
 				},

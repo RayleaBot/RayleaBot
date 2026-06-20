@@ -132,7 +132,7 @@ OneBot11 上报帧
 管理面 WebSocket 使用统一 envelope（`channel` / `type` / `timestamp` / `data`），承载任务更新、日志追加、平台观测事件和插件 console。`/ws/events` 的 `events.received` 复用同一个事件名，通过 payload 分支表达不同观测语义：
 
 - `service_status`：服务总体状态变化摘要
-- `plugin_id` + `registration_state` + `desired_state` + `runtime_state` + `display_state`：插件生命周期状态投影
+- `plugin_id` + `state` + `commands` + `command_conflicts` + 可选 `state_diagnosis`：插件生命周期状态投影
 - `connection_status`：OneBot 连接状态摘要
 - `event_type` + `summary`：通用管理事件（当前包括 `governance.changed`）
 - `protocol` + `protocol_snapshot`：OneBot11 协议快照推送

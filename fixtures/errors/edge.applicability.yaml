@@ -1,14 +1,14 @@
 contract: contracts/error-codes.yaml
 case: edge
-description: Applicability boundary examples for task cancellation and pending permission errors.
+description: Applicability boundary examples for task cancellation and capability errors.
 input:
   cases:
     - code: platform.task_not_cancellable
       applies_to: [http, websocket, task]
       example_surface: POST /api/tasks/{task_id}/cancel
-    - code: plugin.permission_pending
-      applies_to: [http, websocket, task]
-      example_surface: POST /api/plugins/{plugin_id}/enable
+    - code: plugin.capability_violation
+      applies_to: [http, websocket, plugin_protocol, task]
+      example_surface: plugin local action execution
     - code: permission.not_whitelisted
       applies_to: [plugin_protocol, logs]
       example_surface: command dispatch admission with whitelist enabled

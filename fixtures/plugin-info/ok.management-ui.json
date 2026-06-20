@@ -29,13 +29,6 @@
       "config.read",
       "config.write"
     ],
-    "permissions": {
-      "required": [
-        "config.read",
-        "config.write"
-      ],
-      "optional": []
-    },
     "default_config": {
       "default_city": "北京",
       "unit": "celsius"

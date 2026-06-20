@@ -2,7 +2,6 @@ package lifecycle
 
 import (
 	"context"
-	"slices"
 	"strings"
 	"time"
 
@@ -16,25 +15,6 @@ func persistPluginDesiredState(ctx context.Context, repo plugins.DesiredStateRep
 		return nil
 	}
 	return repo.SaveDesiredState(ctx, pluginID, desiredState, time.Now().UTC())
-}
-
-func missingCapabilities(required []string, granted []string) []string {
-	if len(required) == 0 {
-		return nil
-	}
-
-	missing := make([]string, 0, len(required))
-	for _, capability := range required {
-		if capability == "" || slices.Contains(granted, capability) {
-			continue
-		}
-		missing = append(missing, capability)
-	}
-	return missing
-}
-
-func MissingCapabilities(required []string, granted []string) []string {
-	return missingCapabilities(required, granted)
 }
 
 func dispatchCommands(commands []plugins.Command) []dispatch.CommandDecl {

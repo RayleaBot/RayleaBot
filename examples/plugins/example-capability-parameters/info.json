@@ -1,0 +1,42 @@
+{
+  "id": "example-capability-parameters",
+  "name": "Example Capability Parameters",
+  "version": "0.1.0",
+  "manifest_version": "1",
+  "plugin_protocol_version": "1",
+  "type": "managed_runtime",
+  "runtime": "python",
+  "entry": "main.py",
+  "concurrency": 2,
+  "license": "MIT",
+  "description": "Python example plugin demonstrating http.request and storage.file capability parameters.",
+  "author": "raylea",
+  "role": "example",
+  "default_config": {
+    "cache_file": "example-homepage.txt"
+  },
+  "capabilities": [
+    "event.subscribe",
+    "http.request",
+    "logger.write",
+    "storage.file"
+  ],
+  "commands": [
+    {
+      "name": "scope_fetch",
+      "aliases": [
+        "scope_cache"
+      ],
+      "description": "Fetch https://example.com/ and cache it into plugin_data.",
+      "usage": "/scope_fetch"
+    }
+  ],
+  "capability_parameters": {
+    "http_hosts": [
+      "example.com"
+    ],
+    "storage_roots": [
+      "plugin_data"
+    ]
+  }
+}

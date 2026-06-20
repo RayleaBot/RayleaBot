@@ -32,21 +32,22 @@
   - 恢复包版本、core / config / db schema 兼容性判断边界，以及插件库存摘要
 - `deps-manifest.schema.json`
   - `.deps/manifest.json` 的正式机器可校验结构
-  - Chromium、Python / Node.js 运行环境资源的可信来源列表、SHA256、归档格式与相对入口
+  - 图片渲染 Chromium、Python / Node.js 运行环境资源的可信来源列表、SHA256、归档格式与相对入口
 - `error-codes.yaml`
   - 统一错误码命名、默认消息资源键、HTTP 语义和适用范围
 - `web-api.openapi.yaml`
   - 当前已冻结的管理 HTTP 接口
-  - 当前包含 setup / session、loopback launcher bootstrap、config snapshot/update、protocol snapshot / compatibility、OneBot target / identity resolution、plugin lifecycle、plugin grants、plugin rich detail、plugin settings、plugin secrets、third-party accounts、third-party monitors、third-party media、Bilibili QR login、Bilibili user resolve、Bilibili source status / restart、governance 管理面、tasks / logs / system / metrics surfaces、scheduler 任务列表与手动触发、recovery recheck / confirm、runtime bootstrap、render templates、preview HTML 与模板资源读取面
+  - 当前包含 setup / session、loopback launcher bootstrap、config snapshot/update、protocol snapshot / compatibility、OneBot target / identity resolution、plugin lifecycle、plugin rich detail、plugin settings、plugin secrets、third-party accounts、third-party monitors、third-party media、Bilibili QR login、Bilibili user resolve、Bilibili source status / restart、governance 管理面、tasks / logs / system / metrics surfaces、scheduler 任务列表与手动触发、recovery recheck / confirm、runtime bootstrap、render templates、preview HTML 与模板资源读取面
   - `PUT /api/config` response 固定返回 `apply_effects.applied_now`、`apply_effects.reloaded_now`、`apply_effects.restart_required_fields`
-  - plugin lifecycle surface 统一使用正式 `display_state` 枚举
+  - plugin lifecycle surface 统一使用正式 `state` 枚举与可选 `state_diagnosis`
 - `websocket-events.yaml`
   - 当前已冻结的管理 WebSocket envelope、事件名和 payload 约束
   - `events.received` 的通用 `event_type + summary` 分支当前包含 `governance.changed`；Bilibili source status 使用独立 `source: bilibili` 分支
 - `plugin-info.schema.json`
-  - 插件 `info.json` 的安装前静态校验、兼容性门禁、权限声明和迁移判断边界
+  - 插件 `info.json` 的安装前静态校验、兼容性门禁、能力声明、能力参数和迁移判断边界
   - 当前已冻结 `default_config`、`default_config_file`、`role`、`icon`、`repo`、`homepage`、`keywords`、`screenshots`、`system_dependencies`、`platforms`、`management_ui`、`render_templates`、`help` 与插件详情页投影所需 metadata
-  - `capabilities`、`permissions.required` 与 `permissions.optional` 共用同一套正式 capability 集合，覆盖基础 local action、治理 local action、冻结的 OneBot 单动作能力与 3 个正式 provider 扩展动作
+  - `capabilities` 使用正式 capability 集合，覆盖基础 local action、治理 local action、冻结的 OneBot 单动作能力与 3 个正式 provider 扩展动作
+  - `capability_parameters` 表达 `http.request`、`storage.file` 与 `event.expose_webhook` 的边界参数
   - `concurrency` 省略时按 `1` 处理，声明值用于插件事件并发 opt-in
   - command `permission` 省略时使用 `permission.default_level`
 - `plugin-management-ui.yaml`
@@ -126,14 +127,6 @@
 
 其中当前正式平台固定为 `bilibili`；三方账号响应只暴露账号摘要、凭据状态和保存状态，不暴露 CK 明文。
 
-当前已进入 OpenAPI 冻结范围的 plugin grants surface：
-
-- `GET /api/plugins/{plugin_id}/grants`
-- `POST /api/plugins/{plugin_id}/grants`
-- `DELETE /api/plugins/{plugin_id}/grants/{capability}`
-
-其中 grant request / response / list item 支持可选 `expires_at`，用于表达当前生效授权的时效窗口。
-
 当前已进入 OpenAPI 冻结范围的 plugin settings surface：
 
 - `GET /api/plugins/{plugin_id}/settings`
@@ -181,7 +174,7 @@
 
 - `PUT /api/config` response 使用 `apply_effects.applied_now`、`apply_effects.reloaded_now`、`apply_effects.restart_required_fields`
 - `restart_required` 与 `apply_effects.restart_required_fields` 保持一致
-- `/api/plugins`、`/api/plugins/{plugin_id}`、enable / disable / reload 响应与 `/ws/events` 插件生命周期分支统一使用正式 `display_state` 枚举
+- `/api/plugins`、`/api/plugins/{plugin_id}`、enable / disable / reload / recover 响应与 `/ws/events` 插件生命周期分支统一使用正式 `state` 枚举与可选 `state_diagnosis`
 
 当前已进入 OpenAPI 冻结范围的 recovery / runtime task surface：
 

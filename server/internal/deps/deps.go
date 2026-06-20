@@ -19,6 +19,7 @@ type BootstrapInspection struct {
 	MetadataComplete     bool
 	CachedArchivePresent bool
 	PreparedStorePresent bool
+	SystemBrowserPath    string
 }
 type PrepareReport struct {
 	Kind               string
@@ -31,6 +32,7 @@ type PrepareReport struct {
 	SelectedSource     string
 	PreparedEntrypoint string
 	Entrypoints        map[string]string
+	UsedSystemBrowser  bool
 }
 type BootstrapError struct {
 	Kind             string

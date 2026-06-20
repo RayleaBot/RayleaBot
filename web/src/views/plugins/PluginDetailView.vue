@@ -1,10 +1,7 @@
 <script setup lang="ts">
 import {
-  CalendarOutlined,
   ClearOutlined,
-  ClockCircleOutlined,
   ReloadOutlined,
-  SafetyCertificateOutlined,
 } from '@ant-design/icons-vue'
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
@@ -23,15 +20,11 @@ import {
   getConnectionStatusLabel,
   getPluginCapabilityLabel,
   getPluginCapabilityRawTitle,
-  getPluginDisplayStateLabel,
-  getPluginDesiredStateLabel,
-  getPluginRegistrationStateLabel,
   getPluginRoleLabel,
-  getPluginRuntimeStateLabel,
+  getPluginStateLabel,
 } from '@/lib/display'
 import { getDisplayErrorMessage } from '@/lib/error-text'
 import { formatDateTime } from '@/lib/format'
-import { ApiError } from '@/lib/http'
 import {
   areLocationQueriesEqual,
   buildPluginDetailLocation,
@@ -47,11 +40,10 @@ import { useConfigStore } from '@/stores/config'
 import { usePluginConsoleStore, type ConsoleFrame } from '@/stores/plugin-console'
 import { usePluginsStore } from '@/stores/plugins'
 import { useSocketStore } from '@/stores/sockets'
-import type { PluginDetail, PluginPermissionSummary } from '@/types/api'
+import type { PluginDetail } from '@/types/api'
 import { useReadyToRenderHeavyContent } from '@/layouts/usePageTransitionStage'
 
-type PermissionDialogMode = 'grant' | 'pending' | 'scope_changed'
-type PluginDetailInnerTab = 'commands' | 'permissions' | 'console'
+type PluginDetailInnerTab = 'commands' | 'console'
 type PluginPanelOption = { label: string; value: string }
 const CONSOLE_ROW_ESTIMATED_HEIGHT = 84
 
@@ -62,17 +54,14 @@ const pluginConsoleStore = usePluginConsoleStore()
 const socketStore = useSocketStore()
 const configStore = useConfigStore()
 
-const { actionPending, current, detailLoading, grantsLoading } = storeToRefs(pluginsStore)
+const { actionPending, current, detailLoading } = storeToRefs(pluginsStore)
 const { document: configDocument } = storeToRefs(configStore)
 
 const pluginId = computed(() => String(route.params.id))
 const currentPlugin = computed(() => current.value?.id === pluginId.value ? current.value : null)
 const consoleFrames = computed(() => pluginConsoleStore.getConsole(pluginId.value))
 const consoleFrameCount = computed(() => consoleFrames.value.length)
-const currentGrants = computed(() => pluginsStore.getGrants(pluginId.value))
-const currentPermissions = computed(() => currentPlugin.value?.permissions ?? [])
 const consoleSnapshot = computed(() => socketStore.snapshots.pluginConsole)
-const grantBusy = computed(() => grantsLoading.value[pluginId.value] ?? false)
 const readyToRenderHeavyContent = useReadyToRenderHeavyContent()
 const loadError = ref<string | null>(null)
 const operationError = ref<string | null>(null)
@@ -82,12 +71,7 @@ const consoleViewportRef = ref<{
 } | null>(null)
 const consoleFollowBottom = ref(true)
 const activeDetailTab = ref<PluginDetailInnerTab>('commands')
-const permissionDialogVisible = ref(false)
 const uninstallDialogVisible = ref(false)
-const selectedCapabilities = ref<string[]>([])
-const permissionDialogMode = ref<PermissionDialogMode>('grant')
-const permissionDialogAvailableCapabilities = ref<string[]>([])
-const resumeEnableAfterGrant = ref(false)
 let detailLoadVersion = 0
 let pageActive = true
 let consoleBottomSyncToken = 0
@@ -95,7 +79,6 @@ let consoleBottomSyncToken = 0
 const commandPrefix = computed(() => getPrimaryCommandPrefix(configDocument.value?.command?.prefixes))
 const requestedPanel = computed(() => readPluginDetailPanel(route.query))
 const requestedManagementPage = computed(() => readPluginManagementPage(route.query))
-const isBuiltinPlugin = computed(() => currentPlugin.value?.role === 'builtin')
 const hasManagementUI = computed(() => (currentPlugin.value?.management_ui?.pages?.length ?? 0) > 0)
 const managementPages = computed(() => {
   const managementUI = currentPlugin.value?.management_ui
@@ -138,43 +121,6 @@ const panelOptions = computed(() => {
 
   return options
 })
-const permissionCandidates = computed(() => currentPermissions.value.filter((permission) => permission.status === 'not_granted'))
-const reconfirmCandidates = computed(() => currentPermissions.value.filter((permission) => permission.source === 'persisted'))
-const missingRequiredPermissions = computed(() => currentPermissions.value.filter((permission) => permission.requirement === 'required' && permission.status === 'not_granted'))
-const grantRecordsByCapability = computed(() => new Map(currentGrants.value.map((grant) => [grant.capability, grant])))
-const permissionMap = computed(() => new Map(currentPermissions.value.map((permission) => [permission.capability, permission])))
-const permissionDialogCandidates = computed(() => (
-  permissionDialogAvailableCapabilities.value
-    .map((capability) => permissionMap.value.get(capability))
-    .filter((permission): permission is PluginPermissionSummary => Boolean(permission))
-))
-const permissionDialogTitle = computed(() => {
-  if (permissionDialogMode.value === 'scope_changed') {
-    return t('plugins.permissionDialogScopeChangedTitle')
-  }
-
-  if (resumeEnableAfterGrant.value) {
-    return t('plugins.permissionDialogPendingTitle')
-  }
-
-  return t('plugins.permissionDialogTitle')
-})
-const permissionDialogBody = computed(() => {
-  if (permissionDialogMode.value === 'scope_changed') {
-    return t('plugins.permissionDialogScopeChangedBody')
-  }
-
-  if (resumeEnableAfterGrant.value) {
-    return t('plugins.permissionDialogPendingBody')
-  }
-
-  return ''
-})
-const permissionDialogOkText = computed(() => (
-  permissionDialogMode.value === 'scope_changed'
-    ? t('plugins.actions.reconfirmSelected')
-    : t('plugins.actions.grantSelected')
-))
 const pluginWorkbenchActions = computed(() => buildPluginWorkbenchActions(pluginId.value))
 const managementPanelTitle = computed(() => activeManagementPage.value?.label?.trim() || t('plugins.sections.managementUi'))
 const pluginDisplayName = computed(() => currentPlugin.value?.name?.trim() || pluginId.value)
@@ -182,28 +128,10 @@ const pluginInitial = computed(() => pluginDisplayName.value.trim().slice(0, 1).
 const sourceRefText = computed(() => currentPlugin.value?.source?.package_source_ref ?? currentPlugin.value?.source?.package_source_type ?? '')
 const statusSummaryItems = computed(() => [
   {
-    key: 'registration',
-    label: t('plugins.fields.registration'),
-    value: getPluginRegistrationStateLabel(currentPlugin.value?.registration_state),
-    raw: currentPlugin.value?.registration_state,
-  },
-  {
-    key: 'desired',
-    label: t('plugins.fields.desired'),
-    value: getPluginDesiredStateLabel(currentPlugin.value?.desired_state),
-    raw: currentPlugin.value?.desired_state,
-  },
-  {
-    key: 'runtime',
-    label: t('plugins.fields.runtime'),
-    value: getPluginRuntimeStateLabel(currentPlugin.value?.runtime_state),
-    raw: currentPlugin.value?.runtime_state,
-  },
-  {
-    key: 'display',
-    label: t('plugins.fields.display'),
-    value: getPluginDisplayStateLabel(currentPlugin.value?.display_state),
-    raw: currentPlugin.value?.display_state,
+    key: 'state',
+    label: t('plugins.fields.state'),
+    value: getPluginStateLabel(currentPlugin.value?.state),
+    raw: currentPlugin.value?.state,
   },
 ])
 const heroFacts = computed(() => [
@@ -229,11 +157,6 @@ const runtimeInfoRows = computed(() => [
   { key: 'concurrency', label: t('plugins.fields.concurrency'), value: currentPlugin.value?.concurrency ?? t('display.empty') },
   { key: 'runtime-version', label: t('plugins.fields.runtimeVersion'), value: getMetadataText(currentPlugin.value?.runtime_version) },
 ])
-const permissionSummaryLabel = computed(() => (
-  missingRequiredPermissions.value.length > 0
-    ? t('plugins.permissionPendingCompact', { count: missingRequiredPermissions.value.length })
-    : t('plugins.permissionTotalCompact', { count: currentPermissions.value.length })
-))
 const detailErrorToast = computed(() => {
   if (operationError.value) {
     return {
@@ -263,7 +186,6 @@ async function loadDetail() {
   try {
     await Promise.all([
       pluginsStore.fetchDetail(requestedPluginId),
-      pluginsStore.fetchGrants(requestedPluginId),
       pluginConsoleStore.fetchOutboundConsoleHistory(requestedPluginId).catch(() => []),
       configStore.fetchConfig().catch(() => undefined),
     ])
@@ -292,113 +214,12 @@ async function runAction(action: 'enable' | 'disable' | 'reload') {
     await pluginsStore.executeAction(pluginId.value, action)
     notifySuccess(t('plugins.actionAccepted'))
   } catch (error) {
-    if (action === 'enable' && error instanceof ApiError && error.code === 'plugin.permission_pending') {
-      const pendingContext = extractPermissionPendingContext(error)
-      const available = pendingContext.scopeChanged
-        ? dedupeCapabilities([
-            ...reconfirmCandidates.value.map((permission) => permission.capability),
-            ...pendingContext.missingCapabilities,
-          ])
-        : dedupeCapabilities(pendingContext.missingCapabilities)
-
-      openPermissionDialog({
-        available,
-        prefill: available,
-        mode: pendingContext.scopeChanged ? 'scope_changed' : 'pending',
-        resumeEnable: true,
-      })
-      return
-    }
     operationError.value = getDisplayErrorMessage(error)
   }
 }
 
 function getToggleAction() {
-  return current.value?.desired_state === 'enabled' ? 'disable' : 'enable'
-}
-
-function extractMissingCapabilities(error: ApiError) {
-  const raw = error.details?.missing_capabilities
-  return Array.isArray(raw)
-    ? raw.filter((item): item is string => typeof item === 'string' && item.trim().length > 0)
-    : []
-}
-
-function extractPermissionPendingContext(error: ApiError) {
-  return {
-    missingCapabilities: extractMissingCapabilities(error),
-    scopeChanged: error.details?.scope_changed === true,
-  }
-}
-
-function dedupeCapabilities(capabilities: string[]) {
-  return Array.from(new Set(
-    capabilities
-      .map((capability) => capability.trim())
-      .filter((capability) => capability.length > 0),
-  ))
-}
-
-function openPermissionDialog(options: {
-  available?: string[]
-  prefill?: string[]
-  mode?: PermissionDialogMode
-  resumeEnable?: boolean
-} = {}) {
-  const available = dedupeCapabilities(
-    options.available ?? permissionCandidates.value.map((permission) => permission.capability),
-  )
-
-  if (available.length === 0) {
-    operationError.value = t('plugins.permissionReconfirmUnavailable')
-    return
-  }
-
-  const recommended = dedupeCapabilities(
-    (options.prefill?.length ? options.prefill : available)
-      .filter((capability) => available.includes(capability)),
-  )
-
-  permissionDialogMode.value = options.mode ?? 'grant'
-  permissionDialogAvailableCapabilities.value = available
-  selectedCapabilities.value = recommended.length > 0 ? recommended : available
-  resumeEnableAfterGrant.value = options.resumeEnable ?? false
-  permissionDialogVisible.value = true
-}
-
-function closePermissionDialog() {
-  permissionDialogVisible.value = false
-  selectedCapabilities.value = []
-  permissionDialogMode.value = 'grant'
-  permissionDialogAvailableCapabilities.value = []
-  resumeEnableAfterGrant.value = false
-}
-
-async function submitPermissionDialog() {
-  operationError.value = null
-  try {
-    for (const capability of selectedCapabilities.value) {
-      await pluginsStore.grantCapability(pluginId.value, { capability })
-    }
-    const shouldResumeEnable = resumeEnableAfterGrant.value
-    closePermissionDialog()
-    notifySuccess(t('plugins.grantSaved'))
-    if (shouldResumeEnable) {
-      await runAction('enable')
-    }
-  } catch (error) {
-    operationError.value = getDisplayErrorMessage(error)
-  }
-}
-
-async function revokeGrant(capability: string) {
-  operationError.value = null
-  try {
-    await pluginsStore.revokeGrant(pluginId.value, capability)
-    notifySuccess(t('plugins.grantRevoked'))
-  } catch (error) {
-    operationError.value = getDisplayErrorMessage(error)
-  }
+  return current.value?.state === 'disabled' ? 'enable' : 'disable'
 }
 
 async function uninstallPlugin() {
@@ -465,26 +286,6 @@ function getConsoleRequestId(frame: ConsoleFrame) {
   return frame.stream === 'outbound' ? frame.request_id ?? '' : ''
 }
 
-function getPermissionRequirementLabel(requirement: PluginPermissionSummary['requirement']) {
-  return t(`plugins.permissionRequirement.${requirement}`)
-}
-
-function getPermissionStatusLabel(status: PluginPermissionSummary['status']) {
-  return t(`plugins.permissionStatus.${status}`)
-}
-
-function getPermissionSourceLabel(source: PluginPermissionSummary['source']) {
-  return t(`plugins.permissionSource.${source}`)
-}
-
-function canGrantPermission(permission: PluginPermissionSummary) {
-  return !isBuiltinPlugin.value && permission.status === 'not_granted' && permission.source === 'none'
-}
-
-function canRevokePermission(permission: PluginPermissionSummary) {
-  return !isBuiltinPlugin.value && permission.status === 'granted' && permission.source === 'persisted'
-}
-
 function getMetadataText(value?: string | null) {
   return value?.trim() || t('display.empty')
 }
@@ -503,22 +304,6 @@ function getJsonPreview(value: unknown) {
 
 function getScreenshotAlt(screenshot: NonNullable<PluginDetail['screenshots']>[number]) {
   return screenshot.alt?.trim() || t('display.empty')
-}
-
-function getGrantedAt(capability: string) {
-  return grantRecordsByCapability.value.get(capability)?.granted_at ?? undefined
-}
-
-function getPermissionTimeFallbackLabel(permission: PluginPermissionSummary) {
-  if (permission.status !== 'granted') {
-    return t('display.empty')
-  }
-
-  if (permission.source === 'builtin_auto' || permission.source === 'config_auto') {
-    return getPermissionSourceLabel(permission.source)
-  }
-
-  return t('display.empty')
 }
 
 function getConsoleStatusColor(status: string) {
@@ -710,7 +495,7 @@ watch(
     <template #extra>
       <div class="table-actions plugin-detail-actions">
         <PluginPowerButton
-          :checked="current?.desired_state === 'enabled'"
+          :checked="current?.state !== 'disabled'"
           :loading="actionPending[pluginId] === 'enable' || actionPending[pluginId] === 'disable'"
           :disabled="!current"
           :checked-label="t('plugins.actions.enable')"
@@ -802,111 +587,7 @@ watch(
                 </div>
               </a-tab-pane>
 
-              <!-- TAB 2: Permissions -->
-              <a-tab-pane key="permissions" force-render>
-                <template #tab>
-                  <span class="premium-tab-label">
-                    {{ t('plugins.sections.permissions') }}
-                    <a-tag size="small" :bordered="false" :color="missingRequiredPermissions.length > 0 ? 'warning' : 'default'" class="tab-badge">
-                      {{ permissionSummaryLabel }}
-                    </a-tag>
-                  </span>
-                </template>
-
-                <div class="tab-pane-content">
-                  <div v-if="isBuiltinPlugin" class="plugin-detail-inline-state is-success">
-                    <strong>{{ t('plugins.builtinAutoGrantTitle') }}</strong>
-                    <span>{{ t('plugins.builtinAutoGrantBody') }}</span>
-                  </div>
-
-                  <div v-else-if="missingRequiredPermissions.length > 0" class="plugin-detail-inline-state is-warning">
-                    <strong>{{ t('plugins.permissionPendingTitle') }}</strong>
-                    <span>{{ t('plugins.permissionPendingBody', { count: missingRequiredPermissions.length }) }}</span>
-                  </div>
-
-                  <div class="permission-actions-header" v-if="!isBuiltinPlugin && permissionCandidates.length > 0">
-                    <a-button
-                      size="small"
-                      type="primary"
-                      class="review-permissions-btn"
-                      @click="openPermissionDialog()"
-                    >
-                      {{ t('plugins.actions.reviewPermissions') }}
-                    </a-button>
-                  </div>
-
-                  <a-skeleton :loading="grantBusy" active>
-                    <a-empty v-if="currentPermissions.length === 0" :description="t('plugins.empty.permissions')" />
-
-                    <div v-else class="permission-list">
-                      <article v-for="permission in currentPermissions" :key="permission.capability" class="permission-item">
-                        <div class="permission-item__status-bar" :class="permission.status === 'granted' ? 'is-granted' : 'is-pending'"></div>
-
-                        <div class="permission-item__capability">
-                          <strong
-                            :title="getPluginCapabilityRawTitle(permission.capability)"
-                            :aria-label="getPluginCapabilityRawTitle(permission.capability)"
-                          >
-                            {{ getPluginCapabilityLabel(permission.capability) }}
-                          </strong>
-                          <div class="permission-item__tags">
-                            <a-tag color="blue" class="tag-compact">{{ getPermissionRequirementLabel(permission.requirement) }}</a-tag>
-                            <a-tag :color="permission.status === 'granted' ? 'success' : 'warning'" class="tag-compact">
-                              <span class="status-dot" :class="permission.status === 'granted' ? 'is-granted' : 'is-pending'"></span>
-                              {{ getPermissionStatusLabel(permission.status) }}
-                            </a-tag>
-                            <a-tag class="tag-compact">{{ getPermissionSourceLabel(permission.source) }}</a-tag>
-                          </div>
-                        </div>
-
-                        <div class="permission-item__time">
-                          <template v-if="getGrantedAt(permission.capability) || permission.expires_at">
-                            <span v-if="getGrantedAt(permission.capability)" class="time-row">
-                              <CalendarOutlined class="meta-icon" />
-                              <span class="meta-text">{{ t('plugins.fields.grantedAt') }}</span>
-                              <span class="meta-val">{{ formatDateTime(getGrantedAt(permission.capability)) }}</span>
-                            </span>
-                            <span v-if="permission.expires_at" class="time-row">
-                              <ClockCircleOutlined class="meta-icon" />
-                              <span class="meta-text">{{ t('plugins.fields.expiresAt') }}</span>
-                              <span class="meta-val">{{ formatDateTime(permission.expires_at ?? undefined) }}</span>
-                            </span>
-                          </template>
-                          <template v-else>
-                            <span class="time-row-empty">
-                              <SafetyCertificateOutlined class="meta-icon" />
-                              <span class="meta-val">{{ getPermissionTimeFallbackLabel(permission) }}</span>
-                            </span>
-                          </template>
-                        </div>
-
-                        <div class="permission-item__actions">
-                          <a-button
-                            v-if="canGrantPermission(permission)"
-                            size="small"
-                            type="primary"
-                            class="grant-btn"
-                            @click="openPermissionDialog({ available: [permission.capability], prefill: [permission.capability] })"
-                          >
-                            {{ t('plugins.actions.grantPermission') }}
-                          </a-button>
-                          <a-button
-                            v-if="canRevokePermission(permission)"
-                            size="small"
-                            danger
-                            class="revoke-btn"
-                            @click="revokeGrant(permission.capability)"
-                          >
-                            {{ t('plugins.actions.revokeGrant') }}
-                          </a-button>
-                        </div>
-                      </article>
-                    </div>
-                  </a-skeleton>
-                </div>
-              </a-tab-pane>
-
-              <!-- TAB 3: Console -->
+              <!-- TAB 2: Console -->
               <a-tab-pane key="console" force-render>
                 <template #tab>
                   <span class="premium-tab-label">
@@ -1125,8 +806,8 @@ watch(
                   </section>
 
                   <section class="metadata-section">
-                    <strong>{{ t('plugins.fields.scopes') }}</strong>
-                    <pre v-if="hasObjectValue(currentPlugin?.scopes)" class="metadata-json">{{ getJsonPreview(currentPlugin?.scopes) }}</pre>
+                    <strong>{{ t('plugins.fields.capabilityParameters') }}</strong>
+                    <pre v-if="hasObjectValue(currentPlugin?.capability_parameters)" class="metadata-json">{{ getJsonPreview(currentPlugin?.capability_parameters) }}</pre>
                     <p v-else class="empty-val">{{ t('display.empty') }}</p>
                   </section>
 
@@ -1173,46 +854,6 @@ watch(
   </AppPage>
 
   <a-modal
-    v-model:open="permissionDialogVisible"
-    :title="permissionDialogTitle"
-    :confirm-loading="grantBusy"
-    :ok-text="permissionDialogOkText"
-    :cancel-text="t('dashboard.previewCancel')"
-    :ok-button-props="{ disabled: selectedCapabilities.length === 0 }"
-    @cancel="closePermissionDialog"
-    @ok="submitPermissionDialog"
-  >
-    <p v-if="permissionDialogBody" class="plugin-detail-permission-copy">{{ permissionDialogBody }}</p>
-
-    <a-empty
-      v-if="permissionDialogCandidates.length === 0"
-      :description="t('plugins.empty.permissions')"
-    />
-
-    <a-checkbox-group v-else v-model:value="selectedCapabilities" class="permission-dialog-list">
-      <a-checkbox
-        v-for="permission in permissionDialogCandidates"
-        :key="permission.capability"
-        :value="permission.capability"
-      >
-        <div class="permission-dialog-item">
-          <strong
-            :title="getPluginCapabilityRawTitle(permission.capability)"
-            :aria-label="getPluginCapabilityRawTitle(permission.capability)"
-          >
-            {{ getPluginCapabilityLabel(permission.capability) }}
-          </strong>
-          <small>
-            {{ getPermissionRequirementLabel(permission.requirement) }} ·
-            {{ getPermissionStatusLabel(permission.status) }} ·
-            {{ getPermissionSourceLabel(permission.source) }}
-          </small>
-        </div>
-      </a-checkbox>
-    </a-checkbox-group>
-  </a-modal>
-
-  <a-modal
     v-model:open="uninstallDialogVisible"
     :title="t('plugins.uninstallConfirmTitle')"
     :confirm-loading="actionPending[pluginId] === 'uninstall'"
@@ -1242,12 +883,6 @@ watch(
 
 .plugin-detail-panel-switch {
   flex: 0 0 auto;
-}
-
-.plugin-detail-permission-copy {
-  margin: 0 0 16px;
-  color: var(--muted);
-  line-height: 1.6;
 }
 
 .premium-detail-tabs {
@@ -1593,8 +1228,7 @@ watch(
 .plugin-detail-main-column,
 .plugin-detail-side-column,
 .plugin-detail-summary-stack,
-.plugin-detail-detail-stack,
-.permission-list {
+.plugin-detail-detail-stack {
   display: grid;
   gap: 14px;
 }
@@ -1764,294 +1398,6 @@ watch(
 
 .meta-tag {
   font-size: 0.72rem;
-}
-
-/* Permissions view styling */
-.permission-actions-header {
-  margin-bottom: 12px;
-}
-
-.plugin-detail-inline-state {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 8px 12px;
-  margin-bottom: 14px;
-  padding: 12px 14px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-
-  strong {
-    color: var(--text);
-    font-size: 0.88rem;
-  }
-
-  span {
-    color: var(--muted);
-    font-size: 0.82rem;
-  }
-
-  &.is-success {
-    border-color: var(--border-success);
-    background: color-mix(in srgb, var(--surface-success) 70%, var(--surface));
-  }
-
-  &.is-warning {
-    border-color: var(--border-warning);
-    background: color-mix(in srgb, var(--surface-warning) 70%, var(--surface));
-  }
-}
-
-.permission-list {
-  display: grid;
-  gap: 12px;
-}
-
-.permission-item {
-  position: relative;
-  display: grid;
-  grid-template-columns: minmax(180px, 1.2fr) minmax(220px, 1.1fr) auto;
-  align-items: center;
-  gap: 16px;
-  padding: 10px 16px 10px 24px;
-  border-radius: var(--radius-md);
-  border: 1px solid var(--border);
-  background: var(--surface-soft);
-  min-height: 58px;
-  transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.25s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.25s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.25s cubic-bezier(0.4, 0, 0.2, 1), color 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-  overflow: hidden;
-
-  &:hover {
-    border-color: var(--border-accent);
-    background: color-mix(in srgb, var(--surface) 96%, var(--accent));
-    box-shadow: 0 4px 12px rgba(99, 102, 241, 0.05);
-    transform: translateY(-1px);
-
-    .permission-item__status-bar {
-      width: 6px;
-    }
-  }
-}
-
-.permission-item__status-bar {
-  position: absolute;
-  top: 0;
-  left: 0;
-  bottom: 0;
-  width: 4px;
-  transition: width 0.2s ease;
-
-  &.is-granted {
-    background: linear-gradient(180deg, #10b981 0%, #059669 100%);
-  }
-
-  &.is-pending {
-    background: linear-gradient(180deg, #f59e0b 0%, #d97706 100%);
-  }
-}
-
-.permission-item__capability {
-  display: grid;
-  min-width: 0;
-  gap: 4px;
-
-  strong {
-    overflow: hidden;
-    color: var(--text);
-    font-size: 0.88rem;
-    font-weight: 600;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-}
-
-.permission-item__tags {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-
-.tag-compact {
-  font-size: 0.72rem;
-  margin-inline-end: 0 !important;
-  border-radius: 4px;
-  font-weight: 550;
-  display: inline-flex;
-  align-items: center;
-
-  &.ant-tag-blue {
-    background: color-mix(in srgb, var(--accent) 8%, transparent);
-    color: var(--accent);
-    border: 1px solid color-mix(in srgb, var(--accent) 15%, transparent);
-  }
-
-  &.ant-tag-success {
-    background: color-mix(in srgb, #10b981 8%, transparent);
-    color: #10b981;
-    border: 1px solid color-mix(in srgb, #10b981 15%, transparent);
-  }
-
-  &.ant-tag-warning {
-    background: color-mix(in srgb, #f59e0b 8%, transparent);
-    color: #f59e0b;
-    border: 1px solid color-mix(in srgb, #f59e0b 15%, transparent);
-  }
-
-  &:not(.ant-tag-blue):not(.ant-tag-success):not(.ant-tag-warning) {
-    background: color-mix(in srgb, var(--muted) 8%, transparent);
-    color: var(--muted);
-    border: 1px solid color-mix(in srgb, var(--muted) 15%, transparent);
-  }
-}
-
-.status-dot {
-  display: inline-block;
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  margin-right: 6px;
-  vertical-align: middle;
-
-  &.is-granted {
-    background-color: #10b981;
-    box-shadow: 0 0 8px rgba(16, 185, 129, 0.6);
-    animation: status-breath-green 2s infinite ease-in-out;
-  }
-
-  &.is-pending {
-    background-color: #f59e0b;
-    box-shadow: 0 0 8px rgba(245, 158, 11, 0.6);
-    animation: status-breath-amber 2s infinite ease-in-out;
-  }
-}
-
-@keyframes status-breath-green {
-  0%, 100% {
-    transform: scale(0.95);
-    box-shadow: 0 0 4px rgba(16, 185, 129, 0.4);
-  }
-  50% {
-    transform: scale(1.2);
-    box-shadow: 0 0 10px rgba(16, 185, 129, 0.8);
-  }
-}
-
-@keyframes status-breath-amber {
-  0%, 100% {
-    transform: scale(0.95);
-    box-shadow: 0 0 4px rgba(245, 158, 11, 0.4);
-  }
-  50% {
-    transform: scale(1.2);
-    box-shadow: 0 0 10px rgba(245, 158, 11, 0.8);
-  }
-}
-
-.permission-item__time {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  min-width: 0;
-  justify-content: center;
-
-  .time-row {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    font-size: 0.76rem;
-    color: var(--muted);
-    line-height: 1.25;
-
-    .meta-icon {
-      font-size: 0.8rem;
-      color: var(--muted);
-      opacity: 0.7;
-    }
-
-    .meta-text {
-      color: var(--muted);
-      font-weight: 500;
-      opacity: 0.85;
-
-      &::after {
-        content: ":";
-      }
-    }
-
-    .meta-val {
-      font-family: var(--font-mono);
-      font-weight: 550;
-      color: var(--text);
-    }
-  }
-
-  .time-row-empty {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    font-size: 0.76rem;
-    color: color-mix(in srgb, var(--success) 85%, var(--text));
-    line-height: 1.2;
-    background: color-mix(in srgb, var(--success) 6%, transparent);
-    padding: 4px 10px;
-    border-radius: 4px;
-    border: 1px dashed color-mix(in srgb, var(--success) 20%, transparent);
-    width: fit-content;
-
-    .meta-icon {
-      font-size: 0.84rem;
-      color: var(--success);
-    }
-
-    .meta-val {
-      font-weight: 600;
-    }
-  }
-}
-
-.permission-item__actions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  justify-content: flex-end;
-
-  .grant-btn, .revoke-btn {
-    border-radius: 6px;
-    font-weight: 600;
-    font-size: 0.78rem;
-    height: 28px;
-    padding: 0 12px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.2s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.2s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.2s cubic-bezier(0.4, 0, 0.2, 1), color 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-  }
-
-  .grant-btn {
-    background: linear-gradient(135deg, var(--accent) 0%, color-mix(in srgb, var(--accent) 85%, #000) 100%);
-    border: none;
-    color: #fff;
-    box-shadow: 0 2px 6px rgba(99, 102, 241, 0.15);
-
-    &:hover {
-      background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 90%, #fff) 0%, var(--accent) 100%);
-      box-shadow: 0 4px 10px rgba(99, 102, 241, 0.3);
-      transform: translateY(-1px);
-    }
-  }
-
-  .revoke-btn {
-    background: transparent;
-    border: 1px solid color-mix(in srgb, var(--danger) 30%, transparent);
-    color: var(--danger);
-
-    &:hover {
-      background: color-mix(in srgb, var(--danger) 8%, transparent);
-      border-color: var(--danger);
-      transform: translateY(-1px);
-    }
-  }
 }
 
 
@@ -2271,14 +1617,11 @@ watch(
   .plugin-detail-hero,
   .plugin-detail-status-chips,
   .plugin-detail-hero__facts,
-  .plugin-detail-kv-list,
-  .permission-item,
-  .permission-item__time {
+  .plugin-detail-kv-list {
     grid-template-columns: 1fr;
   }
 
-  .plugin-detail-hero__tools,
-  .permission-item__actions {
+  .plugin-detail-hero__tools {
     justify-content: flex-start;
   }
 }

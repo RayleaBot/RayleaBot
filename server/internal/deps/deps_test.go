@@ -129,6 +129,107 @@ func TestResolveEntrypointUsesPreparedStoreWithoutDownload(t *testing.T) {
 	}
 }
 
+func TestResolveEntrypointUsesPreparedChromiumBeforeSystemBrowser(t *testing.T) {
+	t.Parallel()
+
+	repoRoot := t.TempDir()
+	manifest := `{
+  "manifest_version": 3,
+  "resources": [
+    {
+      "id": "chromium-test",
+      "kind": "chromium",
+      "version": "147.0.7727.24",
+      "platform": "` + CurrentPlatform() + `",
+      "sources": [
+        {
+          "url": "https://example.invalid/chromium.zip",
+          "kind": "upstream"
+        }
+      ],
+      "sha256": "2bb9e071b229e9c0cb7d90297c51fa4cf3f5dbf4f88aded36d3f5892651baabf",
+      "archive_format": "zip",
+      "entrypoints": {
+        "browser": ["chrome-win64/chrome.exe"]
+      }
+    }
+  ]
+}`
+	writeManifest(t, repoRoot, manifest)
+	preparedPath := filepath.Join(repoRoot, ".deps", "store", "chromium-test", "147.0.7727.24", "chrome-win64", "chrome.exe")
+	writePreparedFile(t, preparedPath)
+
+	manager := NewManager(repoRoot)
+	manager.findSystemChromium = func(context.Context) (string, error) {
+		return filepath.Join(t.TempDir(), "system-chrome.exe"), nil
+	}
+	manager.downloadFile = func(context.Context, string, string) error {
+		t.Fatal("ResolveEntrypoint should not download when prepared chromium exists")
+		return nil
+	}
+
+	got, err := manager.ResolveEntrypoint(context.Background(), "chromium", "browser")
+	if err != nil {
+		t.Fatalf("ResolveEntrypoint failed: %v", err)
+	}
+	if got != preparedPath {
+		t.Fatalf("ResolveEntrypoint() = %q, want prepared path %q", got, preparedPath)
+	}
+}
+
+func TestPrepareWithReportUsesSystemChromiumWithoutDownload(t *testing.T) {
+	t.Parallel()
+
+	repoRoot := t.TempDir()
+	manifest := `{
+  "manifest_version": 3,
+  "resources": [
+    {
+      "id": "chromium-test",
+      "kind": "chromium",
+      "version": "147.0.7727.24",
+      "platform": "` + CurrentPlatform() + `",
+      "sources": [
+        {
+          "url": "https://example.invalid/chromium.zip",
+          "kind": "upstream"
+        }
+      ],
+      "sha256": "2bb9e071b229e9c0cb7d90297c51fa4cf3f5dbf4f88aded36d3f5892651baabf",
+      "archive_format": "zip",
+      "entrypoints": {
+        "browser": ["chrome-win64/chrome.exe"]
+      }
+    }
+  ]
+}`
+	writeManifest(t, repoRoot, manifest)
+	systemPath := filepath.Join(t.TempDir(), "chrome.exe")
+
+	manager := NewManager(repoRoot)
+	manager.findSystemChromium = func(context.Context) (string, error) {
+		return systemPath, nil
+	}
+	manager.downloadFile = func(context.Context, string, string) error {
+		t.Fatal("PrepareWithReport should not download when system chromium is available")
+		return nil
+	}
+
+	report, err := manager.PrepareWithReport(context.Background(), "chromium")
+	if err != nil {
+		t.Fatalf("PrepareWithReport failed: %v", err)
+	}
+	if !report.UsedSystemBrowser {
+		t.Fatalf("expected system chromium report: %#v", report)
+	}
+	if report.PreparedEntrypoint != systemPath || report.Entrypoints["browser"] != systemPath {
+		t.Fatalf("unexpected system browser entrypoint: %#v", report)
+	}
+	if report.UsedPreparedStore || report.UsedCachedArchive || len(report.AttemptedSources) != 0 || report.SelectedSource != "" {
+		t.Fatalf("system chromium should not report managed download state: %#v", report)
+	}
+}
+
 func TestPrepareDownloadsAndExtractsMissingResource(t *testing.T) {
 	t.Parallel()
 
@@ -898,6 +999,9 @@ func TestPrepareWithReportCleansStaleTempRootBeforeExtractingCachedArchive(t *te
 	}
 
 	manager := NewManager(repoRoot)
+	manager.findSystemChromium = func(context.Context) (string, error) {
+		return "", errors.New("system chromium unavailable")
+	}
 	manager.downloadFile = func(context.Context, string, string) error {
 		t.Fatal("PrepareWithReport should not download when cached archive matches")
 		return nil
@@ -967,6 +1071,9 @@ func TestPrepareWithReportRemovesIncompleteStoreRootBeforeExtractingCachedArchiv
 	}
 
 	manager := NewManager(repoRoot)
+	manager.findSystemChromium = func(context.Context) (string, error) {
+		return "", errors.New("system chromium unavailable")
+	}
 	manager.downloadFile = func(context.Context, string, string) error {
 		t.Fatal("PrepareWithReport should not download when cached archive matches")
 		return nil

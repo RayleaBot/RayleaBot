@@ -78,7 +78,7 @@ export function buildDiagnosticsSummary(snapshot: LauncherSnapshot) {
     `安装目录：${snapshot.launcher.settings.installationRoot || "未设置"}`,
     `服务端：${snapshot.launcher.resolvedSettings.serverExecutablePath || "未设置"}`,
     `配置文件：${snapshot.launcher.resolvedSettings.configPath || "未设置"}`,
-    `运行目录：${snapshot.launcher.resolvedSettings.workdir || "未设置"}`,
+    `进程工作目录：${snapshot.launcher.resolvedSettings.workdir || "未设置"}`,
     "服务端状态：",
     [
       `healthz：${snapshot.server.health?.status ?? "不可用"}`,

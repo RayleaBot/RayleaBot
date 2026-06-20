@@ -36,12 +36,10 @@ export type ServiceStatusEventPayload = {
 
 export type PluginStateEventPayload = {
   plugin_id: string
-  registration_state: 'installed' | 'removed'
-  desired_state: 'enabled' | 'disabled'
-  runtime_state: 'starting' | 'running' | 'stopping' | 'crashed' | 'backoff' | 'dead_letter' | 'stopped'
-  display_state: 'discovered' | 'invalid_manifest' | 'conflict' | 'removed' | 'enabled' | 'enabling' | 'running' | 'disabling' | 'stopping' | 'crashed' | 'backoff' | 'dead_letter' | 'disabled'
-  commands?: components['schemas']['PluginCommandSummary'][]
-  command_conflicts?: string[]
+  state: 'disabled' | 'enabled' | 'starting' | 'running' | 'stopping' | 'failed' | 'invalid'
+  state_diagnosis?: components['schemas']['PluginStateDiagnosis']
+  commands: components['schemas']['PluginCommandSummary'][]
+  command_conflicts: string[]
 }
 
 export type ConnectionStatusEventPayload = {

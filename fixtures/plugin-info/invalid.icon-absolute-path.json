@@ -11,11 +11,7 @@
     "runtime": "python",
     "entry": "plugin.py",
     "license": "MIT",
-    "icon": "/assets/weather.svg",
-    "permissions": {
-      "required": [],
-      "optional": []
-    }
+    "icon": "/assets/weather.svg"
   },
   "expect": {
     "valid": false

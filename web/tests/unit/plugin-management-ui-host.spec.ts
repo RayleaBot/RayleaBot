@@ -22,10 +22,7 @@ function buildPlugin(overrides: Record<string, unknown> = {}) {
     id: 'example-config-panel',
     name: 'Example Config Panel',
     role: 'example',
-    registration_state: 'installed',
-    desired_state: 'disabled',
-    runtime_state: 'stopped',
-    display_state: 'disabled',
+        state: 'disabled',
     version: '0.1.0',
     description: 'Python example plugin demonstrating config.read and config.write.',
     source: {
@@ -53,7 +50,7 @@ function buildPlugin(overrides: Record<string, unknown> = {}) {
     },
     commands: [],
     command_conflicts: [],
-    permissions: [],
+    declared_capabilities: [],
     ...overrides,
   }
 }
@@ -660,7 +657,7 @@ describe('PluginManagementUIHost', () => {
     expect(wrapper.text()).not.toContain('返回首页')
   })
 
-  it('proxies authorized protocol targets and Bilibili user bridge requests', async () => {
+  it('proxies protocol targets and Bilibili user bridge requests with declared capabilities', async () => {
     const pluginsStore = usePluginsStore()
     vi.spyOn(pluginsStore, 'fetchSettings').mockResolvedValue({
       plugin_id: 'raylea.subscription-hub',
@@ -723,7 +720,7 @@ describe('PluginManagementUIHost', () => {
         level: 'official',
         label: '内置',
       },
-      permissions: [],
+      declared_capabilities: ['group.list', 'friend.list', 'group.member.get', 'user.info.get', 'http.request'],
     })
     const wrapper = mount(PluginManagementUIHost, {
       props: {
@@ -793,7 +790,7 @@ describe('PluginManagementUIHost', () => {
     })
   })
 
-  it('rejects protocol target bridge requests without granted capabilities', async () => {
+  it('rejects protocol target bridge requests without declared capabilities', async () => {
     const pluginsStore = usePluginsStore()
     vi.spyOn(pluginsStore, 'fetchSettings').mockResolvedValue({
       plugin_id: 'example-config-panel',
@@ -819,7 +816,7 @@ describe('PluginManagementUIHost', () => {
             level: 'third_party',
             label: '示例',
           },
-          permissions: [],
+          declared_capabilities: [],
         }),
         title: '配置页面',
         page: buildManagementPage(),
@@ -845,7 +842,7 @@ describe('PluginManagementUIHost', () => {
       type: 'error',
       request_id: 'req-denied',
       payload: {
-        code: 'permission.denied',
+        code: 'plugin.capability_violation',
       },
     })
   })

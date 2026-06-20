@@ -18,7 +18,7 @@ interface PluginManagementUIHostInitPayload {
     name: string
     version?: string
     description?: string
-    display_state: string
+    state: string
   }
   trust: {
     level: NonNullable<PluginDetail['trust']>['level']
@@ -607,7 +607,7 @@ function postHostInit(settings: Record<string, unknown>, secrets: Record<string,
       name: props.plugin.name ?? props.plugin.id,
       version: props.plugin.version ?? undefined,
       description: props.plugin.description ?? undefined,
-      display_state: props.plugin.display_state,
+      state: props.plugin.state,
     },
     trust: {
       level: props.plugin.trust?.level ?? 'third_party',
@@ -700,10 +700,7 @@ function postBilibiliUserResolved(response: BilibiliUserResolveResponse, request
 }
 
 function hasBridgeCapability(capability: string) {
-  if (props.plugin.role === 'builtin' && props.plugin.id === 'raylea.subscription-hub') {
-    return true
-  }
-  return (props.plugin.permissions ?? []).some((permission) => permission.capability === capability && permission.status === 'granted')
+  return (props.plugin.declared_capabilities ?? []).includes(capability)
 }
 
 function canUseBridgeCapabilities(capabilities: string[], requestId?: string) {
@@ -711,8 +708,8 @@ function canUseBridgeCapabilities(capabilities: string[], requestId?: string) {
   if (!missing.length) {
     return true
   }
-  postBridgeError(`插件缺少必要权限：${missing.join('、')}`, {
-    code: 'permission.denied',
+  postBridgeError(`插件未声明必要能力：${missing.join('、')}`, {
+    code: 'plugin.capability_violation',
     requestId,
   })
   return false

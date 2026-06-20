@@ -64,23 +64,18 @@ x-fixtures:
   - fixtures/web-api/ok.plugins-list-response.yaml
   - fixtures/web-api/ok.plugin-detail-response.yaml
   - fixtures/web-api/ok.plugin-detail-response.management-ui.yaml
-  - fixtures/web-api/edge.plugin-detail-dead-letter.yaml
+  - fixtures/web-api/edge.plugin-detail-failed-recovery-required.yaml
   - fixtures/web-api/ok.plugin-settings-response.yaml
   - fixtures/web-api/ok.plugin-settings-update-response.yaml
   - fixtures/web-api/ok.plugin-secrets-response.yaml
   - fixtures/web-api/ok.plugin-secrets-update-response.yaml
   - fixtures/web-api/ok.plugins-enable-response.yaml
-  - fixtures/web-api/ok.plugins-grants-list-response.yaml
-  - fixtures/web-api/ok.plugins-grant-response.yaml
-  - fixtures/web-api/ok.plugins-grant-with-expiry-response.yaml
   - fixtures/web-api/ok.webhook-accepted.yaml
   - fixtures/web-api/edge.task-detail-running-install.yaml
   - fixtures/web-api/edge.task-detail-failed-install.yaml
   - fixtures/web-api/edge.task-detail-failed-install-script-blocked.yaml
   - fixtures/web-api/edge.plugins-disable-response.yaml
   - fixtures/web-api/edge.plugins-command-conflict-response.yaml
-  - fixtures/web-api/edge.plugins-enable-permission-pending-expired-grant.yaml
-  - fixtures/web-api/edge.plugins-enable-permission-pending-scope-changed.yaml
   - fixtures/web-api/edge.readyz-degraded-response.yaml
   - fixtures/web-api/edge.readyz-setup-required-response.yaml
   - fixtures/web-api/edge.logs-empty-response.yaml
@@ -112,10 +107,9 @@ x-fixtures:
   - fixtures/web-api/invalid.logs-list-invalid-scope.yaml
   - fixtures/web-api/invalid.logs-list-start-after-end.yaml
   - fixtures/web-api/invalid.logs-list-current-session-with-time-range.yaml
-  - fixtures/web-api/invalid.plugins-list-invalid-display-state.yaml
-  - fixtures/web-api/invalid.plugins-grant-invalid-expires-at.yaml
+  - fixtures/web-api/invalid.plugins-list-invalid-state.yaml
   - fixtures/web-api/ok.plugins-reload-response.yaml
-  - fixtures/web-api/ok.plugins-dead-letter-recover-response.yaml
+  - fixtures/web-api/ok.plugins-recover-response.yaml
   - fixtures/web-api/ok.plugins-uninstall-accepted.yaml
   - fixtures/web-api/ok.third-party-accounts-list.yaml
   - fixtures/web-api/ok.third-party-account-upsert.yaml
@@ -130,7 +124,7 @@ x-fixtures:
   - fixtures/web-api/ok.bilibili-source-status.yaml
   - fixtures/web-api/ok.bilibili-source-restart.yaml
   - fixtures/web-api/invalid.plugins-reload-not-enabled.yaml
-  - fixtures/web-api/invalid.plugins-dead-letter-recover-not-in-dead-letter.yaml
+  - fixtures/web-api/invalid.plugins-recover-not-recoverable.yaml
   - fixtures/web-api/invalid.plugins-uninstall-not-found.yaml
   - fixtures/web-api/invalid.tasks-cancel-not-cancellable.yaml
   - fixtures/web-api/edge.governance-entry-delete-not-found.yaml
@@ -1148,7 +1142,7 @@ paths:
 
   /api/plugins:
     get:
-      summary: List registered plugins with tri-layer state snapshots.
+      summary: List registered plugins with a single lifecycle state.
       operationId: listPlugins
       security:
         - BearerAuth: []
@@ -1166,7 +1160,7 @@ paths:
 
   /api/plugins/{plugin_id}/enable:
     post:
-      summary: Set the plugin desired_state to enabled.
+      summary: Enable a plugin.
       operationId: enablePlugin
       security:
         - BearerAuth: []
@@ -1174,7 +1168,7 @@ paths:
         - $ref: '#/components/parameters/PluginId'
       responses:
         '200':
-          description: Desired state updated. The runtime may still be catching up.
+          description: Plugin enable accepted.
           content:
             application/json:
               schema:
@@ -1190,7 +1184,7 @@ paths:
 
   /api/plugins/{plugin_id}/disable:
     post:
-      summary: Set the plugin desired_state to disabled.
+      summary: Disable a plugin.
       operationId: disablePlugin
       security:
         - BearerAuth: []
@@ -1198,7 +1192,7 @@ paths:
         - $ref: '#/components/parameters/PluginId'
       responses:
         '200':
-          description: Desired state updated. The runtime may still be stopping the plugin.
+          description: Plugin disable accepted.
           content:
             application/json:
               schema:
@@ -1212,7 +1206,7 @@ paths:
 
   /api/plugins/{plugin_id}/reload:
     post:
-      summary: Restart the plugin runtime without changing desired_state.
+      summary: Restart the plugin runtime.
       operationId: reloadPlugin
       security:
         - BearerAuth: []
@@ -1234,17 +1228,14 @@ paths:
         default:
           $ref: '#/components/responses/Error'
 
-  /api/plugins/{plugin_id}/dead_letter/recover:
+  /api/plugins/{plugin_id}/recover:
     post:
-      summary: Restart a plugin that exhausted its crash retries.
+      summary: Recover a failed plugin runtime.
       description: >
         Reset the plugin's crash counter and start the runtime again.
-        Only accepted when the current runtime_state is `dead_letter`;
-        any other state returns 409 with `plugin.not_in_dead_letter`.
-        The plugin's webhook routes were already removed when it
-        entered dead_letter and remain removed until the recovered
-        runtime registers them again.
-      operationId: recoverPluginFromDeadLetter
+        Only accepted for failed plugins that require manual recovery;
+        any other state returns 409 with `plugin.not_recoverable`.
+      operationId: recoverPlugin
       security:
         - BearerAuth: []
       parameters:
@@ -1261,80 +1252,6 @@ paths:
         '404':
           $ref: '#/components/responses/Error'
         '409':
-          $ref: '#/components/responses/Error'
-        default:
-          $ref: '#/components/responses/Error'
-
-  /api/plugins/{plugin_id}/grants:
-    get:
-      summary: List the plugin's currently effective grants.
-      operationId: listPluginGrants
-      security:
-        - BearerAuth: []
-      parameters:
-        - $ref: '#/components/parameters/PluginId'
-      responses:
-        '200':
-          description: Current effective grants after expiry filtering.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PluginGrantListResponse'
-        '401':
-          $ref: '#/components/responses/Error'
-        '404':
-          $ref: '#/components/responses/Error'
-        default:
-          $ref: '#/components/responses/Error'
-    post:
-      summary: Grant one declared capability to a plugin.
-      operationId: grantPluginCapability
-      security:
-        - BearerAuth: []
-      parameters:
-        - $ref: '#/components/parameters/PluginId'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/PluginGrantRequest'
-      responses:
-        '200':
-          description: Capability grant persisted.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PluginGrantSummary'
-        '400':
-          $ref: '#/components/responses/Error'
-        '401':
-          $ref: '#/components/responses/Error'
-        '404':
-          $ref: '#/components/responses/Error'
-        default:
-          $ref: '#/components/responses/Error'
-
-  /api/plugins/{plugin_id}/grants/{capability}:
-    delete:
-      summary: Revoke one capability grant from a plugin.
-      operationId: revokePluginCapabilityGrant
-      security:
-        - BearerAuth: []
-      parameters:
-        - $ref: '#/components/parameters/PluginId'
-        - name: capability
-          in: path
-          required: true
-          schema:
-            type: string
-            pattern: '^[a-z]+\.[a-z_]+$'
-      responses:
-        '204':
-          description: Capability grant revoked.
-        '401':
-          $ref: '#/components/responses/Error'
-        '404':
           $ref: '#/components/responses/Error'
         default:
           $ref: '#/components/responses/Error'
@@ -3095,34 +3012,45 @@ components:
           items:
             $ref: '#/components/schemas/GovernanceCommandPolicyEntry'
 
-    PluginRegistrationState:
+    PluginState:
       type: string
-      enum: [installed, removed]
+      enum: [disabled, enabled, starting, running, stopping, failed, invalid]
 
-    PluginDesiredState:
-      type: string
-      enum: [enabled, disabled]
-
-    PluginRuntimeState:
-      type: string
-      enum: [starting, running, stopping, crashed, backoff, dead_letter, stopped]
-
-    PluginDisplayState:
-      type: string
-      enum:
-        - discovered
-        - invalid_manifest
-        - conflict
-        - removed
-        - enabled
-        - enabling
-        - running
-        - disabling
-        - stopping
-        - crashed
-        - backoff
-        - dead_letter
-        - disabled
+    PluginStateDiagnosis:
+      type: object
+      additionalProperties: false
+      required: [kind]
+      properties:
+        kind:
+          type: string
+          enum: [invalid_manifest, plugin_id_conflict, crashed, retrying, recovery_required]
+        summary:
+          type: string
+        manifest_path:
+          type: string
+        manifest_paths:
+          type: array
+          items:
+            type: string
+        source_roots:
+          type: array
+          items:
+            type: string
+        last_error_code:
+          type: string
+        last_error_message:
+          type: string
+        crash_count:
+          type: integer
+          minimum: 0
+        entered_at:
+          type: string
+          format: date-time
+        retry_at:
+          type: string
+          format: date-time
+        recoverable:
+          type: boolean
 
     PluginRole:
       type: string
@@ -3191,7 +3119,7 @@ components:
     PluginSummary:
       type: object
       additionalProperties: false
-      required: [id, name, role, registration_state, desired_state, runtime_state, display_state, commands, help]
+      required: [id, name, role, state, commands, help]
       properties:
         id:
           type: string
@@ -3205,14 +3133,10 @@ components:
           type: string
         role:
           $ref: '#/components/schemas/PluginRole'
-        registration_state:
-          $ref: '#/components/schemas/PluginRegistrationState'
-        desired_state:
-          $ref: '#/components/schemas/PluginDesiredState'
-        runtime_state:
-          $ref: '#/components/schemas/PluginRuntimeState'
-        display_state:
-          $ref: '#/components/schemas/PluginDisplayState'
+        state:
+          $ref: '#/components/schemas/PluginState'
+        state_diagnosis:
+          $ref: '#/components/schemas/PluginStateDiagnosis'
         source:
           $ref: '#/components/schemas/PluginSourceSummary'
         trust:
@@ -3227,30 +3151,6 @@ components:
           type: array
           items:
             type: string
-        dead_letter:
-          $ref: '#/components/schemas/PluginDeadLetterSummary'
-
-    PluginDeadLetterSummary:
-      type: object
-      additionalProperties: false
-      required: [entered_at, crash_count]
-      description: |
-        Present only when runtime_state equals `dead_letter`. Captures
-        the moment the runtime exhausted its crash-restart budget so the
-        management surface can show dwell time and the most recent
-        crash error without scraping logs.
-      properties:
-        entered_at:
-          type: string
-          format: date-time
-        crash_count:
-          type: integer
-          minimum: 0
-        last_error_code:
-          type: string
-        last_error_message:
-          type: string
-
     PluginHelpItem:
       type: object
       additionalProperties: false
@@ -3303,41 +3203,6 @@ components:
           items:
             $ref: '#/components/schemas/PluginSummary'
 
-    PluginPermissionRequirement:
-      type: string
-      enum: [required, optional]
-
-    PluginPermissionStatus:
-      type: string
-      enum: [granted, not_granted]
-
-    PluginGrantSource:
-      type: string
-      enum: [builtin_auto, config_auto, persisted]
-
-    PluginPermissionSource:
-      type: string
-      enum: [builtin_auto, config_auto, persisted, none]
-
-    PluginPermissionSummary:
-      type: object
-      additionalProperties: false
-      required: [capability, requirement, status, source]
-      properties:
-        capability:
-          type: string
-          pattern: '^[a-z]+\.[a-z_]+$'
-        requirement:
-          $ref: '#/components/schemas/PluginPermissionRequirement'
-        status:
-          $ref: '#/components/schemas/PluginPermissionStatus'
-        source:
-          $ref: '#/components/schemas/PluginPermissionSource'
-        expires_at:
-          type: string
-          format: date-time
-          nullable: true
-
     PluginDependencies:
       type: object
       additionalProperties: false
@@ -3370,7 +3235,7 @@ components:
           items:
             type: string
 
-    PluginScopes:
+    PluginCapabilityParameters:
       type: object
       additionalProperties: false
       properties:
@@ -3435,12 +3300,7 @@ components:
         - $ref: '#/components/schemas/PluginSummary'
         - type: object
           additionalProperties: false
-          required: [permissions]
           properties:
-            permissions:
-              type: array
-              items:
-                $ref: '#/components/schemas/PluginPermissionSummary'
             version:
               type: string
             runtime:
@@ -3480,8 +3340,8 @@ components:
                 pattern: '^[a-z]+\.[a-z_]+$'
             dependencies:
               $ref: '#/components/schemas/PluginDependencies'
-            scopes:
-              $ref: '#/components/schemas/PluginScopes'
+            capability_parameters:
+              $ref: '#/components/schemas/PluginCapabilityParameters'
             icon:
               type: string
             repo:
@@ -4092,50 +3952,6 @@ components:
           uniqueItems: true
         values:
           $ref: '#/components/schemas/PluginSecretValues'
-
-    PluginGrantRequest:
-      type: object
-      additionalProperties: false
-      required: [capability]
-      properties:
-        capability:
-          type: string
-          pattern: '^[a-z]+\.[a-z_]+$'
-        expires_at:
-          type: string
-          format: date-time
-          description: Optional absolute UTC RFC3339 expiry timestamp. When omitted, the grant remains valid until revoked.
-
-    PluginGrantSummary:
-      type: object
-      additionalProperties: false
-      required: [plugin_id, capability, source]
-      properties:
-        plugin_id:
-          type: string
-        capability:
-          type: string
-          pattern: '^[a-z]+\.[a-z_]+$'
-        granted_at:
-          type: string
-          format: date-time
-          nullable: true
-        source:
-          $ref: '#/components/schemas/PluginGrantSource'
-        expires_at:
-          type: string
-          format: date-time
-          nullable: true
-
-    PluginGrantListResponse:
-      type: object
-      additionalProperties: false
-      required: [items]
-      properties:
-        items:
-          type: array
-          items:
-            $ref: '#/components/schemas/PluginGrantSummary'
 
     PluginInstallRequest:
       type: object

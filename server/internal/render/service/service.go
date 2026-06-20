@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/deps"
-	renderartifact "github.com/RayleaBot/RayleaBot/server/internal/render/artifact"
 	renderbrowser "github.com/RayleaBot/RayleaBot/server/internal/render/browser"
 	rendercatalog "github.com/RayleaBot/RayleaBot/server/internal/render/catalog"
 	renderworker "github.com/RayleaBot/RayleaBot/server/internal/render/engine"
@@ -30,7 +29,6 @@ const (
 	defaultDeviceScalePct   = 100
 	developmentVersion      = "开发版本"
 	systemTemplatePlugin    = "系统模板"
-	renderCacheVersion      = "render-cache-v3-template-sources"
 )
 
 var revisionCounter uint64
@@ -99,14 +97,10 @@ type Service struct {
 	templateSyncMu sync.Mutex
 	templateRoots  *rendercatalog.Roots
 
-	mu                 sync.RWMutex
-	maxRenderDataBytes int
-	footerTemplate     string
-	defaultOutput      string
-	deviceScalePercent int
-	cache              map[string]renderartifact.Result
-	artifacts          map[string]renderartifact.Artifact
-	previewHTMLCache   map[string]PreviewHTML
+	mu sync.RWMutex
+
+	config        *runtimeConfig
+	artifactStore *artifactStore
 
 	metricsMu sync.RWMutex
 	metrics   MetricsObserver
@@ -186,15 +180,10 @@ func NewService(options Options) (*Service, error) {
 		browserPath:        browserPath,
 		browserArgs:        append([]string(nil), options.BrowserArgs...),
 		logger:             options.Logger,
-		maxRenderDataBytes: maxRenderDataBytes,
-		footerTemplate:     footerTemplate,
-		defaultOutput:      defaultOutput,
-		deviceScalePercent: deviceScalePercent,
+		config:             newRuntimeConfig(maxRenderDataBytes, footerTemplate, defaultOutput, deviceScalePercent),
 		templateRepo:       templateRepo,
 		templateRoots:      rendercatalog.NewRoots(templatesRoot),
-		cache:              map[string]renderartifact.Result{},
-		artifacts:          map[string]renderartifact.Artifact{},
-		previewHTMLCache:   map[string]PreviewHTML{},
+		artifactStore:      newArtifactStore(outputRoot),
 	}
 	service.worker = renderworker.New(renderworker.Config{
 		Runner:           runner,
@@ -208,7 +197,7 @@ func NewService(options Options) (*Service, error) {
 	if err := service.syncTemplatesFromFiles(context.Background()); err != nil {
 		return nil, err
 	}
-	if err := service.loadArtifacts(); err != nil {
+	if err := service.artifactStore.load(); err != nil {
 		return nil, err
 	}
 

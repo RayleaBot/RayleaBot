@@ -35,8 +35,7 @@ func defaultDocument() map[string]any {
 			"login_fail_window_seconds": 300,
 		},
 		"permission": map[string]any{
-			"default_level":           "everyone",
-			"auto_grant_capabilities": []string{},
+			"default_level": "everyone",
 		},
 		"render": map[string]any{
 			"worker_count":               1,

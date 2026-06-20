@@ -17,7 +17,7 @@ import (
 )
 
 type appBuildState struct {
-	core             appCore
+	core             appRuntimeState
 	options          Options
 	logStream        *logging.Stream
 	taskRegistry     *tasks.Registry
@@ -66,7 +66,7 @@ func initializeAppBuild(options Options) (appBuildState, error) {
 	}
 
 	return appBuildState{
-		core: appCore{
+		core: appRuntimeState{
 			Config:     cfg,
 			Summary:    summary,
 			Logger:     logger,

@@ -14,28 +14,13 @@ func writeDesiredStateError(w http.ResponseWriter, r *http.Request, pluginID str
 		return
 	}
 	if errors.Is(err, plugins.ErrPluginNotInDeadLetter) {
-		writeError(w, r, 409, "plugin.not_in_dead_letter", "插件当前不处于 dead_letter 状态", "errors.plugin.not_in_dead_letter", map[string]any{"plugin_id": pluginID})
+		writeError(w, r, 409, "plugin.not_recoverable", "插件当前不可恢复", "errors.plugin.not_recoverable", map[string]any{"plugin_id": pluginID})
 		return
 	}
 	if errors.Is(err, plugins.ErrStateConflict) {
 		writeError(w, r, 409, codeInvalidRequest, "请求参数不合法", "errors.platform.invalid_request", map[string]any{"plugin_id": pluginID})
 		return
 	}
-	var permissionPending *plugins.PermissionPendingError
-	if errors.As(err, &permissionPending) {
-		details := map[string]any{
-			"plugin_id": pluginID,
-		}
-		if len(permissionPending.MissingCapabilities) > 0 {
-			details["missing_capabilities"] = append([]string(nil), permissionPending.MissingCapabilities...)
-		}
-		if permissionPending.ScopeChanged {
-			details["scope_changed"] = true
-		}
-		writeError(w, r, 409, "plugin.permission_pending", "插件所需能力尚未获批", "errors.plugin.permission_pending", details)
-		return
-	}
-
 	writeError(w, r, http.StatusInternalServerError, "platform.internal_error", "内部错误", "errors.platform.internal_error", nil)
 }
 
@@ -45,4 +30,16 @@ func writeError(w http.ResponseWriter, r *http.Request, statusCode int, code, me
 
 func writeJSON(w http.ResponseWriter, statusCode int, body any) {
 	httpapi.WriteJSON(w, statusCode, body)
+}
+
+type errorEnvelope struct {
+	Error errorBody `json:"error"`
+}
+
+type errorBody struct {
+	Code       string         `json:"code"`
+	Message    string         `json:"message"`
+	MessageKey string         `json:"message_key"`
+	RequestID  string         `json:"request_id"`
+	Details    map[string]any `json:"details,omitempty"`
 }

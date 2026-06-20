@@ -37,7 +37,7 @@ response:
       dependencies:
         python:
           - httpx==0.28.1
-      scopes:
+      capability_parameters:
         http_hosts:
           - api.weather.example
         storage_roots:
@@ -56,10 +56,7 @@ response:
         - path: templates/card
       system_dependencies:
         - OneBot11 connection
-      registration_state: installed
-      desired_state: enabled
-      runtime_state: running
-      display_state: running
+      state: running
       source:
         root: plugins/installed
         package_source_type: local_zip
@@ -90,21 +87,5 @@ response:
                 permission: everyone
       command_conflicts:
         - weather
-      permissions:
-        - capability: http.request
-          requirement: required
-          status: granted
-          source: persisted
-          expires_at: null
-        - capability: logger.write
-          requirement: optional
-          status: granted
-          source: config_auto
-          expires_at: null
-        - capability: render.image
-          requirement: optional
-          status: not_granted
-          source: none
-          expires_at: null
 expect:
   valid: true

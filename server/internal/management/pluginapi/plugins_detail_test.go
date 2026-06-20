@@ -5,38 +5,27 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
-	"time"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	"github.com/go-chi/chi/v5"
 )
 
-func TestDetailHandler_ReturnsPermissionSummaries(t *testing.T) {
+func TestDetailHandler_ReturnsDeclaredCapabilitiesAndParameters(t *testing.T) {
 	t.Parallel()
 
-	repo := &stubGrantRepository{
-		grants: map[string][]plugins.PluginGrant{
-			"weather": {{
-				PluginID:   "weather",
-				Capability: "logger.write",
-				GrantedAt:  time.Now().UTC(),
-			}},
-		},
-	}
 	catalog := newTestCatalog([]plugins.Snapshot{{
-		PluginID:            "weather",
-		Name:                "Weather",
-		Valid:               true,
-		RegistrationState:   "installed",
-		DesiredState:        "enabled",
-		RuntimeState:        "running",
-		OptionalPermissions: []string{"logger.write"},
-		RequiredPermissions: []string{"http.request"},
+		PluginID:             "weather",
+		Name:                 "Weather",
+		Valid:                true,
+		RegistrationState:    "installed",
+		DesiredState:         "enabled",
+		RuntimeState:         "running",
+		DeclaredCapabilities: []string{"http.request", "logger.write", "storage.file"},
+		ScopeHTTPHosts:       []string{"api.weather.example"},
+		ScopeStorageRoots:    []string{"plugin_data"},
 	}})
 	router := chi.NewRouter()
-	router.Get("/api/plugins/{plugin_id}", newDetailHandler(catalog, repo, func() []string {
-		return []string{"http.request"}
-	}))
+	router.Get("/api/plugins/{plugin_id}", newDetailHandler(catalog))
 
 	req := httptest.NewRequest(http.MethodGet, "/api/plugins/weather", nil)
 	rec := httptest.NewRecorder()
@@ -51,56 +40,17 @@ func TestDetailHandler_ReturnsPermissionSummaries(t *testing.T) {
 	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
 		t.Fatalf("decode: %v", err)
 	}
-	if len(resp.Plugin.Permissions) != 2 {
-		t.Fatalf("len(permissions) = %d, want 2", len(resp.Plugin.Permissions))
+	if len(resp.Plugin.DeclaredCapabilities) != 3 {
+		t.Fatalf("declared_capabilities = %#v, want 3 items", resp.Plugin.DeclaredCapabilities)
 	}
-	if resp.Plugin.Permissions[0].Capability != "http.request" || resp.Plugin.Permissions[0].Source != string(plugins.PermissionSourceConfigAuto) {
-		t.Fatalf("unexpected first permission: %#v", resp.Plugin.Permissions[0])
+	if resp.Plugin.CapabilityParameters == nil {
+		t.Fatal("capability_parameters is nil")
 	}
-	if resp.Plugin.Permissions[1].Capability != "logger.write" || resp.Plugin.Permissions[1].Source != string(plugins.PermissionSourcePersisted) {
-		t.Fatalf("unexpected second permission: %#v", resp.Plugin.Permissions[1])
+	if len(resp.Plugin.CapabilityParameters.HTTPHosts) != 1 || resp.Plugin.CapabilityParameters.HTTPHosts[0] != "api.weather.example" {
+		t.Fatalf("http_hosts = %#v", resp.Plugin.CapabilityParameters.HTTPHosts)
 	}
-}
-
-func TestDetailHandler_ReturnsBuiltinAutoPermissions(t *testing.T) {
-	t.Parallel()
-
-	catalog := newTestCatalog([]plugins.Snapshot{{
-		PluginID:            "raylea.echo",
-		Name:                "Echo",
-		Valid:               true,
-		SourceRoot:          "plugins/builtin",
-		RegistrationState:   "installed",
-		DesiredState:        "enabled",
-		RuntimeState:        "running",
-		RequiredPermissions: []string{"message.send"},
-	}})
-	router := chi.NewRouter()
-	router.Get("/api/plugins/{plugin_id}", newDetailHandler(catalog, nil, nil))
-
-	req := httptest.NewRequest(http.MethodGet, "/api/plugins/raylea.echo", nil)
-	rec := httptest.NewRecorder()
-
-	router.ServeHTTP(rec, req)
-
-	if rec.Code != http.StatusOK {
-		t.Fatalf("status = %d, want 200; body = %s", rec.Code, rec.Body.String())
-	}
-
-	var resp pluginDetailResponse
-	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
-		t.Fatalf("decode: %v", err)
-	}
-	if len(resp.Plugin.Permissions) != 1 {
-		t.Fatalf("len(permissions) = %d, want 1", len(resp.Plugin.Permissions))
-	}
-	for _, permission := range resp.Plugin.Permissions {
-		if permission.Source != string(plugins.PermissionSourceBuiltinAuto) {
-			t.Fatalf("permission source = %q, want %q", permission.Source, plugins.PermissionSourceBuiltinAuto)
-		}
-		if permission.Status != string(plugins.PermissionStatusGranted) {
-			t.Fatalf("permission status = %q, want %q", permission.Status, plugins.PermissionStatusGranted)
-		}
+	if len(resp.Plugin.CapabilityParameters.StorageRoots) != 1 || resp.Plugin.CapabilityParameters.StorageRoots[0] != "plugin_data" {
+		t.Fatalf("storage_roots = %#v", resp.Plugin.CapabilityParameters.StorageRoots)
 	}
 }
 
@@ -130,7 +80,7 @@ func TestDetailHandlerReturnsHelpProjection(t *testing.T) {
 		},
 	}})
 	router := chi.NewRouter()
-	router.Get("/api/plugins/{plugin_id}", newDetailHandler(catalog, nil, nil))
+	router.Get("/api/plugins/{plugin_id}", newDetailHandler(catalog))
 
 	req := httptest.NewRequest(http.MethodGet, "/api/plugins/weather", nil)
 	rec := httptest.NewRecorder()
@@ -175,7 +125,7 @@ func TestDetailHandler_ReturnsManagementUI(t *testing.T) {
 		},
 	}})
 	router := chi.NewRouter()
-	router.Get("/api/plugins/{plugin_id}", newDetailHandler(catalog, nil, nil))
+	router.Get("/api/plugins/{plugin_id}", newDetailHandler(catalog))
 
 	req := httptest.NewRequest(http.MethodGet, "/api/plugins/example-config-panel", nil)
 	rec := httptest.NewRecorder()
@@ -215,7 +165,7 @@ func TestDetailHandler_ReturnsRenderTemplates(t *testing.T) {
 		RenderTemplates:   []plugins.RenderTemplate{{Path: "templates/card"}},
 	}})
 	router := chi.NewRouter()
-	router.Get("/api/plugins/{plugin_id}", newDetailHandler(catalog, nil, nil))
+	router.Get("/api/plugins/{plugin_id}", newDetailHandler(catalog))
 
 	req := httptest.NewRequest(http.MethodGet, "/api/plugins/weather-card", nil)
 	rec := httptest.NewRecorder()

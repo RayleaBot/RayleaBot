@@ -6,14 +6,13 @@ import (
 )
 
 func pluginStateEventFrame(snapshot plugins.Snapshot, snapshots []plugins.Snapshot) managementevents.Frame {
+	state, diagnosis := plugins.ProjectState(snapshot)
 	return managementevents.NewReceivedFrame(managementevents.PluginStatePayload{
-		PluginID:          snapshot.PluginID,
-		RegistrationState: snapshot.RegistrationState,
-		DesiredState:      snapshot.DesiredState,
-		RuntimeState:      snapshot.RuntimeState,
-		DisplayState:      snapshot.DisplayState,
-		Commands:          pluginStateEventCommands(snapshot.Commands),
-		CommandConflicts:  pluginStateEventCommandConflicts(snapshot, snapshots),
+		PluginID:         snapshot.PluginID,
+		State:            state,
+		StateDiagnosis:   diagnosis,
+		Commands:         pluginStateEventCommands(snapshot.Commands),
+		CommandConflicts: pluginStateEventCommandConflicts(snapshot, snapshots),
 	})
 }
 

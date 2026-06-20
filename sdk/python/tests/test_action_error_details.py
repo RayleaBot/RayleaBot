@@ -108,8 +108,8 @@ class ActionErrorDetailsTests(unittest.TestCase):
             "timestamp": int(time.time()),
             "plugin_id": "helper-plugin",
             "request_id": sent_requests[0],
-            "code": "permission.scope_violation",
-            "message": "capability not granted",
+            "code": "plugin.capability_violation",
+            "message": "capability is not declared",
         })
 
         worker.join(timeout=1)

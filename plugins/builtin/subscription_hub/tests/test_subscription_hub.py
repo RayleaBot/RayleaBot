@@ -266,17 +266,17 @@ class SubscriptionHubTests(unittest.TestCase):
         payload.update(overrides)
         return payload
 
-    def test_manifest_declares_event_consumer_permissions(self):
+    def test_manifest_declares_event_consumer_capabilities(self):
         with open(os.path.join(PLUGIN_DIR, "info.json"), "r", encoding="utf-8") as handle:
             manifest = json.load(handle)
 
         self.assertEqual([{"id": "subscriptions", "label": "订阅设置", "entry": "web/index.html"}], manifest["management_ui"]["pages"])
         self.assertIn("event.subscribe", manifest["capabilities"])
         self.assertIn("http.request", manifest["capabilities"])
+        self.assertEqual(["api.bilibili.com", "api.live.bilibili.com"], manifest["capability_parameters"]["http_hosts"])
         self.assertNotIn("scheduler.create", manifest["capabilities"])
         self.assertNotIn("secret.read", manifest["capabilities"])
-        self.assertNotIn("scheduler.create", manifest["permissions"]["required"])
-        self.assertNotIn("secret.read", manifest["permissions"]["required"])
+        self.assertNotIn("permissions", manifest)
         usages = [item["usage"] for item in manifest["commands"]]
         self.assertIn("/b站搜索up UP昵称关键词", usages)
         self.assertIn("/立即检查订阅", usages)

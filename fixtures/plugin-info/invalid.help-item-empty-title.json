@@ -14,10 +14,6 @@
     "capabilities": [
       "event.subscribe"
     ],
-    "permissions": {
-      "required": [],
-      "optional": []
-    },
     "help": {
       "groups": [
         {

@@ -1,0 +1,37 @@
+contract: contracts/web-api.openapi.yaml
+case: ok
+description: Recover resets the crash counter and starts the runtime again.
+request:
+  method: POST
+  path: /api/plugins/weather/recover
+response:
+  status: 200
+  body:
+    plugin:
+      id: weather
+      name: Weather
+      role: user
+      state: starting
+      source:
+        root: plugins/installed
+        package_source_type: local_zip
+        package_source_ref: C:/plugins/weather.zip
+        verified: false
+      trust:
+        level: unverified
+        label: 未验证来源
+      commands:
+        - name: weather
+          aliases:
+            - tq
+            - 天气
+          description: 查询天气
+          usage: weather <城市>
+          permission: member
+          command_source: manifest
+      command_conflicts: []
+expect:
+  valid: true
+  notes:
+    - state_diagnosis clears once the runtime starts again.
+    - state transitions from failed to starting and then running.

@@ -136,6 +136,7 @@ function serverExecutableCandidates(root: string, platform: NodeJS.Platform) {
   const executable = serverExecutableName(platform);
   return [
     path.join(root, executable),
+    path.join(root, "server", "dist", executable),
     path.join(root, "server", executable),
     path.join(root, "server", "bin", executable),
   ];

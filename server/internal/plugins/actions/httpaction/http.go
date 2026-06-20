@@ -11,24 +11,24 @@ import (
 	runtimemanager "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime/manager"
 )
 
-type Grants interface {
-	CapabilityGranted(context.Context, string, string) bool
-	GrantedHTTPHosts(context.Context, string) []string
+type CapabilityView interface {
+	CapabilityDeclared(context.Context, string, string) bool
+	HTTPHosts(context.Context, string) []string
 }
 
 type Request struct {
 	PluginID           string
 	Action             runtimeaction.Action
 	Config             config.Config
-	Grants             Grants
+	Capabilities       CapabilityView
 	CredentialInjector CredentialInjector
 }
 
 func Execute(ctx context.Context, req Request) (map[string]any, error) {
-	if req.Grants == nil || !req.Grants.CapabilityGranted(ctx, req.PluginID, "http.request") {
+	if req.Capabilities == nil || !req.Capabilities.CapabilityDeclared(ctx, req.PluginID, "http.request") {
 		return nil, &runtimemanager.Error{
-			Code:    "permission.scope_violation",
-			Message: "http.request capability is not granted",
+			Code:    "plugin.capability_violation",
+			Message: "http.request capability is not declared",
 		}
 	}
 
@@ -37,7 +37,7 @@ func Execute(ctx context.Context, req Request) (map[string]any, error) {
 		MaxRetries:        currentMaxRetries(req.Config),
 		AllowPrivateHosts: append([]string(nil), req.Config.HTTP.AllowPrivateHosts...),
 	})
-	scopeHosts := req.Grants.GrantedHTTPHosts(ctx, req.PluginID)
+	scopeHosts := req.Capabilities.HTTPHosts(ctx, req.PluginID)
 	headers := CloneHeaders(req.Action.HTTPHeaders)
 	requestURL := req.Action.HTTPURL
 	var afterSuccess func(context.Context) error
@@ -70,8 +70,8 @@ func Execute(ctx context.Context, req Request) (map[string]any, error) {
 	}, scopeHosts)
 	if err == pluginhttp.ErrScopeViolation {
 		return nil, &runtimemanager.Error{
-			Code:    "permission.scope_violation",
-			Message: "http.request target is outside the granted scope",
+			Code:    "plugin.capability_violation",
+			Message: "http.request target is outside declared capability parameters",
 		}
 	}
 	if err == pluginhttp.ErrInvalidRequest {

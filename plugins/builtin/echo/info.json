@@ -14,12 +14,6 @@
     "event.subscribe",
     "message.send"
   ],
-  "permissions": {
-    "required": [
-      "message.send"
-    ],
-    "optional": []
-  },
   "commands": [
     {
       "name": "echo",

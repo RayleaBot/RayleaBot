@@ -16,7 +16,7 @@ func pluginRouter(t *testing.T, catalog *plugincatalog.Catalog) *chi.Mux {
 	t.Helper()
 
 	router := chi.NewRouter()
-	RegisterPluginRoutes(router, catalog, nil, nil, nil, nil, nil, nil, nil)
+	RegisterPluginRoutes(router, catalog, nil, nil, nil, nil, nil)
 	return router
 }
 
@@ -24,7 +24,7 @@ func pluginRouterWithController(t *testing.T, catalog *plugincatalog.Catalog, co
 	t.Helper()
 
 	router := chi.NewRouter()
-	RegisterPluginRoutes(router, catalog, nil, nil, nil, controller, uninstaller, nil, nil)
+	RegisterPluginRoutes(router, catalog, nil, nil, nil, controller, uninstaller)
 	return router
 }
 

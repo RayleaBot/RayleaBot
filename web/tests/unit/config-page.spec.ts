@@ -41,7 +41,6 @@ function createFixtureConfig(): ConfigDocument {
     },
     permission: {
       default_level: 'everyone',
-      auto_grant_capabilities: [],
     },
     render: {
       worker_count: 1,
@@ -314,8 +313,6 @@ describe('ConfigPage', () => {
     await flushPromises()
 
     expect(wrapper.text()).not.toContain('命令前缀')
-    expect(wrapper.text()).not.toContain('插件授权')
-    expect(wrapper.text()).not.toContain('自动授权能力')
     expect(wrapper.text()).not.toContain('插件日志速率限制')
     expect(wrapper.text()).not.toContain('插件消息速率限制')
     expect(wrapper.text()).not.toContain('插件工作目录软上限')

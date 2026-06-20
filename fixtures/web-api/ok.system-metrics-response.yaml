@@ -14,10 +14,10 @@ response:
     raylea_event_pipeline_stage_total{stage="adapter",outcome="accepted"} 0
     raylea_event_pipeline_stage_total{stage="bridge",outcome="delivered"} 0
     raylea_event_pipeline_stage_total{stage="dispatch",outcome="delivered"} 0
-    # HELP raylea_plugin_runtime_state Current count of plugin runtimes per state.
-    # TYPE raylea_plugin_runtime_state gauge
-    raylea_plugin_runtime_state{state="running"} 0
-    raylea_plugin_runtime_state{state="stopped"} 0
+    # HELP raylea_plugin_state Current count of plugins per state.
+    # TYPE raylea_plugin_state gauge
+    raylea_plugin_state{state="running"} 0
+    raylea_plugin_state{state="disabled"} 0
     # HELP raylea_dispatcher_drop_total Dispatcher drops per plugin and reason.
     # TYPE raylea_dispatcher_drop_total counter
     raylea_dispatcher_drop_total{plugin_id="builtin.echo",reason="queue_full"} 0

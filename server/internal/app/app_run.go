@@ -28,7 +28,7 @@ func (a *App) Run(ctx context.Context) error {
 		go a.services.PluginLifecycle.ReconcileRuntime(runCtx, a.services.PluginLifecycle.CurrentBotID())
 	}
 	storage.StartSnapshotLoop(runCtx, a.platform.Storage, a.state.Logger)
-	a.pluginStack.Adapter.Start(runCtx)
+	a.eventStack.Adapter.Start(runCtx)
 	a.platform.Scheduler.Start(runCtx)
 	if a.services.BilibiliSource != nil {
 		go a.services.BilibiliSource.Start(runCtx)

@@ -1,5 +1,5 @@
 import { createPinia, setActivePinia } from 'pinia'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { usePluginsStore } from '@/stores/plugins'
 
@@ -15,11 +15,16 @@ describe('plugins store', () => {
     setActivePinia(createPinia())
   })
 
+  afterEach(() => {
+    vi.useRealTimers()
+    vi.unstubAllGlobals()
+  })
+
   it('sorts plugins by id after upsert', () => {
     const store = usePluginsStore()
 
-    store.upsert({ id: 'zeta', registration_state: 'installed', desired_state: 'disabled', runtime_state: 'stopped' })
-    store.upsert({ id: 'alpha', registration_state: 'installed', desired_state: 'disabled', runtime_state: 'stopped' })
+    store.upsert({ id: 'zeta', state: 'disabled' })
+    store.upsert({ id: 'alpha', state: 'disabled' })
 
     expect(store.sortedItems.map((item) => item.id)).toEqual(['alpha', 'zeta'])
   })
@@ -30,9 +35,7 @@ describe('plugins store', () => {
         id: 'weather',
         name: 'weather',
         role: 'user',
-        registration_state: 'installed',
-        desired_state: 'enabled',
-        runtime_state: 'running',
+        state: 'running',
         commands: [
           { name: 'weather', command_source: 'manifest' },
         ],
@@ -40,16 +43,53 @@ describe('plugins store', () => {
     })))
 
     const store = usePluginsStore()
-    store.upsert({ id: 'weather', registration_state: 'installed', desired_state: 'disabled', runtime_state: 'stopped' })
+    store.upsert({ id: 'weather', state: 'disabled' })
 
     const promise = store.executeAction('weather', 'enable')
     expect(store.actionPending.weather).toBe('enable')
     await promise
 
     expect(store.actionPending.weather).toBeNull()
-    expect(store.items[0].desired_state).toBe('enabled')
-    expect(store.items[0].runtime_state).toBe('running')
+    expect(store.items[0].state).toBe('running')
     expect(store.items[0].commands).toEqual([{ name: 'weather', command_source: 'manifest' }])
+  })
+
+  it('refreshes transient lifecycle state after an accepted action', async () => {
+    vi.useFakeTimers()
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(jsonResponse({
+        plugin: {
+          id: 'weather',
+          name: 'weather',
+          role: 'user',
+          state: 'stopping',
+          commands: [],
+        },
+      }))
+      .mockResolvedValueOnce(jsonResponse({
+        items: [
+          {
+            id: 'weather',
+            name: 'weather',
+            role: 'user',
+            state: 'disabled',
+            commands: [],
+          },
+        ],
+      }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    const store = usePluginsStore()
+    store.upsert({ id: 'weather', state: 'running' })
+
+    await store.executeAction('weather', 'disable')
+    expect(store.items[0].state).toBe('stopping')
+
+    await vi.advanceTimersByTimeAsync(700)
+
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+    expect(fetchMock.mock.calls[1]?.[0]).toBe('/api/plugins')
+    expect(store.items[0].state).toBe('disabled')
   })
 
   it('preserves existing commands when a runtime event only updates states', () => {
@@ -59,60 +99,17 @@ describe('plugins store', () => {
       id: 'weather',
       name: 'Weather',
       role: 'user',
-      registration_state: 'installed',
-      desired_state: 'enabled',
-      runtime_state: 'running',
+      state: 'running',
       commands: [{ name: 'weather', command_source: 'manifest' }],
       command_conflicts: [],
     })
 
     store.upsert({
       id: 'weather',
-      registration_state: 'installed',
-      desired_state: 'enabled',
-      runtime_state: 'starting',
+      state: 'starting',
     })
 
     expect(store.items[0].commands).toEqual([{ name: 'weather', command_source: 'manifest' }])
-  })
-
-  it('keeps grants sorted after a persisted grant is saved', async () => {
-    vi.stubGlobal('fetch', vi.fn()
-      .mockResolvedValueOnce(jsonResponse({
-        plugin_id: 'weather',
-        capability: 'render.image',
-        granted_at: '2026-04-05T00:01:00Z',
-        source: 'persisted',
-        expires_at: null,
-      }))
-      .mockResolvedValueOnce(jsonResponse({
-        items: [
-          {
-            plugin_id: 'weather',
-            capability: 'render.image',
-            granted_at: '2026-04-05T00:01:00Z',
-            source: 'persisted',
-            expires_at: null,
-          },
-          {
-            plugin_id: 'weather',
-            capability: 'scheduler.run',
-            granted_at: '2026-04-05T00:00:00Z',
-            source: 'persisted',
-            expires_at: null,
-          },
-        ],
-      })))
-
-    const store = usePluginsStore()
-    store.grants = {
-      weather: [
-        { plugin_id: 'weather', capability: 'scheduler.run', granted_at: '2026-04-05T00:00:00Z', source: 'persisted', expires_at: null },
-      ],
-    }
-
-    await store.grantCapability('weather', { capability: 'render.image' })
-    expect(store.getGrants('weather').map((item) => item.capability)).toEqual(['render.image', 'scheduler.run'])
   })
 
   it('ignores stale plugin detail responses when a newer request is already in flight', async () => {
@@ -134,9 +131,7 @@ describe('plugins store', () => {
         id: 'calendar',
         name: 'Calendar',
         role: 'user',
-        registration_state: 'installed',
-        desired_state: 'enabled',
-        runtime_state: 'running',
+        state: 'running',
       },
     }))
     await secondRequest
@@ -146,9 +141,7 @@ describe('plugins store', () => {
         id: 'weather',
         name: 'Weather',
         role: 'user',
-        registration_state: 'installed',
-        desired_state: 'disabled',
-        runtime_state: 'stopped',
+        state: 'disabled',
       },
     }))
     await firstRequest

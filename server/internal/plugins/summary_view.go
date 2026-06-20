@@ -47,39 +47,36 @@ type TrustView struct {
 }
 
 type SummaryView struct {
-	ID                string
-	Name              string
-	Version           string
-	Description       string
-	Role              string
-	RegistrationState string
-	DesiredState      string
-	RuntimeState      string
-	DisplayState      string
-	Source            SourceView
-	Trust             TrustView
-	Commands          []CommandView
-	Help              *HelpView
-	CommandConflicts  []string
+	ID               string
+	Name             string
+	Version          string
+	Description      string
+	Role             string
+	State            string
+	StateDiagnosis   *StateDiagnosis
+	Source           SourceView
+	Trust            TrustView
+	Commands         []CommandView
+	Help             *HelpView
+	CommandConflicts []string
 }
 
 func BuildSummaryView(snapshot Snapshot, conflicts []string) SummaryView {
 	role := summaryViewRole(snapshot)
+	state, diagnosis := ProjectState(snapshot)
 	return SummaryView{
-		ID:                snapshot.PluginID,
-		Name:              summaryViewDisplayName(snapshot),
-		Version:           strings.TrimSpace(snapshot.Version),
-		Description:       strings.TrimSpace(snapshot.Description),
-		Role:              role,
-		RegistrationState: snapshot.RegistrationState,
-		DesiredState:      snapshot.DesiredState,
-		RuntimeState:      snapshot.RuntimeState,
-		DisplayState:      snapshot.DisplayState,
-		Source:            buildSourceView(snapshot),
-		Trust:             buildTrustView(role, snapshot),
-		Commands:          buildCommandViews(snapshot),
-		Help:              buildHelpView(snapshot),
-		CommandConflicts:  normalizeConflictViews(conflicts),
+		ID:               snapshot.PluginID,
+		Name:             summaryViewDisplayName(snapshot),
+		Version:          strings.TrimSpace(snapshot.Version),
+		Description:      strings.TrimSpace(snapshot.Description),
+		Role:             role,
+		State:            state,
+		StateDiagnosis:   diagnosis,
+		Source:           buildSourceView(snapshot),
+		Trust:            buildTrustView(role, snapshot),
+		Commands:         buildCommandViews(snapshot),
+		Help:             buildHelpView(snapshot),
+		CommandConflicts: normalizeConflictViews(conflicts),
 	}
 }
 

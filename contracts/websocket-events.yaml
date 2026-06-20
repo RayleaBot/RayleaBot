@@ -24,7 +24,7 @@ x-fixtures:
   - fixtures/websocket/edge.events-received-bridge-runtime-zeroed.json
   - fixtures/websocket/edge.events-received-plugin-crashed.json
   - fixtures/websocket/edge.session-expired.json
-  - fixtures/websocket/invalid.events-received-plugin-invalid-display-state.json
+  - fixtures/websocket/invalid.events-received-plugin-invalid-state.json
   - fixtures/websocket/invalid.events-received-raw-chat.json
   - fixtures/websocket/invalid.events-received-bridge-runtime-raw-leak.json
 
@@ -191,35 +191,48 @@ channels:
                     type: string
             - type: object
               additionalProperties: false
-              required: [plugin_id, registration_state, desired_state, runtime_state, display_state]
+              required: [plugin_id, state, commands, command_conflicts]
               properties:
                 plugin_id:
                   type: string
-                registration_state:
+                state:
                   type: string
-                  enum: [installed, removed]
-                desired_state:
-                  type: string
-                  enum: [enabled, disabled]
-                runtime_state:
-                  type: string
-                  enum: [starting, running, stopping, crashed, backoff, dead_letter, stopped]
-                display_state:
-                  type: string
-                  enum:
-                    - discovered
-                    - invalid_manifest
-                    - conflict
-                    - removed
-                    - enabled
-                    - enabling
-                    - running
-                    - disabling
-                    - stopping
-                    - crashed
-                    - backoff
-                    - dead_letter
-                    - disabled
+                  enum: [disabled, enabled, starting, running, stopping, failed, invalid]
+                state_diagnosis:
+                  type: object
+                  additionalProperties: false
+                  required: [kind]
+                  properties:
+                    kind:
+                      type: string
+                      enum: [invalid_manifest, plugin_id_conflict, crashed, retrying, recovery_required]
+                    summary:
+                      type: string
+                    manifest_path:
+                      type: string
+                    manifest_paths:
+                      type: array
+                      items:
+                        type: string
+                    source_roots:
+                      type: array
+                      items:
+                        type: string
+                    last_error_code:
+                      type: string
+                    last_error_message:
+                      type: string
+                    crash_count:
+                      type: integer
+                      minimum: 0
+                    entered_at:
+                      type: string
+                      format: date-time
+                    retry_at:
+                      type: string
+                      format: date-time
+                    recoverable:
+                      type: boolean
                 commands:
                   type: array
                   items:

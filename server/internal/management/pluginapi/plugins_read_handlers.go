@@ -8,9 +8,9 @@ import (
 	"github.com/go-chi/chi/v5"
 )
 
-func registerPluginReadRoutes(router chi.Router, catalog plugins.CatalogView, grantRepo plugins.GrantRepository, autoGrantProvider autoGrantCapabilitiesProvider) {
+func registerPluginReadRoutes(router chi.Router, catalog plugins.CatalogView) {
 	router.Get("/api/plugins", newListHandler(catalog))
-	router.Get("/api/plugins/{plugin_id}", newDetailHandler(catalog, grantRepo, autoGrantProvider))
+	router.Get("/api/plugins/{plugin_id}", newDetailHandler(catalog))
 }
 
 func newListHandler(catalog plugins.CatalogView) http.HandlerFunc {
@@ -26,7 +26,7 @@ func newListHandler(catalog plugins.CatalogView) http.HandlerFunc {
 	}
 }
 
-func newDetailHandler(catalog plugins.CatalogView, grantRepo plugins.GrantRepository, autoGrantProvider autoGrantCapabilitiesProvider) http.HandlerFunc {
+func newDetailHandler(catalog plugins.CatalogView) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		pluginID := chi.URLParam(r, "plugin_id")
 		snapshot, ok := catalog.Get(pluginID)
@@ -46,37 +46,10 @@ func newDetailHandler(catalog plugins.CatalogView, grantRepo plugins.GrantReposi
 			return
 		}
 
-		if !snapshot.Valid {
-			details := map[string]any{
-				"plugin_id": pluginID,
-			}
-			if snapshot.DisplayState == plugins.DisplayStateConflict {
-				details["kind"] = "plugin_id_conflict"
-				details["manifest_paths"] = snapshot.ConflictPaths
-				details["source_roots"] = snapshot.SourceRoots
-			} else {
-				details["kind"] = "invalid_manifest"
-				details["manifest_path"] = snapshot.ManifestPath
-				details["validation_summary"] = snapshot.ValidationSummary
-			}
-
-			writeError(
-				w,
-				r,
-				http.StatusConflict,
-				codeInvalidRequest,
-				"请求参数不合法",
-				"errors.platform.invalid_request",
-				details,
-			)
-			return
-		}
-
-		response, err := buildPluginDetailResponse(r.Context(), catalog, snapshot, grantRepo, autoGrantProvider)
-		if err != nil {
-			writeError(w, r, http.StatusInternalServerError, "platform.internal_error", "内部错误", "errors.platform.internal_error", nil)
-			return
-		}
-		writeJSON(w, http.StatusOK, response)
+		writeJSON(w, http.StatusOK, buildPluginDetailResponse(catalog, snapshot))
 	}
+}
+
+func buildPluginDetailResponse(catalog plugins.CatalogView, snapshot plugins.Snapshot) view.DetailResponse {
+	return view.BuildDetail(catalog, snapshot)
 }

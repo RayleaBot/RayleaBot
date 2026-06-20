@@ -104,6 +104,29 @@ function renderSection(overrides: Partial<LauncherSnapshot> = {}, resolvedSettin
 }
 
 describe("AppShellStatusSection", () => {
+  test("hides the workdir row when it matches the installation root", () => {
+    renderSection(undefined, {
+      ...snapshot.launcher.resolvedSettings,
+      workdir: "c:\\RayleaBot\\",
+    });
+
+    expect(screen.getByText("核心参数")).toBeInTheDocument();
+    expect(screen.getByText("安装目录")).toBeInTheDocument();
+    expect(screen.getByText("C:\\RayleaBot")).toBeInTheDocument();
+    expect(screen.queryByText("进程工作目录")).toBeNull();
+  });
+
+  test("shows the workdir row when it uses an override path", () => {
+    renderSection(undefined, {
+      ...snapshot.launcher.resolvedSettings,
+      workdir: "D:\\RayleaRuntime",
+    });
+
+    expect(screen.getByText("安装目录")).toBeInTheDocument();
+    expect(screen.getByText("进程工作目录")).toBeInTheDocument();
+    expect(screen.getByText("D:\\RayleaRuntime")).toBeInTheDocument();
+  });
+
   test("renders readiness reason, diagnostics, and stderr panel for degraded state", () => {
     renderSection();
 
@@ -158,11 +181,11 @@ describe("AppShellStatusSection", () => {
         runtimePrepare: {
           active: true,
           currentKind: "chromium",
-          summary: "正在下载 Chromium 浏览环境",
+          summary: "正在下载 图片渲染 Chromium",
           resources: [
             {
               kind: "chromium",
-              label: "Chromium 浏览环境",
+              label: "图片渲染 Chromium",
               resourceId: "chromium-windows-x64",
               version: "147.0.7727.24",
               sourceLabel: "Chrome for Testing",
@@ -176,7 +199,7 @@ describe("AppShellStatusSection", () => {
               totalBytes: 2048,
               extractedEntries: null,
               totalEntries: null,
-              summary: "正在下载 Chromium 浏览环境",
+              summary: "正在下载 图片渲染 Chromium",
               error: "",
               updatedAt: "2026-06-06T00:00:00Z",
             },
@@ -187,7 +210,7 @@ describe("AppShellStatusSection", () => {
 
     expect(screen.getByText("准备进度")).toBeInTheDocument();
     expect(screen.getByText("运行环境准备")).toBeInTheDocument();
-    expect(screen.getAllByText("正在下载 Chromium 浏览环境").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("正在下载 图片渲染 Chromium").length).toBeGreaterThan(0);
     expect(screen.getByText("Chrome for Testing · https://example.invalid/chrome.zip")).toBeInTheDocument();
     expect(screen.queryByText("当前限制")).toBeNull();
     expect(screen.queryByText("服务诊断")).toBeNull();

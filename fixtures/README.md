@@ -19,7 +19,7 @@
 - `plugin-info/`
   - 对应 `contracts/plugin-info.schema.json`
   - 统一采用 `input + expect` 结构
-  - 主要服务 schema validation、安装前静态检查、权限重确认判断和迁移边界判断
+  - 主要服务 schema validation、安装前静态检查、能力参数边界判断和迁移边界判断
 - `plugin-protocol/`
   - 对应 `contracts/plugin-protocol.schema.json`
   - 统一采用 `frames + expect` 结构

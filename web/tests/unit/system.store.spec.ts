@@ -72,9 +72,7 @@ describe('system store', () => {
     })
     store.applyEvent('2026-04-08T10:17:00Z', {
       plugin_id: 'weather',
-      registration_state: 'installed',
-      desired_state: 'enabled',
-      runtime_state: 'running',
+        state: 'running',
     })
 
     expect(store.recentEvents).toHaveLength(2)

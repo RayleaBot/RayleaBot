@@ -31,9 +31,5 @@
   "capabilities": [
     "event.subscribe",
     "logger.write"
-  ],
-  "permissions": {
-    "required": [],
-    "optional": []
-  }
+  ]
 }

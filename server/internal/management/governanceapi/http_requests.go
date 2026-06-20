@@ -10,6 +10,16 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/httpapi"
 )
 
+type governanceEntryUpsertRequest struct {
+	EntryType string `json:"entry_type"`
+	TargetID  string `json:"target_id"`
+	Reason    string `json:"reason"`
+}
+
+type governanceWhitelistStateUpdateRequest struct {
+	Enabled *bool `json:"enabled"`
+}
+
 func decodeGovernanceEntryUpsertRequest(w http.ResponseWriter, r *http.Request) (governanceEntryUpsertRequest, bool) {
 	var request governanceEntryUpsertRequest
 	if err := httpapi.DecodeStrictJSON(w, r, &request, httpapi.MaxManagementJSONBodyBytes); err != nil {

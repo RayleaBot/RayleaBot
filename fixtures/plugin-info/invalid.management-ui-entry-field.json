@@ -21,10 +21,6 @@
           "entry": "web/index.html"
         }
       ]
-    },
-    "permissions": {
-      "required": [],
-      "optional": []
     }
   },
   "expect": {

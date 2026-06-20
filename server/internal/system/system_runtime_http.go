@@ -6,6 +6,7 @@ type managedRuntimePrepareReport struct {
 	StoreRoot          string
 	UsedPreparedStore  bool
 	UsedCachedArchive  bool
+	UsedSystemBrowser  bool
 	AttemptedSources   []string
 	SelectedSource     string
 	PreparedEntrypoint string

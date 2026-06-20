@@ -171,11 +171,12 @@ func ForStatus(status Status, cooldowns []Cooldown, now time.Time) Diagnosis {
 		return diagnosis
 	}
 
-	if status.Live.LastError != "" || status.Dynamic.LastError != "" || status.Status == StateFailed {
+	liveNeedsAction := status.Live.LastError != "" && (status.Live.FailedRooms > 0 || status.Status == StateFailed)
+	if liveNeedsAction || status.Dynamic.LastError != "" || status.Status == StateFailed {
 		diagnosis.Level = "action_required"
 		diagnosis.Headline = "Bilibili 事件源需要处理"
 		diagnosis.Description = "事件源存在检查错误，查看原因后刷新或重启事件源。"
-		if status.Live.LastError != "" {
+		if liveNeedsAction {
 			diagnosis.Causes = append(diagnosis.Causes, DiagnosisCause{
 				Scope:     "live",
 				Code:      "live_connection_error",

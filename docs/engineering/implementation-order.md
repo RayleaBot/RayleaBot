@@ -81,7 +81,7 @@
 
 当前基础：
 
-- 配置 schema 校验、SQLite schema bootstrap、auth persistence、task persistence、plugin desired_state、grants、secret store、scheduler persistence、三方账号摘要、Bilibili source 状态、日志持久化、聊天侧 permission / blacklist / cooldown 与 temporal grants 已全部接入 server 主路径。
+- 配置 schema 校验、SQLite schema bootstrap、auth persistence、task persistence、plugin enable intent persistence、secret store、scheduler persistence、三方账号摘要、Bilibili source 状态、日志持久化、聊天侧 permission / blacklist / cooldown 已全部接入 server 主路径。
 
 进入本阶段时应继续遵守：
 
@@ -95,7 +95,7 @@
 
 当前基础：
 
-- 管理 HTTP / WebSocket、setup/session、config、system status/shutdown/diagnostics、OneBot 协议快照、reverse WebSocket 回连入口、webhook 入口、tasks、logs、plugin lifecycle（install/uninstall/enable/disable/reload）、grants、console、render management、backup、recovery、三方账号、三方监控、Bilibili source 和 runtime metrics 已全部进入真实路由。
+- 管理 HTTP / WebSocket、setup/session、config、system status/shutdown/diagnostics、OneBot 协议快照、reverse WebSocket 回连入口、webhook 入口、tasks、logs、plugin lifecycle（install/uninstall/enable/disable/reload）、console、render management、backup、recovery、三方账号、三方监控、Bilibili source 和 runtime metrics 已全部进入真实路由。
 
 进入本阶段时应继续遵守：
 

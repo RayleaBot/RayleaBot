@@ -94,9 +94,7 @@ func (s *Source) dispatchEvent(ctx context.Context, event BilibiliEvent) {
 		s.status.Dynamic.LastEventAt = &now
 		s.status.Dynamic.LastError = ""
 	}
-	s.status.Status = s.deriveStateLocked()
-	s.status.Summary = sourceSummary(s.status.Status)
-	s.status.Diagnosis = s.diagnosisForStatusLocked(s.status, nil)
+	s.refreshStatusLocked(nil)
 	status := s.status
 	s.mu.Unlock()
 	s.publishStatus(ctx, status)
@@ -107,9 +105,7 @@ func (s *Source) setLiveError(err error) {
 	}
 	s.mu.Lock()
 	s.status.Live.LastError = err.Error()
-	s.status.Status = StateDegraded
-	s.status.Summary = sourceSummary(StateDegraded)
-	s.status.Diagnosis = s.diagnosisForStatusLocked(s.status, nil)
+	s.refreshStatusLocked(nil)
 	s.mu.Unlock()
 }
 func (s *Source) setDynamicError(err error) {
@@ -118,22 +114,33 @@ func (s *Source) setDynamicError(err error) {
 	}
 	s.mu.Lock()
 	s.status.Dynamic.LastError = err.Error()
-	s.status.Status = StateDegraded
-	s.status.Summary = sourceSummary(StateDegraded)
-	s.status.Diagnosis = s.diagnosisForStatusLocked(s.status, nil)
+	s.refreshStatusLocked(nil)
 	s.mu.Unlock()
 }
-func (s *Source) clearLiveError() {
+
+func (s *Source) clearLiveError(ctx context.Context) {
 	s.mu.Lock()
+	previousError := s.status.Live.LastError
 	s.status.Live.LastError = ""
-	s.status.Diagnosis = s.diagnosisForStatusLocked(s.status, nil)
+	s.refreshStatusLocked(nil)
+	status := s.status
 	s.mu.Unlock()
+	if previousError != "" {
+		s.publishStatus(ctx, status)
+	}
 }
+
+func (s *Source) refreshStatusLocked(cooldowns []requestCooldown) {
+	s.status.Status = s.deriveStateLocked()
+	s.status.Summary = sourceSummary(s.status.Status)
+	s.status.Diagnosis = s.diagnosisForStatusLocked(s.status, cooldowns)
+}
+
 func (s *Source) deriveStateLocked() string {
 	if s.status.Live.WatchedRooms == 0 && s.status.Dynamic.WatchedUIDs == 0 {
 		return StateIdle
 	}
-	if s.status.Live.FailedRooms > 0 || s.status.Live.LastError != "" || s.status.Dynamic.LastError != "" {
+	if s.status.Live.FailedRooms > 0 || s.status.Dynamic.LastError != "" {
 		return StateDegraded
 	}
 	if s.status.Live.ConnectedRooms > 0 || s.status.Dynamic.LastPollAt != nil {

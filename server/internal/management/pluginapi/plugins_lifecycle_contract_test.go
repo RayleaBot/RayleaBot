@@ -16,7 +16,7 @@ func TestReloadPluginReturnsUpdatedSnapshot(t *testing.T) {
 	})
 	controller := &stubReloadController{
 		reloadResult: plugins.Snapshot{
-			PluginID: "weather", RegistrationState: "installed", DesiredState: "enabled",
+			PluginID: "weather", Valid: true, RegistrationState: "installed", DesiredState: "enabled",
 			RuntimeState: "starting", DisplayState: "enabling",
 		},
 	}
@@ -32,11 +32,8 @@ func TestReloadPluginReturnsUpdatedSnapshot(t *testing.T) {
 
 	body := decodeBody(t, recorder.Body.Bytes())
 	plugin := body["plugin"].(map[string]any)
-	if plugin["desired_state"] != "enabled" {
-		t.Fatalf("desired_state should remain enabled, got %v", plugin["desired_state"])
-	}
-	if plugin["runtime_state"] != "starting" {
-		t.Fatalf("runtime_state should be starting, got %v", plugin["runtime_state"])
+	if plugin["state"] != "starting" {
+		t.Fatalf("state should be starting, got %v", plugin["state"])
 	}
 }
 

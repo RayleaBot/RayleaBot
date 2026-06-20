@@ -56,7 +56,7 @@
 - 管理侧模板同步 HTML 预览返回当前模板 revision、尺寸和 HTML 文档。
 - `render.default_output` 控制请求未指定输出格式时的默认格式，取值为 `png` 或 `jpeg`。
 - 请求显式指定 `png` 或 `jpeg` 时，以请求值为准。
-- `render.device_scale_percent` 控制 Chromium 截图倍率，`100` 对应 `deviceScaleFactor=1.0`，`200` 对应 `2.0`，取值范围为 `50` 到 `500`。
+- `render.device_scale_percent` 控制图片渲染 Chromium 截图倍率，`100` 对应 `deviceScaleFactor=1.0`，`200` 对应 `2.0`，取值范围为 `50` 到 `500`。
 - 失败时返回结构化错误，而不是浏览器原始报错
 
 ## 执行模型与缓存
@@ -69,9 +69,11 @@
 
 ## 资源边界
 
-- Chromium 浏览环境、模板资源与 `.deps/manifest.json` 是当前正式资源来源。
+- 图片渲染 Chromium 使用 `chromedp` 调用 Chromium 系浏览器可执行文件。
+- 已准备的 `.deps` Chromium 是默认托管资源；`.deps` 未准备且系统 Chrome、Chromium 或 Edge 可用时，平台会直接复用系统浏览器。
 - 模板基线目录和浏览器资源缺失时，平台会在启动、`doctor`、Launcher 和管理面中暴露同一份问题摘要。
-- ARM64 或受限环境可通过 `render.browser_path` 显式指定宿主机浏览器路径。
+- `render.browser_path` 可显式指定 Chromium 系浏览器可执行文件路径。
+- Electron 内置 Chromium 和原生 WebView 不属于图片渲染浏览器入口。
 - 运行环境资源可按需下载到 `cache/downloads/runtime/`，并展开到 `.deps/store/<resource-id>/<version>/`。
 
 ## 管理面能力

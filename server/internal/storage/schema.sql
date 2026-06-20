@@ -32,18 +32,6 @@ CREATE TABLE IF NOT EXISTS plugin_packages (
     installed_at TEXT NOT NULL
 );
 
-CREATE TABLE IF NOT EXISTS plugin_grants (
-    plugin_id TEXT NOT NULL,
-    capability TEXT NOT NULL,
-    scope_json TEXT NOT NULL DEFAULT '',
-    granted_at TEXT NOT NULL,
-    expires_at TEXT,
-    PRIMARY KEY (plugin_id, capability)
-);
-
-CREATE INDEX IF NOT EXISTS idx_plugin_grants_expires_at
-    ON plugin_grants (expires_at);
-
 CREATE TABLE IF NOT EXISTS tasks (
     task_id TEXT PRIMARY KEY,
     task_type TEXT NOT NULL,

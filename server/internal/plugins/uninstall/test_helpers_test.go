@@ -110,10 +110,6 @@ func writeInstallSourcePlugin(t *testing.T, root, pluginID, runtimeName, entry s
 		"license":                 "MIT",
 		"description":             "test plugin",
 		"author":                  "raylea",
-		"permissions": map[string]any{
-			"required": []string{},
-			"optional": []string{},
-		},
 	}
 	manifestBytes, err := json.MarshalIndent(manifest, "", "  ")
 	if err != nil {

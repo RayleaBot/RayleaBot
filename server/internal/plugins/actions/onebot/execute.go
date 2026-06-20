@@ -7,8 +7,8 @@ import (
 	runtimemanager "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime/manager"
 )
 
-type Grants interface {
-	CapabilityGranted(context.Context, string, string) bool
+type CapabilityView interface {
+	CapabilityDeclared(context.Context, string, string) bool
 }
 
 type Adapter interface {
@@ -22,10 +22,10 @@ type CodedError interface {
 }
 
 type Request struct {
-	PluginID string
-	Action   runtimeaction.Action
-	Grants   Grants
-	Adapter  Adapter
+	PluginID     string
+	Action       runtimeaction.Action
+	Capabilities CapabilityView
+	Adapter      Adapter
 }
 
 func Execute(ctx context.Context, req Request) (map[string]any, error) {
@@ -37,10 +37,10 @@ func Execute(ctx context.Context, req Request) (map[string]any, error) {
 		}
 	}
 
-	if req.Grants == nil || !req.Grants.CapabilityGranted(ctx, req.PluginID, spec.Capability) {
+	if req.Capabilities == nil || !req.Capabilities.CapabilityDeclared(ctx, req.PluginID, spec.Capability) {
 		return nil, &runtimemanager.Error{
-			Code:    "permission.scope_violation",
-			Message: spec.Capability + " capability is not granted",
+			Code:    "plugin.capability_violation",
+			Message: spec.Capability + " capability is not declared",
 		}
 	}
 

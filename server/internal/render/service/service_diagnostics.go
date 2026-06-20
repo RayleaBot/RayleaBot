@@ -81,7 +81,7 @@ func (s *Service) Diagnostics() []health.DiagnosticIssue {
 		issues = append(issues, health.DiagnosticIssue{
 			Code:        "platform.resource_missing",
 			Severity:    "warning",
-			Summary:     "Chromium 资源清单不可用。",
+			Summary:     "图片渲染 Chromium 资源清单不可用。",
 			Remediation: "请恢复 .deps/manifest.json，或在配置中显式设置 render.browser_path。",
 		})
 		return issues
@@ -91,7 +91,7 @@ func (s *Service) Diagnostics() []health.DiagnosticIssue {
 			Code:        "platform.resource_missing",
 			Severity:    "warning",
 			Summary:     deps.BootstrapSummary("chromium", inspection),
-			Remediation: "请恢复当前平台 Chromium 资源的 archive_format、entrypoints、来源列表与 sha256，或在配置中显式设置 render.browser_path。",
+			Remediation: "请恢复当前平台图片渲染 Chromium 资源的 archive_format、entrypoints、来源列表与 sha256，或在配置中显式设置 render.browser_path。",
 		})
 		return issues
 	}
@@ -102,7 +102,7 @@ func (s *Service) Diagnostics() []health.DiagnosticIssue {
 		issues = append(issues, health.DiagnosticIssue{
 			Code:        "platform.resource_missing",
 			Severity:    "warning",
-			Summary:     "Chromium 依赖已下载，但未解压。",
+			Summary:     "图片渲染 Chromium 已下载，但未解压。",
 			Remediation: deps.BootstrapRemediation("chromium", inspection.ArchivePath, inspection.StoreRoot),
 		})
 		return issues
@@ -110,7 +110,7 @@ func (s *Service) Diagnostics() []health.DiagnosticIssue {
 	issues = append(issues, health.DiagnosticIssue{
 		Code:        "platform.resource_missing",
 		Severity:    "warning",
-		Summary:     "Chromium 依赖未准备。",
+		Summary:     "图片渲染 Chromium 未准备。",
 		Remediation: deps.BootstrapRemediation("chromium", inspection.ArchivePath, inspection.StoreRoot),
 	})
 	return issues

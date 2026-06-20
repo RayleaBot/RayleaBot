@@ -40,7 +40,7 @@ func (s *Service) renderInternal(ctx context.Context, request Request) (renderar
 	resourceDigest := rendertemplates.ResourceDigest(templateDir)
 	deviceScalePercent := s.currentDeviceScalePercent()
 	cacheKey := buildCacheKey(normalized, cacheVersion, cacheDigest, resourceDigest, deviceScalePercent, payloadBytes)
-	if cached, ok := s.cachedResult(cacheKey); ok {
+	if cached, ok := s.artifactStore.cachedResult(cacheKey); ok {
 		cached.FromCache = true
 		return cached, nil
 	}
@@ -51,7 +51,7 @@ func (s *Service) renderInternal(ctx context.Context, request Request) (renderar
 	}
 	defer releaseWorker()
 
-	if cached, ok := s.cachedResult(cacheKey); ok {
+	if cached, ok := s.artifactStore.cachedResult(cacheKey); ok {
 		cached.FromCache = true
 		return cached, nil
 	}
@@ -83,14 +83,12 @@ func (s *Service) renderInternal(ctx context.Context, request Request) (renderar
 		return renderartifact.Result{}, wrapRenderError(renderworker.WrapRenderError(renderCtx, err), "render execution failed")
 	}
 
-	result, err := s.persistArtifact(normalized, cacheKey, content)
+	result, err := s.artifactStore.persist(normalized, cacheKey, content)
 	if err != nil {
 		return renderartifact.Result{}, err
 	}
 
-	s.mu.Lock()
-	s.cache[cacheKey] = result
-	s.mu.Unlock()
+	s.artifactStore.cacheResult(cacheKey, result)
 
 	return result, nil
 }

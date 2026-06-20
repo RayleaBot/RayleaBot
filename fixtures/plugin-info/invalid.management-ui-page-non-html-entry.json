@@ -20,10 +20,6 @@
           "entry": "web/app.js"
         }
       ]
-    },
-    "permissions": {
-      "required": [],
-      "optional": []
     }
   },
   "expect": {
