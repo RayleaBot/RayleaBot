@@ -91,7 +91,7 @@ export function AppShellSettingsSection({
         </div>
         <div className="settings-compare-card settings-compare-card--resolved">
           <span className="settings-surface-tag settings-surface-tag--resolved">当前生效</span>
-          <span className="settings-compare-card__label">运行目录</span>
+          <span className="settings-compare-card__label">进程工作目录</span>
           <span className="settings-compare-card__value" title={resolvedSettings.workdir}>{resolvedSettings.workdir || "—"}</span>
         </div>
       </div>
@@ -132,7 +132,7 @@ export function AppShellSettingsSection({
               <div className="settings-advanced-fields">
                 <label className="path-field"><span className="path-field__label">服务端覆盖</span><div className="path-control"><Input aria-label="服务端覆盖" value={settingsDraft.advancedOverrides?.serverExecutablePath ?? ""} readOnly={!editingSettings} placeholder={resolvedSettings.serverExecutablePath} className="frost-input frost-input--path" onChange={(_, data) => onUpdateAdvancedOverride("serverExecutablePath", data.value)} /><Button appearance="transparent" disabled={!editingSettings} size="small" className="frost-button frost-button--secondary frost-button--compact" onClick={onChooseServer} icon={<FolderOpen20Filled />}>浏览</Button></div></label>
                 <label className="path-field"><span className="path-field__label">配置覆盖</span><div className="path-control"><Input aria-label="配置覆盖" value={settingsDraft.advancedOverrides?.configPath ?? ""} readOnly={!editingSettings} placeholder={resolvedSettings.configPath} className="frost-input frost-input--path" onChange={(_, data) => onUpdateAdvancedOverride("configPath", data.value)} /><Button appearance="transparent" disabled={!editingSettings} size="small" className="frost-button frost-button--secondary frost-button--compact" onClick={onChooseConfig} icon={<FolderOpen20Filled />}>浏览</Button></div></label>
-                <label className="path-field"><span className="path-field__label">运行目录覆盖</span><div className="path-control"><Input aria-label="运行目录覆盖" value={settingsDraft.advancedOverrides?.workdir ?? ""} readOnly={!editingSettings} placeholder={resolvedSettings.workdir} className="frost-input frost-input--path" onChange={(_, data) => onUpdateAdvancedOverride("workdir", data.value)} /><Button appearance="transparent" disabled={!editingSettings} size="small" className="frost-button frost-button--secondary frost-button--compact" onClick={onChooseWorkdir} icon={<FolderOpen20Filled />}>选择</Button></div></label>
+                <label className="path-field"><span className="path-field__label">进程工作目录覆盖</span><div className="path-control"><Input aria-label="进程工作目录覆盖" value={settingsDraft.advancedOverrides?.workdir ?? ""} readOnly={!editingSettings} placeholder={resolvedSettings.workdir} className="frost-input frost-input--path" onChange={(_, data) => onUpdateAdvancedOverride("workdir", data.value)} /><Button appearance="transparent" disabled={!editingSettings} size="small" className="frost-button frost-button--secondary frost-button--compact" onClick={onChooseWorkdir} icon={<FolderOpen20Filled />}>选择</Button></div></label>
               </div>
             )}
 
@@ -141,7 +141,7 @@ export function AppShellSettingsSection({
                 <Status20Filled className="settings-resolution-panel__icon" />
                 <div className="panel-copy">
                   <div className="brand-eyebrow brand-eyebrow--tight">当前解析结果</div>
-                  <Text size={200} className="panel-muted">当前生效的服务端、配置与工作目录路径。</Text>
+                  <Text size={200} className="panel-muted">当前生效的服务端、配置与进程工作目录路径。</Text>
                 </div>
                 <span className="settings-surface-tag settings-surface-tag--resolved">当前生效</span>
               </div>
@@ -155,7 +155,7 @@ export function AppShellSettingsSection({
                   <span className="settings-info-item__value" title={resolvedSettings.configPath}>{resolvedSettings.configPath}</span>
                 </div>
                 <div className="settings-info-item">
-                  <span className="settings-info-item__label">工作目录</span>
+                  <span className="settings-info-item__label">进程工作目录</span>
                   <span className="settings-info-item__value" title={resolvedSettings.workdir}>{resolvedSettings.workdir}</span>
                 </div>
               </div>

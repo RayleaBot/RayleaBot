@@ -340,7 +340,7 @@ describe("AppShell", () => {
     expect(screen.getAllByText("当前生效").length).toBeGreaterThan(0);
     expect(screen.getByText("服务端覆盖")).toBeInTheDocument();
     expect(screen.getByText("配置覆盖")).toBeInTheDocument();
-    expect(screen.getByText("运行目录覆盖")).toBeInTheDocument();
+    expect(screen.getByText("进程工作目录覆盖")).toBeInTheDocument();
     expect(container.querySelector(".settings-compare-strip")).not.toBeNull();
     expect(container.querySelector(".settings-resolution-panel")).not.toBeNull();
     expect(container.querySelector(".settings-edit-bar")).not.toBeNull();

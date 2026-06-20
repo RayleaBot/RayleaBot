@@ -104,6 +104,29 @@ function renderSection(overrides: Partial<LauncherSnapshot> = {}, resolvedSettin
 }
 
 describe("AppShellStatusSection", () => {
+  test("hides the workdir row when it matches the installation root", () => {
+    renderSection(undefined, {
+      ...snapshot.launcher.resolvedSettings,
+      workdir: "c:\\RayleaBot\\",
+    });
+
+    expect(screen.getByText("核心参数")).toBeInTheDocument();
+    expect(screen.getByText("安装目录")).toBeInTheDocument();
+    expect(screen.getByText("C:\\RayleaBot")).toBeInTheDocument();
+    expect(screen.queryByText("进程工作目录")).toBeNull();
+  });
+
+  test("shows the workdir row when it uses an override path", () => {
+    renderSection(undefined, {
+      ...snapshot.launcher.resolvedSettings,
+      workdir: "D:\\RayleaRuntime",
+    });
+
+    expect(screen.getByText("安装目录")).toBeInTheDocument();
+    expect(screen.getByText("进程工作目录")).toBeInTheDocument();
+    expect(screen.getByText("D:\\RayleaRuntime")).toBeInTheDocument();
+  });
+
   test("renders readiness reason, diagnostics, and stderr panel for degraded state", () => {
     renderSection();
 

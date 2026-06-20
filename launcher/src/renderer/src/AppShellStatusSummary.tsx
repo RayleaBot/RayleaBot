@@ -7,7 +7,36 @@ type AppShellStatusSummaryProps = {
   snapshot: LauncherSnapshot;
 };
 
+function normalizeComparablePath(value: string) {
+  const trimmed = value.trim();
+  const withoutTrailingSlash = trimmed.replace(/[\\/]+$/, "");
+  return withoutTrailingSlash || trimmed;
+}
+
+function isWindowsPath(value: string) {
+  const trimmed = value.trim();
+  return /^[a-z]:[\\/]?/i.test(trimmed) || trimmed.startsWith("\\\\");
+}
+
+function isSameDirectoryPath(left: string, right: string) {
+  const normalizedLeft = normalizeComparablePath(left);
+  const normalizedRight = normalizeComparablePath(right);
+  if (!normalizedLeft || !normalizedRight) {
+    return false;
+  }
+
+  if (isWindowsPath(left) || isWindowsPath(right)) {
+    return normalizedLeft.toLowerCase() === normalizedRight.toLowerCase();
+  }
+
+  return normalizedLeft === normalizedRight;
+}
+
 export function AppShellStatusSummary({ resolvedSettings, snapshot }: AppShellStatusSummaryProps) {
+  const installationRoot = snapshot.launcher.settings.installationRoot;
+  const workdir = resolvedSettings.workdir;
+  const showWorkdir = Boolean(workdir.trim()) && !isSameDirectoryPath(installationRoot, workdir);
+
   return (
     <article className="panel glass-panel panel--interactive">
       <div className="brand-eyebrow">核心参数</div>
@@ -30,16 +59,18 @@ export function AppShellStatusSummary({ resolvedSettings, snapshot }: AppShellSt
           <div className="status-item-modern__icon"><FolderOpen20Filled /></div>
           <div className="status-item-modern__content">
             <span className="status-label">安装目录</span>
-            <span className="status-value mono" title={snapshot.launcher.settings.installationRoot}>{snapshot.launcher.settings.installationRoot || "—"}</span>
+            <span className="status-value mono" title={installationRoot}>{installationRoot || "—"}</span>
           </div>
         </div>
-        <div className="status-item-modern status-item-modern--full">
-          <div className="status-item-modern__icon"><DocumentText20Filled /></div>
-          <div className="status-item-modern__content">
-            <span className="status-label">运行目录</span>
-            <span className="status-value mono" title={resolvedSettings.workdir}>{resolvedSettings.workdir || "—"}</span>
+        {showWorkdir ? (
+          <div className="status-item-modern status-item-modern--full">
+            <div className="status-item-modern__icon"><DocumentText20Filled /></div>
+            <div className="status-item-modern__content">
+              <span className="status-label">进程工作目录</span>
+              <span className="status-value mono" title={workdir}>{workdir}</span>
+            </div>
           </div>
-        </div>
+        ) : null}
       </div>
     </article>
   );
