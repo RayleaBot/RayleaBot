@@ -1,4 +1,4 @@
-package app
+package services
 
 import (
 	"bytes"
@@ -582,7 +582,7 @@ func (l *recordingConfigOutboundLimiter) Wait(ctx context.Context, request outbo
 	return l.inner.Wait(ctx, request)
 }
 
-func newConfigHTTPOutboundLimiterFixture(t *testing.T, message config.MessageConfig) (*App, *recordingConfigOutboundLimiter) {
+func newConfigHTTPOutboundLimiterFixture(t *testing.T, message config.MessageConfig) (*serviceHarness, *recordingConfigOutboundLimiter) {
 	t.Helper()
 
 	configPath := filepath.Join(t.TempDir(), "user.yaml")
@@ -608,7 +608,7 @@ func newConfigHTTPOutboundLimiterFixture(t *testing.T, message config.MessageCon
 	return app, limiter
 }
 
-func putConfigDocument(t *testing.T, app *App, limiter *recordingConfigOutboundLimiter, document map[string]any) configapi.UpdateResponse {
+func putConfigDocument(t *testing.T, app *serviceHarness, limiter *recordingConfigOutboundLimiter, document map[string]any) configapi.UpdateResponse {
 	t.Helper()
 
 	body, err := json.Marshal(document)

@@ -1,12 +1,14 @@
-package app
+package services
 
 import (
 	"context"
 	"log/slog"
 	"net/http"
+	"sync/atomic"
 	"time"
 
-	"github.com/RayleaBot/RayleaBot/server/internal/app/httpwire"
+	appplatform "github.com/RayleaBot/RayleaBot/server/internal/app/platform"
+	"github.com/RayleaBot/RayleaBot/server/internal/app/pluginstack"
 	"github.com/RayleaBot/RayleaBot/server/internal/app/servicegraph"
 	adapterintake "github.com/RayleaBot/RayleaBot/server/internal/bot/adapter/onebot11/intake"
 	adaptershell "github.com/RayleaBot/RayleaBot/server/internal/bot/adapter/onebot11/shell"
@@ -17,6 +19,7 @@ import (
 	menuext "github.com/RayleaBot/RayleaBot/server/internal/extensions/menu"
 	"github.com/RayleaBot/RayleaBot/server/internal/governance"
 	"github.com/RayleaBot/RayleaBot/server/internal/logging"
+	"github.com/RayleaBot/RayleaBot/server/internal/app/httpwire"
 	"github.com/RayleaBot/RayleaBot/server/internal/management/configapi"
 	managementevents "github.com/RayleaBot/RayleaBot/server/internal/management/events"
 	"github.com/RayleaBot/RayleaBot/server/internal/management/systemapi"
@@ -43,12 +46,105 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/tasks"
 )
 
-func newTestAppState(cfg config.Config, logger *slog.Logger) *App {
+// serviceHarness assembles individual application services in isolation, the
+// same way the composition root does, but without building a full *app.App. It
+// lets service-level tests construct exactly the collaborators they exercise.
+type serviceHarness struct {
+	state       *harnessState
+	process     harnessProcess
+	platform    appplatform.State
+	pluginStack pluginstack.State
+	services    servicegraph.Services
+	runtimes    *runtimeregistry.Registry
+}
+
+type harnessProcess struct {
+	shuttingDown atomic.Bool
+}
+
+// harnessState mirrors the app runtime state and satisfies both the
+// httpwire.RuntimeState and servicegraph.RuntimeState interfaces.
+type harnessState struct {
+	Config     config.Config
+	Summary    config.Summary
+	Logger     *slog.Logger
+	LogLevel   *logging.LevelController
+	repoRoot   string
+	redactText func(string) string
+	startedAt  time.Time
+}
+
+func (s *harnessState) CurrentConfig() config.Config {
+	if s == nil {
+		return config.Config{}
+	}
+	return s.Config
+}
+
+func (s *harnessState) CurrentSummary() config.Summary {
+	if s == nil {
+		return config.Summary{}
+	}
+	return s.Summary
+}
+
+func (s *harnessState) SetConfig(cfg config.Config) {
+	if s != nil {
+		s.Config = cfg
+	}
+}
+
+func (s *harnessState) SetSummary(summary config.Summary) {
+	if s != nil {
+		s.Summary = summary
+	}
+}
+
+func (s *harnessState) RuntimeLogger() *slog.Logger {
+	if s == nil {
+		return nil
+	}
+	return s.Logger
+}
+
+func (s *harnessState) RuntimeLogLevel() *logging.LevelController {
+	if s == nil {
+		return nil
+	}
+	return s.LogLevel
+}
+
+func (s *harnessState) RepoRoot() string {
+	if s == nil {
+		return ""
+	}
+	return s.repoRoot
+}
+
+func (s *harnessState) StartedAt() time.Time {
+	if s == nil {
+		return time.Time{}
+	}
+	return s.startedAt
+}
+
+func (s *harnessState) RedactString(value string) string {
+	return s.redactString(value)
+}
+
+func (s *harnessState) redactString(value string) string {
+	if s == nil || s.redactText == nil {
+		return value
+	}
+	return s.redactText(value)
+}
+
+func newTestAppState(cfg config.Config, logger *slog.Logger) *serviceHarness {
 	if logger == nil {
 		logger = slog.Default()
 	}
-	return &App{
-		state: &appRuntimeState{
+	return &serviceHarness{
+		state: &harnessState{
 			Config:    cfg,
 			Logger:    logger,
 			startedAt: time.Now().UTC(),
@@ -66,7 +162,7 @@ func defaultAdapterTestConfig() config.AdapterConfig {
 	}
 }
 
-func testAutoGrantCapabilities(state *appRuntimeState) func() []string {
+func testAutoGrantCapabilities(state *harnessState) func() []string {
 	return func() []string {
 		if state == nil {
 			return nil
@@ -75,11 +171,11 @@ func testAutoGrantCapabilities(state *appRuntimeState) func() []string {
 	}
 }
 
-func (a *App) setTestEventIngress(catalog *plugincatalog.Catalog, blacklistRepo permission.BlacklistRepository, sender eventingress.OutboundActionSender, eventBridge *bridge.Bridge) {
+func (a *serviceHarness) setTestEventIngress(catalog *plugincatalog.Catalog, blacklistRepo permission.BlacklistRepository, sender eventingress.OutboundActionSender, eventBridge *bridge.Bridge) {
 	a.setTestEventIngressWithGovernance(catalog, nil, nil, blacklistRepo, sender, eventBridge)
 }
 
-func (a *App) setTestEventIngressWithGovernance(catalog *plugincatalog.Catalog, whitelistRepo permission.WhitelistRepository, whitelistState permission.WhitelistStateRepository, blacklistRepo permission.BlacklistRepository, sender eventingress.OutboundActionSender, eventBridge *bridge.Bridge) {
+func (a *serviceHarness) setTestEventIngressWithGovernance(catalog *plugincatalog.Catalog, whitelistRepo permission.WhitelistRepository, whitelistState permission.WhitelistStateRepository, blacklistRepo permission.BlacklistRepository, sender eventingress.OutboundActionSender, eventBridge *bridge.Bridge) {
 	if a == nil {
 		return
 	}
@@ -118,7 +214,7 @@ func (a *App) setTestEventIngressWithGovernance(catalog *plugincatalog.Catalog, 
 	})
 }
 
-func (a *App) setTestLifecycle(catalog *plugincatalog.Catalog, desiredRepo plugins.DesiredStateRepository, grantRepo plugins.GrantRepository, runtimes *runtimeregistry.Registry, dispatcher *dispatch.Dispatcher, pluginConfigRepo pluginconfig.Repository, adapterShell *adaptershell.Shell, webhooks *pluginwebhook.Registry) {
+func (a *serviceHarness) setTestLifecycle(catalog *plugincatalog.Catalog, desiredRepo plugins.DesiredStateRepository, grantRepo plugins.GrantRepository, runtimes *runtimeregistry.Registry, dispatcher *dispatch.Dispatcher, pluginConfigRepo pluginconfig.Repository, adapterShell *adaptershell.Shell, webhooks *pluginwebhook.Registry) {
 	if a == nil {
 		return
 	}
@@ -151,7 +247,7 @@ func (a *App) setTestLifecycle(catalog *plugincatalog.Catalog, desiredRepo plugi
 	})
 }
 
-func (a *App) setTestLocalActions(grantRepo plugins.GrantRepository, pluginConfigRepo pluginconfig.Repository, pluginFiles *pluginfile.Service, pluginKV pluginkv.Repository, schedulerEngine *scheduler.Engine, dispatcher *dispatch.Dispatcher, rendererService *renderservice.Service, adapterShell *adaptershell.Shell, limiter *localaction.PluginLogLimiter, webhookService *pluginwebhook.Service) {
+func (a *serviceHarness) setTestLocalActions(grantRepo plugins.GrantRepository, pluginConfigRepo pluginconfig.Repository, pluginFiles *pluginfile.Service, pluginKV pluginkv.Repository, schedulerEngine *scheduler.Engine, dispatcher *dispatch.Dispatcher, rendererService *renderservice.Service, adapterShell *adaptershell.Shell, limiter *localaction.PluginLogLimiter, webhookService *pluginwebhook.Service) {
 	if a == nil {
 		return
 	}
@@ -200,7 +296,7 @@ func (a *App) setTestLocalActions(grantRepo plugins.GrantRepository, pluginConfi
 	}
 }
 
-func (a *App) setTestSystem(taskRegistry *tasks.Registry, taskExecutor *tasks.Executor, rendererService *renderservice.Service, logRepository logging.Repository) {
+func (a *serviceHarness) setTestSystem(taskRegistry *tasks.Registry, taskExecutor *tasks.Executor, rendererService *renderservice.Service, logRepository logging.Repository) {
 	if a == nil {
 		return
 	}
@@ -225,7 +321,7 @@ func (a *App) setTestSystem(taskRegistry *tasks.Registry, taskExecutor *tasks.Ex
 	a.services.System.BindShutdownFlag(&a.process.shuttingDown)
 }
 
-func (a *App) setTestWebhookService(secretStore secrets.Store, dispatcher *dispatch.Dispatcher, lifecycle *pluginservice.Controller, registry *pluginwebhook.Registry) {
+func (a *serviceHarness) setTestWebhookService(secretStore secrets.Store, dispatcher *dispatch.Dispatcher, lifecycle *pluginservice.Controller, registry *pluginwebhook.Registry) {
 	if a == nil {
 		return
 	}
@@ -251,67 +347,67 @@ func (a *App) setTestWebhookService(secretStore secrets.Store, dispatcher *dispa
 	}
 }
 
-func (a *App) executeLocalAction(ctx context.Context, pluginID, requestID string, action runtimeaction.Action) (map[string]any, error) {
+func (a *serviceHarness) executeLocalAction(ctx context.Context, pluginID, requestID string, action runtimeaction.Action) (map[string]any, error) {
 	return a.services.LocalActions.Execute(ctx, pluginID, requestID, action, runtimeprotocol.Event{})
 }
 
-func (a *App) executeOneBotLocalAction(ctx context.Context, pluginID, requestID string, action runtimeaction.Action) (map[string]any, error) {
+func (a *serviceHarness) executeOneBotLocalAction(ctx context.Context, pluginID, requestID string, action runtimeaction.Action) (map[string]any, error) {
 	return a.services.LocalActions.Execute(ctx, pluginID, requestID, action, runtimeprotocol.Event{})
 }
 
-func (a *App) executeLocalActionForEvent(ctx context.Context, pluginID, requestID string, action runtimeaction.Action, parentEvent runtimeprotocol.Event) (map[string]any, error) {
+func (a *serviceHarness) executeLocalActionForEvent(ctx context.Context, pluginID, requestID string, action runtimeaction.Action, parentEvent runtimeprotocol.Event) (map[string]any, error) {
 	return a.services.LocalActions.Execute(ctx, pluginID, requestID, action, parentEvent)
 }
 
-func (a *App) commandInfoForEvent(event adapterintake.NormalizedEvent) *permission.CommandInfo {
+func (a *serviceHarness) commandInfoForEvent(event adapterintake.NormalizedEvent) *permission.CommandInfo {
 	return a.services.EventIngress.CommandInfoForEvent(event)
 }
 
-func (a *App) enrichCommandEvent(event adapterintake.NormalizedEvent) adapterintake.NormalizedEvent {
+func (a *serviceHarness) enrichCommandEvent(event adapterintake.NormalizedEvent) adapterintake.NormalizedEvent {
 	return a.services.EventIngress.EnrichCommandEvent(event)
 }
 
-func (a *App) handleAdapterEvent(ctx context.Context, event adapterintake.NormalizedEvent) {
+func (a *serviceHarness) handleAdapterEvent(ctx context.Context, event adapterintake.NormalizedEvent) {
 	a.services.EventIngress.HandleAdapterEvent(ctx, event)
 }
 
-func (a *App) applyChatPolicy(ctx context.Context, event adapterintake.NormalizedEvent) (adapterintake.NormalizedEvent, bool) {
+func (a *serviceHarness) applyChatPolicy(ctx context.Context, event adapterintake.NormalizedEvent) (adapterintake.NormalizedEvent, bool) {
 	return a.services.EventIngress.ApplyChatPolicy(ctx, event)
 }
 
-func (a *App) autoPrepareRuntimeEnvironments(ctx context.Context) {
+func (a *serviceHarness) autoPrepareRuntimeEnvironments(ctx context.Context) {
 	a.services.System.AutoPrepareRuntimeEnvironments(ctx)
 }
 
-func (a *App) startupRuntimeState(kind string) (systemsvc.StartupRuntimeState, bool) {
+func (a *serviceHarness) startupRuntimeState(kind string) (systemsvc.StartupRuntimeState, bool) {
 	return a.services.System.StartupRuntimeState(kind)
 }
 
-func (a *App) setStartupRuntimeState(kind string, phase systemsvc.StartupRuntimePhase, issue *recovery.CompatibilityIssue) {
+func (a *serviceHarness) setStartupRuntimeState(kind string, phase systemsvc.StartupRuntimePhase, issue *recovery.CompatibilityIssue) {
 	a.services.System.SetStartupRuntimeState(kind, phase, issue)
 }
 
-func (a *App) managedRuntimeDiagnostics(pluginsList []plugins.Snapshot) []recovery.CompatibilityIssue {
+func (a *serviceHarness) managedRuntimeDiagnostics(pluginsList []plugins.Snapshot) []recovery.CompatibilityIssue {
 	return a.services.System.ManagedRuntimeDiagnostics(pluginsList)
 }
 
-func (a *App) handleSystemRecoveryRecheck() http.HandlerFunc {
+func (a *serviceHarness) handleSystemRecoveryRecheck() http.HandlerFunc {
 	return systemapi.NewHandlers(a.services.System).HandleSystemRecoveryRecheck()
 }
 
-func (a *App) handleSystemRecoveryConfirm() http.HandlerFunc {
+func (a *serviceHarness) handleSystemRecoveryConfirm() http.HandlerFunc {
 	return systemapi.NewHandlers(a.services.System).HandleSystemRecoveryConfirm()
 }
 
-func (a *App) handleSystemRuntimeBootstrap() http.HandlerFunc {
+func (a *serviceHarness) handleSystemRuntimeBootstrap() http.HandlerFunc {
 	return systemapi.NewHandlers(a.services.System).HandleSystemRuntimeBootstrap()
 }
 
-func (a *App) handlePluginWebhook() http.HandlerFunc {
+func (a *serviceHarness) handlePluginWebhook() http.HandlerFunc {
 	return a.services.PluginWebhooks.HandleWebhook()
 }
 
-func applyConfigApplyEffects(app *App, newCfg config.Config) configapi.ApplyEffects {
+func applyConfigApplyEffects(app *serviceHarness, newCfg config.Config) configapi.ApplyEffects {
 	if app == nil {
 		return configapi.NewApplyEffects()
 	}
@@ -328,7 +424,7 @@ func applyConfigApplyEffects(app *App, newCfg config.Config) configapi.ApplyEffe
 	return configapi.NewHandlers(service).ApplyHotReloadableFields(newCfg)
 }
 
-func applyHotReloadableFields(app *App, newCfg config.Config) bool {
+func applyHotReloadableFields(app *serviceHarness, newCfg config.Config) bool {
 	return applyConfigApplyEffects(app, newCfg).RestartRequired()
 }
 
@@ -379,7 +475,7 @@ func (r *stubLifecycleGrantRepository) DeleteAllGrants(context.Context, string) 
 	return nil
 }
 
-func (a *App) dispatchPluginConfigChanged(ctx context.Context, pluginID string) {
+func (a *serviceHarness) dispatchPluginConfigChanged(ctx context.Context, pluginID string) {
 	if a == nil {
 		return
 	}

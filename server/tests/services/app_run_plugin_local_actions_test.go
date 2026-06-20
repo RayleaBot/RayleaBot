@@ -1,4 +1,4 @@
-package app
+package services
 
 import (
 	"bytes"
@@ -275,7 +275,7 @@ func TestExecutePluginListCallerVisibilityFiltersHelp(t *testing.T) {
 	}
 }
 
-func newPluginListVisibilityTestApp(cfg config.Config) *App {
+func newPluginListVisibilityTestApp(cfg config.Config) *serviceHarness {
 	application := newTestAppState(cfg, slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)))
 	application.pluginStack.Plugins = plugincatalog.New([]plugins.Snapshot{
 		{
