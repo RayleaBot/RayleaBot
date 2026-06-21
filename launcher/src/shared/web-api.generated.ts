@@ -1801,6 +1801,7 @@ export interface components {
             label: string;
             enabled: boolean;
             cookie?: string;
+            profile?: components["schemas"]["ThirdPartyAccountProfile"];
             proxy_url?: string;
             proxy_enabled?: boolean;
         };

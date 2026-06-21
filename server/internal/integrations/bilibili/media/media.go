@@ -13,9 +13,9 @@ import (
 const maxMediaBytes = 8 << 20
 
 var (
-	ErrUnsupportedURL         = errors.New("unsupported bilibili media url")
-	ErrReadFailed             = errors.New("bilibili media read failed")
-	ErrUnsupportedContentType = errors.New("unsupported bilibili media content type")
+	ErrUnsupportedURL         = errors.New("unsupported third-party media url")
+	ErrReadFailed             = errors.New("third-party media read failed")
+	ErrUnsupportedContentType = errors.New("unsupported third-party media content type")
 )
 
 type Resource struct {
@@ -66,17 +66,47 @@ func normalizeURL(value string) (string, error) {
 		return "", ErrUnsupportedURL
 	}
 	host := strings.ToLower(parsed.Hostname())
-	if host != "hdslb.com" && !strings.HasSuffix(host, ".hdslb.com") {
-		return "", ErrUnsupportedURL
-	}
 	if parsed.User != nil || parsed.RawQuery != "" {
 		return "", ErrUnsupportedURL
 	}
 	path := strings.ToLower(parsed.EscapedPath())
-	if path == "" || !(strings.HasPrefix(path, "/bfs/") || strings.HasPrefix(path, "/fs/")) {
-		return "", ErrUnsupportedURL
+	if isBilibiliMediaHost(host) {
+		if path == "" || !(strings.HasPrefix(path, "/bfs/") || strings.HasPrefix(path, "/fs/")) {
+			return "", ErrUnsupportedURL
+		}
+		return parsed.String(), nil
 	}
-	return parsed.String(), nil
+	if isWeiboMediaHost(host) {
+		if path == "" || path == "/" {
+			return "", ErrUnsupportedURL
+		}
+		return parsed.String(), nil
+	}
+	return "", ErrUnsupportedURL
+}
+
+func isBilibiliMediaHost(host string) bool {
+	return host == "hdslb.com" || strings.HasSuffix(host, ".hdslb.com")
+}
+
+func isWeiboMediaHost(host string) bool {
+	return host == "sinaimg.cn" || strings.HasSuffix(host, ".sinaimg.cn")
+}
+
+func refererFor(mediaURL string) string {
+	parsed, err := url.Parse(mediaURL)
+	if err != nil {
+		return ""
+	}
+	host := strings.ToLower(parsed.Hostname())
+	switch {
+	case isBilibiliMediaHost(host):
+		return "https://www.bilibili.com/"
+	case isWeiboMediaHost(host):
+		return "https://weibo.com/"
+	default:
+		return ""
+	}
 }
 
 func newRequest(ctx context.Context, mediaURL string) (*http.Request, error) {
@@ -84,8 +114,12 @@ func newRequest(ctx context.Context, mediaURL string) (*http.Request, error) {
 	if err != nil {
 		return nil, err
 	}
+	referer := refererFor(mediaURL)
+	if referer == "" {
+		return nil, ErrUnsupportedURL
+	}
 	request.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36")
-	request.Header.Set("Referer", "https://www.bilibili.com/")
+	request.Header.Set("Referer", referer)
 	request.Header.Set("Accept", "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8")
 	return request, nil
 }

@@ -50,6 +50,39 @@ func TestThirdPartyMediaStreamsAllowedBilibiliImage(t *testing.T) {
 	}
 }
 
+func TestThirdPartyMediaStreamsAllowedWeiboAvatar(t *testing.T) {
+	t.Parallel()
+
+	handler := NewThirdPartyHandlers(nil, nil, nil, nil, thirdPartyMediaRoundTripFunc(func(request *http.Request) (*http.Response, error) {
+		if request.URL.String() != "https://tvax1.sinaimg.cn/crop.0.0.512.512.180/fixture.jpg" {
+			t.Fatalf("unexpected media url: %s", request.URL.String())
+		}
+		if request.Header.Get("Referer") != "https://weibo.com/" || request.Header.Get("User-Agent") == "" {
+			t.Fatalf("expected Weibo image request headers, got %#v", request.Header)
+		}
+		return &http.Response{
+			StatusCode: http.StatusOK,
+			Header:     http.Header{"Content-Type": []string{"image/webp"}},
+			Body:       io.NopCloser(strings.NewReader("webp-bytes")),
+			Request:    request,
+		}, nil
+	}))
+	request := httptest.NewRequest(http.MethodGet, "/api/third-party/media?url=https%3A%2F%2Ftvax1.sinaimg.cn%2Fcrop.0.0.512.512.180%2Ffixture.jpg", nil)
+	recorder := httptest.NewRecorder()
+
+	handler.HandleThirdPartyMedia().ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("media status = %d, want 200 (%s)", recorder.Code, recorder.Body.String())
+	}
+	if got := recorder.Header().Get("Content-Type"); got != "image/webp" {
+		t.Fatalf("content type = %q, want image/webp", got)
+	}
+	if recorder.Body.String() != "webp-bytes" {
+		t.Fatalf("unexpected media body: %q", recorder.Body.String())
+	}
+}
+
 func TestThirdPartyMediaRejectsUnsupportedURL(t *testing.T) {
 	t.Parallel()
 
@@ -61,6 +94,8 @@ func TestThirdPartyMediaRejectsUnsupportedURL(t *testing.T) {
 		"http%3A%2F%2Fi0.hdslb.com%2Fbfs%2Fface%2Fup.jpg",
 		"https%3A%2F%2Fexample.com%2Fbfs%2Fface%2Fup.jpg",
 		"https%3A%2F%2Fi0.hdslb.com%2Fnot-bfs%2Fup.jpg",
+		"https%3A%2F%2Ftvax1.sinaimg.cn%2F",
+		"https%3A%2F%2Fevilsinaimg.cn%2Fcrop.0.0.512.512.180%2Ffixture.jpg",
 	} {
 		request := httptest.NewRequest(http.MethodGet, "/api/third-party/media?url="+rawURL, nil)
 		recorder := httptest.NewRecorder()

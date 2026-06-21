@@ -118,7 +118,7 @@
   - subscription hub config readout for Bilibili live / dynamic monitoring targets
   - empty third-party monitor projection for 微博、抖音、网易云音乐
   - `bilibili.live.started`、`bilibili.live.ended`、`bilibili.dynamic.published` event dispatch
-  - controlled Bilibili media proxy for management UI images
+  - controlled third-party media proxy for management UI images
 - runtime metrics：
   - Prometheus text format through authenticated `GET /api/system/metrics`
   - adapter / bridge / dispatcher / runtime / tasks / render / outbound / webhook metrics
@@ -172,7 +172,7 @@
 - App 负责组装、运行和关闭；事件入口、协议入口、Webhook 网关、本地动作和系统能力分别由独立服务承载
 - 内置三方账号平台包含 Bilibili、微博、抖音和网易云音乐
 - Cookie / CK 值只保存在 secret store；HTTP 响应只暴露账号摘要与凭据状态
-- Bilibili source、扫码登录、用户解析和三方媒体代理为 Bilibili 专属服务
+- Bilibili source、扫码登录和用户解析为 Bilibili 专属服务；三方媒体代理支持受控 Bilibili 图片资源和微博头像资源
 
 ## 默认命令
 

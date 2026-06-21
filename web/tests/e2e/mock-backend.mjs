@@ -16,6 +16,7 @@ const externalPreviewImageBytes = Buffer.from(
 )
 const bilibiliAvatarUrl = 'http://127.0.0.1:4010/external-preview/avatar.png'
 const bilibiliMonitorMediaUrl = '//i0.hdslb.com/bfs/face/rayleabot-avatar.png'
+const weiboAvatarUrl = 'https://tvax1.sinaimg.cn/crop.0.0.512.512.180/fixture.jpg'
 const externalPreviewFontBytes = await readFile(
   path.join(repoRoot, 'templates', 'fortune.card', 'assets', 'fonts', 'lxgwwenkai-medium', 'e8f52c41386b1b7731acfccb8c1a8c52.woff2'),
 )
@@ -1616,7 +1617,9 @@ const server = http.createServer(async (request, response) => {
       return
     }
     const mediaURL = new URL(searchParams.get('url') || '')
-    if (mediaURL.protocol !== 'https:' || !mediaURL.hostname.endsWith('.hdslb.com') || !mediaURL.pathname.startsWith('/bfs/')) {
+    const allowedBilibiliMedia = mediaURL.hostname.endsWith('.hdslb.com') && (mediaURL.pathname.startsWith('/bfs/') || mediaURL.pathname.startsWith('/fs/'))
+    const allowedWeiboAvatar = mediaURL.hostname.endsWith('.sinaimg.cn') && mediaURL.pathname !== '/'
+    if (mediaURL.protocol !== 'https:' || (!allowedBilibiliMedia && !allowedWeiboAvatar)) {
       json(response, 400, errorEnvelope('platform.invalid_request', 'third-party media url is invalid', 'req_third_party_media_invalid'))
       return
     }
@@ -1666,7 +1669,10 @@ const server = http.createServer(async (request, response) => {
     if (payload.cookie) {
       nextAccount.profile = platform === 'bilibili'
         ? structuredClone(fixtureAccount.profile)
-        : structuredClone(succeededFixture?.account ?? previous?.profile ?? null)
+        : structuredClone(payload.profile ?? succeededFixture?.account ?? previous?.profile ?? null)
+      if (platform === 'weibo' && nextAccount.profile) {
+        nextAccount.profile.avatar_url = weiboAvatarUrl
+      }
       nextAccount.credential = defaultCredentialStatus(platform)
       nextAccount.configured = true
       nextAccount.polling.enabled = payload.enabled
@@ -1716,8 +1722,12 @@ const server = http.createServer(async (request, response) => {
     const fixture = state.thirdPartyQRCodePolls[pollKey] > 1
       ? fixturesForPlatform.succeeded
       : fixturesForPlatform.pending
+    const body = structuredClone(fixture.response.body)
+    if (platform === 'weibo' && body.account) {
+      body.account.avatar_url = weiboAvatarUrl
+    }
     json(response, fixture.response.status, {
-      ...structuredClone(fixture.response.body),
+      ...body,
       login_id: loginId,
     })
     return

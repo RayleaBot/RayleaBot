@@ -11,9 +11,10 @@ type thirdPartyAccountsResponse struct {
 }
 
 type thirdPartyAccountUpsertRequest struct {
-	Label   *string `json:"label"`
-	Enabled *bool   `json:"enabled"`
-	Cookie  string  `json:"cookie,omitempty"`
+	Label   *string                   `json:"label"`
+	Enabled *bool                     `json:"enabled"`
+	Cookie  string                    `json:"cookie,omitempty"`
+	Profile *thirdPartyAccountProfile `json:"profile,omitempty"`
 }
 
 type thirdPartyAccountUpsertResponse struct {
@@ -36,6 +37,17 @@ type thirdPartyAccountProfile struct {
 	UID       string `json:"uid"`
 	Nickname  string `json:"nickname"`
 	AvatarURL string `json:"avatar_url"`
+}
+
+func (profile *thirdPartyAccountProfile) accountProfile() thirdparty.AccountProfile {
+	if profile == nil {
+		return thirdparty.AccountProfile{}
+	}
+	return thirdparty.AccountProfile{
+		UID:       profile.UID,
+		Nickname:  profile.Nickname,
+		AvatarURL: profile.AvatarURL,
+	}
 }
 
 type thirdPartyCredentialStatus struct {

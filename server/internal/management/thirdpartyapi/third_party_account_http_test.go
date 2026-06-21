@@ -71,7 +71,7 @@ func TestThirdPartyAccountUpsertAcceptsWeiboCookie(t *testing.T) {
 	}))
 	router := chi.NewRouter()
 	router.Put("/api/third-party/accounts/{platform}/{account_id}", handler.HandleThirdPartyAccountUpsert())
-	request := httptest.NewRequest(http.MethodPut, "/api/third-party/accounts/weibo/primary", strings.NewReader(`{"label":"微博主账号","enabled":true,"cookie":"SUB=fixture;"}`))
+	request := httptest.NewRequest(http.MethodPut, "/api/third-party/accounts/weibo/primary", strings.NewReader(`{"label":"微博主账号","enabled":true,"cookie":"SUB=fixture;","profile":{"uid":"654321","nickname":"扫码资料","avatar_url":"https://tvax1.sinaimg.cn/crop.0.0.512.512.180/fixture.jpg"}}`))
 	recorder := httptest.NewRecorder()
 
 	router.ServeHTTP(recorder, request)
@@ -84,6 +84,9 @@ func TestThirdPartyAccountUpsertAcceptsWeiboCookie(t *testing.T) {
 	}
 	if accounts.upsertRequest.Validate == nil {
 		t.Fatal("weibo account upsert missing platform cookie validator")
+	}
+	if accounts.upsertRequest.Profile.UID != "654321" || accounts.upsertRequest.Profile.Nickname != "扫码资料" || accounts.upsertRequest.Profile.AvatarURL == "" {
+		t.Fatalf("unexpected request profile: %#v", accounts.upsertRequest.Profile)
 	}
 	var response thirdPartyAccountUpsertResponse
 	if err := json.Unmarshal(recorder.Body.Bytes(), &response); err != nil {

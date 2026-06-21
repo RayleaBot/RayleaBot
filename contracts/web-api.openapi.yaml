@@ -118,6 +118,7 @@ x-fixtures:
   - fixtures/web-api/ok.third-party-monitors-bilibili.yaml
   - fixtures/web-api/ok.third-party-monitors-weibo-empty.yaml
   - fixtures/web-api/ok.third-party-media-bilibili-image.yaml
+  - fixtures/web-api/ok.third-party-media-weibo-avatar.yaml
   - fixtures/web-api/invalid.third-party-media-unsupported-url.yaml
   - fixtures/web-api/ok.bilibili-login-qrcode-create.yaml
   - fixtures/web-api/ok.bilibili-login-qrcode-poll-pending.yaml
@@ -3578,6 +3579,8 @@ components:
         cookie:
           type: string
           minLength: 1
+        profile:
+          $ref: '#/components/schemas/ThirdPartyAccountProfile'
         proxy_url:
           type: string
         proxy_enabled:

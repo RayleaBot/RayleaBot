@@ -36,6 +36,7 @@ func (h *ThirdPartyHandlers) HandleThirdPartyAccountUpsert() http.HandlerFunc {
 			Label:     *body.Label,
 			Enabled:   *body.Enabled,
 			Cookie:    body.Cookie,
+			Profile:   body.Profile.accountProfile(),
 			Validate:  h.credentialValidator(chi.URLParam(r, "platform")),
 		})
 		if err != nil {

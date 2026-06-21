@@ -2,7 +2,7 @@ import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
 
 import { getDisplayErrorMessage } from '@/lib/error-text'
-import { apiRequest } from '@/lib/http'
+import { apiDownload, apiRequest } from '@/lib/http'
 import type {
   BilibiliQRCodeLoginCreateResponse,
   BilibiliQRCodeLoginPollResponse,
@@ -33,6 +33,7 @@ export const useThirdPartyAccountsStore = defineStore('third-party-accounts', ()
   const qrcodeCreating = ref(false)
   const qrcodePollingLoginId = ref<string | null>(null)
   const error = ref<string | null>(null)
+  const mediaObjectURLs = new Map<string, string>()
 
   const bilibiliAccounts = computed(() => accounts.value
     .filter((account) => account.platform === 'bilibili')
@@ -49,7 +50,7 @@ export const useThirdPartyAccountsStore = defineStore('third-party-accounts', ()
     error.value = null
     try {
       const accountsResponse = await apiRequest<ThirdPartyAccountsResponse>('/api/third-party/accounts')
-      accounts.value = accountsResponse.items
+      accounts.value = await resolveAccountMedia(accountsResponse.items)
     } catch (err) {
       error.value = getDisplayErrorMessage(err, 'errors.common.loadFailed')
       throw err
@@ -65,8 +66,9 @@ export const useThirdPartyAccountsStore = defineStore('third-party-accounts', ()
         `/api/third-party/accounts/${encodeURIComponent(platform)}/${encodeURIComponent(accountId)}`,
         { method: 'PUT', body: payload },
       )
-      upsertAccount(response.account)
-      return response.account
+      const account = await resolveAccountMediaItem(response.account)
+      upsertAccount(account)
+      return account
     } finally {
       savingAccountId.value = null
     }
@@ -158,6 +160,50 @@ export const useThirdPartyAccountsStore = defineStore('third-party-accounts', ()
     return `${platform}:${accountId}`
   }
 
+  async function resolveAccountMedia(items: ThirdPartyAccountSummary[]) {
+    return Promise.all(items.map(resolveAccountMediaItem))
+  }
+
+  async function resolveAccountMediaItem(account: ThirdPartyAccountSummary) {
+    const avatarURL = await downloadThirdPartyMedia(account.profile?.avatar_url || '')
+    if (!avatarURL || !account.profile || avatarURL === account.profile.avatar_url) {
+      return account
+    }
+    return {
+      ...account,
+      profile: {
+        ...account.profile,
+        avatar_url: avatarURL,
+      },
+    }
+  }
+
+  async function downloadThirdPartyMedia(url: string) {
+    const normalizedURL = normalizeThirdPartyMediaURL(url)
+    if (!normalizedURL) {
+      return url
+    }
+    const cached = mediaObjectURLs.get(normalizedURL)
+    if (cached) {
+      return cached
+    }
+    try {
+      const { blob } = await apiDownload(`/api/third-party/media?url=${encodeURIComponent(normalizedURL)}`)
+      const objectURL = window.URL.createObjectURL(blob)
+      mediaObjectURLs.set(normalizedURL, objectURL)
+      return objectURL
+    } catch {
+      return url
+    }
+  }
+
+  function disposeMedia() {
+    for (const objectURL of mediaObjectURLs.values()) {
+      window.URL.revokeObjectURL(objectURL)
+    }
+    mediaObjectURLs.clear()
+  }
+
   return {
     accounts,
     accountsByPlatform,
@@ -172,6 +218,7 @@ export const useThirdPartyAccountsStore = defineStore('third-party-accounts', ()
     createQRCodeLogin,
     deleteAccount,
     deleteBilibiliAccount,
+    disposeMedia,
     fetchAll,
     pollBilibiliQRCodeLogin,
     pollQRCodeLogin,
@@ -179,3 +226,42 @@ export const useThirdPartyAccountsStore = defineStore('third-party-accounts', ()
     saveBilibiliAccount,
   }
 })
+
+function normalizeThirdPartyMediaURL(value: string) {
+  const text = value.trim()
+  if (!text) {
+    return ''
+  }
+  try {
+    const parsed = new URL(text.startsWith('//') ? `https:${text}` : text)
+    if ((parsed.protocol !== 'https:' && parsed.protocol !== 'http:') || !isSupportedThirdPartyMediaHost(parsed.hostname)) {
+      return ''
+    }
+    if (isBilibiliMediaHost(parsed.hostname) && !parsed.pathname.startsWith('/bfs/') && !parsed.pathname.startsWith('/fs/')) {
+      return ''
+    }
+    if (isWeiboMediaHost(parsed.hostname) && (!parsed.pathname || parsed.pathname === '/')) {
+      return ''
+    }
+    parsed.protocol = 'https:'
+    parsed.search = ''
+    parsed.hash = ''
+    return parsed.toString()
+  } catch {
+    return ''
+  }
+}
+
+function isSupportedThirdPartyMediaHost(hostname: string) {
+  return isBilibiliMediaHost(hostname) || isWeiboMediaHost(hostname)
+}
+
+function isBilibiliMediaHost(hostname: string) {
+  const host = hostname.toLowerCase()
+  return host === 'hdslb.com' || host.endsWith('.hdslb.com')
+}
+
+function isWeiboMediaHost(hostname: string) {
+  const host = hostname.toLowerCase()
+  return host === 'sinaimg.cn' || host.endsWith('.sinaimg.cn')
+}

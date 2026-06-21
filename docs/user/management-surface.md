@@ -92,7 +92,7 @@
 - 三方监控页显示 `raylea.subscription-hub` 中启用的 Bilibili 订阅目标，覆盖直播、视频、图文、专栏和转发服务。
 - 直播和动态状态由内置 Bilibili source 检查，并通过正式 HTTP API 与管理 WebSocket 暴露。
 - 订阅中心支持 Bilibili、微博、抖音和网易云音乐订阅配置，并在聊天消息中解析对应平台链接。
-- 三方媒体代理只读取受控 Bilibili 图片资源，用于管理面展示头像、封面和动态图片。
+- 三方媒体代理读取受控 Bilibili 图片资源和微博头像资源，用于管理面展示头像、封面和动态图片。
 
 ## 状态来源与 Launcher 管理入口
 

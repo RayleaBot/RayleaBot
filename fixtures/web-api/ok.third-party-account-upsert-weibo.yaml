@@ -8,6 +8,10 @@ request:
     label: 微博主账号
     enabled: true
     cookie: "SUB=fixture;"
+    profile:
+      uid: "123456"
+      nickname: 微博扫码账号
+      avatar_url: "https://tvax1.sinaimg.cn/crop.0.0.512.512.180/fixture.jpg"
 response:
   status: 200
   body:
@@ -17,7 +21,10 @@ response:
       label: 微博主账号
       enabled: true
       configured: true
-      profile: null
+      profile:
+        uid: "123456"
+        nickname: 微博扫码账号
+        avatar_url: "https://tvax1.sinaimg.cn/crop.0.0.512.512.180/fixture.jpg"
       credential:
         state: unknown
         checked_at: "2026-06-08T08:01:01Z"

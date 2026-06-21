@@ -2649,7 +2649,9 @@ test('third-party accounts show Bilibili CK cards and QR login fills the editor'
       draftTitle: '微博 Cookie',
       prompt: '使用微博客户端扫码。',
       cookie: /SUB=fixture/,
-      savedAccountId: 'weibo-2',
+      savedAccountId: '123456',
+      savedCardText: '微博扫码账号',
+      expectAvatar: true,
     },
     {
       addLabel: '添加抖音 Cookie',
@@ -2676,9 +2678,17 @@ test('third-party accounts show Bilibili CK cards and QR login fills the editor'
     await expect(platformDraftCard.locator('.qr-panel')).toContainText('等待确认')
     await expect(platformDraftCard.locator('textarea')).toHaveValue(item.cookie, { timeout: 5000 })
     await platformDraftCard.getByRole('button', { name: /保\s*存/ }).click()
-    const savedAccountCard = page.locator('.account-card').filter({ hasText: `账号 ID${item.savedAccountId}` }).first()
+    const savedAccountCard = page.locator('.account-card').filter({ hasText: item.savedCardText ?? `账号 ID${item.savedAccountId}` }).first()
     await expect(savedAccountCard).toBeVisible()
+    await expect(savedAccountCard).toContainText(`账号 ID${item.savedAccountId}`)
     await expect(savedAccountCard).toContainText('已配置')
+    if (item.expectAvatar) {
+      const savedAvatar = savedAccountCard.getByTestId('bilibili-account-avatar-image')
+      await expect(savedAvatar).toBeVisible()
+      await expect(savedAvatar).toHaveAttribute('src', /^blob:/)
+      await savedAvatar.evaluate((element) => element.dispatchEvent(new Event('error')))
+      await expect(savedAccountCard.getByTestId('bilibili-account-avatar-fallback')).toBeVisible()
+    }
     await expectThirdPartyAccountCardsContained(page)
   }
 })

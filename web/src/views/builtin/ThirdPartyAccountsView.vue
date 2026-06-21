@@ -23,6 +23,7 @@ import {
   type ThirdPartyPlatform,
 } from '@/stores/third-party-accounts'
 import type {
+  ThirdPartyAccountProfile,
   ThirdPartyAccountSummary,
   ThirdPartyCredentialState,
   ThirdPartyQRCodeLoginCreateResponse,
@@ -66,6 +67,7 @@ interface QRLoginState {
   cookie: string
   accountNickname: string
   accountUid: string
+  accountAvatarUrl: string
 }
 
 const qrPollIntervalMs = 2000
@@ -130,6 +132,7 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   stopQRPolling()
+  store.disposeMedia()
 })
 
 async function loadPage() {
@@ -209,10 +212,12 @@ async function saveDraft(key: string) {
     return
   }
   try {
+    const profile = qrLoginProfile(qrLogins[key])
     await store.saveAccount(draft.platform, accountId, {
       label,
       enabled: draft.enabled,
       ...(cookie ? { cookie } : {}),
+      ...(cookie && profile ? { profile } : {}),
     })
     cancelEdit(key)
     notifySuccess(t('builtinFeatures.thirdPartyAccounts.saved'))
@@ -262,6 +267,7 @@ function setQRLogin(key: string, response: ThirdPartyQRCodeLoginCreateResponse |
     cookie: cookie || previous?.cookie || '',
     accountNickname: account?.nickname || previous?.accountNickname || '',
     accountUid: account?.uid || previous?.accountUid || '',
+    accountAvatarUrl: account?.avatar_url || previous?.accountAvatarUrl || '',
   }
   if (cookie && drafts[key]) {
     drafts[key].cookie = cookie
@@ -271,6 +277,20 @@ function setQRLogin(key: string, response: ThirdPartyQRCodeLoginCreateResponse |
     if (account?.nickname) {
       drafts[key].label = account.nickname
     }
+  }
+}
+
+function qrLoginProfile(qr?: QRLoginState): ThirdPartyAccountProfile | null {
+  const uid = qr?.accountUid.trim() || ''
+  const nickname = qr?.accountNickname.trim() || ''
+  const avatarUrl = qr?.accountAvatarUrl.trim() || ''
+  if (!uid || !nickname || !avatarUrl) {
+    return null
+  }
+  return {
+    uid,
+    nickname,
+    avatar_url: avatarUrl,
   }
 }
 

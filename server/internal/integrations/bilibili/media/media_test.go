@@ -51,7 +51,40 @@ func TestFetchReadsAllowedHdslbImage(t *testing.T) {
 	}
 }
 
-func TestNormalizeURLAllowsHdslbBfsAndFsPaths(t *testing.T) {
+func TestFetchReadsAllowedWeiboAvatar(t *testing.T) {
+	t.Parallel()
+
+	client := &http.Client{Transport: roundTripFunc(func(request *http.Request) (*http.Response, error) {
+		if request.URL.String() != "https://tvax1.sinaimg.cn/crop.0.0.512.512.180/fixture.jpg" {
+			t.Fatalf("request url = %q, want Weibo avatar url", request.URL.String())
+		}
+		if request.Header.Get("Referer") != "https://weibo.com/" {
+			t.Fatalf("referer = %q, want Weibo referer", request.Header.Get("Referer"))
+		}
+		if request.Header.Get("User-Agent") == "" {
+			t.Fatal("expected user agent header")
+		}
+		return &http.Response{
+			StatusCode: http.StatusOK,
+			Header:     http.Header{"Content-Type": []string{"image/webp"}},
+			Body:       io.NopCloser(strings.NewReader("webp-bytes")),
+			Request:    request,
+		}, nil
+	})}
+
+	resource, err := Fetch(context.Background(), client, " https://tvax1.sinaimg.cn/crop.0.0.512.512.180/fixture.jpg ")
+	if err != nil {
+		t.Fatalf("Fetch returned error: %v", err)
+	}
+	if resource.ContentType != "image/webp" {
+		t.Fatalf("content type = %q, want image/webp", resource.ContentType)
+	}
+	if string(resource.Body) != "webp-bytes" {
+		t.Fatalf("body = %q, want webp-bytes", string(resource.Body))
+	}
+}
+
+func TestNormalizeURLAllowsSupportedImageHosts(t *testing.T) {
 	t.Parallel()
 
 	for _, tc := range []struct {
@@ -68,6 +101,11 @@ func TestNormalizeURLAllowsHdslbBfsAndFsPaths(t *testing.T) {
 			name:  "root fs",
 			value: "https://hdslb.com/fs/archive/up.webp",
 			want:  "https://hdslb.com/fs/archive/up.webp",
+		},
+		{
+			name:  "weibo avatar",
+			value: "https://tvax1.sinaimg.cn/crop.0.0.512.512.180/fixture.jpg",
+			want:  "https://tvax1.sinaimg.cn/crop.0.0.512.512.180/fixture.jpg",
 		},
 	} {
 		tc := tc
@@ -100,6 +138,9 @@ func TestFetchRejectsUnsupportedURL(t *testing.T) {
 		"https://i0.hdslb.com/not-bfs/up.jpg",
 		"https://i0.hdslb.com/bfs/face/up.jpg?x=1",
 		"https://user@i0.hdslb.com/bfs/face/up.jpg",
+		"https://evilsinaimg.cn/crop.0.0.512.512.180/fixture.jpg",
+		"https://tvax1.sinaimg.cn/",
+		"https://tvax1.sinaimg.cn/crop.0.0.512.512.180/fixture.jpg?x=1",
 	} {
 		value := value
 		t.Run(value, func(t *testing.T) {
