@@ -81,5 +81,26 @@ func writeThirdPartyAccountError(w http.ResponseWriter, r *http.Request, err err
 		httpapi.WriteError(w, r, http.StatusBadRequest, "platform.invalid_request", "三方账号参数不正确", "errors.platform.invalid_request", nil)
 		return
 	}
-	httpapi.WriteError(w, r, http.StatusInternalServerError, "platform.internal_error", "三方账号保存失败", "errors.platform.internal_error", nil)
+	code := classifyAccountErrorCode(message)
+	httpapi.WriteError(w, r, http.StatusInternalServerError, code,
+		"三方账号保存失败: "+message,
+		"errors.platform.account_save_failed", nil)
+}
+
+func classifyAccountErrorCode(msg string) string {
+	lower := strings.ToLower(msg)
+	switch {
+	case strings.Contains(lower, "weibo") && strings.Contains(lower, "profile"):
+		return "platform.weibo.profile_unavailable"
+	case strings.Contains(lower, "douyin") && strings.Contains(lower, "profile"):
+		return "platform.douyin.profile_unavailable"
+	case strings.Contains(lower, "netease") && strings.Contains(lower, "profile"):
+		return "platform.netease.profile_unavailable"
+	case strings.Contains(lower, "cookie missing"):
+		return "platform.missing_login_cookie"
+	case strings.Contains(lower, "seal"):
+		return "platform.secret_store_error"
+	default:
+		return "platform.account_save_failed"
+	}
 }

@@ -28,7 +28,11 @@ func (s *Service) Upsert(ctx context.Context, request UpsertRequest) (Account, e
 	if strings.TrimSpace(request.Cookie) != "" {
 		if request.Validate != nil {
 			checkedProfile, checkedCredential, err := request.Validate(ctx, request.Cookie)
-			profile = checkedProfile.normalized()
+			// Only overwrite the profile if the validator returned non-empty data.
+			// This preserves the QR-login profile when the validator fails to refetch.
+			if !checkedProfile.Empty() {
+				profile = checkedProfile.normalized()
+			}
 			credential = checkedCredential.normalized()
 			if err != nil && credential.State == CredentialUnknown {
 				checkedAt := now

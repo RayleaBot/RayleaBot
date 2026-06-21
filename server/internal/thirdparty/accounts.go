@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"regexp"
+	"strings"
 	"time"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/secrets"
@@ -56,6 +57,13 @@ type AccountProfile struct {
 	UID       string
 	Nickname  string
 	AvatarURL string
+}
+
+// Empty reports whether the profile has no meaningful data.
+func (p AccountProfile) Empty() bool {
+	return strings.TrimSpace(p.UID) == "" &&
+		strings.TrimSpace(p.Nickname) == "" &&
+		strings.TrimSpace(p.AvatarURL) == ""
 }
 
 type CredentialStatus struct {
