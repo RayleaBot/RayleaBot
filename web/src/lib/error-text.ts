@@ -38,10 +38,23 @@ export function getDisplayErrorMessage(error: unknown, fallbackKey = 'errors.com
     if (typeof error.message === 'string' && hasChineseText(error.message)) {
       return error.message
     }
+
+    // Fallback: show the backend diagnostic error from details if available.
+    if (error.details && typeof error.details === 'object' && 'error' in error.details) {
+      const detailError = (error.details as Record<string, unknown>).error
+      if (typeof detailError === 'string' && detailError.trim()) {
+        return detailError.trim()
+      }
+    }
   }
 
   if (error instanceof Error && hasChineseText(error.message)) {
     return error.message
+  }
+
+  // Final fallback: any error message.
+  if (error instanceof Error && error.message?.trim()) {
+    return error.message.trim()
   }
 
   return t(fallbackKey)
