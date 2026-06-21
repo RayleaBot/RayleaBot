@@ -13,7 +13,10 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/governance"
 	bilibilisession "github.com/RayleaBot/RayleaBot/server/internal/integrations/bilibili/session"
 	bilibilisource "github.com/RayleaBot/RayleaBot/server/internal/integrations/bilibili/source"
-	thirdpartylogin "github.com/RayleaBot/RayleaBot/server/internal/integrations/thirdpartylogin"
+	"github.com/RayleaBot/RayleaBot/server/internal/integrations/common"
+	"github.com/RayleaBot/RayleaBot/server/internal/integrations/douyin"
+	"github.com/RayleaBot/RayleaBot/server/internal/integrations/netease_music"
+	"github.com/RayleaBot/RayleaBot/server/internal/integrations/weibo"
 	"github.com/RayleaBot/RayleaBot/server/internal/logging"
 	managementevents "github.com/RayleaBot/RayleaBot/server/internal/management/events"
 	"github.com/RayleaBot/RayleaBot/server/internal/management/protocolapi"
@@ -64,7 +67,7 @@ type Services struct {
 	Logs              *logging.ManagementService
 	System            *systemsvc.Service
 	ThirdParty        *thirdparty.Service
-	ThirdPartyQRLogin *thirdpartylogin.Service
+	ThirdPartyQRLogin *common.Service
 	BilibiliSource    *bilibilisource.Source
 	BilibiliEvents    *managementevents.BilibiliSourceService
 }
@@ -98,12 +101,11 @@ func Build(deps BuildDeps) (BuildResult, error) {
 	if renderer != nil {
 		browserPath, browserArgs = renderer.BrowserLaunchConfig()
 	}
-	thirdPartyQRLogin := thirdpartylogin.NewServiceWithOptions(thirdpartylogin.Options{
-		Transport:   deps.BilibiliHTTPTransport,
-		Now:         deps.BilibiliClock,
-		BrowserPath: browserPath,
-		BrowserArgs: browserArgs,
-	})
+	thirdPartyQRLogin := common.NewService(map[string]common.Provider{
+		thirdparty.PlatformWeibo:        weibo.NewProvider(common.NewHTTPClient(deps.BilibiliHTTPTransport)),
+		thirdparty.PlatformDouyin:       douyin.NewProvider(common.NewHTTPClient(deps.BilibiliHTTPTransport), douyin.NewChromedpBrowser(browserPath, browserArgs, deps.BilibiliHTTPTransport)),
+		thirdparty.PlatformNeteaseMusic: netease_music.NewProvider(common.NewHTTPClient(deps.BilibiliHTTPTransport)),
+	}, deps.BilibiliClock)
 	bilibiliSession := bilibilisession.NewSessionClient(deps.BilibiliHTTPTransport, deps.BilibiliClock, nil)
 	localActions := buildLocalActionService(runtimeState, platform, pluginStack, eventStack, renderer, capabilityView, governanceService, thirdPartyService, bilibiliSession)
 	configureLocalActionService(localActions, pluginStack, eventStack)

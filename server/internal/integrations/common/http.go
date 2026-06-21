@@ -1,4 +1,4 @@
-package thirdpartylogin
+package common
 
 import (
 	"context"
@@ -14,7 +14,7 @@ import (
 
 const maxLoginResponseBytes = 4 << 20
 
-func newHTTPClient(transport http.RoundTripper) *http.Client {
+func NewHTTPClient(transport http.RoundTripper) *http.Client {
 	if transport == nil {
 		transport = http.DefaultTransport
 	}
@@ -27,22 +27,54 @@ func newHTTPClient(transport http.RoundTripper) *http.Client {
 	}
 }
 
-func getJSON(ctx context.Context, client *http.Client, rawURL string, headers map[string]string, cookies map[string]string, target any) (*http.Response, error) {
+// NewHTTPClientFollow creates an HTTP client that follows redirects normally.
+// Use this for endpoints that may issue 302 redirects (e.g., Douyin SSO).
+func NewHTTPClientFollow(transport http.RoundTripper) *http.Client {
+	if transport == nil {
+		transport = http.DefaultTransport
+	}
+	return &http.Client{
+		Transport: transport,
+		Timeout:   20 * time.Second,
+	}
+}
+
+// FetchPageBody visits a URL (following redirects with cookies) and returns the response body.
+func FetchPageBody(ctx context.Context, client *http.Client, rawURL string, headers map[string]string, cookies map[string]string) (string, error) {
+	request, err := http.NewRequestWithContext(ctx, http.MethodGet, rawURL, nil)
+	if err != nil {
+		return "", err
+	}
+	ApplyHeaders(request, headers, cookies)
+	response, err := client.Do(request)
+	if err != nil {
+		return "", err
+	}
+	defer response.Body.Close()
+	MergeResponseCookies(cookies, response)
+	body, err := io.ReadAll(io.LimitReader(response.Body, maxLoginResponseBytes))
+	if err != nil {
+		return "", err
+	}
+	return string(body), nil
+}
+
+func GetJSON(ctx context.Context, client *http.Client, rawURL string, headers map[string]string, cookies map[string]string, target any) (*http.Response, error) {
 	request, err := http.NewRequestWithContext(ctx, http.MethodGet, rawURL, nil)
 	if err != nil {
 		return nil, err
 	}
-	applyHeaders(request, headers, cookies)
+	ApplyHeaders(request, headers, cookies)
 	return doJSON(client, request, cookies, target)
 }
 
-func postFormJSON(ctx context.Context, client *http.Client, rawURL string, form url.Values, headers map[string]string, cookies map[string]string, target any) (*http.Response, error) {
+func PostFormJSON(ctx context.Context, client *http.Client, rawURL string, form url.Values, headers map[string]string, cookies map[string]string, target any) (*http.Response, error) {
 	request, err := http.NewRequestWithContext(ctx, http.MethodPost, rawURL, strings.NewReader(form.Encode()))
 	if err != nil {
 		return nil, err
 	}
 	request.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	applyHeaders(request, headers, cookies)
+	ApplyHeaders(request, headers, cookies)
 	return doJSON(client, request, cookies, target)
 }
 
@@ -52,7 +84,7 @@ func doJSON(client *http.Client, request *http.Request, cookies map[string]strin
 		return nil, err
 	}
 	defer response.Body.Close()
-	mergeResponseCookies(cookies, response)
+	MergeResponseCookies(cookies, response)
 	if response.StatusCode < 200 || response.StatusCode >= 300 {
 		return response, fmt.Errorf("third-party qrcode login http %d", response.StatusCode)
 	}
@@ -65,19 +97,19 @@ func doJSON(client *http.Client, request *http.Request, cookies map[string]strin
 	return response, nil
 }
 
-func followGet(ctx context.Context, client *http.Client, rawURL string, headers map[string]string, cookies map[string]string) error {
+func FollowGet(ctx context.Context, client *http.Client, rawURL string, headers map[string]string, cookies map[string]string) error {
 	current := strings.TrimSpace(rawURL)
 	for i := 0; i < 8; i++ {
 		request, err := http.NewRequestWithContext(ctx, http.MethodGet, current, nil)
 		if err != nil {
 			return err
 		}
-		applyHeaders(request, headers, cookies)
+		ApplyHeaders(request, headers, cookies)
 		response, err := client.Do(request)
 		if err != nil {
 			return err
 		}
-		mergeResponseCookies(cookies, response)
+		MergeResponseCookies(cookies, response)
 		_, _ = io.Copy(io.Discard, io.LimitReader(response.Body, maxLoginResponseBytes))
 		_ = response.Body.Close()
 		if response.StatusCode < 300 || response.StatusCode >= 400 {
@@ -103,18 +135,18 @@ func followGet(ctx context.Context, client *http.Client, rawURL string, headers 
 	return fmt.Errorf("third-party qrcode login redirect limit exceeded")
 }
 
-func applyHeaders(request *http.Request, headers map[string]string, cookies map[string]string) {
+func ApplyHeaders(request *http.Request, headers map[string]string, cookies map[string]string) {
 	for key, value := range headers {
 		if strings.TrimSpace(value) != "" {
 			request.Header.Set(key, value)
 		}
 	}
-	if header := cookieHeader(cookies); header != "" {
+	if header := CookieHeader(cookies); header != "" {
 		request.Header.Set("Cookie", header)
 	}
 }
 
-func mergeResponseCookies(cookies map[string]string, response *http.Response) {
+func MergeResponseCookies(cookies map[string]string, response *http.Response) {
 	if cookies == nil || response == nil {
 		return
 	}
@@ -126,7 +158,7 @@ func mergeResponseCookies(cookies map[string]string, response *http.Response) {
 	}
 }
 
-func cookieHeader(cookies map[string]string) string {
+func CookieHeader(cookies map[string]string) string {
 	if len(cookies) == 0 {
 		return ""
 	}
@@ -147,11 +179,22 @@ func cookieHeader(cookies map[string]string) string {
 	return strings.Join(parts, "; ") + ";"
 }
 
-func firstNonEmpty(values ...string) string {
+func FirstNonEmpty(values ...string) string {
 	for _, value := range values {
 		if trimmed := strings.TrimSpace(value); trimmed != "" {
 			return trimmed
 		}
 	}
 	return ""
+}
+
+func CloneStringMap(values map[string]string) map[string]string {
+	if len(values) == 0 {
+		return map[string]string{}
+	}
+	cloned := make(map[string]string, len(values))
+	for key, value := range values {
+		cloned[key] = value
+	}
+	return cloned
 }

@@ -1,9 +1,7 @@
-package thirdpartylogin
+package common
 
 import (
 	"context"
-	"crypto/rand"
-	"encoding/hex"
 	"fmt"
 	"net/http"
 	"strings"
@@ -14,10 +12,10 @@ import (
 )
 
 type Service struct {
-	providers map[string]provider
+	providers map[string]Provider
 	now       func() time.Time
 	mu        sync.Mutex
-	sessions  map[string]loginSession
+	sessions  map[string]LoginSession
 }
 
 type Options struct {
@@ -25,39 +23,16 @@ type Options struct {
 	Now         func() time.Time
 	BrowserPath string
 	BrowserArgs []string
-
-	douyinBrowser douyinLoginBrowser
 }
 
-func NewService(transport http.RoundTripper, now func() time.Time) *Service {
-	return NewServiceWithOptions(Options{
-		Transport: transport,
-		Now:       now,
-	})
-}
-
-func NewServiceWithOptions(options Options) *Service {
-	now := options.Now
+func NewService(providers map[string]Provider, now func() time.Time) *Service {
 	if now == nil {
 		now = func() time.Time { return time.Now().UTC() }
 	}
-	client := newHTTPClient(options.Transport)
-	douyinBrowser := options.douyinBrowser
-	if douyinBrowser == nil {
-		douyinBrowser = newChromedpDouyinBrowser(douyinBrowserOptions{
-			BrowserPath: options.BrowserPath,
-			BrowserArgs: options.BrowserArgs,
-			Transport:   options.Transport,
-		})
-	}
 	return &Service{
-		providers: map[string]provider{
-			thirdparty.PlatformWeibo:        newWeiboProvider(client),
-			thirdparty.PlatformDouyin:       newDouyinProvider(client, douyinBrowser),
-			thirdparty.PlatformNeteaseMusic: newNeteaseMusicProvider(client),
-		},
-		now:      now,
-		sessions: make(map[string]loginSession),
+		providers: providers,
+		now:       now,
+		sessions:  make(map[string]LoginSession),
 	}
 }
 
@@ -75,14 +50,14 @@ func (s *Service) Create(ctx context.Context, platform string) (CreateResult, er
 		return CreateResult{}, err
 	}
 	session.Platform = platform
-	session.State = normalizeState(session.State)
+	session.State = NormalizeState(session.State)
 	if session.State == "" {
 		session.State = StatePendingScan
 	}
 	if session.ExpiresAt.IsZero() {
 		session.ExpiresAt = now.Add(3 * time.Minute)
 	}
-	loginID, err := randomLoginID(platform)
+	loginID, err := RandomLoginID(platform)
 	if err != nil {
 		return CreateResult{}, err
 	}
@@ -91,7 +66,7 @@ func (s *Service) Create(ctx context.Context, platform string) (CreateResult, er
 	s.pruneExpiredLocked(now)
 	s.sessions[loginID] = session
 	s.mu.Unlock()
-	return createResult(session), nil
+	return CreateResultFromSession(session), nil
 }
 
 func (s *Service) Poll(ctx context.Context, platform, loginID string) (PollResult, error) {
@@ -113,19 +88,19 @@ func (s *Service) Poll(ctx context.Context, platform, loginID string) (PollResul
 	if now.After(session.ExpiresAt) && session.State != StateSucceeded {
 		session.State = StateExpired
 		s.sessions[loginID] = session
-		result := pollResult(session)
+		result := PollResultFromSession(session)
 		s.mu.Unlock()
 		closeProviderSession(provider, session)
 		return result, nil
 	}
 	if session.State == StateSucceeded || session.State == StateExpired {
-		result := pollResult(session)
+		result := PollResultFromSession(session)
 		s.mu.Unlock()
 		return result, nil
 	}
 	s.mu.Unlock()
 
-	next, err := provider.Poll(ctx, cloneSession(session), now)
+	next, err := provider.Poll(ctx, CloneSession(session), now)
 	if err != nil {
 		return PollResult{}, err
 	}
@@ -133,13 +108,13 @@ func (s *Service) Poll(ctx context.Context, platform, loginID string) (PollResul
 	next.LoginID = loginID
 	next.ExpiresAt = session.ExpiresAt
 	next.QRCodeURL = session.QRCodeURL
-	next.State = normalizeState(next.State)
+	next.State = NormalizeState(next.State)
 	if next.State == "" {
 		next.State = session.State
 	}
 	s.mu.Lock()
 	s.sessions[loginID] = next
-	result := pollResult(next)
+	result := PollResultFromSession(next)
 	s.mu.Unlock()
 	if next.State == StateSucceeded || next.State == StateExpired {
 		closeProviderSession(provider, next)
@@ -147,7 +122,7 @@ func (s *Service) Poll(ctx context.Context, platform, loginID string) (PollResul
 	return result, nil
 }
 
-func (s *Service) provider(value string) (string, provider, error) {
+func (s *Service) provider(value string) (string, Provider, error) {
 	platform, err := thirdparty.NormalizePlatform(value)
 	if err != nil {
 		return "", nil, err
@@ -170,52 +145,20 @@ func (s *Service) pruneExpiredLocked(now time.Time) {
 	}
 }
 
-func closeProviderSession(provider provider, session loginSession) {
-	if closer, ok := provider.(providerSessionCloser); ok {
+func closeProviderSession(provider Provider, session LoginSession) {
+	if closer, ok := provider.(ProviderSessionCloser); ok {
 		closer.Close(session)
 	}
 }
 
-func randomLoginID(platform string) (string, error) {
-	var bytes [12]byte
-	if _, err := rand.Read(bytes[:]); err != nil {
-		return "", err
-	}
-	prefix := strings.ReplaceAll(strings.TrimSpace(strings.ToLower(platform)), "-", "_")
-	if prefix == "" {
-		prefix = "third_party"
-	}
-	return fmt.Sprintf("%s_qr_%s", prefix, hex.EncodeToString(bytes[:])), nil
+func CloseProviderSession(provider Provider, session LoginSession) {
+	closeProviderSession(provider, session)
 }
 
-func cloneSession(session loginSession) loginSession {
-	session.Values = cloneStringMap(session.Values)
-	session.Cookies = cloneStringMap(session.Cookies)
-	return session
-}
-
-func cloneStringMap(values map[string]string) map[string]string {
-	if len(values) == 0 {
-		return map[string]string{}
+func RecordCooldownError(mgr *CooldownManager, platform, accountID string, err error) {
+	if mgr == nil || !IsRequestCooldownError(err) {
+		return
 	}
-	cloned := make(map[string]string, len(values))
-	for key, value := range values {
-		cloned[key] = value
-	}
-	return cloned
-}
-
-func normalizeState(value string) string {
-	switch strings.TrimSpace(strings.ToLower(value)) {
-	case StatePendingScan:
-		return StatePendingScan
-	case StatePendingConfirm:
-		return StatePendingConfirm
-	case StateExpired:
-		return StateExpired
-	case StateSucceeded:
-		return StateSucceeded
-	default:
-		return ""
-	}
+	key := fmt.Sprintf("%s:%s", strings.TrimSpace(platform), strings.TrimSpace(accountID))
+	mgr.RecordError(key, err)
 }

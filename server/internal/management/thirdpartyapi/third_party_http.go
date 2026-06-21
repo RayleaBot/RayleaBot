@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/RayleaBot/RayleaBot/server/internal/integrations/common"
 	thirdpartylogin "github.com/RayleaBot/RayleaBot/server/internal/integrations/thirdpartylogin"
 	"github.com/RayleaBot/RayleaBot/server/internal/thirdparty"
 )
@@ -12,7 +13,7 @@ import (
 type ThirdPartyHandlers struct {
 	accounts                 thirdPartyAccountService
 	accountValidator         thirdPartyCredentialValidator
-	platformAccountValidator *thirdpartylogin.AccountValidator
+	platformAccountValidator *common.AccountValidator
 	qrLogin                  thirdPartyQRCodeLoginService
 	monitors                 thirdPartyMonitorService
 	mediaClient              *http.Client
@@ -29,8 +30,8 @@ type thirdPartyCredentialValidator interface {
 }
 
 type thirdPartyQRCodeLoginService interface {
-	Create(context.Context, string) (thirdpartylogin.CreateResult, error)
-	Poll(context.Context, string, string) (thirdpartylogin.PollResult, error)
+	Create(context.Context, string) (common.CreateResult, error)
+	Poll(context.Context, string, string) (common.PollResult, error)
 }
 
 func NewThirdPartyHandlers(accounts thirdPartyAccountService, accountValidator thirdPartyCredentialValidator, qrLogin thirdPartyQRCodeLoginService, monitors thirdPartyMonitorService, transport http.RoundTripper) *ThirdPartyHandlers {

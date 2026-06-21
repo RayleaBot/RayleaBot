@@ -1,4 +1,4 @@
-package thirdpartylogin
+package common
 
 import (
 	"fmt"
@@ -9,13 +9,13 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/thirdparty"
 )
 
-func accountProfileEmpty(profile thirdparty.AccountProfile) bool {
+func AccountProfileEmpty(profile thirdparty.AccountProfile) bool {
 	return strings.TrimSpace(profile.UID) == "" &&
 		strings.TrimSpace(profile.Nickname) == "" &&
 		strings.TrimSpace(profile.AvatarURL) == ""
 }
 
-func jsonStringValue(value any) string {
+func JSONStringValue(value any) string {
 	switch v := value.(type) {
 	case nil:
 		return ""
@@ -37,7 +37,7 @@ type jsonNumber interface {
 	String() string
 }
 
-func cookieMapFromHeader(header string) map[string]string {
+func CookieMapFromHeader(header string) map[string]string {
 	values := map[string]string{}
 	for _, part := range strings.Split(header, ";") {
 		name, value, ok := strings.Cut(strings.TrimSpace(part), "=")
@@ -51,4 +51,17 @@ func cookieMapFromHeader(header string) map[string]string {
 		}
 	}
 	return values
+}
+
+func MergeAccountProfiles(base, next thirdparty.AccountProfile) thirdparty.AccountProfile {
+	if strings.TrimSpace(base.UID) == "" {
+		base.UID = strings.TrimSpace(next.UID)
+	}
+	if strings.TrimSpace(base.Nickname) == "" {
+		base.Nickname = strings.TrimSpace(next.Nickname)
+	}
+	if strings.TrimSpace(base.AvatarURL) == "" {
+		base.AvatarURL = strings.TrimSpace(next.AvatarURL)
+	}
+	return base
 }

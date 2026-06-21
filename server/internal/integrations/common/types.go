@@ -1,8 +1,12 @@
-package thirdpartylogin
+package common
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"errors"
+	"fmt"
+	"strings"
 	"time"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/thirdparty"
@@ -37,16 +41,7 @@ type PollResult struct {
 	Account   thirdparty.AccountProfile
 }
 
-type provider interface {
-	Create(context.Context, time.Time) (loginSession, error)
-	Poll(context.Context, loginSession, time.Time) (loginSession, error)
-}
-
-type providerSessionCloser interface {
-	Close(loginSession)
-}
-
-type loginSession struct {
+type LoginSession struct {
 	Platform  string
 	LoginID   string
 	Token     string
@@ -59,7 +54,16 @@ type loginSession struct {
 	Cookies   map[string]string
 }
 
-func createResult(session loginSession) CreateResult {
+type Provider interface {
+	Create(context.Context, time.Time) (LoginSession, error)
+	Poll(context.Context, LoginSession, time.Time) (LoginSession, error)
+}
+
+type ProviderSessionCloser interface {
+	Close(LoginSession)
+}
+
+func CreateResultFromSession(session LoginSession) CreateResult {
 	return CreateResult{
 		Platform:  session.Platform,
 		LoginID:   session.LoginID,
@@ -69,7 +73,7 @@ func createResult(session loginSession) CreateResult {
 	}
 }
 
-func pollResult(session loginSession) PollResult {
+func PollResultFromSession(session LoginSession) PollResult {
 	return PollResult{
 		Platform:  session.Platform,
 		LoginID:   session.LoginID,
@@ -78,4 +82,37 @@ func pollResult(session loginSession) PollResult {
 		Cookie:    session.Cookie,
 		Account:   session.Account,
 	}
+}
+
+func NormalizeState(value string) string {
+	switch strings.TrimSpace(strings.ToLower(value)) {
+	case StatePendingScan:
+		return StatePendingScan
+	case StatePendingConfirm:
+		return StatePendingConfirm
+	case StateExpired:
+		return StateExpired
+	case StateSucceeded:
+		return StateSucceeded
+	default:
+		return ""
+	}
+}
+
+func RandomLoginID(platform string) (string, error) {
+	var bytes [12]byte
+	if _, err := rand.Read(bytes[:]); err != nil {
+		return "", err
+	}
+	prefix := strings.ReplaceAll(strings.TrimSpace(strings.ToLower(platform)), "-", "_")
+	if prefix == "" {
+		prefix = "third_party"
+	}
+	return fmt.Sprintf("%s_qr_%s", prefix, hex.EncodeToString(bytes[:])), nil
+}
+
+func CloneSession(session LoginSession) LoginSession {
+	session.Values = CloneStringMap(session.Values)
+	session.Cookies = CloneStringMap(session.Cookies)
+	return session
 }
