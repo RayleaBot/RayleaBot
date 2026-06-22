@@ -110,7 +110,7 @@ func searchWeiboUsers(ctx context.Context, client *http.Client, cookies map[stri
 		seen := map[string]bool{}
 		collectWeiboProfiles(response.Data, seen, &profiles, 0)
 		if len(profiles) > 0 {
-			return profiles, nil
+			return enrichWeiboResolveProfiles(ctx, client, cookies, profiles), nil
 		}
 	}
 	profiles, err := searchWeiboWebUsers(ctx, client, cookies, query)
@@ -119,7 +119,7 @@ func searchWeiboUsers(ctx context.Context, client *http.Client, cookies map[stri
 			firstErr = err
 		}
 	} else if len(profiles) > 0 {
-		return profiles, nil
+		return enrichWeiboResolveProfiles(ctx, client, cookies, profiles), nil
 	}
 	if firstErr != nil {
 		return nil, firstErr
@@ -157,28 +157,58 @@ func collectWeiboProfiles(value any, seen map[string]bool, profiles *[]thirdpart
 	}
 }
 
-func weiboProfileFromSearchObject(object map[string]any) thirdparty.AccountProfile {
-	profile := weiboProfileFromObject(object)
-	if profileIsUsable(profile) {
-		return profile
+func enrichWeiboResolveProfiles(ctx context.Context, client *http.Client, cookies map[string]string, profiles []thirdparty.AccountProfile) []thirdparty.AccountProfile {
+	for index := range profiles {
+		uid := strings.TrimSpace(profiles[index].UID)
+		if uid == "" || strings.TrimSpace(profiles[index].AvatarURL) != "" {
+			continue
+		}
+		attemptCookies := common.CloneStringMap(cookies)
+		if detail, err := fetchWeiboMobileDetailProfile(ctx, client, attemptCookies, uid); err == nil {
+			profiles[index] = common.MergeAccountProfiles(profiles[index], detail)
+		}
+		if strings.TrimSpace(profiles[index].AvatarURL) == "" {
+			profiles[index].AvatarURL = fetchWeiboAvatarFromMobilePage(ctx, client, uid, attemptCookies)
+		}
 	}
-	profile.UID = common.FirstNonEmpty(
-		common.JSONStringValue(object["uid"]),
-		common.JSONStringValue(object["id"]),
-		common.JSONStringValue(object["idstr"]),
+	return profiles
+}
+
+func weiboProfileFromSearchObject(object map[string]any) thirdparty.AccountProfile {
+	for _, key := range []string{"user", "userInfo", "profile"} {
+		if nested, ok := object[key].(map[string]any); ok {
+			if profile := weiboProfileFromObject(nested); profileIsUsable(profile) {
+				return profile
+			}
+		}
+	}
+	uid := common.FirstNonEmpty(
 		weiboUIDFromInput(common.JSONStringValue(object["scheme"])),
 		weiboUIDFromInput(common.JSONStringValue(object["profile_url"])),
 		weiboUIDFromInput(common.JSONStringValue(object["url"])),
 	)
+	if uid == "" && weiboSearchObjectHasUserFields(object) {
+		uid = common.FirstNonEmpty(
+			common.JSONStringValue(object["uid"]),
+			common.JSONStringValue(object["id"]),
+			common.JSONStringValue(object["idstr"]),
+		)
+	}
+	if uid == "" {
+		return thirdparty.AccountProfile{}
+	}
+	profile := thirdparty.AccountProfile{UID: uid}
 	profile.Nickname = cleanWeiboSearchText(common.FirstNonEmpty(
 		common.JSONStringValue(object["screen_name"]),
 		common.JSONStringValue(object["nickname"]),
-		common.JSONStringValue(object["name"]),
 		common.JSONStringValue(object["title_sub"]),
-		common.JSONStringValue(object["title"]),
 		common.JSONStringValue(object["desc1"]),
 		common.JSONStringValue(object["desc"]),
 	))
+	if strings.TrimSpace(profile.Nickname) == "" {
+		return thirdparty.AccountProfile{}
+	}
+	profile.UID = uid
 	profile.AvatarURL = common.FirstNonEmpty(
 		common.JSONStringValue(object["avatar_hd"]),
 		common.JSONStringValue(object["avatar_large"]),
@@ -189,6 +219,15 @@ func weiboProfileFromSearchObject(object map[string]any) thirdparty.AccountProfi
 		common.JSONStringValue(object["image"]),
 	)
 	return profile
+}
+
+func weiboSearchObjectHasUserFields(object map[string]any) bool {
+	for _, key := range []string{"screen_name", "nickname", "avatar_hd", "avatar_large", "profile_image_url"} {
+		if strings.TrimSpace(common.JSONStringValue(object[key])) != "" {
+			return true
+		}
+	}
+	return false
 }
 
 func cleanWeiboSearchText(value string) string {

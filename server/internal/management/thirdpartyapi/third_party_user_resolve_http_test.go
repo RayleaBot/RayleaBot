@@ -237,6 +237,60 @@ func TestThirdPartyUserResolveWeiboFallbackSearchCard(t *testing.T) {
 	}
 }
 
+func TestThirdPartyUserResolveWeiboFiltersSearchTabsAndFillsAvatar(t *testing.T) {
+	t.Parallel()
+
+	accounts := &stubThirdPartyUserResolveAccounts{
+		accounts: []thirdparty.Account{{
+			Platform:  thirdparty.PlatformWeibo,
+			AccountID: "primary",
+			Enabled:   true,
+			Credential: thirdparty.CredentialStatus{
+				State: thirdparty.CredentialValid,
+			},
+		}},
+		cookies: map[string]string{
+			"primary": "SUB=fixture;",
+		},
+	}
+	handler := NewThirdPartyHandlers(accounts, nil, nil, nil, thirdPartyMediaRoundTripFunc(func(request *http.Request) (*http.Response, error) {
+		if !strings.Contains(request.Header.Get("Cookie"), "SUB=fixture") {
+			t.Fatalf("resolve request cookie = %q, want saved weibo cookie", request.Header.Get("Cookie"))
+		}
+		if !strings.Contains(request.URL.String(), "m.weibo.cn/api/container/getIndex") {
+			t.Fatalf("unexpected upstream request: %s", request.URL.String())
+		}
+		containerID := request.URL.Query().Get("containerid")
+		switch {
+		case strings.Contains(containerID, "100103type=3"):
+			return textResponse(request, `{"data":{"cards":[{"card_group":[{"id":1,"name":"综合"},{"id":63,"title":"图片"},{"id":64,"desc1":"视频"},{"user":{"id":"5146173015","screen_name":"Vsinger_洛天依"}}]}]}}`), nil
+		case strings.Contains(containerID, "1005055146173015"):
+			return textResponse(request, `{"data":{"userInfo":{"id":"5146173015","screen_name":"Vsinger_洛天依","avatar_hd":"https://tvax1.sinaimg.cn/vsinger-avatar.jpg"}}}`), nil
+		default:
+			t.Fatalf("unexpected weibo containerid: %s", containerID)
+			return nil, nil
+		}
+	}))
+	request := httptest.NewRequest(http.MethodGet, "/api/third-party/users/resolve?platform=weibo&query=Vsinger_%E6%B4%9B%E5%A4%A9%E4%BE%9D", nil)
+	recorder := httptest.NewRecorder()
+
+	handler.HandleThirdPartyUserResolve().ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("resolve status = %d, want 200 (%s)", recorder.Code, recorder.Body.String())
+	}
+	var response thirdPartyUserResolveResponse
+	if err := json.Unmarshal(recorder.Body.Bytes(), &response); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if !response.Exact || response.User == nil || len(response.Candidates) != 1 {
+		t.Fatalf("unexpected resolve response: %#v", response)
+	}
+	if response.User.UID != "5146173015" || response.User.Name != "Vsinger_洛天依" || response.User.AvatarURL != "https://tvax1.sinaimg.cn/vsinger-avatar.jpg" {
+		t.Fatalf("unexpected user: %#v", response.User)
+	}
+}
+
 func TestThirdPartyUserResolveDouyinParsesScopedUserObject(t *testing.T) {
 	t.Parallel()
 
