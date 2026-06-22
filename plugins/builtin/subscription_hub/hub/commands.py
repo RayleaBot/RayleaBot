@@ -16,7 +16,15 @@ from .http_utils import (
     response_details_text,
     sentence_text,
 )
-from .platforms import platform_name, safe_subject_id, subject_label, subject_text
+from .platforms import (
+    platform_name,
+    platform_search_usage,
+    platform_subscribe_usage,
+    platform_unsubscribe_usage,
+    safe_subject_id,
+    subject_label,
+    subject_text,
+)
 from .services import digits, merge_services, normalize_service_token, remove_services, services_text
 from .subscriptions import (
     current_subscriber,
@@ -31,20 +39,18 @@ from .subscriptions import (
 )
 
 
-SUBSCRIBE_BILIBILI_USAGE = "用法：/订阅b站推送 [直播|视频|图文|文章|转发] UID或昵称；类型可选，不填表示全部类型。"
-UNSUBSCRIBE_BILIBILI_USAGE = "用法：/取消b站推送 [直播|视频|图文|文章|转发] UID或昵称；类型可选，不填表示全部类型。"
-BILIBILI_SEARCH_UP_USAGE = "用法：/b站搜索up UP昵称关键词"
+SUBSCRIBE_BILIBILI_USAGE = platform_subscribe_usage("bilibili")
+UNSUBSCRIBE_BILIBILI_USAGE = platform_unsubscribe_usage("bilibili")
+BILIBILI_SEARCH_UP_USAGE = platform_search_usage("bilibili")
 
 SUBSCRIBE_USAGE_BY_PLATFORM = {
-    "weibo": "用法：/订阅微博推送 [微博|图片|视频|转发] UID或主页标识；类型可选，不填表示全部类型。",
-    "douyin": "用法：/订阅抖音推送 [视频|图文|直播] 抖音号或主页标识；类型可选，不填表示全部类型。",
-    "netease_music": "用法：/订阅网易云音乐推送 [歌曲|专辑|歌单|音乐人] ID或主页标识；类型可选，不填表示全部类型。",
+    platform: platform_subscribe_usage(platform)
+    for platform in ("weibo", "douyin", "netease_music")
 }
 
 UNSUBSCRIBE_USAGE_BY_PLATFORM = {
-    "weibo": "用法：/取消微博推送 [微博|图片|视频|转发] UID或主页标识；类型可选，不填表示全部类型。",
-    "douyin": "用法：/取消抖音推送 [视频|图文|直播] 抖音号或主页标识；类型可选，不填表示全部类型。",
-    "netease_music": "用法：/取消网易云音乐推送 [歌曲|专辑|歌单|音乐人] ID或主页标识；类型可选，不填表示全部类型。",
+    platform: platform_unsubscribe_usage(platform)
+    for platform in ("weibo", "douyin", "netease_music")
 }
 
 

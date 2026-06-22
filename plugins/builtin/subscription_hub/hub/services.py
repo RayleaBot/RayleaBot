@@ -1,106 +1,16 @@
-from .platforms import normalize_platform
+from .platforms import (
+    normalize_platform,
+    platform_ids,
+    platform_service_aliases,
+    platform_service_names,
+)
 
 
-PLATFORM_SERVICE_NAMES = {
-    "bilibili": {
-        "all": "全部",
-        "live": "直播",
-        "video": "视频",
-        "image_text": "图文",
-        "article": "文章",
-        "repost": "转发",
-    },
-    "weibo": {
-        "all": "全部",
-        "post": "微博",
-        "image": "图片",
-        "video": "视频",
-        "repost": "转发",
-    },
-    "douyin": {
-        "all": "全部",
-        "video": "视频",
-        "image_text": "图文",
-        "live": "直播",
-    },
-    "netease_music": {
-        "all": "全部",
-        "song": "歌曲",
-        "album": "专辑",
-        "playlist": "歌单",
-        "artist": "音乐人",
-    },
-}
+PLATFORM_SERVICE_NAMES = {platform: platform_service_names(platform) for platform in platform_ids()}
 
 SERVICE_NAMES = PLATFORM_SERVICE_NAMES["bilibili"]
 
-PLATFORM_SERVICE_ALIASES = {
-    "bilibili": {
-        "全部": "all",
-        "全量": "all",
-        "所有": "all",
-        "直播": "live",
-        "视频": "video",
-        "图文": "image_text",
-        "动态": "image_text",
-        "文章": "article",
-        "专栏": "article",
-        "转发": "repost",
-        "live": "live",
-        "video": "video",
-        "image_text": "image_text",
-        "article": "article",
-        "repost": "repost",
-        "all": "all",
-    },
-    "weibo": {
-        "全部": "all",
-        "全量": "all",
-        "所有": "all",
-        "微博": "post",
-        "动态": "post",
-        "文字": "post",
-        "图片": "image",
-        "图文": "image",
-        "视频": "video",
-        "转发": "repost",
-        "post": "post",
-        "image": "image",
-        "video": "video",
-        "repost": "repost",
-        "all": "all",
-    },
-    "douyin": {
-        "全部": "all",
-        "全量": "all",
-        "所有": "all",
-        "视频": "video",
-        "图文": "image_text",
-        "图片": "image_text",
-        "直播": "live",
-        "video": "video",
-        "image_text": "image_text",
-        "live": "live",
-        "all": "all",
-    },
-    "netease_music": {
-        "全部": "all",
-        "全量": "all",
-        "所有": "all",
-        "歌曲": "song",
-        "音乐": "song",
-        "单曲": "song",
-        "专辑": "album",
-        "歌单": "playlist",
-        "音乐人": "artist",
-        "歌手": "artist",
-        "song": "song",
-        "album": "album",
-        "playlist": "playlist",
-        "artist": "artist",
-        "all": "all",
-    },
-}
+PLATFORM_SERVICE_ALIASES = {platform: platform_service_aliases(platform) for platform in platform_ids()}
 
 
 def service_names_for(platform):
