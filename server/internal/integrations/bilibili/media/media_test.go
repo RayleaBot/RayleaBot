@@ -55,7 +55,7 @@ func TestFetchReadsAllowedWeiboAvatar(t *testing.T) {
 	t.Parallel()
 
 	client := &http.Client{Transport: roundTripFunc(func(request *http.Request) (*http.Response, error) {
-		if request.URL.String() != "https://tvax1.sinaimg.cn/crop.0.0.512.512.180/fixture.jpg" {
+		if request.URL.String() != "https://tvax1.sinaimg.cn/crop.0.0.512.512.180/fixture.jpg?KID=imgbed,tva" {
 			t.Fatalf("request url = %q, want Weibo avatar url", request.URL.String())
 		}
 		if request.Header.Get("Referer") != "https://weibo.com/" {
@@ -72,7 +72,7 @@ func TestFetchReadsAllowedWeiboAvatar(t *testing.T) {
 		}, nil
 	})}
 
-	resource, err := Fetch(context.Background(), client, " https://tvax1.sinaimg.cn/crop.0.0.512.512.180/fixture.jpg ")
+	resource, err := Fetch(context.Background(), client, " https://tvax1.sinaimg.cn/crop.0.0.512.512.180/fixture.jpg?KID=imgbed,tva ")
 	if err != nil {
 		t.Fatalf("Fetch returned error: %v", err)
 	}
@@ -104,8 +104,8 @@ func TestNormalizeURLAllowsSupportedImageHosts(t *testing.T) {
 		},
 		{
 			name:  "weibo avatar",
-			value: "https://tvax1.sinaimg.cn/crop.0.0.512.512.180/fixture.jpg",
-			want:  "https://tvax1.sinaimg.cn/crop.0.0.512.512.180/fixture.jpg",
+			value: "https://tvax1.sinaimg.cn/crop.0.0.512.512.180/fixture.jpg?KID=imgbed,tva",
+			want:  "https://tvax1.sinaimg.cn/crop.0.0.512.512.180/fixture.jpg?KID=imgbed,tva",
 		},
 	} {
 		tc := tc
@@ -140,7 +140,6 @@ func TestFetchRejectsUnsupportedURL(t *testing.T) {
 		"https://user@i0.hdslb.com/bfs/face/up.jpg",
 		"https://evilsinaimg.cn/crop.0.0.512.512.180/fixture.jpg",
 		"https://tvax1.sinaimg.cn/",
-		"https://tvax1.sinaimg.cn/crop.0.0.512.512.180/fixture.jpg?x=1",
 	} {
 		value := value
 		t.Run(value, func(t *testing.T) {

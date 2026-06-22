@@ -54,7 +54,7 @@ func TestThirdPartyMediaStreamsAllowedWeiboAvatar(t *testing.T) {
 	t.Parallel()
 
 	handler := NewThirdPartyHandlers(nil, nil, nil, nil, thirdPartyMediaRoundTripFunc(func(request *http.Request) (*http.Response, error) {
-		if request.URL.String() != "https://tvax1.sinaimg.cn/crop.0.0.512.512.180/fixture.jpg" {
+		if request.URL.String() != "https://tvax1.sinaimg.cn/crop.0.0.512.512.180/fixture.jpg?KID=imgbed,tva" {
 			t.Fatalf("unexpected media url: %s", request.URL.String())
 		}
 		if request.Header.Get("Referer") != "https://weibo.com/" || request.Header.Get("User-Agent") == "" {
@@ -67,7 +67,7 @@ func TestThirdPartyMediaStreamsAllowedWeiboAvatar(t *testing.T) {
 			Request:    request,
 		}, nil
 	}))
-	request := httptest.NewRequest(http.MethodGet, "/api/third-party/media?url=https%3A%2F%2Ftvax1.sinaimg.cn%2Fcrop.0.0.512.512.180%2Ffixture.jpg", nil)
+	request := httptest.NewRequest(http.MethodGet, "/api/third-party/media?url=https%3A%2F%2Ftvax1.sinaimg.cn%2Fcrop.0.0.512.512.180%2Ffixture.jpg%3FKID%3Dimgbed%2Ctva", nil)
 	recorder := httptest.NewRecorder()
 
 	handler.HandleThirdPartyMedia().ServeHTTP(recorder, request)
@@ -94,6 +94,7 @@ func TestThirdPartyMediaRejectsUnsupportedURL(t *testing.T) {
 		"http%3A%2F%2Fi0.hdslb.com%2Fbfs%2Fface%2Fup.jpg",
 		"https%3A%2F%2Fexample.com%2Fbfs%2Fface%2Fup.jpg",
 		"https%3A%2F%2Fi0.hdslb.com%2Fnot-bfs%2Fup.jpg",
+		"https%3A%2F%2Fi0.hdslb.com%2Fbfs%2Fface%2Fup.jpg%3Ftoken%3Dfixture",
 		"https%3A%2F%2Ftvax1.sinaimg.cn%2F",
 		"https%3A%2F%2Fevilsinaimg.cn%2Fcrop.0.0.512.512.180%2Ffixture.jpg",
 	} {

@@ -66,11 +66,14 @@ func normalizeURL(value string) (string, error) {
 		return "", ErrUnsupportedURL
 	}
 	host := strings.ToLower(parsed.Hostname())
-	if parsed.User != nil || parsed.RawQuery != "" {
+	if parsed.User != nil {
 		return "", ErrUnsupportedURL
 	}
 	path := strings.ToLower(parsed.EscapedPath())
 	if isBilibiliMediaHost(host) {
+		if parsed.RawQuery != "" {
+			return "", ErrUnsupportedURL
+		}
 		if path == "" || !(strings.HasPrefix(path, "/bfs/") || strings.HasPrefix(path, "/fs/")) {
 			return "", ErrUnsupportedURL
 		}
