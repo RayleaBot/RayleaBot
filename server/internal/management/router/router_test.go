@@ -107,6 +107,7 @@ func TestRegisterManagementRoutes(t *testing.T) {
 		"GET /api/third-party/accounts/{platform}/login/qrcode/{login_id}",
 		"GET /api/third-party/media",
 		"GET /api/third-party/monitors",
+		"GET /api/third-party/users/resolve",
 		"GET /healthz",
 		"GET /plugin-ui/{plugin_id}/*",
 		"GET /readyz",

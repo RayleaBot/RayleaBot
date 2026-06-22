@@ -194,8 +194,8 @@ func weiboProfileFromObject(object map[string]any) thirdparty.AccountProfile {
 		return thirdparty.AccountProfile{}
 	}
 	profile := thirdparty.AccountProfile{
-		UID:       common.FirstNonEmpty(common.JSONStringValue(object["uid"]), common.JSONStringValue(object["id"]), common.JSONStringValue(object["idstr"])),
-		Nickname:  common.FirstNonEmpty(common.JSONStringValue(object["screen_name"]), common.JSONStringValue(object["nickname"]), common.JSONStringValue(object["name"])),
+		UID:      common.FirstNonEmpty(common.JSONStringValue(object["uid"]), common.JSONStringValue(object["id"]), common.JSONStringValue(object["idstr"])),
+		Nickname: common.FirstNonEmpty(common.JSONStringValue(object["screen_name"]), common.JSONStringValue(object["nickname"]), common.JSONStringValue(object["name"])),
 		AvatarURL: common.FirstNonEmpty(
 			common.JSONStringValue(object["avatar_hd"]),
 			common.JSONStringValue(object["avatar_large"]),
@@ -208,7 +208,7 @@ func weiboProfileFromObject(object map[string]any) thirdparty.AccountProfile {
 			common.JSONStringValue(object["cover_image"]),
 		),
 	}
-	for _, key := range []string{"user", "userInfo", "profile", "cardList", "cards", "tabInfo", "newCards"} {
+	for _, key := range []string{"user", "userInfo", "profile", "cardList", "card_group", "cards", "tabInfo", "newCards"} {
 		if nested, ok := object[key].(map[string]any); ok {
 			profile = common.MergeAccountProfiles(profile, weiboProfileFromObject(nested))
 		}

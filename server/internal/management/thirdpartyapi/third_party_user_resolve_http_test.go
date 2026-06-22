@@ -1,0 +1,221 @@
+package thirdpartyapi
+
+import (
+	"context"
+	"encoding/json"
+	"io"
+	"net/http"
+	"net/http/httptest"
+	"strings"
+	"testing"
+
+	"github.com/RayleaBot/RayleaBot/server/internal/thirdparty"
+)
+
+func TestThirdPartyUserResolveReturnsPlatformProfiles(t *testing.T) {
+	t.Parallel()
+
+	handler := NewThirdPartyHandlers(nil, nil, nil, nil, thirdPartyMediaRoundTripFunc(func(request *http.Request) (*http.Response, error) {
+		rawURL := request.URL.String()
+		switch {
+		case strings.Contains(rawURL, "m.weibo.cn/api/container/getIndex"):
+			return textResponse(request, `{"data":{"cards":[{"card_group":[{"user":{"id":"7556659984","screen_name":"洛天依","avatar_hd":"https://tvax1.sinaimg.cn/avatar.jpg"}}]}]}}`), nil
+		case strings.Contains(rawURL, "www.douyin.com/aweme/v1/web/user/profile/other"):
+			return textResponse(request, `{"status_code":0,"user":{"unique_id":"luotianyi","nickname":"洛天依","avatar_medium":{"url_list":["https://p3-pc.douyinpic.com/avatar.jpg"]}}}`), nil
+		case strings.Contains(rawURL, "www.douyin.com/aweme/v1/web/general/search/single"):
+			return textResponse(request, `{"status_code":0,"data":[{"user_list":[{"user_info":{"unique_id":"luotianyi","nickname":"洛天依","avatar_medium":{"url_list":["https://p3-pc.douyinpic.com/avatar.jpg"]}}}]}]}`), nil
+		case strings.Contains(rawURL, "music.163.com/api/search/get/web") && request.URL.Query().Get("type") == "100":
+			return textResponse(request, `{"result":{"artists":[{"id":8325,"name":"洛天依","picUrl":"https://p1.music.126.net/avatar.jpg"}]}}`), nil
+		case strings.Contains(rawURL, "music.163.com/api/search/get/web"):
+			return textResponse(request, `{"result":{}}`), nil
+		default:
+			t.Fatalf("unexpected upstream request: %s", rawURL)
+			return nil, nil
+		}
+	}))
+
+	tests := []struct {
+		name     string
+		path     string
+		platform string
+		uid      string
+		avatar   string
+	}{
+		{
+			name:     "weibo",
+			path:     "/api/third-party/users/resolve?platform=weibo&query=%E6%B4%9B%E5%A4%A9%E4%BE%9D",
+			platform: "weibo",
+			uid:      "7556659984",
+			avatar:   "https://tvax1.sinaimg.cn/avatar.jpg",
+		},
+		{
+			name:     "douyin-url",
+			path:     "/api/third-party/users/resolve?platform=douyin&query=https%3A%2F%2Fwww.douyin.com%2Fuser%2FMS4wLjABAAAAfixture",
+			platform: "douyin",
+			uid:      "luotianyi",
+			avatar:   "https://p3-pc.douyinpic.com/avatar.jpg",
+		},
+		{
+			name:     "douyin-search",
+			path:     "/api/third-party/users/resolve?platform=douyin&query=%E6%B4%9B%E5%A4%A9%E4%BE%9D",
+			platform: "douyin",
+			uid:      "luotianyi",
+			avatar:   "https://p3-pc.douyinpic.com/avatar.jpg",
+		},
+		{
+			name:     "netease",
+			path:     "/api/third-party/users/resolve?platform=netease_music&query=%E6%B4%9B%E5%A4%A9%E4%BE%9D",
+			platform: "netease_music",
+			uid:      "8325",
+			avatar:   "https://p1.music.126.net/avatar.jpg",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			request := httptest.NewRequest(http.MethodGet, tt.path, nil)
+			recorder := httptest.NewRecorder()
+
+			handler.HandleThirdPartyUserResolve().ServeHTTP(recorder, request)
+
+			if recorder.Code != http.StatusOK {
+				t.Fatalf("resolve status = %d, want 200 (%s)", recorder.Code, recorder.Body.String())
+			}
+			var response thirdPartyUserResolveResponse
+			if err := json.Unmarshal(recorder.Body.Bytes(), &response); err != nil {
+				t.Fatalf("decode response: %v", err)
+			}
+			if response.Platform != tt.platform || !response.Exact || response.User == nil {
+				t.Fatalf("unexpected resolve response: %#v", response)
+			}
+			if response.User.UID != tt.uid || response.User.Name != "洛天依" || response.User.AvatarURL != tt.avatar {
+				t.Fatalf("unexpected user: %#v", response.User)
+			}
+		})
+	}
+}
+
+func TestThirdPartyUserResolveUsesSavedPlatformCookie(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name     string
+		platform string
+		path     string
+		cookie   string
+		matchURL string
+		body     string
+		uid      string
+		avatar   string
+	}{
+		{
+			name:     "weibo",
+			platform: thirdparty.PlatformWeibo,
+			path:     "/api/third-party/users/resolve?platform=weibo&query=%E6%88%91%E7%9A%84%E4%B8%96%E7%95%8C",
+			cookie:   "SUB=fixture;",
+			matchURL: "m.weibo.cn/api/container/getIndex",
+			body:     `{"data":{"cards":[{"card_group":[{"user":{"id":"7556659984","screen_name":"我的世界","avatar_hd":"https://tvax1.sinaimg.cn/weibo-avatar.jpg"}}]}]}}`,
+			uid:      "7556659984",
+			avatar:   "https://tvax1.sinaimg.cn/weibo-avatar.jpg",
+		},
+		{
+			name:     "douyin",
+			platform: thirdparty.PlatformDouyin,
+			path:     "/api/third-party/users/resolve?platform=douyin&query=%E6%B4%9B%E5%A4%A9%E4%BE%9D",
+			cookie:   "sessionid=fixture;",
+			matchURL: "www.douyin.com/aweme/v1/web/general/search/single",
+			body:     `{"status_code":0,"data":[{"user_list":[{"user_info":{"unique_id":"luotianyi","nickname":"洛天依","avatar_medium":{"url_list":["https://p3-pc.douyinpic.com/douyin-avatar.jpg"]}}}]}]}`,
+			uid:      "luotianyi",
+			avatar:   "https://p3-pc.douyinpic.com/douyin-avatar.jpg",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			accounts := &stubThirdPartyUserResolveAccounts{
+				accounts: []thirdparty.Account{{
+					Platform:  tt.platform,
+					AccountID: "primary",
+					Enabled:   true,
+					Credential: thirdparty.CredentialStatus{
+						State: thirdparty.CredentialValid,
+					},
+				}},
+				cookies: map[string]string{
+					"primary": tt.cookie,
+				},
+			}
+			handler := NewThirdPartyHandlers(accounts, nil, nil, nil, thirdPartyMediaRoundTripFunc(func(request *http.Request) (*http.Response, error) {
+				rawURL := request.URL.String()
+				if strings.Contains(rawURL, tt.matchURL) {
+					if !strings.Contains(request.Header.Get("Cookie"), strings.TrimSuffix(tt.cookie, ";")) {
+						t.Fatalf("resolve request cookie = %q, want %q", request.Header.Get("Cookie"), tt.cookie)
+					}
+					return textResponse(request, tt.body), nil
+				}
+				t.Fatalf("unexpected upstream request: %s", rawURL)
+				return nil, nil
+			}))
+			request := httptest.NewRequest(http.MethodGet, tt.path, nil)
+			recorder := httptest.NewRecorder()
+
+			handler.HandleThirdPartyUserResolve().ServeHTTP(recorder, request)
+
+			if recorder.Code != http.StatusOK {
+				t.Fatalf("resolve status = %d, want 200 (%s)", recorder.Code, recorder.Body.String())
+			}
+			var response thirdPartyUserResolveResponse
+			if err := json.Unmarshal(recorder.Body.Bytes(), &response); err != nil {
+				t.Fatalf("decode response: %v", err)
+			}
+			if response.Platform != tt.platform || !response.Exact || response.User == nil {
+				t.Fatalf("unexpected resolve response: %#v", response)
+			}
+			if response.User.UID != tt.uid || response.User.AvatarURL != tt.avatar {
+				t.Fatalf("unexpected user: %#v", response.User)
+			}
+		})
+	}
+}
+
+type stubThirdPartyUserResolveAccounts struct {
+	accounts []thirdparty.Account
+	cookies  map[string]string
+}
+
+func (s *stubThirdPartyUserResolveAccounts) List(context.Context) ([]thirdparty.Account, error) {
+	return s.accounts, nil
+}
+
+func (s *stubThirdPartyUserResolveAccounts) Upsert(context.Context, thirdparty.UpsertRequest) (thirdparty.Account, error) {
+	return thirdparty.Account{}, nil
+}
+
+func (s *stubThirdPartyUserResolveAccounts) Delete(context.Context, string, string) error {
+	return nil
+}
+
+func (s *stubThirdPartyUserResolveAccounts) ListEnabled(_ context.Context, platform string) ([]thirdparty.Account, error) {
+	enabled := make([]thirdparty.Account, 0, len(s.accounts))
+	for _, account := range s.accounts {
+		if account.Platform == platform && account.Enabled && account.Credential.State != thirdparty.CredentialInvalid {
+			enabled = append(enabled, account)
+		}
+	}
+	return enabled, nil
+}
+
+func (s *stubThirdPartyUserResolveAccounts) ReadCookie(_ context.Context, account thirdparty.Account) (string, error) {
+	return s.cookies[account.AccountID], nil
+}
+
+func textResponse(request *http.Request, body string) *http.Response {
+	return &http.Response{
+		StatusCode: http.StatusOK,
+		Header:     http.Header{"Content-Type": []string{"application/json"}},
+		Body:       io.NopCloser(strings.NewReader(body)),
+		Request:    request,
+	}
+}
