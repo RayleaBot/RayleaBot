@@ -16,7 +16,7 @@ export function renderRowEdit(row, context) {
     ? `<div class="candidate-list">${row.candidates.map((candidate) => `
         <button type="button" class="button candidate-button" data-action="choose-candidate" data-row-id="${escapeHTML(row.row_id)}" data-user='${escapeHTML(JSON.stringify(candidate))}'>
           ${avatarHTML(candidate.avatar_url, candidate.name, 'avatar--candidate', candidate.name)}
-          <span>${escapeHTML(candidate.name)} · UID ${escapeHTML(candidate.uid)}</span>
+          <span>${escapeHTML(candidate.name)} · ${escapeHTML(subjectLabel(row.platform))} ${escapeHTML(candidate.uid)}</span>
         </button>
       `).join('')}</div>`
     : ''
@@ -41,7 +41,7 @@ export function renderRowEdit(row, context) {
           <div class="up-input-line">
             <select class="platform-select" data-row-id="${escapeHTML(row.row_id)}" autocomplete="off" aria-label="平台">${platformOptions}</select>
             <input class="up-query-input" data-row-id="${escapeHTML(row.row_id)}" type="text" autocomplete="off" value="${escapeHTML(row.query)}" placeholder="${escapeHTML(inputPlaceholder(row.platform))}" />
-            <button type="button" class="button button--small" data-action="resolve-up" data-row-id="${escapeHTML(row.row_id)}">${row.platform === 'bilibili' ? '校验' : '使用'}</button>
+            <button type="button" class="button button--small" data-action="resolve-up" data-row-id="${escapeHTML(row.row_id)}">校验</button>
           </div>
           ${row.resolve_message ? `<div class="row-note">${escapeHTML(row.resolve_message)}</div>` : ''}
           ${candidates}

@@ -119,6 +119,10 @@ function commonServiceInputs(document) {
     .map((input) => [input.value, input]))
 }
 
+function wait(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
 test('settings page uses a classic script entry for sandboxed plugin iframes', () => {
   assert.match(subscriptionHtml, /<script src="\.\/app\.js"><\/script>/)
   assert.doesNotMatch(subscriptionHtml, /type="module"/)
@@ -429,10 +433,12 @@ test('new row must resolve Bilibili user before saving', () => {
   input.value = '测试 UP'
   input.dispatchEvent(new dom.window.Event('input', { bubbles: true }))
   document.querySelector('button[data-action="resolve-up"]').click()
-  const resolveMessage = lastMessage(messages, 'bilibili.user.resolve')
+  const resolveMessage = lastMessage(messages, 'thirdparty.user.resolve')
+  assert.equal(resolveMessage.payload.platform, 'bilibili')
   assert.equal(resolveMessage.payload.query, '测试 UP')
 
-  dispatchHost(dom, 'bilibili.user.resolved', {
+  dispatchHost(dom, 'thirdparty.user.resolved', {
+    platform: 'bilibili',
     query: '测试 UP',
     exact: true,
     user: {
@@ -448,7 +454,7 @@ test('new row must resolve Bilibili user before saving', () => {
   assert.equal(document.querySelector('#save-button').disabled, false)
 })
 
-test('new Weibo row uses manual subject and saves platform services', () => {
+test('new Weibo row resolves profile and saves platform services', () => {
   const { dom, messages } = createPage(defaultSettings)
   const document = dom.window.document
 
@@ -458,8 +464,26 @@ test('new Weibo row uses manual subject and saves platform services', () => {
   platformSelect.dispatchEvent(new dom.window.Event('change', { bubbles: true }))
 
   const input = document.querySelector('.up-query-input')
-  input.value = '7556659984'
+  input.value = '洛天依'
   input.dispatchEvent(new dom.window.Event('input', { bubbles: true }))
+  document.querySelector('button[data-action="resolve-up"]').click()
+  const resolveMessage = lastMessage(messages, 'thirdparty.user.resolve')
+  assert.equal(resolveMessage.payload.platform, 'weibo')
+  assert.equal(resolveMessage.payload.query, '洛天依')
+  assert.equal(document.querySelector('#save-button').disabled, true)
+
+  dispatchHost(dom, 'thirdparty.user.resolved', {
+    platform: 'weibo',
+    query: '洛天依',
+    exact: true,
+    user: {
+      uid: '7556659984',
+      name: '洛天依',
+      avatar_url: 'https://tvax1.sinaimg.cn/avatar.jpg',
+    },
+    candidates: [],
+  }, resolveMessage.request_id)
+
   document.querySelector('.target-option').click()
 
   let inputs = commonServiceInputs(document)
@@ -474,5 +498,57 @@ test('new Weibo row uses manual subject and saves platform services', () => {
   assert.equal(values.subscriptions.length, 1)
   assert.equal(values.subscriptions[0].platform, 'weibo')
   assert.equal(values.subscriptions[0].uid, '7556659984')
+  assert.equal(values.subscriptions[0].name, '洛天依')
+  assert.equal(values.subscriptions[0].avatar_url, 'https://tvax1.sinaimg.cn/avatar.jpg')
   assert.deepEqual(plain(values.subscriptions[0].services), ['video'])
+})
+
+test('composition input resolves after Chinese IME commits', async () => {
+  const { dom, messages } = createPage(defaultSettings)
+  const document = dom.window.document
+
+  document.querySelector('#add-subscription-button').click()
+  const platformSelect = document.querySelector('.platform-select')
+  platformSelect.value = 'weibo'
+  platformSelect.dispatchEvent(new dom.window.Event('change', { bubbles: true }))
+
+  const input = document.querySelector('.up-query-input')
+  input.dispatchEvent(new dom.window.CompositionEvent('compositionstart', { bubbles: true }))
+  input.value = '洛'
+  input.dispatchEvent(new dom.window.Event('input', { bubbles: true }))
+  await wait(760)
+  assert.equal(lastMessage(messages, 'thirdparty.user.resolve'), undefined)
+
+  input.value = '洛天依'
+  input.dispatchEvent(new dom.window.CompositionEvent('compositionend', { bubbles: true }))
+  await wait(760)
+  const resolveMessage = lastMessage(messages, 'thirdparty.user.resolve')
+  assert.equal(resolveMessage.payload.platform, 'weibo')
+  assert.equal(resolveMessage.payload.query, '洛天依')
+})
+
+test('resolve bridge error clears checking state on the row', () => {
+  const { dom, messages } = createPage(defaultSettings)
+  const document = dom.window.document
+
+  document.querySelector('#add-subscription-button').click()
+  const platformSelect = document.querySelector('.platform-select')
+  platformSelect.value = 'weibo'
+  platformSelect.dispatchEvent(new dom.window.Event('change', { bubbles: true }))
+
+  const input = document.querySelector('.up-query-input')
+  input.value = '我的世界'
+  input.dispatchEvent(new dom.window.Event('input', { bubbles: true }))
+  document.querySelector('button[data-action="resolve-up"]').click()
+  const resolveMessage = lastMessage(messages, 'thirdparty.user.resolve')
+
+  dispatchHost(dom, 'error', {
+    code: 'platform.upstream_request_failed',
+    message: '三方平台用户信息读取失败',
+  }, resolveMessage.request_id)
+
+  const rowText = document.querySelector('.sub-card').textContent
+  assert.match(rowText, /待校验/)
+  assert.match(rowText, /三方平台用户信息读取失败/)
+  assert.doesNotMatch(rowText, /校验中/)
 })

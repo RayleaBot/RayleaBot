@@ -13,7 +13,7 @@ import {
   trim,
   unique,
 } from './services.js'
-import { normalizePlatform, platformLabel, safeSubjectId } from './platforms.js'
+import { normalizePlatform, platformLabel } from './platforms.js'
 import {
   buildIdentityRequests,
   collectSubscriberAvatars,
@@ -73,6 +73,7 @@ const state = {
   requests: {
     pending: new Map(),
     resolveTimers: new Map(),
+    composingRows: new Set(),
     savingRequestId: '',
   },
   filters: {
@@ -88,6 +89,8 @@ const state = {
 }
 
 let bridge
+
+const resolveDebounceMs = 700
 
 function renderContext() {
   const liveTargets = targetMap(state.targets)
@@ -363,40 +366,57 @@ function requestTargets() {
   bridge.reloadTargets()
 }
 
-function requestResolve(row, immediate) {
-  if (normalizePlatform(row.platform) !== 'bilibili') {
-    applyManualResolved(row)
-    markDirty()
-    return
-  }
-  requestBilibiliResolve(row, immediate)
+function clearResolveTimer(rowId) {
+  clearTimeout(state.requests.resolveTimers.get(rowId))
+  state.requests.resolveTimers.delete(rowId)
 }
 
-function requestBilibiliResolve(row, immediate) {
+function clearPendingResolve(rowId) {
+  for (const [requestId, request] of state.requests.pending) {
+    if (request.kind === 'platform-user' && request.row_id === rowId) {
+      state.requests.pending.delete(requestId)
+    }
+  }
+}
+
+function requestResolve(row, immediate) {
+  requestPlatformResolve(row, immediate)
+}
+
+function requestPlatformResolve(row, immediate) {
+  const platform = normalizePlatform(row.platform)
   const query = trim(row.query)
   if (!query) {
+    clearResolveTimer(row.row_id)
+    clearPendingResolve(row.row_id)
     row.resolved = false
     row.resolve_state = 'error'
-    row.resolve_message = '请填写 UID 或 Bilibili 用户名。'
+    row.resolve_message = `请填写${platformLabel(platform)}对象。`
     render()
     return
   }
   const run = () => {
-    const requestId = bridge.nextRequestId('bilibili-user')
-    state.requests.pending.set(requestId, { kind: 'bilibili-user', row_id: row.row_id, query })
+    state.requests.resolveTimers.delete(row.row_id)
+    if (state.requests.composingRows.has(row.row_id)) {
+      return
+    }
+    clearPendingResolve(row.row_id)
+    const requestId = bridge.nextRequestId('third-party-user')
+    state.requests.pending.set(requestId, { kind: 'platform-user', row_id: row.row_id, platform, query })
     row.resolve_state = 'checking'
-    row.resolve_message = '正在校验 UP…'
+    row.resolve_message = `正在校验${platformLabel(platform)}对象…`
     row.candidates = []
     row.resolved = false
     render()
-    bridge.resolveBilibiliUser(query, requestId)
+    bridge.resolvePlatformUser(platform, query, requestId)
   }
   if (immediate) {
+    clearResolveTimer(row.row_id)
     run()
     return
   }
-  clearTimeout(state.requests.resolveTimers.get(row.row_id))
-  state.requests.resolveTimers.set(row.row_id, setTimeout(run, 450))
+  clearResolveTimer(row.row_id)
+  state.requests.resolveTimers.set(row.row_id, setTimeout(run, resolveDebounceMs))
 }
 
 function applyResolvedUser(row, user) {
@@ -409,38 +429,36 @@ function applyResolvedUser(row, user) {
   row.candidates = []
 }
 
-function applyManualResolved(row) {
-  const query = trim(row.query)
-  const uid = safeSubjectId(query, row.platform)
-  row.uid = uid
-  row.name = query
-  row.avatar_url = ''
-  row.resolved = Boolean(uid && query)
-  row.resolve_state = row.resolved ? 'resolved' : 'error'
-  row.resolve_message = row.resolved ? `${platformLabel(row.platform)}对象已设置。` : '请填写平台标识。'
-  row.candidates = []
-}
-
-function applyBilibiliResolved(message) {
+function applyPlatformResolved(message) {
   const request = state.requests.pending.get(message.request_id)
-  if (!request || request.kind !== 'bilibili-user') {
+  if (!request || request.kind !== 'platform-user') {
     return
   }
   state.requests.pending.delete(message.request_id)
   const row = findRow(request.row_id)
-  if (!row || row.platform !== 'bilibili' || request.query !== message.payload.query) {
+  if (!row || request.platform !== normalizePlatform(message.payload.platform) || normalizePlatform(row.platform) !== request.platform || request.query !== message.payload.query) {
     return
   }
   if (message.payload.exact && message.payload.user) {
     applyResolvedUser(row, message.payload.user)
-    row.resolve_message = 'UP 已校验。'
+    row.resolve_message = `${platformLabel(row.platform)}对象已校验。`
   } else {
     row.resolved = false
     row.resolve_state = 'error'
-    row.resolve_message = message.payload.message || '请选择一个候选 UP 后保存。'
+    row.resolve_message = message.payload.message || `请选择一个候选${platformLabel(row.platform)}对象后保存。`
     row.candidates = Array.isArray(message.payload.candidates) ? message.payload.candidates : []
   }
   markDirty()
+}
+
+function applyBilibiliResolved(message) {
+  applyPlatformResolved({
+    ...message,
+    payload: {
+      platform: 'bilibili',
+      ...(message.payload || {}),
+    },
+  })
 }
 
 function addTargetToRow(row, liveTarget) {
@@ -592,6 +610,9 @@ function handleBridgeMessage(message) {
     case 'protocol.identities.resolved':
       applyIdentitiesResolved(message)
       return
+    case 'thirdparty.user.resolved':
+      applyPlatformResolved(message)
+      return
     case 'bilibili.user.resolved':
       applyBilibiliResolved(message)
       return
@@ -601,6 +622,19 @@ function handleBridgeMessage(message) {
 }
 
 function handleBridgeError(message) {
+  const request = state.requests.pending.get(message.error.request_id)
+  if (request && request.kind === 'platform-user') {
+    state.requests.pending.delete(message.error.request_id)
+    const row = findRow(request.row_id)
+    if (row) {
+      row.resolved = false
+      row.resolve_state = 'error'
+      row.resolve_message = message.error.message || `${platformLabel(row.platform)}对象校验失败。`
+      row.candidates = []
+      markDirty()
+      return
+    }
+  }
   state.requests.savingRequestId = ''
   setStatus((message.error && message.error.message) || '操作失败')
   render()
@@ -623,10 +657,10 @@ function handleListClick(event) {
   if (action === 'choose-candidate') {
     try {
       applyResolvedUser(row, JSON.parse(button.dataset.user || '{}'))
-      row.resolve_message = 'UP 已校验。'
+      row.resolve_message = `${platformLabel(row.platform)}对象已校验。`
       markDirty()
     } catch {
-      setStatus('候选 UP 数据不正确')
+      setStatus('候选对象数据不正确')
     }
     return
   }
@@ -666,6 +700,9 @@ function handleListClick(event) {
     return
   }
   if (action === 'delete-row') {
+    clearResolveTimer(row.row_id)
+    clearPendingResolve(row.row_id)
+    state.requests.composingRows.delete(row.row_id)
     state.rows = state.rows.filter((item) => item.row_id !== row.row_id)
     markDirty()
     return
@@ -696,13 +733,40 @@ function handleListInput(event) {
     row.resolve_message = ''
     row.candidates = []
     state.ui.dirty = true
-    if (row.platform === 'bilibili') {
-      requestResolve(row, false)
-    } else {
-      applyManualResolved(row)
-      refreshValidationAndPage(input.closest('.sub-card'), row)
+    clearResolveTimer(row.row_id)
+    if (event.isComposing || state.requests.composingRows.has(row.row_id)) {
+      return
     }
+    requestResolve(row, false)
   }
+}
+
+function handleListCompositionStart(event) {
+  const input = event.target
+  if (!input.classList.contains('up-query-input')) {
+    return
+  }
+  state.requests.composingRows.add(input.dataset.rowId)
+  clearResolveTimer(input.dataset.rowId)
+}
+
+function handleListCompositionEnd(event) {
+  const input = event.target
+  if (!input.classList.contains('up-query-input')) {
+    return
+  }
+  state.requests.composingRows.delete(input.dataset.rowId)
+  const row = findRow(input.dataset.rowId)
+  if (!row) {
+    return
+  }
+  row.query = input.value
+  row.resolved = false
+  row.resolve_state = 'idle'
+  row.resolve_message = ''
+  row.candidates = []
+  state.ui.dirty = true
+  requestResolve(row, false)
 }
 
 function handleListChange(event) {
@@ -717,6 +781,9 @@ function handleListChange(event) {
     return
   }
   if (input.classList.contains('platform-select')) {
+    clearResolveTimer(row.row_id)
+    clearPendingResolve(row.row_id)
+    state.requests.composingRows.delete(row.row_id)
     row.platform = normalizePlatform(input.value)
     row.uid = ''
     row.name = ''
@@ -773,6 +840,8 @@ function bindEvents() {
   })
   elements.list.addEventListener('click', handleListClick)
   elements.list.addEventListener('input', handleListInput)
+  elements.list.addEventListener('compositionstart', handleListCompositionStart)
+  elements.list.addEventListener('compositionend', handleListCompositionEnd)
   elements.list.addEventListener('change', handleListChange)
   elements.reloadButton.addEventListener('click', () => {
     setStatus('正在重新载入设置…')

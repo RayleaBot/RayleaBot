@@ -1,6 +1,6 @@
 /* Generated from app-entry.js for sandboxed plugin iframes. */
 (() => {
-  // ../plugins/builtin/subscription_hub/web/bridge-client.js
+  // plugins/builtin/subscription_hub/web/bridge-client.js
   function createBridgeClient(win, handlers = {}) {
     let requestCounter = 0;
     function nextRequestId(prefix) {
@@ -69,6 +69,9 @@
       resolveBilibiliUser(query, requestId) {
         return send("bilibili.user.resolve", { query }, requestId || nextRequestId("bilibili-user"));
       },
+      resolvePlatformUser(platform, query, requestId) {
+        return send("thirdparty.user.resolve", { platform, query }, requestId || nextRequestId("third-party-user"));
+      },
       openRenderTemplate(templateId) {
         return send("render_template.open", { template_id: templateId }, nextRequestId("open-template"));
       }
@@ -84,7 +87,7 @@
     };
   }
 
-  // ../plugins/builtin/subscription_hub/web/platforms.js
+  // plugins/builtin/subscription_hub/web/platforms.js
   var PLATFORM_OPTIONS = [
     { value: "bilibili", label: "Bilibili", subjectLabel: "UID", inputPlaceholder: "UID \u6216 Bilibili \u7528\u6237\u540D" },
     { value: "weibo", label: "\u5FAE\u535A", subjectLabel: "UID", inputPlaceholder: "UID \u6216\u5FAE\u535A\u4E3B\u9875\u6807\u8BC6" },
@@ -116,7 +119,7 @@
     return [...text].filter((char) => /[\p{L}\p{N}_.-]/u.test(char)).join("").replace(/^[_.-]+|[_.-]+$/g, "").slice(0, 96);
   }
 
-  // ../plugins/builtin/subscription_hub/web/services.js
+  // plugins/builtin/subscription_hub/web/services.js
   var PLATFORM_SERVICE_LABELS = {
     bilibili: {
       all: "\u5168\u90E8",
@@ -195,7 +198,7 @@
     return normalizeServices(services, platform).join(",");
   }
 
-  // ../plugins/builtin/subscription_hub/web/subscribers.js
+  // plugins/builtin/subscription_hub/web/subscribers.js
   var numericPattern = /^[0-9]+$/;
   function normalizeSubscriber(value) {
     const id = trim(value && value.id);
@@ -254,7 +257,7 @@
     });
   }
 
-  // ../plugins/builtin/subscription_hub/web/targets.js
+  // plugins/builtin/subscription_hub/web/targets.js
   var TARGET_LABELS = {
     group: "\u7FA4\u804A",
     private: "\u79C1\u804A"
@@ -317,7 +320,7 @@
     return live ? live.avatar_url : deriveTargetAvatarURL(target.target_type, target.target_id);
   }
 
-  // ../plugins/builtin/subscription_hub/web/model.js
+  // plugins/builtin/subscription_hub/web/model.js
   function normalizeSubscription(value) {
     if (!value || typeof value !== "object") {
       return null;
@@ -440,7 +443,7 @@
     return JSON.parse(JSON.stringify(row));
   }
 
-  // ../plugins/builtin/subscription_hub/web/settings-payload.js
+  // plugins/builtin/subscription_hub/web/settings-payload.js
   function buildSettingsPayload(settings, rows, targetsByKey) {
     const targets = targetsByKey || /* @__PURE__ */ new Map();
     const subscriptions = [];
@@ -470,7 +473,7 @@
     };
   }
 
-  // ../plugins/builtin/subscription_hub/web/validation.js
+  // plugins/builtin/subscription_hub/web/validation.js
   function validateRow(row, context) {
     const map = context && context.targetMap ? context.targetMap : /* @__PURE__ */ new Map();
     const targetsLoaded = Boolean(context && context.targetsLoaded);
@@ -508,7 +511,7 @@
     return { ok: errors.length === 0, errors };
   }
 
-  // ../plugins/builtin/subscription_hub/web/render/html.js
+  // plugins/builtin/subscription_hub/web/render/html.js
   function escapeHTML(value) {
     return String(value ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#39;");
   }
@@ -550,12 +553,12 @@
     return `<span class="avatar-stack">${avatars}${overflowHTML}</span>`;
   }
 
-  // ../plugins/builtin/subscription_hub/web/render/layout.js
+  // plugins/builtin/subscription_hub/web/render/layout.js
   function renderEmptyState() {
     return '<div class="empty-state"><p>\u6CA1\u6709\u5339\u914D\u7684\u8BA2\u9605</p><p>\u53EF\u6DFB\u52A0\u8BA2\u9605\u6216\u8C03\u6574\u7B5B\u9009\u6761\u4EF6</p></div>';
   }
 
-  // ../plugins/builtin/subscription_hub/web/render/service-picker.js
+  // plugins/builtin/subscription_hub/web/render/service-picker.js
   function serviceTagsHTML(services, platform = "bilibili") {
     return serviceCheckboxValues(services, platform).has("all") ? '<span class="service-tag">\u5168\u90E8</span>' : [...serviceCheckboxValues(services, platform)].map((service) => `
       <span class="service-tag">${escapeHTML(serviceLabel(service, platform))}</span>
@@ -590,7 +593,7 @@
   `;
   }
 
-  // ../plugins/builtin/subscription_hub/web/render/subscriber-editor.js
+  // plugins/builtin/subscription_hub/web/render/subscriber-editor.js
   function renderSubscriberChips(row, context) {
     return row.subscriber_ids.length ? row.subscriber_ids.map((id) => `
         <span class="chip">
@@ -611,7 +614,7 @@
   `;
   }
 
-  // ../plugins/builtin/subscription_hub/web/render/status.js
+  // plugins/builtin/subscription_hub/web/render/status.js
   function renderRowValidation(row, context) {
     const validation = validateRow(row, context);
     return validation.length ? `<ul class="validation-list">${validation.map((item) => `<li>${escapeHTML(item)}</li>`).join("")}</ul>` : '<span class="badge badge--success">\u53EF\u4FDD\u5B58</span>';
@@ -620,7 +623,7 @@
     return validateRow(row, context).length ? '<span class="badge badge--danger">\u9700\u5904\u7406</span>' : '<span class="badge badge--success">\u53EF\u4FDD\u5B58</span>';
   }
 
-  // ../plugins/builtin/subscription_hub/web/render/target-picker.js
+  // plugins/builtin/subscription_hub/web/render/target-picker.js
   function renderSelectedTargets(row, context) {
     const map = context.targetMap;
     return row.targets.length ? row.targets.map((target) => `
@@ -649,7 +652,7 @@
     }).join("");
   }
 
-  // ../plugins/builtin/subscription_hub/web/render/row-edit.js
+  // plugins/builtin/subscription_hub/web/render/row-edit.js
   function renderRowEdit(row, context) {
     const title = row.name || row.uid || `\u672A\u8BBE\u7F6E${platformLabel(row.platform)}\u5BF9\u8C61`;
     const subtitle = row.uid ? `${subjectLabel(row.platform)} ${row.uid}` : inputPlaceholder(row.platform);
@@ -660,7 +663,7 @@
     const candidates = row.candidates.length ? `<div class="candidate-list">${row.candidates.map((candidate) => `
         <button type="button" class="button candidate-button" data-action="choose-candidate" data-row-id="${escapeHTML(row.row_id)}" data-user='${escapeHTML(JSON.stringify(candidate))}'>
           ${avatarHTML(candidate.avatar_url, candidate.name, "avatar--candidate", candidate.name)}
-          <span>${escapeHTML(candidate.name)} \xB7 UID ${escapeHTML(candidate.uid)}</span>
+          <span>${escapeHTML(candidate.name)} \xB7 ${escapeHTML(subjectLabel(row.platform))} ${escapeHTML(candidate.uid)}</span>
         </button>
       `).join("")}</div>` : "";
     return `
@@ -683,7 +686,7 @@
           <div class="up-input-line">
             <select class="platform-select" data-row-id="${escapeHTML(row.row_id)}" autocomplete="off" aria-label="\u5E73\u53F0">${platformOptions}</select>
             <input class="up-query-input" data-row-id="${escapeHTML(row.row_id)}" type="text" autocomplete="off" value="${escapeHTML(row.query)}" placeholder="${escapeHTML(inputPlaceholder(row.platform))}" />
-            <button type="button" class="button button--small" data-action="resolve-up" data-row-id="${escapeHTML(row.row_id)}">${row.platform === "bilibili" ? "\u6821\u9A8C" : "\u4F7F\u7528"}</button>
+            <button type="button" class="button button--small" data-action="resolve-up" data-row-id="${escapeHTML(row.row_id)}">\u6821\u9A8C</button>
           </div>
           ${row.resolve_message ? `<div class="row-note">${escapeHTML(row.resolve_message)}</div>` : ""}
           ${candidates}
@@ -727,7 +730,7 @@
   `;
   }
 
-  // ../plugins/builtin/subscription_hub/web/render/row-view.js
+  // plugins/builtin/subscription_hub/web/render/row-view.js
   function renderRowView(row, context) {
     const map = context.targetMap;
     const title = row.name || row.uid || `\u672A\u8BBE\u7F6E${platformLabel(row.platform)}\u5BF9\u8C61`;
@@ -795,7 +798,7 @@
   `;
   }
 
-  // ../plugins/builtin/subscription_hub/web/app-entry.js
+  // plugins/builtin/subscription_hub/web/app-entry.js
   var elements = {
     statusText: document.getElementById("status-text"),
     enabledInput: document.getElementById("enabled-input"),
@@ -833,6 +836,7 @@
     requests: {
       pending: /* @__PURE__ */ new Map(),
       resolveTimers: /* @__PURE__ */ new Map(),
+      composingRows: /* @__PURE__ */ new Set(),
       savingRequestId: ""
     },
     filters: {
@@ -847,6 +851,7 @@
     }
   };
   var bridge;
+  var resolveDebounceMs = 700;
   function renderContext() {
     const liveTargets = targetMap(state.targets);
     return {
@@ -1073,39 +1078,54 @@
     setStatus("\u6B63\u5728\u5237\u65B0\u63A8\u9001\u5BF9\u8C61\u2026");
     bridge.reloadTargets();
   }
-  function requestResolve(row, immediate) {
-    if (normalizePlatform(row.platform) !== "bilibili") {
-      applyManualResolved(row);
-      markDirty();
-      return;
-    }
-    requestBilibiliResolve(row, immediate);
+  function clearResolveTimer(rowId) {
+    clearTimeout(state.requests.resolveTimers.get(rowId));
+    state.requests.resolveTimers.delete(rowId);
   }
-  function requestBilibiliResolve(row, immediate) {
+  function clearPendingResolve(rowId) {
+    for (const [requestId, request] of state.requests.pending) {
+      if (request.kind === "platform-user" && request.row_id === rowId) {
+        state.requests.pending.delete(requestId);
+      }
+    }
+  }
+  function requestResolve(row, immediate) {
+    requestPlatformResolve(row, immediate);
+  }
+  function requestPlatformResolve(row, immediate) {
+    const platform = normalizePlatform(row.platform);
     const query = trim(row.query);
     if (!query) {
+      clearResolveTimer(row.row_id);
+      clearPendingResolve(row.row_id);
       row.resolved = false;
       row.resolve_state = "error";
-      row.resolve_message = "\u8BF7\u586B\u5199 UID \u6216 Bilibili \u7528\u6237\u540D\u3002";
+      row.resolve_message = `\u8BF7\u586B\u5199${platformLabel(platform)}\u5BF9\u8C61\u3002`;
       render();
       return;
     }
     const run = () => {
-      const requestId = bridge.nextRequestId("bilibili-user");
-      state.requests.pending.set(requestId, { kind: "bilibili-user", row_id: row.row_id, query });
+      state.requests.resolveTimers.delete(row.row_id);
+      if (state.requests.composingRows.has(row.row_id)) {
+        return;
+      }
+      clearPendingResolve(row.row_id);
+      const requestId = bridge.nextRequestId("third-party-user");
+      state.requests.pending.set(requestId, { kind: "platform-user", row_id: row.row_id, platform, query });
       row.resolve_state = "checking";
-      row.resolve_message = "\u6B63\u5728\u6821\u9A8C UP\u2026";
+      row.resolve_message = `\u6B63\u5728\u6821\u9A8C${platformLabel(platform)}\u5BF9\u8C61\u2026`;
       row.candidates = [];
       row.resolved = false;
       render();
-      bridge.resolveBilibiliUser(query, requestId);
+      bridge.resolvePlatformUser(platform, query, requestId);
     };
     if (immediate) {
+      clearResolveTimer(row.row_id);
       run();
       return;
     }
-    clearTimeout(state.requests.resolveTimers.get(row.row_id));
-    state.requests.resolveTimers.set(row.row_id, setTimeout(run, 450));
+    clearResolveTimer(row.row_id);
+    state.requests.resolveTimers.set(row.row_id, setTimeout(run, resolveDebounceMs));
   }
   function applyResolvedUser(row, user) {
     row.uid = trim(user.uid);
@@ -1116,37 +1136,35 @@
     row.resolve_state = row.resolved ? "resolved" : "error";
     row.candidates = [];
   }
-  function applyManualResolved(row) {
-    const query = trim(row.query);
-    const uid = safeSubjectId(query, row.platform);
-    row.uid = uid;
-    row.name = query;
-    row.avatar_url = "";
-    row.resolved = Boolean(uid && query);
-    row.resolve_state = row.resolved ? "resolved" : "error";
-    row.resolve_message = row.resolved ? `${platformLabel(row.platform)}\u5BF9\u8C61\u5DF2\u8BBE\u7F6E\u3002` : "\u8BF7\u586B\u5199\u5E73\u53F0\u6807\u8BC6\u3002";
-    row.candidates = [];
-  }
-  function applyBilibiliResolved(message) {
+  function applyPlatformResolved(message) {
     const request = state.requests.pending.get(message.request_id);
-    if (!request || request.kind !== "bilibili-user") {
+    if (!request || request.kind !== "platform-user") {
       return;
     }
     state.requests.pending.delete(message.request_id);
     const row = findRow(request.row_id);
-    if (!row || row.platform !== "bilibili" || request.query !== message.payload.query) {
+    if (!row || request.platform !== normalizePlatform(message.payload.platform) || normalizePlatform(row.platform) !== request.platform || request.query !== message.payload.query) {
       return;
     }
     if (message.payload.exact && message.payload.user) {
       applyResolvedUser(row, message.payload.user);
-      row.resolve_message = "UP \u5DF2\u6821\u9A8C\u3002";
+      row.resolve_message = `${platformLabel(row.platform)}\u5BF9\u8C61\u5DF2\u6821\u9A8C\u3002`;
     } else {
       row.resolved = false;
       row.resolve_state = "error";
-      row.resolve_message = message.payload.message || "\u8BF7\u9009\u62E9\u4E00\u4E2A\u5019\u9009 UP \u540E\u4FDD\u5B58\u3002";
+      row.resolve_message = message.payload.message || `\u8BF7\u9009\u62E9\u4E00\u4E2A\u5019\u9009${platformLabel(row.platform)}\u5BF9\u8C61\u540E\u4FDD\u5B58\u3002`;
       row.candidates = Array.isArray(message.payload.candidates) ? message.payload.candidates : [];
     }
     markDirty();
+  }
+  function applyBilibiliResolved(message) {
+    applyPlatformResolved({
+      ...message,
+      payload: {
+        platform: "bilibili",
+        ...message.payload || {}
+      }
+    });
   }
   function addTargetToRow(row, liveTarget) {
     if (row.targets.some((target) => target.key === liveTarget.key)) {
@@ -1285,6 +1303,9 @@
       case "protocol.identities.resolved":
         applyIdentitiesResolved(message);
         return;
+      case "thirdparty.user.resolved":
+        applyPlatformResolved(message);
+        return;
       case "bilibili.user.resolved":
         applyBilibiliResolved(message);
         return;
@@ -1293,6 +1314,19 @@
     }
   }
   function handleBridgeError(message) {
+    const request = state.requests.pending.get(message.error.request_id);
+    if (request && request.kind === "platform-user") {
+      state.requests.pending.delete(message.error.request_id);
+      const row = findRow(request.row_id);
+      if (row) {
+        row.resolved = false;
+        row.resolve_state = "error";
+        row.resolve_message = message.error.message || `${platformLabel(row.platform)}\u5BF9\u8C61\u6821\u9A8C\u5931\u8D25\u3002`;
+        row.candidates = [];
+        markDirty();
+        return;
+      }
+    }
     state.requests.savingRequestId = "";
     setStatus(message.error && message.error.message || "\u64CD\u4F5C\u5931\u8D25");
     render();
@@ -1314,10 +1348,10 @@
     if (action === "choose-candidate") {
       try {
         applyResolvedUser(row, JSON.parse(button.dataset.user || "{}"));
-        row.resolve_message = "UP \u5DF2\u6821\u9A8C\u3002";
+        row.resolve_message = `${platformLabel(row.platform)}\u5BF9\u8C61\u5DF2\u6821\u9A8C\u3002`;
         markDirty();
       } catch {
-        setStatus("\u5019\u9009 UP \u6570\u636E\u4E0D\u6B63\u786E");
+        setStatus("\u5019\u9009\u5BF9\u8C61\u6570\u636E\u4E0D\u6B63\u786E");
       }
       return;
     }
@@ -1357,6 +1391,9 @@
       return;
     }
     if (action === "delete-row") {
+      clearResolveTimer(row.row_id);
+      clearPendingResolve(row.row_id);
+      state.requests.composingRows.delete(row.row_id);
       state.rows = state.rows.filter((item) => item.row_id !== row.row_id);
       markDirty();
       return;
@@ -1386,13 +1423,38 @@
       row.resolve_message = "";
       row.candidates = [];
       state.ui.dirty = true;
-      if (row.platform === "bilibili") {
-        requestResolve(row, false);
-      } else {
-        applyManualResolved(row);
-        refreshValidationAndPage(input.closest(".sub-card"), row);
+      clearResolveTimer(row.row_id);
+      if (event.isComposing || state.requests.composingRows.has(row.row_id)) {
+        return;
       }
+      requestResolve(row, false);
     }
+  }
+  function handleListCompositionStart(event) {
+    const input = event.target;
+    if (!input.classList.contains("up-query-input")) {
+      return;
+    }
+    state.requests.composingRows.add(input.dataset.rowId);
+    clearResolveTimer(input.dataset.rowId);
+  }
+  function handleListCompositionEnd(event) {
+    const input = event.target;
+    if (!input.classList.contains("up-query-input")) {
+      return;
+    }
+    state.requests.composingRows.delete(input.dataset.rowId);
+    const row = findRow(input.dataset.rowId);
+    if (!row) {
+      return;
+    }
+    row.query = input.value;
+    row.resolved = false;
+    row.resolve_state = "idle";
+    row.resolve_message = "";
+    row.candidates = [];
+    state.ui.dirty = true;
+    requestResolve(row, false);
   }
   function handleListChange(event) {
     const input = event.target;
@@ -1406,6 +1468,9 @@
       return;
     }
     if (input.classList.contains("platform-select")) {
+      clearResolveTimer(row.row_id);
+      clearPendingResolve(row.row_id);
+      state.requests.composingRows.delete(row.row_id);
       row.platform = normalizePlatform(input.value);
       row.uid = "";
       row.name = "";
@@ -1460,6 +1525,8 @@
     });
     elements.list.addEventListener("click", handleListClick);
     elements.list.addEventListener("input", handleListInput);
+    elements.list.addEventListener("compositionstart", handleListCompositionStart);
+    elements.list.addEventListener("compositionend", handleListCompositionEnd);
     elements.list.addEventListener("change", handleListChange);
     elements.reloadButton.addEventListener("click", () => {
       setStatus("\u6B63\u5728\u91CD\u65B0\u8F7D\u5165\u8BBE\u7F6E\u2026");

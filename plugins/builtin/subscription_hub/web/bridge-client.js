@@ -72,6 +72,9 @@ export function createBridgeClient(win, handlers = {}) {
     resolveBilibiliUser(query, requestId) {
       return send('bilibili.user.resolve', { query }, requestId || nextRequestId('bilibili-user'))
     },
+    resolvePlatformUser(platform, query, requestId) {
+      return send('thirdparty.user.resolve', { platform, query }, requestId || nextRequestId('third-party-user'))
+    },
     openRenderTemplate(templateId) {
       return send('render_template.open', { template_id: templateId }, nextRequestId('open-template'))
     },
