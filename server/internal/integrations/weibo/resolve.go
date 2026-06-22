@@ -160,7 +160,11 @@ func collectWeiboProfiles(value any, seen map[string]bool, profiles *[]thirdpart
 func enrichWeiboResolveProfiles(ctx context.Context, client *http.Client, cookies map[string]string, profiles []thirdparty.AccountProfile) []thirdparty.AccountProfile {
 	for index := range profiles {
 		uid := strings.TrimSpace(profiles[index].UID)
-		if uid == "" || strings.TrimSpace(profiles[index].AvatarURL) != "" {
+		if strings.TrimSpace(profiles[index].AvatarURL) != "" {
+			profiles[index].AvatarURL = normalizeWeiboImageURL(profiles[index].AvatarURL)
+			continue
+		}
+		if uid == "" {
 			continue
 		}
 		attemptCookies := common.CloneStringMap(cookies)
@@ -170,6 +174,7 @@ func enrichWeiboResolveProfiles(ctx context.Context, client *http.Client, cookie
 		if strings.TrimSpace(profiles[index].AvatarURL) == "" {
 			profiles[index].AvatarURL = fetchWeiboAvatarFromMobilePage(ctx, client, uid, attemptCookies)
 		}
+		profiles[index].AvatarURL = normalizeWeiboImageURL(profiles[index].AvatarURL)
 	}
 	return profiles
 }
@@ -218,6 +223,7 @@ func weiboProfileFromSearchObject(object map[string]any) thirdparty.AccountProfi
 		common.JSONStringValue(object["pic"]),
 		common.JSONStringValue(object["image"]),
 	)
+	profile.AvatarURL = normalizeWeiboImageURL(profile.AvatarURL)
 	return profile
 }
 
@@ -332,12 +338,18 @@ func weiboSearchNameFromHTML(value string) string {
 
 func weiboSearchAvatarFromHTML(value string) string {
 	if match := weiboSearchImagePattern.FindString(value); match != "" {
-		if strings.HasPrefix(match, "//") {
-			return "https:" + match
-		}
-		return match
+		return normalizeWeiboImageURL(match)
 	}
 	return ""
+}
+
+func normalizeWeiboImageURL(value string) string {
+	text := html.UnescapeString(strings.TrimSpace(value))
+	text = strings.ReplaceAll(text, `\/`, `/`)
+	if strings.HasPrefix(text, "//") {
+		return "https:" + text
+	}
+	return text
 }
 
 func weiboSearchPageHeaders() map[string]string {

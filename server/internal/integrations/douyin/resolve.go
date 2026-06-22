@@ -151,7 +151,7 @@ func fetchDouyinPublicUserBySecUID(ctx context.Context, client *http.Client, sec
 func searchDouyinUsers(ctx context.Context, client *http.Client, query string, cookies map[string]string) ([]thirdparty.AccountProfile, error) {
 	var firstErr error
 	for _, rawURL := range douyinSearchURLsFor(query, cookies) {
-		profiles, err := searchDouyinUsersByURL(ctx, client, rawURL, cookies)
+		profiles, err := searchDouyinUsersByURL(ctx, client, rawURL, query, cookies)
 		if err != nil {
 			if firstErr == nil {
 				firstErr = err
@@ -162,13 +162,21 @@ func searchDouyinUsers(ctx context.Context, client *http.Client, query string, c
 			return profiles, nil
 		}
 	}
+	profiles, err := searchDouyinUsersFromPage(ctx, client, query, cookies)
+	if err != nil {
+		if firstErr == nil {
+			firstErr = err
+		}
+	} else if len(profiles) > 0 {
+		return profiles, nil
+	}
 	if firstErr != nil {
 		return nil, firstErr
 	}
 	return nil, nil
 }
 
-func searchDouyinUsersByURL(ctx context.Context, client *http.Client, rawURL string, cookies map[string]string) ([]thirdparty.AccountProfile, error) {
+func searchDouyinUsersByURL(ctx context.Context, client *http.Client, rawURL string, query string, cookies map[string]string) ([]thirdparty.AccountProfile, error) {
 	document, err := getDouyinJSON(ctx, client, rawURL, douyinHeaders(), cookies)
 	if err != nil {
 		return nil, err
@@ -176,7 +184,84 @@ func searchDouyinUsersByURL(ctx context.Context, client *http.Client, rawURL str
 	profiles := make([]thirdparty.AccountProfile, 0, maxDouyinResolveCandidates)
 	seen := map[string]bool{}
 	collectDouyinSearchProfiles(document, seen, &profiles, 0, false)
-	return profiles, nil
+	return filterDouyinProfilesForQuery(profiles, query), nil
+}
+
+func searchDouyinUsersFromPage(ctx context.Context, client *http.Client, query string, cookies map[string]string) ([]thirdparty.AccountProfile, error) {
+	if client == nil {
+		client = common.NewHTTPClientFollow(nil)
+	} else {
+		client = common.NewHTTPClientFollow(client.Transport)
+	}
+	searchURL := "https://www.douyin.com/search/" + url.PathEscape(strings.TrimSpace(query)) + "?type=user"
+	body, err := common.FetchPageBody(ctx, client, searchURL, douyinHeaders(), cookies)
+	if err != nil {
+		return nil, err
+	}
+	return douyinProfilesFromSearchPage(body, query), nil
+}
+
+func douyinProfilesFromSearchPage(body string, query string) []thirdparty.AccountProfile {
+	profiles := make([]thirdparty.AccountProfile, 0, maxDouyinResolveCandidates)
+	seen := map[string]bool{}
+	for _, match := range douyinDataScriptPattern.FindAllStringSubmatch(body, -1) {
+		if len(match) < 2 {
+			continue
+		}
+		decoded := html.UnescapeString(strings.TrimSpace(match[1]))
+		if unescaped, err := url.QueryUnescape(decoded); err == nil {
+			decoded = unescaped
+		}
+		var document any
+		if err := json.Unmarshal([]byte(decoded), &document); err != nil {
+			continue
+		}
+		collectDouyinSearchProfiles(document, seen, &profiles, 0, false)
+		if len(profiles) >= maxDouyinResolveCandidates {
+			break
+		}
+	}
+	return filterDouyinProfilesForQuery(profiles, query)
+}
+
+func filterDouyinProfilesForQuery(profiles []thirdparty.AccountProfile, query string) []thirdparty.AccountProfile {
+	normalized := normalizedDouyinQuery(query)
+	if normalized == "" {
+		return profiles
+	}
+	filtered := make([]thirdparty.AccountProfile, 0, len(profiles))
+	for _, profile := range profiles {
+		if douyinProfileMatchesQuery(profile, normalized) {
+			filtered = append(filtered, profile)
+		}
+	}
+	return filtered
+}
+
+func normalizedDouyinQuery(query string) string {
+	text := strings.TrimSpace(strings.TrimPrefix(query, "@"))
+	if parsed, err := url.Parse(text); err == nil && parsed.Host != "" {
+		parts := strings.FieldsFunc(strings.Trim(parsed.Path, "/"), func(r rune) bool {
+			return r == '/'
+		})
+		if len(parts) > 0 {
+			text = parts[len(parts)-1]
+		}
+	}
+	return strings.ToLower(strings.TrimSpace(text))
+}
+
+func douyinProfileMatchesQuery(profile thirdparty.AccountProfile, query string) bool {
+	for _, value := range []string{profile.UID, profile.Nickname} {
+		normalized := strings.ToLower(strings.TrimSpace(strings.TrimPrefix(value, "@")))
+		if normalized == "" {
+			continue
+		}
+		if normalized == query || strings.Contains(normalized, query) || strings.Contains(query, normalized) {
+			return true
+		}
+	}
+	return false
 }
 
 func douyinSearchURLsFor(query string, cookies map[string]string) []string {
