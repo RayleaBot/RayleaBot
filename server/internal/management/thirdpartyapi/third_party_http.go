@@ -16,6 +16,7 @@ type ThirdPartyHandlers struct {
 	platformAccountValidator *common.AccountValidator
 	qrLogin                  thirdPartyQRCodeLoginService
 	monitors                 thirdPartyMonitorService
+	douyinUserResolver       douyinUserResolver
 	mediaClient              *http.Client
 }
 
@@ -34,11 +35,23 @@ type thirdPartyQRCodeLoginService interface {
 	Poll(context.Context, string, string) (common.PollResult, error)
 }
 
-func NewThirdPartyHandlers(accounts thirdPartyAccountService, accountValidator thirdPartyCredentialValidator, qrLogin thirdPartyQRCodeLoginService, monitors thirdPartyMonitorService, transport http.RoundTripper) *ThirdPartyHandlers {
+type douyinUserResolver interface {
+	ResolveUser(context.Context, string, []map[string]string) ([]thirdparty.AccountProfile, bool, error)
+}
+
+type ThirdPartyHandlersOption func(*ThirdPartyHandlers)
+
+func WithDouyinUserResolver(resolver douyinUserResolver) ThirdPartyHandlersOption {
+	return func(h *ThirdPartyHandlers) {
+		h.douyinUserResolver = resolver
+	}
+}
+
+func NewThirdPartyHandlers(accounts thirdPartyAccountService, accountValidator thirdPartyCredentialValidator, qrLogin thirdPartyQRCodeLoginService, monitors thirdPartyMonitorService, transport http.RoundTripper, options ...ThirdPartyHandlersOption) *ThirdPartyHandlers {
 	if transport == nil {
 		transport = http.DefaultTransport
 	}
-	return &ThirdPartyHandlers{
+	handler := &ThirdPartyHandlers{
 		accounts:                 accounts,
 		accountValidator:         accountValidator,
 		platformAccountValidator: thirdpartylogin.NewAccountValidator(transport, nil),
@@ -46,4 +59,10 @@ func NewThirdPartyHandlers(accounts thirdPartyAccountService, accountValidator t
 		monitors:                 monitors,
 		mediaClient:              &http.Client{Transport: transport, Timeout: 20 * time.Second},
 	}
+	for _, option := range options {
+		if option != nil {
+			option(handler)
+		}
+	}
+	return handler
 }

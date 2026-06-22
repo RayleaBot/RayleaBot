@@ -342,6 +342,71 @@ func TestThirdPartyUserResolveDouyinSearchPageFallback(t *testing.T) {
 	}
 }
 
+func TestThirdPartyUserResolveDouyinUsesBrowserResolverAfterEmptyHTTPResults(t *testing.T) {
+	t.Parallel()
+
+	accounts := &stubThirdPartyUserResolveAccounts{
+		accounts: []thirdparty.Account{{
+			Platform:  thirdparty.PlatformDouyin,
+			AccountID: "primary",
+			Enabled:   true,
+			Credential: thirdparty.CredentialStatus{
+				State: thirdparty.CredentialValid,
+			},
+		}},
+		cookies: map[string]string{
+			"primary": "sessionid=fixture;",
+		},
+	}
+	resolver := &stubDouyinUserResolver{
+		profiles: []thirdparty.AccountProfile{{
+			UID:       "luotianyi",
+			Nickname:  "洛天依",
+			AvatarURL: "https://p3-pc.douyinpic.com/browser-avatar.jpg",
+		}},
+		exact: true,
+	}
+	handler := NewThirdPartyHandlers(accounts, nil, nil, nil, thirdPartyMediaRoundTripFunc(func(request *http.Request) (*http.Response, error) {
+		rawURL := request.URL.String()
+		if !strings.Contains(request.Header.Get("Cookie"), "sessionid=fixture") {
+			t.Fatalf("resolve request cookie = %q, want saved douyin cookie", request.Header.Get("Cookie"))
+		}
+		switch {
+		case strings.Contains(rawURL, "www.douyin.com/aweme/v1/web/general/search/single"):
+			return textResponse(request, `{"status_code":0,"data":[]}`), nil
+		case strings.Contains(rawURL, "www.douyin.com/search/"):
+			return textResponse(request, `<html><body><div id="root"></div><script src="/search.js"></script></body></html>`), nil
+		default:
+			t.Fatalf("unexpected upstream request: %s", rawURL)
+			return nil, nil
+		}
+	}), WithDouyinUserResolver(resolver))
+	request := httptest.NewRequest(http.MethodGet, "/api/third-party/users/resolve?platform=douyin&query=%E6%B4%9B%E5%A4%A9%E4%BE%9D", nil)
+	recorder := httptest.NewRecorder()
+
+	handler.HandleThirdPartyUserResolve().ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("resolve status = %d, want 200 (%s)", recorder.Code, recorder.Body.String())
+	}
+	var response thirdPartyUserResolveResponse
+	if err := json.Unmarshal(recorder.Body.Bytes(), &response); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if !response.Exact || response.User == nil {
+		t.Fatalf("unexpected resolve response: %#v", response)
+	}
+	if response.User.UID != "luotianyi" || response.User.AvatarURL != "https://p3-pc.douyinpic.com/browser-avatar.jpg" {
+		t.Fatalf("unexpected user: %#v", response.User)
+	}
+	if resolver.query != "洛天依" {
+		t.Fatalf("browser resolver query = %q, want 洛天依", resolver.query)
+	}
+	if len(resolver.cookieSets) != 1 || resolver.cookieSets[0]["sessionid"] != "fixture" {
+		t.Fatalf("browser resolver cookies = %#v, want saved douyin cookie", resolver.cookieSets)
+	}
+}
+
 func TestThirdPartyUserResolveDouyinParsesScopedUserObject(t *testing.T) {
 	t.Parallel()
 
@@ -468,6 +533,27 @@ func (s *stubThirdPartyUserResolveAccounts) ListEnabled(_ context.Context, platf
 
 func (s *stubThirdPartyUserResolveAccounts) ReadCookie(_ context.Context, account thirdparty.Account) (string, error) {
 	return s.cookies[account.AccountID], nil
+}
+
+type stubDouyinUserResolver struct {
+	query      string
+	cookieSets []map[string]string
+	profiles   []thirdparty.AccountProfile
+	exact      bool
+	err        error
+}
+
+func (s *stubDouyinUserResolver) ResolveUser(_ context.Context, query string, cookieSets []map[string]string) ([]thirdparty.AccountProfile, bool, error) {
+	s.query = query
+	s.cookieSets = make([]map[string]string, 0, len(cookieSets))
+	for _, cookies := range cookieSets {
+		cloned := make(map[string]string, len(cookies))
+		for key, value := range cookies {
+			cloned[key] = value
+		}
+		s.cookieSets = append(s.cookieSets, cloned)
+	}
+	return s.profiles, s.exact, s.err
 }
 
 func textResponse(request *http.Request, body string) *http.Response {

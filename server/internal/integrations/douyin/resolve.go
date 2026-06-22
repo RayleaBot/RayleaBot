@@ -23,18 +23,27 @@ const (
 	maxDouyinResolveDepth      = 8
 )
 
+type UserResolveBrowser interface {
+	ResolveUser(context.Context, string, []map[string]string) ([]thirdparty.AccountProfile, bool, error)
+}
+
 func ResolveUser(ctx context.Context, client *http.Client, query string) ([]thirdparty.AccountProfile, bool, error) {
-	return ResolveUserWithCookies(ctx, client, query, nil)
+	return ResolveUserWithBrowser(ctx, client, query, nil, nil)
 }
 
 func ResolveUserWithCookies(ctx context.Context, client *http.Client, query string, cookieSets []map[string]string) ([]thirdparty.AccountProfile, bool, error) {
+	return ResolveUserWithBrowser(ctx, client, query, cookieSets, nil)
+}
+
+func ResolveUserWithBrowser(ctx context.Context, client *http.Client, query string, cookieSets []map[string]string, browser UserResolveBrowser) ([]thirdparty.AccountProfile, bool, error) {
 	normalizedQuery := strings.TrimSpace(query)
 	if normalizedQuery == "" {
 		return nil, false, nil
 	}
 	isDirectProfile := douyinIsDirectProfileInput(normalizedQuery)
+	cookieAttempts := douyinResolveCookieAttempts(cookieSets)
 	var firstErr error
-	for _, cookies := range douyinResolveCookieAttempts(cookieSets) {
+	for _, cookies := range cookieAttempts {
 		if secUID := douyinSecUIDFromInput(normalizedQuery); secUID != "" {
 			profile, err := fetchDouyinPublicUserBySecUID(ctx, client, secUID, cookies)
 			if err != nil {
@@ -74,6 +83,16 @@ func ResolveUserWithCookies(ctx context.Context, client *http.Client, query stri
 		}
 		if len(candidates) > 0 {
 			return candidates, exactProfileMatch(candidates, normalizedQuery), nil
+		}
+	}
+	if browser != nil {
+		profiles, exact, err := browser.ResolveUser(ctx, normalizedQuery, cookieAttempts)
+		if err != nil {
+			if firstErr == nil {
+				firstErr = err
+			}
+		} else if len(profiles) > 0 {
+			return profiles, exact, nil
 		}
 	}
 	if firstErr != nil {
@@ -181,10 +200,7 @@ func searchDouyinUsersByURL(ctx context.Context, client *http.Client, rawURL str
 	if err != nil {
 		return nil, err
 	}
-	profiles := make([]thirdparty.AccountProfile, 0, maxDouyinResolveCandidates)
-	seen := map[string]bool{}
-	collectDouyinSearchProfiles(document, seen, &profiles, 0, false)
-	return filterDouyinProfilesForQuery(profiles, query), nil
+	return douyinSearchProfilesFromDocument(document, query), nil
 }
 
 func searchDouyinUsersFromPage(ctx context.Context, client *http.Client, query string, cookies map[string]string) ([]thirdparty.AccountProfile, error) {
@@ -222,6 +238,37 @@ func douyinProfilesFromSearchPage(body string, query string) []thirdparty.Accoun
 		}
 	}
 	return filterDouyinProfilesForQuery(profiles, query)
+}
+
+func douyinSearchProfilesFromDocument(document any, query string) []thirdparty.AccountProfile {
+	profiles := make([]thirdparty.AccountProfile, 0, maxDouyinResolveCandidates)
+	seen := map[string]bool{}
+	collectDouyinSearchProfiles(document, seen, &profiles, 0, false)
+	return filterDouyinProfilesForQuery(profiles, query)
+}
+
+func douyinSearchProfilesFromJSON(body string, query string) ([]thirdparty.AccountProfile, error) {
+	text := strings.TrimSpace(body)
+	if text == "" {
+		return nil, nil
+	}
+	var check struct {
+		Error string `json:"error"`
+	}
+	if err := json.Unmarshal([]byte(text), &check); err == nil && strings.TrimSpace(check.Error) != "" {
+		return nil, fmt.Errorf("douyin browser search: %s", check.Error)
+	}
+	var document any
+	if err := json.Unmarshal([]byte(text), &document); err != nil {
+		return nil, err
+	}
+	if object, ok := document.(map[string]any); ok {
+		statusCode := common.JSONStringValue(object["status_code"])
+		if statusCode != "" && statusCode != "0" {
+			return nil, nil
+		}
+	}
+	return douyinSearchProfilesFromDocument(document, query), nil
 }
 
 func filterDouyinProfilesForQuery(profiles []thirdparty.AccountProfile, query string) []thirdparty.AccountProfile {

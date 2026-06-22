@@ -68,6 +68,7 @@ type Services struct {
 	System            *systemsvc.Service
 	ThirdParty        *thirdparty.Service
 	ThirdPartyQRLogin *common.Service
+	DouyinBrowser     *douyin.ChromedpBrowser
 	BilibiliSource    *bilibilisource.Source
 	BilibiliEvents    *managementevents.BilibiliSourceService
 }
@@ -101,9 +102,10 @@ func Build(deps BuildDeps) (BuildResult, error) {
 	if renderer != nil {
 		browserPath, browserArgs = renderer.BrowserLaunchConfig()
 	}
+	douyinBrowser := douyin.NewChromedpBrowser(browserPath, browserArgs, deps.BilibiliHTTPTransport)
 	thirdPartyQRLogin := common.NewService(map[string]common.Provider{
 		thirdparty.PlatformWeibo:        weibo.NewProvider(common.NewHTTPClient(deps.BilibiliHTTPTransport)),
-		thirdparty.PlatformDouyin:       douyin.NewProvider(common.NewHTTPClient(deps.BilibiliHTTPTransport), douyin.NewChromedpBrowser(browserPath, browserArgs, deps.BilibiliHTTPTransport)),
+		thirdparty.PlatformDouyin:       douyin.NewProvider(common.NewHTTPClient(deps.BilibiliHTTPTransport), douyinBrowser),
 		thirdparty.PlatformNeteaseMusic: netease_music.NewProvider(common.NewHTTPClient(deps.BilibiliHTTPTransport)),
 	}, deps.BilibiliClock)
 	bilibiliSession := bilibilisession.NewSessionClient(deps.BilibiliHTTPTransport, deps.BilibiliClock, nil)
@@ -174,6 +176,7 @@ func Build(deps BuildDeps) (BuildResult, error) {
 			System:            systemService,
 			ThirdParty:        thirdPartyService,
 			ThirdPartyQRLogin: thirdPartyQRLogin,
+			DouyinBrowser:     douyinBrowser,
 			BilibiliSource:    bilibiliSource,
 			BilibiliEvents:    bilibiliEvents,
 		},

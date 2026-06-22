@@ -14,6 +14,8 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/thirdparty"
 )
 
+const thirdPartyUserResolveTimeout = 30 * time.Second
+
 type thirdPartyResolvedUser struct {
 	UID       string `json:"uid"`
 	Name      string `json:"name"`
@@ -46,7 +48,7 @@ func (h *ThirdPartyHandlers) HandleThirdPartyUserResolve() http.HandlerFunc {
 			httpapi.WriteError(w, r, http.StatusBadRequest, "platform.invalid_request", "请求参数不合法", "errors.platform.invalid_request", nil)
 			return
 		}
-		ctx, cancel := context.WithTimeout(r.Context(), 12*time.Second)
+		ctx, cancel := context.WithTimeout(r.Context(), thirdPartyUserResolveTimeout)
 		defer cancel()
 		response, err := h.resolveThirdPartyUser(ctx, platform, query)
 		if err != nil {
@@ -85,7 +87,8 @@ func (h *ThirdPartyHandlers) resolveThirdPartyProfiles(ctx context.Context, plat
 	case thirdparty.PlatformWeibo:
 		return weibo.ResolveUserWithCookies(ctx, h.mediaClient, query, h.platformCookieMaps(ctx, platform))
 	case thirdparty.PlatformDouyin:
-		return douyin.ResolveUserWithCookies(ctx, h.mediaClient, query, h.platformCookieMaps(ctx, platform))
+		cookieMaps := h.platformCookieMaps(ctx, platform)
+		return douyin.ResolveUserWithBrowser(ctx, h.mediaClient, query, cookieMaps, h.douyinUserResolver)
 	case thirdparty.PlatformNeteaseMusic:
 		return neteasemusic.ResolveUser(ctx, h.mediaClient, query)
 	default:
