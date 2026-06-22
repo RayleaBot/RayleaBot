@@ -56,6 +56,12 @@
       "$ref": "#/$defs/bilibili_user_resolved"
     },
     {
+      "$ref": "#/$defs/third_party_user_resolve"
+    },
+    {
+      "$ref": "#/$defs/third_party_user_resolved"
+    },
+    {
       "$ref": "#/$defs/error_message"
     }
   ],
@@ -1034,6 +1040,138 @@
         }
       }
     },
+    "third_party_bridge_platform": {
+      "type": "string",
+      "enum": [
+        "bilibili",
+        "weibo",
+        "douyin",
+        "netease_music"
+      ]
+    },
+    "third_party_user": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "uid",
+        "name",
+        "avatar_url"
+      ],
+      "properties": {
+        "uid": {
+          "type": "string",
+          "minLength": 1
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "avatar_url": {
+          "type": "string"
+        }
+      }
+    },
+    "third_party_user_resolve": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "version",
+        "source",
+        "type",
+        "payload"
+      ],
+      "properties": {
+        "version": {
+          "const": "1"
+        },
+        "source": {
+          "const": "plugin_management_ui"
+        },
+        "type": {
+          "const": "thirdparty.user.resolve"
+        },
+        "request_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "payload": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "platform",
+            "query"
+          ],
+          "properties": {
+            "platform": {
+              "$ref": "#/$defs/third_party_bridge_platform"
+            },
+            "query": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        }
+      }
+    },
+    "third_party_user_resolved": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "version",
+        "source",
+        "type",
+        "payload"
+      ],
+      "properties": {
+        "version": {
+          "const": "1"
+        },
+        "source": {
+          "const": "management_host"
+        },
+        "type": {
+          "const": "thirdparty.user.resolved"
+        },
+        "request_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "payload": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "platform",
+            "query",
+            "exact",
+            "candidates"
+          ],
+          "properties": {
+            "platform": {
+              "$ref": "#/$defs/third_party_bridge_platform"
+            },
+            "query": {
+              "type": "string",
+              "minLength": 1
+            },
+            "exact": {
+              "type": "boolean"
+            },
+            "user": {
+              "$ref": "#/$defs/third_party_user"
+            },
+            "candidates": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/third_party_user"
+              }
+            },
+            "message": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
     "error_message": {
       "type": "object",
       "additionalProperties": false,
@@ -1094,6 +1232,8 @@
     "fixtures/plugin-management-ui/ok.bridge-protocol-identities-resolved.json",
     "fixtures/plugin-management-ui/ok.bridge-bilibili-user-resolve.json",
     "fixtures/plugin-management-ui/ok.bridge-bilibili-user-resolved.json",
+    "fixtures/plugin-management-ui/ok.bridge-third-party-user-resolve.json",
+    "fixtures/plugin-management-ui/ok.bridge-third-party-user-resolved.json",
     "fixtures/plugin-management-ui/invalid.bridge-unknown-type.json"
   ]
 }

@@ -37,7 +37,7 @@
   - 统一错误码命名、默认消息资源键、HTTP 语义和适用范围
 - `web-api.openapi.yaml`
   - 当前已冻结的管理 HTTP 接口
-  - 当前包含 setup / session、loopback launcher bootstrap、config snapshot/update、protocol snapshot / compatibility、OneBot target / identity resolution、plugin lifecycle、plugin rich detail、plugin settings、plugin secrets、third-party accounts、third-party QR login、third-party monitors、third-party media、Bilibili QR login、Bilibili user resolve、Bilibili source status / restart、governance 管理面、tasks / logs / system / metrics surfaces、scheduler 任务列表与手动触发、recovery recheck / confirm、runtime bootstrap、render templates、preview HTML 与模板资源读取面
+  - 当前包含 setup / session、loopback launcher bootstrap、config snapshot/update、protocol snapshot / compatibility、OneBot target / identity resolution、plugin lifecycle、plugin rich detail、plugin settings、plugin secrets、third-party accounts、third-party QR login、third-party user resolve、third-party monitors、third-party media、Bilibili QR login、Bilibili user resolve、Bilibili source status / restart、governance 管理面、tasks / logs / system / metrics surfaces、scheduler 任务列表与手动触发、recovery recheck / confirm、runtime bootstrap、render templates、preview HTML 与模板资源读取面
   - `PUT /api/config` response 固定返回 `apply_effects.applied_now`、`apply_effects.reloaded_now`、`apply_effects.restart_required_fields`
   - plugin lifecycle surface 统一使用正式 `state` 枚举与可选 `state_diagnosis`
 - `websocket-events.yaml`
@@ -55,7 +55,7 @@
   - 当前固定为 `/plugin-ui/{plugin_id}/...`
 - `plugin-management-ui-bridge.schema.json`
   - Web 宿主页与插件内置 iframe 的正式桥接消息结构
-  - 当前固定 `page.ready`、`host.init`、`settings.reload`、`settings.save`、`settings.changed`、`secrets.reload`、`secrets.save`、`secrets.changed`、`scheduler.trigger`、`scheduler.triggered`、`render_template.open`、`protocol.targets.reload`、`protocol.targets.changed`、`protocol.identities.resolve`、`protocol.identities.resolved`、`bilibili.user.resolve`、`bilibili.user.resolved` 与 `error`
+  - 当前固定 `page.ready`、`host.init`、`settings.reload`、`settings.save`、`settings.changed`、`secrets.reload`、`secrets.save`、`secrets.changed`、`scheduler.trigger`、`scheduler.triggered`、`render_template.open`、`protocol.targets.reload`、`protocol.targets.changed`、`protocol.identities.resolve`、`protocol.identities.resolved`、`bilibili.user.resolve`、`bilibili.user.resolved`、`thirdparty.user.resolve`、`thirdparty.user.resolved` 与 `error`
 - `plugin-protocol.schema.json`
   - 插件 Runtime JSONL 协议
   - 当前冻结 `init`、`init_progress`、`init_ack`、`event`、`result`、`error`、`ping`、`pong`、`shutdown`
@@ -119,6 +119,7 @@
 - `DELETE /api/third-party/accounts/{platform}/{account_id}`
 - `POST /api/third-party/accounts/{platform}/login/qrcode`
 - `GET /api/third-party/accounts/{platform}/login/qrcode/{login_id}`
+- `GET /api/third-party/users/resolve`
 - `GET /api/third-party/monitors`
 - `GET /api/third-party/media`
 - `POST /api/bilibili/login/qrcode`
@@ -127,7 +128,7 @@
 - `GET /api/bilibili/source/status`
 - `POST /api/bilibili/source/restart`
 
-其中正式平台为 `bilibili`、`weibo`、`douyin`、`netease_music`；三方账号响应只暴露账号摘要、凭据状态和保存状态，不暴露 Cookie / CK 明文。微博、抖音和网易云音乐扫码登录通过通用三方账号扫码接口提供。Bilibili source 状态和用户解析接口限定为 Bilibili，Bilibili 扫码登录使用独立接口。
+其中正式平台为 `bilibili`、`weibo`、`douyin`、`netease_music`；三方账号响应只暴露账号摘要、凭据状态和保存状态，不暴露 Cookie / CK 明文。微博、抖音和网易云音乐扫码登录通过通用三方账号扫码接口提供，订阅对象解析通过通用三方用户解析接口提供。Bilibili source 状态和用户解析接口限定为 Bilibili，Bilibili 扫码登录使用独立接口。
 
 当前已进入 OpenAPI 冻结范围的 plugin settings surface：
 

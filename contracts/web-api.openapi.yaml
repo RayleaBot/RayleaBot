@@ -1553,6 +1553,38 @@ paths:
         default:
           $ref: '#/components/responses/Error'
 
+  /api/third-party/users/resolve:
+    get:
+      summary: Resolve a Weibo, Douyin, or NetEase Music object by ID, URL, or search keyword for management UI forms.
+      operationId: resolveThirdPartyUser
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: platform
+          in: query
+          required: true
+          schema:
+            $ref: '#/components/schemas/ThirdPartyUserResolvePlatform'
+        - name: query
+          in: query
+          required: true
+          schema:
+            type: string
+            minLength: 1
+      responses:
+        '200':
+          description: Resolved third-party object or candidate list.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ThirdPartyUserResolveResponse'
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+        default:
+          $ref: '#/components/responses/Error'
+
   /api/third-party/monitors:
     get:
       summary: List third-party monitoring targets for the selected platform.
@@ -3482,6 +3514,45 @@ components:
     ThirdPartyPlatform:
       type: string
       enum: [bilibili, weibo, douyin, netease_music]
+
+    ThirdPartyUserResolvePlatform:
+      type: string
+      enum: [weibo, douyin, netease_music]
+
+    ThirdPartyResolvedUser:
+      type: object
+      additionalProperties: false
+      required: [uid, name, avatar_url]
+      properties:
+        uid:
+          type: string
+          minLength: 1
+        name:
+          type: string
+          minLength: 1
+        avatar_url:
+          type: string
+
+    ThirdPartyUserResolveResponse:
+      type: object
+      additionalProperties: false
+      required: [platform, query, exact, candidates]
+      properties:
+        platform:
+          $ref: '#/components/schemas/ThirdPartyUserResolvePlatform'
+        query:
+          type: string
+          minLength: 1
+        exact:
+          type: boolean
+        user:
+          $ref: '#/components/schemas/ThirdPartyResolvedUser'
+        candidates:
+          type: array
+          items:
+            $ref: '#/components/schemas/ThirdPartyResolvedUser'
+        message:
+          type: string
 
     ThirdPartyAccountSummary:
       type: object

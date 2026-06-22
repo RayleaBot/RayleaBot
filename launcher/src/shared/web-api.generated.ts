@@ -964,6 +964,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/third-party/users/resolve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Resolve a Weibo, Douyin, or NetEase Music object by ID, URL, or search keyword for management UI forms. */
+        get: operations["resolveThirdPartyUser"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/third-party/monitors": {
         parameters: {
             query?: never;
@@ -1762,6 +1779,21 @@ export interface components {
         };
         /** @enum {string} */
         ThirdPartyPlatform: "bilibili" | "weibo" | "douyin" | "netease_music";
+        /** @enum {string} */
+        ThirdPartyUserResolvePlatform: "weibo" | "douyin" | "netease_music";
+        ThirdPartyResolvedUser: {
+            uid: string;
+            name: string;
+            avatar_url: string;
+        };
+        ThirdPartyUserResolveResponse: {
+            platform: components["schemas"]["ThirdPartyUserResolvePlatform"];
+            query: string;
+            exact: boolean;
+            user?: components["schemas"]["ThirdPartyResolvedUser"];
+            candidates: components["schemas"]["ThirdPartyResolvedUser"][];
+            message?: string;
+        };
         ThirdPartyAccountSummary: {
             platform: components["schemas"]["ThirdPartyPlatform"];
             account_id: string;
@@ -3922,6 +3954,32 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ThirdPartyQRCodeLoginPollResponse"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    resolveThirdPartyUser: {
+        parameters: {
+            query: {
+                platform: components["schemas"]["ThirdPartyUserResolvePlatform"];
+                query: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Resolved third-party object or candidate list. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ThirdPartyUserResolveResponse"];
                 };
             };
             400: components["responses"]["Error"];
