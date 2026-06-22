@@ -201,7 +201,7 @@ func TestThirdPartyUserResolveWeiboFallbackSearchCard(t *testing.T) {
 			t.Fatalf("resolve request cookie = %q, want saved weibo cookie", request.Header.Get("Cookie"))
 		}
 		if strings.Contains(request.URL.String(), "s.weibo.com/user") {
-			return textResponse(request, `<html><body><div class="card-user"><a href="//weibo.com/u/7556659984" nick-name="洛天依"><img src="//tvax1.sinaimg.cn/fallback-avatar.jpg" alt="洛天依"></a></div></body></html>`), nil
+			return textResponse(request, `<html><body><div class="card-user"><a href="//weibo.com/u/1111111111" suda-data="key=tblog_search_weibo&value=seqid:fixture|type:3|t:0|pos:1-0|q:%E6%B4%9B%E5%A4%A9%E4%BE%9D|ext:mpos:1,click:user_name">%E6%B4%9B%E5%A4%A9%E4%BE%9D|ext:mpos:1,click:user_name</a></div><div class="card-user"><a href="//weibo.com/u/7556659984" nick-name="洛天依"><img src="//tvax1.sinaimg.cn/fallback-avatar.jpg" alt="洛天依"></a></div></body></html>`), nil
 		}
 		if !strings.Contains(request.URL.String(), "m.weibo.cn/api/container/getIndex") {
 			t.Fatalf("unexpected upstream request: %s", request.URL.String())
@@ -233,6 +233,52 @@ func TestThirdPartyUserResolveWeiboFallbackSearchCard(t *testing.T) {
 		t.Fatalf("unexpected resolve response: %#v", response)
 	}
 	if response.User.UID != "7556659984" || response.User.Name != "洛天依" || response.User.AvatarURL != "https://tvax1.sinaimg.cn/fallback-avatar.jpg" {
+		t.Fatalf("unexpected user: %#v", response.User)
+	}
+}
+
+func TestThirdPartyUserResolveDouyinParsesScopedUserObject(t *testing.T) {
+	t.Parallel()
+
+	accounts := &stubThirdPartyUserResolveAccounts{
+		accounts: []thirdparty.Account{{
+			Platform:  thirdparty.PlatformDouyin,
+			AccountID: "primary",
+			Enabled:   true,
+			Credential: thirdparty.CredentialStatus{
+				State: thirdparty.CredentialValid,
+			},
+		}},
+		cookies: map[string]string{
+			"primary": "sessionid=fixture;",
+		},
+	}
+	handler := NewThirdPartyHandlers(accounts, nil, nil, nil, thirdPartyMediaRoundTripFunc(func(request *http.Request) (*http.Response, error) {
+		rawURL := request.URL.String()
+		if !strings.Contains(rawURL, "www.douyin.com/aweme/v1/web/general/search/single") {
+			t.Fatalf("unexpected upstream request: %s", rawURL)
+		}
+		if !strings.Contains(request.Header.Get("Cookie"), "sessionid=fixture") {
+			t.Fatalf("resolve request cookie = %q, want saved douyin cookie", request.Header.Get("Cookie"))
+		}
+		return textResponse(request, `{"status_code":0,"user":{"unique_id":"ck_user","nickname":"CK用户","avatar_medium":{"url_list":["https://p3-pc.douyinpic.com/ck-avatar.jpg"]}},"data":[{"user":{"unique_id":"luotianyi","nickname":"洛天依","avatar_medium":{"url_list":["https://p3-pc.douyinpic.com/target-avatar.jpg"]}}}]}`), nil
+	}))
+	request := httptest.NewRequest(http.MethodGet, "/api/third-party/users/resolve?platform=douyin&query=%E6%B4%9B%E5%A4%A9%E4%BE%9D", nil)
+	recorder := httptest.NewRecorder()
+
+	handler.HandleThirdPartyUserResolve().ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("resolve status = %d, want 200 (%s)", recorder.Code, recorder.Body.String())
+	}
+	var response thirdPartyUserResolveResponse
+	if err := json.Unmarshal(recorder.Body.Bytes(), &response); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if !response.Exact || response.User == nil {
+		t.Fatalf("unexpected resolve response: %#v", response)
+	}
+	if response.User.UID != "luotianyi" || response.User.Name != "洛天依" || response.User.AvatarURL != "https://p3-pc.douyinpic.com/target-avatar.jpg" {
 		t.Fatalf("unexpected user: %#v", response.User)
 	}
 }

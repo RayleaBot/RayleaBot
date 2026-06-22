@@ -193,11 +193,39 @@ func weiboProfileFromSearchObject(object map[string]any) thirdparty.AccountProfi
 
 func cleanWeiboSearchText(value string) string {
 	text := html.UnescapeString(strings.TrimSpace(value))
-	text = weiboHTMLTagPattern.ReplaceAllString(text, "")
+	for range 2 {
+		decoded, err := url.QueryUnescape(text)
+		if err != nil || decoded == text {
+			break
+		}
+		text = decoded
+	}
+	text = weiboHTMLTagPattern.ReplaceAllString(text, " ")
+	text = strings.Join(strings.Fields(text), " ")
 	text = strings.TrimSpace(strings.TrimPrefix(text, "@"))
 	text = strings.TrimSuffix(text, "的微博主页")
 	text = strings.TrimSuffix(text, "的微博")
+	if !weiboSearchNameUsable(text) {
+		return ""
+	}
 	return text
+}
+
+func weiboSearchNameUsable(value string) bool {
+	text := strings.TrimSpace(value)
+	if text == "" || len([]rune(text)) > 48 {
+		return false
+	}
+	lower := strings.ToLower(text)
+	if strings.ContainsAny(text, "<>=\"") || strings.Contains(text, "%") {
+		return false
+	}
+	for _, marker := range []string{"click:user_name", "seqid:", "ext:mpos", "suda-data", "woo-button", "target=_blank", "class="} {
+		if strings.Contains(lower, marker) {
+			return false
+		}
+	}
+	return true
 }
 
 func searchWeiboWebUsers(ctx context.Context, client *http.Client, cookies map[string]string, query string) ([]thirdparty.AccountProfile, error) {
@@ -230,7 +258,7 @@ func weiboProfilesFromSearchPage(body string) []thirdparty.AccountProfile {
 		start := max(0, match[0]-800)
 		end := min(len(body), match[1]+800)
 		chunk := body[start:end]
-		name := common.FirstNonEmpty(weiboSearchNameFromHTML(anchor), weiboSearchNameFromHTML(chunk))
+		name := weiboSearchNameFromHTML(anchor)
 		if strings.TrimSpace(name) == "" {
 			continue
 		}
@@ -255,7 +283,12 @@ func weiboSearchNameFromHTML(value string) string {
 			}
 		}
 	}
-	return cleanWeiboSearchText(value)
+	start := strings.Index(value, ">")
+	end := strings.LastIndex(strings.ToLower(value), "</a>")
+	if start >= 0 && end > start {
+		return cleanWeiboSearchText(value[start+1 : end])
+	}
+	return ""
 }
 
 func weiboSearchAvatarFromHTML(value string) string {

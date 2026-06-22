@@ -149,6 +149,37 @@ func fetchDouyinPublicUserBySecUID(ctx context.Context, client *http.Client, sec
 }
 
 func searchDouyinUsers(ctx context.Context, client *http.Client, query string, cookies map[string]string) ([]thirdparty.AccountProfile, error) {
+	var firstErr error
+	for _, rawURL := range douyinSearchURLsFor(query, cookies) {
+		profiles, err := searchDouyinUsersByURL(ctx, client, rawURL, cookies)
+		if err != nil {
+			if firstErr == nil {
+				firstErr = err
+			}
+			continue
+		}
+		if len(profiles) > 0 {
+			return profiles, nil
+		}
+	}
+	if firstErr != nil {
+		return nil, firstErr
+	}
+	return nil, nil
+}
+
+func searchDouyinUsersByURL(ctx context.Context, client *http.Client, rawURL string, cookies map[string]string) ([]thirdparty.AccountProfile, error) {
+	document, err := getDouyinJSON(ctx, client, rawURL, douyinHeaders(), cookies)
+	if err != nil {
+		return nil, err
+	}
+	profiles := make([]thirdparty.AccountProfile, 0, maxDouyinResolveCandidates)
+	seen := map[string]bool{}
+	collectDouyinSearchProfiles(document, seen, &profiles, 0, false)
+	return profiles, nil
+}
+
+func douyinSearchURLsFor(query string, cookies map[string]string) []string {
 	values := douyinWebParams()
 	values.Set("keyword", strings.TrimSpace(query))
 	values.Set("search_channel", "aweme_user_web")
@@ -156,15 +187,42 @@ func searchDouyinUsers(ctx context.Context, client *http.Client, query string, c
 	values.Set("type", "user")
 	values.Set("offset", "0")
 	values.Set("count", strconv.Itoa(maxDouyinResolveCandidates))
-	rawURL := "https://www.douyin.com/aweme/v1/web/general/search/single/?" + values.Encode()
-	document, err := getDouyinJSON(ctx, client, rawURL, douyinHeaders(), cookies)
-	if err != nil {
-		return nil, err
+
+	generalValues := douyinWebParams()
+	generalValues.Set("keyword", strings.TrimSpace(query))
+	generalValues.Set("search_channel", "aweme_general")
+	generalValues.Set("search_source", "tab_search")
+	generalValues.Set("query_correct_type", "1")
+	generalValues.Set("is_filter_search", "0")
+	generalValues.Set("offset", "0")
+	generalValues.Set("count", strconv.Itoa(maxDouyinResolveCandidates))
+	generalValues.Set("need_filter_settings", "1")
+	generalValues.Set("list_type", "multi")
+	generalValues.Set("version_code", "190600")
+	generalValues.Set("version_name", "19.6.0")
+	generalValues.Set("cookie_enabled", "true")
+	generalValues.Set("screen_width", "1920")
+	generalValues.Set("screen_height", "1080")
+	generalValues.Set("browser_language", "zh-CN")
+	generalValues.Set("browser_platform", "Win32")
+	generalValues.Set("browser_name", "Chrome")
+	generalValues.Set("browser_version", "134.0.0.0")
+	generalValues.Set("browser_online", "true")
+	generalValues.Set("engine_name", "Blink")
+	generalValues.Set("engine_version", "134.0.0.0")
+	generalValues.Set("os_name", "Windows")
+	generalValues.Set("os_version", "10")
+	generalValues.Set("platform", "PC")
+	if msToken := strings.TrimSpace(cookies["msToken"]); msToken != "" {
+		generalValues.Set("msToken", msToken)
 	}
-	profiles := make([]thirdparty.AccountProfile, 0, maxDouyinResolveCandidates)
-	seen := map[string]bool{}
-	collectDouyinSearchProfiles(document, seen, &profiles, 0)
-	return profiles, nil
+	if webID := common.FirstNonEmpty(cookies["webid"], cookies["s_v_web_id"]); strings.TrimSpace(webID) != "" {
+		generalValues.Set("webid", webID)
+	}
+	return []string{
+		"https://www.douyin.com/aweme/v1/web/general/search/single/?" + values.Encode(),
+		"https://www.douyin.com/aweme/v1/web/general/search/single/?" + generalValues.Encode(),
+	}
 }
 
 func douyinWebParams() url.Values {
@@ -349,32 +407,39 @@ func collectDouyinProfiles(value any, seen map[string]bool, profiles *[]thirdpar
 	}
 }
 
-func collectDouyinSearchProfiles(value any, seen map[string]bool, profiles *[]thirdparty.AccountProfile, depth int) {
+func collectDouyinSearchProfiles(value any, seen map[string]bool, profiles *[]thirdparty.AccountProfile, depth int, inSearchResult bool) {
 	if depth > maxDouyinResolveDepth || len(*profiles) >= maxDouyinResolveCandidates {
 		return
 	}
 	switch item := value.(type) {
 	case map[string]any:
+		if data, ok := item["data"]; ok {
+			collectDouyinSearchProfiles(data, seen, profiles, depth+1, true)
+		}
 		if userList, ok := item["user_list"].([]any); ok {
 			for _, child := range userList {
-				collectDouyinSearchProfiles(child, seen, profiles, depth+1)
+				collectDouyinSearchProfiles(child, seen, profiles, depth+1, true)
 				if len(*profiles) >= maxDouyinResolveCandidates {
 					return
 				}
 			}
 		}
-		if userInfo, ok := item["user_info"].(map[string]any); ok {
-			addDouyinProfile(userInfo, seen, profiles)
+		if inSearchResult {
+			for _, key := range []string{"user_info", "user", "author", "author_user_info"} {
+				if userInfo, ok := item[key].(map[string]any); ok {
+					addDouyinProfile(userInfo, seen, profiles)
+				}
+			}
 		}
 		for _, child := range item {
-			collectDouyinSearchProfiles(child, seen, profiles, depth+1)
+			collectDouyinSearchProfiles(child, seen, profiles, depth+1, inSearchResult)
 			if len(*profiles) >= maxDouyinResolveCandidates {
 				return
 			}
 		}
 	case []any:
 		for _, child := range item {
-			collectDouyinSearchProfiles(child, seen, profiles, depth+1)
+			collectDouyinSearchProfiles(child, seen, profiles, depth+1, inSearchResult)
 			if len(*profiles) >= maxDouyinResolveCandidates {
 				return
 			}
