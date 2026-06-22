@@ -2,6 +2,7 @@ package weibo
 
 import (
 	"context"
+	"html"
 	"net/http"
 	"net/url"
 	"regexp"
@@ -12,6 +13,12 @@ import (
 )
 
 var weiboNumericIDPattern = regexp.MustCompile(`^[0-9]+$`)
+var weiboHTMLTagPattern = regexp.MustCompile(`<[^>]+>`)
+var weiboSearchAnchorPattern = regexp.MustCompile(`(?is)<a\b[^>]+href=["'][^"']*(?:weibo\.com/(?:u/)?|m\.weibo\.cn/u/)([0-9]+)[^"']*["'][^>]*>.*?</a>`)
+var weiboSearchNickPattern = regexp.MustCompile(`(?is)\bnick-name=["']([^"']+)["']`)
+var weiboSearchTitlePattern = regexp.MustCompile(`(?is)\btitle=["']([^"']+)["']`)
+var weiboSearchAltPattern = regexp.MustCompile(`(?is)\balt=["']([^"']+)["']`)
+var weiboSearchImagePattern = regexp.MustCompile(`(?is)(?:https?:)?//[^"'\s<>]*sinaimg\.cn[^"'\s<>]+`)
 
 const (
 	maxWeiboResolveCandidates = 8
@@ -77,25 +84,47 @@ func weiboResolveCookieAttempts(cookieSets []map[string]string) []map[string]str
 			attempts = append(attempts, common.CloneStringMap(cookies))
 		}
 	}
-	attempts = append(attempts, map[string]string{})
+	if len(attempts) == 0 {
+		attempts = append(attempts, map[string]string{})
+	}
 	return attempts
 }
 
 func searchWeiboUsers(ctx context.Context, client *http.Client, cookies map[string]string, query string) ([]thirdparty.AccountProfile, error) {
-	values := url.Values{
-		"containerid": {"100103type=3&q=" + strings.TrimSpace(query)},
-		"page_type":   {"searchall"},
+	var firstErr error
+	for _, searchType := range []string{"3", "1"} {
+		values := url.Values{
+			"containerid": {"100103type=" + searchType + "&q=" + strings.TrimSpace(query)},
+			"page_type":   {"searchall"},
+		}
+		var response struct {
+			Data map[string]any `json:"data"`
+		}
+		if err := getWeiboJSON(ctx, client, "https://m.weibo.cn/api/container/getIndex?"+values.Encode(), weiboProfileHeaders("https://m.weibo.cn/"), cookies, &response); err != nil {
+			if firstErr == nil {
+				firstErr = err
+			}
+			continue
+		}
+		profiles := make([]thirdparty.AccountProfile, 0, 8)
+		seen := map[string]bool{}
+		collectWeiboProfiles(response.Data, seen, &profiles, 0)
+		if len(profiles) > 0 {
+			return profiles, nil
+		}
 	}
-	var response struct {
-		Data map[string]any `json:"data"`
+	profiles, err := searchWeiboWebUsers(ctx, client, cookies, query)
+	if err != nil {
+		if firstErr == nil {
+			firstErr = err
+		}
+	} else if len(profiles) > 0 {
+		return profiles, nil
 	}
-	if err := getWeiboJSON(ctx, client, "https://m.weibo.cn/api/container/getIndex?"+values.Encode(), weiboProfileHeaders("https://m.weibo.cn/"), cookies, &response); err != nil {
-		return nil, err
+	if firstErr != nil {
+		return nil, firstErr
 	}
-	profiles := make([]thirdparty.AccountProfile, 0, 8)
-	seen := map[string]bool{}
-	collectWeiboProfiles(response.Data, seen, &profiles, 0)
-	return profiles, nil
+	return nil, nil
 }
 
 func collectWeiboProfiles(value any, seen map[string]bool, profiles *[]thirdparty.AccountProfile, depth int) {
@@ -104,7 +133,7 @@ func collectWeiboProfiles(value any, seen map[string]bool, profiles *[]thirdpart
 	}
 	switch item := value.(type) {
 	case map[string]any:
-		profile := weiboProfileFromObject(item)
+		profile := weiboProfileFromSearchObject(item)
 		if profileIsUsable(profile) {
 			key := strings.TrimSpace(profile.UID)
 			if !seen[key] {
@@ -125,6 +154,127 @@ func collectWeiboProfiles(value any, seen map[string]bool, profiles *[]thirdpart
 				return
 			}
 		}
+	}
+}
+
+func weiboProfileFromSearchObject(object map[string]any) thirdparty.AccountProfile {
+	profile := weiboProfileFromObject(object)
+	if profileIsUsable(profile) {
+		return profile
+	}
+	profile.UID = common.FirstNonEmpty(
+		common.JSONStringValue(object["uid"]),
+		common.JSONStringValue(object["id"]),
+		common.JSONStringValue(object["idstr"]),
+		weiboUIDFromInput(common.JSONStringValue(object["scheme"])),
+		weiboUIDFromInput(common.JSONStringValue(object["profile_url"])),
+		weiboUIDFromInput(common.JSONStringValue(object["url"])),
+	)
+	profile.Nickname = cleanWeiboSearchText(common.FirstNonEmpty(
+		common.JSONStringValue(object["screen_name"]),
+		common.JSONStringValue(object["nickname"]),
+		common.JSONStringValue(object["name"]),
+		common.JSONStringValue(object["title_sub"]),
+		common.JSONStringValue(object["title"]),
+		common.JSONStringValue(object["desc1"]),
+		common.JSONStringValue(object["desc"]),
+	))
+	profile.AvatarURL = common.FirstNonEmpty(
+		common.JSONStringValue(object["avatar_hd"]),
+		common.JSONStringValue(object["avatar_large"]),
+		common.JSONStringValue(object["profile_image_url"]),
+		common.JSONStringValue(object["avatar"]),
+		common.JSONStringValue(object["avatar_url"]),
+		common.JSONStringValue(object["pic"]),
+		common.JSONStringValue(object["image"]),
+	)
+	return profile
+}
+
+func cleanWeiboSearchText(value string) string {
+	text := html.UnescapeString(strings.TrimSpace(value))
+	text = weiboHTMLTagPattern.ReplaceAllString(text, "")
+	text = strings.TrimSpace(strings.TrimPrefix(text, "@"))
+	text = strings.TrimSuffix(text, "的微博主页")
+	text = strings.TrimSuffix(text, "的微博")
+	return text
+}
+
+func searchWeiboWebUsers(ctx context.Context, client *http.Client, cookies map[string]string, query string) ([]thirdparty.AccountProfile, error) {
+	if client == nil {
+		client = common.NewHTTPClientFollow(nil)
+	} else {
+		client = common.NewHTTPClientFollow(client.Transport)
+	}
+	values := url.Values{"q": {strings.TrimSpace(query)}}
+	body, err := common.FetchPageBody(ctx, client, "https://s.weibo.com/user?"+values.Encode(), weiboSearchPageHeaders(), cookies)
+	if err != nil {
+		return nil, err
+	}
+	return weiboProfilesFromSearchPage(body), nil
+}
+
+func weiboProfilesFromSearchPage(body string) []thirdparty.AccountProfile {
+	matches := weiboSearchAnchorPattern.FindAllStringSubmatchIndex(body, -1)
+	profiles := make([]thirdparty.AccountProfile, 0, min(len(matches), maxWeiboResolveCandidates))
+	seen := map[string]bool{}
+	for _, match := range matches {
+		if len(match) < 4 {
+			continue
+		}
+		uid := body[match[2]:match[3]]
+		if seen[uid] {
+			continue
+		}
+		anchor := body[match[0]:match[1]]
+		start := max(0, match[0]-800)
+		end := min(len(body), match[1]+800)
+		chunk := body[start:end]
+		name := common.FirstNonEmpty(weiboSearchNameFromHTML(anchor), weiboSearchNameFromHTML(chunk))
+		if strings.TrimSpace(name) == "" {
+			continue
+		}
+		seen[uid] = true
+		profiles = append(profiles, thirdparty.AccountProfile{
+			UID:       uid,
+			Nickname:  name,
+			AvatarURL: weiboSearchAvatarFromHTML(chunk),
+		})
+		if len(profiles) >= maxWeiboResolveCandidates {
+			break
+		}
+	}
+	return profiles
+}
+
+func weiboSearchNameFromHTML(value string) string {
+	for _, pattern := range []*regexp.Regexp{weiboSearchNickPattern, weiboSearchTitlePattern, weiboSearchAltPattern} {
+		if match := pattern.FindStringSubmatch(value); len(match) > 1 {
+			if name := cleanWeiboSearchText(match[1]); name != "" {
+				return name
+			}
+		}
+	}
+	return cleanWeiboSearchText(value)
+}
+
+func weiboSearchAvatarFromHTML(value string) string {
+	if match := weiboSearchImagePattern.FindString(value); match != "" {
+		if strings.HasPrefix(match, "//") {
+			return "https:" + match
+		}
+		return match
+	}
+	return ""
+}
+
+func weiboSearchPageHeaders() map[string]string {
+	return map[string]string{
+		"Accept":          "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+		"Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
+		"Referer":         "https://s.weibo.com/",
+		"User-Agent":      weiboUserAgent,
+		"Cache-Control":   "no-cache",
 	}
 }
 

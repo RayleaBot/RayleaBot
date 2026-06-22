@@ -32,6 +32,7 @@ func ResolveUserWithCookies(ctx context.Context, client *http.Client, query stri
 	if normalizedQuery == "" {
 		return nil, false, nil
 	}
+	isDirectProfile := douyinIsDirectProfileInput(normalizedQuery)
 	var firstErr error
 	for _, cookies := range douyinResolveCookieAttempts(cookieSets) {
 		if secUID := douyinSecUIDFromInput(normalizedQuery); secUID != "" {
@@ -46,9 +47,12 @@ func ResolveUserWithCookies(ctx context.Context, client *http.Client, query stri
 			}
 		}
 		if profiles, err := searchDouyinUsers(ctx, client, normalizedQuery, cookies); err == nil && len(profiles) > 0 {
-			return profiles, len(profiles) == 1 || exactProfileMatch(profiles, normalizedQuery), nil
+			return profiles, exactProfileMatch(profiles, normalizedQuery), nil
 		} else if err != nil && firstErr == nil {
 			firstErr = err
+		}
+		if !isDirectProfile {
+			continue
 		}
 		candidates := make([]thirdparty.AccountProfile, 0, 2)
 		seen := map[string]bool{}
@@ -69,7 +73,7 @@ func ResolveUserWithCookies(ctx context.Context, client *http.Client, query stri
 			}
 		}
 		if len(candidates) > 0 {
-			return candidates, len(candidates) == 1 || exactProfileMatch(candidates, normalizedQuery), nil
+			return candidates, exactProfileMatch(candidates, normalizedQuery), nil
 		}
 	}
 	if firstErr != nil {
@@ -85,8 +89,23 @@ func douyinResolveCookieAttempts(cookieSets []map[string]string) []map[string]st
 			attempts = append(attempts, common.CloneStringMap(cookies))
 		}
 	}
-	attempts = append(attempts, map[string]string{})
+	if len(attempts) == 0 {
+		attempts = append(attempts, map[string]string{})
+	}
 	return attempts
+}
+
+func douyinIsDirectProfileInput(query string) bool {
+	text := strings.TrimSpace(query)
+	if strings.HasPrefix(text, "MS4w") {
+		return true
+	}
+	parsed, err := url.Parse(text)
+	if err != nil || parsed.Host == "" {
+		return false
+	}
+	host := strings.ToLower(parsed.Hostname())
+	return strings.HasSuffix(host, "douyin.com") || strings.HasSuffix(host, "iesdouyin.com") || strings.HasSuffix(host, "amemv.com")
 }
 
 func douyinSecUIDFromInput(query string) string {
@@ -126,7 +145,7 @@ func fetchDouyinPublicUserBySecUID(ctx context.Context, client *http.Client, sec
 	if err != nil {
 		return thirdparty.AccountProfile{}, err
 	}
-	return douyinProfileFromValue(document), nil
+	return douyinProfileFromUserPayload(document), nil
 }
 
 func searchDouyinUsers(ctx context.Context, client *http.Client, query string, cookies map[string]string) ([]thirdparty.AccountProfile, error) {
@@ -144,7 +163,7 @@ func searchDouyinUsers(ctx context.Context, client *http.Client, query string, c
 	}
 	profiles := make([]thirdparty.AccountProfile, 0, maxDouyinResolveCandidates)
 	seen := map[string]bool{}
-	collectDouyinProfiles(document, seen, &profiles, 0)
+	collectDouyinSearchProfiles(document, seen, &profiles, 0)
 	return profiles, nil
 }
 
@@ -247,6 +266,21 @@ func douyinProfileFromPage(body string) thirdparty.AccountProfile {
 	return thirdparty.AccountProfile{}
 }
 
+func douyinProfileFromUserPayload(value any) thirdparty.AccountProfile {
+	object, ok := value.(map[string]any)
+	if !ok {
+		return thirdparty.AccountProfile{}
+	}
+	for _, key := range []string{"user", "user_info"} {
+		if user, ok := object[key].(map[string]any); ok {
+			if profile := douyinProfileFromObject(user); profileIsUsable(profile) {
+				return profile
+			}
+		}
+	}
+	return thirdparty.AccountProfile{}
+}
+
 func douyinProfileFromValue(value any) thirdparty.AccountProfile {
 	return douyinProfileFromValueAtDepth(value, 0)
 }
@@ -313,6 +347,52 @@ func collectDouyinProfiles(value any, seen map[string]bool, profiles *[]thirdpar
 			}
 		}
 	}
+}
+
+func collectDouyinSearchProfiles(value any, seen map[string]bool, profiles *[]thirdparty.AccountProfile, depth int) {
+	if depth > maxDouyinResolveDepth || len(*profiles) >= maxDouyinResolveCandidates {
+		return
+	}
+	switch item := value.(type) {
+	case map[string]any:
+		if userList, ok := item["user_list"].([]any); ok {
+			for _, child := range userList {
+				collectDouyinSearchProfiles(child, seen, profiles, depth+1)
+				if len(*profiles) >= maxDouyinResolveCandidates {
+					return
+				}
+			}
+		}
+		if userInfo, ok := item["user_info"].(map[string]any); ok {
+			addDouyinProfile(userInfo, seen, profiles)
+		}
+		for _, child := range item {
+			collectDouyinSearchProfiles(child, seen, profiles, depth+1)
+			if len(*profiles) >= maxDouyinResolveCandidates {
+				return
+			}
+		}
+	case []any:
+		for _, child := range item {
+			collectDouyinSearchProfiles(child, seen, profiles, depth+1)
+			if len(*profiles) >= maxDouyinResolveCandidates {
+				return
+			}
+		}
+	}
+}
+
+func addDouyinProfile(object map[string]any, seen map[string]bool, profiles *[]thirdparty.AccountProfile) {
+	profile := douyinProfileFromObject(object)
+	if !profileIsUsable(profile) {
+		return
+	}
+	key := strings.TrimSpace(profile.UID)
+	if seen[key] {
+		return
+	}
+	seen[key] = true
+	*profiles = append(*profiles, profile)
 }
 
 func douyinAvatarURLFromObject(object map[string]any) string {
