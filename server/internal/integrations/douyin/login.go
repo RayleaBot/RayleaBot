@@ -23,6 +23,8 @@ const (
 
 	douyinOrigin  = "https://www.douyin.com"
 	douyinReferer = "https://www.douyin.com/"
+
+	douyinBrowserCreateTimeout = 25 * time.Second
 )
 
 var douyinUserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36"
@@ -56,16 +58,16 @@ func NewProvider(client *http.Client, browser LoginBrowser) *Provider {
 }
 
 func (p *Provider) Create(ctx context.Context, now time.Time) (common.LoginSession, error) {
-	if p.browser != nil {
-		session, err := p.createWithBrowser(ctx, now)
-		if err == nil {
-			return session, nil
-		}
-		// Browser failed. Douyin SSO blocks non-browser HTTP requests, so the
-		// HTTP fallback will also fail. Return the browser error directly.
+	if p.browser == nil {
+		return common.LoginSession{}, fmt.Errorf("douyin login requires Chrome/Chromium browser (configure browser_path in config)")
+	}
+	browserCtx, cancel := context.WithTimeout(ctx, douyinBrowserCreateTimeout)
+	defer cancel()
+	session, err := p.createWithBrowser(browserCtx, now)
+	if err != nil {
 		return common.LoginSession{}, fmt.Errorf("douyin browser login failed (Chrome/Chromium required): %w", err)
 	}
-	return common.LoginSession{}, fmt.Errorf("douyin login requires Chrome/Chromium browser (configure browser_path in config)")
+	return session, nil
 }
 
 func (p *Provider) createWithHTTP(ctx context.Context, now time.Time) (common.LoginSession, error) {
@@ -105,6 +107,11 @@ func (p *Provider) Poll(ctx context.Context, session common.LoginSession, now ti
 	session.State = result.State
 	session.Cookie = result.Cookie
 	session.Account = thirdparty.AccountProfile{}
+	if result.State == common.StateSucceeded {
+		if profile, err := FetchAccountProfile(ctx, p.client, cookies); err == nil {
+			session.Account = profile
+		}
+	}
 	session.Cookies = cookies
 	return session, nil
 }
@@ -169,6 +176,13 @@ func (p *Provider) pollWithBrowser(ctx context.Context, session common.LoginSess
 			return session, fmt.Errorf("douyin qrcode login succeeded without login cookie")
 		}
 		session.Account = thirdparty.AccountProfile{}
+			var browserCtx context.Context
+			if cb, ok := p.browser.(*ChromedpBrowser); ok {
+				browserCtx = cb.SessionContext(session.Token)
+			}
+			if profile, err := FetchAccountProfileWithBrowser(ctx, p.client, session.Cookies, browserCtx); err == nil {
+				session.Account = profile
+			}
 	}
 	return session, nil
 }

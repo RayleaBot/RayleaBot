@@ -31,12 +31,14 @@ func (v *Validator) CheckCookie(ctx context.Context, cookies map[string]string) 
 		err := fmt.Errorf("douyin cookie missing login state")
 		return thirdparty.AccountProfile{}, v.invalidStatus(err.Error()), err
 	}
-	// Attempt profile fetch; if fails, return unknown status
+	// Cookies exist → account is valid. Profile is a best-effort bonus.
+	status := v.validStatus()
 	profile, err := FetchAccountProfile(ctx, v.client, cookies)
 	if err != nil {
-		return thirdparty.AccountProfile{}, v.unknownStatus(err.Error()), nil
+		// Profile unavailable is not fatal — cookies are still valid.
+		return thirdparty.AccountProfile{}, status, nil
 	}
-	return profile, v.validStatus(), nil
+	return profile, status, nil
 }
 
 func (v *Validator) validStatus() thirdparty.CredentialStatus {

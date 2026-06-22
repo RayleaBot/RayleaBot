@@ -3,17 +3,25 @@ package douyin
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/chromedp/cdproto/emulation"
 	"github.com/chromedp/cdproto/network"
+	"github.com/chromedp/cdproto/page"
+	"github.com/chromedp/cdproto/runtime"
 	"github.com/chromedp/chromedp"
 )
 
-const douyinBrowserLoginURL = "https://www.douyin.com/login_page?service=https%3A%2F%2Fwww.douyin.com%2F"
+const (
+	douyinBrowserLoginURL      = "https://www.douyin.com/login_page?service=https%3A%2F%2Fwww.douyin.com%2F"
+	douyinBrowserQRCodePath    = "/passport/web/get_qrcode/"
+	douyinBrowserQRConnectPath = "/passport/web/check_qrconnect/"
+)
 
 type ChromedpBrowser struct {
 	browserPath string
@@ -25,11 +33,16 @@ type ChromedpBrowser struct {
 }
 
 type browserRuntime struct {
-	ctx       context.Context
-	cancel    context.CancelFunc
-	expiresAt time.Time
-	cookies   map[string]string
+	ctx        context.Context
+	cancel     context.CancelFunc
+	expiresAt  time.Time
+	cookies    map[string]string
+	blockCount int
+	lastState  string // track last non-pending_scan state across page redirects
+	mu         sync.Mutex
 }
+
+var errDouyinQRCodePollBlocked = errors.New("douyin qrcode poll blocked by risk control")
 
 func NewChromedpBrowser(browserPath string, browserArgs []string, transport http.RoundTripper) *ChromedpBrowser {
 	return &ChromedpBrowser{
@@ -53,59 +66,295 @@ func commonHTTPClient(transport http.RoundTripper) *http.Client {
 	}
 }
 
+// captureScript creates the state object AND intercepts fetch/XHR to
+// passively capture QR code API responses. The wrappers are carefully
+// crafted to match native function signatures so bdms.js cannot detect them:
+//   - fetch.length === 1 (single `input` parameter)
+//   - fetch.prototype is deleted (native fetch has no prototype)
+//   - XMLHttpRequest.prototype === native _XHR.prototype
+//   - toString() returns [native code] for both
+// No browser prototypes (Canvas, WebGL, navigator, screen) are touched.
+const captureScript = `(function(){
+if (window.__rayleaDouyinLogin) return;
+
+var state = {qrcode:null, lastPoll:null};
+Object.defineProperty(window, '__rayleaDouyinLogin', {value:state, configurable:false, writable:false});
+
+var _fetch = window.fetch;
+var _XHR = window.XMLHttpRequest;
+
+function match(url, path){ return typeof url==='string' && url.indexOf(path)!==-1; }
+function capture(url, text){
+if (!text) return;
+try {
+var p = JSON.parse(text);
+if (match(url, '` + douyinBrowserQRCodePath + `')) state.qrcode = p;
+if (match(url, '` + douyinBrowserQRConnectPath + `')) state.lastPoll = p;
+} catch(e) {}
+}
+
+// Fetch wrapper — length=1, no prototype (matches native fetch).
+window.fetch = function fetch(input){
+var url = typeof input==='string' ? input : (input && input.url) || '';
+return _fetch.call(this, input, arguments[1]).then(function(r){
+if (match(url, '` + douyinBrowserQRCodePath + `') || match(url, '` + douyinBrowserQRConnectPath + `')){
+try { r.clone().text().then(function(t){ capture(url, t); }).catch(function(){}); } catch(e) {}
+}
+return r;
+});
+};
+try { delete window.fetch.prototype; } catch(e) {}
+window.fetch.toString = function(){ return 'function fetch() { [native code] }'; };
+
+// XMLHttpRequest wrapper — inherits native prototype.
+var xhrWrapper = function XMLHttpRequest(){
+var x = new _XHR();
+var url = '';
+var _open = x.open;
+x.open = function(m, u){ url = String(u || ''); return _open.apply(x, arguments); };
+x.addEventListener('load', function(){
+if (match(url, '` + douyinBrowserQRCodePath + `') || match(url, '` + douyinBrowserQRConnectPath + `')){
+capture(url, x.responseText || '');
+}
+});
+return x;
+};
+xhrWrapper.prototype = _XHR.prototype;
+xhrWrapper.toString = function(){ return 'function XMLHttpRequest() { [native code] }'; };
+window.XMLHttpRequest = xhrWrapper;
+
+// Critical: make Function.prototype.toString.call(fetch) also return [native code].
+// bdms.js uses this to verify that fetch/XHR are the real native functions.
+var _funcToString = Function.prototype.toString;
+Function.prototype.toString = function toString(){
+if (this === window.fetch || this === window.XMLHttpRequest) {
+return this.toString();
+}
+return _funcToString.call(this);
+};
+Function.prototype.toString.toString = function(){ return 'function toString() { [native code] }'; };
+})();`
+
+func installCaptureScript(ctx context.Context) error {
+	_, err := page.AddScriptToEvaluateOnNewDocument(captureScript).Do(ctx)
+	return err
+}
+
+// callQRCodeAPI actively calls Douyin's get_qrcode API from within the page
+// context. If the security SDK (bdms.js) intercepts fetch to add signatures,
+// this will succeed. Otherwise, fall back to passive interception.
+func callQRCodeAPI(ctx context.Context) (json.RawMessage, error) {
+	js := `(function(){
+var u = '/passport/web/get_qrcode/?aid=6383&service=' + encodeURIComponent('https://www.douyin.com/') + '&need_logo=true&t=' + Date.now();
+return fetch(u, {credentials: 'include'}).then(function(r){ return r.text(); }).then(function(t){
+var d = JSON.parse(t);
+if (d && d.data) { window.__rayleaDouyinLogin.qrcode = d; }
+return t;
+}).catch(function(e){ return '{"error":"'+e.message+'"}'; });
+})()`
+
+	var raw string
+	if err := chromedp.Evaluate(js, &raw, func(p *runtime.EvaluateParams) *runtime.EvaluateParams {
+		return p.WithAwaitPromise(true)
+	}).Do(ctx); err != nil {
+		return nil, err
+	}
+	var check struct {
+		Error string `json:"error"`
+	}
+	if err := json.Unmarshal([]byte(raw), &check); err == nil && check.Error != "" {
+		return nil, fmt.Errorf("douyin qrcode api call: %s", check.Error)
+	}
+	return json.RawMessage(raw), nil
+}
+
+// readQRCodeFromState reads the QR code data from the injected JS state.
+// This works whether the data was set by active API calls or passive interception.
+func readQRCodeFromState(ctx context.Context) (string, error) {
+	var raw string
+	if err := chromedp.Evaluate(`(function(){var s=window.__rayleaDouyinLogin; return s && s.qrcode ? JSON.stringify(s.qrcode) : "";})()`, &raw).Do(ctx); err != nil {
+		return "", err
+	}
+	return raw, nil
+}
+
+// readPollFromState reads the latest poll response from the injected JS state.
+func readPollFromState(ctx context.Context) (string, error) {
+	runCtx, cancel := context.WithTimeout(ctx, 3*time.Second)
+	defer cancel()
+	var raw string
+	if err := chromedp.Run(runCtx, chromedp.Evaluate(`(function(){var s=window.__rayleaDouyinLogin; return s && s.lastPoll ? JSON.stringify(s.lastPoll) : "";})()`, &raw)); err != nil {
+		return "", err
+	}
+	return raw, nil
+}
+
+func waitDouyinBrowserQRCode(ctx context.Context, now time.Time) (BrowserCreateResult, error) {
+	// First, try passive — the page may have already called get_qrcode.
+	// Wait briefly for the page's security SDKs to finish initialization.
+	initialWait := 3 * time.Second
+	select {
+	case <-ctx.Done():
+		return BrowserCreateResult{}, ctx.Err()
+	case <-time.After(initialWait):
+	}
+
+	// Check if the page already has QR code data (passive interception).
+	if raw, err := readQRCodeFromState(ctx); err == nil && strings.TrimSpace(raw) != "" {
+		return parseDouyinBrowserQRCodeResponse([]byte(raw), now)
+	}
+
+	// Try active API call.
+	for attempt := 0; attempt < 5; attempt++ {
+		raw, err := callQRCodeAPI(ctx)
+		if err == nil {
+			return parseDouyinBrowserQRCodeResponse(raw, now)
+		}
+		// If the API returns an error (missing signatures), wait and retry.
+		select {
+		case <-ctx.Done():
+			return BrowserCreateResult{}, ctx.Err()
+		case <-time.After(2 * time.Second):
+		}
+	}
+
+	// Last check: page might have made the call despite our active attempts failing.
+	if raw, err := readQRCodeFromState(ctx); err == nil && strings.TrimSpace(raw) != "" {
+		return parseDouyinBrowserQRCodeResponse([]byte(raw), now)
+	}
+
+	return BrowserCreateResult{}, fmt.Errorf("douyin browser: unable to obtain QR code after %v", time.Since(now))
+}
+
+func readDouyinBrowserPollState(ctx context.Context) (string, error) {
+	// Check passive interception first.
+	raw, err := readPollFromState(ctx)
+	if err != nil {
+		return "", err
+	}
+	if strings.TrimSpace(raw) == "" {
+		return "pending_scan", nil
+	}
+	return parseDouyinBrowserPollState([]byte(raw))
+}
+
+func parseDouyinBrowserQRCodeResponse(body []byte, now time.Time) (BrowserCreateResult, error) {
+	var response struct {
+		Message string `json:"message"`
+		Data    struct {
+			ErrorCode      int    `json:"error_code"`
+			Description    string `json:"description"`
+			QRCodeIndexURL string `json:"qrcode_index_url"`
+			Token          string `json:"token"`
+			ExpireTime     int64  `json:"expire_time"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal(body, &response); err != nil {
+		return BrowserCreateResult{}, fmt.Errorf("douyin browser qrcode response: %w", err)
+	}
+	if response.Data.ErrorCode != 0 {
+		return BrowserCreateResult{}, fmt.Errorf("douyin browser qrcode create failed: %s", firstNonEmpty(response.Data.Description, response.Message, "invalid response"))
+	}
+	token := strings.TrimSpace(response.Data.Token)
+	qrcodeURL := strings.TrimSpace(response.Data.QRCodeIndexURL)
+	if token == "" || qrcodeURL == "" {
+		return BrowserCreateResult{}, fmt.Errorf("douyin browser qrcode create missing token or qrcode url")
+	}
+	expiresAt := now.Add(3 * time.Minute)
+	if response.Data.ExpireTime > 0 {
+		remoteExpiresAt := time.Unix(response.Data.ExpireTime, 0).UTC()
+		if remoteExpiresAt.After(now) {
+			expiresAt = remoteExpiresAt
+		}
+	}
+	return BrowserCreateResult{
+		Token:     token,
+		QRCodeURL: qrcodeURL,
+		ExpiresAt: expiresAt,
+	}, nil
+}
+
+func parseDouyinBrowserPollState(body []byte) (string, error) {
+	var response struct {
+		Message string `json:"message"`
+		Data    struct {
+			ErrorCode   int             `json:"error_code"`
+			Description string          `json:"description"`
+			Status      json.RawMessage `json:"status"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal(body, &response); err != nil {
+		return "", fmt.Errorf("douyin browser qrcode poll response: %w", err)
+	}
+	if response.Data.ErrorCode != 0 {
+		message := firstNonEmpty(response.Data.Description, response.Message, "invalid response")
+		if isDouyinQRCodePollBlocked(message) {
+			return "", fmt.Errorf("%w: %s", errDouyinQRCodePollBlocked, message)
+		}
+		return "", fmt.Errorf("douyin browser qrcode poll failed: %s", message)
+	}
+	switch douyinStatus(response.Data.Status) {
+	case "", "1", "new":
+		return "pending_scan", nil
+	case "2", "scan", "scanned":
+		return "pending_confirm", nil
+	case "3", "confirm", "confirmed", "success", "succeeded":
+		return "succeeded", nil
+	case "4", "5", "expire", "expired", "cancel", "canceled", "cancelled":
+		return "expired", nil
+	default:
+		return "", fmt.Errorf("douyin browser qrcode poll status %s", string(response.Data.Status))
+	}
+}
+
+func isDouyinQRCodePollBlocked(message string) bool {
+	message = strings.TrimSpace(message)
+	return strings.Contains(message, "安全风险") || strings.Contains(message, "已阻止此次访问")
+}
+
 func (b *ChromedpBrowser) Create(ctx context.Context, now time.Time) (BrowserCreateResult, error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	if err := ctx.Err(); err != nil {
+		return BrowserCreateResult{}, fmt.Errorf("douyin browser: %w", err)
+	}
+	var result BrowserCreateResult
 	tabCtx, cancel := newDouyinBrowserContext(b.browserPath, b.browserArgs)
-	runCtx, cancelRun := context.WithTimeout(tabCtx, 30*time.Second)
-	defer cancelRun()
-
-	// Navigate to douyin login page, wait for the QR code image to render,
-	// then extract it from the DOM. No network listener or fetch() needed.
-	var qrResult string
-
-	err := chromedp.Run(runCtx,
-		network.Enable(),
-		chromedp.Navigate(douyinBrowserLoginURL),
-		chromedp.WaitReady("body"),
-		chromedp.Evaluate(`Object.defineProperty(navigator, 'webdriver', {get: () => undefined})`, nil),
-		chromedp.Evaluate(`window.chrome = {runtime: {}, loadTimes: function(){}, csi: function(){}, app: {}}`, nil),
-		chromedp.Evaluate(`delete window.__nightmare`, nil),
-		// Wait for the QR code image to be rendered by the page's own JS.
-		chromedp.WaitVisible(`img[src*="sso"]`, chromedp.ByQuery),
-		chromedp.Evaluate(`(function(){
-			var imgs = document.querySelectorAll('img');
-			for (var i = 0; i < imgs.length; i++) {
-				var s = imgs[i].src || '';
-				if (s.indexOf('sso') !== -1 || s.indexOf('qrcode') !== -1) {
-					var t = '';
-					var m = s.match(/[?&]token=([^&]+)/i);
-					if (m) t = m[1];
-					if (!t) t = imgs[i].getAttribute('data-token') || '';
-					if (!t) { var m2 = s.match(/[?&]qrcode_key=([^&]+)/i); if (m2) t = m2[1]; }
-					return JSON.stringify({src: s, token: t});
+	errCh := make(chan error, 1)
+	go func() {
+		errCh <- chromedp.Run(tabCtx,
+			network.Enable(),
+			emulation.SetTimezoneOverride("Asia/Shanghai"),
+			emulation.SetFocusEmulationEnabled(true),
+			chromedp.ActionFunc(installCaptureScript),
+			chromedp.Navigate(douyinBrowserLoginURL),
+			chromedp.WaitReady("body"),
+			chromedp.ActionFunc(func(ctx context.Context) error {
+				created, err := waitDouyinBrowserQRCode(ctx, now)
+				if err != nil {
+					return err
 				}
-			}
-			return JSON.stringify({src: '', token: ''});
-		})()`, &qrResult),
-	)
+				result = created
+				return nil
+			}),
+		)
+	}()
+	timer := time.NewTimer(douyinBrowserCreateTimeout)
+	defer timer.Stop()
+	var err error
+	select {
+	case err = <-errCh:
+	case <-ctx.Done():
+		cancel()
+		return BrowserCreateResult{}, fmt.Errorf("douyin browser: %w", ctx.Err())
+	case <-timer.C:
+		cancel()
+		return BrowserCreateResult{}, fmt.Errorf("douyin browser: %w", context.DeadlineExceeded)
+	}
 	if err != nil {
 		cancel()
 		return BrowserCreateResult{}, fmt.Errorf("douyin browser: %w", err)
-	}
-
-	var extracted struct {
-		Src   string `json:"src"`
-		Token string `json:"token"`
-	}
-	if err := json.Unmarshal([]byte(qrResult), &extracted); err != nil {
-		cancel()
-		return BrowserCreateResult{}, fmt.Errorf("douyin browser: parse DOM result: %w (raw: %s)", err, qrResult)
-	}
-
-	token := strings.TrimSpace(extracted.Token)
-	qrcodeURL := strings.TrimSpace(extracted.Src)
-	if token == "" || qrcodeURL == "" {
-		cancel()
-		return BrowserCreateResult{}, fmt.Errorf("douyin browser: QR code not found on page (token=%q, src=%q)", token, qrcodeURL)
 	}
 
 	cookies, err := b.cookies(tabCtx)
@@ -114,17 +363,11 @@ func (b *ChromedpBrowser) Create(ctx context.Context, now time.Time) (BrowserCre
 		return BrowserCreateResult{}, err
 	}
 
-	result := BrowserCreateResult{
-		Token:     token,
-		QRCodeURL: qrcodeURL,
-		ExpiresAt: now.Add(3 * time.Minute),
-	}
-
 	b.mu.Lock()
-	if old := b.sessions[token]; old != nil {
+	if old := b.sessions[result.Token]; old != nil {
 		old.cancel()
 	}
-	b.sessions[token] = &browserRuntime{
+	b.sessions[result.Token] = &browserRuntime{
 		ctx:       tabCtx,
 		cancel:    cancel,
 		expiresAt: result.ExpiresAt,
@@ -149,21 +392,83 @@ func (b *ChromedpBrowser) Poll(ctx context.Context, token string) (BrowserPollRe
 		return BrowserPollResult{State: "expired"}, nil
 	}
 
-	cookies := cloneStringMap(session.cookies)
-	result, err := pollDouyinQRCode(ctx, b.client, time.Now().UTC(), token, cookies)
+	state, err := readDouyinBrowserPollState(session.ctx)
 	if err != nil {
+		if errors.Is(err, errDouyinQRCodePollBlocked) {
+			session.mu.Lock()
+			session.blockCount++
+			blocked := session.blockCount
+			session.mu.Unlock()
+			if blocked < 2 {
+				return BrowserPollResult{State: "pending_scan"}, nil
+			}
+		}
 		return BrowserPollResult{}, err
 	}
-	if result.State == "succeeded" && !HasLoginCookie(cookies) {
+	session.mu.Lock()
+	session.blockCount = 0
+	// Track the last meaningful state across page redirects.
+	// When Douyin completes login, the page redirects to a callback URL
+	// which resets our JS state. We preserve the state progression here.
+	if state != "pending_scan" && state != "" {
+		session.lastState = state
+	}
+	prevState := session.lastState
+	session.mu.Unlock()
+
+	if state == "" {
+		state = "pending_scan"
+	}
+
+	// Detect page redirect after scan: if we previously saw pending_confirm
+	// but now see pending_scan, the page likely redirected after success.
+	// Check for login cookies immediately.
+	if state == "pending_scan" && (prevState == "pending_confirm" || prevState == "succeeded") {
+		session.mu.Lock()
+		cookies := cloneStringMap(session.cookies)
+		session.mu.Unlock()
+		if browserCookies, err := b.waitLoginCookies(session.ctx, 3*time.Second); err == nil {
+			for key, value := range browserCookies {
+				cookies[key] = value
+			}
+		}
+		if HasLoginCookie(cookies) {
+			state = "succeeded"
+			session.mu.Lock()
+			session.cookies = cloneStringMap(cookies)
+			session.mu.Unlock()
+			return BrowserPollResult{
+				State:   state,
+				Cookie:  cookieHeaderFromMap(cookies),
+				Cookies: cloneStringMap(cookies),
+			}, nil
+		}
+	}
+
+	session.mu.Lock()
+	cookies := cloneStringMap(session.cookies)
+	session.mu.Unlock()
+	if state == "succeeded" {
 		if browserCookies, err := b.waitLoginCookies(session.ctx, 5*time.Second); err == nil {
 			for key, value := range browserCookies {
 				cookies[key] = value
 			}
-			result.Cookie = cookieHeaderFromMap(cookies)
-			result.Cookies = cloneStringMap(cookies)
+		}
+		if !HasLoginCookie(cookies) {
+			return BrowserPollResult{}, fmt.Errorf("douyin qrcode login succeeded without login cookie")
 		}
 	}
+	result := BrowserPollResult{
+		State:   state,
+		Cookie:  cookieHeaderFromMap(cookies),
+		Cookies: cloneStringMap(cookies),
+	}
+	if state != "succeeded" {
+		result.Cookie = ""
+	}
+	session.mu.Lock()
 	session.cookies = cloneStringMap(cookies)
+	session.mu.Unlock()
 	return result, nil
 }
 
@@ -179,6 +484,17 @@ func (b *ChromedpBrowser) Close(token string) {
 	if session != nil {
 		session.cancel()
 	}
+}
+
+// SessionContext returns the browser tab context for the given session token,
+// or nil if the session is not found. This allows profile fetching from the
+// browser context after login succeeds.
+func (b *ChromedpBrowser) SessionContext(token string) context.Context {
+	s := b.session(token)
+	if s == nil {
+		return nil
+	}
+	return s.ctx
 }
 
 func (b *ChromedpBrowser) session(token string) *browserRuntime {
@@ -228,30 +544,46 @@ func (b *ChromedpBrowser) waitLoginCookies(ctx context.Context, timeout time.Dur
 }
 
 func newDouyinBrowserContext(browserPath string, browserArgs []string) (context.Context, context.CancelFunc) {
-	allocatorOptions := append([]chromedp.ExecAllocatorOption{}, chromedp.DefaultExecAllocatorOptions[:]...)
-	allocatorOptions = append(allocatorOptions,
+	allocatorOptions := []chromedp.ExecAllocatorOption{
 		chromedp.NoDefaultBrowserCheck,
 		chromedp.NoFirstRun,
-		chromedp.Headless,
-		chromedp.DisableGPU,
+
 		chromedp.Flag("headless", "new"),
+
+		chromedp.Flag("user-agent", douyinUserAgent),
+		chromedp.Flag("accept-lang", "zh-CN,zh;q=0.9,en;q=0.8"),
+		chromedp.Flag("lang", "zh-CN"),
+
 		chromedp.Flag("disable-blink-features", "AutomationControlled"),
-		chromedp.Flag("disable-features", "IsolateOrigins,site-per-process"),
-		chromedp.Flag("disable-site-isolation-trials", true),
+		chromedp.Flag("disable-features", "IsolateOrigins,site-per-process,TranslateUI,BlinkRuntimeCallStats,OptimizationHints,MediaRouter"),
+
 		chromedp.Flag("no-sandbox", true),
-		chromedp.Flag("disable-infobars", true),
 		chromedp.Flag("disable-setuid-sandbox", true),
+		chromedp.Flag("disable-dev-shm-usage", true),
+
+		chromedp.Flag("disable-infobars", true),
+		chromedp.Flag("mute-audio", true),
+
+		chromedp.Flag("disable-sync", true),
+		chromedp.Flag("metrics-recording-only", true),
+		chromedp.Flag("disable-background-networking", true),
+
+		chromedp.Flag("disable-backgrounding-occluded-windows", true),
+		chromedp.Flag("disable-renderer-backgrounding", true),
+
 		chromedp.Flag("window-size", "1920,1080"),
-	)
+		chromedp.Flag("force-color-profile", "srgb"),
+
+		chromedp.Flag("force-fieldtrials", "WebRTC-MultipleRoutes/Disabled/"),
+	}
 	path := strings.TrimSpace(browserPath)
 	if path == "" {
-		// Auto-detect Chrome on Windows.
 		for _, candidate := range []string{
 			`C:\Program Files\Google\Chrome\Application\chrome.exe`,
 			`C:\Program Files (x86)\Google\Chrome\Application\chrome.exe`,
 		} {
 			path = candidate
-			break // use first candidate; chromedp.ExecPath overwrites previous
+			break
 		}
 	}
 	if path != "" {
