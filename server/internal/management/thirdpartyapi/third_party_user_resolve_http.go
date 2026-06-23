@@ -2,11 +2,13 @@ package thirdpartyapi
 
 import (
 	"context"
+	"encoding/base64"
 	"net/http"
 	"strings"
 	"time"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/httpapi"
+	thirdpartymedia "github.com/RayleaBot/RayleaBot/server/internal/integrations/bilibili/media"
 	"github.com/RayleaBot/RayleaBot/server/internal/integrations/common"
 	"github.com/RayleaBot/RayleaBot/server/internal/integrations/douyin"
 	neteasemusic "github.com/RayleaBot/RayleaBot/server/internal/integrations/netease_music"
@@ -14,7 +16,11 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/thirdparty"
 )
 
-const thirdPartyUserResolveTimeout = 24 * time.Second
+const (
+	thirdPartyUserResolveTimeout       = 24 * time.Second
+	thirdPartyResolvedAvatarTimeout    = 3 * time.Second
+	thirdPartyResolvedAvatarMaxPayload = 256 << 10
+)
 
 type thirdPartyResolvedUser struct {
 	UID       string `json:"uid"`
@@ -69,7 +75,7 @@ func (h *ThirdPartyHandlers) resolveThirdPartyUser(ctx context.Context, platform
 	if err != nil {
 		return response, err
 	}
-	response.Candidates = thirdPartyResolvedUsersFromProfiles(profiles)
+	response.Candidates = h.thirdPartyResolvedUsersFromProfiles(ctx, platform, profiles)
 	if len(response.Candidates) == 0 {
 		response.Message = thirdPartyResolveNotFoundMessage(platform)
 		return response, nil
@@ -122,7 +128,7 @@ func (h *ThirdPartyHandlers) platformCookieMaps(ctx context.Context, platform st
 	return cookieMaps
 }
 
-func thirdPartyResolvedUsersFromProfiles(profiles []thirdparty.AccountProfile) []thirdPartyResolvedUser {
+func (h *ThirdPartyHandlers) thirdPartyResolvedUsersFromProfiles(ctx context.Context, platform string, profiles []thirdparty.AccountProfile) []thirdPartyResolvedUser {
 	items := make([]thirdPartyResolvedUser, 0, len(profiles))
 	for _, profile := range profiles {
 		uid := strings.TrimSpace(profile.UID)
@@ -133,10 +139,24 @@ func thirdPartyResolvedUsersFromProfiles(profiles []thirdparty.AccountProfile) [
 		items = append(items, thirdPartyResolvedUser{
 			UID:       uid,
 			Name:      name,
-			AvatarURL: strings.TrimSpace(profile.AvatarURL),
+			AvatarURL: h.thirdPartyResolvedAvatarURL(ctx, platform, profile.AvatarURL),
 		})
 	}
 	return items
+}
+
+func (h *ThirdPartyHandlers) thirdPartyResolvedAvatarURL(ctx context.Context, platform string, value string) string {
+	avatarURL := strings.TrimSpace(value)
+	if avatarURL == "" || platform != thirdparty.PlatformWeibo {
+		return avatarURL
+	}
+	fetchCtx, cancel := context.WithTimeout(ctx, thirdPartyResolvedAvatarTimeout)
+	defer cancel()
+	resource, err := thirdpartymedia.Fetch(fetchCtx, h.mediaClient, avatarURL)
+	if err != nil || len(resource.Body) == 0 || len(resource.Body) > thirdPartyResolvedAvatarMaxPayload {
+		return avatarURL
+	}
+	return "data:" + resource.ContentType + ";base64," + base64.StdEncoding.EncodeToString(resource.Body)
 }
 
 func pickThirdPartyResolvedUser(candidates []thirdPartyResolvedUser, query string) thirdPartyResolvedUser {

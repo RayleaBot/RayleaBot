@@ -2,6 +2,7 @@ package thirdpartyapi
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"io"
 	"net/http"
@@ -20,6 +21,8 @@ func TestThirdPartyUserResolveReturnsPlatformProfiles(t *testing.T) {
 		switch {
 		case strings.Contains(rawURL, "m.weibo.cn/api/container/getIndex"):
 			return textResponse(request, `{"data":{"cards":[{"card_group":[{"user":{"id":"7556659984","screen_name":"洛天依","avatar_hd":"https://tvax1.sinaimg.cn/avatar.jpg"}}]}]}}`), nil
+		case strings.Contains(rawURL, "sinaimg.cn"):
+			return avatarImageResponse(request), nil
 		case strings.Contains(rawURL, "www.douyin.com/aweme/v1/web/user/profile/other"):
 			return textResponse(request, `{"status_code":0,"user":{"unique_id":"luotianyi","nickname":"洛天依","avatar_medium":{"url_list":["https://p3-pc.douyinpic.com/avatar.jpg"]}}}`), nil
 		case strings.Contains(rawURL, "www.douyin.com/aweme/v1/web/general/search/single"):
@@ -46,7 +49,7 @@ func TestThirdPartyUserResolveReturnsPlatformProfiles(t *testing.T) {
 			path:     "/api/third-party/users/resolve?platform=weibo&query=%E6%B4%9B%E5%A4%A9%E4%BE%9D",
 			platform: "weibo",
 			uid:      "7556659984",
-			avatar:   "https://tvax1.sinaimg.cn/avatar.jpg",
+			avatar:   thirdPartyAvatarDataURL(),
 		},
 		{
 			name:     "douyin-url",
@@ -116,7 +119,7 @@ func TestThirdPartyUserResolveUsesSavedPlatformCookie(t *testing.T) {
 			matchURL: "m.weibo.cn/api/container/getIndex",
 			body:     `{"data":{"cards":[{"card_group":[{"user":{"id":"7556659984","screen_name":"我的世界","avatar_hd":"https://tvax1.sinaimg.cn/weibo-avatar.jpg"}}]}]}}`,
 			uid:      "7556659984",
-			avatar:   "https://tvax1.sinaimg.cn/weibo-avatar.jpg",
+			avatar:   thirdPartyAvatarDataURL(),
 		},
 		{
 			name:     "douyin",
@@ -149,6 +152,9 @@ func TestThirdPartyUserResolveUsesSavedPlatformCookie(t *testing.T) {
 			}
 			handler := NewThirdPartyHandlers(accounts, nil, nil, nil, thirdPartyMediaRoundTripFunc(func(request *http.Request) (*http.Response, error) {
 				rawURL := request.URL.String()
+				if strings.Contains(rawURL, "sinaimg.cn") {
+					return avatarImageResponse(request), nil
+				}
 				if strings.Contains(rawURL, tt.matchURL) {
 					if !strings.Contains(request.Header.Get("Cookie"), strings.TrimSuffix(tt.cookie, ";")) {
 						t.Fatalf("resolve request cookie = %q, want %q", request.Header.Get("Cookie"), tt.cookie)
@@ -197,6 +203,9 @@ func TestThirdPartyUserResolveWeiboFallbackSearchCard(t *testing.T) {
 		},
 	}
 	handler := NewThirdPartyHandlers(accounts, nil, nil, nil, thirdPartyMediaRoundTripFunc(func(request *http.Request) (*http.Response, error) {
+		if strings.Contains(request.URL.String(), "sinaimg.cn") {
+			return avatarImageResponse(request), nil
+		}
 		if !strings.Contains(request.Header.Get("Cookie"), "SUB=fixture") {
 			t.Fatalf("resolve request cookie = %q, want saved weibo cookie", request.Header.Get("Cookie"))
 		}
@@ -232,7 +241,7 @@ func TestThirdPartyUserResolveWeiboFallbackSearchCard(t *testing.T) {
 	if !response.Exact || response.User == nil {
 		t.Fatalf("unexpected resolve response: %#v", response)
 	}
-	if response.User.UID != "7556659984" || response.User.Name != "洛天依" || response.User.AvatarURL != "https://tvax1.sinaimg.cn/fallback-avatar.jpg" {
+	if response.User.UID != "7556659984" || response.User.Name != "洛天依" || response.User.AvatarURL != thirdPartyAvatarDataURL() {
 		t.Fatalf("unexpected user: %#v", response.User)
 	}
 }
@@ -254,6 +263,9 @@ func TestThirdPartyUserResolveWeiboFiltersSearchTabsAndFillsAvatar(t *testing.T)
 		},
 	}
 	handler := NewThirdPartyHandlers(accounts, nil, nil, nil, thirdPartyMediaRoundTripFunc(func(request *http.Request) (*http.Response, error) {
+		if strings.Contains(request.URL.String(), "sinaimg.cn") {
+			return avatarImageResponse(request), nil
+		}
 		if !strings.Contains(request.Header.Get("Cookie"), "SUB=fixture") {
 			t.Fatalf("resolve request cookie = %q, want saved weibo cookie", request.Header.Get("Cookie"))
 		}
@@ -286,7 +298,7 @@ func TestThirdPartyUserResolveWeiboFiltersSearchTabsAndFillsAvatar(t *testing.T)
 	if !response.Exact || response.User == nil || len(response.Candidates) != 1 {
 		t.Fatalf("unexpected resolve response: %#v", response)
 	}
-	if response.User.UID != "5146173015" || response.User.Name != "Vsinger_洛天依" || response.User.AvatarURL != "https://tvax1.sinaimg.cn/vsinger-avatar.jpg" {
+	if response.User.UID != "5146173015" || response.User.Name != "Vsinger_洛天依" || response.User.AvatarURL != thirdPartyAvatarDataURL() {
 		t.Fatalf("unexpected user: %#v", response.User)
 	}
 }
@@ -580,6 +592,19 @@ func (s *stubDouyinUserResolver) ResolveUser(_ context.Context, query string, co
 		s.cookieSets = append(s.cookieSets, cloned)
 	}
 	return s.profiles, s.exact, s.err
+}
+
+func thirdPartyAvatarDataURL() string {
+	return "data:image/webp;base64," + base64.StdEncoding.EncodeToString([]byte("avatar-bytes"))
+}
+
+func avatarImageResponse(request *http.Request) *http.Response {
+	return &http.Response{
+		StatusCode: http.StatusOK,
+		Header:     http.Header{"Content-Type": []string{"image/webp"}},
+		Body:       io.NopCloser(strings.NewReader("avatar-bytes")),
+		Request:    request,
+	}
 }
 
 func textResponse(request *http.Request, body string) *http.Response {
