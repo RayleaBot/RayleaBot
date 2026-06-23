@@ -144,22 +144,38 @@ func douyinBrowserSearchPathsFor(query string, cookies map[string]string) []stri
 }
 
 func evaluateDouyinBrowserSearch(requestPath string, raw *string) chromedp.Action {
-	encodedPath, _ := json.Marshal(requestPath)
-	js := `(function(){
-var u = ` + string(encodedPath) + `;
-u += (u.indexOf('?') === -1 ? '?' : '&') + 't=' + Date.now();
-return fetch(u, {
-credentials: 'include',
-headers: {'Accept': 'application/json, text/plain, */*'}
-}).then(function(r){ return r.text(); }).catch(function(e){
-return JSON.stringify({error:e && e.message ? e.message : String(e)});
-});
-})()`
+	js := douyinBrowserSearchScript(requestPath)
 	return chromedp.ActionFunc(func(ctx context.Context) error {
 		return chromedp.Evaluate(js, raw, func(params *runtime.EvaluateParams) *runtime.EvaluateParams {
 			return params.WithAwaitPromise(true)
 		}).Do(ctx)
 	})
+}
+
+func douyinBrowserSearchScript(requestPath string) string {
+	encodedPath, _ := json.Marshal(requestPath)
+	return `(function(){
+var u = ` + string(encodedPath) + `;
+u += (u.indexOf('?') === -1 ? '?' : '&') + 't=' + Date.now();
+var headers = {'Accept': 'application/json, text/plain, */*'};
+try {
+var signer = window.byted_acrawler && window.byted_acrawler.frontierSign;
+if (typeof signer === 'function') {
+var signed = signer({url: u});
+if (signed && typeof signed === 'object') {
+if (signed['X-Bogus']) headers['X-Bogus'] = signed['X-Bogus'];
+if (signed.url) u = signed.url;
+if (signed.signed_url) u = signed.signed_url;
+}
+}
+} catch(e) {}
+return fetch(u, {
+credentials: 'include',
+headers: headers
+}).then(function(r){ return r.text(); }).catch(function(e){
+return JSON.stringify({error:e && e.message ? e.message : String(e)});
+});
+})()`
 }
 
 func runDouyinBrowserActions(tabCtx context.Context, timeout time.Duration, actions ...chromedp.Action) error {

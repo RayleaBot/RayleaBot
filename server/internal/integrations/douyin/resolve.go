@@ -312,6 +312,17 @@ func douyinProfileMatchesQuery(profile thirdparty.AccountProfile, query string) 
 }
 
 func douyinSearchURLsFor(query string, cookies map[string]string) []string {
+	searchItemValues := douyinWebParams()
+	searchItemValues.Set("keyword", strings.TrimSpace(query))
+	searchItemValues.Set("search_channel", "aweme_video_web")
+	searchItemValues.Set("search_source", "pc_detail_load_more")
+	searchItemValues.Set("sort_type", "0")
+	searchItemValues.Set("publish_time", "0")
+	searchItemValues.Set("is_filter_search", "0")
+	searchItemValues.Set("query_correct_type", "1")
+	searchItemValues.Set("offset", "0")
+	searchItemValues.Set("count", strconv.Itoa(maxDouyinResolveCandidates))
+
 	values := douyinWebParams()
 	values.Set("keyword", strings.TrimSpace(query))
 	values.Set("search_channel", "aweme_user_web")
@@ -352,6 +363,7 @@ func douyinSearchURLsFor(query string, cookies map[string]string) []string {
 		generalValues.Set("webid", webID)
 	}
 	return []string{
+		"https://www.douyin.com/aweme/v1/web/search/item/?" + searchItemValues.Encode(),
 		"https://www.douyin.com/aweme/v1/web/general/search/single/?" + values.Encode(),
 		"https://www.douyin.com/aweme/v1/web/general/search/single/?" + generalValues.Encode(),
 	}

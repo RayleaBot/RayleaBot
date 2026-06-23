@@ -25,7 +25,7 @@ func TestThirdPartyUserResolveReturnsPlatformProfiles(t *testing.T) {
 			return avatarImageResponse(request), nil
 		case strings.Contains(rawURL, "www.douyin.com/aweme/v1/web/user/profile/other"):
 			return textResponse(request, `{"status_code":0,"user":{"unique_id":"luotianyi","nickname":"洛天依","avatar_medium":{"url_list":["https://p3-pc.douyinpic.com/avatar.jpg"]}}}`), nil
-		case strings.Contains(rawURL, "www.douyin.com/aweme/v1/web/general/search/single"):
+		case isDouyinUserSearchURL(rawURL):
 			return textResponse(request, `{"status_code":0,"data":[{"user_list":[{"user_info":{"unique_id":"luotianyi","nickname":"洛天依","avatar_medium":{"url_list":["https://p3-pc.douyinpic.com/avatar.jpg"]}}}]}]}`), nil
 		case strings.Contains(rawURL, "music.163.com/api/search/get/web") && request.URL.Query().Get("type") == "100":
 			return textResponse(request, `{"result":{"artists":[{"id":8325,"name":"洛天依","picUrl":"https://p1.music.126.net/avatar.jpg"}]}}`), nil
@@ -126,7 +126,7 @@ func TestThirdPartyUserResolveUsesSavedPlatformCookie(t *testing.T) {
 			platform: thirdparty.PlatformDouyin,
 			path:     "/api/third-party/users/resolve?platform=douyin&query=%E6%B4%9B%E5%A4%A9%E4%BE%9D",
 			cookie:   "sessionid=fixture;",
-			matchURL: "www.douyin.com/aweme/v1/web/general/search/single",
+			matchURL: "douyin-search",
 			body:     `{"status_code":0,"data":[{"user_list":[{"user_info":{"unique_id":"luotianyi","nickname":"洛天依","avatar_medium":{"url_list":["https://p3-pc.douyinpic.com/douyin-avatar.jpg"]}}}]}]}`,
 			uid:      "luotianyi",
 			avatar:   "https://p3-pc.douyinpic.com/douyin-avatar.jpg",
@@ -155,7 +155,7 @@ func TestThirdPartyUserResolveUsesSavedPlatformCookie(t *testing.T) {
 				if strings.Contains(rawURL, "sinaimg.cn") {
 					return avatarImageResponse(request), nil
 				}
-				if strings.Contains(rawURL, tt.matchURL) {
+				if strings.Contains(rawURL, tt.matchURL) || (tt.platform == thirdparty.PlatformDouyin && isDouyinUserSearchURL(rawURL)) {
 					if !strings.Contains(request.Header.Get("Cookie"), strings.TrimSuffix(tt.cookie, ";")) {
 						t.Fatalf("resolve request cookie = %q, want %q", request.Header.Get("Cookie"), tt.cookie)
 					}
@@ -325,7 +325,7 @@ func TestThirdPartyUserResolveDouyinSearchPageFallback(t *testing.T) {
 			t.Fatalf("resolve request cookie = %q, want saved douyin cookie", request.Header.Get("Cookie"))
 		}
 		switch {
-		case strings.Contains(rawURL, "www.douyin.com/aweme/v1/web/general/search/single"):
+		case isDouyinUserSearchURL(rawURL):
 			return textResponse(request, `{"status_code":0,"data":[]}`), nil
 		case strings.Contains(rawURL, "www.douyin.com/search/"):
 			return textResponse(request, `<html><body><script id="RENDER_DATA" type="application/json">{"loaderData":{"self":{"user":{"unique_id":"ck_user","nickname":"CK用户","avatar_medium":{"url_list":["https://p3-pc.douyinpic.com/ck-avatar.jpg"]}}},"search":{"data":[{"author":{"unique_id":"luotianyi","nickname":"洛天依","avatar_medium":{"url_list":["https://p3-pc.douyinpic.com/page-avatar.jpg"]}}}]}}}</script></body></html>`), nil
@@ -384,7 +384,7 @@ func TestThirdPartyUserResolveDouyinUsesBrowserResolverAfterEmptyHTTPResults(t *
 			t.Fatalf("resolve request cookie = %q, want saved douyin cookie", request.Header.Get("Cookie"))
 		}
 		switch {
-		case strings.Contains(rawURL, "www.douyin.com/aweme/v1/web/general/search/single"):
+		case isDouyinUserSearchURL(rawURL):
 			return textResponse(request, `{"status_code":0,"data":[]}`), nil
 		case strings.Contains(rawURL, "www.douyin.com/search/"):
 			return textResponse(request, `<html><body><div id="root"></div><script src="/search.js"></script></body></html>`), nil
@@ -437,7 +437,7 @@ func TestThirdPartyUserResolveDouyinParsesScopedUserObject(t *testing.T) {
 	}
 	handler := NewThirdPartyHandlers(accounts, nil, nil, nil, thirdPartyMediaRoundTripFunc(func(request *http.Request) (*http.Response, error) {
 		rawURL := request.URL.String()
-		if !strings.Contains(rawURL, "www.douyin.com/aweme/v1/web/general/search/single") {
+		if !isDouyinUserSearchURL(rawURL) {
 			t.Fatalf("unexpected upstream request: %s", rawURL)
 		}
 		if !strings.Contains(request.Header.Get("Cookie"), "sessionid=fixture") {
@@ -487,7 +487,7 @@ func TestThirdPartyUserResolveDouyinDoesNotReturnCookieAccountFromSearch(t *test
 			t.Fatalf("resolve request cookie = %q, want saved douyin cookie", request.Header.Get("Cookie"))
 		}
 		switch {
-		case strings.Contains(rawURL, "www.douyin.com/aweme/v1/web/general/search/single"):
+		case isDouyinUserSearchURL(rawURL):
 			return textResponse(request, `{"status_code":0,"user":{"unique_id":"ck_user","nickname":"CK用户","avatar_medium":{"url_list":["https://p3-pc.douyinpic.com/ck-avatar.jpg"]}},"data":[]}`), nil
 		case strings.Contains(rawURL, "www.douyin.com/search/"):
 			return textResponse(request, `<html><body><script id="RENDER_DATA" type="application/json">{"loaderData":{"self":{"user":{"unique_id":"ck_user","nickname":"CK用户","avatar_medium":{"url_list":["https://p3-pc.douyinpic.com/ck-avatar.jpg"]}}},"search":{"data":[]}}}</script></body></html>`), nil
@@ -605,6 +605,11 @@ func avatarImageResponse(request *http.Request) *http.Response {
 		Body:       io.NopCloser(strings.NewReader("avatar-bytes")),
 		Request:    request,
 	}
+}
+
+func isDouyinUserSearchURL(rawURL string) bool {
+	return strings.Contains(rawURL, "www.douyin.com/aweme/v1/web/search/item/") ||
+		strings.Contains(rawURL, "www.douyin.com/aweme/v1/web/general/search/single")
 }
 
 func textResponse(request *http.Request, body string) *http.Response {
