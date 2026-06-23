@@ -15,6 +15,8 @@ import (
 )
 
 const douyinBrowserResolveTimeout = 25 * time.Second
+const douyinBrowserPageTimeout = 12 * time.Second
+const douyinBrowserFetchTimeout = 5 * time.Second
 
 func (b *ChromedpBrowser) ResolveUser(ctx context.Context, query string, cookieSets []map[string]string) ([]thirdparty.AccountProfile, bool, error) {
 	if b == nil {
@@ -53,7 +55,7 @@ func (b *ChromedpBrowser) searchUsers(ctx context.Context, query string, cookies
 	defer cancelBrowser()
 
 	searchPage := "https://www.douyin.com/search/" + url.PathEscape(strings.TrimSpace(query)) + "?type=user"
-	if err := runDouyinBrowserActions(runCtx, cancelBrowser, tabCtx,
+	if err := runDouyinBrowserActions(tabCtx, douyinBrowserPageTimeout,
 		network.Enable(),
 		emulation.SetTimezoneOverride("Asia/Shanghai"),
 		emulation.SetFocusEmulationEnabled(true),
@@ -69,11 +71,20 @@ func (b *ChromedpBrowser) searchUsers(ctx context.Context, query string, cookies
 	); err != nil {
 		return nil, err
 	}
+	if err := runCtx.Err(); err != nil {
+		return nil, err
+	}
 
 	var firstErr error
 	for _, requestPath := range douyinBrowserSearchPathsFor(query, cookies) {
 		var raw string
-		if err := runDouyinBrowserActions(runCtx, cancelBrowser, tabCtx, evaluateDouyinBrowserSearch(requestPath, &raw)); err != nil {
+		if err := runCtx.Err(); err != nil {
+			if firstErr == nil {
+				firstErr = err
+			}
+			break
+		}
+		if err := runDouyinBrowserActions(tabCtx, douyinBrowserFetchTimeout, evaluateDouyinBrowserSearch(requestPath, &raw)); err != nil {
 			if firstErr == nil {
 				firstErr = err
 			}
@@ -151,16 +162,8 @@ return JSON.stringify({error:e && e.message ? e.message : String(e)});
 	})
 }
 
-func runDouyinBrowserActions(ctx context.Context, cancelBrowser context.CancelFunc, tabCtx context.Context, actions ...chromedp.Action) error {
-	errCh := make(chan error, 1)
-	go func() {
-		errCh <- chromedp.Run(tabCtx, actions...)
-	}()
-	select {
-	case err := <-errCh:
-		return err
-	case <-ctx.Done():
-		cancelBrowser()
-		return ctx.Err()
-	}
+func runDouyinBrowserActions(tabCtx context.Context, timeout time.Duration, actions ...chromedp.Action) error {
+	actionCtx, cancel := context.WithTimeout(tabCtx, timeout)
+	defer cancel()
+	return chromedp.Run(actionCtx, actions...)
 }

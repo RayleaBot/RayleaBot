@@ -14,7 +14,7 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/thirdparty"
 )
 
-const thirdPartyUserResolveTimeout = 30 * time.Second
+const thirdPartyUserResolveTimeout = 24 * time.Second
 
 type thirdPartyResolvedUser struct {
 	UID       string `json:"uid"`

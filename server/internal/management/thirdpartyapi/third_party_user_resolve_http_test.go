@@ -504,6 +504,32 @@ func TestThirdPartyUserResolveDouyinDoesNotReturnCookieAccountFromSearch(t *test
 	}
 }
 
+func TestThirdPartyUserResolveDouyinSearchErrorsReturnNotFoundResult(t *testing.T) {
+	t.Parallel()
+
+	handler := NewThirdPartyHandlers(nil, nil, nil, nil, thirdPartyMediaRoundTripFunc(func(request *http.Request) (*http.Response, error) {
+		return nil, io.ErrUnexpectedEOF
+	}))
+	request := httptest.NewRequest(http.MethodGet, "/api/third-party/users/resolve?platform=douyin&query=%E6%B4%9B%E5%A4%A9%E4%BE%9D", nil)
+	recorder := httptest.NewRecorder()
+
+	handler.HandleThirdPartyUserResolve().ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("resolve status = %d, want 200 (%s)", recorder.Code, recorder.Body.String())
+	}
+	var response thirdPartyUserResolveResponse
+	if err := json.Unmarshal(recorder.Body.Bytes(), &response); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if response.Exact || response.User != nil || len(response.Candidates) != 0 {
+		t.Fatalf("unexpected resolve response: %#v", response)
+	}
+	if !strings.Contains(response.Message, "抖音") {
+		t.Fatalf("unexpected not found message: %q", response.Message)
+	}
+}
+
 type stubThirdPartyUserResolveAccounts struct {
 	accounts []thirdparty.Account
 	cookies  map[string]string

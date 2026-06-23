@@ -95,7 +95,7 @@ func ResolveUserWithBrowser(ctx context.Context, client *http.Client, query stri
 			return profiles, exact, nil
 		}
 	}
-	if firstErr != nil {
+	if firstErr != nil && isDirectProfile {
 		return nil, false, firstErr
 	}
 	return nil, false, nil
