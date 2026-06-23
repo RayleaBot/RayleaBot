@@ -169,6 +169,36 @@ func fetchDouyinPublicUserBySecUID(ctx context.Context, client *http.Client, sec
 
 func searchDouyinUsers(ctx context.Context, client *http.Client, query string, cookies map[string]string) ([]thirdparty.AccountProfile, error) {
 	var firstErr error
+	if profiles, err := searchDouyinUsersByAPI(ctx, client, query, cookies); err == nil {
+		if len(profiles) > 0 {
+			return profiles, nil
+		}
+	} else if firstErr == nil {
+		firstErr = err
+	}
+	profiles, err := searchDouyinUsersFromPage(ctx, client, query, cookies)
+	if err != nil {
+		if firstErr == nil {
+			firstErr = err
+		}
+	} else if len(profiles) > 0 {
+		return profiles, nil
+	}
+	if profiles, err := searchDouyinUsersByAPI(ctx, client, query, cookies); err == nil {
+		if len(profiles) > 0 {
+			return profiles, nil
+		}
+	} else if firstErr == nil {
+		firstErr = err
+	}
+	if firstErr != nil {
+		return nil, firstErr
+	}
+	return nil, nil
+}
+
+func searchDouyinUsersByAPI(ctx context.Context, client *http.Client, query string, cookies map[string]string) ([]thirdparty.AccountProfile, error) {
+	var firstErr error
 	for _, rawURL := range douyinSearchURLsFor(query, cookies) {
 		profiles, err := searchDouyinUsersByURL(ctx, client, rawURL, query, cookies)
 		if err != nil {
@@ -180,14 +210,6 @@ func searchDouyinUsers(ctx context.Context, client *http.Client, query string, c
 		if len(profiles) > 0 {
 			return profiles, nil
 		}
-	}
-	profiles, err := searchDouyinUsersFromPage(ctx, client, query, cookies)
-	if err != nil {
-		if firstErr == nil {
-			firstErr = err
-		}
-	} else if len(profiles) > 0 {
-		return profiles, nil
 	}
 	if firstErr != nil {
 		return nil, firstErr
@@ -312,6 +334,16 @@ func douyinProfileMatchesQuery(profile thirdparty.AccountProfile, query string) 
 }
 
 func douyinSearchURLsFor(query string, cookies map[string]string) []string {
+	userItemValues := douyinWebParams()
+	userItemValues.Set("keyword", strings.TrimSpace(query))
+	userItemValues.Set("search_channel", "aweme_user_web")
+	userItemValues.Set("search_source", "normal_search")
+	userItemValues.Set("type", "user")
+	userItemValues.Set("query_correct_type", "1")
+	userItemValues.Set("is_filter_search", "0")
+	userItemValues.Set("offset", "0")
+	userItemValues.Set("count", strconv.Itoa(maxDouyinResolveCandidates))
+
 	searchItemValues := douyinWebParams()
 	searchItemValues.Set("keyword", strings.TrimSpace(query))
 	searchItemValues.Set("search_channel", "aweme_video_web")
@@ -363,6 +395,7 @@ func douyinSearchURLsFor(query string, cookies map[string]string) []string {
 		generalValues.Set("webid", webID)
 	}
 	return []string{
+		"https://www.douyin.com/aweme/v1/web/search/item/?" + userItemValues.Encode(),
 		"https://www.douyin.com/aweme/v1/web/search/item/?" + searchItemValues.Encode(),
 		"https://www.douyin.com/aweme/v1/web/general/search/single/?" + values.Encode(),
 		"https://www.douyin.com/aweme/v1/web/general/search/single/?" + generalValues.Encode(),
