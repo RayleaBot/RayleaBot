@@ -372,8 +372,8 @@ func TestServiceRenderRejectsQueueFull(t *testing.T) {
 		Runner:             runner,
 		WorkerCount:        1,
 		QueueMaxLength:     1,
-		QueueWaitTimeout:   time.Second,
-		RenderTimeout:      2 * time.Second,
+		QueueWaitTimeout:   5 * time.Second,
+		RenderTimeout:      5 * time.Second,
 		MaxRenderDataBytes: 256 * 1024,
 	})
 	if err != nil {
@@ -387,6 +387,8 @@ func TestServiceRenderRejectsQueueFull(t *testing.T) {
 			t.Fatalf("Close: %v", err)
 		}
 	})
+	queueDepths := newRenderQueueDepthWaiter()
+	service.SetMetricsObserver(queueDepths)
 
 	request := Request{
 		Template: "help.menu",
@@ -409,13 +411,7 @@ func TestServiceRenderRejectsQueueFull(t *testing.T) {
 		secondDone <- err
 	}()
 
-	deadline := time.Now().Add(time.Second)
-	for time.Now().Before(deadline) {
-		if runner.callCount() > 0 {
-			break
-		}
-		time.Sleep(10 * time.Millisecond)
-	}
+	queueDepths.waitForDepth(t, 2, 2*time.Second)
 
 	_, err = service.Render(context.Background(), request)
 	if err == nil {
@@ -438,5 +434,39 @@ func TestServiceRenderRejectsQueueFull(t *testing.T) {
 	}
 	if err := <-secondDone; err != nil {
 		t.Fatalf("second render failed after release: %v", err)
+	}
+}
+
+type renderQueueDepthWaiter struct {
+	depths chan int
+}
+
+func newRenderQueueDepthWaiter() *renderQueueDepthWaiter {
+	return &renderQueueDepthWaiter{depths: make(chan int, 8)}
+}
+
+func (w *renderQueueDepthWaiter) SetRenderQueueDepth(depth int) {
+	select {
+	case w.depths <- depth:
+	default:
+	}
+}
+
+func (w *renderQueueDepthWaiter) ObserveRenderDuration(string, time.Duration) {}
+
+func (w *renderQueueDepthWaiter) waitForDepth(t *testing.T, want int, timeout time.Duration) {
+	t.Helper()
+
+	timer := time.NewTimer(timeout)
+	defer timer.Stop()
+	for {
+		select {
+		case depth := <-w.depths:
+			if depth >= want {
+				return
+			}
+		case <-timer.C:
+			t.Fatalf("timed out waiting for render queue depth >= %d", want)
+		}
 	}
 }
