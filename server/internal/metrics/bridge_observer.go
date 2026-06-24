@@ -1,8 +1,8 @@
 package metrics
 
 import (
-	"github.com/RayleaBot/RayleaBot/server/internal/bridge"
-	"github.com/RayleaBot/RayleaBot/server/internal/dispatch"
+	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/bridge"
+	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/dispatch"
 )
 
 // DispatcherStatsAdapter projects dispatcher statistics into bridge observability.

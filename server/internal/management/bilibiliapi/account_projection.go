@@ -4,7 +4,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/RayleaBot/RayleaBot/server/internal/thirdparty"
+	"github.com/RayleaBot/RayleaBot/server/internal/integrations/thirdparty"
 )
 
 type thirdPartyAccountSummary struct {

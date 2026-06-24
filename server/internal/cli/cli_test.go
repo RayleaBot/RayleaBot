@@ -299,7 +299,7 @@ func TestRestoreBlocksNewerDatabaseSchemaBeforeExtraction(t *testing.T) {
 		CreatedAt:           "2026-04-02T00:00:00Z",
 		CoreVersion:         "0.2.0",
 		ConfigSchemaVersion: "2",
-		DBSchemaVersion:     "base-2026-07",
+		DBSchemaVersion:     "000005",
 		Consistency:         "offline",
 		Directories: []recovery.BackupManifestDirectory{
 			{Label: "config", Path: "config/user.yaml"},
@@ -440,6 +440,46 @@ func TestRestoreRejectsPathTraversal(t *testing.T) {
 	evilPath := filepath.Join(destDir, "..", "..", "..", "etc", "evil.txt")
 	if _, err := os.Stat(evilPath); err == nil {
 		t.Fatal("path traversal entry should have been skipped")
+	}
+}
+
+func TestConfigInitNormalizeValidateCommands(t *testing.T) {
+	t.Parallel()
+
+	configPath := filepath.Join(t.TempDir(), "config", "user.yaml")
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+
+	if code := Run(Command{Name: "config", ConfigPath: configPath, Logger: logger, Args: []string{"init"}}); code != 0 {
+		t.Fatalf("config init exit code = %d, want 0", code)
+	}
+	if _, err := os.Stat(filepath.Join(filepath.Dir(configPath), "default.yaml")); err != nil {
+		t.Fatalf("config init should create default.yaml: %v", err)
+	}
+	if _, err := os.Stat(configPath); err != nil {
+		t.Fatalf("config init should create user.yaml: %v", err)
+	}
+
+	writeFile(t, configPath, "schema_version: \"2\"\nserver:\n  port: 9090\n")
+	if code := Run(Command{Name: "config", ConfigPath: configPath, Logger: logger, Args: []string{"validate"}}); code != 0 {
+		t.Fatalf("config validate exit code = %d, want 0", code)
+	}
+	beforeNormalize, err := os.ReadFile(configPath)
+	if err != nil {
+		t.Fatalf("read config before normalize: %v", err)
+	}
+	if !strings.Contains(string(beforeNormalize), "port: 9090") || strings.Contains(string(beforeNormalize), "host:") {
+		t.Fatalf("validate should not normalize config, got:\n%s", beforeNormalize)
+	}
+
+	if code := Run(Command{Name: "config", ConfigPath: configPath, Logger: logger, Args: []string{"normalize"}}); code != 0 {
+		t.Fatalf("config normalize exit code = %d, want 0", code)
+	}
+	normalized, err := os.ReadFile(configPath)
+	if err != nil {
+		t.Fatalf("read normalized config: %v", err)
+	}
+	if !strings.Contains(string(normalized), "host: 127.0.0.1") {
+		t.Fatalf("normalize should write canonical defaults, got:\n%s", normalized)
 	}
 }
 

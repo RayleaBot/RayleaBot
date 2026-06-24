@@ -6,7 +6,7 @@ import (
 
 	bilibiliSession "github.com/RayleaBot/RayleaBot/server/internal/integrations/bilibili/session"
 	bilibilivalues "github.com/RayleaBot/RayleaBot/server/internal/integrations/bilibili/values"
-	"github.com/RayleaBot/RayleaBot/server/internal/thirdparty"
+	"github.com/RayleaBot/RayleaBot/server/internal/integrations/thirdparty"
 )
 
 func isBilibiliRequestCooldownError(err error) bool {

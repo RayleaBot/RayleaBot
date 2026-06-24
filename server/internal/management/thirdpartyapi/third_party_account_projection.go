@@ -3,7 +3,7 @@ package thirdpartyapi
 import (
 	"strings"
 
-	"github.com/RayleaBot/RayleaBot/server/internal/thirdparty"
+	"github.com/RayleaBot/RayleaBot/server/internal/integrations/thirdparty"
 )
 
 type thirdPartyAccountsResponse struct {

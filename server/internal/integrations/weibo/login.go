@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/integrations/common"
-	"github.com/RayleaBot/RayleaBot/server/internal/thirdparty"
+	"github.com/RayleaBot/RayleaBot/server/internal/integrations/thirdparty"
 )
 
 const (
@@ -85,11 +85,11 @@ func (p *Provider) Poll(ctx context.Context, session common.LoginSession, _ time
 		RetCode int    `json:"retcode"`
 		Message string `json:"msg"`
 		Data    struct {
-			URL     string `json:"url"`
-			Alt     string `json:"alt"`
-			UID     string `json:"uid"`
-			Nick    string `json:"nickname"`
-			Avatar  string `json:"avatar_hd"`
+			URL    string `json:"url"`
+			Alt    string `json:"alt"`
+			UID    string `json:"uid"`
+			Nick   string `json:"nickname"`
+			Avatar string `json:"avatar_hd"`
 		} `json:"data"`
 	}
 	checkURL := weiboQRCheckURL + "?" + url.Values{

@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/RayleaBot/RayleaBot/server/internal/thirdparty"
+	"github.com/RayleaBot/RayleaBot/server/internal/integrations/thirdparty"
 	"github.com/chromedp/cdproto/emulation"
 	"github.com/chromedp/cdproto/network"
 	"github.com/chromedp/cdproto/runtime"

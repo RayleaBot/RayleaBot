@@ -5,8 +5,8 @@ import (
 	"strings"
 
 	adapterintake "github.com/RayleaBot/RayleaBot/server/internal/bot/adapter/onebot11/intake"
+	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/outbound"
 	"github.com/RayleaBot/RayleaBot/server/internal/logging"
-	"github.com/RayleaBot/RayleaBot/server/internal/outbound"
 )
 
 func (s *Service) waitLimit(ctx context.Context, request outbound.MessageLimitRequest) error {

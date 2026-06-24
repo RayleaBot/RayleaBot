@@ -488,7 +488,7 @@
   <text class="resource-text" x="2524" y="368" text-anchor="middle">Config 模块合并与裁决</text>
 
   <rect class="card-emerald" x="2348" y="398" width="352" height="232" rx="10" filter="url(#card-shadow)"/>
-  <text class="resource-title" x="2524" y="424" text-anchor="middle">SQLite（内置 schema.sql · sqlc）</text>
+  <text class="resource-title" x="2524" y="424" text-anchor="middle">SQLite（内置 migration · sqlc）</text>
   <rect class="chip-emerald" x="2368" y="438" width="156" height="22" rx="5"/>
   <text class="chip-title" x="2446" y="454" text-anchor="middle">auth_core</text>
   <rect class="chip-emerald" x="2532" y="438" width="156" height="22" rx="5"/>
@@ -506,7 +506,7 @@
   <rect class="chip-emerald" x="2532" y="522" width="156" height="22" rx="5"/>
   <text class="chip-title" x="2610" y="538" text-anchor="middle">secret_store</text>
   <text class="resource-text" x="2524" y="568" text-anchor="middle">modernc.org/sqlite 纯 Go 驱动</text>
-  <text class="resource-text" x="2524" y="586" text-anchor="middle">schema.sql 内置初始化状态库</text>
+  <text class="resource-text" x="2524" y="586" text-anchor="middle">migration 内置初始化或升级状态库</text>
   <text class="resource-text" x="2524" y="604" text-anchor="middle">查询经 sqlc 生成入口</text>
   <text class="resource-text" x="2524" y="622" text-anchor="middle" style="font-style:italic;">唯一正式状态库</text>
 

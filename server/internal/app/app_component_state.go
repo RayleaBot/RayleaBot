@@ -21,8 +21,8 @@ import (
 type appPlatform = appplatform.State
 type schedulerTriggerProxy = appplatform.TriggerProxy
 type appPlugins = pluginstack.State
-type appRender = renderstack.State
-type appEvents = eventstack.State
+type appRender = renderstack.Module
+type appEvents = eventstack.Module
 type appServices = servicegraph.Services
 type appHTTPHandlers = httpwire.Handlers
 
@@ -36,11 +36,12 @@ type appProcessState struct {
 }
 
 type appRuntimeState struct {
-	Config     config.Config
-	Summary    config.Summary
-	Logger     *slog.Logger
-	LogLevel   *logging.LevelController
-	repoRoot   string
-	redactText func(string) string
-	startedAt  time.Time
+	Config             config.Config
+	Summary            config.Summary
+	Logger             *slog.Logger
+	LogLevel           *logging.LevelController
+	repoRoot           string
+	redactText         func(string) string
+	addRedactionValues func(...string)
+	startedAt          time.Time
 }

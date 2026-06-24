@@ -9,7 +9,6 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/httpapi"
-	renderrepo "github.com/RayleaBot/RayleaBot/server/internal/render/repository"
 	renderservice "github.com/RayleaBot/RayleaBot/server/internal/render/service"
 	rendertemplates "github.com/RayleaBot/RayleaBot/server/internal/render/templates"
 )
@@ -27,9 +26,9 @@ type Handlers struct {
 type templateService interface {
 	PreviewHTML(context.Context, renderservice.Request) (renderservice.PreviewHTML, error)
 	LookupTemplateAsset(context.Context, string, string) (renderservice.TemplateAsset, error)
-	ListTemplates(context.Context) ([]renderrepo.TemplateSummary, error)
-	GetTemplate(context.Context, string) (renderrepo.TemplateDetail, error)
-	GetTemplateSource(context.Context, string) (string, renderrepo.TemplateSource, error)
+	ListTemplates(context.Context) ([]renderservice.TemplateSummary, error)
+	GetTemplate(context.Context, string) (renderservice.TemplateDetail, error)
+	GetTemplateSource(context.Context, string) (string, renderservice.TemplateSource, error)
 	GetTemplatePreviewData(context.Context, string) (map[string]any, error)
 }
 
@@ -179,7 +178,7 @@ func (h *Handlers) HandleSystemRenderTemplateAsset() http.HandlerFunc {
 	}
 }
 
-func toTemplateSummary(item renderrepo.TemplateSummary) templateSummary {
+func toTemplateSummary(item renderservice.TemplateSummary) templateSummary {
 	return templateSummary{
 		ID:             item.ID,
 		Version:        item.Version,
@@ -191,7 +190,7 @@ func toTemplateSummary(item renderrepo.TemplateSummary) templateSummary {
 	}
 }
 
-func toTemplateDetail(detail renderrepo.TemplateDetail, source renderrepo.TemplateSource, previewData map[string]any) templateDetail {
+func toTemplateDetail(detail renderservice.TemplateDetail, source renderservice.TemplateSource, previewData map[string]any) templateDetail {
 	return templateDetail{
 		ID:              detail.ID,
 		Version:         detail.Version,
@@ -215,7 +214,7 @@ func toPreviewHTMLResponse(result renderservice.PreviewHTML) previewHTMLResponse
 	}
 }
 
-func toTemplateSource(source renderrepo.TemplateSourceInfo) templateSource {
+func toTemplateSource(source renderservice.TemplateSourceInfo) templateSource {
 	if source.Type != "plugin" {
 		return templateSource{Type: "system", PluginID: nil, LocalID: nil}
 	}

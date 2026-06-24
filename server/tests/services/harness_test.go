@@ -17,17 +17,17 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/app/servicegraph"
 	adapterintake "github.com/RayleaBot/RayleaBot/server/internal/bot/adapter/onebot11/intake"
 	adaptershell "github.com/RayleaBot/RayleaBot/server/internal/bot/adapter/onebot11/shell"
-	"github.com/RayleaBot/RayleaBot/server/internal/bridge"
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
-	"github.com/RayleaBot/RayleaBot/server/internal/dispatch"
-	"github.com/RayleaBot/RayleaBot/server/internal/eventingress"
+	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/bridge"
+	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/dispatch"
+	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/eventingress"
+	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/outbound"
 	menuext "github.com/RayleaBot/RayleaBot/server/internal/extensions/menu"
 	"github.com/RayleaBot/RayleaBot/server/internal/governance"
 	"github.com/RayleaBot/RayleaBot/server/internal/logging"
 	"github.com/RayleaBot/RayleaBot/server/internal/management/configapi"
 	managementevents "github.com/RayleaBot/RayleaBot/server/internal/management/events"
 	"github.com/RayleaBot/RayleaBot/server/internal/management/systemapi"
-	"github.com/RayleaBot/RayleaBot/server/internal/outbound"
 	"github.com/RayleaBot/RayleaBot/server/internal/permission"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	localaction "github.com/RayleaBot/RayleaBot/server/internal/plugins/actions"
@@ -76,13 +76,14 @@ type harnessProcess struct {
 // harnessState mirrors the app runtime state and satisfies both the
 // httpwire.RuntimeState and servicegraph.RuntimeState interfaces.
 type harnessState struct {
-	Config     config.Config
-	Summary    config.Summary
-	Logger     *slog.Logger
-	LogLevel   *logging.LevelController
-	repoRoot   string
-	redactText func(string) string
-	startedAt  time.Time
+	Config             config.Config
+	Summary            config.Summary
+	Logger             *slog.Logger
+	LogLevel           *logging.LevelController
+	repoRoot           string
+	redactText         func(string) string
+	addRedactionValues func(...string)
+	startedAt          time.Time
 }
 
 func (s *harnessState) CurrentConfig() config.Config {
@@ -141,6 +142,13 @@ func (s *harnessState) StartedAt() time.Time {
 
 func (s *harnessState) RedactString(value string) string {
 	return s.redactString(value)
+}
+
+func (s *harnessState) AddRedactionValues(values ...string) {
+	if s == nil || s.addRedactionValues == nil {
+		return
+	}
+	s.addRedactionValues(values...)
 }
 
 func (s *harnessState) redactString(value string) string {

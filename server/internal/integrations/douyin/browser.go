@@ -73,6 +73,7 @@ func commonHTTPClient(transport http.RoundTripper) *http.Client {
 //   - fetch.prototype is deleted (native fetch has no prototype)
 //   - XMLHttpRequest.prototype === native _XHR.prototype
 //   - toString() returns [native code] for both
+//
 // No browser prototypes (Canvas, WebGL, navigator, screen) are touched.
 const captureScript = `(function(){
 if (window.__rayleaDouyinLogin) return;

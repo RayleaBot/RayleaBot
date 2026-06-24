@@ -67,13 +67,14 @@ func initializeAppBuild(options Options) (appBuildState, error) {
 
 	return appBuildState{
 		core: appRuntimeState{
-			Config:     cfg,
-			Summary:    summary,
-			Logger:     logger,
-			LogLevel:   logLevel,
-			repoRoot:   discoverySpec.RepoRoot,
-			redactText: managementRedactor.Redact,
-			startedAt:  time.Now().UTC(),
+			Config:             cfg,
+			Summary:            summary,
+			Logger:             logger,
+			LogLevel:           logLevel,
+			repoRoot:           discoverySpec.RepoRoot,
+			redactText:         managementRedactor.Redact,
+			addRedactionValues: managementRedactor.Add,
+			startedAt:          time.Now().UTC(),
 		},
 		options:          options,
 		logStream:        logStream,

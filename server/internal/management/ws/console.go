@@ -31,17 +31,17 @@ type consoleFrameData struct {
 func (h *ConsoleHandler) HandlePluginConsoleWebSocket() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if _, ok := authhttp.ClaimsFromContext(r.Context()); !ok {
-			http.Error(w, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
+			writeWebSocketPermissionDenied(w, r)
 			return
 		}
 
 		pluginID := strings.TrimSpace(chi.URLParam(r, "id"))
 		if pluginID == "" {
-			http.NotFound(w, r)
+			writeWebSocketNotFound(w, r)
 			return
 		}
 		if _, ok := h.plugins.Get(pluginID); !ok {
-			http.NotFound(w, r)
+			writeWebSocketNotFound(w, r)
 			return
 		}
 

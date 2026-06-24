@@ -5,12 +5,12 @@ import (
 	"time"
 
 	adaptershell "github.com/RayleaBot/RayleaBot/server/internal/bot/adapter/onebot11/shell"
-	"github.com/RayleaBot/RayleaBot/server/internal/bridge"
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
-	"github.com/RayleaBot/RayleaBot/server/internal/dispatch"
-	"github.com/RayleaBot/RayleaBot/server/internal/eventingress"
+	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/bridge"
+	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/dispatch"
+	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/eventingress"
+	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/outbound"
 	"github.com/RayleaBot/RayleaBot/server/internal/metrics"
-	"github.com/RayleaBot/RayleaBot/server/internal/outbound"
 )
 
 const dispatcherRuntimeFlushInterval = 10 * time.Second

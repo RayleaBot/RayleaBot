@@ -18,6 +18,8 @@ func TestNewRegistersAllFormalMetrics(t *testing.T) {
 	r.DispatcherDropTotal.WithLabelValues("builtin.echo", "queue_full").Inc()
 	r.RenderQueueDepth.Set(3)
 	r.WebhookReplayObserved.WithLabelValues("rejected").Inc()
+	NewHTTPObserver(r).ObserveHTTPRequest(http.MethodGet, "/api/config", http.StatusOK, 0)
+	NewHTTPObserver(r).ObserveHTTPPanic(http.MethodPost, "/api/config")
 
 	server := httptest.NewServer(r.HTTPHandler())
 	defer server.Close()
@@ -42,6 +44,8 @@ func TestNewRegistersAllFormalMetrics(t *testing.T) {
 		`raylea_dispatcher_drop_total{plugin_id="builtin.echo",reason="queue_full"} 1`,
 		`raylea_render_queue_depth 3`,
 		`raylea_plugin_webhook_replay_observed_total{outcome="rejected"} 1`,
+		`raylea_http_request_total{method="GET",route="/api/config",status="200"} 1`,
+		`raylea_http_panic_total{method="POST",route="/api/config"} 1`,
 	}
 	for _, line := range expected {
 		if !strings.Contains(text, line) {

@@ -65,11 +65,11 @@ func TestBundledPluginManifestsDeclareExpectedRuntimeCapabilities(t *testing.T) 
 			name:             "example capability parameters",
 			manifestPath:     filepath.Join("..", "examples", "plugins", "example-capability-parameters", "info.json"),
 			wantCapabilities: []string{"event.subscribe", "http.request", "logger.write", "storage.file"},
-				wantCapabilityParameters: map[string][]string{
-					"http_hosts":    {"example.com"},
-					"storage_roots": {"plugin_data"},
-				},
+			wantCapabilityParameters: map[string][]string{
+				"http_hosts":    {"example.com"},
+				"storage_roots": {"plugin_data"},
 			},
+		},
 		{
 			name:             "example plugin list",
 			manifestPath:     filepath.Join("..", "examples", "plugins", "example-plugin-list", "info.json"),

@@ -12,8 +12,8 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/integrations/common"
 	"github.com/RayleaBot/RayleaBot/server/internal/integrations/douyin"
 	neteasemusic "github.com/RayleaBot/RayleaBot/server/internal/integrations/netease_music"
+	"github.com/RayleaBot/RayleaBot/server/internal/integrations/thirdparty"
 	"github.com/RayleaBot/RayleaBot/server/internal/integrations/weibo"
-	"github.com/RayleaBot/RayleaBot/server/internal/thirdparty"
 )
 
 const (

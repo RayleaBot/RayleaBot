@@ -8,8 +8,6 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
-
-	depsprepare "github.com/RayleaBot/RayleaBot/server/internal/deps/prepare"
 )
 
 func ensurePreparedResource(
@@ -122,9 +120,9 @@ func removeStaleTempRoots(parent, resourceID, version string) error {
 	return nil
 }
 func verifyFileSHA256(path string, want string) error {
-	return depsprepare.VerifyFileSHA256(path, want)
+	return VerifyFileSHA256(path, want)
 }
 
 func acquireLock(ctx context.Context, path string, now func() time.Time) (func(), error) {
-	return depsprepare.AcquireLock(ctx, path, now)
+	return AcquireLock(ctx, path, now)
 }

@@ -11,8 +11,8 @@ import (
 
 	"github.com/RayleaBot/RayleaBot/server/internal/app"
 	"github.com/RayleaBot/RayleaBot/server/internal/auth"
-	"github.com/RayleaBot/RayleaBot/server/internal/bridge"
-	"github.com/RayleaBot/RayleaBot/server/internal/dispatch"
+	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/bridge"
+	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/dispatch"
 	plugindiscovery "github.com/RayleaBot/RayleaBot/server/internal/plugins/discovery"
 	runtimeprotocol "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime/protocol"
 	"github.com/RayleaBot/RayleaBot/server/internal/testutil"

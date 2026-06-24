@@ -12,7 +12,7 @@ import (
 	bilibiliCaptcha "github.com/RayleaBot/RayleaBot/server/internal/integrations/bilibili/captcha"
 	bilibiliSession "github.com/RayleaBot/RayleaBot/server/internal/integrations/bilibili/session"
 	sourcestate "github.com/RayleaBot/RayleaBot/server/internal/integrations/bilibili/source/state"
-	"github.com/RayleaBot/RayleaBot/server/internal/thirdparty"
+	"github.com/RayleaBot/RayleaBot/server/internal/integrations/thirdparty"
 )
 
 const (

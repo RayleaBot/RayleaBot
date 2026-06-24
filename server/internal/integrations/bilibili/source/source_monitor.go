@@ -9,7 +9,7 @@ import (
 	bilibiliSession "github.com/RayleaBot/RayleaBot/server/internal/integrations/bilibili/session"
 	sourcestate "github.com/RayleaBot/RayleaBot/server/internal/integrations/bilibili/source/state"
 	bilibilivalues "github.com/RayleaBot/RayleaBot/server/internal/integrations/bilibili/values"
-	"github.com/RayleaBot/RayleaBot/server/internal/thirdparty"
+	"github.com/RayleaBot/RayleaBot/server/internal/integrations/thirdparty"
 )
 
 func (s *Source) MonitorSnapshot(ctx context.Context) (MonitorSnapshot, error) {

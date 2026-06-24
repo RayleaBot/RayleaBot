@@ -8,29 +8,20 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/app/eventstack"
 	appplatform "github.com/RayleaBot/RayleaBot/server/internal/app/platform"
 	"github.com/RayleaBot/RayleaBot/server/internal/app/pluginstack"
+	"github.com/RayleaBot/RayleaBot/server/internal/app/servicegraph/integrationmodule"
+	"github.com/RayleaBot/RayleaBot/server/internal/app/servicegraph/pluginmodule"
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
-	"github.com/RayleaBot/RayleaBot/server/internal/eventingress"
+	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/eventingress"
 	"github.com/RayleaBot/RayleaBot/server/internal/governance"
-	bilibilisession "github.com/RayleaBot/RayleaBot/server/internal/integrations/bilibili/session"
-	bilibilisource "github.com/RayleaBot/RayleaBot/server/internal/integrations/bilibili/source"
-	"github.com/RayleaBot/RayleaBot/server/internal/integrations/common"
-	"github.com/RayleaBot/RayleaBot/server/internal/integrations/douyin"
-	"github.com/RayleaBot/RayleaBot/server/internal/integrations/netease_music"
-	"github.com/RayleaBot/RayleaBot/server/internal/integrations/weibo"
 	"github.com/RayleaBot/RayleaBot/server/internal/logging"
 	managementevents "github.com/RayleaBot/RayleaBot/server/internal/management/events"
 	"github.com/RayleaBot/RayleaBot/server/internal/management/protocolapi"
 	"github.com/RayleaBot/RayleaBot/server/internal/metrics"
-	localaction "github.com/RayleaBot/RayleaBot/server/internal/plugins/actions"
-	plugincapabilityview "github.com/RayleaBot/RayleaBot/server/internal/plugins/capabilityview"
-	pluginservice "github.com/RayleaBot/RayleaBot/server/internal/plugins/lifecycle"
 	runtimeregistry "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime/registry"
-	pluginwebhook "github.com/RayleaBot/RayleaBot/server/internal/plugins/webhook"
 	renderservice "github.com/RayleaBot/RayleaBot/server/internal/render/service"
 	"github.com/RayleaBot/RayleaBot/server/internal/runtimepaths"
 	"github.com/RayleaBot/RayleaBot/server/internal/schema"
 	systemsvc "github.com/RayleaBot/RayleaBot/server/internal/system"
-	"github.com/RayleaBot/RayleaBot/server/internal/thirdparty"
 )
 
 type RuntimeState interface {
@@ -57,28 +48,28 @@ type BuildDeps struct {
 }
 
 type Services struct {
-	LocalActions      *localaction.Service
-	PluginLifecycle   *pluginservice.Controller
+	LocalActions      *pluginmodule.LocalActionService
+	PluginLifecycle   *pluginmodule.LifecycleController
 	EventIngress      *eventingress.Service
 	Protocol          *protocolapi.Service
-	PluginWebhooks    *pluginwebhook.Service
+	PluginWebhooks    *pluginmodule.WebhookService
 	Governance        *governance.Service
 	GovernanceEvents  *managementevents.GovernanceService
 	Logs              *logging.ManagementService
 	System            *systemsvc.Service
-	ThirdParty        *thirdparty.Service
-	ThirdPartyQRLogin *common.Service
-	DouyinBrowser     *douyin.ChromedpBrowser
-	BilibiliSource    *bilibilisource.Source
-	BilibiliEvents    *managementevents.BilibiliSourceService
+	ThirdParty        *integrationmodule.ThirdPartyService
+	ThirdPartyQRLogin *integrationmodule.ThirdPartyQRLoginService
+	DouyinBrowser     *integrationmodule.DouyinBrowser
+	BilibiliSource    *integrationmodule.BilibiliSource
+	BilibiliEvents    *integrationmodule.BilibiliSourceEvents
 }
 
 type BuildResult struct {
 	Services              Services
 	Runtimes              *runtimeregistry.Registry
 	Status                *managementevents.ServiceStatusService
-	BilibiliAccountClient *bilibilisession.AccountClient
-	BilibiliQRLogin       *bilibilisession.QRLoginService
+	BilibiliAccountClient *integrationmodule.BilibiliAccountClient
+	BilibiliQRLogin       *integrationmodule.BilibiliQRLoginService
 }
 
 func Build(deps BuildDeps) (BuildResult, error) {
@@ -89,35 +80,31 @@ func Build(deps BuildDeps) (BuildResult, error) {
 	renderer := deps.Renderer
 	logService := logging.NewManagementService(platform.Logs, platform.LogRepository)
 	policyRepos := buildPolicyRepositories(platform)
-	capabilityView := buildPluginCapabilityView(pluginStack, eventStack)
 	governanceEvents := managementevents.NewGovernanceService()
-	bilibiliEvents := managementevents.NewBilibiliSourceService()
 	governanceService := buildGovernanceService(runtimeState, pluginStack, policyRepos, governanceEvents)
-	thirdPartyService, err := thirdparty.NewService(platform.Storage, platform.Secrets)
+	integrations, err := integrationmodule.Build(integrationmodule.Deps{
+		Config:        runtimeState.CurrentConfig(),
+		Platform:      platform,
+		Plugins:       pluginStack,
+		Events:        eventStack,
+		Renderer:      renderer,
+		HTTPTransport: deps.BilibiliHTTPTransport,
+		Clock:         deps.BilibiliClock,
+	})
 	if err != nil {
 		return BuildResult{}, err
 	}
-	browserPath := runtimeState.CurrentConfig().Render.BrowserPath
-	browserArgs := runtimeState.CurrentConfig().Render.BrowserArgs
-	if renderer != nil {
-		browserPath, browserArgs = renderer.BrowserLaunchConfig()
-	}
-	douyinBrowser := douyin.NewChromedpBrowser(browserPath, browserArgs, deps.BilibiliHTTPTransport)
-	thirdPartyQRLogin := common.NewService(map[string]common.Provider{
-		thirdparty.PlatformWeibo:        weibo.NewProvider(common.NewHTTPClient(deps.BilibiliHTTPTransport)),
-		thirdparty.PlatformDouyin:       douyin.NewProvider(common.NewHTTPClient(deps.BilibiliHTTPTransport), douyinBrowser),
-		thirdparty.PlatformNeteaseMusic: netease_music.NewProvider(common.NewHTTPClient(deps.BilibiliHTTPTransport)),
-	}, deps.BilibiliClock)
-	bilibiliSession := bilibilisession.NewSessionClient(deps.BilibiliHTTPTransport, deps.BilibiliClock, nil)
-	localActions := buildLocalActionService(runtimeState, platform, pluginStack, eventStack, renderer, capabilityView, governanceService, thirdPartyService, bilibiliSession)
-	configureLocalActionService(localActions, pluginStack, eventStack)
-	runtimeRegistry := buildRuntimeRegistry(runtimeRegistryDeps{
-		Logger:                     runtimeState.RuntimeLogger(),
-		Console:                    platform.Console,
-		RedactText:                 deps.ManagementRedact,
-		StderrRateLimitBytesPerSec: runtimeState.CurrentConfig().Runtime.StderrRateLimitBytesPerSec,
-		ExecuteLocalAction:         localActions.Execute,
+	pluginRuntime := pluginmodule.BuildRuntime(pluginmodule.RuntimeDeps{
+		Runtime:          runtimeState,
+		Platform:         platform,
+		Plugins:          pluginStack,
+		Events:           eventStack,
+		Renderer:         renderer,
+		Governance:       governanceService,
+		ManagementRedact: deps.ManagementRedact,
+		HTTPCredentials:  integrations.HTTPCredentials,
 	})
+	runtimeRegistry := pluginRuntime.Runtimes
 	systemService := systemsvc.New(systemsvc.Deps{
 		CurrentConfig:    runtimeState.CurrentConfig,
 		CurrentSummary:   runtimeState.CurrentSummary,
@@ -136,8 +123,18 @@ func Build(deps BuildDeps) (BuildResult, error) {
 	})
 	serviceStatusService := managementevents.NewServiceStatusService(systemService)
 	systemService.SetStatusPublisher(serviceStatusService)
-	lifecycle := buildPluginLifecycle(deps, platform, pluginStack, eventStack, renderer, runtimeRegistry, systemService)
-	menuService := buildBuiltinMenuService(runtimeState, pluginStack, eventStack, renderer)
+	pluginServices := pluginmodule.BuildServices(pluginmodule.ServiceDeps{
+		Runtime:         runtimeState,
+		Platform:        platform,
+		Plugins:         pluginStack,
+		Events:          eventStack,
+		Renderer:        renderer,
+		System:          systemService,
+		Discovery:       deps.Discovery,
+		PluginValidator: deps.PluginValidator,
+		PluginRuntime:   pluginRuntime,
+		Metrics:         deps.Metrics,
+	})
 	eventIngress := eventingress.New(eventingress.Deps{
 		CurrentConfig:    runtimeState.CurrentConfig,
 		Logger:           runtimeState.RuntimeLogger(),
@@ -146,55 +143,37 @@ func Build(deps BuildDeps) (BuildResult, error) {
 		OutboundSender:   eventStack.OutboundSender,
 		OutboundLimiter:  eventStack.OutboundLimiter,
 		Renderer:         renderer,
-		Menu:             menuService,
+		Menu:             pluginServices.Menu,
 		Bridge:           eventStack.Bridge,
-		Lifecycle:        lifecycle,
+		Lifecycle:        pluginServices.PluginLifecycle,
 		MetadataEnricher: eventStack.Adapter,
 		WhitelistRepo:    policyRepos.Whitelist,
 		WhitelistState:   policyRepos.WhitelistState,
 		BlacklistRepo:    policyRepos.Blacklist,
 	})
 	protocolService := protocolapi.NewService(runtimeState, eventStack.Adapter)
-	pluginWebhooks := buildPluginWebhookGateway(runtimeState, platform, pluginStack, eventStack, lifecycle, capabilityView)
-	pluginWebhooks.SetReplayMetrics(metrics.NewWebhookReplayObserver(deps.Metrics))
-	localActions.SetWebhookGateway(pluginWebhooks)
-	bilibiliSource, err := buildBilibiliSourceService(platform, pluginStack, eventStack, thirdPartyService, bilibiliSession, bilibiliEvents, deps)
-	if err != nil {
-		return BuildResult{}, err
-	}
-
 	return BuildResult{
 		Services: Services{
-			LocalActions:      localActions,
-			PluginLifecycle:   lifecycle,
+			LocalActions:      pluginRuntime.LocalActions,
+			PluginLifecycle:   pluginServices.PluginLifecycle,
 			EventIngress:      eventIngress,
 			Protocol:          protocolService,
-			PluginWebhooks:    pluginWebhooks,
+			PluginWebhooks:    pluginServices.PluginWebhooks,
 			Governance:        governanceService,
 			GovernanceEvents:  governanceEvents,
 			Logs:              logService,
 			System:            systemService,
-			ThirdParty:        thirdPartyService,
-			ThirdPartyQRLogin: thirdPartyQRLogin,
-			DouyinBrowser:     douyinBrowser,
-			BilibiliSource:    bilibiliSource,
-			BilibiliEvents:    bilibiliEvents,
+			ThirdParty:        integrations.ThirdParty,
+			ThirdPartyQRLogin: integrations.ThirdPartyQRLogin,
+			DouyinBrowser:     integrations.DouyinBrowser,
+			BilibiliSource:    integrations.BilibiliSource,
+			BilibiliEvents:    integrations.BilibiliEvents,
 		},
 		Runtimes:              runtimeRegistry,
 		Status:                serviceStatusService,
-		BilibiliAccountClient: bilibilisession.NewAccountClient(deps.BilibiliHTTPTransport, deps.BilibiliClock, nil),
-		BilibiliQRLogin:       bilibilisession.NewQRLoginService(deps.BilibiliHTTPTransport, deps.BilibiliClock),
+		BilibiliAccountClient: integrations.BilibiliAccountClient,
+		BilibiliQRLogin:       integrations.BilibiliQRLogin,
 	}, nil
-}
-
-func buildPluginCapabilityView(pluginStack pluginstack.State, eventStack eventstack.State) *plugincapabilityview.View {
-	capabilityView := plugincapabilityview.New(plugincapabilityview.Deps{
-		Plugins: pluginStack.Plugins,
-	})
-	if eventStack.Dispatcher != nil {
-		eventStack.Dispatcher.SetCapabilityChecker(capabilityView.CapabilityDeclared)
-	}
-	return capabilityView
 }
 
 func buildGovernanceService(runtimeState RuntimeState, pluginStack pluginstack.State, policy policyRepositories, events *managementevents.GovernanceService) *governance.Service {

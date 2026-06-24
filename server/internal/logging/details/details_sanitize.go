@@ -50,7 +50,7 @@ func isSensitiveKey(key string) bool {
 		return false
 	}
 
-	for _, marker := range []string{"access_token", "authorization", "cookie", "secret", "token"} {
+	for _, marker := range []string{"access_token", "authorization", "cookie", "proxy_url", "secret", "token"} {
 		if strings.Contains(key, marker) {
 			return true
 		}

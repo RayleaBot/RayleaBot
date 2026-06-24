@@ -1,6 +1,7 @@
 package logging
 
 import (
+	"context"
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
@@ -9,6 +10,11 @@ import (
 	"os"
 	"sync/atomic"
 	"time"
+)
+
+const (
+	requestIDLogKey  = "request_id"
+	defaultRequestID = "system"
 )
 
 // LevelController allows dynamic log level changes at runtime.
@@ -97,26 +103,81 @@ func newLogger(level slog.Level) *slog.Logger {
 
 func newLoggerWithWriter(level slog.Level, writer io.Writer) *slog.Logger {
 	return slog.New(
-		slog.NewJSONHandler(
+		newRequestIDHandler(slog.NewJSONHandler(
 			writer,
 			&slog.HandlerOptions{
 				Level:       level,
 				ReplaceAttr: replaceAttr,
 			},
-		),
+		)),
 	)
 }
 
 func newLoggerWithLevelVar(writer io.Writer, levelVar *slog.LevelVar) *slog.Logger {
 	return slog.New(
-		slog.NewJSONHandler(
+		newRequestIDHandler(slog.NewJSONHandler(
 			writer,
 			&slog.HandlerOptions{
 				Level:       levelVar,
 				ReplaceAttr: replaceAttr,
 			},
-		),
+		)),
 	)
+}
+
+type requestIDHandler struct {
+	next         slog.Handler
+	hasRequestID bool
+}
+
+func newRequestIDHandler(next slog.Handler) slog.Handler {
+	return requestIDHandler{next: next}
+}
+
+func (h requestIDHandler) Enabled(ctx context.Context, level slog.Level) bool {
+	return h.next.Enabled(ctx, level)
+}
+
+func (h requestIDHandler) Handle(ctx context.Context, record slog.Record) error {
+	if !h.hasRequestID && !recordHasAttr(record, requestIDLogKey) {
+		record.AddAttrs(slog.String(requestIDLogKey, defaultRequestID))
+	}
+	return h.next.Handle(ctx, record)
+}
+
+func (h requestIDHandler) WithAttrs(attrs []slog.Attr) slog.Handler {
+	return requestIDHandler{
+		next:         h.next.WithAttrs(attrs),
+		hasRequestID: h.hasRequestID || attrsContainKey(attrs, requestIDLogKey),
+	}
+}
+
+func (h requestIDHandler) WithGroup(name string) slog.Handler {
+	return requestIDHandler{
+		next:         h.next.WithGroup(name),
+		hasRequestID: h.hasRequestID,
+	}
+}
+
+func recordHasAttr(record slog.Record, key string) bool {
+	found := false
+	record.Attrs(func(attr slog.Attr) bool {
+		if attr.Key == key {
+			found = true
+			return false
+		}
+		return true
+	})
+	return found
+}
+
+func attrsContainKey(attrs []slog.Attr, key string) bool {
+	for _, attr := range attrs {
+		if attr.Key == key {
+			return true
+		}
+	}
+	return false
 }
 
 func replaceAttr(_ []string, attr slog.Attr) slog.Attr {

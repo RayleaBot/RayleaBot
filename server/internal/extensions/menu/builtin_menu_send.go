@@ -7,7 +7,7 @@ import (
 
 	adapterintake "github.com/RayleaBot/RayleaBot/server/internal/bot/adapter/onebot11/intake"
 	adapteroutbound "github.com/RayleaBot/RayleaBot/server/internal/bot/adapter/onebot11/outbound"
-	"github.com/RayleaBot/RayleaBot/server/internal/outbound"
+	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/outbound"
 )
 
 func (s *Service) sendBuiltinMenuImage(ctx context.Context, event adapterintake.NormalizedEvent, commandName string, imagePath string) {

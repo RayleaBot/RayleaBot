@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/RayleaBot/RayleaBot/server/internal/dispatch"
+	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/dispatch"
 	localaction "github.com/RayleaBot/RayleaBot/server/internal/plugins/actions"
 	runtimeprotocol "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime/protocol"
 	renderservice "github.com/RayleaBot/RayleaBot/server/internal/render/service"

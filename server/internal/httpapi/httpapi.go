@@ -13,6 +13,9 @@ import (
 	"net/http"
 	"runtime/debug"
 	"strings"
+	"time"
+
+	"github.com/go-chi/chi/v5"
 )
 
 const (
@@ -34,46 +37,131 @@ type ErrorBody struct {
 	Details    map[string]any `json:"details,omitempty"`
 }
 
-func WithRequestContext(logger *slog.Logger) func(http.Handler) http.Handler {
+type RequestObserver interface {
+	ObserveHTTPRequest(method, route string, status int, duration time.Duration)
+	ObserveHTTPPanic(method, route string)
+}
+
+type requestContextOptions struct {
+	observer RequestObserver
+}
+
+type RequestContextOption func(*requestContextOptions)
+
+func WithRequestObserver(observer RequestObserver) RequestContextOption {
+	return func(options *requestContextOptions) {
+		options.observer = observer
+	}
+}
+
+func WithRequestContext(logger *slog.Logger, opts ...RequestContextOption) func(http.Handler) http.Handler {
 	if logger == nil {
 		logger = slog.Default()
+	}
+	options := requestContextOptions{}
+	for _, opt := range opts {
+		if opt != nil {
+			opt(&options)
+		}
 	}
 
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			startedAt := time.Now()
 			requestID := newRequestID()
 			ctx := context.WithValue(r.Context(), requestIDKey{}, requestID)
 			r = r.WithContext(ctx)
+			recorder := &statusResponseWriter{ResponseWriter: w, statusCode: http.StatusOK}
 
 			defer func() {
 				recovered := recover()
-				if recovered == nil {
-					return
+				route := requestRoutePattern(r)
+				if recovered != nil {
+					if options.observer != nil {
+						options.observer.ObserveHTTPPanic(r.Method, route)
+					}
+
+					logger.Error(
+						"panic recovered",
+						"component", "http",
+						"request_id", requestID,
+						"method", r.Method,
+						"path", r.URL.Path,
+						"route", route,
+						"panic", fmt.Sprint(recovered),
+						"stack", string(debug.Stack()),
+					)
+					WriteError(
+						recorder,
+						r,
+						http.StatusInternalServerError,
+						"platform.internal_error",
+						"内部错误",
+						"errors.platform.internal_error",
+						nil,
+					)
 				}
 
-				logger.Error(
-					"panic recovered",
+				duration := time.Since(startedAt)
+				if options.observer != nil {
+					options.observer.ObserveHTTPRequest(r.Method, route, recorder.statusCode, duration)
+				}
+				logger.Info(
+					"http request completed",
 					"component", "http",
 					"request_id", requestID,
 					"method", r.Method,
 					"path", r.URL.Path,
-					"panic", fmt.Sprint(recovered),
-					"stack", string(debug.Stack()),
-				)
-				WriteError(
-					w,
-					r,
-					http.StatusInternalServerError,
-					"platform.internal_error",
-					"内部错误",
-					"errors.platform.internal_error",
-					nil,
+					"route", route,
+					"status", recorder.statusCode,
+					"duration_ms", duration.Milliseconds(),
 				)
 			}()
 
-			next.ServeHTTP(w, r)
+			next.ServeHTTP(recorder, r)
 		})
 	}
+}
+
+type statusResponseWriter struct {
+	http.ResponseWriter
+	statusCode  int
+	wroteHeader bool
+}
+
+func (w *statusResponseWriter) WriteHeader(statusCode int) {
+	if w.wroteHeader {
+		return
+	}
+	w.wroteHeader = true
+	w.statusCode = statusCode
+	w.ResponseWriter.WriteHeader(statusCode)
+}
+
+func (w *statusResponseWriter) Write(bytes []byte) (int, error) {
+	if w.statusCode == 0 {
+		w.statusCode = http.StatusOK
+	}
+	return w.ResponseWriter.Write(bytes)
+}
+
+func (w *statusResponseWriter) Unwrap() http.ResponseWriter {
+	return w.ResponseWriter
+}
+
+func requestRoutePattern(r *http.Request) string {
+	if r == nil {
+		return "unknown"
+	}
+	if routeContext := chi.RouteContext(r.Context()); routeContext != nil {
+		if pattern := routeContext.RoutePattern(); pattern != "" {
+			return pattern
+		}
+	}
+	if r.URL == nil || strings.TrimSpace(r.URL.Path) == "" {
+		return "unknown"
+	}
+	return "unmatched"
 }
 
 func RequestIDFromContext(ctx context.Context) string {

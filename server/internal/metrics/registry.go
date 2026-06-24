@@ -32,6 +32,9 @@ type Registry struct {
 	AdapterDedupDrops     prometheus.Counter
 	BridgeIgnoredTotal    prometheus.Counter
 	WebhookReplayObserved *prometheus.CounterVec
+	HTTPRequestTotal      *prometheus.CounterVec
+	HTTPRequestDuration   *prometheus.HistogramVec
+	HTTPPanicTotal        *prometheus.CounterVec
 }
 
 // New builds a Registry with every formal collector pre-registered. A nil
@@ -116,6 +119,25 @@ func New() *Registry {
 		Help:      "Plugin webhook replay-protection observations grouped by outcome (rejected, grace_observed, skew).",
 	}, []string{"outcome"})
 
+	r.HTTPRequestTotal = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Namespace: namespace,
+		Name:      "http_request_total",
+		Help:      "HTTP requests grouped by method, route pattern, and status code.",
+	}, []string{"method", "route", "status"})
+
+	r.HTTPRequestDuration = prometheus.NewHistogramVec(prometheus.HistogramOpts{
+		Namespace: namespace,
+		Name:      "http_request_duration_seconds",
+		Help:      "HTTP request handling duration grouped by method, route pattern, and status code.",
+		Buckets:   prometheus.DefBuckets,
+	}, []string{"method", "route", "status"})
+
+	r.HTTPPanicTotal = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Namespace: namespace,
+		Name:      "http_panic_total",
+		Help:      "Recovered HTTP panics grouped by method and route pattern.",
+	}, []string{"method", "route"})
+
 	reg.MustRegister(
 		r.EventPipelineStage,
 		r.PluginState,
@@ -129,6 +151,9 @@ func New() *Registry {
 		r.AdapterDedupDrops,
 		r.BridgeIgnoredTotal,
 		r.WebhookReplayObserved,
+		r.HTTPRequestTotal,
+		r.HTTPRequestDuration,
+		r.HTTPPanicTotal,
 	)
 	return r
 }

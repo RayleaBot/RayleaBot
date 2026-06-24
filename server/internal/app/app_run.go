@@ -11,9 +11,9 @@ import (
 )
 
 func (a *App) Run(ctx context.Context) error {
-	errCh := make(chan error, 1)
-	runCtx, cancel := context.WithCancel(ctx)
-	a.setRunCancel(cancel)
+	supervisor := newRunSupervisor(ctx)
+	runCtx := supervisor.Context()
+	a.setRunCancel(supervisor.Cancel)
 	defer a.clearRunCancel()
 
 	a.services.System.AutoPrepareRuntimeEnvironments(runCtx)
@@ -25,28 +25,33 @@ func (a *App) Run(ctx context.Context) error {
 		return err
 	}
 	if a.services.PluginLifecycle != nil {
-		go a.services.PluginLifecycle.ReconcileRuntime(runCtx, a.services.PluginLifecycle.CurrentBotID())
+		supervisor.Go(func(ctx context.Context) error {
+			a.services.PluginLifecycle.ReconcileRuntime(ctx, a.services.PluginLifecycle.CurrentBotID())
+			return nil
+		})
 	}
 	storage.StartSnapshotLoop(runCtx, a.platform.Storage, a.state.Logger)
 	a.eventStack.Adapter.Start(runCtx)
 	a.platform.Scheduler.Start(runCtx)
 	if a.services.BilibiliSource != nil {
-		go a.services.BilibiliSource.Start(runCtx)
+		supervisor.Go(func(ctx context.Context) error {
+			a.services.BilibiliSource.Start(ctx)
+			return nil
+		})
 	}
 
-	go func() {
+	supervisor.GoCritical(func(context.Context) error {
 		a.state.Logger.Info("http server starting", "component", "app", "listen_addr", a.process.server.Addr)
 		if err := a.process.server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-			errCh <- err
-			return
+			return err
 		}
-		errCh <- nil
-	}()
+		return nil
+	})
 
 	select {
 	case <-runCtx.Done():
 		return a.shutdownFromContext()
-	case err := <-errCh:
+	case err := <-supervisor.Errors():
 		return a.shutdownAfterServerExit(err)
 	}
 }

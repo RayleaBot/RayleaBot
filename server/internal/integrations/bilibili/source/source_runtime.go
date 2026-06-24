@@ -5,8 +5,8 @@ import (
 	"errors"
 	"time"
 
+	"github.com/RayleaBot/RayleaBot/server/internal/integrations/thirdparty"
 	"github.com/RayleaBot/RayleaBot/server/internal/secrets"
-	"github.com/RayleaBot/RayleaBot/server/internal/thirdparty"
 )
 
 func (s *Source) Start(ctx context.Context) {

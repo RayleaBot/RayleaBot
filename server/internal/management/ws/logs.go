@@ -23,7 +23,7 @@ type logFrame struct {
 func (h *LogsHandler) HandleLogsWebSocket() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if _, ok := authhttp.ClaimsFromContext(r.Context()); !ok {
-			http.Error(w, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
+			writeWebSocketPermissionDenied(w, r)
 			return
 		}
 

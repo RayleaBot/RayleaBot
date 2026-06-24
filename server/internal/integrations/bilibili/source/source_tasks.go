@@ -5,7 +5,7 @@ import (
 	"strings"
 
 	bilibilivalues "github.com/RayleaBot/RayleaBot/server/internal/integrations/bilibili/values"
-	"github.com/RayleaBot/RayleaBot/server/internal/thirdparty"
+	"github.com/RayleaBot/RayleaBot/server/internal/integrations/thirdparty"
 )
 
 func (s *Source) ensureRoomTasks(ctx context.Context, subjects map[string]Subject, account thirdparty.Account, cookie string) {

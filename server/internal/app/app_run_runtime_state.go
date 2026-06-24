@@ -70,3 +70,10 @@ func (s *appRuntimeState) StartedAt() time.Time {
 func (s *appRuntimeState) RedactString(value string) string {
 	return s.redactString(value)
 }
+
+func (s *appRuntimeState) AddRedactionValues(values ...string) {
+	if s == nil || s.addRedactionValues == nil {
+		return
+	}
+	s.addRedactionValues(values...)
+}

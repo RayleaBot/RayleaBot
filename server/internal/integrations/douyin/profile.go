@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/integrations/common"
-	"github.com/RayleaBot/RayleaBot/server/internal/thirdparty"
+	"github.com/RayleaBot/RayleaBot/server/internal/integrations/thirdparty"
 	"github.com/chromedp/cdproto/runtime"
 	"github.com/chromedp/chromedp"
 )
@@ -168,12 +168,12 @@ func fetchDouyinWebProfile(ctx context.Context, client *http.Client, cookies map
 	var response struct {
 		StatusCode int `json:"status_code"`
 		User       struct {
-			UID             string `json:"uid"`
-			ShortID         string `json:"short_id"`
-			UniqueID        string `json:"unique_id"`
-			Nickname        string `json:"nickname"`
-			Signature       string `json:"signature"`
-			AvatarMedium    struct {
+			UID          string `json:"uid"`
+			ShortID      string `json:"short_id"`
+			UniqueID     string `json:"unique_id"`
+			Nickname     string `json:"nickname"`
+			Signature    string `json:"signature"`
+			AvatarMedium struct {
 				URLList []string `json:"url_list"`
 			} `json:"avatar_medium"`
 			AvatarThumb struct {

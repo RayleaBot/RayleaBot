@@ -11,8 +11,8 @@ import (
 	bilibiliproxy "github.com/RayleaBot/RayleaBot/server/internal/integrations/bilibili/proxy"
 	bilibiliSession "github.com/RayleaBot/RayleaBot/server/internal/integrations/bilibili/session"
 	bilibilisubscriptions "github.com/RayleaBot/RayleaBot/server/internal/integrations/bilibili/subscriptions"
+	"github.com/RayleaBot/RayleaBot/server/internal/integrations/thirdparty"
 	runtimeprotocol "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime/protocol"
-	"github.com/RayleaBot/RayleaBot/server/internal/thirdparty"
 )
 
 const (

@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/integrations/common"
-	"github.com/RayleaBot/RayleaBot/server/internal/thirdparty"
+	"github.com/RayleaBot/RayleaBot/server/internal/integrations/thirdparty"
 )
 
 const (
@@ -176,13 +176,13 @@ func (p *Provider) pollWithBrowser(ctx context.Context, session common.LoginSess
 			return session, fmt.Errorf("douyin qrcode login succeeded without login cookie")
 		}
 		session.Account = thirdparty.AccountProfile{}
-			var browserCtx context.Context
-			if cb, ok := p.browser.(*ChromedpBrowser); ok {
-				browserCtx = cb.SessionContext(session.Token)
-			}
-			if profile, err := FetchAccountProfileWithBrowser(ctx, p.client, session.Cookies, browserCtx); err == nil {
-				session.Account = profile
-			}
+		var browserCtx context.Context
+		if cb, ok := p.browser.(*ChromedpBrowser); ok {
+			browserCtx = cb.SessionContext(session.Token)
+		}
+		if profile, err := FetchAccountProfileWithBrowser(ctx, p.client, session.Cookies, browserCtx); err == nil {
+			session.Account = profile
+		}
 	}
 	return session, nil
 }

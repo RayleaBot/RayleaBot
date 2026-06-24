@@ -65,6 +65,9 @@ func TestSummaryWriterKeepsLogTimestampSeparateFromOneBotTimeDetail(t *testing.T
 	if body["time"] != float64(1710000900) {
 		t.Fatalf("expected preserved onebot time detail, got %#v", body["time"])
 	}
+	if got := body["request_id"]; got != defaultRequestID {
+		t.Fatalf("unexpected default request_id: got %#v want %#v", got, defaultRequestID)
+	}
 
 	summaries := stream.Snapshot()
 	if len(summaries) != 1 {
@@ -75,6 +78,70 @@ func TestSummaryWriterKeepsLogTimestampSeparateFromOneBotTimeDetail(t *testing.T
 	}
 	if got := summaries[0].Details["time"]; got != float64(1710000900) {
 		t.Fatalf("expected summary details to keep onebot time, got %#v", got)
+	}
+	if got := summaries[0].RequestID; got != defaultRequestID {
+		t.Fatalf("unexpected summary request_id: got %#v want %#v", got, defaultRequestID)
+	}
+}
+
+func TestLoggerAddsDefaultRequestID(t *testing.T) {
+	t.Parallel()
+
+	var output bytes.Buffer
+	logger := newLoggerWithWriter(slog.LevelInfo, &output)
+
+	logger.Info("runtime started", "component", "runtime")
+
+	var body map[string]any
+	if err := json.Unmarshal(output.Bytes(), &body); err != nil {
+		t.Fatalf("decode structured log line: %v", err)
+	}
+	if got := body["request_id"]; got != defaultRequestID {
+		t.Fatalf("unexpected default request_id: got %#v want %#v", got, defaultRequestID)
+	}
+}
+
+func TestLoggerKeepsExplicitRequestID(t *testing.T) {
+	t.Parallel()
+
+	var output bytes.Buffer
+	logger := newLoggerWithWriter(slog.LevelInfo, &output)
+
+	logger.Info("request completed", "request_id", "req_fixture_001")
+
+	line := output.String()
+	if count := strings.Count(line, `"request_id"`); count != 1 {
+		t.Fatalf("unexpected request_id key count: got %d in %s", count, line)
+	}
+
+	var body map[string]any
+	if err := json.Unmarshal(output.Bytes(), &body); err != nil {
+		t.Fatalf("decode structured log line: %v", err)
+	}
+	if got := body["request_id"]; got != "req_fixture_001" {
+		t.Fatalf("unexpected request_id: got %#v", got)
+	}
+}
+
+func TestLoggerKeepsScopedRequestID(t *testing.T) {
+	t.Parallel()
+
+	var output bytes.Buffer
+	logger := newLoggerWithWriter(slog.LevelInfo, &output).With("request_id", "req_scoped_001")
+
+	logger.Info("request scoped log")
+
+	line := output.String()
+	if count := strings.Count(line, `"request_id"`); count != 1 {
+		t.Fatalf("unexpected request_id key count: got %d in %s", count, line)
+	}
+
+	var body map[string]any
+	if err := json.Unmarshal(output.Bytes(), &body); err != nil {
+		t.Fatalf("decode structured log line: %v", err)
+	}
+	if got := body["request_id"]; got != "req_scoped_001" {
+		t.Fatalf("unexpected scoped request_id: got %#v", got)
 	}
 }
 

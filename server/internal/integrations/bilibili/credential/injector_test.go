@@ -7,9 +7,9 @@ import (
 	"testing"
 
 	bilibilisession "github.com/RayleaBot/RayleaBot/server/internal/integrations/bilibili/session"
+	"github.com/RayleaBot/RayleaBot/server/internal/integrations/thirdparty"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins/actions/httpaction"
 	"github.com/RayleaBot/RayleaBot/server/internal/secrets"
-	"github.com/RayleaBot/RayleaBot/server/internal/thirdparty"
 )
 
 func TestInjectorUsesConfiguredAccount(t *testing.T) {

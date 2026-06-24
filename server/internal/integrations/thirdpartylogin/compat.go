@@ -11,8 +11,8 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/integrations/common"
 	"github.com/RayleaBot/RayleaBot/server/internal/integrations/douyin"
 	"github.com/RayleaBot/RayleaBot/server/internal/integrations/netease_music"
+	"github.com/RayleaBot/RayleaBot/server/internal/integrations/thirdparty"
 	"github.com/RayleaBot/RayleaBot/server/internal/integrations/weibo"
-	"github.com/RayleaBot/RayleaBot/server/internal/thirdparty"
 )
 
 // Re-export common types with original names for backward compatibility.
