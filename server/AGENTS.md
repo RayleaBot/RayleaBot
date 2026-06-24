@@ -6,18 +6,18 @@
 
 - `server/` 实现优先消费当前 `contracts/`、`fixtures/` 与 `examples/`，不在实现中自造第二套接口或状态语义。
 - 配置加载、错误响应、健康检查、插件只读视图、adapter 状态、治理裁决、日志详情和任务结果都必须与正式 contract 保持一致。
-- 新增包时保持职责收敛；优先一包一职责，不为未来协议、未来 runtime 或未来持久化预埋大而全抽象。
 - 不绕过 schema 校验直接消费用户配置、plugin manifest 或其他外部输入。
 - Server 是正式状态源；不要把 Web、Launcher 或插件运行时做成第二状态源。
 
-## Current Boundary Expectations
+## Security Rules
 
-- 当前主链包含治理读写、插件设置、插件内置管理页静态资源、OneBot11 协议快照、命令拒绝日志、render management、recovery/runtime tasks、launcher bootstrap、三方账号、Bilibili source、三方监控和运行指标。
-- 插件内置管理页资源只读取 `management_ui.pages[0].entry` 所在目录下的文件，不扩成目录枚举或管理数据出口。
-- 命令被白名单、黑名单、权限或冷却拒绝时，继续通过现有管理日志主链记录，不新增第二套拒绝语义。
-- 三方账号正式平台包含 Bilibili、微博、抖音和网易云音乐；账号摘要保存在 SQLite，Cookie / CK 等敏感凭据保存在 secret store，不写入配置文件、日志或管理响应。
-- 三方监控当前由内置 Bilibili source 读取 `raylea.subscription-hub` 的订阅配置并投递 `bilibili.*` 平台事件；微博、抖音和网易云音乐监控投影返回正式空列表，由订阅中心提供账号配置与链接解析。
-- Bilibili source 的 HTTP、WebSocket、状态枚举和诊断字段以 OpenAPI 与 WebSocket contract 为准；实现侧入口在 `server/internal/integrations/bilibili/`、`server/internal/thirdparty/`、`server/internal/management/bilibiliapi/` 和 `server/internal/app/servicegraph/`。
+- 管理 API、配置 API、日志、fixtures、examples、测试快照不得返回或记录明文凭据。
+- Cookie / CK 等敏感凭据只写入 secret store，不写入配置文件、日志或管理响应。
+
+## Architecture Constraint
+
+- 不新增平行配置读取链路、日志栈、路由栈或状态源。
+- 新增包需职责收敛，优先一包一职责，不为未来协议、未来 runtime 或未来持久化预埋大而全抽象。
 
 ## Config and Policy Reading
 
@@ -45,3 +45,4 @@
 - 当前服务端能力与入口：`server/README.md`
 - 工程基线与默认命令：`docs/engineering/baseline.md`
 - 正式 HTTP / WebSocket / errors / plugin contracts：`contracts/README.md`
+- 架构、状态模型、事件模型：`docs/architecture/`

@@ -10,11 +10,28 @@
 - 能收窄就收窄，优先明确 `required`、`enum`、`const`、`pattern`、固定对象形状和稳定说明。
 - TODO 只能保留为窄 TODO，并指向具体尚未冻结的边界。
 
-## Current Surface Expectations
+## API Shape Rules
 
-- 当前正式 surface 已覆盖管理 HTTP / WebSocket、插件 manifest、插件协议、插件内置管理页静态路由与桥接、用户配置、错误码、release metadata、backup manifest、deps manifest、CLI、三方账号、三方监控、三方媒体代理、Bilibili source 状态和 Bilibili 扫码登录。
-- governance、plugin settings、plugin rich detail、protocol compatibility、render management、recovery/runtime tasks、launcher bootstrap 都属于已冻结范围。
-- `plugin-management-ui.yaml` 与 `plugin-management-ui-bridge.schema.json` 继续表达插件内置管理页的正式边界，不把这类结构塞回 OpenAPI。
+- 新增 list API 必须明确 pagination（默认页大小、最大页大小、游标或偏移语义）、sort（默认排序字段与方向）、filter（支持的字段与操作符）和 empty state（空列表的响应形状与 HTTP 状态码）。
+- 单个资源查询必须明确不存在时的 HTTP 状态码和错误码，不依赖通用 404 的隐式语义。
+- 批量操作必须定义部分成功与全部失败的响应形状，不返回裸数组或裸状态字符串。
+- 请求体与响应体优先使用结构化对象，避免顶级标量或裸数组。
+
+## Enum and Status Rules
+
+- enum 的 wire value 必须稳定，变更视为 breaking change。
+- 每个状态值必须附带用户可见含义说明，不只在内部注释中解释。
+- 状态必须区分终态（terminal）与瞬态（transient），瞬态必须说明预期迁移路径。
+- 必须定义 unknown / future 的降级策略：消费方遇到未识别值时如何行为，不抛异常或静默吞掉。
+- 不在 enum 中预留占位值（如 `reserved_1`），未来扩展通过新增值实现。
+
+## Error Code Rules
+
+- 每个错误码必须定义触发条件、对应 HTTP status、message 策略和 details 形状。
+- message 面向人类可读，不用于程序分支；程序分支依赖稳定的 `code` 和结构化 `details`。
+- details 优先使用固定字段对象，避免自由文本或嵌套层级过深。
+- 同一错误码在不同接口中触发条件不一致时，拆分为独立错误码或加接口级 scope。
+- 新增错误码必须同步更新 fixtures 中的错误示例和 Web/Launcher 生成类型的消费点。
 
 ## Companion Updates
 

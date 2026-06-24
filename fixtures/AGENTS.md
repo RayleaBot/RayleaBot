@@ -6,7 +6,6 @@
 
 - `fixtures/` 只承载由 `contracts/` 派生的 golden cases，不是正式来源，也不是示例目录。
 - fixture 不能先于 contract 发明字段、状态、错误码、事件名、消息类型或接口。
-- 当前 fixture 家族覆盖 config、web-api、websocket、plugin-info、plugin-protocol、release-manifest、backup-manifest、deps-manifest、errors 和 CLI。
 - 同一分类继续沿用稳定前缀：`ok`、`invalid`、`edge`。
 - 文件命名必须稳定、可扩展、可直接被 CI 枚举。
 
@@ -23,6 +22,13 @@
 - `ok`：应被接受或应被视为合法。
 - `invalid`：应被拒绝或应被视为不合法。
 - `edge`：仍合法，但处于关键边界、顺序窗口或退化语义。
+
+## Secret Rules
+
+- fixture 中只允许显式假值，例如 `fixture-only-secret`、`example-token`、`test-ck`。
+- 不允许出现真实平台 cookie、CK、access token、refresh token 或任何可误认为是真实凭据的长字符串。
+- 配置读取类 fixture 必须包含对 secret 字段脱敏的断言，防止测试把明文 secret 返回固化成正确行为。
+- 若 fixture 需要模拟鉴权失败，使用明显假值并配合错误码 fixture，不构造接近真实格式的 token。
 
 ## Companion Updates
 

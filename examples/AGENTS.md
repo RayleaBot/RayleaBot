@@ -9,6 +9,13 @@
 - 当前示例范围包含示例插件、示例 HTTP 请求响应、`deps-manifest` 样例和 `backup-manifest` 样例。
 - 示例中不放真实 secrets、token、凭据或其他敏感信息。
 
+## Examples Are Not Oracles
+
+- examples 用于说明用法和结构，不承担稳定回归语义。
+- 需要稳定回归校验的语义写入 `fixtures/`，不在 examples 中重复。
+- examples 与 fixtures 职责不混淆：examples 负责可读性，fixtures 负责可校验性。
+- 示例代码中的断言、mock 返回值和边界值只服务于演示，不替代正式测试。
+
 ## Plugin Example Rules
 
 - `examples/plugins/` 主要服务于 manifest、plugin protocol、local actions 和管理面能力理解。
@@ -21,6 +28,12 @@
 - `examples/http/` 只承载已冻结 HTTP surface 的稳定请求和响应示例。
 - 示例文件命名、字段形状和当前 OpenAPI 保持一致。
 - HTTP 示例与 fixture 各自承担不同职责：examples 负责说明用法，fixtures 负责回归校验。
+
+## Secret Rules
+
+- 示例中只能使用明显假值，例如 `example-token`、`fixture-only-secret`、`test-user`。
+- 不放真实凭据格式，不构造接近真实平台 cookie、CK、access token 形态的字符串。
+- 示例配置中的敏感字段必须标注为假值，并附带说明该字段在真实环境中需要替换。
 
 ## Companion Updates
 

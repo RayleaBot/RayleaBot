@@ -22,13 +22,17 @@
 ## Sync Rules
 
 - 执行计划、README、用户文档和工程文档都要与当前正式范围一致。
-- 当前执行计划入口固定为 `docs/execution-plan-v0.3.md`。
+- 默认使用最新 `docs/execution-plan-v*.md`；若文档自身明确指定固定版本，则按该文档规则执行。
 - 当 contract 或正式行为变化影响文档时，同轮修正对应文档，不把文档拖到后续批次。
 - 若文档与 `contracts/` 冲突，以 `contracts/` 为准并同步修正文案。
+
+## Path Stability
+
+- 中文文件名尽量提供 ASCII 别名或 README 索引，避免路径在压缩包、跨平台传输或 URL 编码中失真。
+- 正式入口优先使用 ASCII 路径；中文路径只作为可读补充，不成为唯一引用目标。
 
 ## Consult Before Editing
 
 - 工程基线与目录职责：`docs/engineering/baseline.md`
-- 当前执行计划：`docs/execution-plan-v0.3.md`
 - 正式契约范围：`contracts/README.md`
 - 文档成稿规则：`.agents/skills/editing-final-state-content/SKILL.md`

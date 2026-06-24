@@ -15,14 +15,14 @@
 - 查询参数驱动的工作区继续使用稳定 `viewKey`，避免 query 变化拆出重复页签。
 - 管理面内部深链优先复用现有 helper，如 `web/src/lib/management-links.ts`，不要在页面内散写路由对象。
 - 页面写操作成功后优先回拉正式结果，不拼装本地假状态。
+- Web 只消费 generated types，不手写第二套 API 类型。若 generated types 不足，先修正 contract 或生成配置，不在 Web 侧补平行类型定义。
 
-## Current Surface Expectations
+## Error Handling Rules
 
-- 插件中心当前正式页面包含：`/plugins`、`/plugins/settings`、`/plugins/:id`、`/commands`。
-- 运维分组当前正式页面包含：`/permission-policy`、`/access-lists`、`/rate-limits`、`/tasks`、`/logs`、`/logs/history`、`/protocols`、`/protocols/compatibility`、`/config`。
-- 插件详情页 `/plugins/:id` 保持单插件详情页签语义，并在页内承载概览、实时控制台和插件内置管理页工作区。
-- 插件内置管理页通过 `/plugin-ui/{plugin_id}/...` 静态资源路由与正式桥接消息工作，不把管理 session、请求库或全局 store 直接暴露给插件页面。
-- 权限策略、限流中心、指令中心、日志中心、任务和协议中心继续通过稳定字段互相钻取，不靠摘要文案猜目标。
+- 错误展示依赖稳定的 `code` 和结构化 `details`，不靠 `message` 字符串做分支判断。
+- 同一错误码在不同接口中的展示行为保持一致，不根据接口路径硬编码差异化文案。
+- 网络层错误、服务端错误和鉴权错误分别使用统一处理策略，不在单个页面内重复实现。
+- 错误提示文案优先从 contract 或 docs 中复用，不随意发明新描述。
 
 ## Change Rules
 
@@ -32,13 +32,14 @@
 
 ## Verification
 
-- 类型检查：`pnpm exec vue-tsc --noEmit`
+- 类型检查：`pnpm run typecheck`
 - 单元测试：`pnpm test`
 - E2E：`pnpm test:e2e`
+- 构建：`pnpm build`
 
 ### Browser Verification for Protected Pages
 
-- 受保护页面包括 `/plugins`、`/protocols`、`/logs`、`/config` 等管理面路由；浏览器验证这些页面时必须使用有效管理会话。
+- 受保护页面包括管理面路由；浏览器验证这些页面时必须使用有效管理会话。
 - Playwright E2E 复用 `web/tests/e2e/web-ui.spec.ts` 的登录路径：打开 `/login`，管理员标识使用 `admin`，mock 后端密钥使用 `fixture-only-secret`。
 - Codex in-app Browser 手动验证受保护页面时，先打开 `/login` 完成登录，再打开目标页面。
 - 当前 URL 为 `/login?redirect=...` 时，当前截图或快照只证明会话缺失；完成登录后重新打开目标页面。
