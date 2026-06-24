@@ -41,6 +41,10 @@ for (const schema of schemas) {
   output.push('')
 }
 
+if (output.at(-1) === '') {
+  output.pop()
+}
+
 const outputPath = path.join(repoRoot, 'server/internal/schemaassets/assets_gen.go')
 await fs.mkdir(path.dirname(outputPath), { recursive: true })
 await fs.writeFile(outputPath, `${output.join('\n')}\n`, 'utf8')

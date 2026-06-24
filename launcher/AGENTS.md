@@ -10,7 +10,7 @@
   - `preload` 只暴露受限桌面桥接
   - `renderer` 负责界面展示
   - `shared` 承载桌面与渲染层共用模型、校验和生成类型
-- Launcher 不复制 Web 业务逻辑，不维护独立状态模型，不解析 `config/user.yaml` 作为在线管理真相。
+- Launcher 不复制 Web 业务逻辑，不维护独立状态模型，不解析 config/user.yaml 作为在线管理真相。
 
 ## IPC Rules
 
@@ -23,7 +23,7 @@
 
 - renderer 不直接操作本地文件系统、不直接启动或停止服务进程、不接触 secret 或凭据。
 - renderer 只通过 preload 暴露的受限 API 与 main 层交互。
-- 不在 renderer 中读取或解析 `config/user.yaml`、日志文件或任何本地配置文件。
+- 不在 renderer 中读取或解析 config/user.yaml、日志文件或任何本地配置文件。
 - 用户输入在 renderer 中只做展示层校验，业务校验由服务端正式接口完成。
 
 ## Shared Surface Rules

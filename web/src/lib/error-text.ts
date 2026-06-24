@@ -52,10 +52,5 @@ export function getDisplayErrorMessage(error: unknown, fallbackKey = 'errors.com
     return error.message
   }
 
-  // Final fallback: any error message.
-  if (error instanceof Error && error.message?.trim()) {
-    return error.message.trim()
-  }
-
   return t(fallbackKey)
 }
