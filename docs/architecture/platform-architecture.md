@@ -102,8 +102,8 @@ Dispatcher 是插件事件投递与插件出站 action 执行的唯一出口。`
 内置三方功能由 Server 直接承载，三方账号正式平台为 Bilibili、微博、抖音和网易云音乐。
 
 - Third-Party Account Service 管理 `/api/third-party/accounts`，账号摘要保存在 SQLite，Cookie / CK 等敏感凭据保存在 secret store。
-- Bilibili QR 登录由 `/api/bilibili/login/qrcode` 与 `/api/bilibili/login/qrcode/{login_id}` 提供，成功后返回可保存到三方账号的账号资料与凭据。
-- 微博、抖音和网易云音乐 QR 登录由 `/api/third-party/accounts/{platform}/login/qrcode` 与 `/api/third-party/accounts/{platform}/login/qrcode/{login_id}` 提供，成功后返回可保存到三方账号的 CK，账号资料按平台登录结果补充。
+- Bilibili QR 登录由 `/api/bilibili/login/qrcode` 与 `/api/bilibili/login/qrcode/{login_id}` 提供，成功后由服务端保存凭据，响应只返回账号摘要。
+- 微博、抖音和网易云音乐 QR 登录由 `/api/third-party/accounts/{platform}/login/qrcode` 与 `/api/third-party/accounts/{platform}/login/qrcode/{login_id}` 提供，成功后由服务端保存凭据，账号资料按平台登录结果补充，响应不返回 CK。
 - Bilibili Source 读取 `raylea.subscription-hub` 的订阅配置，使用已启用且凭据可用的 Bilibili 账号检查直播与动态。
 - Bilibili Source 投递 `bilibili.live.started`、`bilibili.live.ended` 和 `bilibili.dynamic.published` 平台事件，事件载荷位于 `event.payload.bilibili`。
 - 订阅中心支持 Bilibili、微博、抖音和网易云音乐订阅配置与链接解析；Bilibili 直播与动态状态由 Bilibili Source 提供。

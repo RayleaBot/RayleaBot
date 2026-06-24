@@ -9,11 +9,17 @@
 | 文档 | 主题 |
 | --- | --- |
 | [Platform Architecture](./platform-architecture.md) | 平台组件分层、运行资源和跨层边界 |
+| [Server Lifecycle](./server-lifecycle.md) | 启动、运行、关闭和依赖组装顺序 |
+| [Management API](./management-api.md) | 管理 API 调用链、鉴权、错误和 contract 同步 |
+| [Plugin Runtime](./plugin-runtime.md) | 插件 runtime 状态、事件投递和本地 action 边界 |
 | [Event Model](./event-model.md) | OneBot11 事件归一化、插件协议消息和管理 WebSocket 事件 |
+| [Event Pipeline](./event-pipeline.md) | adapter、ingress、policy、bridge、dispatch、runtime、action、outbound 主流程 |
 | [Message Flow](./message-flow.md) | 消息入站、插件分发、出站发送和定时触发链路 |
 | [State Model](./state-model.md) | 插件运行时、任务和连接状态 |
 | [Bot Core](./bot-core.md) | 事件分发、命令解析、聊天权限、调度和后台任务 |
 | [Render Service](./render-service.md) | 模板渲染、队列、artifact 与资源边界 |
+| [Storage Migrations](./storage-migrations.md) | 当前 schema 快照、历史迁移和 drift 检查规则 |
+| [Technology Decisions](./technology-decisions.md) | 主技术栈保留、依赖替换准则和评估边界 |
 | [Platform Runtime](./platform-runtime.md) | 配置、存储、日志、恢复、Launcher 控制面和兼容策略 |
 
 ## 当前主链路
@@ -56,7 +62,7 @@ OneBot11 transport
 | Protocol Service | 负责协议快照、reverse-ws / webhook 协议入口和协议事件推送 |
 | Plugin Webhook Service | 负责插件 webhook 注册、鉴权、按需拉起和定向投递 |
 | System Service | 负责恢复摘要、运行环境诊断、备份和系统状态 |
-| Third-Party Account Service | 负责 Bilibili、微博、抖音和网易云音乐账号摘要、凭据保存状态、扫码获取 CK 和 Bilibili CK 校验 |
+| Third-Party Account Service | 负责 Bilibili、微博、抖音和网易云音乐账号摘要、凭据保存状态、扫码登录和 Bilibili CK 校验 |
 | Bilibili Source | 负责内置 Bilibili 直播与动态订阅状态、平台事件投递和诊断 |
 | Capability View | 提供插件声明能力与能力参数查询 |
 | Governance Service | 负责黑白名单、白名单状态、命令策略读取面与聊天侧权限裁决 |
