@@ -40,6 +40,7 @@
 ### 方式二：从源码启动
 
 前置条件：Go 1.25.8、Node.js 24.14.0、pnpm 10.32.1、Python 3.12.13、Git 2.x。
+工具链检查：`python scripts/check-toolchain.py`；安装 make 的环境可使用 `make doctor`。
 
 ```bash
 git clone https://github.com/RayleaBot/RayleaBot.git

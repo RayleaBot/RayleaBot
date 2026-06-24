@@ -18,7 +18,7 @@
 |------|------|
 | Server Go 源文件（不含测试） | 198 |
 | Server 内部包 | 41 |
-| SQLite schema 文件 / 表 | 1 / 22 |
+| SQLite migration 文件 / 表 | 4 / 23 |
 | SQLiteRepository 实现 | 10（auth, tasks, scheduler, logging, plugins, pluginkv, pluginconfig, permission blacklist, permission whitelist, permission whitelist state） |
 | sqlc 命名查询 | 38 |
 | API 操作（`contracts/web-api.openapi.yaml`） | 66 |
@@ -50,7 +50,7 @@ lint CI 的 `web-core` job 包含生成文件一致性检查（`pnpm generate:ty
 
 sqlc v1.29.0 以 `server/internal/sqlcqueries/` 下 7 个 `.sql` 文件（38 named queries）为单一来源，生成 `server/internal/sqlcgen/`。auth、tasks、scheduler、logging、plugins、pluginkv、pluginconfig 的静态查询由 sqlc 生成；动态 SQL、permission repositories、third-party account service、Bilibili source 和 render template repository 保留手写查询。
 
-配置：`server/sqlc.yaml`，schema 来自 `server/internal/storage/schema.sql`。
+配置：`server/sqlc.yaml`，schema 来自 `server/internal/storage/migrations/000001_base.sql`。
 
 lint CI 的 `server-core` job 包含 `sqlc diff` 一致性门禁。
 
