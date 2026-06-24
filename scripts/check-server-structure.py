@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import ast
+import json
 import re
 import sys
 from dataclasses import dataclass
@@ -42,11 +43,16 @@ ALLOWED_FAN_OUT_PREFIXES = (
 )
 
 DISALLOWED_PACKAGE_DIR_NAMES = {"common", "utils", "helper", "helpers"}
+ALLOWED_GENERIC_PACKAGE_DIRS = {
+    "server/internal/integrations/common",
+}
 
 PACKAGE_DECL_RE = re.compile(r"^\s*package\s+([A-Za-z_][A-Za-z0-9_]*)\b", re.MULTILINE)
 IMPORT_SINGLE_RE = re.compile(r'^\s*import\s+(?:[.\w]+\s+)?"([^"]+)"', re.MULTILINE)
 IMPORT_BLOCK_RE = re.compile(r"^\s*import\s*\((.*?)^\s*\)", re.MULTILINE | re.DOTALL)
 IMPORT_LINE_RE = re.compile(r'^\s*(?:[.\w]+\s+)?"([^"]+)"', re.MULTILINE)
+PROCESS_EXIT_RE = re.compile(r"\b(?:os\.Exit|log\.Fatalf?|log\.Fatalln)\s*\(")
+RAW_SQL_CALL_RE = re.compile(r"\.(?:Exec|ExecContext|QueryContext|QueryRowContext|QueryRow)\s*\(")
 
 
 @dataclass(frozen=True)
@@ -68,6 +74,7 @@ def main() -> int:
 
     errors: list[str] = []
     warnings: list[str] = []
+    manual_sql_exceptions = load_manual_sql_exceptions(root, errors)
 
     check_package_sizes(files, warnings, errors)
     check_file_sizes(files, warnings, errors)
@@ -75,6 +82,8 @@ def main() -> int:
     check_fan_out(files, warnings)
     check_disallowed_dirs(server_internal, root, errors)
     check_package_names(files, warnings)
+    check_process_exit_calls(files, errors)
+    check_manual_sql_exceptions(files, root, manual_sql_exceptions, errors)
 
     for message in warnings:
         print(f"WARN {message}")
@@ -208,8 +217,11 @@ def check_disallowed_dirs(server_internal: Path, root: Path, errors: list[str]) 
     for path in sorted(server_internal.rglob("*")):
         if not path.is_dir():
             continue
+        rel = path.relative_to(root).as_posix()
+        if rel in ALLOWED_GENERIC_PACKAGE_DIRS:
+            continue
         if path.name in DISALLOWED_PACKAGE_DIR_NAMES:
-            errors.append(f"{path.relative_to(root).as_posix()} uses a disallowed generic package name")
+            errors.append(f"{rel} uses a disallowed generic package name")
 
 
 def check_package_names(files: list[GoFile], warnings: list[str]) -> None:
@@ -221,6 +233,64 @@ def check_package_names(files: list[GoFile], warnings: list[str]) -> None:
         leaf = Path(file.package_dir).name
         if file.package_name != leaf:
             warnings.append(f"{file.package_dir} package name is {file.package_name}; directory leaf is {leaf}")
+
+
+def check_process_exit_calls(files: list[GoFile], errors: list[str]) -> None:
+    for file in files:
+        if file.is_test or file.is_generated:
+            continue
+        text = file.path.read_text(encoding="utf-8")
+        if PROCESS_EXIT_RE.search(text):
+            errors.append(f"{file.rel} calls os.Exit or log.Fatal outside cmd")
+
+
+def load_manual_sql_exceptions(root: Path, errors: list[str]) -> dict[str, str]:
+    registry_path = root / "docs" / "engineering" / "manual-sql-exceptions.json"
+    try:
+        raw = registry_path.read_text(encoding="utf-8")
+    except FileNotFoundError:
+        errors.append(f"{registry_path.relative_to(root).as_posix()} is missing")
+        return {}
+
+    try:
+        parsed = json.loads(raw)
+    except json.JSONDecodeError as exc:
+        errors.append(f"{registry_path.relative_to(root).as_posix()} is invalid JSON: {exc}")
+        return {}
+
+    allowed_files = parsed.get("allowed_files")
+    if not isinstance(allowed_files, dict):
+        errors.append(f"{registry_path.relative_to(root).as_posix()} must contain an allowed_files object")
+        return {}
+
+    registry: dict[str, str] = {}
+    for rel, reason in allowed_files.items():
+        if not isinstance(rel, str) or not isinstance(reason, str) or not reason.strip():
+            errors.append(f"{registry_path.relative_to(root).as_posix()} has an invalid manual SQL entry")
+            continue
+        registry[rel.replace("\\", "/")] = reason.strip()
+    return registry
+
+
+def check_manual_sql_exceptions(files: list[GoFile], root: Path, registry: dict[str, str], errors: list[str]) -> None:
+    raw_sql_files: set[str] = set()
+    for file in files:
+        if file.is_test or file.is_generated or file.package_dir.startswith("internal/sqlcgen"):
+            continue
+        text = file.path.read_text(encoding="utf-8")
+        if RAW_SQL_CALL_RE.search(text):
+            raw_sql_files.add(file.rel)
+
+    for rel in sorted(raw_sql_files):
+        if rel not in registry:
+            errors.append(f"{rel} uses handwritten SQL but is not listed in docs/engineering/manual-sql-exceptions.json")
+
+    for rel in sorted(registry):
+        path = root / Path(rel)
+        if not path.exists():
+            errors.append(f"docs/engineering/manual-sql-exceptions.json references missing file {rel}")
+        elif rel not in raw_sql_files:
+            errors.append(f"docs/engineering/manual-sql-exceptions.json lists {rel}, but no handwritten SQL was found")
 
 
 if __name__ == "__main__":

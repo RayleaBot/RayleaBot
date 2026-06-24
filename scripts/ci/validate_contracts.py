@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import sys
 from pathlib import Path
 from typing import Any
@@ -47,6 +48,20 @@ STRICT_FIXTURE_DIRS = [
     FIXTURES / "plugin-protocol",
     FIXTURES / "release-manifest",
     FIXTURES / "cli",
+]
+
+FIXTURE_SECRET_PATTERNS = [
+    ("OpenAI API key", re.compile(r"\bsk-[A-Za-z0-9_-]{20,}\b")),
+    ("GitHub token", re.compile(r"\b(?:ghp|gho|ghu|ghs|ghr)_[A-Za-z0-9_]{20,}\b")),
+    ("GitHub fine-grained token", re.compile(r"\bgithub_pat_[A-Za-z0-9_]{20,}\b")),
+    ("AWS access key", re.compile(r"\bAKIA[0-9A-Z]{16}\b")),
+    ("Google API key", re.compile(r"\bAIza[0-9A-Za-z_-]{35}\b")),
+    ("Slack token", re.compile(r"\bxox[baprs]-[0-9A-Za-z-]{20,}\b")),
+    ("JWT", re.compile(r"\beyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\b")),
+    ("Bilibili SESSDATA", re.compile(r"\bSESSDATA=(?!fixture\b|backup\b|example\b|test\b)[^;\s]{12,}", re.IGNORECASE)),
+    ("Bilibili csrf", re.compile(r"\bbili_jct=(?!fixture\b|backup\b|example\b|test\b)[0-9a-f]{16,}", re.IGNORECASE)),
+    ("Weibo SUB cookie", re.compile(r"\bSUB=(?!fixture\b|example\b|test\b)[^;\s]{12,}", re.IGNORECASE)),
+    ("Douyin sessionid", re.compile(r"\bsessionid=(?!fixture\b|example\b|test\b)[0-9a-f]{16,}", re.IGNORECASE)),
 ]
 
 STRICT_OPENAPI_PATHS = {
@@ -208,6 +223,17 @@ def validate_fixture_refs(documents: list[Any]) -> None:
             load_any(ref_path)
 
 
+def validate_fixture_secret_scan() -> None:
+    for path in sorted(FIXTURES.rglob("*")):
+        if not path.is_file() or path.suffix not in {".json", ".yaml", ".yml"}:
+            continue
+        text = path.read_text(encoding="utf-8")
+        for label, pattern in FIXTURE_SECRET_PATTERNS:
+            match = pattern.search(text)
+            if match:
+                fail(f"{path.relative_to(ROOT)} contains possible real {label}: {match.group(0)}")
+
+
 def validate_openapi_basic(web_api: dict[str, Any]) -> None:
     if web_api.get("openapi") != "3.1.0":
         fail("contracts/web-api.openapi.yaml must use OpenAPI 3.1.0")
@@ -268,6 +294,7 @@ def validate_pr() -> dict[str, Any]:
     validate_required_files()
     documents = validate_parseable_documents()
     validate_fixture_refs(documents)
+    validate_fixture_secret_scan()
 
     web_api = require_object(load_yaml(CONTRACTS / "web-api.openapi.yaml"), "web-api")
     websocket_events = require_object(load_yaml(CONTRACTS / "websocket-events.yaml"), "websocket-events")

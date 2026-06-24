@@ -1,0 +1,33 @@
+{
+  "schema_version": 1,
+  "allowed_files": {
+    "server/internal/cli/reset_admin.go": "Admin reset command clears a fixed set of authentication tables.",
+    "server/internal/integrations/bilibili/source/source_status.go": "Bilibili source status repository writes source runtime state.",
+    "server/internal/integrations/bilibili/source/state/repository.go": "Bilibili source state repository owns room and dynamic state queries.",
+    "server/internal/logging/repository/repository.go": "Management log repository writes structured log rows.",
+    "server/internal/logging/repository/repository_page.go": "Management log repository reads paged cursor state.",
+    "server/internal/logging/repository/repository_query.go": "Management log repository builds filtered log-list queries.",
+    "server/internal/logging/repository/repository_query_detail.go": "Management log repository loads detail rows and prunes old rows.",
+    "server/internal/logging/repository/repository_query_page.go": "Management log repository builds cursor-window queries.",
+    "server/internal/permission/blacklist.go": "Permission repository owns blacklist read and write queries.",
+    "server/internal/permission/whitelist.go": "Permission repository owns whitelist read and write queries.",
+    "server/internal/plugins/configstore/repository_read.go": "Plugin config store builds scoped read queries with optional filters.",
+    "server/internal/plugins/kvstore/repository_list.go": "Plugin KV store builds scoped list queries with pagination.",
+    "server/internal/render/repository/repository_load.go": "Render template repository loads template state and existence checks.",
+    "server/internal/render/repository/repository_plugins.go": "Render template repository updates plugin-owned template state.",
+    "server/internal/render/repository/repository_queries.go": "Render template repository lists template state.",
+    "server/internal/render/repository/repository_sql.go": "Render template repository owns local upsert and delete statements.",
+    "server/internal/render/repository/repository_sync.go": "Render template repository synchronizes desired template state in a transaction.",
+    "server/internal/render/repository/repository_validation.go": "Render template repository validates source-package ownership.",
+    "server/internal/render/repository/repository_versions.go": "Render template repository lists version snapshots.",
+    "server/internal/secrets/secrets.go": "Secret store repository owns secret_store CRUD.",
+    "server/internal/storage/integrity.go": "Storage integrity check uses SQLite PRAGMA quick_check.",
+    "server/internal/storage/snapshot.go": "Storage snapshot uses SQLite PRAGMA and VACUUM INTO.",
+    "server/internal/storage/store_lifecycle.go": "Storage lifecycle runs WAL checkpoint maintenance.",
+    "server/internal/storage/store_open.go": "Storage open configures SQLite PRAGMA settings.",
+    "server/internal/storage/store_schema.go": "Storage migration runner applies migration files and records schema_migrations.",
+    "server/internal/integrations/thirdparty/accounts_query.go": "Third-party account repository owns account list queries.",
+    "server/internal/integrations/thirdparty/accounts_secret.go": "Third-party account repository updates account secret references.",
+    "server/internal/integrations/thirdparty/accounts_write.go": "Third-party account repository owns account write queries."
+  }
+}

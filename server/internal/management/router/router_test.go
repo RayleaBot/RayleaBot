@@ -2,10 +2,14 @@ package router
 
 import (
 	"net/http"
+	"os"
+	"path/filepath"
 	"sort"
+	"strings"
 	"testing"
 
 	"github.com/go-chi/chi/v5"
+	"gopkg.in/yaml.v3"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/management/authapi"
 	"github.com/RayleaBot/RayleaBot/server/internal/management/bilibiliapi"
@@ -69,83 +73,7 @@ func TestRegisterManagementRoutes(t *testing.T) {
 	}
 	sort.Strings(got)
 
-	want := []string{
-		"DELETE /api/governance/blacklist/entries/{entry_type}/{target_id}",
-		"DELETE /api/governance/whitelist/entries/{entry_type}/{target_id}",
-		"DELETE /api/plugins/{plugin_id}",
-		"DELETE /api/session",
-		"DELETE /api/third-party/accounts/{platform}/{account_id}",
-		"GET /api/bilibili/login/qrcode/{login_id}",
-		"GET /api/bilibili/source/status",
-		"GET /api/bilibili/users/resolve",
-		"GET /api/config",
-		"GET /api/governance/blacklist",
-		"GET /api/governance/command-policy",
-		"GET /api/governance/whitelist",
-		"GET /api/launcher/status",
-		"GET /api/logs",
-		"GET /api/logs/{log_id}",
-		"GET /api/plugins",
-		"GET /api/plugins/{plugin_id}",
-		"GET /api/plugins/{plugin_id}/secrets",
-		"GET /api/plugins/{plugin_id}/settings",
-		"GET /api/protocols/onebot11",
-		"GET /api/protocols/onebot11/compatibility",
-		"GET /api/protocols/onebot11/reverse-ws",
-		"GET /api/protocols/onebot11/targets",
-		"GET /api/setup/status",
-		"GET /api/system/diagnostics/export",
-		"GET /api/system/metrics",
-		"GET /api/system/render/templates",
-		"GET /api/system/render/templates/{template_id}",
-		"GET /api/system/render/templates/{template_id}/asset",
-		"GET /api/system/scheduler/jobs",
-		"GET /api/system/status",
-		"GET /api/tasks",
-		"GET /api/tasks/{task_id}",
-		"GET /api/third-party/accounts",
-		"GET /api/third-party/accounts/{platform}/login/qrcode/{login_id}",
-		"GET /api/third-party/media",
-		"GET /api/third-party/monitors",
-		"GET /api/third-party/users/resolve",
-		"GET /healthz",
-		"GET /plugin-ui/{plugin_id}/*",
-		"GET /readyz",
-		"GET /ws/events",
-		"GET /ws/logs",
-		"GET /ws/plugins/{id}/console",
-		"GET /ws/tasks",
-		"HEAD /plugin-ui/{plugin_id}/*",
-		"POST /api/bilibili/login/qrcode",
-		"POST /api/bilibili/source/restart",
-		"POST /api/governance/blacklist/entries",
-		"POST /api/governance/whitelist/entries",
-		"POST /api/launcher/shutdown",
-		"POST /api/plugins/{plugin_id}/disable",
-		"POST /api/plugins/{plugin_id}/enable",
-		"POST /api/plugins/{plugin_id}/reload",
-		"POST /api/plugins/{plugin_id}/recover",
-		"POST /api/plugins/install",
-		"POST /api/protocols/onebot11/identities/resolve",
-		"POST /api/protocols/onebot11/webhook",
-		"POST /api/session/login",
-		"POST /api/setup/admin",
-		"POST /api/third-party/accounts/{platform}/login/qrcode",
-		"POST /api/system/backup",
-		"POST /api/system/recovery/confirm",
-		"POST /api/system/recovery/recheck",
-		"POST /api/system/render/templates/{template_id}/preview-html",
-		"POST /api/system/runtime/bootstrap",
-		"POST /api/system/scheduler/jobs/{job_id}/trigger",
-		"POST /api/system/shutdown",
-		"POST /api/tasks/{task_id}/cancel",
-		"POST /api/webhooks/{plugin_id}/{route}",
-		"PUT /api/config",
-		"PUT /api/governance/whitelist/state",
-		"PUT /api/plugins/{plugin_id}/secrets",
-		"PUT /api/plugins/{plugin_id}/settings",
-		"PUT /api/third-party/accounts/{platform}/{account_id}",
-	}
+	want := expectedRoutesFromContracts(t)
 	sort.Strings(want)
 
 	if len(got) != len(want) {
@@ -155,5 +83,100 @@ func TestRegisterManagementRoutes(t *testing.T) {
 		if got[i] != want[i] {
 			t.Fatalf("route %d mismatch: got %q want %q\nroutes: %#v", i, got[i], want[i], got)
 		}
+	}
+}
+
+func expectedRoutesFromContracts(t *testing.T) []string {
+	t.Helper()
+
+	routes := map[string]struct{}{}
+	addOpenAPIRoutes(t, routes)
+	addWebSocketRoutes(t, routes)
+	addPluginUIRoutes(t, routes)
+
+	result := make([]string, 0, len(routes))
+	for route := range routes {
+		result = append(result, route)
+	}
+	return result
+}
+
+func addOpenAPIRoutes(t *testing.T, routes map[string]struct{}) {
+	t.Helper()
+
+	var document struct {
+		Paths map[string]map[string]any `yaml:"paths"`
+	}
+	readContractYAML(t, "web-api.openapi.yaml", &document)
+
+	for path, operations := range document.Paths {
+		for method := range operations {
+			if !isHTTPMethod(method) {
+				continue
+			}
+			routes[strings.ToUpper(method)+" "+path] = struct{}{}
+		}
+	}
+}
+
+func addWebSocketRoutes(t *testing.T, routes map[string]struct{}) {
+	t.Helper()
+
+	var document struct {
+		Channels []struct {
+			Path string `yaml:"path"`
+		} `yaml:"channels"`
+	}
+	readContractYAML(t, "websocket-events.yaml", &document)
+
+	for _, channel := range document.Channels {
+		if channel.Path == "" {
+			continue
+		}
+		routes["GET "+channel.Path] = struct{}{}
+	}
+}
+
+func addPluginUIRoutes(t *testing.T, routes map[string]struct{}) {
+	t.Helper()
+
+	var document struct {
+		StaticRoute struct {
+			PathTemplate string   `yaml:"path_template"`
+			Methods      []string `yaml:"methods"`
+		} `yaml:"static_route"`
+	}
+	readContractYAML(t, "plugin-management-ui.yaml", &document)
+
+	path := strings.TrimSpace(document.StaticRoute.PathTemplate)
+	path = strings.Replace(path, "{asset_path}", "*", 1)
+	for _, method := range document.StaticRoute.Methods {
+		method = strings.ToUpper(strings.TrimSpace(method))
+		if method == "" {
+			continue
+		}
+		routes[method+" "+path] = struct{}{}
+	}
+}
+
+func readContractYAML(t *testing.T, name string, out any) {
+	t.Helper()
+
+	path := filepath.Join("..", "..", "..", "..", "contracts", name)
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read %s: %v", path, err)
+	}
+	if err := yaml.Unmarshal(raw, out); err != nil {
+		t.Fatalf("parse %s: %v", path, err)
+	}
+}
+
+func isHTTPMethod(method string) bool {
+	switch strings.ToLower(strings.TrimSpace(method)) {
+	case "delete", "get", "head", "patch", "post", "put":
+		return true
+	default:
+		return false
 	}
 }
