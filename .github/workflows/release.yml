@@ -5,8 +5,13 @@ on:
     tags:
       - "v*"
 
+permissions:
+  contents: read
+
 jobs:
   build-full:
+    permissions:
+      contents: read
     strategy:
       fail-fast: false
       matrix:
@@ -92,7 +97,7 @@ jobs:
           VERSION="${GITHUB_REF_NAME#v}"
           GIT_COMMIT="$(git rev-parse --short HEAD)"
           RELEASE_NOTES_REF="https://github.com/${GITHUB_REPOSITORY}/releases/tag/${GITHUB_REF_NAME}"
-          python scripts/release/release_tool.py package \
+          python scripts/release/package_artifact.py \
             --artifact-id "${{ matrix.artifact_id }}" \
             --version "$VERSION" \
             --git-commit "$GIT_COMMIT" \
@@ -104,20 +109,13 @@ jobs:
             --deps-dir .deps \
             --templates-dir templates \
             --default-config config/default.yaml \
-            --output-dir dist/release
-          python scripts/release/smoke_release.py \
-            --artifact-id "${{ matrix.artifact_id }}" \
-            --archive "dist/release/RayleaBot-v${VERSION}-${{ matrix.artifact_id }}${{ matrix.archive_suffix }}"
-          python scripts/release/recovery_drill.py \
-            --artifact-id "${{ matrix.artifact_id }}" \
-            --archive "dist/release/RayleaBot-v${VERSION}-${{ matrix.artifact_id }}${{ matrix.archive_suffix }}" \
+            --output-dir dist/release \
+            --run-smoke \
+            --run-recovery-drill \
+            --run-self-host-smoke \
             --repository "$GITHUB_REPOSITORY" \
-            --current-version "$VERSION" \
             --download-dir dist/release/recovery-bootstrap \
-            --observation-window-seconds 300
-          python scripts/release/self_host_smoke.py \
-            --artifact-id "${{ matrix.artifact_id }}" \
-            --archive "dist/release/RayleaBot-v${VERSION}-${{ matrix.artifact_id }}${{ matrix.archive_suffix }}" \
+            --observation-window-seconds 300 \
             --window-seconds 600 \
             --probe-interval-seconds 30
 
@@ -130,6 +128,8 @@ jobs:
             dist/release/RayleaBot-v*-${{ matrix.artifact_id }}${{ matrix.archive_suffix }}.artifact.json
 
   build-linux-server:
+    permissions:
+      contents: read
     runs-on: ubuntu-latest
 
     steps:
@@ -169,20 +169,6 @@ jobs:
         working-directory: web
         run: pnpm build
 
-      - name: Install launcher dependencies
-        working-directory: launcher
-        run: pnpm install --frozen-lockfile
-
-      - name: Run launcher tests
-        working-directory: launcher
-        run: pnpm test
-
-      - name: Build launcher
-        working-directory: launcher
-        env:
-          CSC_IDENTITY_AUTO_DISCOVERY: "false"
-        run: pnpm build
-
       - name: Package linux server artifact
         shell: bash
         run: |
@@ -190,7 +176,7 @@ jobs:
           VERSION="${GITHUB_REF_NAME#v}"
           GIT_COMMIT="$(git rev-parse --short HEAD)"
           RELEASE_NOTES_REF="https://github.com/${GITHUB_REPOSITORY}/releases/tag/${GITHUB_REF_NAME}"
-          python scripts/release/release_tool.py package \
+          python scripts/release/package_artifact.py \
             --artifact-id linux-x64-server \
             --version "$VERSION" \
             --git-commit "$GIT_COMMIT" \
@@ -202,20 +188,13 @@ jobs:
             --templates-dir templates \
             --default-config config/default.yaml \
             --systemd-file packaging/systemd/rayleabot.service \
-            --output-dir dist/release
-          python scripts/release/smoke_release.py \
-            --artifact-id linux-x64-server \
-            --archive dist/release/RayleaBot-v${VERSION}-linux-x64-server.tar.gz
-          python scripts/release/recovery_drill.py \
-            --artifact-id linux-x64-server \
-            --archive dist/release/RayleaBot-v${VERSION}-linux-x64-server.tar.gz \
+            --output-dir dist/release \
+            --run-smoke \
+            --run-recovery-drill \
+            --run-self-host-smoke \
             --repository "$GITHUB_REPOSITORY" \
-            --current-version "$VERSION" \
             --download-dir dist/release/recovery-bootstrap \
-            --observation-window-seconds 300
-          python scripts/release/self_host_smoke.py \
-            --artifact-id linux-x64-server \
-            --archive dist/release/RayleaBot-v${VERSION}-linux-x64-server.tar.gz \
+            --observation-window-seconds 300 \
             --window-seconds 600 \
             --probe-interval-seconds 30
 
@@ -228,6 +207,8 @@ jobs:
             dist/release/RayleaBot-v*-linux-x64-server.tar.gz.artifact.json
 
   publish:
+    permissions:
+      contents: write
     runs-on: ubuntu-latest
     needs:
       - build-full

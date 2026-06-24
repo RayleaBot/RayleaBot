@@ -28,6 +28,9 @@ on:
 env:
   SMOKE_VERSION: 9999.0.0-self-host
 
+permissions:
+  contents: read
+
 jobs:
   package-and-probe:
     strategy:
@@ -36,28 +39,24 @@ jobs:
         include:
           - artifact_id: windows-x64-full
             runner: windows-latest
-            archive: dist/release/RayleaBot-v${VERSION}-windows-x64-full.zip
             server_bin: dist/server/raylea-server.exe
             launcher_required: true
             launcher_bundle: launcher/dist/package/win-unpacked
             systemd_file: ""
           - artifact_id: linux-x64-full
             runner: ubuntu-latest
-            archive: dist/release/RayleaBot-v${VERSION}-linux-x64-full.tar.gz
             server_bin: dist/server/raylea-server
             launcher_required: true
             launcher_bundle: launcher/dist/package/linux-unpacked
             systemd_file: ""
           - artifact_id: linux-x64-server
             runner: ubuntu-latest
-            archive: dist/release/RayleaBot-v${VERSION}-linux-x64-server.tar.gz
             server_bin: dist/server/raylea-server
             launcher_required: false
             launcher_bundle: ""
             systemd_file: packaging/systemd/rayleabot.service
           - artifact_id: macos-arm64-full
             runner: macos-14
-            archive: dist/release/RayleaBot-v${VERSION}-macos-arm64-full.tar.gz
             server_bin: dist/server/raylea-server
             launcher_required: true
             launcher_bundle: launcher/dist/package/mac-arm64/RayleaLauncher.app
@@ -142,7 +141,7 @@ jobs:
           CSC_IDENTITY_AUTO_DISCOVERY: "false"
         run: pnpm build
 
-      - name: Package artifact
+      - name: Package and probe artifact
         if: steps.filter.outputs.selected == 'true'
         shell: bash
         run: |
@@ -162,6 +161,11 @@ jobs:
             --templates-dir templates
             --default-config config/default.yaml
             --output-dir dist/release
+            --run-smoke
+            --run-recovery-drill
+            --run-self-host-smoke
+            --window-seconds "${{ github.event.inputs.window_seconds }}"
+            --probe-interval-seconds "${{ github.event.inputs.probe_interval_seconds }}"
           )
           if [ "${{ matrix.launcher_required }}" = "true" ]; then
             PACKAGE_ARGS+=(--launcher-bundle "${{ matrix.launcher_bundle }}")
@@ -169,23 +173,14 @@ jobs:
           if [ -n "${{ matrix.systemd_file }}" ]; then
             PACKAGE_ARGS+=(--systemd-file "${{ matrix.systemd_file }}")
           fi
-          python scripts/release/release_tool.py package "${PACKAGE_ARGS[@]}"
+          python scripts/release/package_artifact.py "${PACKAGE_ARGS[@]}"
 
-      - name: Run packaged smoke checks
-        if: steps.filter.outputs.selected == 'true'
-        shell: bash
-        run: |
-          set -euo pipefail
-          VERSION="$SMOKE_VERSION"
-          ARCHIVE="${{ matrix.archive }}"
-          python scripts/release/smoke_release.py \
-            --artifact-id "${{ matrix.artifact_id }}" \
-            --archive "$ARCHIVE"
-          python scripts/release/recovery_drill.py \
-            --artifact-id "${{ matrix.artifact_id }}" \
-            --archive "$ARCHIVE"
-          python scripts/release/self_host_smoke.py \
-            --artifact-id "${{ matrix.artifact_id }}" \
-            --archive "$ARCHIVE" \
-            --window-seconds "${{ github.event.inputs.window_seconds }}" \
-            --probe-interval-seconds "${{ github.event.inputs.probe_interval_seconds }}"
+      - name: Upload smoke diagnostics
+        if: always() && steps.filter.outputs.selected == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact_id }}-self-host-smoke-diagnostics
+          path: |
+            dist/release/**
+            logs/**
+          if-no-files-found: ignore
