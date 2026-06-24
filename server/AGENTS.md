@@ -38,6 +38,7 @@
 ## Cross-Surface Checks
 
 - Web API 或共享 schema 改动时，同时检查 Web 与 Launcher 的生成类型是否需要更新。
+- 修改 `server/internal/storage/migrations/*.sql` 或 `server/internal/sqlcqueries/*.sql` 时，运行 `sqlc generate`，提交 `server/internal/sqlcgen/` 生成结果，并用 `sqlc diff` 确认无漂移。
 - 不在 `server/` 复制 contract 真相；实现消费它们，而不是再维护一套平行常量和文档。
 
 ## Consult Before Major Changes
