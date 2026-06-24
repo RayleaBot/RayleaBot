@@ -279,6 +279,62 @@ def validate_config_basic(config_schema: dict[str, Any]) -> None:
     for field in ["schema_version", "server", "onebot", "admin", "permission", "database"]:
         if field not in properties:
             fail(f"config.user.schema.json missing property: {field}")
+    validate_config_field_metadata(config_schema)
+
+
+def iter_config_schema_leaves(
+    config_schema: dict[str, Any],
+    node: dict[str, Any],
+    prefix: str,
+) -> list[tuple[str, dict[str, Any]]]:
+    ref = node.get("$ref")
+    if isinstance(ref, str):
+        ref_prefix = "#/$defs/"
+        if not ref.startswith(ref_prefix):
+            fail(f"config.user.schema.json unsupported $ref: {ref}")
+        defs = require_object(config_schema.get("$defs"), "config schema $defs")
+        target = require_object(defs.get(ref.removeprefix(ref_prefix)), f"config schema ref {ref}")
+        return iter_config_schema_leaves(config_schema, target, prefix)
+
+    properties = node.get("properties")
+    if isinstance(properties, dict) and properties:
+        leaves: list[tuple[str, dict[str, Any]]] = []
+        for key, child in properties.items():
+            leaves.extend(
+                iter_config_schema_leaves(
+                    config_schema,
+                    require_object(child, f"config schema property {prefix}.{key}"),
+                    f"{prefix}.{key}" if prefix else key,
+                )
+            )
+        return leaves
+
+    if not prefix:
+        return []
+    return [(prefix, node)]
+
+
+def validate_config_field_metadata(config_schema: dict[str, Any]) -> None:
+    allowed_apply_policies = {"hot_reload", "adapter_reload", "restart_required", "secret_only", "read_only"}
+    leaves = iter_config_schema_leaves(config_schema, config_schema, "")
+    missing_apply_policy: list[str] = []
+    invalid_apply_policy: list[str] = []
+    missing_redaction: list[str] = []
+    for path, node in leaves:
+        apply_policy = node.get("x-apply-policy")
+        if not isinstance(apply_policy, str) or not apply_policy:
+            missing_apply_policy.append(path)
+        elif apply_policy not in allowed_apply_policies:
+            invalid_apply_policy.append(f"{path}={apply_policy}")
+        if node.get("x-secret") is True and not node.get("x-redaction"):
+            missing_redaction.append(path)
+
+    if missing_apply_policy:
+        fail(f"config.user.schema.json fields missing x-apply-policy: {missing_apply_policy}")
+    if invalid_apply_policy:
+        fail(f"config.user.schema.json fields have invalid x-apply-policy: {invalid_apply_policy}")
+    if missing_redaction:
+        fail(f"config.user.schema.json secret fields missing x-redaction: {missing_redaction}")
 
 
 def validate_release_basic(release_schema: dict[str, Any]) -> None:

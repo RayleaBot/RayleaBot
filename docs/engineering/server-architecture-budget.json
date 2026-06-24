@@ -1,0 +1,109 @@
+{
+  "version": 1,
+  "metrics": {
+    "production_package_count": {
+      "current": 141,
+      "max": 141,
+      "first_stage_target": 145,
+      "second_stage_target": 135,
+      "long_term_target": 115
+    },
+    "single_file_production_package_count": {
+      "current": 37,
+      "max": 37,
+      "first_stage_target": 40,
+      "second_stage_target": 32,
+      "long_term_target": 20
+    },
+    "two_file_production_package_count": {
+      "current": 15,
+      "max": 15,
+      "first_stage_target": 14,
+      "second_stage_target": 10,
+      "long_term_target": 8
+    },
+    "internal_app_external_internal_import_union": {
+      "current": 56,
+      "max": 56,
+      "first_stage_target": 65,
+      "second_stage_target": 55,
+      "long_term_target": 45
+    },
+    "module_go_single_file_package_count": {
+      "current": 4,
+      "max": 4,
+      "first_stage_target": 3,
+      "second_stage_target": 2,
+      "long_term_target": 0
+    },
+    "server_directory_count": {
+      "current": 163,
+      "max": 163,
+      "first_stage_target": 165,
+      "second_stage_target": 155,
+      "long_term_target": 130
+    }
+  },
+  "package_internal_fan_out": {
+    "internal/app/httpwire/routemodule": {
+      "current": 11,
+      "max": 11,
+      "first_stage_target": 25,
+      "second_stage_target": 18,
+      "long_term_target": 12
+    },
+    "internal/app/servicegraph/pluginmodule": {
+      "current": 17,
+      "max": 17,
+      "first_stage_target": 18,
+      "second_stage_target": 14,
+      "long_term_target": 10
+    },
+    "internal/app/servicegraph/integrationmodule": {
+      "current": 13,
+      "max": 13,
+      "first_stage_target": 16,
+      "second_stage_target": 12,
+      "long_term_target": 8
+    }
+  },
+  "single_file_production_package_allowlist": {
+    "internal/app/httpwire": "composition entrypoint retained until route modules move behind management modules",
+    "internal/app/httpwire/configmodule": "composition module retained until config handler construction moves behind management module registration",
+    "internal/app/httpwire/routemodule": "composition module retained until route registration moves behind domain modules",
+    "internal/app/platform": "composition state holder retained until platform bootstrap is flattened",
+    "internal/app/servicegraph/integrationmodule": "composition module retained until integrations expose a self-contained module",
+    "internal/app/servicegraph/pluginmodule": "composition module retained until plugins expose a self-contained module",
+    "internal/bot/adapter/onebot11/shell/backoff": "small retry policy retained as adapter shell detail",
+    "internal/command": "command parser retained as shared domain utility",
+    "internal/console": "console stream retained as shared runtime service",
+    "internal/health": "health model retained as shared server readiness surface",
+    "internal/httpapi": "HTTP envelope and request context retained as shared management utility",
+    "internal/integrations/bilibili/accountusage": "Bilibili account selection retained until integration provider boundaries are consolidated",
+    "internal/integrations/bilibili/credential": "Bilibili credential injection retained until HTTP action integration is consolidated",
+    "internal/integrations/bilibili/diagnostics": "Bilibili diagnostics retained until health aggregation owns integration health",
+    "internal/integrations/bilibili/media": "Bilibili media proxy retained until media providers are grouped",
+    "internal/integrations/bilibili/proxy": "Bilibili proxy helper retained until media providers are grouped",
+    "internal/integrations/bilibili/source/state": "Bilibili source repository retained until source storage packages are consolidated",
+    "internal/integrations/bilibili/subscriptions": "Bilibili subscription projection retained until provider configuration is consolidated",
+    "internal/integrations/bilibili/values": "Bilibili value helpers retained until provider packages are consolidated",
+    "internal/management/authhttp": "auth middleware retained as management HTTP boundary",
+    "internal/management/ui": "management UI static handler retained as web surface boundary",
+    "internal/plugins/actions/configaction": "single action adapter retained until plugin actions are flattened",
+    "internal/plugins/actions/governanceaction": "single action adapter retained until plugin actions are flattened",
+    "internal/plugins/actions/logaction": "single action adapter retained until plugin actions are flattened",
+    "internal/plugins/actions/renderaction": "single action adapter retained until plugin actions are flattened",
+    "internal/plugins/actions/scheduleraction": "single action adapter retained until plugin actions are flattened",
+    "internal/plugins/actions/secretaction": "single action adapter retained until plugin actions are flattened",
+    "internal/plugins/actions/webhookaction": "single action adapter retained until plugin actions are flattened",
+    "internal/plugins/capabilityview": "capability projection retained until plugin read models are consolidated",
+    "internal/plugins/runtime/registry": "runtime registry retained as shared runtime boundary",
+    "internal/protocol/onebot": "OneBot protocol constants retained as adapter contract helper",
+    "internal/render/engine": "render engine worker retained until render package split is reviewed",
+    "internal/runtimepaths": "runtime path helper retained as shared platform utility",
+    "internal/schema": "schema validator retained as shared contract utility",
+    "internal/system/model": "system model retained until health and status models are consolidated",
+    "internal/testapp": "test app harness retained for integration tests",
+    "internal/textsafe": "text safety helper retained until redaction utilities are consolidated"
+  }
+}

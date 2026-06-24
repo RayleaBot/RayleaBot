@@ -58,7 +58,7 @@ jobs:
         run: python -m pip install --disable-pip-version-check pyyaml
 
       - name: Validate contracts
-        run: python scripts/ci/validate_contracts.py --mode=pr
+        run: python scripts/ci/validate_contracts.py --mode=strict
 
   server:
     if: needs.changes.outputs.server == 'true' || needs.changes.outputs.contracts == 'true'
@@ -74,6 +74,12 @@ jobs:
         with:
           go-version-file: server/go.mod
           cache-dependency-path: server/go.sum
+
+      - name: Check Go toolchain
+        run: python scripts/check-toolchain.py
+
+      - name: Check server structure
+        run: python scripts/check-server-structure.py
 
       - name: Run go test
         working-directory: server
@@ -273,7 +279,7 @@ jobs:
         run: |
           python -m py_compile scripts/ci/*.py
           python scripts/ci/detect_changes.py --self-test
-          python scripts/ci/validate_contracts.py --mode=pr
+          python scripts/ci/validate_contracts.py --mode=strict
 
   ci-required:
     if: always()

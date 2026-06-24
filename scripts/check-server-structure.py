@@ -5,6 +5,7 @@ import ast
 import json
 import re
 import sys
+from collections import Counter
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -75,6 +76,7 @@ def main() -> int:
     errors: list[str] = []
     warnings: list[str] = []
     manual_sql_exceptions = load_manual_sql_exceptions(root, errors)
+    metric_lines = check_architecture_budget(files, root, errors)
 
     check_package_sizes(files, warnings, errors)
     check_file_sizes(files, warnings, errors)
@@ -85,6 +87,8 @@ def main() -> int:
     check_process_exit_calls(files, errors)
     check_manual_sql_exceptions(files, root, manual_sql_exceptions, errors)
 
+    for message in metric_lines:
+        print(message)
     for message in warnings:
         print(f"WARN {message}")
     for message in errors:
@@ -291,6 +295,104 @@ def check_manual_sql_exceptions(files: list[GoFile], root: Path, registry: dict[
             errors.append(f"docs/engineering/manual-sql-exceptions.json references missing file {rel}")
         elif rel not in raw_sql_files:
             errors.append(f"docs/engineering/manual-sql-exceptions.json lists {rel}, but no handwritten SQL was found")
+
+
+def check_architecture_budget(files: list[GoFile], root: Path, errors: list[str]) -> list[str]:
+    budget_path = root / "docs" / "engineering" / "server-architecture-budget.json"
+    try:
+        budget = json.loads(budget_path.read_text(encoding="utf-8"))
+    except FileNotFoundError:
+        errors.append(f"{budget_path.relative_to(root).as_posix()} is missing")
+        return []
+    except json.JSONDecodeError as exc:
+        errors.append(f"{budget_path.relative_to(root).as_posix()} is invalid JSON: {exc}")
+        return []
+
+    production_files = [file for file in files if not file.is_test and not file.is_generated]
+    package_files: dict[str, list[GoFile]] = {}
+    package_imports: dict[str, set[str]] = {}
+    app_external_imports: set[str] = set()
+    for file in production_files:
+        package_files.setdefault(file.package_dir, []).append(file)
+        imports = package_imports.setdefault(file.package_dir, set())
+        for imported in file.imports:
+            if not imported.startswith(INTERNAL_PREFIX):
+                continue
+            rel_import = imported.removeprefix(MODULE + "/")
+            imports.add(rel_import)
+            if file.package_dir == "internal/app" or file.package_dir.startswith("internal/app/"):
+                if not rel_import.startswith("internal/app"):
+                    app_external_imports.add(rel_import)
+
+    single_file_packages = {package_dir: package_files for package_dir, package_files in package_files.items() if len(package_files) == 1}
+    server_root = root / "server"
+    server_directory_count = sum(
+        1
+        for path in server_root.rglob("*")
+        if path.is_dir() and not {".git", "dist", ".gocache"}.intersection(path.parts)
+    )
+    metrics = {
+        "production_package_count": len(package_files),
+        "single_file_production_package_count": len(single_file_packages),
+        "two_file_production_package_count": sum(1 for package_files in package_files.values() if len(package_files) == 2),
+        "internal_app_external_internal_import_union": len(app_external_imports),
+        "module_go_single_file_package_count": sum(1 for package_files in single_file_packages.values() if package_files[0].path.name == "module.go"),
+        "server_directory_count": server_directory_count,
+    }
+
+    metric_lines = [f"METRIC {name}={value}" for name, value in sorted(metrics.items())]
+    generic_counts = Counter(file.path.name for file in production_files if file.path.name in {"routes.go", "repository.go", "http.go", "registry.go", "module.go", "config.go", "errors.go"})
+    for name, value in sorted(generic_counts.items()):
+        metric_lines.append(f"METRIC generic_filename.{name}={value}")
+
+    budget_metrics = budget.get("metrics", {})
+    if not isinstance(budget_metrics, dict):
+        errors.append(f"{budget_path.relative_to(root).as_posix()} metrics must be an object")
+        budget_metrics = {}
+    for name, value in metrics.items():
+        maximum = budget_metric_max(budget_metrics, name, errors, budget_path, root)
+        if maximum is not None and value > maximum:
+            errors.append(f"{name} {value} exceeds architecture budget {maximum}")
+
+    fan_out_budget = budget.get("package_internal_fan_out", {})
+    if not isinstance(fan_out_budget, dict):
+        errors.append(f"{budget_path.relative_to(root).as_posix()} package_internal_fan_out must be an object")
+        fan_out_budget = {}
+    for package_dir, entry in sorted(fan_out_budget.items()):
+        maximum = budget_entry_max(entry, errors, budget_path, root, f"package_internal_fan_out.{package_dir}")
+        value = len(package_imports.get(package_dir, set()))
+        metric_lines.append(f"METRIC package_internal_fan_out.{package_dir}={value}")
+        if maximum is not None and value > maximum:
+            errors.append(f"{package_dir} internal fan-out {value} exceeds architecture budget {maximum}")
+
+    allowlist = budget.get("single_file_production_package_allowlist", {})
+    if not isinstance(allowlist, dict):
+        errors.append(f"{budget_path.relative_to(root).as_posix()} single_file_production_package_allowlist must be an object")
+        allowlist = {}
+    for package_dir in sorted(single_file_packages):
+        reason = allowlist.get(package_dir)
+        if not isinstance(reason, str) or not reason.strip():
+            errors.append(f"{package_dir} is a single-file production package without an allowlist reason")
+    for package_dir in sorted(allowlist):
+        if package_dir not in single_file_packages:
+            errors.append(f"single-file package allowlist references {package_dir}, but it is not currently a single-file production package")
+
+    return metric_lines
+
+
+def budget_metric_max(metrics: dict[str, object], name: str, errors: list[str], budget_path: Path, root: Path) -> int | None:
+    return budget_entry_max(metrics.get(name), errors, budget_path, root, f"metrics.{name}")
+
+
+def budget_entry_max(entry: object, errors: list[str], budget_path: Path, root: Path, name: str) -> int | None:
+    if not isinstance(entry, dict):
+        errors.append(f"{budget_path.relative_to(root).as_posix()} missing {name}")
+        return None
+    maximum = entry.get("max")
+    if not isinstance(maximum, int):
+        errors.append(f"{budget_path.relative_to(root).as_posix()} {name}.max must be an integer")
+        return None
+    return maximum
 
 
 if __name__ == "__main__":

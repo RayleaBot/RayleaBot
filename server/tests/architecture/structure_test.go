@@ -50,8 +50,7 @@ func TestManagementPackagesDoNotLeakIntoDomainPackages(t *testing.T) {
 // the app composition root:
 // platform -> pluginstack -> renderstack -> eventstack -> servicegraph -> httpwire.
 // A lower layer must never import a higher one, and only internal/app itself may
-// reach across all composition sub-packages. actionwire is a leaf helper for
-// service assembly, not a state stack.
+// reach across all composition sub-packages.
 func TestCompositionRootLayering(t *testing.T) {
 	serverRoot := testServerRoot(t)
 	appRoot := filepath.Join(serverRoot, "internal", "app")
@@ -61,17 +60,15 @@ func TestCompositionRootLayering(t *testing.T) {
 		pluginstack  = appImportPrefix + "/pluginstack"
 		renderstack  = appImportPrefix + "/renderstack"
 		eventstack   = appImportPrefix + "/eventstack"
-		actionwire   = appImportPrefix + "/actionwire"
 		servicegraph = appImportPrefix + "/servicegraph"
 		httpwire     = appImportPrefix + "/httpwire"
 	)
 	// forbidden maps a sub-package directory to the higher layers it must not import.
 	forbidden := map[string][]string{
-		"platform":     {pluginstack, renderstack, eventstack, actionwire, servicegraph, httpwire},
-		"pluginstack":  {renderstack, eventstack, actionwire, servicegraph, httpwire},
+		"platform":     {pluginstack, renderstack, eventstack, servicegraph, httpwire},
+		"pluginstack":  {renderstack, eventstack, servicegraph, httpwire},
 		"renderstack":  {eventstack, servicegraph, httpwire},
 		"eventstack":   {servicegraph, httpwire},
-		"actionwire":   {renderstack, eventstack, servicegraph, httpwire},
 		"servicegraph": {httpwire},
 	}
 
@@ -197,7 +194,9 @@ func TestRenderImplementationPackagesStayBehindServiceBoundary(t *testing.T) {
 		modulePrefix + "render/catalog",
 		modulePrefix + "render/engine",
 		modulePrefix + "render/pluginsync",
+		modulePrefix + "render/plugintemplates",
 		modulePrefix + "render/repository",
+		modulePrefix + "render/templates",
 	}
 
 	walkGoFiles(t, internalRoot, func(path string) {
@@ -290,32 +289,6 @@ func TestProductionFilesStayReadable(t *testing.T) {
 	})
 }
 
-func TestInternalPackageCountsDoNotExceedBudget(t *testing.T) {
-	serverRoot := testServerRoot(t)
-	internalRoot := filepath.Join(serverRoot, "internal")
-	packages := map[string]int{}
-
-	walkGoFiles(t, internalRoot, func(path string) {
-		if strings.HasSuffix(path, "_test.go") || isGeneratedGoFile(path) {
-			return
-		}
-		packages[filepath.Dir(path)]++
-	})
-
-	singleFilePackages := 0
-	for _, count := range packages {
-		if count == 1 {
-			singleFilePackages++
-		}
-	}
-	if len(packages) > maxInternalProductionPackages {
-		t.Errorf("internal production packages = %d, budget is %d", len(packages), maxInternalProductionPackages)
-	}
-	if singleFilePackages > maxSingleFileProductionPackages {
-		t.Errorf("single-file production packages = %d, budget is %d", singleFilePackages, maxSingleFileProductionPackages)
-	}
-}
-
 func TestGenericProductionFilenamesDoNotExceedBudget(t *testing.T) {
 	serverRoot := testServerRoot(t)
 	internalRoot := filepath.Join(serverRoot, "internal")
@@ -369,6 +342,20 @@ func TestOversizedTestFilesDoNotExceedBudget(t *testing.T) {
 	if over1000 > maxTestFilesOver1000Lines {
 		t.Errorf("test files over 1000 lines = %d, budget is %d", over1000, maxTestFilesOver1000Lines)
 	}
+}
+
+func TestTestFilesUseScenarioNames(t *testing.T) {
+	serverRoot := testServerRoot(t)
+
+	walkGoFiles(t, serverRoot, func(path string) {
+		if !strings.HasSuffix(path, "_test.go") {
+			return
+		}
+		name := filepath.Base(path)
+		if strings.Contains(name, "_part2_") || strings.Contains(name, "_part3_") || strings.Contains(name, "_part4_") {
+			t.Errorf("%s uses numbered part naming; use a behavior or scenario name", relPath(t, serverRoot, path))
+		}
+	})
 }
 
 func fileImports(t *testing.T, serverRoot, path string) []string {
@@ -459,7 +446,22 @@ func relPath(t *testing.T, root, path string) string {
 
 func isGeneratedGoFile(path string) bool {
 	name := filepath.Base(path)
-	return strings.HasSuffix(name, "_gen.go") || strings.Contains(name, ".generated.")
+	if strings.HasSuffix(name, "_gen.go") || strings.HasSuffix(name, ".pb.go") || strings.Contains(name, ".generated.") {
+		return true
+	}
+	normalized := filepath.ToSlash(path)
+	if strings.Contains(normalized, "/internal/sqlcgen/") || strings.Contains(normalized, "/internal/schemaassets/") {
+		return true
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return false
+	}
+	limit := len(data)
+	if limit > 512 {
+		limit = 512
+	}
+	return strings.Contains(string(data[:limit]), "Code generated")
 }
 
 func countLines(path string) (int, error) {
