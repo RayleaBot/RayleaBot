@@ -1,6 +1,7 @@
 package configapi
 
 import (
+	"context"
 	"net/http"
 
 	internalconfig "github.com/RayleaBot/RayleaBot/server/internal/config"
@@ -30,7 +31,7 @@ type UpdateResponse struct {
 
 type Service interface {
 	CurrentConfigDocument() configruntime.Document
-	UpdateConfigDocument(map[string]any) (configruntime.UpdateResult, error)
+	UpdateConfigDocument(context.Context, map[string]any) (configruntime.UpdateResult, error)
 	ApplyHotReloadableFields(internalconfig.Config) configruntime.ApplyEffects
 }
 
@@ -56,7 +57,7 @@ func (h *Handlers) HandleConfigPut() http.HandlerFunc {
 			return
 		}
 
-		response, err := h.config.UpdateConfigDocument(request)
+		response, err := h.config.UpdateConfigDocument(r.Context(), request)
 		if err != nil {
 			writeAppError(w, r, http.StatusBadRequest, "platform.invalid_config", "配置校验失败", "errors.platform.invalid_config", configValidationDetails(err))
 			return

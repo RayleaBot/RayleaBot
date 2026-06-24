@@ -1,43 +1,44 @@
-package actionwire
+package actions
 
 import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/dispatch"
-	localaction "github.com/RayleaBot/RayleaBot/server/internal/plugins/actions"
+	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
+	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
 	runtimeprotocol "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime/protocol"
 	renderservice "github.com/RayleaBot/RayleaBot/server/internal/render/service"
-	rendertemplates "github.com/RayleaBot/RayleaBot/server/internal/render/templates"
 	"github.com/RayleaBot/RayleaBot/server/internal/scheduler"
 	"github.com/RayleaBot/RayleaBot/server/internal/secrets"
 )
 
-func Scheduler(engine *scheduler.Engine) localaction.SchedulerCreateFunc {
+func Scheduler(engine *scheduler.Engine) SchedulerCreateFunc {
 	if engine == nil {
 		return nil
 	}
-	return func(ctx context.Context, pluginID, taskID, logLabel, cron string, payload []byte) (localaction.ScheduledTask, error) {
+	return func(ctx context.Context, pluginID, taskID, logLabel, cron string, payload []byte) (ScheduledTask, error) {
 		job, err := engine.UpsertTaskWithLabel(ctx, pluginID, taskID, logLabel, cron, payload)
 		if err != nil {
-			return localaction.ScheduledTask{}, err
+			return ScheduledTask{}, err
 		}
-		return localaction.ScheduledTask{
+		return ScheduledTask{
 			JobID:   job.JobID,
 			NextRun: job.NextRun,
 		}, nil
 	}
 }
 
-func ConfigChangedDispatcher(dispatcher *dispatch.Dispatcher) localaction.ConfigChangeDispatcher {
+func ConfigChangedDispatcher(dispatcher *dispatch.Dispatcher) ConfigChangeDispatcher {
 	if dispatcher == nil {
 		return nil
 	}
-	return func(ctx context.Context, pluginID string) localaction.ConfigChangeDispatchResult {
+	return func(ctx context.Context, pluginID string) ConfigChangeDispatchResult {
 		if !dispatcher.HasDeliverablePlugin(pluginID) {
-			return localaction.ConfigChangeDispatchResult{Delivered: true}
+			return ConfigChangeDispatchResult{Delivered: true}
 		}
 		result := dispatcher.DispatchToPlugin(ctx, pluginID, runtimeprotocol.Event{
 			EventID:        fmt.Sprintf("config-changed-%s-%d", pluginID, time.Now().UnixNano()),
@@ -51,7 +52,7 @@ func ConfigChangedDispatcher(dispatcher *dispatch.Dispatcher) localaction.Config
 				Name: pluginID,
 			},
 		})
-		return localaction.ConfigChangeDispatchResult{
+		return ConfigChangeDispatchResult{
 			Delivered: result.Outcome == dispatch.OutcomeDelivered,
 			Outcome:   string(result.Outcome),
 			ErrorCode: result.ErrorCode,
@@ -59,11 +60,44 @@ func ConfigChangedDispatcher(dispatcher *dispatch.Dispatcher) localaction.Config
 	}
 }
 
+func RefreshCommands(catalog *plugincatalog.Catalog, dispatcher *dispatch.Dispatcher) func(context.Context, string, map[string]any) {
+	return func(ctx context.Context, pluginID string, settings map[string]any) {
+		refreshPluginCommands(catalog, dispatcher, pluginID, settings)
+	}
+}
+
+func refreshPluginCommands(catalog *plugincatalog.Catalog, dispatcher *dispatch.Dispatcher, pluginID string, settings map[string]any) {
+	if catalog == nil {
+		return
+	}
+
+	snapshot, ok := catalog.RefreshCommands(pluginID, settings)
+	if !ok || dispatcher == nil {
+		return
+	}
+	dispatcher.UpdateCommands(pluginID, dispatchCommands(snapshot.Commands))
+}
+
+func dispatchCommands(commands []plugins.Command) []dispatch.CommandDecl {
+	items := make([]dispatch.CommandDecl, 0, len(commands))
+	for _, command := range commands {
+		if strings.TrimSpace(command.Name) == "" {
+			continue
+		}
+		items = append(items, dispatch.CommandDecl{
+			Name:       command.Name,
+			Aliases:    append([]string(nil), command.Aliases...),
+			Permission: command.Permission,
+		})
+	}
+	return items
+}
+
 type secretReader struct {
 	store secrets.Store
 }
 
-func SecretReader(store secrets.Store) localaction.SecretReader {
+func SecretReaderFromStore(store secrets.Store) SecretReader {
 	if store == nil {
 		return nil
 	}
@@ -89,7 +123,7 @@ type renderer struct {
 	service *renderservice.Service
 }
 
-func Renderer(service *renderservice.Service) localaction.Renderer {
+func RendererFromService(service *renderservice.Service) Renderer {
 	if service == nil {
 		return nil
 	}
@@ -101,9 +135,8 @@ func (r renderer) ResolvePluginTemplate(ctx context.Context, pluginID, templateP
 	if err == nil {
 		return templateID, nil
 	}
-	var renderErr *rendertemplates.Error
-	if errors.As(err, &renderErr) {
-		return "", &localaction.RenderTemplateError{
+	if renderErr, ok := renderservice.AsTemplateError(err); ok {
+		return "", &RenderTemplateError{
 			Code:    renderErr.Code,
 			Message: renderErr.Message,
 			Err:     err,
@@ -112,7 +145,7 @@ func (r renderer) ResolvePluginTemplate(ctx context.Context, pluginID, templateP
 	return "", err
 }
 
-func (r renderer) RenderImage(ctx context.Context, req localaction.RenderImageRequest) (localaction.RenderImageResult, error) {
+func (r renderer) RenderImage(ctx context.Context, req RenderImageRequest) (RenderImageResult, error) {
 	result, err := r.service.Render(ctx, renderservice.Request{
 		Template: req.Template,
 		Theme:    req.Theme,
@@ -124,9 +157,9 @@ func (r renderer) RenderImage(ctx context.Context, req localaction.RenderImageRe
 		},
 	})
 	if err != nil {
-		return localaction.RenderImageResult{}, err
+		return RenderImageResult{}, err
 	}
-	return localaction.RenderImageResult{
+	return RenderImageResult{
 		ArtifactID: result.ArtifactID,
 		ImagePath:  result.ImagePath,
 		MIME:       result.MIME,
@@ -135,15 +168,5 @@ func (r renderer) RenderImage(ctx context.Context, req localaction.RenderImageRe
 }
 
 func (r renderer) TemplateAcceptsRenderIdentity(ctx context.Context, templateID string) bool {
-	_, source, err := r.service.GetTemplateSource(ctx, templateID)
-	if err != nil {
-		return false
-	}
-	properties, ok := source.InputSchemaJSON["properties"].(map[string]any)
-	if !ok {
-		return false
-	}
-	_, hasUser := properties["user"]
-	_, hasPermission := properties["permission"]
-	return hasUser && hasPermission
+	return r.service.TemplateAcceptsRenderIdentity(ctx, templateID)
 }

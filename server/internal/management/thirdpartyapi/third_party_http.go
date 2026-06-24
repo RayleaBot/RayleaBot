@@ -7,17 +7,15 @@ import (
 
 	"github.com/RayleaBot/RayleaBot/server/internal/integrations/common"
 	"github.com/RayleaBot/RayleaBot/server/internal/integrations/thirdparty"
-	thirdpartylogin "github.com/RayleaBot/RayleaBot/server/internal/integrations/thirdpartylogin"
 )
 
 type ThirdPartyHandlers struct {
-	accounts                 thirdPartyAccountService
-	accountValidator         thirdPartyCredentialValidator
-	platformAccountValidator *common.AccountValidator
-	qrLogin                  thirdPartyQRCodeLoginService
-	monitors                 thirdPartyMonitorService
-	douyinUserResolver       douyinUserResolver
-	mediaClient              *http.Client
+	accounts         thirdPartyAccountService
+	accountValidator thirdPartyCredentialValidator
+	qrLogin          thirdPartyQRCodeLoginService
+	monitors         thirdPartyMonitorService
+	userResolver     thirdPartyUserResolver
+	mediaClient      *http.Client
 }
 
 type thirdPartyAccountService interface {
@@ -27,7 +25,7 @@ type thirdPartyAccountService interface {
 }
 
 type thirdPartyCredentialValidator interface {
-	CheckCookie(context.Context, string) (thirdparty.AccountProfile, thirdparty.CredentialStatus, error)
+	CheckCookie(context.Context, string, string) (thirdparty.AccountProfile, thirdparty.CredentialStatus, error)
 }
 
 type thirdPartyQRCodeLoginService interface {
@@ -35,15 +33,15 @@ type thirdPartyQRCodeLoginService interface {
 	Poll(context.Context, string, string) (common.PollResult, error)
 }
 
-type douyinUserResolver interface {
-	ResolveUser(context.Context, string, []map[string]string) ([]thirdparty.AccountProfile, bool, error)
+type thirdPartyUserResolver interface {
+	ResolveProfiles(context.Context, string, string, []map[string]string) ([]thirdparty.AccountProfile, bool, error)
 }
 
 type ThirdPartyHandlersOption func(*ThirdPartyHandlers)
 
-func WithDouyinUserResolver(resolver douyinUserResolver) ThirdPartyHandlersOption {
+func WithUserResolver(resolver thirdPartyUserResolver) ThirdPartyHandlersOption {
 	return func(h *ThirdPartyHandlers) {
-		h.douyinUserResolver = resolver
+		h.userResolver = resolver
 	}
 }
 
@@ -52,12 +50,11 @@ func NewThirdPartyHandlers(accounts thirdPartyAccountService, accountValidator t
 		transport = http.DefaultTransport
 	}
 	handler := &ThirdPartyHandlers{
-		accounts:                 accounts,
-		accountValidator:         accountValidator,
-		platformAccountValidator: thirdpartylogin.NewAccountValidator(transport, nil),
-		qrLogin:                  qrLogin,
-		monitors:                 monitors,
-		mediaClient:              &http.Client{Transport: transport, Timeout: 20 * time.Second},
+		accounts:         accounts,
+		accountValidator: accountValidator,
+		qrLogin:          qrLogin,
+		monitors:         monitors,
+		mediaClient:      &http.Client{Transport: transport, Timeout: 20 * time.Second},
 	}
 	for _, option := range options {
 		if option != nil {

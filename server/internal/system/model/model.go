@@ -1,6 +1,9 @@
 package model
 
-import "github.com/RayleaBot/RayleaBot/server/internal/recovery"
+import (
+	"github.com/RayleaBot/RayleaBot/server/internal/health"
+	"github.com/RayleaBot/RayleaBot/server/internal/recovery"
+)
 
 type StatusSnapshot struct {
 	Status          string
@@ -11,6 +14,7 @@ type StatusSnapshot struct {
 	DBSchemaVersion string
 	UptimeSeconds   int64
 	RecoverySummary *recovery.CompatibilitySummary
+	Health          *health.ReadinessReport
 }
 
 type ErrorReason string

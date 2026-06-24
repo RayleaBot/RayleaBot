@@ -2,7 +2,6 @@ package renderapi
 
 import (
 	"context"
-	"errors"
 	"net/http"
 	"strings"
 
@@ -10,7 +9,6 @@ import (
 
 	"github.com/RayleaBot/RayleaBot/server/internal/httpapi"
 	renderservice "github.com/RayleaBot/RayleaBot/server/internal/render/service"
-	rendertemplates "github.com/RayleaBot/RayleaBot/server/internal/render/templates"
 )
 
 const (
@@ -234,8 +232,8 @@ func stringPtr(value string) *string {
 }
 
 func writeTemplateError(w http.ResponseWriter, r *http.Request, err error) {
-	var renderErr *rendertemplates.Error
-	if !errors.As(err, &renderErr) {
+	renderErr, ok := renderservice.AsTemplateError(err)
+	if !ok {
 		writeAppError(w, r, http.StatusInternalServerError, codeInternalError, "内部错误", "errors.platform.internal_error", nil)
 		return
 	}

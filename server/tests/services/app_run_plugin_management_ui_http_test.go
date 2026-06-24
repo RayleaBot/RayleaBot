@@ -17,8 +17,8 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/dispatch"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
+	localaction "github.com/RayleaBot/RayleaBot/server/internal/plugins/actions"
 	pluginconfig "github.com/RayleaBot/RayleaBot/server/internal/plugins/configstore"
-	lifecyclecommands "github.com/RayleaBot/RayleaBot/server/internal/plugins/lifecycle/commands"
 	pluginui "github.com/RayleaBot/RayleaBot/server/internal/plugins/managementui"
 	runtimeprotocol "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime/protocol"
 	"github.com/RayleaBot/RayleaBot/server/internal/secrets"
@@ -281,9 +281,7 @@ func TestHandlePluginSettingsPutDispatchesConfigChanged(t *testing.T) {
 		plugins:            catalog,
 		pluginConfig:       repo,
 		notifyConfigChange: application.dispatchPluginConfigChanged,
-		refreshCommands: func(ctx context.Context, pluginID string, settings map[string]any) {
-			lifecyclecommands.RefreshPluginCommands(catalog, dispatcher, pluginID, settings)
-		},
+		refreshCommands:    localaction.RefreshCommands(catalog, dispatcher),
 	})
 	router := chi.NewRouter()
 	router.Put("/api/plugins/{plugin_id}/settings", handlers.handlePluginSettingsPut())

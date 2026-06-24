@@ -59,17 +59,16 @@ type Services struct {
 	System            *systemsvc.Service
 	ThirdParty        *integrationmodule.ThirdPartyService
 	ThirdPartyQRLogin *integrationmodule.ThirdPartyQRLoginService
-	DouyinBrowser     *integrationmodule.DouyinBrowser
+	UserResolver      *integrationmodule.UserResolver
 	BilibiliSource    *integrationmodule.BilibiliSource
 	BilibiliEvents    *integrationmodule.BilibiliSourceEvents
 }
 
 type BuildResult struct {
-	Services              Services
-	Runtimes              *runtimeregistry.Registry
-	Status                *managementevents.ServiceStatusService
-	BilibiliAccountClient *integrationmodule.BilibiliAccountClient
-	BilibiliQRLogin       *integrationmodule.BilibiliQRLoginService
+	Services                   Services
+	Runtimes                   *runtimeregistry.Registry
+	Status                     *managementevents.ServiceStatusService
+	ThirdPartyAccountValidator *integrationmodule.AccountValidator
 }
 
 func Build(deps BuildDeps) (BuildResult, error) {
@@ -165,14 +164,13 @@ func Build(deps BuildDeps) (BuildResult, error) {
 			System:            systemService,
 			ThirdParty:        integrations.ThirdParty,
 			ThirdPartyQRLogin: integrations.ThirdPartyQRLogin,
-			DouyinBrowser:     integrations.DouyinBrowser,
+			UserResolver:      integrations.UserResolver,
 			BilibiliSource:    integrations.BilibiliSource,
 			BilibiliEvents:    integrations.BilibiliEvents,
 		},
-		Runtimes:              runtimeRegistry,
-		Status:                serviceStatusService,
-		BilibiliAccountClient: integrations.BilibiliAccountClient,
-		BilibiliQRLogin:       integrations.BilibiliQRLogin,
+		Runtimes:                   runtimeRegistry,
+		Status:                     serviceStatusService,
+		ThirdPartyAccountValidator: integrations.AccountValidator,
 	}, nil
 }
 

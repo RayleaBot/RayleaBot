@@ -3,9 +3,9 @@ package app
 import (
 	"context"
 
+	"github.com/RayleaBot/RayleaBot/server/internal/app/renderstack"
 	adaptershell "github.com/RayleaBot/RayleaBot/server/internal/bot/adapter/onebot11/shell"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
-	renderplugintemplates "github.com/RayleaBot/RayleaBot/server/internal/render/plugintemplates"
 )
 
 func configureAppRuntimeCallbacks(application *App, schedulerTriggers *schedulerTriggerProxy) {
@@ -20,7 +20,7 @@ func configureAppRuntimeCallbacks(application *App, schedulerTriggers *scheduler
 
 	if installer, ok := application.pluginStack.PluginInstaller.(interface{ SetAfterSuccess(func(string) error) }); ok {
 		installer.SetAfterSuccess(func(string) error {
-			if err := renderplugintemplates.SyncCatalogRenderTemplates(context.Background(), application.renderStack.Renderer, application.pluginStack.Plugins); err != nil {
+			if err := renderstack.SyncCatalogRenderTemplates(context.Background(), application.renderStack.Renderer, application.pluginStack.Plugins); err != nil {
 				return err
 			}
 			systemService.ReconcileRecoverySummaryBestEffort("plugin.install")
@@ -30,7 +30,7 @@ func configureAppRuntimeCallbacks(application *App, schedulerTriggers *scheduler
 	if installer, ok := application.pluginStack.PluginInstaller.(interface {
 		SetRenderTemplateValidator(func(plugins.Snapshot) error)
 	}); ok {
-		installer.SetRenderTemplateValidator(renderplugintemplates.ValidatePluginRenderTemplates)
+		installer.SetRenderTemplateValidator(renderstack.ValidatePluginRenderTemplates)
 	}
 	if uninstaller, ok := application.pluginStack.PluginUninstaller.(interface {
 		SetStopPlugin(plugins.StopPluginFunc)
@@ -41,7 +41,7 @@ func configureAppRuntimeCallbacks(application *App, schedulerTriggers *scheduler
 			if application.renderStack.Renderer != nil {
 				_ = application.renderStack.Renderer.RemovePluginTemplates(context.Background(), pluginID)
 			}
-			_ = renderplugintemplates.SyncCatalogRenderTemplates(context.Background(), application.renderStack.Renderer, application.pluginStack.Plugins)
+			_ = renderstack.SyncCatalogRenderTemplates(context.Background(), application.renderStack.Renderer, application.pluginStack.Plugins)
 			systemService.ReconcileRecoverySummaryBestEffort("plugin.uninstall")
 		})
 	}

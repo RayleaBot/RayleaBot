@@ -17,9 +17,7 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/dispatch"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	plugindiscovery "github.com/RayleaBot/RayleaBot/server/internal/plugins/discovery"
-	pluginmanifestrefresh "github.com/RayleaBot/RayleaBot/server/internal/plugins/manifestrefresh"
 	runtimemanager "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime/manager"
-	renderplugintemplates "github.com/RayleaBot/RayleaBot/server/internal/render/plugintemplates"
 	renderservice "github.com/RayleaBot/RayleaBot/server/internal/render/service"
 	"github.com/RayleaBot/RayleaBot/server/internal/schema"
 )
@@ -64,7 +62,7 @@ func TestReloadRefreshesManifestCommandsAndCapabilityParameters(t *testing.T) {
 		newPluginWebhookRegistry(),
 	)
 	app.services.pluginLifecycle.refreshManifest = func(ctx context.Context, pluginID string) (plugins.Snapshot, error) {
-		return pluginmanifestrefresh.RefreshPluginManifest(ctx, catalog, nil, pluginID, func() ([]plugins.Snapshot, error) {
+		return refreshPluginManifest(ctx, catalog, nil, pluginID, func() ([]plugins.Snapshot, error) {
 			return []plugins.Snapshot{{
 				PluginID:             "raylea.subscription-hub",
 				Name:                 "Subscription Hub",
@@ -147,7 +145,7 @@ func TestReloadSyncsPluginRenderTemplates(t *testing.T) {
 		PackageRootPath:   pluginRoot,
 		RenderTemplates:   []plugins.RenderTemplate{{Path: "templates/" + templateID}},
 	}})
-	if err := renderplugintemplates.SyncCatalogRenderTemplates(context.Background(), renderer, catalog); err != nil {
+	if err := renderer.SyncPluginTemplateDeclarations(context.Background(), lifecycleRenderTemplateDeclarations(catalog.List())); err != nil {
 		t.Fatalf("initial sync plugin render templates: %v", err)
 	}
 
@@ -185,7 +183,7 @@ func TestReloadSyncsPluginRenderTemplates(t *testing.T) {
 		newPluginWebhookRegistry(),
 	)
 	app.services.pluginLifecycle.syncRenderTemplates = func(ctx context.Context) error {
-		return renderplugintemplates.SyncCatalogRenderTemplates(ctx, renderer, catalog)
+		return renderer.SyncPluginTemplateDeclarations(ctx, lifecycleRenderTemplateDeclarations(catalog.List()))
 	}
 
 	if _, err := app.services.pluginLifecycle.Reload(context.Background(), pluginID); err != nil {
@@ -315,7 +313,7 @@ func TestRefreshPluginManifestReadsUpdatedManifestFile(t *testing.T) {
 	}
 
 	writeLifecyclePluginManifest(t, manifestPath, "/订阅b站推送 UID或昵称", "api.bilibili.com")
-	refreshed, err := pluginmanifestrefresh.RefreshPluginManifest(context.Background(), catalog, nil, "raylea.subscription-hub", func() ([]plugins.Snapshot, error) {
+	refreshed, err := refreshPluginManifest(context.Background(), catalog, nil, "raylea.subscription-hub", func() ([]plugins.Snapshot, error) {
 		snapshots, _, err := plugindiscovery.Discover(plugindiscovery.DiscoverOptions{
 			Validator: validator,
 			Roots: []plugindiscovery.ScanRoot{{

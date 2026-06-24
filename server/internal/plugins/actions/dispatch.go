@@ -65,11 +65,8 @@ func DefaultRegistry() *Registry {
 
 func defaultRegistry(deps registryDeps) *Registry {
 	registry := NewRegistry()
-	for kind, handler := range baseActionHandlers {
-		registry.Register(kind, handler(deps))
-	}
-	for kind := range localonebot.Registry() {
-		registry.Register(kind, oneBotHandler(deps))
+	for _, module := range defaultActionModules {
+		module.RegisterActions(registry, deps)
 	}
 	return registry
 }
@@ -93,153 +90,269 @@ func (r *Registry) Dispatch(ctx context.Context, req ActionRequest) (map[string]
 	return result, true, err
 }
 
-var baseActionHandlers = map[string]handlerFactory{
-	"logger.write": func(deps registryDeps) ActionHandler {
-		return func(ctx context.Context, req ActionRequest) (map[string]any, error) {
-			return logaction.Execute(ctx, logaction.Request{
-				PluginID:     req.PluginID,
-				RequestID:    req.RequestID,
-				Action:       req.Action,
-				Capabilities: serviceCapabilities(deps),
-				Logger:       serviceLogger(deps),
-				RedactText:   serviceRedactor(deps),
-				Limiter:      servicePluginLogLimiter(deps),
-			})
-		}
+type actionModule struct {
+	name     string
+	handlers map[string]handlerFactory
+}
+
+func (m actionModule) RegisterActions(registry *Registry, deps registryDeps) {
+	if registry == nil {
+		return
+	}
+	for kind, handler := range m.handlers {
+		registry.Register(kind, handler(deps))
+	}
+}
+
+type oneBotActionModule struct{}
+
+func (oneBotActionModule) RegisterActions(registry *Registry, deps registryDeps) {
+	if registry == nil {
+		return
+	}
+	for kind := range localonebot.Registry() {
+		registry.Register(kind, oneBotHandler(deps))
+	}
+}
+
+var defaultActionModules = []interface {
+	RegisterActions(*Registry, registryDeps)
+}{
+	logActionModule,
+	storageActionModule,
+	configActionModule,
+	pluginActionModule,
+	secretActionModule,
+	governanceActionModule,
+	httpActionModule,
+	schedulerActionModule,
+	webhookActionModule,
+	renderActionModule,
+	oneBotActionModule{},
+}
+
+var logActionModule = actionModule{
+	name: "log",
+	handlers: map[string]handlerFactory{
+		"logger.write": func(deps registryDeps) ActionHandler {
+			return func(ctx context.Context, req ActionRequest) (map[string]any, error) {
+				return logaction.Execute(ctx, logaction.Request{
+					PluginID:     req.PluginID,
+					RequestID:    req.RequestID,
+					Action:       req.Action,
+					Capabilities: serviceCapabilities(deps),
+					Logger:       serviceLogger(deps),
+					RedactText:   serviceRedactor(deps),
+					Limiter:      servicePluginLogLimiter(deps),
+				})
+			}
+		},
 	},
-	"storage.kv": func(deps registryDeps) ActionHandler {
-		return func(ctx context.Context, req ActionRequest) (map[string]any, error) {
-			return storageaction.ExecuteKV(ctx, storageaction.Request{
-				PluginID:     req.PluginID,
-				Action:       req.Action,
-				Config:       serviceConfig(deps),
-				Capabilities: serviceCapabilities(deps),
-				KV:           servicePluginKV(deps),
-			})
-		}
+}
+
+var storageActionModule = actionModule{
+	name: "storage",
+	handlers: map[string]handlerFactory{
+		"storage.kv": func(deps registryDeps) ActionHandler {
+			return func(ctx context.Context, req ActionRequest) (map[string]any, error) {
+				return storageaction.ExecuteKV(ctx, storageaction.Request{
+					PluginID:     req.PluginID,
+					Action:       req.Action,
+					Config:       serviceConfig(deps),
+					Capabilities: serviceCapabilities(deps),
+					KV:           servicePluginKV(deps),
+				})
+			}
+		},
+		"storage.file": func(deps registryDeps) ActionHandler {
+			return func(ctx context.Context, req ActionRequest) (map[string]any, error) {
+				return storageaction.ExecuteFile(ctx, storageaction.Request{
+					PluginID:     req.PluginID,
+					Action:       req.Action,
+					Config:       serviceConfig(deps),
+					Capabilities: serviceCapabilities(deps),
+					Files:        servicePluginFiles(deps),
+				})
+			}
+		},
 	},
-	"config.read": func(deps registryDeps) ActionHandler {
-		return func(ctx context.Context, req ActionRequest) (map[string]any, error) {
-			return configaction.ExecuteRead(ctx, configaction.Request{
-				PluginID:     req.PluginID,
-				Action:       req.Action,
-				Capabilities: serviceCapabilities(deps),
-				Repository:   servicePluginConfig(deps),
-			})
-		}
+}
+
+var configActionModule = actionModule{
+	name: "config",
+	handlers: map[string]handlerFactory{
+		"config.read": func(deps registryDeps) ActionHandler {
+			return func(ctx context.Context, req ActionRequest) (map[string]any, error) {
+				return configaction.ExecuteRead(ctx, configaction.Request{
+					PluginID:     req.PluginID,
+					Action:       req.Action,
+					Capabilities: serviceCapabilities(deps),
+					Repository:   servicePluginConfig(deps),
+				})
+			}
+		},
+		"config.write": func(deps registryDeps) ActionHandler {
+			return func(ctx context.Context, req ActionRequest) (map[string]any, error) {
+				return configaction.ExecuteWrite(ctx, configaction.Request{
+					PluginID:        req.PluginID,
+					Action:          req.Action,
+					Capabilities:    serviceCapabilities(deps),
+					Repository:      servicePluginConfig(deps),
+					RefreshCommands: serviceRefreshCommands(deps),
+					Dispatcher:      serviceConfigDispatcher(deps),
+					Logger:          serviceLogger(deps),
+				})
+			}
+		},
 	},
-	"plugin.list": func(deps registryDeps) ActionHandler {
-		return func(ctx context.Context, req ActionRequest) (map[string]any, error) {
-			return pluginlist.Execute(ctx, pluginlist.Request{
-				PluginID:      req.PluginID,
-				Action:        req.Action,
-				ParentEvent:   req.ParentEvent,
-				Capabilities:  serviceCapabilities(deps),
-				CurrentConfig: serviceConfigProvider(deps),
-			})
-		}
+}
+
+var pluginActionModule = actionModule{
+	name: "plugin",
+	handlers: map[string]handlerFactory{
+		"plugin.list": func(deps registryDeps) ActionHandler {
+			return func(ctx context.Context, req ActionRequest) (map[string]any, error) {
+				return pluginlist.Execute(ctx, pluginlist.Request{
+					PluginID:      req.PluginID,
+					Action:        req.Action,
+					ParentEvent:   req.ParentEvent,
+					Capabilities:  serviceCapabilities(deps),
+					CurrentConfig: serviceConfigProvider(deps),
+				})
+			}
+		},
 	},
-	"secret.read": func(deps registryDeps) ActionHandler {
-		return func(ctx context.Context, req ActionRequest) (map[string]any, error) {
-			return secretaction.ExecuteRead(ctx, secretaction.Request{
-				PluginID:     req.PluginID,
-				Action:       req.Action,
-				Capabilities: serviceCapabilities(deps),
-				Reader:       serviceSecrets(deps),
-			})
-		}
+}
+
+var secretActionModule = actionModule{
+	name: "secret",
+	handlers: map[string]handlerFactory{
+		"secret.read": func(deps registryDeps) ActionHandler {
+			return func(ctx context.Context, req ActionRequest) (map[string]any, error) {
+				return secretaction.ExecuteRead(ctx, secretaction.Request{
+					PluginID:     req.PluginID,
+					Action:       req.Action,
+					Capabilities: serviceCapabilities(deps),
+					Reader:       serviceSecrets(deps),
+				})
+			}
+		},
 	},
-	"config.write": func(deps registryDeps) ActionHandler {
-		return func(ctx context.Context, req ActionRequest) (map[string]any, error) {
-			return configaction.ExecuteWrite(ctx, configaction.Request{
-				PluginID:        req.PluginID,
-				Action:          req.Action,
-				Capabilities:    serviceCapabilities(deps),
-				Repository:      servicePluginConfig(deps),
-				RefreshCommands: serviceRefreshCommands(deps),
-				Dispatcher:      serviceConfigDispatcher(deps),
-				Logger:          serviceLogger(deps),
-			})
-		}
+}
+
+var governanceActionModule = actionModule{
+	name: "governance",
+	handlers: map[string]handlerFactory{
+		"governance.blacklist.read": func(deps registryDeps) ActionHandler {
+			return func(ctx context.Context, req ActionRequest) (map[string]any, error) {
+				return governanceaction.ExecuteBlacklistRead(ctx, governanceRequest(deps, req))
+			}
+		},
+		"governance.blacklist.write": func(deps registryDeps) ActionHandler {
+			return func(ctx context.Context, req ActionRequest) (map[string]any, error) {
+				return governanceaction.ExecuteBlacklistWrite(ctx, governanceRequest(deps, req))
+			}
+		},
+		"governance.whitelist.read": func(deps registryDeps) ActionHandler {
+			return func(ctx context.Context, req ActionRequest) (map[string]any, error) {
+				return governanceaction.ExecuteWhitelistRead(ctx, governanceRequest(deps, req))
+			}
+		},
+		"governance.whitelist.write": func(deps registryDeps) ActionHandler {
+			return func(ctx context.Context, req ActionRequest) (map[string]any, error) {
+				return governanceaction.ExecuteWhitelistWrite(ctx, governanceRequest(deps, req))
+			}
+		},
+		"governance.command_policy.read": func(deps registryDeps) ActionHandler {
+			return func(ctx context.Context, req ActionRequest) (map[string]any, error) {
+				return governanceaction.ExecuteCommandPolicyRead(ctx, governanceRequest(deps, req))
+			}
+		},
 	},
-	"governance.blacklist.read": func(deps registryDeps) ActionHandler {
-		return func(ctx context.Context, req ActionRequest) (map[string]any, error) {
-			return governanceaction.ExecuteBlacklistRead(ctx, governanceRequest(deps, req))
-		}
+}
+
+var httpActionModule = actionModule{
+	name: "http",
+	handlers: map[string]handlerFactory{
+		"http.request": func(deps registryDeps) ActionHandler {
+			return func(ctx context.Context, req ActionRequest) (map[string]any, error) {
+				return httpaction.Execute(ctx, httpaction.Request{
+					PluginID:           req.PluginID,
+					Action:             req.Action,
+					Config:             serviceConfig(deps),
+					Capabilities:       serviceCapabilities(deps),
+					CredentialInjector: serviceHTTPCredentials(deps),
+				})
+			}
+		},
 	},
-	"governance.blacklist.write": func(deps registryDeps) ActionHandler {
-		return func(ctx context.Context, req ActionRequest) (map[string]any, error) {
-			return governanceaction.ExecuteBlacklistWrite(ctx, governanceRequest(deps, req))
-		}
+}
+
+var schedulerActionModule = actionModule{
+	name: "scheduler",
+	handlers: map[string]handlerFactory{
+		"scheduler.create": func(deps registryDeps) ActionHandler {
+			return func(ctx context.Context, req ActionRequest) (map[string]any, error) {
+				return scheduleraction.ExecuteCreate(ctx, scheduleraction.Request{
+					PluginID:     req.PluginID,
+					Action:       req.Action,
+					Capabilities: serviceCapabilities(deps),
+					Create:       serviceScheduler(deps),
+				})
+			}
+		},
 	},
-	"governance.whitelist.read": func(deps registryDeps) ActionHandler {
-		return func(ctx context.Context, req ActionRequest) (map[string]any, error) {
-			return governanceaction.ExecuteWhitelistRead(ctx, governanceRequest(deps, req))
-		}
+}
+
+var webhookActionModule = actionModule{
+	name: "webhook",
+	handlers: map[string]handlerFactory{
+		"event.expose_webhook": func(deps registryDeps) ActionHandler {
+			return func(ctx context.Context, req ActionRequest) (map[string]any, error) {
+				return webhookaction.ExecuteExpose(ctx, webhookaction.Request{
+					PluginID: req.PluginID,
+					Action:   req.Action,
+					Gateway:  serviceWebhookGateway(deps),
+				})
+			}
+		},
 	},
-	"governance.whitelist.write": func(deps registryDeps) ActionHandler {
-		return func(ctx context.Context, req ActionRequest) (map[string]any, error) {
-			return governanceaction.ExecuteWhitelistWrite(ctx, governanceRequest(deps, req))
-		}
+}
+
+var renderActionModule = actionModule{
+	name: "render",
+	handlers: map[string]handlerFactory{
+		"render.image": func(deps registryDeps) ActionHandler {
+			return func(ctx context.Context, req ActionRequest) (map[string]any, error) {
+				return renderaction.ExecuteImage(ctx, renderaction.Request{
+					PluginID:      req.PluginID,
+					Action:        req.Action,
+					ParentEvent:   req.ParentEvent,
+					Capabilities:  serviceCapabilities(deps),
+					Renderer:      serviceRenderer(deps),
+					CurrentConfig: serviceConfigProvider(deps),
+				})
+			}
+		},
 	},
-	"governance.command_policy.read": func(deps registryDeps) ActionHandler {
-		return func(ctx context.Context, req ActionRequest) (map[string]any, error) {
-			return governanceaction.ExecuteCommandPolicyRead(ctx, governanceRequest(deps, req))
+}
+
+var baseActionHandlers = actionHandlersFromModules(defaultActionModules)
+
+func actionHandlersFromModules(modules []interface {
+	RegisterActions(*Registry, registryDeps)
+}) map[string]handlerFactory {
+	handlers := map[string]handlerFactory{}
+	for _, module := range modules {
+		actionModule, ok := module.(actionModule)
+		if !ok {
+			continue
 		}
-	},
-	"storage.file": func(deps registryDeps) ActionHandler {
-		return func(ctx context.Context, req ActionRequest) (map[string]any, error) {
-			return storageaction.ExecuteFile(ctx, storageaction.Request{
-				PluginID:     req.PluginID,
-				Action:       req.Action,
-				Config:       serviceConfig(deps),
-				Capabilities: serviceCapabilities(deps),
-				Files:        servicePluginFiles(deps),
-			})
+		for kind, handler := range actionModule.handlers {
+			handlers[kind] = handler
 		}
-	},
-	"http.request": func(deps registryDeps) ActionHandler {
-		return func(ctx context.Context, req ActionRequest) (map[string]any, error) {
-			return httpaction.Execute(ctx, httpaction.Request{
-				PluginID:           req.PluginID,
-				Action:             req.Action,
-				Config:             serviceConfig(deps),
-				Capabilities:       serviceCapabilities(deps),
-				CredentialInjector: serviceHTTPCredentials(deps),
-			})
-		}
-	},
-	"scheduler.create": func(deps registryDeps) ActionHandler {
-		return func(ctx context.Context, req ActionRequest) (map[string]any, error) {
-			return scheduleraction.ExecuteCreate(ctx, scheduleraction.Request{
-				PluginID:     req.PluginID,
-				Action:       req.Action,
-				Capabilities: serviceCapabilities(deps),
-				Create:       serviceScheduler(deps),
-			})
-		}
-	},
-	"event.expose_webhook": func(deps registryDeps) ActionHandler {
-		return func(ctx context.Context, req ActionRequest) (map[string]any, error) {
-			return webhookaction.ExecuteExpose(ctx, webhookaction.Request{
-				PluginID: req.PluginID,
-				Action:   req.Action,
-				Gateway:  serviceWebhookGateway(deps),
-			})
-		}
-	},
-	"render.image": func(deps registryDeps) ActionHandler {
-		return func(ctx context.Context, req ActionRequest) (map[string]any, error) {
-			return renderaction.ExecuteImage(ctx, renderaction.Request{
-				PluginID:      req.PluginID,
-				Action:        req.Action,
-				ParentEvent:   req.ParentEvent,
-				Capabilities:  serviceCapabilities(deps),
-				Renderer:      serviceRenderer(deps),
-				CurrentConfig: serviceConfigProvider(deps),
-			})
-		}
-	},
+	}
+	return handlers
 }
 
 func (s *Service) Execute(ctx context.Context, pluginID, requestID string, action runtimeaction.Action, parentEvent runtimeprotocol.Event) (map[string]any, error) {

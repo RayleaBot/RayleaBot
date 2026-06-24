@@ -1,4 +1,4 @@
-package manifestrefresh
+package lifecycle
 
 import (
 	"context"
@@ -9,10 +9,10 @@ import (
 	pluginmanifest "github.com/RayleaBot/RayleaBot/server/internal/plugins/manifest"
 )
 
-func RefreshPluginManifest(
+func refreshPluginManifest(
 	ctx context.Context,
 	catalog *plugincatalog.Catalog,
-	pluginConfig pluginconfigReader,
+	pluginConfig pluginConfigReader,
 	pluginID string,
 	discover func() ([]plugins.Snapshot, error),
 ) (plugins.Snapshot, error) {
@@ -87,6 +87,6 @@ func RefreshPluginManifest(
 	return refreshed, nil
 }
 
-type pluginconfigReader interface {
+type pluginConfigReader interface {
 	ReadAll(ctx context.Context, pluginID string) (map[string]any, error)
 }

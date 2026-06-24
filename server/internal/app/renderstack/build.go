@@ -9,10 +9,9 @@ import (
 
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/httpapi"
+	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
-	renderbootstrap "github.com/RayleaBot/RayleaBot/server/internal/render/bootstrap"
 	renderbrowser "github.com/RayleaBot/RayleaBot/server/internal/render/browser"
-	renderplugintemplates "github.com/RayleaBot/RayleaBot/server/internal/render/plugintemplates"
 	renderservice "github.com/RayleaBot/RayleaBot/server/internal/render/service"
 	"github.com/RayleaBot/RayleaBot/server/internal/runtimepaths"
 	"github.com/RayleaBot/RayleaBot/server/internal/storage"
@@ -36,15 +35,42 @@ func Build(deps Deps) (State, error) {
 	if err != nil {
 		return State{}, err
 	}
-	if err := renderplugintemplates.SyncCatalogRenderTemplates(context.Background(), renderer, deps.Catalog); err != nil {
+	if err := SyncCatalogRenderTemplates(context.Background(), renderer, deps.Catalog); err != nil {
 		_ = renderer.Close()
 		return State{}, err
 	}
 	return State{Renderer: renderer}, nil
 }
 
+func SyncCatalogRenderTemplates(ctx context.Context, renderer *renderservice.Service, catalog *plugincatalog.Catalog) error {
+	if renderer == nil || catalog == nil {
+		return nil
+	}
+	return renderer.SyncPluginTemplateDeclarations(ctx, pluginRenderTemplateDeclarations(catalog.List()))
+}
+
+func ValidatePluginRenderTemplates(snapshot plugins.Snapshot) error {
+	return renderservice.ValidatePluginTemplateDeclarations(pluginRenderTemplateDeclarations([]plugins.Snapshot{snapshot}))
+}
+
+func pluginRenderTemplateDeclarations(snapshots []plugins.Snapshot) []renderservice.PluginTemplateDeclaration {
+	var declarations []renderservice.PluginTemplateDeclaration
+	for _, snapshot := range snapshots {
+		for _, declared := range snapshot.RenderTemplates {
+			declarations = append(declarations, renderservice.PluginTemplateDeclaration{
+				PluginID:          snapshot.PluginID,
+				Path:              declared.Path,
+				PackageRootPath:   snapshot.PackageRootPath,
+				Valid:             snapshot.Valid,
+				RegistrationState: snapshot.RegistrationState,
+			})
+		}
+	}
+	return declarations
+}
+
 func buildRenderService(deps Deps) (*renderservice.Service, error) {
-	renderBrowserPath := renderbootstrap.PrepareBrowserPath(context.Background(), deps.Logger, deps.Discovery.RepoRoot, deps.Config.Render.BrowserPath)
+	renderBrowserPath := prepareBrowserPath(context.Background(), deps.Logger, deps.Discovery.RepoRoot, deps.Config.Render.BrowserPath)
 	renderService, err := renderservice.NewService(renderservice.Options{
 		RepoRoot:           deps.Discovery.RepoRoot,
 		OutputRoot:         filepath.Join(filepath.Dir(deps.Store.Path), "render"),

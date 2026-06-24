@@ -6,6 +6,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/RayleaBot/RayleaBot/server/internal/health"
 	systemmodel "github.com/RayleaBot/RayleaBot/server/internal/system/model"
 )
 
@@ -22,6 +23,16 @@ func TestSystemStatusIncludesPluginCountsAndDBSchemaVersion(t *testing.T) {
 				FailedPlugins:   1,
 				DBSchemaVersion: "000004",
 				UptimeSeconds:   60,
+				Health: &health.ReadinessReport{
+					Status: "degraded",
+					Checks: map[string]string{"database": "ok", "render": "resource_missing"},
+					Issues: []health.DiagnosticIssue{{
+						Code:        "render.browser_missing",
+						Severity:    "warning",
+						Summary:     "浏览器运行资源缺失",
+						Remediation: "运行运行时准备任务。",
+					}},
+				},
 			},
 		},
 	})
@@ -38,6 +49,9 @@ func TestSystemStatusIncludesPluginCountsAndDBSchemaVersion(t *testing.T) {
 	}
 	if response.ActivePlugins != 2 || response.RunningPlugins != 1 || response.FailedPlugins != 1 || response.DBSchemaVersion != "000004" {
 		t.Fatalf("unexpected system status response: %#v", response)
+	}
+	if response.Health == nil || response.Health.Status != "degraded" || response.Health.Checks["render"] != "resource_missing" {
+		t.Fatalf("unexpected system health response: %#v", response.Health)
 	}
 }
 

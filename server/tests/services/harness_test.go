@@ -8,7 +8,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/RayleaBot/RayleaBot/server/internal/app/actionwire"
 	"github.com/RayleaBot/RayleaBot/server/internal/app/eventstack"
 	"github.com/RayleaBot/RayleaBot/server/internal/app/httpwire"
 	appplatform "github.com/RayleaBot/RayleaBot/server/internal/app/platform"
@@ -286,10 +285,10 @@ func (a *serviceHarness) setTestLocalActions(capabilities localaction.Capability
 		PluginConfig:     pluginConfigRepo,
 		PluginFiles:      pluginFiles,
 		PluginKV:         pluginKV,
-		Secrets:          actionwire.SecretReader(a.platform.Secrets),
-		Scheduler:        actionwire.Scheduler(schedulerEngine),
-		Dispatcher:       actionwire.ConfigChangedDispatcher(dispatcher),
-		Renderer:         actionwire.Renderer(rendererService),
+		Secrets:          localaction.SecretReaderFromStore(a.platform.Secrets),
+		Scheduler:        localaction.Scheduler(schedulerEngine),
+		Dispatcher:       localaction.ConfigChangedDispatcher(dispatcher),
+		Renderer:         localaction.RendererFromService(rendererService),
 		Adapter:          adapterShell,
 		PluginLogLimiter: limiter,
 		Governance:       a.services.Governance,
@@ -556,7 +555,7 @@ func (a *serviceHarness) dispatchPluginConfigChanged(ctx context.Context, plugin
 	if a == nil {
 		return
 	}
-	dispatch := actionwire.ConfigChangedDispatcher(a.eventStack.Dispatcher)
+	dispatch := localaction.ConfigChangedDispatcher(a.eventStack.Dispatcher)
 	if dispatch != nil {
 		dispatch(ctx, pluginID)
 	}

@@ -17,7 +17,7 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	runtimeaction "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime/action"
 	runtimeprotocol "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime/protocol"
-	renderplugintemplates "github.com/RayleaBot/RayleaBot/server/internal/render/plugintemplates"
+	renderservice "github.com/RayleaBot/RayleaBot/server/internal/render/service"
 )
 
 func TestExecuteRenderImageReturnsArtifact(t *testing.T) {
@@ -136,7 +136,7 @@ func TestExecuteRenderImageResolvesOwnPluginTemplateShortID(t *testing.T) {
 		PackageRootPath:   filepath.Join(repoRoot, "plugins", "installed", "weather-card"),
 		RenderTemplates:   []plugins.RenderTemplate{{Path: "templates/card"}},
 	}})
-	if err := renderplugintemplates.SyncCatalogRenderTemplates(context.Background(), renderer, catalog); err != nil {
+	if err := renderer.SyncPluginTemplateDeclarations(context.Background(), testPluginRenderTemplateDeclarations(catalog.List())); err != nil {
 		t.Fatalf("sync plugin render templates: %v", err)
 	}
 
@@ -203,7 +203,7 @@ func TestExecuteRenderImageRejectsOtherPluginTemplate(t *testing.T) {
 		PackageRootPath:   filepath.Join(repoRoot, "plugins", "installed", "weather-card"),
 		RenderTemplates:   []plugins.RenderTemplate{{Path: "templates/card"}},
 	}})
-	if err := renderplugintemplates.SyncCatalogRenderTemplates(context.Background(), renderer, catalog); err != nil {
+	if err := renderer.SyncPluginTemplateDeclarations(context.Background(), testPluginRenderTemplateDeclarations(catalog.List())); err != nil {
 		t.Fatalf("sync plugin render templates: %v", err)
 	}
 
@@ -232,6 +232,22 @@ func TestExecuteRenderImageRejectsOtherPluginTemplate(t *testing.T) {
 		},
 	})
 	assertRuntimeErrorCode(t, err, "plugin.capability_violation")
+}
+
+func testPluginRenderTemplateDeclarations(snapshots []plugins.Snapshot) []renderservice.PluginTemplateDeclaration {
+	var declarations []renderservice.PluginTemplateDeclaration
+	for _, snapshot := range snapshots {
+		for _, declared := range snapshot.RenderTemplates {
+			declarations = append(declarations, renderservice.PluginTemplateDeclaration{
+				PluginID:          snapshot.PluginID,
+				Path:              declared.Path,
+				PackageRootPath:   snapshot.PackageRootPath,
+				Valid:             snapshot.Valid,
+				RegistrationState: snapshot.RegistrationState,
+			})
+		}
+	}
+	return declarations
 }
 
 func TestExecuteRenderImageRejectsUnknownOtherPluginTemplate(t *testing.T) {

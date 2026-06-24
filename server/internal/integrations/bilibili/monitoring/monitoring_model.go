@@ -1,9 +1,8 @@
 package monitoring
 
 import (
-	"time"
-
 	bilibilisubscriptions "github.com/RayleaBot/RayleaBot/server/internal/integrations/bilibili/subscriptions"
+	"github.com/RayleaBot/RayleaBot/server/internal/integrations/thirdparty"
 )
 
 const (
@@ -14,46 +13,10 @@ const (
 
 type Subject = bilibilisubscriptions.Subject
 
-type MonitorSnapshot struct {
-	Platform  string        `json:"platform"`
-	Items     []MonitorItem `json:"items"`
-	UpdatedAt time.Time     `json:"updated_at"`
-}
-
-type MonitorItem struct {
-	UID        string
-	Username   string
-	AvatarURL  string
-	ProfileURL string
-	Services   []string
-	Dynamic    *MonitorDynamic
-	Live       MonitorLive
-	UpdatedAt  time.Time
-}
-
-type MonitorDynamic struct {
-	LastID      string
-	Service     string
-	Title       string
-	Summary     string
-	URL         string
-	Images      []Image
-	PublishedAt *time.Time
-	ObservedAt  time.Time
-}
-
-type MonitorLive struct {
-	RoomID          string
-	RoomName        string
-	RoomURL         string
-	CoverURL        string
-	IsLive          bool
-	LiveStartedAt   *time.Time
-	LiveEndedAt     *time.Time
-	ConnectionState string
-	LastError       string
-	UpdatedAt       *time.Time
-}
+type MonitorSnapshot = thirdparty.MonitorSnapshot
+type MonitorItem = thirdparty.MonitorItem
+type MonitorDynamic = thirdparty.MonitorDynamic
+type MonitorLive = thirdparty.MonitorLive
 
 type Event struct {
 	EventType      string
@@ -107,8 +70,4 @@ type Author struct {
 	Avatar string
 }
 
-type Image struct {
-	URL    string
-	Width  int
-	Height int
-}
+type Image = thirdparty.MonitorImage

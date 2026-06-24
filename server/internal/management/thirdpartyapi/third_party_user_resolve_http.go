@@ -10,10 +10,7 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/httpapi"
 	thirdpartymedia "github.com/RayleaBot/RayleaBot/server/internal/integrations/bilibili/media"
 	"github.com/RayleaBot/RayleaBot/server/internal/integrations/common"
-	"github.com/RayleaBot/RayleaBot/server/internal/integrations/douyin"
-	neteasemusic "github.com/RayleaBot/RayleaBot/server/internal/integrations/netease_music"
 	"github.com/RayleaBot/RayleaBot/server/internal/integrations/thirdparty"
-	"github.com/RayleaBot/RayleaBot/server/internal/integrations/weibo"
 )
 
 const (
@@ -89,17 +86,10 @@ func (h *ThirdPartyHandlers) resolveThirdPartyUser(ctx context.Context, platform
 }
 
 func (h *ThirdPartyHandlers) resolveThirdPartyProfiles(ctx context.Context, platform, query string) ([]thirdparty.AccountProfile, bool, error) {
-	switch platform {
-	case thirdparty.PlatformWeibo:
-		return weibo.ResolveUserWithCookies(ctx, h.mediaClient, query, h.platformCookieMaps(ctx, platform))
-	case thirdparty.PlatformDouyin:
-		cookieMaps := h.platformCookieMaps(ctx, platform)
-		return douyin.ResolveUserWithBrowser(ctx, h.mediaClient, query, cookieMaps, h.douyinUserResolver)
-	case thirdparty.PlatformNeteaseMusic:
-		return neteasemusic.ResolveUser(ctx, h.mediaClient, query)
-	default:
+	if h == nil || h.userResolver == nil {
 		return nil, false, nil
 	}
+	return h.userResolver.ResolveProfiles(ctx, platform, query, h.platformCookieMaps(ctx, platform))
 }
 
 func (h *ThirdPartyHandlers) platformCookieMaps(ctx context.Context, platform string) []map[string]string {

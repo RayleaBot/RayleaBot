@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/RayleaBot/RayleaBot/server/internal/health"
 	"github.com/RayleaBot/RayleaBot/server/internal/httpapi"
 	authhttp "github.com/RayleaBot/RayleaBot/server/internal/management/authhttp"
 	"github.com/RayleaBot/RayleaBot/server/internal/recovery"
@@ -66,6 +67,7 @@ type SystemStatusResponse struct {
 	DBSchemaVersion string                         `json:"db_schema_version"`
 	UptimeSeconds   int64                          `json:"uptime_seconds"`
 	RecoverySummary *recovery.CompatibilitySummary `json:"recovery_summary,omitempty"`
+	Health          *health.ReadinessReport        `json:"health,omitempty"`
 }
 
 type shutdownResponse struct {
@@ -148,6 +150,7 @@ func systemStatusResponseFromSnapshot(snapshot systemmodel.StatusSnapshot) Syste
 		DBSchemaVersion: snapshot.DBSchemaVersion,
 		UptimeSeconds:   snapshot.UptimeSeconds,
 		RecoverySummary: snapshot.RecoverySummary,
+		Health:          snapshot.Health,
 	}
 }
 

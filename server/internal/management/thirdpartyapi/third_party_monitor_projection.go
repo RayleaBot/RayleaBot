@@ -5,7 +5,7 @@ import (
 	"strings"
 	"time"
 
-	bilibilisource "github.com/RayleaBot/RayleaBot/server/internal/integrations/bilibili/source"
+	"github.com/RayleaBot/RayleaBot/server/internal/integrations/thirdparty"
 )
 
 type thirdPartyMonitorsResponse struct {
@@ -55,7 +55,7 @@ type thirdPartyMonitorImage struct {
 	Height int    `json:"height,omitempty"`
 }
 
-func thirdPartyMonitorsResponseFrom(snapshot bilibilisource.MonitorSnapshot) thirdPartyMonitorsResponse {
+func thirdPartyMonitorsResponseFrom(snapshot thirdparty.MonitorSnapshot) thirdPartyMonitorsResponse {
 	items := make([]thirdPartyMonitorItem, 0, len(snapshot.Items))
 	for _, item := range snapshot.Items {
 		items = append(items, thirdPartyMonitorItemFrom(item))
@@ -75,7 +75,7 @@ func emptyThirdPartyMonitorsResponse(platform string, updatedAt time.Time) third
 	}
 }
 
-func thirdPartyMonitorItemFrom(item bilibilisource.MonitorItem) thirdPartyMonitorItem {
+func thirdPartyMonitorItemFrom(item thirdparty.MonitorItem) thirdPartyMonitorItem {
 	services := append([]string(nil), item.Services...)
 	sort.Strings(services)
 	return thirdPartyMonitorItem{
@@ -101,7 +101,7 @@ func thirdPartyMonitorItemFrom(item bilibilisource.MonitorItem) thirdPartyMonito
 	}
 }
 
-func thirdPartyMonitorDynamicFrom(dynamic *bilibilisource.MonitorDynamic) *thirdPartyMonitorDynamic {
+func thirdPartyMonitorDynamicFrom(dynamic *thirdparty.MonitorDynamic) *thirdPartyMonitorDynamic {
 	if dynamic == nil {
 		return nil
 	}

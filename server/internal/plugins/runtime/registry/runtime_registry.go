@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"sync"
 
+	"github.com/RayleaBot/RayleaBot/server/internal/console"
 	runtimemanager "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime/manager"
 )
 
@@ -27,6 +28,21 @@ func New(logger *slog.Logger, options runtimemanager.Options) *Registry {
 		options: options,
 		items:   make(map[string]*runtimemanager.Manager),
 	}
+}
+
+func NewManaged(
+	logger *slog.Logger,
+	consoleStream *console.Stream,
+	redactText func(string) string,
+	stderrRateLimitBytesPerSec int,
+	executeLocalAction runtimemanager.LocalActionExecutor,
+) *Registry {
+	return New(logger, runtimemanager.Options{
+		Console:                    consoleStream,
+		RedactText:                 redactText,
+		StderrRateLimitBytesPerSec: stderrRateLimitBytesPerSec,
+		ExecuteLocalAction:         executeLocalAction,
+	})
 }
 
 func (r *Registry) SetOnCrash(callback runtimemanager.CrashCallback) {

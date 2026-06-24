@@ -179,7 +179,12 @@ func (s *Service) StatusSnapshot() systemmodel.StatusSnapshot {
 		DBSchemaVersion: s.dbSchemaVersion(),
 		UptimeSeconds:   s.uptimeSeconds(),
 		RecoverySummary: s.recoverySummarySnapshot(),
+		Health:          readinessReportPtr(s.CurrentReadiness()),
 	}
+}
+
+func readinessReportPtr(report health.ReadinessReport) *health.ReadinessReport {
+	return &report
 }
 
 func (s *Service) SetAuth(manager AuthBootstrapState) {

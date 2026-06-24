@@ -4,27 +4,19 @@ import (
 	"context"
 	"log/slog"
 
-	"github.com/RayleaBot/RayleaBot/server/internal/app/actionwire"
 	"github.com/RayleaBot/RayleaBot/server/internal/app/eventstack"
 	appplatform "github.com/RayleaBot/RayleaBot/server/internal/app/platform"
 	"github.com/RayleaBot/RayleaBot/server/internal/app/pluginstack"
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
-	"github.com/RayleaBot/RayleaBot/server/internal/console"
 	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/outbound"
 	menuext "github.com/RayleaBot/RayleaBot/server/internal/extensions/menu"
 	"github.com/RayleaBot/RayleaBot/server/internal/governance"
 	"github.com/RayleaBot/RayleaBot/server/internal/metrics"
-	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	localaction "github.com/RayleaBot/RayleaBot/server/internal/plugins/actions"
 	plugincapabilityview "github.com/RayleaBot/RayleaBot/server/internal/plugins/capabilityview"
-	plugindiscovery "github.com/RayleaBot/RayleaBot/server/internal/plugins/discovery"
 	pluginservice "github.com/RayleaBot/RayleaBot/server/internal/plugins/lifecycle"
-	lifecyclecommands "github.com/RayleaBot/RayleaBot/server/internal/plugins/lifecycle/commands"
-	pluginmanifestrefresh "github.com/RayleaBot/RayleaBot/server/internal/plugins/manifestrefresh"
-	runtimemanager "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime/manager"
 	runtimeregistry "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime/registry"
 	pluginwebhook "github.com/RayleaBot/RayleaBot/server/internal/plugins/webhook"
-	renderplugintemplates "github.com/RayleaBot/RayleaBot/server/internal/render/plugintemplates"
 	renderservice "github.com/RayleaBot/RayleaBot/server/internal/render/service"
 	"github.com/RayleaBot/RayleaBot/server/internal/runtimepaths"
 	"github.com/RayleaBot/RayleaBot/server/internal/schema"
@@ -69,14 +61,13 @@ type Runtime struct {
 func BuildRuntime(deps RuntimeDeps) Runtime {
 	capabilityView := buildPluginCapabilityView(deps.Plugins, deps.Events)
 	localActions := buildLocalActionService(deps.Runtime, deps.Platform, deps.Plugins, deps.Events, deps.Renderer, capabilityView, deps.Governance, deps.HTTPCredentials)
-	configureLocalActionService(localActions, deps.Plugins, deps.Events)
-	runtimeRegistry := buildRuntimeRegistry(runtimeRegistryDeps{
-		Logger:                     deps.Runtime.RuntimeLogger(),
-		Console:                    deps.Platform.Console,
-		RedactText:                 deps.ManagementRedact,
-		StderrRateLimitBytesPerSec: deps.Runtime.CurrentConfig().Runtime.StderrRateLimitBytesPerSec,
-		ExecuteLocalAction:         localActions.Execute,
-	})
+	runtimeRegistry := runtimeregistry.NewManaged(
+		deps.Runtime.RuntimeLogger(),
+		deps.Platform.Console,
+		deps.ManagementRedact,
+		deps.Runtime.CurrentConfig().Runtime.StderrRateLimitBytesPerSec,
+		localActions.Execute,
+	)
 	return Runtime{
 		LocalActions:   localActions,
 		Runtimes:       runtimeRegistry,
@@ -144,42 +135,20 @@ func buildLocalActionService(
 		PluginConfig:     pluginStack.PluginConfig,
 		PluginFiles:      pluginStack.PluginFiles,
 		PluginKV:         pluginStack.PluginKV,
-		Secrets:          actionwire.SecretReader(platform.Secrets),
-		Scheduler:        actionwire.Scheduler(platform.Scheduler),
-		Dispatcher:       actionwire.ConfigChangedDispatcher(eventStack.Dispatcher),
-		Renderer:         actionwire.Renderer(renderer),
+		Secrets:          localaction.SecretReaderFromStore(platform.Secrets),
+		Scheduler:        localaction.Scheduler(platform.Scheduler),
+		Dispatcher:       localaction.ConfigChangedDispatcher(eventStack.Dispatcher),
+		Renderer:         localaction.RendererFromService(renderer),
 		Adapter:          eventStack.Adapter,
 		PluginLogLimiter: pluginStack.PluginLogLimiter,
 		Governance:       governanceService,
 		HTTPCredentials:  httpCredentials,
-	})
-}
-
-func configureLocalActionService(localActions *localaction.Service, pluginStack pluginstack.State, eventStack eventstack.State) {
-	localActions.SetRefreshPluginCommands(func(ctx context.Context, pluginID string, settings map[string]any) {
-		lifecyclecommands.RefreshPluginCommands(pluginStack.Plugins, eventStack.Dispatcher, pluginID, settings)
-	})
-}
-
-type runtimeRegistryDeps struct {
-	Logger                     *slog.Logger
-	Console                    *console.Stream
-	RedactText                 func(string) string
-	StderrRateLimitBytesPerSec int
-	ExecuteLocalAction         runtimemanager.LocalActionExecutor
-}
-
-func buildRuntimeRegistry(deps runtimeRegistryDeps) *runtimeregistry.Registry {
-	return runtimeregistry.New(deps.Logger, runtimemanager.Options{
-		Console:                    deps.Console,
-		RedactText:                 deps.RedactText,
-		StderrRateLimitBytesPerSec: deps.StderrRateLimitBytesPerSec,
-		ExecuteLocalAction:         deps.ExecuteLocalAction,
+		RefreshCommands:  localaction.RefreshCommands(pluginStack.Plugins, eventStack.Dispatcher),
 	})
 }
 
 func buildPluginLifecycle(deps ServiceDeps) *pluginservice.Controller {
-	return pluginservice.NewController(pluginservice.Deps{
+	return pluginservice.NewPlatformController(pluginservice.PlatformDeps{
 		CurrentConfig:    deps.Runtime.CurrentConfig,
 		RepoRoot:         deps.Runtime.RepoRoot(),
 		Logger:           deps.Runtime.RuntimeLogger(),
@@ -193,35 +162,10 @@ func buildPluginLifecycle(deps ServiceDeps) *pluginservice.Controller {
 		Webhooks:         deps.Plugins.Webhooks,
 		Tasks:            deps.Platform.Tasks,
 		OnRecoveryChange: deps.System.ReconcileRecoverySummaryBestEffort,
-		RefreshManifest:  buildPluginLifecycleRefreshManifest(deps),
-		SyncRenderTemplates: func(ctx context.Context) error {
-			return renderplugintemplates.SyncCatalogRenderTemplates(ctx, deps.Renderer, deps.Plugins.Plugins)
-		},
+		Discovery:        deps.Discovery,
+		PluginValidator:  deps.PluginValidator,
+		Renderer:         deps.Renderer,
 	})
-}
-
-func buildPluginLifecycleRefreshManifest(deps ServiceDeps) func(context.Context, string) (plugins.Snapshot, error) {
-	return func(ctx context.Context, pluginID string) (plugins.Snapshot, error) {
-		return pluginmanifestrefresh.RefreshPluginManifest(ctx, deps.Plugins.Plugins, deps.Plugins.PluginConfig, pluginID, func() ([]plugins.Snapshot, error) {
-			snapshots, _, err := plugindiscovery.Discover(plugindiscovery.DiscoverOptions{
-				Validator: deps.PluginValidator,
-				Roots:     deps.Discovery.Roots,
-				RepoRoot:  deps.Discovery.RepoRoot,
-				Logger:    deps.Runtime.RuntimeLogger(),
-			})
-			if err != nil {
-				return nil, err
-			}
-			if packageLoader, ok := any(deps.Plugins.PluginRepository).(plugins.PackageMetadataLoader); ok {
-				packageMetadata, err := packageLoader.LoadAllPackageMetadata(ctx)
-				if err != nil {
-					return nil, err
-				}
-				snapshots = plugins.ApplyPackageMetadata(snapshots, packageMetadata)
-			}
-			return snapshots, nil
-		})
-	}
 }
 
 func buildBuiltinMenuService(runtimeState RuntimeState, pluginStack pluginstack.State, eventStack eventstack.State, renderer *renderservice.Service) *menuext.Service {

@@ -10,13 +10,30 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/RayleaBot/RayleaBot/server/internal/app/servicegraph/integrationmodule"
 	"github.com/RayleaBot/RayleaBot/server/internal/integrations/thirdparty"
 )
+
+func newThirdPartyUserResolveHandler(
+	accounts thirdPartyAccountService,
+	accountValidator thirdPartyCredentialValidator,
+	qrLogin thirdPartyQRCodeLoginService,
+	monitors thirdPartyMonitorService,
+	transport http.RoundTripper,
+	options ...ThirdPartyHandlersOption,
+) *ThirdPartyHandlers {
+	options = append([]ThirdPartyHandlersOption{withTestUserResolver(transport, nil)}, options...)
+	return NewThirdPartyHandlers(accounts, accountValidator, qrLogin, monitors, transport, options...)
+}
+
+func withTestUserResolver(transport http.RoundTripper, resolver integrationmodule.DouyinUserResolver) ThirdPartyHandlersOption {
+	return WithUserResolver(integrationmodule.NewUserResolver(transport, resolver))
+}
 
 func TestThirdPartyUserResolveReturnsPlatformProfiles(t *testing.T) {
 	t.Parallel()
 
-	handler := NewThirdPartyHandlers(nil, nil, nil, nil, thirdPartyMediaRoundTripFunc(func(request *http.Request) (*http.Response, error) {
+	handler := newThirdPartyUserResolveHandler(nil, nil, nil, nil, thirdPartyMediaRoundTripFunc(func(request *http.Request) (*http.Response, error) {
 		rawURL := request.URL.String()
 		switch {
 		case strings.Contains(rawURL, "m.weibo.cn/api/container/getIndex"):
@@ -150,7 +167,7 @@ func TestThirdPartyUserResolveUsesSavedPlatformCookie(t *testing.T) {
 					"primary": tt.cookie,
 				},
 			}
-			handler := NewThirdPartyHandlers(accounts, nil, nil, nil, thirdPartyMediaRoundTripFunc(func(request *http.Request) (*http.Response, error) {
+			handler := newThirdPartyUserResolveHandler(accounts, nil, nil, nil, thirdPartyMediaRoundTripFunc(func(request *http.Request) (*http.Response, error) {
 				rawURL := request.URL.String()
 				if strings.Contains(rawURL, "sinaimg.cn") {
 					return avatarImageResponse(request), nil
@@ -202,7 +219,7 @@ func TestThirdPartyUserResolveWeiboFallbackSearchCard(t *testing.T) {
 			"primary": "SUB=fixture;",
 		},
 	}
-	handler := NewThirdPartyHandlers(accounts, nil, nil, nil, thirdPartyMediaRoundTripFunc(func(request *http.Request) (*http.Response, error) {
+	handler := newThirdPartyUserResolveHandler(accounts, nil, nil, nil, thirdPartyMediaRoundTripFunc(func(request *http.Request) (*http.Response, error) {
 		if strings.Contains(request.URL.String(), "sinaimg.cn") {
 			return avatarImageResponse(request), nil
 		}
@@ -262,7 +279,7 @@ func TestThirdPartyUserResolveWeiboFiltersSearchTabsAndFillsAvatar(t *testing.T)
 			"primary": "SUB=fixture;",
 		},
 	}
-	handler := NewThirdPartyHandlers(accounts, nil, nil, nil, thirdPartyMediaRoundTripFunc(func(request *http.Request) (*http.Response, error) {
+	handler := newThirdPartyUserResolveHandler(accounts, nil, nil, nil, thirdPartyMediaRoundTripFunc(func(request *http.Request) (*http.Response, error) {
 		if strings.Contains(request.URL.String(), "sinaimg.cn") {
 			return avatarImageResponse(request), nil
 		}
@@ -319,7 +336,7 @@ func TestThirdPartyUserResolveDouyinSearchPageFallback(t *testing.T) {
 			"primary": "sessionid=fixture;",
 		},
 	}
-	handler := NewThirdPartyHandlers(accounts, nil, nil, nil, thirdPartyMediaRoundTripFunc(func(request *http.Request) (*http.Response, error) {
+	transport := thirdPartyMediaRoundTripFunc(func(request *http.Request) (*http.Response, error) {
 		rawURL := request.URL.String()
 		if !strings.Contains(request.Header.Get("Cookie"), "sessionid=fixture") {
 			t.Fatalf("resolve request cookie = %q, want saved douyin cookie", request.Header.Get("Cookie"))
@@ -333,7 +350,8 @@ func TestThirdPartyUserResolveDouyinSearchPageFallback(t *testing.T) {
 			t.Fatalf("unexpected upstream request: %s", rawURL)
 			return nil, nil
 		}
-	}))
+	})
+	handler := newThirdPartyUserResolveHandler(accounts, nil, nil, nil, transport)
 	request := httptest.NewRequest(http.MethodGet, "/api/third-party/users/resolve?platform=douyin&query=%E6%B4%9B%E5%A4%A9%E4%BE%9D", nil)
 	recorder := httptest.NewRecorder()
 
@@ -378,7 +396,7 @@ func TestThirdPartyUserResolveDouyinUsesBrowserResolverAfterEmptyHTTPResults(t *
 		}},
 		exact: true,
 	}
-	handler := NewThirdPartyHandlers(accounts, nil, nil, nil, thirdPartyMediaRoundTripFunc(func(request *http.Request) (*http.Response, error) {
+	transport := thirdPartyMediaRoundTripFunc(func(request *http.Request) (*http.Response, error) {
 		rawURL := request.URL.String()
 		if !strings.Contains(request.Header.Get("Cookie"), "sessionid=fixture") {
 			t.Fatalf("resolve request cookie = %q, want saved douyin cookie", request.Header.Get("Cookie"))
@@ -392,7 +410,8 @@ func TestThirdPartyUserResolveDouyinUsesBrowserResolverAfterEmptyHTTPResults(t *
 			t.Fatalf("unexpected upstream request: %s", rawURL)
 			return nil, nil
 		}
-	}), WithDouyinUserResolver(resolver))
+	})
+	handler := newThirdPartyUserResolveHandler(accounts, nil, nil, nil, transport, withTestUserResolver(transport, resolver))
 	request := httptest.NewRequest(http.MethodGet, "/api/third-party/users/resolve?platform=douyin&query=%E6%B4%9B%E5%A4%A9%E4%BE%9D", nil)
 	recorder := httptest.NewRecorder()
 
@@ -435,7 +454,7 @@ func TestThirdPartyUserResolveDouyinParsesScopedUserObject(t *testing.T) {
 			"primary": "sessionid=fixture;",
 		},
 	}
-	handler := NewThirdPartyHandlers(accounts, nil, nil, nil, thirdPartyMediaRoundTripFunc(func(request *http.Request) (*http.Response, error) {
+	handler := newThirdPartyUserResolveHandler(accounts, nil, nil, nil, thirdPartyMediaRoundTripFunc(func(request *http.Request) (*http.Response, error) {
 		rawURL := request.URL.String()
 		if !isDouyinUserSearchURL(rawURL) {
 			t.Fatalf("unexpected upstream request: %s", rawURL)
@@ -481,7 +500,7 @@ func TestThirdPartyUserResolveDouyinDoesNotReturnCookieAccountFromSearch(t *test
 			"primary": "sessionid=fixture;",
 		},
 	}
-	handler := NewThirdPartyHandlers(accounts, nil, nil, nil, thirdPartyMediaRoundTripFunc(func(request *http.Request) (*http.Response, error) {
+	handler := newThirdPartyUserResolveHandler(accounts, nil, nil, nil, thirdPartyMediaRoundTripFunc(func(request *http.Request) (*http.Response, error) {
 		rawURL := request.URL.String()
 		if !strings.Contains(request.Header.Get("Cookie"), "sessionid=fixture") {
 			t.Fatalf("resolve request cookie = %q, want saved douyin cookie", request.Header.Get("Cookie"))
@@ -519,7 +538,7 @@ func TestThirdPartyUserResolveDouyinDoesNotReturnCookieAccountFromSearch(t *test
 func TestThirdPartyUserResolveDouyinSearchErrorsReturnNotFoundResult(t *testing.T) {
 	t.Parallel()
 
-	handler := NewThirdPartyHandlers(nil, nil, nil, nil, thirdPartyMediaRoundTripFunc(func(request *http.Request) (*http.Response, error) {
+	handler := newThirdPartyUserResolveHandler(nil, nil, nil, nil, thirdPartyMediaRoundTripFunc(func(request *http.Request) (*http.Response, error) {
 		return nil, io.ErrUnexpectedEOF
 	}))
 	request := httptest.NewRequest(http.MethodGet, "/api/third-party/users/resolve?platform=douyin&query=%E6%B4%9B%E5%A4%A9%E4%BE%9D", nil)

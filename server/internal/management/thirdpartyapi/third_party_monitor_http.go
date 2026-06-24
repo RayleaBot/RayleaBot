@@ -7,12 +7,11 @@ import (
 	"time"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/httpapi"
-	bilibilisource "github.com/RayleaBot/RayleaBot/server/internal/integrations/bilibili/source"
 	"github.com/RayleaBot/RayleaBot/server/internal/integrations/thirdparty"
 )
 
 type thirdPartyMonitorService interface {
-	MonitorSnapshot(context.Context) (bilibilisource.MonitorSnapshot, error)
+	MonitorSnapshot(context.Context) (thirdparty.MonitorSnapshot, error)
 }
 
 func (h *ThirdPartyHandlers) HandleThirdPartyMonitorList() http.HandlerFunc {
