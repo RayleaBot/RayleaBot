@@ -61,6 +61,9 @@ type SystemStatusResponse struct {
 	Status          string                         `json:"status"`
 	AdapterState    string                         `json:"adapter_state"`
 	ActivePlugins   int                            `json:"active_plugins"`
+	RunningPlugins  int                            `json:"running_plugins"`
+	FailedPlugins   int                            `json:"failed_plugins"`
+	DBSchemaVersion string                         `json:"db_schema_version"`
 	UptimeSeconds   int64                          `json:"uptime_seconds"`
 	RecoverySummary *recovery.CompatibilitySummary `json:"recovery_summary,omitempty"`
 }
@@ -140,6 +143,9 @@ func systemStatusResponseFromSnapshot(snapshot systemmodel.StatusSnapshot) Syste
 		Status:          snapshot.Status,
 		AdapterState:    snapshot.AdapterState,
 		ActivePlugins:   snapshot.ActivePlugins,
+		RunningPlugins:  snapshot.RunningPlugins,
+		FailedPlugins:   snapshot.FailedPlugins,
+		DBSchemaVersion: snapshot.DBSchemaVersion,
 		UptimeSeconds:   snapshot.UptimeSeconds,
 		RecoverySummary: snapshot.RecoverySummary,
 	}

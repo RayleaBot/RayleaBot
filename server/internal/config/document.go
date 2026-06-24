@@ -16,21 +16,29 @@ func LoadDocument(configPath, schemaPath string) (map[string]any, error) {
 }
 
 func SaveDocument(configPath, schemaPath string, document map[string]any) (Config, Summary, error) {
-	canonical, err := canonicalizeDocument(document)
+	cfg, summary, canonical, err := NormalizeDocument(configPath, schemaPath, document)
 	if err != nil {
-		return Config{}, Summary{}, fmt.Errorf("normalize config document %s: %w", configPath, err)
-	}
-	if err := validateDocument(schemaPath, canonical); err != nil {
-		return Config{}, Summary{}, fmt.Errorf("config validation failed for %s against %s: %w", configPath, schemaPath, err)
-	}
-	cfg, err := decodeTypedConfig(canonical)
-	if err != nil {
-		return Config{}, Summary{}, fmt.Errorf("decode typed config %s: %w", configPath, err)
+		return Config{}, Summary{}, err
 	}
 	if err := writeCanonicalDocument(configPath, canonical); err != nil {
 		return Config{}, Summary{}, err
 	}
-	return cfg, buildSummary(configPath, schemaPath, cfg, canonical), nil
+	return cfg, summary, nil
+}
+
+func NormalizeDocument(configPath, schemaPath string, document map[string]any) (Config, Summary, map[string]any, error) {
+	canonical, err := canonicalizeDocument(document)
+	if err != nil {
+		return Config{}, Summary{}, nil, fmt.Errorf("normalize config document %s: %w", configPath, err)
+	}
+	if err := validateDocument(schemaPath, canonical); err != nil {
+		return Config{}, Summary{}, nil, fmt.Errorf("config validation failed for %s against %s: %w", configPath, schemaPath, err)
+	}
+	cfg, err := decodeTypedConfig(canonical)
+	if err != nil {
+		return Config{}, Summary{}, nil, fmt.Errorf("decode typed config %s: %w", configPath, err)
+	}
+	return cfg, buildSummary(configPath, schemaPath, cfg, canonical), canonical, nil
 }
 
 func writeAtomic(path string, contents []byte, mode os.FileMode) error {

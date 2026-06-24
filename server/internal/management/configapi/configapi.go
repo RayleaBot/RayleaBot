@@ -58,7 +58,7 @@ func (h *Handlers) HandleConfigPut() http.HandlerFunc {
 
 		response, err := h.config.UpdateConfigDocument(request)
 		if err != nil {
-			writeAppError(w, r, http.StatusBadRequest, "platform.invalid_config", "配置校验失败", "errors.platform.invalid_config", nil)
+			writeAppError(w, r, http.StatusBadRequest, "platform.invalid_config", "配置校验失败", "errors.platform.invalid_config", configValidationDetails(err))
 			return
 		}
 
@@ -87,6 +87,14 @@ func updateResponseFromResult(result configruntime.UpdateResult) UpdateResponse 
 		RestartRequired: result.RestartRequired,
 		ApplyEffects:    result.ApplyEffects,
 	}
+}
+
+func configValidationDetails(err error) map[string]any {
+	fields := internalconfig.ValidationErrorDetails(err)
+	if len(fields) == 0 {
+		return nil
+	}
+	return map[string]any{"fields": fields}
 }
 
 func writeAppError(w http.ResponseWriter, r *http.Request, statusCode int, code, message, messageKey string, details map[string]any) {

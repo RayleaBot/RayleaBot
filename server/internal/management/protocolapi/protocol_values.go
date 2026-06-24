@@ -6,7 +6,7 @@ import (
 	"strings"
 )
 
-func allowOneBotIngress(r *http.Request, accessToken string) bool {
+func allowOneBotIngress(r *http.Request, accessToken string, allowQueryToken bool) bool {
 	trimmedToken := strings.TrimSpace(accessToken)
 	if trimmedToken == "" {
 		return true
@@ -18,7 +18,7 @@ func allowOneBotIngress(r *http.Request, accessToken string) bool {
 			return true
 		}
 	}
-	if strings.TrimSpace(r.URL.Query().Get("access_token")) == trimmedToken {
+	if allowQueryToken && strings.TrimSpace(r.URL.Query().Get("access_token")) == trimmedToken {
 		return true
 	}
 	return false

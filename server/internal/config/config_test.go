@@ -47,7 +47,7 @@ func TestLoadAndSaveUseEmbeddedSchemaByDefault(t *testing.T) {
 	}
 }
 
-func TestLoadBootstrapsDefaultAndUserConfigWhenMissing(t *testing.T) {
+func TestLoadDoesNotWriteConfigFilesWhenMissing(t *testing.T) {
 	t.Parallel()
 
 	configPath := filepath.Join(t.TempDir(), "config", "user.yaml")
@@ -56,6 +56,27 @@ func TestLoadBootstrapsDefaultAndUserConfigWhenMissing(t *testing.T) {
 	cfg, _, err := Load(configPath, schemaPath)
 	if err != nil {
 		t.Fatalf("Load() error = %v", err)
+	}
+	if cfg.Server.Host != "127.0.0.1" {
+		t.Fatalf("Server.Host = %q, want 127.0.0.1", cfg.Server.Host)
+	}
+	if _, err := os.Stat(filepath.Join(filepath.Dir(configPath), "default.yaml")); !os.IsNotExist(err) {
+		t.Fatalf("Load should not create default.yaml, stat err = %v", err)
+	}
+	if _, err := os.Stat(configPath); !os.IsNotExist(err) {
+		t.Fatalf("Load should not create user.yaml, stat err = %v", err)
+	}
+}
+
+func TestNormalizeBootstrapsDefaultAndUserConfigWhenMissing(t *testing.T) {
+	t.Parallel()
+
+	configPath := filepath.Join(t.TempDir(), "config", "user.yaml")
+	schemaPath := filepath.Join("..", "..", "..", "contracts", "config.user.schema.json")
+
+	cfg, _, err := Normalize(configPath, schemaPath)
+	if err != nil {
+		t.Fatalf("Normalize() error = %v", err)
 	}
 
 	if cfg.Server.Host != "127.0.0.1" {
@@ -105,6 +126,9 @@ func TestLoadBootstrapsDefaultAndUserConfigWhenMissing(t *testing.T) {
 	if got := nestedString(t, document, "onebot", "forward_ws", "access_token"); got != "" {
 		t.Fatalf("onebot.forward_ws.access_token = %q, want empty", got)
 	}
+	if got := nestedString(t, document, "onebot", "forward_ws", "access_token_query_compat"); got != "false" {
+		t.Fatalf("onebot.forward_ws.access_token_query_compat = %q, want false", got)
+	}
 	if got := nestedString(t, document, "render", "footer_template"); got != DefaultRenderFooterTemplate {
 		t.Fatalf("render.footer_template = %q, want default footer template", got)
 	}
@@ -113,6 +137,56 @@ func TestLoadBootstrapsDefaultAndUserConfigWhenMissing(t *testing.T) {
 	}
 	if got := nestedString(t, document, "render", "device_scale_percent"); got != "100" {
 		t.Fatalf("render.device_scale_percent = %q, want 100", got)
+	}
+}
+
+func TestInitWritesCanonicalConfig(t *testing.T) {
+	t.Parallel()
+
+	configPath := filepath.Join(t.TempDir(), "config", "user.yaml")
+	schemaPath := filepath.Join("..", "..", "..", "contracts", "config.user.schema.json")
+
+	if _, _, err := Init(configPath, schemaPath); err != nil {
+		t.Fatalf("Init() error = %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(filepath.Dir(configPath), "default.yaml")); err != nil {
+		t.Fatalf("default.yaml was not created: %v", err)
+	}
+	if _, err := os.Stat(configPath); err != nil {
+		t.Fatalf("user.yaml was not created: %v", err)
+	}
+}
+
+func TestValidateDoesNotRewriteConfig(t *testing.T) {
+	t.Parallel()
+
+	configDir := filepath.Join(t.TempDir(), "config")
+	configPath := filepath.Join(configDir, "user.yaml")
+	schemaPath := filepath.Join("..", "..", "..", "contracts", "config.user.schema.json")
+	writeYAMLDocument(t, configPath, map[string]any{
+		"schema_version": "2",
+		"server": map[string]any{
+			"port": 9090,
+		},
+	})
+	before, err := os.ReadFile(configPath)
+	if err != nil {
+		t.Fatalf("read config before validate: %v", err)
+	}
+
+	cfg, _, err := Validate(configPath, schemaPath)
+	if err != nil {
+		t.Fatalf("Validate() error = %v", err)
+	}
+	if cfg.Server.Port != 9090 {
+		t.Fatalf("Server.Port = %d, want 9090", cfg.Server.Port)
+	}
+	after, err := os.ReadFile(configPath)
+	if err != nil {
+		t.Fatalf("read config after validate: %v", err)
+	}
+	if !reflect.DeepEqual(before, after) {
+		t.Fatalf("Validate rewrote config:\nbefore=%s\nafter=%s", before, after)
 	}
 }
 
@@ -430,14 +504,16 @@ func newPlanningConfigDocument() map[string]any {
 		},
 		"onebot": map[string]any{
 			"reverse_ws": map[string]any{
-				"enabled":      false,
-				"url":          "",
-				"access_token": "",
+				"enabled":                   false,
+				"url":                       "",
+				"access_token":              "",
+				"access_token_query_compat": false,
 			},
 			"forward_ws": map[string]any{
-				"enabled":      false,
-				"url":          "",
-				"access_token": "",
+				"enabled":                   false,
+				"url":                       "",
+				"access_token":              "",
+				"access_token_query_compat": false,
 			},
 			"http_api": map[string]any{
 				"enabled":      false,
@@ -445,9 +521,10 @@ func newPlanningConfigDocument() map[string]any {
 				"access_token": "",
 			},
 			"webhook": map[string]any{
-				"enabled":      false,
-				"url":          "",
-				"access_token": "",
+				"enabled":                   false,
+				"url":                       "",
+				"access_token":              "",
+				"access_token_query_compat": false,
 			},
 		},
 		"database": map[string]any{

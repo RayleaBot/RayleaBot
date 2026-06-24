@@ -2012,6 +2012,18 @@ components:
         active_plugins:
           type: integer
           minimum: 0
+          description: Number of plugin runtimes currently active for compatibility with existing clients.
+        running_plugins:
+          type: integer
+          minimum: 0
+          description: Number of plugins currently in the running state.
+        failed_plugins:
+          type: integer
+          minimum: 0
+          description: Number of plugins currently in the failed state.
+        db_schema_version:
+          type: string
+          description: Current database schema migration version.
         uptime_seconds:
           type: integer
           minimum: 0

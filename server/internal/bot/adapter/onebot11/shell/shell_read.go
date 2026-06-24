@@ -132,7 +132,7 @@ func (s *Shell) dial(ctx context.Context) (*websocket.Conn, *http.Response, erro
 		headers.Set("Authorization", "Bearer "+accessToken)
 	}
 
-	return s.deps.dial(dialCtx, dialURL(s.forwardWSURL(), accessToken), &websocket.DialOptions{
+	return s.deps.dial(dialCtx, dialURL(s.forwardWSURL(), accessToken, s.cfg.ForwardWS.AccessTokenQueryCompat), &websocket.DialOptions{
 		HTTPHeader: headers,
 	})
 }

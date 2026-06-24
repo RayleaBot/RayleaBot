@@ -1165,7 +1165,14 @@ export interface components {
             /** @enum {string} */
             status: "running" | "shutting_down";
             adapter_state?: string;
+            /** @description Number of plugin runtimes currently active for compatibility with existing clients. */
             active_plugins?: number;
+            /** @description Number of plugins currently in the running state. */
+            running_plugins?: number;
+            /** @description Number of plugins currently in the failed state. */
+            failed_plugins?: number;
+            /** @description Current database schema migration version. */
+            db_schema_version?: string;
             uptime_seconds?: number;
             recovery_summary?: components["schemas"]["RecoveryCompatibilitySummary"];
         };
@@ -2044,6 +2051,11 @@ export interface components {
             url: string | "" | unknown;
             /** @default  */
             access_token: string;
+            /**
+             * @description Compatibility mode for legacy OneBot providers that require access_token in the URL query. Authorization: Bearer is the default and preferred token transport.
+             * @default false
+             */
+            access_token_query_compat: boolean;
         };
         onebotHttpTransport: {
             /** @default false */
@@ -2052,6 +2064,19 @@ export interface components {
             url: string | "" | unknown;
             /** @default  */
             access_token: string;
+        };
+        onebotWebhookTransport: {
+            /** @default false */
+            enabled: boolean;
+            /** @default  */
+            url: string | "" | unknown;
+            /** @default  */
+            access_token: string;
+            /**
+             * @description Compatibility mode for legacy OneBot webhook clients that send access_token in the URL query. Authorization: Bearer is the default and preferred token transport.
+             * @default false
+             */
+            access_token_query_compat: boolean;
         };
         rateLimit: string;
         /**
@@ -2080,7 +2105,7 @@ export interface components {
                 reverse_ws: components["schemas"]["onebotWsTransport"];
                 forward_ws: components["schemas"]["onebotWsTransport"];
                 http_api: components["schemas"]["onebotHttpTransport"];
-                webhook: components["schemas"]["onebotHttpTransport"];
+                webhook: components["schemas"]["onebotWebhookTransport"];
             };
             database: {
                 /**
@@ -2089,7 +2114,10 @@ export interface components {
                  * @constant
                  */
                 engine: "sqlite";
-                /** @description Database file path. Relative paths resolve against the data directory; absolute paths are recommended for operational clarity. Requires restart. */
+                /**
+                 * @description Database file path. Relative paths resolve against the data directory; absolute paths are recommended for operational clarity. Requires restart.
+                 * @default data/rayleabot.db
+                 */
                 path: string;
             };
             command: {
@@ -2411,6 +2439,11 @@ export interface components {
                     url: string | "" | unknown;
                     /** @default  */
                     access_token: string;
+                    /**
+                     * @description Compatibility mode for legacy OneBot providers that require access_token in the URL query. Authorization: Bearer is the default and preferred token transport.
+                     * @default false
+                     */
+                    access_token_query_compat: boolean;
                 };
                 onebotHttpTransport: {
                     /** @default false */
@@ -2419,6 +2452,19 @@ export interface components {
                     url: string | "" | unknown;
                     /** @default  */
                     access_token: string;
+                };
+                onebotWebhookTransport: {
+                    /** @default false */
+                    enabled: boolean;
+                    /** @default  */
+                    url: string | "" | unknown;
+                    /** @default  */
+                    access_token: string;
+                    /**
+                     * @description Compatibility mode for legacy OneBot webhook clients that send access_token in the URL query. Authorization: Bearer is the default and preferred token transport.
+                     * @default false
+                     */
+                    access_token_query_compat: boolean;
                 };
                 rateLimit: string;
             };

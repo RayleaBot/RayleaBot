@@ -14,10 +14,12 @@ request:
         enabled: false
         url: ""
         access_token: ""
+        access_token_query_compat: false
       forward_ws:
         enabled: true
         url: ws://127.0.0.1:2658
         access_token: ""
+        access_token_query_compat: false
       http_api:
         enabled: false
         url: ""
@@ -26,6 +28,7 @@ request:
         enabled: false
         url: ""
         access_token: ""
+        access_token_query_compat: false
     database:
       engine: sqlite
       path: data/rayleabot.db
@@ -127,10 +130,12 @@ response:
           enabled: false
           url: ""
           access_token: ""
+          access_token_query_compat: false
         forward_ws:
           enabled: true
           url: ws://127.0.0.1:2658
           access_token: ""
+          access_token_query_compat: false
         http_api:
           enabled: false
           url: ""
@@ -139,6 +144,7 @@ response:
           enabled: false
           url: ""
           access_token: ""
+          access_token_query_compat: false
       database:
         engine: sqlite
         path: data/rayleabot.db

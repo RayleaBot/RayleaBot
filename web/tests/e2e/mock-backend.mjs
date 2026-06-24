@@ -17,6 +17,13 @@ const externalPreviewImageBytes = Buffer.from(
 const bilibiliAvatarUrl = 'http://127.0.0.1:4010/external-preview/avatar.png'
 const bilibiliMonitorMediaUrl = '//i0.hdslb.com/bfs/face/rayleabot-avatar.png'
 const weiboAvatarUrl = 'https://tvax1.sinaimg.cn/crop.0.0.512.512.180/fixture.jpg'
+const redactedConfigValue = '********'
+const secretConfigPaths = [
+  ['onebot', 'forward_ws', 'access_token'],
+  ['onebot', 'http_api', 'access_token'],
+  ['onebot', 'reverse_ws', 'access_token'],
+  ['onebot', 'webhook', 'access_token'],
+]
 const externalPreviewFontBytes = await readFile(
   path.join(repoRoot, 'templates', 'fortune.card', 'assets', 'fonts', 'lxgwwenkai-medium', 'e8f52c41386b1b7731acfccb8c1a8c52.woff2'),
 )
@@ -228,6 +235,57 @@ function computeProtocolSnapshotFromConfig(config, currentSnapshot) {
     snapshot.summary = 'OneBot11 尚未配置连接'
   }
   return snapshot
+}
+
+function redactConfigSecrets(config) {
+  const snapshot = structuredClone(config)
+  const redactedFields = []
+  for (const secretPath of secretConfigPaths) {
+    const value = getPath(snapshot, secretPath)
+    if (typeof value !== 'string' || value.trim() === '') {
+      continue
+    }
+    setPath(snapshot, secretPath, redactedConfigValue)
+    redactedFields.push(secretPath.join('.'))
+  }
+  return {
+    config: snapshot,
+    redacted_fields: redactedFields.sort(),
+  }
+}
+
+function restoreRedactedConfigSecrets(payload, currentConfig) {
+  const nextConfig = structuredClone(payload)
+  for (const secretPath of secretConfigPaths) {
+    const submitted = getPath(nextConfig, secretPath)
+    if (submitted !== undefined && String(submitted).trim() !== redactedConfigValue) {
+      continue
+    }
+    setPath(nextConfig, secretPath, String(getPath(currentConfig, secretPath) ?? ''))
+  }
+  return nextConfig
+}
+
+function getPath(value, segments) {
+  let current = value
+  for (const segment of segments) {
+    if (!current || typeof current !== 'object' || !(segment in current)) {
+      return undefined
+    }
+    current = current[segment]
+  }
+  return current
+}
+
+function setPath(value, segments, nextValue) {
+  let current = value
+  for (const segment of segments.slice(0, -1)) {
+    if (!current[segment] || typeof current[segment] !== 'object') {
+      current[segment] = {}
+    }
+    current = current[segment]
+  }
+  current[segments.at(-1)] = nextValue
 }
 
 function normalizeTransport(entry = {}) {
@@ -1532,9 +1590,10 @@ const server = http.createServer(async (request, response) => {
       return
     }
 
+    const snapshot = redactConfigSecrets(state.config)
     json(response, 200, {
-      config: state.config,
-      redacted_fields: [],
+      config: snapshot.config,
+      redacted_fields: snapshot.redacted_fields,
     })
     return
   }
@@ -1546,7 +1605,7 @@ const server = http.createServer(async (request, response) => {
 
     const payload = await parseBody(request)
     const previousConfig = structuredClone(state.config)
-    state.config = payload
+    state.config = restoreRedactedConfigSecrets(payload, state.config)
     syncGovernanceCommandPolicyFromConfig(state.config)
     const applyEffects = computeConfigApplyEffects(previousConfig, state.config)
     state.protocolSnapshot = computeProtocolSnapshotFromConfig(state.config, state.protocolSnapshot)
@@ -1559,9 +1618,10 @@ const server = http.createServer(async (request, response) => {
         protocol_snapshot: structuredClone(state.protocolSnapshot),
       },
     })
+    const snapshot = redactConfigSecrets(state.config)
     json(response, 200, {
-      config: state.config,
-      redacted_fields: [],
+      config: snapshot.config,
+      redacted_fields: snapshot.redacted_fields,
       restart_required: computeRestartRequiredForConfig(previousConfig, state.config),
       apply_effects: applyEffects,
     })

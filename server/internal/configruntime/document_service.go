@@ -1,6 +1,8 @@
 package configruntime
 
 import (
+	"context"
+
 	internalconfig "github.com/RayleaBot/RayleaBot/server/internal/config"
 )
 
@@ -14,7 +16,19 @@ func (s *Service) CurrentConfigDocument() Document {
 
 func (s *Service) UpdateConfigDocument(request map[string]any) (UpdateResult, error) {
 	summary := s.summary()
-	newCfg, newSummary, err := internalconfig.SaveDocument(summary.ConfigPath, summary.SchemaPath, request)
+	request = restoreRedactedConfigSecrets(request, ConfigDocumentFromTyped(s.config()))
+	if _, _, _, err := internalconfig.NormalizeDocument(summary.ConfigPath, summary.SchemaPath, request); err != nil {
+		return UpdateResult{}, err
+	}
+	storedRequest, err := StoreConfigSecrets(context.Background(), s.secrets, request)
+	if err != nil {
+		return UpdateResult{}, err
+	}
+	newCfg, newSummary, err := internalconfig.SaveDocument(summary.ConfigPath, summary.SchemaPath, storedRequest)
+	if err != nil {
+		return UpdateResult{}, err
+	}
+	newCfg, err = ResolveConfigSecretRefs(context.Background(), s.secrets, newCfg)
 	if err != nil {
 		return UpdateResult{}, err
 	}
@@ -51,13 +65,4 @@ func (s *Service) summary() internalconfig.Summary {
 		return internalconfig.Summary{}
 	}
 	return s.currentSummary()
-}
-
-func sanitizeConfigDocument(document map[string]any) (map[string]any, []string) {
-	cloned := internalconfig.CloneDocument(document)
-	if cloned == nil {
-		return nil, nil
-	}
-
-	return cloned, []string{}
 }

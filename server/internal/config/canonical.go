@@ -1,9 +1,6 @@
 package config
 
-import (
-	"fmt"
-	"reflect"
-)
+import "fmt"
 
 const currentSchemaVersion = "2"
 const DefaultRenderFooterTemplate = "Created By RayleaBot {{rayleabot_version}} & Plugin {{plugin_name}} {{plugin_version}}"
@@ -18,7 +15,7 @@ func CurrentSchemaVersion() string {
 }
 
 func loadCanonicalDocument(configPath, schemaPath string) (map[string]any, Config, error) {
-	defaultDoc, err := ensureDefaultTemplate(configPath)
+	defaultDoc, err := readDefaultTemplate(configPath)
 	if err != nil {
 		return nil, Config{}, err
 	}
@@ -46,12 +43,40 @@ func loadCanonicalDocument(configPath, schemaPath string) (map[string]any, Confi
 		return nil, Config{}, fmt.Errorf("decode typed config %s: %w", configPath, err)
 	}
 
-	shouldPersist := !userExists || !reflect.DeepEqual(rawUser, document)
-	if shouldPersist {
-		if err := writeCanonicalDocument(configPath, document); err != nil {
-			return nil, Config{}, err
+	return document, cfg, nil
+}
+
+func normalizeCanonicalDocument(configPath, schemaPath string) (Config, Summary, error) {
+	defaultDoc, err := ensureDefaultTemplate(configPath)
+	if err != nil {
+		return Config{}, Summary{}, err
+	}
+
+	rawUser, userExists, err := readYAMLDocument(configPath)
+	if err != nil {
+		return Config{}, Summary{}, fmt.Errorf("read config %s: %w", configPath, err)
+	}
+
+	userDoc := map[string]any{}
+	if userExists {
+		userDoc, err = canonicalizeDocument(rawUser)
+		if err != nil {
+			return Config{}, Summary{}, fmt.Errorf("normalize config document %s: %w", configPath, err)
 		}
 	}
 
-	return document, cfg, nil
+	document := mergeDocuments(defaultDoc, userDoc)
+	if err := validateDocument(schemaPath, document); err != nil {
+		return Config{}, Summary{}, fmt.Errorf("config validation failed for %s against %s: %w", configPath, schemaPath, err)
+	}
+
+	cfg, err := decodeTypedConfig(document)
+	if err != nil {
+		return Config{}, Summary{}, fmt.Errorf("decode typed config %s: %w", configPath, err)
+	}
+	if err := writeCanonicalDocument(configPath, document); err != nil {
+		return Config{}, Summary{}, err
+	}
+
+	return cfg, buildSummary(configPath, schemaPath, cfg, document), nil
 }

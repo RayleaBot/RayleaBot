@@ -9,9 +9,21 @@
 - `config/default.yaml` 提供发行包默认基线。
 - `config/user.yaml` 保存用户自定义配置。
 - `data/launcher.json` 保存 Launcher 的本机设置，例如安装根选择、关闭行为和本地覆盖项。
-- 服务运行时按 `default.yaml -> user.yaml` 生成有效配置，并在保存时输出 canonical 结构。
-- 首次启动如缺少 `config/user.yaml`，服务会基于默认模板生成首份用户配置。
+- 服务运行时按内置 schema 默认值、`default.yaml`、`user.yaml` 生成有效配置。
+- 服务启动只读取配置文件，不创建或重写 `default.yaml`、`user.yaml`。
 - 日志和诊断输出会过滤 `Authorization`、`access_token`、`token` 等敏感键。
+- 通过管理端保存 OneBot11 访问令牌时，明文值写入本地 secret store，`user.yaml` 只保存 `secret://onebot/<transport>/access_token` 引用。
+- OneBot11 访问令牌默认通过 `Authorization: Bearer` 传递。只有旧服务端或旧 webhook 客户端必须使用 URL query token 时，才将对应入口的 `access_token_query_compat` 显式设为 `true`。
+
+## 配置文件维护
+
+| 命令 | 作用 |
+| --- | --- |
+| `raylea-server config init` | 创建默认配置模板并写出规范化用户配置 |
+| `raylea-server config normalize` | 按当前 schema 整理默认模板和用户配置 |
+| `raylea-server config validate` | 校验配置文件，不修改文件内容 |
+
+缺少配置文件或需要整理配置格式时，使用显式配置命令处理。`raylea-server` 启动路径不承担初始化或格式化职责。
 
 ## 配置生效方式
 

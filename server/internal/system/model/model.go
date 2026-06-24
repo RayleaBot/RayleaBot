@@ -6,6 +6,9 @@ type StatusSnapshot struct {
 	Status          string
 	AdapterState    string
 	ActivePlugins   int
+	RunningPlugins  int
+	FailedPlugins   int
+	DBSchemaVersion string
 	UptimeSeconds   int64
 	RecoverySummary *recovery.CompatibilitySummary
 }

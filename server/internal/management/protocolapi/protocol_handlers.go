@@ -21,11 +21,13 @@ type protocolHTTPService interface {
 	reverseWSIngressAvailable() bool
 	reverseWSIngressEnabled() bool
 	reverseWSAccessToken() string
+	reverseWSAccessTokenQueryCompat() bool
 	markReverseWSAuthFailed()
 	attachReverseWS(*websocket.Conn)
 	webhookIngressAvailable() bool
 	webhookIngressEnabled() bool
 	webhookAccessToken() string
+	webhookAccessTokenQueryCompat() bool
 	markWebhookAuthFailed()
 	acceptWebhookPayload(context.Context, []byte) error
 }
@@ -74,7 +76,7 @@ func (h *ProtocolHandlers) HandleProtocolOneBot11ReverseWS() http.HandlerFunc {
 			writeAppError(w, r, http.StatusServiceUnavailable, "adapter.transport_reverse_ws_upgrade_failed", "OneBot 回连入口未启用", "errors.adapter.transport_reverse_ws_upgrade_failed", nil)
 			return
 		}
-		if !allowOneBotIngress(r, h.protocol.reverseWSAccessToken()) {
+		if !allowOneBotIngress(r, h.protocol.reverseWSAccessToken(), h.protocol.reverseWSAccessTokenQueryCompat()) {
 			h.protocol.markReverseWSAuthFailed()
 			writeAppError(w, r, http.StatusUnauthorized, "adapter.transport_reverse_ws_auth_failed", "协议鉴权失败", "errors.adapter.transport_reverse_ws_auth_failed", nil)
 			return
@@ -98,7 +100,7 @@ func (h *ProtocolHandlers) HandleProtocolOneBot11Webhook() http.HandlerFunc {
 			writeAppError(w, r, http.StatusServiceUnavailable, "adapter.transport_webhook_invalid_payload", "OneBot Webhook 入口未启用", "errors.adapter.transport_webhook_invalid_payload", nil)
 			return
 		}
-		if !allowOneBotIngress(r, h.protocol.webhookAccessToken()) {
+		if !allowOneBotIngress(r, h.protocol.webhookAccessToken(), h.protocol.webhookAccessTokenQueryCompat()) {
 			h.protocol.markWebhookAuthFailed()
 			writeAppError(w, r, http.StatusUnauthorized, "adapter.transport_webhook_auth_failed", "协议鉴权失败", "errors.adapter.transport_webhook_auth_failed", nil)
 			return

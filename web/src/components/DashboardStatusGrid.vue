@@ -27,10 +27,12 @@ defineProps<{
   readinessDetailText: string
   activePluginsLabel: string
   activePluginsCount: number
+  activePluginsDetailText: string
   activePluginsTo: RouteLocationRaw
   activePluginsAriaLabel: string
   uptimeLabel: string
   uptimeText: string
+  runtimeMetaText: string
 }>()
 </script>
 
@@ -75,6 +77,7 @@ defineProps<{
       <div class="custom-stat-card__body">
         <span class="custom-stat-card__label">{{ activePluginsLabel }}</span>
         <strong class="custom-stat-card__value">{{ activePluginsCount }}</strong>
+        <span class="custom-stat-card__desc">{{ activePluginsDetailText }}</span>
       </div>
       <div class="custom-stat-card__shine" />
     </RouterLink>
@@ -87,6 +90,7 @@ defineProps<{
       <div class="custom-stat-card__body">
         <span class="custom-stat-card__label">{{ uptimeLabel }}</span>
         <strong class="custom-stat-card__value monospace">{{ uptimeText }}</strong>
+        <span class="custom-stat-card__desc">{{ runtimeMetaText }}</span>
       </div>
       <div class="custom-stat-card__shine" />
     </div>

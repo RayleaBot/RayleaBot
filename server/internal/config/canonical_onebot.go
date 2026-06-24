@@ -8,13 +8,13 @@ func normalizeOneBotSection(document map[string]any) {
 		return
 	}
 
-	normalizeOneBotTransport(onebot, "reverse_ws")
-	normalizeOneBotTransport(onebot, "forward_ws")
-	normalizeOneBotTransport(onebot, "http_api")
-	normalizeOneBotTransport(onebot, "webhook")
+	normalizeOneBotTransport(onebot, "reverse_ws", true)
+	normalizeOneBotTransport(onebot, "forward_ws", true)
+	normalizeOneBotTransport(onebot, "http_api", false)
+	normalizeOneBotTransport(onebot, "webhook", true)
 }
 
-func normalizeOneBotTransport(onebot map[string]any, key string) {
+func normalizeOneBotTransport(onebot map[string]any, key string, allowQueryCompat bool) {
 	transport := transportSection(onebot, key)
 	if transport == nil {
 		transport = map[string]any{
@@ -30,6 +30,13 @@ func normalizeOneBotTransport(onebot map[string]any, key string) {
 		transport["enabled"] = false
 	}
 	transport["access_token"] = strings.TrimSpace(stringValue(transport["access_token"]))
+	if allowQueryCompat {
+		if _, ok := transport["access_token_query_compat"].(bool); !ok {
+			transport["access_token_query_compat"] = false
+		}
+	} else {
+		delete(transport, "access_token_query_compat")
+	}
 }
 
 func oneBotTransportDocument(enabled bool, urlValue string, accessToken string) map[string]any {
@@ -42,4 +49,10 @@ func oneBotTransportDocument(enabled bool, urlValue string, accessToken string) 
 
 func oneBotTransportConfigDocument(transport OneBotTransportConfig) map[string]any {
 	return oneBotTransportDocument(transport.Enabled, transport.URL, transport.AccessToken)
+}
+
+func oneBotTransportCompatDocument(transport OneBotTransportConfig) map[string]any {
+	document := oneBotTransportDocument(transport.Enabled, transport.URL, transport.AccessToken)
+	document["access_token_query_compat"] = transport.AccessTokenQueryCompat
+	return document
 }

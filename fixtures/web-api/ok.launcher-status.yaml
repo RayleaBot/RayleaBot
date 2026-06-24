@@ -10,6 +10,9 @@ response:
     status: running
     adapter_state: connected
     active_plugins: 1
+    running_plugins: 1
+    failed_plugins: 0
+    db_schema_version: "000004"
     uptime_seconds: 3600
     recovery_summary:
       status: compatible
@@ -21,7 +24,7 @@ response:
       target_core_version: 0.2.0
       source_config_schema_version: "2"
       target_config_schema_version: "2"
-      source_db_schema_version: "base-2026-06"
-      target_db_schema_version: "base-2026-06"
+      source_db_schema_version: "000004"
+      target_db_schema_version: "000004"
 expect:
   valid: true

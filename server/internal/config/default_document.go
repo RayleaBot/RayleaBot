@@ -1,120 +1,121 @@
 package config
 
+import (
+	"encoding/json"
+	"fmt"
+
+	"github.com/RayleaBot/RayleaBot/server/internal/schemaassets"
+)
+
+var defaultDocumentTemplate = mustDefaultDocumentTemplate()
+
 func defaultDocument() map[string]any {
-	return map[string]any{
-		"schema_version": currentSchemaVersion,
-		"server": map[string]any{
-			"host": "127.0.0.1",
-			"port": 8080,
-		},
-		"onebot": map[string]any{
-			"reverse_ws": oneBotTransportDocument(false, "", ""),
-			"forward_ws": oneBotTransportDocument(false, "", ""),
-			"http_api":   oneBotTransportDocument(false, "", ""),
-			"webhook":    oneBotTransportDocument(false, "", ""),
-		},
-		"database": map[string]any{
-			"engine": "sqlite",
-			"path":   "data/rayleabot.db",
-		},
-		"command": map[string]any{
-			"prefixes": []string{"/"},
-		},
-		"builtin_features": map[string]any{
-			"menu": map[string]any{
-				"commands": []string{"help", "帮助"},
-				"prefixes": []string{},
-			},
-		},
-		"admin": map[string]any{
-			"super_admins":              []string{},
-			"session_ttl_days":          7,
-			"sliding_renewal":           true,
-			"max_sessions":              3,
-			"login_fail_limit":          5,
-			"login_fail_window_seconds": 300,
-		},
-		"permission": map[string]any{
-			"default_level": "everyone",
-		},
-		"render": map[string]any{
-			"worker_count":               1,
-			"browser_args":               []string{"--disable-gpu"},
-			"browser_path":               "",
-			"default_output":             DefaultRenderOutput,
-			"device_scale_percent":       DefaultRenderDeviceScalePercent,
-			"timeout_seconds":            30,
-			"queue_wait_timeout_seconds": 15,
-			"queue_max_length":           32,
-			"footer_template":            DefaultRenderFooterTemplate,
-		},
-		"scheduler": map[string]any{
-			"timezone": "",
-		},
-		"runtime": map[string]any{
-			"plugin_init_timeout_seconds":           30,
-			"plugin_init_max_total_seconds":         300,
-			"plugin_event_timeout_seconds":          60,
-			"max_pending_events_per_plugin":         16,
-			"max_pending_control_events_per_plugin": 4,
-			"nodejs_max_old_space_size_mb":          256,
-			"dependency_install_timeout_seconds":    900,
-			"max_concurrent_dependency_installs":    1,
-			"ipc_pending_actions_max":               256,
-			"ipc_action_burst_limit":                "100/1s",
-			"stderr_rate_limit_bytes_per_second":    262144,
-			"max_concurrent_tasks_per_plugin":       4,
-			"crash_backoff_initial_seconds":         2,
-			"crash_backoff_max_seconds":             60,
-			"shutdown_grace_seconds":                10,
-			"ipc_message_max_bytes":                 8388608,
-		},
-		"storage": map[string]any{
-			"kv_value_max_bytes":           65536,
-			"kv_total_limit_mb":            16,
-			"file_max_bytes":               10485760,
-			"plugin_workdir_soft_limit_mb": 256,
-		},
-		"data": map[string]any{
-			"audit_logs_retention_days":     90,
-			"event_records_retention_days":  7,
-			"download_cache_retention_days": 15,
-		},
-		"log": map[string]any{
-			"level":                 "info",
-			"retention_days":        7,
-			"rate_limit_per_plugin": "200/10s",
-		},
-		"message": map[string]any{
-			"rate_limit_per_plugin":   "20/10s",
-			"rate_limit_per_target":   "5/5s",
-			"circuit_breaker_seconds": 30,
-		},
-		"user": map[string]any{
-			"command_rate_limit": DefaultUserCommandRateLimit,
-			"cooldown_reply":     DefaultCooldownReply,
-		},
-		"group": map[string]any{
-			"command_rate_limit": DefaultGroupCommandRateLimit,
-		},
-		"adapter": map[string]any{
-			"reconnect_initial_seconds": 2,
-			"reconnect_multiplier":      2.0,
-			"reconnect_max_seconds":     120,
-			"reconnect_jitter_ratio":    0.2,
-			"connect_timeout_seconds":   15,
-		},
-		"http": map[string]any{
-			"timeout_seconds":     10,
-			"max_retries":         2,
-			"allow_private_hosts": []string{},
-		},
-		"web": map[string]any{
-			"exposure_mode":    "localhost_only",
-			"setup_local_only": true,
-		},
-		"backup": map[string]any{
-			"default_consistency": "offline",
-		},
+	return CloneDocument(defaultDocumentTemplate)
+}
+
+func mustDefaultDocumentTemplate() map[string]any {
+	document, err := defaultDocumentFromSchema(schemaassets.ConfigUserSchemaJSON)
+	if err != nil {
+		panic(fmt.Sprintf("build default config document: %v", err))
 	}
+	return document
+}
+
+func defaultDocumentFromSchema(schemaJSON []byte) (map[string]any, error) {
+	var root map[string]any
+	if err := json.Unmarshal(schemaJSON, &root); err != nil {
+		return nil, fmt.Errorf("parse config schema defaults: %w", err)
+	}
+	value, err := defaultValueFromSchema(root, root)
+	if err != nil {
+		return nil, err
+	}
+	document, ok := value.(map[string]any)
+	if !ok {
+		return nil, fmt.Errorf("config schema default document is %T, want object", value)
+	}
+	return document, nil
+}
+
+func defaultValueFromSchema(root, node map[string]any) (any, error) {
+	if ref, ok := node["$ref"].(string); ok {
+		resolved, err := resolveSchemaRef(root, ref)
+		if err != nil {
+			return nil, err
+		}
+		merged := CloneDocument(resolved)
+		for key, value := range node {
+			if key == "$ref" {
+				continue
+			}
+			merged[key] = cloneValue(value)
+		}
+		node = merged
+	}
+
+	if value, ok := node["default"]; ok {
+		return cloneValue(value), nil
+	}
+	if value, ok := node["const"]; ok {
+		return cloneValue(value), nil
+	}
+
+	if node["type"] == "object" {
+		return defaultObjectFromSchema(root, node)
+	}
+
+	return nil, fmt.Errorf("schema node %q has no default", schemaDescription(node))
+}
+
+func defaultObjectFromSchema(root, node map[string]any) (map[string]any, error) {
+	rawProperties, _ := node["properties"].(map[string]any)
+	rawRequired, _ := node["required"].([]any)
+	document := make(map[string]any, len(rawRequired))
+	for _, rawName := range rawRequired {
+		name, ok := rawName.(string)
+		if !ok {
+			return nil, fmt.Errorf("schema required entry is %T, want string", rawName)
+		}
+		rawProperty, ok := rawProperties[name]
+		if !ok {
+			return nil, fmt.Errorf("required config field %s has no schema property", name)
+		}
+		property, ok := rawProperty.(map[string]any)
+		if !ok {
+			return nil, fmt.Errorf("schema property %s is %T, want object", name, rawProperty)
+		}
+		value, err := defaultValueFromSchema(root, property)
+		if err != nil {
+			return nil, fmt.Errorf("default for %s: %w", name, err)
+		}
+		document[name] = value
+	}
+	return document, nil
+}
+
+func resolveSchemaRef(root map[string]any, ref string) (map[string]any, error) {
+	const prefix = "#/$defs/"
+	if len(ref) <= len(prefix) || ref[:len(prefix)] != prefix {
+		return nil, fmt.Errorf("unsupported schema ref %q", ref)
+	}
+	defs, _ := root["$defs"].(map[string]any)
+	raw, ok := defs[ref[len(prefix):]]
+	if !ok {
+		return nil, fmt.Errorf("schema ref %q not found", ref)
+	}
+	resolved, ok := raw.(map[string]any)
+	if !ok {
+		return nil, fmt.Errorf("schema ref %q is %T, want object", ref, raw)
+	}
+	return resolved, nil
+}
+
+func schemaDescription(node map[string]any) string {
+	if description, ok := node["description"].(string); ok && description != "" {
+		return description
+	}
+	if title, ok := node["title"].(string); ok && title != "" {
+		return title
+	}
+	return "unnamed"
 }

@@ -73,7 +73,7 @@
           "$ref": "#/$defs/onebotHttpTransport"
         },
         "webhook": {
-          "$ref": "#/$defs/onebotHttpTransport"
+          "$ref": "#/$defs/onebotWebhookTransport"
         }
       }
     },
@@ -91,6 +91,7 @@
         "path": {
           "type": "string",
           "minLength": 1,
+          "default": "data/rayleabot.db",
           "description": "Database file path. Relative paths resolve against the data directory; absolute paths are recommended for operational clarity. Requires restart."
         }
       }
@@ -642,7 +643,7 @@
     "onebotWsTransport": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["enabled", "url", "access_token"],
+      "required": ["enabled", "url", "access_token", "access_token_query_compat"],
       "properties": {
         "enabled": {
           "type": "boolean",
@@ -663,7 +664,13 @@
         },
         "access_token": {
           "type": "string",
-          "default": ""
+          "default": "",
+          "description": "OneBot access token. Management API updates store plaintext values in the local secret store and persist this field as secret://onebot/<transport>/access_token."
+        },
+        "access_token_query_compat": {
+          "type": "boolean",
+          "default": false,
+          "description": "Compatibility mode for legacy OneBot providers that require access_token in the URL query. Authorization: Bearer is the default and preferred token transport."
         }
       }
     },
@@ -691,7 +698,42 @@
         },
         "access_token": {
           "type": "string",
-          "default": ""
+          "default": "",
+          "description": "OneBot HTTP API access token. Management API updates store plaintext values in the local secret store and persist this field as secret://onebot/http_api/access_token."
+        }
+      }
+    },
+    "onebotWebhookTransport": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["enabled", "url", "access_token", "access_token_query_compat"],
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "default": false
+        },
+        "url": {
+          "type": "string",
+          "default": "",
+          "anyOf": [
+            {
+              "const": ""
+            },
+            {
+              "format": "uri",
+              "pattern": "^https?://.+$"
+            }
+          ]
+        },
+        "access_token": {
+          "type": "string",
+          "default": "",
+          "description": "OneBot webhook access token. Management API updates store plaintext values in the local secret store and persist this field as secret://onebot/webhook/access_token."
+        },
+        "access_token_query_compat": {
+          "type": "boolean",
+          "default": false,
+          "description": "Compatibility mode for legacy OneBot webhook clients that send access_token in the URL query. Authorization: Bearer is the default and preferred token transport."
         }
       }
     },

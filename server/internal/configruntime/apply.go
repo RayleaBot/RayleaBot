@@ -18,6 +18,9 @@ func (s *Service) ApplyHotReloadableFields(newCfg internalconfig.Config) ApplyEf
 	effects := ClassifyApplyEffects(oldCfg, newCfg)
 	oneBotHotChanged := len(effects.ReloadedNow) > 0
 
+	if s.addRedactionValues != nil {
+		s.addRedactionValues(configSecretValues(newCfg)...)
+	}
 	if newCfg.Log.Level != oldCfg.Log.Level {
 		if s.logLevel != nil {
 			if err := s.logLevel.SetLevel(newCfg.Log.Level); err == nil && s.logger != nil {

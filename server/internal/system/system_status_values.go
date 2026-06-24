@@ -4,7 +4,9 @@ import (
 	"time"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/health"
+	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	"github.com/RayleaBot/RayleaBot/server/internal/recovery"
+	"github.com/RayleaBot/RayleaBot/server/internal/storage"
 )
 
 func (s *Service) activePluginCount() int {
@@ -12,6 +14,26 @@ func (s *Service) activePluginCount() int {
 		return 0
 	}
 	return s.runtimes.ActiveCount()
+}
+
+func (s *Service) pluginStateCounts() (running int, failed int) {
+	if s == nil || s.plugins == nil {
+		return 0, 0
+	}
+	for _, snapshot := range s.plugins.List() {
+		state, _ := plugins.ProjectState(snapshot)
+		switch state {
+		case plugins.PluginStateRunning:
+			running++
+		case plugins.PluginStateFailed:
+			failed++
+		}
+	}
+	return running, failed
+}
+
+func (s *Service) dbSchemaVersion() string {
+	return storage.CurrentSchemaVersion()
 }
 
 func (s *Service) uptimeSeconds() int64 {

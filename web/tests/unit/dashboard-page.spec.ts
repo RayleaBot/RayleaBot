@@ -94,6 +94,9 @@ describe('DashboardPage', () => {
       status: 'running',
       adapter_state: 'connected',
       active_plugins: 2,
+      running_plugins: 1,
+      failed_plugins: 1,
+      db_schema_version: '000004',
       uptime_seconds: 120,
     }
     protocolsStore.snapshot = createProtocolSnapshot()
@@ -121,6 +124,8 @@ describe('DashboardPage', () => {
     expect(wrapper.find('[data-testid="dashboard-connection-card"]').exists()).toBe(true)
     expect(wrapper.find('[data-testid="dashboard-overview-grid"]').exists()).toBe(true)
     expect(wrapper.find('[data-testid="dashboard-active-plugins-card"]').exists()).toBe(true)
+    expect(wrapper.text()).toContain('运行 1 / 失败 1')
+    expect(wrapper.text()).toContain('数据库 schema 000004')
     expect(wrapper.findAll('.dashboard-overview-grid .stat-card')).toHaveLength(4)
     expect(wrapper.find('.dashboard-main-grid .ant-tabs').exists()).toBe(true)
     expect(wrapper.findAll('.dashboard-bottom-grid > .ant-card')).toHaveLength(3)

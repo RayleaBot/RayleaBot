@@ -218,10 +218,12 @@ useToastFeedback(protocolIssueToast)
       :readiness-detail-text="readinessDetailText"
       :active-plugins-label="t('dashboard.activePlugins')"
       :active-plugins-count="system?.active_plugins ?? 0"
+      :active-plugins-detail-text="t('dashboard.pluginStateCounts', { running: system?.running_plugins ?? 0, failed: system?.failed_plugins ?? 0 })"
       :active-plugins-to="{ name: 'plugins' }"
       :active-plugins-aria-label="t('dashboard.openPluginList')"
       :uptime-label="t('dashboard.uptime')"
       :uptime-text="formatDurationSeconds(liveUptimeSeconds)"
+      :runtime-meta-text="t('dashboard.dbSchemaVersion', { version: system?.db_schema_version ?? t('display.empty') })"
     />
 
     <div class="dashboard-main-grid">

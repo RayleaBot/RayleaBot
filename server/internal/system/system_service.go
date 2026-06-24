@@ -169,10 +169,14 @@ func (s *Service) StatusSnapshot() systemmodel.StatusSnapshot {
 	if s != nil && s.adapter != nil {
 		adapterState = s.adapter.CurrentState()
 	}
+	runningPlugins, failedPlugins := s.pluginStateCounts()
 	return systemmodel.StatusSnapshot{
 		Status:          s.systemStatus(),
 		AdapterState:    adapterState,
 		ActivePlugins:   s.activePluginCount(),
+		RunningPlugins:  runningPlugins,
+		FailedPlugins:   failedPlugins,
+		DBSchemaVersion: s.dbSchemaVersion(),
 		UptimeSeconds:   s.uptimeSeconds(),
 		RecoverySummary: s.recoverySummarySnapshot(),
 	}

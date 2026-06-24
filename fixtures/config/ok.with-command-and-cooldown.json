@@ -9,10 +9,10 @@
       "port": 8080
     },
     "onebot": {
-      "reverse_ws": { "enabled": false, "url": "", "access_token": "" },
-      "forward_ws": { "enabled": false, "url": "", "access_token": "" },
+      "reverse_ws": { "enabled": false, "url": "", "access_token": "", "access_token_query_compat": false },
+      "forward_ws": { "enabled": false, "url": "", "access_token": "", "access_token_query_compat": false },
       "http_api": { "enabled": false, "url": "", "access_token": "" },
-      "webhook": { "enabled": false, "url": "", "access_token": "" }
+      "webhook": { "enabled": false, "url": "", "access_token": "", "access_token_query_compat": false }
     },
     "database": {
       "engine": "sqlite",

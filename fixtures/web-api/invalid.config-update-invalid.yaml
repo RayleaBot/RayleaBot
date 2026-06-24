@@ -14,10 +14,12 @@ request:
         enabled: true
         url: http://127.0.0.1:6700
         access_token: ""
+        access_token_query_compat: false
       forward_ws:
         enabled: false
         url: ""
         access_token: ""
+        access_token_query_compat: false
       http_api:
         enabled: false
         url: ""
@@ -26,6 +28,7 @@ request:
         enabled: false
         url: ""
         access_token: ""
+        access_token_query_compat: false
     database:
       engine: sqlite
       path: data/rayleabot.db
@@ -122,5 +125,13 @@ response:
       message: 配置校验失败
       message_key: errors.platform.invalid_config
       request_id: req_config_update_invalid
+      details:
+        fields:
+          - path: onebot.reverse_ws.url
+            reason: "at '/onebot/reverse_ws/url': value must be ''"
+            hint: 请填写该字段支持的 URL 格式。
+          - path: onebot.reverse_ws.url
+            reason: "at '/onebot/reverse_ws/url': 'http://127.0.0.1:6700' does not match pattern '^(ws|wss)://.+$'"
+            hint: 请填写该字段支持的 URL 格式。
 expect:
   valid: true

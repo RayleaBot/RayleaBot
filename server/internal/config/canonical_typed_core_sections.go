@@ -9,10 +9,10 @@ func configServerDocument(cfg Config) map[string]any {
 
 func configOneBotDocument(cfg Config) map[string]any {
 	return map[string]any{
-		"reverse_ws": oneBotTransportConfigDocument(cfg.OneBot.ReverseWS),
-		"forward_ws": oneBotTransportConfigDocument(cfg.OneBot.ForwardWS),
+		"reverse_ws": oneBotTransportCompatDocument(cfg.OneBot.ReverseWS),
+		"forward_ws": oneBotTransportCompatDocument(cfg.OneBot.ForwardWS),
 		"http_api":   oneBotTransportConfigDocument(cfg.OneBot.HTTPAPI),
-		"webhook":    oneBotTransportConfigDocument(cfg.OneBot.Webhook),
+		"webhook":    oneBotTransportCompatDocument(cfg.OneBot.Webhook),
 	}
 }
 

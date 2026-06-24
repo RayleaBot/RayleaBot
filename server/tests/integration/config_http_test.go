@@ -2,7 +2,9 @@ package integration
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
@@ -14,9 +16,12 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/auth"
 	internalconfig "github.com/RayleaBot/RayleaBot/server/internal/config"
 	plugindiscovery "github.com/RayleaBot/RayleaBot/server/internal/plugins/discovery"
+	"github.com/RayleaBot/RayleaBot/server/internal/runtimepaths"
+	"github.com/RayleaBot/RayleaBot/server/internal/secrets"
+	"github.com/RayleaBot/RayleaBot/server/internal/storage"
 )
 
-func TestConfigGetReturnsPlaintextOneBotTransportTokens(t *testing.T) {
+func TestConfigGetRedactsOneBotTransportTokens(t *testing.T) {
 	t.Parallel()
 
 	application, _, _ := newTestAppWithConfigMutation(t, func(input map[string]any) {
@@ -52,15 +57,18 @@ func TestConfigGetReturnsPlaintextOneBotTransportTokens(t *testing.T) {
 		t.Fatalf("unexpected config get body: got %#v want %#v", body, expected)
 	}
 
-	if body["redacted_fields"] != nil {
-		t.Fatalf("redacted_fields = %#v, want omitted for OneBot tokens", body["redacted_fields"])
+	bodyText := responseBodyString(t, body)
+	for _, secret := range []string{"forward-secret", "reverse-secret", "http-secret", "webhook-secret"} {
+		if strings.Contains(bodyText, secret) {
+			t.Fatalf("config get response leaked %q: %s", secret, bodyText)
+		}
 	}
-	if got := body["config"].(map[string]any)["onebot"].(map[string]any)["forward_ws"].(map[string]any)["access_token"]; got != "forward-secret" {
-		t.Fatalf("config get forward_ws.access_token = %#v, want forward-secret", got)
+	if got := body["config"].(map[string]any)["onebot"].(map[string]any)["forward_ws"].(map[string]any)["access_token"]; got != "********" {
+		t.Fatalf("config get forward_ws.access_token = %#v, want redacted marker", got)
 	}
 }
 
-func TestConfigPutWritesValidatedDocumentAndPlaintextTransportTokens(t *testing.T) {
+func TestConfigPutWritesValidatedDocumentAndRedactsTransportTokens(t *testing.T) {
 	t.Parallel()
 
 	application, configPath, schemaPath := newTestAppWithConfigMutation(t, func(input map[string]any) {
@@ -97,6 +105,12 @@ func TestConfigPutWritesValidatedDocumentAndPlaintextTransportTokens(t *testing.
 	if !reflect.DeepEqual(body, expected) {
 		t.Fatalf("unexpected config update body: got %#v want %#v", body, expected)
 	}
+	bodyText := responseBodyString(t, body)
+	for _, secret := range []string{"forward-secret", "reverse-secret", "http-secret", "webhook-secret"} {
+		if strings.Contains(bodyText, secret) {
+			t.Fatalf("config update response leaked %q: %s", secret, bodyText)
+		}
+	}
 
 	document, err := internalconfig.LoadDocument(configPath, schemaPath)
 	if err != nil {
@@ -109,15 +123,94 @@ func TestConfigPutWritesValidatedDocumentAndPlaintextTransportTokens(t *testing.
 		t.Fatalf("unexpected persisted log.level: got %#v want debug", got)
 	}
 	onebot := document["onebot"].(map[string]any)
-	if got := onebot["forward_ws"].(map[string]any)["access_token"]; got != "forward-secret" {
-		t.Fatalf("unexpected persisted forward_ws.access_token: got %#v want forward-secret", got)
+	if got := onebot["forward_ws"].(map[string]any)["access_token"]; got != "secret://onebot/forward_ws/access_token" {
+		t.Fatalf("unexpected persisted forward_ws.access_token: got %#v want secret reference", got)
 	}
+	assertStoredConfigSecret(t, application, "config.onebot.forward_ws.access_token", "forward-secret")
 
 	if application.CurrentConfig().Server.Port != 8081 {
 		t.Fatalf("expected live config server.port to reflect saved value 8081, got %d", application.CurrentConfig().Server.Port)
 	}
 	if application.CurrentConfig().Log.Level != "debug" {
 		t.Fatalf("expected live config log.level to be hot-reloaded to debug, got %q", application.CurrentConfig().Log.Level)
+	}
+	if application.CurrentConfig().OneBot.ForwardWS.AccessToken != "forward-secret" {
+		t.Fatalf("expected live config forward token to be resolved, got %q", application.CurrentConfig().OneBot.ForwardWS.AccessToken)
+	}
+}
+
+func TestConfigPutRetainsRedactedTransportTokenAndClearsEmptyToken(t *testing.T) {
+	t.Parallel()
+
+	application, configPath, schemaPath := newTestAppWithConfigMutation(t, func(input map[string]any) {
+		onebot := input["onebot"].(map[string]any)
+		onebot["forward_ws"].(map[string]any)["access_token"] = "old-forward-secret"
+		onebot["reverse_ws"].(map[string]any)["access_token"] = "old-reverse-secret"
+	}, deterministicAuthOptions()...)
+	token := issueLoginToken(t, application)
+	server := httptest.NewServer(application.Handler())
+	defer server.Close()
+
+	getRequest, err := http.NewRequest(http.MethodGet, server.URL+"/api/config", nil)
+	if err != nil {
+		t.Fatalf("create config get request: %v", err)
+	}
+	getRequest.Header.Set("Authorization", "Bearer "+token)
+	getResponse, err := server.Client().Do(getRequest)
+	if err != nil {
+		t.Fatalf("perform config get request: %v", err)
+	}
+	defer getResponse.Body.Close()
+	document := decodeBody(t, readAll(t, getResponse))["config"].(map[string]any)
+	onebot := document["onebot"].(map[string]any)
+	onebot["reverse_ws"].(map[string]any)["access_token"] = ""
+	document["log"].(map[string]any)["level"] = "debug"
+
+	payload, err := json.Marshal(document)
+	if err != nil {
+		t.Fatalf("marshal config update request: %v", err)
+	}
+	putRequest, err := http.NewRequest(http.MethodPut, server.URL+"/api/config", bytes.NewReader(payload))
+	if err != nil {
+		t.Fatalf("create config update request: %v", err)
+	}
+	putRequest.Header.Set("Authorization", "Bearer "+token)
+	putRequest.Header.Set("Content-Type", "application/json")
+	putResponse, err := server.Client().Do(putRequest)
+	if err != nil {
+		t.Fatalf("perform config update request: %v", err)
+	}
+	defer putResponse.Body.Close()
+	if putResponse.StatusCode != http.StatusOK {
+		t.Fatalf("unexpected config update status: got %d want 200; body=%s", putResponse.StatusCode, readAll(t, putResponse))
+	}
+
+	persisted, err := internalconfig.LoadDocument(configPath, schemaPath)
+	if err != nil {
+		t.Fatalf("load persisted config: %v", err)
+	}
+	persistedOneBot := persisted["onebot"].(map[string]any)
+	if got := persistedOneBot["forward_ws"].(map[string]any)["access_token"]; got != "secret://onebot/forward_ws/access_token" {
+		t.Fatalf("forward token = %#v, want retained old secret", got)
+	}
+	if got := persistedOneBot["reverse_ws"].(map[string]any)["access_token"]; got != "" {
+		t.Fatalf("reverse token = %#v, want cleared secret", got)
+	}
+	assertStoredConfigSecret(t, application, "config.onebot.forward_ws.access_token", "old-forward-secret")
+	assertMissingConfigSecret(t, application, "config.onebot.reverse_ws.access_token")
+}
+
+func TestAppNewResolvesOneBotSecretReferences(t *testing.T) {
+	t.Parallel()
+
+	application, _, _ := newTestAppWithOptions(t, func(input map[string]any) {
+		input["onebot"].(map[string]any)["forward_ws"].(map[string]any)["access_token"] = "secret://onebot/forward_ws/access_token"
+	}, func(_ *internalapp.Options, configPath string) {
+		storeConfigSecretFixture(t, configPath, "config.onebot.forward_ws.access_token", "startup-secret")
+	}, deterministicAuthOptions()...)
+
+	if got := application.CurrentConfig().OneBot.ForwardWS.AccessToken; got != "startup-secret" {
+		t.Fatalf("forward access token = %q, want startup-secret", got)
 	}
 }
 
@@ -401,6 +494,65 @@ func TestConfigPutHotReloadsOneBotTransportStateWithoutRestart(t *testing.T) {
 
 func newTestAppWithConfigMutation(t *testing.T, mutate func(map[string]any), authOptions ...auth.Option) (*internalapp.App, string, string) {
 	return newTestAppWithOptions(t, mutate, nil, authOptions...)
+}
+
+func assertStoredConfigSecret(t *testing.T, application *internalapp.App, key string, want string) {
+	t.Helper()
+	secretStore, err := secrets.NewSQLiteStore(application.Storage())
+	if err != nil {
+		t.Fatalf("create sqlite secret store: %v", err)
+	}
+	stored, err := secretStore.Get(context.Background(), key)
+	if err != nil {
+		t.Fatalf("read config secret %s: %v", key, err)
+	}
+	if bytes.Contains(stored, []byte(want)) {
+		t.Fatalf("config secret %s was stored as plaintext", key)
+	}
+	opened, err := secrets.OpenString(context.Background(), secretStore, stored)
+	if err != nil {
+		t.Fatalf("open config secret %s: %v", key, err)
+	}
+	if opened != want {
+		t.Fatalf("config secret %s = %q, want %q", key, opened, want)
+	}
+}
+
+func assertMissingConfigSecret(t *testing.T, application *internalapp.App, key string) {
+	t.Helper()
+	secretStore, err := secrets.NewSQLiteStore(application.Storage())
+	if err != nil {
+		t.Fatalf("create sqlite secret store: %v", err)
+	}
+	if _, err := secretStore.Get(context.Background(), key); err == nil {
+		t.Fatalf("config secret %s still exists", key)
+	} else if !errors.Is(err, secrets.ErrNotFound) {
+		t.Fatalf("read config secret %s: %v", key, err)
+	}
+}
+
+func storeConfigSecretFixture(t *testing.T, configPath string, key string, value string) {
+	t.Helper()
+	dbPath, err := runtimepaths.ResolveDatabasePath(configPath, "data/rayleabot.db")
+	if err != nil {
+		t.Fatalf("resolve database path: %v", err)
+	}
+	store, err := storage.Open(dbPath)
+	if err != nil {
+		t.Fatalf("open sqlite store: %v", err)
+	}
+	defer store.Close()
+	secretStore, err := secrets.NewSQLiteStore(store)
+	if err != nil {
+		t.Fatalf("create sqlite secret store: %v", err)
+	}
+	sealed, err := secrets.SealString(context.Background(), secretStore, value)
+	if err != nil {
+		t.Fatalf("seal config secret fixture: %v", err)
+	}
+	if err := secretStore.Set(context.Background(), key, sealed); err != nil {
+		t.Fatalf("store config secret fixture: %v", err)
+	}
 }
 
 func newTestAppWithOptions(

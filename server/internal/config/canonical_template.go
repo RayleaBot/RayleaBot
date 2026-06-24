@@ -34,6 +34,24 @@ func ensureDefaultTemplate(configPath string) (map[string]any, error) {
 	return document, nil
 }
 
+func readDefaultTemplate(configPath string) (map[string]any, error) {
+	defaultPath := defaultTemplatePath(configPath)
+	rawDefault, exists, err := readYAMLDocument(defaultPath)
+	if err != nil {
+		return nil, fmt.Errorf("read default config %s: %w", defaultPath, err)
+	}
+
+	document := defaultDocument()
+	if exists {
+		canonicalDefault, err := canonicalizeDocument(rawDefault)
+		if err != nil {
+			return nil, fmt.Errorf("normalize default config %s: %w", defaultPath, err)
+		}
+		document = mergeDocuments(document, canonicalDefault)
+	}
+	return document, nil
+}
+
 func defaultTemplatePath(configPath string) string {
 	return filepath.Join(filepath.Dir(configPath), "default.yaml")
 }

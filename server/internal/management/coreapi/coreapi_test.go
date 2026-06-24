@@ -1,10 +1,45 @@
 package coreapi
 
 import (
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"testing"
+
+	systemmodel "github.com/RayleaBot/RayleaBot/server/internal/system/model"
 )
+
+func TestSystemStatusIncludesPluginCountsAndDBSchemaVersion(t *testing.T) {
+	t.Parallel()
+
+	handlers := NewHandlers(Deps{
+		System: coreTestSystem{
+			snapshot: systemmodel.StatusSnapshot{
+				Status:          "running",
+				AdapterState:    "connected",
+				ActivePlugins:   2,
+				RunningPlugins:  1,
+				FailedPlugins:   1,
+				DBSchemaVersion: "000004",
+				UptimeSeconds:   60,
+			},
+		},
+	})
+
+	recorder := httptest.NewRecorder()
+	handlers.HandleSystemStatus().ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, "/api/system/status", nil))
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d; body=%s", recorder.Code, http.StatusOK, recorder.Body.String())
+	}
+
+	var response SystemStatusResponse
+	if err := json.NewDecoder(recorder.Body).Decode(&response); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if response.ActivePlugins != 2 || response.RunningPlugins != 1 || response.FailedPlugins != 1 || response.DBSchemaVersion != "000004" {
+		t.Fatalf("unexpected system status response: %#v", response)
+	}
+}
 
 func TestIsLoopbackRequestRejectsForwardedHeaders(t *testing.T) {
 	t.Parallel()
@@ -17,6 +52,16 @@ func TestIsLoopbackRequestRejectsForwardedHeaders(t *testing.T) {
 		t.Fatalf("expected forwarded loopback request to be rejected")
 	}
 }
+
+type coreTestSystem struct {
+	snapshot systemmodel.StatusSnapshot
+}
+
+func (s coreTestSystem) StatusSnapshot() systemmodel.StatusSnapshot {
+	return s.snapshot
+}
+
+func (s coreTestSystem) PublishStatusSnapshot() {}
 
 func TestIsLoopbackRequest(t *testing.T) {
 	t.Parallel()

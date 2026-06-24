@@ -90,9 +90,10 @@ type AdapterConfig struct {
 }
 
 type OneBotTransportConfig struct {
-	Enabled     bool   `json:"enabled" yaml:"enabled"`
-	URL         string `json:"url" yaml:"url"`
-	AccessToken string `json:"access_token" yaml:"access_token"`
+	Enabled                bool   `json:"enabled" yaml:"enabled"`
+	URL                    string `json:"url" yaml:"url"`
+	AccessToken            string `json:"access_token" yaml:"access_token"`
+	AccessTokenQueryCompat bool   `json:"access_token_query_compat" yaml:"access_token_query_compat"`
 }
 
 type ServerConfig struct {

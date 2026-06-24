@@ -16,19 +16,22 @@ response:
         reverse_ws:
           enabled: false
           url: ""
-          access_token: reverse-secret
+          access_token: "********"
+          access_token_query_compat: false
         forward_ws:
           enabled: false
           url: ""
-          access_token: forward-secret
+          access_token: "********"
+          access_token_query_compat: false
         http_api:
           enabled: false
           url: ""
-          access_token: http-secret
+          access_token: "********"
         webhook:
           enabled: false
           url: ""
-          access_token: webhook-secret
+          access_token: "********"
+          access_token_query_compat: false
       database:
         engine: sqlite
         path: data/rayleabot.db
@@ -117,5 +120,10 @@ response:
         setup_local_only: true
       backup:
         default_consistency: offline
+    redacted_fields:
+      - onebot.forward_ws.access_token
+      - onebot.http_api.access_token
+      - onebot.reverse_ws.access_token
+      - onebot.webhook.access_token
 expect:
   valid: true

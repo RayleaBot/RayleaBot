@@ -1,6 +1,8 @@
 package app
 
 import (
+	"context"
+	"fmt"
 	"net/http"
 	"time"
 
@@ -11,6 +13,7 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/app/renderstack"
 	"github.com/RayleaBot/RayleaBot/server/internal/app/servicegraph"
 	"github.com/RayleaBot/RayleaBot/server/internal/auth"
+	"github.com/RayleaBot/RayleaBot/server/internal/configruntime"
 	"github.com/RayleaBot/RayleaBot/server/internal/health"
 	"github.com/RayleaBot/RayleaBot/server/internal/metrics"
 	plugindiscovery "github.com/RayleaBot/RayleaBot/server/internal/plugins/discovery"
@@ -84,6 +87,13 @@ func New(options Options) (*App, error) {
 		}
 		_ = partial.Close()
 	}
+	resolvedConfig, err := configruntime.ResolveConfigSecretRefs(context.Background(), platformState.Secrets, buildState.core.Config)
+	if err != nil {
+		cleanupPartialBuild()
+		return nil, fmt.Errorf("resolve config secrets: %w", err)
+	}
+	buildState.core.Config = resolvedConfig
+	buildState.core.addRedactionValues(configruntime.ConfigSecretValues(resolvedConfig)...)
 
 	pluginState, err = pluginstack.Build(pluginstack.Deps{
 		Config:    buildState.core.Config,
@@ -155,10 +165,7 @@ func New(options Options) (*App, error) {
 		Plugins:               pluginState,
 		Events:                eventState,
 		Renderer:              renderState.Renderer,
-		Services:              serviceBuild.Services,
-		Status:                serviceBuild.Status,
-		BilibiliAccountClient: serviceBuild.BilibiliAccountClient,
-		BilibiliQRLogin:       serviceBuild.BilibiliQRLogin,
+		ServiceBuild:          serviceBuild,
 		Metrics:               metricRegistry,
 		BilibiliHTTPTransport: options.BilibiliHTTPTransport,
 		RequestShutdown:       application.requestShutdown,

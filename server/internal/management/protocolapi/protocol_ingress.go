@@ -23,6 +23,13 @@ func (s *ProtocolService) reverseWSAccessToken() string {
 	return s.config.CurrentConfig().OneBot.ReverseWS.AccessToken
 }
 
+func (s *ProtocolService) reverseWSAccessTokenQueryCompat() bool {
+	if s == nil || s.config == nil {
+		return false
+	}
+	return s.config.CurrentConfig().OneBot.ReverseWS.AccessTokenQueryCompat
+}
+
 func (s *ProtocolService) markReverseWSAuthFailed() {
 	if s == nil || s.adapter == nil {
 		return
@@ -50,6 +57,13 @@ func (s *ProtocolService) webhookAccessToken() string {
 		return ""
 	}
 	return s.config.CurrentConfig().OneBot.Webhook.AccessToken
+}
+
+func (s *ProtocolService) webhookAccessTokenQueryCompat() bool {
+	if s == nil || s.config == nil {
+		return false
+	}
+	return s.config.CurrentConfig().OneBot.Webhook.AccessTokenQueryCompat
 }
 
 func (s *ProtocolService) markWebhookAuthFailed() {

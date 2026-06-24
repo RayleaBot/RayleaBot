@@ -5,6 +5,8 @@ export const dashboard = {
   service: '服务状态',
   adapter: '适配器状态',
   activePlugins: '启用插件',
+  pluginStateCounts: '运行 {running} / 失败 {failed}',
+  dbSchemaVersion: '数据库 schema {version}',
   openPluginList: '查看插件列表',
   uptime: '运行时长',
   readinessSection: '就绪检查',

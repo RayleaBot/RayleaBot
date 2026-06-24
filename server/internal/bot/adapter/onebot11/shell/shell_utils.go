@@ -38,8 +38,8 @@ func sanitizeWSURL(raw string) string {
 
 	return parsed.Scheme + "://" + parsed.Host
 }
-func dialURL(raw, accessToken string) string {
-	if raw == "" || accessToken == "" {
+func dialURL(raw, accessToken string, includeTokenQuery bool) string {
+	if raw == "" || accessToken == "" || !includeTokenQuery {
 		return raw
 	}
 
