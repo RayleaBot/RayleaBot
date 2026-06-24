@@ -2049,7 +2049,10 @@ export interface components {
             enabled: boolean;
             /** @default  */
             url: string | "" | unknown;
-            /** @default  */
+            /**
+             * @description OneBot access token. Management API updates store plaintext values in the local secret store and persist this field as secret://onebot/<transport>/access_token.
+             * @default
+             */
             access_token: string;
             /**
              * @description Compatibility mode for legacy OneBot providers that require access_token in the URL query. Authorization: Bearer is the default and preferred token transport.
@@ -2062,7 +2065,10 @@ export interface components {
             enabled: boolean;
             /** @default  */
             url: string | "" | unknown;
-            /** @default  */
+            /**
+             * @description OneBot HTTP API access token. Management API updates store plaintext values in the local secret store and persist this field as secret://onebot/http_api/access_token.
+             * @default
+             */
             access_token: string;
         };
         onebotWebhookTransport: {
@@ -2070,7 +2076,10 @@ export interface components {
             enabled: boolean;
             /** @default  */
             url: string | "" | unknown;
-            /** @default  */
+            /**
+             * @description OneBot webhook access token. Management API updates store plaintext values in the local secret store and persist this field as secret://onebot/webhook/access_token.
+             * @default
+             */
             access_token: string;
             /**
              * @description Compatibility mode for legacy OneBot webhook clients that send access_token in the URL query. Authorization: Bearer is the default and preferred token transport.
@@ -2437,7 +2446,10 @@ export interface components {
                     enabled: boolean;
                     /** @default  */
                     url: string | "" | unknown;
-                    /** @default  */
+                    /**
+                     * @description OneBot access token. Management API updates store plaintext values in the local secret store and persist this field as secret://onebot/<transport>/access_token.
+                     * @default
+                     */
                     access_token: string;
                     /**
                      * @description Compatibility mode for legacy OneBot providers that require access_token in the URL query. Authorization: Bearer is the default and preferred token transport.
@@ -2450,7 +2462,10 @@ export interface components {
                     enabled: boolean;
                     /** @default  */
                     url: string | "" | unknown;
-                    /** @default  */
+                    /**
+                     * @description OneBot HTTP API access token. Management API updates store plaintext values in the local secret store and persist this field as secret://onebot/http_api/access_token.
+                     * @default
+                     */
                     access_token: string;
                 };
                 onebotWebhookTransport: {
@@ -2458,7 +2473,10 @@ export interface components {
                     enabled: boolean;
                     /** @default  */
                     url: string | "" | unknown;
-                    /** @default  */
+                    /**
+                     * @description OneBot webhook access token. Management API updates store plaintext values in the local secret store and persist this field as secret://onebot/webhook/access_token.
+                     * @default
+                     */
                     access_token: string;
                     /**
                      * @description Compatibility mode for legacy OneBot webhook clients that send access_token in the URL query. Authorization: Bearer is the default and preferred token transport.
