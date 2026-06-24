@@ -1,3 +1,8 @@
+CREATE TABLE IF NOT EXISTS schema_migrations (
+    version INTEGER PRIMARY KEY,
+    applied_at TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS auth_bootstrap_state (
     singleton_id INTEGER PRIMARY KEY CHECK (singleton_id = 1),
     identifier TEXT NOT NULL,
@@ -163,6 +168,8 @@ CREATE TABLE IF NOT EXISTS third_party_accounts (
     credential_checked_at TEXT,
     credential_last_error TEXT NOT NULL DEFAULT '',
     last_used_at TEXT,
+    proxy_url TEXT NOT NULL DEFAULT '',
+    proxy_enabled INTEGER NOT NULL DEFAULT 0 CHECK (proxy_enabled IN (0, 1)),
     updated_at TEXT NOT NULL,
     PRIMARY KEY (platform, account_id)
 );

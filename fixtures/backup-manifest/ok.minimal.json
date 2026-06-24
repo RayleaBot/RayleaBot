@@ -3,7 +3,7 @@
   "created_at": "2026-04-02T08:00:00Z",
   "core_version": "0.1.0",
   "config_schema_version": "2",
-  "db_schema_version": "base-2026-06",
+  "db_schema_version": "000004",
   "consistency": "offline",
   "directories": [
     {

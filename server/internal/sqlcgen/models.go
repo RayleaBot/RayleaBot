@@ -170,6 +170,11 @@ type SchedulerJob struct {
 	OtherCount       int64
 }
 
+type SchemaMigration struct {
+	Version   int64
+	AppliedAt string
+}
+
 type SecretStore struct {
 	Key       string
 	Value     []byte
@@ -210,6 +215,8 @@ type ThirdPartyAccount struct {
 	CredentialCheckedAt sql.NullString
 	CredentialLastError string
 	LastUsedAt          sql.NullString
+	ProxyUrl            string
+	ProxyEnabled        int64
 	UpdatedAt           string
 }
 
