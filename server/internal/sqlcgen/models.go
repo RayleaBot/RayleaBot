@@ -172,6 +172,7 @@ type SchedulerJob struct {
 
 type SchemaMigration struct {
 	Version   int64
+	Name      string
 	AppliedAt string
 }
 
