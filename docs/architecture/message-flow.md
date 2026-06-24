@@ -6,7 +6,7 @@
 
 ## 总览
 
-![消息入站到出站处理流程](./assets/message-flow-overview.png)
+![消息入站到出站处理流程](./assets/message-flow-overview.svg)
 
 ## 入站链路
 
@@ -59,7 +59,7 @@ Scheduler 使用插件 ID 和 `task_id` 做幂等更新，任务保存到 SQLite
 
 定时消息发送由插件在处理 `scheduler.trigger` 时发起 `message.send` 或 `message.reply`，后续路径与普通插件出站完全一致。
 
-![定时消息处理流程](./assets/message-flow-scheduler.png)
+![定时消息处理流程](./assets/message-flow-scheduler.svg)
 
 ## 其他平台事件
 
