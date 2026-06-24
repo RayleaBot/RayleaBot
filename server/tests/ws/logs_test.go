@@ -325,18 +325,34 @@ func TestLogsWebSocketReplaysCurrentBootOnlyAcrossRestart(t *testing.T) {
 	closePersistentTestApp(t, appA)
 
 	appB := newPersistentTestApp(t, configPath, func() time.Time { return time.Date(2026, 3, 20, 9, 10, 0, 0, time.UTC) }, "logs-ws-b")
-	defer closePersistentTestApp(t, appB)
+	appBClosed := false
+	defer func() {
+		if !appBClosed {
+			closePersistentTestApp(t, appB)
+		}
+	}()
 	appB.Logger().Warn(
 		"current boot websocket replay",
 		"component", "adapter.onebot11",
 		"request_id", "req_ws_current_1",
 	)
 	server := httptest.NewServer(appB.Handler())
-	defer server.Close()
+	serverClosed := false
+	defer func() {
+		if !serverClosed {
+			server.Close()
+		}
+	}()
 
 	token := issueExistingBootstrapLoginToken(t, appB)
 	conn := dialProtectedWebSocket(t, server.URL, "/ws/logs", token)
-	defer conn.Close(websocket.StatusNormalClosure, "")
+	connClosed := false
+	defer func() {
+		if !connClosed {
+			_ = conn.Close(websocket.StatusNormalClosure, "")
+			waitForNoLogSubscribers(t, appB.Logs())
+		}
+	}()
 
 	frame := readWebSocketFrameWhere(t, conn, func(frame map[string]any) bool {
 		data, ok := frame["data"].(map[string]any)
@@ -363,6 +379,16 @@ func TestLogsWebSocketReplaysCurrentBootOnlyAcrossRestart(t *testing.T) {
 		data, ok := frame["data"].(map[string]any)
 		return ok && data["request_id"] == "req_ws_persist_1"
 	})
+
+	if err := conn.Close(websocket.StatusNormalClosure, ""); err != nil {
+		t.Fatalf("close logs websocket: %v", err)
+	}
+	connClosed = true
+	waitForNoLogSubscribers(t, appB.Logs())
+	server.Close()
+	serverClosed = true
+	closePersistentTestApp(t, appB)
+	appBClosed = true
 }
 
 func waitForLogSubscriber(t *testing.T, stream *logging.Stream) {
@@ -377,6 +403,20 @@ func waitForLogSubscriber(t *testing.T, stream *logging.Stream) {
 	}
 
 	t.Fatal("timed out waiting for log websocket subscriber")
+}
+
+func waitForNoLogSubscribers(t *testing.T, stream *logging.Stream) {
+	t.Helper()
+
+	deadline := time.Now().Add(time.Second)
+	for time.Now().Before(deadline) {
+		if stream.SubscriberCount() == 0 {
+			return
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+
+	t.Fatal("timed out waiting for log websocket subscriber cleanup")
 }
 
 func newTestAppWithOneBotAccessToken(t *testing.T, accessToken string, authOptions ...auth.Option) *app.App {
