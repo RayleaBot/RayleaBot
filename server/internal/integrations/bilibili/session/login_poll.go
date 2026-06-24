@@ -14,7 +14,7 @@ func (s *QRLoginService) Poll(ctx context.Context, loginID string) (QRLoginPollR
 	session, ok := s.sessions[loginID]
 	if !ok {
 		s.mu.Unlock()
-		return QRLoginPollResult{}, fmt.Errorf("unknown qrcode login id")
+		return QRLoginPollResult{}, ErrQRLoginSessionNotFound
 	}
 	if s.now().After(session.ExpiresAt) && session.State != QRLoginSucceeded {
 		session.State = QRLoginExpired

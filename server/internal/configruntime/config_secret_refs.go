@@ -2,6 +2,7 @@ package configruntime
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -58,20 +59,27 @@ func StoreConfigSecrets(ctx context.Context, store secrets.Store, document map[s
 }
 
 func ResolveConfigSecretRefs(ctx context.Context, store secrets.Store, cfg internalconfig.Config) (internalconfig.Config, error) {
-	var err error
-	if cfg.OneBot.ForwardWS.AccessToken, err = resolveConfigSecretRef(ctx, store, cfg.OneBot.ForwardWS.AccessToken, []string{"onebot", "forward_ws", "access_token"}); err != nil {
-		return internalconfig.Config{}, err
+	document := ConfigDocumentFromTyped(cfg)
+	for _, path := range secretConfigPaths {
+		value, ok := lookupConfigPath(document, path)
+		if !ok {
+			continue
+		}
+		resolved, err := resolveConfigSecretRef(ctx, store, stringValue(value), path)
+		if err != nil {
+			return internalconfig.Config{}, err
+		}
+		setConfigPath(document, path, resolved)
 	}
-	if cfg.OneBot.HTTPAPI.AccessToken, err = resolveConfigSecretRef(ctx, store, cfg.OneBot.HTTPAPI.AccessToken, []string{"onebot", "http_api", "access_token"}); err != nil {
-		return internalconfig.Config{}, err
+	payload, err := json.Marshal(document)
+	if err != nil {
+		return internalconfig.Config{}, fmt.Errorf("encode resolved config secrets: %w", err)
 	}
-	if cfg.OneBot.ReverseWS.AccessToken, err = resolveConfigSecretRef(ctx, store, cfg.OneBot.ReverseWS.AccessToken, []string{"onebot", "reverse_ws", "access_token"}); err != nil {
-		return internalconfig.Config{}, err
+	var resolved internalconfig.Config
+	if err := json.Unmarshal(payload, &resolved); err != nil {
+		return internalconfig.Config{}, fmt.Errorf("decode resolved config secrets: %w", err)
 	}
-	if cfg.OneBot.Webhook.AccessToken, err = resolveConfigSecretRef(ctx, store, cfg.OneBot.Webhook.AccessToken, []string{"onebot", "webhook", "access_token"}); err != nil {
-		return internalconfig.Config{}, err
-	}
-	return cfg, nil
+	return resolved, nil
 }
 
 func ConfigSecretValues(cfg internalconfig.Config) []string {

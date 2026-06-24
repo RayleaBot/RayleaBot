@@ -18,6 +18,7 @@ import (
 )
 
 const (
+	Platform              = thirdparty.PlatformNeteaseMusic
 	neteaseQRCodeCheckURL = "https://music.163.com/weapi/login/qrcode/client/login?csrf_token="
 	neteaseAccountURL     = "https://music.163.com/weapi/w/nuser/account/get?csrf_token="
 )

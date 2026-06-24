@@ -9,12 +9,7 @@ import (
 
 const redactedConfigValue = "********"
 
-var secretConfigPaths = [][]string{
-	{"onebot", "forward_ws", "access_token"},
-	{"onebot", "http_api", "access_token"},
-	{"onebot", "reverse_ws", "access_token"},
-	{"onebot", "webhook", "access_token"},
-}
+var secretConfigPaths = secretConfigPathSegments()
 
 func sanitizeConfigDocument(document map[string]any) (map[string]any, []string) {
 	cloned := internalconfig.CloneDocument(document)
@@ -53,12 +48,25 @@ func restoreRedactedConfigSecrets(request, current map[string]any) map[string]an
 }
 
 func configSecretValues(cfg internalconfig.Config) []string {
-	return []string{
-		cfg.OneBot.ForwardWS.AccessToken,
-		cfg.OneBot.HTTPAPI.AccessToken,
-		cfg.OneBot.ReverseWS.AccessToken,
-		cfg.OneBot.Webhook.AccessToken,
+	document := ConfigDocumentFromTyped(cfg)
+	values := make([]string, 0, len(secretConfigPaths))
+	for _, path := range secretConfigPaths {
+		value, ok := lookupConfigPath(document, path)
+		if !ok {
+			continue
+		}
+		values = append(values, stringValue(value))
 	}
+	return values
+}
+
+func secretConfigPathSegments() [][]string {
+	paths := ConfigSecretFieldPaths()
+	segments := make([][]string, 0, len(paths))
+	for _, path := range paths {
+		segments = append(segments, strings.Split(path, "."))
+	}
+	return segments
 }
 
 func lookupConfigPath(document map[string]any, path []string) (any, bool) {

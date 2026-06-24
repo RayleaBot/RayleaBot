@@ -13,6 +13,7 @@ import (
 )
 
 const (
+	Platform         = thirdparty.PlatformWeibo
 	weiboPassportURL = "https://passport.weibo.com"
 	weiboSigninURL   = weiboPassportURL + "/sso/signin"
 	weiboQRCodeURL   = weiboPassportURL + "/sso/v2/qrcode/image"

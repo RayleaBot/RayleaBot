@@ -64,7 +64,6 @@ interface QRLoginState {
   qrcodeUrl: string
   expiresAt: string
   state: ThirdPartyQRCodeLoginState
-  cookie: string
   accountNickname: string
   accountUid: string
   accountAvatarUrl: string
@@ -256,7 +255,6 @@ async function startQRCodeLogin(key: string) {
 
 function setQRLogin(key: string, response: ThirdPartyQRCodeLoginCreateResponse | ThirdPartyQRCodeLoginPollResponse) {
   const previous = qrLogins[key]
-  const cookie = 'cookie' in response ? response.cookie : null
   const account = 'account' in response ? response.account : null
   qrLogins[key] = {
     platform: response.platform,
@@ -264,19 +262,14 @@ function setQRLogin(key: string, response: ThirdPartyQRCodeLoginCreateResponse |
     qrcodeUrl: 'qrcode_url' in response ? response.qrcode_url : previous?.qrcodeUrl || '',
     expiresAt: response.expires_at,
     state: response.state,
-    cookie: cookie || previous?.cookie || '',
-    accountNickname: account?.nickname || previous?.accountNickname || '',
-    accountUid: account?.uid || previous?.accountUid || '',
-    accountAvatarUrl: account?.avatar_url || previous?.accountAvatarUrl || '',
+    accountNickname: account?.profile?.nickname || account?.label || previous?.accountNickname || '',
+    accountUid: account?.profile?.uid || account?.account_id || previous?.accountUid || '',
+    accountAvatarUrl: account?.profile?.avatar_url || previous?.accountAvatarUrl || '',
   }
-  if (cookie && drafts[key]) {
-    drafts[key].cookie = cookie
-    if (account?.uid) {
-      drafts[key].account_id = normalizeAccountId(account.uid)
-    }
-    if (account?.nickname) {
-      drafts[key].label = account.nickname
-    }
+  if (response.state === 'succeeded' && account && drafts[key]) {
+    drafts[key].account_id = normalizeAccountId(account.account_id)
+    drafts[key].label = account.label || account.profile?.nickname || drafts[key].label
+    drafts[key].configured = true
   }
 }
 

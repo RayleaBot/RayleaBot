@@ -74,6 +74,16 @@ codes:
     retryable: false
     applies_to: [http, websocket, readiness]
 
+  platform.internal_error:
+    code: platform.internal_error
+    domain: platform
+    message_key: errors.platform.internal_error
+    message: 内部错误
+    description: The platform could not complete a request because of an internal failure.
+    http_status: 500
+    retryable: true
+    applies_to: [http, websocket, plugin_protocol, task, readiness]
+
   platform.task_timeout:
     code: platform.task_timeout
     domain: platform

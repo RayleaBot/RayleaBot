@@ -37,6 +37,35 @@ type ErrorBody struct {
 	Details    map[string]any `json:"details,omitempty"`
 }
 
+type DomainError struct {
+	Code        string
+	HTTPStatus  int
+	SafeMessage string
+	MessageKey  string
+	Details     map[string]any
+	Cause       error
+}
+
+func (e *DomainError) Error() string {
+	if e == nil {
+		return ""
+	}
+	if strings.TrimSpace(e.SafeMessage) != "" {
+		return e.SafeMessage
+	}
+	if e.Cause != nil {
+		return e.Cause.Error()
+	}
+	return e.Code
+}
+
+func (e *DomainError) Unwrap() error {
+	if e == nil {
+		return nil
+	}
+	return e.Cause
+}
+
 type RequestObserver interface {
 	ObserveHTTPRequest(method, route string, status int, duration time.Duration)
 	ObserveHTTPPanic(method, route string)
@@ -103,6 +132,9 @@ func WithRequestContext(logger *slog.Logger, opts ...RequestContextOption) func(
 				}
 
 				duration := time.Since(startedAt)
+				if duration <= 0 {
+					duration = time.Nanosecond
+				}
 				if options.observer != nil {
 					options.observer.ObserveHTTPRequest(r.Method, route, recorder.statusCode, duration)
 				}
@@ -196,6 +228,30 @@ func WriteError(w http.ResponseWriter, r *http.Request, statusCode int, code, me
 			},
 		},
 	)
+}
+
+func WriteDomainError(w http.ResponseWriter, r *http.Request, err *DomainError) {
+	if err == nil {
+		WriteError(w, r, http.StatusInternalServerError, "platform.upstream_request_failed", "请求处理失败", "errors.platform.upstream_request_failed", nil)
+		return
+	}
+	statusCode := err.HTTPStatus
+	if statusCode == 0 {
+		statusCode = http.StatusInternalServerError
+	}
+	code := strings.TrimSpace(err.Code)
+	if code == "" {
+		code = "platform.upstream_request_failed"
+	}
+	messageKey := strings.TrimSpace(err.MessageKey)
+	if messageKey == "" {
+		messageKey = "errors.platform.upstream_request_failed"
+	}
+	message := strings.TrimSpace(err.SafeMessage)
+	if message == "" {
+		message = "请求处理失败"
+	}
+	WriteError(w, r, statusCode, code, message, messageKey, err.Details)
 }
 
 func WriteJSON(w http.ResponseWriter, statusCode int, body any) {

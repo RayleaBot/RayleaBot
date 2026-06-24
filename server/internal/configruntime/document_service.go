@@ -14,13 +14,13 @@ func (s *Service) CurrentConfigDocument() Document {
 	}
 }
 
-func (s *Service) UpdateConfigDocument(request map[string]any) (UpdateResult, error) {
+func (s *Service) UpdateConfigDocument(ctx context.Context, request map[string]any) (UpdateResult, error) {
 	summary := s.summary()
 	request = restoreRedactedConfigSecrets(request, ConfigDocumentFromTyped(s.config()))
 	if _, _, _, err := internalconfig.NormalizeDocument(summary.ConfigPath, summary.SchemaPath, request); err != nil {
 		return UpdateResult{}, err
 	}
-	storedRequest, err := StoreConfigSecrets(context.Background(), s.secrets, request)
+	storedRequest, err := StoreConfigSecrets(ctx, s.secrets, request)
 	if err != nil {
 		return UpdateResult{}, err
 	}
@@ -28,7 +28,7 @@ func (s *Service) UpdateConfigDocument(request map[string]any) (UpdateResult, er
 	if err != nil {
 		return UpdateResult{}, err
 	}
-	newCfg, err = ResolveConfigSecretRefs(context.Background(), s.secrets, newCfg)
+	newCfg, err = ResolveConfigSecretRefs(ctx, s.secrets, newCfg)
 	if err != nil {
 		return UpdateResult{}, err
 	}

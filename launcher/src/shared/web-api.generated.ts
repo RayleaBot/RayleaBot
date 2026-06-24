@@ -1175,6 +1175,7 @@ export interface components {
             db_schema_version?: string;
             uptime_seconds?: number;
             recovery_summary?: components["schemas"]["RecoveryCompatibilitySummary"];
+            health?: components["schemas"]["ReadinessStatusResponse"];
         };
         /** @enum {string} */
         ProtocolProvider: "unknown" | "standard" | "napcat" | "luckylillia";
@@ -1863,8 +1864,7 @@ export interface components {
             state: components["schemas"]["ThirdPartyQRCodeLoginState"];
             /** Format: date-time */
             expires_at: string;
-            cookie: string | null;
-            account: components["schemas"]["ThirdPartyAccountProfile"] | null;
+            account: components["schemas"]["ThirdPartyAccountSummary"] | null;
         };
         /** @enum {string} */
         ThirdPartyMonitorService: "live" | "video" | "image_text" | "article" | "repost";
@@ -1932,8 +1932,7 @@ export interface components {
             state: components["schemas"]["BilibiliQRCodeLoginState"];
             /** Format: date-time */
             expires_at: string;
-            cookie: string | null;
-            account: components["schemas"]["ThirdPartyAccountProfile"];
+            account: components["schemas"]["ThirdPartyAccountSummary"] | null;
         };
         /** @enum {string} */
         BilibiliSourceState: "disabled" | "idle" | "connecting" | "connected" | "degraded" | "failed";

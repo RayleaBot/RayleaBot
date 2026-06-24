@@ -16,11 +16,10 @@ const migrationTimestampFormat = time.RFC3339Nano
 var migrationFS embed.FS
 
 type schemaMigration struct {
-	version               int
-	name                  string
-	file                  string
-	ignoreDuplicateColumn bool
-	skip                  func(context.Context, *sql.DB) (bool, error)
+	version int
+	name    string
+	file    string
+	skip    func(context.Context, *sql.DB) (bool, error)
 }
 
 var schemaMigrations = []schemaMigration{
@@ -30,11 +29,10 @@ var schemaMigrations = []schemaMigration{
 		file:    "migrations/000001_base.sql",
 	},
 	{
-		version:               2,
-		name:                  "add_third_party_account_columns",
-		file:                  "migrations/000002_add_third_party_account_columns.sql",
-		ignoreDuplicateColumn: true,
-		skip:                  thirdPartyAccountColumnsMigrated,
+		version: 2,
+		name:    "add_third_party_account_columns",
+		file:    "migrations/000002_add_third_party_account_columns.sql",
+		skip:    thirdPartyAccountColumnsMigrated,
 	},
 	{
 		version: 3,
@@ -43,26 +41,32 @@ var schemaMigrations = []schemaMigration{
 		skip:    thirdPartyAccountPlatformsMigrated,
 	},
 	{
-		version:               4,
-		name:                  "add_bilibili_source_room_cover_url",
-		file:                  "migrations/000004_add_bilibili_source_room_cover_url.sql",
-		ignoreDuplicateColumn: true,
-		skip:                  bilibiliSourceRoomCoverURLMigrated,
+		version: 4,
+		name:    "add_bilibili_source_room_cover_url",
+		file:    "migrations/000004_add_bilibili_source_room_cover_url.sql",
+		skip:    bilibiliSourceRoomCoverURLMigrated,
 	},
 }
 
 func initializeSchema(ctx context.Context, db *sql.DB) error {
 	if _, err := db.ExecContext(ctx, `CREATE TABLE IF NOT EXISTS schema_migrations (
     version INTEGER PRIMARY KEY,
+    name TEXT NOT NULL,
     applied_at TEXT NOT NULL
 )`); err != nil {
 		return fmt.Errorf("create schema_migrations: %w", err)
+	}
+	if err := ensureSchemaMigrationMetadata(ctx, db); err != nil {
+		return err
 	}
 
 	migrations := append([]schemaMigration(nil), schemaMigrations...)
 	sort.Slice(migrations, func(i, j int) bool {
 		return migrations[i].version < migrations[j].version
 	})
+	if err := backfillSchemaMigrationNames(ctx, db, migrations); err != nil {
+		return err
+	}
 
 	for _, migration := range migrations {
 		if err := applyMigration(ctx, db, migration); err != nil {
@@ -88,7 +92,7 @@ func applyMigration(ctx context.Context, db *sql.DB, migration schemaMigration) 
 			return fmt.Errorf("inspect migration %06d %s: %w", migration.version, migration.name, err)
 		}
 		if skip {
-			return recordMigration(ctx, db, migration.version)
+			return recordMigration(ctx, db, migration)
 		}
 	}
 
@@ -104,10 +108,10 @@ func applyMigration(ctx context.Context, db *sql.DB, migration schemaMigration) 
 		_ = tx.Rollback()
 	}()
 
-	if err := execMigrationSQL(ctx, tx, string(payload), migration.ignoreDuplicateColumn); err != nil {
+	if err := execMigrationSQL(ctx, tx, string(payload)); err != nil {
 		return fmt.Errorf("apply migration %06d %s: %w", migration.version, migration.name, err)
 	}
-	if err := recordMigrationTx(ctx, tx, migration.version); err != nil {
+	if err := recordMigrationTx(ctx, tx, migration); err != nil {
 		return fmt.Errorf("record migration %06d %s: %w", migration.version, migration.name, err)
 	}
 	if err := tx.Commit(); err != nil {
@@ -116,12 +120,9 @@ func applyMigration(ctx context.Context, db *sql.DB, migration schemaMigration) 
 	return nil
 }
 
-func execMigrationSQL(ctx context.Context, tx *sql.Tx, payload string, ignoreDuplicateColumn bool) error {
+func execMigrationSQL(ctx context.Context, tx *sql.Tx, payload string) error {
 	for _, statement := range splitSQLStatements(payload) {
 		if _, err := tx.ExecContext(ctx, statement); err != nil {
-			if ignoreDuplicateColumn && isDuplicateColumnError(err) {
-				continue
-			}
 			return err
 		}
 	}
@@ -158,13 +159,48 @@ func migrationApplied(ctx context.Context, db *sql.DB, version int) (bool, error
 	return count > 0, nil
 }
 
-func recordMigration(ctx context.Context, db *sql.DB, version int) error {
-	_, err := db.ExecContext(ctx, `INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (?, ?)`, version, time.Now().UTC().Format(migrationTimestampFormat))
+func ensureSchemaMigrationMetadata(ctx context.Context, db *sql.DB) error {
+	hasName, err := tableHasColumns(ctx, db, "schema_migrations", []string{"name"})
+	if err != nil {
+		return fmt.Errorf("inspect schema_migrations metadata: %w", err)
+	}
+	if hasName {
+		return nil
+	}
+	if _, err := db.ExecContext(ctx, `ALTER TABLE schema_migrations ADD COLUMN name TEXT NOT NULL DEFAULT ''`); err != nil {
+		return fmt.Errorf("add schema_migrations name: %w", err)
+	}
+	return nil
+}
+
+func backfillSchemaMigrationNames(ctx context.Context, db *sql.DB, migrations []schemaMigration) error {
+	for _, migration := range migrations {
+		if _, err := db.ExecContext(ctx, `UPDATE schema_migrations SET name = ? WHERE version = ? AND name = ''`, migration.name, migration.version); err != nil {
+			return fmt.Errorf("backfill schema_migrations name for version %d: %w", migration.version, err)
+		}
+	}
+	return nil
+}
+
+func recordMigration(ctx context.Context, db *sql.DB, migration schemaMigration) error {
+	_, err := db.ExecContext(
+		ctx,
+		`INSERT OR IGNORE INTO schema_migrations (version, name, applied_at) VALUES (?, ?, ?)`,
+		migration.version,
+		migration.name,
+		time.Now().UTC().Format(migrationTimestampFormat),
+	)
 	return err
 }
 
-func recordMigrationTx(ctx context.Context, tx *sql.Tx, version int) error {
-	_, err := tx.ExecContext(ctx, `INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (?, ?)`, version, time.Now().UTC().Format(migrationTimestampFormat))
+func recordMigrationTx(ctx context.Context, tx *sql.Tx, migration schemaMigration) error {
+	_, err := tx.ExecContext(
+		ctx,
+		`INSERT OR IGNORE INTO schema_migrations (version, name, applied_at) VALUES (?, ?, ?)`,
+		migration.version,
+		migration.name,
+		time.Now().UTC().Format(migrationTimestampFormat),
+	)
 	return err
 }
 
@@ -227,8 +263,4 @@ func tableHasColumns(ctx context.Context, db *sql.DB, tableName string, columnNa
 		}
 	}
 	return true, nil
-}
-
-func isDuplicateColumnError(err error) bool {
-	return err != nil && strings.Contains(strings.ToLower(err.Error()), "duplicate column name")
 }

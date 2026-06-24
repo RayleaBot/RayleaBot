@@ -124,9 +124,11 @@ export const useThirdPartyAccountsStore = defineStore('third-party-accounts', ()
   async function pollBilibiliQRCodeLogin(loginId: string) {
     qrcodePollingLoginId.value = loginId
     try {
-      return await apiRequest<BilibiliQRCodeLoginPollResponse>(
+      const response = await apiRequest<BilibiliQRCodeLoginPollResponse>(
         `/api/bilibili/login/qrcode/${encodeURIComponent(loginId)}`,
       )
+      await applyQRCodeAccount(response.account)
+      return response
     } finally {
       qrcodePollingLoginId.value = null
     }
@@ -139,12 +141,21 @@ export const useThirdPartyAccountsStore = defineStore('third-party-accounts', ()
     }
     qrcodePollingLoginId.value = loginId
     try {
-      return await apiRequest<ThirdPartyQRCodeLoginPollResponse>(
+      const response = await apiRequest<ThirdPartyQRCodeLoginPollResponse>(
         `/api/third-party/accounts/${encodeURIComponent(platform)}/login/qrcode/${encodeURIComponent(loginId)}`,
       )
+      await applyQRCodeAccount(response.account)
+      return response
     } finally {
       qrcodePollingLoginId.value = null
     }
+  }
+
+  async function applyQRCodeAccount(account: ThirdPartyAccountSummary | null | undefined) {
+    if (!account) {
+      return
+    }
+    upsertAccount(await resolveAccountMediaItem(account))
   }
 
   function upsertAccount(account: ThirdPartyAccountSummary) {

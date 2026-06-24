@@ -13,10 +13,13 @@ import (
 
 type Service struct {
 	providers map[string]Provider
+	accounts  AccountStore
 	now       func() time.Time
 	mu        sync.Mutex
 	sessions  map[string]LoginSession
 }
+
+type ServiceOption func(*Service)
 
 type Options struct {
 	Transport   http.RoundTripper
@@ -25,15 +28,27 @@ type Options struct {
 	BrowserArgs []string
 }
 
-func NewService(providers map[string]Provider, now func() time.Time) *Service {
+func WithAccountStore(accounts AccountStore) ServiceOption {
+	return func(service *Service) {
+		service.accounts = accounts
+	}
+}
+
+func NewService(providers map[string]Provider, now func() time.Time, options ...ServiceOption) *Service {
 	if now == nil {
 		now = func() time.Time { return time.Now().UTC() }
 	}
-	return &Service{
+	service := &Service{
 		providers: providers,
 		now:       now,
 		sessions:  make(map[string]LoginSession),
 	}
+	for _, option := range options {
+		if option != nil {
+			option(service)
+		}
+	}
+	return service
 }
 
 func (s *Service) Create(ctx context.Context, platform string) (CreateResult, error) {
@@ -57,7 +72,7 @@ func (s *Service) Create(ctx context.Context, platform string) (CreateResult, er
 	if session.ExpiresAt.IsZero() {
 		session.ExpiresAt = now.Add(3 * time.Minute)
 	}
-	loginID, err := RandomLoginID(platform)
+	loginID, err := providerLoginID(provider, platform)
 	if err != nil {
 		return CreateResult{}, err
 	}
@@ -67,6 +82,15 @@ func (s *Service) Create(ctx context.Context, platform string) (CreateResult, er
 	s.sessions[loginID] = session
 	s.mu.Unlock()
 	return CreateResultFromSession(session), nil
+}
+
+func providerLoginID(provider Provider, platform string) (string, error) {
+	if prefixer, ok := provider.(ProviderLoginIDPrefix); ok {
+		if prefix := strings.TrimSpace(prefixer.LoginIDPrefix()); prefix != "" {
+			return RandomLoginIDWithPrefix(prefix)
+		}
+	}
+	return RandomLoginID(platform)
 }
 
 func (s *Service) Poll(ctx context.Context, platform, loginID string) (PollResult, error) {
@@ -111,6 +135,13 @@ func (s *Service) Poll(ctx context.Context, platform, loginID string) (PollResul
 	next.State = NormalizeState(next.State)
 	if next.State == "" {
 		next.State = session.State
+	}
+	if next.State == StateSucceeded && s.accounts != nil {
+		account, err := PersistQRCodeLoginAccount(ctx, s.accounts, platform, next.Cookie, next.Account, now)
+		if err != nil {
+			return PollResult{}, err
+		}
+		next.SavedAccount = &account
 	}
 	s.mu.Lock()
 	s.sessions[loginID] = next

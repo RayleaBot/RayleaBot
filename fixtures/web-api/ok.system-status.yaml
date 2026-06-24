@@ -14,6 +14,21 @@ response:
     failed_plugins: 0
     db_schema_version: "000004"
     uptime_seconds: 3600
+    health:
+      status: degraded
+      reason: 浏览器运行资源缺失
+      reason_codes:
+        - platform.resource_missing
+      checks:
+        config: ok
+        database: ok
+        runtime: ok
+        render: resource_missing
+      issues:
+        - code: render.browser_missing
+          severity: warning
+          summary: 浏览器运行资源缺失
+          remediation: 运行运行时准备任务。
     recovery_summary:
       status: compatible
       phase: post_startup

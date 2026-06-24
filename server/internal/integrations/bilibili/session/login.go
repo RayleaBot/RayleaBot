@@ -1,12 +1,15 @@
 package session
 
 import (
+	"errors"
 	"net/http"
 	"sync"
 	"time"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/integrations/thirdparty"
 )
+
+var ErrQRLoginSessionNotFound = errors.New("bilibili qrcode login session not found")
 
 const (
 	qrCodeGenerateURL = "https://passport.bilibili.com/x/passport-login/web/qrcode/generate?source=main-fe-header"
@@ -44,11 +47,12 @@ type QRLoginCreateResult struct {
 }
 
 type QRLoginPollResult struct {
-	LoginID   string
-	State     string
-	ExpiresAt time.Time
-	Cookie    string
-	Account   thirdparty.AccountProfile
+	LoginID      string
+	State        string
+	ExpiresAt    time.Time
+	Cookie       string
+	Account      thirdparty.AccountProfile
+	SavedAccount *thirdparty.Account
 }
 
 func NewQRLoginService(transport http.RoundTripper, now func() time.Time) *QRLoginService {
@@ -63,5 +67,14 @@ func NewQRLoginService(transport http.RoundTripper, now func() time.Time) *QRLog
 		accountClient: NewAccountClient(transport, now, nil),
 		now:           now,
 		sessions:      make(map[string]qrLoginSession),
+	}
+}
+
+func createResult(session qrLoginSession) QRLoginCreateResult {
+	return QRLoginCreateResult{
+		LoginID:   session.LoginID,
+		QRCodeURL: session.QRCodeURL,
+		ExpiresAt: session.ExpiresAt,
+		State:     session.State,
 	}
 }

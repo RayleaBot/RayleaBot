@@ -1,6 +1,6 @@
 contract: contracts/web-api.openapi.yaml
 case: ok
-description: Bilibili QR code login poll returns a cookie and account profile after confirmation.
+description: Bilibili QR code login poll saves the credential and returns the saved account after confirmation.
 request:
   method: GET
   path: /api/bilibili/login/qrcode/qr_20260608_001
@@ -10,10 +10,23 @@ response:
     login_id: qr_20260608_001
     state: succeeded
     expires_at: "2026-06-08T08:03:00Z"
-    cookie: "SESSDATA=fixture; bili_jct=fixture; DedeUserID=123456; ac_time_value=fixture-refresh;"
     account:
-      uid: "123456"
-      nickname: 测试账号昵称
-      avatar_url: "https://i0.hdslb.com/bfs/face/test-account.jpg"
+      platform: bilibili
+      account_id: "123456"
+      label: 测试账号昵称
+      enabled: true
+      configured: true
+      profile:
+        uid: "123456"
+        nickname: 测试账号昵称
+        avatar_url: "https://i0.hdslb.com/bfs/face/test-account.jpg"
+      credential:
+        state: valid
+        checked_at: "2026-06-08T08:03:00Z"
+        last_error: ""
+      polling:
+        enabled: true
+        last_used_at: null
+      updated_at: "2026-06-08T08:03:00Z"
 expect:
   valid: true

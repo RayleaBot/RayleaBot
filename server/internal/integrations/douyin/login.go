@@ -14,6 +14,7 @@ import (
 )
 
 const (
+	Platform          = thirdparty.PlatformDouyin
 	douyinQRCodeURL   = "https://sso.douyin.com/get_qrcode/"
 	douyinCheckURL    = "https://sso.douyin.com/check_qrconnect/"
 	douyinCallbackURL = "https://www.douyin.com/passport/sso/login/callback/"

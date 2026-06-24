@@ -57,13 +57,13 @@ export const useSystemStore = defineStore('system', () => {
           ...requests,
         ])
         health.value = nextHealth
-        readiness.value = nextReadiness
+        readiness.value = nextSystem.health ?? nextReadiness
         system.value = nextSystem
         return
       }
 
       const [nextReadiness, nextSystem] = await Promise.all(requests)
-      readiness.value = nextReadiness
+      readiness.value = nextSystem.health ?? nextReadiness
       system.value = nextSystem
     } catch (err) {
       if (options.interactive) {

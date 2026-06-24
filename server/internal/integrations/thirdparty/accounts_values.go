@@ -30,6 +30,10 @@ func normalizeAccountID(value string) (string, error) {
 	return accountID, nil
 }
 
+func NormalizeAccountID(value string) (string, error) {
+	return normalizeAccountID(value)
+}
+
 func secretKeyFor(platform, accountID string) string {
 	return "third_party:" + platform + ":" + accountID + ":cookie"
 }

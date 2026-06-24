@@ -466,7 +466,7 @@ func TestThirdPartyAccountAndBilibiliSourceHandlers(t *testing.T) {
 		t.Fatalf("unexpected bilibili qr pending code: got %d want 200 body=%s", qrPendingResp.StatusCode, string(qrPendingPayload))
 	}
 	qrPendingBody := decodeBody(t, qrPendingPayload)
-	if qrPendingBody["state"] != "pending_confirm" || qrPendingBody["cookie"] != nil || qrPendingBody["account"] != nil {
+	if _, hasCookie := qrPendingBody["cookie"]; qrPendingBody["state"] != "pending_confirm" || hasCookie || qrPendingBody["account"] != nil {
 		t.Fatalf("unexpected bilibili qr pending body: %#v", qrPendingBody)
 	}
 
@@ -475,19 +475,32 @@ func TestThirdPartyAccountAndBilibiliSourceHandlers(t *testing.T) {
 	if qrSucceededResp.StatusCode != http.StatusOK {
 		t.Fatalf("unexpected bilibili qr succeeded code: got %d want 200 body=%s", qrSucceededResp.StatusCode, string(qrSucceededPayload))
 	}
-	if !strings.Contains(string(qrSucceededPayload), "SESSDATA=fixture") {
-		t.Fatalf("expected qr poll success to return cookie, got %s", string(qrSucceededPayload))
+	if strings.Contains(string(qrSucceededPayload), "SESSDATA=fixture") || strings.Contains(string(qrSucceededPayload), "bili_jct=fixture") {
+		t.Fatalf("bilibili qr succeeded response leaked cookie: %s", string(qrSucceededPayload))
 	}
 	qrSucceededBody := decodeBody(t, qrSucceededPayload)
+	if _, hasCookie := qrSucceededBody["cookie"]; hasCookie {
+		t.Fatalf("bilibili qr succeeded response returned cookie field: %#v", qrSucceededBody)
+	}
 	qrAccount, ok := qrSucceededBody["account"].(map[string]any)
-	if qrSucceededBody["state"] != "succeeded" || !ok || qrAccount["uid"] != "123456" || qrAccount["nickname"] != "测试账号昵称" {
+	if qrSucceededBody["state"] != "succeeded" || !ok || qrAccount["platform"] != "bilibili" || qrAccount["account_id"] != "123456" || qrAccount["configured"] != true {
 		t.Fatalf("unexpected bilibili qr succeeded body: %#v", qrSucceededBody)
+	}
+	qrProfile, ok := qrAccount["profile"].(map[string]any)
+	if !ok || qrProfile["uid"] != "123456" || qrProfile["nickname"] != "测试账号昵称" {
+		t.Fatalf("unexpected bilibili qr account profile: %#v", qrAccount["profile"])
 	}
 
 	deleteResp, deletePayload := doRequest(http.MethodDelete, "/api/third-party/accounts/bilibili/primary", "")
 	defer deleteResp.Body.Close()
 	if deleteResp.StatusCode != http.StatusNoContent {
 		t.Fatalf("unexpected third-party account delete status: got %d want 204 body=%s", deleteResp.StatusCode, string(deletePayload))
+	}
+
+	deleteQRResp, deleteQRPayload := doRequest(http.MethodDelete, "/api/third-party/accounts/bilibili/123456", "")
+	defer deleteQRResp.Body.Close()
+	if deleteQRResp.StatusCode != http.StatusNoContent {
+		t.Fatalf("unexpected qr third-party account delete status: got %d want 204 body=%s", deleteQRResp.StatusCode, string(deleteQRPayload))
 	}
 
 	emptyResp, emptyPayload := doRequest(http.MethodGet, "/api/third-party/accounts", "")

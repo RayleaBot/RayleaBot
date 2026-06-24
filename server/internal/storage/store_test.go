@@ -57,6 +57,7 @@ func TestOpenBootstrapsSQLiteWithExpectedPragmas(t *testing.T) {
 	assertTableExists(t, store.Read, "bilibili_source_state")
 	assertTableExists(t, store.Read, "render_template_revisions")
 	assertTableExists(t, store.Read, "render_template_states")
+	assertColumnExists(t, store.Read, "schema_migrations", "name")
 	assertColumnExists(t, store.Read, "management_logs", "log_id")
 	assertColumnExists(t, store.Read, "management_logs", "details_json")
 	assertColumnExists(t, store.Read, "management_logs", "boot_id")
@@ -137,44 +138,7 @@ func TestOpenMigratesLegacySchemaToCurrentVersion(t *testing.T) {
 	t.Parallel()
 
 	databasePath := filepath.Join(t.TempDir(), "state.db")
-	db, err := sql.Open(sqliteDriverName, databasePath)
-	if err != nil {
-		t.Fatalf("open fixture sqlite: %v", err)
-	}
-	if _, err := db.Exec(`CREATE TABLE third_party_accounts (
-    platform TEXT NOT NULL CHECK (platform IN ('bilibili')),
-    account_id TEXT NOT NULL,
-    label TEXT NOT NULL DEFAULT '',
-    enabled INTEGER NOT NULL DEFAULT 1 CHECK (enabled IN (0, 1)),
-    secret_key TEXT NOT NULL,
-    updated_at TEXT NOT NULL,
-    PRIMARY KEY (platform, account_id)
-)`); err != nil {
-		t.Fatalf("create legacy third_party_accounts: %v", err)
-	}
-	if _, err := db.Exec(`CREATE TABLE bilibili_source_rooms (
-    uid TEXT PRIMARY KEY,
-    room_id TEXT NOT NULL DEFAULT '',
-    name TEXT NOT NULL DEFAULT '',
-    face TEXT NOT NULL DEFAULT '',
-    live_status INTEGER NOT NULL DEFAULT 0 CHECK (live_status IN (0, 1)),
-    live_started_at INTEGER NOT NULL DEFAULT 0,
-    live_event_id TEXT NOT NULL DEFAULT '',
-    connection_state TEXT NOT NULL DEFAULT 'idle' CHECK (connection_state IN ('idle', 'connecting', 'connected', 'degraded', 'failed')),
-    last_event_at TEXT,
-    last_error TEXT NOT NULL DEFAULT '',
-    updated_at TEXT NOT NULL
-)`); err != nil {
-		t.Fatalf("create legacy bilibili_source_rooms: %v", err)
-	}
-	if _, err := db.Exec(
-		`INSERT INTO third_party_accounts (platform, account_id, label, enabled, secret_key, updated_at) VALUES ('bilibili', 'primary', '主账号', 1, 'third_party:bilibili:primary:cookie', '2026-06-08T08:00:00Z')`,
-	); err != nil {
-		t.Fatalf("insert legacy third-party account: %v", err)
-	}
-	if err := db.Close(); err != nil {
-		t.Fatalf("close fixture sqlite: %v", err)
-	}
+	createLegacySchemaDatabase(t, databasePath)
 
 	store := mustOpenStore(t, databasePath)
 	defer store.Close()
@@ -502,19 +466,22 @@ func assertIndexExists(t *testing.T, db *sql.DB, indexName string) {
 func assertMigrationsApplied(t *testing.T, db *sql.DB, versions []int) {
 	t.Helper()
 
-	rows, err := db.Query(`SELECT version FROM schema_migrations ORDER BY version`)
+	rows, err := db.Query(`SELECT version, name FROM schema_migrations ORDER BY version`)
 	if err != nil {
 		t.Fatalf("query schema_migrations: %v", err)
 	}
 	defer rows.Close()
 
 	var got []int
+	names := map[int]string{}
 	for rows.Next() {
 		var version int
-		if err := rows.Scan(&version); err != nil {
+		var name string
+		if err := rows.Scan(&version, &name); err != nil {
 			t.Fatalf("scan schema_migrations row: %v", err)
 		}
 		got = append(got, version)
+		names[version] = name
 	}
 	if err := rows.Err(); err != nil {
 		t.Fatalf("iterate schema_migrations rows: %v", err)
@@ -525,6 +492,9 @@ func assertMigrationsApplied(t *testing.T, db *sql.DB, versions []int) {
 	for i := range versions {
 		if got[i] != versions[i] {
 			t.Fatalf("schema_migrations versions = %#v, want %#v", got, versions)
+		}
+		if strings.TrimSpace(names[versions[i]]) == "" {
+			t.Fatalf("schema_migrations version %d has empty name", versions[i])
 		}
 	}
 }

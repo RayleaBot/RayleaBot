@@ -3,7 +3,6 @@ package thirdpartyapi
 import (
 	"context"
 	"encoding/json"
-	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -52,23 +51,32 @@ func (s *stubThirdPartyAccounts) Delete(context.Context, string, string) error {
 	return nil
 }
 
+type stubThirdPartyCredentialValidator struct {
+	profile thirdparty.AccountProfile
+	status  thirdparty.CredentialStatus
+}
+
+func (s stubThirdPartyCredentialValidator) CheckCookie(context.Context, string, string) (thirdparty.AccountProfile, thirdparty.CredentialStatus, error) {
+	return s.profile, s.status, nil
+}
+
 func TestThirdPartyAccountUpsertAcceptsWeiboCookie(t *testing.T) {
 	t.Parallel()
 
 	accounts := &stubThirdPartyAccounts{}
-	handler := NewThirdPartyHandlers(accounts, nil, nil, nil, thirdPartyMediaRoundTripFunc(func(request *http.Request) (*http.Response, error) {
-		switch request.URL.Host + request.URL.Path {
-		case "m.weibo.cn/api/config":
-			return &http.Response{
-				StatusCode: http.StatusOK,
-				Header:     http.Header{"Content-Type": []string{"application/json"}},
-				Body:       io.NopCloser(strings.NewReader(`{"data":{"uid":"123456","screen_name":"微博用户","avatar_hd":"https://weibo.com/avatar.jpg"}}`)),
-				Request:    request,
-			}, nil
-		default:
-			return nil, nil
-		}
-	}))
+	checkedAt := time.Date(2026, 6, 8, 8, 1, 1, 0, time.UTC)
+	validator := stubThirdPartyCredentialValidator{
+		profile: thirdparty.AccountProfile{
+			UID:       "123456",
+			Nickname:  "微博用户",
+			AvatarURL: "https://weibo.com/avatar.jpg",
+		},
+		status: thirdparty.CredentialStatus{
+			State:     thirdparty.CredentialValid,
+			CheckedAt: &checkedAt,
+		},
+	}
+	handler := NewThirdPartyHandlers(accounts, validator, nil, nil, nil)
 	router := chi.NewRouter()
 	router.Put("/api/third-party/accounts/{platform}/{account_id}", handler.HandleThirdPartyAccountUpsert())
 	request := httptest.NewRequest(http.MethodPut, "/api/third-party/accounts/weibo/primary", strings.NewReader(`{"label":"微博主账号","enabled":true,"cookie":"SUB=fixture;","profile":{"uid":"654321","nickname":"扫码资料","avatar_url":"https://tvax1.sinaimg.cn/crop.0.0.512.512.180/fixture.jpg"}}`))

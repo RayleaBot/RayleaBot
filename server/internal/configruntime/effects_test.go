@@ -8,7 +8,7 @@ import (
 	internalconfig "github.com/RayleaBot/RayleaBot/server/internal/config"
 )
 
-func TestConfigApplyPoliciesCoverCanonicalFields(t *testing.T) {
+func TestConfigSchemaMetadataCoversCanonicalFields(t *testing.T) {
 	t.Parallel()
 
 	cfg, _, err := internalconfig.Load(filepath.Join(t.TempDir(), "config", "user.yaml"), "")
@@ -19,12 +19,12 @@ func TestConfigApplyPoliciesCoverCanonicalFields(t *testing.T) {
 
 	var missing []string
 	for _, path := range paths {
-		if _, ok := ConfigApplyPolicyForPath(path); !ok {
+		if _, ok := ConfigFieldMetadataForPath(path); !ok {
 			missing = append(missing, path)
 		}
 	}
 	if len(missing) != 0 {
-		t.Fatalf("missing config apply policies: %#v", missing)
+		t.Fatalf("missing config schema metadata: %#v", missing)
 	}
 
 	pathSet := make(map[string]bool, len(paths))
@@ -32,14 +32,38 @@ func TestConfigApplyPoliciesCoverCanonicalFields(t *testing.T) {
 		pathSet[path] = true
 	}
 	var extra []string
-	for path := range configApplyPolicies {
+	for _, path := range ConfigFieldMetadataPaths() {
 		if !pathSet[path] {
 			extra = append(extra, path)
 		}
 	}
 	slices.Sort(extra)
 	if len(extra) != 0 {
-		t.Fatalf("config apply policies for unknown fields: %#v", extra)
+		t.Fatalf("config schema metadata for unknown fields: %#v", extra)
+	}
+}
+
+func TestConfigSchemaMetadataMarksSecrets(t *testing.T) {
+	t.Parallel()
+
+	want := []string{
+		"onebot.forward_ws.access_token",
+		"onebot.http_api.access_token",
+		"onebot.reverse_ws.access_token",
+		"onebot.webhook.access_token",
+	}
+	got := ConfigSecretFieldPaths()
+	if !slices.Equal(got, want) {
+		t.Fatalf("secret config fields = %#v, want %#v", got, want)
+	}
+	for _, path := range got {
+		metadata, ok := ConfigFieldMetadataForPath(path)
+		if !ok {
+			t.Fatalf("missing metadata for secret path %s", path)
+		}
+		if metadata.ApplyPolicy != ConfigApplyPolicySecretOnly || !metadata.Secret || metadata.Redaction != "full" {
+			t.Fatalf("unexpected secret metadata for %s: %#v", path, metadata)
+		}
 	}
 }
 

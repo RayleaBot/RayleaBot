@@ -20,8 +20,9 @@ const (
 )
 
 var (
-	ErrUnsupportedPlatform  = errors.New("unsupported third-party qrcode login platform")
-	ErrLoginSessionNotFound = errors.New("third-party qrcode login session not found")
+	ErrUnsupportedPlatform    = errors.New("unsupported third-party qrcode login platform")
+	ErrLoginSessionNotFound   = errors.New("third-party qrcode login session not found")
+	ErrLoginCredentialMissing = errors.New("third-party qrcode login credential missing")
 )
 
 type CreateResult struct {
@@ -33,25 +34,27 @@ type CreateResult struct {
 }
 
 type PollResult struct {
-	Platform  string
-	LoginID   string
-	State     string
-	ExpiresAt time.Time
-	Cookie    string
-	Account   thirdparty.AccountProfile
+	Platform     string
+	LoginID      string
+	State        string
+	ExpiresAt    time.Time
+	Cookie       string
+	Account      thirdparty.AccountProfile
+	SavedAccount *thirdparty.Account
 }
 
 type LoginSession struct {
-	Platform  string
-	LoginID   string
-	Token     string
-	QRCodeURL string
-	ExpiresAt time.Time
-	State     string
-	Cookie    string
-	Account   thirdparty.AccountProfile
-	Values    map[string]string
-	Cookies   map[string]string
+	Platform     string
+	LoginID      string
+	Token        string
+	QRCodeURL    string
+	ExpiresAt    time.Time
+	State        string
+	Cookie       string
+	Account      thirdparty.AccountProfile
+	SavedAccount *thirdparty.Account
+	Values       map[string]string
+	Cookies      map[string]string
 }
 
 type Provider interface {
@@ -59,8 +62,16 @@ type Provider interface {
 	Poll(context.Context, LoginSession, time.Time) (LoginSession, error)
 }
 
+type ProviderLoginIDPrefix interface {
+	LoginIDPrefix() string
+}
+
 type ProviderSessionCloser interface {
 	Close(LoginSession)
+}
+
+type AccountStore interface {
+	Upsert(context.Context, thirdparty.UpsertRequest) (thirdparty.Account, error)
 }
 
 func CreateResultFromSession(session LoginSession) CreateResult {
@@ -75,12 +86,13 @@ func CreateResultFromSession(session LoginSession) CreateResult {
 
 func PollResultFromSession(session LoginSession) PollResult {
 	return PollResult{
-		Platform:  session.Platform,
-		LoginID:   session.LoginID,
-		State:     session.State,
-		ExpiresAt: session.ExpiresAt,
-		Cookie:    session.Cookie,
-		Account:   session.Account,
+		Platform:     session.Platform,
+		LoginID:      session.LoginID,
+		State:        session.State,
+		ExpiresAt:    session.ExpiresAt,
+		Cookie:       session.Cookie,
+		Account:      session.Account,
+		SavedAccount: session.SavedAccount,
 	}
 }
 
@@ -100,19 +112,31 @@ func NormalizeState(value string) string {
 }
 
 func RandomLoginID(platform string) (string, error) {
-	var bytes [12]byte
-	if _, err := rand.Read(bytes[:]); err != nil {
-		return "", err
-	}
 	prefix := strings.ReplaceAll(strings.TrimSpace(strings.ToLower(platform)), "-", "_")
 	if prefix == "" {
 		prefix = "third_party"
 	}
-	return fmt.Sprintf("%s_qr_%s", prefix, hex.EncodeToString(bytes[:])), nil
+	return RandomLoginIDWithPrefix(prefix + "_qr")
+}
+
+func RandomLoginIDWithPrefix(prefix string) (string, error) {
+	var bytes [12]byte
+	if _, err := rand.Read(bytes[:]); err != nil {
+		return "", err
+	}
+	prefix = strings.ReplaceAll(strings.TrimSpace(strings.ToLower(prefix)), "-", "_")
+	if prefix == "" {
+		prefix = "third_party_qr"
+	}
+	return fmt.Sprintf("%s_%s", prefix, hex.EncodeToString(bytes[:])), nil
 }
 
 func CloneSession(session LoginSession) LoginSession {
 	session.Values = CloneStringMap(session.Values)
 	session.Cookies = CloneStringMap(session.Cookies)
+	if session.SavedAccount != nil {
+		account := *session.SavedAccount
+		session.SavedAccount = &account
+	}
 	return session
 }

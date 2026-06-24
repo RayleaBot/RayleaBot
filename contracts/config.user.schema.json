@@ -32,24 +32,30 @@
     "schema_version": {
       "type": "string",
       "const": "2",
-      "description": "Configuration schema version for bootstrap and validation."
+      "description": "Configuration schema version for bootstrap and validation.",
+      "x-apply-policy": "read_only"
     },
     "server": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["host", "port"],
+      "required": [
+        "host",
+        "port"
+      ],
       "properties": {
         "host": {
           "type": "string",
           "default": "127.0.0.1",
-          "description": "HTTP server bind address. Use 0.0.0.0 to listen on all interfaces; for production bind 127.0.0.1 behind a reverse proxy. Requires restart."
+          "description": "HTTP server bind address. Use 0.0.0.0 to listen on all interfaces; for production bind 127.0.0.1 behind a reverse proxy. Requires restart.",
+          "x-apply-policy": "restart_required"
         },
         "port": {
           "type": "integer",
           "minimum": 1,
           "maximum": 65535,
           "default": 8080,
-          "description": "HTTP server listen port. Default: 8080. Requires restart."
+          "description": "HTTP server listen port. Default: 8080. Requires restart.",
+          "x-apply-policy": "restart_required"
         }
       }
     },
@@ -80,55 +86,74 @@
     "database": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["engine", "path"],
+      "required": [
+        "engine",
+        "path"
+      ],
       "properties": {
         "engine": {
           "type": "string",
           "const": "sqlite",
           "default": "sqlite",
-          "description": "Database engine. Only sqlite is supported. Requires restart."
+          "description": "Database engine. Only sqlite is supported. Requires restart.",
+          "x-apply-policy": "restart_required"
         },
         "path": {
           "type": "string",
           "minLength": 1,
           "default": "data/rayleabot.db",
-          "description": "Database file path. Relative paths resolve against the data directory; absolute paths are recommended for operational clarity. Requires restart."
+          "description": "Database file path. Relative paths resolve against the data directory; absolute paths are recommended for operational clarity. Requires restart.",
+          "x-apply-policy": "restart_required"
         }
       }
     },
     "command": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["prefixes"],
+      "required": [
+        "prefixes"
+      ],
       "properties": {
         "prefixes": {
           "type": "array",
-          "default": ["/"],
+          "default": [
+            "/"
+          ],
           "items": {
             "type": "string",
             "minLength": 1
-          }
+          },
+          "x-apply-policy": "hot_reload"
         }
       }
     },
     "builtin_features": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["menu"],
+      "required": [
+        "menu"
+      ],
       "properties": {
         "menu": {
           "type": "object",
           "additionalProperties": false,
-          "required": ["commands", "prefixes"],
+          "required": [
+            "commands",
+            "prefixes"
+          ],
           "properties": {
             "commands": {
               "type": "array",
-              "default": ["help", "帮助"],
+              "default": [
+                "help",
+                "帮助"
+              ],
               "items": {
                 "type": "string",
                 "minLength": 1
               },
-              "uniqueItems": true
+              "uniqueItems": true,
+              "x-apply-policy": "hot_reload"
             },
             "prefixes": {
               "type": "array",
@@ -137,7 +162,8 @@
                 "type": "string",
                 "minLength": 1
               },
-              "uniqueItems": true
+              "uniqueItems": true,
+              "x-apply-policy": "hot_reload"
             }
           }
         }
@@ -162,48 +188,61 @@
             "type": "string",
             "minLength": 1
           },
-          "uniqueItems": true
+          "uniqueItems": true,
+          "x-apply-policy": "hot_reload"
         },
         "session_ttl_days": {
           "type": "integer",
           "minimum": 1,
           "default": 7,
-          "description": "Default admin session lifetime in days. Default: 7."
+          "description": "Default admin session lifetime in days. Default: 7.",
+          "x-apply-policy": "restart_required"
         },
         "sliding_renewal": {
           "type": "boolean",
           "default": true,
-          "description": "When enabled, active sessions are automatically extended."
+          "description": "When enabled, active sessions are automatically extended.",
+          "x-apply-policy": "restart_required"
         },
         "max_sessions": {
           "type": "integer",
           "minimum": 1,
           "default": 3,
-          "description": "Maximum concurrent sessions per admin; older sessions are evicted when exceeded. Default: 3."
+          "description": "Maximum concurrent sessions per admin; older sessions are evicted when exceeded. Default: 3.",
+          "x-apply-policy": "restart_required"
         },
         "login_fail_limit": {
           "type": "integer",
           "minimum": 1,
           "default": 5,
-          "description": "Maximum login failures within the sliding window before temporary lockout. Default: 5."
+          "description": "Maximum login failures within the sliding window before temporary lockout. Default: 5.",
+          "x-apply-policy": "hot_reload"
         },
         "login_fail_window_seconds": {
           "type": "integer",
           "minimum": 1,
           "default": 300,
-          "description": "Length of the login-failure sliding window in seconds. Default: 300."
+          "description": "Length of the login-failure sliding window in seconds. Default: 300.",
+          "x-apply-policy": "hot_reload"
         }
       }
     },
     "permission": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["default_level"],
+      "required": [
+        "default_level"
+      ],
       "properties": {
         "default_level": {
           "type": "string",
-          "enum": ["super_admin", "group_admin", "everyone"],
-          "default": "everyone"
+          "enum": [
+            "super_admin",
+            "group_admin",
+            "everyone"
+          ],
+          "default": "everyone",
+          "x-apply-policy": "hot_reload"
         }
       }
     },
@@ -226,68 +265,85 @@
           "type": "integer",
           "minimum": 1,
           "default": 1,
-          "description": "Number of concurrent image render workers; high values consume significant memory. Default: 1."
+          "description": "Number of concurrent image render workers; high values consume significant memory. Default: 1.",
+          "x-apply-policy": "restart_required"
         },
         "browser_args": {
           "type": "array",
-          "default": ["--disable-gpu"],
+          "default": [
+            "--disable-gpu"
+          ],
           "items": {
             "type": "string",
             "minLength": 1
           },
-          "description": "Chromium startup arguments passed verbatim."
+          "description": "Chromium startup arguments passed verbatim.",
+          "x-apply-policy": "restart_required"
         },
         "browser_path": {
           "type": "string",
           "default": "",
-          "description": "Chromium executable path. Leave empty to use a prepared image rendering Chromium or a system Chromium-family browser."
+          "description": "Chromium executable path. Leave empty to use a prepared image rendering Chromium or a system Chromium-family browser.",
+          "x-apply-policy": "restart_required"
         },
         "default_output": {
           "type": "string",
-          "enum": ["png", "jpeg"],
+          "enum": [
+            "png",
+            "jpeg"
+          ],
           "default": "png",
-          "description": "Output format used when a plugin does not specify one."
+          "description": "Output format used when a plugin does not specify one.",
+          "x-apply-policy": "hot_reload"
         },
         "device_scale_percent": {
           "type": "integer",
           "minimum": 50,
           "maximum": 500,
           "default": 100,
-          "description": "Simulated device pixel ratio as a percentage; higher values yield sharper images at greater cost. Default: 100."
+          "description": "Simulated device pixel ratio as a percentage; higher values yield sharper images at greater cost. Default: 100.",
+          "x-apply-policy": "hot_reload"
         },
         "timeout_seconds": {
           "type": "integer",
           "minimum": 1,
           "default": 30,
-          "description": "Per-image render timeout in seconds; exceeded tasks are cancelled and recorded as failures. Default: 30."
+          "description": "Per-image render timeout in seconds; exceeded tasks are cancelled and recorded as failures. Default: 30.",
+          "x-apply-policy": "hot_reload"
         },
         "queue_wait_timeout_seconds": {
           "type": "integer",
           "minimum": 1,
           "default": 15,
-          "description": "Maximum time a render task may wait in the queue before timing out. Default: 15."
+          "description": "Maximum time a render task may wait in the queue before timing out. Default: 15.",
+          "x-apply-policy": "hot_reload"
         },
         "queue_max_length": {
           "type": "integer",
           "minimum": 1,
           "default": 32,
-          "description": "Render queue capacity; new tasks are rejected when full. Default: 32."
+          "description": "Render queue capacity; new tasks are rejected when full. Default: 32.",
+          "x-apply-policy": "hot_reload"
         },
         "footer_template": {
           "type": "string",
-          "default": "Created By RayleaBot {{rayleabot_version}} & Plugin {{plugin_name}} {{plugin_version}}"
+          "default": "Created By RayleaBot {{rayleabot_version}} & Plugin {{plugin_name}} {{plugin_version}}",
+          "x-apply-policy": "hot_reload"
         }
       }
     },
     "scheduler": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["timezone"],
+      "required": [
+        "timezone"
+      ],
       "properties": {
         "timezone": {
           "type": "string",
           "default": "",
-          "description": "IANA timezone identifier used for scheduled tasks. Empty defaults to system timezone."
+          "description": "IANA timezone identifier used for scheduled tasks. Empty defaults to system timezone.",
+          "x-apply-policy": "restart_required"
         }
       }
     },
@@ -317,55 +373,64 @@
           "type": "integer",
           "minimum": 1,
           "default": 30,
-          "description": "Maximum time allowed for a single plugin's initialization (load and handshake). Default: 30."
+          "description": "Maximum time allowed for a single plugin's initialization (load and handshake). Default: 30.",
+          "x-apply-policy": "restart_required"
         },
         "plugin_init_max_total_seconds": {
           "type": "integer",
           "minimum": 1,
           "default": 300,
-          "description": "Cumulative initialization time budget across all plugins; remaining plugins skip initialization when exceeded. Default: 300."
+          "description": "Cumulative initialization time budget across all plugins; remaining plugins skip initialization when exceeded. Default: 300.",
+          "x-apply-policy": "restart_required"
         },
         "plugin_event_timeout_seconds": {
           "type": "integer",
           "minimum": 1,
           "default": 60,
-          "description": "Maximum time a plugin may take to process one event; expired events are dropped. Default: 60."
+          "description": "Maximum time a plugin may take to process one event; expired events are dropped. Default: 60.",
+          "x-apply-policy": "restart_required"
         },
         "max_pending_events_per_plugin": {
           "type": "integer",
           "minimum": 1,
           "default": 16,
-          "description": "Maximum queued events per plugin; new events are dropped when exceeded. Default: 16."
+          "description": "Maximum queued events per plugin; new events are dropped when exceeded. Default: 16.",
+          "x-apply-policy": "restart_required"
         },
         "max_pending_control_events_per_plugin": {
           "type": "integer",
           "minimum": 1,
           "default": 4,
-          "description": "Maximum queued control events per plugin. Default: 4."
+          "description": "Maximum queued control events per plugin. Default: 4.",
+          "x-apply-policy": "restart_required"
         },
         "nodejs_max_old_space_size_mb": {
           "type": "integer",
           "minimum": 1,
           "default": 256,
-          "description": "Old-generation heap cap for Node.js plugin runtimes, passed to --max-old-space-size. Default: 256. Requires restart."
+          "description": "Old-generation heap cap for Node.js plugin runtimes, passed to --max-old-space-size. Default: 256. Requires restart.",
+          "x-apply-policy": "restart_required"
         },
         "dependency_install_timeout_seconds": {
           "type": "integer",
           "minimum": 1,
           "default": 900,
-          "description": "Maximum time allowed for installing plugin dependencies. Default: 900."
+          "description": "Maximum time allowed for installing plugin dependencies. Default: 900.",
+          "x-apply-policy": "restart_required"
         },
         "max_concurrent_dependency_installs": {
           "type": "integer",
           "minimum": 1,
           "default": 1,
-          "description": "Maximum concurrent plugin dependency installation tasks. Default: 1."
+          "description": "Maximum concurrent plugin dependency installation tasks. Default: 1.",
+          "x-apply-policy": "restart_required"
         },
         "ipc_pending_actions_max": {
           "type": "integer",
           "minimum": 1,
           "default": 256,
-          "description": "Maximum queued IPC actions per plugin; new actions are rejected when exceeded. Default: 256."
+          "description": "Maximum queued IPC actions per plugin; new actions are rejected when exceeded. Default: 256.",
+          "x-apply-policy": "restart_required"
         },
         "ipc_action_burst_limit": {
           "$ref": "#/$defs/rateLimit",
@@ -376,67 +441,82 @@
           "type": "integer",
           "minimum": 1,
           "default": 262144,
-          "description": "Plugin stderr output rate limit in bytes per second; excess output is truncated. Default: 262144."
+          "description": "Plugin stderr output rate limit in bytes per second; excess output is truncated. Default: 262144.",
+          "x-apply-policy": "restart_required"
         },
         "max_concurrent_tasks_per_plugin": {
           "type": "integer",
           "minimum": 1,
           "default": 4,
-          "description": "Upper bound for one plugin's concurrent event sessions. The runtime applies min(manifest.concurrency, runtime.max_concurrent_tasks_per_plugin) with a floor of 1."
+          "description": "Upper bound for one plugin's concurrent event sessions. The runtime applies min(manifest.concurrency, runtime.max_concurrent_tasks_per_plugin) with a floor of 1.",
+          "x-apply-policy": "restart_required"
         },
         "crash_backoff_initial_seconds": {
           "type": "integer",
           "minimum": 1,
           "default": 2,
-          "description": "Initial backoff before the first restart after a plugin crash; subsequent waits grow exponentially. Default: 2."
+          "description": "Initial backoff before the first restart after a plugin crash; subsequent waits grow exponentially. Default: 2.",
+          "x-apply-policy": "restart_required"
         },
         "crash_backoff_max_seconds": {
           "type": "integer",
           "minimum": 1,
           "default": 60,
-          "description": "Upper bound for the crash-restart backoff. Default: 60."
+          "description": "Upper bound for the crash-restart backoff. Default: 60.",
+          "x-apply-policy": "restart_required"
         },
         "shutdown_grace_seconds": {
           "type": "integer",
           "minimum": 1,
           "default": 10,
-          "description": "Grace period given to plugins during shutdown before they are force-terminated. Default: 10."
+          "description": "Grace period given to plugins during shutdown before they are force-terminated. Default: 10.",
+          "x-apply-policy": "restart_required"
         },
         "ipc_message_max_bytes": {
           "type": "integer",
           "minimum": 1,
           "default": 8388608,
-          "description": "Maximum size of a single IPC message; exceeding this disconnects and restarts the plugin. Default: 8388608."
+          "description": "Maximum size of a single IPC message; exceeding this disconnects and restarts the plugin. Default: 8388608.",
+          "x-apply-policy": "restart_required"
         }
       }
     },
     "storage": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["kv_value_max_bytes", "kv_total_limit_mb", "file_max_bytes", "plugin_workdir_soft_limit_mb"],
+      "required": [
+        "kv_value_max_bytes",
+        "kv_total_limit_mb",
+        "file_max_bytes",
+        "plugin_workdir_soft_limit_mb"
+      ],
       "properties": {
         "kv_value_max_bytes": {
           "type": "integer",
           "minimum": 1,
           "default": 65536,
-          "description": "Maximum serialized size of one KV value in bytes. Default: 65536."
+          "description": "Maximum serialized size of one KV value in bytes. Default: 65536.",
+          "x-apply-policy": "hot_reload"
         },
         "kv_total_limit_mb": {
           "type": "integer",
           "minimum": 1,
           "default": 16,
-          "description": "Aggregate KV storage cap across all plugins; new writes are rejected when reached. Default: 16."
+          "description": "Aggregate KV storage cap across all plugins; new writes are rejected when reached. Default: 16.",
+          "x-apply-policy": "hot_reload"
         },
         "file_max_bytes": {
           "type": "integer",
           "minimum": 1,
           "default": 10485760,
-          "description": "Maximum size of a single plugin file in bytes. Default: 10485760."
+          "description": "Maximum size of a single plugin file in bytes. Default: 10485760.",
+          "x-apply-policy": "hot_reload"
         },
         "plugin_workdir_soft_limit_mb": {
           "type": "integer",
           "minimum": 1,
-          "default": 256
+          "default": 256,
+          "x-apply-policy": "hot_reload"
         }
       }
     },
@@ -453,38 +533,52 @@
           "type": "integer",
           "minimum": 1,
           "default": 90,
-          "description": "Audit log retention in days; entries older are purged. Default: 90."
+          "description": "Audit log retention in days; entries older are purged. Default: 90.",
+          "x-apply-policy": "restart_required"
         },
         "event_records_retention_days": {
           "type": "integer",
           "minimum": 1,
           "default": 7,
-          "description": "Event-record retention in days; entries older are purged. Default: 7."
+          "description": "Event-record retention in days; entries older are purged. Default: 7.",
+          "x-apply-policy": "restart_required"
         },
         "download_cache_retention_days": {
           "type": "integer",
           "minimum": 1,
           "default": 15,
-          "description": "Download cache retention in days; entries older are purged. Default: 15."
+          "description": "Download cache retention in days; entries older are purged. Default: 15.",
+          "x-apply-policy": "restart_required"
         }
       }
     },
     "log": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["level", "retention_days", "rate_limit_per_plugin"],
+      "required": [
+        "level",
+        "retention_days",
+        "rate_limit_per_plugin"
+      ],
       "properties": {
         "level": {
           "type": "string",
-          "enum": ["debug", "info", "warn", "error"],
+          "enum": [
+            "debug",
+            "info",
+            "warn",
+            "error"
+          ],
           "default": "info",
-          "description": "Minimum log level; messages below this level are discarded."
+          "description": "Minimum log level; messages below this level are discarded.",
+          "x-apply-policy": "hot_reload"
         },
         "retention_days": {
           "type": "integer",
           "minimum": 1,
           "default": 7,
-          "description": "Log file retention in days; older files are purged. Default: 7."
+          "description": "Log file retention in days; older files are purged. Default: 7.",
+          "x-apply-policy": "hot_reload"
         },
         "rate_limit_per_plugin": {
           "$ref": "#/$defs/rateLimit",
@@ -495,7 +589,11 @@
     "message": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["rate_limit_per_plugin", "rate_limit_per_target", "circuit_breaker_seconds"],
+      "required": [
+        "rate_limit_per_plugin",
+        "rate_limit_per_target",
+        "circuit_breaker_seconds"
+      ],
       "properties": {
         "rate_limit_per_plugin": {
           "$ref": "#/$defs/rateLimit",
@@ -509,14 +607,18 @@
           "type": "integer",
           "minimum": 1,
           "default": 30,
-          "description": "Cooldown after consecutive send failures trigger the message circuit breaker. Default: 30."
+          "description": "Cooldown after consecutive send failures trigger the message circuit breaker. Default: 30.",
+          "x-apply-policy": "hot_reload"
         }
       }
     },
     "user": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["command_rate_limit", "cooldown_reply"],
+      "required": [
+        "command_rate_limit",
+        "cooldown_reply"
+      ],
       "properties": {
         "command_rate_limit": {
           "$ref": "#/$defs/rateLimit",
@@ -524,14 +626,17 @@
         },
         "cooldown_reply": {
           "type": "boolean",
-          "default": true
+          "default": true,
+          "x-apply-policy": "hot_reload"
         }
       }
     },
     "group": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["command_rate_limit"],
+      "required": [
+        "command_rate_limit"
+      ],
       "properties": {
         "command_rate_limit": {
           "$ref": "#/$defs/rateLimit",
@@ -553,47 +658,58 @@
         "connect_timeout_seconds": {
           "type": "integer",
           "minimum": 1,
-          "default": 15
+          "default": 15,
+          "x-apply-policy": "adapter_reload"
         },
         "reconnect_initial_seconds": {
           "type": "integer",
           "minimum": 1,
-          "default": 2
+          "default": 2,
+          "x-apply-policy": "adapter_reload"
         },
         "reconnect_multiplier": {
           "type": "number",
           "minimum": 1,
-          "default": 2
+          "default": 2,
+          "x-apply-policy": "adapter_reload"
         },
         "reconnect_max_seconds": {
           "type": "integer",
           "minimum": 1,
-          "default": 120
+          "default": 120,
+          "x-apply-policy": "adapter_reload"
         },
         "reconnect_jitter_ratio": {
           "type": "number",
           "minimum": 0,
           "maximum": 1,
-          "default": 0.2
+          "default": 0.2,
+          "x-apply-policy": "adapter_reload"
         }
       }
     },
     "http": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["timeout_seconds", "max_retries", "allow_private_hosts"],
+      "required": [
+        "timeout_seconds",
+        "max_retries",
+        "allow_private_hosts"
+      ],
       "properties": {
         "timeout_seconds": {
           "type": "integer",
           "minimum": 1,
           "default": 10,
-          "description": "Default HTTP request timeout for plugin-issued requests. Default: 10."
+          "description": "Default HTTP request timeout for plugin-issued requests. Default: 10.",
+          "x-apply-policy": "hot_reload"
         },
         "max_retries": {
           "type": "integer",
           "minimum": 0,
           "default": 2,
-          "description": "Maximum retry count for plugin HTTP requests. Default: 2."
+          "description": "Maximum retry count for plugin HTTP requests. Default: 2.",
+          "x-apply-policy": "hot_reload"
         },
         "allow_private_hosts": {
           "type": "array",
@@ -603,38 +719,54 @@
             "pattern": "^[A-Za-z0-9.-]+$"
           },
           "uniqueItems": true,
-          "description": "Allow-list of private or LAN hosts that plugins may reach; private networks are blocked by default to prevent SSRF."
+          "description": "Allow-list of private or LAN hosts that plugins may reach; private networks are blocked by default to prevent SSRF.",
+          "x-apply-policy": "hot_reload"
         }
       }
     },
     "web": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["exposure_mode", "setup_local_only"],
+      "required": [
+        "exposure_mode",
+        "setup_local_only"
+      ],
       "properties": {
         "exposure_mode": {
           "type": "string",
-          "enum": ["localhost_only", "lan_enabled", "public_via_reverse_proxy"],
+          "enum": [
+            "localhost_only",
+            "lan_enabled",
+            "public_via_reverse_proxy"
+          ],
           "default": "localhost_only",
-          "description": "Admin UI network exposure: localhost_only restricts to 127.0.0.1; lan_enabled allows LAN; public_via_reverse_proxy trusts reverse-proxy headers. Requires restart."
+          "description": "Admin UI network exposure: localhost_only restricts to 127.0.0.1; lan_enabled allows LAN; public_via_reverse_proxy trusts reverse-proxy headers. Requires restart.",
+          "x-apply-policy": "restart_required"
         },
         "setup_local_only": {
           "type": "boolean",
           "default": true,
-          "description": "When enabled, first-run setup is only reachable from 127.0.0.1, preventing remote takeover. Requires restart."
+          "description": "When enabled, first-run setup is only reachable from 127.0.0.1, preventing remote takeover. Requires restart.",
+          "x-apply-policy": "restart_required"
         }
       }
     },
     "backup": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["default_consistency"],
+      "required": [
+        "default_consistency"
+      ],
       "properties": {
         "default_consistency": {
           "type": "string",
-          "enum": ["offline", "online"],
+          "enum": [
+            "offline",
+            "online"
+          ],
           "default": "offline",
-          "description": "Default backup consistency mode: offline takes an offline snapshot; online exports while running."
+          "description": "Default backup consistency mode: offline takes an offline snapshot; online exports while running.",
+          "x-apply-policy": "restart_required"
         }
       }
     }
@@ -643,11 +775,17 @@
     "onebotWsTransport": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["enabled", "url", "access_token", "access_token_query_compat"],
+      "required": [
+        "enabled",
+        "url",
+        "access_token",
+        "access_token_query_compat"
+      ],
       "properties": {
         "enabled": {
           "type": "boolean",
-          "default": false
+          "default": false,
+          "x-apply-policy": "adapter_reload"
         },
         "url": {
           "type": "string",
@@ -660,28 +798,38 @@
               "format": "uri",
               "pattern": "^(ws|wss)://.+$"
             }
-          ]
+          ],
+          "x-apply-policy": "adapter_reload"
         },
         "access_token": {
           "type": "string",
           "default": "",
-          "description": "OneBot access token. Management API updates store plaintext values in the local secret store and persist this field as secret://onebot/<transport>/access_token."
+          "description": "OneBot access token. Management API updates store plaintext values in the local secret store and persist this field as secret://onebot/<transport>/access_token.",
+          "x-apply-policy": "secret_only",
+          "x-secret": true,
+          "x-redaction": "full"
         },
         "access_token_query_compat": {
           "type": "boolean",
           "default": false,
-          "description": "Compatibility mode for legacy OneBot providers that require access_token in the URL query. Authorization: Bearer is the default and preferred token transport."
+          "description": "Compatibility mode for legacy OneBot providers that require access_token in the URL query. Authorization: Bearer is the default and preferred token transport.",
+          "x-apply-policy": "adapter_reload"
         }
       }
     },
     "onebotHttpTransport": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["enabled", "url", "access_token"],
+      "required": [
+        "enabled",
+        "url",
+        "access_token"
+      ],
       "properties": {
         "enabled": {
           "type": "boolean",
-          "default": false
+          "default": false,
+          "x-apply-policy": "adapter_reload"
         },
         "url": {
           "type": "string",
@@ -694,23 +842,33 @@
               "format": "uri",
               "pattern": "^https?://.+$"
             }
-          ]
+          ],
+          "x-apply-policy": "adapter_reload"
         },
         "access_token": {
           "type": "string",
           "default": "",
-          "description": "OneBot HTTP API access token. Management API updates store plaintext values in the local secret store and persist this field as secret://onebot/http_api/access_token."
+          "description": "OneBot HTTP API access token. Management API updates store plaintext values in the local secret store and persist this field as secret://onebot/http_api/access_token.",
+          "x-apply-policy": "secret_only",
+          "x-secret": true,
+          "x-redaction": "full"
         }
       }
     },
     "onebotWebhookTransport": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["enabled", "url", "access_token", "access_token_query_compat"],
+      "required": [
+        "enabled",
+        "url",
+        "access_token",
+        "access_token_query_compat"
+      ],
       "properties": {
         "enabled": {
           "type": "boolean",
-          "default": false
+          "default": false,
+          "x-apply-policy": "adapter_reload"
         },
         "url": {
           "type": "string",
@@ -723,23 +881,29 @@
               "format": "uri",
               "pattern": "^https?://.+$"
             }
-          ]
+          ],
+          "x-apply-policy": "adapter_reload"
         },
         "access_token": {
           "type": "string",
           "default": "",
-          "description": "OneBot webhook access token. Management API updates store plaintext values in the local secret store and persist this field as secret://onebot/webhook/access_token."
+          "description": "OneBot webhook access token. Management API updates store plaintext values in the local secret store and persist this field as secret://onebot/webhook/access_token.",
+          "x-apply-policy": "secret_only",
+          "x-secret": true,
+          "x-redaction": "full"
         },
         "access_token_query_compat": {
           "type": "boolean",
           "default": false,
-          "description": "Compatibility mode for legacy OneBot webhook clients that send access_token in the URL query. Authorization: Bearer is the default and preferred token transport."
+          "description": "Compatibility mode for legacy OneBot webhook clients that send access_token in the URL query. Authorization: Bearer is the default and preferred token transport.",
+          "x-apply-policy": "adapter_reload"
         }
       }
     },
     "rateLimit": {
       "type": "string",
-      "pattern": "^[1-9][0-9]*/[1-9][0-9]*(s|m|h)$"
+      "pattern": "^[1-9][0-9]*/[1-9][0-9]*(s|m|h)$",
+      "x-apply-policy": "hot_reload"
     }
   },
   "x-fixtures": [

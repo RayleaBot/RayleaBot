@@ -1,6 +1,6 @@
 contract: contracts/web-api.openapi.yaml
 case: ok
-description: Douyin QR code login poll returns a cookie after confirmation.
+description: Douyin QR code login poll saves the credential and returns the saved account after confirmation.
 request:
   method: GET
   path: /api/third-party/accounts/douyin/login/qrcode/douyin_qr_20260608_001
@@ -11,7 +11,20 @@ response:
     login_id: douyin_qr_20260608_001
     state: succeeded
     expires_at: "2026-06-08T08:03:00Z"
-    cookie: "sessionid=fixture; passport_csrf_token=fixture; ttwid=fixture;"
-    account: null
+    account:
+      platform: douyin
+      account_id: primary
+      label: primary
+      enabled: true
+      configured: true
+      profile: null
+      credential:
+        state: valid
+        checked_at: "2026-06-08T08:03:00Z"
+        last_error: ""
+      polling:
+        enabled: true
+        last_used_at: null
+      updated_at: "2026-06-08T08:03:00Z"
 expect:
   valid: true

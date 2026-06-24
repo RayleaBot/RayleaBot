@@ -2029,6 +2029,8 @@ components:
           minimum: 0
         recovery_summary:
           $ref: '#/components/schemas/RecoveryCompatibilitySummary'
+        health:
+          $ref: '#/components/schemas/ReadinessStatusResponse'
 
     ProtocolProvider:
       type: string
@@ -3703,7 +3705,7 @@ components:
     ThirdPartyQRCodeLoginPollResponse:
       type: object
       additionalProperties: false
-      required: [platform, login_id, state, expires_at, cookie, account]
+      required: [platform, login_id, state, expires_at, account]
       properties:
         platform:
           $ref: '#/components/schemas/ThirdPartyPlatform'
@@ -3715,12 +3717,9 @@ components:
         expires_at:
           type: string
           format: date-time
-        cookie:
-          type: string
-          nullable: true
         account:
           oneOf:
-            - $ref: '#/components/schemas/ThirdPartyAccountProfile'
+            - $ref: '#/components/schemas/ThirdPartyAccountSummary'
             - type: 'null'
 
     ThirdPartyMonitorService:
@@ -3871,7 +3870,7 @@ components:
     BilibiliQRCodeLoginPollResponse:
       type: object
       additionalProperties: false
-      required: [login_id, state, expires_at, cookie, account]
+      required: [login_id, state, expires_at, account]
       properties:
         login_id:
           type: string
@@ -3881,11 +3880,10 @@ components:
         expires_at:
           type: string
           format: date-time
-        cookie:
-          type: string
-          nullable: true
         account:
-          $ref: '#/components/schemas/ThirdPartyAccountProfile'
+          oneOf:
+            - $ref: '#/components/schemas/ThirdPartyAccountSummary'
+            - type: 'null'
 
     BilibiliSourceState:
       type: string
