@@ -100,6 +100,8 @@ cd sdk/python && python -m unittest discover -s tests
 
 ## 仓库动态
 
-[![最近提交](https://img.shields.io/github/last-commit/RayleaBot/RayleaBot?logo=git&logoColor=white&label=last%20commit&style=flat-square)](https://github.com/RayleaBot/RayleaBot/commits/main)
-[![月提交量](https://img.shields.io/github/commit-activity/m/RayleaBot/RayleaBot?logo=git&logoColor=white&label=commits%2Fmonth&style=flat-square)](https://github.com/RayleaBot/RayleaBot/graphs/commit-activity)
-[![年提交量](https://img.shields.io/github/commit-activity/y/RayleaBot/RayleaBot?logo=git&logoColor=white&label=commits%2Fyear&style=flat-square)](https://github.com/RayleaBot/RayleaBot/graphs/commit-activity)
+> 以下图表由 [`.github/workflows/repo-stats.yml`](.github/workflows/repo-stats.yml) 每日自动生成，反映本仓库最近一年的提交活动。
+
+![月度提交折线图](https://raw.githubusercontent.com/RayleaBot/RayleaBot/output/repo-activity-line.svg)
+
+![周提交热力图](https://raw.githubusercontent.com/RayleaBot/RayleaBot/output/repo-activity-heatmap.svg)
