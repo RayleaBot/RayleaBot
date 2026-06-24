@@ -6,8 +6,8 @@ import unittest
 
 
 PLUGIN_DIR = os.path.dirname(os.path.dirname(__file__))
-BUILTIN_DIR = os.path.dirname(PLUGIN_DIR)
-sys.path.insert(0, BUILTIN_DIR)
+TEST_DIR = os.path.dirname(__file__)
+sys.path.insert(0, TEST_DIR)
 sys.path.insert(0, PLUGIN_DIR)
 
 from bilibili import dynamic_detail_url, dynamic_updates, opus_detail_url, parse_preview_url, user_search_url
