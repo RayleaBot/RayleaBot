@@ -15,6 +15,9 @@ const migrationTimestampFormat = time.RFC3339Nano
 //go:embed migrations/*.sql
 var migrationFS embed.FS
 
+//go:embed schema.sql
+var currentSchemaSQL string
+
 type schemaMigration struct {
 	version int
 	name    string
@@ -25,7 +28,7 @@ type schemaMigration struct {
 var schemaMigrations = []schemaMigration{
 	{
 		version: 1,
-		name:    "base",
+		name:    "legacy_compatibility_base",
 		file:    "migrations/000001_base.sql",
 	},
 	{
@@ -60,10 +63,15 @@ func initializeSchema(ctx context.Context, db *sql.DB) error {
 		return err
 	}
 
-	migrations := append([]schemaMigration(nil), schemaMigrations...)
-	sort.Slice(migrations, func(i, j int) bool {
-		return migrations[i].version < migrations[j].version
-	})
+	migrations := sortedSchemaMigrations()
+	fresh, err := databaseHasOnlySchemaMigrations(ctx, db)
+	if err != nil {
+		return err
+	}
+	if fresh {
+		return initializeCurrentSchemaSnapshot(ctx, db, migrations)
+	}
+
 	if err := backfillSchemaMigrationNames(ctx, db, migrations); err != nil {
 		return err
 	}
@@ -75,6 +83,57 @@ func initializeSchema(ctx context.Context, db *sql.DB) error {
 	}
 
 	return nil
+}
+
+func sortedSchemaMigrations() []schemaMigration {
+	migrations := append([]schemaMigration(nil), schemaMigrations...)
+	sort.Slice(migrations, func(i, j int) bool {
+		return migrations[i].version < migrations[j].version
+	})
+	return migrations
+}
+
+func initializeCurrentSchemaSnapshot(ctx context.Context, db *sql.DB, migrations []schemaMigration) error {
+	tx, err := db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("begin current schema snapshot: %w", err)
+	}
+	defer func() {
+		_ = tx.Rollback()
+	}()
+	if err := execMigrationSQL(ctx, tx, currentSchemaSQL); err != nil {
+		return fmt.Errorf("apply current schema snapshot: %w", err)
+	}
+	for _, migration := range migrations {
+		if err := recordMigrationTx(ctx, tx, migration); err != nil {
+			return fmt.Errorf("record current schema migration %06d %s: %w", migration.version, migration.name, err)
+		}
+	}
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("commit current schema snapshot: %w", err)
+	}
+	return nil
+}
+
+func databaseHasOnlySchemaMigrations(ctx context.Context, db *sql.DB) (bool, error) {
+	rows, err := db.QueryContext(ctx, `SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%'`)
+	if err != nil {
+		return false, fmt.Errorf("query sqlite tables: %w", err)
+	}
+	defer rows.Close()
+
+	var tables []string
+	for rows.Next() {
+		var name string
+		if err := rows.Scan(&name); err != nil {
+			return false, fmt.Errorf("scan sqlite table: %w", err)
+		}
+		tables = append(tables, name)
+	}
+	if err := rows.Err(); err != nil {
+		return false, fmt.Errorf("iterate sqlite tables: %w", err)
+	}
+	return len(tables) == 1 && tables[0] == "schema_migrations", nil
 }
 
 func applyMigration(ctx context.Context, db *sql.DB, migration schemaMigration) error {

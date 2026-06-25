@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"os"
 	"path/filepath"
 	"reflect"
 	"strings"
@@ -26,6 +27,96 @@ func TestLegacyMigrationsConvergeToCurrentSchemaShape(t *testing.T) {
 		currentJSON, _ := json.MarshalIndent(currentShape, "", "  ")
 		legacyJSON, _ := json.MarshalIndent(legacyShape, "", "  ")
 		t.Fatalf("legacy migration schema shape drifted from current schema\ncurrent:\n%s\nlegacy:\n%s", currentJSON, legacyJSON)
+	}
+}
+
+func TestCurrentSchemaSnapshotMatchesNewDatabaseShape(t *testing.T) {
+	t.Parallel()
+
+	current := openTestStore(t)
+	snapshotPath := filepath.Join(t.TempDir(), "snapshot.db")
+	createCurrentSchemaSnapshotDatabase(t, snapshotPath)
+	snapshot, err := sql.Open(sqliteDriverName, snapshotPath)
+	if err != nil {
+		t.Fatalf("open snapshot sqlite: %v", err)
+	}
+	defer snapshot.Close()
+
+	currentShape := readSQLiteSchemaShape(t, current.Read)
+	snapshotShape := readSQLiteSchemaShape(t, snapshot)
+	if !reflect.DeepEqual(snapshotShape, currentShape) {
+		currentJSON, _ := json.MarshalIndent(currentShape, "", "  ")
+		snapshotJSON, _ := json.MarshalIndent(snapshotShape, "", "  ")
+		t.Fatalf("current schema snapshot drifted from new database schema\ncurrent:\n%s\nsnapshot:\n%s", currentJSON, snapshotJSON)
+	}
+}
+
+func TestSQLCUsesCurrentSchemaSnapshot(t *testing.T) {
+	t.Parallel()
+
+	content, err := os.ReadFile(filepath.Join("..", "..", "sqlc.yaml"))
+	if err != nil {
+		t.Fatalf("read sqlc.yaml: %v", err)
+	}
+	if !strings.Contains(string(content), `schema: "internal/storage/schema.sql"`) {
+		t.Fatalf("sqlc.yaml must use internal/storage/schema.sql as the current schema source")
+	}
+}
+
+func TestLegacyBaseDoesNotContainCompatibilityColumns(t *testing.T) {
+	t.Parallel()
+
+	payload, err := migrationFS.ReadFile("migrations/000001_base.sql")
+	if err != nil {
+		t.Fatalf("read legacy base migration: %v", err)
+	}
+	base := string(payload)
+	for _, fragment := range []string{
+		"profile_uid",
+		"profile_nickname",
+		"profile_avatar_url",
+		"credential_state",
+		"credential_checked_at",
+		"credential_last_error",
+		"last_used_at",
+		"proxy_url",
+		"proxy_enabled",
+		"cover_url",
+		"'weibo'",
+		"'douyin'",
+		"'netease_music'",
+	} {
+		if strings.Contains(base, fragment) {
+			t.Fatalf("legacy base migration contains compatibility fragment %q", fragment)
+		}
+	}
+}
+
+func createCurrentSchemaSnapshotDatabase(t *testing.T, databasePath string) {
+	t.Helper()
+
+	db, err := sql.Open(sqliteDriverName, databasePath)
+	if err != nil {
+		t.Fatalf("open snapshot sqlite: %v", err)
+	}
+	defer func() {
+		if err := db.Close(); err != nil {
+			t.Fatalf("close snapshot sqlite: %v", err)
+		}
+	}()
+
+	tx, err := db.Begin()
+	if err != nil {
+		t.Fatalf("begin snapshot schema transaction: %v", err)
+	}
+	defer func() {
+		_ = tx.Rollback()
+	}()
+	if err := execMigrationSQL(t.Context(), tx, currentSchemaSQL); err != nil {
+		t.Fatalf("apply current schema snapshot: %v", err)
+	}
+	if err := tx.Commit(); err != nil {
+		t.Fatalf("commit snapshot schema transaction: %v", err)
 	}
 }
 
