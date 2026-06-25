@@ -1,6 +1,6 @@
 from urllib.parse import parse_qs
 
-from hub.link_utils import capability_message, first_query_value, json_response, path_parts, plain_text
+from hub.link_utils import capability_message, first_query_value, hostname_matches, json_response, path_parts, plain_text
 
 
 PLATFORM = {
@@ -42,7 +42,7 @@ LINK_KIND_NAMES = {
 
 def parse_link(url, parsed):
     host = parsed.hostname.lower() if parsed.hostname else ""
-    if not (host.endswith("weibo.com") or host.endswith("weibo.cn")):
+    if not hostname_matches(host, "weibo.com", "weibo.cn"):
         return None
     parts = path_parts(parsed.path)
     query = parse_qs(parsed.query)

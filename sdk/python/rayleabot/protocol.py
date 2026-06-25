@@ -2,6 +2,7 @@
 
 import json
 import queue
+import re
 import sys
 import threading
 import time
@@ -12,6 +13,9 @@ _reader_started = False
 _state_lock = threading.Lock()
 _write_lock = threading.Lock()
 _local_request_counter = 0
+_SENSITIVE_TEXT_PATTERNS = (
+    re.compile(r"(?i)\b(SESSDATA|bili_jct|access_token|refresh_token|authorization|cookie|token|secret|password)\b(\s*[:=]\s*)([^;,\s]+)"),
+)
 
 
 class ProtocolError(RuntimeError):
@@ -65,9 +69,11 @@ def read_frame(timeout_seconds=None):
 
 
 def write_frame(frame):
-    """Write a JSONL frame to stdout."""
+    """Write one JSONL protocol frame to stdout."""
+    line = json.dumps(frame, ensure_ascii=False) + "\n"
+    encoded = line.encode("utf-8")
     with _write_lock:
-        sys.stdout.write(json.dumps(frame, ensure_ascii=False) + "\n")
+        sys.stdout.buffer.write(encoded)
         sys.stdout.flush()
 
 
@@ -135,8 +141,16 @@ def send_error(plugin_id, request_id, code, message):
         "plugin_id": plugin_id,
         "request_id": request_id,
         "code": code,
-        "message": message,
+        "message": redact_sensitive_text(message),
     })
+
+
+def redact_sensitive_text(value):
+    """Redact credential-shaped fragments from user-visible protocol errors."""
+    text = str(value or "")
+    for pattern in _SENSITIVE_TEXT_PATTERNS:
+        text = pattern.sub(r"\1\2[REDACTED]", text)
+    return text
 
 
 def next_local_request_id(parent_request_id):

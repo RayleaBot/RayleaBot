@@ -226,7 +226,7 @@ const router = useRouter()
 
 const iframeRef = ref<HTMLIFrameElement | null>(null)
 const iframeNonce = ref(0)
-const iframeSessionId = `${Date.now()}-${Math.random().toString(36).slice(2)}`
+const iframeSessionId = cryptoRandomId('plugin-ui-session')
 const confirmed = ref(false)
 const waitingForReady = ref(false)
 const fatalError = ref<string | null>(null)
@@ -243,6 +243,16 @@ const frameSrc = computed(() => buildPluginManagementUISrc(props.plugin.id, mana
   nonce: iframeNonce.value,
   session: iframeSessionId,
 }))
+const frameOrigin = computed(() => {
+  if (typeof window === 'undefined' || !frameSrc.value) {
+    return ''
+  }
+  try {
+    return new URL(frameSrc.value, window.location.href).origin
+  } catch {
+    return ''
+  }
+})
 const canRenderIframe = computed(() => Boolean(frameSrc.value) && (!requiresConfirmation.value || confirmed.value))
 const busy = computed(() => (
   waitingForReady.value
@@ -285,7 +295,19 @@ let lastInitSecrets: Record<string, string> | null = null
 let readyTimer: ReturnType<typeof setTimeout> | null = null
 let loadInitTimer: ReturnType<typeof setTimeout> | null = null
 let requestCounter = 0
-let acceptedOpaqueOrigin = false
+
+function cryptoRandomId(prefix: string) {
+  const bytes = new Uint8Array(16)
+  if (typeof window !== 'undefined' && window.crypto?.getRandomValues) {
+    window.crypto.getRandomValues(bytes)
+  } else if (globalThis.crypto?.getRandomValues) {
+    globalThis.crypto.getRandomValues(bytes)
+  } else {
+    throw new Error('crypto.getRandomValues is unavailable')
+  }
+  const value = Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('')
+  return `${prefix}-${value}`
+}
 
 function buildPluginManagementUISrc(
   pluginId: string,
@@ -331,7 +353,7 @@ function buildPluginManagementUISrc(
 
 function nextBridgeRequestId(prefix: string) {
   requestCounter += 1
-  return `${prefix}-${Date.now()}-${requestCounter}`
+  return `${cryptoRandomId(prefix)}-${requestCounter}`
 }
 
 function clearReadyTimer() {
@@ -375,7 +397,6 @@ function restartFrame() {
   initPayloadBridgeToken = 0
   lastInitSettings = null
   lastInitSecrets = null
-  acceptedOpaqueOrigin = false
   clearLoadInitTimer()
   clearReadyTimer()
   fatalError.value = null
@@ -626,12 +647,13 @@ function parseInboundBridgeMessage(value: unknown): PluginManagementUIInboundMes
 
 function postMessageToIframe(message: Record<string, unknown>) {
   const frameWindow = iframeRef.value?.contentWindow
-  if (!frameWindow) {
+  const targetOrigin = frameOrigin.value
+  if (!frameWindow || !targetOrigin) {
     return false
   }
 
   try {
-    frameWindow.postMessage(message, '*')
+    frameWindow.postMessage(message, targetOrigin)
     return true
   } catch {
     return false
@@ -1028,7 +1050,6 @@ function handleFrameLoad() {
     return
   }
 
-  acceptedOpaqueOrigin = true
   clearLoadInitTimer()
   const currentToken = bridgeToken
   loadInitTimer = setTimeout(() => {
@@ -1156,29 +1177,18 @@ function retryLoad() {
 }
 
 function handleBridgeMessage(event: MessageEvent) {
+  const matchesFrameWindow = event.source === iframeRef.value?.contentWindow
+  if (!matchesFrameWindow || event.origin !== frameOrigin.value) {
+    return
+  }
+
   const message = parseInboundBridgeMessage(event.data)
   if (!message) {
-    if (event.source !== iframeRef.value?.contentWindow && !(acceptedOpaqueOrigin && event.origin === 'null')) {
-      return
-    }
-
     waitingForReady.value = false
     clearReadyTimer()
     fatalError.value = t('plugins.managementUi.invalidBridgeMessage')
     postBridgeError(fatalError.value)
     return
-  }
-
-  const matchesFrameWindow = event.source === iframeRef.value?.contentWindow
-  const canUseOpaqueOrigin = event.origin === 'null' && canRenderIframe.value
-  if (!matchesFrameWindow) {
-    if (acceptedOpaqueOrigin && canUseOpaqueOrigin) {
-      // continue
-    } else if (waitingForReady.value && message.type === 'page.ready' && canUseOpaqueOrigin) {
-      acceptedOpaqueOrigin = true
-    } else {
-      return
-    }
   }
 
   switch (message.type) {
@@ -1304,7 +1314,7 @@ onBeforeUnmount(() => {
           ref="iframeRef"
           class="plugin-management-ui-frame"
           :src="frameSrc"
-          sandbox="allow-forms allow-modals allow-scripts"
+          sandbox="allow-forms allow-modals allow-same-origin allow-scripts"
           data-testid="plugin-management-ui-frame"
           :title="title"
           @load="handleFrameLoad"

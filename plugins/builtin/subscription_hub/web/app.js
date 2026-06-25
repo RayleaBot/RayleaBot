@@ -15,7 +15,7 @@
         type,
         request_id: id,
         ...payload === void 0 ? {} : { payload }
-      }, "*");
+      }, win.location.origin);
       return id;
     }
     function normalizeMessage(raw) {

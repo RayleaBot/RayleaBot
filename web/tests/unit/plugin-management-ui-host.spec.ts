@@ -57,8 +57,10 @@ function buildPlugin(overrides: Record<string, unknown> = {}) {
 
 function assignIframeWindow(wrapper: ReturnType<typeof mount>) {
   const iframe = wrapper.get('[data-testid="plugin-management-ui-frame"]').element as HTMLIFrameElement
+  const frameOrigin = new URL(iframe.getAttribute('src') ?? '', window.location.href).origin
   const frameWindow = {
     postMessage: vi.fn(),
+    __rayleaOrigin: frameOrigin,
   } as unknown as Window
 
   Object.defineProperty(iframe, 'contentWindow', {
@@ -72,8 +74,20 @@ function assignIframeWindow(wrapper: ReturnType<typeof mount>) {
   }
 }
 
-function dispatchBridgeMessage(source: MessageEventSource | null, data: unknown) {
-  window.dispatchEvent(new MessageEvent('message', { data, source }))
+function dispatchBridgeMessage(source: MessageEventSource | null, data: unknown, origin = window.location.origin) {
+  const eventOrigin = source && typeof source === 'object' && '__rayleaOrigin' in source
+    ? String((source as Window & { __rayleaOrigin: string }).__rayleaOrigin)
+    : origin
+  const event = new MessageEvent('message', { data })
+  Object.defineProperty(event, 'source', {
+    configurable: true,
+    value: source,
+  })
+  Object.defineProperty(event, 'origin', {
+    configurable: true,
+    value: eventOrigin,
+  })
+  window.dispatchEvent(event)
 }
 
 function parseFrameSrc(wrapper: ReturnType<typeof mount>) {
@@ -126,7 +140,7 @@ describe('PluginManagementUIHost', () => {
 
     expect(wrapper.find('[data-testid="plugin-management-ui-confirm"]').exists()).toBe(false)
     expect(wrapper.find('[data-testid="plugin-management-ui-frame"]').exists()).toBe(true)
-    expect(wrapper.get('[data-testid="plugin-management-ui-frame"]').attributes('sandbox')).toBe('allow-forms allow-modals allow-scripts')
+    expect(wrapper.get('[data-testid="plugin-management-ui-frame"]').attributes('sandbox')).toBe('allow-forms allow-modals allow-same-origin allow-scripts')
     expect(window.localStorage.getItem(
       'rayleabot.plugin-management-ui.confirmed:example-config-panel:0.1.0:local_zip:examples/plugins/example-config-panel.zip',
     )).toBe('1')
@@ -326,6 +340,9 @@ describe('PluginManagementUIHost', () => {
         },
       },
     })
+    expect((frameWindow.postMessage as ReturnType<typeof vi.fn>).mock.calls[0]?.[1]).toBe(
+      String((frameWindow as Window & { __rayleaOrigin: string }).__rayleaOrigin),
+    )
 
     dispatchBridgeMessage(frameWindow, {
       version: '1',

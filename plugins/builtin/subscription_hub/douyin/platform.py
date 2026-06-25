@@ -1,4 +1,4 @@
-from hub.link_utils import capability_message, html_title, path_parts
+from hub.link_utils import capability_message, hostname_matches, html_title, path_parts
 
 
 PLATFORM = {
@@ -36,7 +36,7 @@ LINK_KIND_NAMES = {
 
 def parse_link(url, parsed):
     host = parsed.hostname.lower() if parsed.hostname else ""
-    if not (host.endswith("douyin.com") or host.endswith("iesdouyin.com") or host.endswith("amemv.com")):
+    if not hostname_matches(host, "douyin.com", "iesdouyin.com", "amemv.com"):
         return None
     parts = path_parts(parsed.path)
     for marker, kind in (("video", "douyin_video"), ("note", "douyin_note")):

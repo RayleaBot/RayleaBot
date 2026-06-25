@@ -14,7 +14,7 @@ export function createBridgeClient(win, handlers = {}) {
       type,
       request_id: id,
       ...(payload === undefined ? {} : { payload }),
-    }, '*')
+    }, win.location.origin)
     return id
   }
 

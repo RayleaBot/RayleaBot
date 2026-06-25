@@ -5,6 +5,7 @@ import unittest
 import zipfile
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from urllib.parse import urlparse
 from unittest import mock
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -180,11 +181,12 @@ class DepsManifestRuntimeTests(unittest.TestCase):
             requested: list[str] = []
 
             def fake_probe(source, index):  # noqa: ANN001
+                parsed = urlparse(source["url"])
                 return {
                     "source": source,
                     "index": index,
                     "ok": True,
-                    "bytes_per_second": 10 if "nodejs.org" in source["url"] else 100,
+                    "bytes_per_second": 10 if parsed.hostname == "nodejs.org" else 100,
                 }
 
             def fake_urlopen(request, timeout=60):  # noqa: ANN001

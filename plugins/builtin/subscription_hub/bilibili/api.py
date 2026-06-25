@@ -99,12 +99,11 @@ def looks_like_preview_url(value):
     text = str(value or "").strip().lower()
     if not text:
         return False
-    return (
-        "://" in text
-        or text.startswith("//")
-        or text.startswith(("www.", "m.", "live.", "t.", "bilibili.com/"))
-        or "bilibili.com/" in text
-    )
+    if "://" in text or text.startswith("//"):
+        parsed = urlparse(normalize_preview_url(text))
+        host = (parsed.hostname or "").lower()
+        return host in BILIBILI_CONTENT_HOSTS or host in BILIBILI_DYNAMIC_HOSTS or host == "live.bilibili.com"
+    return text.startswith(("www.bilibili.com/", "m.bilibili.com/", "live.bilibili.com/", "t.bilibili.com/", "bilibili.com/"))
 
 
 def parse_preview_url(value):

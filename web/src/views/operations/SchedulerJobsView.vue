@@ -36,7 +36,7 @@ const detailVisible = ref(false)
 const currentJob = ref<SchedulerJobSummary | null>(null)
 const modalContentReady = ref(false)
 const detailCardRef = ref<HTMLDivElement | null>(null)
-const detailModalTitleId = `scheduler-detail-modal-title-${Math.random().toString(36).slice(2, 8)}`
+const detailModalTitleId = `scheduler-detail-modal-title-${cryptoRandomSuffix()}`
 const searchQuery = ref('')
 const statusFilter = ref<'all' | 'success' | 'error'>('all')
 const sortBy = ref<'name' | 'last_run' | 'duration'>('name')
@@ -49,6 +49,12 @@ let timerId: any = null
 // modal 入场动画时长（与 .scheduler-detail-modal-* transition 对齐）
 const MODAL_ANIMATION_MS = 200
 let modalReadyTimer: number | null = null
+
+function cryptoRandomSuffix(length = 6) {
+  const bytes = new Uint8Array(length)
+  crypto.getRandomValues(bytes)
+  return Array.from(bytes, (byte) => (byte % 36).toString(36)).join('')
+}
 
 function clearModalReadyTimer() {
   if (modalReadyTimer !== null) {

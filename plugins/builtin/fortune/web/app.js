@@ -96,7 +96,7 @@
       type,
       request_id: requestId,
       payload,
-    }, '*')
+    }, window.location.origin)
   }
 
   function stopReadyLoop() {

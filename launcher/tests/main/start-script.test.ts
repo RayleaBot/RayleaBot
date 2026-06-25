@@ -11,6 +11,8 @@ const tempRoots: string[] = [];
 const testDir = path.dirname(fileURLToPath(import.meta.url));
 const repositoryRoot = path.resolve(testDir, "..", "..", "..");
 const startScriptPath = path.join(repositoryRoot, "start.bat");
+const windowsRoot = process.env.SystemRoot ?? process.env.WINDIR ?? "C:\\Windows";
+const commandShell = process.env.ComSpec ?? path.join(windowsRoot, "System32", "cmd.exe");
 
 async function createTempDir(label: string) {
   const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), `raylea-start-${label}-`));
@@ -41,6 +43,18 @@ async function readLogLines(logPath: string) {
     .filter(Boolean);
 }
 
+function startScriptTestEnv(binDir: string, extra: NodeJS.ProcessEnv = {}) {
+  return {
+    ComSpec: commandShell,
+    PATH: binDir,
+    SystemRoot: windowsRoot,
+    TEMP: process.env.TEMP ?? os.tmpdir(),
+    TMP: process.env.TMP ?? os.tmpdir(),
+    WINDIR: windowsRoot,
+    ...extra,
+  };
+}
+
 afterEach(async () => {
   await Promise.all(
     tempRoots.splice(0).map(async (target) => {
@@ -55,13 +69,11 @@ describe("start.bat", () => {
     const logPath = path.join(await createTempDir("logs"), "commands.log");
     await writeNodeStub(binDir, logPath);
 
-    await execFileAsync("cmd.exe", ["/d", "/c", startScriptPath, "--dry-run"], {
+    await execFileAsync(commandShell, ["/d", "/c", startScriptPath, "--dry-run"], {
       cwd: repositoryRoot,
-      env: {
-        ...process.env,
-        PATH: `${binDir};${process.env.PATH ?? ""}`,
+      env: startScriptTestEnv(binDir, {
         RAYLEA_START_SKIP_LAUNCH: "1",
-      },
+      }),
       windowsHide: true,
       timeout: 15000,
     });
@@ -78,13 +90,11 @@ describe("start.bat", () => {
     const logPath = path.join(await createTempDir("logs"), "commands.log");
     await writeNodeStub(binDir, logPath);
 
-    await execFileAsync("cmd.exe", ["/d", "/c", startScriptPath], {
+    await execFileAsync(commandShell, ["/d", "/c", startScriptPath], {
       cwd: repositoryRoot,
-      env: {
-        ...process.env,
-        PATH: `${binDir};${process.env.PATH ?? ""}`,
+      env: startScriptTestEnv(binDir, {
         RAYLEA_START_PROFILE: "build",
-      },
+      }),
       windowsHide: true,
       timeout: 15000,
     });

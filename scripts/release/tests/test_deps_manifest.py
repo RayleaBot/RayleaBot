@@ -2,11 +2,20 @@ import json
 import re
 import unittest
 from pathlib import Path
+from urllib.parse import urlparse
 
 
 ROOT = Path(__file__).resolve().parents[3]
 MANIFEST_PATH = ROOT / ".deps" / "manifest.json"
 SHA256_PATTERN = re.compile(r"^[0-9a-f]{64}$")
+
+
+def has_source_url(urls: list[str], host: str, path_prefix: str) -> bool:
+    for url in urls:
+        parsed = urlparse(url)
+        if parsed.scheme == "https" and parsed.hostname == host and parsed.path.startswith(path_prefix):
+            return True
+    return False
 
 
 class DepsManifestMetadataTests(unittest.TestCase):
@@ -79,13 +88,13 @@ class DepsManifestMetadataTests(unittest.TestCase):
                 continue
             urls = [source.get("url", "") for source in resource.get("sources", []) if isinstance(source, dict)]
             if resource.get("kind") == "nodejs-runtime":
-                self.assertTrue(any("nodejs.org/" in url for url in urls), resource)
-                self.assertTrue(any("npmmirror.com/mirrors/node/" in url for url in urls), resource)
-                self.assertTrue(any("mirrors.ustc.edu.cn/node/" in url for url in urls), resource)
-                self.assertTrue(any("mirrors.nju.edu.cn/nodejs-release/" in url for url in urls), resource)
+                self.assertTrue(has_source_url(urls, "nodejs.org", "/download/"), resource)
+                self.assertTrue(has_source_url(urls, "npmmirror.com", "/mirrors/node/"), resource)
+                self.assertTrue(has_source_url(urls, "mirrors.ustc.edu.cn", "/node/"), resource)
+                self.assertTrue(has_source_url(urls, "mirrors.nju.edu.cn", "/nodejs-release/"), resource)
             if resource.get("kind") == "python-runtime":
-                self.assertTrue(any("github.com/astral-sh/python-build-standalone/" in url for url in urls), resource)
-                self.assertTrue(any("mirrors.nju.edu.cn/github-release/astral-sh/python-build-standalone/" in url for url in urls), resource)
+                self.assertTrue(has_source_url(urls, "github.com", "/astral-sh/python-build-standalone/"), resource)
+                self.assertTrue(has_source_url(urls, "mirrors.nju.edu.cn", "/github-release/astral-sh/python-build-standalone/"), resource)
 
 
 if __name__ == "__main__":

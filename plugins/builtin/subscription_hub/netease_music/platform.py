@@ -3,6 +3,7 @@ from urllib.parse import parse_qs
 from hub.link_utils import (
     capability_message,
     first_query_value,
+    hostname_matches,
     json_response,
     path_parts,
 )
@@ -50,7 +51,7 @@ LINK_KIND_NAMES = {
 
 def parse_link(url, parsed):
     host = parsed.hostname.lower() if parsed.hostname else ""
-    if not host.endswith("music.163.com"):
+    if not hostname_matches(host, "music.163.com"):
         return None
     fragment_path, _, fragment_query = str(parsed.fragment or "").partition("?")
     parts = path_parts(parsed.path) or path_parts(fragment_path)
