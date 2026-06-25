@@ -53,15 +53,32 @@ func NewManagementUIHandler(repoRoot string) http.HandlerFunc {
 
 func staticAssetPath(distRoot string, requestPath string) (string, bool) {
 	normalizedPath := strings.ReplaceAll(strings.TrimSpace(requestPath), "\\", "/")
-	relativePath := path.Clean(strings.TrimPrefix(normalizedPath, "/"))
-	if relativePath == "." || relativePath == ".." || path.IsAbs(relativePath) || strings.HasPrefix(relativePath, "../") {
+	relativePath := strings.TrimPrefix(normalizedPath, "/")
+	if !slashPathIsLocal(relativePath) {
 		return "", false
 	}
-	targetPath := filepath.Join(distRoot, filepath.FromSlash(relativePath))
+	cleanPath := path.Clean(relativePath)
+	localPath, err := filepath.Localize(cleanPath)
+	if err != nil || !filepath.IsLocal(localPath) {
+		return "", false
+	}
+	targetPath := filepath.Join(distRoot, localPath)
 	if !pathWithinRoot(distRoot, targetPath) {
 		return "", false
 	}
 	return targetPath, true
+}
+
+func slashPathIsLocal(value string) bool {
+	if value == "" || value == "." || strings.HasPrefix(value, "/") {
+		return false
+	}
+	for _, segment := range strings.Split(value, "/") {
+		if segment == "" || segment == "." || segment == ".." {
+			return false
+		}
+	}
+	return true
 }
 
 func pathWithinRoot(root, candidate string) bool {

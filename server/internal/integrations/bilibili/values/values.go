@@ -37,8 +37,8 @@ func String(value any) string {
 	case string:
 		return typed
 	case float64:
-		if typed == float64(int64(typed)) {
-			return strconv.FormatInt(int64(typed), 10)
+		if number, ok := safeInt64FromFloat64(typed); ok && typed == float64(number) {
+			return strconv.FormatInt(number, 10)
 		}
 		return strconv.FormatFloat(typed, 'f', -1, 64)
 	case int:
@@ -52,10 +52,7 @@ func String(value any) string {
 
 func Int(value any) int {
 	number := Int64(value)
-	if number < minIntValue || number > maxIntValue {
-		return 0
-	}
-	return int(number)
+	return safeIntFromInt64(number)
 }
 
 func Int64(value any) int64 {
@@ -65,10 +62,11 @@ func Int64(value any) int64 {
 	case int64:
 		return typed
 	case float64:
-		if math.IsNaN(typed) || math.IsInf(typed, 0) || typed < minInt64FloatInclusive || typed >= maxInt64FloatExclusive {
+		number, ok := safeInt64FromFloat64(typed)
+		if !ok {
 			return 0
 		}
-		return int64(typed)
+		return number
 	case string:
 		number, _ := strconv.ParseInt(strings.TrimSpace(typed), 10, 64)
 		return number
@@ -85,6 +83,39 @@ var (
 	maxIntFloatExclusive   = float64(maxIntValue) + 1
 	minIntFloatInclusive   = float64(minIntValue)
 )
+
+func safeInt64FromFloat64(value float64) (int64, bool) {
+	if math.IsNaN(value) || math.IsInf(value, 0) || value < minInt64FloatInclusive || value >= maxInt64FloatExclusive {
+		return 0, false
+	}
+	number, err := strconv.ParseInt(strconv.FormatFloat(math.Trunc(value), 'f', 0, 64), 10, 64)
+	if err != nil {
+		return 0, false
+	}
+	return number, true
+}
+
+func safeIntFromInt64(number int64) int {
+	if number < minIntValue || number > maxIntValue {
+		return 0
+	}
+	value, err := strconv.Atoi(strconv.FormatInt(number, 10))
+	if err != nil {
+		return 0
+	}
+	return value
+}
+
+func safeIntFromFloat64(value float64) int {
+	if math.IsNaN(value) || math.IsInf(value, 0) || value < minIntFloatInclusive || value >= maxIntFloatExclusive {
+		return 0
+	}
+	parsed, err := strconv.Atoi(strconv.FormatFloat(math.Trunc(value), 'f', 0, 64))
+	if err != nil {
+		return 0
+	}
+	return parsed
+}
 
 func StringList(value any) []string {
 	var raw []any
@@ -160,10 +191,7 @@ func IntFromMap(target any, key string) int {
 	}
 	switch value := values[key].(type) {
 	case float64:
-		if math.IsNaN(value) || math.IsInf(value, 0) || value < minIntFloatInclusive || value >= maxIntFloatExclusive {
-			return 0
-		}
-		return int(value)
+		return safeIntFromFloat64(value)
 	case int:
 		return value
 	default:

@@ -50,10 +50,7 @@ func mapFromAny(value any) map[string]any {
 }
 func intValue(value any) int {
 	number := int64Value(value)
-	if number < minIntValue || number > maxIntValue {
-		return 0
-	}
-	return int(number)
+	return safeIntFromInt64(number)
 }
 func int64Value(value any) int64 {
 	switch typed := value.(type) {
@@ -62,10 +59,11 @@ func int64Value(value any) int64 {
 	case int64:
 		return typed
 	case float64:
-		if math.IsNaN(typed) || math.IsInf(typed, 0) || typed < minInt64FloatInclusive || typed >= maxInt64FloatExclusive {
+		number, ok := safeInt64FromFloat64(typed)
+		if !ok {
 			return 0
 		}
-		return int64(typed)
+		return number
 	case string:
 		number, _ := strconv.ParseInt(strings.TrimSpace(typed), 10, 64)
 		return number
@@ -80,3 +78,25 @@ var (
 	maxInt64FloatExclusive = float64(int64(^uint64(0)>>1)) + 1
 	minInt64FloatInclusive = -maxInt64FloatExclusive
 )
+
+func safeInt64FromFloat64(value float64) (int64, bool) {
+	if math.IsNaN(value) || math.IsInf(value, 0) || value < minInt64FloatInclusive || value >= maxInt64FloatExclusive {
+		return 0, false
+	}
+	number, err := strconv.ParseInt(strconv.FormatFloat(math.Trunc(value), 'f', 0, 64), 10, 64)
+	if err != nil {
+		return 0, false
+	}
+	return number, true
+}
+
+func safeIntFromInt64(number int64) int {
+	if number < minIntValue || number > maxIntValue {
+		return 0
+	}
+	value, err := strconv.Atoi(strconv.FormatInt(number, 10))
+	if err != nil {
+		return 0
+	}
+	return value
+}

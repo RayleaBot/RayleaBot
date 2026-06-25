@@ -38,6 +38,36 @@ const serverDevBinaryPath = path.join(serverTmpDir, serverDevBinaryName);
 const serverWatchDirs = [path.join(serverDir, "cmd"), path.join(serverDir, "internal")];
 const serverWatchExcludedDirs = new Set([".cache", ".gocache", "dist", "logs", "tmp"]);
 const serverReloadDebounceMs = 500;
+const inheritedChildEnvKeys = process.platform === "win32"
+  ? [
+      "APPDATA",
+      "ComSpec",
+      "LOCALAPPDATA",
+      "NUMBER_OF_PROCESSORS",
+      "OS",
+      "Path",
+      "PATHEXT",
+      "PROCESSOR_ARCHITECTURE",
+      "ProgramFiles",
+      "ProgramFiles(x86)",
+      "ProgramW6432",
+      "SystemDrive",
+      "SystemRoot",
+      "TEMP",
+      "TMP",
+      "USERPROFILE",
+      "WINDIR",
+    ]
+  : [
+      "HOME",
+      "LANG",
+      "LC_ALL",
+      "PATH",
+      "SHELL",
+      "TEMP",
+      "TMPDIR",
+      "USER",
+    ];
 const launcherDir = path.join(rootDir, "launcher");
 const logDate = new Date();
 const webDevLogPath = resolveDatedLogPath({ rootDir, scope: "dev", type: "web", date: logDate });
@@ -400,7 +430,7 @@ function spawnManaged(command, args, { cwd, env = {}, logPath } = {}) {
   const spawnSpec = createSpawnSpec(command, args);
   const child = spawn(spawnSpec.command, spawnSpec.args, {
     cwd,
-    env: { ...process.env, ...env },
+    env: createChildEnvironment(env),
     windowsHide: false,
     stdio: ["ignore", "pipe", "pipe"],
   });
@@ -413,6 +443,22 @@ function spawnManaged(command, args, { cwd, env = {}, logPath } = {}) {
     longRunningChildren.delete(child);
   });
   return child;
+}
+
+function createChildEnvironment(extraEnv = {}) {
+  const childEnv = {};
+  for (const key of inheritedChildEnvKeys) {
+    const value = process.env[key];
+    if (value !== undefined) {
+      childEnv[key] = value;
+    }
+  }
+  for (const [key, value] of Object.entries(extraEnv)) {
+    if (value !== undefined) {
+      childEnv[key] = String(value);
+    }
+  }
+  return childEnv;
 }
 
 function createSpawnSpec(command, args) {

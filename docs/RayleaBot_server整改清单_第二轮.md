@@ -1579,7 +1579,7 @@ internal/eventpipeline/
 
 ### 9.6 安全扫描复验记录（2026-06-25）
 
-- 依赖图状态：Web 与 Launcher 固定 Vite `8.0.16`；Web overrides 固定 `esbuild 0.28.1`、`glob 10.5.0`、`js-cookie 3.0.7`、`js-yaml 4.2.0`；Launcher overrides 固定 `@xmldom/xmldom 0.8.13`、`axios 1.16.0`、`follow-redirects 1.16.0`、`form-data 4.0.6`、`glob 10.5.0`、`ip-address 10.1.1`、`js-yaml 4.2.0`、`lodash 4.18.0`、`tar 7.5.16`、`tmp 0.2.6`、`undici 7.28.0`。
+- 依赖图状态：Web 与 Launcher 固定 Vite `8.0.16`；Web overrides 固定 `esbuild 0.28.1`、`glob 10.5.0`、`js-cookie 3.0.7`、`js-yaml 4.2.0`；Launcher overrides 固定 `@xmldom/xmldom 0.8.13`、`axios 1.16.0`、`follow-redirects 1.16.0`、`form-data 4.0.6`、`glob 10.5.0`、`ip-address 10.1.1`、`js-yaml 4.2.0`、`lodash 4.18.0`、`tar 7.5.16`、`tmp 0.2.7`、`undici 7.28.0`。
 - Server 依赖边界：`server/go.mod` 保持 Go `1.25.8`；开发热重载使用 `scripts/start-dev.mjs` 内置 watcher；`server/go.mod` 不包含 Air、Hugo 或 `tool github.com/air-verse/air`；`server/AGENTS.md` 记录开发辅助工具不得把与 server 运行无关的大型依赖图带入 server 模块。
 - 路径安全状态：restore zip 解包、管理页面静态资源、render 模板预览路径均校验最终目标仍在授权根目录内。
 - 第三方出站请求状态：集成公共 HTTP helper 校验 HTTPS、平台域名白名单、本机/私网地址和每次重定向；自动跳转与手动跳转使用同一校验；微博、抖音、网易云、订阅中心链接解析统一使用完整主机或点号子域名匹配，避免相似域名绕过。

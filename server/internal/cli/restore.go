@@ -111,15 +111,31 @@ func runRestore(cmd Command) int {
 
 func restoreTargetPath(repoRoot string, entryName string) (string, bool) {
 	normalized := strings.ReplaceAll(strings.TrimSpace(entryName), "\\", "/")
-	if normalized == "" {
+	if normalized == "" || strings.HasPrefix(normalized, "/") {
 		return "", false
 	}
-	cleanName := path.Clean(normalized)
-	if path.IsAbs(cleanName) || cleanName == "." || cleanName == ".." || strings.HasPrefix(cleanName, "../") {
+	cleanName := strings.TrimSuffix(path.Clean(normalized), "/")
+	if !slashPathIsLocal(cleanName) {
 		return "", false
 	}
-	targetPath := filepath.Join(repoRoot, filepath.FromSlash(cleanName))
+	localName, err := filepath.Localize(cleanName)
+	if err != nil || !filepath.IsLocal(localName) {
+		return "", false
+	}
+	targetPath := filepath.Join(repoRoot, localName)
 	return targetPath, pathWithinRoot(repoRoot, targetPath)
+}
+
+func slashPathIsLocal(value string) bool {
+	if value == "" || value == "." || strings.HasPrefix(value, "/") {
+		return false
+	}
+	for _, segment := range strings.Split(value, "/") {
+		if segment == "" || segment == "." || segment == ".." {
+			return false
+		}
+	}
+	return true
 }
 
 func pathWithinRoot(root, candidate string) bool {
