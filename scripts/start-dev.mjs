@@ -38,36 +38,21 @@ const serverDevBinaryPath = path.join(serverTmpDir, serverDevBinaryName);
 const serverWatchDirs = [path.join(serverDir, "cmd"), path.join(serverDir, "internal")];
 const serverWatchExcludedDirs = new Set([".cache", ".gocache", "dist", "logs", "tmp"]);
 const serverReloadDebounceMs = 500;
-const inheritedChildEnvKeys = process.platform === "win32"
-  ? [
-      "APPDATA",
-      "ComSpec",
-      "LOCALAPPDATA",
-      "NUMBER_OF_PROCESSORS",
-      "OS",
-      "Path",
-      "PATHEXT",
-      "PROCESSOR_ARCHITECTURE",
-      "ProgramFiles",
-      "ProgramFiles(x86)",
-      "ProgramW6432",
-      "SystemDrive",
-      "SystemRoot",
-      "TEMP",
-      "TMP",
-      "USERPROFILE",
-      "WINDIR",
-    ]
-  : [
-      "HOME",
-      "LANG",
-      "LC_ALL",
-      "PATH",
-      "SHELL",
-      "TEMP",
-      "TMPDIR",
-      "USER",
-    ];
+const childGoCacheDir = path.join(rootDir, ".tmp", "gocache");
+const baseChildEnvironment = {
+  GOCACHE: childGoCacheDir,
+  ...(process.platform === "win32"
+    ? {
+      ComSpec: "C:\\Windows\\System32\\cmd.exe",
+      PATHEXT: ".COM;.EXE;.BAT;.CMD",
+      SystemRoot: "C:\\Windows",
+      WINDIR: "C:\\Windows",
+    }
+    : {
+      LANG: "C.UTF-8",
+      PATH: "/usr/local/bin:/usr/bin:/bin",
+    }),
+};
 const launcherDir = path.join(rootDir, "launcher");
 const logDate = new Date();
 const webDevLogPath = resolveDatedLogPath({ rootDir, scope: "dev", type: "web", date: logDate });
@@ -80,6 +65,7 @@ let startLog;
 let shuttingDown = false;
 
 await prepareLogDirectories([webDevLogPath, launcherLogPath, serverDevLogPath, startLogPath]);
+await fsp.mkdir(childGoCacheDir, { recursive: true });
 startLog = fs.createWriteStream(startLogPath, { flags: "a" });
 
 process.once("SIGINT", () => {
@@ -446,13 +432,7 @@ function spawnManaged(command, args, { cwd, env = {}, logPath } = {}) {
 }
 
 function createChildEnvironment(extraEnv = {}) {
-  const childEnv = {};
-  for (const key of inheritedChildEnvKeys) {
-    const value = process.env[key];
-    if (value !== undefined) {
-      childEnv[key] = value;
-    }
-  }
+  const childEnv = { ...baseChildEnvironment };
   for (const [key, value] of Object.entries(extraEnv)) {
     if (value !== undefined) {
       childEnv[key] = String(value);
