@@ -11,6 +11,7 @@ export type RecoveryCompatibilityAuditItem = components['schemas']['RecoveryComp
 export type RecoveryCompatibilityAuditEntry = components['schemas']['RecoveryCompatibilityAuditEntry']
 export type RecoveryCompatibilitySummary = components['schemas']['RecoveryCompatibilitySummary']
 export type ReadinessStatusResponse = components['schemas']['ReadinessStatusResponse']
+export type SystemDiagnosticsResponse = components['schemas']['SystemDiagnosticsResponse']
 export type SystemStatusResponse = components['schemas']['SystemStatusResponse']
 export type SystemShutdownResponse = components['schemas']['SystemShutdownResponse']
 export type RecoveryConfirmRequest = components['schemas']['RecoveryConfirmRequest']

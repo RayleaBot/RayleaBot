@@ -1,9 +1,11 @@
 import type { Ref } from 'vue'
 
+import { useDashboardDiagnosticsState } from '@/views/dashboard/useDashboardDiagnosticsState'
 import { useDashboardReadinessState } from '@/views/dashboard/useDashboardReadinessState'
 import { useDashboardRecoveryState } from '@/views/dashboard/useDashboardRecoveryState'
 
 type DerivedStateInput = {
+  diagnostics: Ref<any>
   health: Ref<any>
   readiness: Ref<any>
   selectedRecoveryReviewIds: Ref<string[]>
@@ -11,6 +13,9 @@ type DerivedStateInput = {
 }
 
 export function useDashboardDerivedState(input: DerivedStateInput) {
+  const diagnosticsState = useDashboardDiagnosticsState({
+    diagnostics: input.diagnostics,
+  })
   const readinessState = useDashboardReadinessState(input)
   const recoveryState = useDashboardRecoveryState({
     readiness: input.readiness,
@@ -20,6 +25,7 @@ export function useDashboardDerivedState(input: DerivedStateInput) {
   })
 
   return {
+    ...diagnosticsState,
     ...readinessState,
     ...recoveryState,
   }

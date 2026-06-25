@@ -35,7 +35,9 @@ const {
   checkItems,
   confirmRecoverySelection,
   createBackup,
+  diagnosticsIssueCards,
   diagnosticsPending,
+  diagnosticsSubsystemItems,
   error,
   eventsExpanded,
   exportDiagnostics,
@@ -72,14 +74,19 @@ const {
 } = useDashboardPage()
 
 watch(
-  () => readinessIssues.value.length,
-  (issueCount) => {
-    if (issueCount > 0) {
+  () => [readinessIssues.value.length, diagnosticsIssueCards.value.length] as const,
+  ([readinessIssueCount, diagnosticsIssueCount]) => {
+    if (readinessIssueCount > 0) {
       activeOverviewTab.value = 'readiness'
       return
     }
 
-    if (activeOverviewTab.value === 'readiness') {
+    if (diagnosticsIssueCount > 0) {
+      activeOverviewTab.value = 'diagnostics'
+      return
+    }
+
+    if (activeOverviewTab.value === 'readiness' || activeOverviewTab.value === 'diagnostics') {
       activeOverviewTab.value = 'events'
     }
   },
@@ -94,6 +101,13 @@ function getCheckIcon(status: typeof healthStatusType.value) {
     warning: '⚠',
   } as const
   return map[status]
+}
+
+function getStatusTagColor(status: typeof healthStatusType.value) {
+  if (status === 'success') return 'success'
+  if (status === 'warning') return 'warning'
+  if (status === 'danger') return 'error'
+  return 'default'
 }
 
 function getEventSeverity(payload: Record<string, unknown>) {
@@ -331,6 +345,57 @@ useToastFeedback(protocolIssueToast)
                 {{ issuesExpanded ? t('dashboard.collapseIssues') : t('dashboard.expandIssues', { count: readinessIssues.length - 3 }) }}
               </a-button>
             </div>
+          </a-tab-pane>
+
+          <a-tab-pane key="diagnostics" :tab="t('dashboard.overviewDiagnostics')">
+            <div v-if="diagnosticsSubsystemItems.length" class="diagnostics-subsystem-grid">
+              <div
+                v-for="(item, index) in diagnosticsSubsystemItems"
+                :key="item.key"
+                :class="['diagnostics-subsystem', `diagnostics-subsystem--${item.status}`]"
+                v-motion="{ initial: { opacity: 0, y: 12 }, enter: { opacity: 1, y: 0, transition: { duration: 300, delay: index * 35 } } }"
+              >
+                <div class="diagnostics-subsystem__header">
+                  <span class="diagnostics-subsystem__icon" role="img" :aria-label="`子系统状态：${item.status}`">{{ getCheckIcon(item.status) }}</span>
+                  <span class="diagnostics-subsystem__label">{{ item.label }}</span>
+                </div>
+                <a-tag :color="getStatusTagColor(item.status)" class="diagnostics-subsystem__tag">
+                  {{ item.value }}
+                </a-tag>
+                <div class="diagnostics-subsystem__detail">{{ item.detail }}</div>
+              </div>
+            </div>
+            <a-empty v-else :description="t('dashboard.diagnosticsEmpty')" />
+
+            <div v-if="diagnosticsIssueCards.length" class="diagnostics-issues">
+              <div
+                v-for="issue in diagnosticsIssueCards"
+                :key="issue.key"
+                :class="['diagnostics-issue-card', `diagnostics-issue-card--${issue.status}`]"
+              >
+                <div class="diagnostics-issue-card__header">
+                  <a-tag :color="getStatusTagColor(issue.status)">
+                    {{ issue.code }}
+                  </a-tag>
+                  <strong>{{ issue.problem }}</strong>
+                </div>
+                <dl class="diagnostics-issue-card__facts">
+                  <div>
+                    <dt>{{ t('dashboard.diagnosticsProblem') }}</dt>
+                    <dd>{{ issue.problem }}</dd>
+                  </div>
+                  <div>
+                    <dt>{{ t('dashboard.diagnosticsImpact') }}</dt>
+                    <dd>{{ issue.impact }}</dd>
+                  </div>
+                  <div>
+                    <dt>{{ t('dashboard.diagnosticsAction') }}</dt>
+                    <dd>{{ issue.remediation }}</dd>
+                  </div>
+                </dl>
+              </div>
+            </div>
+            <a-empty v-else class="diagnostics-empty-issues" :description="t('dashboard.diagnosticsNoIssues')" />
           </a-tab-pane>
         </a-tabs>
       </AppCard>
@@ -635,6 +700,162 @@ useToastFeedback(protocolIssueToast)
   line-height: 1.4;
 }
 
+.diagnostics-subsystem-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: var(--space-md);
+}
+
+.diagnostics-subsystem {
+  display: grid;
+  min-width: 0;
+  gap: 8px;
+  padding: 14px;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border);
+  background: var(--surface-soft);
+  box-shadow: var(--shadow-xs);
+  transition: transform 0.24s ease, box-shadow 0.24s ease, border-color 0.24s ease, background-color 0.24s ease, color 0.24s ease;
+
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-sm);
+  }
+}
+
+.diagnostics-subsystem--success {
+  border-color: var(--border-success);
+  background: var(--surface-success);
+}
+
+.diagnostics-subsystem--warning {
+  border-color: var(--border-warning);
+  background: var(--surface-warning);
+}
+
+.diagnostics-subsystem--danger {
+  border-color: var(--border-danger);
+  background: var(--surface-danger);
+}
+
+.diagnostics-subsystem__header {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  gap: 8px;
+}
+
+.diagnostics-subsystem__icon {
+  flex: 0 0 auto;
+  font-size: 1.05rem;
+  line-height: 1;
+}
+
+.diagnostics-subsystem__label {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-size: 0.88rem;
+  font-weight: 800;
+  color: var(--text);
+}
+
+.diagnostics-subsystem__tag {
+  width: fit-content;
+  max-width: 100%;
+  white-space: normal;
+}
+
+.diagnostics-subsystem__detail {
+  min-width: 0;
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-weight: 500;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.diagnostics-issues {
+  display: grid;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.diagnostics-empty-issues {
+  margin-top: 12px;
+}
+
+.diagnostics-issue-card {
+  display: grid;
+  min-width: 0;
+  gap: 12px;
+  padding: 14px;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border);
+  background: var(--surface-soft);
+  box-shadow: var(--shadow-xs);
+  border-left-width: 4px;
+}
+
+.diagnostics-issue-card--success {
+  border-left-color: var(--success);
+}
+
+.diagnostics-issue-card--warning {
+  border-left-color: var(--warning);
+  background: color-mix(in srgb, var(--warning) 5%, var(--surface-soft));
+}
+
+.diagnostics-issue-card--danger {
+  border-left-color: var(--danger);
+  background: color-mix(in srgb, var(--danger) 5%, var(--surface-soft));
+}
+
+.diagnostics-issue-card__header {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  gap: 10px;
+
+  strong {
+    min-width: 0;
+    overflow-wrap: anywhere;
+    font-size: 0.92rem;
+    line-height: 1.45;
+    color: var(--text);
+  }
+}
+
+.diagnostics-issue-card__facts {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin: 0;
+
+  div {
+    min-width: 0;
+    padding: 10px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border);
+    background: color-mix(in srgb, var(--surface-strong) 80%, transparent);
+  }
+
+  dt {
+    margin-bottom: 4px;
+    color: var(--muted);
+    font-size: 0.72rem;
+    font-weight: 800;
+  }
+
+  dd {
+    margin: 0;
+    color: var(--text);
+    font-size: 0.82rem;
+    font-weight: 500;
+    line-height: 1.45;
+    overflow-wrap: anywhere;
+  }
+}
+
 .issues-list {
   display: grid;
   gap: 12px;
@@ -802,6 +1023,12 @@ useToastFeedback(protocolIssueToast)
 @media (max-width: 1200px) {
   .dashboard-main-grid,
   .dashboard-bottom-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 720px) {
+  .diagnostics-issue-card__facts {
     grid-template-columns: 1fr;
   }
 }

@@ -11,6 +11,7 @@ import type {
   ReadinessStatusResponse,
   RuntimeBootstrapResource,
   TaskAcceptedResponse,
+  SystemDiagnosticsResponse,
   SystemShutdownResponse,
   SystemStatusResponse,
 } from '@/types/api'
@@ -19,6 +20,7 @@ import { t } from '@/i18n'
 export const useSystemStore = defineStore('system', () => {
   const health = ref<LivenessStatusResponse | null>(null)
   const readiness = ref<ReadinessStatusResponse | null>(null)
+  const diagnostics = ref<SystemDiagnosticsResponse | null>(null)
   const system = ref<SystemStatusResponse | null>(null)
   const loading = ref(false)
   const shutdownPending = ref(false)
@@ -49,22 +51,25 @@ export const useSystemStore = defineStore('system', () => {
       const requests = [
         requestReadinessStatus(),
         apiRequest<SystemStatusResponse>('/api/system/status'),
+        apiRequest<SystemDiagnosticsResponse>('/api/system/diagnostics'),
       ] as const
 
       if (options.includeHealth) {
-        const [nextHealth, nextReadiness, nextSystem] = await Promise.all([
+        const [nextHealth, nextReadiness, nextSystem, nextDiagnostics] = await Promise.all([
           apiRequest<LivenessStatusResponse>('/healthz', { auth: false }),
           ...requests,
         ])
         health.value = nextHealth
         readiness.value = nextSystem.health ?? nextReadiness
         system.value = nextSystem
+        diagnostics.value = nextDiagnostics
         return
       }
 
-      const [nextReadiness, nextSystem] = await Promise.all(requests)
+      const [nextReadiness, nextSystem, nextDiagnostics] = await Promise.all(requests)
       readiness.value = nextSystem.health ?? nextReadiness
       system.value = nextSystem
+      diagnostics.value = nextDiagnostics
     } catch (err) {
       if (options.interactive) {
         error.value = getDisplayErrorMessage(err, 'errors.common.loadFailed')
@@ -187,6 +192,7 @@ export const useSystemStore = defineStore('system', () => {
     backupPending,
     bootstrapManagedRuntime,
     confirmRecovery,
+    diagnostics,
     diagnosticsPending,
     error,
     health,

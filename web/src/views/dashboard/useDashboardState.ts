@@ -15,6 +15,7 @@ export function useDashboardState() {
   const tasksStore = useTasksStore()
   const {
     backupPending,
+    diagnostics,
     diagnosticsPending,
     error,
     health,
@@ -34,6 +35,7 @@ export function useDashboardState() {
   const recoveryConfirmNote = ref('')
 
   const derivedState = useDashboardDerivedState({
+    diagnostics,
     health,
     readiness,
     selectedRecoveryReviewIds,
@@ -51,6 +53,7 @@ export function useDashboardState() {
     ...derivedState,
     ...refreshState,
     backupPending,
+    diagnostics,
     diagnosticsPending,
     error,
     health,
