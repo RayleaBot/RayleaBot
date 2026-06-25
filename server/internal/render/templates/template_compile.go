@@ -9,6 +9,8 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/schema"
 )
 
+const templatePayloadExtraFields = 4
+
 func CompileBundle(bundle SourceBundle) (*CompiledTemplate, []TemplateValidationIssue, error) {
 	funcs := template.FuncMap{
 		"toJSON": func(value any) template.JS {
@@ -76,7 +78,15 @@ func (t *CompiledTemplate) RenderHTML(theme string, data map[string]any) (string
 		}
 	}
 
-	payload := make(map[string]any, len(normalized)+4)
+	payloadCapacity, err := templatePayloadCapacity(len(normalized))
+	if err != nil {
+		return "", &Error{
+			Code:    "platform.invalid_request",
+			Message: "render input contains too many fields",
+			Err:     err,
+		}
+	}
+	payload := make(map[string]any, payloadCapacity)
 	for key, value := range normalized {
 		payload[key] = value
 	}
@@ -91,6 +101,14 @@ func (t *CompiledTemplate) RenderHTML(theme string, data map[string]any) (string
 	}
 
 	return buffer.String(), nil
+}
+
+func templatePayloadCapacity(fieldCount int) (int, error) {
+	maxInt := int(^uint(0) >> 1)
+	if fieldCount < 0 || fieldCount > maxInt-templatePayloadExtraFields {
+		return 0, fmt.Errorf("render template field count %d exceeds limit", fieldCount)
+	}
+	return fieldCount + templatePayloadExtraFields, nil
 }
 
 func normalizeTemplateData(data map[string]any) (map[string]any, error) {

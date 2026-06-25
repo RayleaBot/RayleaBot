@@ -5,6 +5,7 @@ import (
 	"crypto/cipher"
 	"crypto/rand"
 	"encoding/base64"
+	"fmt"
 	"math/big"
 	"net/url"
 	"strings"
@@ -63,20 +64,30 @@ func aesCBCBase64(plain, key, iv []byte) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	padded := pkcs7Pad(plain, block.BlockSize())
+	padded, err := pkcs7Pad(plain, block.BlockSize())
+	if err != nil {
+		return "", err
+	}
 	ciphertext := make([]byte, len(padded))
 	cipher.NewCBCEncrypter(block, iv).CryptBlocks(ciphertext, padded)
 	return base64.StdEncoding.EncodeToString(ciphertext), nil
 }
 
-func pkcs7Pad(value []byte, blockSize int) []byte {
+func pkcs7Pad(value []byte, blockSize int) ([]byte, error) {
+	if blockSize <= 0 || blockSize > 255 {
+		return nil, fmt.Errorf("invalid block size %d", blockSize)
+	}
 	padding := blockSize - len(value)%blockSize
+	maxInt := int(^uint(0) >> 1)
+	if len(value) > maxInt-padding {
+		return nil, fmt.Errorf("payload too large for pkcs7 padding")
+	}
 	result := make([]byte, len(value)+padding)
 	copy(result, value)
 	for i := len(value); i < len(result); i++ {
 		result[i] = byte(padding)
 	}
-	return result
+	return result, nil
 }
 
 func neteaseEncSecKey(secret string) string {

@@ -49,7 +49,7 @@ func collectConfigPathChanges(prefix string, current, next any, paths *[]string)
 	currentMap, currentIsMap := current.(map[string]any)
 	nextMap, nextIsMap := next.(map[string]any)
 	if currentIsMap && nextIsMap {
-		keys := make(map[string]struct{}, len(currentMap)+len(nextMap))
+		keys := make(map[string]struct{}, configDiffKeyCapacity(len(currentMap), len(nextMap)))
 		for key := range currentMap {
 			keys[key] = struct{}{}
 		}
@@ -69,6 +69,14 @@ func collectConfigPathChanges(prefix string, current, next any, paths *[]string)
 	}
 
 	*paths = append(*paths, prefix)
+}
+
+func configDiffKeyCapacity(currentCount int, nextCount int) int {
+	maxInt := int(^uint(0) >> 1)
+	if currentCount < 0 || nextCount < 0 || currentCount > maxInt-nextCount {
+		return currentCount
+	}
+	return currentCount + nextCount
 }
 
 func joinConfigPath(prefix string, key string) string {

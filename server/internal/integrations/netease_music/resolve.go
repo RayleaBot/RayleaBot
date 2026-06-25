@@ -53,7 +53,7 @@ type neteaseResource struct {
 
 func neteaseResourceFromInput(query string) neteaseResource {
 	parsed, err := url.Parse(strings.TrimSpace(query))
-	if err != nil || parsed.Host == "" || !strings.HasSuffix(strings.ToLower(parsed.Hostname()), "music.163.com") {
+	if err != nil || parsed.Host == "" || !common.HostMatches(parsed.Hostname(), "music.163.com") {
 		return neteaseResource{}
 	}
 	id := strings.TrimSpace(parsed.Query().Get("id"))

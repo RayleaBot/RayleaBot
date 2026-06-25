@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/url"
 	"sort"
@@ -13,6 +14,19 @@ import (
 )
 
 const maxLoginResponseBytes = 4 << 20
+
+var allowedThirdPartyHostSuffixes = []string{
+	"amemv.com",
+	"bilibili.com",
+	"douyin.com",
+	"douyinpic.com",
+	"hdslb.com",
+	"music.163.com",
+	"sina.com.cn",
+	"sinaimg.cn",
+	"weibo.cn",
+	"weibo.com",
+}
 
 func NewHTTPClient(transport http.RoundTripper) *http.Client {
 	if transport == nil {
@@ -41,12 +55,16 @@ func NewHTTPClientFollow(transport http.RoundTripper) *http.Client {
 
 // FetchPageBody visits a URL (following redirects with cookies) and returns the response body.
 func FetchPageBody(ctx context.Context, client *http.Client, rawURL string, headers map[string]string, cookies map[string]string) (string, error) {
-	request, err := http.NewRequestWithContext(ctx, http.MethodGet, rawURL, nil)
+	safeURL, err := ValidateThirdPartyURL(rawURL)
+	if err != nil {
+		return "", err
+	}
+	request, err := http.NewRequestWithContext(ctx, http.MethodGet, safeURL, nil)
 	if err != nil {
 		return "", err
 	}
 	ApplyHeaders(request, headers, cookies)
-	response, err := client.Do(request)
+	response, err := doThirdPartyRequest(client, request)
 	if err != nil {
 		return "", err
 	}
@@ -60,7 +78,11 @@ func FetchPageBody(ctx context.Context, client *http.Client, rawURL string, head
 }
 
 func GetJSON(ctx context.Context, client *http.Client, rawURL string, headers map[string]string, cookies map[string]string, target any) (*http.Response, error) {
-	request, err := http.NewRequestWithContext(ctx, http.MethodGet, rawURL, nil)
+	safeURL, err := ValidateThirdPartyURL(rawURL)
+	if err != nil {
+		return nil, err
+	}
+	request, err := http.NewRequestWithContext(ctx, http.MethodGet, safeURL, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -69,7 +91,11 @@ func GetJSON(ctx context.Context, client *http.Client, rawURL string, headers ma
 }
 
 func PostFormJSON(ctx context.Context, client *http.Client, rawURL string, form url.Values, headers map[string]string, cookies map[string]string, target any) (*http.Response, error) {
-	request, err := http.NewRequestWithContext(ctx, http.MethodPost, rawURL, strings.NewReader(form.Encode()))
+	safeURL, err := ValidateThirdPartyURL(rawURL)
+	if err != nil {
+		return nil, err
+	}
+	request, err := http.NewRequestWithContext(ctx, http.MethodPost, safeURL, strings.NewReader(form.Encode()))
 	if err != nil {
 		return nil, err
 	}
@@ -79,7 +105,7 @@ func PostFormJSON(ctx context.Context, client *http.Client, rawURL string, form 
 }
 
 func doJSON(client *http.Client, request *http.Request, cookies map[string]string, target any) (*http.Response, error) {
-	response, err := client.Do(request)
+	response, err := doThirdPartyRequest(client, request)
 	if err != nil {
 		return nil, err
 	}
@@ -99,8 +125,13 @@ func doJSON(client *http.Client, request *http.Request, cookies map[string]strin
 
 func FollowGet(ctx context.Context, client *http.Client, rawURL string, headers map[string]string, cookies map[string]string) error {
 	current := strings.TrimSpace(rawURL)
+	client = withManualRedirects(client)
 	for i := 0; i < 8; i++ {
-		request, err := http.NewRequestWithContext(ctx, http.MethodGet, current, nil)
+		safeURL, err := ValidateThirdPartyURL(current)
+		if err != nil {
+			return err
+		}
+		request, err := http.NewRequestWithContext(ctx, http.MethodGet, safeURL, nil)
 		if err != nil {
 			return err
 		}
@@ -133,6 +164,88 @@ func FollowGet(ctx context.Context, client *http.Client, rawURL string, headers 
 		current = base.ResolveReference(next).String()
 	}
 	return fmt.Errorf("third-party qrcode login redirect limit exceeded")
+}
+
+func doThirdPartyRequest(client *http.Client, request *http.Request) (*http.Response, error) {
+	return withThirdPartyRedirectGuard(client).Do(request)
+}
+
+func withThirdPartyRedirectGuard(client *http.Client) *http.Client {
+	if client == nil {
+		client = http.DefaultClient
+	}
+	guarded := *client
+	originalCheckRedirect := client.CheckRedirect
+	guarded.CheckRedirect = func(request *http.Request, via []*http.Request) error {
+		if _, err := ValidateThirdPartyURL(request.URL.String()); err != nil {
+			return err
+		}
+		if len(via) >= 8 {
+			return fmt.Errorf("third-party request redirect limit exceeded")
+		}
+		if originalCheckRedirect != nil {
+			return originalCheckRedirect(request, via)
+		}
+		return nil
+	}
+	return &guarded
+}
+
+func withManualRedirects(client *http.Client) *http.Client {
+	guarded := withThirdPartyRedirectGuard(client)
+	guarded.CheckRedirect = func(request *http.Request, _ []*http.Request) error {
+		if _, err := ValidateThirdPartyURL(request.URL.String()); err != nil {
+			return err
+		}
+		return http.ErrUseLastResponse
+	}
+	return guarded
+}
+
+func ValidateThirdPartyURL(rawURL string) (string, error) {
+	parsed, err := url.Parse(strings.TrimSpace(rawURL))
+	if err != nil || parsed == nil {
+		return "", fmt.Errorf("third-party request URL is invalid")
+	}
+	if parsed.Scheme != "https" || parsed.Host == "" || parsed.User != nil {
+		return "", fmt.Errorf("third-party request URL is not allowed")
+	}
+	host := strings.TrimSuffix(strings.ToLower(parsed.Hostname()), ".")
+	if host == "" || isLocalOrPrivateHost(host) || !isAllowedThirdPartyHost(host) {
+		return "", fmt.Errorf("third-party request URL host %q is not allowed", host)
+	}
+	return parsed.String(), nil
+}
+
+func isAllowedThirdPartyHost(host string) bool {
+	return HostMatches(host, allowedThirdPartyHostSuffixes...)
+}
+
+func isLocalOrPrivateHost(host string) bool {
+	if ip := net.ParseIP(host); ip != nil {
+		return ip.IsLoopback() ||
+			ip.IsPrivate() ||
+			ip.IsUnspecified() ||
+			ip.IsLinkLocalUnicast() ||
+			ip.IsLinkLocalMulticast() ||
+			ip.IsMulticast()
+	}
+	return host == "localhost" || strings.HasSuffix(host, ".localhost")
+}
+
+func HostMatches(host string, suffixes ...string) bool {
+	normalizedHost := strings.TrimSuffix(strings.ToLower(strings.TrimSpace(host)), ".")
+	if normalizedHost == "" {
+		return false
+	}
+	for _, suffix := range suffixes {
+		normalizedSuffix := strings.TrimSuffix(strings.ToLower(strings.TrimSpace(suffix)), ".")
+		normalizedSuffix = strings.TrimPrefix(normalizedSuffix, ".")
+		if normalizedSuffix != "" && (normalizedHost == normalizedSuffix || strings.HasSuffix(normalizedHost, "."+normalizedSuffix)) {
+			return true
+		}
+	}
+	return false
 }
 
 func ApplyHeaders(request *http.Request, headers map[string]string, cookies map[string]string) {

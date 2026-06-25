@@ -120,8 +120,7 @@ func douyinIsDirectProfileInput(query string) bool {
 	if err != nil || parsed.Host == "" {
 		return false
 	}
-	host := strings.ToLower(parsed.Hostname())
-	return strings.HasSuffix(host, "douyin.com") || strings.HasSuffix(host, "iesdouyin.com") || strings.HasSuffix(host, "amemv.com")
+	return common.HostMatches(parsed.Hostname(), "douyin.com", "iesdouyin.com", "amemv.com")
 }
 
 func douyinSecUIDFromInput(query string) string {
@@ -133,8 +132,7 @@ func douyinSecUIDFromInput(query string) string {
 		}
 		return ""
 	}
-	host := strings.ToLower(parsed.Hostname())
-	if !strings.HasSuffix(host, "douyin.com") && !strings.HasSuffix(host, "iesdouyin.com") && !strings.HasSuffix(host, "amemv.com") {
+	if !common.HostMatches(parsed.Hostname(), "douyin.com", "iesdouyin.com", "amemv.com") {
 		return ""
 	}
 	for _, key := range []string{"sec_uid", "sec_user_id"} {
@@ -449,8 +447,7 @@ func getDouyinJSON(ctx context.Context, client *http.Client, rawURL string, head
 func douyinUserURLsFor(query string) []string {
 	text := strings.TrimSpace(query)
 	if parsed, err := url.Parse(text); err == nil && parsed.Host != "" {
-		host := strings.ToLower(parsed.Hostname())
-		if strings.HasSuffix(host, "douyin.com") || strings.HasSuffix(host, "iesdouyin.com") || strings.HasSuffix(host, "amemv.com") {
+		if common.HostMatches(parsed.Hostname(), "douyin.com", "iesdouyin.com", "amemv.com") {
 			return []string{text}
 		}
 	}

@@ -79,9 +79,9 @@ func fetchWeiboAvatarFromMobilePage(ctx context.Context, client *http.Client, ui
 		}
 		rest := body[idx+len(pattern):]
 		if end := strings.IndexAny(rest, `"<>`); end > 0 {
-			url := rest[:end]
-			if strings.HasPrefix(url, "http") && strings.Contains(url, "sinaimg.cn") {
-				return url
+			candidate := rest[:end]
+			if parsed, err := url.Parse(candidate); err == nil && parsed.Scheme == "https" && common.HostMatches(parsed.Hostname(), "sinaimg.cn") {
+				return candidate
 			}
 		}
 	}

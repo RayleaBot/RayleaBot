@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"math"
 	"net/url"
 	"strconv"
 	"strings"
@@ -50,7 +51,11 @@ func String(value any) string {
 }
 
 func Int(value any) int {
-	return int(Int64(value))
+	number := Int64(value)
+	if number < minIntValue || number > maxIntValue {
+		return 0
+	}
+	return int(number)
 }
 
 func Int64(value any) int64 {
@@ -60,6 +65,9 @@ func Int64(value any) int64 {
 	case int64:
 		return typed
 	case float64:
+		if math.IsNaN(typed) || math.IsInf(typed, 0) || typed < minInt64FloatInclusive || typed >= maxInt64FloatExclusive {
+			return 0
+		}
 		return int64(typed)
 	case string:
 		number, _ := strconv.ParseInt(strings.TrimSpace(typed), 10, 64)
@@ -68,6 +76,15 @@ func Int64(value any) int64 {
 		return 0
 	}
 }
+
+var (
+	maxIntValue            = int64(^uint(0) >> 1)
+	minIntValue            = -maxIntValue - 1
+	maxInt64FloatExclusive = float64(int64(^uint64(0)>>1)) + 1
+	minInt64FloatInclusive = -maxInt64FloatExclusive
+	maxIntFloatExclusive   = float64(maxIntValue) + 1
+	minIntFloatInclusive   = float64(minIntValue)
+)
 
 func StringList(value any) []string {
 	var raw []any
@@ -143,6 +160,9 @@ func IntFromMap(target any, key string) int {
 	}
 	switch value := values[key].(type) {
 	case float64:
+		if math.IsNaN(value) || math.IsInf(value, 0) || value < minIntFloatInclusive || value >= maxIntFloatExclusive {
+			return 0
+		}
 		return int(value)
 	case int:
 		return value

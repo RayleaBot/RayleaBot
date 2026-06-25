@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 
@@ -81,13 +82,11 @@ func runRestore(cmd Command) int {
 			continue
 		}
 
-		cleanName := filepath.Clean(f.Name)
-		if filepath.IsAbs(cleanName) || strings.HasPrefix(cleanName, "..") {
+		targetPath, ok := restoreTargetPath(repoRoot, f.Name)
+		if !ok {
 			cmd.Logger.Warn("skip path traversal entry", "name", f.Name)
 			continue
 		}
-
-		targetPath := filepath.Join(repoRoot, filepath.FromSlash(cleanName))
 
 		if f.FileInfo().IsDir() {
 			if err := os.MkdirAll(targetPath, 0o755); err != nil {
@@ -108,6 +107,35 @@ func runRestore(cmd Command) int {
 		"recovery_summary", recovery.SummaryPath(repoRoot),
 	)
 	return 0
+}
+
+func restoreTargetPath(repoRoot string, entryName string) (string, bool) {
+	normalized := strings.ReplaceAll(strings.TrimSpace(entryName), "\\", "/")
+	if normalized == "" {
+		return "", false
+	}
+	cleanName := path.Clean(normalized)
+	if path.IsAbs(cleanName) || cleanName == "." || cleanName == ".." || strings.HasPrefix(cleanName, "../") {
+		return "", false
+	}
+	targetPath := filepath.Join(repoRoot, filepath.FromSlash(cleanName))
+	return targetPath, pathWithinRoot(repoRoot, targetPath)
+}
+
+func pathWithinRoot(root, candidate string) bool {
+	absoluteRoot, err := filepath.Abs(root)
+	if err != nil {
+		return false
+	}
+	absoluteCandidate, err := filepath.Abs(candidate)
+	if err != nil {
+		return false
+	}
+	relative, err := filepath.Rel(absoluteRoot, absoluteCandidate)
+	if err != nil {
+		return false
+	}
+	return relative != ".." && !strings.HasPrefix(relative, ".."+string(filepath.Separator))
 }
 
 func restoreFile(f *zip.File, targetPath string) error {

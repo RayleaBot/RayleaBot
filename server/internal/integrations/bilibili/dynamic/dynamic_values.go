@@ -1,6 +1,7 @@
 package dynamic
 
 import (
+	"math"
 	"strconv"
 	"strings"
 )
@@ -48,7 +49,11 @@ func mapFromAny(value any) map[string]any {
 	return map[string]any{}
 }
 func intValue(value any) int {
-	return int(int64Value(value))
+	number := int64Value(value)
+	if number < minIntValue || number > maxIntValue {
+		return 0
+	}
+	return int(number)
 }
 func int64Value(value any) int64 {
 	switch typed := value.(type) {
@@ -57,6 +62,9 @@ func int64Value(value any) int64 {
 	case int64:
 		return typed
 	case float64:
+		if math.IsNaN(typed) || math.IsInf(typed, 0) || typed < minInt64FloatInclusive || typed >= maxInt64FloatExclusive {
+			return 0
+		}
 		return int64(typed)
 	case string:
 		number, _ := strconv.ParseInt(strings.TrimSpace(typed), 10, 64)
@@ -65,3 +73,10 @@ func int64Value(value any) int64 {
 		return 0
 	}
 }
+
+var (
+	maxIntValue            = int64(^uint(0) >> 1)
+	minIntValue            = -maxIntValue - 1
+	maxInt64FloatExclusive = float64(int64(^uint64(0)>>1)) + 1
+	minInt64FloatInclusive = -maxInt64FloatExclusive
+)

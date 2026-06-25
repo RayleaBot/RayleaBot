@@ -371,8 +371,7 @@ func weiboUIDFromInput(query string) string {
 	if err != nil || parsed.Host == "" {
 		return ""
 	}
-	host := strings.ToLower(parsed.Hostname())
-	if !strings.HasSuffix(host, "weibo.com") && !strings.HasSuffix(host, "weibo.cn") {
+	if !common.HostMatches(parsed.Hostname(), "weibo.com", "weibo.cn") {
 		return ""
 	}
 	values := parsed.Query()

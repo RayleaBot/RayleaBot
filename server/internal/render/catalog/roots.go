@@ -49,7 +49,7 @@ func (r *Roots) Remember(templateID, templateDir, resourceRoot string) {
 func (r *Roots) TemplateDir(templateID string) string {
 	templateID = strings.TrimSpace(templateID)
 	if r == nil {
-		return filepath.Clean(templateID)
+		return ""
 	}
 	r.mu.RLock()
 	if root := r.entries[templateID]; root.TemplateDir != "" {
@@ -57,7 +57,11 @@ func (r *Roots) TemplateDir(templateID string) string {
 		return root.TemplateDir
 	}
 	r.mu.RUnlock()
-	return filepath.Join(r.templatesRoot, filepath.Clean(templateID))
+	templateDir, ok := templateDirWithinRoot(r.templatesRoot, templateID)
+	if !ok {
+		return ""
+	}
+	return templateDir
 }
 
 func (r *Roots) TemplateRoot(templateID string) rendertemplates.Root {
@@ -71,7 +75,10 @@ func (r *Roots) TemplateRoot(templateID string) rendertemplates.Root {
 	if root.TemplateDir != "" && root.ResourceRoot != "" {
 		return root
 	}
-	templateDir := filepath.Join(r.templatesRoot, filepath.Clean(templateID))
+	templateDir, ok := templateDirWithinRoot(r.templatesRoot, templateID)
+	if !ok {
+		return rendertemplates.Root{}
+	}
 	return rendertemplates.Root{
 		TemplateDir:  templateDir,
 		ResourceRoot: r.templatesRoot,
@@ -104,4 +111,33 @@ func BaseURL(templateDir string) string {
 		Scheme: "file",
 		Path:   path,
 	}).String()
+}
+
+func templateDirWithinRoot(root string, templateID string) (string, bool) {
+	root = strings.TrimSpace(root)
+	templateID = strings.TrimSpace(templateID)
+	if root == "" || templateID == "" || filepath.IsAbs(filepath.FromSlash(templateID)) {
+		return "", false
+	}
+	cleanID := filepath.Clean(filepath.FromSlash(templateID))
+	if cleanID == "." || cleanID == ".." || strings.HasPrefix(cleanID, ".."+string(filepath.Separator)) {
+		return "", false
+	}
+	absoluteRoot, err := filepath.Abs(root)
+	if err != nil {
+		return "", false
+	}
+	candidate := filepath.Join(absoluteRoot, cleanID)
+	if !pathWithinRoot(absoluteRoot, candidate) {
+		return "", false
+	}
+	return candidate, true
+}
+
+func pathWithinRoot(root, candidate string) bool {
+	relativePath, err := filepath.Rel(root, candidate)
+	if err != nil {
+		return false
+	}
+	return relativePath != ".." && !strings.HasPrefix(relativePath, ".."+string(filepath.Separator))
 }

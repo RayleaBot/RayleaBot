@@ -5,6 +5,7 @@ import (
 	"compress/zlib"
 	"encoding/binary"
 	"encoding/json"
+	"fmt"
 	"io"
 
 	"github.com/andybalholm/brotli"
@@ -21,9 +22,15 @@ const (
 	WSOpNotice         = 5
 	WSOpVerify         = 7
 	WSOpVerifyReply    = 8
+
+	maxWSPacketBodyBytes = 1 << 20
+	maxWSInflatedBytes   = 8 << 20
 )
 
 func Pack(body []byte, protocolVersion int, operation int) []byte {
+	if len(body) > maxWSPacketBodyBytes {
+		return nil
+	}
 	packetLength := WSHeaderSize + len(body)
 	buffer := bytes.NewBuffer(make([]byte, 0, packetLength))
 	_ = binary.Write(buffer, binary.BigEndian, uint32(packetLength))
@@ -50,14 +57,14 @@ func Unpack(data []byte) ([]map[string]any, error) {
 			return nil, err
 		}
 		defer reader.Close()
-		inflated, err := io.ReadAll(reader)
+		inflated, err := readLimitedWSBody(reader)
 		if err != nil {
 			return nil, err
 		}
 		return Unpack(inflated)
 	}
 	if protocol == WSProtoBrotli {
-		inflated, err := io.ReadAll(brotli.NewReader(bytes.NewReader(data[WSHeaderSize:])))
+		inflated, err := readLimitedWSBody(brotli.NewReader(bytes.NewReader(data[WSHeaderSize:])))
 		if err != nil {
 			return nil, err
 		}
@@ -88,4 +95,16 @@ func Unpack(data []byte) ([]map[string]any, error) {
 		}
 	}
 	return result, nil
+}
+
+func readLimitedWSBody(reader io.Reader) ([]byte, error) {
+	limited := io.LimitReader(reader, maxWSInflatedBytes+1)
+	body, err := io.ReadAll(limited)
+	if err != nil {
+		return nil, err
+	}
+	if len(body) > maxWSInflatedBytes {
+		return nil, fmt.Errorf("bilibili websocket packet exceeds %d bytes", maxWSInflatedBytes)
+	}
+	return body, nil
 }

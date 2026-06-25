@@ -6,6 +6,8 @@ import (
 
 	"github.com/chromedp/cdproto/network"
 	"github.com/chromedp/chromedp"
+
+	"github.com/RayleaBot/RayleaBot/server/internal/integrations/common"
 )
 
 func newDouyinBrowserContext(browserPath string, browserArgs []string) (context.Context, context.CancelFunc) {
@@ -77,7 +79,7 @@ func douyinNetworkCookies(cookies []*network.Cookie) map[string]string {
 		if name == "" || value == "" {
 			continue
 		}
-		if strings.Contains(domain, "douyin.com") || strings.Contains(domain, "amemv.com") || strings.Contains(domain, "bytedance.com") {
+		if common.HostMatches(domain, "douyin.com", "amemv.com", "bytedance.com") {
 			values[name] = value
 		}
 	}

@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"path/filepath"
 	"strings"
 
 	renderrepo "github.com/RayleaBot/RayleaBot/server/internal/render/repository"
@@ -69,7 +68,14 @@ func (s *Service) GetTemplatePreviewData(ctx context.Context, templateID string)
 	}
 
 	templateDir := s.templateDirFor(templateID)
-	previewPath := filepath.Join(templateDir, rendertemplates.DefaultPreviewData)
+	previewPath, err := rendertemplates.TemplateFilePath(templateDir, rendertemplates.DefaultPreviewData)
+	if err != nil {
+		return nil, &rendertemplates.Error{
+			Code:    "platform.resource_missing",
+			Message: "render template preview data was not found",
+			Err:     err,
+		}
+	}
 	content, err := os.ReadFile(previewPath)
 	if err != nil {
 		if os.IsNotExist(err) {
