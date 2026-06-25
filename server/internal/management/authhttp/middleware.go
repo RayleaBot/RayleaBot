@@ -33,7 +33,7 @@ func RequireAuth(authManager *auth.Manager) func(http.Handler) http.Handler {
 				return
 			}
 
-			claims, err := authManager.Validate(token)
+			claims, err := authManager.ValidateWithContext(r.Context(), token)
 			if err != nil {
 				writePermissionDenied(w, r)
 				return

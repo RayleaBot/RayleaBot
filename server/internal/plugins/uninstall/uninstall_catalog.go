@@ -7,7 +7,10 @@ import (
 	plugindiscovery "github.com/RayleaBot/RayleaBot/server/internal/plugins/discovery"
 )
 
-func (s *UninstallService) refreshCatalog() error {
+func (s *UninstallService) refreshCatalog(ctx context.Context) error {
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	snapshots, _, err := plugindiscovery.Discover(plugindiscovery.DiscoverOptions{
 		Validator: s.validator,
 		Roots:     s.discoveryRoots,
@@ -19,14 +22,14 @@ func (s *UninstallService) refreshCatalog() error {
 	}
 
 	if packageLoader, ok := s.repository.(plugins.PackageMetadataLoader); ok {
-		packageMetadata, err := packageLoader.LoadAllPackageMetadata(context.Background())
+		packageMetadata, err := packageLoader.LoadAllPackageMetadata(ctx)
 		if err != nil {
 			return err
 		}
 		snapshots = plugins.ApplyPackageMetadata(snapshots, packageMetadata)
 	}
 	if s.repository != nil {
-		states, err := s.repository.LoadDesiredStates(context.Background())
+		states, err := s.repository.LoadDesiredStates(ctx)
 		if err != nil {
 			return err
 		}

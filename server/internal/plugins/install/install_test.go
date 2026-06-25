@@ -89,7 +89,10 @@ func TestInstallServiceInvokesAfterSuccessCallback(t *testing.T) {
 	defer service.Close()
 
 	called := make(chan string, 1)
-	service.SetAfterSuccess(func(pluginID string) error {
+	service.SetAfterSuccess(func(ctx context.Context, pluginID string) error {
+		if ctx == nil {
+			t.Fatal("expected install callback context")
+		}
 		called <- pluginID
 		return nil
 	})
@@ -127,7 +130,10 @@ func TestInstallServiceFailsWhenAfterSuccessCallbackFails(t *testing.T) {
 	service, catalog := newInstallTestService(t, repoRoot, registry, nil, repository, installerDeps{})
 	defer service.Close()
 
-	service.SetAfterSuccess(func(pluginID string) error {
+	service.SetAfterSuccess(func(ctx context.Context, pluginID string) error {
+		if ctx == nil {
+			t.Fatal("expected install callback context")
+		}
 		if pluginID != "callback-fail-weather" {
 			t.Fatalf("unexpected callback plugin id: got %q want callback-fail-weather", pluginID)
 		}

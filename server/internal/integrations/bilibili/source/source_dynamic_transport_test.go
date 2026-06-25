@@ -3,8 +3,8 @@ package source
 import (
 	"bytes"
 	"context"
+	bilibilimonitoring "github.com/RayleaBot/RayleaBot/server/internal/integrations/bilibili/monitoring"
 	"github.com/RayleaBot/RayleaBot/server/internal/integrations/thirdparty"
-	runtimeprotocol "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime/protocol"
 	"io"
 	"net/http"
 	"strconv"
@@ -75,11 +75,16 @@ func seedBilibiliAccount(t *testing.T, source *Source, ctx context.Context) {
 }
 
 type dispatchRecorder struct {
-	events []runtimeprotocol.Event
+	events []recordedBilibiliEvent
 }
 
-func (r *dispatchRecorder) Dispatch(_ context.Context, event runtimeprotocol.Event, _ string) {
-	r.events = append(r.events, event)
+type recordedBilibiliEvent struct {
+	BilibiliEvent
+	Timestamp int64
+}
+
+func (r *dispatchRecorder) DispatchBilibiliEvent(_ context.Context, event BilibiliEvent, timestamp int64) {
+	r.events = append(r.events, recordedBilibiliEvent{BilibiliEvent: event, Timestamp: timestamp})
 }
 
 type staticPluginConfig struct {
@@ -127,11 +132,11 @@ func jsonResponse(body string) *http.Response {
 	}
 }
 
-func bilibiliPayload(t *testing.T, event runtimeprotocol.Event) map[string]any {
+func bilibiliPayload(t *testing.T, event recordedBilibiliEvent) map[string]any {
 	t.Helper()
-	payload, ok := event.PayloadFields["bilibili"].(map[string]any)
-	if !ok {
-		t.Fatalf("event missing bilibili payload: %#v", event.PayloadFields)
+	payload := bilibilimonitoring.Payload(event.BilibiliEvent)
+	if payload == nil {
+		t.Fatalf("event missing bilibili payload: %#v", event)
 	}
 	return payload
 }

@@ -2,13 +2,13 @@ package bilibiliapi
 
 import (
 	"errors"
+	"github.com/RayleaBot/RayleaBot/server/internal/integrations/qrcode"
 	"net/http"
 	"time"
 
 	"github.com/go-chi/chi/v5"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/httpapi"
-	"github.com/RayleaBot/RayleaBot/server/internal/integrations/common"
 	"github.com/RayleaBot/RayleaBot/server/internal/integrations/thirdparty"
 )
 
@@ -40,7 +40,7 @@ func (h *BilibiliHandlers) HandleBilibiliQRCodeLoginPoll() http.HandlerFunc {
 		}
 		session, err := h.qrLogin.Poll(r.Context(), thirdparty.PlatformBilibili, chi.URLParam(r, "login_id"))
 		if err != nil {
-			if !errors.Is(err, common.ErrLoginSessionNotFound) {
+			if !errors.Is(err, qrcode.ErrLoginSessionNotFound) {
 				writeBilibiliQRCodeLoginError(w, r, err)
 				return
 			}
@@ -87,7 +87,7 @@ func writeBilibiliQRCodeLoginError(w http.ResponseWriter, r *http.Request, err e
 }
 
 func bilibiliQRCodeLoginErrorReason(err error) string {
-	if errors.Is(err, common.ErrLoginCredentialMissing) {
+	if errors.Is(err, qrcode.ErrLoginCredentialMissing) {
 		return "credential_missing"
 	}
 	return "upstream_failed"

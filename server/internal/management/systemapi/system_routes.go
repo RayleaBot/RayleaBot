@@ -11,8 +11,22 @@ type Routes struct {
 	Metrics  http.Handler
 }
 
+type ModuleDeps struct {
+	System    SystemService
+	Scheduler SchedulerEngineService
+	Metrics   http.Handler
+}
+
 func NewRoutes(handlers *SystemHandlers, metrics http.Handler) Routes {
 	return Routes{Handlers: handlers, Metrics: metrics}
+}
+
+func NewModule(deps ModuleDeps) Routes {
+	handlers := NewSystemHandlers(deps.System)
+	if deps.Scheduler != nil {
+		handlers = NewSystemHandlers(deps.System, deps.Scheduler)
+	}
+	return NewRoutes(handlers, deps.Metrics)
 }
 
 func (routes Routes) RegisterProtectedRoutes(router chi.Router) {
@@ -28,6 +42,7 @@ func registerProtectedRoutes(router chi.Router, h *SystemHandlers, metricsHandle
 	router.Post("/api/system/recovery/recheck", h.HandleSystemRecoveryRecheck())
 	router.Post("/api/system/recovery/confirm", h.HandleSystemRecoveryConfirm())
 	router.Post("/api/system/runtime/bootstrap", h.HandleSystemRuntimeBootstrap())
+	router.Get("/api/system/diagnostics", h.HandleSystemDiagnostics())
 	router.Get("/api/system/diagnostics/export", h.HandleSystemDiagnosticsExport())
 	if metricsHandler != nil {
 		router.Get("/api/system/metrics", metricsHandler.ServeHTTP)

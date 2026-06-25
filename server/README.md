@@ -36,6 +36,7 @@
 - `POST /api/system/recovery/recheck`
 - `POST /api/system/recovery/confirm`
 - `POST /api/system/runtime/bootstrap`
+- `GET /api/system/diagnostics`
 - `GET /api/system/diagnostics/export`
 - `GET /api/system/metrics`
 - `GET /api/protocols/onebot11/reverse-ws`
@@ -176,5 +177,6 @@
 
 ## 默认命令
 
+- 环境检查：从仓库根目录运行 `make doctor`
 - 构建：`mkdir -p dist && go build -o "dist/raylea-server$(go env GOEXE)" ./cmd/raylea-server`
 - 测试：`go test ./...`

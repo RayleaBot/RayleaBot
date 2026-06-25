@@ -7,8 +7,6 @@ import (
 	"time"
 
 	bilibilidiagnostics "github.com/RayleaBot/RayleaBot/server/internal/integrations/bilibili/diagnostics"
-	bilibilimonitoring "github.com/RayleaBot/RayleaBot/server/internal/integrations/bilibili/monitoring"
-	runtimeprotocol "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime/protocol"
 )
 
 func (s *Source) Status(ctx context.Context) Status {
@@ -74,16 +72,7 @@ func (s *Source) dispatchEvent(ctx context.Context, event BilibiliEvent) {
 	if ts <= 0 {
 		ts = s.now().Unix()
 	}
-	s.dispatcher.Dispatch(ctx, runtimeprotocol.Event{
-		EventID:        event.EventType + ":" + event.UID + ":" + event.ID,
-		SourceProtocol: sourceProtocol,
-		SourceAdapter:  sourceAdapter,
-		EventType:      event.EventType,
-		Timestamp:      ts,
-		PayloadFields: map[string]any{
-			"bilibili": bilibilimonitoring.Payload(event),
-		},
-	}, "")
+	s.dispatcher.DispatchBilibiliEvent(ctx, event, ts)
 	now := s.now()
 	s.mu.Lock()
 	switch event.Kind {

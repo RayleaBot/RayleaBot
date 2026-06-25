@@ -8,10 +8,8 @@ import (
 	"sync"
 	"time"
 
-	bilibiliAccountUsage "github.com/RayleaBot/RayleaBot/server/internal/integrations/bilibili/accountusage"
 	bilibiliCaptcha "github.com/RayleaBot/RayleaBot/server/internal/integrations/bilibili/captcha"
 	bilibiliSession "github.com/RayleaBot/RayleaBot/server/internal/integrations/bilibili/session"
-	sourcestate "github.com/RayleaBot/RayleaBot/server/internal/integrations/bilibili/source/state"
 	"github.com/RayleaBot/RayleaBot/server/internal/integrations/thirdparty"
 )
 
@@ -31,9 +29,9 @@ const (
 type Source struct {
 	read         *sql.DB
 	write        *sql.DB
-	stateStore   *sourcestate.Repository
+	stateStore   *sourceStateRepository
 	accounts     *thirdparty.Service
-	accountUsage *bilibiliAccountUsage.Manager
+	accountUsage *accountUsageManager
 	subjects     SubjectProvider
 	dispatcher   Dispatcher
 	notifyStatus func(Status)
@@ -93,7 +91,7 @@ func NewSource(deps Deps) (*Source, error) {
 	source := &Source{
 		read:         deps.Store.Read,
 		write:        deps.Store.Write,
-		stateStore:   sourcestate.New(deps.Store.Read, deps.Store.Write, now),
+		stateStore:   newSourceStateRepository(deps.Store.Read, deps.Store.Write, now),
 		accounts:     deps.Accounts,
 		subjects:     deps.Subjects,
 		dispatcher:   deps.Dispatcher,
@@ -114,7 +112,7 @@ func NewSource(deps Deps) (*Source, error) {
 	if source.session == nil {
 		source.session = bilibiliSession.NewSessionClient(transport, now, identity)
 	}
-	source.accountUsage = bilibiliAccountUsage.New(deps.Accounts, source.session, now)
+	source.accountUsage = newAccountUsageManager(deps.Accounts, source.session, now)
 	source.status = Status{
 		Status:  StateIdle,
 		Summary: sourceSummary(StateIdle),

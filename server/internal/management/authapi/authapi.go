@@ -1,6 +1,7 @@
 package authapi
 
 import (
+	"context"
 	"errors"
 	"net"
 	"net/http"
@@ -48,6 +49,10 @@ func NewHandlers(deps Deps) *Handlers {
 	}
 }
 
+func NewModule(deps Deps) *Handlers {
+	return NewHandlers(deps)
+}
+
 func (h *Handlers) SetAuthManager(manager authSessionService) {
 	if h == nil {
 		return
@@ -56,8 +61,8 @@ func (h *Handlers) SetAuthManager(manager authSessionService) {
 }
 
 type authSessionService interface {
-	Bootstrap(string, string) (string, auth.Claims, error)
-	Login(string, string) (string, auth.Claims, error)
+	BootstrapWithContext(context.Context, string, string) (string, auth.Claims, error)
+	LoginWithContext(context.Context, string, string) (string, auth.Claims, error)
 }
 
 func (h *Handlers) currentConfig() Config {
@@ -90,7 +95,7 @@ func (h *Handlers) HandleSetupAdmin() http.HandlerFunc {
 			return
 		}
 
-		token, _, err := h.auth.Bootstrap(request.Identifier, request.Secret)
+		token, _, err := h.auth.BootstrapWithContext(r.Context(), request.Identifier, request.Secret)
 		switch {
 		case err == nil:
 			writeAuthJSON(w, http.StatusOK, authResponse{SessionToken: token})
@@ -120,7 +125,7 @@ func (h *Handlers) HandleSessionLogin() http.HandlerFunc {
 			return
 		}
 
-		token, _, err := h.auth.Login(request.Identifier, request.Secret)
+		token, _, err := h.auth.LoginWithContext(r.Context(), request.Identifier, request.Secret)
 		switch {
 		case err == nil:
 			if h.loginFailures != nil {

@@ -79,7 +79,7 @@ func (s *InstallService) runInstall(job installJob) error {
 		Summary:  stringPtr("刷新插件目录索引"),
 	})
 
-	if err := s.refreshCatalog(); err != nil {
+	if err := s.refreshCatalog(job.ctx); err != nil {
 		_ = s.deps.removeAll(finalTarget)
 		return err
 	}
@@ -93,17 +93,17 @@ func (s *InstallService) runInstall(job installJob) error {
 		metadata.InstalledAt = s.deps.now().UTC()
 		if err := s.packageRepo.SavePackageMetadata(job.ctx, metadata); err != nil {
 			_ = s.deps.removeAll(finalTarget)
-			_ = s.refreshCatalog()
+			_ = s.refreshCatalog(job.ctx)
 			return installError(codePluginInstallFailed, "写入插件安装元数据失败", "写入插件安装元数据失败")
 		}
 	}
 	if s.afterSuccess != nil {
-		if err := s.afterSuccess(candidateSnapshot.PluginID); err != nil {
+		if err := s.afterSuccess(job.ctx, candidateSnapshot.PluginID); err != nil {
 			if s.packageRepo != nil {
 				_ = s.packageRepo.DeletePackageMetadata(job.ctx, candidateSnapshot.PluginID)
 			}
 			_ = s.deps.removeAll(finalTarget)
-			_ = s.refreshCatalog()
+			_ = s.refreshCatalog(job.ctx)
 			return installError(codePluginInstallFailed, err.Error(), "插件安装后处理失败")
 		}
 	}

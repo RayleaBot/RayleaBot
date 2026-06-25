@@ -2,6 +2,16 @@ package systemapi
 
 import "net/http"
 
+func (h *SystemHandlers) HandleSystemDiagnostics() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if h == nil || h.system == nil {
+			writeAppError(w, r, http.StatusInternalServerError, codeInternalError, "内部错误", "errors.platform.internal_error", nil)
+			return
+		}
+		writeAuthJSON(w, http.StatusOK, h.system.DiagnosticsSnapshot(r.Context()))
+	}
+}
+
 func (h *SystemHandlers) HandleSystemDiagnosticsExport() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if h == nil || h.system == nil {

@@ -12,11 +12,18 @@ func (c *Controller) stopAndResetPlugin(pluginID string) {
 	if c == nil {
 		return
 	}
-	c.stopPlugin(context.Background(), pluginID, true)
+	c.stopPlugin(c.lifecycleContext(), pluginID, true)
 }
 
 func (c *Controller) StopAndResetPlugin(pluginID string) {
 	c.stopAndResetPlugin(pluginID)
+}
+
+func (c *Controller) StopAndResetPluginWithContext(ctx context.Context, pluginID string) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	c.stopPlugin(ctx, pluginID, true)
 }
 
 func (c *Controller) stopPluginAsync(pluginID string, remove bool) {
@@ -24,7 +31,7 @@ func (c *Controller) stopPluginAsync(pluginID string, remove bool) {
 		return
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := c.lifecycleTimeoutContext(5 * time.Second)
 	defer cancel()
 	c.stopPlugin(ctx, pluginID, remove)
 }

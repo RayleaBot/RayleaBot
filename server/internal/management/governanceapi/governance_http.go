@@ -10,12 +10,20 @@ type Handlers struct {
 	service *governance.Service
 }
 
+type ModuleDeps struct {
+	Service *governance.Service
+}
+
 func NewHandlers(deps governance.Deps) *Handlers {
 	return NewHandlersWithService(governance.NewService(deps))
 }
 
 func NewHandlersWithService(service *governance.Service) *Handlers {
 	return &Handlers{service: service}
+}
+
+func NewModule(deps ModuleDeps) *Handlers {
+	return NewHandlersWithService(deps.Service)
 }
 
 func (h *Handlers) RegisterProtectedRoutes(router chi.Router) {

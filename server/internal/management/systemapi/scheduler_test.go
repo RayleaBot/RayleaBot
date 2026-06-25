@@ -28,6 +28,10 @@ func (s schedulerTestSystem) CurrentReadiness() health.ReadinessReport {
 	return health.ReadinessReport{Status: "ready"}
 }
 
+func (s schedulerTestSystem) DiagnosticsSnapshot(context.Context) systemmodel.DiagnosticsSnapshot {
+	return systemmodel.DiagnosticsSnapshot{}
+}
+
 func (s schedulerTestSystem) BuildDiagnosticsArchive(context.Context) ([]byte, error) {
 	return nil, nil
 }

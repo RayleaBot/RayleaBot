@@ -66,7 +66,7 @@ func (s *Service) Diagnostics() []health.DiagnosticIssue {
 		return issues
 	}
 
-	inspection, err := deps.NewManager(s.repoRoot).Inspect("chromium")
+	inspection, err := deps.NewDiagnostics(s.repoRoot).InspectRuntime("chromium")
 	if err != nil {
 		var bootstrapErr *deps.BootstrapError
 		if errors.As(err, &bootstrapErr) {

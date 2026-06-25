@@ -44,8 +44,24 @@ ALLOWED_FAN_OUT_PREFIXES = (
 )
 
 DISALLOWED_PACKAGE_DIR_NAMES = {"common", "utils", "helper", "helpers"}
-ALLOWED_GENERIC_PACKAGE_DIRS = {
-    "server/internal/integrations/common",
+ALLOWED_GENERIC_PACKAGE_DIRS: set[str] = set()
+GENERIC_FILENAMES = {
+    "build.go",
+    "config.go",
+    "errors.go",
+    "http.go",
+    "identity.go",
+    "login.go",
+    "manifest.go",
+    "module.go",
+    "paths.go",
+    "registry.go",
+    "repository.go",
+    "resolve.go",
+    "routes.go",
+    "service.go",
+    "types.go",
+    "validator.go",
 }
 
 PACKAGE_DECL_RE = re.compile(r"^\s*package\s+([A-Za-z_][A-Za-z0-9_]*)\b", re.MULTILINE)
@@ -54,6 +70,23 @@ IMPORT_BLOCK_RE = re.compile(r"^\s*import\s*\((.*?)^\s*\)", re.MULTILINE | re.DO
 IMPORT_LINE_RE = re.compile(r'^\s*(?:[.\w]+\s+)?"([^"]+)"', re.MULTILINE)
 PROCESS_EXIT_RE = re.compile(r"\b(?:os\.Exit|log\.Fatalf?|log\.Fatalln)\s*\(")
 RAW_SQL_CALL_RE = re.compile(r"\.(?:Exec|ExecContext|QueryContext|QueryRowContext|QueryRow)\s*\(")
+CONTEXT_BACKGROUND_RE = re.compile(r"\bcontext\.Background\(\)")
+CONTEXT_BACKGROUND_CATEGORIES = {
+    "adapter_runtime_root",
+    "cli_root",
+    "compatibility_wrapper",
+    "dependency_diagnostic",
+    "nil_context_fallback",
+    "process_root",
+    "recovery_bootstrap",
+    "runtime_spec_wrapper",
+    "runtime_status_wrapper",
+    "shutdown_timeout",
+    "startup_context_fallback",
+    "storage_bootstrap",
+    "websocket_close_read",
+    "worker_root",
+}
 
 
 @dataclass(frozen=True)
@@ -72,20 +105,24 @@ def main() -> int:
     root = Path(__file__).resolve().parents[1]
     server_internal = root / "server" / "internal"
     files = collect_go_files(root, server_internal)
+    context_files = collect_context_go_files(root)
 
     errors: list[str] = []
     warnings: list[str] = []
     manual_sql_exceptions = load_manual_sql_exceptions(root, errors)
+    context_background_allowlist = load_context_background_allowlist(root, errors)
     metric_lines = check_architecture_budget(files, root, errors)
 
     check_package_sizes(files, warnings, errors)
     check_file_sizes(files, warnings, errors)
     check_import_boundaries(files, errors)
+    check_plugin_boundaries(files, errors)
     check_fan_out(files, warnings)
     check_disallowed_dirs(server_internal, root, errors)
     check_package_names(files, warnings)
     check_process_exit_calls(files, errors)
     check_manual_sql_exceptions(files, root, manual_sql_exceptions, errors)
+    check_context_background_allowlist(context_files, root, context_background_allowlist, errors)
 
     for message in metric_lines:
         print(message)
@@ -125,6 +162,14 @@ def collect_go_files(root: Path, server_internal: Path) -> list[GoFile]:
             )
         )
     return files
+
+
+def collect_context_go_files(root: Path) -> list[GoFile]:
+    files: list[GoFile] = []
+    for search_root in (root / "server" / "internal", root / "server" / "cmd"):
+        if search_root.exists():
+            files.extend(collect_go_files(root, search_root))
+    return sorted(files, key=lambda file: file.rel)
 
 
 def parse_imports(text: str) -> list[str]:
@@ -200,6 +245,21 @@ def check_import_boundaries(files: list[GoFile], errors: list[str]) -> None:
             errors.append(f"{file.rel} references management HTTP DTO symbols")
 
 
+def check_plugin_boundaries(files: list[GoFile], errors: list[str]) -> None:
+    for file in files:
+        if file.is_test:
+            continue
+        imports = set(file.imports)
+        if file.package_dir.startswith("internal/plugins/runtime"):
+            for imported in imports:
+                if imported.startswith(INTERNAL_PREFIX + "management") or imported.startswith(INTERNAL_PREFIX + "plugins/managementui"):
+                    errors.append(f"{file.rel} imports management projection from plugin runtime")
+        if file.package_dir.startswith("internal/management/pluginapi") or file.package_dir.startswith("internal/plugins/managementui"):
+            for imported in imports:
+                if imported.startswith(INTERNAL_PREFIX + "plugins/runtime"):
+                    errors.append(f"{file.rel} imports plugin runtime internals from management projection")
+
+
 def check_fan_out(files: list[GoFile], warnings: list[str]) -> None:
     fan_out: dict[str, set[str]] = {}
     for file in files:
@@ -268,9 +328,29 @@ def load_manual_sql_exceptions(root: Path, errors: list[str]) -> dict[str, str]:
         return {}
 
     registry: dict[str, str] = {}
-    for rel, reason in allowed_files.items():
-        if not isinstance(rel, str) or not isinstance(reason, str) or not reason.strip():
+    for rel, entry in allowed_files.items():
+        if not isinstance(rel, str):
             errors.append(f"{registry_path.relative_to(root).as_posix()} has an invalid manual SQL entry")
+            continue
+        if not isinstance(entry, dict):
+            errors.append(f"{registry_path.relative_to(root).as_posix()} entry {rel} must be an object")
+            continue
+        category = entry.get("category")
+        reason = entry.get("reason")
+        owner = entry.get("owner")
+        target_action = entry.get("target_action")
+        revisit_after = entry.get("revisit_after")
+        if category not in {"A", "B", "C", "D"}:
+            errors.append(f"{registry_path.relative_to(root).as_posix()} entry {rel} has invalid category")
+        for field_name, value in {
+            "reason": reason,
+            "owner": owner,
+            "target_action": target_action,
+            "revisit_after": revisit_after,
+        }.items():
+            if not isinstance(value, str) or not value.strip():
+                errors.append(f"{registry_path.relative_to(root).as_posix()} entry {rel} missing {field_name}")
+        if not isinstance(reason, str) or not reason.strip():
             continue
         registry[rel.replace("\\", "/")] = reason.strip()
     return registry
@@ -286,6 +366,8 @@ def check_manual_sql_exceptions(files: list[GoFile], root: Path, registry: dict[
             raw_sql_files.add(file.rel)
 
     for rel in sorted(raw_sql_files):
+        if "/management/" in rel:
+            errors.append(f"{rel} uses handwritten SQL in management handler layer")
         if rel not in registry:
             errors.append(f"{rel} uses handwritten SQL but is not listed in docs/engineering/manual-sql-exceptions.json")
 
@@ -295,6 +377,70 @@ def check_manual_sql_exceptions(files: list[GoFile], root: Path, registry: dict[
             errors.append(f"docs/engineering/manual-sql-exceptions.json references missing file {rel}")
         elif rel not in raw_sql_files:
             errors.append(f"docs/engineering/manual-sql-exceptions.json lists {rel}, but no handwritten SQL was found")
+
+
+def load_context_background_allowlist(root: Path, errors: list[str]) -> dict[str, dict[str, str]]:
+    registry_path = root / "docs" / "engineering" / "context-background-allowlist.json"
+    try:
+        raw = registry_path.read_text(encoding="utf-8")
+    except FileNotFoundError:
+        errors.append(f"{registry_path.relative_to(root).as_posix()} is missing")
+        return {}
+
+    try:
+        parsed = json.loads(raw)
+    except json.JSONDecodeError as exc:
+        errors.append(f"{registry_path.relative_to(root).as_posix()} is invalid JSON: {exc}")
+        return {}
+
+    allowed_files = parsed.get("allowed_files")
+    if not isinstance(allowed_files, dict):
+        errors.append(f"{registry_path.relative_to(root).as_posix()} must contain an allowed_files object")
+        return {}
+
+    registry: dict[str, dict[str, str]] = {}
+    for rel, entry in allowed_files.items():
+        if not isinstance(rel, str):
+            errors.append(f"{registry_path.relative_to(root).as_posix()} has an invalid context entry")
+            continue
+        normalized = rel.replace("\\", "/")
+        if not (normalized.startswith("server/internal/") or normalized.startswith("server/cmd/")):
+            errors.append(f"{registry_path.relative_to(root).as_posix()} entry {normalized} must be under server/internal or server/cmd")
+        if not isinstance(entry, dict):
+            errors.append(f"{registry_path.relative_to(root).as_posix()} entry {normalized} must be an object")
+            continue
+        category = entry.get("category")
+        if category not in CONTEXT_BACKGROUND_CATEGORIES:
+            errors.append(f"{registry_path.relative_to(root).as_posix()} entry {normalized} has invalid category")
+        for field_name in ("reason", "owner", "target_action", "revisit_after"):
+            value = entry.get(field_name)
+            if not isinstance(value, str) or not value.strip():
+                errors.append(f"{registry_path.relative_to(root).as_posix()} entry {normalized} missing {field_name}")
+        if all(isinstance(entry.get(field), str) and entry.get(field, "").strip() for field in ("category", "reason", "owner", "target_action", "revisit_after")):
+            registry[normalized] = {field: entry[field].strip() for field in ("category", "reason", "owner", "target_action", "revisit_after")}
+    return registry
+
+
+def check_context_background_allowlist(files: list[GoFile], root: Path, registry: dict[str, dict[str, str]], errors: list[str]) -> None:
+    background_files: set[str] = set()
+    for file in files:
+        if file.is_test or file.is_generated or file.package_dir.startswith("internal/testutil"):
+            continue
+        text = file.path.read_text(encoding="utf-8")
+        if CONTEXT_BACKGROUND_RE.search(text):
+            background_files.add(file.rel)
+
+    for rel in sorted(background_files):
+        if rel not in registry:
+            errors.append(f"{rel} uses context.Background() but is not listed in docs/engineering/context-background-allowlist.json")
+
+    for rel in sorted(registry):
+        path = root / Path(rel)
+        if not path.exists():
+            errors.append(f"docs/engineering/context-background-allowlist.json references missing file {rel}")
+            continue
+        if rel not in background_files:
+            errors.append(f"docs/engineering/context-background-allowlist.json lists {rel}, but no context.Background() was found")
 
 
 def check_architecture_budget(files: list[GoFile], root: Path, errors: list[str]) -> list[str]:
@@ -341,9 +487,10 @@ def check_architecture_budget(files: list[GoFile], root: Path, errors: list[str]
     }
 
     metric_lines = [f"METRIC {name}={value}" for name, value in sorted(metrics.items())]
-    generic_counts = Counter(file.path.name for file in production_files if file.path.name in {"routes.go", "repository.go", "http.go", "registry.go", "module.go", "config.go", "errors.go"})
+    generic_counts = Counter(file.path.name for file in production_files if file.path.name in GENERIC_FILENAMES)
     for name, value in sorted(generic_counts.items()):
         metric_lines.append(f"METRIC generic_filename.{name}={value}")
+    check_generic_filename_budget(generic_counts, budget, budget_path, root, errors)
 
     budget_metrics = budget.get("metrics", {})
     if not isinstance(budget_metrics, dict):
@@ -365,19 +512,58 @@ def check_architecture_budget(files: list[GoFile], root: Path, errors: list[str]
         if maximum is not None and value > maximum:
             errors.append(f"{package_dir} internal fan-out {value} exceeds architecture budget {maximum}")
 
+    package_production_files_budget = budget.get("package_production_files", {})
+    if not isinstance(package_production_files_budget, dict):
+        errors.append(f"{budget_path.relative_to(root).as_posix()} package_production_files must be an object")
+        package_production_files_budget = {}
+    for package_dir, entry in sorted(package_production_files_budget.items()):
+        maximum = budget_entry_max(entry, errors, budget_path, root, f"package_production_files.{package_dir}")
+        value = len(package_files.get(package_dir, []))
+        metric_lines.append(f"METRIC package_production_files.{package_dir}={value}")
+        if maximum is not None and value > maximum:
+            errors.append(f"{package_dir} production files {value} exceed architecture budget {maximum}")
+
+    warning_tasks = budget.get("warning_tasks", {})
+    if not isinstance(warning_tasks, dict):
+        errors.append(f"{budget_path.relative_to(root).as_posix()} warning_tasks must be an object")
+
     allowlist = budget.get("single_file_production_package_allowlist", {})
     if not isinstance(allowlist, dict):
         errors.append(f"{budget_path.relative_to(root).as_posix()} single_file_production_package_allowlist must be an object")
         allowlist = {}
     for package_dir in sorted(single_file_packages):
-        reason = allowlist.get(package_dir)
-        if not isinstance(reason, str) or not reason.strip():
-            errors.append(f"{package_dir} is a single-file production package without an allowlist reason")
+        entry = allowlist.get(package_dir)
+        if not isinstance(entry, dict):
+            errors.append(f"{package_dir} is a single-file production package without a structured allowlist entry")
+            continue
+        decision = entry.get("decision")
+        if decision not in {"merge", "expand", "keep"}:
+            errors.append(f"{package_dir} single-file allowlist entry has invalid decision")
+        for field_name in ("reason", "owner", "target_action", "due_stage"):
+            value = entry.get(field_name)
+            if not isinstance(value, str) or not value.strip():
+                errors.append(f"{package_dir} single-file allowlist entry missing {field_name}")
     for package_dir in sorted(allowlist):
         if package_dir not in single_file_packages:
             errors.append(f"single-file package allowlist references {package_dir}, but it is not currently a single-file production package")
 
     return metric_lines
+
+
+def check_generic_filename_budget(generic_counts: Counter[str], budget: dict[str, object], budget_path: Path, root: Path, errors: list[str]) -> None:
+    entries = budget.get("generic_filenames", {})
+    if not isinstance(entries, dict):
+        errors.append(f"{budget_path.relative_to(root).as_posix()} generic_filenames must be an object")
+        return
+
+    for name, value in sorted(generic_counts.items()):
+        maximum = budget_entry_max(entries.get(name), errors, budget_path, root, f"generic_filenames.{name}")
+        if maximum is not None and value > maximum:
+            errors.append(f"generic filename {name} count {value} exceeds architecture budget {maximum}")
+
+    for name in sorted(entries):
+        if name not in GENERIC_FILENAMES:
+            errors.append(f"{budget_path.relative_to(root).as_posix()} generic_filenames.{name} is not a tracked generic filename")
 
 
 def budget_metric_max(metrics: dict[str, object], name: str, errors: list[str], budget_path: Path, root: Path) -> int | None:
@@ -388,10 +574,16 @@ def budget_entry_max(entry: object, errors: list[str], budget_path: Path, root: 
     if not isinstance(entry, dict):
         errors.append(f"{budget_path.relative_to(root).as_posix()} missing {name}")
         return None
+    for field in ("current", "max", "next_target", "long_term_target"):
+        if not isinstance(entry.get(field), int):
+            errors.append(f"{budget_path.relative_to(root).as_posix()} {name}.{field} must be an integer")
+    current = entry.get("current")
     maximum = entry.get("max")
     if not isinstance(maximum, int):
         errors.append(f"{budget_path.relative_to(root).as_posix()} {name}.max must be an integer")
         return None
+    if isinstance(current, int) and maximum > current:
+        errors.append(f"{budget_path.relative_to(root).as_posix()} {name}.max must not exceed current")
     return maximum
 
 

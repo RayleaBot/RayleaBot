@@ -60,7 +60,10 @@ func TestUninstallServiceInvokesAfterSuccessCallback(t *testing.T) {
 	defer service.Close()
 
 	called := make(chan string, 1)
-	service.SetAfterSuccess(func(pluginID string) {
+	service.SetAfterSuccess(func(ctx context.Context, pluginID string) {
+		if ctx == nil {
+			t.Fatal("expected uninstall callback context")
+		}
 		called <- pluginID
 	})
 

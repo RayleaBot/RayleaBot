@@ -151,6 +151,12 @@ func (e *Engine) Jobs() []Job {
 	return result
 }
 
+func (e *Engine) RunningCount() int {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	return e.running
+}
+
 func generateJobID() (string, error) {
 	var buf [12]byte
 	if _, err := rand.Read(buf[:]); err != nil {

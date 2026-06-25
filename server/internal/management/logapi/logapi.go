@@ -31,8 +31,16 @@ type Handlers struct {
 	logs Service
 }
 
+type ModuleDeps struct {
+	Logs Service
+}
+
 func NewHandlers(logs Service) *Handlers {
 	return &Handlers{logs: logs}
+}
+
+func NewModule(deps ModuleDeps) *Handlers {
+	return NewHandlers(deps.Logs)
 }
 
 type listResponse struct {

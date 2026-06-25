@@ -2,6 +2,7 @@ package integrationmodule
 
 import (
 	"context"
+	"github.com/RayleaBot/RayleaBot/server/internal/integrations/qrcode"
 	"net/http"
 	"time"
 
@@ -11,17 +12,15 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/dispatch"
 	"github.com/RayleaBot/RayleaBot/server/internal/integrations/bilibili"
-	"github.com/RayleaBot/RayleaBot/server/internal/integrations/common"
 	"github.com/RayleaBot/RayleaBot/server/internal/integrations/douyin"
 	"github.com/RayleaBot/RayleaBot/server/internal/integrations/netease_music"
 	"github.com/RayleaBot/RayleaBot/server/internal/integrations/thirdparty"
 	"github.com/RayleaBot/RayleaBot/server/internal/integrations/weibo"
 	managementevents "github.com/RayleaBot/RayleaBot/server/internal/management/events"
-	runtimeprotocol "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime/protocol"
 )
 
 type ThirdPartyService = thirdparty.Service
-type ThirdPartyQRLoginService = common.Service
+type ThirdPartyQRLoginService = qrcode.Service
 type BilibiliSource = bilibili.Source
 type BilibiliSourceEvents = managementevents.BilibiliSourceService
 
@@ -62,7 +61,7 @@ type UserResolver struct {
 
 func NewUserResolver(transport http.RoundTripper, douyinResolver DouyinUserResolver) *UserResolver {
 	return &UserResolver{
-		client: common.NewHTTPClient(transport),
+		client: thirdparty.NewHTTPClient(transport),
 		douyin: douyinResolver,
 	}
 }
@@ -84,12 +83,12 @@ func (r *UserResolver) ResolveProfiles(ctx context.Context, platform string, que
 }
 
 type AccountValidator struct {
-	bilibili *bilibili.AccountClient
-	common   *common.AccountValidator
+	bilibili   *bilibili.AccountClient
+	thirdParty *thirdparty.AccountValidator
 }
 
 func NewAccountValidator(transport http.RoundTripper, now func() time.Time, bilibiliClient *bilibili.AccountClient) *AccountValidator {
-	validator := common.NewAccountValidator(transport, now)
+	validator := thirdparty.NewAccountValidator(transport, now)
 	validator.RegisterPlatform(thirdparty.PlatformWeibo, func(ctx context.Context, client *http.Client, cookies map[string]string) (thirdparty.AccountProfile, error) {
 		return weibo.FetchAccountProfile(ctx, client, cookies)
 	})
@@ -100,8 +99,8 @@ func NewAccountValidator(transport http.RoundTripper, now func() time.Time, bili
 		return netease_music.FetchAccountProfile(ctx, client, cookies)
 	})
 	return &AccountValidator{
-		bilibili: bilibiliClient,
-		common:   validator,
+		bilibili:   bilibiliClient,
+		thirdParty: validator,
 	}
 }
 
@@ -116,10 +115,10 @@ func (v *AccountValidator) CheckCookie(ctx context.Context, platform string, coo
 		}
 		return v.bilibili.CheckCookie(ctx, cookie)
 	}
-	if v == nil || v.common == nil {
+	if v == nil || v.thirdParty == nil {
 		return thirdparty.AccountProfile{}, thirdparty.CredentialStatus{}, thirdparty.ErrInvalidAccount
 	}
-	return v.common.CheckCookie(ctx, normalized, cookie)
+	return v.thirdParty.CheckCookie(ctx, normalized, cookie)
 }
 
 func Build(deps Deps) (State, error) {
@@ -134,12 +133,12 @@ func Build(deps Deps) (State, error) {
 		browserPath, browserArgs = deps.Renderer.BrowserLaunchConfig()
 	}
 	douyinBrowser := douyin.NewChromedpBrowser(browserPath, browserArgs, deps.HTTPTransport)
-	thirdPartyQRLogin := common.NewService(map[string]common.Provider{
+	thirdPartyQRLogin := qrcode.NewService(map[string]qrcode.Provider{
 		bilibili.Platform:      bilibili.NewLoginProvider(deps.HTTPTransport, deps.Clock),
-		weibo.Platform:         weibo.NewProvider(common.NewHTTPClient(deps.HTTPTransport)),
-		douyin.Platform:        douyin.NewProvider(common.NewHTTPClient(deps.HTTPTransport), douyinBrowser),
-		netease_music.Platform: netease_music.NewProvider(common.NewHTTPClient(deps.HTTPTransport)),
-	}, deps.Clock, common.WithAccountStore(thirdPartyService))
+		weibo.Platform:         weibo.NewProvider(thirdparty.NewHTTPClient(deps.HTTPTransport)),
+		douyin.Platform:        douyin.NewProvider(thirdparty.NewHTTPClient(deps.HTTPTransport), douyinBrowser),
+		netease_music.Platform: netease_music.NewProvider(thirdparty.NewHTTPClient(deps.HTTPTransport)),
+	}, deps.Clock, qrcode.WithAccountStore(thirdPartyService))
 	bilibiliEvents := managementevents.NewBilibiliSourceService()
 	bilibiliModule, err := bilibili.Build(bilibili.Deps{
 		Store: bilibili.Store{
@@ -172,9 +171,9 @@ type bilibiliEventDispatcher struct {
 	dispatcher *dispatch.Dispatcher
 }
 
-func (d bilibiliEventDispatcher) Dispatch(ctx context.Context, event runtimeprotocol.Event, commandName string) {
+func (d bilibiliEventDispatcher) DispatchBilibiliEvent(ctx context.Context, event bilibili.BilibiliEvent, timestamp int64) {
 	if d.dispatcher == nil {
 		return
 	}
-	d.dispatcher.Dispatch(ctx, event, commandName)
+	d.dispatcher.Dispatch(ctx, bilibili.RuntimeEvent(event, timestamp), "")
 }

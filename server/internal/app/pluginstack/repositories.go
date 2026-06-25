@@ -29,20 +29,20 @@ func buildPluginRepositories(platform appplatform.State) (*pluginrepository.SQLi
 	return pluginRepository, pluginKVRepository, pluginConfigRepository, nil
 }
 
-func hydratePluginCatalog(catalog *plugincatalog.Catalog, pluginRepository *pluginrepository.SQLiteRepository, pluginConfigRepository pluginconfig.Repository) error {
-	desiredStates, err := pluginRepository.LoadDesiredStates(context.Background())
+func hydratePluginCatalog(ctx context.Context, catalog *plugincatalog.Catalog, pluginRepository *pluginrepository.SQLiteRepository, pluginConfigRepository pluginconfig.Repository) error {
+	desiredStates, err := pluginRepository.LoadDesiredStates(ctx)
 	if err != nil {
 		return fmt.Errorf("load persisted plugin desired_state: %w", err)
 	}
 	if packageLoader, ok := any(pluginRepository).(plugins.PackageMetadataLoader); ok {
-		packageMetadata, err := packageLoader.LoadAllPackageMetadata(context.Background())
+		packageMetadata, err := packageLoader.LoadAllPackageMetadata(ctx)
 		if err != nil {
 			return fmt.Errorf("load plugin package metadata: %w", err)
 		}
 		catalog.Replace(plugins.ApplyPackageMetadata(catalog.List(), packageMetadata))
 	}
 	catalog.ApplyDesiredStates(desiredStates)
-	if err := refreshCatalogCommandsFromSettings(context.Background(), catalog, pluginConfigRepository); err != nil {
+	if err := refreshCatalogCommandsFromSettings(ctx, catalog, pluginConfigRepository); err != nil {
 		return err
 	}
 	return nil

@@ -39,8 +39,16 @@ type Handlers struct {
 	config Service
 }
 
+type ModuleDeps struct {
+	Config Service
+}
+
 func NewHandlers(config Service) *Handlers {
 	return &Handlers{config: config}
+}
+
+func NewModule(deps ModuleDeps) *Handlers {
+	return NewHandlers(deps.Config)
 }
 
 func (h *Handlers) HandleConfigGet() http.HandlerFunc {

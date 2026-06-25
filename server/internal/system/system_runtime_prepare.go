@@ -7,7 +7,7 @@ import (
 )
 
 var prepareManagedRuntimeWithReport = func(ctx context.Context, repoRoot, kind string) (*managedRuntimePrepareReport, error) {
-	report, err := deps.NewManager(repoRoot).PrepareWithReport(ctx, kind)
+	report, err := deps.NewRuntime(repoRoot).PrepareWithReport(ctx, kind)
 	if err != nil {
 		return nil, err
 	}
@@ -18,7 +18,7 @@ var prepareManagedRuntimeWithProgress = func(ctx context.Context, repoRoot, kind
 	if progress == nil {
 		return prepareManagedRuntimeWithReport(ctx, repoRoot, kind)
 	}
-	report, err := deps.NewManager(repoRoot).PrepareWithReportOptions(ctx, kind, deps.PrepareOptions{Progress: progress})
+	report, err := deps.NewRuntime(repoRoot).PrepareWithReportOptions(ctx, kind, deps.PrepareOptions{Progress: progress})
 	if err != nil {
 		return nil, err
 	}

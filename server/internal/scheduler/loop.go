@@ -42,6 +42,9 @@ func (e *Engine) tick() {
 }
 
 func (e *Engine) fireJob(j Job, now time.Time) {
+	e.markRunning(1)
+	defer e.markRunning(-1)
+
 	e.trigger(e.ctx, j)
 
 	nextRun, err := nextCronTime(j.CronExpr, now, e.location)
@@ -72,4 +75,13 @@ func (e *Engine) fireJob(j Job, now time.Time) {
 		defer cancel()
 		_ = e.repo.UpdateJobSchedule(ctx, j)
 	}()
+}
+
+func (e *Engine) markRunning(delta int) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	e.running += delta
+	if e.running < 0 {
+		e.running = 0
+	}
 }

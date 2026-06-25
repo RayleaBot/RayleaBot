@@ -104,6 +104,11 @@ func withPasswordHashParams(params passwordHashParams) Option {
 }
 
 func NewManager(cfg Config, opts ...Option) (*Manager, error) {
+	return NewManagerWithContext(context.Background(), cfg, opts...)
+}
+
+func NewManagerWithContext(ctx context.Context, cfg Config, opts ...Option) (*Manager, error) {
+	ctx = normalizeContext(ctx)
 	if cfg.SessionTTLDays <= 0 {
 		return nil, fmt.Errorf("session_ttl_days must be positive")
 	}
@@ -144,7 +149,7 @@ func NewManager(cfg Config, opts ...Option) (*Manager, error) {
 	}
 
 	if manager.repo != nil {
-		if err := manager.hydrate(context.Background()); err != nil {
+		if err := manager.hydrate(ctx); err != nil {
 			return nil, err
 		}
 	}

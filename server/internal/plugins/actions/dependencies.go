@@ -2,16 +2,13 @@ package actions
 
 import (
 	"context"
+	"time"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
-	"github.com/RayleaBot/RayleaBot/server/internal/plugins/actions/configaction"
-	"github.com/RayleaBot/RayleaBot/server/internal/plugins/actions/governanceaction"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins/actions/httpaction"
-	"github.com/RayleaBot/RayleaBot/server/internal/plugins/actions/onebot"
-	"github.com/RayleaBot/RayleaBot/server/internal/plugins/actions/renderaction"
-	"github.com/RayleaBot/RayleaBot/server/internal/plugins/actions/scheduleraction"
-	"github.com/RayleaBot/RayleaBot/server/internal/plugins/actions/secretaction"
-	"github.com/RayleaBot/RayleaBot/server/internal/plugins/actions/webhookaction"
+	pluginfile "github.com/RayleaBot/RayleaBot/server/internal/plugins/filestore"
+	pluginkv "github.com/RayleaBot/RayleaBot/server/internal/plugins/kvstore"
+	runtimeaction "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime/action"
 )
 
 type CapabilityView interface {
@@ -22,32 +19,106 @@ type CapabilityView interface {
 	ListPluginSnapshots() []plugins.Snapshot
 }
 
-type WebhookGateway = webhookaction.Gateway
+type WebhookGateway interface {
+	Expose(context.Context, string, runtimeaction.Action) (map[string]any, error)
+}
 
-type PluginConfigRepository = configaction.Repository
+type PluginConfigRepository interface {
+	Read(context.Context, string, []string) (map[string]any, error)
+	ReadAll(context.Context, string) (map[string]any, error)
+	Write(context.Context, string, map[string]any) ([]string, error)
+}
 
-type OneBotAdapter = onebot.Adapter
+type OneBotAdapter interface {
+	CallAPIAny(context.Context, string, map[string]any) (any, error)
+	DetectedProvider() string
+}
 
-type ConfigChangeDispatchResult = configaction.DispatchResult
+type ConfigChangeDispatchResult struct {
+	Delivered bool
+	Outcome   string
+	ErrorCode string
+}
 
-type ConfigChangeDispatcher = configaction.Dispatcher
+type ConfigChangeDispatcher func(context.Context, string) ConfigChangeDispatchResult
 
-type ScheduledTask = scheduleraction.Task
+type ScheduledTask struct {
+	JobID   string
+	NextRun time.Time
+}
 
-type SchedulerCreateFunc = scheduleraction.CreateFunc
+type SchedulerCreateFunc func(context.Context, string, string, string, string, []byte) (ScheduledTask, error)
 
-type SecretReader = secretaction.Reader
+type SecretReader interface {
+	ReadPluginSecret(context.Context, string) (string, bool, error)
+}
 
-type Renderer = renderaction.Renderer
+type Renderer interface {
+	ResolvePluginTemplate(context.Context, string, string) (string, error)
+	RenderImage(context.Context, RenderImageRequest) (RenderImageResult, error)
+	TemplateAcceptsRenderIdentity(context.Context, string) bool
+}
 
-type RenderImageRequest = renderaction.ImageRequest
+type RenderImageRequest struct {
+	Template string
+	Theme    string
+	Output   string
+	Data     map[string]any
+	Plugin   RenderPluginContext
+}
 
-type RenderPluginContext = renderaction.PluginContext
+type RenderPluginContext struct {
+	Name    string
+	Version string
+}
 
-type RenderImageResult = renderaction.ImageResult
+type RenderImageResult struct {
+	ArtifactID string
+	ImagePath  string
+	MIME       string
+	CacheKey   string
+}
 
-type RenderTemplateError = renderaction.TemplateError
+type RenderTemplateError struct {
+	Code    string
+	Message string
+	Err     error
+}
 
-type GovernanceService = governanceaction.Service
+func (e *RenderTemplateError) Error() string {
+	if e == nil {
+		return ""
+	}
+	if e.Message != "" {
+		return e.Message
+	}
+	if e.Err != nil {
+		return e.Err.Error()
+	}
+	return e.Code
+}
+
+func (e *RenderTemplateError) Unwrap() error {
+	if e == nil {
+		return nil
+	}
+	return e.Err
+}
+
+type GovernanceService interface{}
 
 type HTTPCredentialInjector = httpaction.CredentialInjector
+
+type KVRepository interface {
+	Get(context.Context, string, string) (any, bool, error)
+	Set(context.Context, string, string, any, pluginkv.Limits) error
+	Delete(context.Context, string, string) (bool, error)
+	List(context.Context, string, string) ([]string, error)
+}
+
+type FileStore interface {
+	Read(string, string) (pluginfile.ReadResult, error)
+	Write(string, string, []byte, pluginfile.Limits) error
+	Delete(string, string) (bool, error)
+	List(string, string) ([]string, error)
+}

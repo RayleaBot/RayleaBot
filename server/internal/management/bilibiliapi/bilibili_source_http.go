@@ -2,11 +2,11 @@ package bilibiliapi
 
 import (
 	"context"
+	"github.com/RayleaBot/RayleaBot/server/internal/integrations/qrcode"
 	"net/http"
 	"time"
 
 	bilibilisource "github.com/RayleaBot/RayleaBot/server/internal/integrations/bilibili/source"
-	"github.com/RayleaBot/RayleaBot/server/internal/integrations/common"
 )
 
 type BilibiliHandlers struct {
@@ -15,14 +15,20 @@ type BilibiliHandlers struct {
 	userClient *http.Client
 }
 
+type ModuleDeps struct {
+	Source    bilibiliSourceStatusService
+	QRLogin   bilibiliQRCodeLoginService
+	Transport http.RoundTripper
+}
+
 type bilibiliSourceStatusService interface {
 	Status(context.Context) bilibilisource.Status
 	Restart() bilibilisource.Status
 }
 
 type bilibiliQRCodeLoginService interface {
-	Create(context.Context, string) (common.CreateResult, error)
-	Poll(context.Context, string, string) (common.PollResult, error)
+	Create(context.Context, string) (qrcode.CreateResult, error)
+	Poll(context.Context, string, string) (qrcode.PollResult, error)
 }
 
 func NewBilibiliHandlers(sourceService bilibiliSourceStatusService, qrLogin bilibiliQRCodeLoginService, transport http.RoundTripper) *BilibiliHandlers {
@@ -34,4 +40,8 @@ func NewBilibiliHandlers(sourceService bilibiliSourceStatusService, qrLogin bili
 			Timeout:   15 * time.Second,
 		},
 	}
+}
+
+func NewModule(deps ModuleDeps) *BilibiliHandlers {
+	return NewBilibiliHandlers(deps.Source, deps.QRLogin, deps.Transport)
 }

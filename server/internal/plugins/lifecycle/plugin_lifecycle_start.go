@@ -58,7 +58,7 @@ func (c *Controller) startPluginAsync(pluginID, botID string) {
 	}
 	botID = strings.TrimSpace(botID)
 
-	ctx, cancel := context.WithTimeout(context.Background(), runtimeInitTimeout(c.config().Runtime))
+	ctx, cancel := c.lifecycleTimeoutContext(runtimeInitTimeout(c.config().Runtime))
 	defer cancel()
 
 	manager := c.runtimes.GetOrCreate(pluginID)

@@ -4,30 +4,29 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"github.com/RayleaBot/RayleaBot/server/internal/integrations/qrcode"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
 
-	"github.com/go-chi/chi/v5"
-
-	"github.com/RayleaBot/RayleaBot/server/internal/integrations/common"
 	"github.com/RayleaBot/RayleaBot/server/internal/integrations/thirdparty"
+	"github.com/go-chi/chi/v5"
 )
 
 type stubBilibiliQRCodeLogin struct {
-	createResult common.CreateResult
+	createResult qrcode.CreateResult
 	createErr    error
-	pollResult   common.PollResult
+	pollResult   qrcode.PollResult
 	pollErr      error
 }
 
-func (s *stubBilibiliQRCodeLogin) Create(context.Context, string) (common.CreateResult, error) {
+func (s *stubBilibiliQRCodeLogin) Create(context.Context, string) (qrcode.CreateResult, error) {
 	return s.createResult, s.createErr
 }
 
-func (s *stubBilibiliQRCodeLogin) Poll(context.Context, string, string) (common.PollResult, error) {
+func (s *stubBilibiliQRCodeLogin) Poll(context.Context, string, string) (qrcode.PollResult, error) {
 	return s.pollResult, s.pollErr
 }
 
@@ -36,15 +35,15 @@ func TestBilibiliQRCodeLoginHandlerDoesNotReturnCookie(t *testing.T) {
 
 	expiresAt := time.Date(2026, 6, 8, 8, 3, 0, 0, time.UTC)
 	qrLogin := &stubBilibiliQRCodeLogin{
-		createResult: common.CreateResult{
+		createResult: qrcode.CreateResult{
 			LoginID:   "qr_fixture",
 			QRCodeURL: "https://passport.bilibili.com/scan?qrcode_key=fixture",
 			ExpiresAt: expiresAt,
-			State:     common.StatePendingScan,
+			State:     qrcode.StatePendingScan,
 		},
-		pollResult: common.PollResult{
+		pollResult: qrcode.PollResult{
 			LoginID:   "qr_fixture",
-			State:     common.StateSucceeded,
+			State:     qrcode.StateSucceeded,
 			ExpiresAt: expiresAt,
 			Cookie:    "SESSDATA=fixture; bili_jct=fixture;",
 			Account: thirdparty.AccountProfile{

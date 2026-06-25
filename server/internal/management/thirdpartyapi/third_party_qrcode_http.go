@@ -2,12 +2,12 @@ package thirdpartyapi
 
 import (
 	"errors"
+	"github.com/RayleaBot/RayleaBot/server/internal/integrations/qrcode"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/httpapi"
-	"github.com/RayleaBot/RayleaBot/server/internal/integrations/common"
 	"github.com/RayleaBot/RayleaBot/server/internal/integrations/thirdparty"
 )
 
@@ -57,7 +57,7 @@ type thirdPartyQRCodeLoginPollResponse struct {
 	Account   *thirdPartyAccountSummary `json:"account"`
 }
 
-func thirdPartyQRCodeLoginCreateResponseFrom(result common.CreateResult) thirdPartyQRCodeLoginCreateResponse {
+func thirdPartyQRCodeLoginCreateResponseFrom(result qrcode.CreateResult) thirdPartyQRCodeLoginCreateResponse {
 	return thirdPartyQRCodeLoginCreateResponse{
 		Platform:  result.Platform,
 		LoginID:   result.LoginID,
@@ -67,7 +67,7 @@ func thirdPartyQRCodeLoginCreateResponseFrom(result common.CreateResult) thirdPa
 	}
 }
 
-func thirdPartyQRCodeLoginPollResponseFrom(result common.PollResult) thirdPartyQRCodeLoginPollResponse {
+func thirdPartyQRCodeLoginPollResponseFrom(result qrcode.PollResult) thirdPartyQRCodeLoginPollResponse {
 	var account *thirdPartyAccountSummary
 	if result.SavedAccount != nil {
 		summary := accountSummary(*result.SavedAccount)
@@ -83,7 +83,7 @@ func thirdPartyQRCodeLoginPollResponseFrom(result common.PollResult) thirdPartyQ
 }
 
 func writeThirdPartyQRCodeLoginError(w http.ResponseWriter, r *http.Request, err error) {
-	if errors.Is(err, thirdparty.ErrInvalidAccount) || errors.Is(err, common.ErrUnsupportedPlatform) || errors.Is(err, common.ErrLoginSessionNotFound) {
+	if errors.Is(err, thirdparty.ErrInvalidAccount) || errors.Is(err, qrcode.ErrUnsupportedPlatform) || errors.Is(err, qrcode.ErrLoginSessionNotFound) {
 		httpapi.WriteError(w, r, http.StatusBadRequest, codeInvalidRequest, "三方扫码登录参数不正确", "errors.platform.invalid_request", nil)
 		return
 	}
@@ -98,7 +98,7 @@ func writeThirdPartyQRCodeLoginError(w http.ResponseWriter, r *http.Request, err
 }
 
 func thirdPartyQRCodeLoginErrorReason(err error) string {
-	if errors.Is(err, common.ErrLoginCredentialMissing) {
+	if errors.Is(err, qrcode.ErrLoginCredentialMissing) {
 		return "credential_missing"
 	}
 	return "upstream_failed"

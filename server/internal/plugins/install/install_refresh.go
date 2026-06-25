@@ -7,7 +7,10 @@ import (
 	plugindiscovery "github.com/RayleaBot/RayleaBot/server/internal/plugins/discovery"
 )
 
-func (s *InstallService) refreshCatalog() error {
+func (s *InstallService) refreshCatalog(ctx context.Context) error {
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	snapshots, _, err := plugindiscovery.Discover(plugindiscovery.DiscoverOptions{
 		Validator: s.validator,
 		Roots:     s.discoveryRoots,
@@ -19,14 +22,14 @@ func (s *InstallService) refreshCatalog() error {
 	}
 
 	if packageLoader, ok := s.repository.(plugins.PackageMetadataLoader); ok {
-		packageMetadata, err := packageLoader.LoadAllPackageMetadata(context.Background())
+		packageMetadata, err := packageLoader.LoadAllPackageMetadata(ctx)
 		if err != nil {
 			return installError(codePluginInstallFailed, "读取插件安装元数据失败", "读取插件安装元数据失败")
 		}
 		snapshots = plugins.ApplyPackageMetadata(snapshots, packageMetadata)
 	}
 	if s.repository != nil {
-		states, err := s.repository.LoadDesiredStates(context.Background())
+		states, err := s.repository.LoadDesiredStates(ctx)
 		if err != nil {
 			return installError(codePluginInstallFailed, "读取插件持久化状态失败", "读取插件持久化状态失败")
 		}

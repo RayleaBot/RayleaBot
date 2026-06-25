@@ -330,7 +330,7 @@ func TestThirdPartyAccountAndBilibiliSourceHandlers(t *testing.T) {
 	}
 
 	cookie := "SESSDATA=fixture; bili_jct=fixture;"
-	upsertResp, upsertPayload := doRequest(http.MethodPut, "/api/third-party/accounts/bilibili/primary", `{"label":"主账号","enabled":true,"cookie":"`+cookie+`"}`)
+	upsertResp, upsertPayload := doRequest(http.MethodPut, "/api/third-party/accounts/bilibili/primary", `{"label":"主账号","enabled":true,"cookie":"`+cookie+`","proxy_url":"http://127.0.0.1:8080","proxy_enabled":true}`)
 	defer upsertResp.Body.Close()
 	if upsertResp.StatusCode != http.StatusOK {
 		t.Fatalf("unexpected third-party account upsert status: got %d want 200 body=%s", upsertResp.StatusCode, string(upsertPayload))
@@ -345,6 +345,9 @@ func TestThirdPartyAccountAndBilibiliSourceHandlers(t *testing.T) {
 	}
 	if account["platform"] != "bilibili" || account["account_id"] != "primary" || account["label"] != "主账号" || account["enabled"] != true || account["configured"] != true {
 		t.Fatalf("unexpected third-party account summary: %#v", account)
+	}
+	if account["proxy_url"] != "http://127.0.0.1:8080" || account["proxy_enabled"] != true {
+		t.Fatalf("unexpected third-party account proxy config: %#v", account)
 	}
 	profile, ok := account["profile"].(map[string]any)
 	if !ok || profile["uid"] != "123456" || profile["nickname"] != "测试账号昵称" || profile["avatar_url"] != "https://i0.hdslb.com/bfs/face/test-account.jpg" {
@@ -383,9 +386,31 @@ func TestThirdPartyAccountAndBilibiliSourceHandlers(t *testing.T) {
 	if listAccount["platform"] != "bilibili" || listAccount["account_id"] != "primary" || listAccount["configured"] != true {
 		t.Fatalf("unexpected third-party account list item: %#v", listAccount)
 	}
+	if listAccount["proxy_url"] != "http://127.0.0.1:8080" || listAccount["proxy_enabled"] != true {
+		t.Fatalf("unexpected third-party account list proxy config: %#v", listAccount)
+	}
 	listProfile, ok := listAccount["profile"].(map[string]any)
 	if !ok || listProfile["nickname"] != "测试账号昵称" || listProfile["uid"] != "123456" {
 		t.Fatalf("unexpected third-party account list profile: %#v", listAccount["profile"])
+	}
+
+	invalidProxyResp, invalidProxyPayload := doRequest(http.MethodPut, "/api/third-party/accounts/bilibili/badproxy", `{"label":"代理错误","enabled":true,"proxy_url":"","proxy_enabled":true}`)
+	defer invalidProxyResp.Body.Close()
+	if invalidProxyResp.StatusCode != http.StatusBadRequest {
+		t.Fatalf("unexpected invalid proxy account upsert status: got %d want 400 body=%s", invalidProxyResp.StatusCode, string(invalidProxyPayload))
+	}
+	invalidProxyBody := decodeBody(t, invalidProxyPayload)
+	invalidProxyError, ok := invalidProxyBody["error"].(map[string]any)
+	if !ok || invalidProxyError["code"] != "platform.invalid_request" {
+		t.Fatalf("unexpected invalid proxy error body: %#v", invalidProxyBody)
+	}
+	invalidProxySchemeResp, invalidProxySchemePayload := doRequest(http.MethodPut, "/api/third-party/accounts/bilibili/badproxyscheme", `{"label":"代理错误","enabled":true,"proxy_url":"ftp://user:secret@example.invalid:21","proxy_enabled":true}`)
+	defer invalidProxySchemeResp.Body.Close()
+	if invalidProxySchemeResp.StatusCode != http.StatusBadRequest {
+		t.Fatalf("unexpected invalid proxy scheme upsert status: got %d want 400 body=%s", invalidProxySchemeResp.StatusCode, string(invalidProxySchemePayload))
+	}
+	if strings.Contains(string(invalidProxySchemePayload), "user:secret") || strings.Contains(string(invalidProxySchemePayload), "example.invalid") {
+		t.Fatalf("invalid proxy error leaked proxy URL: %s", string(invalidProxySchemePayload))
 	}
 
 	statusResp, statusPayload := doRequest(http.MethodGet, "/api/bilibili/source/status", "")
@@ -412,6 +437,9 @@ func TestThirdPartyAccountAndBilibiliSourceHandlers(t *testing.T) {
 	statusAccount := statusAccounts[0].(map[string]any)
 	if statusAccount["platform"] != "bilibili" || statusAccount["configured"] != true {
 		t.Fatalf("unexpected bilibili source account summary: %#v", statusAccount)
+	}
+	if statusAccount["proxy_url"] != "http://127.0.0.1:8080" || statusAccount["proxy_enabled"] != true {
+		t.Fatalf("unexpected bilibili source account proxy config: %#v", statusAccount)
 	}
 
 	monitorsResp, monitorsPayload := doRequest(http.MethodGet, "/api/third-party/monitors?platform=bilibili", "")

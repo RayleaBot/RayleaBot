@@ -2,12 +2,11 @@ package douyin
 
 import (
 	"context"
+	"github.com/RayleaBot/RayleaBot/server/internal/integrations/thirdparty"
 	"strings"
 
 	"github.com/chromedp/cdproto/network"
 	"github.com/chromedp/chromedp"
-
-	"github.com/RayleaBot/RayleaBot/server/internal/integrations/common"
 )
 
 func newDouyinBrowserContext(browserPath string, browserArgs []string) (context.Context, context.CancelFunc) {
@@ -79,7 +78,7 @@ func douyinNetworkCookies(cookies []*network.Cookie) map[string]string {
 		if name == "" || value == "" {
 			continue
 		}
-		if common.HostMatches(domain, "douyin.com", "amemv.com", "bytedance.com") {
+		if thirdparty.HostMatches(domain, "douyin.com", "amemv.com", "bytedance.com") {
 			values[name] = value
 		}
 	}

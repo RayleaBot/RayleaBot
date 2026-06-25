@@ -67,7 +67,7 @@ func (s *InstallService) Cancel(taskID string) bool {
 	return true
 }
 
-func (s *InstallService) SetAfterSuccess(fn func(string) error) {
+func (s *InstallService) SetAfterSuccess(fn func(context.Context, string) error) {
 	if s == nil {
 		return
 	}

@@ -16,7 +16,7 @@ func (c *Controller) reloadPluginAsync(pluginID, botID string, taskID string) {
 	botID = strings.TrimSpace(botID)
 	c.startReloadTask(taskID)
 
-	ctx, cancel := context.WithTimeout(context.Background(), runtimeInitTimeout(c.config().Runtime))
+	ctx, cancel := c.lifecycleTimeoutContext(runtimeInitTimeout(c.config().Runtime))
 	defer cancel()
 
 	snapshot, ok := c.plugins.Get(pluginID)

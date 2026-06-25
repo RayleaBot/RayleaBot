@@ -58,7 +58,7 @@ type InstallService struct {
 	cancels map[string]context.CancelFunc
 	deps    installerDeps
 
-	afterSuccess            func(string) error
+	afterSuccess            func(context.Context, string) error
 	validateRenderTemplates func(plugins.Snapshot) error
 	wg                      sync.WaitGroup
 }

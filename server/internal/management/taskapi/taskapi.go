@@ -23,6 +23,12 @@ type Handlers struct {
 	pluginInstaller canceller
 }
 
+type ModuleDeps struct {
+	Tasks           registryService
+	TaskExecutor    canceller
+	PluginInstaller canceller
+}
+
 type registryService interface {
 	List() []tasks.Snapshot
 	Get(string) (tasks.Snapshot, bool)
@@ -39,6 +45,10 @@ func NewHandlers(taskRegistry registryService, taskExecutor canceller, pluginIns
 		taskExecutor:    taskExecutor,
 		pluginInstaller: pluginInstaller,
 	}
+}
+
+func NewModule(deps ModuleDeps) *Handlers {
+	return NewHandlers(deps.Tasks, deps.TaskExecutor, deps.PluginInstaller)
 }
 
 func (h *Handlers) SetPluginInstaller(installer canceller) {

@@ -9,14 +9,23 @@ import (
 )
 
 type architectureBudget struct {
-	Metrics                              map[string]metricBudget `json:"metrics"`
-	PackageInternalFanOut                map[string]metricBudget `json:"package_internal_fan_out"`
-	SingleFileProductionPackageAllowlist map[string]string       `json:"single_file_production_package_allowlist"`
+	Metrics                              map[string]metricBudget  `json:"metrics"`
+	GenericFilenames                     map[string]metricBudget  `json:"generic_filenames"`
+	PackageInternalFanOut                map[string]metricBudget  `json:"package_internal_fan_out"`
+	SingleFileProductionPackageAllowlist map[string]allowlistItem `json:"single_file_production_package_allowlist"`
 }
 
 type metricBudget struct {
 	Current int `json:"current"`
 	Max     int `json:"max"`
+}
+
+type allowlistItem struct {
+	Decision     string `json:"decision"`
+	Reason       string `json:"reason"`
+	Owner        string `json:"owner"`
+	TargetAction string `json:"target_action"`
+	DueStage     string `json:"due_stage"`
 }
 
 func TestCompositionRootSubtreeFanOutDoesNotExceedBudget(t *testing.T) {
@@ -90,14 +99,50 @@ func TestSingleFileProductionPackagesAreAllowlisted(t *testing.T) {
 		if count != 1 {
 			continue
 		}
-		reason := strings.TrimSpace(budget.SingleFileProductionPackageAllowlist[relDir])
-		if reason == "" {
-			t.Errorf("single-file production package %s is not allowlisted with a reason", relDir)
+		item, ok := budget.SingleFileProductionPackageAllowlist[relDir]
+		if !ok {
+			t.Errorf("single-file production package %s is not allowlisted", relDir)
+			continue
+		}
+		if item.Decision != "merge" && item.Decision != "expand" && item.Decision != "keep" {
+			t.Errorf("single-file production package %s has invalid allowlist decision %q", relDir, item.Decision)
+		}
+		for field, value := range map[string]string{
+			"reason":        item.Reason,
+			"owner":         item.Owner,
+			"target_action": item.TargetAction,
+			"due_stage":     item.DueStage,
+		} {
+			if strings.TrimSpace(value) == "" {
+				t.Errorf("single-file production package %s allowlist missing %s", relDir, field)
+			}
 		}
 	}
 	for relDir := range budget.SingleFileProductionPackageAllowlist {
 		if packages[relDir] != 1 {
 			t.Errorf("single-file package allowlist references %s, but current production file count is %d", relDir, packages[relDir])
+		}
+	}
+}
+
+func TestGenericProductionFilenameCountsDoNotExceedBudget(t *testing.T) {
+	serverRoot := testServerRoot(t)
+	budget := loadArchitectureBudget(t, serverRoot)
+	counts := productionGenericFilenameCounts(t, serverRoot)
+
+	for name, count := range counts {
+		metric, ok := budget.GenericFilenames[name]
+		if !ok {
+			t.Errorf("generic filename %s is missing from architecture budget", name)
+			continue
+		}
+		if count > metric.Max {
+			t.Errorf("generic filename %s = %d, budget is %d", name, count, metric.Max)
+		}
+	}
+	for name := range budget.GenericFilenames {
+		if !trackedGenericFilename(name) {
+			t.Errorf("architecture budget tracks unsupported generic filename %s", name)
 		}
 	}
 }
@@ -185,6 +230,31 @@ func productionPackageFileNames(t *testing.T, serverRoot, relDir string) []strin
 		names = append(names, entry.Name())
 	}
 	return names
+}
+
+func productionGenericFilenameCounts(t *testing.T, serverRoot string) map[string]int {
+	t.Helper()
+	internalRoot := filepath.Join(serverRoot, "internal")
+	counts := map[string]int{}
+	walkGoFiles(t, internalRoot, func(path string) {
+		if strings.HasSuffix(path, "_test.go") || isGeneratedGoFile(path) {
+			return
+		}
+		name := filepath.Base(path)
+		if trackedGenericFilename(name) {
+			counts[name]++
+		}
+	})
+	return counts
+}
+
+func trackedGenericFilename(name string) bool {
+	switch name {
+	case "build.go", "config.go", "errors.go", "http.go", "identity.go", "login.go", "manifest.go", "module.go", "paths.go", "registry.go", "repository.go", "resolve.go", "routes.go", "service.go", "types.go", "validator.go":
+		return true
+	default:
+		return false
+	}
 }
 
 func productionPackageInternalImports(t *testing.T, serverRoot string) map[string]map[string]struct{} {

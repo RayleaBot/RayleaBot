@@ -4,15 +4,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/RayleaBot/RayleaBot/server/internal/integrations/thirdparty"
+	"github.com/chromedp/cdproto/runtime"
+	"github.com/chromedp/chromedp"
 	"io"
 	"net/http"
 	"strings"
 	"time"
-
-	"github.com/RayleaBot/RayleaBot/server/internal/integrations/common"
-	"github.com/RayleaBot/RayleaBot/server/internal/integrations/thirdparty"
-	"github.com/chromedp/cdproto/runtime"
-	"github.com/chromedp/chromedp"
 )
 
 // FetchAccountProfile retrieves Douyin account profile from cookies and API.
@@ -35,17 +33,17 @@ func FetchAccountProfileWithBrowser(ctx context.Context, client *http.Client, co
 	// Try the web API for richer profile data.
 	apiProfile, apiErr := fetchDouyinWebProfile(ctx, client, cookies)
 	if apiErr == nil {
-		profile = common.MergeAccountProfiles(profile, apiProfile)
+		profile = thirdparty.MergeAccountProfiles(profile, apiProfile)
 	}
 
 	// If HTTP API failed and we have a browser context, try the browser.
 	if apiErr != nil && browserCtx != nil {
 		if browserProfile, err := fetchProfileFromBrowser(ctx, browserCtx); err == nil {
-			profile = common.MergeAccountProfiles(profile, browserProfile)
+			profile = thirdparty.MergeAccountProfiles(profile, browserProfile)
 		}
 	}
 
-	if !common.AccountProfileEmpty(profile) {
+	if !thirdparty.AccountProfileEmpty(profile) {
 		return profile, nil
 	}
 
@@ -151,7 +149,7 @@ func fetchDouyinWebProfile(ctx context.Context, client *http.Client, cookies map
 	if err != nil {
 		return thirdparty.AccountProfile{}, err
 	}
-	common.ApplyHeaders(request, headers, cookies)
+	thirdparty.ApplyHeaders(request, headers, cookies)
 	resp, err := client.Do(request)
 	if err != nil {
 		return thirdparty.AccountProfile{}, err
@@ -196,7 +194,7 @@ func fetchDouyinWebProfile(ctx context.Context, client *http.Client, cookies map
 	} else if len(response.User.AvatarThumb.URLList) > 0 {
 		profile.AvatarURL = strings.TrimSpace(response.User.AvatarThumb.URLList[0])
 	}
-	if common.AccountProfileEmpty(profile) {
+	if thirdparty.AccountProfileEmpty(profile) {
 		return thirdparty.AccountProfile{}, fmt.Errorf("douyin profile empty")
 	}
 	return profile, nil

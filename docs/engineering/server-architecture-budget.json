@@ -1,109 +1,398 @@
 {
-  "version": 1,
+  "version": 2,
   "metrics": {
     "production_package_count": {
-      "current": 141,
-      "max": 141,
-      "first_stage_target": 145,
-      "second_stage_target": 135,
+      "current": 133,
+      "max": 133,
+      "next_target": 115,
       "long_term_target": 115
     },
     "single_file_production_package_count": {
-      "current": 37,
-      "max": 37,
-      "first_stage_target": 40,
-      "second_stage_target": 32,
+      "current": 27,
+      "max": 27,
+      "next_target": 20,
       "long_term_target": 20
     },
     "two_file_production_package_count": {
       "current": 15,
       "max": 15,
-      "first_stage_target": 14,
-      "second_stage_target": 10,
+      "next_target": 12,
       "long_term_target": 8
     },
     "internal_app_external_internal_import_union": {
-      "current": 56,
-      "max": 56,
-      "first_stage_target": 65,
-      "second_stage_target": 55,
+      "current": 68,
+      "max": 68,
+      "next_target": 50,
       "long_term_target": 45
     },
     "module_go_single_file_package_count": {
-      "current": 4,
-      "max": 4,
-      "first_stage_target": 3,
-      "second_stage_target": 2,
+      "current": 2,
+      "max": 2,
+      "next_target": 1,
       "long_term_target": 0
     },
     "server_directory_count": {
-      "current": 163,
-      "max": 163,
-      "first_stage_target": 165,
-      "second_stage_target": 155,
+      "current": 155,
+      "max": 155,
+      "next_target": 130,
       "long_term_target": 130
     }
   },
+  "generic_filenames": {
+    "build.go": {
+      "current": 4,
+      "max": 4,
+      "next_target": 3,
+      "long_term_target": 2
+    },
+    "config.go": {
+      "current": 5,
+      "max": 5,
+      "next_target": 4,
+      "long_term_target": 2
+    },
+    "errors.go": {
+      "current": 5,
+      "max": 5,
+      "next_target": 4,
+      "long_term_target": 2
+    },
+    "http.go": {
+      "current": 1,
+      "max": 1,
+      "next_target": 0,
+      "long_term_target": 0
+    },
+    "identity.go": {
+      "current": 4,
+      "max": 4,
+      "next_target": 3,
+      "long_term_target": 2
+    },
+    "login.go": {
+      "current": 2,
+      "max": 2,
+      "next_target": 1,
+      "long_term_target": 1
+    },
+    "manifest.go": {
+      "current": 4,
+      "max": 4,
+      "next_target": 3,
+      "long_term_target": 2
+    },
+    "module.go": {
+      "current": 5,
+      "max": 5,
+      "next_target": 4,
+      "long_term_target": 2
+    },
+    "paths.go": {
+      "current": 4,
+      "max": 4,
+      "next_target": 3,
+      "long_term_target": 1
+    },
+    "registry.go": {
+      "current": 1,
+      "max": 1,
+      "next_target": 0,
+      "long_term_target": 0
+    },
+    "repository.go": {
+      "current": 9,
+      "max": 9,
+      "next_target": 7,
+      "long_term_target": 4
+    },
+    "resolve.go": {
+      "current": 2,
+      "max": 2,
+      "next_target": 1,
+      "long_term_target": 1
+    },
+    "validator.go": {
+      "current": 1,
+      "max": 1,
+      "next_target": 0,
+      "long_term_target": 0
+    }
+  },
   "package_internal_fan_out": {
-    "internal/app/httpwire/routemodule": {
-      "current": 11,
-      "max": 11,
-      "first_stage_target": 25,
-      "second_stage_target": 18,
+    "internal/app/servicegraph": {
+      "current": 21,
+      "max": 21,
+      "next_target": 19,
       "long_term_target": 12
+    },
+    "internal/app/httpwire": {
+      "current": 5,
+      "max": 5,
+      "next_target": 5,
+      "long_term_target": 4
+    },
+    "internal/app/httpwire/routemodule": {
+      "current": 27,
+      "max": 27,
+      "next_target": 18,
+      "long_term_target": 12
+    },
+    "internal/management/router": {
+      "current": 2,
+      "max": 2,
+      "next_target": 2,
+      "long_term_target": 2
     },
     "internal/app/servicegraph/pluginmodule": {
       "current": 17,
       "max": 17,
-      "first_stage_target": 18,
-      "second_stage_target": 14,
+      "next_target": 14,
       "long_term_target": 10
     },
     "internal/app/servicegraph/integrationmodule": {
-      "current": 13,
-      "max": 13,
-      "first_stage_target": 16,
-      "second_stage_target": 12,
+      "current": 12,
+      "max": 12,
+      "next_target": 8,
+      "long_term_target": 8
+    },
+    "internal/integrations/bilibili/source": {
+      "current": 12,
+      "max": 12,
+      "next_target": 8,
+      "long_term_target": 8
+    },
+    "internal/plugins/actions": {
+      "current": 14,
+      "max": 14,
+      "next_target": 12,
+      "long_term_target": 10
+    },
+    "internal/plugins/lifecycle": {
+      "current": 12,
+      "max": 12,
+      "next_target": 10,
       "long_term_target": 8
     }
   },
+  "package_production_files": {
+    "internal/integrations/bilibili/source": {
+      "current": 13,
+      "max": 13,
+      "next_target": 12,
+      "long_term_target": 12
+    },
+    "internal/plugins/lifecycle": {
+      "current": 18,
+      "max": 18,
+      "next_target": 16,
+      "long_term_target": 12
+    },
+    "internal/render/service": {
+      "current": 19,
+      "max": 19,
+      "next_target": 16,
+      "long_term_target": 12
+    }
+  },
+  "warning_tasks": {
+    "internal/plugins/actions fan-out warning": {
+      "metric": "package_internal_fan_out.internal/plugins/actions",
+      "current": 14,
+      "warning": 12,
+      "target": 12,
+      "owner": "server",
+      "due_stage": "next"
+    }
+  },
   "single_file_production_package_allowlist": {
-    "internal/app/httpwire": "composition entrypoint retained until route modules move behind management modules",
-    "internal/app/httpwire/configmodule": "composition module retained until config handler construction moves behind management module registration",
-    "internal/app/httpwire/routemodule": "composition module retained until route registration moves behind domain modules",
-    "internal/app/platform": "composition state holder retained until platform bootstrap is flattened",
-    "internal/app/servicegraph/integrationmodule": "composition module retained until integrations expose a self-contained module",
-    "internal/app/servicegraph/pluginmodule": "composition module retained until plugins expose a self-contained module",
-    "internal/bot/adapter/onebot11/shell/backoff": "small retry policy retained as adapter shell detail",
-    "internal/command": "command parser retained as shared domain utility",
-    "internal/console": "console stream retained as shared runtime service",
-    "internal/health": "health model retained as shared server readiness surface",
-    "internal/httpapi": "HTTP envelope and request context retained as shared management utility",
-    "internal/integrations/bilibili/accountusage": "Bilibili account selection retained until integration provider boundaries are consolidated",
-    "internal/integrations/bilibili/credential": "Bilibili credential injection retained until HTTP action integration is consolidated",
-    "internal/integrations/bilibili/diagnostics": "Bilibili diagnostics retained until health aggregation owns integration health",
-    "internal/integrations/bilibili/media": "Bilibili media proxy retained until media providers are grouped",
-    "internal/integrations/bilibili/proxy": "Bilibili proxy helper retained until media providers are grouped",
-    "internal/integrations/bilibili/source/state": "Bilibili source repository retained until source storage packages are consolidated",
-    "internal/integrations/bilibili/subscriptions": "Bilibili subscription projection retained until provider configuration is consolidated",
-    "internal/integrations/bilibili/values": "Bilibili value helpers retained until provider packages are consolidated",
-    "internal/management/authhttp": "auth middleware retained as management HTTP boundary",
-    "internal/management/ui": "management UI static handler retained as web surface boundary",
-    "internal/plugins/actions/configaction": "single action adapter retained until plugin actions are flattened",
-    "internal/plugins/actions/governanceaction": "single action adapter retained until plugin actions are flattened",
-    "internal/plugins/actions/logaction": "single action adapter retained until plugin actions are flattened",
-    "internal/plugins/actions/renderaction": "single action adapter retained until plugin actions are flattened",
-    "internal/plugins/actions/scheduleraction": "single action adapter retained until plugin actions are flattened",
-    "internal/plugins/actions/secretaction": "single action adapter retained until plugin actions are flattened",
-    "internal/plugins/actions/webhookaction": "single action adapter retained until plugin actions are flattened",
-    "internal/plugins/capabilityview": "capability projection retained until plugin read models are consolidated",
-    "internal/plugins/runtime/registry": "runtime registry retained as shared runtime boundary",
-    "internal/protocol/onebot": "OneBot protocol constants retained as adapter contract helper",
-    "internal/render/engine": "render engine worker retained until render package split is reviewed",
-    "internal/runtimepaths": "runtime path helper retained as shared platform utility",
-    "internal/schema": "schema validator retained as shared contract utility",
-    "internal/system/model": "system model retained until health and status models are consolidated",
-    "internal/testapp": "test app harness retained for integration tests",
-    "internal/textsafe": "text safety helper retained until redaction utilities are consolidated"
+    "internal/app/httpwire": {
+      "decision": "merge",
+      "reason": "Composition entrypoint retained until route modules move behind management modules.",
+      "owner": "server",
+      "target_action": "Merge into routemodule after the route registration surface is stable.",
+      "due_stage": "next"
+    },
+    "internal/app/httpwire/configmodule": {
+      "decision": "merge",
+      "reason": "Composition module retained until config handler construction moves behind management module registration.",
+      "owner": "server",
+      "target_action": "Fold into routemodule or management config registration.",
+      "due_stage": "next"
+    },
+    "internal/app/platform": {
+      "decision": "expand",
+      "reason": "Composition state holder remains separate while platform bootstrap still owns multiple long-lived services.",
+      "owner": "server",
+      "target_action": "Split platform state and lifecycle helpers when bootstrap flattening resumes.",
+      "due_stage": "next"
+    },
+    "internal/app/servicegraph/integrationmodule": {
+      "decision": "expand",
+      "reason": "Integration composition needs a stable module boundary before merging would reduce clarity.",
+      "owner": "server",
+      "target_action": "Move integration-specific construction behind an integration module surface.",
+      "due_stage": "next"
+    },
+    "internal/app/servicegraph/pluginmodule": {
+      "decision": "expand",
+      "reason": "Plugin composition still coordinates catalog, runtime, lifecycle, actions, and install services.",
+      "owner": "server",
+      "target_action": "Split plugin runtime wiring from install/catalog wiring.",
+      "due_stage": "next"
+    },
+    "internal/bot/adapter/onebot11/shell/backoff": {
+      "decision": "keep",
+      "reason": "Small retry policy is isolated adapter shell behavior.",
+      "owner": "server",
+      "target_action": "Review only if another adapter starts sharing the same retry policy.",
+      "due_stage": "next"
+    },
+    "internal/command": {
+      "decision": "keep",
+      "reason": "Command parser is a shared domain utility with stable callers.",
+      "owner": "server",
+      "target_action": "Review if command parsing grows plugin-specific behavior.",
+      "due_stage": "next"
+    },
+    "internal/console": {
+      "decision": "keep",
+      "reason": "Console stream is a shared runtime service boundary.",
+      "owner": "server",
+      "target_action": "Review when console persistence or filtering is added.",
+      "due_stage": "next"
+    },
+    "internal/health": {
+      "decision": "keep",
+      "reason": "Health model is the shared server readiness surface.",
+      "owner": "server",
+      "target_action": "Review with diagnostics model consolidation.",
+      "due_stage": "next"
+    },
+    "internal/httpapi": {
+      "decision": "keep",
+      "reason": "HTTP envelope and request context are shared management utilities.",
+      "owner": "server",
+      "target_action": "Review when management handler generation is evaluated.",
+      "due_stage": "next"
+    },
+    "internal/integrations/bilibili/credential": {
+      "decision": "merge",
+      "reason": "Bilibili credential injection remains separate until HTTP action integration is consolidated.",
+      "owner": "server",
+      "target_action": "Merge into Bilibili session or source credential flow.",
+      "due_stage": "next"
+    },
+    "internal/integrations/bilibili/diagnostics": {
+      "decision": "keep",
+      "reason": "Bilibili diagnostics is shared by source status and management projection.",
+      "owner": "server",
+      "target_action": "Review when health aggregation owns integration health models.",
+      "due_stage": "next"
+    },
+    "internal/integrations/bilibili/media": {
+      "decision": "merge",
+      "reason": "Bilibili media proxy remains separate until provider media handlers are grouped.",
+      "owner": "server",
+      "target_action": "Merge with provider media proxy boundary.",
+      "due_stage": "next"
+    },
+    "internal/integrations/bilibili/proxy": {
+      "decision": "merge",
+      "reason": "Bilibili proxy helper remains separate until media providers are grouped.",
+      "owner": "server",
+      "target_action": "Merge with provider HTTP/proxy helper boundary.",
+      "due_stage": "next"
+    },
+    "internal/integrations/bilibili/subscriptions": {
+      "decision": "merge",
+      "reason": "Bilibili subscription projection remains separate until provider configuration is consolidated.",
+      "owner": "server",
+      "target_action": "Merge into Bilibili plugin configuration boundary.",
+      "due_stage": "next"
+    },
+    "internal/integrations/bilibili/values": {
+      "decision": "merge",
+      "reason": "Bilibili value helpers remain separate until provider packages are consolidated.",
+      "owner": "server",
+      "target_action": "Merge into Bilibili domain values or source package.",
+      "due_stage": "next"
+    },
+    "internal/management/authhttp": {
+      "decision": "keep",
+      "reason": "Auth middleware is the management HTTP boundary.",
+      "owner": "server",
+      "target_action": "Review if auth middleware becomes generated or shared outside management HTTP.",
+      "due_stage": "next"
+    },
+    "internal/management/ui": {
+      "decision": "keep",
+      "reason": "Management UI static handler is a web surface boundary.",
+      "owner": "server",
+      "target_action": "Review if web asset serving moves outside server.",
+      "due_stage": "next"
+    },
+    "internal/plugins/capabilityview": {
+      "decision": "merge",
+      "reason": "Capability projection remains separate until plugin read models are consolidated.",
+      "owner": "server",
+      "target_action": "Merge into plugin view/read-model package.",
+      "due_stage": "next"
+    },
+    "internal/plugins/runtime/registry": {
+      "decision": "keep",
+      "reason": "Runtime registry is a shared runtime boundary.",
+      "owner": "server",
+      "target_action": "Review if registry gains lifecycle or persistence responsibilities.",
+      "due_stage": "next"
+    },
+    "internal/protocol/onebot": {
+      "decision": "keep",
+      "reason": "OneBot protocol constants are adapter contract helpers.",
+      "owner": "server",
+      "target_action": "Review when additional protocol constants appear.",
+      "due_stage": "next"
+    },
+    "internal/render/engine": {
+      "decision": "expand",
+      "reason": "Render worker remains isolated while render package split is still active.",
+      "owner": "server",
+      "target_action": "Split worker lifecycle and runner error handling if render concurrency grows.",
+      "due_stage": "next"
+    },
+    "internal/runtimepaths": {
+      "decision": "keep",
+      "reason": "Runtime path helper is a shared platform utility.",
+      "owner": "server",
+      "target_action": "Review if platform-specific path logic expands.",
+      "due_stage": "next"
+    },
+    "internal/schema": {
+      "decision": "keep",
+      "reason": "Schema validator is a shared contract utility.",
+      "owner": "server",
+      "target_action": "Review if contract validation moves to generated code.",
+      "due_stage": "next"
+    },
+    "internal/system/model": {
+      "decision": "keep",
+      "reason": "System model separates status and diagnostics DTOs from service orchestration.",
+      "owner": "server",
+      "target_action": "Review with health and status model consolidation.",
+      "due_stage": "next"
+    },
+    "internal/testapp": {
+      "decision": "keep",
+      "reason": "Test app harness is shared by integration tests.",
+      "owner": "server",
+      "target_action": "Review if integration tests move to package-local harnesses.",
+      "due_stage": "next"
+    },
+    "internal/textsafe": {
+      "decision": "merge",
+      "reason": "Text safety helper remains separate until redaction utilities are consolidated.",
+      "owner": "server",
+      "target_action": "Merge into redaction or logging safety utilities.",
+      "due_stage": "next"
+    }
   }
 }

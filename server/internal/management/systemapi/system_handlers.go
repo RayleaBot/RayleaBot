@@ -15,6 +15,7 @@ type SystemHandlers struct {
 
 type SystemService interface {
 	CurrentReadiness() health.ReadinessReport
+	DiagnosticsSnapshot(context.Context) systemmodel.DiagnosticsSnapshot
 	BuildDiagnosticsArchive(context.Context) ([]byte, error)
 	SubmitSystemBackupTask() (string, error)
 	ValidateRecoveryConfirmRequest([]string, string) *systemmodel.Error

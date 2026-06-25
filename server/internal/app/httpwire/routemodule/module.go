@@ -40,13 +40,11 @@ type State struct {
 	Handlers Handlers
 }
 
-type Handlers = managementrouter.Handlers
-
 type serverDeps struct {
-	runtime    configmodule.RuntimeState
-	renderer   *renderservice.Service
-	metrics    *metrics.Registry
-	management managementrouter.BuildDeps
+	runtime  configmodule.RuntimeState
+	renderer *renderservice.Service
+	metrics  *metrics.Registry
+	routes   managementRouteState
 }
 
 func Build(deps Deps) State {
@@ -81,45 +79,12 @@ func Build(deps Deps) State {
 		RefreshCommands: localaction.RefreshCommands(pluginState.Plugins, eventState.Dispatcher),
 	})
 
+	managementRoutes := buildManagementRoutes(deps, configService, pluginManagementUIHandler)
 	router, server, handlers := buildAppHTTPServer(serverDeps{
 		runtime:  runtimeState,
 		renderer: renderer,
 		metrics:  deps.Metrics,
-		management: managementrouter.BuildDeps{
-			RepoRoot:               runtimeState.RepoRoot(),
-			ConfigSource:           runtimeState,
-			ConfigService:          configService,
-			Auth:                   platformState.Auth,
-			LoginFailures:          platformState.LoginFailures,
-			System:                 services.System,
-			RequestShutdown:        deps.RequestShutdown,
-			Governance:             services.Governance,
-			Tasks:                  platformState.Tasks,
-			TaskExecutor:           platformState.TaskExecutor,
-			PluginCatalog:          pluginState.Plugins,
-			PluginInstaller:        pluginState.PluginInstaller,
-			PluginUninstaller:      pluginState.PluginUninstaller,
-			PluginRepository:       pluginState.PluginRepository,
-			PluginLifecycle:        services.PluginLifecycle,
-			Logs:                   services.Logs,
-			Renderer:               renderer,
-			Scheduler:              platformState.Scheduler,
-			Protocol:               services.Protocol,
-			ThirdParty:             services.ThirdParty,
-			ThirdPartyValidator:    deps.ServiceBuild.ThirdPartyAccountValidator,
-			ThirdPartyQRLogin:      services.ThirdPartyQRLogin,
-			ThirdPartyUserResolver: services.UserResolver,
-			BilibiliSource:         services.BilibiliSource,
-			BilibiliHTTPTransport:  deps.BilibiliHTTPTransport,
-			EventBridge:            eventState.Bridge,
-			ServiceStatus:          deps.ServiceBuild.Status,
-			GovernanceEvents:       services.GovernanceEvents,
-			BilibiliEvents:         services.BilibiliEvents,
-			Console:                platformState.Console,
-			PluginWebhooks:         services.PluginWebhooks,
-			PluginManagementUI:     pluginManagementUIHandler,
-			Metrics:                deps.Metrics,
-		},
+		routes:   managementRoutes,
 	})
 	return State{
 		Router:   router,
@@ -132,7 +97,8 @@ func buildAppHTTPServer(deps serverDeps) (http.Handler, *http.Server, Handlers) 
 	router := chi.NewRouter()
 	router.Use(httpapi.WithRequestContext(deps.runtime.RuntimeLogger(), httpapi.WithRequestObserver(metrics.NewHTTPObserver(deps.metrics))))
 
-	handlers := managementrouter.RegisterBuilt(router, deps.management)
+	managementrouter.Register(router, deps.routes.RouterDeps, deps.routes.RequireAuth)
+	handlers := deps.routes.Handlers
 
 	cfg := deps.runtime.CurrentConfig()
 	listenAddr := net.JoinHostPort(cfg.Server.Host, strconv.Itoa(cfg.Server.Port))

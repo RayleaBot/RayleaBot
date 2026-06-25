@@ -75,7 +75,7 @@ func managedRuntimeDoctorIssue(
 	warningSummary string,
 	metadataRemediation string,
 ) DoctorIssue {
-	inspection, err := deps.NewManager(repoRoot).Inspect(kind)
+	inspection, err := deps.NewDiagnostics(repoRoot).InspectRuntime(kind)
 	if err != nil {
 		var bootstrapErr *deps.BootstrapError
 		if errors.As(err, &bootstrapErr) {

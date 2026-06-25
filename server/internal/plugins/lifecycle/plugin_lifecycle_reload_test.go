@@ -62,7 +62,7 @@ func TestReloadRefreshesManifestCommandsAndCapabilityParameters(t *testing.T) {
 		newPluginWebhookRegistry(),
 	)
 	app.services.pluginLifecycle.refreshManifest = func(ctx context.Context, pluginID string) (plugins.Snapshot, error) {
-		return refreshPluginManifest(ctx, catalog, nil, pluginID, func() ([]plugins.Snapshot, error) {
+		return RefreshPluginManifest(ctx, catalog, nil, pluginID, func() ([]plugins.Snapshot, error) {
 			return []plugins.Snapshot{{
 				PluginID:             "raylea.subscription-hub",
 				Name:                 "Subscription Hub",
@@ -145,7 +145,7 @@ func TestReloadSyncsPluginRenderTemplates(t *testing.T) {
 		PackageRootPath:   pluginRoot,
 		RenderTemplates:   []plugins.RenderTemplate{{Path: "templates/" + templateID}},
 	}})
-	if err := renderer.SyncPluginTemplateDeclarations(context.Background(), lifecycleRenderTemplateDeclarations(catalog.List())); err != nil {
+	if err := renderer.SyncPluginTemplateDeclarations(context.Background(), testRenderTemplateDeclarations(catalog.List())); err != nil {
 		t.Fatalf("initial sync plugin render templates: %v", err)
 	}
 
@@ -183,7 +183,7 @@ func TestReloadSyncsPluginRenderTemplates(t *testing.T) {
 		newPluginWebhookRegistry(),
 	)
 	app.services.pluginLifecycle.syncRenderTemplates = func(ctx context.Context) error {
-		return renderer.SyncPluginTemplateDeclarations(ctx, lifecycleRenderTemplateDeclarations(catalog.List()))
+		return renderer.SyncPluginTemplateDeclarations(ctx, testRenderTemplateDeclarations(catalog.List()))
 	}
 
 	if _, err := app.services.pluginLifecycle.Reload(context.Background(), pluginID); err != nil {
@@ -203,6 +203,22 @@ func TestReloadSyncsPluginRenderTemplates(t *testing.T) {
 	if html := runner.lastHTML(); !strings.Contains(html, "<body>fresh 天气卡片</body>") {
 		t.Fatalf("render after reload html = %s, want updated template", html)
 	}
+}
+
+func testRenderTemplateDeclarations(snapshots []plugins.Snapshot) []renderservice.PluginTemplateDeclaration {
+	var declarations []renderservice.PluginTemplateDeclaration
+	for _, snapshot := range snapshots {
+		for _, declared := range snapshot.RenderTemplates {
+			declarations = append(declarations, renderservice.PluginTemplateDeclaration{
+				PluginID:          snapshot.PluginID,
+				Path:              declared.Path,
+				PackageRootPath:   snapshot.PackageRootPath,
+				Valid:             snapshot.Valid,
+				RegistrationState: snapshot.RegistrationState,
+			})
+		}
+	}
+	return declarations
 }
 
 func TestReloadReturnsTemplateSyncErrorBeforeStartingRuntime(t *testing.T) {
@@ -313,7 +329,7 @@ func TestRefreshPluginManifestReadsUpdatedManifestFile(t *testing.T) {
 	}
 
 	writeLifecyclePluginManifest(t, manifestPath, "/订阅b站推送 UID或昵称", "api.bilibili.com")
-	refreshed, err := refreshPluginManifest(context.Background(), catalog, nil, "raylea.subscription-hub", func() ([]plugins.Snapshot, error) {
+	refreshed, err := RefreshPluginManifest(context.Background(), catalog, nil, "raylea.subscription-hub", func() ([]plugins.Snapshot, error) {
 		snapshots, _, err := plugindiscovery.Discover(plugindiscovery.DiscoverOptions{
 			Validator: validator,
 			Roots: []plugindiscovery.ScanRoot{{

@@ -4,30 +4,29 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"github.com/RayleaBot/RayleaBot/server/internal/integrations/qrcode"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
 
-	"github.com/go-chi/chi/v5"
-
-	"github.com/RayleaBot/RayleaBot/server/internal/integrations/common"
 	"github.com/RayleaBot/RayleaBot/server/internal/integrations/thirdparty"
+	"github.com/go-chi/chi/v5"
 )
 
 type stubThirdPartyQRCodeLogin struct {
-	createResult common.CreateResult
+	createResult qrcode.CreateResult
 	createErr    error
-	pollResult   common.PollResult
+	pollResult   qrcode.PollResult
 	pollErr      error
 }
 
-func (s *stubThirdPartyQRCodeLogin) Create(context.Context, string) (common.CreateResult, error) {
+func (s *stubThirdPartyQRCodeLogin) Create(context.Context, string) (qrcode.CreateResult, error) {
 	return s.createResult, s.createErr
 }
 
-func (s *stubThirdPartyQRCodeLogin) Poll(context.Context, string, string) (common.PollResult, error) {
+func (s *stubThirdPartyQRCodeLogin) Poll(context.Context, string, string) (qrcode.PollResult, error) {
 	return s.pollResult, s.pollErr
 }
 
@@ -39,17 +38,17 @@ func TestThirdPartyQRCodeLoginHandlersCreateAndPoll(t *testing.T) {
 		t.Run(platform, func(t *testing.T) {
 			t.Parallel()
 			qrLogin := &stubThirdPartyQRCodeLogin{
-				createResult: common.CreateResult{
+				createResult: qrcode.CreateResult{
 					Platform:  platform,
 					LoginID:   platform + "_qr_fixture",
 					QRCodeURL: "https://example.test/" + platform,
 					ExpiresAt: expiresAt,
-					State:     common.StatePendingScan,
+					State:     qrcode.StatePendingScan,
 				},
-				pollResult: common.PollResult{
+				pollResult: qrcode.PollResult{
 					Platform:  platform,
 					LoginID:   platform + "_qr_fixture",
-					State:     common.StateSucceeded,
+					State:     qrcode.StateSucceeded,
 					ExpiresAt: expiresAt,
 					Cookie:    "CK=fixture;",
 					Account: thirdparty.AccountProfile{
@@ -86,7 +85,7 @@ func TestThirdPartyQRCodeLoginHandlersCreateAndPoll(t *testing.T) {
 			if err := json.Unmarshal(createRecorder.Body.Bytes(), &createResponse); err != nil {
 				t.Fatalf("decode create response: %v", err)
 			}
-			if createResponse.Platform != platform || createResponse.State != common.StatePendingScan || createResponse.QRCodeURL == "" {
+			if createResponse.Platform != platform || createResponse.State != qrcode.StatePendingScan || createResponse.QRCodeURL == "" {
 				t.Fatalf("unexpected create response: %#v", createResponse)
 			}
 
@@ -103,7 +102,7 @@ func TestThirdPartyQRCodeLoginHandlersCreateAndPoll(t *testing.T) {
 			if strings.Contains(pollRecorder.Body.String(), "CK=fixture") || strings.Contains(pollRecorder.Body.String(), "cookie") {
 				t.Fatalf("poll response leaked credential: %s", pollRecorder.Body.String())
 			}
-			if pollResponse.Platform != platform || pollResponse.State != common.StateSucceeded {
+			if pollResponse.Platform != platform || pollResponse.State != qrcode.StateSucceeded {
 				t.Fatalf("unexpected poll response: %#v", pollResponse)
 			}
 			if pollResponse.Account == nil || pollResponse.Account.AccountID != "123456" || pollResponse.Account.Profile == nil || pollResponse.Account.Profile.UID != "123456" {
@@ -116,7 +115,7 @@ func TestThirdPartyQRCodeLoginHandlersCreateAndPoll(t *testing.T) {
 func TestThirdPartyQRCodeLoginHandlerUnknownLoginID(t *testing.T) {
 	t.Parallel()
 
-	qrLogin := &stubThirdPartyQRCodeLogin{pollErr: common.ErrLoginSessionNotFound}
+	qrLogin := &stubThirdPartyQRCodeLogin{pollErr: qrcode.ErrLoginSessionNotFound}
 	handler := NewThirdPartyHandlers(nil, nil, qrLogin, nil, nil)
 	router := thirdPartyQRCodeLoginRouter(handler)
 	request := httptest.NewRequest(http.MethodGet, "/api/third-party/accounts/weibo/login/qrcode/missing", nil)

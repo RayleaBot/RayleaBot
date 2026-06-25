@@ -2,11 +2,9 @@ package source
 
 import (
 	"context"
-	"errors"
 	"time"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/integrations/thirdparty"
-	"github.com/RayleaBot/RayleaBot/server/internal/secrets"
 )
 
 func (s *Source) Start(ctx context.Context) {
@@ -66,10 +64,10 @@ func (s *Source) reconcile(ctx context.Context, subjectsRef *map[string]Subject,
 	*liveCookieRef = liveCookie
 	*dynamicAccountRef = dynamicAccount
 	*dynamicCookieRef = dynamicCookie
-	if liveErr != nil && !errors.Is(liveErr, secrets.ErrNotFound) {
+	if liveErr != nil && !s.accountUsage.IsCookieMissing(liveErr) {
 		s.setLiveError(liveErr)
 	}
-	if dynamicErr != nil && !errors.Is(dynamicErr, secrets.ErrNotFound) {
+	if dynamicErr != nil && !s.accountUsage.IsCookieMissing(dynamicErr) {
 		s.setDynamicError(dynamicErr)
 	}
 	if liveCookie != "" {

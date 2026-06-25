@@ -14,8 +14,12 @@ type Runnable interface {
 }
 
 func RunWithSignals(application Runnable) error {
-	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	ctx, stop := SignalContext()
 	defer stop()
 
 	return application.Run(ctx)
+}
+
+func SignalContext() (context.Context, context.CancelFunc) {
+	return signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 }

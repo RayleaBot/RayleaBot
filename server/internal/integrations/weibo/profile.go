@@ -4,14 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/RayleaBot/RayleaBot/server/internal/integrations/thirdparty"
 	"io"
 	"net/http"
 	"net/url"
 	"strings"
 	"time"
-
-	"github.com/RayleaBot/RayleaBot/server/internal/integrations/common"
-	"github.com/RayleaBot/RayleaBot/server/internal/integrations/thirdparty"
 )
 
 const (
@@ -25,23 +23,23 @@ func FetchAccountProfile(ctx context.Context, client *http.Client, cookies map[s
 	}
 	var profile thirdparty.AccountProfile
 	if configProfile, err := fetchWeiboMobileConfigProfile(ctx, client, cookies); err == nil {
-		profile = common.MergeAccountProfiles(profile, configProfile)
+		profile = thirdparty.MergeAccountProfiles(profile, configProfile)
 	}
 	// Always fetch side config too — it may contain the avatar URL even when
 	// the mobile config already provided UID and nickname.
 	if configProfile, err := fetchWeiboSideConfigProfile(ctx, client, cookies); err == nil {
-		profile = common.MergeAccountProfiles(profile, configProfile)
+		profile = thirdparty.MergeAccountProfiles(profile, configProfile)
 	}
 	if strings.TrimSpace(profile.UID) != "" {
 		// Visit m.weibo.cn first to obtain its domain-specific X-CSRF-TOKEN.
 		// Use FollowGet to manually track every redirect hop and preserve
 		// cookies set at intermediate redirects (e.g., passport.weibo.cn).
-		_ = common.FollowGet(ctx, client, "https://m.weibo.cn/", weiboProfileHeaders("https://m.weibo.cn/"), cookies)
+		_ = thirdparty.FollowGet(ctx, client, "https://m.weibo.cn/", weiboProfileHeaders("https://m.weibo.cn/"), cookies)
 		if detailProfile, err := fetchWeiboMobileDetailProfile(ctx, client, cookies, profile.UID); err == nil {
-			profile = common.MergeAccountProfiles(profile, detailProfile)
+			profile = thirdparty.MergeAccountProfiles(profile, detailProfile)
 		}
 		if detailProfile, err := fetchWeiboAjaxProfile(ctx, client, cookies, profile.UID); err == nil {
-			profile = common.MergeAccountProfiles(profile, detailProfile)
+			profile = thirdparty.MergeAccountProfiles(profile, detailProfile)
 		}
 	}
 	// If avatar is still empty, try fetching the mobile user page to extract
@@ -51,7 +49,7 @@ func FetchAccountProfile(ctx context.Context, client *http.Client, cookies map[s
 			profile.AvatarURL = avatar
 		}
 	}
-	if common.AccountProfileEmpty(profile) {
+	if thirdparty.AccountProfileEmpty(profile) {
 		return thirdparty.AccountProfile{}, fmt.Errorf("weibo profile unavailable")
 	}
 	return profile, nil
@@ -60,7 +58,7 @@ func FetchAccountProfile(ctx context.Context, client *http.Client, cookies map[s
 // fetchWeiboAvatarFromMobilePage fetches the user's mobile page and extracts
 // the avatar URL from Open Graph meta tags.
 func fetchWeiboAvatarFromMobilePage(ctx context.Context, client *http.Client, uid string, cookies map[string]string) string {
-	body, err := common.FetchPageBody(ctx, common.NewHTTPClientFollow(nil),
+	body, err := thirdparty.FetchPageBody(ctx, thirdparty.NewHTTPClientFollow(nil),
 		"https://m.weibo.cn/u/"+uid, weiboProfileHeaders("https://m.weibo.cn/"), cookies)
 	if err != nil {
 		return ""
@@ -80,7 +78,7 @@ func fetchWeiboAvatarFromMobilePage(ctx context.Context, client *http.Client, ui
 		rest := body[idx+len(pattern):]
 		if end := strings.IndexAny(rest, `"<>`); end > 0 {
 			candidate := rest[:end]
-			if parsed, err := url.Parse(candidate); err == nil && parsed.Scheme == "https" && common.HostMatches(parsed.Hostname(), "sinaimg.cn") {
+			if parsed, err := url.Parse(candidate); err == nil && parsed.Scheme == "https" && thirdparty.HostMatches(parsed.Hostname(), "sinaimg.cn") {
 				return candidate
 			}
 		}
@@ -142,7 +140,7 @@ func getWeiboJSON(ctx context.Context, client *http.Client, rawURL string, heade
 	if csrf := strings.TrimSpace(cookies["X-CSRF-TOKEN"]); csrf != "" {
 		headers["x-csrf-token"] = csrf
 	}
-	common.ApplyHeaders(request, headers, cookies)
+	thirdparty.ApplyHeaders(request, headers, cookies)
 	// Use a redirect-following client so 302 responses from Weibo APIs are
 	// handled transparently rather than treated as errors.
 	followClient := &http.Client{Transport: client.Transport, Timeout: 20 * time.Second}
@@ -151,7 +149,7 @@ func getWeiboJSON(ctx context.Context, client *http.Client, rawURL string, heade
 		return err
 	}
 	defer response.Body.Close()
-	common.MergeResponseCookies(cookies, response)
+	thirdparty.MergeResponseCookies(cookies, response)
 	body, err := io.ReadAll(io.LimitReader(response.Body, 4<<20))
 	if err != nil {
 		return err
@@ -194,29 +192,29 @@ func weiboProfileFromObject(object map[string]any) thirdparty.AccountProfile {
 		return thirdparty.AccountProfile{}
 	}
 	profile := thirdparty.AccountProfile{
-		UID:      common.FirstNonEmpty(common.JSONStringValue(object["uid"]), common.JSONStringValue(object["id"]), common.JSONStringValue(object["idstr"])),
-		Nickname: common.FirstNonEmpty(common.JSONStringValue(object["screen_name"]), common.JSONStringValue(object["nickname"]), common.JSONStringValue(object["name"])),
-		AvatarURL: common.FirstNonEmpty(
-			common.JSONStringValue(object["avatar_hd"]),
-			common.JSONStringValue(object["avatar_large"]),
-			common.JSONStringValue(object["profile_image_url"]),
-			common.JSONStringValue(object["avatar"]),
-			common.JSONStringValue(object["avatar_url"]),
-			common.JSONStringValue(object["headimgurl"]),
-			common.JSONStringValue(object["portrait"]),
-			common.JSONStringValue(object["image"]),
-			common.JSONStringValue(object["cover_image"]),
+		UID:      thirdparty.FirstNonEmpty(thirdparty.JSONStringValue(object["uid"]), thirdparty.JSONStringValue(object["id"]), thirdparty.JSONStringValue(object["idstr"])),
+		Nickname: thirdparty.FirstNonEmpty(thirdparty.JSONStringValue(object["screen_name"]), thirdparty.JSONStringValue(object["nickname"]), thirdparty.JSONStringValue(object["name"])),
+		AvatarURL: thirdparty.FirstNonEmpty(
+			thirdparty.JSONStringValue(object["avatar_hd"]),
+			thirdparty.JSONStringValue(object["avatar_large"]),
+			thirdparty.JSONStringValue(object["profile_image_url"]),
+			thirdparty.JSONStringValue(object["avatar"]),
+			thirdparty.JSONStringValue(object["avatar_url"]),
+			thirdparty.JSONStringValue(object["headimgurl"]),
+			thirdparty.JSONStringValue(object["portrait"]),
+			thirdparty.JSONStringValue(object["image"]),
+			thirdparty.JSONStringValue(object["cover_image"]),
 		),
 	}
 	for _, key := range []string{"user", "userInfo", "profile", "cardList", "card_group", "cards", "tabInfo", "newCards"} {
 		if nested, ok := object[key].(map[string]any); ok {
-			profile = common.MergeAccountProfiles(profile, weiboProfileFromObject(nested))
+			profile = thirdparty.MergeAccountProfiles(profile, weiboProfileFromObject(nested))
 		}
 		// Iterate all array elements, not just the first one.
 		if arr, ok := object[key].([]any); ok {
 			for _, item := range arr {
 				if nested, ok := item.(map[string]any); ok {
-					profile = common.MergeAccountProfiles(profile, weiboProfileFromObject(nested))
+					profile = thirdparty.MergeAccountProfiles(profile, weiboProfileFromObject(nested))
 				}
 			}
 		}

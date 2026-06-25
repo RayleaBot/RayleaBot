@@ -22,6 +22,10 @@ func RegisterProtectedRoutes(router chi.Router, deps RouteDeps) {
 	deps.RegisterProtectedRoutes(router)
 }
 
+func NewModule(deps RouteDeps) RouteDeps {
+	return deps
+}
+
 func (deps RouteDeps) RegisterProtectedRoutes(router chi.Router) {
 	RegisterPluginRoutes(
 		router,

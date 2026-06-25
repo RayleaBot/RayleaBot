@@ -9,10 +9,10 @@ import (
 	pluginmanifest "github.com/RayleaBot/RayleaBot/server/internal/plugins/manifest"
 )
 
-func refreshPluginManifest(
+func RefreshPluginManifest(
 	ctx context.Context,
 	catalog *plugincatalog.Catalog,
-	pluginConfig pluginConfigReader,
+	pluginConfig PluginConfigReader,
 	pluginID string,
 	discover func() ([]plugins.Snapshot, error),
 ) (plugins.Snapshot, error) {
@@ -87,6 +87,6 @@ func refreshPluginManifest(
 	return refreshed, nil
 }
 
-type pluginConfigReader interface {
+type PluginConfigReader interface {
 	ReadAll(ctx context.Context, pluginID string) (map[string]any, error)
 }

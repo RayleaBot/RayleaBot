@@ -40,7 +40,10 @@ func main() {
 		"schema_path", schemaPath,
 	)
 
-	application, err := bootstrap.New(bootstrap.Options{
+	runCtx, stop := bootstrap.SignalContext()
+	defer stop()
+
+	application, err := bootstrap.NewWithContext(runCtx, bootstrap.Options{
 		ConfigPath: configPath,
 		SchemaPath: schemaPath,
 	})
@@ -55,7 +58,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err := bootstrap.RunWithSignals(application); err != nil {
+	if err := application.Run(runCtx); err != nil {
 		application.Logger().Error("server exited with error", "component", "main", "err", err.Error())
 		os.Exit(1)
 	}

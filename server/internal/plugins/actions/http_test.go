@@ -1,4 +1,4 @@
-package actions
+package actions_test
 
 import (
 	"context"
@@ -7,6 +7,8 @@ import (
 	"testing"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
+	"github.com/RayleaBot/RayleaBot/server/internal/plugins/actions"
+	defaultactionmodules "github.com/RayleaBot/RayleaBot/server/internal/plugins/actions/defaultmodules"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins/actions/httpaction"
 	runtimeaction "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime/action"
 	runtimemanager "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime/manager"
@@ -16,12 +18,13 @@ import (
 func TestExecuteHTTPRequestReturnsCredentialInjectorError(t *testing.T) {
 	t.Parallel()
 
-	service := New(Deps{
+	service := actions.New(actions.Deps{
 		Capabilities: &stubCapabilityView{
 			capabilities: map[string]bool{"http.request": true},
 			httpHosts:    []string{"api.example.test"},
 		},
 		HTTPCredentials: stubHTTPCredentials{err: errors.New("sign failed")},
+		Registrars:      defaultactionmodules.Registrars(),
 	})
 
 	_, err := service.Execute(context.Background(), "raylea.subscription-hub", "req_http_1", runtimeaction.Action{

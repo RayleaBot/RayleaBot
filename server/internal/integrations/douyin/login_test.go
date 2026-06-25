@@ -3,12 +3,10 @@ package douyin
 import (
 	"context"
 	"errors"
+	"github.com/RayleaBot/RayleaBot/server/internal/integrations/thirdparty"
 	"strings"
 	"testing"
 	"time"
-
-	"github.com/RayleaBot/RayleaBot/server/internal/integrations/common"
-	"github.com/RayleaBot/RayleaBot/server/internal/integrations/thirdparty"
 )
 
 func TestCreateUsesBrowserQRCodeResult(t *testing.T) {
@@ -46,7 +44,7 @@ func TestCreateReturnsBrowserErrorWithoutHTTPFallback(t *testing.T) {
 	t.Parallel()
 
 	browser := &stubDouyinBrowser{createErr: errors.New("context canceled")}
-	provider := NewProvider(common.NewHTTPClient(nil), browser)
+	provider := NewProvider(thirdparty.NewHTTPClient(nil), browser)
 
 	_, err := provider.Create(context.Background(), time.Date(2026, 6, 22, 8, 0, 0, 0, time.UTC))
 	if err == nil {

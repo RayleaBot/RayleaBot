@@ -7,7 +7,6 @@ import (
 	"time"
 
 	bilibiliSession "github.com/RayleaBot/RayleaBot/server/internal/integrations/bilibili/session"
-	sourcestate "github.com/RayleaBot/RayleaBot/server/internal/integrations/bilibili/source/state"
 	bilibilivalues "github.com/RayleaBot/RayleaBot/server/internal/integrations/bilibili/values"
 	"github.com/RayleaBot/RayleaBot/server/internal/integrations/thirdparty"
 )
@@ -33,7 +32,7 @@ func (s *Source) MonitorSnapshot(ctx context.Context) (MonitorSnapshot, error) {
 		room := s.stateStore.LoadRoom(ctx, subject.UID, StateIdle)
 		dynamic := dynamics[subject.UID]
 		if !bilibilivalues.HasDynamicService(subject.Services) {
-			dynamic = sourcestate.Dynamic{}
+			dynamic = sourceDynamic{}
 		}
 		item := MonitorItem{
 			UID:        subject.UID,
@@ -78,7 +77,7 @@ func sortedServiceNames(services map[string]bool) []string {
 	sort.Strings(items)
 	return items
 }
-func monitorLiveFromRoom(room sourcestate.Room) MonitorLive {
+func monitorLiveFromRoom(room sourceRoom) MonitorLive {
 	live := MonitorLive{
 		RoomID:          room.RoomID,
 		RoomName:        room.Name,

@@ -18,7 +18,7 @@ func (s *UninstallService) execute(job uninstallJob) {
 	})
 
 	if s.stopPlugin != nil {
-		s.stopPlugin(job.pluginID)
+		s.stopPlugin(job.ctx, job.pluginID)
 	}
 
 	if err := job.ctx.Err(); err != nil {
@@ -61,12 +61,16 @@ func (s *UninstallService) execute(job uninstallJob) {
 		Summary:  stringPtr("刷新插件目录索引"),
 	})
 
-	if err := s.refreshCatalog(); err != nil {
+	if err := s.refreshCatalog(job.ctx); err != nil {
 		s.failTask(job.taskID, codePluginUninstallFailed, "刷新插件目录索引失败", "刷新插件目录索引失败")
 		return
 	}
+	if err := job.ctx.Err(); err != nil {
+		s.failTask(job.taskID, codePluginUninstallFailed, "插件卸载已取消", "插件卸载已取消")
+		return
+	}
 	if s.afterSuccess != nil {
-		s.afterSuccess(job.pluginID)
+		s.afterSuccess(job.ctx, job.pluginID)
 	}
 
 	now := s.deps.now().UTC()

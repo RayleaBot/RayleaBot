@@ -5,7 +5,6 @@ import (
 	"log/slog"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
-	"github.com/RayleaBot/RayleaBot/server/internal/plugins/actions/storageaction"
 )
 
 type Deps struct {
@@ -14,8 +13,8 @@ type Deps struct {
 	RedactText       func(string) string
 	Capabilities     CapabilityView
 	PluginConfig     PluginConfigRepository
-	PluginFiles      storageaction.FileStore
-	PluginKV         storageaction.KVRepository
+	PluginFiles      FileStore
+	PluginKV         KVRepository
 	Secrets          SecretReader
 	Scheduler        SchedulerCreateFunc
 	Dispatcher       ConfigChangeDispatcher
@@ -25,6 +24,8 @@ type Deps struct {
 	Governance       GovernanceService
 	HTTPCredentials  HTTPCredentialInjector
 	RefreshCommands  func(context.Context, string, map[string]any)
+	WebhookGateway   func() WebhookGateway
+	Registrars       []Registrar
 	ActionRegistry   *Registry
 }
 
@@ -48,24 +49,18 @@ func New(deps Deps) *Service {
 	if deps.ActionRegistry != nil {
 		service.actionRegistry = deps.ActionRegistry
 	} else {
-		service.actionRegistry = defaultRegistry(registryDeps{
-			currentConfig:    deps.CurrentConfig,
-			logger:           deps.Logger,
-			redactText:       deps.RedactText,
-			capabilities:     deps.Capabilities,
-			pluginConfig:     deps.PluginConfig,
-			pluginFiles:      deps.PluginFiles,
-			pluginKV:         deps.PluginKV,
-			secrets:          deps.Secrets,
-			scheduler:        deps.Scheduler,
-			dispatcher:       deps.Dispatcher,
-			renderer:         deps.Renderer,
-			adapter:          deps.Adapter,
-			pluginLogLimiter: deps.PluginLogLimiter,
-			governance:       deps.Governance,
-			httpCredentials:  deps.HTTPCredentials,
-			runtimeHooks:     hooks,
-		})
+		deps.RefreshCommands = func(ctx context.Context, pluginID string, settings map[string]any) {
+			if hooks.refreshCommands != nil {
+				hooks.refreshCommands(ctx, pluginID, settings)
+			}
+		}
+		deps.WebhookGateway = func() WebhookGateway {
+			if hooks == nil {
+				return nil
+			}
+			return hooks.webhookGateway
+		}
+		service.actionRegistry = NewRegistryWithRegistrars(deps, deps.Registrars...)
 	}
 	return service
 }

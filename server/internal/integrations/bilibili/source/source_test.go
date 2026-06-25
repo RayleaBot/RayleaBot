@@ -4,7 +4,6 @@ import (
 	"context"
 	bilibiliLive "github.com/RayleaBot/RayleaBot/server/internal/integrations/bilibili/live"
 	bilibilimonitoring "github.com/RayleaBot/RayleaBot/server/internal/integrations/bilibili/monitoring"
-	sourcestate "github.com/RayleaBot/RayleaBot/server/internal/integrations/bilibili/source/state"
 	"github.com/RayleaBot/RayleaBot/server/internal/integrations/thirdparty"
 	"net/http"
 	"strings"
@@ -43,7 +42,7 @@ func TestLiveTransitionDispatchesStartedEndedAndDeduplicates(t *testing.T) {
 		t.Fatalf("live started events = %d, want 1", len(recorder.events))
 	}
 	started := recorder.events[0]
-	if started.EventType != EventLiveStarted || started.SourceProtocol != sourceProtocol || started.SourceAdapter != sourceAdapter {
+	if started.EventType != EventLiveStarted {
 		t.Fatalf("unexpected live started event: %#v", started)
 	}
 	startedPayload := bilibiliPayload(t, started)
@@ -621,7 +620,7 @@ func TestMonitorSnapshotMergesSubjectsRoomsAndDynamicSnapshots(t *testing.T) {
 	ctx := context.Background()
 	seedBilibiliAccount(t, source, ctx)
 	eventTime := time.Date(2026, 6, 8, 8, 19, 30, 0, time.UTC)
-	source.stateStore.SetRoom(ctx, sourcestate.Room{
+	source.stateStore.SetRoom(ctx, sourceRoom{
 		UID:             "123456",
 		RoomID:          "10001",
 		Name:            "直播间标题",

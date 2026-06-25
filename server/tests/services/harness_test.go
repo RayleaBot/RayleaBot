@@ -30,6 +30,7 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/permission"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	localaction "github.com/RayleaBot/RayleaBot/server/internal/plugins/actions"
+	defaultactionmodules "github.com/RayleaBot/RayleaBot/server/internal/plugins/actions/defaultmodules"
 	plugincapabilityview "github.com/RayleaBot/RayleaBot/server/internal/plugins/capabilityview"
 	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
 	pluginconfig "github.com/RayleaBot/RayleaBot/server/internal/plugins/configstore"
@@ -292,6 +293,7 @@ func (a *serviceHarness) setTestLocalActions(capabilities localaction.Capability
 		Adapter:          adapterShell,
 		PluginLogLimiter: limiter,
 		Governance:       a.services.Governance,
+		Registrars:       defaultactionmodules.Registrars(),
 	})
 	if webhookService != nil {
 		a.services.LocalActions.SetWebhookGateway(webhookService)

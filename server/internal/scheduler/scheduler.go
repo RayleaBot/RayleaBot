@@ -82,8 +82,9 @@ type Engine struct {
 	location *time.Location
 	now      func() time.Time
 
-	mu   sync.Mutex
-	jobs map[string]Job
+	mu      sync.Mutex
+	jobs    map[string]Job
+	running int
 
 	ctx    context.Context
 	cancel context.CancelFunc

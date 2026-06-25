@@ -1,0 +1,355 @@
+{
+  "schema_version": 1,
+  "allowed_files": {
+    "server/internal/app/app_close.go": {
+      "category": "shutdown_timeout",
+      "reason": "App close and shutdown paths need bounded stop contexts after the run context is already canceled.",
+      "owner": "server",
+      "target_action": "Keep only for shutdown cleanup with explicit timeout.",
+      "revisit_after": "next shutdown audit"
+    },
+    "server/internal/app/app_run_supervisor.go": {
+      "category": "nil_context_fallback",
+      "reason": "Nil supervisor fallback returns a non-nil context for defensive callers.",
+      "owner": "server",
+      "target_action": "Prefer constructing a supervisor with an explicit parent context.",
+      "revisit_after": "next app lifecycle audit"
+    },
+    "server/internal/app/app.go": {
+      "category": "compatibility_wrapper",
+      "reason": "New delegates to NewWithContext for callers without a cancellable startup context.",
+      "owner": "server",
+      "target_action": "Use NewWithContext from cancellable startup paths.",
+      "revisit_after": "next app startup audit"
+    },
+    "server/internal/app/platform/platform.go": {
+      "category": "startup_context_fallback",
+      "reason": "Platform build uses the provided startup context and only falls back for direct nil callers.",
+      "owner": "server",
+      "target_action": "Pass a startup context from app.NewWithContext.",
+      "revisit_after": "next platform startup audit"
+    },
+    "server/internal/app/pluginstack/build.go": {
+      "category": "startup_context_fallback",
+      "reason": "Plugin stack build uses the provided startup context and only falls back for direct nil callers.",
+      "owner": "server",
+      "target_action": "Pass a startup context from app.NewWithContext.",
+      "revisit_after": "next plugin startup audit"
+    },
+    "server/internal/app/renderstack/build.go": {
+      "category": "startup_context_fallback",
+      "reason": "Render stack build uses the provided startup context and only falls back for direct nil callers.",
+      "owner": "server",
+      "target_action": "Pass a startup context from app.NewWithContext.",
+      "revisit_after": "next render startup audit"
+    },
+    "server/internal/auth/bootstrap.go": {
+      "category": "compatibility_wrapper",
+      "reason": "Bootstrap and Login wrappers delegate to context-aware methods for non-HTTP callers.",
+      "owner": "server",
+      "target_action": "Use BootstrapWithContext and LoginWithContext from request paths.",
+      "revisit_after": "next auth API audit"
+    },
+    "server/internal/auth/context.go": {
+      "category": "nil_context_fallback",
+      "reason": "Central auth helper protects direct nil context callers.",
+      "owner": "server",
+      "target_action": "Pass explicit contexts from request and startup paths.",
+      "revisit_after": "next auth API audit"
+    },
+    "server/internal/auth/manager.go": {
+      "category": "compatibility_wrapper",
+      "reason": "NewManager delegates to NewManagerWithContext for non-startup callers.",
+      "owner": "server",
+      "target_action": "Use NewManagerWithContext from startup paths.",
+      "revisit_after": "next auth startup audit"
+    },
+    "server/internal/auth/sessions.go": {
+      "category": "compatibility_wrapper",
+      "reason": "Issue, Revoke, and Validate wrappers delegate to context-aware methods for non-HTTP callers.",
+      "owner": "server",
+      "target_action": "Use WithContext variants from request paths.",
+      "revisit_after": "next auth API audit"
+    },
+    "server/internal/bootstrap/lifecycle.go": {
+      "category": "process_root",
+      "reason": "SignalContext is the process cancellation root for server startup and run.",
+      "owner": "server",
+      "target_action": "Keep as the only signal-derived server process root.",
+      "revisit_after": "next bootstrap audit"
+    },
+    "server/internal/bot/adapter/onebot11/shell/event_metadata.go": {
+      "category": "nil_context_fallback",
+      "reason": "Event metadata helpers use a non-nil fallback when callers omit context.",
+      "owner": "server",
+      "target_action": "Pass adapter event contexts from call sites when available.",
+      "revisit_after": "next adapter audit"
+    },
+    "server/internal/bot/adapter/onebot11/shell/shell_lifecycle.go": {
+      "category": "adapter_runtime_root",
+      "reason": "Adapter lifecycle owns process stop and supervisor fallback contexts outside HTTP requests.",
+      "owner": "server",
+      "target_action": "Bind adapter lifecycle to app supervisor context where practical.",
+      "revisit_after": "next adapter lifecycle audit"
+    },
+    "server/internal/bot/adapter/onebot11/shell/shell_reverse.go": {
+      "category": "adapter_runtime_root",
+      "reason": "Reverse connection loop owns an adapter runtime root outside HTTP requests.",
+      "owner": "server",
+      "target_action": "Keep runtime roots inside adapter lifecycle code only.",
+      "revisit_after": "next adapter lifecycle audit"
+    },
+    "server/internal/bot/adapter/onebot11/shell/shell_transport.go": {
+      "category": "adapter_runtime_root",
+      "reason": "Runtime info refresh is an adapter background observation outside request scope.",
+      "owner": "server",
+      "target_action": "Attach refresh work to adapter lifecycle context when the adapter exposes it.",
+      "revisit_after": "next adapter lifecycle audit"
+    },
+    "server/internal/cli/backup.go": {
+      "category": "cli_root",
+      "reason": "Backup command is a synchronous CLI root without a caller context.",
+      "owner": "server",
+      "target_action": "Introduce command contexts if CLI gains cancellation support.",
+      "revisit_after": "next CLI audit"
+    },
+    "server/internal/cli/doctor_report.go": {
+      "category": "cli_root",
+      "reason": "Doctor report command is a synchronous CLI root without a caller context.",
+      "owner": "server",
+      "target_action": "Introduce command contexts if CLI gains cancellation support.",
+      "revisit_after": "next CLI audit"
+    },
+    "server/internal/deps/manager_inspect.go": {
+      "category": "dependency_diagnostic",
+      "reason": "Dependency inspection fallbacks resolve system Chromium without a caller context.",
+      "owner": "server",
+      "target_action": "Prefer InspectWithContext if dependency diagnostics become request-scoped.",
+      "revisit_after": "next deps audit"
+    },
+    "server/internal/deps/manager_prepare.go": {
+      "category": "nil_context_fallback",
+      "reason": "Dependency preparation accepts context and falls back only for nil direct callers.",
+      "owner": "server",
+      "target_action": "Pass contexts from system runtime preparation and install tasks.",
+      "revisit_after": "next deps audit"
+    },
+    "server/internal/deps/manager_resolve.go": {
+      "category": "dependency_diagnostic",
+      "reason": "Dependency resolution fallbacks inspect system Chromium without a caller context.",
+      "owner": "server",
+      "target_action": "Prefer context-aware resolution from request and task paths.",
+      "revisit_after": "next deps audit"
+    },
+    "server/internal/deps/system_chromium.go": {
+      "category": "nil_context_fallback",
+      "reason": "System Chromium lookup accepts context and falls back only for nil direct callers.",
+      "owner": "server",
+      "target_action": "Pass contexts from dependency manager callers.",
+      "revisit_after": "next deps audit"
+    },
+    "server/internal/eventpipeline/chatpolicy/cooldown.go": {
+      "category": "nil_context_fallback",
+      "reason": "Cooldown check accepts context and falls back only for nil direct callers.",
+      "owner": "server",
+      "target_action": "Pass event pipeline contexts from dispatch paths.",
+      "revisit_after": "next event pipeline audit"
+    },
+    "server/internal/eventpipeline/dispatch/reload.go": {
+      "category": "shutdown_timeout",
+      "reason": "Reload dispatch uses a bounded stop context for runtime cleanup.",
+      "owner": "server",
+      "target_action": "Keep only for bounded cleanup after a reload decision.",
+      "revisit_after": "next event pipeline audit"
+    },
+    "server/internal/eventpipeline/dispatch/scheduler_log.go": {
+      "category": "nil_context_fallback",
+      "reason": "Scheduler log dispatch accepts context and falls back only for nil direct callers.",
+      "owner": "server",
+      "target_action": "Pass scheduler trigger contexts from callers.",
+      "revisit_after": "next scheduler dispatch audit"
+    },
+    "server/internal/extensions/menu/builtin_menu_send.go": {
+      "category": "nil_context_fallback",
+      "reason": "Menu send extension accepts context and falls back only for nil direct callers.",
+      "owner": "server",
+      "target_action": "Pass event contexts from menu call sites.",
+      "revisit_after": "next extension audit"
+    },
+    "server/internal/integrations/bilibili/source/source_runtime.go": {
+      "category": "runtime_status_wrapper",
+      "reason": "Source runtime StatusSnapshot wrapper delegates to Status for non-request callers.",
+      "owner": "server",
+      "target_action": "Use Status(ctx) from request or lifecycle paths.",
+      "revisit_after": "next Bilibili source audit"
+    },
+    "server/internal/integrations/douyin/browser_runtime.go": {
+      "category": "adapter_runtime_root",
+      "reason": "Douyin browser allocator is a browser runtime root outside HTTP request scope.",
+      "owner": "server",
+      "target_action": "Attach browser runtime lifetime to caller context where the API supports it.",
+      "revisit_after": "next Douyin browser audit"
+    },
+    "server/internal/integrations/douyin/browser.go": {
+      "category": "nil_context_fallback",
+      "reason": "Douyin browser helper accepts context and falls back only for nil direct callers.",
+      "owner": "server",
+      "target_action": "Pass request or task contexts from resolver paths.",
+      "revisit_after": "next Douyin browser audit"
+    },
+    "server/internal/logging/stream_spool.go": {
+      "category": "shutdown_timeout",
+      "reason": "Log spool close uses a bounded cleanup context after runtime cancellation.",
+      "owner": "server",
+      "target_action": "Keep only for final spool cleanup.",
+      "revisit_after": "next logging audit"
+    },
+    "server/internal/logging/stream.go": {
+      "category": "shutdown_timeout",
+      "reason": "Log stream close uses a bounded cleanup context after runtime cancellation.",
+      "owner": "server",
+      "target_action": "Keep only for final stream cleanup.",
+      "revisit_after": "next logging audit"
+    },
+    "server/internal/management/ws/console.go": {
+      "category": "websocket_close_read",
+      "reason": "WebSocket CloseRead needs its own read-drain context for the accepted connection.",
+      "owner": "server",
+      "target_action": "Keep CloseRead roots isolated to WebSocket handlers.",
+      "revisit_after": "next websocket audit"
+    },
+    "server/internal/management/ws/events_stream.go": {
+      "category": "websocket_close_read",
+      "reason": "WebSocket CloseRead needs its own read-drain context for the accepted connection.",
+      "owner": "server",
+      "target_action": "Keep CloseRead roots isolated to WebSocket handlers.",
+      "revisit_after": "next websocket audit"
+    },
+    "server/internal/management/ws/logs.go": {
+      "category": "websocket_close_read",
+      "reason": "WebSocket CloseRead needs its own read-drain context for the accepted connection.",
+      "owner": "server",
+      "target_action": "Keep CloseRead roots isolated to WebSocket handlers.",
+      "revisit_after": "next websocket audit"
+    },
+    "server/internal/management/ws/tasks.go": {
+      "category": "websocket_close_read",
+      "reason": "WebSocket CloseRead needs its own read-drain context for the accepted connection.",
+      "owner": "server",
+      "target_action": "Keep CloseRead roots isolated to WebSocket handlers.",
+      "revisit_after": "next websocket audit"
+    },
+    "server/internal/plugins/install/install_refresh.go": {
+      "category": "nil_context_fallback",
+      "reason": "Install catalog refresh accepts job context and falls back only for nil direct callers.",
+      "owner": "server",
+      "target_action": "Pass install task context from execution paths.",
+      "revisit_after": "next plugin install audit"
+    },
+    "server/internal/plugins/install/install.go": {
+      "category": "worker_root",
+      "reason": "Install service owns a cancellable worker base context that Close cancels.",
+      "owner": "server",
+      "target_action": "Keep worker roots inside task services with Close cancellation.",
+      "revisit_after": "next plugin install audit"
+    },
+    "server/internal/plugins/lifecycle/plugin_lifecycle.go": {
+      "category": "nil_context_fallback",
+      "reason": "Lifecycle context binding falls back only when the controller is used without app Run.",
+      "owner": "server",
+      "target_action": "Bind lifecycle context from app.Run in production.",
+      "revisit_after": "next plugin lifecycle audit"
+    },
+    "server/internal/plugins/lifecycle/plugin_lifecycle_stop.go": {
+      "category": "nil_context_fallback",
+      "reason": "StopAndResetPluginWithContext protects nil direct callers; production uninstall passes job context.",
+      "owner": "server",
+      "target_action": "Use StopAndResetPluginWithContext from task paths.",
+      "revisit_after": "next plugin lifecycle audit"
+    },
+    "server/internal/plugins/runtime/spec/spec.go": {
+      "category": "runtime_spec_wrapper",
+      "reason": "BuildSpec wrapper delegates to BuildSpecWithContext for non-request callers.",
+      "owner": "server",
+      "target_action": "Use BuildSpecWithContext from runtime startup paths.",
+      "revisit_after": "next plugin runtime audit"
+    },
+    "server/internal/plugins/uninstall/uninstall_catalog.go": {
+      "category": "nil_context_fallback",
+      "reason": "Uninstall catalog refresh accepts job context and falls back only for nil direct callers.",
+      "owner": "server",
+      "target_action": "Pass uninstall task context from execution paths.",
+      "revisit_after": "next plugin uninstall audit"
+    },
+    "server/internal/plugins/uninstall/uninstall.go": {
+      "category": "worker_root",
+      "reason": "Uninstall service owns a cancellable worker base context that Close cancels.",
+      "owner": "server",
+      "target_action": "Keep worker roots inside task services with Close cancellation.",
+      "revisit_after": "next plugin uninstall audit"
+    },
+    "server/internal/recovery/recovery.go": {
+      "category": "recovery_bootstrap",
+      "reason": "Recovery disables incompatible plugins during startup recovery without a request context.",
+      "owner": "server",
+      "target_action": "Pass startup context if recovery becomes part of app.NewWithContext.",
+      "revisit_after": "next recovery audit"
+    },
+    "server/internal/render/browser/chromium_browser.go": {
+      "category": "adapter_runtime_root",
+      "reason": "Chromium allocator is a browser runtime root outside HTTP request scope.",
+      "owner": "server",
+      "target_action": "Attach allocator lifetime to render request context where the API supports it.",
+      "revisit_after": "next render browser audit"
+    },
+    "server/internal/render/service/render_service.go": {
+      "category": "startup_context_fallback",
+      "reason": "Render service constructor performs startup template sync before request handling.",
+      "owner": "server",
+      "target_action": "Pass construction context if NewService becomes context-aware.",
+      "revisit_after": "next render service audit"
+    },
+    "server/internal/scheduler/loop.go": {
+      "category": "shutdown_timeout",
+      "reason": "Scheduler stop uses a bounded persistence context after loop cancellation.",
+      "owner": "server",
+      "target_action": "Keep only for bounded scheduler cleanup.",
+      "revisit_after": "next scheduler audit"
+    },
+    "server/internal/scheduler/run_result.go": {
+      "category": "nil_context_fallback",
+      "reason": "Scheduler result persistence accepts context and falls back only for nil direct callers.",
+      "owner": "server",
+      "target_action": "Pass scheduler job contexts from execution paths.",
+      "revisit_after": "next scheduler audit"
+    },
+    "server/internal/storage/store_lifecycle.go": {
+      "category": "storage_bootstrap",
+      "reason": "Store close performs final WAL checkpoint after callers are shutting down.",
+      "owner": "server",
+      "target_action": "Keep only for final storage cleanup.",
+      "revisit_after": "next storage audit"
+    },
+    "server/internal/storage/store_open.go": {
+      "category": "storage_bootstrap",
+      "reason": "SQLite open configures handles and initializes schema before a caller context exists.",
+      "owner": "server",
+      "target_action": "Introduce OpenWithContext if startup cancellation needs to reach storage open.",
+      "revisit_after": "next storage audit"
+    },
+    "server/internal/tasks/executor.go": {
+      "category": "worker_root",
+      "reason": "Task executor owns a cancellable worker base context that Close cancels.",
+      "owner": "server",
+      "target_action": "Keep worker roots inside task services with Close cancellation.",
+      "revisit_after": "next tasks audit"
+    },
+    "server/internal/tasks/persistence.go": {
+      "category": "shutdown_timeout",
+      "reason": "Task persistence close uses bounded cleanup after worker cancellation.",
+      "owner": "server",
+      "target_action": "Keep only for final task persistence cleanup.",
+      "revisit_after": "next tasks audit"
+    }
+  }
+}

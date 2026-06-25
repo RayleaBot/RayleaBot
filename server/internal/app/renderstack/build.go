@@ -18,6 +18,7 @@ import (
 )
 
 type Deps struct {
+	Context   context.Context
 	Config    config.Config
 	Logger    *slog.Logger
 	Discovery runtimepaths.PluginDiscoverySpec
@@ -31,11 +32,19 @@ type State struct {
 }
 
 func Build(deps Deps) (State, error) {
+	ctx := deps.Context
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	if err := ctx.Err(); err != nil {
+		return State{}, err
+	}
+
 	renderer, err := buildRenderService(deps)
 	if err != nil {
 		return State{}, err
 	}
-	if err := SyncCatalogRenderTemplates(context.Background(), renderer, deps.Catalog); err != nil {
+	if err := SyncCatalogRenderTemplates(ctx, renderer, deps.Catalog); err != nil {
 		_ = renderer.Close()
 		return State{}, err
 	}
@@ -70,7 +79,11 @@ func pluginRenderTemplateDeclarations(snapshots []plugins.Snapshot) []renderserv
 }
 
 func buildRenderService(deps Deps) (*renderservice.Service, error) {
-	renderBrowserPath := prepareBrowserPath(context.Background(), deps.Logger, deps.Discovery.RepoRoot, deps.Config.Render.BrowserPath)
+	ctx := deps.Context
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	renderBrowserPath := prepareBrowserPath(ctx, deps.Logger, deps.Discovery.RepoRoot, deps.Config.Render.BrowserPath)
 	renderService, err := renderservice.NewService(renderservice.Options{
 		RepoRoot:           deps.Discovery.RepoRoot,
 		OutputRoot:         filepath.Join(filepath.Dir(deps.Store.Path), "render"),

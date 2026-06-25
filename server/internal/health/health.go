@@ -21,10 +21,12 @@ type ReadinessReport struct {
 }
 
 type DiagnosticIssue struct {
-	Code        string `json:"code"`
-	Severity    string `json:"severity"`
-	Summary     string `json:"summary"`
-	Remediation string `json:"remediation"`
+	Code           string `json:"code"`
+	Severity       string `json:"severity"`
+	Summary        string `json:"summary"`
+	UserMessage    string `json:"user_message,omitempty"`
+	Remediation    string `json:"remediation"`
+	InternalReason string `json:"internal_reason,omitempty"`
 }
 
 func NewLivenessHandler() http.HandlerFunc {

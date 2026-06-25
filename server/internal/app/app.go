@@ -14,12 +14,10 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/app/servicegraph"
 	"github.com/RayleaBot/RayleaBot/server/internal/auth"
 	"github.com/RayleaBot/RayleaBot/server/internal/configruntime"
-	"github.com/RayleaBot/RayleaBot/server/internal/health"
 	"github.com/RayleaBot/RayleaBot/server/internal/metrics"
 	plugindiscovery "github.com/RayleaBot/RayleaBot/server/internal/plugins/discovery"
 	runtimeregistry "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime/registry"
 	renderbrowser "github.com/RayleaBot/RayleaBot/server/internal/render/browser"
-	systemsvc "github.com/RayleaBot/RayleaBot/server/internal/system"
 )
 
 type Options struct {
@@ -52,6 +50,17 @@ type App struct {
 }
 
 func New(options Options) (*App, error) {
+	return NewWithContext(context.Background(), options)
+}
+
+func NewWithContext(ctx context.Context, options Options) (*App, error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+
 	buildState, err := initializeAppBuild(options)
 	if err != nil {
 		return nil, err
@@ -59,6 +68,7 @@ func New(options Options) (*App, error) {
 
 	schedulerTriggers := appplatform.NewTriggerProxy()
 	platformState, err := appplatform.Build(appplatform.Deps{
+		Context:          ctx,
 		ConfigPath:       buildState.options.ConfigPath,
 		Config:           buildState.core.Config,
 		Logger:           buildState.core.Logger,
@@ -87,7 +97,7 @@ func New(options Options) (*App, error) {
 		}
 		_ = partial.Close()
 	}
-	resolvedConfig, err := configruntime.ResolveConfigSecretRefs(context.Background(), platformState.Secrets, buildState.core.Config)
+	resolvedConfig, err := configruntime.ResolveConfigSecretRefs(ctx, platformState.Secrets, buildState.core.Config)
 	if err != nil {
 		cleanupPartialBuild()
 		return nil, fmt.Errorf("resolve config secrets: %w", err)
@@ -96,6 +106,7 @@ func New(options Options) (*App, error) {
 	buildState.core.addRedactionValues(configruntime.ConfigSecretValues(resolvedConfig)...)
 
 	pluginState, err = pluginstack.Build(pluginstack.Deps{
+		Context:   ctx,
 		Config:    buildState.core.Config,
 		Logger:    buildState.core.Logger,
 		Discovery: buildState.discoverySpec,
@@ -110,6 +121,7 @@ func New(options Options) (*App, error) {
 	}
 
 	renderState, err = renderstack.Build(renderstack.Deps{
+		Context:   ctx,
 		Config:    buildState.core.Config,
 		Logger:    buildState.core.Logger,
 		Discovery: buildState.discoverySpec,
@@ -175,9 +187,3 @@ func New(options Options) (*App, error) {
 	application.httpHandlers = httpState.Handlers
 	return application, nil
 }
-
-type readinessProvider interface {
-	CurrentReadiness() health.ReadinessReport
-}
-
-var _ readinessProvider = (*systemsvc.Service)(nil)

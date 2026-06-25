@@ -36,6 +36,13 @@ func (e *Executor) Submit(taskType, summary string, fn ExecuteFunc) (string, err
 	}
 }
 
+func (e *Executor) List() []Snapshot {
+	if e == nil || e.registry == nil {
+		return nil
+	}
+	return e.registry.List()
+}
+
 func (e *Executor) Cancel(taskID string) bool {
 	snapshot, ok := e.registry.Get(taskID)
 	if !ok {

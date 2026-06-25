@@ -24,6 +24,12 @@ func openTestStore(t *testing.T) *storage.Store {
 	return store
 }
 
+type discardWriter struct{}
+
+func (discardWriter) Write(p []byte) (int, error) {
+	return len(p), nil
+}
+
 func TestSQLiteRepository_SaveAndLoad(t *testing.T) {
 	t.Parallel()
 	store := openTestStore(t)
@@ -115,6 +121,55 @@ func TestSQLiteRepository_Delete(t *testing.T) {
 	}
 	if len(loaded) != 0 {
 		t.Fatalf("loaded %d jobs, want 0", len(loaded))
+	}
+}
+
+func TestEngineRunningCountDuringTrigger(t *testing.T) {
+	store := openTestStore(t)
+	repo, err := NewSQLiteRepository(store)
+	if err != nil {
+		t.Fatalf("new repository: %v", err)
+	}
+
+	triggered := make(chan struct{})
+	release := make(chan struct{})
+	done := make(chan struct{})
+	engine, err := New(Options{
+		Repository: repo,
+		Logger:     slog.New(slog.NewTextHandler(discardWriter{}, nil)),
+		Trigger: func(context.Context, Job) {
+			close(triggered)
+			<-release
+		},
+	})
+	if err != nil {
+		t.Fatalf("new engine: %v", err)
+	}
+	now := time.Date(2026, 6, 25, 8, 0, 0, 0, time.UTC)
+	job := Job{
+		JobID:     "sched_running",
+		PluginID:  "plugin-a",
+		CronExpr:  "* * * *",
+		Payload:   json.RawMessage("{}"),
+		Enabled:   true,
+		NextRun:   now.Add(-time.Minute),
+		CreatedAt: now,
+		UpdatedAt: now,
+	}
+
+	go func() {
+		defer close(done)
+		engine.fireJob(job, now)
+	}()
+	<-triggered
+	if got := engine.RunningCount(); got != 1 {
+		close(release)
+		t.Fatalf("RunningCount during trigger = %d, want 1", got)
+	}
+	close(release)
+	<-done
+	if got := engine.RunningCount(); got != 0 {
+		t.Fatalf("RunningCount after trigger = %d, want 0", got)
 	}
 }
 

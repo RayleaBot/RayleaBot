@@ -21,6 +21,7 @@ import (
 )
 
 type Deps struct {
+	Context          context.Context
 	ConfigPath       string
 	Config           config.Config
 	Logger           *slog.Logger
@@ -45,6 +46,14 @@ type State struct {
 }
 
 func Build(deps Deps) (State, error) {
+	ctx := deps.Context
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	if err := ctx.Err(); err != nil {
+		return State{}, err
+	}
+
 	databasePath, err := runtimepaths.ResolveDatabasePath(deps.ConfigPath, deps.Config.Database.Path)
 	if err != nil {
 		return State{}, err
@@ -73,12 +82,12 @@ func Build(deps Deps) (State, error) {
 	if err != nil {
 		return abort(fmt.Errorf("create secret store: %w", err))
 	}
-	sessionSigningKey, signingKeyCreated, err := auth.EnsureSessionSigningKey(context.Background(), secretStore)
+	sessionSigningKey, signingKeyCreated, err := auth.EnsureSessionSigningKey(ctx, secretStore)
 	if err != nil {
 		return abort(fmt.Errorf("prepare session signing key: %w", err))
 	}
 	if signingKeyCreated {
-		persistedSessions, err := authRepository.LoadSessions(context.Background())
+		persistedSessions, err := authRepository.LoadSessions(ctx)
 		if err != nil {
 			return abort(fmt.Errorf("load persisted sessions for signing key rotation: %w", err))
 		}
@@ -90,7 +99,7 @@ func Build(deps Deps) (State, error) {
 				}
 			}
 			if len(sessionIDs) > 0 {
-				if err := authRepository.DeleteSessions(context.Background(), sessionIDs); err != nil {
+				if err := authRepository.DeleteSessions(ctx, sessionIDs); err != nil {
 					return abort(fmt.Errorf("invalidate persisted sessions after signing key rotation: %w", err))
 				}
 			}
@@ -100,7 +109,7 @@ func Build(deps Deps) (State, error) {
 		auth.WithRepository(authRepository),
 		auth.WithSigningKey(sessionSigningKey),
 	}, deps.AuthOptions...)
-	authManager, err := auth.NewManager(auth.Config{
+	authManager, err := auth.NewManagerWithContext(ctx, auth.Config{
 		SessionTTLDays: deps.Config.Admin.SessionTTLDays,
 		SlidingRenewal: deps.Config.Admin.SlidingRenewal,
 		MaxSessions:    deps.Config.Admin.MaxSessions,
@@ -114,7 +123,7 @@ func Build(deps Deps) (State, error) {
 		return abort(fmt.Errorf("create task repository: %w", err))
 	}
 	deps.Tasks.SetRepository(taskRepository)
-	if err := deps.Tasks.Hydrate(context.Background()); err != nil {
+	if err := deps.Tasks.Hydrate(ctx); err != nil {
 		return abort(fmt.Errorf("hydrate task registry: %w", err))
 	}
 	logRepository, err := logrepository.NewSQLiteRepository(storageStore)
@@ -123,14 +132,14 @@ func Build(deps Deps) (State, error) {
 	}
 	deps.Logs.ConfigureSpool(logging.NewSpoolQueue(logging.SpoolPathForDatabase(databasePath)), os.Stderr)
 	deps.Logs.SetRepository(logRepository, deps.Config.Log.RetentionDays)
-	if err := deps.Logs.FlushSpool(context.Background()); err != nil {
+	if err := deps.Logs.FlushSpool(ctx); err != nil {
 		deps.Logger.Warn("management log spool flush failed during startup",
 			"component", "logging",
 			"err", err.Error(),
 		)
 	}
 	if deps.Config.Log.RetentionDays > 0 {
-		if err := logRepository.PruneOlderThan(context.Background(), time.Now().AddDate(0, 0, -deps.Config.Log.RetentionDays)); err != nil {
+		if err := logRepository.PruneOlderThan(ctx, time.Now().AddDate(0, 0, -deps.Config.Log.RetentionDays)); err != nil {
 			return abort(fmt.Errorf("prune persisted management logs: %w", err))
 		}
 	}
@@ -148,7 +157,7 @@ func Build(deps Deps) (State, error) {
 		return abort(fmt.Errorf("create scheduler engine: %w", err))
 	}
 	cleanups = append(cleanups, func() { schedulerEngine.Stop() })
-	if err := schedulerEngine.Hydrate(context.Background()); err != nil {
+	if err := schedulerEngine.Hydrate(ctx); err != nil {
 		return abort(fmt.Errorf("hydrate scheduler: %w", err))
 	}
 

@@ -12,7 +12,6 @@ import (
 	bilibiliSession "github.com/RayleaBot/RayleaBot/server/internal/integrations/bilibili/session"
 	bilibilisubscriptions "github.com/RayleaBot/RayleaBot/server/internal/integrations/bilibili/subscriptions"
 	"github.com/RayleaBot/RayleaBot/server/internal/integrations/thirdparty"
-	runtimeprotocol "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime/protocol"
 )
 
 const (
@@ -27,12 +26,15 @@ const (
 	EventLiveEnded        = bilibilimonitoring.EventLiveEnded
 	EventDynamicPublished = bilibilimonitoring.EventDynamicPublished
 
-	sourceProtocol = "bilibili"
-	sourceAdapter  = "bilibili.source"
+	SourceProtocol = "bilibili"
+	SourceAdapter  = "bilibili.source"
+
+	sourceProtocol = SourceProtocol
+	sourceAdapter  = SourceAdapter
 )
 
 type Dispatcher interface {
-	Dispatch(context.Context, runtimeprotocol.Event, string)
+	DispatchBilibiliEvent(context.Context, BilibiliEvent, int64)
 }
 
 type Store struct {

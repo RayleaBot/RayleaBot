@@ -18,7 +18,7 @@
 | [State Model](./state-model.md) | 插件运行时、任务和连接状态 |
 | [Bot Core](./bot-core.md) | 事件分发、命令解析、聊天权限、调度和后台任务 |
 | [Render Service](./render-service.md) | 模板渲染、队列、artifact 与资源边界 |
-| [Storage Migrations](./storage-migrations.md) | 当前 schema 快照、历史迁移和 drift 检查规则 |
+| [Storage Migration Architecture](./storage-migrations.md) | 存储 schema 收敛不变量与工程策略入口 |
 | [Technology Decisions](./technology-decisions.md) | 主技术栈保留、依赖替换准则和评估边界 |
 | [Platform Runtime](./platform-runtime.md) | 配置、存储、日志、恢复、Launcher 控制面和兼容策略 |
 

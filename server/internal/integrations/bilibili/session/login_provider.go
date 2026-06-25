@@ -2,11 +2,10 @@ package session
 
 import (
 	"context"
+	"github.com/RayleaBot/RayleaBot/server/internal/integrations/qrcode"
+	"github.com/RayleaBot/RayleaBot/server/internal/integrations/thirdparty"
 	"net/http"
 	"time"
-
-	"github.com/RayleaBot/RayleaBot/server/internal/integrations/common"
-	"github.com/RayleaBot/RayleaBot/server/internal/integrations/thirdparty"
 )
 
 const Platform = thirdparty.PlatformBilibili
@@ -23,29 +22,29 @@ func (p *Provider) LoginIDPrefix() string {
 	return "qr"
 }
 
-func (p *Provider) Create(ctx context.Context, now time.Time) (common.LoginSession, error) {
+func (p *Provider) Create(ctx context.Context, now time.Time) (qrcode.LoginSession, error) {
 	if p == nil || p.service == nil {
-		return common.LoginSession{}, common.ErrUnsupportedPlatform
+		return qrcode.LoginSession{}, qrcode.ErrUnsupportedPlatform
 	}
 	session, err := p.service.createRemoteSession(ctx, now)
 	if err != nil {
-		return common.LoginSession{}, err
+		return qrcode.LoginSession{}, err
 	}
-	return common.LoginSession{
+	return qrcode.LoginSession{
 		Platform:  thirdparty.PlatformBilibili,
 		Token:     session.QRCodeKey,
 		QRCodeURL: session.QRCodeURL,
 		ExpiresAt: session.ExpiresAt,
-		State:     common.StatePendingScan,
+		State:     qrcode.StatePendingScan,
 	}, nil
 }
 
-func (p *Provider) Poll(ctx context.Context, session common.LoginSession, now time.Time) (common.LoginSession, error) {
+func (p *Provider) Poll(ctx context.Context, session qrcode.LoginSession, now time.Time) (qrcode.LoginSession, error) {
 	if p == nil || p.service == nil {
-		return common.LoginSession{}, common.ErrUnsupportedPlatform
+		return qrcode.LoginSession{}, qrcode.ErrUnsupportedPlatform
 	}
-	if now.After(session.ExpiresAt) && session.State != common.StateSucceeded {
-		session.State = common.StateExpired
+	if now.After(session.ExpiresAt) && session.State != qrcode.StateSucceeded {
+		session.State = qrcode.StateExpired
 		return session, nil
 	}
 	next, err := p.service.pollRemote(ctx, qrLoginSession{
@@ -58,7 +57,7 @@ func (p *Provider) Poll(ctx context.Context, session common.LoginSession, now ti
 		Account:   session.Account,
 	})
 	if err != nil {
-		return common.LoginSession{}, err
+		return qrcode.LoginSession{}, err
 	}
 	session.State = bilibiliToCommonState(next.State)
 	session.Cookie = next.Cookie
@@ -68,11 +67,11 @@ func (p *Provider) Poll(ctx context.Context, session common.LoginSession, now ti
 
 func commonToBilibiliState(state string) string {
 	switch state {
-	case common.StatePendingConfirm:
+	case qrcode.StatePendingConfirm:
 		return QRLoginPendingConfirm
-	case common.StateExpired:
+	case qrcode.StateExpired:
 		return QRLoginExpired
-	case common.StateSucceeded:
+	case qrcode.StateSucceeded:
 		return QRLoginSucceeded
 	default:
 		return QRLoginPendingScan
@@ -82,12 +81,12 @@ func commonToBilibiliState(state string) string {
 func bilibiliToCommonState(state string) string {
 	switch state {
 	case QRLoginPendingConfirm:
-		return common.StatePendingConfirm
+		return qrcode.StatePendingConfirm
 	case QRLoginExpired:
-		return common.StateExpired
+		return qrcode.StateExpired
 	case QRLoginSucceeded:
-		return common.StateSucceeded
+		return qrcode.StateSucceeded
 	default:
-		return common.StatePendingScan
+		return qrcode.StatePendingScan
 	}
 }

@@ -18,6 +18,11 @@ type bootstrapCredentials struct {
 }
 
 func (m *Manager) Bootstrap(identifier, secret string) (string, Claims, error) {
+	return m.BootstrapWithContext(context.Background(), identifier, secret)
+}
+
+func (m *Manager) BootstrapWithContext(ctx context.Context, identifier, secret string) (string, Claims, error) {
+	ctx = normalizeContext(ctx)
 	identifier = strings.TrimSpace(identifier)
 	if identifier == "" || secret == "" {
 		return "", Claims{}, ErrInvalidToken
@@ -57,7 +62,7 @@ func (m *Manager) Bootstrap(identifier, secret string) (string, Claims, error) {
 
 	removed := m.pruneExpiredLocked(now)
 	removed = append(removed, m.recycleOldestSessionsLocked()...)
-	if err := m.deleteSessionsLocked(context.Background(), removed...); err != nil {
+	if err := m.deleteSessionsLocked(ctx, removed...); err != nil {
 		return "", Claims{}, err
 	}
 	if len(m.sessions) >= m.cfg.MaxSessions {
@@ -65,7 +70,7 @@ func (m *Manager) Bootstrap(identifier, secret string) (string, Claims, error) {
 	}
 
 	if m.repo != nil {
-		if err := m.repo.SaveBootstrap(context.Background(), bootstrapState, claims); err != nil {
+		if err := m.repo.SaveBootstrap(ctx, bootstrapState, claims); err != nil {
 			if errors.Is(err, ErrBootstrapAlreadyInitialized) {
 				return "", Claims{}, ErrBootstrapAlreadyInitialized
 			}
@@ -91,6 +96,11 @@ func (m *Manager) IsBootstrapped() bool {
 }
 
 func (m *Manager) Login(identifier, secret string) (string, Claims, error) {
+	return m.LoginWithContext(context.Background(), identifier, secret)
+}
+
+func (m *Manager) LoginWithContext(ctx context.Context, identifier, secret string) (string, Claims, error) {
+	ctx = normalizeContext(ctx)
 	identifier = strings.TrimSpace(identifier)
 	if identifier == "" || secret == "" {
 		return "", Claims{}, ErrInvalidToken
@@ -117,14 +127,14 @@ func (m *Manager) Login(identifier, secret string) (string, Claims, error) {
 			return "", Claims{}, err
 		}
 		if m.repo != nil {
-			if err := m.repo.UpdateBootstrapSecretDigest(context.Background(), secretDigest); err != nil {
+			if err := m.repo.UpdateBootstrapSecretDigest(ctx, secretDigest); err != nil {
 				return "", Claims{}, fmt.Errorf("upgrade bootstrap secret digest: %w", err)
 			}
 		}
 		m.bootstrap.SecretDigest = append([]byte(nil), secretDigest...)
 	}
 
-	return m.issueLocked(identifier, now)
+	return m.issueLocked(ctx, identifier, now)
 }
 
 func (m *Manager) newTokenClaimsLocked(subject string, now time.Time) (string, Claims, error) {

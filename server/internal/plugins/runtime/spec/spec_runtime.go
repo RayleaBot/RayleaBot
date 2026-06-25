@@ -12,19 +12,19 @@ import (
 )
 
 func runtimeCommand(ctx context.Context, runtimeName string, repoRoot string, manifestDir string, runtimeConfig config.RuntimeConfig) (string, []string, error) {
-	manager := deps.NewManager(repoRoot)
+	runtime := deps.NewRuntime(repoRoot)
 	switch runtimeName {
 	case "python":
 		if venvPython, ok := pythonVirtualenvExecutable(manifestDir); ok {
 			return venvPython, pythonRuntimeEnvironment(), nil
 		}
-		command, err := manager.ResolveEntrypoint(ctx, "python-runtime", "python")
+		command, err := runtime.ResolveEntrypoint(ctx, "python-runtime", "python")
 		if err != nil {
 			return "", nil, errorf(codePlatformResourceMissing, "managed Python runtime is not available", err)
 		}
 		return command, pythonRuntimeEnvironment(), nil
 	case "nodejs":
-		command, err := manager.ResolveEntrypoint(ctx, "nodejs-runtime", "node")
+		command, err := runtime.ResolveEntrypoint(ctx, "nodejs-runtime", "node")
 		if err != nil {
 			return "", nil, errorf(codePlatformResourceMissing, "managed Node.js runtime is not available", err)
 		}

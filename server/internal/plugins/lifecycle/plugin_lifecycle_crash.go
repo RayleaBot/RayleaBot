@@ -86,7 +86,14 @@ func (c *Controller) backoffRestart(pluginID string, delay time.Duration) {
 		return
 	}
 
-	time.Sleep(delay)
+	lifecycleCtx := c.lifecycleContext()
+	timer := time.NewTimer(delay)
+	defer timer.Stop()
+	select {
+	case <-lifecycleCtx.Done():
+		return
+	case <-timer.C:
+	}
 
 	snapshot, ok := c.plugins.Get(pluginID)
 	if !ok || snapshot.DesiredState != "enabled" {
@@ -107,7 +114,7 @@ func (c *Controller) backoffRestart(pluginID string, delay time.Duration) {
 
 	botID := c.currentBotID()
 
-	ctx, cancel := context.WithTimeout(context.Background(), runtimeInitTimeout(c.config().Runtime))
+	ctx, cancel := context.WithTimeout(lifecycleCtx, runtimeInitTimeout(c.config().Runtime))
 	defer cancel()
 
 	_, _ = c.plugins.SetRuntimeState(pluginID, string(runtimemanager.StateStarting))

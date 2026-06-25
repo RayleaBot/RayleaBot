@@ -1,6 +1,7 @@
-package actions
+package actions_test
 
 import (
+	"context"
 	"encoding/json"
 	"os"
 	"path/filepath"
@@ -9,7 +10,10 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/RayleaBot/RayleaBot/server/internal/plugins/actions"
+	defaultactionmodules "github.com/RayleaBot/RayleaBot/server/internal/plugins/actions/defaultmodules"
 	localonebot "github.com/RayleaBot/RayleaBot/server/internal/plugins/actions/onebot"
+	runtimeaction "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime/action"
 )
 
 func TestOneBotActionRegistryMatchesContractsAndSDKHelpers(t *testing.T) {
@@ -88,7 +92,15 @@ func TestBaseActionHandlersMatchLocalActionCapabilities(t *testing.T) {
 	assertStringSetEqual(t, "base capabilities", protocolBase, infoBase)
 
 	baseCapabilitySet := stringSet(protocolBase)
-	for kind := range baseActionHandlers {
+	metadata := defaultactionmodules.MetadataList()
+	handlerKinds := map[string]bool{}
+	for _, item := range metadata {
+		handlerKinds[item.Action] = true
+	}
+	for kind := range handlerKinds {
+		if _, ok := localonebot.Lookup(kind); ok {
+			continue
+		}
 		if !baseCapabilitySet[kind] {
 			t.Fatalf("base local action handler %q is not declared as a base capability", kind)
 		}
@@ -104,7 +116,7 @@ func TestBaseActionHandlersMatchLocalActionCapabilities(t *testing.T) {
 		if nonLocalCapabilities[capability] {
 			continue
 		}
-		if _, ok := baseActionHandlers[capability]; !ok {
+		if _, ok := handlerKinds[capability]; !ok {
 			t.Fatalf("base local action %q is missing a handler", capability)
 		}
 	}
@@ -113,10 +125,30 @@ func TestBaseActionHandlersMatchLocalActionCapabilities(t *testing.T) {
 func TestDefaultRegistryRegistersOneBotHandlers(t *testing.T) {
 	t.Parallel()
 
-	registry := defaultRegistry(registryDeps{})
+	registry := defaultactionmodules.NewRegistry(actions.Deps{})
 	for kind := range localonebot.Registry() {
-		if _, ok := registry.handlers[kind]; !ok {
+		_, handled, _ := registry.Dispatch(context.Background(), actions.ActionRequest{Action: runtimeaction.Action{Kind: kind}})
+		if !handled {
 			t.Fatalf("default registry is missing OneBot handler %q", kind)
+		}
+	}
+}
+
+func TestDefaultActionMetadataIsComplete(t *testing.T) {
+	t.Parallel()
+
+	for _, item := range defaultactionmodules.MetadataList() {
+		if strings.TrimSpace(item.Action) == "" {
+			t.Fatal("default action metadata is missing action name")
+		}
+		if strings.TrimSpace(item.Capability) == "" {
+			t.Fatalf("%s metadata is missing capability", item.Action)
+		}
+		if strings.TrimSpace(item.RequestSchema) == "" || strings.TrimSpace(item.ResponseSchema) == "" {
+			t.Fatalf("%s metadata is missing request or response schema", item.Action)
+		}
+		if len(item.ErrorCodes) == 0 {
+			t.Fatalf("%s metadata is missing stable error codes", item.Action)
 		}
 	}
 }

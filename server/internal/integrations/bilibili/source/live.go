@@ -10,7 +10,6 @@ import (
 
 	bilibiliLive "github.com/RayleaBot/RayleaBot/server/internal/integrations/bilibili/live"
 	bilibilimonitoring "github.com/RayleaBot/RayleaBot/server/internal/integrations/bilibili/monitoring"
-	sourcestate "github.com/RayleaBot/RayleaBot/server/internal/integrations/bilibili/source/state"
 	bilibilivalues "github.com/RayleaBot/RayleaBot/server/internal/integrations/bilibili/values"
 	"github.com/RayleaBot/RayleaBot/server/internal/integrations/thirdparty"
 	"github.com/coder/websocket"
@@ -68,7 +67,7 @@ func (s *Source) connectLiveRoom(ctx context.Context, subject Subject, cookie st
 	}
 	roomID := strings.TrimSpace(bilibilivalues.String(item.RoomID))
 	if roomID == "" || roomID == "0" {
-		state := sourcestate.Room{
+		state := sourceRoom{
 			UID:             subject.UID,
 			Name:            bilibilivalues.FirstNonEmpty(item.UName, subject.Name),
 			Face:            bilibilivalues.FirstNonEmpty(bilibilivalues.NormalizeURL(item.Face), subject.AvatarURL),

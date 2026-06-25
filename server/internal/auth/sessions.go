@@ -8,6 +8,11 @@ import (
 )
 
 func (m *Manager) Issue(subject string) (string, Claims, error) {
+	return m.IssueWithContext(context.Background(), subject)
+}
+
+func (m *Manager) IssueWithContext(ctx context.Context, subject string) (string, Claims, error) {
+	ctx = normalizeContext(ctx)
 	subject = strings.TrimSpace(subject)
 	if subject == "" {
 		return "", Claims{}, fmt.Errorf("subject is required")
@@ -18,10 +23,15 @@ func (m *Manager) Issue(subject string) (string, Claims, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	return m.issueLocked(subject, now)
+	return m.issueLocked(ctx, subject, now)
 }
 
 func (m *Manager) Revoke(sessionID string) error {
+	return m.RevokeWithContext(context.Background(), sessionID)
+}
+
+func (m *Manager) RevokeWithContext(ctx context.Context, sessionID string) error {
+	ctx = normalizeContext(ctx)
 	sessionID = strings.TrimSpace(sessionID)
 	if sessionID == "" {
 		return ErrInvalidToken
@@ -31,10 +41,15 @@ func (m *Manager) Revoke(sessionID string) error {
 	defer m.mu.Unlock()
 
 	delete(m.sessions, sessionID)
-	return m.deleteSessionsLocked(context.Background(), sessionID)
+	return m.deleteSessionsLocked(ctx, sessionID)
 }
 
 func (m *Manager) Validate(token string) (Claims, error) {
+	return m.ValidateWithContext(context.Background(), token)
+}
+
+func (m *Manager) ValidateWithContext(ctx context.Context, token string) (Claims, error) {
+	ctx = normalizeContext(ctx)
 	token = strings.TrimSpace(token)
 	if token == "" {
 		return Claims{}, ErrInvalidToken
@@ -59,7 +74,7 @@ func (m *Manager) Validate(token string) (Claims, error) {
 	}
 	if !now.Before(stored.ExpiresAt) {
 		delete(m.sessions, stored.SessionID)
-		if err := m.deleteSessionsLocked(context.Background(), stored.SessionID); err != nil {
+		if err := m.deleteSessionsLocked(ctx, stored.SessionID); err != nil {
 			return Claims{}, err
 		}
 		return Claims{}, ErrExpiredToken
@@ -67,7 +82,7 @@ func (m *Manager) Validate(token string) (Claims, error) {
 
 	if m.cfg.SlidingRenewal {
 		stored.ExpiresAt = canonicalSessionTimestamp(now.Add(m.ttl()))
-		if err := m.saveSessionLocked(context.Background(), stored); err != nil {
+		if err := m.saveSessionLocked(ctx, stored); err != nil {
 			return Claims{}, err
 		}
 		m.sessions[stored.SessionID] = stored
@@ -133,7 +148,7 @@ func (m *Manager) oldestSessionIDLocked() (string, bool) {
 	return oldest.SessionID, true
 }
 
-func (m *Manager) issueLocked(subject string, now time.Time) (string, Claims, error) {
+func (m *Manager) issueLocked(ctx context.Context, subject string, now time.Time) (string, Claims, error) {
 	token, claims, err := m.newTokenClaimsLocked(subject, now)
 	if err != nil {
 		return "", Claims{}, err
@@ -141,13 +156,13 @@ func (m *Manager) issueLocked(subject string, now time.Time) (string, Claims, er
 
 	removed := m.pruneExpiredLocked(now)
 	removed = append(removed, m.recycleOldestSessionsLocked()...)
-	if err := m.deleteSessionsLocked(context.Background(), removed...); err != nil {
+	if err := m.deleteSessionsLocked(ctx, removed...); err != nil {
 		return "", Claims{}, err
 	}
 	if len(m.sessions) >= m.cfg.MaxSessions {
 		return "", Claims{}, ErrSessionLimitReached
 	}
-	if err := m.saveSessionLocked(context.Background(), claims); err != nil {
+	if err := m.saveSessionLocked(ctx, claims); err != nil {
 		return "", Claims{}, err
 	}
 

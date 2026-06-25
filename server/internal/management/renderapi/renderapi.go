@@ -30,8 +30,18 @@ type templateService interface {
 	GetTemplatePreviewData(context.Context, string) (map[string]any, error)
 }
 
+type Service = templateService
+
+type ModuleDeps struct {
+	Renderer Service
+}
+
 func NewHandlers(renderer templateService) *Handlers {
 	return &Handlers{renderer: renderer}
+}
+
+func NewModule(deps ModuleDeps) *Handlers {
+	return NewHandlers(deps.Renderer)
 }
 
 type templateSummary struct {

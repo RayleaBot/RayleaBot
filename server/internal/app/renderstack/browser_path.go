@@ -9,7 +9,7 @@ import (
 )
 
 var resolveManagedBrowserPath = func(ctx context.Context, repoRoot string) (string, error) {
-	return deps.NewManager(repoRoot).ResolveEntrypoint(ctx, "chromium", "browser")
+	return deps.NewRuntime(repoRoot).ResolveEntrypoint(ctx, "chromium", "browser")
 }
 
 func prepareBrowserPath(ctx context.Context, logger *slog.Logger, repoRoot string, configuredPath string) string {

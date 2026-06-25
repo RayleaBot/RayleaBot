@@ -3,7 +3,6 @@ package source
 import (
 	"context"
 	bilibiliDynamic "github.com/RayleaBot/RayleaBot/server/internal/integrations/bilibili/dynamic"
-	sourcestate "github.com/RayleaBot/RayleaBot/server/internal/integrations/bilibili/source/state"
 	bilibilisubscriptions "github.com/RayleaBot/RayleaBot/server/internal/integrations/bilibili/subscriptions"
 	"github.com/RayleaBot/RayleaBot/server/internal/integrations/thirdparty"
 	"github.com/RayleaBot/RayleaBot/server/internal/secrets"
@@ -233,7 +232,7 @@ func TestMonitorSnapshotSuppressesStoredRiskControlRoomErrors(t *testing.T) {
 		},
 	})
 	ctx := context.Background()
-	source.stateStore.SetRoom(ctx, sourcestate.Room{
+	source.stateStore.SetRoom(ctx, sourceRoom{
 		UID:             "123456",
 		Name:            "测试 UP",
 		Face:            "https://i0.hdslb.com/bfs/face/live.jpg",
@@ -276,7 +275,7 @@ func TestMonitorSnapshotDoesNotGuessLiveEndedAtFromRoomUpdate(t *testing.T) {
 		},
 	})
 	ctx := context.Background()
-	source.stateStore.SetRoom(ctx, sourcestate.Room{
+	source.stateStore.SetRoom(ctx, sourceRoom{
 		UID:             "123456",
 		Name:            "测试 UP",
 		LiveStatus:      0,
@@ -562,7 +561,7 @@ func TestSourceDiagnosisExplainsLiveFallback(t *testing.T) {
 
 	source, _ := newTestSource(t, time.Date(2026, 6, 8, 8, 24, 0, 0, time.UTC), nil)
 	ctx := context.Background()
-	source.stateStore.SetRoom(ctx, sourcestate.Room{
+	source.stateStore.SetRoom(ctx, sourceRoom{
 		UID:             "123456",
 		ConnectionState: StateDegraded,
 		LastError:       "直播间 123456 连接失败",
@@ -705,12 +704,12 @@ func TestUpdateWatchCountsIgnoresUnwatchedRoomState(t *testing.T) {
 
 	source, _ := newTestSource(t, time.Date(2026, 6, 8, 8, 13, 0, 0, time.UTC), nil)
 	ctx := context.Background()
-	source.stateStore.SetRoom(ctx, sourcestate.Room{
+	source.stateStore.SetRoom(ctx, sourceRoom{
 		UID:             "old",
 		ConnectionState: StateFailed,
 		UpdatedAt:       time.Date(2026, 6, 8, 8, 12, 0, 0, time.UTC),
 	})
-	source.stateStore.SetRoom(ctx, sourcestate.Room{
+	source.stateStore.SetRoom(ctx, sourceRoom{
 		UID:             "123456",
 		ConnectionState: StateConnected,
 		UpdatedAt:       time.Date(2026, 6, 8, 8, 12, 0, 0, time.UTC),

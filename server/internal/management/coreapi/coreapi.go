@@ -1,6 +1,7 @@
 package coreapi
 
 import (
+	"context"
 	"net"
 	"net/http"
 	"strings"
@@ -37,6 +38,10 @@ func NewHandlers(deps Deps) *Handlers {
 	}
 }
 
+func NewModule(deps Deps) *Handlers {
+	return NewHandlers(deps)
+}
+
 func (h *Handlers) SetAuthManager(auth authService) {
 	if h == nil {
 		return
@@ -46,7 +51,7 @@ func (h *Handlers) SetAuthManager(auth authService) {
 
 type authService interface {
 	IsBootstrapped() bool
-	Revoke(string) error
+	RevokeWithContext(context.Context, string) error
 }
 
 type systemService interface {
@@ -89,7 +94,7 @@ func (h *Handlers) HandleSessionLogout() http.HandlerFunc {
 			writeAuthError(w, r, http.StatusUnauthorized, codePermissionDenied, "当前用户无权执行该操作", "errors.permission.denied")
 			return
 		}
-		if err := h.auth.Revoke(claims.SessionID); err != nil {
+		if err := h.auth.RevokeWithContext(r.Context(), claims.SessionID); err != nil {
 			writeAppError(w, r, http.StatusInternalServerError, codeInternalError, "内部错误", "errors.platform.internal_error", nil)
 			return
 		}

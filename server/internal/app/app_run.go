@@ -16,6 +16,10 @@ func (a *App) Run(ctx context.Context) error {
 	a.setRunCancel(supervisor.Cancel)
 	defer a.clearRunCancel()
 
+	if a.services.PluginLifecycle != nil {
+		a.services.PluginLifecycle.BindLifecycleContext(runCtx)
+	}
+
 	a.services.System.AutoPrepareRuntimeEnvironments(runCtx)
 	if err := runCtx.Err(); err != nil {
 		closeErr := a.Close()

@@ -2,11 +2,10 @@ package thirdpartyapi
 
 import (
 	"context"
+	"github.com/RayleaBot/RayleaBot/server/internal/integrations/qrcode"
+	"github.com/RayleaBot/RayleaBot/server/internal/integrations/thirdparty"
 	"net/http"
 	"time"
-
-	"github.com/RayleaBot/RayleaBot/server/internal/integrations/common"
-	"github.com/RayleaBot/RayleaBot/server/internal/integrations/thirdparty"
 )
 
 type ThirdPartyHandlers struct {
@@ -16,6 +15,15 @@ type ThirdPartyHandlers struct {
 	monitors         thirdPartyMonitorService
 	userResolver     thirdPartyUserResolver
 	mediaClient      *http.Client
+}
+
+type ModuleDeps struct {
+	Accounts         thirdPartyAccountService
+	AccountValidator thirdPartyCredentialValidator
+	QRLogin          thirdPartyQRCodeLoginService
+	Monitors         thirdPartyMonitorService
+	Transport        http.RoundTripper
+	UserResolver     thirdPartyUserResolver
 }
 
 type thirdPartyAccountService interface {
@@ -29,8 +37,8 @@ type thirdPartyCredentialValidator interface {
 }
 
 type thirdPartyQRCodeLoginService interface {
-	Create(context.Context, string) (common.CreateResult, error)
-	Poll(context.Context, string, string) (common.PollResult, error)
+	Create(context.Context, string) (qrcode.CreateResult, error)
+	Poll(context.Context, string, string) (qrcode.PollResult, error)
 }
 
 type thirdPartyUserResolver interface {
@@ -62,4 +70,12 @@ func NewThirdPartyHandlers(accounts thirdPartyAccountService, accountValidator t
 		}
 	}
 	return handler
+}
+
+func NewModule(deps ModuleDeps) *ThirdPartyHandlers {
+	options := []ThirdPartyHandlersOption{}
+	if deps.UserResolver != nil {
+		options = append(options, WithUserResolver(deps.UserResolver))
+	}
+	return NewThirdPartyHandlers(deps.Accounts, deps.AccountValidator, deps.QRLogin, deps.Monitors, deps.Transport, options...)
 }

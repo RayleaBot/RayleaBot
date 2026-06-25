@@ -116,6 +116,9 @@ func Build(deps BuildDeps) (BuildResult, error) {
 		Runtimes:         runtimeRegistry,
 		Renderer:         renderer,
 		Storage:          platform.Storage,
+		ThirdParty:       thirdPartyDiagnostics{service: integrations.ThirdParty},
+		BilibiliSource:   bilibiliSourceDiagnostics{source: integrations.BilibiliSource},
+		Scheduler:        schedulerDiagnostics{scheduler: platform.Scheduler},
 		PluginRepository: pluginStack.PluginRepository,
 		TaskExecutor:     platform.TaskExecutor,
 		LogRepository:    platform.LogRepository,
@@ -123,16 +126,14 @@ func Build(deps BuildDeps) (BuildResult, error) {
 	serviceStatusService := managementevents.NewServiceStatusService(systemService)
 	systemService.SetStatusPublisher(serviceStatusService)
 	pluginServices := pluginmodule.BuildServices(pluginmodule.ServiceDeps{
-		Runtime:         runtimeState,
-		Platform:        platform,
-		Plugins:         pluginStack,
-		Events:          eventStack,
-		Renderer:        renderer,
-		System:          systemService,
-		Discovery:       deps.Discovery,
-		PluginValidator: deps.PluginValidator,
-		PluginRuntime:   pluginRuntime,
-		Metrics:         deps.Metrics,
+		Runtime:       runtimeState,
+		Platform:      platform,
+		Plugins:       pluginStack,
+		Events:        eventStack,
+		Renderer:      renderer,
+		System:        systemService,
+		PluginRuntime: pluginRuntime,
+		Metrics:       deps.Metrics,
 	})
 	eventIngress := eventingress.New(eventingress.Deps{
 		CurrentConfig:    runtimeState.CurrentConfig,

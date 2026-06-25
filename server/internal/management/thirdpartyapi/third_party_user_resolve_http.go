@@ -9,7 +9,6 @@ import (
 
 	"github.com/RayleaBot/RayleaBot/server/internal/httpapi"
 	thirdpartymedia "github.com/RayleaBot/RayleaBot/server/internal/integrations/bilibili/media"
-	"github.com/RayleaBot/RayleaBot/server/internal/integrations/common"
 	"github.com/RayleaBot/RayleaBot/server/internal/integrations/thirdparty"
 )
 
@@ -110,7 +109,7 @@ func (h *ThirdPartyHandlers) platformCookieMaps(ctx context.Context, platform st
 		if err != nil {
 			continue
 		}
-		cookies := common.CookieMapFromHeader(cookie)
+		cookies := thirdparty.CookieMapFromHeader(cookie)
 		if len(cookies) > 0 {
 			cookieMaps = append(cookieMaps, cookies)
 		}

@@ -29,6 +29,13 @@ func newArtifactStore(outputRoot string) *artifactStore {
 	}
 }
 
+func (s *Service) LookupArtifact(artifactID string) (renderartifact.Artifact, error) {
+	if s == nil {
+		return renderartifact.Artifact{}, &rendertemplates.Error{Code: "platform.resource_missing", Message: "render service is not available"}
+	}
+	return s.artifactStore.lookup(artifactID)
+}
+
 func (a *artifactStore) cachedResult(cacheKey string) (renderartifact.Result, bool) {
 	a.mu.RLock()
 	defer a.mu.RUnlock()

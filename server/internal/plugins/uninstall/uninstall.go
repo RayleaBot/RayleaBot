@@ -39,7 +39,7 @@ type UninstallService struct {
 	cancels map[string]context.CancelFunc
 	deps    uninstallerDeps
 
-	afterSuccess func(string)
+	afterSuccess func(context.Context, string)
 }
 
 type uninstallerDeps struct {
@@ -123,6 +123,6 @@ func (s *UninstallService) SetStopPlugin(fn plugins.StopPluginFunc) {
 	s.stopPlugin = fn
 }
 
-func (s *UninstallService) SetAfterSuccess(fn func(string)) {
+func (s *UninstallService) SetAfterSuccess(fn func(context.Context, string)) {
 	s.afterSuccess = fn
 }

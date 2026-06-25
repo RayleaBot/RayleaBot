@@ -1,10 +1,12 @@
-package actions
+package actions_test
 
 import (
 	"context"
 	"path/filepath"
 	"testing"
 
+	"github.com/RayleaBot/RayleaBot/server/internal/plugins/actions"
+	defaultactionmodules "github.com/RayleaBot/RayleaBot/server/internal/plugins/actions/defaultmodules"
 	pluginconfig "github.com/RayleaBot/RayleaBot/server/internal/plugins/configstore"
 	runtimeaction "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime/action"
 	runtimeprotocol "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime/protocol"
@@ -25,12 +27,13 @@ func TestExecuteConfigReadWriteRoundTrip(t *testing.T) {
 		t.Fatalf("NewSQLiteRepository: %v", err)
 	}
 
-	service := New(Deps{
+	service := actions.New(actions.Deps{
 		Capabilities: &stubCapabilityView{capabilities: map[string]bool{
 			"config.read":  true,
 			"config.write": true,
 		}},
 		PluginConfig: repo,
+		Registrars:   defaultactionmodules.Registrars(),
 	})
 
 	if _, err := repo.SeedDefaults(context.Background(), "weather", map[string]any{

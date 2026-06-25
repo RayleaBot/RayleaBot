@@ -91,17 +91,22 @@ func TestCompositionRootLayering(t *testing.T) {
 
 func TestCompositionRootFanOutDoesNotExceedBudget(t *testing.T) {
 	serverRoot := testServerRoot(t)
-	budgets := map[string]int{
-		filepath.Join("internal", "app", "servicegraph"): 19,
-		filepath.Join("internal", "app", "httpwire"):     19,
+	budget := loadArchitectureBudget(t, serverRoot)
+	budgetKeys := []string{
+		"internal/app/servicegraph",
+		"internal/app/httpwire",
 	}
 
-	for relDir, budget := range budgets {
-		dir := filepath.Join(serverRoot, relDir)
+	for _, budgetKey := range budgetKeys {
+		metric, ok := budget.PackageInternalFanOut[budgetKey]
+		if !ok {
+			t.Fatalf("architecture budget missing package_internal_fan_out.%s", budgetKey)
+		}
+		dir := filepath.Join(serverRoot, filepath.FromSlash(budgetKey))
 		imports := map[string]struct{}{}
 		entries, err := os.ReadDir(dir)
 		if err != nil {
-			t.Fatalf("read %s: %v", relDir, err)
+			t.Fatalf("read %s: %v", budgetKey, err)
 		}
 		for _, entry := range entries {
 			if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".go") || strings.HasSuffix(entry.Name(), "_test.go") {
@@ -114,8 +119,8 @@ func TestCompositionRootFanOutDoesNotExceedBudget(t *testing.T) {
 				}
 			}
 		}
-		if len(imports) > budget {
-			t.Errorf("%s imports %d internal packages, budget is %d", filepath.ToSlash(relDir), len(imports), budget)
+		if len(imports) > metric.Max {
+			t.Errorf("%s imports %d internal packages, budget is %d", budgetKey, len(imports), metric.Max)
 		}
 	}
 }

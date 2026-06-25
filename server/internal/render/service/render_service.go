@@ -165,7 +165,7 @@ func NewService(options Options) (*Service, error) {
 
 	browserPath := strings.TrimSpace(options.BrowserPath)
 	if browserPath == "" {
-		if managedBrowser, err := deps.NewManager(repoRoot).ResolvePreparedEntrypoint("chromium", "browser"); err == nil {
+		if managedBrowser, err := deps.NewRuntime(repoRoot).ResolvePreparedEntrypoint("chromium", "browser"); err == nil {
 			browserPath = managedBrowser
 		}
 	}

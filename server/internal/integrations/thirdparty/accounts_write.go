@@ -3,6 +3,7 @@ package thirdparty
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -24,6 +25,10 @@ func (s *Service) Upsert(ctx context.Context, request UpsertRequest) (Account, e
 	now := s.now().UTC()
 	profile := request.Profile.normalized()
 	credential := request.Credential.normalized()
+	proxyURL, proxyEnabled, err := s.resolveProxyConfig(ctx, platform, accountID, request.ProxyURL, request.ProxyEnabled)
+	if err != nil {
+		return Account{}, err
+	}
 
 	if strings.TrimSpace(request.Cookie) != "" {
 		if request.Validate != nil {
@@ -56,8 +61,8 @@ func (s *Service) Upsert(ctx context.Context, request UpsertRequest) (Account, e
 	}
 
 	if _, err := s.write.ExecContext(ctx,
-		`INSERT INTO third_party_accounts (platform, account_id, label, enabled, secret_key, profile_uid, profile_nickname, profile_avatar_url, credential_state, credential_checked_at, credential_last_error, updated_at)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		`INSERT INTO third_party_accounts (platform, account_id, label, enabled, secret_key, profile_uid, profile_nickname, profile_avatar_url, credential_state, credential_checked_at, credential_last_error, proxy_url, proxy_enabled, updated_at)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		 ON CONFLICT(platform, account_id) DO UPDATE SET
 		   label = excluded.label,
 		   enabled = excluded.enabled,
@@ -68,6 +73,8 @@ func (s *Service) Upsert(ctx context.Context, request UpsertRequest) (Account, e
 		   credential_state = CASE WHEN excluded.credential_checked_at IS NULL THEN third_party_accounts.credential_state ELSE excluded.credential_state END,
 		   credential_checked_at = CASE WHEN excluded.credential_checked_at IS NULL THEN third_party_accounts.credential_checked_at ELSE excluded.credential_checked_at END,
 		   credential_last_error = CASE WHEN excluded.credential_checked_at IS NULL THEN third_party_accounts.credential_last_error ELSE excluded.credential_last_error END,
+		   proxy_url = excluded.proxy_url,
+		   proxy_enabled = excluded.proxy_enabled,
 		   updated_at = excluded.updated_at`,
 		platform,
 		accountID,
@@ -80,6 +87,8 @@ func (s *Service) Upsert(ctx context.Context, request UpsertRequest) (Account, e
 		credential.State,
 		nullableTime(credential.CheckedAt),
 		credential.LastError,
+		proxyURL,
+		boolInt(proxyEnabled),
 		now.Format(time.RFC3339),
 	); err != nil {
 		return Account{}, fmt.Errorf("upsert third-party account: %w", err)
@@ -94,6 +103,33 @@ func (s *Service) Upsert(ctx context.Context, request UpsertRequest) (Account, e
 		}
 	}
 	return Account{}, fmt.Errorf("read saved third-party account: %w", sql.ErrNoRows)
+}
+
+func (s *Service) resolveProxyConfig(ctx context.Context, platform, accountID string, requestURL *string, requestEnabled *bool) (string, bool, error) {
+	proxyURL := ""
+	proxyEnabled := false
+	if requestURL == nil || requestEnabled == nil {
+		var storedEnabled int
+		err := s.read.QueryRowContext(ctx, `SELECT proxy_url, proxy_enabled FROM third_party_accounts WHERE platform = ? AND account_id = ?`, platform, accountID).Scan(&proxyURL, &storedEnabled)
+		if err != nil && !errors.Is(err, sql.ErrNoRows) {
+			return "", false, fmt.Errorf("read third-party account proxy config: %w", err)
+		}
+		proxyEnabled = storedEnabled != 0
+	}
+	if requestURL != nil {
+		normalized, err := normalizeProxyURL(*requestURL)
+		if err != nil {
+			return "", false, err
+		}
+		proxyURL = normalized
+	}
+	if requestEnabled != nil {
+		proxyEnabled = *requestEnabled
+	}
+	if err := validateProxyConfig(proxyURL, proxyEnabled); err != nil {
+		return "", false, err
+	}
+	return proxyURL, proxyEnabled, nil
 }
 
 func (s *Service) Delete(ctx context.Context, platform, accountID string) error {

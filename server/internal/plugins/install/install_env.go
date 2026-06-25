@@ -14,7 +14,7 @@ type runtimeResolver interface {
 }
 
 var newRuntimeResolver = func(repoRoot string) runtimeResolver {
-	return deps.NewManager(repoRoot)
+	return deps.NewRuntime(repoRoot)
 }
 
 var runManagedCommand = executeManagedCommand

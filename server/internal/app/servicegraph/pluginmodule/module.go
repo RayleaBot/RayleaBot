@@ -12,14 +12,14 @@ import (
 	menuext "github.com/RayleaBot/RayleaBot/server/internal/extensions/menu"
 	"github.com/RayleaBot/RayleaBot/server/internal/governance"
 	"github.com/RayleaBot/RayleaBot/server/internal/metrics"
+	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	localaction "github.com/RayleaBot/RayleaBot/server/internal/plugins/actions"
+	defaultactionmodules "github.com/RayleaBot/RayleaBot/server/internal/plugins/actions/defaultmodules"
 	plugincapabilityview "github.com/RayleaBot/RayleaBot/server/internal/plugins/capabilityview"
 	pluginservice "github.com/RayleaBot/RayleaBot/server/internal/plugins/lifecycle"
 	runtimeregistry "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime/registry"
 	pluginwebhook "github.com/RayleaBot/RayleaBot/server/internal/plugins/webhook"
 	renderservice "github.com/RayleaBot/RayleaBot/server/internal/render/service"
-	"github.com/RayleaBot/RayleaBot/server/internal/runtimepaths"
-	"github.com/RayleaBot/RayleaBot/server/internal/schema"
 	systemsvc "github.com/RayleaBot/RayleaBot/server/internal/system"
 )
 
@@ -76,16 +76,14 @@ func BuildRuntime(deps RuntimeDeps) Runtime {
 }
 
 type ServiceDeps struct {
-	Runtime         RuntimeState
-	Platform        appplatform.State
-	Plugins         pluginstack.State
-	Events          eventstack.State
-	Renderer        *renderservice.Service
-	System          *systemsvc.Service
-	Discovery       runtimepaths.PluginDiscoverySpec
-	PluginValidator *schema.Validator
-	PluginRuntime   Runtime
-	Metrics         *metrics.Registry
+	Runtime       RuntimeState
+	Platform      appplatform.State
+	Plugins       pluginstack.State
+	Events        eventstack.State
+	Renderer      *renderservice.Service
+	System        *systemsvc.Service
+	PluginRuntime Runtime
+	Metrics       *metrics.Registry
 }
 
 type Services struct {
@@ -144,28 +142,53 @@ func buildLocalActionService(
 		Governance:       governanceService,
 		HTTPCredentials:  httpCredentials,
 		RefreshCommands:  localaction.RefreshCommands(pluginStack.Plugins, eventStack.Dispatcher),
+		Registrars:       defaultactionmodules.Registrars(),
 	})
 }
 
 func buildPluginLifecycle(deps ServiceDeps) *pluginservice.Controller {
-	return pluginservice.NewPlatformController(pluginservice.PlatformDeps{
-		CurrentConfig:    deps.Runtime.CurrentConfig,
-		RepoRoot:         deps.Runtime.RepoRoot(),
-		Logger:           deps.Runtime.RuntimeLogger(),
-		Plugins:          deps.Plugins.Plugins,
-		DesiredStateRepo: deps.Plugins.PluginRepository,
-		Runtimes:         deps.PluginRuntime.Runtimes,
-		Dispatcher:       deps.Events.Dispatcher,
-		Scheduler:        deps.Platform.Scheduler,
-		PluginConfig:     deps.Plugins.PluginConfig,
-		Adapter:          deps.Events.Adapter,
-		Webhooks:         deps.Plugins.Webhooks,
-		Tasks:            deps.Platform.Tasks,
-		OnRecoveryChange: deps.System.ReconcileRecoverySummaryBestEffort,
-		Discovery:        deps.Discovery,
-		PluginValidator:  deps.PluginValidator,
-		Renderer:         deps.Renderer,
+	return pluginservice.NewController(pluginservice.Deps{
+		CurrentConfig:       deps.Runtime.CurrentConfig,
+		RepoRoot:            deps.Runtime.RepoRoot(),
+		Logger:              deps.Runtime.RuntimeLogger(),
+		Plugins:             deps.Plugins.Plugins,
+		DesiredStateRepo:    deps.Plugins.PluginRepository,
+		Runtimes:            deps.PluginRuntime.Runtimes,
+		Dispatcher:          deps.Events.Dispatcher,
+		Scheduler:           deps.Platform.Scheduler,
+		PluginConfig:        deps.Plugins.PluginConfig,
+		Adapter:             deps.Events.Adapter,
+		Webhooks:            deps.Plugins.Webhooks,
+		Tasks:               deps.Platform.Tasks,
+		OnRecoveryChange:    deps.System.ReconcileRecoverySummaryBestEffort,
+		RefreshManifest:     deps.Plugins.RefreshManifest,
+		SyncRenderTemplates: pluginRenderTemplateSync(deps),
 	})
+}
+
+func pluginRenderTemplateSync(deps ServiceDeps) func(context.Context) error {
+	return func(ctx context.Context) error {
+		if deps.Renderer == nil || deps.Plugins.Plugins == nil {
+			return nil
+		}
+		return deps.Renderer.SyncPluginTemplateDeclarations(ctx, pluginRenderTemplateDeclarations(deps.Plugins.Plugins.List()))
+	}
+}
+
+func pluginRenderTemplateDeclarations(snapshots []plugins.Snapshot) []renderservice.PluginTemplateDeclaration {
+	var declarations []renderservice.PluginTemplateDeclaration
+	for _, snapshot := range snapshots {
+		for _, declared := range snapshot.RenderTemplates {
+			declarations = append(declarations, renderservice.PluginTemplateDeclaration{
+				PluginID:          snapshot.PluginID,
+				Path:              declared.Path,
+				PackageRootPath:   snapshot.PackageRootPath,
+				Valid:             snapshot.Valid,
+				RegistrationState: snapshot.RegistrationState,
+			})
+		}
+	}
+	return declarations
 }
 
 func buildBuiltinMenuService(runtimeState RuntimeState, pluginStack pluginstack.State, eventStack eventstack.State, renderer *renderservice.Service) *menuext.Service {

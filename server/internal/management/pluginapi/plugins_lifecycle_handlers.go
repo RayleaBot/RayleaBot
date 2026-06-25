@@ -58,7 +58,7 @@ func newDesiredStateHandler(catalog plugins.CatalogView, repo plugins.DesiredSta
 			return
 		}
 		if repo != nil {
-			if err := repo.SaveDesiredState(context.Background(), pluginID, desiredState, time.Now().UTC()); err != nil {
+			if err := repo.SaveDesiredState(r.Context(), pluginID, desiredState, time.Now().UTC()); err != nil {
 				writeError(w, r, http.StatusInternalServerError, "platform.internal_error", "内部错误", "errors.platform.internal_error", nil)
 				return
 			}

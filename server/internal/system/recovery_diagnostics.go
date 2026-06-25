@@ -36,9 +36,9 @@ func (s *Service) managedRuntimeDiagnostics(pluginsList []plugins.Snapshot) []re
 		return nil
 	}
 	issues := []recovery.CompatibilityIssue{}
-	manager := deps.NewManager(s.repoRootPath())
+	diagnostics := deps.NewDiagnostics(s.repoRootPath())
 	for _, kind := range requiredKinds {
-		inspection, err := manager.Inspect(kind)
+		inspection, err := diagnostics.InspectRuntime(kind)
 		if err != nil {
 			issues = append(issues, startup.InspectionIssue(kind, err))
 			continue

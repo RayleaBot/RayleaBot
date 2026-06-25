@@ -10,6 +10,21 @@
 - 当前正式入口包括插件侧 `render.image` 和管理侧模板同步 HTML 预览。
 - 插件侧图片渲染结果会生成稳定 `artifact_id`，供平台同源读取。
 
+## 内部职责边界
+
+| 包 | 职责 |
+| --- | --- |
+| `server/internal/render/service` | 对管理 API 和插件 action 暴露渲染 facade，协调模板同步、预览、图片渲染、artifact 读取和诊断 |
+| `server/internal/render/templates` | 模板 manifest、源码读取、资源路径、输入 schema、HTML 编译和模板错误 |
+| `server/internal/render/repository` | SQLite 中的模板状态、revision、校验状态和插件模板同步 |
+| `server/internal/render/artifact` | 图片 artifact 持久化、缓存键、artifact record 读取和路径校验 |
+| `server/internal/render/browser` | Chromium 文档写入和浏览器 runner |
+| `server/internal/render/engine` | 有界 worker 队列、超时和执行结果 |
+| `server/internal/render/catalog` | 文件模板发现、模板根路径和本地资源 base URL |
+| `server/internal/render/pluginsync` | 插件声明模板的解析与同步输入 |
+
+`management/renderapi` 和插件 action 只依赖 `render/service` 的 facade，不直接访问 repository、artifact store 或模板目录细节。
+
 ## 模板来源与版本真相
 
 - 仓库 `templates/` 提供受控模板文件来源。

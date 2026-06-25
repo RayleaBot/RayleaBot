@@ -1,11 +1,43 @@
 package service
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
 	"strings"
 
 	rendertemplates "github.com/RayleaBot/RayleaBot/server/internal/render/templates"
 )
+
+type TemplateErrorInfo struct {
+	Code    string
+	Message string
+}
+
+func AsTemplateError(err error) (TemplateErrorInfo, bool) {
+	var renderErr *rendertemplates.Error
+	if !errors.As(err, &renderErr) {
+		return TemplateErrorInfo{}, false
+	}
+	return TemplateErrorInfo{
+		Code:    renderErr.Code,
+		Message: renderErr.Message,
+	}, true
+}
+
+func (s *Service) TemplateAcceptsRenderIdentity(ctx context.Context, templateID string) bool {
+	_, source, err := s.GetTemplateSource(ctx, templateID)
+	if err != nil {
+		return false
+	}
+	properties, ok := source.InputSchemaJSON["properties"].(map[string]any)
+	if !ok {
+		return false
+	}
+	_, hasUser := properties["user"]
+	_, hasPermission := properties["permission"]
+	return hasUser && hasPermission
+}
 
 func (s *Service) normalizeRequest(request Request) (Request, []byte, error) {
 	request.Template = strings.TrimSpace(request.Template)

@@ -4,6 +4,7 @@ import (
 	"context"
 	"log/slog"
 	"sync"
+	"time"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/dispatch"
@@ -63,6 +64,9 @@ type Controller struct {
 	refreshManifest     func(context.Context, string) (plugins.Snapshot, error)
 	syncRenderTemplates func(context.Context) error
 
+	lifecycleCtxMu sync.RWMutex
+	lifecycleCtx   context.Context
+
 	identityMu       sync.Mutex
 	identityByPlugin map[string]string
 }
@@ -85,6 +89,35 @@ func NewController(deps Deps) *Controller {
 		refreshManifest:     deps.RefreshManifest,
 		syncRenderTemplates: deps.SyncRenderTemplates,
 	}
+}
+
+func (c *Controller) BindLifecycleContext(ctx context.Context) {
+	if c == nil {
+		return
+	}
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	c.lifecycleCtxMu.Lock()
+	c.lifecycleCtx = ctx
+	c.lifecycleCtxMu.Unlock()
+}
+
+func (c *Controller) lifecycleContext() context.Context {
+	if c == nil {
+		return context.Background()
+	}
+	c.lifecycleCtxMu.RLock()
+	ctx := c.lifecycleCtx
+	c.lifecycleCtxMu.RUnlock()
+	if ctx == nil {
+		return context.Background()
+	}
+	return ctx
+}
+
+func (c *Controller) lifecycleTimeoutContext(timeout time.Duration) (context.Context, context.CancelFunc) {
+	return context.WithTimeout(c.lifecycleContext(), timeout)
 }
 
 func (c *Controller) config() config.Config {

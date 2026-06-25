@@ -18,9 +18,11 @@ func configureAppRuntimeCallbacks(application *App, schedulerTriggers *scheduler
 	systemService.RefreshRecoverySummary()
 	schedulerTriggers.Set(lifecycle.HandleSchedulerTrigger)
 
-	if installer, ok := application.pluginStack.PluginInstaller.(interface{ SetAfterSuccess(func(string) error) }); ok {
-		installer.SetAfterSuccess(func(string) error {
-			if err := renderstack.SyncCatalogRenderTemplates(context.Background(), application.renderStack.Renderer, application.pluginStack.Plugins); err != nil {
+	if installer, ok := application.pluginStack.PluginInstaller.(interface {
+		SetAfterSuccess(func(context.Context, string) error)
+	}); ok {
+		installer.SetAfterSuccess(func(ctx context.Context, _ string) error {
+			if err := renderstack.SyncCatalogRenderTemplates(ctx, application.renderStack.Renderer, application.pluginStack.Plugins); err != nil {
 				return err
 			}
 			systemService.ReconcileRecoverySummaryBestEffort("plugin.install")
@@ -34,14 +36,14 @@ func configureAppRuntimeCallbacks(application *App, schedulerTriggers *scheduler
 	}
 	if uninstaller, ok := application.pluginStack.PluginUninstaller.(interface {
 		SetStopPlugin(plugins.StopPluginFunc)
-		SetAfterSuccess(func(string))
+		SetAfterSuccess(func(context.Context, string))
 	}); ok {
-		uninstaller.SetStopPlugin(lifecycle.StopAndResetPlugin)
-		uninstaller.SetAfterSuccess(func(pluginID string) {
+		uninstaller.SetStopPlugin(lifecycle.StopAndResetPluginWithContext)
+		uninstaller.SetAfterSuccess(func(ctx context.Context, pluginID string) {
 			if application.renderStack.Renderer != nil {
-				_ = application.renderStack.Renderer.RemovePluginTemplates(context.Background(), pluginID)
+				_ = application.renderStack.Renderer.RemovePluginTemplates(ctx, pluginID)
 			}
-			_ = renderstack.SyncCatalogRenderTemplates(context.Background(), application.renderStack.Renderer, application.pluginStack.Plugins)
+			_ = renderstack.SyncCatalogRenderTemplates(ctx, application.renderStack.Renderer, application.pluginStack.Plugins)
 			systemService.ReconcileRecoverySummaryBestEffort("plugin.uninstall")
 		})
 	}
