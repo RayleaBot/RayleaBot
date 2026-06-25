@@ -1,0 +1,21 @@
+contract: contracts/web-api.openapi.yaml
+case: invalid
+description: Third-party account upsert rejects an enabled proxy without a proxy URL.
+request:
+  method: PUT
+  path: /api/third-party/accounts/bilibili/proxy-empty
+  body:
+    label: 代理错误
+    enabled: true
+    proxy_url: ""
+    proxy_enabled: true
+response:
+  status: 400
+  body:
+    error:
+      code: platform.invalid_request
+      message: 三方账号参数不正确
+      message_key: errors.platform.invalid_request
+      request_id: req_third_party_account_proxy_empty
+expect:
+  valid: true

@@ -6,12 +6,16 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"os"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 
+	internalapp "github.com/RayleaBot/RayleaBot/server/internal/app"
 	"github.com/RayleaBot/RayleaBot/server/internal/schema"
 	"gopkg.in/yaml.v3"
 )
@@ -57,6 +61,109 @@ func TestActualManagementResponsesMatchOpenAPI(t *testing.T) {
 		assertActualResponseMatchesOpenAPI(t, http.MethodGet, "/api/system/status", recorder.Code, decodeBody(t, recorder.Body.Bytes()))
 	})
 
+	t.Run("system diagnostics", func(t *testing.T) {
+		t.Parallel()
+
+		application := newTestApp(t, deterministicAuthOptions()...)
+		token := issueLoginToken(t, application)
+
+		recorder := performOpenAPIJSONRequest(t, application, http.MethodGet, "/api/system/diagnostics", nil, token)
+		if recorder.Code != http.StatusOK {
+			t.Fatalf("unexpected system diagnostics code: got %d want 200 body=%s", recorder.Code, recorder.Body.String())
+		}
+		assertActualResponseMatchesOpenAPI(t, http.MethodGet, "/api/system/diagnostics", recorder.Code, decodeBody(t, recorder.Body.Bytes()))
+		for _, forbidden := range []string{"SESSDATA=", "bili_jct=", "fixture-token"} {
+			if strings.Contains(recorder.Body.String(), forbidden) {
+				t.Fatalf("diagnostics response leaked sensitive value %q: %s", forbidden, recorder.Body.String())
+			}
+		}
+	})
+
+	t.Run("config get", func(t *testing.T) {
+		t.Parallel()
+
+		application := newTestApp(t, deterministicAuthOptions()...)
+		token := issueLoginToken(t, application)
+
+		recorder := performOpenAPIJSONRequest(t, application, http.MethodGet, "/api/config", nil, token)
+		if recorder.Code != http.StatusOK {
+			t.Fatalf("unexpected config get code: got %d want 200 body=%s", recorder.Code, recorder.Body.String())
+		}
+		assertActualResponseMatchesOpenAPI(t, http.MethodGet, "/api/config", recorder.Code, decodeBody(t, recorder.Body.Bytes()))
+	})
+
+	t.Run("plugins list and detail", func(t *testing.T) {
+		t.Parallel()
+
+		application := newTestApp(t, deterministicAuthOptions()...)
+		token := issueLoginToken(t, application)
+
+		list := performOpenAPIJSONRequest(t, application, http.MethodGet, "/api/plugins", nil, token)
+		if list.Code != http.StatusOK {
+			t.Fatalf("unexpected plugin list code: got %d want 200 body=%s", list.Code, list.Body.String())
+		}
+		assertActualResponseMatchesOpenAPI(t, http.MethodGet, "/api/plugins", list.Code, decodeBody(t, list.Body.Bytes()))
+
+		detail := performOpenAPIJSONRequest(t, application, http.MethodGet, "/api/plugins/raylea.echo", nil, token)
+		if detail.Code != http.StatusOK {
+			t.Fatalf("unexpected plugin detail code: got %d want 200 body=%s", detail.Code, detail.Body.String())
+		}
+		assertActualResponseMatchesOpenAPI(t, http.MethodGet, "/api/plugins/{plugin_id}", detail.Code, decodeBody(t, detail.Body.Bytes()))
+	})
+
+	t.Run("render templates list detail and preview", func(t *testing.T) {
+		t.Parallel()
+
+		application := newTestApp(t, deterministicAuthOptions()...)
+		token := issueLoginToken(t, application)
+
+		list := performOpenAPIJSONRequest(t, application, http.MethodGet, "/api/system/render/templates", nil, token)
+		if list.Code != http.StatusOK {
+			t.Fatalf("unexpected render templates list code: got %d want 200 body=%s", list.Code, list.Body.String())
+		}
+		assertActualResponseMatchesOpenAPI(t, http.MethodGet, "/api/system/render/templates", list.Code, decodeBody(t, list.Body.Bytes()))
+
+		detail := performOpenAPIJSONRequest(t, application, http.MethodGet, "/api/system/render/templates/help.menu", nil, token)
+		if detail.Code != http.StatusOK {
+			t.Fatalf("unexpected render template detail code: got %d want 200 body=%s", detail.Code, detail.Body.String())
+		}
+		assertActualResponseMatchesOpenAPI(t, http.MethodGet, "/api/system/render/templates/{template_id}", detail.Code, decodeBody(t, detail.Body.Bytes()))
+
+		fixture := loadWebAPIFixtureDocument(t, filepath.Join("..", "fixtures", "web-api", "ok.system-render-template-preview-html.yaml"))
+		assertRequestMatchesOpenAPI(t, fixture.Request.Method, fixture.Request.Path, fixture.Request.Body)
+		preview := performOpenAPIJSONRequest(t, application, fixture.Request.Method, fixture.Request.Path, fixture.Request.Body, token)
+		if preview.Code != fixture.Response.Status {
+			t.Fatalf("unexpected render template preview code: got %d want %d body=%s", preview.Code, fixture.Response.Status, preview.Body.String())
+		}
+		assertActualResponseMatchesOpenAPI(t, fixture.Request.Method, "/api/system/render/templates/{template_id}/preview-html", preview.Code, decodeBody(t, preview.Body.Bytes()))
+	})
+
+	t.Run("tasks list", func(t *testing.T) {
+		t.Parallel()
+
+		application := newTestApp(t, deterministicAuthOptions()...)
+		token := issueLoginToken(t, application)
+
+		recorder := performOpenAPIJSONRequest(t, application, http.MethodGet, "/api/tasks?limit=1", nil, token)
+		if recorder.Code != http.StatusOK {
+			t.Fatalf("unexpected tasks list code: got %d want 200 body=%s", recorder.Code, recorder.Body.String())
+		}
+		assertActualResponseMatchesOpenAPI(t, http.MethodGet, "/api/tasks", recorder.Code, decodeBody(t, recorder.Body.Bytes()))
+	})
+
+	t.Run("logs list", func(t *testing.T) {
+		t.Parallel()
+
+		application := newTestApp(t, deterministicAuthOptions()...)
+		token := issueLoginToken(t, application)
+
+		recorder := performOpenAPIJSONRequest(t, application, http.MethodGet, "/api/logs?limit=1", nil, token)
+		if recorder.Code != http.StatusOK {
+			t.Fatalf("unexpected logs list code: got %d want 200 body=%s", recorder.Code, recorder.Body.String())
+		}
+		assertActualResponseMatchesOpenAPI(t, http.MethodGet, "/api/logs", recorder.Code, decodeBody(t, recorder.Body.Bytes()))
+	})
+
 	t.Run("launcher status", func(t *testing.T) {
 		t.Parallel()
 
@@ -67,6 +174,102 @@ func TestActualManagementResponsesMatchOpenAPI(t *testing.T) {
 		}
 		assertActualResponseMatchesOpenAPI(t, http.MethodGet, "/api/launcher/status", recorder.Code, decodeBody(t, recorder.Body.Bytes()))
 	})
+
+	t.Run("third party account upsert and list", func(t *testing.T) {
+		t.Parallel()
+
+		application, _, _ := newTestAppWithOptions(t, nil, func(options *internalapp.Options, _ string) {
+			options.BilibiliHTTPTransport = managementBilibiliTransport(t)
+			options.BilibiliClock = func() time.Time { return time.Date(2026, 6, 8, 8, 0, 0, 0, time.UTC) }
+		}, deterministicAuthOptions()...)
+		token := issueLoginToken(t, application)
+		upsertFixture := loadWebAPIFixtureDocument(t, filepath.Join("..", "fixtures", "web-api", "ok.third-party-account-upsert.yaml"))
+
+		assertRequestMatchesOpenAPI(t, upsertFixture.Request.Method, upsertFixture.Request.Path, upsertFixture.Request.Body)
+		upsert := performOpenAPIJSONRequest(t, application, upsertFixture.Request.Method, upsertFixture.Request.Path, upsertFixture.Request.Body, token)
+		if upsert.Code != upsertFixture.Response.Status {
+			t.Fatalf("unexpected third-party account upsert code: got %d want %d body=%s", upsert.Code, upsertFixture.Response.Status, upsert.Body.String())
+		}
+		assertActualResponseMatchesOpenAPI(t, upsertFixture.Request.Method, "/api/third-party/accounts/{platform}/{account_id}", upsert.Code, decodeBody(t, upsert.Body.Bytes()))
+
+		list := performOpenAPIJSONRequest(t, application, http.MethodGet, "/api/third-party/accounts", nil, token)
+		if list.Code != http.StatusOK {
+			t.Fatalf("unexpected third-party account list code: got %d want 200 body=%s", list.Code, list.Body.String())
+		}
+		assertActualResponseMatchesOpenAPI(t, http.MethodGet, "/api/third-party/accounts", list.Code, decodeBody(t, list.Body.Bytes()))
+
+		status := performOpenAPIJSONRequest(t, application, http.MethodGet, "/api/bilibili/source/status", nil, token)
+		if status.Code != http.StatusOK {
+			t.Fatalf("unexpected bilibili source status code: got %d want 200 body=%s", status.Code, status.Body.String())
+		}
+		assertActualResponseMatchesOpenAPI(t, http.MethodGet, "/api/bilibili/source/status", status.Code, decodeBody(t, status.Body.Bytes()))
+	})
+}
+
+func TestWebAPIRequestFixturesMatchOpenAPI(t *testing.T) {
+	t.Parallel()
+
+	paths, err := filepath.Glob(filepath.Join("..", "fixtures", "web-api", "*.yaml"))
+	if err != nil {
+		t.Fatalf("glob web-api fixtures: %v", err)
+	}
+	for _, fixturePath := range paths {
+		fixturePath := fixturePath
+		t.Run(filepath.Base(fixturePath), func(t *testing.T) {
+			t.Parallel()
+
+			fixture := loadOpenAPIRequestFixture(t, fixturePath)
+			// ConfigDocument is an external JSON Schema with dedicated config tests.
+			if fixture.Case == "invalid" || fixture.Request.Body == nil || fixture.Request.Path == "/api/config" {
+				return
+			}
+			assertRequestMatchesOpenAPI(t, fixture.Request.Method, fixture.Request.Path, normalizeYAMLValue(fixture.Request.Body).(map[string]any))
+		})
+	}
+}
+
+func TestOpenAPIFixtureRegistryCoversOperations(t *testing.T) {
+	t.Parallel()
+
+	document := loadOpenAPIContractDocument(t)
+	paths := requireOpenAPIMap(t, document["paths"], "paths")
+	fixtureRefs, ok := document["x-fixtures"].([]any)
+	if !ok || len(fixtureRefs) == 0 {
+		t.Fatalf("OpenAPI x-fixtures must list web API fixtures")
+	}
+
+	covered := map[string][]string{}
+	for _, rawRef := range fixtureRefs {
+		ref, ok := rawRef.(string)
+		if !ok || strings.TrimSpace(ref) == "" {
+			t.Fatalf("OpenAPI x-fixtures contains invalid entry %#v", rawRef)
+		}
+		fixturePath := filepath.Join("..", filepath.FromSlash(ref))
+		if _, err := os.Stat(fixturePath); err != nil {
+			t.Fatalf("OpenAPI x-fixtures entry %s is not readable: %v", ref, err)
+		}
+		fixture := loadOpenAPIRequestFixture(t, fixturePath)
+		if fixture.Request.Method == "" || fixture.Request.Path == "" {
+			t.Fatalf("%s missing request method or path", ref)
+		}
+		requestPath := strings.Split(fixture.Request.Path, "?")[0]
+		contractPath := resolveOpenAPIPath(paths, requestPath)
+		key := operationCoverageKey(fixture.Request.Method, contractPath)
+		covered[key] = append(covered[key], ref)
+	}
+
+	for _, contractPath := range sortedMapKeys(paths) {
+		pathItem := requireOpenAPIMap(t, paths[contractPath], "paths."+contractPath)
+		for _, method := range []string{http.MethodGet, http.MethodPost, http.MethodPut, http.MethodPatch, http.MethodDelete} {
+			if _, ok := pathItem[strings.ToLower(method)]; !ok {
+				continue
+			}
+			key := operationCoverageKey(method, contractPath)
+			if len(covered[key]) == 0 {
+				t.Errorf("%s %s has no fixture listed in OpenAPI x-fixtures", method, contractPath)
+			}
+		}
+	}
 }
 
 func performOpenAPIJSONRequest(t *testing.T, application interface{ Handler() http.Handler }, method, path string, body map[string]any, token string) *httptest.ResponseRecorder {
@@ -93,6 +296,10 @@ func performOpenAPIJSONRequest(t *testing.T, application interface{ Handler() ht
 	return recorder
 }
 
+func operationCoverageKey(method, path string) string {
+	return strings.ToUpper(method) + " " + path
+}
+
 func assertActualResponseMatchesOpenAPI(t *testing.T, method, path string, status int, body map[string]any) {
 	t.Helper()
 
@@ -102,12 +309,38 @@ func assertActualResponseMatchesOpenAPI(t *testing.T, method, path string, statu
 	}
 }
 
+func assertRequestMatchesOpenAPI(t *testing.T, method, path string, body map[string]any) {
+	t.Helper()
+
+	validator := compileOpenAPIRequestValidator(t, method, path)
+	if err := validator.Validate(body); err != nil {
+		t.Fatalf("%s %s request does not match OpenAPI schema: %v\nbody=%#v", method, path, err, body)
+	}
+}
+
+func compileOpenAPIRequestValidator(t *testing.T, method, path string) *schema.Validator {
+	t.Helper()
+
+	document := loadOpenAPIContractDocument(t)
+	paths := requireOpenAPIMap(t, document["paths"], "paths")
+	contractPath := resolveOpenAPIPath(paths, path)
+	pathItem := requireOpenAPIMap(t, paths[contractPath], "paths."+contractPath)
+	operation := requireOpenAPIMap(t, pathItem[strings.ToLower(method)], "operation "+method+" "+contractPath)
+	requestBody := requireOpenAPIMap(t, operation["requestBody"], "request body "+method+" "+contractPath)
+	content := requireOpenAPIMap(t, requestBody["content"], "request body content")
+	media := requireOpenAPIMap(t, content["application/json"], "application/json request content")
+	requestSchema := requireOpenAPIMap(t, media["schema"], "application/json request schema")
+
+	return compileOpenAPISchemaValidator(t, requestSchema, openAPISchemaName("openapi-request", method, contractPath, ""))
+}
+
 func compileOpenAPIResponseValidator(t *testing.T, method, path string, status int) *schema.Validator {
 	t.Helper()
 
 	document := loadOpenAPIContractDocument(t)
 	paths := requireOpenAPIMap(t, document["paths"], "paths")
-	pathItem := requireOpenAPIMap(t, paths[path], "paths."+path)
+	contractPath := resolveOpenAPIPath(paths, path)
+	pathItem := requireOpenAPIMap(t, paths[contractPath], "paths."+contractPath)
 	operation := requireOpenAPIMap(t, pathItem[strings.ToLower(method)], "operation "+method+" "+path)
 	responses := requireOpenAPIMap(t, operation["responses"], "responses "+method+" "+path)
 	response := requireOpenAPIMap(t, responses[strconv.Itoa(status)], fmt.Sprintf("response %s %s %d", method, path, status))
@@ -115,25 +348,104 @@ func compileOpenAPIResponseValidator(t *testing.T, method, path string, status i
 	media := requireOpenAPIMap(t, content["application/json"], "application/json response content")
 	responseSchema := requireOpenAPIMap(t, media["schema"], "application/json response schema")
 
+	return compileOpenAPISchemaValidator(t, responseSchema, openAPISchemaName("openapi-response", method, contractPath, strconv.Itoa(status)))
+}
+
+func openAPISchemaName(prefix, method, path, suffix string) string {
+	replacer := strings.NewReplacer("/", "-", "{", "", "}", "", "_", "-")
+	name := prefix + "-" + strings.ToLower(method) + "-" + replacer.Replace(strings.Trim(path, "/"))
+	if suffix != "" {
+		name += "-" + suffix
+	}
+	return name
+}
+
+func compileOpenAPISchemaValidator(t *testing.T, documentSchema map[string]any, name string) *schema.Validator {
+	t.Helper()
+
+	document := loadOpenAPIContractDocument(t)
+
 	components := requireOpenAPIMap(t, document["components"], "components")
 	allSchemas := requireOpenAPIMap(t, components["schemas"], "components.schemas")
 	defs := map[string]any{}
-	collectOpenAPIComponentSchemas(t, responseSchema, allSchemas, defs)
+	collectOpenAPIComponentSchemas(t, documentSchema, allSchemas, defs)
 
 	schemaDocument := map[string]any{
 		"$schema": "https://json-schema.org/draft/2020-12/schema",
 		"$defs":   defs,
 	}
-	for key, value := range rewriteOpenAPIRefs(responseSchema) {
+	for key, value := range rewriteOpenAPIRefs(documentSchema) {
 		schemaDocument[key] = value
 	}
 
-	name := "openapi-response-" + strings.ToLower(method) + "-" + strings.ReplaceAll(strings.Trim(path, "/"), "/", "-") + "-" + strconv.Itoa(status)
 	validator, err := schema.CompileDocument(name, schemaDocument)
 	if err != nil {
-		t.Fatalf("compile OpenAPI response schema %s: %v", name, err)
+		t.Fatalf("compile OpenAPI schema %s: %v", name, err)
 	}
 	return validator
+}
+
+func resolveOpenAPIPath(paths map[string]any, path string) string {
+	if _, ok := paths[path]; ok {
+		return path
+	}
+	candidates := sortedMapKeys(paths)
+	for _, candidate := range candidates {
+		if openAPIPathMatches(candidate, path) {
+			return candidate
+		}
+	}
+	return path
+}
+
+func openAPIPathMatches(pattern, path string) bool {
+	patternParts := strings.Split(strings.Trim(pattern, "/"), "/")
+	pathParts := strings.Split(strings.Trim(path, "/"), "/")
+	if len(patternParts) != len(pathParts) {
+		return false
+	}
+	for index := range patternParts {
+		part := patternParts[index]
+		if strings.HasPrefix(part, "{") && strings.HasSuffix(part, "}") {
+			continue
+		}
+		if part != pathParts[index] {
+			return false
+		}
+	}
+	return true
+}
+
+type openAPIRequestFixture struct {
+	Case    string `yaml:"case"`
+	Request struct {
+		Method string         `yaml:"method"`
+		Path   string         `yaml:"path"`
+		Body   map[string]any `yaml:"body"`
+	} `yaml:"request"`
+}
+
+func loadOpenAPIRequestFixture(t *testing.T, path string) openAPIRequestFixture {
+	t.Helper()
+
+	content, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read fixture %s: %v", path, err)
+	}
+	var fixture openAPIRequestFixture
+	if err := yaml.Unmarshal(content, &fixture); err != nil {
+		t.Fatalf("parse fixture %s: %v", path, err)
+	}
+	return fixture
+}
+
+func sortedMapKeys(values map[string]any) []string {
+	keys := make([]string, 0, len(values))
+	for key := range values {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	return keys
 }
 
 func loadOpenAPIContractDocument(t *testing.T) map[string]any {
@@ -190,13 +502,24 @@ func rewriteOpenAPIValue(value any) any {
 	case map[string]any:
 		result := make(map[string]any, len(typed))
 		for key, inner := range typed {
+			if key == "nullable" {
+				continue
+			}
 			if key == "$ref" {
 				if ref, ok := inner.(string); ok && strings.HasPrefix(ref, "#/components/schemas/") {
 					result[key] = "#/$defs/" + strings.TrimPrefix(ref, "#/components/schemas/")
 					continue
+				} else if ok && strings.HasPrefix(ref, "./") {
+					result[key] = contractFileURI(strings.TrimPrefix(ref, "./"))
+					continue
 				}
 			}
 			result[key] = rewriteOpenAPIValue(inner)
+		}
+		if nullable, _ := typed["nullable"].(bool); nullable {
+			if typeName, ok := result["type"].(string); ok {
+				result["type"] = []any{typeName, "null"}
+			}
 		}
 		return result
 	case []any:
@@ -208,6 +531,18 @@ func rewriteOpenAPIValue(value any) any {
 	default:
 		return typed
 	}
+}
+
+func contractFileURI(path string) string {
+	abs, err := filepath.Abs(filepath.Join("..", "contracts", filepath.FromSlash(path)))
+	if err != nil {
+		return path
+	}
+	normalized := filepath.ToSlash(abs)
+	if !strings.HasPrefix(normalized, "/") {
+		normalized = "/" + normalized
+	}
+	return (&url.URL{Scheme: "file", Path: normalized}).String()
 }
 
 func requireOpenAPIMap(t *testing.T, value any, label string) map[string]any {

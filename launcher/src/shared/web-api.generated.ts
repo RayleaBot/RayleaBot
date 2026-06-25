@@ -612,6 +612,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/system/diagnostics": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read an aggregated diagnostics snapshot for operations triage. */
+        get: operations["getSystemDiagnostics"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/system/diagnostics/export": {
         parameters: {
             query?: never;
@@ -1177,6 +1194,129 @@ export interface components {
             recovery_summary?: components["schemas"]["RecoveryCompatibilitySummary"];
             health?: components["schemas"]["ReadinessStatusResponse"];
         };
+        SystemDiagnosticsResponse: {
+            /** Format: date-time */
+            generated_at: string;
+            build: components["schemas"]["SystemDiagnosticsBuild"];
+            system: components["schemas"]["SystemDiagnosticsSystem"];
+            config: components["schemas"]["SystemDiagnosticsConfig"];
+            secrets: components["schemas"]["SystemDiagnosticsSecrets"];
+            database: components["schemas"]["SystemDiagnosticsDatabase"];
+            adapter: components["schemas"]["SystemDiagnosticsAdapter"];
+            plugins: components["schemas"]["SystemDiagnosticsPlugins"];
+            render: components["schemas"]["SystemDiagnosticsIssueGroup"];
+            third_party: components["schemas"]["SystemDiagnosticsThirdParty"];
+            bilibili_source: components["schemas"]["SystemDiagnosticsBilibiliSource"];
+            scheduler: components["schemas"]["SystemDiagnosticsScheduler"];
+            tasks: components["schemas"]["SystemDiagnosticsTaskSummary"];
+            dependencies: components["schemas"]["SystemDiagnosticsDependency"][];
+            filesystem: components["schemas"]["SystemDiagnosticsPathPermission"][];
+            recent_errors: components["schemas"]["LogSummary"][];
+            issues: components["schemas"]["DiagnosticIssue"][];
+            recovery_summary?: components["schemas"]["RecoveryCompatibilitySummary"];
+        };
+        SystemDiagnosticsBuild: {
+            core_version: string;
+        };
+        SystemDiagnosticsSystem: {
+            /** @enum {string} */
+            status: "running" | "shutting_down";
+            uptime_seconds: number;
+        };
+        SystemDiagnosticsConfig: {
+            schema_version: string;
+            /** @enum {string} */
+            status: "loaded";
+            /** @enum {string} */
+            apply_state: "applied";
+            config_path: string;
+            schema_path: string;
+            database_engine: string;
+            database_path: string;
+            onebot_configured: boolean;
+        };
+        SystemDiagnosticsSecrets: {
+            unresolved_refs: string[];
+        };
+        SystemDiagnosticsDatabase: {
+            schema_version: string;
+            applied_migrations: components["schemas"]["SystemDiagnosticsMigration"][];
+        };
+        SystemDiagnosticsMigration: {
+            version: string;
+            name: string;
+            applied_at: string;
+        };
+        SystemDiagnosticsAdapter: {
+            state: string;
+        };
+        SystemDiagnosticsPlugins: {
+            total: number;
+            active: number;
+            running: number;
+            failed: number;
+        };
+        SystemDiagnosticsIssueGroup: {
+            status: string;
+            issues: components["schemas"]["DiagnosticIssue"][];
+        };
+        SystemDiagnosticsThirdParty: {
+            total: number;
+            enabled: number;
+            configured: number;
+            invalid: number;
+            platforms: components["schemas"]["SystemDiagnosticsThirdPartyPlatform"][];
+        };
+        SystemDiagnosticsThirdPartyPlatform: {
+            platform: components["schemas"]["ThirdPartyPlatform"];
+            total: number;
+            enabled: number;
+            configured: number;
+            invalid: number;
+        };
+        SystemDiagnosticsBilibiliSource: {
+            /** @enum {string} */
+            status: "disabled" | "idle" | "connecting" | "connected" | "degraded" | "failed";
+            summary: string;
+            diagnosis_level: string;
+            watched_rooms: number;
+            watched_uids: number;
+            /** Format: date-time */
+            live_last_event_at?: string;
+            /** Format: date-time */
+            dynamic_last_poll_at?: string;
+            issues: components["schemas"]["DiagnosticIssue"][];
+        };
+        SystemDiagnosticsScheduler: {
+            total: number;
+            enabled: number;
+            disabled: number;
+            pending: number;
+            running: number;
+            failed: number;
+        };
+        SystemDiagnosticsTaskSummary: {
+            pending: number;
+            running: number;
+            failed: number;
+        };
+        SystemDiagnosticsDependency: {
+            /** @enum {string} */
+            kind: "chromium" | "python-runtime" | "nodejs-runtime";
+            /** @enum {string} */
+            status: "ready" | "cached" | "on_demand" | "metadata_incomplete" | "unavailable";
+            metadata_complete: boolean;
+            cached_archive_present: boolean;
+            prepared_store_present: boolean;
+            system_browser: boolean;
+        };
+        SystemDiagnosticsPathPermission: {
+            label: string;
+            path: string;
+            /** @enum {string} */
+            status: "ok" | "missing" | "unreadable" | "unknown";
+            is_dir: boolean;
+        };
         /** @enum {string} */
         ProtocolProvider: "unknown" | "standard" | "napcat" | "luckylillia";
         /** @enum {string} */
@@ -1361,7 +1501,9 @@ export interface components {
             /** @enum {string} */
             severity: "ok" | "warning" | "error";
             summary: string;
+            user_message?: string;
             remediation?: string;
+            internal_reason?: string;
         };
         RecoveryCompatibilityIssue: {
             code: string;
@@ -1506,7 +1648,15 @@ export interface components {
         RenderTemplateListResponse: {
             items: components["schemas"]["RenderTemplateSummary"][];
         };
-        RenderTemplateDetail: components["schemas"]["RenderTemplateSummary"] & {
+        RenderTemplateDetail: {
+            id: string;
+            version: string;
+            width: number;
+            height: number;
+            has_input_schema: boolean;
+            /** Format: date-time */
+            updated_at: string;
+            source: components["schemas"]["RenderTemplateSource"];
             input_schema_json: {
                 [key: string]: unknown;
             } | null;
@@ -1733,13 +1883,23 @@ export interface components {
         PluginRenderTemplateSummary: {
             path: string;
         };
-        PluginDetail: components["schemas"]["PluginSummary"] & {
+        PluginDetail: {
+            id: string;
+            name: string;
             version?: string;
+            description?: string;
+            author?: string;
+            role: components["schemas"]["PluginRole"];
+            state: components["schemas"]["PluginState"];
+            state_diagnosis?: components["schemas"]["PluginStateDiagnosis"];
+            source?: components["schemas"]["PluginSourceSummary"];
+            trust?: components["schemas"]["PluginTrustSummary"];
+            commands: components["schemas"]["PluginCommandSummary"][];
+            help: components["schemas"]["PluginHelp"];
+            command_conflicts?: string[];
             runtime?: components["schemas"]["PluginRuntimeFamily"];
             type?: components["schemas"]["PluginPackageType"];
             entry?: string;
-            description?: string;
-            author?: string;
             license?: string;
             sdk_min_version?: string;
             runtime_version?: string;
@@ -1811,8 +1971,8 @@ export interface components {
             profile: components["schemas"]["ThirdPartyAccountProfile"];
             credential: components["schemas"]["ThirdPartyCredentialStatus"];
             polling: components["schemas"]["ThirdPartyAccountPollingStatus"];
-            proxy_url?: string;
-            proxy_enabled?: boolean;
+            proxy_url: string;
+            proxy_enabled: boolean;
             /** Format: date-time */
             updated_at: string;
         };
@@ -3389,6 +3549,28 @@ export interface operations {
             };
             401: components["responses"]["Error"];
             404: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    getSystemDiagnostics: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Aggregated diagnostics snapshot. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SystemDiagnosticsResponse"];
+                };
+            };
+            401: components["responses"]["Error"];
             default: components["responses"]["Error"];
         };
     };

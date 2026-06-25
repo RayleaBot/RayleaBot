@@ -24,6 +24,8 @@ response:
         polling:
           enabled: true
           last_used_at: "2026-06-08T08:10:05Z"
+        proxy_url: "http://127.0.0.1:8080"
+        proxy_enabled: true
         updated_at: "2026-06-08T08:00:00Z"
       - platform: weibo
         account_id: primary
@@ -41,6 +43,8 @@ response:
         polling:
           enabled: true
           last_used_at: null
+        proxy_url: ""
+        proxy_enabled: false
         updated_at: "2026-06-08T08:01:00Z"
       - platform: douyin
         account_id: primary
@@ -55,6 +59,8 @@ response:
         polling:
           enabled: true
           last_used_at: null
+        proxy_url: ""
+        proxy_enabled: false
         updated_at: "2026-06-08T08:02:00Z"
       - platform: netease_music
         account_id: primary
@@ -69,6 +75,8 @@ response:
         polling:
           enabled: true
           last_used_at: null
+        proxy_url: ""
+        proxy_enabled: false
         updated_at: "2026-06-08T08:03:00Z"
 expect:
   valid: true

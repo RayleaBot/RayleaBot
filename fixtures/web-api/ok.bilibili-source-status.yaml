@@ -66,6 +66,8 @@ response:
         polling:
           enabled: true
           last_used_at: "2026-06-08T08:10:05Z"
+        proxy_url: "http://127.0.0.1:8080"
+        proxy_enabled: true
         updated_at: "2026-06-08T08:00:00Z"
 expect:
   valid: true

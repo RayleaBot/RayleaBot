@@ -1,0 +1,83 @@
+contract: contracts/web-api.openapi.yaml
+case: ok
+description: System diagnostics returns an aggregated operations snapshot.
+request:
+  method: GET
+  path: /api/system/diagnostics
+response:
+  status: 200
+  body:
+    generated_at: "2026-06-25T00:00:00Z"
+    build:
+      core_version: "0.1.0"
+    system:
+      status: running
+      uptime_seconds: 120
+    config:
+      schema_version: "2"
+      config_path: "config/user.yaml"
+      schema_path: "builtin://config.user.schema.json"
+      database_engine: sqlite
+      database_path: "data/rayleabot.db"
+      onebot_configured: true
+    secrets:
+      unresolved_refs: []
+    database:
+      schema_version: "000004"
+      applied_migrations:
+        - version: "000001"
+          name: "base"
+          applied_at: "2026-06-25T00:00:00Z"
+    adapter:
+      state: connected
+    plugins:
+      total: 2
+      active: 1
+      running: 1
+      failed: 0
+    render:
+      status: ok
+      issues: []
+    third_party:
+      total: 1
+      enabled: 1
+      configured: 1
+      invalid: 0
+      platforms:
+        - platform: bilibili
+          total: 1
+          enabled: 1
+          configured: 1
+          invalid: 0
+    bilibili_source:
+      status: connected
+      summary: "Bilibili 事件源运行中"
+      diagnosis_level: normal
+      watched_rooms: 1
+      watched_uids: 1
+      issues: []
+    scheduler:
+      total: 1
+      enabled: 1
+      disabled: 0
+      failed: 0
+    tasks:
+      pending: 0
+      running: 0
+      failed: 0
+    dependencies:
+      - kind: chromium
+        status: ready
+        metadata_complete: true
+        cached_archive_present: false
+        prepared_store_present: true
+        system_browser: false
+    filesystem:
+      - label: config
+        path: "config/user.yaml"
+        status: ok
+        is_dir: false
+    recent_errors: []
+    issues: []
+expect:
+  valid: true
