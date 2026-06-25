@@ -41,17 +41,6 @@ const serverReloadDebounceMs = 500;
 const childGoCacheDir = path.join(rootDir, ".tmp", "gocache");
 const baseChildEnvironment = {
   GOCACHE: childGoCacheDir,
-  ...(process.platform === "win32"
-    ? {
-      ComSpec: "C:\\Windows\\System32\\cmd.exe",
-      PATHEXT: ".COM;.EXE;.BAT;.CMD",
-      SystemRoot: "C:\\Windows",
-      WINDIR: "C:\\Windows",
-    }
-    : {
-      LANG: "C.UTF-8",
-      PATH: "/usr/local/bin:/usr/bin:/bin",
-    }),
 };
 const launcherDir = path.join(rootDir, "launcher");
 const logDate = new Date();
