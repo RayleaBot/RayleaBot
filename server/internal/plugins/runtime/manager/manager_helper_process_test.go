@@ -90,3 +90,9 @@ func helperConsumeShutdown(scanner *bufio.Scanner, code int) {
 	}
 	os.Exit(0)
 }
+
+func helperDrainAndExit(scanner *bufio.Scanner, code int) {
+	for scanner.Scan() {
+	}
+	os.Exit(code)
+}
