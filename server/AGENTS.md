@@ -35,6 +35,7 @@
 - 任何会影响 HTTP shape、状态名、错误码、adapter 行为、plugin discovery、治理裁决、日志内容或配置读取的改动，都必须补最小回归测试。
 - 变更对外边界时，同时检查四件套是否齐全：实现、契约、测试、示例。
 - 优先复用 `fixtures/` 与 `examples/`，不要先写散乱的 ad-hoc 样例。
+- 插件 runtime helper 测试发出预期协议违规 frame 后，不要立刻退出进程；应等待 stdin 关闭或管理器终止进程，避免 CI 因进程退出竞态把协议违规误判为 `plugin.internal_error`。
 
 ## Cross-Surface Checks
 

@@ -240,7 +240,7 @@ func runHelperProcessRuntimePart2(scenario string, recordPath string, scanner *b
 				"message": "this should fail",
 			},
 		})
-		os.Exit(0)
+		helperDrainAndExit(scanner, 0)
 	case "event-concurrent-slow-local-action-does-not-block-other-session":
 		if !scanner.Scan() {
 			os.Exit(2)
