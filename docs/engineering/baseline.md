@@ -40,6 +40,16 @@
 
 Web 管理面采用 `Ant Design Vue + Vue Vben Admin` 对齐方案作为正式工程基线；相关目录结构、样式入口与测试基线按 [`web-admin-baseline.md`](./web-admin-baseline.md) 约束维护。
 
+## 工具链获取
+
+- 仓库根目录的 `.tool-versions` 与本节固定版本线保持一致，可由 mise 或 asdf 读取。
+- `server/go.mod` 的 `go 1.25.8` 是 CI 与本地 server 测试的 Go 版本来源；当前保持 patch 级锁定，不使用单独 `toolchain` 指令替代。离线环境需要预装 Go 1.25.8，并设置 `GOTOOLCHAIN=local` 让版本错误在本地直接失败。
+- Node.js 使用 24.14.0；pnpm 使用 Corepack 管理的 10.32.1。若全局 `pnpm` 版本不同，优先执行 `corepack enable` 与 `corepack prepare pnpm@10.32.1 --activate`。
+- sqlc 固定为 v1.29.0，安装命令为 `go install github.com/sqlc-dev/sqlc/cmd/sqlc@v1.29.0`。
+- 无网络环境需要提前把 Go、Node.js、Corepack pnpm、sqlc 和 `.deps/manifest.json` 对应的 Chromium 资源放入镜像或工作站。Chromium 可使用系统 Chrome / Chromium / Edge，也可使用 `.deps/store/` 中已展开的托管资源。
+- 仓库提供 devcontainer，包含 Go 1.25.8、Node.js 24.14.0、pnpm 10.32.1、sqlc v1.29.0、Chromium、SQLite 与 `make doctor`。
+- 本地环境诊断入口是仓库根目录的 `make doctor`，无 make 环境时运行 `python scripts/check-toolchain.py` 和 `python scripts/check-server-structure.py`。
+
 ## 固定工程选型
 
 | 领域 | 固定选型 |

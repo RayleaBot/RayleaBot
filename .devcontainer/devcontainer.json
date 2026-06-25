@@ -1,0 +1,17 @@
+{
+  "name": "RayleaBot",
+  "build": {
+    "dockerfile": "Dockerfile",
+    "context": ".."
+  },
+  "workspaceFolder": "/workspaces/RayleaBot",
+  "postCreateCommand": "make doctor",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "golang.go",
+        "Vue.volar"
+      ]
+    }
+  }
+}

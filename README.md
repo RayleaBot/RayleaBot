@@ -39,8 +39,9 @@
 
 ### 方式二：从源码启动
 
-前置条件：Go 1.25.8、Node.js 24.14.0、pnpm 10.32.1、Python 3.12.13、Git 2.x。
-工具链检查：`python scripts/check-toolchain.py`；安装 make 的环境可使用 `make doctor`。
+前置条件：Go 1.25.8、Node.js 24.14.0、pnpm 10.32.1、Python 3.12.13、Git 2.x。`.tool-versions` 可由 mise 或 asdf 读取。
+工具链检查：`make doctor`；无 make 环境时运行 `python scripts/check-toolchain.py` 和 `python scripts/check-server-structure.py`。离线环境需要预装 Go 1.25.8，并设置 `GOTOOLCHAIN=local` 让版本错误在本地直接失败。
+Devcontainer 位于 `.devcontainer/`，可直接提供 server tests 所需的 Go、Node、pnpm、sqlc、Chromium 与 SQLite 环境。
 
 ```bash
 git clone https://github.com/RayleaBot/RayleaBot.git

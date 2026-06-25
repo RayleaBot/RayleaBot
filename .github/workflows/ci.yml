@@ -75,11 +75,21 @@ jobs:
           go-version-file: server/go.mod
           cache-dependency-path: server/go.sum
 
-      - name: Check Go toolchain
-        run: python scripts/check-toolchain.py
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24.14.0"
 
-      - name: Check server structure
-        run: python scripts/check-server-structure.py
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.32.1
+
+      - name: Install sqlc
+        run: go install github.com/sqlc-dev/sqlc/cmd/sqlc@v1.29.0
+
+      - name: Run server doctor
+        run: make doctor
 
       - name: Run go test
         working-directory: server
@@ -91,9 +101,7 @@ jobs:
 
       - name: Check sqlc generated code drift
         working-directory: server
-        run: |
-          go install github.com/sqlc-dev/sqlc/cmd/sqlc@v1.29.0
-          sqlc diff
+        run: sqlc diff
 
   web:
     if: needs.changes.outputs.web == 'true' || needs.changes.outputs.contracts == 'true'
