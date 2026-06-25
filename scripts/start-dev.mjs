@@ -24,6 +24,7 @@ import {
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const rootDir = path.resolve(scriptDir, "..");
+const corepackCliPath = path.join(path.dirname(process.execPath), "node_modules", "corepack", "dist", "corepack.js");
 const webDir = path.join(rootDir, "web");
 const serverDir = path.join(rootDir, "server");
 const serverDistDir = path.join(serverDir, "dist");
@@ -431,21 +432,16 @@ function createChildEnvironment(extraEnv = {}) {
 }
 
 function createSpawnSpec(command, args) {
-  if (process.platform !== "win32") {
-    return { command, args };
+  if (command === "pnpm") {
+    return { command: process.execPath, args: [corepackCliPath, "pnpm", ...args] };
   }
-  return {
-    command: "cmd.exe",
-    args: ["/d", "/s", "/c", [command, ...args].map(quoteCmdArg).join(" ")],
-  };
-}
-
-function quoteCmdArg(value) {
-  const text = String(value);
-  if (/^[A-Za-z0-9_./:\\=-]+$/.test(text)) {
-    return text;
+  if (command === "go") {
+    return { command: process.platform === "win32" ? "go.exe" : "go", args };
   }
-  return `"${text.replaceAll('"', '""')}"`;
+  if (command === "tmp/" + serverDevBinaryName) {
+    return { command: path.join(".", "tmp", serverDevBinaryName), args };
+  }
+  throw new Error(`Unsupported child command: ${command}`);
 }
 
 function waitForChild(child) {
