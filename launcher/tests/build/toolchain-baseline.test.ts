@@ -21,13 +21,13 @@ describe("launcher toolchain baseline", () => {
   });
 
   test("pins the launcher Vite toolchain line", () => {
-    expect(launcherPackage.devDependencies?.vite).toBe("8.0.10");
+    expect(launcherPackage.devDependencies?.vite).toBe("8.0.16");
     expect(launcherPackage.devDependencies?.vitest).toBe("4.1.5");
     expect(launcherPackage.devDependencies?.["@vitest/coverage-v8"]).toBe("4.1.5");
   });
 
   test("records the launcher react plugin baseline in engineering docs", () => {
-    expect(engineeringBaseline).toContain("Vite `8.0.10`");
+    expect(engineeringBaseline).toContain("Vite `8.0.16`");
     expect(engineeringBaseline).toContain("`@vitejs/plugin-react 6.0.1`");
   });
 

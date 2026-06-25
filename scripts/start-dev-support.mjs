@@ -5,14 +5,15 @@ import path from "node:path";
 export const WEB_DEV_PROFILE = "web-dev";
 export const BUILD_PROFILE = "build";
 export const LAUNCHER_DEV_PROFILE = "launcher-dev";
-export const SERVER_RELOAD_AIR = "air";
+export const SERVER_RELOAD_WATCH = "watch";
 export const WEB_DEV_PORT = 4173;
 export const WEB_DEV_BASE_URL = `http://127.0.0.1:${WEB_DEV_PORT}/`;
 export const WEB_DEV_STATUS_PATH = "/__rayleabot-dev/status";
 
 const VALID_PROFILES = new Set([WEB_DEV_PROFILE, BUILD_PROFILE, LAUNCHER_DEV_PROFILE]);
 const VALID_INSTALL_MODES = new Set(["auto", "always", "skip"]);
-const VALID_SERVER_RELOAD_MODES = new Set(["", SERVER_RELOAD_AIR]);
+const LEGACY_SERVER_RELOAD_AIR = "air";
+const VALID_SERVER_RELOAD_MODES = new Set(["", SERVER_RELOAD_WATCH, LEGACY_SERVER_RELOAD_AIR]);
 const WILDCARD_HOSTS = new Set(["", "*", "0.0.0.0", "::", "[::]"]);
 const INSTALL_MARKER_NAME = ".rayleabot-start-install.stamp";
 
@@ -62,7 +63,7 @@ export function resolveServerReloadMode(env = process.env) {
   if (!VALID_SERVER_RELOAD_MODES.has(mode)) {
     throw new Error(`Unsupported RAYLEA_SERVER_RELOAD: ${env.RAYLEA_SERVER_RELOAD}`);
   }
-  return mode;
+  return mode === LEGACY_SERVER_RELOAD_AIR ? SERVER_RELOAD_WATCH : mode;
 }
 
 export function normalizeBackendHost(host) {

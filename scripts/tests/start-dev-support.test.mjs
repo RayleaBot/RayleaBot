@@ -8,7 +8,7 @@ import test from "node:test";
 import {
   BUILD_PROFILE,
   LAUNCHER_DEV_PROFILE,
-  SERVER_RELOAD_AIR,
+  SERVER_RELOAD_WATCH,
   WEB_DEV_PROFILE,
   classifyWebDevServer,
   createDevEnvironment,
@@ -62,8 +62,9 @@ test("resolves install mode", () => {
 
 test("resolves server reload mode", () => {
   assert.equal(resolveServerReloadMode({}), "");
-  assert.equal(resolveServerReloadMode({ RAYLEA_SERVER_RELOAD: "air" }), SERVER_RELOAD_AIR);
-  assert.equal(resolveServerReloadMode({ RAYLEA_SERVER_RELOAD: " AIR " }), SERVER_RELOAD_AIR);
+  assert.equal(resolveServerReloadMode({ RAYLEA_SERVER_RELOAD: "watch" }), SERVER_RELOAD_WATCH);
+  assert.equal(resolveServerReloadMode({ RAYLEA_SERVER_RELOAD: "air" }), SERVER_RELOAD_WATCH);
+  assert.equal(resolveServerReloadMode({ RAYLEA_SERVER_RELOAD: " AIR " }), SERVER_RELOAD_WATCH);
   assert.throws(() => resolveServerReloadMode({ RAYLEA_SERVER_RELOAD: "plugin" }), /Unsupported/);
 });
 

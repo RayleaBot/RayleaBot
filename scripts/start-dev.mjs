@@ -7,7 +7,7 @@ import { fileURLToPath } from "node:url";
 import {
   BUILD_PROFILE,
   LAUNCHER_DEV_PROFILE,
-  SERVER_RELOAD_AIR,
+  SERVER_RELOAD_WATCH,
   WEB_DEV_BASE_URL,
   WEB_DEV_PORT,
   WEB_DEV_PROFILE,
@@ -30,6 +30,14 @@ const serverDistDir = path.join(serverDir, "dist");
 const serverBinaryName = process.platform === "win32"
   ? "raylea-server.exe"
   : "raylea-server";
+const serverTmpDir = path.join(serverDir, "tmp");
+const serverDevBinaryName = process.platform === "win32"
+  ? "raylea-server-dev.exe"
+  : "raylea-server-dev";
+const serverDevBinaryPath = path.join(serverTmpDir, serverDevBinaryName);
+const serverWatchDirs = [path.join(serverDir, "cmd"), path.join(serverDir, "internal")];
+const serverWatchExcludedDirs = new Set([".cache", ".gocache", "dist", "logs", "tmp"]);
+const serverReloadDebounceMs = 500;
 const launcherDir = path.join(rootDir, "launcher");
 const logDate = new Date();
 const webDevLogPath = resolveDatedLogPath({ rootDir, scope: "dev", type: "web", date: logDate });
@@ -37,6 +45,7 @@ const launcherLogPath = resolveDatedLogPath({ rootDir, scope: "dev", type: "laun
 const serverDevLogPath = resolveDatedLogPath({ rootDir, scope: "dev", type: "server", date: logDate });
 const startLogPath = resolveDatedLogPath({ rootDir, scope: "dev", type: "start", date: logDate });
 const longRunningChildren = new Set();
+const cleanupCallbacks = new Set();
 let startLog;
 let shuttingDown = false;
 
@@ -150,33 +159,96 @@ async function buildServer() {
 }
 
 async function ensureServerRuntime({ serverReloadMode, backendBaseUrl }) {
-  if (serverReloadMode === SERVER_RELOAD_AIR) {
-    await startServerAir(backendBaseUrl);
+  if (serverReloadMode === SERVER_RELOAD_WATCH) {
+    await startServerWatch(backendBaseUrl);
     return;
   }
   await buildServer();
 }
 
-async function startServerAir(backendBaseUrl) {
-  log("启动 Server 热重载：Air");
-  await fsp.rm(path.join(serverDir, "tmp", "raylea-server-dev.exe"), { force: true });
-  const child = spawnManaged("go", ["tool", "air", "-c", ".air.toml"], {
+async function startServerWatch(backendBaseUrl) {
+  log("启动 Server 热重载：内置 watcher");
+  await fsp.rm(serverDevBinaryPath, { force: true });
+  await buildServerDevBinary();
+  let child = startServerDevProcess();
+  await waitForServerProcess(child, backendBaseUrl, "Server 热重载已启动。");
+
+  let timer;
+  let rebuilding = false;
+  let pending = false;
+
+  const scheduleReload = (sourcePath) => {
+    if (shuttingDown) {
+      return;
+    }
+    clearTimeout(timer);
+    timer = setTimeout(() => {
+      void rebuildAndRestart(sourcePath);
+    }, serverReloadDebounceMs);
+  };
+
+  const rebuildAndRestart = async (sourcePath) => {
+    if (rebuilding) {
+      pending = true;
+      return;
+    }
+    rebuilding = true;
+    try {
+      log(`检测到 Server 源码变更：${relativePath(sourcePath)}`);
+      await buildServerDevBinary();
+      await terminateChild(child);
+      child = startServerDevProcess();
+      await waitForServerProcess(child, backendBaseUrl, "Server 热重载已重启。");
+    } catch (error) {
+      log(`Server 热重载失败：${error?.message ?? error}`, "error");
+    } finally {
+      rebuilding = false;
+      if (pending) {
+        pending = false;
+        scheduleReload(sourcePath);
+      }
+    }
+  };
+
+  const stopWatching = await watchServerSources(scheduleReload);
+  cleanupCallbacks.add(async () => {
+    clearTimeout(timer);
+    cleanupCallbacks.delete(stopWatching);
+    await stopWatching();
+  });
+}
+
+async function buildServerDevBinary() {
+  await fsp.mkdir(serverTmpDir, { recursive: true });
+  await runCommand(
+    "构建 Server 热重载二进制",
+    "go",
+    ["build", "-o", path.relative(serverDir, serverDevBinaryPath), "./cmd/raylea-server"],
+    { cwd: serverDir, logPath: serverDevLogPath },
+  );
+}
+
+function startServerDevProcess() {
+  return spawnManaged("tmp/" + serverDevBinaryName, [
+    "-config",
+    "../config/user.yaml",
+    "-config-schema",
+    "../contracts/config.user.schema.json",
+  ], {
     cwd: serverDir,
     logPath: serverDevLogPath,
   });
-  await waitForServerAir(child, backendBaseUrl);
 }
 
-async function waitForServerAir(child, backendBaseUrl) {
+async function waitForServerProcess(child, backendBaseUrl, readyMessage) {
   const deadline = Date.now() + 30_000;
   while (Date.now() < deadline) {
     if (child.exitCode !== null) {
       throw new Error("Server 热重载进程已退出。");
     }
     try {
-      await fsp.access(path.join(serverDir, "tmp", "raylea-server-dev.exe"));
       if (await isServerHealthy(backendBaseUrl)) {
-        log("Server 热重载已启动。");
+        log(readyMessage);
         return;
       }
     } catch (error) {
@@ -187,6 +259,56 @@ async function waitForServerAir(child, backendBaseUrl) {
     await delay(500);
   }
   throw new Error(`Server 热重载未在 30 秒内完成首次构建，日志见 ${relativePath(serverDevLogPath)}。`);
+}
+
+async function watchServerSources(onChange) {
+  const watchers = [];
+  for (const watchRoot of serverWatchDirs) {
+    await watchServerDirectory(watchRoot, onChange, watchers);
+  }
+  return async () => {
+    for (const watcher of watchers) {
+      watcher.close();
+    }
+  };
+}
+
+async function watchServerDirectory(directory, onChange, watchers) {
+  const entries = await fsp.readdir(directory, { withFileTypes: true });
+  const watcher = fs.watch(directory, (eventType, filename) => {
+    if (!filename) {
+      return;
+    }
+    const sourcePath = path.join(directory, filename.toString());
+    if (isWatchedGoSource(sourcePath)) {
+      onChange(sourcePath);
+    }
+    if (eventType === "rename") {
+      void watchNewDirectory(sourcePath, onChange, watchers);
+    }
+  });
+  watchers.push(watcher);
+
+  await Promise.all(entries
+    .filter((entry) => entry.isDirectory() && !serverWatchExcludedDirs.has(entry.name))
+    .map((entry) => watchServerDirectory(path.join(directory, entry.name), onChange, watchers)));
+}
+
+async function watchNewDirectory(directory, onChange, watchers) {
+  try {
+    const stat = await fsp.stat(directory);
+    if (stat.isDirectory() && !serverWatchExcludedDirs.has(path.basename(directory))) {
+      await watchServerDirectory(directory, onChange, watchers);
+    }
+  } catch (error) {
+    if (error?.code !== "ENOENT") {
+      log(`Server 热重载监听新目录失败：${error?.message ?? error}`, "error");
+    }
+  }
+}
+
+function isWatchedGoSource(sourcePath) {
+  return sourcePath.endsWith(".go") && !sourcePath.endsWith("_test.go");
 }
 
 async function isServerHealthy(backendBaseUrl) {
@@ -328,6 +450,9 @@ function normalizeExitCode(code, signal) {
 }
 
 async function cleanup() {
+  const callbacks = [...cleanupCallbacks];
+  cleanupCallbacks.clear();
+  await Promise.all(callbacks.map((callback) => callback()));
   const children = [...longRunningChildren];
   longRunningChildren.clear();
   await Promise.all(children.map((child) => terminateChild(child)));
