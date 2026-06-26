@@ -138,7 +138,9 @@ func WithRequestContext(logger *slog.Logger, opts ...RequestContextOption) func(
 				if options.observer != nil {
 					options.observer.ObserveHTTPRequest(r.Method, route, recorder.statusCode, duration)
 				}
-				logger.Info(
+				logger.Log(
+					r.Context(),
+					accessLogLevel(r, recorder.statusCode),
 					"http request completed",
 					"component", "http",
 					"request_id", requestID,
@@ -194,6 +196,31 @@ func requestRoutePattern(r *http.Request) string {
 		return "unknown"
 	}
 	return "unmatched"
+}
+
+func accessLogLevel(r *http.Request, statusCode int) slog.Level {
+	if isSuccessfulManagementRead(r, statusCode) {
+		return slog.LevelDebug
+	}
+	return slog.LevelInfo
+}
+
+func isSuccessfulManagementRead(r *http.Request, statusCode int) bool {
+	if r == nil || r.URL == nil || statusCode < 200 || statusCode >= 400 {
+		return false
+	}
+
+	switch strings.ToUpper(r.Method) {
+	case http.MethodGet, http.MethodHead, http.MethodOptions:
+	default:
+		return false
+	}
+
+	path := r.URL.Path
+	return path == "/healthz" ||
+		path == "/readyz" ||
+		path == "/ws/logs" ||
+		strings.HasPrefix(path, "/api/")
 }
 
 func RequestIDFromContext(ctx context.Context) string {

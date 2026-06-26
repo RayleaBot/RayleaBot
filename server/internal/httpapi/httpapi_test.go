@@ -137,6 +137,50 @@ func TestWithRequestContextLogsAccessAndObservesRequest(t *testing.T) {
 	}
 }
 
+func TestWithRequestContextDowngradesSuccessfulManagementReadsToDebug(t *testing.T) {
+	t.Parallel()
+
+	var logBuffer bytes.Buffer
+	infoLogger := slog.New(slog.NewJSONHandler(&logBuffer, &slog.HandlerOptions{Level: slog.LevelInfo}))
+	successHandler := WithRequestContext(infoLogger)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		WriteJSON(w, http.StatusOK, map[string]string{"ok": "true"})
+	}))
+
+	successHandler.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/api/logs/log_0001", nil))
+	if strings.TrimSpace(logBuffer.String()) != "" {
+		t.Fatalf("successful management read should not be emitted at info level: %s", logBuffer.String())
+	}
+
+	debugLogger := slog.New(slog.NewJSONHandler(&logBuffer, &slog.HandlerOptions{Level: slog.LevelDebug}))
+	successHandler = WithRequestContext(debugLogger)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		WriteJSON(w, http.StatusOK, map[string]string{"ok": "true"})
+	}))
+	successHandler.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/api/logs/log_0001", nil))
+
+	var record map[string]any
+	if err := json.Unmarshal(logBuffer.Bytes(), &record); err != nil {
+		t.Fatalf("decode debug access log: %v", err)
+	}
+	if got := record["level"]; got != "DEBUG" {
+		t.Fatalf("successful management read should be debug, got %#v", got)
+	}
+	if got := record["path"]; got != "/api/logs/log_0001" {
+		t.Fatalf("unexpected path: got %#v want %#v", got, "/api/logs/log_0001")
+	}
+
+	logBuffer.Reset()
+	failedHandler := WithRequestContext(infoLogger)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Error(w, "failed", http.StatusInternalServerError)
+	}))
+	failedHandler.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/api/logs/log_0001", nil))
+	if err := json.Unmarshal(logBuffer.Bytes(), &record); err != nil {
+		t.Fatalf("decode failed access log: %v", err)
+	}
+	if got := record["level"]; got != "INFO" {
+		t.Fatalf("failed management read should stay info, got %#v", got)
+	}
+}
+
 func TestWithRequestContextObservesPanic(t *testing.T) {
 	t.Parallel()
 
