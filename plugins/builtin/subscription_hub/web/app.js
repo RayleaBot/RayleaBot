@@ -1,6 +1,6 @@
 /* Generated from app-entry.js for sandboxed plugin iframes. */
 (() => {
-  // plugins/builtin/subscription_hub/web/bridge-client.js
+  // ../plugins/builtin/subscription_hub/web/bridge-client.js
   function createBridgeClient(win, handlers = {}) {
     let requestCounter = 0;
     function nextRequestId(prefix) {
@@ -66,11 +66,26 @@
       resolveIdentities(items, requestId) {
         return send("protocol.identities.resolve", { items }, requestId || nextRequestId("protocol-identities"));
       },
+      invokeAction(action, payload = {}, requestId) {
+        return send("plugin.action.invoke", { action, payload }, requestId || nextRequestId("plugin-action"));
+      },
       resolveBilibiliUser(query, requestId) {
-        return send("bilibili.user.resolve", { query }, requestId || nextRequestId("bilibili-user"));
+        return send("plugin.action.invoke", {
+          action: "subscription.resolve_user",
+          payload: { platform: "bilibili", query }
+        }, requestId || nextRequestId("subscription-resolve-user"));
       },
       resolvePlatformUser(platform, query, requestId) {
-        return send("thirdparty.user.resolve", { platform, query }, requestId || nextRequestId("third-party-user"));
+        return send("plugin.action.invoke", {
+          action: "subscription.resolve_user",
+          payload: { platform, query }
+        }, requestId || nextRequestId("subscription-resolve-user"));
+      },
+      checkNow(requestId) {
+        return send("plugin.action.invoke", {
+          action: "subscription.check_now",
+          payload: {}
+        }, requestId || nextRequestId("subscription-check-now"));
       },
       openRenderTemplate(templateId) {
         return send("render_template.open", { template_id: templateId }, nextRequestId("open-template"));
@@ -87,7 +102,7 @@
     };
   }
 
-  // plugins/builtin/subscription_hub/web/platforms.js
+  // ../plugins/builtin/subscription_hub/web/platforms.js
   var PLATFORM_OPTIONS = [
     { value: "bilibili", label: "Bilibili", subjectLabel: "UID", inputPlaceholder: "UID \u6216 Bilibili \u7528\u6237\u540D" },
     { value: "weibo", label: "\u5FAE\u535A", subjectLabel: "UID", inputPlaceholder: "UID \u6216\u5FAE\u535A\u4E3B\u9875\u6807\u8BC6" },
@@ -119,7 +134,7 @@
     return [...text].filter((char) => /[\p{L}\p{N}_.-]/u.test(char)).join("").replace(/^[_.-]+|[_.-]+$/g, "").slice(0, 96);
   }
 
-  // plugins/builtin/subscription_hub/web/services.js
+  // ../plugins/builtin/subscription_hub/web/services.js
   var PLATFORM_SERVICE_LABELS = {
     bilibili: {
       all: "\u5168\u90E8",
@@ -198,7 +213,7 @@
     return normalizeServices(services, platform).join(",");
   }
 
-  // plugins/builtin/subscription_hub/web/subscribers.js
+  // ../plugins/builtin/subscription_hub/web/subscribers.js
   var numericPattern = /^[0-9]+$/;
   function normalizeSubscriber(value) {
     const id = trim(value && value.id);
@@ -257,7 +272,7 @@
     });
   }
 
-  // plugins/builtin/subscription_hub/web/targets.js
+  // ../plugins/builtin/subscription_hub/web/targets.js
   var TARGET_LABELS = {
     group: "\u7FA4\u804A",
     private: "\u79C1\u804A"
@@ -320,7 +335,7 @@
     return live ? live.avatar_url : deriveTargetAvatarURL(target.target_type, target.target_id);
   }
 
-  // plugins/builtin/subscription_hub/web/model.js
+  // ../plugins/builtin/subscription_hub/web/model.js
   function normalizeSubscription(value) {
     if (!value || typeof value !== "object") {
       return null;
@@ -443,7 +458,7 @@
     return JSON.parse(JSON.stringify(row));
   }
 
-  // plugins/builtin/subscription_hub/web/settings-payload.js
+  // ../plugins/builtin/subscription_hub/web/settings-payload.js
   function buildSettingsPayload(settings, rows, targetsByKey) {
     const targets = targetsByKey || /* @__PURE__ */ new Map();
     const subscriptions = [];
@@ -473,7 +488,7 @@
     };
   }
 
-  // plugins/builtin/subscription_hub/web/validation.js
+  // ../plugins/builtin/subscription_hub/web/validation.js
   function validateRow(row, context) {
     const map = context && context.targetMap ? context.targetMap : /* @__PURE__ */ new Map();
     const targetsLoaded = Boolean(context && context.targetsLoaded);
@@ -511,7 +526,7 @@
     return { ok: errors.length === 0, errors };
   }
 
-  // plugins/builtin/subscription_hub/web/render/html.js
+  // ../plugins/builtin/subscription_hub/web/render/html.js
   function escapeHTML(value) {
     return String(value ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#39;");
   }
@@ -553,12 +568,12 @@
     return `<span class="avatar-stack">${avatars}${overflowHTML}</span>`;
   }
 
-  // plugins/builtin/subscription_hub/web/render/layout.js
+  // ../plugins/builtin/subscription_hub/web/render/layout.js
   function renderEmptyState() {
     return '<div class="empty-state"><p>\u6CA1\u6709\u5339\u914D\u7684\u8BA2\u9605</p><p>\u53EF\u6DFB\u52A0\u8BA2\u9605\u6216\u8C03\u6574\u7B5B\u9009\u6761\u4EF6</p></div>';
   }
 
-  // plugins/builtin/subscription_hub/web/render/service-picker.js
+  // ../plugins/builtin/subscription_hub/web/render/service-picker.js
   function serviceTagsHTML(services, platform = "bilibili") {
     return serviceCheckboxValues(services, platform).has("all") ? '<span class="service-tag">\u5168\u90E8</span>' : [...serviceCheckboxValues(services, platform)].map((service) => `
       <span class="service-tag">${escapeHTML(serviceLabel(service, platform))}</span>
@@ -593,7 +608,7 @@
   `;
   }
 
-  // plugins/builtin/subscription_hub/web/render/subscriber-editor.js
+  // ../plugins/builtin/subscription_hub/web/render/subscriber-editor.js
   function renderSubscriberChips(row, context) {
     return row.subscriber_ids.length ? row.subscriber_ids.map((id) => `
         <span class="chip">
@@ -614,7 +629,7 @@
   `;
   }
 
-  // plugins/builtin/subscription_hub/web/render/status.js
+  // ../plugins/builtin/subscription_hub/web/render/status.js
   function renderRowValidation(row, context) {
     const validation = validateRow(row, context);
     return validation.length ? `<ul class="validation-list">${validation.map((item) => `<li>${escapeHTML(item)}</li>`).join("")}</ul>` : '<span class="badge badge--success">\u53EF\u4FDD\u5B58</span>';
@@ -623,7 +638,7 @@
     return validateRow(row, context).length ? '<span class="badge badge--danger">\u9700\u5904\u7406</span>' : '<span class="badge badge--success">\u53EF\u4FDD\u5B58</span>';
   }
 
-  // plugins/builtin/subscription_hub/web/render/target-picker.js
+  // ../plugins/builtin/subscription_hub/web/render/target-picker.js
   function renderSelectedTargets(row, context) {
     const map = context.targetMap;
     return row.targets.length ? row.targets.map((target) => `
@@ -652,7 +667,7 @@
     }).join("");
   }
 
-  // plugins/builtin/subscription_hub/web/render/row-edit.js
+  // ../plugins/builtin/subscription_hub/web/render/row-edit.js
   function renderRowEdit(row, context) {
     const title = row.name || row.uid || `\u672A\u8BBE\u7F6E${platformLabel(row.platform)}\u5BF9\u8C61`;
     const subtitle = row.uid ? `${subjectLabel(row.platform)} ${row.uid}` : inputPlaceholder(row.platform);
@@ -730,7 +745,7 @@
   `;
   }
 
-  // plugins/builtin/subscription_hub/web/render/row-view.js
+  // ../plugins/builtin/subscription_hub/web/render/row-view.js
   function renderRowView(row, context) {
     const map = context.targetMap;
     const title = row.name || row.uid || `\u672A\u8BBE\u7F6E${platformLabel(row.platform)}\u5BF9\u8C61`;
@@ -798,7 +813,7 @@
   `;
   }
 
-  // plugins/builtin/subscription_hub/web/app-entry.js
+  // ../plugins/builtin/subscription_hub/web/app-entry.js
   var elements = {
     statusText: document.getElementById("status-text"),
     enabledInput: document.getElementById("enabled-input"),
@@ -1157,14 +1172,35 @@
     }
     markDirty();
   }
-  function applyBilibiliResolved(message) {
-    applyPlatformResolved({
-      ...message,
-      payload: {
-        platform: "bilibili",
-        ...message.payload || {}
-      }
-    });
+  function applyPluginActionResult(message) {
+    const payload = message.payload && typeof message.payload === "object" ? message.payload : {};
+    const action = typeof payload.action === "string" ? payload.action : "";
+    const result = payload.result && typeof payload.result === "object" ? payload.result : {};
+    if (action === "subscription.resolve_user") {
+      applyPlatformResolved({
+        ...message,
+        payload: result
+      });
+      return;
+    }
+    if (action === "subscription.check_now") {
+      state.requests.pending.delete(message.request_id);
+      setStatus(checkResultText(result));
+      return;
+    }
+  }
+  function checkResultText(result) {
+    if (result.skipped === "disabled") {
+      return "\u8BA2\u9605\u4E2D\u5FC3\u672A\u542F\u7528";
+    }
+    if (result.skipped === "no_bilibili_subscriptions") {
+      return "\u6CA1\u6709\u53EF\u68C0\u67E5\u7684 Bilibili \u8BA2\u9605";
+    }
+    const checked = Number(result.checked || 0);
+    const sent = Number(result.sent || 0);
+    const errors = Array.isArray(result.errors) ? result.errors.filter(Boolean) : [];
+    const base = `\u8BA2\u9605\u68C0\u67E5\u5B8C\u6210\uFF1A\u68C0\u67E5 ${checked} \u4E2A\u8D26\u53F7\uFF0C\u63A8\u9001 ${sent} \u6761\u66F4\u65B0`;
+    return errors.length ? `${base}\uFF1B${errors[0]}` : base;
   }
   function addTargetToRow(row, liveTarget) {
     if (row.targets.some((target) => target.key === liveTarget.key)) {
@@ -1303,11 +1339,8 @@
       case "protocol.identities.resolved":
         applyIdentitiesResolved(message);
         return;
-      case "thirdparty.user.resolved":
-        applyPlatformResolved(message);
-        return;
-      case "bilibili.user.resolved":
-        applyBilibiliResolved(message);
+      case "plugin.action.result":
+        applyPluginActionResult(message);
         return;
       default:
         return;
@@ -1326,6 +1359,9 @@
         markDirty();
         return;
       }
+    }
+    if (request && request.kind === "manual-check") {
+      state.requests.pending.delete(message.error.request_id);
     }
     state.requests.savingRequestId = "";
     setStatus(message.error && message.error.message || "\u64CD\u4F5C\u5931\u8D25");
@@ -1534,7 +1570,10 @@
     });
     elements.resetButton.addEventListener("click", resetToDefault);
     elements.manualCheckButton.addEventListener("click", () => {
-      setStatus("Bilibili \u4E8B\u4EF6\u6E90\u72B6\u6001\u5728 Web \u4E09\u65B9\u76D1\u63A7\u9875\u9762\u67E5\u770B");
+      const requestId = bridge.nextRequestId("subscription-check-now");
+      state.requests.pending.set(requestId, { kind: "manual-check" });
+      setStatus("\u6B63\u5728\u68C0\u67E5\u8BA2\u9605\u2026");
+      bridge.checkNow(requestId);
     });
     elements.previewButton.addEventListener("click", () => {
       bridge.openRenderTemplate("plugin.raylea.subscription-hub.bilibili-update");

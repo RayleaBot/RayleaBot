@@ -1,6 +1,6 @@
 from rayleabot.protocol import ActionError
 
-from bilibili import (
+from platforms.bilibili import (
     build_cookie_headers,
     normalize_user_info,
     normalize_user_search,

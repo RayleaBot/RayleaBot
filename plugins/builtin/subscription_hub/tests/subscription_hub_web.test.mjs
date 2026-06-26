@@ -104,6 +104,10 @@ function lastMessage(messages, type) {
   return messages.findLast((message) => message.type === type)
 }
 
+function lastActionMessage(messages, action) {
+  return messages.findLast((message) => message.type === 'plugin.action.invoke' && message.payload?.action === action)
+}
+
 function plain(value) {
   return JSON.parse(JSON.stringify(value))
 }
@@ -433,21 +437,24 @@ test('new row must resolve Bilibili user before saving', () => {
   input.value = '测试 UP'
   input.dispatchEvent(new dom.window.Event('input', { bubbles: true }))
   document.querySelector('button[data-action="resolve-up"]').click()
-  const resolveMessage = lastMessage(messages, 'thirdparty.user.resolve')
-  assert.equal(resolveMessage.payload.platform, 'bilibili')
-  assert.equal(resolveMessage.payload.query, '测试 UP')
+  const resolveMessage = lastActionMessage(messages, 'subscription.resolve_user')
+  assert.equal(resolveMessage.payload.payload.platform, 'bilibili')
+  assert.equal(resolveMessage.payload.payload.query, '测试 UP')
 
-  dispatchHost(dom, 'thirdparty.user.resolved', {
-    platform: 'bilibili',
-    query: '测试 UP',
-    exact: true,
-    user: {
-      uid: '1000001',
-      name: '测试 UP',
-      avatar_url: 'https://i0.hdslb.com/bfs/face/test-up.jpg',
-      fans: 7000000,
+  dispatchHost(dom, 'plugin.action.result', {
+    action: 'subscription.resolve_user',
+    result: {
+      platform: 'bilibili',
+      query: '测试 UP',
+      exact: true,
+      user: {
+        uid: '1000001',
+        name: '测试 UP',
+        avatar_url: 'https://i0.hdslb.com/bfs/face/test-up.jpg',
+        fans: 7000000,
+      },
+      candidates: [],
     },
-    candidates: [],
   }, resolveMessage.request_id)
 
   document.querySelector('.target-option').click()
@@ -467,21 +474,24 @@ test('new Weibo row resolves profile and saves platform services', () => {
   input.value = '洛天依'
   input.dispatchEvent(new dom.window.Event('input', { bubbles: true }))
   document.querySelector('button[data-action="resolve-up"]').click()
-  const resolveMessage = lastMessage(messages, 'thirdparty.user.resolve')
-  assert.equal(resolveMessage.payload.platform, 'weibo')
-  assert.equal(resolveMessage.payload.query, '洛天依')
+  const resolveMessage = lastActionMessage(messages, 'subscription.resolve_user')
+  assert.equal(resolveMessage.payload.payload.platform, 'weibo')
+  assert.equal(resolveMessage.payload.payload.query, '洛天依')
   assert.equal(document.querySelector('#save-button').disabled, true)
 
-  dispatchHost(dom, 'thirdparty.user.resolved', {
-    platform: 'weibo',
-    query: '洛天依',
-    exact: true,
-    user: {
-      uid: '7556659984',
-      name: '洛天依',
-      avatar_url: 'https://tvax1.sinaimg.cn/avatar.jpg',
+  dispatchHost(dom, 'plugin.action.result', {
+    action: 'subscription.resolve_user',
+    result: {
+      platform: 'weibo',
+      query: '洛天依',
+      exact: true,
+      user: {
+        uid: '7556659984',
+        name: '洛天依',
+        avatar_url: 'https://tvax1.sinaimg.cn/avatar.jpg',
+      },
+      candidates: [],
     },
-    candidates: [],
   }, resolveMessage.request_id)
 
   document.querySelector('.target-option').click()
@@ -517,14 +527,14 @@ test('composition input resolves after Chinese IME commits', async () => {
   input.value = '洛'
   input.dispatchEvent(new dom.window.Event('input', { bubbles: true }))
   await wait(760)
-  assert.equal(lastMessage(messages, 'thirdparty.user.resolve'), undefined)
+  assert.equal(lastActionMessage(messages, 'subscription.resolve_user'), undefined)
 
   input.value = '洛天依'
   input.dispatchEvent(new dom.window.CompositionEvent('compositionend', { bubbles: true }))
   await wait(760)
-  const resolveMessage = lastMessage(messages, 'thirdparty.user.resolve')
-  assert.equal(resolveMessage.payload.platform, 'weibo')
-  assert.equal(resolveMessage.payload.query, '洛天依')
+  const resolveMessage = lastActionMessage(messages, 'subscription.resolve_user')
+  assert.equal(resolveMessage.payload.payload.platform, 'weibo')
+  assert.equal(resolveMessage.payload.payload.query, '洛天依')
 })
 
 test('resolve bridge error clears checking state on the row', () => {
@@ -540,7 +550,7 @@ test('resolve bridge error clears checking state on the row', () => {
   input.value = '我的世界'
   input.dispatchEvent(new dom.window.Event('input', { bubbles: true }))
   document.querySelector('button[data-action="resolve-up"]').click()
-  const resolveMessage = lastMessage(messages, 'thirdparty.user.resolve')
+  const resolveMessage = lastActionMessage(messages, 'subscription.resolve_user')
 
   dispatchHost(dom, 'error', {
     code: 'platform.upstream_request_failed',

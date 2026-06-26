@@ -1,6 +1,6 @@
 import base64
 
-from bilibili import bilibili_document_error, parse_json_response
+from platforms.bilibili import bilibili_document_error, parse_json_response
 
 
 def preview_response_document(response, label):

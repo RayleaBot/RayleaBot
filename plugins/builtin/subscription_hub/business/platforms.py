@@ -1,7 +1,7 @@
-from bilibili import PLATFORM as BILIBILI_PLATFORM
-from douyin import PLATFORM as DOUYIN_PLATFORM
-from netease_music import PLATFORM as NETEASE_MUSIC_PLATFORM
-from weibo import PLATFORM as WEIBO_PLATFORM
+from platforms.bilibili import PLATFORM as BILIBILI_PLATFORM
+from platforms.douyin import PLATFORM as DOUYIN_PLATFORM
+from platforms.netease_music import PLATFORM as NETEASE_MUSIC_PLATFORM
+from platforms.weibo import PLATFORM as WEIBO_PLATFORM
 
 
 PLATFORM_REGISTRY = {

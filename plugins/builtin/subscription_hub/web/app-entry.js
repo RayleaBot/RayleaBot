@@ -451,14 +451,36 @@ function applyPlatformResolved(message) {
   markDirty()
 }
 
-function applyBilibiliResolved(message) {
-  applyPlatformResolved({
-    ...message,
-    payload: {
-      platform: 'bilibili',
-      ...(message.payload || {}),
-    },
-  })
+function applyPluginActionResult(message) {
+  const payload = message.payload && typeof message.payload === 'object' ? message.payload : {}
+  const action = typeof payload.action === 'string' ? payload.action : ''
+  const result = payload.result && typeof payload.result === 'object' ? payload.result : {}
+  if (action === 'subscription.resolve_user') {
+    applyPlatformResolved({
+      ...message,
+      payload: result,
+    })
+    return
+  }
+  if (action === 'subscription.check_now') {
+    state.requests.pending.delete(message.request_id)
+    setStatus(checkResultText(result))
+    return
+  }
+}
+
+function checkResultText(result) {
+  if (result.skipped === 'disabled') {
+    return '订阅中心未启用'
+  }
+  if (result.skipped === 'no_bilibili_subscriptions') {
+    return '没有可检查的 Bilibili 订阅'
+  }
+  const checked = Number(result.checked || 0)
+  const sent = Number(result.sent || 0)
+  const errors = Array.isArray(result.errors) ? result.errors.filter(Boolean) : []
+  const base = `订阅检查完成：检查 ${checked} 个账号，推送 ${sent} 条更新`
+  return errors.length ? `${base}；${errors[0]}` : base
 }
 
 function addTargetToRow(row, liveTarget) {
@@ -610,11 +632,8 @@ function handleBridgeMessage(message) {
     case 'protocol.identities.resolved':
       applyIdentitiesResolved(message)
       return
-    case 'thirdparty.user.resolved':
-      applyPlatformResolved(message)
-      return
-    case 'bilibili.user.resolved':
-      applyBilibiliResolved(message)
+    case 'plugin.action.result':
+      applyPluginActionResult(message)
       return
     default:
       return
@@ -634,6 +653,9 @@ function handleBridgeError(message) {
       markDirty()
       return
     }
+  }
+  if (request && request.kind === 'manual-check') {
+    state.requests.pending.delete(message.error.request_id)
   }
   state.requests.savingRequestId = ''
   setStatus((message.error && message.error.message) || '操作失败')
@@ -849,7 +871,10 @@ function bindEvents() {
   })
   elements.resetButton.addEventListener('click', resetToDefault)
   elements.manualCheckButton.addEventListener('click', () => {
-    setStatus('Bilibili 事件源状态在 Web 三方监控页面查看')
+    const requestId = bridge.nextRequestId('subscription-check-now')
+    state.requests.pending.set(requestId, { kind: 'manual-check' })
+    setStatus('正在检查订阅…')
+    bridge.checkNow(requestId)
   })
   elements.previewButton.addEventListener('click', () => {
     bridge.openRenderTemplate('plugin.raylea.subscription-hub.bilibili-update')

@@ -9,13 +9,12 @@ class FakePluginContext:
         target_type="group",
         target_id="10000",
         target_name=None,
-        event_type="message.group",
-        plain_text="",
         actor=None,
         payload=None,
         super_admins=None,
         config_values=None,
         http_responses=None,
+        thirdparty_accounts=None,
         secrets=None,
         storage=None,
         render_result=None,
@@ -24,8 +23,6 @@ class FakePluginContext:
         self.request_id = request_id
         self.target_type = target_type
         self.target_id = target_id
-        self.event_type = event_type
-        self.plain_text = plain_text
         self.target = {"type": target_type, "id": target_id}
         if target_name:
             self.target["name"] = target_name
@@ -34,6 +31,7 @@ class FakePluginContext:
         self.super_admins = list(super_admins or [])
         self.config_values = config_values or {}
         self.http_responses = list(http_responses or [])
+        self.thirdparty_accounts = thirdparty_accounts or {}
         self.secrets = secrets or {}
         self.storage = storage or {}
         self.render_result = {"image_path": "plugin-test.png"} if render_result is None else render_result
@@ -44,6 +42,7 @@ class FakePluginContext:
         self.results = []
         self.logs = []
         self.http_requests = []
+        self.thirdparty_reads = []
         self.render_calls = []
         self.messages = []
         self.storage_sets = []
@@ -83,6 +82,17 @@ class FakePluginContext:
                 raise response
             return response
         return {"status_code": 200, "body_text": json.dumps({"code": 0, "data": {"items": []}})}
+
+    def thirdparty_account_read(self, platform, account_id=None, timeout_seconds=30):
+        self.thirdparty_reads.append({
+            "platform": platform,
+            "account_id": account_id,
+            "timeout_seconds": timeout_seconds,
+        })
+        accounts = self.thirdparty_accounts.get(platform, [])
+        if account_id:
+            accounts = [account for account in accounts if account.get("account_id") == account_id]
+        return {"platform": platform, "accounts": accounts}
 
     def secret_read(self, secret_key):
         return {"value": self.secrets.get(secret_key, "")}

@@ -1,6 +1,6 @@
 import time
 
-from bilibili import build_cookie_headers
+from platforms.bilibili import build_cookie_headers
 
 from .services import SERVICE_NAMES, normalize_service_token
 from .subscriptions import current_subscriber, current_target

@@ -34,6 +34,8 @@
     "config.write",
     "logger.write",
     "http.request",
+    "scheduler.create",
+    "thirdparty.account.read",
     "friend.list",
     "group.list",
     "user.info.get",
@@ -42,13 +44,13 @@
   "capability_parameters": {
     "http_hosts": [
       "api.bilibili.com",
-      "api.live.bilibili.com",
-      "m.weibo.cn",
-      "www.douyin.com",
-      "v.douyin.com",
-      "www.iesdouyin.com",
-      "music.163.com",
-      "163cn.tv"
+      "api.live.bilibili.com"
+    ],
+    "third_party_account_platforms": [
+      "bilibili",
+      "weibo",
+      "douyin",
+      "netease_music"
     ]
   },
   "commands": [
@@ -174,7 +176,7 @@
     },
     {
       "name": "立即检查订阅",
-      "description": "查看 Bilibili 事件源检查入口",
+      "description": "立即检查订阅更新",
       "usage": "/立即检查订阅",
       "permission": "super_admin"
     },
@@ -194,7 +196,7 @@
         "items": [
           {
             "title": "订阅状态",
-            "description": "查看启用状态、订阅数量和平台事件源入口。",
+            "description": "查看启用状态、订阅数量和最近检查结果。",
             "usage": "/订阅状态",
             "command": "订阅状态"
           },
@@ -329,7 +331,7 @@
         "items": [
           {
             "title": "立即检查订阅",
-            "description": "查看 Bilibili 实时源、运行受限和备用检查入口。",
+            "description": "立即检查已启用订阅并推送新内容。",
             "usage": "/立即检查订阅",
             "command": "立即检查订阅"
           },
@@ -350,8 +352,8 @@
             "permission": "super_admin"
           },
           {
-            "title": "实时源状态",
-            "description": "连接、错误、最近事件、运行受限和备用检查状态在 Web 三方监控页面查看。",
+            "title": "订阅检查",
+            "description": "订阅状态和立即检查入口在订阅中心插件管理页查看。",
             "permission": "super_admin"
           }
         ]

@@ -172,6 +172,6 @@ def build_status_text(settings):
         f"状态：{'启用' if settings.get('enabled', True) else '停用'}",
         f"订阅：{enabled_subscriptions}/{len(subscriptions)}",
         "平台：Bilibili、微博、抖音、网易云音乐",
-        "事件源：Bilibili 实时源；微博、抖音、网易云音乐支持账号与订阅配置、链接解析",
+        "检查：订阅中心插件定时检查，支持手动立即检查",
         "账号：Web 三方账号页面管理平台 Cookie",
     ])

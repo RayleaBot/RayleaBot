@@ -69,11 +69,26 @@ export function createBridgeClient(win, handlers = {}) {
     resolveIdentities(items, requestId) {
       return send('protocol.identities.resolve', { items }, requestId || nextRequestId('protocol-identities'))
     },
+    invokeAction(action, payload = {}, requestId) {
+      return send('plugin.action.invoke', { action, payload }, requestId || nextRequestId('plugin-action'))
+    },
     resolveBilibiliUser(query, requestId) {
-      return send('bilibili.user.resolve', { query }, requestId || nextRequestId('bilibili-user'))
+      return send('plugin.action.invoke', {
+        action: 'subscription.resolve_user',
+        payload: { platform: 'bilibili', query },
+      }, requestId || nextRequestId('subscription-resolve-user'))
     },
     resolvePlatformUser(platform, query, requestId) {
-      return send('thirdparty.user.resolve', { platform, query }, requestId || nextRequestId('third-party-user'))
+      return send('plugin.action.invoke', {
+        action: 'subscription.resolve_user',
+        payload: { platform, query },
+      }, requestId || nextRequestId('subscription-resolve-user'))
+    },
+    checkNow(requestId) {
+      return send('plugin.action.invoke', {
+        action: 'subscription.check_now',
+        payload: {},
+      }, requestId || nextRequestId('subscription-check-now'))
     },
     openRenderTemplate(templateId) {
       return send('render_template.open', { template_id: templateId }, nextRequestId('open-template'))

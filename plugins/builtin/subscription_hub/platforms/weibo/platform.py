@@ -1,6 +1,4 @@
-from urllib.parse import parse_qs
-
-from hub.link_utils import capability_message, first_query_value, hostname_matches, json_response, path_parts, plain_text
+from platforms.url_tools import first_query_value, hostname_matches, parsed_url, path_parts, query_values
 
 
 PLATFORM = {
@@ -35,54 +33,18 @@ PLATFORM = {
     },
 }
 
-LINK_KIND_NAMES = {
-    "weibo_status": "微博动态",
-}
-
-
-def parse_link(url, parsed):
+def subject_id_from_url(url):
+    parsed = parsed_url(url)
     host = parsed.hostname.lower() if parsed.hostname else ""
     if not hostname_matches(host, "weibo.com", "weibo.cn"):
-        return None
+        return ""
     parts = path_parts(parsed.path)
-    query = parse_qs(parsed.query)
+    query = query_values(parsed.query)
     status_id = first_query_value(query, "id")
     if not status_id and len(parts) >= 2 and parts[0] in {"status", "detail"}:
         status_id = parts[1]
     if not status_id and len(parts) >= 2:
         status_id = parts[1]
     if not status_id:
-        return None
-    return {
-        "platform": "weibo",
-        "kind": "weibo_status",
-        "id": status_id,
-        "url": url,
-    }
-
-
-def resolve_link_preview(ctx, ref):
-    from rayleabot.protocol import ActionError
-
-    status_id = str(ref.get("id") or "").strip()
-    if not status_id:
-        return {}
-    try:
-        response = ctx.http_request("GET", f"https://m.weibo.cn/statuses/show?id={status_id}", timeout_seconds=12)
-    except ActionError as exc:
-        return capability_message(exc)
-    except Exception:
-        return {}
-    document = json_response(response)
-    data = document.get("data") if isinstance(document, dict) else {}
-    if not isinstance(data, dict):
-        return {}
-    user = data.get("user") if isinstance(data.get("user"), dict) else {}
-    result = {}
-    title = plain_text(data.get("text"))
-    if title:
-        result["title"] = title[:120]
-    author = str(user.get("screen_name") or "").strip()
-    if author:
-        result["author"] = author
-    return result
+        return ""
+    return status_id

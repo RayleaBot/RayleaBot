@@ -1,4 +1,4 @@
-from hub.link_utils import capability_message, hostname_matches, html_title, path_parts
+from platforms.url_tools import hostname_matches, parsed_url, path_parts
 
 
 PLATFORM = {
@@ -28,41 +28,15 @@ PLATFORM = {
     },
 }
 
-LINK_KIND_NAMES = {
-    "douyin_video": "抖音视频",
-    "douyin_note": "抖音图文",
-}
-
-
-def parse_link(url, parsed):
+def subject_id_from_url(url):
+    parsed = parsed_url(url)
     host = parsed.hostname.lower() if parsed.hostname else ""
     if not hostname_matches(host, "douyin.com", "iesdouyin.com", "amemv.com"):
-        return None
+        return ""
     parts = path_parts(parsed.path)
-    for marker, kind in (("video", "douyin_video"), ("note", "douyin_note")):
+    for marker in ("video", "note"):
         if marker in parts:
             index = parts.index(marker)
             if len(parts) > index + 1:
-                return {
-                    "platform": "douyin",
-                    "kind": kind,
-                    "id": parts[index + 1],
-                    "url": url,
-                }
-    return None
-
-
-def resolve_link_preview(ctx, ref):
-    from rayleabot.protocol import ActionError
-
-    url = str(ref.get("url") or "").strip()
-    if not url:
-        return {}
-    try:
-        response = ctx.http_request("GET", url, headers={"User-Agent": "Mozilla/5.0"}, timeout_seconds=12)
-    except ActionError as exc:
-        return capability_message(exc)
-    except Exception:
-        return {}
-    title = html_title(response)
-    return {"title": title[:120]} if title else {}
+                return parts[index + 1]
+    return ""
