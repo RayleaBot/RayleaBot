@@ -9,6 +9,8 @@ import (
 )
 
 func (c *Controller) afterRuntimeRegistered(ctx context.Context, pluginID string, initBotID string) {
+	c.dispatchPluginStarted(ctx, pluginID)
+
 	initBotID = strings.TrimSpace(initBotID)
 	currentBotID := c.currentBotID()
 	if initBotID != "" {

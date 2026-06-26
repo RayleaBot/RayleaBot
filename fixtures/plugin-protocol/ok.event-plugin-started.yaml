@@ -1,0 +1,24 @@
+contract: contracts/plugin-protocol.schema.json
+case: ok
+frames:
+  - protocol_version: "1"
+    type: event
+    timestamp: 1710000044
+    plugin_id: subscription-hub
+    request_id: evt_plugin_started_0001
+    event:
+      event_id: plugin-started-subscription-hub-1710000044
+      source_protocol: platform
+      source_adapter: plugin.lifecycle
+      event_type: plugin.started
+      timestamp: 1710000044
+  - protocol_version: "1"
+    type: result
+    timestamp: 1710000045
+    plugin_id: subscription-hub
+    request_id: evt_plugin_started_0001
+    status: success
+    data:
+      handled: true
+expect:
+  valid: true

@@ -42,3 +42,31 @@ func TestBroadcastBotIdentityChangedDispatchesToRunningPlugin(t *testing.T) {
 		t.Fatal("expected bot.identity.changed event")
 	}
 }
+
+func TestAfterRuntimeRegisteredDispatchesPluginStarted(t *testing.T) {
+	t.Parallel()
+
+	dispatcher := dispatch.New(slog.Default(), nil, nil, 16)
+	fakeRuntime := &capturingRuntime{events: make(chan runtimeprotocol.Event, 1)}
+	dispatcher.Register("raylea.subscription-hub", fakeRuntime, nil, nil, 1)
+
+	controller := NewController(Deps{
+		CurrentConfig: newTestAppState(config.Config{}, nil).state.CurrentConfig,
+		Logger:        slog.Default(),
+		Dispatcher:    dispatcher,
+	})
+
+	controller.afterRuntimeRegistered(context.Background(), "raylea.subscription-hub", "")
+
+	select {
+	case event := <-fakeRuntime.events:
+		if event.EventType != "plugin.started" {
+			t.Fatalf("event_type = %q, want plugin.started", event.EventType)
+		}
+		if event.SourceProtocol != "platform" || event.SourceAdapter != "plugin.lifecycle" {
+			t.Fatalf("unexpected started source: %#v", event)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("expected plugin.started event")
+	}
+}

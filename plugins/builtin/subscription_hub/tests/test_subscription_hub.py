@@ -484,6 +484,27 @@ class SubscriptionHubTests(unittest.TestCase):
         self.assertEqual(ctx.scheduler_creates[0]["task_id"], SCHEDULER_TASK_ID)
         self.assertEqual(ctx.scheduler_creates[0]["payload"], {"action": "check_subscriptions"})
 
+    def test_plugin_started_registers_scheduler_and_logs_info(self):
+        plugin = SubscriptionHubPlugin()
+        ctx = FakeContext()
+
+        plugin.handle_plugin_started(ctx)
+
+        self.assertEqual(len(ctx.scheduler_creates), 1)
+        self.assertEqual(ctx.scheduler_creates[0]["task_id"], SCHEDULER_TASK_ID)
+        self.assertEqual(ctx.scheduler_creates[0]["cron"], plugin.SCHEDULER_CRON)
+        self.assertEqual(ctx.scheduler_creates[0]["log_label"], "订阅检查")
+        self.assertEqual(ctx.results[-1], {"handled": True, "scheduler_registered": True})
+        self.assertIn({
+            "level": "info",
+            "message": f"订阅中心插件创建定时任务订阅检查（{plugin.SCHEDULER_CRON}）",
+            "fields": {
+                "task_id": SCHEDULER_TASK_ID,
+                "cron": plugin.SCHEDULER_CRON,
+                "log_label": "订阅检查",
+            },
+        }, ctx.logs)
+
     def test_check_subscriptions_reports_missing_ck(self):
         plugin = SubscriptionHubPlugin()
         ctx = FakeContext()

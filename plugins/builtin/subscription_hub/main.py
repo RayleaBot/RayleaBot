@@ -53,6 +53,7 @@ class SubscriptionHubPlugin(
     def __init__(self):
         super().__init__()
         self.subscribe(
+            "plugin.started",
             "config.changed",
             "scheduler.trigger",
             "management.action",
@@ -78,17 +79,30 @@ class SubscriptionHubPlugin(
 
     def ensure_scheduler(self, ctx):
         if self._scheduler_registered:
-            return
+            return True
         try:
+            log_label = "订阅检查"
             ctx.scheduler_create(
                 self.SCHEDULER_TASK_ID,
                 self.SCHEDULER_CRON,
                 payload={"action": "check_subscriptions"},
-                log_label="订阅检查",
+                log_label=log_label,
             )
             self._scheduler_registered = True
+            self.try_log(
+                ctx,
+                "info",
+                f"订阅中心插件创建定时任务{log_label}（{self.SCHEDULER_CRON}）",
+                {
+                    "task_id": self.SCHEDULER_TASK_ID,
+                    "cron": self.SCHEDULER_CRON,
+                    "log_label": log_label,
+                },
+            )
+            return True
         except Exception as exc:
             self.try_log(ctx, "warn", "订阅检查任务注册失败", {"error": str(exc)})
+            return False
 
     def try_log(self, ctx, level, message, fields=None):
         try:
@@ -101,6 +115,11 @@ class SubscriptionHubPlugin(
         settings = self.load_settings(ctx)
         ctx.send_text(build_status_text(settings))
         ctx.send_result({"handled": True})
+
+    @event_handler("plugin.started")
+    def handle_plugin_started(self, ctx):
+        registered = self.ensure_scheduler(ctx)
+        ctx.send_result({"handled": True, "scheduler_registered": registered})
 
     @command("订阅b站推送")
     def handle_subscribe_bilibili(self, ctx):
