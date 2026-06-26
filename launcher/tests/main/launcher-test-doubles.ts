@@ -131,7 +131,22 @@ export class FakeReleaseFeedClient implements ReleaseFeedClient {
       detail: "",
       releasePageUrl: "https://example.invalid/releases/v0.1.0",
       updateAvailable: false,
+      downloadProgress: null,
+      downloadedBytes: null,
+      totalBytes: null,
+      artifactFileName: "",
+      canCheck: true,
+      canDownload: false,
+      canInstall: false,
     };
+  }
+
+  async downloadUpdate() {
+    return this.getSnapshot();
+  }
+
+  async installDownloadedUpdate() {
+    return this.getSnapshot();
   }
 }
 

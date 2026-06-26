@@ -2,6 +2,7 @@ import { afterEach, describe, expect, test, vi } from "vitest";
 import { createLauncherRuntimeContext } from "@main/services/launcher-runtime-context";
 import { createLauncherSnapshotStore } from "@main/services/launcher-snapshot-store";
 import { createLauncherDesktopActions } from "@main/services/launcher-desktop-actions";
+import { RAYLEABOT_REPOSITORY_URL } from "@shared/launcher-links";
 import {
   FakeEndpointResolver,
   FakeExternalOpener,
@@ -85,12 +86,12 @@ describe("launcher desktop actions", () => {
     );
   });
 
-  test("openReleasePage and openLogsDirectory keep current behavior", async () => {
+  test("openReleasePage, openRepositoryPage, and openLogsDirectory keep current behavior", async () => {
     const { desktopActions, externalOpener, processController, snapshotStore } = await createDesktopActionsHarness();
 
     await desktopActions.openReleasePage();
 
-    expect(snapshotStore.snapshot.launcher.statusHint).toBe("当前运行没有可打开的发布页。");
+    expect(snapshotStore.snapshot.launcher.statusHint).toBe("没有可打开的版本页面。");
 
     await snapshotStore.publish({
       ...snapshotStore.snapshot,
@@ -104,9 +105,11 @@ describe("launcher desktop actions", () => {
     });
 
     await desktopActions.openReleasePage();
+    await desktopActions.openRepositoryPage();
     await desktopActions.openLogsDirectory();
 
-    expect(externalOpener.openedUris.at(-1)).toBe("https://example.invalid/releases/v0.1.0");
+    expect(externalOpener.openedUris.at(-2)).toBe("https://example.invalid/releases/v0.1.0");
+    expect(externalOpener.openedUris.at(-1)).toBe(RAYLEABOT_REPOSITORY_URL);
     expect(externalOpener.openedDirectories.at(-1)).toBe(processController.logDirectory);
   });
 });

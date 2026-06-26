@@ -3,6 +3,7 @@ import {
   CheckmarkCircle20Filled,
   DocumentText20Filled,
   HeartPulse20Filled,
+  Info20Filled,
   Settings20Filled,
   Status20Filled,
   Warning20Filled,
@@ -11,7 +12,7 @@ import {
 import { getLauncherStateLabel, type LauncherPresentationState } from "@shared/launcher-presentation";
 import type { LauncherSettings } from "@shared/launcher-models";
 
-export type SectionId = "status" | "environment" | "diagnostics" | "settings";
+export type SectionId = "status" | "environment" | "diagnostics" | "settings" | "about";
 export type SectionTransitionState = "idle" | "exiting" | "entering";
 
 export const serviceStateConfig: Record<LauncherPresentationState, { status: PresenceBadgeStatus; label: string }> = {
@@ -35,30 +36,31 @@ export const sections = [
   { id: "environment" as SectionId, title: "环境检查", icon: <HeartPulse20Filled /> },
   { id: "diagnostics" as SectionId, title: "日志诊断", icon: <DocumentText20Filled /> },
   { id: "settings" as SectionId, title: "偏好设置", icon: <Settings20Filled /> },
+  { id: "about" as SectionId, title: "关于应用", icon: <Info20Filled /> },
 ];
 
 export const sectionContent = {
   status: {
     eyebrow: "Service Console",
     title: "运行状态",
-    detail: "查看当前服务状态，处理启动、停止和管理入口。",
   },
   environment: {
     eyebrow: "Environment Review",
     title: "环境检查",
-    detail: "汇总启动前检查、恢复兼容性和本地访问信息。",
   },
   diagnostics: {
     eyebrow: "Diagnostics",
     title: "日志诊断",
-    detail: "集中查看系统状态摘要与最近异常输出。",
   },
   settings: {
     eyebrow: "Launcher Settings",
     title: "偏好设置",
-    detail: "管理安装路径、关闭行为和本地维护操作。",
   },
-} satisfies Record<SectionId, { eyebrow: string; title: string; detail: string }>;
+  about: {
+    eyebrow: "About RayleaBot",
+    title: "关于应用",
+  },
+} satisfies Record<SectionId, { eyebrow: string; title: string }>;
 
 export const severityOrder = {
   error: 0,
@@ -73,8 +75,11 @@ export const busyActionLabels: Record<string, string> = {
   stop: "正在停止服务",
   restart: "正在重启服务",
   save: "正在保存设置",
-  "open-web": "正在打开管理面板",
-  "open-release-page": "正在打开版本页面",
+  "open-web": "正在打开管理界面",
+  "check-updates": "正在检查更新",
+  "download-update": "正在下载更新",
+  "install-update": "正在安装更新",
+  "open-repository-page": "正在打开 GitHub",
   "open-logs": "正在打开日志目录",
   "reset-admin": "正在重置本地凭据",
   "open-plugin": "正在打开插件详情",
@@ -92,6 +97,10 @@ export const closeBehaviorOptions: Array<{
 
 export function statusSummary(state: LauncherPresentationState): string {
   return getLauncherStateLabel(state);
+}
+
+export function formatReleaseVersion(currentVersion: string): string {
+  return currentVersion.trim() || "开发";
 }
 
 export function sortChecks<T extends { severity: "ok" | "warning" | "error"; title: string }>(items: T[]): T[] {

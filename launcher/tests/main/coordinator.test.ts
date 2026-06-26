@@ -1,5 +1,5 @@
-import { describe, expect, test, vi } from "vitest";
-import type { LauncherReadinessSnapshot, LauncherSnapshot } from "@shared/launcher-models";
+import { afterEach, describe, expect, test, vi } from "vitest";
+import type { LauncherReadinessSnapshot, LauncherSnapshot, ReleaseCheckSnapshot } from "@shared/launcher-models";
 import type { RuntimePrepareSnapshot } from "@shared/launcher-models";
 import { deriveLauncherPresentation, resolveRecoverySummary } from "@shared/launcher-presentation";
 import {
@@ -131,7 +131,7 @@ class FakeExternalOpener implements ExternalOpener {
 
 class FakeReleaseFeedClient implements ReleaseFeedClient {
   async getSnapshot() {
-    return {
+    return releaseSnapshot({
       status: "up_to_date",
       currentVersion: "0.1.0",
       latestVersion: "0.1.0",
@@ -139,8 +139,37 @@ class FakeReleaseFeedClient implements ReleaseFeedClient {
       detail: "",
       releasePageUrl: "https://example.invalid/releases/v0.1.0",
       updateAvailable: false,
-    };
+      canCheck: true,
+    });
   }
+
+  async downloadUpdate() {
+    return this.getSnapshot();
+  }
+
+  async installDownloadedUpdate() {
+    return this.getSnapshot();
+  }
+}
+
+function releaseSnapshot(overrides: Partial<ReleaseCheckSnapshot> = {}): ReleaseCheckSnapshot {
+  return {
+    status: "unavailable",
+    currentVersion: "",
+    latestVersion: "",
+    summary: "版本信息不可用",
+    detail: "",
+    releasePageUrl: "",
+    updateAvailable: false,
+    downloadProgress: null,
+    downloadedBytes: null,
+    totalBytes: null,
+    artifactFileName: "",
+    canCheck: false,
+    canDownload: false,
+    canInstall: false,
+    ...overrides,
+  };
 }
 
 class FakeResetAdminRunner implements LauncherResetAdminRunner {
@@ -187,6 +216,10 @@ function presentationState(snapshot: LauncherSnapshot) {
   return deriveLauncherPresentation(snapshot);
 }
 
+afterEach(() => {
+  vi.useRealTimers();
+});
+
 async function waitForPresentationState(
   coordinator: { readonly snapshot: LauncherSnapshot },
   expectedState: ReturnType<typeof presentationState>["state"],
@@ -200,6 +233,23 @@ async function waitForPresentationState(
   }
   expect(latest.state).toBe(expectedState);
   return latest;
+}
+
+async function waitForCondition(assertion: () => void, timeoutMs = 500) {
+  const deadline = Date.now() + timeoutMs;
+  let lastError: unknown;
+  while (Date.now() < deadline) {
+    try {
+      assertion();
+      return;
+    } catch (error) {
+      lastError = error;
+      await new Promise((resolve) => setTimeout(resolve, 5));
+    }
+  }
+  if (lastError) {
+    throw lastError;
+  }
 }
 
 describe("launcher coordinator", () => {
@@ -228,6 +278,7 @@ describe("launcher coordinator", () => {
     expect(presentationState(coordinator.snapshot).state).toBe("running");
     expect(coordinator.snapshot.launcher.processOwnership).toBe("external");
     expect(managementClient.systemStatusCalls).toBe(1);
+    await waitForCondition(() => expect(coordinator.snapshot.launcher.releaseCheck.status).toBe("up_to_date"));
     expect(coordinator.snapshot.launcher.releaseCheck.status).toBe("up_to_date");
   });
 
@@ -1197,7 +1248,7 @@ describe("launcher coordinator", () => {
     const settingsStore = new FakeSettingsStore();
     const endpointResolver = new FakeEndpointResolver();
     const managementClient = new FakeManagementClient();
-    const releaseSnapshot = {
+    const readyRelease = releaseSnapshot({
       status: "up_to_date",
       currentVersion: "0.1.0",
       latestVersion: "0.1.0",
@@ -1205,8 +1256,9 @@ describe("launcher coordinator", () => {
       detail: "",
       releasePageUrl: "https://example.invalid/releases/v0.1.0",
       updateAvailable: false,
-    };
-    let resolveRelease: ((value: typeof releaseSnapshot) => void) | null = null;
+      canCheck: true,
+    });
+    let resolveRelease: ((value: ReleaseCheckSnapshot) => void) | null = null;
     const slowReleaseClient: ReleaseFeedClient = {
       getSnapshot: vi.fn(
         () =>
@@ -1214,6 +1266,8 @@ describe("launcher coordinator", () => {
             resolveRelease = resolve;
           }),
       ),
+      downloadUpdate: vi.fn(async () => readyRelease),
+      installDownloadedUpdate: vi.fn(async () => readyRelease),
     };
 
     const coordinator = createLauncherCoordinator({
@@ -1234,9 +1288,258 @@ describe("launcher coordinator", () => {
     ]);
 
     expect(result).toBe("resolved");
-    expect(coordinator.snapshot.launcher.releaseCheck.status).toBe("unavailable");
+    expect(coordinator.snapshot.launcher.releaseCheck.status).toBe("checking");
 
-    resolveRelease?.(releaseSnapshot);
+    resolveRelease?.(readyRelease);
+  });
+
+  test("runs a background release check on startup and forces manual checks", async () => {
+    const getSnapshot = vi.fn(async (options?: { force?: boolean }) =>
+      releaseSnapshot({
+        status: "up_to_date",
+        currentVersion: "1.0.0",
+        latestVersion: "1.0.0",
+        summary: "当前版本 1.0.0 已是最新。",
+        releasePageUrl: "https://example.invalid/releases/v1.0.0",
+        canCheck: true,
+      }),
+    );
+    const releaseFeedClient: ReleaseFeedClient = {
+      getSnapshot,
+      downloadUpdate: vi.fn(async () => releaseSnapshot()),
+      installDownloadedUpdate: vi.fn(async () => releaseSnapshot()),
+    };
+
+    const coordinator = createLauncherCoordinator({
+      settingsStore: new FakeSettingsStore(),
+      endpointResolver: new FakeEndpointResolver(),
+      inspectEnvironment: vi.fn(async () => okInspection()),
+      managementClient: new FakeManagementClient(),
+      processController: new FakeProcessController(),
+      isEndpointListening: vi.fn(async () => false),
+      tryStopEndpointProcess: vi.fn(async () => false),
+      externalOpener: new FakeExternalOpener(),
+      releaseFeedClient,
+    });
+
+    await coordinator.initialize();
+    await waitForCondition(() => expect(coordinator.snapshot.launcher.releaseCheck.status).toBe("up_to_date"));
+
+    expect(getSnapshot).toHaveBeenLastCalledWith({ force: false });
+
+    await coordinator.checkForUpdates();
+
+    expect(getSnapshot).toHaveBeenCalledTimes(2);
+    expect(getSnapshot).toHaveBeenLastCalledWith({ force: true });
+  });
+
+  test("schedules release checks at the configured interval", async () => {
+    vi.useFakeTimers();
+    const getSnapshot = vi.fn(async () =>
+      releaseSnapshot({
+        status: "up_to_date",
+        currentVersion: "1.0.0",
+        latestVersion: "1.0.0",
+        summary: "当前版本 1.0.0 已是最新。",
+        releasePageUrl: "https://example.invalid/releases/v1.0.0",
+        canCheck: true,
+      }),
+    );
+    const releaseFeedClient: ReleaseFeedClient = {
+      getSnapshot,
+      downloadUpdate: vi.fn(async () => releaseSnapshot()),
+      installDownloadedUpdate: vi.fn(async () => releaseSnapshot()),
+    };
+
+    const coordinator = createLauncherCoordinator({
+      settingsStore: new FakeSettingsStore(),
+      endpointResolver: new FakeEndpointResolver(),
+      inspectEnvironment: vi.fn(async () => okInspection()),
+      managementClient: new FakeManagementClient(),
+      processController: new FakeProcessController(),
+      isEndpointListening: vi.fn(async () => false),
+      tryStopEndpointProcess: vi.fn(async () => false),
+      externalOpener: new FakeExternalOpener(),
+      releaseFeedClient,
+      options: {
+        releaseCheckIntervalMs: 10,
+      },
+    });
+
+    await coordinator.initialize();
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(getSnapshot).toHaveBeenCalledTimes(1);
+
+    await vi.advanceTimersByTimeAsync(10);
+
+    expect(getSnapshot).toHaveBeenCalledTimes(2);
+  });
+
+  test("does not start duplicate update work while a release check is active", async () => {
+    const readyRelease = releaseSnapshot({
+      status: "up_to_date",
+      currentVersion: "1.0.0",
+      latestVersion: "1.0.0",
+      summary: "当前版本 1.0.0 已是最新。",
+      releasePageUrl: "https://example.invalid/releases/v1.0.0",
+      canCheck: true,
+    });
+    let resolveRelease: ((value: ReleaseCheckSnapshot) => void) | null = null;
+    const releaseFeedClient: ReleaseFeedClient = {
+      getSnapshot: vi.fn(
+        () =>
+          new Promise((resolve) => {
+            resolveRelease = resolve;
+          }),
+      ),
+      downloadUpdate: vi.fn(async () => readyRelease),
+      installDownloadedUpdate: vi.fn(async () => readyRelease),
+    };
+
+    const coordinator = createLauncherCoordinator({
+      settingsStore: new FakeSettingsStore(),
+      endpointResolver: new FakeEndpointResolver(),
+      inspectEnvironment: vi.fn(async () => okInspection()),
+      managementClient: new FakeManagementClient(),
+      processController: new FakeProcessController(),
+      isEndpointListening: vi.fn(async () => false),
+      tryStopEndpointProcess: vi.fn(async () => false),
+      externalOpener: new FakeExternalOpener(),
+      releaseFeedClient,
+    });
+
+    await coordinator.initialize();
+    await waitForCondition(() => expect(releaseFeedClient.getSnapshot).toHaveBeenCalledTimes(1));
+
+    await coordinator.checkForUpdates();
+    await coordinator.downloadUpdate();
+
+    expect(releaseFeedClient.getSnapshot).toHaveBeenCalledTimes(1);
+    expect(releaseFeedClient.downloadUpdate).not.toHaveBeenCalled();
+
+    resolveRelease?.(readyRelease);
+  });
+
+  test("publishes download progress and waits for explicit install", async () => {
+    const availableRelease = releaseSnapshot({
+      status: "update_available",
+      currentVersion: "1.0.0",
+      latestVersion: "1.2.0",
+      summary: "发现新版本 1.2.0。",
+      releasePageUrl: "https://example.invalid/releases/v1.2.0",
+      updateAvailable: true,
+      artifactFileName: "RayleaBot-1.2.0-windows-x64-full.zip",
+      totalBytes: 100,
+      canCheck: true,
+      canDownload: true,
+    });
+    const downloadedRelease = releaseSnapshot({
+      ...availableRelease,
+      status: "downloaded",
+      summary: "新版本 1.2.0 已下载。",
+      downloadProgress: 1,
+      downloadedBytes: 100,
+      canDownload: false,
+      canInstall: true,
+    });
+    const installDownloadedUpdate = vi.fn(async () => releaseSnapshot({ ...downloadedRelease, status: "installing" }));
+    const releaseFeedClient: ReleaseFeedClient = {
+      getSnapshot: vi.fn(async () => availableRelease),
+      downloadUpdate: vi.fn(async (onProgress) => {
+        await onProgress?.(releaseSnapshot({
+          ...availableRelease,
+          status: "downloading",
+          downloadProgress: 0.5,
+          downloadedBytes: 50,
+          canCheck: false,
+          canDownload: false,
+        }));
+        return downloadedRelease;
+      }),
+      installDownloadedUpdate,
+    };
+
+    const coordinator = createLauncherCoordinator({
+      settingsStore: new FakeSettingsStore(),
+      endpointResolver: new FakeEndpointResolver(),
+      inspectEnvironment: vi.fn(async () => okInspection()),
+      managementClient: new FakeManagementClient(),
+      processController: new FakeProcessController(),
+      isEndpointListening: vi.fn(async () => false),
+      tryStopEndpointProcess: vi.fn(async () => false),
+      externalOpener: new FakeExternalOpener(),
+      releaseFeedClient,
+    });
+
+    await coordinator.initialize();
+    await waitForCondition(() => expect(coordinator.snapshot.launcher.releaseCheck.status).toBe("update_available"));
+
+    await coordinator.downloadUpdate();
+
+    expect(coordinator.snapshot.launcher.releaseCheck.status).toBe("downloaded");
+    expect(coordinator.snapshot.launcher.releaseCheck.downloadProgress).toBe(1);
+    expect(installDownloadedUpdate).not.toHaveBeenCalled();
+  });
+
+  test("stops the managed service before starting the update helper", async () => {
+    const processController = new FakeProcessController();
+    processController.isRunning = true;
+    const installDownloadedUpdate = vi.fn(async (appProcessId: number) =>
+      releaseSnapshot({
+        status: "installing",
+        currentVersion: "1.0.0",
+        latestVersion: "1.2.0",
+        summary: "正在重启并安装更新。",
+        releasePageUrl: "https://example.invalid/releases/v1.2.0",
+        updateAvailable: true,
+        canCheck: false,
+        canDownload: false,
+        canInstall: false,
+      }),
+    );
+    const releaseFeedClient: ReleaseFeedClient = {
+      getSnapshot: vi.fn(async () =>
+        releaseSnapshot({
+          status: "downloaded",
+          currentVersion: "1.0.0",
+          latestVersion: "1.2.0",
+          summary: "新版本 1.2.0 已下载。",
+          releasePageUrl: "https://example.invalid/releases/v1.2.0",
+          updateAvailable: true,
+          canCheck: true,
+          canInstall: true,
+        }),
+      ),
+      downloadUpdate: vi.fn(async () => releaseSnapshot()),
+      installDownloadedUpdate,
+    };
+
+    const coordinator = createLauncherCoordinator({
+      settingsStore: new FakeSettingsStore(),
+      endpointResolver: new FakeEndpointResolver(),
+      inspectEnvironment: vi.fn(async () => okInspection()),
+      managementClient: new FakeManagementClient(),
+      processController,
+      isEndpointListening: vi.fn(async () => false),
+      tryStopEndpointProcess: vi.fn(async () => false),
+      externalOpener: new FakeExternalOpener(),
+      releaseFeedClient,
+      options: {
+        pollIntervalMs: 1,
+        shutdownTimeoutMs: 1,
+      },
+    });
+
+    await coordinator.initialize();
+    await waitForCondition(() => expect(coordinator.snapshot.launcher.releaseCheck.status).toBe("downloaded"));
+
+    await coordinator.prepareUpdateInstall(12345);
+
+    expect(processController.forceKillCalls).toBeGreaterThan(0);
+    expect(installDownloadedUpdate).toHaveBeenCalledWith(12345);
+    expect(coordinator.snapshot.launcher.releaseCheck.status).toBe("installing");
   });
 
   test("reset admin waits for startup readiness before opening the setup entry", async () => {

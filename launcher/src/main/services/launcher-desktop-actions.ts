@@ -1,4 +1,5 @@
 import { sanitizeLauncherWebTargetPath } from "../../shared/launcher-validation";
+import { RAYLEABOT_REPOSITORY_URL } from "../../shared/launcher-links";
 import type {
   ExternalOpener,
   LauncherDesktopActions,
@@ -49,13 +50,16 @@ export function createLauncherDesktopActions(deps: LauncherDesktopActionsDepende
           ...deps.snapshotStore.snapshot,
           launcher: {
             ...deps.snapshotStore.snapshot.launcher,
-            statusHint: "当前运行没有可打开的发布页。",
+            statusHint: "没有可打开的版本页面。",
             lastLocalError: "",
           },
         });
         return;
       }
       await deps.externalOpener.openUri(deps.snapshotStore.snapshot.launcher.releaseCheck.releasePageUrl);
+    },
+    async openRepositoryPage() {
+      await deps.externalOpener.openUri(RAYLEABOT_REPOSITORY_URL);
     },
     async openLogsDirectory() {
       await deps.externalOpener.openDirectory(deps.processController.logDirectory);

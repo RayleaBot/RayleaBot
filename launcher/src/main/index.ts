@@ -250,10 +250,17 @@ function wireIpc() {
   ipcMain.handle(launcherInvokeChannels.start, async () => coordinator.start());
   ipcMain.handle(launcherInvokeChannels.stop, async () => coordinator.stop());
   ipcMain.handle(launcherInvokeChannels.resetAdmin, async () => coordinator.resetAdmin());
+  ipcMain.handle(launcherInvokeChannels.checkForUpdates, async () => coordinator.checkForUpdates());
+  ipcMain.handle(launcherInvokeChannels.downloadUpdate, async () => coordinator.downloadUpdate());
+  ipcMain.handle(launcherInvokeChannels.installDownloadedUpdate, async () => {
+    await coordinator.prepareUpdateInstall(process.pid);
+    await appExitManager.requestExit();
+  });
   ipcMain.handle(launcherInvokeChannels.openWeb, async (_event, targetPath?: string) =>
     coordinator.openWebUi(sanitizeLauncherWebTargetPath(targetPath)),
   );
   ipcMain.handle(launcherInvokeChannels.openReleasePage, async () => coordinator.openReleasePage());
+  ipcMain.handle(launcherInvokeChannels.openRepositoryPage, async () => coordinator.openRepositoryPage());
   ipcMain.handle(launcherInvokeChannels.openLogs, async () => coordinator.openLogsDirectory());
   ipcMain.handle(launcherInvokeChannels.saveSettings, async (_event, settings: LauncherSettings) =>
     coordinator.saveSettings(parseLauncherSettingsInput(settings)),

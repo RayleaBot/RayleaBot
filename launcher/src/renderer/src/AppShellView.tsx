@@ -6,6 +6,7 @@ import type {
 } from "@shared/launcher-models";
 
 import type { SectionId, SectionTransitionState } from "./AppShell.shared";
+import { AppShellAboutSection } from "./AppShellAboutSection";
 import { AppShellChrome } from "./AppShellChrome";
 import { AppShellDiagnosticsSection } from "./AppShellDiagnosticsSection";
 import { AppShellEnvironmentSection } from "./AppShellEnvironmentSection";
@@ -34,7 +35,10 @@ export type AppShellViewProps = {
   onOpenRecoveryTasks: () => void;
   onOpenRuntimeTasks: () => void;
   onOpenRecoveryPlugin: (pluginId: string) => void;
-  onOpenReleasePage: () => void;
+  onCheckForUpdates: () => void;
+  onDownloadUpdate: () => void;
+  onInstallDownloadedUpdate: () => void;
+  onOpenRepositoryPage: () => void;
   onOpenLogs: () => void;
   onResetAdmin: () => void;
   onBeginEdit: () => void;
@@ -70,7 +74,10 @@ export function AppShellView({
   onOpenWeb,
   onOpenRecoveryTasks,
   onOpenRuntimeTasks,
-  onOpenReleasePage,
+  onCheckForUpdates,
+  onDownloadUpdate,
+  onInstallDownloadedUpdate,
+  onOpenRepositoryPage,
   onOpenLogs,
   onResetAdmin,
   onBeginEdit,
@@ -123,7 +130,6 @@ export function AppShellView({
                 onOpenWeb={onOpenWeb}
                 onOpenRecoveryTasks={onOpenRecoveryTasks}
                 onOpenRuntimeTasks={onOpenRuntimeTasks}
-                onOpenReleasePage={onOpenReleasePage}
                 onOpenLogs={onOpenLogs}
               />
             )}
@@ -159,6 +165,17 @@ export function AppShellView({
                 onChooseWorkdir={onChooseWorkdir}
                 onResetAdmin={onResetAdmin}
                 onExit={onExit}
+              />
+            )}
+
+            {renderedSection === "about" && (
+              <AppShellAboutSection
+                snapshot={snapshot}
+                controlsDisabled={controlsDisabled}
+                onCheckForUpdates={onCheckForUpdates}
+                onDownloadUpdate={onDownloadUpdate}
+                onInstallDownloadedUpdate={onInstallDownloadedUpdate}
+                onOpenRepositoryPage={onOpenRepositoryPage}
               />
             )}
           </div>

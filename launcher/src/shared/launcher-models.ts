@@ -63,13 +63,29 @@ export interface EnvironmentInspection {
 }
 
 export interface ReleaseCheckSnapshot {
-  status: string;
+  status:
+    | "unavailable"
+    | "disabled"
+    | "checking"
+    | "up_to_date"
+    | "update_available"
+    | "downloading"
+    | "downloaded"
+    | "installing"
+    | "error";
   currentVersion: string;
   latestVersion: string;
   summary: string;
   detail: string;
   releasePageUrl: string;
   updateAvailable: boolean;
+  downloadProgress: number | null;
+  downloadedBytes: number | null;
+  totalBytes: number | null;
+  artifactFileName: string;
+  canCheck: boolean;
+  canDownload: boolean;
+  canInstall: boolean;
 }
 
 export type RuntimePrepareStage =

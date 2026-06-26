@@ -53,11 +53,14 @@ describe("buildDiagnosticsSummary", () => {
   test("includes readiness reason, codes, issues, and checks", () => {
     const summary = buildDiagnosticsSummary(snapshot);
 
-    expect(summary).toContain("服务端状态：");
-    expect(summary).toContain("readyz：degraded");
+    expect(summary).toContain("服务状态：");
+    expect(summary).toContain("服务连接：可连接");
+    expect(summary).toContain("就绪状态：部分功能受限");
     expect(summary).toContain("原因：Python 运行环境元数据不完整。");
     expect(summary).toContain("原因代码：platform.resource_missing");
     expect(summary).toContain("platform.resource_missing：Python 运行环境元数据不完整。");
-    expect(summary).toContain("runtime：resource_missing");
+    expect(summary).toContain("运行环境：资源缺失");
+    expect(summary).toContain("进程状态：运行中");
+    expect(summary).toContain("进程来源：由启动器启动");
   });
 });

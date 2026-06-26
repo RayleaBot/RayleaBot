@@ -9,7 +9,6 @@ import {
   FakeManagementClient,
   FakeProcessController,
   FakeRecoverySummaryReader,
-  FakeReleaseFeedClient,
   FakeSettingsStore,
   okInspection,
 } from "./launcher-test-doubles";
@@ -19,7 +18,6 @@ async function createStatusHarness(options: {
   managementClient?: FakeManagementClient;
   processController?: FakeProcessController;
   recoverySummaryReader?: FakeRecoverySummaryReader;
-  releaseFeedClient?: FakeReleaseFeedClient | { getSnapshot(): Promise<any> };
 } = {}) {
   const settingsStore = new FakeSettingsStore();
   const managementClient = options.managementClient ?? new FakeManagementClient();
@@ -30,7 +28,6 @@ async function createStatusHarness(options: {
   });
   const snapshotStore = createLauncherSnapshotStore({
     processController,
-    releaseFeedClient: options.releaseFeedClient,
   });
   const initialContext = await runtimeContext.initialize();
   snapshotStore.reset(initialContext);
@@ -193,36 +190,10 @@ describe("launcher status service", () => {
     expect(snapshotStore.snapshot.server.readiness).toBeNull();
   });
 
-  test("refresh does not block on slow release checks", async () => {
-    let resolveRelease: ((value: Awaited<ReturnType<FakeReleaseFeedClient["getSnapshot"]>>) => void) | null = null;
-    const slowReleaseClient = {
-      getSnapshot: vi.fn(
-        () =>
-          new Promise<Awaited<ReturnType<FakeReleaseFeedClient["getSnapshot"]>>>((resolve) => {
-            resolveRelease = resolve;
-          }),
-      ),
-    };
-    const { snapshotStore, statusService } = await createStatusHarness({
-      releaseFeedClient: slowReleaseClient,
-    });
+  test("refresh keeps the release check snapshot unchanged", async () => {
+    const { snapshotStore, statusService } = await createStatusHarness();
 
-    const result = await Promise.race([
-      statusService.refresh(false).then(() => "resolved"),
-      new Promise<string>((resolve) => setTimeout(() => resolve("timeout"), 25)),
-    ]);
-
-    expect(result).toBe("resolved");
+    await statusService.refresh(false);
     expect(snapshotStore.snapshot.launcher.releaseCheck.status).toBe("unavailable");
-
-    resolveRelease?.({
-      status: "up_to_date",
-      currentVersion: "0.1.0",
-      latestVersion: "0.1.0",
-      summary: "当前版本 0.1.0 已是最新。",
-      detail: "",
-      releasePageUrl: "https://example.invalid/releases/v0.1.0",
-      updateAvailable: false,
-    });
   });
 });

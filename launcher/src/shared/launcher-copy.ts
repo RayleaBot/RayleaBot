@@ -41,5 +41,31 @@ export function createReleaseUnavailable(detail = "当前运行没有可读取�
     detail,
     releasePageUrl: "",
     updateAvailable: false,
-  };
+    downloadProgress: null,
+    downloadedBytes: null,
+    totalBytes: null,
+    artifactFileName: "",
+    canCheck: false,
+    canDownload: false,
+    canInstall: false,
+  } as const;
+}
+
+export function createReleaseDisabled(detail = "开发版本不支持更新。") {
+  return {
+    status: "disabled",
+    currentVersion: "",
+    latestVersion: "",
+    summary: "开发版本不支持更新",
+    detail,
+    releasePageUrl: "",
+    updateAvailable: false,
+    downloadProgress: null,
+    downloadedBytes: null,
+    totalBytes: null,
+    artifactFileName: "",
+    canCheck: false,
+    canDownload: false,
+    canInstall: false,
+  } as const;
 }

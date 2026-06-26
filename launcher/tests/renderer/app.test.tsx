@@ -97,6 +97,9 @@ describe("App", () => {
       stop: vi.fn(async () => undefined),
       openWebUi: vi.fn(async () => undefined),
       openReleasePage: vi.fn(async () => undefined),
+      checkForUpdates: vi.fn(async () => undefined),
+      downloadUpdate: vi.fn(async () => undefined),
+      installDownloadedUpdate: vi.fn(async () => undefined),
       openLogsDirectory: vi.fn(async () => undefined),
       saveSettings: vi.fn(async () => undefined),
       previewResolvedSettings: vi.fn(async (settings) => previewSettings(settings)),
@@ -139,6 +142,9 @@ describe("App", () => {
       stop: vi.fn(async () => undefined),
       openWebUi: vi.fn(async () => undefined),
       openReleasePage: vi.fn(async () => undefined),
+      checkForUpdates: vi.fn(async () => undefined),
+      downloadUpdate: vi.fn(async () => undefined),
+      installDownloadedUpdate: vi.fn(async () => undefined),
       openLogsDirectory: vi.fn(async () => undefined),
       saveSettings: vi.fn(async () => undefined),
       previewResolvedSettings: vi.fn(async (settings) => previewSettings(settings)),
@@ -183,6 +189,9 @@ describe("App", () => {
       stop: vi.fn(async () => undefined),
       openWebUi: vi.fn(async () => undefined),
       openReleasePage: vi.fn(async () => undefined),
+      checkForUpdates: vi.fn(async () => undefined),
+      downloadUpdate: vi.fn(async () => undefined),
+      installDownloadedUpdate: vi.fn(async () => undefined),
       openLogsDirectory: vi.fn(async () => undefined),
       saveSettings: vi.fn(async () => undefined),
       previewResolvedSettings: vi.fn(async (settings) => previewSettings(settings)),
@@ -251,6 +260,9 @@ describe("App", () => {
       }),
       openWebUi: vi.fn(async () => undefined),
       openReleasePage: vi.fn(async () => undefined),
+      checkForUpdates: vi.fn(async () => undefined),
+      downloadUpdate: vi.fn(async () => undefined),
+      installDownloadedUpdate: vi.fn(async () => undefined),
       openLogsDirectory: vi.fn(async () => undefined),
       saveSettings: vi.fn(async () => undefined),
       previewResolvedSettings: vi.fn(async (settings) => previewSettings(settings)),
@@ -294,6 +306,9 @@ describe("App", () => {
       resetAdmin: vi.fn(async () => undefined),
       openWebUi: vi.fn(async () => undefined),
       openReleasePage: vi.fn(async () => undefined),
+      checkForUpdates: vi.fn(async () => undefined),
+      downloadUpdate: vi.fn(async () => undefined),
+      installDownloadedUpdate: vi.fn(async () => undefined),
       openLogsDirectory: vi.fn(async () => undefined),
       saveSettings: vi.fn(async () => undefined),
       previewResolvedSettings: vi.fn(async (settings) => previewSettings(settings)),
@@ -335,6 +350,9 @@ describe("App", () => {
       resetAdmin: vi.fn(async () => undefined),
       openWebUi: vi.fn(async () => undefined),
       openReleasePage: vi.fn(async () => undefined),
+      checkForUpdates: vi.fn(async () => undefined),
+      downloadUpdate: vi.fn(async () => undefined),
+      installDownloadedUpdate: vi.fn(async () => undefined),
       openLogsDirectory: vi.fn(async () => undefined),
       saveSettings: vi.fn(async () => undefined),
       previewResolvedSettings: vi.fn(async (settings) => previewSettings(settings)),
@@ -357,7 +375,7 @@ describe("App", () => {
 
     expect(await screen.findByRole("button", { name: "执行恢复检查" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "准备运行环境" })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "管理面板" })).not.toBeDisabled();
+    expect(screen.getByRole("button", { name: "管理界面" })).not.toBeDisabled();
   });
 
   test("previews derived settings while editing the installation root", async () => {
@@ -381,6 +399,9 @@ describe("App", () => {
       stop: vi.fn(async () => undefined),
       openWebUi: vi.fn(async () => undefined),
       openReleasePage: vi.fn(async () => undefined),
+      checkForUpdates: vi.fn(async () => undefined),
+      downloadUpdate: vi.fn(async () => undefined),
+      installDownloadedUpdate: vi.fn(async () => undefined),
       openLogsDirectory: vi.fn(async () => undefined),
       saveSettings: vi.fn(async () => undefined),
       previewResolvedSettings: vi.fn(async (settings) => previewSettings(settings)),
@@ -416,8 +437,8 @@ describe("App", () => {
 
     await waitFor(() => {
       expect(previewResolvedSettings).toHaveBeenCalled();
-      expect(screen.getByText("D:\\RayleaPortable\\server\\raylea-server.exe")).toBeInTheDocument();
-      expect(screen.getByText("D:\\RayleaPortable\\config\\user.yaml")).toBeInTheDocument();
+      expect(screen.getByRole("textbox", { name: "服务端程序" })).toHaveValue("D:\\RayleaPortable\\server\\raylea-server.exe");
+      expect(screen.getByRole("textbox", { name: "配置文件" })).toHaveValue("D:\\RayleaPortable\\config\\user.yaml");
     });
   });
 });

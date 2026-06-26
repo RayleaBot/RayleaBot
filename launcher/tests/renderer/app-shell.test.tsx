@@ -54,6 +54,7 @@ const snapshot: LauncherSnapshot = createLauncherSnapshot({
       detail: "",
       releasePageUrl: "https://example.invalid/releases/v0.1.0",
       updateAvailable: false,
+      canCheck: true,
     },
     localRecoverySummary: {
       status: "degraded",
@@ -78,8 +79,8 @@ const snapshot: LauncherSnapshot = createLauncherSnapshot({
           review_status: "pending",
         },
       ],
-      manual_actions: ["处理被跳过插件的兼容性问题后，再在管理面中手动重新启用。"],
-      next_steps: ["查看管理面中的恢复摘要并处理跳过插件。", "通过管理面、Launcher 或 diagnostics 复核 recovery_summary。"],
+      manual_actions: ["处理被跳过插件的兼容性问题后，再在管理界面中手动重新启用。"],
+      next_steps: ["查看管理界面中的恢复摘要并处理跳过插件。", "通过管理界面、Launcher 或 diagnostics 复核 recovery_summary。"],
     },
   },
 });
@@ -107,7 +108,10 @@ function renderShell(overrides: Partial<ComponentProps<typeof AppShell>> = {}) {
       onOpenRecoveryTasks={vi.fn()}
       onOpenRuntimeTasks={vi.fn()}
       onOpenRecoveryPlugin={vi.fn()}
-      onOpenReleasePage={vi.fn()}
+      onCheckForUpdates={vi.fn()}
+      onDownloadUpdate={vi.fn()}
+      onInstallDownloadedUpdate={vi.fn()}
+      onOpenRepositoryPage={vi.fn()}
       onOpenLogs={vi.fn()}
       onResetAdmin={vi.fn()}
       onBeginEdit={vi.fn()}
@@ -127,11 +131,10 @@ function renderShell(overrides: Partial<ComponentProps<typeof AppShell>> = {}) {
 }
 
 describe("AppShell", () => {
-  test("renders the shared section header with title, summary, and action", () => {
+  test("renders the shared section header with title and action", () => {
     const { container } = renderShell();
 
     expect(screen.getByRole("heading", { name: "运行状态" })).toBeInTheDocument();
-    expect(screen.getByText("查看当前服务状态，处理启动、停止和管理入口。")).toBeInTheDocument();
     expect(screen.getAllByRole("button", { name: "刷新状态" })).toHaveLength(1);
     expect(container.querySelector(".section-shell")).not.toBeNull();
     expect(container.querySelector(".section-header")).not.toBeNull();
@@ -144,8 +147,9 @@ describe("AppShell", () => {
     expect(screen.getByRole("button", { name: "环境检查" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "日志诊断" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "偏好设置" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "关于应用" })).toBeInTheDocument();
     expect(screen.getByText("首次启动时会自动生成用户配置。")).toBeInTheDocument();
-    expect(screen.getByText("degraded · upgrade")).toBeInTheDocument();
+    expect(screen.getByText("部分受限 · 升级 · 启动后")).toBeInTheDocument();
     expect(container.querySelector(".status-homepage")).not.toBeNull();
     expect(container.querySelector(".status-hero")).not.toBeNull();
     expect(container.querySelector(".status-action-feedback")).not.toBeNull();
@@ -154,12 +158,12 @@ describe("AppShell", () => {
     const rail = container.querySelector(".status-summary-rail");
     expect(rail).not.toBeNull();
     const railTitles = Array.from(rail?.querySelectorAll(".brand-eyebrow--tight") ?? []).map((node) => node.textContent);
-    expect(railTitles).toEqual(["环境预警", "恢复兼容性", "版本监控"]);
+    expect(railTitles).toEqual(["环境预警", "恢复兼容性"]);
 
     const primaryAction = screen.getByRole("button", { name: "启动 RayleaBot" });
     expect(primaryAction.closest(".status-hero__primary-action")).not.toBeNull();
     expect(screen.getByRole("button", { name: "停止服务" }).closest(".status-hero__secondary-actions")).not.toBeNull();
-    expect(screen.getByRole("button", { name: "管理面板" }).closest(".status-hero__secondary-actions")).not.toBeNull();
+    expect(screen.getByRole("button", { name: "管理界面" }).closest(".status-hero__secondary-actions")).not.toBeNull();
   });
 
   test("shows the constrained reason on the status page when readiness is degraded", () => {
@@ -208,7 +212,6 @@ describe("AppShell", () => {
     expect(screen.getAllByText("运行条件受限").length).toBeGreaterThan(0);
     expect(screen.getByText("当前限制")).toBeInTheDocument();
     expect(screen.getAllByText("Python 运行环境元数据不完整。")).toHaveLength(1);
-    expect(screen.queryByText("处理提示")).toBeNull();
     expect(screen.getAllByText(/请在 \.deps\/manifest\.json 中补齐当前平台 Python 运行环境资源。/)).toHaveLength(1);
     expect(screen.getByText("服务诊断")).toBeInTheDocument();
     expect(screen.getAllByText("platform.resource_missing").length).toBeGreaterThan(0);
@@ -253,7 +256,7 @@ describe("AppShell", () => {
     const buttons = screen.getAllByRole("button", { name: "执行恢复检查" });
     expect(buttons).toHaveLength(1);
     expect(buttons[0]).toBeDisabled();
-    expect(screen.getByText("当前没有恢复摘要。")).toBeInTheDocument();
+    expect(screen.getByText("没有恢复兼容性摘要。")).toBeInTheDocument();
   });
 
   test("renders preflight checks on the environment page without runtime resource cards", () => {
@@ -295,7 +298,6 @@ describe("AppShell", () => {
     expect(screen.getByText("工作目录写入失败。")).toBeInTheDocument();
     expect(screen.getByText("处理方式")).toBeInTheDocument();
     expect(screen.getByText("请先选择可写的工作目录，再启动服务。")).toBeInTheDocument();
-    expect(screen.queryByText("Python 运行环境已纳入启动流程。")).toBeNull();
     expect(container.querySelector(".check-item__remediation")).not.toBeNull();
   });
 
@@ -315,7 +317,7 @@ describe("AppShell", () => {
     expect(onRefresh).toHaveBeenCalledTimes(1);
   });
 
-  test("renders draft and resolved settings surfaces during editing", () => {
+  test("renders editable settings paths during editing", () => {
     const { container } = renderShell({
       activeSection: "settings",
       renderedSection: "settings",
@@ -334,13 +336,12 @@ describe("AppShell", () => {
     expect(screen.getByRole("button", { name: "放弃" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "保存" })).toBeInTheDocument();
     expect(screen.getByText("当前显示草稿路径与预览结果，保存后才会切换为生效值。")).toBeInTheDocument();
-    expect(screen.getAllByText("当前草稿").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("当前生效").length).toBeGreaterThan(0);
-    expect(screen.getByText("服务端覆盖")).toBeInTheDocument();
-    expect(screen.getByText("配置覆盖")).toBeInTheDocument();
-    expect(screen.getByText("进程工作目录覆盖")).toBeInTheDocument();
-    expect(container.querySelector(".settings-compare-strip")).not.toBeNull();
-    expect(container.querySelector(".settings-resolution-panel")).not.toBeNull();
+    expect(screen.getByText("路径设置")).toBeInTheDocument();
+    expect(screen.getByText("可编辑")).toBeInTheDocument();
+    expect(screen.getByRole("textbox", { name: "服务端程序" })).toHaveValue("D:\\Portable\\server\\raylea-server.exe");
+    expect(screen.getByRole("textbox", { name: "配置文件" })).toHaveValue("D:\\Portable\\config\\user.yaml");
+    expect(screen.getByRole("textbox", { name: "进程工作目录" })).toHaveValue("D:\\Portable");
+    expect(container.querySelector(".settings-paths-panel")).not.toBeNull();
     expect(container.querySelector(".settings-edit-bar")).not.toBeNull();
   });
 
@@ -359,8 +360,76 @@ describe("AppShell", () => {
     });
 
     expect(screen.getByRole("heading", { name: "日志诊断" })).toBeInTheDocument();
-    expect(screen.getByText("当前没有新的异常输出。")).toBeInTheDocument();
-    expect(screen.getByText("诊断摘要已准备好，当前输出平稳。")).toBeInTheDocument();
+    expect(screen.getByText("暂无异常日志")).toBeInTheDocument();
+    expect(screen.getByText("未发现异常日志。")).toBeInTheDocument();
+  });
+
+  test("renders the about page with repository access", () => {
+    const onCheckForUpdates = vi.fn();
+    const onOpenRepositoryPage = vi.fn();
+    const { container } = renderShell({
+      activeSection: "about",
+      renderedSection: "about",
+      onCheckForUpdates,
+      onOpenRepositoryPage,
+    });
+
+    expect(screen.getByRole("heading", { name: "关于应用" })).toBeInTheDocument();
+    expect(screen.getByText("RayleaBot 启动器")).toBeInTheDocument();
+    expect(screen.getByText("RayleaLauncher")).toBeInTheDocument();
+    expect(screen.getByText("AGPL-3.0")).toBeInTheDocument();
+    expect(container.querySelector(".about-update-panel")).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "GitHub" }));
+    fireEvent.click(screen.getByRole("button", { name: "检查更新" }));
+
+    expect(onOpenRepositoryPage).toHaveBeenCalledTimes(1);
+    expect(onCheckForUpdates).toHaveBeenCalledTimes(1);
+  });
+
+  test("shows update availability next to the current version", () => {
+    renderShell({
+      activeSection: "about",
+      renderedSection: "about",
+      snapshot: {
+        ...snapshot,
+        launcher: {
+          ...snapshot.launcher,
+          releaseCheck: {
+            ...snapshot.launcher.releaseCheck,
+            status: "update_available",
+            latestVersion: "0.2.0",
+            summary: "发现新版本 0.2.0。",
+            updateAvailable: true,
+            canDownload: true,
+          },
+        },
+      },
+    });
+
+    expect(screen.getAllByText("0.1.0").length).toBeGreaterThan(0);
+    expect(screen.getByText("有新版本 0.2.0")).toBeInTheDocument();
+  });
+
+  test("shows development version on the about page when release version is unavailable", () => {
+    renderShell({
+      activeSection: "about",
+      renderedSection: "about",
+      snapshot: {
+        ...snapshot,
+        launcher: {
+          ...snapshot.launcher,
+          releaseCheck: {
+            ...snapshot.launcher.releaseCheck,
+            currentVersion: "",
+            latestVersion: "",
+          },
+        },
+      },
+    });
+
+    expect(screen.getAllByText("开发").length).toBeGreaterThan(0);
+    expect(screen.queryByText("0.1.0")).not.toBeInTheDocument();
   });
 
   test("marks current and rendered section metadata for transitions", () => {

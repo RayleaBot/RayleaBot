@@ -1,7 +1,18 @@
 import { deriveLauncherPresentation, formatReadinessIssue, resolveRecoverySummary } from "@shared/launcher-presentation";
 import type { LauncherSnapshot } from "@shared/launcher-models";
+import {
+  formatDiagnosticCheckName,
+  formatDiagnosticCheckValue,
+  formatEnvironmentScope,
+  formatHealthStatus,
+  formatProcessLifecycle,
+  formatProcessOwnership,
+  formatReadinessStatus,
+  formatRecoverySummary,
+  formatSystemStatus,
+} from "./AppShell.copy";
 
-export type SectionId = "status" | "environment" | "diagnostics" | "settings";
+export type SectionId = "status" | "environment" | "diagnostics" | "settings" | "about";
 export type SectionTransitionState = "idle" | "exiting" | "entering";
 
 export const initialSnapshot: LauncherSnapshot = {
@@ -27,6 +38,13 @@ export const initialSnapshot: LauncherSnapshot = {
       detail: "",
       releasePageUrl: "",
       updateAvailable: false,
+      downloadProgress: null,
+      downloadedBytes: null,
+      totalBytes: null,
+      artifactFileName: "",
+      canCheck: false,
+      canDownload: false,
+      canInstall: false,
     },
     lastLocalError: "",
     statusHint: "",
@@ -54,7 +72,7 @@ export function buildDiagnosticsSummary(snapshot: LauncherSnapshot) {
   const readiness = snapshot.server.readiness;
   const readinessChecks = Object.entries(readiness?.checks ?? {})
     .filter(([, value]) => value && value !== "ok")
-    .map(([name, value]) => `- ${name}：${value}`)
+    .map(([name, value]) => `- ${formatDiagnosticCheckName(name)}：${formatDiagnosticCheckValue(value)}`)
     .join("\n");
   const readinessIssues = (readiness?.issues ?? [])
     .map((item) => `- ${formatReadinessIssue(item)}`)
@@ -62,13 +80,13 @@ export function buildDiagnosticsSummary(snapshot: LauncherSnapshot) {
   const checks = snapshot.launcher.environmentChecks
     .map(
       (item) =>
-        `- ${item.scope} / ${item.title}：${item.summary}（${item.detail}${item.remediation ? `；${item.remediation}` : ""}）`,
+        `- ${formatEnvironmentScope(item.scope)}：${item.title}，${item.summary}（${item.detail}${item.remediation ? `；${item.remediation}` : ""}）`,
     )
     .join("\n");
   const recentErrors =
     snapshot.launcher.recentStderr.length
       ? snapshot.launcher.recentStderr.join("\n")
-      : "当前没有新的错误输出。";
+      : "未发现新的错误日志。";
   const recoverySummary = resolveRecoverySummary(snapshot);
 
   return [
@@ -79,32 +97,30 @@ export function buildDiagnosticsSummary(snapshot: LauncherSnapshot) {
     `服务端：${snapshot.launcher.resolvedSettings.serverExecutablePath || "未设置"}`,
     `配置文件：${snapshot.launcher.resolvedSettings.configPath || "未设置"}`,
     `进程工作目录：${snapshot.launcher.resolvedSettings.workdir || "未设置"}`,
-    "服务端状态：",
+    "服务状态：",
     [
-      `healthz：${snapshot.server.health?.status ?? "不可用"}`,
-      `readyz：${readiness?.status ?? "不可用"}`,
-      `system/status：${snapshot.server.systemStatus?.status ?? "不可用"}`,
+      `服务连接：${formatHealthStatus(snapshot.server.health?.status)}`,
+      `就绪状态：${formatReadinessStatus(readiness?.status)}`,
+      `系统状态：${formatSystemStatus(snapshot.server.systemStatus?.status)}`,
       `原因：${readiness?.reason || "—"}`,
       `原因代码：${readiness?.reason_codes?.length ? readiness.reason_codes.join(", ") : "—"}`,
-      "问题：",
-      readinessIssues || "- 当前没有 readiness 问题。",
-      "检查：",
-      readinessChecks || "- 当前没有非正常检查项。",
+      "就绪问题：",
+      readinessIssues || "- 未发现就绪问题。",
+      "就绪检查：",
+      readinessChecks || "- 未发现异常检查项。",
     ].join("\n"),
-    "启动器本地状态：",
+    "启动器状态：",
     [
-      `进程观察：${snapshot.launcher.processLifecycle}`,
-      `进程归属：${snapshot.launcher.processOwnership}`,
-      `本地提示：${snapshot.launcher.statusHint || "—"}`,
-      `本地错误：${snapshot.launcher.lastLocalError || "—"}`,
+      `进程状态：${formatProcessLifecycle(snapshot.launcher.processLifecycle)}`,
+      `进程来源：${formatProcessOwnership(snapshot.launcher.processOwnership)}`,
+      `状态提示：${snapshot.launcher.statusHint || "—"}`,
+      `启动器错误：${snapshot.launcher.lastLocalError || "—"}`,
     ].join("\n"),
     "环境检查：",
-    checks || "- 当前没有检查项。",
+    checks || "- 没有需要显示的检查项。",
     "恢复兼容性：",
-    recoverySummary
-      ? `${recoverySummary.status} / ${recoverySummary.operation} / ${recoverySummary.phase}`
-      : "当前没有恢复摘要。",
-    "最近错误输出：",
+    formatRecoverySummary(recoverySummary),
+    "最近错误日志：",
     recentErrors,
   ].join("\n");
 }

@@ -50,7 +50,9 @@ export interface ExternalOpener {
 }
 
 export interface ReleaseFeedClient {
-  getSnapshot(): Promise<ReleaseCheckSnapshot>;
+  getSnapshot(options?: { force?: boolean }): Promise<ReleaseCheckSnapshot>;
+  downloadUpdate(onProgress?: (snapshot: ReleaseCheckSnapshot) => void | Promise<void>): Promise<ReleaseCheckSnapshot>;
+  installDownloadedUpdate(appProcessId: number): Promise<ReleaseCheckSnapshot>;
 }
 
 export interface RecoverySummaryReader {
@@ -68,6 +70,7 @@ export interface LauncherCoordinatorOptions {
   shutdownTimeoutMs?: number;
   resetAdminTimeoutMs?: number;
   autoRefreshIntervalMs?: number;
+  releaseCheckIntervalMs?: number;
 }
 
 export interface LauncherCoordinatorDependencies {
@@ -94,8 +97,12 @@ export interface LauncherCoordinator {
   start(): Promise<void>;
   stop(): Promise<void>;
   resetAdmin(): Promise<void>;
+  checkForUpdates(): Promise<void>;
+  downloadUpdate(): Promise<void>;
+  prepareUpdateInstall(appProcessId: number): Promise<void>;
   openWebUi(targetPath?: string): Promise<void>;
   openReleasePage(): Promise<void>;
+  openRepositoryPage(): Promise<void>;
   openLogsDirectory(): Promise<void>;
   saveSettings(settings: LauncherSettings): Promise<void>;
   subscribe(listener: (snapshot: LauncherSnapshot) => void): () => void;
@@ -134,6 +141,7 @@ export interface LauncherSnapshotStore {
     launcherOverrides?: LocalSnapshotOverrides,
   ): LauncherSnapshot;
   publish(next: LauncherSnapshot): Promise<void>;
+  publishReleaseCheck(releaseCheck: ReleaseCheckSnapshot): Promise<void>;
 }
 
 export interface LauncherStatusService {
@@ -155,5 +163,6 @@ export interface LauncherLifecycleService {
 export interface LauncherDesktopActions {
   openWebUi(targetPath?: string): Promise<void>;
   openReleasePage(): Promise<void>;
+  openRepositoryPage(): Promise<void>;
   openLogsDirectory(): Promise<void>;
 }

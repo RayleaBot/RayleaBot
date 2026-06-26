@@ -1,7 +1,6 @@
 import { createReleaseUnavailable } from "../../shared/launcher-copy";
 import type {
   LauncherOperationContext,
-  ReleaseFeedClient,
   ServerProcessController,
 } from "./launcher-coordinator.types";
 import type {
@@ -14,7 +13,6 @@ import type { LauncherSnapshotStore } from "./launcher-coordinator.types";
 
 interface LauncherSnapshotStoreDependencies {
   processController: ServerProcessController;
-  releaseFeedClient?: ReleaseFeedClient;
 }
 
 function defaultResolvedSettings(): LauncherResolvedSettings {
@@ -62,27 +60,6 @@ function defaultSnapshot(
   };
 }
 
-async function withReleaseCheck(
-  releaseFeedClient: ReleaseFeedClient | undefined,
-  current: ReleaseCheckSnapshot,
-): Promise<ReleaseCheckSnapshot> {
-  if (!releaseFeedClient) {
-    return current;
-  }
-  try {
-    return await releaseFeedClient.getSnapshot();
-  } catch (error) {
-    const detail = error instanceof Error ? error.message : "release feed unavailable";
-    return {
-      ...current,
-      status: "error",
-      summary: "暂时无法连接版本源。",
-      detail,
-      updateAvailable: false,
-    };
-  }
-}
-
 function releaseChecksEqual(left: ReleaseCheckSnapshot, right: ReleaseCheckSnapshot) {
   return left.status === right.status
     && left.currentVersion === right.currentVersion
@@ -90,7 +67,14 @@ function releaseChecksEqual(left: ReleaseCheckSnapshot, right: ReleaseCheckSnaps
     && left.summary === right.summary
     && left.detail === right.detail
     && left.releasePageUrl === right.releasePageUrl
-    && left.updateAvailable === right.updateAvailable;
+    && left.updateAvailable === right.updateAvailable
+    && left.downloadProgress === right.downloadProgress
+    && left.downloadedBytes === right.downloadedBytes
+    && left.totalBytes === right.totalBytes
+    && left.artifactFileName === right.artifactFileName
+    && left.canCheck === right.canCheck
+    && left.canDownload === right.canDownload
+    && left.canInstall === right.canInstall;
 }
 
 function currentProcessLifecycle(
@@ -113,7 +97,12 @@ function getRuntimePrepareSnapshot(processController: ServerProcessController) {
 export function createLauncherSnapshotStore(deps: LauncherSnapshotStoreDependencies): LauncherSnapshotStore {
   const listeners = new Set<(snapshot: LauncherSnapshot) => void>();
   let snapshot = defaultSnapshot();
-  let releaseCheckInFlight: Promise<void> | null = null;
+
+  function notify() {
+    for (const listener of listeners) {
+      listener(snapshot);
+    }
+  }
 
   return {
     get snapshot() {
@@ -157,32 +146,20 @@ export function createLauncherSnapshotStore(deps: LauncherSnapshotStoreDependenc
     },
     async publish(next) {
       snapshot = next;
-      for (const listener of listeners) {
-        listener(snapshot);
-      }
-      if (!deps.releaseFeedClient || releaseCheckInFlight) {
+      notify();
+    },
+    async publishReleaseCheck(releaseCheck) {
+      if (releaseChecksEqual(snapshot.launcher.releaseCheck, releaseCheck)) {
         return;
       }
-
-      releaseCheckInFlight = withReleaseCheck(deps.releaseFeedClient, snapshot.launcher.releaseCheck)
-        .then((releaseCheck) => {
-          if (releaseChecksEqual(snapshot.launcher.releaseCheck, releaseCheck)) {
-            return;
-          }
-          snapshot = {
-            ...snapshot,
-            launcher: {
-              ...snapshot.launcher,
-              releaseCheck,
-            },
-          };
-          for (const listener of listeners) {
-            listener(snapshot);
-          }
-        })
-        .finally(() => {
-          releaseCheckInFlight = null;
-        });
+      snapshot = {
+        ...snapshot,
+        launcher: {
+          ...snapshot.launcher,
+          releaseCheck,
+        },
+      };
+      notify();
     },
   };
 }

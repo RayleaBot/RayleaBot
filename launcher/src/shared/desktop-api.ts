@@ -9,8 +9,12 @@ export interface LauncherDesktopApi {
   start(): Promise<void>;
   stop(): Promise<void>;
   resetAdmin(): Promise<void>;
+  checkForUpdates(): Promise<void>;
+  downloadUpdate(): Promise<void>;
+  installDownloadedUpdate(): Promise<void>;
   openWebUi(targetPath?: string): Promise<void>;
   openReleasePage(): Promise<void>;
+  openRepositoryPage(): Promise<void>;
   openLogsDirectory(): Promise<void>;
   saveSettings(settings: LauncherSettings): Promise<void>;
   previewResolvedSettings(settings: LauncherSettings): Promise<LauncherResolvedSettings>;

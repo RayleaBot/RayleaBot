@@ -219,7 +219,10 @@ export function App() {
       onOpenRecoveryTasks={() => runAction("open-web", () => window.rayleaLauncher.openWebUi("/tasks?task_type=recovery.recheck"))}
       onOpenRuntimeTasks={() => runAction("open-web", () => window.rayleaLauncher.openWebUi("/tasks?task_type=runtime.bootstrap"))}
       onOpenRecoveryPlugin={(pluginId: string) => runAction("open-plugin", () => window.rayleaLauncher.openWebUi(`/plugins/${encodeURIComponent(pluginId)}`))}
-      onOpenReleasePage={() => runAction("open-release-page", () => window.rayleaLauncher.openReleasePage())}
+      onCheckForUpdates={() => runAction("check-updates", () => window.rayleaLauncher.checkForUpdates())}
+      onDownloadUpdate={() => runAction("download-update", () => window.rayleaLauncher.downloadUpdate())}
+      onInstallDownloadedUpdate={() => runAction("install-update", () => window.rayleaLauncher.installDownloadedUpdate())}
+      onOpenRepositoryPage={() => runAction("open-repository-page", () => window.rayleaLauncher.openRepositoryPage())}
       onOpenLogs={() => runAction("open-logs", () => window.rayleaLauncher.openLogsDirectory())}
       onResetAdmin={() => runAction("reset-admin", () => window.rayleaLauncher.resetAdmin())}
       onBeginEdit={handleBeginEdit}
