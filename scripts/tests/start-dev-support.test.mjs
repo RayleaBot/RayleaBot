@@ -11,6 +11,7 @@ import {
   SERVER_RELOAD_WATCH,
   WEB_DEV_PROFILE,
   classifyWebDevServer,
+  createDependencyInstallEnvironment,
   createDevEnvironment,
   formatLocalLogDate,
   parseBackendEndpointFromConfigText,
@@ -116,6 +117,10 @@ test("creates dev server environment", () => {
     }).VITE_WS_BASE_URL,
     "ws://127.0.0.1:9000",
   );
+});
+
+test("creates non-interactive dependency install environment", () => {
+  assert.deepEqual(createDependencyInstallEnvironment(), { CI: "true" });
 });
 
 test("detects install need from node_modules and lockfile marker", async () => {

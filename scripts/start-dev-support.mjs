@@ -154,6 +154,12 @@ export function createDevEnvironment({ env = process.env, backendBaseUrl, webBas
   };
 }
 
+export function createDependencyInstallEnvironment() {
+  return {
+    CI: "true",
+  };
+}
+
 export async function shouldInstallDependencies({
   projectDir,
   lockfileName = "pnpm-lock.yaml",

@@ -13,6 +13,7 @@ import {
   WEB_DEV_PROFILE,
   classifyWebDevServer,
   createDevEnvironment,
+  createDependencyInstallEnvironment,
   markDependenciesInstalled,
   resolveDatedLogPath,
   resolveBackendBaseUrl,
@@ -350,7 +351,10 @@ async function ensureDependencies(label, projectDir, installMode) {
     log(`${label} 依赖可用。`);
     return;
   }
-  await runCommand(`安装 ${label} 依赖`, "pnpm", ["install", "--frozen-lockfile"], { cwd: projectDir });
+  await runCommand(`安装 ${label} 依赖`, "pnpm", ["install", "--frozen-lockfile"], {
+    cwd: projectDir,
+    env: createDependencyInstallEnvironment(),
+  });
   await markDependenciesInstalled({ projectDir });
 }
 
