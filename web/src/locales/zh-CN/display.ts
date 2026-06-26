@@ -58,10 +58,10 @@ export const display = {
     dev: '开发',
   },
   logLevels: {
-    debug: '调试',
-    info: '信息',
-    warn: '警告',
-    error: '错误',
+    debug: 'debug',
+    info: 'info',
+    warn: 'warn',
+    error: 'error',
   },
   logProtocols: {
     onebot11: 'OneBot11',

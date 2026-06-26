@@ -23,7 +23,7 @@ describe('display helpers', () => {
     expect(getTaskStatusLabel('succeeded')).toBe('已完成')
     expect(getPluginStateLabel('running')).toBe('运行中')
     expect(getPluginStateLabel('invalid')).toBe('清单异常')
-    expect(getLogLevelLabel('warn')).toBe('警告')
+    expect(getLogLevelLabel('warn')).toBe('warn')
     expect(getSystemStatusLabel('shutting_down')).toBe('停止中')
   })
 

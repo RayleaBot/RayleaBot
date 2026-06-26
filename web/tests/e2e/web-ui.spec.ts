@@ -358,8 +358,8 @@ function hasRepeatedLogFilterParams(
 
 async function expectRepeatedLogFilterControls(page: import('@playwright/test').Page) {
   const levelTags = logFilterField(page, '级别').locator('.ant-select-selection-item-content')
-  await expect(levelTags.filter({ hasText: '警告' })).toHaveCount(1)
-  await expect(levelTags.filter({ hasText: '错误' })).toHaveCount(1)
+  await expect(levelTags.filter({ hasText: 'warn' })).toHaveCount(1)
+  await expect(levelTags.filter({ hasText: 'error' })).toHaveCount(1)
 
   const pluginTags = logFilterField(page, '插件').locator('.ant-select-selection-item-content')
   await expect(pluginTags.filter({ hasText: 'weather' })).toHaveCount(1)
