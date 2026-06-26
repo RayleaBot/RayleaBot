@@ -355,8 +355,8 @@ describe("App", () => {
 
     render(<App />);
 
-    expect(await screen.findByRole("button", { name: "打开恢复任务" })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "打开运行环境任务" })).toBeDisabled();
+    expect(await screen.findByRole("button", { name: "执行恢复检查" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "准备运行环境" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "管理面板" })).not.toBeDisabled();
   });
 

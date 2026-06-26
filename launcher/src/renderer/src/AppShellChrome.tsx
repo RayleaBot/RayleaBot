@@ -1,4 +1,3 @@
-import { Button, Text } from "@fluentui/react-components";
 import {
   ArrowClockwise20Regular,
   Dismiss20Regular,
@@ -12,7 +11,7 @@ import {
 import { deriveLauncherPresentation } from "@shared/launcher-presentation";
 import type { LauncherSnapshot } from "@shared/launcher-models";
 
-import { sections, statusSummary } from "./AppShell.shared";
+import { sections, serviceStateConfig, statusSummary } from "./AppShell.shared";
 import type { SectionId } from "./AppShell.shared";
 import { useTheme, type ThemeMode } from "./useTheme";
 
@@ -58,14 +57,6 @@ export function AppShellChrome({
       </div>
 
       <aside className="shell-sidebar">
-        <div className="brand-card glass-panel">
-          <div className="brand-eyebrow">RayleaBot</div>
-          <div className="brand-headline">
-            <h1>RayleaLauncher</h1>
-            {snapshot.launcher.releaseCheck.currentVersion && <span className="glass-chip">v{snapshot.launcher.releaseCheck.currentVersion}</span>}
-          </div>
-        </div>
-
         <nav className="section-nav">
           {sections.map((section) => (
             <button
@@ -73,6 +64,7 @@ export function AppShellChrome({
               className={`nav-item${activeSection === section.id ? " active" : ""}`}
               onClick={() => onNavigate(section.id)}
               aria-current={activeSection === section.id ? "page" : undefined}
+              title={section.title}
             >
               <span className="nav-item__icon">{section.icon}</span>
               <span className="nav-item__label">{section.title}</span>
@@ -80,22 +72,31 @@ export function AppShellChrome({
           ))}
         </nav>
 
-        <div className="sidebar-footer glass-panel glass-panel--subtle">
-          <div className="sidebar-footer__group">
-            <Text size={100} className="eyebrow-text">LAUNCHER STATUS</Text>
-            <Text weight="bold" className="sidebar-footer__status">{trayStatus.toUpperCase()}</Text>
+        <div className="sidebar-footer--compact">
+          <div className="sidebar-footer__status-dot" title={`运行状态：${trayStatus}`}>
+            <span
+              className={`status-indicator status-indicator--${serviceStateConfig[deriveLauncherPresentation(snapshot).state].status}`}
+              aria-label={`运行状态：${trayStatus}`}
+            />
           </div>
-          <div className="sidebar-footer__group">
-            <Text size={100} className="eyebrow-text">API ENDPOINT</Text>
-            <Text size={100} className="sidebar-footer__endpoint">{snapshot.launcher.endpoint.baseUrl}</Text>
-          </div>
-          <div className="sidebar-footer__actions">
-            <button type="button" className="theme-toggle-btn" onClick={toggleMode} title={`当前主题：${modeLabels[mode]}，点击切换`}>
-              {modeIcons[mode]}
-              <span>{modeLabels[mode]}</span>
-            </button>
-            <Button appearance="transparent" size="small" onClick={onRefresh} icon={<ArrowClockwise20Regular />} className="frost-button frost-button--ghost frost-button--inline">刷新状态</Button>
-          </div>
+          <button
+            type="button"
+            className="sidebar-icon-btn"
+            onClick={toggleMode}
+            title={`当前主题：${modeLabels[mode]}，点击切换`}
+            aria-label={`当前主题：${modeLabels[mode]}，点击切换`}
+          >
+            {modeIcons[mode]}
+          </button>
+          <button
+            type="button"
+            className="sidebar-icon-btn"
+            onClick={onRefresh}
+            title="刷新状态"
+            aria-label="刷新启动器状态"
+          >
+            <ArrowClockwise20Regular />
+          </button>
         </div>
       </aside>
     </>

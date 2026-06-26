@@ -67,7 +67,7 @@ export function AppShellEnvironmentSection({
           <div className="status-item"><span className="status-label">核心版本</span><span className="status-value">{snapshot.launcher.releaseCheck.currentVersion || "—"}</span></div>
           <div className="status-item"><span className="status-label">安装路径</span><span className="status-value mono">{snapshot.launcher.settings.installationRoot || "—"}</span></div>
           <div className="status-item"><span className="status-label">恢复兼容性</span><span className="status-value">{recoveryStatusSummary}</span></div>
-          <div className="status-item"><span className="status-label">本地访问地址</span><span className="status-value mono">{snapshot.launcher.endpoint.baseUrl}</span></div>
+          <div className="status-item"><span className="status-label">服务地址</span><span className="status-value mono">{snapshot.launcher.endpoint.baseUrl}</span></div>
         </div>
       </article>
 

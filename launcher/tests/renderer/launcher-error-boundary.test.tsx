@@ -27,6 +27,6 @@ describe("LauncherErrorBoundary", () => {
     }
 
     expect(screen.getByText("启动器界面暂时不可用")).toBeInTheDocument();
-    expect(screen.getByText("请关闭后重新打开 RayleaLauncher。")).toBeInTheDocument();
+    expect(screen.getByText("请关闭后重新打开 Raylea 启动器。")).toBeInTheDocument();
   });
 });

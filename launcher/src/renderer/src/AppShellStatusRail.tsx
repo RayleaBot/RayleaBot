@@ -56,8 +56,8 @@ export function AppShellStatusRail({
         <div className="brand-eyebrow brand-eyebrow--tight">恢复兼容性</div>
         <Text size={200} className="panel-muted">{recoveryStatusSummary}</Text>
         <div className="side-actions-stack">
-          <Button appearance="transparent" size="small" className="frost-button frost-button--secondary frost-button--block" onClick={onOpenRecoveryTasks} disabled={!canRecheckRecovery}>打开恢复任务</Button>
-          <Button appearance="transparent" size="small" className="frost-button frost-button--secondary frost-button--block" onClick={onOpenRuntimeTasks} disabled={!canRunRecoveryActions}>打开运行环境任务</Button>
+          <Button appearance="transparent" size="small" className="frost-button frost-button--secondary frost-button--block" onClick={onOpenRecoveryTasks} disabled={!canRecheckRecovery}>执行恢复检查</Button>
+          <Button appearance="transparent" size="small" className="frost-button frost-button--secondary frost-button--block" onClick={onOpenRuntimeTasks} disabled={!canRunRecoveryActions}>准备运行环境</Button>
         </div>
       </article>
 

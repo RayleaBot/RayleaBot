@@ -51,7 +51,7 @@ export function AppShellStatusSummary({ resolvedSettings, snapshot }: AppShellSt
         <div className="status-item-modern">
           <div className="status-item-modern__icon"><Globe20Filled /></div>
           <div className="status-item-modern__content">
-            <span className="status-label">本地访问地址</span>
+            <span className="status-label">服务地址</span>
             <span className="status-value mono">{snapshot.launcher.endpoint.baseUrl}</span>
           </div>
         </div>
