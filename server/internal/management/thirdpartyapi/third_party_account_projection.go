@@ -11,12 +11,9 @@ type thirdPartyAccountsResponse struct {
 }
 
 type thirdPartyAccountUpsertRequest struct {
-	Label        *string                   `json:"label"`
-	Enabled      *bool                     `json:"enabled"`
-	Cookie       string                    `json:"cookie,omitempty"`
-	Profile      *thirdPartyAccountProfile `json:"profile,omitempty"`
-	ProxyURL     *string                   `json:"proxy_url,omitempty"`
-	ProxyEnabled *bool                     `json:"proxy_enabled,omitempty"`
+	Label   *string `json:"label"`
+	Enabled *bool   `json:"enabled"`
+	Cookie  string  `json:"cookie,omitempty"`
 }
 
 type thirdPartyAccountUpsertResponse struct {
@@ -24,17 +21,14 @@ type thirdPartyAccountUpsertResponse struct {
 }
 
 type thirdPartyAccountSummary struct {
-	Platform     string                         `json:"platform"`
-	AccountID    string                         `json:"account_id"`
-	Label        string                         `json:"label"`
-	Enabled      bool                           `json:"enabled"`
-	Configured   bool                           `json:"configured"`
-	Profile      *thirdPartyAccountProfile      `json:"profile"`
-	Credential   thirdPartyCredentialStatus     `json:"credential"`
-	Polling      thirdPartyAccountPollingStatus `json:"polling"`
-	ProxyURL     string                         `json:"proxy_url"`
-	ProxyEnabled bool                           `json:"proxy_enabled"`
-	UpdatedAt    string                         `json:"updated_at"`
+	Platform   string                     `json:"platform"`
+	AccountID  string                     `json:"account_id"`
+	Label      string                     `json:"label"`
+	Enabled    bool                       `json:"enabled"`
+	Configured bool                       `json:"configured"`
+	Profile    *thirdPartyAccountProfile  `json:"profile"`
+	Credential thirdPartyCredentialStatus `json:"credential"`
+	UpdatedAt  string                     `json:"updated_at"`
 }
 
 type thirdPartyAccountProfile struct {
@@ -43,26 +37,10 @@ type thirdPartyAccountProfile struct {
 	AvatarURL string `json:"avatar_url"`
 }
 
-func (profile *thirdPartyAccountProfile) accountProfile() thirdparty.AccountProfile {
-	if profile == nil {
-		return thirdparty.AccountProfile{}
-	}
-	return thirdparty.AccountProfile{
-		UID:       profile.UID,
-		Nickname:  profile.Nickname,
-		AvatarURL: profile.AvatarURL,
-	}
-}
-
 type thirdPartyCredentialStatus struct {
 	State     string  `json:"state"`
 	CheckedAt *string `json:"checked_at"`
 	LastError string  `json:"last_error"`
-}
-
-type thirdPartyAccountPollingStatus struct {
-	Enabled    bool    `json:"enabled"`
-	LastUsedAt *string `json:"last_used_at"`
 }
 
 func accountSummaries(accounts []thirdparty.Account) []thirdPartyAccountSummary {
@@ -94,12 +72,6 @@ func accountSummary(account thirdparty.Account) thirdPartyAccountSummary {
 			CheckedAt: timeStringPtr(account.Credential.CheckedAt),
 			LastError: account.Credential.LastError,
 		},
-		Polling: thirdPartyAccountPollingStatus{
-			Enabled:    account.Enabled && account.Configured,
-			LastUsedAt: timeStringPtr(account.LastUsedAt),
-		},
-		ProxyURL:     account.ProxyURL,
-		ProxyEnabled: account.ProxyEnabled,
-		UpdatedAt:    timeString(account.UpdatedAt),
+		UpdatedAt: timeString(account.UpdatedAt),
 	}
 }

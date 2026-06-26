@@ -25,11 +25,6 @@ response:
         state: valid
         checked_at: "2026-06-08T08:03:00Z"
         last_error: ""
-      polling:
-        enabled: true
-        last_used_at: null
-      proxy_url: ""
-      proxy_enabled: false
       updated_at: "2026-06-08T08:03:00Z"
 expect:
   valid: true

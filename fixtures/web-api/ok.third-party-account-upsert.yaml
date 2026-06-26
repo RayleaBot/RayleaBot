@@ -8,8 +8,6 @@ request:
     label: 主账号
     enabled: true
     cookie: "SESSDATA=fixture; bili_jct=fixture;"
-    proxy_url: "http://127.0.0.1:8080"
-    proxy_enabled: true
 response:
   status: 200
   body:
@@ -27,11 +25,6 @@ response:
         state: valid
         checked_at: "2026-06-08T08:00:01Z"
         last_error: ""
-      polling:
-        enabled: true
-        last_used_at: null
-      proxy_url: "http://127.0.0.1:8080"
-      proxy_enabled: true
       updated_at: "2026-06-08T08:00:00Z"
 expect:
   valid: true

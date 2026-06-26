@@ -300,7 +300,7 @@ func TestLauncherHandlersRejectForwardedHeadersAndOldTokenRoutesAreGone(t *testi
 	}
 }
 
-func TestThirdPartyAccountAndBilibiliSourceHandlers(t *testing.T) {
+func TestThirdPartyAccountAndQRCodeHandlers(t *testing.T) {
 	t.Parallel()
 
 	application, _, _ := newTestAppWithOptions(t, nil, func(options *internalapp.Options, _ string) {
@@ -330,7 +330,7 @@ func TestThirdPartyAccountAndBilibiliSourceHandlers(t *testing.T) {
 	}
 
 	cookie := "SESSDATA=fixture; bili_jct=fixture;"
-	upsertResp, upsertPayload := doRequest(http.MethodPut, "/api/third-party/accounts/bilibili/primary", `{"label":"主账号","enabled":true,"cookie":"`+cookie+`","proxy_url":"http://127.0.0.1:8080","proxy_enabled":true}`)
+	upsertResp, upsertPayload := doRequest(http.MethodPut, "/api/third-party/accounts/bilibili/primary", `{"label":"主账号","enabled":true,"cookie":"`+cookie+`"}`)
 	defer upsertResp.Body.Close()
 	if upsertResp.StatusCode != http.StatusOK {
 		t.Fatalf("unexpected third-party account upsert status: got %d want 200 body=%s", upsertResp.StatusCode, string(upsertPayload))
@@ -346,9 +346,6 @@ func TestThirdPartyAccountAndBilibiliSourceHandlers(t *testing.T) {
 	if account["platform"] != "bilibili" || account["account_id"] != "primary" || account["label"] != "主账号" || account["enabled"] != true || account["configured"] != true {
 		t.Fatalf("unexpected third-party account summary: %#v", account)
 	}
-	if account["proxy_url"] != "http://127.0.0.1:8080" || account["proxy_enabled"] != true {
-		t.Fatalf("unexpected third-party account proxy config: %#v", account)
-	}
 	profile, ok := account["profile"].(map[string]any)
 	if !ok || profile["uid"] != "123456" || profile["nickname"] != "测试账号昵称" || profile["avatar_url"] != "https://i0.hdslb.com/bfs/face/test-account.jpg" {
 		t.Fatalf("unexpected third-party account profile: %#v", account["profile"])
@@ -356,10 +353,6 @@ func TestThirdPartyAccountAndBilibiliSourceHandlers(t *testing.T) {
 	credential, ok := account["credential"].(map[string]any)
 	if !ok || credential["state"] != "valid" || credential["checked_at"] != "2026-06-08T08:00:00Z" || credential["last_error"] != "" {
 		t.Fatalf("unexpected third-party credential: %#v", account["credential"])
-	}
-	polling, ok := account["polling"].(map[string]any)
-	if !ok || polling["enabled"] != true || polling["last_used_at"] != nil {
-		t.Fatalf("unexpected third-party polling status: %#v", account["polling"])
 	}
 	updatedAt, ok := account["updated_at"].(string)
 	if !ok {
@@ -386,95 +379,37 @@ func TestThirdPartyAccountAndBilibiliSourceHandlers(t *testing.T) {
 	if listAccount["platform"] != "bilibili" || listAccount["account_id"] != "primary" || listAccount["configured"] != true {
 		t.Fatalf("unexpected third-party account list item: %#v", listAccount)
 	}
-	if listAccount["proxy_url"] != "http://127.0.0.1:8080" || listAccount["proxy_enabled"] != true {
-		t.Fatalf("unexpected third-party account list proxy config: %#v", listAccount)
-	}
 	listProfile, ok := listAccount["profile"].(map[string]any)
 	if !ok || listProfile["nickname"] != "测试账号昵称" || listProfile["uid"] != "123456" {
 		t.Fatalf("unexpected third-party account list profile: %#v", listAccount["profile"])
 	}
 
-	invalidProxyResp, invalidProxyPayload := doRequest(http.MethodPut, "/api/third-party/accounts/bilibili/badproxy", `{"label":"代理错误","enabled":true,"proxy_url":"","proxy_enabled":true}`)
-	defer invalidProxyResp.Body.Close()
-	if invalidProxyResp.StatusCode != http.StatusBadRequest {
-		t.Fatalf("unexpected invalid proxy account upsert status: got %d want 400 body=%s", invalidProxyResp.StatusCode, string(invalidProxyPayload))
-	}
-	invalidProxyBody := decodeBody(t, invalidProxyPayload)
-	invalidProxyError, ok := invalidProxyBody["error"].(map[string]any)
-	if !ok || invalidProxyError["code"] != "platform.invalid_request" {
-		t.Fatalf("unexpected invalid proxy error body: %#v", invalidProxyBody)
-	}
-	invalidProxySchemeResp, invalidProxySchemePayload := doRequest(http.MethodPut, "/api/third-party/accounts/bilibili/badproxyscheme", `{"label":"代理错误","enabled":true,"proxy_url":"ftp://user:secret@example.invalid:21","proxy_enabled":true}`)
-	defer invalidProxySchemeResp.Body.Close()
-	if invalidProxySchemeResp.StatusCode != http.StatusBadRequest {
-		t.Fatalf("unexpected invalid proxy scheme upsert status: got %d want 400 body=%s", invalidProxySchemeResp.StatusCode, string(invalidProxySchemePayload))
-	}
-	if strings.Contains(string(invalidProxySchemePayload), "user:secret") || strings.Contains(string(invalidProxySchemePayload), "example.invalid") {
-		t.Fatalf("invalid proxy error leaked proxy URL: %s", string(invalidProxySchemePayload))
+	rejectedResp, rejectedPayload := doRequest(http.MethodPut, "/api/third-party/accounts/bilibili/rejected", `{"label":"主账号","enabled":true,"cookie":"`+cookie+`","profile":{"uid":"bad"}}`)
+	defer rejectedResp.Body.Close()
+	if rejectedResp.StatusCode != http.StatusBadRequest {
+		t.Fatalf("unexpected display-only field status: got %d want 400 body=%s", rejectedResp.StatusCode, string(rejectedPayload))
 	}
 
-	statusResp, statusPayload := doRequest(http.MethodGet, "/api/bilibili/source/status", "")
-	defer statusResp.Body.Close()
-	if statusResp.StatusCode != http.StatusOK {
-		t.Fatalf("unexpected bilibili source status code: got %d want 200 body=%s", statusResp.StatusCode, string(statusPayload))
-	}
-	statusBody := decodeBody(t, statusPayload)
-	if statusBody["status"] != "idle" || statusBody["summary"] != "Bilibili 事件源等待订阅" {
-		t.Fatalf("unexpected bilibili source status body: %#v", statusBody)
-	}
-	live, ok := statusBody["live"].(map[string]any)
-	if !ok || live["watched_rooms"] == nil || live["fallback_polling"] == nil {
-		t.Fatalf("unexpected bilibili live status: %#v", statusBody["live"])
-	}
-	dynamic, ok := statusBody["dynamic"].(map[string]any)
-	if !ok || dynamic["interval_seconds"] != float64(10) || dynamic["auto_follow"] != true {
-		t.Fatalf("unexpected bilibili dynamic status: %#v", statusBody["dynamic"])
-	}
-	statusAccounts, ok := statusBody["accounts"].([]any)
-	if !ok || len(statusAccounts) != 1 {
-		t.Fatalf("unexpected bilibili source accounts: %#v", statusBody["accounts"])
-	}
-	statusAccount := statusAccounts[0].(map[string]any)
-	if statusAccount["platform"] != "bilibili" || statusAccount["configured"] != true {
-		t.Fatalf("unexpected bilibili source account summary: %#v", statusAccount)
-	}
-	if statusAccount["proxy_url"] != "http://127.0.0.1:8080" || statusAccount["proxy_enabled"] != true {
-		t.Fatalf("unexpected bilibili source account proxy config: %#v", statusAccount)
+	for _, route := range []struct {
+		method string
+		path   string
+	}{
+		{method: http.MethodPost, path: "/api/third-party/users/resolve"},
+		{method: http.MethodGet, path: "/api/third-party/monitors?platform=bilibili"},
+		{method: http.MethodGet, path: "/api/third-party/media?url=https%3A%2F%2Fi0.hdslb.com%2Fbfs%2Fface%2Fup.jpg"},
+		{method: http.MethodGet, path: "/api/bilibili/source/status"},
+		{method: http.MethodPost, path: "/api/bilibili/source/restart"},
+		{method: http.MethodPost, path: "/api/bilibili/login/qrcode"},
+		{method: http.MethodGet, path: "/api/bilibili/login/qrcode/qr_fixture"},
+	} {
+		response, payload := doRequest(route.method, route.path, "")
+		defer response.Body.Close()
+		if response.StatusCode != http.StatusNotFound {
+			t.Fatalf("old route %s %s returned %d, want 404 body=%s", route.method, route.path, response.StatusCode, string(payload))
+		}
 	}
 
-	monitorsResp, monitorsPayload := doRequest(http.MethodGet, "/api/third-party/monitors?platform=bilibili", "")
-	defer monitorsResp.Body.Close()
-	if monitorsResp.StatusCode != http.StatusOK {
-		t.Fatalf("unexpected third-party monitors code: got %d want 200 body=%s", monitorsResp.StatusCode, string(monitorsPayload))
-	}
-	monitorsBody := decodeBody(t, monitorsPayload)
-	if monitorsBody["platform"] != "bilibili" {
-		t.Fatalf("unexpected third-party monitors platform: %#v", monitorsBody)
-	}
-	monitorItems, ok := monitorsBody["items"].([]any)
-	if !ok || len(monitorItems) != 0 {
-		t.Fatalf("unexpected third-party monitor items: %#v", monitorsBody)
-	}
-	invalidMonitorsResp, invalidMonitorsPayload := doRequest(http.MethodGet, "/api/third-party/monitors?platform=twitter", "")
-	defer invalidMonitorsResp.Body.Close()
-	if invalidMonitorsResp.StatusCode != http.StatusBadRequest {
-		t.Fatalf("unexpected invalid third-party monitors code: got %d want 400 body=%s", invalidMonitorsResp.StatusCode, string(invalidMonitorsPayload))
-	}
-
-	restartResp, restartPayload := doRequest(http.MethodPost, "/api/bilibili/source/restart", "")
-	defer restartResp.Body.Close()
-	if restartResp.StatusCode != http.StatusOK {
-		t.Fatalf("unexpected bilibili source restart code: got %d want 200 body=%s", restartResp.StatusCode, string(restartPayload))
-	}
-	restartBody := decodeBody(t, restartPayload)
-	if restartBody["accepted"] != true {
-		t.Fatalf("unexpected bilibili source restart body: %#v", restartBody)
-	}
-	if _, ok := restartBody["status"].(map[string]any); !ok {
-		t.Fatalf("expected bilibili source restart status snapshot, got %#v", restartBody["status"])
-	}
-
-	qrCreateResp, qrCreatePayload := doRequest(http.MethodPost, "/api/bilibili/login/qrcode", "")
+	qrCreateResp, qrCreatePayload := doRequest(http.MethodPost, "/api/third-party/accounts/bilibili/login/qrcode", "")
 	defer qrCreateResp.Body.Close()
 	if qrCreateResp.StatusCode != http.StatusOK {
 		t.Fatalf("unexpected bilibili qr create code: got %d want 200 body=%s", qrCreateResp.StatusCode, string(qrCreatePayload))
@@ -488,7 +423,7 @@ func TestThirdPartyAccountAndBilibiliSourceHandlers(t *testing.T) {
 		t.Fatalf("unexpected bilibili qr login id: %#v", qrCreateBody["login_id"])
 	}
 
-	qrPendingResp, qrPendingPayload := doRequest(http.MethodGet, "/api/bilibili/login/qrcode/"+loginID, "")
+	qrPendingResp, qrPendingPayload := doRequest(http.MethodGet, "/api/third-party/accounts/bilibili/login/qrcode/"+loginID, "")
 	defer qrPendingResp.Body.Close()
 	if qrPendingResp.StatusCode != http.StatusOK {
 		t.Fatalf("unexpected bilibili qr pending code: got %d want 200 body=%s", qrPendingResp.StatusCode, string(qrPendingPayload))
@@ -498,7 +433,7 @@ func TestThirdPartyAccountAndBilibiliSourceHandlers(t *testing.T) {
 		t.Fatalf("unexpected bilibili qr pending body: %#v", qrPendingBody)
 	}
 
-	qrSucceededResp, qrSucceededPayload := doRequest(http.MethodGet, "/api/bilibili/login/qrcode/"+loginID, "")
+	qrSucceededResp, qrSucceededPayload := doRequest(http.MethodGet, "/api/third-party/accounts/bilibili/login/qrcode/"+loginID, "")
 	defer qrSucceededResp.Body.Close()
 	if qrSucceededResp.StatusCode != http.StatusOK {
 		t.Fatalf("unexpected bilibili qr succeeded code: got %d want 200 body=%s", qrSucceededResp.StatusCode, string(qrSucceededPayload))

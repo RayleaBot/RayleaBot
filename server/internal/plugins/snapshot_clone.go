@@ -14,6 +14,7 @@ func cloneSnapshot(snapshot Snapshot) Snapshot {
 	cloned.NodeDependencies = append([]string(nil), snapshot.NodeDependencies...)
 	cloned.ScopeHTTPHosts = append([]string(nil), snapshot.ScopeHTTPHosts...)
 	cloned.ScopeStorageRoots = append([]string(nil), snapshot.ScopeStorageRoots...)
+	cloned.ScopeThirdPartyAccounts = append([]string(nil), snapshot.ScopeThirdPartyAccounts...)
 	if len(snapshot.ScopeWebhooks) > 0 {
 		cloned.ScopeWebhooks = make([]WebhookScope, 0, len(snapshot.ScopeWebhooks))
 		for _, scope := range snapshot.ScopeWebhooks {

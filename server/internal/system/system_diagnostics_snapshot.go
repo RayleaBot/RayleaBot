@@ -29,17 +29,14 @@ func (s *Service) DiagnosticsSnapshot(ctx context.Context) model.DiagnosticsSnap
 	database, databaseIssues := s.diagnosticsDatabase(ctx)
 	render := s.diagnosticsRender()
 	thirdParty, thirdPartyIssues := s.diagnosticsThirdParty(ctx)
-	bilibiliSource, bilibiliIssues := s.diagnosticsBilibiliSource(ctx)
 	dependencies, dependencyIssues := s.diagnosticsDependencies()
 	filesystem := s.diagnosticsFilesystem(summary)
 	recentErrors, logIssues := s.diagnosticsRecentErrors(ctx)
 
 	issues := append([]health.DiagnosticIssue{}, readiness.Issues...)
 	issues = append(issues, render.Issues...)
-	issues = append(issues, bilibiliSource.Issues...)
 	issues = append(issues, databaseIssues...)
 	issues = append(issues, thirdPartyIssues...)
-	issues = append(issues, bilibiliIssues...)
 	issues = append(issues, dependencyIssues...)
 	issues = append(issues, logIssues...)
 
@@ -77,7 +74,6 @@ func (s *Service) DiagnosticsSnapshot(ctx context.Context) model.DiagnosticsSnap
 		},
 		Render:          render,
 		ThirdParty:      thirdParty,
-		BilibiliSource:  bilibiliSource,
 		Scheduler:       s.diagnosticsScheduler(),
 		Tasks:           s.diagnosticsTasks(),
 		Dependencies:    dependencies,
@@ -146,19 +142,6 @@ func (s *Service) diagnosticsThirdParty(ctx context.Context) (model.DiagnosticsT
 		return model.DiagnosticsThirdParty{Platforms: []model.DiagnosticsThirdPartyPlatform{}}, nil
 	}
 	return s.thirdParty.DiagnosticsThirdParty(ctx)
-}
-
-func (s *Service) diagnosticsBilibiliSource(ctx context.Context) (model.DiagnosticsBilibiliSource, []health.DiagnosticIssue) {
-	if s == nil || s.bilibiliSource == nil {
-		return model.DiagnosticsBilibiliSource{
-			Status:  "disabled",
-			Summary: "Bilibili 事件源未启用",
-			Issues:  []health.DiagnosticIssue{},
-		}, nil
-	}
-	result, issues := s.bilibiliSource.DiagnosticsBilibiliSource(ctx)
-	result.Issues = nonNilIssues(result.Issues)
-	return result, nonNilIssues(issues)
 }
 
 func (s *Service) diagnosticsScheduler() model.DiagnosticsScheduler {

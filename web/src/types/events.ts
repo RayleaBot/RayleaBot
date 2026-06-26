@@ -1,5 +1,4 @@
 export type {
-  BilibiliSourceStatusEventPayload,
   BridgeRuntimeObservabilityEventPayload,
   ConnectionStatusEventPayload,
   EventsPayload,

@@ -59,9 +59,6 @@ type Services struct {
 	System            *systemsvc.Service
 	ThirdParty        *integrationmodule.ThirdPartyService
 	ThirdPartyQRLogin *integrationmodule.ThirdPartyQRLoginService
-	UserResolver      *integrationmodule.UserResolver
-	BilibiliSource    *integrationmodule.BilibiliSource
-	BilibiliEvents    *integrationmodule.BilibiliSourceEvents
 }
 
 type BuildResult struct {
@@ -84,8 +81,6 @@ func Build(deps BuildDeps) (BuildResult, error) {
 	integrations, err := integrationmodule.Build(integrationmodule.Deps{
 		Config:        runtimeState.CurrentConfig(),
 		Platform:      platform,
-		Plugins:       pluginStack,
-		Events:        eventStack,
 		Renderer:      renderer,
 		HTTPTransport: deps.BilibiliHTTPTransport,
 		Clock:         deps.BilibiliClock,
@@ -101,7 +96,7 @@ func Build(deps BuildDeps) (BuildResult, error) {
 		Renderer:         renderer,
 		Governance:       governanceService,
 		ManagementRedact: deps.ManagementRedact,
-		HTTPCredentials:  integrations.HTTPCredentials,
+		ThirdParty:       integrations.ThirdParty,
 	})
 	runtimeRegistry := pluginRuntime.Runtimes
 	systemService := systemsvc.New(systemsvc.Deps{
@@ -117,7 +112,6 @@ func Build(deps BuildDeps) (BuildResult, error) {
 		Renderer:         renderer,
 		Storage:          platform.Storage,
 		ThirdParty:       thirdPartyDiagnostics{service: integrations.ThirdParty},
-		BilibiliSource:   bilibiliSourceDiagnostics{source: integrations.BilibiliSource},
 		Scheduler:        schedulerDiagnostics{scheduler: platform.Scheduler},
 		PluginRepository: pluginStack.PluginRepository,
 		TaskExecutor:     platform.TaskExecutor,
@@ -165,9 +159,6 @@ func Build(deps BuildDeps) (BuildResult, error) {
 			System:            systemService,
 			ThirdParty:        integrations.ThirdParty,
 			ThirdPartyQRLogin: integrations.ThirdPartyQRLogin,
-			UserResolver:      integrations.UserResolver,
-			BilibiliSource:    integrations.BilibiliSource,
-			BilibiliEvents:    integrations.BilibiliEvents,
 		},
 		Runtimes:                   runtimeRegistry,
 		Status:                     serviceStatusService,

@@ -17,7 +17,6 @@ type EventsHandler struct {
 	protocol      protocolEventSource
 	serviceStatus serviceStatusEventSource
 	governance    governanceEventSource
-	bilibili      bilibiliEventSource
 }
 
 type eventBridgeSource interface {
@@ -43,13 +42,8 @@ type governanceEventSource interface {
 	Subscribe(int) (<-chan managementevents.Frame, func())
 }
 
-type bilibiliEventSource interface {
-	CurrentEvent() managementevents.Frame
-	Subscribe(int) (<-chan managementevents.Frame, func())
-}
-
-func NewEventsHandler(bridge eventBridgeSource, plugins pluginEventSource, protocol protocolEventSource, serviceStatus serviceStatusEventSource, governance governanceEventSource, bilibili bilibiliEventSource) *EventsHandler {
-	return &EventsHandler{bridge: bridge, plugins: plugins, protocol: protocol, serviceStatus: serviceStatus, governance: governance, bilibili: bilibili}
+func NewEventsHandler(bridge eventBridgeSource, plugins pluginEventSource, protocol protocolEventSource, serviceStatus serviceStatusEventSource, governance governanceEventSource) *EventsHandler {
+	return &EventsHandler{bridge: bridge, plugins: plugins, protocol: protocol, serviceStatus: serviceStatus, governance: governance}
 }
 
 func (h *EventsHandler) SetBridge(bridge eventBridgeSource) {

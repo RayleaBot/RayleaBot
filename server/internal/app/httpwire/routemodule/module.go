@@ -77,6 +77,7 @@ func Build(deps Deps) State {
 			}
 		},
 		RefreshCommands: localaction.RefreshCommands(pluginState.Plugins, eventState.Dispatcher),
+		ActionInvoker:   services.PluginLifecycle,
 	})
 
 	managementRoutes := buildManagementRoutes(deps, configService, pluginManagementUIHandler)

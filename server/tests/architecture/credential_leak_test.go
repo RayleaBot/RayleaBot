@@ -13,7 +13,6 @@ func TestLoginSuccessFixturesDoNotExposeRawCredentials(t *testing.T) {
 	serverRoot := testServerRoot(t)
 	repoRoot := filepath.Dir(serverRoot)
 	patterns := []string{
-		filepath.Join(repoRoot, "fixtures", "web-api", "ok.*login-qrcode-poll-succeeded.yaml"),
 		filepath.Join(repoRoot, "fixtures", "web-api", "ok.third-party-login-qrcode-poll-*-succeeded.yaml"),
 	}
 	for _, pattern := range patterns {

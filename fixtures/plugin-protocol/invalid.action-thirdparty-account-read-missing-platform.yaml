@@ -1,0 +1,15 @@
+contract: contracts/plugin-protocol.schema.json
+case: invalid
+frames:
+  - protocol_version: "1"
+    type: action
+    timestamp: 1710000453
+    plugin_id: subscription-hub
+    request_id: local_thirdparty_account_invalid_0001
+    parent_request_id: event_subscription_check_0001
+    action: thirdparty.account.read
+    data:
+      platform: ""
+expect:
+  valid: false
+  reason: thirdparty.account.read requires a non-empty platform.

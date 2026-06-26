@@ -1,0 +1,16 @@
+contract: contracts/web-api.openapi.yaml
+case: ok
+description: Generic third-party QR code login creates a Bilibili login session.
+request:
+  method: POST
+  path: /api/third-party/accounts/bilibili/login/qrcode
+response:
+  status: 200
+  body:
+    platform: bilibili
+    login_id: qr_20260608_001
+    qrcode_url: "https://passport.bilibili.com/h5-app/passport/login/scan?navhide=1&qrcode_key=fixture-key"
+    expires_at: "2026-06-08T08:03:00Z"
+    state: pending_scan
+expect:
+  valid: true

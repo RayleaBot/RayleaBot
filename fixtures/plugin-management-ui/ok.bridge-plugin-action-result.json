@@ -1,0 +1,29 @@
+{
+  "contract": "contracts/plugin-management-ui-bridge.schema.json",
+  "case": "ok",
+  "description": "The host returns the plugin-owned management action result.",
+  "input": {
+    "version": "1",
+    "source": "management_host",
+    "type": "plugin.action.result",
+    "request_id": "req_plugin_action_0001",
+    "payload": {
+      "action": "subscription.resolve_user",
+      "result": {
+        "platform": "weibo",
+        "query": "洛天依",
+        "exact": true,
+        "candidates": [
+          {
+            "uid": "7556659984",
+            "name": "洛天依",
+            "avatar_url": "https://tvax1.sinaimg.cn/avatar.jpg"
+          }
+        ]
+      }
+    }
+  },
+  "expect": {
+    "valid": true
+  }
+}

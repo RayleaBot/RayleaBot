@@ -29,7 +29,6 @@ type DiagnosticsSnapshot struct {
 	Plugins         DiagnosticsPlugins             `json:"plugins"`
 	Render          DiagnosticsIssueGroup          `json:"render"`
 	ThirdParty      DiagnosticsThirdParty          `json:"third_party"`
-	BilibiliSource  DiagnosticsBilibiliSource      `json:"bilibili_source"`
 	Scheduler       DiagnosticsScheduler           `json:"scheduler"`
 	Tasks           DiagnosticsTaskSummary         `json:"tasks"`
 	Dependencies    []DiagnosticsDependency        `json:"dependencies"`
@@ -104,17 +103,6 @@ type DiagnosticsThirdPartyPlatform struct {
 	Enabled    int    `json:"enabled"`
 	Configured int    `json:"configured"`
 	Invalid    int    `json:"invalid"`
-}
-
-type DiagnosticsBilibiliSource struct {
-	Status            string                   `json:"status"`
-	Summary           string                   `json:"summary"`
-	DiagnosisLevel    string                   `json:"diagnosis_level"`
-	WatchedRooms      int                      `json:"watched_rooms"`
-	WatchedUIDs       int                      `json:"watched_uids"`
-	LiveLastEventAt   string                   `json:"live_last_event_at,omitempty"`
-	DynamicLastPollAt string                   `json:"dynamic_last_poll_at,omitempty"`
-	Issues            []health.DiagnosticIssue `json:"issues"`
 }
 
 type DiagnosticsScheduler struct {

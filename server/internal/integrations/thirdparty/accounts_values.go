@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"net/url"
 	"strings"
 	"time"
 )
@@ -44,30 +43,6 @@ func boolInt(value bool) int {
 		return 1
 	}
 	return 0
-}
-
-func normalizeProxyURL(value string) (string, error) {
-	proxyURL := strings.TrimSpace(value)
-	if proxyURL == "" {
-		return "", nil
-	}
-	parsed, err := url.Parse(proxyURL)
-	if err != nil || parsed.Scheme == "" || parsed.Host == "" {
-		return "", fmt.Errorf("%w: invalid proxy url", ErrInvalidAccount)
-	}
-	switch strings.ToLower(parsed.Scheme) {
-	case "http", "https", "socks", "socks4", "socks4a", "socks5", "socks5h":
-	default:
-		return "", fmt.Errorf("%w: unsupported proxy url scheme", ErrInvalidAccount)
-	}
-	return parsed.String(), nil
-}
-
-func validateProxyConfig(proxyURL string, proxyEnabled bool) error {
-	if proxyEnabled && strings.TrimSpace(proxyURL) == "" {
-		return fmt.Errorf("%w: proxy url is required when proxy is enabled", ErrInvalidAccount)
-	}
-	return nil
 }
 
 func (profile AccountProfile) normalized() AccountProfile {

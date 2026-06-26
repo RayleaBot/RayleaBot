@@ -877,6 +877,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/plugins/{plugin_id}/management/actions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Invoke one plugin-owned management action through the protected management UI bridge. */
+        post: operations["invokePluginManagementAction"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/plugins/{plugin_id}": {
         parameters: {
             query?: never;
@@ -981,142 +998,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/third-party/users/resolve": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Resolve a Weibo, Douyin, or NetEase Music object by ID, URL, or search keyword for management UI forms. */
-        get: operations["resolveThirdPartyUser"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/third-party/monitors": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** List third-party monitoring targets for the selected platform. */
-        get: operations["listThirdPartyMonitors"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/third-party/media": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Fetch a controlled third-party media resource for management UI display. */
-        get: operations["getThirdPartyMedia"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/bilibili/login/qrcode": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Start a Bilibili QR code login session. */
-        post: operations["createBilibiliQRCodeLogin"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/bilibili/login/qrcode/{login_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Poll a Bilibili QR code login session. */
-        get: operations["pollBilibiliQRCodeLogin"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/bilibili/source/status": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Query the built-in Bilibili source status. */
-        get: operations["getBilibiliSourceStatus"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/bilibili/users/resolve": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Resolve a Bilibili user by UID or search keyword for management UI forms. */
-        get: operations["resolveBilibiliUser"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/bilibili/source/restart": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Restart the built-in Bilibili source. */
-        post: operations["restartBilibiliSource"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/webhooks/{plugin_id}/{route}": {
         parameters: {
             query?: never;
@@ -1206,7 +1087,6 @@ export interface components {
             plugins: components["schemas"]["SystemDiagnosticsPlugins"];
             render: components["schemas"]["SystemDiagnosticsIssueGroup"];
             third_party: components["schemas"]["SystemDiagnosticsThirdParty"];
-            bilibili_source: components["schemas"]["SystemDiagnosticsBilibiliSource"];
             scheduler: components["schemas"]["SystemDiagnosticsScheduler"];
             tasks: components["schemas"]["SystemDiagnosticsTaskSummary"];
             dependencies: components["schemas"]["SystemDiagnosticsDependency"][];
@@ -1273,19 +1153,6 @@ export interface components {
             enabled: number;
             configured: number;
             invalid: number;
-        };
-        SystemDiagnosticsBilibiliSource: {
-            /** @enum {string} */
-            status: "disabled" | "idle" | "connecting" | "connected" | "degraded" | "failed";
-            summary: string;
-            diagnosis_level: string;
-            watched_rooms: number;
-            watched_uids: number;
-            /** Format: date-time */
-            live_last_event_at?: string;
-            /** Format: date-time */
-            dynamic_last_poll_at?: string;
-            issues: components["schemas"]["DiagnosticIssue"][];
         };
         SystemDiagnosticsScheduler: {
             total: number;
@@ -1866,6 +1733,7 @@ export interface components {
         PluginCapabilityParameters: {
             http_hosts?: string[];
             storage_roots?: string[];
+            third_party_account_platforms?: components["schemas"]["ThirdPartyPlatform"][];
             webhooks?: components["schemas"]["PluginWebhookScope"][];
         };
         PluginScreenshot: {
@@ -1945,23 +1813,21 @@ export interface components {
                 [key: string]: unknown;
             };
         };
+        PluginManagementActionRequest: {
+            action: string;
+            payload?: {
+                [key: string]: unknown;
+            };
+        };
+        PluginManagementActionResponse: {
+            plugin_id: string;
+            action: string;
+            result: {
+                [key: string]: unknown;
+            };
+        };
         /** @enum {string} */
         ThirdPartyPlatform: "bilibili" | "weibo" | "douyin" | "netease_music";
-        /** @enum {string} */
-        ThirdPartyUserResolvePlatform: "weibo" | "douyin" | "netease_music";
-        ThirdPartyResolvedUser: {
-            uid: string;
-            name: string;
-            avatar_url: string;
-        };
-        ThirdPartyUserResolveResponse: {
-            platform: components["schemas"]["ThirdPartyUserResolvePlatform"];
-            query: string;
-            exact: boolean;
-            user?: components["schemas"]["ThirdPartyResolvedUser"];
-            candidates: components["schemas"]["ThirdPartyResolvedUser"][];
-            message?: string;
-        };
         ThirdPartyAccountSummary: {
             platform: components["schemas"]["ThirdPartyPlatform"];
             account_id: string;
@@ -1970,9 +1836,6 @@ export interface components {
             configured: boolean;
             profile: components["schemas"]["ThirdPartyAccountProfile"];
             credential: components["schemas"]["ThirdPartyCredentialStatus"];
-            polling: components["schemas"]["ThirdPartyAccountPollingStatus"];
-            proxy_url: string;
-            proxy_enabled: boolean;
             /** Format: date-time */
             updated_at: string;
         };
@@ -1989,11 +1852,6 @@ export interface components {
             checked_at: string | null;
             last_error: string;
         };
-        ThirdPartyAccountPollingStatus: {
-            enabled: boolean;
-            /** Format: date-time */
-            last_used_at: string | null;
-        };
         ThirdPartyAccountsResponse: {
             items: components["schemas"]["ThirdPartyAccountSummary"][];
         };
@@ -2001,9 +1859,6 @@ export interface components {
             label: string;
             enabled: boolean;
             cookie?: string;
-            profile?: components["schemas"]["ThirdPartyAccountProfile"];
-            proxy_url?: string;
-            proxy_enabled?: boolean;
         };
         ThirdPartyAccountUpsertResponse: {
             account: components["schemas"]["ThirdPartyAccountSummary"];
@@ -2025,154 +1880,6 @@ export interface components {
             /** Format: date-time */
             expires_at: string;
             account: components["schemas"]["ThirdPartyAccountSummary"] | null;
-        };
-        /** @enum {string} */
-        ThirdPartyMonitorService: "live" | "video" | "image_text" | "article" | "repost";
-        ThirdPartyMonitorImage: {
-            url: string;
-            width?: number;
-            height?: number;
-        };
-        ThirdPartyMonitorDynamic: {
-            last_id: string;
-            service: components["schemas"]["ThirdPartyMonitorService"];
-            title: string;
-            summary: string;
-            url: string;
-            images: components["schemas"]["ThirdPartyMonitorImage"][];
-            /** Format: date-time */
-            published_at: string | null;
-            /** Format: date-time */
-            observed_at: string;
-        };
-        ThirdPartyMonitorLive: {
-            room_id: string;
-            room_name: string;
-            room_url: string;
-            cover_url: string;
-            is_live: boolean;
-            /** Format: date-time */
-            live_started_at: string | null;
-            /** Format: date-time */
-            live_ended_at: string | null;
-            connection_state: components["schemas"]["BilibiliSourceState"];
-            last_error: string;
-            /** Format: date-time */
-            updated_at: string | null;
-        };
-        ThirdPartyMonitorItem: {
-            uid: string;
-            username: string;
-            avatar_url: string;
-            /** Format: uri */
-            profile_url: string;
-            services: components["schemas"]["ThirdPartyMonitorService"][];
-            dynamic: components["schemas"]["ThirdPartyMonitorDynamic"] | null;
-            live: components["schemas"]["ThirdPartyMonitorLive"];
-            /** Format: date-time */
-            updated_at: string;
-        };
-        ThirdPartyMonitorsResponse: {
-            platform: components["schemas"]["ThirdPartyPlatform"];
-            items: components["schemas"]["ThirdPartyMonitorItem"][];
-            /** Format: date-time */
-            updated_at: string;
-        };
-        /** @enum {string} */
-        BilibiliQRCodeLoginState: "pending_scan" | "pending_confirm" | "expired" | "succeeded";
-        BilibiliQRCodeLoginCreateResponse: {
-            login_id: string;
-            qrcode_url: string;
-            /** Format: date-time */
-            expires_at: string;
-            state: components["schemas"]["BilibiliQRCodeLoginState"];
-        };
-        BilibiliQRCodeLoginPollResponse: {
-            login_id: string;
-            state: components["schemas"]["BilibiliQRCodeLoginState"];
-            /** Format: date-time */
-            expires_at: string;
-            account: components["schemas"]["ThirdPartyAccountSummary"] | null;
-        };
-        /** @enum {string} */
-        BilibiliSourceState: "disabled" | "idle" | "connecting" | "connected" | "degraded" | "failed";
-        BilibiliSourceLiveStatus: {
-            watched_rooms: number;
-            connected_rooms: number;
-            failed_rooms: number;
-            fallback_polling: boolean;
-            /** Format: date-time */
-            last_event_at: string | null;
-            last_error: string;
-        };
-        BilibiliSourceDynamicStatus: {
-            enabled: boolean;
-            interval_seconds: number;
-            watched_uids: number;
-            auto_follow: boolean;
-            /** Format: date-time */
-            last_poll_at: string | null;
-            /** Format: date-time */
-            last_event_at: string | null;
-            last_error: string;
-        };
-        /** @enum {string} */
-        BilibiliSourceDiagnosisLevel: "normal" | "attention" | "action_required";
-        /** @enum {string} */
-        BilibiliSourceDiagnosisScope: "source" | "live" | "dynamic" | "auto_follow" | "account";
-        /** @enum {string} */
-        BilibiliSourceDiagnosisCode: "healthy" | "source_disabled" | "source_idle" | "source_connecting" | "live_fallback" | "live_connection_error" | "platform_risk_control" | "platform_rate_limit" | "credential_invalid" | "source_failed";
-        /** @enum {string} */
-        BilibiliSourceDiagnosisActionKind: "refresh" | "restart_source" | "open_accounts" | "wait";
-        BilibiliSourceDiagnosisCause: {
-            scope: components["schemas"]["BilibiliSourceDiagnosisScope"];
-            code: components["schemas"]["BilibiliSourceDiagnosisCode"];
-            title: string;
-            detail: string;
-            last_error: string;
-            /** Format: date-time */
-            retry_at: string | null;
-        };
-        BilibiliSourceDiagnosisAction: {
-            kind: components["schemas"]["BilibiliSourceDiagnosisActionKind"];
-            label: string;
-            target: string | null;
-            primary: boolean;
-        };
-        BilibiliSourceDiagnosis: {
-            level: components["schemas"]["BilibiliSourceDiagnosisLevel"];
-            headline: string;
-            description: string;
-            causes: components["schemas"]["BilibiliSourceDiagnosisCause"][];
-            impacts: string[];
-            actions: components["schemas"]["BilibiliSourceDiagnosisAction"][];
-            /** Format: date-time */
-            updated_at: string;
-        };
-        BilibiliSourceStatusResponse: {
-            status: components["schemas"]["BilibiliSourceState"];
-            summary: string;
-            live: components["schemas"]["BilibiliSourceLiveStatus"];
-            dynamic: components["schemas"]["BilibiliSourceDynamicStatus"];
-            diagnosis: components["schemas"]["BilibiliSourceDiagnosis"];
-            accounts: components["schemas"]["ThirdPartyAccountSummary"][];
-        };
-        BilibiliSourceRestartResponse: {
-            accepted: boolean;
-            status: components["schemas"]["BilibiliSourceStatusResponse"];
-        };
-        BilibiliResolvedUser: {
-            uid: string;
-            name: string;
-            avatar_url: string;
-            fans?: number;
-        };
-        BilibiliUserResolveResponse: {
-            query: string;
-            exact: boolean;
-            user?: components["schemas"]["BilibiliResolvedUser"];
-            candidates: components["schemas"]["BilibiliResolvedUser"][];
-            message?: string;
         };
         PluginSecretValues: {
             [key: string]: string;
@@ -2668,7 +2375,6 @@ export interface components {
         SchedulerJobId: string;
         ThirdPartyPlatform: components["schemas"]["ThirdPartyPlatform"];
         ThirdPartyAccountId: string;
-        BilibiliQRCodeLoginId: string;
         ThirdPartyQRCodeLoginId: string;
     };
     requestBodies: never;
@@ -4002,6 +3708,37 @@ export interface operations {
             default: components["responses"]["Error"];
         };
     };
+    invokePluginManagementAction: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                plugin_id: components["parameters"]["PluginId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PluginManagementActionRequest"];
+            };
+        };
+        responses: {
+            /** @description Plugin-owned management action completed. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PluginManagementActionResponse"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
     getPlugin: {
         parameters: {
             query?: never;
@@ -4202,202 +3939,6 @@ export interface operations {
                 };
             };
             400: components["responses"]["Error"];
-            401: components["responses"]["Error"];
-            default: components["responses"]["Error"];
-        };
-    };
-    resolveThirdPartyUser: {
-        parameters: {
-            query: {
-                platform: components["schemas"]["ThirdPartyUserResolvePlatform"];
-                query: string;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Resolved third-party object or candidate list. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ThirdPartyUserResolveResponse"];
-                };
-            };
-            400: components["responses"]["Error"];
-            401: components["responses"]["Error"];
-            default: components["responses"]["Error"];
-        };
-    };
-    listThirdPartyMonitors: {
-        parameters: {
-            query?: {
-                platform?: components["schemas"]["ThirdPartyPlatform"];
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Current third-party monitoring targets. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ThirdPartyMonitorsResponse"];
-                };
-            };
-            400: components["responses"]["Error"];
-            401: components["responses"]["Error"];
-            default: components["responses"]["Error"];
-        };
-    };
-    getThirdPartyMedia: {
-        parameters: {
-            query: {
-                url: string;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Controlled media resource bytes. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "image/png": string;
-                    "image/jpeg": string;
-                    "image/webp": string;
-                    "image/gif": string;
-                    "image/avif": string;
-                };
-            };
-            400: components["responses"]["Error"];
-            401: components["responses"]["Error"];
-            default: components["responses"]["Error"];
-        };
-    };
-    createBilibiliQRCodeLogin: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description QR code login session created. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["BilibiliQRCodeLoginCreateResponse"];
-                };
-            };
-            401: components["responses"]["Error"];
-            default: components["responses"]["Error"];
-        };
-    };
-    pollBilibiliQRCodeLogin: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                login_id: components["parameters"]["BilibiliQRCodeLoginId"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Current QR code login state. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["BilibiliQRCodeLoginPollResponse"];
-                };
-            };
-            400: components["responses"]["Error"];
-            401: components["responses"]["Error"];
-            default: components["responses"]["Error"];
-        };
-    };
-    getBilibiliSourceStatus: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Current Bilibili source status. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["BilibiliSourceStatusResponse"];
-                };
-            };
-            401: components["responses"]["Error"];
-            default: components["responses"]["Error"];
-        };
-    };
-    resolveBilibiliUser: {
-        parameters: {
-            query: {
-                query: string;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Resolved Bilibili user or candidate list. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["BilibiliUserResolveResponse"];
-                };
-            };
-            400: components["responses"]["Error"];
-            401: components["responses"]["Error"];
-            default: components["responses"]["Error"];
-        };
-    };
-    restartBilibiliSource: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Restart accepted. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["BilibiliSourceRestartResponse"];
-                };
-            };
             401: components["responses"]["Error"];
             default: components["responses"]["Error"];
         };

@@ -81,67 +81,6 @@ func sortedThirdPartyPlatforms(platforms map[string]*systemsvc.DiagnosticsThirdP
 	return items
 }
 
-type bilibiliSourceDiagnostics struct {
-	source *integrationmodule.BilibiliSource
-}
-
-func (d bilibiliSourceDiagnostics) DiagnosticsBilibiliSource(ctx context.Context) (systemsvc.DiagnosticsBilibiliSource, []health.DiagnosticIssue) {
-	result := systemsvc.DiagnosticsBilibiliSource{
-		Status: "disabled",
-		Issues: []health.DiagnosticIssue{},
-	}
-	if d.source == nil {
-		result.Summary = "Bilibili 事件源未启用"
-		return result, nil
-	}
-	status := d.source.Status(ctx)
-	result.Status = status.Status
-	result.Summary = status.Summary
-	result.DiagnosisLevel = status.Diagnosis.Level
-	result.WatchedRooms = status.Live.WatchedRooms
-	result.WatchedUIDs = status.Dynamic.WatchedUIDs
-	if status.Live.LastEventAt != nil {
-		result.LiveLastEventAt = status.Live.LastEventAt.UTC().Format(time.RFC3339)
-	}
-	if status.Dynamic.LastPollAt != nil {
-		result.DynamicLastPollAt = status.Dynamic.LastPollAt.UTC().Format(time.RFC3339)
-	}
-	for _, cause := range status.Diagnosis.Causes {
-		if cause.Code == "" || cause.Code == "healthy" {
-			continue
-		}
-		summary := strings.TrimSpace(cause.Title)
-		if summary == "" {
-			summary = strings.TrimSpace(cause.Detail)
-		}
-		remediation := "请在 Bilibili 事件源状态页查看详情，并按建议刷新或重启事件源。"
-		if len(status.Diagnosis.Actions) > 0 {
-			remediation = status.Diagnosis.Actions[0].Label
-		}
-		result.Issues = append(result.Issues, health.DiagnosticIssue{
-			Code:        "bilibili_source." + cause.Code,
-			Severity:    bilibiliDiagnosisSeverity(status.Diagnosis.Level),
-			Summary:     summary,
-			Remediation: remediation,
-		})
-	}
-	if result.Issues == nil {
-		result.Issues = []health.DiagnosticIssue{}
-	}
-	return result, nil
-}
-
-func bilibiliDiagnosisSeverity(level string) string {
-	switch level {
-	case "action_required":
-		return "error"
-	case "attention":
-		return "warning"
-	default:
-		return "warning"
-	}
-}
-
 type schedulerDiagnostics struct {
 	scheduler *scheduler.Engine
 }

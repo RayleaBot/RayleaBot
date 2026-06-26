@@ -1,0 +1,27 @@
+contract: contracts/web-api.openapi.yaml
+case: ok
+description: Plugin management UI invokes a plugin-owned management action.
+request:
+  method: POST
+  path: /api/plugins/raylea.subscription-hub/management/actions
+  body:
+    action: subscription.resolve_user
+    payload:
+      platform: bilibili
+      query: "123456"
+response:
+  status: 200
+  body:
+    plugin_id: raylea.subscription-hub
+    action: subscription.resolve_user
+    result:
+      platform: bilibili
+      query: "123456"
+      exact: true
+      candidates: []
+      user:
+        uid: "123456"
+        name: 测试 UP
+        avatar_url: "https://i0.hdslb.com/bfs/face/test-up.jpg"
+expect:
+  valid: true

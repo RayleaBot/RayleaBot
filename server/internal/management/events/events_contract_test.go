@@ -3,9 +3,6 @@ package events
 import (
 	"encoding/json"
 	"testing"
-	"time"
-
-	bilibilisource "github.com/RayleaBot/RayleaBot/server/internal/integrations/bilibili/source"
 )
 
 func TestNewEventsReceivedFrameUsesFrozenEnvelope(t *testing.T) {
@@ -65,39 +62,5 @@ func TestPluginStateEventFrameKeepsContractFieldNames(t *testing.T) {
 		if _, ok := payload[key]; !ok {
 			t.Fatalf("missing field %q in %s", key, encoded)
 		}
-	}
-}
-
-func TestBilibiliSourceStatusEventIncludesDiagnosis(t *testing.T) {
-	t.Parallel()
-
-	status := bilibilisource.Status{
-		Status:  bilibilisource.StateDegraded,
-		Summary: "Bilibili 事件源运行受限",
-		Live: bilibilisource.LiveStatus{
-			WatchedRooms:    1,
-			FallbackPolling: true,
-			LastError:       "直播间连接失败",
-		},
-		Diagnosis: bilibilisource.Diagnosis{
-			Level:       "attention",
-			Headline:    "直播备用检查中",
-			Description: "部分直播长连接不可用，系统正在使用接口检查直播状态。",
-			Causes: []bilibilisource.DiagnosisCause{
-				{Scope: "live", Code: "live_fallback", Title: "直播实时连接受限", Detail: "直播状态仍会检查。"},
-			},
-			Impacts:   []string{"直播状态仍会检查，但实时性可能降低。"},
-			Actions:   []bilibilisource.DiagnosisAction{{Kind: "restart_source", Label: "重启事件源", Primary: true}},
-			UpdatedAt: time.Date(2026, 6, 8, 8, 30, 0, 0, time.UTC),
-		},
-	}
-
-	frame := BilibiliSourceStatusFrame(status)
-	payload, ok := frame.Data.(BilibiliSourcePayload)
-	if !ok {
-		t.Fatalf("unexpected payload type: %T", frame.Data)
-	}
-	if payload.Diagnosis.Headline != "直播备用检查中" || len(payload.Diagnosis.Causes) != 1 || payload.Diagnosis.Causes[0].Code != "live_fallback" {
-		t.Fatalf("unexpected event diagnosis: %#v", payload.Diagnosis)
 	}
 }

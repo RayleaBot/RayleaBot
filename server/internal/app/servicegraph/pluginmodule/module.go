@@ -49,7 +49,7 @@ type RuntimeDeps struct {
 	Renderer         *renderservice.Service
 	Governance       *governance.Service
 	ManagementRedact func(string) string
-	HTTPCredentials  localaction.HTTPCredentialInjector
+	ThirdParty       localaction.ThirdPartyAccountReader
 }
 
 type Runtime struct {
@@ -60,7 +60,7 @@ type Runtime struct {
 
 func BuildRuntime(deps RuntimeDeps) Runtime {
 	capabilityView := buildPluginCapabilityView(deps.Plugins, deps.Events)
-	localActions := buildLocalActionService(deps.Runtime, deps.Platform, deps.Plugins, deps.Events, deps.Renderer, capabilityView, deps.Governance, deps.HTTPCredentials)
+	localActions := buildLocalActionService(deps.Runtime, deps.Platform, deps.Plugins, deps.Events, deps.Renderer, capabilityView, deps.Governance, deps.ThirdParty)
 	runtimeRegistry := runtimeregistry.NewManaged(
 		deps.Runtime.RuntimeLogger(),
 		deps.Platform.Console,
@@ -123,7 +123,7 @@ func buildLocalActionService(
 	renderer *renderservice.Service,
 	capabilityView *plugincapabilityview.View,
 	governanceService *governance.Service,
-	httpCredentials localaction.HTTPCredentialInjector,
+	thirdParty localaction.ThirdPartyAccountReader,
 ) *localaction.Service {
 	return localaction.New(localaction.Deps{
 		CurrentConfig:    runtimeState.CurrentConfig,
@@ -134,13 +134,13 @@ func buildLocalActionService(
 		PluginFiles:      pluginStack.PluginFiles,
 		PluginKV:         pluginStack.PluginKV,
 		Secrets:          localaction.SecretReaderFromStore(platform.Secrets),
+		ThirdParty:       thirdParty,
 		Scheduler:        localaction.Scheduler(platform.Scheduler),
 		Dispatcher:       localaction.ConfigChangedDispatcher(eventStack.Dispatcher),
 		Renderer:         localaction.RendererFromService(renderer),
 		Adapter:          eventStack.Adapter,
 		PluginLogLimiter: pluginStack.PluginLogLimiter,
 		Governance:       governanceService,
-		HTTPCredentials:  httpCredentials,
 		RefreshCommands:  localaction.RefreshCommands(pluginStack.Plugins, eventStack.Dispatcher),
 		Registrars:       defaultactionmodules.Registrars(),
 	})

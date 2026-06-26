@@ -4,8 +4,8 @@ import (
 	"context"
 	"time"
 
+	"github.com/RayleaBot/RayleaBot/server/internal/integrations/thirdparty"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
-	"github.com/RayleaBot/RayleaBot/server/internal/plugins/actions/httpaction"
 	pluginfile "github.com/RayleaBot/RayleaBot/server/internal/plugins/filestore"
 	pluginkv "github.com/RayleaBot/RayleaBot/server/internal/plugins/kvstore"
 	runtimeaction "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime/action"
@@ -15,6 +15,7 @@ type CapabilityView interface {
 	CapabilityDeclared(context.Context, string, string) bool
 	StorageRootAllowed(context.Context, string, string) bool
 	HTTPHosts(context.Context, string) []string
+	ThirdPartyAccountPlatforms(context.Context, string) []string
 	WebhookParameters(context.Context, string, string) (plugins.WebhookScope, bool)
 	ListPluginSnapshots() []plugins.Snapshot
 }
@@ -51,6 +52,11 @@ type SchedulerCreateFunc func(context.Context, string, string, string, string, [
 
 type SecretReader interface {
 	ReadPluginSecret(context.Context, string) (string, bool, error)
+}
+
+type ThirdPartyAccountReader interface {
+	ListEnabled(context.Context, string) ([]thirdparty.Account, error)
+	ReadCookie(context.Context, thirdparty.Account) (string, error)
 }
 
 type Renderer interface {
@@ -106,8 +112,6 @@ func (e *RenderTemplateError) Unwrap() error {
 }
 
 type GovernanceService interface{}
-
-type HTTPCredentialInjector = httpaction.CredentialInjector
 
 type KVRepository interface {
 	Get(context.Context, string, string) (any, bool, error)

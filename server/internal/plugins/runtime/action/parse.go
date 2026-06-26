@@ -28,6 +28,8 @@ func ParseLocalAction(kind string, raw json.RawMessage) (*Action, error) {
 		return parsePluginListAction(raw)
 	case "secret.read":
 		return parseSecretReadAction(raw)
+	case "thirdparty.account.read":
+		return parseThirdPartyAccountReadAction(raw)
 	case "config.write":
 		return parseConfigWriteAction(raw)
 	case "governance.blacklist.read":
@@ -69,6 +71,7 @@ func isLocalActionKind(kind string) bool {
 		"config.read",
 		"plugin.list",
 		"secret.read",
+		"thirdparty.account.read",
 		"config.write",
 		"governance.blacklist.read",
 		"governance.blacklist.write",

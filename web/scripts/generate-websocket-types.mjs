@@ -84,7 +84,6 @@ function generatedSource(contract) {
   const connectionBranch = branchWithRequired(branches, 'connection_status')
   const bridgeObservabilityBranch = branchWithRequired(branches, 'result_count')
   const dispatcherObservabilityBranch = branchWithRequired(branches, 'window_seconds')
-  const bilibiliSourceBranch = branchWithRequired(branches, 'source')
   const protocolBranch = branchWithRequired(branches, 'protocol')
 
   const consoleChannel = channelByPath(contract, '/ws/plugins/{id}/console')
@@ -97,8 +96,6 @@ function generatedSource(contract) {
   const bridgeScopes = enumFor(branchProperty(bridgeObservabilityBranch, 'observability_scope'), 'bridge.observability_scope')
   const dispatcherScopes = enumFor(branchProperty(dispatcherObservabilityBranch, 'observability_scope'), 'dispatcher.observability_scope')
   const deliveryOutcomes = enumFor(branchProperty(bridgeObservabilityBranch, 'last_delivery_outcome'), 'last_delivery_outcome')
-  const bilibiliSources = enumFor(branchProperty(bilibiliSourceBranch, 'source'), 'bilibili.source')
-  const bilibiliSourceStatuses = enumFor(branchProperty(bilibiliSourceBranch, 'status'), 'bilibili.status')
   const dispatcherDropReasons = enumFor(
     requireObject(branchProperty(dispatcherObservabilityBranch, 'drops_by_reason').items.properties.reason, 'drops_by_reason.items.properties.reason'),
     'drops_by_reason.reason',
@@ -193,21 +190,6 @@ export type DispatcherRuntimeObservabilityEventPayload = {
   drops_by_reason?: DispatcherRuntimeDropRow[]
 }
 
-export type BilibiliSourceStatusEventPayload = {
-  source: ${union(bilibiliSources)}
-  status: ${union(bilibiliSourceStatuses)}
-  summary: string
-  live_watched_rooms: number
-  live_connected_rooms: number
-  live_failed_rooms: number
-  fallback_polling: boolean
-  dynamic_enabled: boolean
-  dynamic_watched_uids: number
-  last_event_at: string | null
-  last_error: string
-  diagnosis: components['schemas']['BilibiliSourceDiagnosis']
-}
-
 export type ProtocolSnapshotEventPayload = {
   protocol: ${union(protocols)}
   protocol_snapshot: components['schemas']['OneBot11ProtocolSnapshotResponse']
@@ -220,7 +202,6 @@ export type EventsPayload =
   | GenericManagementEventPayload
   | BridgeRuntimeObservabilityEventPayload
   | DispatcherRuntimeObservabilityEventPayload
-  | BilibiliSourceStatusEventPayload
   | ProtocolSnapshotEventPayload
 
 export type PluginConsoleFrameData = {

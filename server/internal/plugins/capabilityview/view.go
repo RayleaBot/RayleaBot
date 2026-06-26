@@ -50,6 +50,15 @@ func (v *View) HTTPHosts(ctx context.Context, pluginID string) []string {
 	return append([]string(nil), snapshot.ScopeHTTPHosts...)
 }
 
+func (v *View) ThirdPartyAccountPlatforms(ctx context.Context, pluginID string) []string {
+	_ = ctx
+	snapshot, ok := v.snapshot(pluginID)
+	if !ok {
+		return nil
+	}
+	return append([]string(nil), snapshot.ScopeThirdPartyAccounts...)
+}
+
 func (v *View) StorageRootAllowed(ctx context.Context, pluginID, root string) bool {
 	_ = ctx
 	root = strings.TrimSpace(root)

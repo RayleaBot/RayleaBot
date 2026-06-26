@@ -54,6 +54,11 @@ type ProtocolActionSecretReadFrame struct {
 	Key string `json:"key"`
 }
 
+type ProtocolActionThirdPartyAccountReadFrame struct {
+	Platform  string `json:"platform"`
+	AccountID string `json:"account_id,omitempty"`
+}
+
 type ProtocolActionConfigWriteFrame struct {
 	Values map[string]json.RawMessage `json:"values"`
 }

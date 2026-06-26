@@ -3,6 +3,7 @@ package httpaction
 import (
 	"context"
 	"encoding/base64"
+	"time"
 	"unicode/utf8"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
@@ -17,12 +18,16 @@ type CapabilityView interface {
 }
 
 type Request struct {
-	PluginID           string
-	Action             runtimeaction.Action
-	Config             config.Config
-	Capabilities       CapabilityView
-	CredentialInjector CredentialInjector
+	PluginID     string
+	Action       runtimeaction.Action
+	Config       config.Config
+	Capabilities CapabilityView
 }
+
+const (
+	defaultTimeoutSeconds = 10
+	defaultMaxRetries     = 2
+)
 
 func Execute(ctx context.Context, req Request) (map[string]any, error) {
 	if req.Capabilities == nil || !req.Capabilities.CapabilityDeclared(ctx, req.PluginID, "http.request") {
@@ -39,31 +44,10 @@ func Execute(ctx context.Context, req Request) (map[string]any, error) {
 	})
 	scopeHosts := req.Capabilities.HTTPHosts(ctx, req.PluginID)
 	headers := CloneHeaders(req.Action.HTTPHeaders)
-	requestURL := req.Action.HTTPURL
-	var afterSuccess func(context.Context) error
-	if req.CredentialInjector != nil {
-		credentials, err := req.CredentialInjector.Inject(ctx, CredentialRequest{
-			PluginID:   req.PluginID,
-			RawURL:     req.Action.HTTPURL,
-			ScopeHosts: scopeHosts,
-			Headers:    headers,
-		})
-		if err != nil {
-			return nil, &runtimemanager.Error{
-				Code:    "plugin.internal_error",
-				Message: "http.request failed",
-				Err:     err,
-			}
-		}
-		if credentials.URL != "" {
-			requestURL = credentials.URL
-		}
-		afterSuccess = credentials.AfterSuccess
-	}
 
 	response, err := client.Do(ctx, pluginhttp.Request{
 		Method:        req.Action.HTTPMethod,
-		URL:           requestURL,
+		URL:           req.Action.HTTPURL,
 		Headers:       headers,
 		Body:          append([]byte(nil), req.Action.HTTPBody...),
 		ActionTimeout: currentActionTimeout(req.Action),
@@ -87,9 +71,6 @@ func Execute(ctx context.Context, req Request) (map[string]any, error) {
 			Err:     err,
 		}
 	}
-	if afterSuccess != nil {
-		_ = afterSuccess(ctx)
-	}
 
 	result := map[string]any{
 		"status_code": response.StatusCode,
@@ -103,4 +84,40 @@ func Execute(ctx context.Context, req Request) (map[string]any, error) {
 		}
 	}
 	return result, nil
+}
+
+func currentTimeout(cfg config.Config) time.Duration {
+	seconds := cfg.HTTP.TimeoutSeconds
+	if seconds <= 0 {
+		seconds = defaultTimeoutSeconds
+	}
+	return time.Duration(seconds) * time.Second
+}
+
+func currentMaxRetries(cfg config.Config) int {
+	if cfg.HTTP.MaxRetries < 0 {
+		return defaultMaxRetries
+	}
+	if cfg.HTTP.MaxRetries == 0 {
+		return 0
+	}
+	return cfg.HTTP.MaxRetries
+}
+
+func currentActionTimeout(action runtimeaction.Action) time.Duration {
+	if action.HTTPTimeoutSeconds <= 0 {
+		return 0
+	}
+	return time.Duration(action.HTTPTimeoutSeconds) * time.Second
+}
+
+func CloneHeaders(headers map[string]string) map[string]string {
+	if len(headers) == 0 {
+		return map[string]string{}
+	}
+	cloned := make(map[string]string, len(headers))
+	for key, value := range headers {
+		cloned[key] = value
+	}
+	return cloned
 }

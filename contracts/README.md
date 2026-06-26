@@ -37,12 +37,12 @@
   - 统一错误码命名、默认消息资源键、HTTP 语义和适用范围
 - `web-api.openapi.yaml`
   - 当前已冻结的管理 HTTP 接口
-  - 当前包含 setup / session、loopback launcher bootstrap、config snapshot/update、protocol snapshot / compatibility、OneBot target / identity resolution、plugin lifecycle、plugin rich detail、plugin settings、plugin secrets、third-party accounts、third-party QR login、third-party user resolve、third-party monitors、third-party media、Bilibili QR login、Bilibili user resolve、Bilibili source status / restart、governance 管理面、tasks / logs / system / metrics surfaces、scheduler 任务列表与手动触发、recovery recheck / confirm、runtime bootstrap、render templates、preview HTML 与模板资源读取面
+  - 当前包含 setup / session、loopback launcher bootstrap、config snapshot/update、protocol snapshot / compatibility、OneBot target / identity resolution、plugin lifecycle、plugin rich detail、plugin settings、plugin secrets、third-party accounts、third-party QR login、plugin management actions、governance 管理面、tasks / logs / system / metrics surfaces、scheduler 任务列表与手动触发、recovery recheck / confirm、runtime bootstrap、render templates、preview HTML 与模板资源读取面
   - `PUT /api/config` response 固定返回 `apply_effects.applied_now`、`apply_effects.reloaded_now`、`apply_effects.restart_required_fields`
   - plugin lifecycle surface 统一使用正式 `state` 枚举与可选 `state_diagnosis`
 - `websocket-events.yaml`
   - 当前已冻结的管理 WebSocket envelope、事件名和 payload 约束
-  - `events.received` 的通用 `event_type + summary` 分支当前包含 `governance.changed`；Bilibili source status 使用独立 `source: bilibili` 分支
+  - `events.received` 的通用 `event_type + summary` 分支当前包含 `governance.changed`
 - `plugin-info.schema.json`
   - 插件 `info.json` 的安装前静态校验、兼容性门禁、能力声明、能力参数和迁移判断边界
   - 当前已冻结 `default_config`、`default_config_file`、`role`、`icon`、`repo`、`homepage`、`keywords`、`screenshots`、`system_dependencies`、`platforms`、`management_ui`、`render_templates`、`help` 与插件详情页投影所需 metadata
@@ -55,7 +55,7 @@
   - 当前固定为 `/plugin-ui/{plugin_id}/...`
 - `plugin-management-ui-bridge.schema.json`
   - Web 宿主页与插件内置 iframe 的正式桥接消息结构
-  - 当前固定 `page.ready`、`host.init`、`settings.reload`、`settings.save`、`settings.changed`、`secrets.reload`、`secrets.save`、`secrets.changed`、`scheduler.trigger`、`scheduler.triggered`、`render_template.open`、`protocol.targets.reload`、`protocol.targets.changed`、`protocol.identities.resolve`、`protocol.identities.resolved`、`bilibili.user.resolve`、`bilibili.user.resolved`、`thirdparty.user.resolve`、`thirdparty.user.resolved` 与 `error`
+  - 当前固定 `page.ready`、`host.init`、`settings.reload`、`settings.save`、`settings.changed`、`secrets.reload`、`secrets.save`、`secrets.changed`、`scheduler.trigger`、`scheduler.triggered`、`render_template.open`、`protocol.targets.reload`、`protocol.targets.changed`、`protocol.identities.resolve`、`protocol.identities.resolved`、`plugin.action.invoke`、`plugin.action.result` 与 `error`
 - `plugin-protocol.schema.json`
   - 插件 Runtime JSONL 协议
   - 当前冻结 `init`、`init_progress`、`init_ack`、`event`、`result`、`error`、`ping`、`pong`、`shutdown`
@@ -63,11 +63,11 @@
   - `message.send`、`message.reply` 使用 shared `message.segments` payload
   - `init.bot` 在协议身份可用时出现，`bot.identity.changed` 用于向运行中插件同步当前 bot 身份
   - 协议身份不可用时 `init.bot` 缺省或 `bot.identity.changed` 携带空身份；依赖 `self_id` 的出站 OneBot 动作返回正式 `error` 帧，不依赖身份的 local action 保持可用
-  - `logger.write`、`storage.kv`、`storage.file`、`http.request`、`config.read`、`config.write`、`plugin.list`、`secret.read`、`governance.blacklist.read`、`governance.blacklist.write`、`governance.whitelist.read`、`governance.whitelist.write`、`governance.command_policy.read`、`scheduler.create`、`event.expose_webhook`、`render.image` 已进入正式 local action RPC surface；`scheduler.create.log_label` 用于定时任务管理日志展示；`secret.read` 只读取调用插件自己的 secret 命名空间，`render.image` 支持系统模板 ID 和调用插件声明的模板短 ID
+  - `logger.write`、`storage.kv`、`storage.file`、`http.request`、`config.read`、`config.write`、`plugin.list`、`secret.read`、`thirdparty.account.read`、`governance.blacklist.read`、`governance.blacklist.write`、`governance.whitelist.read`、`governance.whitelist.write`、`governance.command_policy.read`、`scheduler.create`、`event.expose_webhook`、`render.image` 已进入正式 local action RPC surface；`scheduler.create.log_label` 用于定时任务管理日志展示；`secret.read` 只读取调用插件自己的 secret 命名空间；`thirdparty.account.read` 只读取插件 manifest 声明平台的已启用有效三方账号，并把 CK 标记为 secret 值；`render.image` 支持系统模板 ID 和调用插件声明的模板短 ID
   - local action `action` 帧使用 `parent_request_id` 归属到对应事件；并发插件必须提供该字段
   - 当前已冻结 OneBot 单动作 surface，provider 扩展 action 固定为 `provider.napcat.message_emoji.like.set`、`provider.napcat.group.sign.set` 与 `provider.luckylillia.friend_groups.get`
-  - 正式 `event.event_type` 固定包含 `scheduler.trigger`、`config.changed`、`webhook.received`、`bot.identity.changed`、`bilibili.live.started`、`bilibili.live.ended`、`bilibili.dynamic.published` 以及 OneBot `message.*`、`message_sent.*`、`notice.*`、`request.*`、`meta.*`
-  - `event.payload.onebot` 正式暴露 `meta_event_type`、`interval`、`status`；`event.payload.bilibili` 正式暴露 Bilibili 直播和动态事件数据
+  - 正式 `event.event_type` 固定包含 `scheduler.trigger`、`management.action`、`config.changed`、`webhook.received`、`bot.identity.changed` 以及 OneBot `message.*`、`message_sent.*`、`notice.*`、`request.*`、`meta.*`
+  - `event.payload.onebot` 正式暴露 `meta_event_type`、`interval`、`status`
   - 正式 inbound / outbound segment 种类当前为 `text`、`image`、`at`、`at_all`、`face`、`reply`、`record`、`video`、`file`、`flash_file`、`json`、`xml`、`markdown`、`music`、`contact`、`forward`、`node`、`poke`、`dice`、`rps`、`mface`、`keyboard`、`shake`
 - `release-manifest.schema.json`
   - `release_manifest.json` 与 `build_info.json` 的正式字段结构
@@ -112,30 +112,23 @@
 
 其中 response 为 Prometheus text exposition format，并受 admin session 保护。
 
-当前已进入 OpenAPI 冻结范围的 third-party / Bilibili surface：
+当前已进入 OpenAPI 冻结范围的 third-party account surface：
 
 - `GET /api/third-party/accounts`
 - `PUT /api/third-party/accounts/{platform}/{account_id}`
 - `DELETE /api/third-party/accounts/{platform}/{account_id}`
 - `POST /api/third-party/accounts/{platform}/login/qrcode`
 - `GET /api/third-party/accounts/{platform}/login/qrcode/{login_id}`
-- `GET /api/third-party/users/resolve`
-- `GET /api/third-party/monitors`
-- `GET /api/third-party/media`
-- `POST /api/bilibili/login/qrcode`
-- `GET /api/bilibili/login/qrcode/{login_id}`
-- `GET /api/bilibili/users/resolve`
-- `GET /api/bilibili/source/status`
-- `POST /api/bilibili/source/restart`
 
-其中正式平台为 `bilibili`、`weibo`、`douyin`、`netease_music`；三方账号响应只暴露账号摘要、凭据状态和保存状态，不暴露 Cookie / CK 明文。微博、抖音和网易云音乐扫码登录通过通用三方账号扫码接口提供，订阅对象解析通过通用三方用户解析接口提供。Bilibili source 状态和用户解析接口限定为 Bilibili，Bilibili 扫码登录使用独立接口。
+其中正式平台为 `bilibili`、`weibo`、`douyin`、`netease_music`；三方账号响应只暴露账号摘要、凭据状态和保存状态，不暴露 Cookie / CK 明文。扫码登录统一使用通用三方账号扫码接口。订阅、用户解析、内容检查和状态展示由订阅中心插件通过 `thirdparty.account.read` 与插件管理动作承接。
 
 当前已进入 OpenAPI 冻结范围的 plugin settings surface：
 
 - `GET /api/plugins/{plugin_id}/settings`
 - `PUT /api/plugins/{plugin_id}/settings`
+- `POST /api/plugins/{plugin_id}/management/actions`
 
-其中插件详情 response 会暴露只读 `management_ui` 元数据；插件设置接口只读写插件自己的当前生效配置，不代理其它管理面操作。
+其中插件详情 response 会暴露只读 `management_ui` 元数据；插件设置接口只读写插件自己的当前生效配置；插件管理动作接口只把插件管理页动作转给插件 runtime 处理。
 
 当前已进入 OpenAPI 冻结范围的 plugin secrets surface：
 

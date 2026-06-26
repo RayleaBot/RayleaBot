@@ -34,7 +34,7 @@ func TestThirdPartyQRCodeLoginHandlersCreateAndPoll(t *testing.T) {
 	t.Parallel()
 
 	expiresAt := time.Date(2026, 6, 8, 8, 3, 0, 0, time.UTC)
-	for _, platform := range []string{thirdparty.PlatformWeibo, thirdparty.PlatformDouyin, thirdparty.PlatformNeteaseMusic} {
+	for _, platform := range []string{thirdparty.PlatformBilibili, thirdparty.PlatformWeibo, thirdparty.PlatformDouyin, thirdparty.PlatformNeteaseMusic} {
 		t.Run(platform, func(t *testing.T) {
 			t.Parallel()
 			qrLogin := &stubThirdPartyQRCodeLogin{
@@ -72,7 +72,7 @@ func TestThirdPartyQRCodeLoginHandlersCreateAndPoll(t *testing.T) {
 					},
 				},
 			}
-			handler := NewThirdPartyHandlers(nil, nil, qrLogin, nil, nil)
+			handler := NewThirdPartyHandlers(nil, nil, qrLogin)
 			router := thirdPartyQRCodeLoginRouter(handler)
 
 			createRecorder := httptest.NewRecorder()
@@ -116,7 +116,7 @@ func TestThirdPartyQRCodeLoginHandlerUnknownLoginID(t *testing.T) {
 	t.Parallel()
 
 	qrLogin := &stubThirdPartyQRCodeLogin{pollErr: qrcode.ErrLoginSessionNotFound}
-	handler := NewThirdPartyHandlers(nil, nil, qrLogin, nil, nil)
+	handler := NewThirdPartyHandlers(nil, nil, qrLogin)
 	router := thirdPartyQRCodeLoginRouter(handler)
 	request := httptest.NewRequest(http.MethodGet, "/api/third-party/accounts/weibo/login/qrcode/missing", nil)
 	recorder := httptest.NewRecorder()
@@ -135,7 +135,7 @@ func TestThirdPartyQRCodeLoginHandlerDoesNotExposeRawError(t *testing.T) {
 	t.Parallel()
 
 	qrLogin := &stubThirdPartyQRCodeLogin{pollErr: errors.New("douyin qrcode poll failed: Cookie SESSDATA=secret")}
-	handler := NewThirdPartyHandlers(nil, nil, qrLogin, nil, nil)
+	handler := NewThirdPartyHandlers(nil, nil, qrLogin)
 	router := thirdPartyQRCodeLoginRouter(handler)
 	request := httptest.NewRequest(http.MethodGet, "/api/third-party/accounts/douyin/login/qrcode/douyin_qr_fixture", nil)
 	recorder := httptest.NewRecorder()

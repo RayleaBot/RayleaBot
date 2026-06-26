@@ -36,16 +36,14 @@ func (s *stubThirdPartyAccounts) Upsert(ctx context.Context, request thirdparty.
 		credential = checkedCredential
 	}
 	return thirdparty.Account{
-		Platform:     request.Platform,
-		AccountID:    request.AccountID,
-		Label:        request.Label,
-		Enabled:      request.Enabled,
-		Configured:   strings.TrimSpace(request.Cookie) != "",
-		Profile:      profile,
-		Credential:   credential,
-		ProxyURL:     requestProxyURL(request.ProxyURL),
-		ProxyEnabled: requestProxyEnabled(request.ProxyEnabled),
-		UpdatedAt:    time.Date(2026, 6, 8, 8, 1, 0, 0, time.UTC),
+		Platform:   request.Platform,
+		AccountID:  request.AccountID,
+		Label:      request.Label,
+		Enabled:    request.Enabled,
+		Configured: strings.TrimSpace(request.Cookie) != "",
+		Profile:    profile,
+		Credential: credential,
+		UpdatedAt:  time.Date(2026, 6, 8, 8, 1, 0, 0, time.UTC),
 	}, nil
 }
 
@@ -78,10 +76,10 @@ func TestThirdPartyAccountUpsertAcceptsWeiboCookie(t *testing.T) {
 			CheckedAt: &checkedAt,
 		},
 	}
-	handler := NewThirdPartyHandlers(accounts, validator, nil, nil, nil)
+	handler := NewThirdPartyHandlers(accounts, validator, nil)
 	router := chi.NewRouter()
 	router.Put("/api/third-party/accounts/{platform}/{account_id}", handler.HandleThirdPartyAccountUpsert())
-	request := httptest.NewRequest(http.MethodPut, "/api/third-party/accounts/weibo/primary", strings.NewReader(`{"label":"微博主账号","enabled":true,"cookie":"SUB=fixture;","profile":{"uid":"654321","nickname":"扫码资料","avatar_url":"https://tvax1.sinaimg.cn/crop.0.0.512.512.180/fixture.jpg"},"proxy_url":"http://127.0.0.1:8080","proxy_enabled":true}`))
+	request := httptest.NewRequest(http.MethodPut, "/api/third-party/accounts/weibo/primary", strings.NewReader(`{"label":"微博主账号","enabled":true,"cookie":"SUB=fixture;"}`))
 	recorder := httptest.NewRecorder()
 
 	router.ServeHTTP(recorder, request)
@@ -95,11 +93,8 @@ func TestThirdPartyAccountUpsertAcceptsWeiboCookie(t *testing.T) {
 	if accounts.upsertRequest.Validate == nil {
 		t.Fatal("weibo account upsert missing platform cookie validator")
 	}
-	if accounts.upsertRequest.Profile.UID != "654321" || accounts.upsertRequest.Profile.Nickname != "扫码资料" || accounts.upsertRequest.Profile.AvatarURL == "" {
+	if !accounts.upsertRequest.Profile.Empty() {
 		t.Fatalf("unexpected request profile: %#v", accounts.upsertRequest.Profile)
-	}
-	if accounts.upsertRequest.ProxyURL == nil || *accounts.upsertRequest.ProxyURL != "http://127.0.0.1:8080" || accounts.upsertRequest.ProxyEnabled == nil || !*accounts.upsertRequest.ProxyEnabled {
-		t.Fatalf("unexpected request proxy config: %#v", accounts.upsertRequest)
 	}
 	var response thirdPartyAccountUpsertResponse
 	if err := json.Unmarshal(recorder.Body.Bytes(), &response); err != nil {
@@ -111,18 +106,20 @@ func TestThirdPartyAccountUpsertAcceptsWeiboCookie(t *testing.T) {
 	if response.Account.Profile.UID != "123456" || response.Account.Profile.Nickname != "微博用户" || response.Account.Profile.AvatarURL == "" {
 		t.Fatalf("unexpected weibo account profile: %#v", response.Account.Profile)
 	}
-	if response.Account.ProxyURL != "http://127.0.0.1:8080" || !response.Account.ProxyEnabled {
-		t.Fatalf("unexpected weibo account proxy config: %#v", response.Account)
-	}
 }
 
-func requestProxyURL(value *string) string {
-	if value == nil {
-		return ""
-	}
-	return *value
-}
+func TestThirdPartyAccountUpsertRejectsDisplayOnlyFields(t *testing.T) {
+	t.Parallel()
 
-func requestProxyEnabled(value *bool) bool {
-	return value != nil && *value
+	handler := NewThirdPartyHandlers(&stubThirdPartyAccounts{}, nil, nil)
+	router := chi.NewRouter()
+	router.Put("/api/third-party/accounts/{platform}/{account_id}", handler.HandleThirdPartyAccountUpsert())
+	request := httptest.NewRequest(http.MethodPut, "/api/third-party/accounts/weibo/primary", strings.NewReader(`{"label":"微博主账号","enabled":true,"cookie":"SUB=fixture;","profile":{"uid":"654321"}}`))
+	recorder := httptest.NewRecorder()
+
+	router.ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusBadRequest {
+		t.Fatalf("upsert status = %d, want 400 body=%s", recorder.Code, recorder.Body.String())
+	}
 }

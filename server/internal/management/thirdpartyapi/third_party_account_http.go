@@ -30,15 +30,12 @@ func (h *ThirdPartyHandlers) HandleThirdPartyAccountUpsert() http.HandlerFunc {
 			return
 		}
 		account, err := h.accounts.Upsert(r.Context(), thirdparty.UpsertRequest{
-			Platform:     chi.URLParam(r, "platform"),
-			AccountID:    chi.URLParam(r, "account_id"),
-			Label:        *body.Label,
-			Enabled:      *body.Enabled,
-			Cookie:       body.Cookie,
-			Profile:      body.Profile.accountProfile(),
-			ProxyURL:     body.ProxyURL,
-			ProxyEnabled: body.ProxyEnabled,
-			Validate:     h.credentialValidator(chi.URLParam(r, "platform")),
+			Platform:  chi.URLParam(r, "platform"),
+			AccountID: chi.URLParam(r, "account_id"),
+			Label:     *body.Label,
+			Enabled:   *body.Enabled,
+			Cookie:    body.Cookie,
+			Validate:  h.credentialValidator(chi.URLParam(r, "platform")),
 		})
 		if err != nil {
 			writeThirdPartyAccountError(w, r, err)

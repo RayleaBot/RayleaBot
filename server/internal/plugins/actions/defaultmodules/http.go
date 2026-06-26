@@ -19,11 +19,10 @@ func init() {
 	}, func(deps actions.Deps) actions.ActionHandler {
 		return func(ctx context.Context, req actions.ActionRequest) (map[string]any, error) {
 			return httpaction.Execute(ctx, httpaction.Request{
-				PluginID:           req.PluginID,
-				Action:             req.Action,
-				Config:             currentConfig(deps),
-				Capabilities:       deps.Capabilities,
-				CredentialInjector: deps.HTTPCredentials,
+				PluginID:     req.PluginID,
+				Action:       req.Action,
+				Config:       currentConfig(deps),
+				Capabilities: deps.Capabilities,
 			})
 		}
 	})

@@ -22,9 +22,6 @@ func (a *App) Close() error {
 		cancel()
 		a.runtimes = nil
 	}
-	if a != nil && a.services.BilibiliSource != nil {
-		a.services.BilibiliSource = nil
-	}
 	if a != nil {
 		a.eventStack.Close()
 	}

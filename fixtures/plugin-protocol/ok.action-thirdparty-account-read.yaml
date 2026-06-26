@@ -1,0 +1,16 @@
+contract: contracts/plugin-protocol.schema.json
+case: ok
+frames:
+  - protocol_version: "1"
+    type: action
+    timestamp: 1710000432
+    plugin_id: subscription-hub
+    request_id: local_thirdparty_account_0001
+    parent_request_id: event_subscription_check_0001
+    action: thirdparty.account.read
+    data:
+      platform: bilibili
+expect:
+  valid: true
+  notes:
+    - thirdparty.account.read reads enabled non-invalid accounts for a manifest-allowed platform.

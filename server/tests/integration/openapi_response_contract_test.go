@@ -198,11 +198,6 @@ func TestActualManagementResponsesMatchOpenAPI(t *testing.T) {
 		}
 		assertActualResponseMatchesOpenAPI(t, http.MethodGet, "/api/third-party/accounts", list.Code, decodeBody(t, list.Body.Bytes()))
 
-		status := performOpenAPIJSONRequest(t, application, http.MethodGet, "/api/bilibili/source/status", nil, token)
-		if status.Code != http.StatusOK {
-			t.Fatalf("unexpected bilibili source status code: got %d want 200 body=%s", status.Code, status.Body.String())
-		}
-		assertActualResponseMatchesOpenAPI(t, http.MethodGet, "/api/bilibili/source/status", status.Code, decodeBody(t, status.Body.Bytes()))
 	})
 }
 

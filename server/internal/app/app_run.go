@@ -37,12 +37,6 @@ func (a *App) Run(ctx context.Context) error {
 	storage.StartSnapshotLoop(runCtx, a.platform.Storage, a.state.Logger)
 	a.eventStack.Adapter.Start(runCtx)
 	a.platform.Scheduler.Start(runCtx)
-	if a.services.BilibiliSource != nil {
-		supervisor.Go(func(ctx context.Context) error {
-			a.services.BilibiliSource.Start(ctx)
-			return nil
-		})
-	}
 
 	supervisor.GoCritical(func(context.Context) error {
 		a.state.Logger.Info("http server starting", "component", "app", "listen_addr", a.process.server.Addr)

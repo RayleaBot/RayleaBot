@@ -115,29 +115,20 @@ x-fixtures:
   - fixtures/web-api/ok.third-party-accounts-list.yaml
   - fixtures/web-api/ok.third-party-account-upsert.yaml
   - fixtures/web-api/ok.third-party-account-upsert-weibo.yaml
-  - fixtures/web-api/invalid.third-party-account-upsert-proxy-url-required.yaml
   - fixtures/web-api/ok.third-party-account-delete.yaml
-  - fixtures/web-api/ok.third-party-monitors-bilibili.yaml
-  - fixtures/web-api/ok.third-party-monitors-weibo-empty.yaml
-  - fixtures/web-api/ok.third-party-media-bilibili-image.yaml
-  - fixtures/web-api/ok.third-party-media-weibo-avatar.yaml
-  - fixtures/web-api/invalid.third-party-media-unsupported-url.yaml
-  - fixtures/web-api/ok.bilibili-login-qrcode-create.yaml
-  - fixtures/web-api/ok.bilibili-login-qrcode-poll-pending.yaml
-  - fixtures/web-api/ok.bilibili-login-qrcode-poll-succeeded.yaml
+  - fixtures/web-api/ok.plugin-management-action.yaml
   - fixtures/web-api/ok.third-party-login-qrcode-create-weibo.yaml
   - fixtures/web-api/ok.third-party-login-qrcode-poll-weibo-pending.yaml
   - fixtures/web-api/ok.third-party-login-qrcode-poll-weibo-succeeded.yaml
+  - fixtures/web-api/ok.third-party-login-qrcode-create-bilibili.yaml
+  - fixtures/web-api/ok.third-party-login-qrcode-poll-bilibili-pending.yaml
+  - fixtures/web-api/ok.third-party-login-qrcode-poll-bilibili-succeeded.yaml
   - fixtures/web-api/ok.third-party-login-qrcode-create-douyin.yaml
   - fixtures/web-api/ok.third-party-login-qrcode-poll-douyin-pending.yaml
   - fixtures/web-api/ok.third-party-login-qrcode-poll-douyin-succeeded.yaml
   - fixtures/web-api/ok.third-party-login-qrcode-create-netease-music.yaml
   - fixtures/web-api/ok.third-party-login-qrcode-poll-netease-music-pending.yaml
   - fixtures/web-api/ok.third-party-login-qrcode-poll-netease-music-succeeded.yaml
-  - fixtures/web-api/ok.third-party-user-resolve.yaml
-  - fixtures/web-api/ok.bilibili-user-resolve.yaml
-  - fixtures/web-api/ok.bilibili-source-status.yaml
-  - fixtures/web-api/ok.bilibili-source-restart.yaml
   - fixtures/web-api/invalid.plugins-reload-not-enabled.yaml
   - fixtures/web-api/invalid.plugins-recover-not-recoverable.yaml
   - fixtures/web-api/invalid.plugins-uninstall-not-found.yaml
@@ -1397,6 +1388,38 @@ paths:
         default:
           $ref: '#/components/responses/Error'
 
+  /api/plugins/{plugin_id}/management/actions:
+    post:
+      summary: Invoke one plugin-owned management action through the protected management UI bridge.
+      operationId: invokePluginManagementAction
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/PluginId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PluginManagementActionRequest'
+      responses:
+        '200':
+          description: Plugin-owned management action completed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PluginManagementActionResponse'
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+        '409':
+          $ref: '#/components/responses/Error'
+        default:
+          $ref: '#/components/responses/Error'
+
   /api/plugins/{plugin_id}:
     get:
       summary: Get one plugin snapshot.
@@ -1574,212 +1597,6 @@ paths:
         default:
           $ref: '#/components/responses/Error'
 
-  /api/third-party/users/resolve:
-    get:
-      summary: Resolve a Weibo, Douyin, or NetEase Music object by ID, URL, or search keyword for management UI forms.
-      operationId: resolveThirdPartyUser
-      security:
-        - BearerAuth: []
-      parameters:
-        - name: platform
-          in: query
-          required: true
-          schema:
-            $ref: '#/components/schemas/ThirdPartyUserResolvePlatform'
-        - name: query
-          in: query
-          required: true
-          schema:
-            type: string
-            minLength: 1
-      responses:
-        '200':
-          description: Resolved third-party object or candidate list.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ThirdPartyUserResolveResponse'
-        '400':
-          $ref: '#/components/responses/Error'
-        '401':
-          $ref: '#/components/responses/Error'
-        default:
-          $ref: '#/components/responses/Error'
-
-  /api/third-party/monitors:
-    get:
-      summary: List third-party monitoring targets for the selected platform.
-      operationId: listThirdPartyMonitors
-      security:
-        - BearerAuth: []
-      parameters:
-        - name: platform
-          in: query
-          required: false
-          schema:
-            $ref: '#/components/schemas/ThirdPartyPlatform'
-      responses:
-        '200':
-          description: Current third-party monitoring targets.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ThirdPartyMonitorsResponse'
-        '400':
-          $ref: '#/components/responses/Error'
-        '401':
-          $ref: '#/components/responses/Error'
-        default:
-          $ref: '#/components/responses/Error'
-
-  /api/third-party/media:
-    get:
-      summary: Fetch a controlled third-party media resource for management UI display.
-      operationId: getThirdPartyMedia
-      security:
-        - BearerAuth: []
-      parameters:
-        - name: url
-          in: query
-          required: true
-          schema:
-            type: string
-            format: uri
-            minLength: 1
-      responses:
-        '200':
-          description: Controlled media resource bytes.
-          content:
-            image/png:
-              schema:
-                type: string
-                format: binary
-            image/jpeg:
-              schema:
-                type: string
-                format: binary
-            image/webp:
-              schema:
-                type: string
-                format: binary
-            image/gif:
-              schema:
-                type: string
-                format: binary
-            image/avif:
-              schema:
-                type: string
-                format: binary
-        '400':
-          $ref: '#/components/responses/Error'
-        '401':
-          $ref: '#/components/responses/Error'
-        default:
-          $ref: '#/components/responses/Error'
-
-  /api/bilibili/login/qrcode:
-    post:
-      summary: Start a Bilibili QR code login session.
-      operationId: createBilibiliQRCodeLogin
-      security:
-        - BearerAuth: []
-      responses:
-        '200':
-          description: QR code login session created.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/BilibiliQRCodeLoginCreateResponse'
-        '401':
-          $ref: '#/components/responses/Error'
-        default:
-          $ref: '#/components/responses/Error'
-
-  /api/bilibili/login/qrcode/{login_id}:
-    get:
-      summary: Poll a Bilibili QR code login session.
-      operationId: pollBilibiliQRCodeLogin
-      security:
-        - BearerAuth: []
-      parameters:
-        - $ref: '#/components/parameters/BilibiliQRCodeLoginId'
-      responses:
-        '200':
-          description: Current QR code login state.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/BilibiliQRCodeLoginPollResponse'
-        '400':
-          $ref: '#/components/responses/Error'
-        '401':
-          $ref: '#/components/responses/Error'
-        default:
-          $ref: '#/components/responses/Error'
-
-  /api/bilibili/source/status:
-    get:
-      summary: Query the built-in Bilibili source status.
-      operationId: getBilibiliSourceStatus
-      security:
-        - BearerAuth: []
-      responses:
-        '200':
-          description: Current Bilibili source status.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/BilibiliSourceStatusResponse'
-        '401':
-          $ref: '#/components/responses/Error'
-        default:
-          $ref: '#/components/responses/Error'
-
-  /api/bilibili/users/resolve:
-    get:
-      summary: Resolve a Bilibili user by UID or search keyword for management UI forms.
-      operationId: resolveBilibiliUser
-      security:
-        - BearerAuth: []
-      parameters:
-        - name: query
-          in: query
-          required: true
-          schema:
-            type: string
-            minLength: 1
-      responses:
-        '200':
-          description: Resolved Bilibili user or candidate list.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/BilibiliUserResolveResponse'
-        '400':
-          $ref: '#/components/responses/Error'
-        '401':
-          $ref: '#/components/responses/Error'
-        default:
-          $ref: '#/components/responses/Error'
-
-  /api/bilibili/source/restart:
-    post:
-      summary: Restart the built-in Bilibili source.
-      operationId: restartBilibiliSource
-      security:
-        - BearerAuth: []
-      responses:
-        '200':
-          description: Restart accepted.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/BilibiliSourceRestartResponse'
-        '401':
-          $ref: '#/components/responses/Error'
-        default:
-          $ref: '#/components/responses/Error'
-
   /api/webhooks/{plugin_id}/{route}:
     post:
       summary: Receive a controlled plugin webhook and enqueue a webhook.received event for the target plugin.
@@ -1893,13 +1710,6 @@ components:
       schema:
         type: string
         pattern: '^[a-z0-9](?:[a-z0-9_.-]{0,62}[a-z0-9])?$'
-    BilibiliQRCodeLoginId:
-      name: login_id
-      in: path
-      required: true
-      schema:
-        type: string
-        pattern: '^[a-z0-9](?:[a-z0-9_.-]{0,126}[a-z0-9])?$'
     ThirdPartyQRCodeLoginId:
       name: login_id
       in: path
@@ -2056,7 +1866,7 @@ components:
     SystemDiagnosticsResponse:
       type: object
       additionalProperties: false
-      required: [generated_at, build, system, config, secrets, database, adapter, plugins, render, third_party, bilibili_source, scheduler, tasks, dependencies, filesystem, recent_errors, issues]
+      required: [generated_at, build, system, config, secrets, database, adapter, plugins, render, third_party, scheduler, tasks, dependencies, filesystem, recent_errors, issues]
       properties:
         generated_at:
           type: string
@@ -2079,8 +1889,6 @@ components:
           $ref: '#/components/schemas/SystemDiagnosticsIssueGroup'
         third_party:
           $ref: '#/components/schemas/SystemDiagnosticsThirdParty'
-        bilibili_source:
-          $ref: '#/components/schemas/SystemDiagnosticsBilibiliSource'
         scheduler:
           $ref: '#/components/schemas/SystemDiagnosticsScheduler'
         tasks:
@@ -2261,35 +2069,6 @@ components:
         invalid:
           type: integer
           minimum: 0
-
-    SystemDiagnosticsBilibiliSource:
-      type: object
-      additionalProperties: false
-      required: [status, summary, diagnosis_level, watched_rooms, watched_uids, issues]
-      properties:
-        status:
-          type: string
-          enum: [disabled, idle, connecting, connected, degraded, failed]
-        summary:
-          type: string
-        diagnosis_level:
-          type: string
-        watched_rooms:
-          type: integer
-          minimum: 0
-        watched_uids:
-          type: integer
-          minimum: 0
-        live_last_event_at:
-          type: string
-          format: date-time
-        dynamic_last_poll_at:
-          type: string
-          format: date-time
-        issues:
-          type: array
-          items:
-            $ref: '#/components/schemas/DiagnosticIssue'
 
     SystemDiagnosticsScheduler:
       type: object
@@ -3709,6 +3488,10 @@ components:
           type: array
           items:
             type: string
+        third_party_account_platforms:
+          type: array
+          items:
+            $ref: '#/components/schemas/ThirdPartyPlatform'
         webhooks:
           type: array
           items:
@@ -3900,53 +3683,40 @@ components:
           type: object
           additionalProperties: true
 
+    PluginManagementActionRequest:
+      type: object
+      additionalProperties: false
+      required: [action]
+      properties:
+        action:
+          type: string
+          minLength: 1
+        payload:
+          type: object
+          additionalProperties: true
+
+    PluginManagementActionResponse:
+      type: object
+      additionalProperties: false
+      required: [plugin_id, action, result]
+      properties:
+        plugin_id:
+          type: string
+        action:
+          type: string
+          minLength: 1
+        result:
+          type: object
+          additionalProperties: true
+
     ThirdPartyPlatform:
       type: string
       enum: [bilibili, weibo, douyin, netease_music]
 
-    ThirdPartyUserResolvePlatform:
-      type: string
-      enum: [weibo, douyin, netease_music]
-
-    ThirdPartyResolvedUser:
-      type: object
-      additionalProperties: false
-      required: [uid, name, avatar_url]
-      properties:
-        uid:
-          type: string
-          minLength: 1
-        name:
-          type: string
-          minLength: 1
-        avatar_url:
-          type: string
-
-    ThirdPartyUserResolveResponse:
-      type: object
-      additionalProperties: false
-      required: [platform, query, exact, candidates]
-      properties:
-        platform:
-          $ref: '#/components/schemas/ThirdPartyUserResolvePlatform'
-        query:
-          type: string
-          minLength: 1
-        exact:
-          type: boolean
-        user:
-          $ref: '#/components/schemas/ThirdPartyResolvedUser'
-        candidates:
-          type: array
-          items:
-            $ref: '#/components/schemas/ThirdPartyResolvedUser'
-        message:
-          type: string
-
     ThirdPartyAccountSummary:
       type: object
       additionalProperties: false
-      required: [platform, account_id, label, enabled, configured, profile, credential, polling, proxy_url, proxy_enabled, updated_at]
+      required: [platform, account_id, label, enabled, configured, profile, credential, updated_at]
       properties:
         platform:
           $ref: '#/components/schemas/ThirdPartyPlatform'
@@ -3963,13 +3733,6 @@ components:
           $ref: '#/components/schemas/ThirdPartyAccountProfile'
         credential:
           $ref: '#/components/schemas/ThirdPartyCredentialStatus'
-        polling:
-          $ref: '#/components/schemas/ThirdPartyAccountPollingStatus'
-        proxy_url:
-          type: string
-          pattern: '^$|^(https?|socks|socks4|socks4a|socks5|socks5h)://\S+$'
-        proxy_enabled:
-          type: boolean
         updated_at:
           type: string
           format: date-time
@@ -4006,18 +3769,6 @@ components:
         last_error:
           type: string
 
-    ThirdPartyAccountPollingStatus:
-      type: object
-      additionalProperties: false
-      required: [enabled, last_used_at]
-      properties:
-        enabled:
-          type: boolean
-        last_used_at:
-          type: string
-          nullable: true
-          format: date-time
-
     ThirdPartyAccountsResponse:
       type: object
       additionalProperties: false
@@ -4040,13 +3791,6 @@ components:
         cookie:
           type: string
           minLength: 1
-        profile:
-          $ref: '#/components/schemas/ThirdPartyAccountProfile'
-        proxy_url:
-          type: string
-          pattern: '^$|^(https?|socks|socks4|socks4a|socks5|socks5h)://\S+$'
-        proxy_enabled:
-          type: boolean
 
     ThirdPartyAccountUpsertResponse:
       type: object
@@ -4098,382 +3842,6 @@ components:
           oneOf:
             - $ref: '#/components/schemas/ThirdPartyAccountSummary'
             - type: 'null'
-
-    ThirdPartyMonitorService:
-      type: string
-      enum: [live, video, image_text, article, repost]
-
-    ThirdPartyMonitorImage:
-      type: object
-      additionalProperties: false
-      required: [url]
-      properties:
-        url:
-          type: string
-          minLength: 1
-        width:
-          type: integer
-          minimum: 0
-        height:
-          type: integer
-          minimum: 0
-
-    ThirdPartyMonitorDynamic:
-      type: object
-      additionalProperties: false
-      required: [last_id, service, title, summary, url, images, published_at, observed_at]
-      properties:
-        last_id:
-          type: string
-          minLength: 1
-        service:
-          $ref: '#/components/schemas/ThirdPartyMonitorService'
-        title:
-          type: string
-        summary:
-          type: string
-        url:
-          type: string
-        images:
-          type: array
-          items:
-            $ref: '#/components/schemas/ThirdPartyMonitorImage'
-        published_at:
-          type: string
-          nullable: true
-          format: date-time
-        observed_at:
-          type: string
-          format: date-time
-
-    ThirdPartyMonitorLive:
-      type: object
-      additionalProperties: false
-      required: [room_id, room_name, room_url, cover_url, is_live, live_started_at, live_ended_at, connection_state, last_error, updated_at]
-      properties:
-        room_id:
-          type: string
-        room_name:
-          type: string
-        room_url:
-          type: string
-        cover_url:
-          type: string
-        is_live:
-          type: boolean
-        live_started_at:
-          type: string
-          nullable: true
-          format: date-time
-        live_ended_at:
-          type: string
-          nullable: true
-          format: date-time
-        connection_state:
-          $ref: '#/components/schemas/BilibiliSourceState'
-        last_error:
-          type: string
-        updated_at:
-          type: string
-          nullable: true
-          format: date-time
-
-    ThirdPartyMonitorItem:
-      type: object
-      additionalProperties: false
-      required: [uid, username, avatar_url, profile_url, services, dynamic, live, updated_at]
-      properties:
-        uid:
-          type: string
-          pattern: '^[0-9]+$'
-        username:
-          type: string
-        avatar_url:
-          type: string
-        profile_url:
-          type: string
-          format: uri
-        services:
-          type: array
-          items:
-            $ref: '#/components/schemas/ThirdPartyMonitorService'
-          uniqueItems: true
-        dynamic:
-          anyOf:
-            - $ref: '#/components/schemas/ThirdPartyMonitorDynamic'
-            - type: 'null'
-        live:
-          $ref: '#/components/schemas/ThirdPartyMonitorLive'
-        updated_at:
-          type: string
-          format: date-time
-
-    ThirdPartyMonitorsResponse:
-      type: object
-      additionalProperties: false
-      required: [platform, items, updated_at]
-      properties:
-        platform:
-          $ref: '#/components/schemas/ThirdPartyPlatform'
-        items:
-          type: array
-          items:
-            $ref: '#/components/schemas/ThirdPartyMonitorItem'
-        updated_at:
-          type: string
-          format: date-time
-
-    BilibiliQRCodeLoginState:
-      type: string
-      enum: [pending_scan, pending_confirm, expired, succeeded]
-
-    BilibiliQRCodeLoginCreateResponse:
-      type: object
-      additionalProperties: false
-      required: [login_id, qrcode_url, expires_at, state]
-      properties:
-        login_id:
-          type: string
-          pattern: '^[a-z0-9](?:[a-z0-9_.-]{0,126}[a-z0-9])?$'
-        qrcode_url:
-          type: string
-          minLength: 1
-        expires_at:
-          type: string
-          format: date-time
-        state:
-          $ref: '#/components/schemas/BilibiliQRCodeLoginState'
-
-    BilibiliQRCodeLoginPollResponse:
-      type: object
-      additionalProperties: false
-      required: [login_id, state, expires_at, account]
-      properties:
-        login_id:
-          type: string
-          pattern: '^[a-z0-9](?:[a-z0-9_.-]{0,126}[a-z0-9])?$'
-        state:
-          $ref: '#/components/schemas/BilibiliQRCodeLoginState'
-        expires_at:
-          type: string
-          format: date-time
-        account:
-          oneOf:
-            - $ref: '#/components/schemas/ThirdPartyAccountSummary'
-            - type: 'null'
-
-    BilibiliSourceState:
-      type: string
-      enum: [disabled, idle, connecting, connected, degraded, failed]
-
-    BilibiliSourceLiveStatus:
-      type: object
-      additionalProperties: false
-      required: [watched_rooms, connected_rooms, failed_rooms, fallback_polling, last_event_at, last_error]
-      properties:
-        watched_rooms:
-          type: integer
-          minimum: 0
-        connected_rooms:
-          type: integer
-          minimum: 0
-        failed_rooms:
-          type: integer
-          minimum: 0
-        fallback_polling:
-          type: boolean
-        last_event_at:
-          type: string
-          nullable: true
-          format: date-time
-        last_error:
-          type: string
-
-    BilibiliSourceDynamicStatus:
-      type: object
-      additionalProperties: false
-      required: [enabled, interval_seconds, watched_uids, auto_follow, last_poll_at, last_event_at, last_error]
-      properties:
-        enabled:
-          type: boolean
-        interval_seconds:
-          type: integer
-          minimum: 1
-        watched_uids:
-          type: integer
-          minimum: 0
-        auto_follow:
-          type: boolean
-        last_poll_at:
-          type: string
-          nullable: true
-          format: date-time
-        last_event_at:
-          type: string
-          nullable: true
-          format: date-time
-        last_error:
-          type: string
-
-    BilibiliSourceDiagnosisLevel:
-      type: string
-      enum: [normal, attention, action_required]
-
-    BilibiliSourceDiagnosisScope:
-      type: string
-      enum: [source, live, dynamic, auto_follow, account]
-
-    BilibiliSourceDiagnosisCode:
-      type: string
-      enum:
-        - healthy
-        - source_disabled
-        - source_idle
-        - source_connecting
-        - live_fallback
-        - live_connection_error
-        - platform_risk_control
-        - platform_rate_limit
-        - credential_invalid
-        - source_failed
-
-    BilibiliSourceDiagnosisActionKind:
-      type: string
-      enum: [refresh, restart_source, open_accounts, wait]
-
-    BilibiliSourceDiagnosisCause:
-      type: object
-      additionalProperties: false
-      required: [scope, code, title, detail, last_error, retry_at]
-      properties:
-        scope:
-          $ref: '#/components/schemas/BilibiliSourceDiagnosisScope'
-        code:
-          $ref: '#/components/schemas/BilibiliSourceDiagnosisCode'
-        title:
-          type: string
-          minLength: 1
-        detail:
-          type: string
-          minLength: 1
-        last_error:
-          type: string
-        retry_at:
-          type: string
-          nullable: true
-          format: date-time
-
-    BilibiliSourceDiagnosisAction:
-      type: object
-      additionalProperties: false
-      required: [kind, label, target, primary]
-      properties:
-        kind:
-          $ref: '#/components/schemas/BilibiliSourceDiagnosisActionKind'
-        label:
-          type: string
-          minLength: 1
-        target:
-          type: string
-          nullable: true
-        primary:
-          type: boolean
-
-    BilibiliSourceDiagnosis:
-      type: object
-      additionalProperties: false
-      required: [level, headline, description, causes, impacts, actions, updated_at]
-      properties:
-        level:
-          $ref: '#/components/schemas/BilibiliSourceDiagnosisLevel'
-        headline:
-          type: string
-          minLength: 1
-        description:
-          type: string
-          minLength: 1
-        causes:
-          type: array
-          items:
-            $ref: '#/components/schemas/BilibiliSourceDiagnosisCause'
-        impacts:
-          type: array
-          items:
-            type: string
-            minLength: 1
-        actions:
-          type: array
-          items:
-            $ref: '#/components/schemas/BilibiliSourceDiagnosisAction'
-        updated_at:
-          type: string
-          format: date-time
-
-    BilibiliSourceStatusResponse:
-      type: object
-      additionalProperties: false
-      required: [status, summary, live, dynamic, diagnosis, accounts]
-      properties:
-        status:
-          $ref: '#/components/schemas/BilibiliSourceState'
-        summary:
-          type: string
-        live:
-          $ref: '#/components/schemas/BilibiliSourceLiveStatus'
-        dynamic:
-          $ref: '#/components/schemas/BilibiliSourceDynamicStatus'
-        diagnosis:
-          $ref: '#/components/schemas/BilibiliSourceDiagnosis'
-        accounts:
-          type: array
-          items:
-            $ref: '#/components/schemas/ThirdPartyAccountSummary'
-
-    BilibiliSourceRestartResponse:
-      type: object
-      additionalProperties: false
-      required: [accepted, status]
-      properties:
-        accepted:
-          type: boolean
-        status:
-          $ref: '#/components/schemas/BilibiliSourceStatusResponse'
-
-    BilibiliResolvedUser:
-      type: object
-      additionalProperties: false
-      required: [uid, name, avatar_url]
-      properties:
-        uid:
-          type: string
-          pattern: '^[0-9]+$'
-        name:
-          type: string
-          minLength: 1
-        avatar_url:
-          type: string
-        fans:
-          type: integer
-          minimum: 0
-
-    BilibiliUserResolveResponse:
-      type: object
-      additionalProperties: false
-      required: [query, exact, candidates]
-      properties:
-        query:
-          type: string
-          minLength: 1
-        exact:
-          type: boolean
-        user:
-          $ref: '#/components/schemas/BilibiliResolvedUser'
-        candidates:
-          type: array
-          items:
-            $ref: '#/components/schemas/BilibiliResolvedUser'
-        message:
-          type: string
 
     PluginSecretValues:
       type: object

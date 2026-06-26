@@ -31,9 +31,9 @@ func TestDiagnosticsIssueGroupsExposeUserAndInternalFields(t *testing.T) {
 	t.Parallel()
 
 	items := nonNilIssues([]health.DiagnosticIssue{{
-		Code:        "bilibili_source.credential_invalid",
+		Code:        "third_party.credential_invalid",
 		Severity:    "error",
-		Summary:     "Bilibili 凭据失效",
+		Summary:     "三方账号凭据失效",
 		Remediation: "请重新扫码登录。",
 	}})
 

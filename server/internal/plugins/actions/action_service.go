@@ -16,13 +16,13 @@ type Deps struct {
 	PluginFiles      FileStore
 	PluginKV         KVRepository
 	Secrets          SecretReader
+	ThirdParty       ThirdPartyAccountReader
 	Scheduler        SchedulerCreateFunc
 	Dispatcher       ConfigChangeDispatcher
 	Renderer         Renderer
 	Adapter          OneBotAdapter
 	PluginLogLimiter *PluginLogLimiter
 	Governance       GovernanceService
-	HTTPCredentials  HTTPCredentialInjector
 	RefreshCommands  func(context.Context, string, map[string]any)
 	WebhookGateway   func() WebhookGateway
 	Registrars       []Registrar

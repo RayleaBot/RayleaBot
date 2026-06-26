@@ -17,9 +17,10 @@ type WebhookScopeResponse struct {
 }
 
 type CapabilityParametersResponse struct {
-	HTTPHosts    []string               `json:"http_hosts,omitempty"`
-	StorageRoots []string               `json:"storage_roots,omitempty"`
-	Webhooks     []WebhookScopeResponse `json:"webhooks,omitempty"`
+	HTTPHosts                  []string               `json:"http_hosts,omitempty"`
+	StorageRoots               []string               `json:"storage_roots,omitempty"`
+	ThirdPartyAccountPlatforms []string               `json:"third_party_account_platforms,omitempty"`
+	Webhooks                   []WebhookScopeResponse `json:"webhooks,omitempty"`
 }
 
 type ScreenshotResponse struct {

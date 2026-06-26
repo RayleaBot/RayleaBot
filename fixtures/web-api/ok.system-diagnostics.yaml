@@ -49,13 +49,6 @@ response:
           enabled: 1
           configured: 1
           invalid: 0
-    bilibili_source:
-      status: connected
-      summary: "Bilibili 事件源运行中"
-      diagnosis_level: normal
-      watched_rooms: 1
-      watched_uids: 1
-      issues: []
     scheduler:
       total: 1
       enabled: 1

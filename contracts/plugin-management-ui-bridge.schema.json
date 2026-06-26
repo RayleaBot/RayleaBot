@@ -50,16 +50,10 @@
       "$ref": "#/$defs/protocol_identities_resolved"
     },
     {
-      "$ref": "#/$defs/bilibili_user_resolve"
+      "$ref": "#/$defs/plugin_action_invoke"
     },
     {
-      "$ref": "#/$defs/bilibili_user_resolved"
-    },
-    {
-      "$ref": "#/$defs/third_party_user_resolve"
-    },
-    {
-      "$ref": "#/$defs/third_party_user_resolved"
+      "$ref": "#/$defs/plugin_action_result"
     },
     {
       "$ref": "#/$defs/error_message"
@@ -921,39 +915,14 @@
         }
       }
     },
-    "bilibili_user": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": [
-        "uid",
-        "name",
-        "avatar_url"
-      ],
-      "properties": {
-        "uid": {
-          "type": "string",
-          "pattern": "^[0-9]+$"
-        },
-        "name": {
-          "type": "string",
-          "minLength": 1
-        },
-        "avatar_url": {
-          "type": "string"
-        },
-        "fans": {
-          "type": "integer",
-          "minimum": 0
-        }
-      }
-    },
-    "bilibili_user_resolve": {
+    "plugin_action_invoke": {
       "type": "object",
       "additionalProperties": false,
       "required": [
         "version",
         "source",
         "type",
+        "request_id",
         "payload"
       ],
       "properties": {
@@ -964,7 +933,7 @@
           "const": "plugin_management_ui"
         },
         "type": {
-          "const": "bilibili.user.resolve"
+          "const": "plugin.action.invoke"
         },
         "request_id": {
           "type": "string",
@@ -974,24 +943,30 @@
           "type": "object",
           "additionalProperties": false,
           "required": [
-            "query"
+            "action"
           ],
           "properties": {
-            "query": {
+            "action": {
               "type": "string",
-              "minLength": 1
+              "minLength": 1,
+              "pattern": "^[a-z][a-z0-9_.:-]*$"
+            },
+            "payload": {
+              "type": "object",
+              "additionalProperties": true
             }
           }
         }
       }
     },
-    "bilibili_user_resolved": {
+    "plugin_action_result": {
       "type": "object",
       "additionalProperties": false,
       "required": [
         "version",
         "source",
         "type",
+        "request_id",
         "payload"
       ],
       "properties": {
@@ -1002,7 +977,7 @@
           "const": "management_host"
         },
         "type": {
-          "const": "bilibili.user.resolved"
+          "const": "plugin.action.result"
         },
         "request_id": {
           "type": "string",
@@ -1012,161 +987,18 @@
           "type": "object",
           "additionalProperties": false,
           "required": [
-            "query",
-            "exact",
-            "candidates"
+            "action",
+            "result"
           ],
           "properties": {
-            "query": {
+            "action": {
               "type": "string",
-              "minLength": 1
+              "minLength": 1,
+              "pattern": "^[a-z][a-z0-9_.:-]*$"
             },
-            "exact": {
-              "type": "boolean"
-            },
-            "user": {
-              "$ref": "#/$defs/bilibili_user"
-            },
-            "candidates": {
-              "type": "array",
-              "items": {
-                "$ref": "#/$defs/bilibili_user"
-              }
-            },
-            "message": {
-              "type": "string"
-            }
-          }
-        }
-      }
-    },
-    "third_party_bridge_platform": {
-      "type": "string",
-      "enum": [
-        "bilibili",
-        "weibo",
-        "douyin",
-        "netease_music"
-      ]
-    },
-    "third_party_user": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": [
-        "uid",
-        "name",
-        "avatar_url"
-      ],
-      "properties": {
-        "uid": {
-          "type": "string",
-          "minLength": 1
-        },
-        "name": {
-          "type": "string",
-          "minLength": 1
-        },
-        "avatar_url": {
-          "type": "string"
-        }
-      }
-    },
-    "third_party_user_resolve": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": [
-        "version",
-        "source",
-        "type",
-        "payload"
-      ],
-      "properties": {
-        "version": {
-          "const": "1"
-        },
-        "source": {
-          "const": "plugin_management_ui"
-        },
-        "type": {
-          "const": "thirdparty.user.resolve"
-        },
-        "request_id": {
-          "type": "string",
-          "minLength": 1
-        },
-        "payload": {
-          "type": "object",
-          "additionalProperties": false,
-          "required": [
-            "platform",
-            "query"
-          ],
-          "properties": {
-            "platform": {
-              "$ref": "#/$defs/third_party_bridge_platform"
-            },
-            "query": {
-              "type": "string",
-              "minLength": 1
-            }
-          }
-        }
-      }
-    },
-    "third_party_user_resolved": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": [
-        "version",
-        "source",
-        "type",
-        "payload"
-      ],
-      "properties": {
-        "version": {
-          "const": "1"
-        },
-        "source": {
-          "const": "management_host"
-        },
-        "type": {
-          "const": "thirdparty.user.resolved"
-        },
-        "request_id": {
-          "type": "string",
-          "minLength": 1
-        },
-        "payload": {
-          "type": "object",
-          "additionalProperties": false,
-          "required": [
-            "platform",
-            "query",
-            "exact",
-            "candidates"
-          ],
-          "properties": {
-            "platform": {
-              "$ref": "#/$defs/third_party_bridge_platform"
-            },
-            "query": {
-              "type": "string",
-              "minLength": 1
-            },
-            "exact": {
-              "type": "boolean"
-            },
-            "user": {
-              "$ref": "#/$defs/third_party_user"
-            },
-            "candidates": {
-              "type": "array",
-              "items": {
-                "$ref": "#/$defs/third_party_user"
-              }
-            },
-            "message": {
-              "type": "string"
+            "result": {
+              "type": "object",
+              "additionalProperties": true
             }
           }
         }
@@ -1230,10 +1062,8 @@
     "fixtures/plugin-management-ui/ok.bridge-protocol-targets-changed.json",
     "fixtures/plugin-management-ui/ok.bridge-protocol-identities-resolve.json",
     "fixtures/plugin-management-ui/ok.bridge-protocol-identities-resolved.json",
-    "fixtures/plugin-management-ui/ok.bridge-bilibili-user-resolve.json",
-    "fixtures/plugin-management-ui/ok.bridge-bilibili-user-resolved.json",
-    "fixtures/plugin-management-ui/ok.bridge-third-party-user-resolve.json",
-    "fixtures/plugin-management-ui/ok.bridge-third-party-user-resolved.json",
+    "fixtures/plugin-management-ui/ok.bridge-plugin-action-invoke.json",
+    "fixtures/plugin-management-ui/ok.bridge-plugin-action-result.json",
     "fixtures/plugin-management-ui/invalid.bridge-unknown-type.json"
   ]
 }

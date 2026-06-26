@@ -102,6 +102,23 @@ func parseSecretReadAction(raw json.RawMessage) (*Action, error) {
 	return &Action{Kind: "secret.read", SecretKey: key}, nil
 }
 
+func parseThirdPartyAccountReadAction(raw json.RawMessage) (*Action, error) {
+	var frame runtimeprotocol.ProtocolActionThirdPartyAccountReadFrame
+	if err := json.Unmarshal(raw, &frame); err != nil {
+		return nil, errorf(codePluginProtocolViolation, "plugin returned malformed thirdparty.account.read data", err)
+	}
+
+	platform := strings.TrimSpace(frame.Platform)
+	if platform == "" {
+		return nil, errorf(codePluginProtocolViolation, "plugin action frame is missing required thirdparty.account.read fields", nil)
+	}
+	return &Action{
+		Kind:                      "thirdparty.account.read",
+		ThirdPartyAccountPlatform: platform,
+		ThirdPartyAccountID:       strings.TrimSpace(frame.AccountID),
+	}, nil
+}
+
 func parseConfigWriteAction(raw json.RawMessage) (*Action, error) {
 	var frame runtimeprotocol.ProtocolActionConfigWriteFrame
 	if err := json.Unmarshal(raw, &frame); err != nil {

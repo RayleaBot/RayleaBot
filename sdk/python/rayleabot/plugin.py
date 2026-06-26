@@ -559,6 +559,21 @@ class RayleaBotPlugin:
             timeout_seconds=timeout_seconds,
         )
 
+    def thirdparty_account_read(self, request_id, platform, account_id=None, timeout_seconds=30):
+        """Read saved third-party account cookies through thirdparty.account.read."""
+        if not platform:
+            raise ValueError("thirdparty_account_read requires platform")
+        data = {"platform": platform}
+        if account_id:
+            data["account_id"] = account_id
+        return protocol.request_local_action(
+            self._plugin_id,
+            request_id,
+            "thirdparty.account.read",
+            data,
+            timeout_seconds=timeout_seconds,
+        )
+
     def onebot_action(self, request_id, action, data=None, timeout_seconds=30):
         """Call one frozen OneBot family action through the shared local action path."""
         return protocol.request_local_action(
@@ -805,6 +820,7 @@ class RayleaBotPlugin:
     renderImage = render_image
     pluginList = plugin_list
     secretRead = secret_read
+    thirdpartyAccountRead = thirdparty_account_read
     onebotAction = onebot_action
     providerAction = provider_action
     messageGet = message_get

@@ -2,27 +2,21 @@ package integrationmodule
 
 import (
 	"context"
-	"github.com/RayleaBot/RayleaBot/server/internal/integrations/qrcode"
 	"net/http"
 	"time"
 
-	"github.com/RayleaBot/RayleaBot/server/internal/app/eventstack"
 	appplatform "github.com/RayleaBot/RayleaBot/server/internal/app/platform"
-	"github.com/RayleaBot/RayleaBot/server/internal/app/pluginstack"
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
-	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/dispatch"
-	"github.com/RayleaBot/RayleaBot/server/internal/integrations/bilibili"
+	bilibilisession "github.com/RayleaBot/RayleaBot/server/internal/integrations/bilibili/session"
 	"github.com/RayleaBot/RayleaBot/server/internal/integrations/douyin"
 	"github.com/RayleaBot/RayleaBot/server/internal/integrations/netease_music"
+	"github.com/RayleaBot/RayleaBot/server/internal/integrations/qrcode"
 	"github.com/RayleaBot/RayleaBot/server/internal/integrations/thirdparty"
 	"github.com/RayleaBot/RayleaBot/server/internal/integrations/weibo"
-	managementevents "github.com/RayleaBot/RayleaBot/server/internal/management/events"
 )
 
 type ThirdPartyService = thirdparty.Service
 type ThirdPartyQRLoginService = qrcode.Service
-type BilibiliSource = bilibili.Source
-type BilibiliSourceEvents = managementevents.BilibiliSourceService
 
 type Module = State
 
@@ -33,8 +27,6 @@ type Renderer interface {
 type Deps struct {
 	Config        config.Config
 	Platform      appplatform.State
-	Plugins       pluginstack.State
-	Events        eventstack.State
 	Renderer      Renderer
 	HTTPTransport http.RoundTripper
 	Clock         func() time.Time
@@ -43,51 +35,15 @@ type Deps struct {
 type State struct {
 	ThirdParty        *ThirdPartyService
 	ThirdPartyQRLogin *ThirdPartyQRLoginService
-	UserResolver      *UserResolver
-	BilibiliSource    *BilibiliSource
-	BilibiliEvents    *BilibiliSourceEvents
 	AccountValidator  *AccountValidator
-	HTTPCredentials   *bilibili.HTTPCredentialInjector
-}
-
-type DouyinUserResolver interface {
-	ResolveUser(context.Context, string, []map[string]string) ([]thirdparty.AccountProfile, bool, error)
-}
-
-type UserResolver struct {
-	client *http.Client
-	douyin DouyinUserResolver
-}
-
-func NewUserResolver(transport http.RoundTripper, douyinResolver DouyinUserResolver) *UserResolver {
-	return &UserResolver{
-		client: thirdparty.NewHTTPClient(transport),
-		douyin: douyinResolver,
-	}
-}
-
-func (r *UserResolver) ResolveProfiles(ctx context.Context, platform string, query string, cookieMaps []map[string]string) ([]thirdparty.AccountProfile, bool, error) {
-	if r == nil {
-		return nil, false, nil
-	}
-	switch platform {
-	case thirdparty.PlatformWeibo:
-		return weibo.ResolveUserWithCookies(ctx, r.client, query, cookieMaps)
-	case thirdparty.PlatformDouyin:
-		return douyin.ResolveUserWithBrowser(ctx, r.client, query, cookieMaps, r.douyin)
-	case thirdparty.PlatformNeteaseMusic:
-		return netease_music.ResolveUser(ctx, r.client, query)
-	default:
-		return nil, false, nil
-	}
 }
 
 type AccountValidator struct {
-	bilibili   *bilibili.AccountClient
+	bilibili   *bilibilisession.AccountClient
 	thirdParty *thirdparty.AccountValidator
 }
 
-func NewAccountValidator(transport http.RoundTripper, now func() time.Time, bilibiliClient *bilibili.AccountClient) *AccountValidator {
+func NewAccountValidator(transport http.RoundTripper, now func() time.Time, bilibiliClient *bilibilisession.AccountClient) *AccountValidator {
 	validator := thirdparty.NewAccountValidator(transport, now)
 	validator.RegisterPlatform(thirdparty.PlatformWeibo, func(ctx context.Context, client *http.Client, cookies map[string]string) (thirdparty.AccountProfile, error) {
 		return weibo.FetchAccountProfile(ctx, client, cookies)
@@ -134,46 +90,15 @@ func Build(deps Deps) (State, error) {
 	}
 	douyinBrowser := douyin.NewChromedpBrowser(browserPath, browserArgs, deps.HTTPTransport)
 	thirdPartyQRLogin := qrcode.NewService(map[string]qrcode.Provider{
-		bilibili.Platform:      bilibili.NewLoginProvider(deps.HTTPTransport, deps.Clock),
-		weibo.Platform:         weibo.NewProvider(thirdparty.NewHTTPClient(deps.HTTPTransport)),
-		douyin.Platform:        douyin.NewProvider(thirdparty.NewHTTPClient(deps.HTTPTransport), douyinBrowser),
-		netease_music.Platform: netease_music.NewProvider(thirdparty.NewHTTPClient(deps.HTTPTransport)),
+		bilibilisession.Platform: bilibilisession.NewProvider(deps.HTTPTransport, deps.Clock),
+		weibo.Platform:           weibo.NewProvider(thirdparty.NewHTTPClient(deps.HTTPTransport)),
+		douyin.Platform:          douyin.NewProvider(thirdparty.NewHTTPClient(deps.HTTPTransport), douyinBrowser),
+		netease_music.Platform:   netease_music.NewProvider(thirdparty.NewHTTPClient(deps.HTTPTransport)),
 	}, deps.Clock, qrcode.WithAccountStore(thirdPartyService))
-	bilibiliEvents := managementevents.NewBilibiliSourceService()
-	bilibiliModule, err := bilibili.Build(bilibili.Deps{
-		Store: bilibili.Store{
-			Read:  deps.Platform.Storage.Read,
-			Write: deps.Platform.Storage.Write,
-		},
-		Accounts:      thirdPartyService,
-		PluginConfig:  deps.Plugins.PluginConfig,
-		Dispatcher:    bilibiliEventDispatcher{dispatcher: deps.Events.Dispatcher},
-		NotifyStatus:  bilibiliEvents.Publish,
-		HTTPTransport: deps.HTTPTransport,
-		Now:           deps.Clock,
-	})
-	if err != nil {
-		return State{}, err
-	}
 
 	return State{
 		ThirdParty:        thirdPartyService,
 		ThirdPartyQRLogin: thirdPartyQRLogin,
-		UserResolver:      NewUserResolver(deps.HTTPTransport, douyinBrowser),
-		BilibiliSource:    bilibiliModule.Source,
-		BilibiliEvents:    bilibiliEvents,
-		AccountValidator:  NewAccountValidator(deps.HTTPTransport, deps.Clock, bilibiliModule.AccountClient),
-		HTTPCredentials:   bilibiliModule.HTTPCredentials,
+		AccountValidator:  NewAccountValidator(deps.HTTPTransport, deps.Clock, bilibilisession.NewAccountClient(deps.HTTPTransport, deps.Clock, nil)),
 	}, nil
-}
-
-type bilibiliEventDispatcher struct {
-	dispatcher *dispatch.Dispatcher
-}
-
-func (d bilibiliEventDispatcher) DispatchBilibiliEvent(ctx context.Context, event bilibili.BilibiliEvent, timestamp int64) {
-	if d.dispatcher == nil {
-		return
-	}
-	d.dispatcher.Dispatch(ctx, bilibili.RuntimeEvent(event, timestamp), "")
 }

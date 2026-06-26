@@ -1,0 +1,21 @@
+{
+  "contract": "contracts/plugin-management-ui-bridge.schema.json",
+  "case": "ok",
+  "description": "The iframe may ask the host to invoke a plugin-owned management action.",
+  "input": {
+    "version": "1",
+    "source": "plugin_management_ui",
+    "type": "plugin.action.invoke",
+    "request_id": "req_plugin_action_0001",
+    "payload": {
+      "action": "subscription.resolve_user",
+      "payload": {
+        "platform": "weibo",
+        "query": "洛天依"
+      }
+    }
+  },
+  "expect": {
+    "valid": true
+  }
+}

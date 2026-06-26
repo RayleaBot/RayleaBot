@@ -42,15 +42,10 @@ type RendererState interface {
 
 type DiagnosticsThirdParty = systemmodel.DiagnosticsThirdParty
 type DiagnosticsThirdPartyPlatform = systemmodel.DiagnosticsThirdPartyPlatform
-type DiagnosticsBilibiliSource = systemmodel.DiagnosticsBilibiliSource
 type DiagnosticsScheduler = systemmodel.DiagnosticsScheduler
 
 type ThirdPartyDiagnosticsSource interface {
 	DiagnosticsThirdParty(context.Context) (DiagnosticsThirdParty, []health.DiagnosticIssue)
-}
-
-type BilibiliSourceDiagnosticsSource interface {
-	DiagnosticsBilibiliSource(context.Context) (DiagnosticsBilibiliSource, []health.DiagnosticIssue)
 }
 
 type SchedulerDiagnosticsSource interface {
@@ -72,7 +67,6 @@ type Deps struct {
 	Renderer         RendererState
 	Storage          *storage.Store
 	ThirdParty       ThirdPartyDiagnosticsSource
-	BilibiliSource   BilibiliSourceDiagnosticsSource
 	Scheduler        SchedulerDiagnosticsSource
 	PluginRepository plugins.DesiredStateRepository
 	TaskExecutor     *tasks.Executor
@@ -94,7 +88,6 @@ type Service struct {
 	renderer         RendererState
 	storage          *storage.Store
 	thirdParty       ThirdPartyDiagnosticsSource
-	bilibiliSource   BilibiliSourceDiagnosticsSource
 	scheduler        SchedulerDiagnosticsSource
 	pluginRepository plugins.DesiredStateRepository
 	taskExecutor     *tasks.Executor
@@ -154,7 +147,6 @@ func New(deps Deps) *Service {
 		renderer:         renderer,
 		storage:          deps.Storage,
 		thirdParty:       deps.ThirdParty,
-		bilibiliSource:   deps.BilibiliSource,
 		scheduler:        deps.Scheduler,
 		pluginRepository: deps.PluginRepository,
 		taskExecutor:     deps.TaskExecutor,

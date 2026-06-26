@@ -30,31 +30,26 @@ const (
 )
 
 type Account struct {
-	Platform     string
-	AccountID    string
-	Label        string
-	Enabled      bool
-	Configured   bool
-	SecretKey    string
-	Profile      AccountProfile
-	Credential   CredentialStatus
-	ProxyURL     string
-	ProxyEnabled bool
-	LastUsedAt   *time.Time
-	UpdatedAt    time.Time
+	Platform   string
+	AccountID  string
+	Label      string
+	Enabled    bool
+	Configured bool
+	SecretKey  string
+	Profile    AccountProfile
+	Credential CredentialStatus
+	UpdatedAt  time.Time
 }
 
 type UpsertRequest struct {
-	Platform     string
-	AccountID    string
-	Label        string
-	Enabled      bool
-	Cookie       string
-	Profile      AccountProfile
-	Credential   CredentialStatus
-	ProxyURL     *string
-	ProxyEnabled *bool
-	Validate     func(context.Context, string) (AccountProfile, CredentialStatus, error)
+	Platform   string
+	AccountID  string
+	Label      string
+	Enabled    bool
+	Cookie     string
+	Profile    AccountProfile
+	Credential CredentialStatus
+	Validate   func(context.Context, string) (AccountProfile, CredentialStatus, error)
 }
 
 type AccountProfile struct {

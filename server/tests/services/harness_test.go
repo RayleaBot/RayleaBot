@@ -507,6 +507,15 @@ func (v *stubCapabilityView) HTTPHosts(_ context.Context, pluginID string) []str
 	return nil
 }
 
+func (v *stubCapabilityView) ThirdPartyAccountPlatforms(_ context.Context, pluginID string) []string {
+	for _, item := range v.capabilities[pluginID] {
+		if item.Capability == "thirdparty.account.read" {
+			return parseStubScopeList(item.ScopeJSON, "third_party_account_platforms")
+		}
+	}
+	return nil
+}
+
 func (v *stubCapabilityView) WebhookParameters(_ context.Context, pluginID string, route string) (plugins.WebhookScope, bool) {
 	for _, item := range v.capabilities[pluginID] {
 		if item.Capability != "event.expose_webhook" {

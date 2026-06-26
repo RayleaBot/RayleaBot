@@ -1,0 +1,30 @@
+contract: contracts/plugin-protocol.schema.json
+case: ok
+frames:
+  - protocol_version: "1"
+    type: event
+    timestamp: 1710000042
+    plugin_id: subscription-hub
+    request_id: evt_management_action_0001
+    event:
+      event_id: management-subscription-hub-1710000042-resolve-user
+      source_protocol: management
+      source_adapter: management.ui
+      event_type: management.action
+      timestamp: 1710000042
+      payload:
+        action: subscription.resolve_user
+        payload:
+          platform: bilibili
+          query: "1000001"
+  - protocol_version: "1"
+    type: result
+    timestamp: 1710000043
+    plugin_id: subscription-hub
+    request_id: evt_management_action_0001
+    status: success
+    data:
+      handled: true
+      action: subscription.resolve_user
+expect:
+  valid: true

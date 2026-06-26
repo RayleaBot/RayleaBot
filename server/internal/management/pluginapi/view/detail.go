@@ -18,13 +18,14 @@ func buildPluginDependencies(snapshot plugins.Snapshot) *DependenciesResponse {
 }
 
 func buildPluginCapabilityParameters(snapshot plugins.Snapshot) *CapabilityParametersResponse {
-	if len(snapshot.ScopeHTTPHosts) == 0 && len(snapshot.ScopeStorageRoots) == 0 && len(snapshot.ScopeWebhooks) == 0 {
+	if len(snapshot.ScopeHTTPHosts) == 0 && len(snapshot.ScopeStorageRoots) == 0 && len(snapshot.ScopeThirdPartyAccounts) == 0 && len(snapshot.ScopeWebhooks) == 0 {
 		return nil
 	}
 
 	response := &CapabilityParametersResponse{
-		HTTPHosts:    NormalizeStringList(snapshot.ScopeHTTPHosts),
-		StorageRoots: NormalizeStringList(snapshot.ScopeStorageRoots),
+		HTTPHosts:                  NormalizeStringList(snapshot.ScopeHTTPHosts),
+		StorageRoots:               NormalizeStringList(snapshot.ScopeStorageRoots),
+		ThirdPartyAccountPlatforms: NormalizeStringList(snapshot.ScopeThirdPartyAccounts),
 	}
 	if len(snapshot.ScopeWebhooks) > 0 {
 		response.Webhooks = make([]WebhookScopeResponse, 0, len(snapshot.ScopeWebhooks))

@@ -241,6 +241,20 @@
             "$ref": "#/$defs/webhook_scope"
           },
           "uniqueItems": true
+        },
+        "third_party_account_platforms": {
+          "type": "array",
+          "description": "Third-party account platforms accepted by thirdparty.account.read.",
+          "items": {
+            "type": "string",
+            "enum": [
+              "bilibili",
+              "weibo",
+              "douyin",
+              "netease_music"
+            ]
+          },
+          "uniqueItems": true
         }
       }
     },
@@ -493,7 +507,8 @@
         "event.expose_webhook",
         "render.image",
         "plugin.list",
-        "secret.read"
+        "secret.read",
+        "thirdparty.account.read"
       ]
     },
     "onebot_action_capability_name": {

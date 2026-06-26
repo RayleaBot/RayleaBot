@@ -92,6 +92,7 @@ func LoadSnapshot(infoPath, sourceRoot, repoRoot string, validator *schema.Valid
 	snapshot.RequireInstallScripts = manifestBoolField(manifest, "require_install_scripts")
 	snapshot.ScopeHTTPHosts = manifestCapabilityParameterList(manifest, "http_hosts")
 	snapshot.ScopeStorageRoots = manifestCapabilityParameterList(manifest, "storage_roots")
+	snapshot.ScopeThirdPartyAccounts = manifestCapabilityParameterList(manifest, "third_party_account_platforms")
 	snapshot.ScopeWebhooks = manifestWebhookParameters(manifest)
 	snapshot.ManifestCommands = manifestCommands(manifest)
 	snapshot.DynamicCommands = manifestDynamicCommands(manifest)

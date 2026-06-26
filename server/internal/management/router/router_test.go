@@ -12,7 +12,6 @@ import (
 	"gopkg.in/yaml.v3"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/management/authapi"
-	"github.com/RayleaBot/RayleaBot/server/internal/management/bilibiliapi"
 	"github.com/RayleaBot/RayleaBot/server/internal/management/configapi"
 	"github.com/RayleaBot/RayleaBot/server/internal/management/coreapi"
 	"github.com/RayleaBot/RayleaBot/server/internal/management/governanceapi"
@@ -48,8 +47,7 @@ func TestRegisterManagementRoutes(t *testing.T) {
 			logapi.NewHandlers(nil),
 			systemapi.NewRoutes(systemapi.NewSystemHandlers(nil), noopHandler),
 			renderapi.NewHandlers(nil),
-			thirdpartyapi.NewThirdPartyHandlers(nil, nil, nil, nil, nil),
-			bilibiliapi.NewBilibiliHandlers(nil, nil, nil),
+			thirdpartyapi.NewThirdPartyHandlers(nil, nil, nil),
 			taskapi.NewHandlers(nil, nil, nil),
 			pluginUI,
 			ProtectedRouteFunc(func(r chi.Router) {

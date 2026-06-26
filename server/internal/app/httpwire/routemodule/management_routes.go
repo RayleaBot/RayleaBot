@@ -9,7 +9,6 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/health"
 	"github.com/RayleaBot/RayleaBot/server/internal/management/authapi"
 	authhttp "github.com/RayleaBot/RayleaBot/server/internal/management/authhttp"
-	"github.com/RayleaBot/RayleaBot/server/internal/management/bilibiliapi"
 	"github.com/RayleaBot/RayleaBot/server/internal/management/configapi"
 	"github.com/RayleaBot/RayleaBot/server/internal/management/coreapi"
 	"github.com/RayleaBot/RayleaBot/server/internal/management/governanceapi"
@@ -77,16 +76,8 @@ func buildManagementRoutes(deps Deps, configService configapi.Service, pluginMan
 		Accounts:         services.ThirdParty,
 		AccountValidator: deps.ServiceBuild.ThirdPartyAccountValidator,
 		QRLogin:          services.ThirdPartyQRLogin,
-		Monitors:         services.BilibiliSource,
-		Transport:        deps.BilibiliHTTPTransport,
-		UserResolver:     services.UserResolver,
 	})
-	bilibiliHandler := bilibiliapi.NewModule(bilibiliapi.ModuleDeps{
-		Source:    services.BilibiliSource,
-		QRLogin:   services.ThirdPartyQRLogin,
-		Transport: deps.BilibiliHTTPTransport,
-	})
-	eventsWS := managementws.NewEventsHandler(eventState.Bridge, pluginState.Plugins, services.Protocol, deps.ServiceBuild.Status, services.GovernanceEvents, services.BilibiliEvents)
+	eventsWS := managementws.NewEventsHandler(eventState.Bridge, pluginState.Plugins, services.Protocol, deps.ServiceBuild.Status, services.GovernanceEvents)
 	tasksWS := managementws.NewTasksHandler(platformState.Tasks)
 	logsWS := managementws.NewLogsHandler(services.Logs)
 	consoleWS := managementws.NewConsoleHandler(platformState.Console, pluginState.Plugins)
@@ -131,7 +122,6 @@ func buildManagementRoutes(deps Deps, configService configapi.Service, pluginMan
 				systemModule,
 				renderHandler,
 				thirdPartyHandler,
-				bilibiliHandler,
 				taskHandler,
 				pluginManagementUI,
 				managementrouter.ProtectedRouteFunc(func(r chi.Router) {
