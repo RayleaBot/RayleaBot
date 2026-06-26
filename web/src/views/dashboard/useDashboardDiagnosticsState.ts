@@ -102,13 +102,6 @@ export function useDashboardDiagnosticsState(input: DiagnosticsInput) {
         detail: t('dashboard.diagnosticsThirdPartyDetail', { enabled: snapshot.third_party.enabled, invalid: snapshot.third_party.invalid }),
       },
       {
-        key: 'bilibili-source',
-        label: t('dashboard.diagnosticsSubsystems.bilibiliSource'),
-        status: statusToType(snapshot.bilibili_source.status),
-        value: statusLabel(snapshot.bilibili_source.status),
-        detail: snapshot.bilibili_source.summary,
-      },
-      {
         key: 'scheduler',
         label: t('dashboard.diagnosticsSubsystems.scheduler'),
         status: snapshot.scheduler.failed > 0 ? 'danger' as const : 'success' as const,

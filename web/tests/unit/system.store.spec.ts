@@ -49,6 +49,12 @@ describe('system store', () => {
           uptime_seconds: 3,
         })
       }
+      if (url.endsWith('/api/system/diagnostics')) {
+        return jsonResponse({
+          generated_at: '2026-06-25T00:00:00Z',
+          issues: [],
+        })
+      }
 
       throw new Error(`unexpected url: ${url}`)
     }))

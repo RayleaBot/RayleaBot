@@ -23,7 +23,6 @@ import {
   type ThirdPartyPlatform,
 } from '@/stores/third-party-accounts'
 import type {
-  ThirdPartyAccountProfile,
   ThirdPartyAccountSummary,
   ThirdPartyCredentialState,
   ThirdPartyQRCodeLoginCreateResponse,
@@ -211,12 +210,10 @@ async function saveDraft(key: string) {
     return
   }
   try {
-    const profile = qrLoginProfile(qrLogins[key])
     await store.saveAccount(draft.platform, accountId, {
       label,
       enabled: draft.enabled,
       ...(cookie ? { cookie } : {}),
-      ...(cookie && profile ? { profile } : {}),
     })
     cancelEdit(key)
     notifySuccess(t('builtinFeatures.thirdPartyAccounts.saved'))
@@ -270,20 +267,6 @@ function setQRLogin(key: string, response: ThirdPartyQRCodeLoginCreateResponse |
     drafts[key].account_id = normalizeAccountId(account.account_id)
     drafts[key].label = account.label || account.profile?.nickname || drafts[key].label
     drafts[key].configured = true
-  }
-}
-
-function qrLoginProfile(qr?: QRLoginState): ThirdPartyAccountProfile | null {
-  const uid = qr?.accountUid.trim() || ''
-  const nickname = qr?.accountNickname.trim() || ''
-  const avatarUrl = qr?.accountAvatarUrl.trim() || ''
-  if (!uid || !nickname || !avatarUrl) {
-    return null
-  }
-  return {
-    uid,
-    nickname,
-    avatar_url: avatarUrl,
   }
 }
 
@@ -647,14 +630,6 @@ function timeText(value?: string | null) {
                   <div>
                     <dt>{{ t('builtinFeatures.thirdPartyAccounts.accountId') }}</dt>
                     <dd>{{ account.account_id }}</dd>
-                  </div>
-                  <div>
-                    <dt>{{ t('builtinFeatures.thirdPartyAccounts.polling') }}</dt>
-                    <dd>{{ account.polling.enabled ? t('builtinFeatures.thirdPartyAccounts.enabled') : t('builtinFeatures.thirdPartyAccounts.disabled') }}</dd>
-                  </div>
-                  <div>
-                    <dt>{{ t('builtinFeatures.thirdPartyAccounts.lastUsedAt') }}</dt>
-                    <dd>{{ timeText(account.polling.last_used_at) }}</dd>
                   </div>
                   <div>
                     <dt>{{ t('builtinFeatures.thirdPartyAccounts.credentialCheckedAt') }}</dt>

@@ -23,7 +23,6 @@ export type SocketSnapshotMap = Record<SocketChannelKey, SocketSnapshot>
 
 export type PluginStateEvent = Extract<EventsPayload, { plugin_id: string }>
 export type ProtocolSnapshotEvent = Extract<EventsPayload, { protocol_snapshot: OneBot11ProtocolSnapshotResponse }>
-export type BilibiliSourceStatusEvent = Extract<EventsPayload, { source: string }>
 
 export interface PluginSocketProjection {
   id: string
@@ -59,9 +58,6 @@ export interface SocketFrameRouterDependencies {
   }
   protocols: {
     applySnapshot: (snapshot: OneBot11ProtocolSnapshotResponse) => void
-  }
-  thirdPartyMonitoring: {
-    handleSourceStatusEvent: (payload: BilibiliSourceStatusEvent) => void
   }
 }
 

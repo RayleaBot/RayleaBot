@@ -13,7 +13,6 @@ import {
   HddOutlined,
   LoginOutlined,
   ProfileOutlined,
-  RadarChartOutlined,
   SafetyCertificateOutlined,
   SettingOutlined,
   StopOutlined,
@@ -41,7 +40,6 @@ const iconMap: Record<string, Component> = {
   setting: SettingOutlined,
   system: HddOutlined,
   'third-party-accounts': LinkOutlined,
-  'third-party-monitoring': RadarChartOutlined,
   tasks: ProfileOutlined,
   toolbox: ToolOutlined,
 }

@@ -60,19 +60,6 @@ export const adminRoutes: RouteRecordRaw[] = [
               viewKey: 'third-party-accounts',
             },
           },
-          {
-            path: '/third-party-monitoring',
-            name: 'third-party-monitoring',
-            component: () => import('@/views/builtin/ThirdPartyMonitoringView.vue'),
-            meta: {
-              icon: 'third-party-monitoring',
-              keepAlive: true,
-              order: 3,
-              requiresAuth: true,
-              titleKey: 'routes.thirdPartyMonitoring',
-              viewKey: 'third-party-monitoring',
-            },
-          },
         ],
       },
       {

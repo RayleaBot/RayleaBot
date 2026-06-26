@@ -11,7 +11,6 @@ import { useSessionStore } from '@/stores/session'
 import { useSchedulerJobsStore } from '@/stores/scheduler-jobs'
 import { useSystemStore } from '@/stores/system'
 import { useTasksStore } from '@/stores/tasks'
-import { useThirdPartyMonitoringStore } from '@/stores/third-party-monitoring'
 
 export const useSocketStore = defineStore('sockets', () => {
   const sessionStore = useSessionStore()
@@ -23,7 +22,6 @@ export const useSocketStore = defineStore('sockets', () => {
   const governanceStore = useGovernanceStore()
   const protocolsStore = useProtocolsStore()
   const systemStore = useSystemStore()
-  const thirdPartyMonitoringStore = useThirdPartyMonitoringStore()
 
   const router = createSocketFrameRouter({
     system: {
@@ -51,9 +49,6 @@ export const useSocketStore = defineStore('sockets', () => {
     },
     protocols: {
       applySnapshot: protocolsStore.applySnapshot,
-    },
-    thirdPartyMonitoring: {
-      handleSourceStatusEvent: thirdPartyMonitoringStore.handleSourceStatusEvent,
     },
   })
 

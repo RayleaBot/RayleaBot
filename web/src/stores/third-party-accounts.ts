@@ -2,10 +2,8 @@ import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
 
 import { getDisplayErrorMessage } from '@/lib/error-text'
-import { apiDownload, apiRequest } from '@/lib/http'
+import { apiRequest } from '@/lib/http'
 import type {
-  BilibiliQRCodeLoginCreateResponse,
-  BilibiliQRCodeLoginPollResponse,
   ThirdPartyAccountSummary,
   ThirdPartyAccountUpsertRequest,
   ThirdPartyAccountUpsertResponse,
@@ -33,7 +31,6 @@ export const useThirdPartyAccountsStore = defineStore('third-party-accounts', ()
   const qrcodeCreating = ref(false)
   const qrcodePollingLoginId = ref<string | null>(null)
   const error = ref<string | null>(null)
-  const mediaObjectURLs = new Map<string, string>()
 
   const bilibiliAccounts = computed(() => accounts.value
     .filter((account) => account.platform === 'bilibili')
@@ -50,7 +47,7 @@ export const useThirdPartyAccountsStore = defineStore('third-party-accounts', ()
     error.value = null
     try {
       const accountsResponse = await apiRequest<ThirdPartyAccountsResponse>('/api/third-party/accounts')
-      accounts.value = await resolveAccountMedia(accountsResponse.items)
+      accounts.value = accountsResponse.items
     } catch (err) {
       error.value = getDisplayErrorMessage(err, 'errors.common.loadFailed')
       throw err
@@ -66,9 +63,8 @@ export const useThirdPartyAccountsStore = defineStore('third-party-accounts', ()
         `/api/third-party/accounts/${encodeURIComponent(platform)}/${encodeURIComponent(accountId)}`,
         { method: 'PUT', body: payload },
       )
-      const account = await resolveAccountMediaItem(response.account)
-      upsertAccount(account)
-      return account
+      upsertAccount(response.account)
+      return response.account
     } finally {
       savingAccountId.value = null
     }
@@ -94,22 +90,7 @@ export const useThirdPartyAccountsStore = defineStore('third-party-accounts', ()
     return deleteAccount('bilibili', accountId)
   }
 
-  async function createBilibiliQRCodeLogin() {
-    qrcodeCreating.value = true
-    try {
-      return await apiRequest<BilibiliQRCodeLoginCreateResponse>('/api/bilibili/login/qrcode', {
-        method: 'POST',
-      })
-    } finally {
-      qrcodeCreating.value = false
-    }
-  }
-
   async function createQRCodeLogin(platform: ThirdPartyPlatform): Promise<ThirdPartyQRCodeLoginCreateResponse> {
-    if (platform === 'bilibili') {
-      const response = await createBilibiliQRCodeLogin()
-      return { ...response, platform }
-    }
     qrcodeCreating.value = true
     try {
       return await apiRequest<ThirdPartyQRCodeLoginCreateResponse>(
@@ -121,24 +102,7 @@ export const useThirdPartyAccountsStore = defineStore('third-party-accounts', ()
     }
   }
 
-  async function pollBilibiliQRCodeLogin(loginId: string) {
-    qrcodePollingLoginId.value = loginId
-    try {
-      const response = await apiRequest<BilibiliQRCodeLoginPollResponse>(
-        `/api/bilibili/login/qrcode/${encodeURIComponent(loginId)}`,
-      )
-      await applyQRCodeAccount(response.account)
-      return response
-    } finally {
-      qrcodePollingLoginId.value = null
-    }
-  }
-
   async function pollQRCodeLogin(platform: ThirdPartyPlatform, loginId: string): Promise<ThirdPartyQRCodeLoginPollResponse> {
-    if (platform === 'bilibili') {
-      const response = await pollBilibiliQRCodeLogin(loginId)
-      return { ...response, platform }
-    }
     qrcodePollingLoginId.value = loginId
     try {
       const response = await apiRequest<ThirdPartyQRCodeLoginPollResponse>(
@@ -155,7 +119,7 @@ export const useThirdPartyAccountsStore = defineStore('third-party-accounts', ()
     if (!account) {
       return
     }
-    upsertAccount(await resolveAccountMediaItem(account))
+    upsertAccount(account)
   }
 
   function upsertAccount(account: ThirdPartyAccountSummary) {
@@ -171,48 +135,7 @@ export const useThirdPartyAccountsStore = defineStore('third-party-accounts', ()
     return `${platform}:${accountId}`
   }
 
-  async function resolveAccountMedia(items: ThirdPartyAccountSummary[]) {
-    return Promise.all(items.map(resolveAccountMediaItem))
-  }
-
-  async function resolveAccountMediaItem(account: ThirdPartyAccountSummary) {
-    const avatarURL = await downloadThirdPartyMedia(account.profile?.avatar_url || '')
-    if (!avatarURL || !account.profile || avatarURL === account.profile.avatar_url) {
-      return account
-    }
-    return {
-      ...account,
-      profile: {
-        ...account.profile,
-        avatar_url: avatarURL,
-      },
-    }
-  }
-
-  async function downloadThirdPartyMedia(url: string) {
-    const normalizedURL = normalizeThirdPartyMediaURL(url)
-    if (!normalizedURL) {
-      return url
-    }
-    const cached = mediaObjectURLs.get(normalizedURL)
-    if (cached) {
-      return cached
-    }
-    try {
-      const { blob } = await apiDownload(`/api/third-party/media?url=${encodeURIComponent(normalizedURL)}`)
-      const objectURL = window.URL.createObjectURL(blob)
-      mediaObjectURLs.set(normalizedURL, objectURL)
-      return objectURL
-    } catch {
-      return url
-    }
-  }
-
   function disposeMedia() {
-    for (const objectURL of mediaObjectURLs.values()) {
-      window.URL.revokeObjectURL(objectURL)
-    }
-    mediaObjectURLs.clear()
   }
 
   return {
@@ -225,54 +148,13 @@ export const useThirdPartyAccountsStore = defineStore('third-party-accounts', ()
     qrcodeCreating,
     qrcodePollingLoginId,
     savingAccountId,
-    createBilibiliQRCodeLogin,
     createQRCodeLogin,
     deleteAccount,
     deleteBilibiliAccount,
     disposeMedia,
     fetchAll,
-    pollBilibiliQRCodeLogin,
     pollQRCodeLogin,
     saveAccount,
     saveBilibiliAccount,
   }
 })
-
-function normalizeThirdPartyMediaURL(value: string) {
-  const text = value.trim()
-  if (!text) {
-    return ''
-  }
-  try {
-    const parsed = new URL(text.startsWith('//') ? `https:${text}` : text)
-    if ((parsed.protocol !== 'https:' && parsed.protocol !== 'http:') || !isSupportedThirdPartyMediaHost(parsed.hostname)) {
-      return ''
-    }
-    if (isBilibiliMediaHost(parsed.hostname) && !parsed.pathname.startsWith('/bfs/') && !parsed.pathname.startsWith('/fs/')) {
-      return ''
-    }
-    if (isWeiboMediaHost(parsed.hostname) && (!parsed.pathname || parsed.pathname === '/')) {
-      return ''
-    }
-    parsed.protocol = 'https:'
-    parsed.search = ''
-    parsed.hash = ''
-    return parsed.toString()
-  } catch {
-    return ''
-  }
-}
-
-function isSupportedThirdPartyMediaHost(hostname: string) {
-  return isBilibiliMediaHost(hostname) || isWeiboMediaHost(hostname)
-}
-
-function isBilibiliMediaHost(hostname: string) {
-  const host = hostname.toLowerCase()
-  return host === 'hdslb.com' || host.endsWith('.hdslb.com')
-}
-
-function isWeiboMediaHost(hostname: string) {
-  const host = hostname.toLowerCase()
-  return host === 'sinaimg.cn' || host.endsWith('.sinaimg.cn')
-}

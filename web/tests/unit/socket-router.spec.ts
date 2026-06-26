@@ -40,9 +40,6 @@ describe('socket frame router', () => {
       protocols: {
         applySnapshot: vi.fn(),
       },
-      thirdPartyMonitoring: {
-        handleSourceStatusEvent: vi.fn(),
-      },
     }
     const router = createSocketFrameRouter(dependencies)
 
@@ -105,9 +102,6 @@ describe('socket frame router', () => {
       protocols: {
         applySnapshot: vi.fn(),
       },
-      thirdPartyMonitoring: {
-        handleSourceStatusEvent: vi.fn(),
-      },
     }
     const router = createSocketFrameRouter(dependencies)
 
@@ -156,75 +150,6 @@ describe('socket frame router', () => {
     expect(dependencies.protocols.applySnapshot).toHaveBeenCalledTimes(1)
   })
 
-  it('routes bilibili source status events to the third-party monitoring dependency', () => {
-    const dependencies = {
-      system: {
-        applyEvent: vi.fn(),
-        refreshStatus: vi.fn().mockResolvedValue(undefined),
-      },
-      plugins: {
-        upsert: vi.fn(),
-      },
-      pluginConsole: {
-        appendOutboundLog: vi.fn(),
-        appendConsole: vi.fn(),
-      },
-      tasks: {
-        upsert: vi.fn(),
-      },
-      schedulerJobs: {
-        scheduleDataSourceRefresh: vi.fn(),
-      },
-      logs: {
-        appendBatch: vi.fn(),
-      },
-      governance: {
-        refresh: vi.fn().mockResolvedValue(undefined),
-      },
-      protocols: {
-        applySnapshot: vi.fn(),
-      },
-      thirdPartyMonitoring: {
-        handleSourceStatusEvent: vi.fn(),
-      },
-    }
-    const router = createSocketFrameRouter(dependencies)
-
-    const payload = {
-      source: 'bilibili',
-      status: 'connected',
-      summary: 'Bilibili 事件源运行中',
-      live_watched_rooms: 1,
-      live_connected_rooms: 1,
-      live_failed_rooms: 0,
-      fallback_polling: false,
-      dynamic_enabled: true,
-      dynamic_watched_uids: 1,
-      last_event_at: '2026-04-20T08:00:00Z',
-      last_error: '',
-      diagnosis: {
-        level: 'normal' as const,
-        headline: 'Bilibili 事件源运行中',
-        description: '直播和动态检查正在正常运行。',
-        causes: [],
-        impacts: [],
-        actions: [],
-        updated_at: '2026-04-20T08:00:00Z',
-      },
-    }
-    router.handleEventsFrame({
-      channel: 'events',
-      type: 'events.received',
-      timestamp: '2026-04-20T08:00:00Z',
-      data: payload,
-    })
-
-    expect(dependencies.system.applyEvent).toHaveBeenCalledTimes(1)
-    expect(dependencies.thirdPartyMonitoring.handleSourceStatusEvent).toHaveBeenCalledWith(payload)
-    expect(dependencies.system.refreshStatus).not.toHaveBeenCalled()
-    expect(dependencies.governance.refresh).not.toHaveBeenCalled()
-  })
-
   it('routes task, log, and console frames without changing payload semantics', async () => {
     const dependencies = {
       system: {
@@ -252,9 +177,6 @@ describe('socket frame router', () => {
       },
       protocols: {
         applySnapshot: vi.fn(),
-      },
-      thirdPartyMonitoring: {
-        handleSourceStatusEvent: vi.fn(),
       },
     }
     const router = createSocketFrameRouter(dependencies)
@@ -356,9 +278,6 @@ describe('socket frame router', () => {
       protocols: {
         applySnapshot: vi.fn(),
       },
-      thirdPartyMonitoring: {
-        handleSourceStatusEvent: vi.fn(),
-      },
     }
     const router = createSocketFrameRouter(dependencies)
 
@@ -418,9 +337,6 @@ describe('socket frame router', () => {
       },
       protocols: {
         applySnapshot: vi.fn(),
-      },
-      thirdPartyMonitoring: {
-        handleSourceStatusEvent: vi.fn(),
       },
     }
     const router = createSocketFrameRouter(dependencies)
@@ -484,9 +400,6 @@ describe('socket frame router', () => {
       protocols: {
         applySnapshot: vi.fn(),
       },
-      thirdPartyMonitoring: {
-        handleSourceStatusEvent: vi.fn(),
-      },
     }
     const router = createSocketFrameRouter(dependencies)
 
@@ -548,9 +461,6 @@ describe('socket frame router', () => {
       },
       protocols: {
         applySnapshot: vi.fn(),
-      },
-      thirdPartyMonitoring: {
-        handleSourceStatusEvent: vi.fn(),
       },
     }
     const router = createSocketFrameRouter(dependencies)

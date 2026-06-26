@@ -52,7 +52,6 @@ export const dashboard = {
     plugins: '插件',
     render: '图片渲染',
     thirdParty: '三方账号',
-    bilibiliSource: 'Bilibili Source',
     scheduler: '定时任务',
     tasks: '后台任务',
     dependencies: '运行依赖',

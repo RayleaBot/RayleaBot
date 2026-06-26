@@ -15,7 +15,6 @@ const externalPreviewImageBytes = Buffer.from(
   'base64',
 )
 const bilibiliAvatarUrl = 'http://127.0.0.1:4010/external-preview/avatar.png'
-const bilibiliMonitorMediaUrl = '//i0.hdslb.com/bfs/face/rayleabot-avatar.png'
 const weiboAvatarUrl = 'https://tvax1.sinaimg.cn/crop.0.0.512.512.180/fixture.jpg'
 const redactedConfigValue = '********'
 const secretConfigPaths = [
@@ -86,12 +85,9 @@ const fixtures = {
   governanceCommandPolicy: await readFixture('fixtures/web-api/ok.governance-command-policy-response.yaml'),
   thirdPartyAccounts: await readFixture('fixtures/web-api/ok.third-party-accounts-list.yaml'),
   thirdPartyAccountUpsert: await readFixture('fixtures/web-api/ok.third-party-account-upsert.yaml'),
-  thirdPartyMonitors: await readFixture('fixtures/web-api/ok.third-party-monitors-bilibili.yaml'),
-  bilibiliSourceStatus: await readFixture('fixtures/web-api/ok.bilibili-source-status.yaml'),
-  bilibiliSourceRestart: await readFixture('fixtures/web-api/ok.bilibili-source-restart.yaml'),
-  bilibiliQRCodeCreate: await readFixture('fixtures/web-api/ok.bilibili-login-qrcode-create.yaml'),
-  bilibiliQRCodePollPending: await readFixture('fixtures/web-api/ok.bilibili-login-qrcode-poll-pending.yaml'),
-  bilibiliQRCodePollSucceeded: await readFixture('fixtures/web-api/ok.bilibili-login-qrcode-poll-succeeded.yaml'),
+  thirdPartyQRCodeCreateBilibili: await readFixture('fixtures/web-api/ok.third-party-login-qrcode-create-bilibili.yaml'),
+  thirdPartyQRCodePollBilibiliPending: await readFixture('fixtures/web-api/ok.third-party-login-qrcode-poll-bilibili-pending.yaml'),
+  thirdPartyQRCodePollBilibiliSucceeded: await readFixture('fixtures/web-api/ok.third-party-login-qrcode-poll-bilibili-succeeded.yaml'),
   thirdPartyQRCodeCreateWeibo: await readFixture('fixtures/web-api/ok.third-party-login-qrcode-create-weibo.yaml'),
   thirdPartyQRCodePollWeiboPending: await readFixture('fixtures/web-api/ok.third-party-login-qrcode-poll-weibo-pending.yaml'),
   thirdPartyQRCodePollWeiboSucceeded: await readFixture('fixtures/web-api/ok.third-party-login-qrcode-poll-weibo-succeeded.yaml'),
@@ -141,10 +137,6 @@ function baseState() {
     governanceWhitelist: structuredClone(fixtures.governanceWhitelist.response.body),
     governanceCommandPolicy: structuredClone(fixtures.governanceCommandPolicy.response.body),
     thirdPartyAccounts,
-    thirdPartyMonitors: structuredClone(fixtures.thirdPartyMonitors.response.body.items)
-      .map(localizeBilibiliMonitorMedia),
-    bilibiliSourceStatus: structuredClone(fixtures.bilibiliSourceStatus.response.body),
-    bilibiliQRCodePolls: {},
     thirdPartyQRCodePolls: {},
     renderTemplates: createRenderTemplateState(),
     schedulerJobs: structuredClone(fixtures.schedulerJobsList.response.body.items),
@@ -332,6 +324,12 @@ const thirdPartyAccountPlatforms = ['bilibili', 'weibo', 'douyin', 'netease_musi
 
 function thirdPartyQRCodeFixtures(platform) {
   switch (platform) {
+    case 'bilibili':
+      return {
+        create: fixtures.thirdPartyQRCodeCreateBilibili,
+        pending: fixtures.thirdPartyQRCodePollBilibiliPending,
+        succeeded: fixtures.thirdPartyQRCodePollBilibiliSucceeded,
+      }
     case 'weibo':
       return {
         create: fixtures.thirdPartyQRCodeCreateWeibo,
@@ -368,23 +366,6 @@ function defaultCredentialStatus(platform) {
     checked_at: new Date().toISOString(),
     last_error: '',
   }
-}
-
-function localizeBilibiliMonitorMedia(item) {
-  if (!item) {
-    return item
-  }
-  item.avatar_url = bilibiliMonitorMediaUrl
-  if (item.live) {
-    item.live.cover_url = bilibiliMonitorMediaUrl
-  }
-  if (item.dynamic?.images?.length) {
-    item.dynamic.images = item.dynamic.images.map((image) => ({
-      ...image,
-      url: bilibiliMonitorMediaUrl,
-    }))
-  }
-  return item
 }
 
 function syncGovernanceCommandPolicyFromConfig(config) {
@@ -1655,42 +1636,6 @@ const server = http.createServer(async (request, response) => {
     return
   }
 
-  if (pathname === '/api/third-party/monitors' && request.method === 'GET') {
-    if (!requireAuth(request, response)) {
-      return
-    }
-    const monitorPlatform = searchParams.get('platform') || 'bilibili'
-    if (monitorPlatform !== 'bilibili') {
-      json(response, 400, errorEnvelope('platform.invalid_request', 'third-party monitor platform is invalid', 'req_third_party_monitor_invalid'))
-      return
-    }
-    json(response, 200, {
-      ...structuredClone(fixtures.thirdPartyMonitors.response.body),
-      items: structuredClone(state.thirdPartyMonitors),
-      updated_at: new Date().toISOString(),
-    })
-    return
-  }
-
-  if (pathname === '/api/third-party/media' && request.method === 'GET') {
-    if (!requireAuth(request, response)) {
-      return
-    }
-    const mediaURL = new URL(searchParams.get('url') || '')
-    const allowedBilibiliMedia = mediaURL.hostname.endsWith('.hdslb.com') && (mediaURL.pathname.startsWith('/bfs/') || mediaURL.pathname.startsWith('/fs/'))
-    const allowedWeiboAvatar = mediaURL.hostname.endsWith('.sinaimg.cn') && mediaURL.pathname !== '/'
-    if (mediaURL.protocol !== 'https:' || (!allowedBilibiliMedia && !allowedWeiboAvatar)) {
-      json(response, 400, errorEnvelope('platform.invalid_request', 'third-party media url is invalid', 'req_third_party_media_invalid'))
-      return
-    }
-    response.writeHead(200, {
-      'Content-Type': 'image/png',
-      'Cache-Control': 'no-store',
-    })
-    response.end(externalPreviewImageBytes)
-    return
-  }
-
   if (pathname.startsWith('/api/third-party/accounts/') && request.method === 'PUT') {
     if (!requireAuth(request, response)) {
       return
@@ -1720,22 +1665,17 @@ const server = http.createServer(async (request, response) => {
       configured: previous?.configured || Boolean(payload.cookie),
       profile: previous?.profile ?? null,
       credential: previous?.credential ?? defaultCredentialStatus(platform),
-      polling: {
-        enabled: payload.enabled && (previous?.configured || Boolean(payload.cookie)),
-        last_used_at: previous?.polling?.last_used_at ?? null,
-      },
       updated_at: new Date().toISOString(),
     }
     if (payload.cookie) {
       nextAccount.profile = platform === 'bilibili'
         ? structuredClone(fixtureAccount.profile)
-        : structuredClone(payload.profile ?? succeededFixture?.account ?? previous?.profile ?? null)
+        : structuredClone(succeededFixture?.account?.profile ?? previous?.profile ?? null)
       if (platform === 'weibo' && nextAccount.profile) {
         nextAccount.profile.avatar_url = weiboAvatarUrl
       }
       nextAccount.credential = defaultCredentialStatus(platform)
       nextAccount.configured = true
-      nextAccount.polling.enabled = payload.enabled
     }
     localizeBilibiliAccountAvatar(nextAccount)
     state.thirdPartyAccounts = [
@@ -1783,8 +1723,8 @@ const server = http.createServer(async (request, response) => {
       ? fixturesForPlatform.succeeded
       : fixturesForPlatform.pending
     const body = structuredClone(fixture.response.body)
-    if (platform === 'weibo' && body.account) {
-      body.account.avatar_url = weiboAvatarUrl
+    if (platform === 'weibo' && body.account?.profile) {
+      body.account.profile.avatar_url = weiboAvatarUrl
     }
     json(response, fixture.response.status, {
       ...body,
@@ -1803,69 +1743,6 @@ const server = http.createServer(async (request, response) => {
     const accountId = decodeURIComponent(segments[5] ?? '')
     state.thirdPartyAccounts = state.thirdPartyAccounts.filter((item) => item.platform !== platform || item.account_id !== accountId)
     noContent(response)
-    return
-  }
-
-  if (pathname === '/api/bilibili/source/status' && request.method === 'GET') {
-    if (!requireAuth(request, response)) {
-      return
-    }
-
-    json(response, 200, {
-      ...structuredClone(state.bilibiliSourceStatus),
-      accounts: structuredClone(state.thirdPartyAccounts),
-    })
-    return
-  }
-
-  if (pathname === '/api/bilibili/source/restart' && request.method === 'POST') {
-    if (!requireAuth(request, response)) {
-      return
-    }
-
-    json(response, fixtures.bilibiliSourceRestart.response.status, {
-      ...structuredClone(fixtures.bilibiliSourceRestart.response.body),
-      status: {
-        ...structuredClone(state.bilibiliSourceStatus),
-        accounts: structuredClone(state.thirdPartyAccounts),
-      },
-    })
-    return
-  }
-
-  if (pathname === '/api/bilibili/login/qrcode' && request.method === 'POST') {
-    if (!requireAuth(request, response)) {
-      return
-    }
-
-    const body = structuredClone(fixtures.bilibiliQRCodeCreate.response.body)
-    state.bilibiliQRCodePolls[body.login_id] = 0
-    json(response, fixtures.bilibiliQRCodeCreate.response.status, body)
-    return
-  }
-
-  if (pathname.startsWith('/api/bilibili/login/qrcode/') && request.method === 'GET') {
-    if (!requireAuth(request, response)) {
-      return
-    }
-
-    const loginId = decodeURIComponent(pathname.split('/')[5] ?? '')
-    if (!loginId || !(loginId in state.bilibiliQRCodePolls)) {
-      json(response, 400, errorEnvelope('platform.invalid_request', 'qr login session not found', 'req_bilibili_qr_missing'))
-      return
-    }
-    state.bilibiliQRCodePolls[loginId] += 1
-    const fixture = state.bilibiliQRCodePolls[loginId] > 1
-      ? fixtures.bilibiliQRCodePollSucceeded
-      : fixtures.bilibiliQRCodePollPending
-    const body = structuredClone(fixture.response.body)
-    if (body.account) {
-      body.account.avatar_url = bilibiliAvatarUrl
-    }
-    json(response, fixture.response.status, {
-      ...body,
-      login_id: loginId,
-    })
     return
   }
 

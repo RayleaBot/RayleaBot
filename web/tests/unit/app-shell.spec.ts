@@ -679,7 +679,7 @@ describe('BasicLayout', () => {
     const logsGroup = menuGroups.find((item) => item.text().includes('日志中心'))
     const protocolGroup = menuGroups.find((item) => item.text().includes('协议'))
 
-    expect(builtinGroup?.findAll('.admin-layout__menu-icon')).toHaveLength(4)
+    expect(builtinGroup?.findAll('.admin-layout__menu-icon')).toHaveLength(3)
     expect(pluginGroup?.findAll('.admin-layout__menu-icon')).toHaveLength(4)
     expect(operationsGroup?.findAll('.admin-layout__menu-icon')).toHaveLength(6)
     expect(logsGroup?.findAll('.admin-layout__menu-icon')).toHaveLength(3)

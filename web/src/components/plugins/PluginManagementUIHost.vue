@@ -37,8 +37,6 @@ interface PluginManagementUIPage {
   entry: string
 }
 
-type ThirdPartyBridgePlatform = 'bilibili' | 'weibo' | 'douyin' | 'netease_music'
-
 type PluginManagementUIInboundMessage =
   | {
     version: '1'
@@ -113,20 +111,11 @@ type PluginManagementUIInboundMessage =
   | {
     version: '1'
     source: 'plugin_management_ui'
-    type: 'bilibili.user.resolve'
+    type: 'plugin.action.invoke'
     request_id?: string
     payload: {
-      query: string
-    }
-  }
-  | {
-    version: '1'
-    source: 'plugin_management_ui'
-    type: 'thirdparty.user.resolve'
-    request_id?: string
-    payload: {
-      platform: ThirdPartyBridgePlatform
-      query: string
+      action: string
+      payload?: Record<string, unknown>
     }
   }
 
@@ -180,39 +169,15 @@ interface OneBot11IdentityResolveResponse {
   issues: OneBot11TargetIssue[]
 }
 
-interface BilibiliResolvedUser {
-  uid: string
-  name: string
-  avatar_url: string
-  fans?: number
-}
-
-interface BilibiliUserResolveResponse {
-  query: string
-  exact: boolean
-  user?: BilibiliResolvedUser
-  candidates: BilibiliResolvedUser[]
-  message?: string
-}
-
-interface ThirdPartyResolvedUser {
-  uid: string
-  name: string
-  avatar_url: string
-}
-
-interface ThirdPartyUserResolveResponse {
-  platform: ThirdPartyBridgePlatform
-  query: string
-  exact: boolean
-  user?: ThirdPartyResolvedUser
-  candidates: ThirdPartyResolvedUser[]
-  message?: string
+interface PluginManagementActionResponse {
+  plugin_id: string
+  action: string
+  result: Record<string, unknown>
 }
 
 const pluginSecretKeyPattern = /^[a-z0-9](?:[a-z0-9_.-]{0,126}[a-z0-9])?$/
 const numericIdPattern = /^[0-9]+$/
-const thirdPartyBridgePlatforms = new Set<ThirdPartyBridgePlatform>(['bilibili', 'weibo', 'douyin', 'netease_music'])
+const pluginActionPattern = /^[a-z][a-z0-9_.:-]*$/
 
 const props = defineProps<{
   plugin: PluginDetail
@@ -442,12 +407,6 @@ function toStringRecord(value: unknown) {
   return result
 }
 
-function toThirdPartyBridgePlatform(value: unknown): ThirdPartyBridgePlatform | '' {
-  return typeof value === 'string' && thirdPartyBridgePlatforms.has(value as ThirdPartyBridgePlatform)
-    ? value as ThirdPartyBridgePlatform
-    : ''
-}
-
 function toBridgeValue<T>(value: T): T {
   if (value === undefined) {
     return value
@@ -606,37 +565,21 @@ function parseInboundBridgeMessage(value: unknown): PluginManagementUIInboundMes
         },
       }
     }
-    case 'bilibili.user.resolve': {
+    case 'plugin.action.invoke': {
       const payload = toRecord(record.payload)
-      const query = typeof payload?.query === 'string' ? payload.query.trim() : ''
-      if (!query) {
+      const action = typeof payload?.action === 'string' ? payload.action.trim() : ''
+      if (!pluginActionPattern.test(action)) {
         return null
       }
+      const actionPayload = toRecord(payload?.payload)
       return {
         version: '1',
         source: 'plugin_management_ui',
-        type: 'bilibili.user.resolve',
+        type: 'plugin.action.invoke',
         request_id: requestId,
         payload: {
-          query,
-        },
-      }
-    }
-    case 'thirdparty.user.resolve': {
-      const payload = toRecord(record.payload)
-      const platform = toThirdPartyBridgePlatform(payload?.platform)
-      const query = typeof payload?.query === 'string' ? payload.query.trim() : ''
-      if (!platform || !query) {
-        return null
-      }
-      return {
-        version: '1',
-        source: 'plugin_management_ui',
-        type: 'thirdparty.user.resolve',
-        request_id: requestId,
-        payload: {
-          platform,
-          query,
+          action,
+          ...(actionPayload ? { payload: actionPayload } : {}),
         },
       }
     }
@@ -763,23 +706,13 @@ function postProtocolIdentitiesResolved(response: OneBot11IdentityResolveRespons
   })
 }
 
-function postBilibiliUserResolved(response: BilibiliUserResolveResponse, requestId?: string) {
+function postPluginActionResult(action: string, result: Record<string, unknown>, requestId?: string) {
   return postMessageToIframe({
     version: '1',
     source: 'management_host',
-    type: 'bilibili.user.resolved',
-    request_id: requestId ?? nextBridgeRequestId('bilibili-user-resolved'),
-    payload: toBridgeValue(response),
-  })
-}
-
-function postThirdPartyUserResolved(response: ThirdPartyUserResolveResponse, requestId?: string) {
-  return postMessageToIframe({
-    version: '1',
-    source: 'management_host',
-    type: 'thirdparty.user.resolved',
-    request_id: requestId ?? nextBridgeRequestId('third-party-user-resolved'),
-    payload: toBridgeValue(response),
+    type: 'plugin.action.result',
+    request_id: requestId ?? nextBridgeRequestId('plugin-action-result'),
+    payload: toBridgeValue({ action, result }),
   })
 }
 
@@ -962,19 +895,22 @@ async function resolveProtocolIdentities(items: OneBot11IdentityResolveItem[], r
   }
 }
 
-async function resolveBilibiliUser(query: string, requestId?: string) {
-  if (!canUseBridgeCapabilities(['http.request'], requestId)) {
-    return
-  }
+async function invokePluginManagementAction(action: string, payload: Record<string, unknown>, requestId?: string) {
   const currentToken = bridgeToken
 
   try {
-    const response = await fetchBilibiliUserResolve(query)
+    const response = await apiRequest<PluginManagementActionResponse>(
+      `/api/plugins/${encodeURIComponent(props.plugin.id)}/management/actions`,
+      {
+        method: 'POST',
+        body: { action, payload },
+      },
+    )
     if (currentToken !== bridgeToken) {
       return
     }
     actionError.value = null
-    postBilibiliUserResolved(response, requestId)
+    postPluginActionResult(response.action, response.result, requestId)
   } catch (error) {
     if (currentToken !== bridgeToken) {
       return
@@ -985,63 +921,6 @@ async function resolveBilibiliUser(query: string, requestId?: string) {
       code: error instanceof ApiError ? error.code : undefined,
       requestId,
     })
-  }
-}
-
-async function resolveThirdPartyUser(platform: ThirdPartyBridgePlatform, query: string, requestId?: string) {
-  if (!canUseBridgeCapabilities(['http.request'], requestId)) {
-    return
-  }
-  const currentToken = bridgeToken
-
-  try {
-    const response = platform === 'bilibili'
-      ? thirdPartyResponseFromBilibili(await fetchBilibiliUserResolve(query))
-      : await fetchThirdPartyUserResolve(platform, query)
-    if (currentToken !== bridgeToken) {
-      return
-    }
-    actionError.value = null
-    postThirdPartyUserResolved(response, requestId)
-  } catch (error) {
-    if (currentToken !== bridgeToken) {
-      return
-    }
-
-    actionError.value = getDisplayErrorMessage(error)
-    postBridgeError(actionError.value, {
-      code: error instanceof ApiError ? error.code : undefined,
-      requestId,
-    })
-  }
-}
-
-async function fetchBilibiliUserResolve(query: string) {
-  const params = new URLSearchParams({ query })
-  return apiRequest<BilibiliUserResolveResponse>(`/api/bilibili/users/resolve?${params.toString()}`)
-}
-
-async function fetchThirdPartyUserResolve(platform: Exclude<ThirdPartyBridgePlatform, 'bilibili'>, query: string) {
-  const params = new URLSearchParams({ platform, query })
-  return apiRequest<ThirdPartyUserResolveResponse>(`/api/third-party/users/resolve?${params.toString()}`)
-}
-
-function thirdPartyResponseFromBilibili(response: BilibiliUserResolveResponse): ThirdPartyUserResolveResponse {
-  return {
-    platform: 'bilibili',
-    query: response.query,
-    exact: response.exact,
-    user: response.user ? thirdPartyUserFromBilibili(response.user) : undefined,
-    candidates: response.candidates.map(thirdPartyUserFromBilibili),
-    ...(response.message ? { message: response.message } : {}),
-  }
-}
-
-function thirdPartyUserFromBilibili(user: BilibiliResolvedUser): ThirdPartyResolvedUser {
-  return {
-    uid: user.uid,
-    name: user.name,
-    avatar_url: user.avatar_url,
   }
 }
 
@@ -1219,11 +1098,8 @@ function handleBridgeMessage(event: MessageEvent) {
     case 'protocol.identities.resolve':
       void resolveProtocolIdentities(message.payload.items, message.request_id)
       return
-    case 'bilibili.user.resolve':
-      void resolveBilibiliUser(message.payload.query, message.request_id)
-      return
-    case 'thirdparty.user.resolve':
-      void resolveThirdPartyUser(message.payload.platform, message.payload.query, message.request_id)
+    case 'plugin.action.invoke':
+      void invokePluginManagementAction(message.payload.action, message.payload.payload ?? {}, message.request_id)
       return
   }
 }

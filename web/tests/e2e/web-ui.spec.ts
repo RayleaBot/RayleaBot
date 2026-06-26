@@ -137,42 +137,8 @@ async function expectThirdPartyAccountCardsContained(page: import('@playwright/t
   expect(metrics.overflowingCards).toEqual([])
 }
 
-async function expectThirdPartyMonitoringCardsContained(page: import('@playwright/test').Page) {
-  const metrics = await page.evaluate(() => {
-    const tolerance = 1
-    const viewportOverflow = document.documentElement.scrollWidth - document.documentElement.clientWidth
-    const cards = Array.from(document.querySelectorAll<HTMLElement>('.monitor-card'))
-    const overflowingCards = cards.map((card) => {
-      const rect = card.getBoundingClientRect()
-      return {
-        className: card.className,
-        inlineOverflow: card.scrollWidth - card.clientWidth,
-        rightOverflow: rect.right - document.documentElement.clientWidth,
-      }
-    }).filter((card) => card.inlineOverflow > tolerance || card.rightOverflow > tolerance)
-
-    return {
-      viewportOverflow,
-      overflowingCards,
-    }
-  })
-
-  expect(metrics.viewportOverflow).toBeLessThanOrEqual(1)
-  expect(metrics.overflowingCards).toEqual([])
-}
-
 async function expectThirdPartyAccountAvatarImageFillsFrame(page: import('@playwright/test').Page) {
   const metrics = await expectAvatarImageFillsFrame(page, 'bilibili-account-avatar-image', '.account-avatar')
-
-  const frameInsetTolerance = 2
-  expect(metrics).not.toBeNull()
-  expect(metrics!.imageWidth).toBeGreaterThanOrEqual(metrics!.avatarWidth - frameInsetTolerance)
-  expect(metrics!.imageHeight).toBeGreaterThanOrEqual(metrics!.avatarHeight - frameInsetTolerance)
-  expect(metrics!.stringTransform).toBe('none')
-}
-
-async function expectThirdPartyMonitorAvatarImageFillsFrame(page: import('@playwright/test').Page) {
-  const metrics = await expectAvatarImageFillsFrame(page, 'third-party-monitor-avatar-image', '.monitor-avatar')
 
   const frameInsetTolerance = 2
   expect(metrics).not.toBeNull()
@@ -2685,55 +2651,12 @@ test('third-party accounts show Bilibili CK cards and QR login fills the editor'
     if (item.expectAvatar) {
       const savedAvatar = savedAccountCard.getByTestId('bilibili-account-avatar-image')
       await expect(savedAvatar).toBeVisible()
-      await expect(savedAvatar).toHaveAttribute('src', /^blob:/)
+      await expect(savedAvatar).toHaveAttribute('src', /^https:\/\//)
       await savedAvatar.evaluate((element) => element.dispatchEvent(new Event('error')))
       await expect(savedAccountCard.getByTestId('bilibili-account-avatar-fallback')).toBeVisible()
     }
     await expectThirdPartyAccountCardsContained(page)
   }
-})
-
-test('third-party monitoring shows Bilibili targets with realtime updates', async ({ page, request }) => {
-  await resetBackend(request, true)
-  await login(page)
-
-  await page.goto('/third-party-monitoring')
-  await expect(page.getByRole('heading', { name: '三方监控', level: 1 })).toBeVisible()
-  const diagnosisBar = page.locator('.monitoring-strip')
-  await expect(diagnosisBar.getByTestId('third-party-monitoring-live-indicator')).toContainText('实时更新中', { timeout: 10000 })
-  await expect(diagnosisBar).toContainText('直播备用检查中')
-  await expect(diagnosisBar).toContainText('运行受限')
-  await expect(diagnosisBar).toContainText('原因')
-  await expect(diagnosisBar).toContainText('影响')
-  await expect(diagnosisBar).toContainText('处理')
-  await expect(diagnosisBar).toContainText('动态接收不受影响')
-  await expect(diagnosisBar).toContainText('CK 有效')
-  await expect(diagnosisBar).not.toContainText('降级检查')
-  await expect(page.locator('.uid-strip')).toContainText('UID 123456')
-
-  const monitorCard = page.locator('.monitor-card').filter({ hasText: '测试 UP' }).first()
-  await expect(monitorCard).toBeVisible()
-  await expect(monitorCard).toContainText('UID 123456')
-  await expect(monitorCard).toContainText('新视频标题')
-  await expect(monitorCard).toContainText('监控更新时间')
-  await expect(monitorCard).toContainText('开播中')
-  await expect(monitorCard).toContainText('直播间标题')
-  await expect(monitorCard).toContainText('10001')
-  await expect(monitorCard).toContainText('已连接')
-  await expect(monitorCard.getByRole('link', { name: '测试 UP' })).toHaveAttribute('href', 'https://space.bilibili.com/123456/')
-  await expect(monitorCard.getByRole('link', { name: '新视频标题' })).toHaveAttribute('href', 'https://www.bilibili.com/video/BV1RayleaBot')
-  const monitorAvatar = monitorCard.getByTestId('third-party-monitor-avatar-image')
-  await expect(monitorAvatar).toBeVisible()
-  await expect(monitorAvatar).toHaveAttribute('src', /^blob:/)
-  await expectThirdPartyMonitorAvatarImageFillsFrame(page)
-  await expectThirdPartyMonitoringCardsContained(page)
-
-  await page.setViewportSize({ width: 390, height: 844 })
-  await expect(diagnosisBar).toContainText('直播备用检查中')
-  await expect(diagnosisBar).toContainText('处理')
-  await expectThirdPartyMonitoringCardsContained(page)
-  await expect(monitorCard).toContainText('新视频标题')
-  await page.setViewportSize({ width: 1280, height: 720 })
 })
 
 test('error recovery covers retry and uninstall failure', async ({ page, request }) => {

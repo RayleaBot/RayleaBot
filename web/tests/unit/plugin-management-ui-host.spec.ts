@@ -712,22 +712,35 @@ describe('PluginManagementUIHost', () => {
           issues: [],
         }), { status: 200, headers: { 'content-type': 'application/json' } })
       }
-      if (url === '/api/bilibili/users/resolve?query=%E6%B5%8B%E8%AF%95+UP') {
-        return new Response(JSON.stringify({
-          query: '测试 UP',
-          exact: true,
-          user: { uid: '1000001', name: '测试 UP', avatar_url: '' },
-          candidates: [],
-        }), { status: 200, headers: { 'content-type': 'application/json' } })
-      }
-      if (url === '/api/third-party/users/resolve?platform=weibo&query=%E6%B4%9B%E5%A4%A9%E4%BE%9D') {
-        return new Response(JSON.stringify({
-          platform: 'weibo',
-          query: '洛天依',
-          exact: true,
-          user: { uid: '7556659984', name: '洛天依', avatar_url: 'https://tvax1.sinaimg.cn/avatar.jpg' },
-          candidates: [],
-        }), { status: 200, headers: { 'content-type': 'application/json' } })
+      if (url === '/api/plugins/raylea.subscription-hub/management/actions') {
+        expect(init?.method).toBe('POST')
+        const body = JSON.parse(String(init?.body))
+        if (body.action === 'subscription.resolve_user' && body.payload?.platform === 'bilibili') {
+          return new Response(JSON.stringify({
+            plugin_id: 'raylea.subscription-hub',
+            action: 'subscription.resolve_user',
+            result: {
+              platform: 'bilibili',
+              query: '测试 UP',
+              exact: true,
+              user: { uid: '1000001', name: '测试 UP', avatar_url: '' },
+              candidates: [],
+            },
+          }), { status: 200, headers: { 'content-type': 'application/json' } })
+        }
+        if (body.action === 'subscription.resolve_user' && body.payload?.platform === 'weibo') {
+          return new Response(JSON.stringify({
+            plugin_id: 'raylea.subscription-hub',
+            action: 'subscription.resolve_user',
+            result: {
+              platform: 'weibo',
+              query: '洛天依',
+              exact: true,
+              user: { uid: '7556659984', name: '洛天依', avatar_url: 'https://tvax1.sinaimg.cn/avatar.jpg' },
+              candidates: [],
+            },
+          }), { status: 200, headers: { 'content-type': 'application/json' } })
+        }
       }
       throw new Error(`unexpected fetch ${url}`)
     })
@@ -799,40 +812,53 @@ describe('PluginManagementUIHost', () => {
     dispatchBridgeMessage(frameWindow, {
       version: '1',
       source: 'plugin_management_ui',
-      type: 'bilibili.user.resolve',
+      type: 'plugin.action.invoke',
       request_id: 'req-bili',
       payload: {
-        query: '测试 UP',
+        action: 'subscription.resolve_user',
+        payload: {
+          platform: 'bilibili',
+          query: '测试 UP',
+        },
       },
     })
     await flushPromises()
     expect((frameWindow.postMessage as ReturnType<typeof vi.fn>).mock.calls.at(-1)?.[0]).toMatchObject({
-      type: 'bilibili.user.resolved',
+      type: 'plugin.action.result',
       request_id: 'req-bili',
       payload: {
-        exact: true,
-        user: { uid: '1000001', name: '测试 UP' },
+        action: 'subscription.resolve_user',
+        result: {
+          exact: true,
+          user: { uid: '1000001', name: '测试 UP' },
+        },
       },
     })
 
     dispatchBridgeMessage(frameWindow, {
       version: '1',
       source: 'plugin_management_ui',
-      type: 'thirdparty.user.resolve',
+      type: 'plugin.action.invoke',
       request_id: 'req-weibo',
       payload: {
-        platform: 'weibo',
-        query: '洛天依',
+        action: 'subscription.resolve_user',
+        payload: {
+          platform: 'weibo',
+          query: '洛天依',
+        },
       },
     })
     await flushPromises()
     expect((frameWindow.postMessage as ReturnType<typeof vi.fn>).mock.calls.at(-1)?.[0]).toMatchObject({
-      type: 'thirdparty.user.resolved',
+      type: 'plugin.action.result',
       request_id: 'req-weibo',
       payload: {
-        platform: 'weibo',
-        exact: true,
-        user: { uid: '7556659984', name: '洛天依' },
+        action: 'subscription.resolve_user',
+        result: {
+          platform: 'weibo',
+          exact: true,
+          user: { uid: '7556659984', name: '洛天依' },
+        },
       },
     })
   })
