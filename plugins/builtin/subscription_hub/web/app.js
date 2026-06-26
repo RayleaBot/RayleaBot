@@ -7,6 +7,23 @@
       requestCounter += 1;
       return `${prefix}-${Date.now()}-${requestCounter}`;
     }
+    function parentTargetOrigin() {
+      const ancestorOrigins = win.location && win.location.ancestorOrigins;
+      if (ancestorOrigins && ancestorOrigins.length > 0) {
+        const origin = String(ancestorOrigins[0] || "").trim();
+        if (origin) {
+          return origin;
+        }
+      }
+      try {
+        const referrer = win.document && win.document.referrer;
+        if (referrer) {
+          return new URL(referrer).origin;
+        }
+      } catch {
+      }
+      return win.location.origin;
+    }
     function send(type, payload, requestId) {
       const id = requestId || nextRequestId(type.replaceAll(".", "-"));
       win.parent.postMessage({
@@ -15,7 +32,7 @@
         type,
         request_id: id,
         ...payload === void 0 ? {} : { payload }
-      }, win.location.origin);
+      }, parentTargetOrigin());
       return id;
     }
     function normalizeMessage(raw) {
@@ -60,8 +77,8 @@
       saveSettings(values, requestId) {
         return send("settings.save", { values }, requestId || nextRequestId("settings-save"));
       },
-      reloadTargets() {
-        return send("protocol.targets.reload", void 0, nextRequestId("protocol-targets"));
+      reloadTargets(requestId) {
+        return send("protocol.targets.reload", void 0, requestId || nextRequestId("protocol-targets"));
       },
       resolveIdentities(items, requestId) {
         return send("protocol.identities.resolve", { items }, requestId || nextRequestId("protocol-identities"));
@@ -852,7 +869,9 @@
       pending: /* @__PURE__ */ new Map(),
       resolveTimers: /* @__PURE__ */ new Map(),
       composingRows: /* @__PURE__ */ new Set(),
-      savingRequestId: ""
+      savingRequestId: "",
+      targetRequestId: "",
+      targetTimer: null
     },
     filters: {
       search: "",
@@ -867,14 +886,73 @@
   };
   var bridge;
   var resolveDebounceMs = 700;
+  var targetRefreshTimeoutMs = 5e3;
   function renderContext() {
-    const liveTargets = targetMap(state.targets);
+    const knownTargets = knownTargetsState();
+    const liveTargets = targetMap(knownTargets);
     return {
-      targets: state.targets,
+      targets: knownTargets,
       targetMap: liveTargets,
-      targetsLoaded: state.targets.loaded,
+      targetsLoaded: knownTargets.loaded,
       subscriberAvatars: state.identities.subscriberAvatars
     };
+  }
+  function knownTargetsState() {
+    const groups = [...state.targets.groups];
+    const privateUsers = [...state.targets.private_users];
+    const seen = new Set(targetMap(state.targets).keys());
+    let savedCount = 0;
+    for (const row of state.rows) {
+      for (const target of row.targets || []) {
+        const key = target.key || `${trim(target.target_type)}:${trim(target.target_id)}`;
+        if (!key || seen.has(key)) {
+          continue;
+        }
+        const targetId = trim(target.target_id);
+        if (!targetId) {
+          continue;
+        }
+        if (!targetFallbackAllowed(target.target_type)) {
+          continue;
+        }
+        if (target.target_type === "group") {
+          groups.push({
+            target_type: "group",
+            target_id: targetId,
+            target_name: trim(target.target_name) || targetId
+          });
+          seen.add(key);
+          savedCount += 1;
+        } else if (target.target_type === "private") {
+          privateUsers.push({
+            target_type: "private",
+            target_id: targetId,
+            nickname: trim(target.target_name) || targetId
+          });
+          seen.add(key);
+          savedCount += 1;
+        }
+      }
+    }
+    return {
+      ...state.targets,
+      loaded: state.targets.loaded || savedCount > 0,
+      groups,
+      private_users: privateUsers
+    };
+  }
+  function targetFallbackAllowed(targetType) {
+    if (!state.targets.loaded) {
+      return true;
+    }
+    if (state.targets.available) {
+      return false;
+    }
+    const issueScopes = new Set(state.targets.issues.map((issue) => issue.scope));
+    if (!issueScopes.size || issueScopes.has("protocol")) {
+      return true;
+    }
+    return targetType === "group" && issueScopes.has("groups") || targetType === "private" && issueScopes.has("private_users");
   }
   function nextRowId() {
     state.ui.rowCounter += 1;
@@ -902,10 +980,12 @@
     return validateRows(state.rows, renderContext());
   }
   function renderPageState() {
+    const knownTargets = knownTargetsState();
+    const knownTargetCount = knownTargets.groups.length + knownTargets.private_users.length;
     elements.enabledInput.checked = state.settings.enabled !== false;
     elements.metricEnabled.textContent = state.settings.enabled === false ? "\u505C\u7528" : "\u542F\u7528";
     elements.metricSubscriptions.textContent = `${state.rows.length} / ${(state.settings.subscriptions || []).length}`;
-    elements.metricTargets.textContent = state.targets.loaded ? `${state.targets.groups.length} \u7FA4\u804A / ${state.targets.private_users.length} \u79C1\u804A` : "\u672A\u8F7D\u5165";
+    elements.metricTargets.textContent = state.targets.available ? `${state.targets.groups.length} \u7FA4\u804A / ${state.targets.private_users.length} \u79C1\u804A` : knownTargetCount ? `${knownTargetCount} \u4E2A\u53EF\u7528` : "\u672A\u8F7D\u5165";
     const validation = currentValidation();
     elements.metricValidation.textContent = validation.ok ? "\u53EF\u4FDD\u5B58" : "\u9700\u5904\u7406";
     elements.saveButton.disabled = !state.ui.loaded || !validation.ok || state.requests.savingRequestId !== "";
@@ -929,7 +1009,7 @@
     refresh(row);
   }
   function rowSearchText(row) {
-    const map = targetMap(state.targets);
+    const map = renderContext().targetMap;
     return [
       row.uid,
       row.name,
@@ -1089,9 +1169,35 @@
       }
     }
   }
-  function requestTargets() {
+  function requestTargets(options = {}) {
+    if (state.requests.targetRequestId) {
+      return;
+    }
+    if (!options.force && state.targets.loaded) {
+      return;
+    }
+    const requestId = bridge.nextRequestId("protocol-targets");
+    state.requests.targetRequestId = requestId;
+    state.requests.targetTimer = window.setTimeout(() => {
+      if (state.requests.targetRequestId !== requestId) {
+        return;
+      }
+      state.requests.targetRequestId = "";
+      state.requests.targetTimer = null;
+      const knownTargets = knownTargetsState();
+      const knownTargetCount = knownTargets.groups.length + knownTargets.private_users.length;
+      setStatus(knownTargetCount > 0 ? `\u672A\u62C9\u5230\u65B0\u5BF9\u8C61\uFF0C\u5DF2\u4FDD\u7559 ${knownTargetCount} \u4E2A\u5DF2\u4FDD\u5B58\u5BF9\u8C61` : "\u63A8\u9001\u5BF9\u8C61\u5237\u65B0\u8D85\u65F6");
+      render();
+    }, targetRefreshTimeoutMs);
     setStatus("\u6B63\u5728\u5237\u65B0\u63A8\u9001\u5BF9\u8C61\u2026");
-    bridge.reloadTargets();
+    bridge.reloadTargets(requestId);
+  }
+  function clearTargetRequest() {
+    if (state.requests.targetTimer) {
+      window.clearTimeout(state.requests.targetTimer);
+      state.requests.targetTimer = null;
+    }
+    state.requests.targetRequestId = "";
   }
   function clearResolveTimer(rowId) {
     clearTimeout(state.requests.resolveTimers.get(rowId));
@@ -1217,7 +1323,7 @@
     });
   }
   function updateTargetsFromSelect(row, selectedKeys) {
-    const liveTargets = currentTargetsForMode(state.targets, row.target_mode);
+    const liveTargets = currentTargetsForMode(renderContext().targets, row.target_mode);
     const liveMap = new Map(liveTargets.map((target) => [target.key, target]));
     row.targets = row.targets.filter((target) => target.target_type !== row.target_mode || selectedKeys.includes(target.key));
     for (const key of selectedKeys) {
@@ -1259,7 +1365,7 @@
     }
     const identityRequests = buildIdentityRequests(state.rows);
     if (!identityRequests.length) {
-      const payload = buildSettingsPayload(state.settings, state.rows, targetMap(state.targets));
+      const payload = buildSettingsPayload(state.settings, state.rows, renderContext().targetMap);
       state.requests.savingRequestId = bridge.nextRequestId("settings-save");
       bridge.saveSettings(payload, state.requests.savingRequestId);
       render();
@@ -1293,7 +1399,7 @@
       render();
       return;
     }
-    const payload = buildSettingsPayload(state.settings, state.rows, targetMap(state.targets));
+    const payload = buildSettingsPayload(state.settings, state.rows, renderContext().targetMap);
     state.requests.savingRequestId = bridge.nextRequestId("settings-save");
     bridge.saveSettings(payload, state.requests.savingRequestId);
     render();
@@ -1320,9 +1426,17 @@
     render();
     requestTargets();
   }
-  function applyTargetsChanged(payload) {
-    state.targets = normalizeTargets(payload);
-    setStatus(state.targets.available ? "\u63A8\u9001\u5BF9\u8C61\u5DF2\u5237\u65B0" : "\u63A8\u9001\u5BF9\u8C61\u4E0D\u53EF\u7528");
+  function applyTargetsChanged(message) {
+    if (state.requests.targetRequestId && message.request_id && message.request_id !== state.requests.targetRequestId) {
+      return;
+    }
+    clearTargetRequest();
+    state.targets = normalizeTargets(message.payload || {});
+    const issue = state.targets.issues[0] && state.targets.issues[0].message;
+    const targetCount = state.targets.groups.length + state.targets.private_users.length;
+    const knownTargets = knownTargetsState();
+    const knownTargetCount = knownTargets.groups.length + knownTargets.private_users.length;
+    setStatus(state.targets.available ? "\u63A8\u9001\u5BF9\u8C61\u5DF2\u5237\u65B0" : targetCount > 0 ? `\u90E8\u5206\u63A8\u9001\u5BF9\u8C61\u5DF2\u5237\u65B0${issue ? `\uFF1A${issue}` : ""}` : knownTargetCount > 0 ? `${issue ? `\u672A\u62C9\u5230\u65B0\u5BF9\u8C61\uFF1A${issue}` : "\u672A\u62C9\u5230\u65B0\u5BF9\u8C61"}\uFF0C\u5DF2\u4FDD\u7559 ${knownTargetCount} \u4E2A\u5DF2\u4FDD\u5B58\u5BF9\u8C61` : issue || "\u63A8\u9001\u5BF9\u8C61\u4E0D\u53EF\u7528");
     render();
   }
   function handleBridgeMessage(message) {
@@ -1334,7 +1448,7 @@
         applySettingsChanged(message);
         return;
       case "protocol.targets.changed":
-        applyTargetsChanged(message.payload || {});
+        applyTargetsChanged(message);
         return;
       case "protocol.identities.resolved":
         applyIdentitiesResolved(message);
@@ -1362,6 +1476,19 @@
     }
     if (request && request.kind === "manual-check") {
       state.requests.pending.delete(message.error.request_id);
+    }
+    if (message.error.request_id && message.error.request_id === state.requests.targetRequestId) {
+      clearTargetRequest();
+      state.targets = normalizeTargets({
+        protocol: "onebot11",
+        available: false,
+        groups: [],
+        private_users: [],
+        issues: [{ scope: "protocol", message: message.error.message || "\u63A8\u9001\u5BF9\u8C61\u4E0D\u53EF\u7528" }]
+      });
+      setStatus(message.error.message || "\u63A8\u9001\u5BF9\u8C61\u4E0D\u53EF\u7528");
+      render();
+      return;
     }
     state.requests.savingRequestId = "";
     setStatus(message.error && message.error.message || "\u64CD\u4F5C\u5931\u8D25");
@@ -1540,7 +1667,7 @@
       state.settings.enabled = elements.enabledInput.checked;
       markDirty();
     });
-    elements.targetsReloadButton.addEventListener("click", requestTargets);
+    elements.targetsReloadButton.addEventListener("click", () => requestTargets({ force: true }));
     elements.searchInput.addEventListener("input", () => {
       state.filters.search = elements.searchInput.value;
       render();
@@ -1603,7 +1730,7 @@
     buildRowsFromSettings,
     buildSettingsPayload: (identityItems = []) => {
       void identityItems;
-      return buildSettingsPayload(state.settings, state.rows, targetMap(state.targets));
+      return buildSettingsPayload(state.settings, state.rows, renderContext().targetMap);
     },
     validateRows: () => validateRows(state.rows, renderContext())
   };

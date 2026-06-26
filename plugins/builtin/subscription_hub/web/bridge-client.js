@@ -6,6 +6,25 @@ export function createBridgeClient(win, handlers = {}) {
     return `${prefix}-${Date.now()}-${requestCounter}`
   }
 
+  function parentTargetOrigin() {
+    const ancestorOrigins = win.location && win.location.ancestorOrigins
+    if (ancestorOrigins && ancestorOrigins.length > 0) {
+      const origin = String(ancestorOrigins[0] || '').trim()
+      if (origin) {
+        return origin
+      }
+    }
+    try {
+      const referrer = win.document && win.document.referrer
+      if (referrer) {
+        return new URL(referrer).origin
+      }
+    } catch {
+      // Fall back to the iframe origin when no parent origin is exposed.
+    }
+    return win.location.origin
+  }
+
   function send(type, payload, requestId) {
     const id = requestId || nextRequestId(type.replaceAll('.', '-'))
     win.parent.postMessage({
@@ -14,7 +33,7 @@ export function createBridgeClient(win, handlers = {}) {
       type,
       request_id: id,
       ...(payload === undefined ? {} : { payload }),
-    }, win.location.origin)
+    }, parentTargetOrigin())
     return id
   }
 
@@ -63,8 +82,8 @@ export function createBridgeClient(win, handlers = {}) {
     saveSettings(values, requestId) {
       return send('settings.save', { values }, requestId || nextRequestId('settings-save'))
     },
-    reloadTargets() {
-      return send('protocol.targets.reload', undefined, nextRequestId('protocol-targets'))
+    reloadTargets(requestId) {
+      return send('protocol.targets.reload', undefined, requestId || nextRequestId('protocol-targets'))
     },
     resolveIdentities(items, requestId) {
       return send('protocol.identities.resolve', { items }, requestId || nextRequestId('protocol-identities'))

@@ -75,6 +75,8 @@ const state = {
     resolveTimers: new Map(),
     composingRows: new Set(),
     savingRequestId: '',
+    targetRequestId: '',
+    targetTimer: null,
   },
   filters: {
     search: '',
@@ -91,15 +93,79 @@ const state = {
 let bridge
 
 const resolveDebounceMs = 700
+const targetRefreshTimeoutMs = 5000
 
 function renderContext() {
-  const liveTargets = targetMap(state.targets)
+  const knownTargets = knownTargetsState()
+  const liveTargets = targetMap(knownTargets)
   return {
-    targets: state.targets,
+    targets: knownTargets,
     targetMap: liveTargets,
-    targetsLoaded: state.targets.loaded,
+    targetsLoaded: knownTargets.loaded,
     subscriberAvatars: state.identities.subscriberAvatars,
   }
+}
+
+function knownTargetsState() {
+  const groups = [...state.targets.groups]
+  const privateUsers = [...state.targets.private_users]
+  const seen = new Set(targetMap(state.targets).keys())
+  let savedCount = 0
+
+  for (const row of state.rows) {
+    for (const target of row.targets || []) {
+      const key = target.key || `${trim(target.target_type)}:${trim(target.target_id)}`
+      if (!key || seen.has(key)) {
+        continue
+      }
+      const targetId = trim(target.target_id)
+      if (!targetId) {
+        continue
+      }
+      if (!targetFallbackAllowed(target.target_type)) {
+        continue
+      }
+      if (target.target_type === 'group') {
+        groups.push({
+          target_type: 'group',
+          target_id: targetId,
+          target_name: trim(target.target_name) || targetId,
+        })
+        seen.add(key)
+        savedCount += 1
+      } else if (target.target_type === 'private') {
+        privateUsers.push({
+          target_type: 'private',
+          target_id: targetId,
+          nickname: trim(target.target_name) || targetId,
+        })
+        seen.add(key)
+        savedCount += 1
+      }
+    }
+  }
+
+  return {
+    ...state.targets,
+    loaded: state.targets.loaded || savedCount > 0,
+    groups,
+    private_users: privateUsers,
+  }
+}
+
+function targetFallbackAllowed(targetType) {
+  if (!state.targets.loaded) {
+    return true
+  }
+  if (state.targets.available) {
+    return false
+  }
+  const issueScopes = new Set(state.targets.issues.map((issue) => issue.scope))
+  if (!issueScopes.size || issueScopes.has('protocol')) {
+    return true
+  }
+  return (targetType === 'group' && issueScopes.has('groups'))
+    || (targetType === 'private' && issueScopes.has('private_users'))
 }
 
 function nextRowId() {
@@ -134,12 +200,16 @@ function currentValidation() {
 }
 
 function renderPageState() {
+  const knownTargets = knownTargetsState()
+  const knownTargetCount = knownTargets.groups.length + knownTargets.private_users.length
   elements.enabledInput.checked = state.settings.enabled !== false
   elements.metricEnabled.textContent = state.settings.enabled === false ? '停用' : '启用'
   elements.metricSubscriptions.textContent = `${state.rows.length} / ${(state.settings.subscriptions || []).length}`
-  elements.metricTargets.textContent = state.targets.loaded
+  elements.metricTargets.textContent = state.targets.available
     ? `${state.targets.groups.length} 群聊 / ${state.targets.private_users.length} 私聊`
-    : '未载入'
+    : knownTargetCount
+      ? `${knownTargetCount} 个可用`
+      : '未载入'
 
   const validation = currentValidation()
   elements.metricValidation.textContent = validation.ok ? '可保存' : '需处理'
@@ -177,7 +247,7 @@ function markDirtyWithRowRefresh(row, refresh) {
 }
 
 function rowSearchText(row) {
-  const map = targetMap(state.targets)
+  const map = renderContext().targetMap
   return [
     row.uid,
     row.name,
@@ -361,9 +431,38 @@ function updateService(row, targetKeyValue, changedService, isChecked) {
   }
 }
 
-function requestTargets() {
+function requestTargets(options = {}) {
+  if (state.requests.targetRequestId) {
+    return
+  }
+  if (!options.force && state.targets.loaded) {
+    return
+  }
+  const requestId = bridge.nextRequestId('protocol-targets')
+  state.requests.targetRequestId = requestId
+  state.requests.targetTimer = window.setTimeout(() => {
+    if (state.requests.targetRequestId !== requestId) {
+      return
+    }
+    state.requests.targetRequestId = ''
+    state.requests.targetTimer = null
+    const knownTargets = knownTargetsState()
+    const knownTargetCount = knownTargets.groups.length + knownTargets.private_users.length
+    setStatus(knownTargetCount > 0
+      ? `未拉到新对象，已保留 ${knownTargetCount} 个已保存对象`
+      : '推送对象刷新超时')
+    render()
+  }, targetRefreshTimeoutMs)
   setStatus('正在刷新推送对象…')
-  bridge.reloadTargets()
+  bridge.reloadTargets(requestId)
+}
+
+function clearTargetRequest() {
+  if (state.requests.targetTimer) {
+    window.clearTimeout(state.requests.targetTimer)
+    state.requests.targetTimer = null
+  }
+  state.requests.targetRequestId = ''
 }
 
 function clearResolveTimer(rowId) {
@@ -499,7 +598,7 @@ function addTargetToRow(row, liveTarget) {
 }
 
 function updateTargetsFromSelect(row, selectedKeys) {
-  const liveTargets = currentTargetsForMode(state.targets, row.target_mode)
+  const liveTargets = currentTargetsForMode(renderContext().targets, row.target_mode)
   const liveMap = new Map(liveTargets.map((target) => [target.key, target]))
   row.targets = row.targets.filter((target) => target.target_type !== row.target_mode || selectedKeys.includes(target.key))
   for (const key of selectedKeys) {
@@ -546,7 +645,7 @@ function saveSettings() {
   }
   const identityRequests = buildIdentityRequests(state.rows)
   if (!identityRequests.length) {
-    const payload = buildSettingsPayload(state.settings, state.rows, targetMap(state.targets))
+    const payload = buildSettingsPayload(state.settings, state.rows, renderContext().targetMap)
     state.requests.savingRequestId = bridge.nextRequestId('settings-save')
     bridge.saveSettings(payload, state.requests.savingRequestId)
     render()
@@ -581,7 +680,7 @@ function applyIdentitiesResolved(message) {
     render()
     return
   }
-  const payload = buildSettingsPayload(state.settings, state.rows, targetMap(state.targets))
+  const payload = buildSettingsPayload(state.settings, state.rows, renderContext().targetMap)
   state.requests.savingRequestId = bridge.nextRequestId('settings-save')
   bridge.saveSettings(payload, state.requests.savingRequestId)
   render()
@@ -612,9 +711,23 @@ function applyHostInit(payload) {
   requestTargets()
 }
 
-function applyTargetsChanged(payload) {
-  state.targets = normalizeTargets(payload)
-  setStatus(state.targets.available ? '推送对象已刷新' : '推送对象不可用')
+function applyTargetsChanged(message) {
+  if (state.requests.targetRequestId && message.request_id && message.request_id !== state.requests.targetRequestId) {
+    return
+  }
+  clearTargetRequest()
+  state.targets = normalizeTargets(message.payload || {})
+  const issue = state.targets.issues[0] && state.targets.issues[0].message
+  const targetCount = state.targets.groups.length + state.targets.private_users.length
+  const knownTargets = knownTargetsState()
+  const knownTargetCount = knownTargets.groups.length + knownTargets.private_users.length
+  setStatus(state.targets.available
+    ? '推送对象已刷新'
+    : targetCount > 0
+      ? `部分推送对象已刷新${issue ? `：${issue}` : ''}`
+      : knownTargetCount > 0
+        ? `${issue ? `未拉到新对象：${issue}` : '未拉到新对象'}，已保留 ${knownTargetCount} 个已保存对象`
+      : issue || '推送对象不可用')
   render()
 }
 
@@ -627,7 +740,7 @@ function handleBridgeMessage(message) {
       applySettingsChanged(message)
       return
     case 'protocol.targets.changed':
-      applyTargetsChanged(message.payload || {})
+      applyTargetsChanged(message)
       return
     case 'protocol.identities.resolved':
       applyIdentitiesResolved(message)
@@ -656,6 +769,19 @@ function handleBridgeError(message) {
   }
   if (request && request.kind === 'manual-check') {
     state.requests.pending.delete(message.error.request_id)
+  }
+  if (message.error.request_id && message.error.request_id === state.requests.targetRequestId) {
+    clearTargetRequest()
+    state.targets = normalizeTargets({
+      protocol: 'onebot11',
+      available: false,
+      groups: [],
+      private_users: [],
+      issues: [{ scope: 'protocol', message: message.error.message || '推送对象不可用' }],
+    })
+    setStatus(message.error.message || '推送对象不可用')
+    render()
+    return
   }
   state.requests.savingRequestId = ''
   setStatus((message.error && message.error.message) || '操作失败')
@@ -841,7 +967,7 @@ function bindEvents() {
     state.settings.enabled = elements.enabledInput.checked
     markDirty()
   })
-  elements.targetsReloadButton.addEventListener('click', requestTargets)
+  elements.targetsReloadButton.addEventListener('click', () => requestTargets({ force: true }))
   elements.searchInput.addEventListener('input', () => {
     state.filters.search = elements.searchInput.value
     render()
@@ -907,7 +1033,7 @@ window.__subscriptionHubSettingsPage = {
   buildRowsFromSettings,
   buildSettingsPayload: (identityItems = []) => {
     void identityItems
-    return buildSettingsPayload(state.settings, state.rows, targetMap(state.targets))
+    return buildSettingsPayload(state.settings, state.rows, renderContext().targetMap)
   },
   validateRows: () => validateRows(state.rows, renderContext()),
 }

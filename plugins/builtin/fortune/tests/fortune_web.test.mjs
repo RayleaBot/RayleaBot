@@ -29,11 +29,14 @@ function createPage(settings = defaultSettings) {
   const dom = new JSDOM(html, {
     runScripts: 'outside-only',
     url: 'https://rayleabot.local/plugin-ui/raylea.fortune/web/index.html',
+    referrer: 'https://rayleabot.local/plugins',
   })
   const messages = []
+  const targetOrigins = []
   dom.window.parent = {
-    postMessage(message) {
+    postMessage(message, targetOrigin) {
       messages.push(message)
+      targetOrigins.push(targetOrigin)
     },
   }
   dom.window.eval(script)
@@ -50,22 +53,25 @@ function createPage(settings = defaultSettings) {
       },
     },
   }))
-  return { dom, messages }
+  return { dom, messages, targetOrigins }
 }
 
-function createUninitializedPage() {
+function createUninitializedPage(options = {}) {
   const dom = new JSDOM(html, {
     runScripts: 'outside-only',
-    url: 'https://rayleabot.local/plugin-ui/raylea.fortune/web/index.html',
+    url: options.url || 'https://rayleabot.local/plugin-ui/raylea.fortune/web/index.html',
+    referrer: options.referrer || 'https://rayleabot.local/plugins',
   })
   const messages = []
+  const targetOrigins = []
   dom.window.parent = {
-    postMessage(message) {
+    postMessage(message, targetOrigin) {
       messages.push(message)
+      targetOrigins.push(targetOrigin)
     },
   }
   dom.window.eval(script)
-  return { dom, messages }
+  return { dom, messages, targetOrigins }
 }
 
 function pressEnter(window, element) {
@@ -119,6 +125,17 @@ test('retries page ready until host init arrives', async () => {
   await new Promise((resolve) => dom.window.setTimeout(resolve, 650))
 
   assert.equal(messages.filter((message) => message.type === 'page.ready').length, countAfterInit)
+})
+
+test('sends bridge messages to parent origin when plugin iframe is cross origin', () => {
+  const { messages, targetOrigins } = createUninitializedPage({
+    url: 'http://127.0.0.1:1234/plugin-ui/raylea.fortune/web/index.html',
+    referrer: 'http://127.0.0.1:4173/plugins/raylea.fortune',
+  })
+
+  const readyIndex = messages.findIndex((message) => message.type === 'page.ready')
+  assert.notEqual(readyIndex, -1)
+  assert.equal(targetOrigins[readyIndex], 'http://127.0.0.1:4173')
 })
 
 test('adds chip values with Enter and saves all trigger and action arrays', () => {

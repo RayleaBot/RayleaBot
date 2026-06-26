@@ -74,15 +74,38 @@ function dispatchHost(dom, type, payload, requestId = 'host-test') {
   }))
 }
 
-function createPage(settings = richSettings) {
+function createPage(settings = richSettings, options = {}) {
   const dom = new JSDOM(subscriptionHtml, {
     runScripts: 'outside-only',
-    url: 'https://rayleabot.local/plugin-ui/raylea.subscription-hub/web/index.html',
+    url: options.url || 'https://rayleabot.local/plugin-ui/raylea.subscription-hub/web/index.html',
+    referrer: options.referrer || 'https://rayleabot.local/plugins',
   })
+  const timers = []
+  if (options.captureTimers) {
+    const nativeClearTimeout = dom.window.clearTimeout.bind(dom.window)
+    dom.window.setTimeout = (callback, ms, ...args) => {
+      const timer = {
+        callback: () => callback(...args),
+        ms,
+        cleared: false,
+      }
+      timers.push(timer)
+      return timer
+    }
+    dom.window.clearTimeout = (timer) => {
+      if (timer && typeof timer === 'object') {
+        timer.cleared = true
+        return
+      }
+      nativeClearTimeout(timer)
+    }
+  }
   const messages = []
+  const targetOrigins = []
   dom.window.parent = {
-    postMessage(message) {
+    postMessage(message, targetOrigin) {
       messages.push(message)
+      targetOrigins.push(targetOrigin)
     },
   }
   dom.window.eval(script)
@@ -92,8 +115,11 @@ function createPage(settings = richSettings) {
     default_config: defaultSettings,
     settings,
   })
-  dispatchHost(dom, 'protocol.targets.changed', targetsPayload)
-  return { dom, messages }
+  const targets = Object.hasOwn(options, 'targets') ? options.targets : targetsPayload
+  if (targets) {
+    dispatchHost(dom, 'protocol.targets.changed', targets, lastMessage(messages, 'protocol.targets.reload')?.request_id)
+  }
+  return { dom, messages, targetOrigins, timers }
 }
 
 function saveMessage(messages) {
@@ -108,9 +134,25 @@ function lastActionMessage(messages, action) {
   return messages.findLast((message) => message.type === 'plugin.action.invoke' && message.payload?.action === action)
 }
 
+function targetReloadMessages(messages) {
+  return messages.filter((message) => message.type === 'protocol.targets.reload')
+}
+
 function plain(value) {
   return JSON.parse(JSON.stringify(value))
 }
+
+test('sends bridge messages to parent origin when plugin iframe is cross origin', () => {
+  const { messages, targetOrigins } = createPage(richSettings, {
+    url: 'http://127.0.0.1:1234/plugin-ui/raylea.subscription-hub/web/index.html',
+    referrer: 'http://127.0.0.1:4173/plugins/raylea.subscription-hub',
+    targets: null,
+  })
+
+  const reloadIndex = messages.findIndex((message) => message.type === 'protocol.targets.reload')
+  assert.notEqual(reloadIndex, -1)
+  assert.equal(targetOrigins[reloadIndex], 'http://127.0.0.1:4173')
+})
 
 function editFirstCard(document) {
   const card = document.querySelector('.sub-card')
@@ -241,6 +283,81 @@ test('target type switch keeps targets selected across group and private lists',
   assert.match(updatedRow.textContent, /群聊 测试群/)
   assert.match(updatedRow.textContent, /群聊 备用群/)
   assert.match(updatedRow.textContent, /私聊 测试用户/)
+})
+
+test('saved targets remain usable when live target reload is unavailable', () => {
+  const { dom } = createPage(richSettings, {
+    targets: {
+      protocol: 'onebot11',
+      available: false,
+      groups: [],
+      private_users: [],
+      issues: [
+        { scope: 'groups', message: '群聊列表读取失败' },
+        { scope: 'private_users', message: '私聊对象列表读取失败' },
+      ],
+    },
+  })
+  const document = dom.window.document
+
+  assert.match(document.querySelector('#status-text').textContent, /已保留 2 个已保存对象/)
+  assert.equal(document.querySelector('#metric-targets').textContent, '2 个可用')
+  assert.equal(document.querySelector('#save-button').disabled, false)
+
+  let row = editFirstCard(document)
+  assert.doesNotMatch(row.textContent, /推送对象未载入/)
+  assert.doesNotMatch(row.textContent, /不在协议对象列表中/)
+  assert.match(row.textContent, /群聊 旧群名/)
+  assert.equal(row.querySelectorAll('.target-option').length, 1)
+
+  row.querySelector('button[data-action="target-mode"][data-mode="private"]').click()
+  row = document.querySelector('.sub-card')
+  assert.match(row.textContent, /私聊 旧私聊名/)
+  assert.equal(row.querySelectorAll('.target-option').length, 1)
+})
+
+test('target reload is not duplicated while the first request is pending', () => {
+  const { dom, messages } = createPage(richSettings, { targets: null })
+  const document = dom.window.document
+  const [initialReload] = targetReloadMessages(messages)
+
+  assert.ok(initialReload)
+  assert.equal(targetReloadMessages(messages).length, 1)
+  assert.match(document.querySelector('#status-text').textContent, /正在刷新推送对象/)
+
+  dispatchHost(dom, 'host.init', {
+    title: '订阅设置',
+    plugin: { description: '订阅中心' },
+    default_config: defaultSettings,
+    settings: richSettings,
+  }, 'host-repeat')
+  assert.equal(targetReloadMessages(messages).length, 1)
+
+  dispatchHost(dom, 'protocol.targets.changed', targetsPayload, initialReload.request_id)
+  assert.match(document.querySelector('#status-text').textContent, /推送对象已刷新/)
+
+  dispatchHost(dom, 'host.init', {
+    title: '订阅设置',
+    plugin: { description: '订阅中心' },
+    default_config: defaultSettings,
+    settings: richSettings,
+  }, 'host-loaded')
+  assert.equal(targetReloadMessages(messages).length, 1)
+})
+
+test('target reload timeout keeps saved targets usable', () => {
+  const { dom, timers } = createPage(richSettings, { targets: null, captureTimers: true })
+  const document = dom.window.document
+  const targetTimer = timers.find((timer) => timer.ms === 5000)
+
+  assert.ok(targetTimer)
+  assert.match(document.querySelector('#status-text').textContent, /正在刷新推送对象/)
+
+  targetTimer.callback()
+
+  assert.match(document.querySelector('#status-text').textContent, /已保留 2 个已保存对象/)
+  assert.equal(document.querySelector('#metric-targets').textContent, '2 个可用')
+  assert.equal(document.querySelector('#save-button').disabled, false)
 })
 
 test('target multi-select updates current card without replacing the select', () => {

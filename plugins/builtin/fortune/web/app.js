@@ -89,6 +89,24 @@
     elements.statusText.classList.toggle('is-error', Boolean(isError))
   }
 
+  function parentTargetOrigin() {
+    const ancestorOrigins = window.location && window.location.ancestorOrigins
+    if (ancestorOrigins && ancestorOrigins.length > 0) {
+      const origin = String(ancestorOrigins[0] || '').trim()
+      if (origin) {
+        return origin
+      }
+    }
+    try {
+      if (document.referrer) {
+        return new URL(document.referrer).origin
+      }
+    } catch {
+      // Fall back to the iframe origin when no parent origin is exposed.
+    }
+    return window.location.origin
+  }
+
   function postMessage(type, payload, requestId) {
     window.parent.postMessage({
       version: '1',
@@ -96,7 +114,7 @@
       type,
       request_id: requestId,
       payload,
-    }, window.location.origin)
+    }, parentTargetOrigin())
   }
 
   function stopReadyLoop() {
