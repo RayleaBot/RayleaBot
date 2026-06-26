@@ -45,7 +45,7 @@
 ### 事件字段
 
 - 当前正式 `event_type` 集合包括：
-  - 平台事件：`scheduler.trigger`、`config.changed`、`webhook.received`、`bot.identity.changed`
+  - 平台事件：`scheduler.trigger`、`management.action`、`config.changed`、`webhook.received`、`bot.identity.changed`
   - OneBot 消息事件：`message.private`、`message.group`、`message_sent.private`、`message_sent.group`
   - OneBot notice 事件：`notice.member_increase`、`notice.member_decrease`、`notice.group_admin`、`notice.group_ban`、`notice.group_recall`、`notice.group_upload`、`notice.group_card`、`notice.group_title`、`notice.group_essence`、`notice.friend_add`、`notice.friend_recall`、`notice.flash_file`、`notice.poke`、`notice.poke_recall`、`notice.profile_like`、`notice.input_status`、`notice.group_message_emoji_like`
   - OneBot request 事件：`request.friend`、`request.group`
@@ -84,6 +84,7 @@
 - `plugin.list`
 - `config.write`
 - `secret.read`：只读取调用插件自己的 secret 命名空间内的单个值
+- `thirdparty.account.read`：只读取 manifest 允许平台中已保存、已启用且非 invalid 的三方账号；CK 以 secret 值返回
 - `governance.blacklist.read`
 - `governance.blacklist.write`
 - `governance.whitelist.read`

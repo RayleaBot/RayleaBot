@@ -29,7 +29,6 @@
 | `management/router/modules.go` 内部 fan-out | 约 35 | 新的 HTTP 组合巨石 | ≤20 |
 | `internal/plugins/actions` fan-out | 22 | 中央分发表膨胀 | ≤14 |
 | `internal/plugins/lifecycle` fan-out | 17 | 生命周期包偏重 | ≤12 |
-| `internal/integrations/bilibili/source` fan-out | 15 | Bilibili source 依赖偏多 | ≤12 |
 | `internal/render/service` 生产文件 | 23 | render service 口袋化 | ≤20 或拆分职责 |
 
 ---
@@ -552,7 +551,6 @@ type Registrar interface {
 - [x] `GET /api/plugins/{plugin_id}`
 - [x] `GET /api/render/templates`
 - [x] `GET /api/system/status`
-- [x] `GET /api/bilibili/source/status`
 - [x] `GET /api/tasks`
 - [x] `GET /api/logs`
 
@@ -780,10 +778,9 @@ values
 ### 影响
 
 - app/integration module 仍需理解 Bilibili 内部细节。
-- Bilibili source fan-out 偏高。
 - management/bilibiliapi 可能直接依赖内部实现。
 - 新增 Bilibili 功能容易跨多个目录修改。
-- 诊断、账号、source、session 的边界不够清晰。
+- 账号、session 的边界不够清晰。
 
 ### 目标状态
 
@@ -793,9 +790,6 @@ Bilibili 对外暴露一个窄 module：
 type Module struct {
     Accounts AccountService
     Login LoginProvider
-    Sources SourceService
-    Media MediaService
-    Diagnostics DiagnosticsService
 }
 ```
 
@@ -805,18 +799,14 @@ type Module struct {
 
 - [x] 梳理当前 Bilibili 外部 import 调用点。
 - [x] 新增 `bilibili.Module` 或 `bilibili.Services`。
-- [x] 把 source/session/media/proxy/diagnostics 构造收束到 Bilibili 内部。
 - [x] `integrationmodule.Build` 只调用 `bilibili.Build(...)`。
 - [x] `management/bilibiliapi` 只依赖 Bilibili 对外 service interface。
 - [x] Bilibili 内部 package 不被 app 直接 import。
-- [x] 降低 `bilibili/source` fan-out。
 
 ### 验收标准
 
-- [x] `integrationmodule` 不直接构造 Bilibili source 内部依赖。
 - [x] Bilibili 外部可见接口文档化。
-- [x] `internal/integrations/bilibili/source` fan-out ≤12。
-- [x] 管理 API 测试和 source 测试通过。
+- [x] 管理 API 测试通过。
 - [x] 新增 Bilibili 功能不需要修改 app/servicegraph 内部装配细节。
 
 ---
@@ -872,7 +862,7 @@ douyin/
 
 ### 问题描述
 
-当前仍有大量手写 SQL 例外，覆盖 storage、secrets、render repository、logging repository、permission、thirdparty、Bilibili source、plugin config/kv 等。
+当前仍有大量手写 SQL 例外，覆盖 storage、secrets、render repository、logging repository、permission、thirdparty、plugin config/kv 等。
 
 ### 影响
 
@@ -1263,7 +1253,7 @@ P2-05 验证：
 
 ### 问题描述
 
-当前系统已有多个状态接口，但运维视角仍分散。排障需要跨系统状态、render、Bilibili source、plugin runtime、scheduler、logs、tasks、config 等多个页面/接口。
+当前系统已有多个状态接口，但运维视角仍分散。排障需要跨系统状态、render、plugin runtime、scheduler、logs、tasks、config 等多个页面/接口。
 
 ### 目标接口
 
@@ -1284,7 +1274,6 @@ GET /api/system/diagnostics
 - [x] plugin runtime summary
 - [x] render browser state
 - [x] third-party account health
-- [x] Bilibili source live/dynamic health
 - [x] scheduler pending/running/failed summary
 - [x] recent fatal domain errors
 - [x] dependency manager status
@@ -1390,7 +1379,6 @@ GET /api/system/diagnostics
 | management/router fan-out | 2 | ≤20 | [x] |
 | plugins/actions fan-out | 14 | ≤14 | [x] |
 | plugins/lifecycle fan-out | 12 | ≤12 | [x] |
-| bilibili/source fan-out | 12 | ≤12 | [x] |
 | render/service production files | 19 | ≤20 | [x] |
 
 ---
@@ -1528,7 +1516,6 @@ GET /api/system/diagnostics
 阶段 5 验证：
 
 - [x] `go test ./internal/integrations/thirdparty ./internal/integrations/qrcode ./internal/integrations/douyin ./internal/integrations/weibo ./internal/integrations/netease_music ./internal/integrations/bilibili ./internal/app/servicegraph/integrationmodule ./internal/management/thirdpartyapi ./internal/management/bilibiliapi`。
-- [x] `go test ./internal/integrations/bilibili ./internal/integrations/bilibili/source ./internal/app/servicegraph/integrationmodule`。
 - [x] `go test ./internal/render/service ./internal/management/renderapi ./internal/plugins/actions`。
 - [x] `go test ./internal/plugins/lifecycle ./internal/app/pluginstack ./internal/app/servicegraph/pluginmodule ./internal/metrics ./internal/app ./internal/app/servicegraph`。
 - [x] `python scripts/check-server-structure.py`。

@@ -71,7 +71,7 @@ Scheduler 使用插件 ID 和 `task_id` 做幂等更新，任务保存到 SQLite
 | `webhook.received` | 插件暴露的 HTTP webhook | 鉴权后投递给注册该 route 的插件 |
 | `config.changed` | 插件配置变更 | 投递给对应插件 |
 | `bot.identity.changed` | OneBot bot 身份可用或变化 | 投递给已注册运行时的插件 |
-| `bilibili.live.started` / `bilibili.live.ended` / `bilibili.dynamic.published` | 内置 Bilibili source | 按事件订阅 fan-out 分发 |
+| `management.action` | 插件内置管理页 | 定向投递给所属插件 |
 
 这些事件仍使用 Runtime Manager、插件队列、local action 和出站发送链路。
 

@@ -22,9 +22,10 @@
   - Node.js：`plugin.awaitBotIdentity(timeoutMs=30000)` 与 `EventContext.awaitBotIdentity(timeoutMs)`；Promise 在身份就绪或超时时 resolve 当前 `botId`。
   - 调用方在身份不可用期间不应忙等：handler 内 `await` SDK helper 或直接 `return` 让出线程，避免阻塞 dispatcher。
 - 事件接收与结果回传
-- 通用 local action helper：`message.send`、`message.reply`、`logger.write`、`storage.kv`、`storage.file`、`http.request`、`config.read`、`config.write`、`governance.blacklist.read`、`governance.blacklist.write`、`governance.whitelist.read`、`governance.whitelist.write`、`governance.command_policy.read`、`scheduler.create`、`event.expose_webhook`、`render.image`、`plugin.list`
+- 通用 local action helper：`message.send`、`message.reply`、`logger.write`、`storage.kv`、`storage.file`、`http.request`、`config.read`、`config.write`、`governance.blacklist.read`、`governance.blacklist.write`、`governance.whitelist.read`、`governance.whitelist.write`、`governance.command_policy.read`、`scheduler.create`、`event.expose_webhook`、`render.image`、`plugin.list`、`thirdparty.account.read`
 - 定时任务 helper 支持中文日志说明：Python 使用 `scheduler_create(..., log_label="每日早报")`，Node.js 使用 `schedulerCreate(..., { logLabel: "每日早报" })`。
 - `secret.read` helper 当前只在 Python SDK 提供（`secret_read`）；Node.js SDK 可通过通用回退入口 `onebotAction("secret.read", { key })` 调用。
+- `thirdparty.account.read` helper 当前只在 Python SDK 提供（`thirdparty_account_read`）；Node.js SDK 可通过通用回退入口 `onebotAction("thirdparty.account.read", { platform })` 调用。
 - OneBot 单动作 helper：正式 capability 名称与 action kind 一一对应，helper 直接复用同一组动作名
 - provider helper：`provider.napcat.message_emoji.like.set`、`provider.napcat.group.sign.set`、`provider.luckylillia.friend_groups.get`
 - 通用回退入口：`onebot_action` / `onebotAction` 与 `provider_action` / `providerAction`

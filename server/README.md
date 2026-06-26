@@ -7,7 +7,7 @@
 - `cmd/raylea-server` 入口、`-config` / `-config-schema` flags；`-config-schema` 默认使用内置配置 schema
 - `config/user.yaml` 读取与内置配置 schema 校验；`contracts/config.user.schema.json` 是源码中的正式来源
 - `GET /healthz`、`GET /readyz`
-- SQLite store、current schema bootstrap、auth persistence、task persistence、plugin enable intent persistence、secret store、third-party account persistence、Bilibili source state persistence
+- SQLite store、current schema bootstrap、auth persistence、task persistence、plugin enable intent persistence、secret store、third-party account persistence
 - plugin discovery：当前扫描 `plugins/builtin` 与 `plugins/installed`；`examples/plugins` 仅保留示例职责
 - management auth surface：
   - `POST /api/setup/admin`
@@ -44,12 +44,8 @@
 - `GET /api/third-party/accounts`
 - `PUT /api/third-party/accounts/{platform}/{account_id}`
 - `DELETE /api/third-party/accounts/{platform}/{account_id}`
-- `GET /api/third-party/monitors`
-- `GET /api/third-party/media`
-- `POST /api/bilibili/login/qrcode`
-- `GET /api/bilibili/login/qrcode/{login_id}`
-- `GET /api/bilibili/source/status`
-- `POST /api/bilibili/source/restart`
+- `POST /api/third-party/accounts/{platform}/login/qrcode`
+- `GET /api/third-party/accounts/{platform}/login/qrcode/{login_id}`
 - `GET /api/governance/blacklist`
 - `POST /api/governance/blacklist/entries`
 - `DELETE /api/governance/blacklist/entries/{entry_type}/{target_id}`
@@ -64,6 +60,7 @@
 - `PUT /api/plugins/{plugin_id}/settings`
 - `GET /api/plugins/{plugin_id}/secrets`
 - `PUT /api/plugins/{plugin_id}/secrets`
+- `POST /api/plugins/{plugin_id}/management/actions`
 - `POST /api/plugins/{plugin_id}/recover`
 - `POST /api/webhooks/{plugin_id}/{route}`
 - `/ws/events`
@@ -88,7 +85,7 @@
   - `event` / `result` / `error`
   - `ping` / `pong`
   - `shutdown`
-  - local action RPC for `logger.write`、`storage.kv`、`storage.file`、`http.request`、`config.read`、`config.write`、`scheduler.create`、`event.expose_webhook`、`render.image`
+  - local action RPC for `logger.write`、`storage.kv`、`storage.file`、`http.request`、`config.read`、`config.write`、`scheduler.create`、`event.expose_webhook`、`render.image`、`thirdparty.account.read`
   - crash / retry backoff / recovery-required failure
 - multi-plugin runtime mainline：
   - per-plugin runtime manager
@@ -111,15 +108,11 @@
   - protocol snapshot aggregation and `/ws/events` protocol updates
   - plugin webhook registry, auth validation, on-demand runtime start, and `webhook.received`
   - recovery summary refresh, backup, diagnostics export, and runtime bootstrap tasks
-- third-party and Bilibili services：
+- third-party account services：
   - Bilibili、微博、抖音、网易云音乐账号摘要和凭据保存 / 删除状态
-  - Bilibili cookie validation through account profile lookup
-  - Bilibili QR login session create / poll
-  - built-in Bilibili source lifecycle, status, restart, diagnosis, and `/ws/events` status updates
-  - subscription hub config readout for Bilibili live / dynamic monitoring targets
-  - empty third-party monitor projection for 微博、抖音、网易云音乐
-  - `bilibili.live.started`、`bilibili.live.ended`、`bilibili.dynamic.published` event dispatch
-  - controlled third-party media proxy for management UI images
+  - CK validation through account profile lookup
+  - Bilibili、微博、抖音、网易云音乐 QR login session create / poll
+  - `thirdparty.account.read` 允许已声明插件读取已保存、已启用且有效的账号摘要和 CK
 - runtime metrics：
   - Prometheus text format through authenticated `GET /api/system/metrics`
   - adapter / bridge / dispatcher / runtime / tasks / render / outbound / webhook metrics
@@ -173,7 +166,7 @@
 - App 负责组装、运行和关闭；事件入口、协议入口、Webhook 网关、本地动作和系统能力分别由独立服务承载
 - 内置三方账号平台包含 Bilibili、微博、抖音和网易云音乐
 - Cookie / CK 值只保存在 secret store；HTTP 响应只暴露账号摘要与凭据状态
-- Bilibili source、扫码登录和用户解析为 Bilibili 专属服务；三方媒体代理支持受控 Bilibili 图片资源和微博头像资源
+- 平台只保存三方账号 CK、扫码登录结果和账号资料；订阅检查、用户解析、状态读取和立即检查由订阅中心插件处理
 
 ## 默认命令
 

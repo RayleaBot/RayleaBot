@@ -1,6 +1,6 @@
 # State Model
 
-本文档说明 RayleaBot 当前已落地的核心状态机，覆盖插件状态、后台任务、OneBot11 连接状态和 Bilibili source 状态。
+本文档说明 RayleaBot 当前已落地的核心状态机，覆盖插件状态、后台任务、OneBot11 连接状态和三方账号凭据状态。
 
 正式枚举值以 `contracts/` 和当前实现常量为准。
 
@@ -118,23 +118,21 @@ running -> interrupted   # 服务重启
 | `reconnecting` | 该传输正在按 backoff 重试 |
 | `stopped` | 该传输已停止 |
 
-## 六、Bilibili Source 状态
+## 六、三方账号状态
 
 | 状态 | 含义 |
 | --- | --- |
-| `disabled` | 没有可用订阅或事件源不可用 |
-| `idle` | 事件源已初始化，等待可检查的订阅或账号 |
-| `connecting` | 正在建立直播连接或检查动态 |
-| `connected` | 直播或动态检查处于可用状态 |
-| `degraded` | 部分直播连接、动态检查或账号凭据受限 |
-| `failed` | 当前直播与动态检查都不可用 |
+| `valid` | CK 已校验可用 |
+| `invalid` | CK 已失效，需要重新保存或扫码 |
+| `unknown` | CK 尚未完成校验或校验结果暂不可用 |
 
-诊断等级：
+三方账号平台：
 
-| 等级 | 含义 |
+| 平台 | 含义 |
 | --- | --- |
-| `normal` | 当前无需要处理的问题 |
-| `attention` | 需要关注，但平台会继续等待或重试 |
-| `action_required` | 需要人工处理，例如重新登录 Bilibili CK |
+| `bilibili` | Bilibili 账号 CK |
+| `weibo` | 微博账号 CK |
+| `douyin` | 抖音账号 CK |
+| `netease_music` | 网易云音乐账号 CK |
 
-Bilibili source 状态通过 `/api/bilibili/source/status` 查询，通过 `/ws/events` 的 `source: bilibili` 分支推送摘要。三方监控列表通过 `/api/third-party/monitors` 投影当前订阅目标、直播状态和动态快照。
+平台只保存、删除、扫码和校验 CK。订阅状态、用户解析、内容检查和立即检查由订阅中心插件管理。

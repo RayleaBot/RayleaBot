@@ -43,6 +43,7 @@ local action 的请求结构和返回结构见 [Protocol](./protocol.md)，SDK h
 | 读取原始事件载荷 | `event.raw_payload` | 需要 | 无 |
 | 发送或回复消息 | `message.send` / `message.reply` | 需要 | 无 |
 | 调用通用 local action | action kind，例如 `logger.write`、`storage.kv`、`config.read` | 需要 | 按 action 需要声明 |
+| 读取三方账号 CK | `thirdparty.account.read` | 需要 | `third_party_account_platforms` |
 | 调用 OneBot 单动作 | action kind，例如 `message.history.get`、`group.member.list` | 需要 | 无 |
 | 调用 provider 扩展动作 | provider action kind | 需要 | 无 |
 | 发起 HTTP 请求 | `http.request` | 需要 | `http_hosts` |
@@ -77,6 +78,7 @@ local action 的请求结构和返回结构见 [Protocol](./protocol.md)，SDK h
 
 - `http_hosts`：`http.request` 可访问的主机名列表。平台仍执行全局 HTTP 超时、重试、DNS 预检、SSRF 防护和私网主机限制。
 - `storage_roots`：`storage.file` 可访问的插件文件根目录列表。平台仍执行路径穿越、符号链接和插件工作目录配额校验。
+- `third_party_account_platforms`：`thirdparty.account.read` 可读取的三方平台列表。平台只返回已保存、已启用且非 invalid 的账号，CK 以 secret 值标记返回。
 - `webhooks`：`event.expose_webhook` 可暴露的路由列表。每个路由可声明签名要求、允许来源和重放窗口。
 
 ## 基础 capability
@@ -92,6 +94,7 @@ local action 的请求结构和返回结构见 [Protocol](./protocol.md)，SDK h
 - `config.read`
 - `config.write`
 - `secret.read`
+- `thirdparty.account.read`
 - `governance.blacklist.read`
 - `governance.blacklist.write`
 - `governance.whitelist.read`

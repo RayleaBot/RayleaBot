@@ -49,7 +49,6 @@
 - `message_id` 表示单条消息编号，`conversation_id` 表示统一会话标识；群消息使用 `group_id`，私聊消息使用对端 `user_id`。
 - OneBot 原生字段通过 `event.payload.onebot` 正式暴露，插件和管理面都可以直接读取 `group_id`、`user_id`、`time`、`real_id`、`message_seq`、`raw_message`、`sender`、`meta_event_type`、`interval` 和 `status` 等字段。
 - `meta.*` 事件使用 `conversation_type=system`、`conversation_id=bot:<self_id>`、`sender_id=<self_id>`、`target.type=bot`、`target.id=<self_id>`；`event.message` 保持为空。
-- 内置 Bilibili source 投递 `bilibili.live.started`、`bilibili.live.ended` 和 `bilibili.dynamic.published` 平台事件，事件载荷位于 `event.payload.bilibili`。
 
 ### 归一化链路
 
@@ -92,7 +91,7 @@ OneBot11 上报帧
 - 平台基础动作包括 `message.send`、`message.reply`、`logger.write`、`storage.kv`、`storage.file`、`http.request`、`config.read`、`config.write`、`secret.read`、`plugin.list`、`scheduler.create`、`event.expose_webhook`、`render.image` 与 `governance.*`。
 - OneBot generic action 覆盖消息读取与管理、好友与用户、群治理、文件、reaction 与 poke 等家族。
 - Provider 扩展动作固定为 `provider.napcat.message_emoji.like.set`、`provider.napcat.group.sign.set` 和 `provider.luckylillia.friend_groups.get`。
-- 平台内部事件（不经 Bridge，直接进入 Dispatcher）：`scheduler.trigger`、`config.changed`、`webhook.received`、`bot.identity.changed`、`bilibili.live.started`、`bilibili.live.ended`、`bilibili.dynamic.published`。
+- 平台内部事件（不经 Bridge，直接进入 Dispatcher）：`scheduler.trigger`、`config.changed`、`webhook.received`、`bot.identity.changed`、`management.action`。
 
 ### 当前正式消息段
 
@@ -138,6 +137,5 @@ OneBot11 上报帧
 - `protocol` + `protocol_snapshot`：OneBot11 协议快照推送
 - `observability_scope` = `bridge_runtime` 时的聚合观测摘要
 - `observability_scope` = `dispatcher_runtime` 时的 dispatcher 窗口统计摘要
-- `source: bilibili` 时的 Bilibili source 状态摘要
 
 会话失效时，连接会下发 `session_expired` session event，客户端必须换新 token 重连。

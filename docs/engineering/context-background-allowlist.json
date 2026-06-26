@@ -176,13 +176,6 @@
       "target_action": "Pass event contexts from menu call sites.",
       "revisit_after": "next extension audit"
     },
-    "server/internal/integrations/bilibili/source/source_runtime.go": {
-      "category": "runtime_status_wrapper",
-      "reason": "Source runtime StatusSnapshot wrapper delegates to Status for non-request callers.",
-      "owner": "server",
-      "target_action": "Use Status(ctx) from request or lifecycle paths.",
-      "revisit_after": "next Bilibili source audit"
-    },
     "server/internal/integrations/douyin/browser_runtime.go": {
       "category": "adapter_runtime_root",
       "reason": "Douyin browser allocator is a browser runtime root outside HTTP request scope.",

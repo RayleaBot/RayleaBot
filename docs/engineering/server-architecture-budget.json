@@ -155,12 +155,6 @@
       "next_target": 8,
       "long_term_target": 8
     },
-    "internal/integrations/bilibili/source": {
-      "current": 12,
-      "max": 12,
-      "next_target": 8,
-      "long_term_target": 8
-    },
     "internal/plugins/actions": {
       "current": 14,
       "max": 14,
@@ -175,12 +169,6 @@
     }
   },
   "package_production_files": {
-    "internal/integrations/bilibili/source": {
-      "current": 13,
-      "max": 13,
-      "next_target": 12,
-      "long_term_target": 12
-    },
     "internal/plugins/lifecycle": {
       "current": 18,
       "max": 18,
@@ -275,48 +263,6 @@
       "target_action": "Review when management handler generation is evaluated.",
       "due_stage": "next"
     },
-    "internal/integrations/bilibili/credential": {
-      "decision": "merge",
-      "reason": "Bilibili credential injection remains separate until HTTP action integration is consolidated.",
-      "owner": "server",
-      "target_action": "Merge into Bilibili session or source credential flow.",
-      "due_stage": "next"
-    },
-    "internal/integrations/bilibili/diagnostics": {
-      "decision": "keep",
-      "reason": "Bilibili diagnostics is shared by source status and management projection.",
-      "owner": "server",
-      "target_action": "Review when health aggregation owns integration health models.",
-      "due_stage": "next"
-    },
-    "internal/integrations/bilibili/media": {
-      "decision": "merge",
-      "reason": "Bilibili media proxy remains separate until provider media handlers are grouped.",
-      "owner": "server",
-      "target_action": "Merge with provider media proxy boundary.",
-      "due_stage": "next"
-    },
-    "internal/integrations/bilibili/proxy": {
-      "decision": "merge",
-      "reason": "Bilibili proxy helper remains separate until media providers are grouped.",
-      "owner": "server",
-      "target_action": "Merge with provider HTTP/proxy helper boundary.",
-      "due_stage": "next"
-    },
-    "internal/integrations/bilibili/subscriptions": {
-      "decision": "merge",
-      "reason": "Bilibili subscription projection remains separate until provider configuration is consolidated.",
-      "owner": "server",
-      "target_action": "Merge into Bilibili plugin configuration boundary.",
-      "due_stage": "next"
-    },
-    "internal/integrations/bilibili/values": {
-      "decision": "merge",
-      "reason": "Bilibili value helpers remain separate until provider packages are consolidated.",
-      "owner": "server",
-      "target_action": "Merge into Bilibili domain values or source package.",
-      "due_stage": "next"
-    },
     "internal/management/authhttp": {
       "decision": "keep",
       "reason": "Auth middleware is the management HTTP boundary.",
@@ -329,6 +275,13 @@
       "reason": "Management UI static handler is a web surface boundary.",
       "owner": "server",
       "target_action": "Review if web asset serving moves outside server.",
+      "due_stage": "next"
+    },
+    "internal/plugins/actions/httpaction": {
+      "decision": "keep",
+      "reason": "HTTP action execution has host-scope and response handling separate from default action registration.",
+      "owner": "server",
+      "target_action": "Review with plugin local action module consolidation.",
       "due_stage": "next"
     },
     "internal/plugins/capabilityview": {

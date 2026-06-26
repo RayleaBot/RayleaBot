@@ -36,7 +36,7 @@
 
 当前基础：
 
-- server 主链路完整，当前具备配置（热重载快照）、SQLite 当前 schema bootstrap、鉴权（HMAC-SHA256 session）、任务、插件 runtime（7 种状态、local actions）、dispatcher / scheduler、render service、聊天权限、recovery/backup、diagnostics、三方账号、Bilibili source、运行指标与管理面全路由。
+- server 主链路完整，当前具备配置（热重载快照）、SQLite 当前 schema bootstrap、鉴权（HMAC-SHA256 session）、任务、插件 runtime（7 种状态、local actions）、dispatcher / scheduler、render service、聊天权限、recovery/backup、diagnostics、三方账号、运行指标与管理面全路由。
 
 进入本阶段时应继续遵守：
 
@@ -81,7 +81,7 @@
 
 当前基础：
 
-- 配置 schema 校验、SQLite schema bootstrap、auth persistence、task persistence、plugin enable intent persistence、secret store、scheduler persistence、三方账号摘要、Bilibili source 状态、日志持久化、聊天侧 permission / blacklist / cooldown 已全部接入 server 主路径。
+- 配置 schema 校验、SQLite schema bootstrap、auth persistence、task persistence、plugin enable intent persistence、secret store、scheduler persistence、三方账号摘要、日志持久化、聊天侧 permission / blacklist / cooldown 已全部接入 server 主路径。
 
 进入本阶段时应继续遵守：
 
@@ -95,7 +95,7 @@
 
 当前基础：
 
-- 管理 HTTP / WebSocket、setup/session、config、system status/shutdown/diagnostics、OneBot 协议快照、reverse WebSocket 回连入口、webhook 入口、tasks、logs、plugin lifecycle（install/uninstall/enable/disable/reload）、console、render management、backup、recovery、三方账号、三方监控、Bilibili source 和 runtime metrics 已全部进入真实路由。
+- 管理 HTTP / WebSocket、setup/session、config、system status/shutdown/diagnostics、OneBot 协议快照、reverse WebSocket 回连入口、webhook 入口、tasks、logs、plugin lifecycle（install/uninstall/enable/disable/reload）、console、render management、backup、recovery、三方账号、插件管理动作和 runtime metrics 已全部进入真实路由。
 
 进入本阶段时应继续遵守：
 
@@ -114,7 +114,7 @@
 
 产出物：
 
-- Web UI 当前覆盖登录、系统状态、内置菜单、三方账号、三方监控、插件、权限策略、指令中心、任务、日志中心、协议中心和配置等正式页面。
+- Web UI 当前覆盖登录、系统状态、内置菜单、三方账号、插件、权限策略、指令中心、任务、日志中心、协议中心和配置等正式页面。
 
 暂不做什么：
 

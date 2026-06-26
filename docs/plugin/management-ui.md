@@ -9,7 +9,7 @@
 - 每个插件可声明一个或多个内置管理页。
 - 管理页作为插件详情页内的工作区显示，路径保持在 `/plugins/:id`。
 - 管理页资源来自插件包内静态文件。
-- 管理页只允许读取和保存插件自己的设置与敏感值。
+- 管理页只允许读取和保存插件自己的设置与敏感值，并通过受控插件动作请求所属插件处理页面业务操作。
 - 管理页不直接获得管理 Token、全局 store 或通用管理 API 调用能力。
 
 ## Manifest 字段
@@ -69,6 +69,15 @@
 - `PUT` 请求体固定为 `values: object<string, string>`，可带 `deleted_keys: string[]`。
 - 插件 runtime 通过 `secret.read` 读取自身命名空间内的单个敏感值。
 
+## 插件动作
+
+| 接口 | 作用 |
+| --- | --- |
+| `POST /api/plugins/{plugin_id}/management/actions` | 把插件管理页动作转给所属插件 runtime |
+
+- 管理页通过 `plugin.action.invoke` 发起动作，宿主调用受保护接口并把结果通过 `plugin.action.result` 返回 iframe。
+- 动作载荷只发送给当前插件，宿主不代替插件执行业务逻辑。
+
 ## 桥接消息
 
 管理页 iframe 与宿主页只使用正式 `postMessage` 消息：
@@ -84,6 +93,12 @@
 - `scheduler.trigger`
 - `scheduler.triggered`
 - `render_template.open`
+- `protocol.targets.reload`
+- `protocol.targets.changed`
+- `protocol.identities.resolve`
+- `protocol.identities.resolved`
+- `plugin.action.invoke`
+- `plugin.action.result`
 - `error`
 
 `host.init` 会提供：

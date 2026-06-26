@@ -12,7 +12,7 @@
 | `server/internal/app/renderstack` | Render Service、浏览器路径准备、插件模板同步和渲染资源关闭 |
 | `server/internal/app/eventstack` | OneBot11 shell、Bridge、Dispatcher、ReplyTarget、OutboundLimiter 和 dispatcher observability flush |
 | `server/internal/app/actionwire` | local action 对 scheduler、config changed、secret reader 和 renderer 的内部适配 |
-| `server/internal/app/servicegraph` | 应用服务组装，包括 local actions、runtime registry、system、plugin lifecycle、event ingress、protocol、webhook、governance、third-party、Bilibili source |
+| `server/internal/app/servicegraph` | 应用服务组装，包括 local actions、runtime registry、system、plugin lifecycle、event ingress、protocol、webhook、governance、third-party |
 | `server/internal/app/httpwire` | HTTP server、management handlers、WebSocket handlers 和路由模块组装，直接消费插件、事件与渲染输入 |
 | `server/internal/bootstrap` | `cmd/raylea-server` 与 `internal/app` 之间的入口装配层 |
 | `server/internal/management/router` | 管理面公共路由、受保护路由、管理 UI fallback 和健康检查 |
@@ -22,9 +22,8 @@
 | `server/internal/management/events` | 管理面 WebSocket event frame 与 payload 投影 |
 | `server/internal/plugins/actions` | 插件 local action registry 和公共入口 |
 | `server/internal/plugins/actions/*action` | 单类 local action 的执行逻辑和依赖接口 |
-| `server/internal/integrations/bilibili/source` | Bilibili source 编排入口 |
 | `server/internal/integrations/bilibili/session/identity` | Bilibili 请求身份、UA、语言和请求头生成 |
-| `server/internal/integrations/bilibili/{session,live,dynamic,monitoring,diagnostics,media,credential,accountusage,subscriptions,values}` | Bilibili source 的独立协作者 |
+| `server/internal/integrations/bilibili/{session,captcha,fingerprint,proxy}` | Bilibili 登录、扫码和账号资料读取的独立协作者 |
 | `server/internal/logging/repository` | 管理日志 SQLite 持久化和查询实现 |
 | `server/internal/system/startup` | 启动运行环境阶段、标签、日志字段和失败归因 |
 | `server/internal/bot/adapter/onebot11/shell/backoff` | OneBot11 shell 重连退避算法 |

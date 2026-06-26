@@ -48,7 +48,7 @@ lint CI 的 `web-core` job 包含生成文件一致性检查（`pnpm generate:ty
 
 ### 计划 B：SQL 代码生成 ✅
 
-sqlc v1.29.0 以 `server/internal/sqlcqueries/` 下 7 个 `.sql` 文件（38 named queries）为单一来源，生成 `server/internal/sqlcgen/`。auth、tasks、scheduler、logging、plugins、pluginkv、pluginconfig 的静态查询由 sqlc 生成；动态 SQL、permission repositories、third-party account service、Bilibili source 和 render template repository 保留手写查询。
+sqlc v1.29.0 以 `server/internal/sqlcqueries/` 下 7 个 `.sql` 文件（38 named queries）为单一来源，生成 `server/internal/sqlcgen/`。auth、tasks、scheduler、logging、plugins、pluginkv、pluginconfig 的静态查询由 sqlc 生成；动态 SQL、permission repositories、third-party account service 和 render template repository 保留手写查询。
 
 配置：`server/sqlc.yaml`，schema 来自 `server/internal/storage/schema.sql`。
 
