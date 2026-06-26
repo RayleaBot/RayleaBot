@@ -865,12 +865,14 @@ body {
 }
 
 .diagnostics-panel {
-  min-height: min(100%, 620px);
+  flex: 1;
+  min-height: 0;
 }
 
 .diagnostics-surface {
-  min-height: 460px;
-  max-height: calc(100dvh - 220px);
+  flex: 1;
+  min-height: 0;
+  max-height: none;
   overflow: auto;
 }
 
@@ -981,88 +983,15 @@ body {
   margin-top: 2px;
 }
 
-.settings-section__toggle {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  width: 100%;
-  padding: 0;
-  margin: 0;
-  background: none;
-  border: none;
-  color: inherit;
-  font: inherit;
-  cursor: pointer;
-  text-align: left;
+.settings-paths-panel {
+  gap: 16px;
 }
 
-.settings-section__toggle:hover .settings-section__header {
-  opacity: 0.85;
-}
-
-.settings-section__chevron {
-  font-size: 0.8rem;
-  color: var(--text-muted);
-  flex-shrink: 0;
-}
-
-.settings-advanced-fields {
+.settings-path-fields {
   display: flex;
   flex-direction: column;
   gap: 14px;
   padding-top: 4px;
-}
-
-.settings-resolution-panel {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  padding-top: 14px;
-  border-top: 1px solid var(--surface-border);
-}
-
-.settings-resolution-panel__header {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-}
-
-.settings-resolution-panel__icon {
-  width: 16px;
-  height: 16px;
-  color: var(--accent);
-  margin-top: 2px;
-  flex-shrink: 0;
-}
-
-.settings-info-list {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.settings-info-item {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  min-width: 0;
-}
-
-.settings-info-item__label {
-  font-size: 0.7rem;
-  font-weight: 600;
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-}
-
-.settings-info-item__value {
-  font-size: 0.78rem;
-  color: var(--text-secondary);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  font-family: "Cascadia Code", "Consolas", monospace;
 }
 
 .path-field {
@@ -1350,6 +1279,140 @@ body {
   min-width: 0;
 }
 
+.about-section {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  min-width: 0;
+}
+
+.about-hero {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 18px;
+  padding: 22px;
+}
+
+.about-hero__mark,
+.about-panel-heading__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  border-radius: var(--radius-control);
+  background: var(--accent-subtle);
+  color: var(--accent);
+}
+
+.about-hero__mark {
+  width: 48px;
+  height: 48px;
+}
+
+.about-hero__mark > svg {
+  width: 24px;
+  height: 24px;
+}
+
+.about-hero__copy {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+.about-hero__title {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: 1.42rem;
+  font-weight: 800;
+  line-height: 1.2;
+  letter-spacing: 0;
+}
+
+.about-hero__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+  min-width: 112px;
+}
+
+.about-info-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+  padding: 18px;
+}
+
+.about-panel-heading {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  min-width: 0;
+}
+
+.about-panel-heading__icon {
+  width: 34px;
+  height: 34px;
+}
+
+.about-panel-heading__icon > svg {
+  width: 18px;
+  height: 18px;
+}
+
+.about-info-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.about-info-row {
+  display: grid;
+  grid-template-columns: 96px minmax(0, 1fr);
+  gap: 14px;
+  padding: 10px 0;
+  border-top: 1px solid var(--surface-border);
+}
+
+.about-info-row__label {
+  color: var(--text-muted);
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.about-info-row__value {
+  min-width: 0;
+  color: var(--text-secondary);
+  overflow-wrap: anywhere;
+}
+
+.about-version-value {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.about-version-hint {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 2px 8px;
+  border: 1px solid rgba(22, 119, 255, 0.28);
+  border-radius: 999px;
+  background: var(--accent-subtle);
+  color: var(--accent);
+  font-size: 0.74rem;
+  font-weight: 800;
+  line-height: 1.3;
+}
+
 .status-view-flow {
   min-width: 0;
   animation: slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1);
@@ -1608,26 +1671,6 @@ body {
   padding: 22px;
 }
 
-.status-summary-rail .version-status {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 10px;
-}
-
-.status-summary-rail .update-badge {
-  font-size: 0.65rem;
-  font-weight: 800;
-  padding: 1px 6px;
-  border-radius: 4px;
-  background: var(--success);
-  color: var(--app-bg);
-}
-
-.status-summary-rail .frost-button--outline.fui-Button {
-  border: 1px solid var(--accent) !important;
-}
-
 .status-summary-rail .side-actions-stack {
   display: flex;
   flex-direction: column;
@@ -1664,9 +1707,6 @@ body {
     grid-template-columns: 1fr;
   }
 
-  .settings-compare-strip {
-    grid-template-columns: 1fr;
-  }
 }
 
 @media (max-width: 960px) {
@@ -1689,6 +1729,15 @@ body {
   }
 
   .section-header__actions {
+    justify-content: flex-start;
+  }
+
+  .about-hero {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .about-hero__actions {
+    grid-column: 1 / -1;
     justify-content: flex-start;
   }
 }
@@ -1728,6 +1777,19 @@ body {
   .maintenance-action-card {
     flex-direction: column;
     align-items: stretch;
+  }
+
+  .about-hero {
+    grid-template-columns: 1fr;
+  }
+
+  .about-panel-heading {
+    flex-direction: column;
+  }
+
+  .about-info-row {
+    grid-template-columns: 1fr;
+    gap: 6px;
   }
 
   .settings-edit-actions {
@@ -1776,6 +1838,11 @@ body {
   min-width: 0;
 }
 
+.section-shell[data-section="diagnostics"] {
+  height: 100%;
+  min-height: 100%;
+}
+
 .section-shell__content {
   display: flex;
   flex-direction: column;
@@ -1786,6 +1853,11 @@ body {
   transition:
     opacity var(--motion-switch-duration) var(--motion-ease-standard),
     transform var(--motion-switch-duration) var(--motion-ease-standard);
+}
+
+.section-shell[data-section="diagnostics"] .section-shell__content {
+  flex: 1;
+  min-height: 0;
 }
 
 .section-shell[data-transition="exiting"] .section-shell__content {
@@ -1840,12 +1912,6 @@ body {
   line-height: 1.15;
   letter-spacing: -0.02em;
   color: var(--text-primary);
-}
-
-.section-header__detail {
-  margin: 0;
-  color: var(--text-secondary);
-  line-height: 1.5;
 }
 
 .section-header__badges,
@@ -2357,62 +2423,6 @@ body {
   color: var(--text-secondary);
 }
 
-.diagnostics-banner {
-  padding: 12px 14px;
-  border-radius: var(--radius-control);
-  font-size: 0.82rem;
-  font-weight: 600;
-}
-
-.diagnostics-banner--quiet {
-  color: var(--text-secondary);
-  background: var(--surface-bg-subtle);
-  border: 1px solid var(--surface-border);
-}
-
-.diagnostics-banner--alert {
-  color: var(--error);
-  background: var(--error-subtle);
-  border: 1px solid var(--error);
-}
-
-.settings-compare-strip {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 14px;
-}
-
-.settings-compare-card {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  min-width: 0;
-  padding: 14px 16px;
-  border-radius: var(--radius-panel);
-  background: var(--surface-bg-subtle);
-  border: 1px solid var(--surface-border);
-}
-
-.settings-compare-card--resolved {
-  background: var(--accent-subtle);
-  border-color: var(--accent);
-}
-
-.settings-compare-card__label {
-  color: var(--text-muted);
-  font-size: 0.68rem;
-  font-weight: 700;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-}
-
-.settings-compare-card__value {
-  min-width: 0;
-  color: var(--text-secondary);
-  font-family: "Cascadia Code", "Consolas", monospace;
-  overflow-wrap: anywhere;
-}
-
 .settings-surface-tag {
   display: inline-flex;
   align-items: center;
@@ -2428,12 +2438,6 @@ body {
   font-weight: 700;
   letter-spacing: 0.04em;
   white-space: nowrap;
-}
-
-.settings-surface-tag--resolved {
-  color: var(--accent);
-  background: var(--accent-subtle);
-  border-color: var(--accent);
 }
 
 .settings-section__header {

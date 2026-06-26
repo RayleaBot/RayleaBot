@@ -24,6 +24,7 @@ describe("renderer style regressions", () => {
     expect(styleSheet).toMatch(/\.section-header\s*{[^}]*justify-content:\s*space-between;/s);
     expect(styleSheet).toMatch(/\.section-shell__content\s*{[^}]*transition:[^}]*opacity[^}]*transform/s);
     expect(styleSheet).toMatch(/\.section-shell\[data-transition="exiting"\]\s+\.section-shell__content\s*{[^}]*opacity:\s*0;/s);
+    expect(styleSheet).not.toMatch(/\.section-header__detail\s*{/);
   });
 
   test("locks the homepage hero layout and busy feedback", () => {
@@ -47,10 +48,13 @@ describe("renderer style regressions", () => {
     expect(styleSheet).toMatch(/\.active-environment\s+\.check-item\s*{[^}]*padding:\s*16px;[^}]*min-height:\s*0;/s);
   });
 
-  test("keeps the diagnostics and settings comparison surfaces", () => {
+  test("keeps the diagnostics and settings path surfaces", () => {
     expect(styleSheet).toMatch(/\.diagnostics-context-grid\s*{[^}]*grid-template-columns:\s*repeat\(3,\s*minmax\(0,\s*1fr\)\);/s);
-    expect(styleSheet).toMatch(/\.settings-compare-strip\s*{[^}]*grid-template-columns:\s*repeat\(2,\s*minmax\(0,\s*1fr\)\);/s);
-    expect(styleSheet).toMatch(/\.settings-surface-tag--resolved\s*{[^}]*background:\s*var\(--accent-subtle\);/s);
+    expect(styleSheet).toMatch(/\.section-shell\[data-section="diagnostics"\]\s*{[^}]*height:\s*100%;[^}]*min-height:\s*100%;/s);
+    expect(styleSheet).toMatch(/\.section-shell\[data-section="diagnostics"\]\s+\.section-shell__content\s*{[^}]*flex:\s*1;[^}]*min-height:\s*0;/s);
+    expect(styleSheet).toMatch(/\.diagnostics-panel\s*{[^}]*flex:\s*1;[^}]*min-height:\s*0;/s);
+    expect(styleSheet).toMatch(/\.diagnostics-surface\s*{[^}]*flex:\s*1;[^}]*min-height:\s*0;[^}]*max-height:\s*none;[^}]*overflow:\s*auto;/s);
+    expect(styleSheet).toMatch(/\.settings-path-fields\s*{[^}]*display:\s*flex;[^}]*flex-direction:\s*column;/s);
   });
 
   test("keeps the homepage overflow safety", () => {

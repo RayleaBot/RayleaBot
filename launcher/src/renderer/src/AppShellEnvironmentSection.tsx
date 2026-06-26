@@ -2,6 +2,7 @@ import { Text } from "@fluentui/react-components";
 import { getEnvironmentSummaryLabel, resolveRecoverySummary } from "@shared/launcher-presentation";
 import type { LauncherSnapshot } from "@shared/launcher-models";
 
+import { formatRecoverySummary } from "./AppShell.copy";
 import { severityConfig, sortChecks } from "./AppShell.shared";
 
 type EnvironmentSectionProps = {
@@ -42,9 +43,7 @@ export function AppShellEnvironmentSection({
         ? { label: environmentSummaryLabel, detail: "核心能力可用，建议先检查告警项。" }
         : { label: environmentSummaryLabel, detail: "当前未发现阻塞或告警项。" };
   const recoverySummary = resolveRecoverySummary(snapshot);
-  const recoveryStatusSummary = recoverySummary
-    ? `${recoverySummary.status} · ${recoverySummary.operation}`
-    : "当前没有恢复摘要。";
+  const recoveryStatusSummary = formatRecoverySummary(recoverySummary);
 
   return (
     <div className="env-details-flow">

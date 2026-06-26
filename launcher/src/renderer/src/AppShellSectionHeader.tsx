@@ -4,7 +4,7 @@ import { deriveLauncherPresentation, getEnvironmentSummaryLabel } from "@shared/
 import type { LauncherSnapshot } from "@shared/launcher-models";
 import type { ReactNode } from "react";
 
-import { busyActionLabels, sectionContent, serviceStateConfig } from "./AppShell.shared";
+import { busyActionLabels, formatReleaseVersion, sectionContent, serviceStateConfig } from "./AppShell.shared";
 import type { SectionId } from "./AppShell.shared";
 
 type AppShellSectionHeaderProps = {
@@ -51,11 +51,14 @@ function getSectionHeaderBadges(
     return (
       <>
         <span className={`glass-chip ${hasRecentStderr ? "glass-chip--danger" : "glass-chip--muted"}`}>
-          {hasRecentStderr ? "检测到异常输出" : "当前安静"}
+          {hasRecentStderr ? "发现异常日志" : "暂无异常日志"}
         </span>
         <span className="glass-chip glass-chip--muted">{snapshot.launcher.endpoint.baseUrl}</span>
       </>
     );
+  }
+  if (renderedSection === "about") {
+    return <span className="glass-chip glass-chip--muted">{formatReleaseVersion(snapshot.launcher.releaseCheck.currentVersion)}</span>;
   }
   return <span className="glass-chip glass-chip--accent">{editingSettings ? "草稿编辑中" : "已加载当前配置"}</span>;
 }
@@ -94,6 +97,9 @@ function getSectionHeaderActions(props: AppShellSectionHeaderProps, canRunRecove
   if (props.renderedSection === "diagnostics") {
     return <Button appearance="transparent" size="small" className="frost-button frost-button--secondary" onClick={props.onOpenLogs} icon={<FolderOpen20Filled />}>查看完整日志</Button>;
   }
+  if (props.renderedSection === "about") {
+    return null;
+  }
   if (props.editingSettings) {
     return (
       <>
@@ -122,7 +128,6 @@ export function AppShellSectionHeader(props: AppShellSectionHeaderProps) {
             {getSectionHeaderBadges(props.renderedSection, props.snapshot, props.busyAction, props.editingSettings, environmentLabel, hasRecentStderr)}
           </div>
         </div>
-        <p className="section-header__detail">{sectionMeta.detail}</p>
       </div>
       <div className="section-header__actions">
         {getSectionHeaderActions(props, canRunRecoveryActions)}

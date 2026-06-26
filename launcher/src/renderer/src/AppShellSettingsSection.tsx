@@ -1,12 +1,9 @@
 import { Button, Input, Radio, RadioGroup, Text } from "@fluentui/react-components";
 import {
-  DocumentText20Filled,
   FolderOpen20Filled,
-  Status20Filled,
   Stop20Filled,
   Warning20Filled,
 } from "@fluentui/react-icons";
-import { useEffect, useState } from "react";
 import { deriveLauncherPresentation } from "@shared/launcher-presentation";
 import type {
   LauncherAdvancedOverrides,
@@ -52,22 +49,11 @@ export function AppShellSettingsSection({
   onResetAdmin,
   onExit,
 }: SettingsSectionProps) {
-  const [showAdvancedOverrides, setShowAdvancedOverrides] = useState(false);
   const presentation = deriveLauncherPresentation(snapshot);
-
-  const hasAdvancedOverrides = Boolean(
-    settingsDraft.advancedOverrides?.serverExecutablePath
-      || settingsDraft.advancedOverrides?.configPath
-      || settingsDraft.advancedOverrides?.workdir,
-  );
-
-  useEffect(() => {
-    if (hasAdvancedOverrides) {
-      setShowAdvancedOverrides(true);
-    }
-  }, [hasAdvancedOverrides]);
-
-  const settingsSurfaceTag = editingSettings ? "当前草稿" : "当前值";
+  const pathSurfaceTag = editingSettings ? "可编辑" : "当前生效";
+  const serverExecutablePath = settingsDraft.advancedOverrides?.serverExecutablePath || resolvedSettings.serverExecutablePath;
+  const configPath = settingsDraft.advancedOverrides?.configPath || resolvedSettings.configPath;
+  const workdir = settingsDraft.advancedOverrides?.workdir || resolvedSettings.workdir;
 
   return (
     <article className="panel glass-panel settings-panel" data-busy={busyAction ?? "idle"}>
@@ -83,82 +69,46 @@ export function AppShellSettingsSection({
         </div>
       )}
 
-      <div className="settings-compare-strip">
-        <div className="settings-compare-card">
-          <span className="settings-surface-tag">{settingsSurfaceTag}</span>
-          <span className="settings-compare-card__label">安装目录</span>
-          <span className="settings-compare-card__value" title={settingsDraft.installationRoot}>{settingsDraft.installationRoot || "—"}</span>
-        </div>
-        <div className="settings-compare-card settings-compare-card--resolved">
-          <span className="settings-surface-tag settings-surface-tag--resolved">当前生效</span>
-          <span className="settings-compare-card__label">进程工作目录</span>
-          <span className="settings-compare-card__value" title={resolvedSettings.workdir}>{resolvedSettings.workdir || "—"}</span>
-        </div>
-      </div>
-
       <div className="settings-layout">
         <div className="settings-column settings-column--primary">
-          <section className="settings-section glass-panel glass-panel--subtle">
+          <section className="settings-section settings-paths-panel glass-panel glass-panel--subtle">
             <div className="settings-section__header">
               <FolderOpen20Filled className="settings-section__icon" />
               <div className="panel-copy">
-                <div className="brand-eyebrow brand-eyebrow--tight">安装目录</div>
-                <Text size={200} className="panel-muted">启动器和工作服务的根目录位置</Text>
+                <div className="brand-eyebrow brand-eyebrow--tight">路径设置</div>
+                <Text size={200} className="panel-muted">当前使用的目录和文件路径。</Text>
               </div>
-              <span className="settings-surface-tag">{settingsSurfaceTag}</span>
+              <span className="settings-surface-tag">{pathSurfaceTag}</span>
             </div>
-            <div className="path-field">
-              <div className="path-control">
-                <Input aria-label="安装目录" value={settingsDraft.installationRoot} readOnly={!editingSettings} className="frost-input frost-input--path" onChange={(_, data) => onUpdateInstallationRoot(data.value)} />
-                <Button appearance="transparent" disabled={!editingSettings} size="small" className="frost-button frost-button--secondary frost-button--compact" onClick={onChooseInstallationRoot} icon={<FolderOpen20Filled />}>浏览</Button>
-              </div>
-            </div>
-          </section>
-
-          <section className={`settings-section glass-panel glass-panel--subtle ${showAdvancedOverrides ? "is-expanded" : ""}`}>
-            <button type="button" className="settings-section__toggle" aria-expanded={showAdvancedOverrides} aria-label={showAdvancedOverrides ? "收起高级覆盖" : "展开高级覆盖"} onClick={() => setShowAdvancedOverrides((current) => !current)}>
-              <div className="settings-section__header">
-                <DocumentText20Filled className="settings-section__icon" />
-                <div className="panel-copy">
-                  <div className="brand-eyebrow brand-eyebrow--tight">高级覆盖</div>
-                  <Text size={200} className="panel-muted">使用显式路径覆盖自动推导结果</Text>
+            <div className="settings-path-fields">
+              <label className="path-field">
+                <span className="path-field__label">安装目录</span>
+                <div className="path-control">
+                  <Input aria-label="安装目录" value={settingsDraft.installationRoot} readOnly={!editingSettings} className="frost-input frost-input--path" onChange={(_, data) => onUpdateInstallationRoot(data.value)} />
+                  <Button appearance="transparent" disabled={!editingSettings} size="small" className="frost-button frost-button--secondary frost-button--compact" onClick={onChooseInstallationRoot} icon={<FolderOpen20Filled />}>浏览</Button>
                 </div>
-                <span className="settings-surface-tag">{settingsSurfaceTag}</span>
-              </div>
-              <span className="settings-section__chevron" aria-hidden="true">{showAdvancedOverrides ? "收起高级覆盖" : "展开高级覆盖"}</span>
-            </button>
-
-            {showAdvancedOverrides && (
-              <div className="settings-advanced-fields">
-                <label className="path-field"><span className="path-field__label">服务端覆盖</span><div className="path-control"><Input aria-label="服务端覆盖" value={settingsDraft.advancedOverrides?.serverExecutablePath ?? ""} readOnly={!editingSettings} placeholder={resolvedSettings.serverExecutablePath} className="frost-input frost-input--path" onChange={(_, data) => onUpdateAdvancedOverride("serverExecutablePath", data.value)} /><Button appearance="transparent" disabled={!editingSettings} size="small" className="frost-button frost-button--secondary frost-button--compact" onClick={onChooseServer} icon={<FolderOpen20Filled />}>浏览</Button></div></label>
-                <label className="path-field"><span className="path-field__label">配置覆盖</span><div className="path-control"><Input aria-label="配置覆盖" value={settingsDraft.advancedOverrides?.configPath ?? ""} readOnly={!editingSettings} placeholder={resolvedSettings.configPath} className="frost-input frost-input--path" onChange={(_, data) => onUpdateAdvancedOverride("configPath", data.value)} /><Button appearance="transparent" disabled={!editingSettings} size="small" className="frost-button frost-button--secondary frost-button--compact" onClick={onChooseConfig} icon={<FolderOpen20Filled />}>浏览</Button></div></label>
-                <label className="path-field"><span className="path-field__label">进程工作目录覆盖</span><div className="path-control"><Input aria-label="进程工作目录覆盖" value={settingsDraft.advancedOverrides?.workdir ?? ""} readOnly={!editingSettings} placeholder={resolvedSettings.workdir} className="frost-input frost-input--path" onChange={(_, data) => onUpdateAdvancedOverride("workdir", data.value)} /><Button appearance="transparent" disabled={!editingSettings} size="small" className="frost-button frost-button--secondary frost-button--compact" onClick={onChooseWorkdir} icon={<FolderOpen20Filled />}>选择</Button></div></label>
-              </div>
-            )}
-
-            <div className="settings-resolution-panel">
-              <div className="settings-resolution-panel__header">
-                <Status20Filled className="settings-resolution-panel__icon" />
-                <div className="panel-copy">
-                  <div className="brand-eyebrow brand-eyebrow--tight">当前解析结果</div>
-                  <Text size={200} className="panel-muted">当前生效的服务端、配置与进程工作目录路径。</Text>
+              </label>
+              <label className="path-field">
+                <span className="path-field__label">服务端程序</span>
+                <div className="path-control">
+                  <Input aria-label="服务端程序" value={serverExecutablePath} readOnly={!editingSettings} className="frost-input frost-input--path" onChange={(_, data) => onUpdateAdvancedOverride("serverExecutablePath", data.value)} />
+                  <Button appearance="transparent" disabled={!editingSettings} size="small" className="frost-button frost-button--secondary frost-button--compact" onClick={onChooseServer} icon={<FolderOpen20Filled />}>浏览</Button>
                 </div>
-                <span className="settings-surface-tag settings-surface-tag--resolved">当前生效</span>
-              </div>
-              <div className="settings-info-list">
-                <div className="settings-info-item">
-                  <span className="settings-info-item__label">服务端</span>
-                  <span className="settings-info-item__value" title={resolvedSettings.serverExecutablePath}>{resolvedSettings.serverExecutablePath}</span>
+              </label>
+              <label className="path-field">
+                <span className="path-field__label">配置文件</span>
+                <div className="path-control">
+                  <Input aria-label="配置文件" value={configPath} readOnly={!editingSettings} className="frost-input frost-input--path" onChange={(_, data) => onUpdateAdvancedOverride("configPath", data.value)} />
+                  <Button appearance="transparent" disabled={!editingSettings} size="small" className="frost-button frost-button--secondary frost-button--compact" onClick={onChooseConfig} icon={<FolderOpen20Filled />}>浏览</Button>
                 </div>
-                <div className="settings-info-item">
-                  <span className="settings-info-item__label">配置</span>
-                  <span className="settings-info-item__value" title={resolvedSettings.configPath}>{resolvedSettings.configPath}</span>
+              </label>
+              <label className="path-field">
+                <span className="path-field__label">进程工作目录</span>
+                <div className="path-control">
+                  <Input aria-label="进程工作目录" value={workdir} readOnly={!editingSettings} className="frost-input frost-input--path" onChange={(_, data) => onUpdateAdvancedOverride("workdir", data.value)} />
+                  <Button appearance="transparent" disabled={!editingSettings} size="small" className="frost-button frost-button--secondary frost-button--compact" onClick={onChooseWorkdir} icon={<FolderOpen20Filled />}>选择</Button>
                 </div>
-                <div className="settings-info-item">
-                  <span className="settings-info-item__label">进程工作目录</span>
-                  <span className="settings-info-item__value" title={resolvedSettings.workdir}>{resolvedSettings.workdir}</span>
-                </div>
-              </div>
+              </label>
             </div>
           </section>
         </div>

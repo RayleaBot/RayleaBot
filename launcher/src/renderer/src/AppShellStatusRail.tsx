@@ -13,22 +13,18 @@ type AppShellStatusRailProps = {
   canRecheckRecovery: boolean;
   canRunRecoveryActions: boolean;
   checks: RailCheck[];
-  onOpenReleasePage: () => void;
   onOpenRecoveryTasks: () => void;
   onOpenRuntimeTasks: () => void;
   recoveryStatusSummary: string;
-  releaseSummary: string;
 };
 
 export function AppShellStatusRail({
   canRecheckRecovery,
   canRunRecoveryActions,
   checks,
-  onOpenReleasePage,
   onOpenRecoveryTasks,
   onOpenRuntimeTasks,
   recoveryStatusSummary,
-  releaseSummary,
 }: AppShellStatusRailProps) {
   return (
     <aside className="status-summary-rail status-side-column">
@@ -59,14 +55,6 @@ export function AppShellStatusRail({
           <Button appearance="transparent" size="small" className="frost-button frost-button--secondary frost-button--block" onClick={onOpenRecoveryTasks} disabled={!canRecheckRecovery}>执行恢复检查</Button>
           <Button appearance="transparent" size="small" className="frost-button frost-button--secondary frost-button--block" onClick={onOpenRuntimeTasks} disabled={!canRunRecoveryActions}>准备运行环境</Button>
         </div>
-      </article>
-
-      <article className="panel glass-panel glass-panel--subtle panel--side">
-        <div className="brand-eyebrow brand-eyebrow--tight">版本监控</div>
-        <div className="version-status">
-          <Text size={200} className="panel-muted">{releaseSummary}</Text>
-        </div>
-        <Button appearance="transparent" size="small" className="frost-button frost-button--secondary frost-button--block frost-button--outline" onClick={onOpenReleasePage}>检查更新</Button>
       </article>
     </aside>
   );

@@ -74,7 +74,7 @@ export function AppShellStatusHero({
         </div>
         <div className="status-hero__secondary-actions hero-actions-row">
           <Button appearance="transparent" size="large" className="frost-button frost-button--secondary status-action" onClick={onStop} disabled={stopDisabled} icon={<Stop20Filled />}>停止服务</Button>
-          <Button appearance="transparent" size="large" className="frost-button frost-button--secondary status-action" onClick={onOpenWeb} disabled={controlsDisabled || !canOpenWebUi} icon={<Globe20Filled />}>管理面板</Button>
+          <Button appearance="transparent" size="large" className="frost-button frost-button--secondary status-action" onClick={onOpenWeb} disabled={controlsDisabled || !canOpenWebUi} icon={<Globe20Filled />}>管理界面</Button>
         </div>
         <div className="status-action-feedback" data-busy={busyLabel ? "true" : "false"}>
           <span className="status-action-feedback__dot" aria-hidden="true"></span>

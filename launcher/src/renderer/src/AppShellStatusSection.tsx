@@ -3,6 +3,7 @@ import { deriveLauncherPresentation, resolveRecoverySummary } from "@shared/laun
 import type { LauncherResolvedSettings, LauncherSnapshot } from "@shared/launcher-models";
 
 import { busyActionLabels, sortChecks } from "./AppShell.shared";
+import { formatRecoverySummary } from "./AppShell.copy";
 import { AppShellStatusHero } from "./AppShellStatusHero";
 import { AppShellStatusLogs } from "./AppShellStatusLogs";
 import { AppShellStatusRail } from "./AppShellStatusRail";
@@ -19,7 +20,6 @@ type StatusSectionProps = {
   onOpenWeb: () => void;
   onOpenRecoveryTasks: () => void;
   onOpenRuntimeTasks: () => void;
-  onOpenReleasePage: () => void;
   onOpenLogs: () => void;
 };
 
@@ -33,7 +33,6 @@ export function AppShellStatusSection({
   onOpenWeb,
   onOpenRecoveryTasks,
   onOpenRuntimeTasks,
-  onOpenReleasePage,
   onOpenLogs,
 }: StatusSectionProps) {
   const [statusHighlight, setStatusHighlight] = useState<"none" | "signal" | "alert">("none");
@@ -51,9 +50,7 @@ export function AppShellStatusSection({
   const nonOkReadinessChecks = Object.entries(readiness?.checks ?? {}).filter(([, value]) => value && value !== "ok");
   const primaryReadinessIssue = readinessIssues[0] ?? null;
   const primaryEnvironmentIssue = nonOkChecks[0] ?? null;
-  const recoveryStatusSummary = recoverySummary
-    ? `${recoverySummary.status} · ${recoverySummary.operation}`
-    : "当前没有恢复摘要。";
+  const recoveryStatusSummary = formatRecoverySummary(recoverySummary);
   const hasRecentStderr = snapshot.launcher.recentStderr.length > 0;
   const statusAlert =
     snapshot.launcher.lastLocalError
@@ -259,11 +256,9 @@ export function AppShellStatusSection({
           canRecheckRecovery={canRecheckRecovery}
           canRunRecoveryActions={canRunRecoveryActions}
           checks={nonOkChecks}
-          onOpenReleasePage={onOpenReleasePage}
           onOpenRecoveryTasks={onOpenRecoveryTasks}
           onOpenRuntimeTasks={onOpenRuntimeTasks}
           recoveryStatusSummary={recoveryStatusSummary}
-          releaseSummary={snapshot.launcher.releaseCheck.summary}
         />
       </div>
 

@@ -337,7 +337,7 @@ export function createLauncherLifecycleService(deps: LauncherLifecycleServiceDep
             ...deps.snapshotStore.snapshot,
             launcher: {
               ...deps.snapshotStore.snapshot.launcher,
-              lastLocalError: "远程服务只能通过 Web 管理面操作，Launcher 只负责连接检查和打开管理面。",
+              lastLocalError: "远程服务只能通过管理界面操作，启动器只负责连接检查和打开管理界面。",
               statusHint: "无法停止非本机服务。",
             },
           });

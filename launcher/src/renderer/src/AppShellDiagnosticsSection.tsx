@@ -28,14 +28,11 @@ export function AppShellDiagnosticsSection({
           <span className="diagnostics-context-card__value mono">{snapshot.launcher.endpoint.baseUrl}</span>
         </div>
         <div className={`diagnostics-context-card ${hasRecentStderr ? "diagnostics-context-card--alert" : ""}`}>
-          <span className="status-label">{hasRecentStderr ? "异常状态" : "日志状态"}</span>
+          <span className="status-label">日志状态</span>
           <span className="diagnostics-context-card__value">
-            {hasRecentStderr ? "最近有异常输出，请结合摘要定位问题。" : "当前没有新的异常输出。"}
+            {hasRecentStderr ? "发现异常日志，请查看下方摘要。" : "未发现异常日志。"}
           </span>
         </div>
-      </div>
-      <div className={`diagnostics-banner ${hasRecentStderr ? "diagnostics-banner--alert" : "diagnostics-banner--quiet"}`}>
-        {hasRecentStderr ? "最近异常输出已写入诊断摘要。" : "诊断摘要已准备好，当前输出平稳。"}
       </div>
       <pre className="log-surface diagnostics-surface">{diagnosticsSummary}</pre>
     </article>

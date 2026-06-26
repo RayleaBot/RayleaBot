@@ -217,7 +217,7 @@ describe("launcher lifecycle service", () => {
     expect(managementClient.shutdownFromLauncher).not.toHaveBeenCalled();
     expect(processController.forceKillCalls).toBe(0);
     expect(tryStopEndpointProcess).not.toHaveBeenCalled();
-    expect(snapshotStore.snapshot.launcher.lastLocalError).toContain("远程服务只能通过 Web 管理面操作");
+    expect(snapshotStore.snapshot.launcher.lastLocalError).toContain("远程服务只能通过管理界面操作");
   });
 
   test("stop falls back to force kill when launcher-managed shutdown fails", async () => {
