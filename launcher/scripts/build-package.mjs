@@ -10,24 +10,29 @@ const renameFailurePattern = /rename '.*electron\.exe' -> '.*RayleaLauncher\.exe
 let combinedOutput = "";
 const builderInvocation = createElectronBuilderInvocation(root, process.env);
 
-const exitCode = await new Promise((resolve, reject) => {
-  const child = spawn(builderInvocation.command, builderInvocation.args, builderInvocation.options);
+let exitCode = 1;
+try {
+  exitCode = await new Promise((resolve, reject) => {
+    const child = spawn(builderInvocation.command, builderInvocation.args, builderInvocation.options);
 
-  child.stdout?.on("data", (chunk) => {
-    const text = chunk.toString();
-    combinedOutput += text;
-    process.stdout.write(text);
+    child.stdout?.on("data", (chunk) => {
+      const text = chunk.toString();
+      combinedOutput += text;
+      process.stdout.write(text);
+    });
+
+    child.stderr?.on("data", (chunk) => {
+      const text = chunk.toString();
+      combinedOutput += text;
+      process.stderr.write(text);
+    });
+
+    child.once("error", reject);
+    child.once("close", (code) => resolve(code ?? 1));
   });
-
-  child.stderr?.on("data", (chunk) => {
-    const text = chunk.toString();
-    combinedOutput += text;
-    process.stderr.write(text);
-  });
-
-  child.once("error", reject);
-  child.once("close", (code) => resolve(code ?? 1));
-});
+} finally {
+  builderInvocation.cleanup();
+}
 
 if (exitCode === 0) {
   process.exit(0);

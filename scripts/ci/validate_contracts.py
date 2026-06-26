@@ -384,7 +384,7 @@ def validate_fixture_matrix() -> None:
 
 def validate_baseline() -> None:
     baseline = (ROOT / "docs" / "engineering" / "baseline.md").read_text(encoding="utf-8")
-    for snippet in ["Go `1.25.8`", "Node.js `24.14.0`", "`pnpm 10.32.1`", "Python `3.12.13`"]:
+    for snippet in ["Go `1.25.8`", "Node.js `24.14.0`", "`pnpm 11.9.0`", "Python `3.12.13`"]:
         if snippet not in baseline:
             fail(f"docs/engineering/baseline.md missing expected snippet: {snippet}")
 
@@ -404,15 +404,62 @@ def validate_baseline() -> None:
     if "go 1.25.8" not in go_mod:
         fail("server/go.mod must pin Go 1.25.8")
 
-    for package_path in [ROOT / "web" / "package.json", ROOT / "launcher" / "package.json"]:
+    expected_pnpm_workspaces = {
+        ROOT / "web" / "package.json": {
+            "allowBuilds": {
+                "@parcel/watcher": True,
+                "core-js": False,
+                "esbuild": True,
+            },
+            "overrides": {
+                "esbuild": "0.28.1",
+                "glob": "10.5.0",
+                "js-cookie": "3.0.7",
+                "js-yaml": "4.2.0",
+                "picomatch": "4.0.4",
+            },
+        },
+        ROOT / "launcher" / "package.json": {
+            "allowBuilds": {
+                "electron": True,
+                "electron-winstaller": True,
+            },
+            "overrides": {
+                "@xmldom/xmldom": "0.8.13",
+                "axios": "1.16.0",
+                "follow-redirects": "1.16.0",
+                "form-data": "4.0.6",
+                "glob": "10.5.0",
+                "ip-address": "10.1.1",
+                "js-yaml": "4.2.0",
+                "lodash": "4.18.0",
+                "tar": "7.5.16",
+                "tmp": "0.2.7",
+                "undici": "7.28.0",
+            },
+        },
+    }
+
+    for package_path, expected_workspace in expected_pnpm_workspaces.items():
         package_json = load_json(package_path)
-        if package_json.get("packageManager") != "pnpm@10.32.1":
-            fail(f"{package_path.relative_to(ROOT)} packageManager must be pnpm@10.32.1")
+        if package_json.get("packageManager") != "pnpm@11.9.0":
+            fail(f"{package_path.relative_to(ROOT)} packageManager must be pnpm@11.9.0")
         engines = package_json.get("engines", {})
         if engines.get("node") != "24.14.0":
             fail(f"{package_path.relative_to(ROOT)} engines.node must be 24.14.0")
-        if engines.get("pnpm") != "10.32.1":
-            fail(f"{package_path.relative_to(ROOT)} engines.pnpm must be 10.32.1")
+        if engines.get("pnpm") != "11.9.0":
+            fail(f"{package_path.relative_to(ROOT)} engines.pnpm must be 11.9.0")
+        if "pnpm" in package_json:
+            fail(f"{package_path.relative_to(ROOT)} must keep pnpm settings in pnpm-workspace.yaml")
+
+        workspace_path = package_path.with_name("pnpm-workspace.yaml")
+        workspace_config = require_object(load_yaml(workspace_path), f"{workspace_path.relative_to(ROOT)}")
+        if workspace_config.get("packages") != ["."]:
+            fail(f"{workspace_path.relative_to(ROOT)} packages must include only the project root")
+        if workspace_config.get("allowBuilds") != expected_workspace["allowBuilds"]:
+            fail(f"{workspace_path.relative_to(ROOT)} allowBuilds drifted")
+        if workspace_config.get("overrides") != expected_workspace["overrides"]:
+            fail(f"{workspace_path.relative_to(ROOT)} overrides drifted")
 
 
 def validate_strict_openapi(web_api: dict[str, Any]) -> None:

@@ -16,5 +16,8 @@ describe("build-package support", () => {
     expect(invocation.args.some((item) => item.endsWith(path.join("electron-builder", "cli.js")))).toBe(true);
     expect(invocation.options.shell).not.toBe(true);
     expect(invocation.options.env.CUSTOM_TEST_ENV).toBe("fixture");
+    expect(invocation.options.env.PATH.split(path.delimiter)[0]).toContain("rayleabot-pnpm-");
+    expect(typeof invocation.cleanup).toBe("function");
+    invocation.cleanup();
   });
 });

@@ -17,7 +17,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 
 REQUIRED_GO_VERSION = "go1.25.8"
 REQUIRED_NODE_VERSION = "v24.14.0"
-REQUIRED_PNPM_VERSION = "10.32.1"
+REQUIRED_PNPM_VERSION = "11.9.0"
 REQUIRED_SQLC_VERSION = "v1.29.0"
 
 GO_INSTALL_URL = "https://go.dev/dl/"
@@ -169,7 +169,7 @@ def check_pnpm() -> CheckResult:
                     "pnpm",
                     "warning",
                     f"`pnpm --version` is {found}; `corepack pnpm --version` is {corepack_actual}.",
-                    "Run `corepack enable` and `corepack prepare pnpm@10.32.1 --activate`, or use `corepack pnpm` for project commands.",
+                    "Run `corepack enable` and `corepack prepare pnpm@11.9.0 --activate`, or use `corepack pnpm` for project commands.",
                 )
 
     found = pnpm_actual or corepack_actual or "not found"
@@ -177,7 +177,7 @@ def check_pnpm() -> CheckResult:
         "pnpm",
         "error",
         f"Found {found}; required {REQUIRED_PNPM_VERSION}.",
-        "Run `corepack enable` and `corepack prepare pnpm@10.32.1 --activate`; offline images must pre-seed Corepack's pnpm 10.32.1 package.",
+        "Run `corepack enable` and `corepack prepare pnpm@11.9.0 --activate`; offline images must pre-seed Corepack's pnpm 11.9.0 package.",
     )
 
 

@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 import os
 import shutil
 import subprocess
@@ -38,10 +37,11 @@ class StartBatTests(unittest.TestCase):
         (bin_dir / "node.cmd").write_text(fake_node, encoding="ascii")
         return bin_dir, calls_path
 
-    def test_launcher_package_json_allows_required_build_dependencies(self) -> None:
-        package_json = json.loads((REPO_ROOT / "launcher" / "package.json").read_text(encoding="utf-8"))
-        approved = set(package_json.get("pnpm", {}).get("onlyBuiltDependencies", []))
-        self.assertEqual(approved, {"electron", "electron-winstaller"})
+    def test_launcher_workspace_allows_required_build_dependencies(self) -> None:
+        workspace_yaml = (REPO_ROOT / "launcher" / "pnpm-workspace.yaml").read_text(encoding="utf-8")
+        self.assertIn("allowBuilds:", workspace_yaml)
+        self.assertRegex(workspace_yaml, r"(?m)^  electron: true$")
+        self.assertRegex(workspace_yaml, r"(?m)^  electron-winstaller: true$")
 
     @unittest.skipIf(os.name != "nt", "start.bat is a Windows entrypoint")
     def test_start_bat_invokes_node_orchestrator(self) -> None:

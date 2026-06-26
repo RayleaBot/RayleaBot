@@ -36,9 +36,9 @@ class CheckToolchainTests(unittest.TestCase):
 
         def fake_run(args: list[str]):
             if args == ["pnpm", "--version"]:
-                return module.CommandOutput(0, "10.31.0\n", "")
+                return module.CommandOutput(0, "11.8.0\n", "")
             if args == ["corepack", "pnpm", "--version"]:
-                return module.CommandOutput(0, "10.32.1\n", "")
+                return module.CommandOutput(0, "11.9.0\n", "")
             return module.CommandOutput(127, "", "unexpected command")
 
         original_exists = module.executable_exists
@@ -53,7 +53,7 @@ class CheckToolchainTests(unittest.TestCase):
 
         self.assertEqual(result.status, "warning")
         self.assertIn("corepack pnpm --version", result.detail)
-        self.assertIn("corepack prepare pnpm@10.32.1 --activate", result.remediation)
+        self.assertIn("corepack prepare pnpm@11.9.0 --activate", result.remediation)
 
 
 if __name__ == "__main__":

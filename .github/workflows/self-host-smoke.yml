@@ -94,7 +94,7 @@ jobs:
         if: steps.filter.outputs.selected == 'true'
         uses: pnpm/action-setup@v4
         with:
-          version: 10.32.1
+          version: 11.9.0
 
       - name: Setup Python
         if: steps.filter.outputs.selected == 'true'

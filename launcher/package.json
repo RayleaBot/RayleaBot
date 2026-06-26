@@ -5,29 +5,10 @@
   "description": "RayleaBot Electron desktop launcher",
   "author": "RayleaBot",
   "main": "dist/main/main/index.js",
-  "packageManager": "pnpm@10.32.1",
+  "packageManager": "pnpm@11.9.0",
   "engines": {
     "node": "24.14.0",
-    "pnpm": "10.32.1"
-  },
-  "pnpm": {
-    "onlyBuiltDependencies": [
-      "electron",
-      "electron-winstaller"
-    ],
-    "overrides": {
-      "@xmldom/xmldom": "0.8.13",
-      "axios": "1.16.0",
-      "follow-redirects": "1.16.0",
-      "form-data": "4.0.6",
-      "glob": "10.5.0",
-      "ip-address": "10.1.1",
-      "js-yaml": "4.2.0",
-      "lodash": "4.18.0",
-      "tar": "7.5.16",
-      "tmp": "0.2.7",
-      "undici": "7.28.0"
-    }
+    "pnpm": "11.9.0"
   },
   "scripts": {
     "clean": "node scripts/clean.mjs",
@@ -37,7 +18,7 @@
     "test:coverage": "vitest run --coverage",
     "typecheck": "tsc -p tsconfig.main.json --noEmit && tsc -p tsconfig.preload.json --noEmit && tsc -p tsconfig.renderer.json --noEmit",
     "build:app": "tsc -p tsconfig.main.json && tsc -p tsconfig.preload.json && vite build",
-    "build": "pnpm run clean && pnpm run build:app && node scripts/build-package.mjs"
+    "build": "corepack pnpm run clean && corepack pnpm run build:app && node scripts/build-package.mjs"
   },
   "dependencies": {
     "@fluentui/react-components": "9.73.5",
