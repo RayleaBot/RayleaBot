@@ -250,6 +250,95 @@ func TestProtocolSnapshotEventMatchesCurrentProjection(t *testing.T) {
 	}
 }
 
+func TestProtocolTargetsReturnPartialResultsWhenFriendListTimesOut(t *testing.T) {
+	t.Parallel()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		conn, err := websocket.Accept(w, r, nil)
+		if err != nil {
+			t.Errorf("Accept failed: %v", err)
+			return
+		}
+		defer func() {
+			_ = conn.CloseNow()
+		}()
+
+		if err := wsjson.Write(context.Background(), conn, map[string]any{
+			"post_type":       "meta_event",
+			"meta_event_type": "lifecycle",
+			"sub_type":        "enable",
+		}); err != nil {
+			t.Errorf("write ready frame: %v", err)
+			return
+		}
+
+		for {
+			var request map[string]any
+			if err := wsjson.Read(r.Context(), conn, &request); err != nil {
+				return
+			}
+			switch request["action"] {
+			case "get_group_list":
+				if err := wsjson.Write(context.Background(), conn, map[string]any{
+					"status":  "ok",
+					"retcode": 0,
+					"data": []any{
+						map[string]any{"group_id": 5050, "group_name": "测试群"},
+					},
+					"echo": request["echo"],
+				}); err != nil {
+					t.Errorf("write group list response: %v", err)
+					return
+				}
+			case "get_friend_list":
+				// Leave this request unanswered. The management endpoint must
+				// return the group list instead of waiting forever for friends.
+			default:
+				t.Errorf("unexpected action: %v", request["action"])
+			}
+		}
+	}))
+	defer server.Close()
+
+	shell := adaptershell.NewForTest(config.OneBotConfig{
+		ForwardWS: config.OneBotTransportConfig{
+			Enabled: true,
+			URL:     "ws" + server.URL[len("http"):],
+		},
+	}, defaultAdapterTestConfig(), slog.New(slog.NewTextHandler(io.Discard, nil)), true)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	shell.Start(ctx)
+	waitForAdapterState(t, shell, adaptershell.StateConnected, time.Second)
+
+	service := NewProtocolService(protocolTestConfigSource{}, shell)
+	service.oneBot11TargetReadTimeout = 60 * time.Millisecond
+
+	started := time.Now()
+	response := service.currentOneBot11ProtocolTargets(context.Background())
+	if elapsed := time.Since(started); elapsed > time.Second {
+		t.Fatalf("target lookup took too long: %s", elapsed)
+	}
+	if response.Available {
+		t.Fatalf("response should be partially available after friend timeout: %#v", response)
+	}
+	if len(response.Groups) != 1 || response.Groups[0].TargetID != "5050" || response.Groups[0].TargetName != "测试群" {
+		t.Fatalf("unexpected groups: %#v", response.Groups)
+	}
+	if len(response.PrivateUsers) != 0 {
+		t.Fatalf("unexpected private users: %#v", response.PrivateUsers)
+	}
+	if len(response.Issues) != 1 || response.Issues[0].Scope != "private_users" {
+		t.Fatalf("unexpected issues: %#v", response.Issues)
+	}
+
+	stopCtx, stopCancel := context.WithTimeout(context.Background(), time.Second)
+	defer stopCancel()
+	if err := shell.Stop(stopCtx); err != nil {
+		t.Fatalf("Stop failed: %v", err)
+	}
+}
+
 func TestProtocolCompatibilityProjectionKeepsUnsupportedGapsVisible(t *testing.T) {
 	t.Parallel()
 

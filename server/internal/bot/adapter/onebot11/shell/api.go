@@ -6,10 +6,13 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"time"
 
 	adapterapi "github.com/RayleaBot/RayleaBot/server/internal/bot/adapter/onebot11/api"
 	adapteroutbound "github.com/RayleaBot/RayleaBot/server/internal/bot/adapter/onebot11/outbound"
 )
+
+var apiBestEffortTransportTimeout = 2 * time.Second
 
 // callAPI sends a generic OneBot11 API request and waits for the matched
 // response. It reuses the same echo-based request/response infrastructure
@@ -40,6 +43,71 @@ func (s *Shell) callAPIOnTransport(ctx context.Context, transport TransportKey, 
 
 func (s *Shell) CallAPIAny(ctx context.Context, action string, params map[string]any) (any, error) {
 	return s.callAPIAnyOnTransport(ctx, "", action, params)
+}
+
+func (s *Shell) callAPIAnyBestEffort(ctx context.Context, action string, params map[string]any) (any, error) {
+	transports := s.apiCandidateTransports()
+	if len(transports) == 0 {
+		return s.CallAPIAny(ctx, action, params)
+	}
+
+	var lastErr error
+	for _, transport := range transports {
+		attemptCtx, cancel, err := apiBestEffortAttemptContext(ctx)
+		if err != nil {
+			return nil, err
+		}
+		result, err := s.callAPIAnyOnTransport(attemptCtx, transport, action, params)
+		cancel()
+		if err == nil {
+			return result, nil
+		}
+		lastErr = err
+		if ctx.Err() != nil {
+			return nil, lastErr
+		}
+	}
+	if lastErr != nil {
+		return nil, lastErr
+	}
+	return nil, errorf(errorCodeConnectionLost, "adapter transport is not connected", nil)
+}
+
+func (s *Shell) apiCandidateTransports() []TransportKey {
+	snapshot := s.Snapshot()
+	transports := make([]TransportKey, 0, 3)
+	if snapshot.ForwardWS.State == TransportStateConnected {
+		transports = append(transports, TransportForwardWS)
+	}
+	if snapshot.ReverseWS.State == TransportStateConnected {
+		transports = append(transports, TransportReverseWS)
+	}
+	if snapshot.HTTPAPI.Enabled && snapshot.HTTPAPI.Configured {
+		transports = append(transports, TransportHTTPAPI)
+	}
+	return transports
+}
+
+func apiBestEffortAttemptContext(ctx context.Context) (context.Context, context.CancelFunc, error) {
+	timeout := apiBestEffortTransportTimeout
+	if timeout <= 0 {
+		timeout = 2 * time.Second
+	}
+	if err := ctx.Err(); err != nil {
+		return nil, nil, errorf(adapterapi.ErrorCodeAPICallFailed, "api request timed out", err)
+	}
+	if deadline, ok := ctx.Deadline(); ok {
+		remaining := time.Until(deadline)
+		if remaining <= 0 {
+			return nil, nil, errorf(adapterapi.ErrorCodeAPICallFailed, "api request timed out", ctx.Err())
+		}
+		if remaining < timeout {
+			attemptCtx, cancel := context.WithTimeout(ctx, remaining)
+			return attemptCtx, cancel, nil
+		}
+	}
+	attemptCtx, cancel := context.WithTimeout(ctx, timeout)
+	return attemptCtx, cancel, nil
 }
 
 func (s *Shell) callAPIAnyOnTransport(ctx context.Context, transport TransportKey, action string, params map[string]any) (any, error) {

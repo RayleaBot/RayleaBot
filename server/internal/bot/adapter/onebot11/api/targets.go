@@ -10,7 +10,7 @@ func (c Client) ListGroups(ctx context.Context) ([]GroupTarget, error) {
 	if err != nil {
 		return nil, err
 	}
-	items, ok := normalizeAPIList(raw)
+	items, ok := normalizeAPIListWithKeys(raw, []string{"groups", "group_list", "items", "list", "data"})
 	if !ok {
 		return nil, c.caller.Errorf(ErrorCodeAPICallFailed, "get_group_list returned a non-list payload", nil)
 	}
@@ -45,7 +45,7 @@ func (c Client) ListFriends(ctx context.Context) ([]FriendTarget, error) {
 	if err != nil {
 		return nil, err
 	}
-	items, ok := normalizeAPIList(raw)
+	items, ok := normalizeAPIListWithKeys(raw, []string{"friends", "private_users", "friend_list", "items", "list", "data"})
 	if !ok {
 		return nil, c.caller.Errorf(ErrorCodeAPICallFailed, "get_friend_list returned a non-list payload", nil)
 	}

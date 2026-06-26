@@ -2,7 +2,11 @@ package protocolapi
 
 import (
 	"context"
+	"errors"
 	"strings"
+	"time"
+
+	adapterapi "github.com/RayleaBot/RayleaBot/server/internal/bot/adapter/onebot11/api"
 )
 
 func (s *ProtocolService) currentOneBot11ProtocolTargets(ctx context.Context) oneBot11ProtocolTargetsResponse {
@@ -17,11 +21,11 @@ func (s *ProtocolService) currentOneBot11ProtocolTargets(ctx context.Context) on
 		return response
 	}
 
-	groups, groupErr := s.adapter.ListGroups(ctx)
-	if groupErr != nil {
-		response.Issues = append(response.Issues, oneBot11TargetIssueResponse{Scope: "groups", Message: "群聊列表读取失败"})
+	groupsResult, friendsResult := s.readOneBot11ProtocolTargets(ctx)
+	if groupsResult.err != nil {
+		response.Issues = append(response.Issues, oneBot11TargetIssue("groups", "群聊列表读取失败", groupsResult.err))
 	} else {
-		for _, group := range groups {
+		for _, group := range groupsResult.groups {
 			response.Groups = append(response.Groups, oneBot11GroupTargetResponse{
 				TargetType: "group",
 				TargetID:   group.ID,
@@ -31,11 +35,10 @@ func (s *ProtocolService) currentOneBot11ProtocolTargets(ctx context.Context) on
 		}
 	}
 
-	friends, friendErr := s.adapter.ListFriends(ctx)
-	if friendErr != nil {
-		response.Issues = append(response.Issues, oneBot11TargetIssueResponse{Scope: "private_users", Message: "私聊对象列表读取失败"})
+	if friendsResult.err != nil {
+		response.Issues = append(response.Issues, oneBot11TargetIssue("private_users", "私聊对象列表读取失败", friendsResult.err))
 	} else {
-		for _, friend := range friends {
+		for _, friend := range friendsResult.friends {
 			response.PrivateUsers = append(response.PrivateUsers, oneBot11PrivateTargetResponse{
 				TargetType: "private",
 				TargetID:   friend.ID,
@@ -45,8 +48,110 @@ func (s *ProtocolService) currentOneBot11ProtocolTargets(ctx context.Context) on
 		}
 	}
 
-	response.Available = groupErr == nil && friendErr == nil
+	response.Available = groupsResult.err == nil && friendsResult.err == nil
 	return response
+}
+
+type oneBot11GroupsResult struct {
+	groups []adapterapi.GroupTarget
+	err    error
+}
+
+type oneBot11FriendsResult struct {
+	friends []adapterapi.FriendTarget
+	err     error
+}
+
+func (s *ProtocolService) readOneBot11ProtocolTargets(ctx context.Context) (oneBot11GroupsResult, oneBot11FriendsResult) {
+	timeout := s.oneBot11TargetTimeout()
+	groupCtx, cancelGroups := context.WithTimeout(ctx, timeout)
+	defer cancelGroups()
+	friendCtx, cancelFriends := context.WithTimeout(ctx, timeout)
+	defer cancelFriends()
+
+	groupsCh := make(chan oneBot11GroupsResult, 1)
+	friendsCh := make(chan oneBot11FriendsResult, 1)
+	groupDone := groupCtx.Done()
+	friendDone := friendCtx.Done()
+	go func() {
+		groups, err := s.adapter.ListGroups(groupCtx)
+		groupsCh <- oneBot11GroupsResult{groups: groups, err: err}
+	}()
+	go func() {
+		friends, err := s.adapter.ListFriends(friendCtx)
+		friendsCh <- oneBot11FriendsResult{friends: friends, err: err}
+	}()
+
+	var groupsResult oneBot11GroupsResult
+	var friendsResult oneBot11FriendsResult
+	for groupsCh != nil || friendsCh != nil {
+		select {
+		case result := <-groupsCh:
+			groupsResult = result
+			groupsCh = nil
+			groupDone = nil
+		case result := <-friendsCh:
+			friendsResult = result
+			friendsCh = nil
+			friendDone = nil
+		case <-groupDone:
+			if groupsCh != nil {
+				groupsResult.err = groupCtx.Err()
+				groupsCh = nil
+				groupDone = nil
+			}
+		case <-friendDone:
+			if friendsCh != nil {
+				friendsResult.err = friendCtx.Err()
+				friendsCh = nil
+				friendDone = nil
+			}
+		case <-ctx.Done():
+			if groupsCh != nil {
+				groupsResult.err = ctx.Err()
+				groupsCh = nil
+			}
+			if friendsCh != nil {
+				friendsResult.err = ctx.Err()
+				friendsCh = nil
+			}
+		}
+	}
+	return groupsResult, friendsResult
+}
+
+func oneBot11TargetIssue(scope, fallback string, err error) oneBot11TargetIssueResponse {
+	return oneBot11TargetIssueResponse{
+		Scope:   scope,
+		Message: oneBot11TargetIssueMessage(fallback, err),
+	}
+}
+
+func oneBot11TargetIssueMessage(fallback string, err error) string {
+	if err == nil {
+		return fallback
+	}
+	if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled) {
+		return strings.TrimSuffix(fallback, "失败") + "超时"
+	}
+	normalized := strings.ToLower(err.Error())
+	switch {
+	case strings.Contains(normalized, "timed out"):
+		return strings.TrimSuffix(fallback, "失败") + "超时"
+	case strings.Contains(normalized, "not connected"):
+		return "OneBot 协议未连接"
+	case strings.Contains(normalized, "non-list payload"):
+		return strings.TrimSuffix(fallback, "失败") + "返回格式不支持"
+	default:
+		return fallback
+	}
+}
+
+func (s *ProtocolService) oneBot11TargetTimeout() time.Duration {
+	if s != nil && s.oneBot11TargetReadTimeout > 0 {
+		return s.oneBot11TargetReadTimeout
+	}
+	return 3 * time.Second
 }
 
 func (s *ProtocolService) resolveOneBot11Identities(ctx context.Context, items []oneBot11IdentityResolveItem) oneBot11IdentityResolveResponse {

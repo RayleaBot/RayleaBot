@@ -35,15 +35,16 @@ func (s *Shell) GetStrangerInfo(ctx context.Context, userID string) (adapterapi.
 }
 
 func (s *Shell) ListGroups(ctx context.Context) ([]adapterapi.GroupTarget, error) {
-	return adapterapi.NewClient(shellAPICaller{s: s}).ListGroups(ctx)
+	return adapterapi.NewClient(shellAPICaller{s: s, bestEffort: true}).ListGroups(ctx)
 }
 
 func (s *Shell) ListFriends(ctx context.Context) ([]adapterapi.FriendTarget, error) {
-	return adapterapi.NewClient(shellAPICaller{s: s}).ListFriends(ctx)
+	return adapterapi.NewClient(shellAPICaller{s: s, bestEffort: true}).ListFriends(ctx)
 }
 
 type shellAPICaller struct {
-	s *Shell
+	s          *Shell
+	bestEffort bool
 }
 
 func (c shellAPICaller) CallAPI(ctx context.Context, action string, params map[string]any) (map[string]any, error) {
@@ -51,6 +52,9 @@ func (c shellAPICaller) CallAPI(ctx context.Context, action string, params map[s
 }
 
 func (c shellAPICaller) CallAPIAny(ctx context.Context, action string, params map[string]any) (any, error) {
+	if c.bestEffort {
+		return c.s.callAPIAnyBestEffort(ctx, action, params)
+	}
 	return c.s.CallAPIAny(ctx, action, params)
 }
 

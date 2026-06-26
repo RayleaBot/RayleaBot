@@ -104,6 +104,58 @@ func TestClientListGroupsSortsSelectableTargets(t *testing.T) {
 	}
 }
 
+func TestClientListGroupsAcceptsWrappedGroupPayload(t *testing.T) {
+	caller := &fakeCaller{
+		anyData: map[string]any{
+			"get_group_list": map[string]any{
+				"groups": []any{
+					map[string]any{"group_id": float64(2), "group_name": "Beta"},
+					map[string]any{"group_id": float64(1), "group_name": "Alpha"},
+				},
+			},
+		},
+	}
+
+	groups, err := NewClient(caller).ListGroups(context.Background())
+	if err != nil {
+		t.Fatalf("ListGroups failed: %v", err)
+	}
+	want := []GroupTarget{
+		{ID: "1", Name: "Alpha"},
+		{ID: "2", Name: "Beta"},
+	}
+	if !reflect.DeepEqual(groups, want) {
+		t.Fatalf("unexpected groups: got %#v want %#v", groups, want)
+	}
+}
+
+func TestClientListFriendsAcceptsWrappedFriendPayload(t *testing.T) {
+	caller := &fakeCaller{
+		anyData: map[string]any{
+			"get_friend_list": map[string]any{
+				"data": map[string]any{
+					"friends": []any{
+						map[string]any{"user_id": float64(2), "nickname": "Beta"},
+						map[string]any{"user_id": float64(1), "nickname": "Alpha"},
+					},
+				},
+			},
+		},
+	}
+
+	friends, err := NewClient(caller).ListFriends(context.Background())
+	if err != nil {
+		t.Fatalf("ListFriends failed: %v", err)
+	}
+	want := []FriendTarget{
+		{ID: "1", Nickname: "Alpha"},
+		{ID: "2", Nickname: "Beta"},
+	}
+	if !reflect.DeepEqual(friends, want) {
+		t.Fatalf("unexpected friends: got %#v want %#v", friends, want)
+	}
+}
+
 func TestResolveTargetNameUsesResolverByTargetType(t *testing.T) {
 	resolver := fakeTargetResolver{
 		groups:   map[string]string{"g1": "Group One"},

@@ -32,13 +32,22 @@ func ExtractStringField(data map[string]any, key string) string {
 }
 
 func normalizeAPIList(value any) ([]any, bool) {
+	return normalizeAPIListWithKeys(value, []string{"items", "list", "data"})
+}
+
+func normalizeAPIListWithKeys(value any, keys []string) ([]any, bool) {
 	switch typed := value.(type) {
 	case []any:
 		return typed, true
 	case map[string]any:
-		for _, key := range []string{"items", "list", "data"} {
+		for _, key := range keys {
 			if items, ok := typed[key].([]any); ok {
 				return items, true
+			}
+			if nested, ok := typed[key].(map[string]any); ok {
+				if items, ok := normalizeAPIListWithKeys(nested, keys); ok {
+					return items, true
+				}
 			}
 		}
 	}

@@ -2,9 +2,12 @@ package shell
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+
 	adapterapi "github.com/RayleaBot/RayleaBot/server/internal/bot/adapter/onebot11/api"
 	adapteroutbound "github.com/RayleaBot/RayleaBot/server/internal/bot/adapter/onebot11/outbound"
+	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/coder/websocket"
 	"github.com/coder/websocket/wsjson"
 	"io"
@@ -719,6 +722,108 @@ func TestListGroupsAndFriendsReturnSelectableTargets(t *testing.T) {
 	}
 	if len(friends) != 1 || friends[0].ID != "30001" || friends[0].Nickname != "测试用户" {
 		t.Fatalf("unexpected friends: %#v", friends)
+	}
+
+	stopCtx, stopCancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer stopCancel()
+	if err := shell.Stop(stopCtx); err != nil {
+		t.Fatalf("Stop failed: %v", err)
+	}
+}
+
+func TestListGroupsFallsBackToHTTPAPIWhenConnectedWebSocketDoesNotAnswer(t *testing.T) {
+	previousTimeout := apiBestEffortTransportTimeout
+	apiBestEffortTransportTimeout = 30 * time.Millisecond
+	t.Cleanup(func() {
+		apiBestEffortTransportTimeout = previousTimeout
+	})
+
+	wsServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		conn, err := websocket.Accept(w, r, nil)
+		if err != nil {
+			t.Errorf("Accept failed: %v", err)
+			return
+		}
+		defer func() {
+			_ = conn.CloseNow()
+		}()
+
+		if err := wsjson.Write(context.Background(), conn, map[string]any{
+			"post_type":       "meta_event",
+			"meta_event_type": "lifecycle",
+			"sub_type":        "enable",
+		}); err != nil {
+			t.Errorf("wsjson.Write ready failed: %v", err)
+			return
+		}
+
+		for {
+			var request map[string]any
+			if err := wsjson.Read(r.Context(), conn, &request); err != nil {
+				return
+			}
+			if request["action"] != "get_group_list" {
+				t.Errorf("unexpected WebSocket action: %v", request["action"])
+				return
+			}
+			// Leave the request unanswered so ListGroups can try the next API transport.
+		}
+	}))
+	defer wsServer.Close()
+
+	httpServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var request map[string]any
+		if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+			t.Errorf("decode HTTP API request: %v", err)
+			return
+		}
+		if request["action"] != "get_group_list" {
+			t.Errorf("unexpected HTTP API action: %v", request["action"])
+			return
+		}
+		if err := json.NewEncoder(w).Encode(map[string]any{
+			"status":  "ok",
+			"retcode": 0,
+			"data": map[string]any{
+				"groups": []any{
+					map[string]any{"group_id": 6060, "group_name": "备用通道群"},
+				},
+			},
+			"echo": request["echo"],
+		}); err != nil {
+			t.Errorf("encode HTTP API response: %v", err)
+		}
+	}))
+	defer httpServer.Close()
+
+	shell := newTestShell(config.OneBotConfig{
+		ForwardWS: config.OneBotTransportConfig{
+			Enabled: true,
+			URL:     wsURL(wsServer.URL),
+		},
+		HTTPAPI: config.OneBotTransportConfig{
+			Enabled: true,
+			URL:     httpServer.URL,
+		},
+	}, shellDeps{
+		connectTimeout: 75 * time.Millisecond,
+		sleep:          blockingSleep,
+	})
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	shell.Start(ctx)
+	waitForState(t, shell, StateConnected, 500*time.Millisecond)
+
+	listCtx, listCancel := context.WithTimeout(context.Background(), time.Second)
+	defer listCancel()
+	groups, err := shell.ListGroups(listCtx)
+	if err != nil {
+		t.Fatalf("ListGroups failed: %v", err)
+	}
+	if len(groups) != 1 || groups[0].ID != "6060" || groups[0].Name != "备用通道群" {
+		t.Fatalf("unexpected groups: %#v", groups)
 	}
 
 	stopCtx, stopCancel := context.WithTimeout(context.Background(), 5*time.Second)
