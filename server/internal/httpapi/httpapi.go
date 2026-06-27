@@ -198,29 +198,8 @@ func requestRoutePattern(r *http.Request) string {
 	return "unmatched"
 }
 
-func accessLogLevel(r *http.Request, statusCode int) slog.Level {
-	if isSuccessfulManagementRead(r, statusCode) {
-		return slog.LevelDebug
-	}
-	return slog.LevelInfo
-}
-
-func isSuccessfulManagementRead(r *http.Request, statusCode int) bool {
-	if r == nil || r.URL == nil || statusCode < 200 || statusCode >= 400 {
-		return false
-	}
-
-	switch strings.ToUpper(r.Method) {
-	case http.MethodGet, http.MethodHead, http.MethodOptions:
-	default:
-		return false
-	}
-
-	path := r.URL.Path
-	return path == "/healthz" ||
-		path == "/readyz" ||
-		path == "/ws/logs" ||
-		strings.HasPrefix(path, "/api/")
+func accessLogLevel(_ *http.Request, _ int) slog.Level {
+	return slog.LevelDebug
 }
 
 func RequestIDFromContext(ctx context.Context) string {

@@ -66,6 +66,51 @@ func TestLogsListReturnsFilteredSummaries(t *testing.T) {
 	}
 }
 
+func TestLogsListRefreshDoesNotAppendHTTPAccessLogAtInfoLevel(t *testing.T) {
+	t.Parallel()
+
+	application, _, _ := newTestAppWithConfigMutation(t, func(input map[string]any) {
+		input["log"].(map[string]any)["retention_days"] = 365
+	}, deterministicAuthOptions()...)
+	token := issueLoginToken(t, application)
+	application.Logs().Append(logging.Summary{
+		LogID:     "log_refresh_seed_0001",
+		Timestamp: "2026-03-20T10:00:00Z",
+		Level:     "info",
+		Source:    "runtime",
+		Message:   "seed log",
+	})
+
+	server := httptest.NewServer(application.Handler())
+	defer server.Close()
+
+	for range 2 {
+		request, err := http.NewRequest(http.MethodGet, server.URL+"/api/logs?scope=current_session&limit=20", nil)
+		if err != nil {
+			t.Fatalf("create logs refresh request: %v", err)
+		}
+		request.Header.Set("Authorization", "Bearer "+token)
+
+		response, err := server.Client().Do(request)
+		if err != nil {
+			t.Fatalf("perform logs refresh request: %v", err)
+		}
+		if response.StatusCode != http.StatusOK {
+			response.Body.Close()
+			t.Fatalf("unexpected logs refresh status: got %d want 200", response.StatusCode)
+		}
+		if err := response.Body.Close(); err != nil {
+			t.Fatalf("close logs refresh response: %v", err)
+		}
+	}
+
+	for _, summary := range application.Logs().Snapshot() {
+		if summary.Source == "http" || summary.Message == "http request completed" {
+			t.Fatalf("logs refresh appended HTTP access log at info level: %#v", summary)
+		}
+	}
+}
+
 func TestLogsListReturnsMultiFilteredSummaries(t *testing.T) {
 	t.Parallel()
 
