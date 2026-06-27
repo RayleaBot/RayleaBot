@@ -26,14 +26,14 @@ func TestLogsListReturnsHistoryRange(t *testing.T) {
 			Timestamp: "2026-03-19T23:59:59Z",
 			Level:     "info",
 			Source:    "runtime",
-			Message:   "too early",
+			Message:   "历史范围外的较早日志样例",
 		},
 		{
 			LogID:     "log_history_range_0001",
 			Timestamp: "2026-03-20T00:05:00Z",
 			Level:     "warn",
 			Source:    "adapter.onebot11",
-			Message:   "reverse websocket authentication failed",
+			Message:   "OneBot 主动 WebSocket 鉴权失败：ws://127.0.0.1:6700",
 			RequestID: "req_adapter_0002",
 		},
 		{
@@ -41,7 +41,7 @@ func TestLogsListReturnsHistoryRange(t *testing.T) {
 			Timestamp: "2026-03-20T10:00:01Z",
 			Level:     "error",
 			Source:    "runtime",
-			Message:   "plugin runtime stderr truncated",
+			Message:   "插件weather运行时 stderr 输出超过速率限制，已截断",
 			PluginID:  "weather",
 			RequestID: "req_plugin_0001",
 		},
@@ -50,14 +50,14 @@ func TestLogsListReturnsHistoryRange(t *testing.T) {
 			Timestamp: "2026-03-20T20:12:00Z",
 			Level:     "info",
 			Source:    "runtime",
-			Message:   "recovery summary refreshed",
+			Message:   "插件 weather 的恢复状态摘要已刷新",
 		},
 		{
 			LogID:     "log_history_range_ignored_0002",
 			Timestamp: "2026-03-21T00:00:00Z",
 			Level:     "info",
 			Source:    "runtime",
-			Message:   "too late",
+			Message:   "历史范围外的较晚日志样例",
 		},
 	} {
 		application.Logs().Append(summary)
@@ -101,14 +101,14 @@ func TestLogsListReturnsHistoryRangeForOffsetTimestamps(t *testing.T) {
 			Timestamp: "2026-04-17T02:02:41+08:00",
 			Level:     "info",
 			Source:    "runtime",
-			Message:   "offset row stays visible in history",
+			Message:   "带时区偏移的日志仍在历史范围内",
 		},
 		{
 			LogID:     "log_history_offset_0002",
 			Timestamp: "2026-04-17T02:05:01+08:00",
 			Level:     "info",
 			Source:    "runtime",
-			Message:   "outside offset range",
+			Message:   "带时区偏移的日志在历史范围外",
 		},
 	} {
 		application.Logs().Append(summary)
@@ -137,7 +137,7 @@ func TestLogsListReturnsHistoryRangeForOffsetTimestamps(t *testing.T) {
 	if len(items) != 1 {
 		t.Fatalf("unexpected offset history item count: %#v", items)
 	}
-	if items[0].(map[string]any)["message"] != "offset row stays visible in history" {
+	if items[0].(map[string]any)["message"] != "带时区偏移的日志仍在历史范围内" {
 		t.Fatalf("unexpected offset history item: %#v", items[0])
 	}
 }
@@ -292,9 +292,9 @@ func TestLogsListSupportsCursorPagingWithMultiFilters(t *testing.T) {
 
 	for _, summary := range []logging.Summary{
 		{LogID: "log_multi_cursor_0001", Timestamp: "2026-04-10T09:00:00Z", Level: "info", Source: "runtime", Message: "1", PluginID: "weather"},
-		{LogID: "log_multi_cursor_0002", Timestamp: "2026-04-10T09:00:01Z", Level: "warn", Source: "runtime", Message: "filtered by level", PluginID: "raylea.echo"},
+		{LogID: "log_multi_cursor_0002", Timestamp: "2026-04-10T09:00:01Z", Level: "warn", Source: "runtime", Message: "按级别过滤掉的日志样例：raylea.echo", PluginID: "raylea.echo"},
 		{LogID: "log_multi_cursor_0003", Timestamp: "2026-04-10T09:00:02Z", Level: "error", Source: "runtime", Message: "2", PluginID: "raylea.echo"},
-		{LogID: "log_multi_cursor_0004", Timestamp: "2026-04-10T09:00:03Z", Level: "info", Source: "runtime", Message: "filtered by plugin", PluginID: "ops"},
+		{LogID: "log_multi_cursor_0004", Timestamp: "2026-04-10T09:00:03Z", Level: "info", Source: "runtime", Message: "按插件过滤掉的日志样例：ops", PluginID: "ops"},
 		{LogID: "log_multi_cursor_0005", Timestamp: "2026-04-10T09:00:04Z", Level: "error", Source: "runtime", Message: "3", PluginID: "weather"},
 		{LogID: "log_multi_cursor_0006", Timestamp: "2026-04-10T09:00:05Z", Level: "info", Source: "runtime", Message: "4", PluginID: "raylea.echo"},
 	} {
@@ -364,7 +364,7 @@ func TestLogsListDoesNotLeakRawAttrs(t *testing.T) {
 	defer server.Close()
 
 	application.Logger().Error(
-		"downstream rejected fixture-only-secret during adapter handshake",
+		"下游适配器握手拒绝 fixture-only-secret",
 		"component", "runtime",
 		"plugin_id", "weather",
 		"request_id", "req_log_0001",

@@ -7,7 +7,7 @@
     "timestamp": "2026-03-18T10:20:00Z",
     "data": {
       "observability_scope": "bridge_runtime",
-      "summary": "bridge delivered recent adapter events while keeping bridge/runtime observability aggregate-only",
+      "summary": "插件桥接已处理最近的适配器事件，桥接与运行时观测仅保留汇总数据",
       "last_supported_event_kind": "onebot11.message_text",
       "last_delivery_outcome": "delivered",
       "delivered_count": 12,

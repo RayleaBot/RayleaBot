@@ -10,7 +10,7 @@ import (
 const (
 	defaultConsoleChunkBytes     = 4096
 	defaultStderrRateLimitPerSec = 262144
-	stderrTruncatedSystemMessage = "[System] stderr rate limit exceeded, output truncated"
+	stderrTruncatedSystemMessage = "[系统] stderr 输出超过速率限制，后续内容已截断"
 )
 
 type stderrLimiter struct {
@@ -93,7 +93,7 @@ func (m *Manager) captureStderr(pluginID string, reader io.ReadCloser) {
 			}
 			if truncated {
 				m.logger.Warn(
-					"plugin runtime stderr truncated",
+					"插件"+pluginIDLabel(pluginID)+"运行时 stderr 输出超过速率限制，已截断",
 					"component", "runtime",
 					"plugin_id", pluginID,
 				)
@@ -113,7 +113,7 @@ func (m *Manager) captureStderr(pluginID string, reader io.ReadCloser) {
 			return
 		}
 		m.logger.Warn(
-			"plugin runtime stderr stream failed",
+			"插件"+pluginIDLabel(pluginID)+"运行时 stderr 读取失败",
 			"component", "runtime",
 			"plugin_id", pluginID,
 			"err", err.Error(),

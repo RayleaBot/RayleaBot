@@ -43,7 +43,7 @@ func (s *Shell) routeAPIResponse(frame adapterintake.ClassifiedFrame) {
 	pending, found := s.takePendingResponse(response.Echo)
 	if !found {
 		s.logger.Warn(
-			"adapter api response had no pending request",
+			"OneBot API 响应没有待处理请求，已忽略：echo="+response.Echo,
 			"component", "adapter",
 			"adapter_state", s.Snapshot().State,
 			"direction", "inbound",
@@ -138,7 +138,7 @@ func (t shellOutboundTransport) DoHTTPAPI(ctx context.Context, request adapterou
 
 func (t shellOutboundTransport) LogUnsupportedSegment(segmentType string) {
 	t.s.logger.Warn(
-		"dropping unsupported outbound message segment",
+		"OneBot 出站消息包含不支持的消息段，已丢弃：类型 "+segmentType,
 		"component", "adapter",
 		"segment_type", segmentType,
 	)

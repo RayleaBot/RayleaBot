@@ -45,7 +45,7 @@ func (m *Manager) awaitInitAck(ctx context.Context, handle *runtimeprocess.Handl
 			}
 
 			m.logger.Info(
-				"plugin runtime init progress",
+				"插件"+pluginIDLabel(handle.Spec.PluginID)+"运行时初始化中："+summary,
 				"component", "runtime",
 				"plugin_id", handle.Spec.PluginID,
 				"runtime_state", string(StateStarting),

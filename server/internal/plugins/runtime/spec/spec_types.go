@@ -16,6 +16,8 @@ type InitPayload struct {
 
 type Spec struct {
 	PluginID             string
+	PluginName           string
+	RepoRoot             string
 	Runtime              string
 	Command              string
 	Args                 []string

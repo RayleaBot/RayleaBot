@@ -24,7 +24,7 @@ func (s *Service) ApplyHotReloadableFields(newCfg internalconfig.Config) ApplyEf
 	if newCfg.Log.Level != oldCfg.Log.Level {
 		if s.logLevel != nil {
 			if err := s.logLevel.SetLevel(newCfg.Log.Level); err == nil && s.logger != nil {
-				s.logger.Info("log level changed",
+				s.logger.Info("日志级别已从 "+oldCfg.Log.Level+" 调整为 "+newCfg.Log.Level,
 					"component", "config",
 					"old_level", oldCfg.Log.Level,
 					"new_level", newCfg.Log.Level,
@@ -70,7 +70,7 @@ func (s *Service) ApplyHotReloadableFields(newCfg internalconfig.Config) ApplyEf
 			effects.RestartRequiredFields = append(effects.RestartRequiredFields, effects.ReloadedNow...)
 			effects.ReloadedNow = effects.ReloadedNow[:0]
 			if err != ErrProtocolStopped && s.logger != nil {
-				s.logger.Warn("adapter shell hot reload failed",
+				s.logger.Warn("OneBot 适配器热加载失败，需要重启相关配置",
 					"component", "config",
 					"err", err.Error(),
 				)

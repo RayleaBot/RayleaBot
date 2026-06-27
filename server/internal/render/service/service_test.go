@@ -62,7 +62,7 @@ func TestNewServiceSkipsInvalidTemplateDirectories(t *testing.T) {
 	}
 
 	logText := logs.String()
-	if !strings.Contains(logText, "render template skipped") || !strings.Contains(logText, ".preview") {
+	if !strings.Contains(logText, "渲染模板加载失败，已跳过目录") || !strings.Contains(logText, ".preview") {
 		t.Fatalf("expected skipped template warning, got %q", logText)
 	}
 }

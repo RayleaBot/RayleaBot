@@ -161,6 +161,7 @@ func TestAutoPrepareRuntimeEnvironmentsLogsPrepareProgress(t *testing.T) {
 			MetadataComplete: true,
 		}, nil
 	}
+	testRepoRoot := t.TempDir()
 	prepareStartupRuntimeWithProgress = func(_ context.Context, _ string, kind string, progress deps.PrepareProgressReporter) (*deps.PrepareReport, error) {
 		progress(deps.PrepareProgress{
 			Kind:            kind,
@@ -169,8 +170,8 @@ func TestAutoPrepareRuntimeEnvironmentsLogsPrepareProgress(t *testing.T) {
 			Version:         "3.12.13",
 			SourceLabel:     "python-build-standalone",
 			SourceURL:       "https://example.invalid/python.tar.gz",
-			ArchivePath:     "C:\\RayleaBot\\cache\\downloads\\runtime\\python-windows-x64-3.12.13.tar.gz",
-			StoreRoot:       "C:\\RayleaBot\\.deps\\store\\python-windows-x64\\3.12.13",
+			ArchivePath:     filepath.Join(testRepoRoot, "cache", "downloads", "runtime", "python-windows-x64-3.12.13.tar.gz"),
+			StoreRoot:       filepath.Join(testRepoRoot, ".deps", "store", "python-windows-x64", "3.12.13"),
 			Stage:           "download",
 			Status:          "running",
 			Progress:        25,
@@ -183,20 +184,23 @@ func TestAutoPrepareRuntimeEnvironmentsLogsPrepareProgress(t *testing.T) {
 
 	var logs bytes.Buffer
 	application := newTestAppState(config.Config{}, slog.New(slog.NewJSONHandler(&logs, nil)))
-	application.state.repoRoot = t.TempDir()
+	application.state.repoRoot = testRepoRoot
 	application.setTestSystem(nil, nil, nil, nil)
 
 	application.autoPrepareRuntimeEnvironments(context.Background())
 
 	logText := logs.String()
-	if !strings.Contains(logText, `"msg":"runtime_prepare_progress"`) {
-		t.Fatalf("startup progress log missing runtime_prepare_progress: %s", logText)
+	if !strings.Contains(logText, `"msg":"运行环境准备：Python 运行环境，下载资源进行中，正在从 python-build-standalone 下载 Python 运行环境"`) {
+		t.Fatalf("startup progress log missing Chinese prepare progress: %s", logText)
 	}
 	if !strings.Contains(logText, `"source_url":"https://example.invalid/python.tar.gz"`) {
 		t.Fatalf("startup progress log missing source URL: %s", logText)
 	}
-	if !strings.Contains(logText, `"archive_path":"C:\\RayleaBot\\cache\\downloads\\runtime\\python-windows-x64-3.12.13.tar.gz"`) {
+	if !strings.Contains(logText, `"archive_path":"cache/downloads/runtime/python-windows-x64-3.12.13.tar.gz"`) {
 		t.Fatalf("startup progress log missing archive path: %s", logText)
+	}
+	if strings.Contains(logText, testRepoRoot) {
+		t.Fatalf("startup progress log should use relative repo paths: %s", logText)
 	}
 }
 

@@ -7,7 +7,7 @@
     "timestamp": "2026-03-18T10:21:00Z",
     "data": {
       "observability_scope": "bridge_runtime",
-      "summary": "bridge observability initialized but no supported deliveries have completed yet",
+      "summary": "插件桥接观测已初始化，暂未完成可分发事件",
       "delivered_count": 0,
       "result_count": 0,
       "error_count": 0

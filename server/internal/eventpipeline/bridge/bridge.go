@@ -17,7 +17,7 @@ const (
 	eventsTypeReceived           = "events.received"
 	observabilityScopeBridge     = "bridge_runtime"
 	observabilityScopeDispatcher = "dispatcher_runtime"
-	summaryBridgeRuntime         = "bridge delivered recent adapter events while keeping bridge/runtime observability aggregate-only"
+	summaryBridgeRuntime         = "插件桥接已处理最近的适配器事件，桥接与运行时观测仅保留汇总数据"
 )
 
 type Outcome string

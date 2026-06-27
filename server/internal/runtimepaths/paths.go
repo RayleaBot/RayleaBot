@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/RayleaBot/RayleaBot/server/internal/logpath"
 	plugindiscovery "github.com/RayleaBot/RayleaBot/server/internal/plugins/discovery"
 	"github.com/RayleaBot/RayleaBot/server/internal/recovery"
 	"github.com/RayleaBot/RayleaBot/server/internal/schemaassets"
@@ -109,16 +110,18 @@ func CleanupOrphanedInstallDirs(logger *slog.Logger, roots []plugindiscovery.Sca
 			name := entry.Name()
 			if len(name) > len(".plugin-install-") && name[:len(".plugin-install-")] == ".plugin-install-" {
 				orphanPath := filepath.Join(root.Path, name)
+				repoRoot := filepath.Dir(filepath.Dir(root.Path))
+				orphanPathDisplay := logpath.Display(repoRoot, orphanPath)
 				if err := os.RemoveAll(orphanPath); err != nil {
-					logger.Warn("failed to clean up orphaned install directory",
+					logger.Warn("清理遗留插件安装目录失败："+orphanPathDisplay,
 						"component", "app",
-						"path", orphanPath,
-						"err", err.Error(),
+						"path", orphanPathDisplay,
+						"err", logpath.Error(repoRoot, err, orphanPath),
 					)
 				} else {
-					logger.Info("cleaned up orphaned install directory",
+					logger.Info("已清理遗留插件安装目录："+orphanPathDisplay,
 						"component", "app",
-						"path", orphanPath,
+						"path", orphanPathDisplay,
 					)
 				}
 			}

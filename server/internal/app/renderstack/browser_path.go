@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/deps"
+	"github.com/RayleaBot/RayleaBot/server/internal/logpath"
 )
 
 var resolveManagedBrowserPath = func(ctx context.Context, repoRoot string) (string, error) {
@@ -22,20 +23,21 @@ func prepareBrowserPath(ctx context.Context, logger *slog.Logger, repoRoot strin
 	if err != nil {
 		if logger != nil {
 			logger.Warn(
-				"managed chromium bootstrap pending",
+				"托管 Chromium 暂不可用，图片渲染等待运行环境准备",
 				"component", "render",
 				"code", "platform.resource_missing",
-				"err", err.Error(),
+				"err", logpath.Error(repoRoot, err, repoRoot),
 			)
 		}
 		return ""
 	}
 
 	if logger != nil {
+		browserDisplayPath := logpath.Display(repoRoot, managedBrowserPath)
 		logger.Info(
-			"managed chromium bootstrap ready",
+			"托管 Chromium 已就绪，浏览器路径："+browserDisplayPath,
 			"component", "render",
-			"browser_path", managedBrowserPath,
+			"browser_path", browserDisplayPath,
 		)
 	}
 	return managedBrowserPath

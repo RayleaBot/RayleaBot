@@ -209,7 +209,7 @@ func TestDiscoverPluginIDConflict(t *testing.T) {
 	if len(snapshot.ConflictPaths) != 2 {
 		t.Fatalf("unexpected conflict path count: got %d want 2", len(snapshot.ConflictPaths))
 	}
-	if snapshot.ValidationSummary != "duplicate plugin_id discovered across multiple directories" {
+	if snapshot.ValidationSummary != "多个目录中发现相同插件 ID" {
 		t.Fatalf("unexpected validation summary: %q", snapshot.ValidationSummary)
 	}
 }

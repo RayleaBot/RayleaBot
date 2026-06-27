@@ -426,7 +426,7 @@ func TestShellStopWaitsForReverseWebSocketAndStoppedLog(t *testing.T) {
 	}
 
 	for _, summary := range logStream.Snapshot() {
-		if summary.Source == "adapter" && summary.Message == "adapter shell stopped" {
+		if summary.Source == "adapter" && summary.Message == "OneBot 适配器已停止" {
 			return
 		}
 	}

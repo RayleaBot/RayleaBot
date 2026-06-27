@@ -134,7 +134,7 @@ func Build(deps Deps) (State, error) {
 	deps.Logs.SetRepository(logRepository, deps.Config.Log.RetentionDays)
 	deps.Tasks.SetLogSink(deps.Logs)
 	if err := deps.Logs.FlushSpool(ctx); err != nil {
-		deps.Logger.Warn("management log spool flush failed during startup",
+		deps.Logger.Warn("启动时刷新管理日志缓存失败",
 			"component", "logging",
 			"err", err.Error(),
 		)

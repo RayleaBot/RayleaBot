@@ -13,7 +13,7 @@ func (s *Shell) run(ctx context.Context) {
 		s.clearReverseConn(nil)
 		s.markStopped()
 		s.logger.Info(
-			"adapter shell stopped",
+			"OneBot 适配器已停止",
 			"component", "adapter",
 			"adapter_state", StateStopped,
 		)
@@ -31,7 +31,7 @@ func (s *Shell) run(ctx context.Context) {
 	snapshot := s.Snapshot()
 	if !snapshot.ForwardWS.Enabled || !snapshot.ForwardWS.Configured {
 		s.logger.Info(
-			"adapter forward websocket is idle",
+			"OneBot 主动 WebSocket 未启用或未配置，适配器保持空闲",
 			"component", "adapter",
 			"adapter_state", StateIdle,
 		)
@@ -56,7 +56,7 @@ func (s *Shell) run(ctx context.Context) {
 
 		delay := s.deps.backoff.Duration(retryAttempt)
 		s.logger.Warn(
-			"adapter reconnect scheduled",
+			"OneBot 主动 WebSocket 连接断开，将在 "+delay.String()+" 后重连："+sanitizeWSURL(s.forwardWSURL()),
 			"component", "adapter",
 			"adapter_state", StateReconnecting,
 			"retry_in", delay.String(),
@@ -74,7 +74,7 @@ func (s *Shell) run(ctx context.Context) {
 func (s *Shell) runAttempt(ctx context.Context) (bool, bool) {
 	s.markConnecting()
 	s.logger.Info(
-		"adapter forward websocket connecting",
+		"OneBot 主动 WebSocket 正在连接："+sanitizeWSURL(s.forwardWSURL()),
 		"component", "adapter",
 		"adapter_state", StateConnecting,
 		"transport", string(TransportForwardWS),
@@ -89,7 +89,7 @@ func (s *Shell) runAttempt(ctx context.Context) (bool, bool) {
 		if isAuthFailure(response) {
 			s.markAuthFailed(err)
 			s.logger.Error(
-				"adapter forward websocket authentication failed",
+				"OneBot 主动 WebSocket 鉴权失败："+sanitizeWSURL(s.forwardWSURL()),
 				"component", "adapter",
 				"adapter_state", StateAuthFailed,
 				"transport", string(TransportForwardWS),
@@ -128,7 +128,7 @@ func (s *Shell) runAttempt(ctx context.Context) (bool, bool) {
 
 	s.markConnected(ready.ObservedAt)
 	s.logger.Info(
-		"adapter forward websocket connected",
+		"OneBot 主动 WebSocket 已连接："+sanitizeWSURL(s.forwardWSURL()),
 		"component", "adapter",
 		"adapter_state", StateConnected,
 		"transport", string(TransportForwardWS),
@@ -148,7 +148,7 @@ func (s *Shell) runAttempt(ctx context.Context) (bool, bool) {
 	}
 	if errors.Is(err, context.DeadlineExceeded) {
 		s.logger.Warn(
-			"adapter forward websocket heartbeat timeout",
+			"OneBot 主动 WebSocket 心跳超时，准备重连："+sanitizeWSURL(s.forwardWSURL()),
 			"component", "adapter",
 			"adapter_state", StateConnected,
 			"error_code", errorCodeForwardWSSessionLost,

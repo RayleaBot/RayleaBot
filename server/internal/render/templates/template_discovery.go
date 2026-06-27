@@ -8,10 +8,11 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/RayleaBot/RayleaBot/server/internal/logpath"
 	renderrepo "github.com/RayleaBot/RayleaBot/server/internal/render/repository"
 )
 
-func DiscoverSeeds(root string, logger *slog.Logger) (map[string]Seed, error) {
+func DiscoverSeeds(repoRoot, root string, logger *slog.Logger) (map[string]Seed, error) {
 	if root == "" {
 		return map[string]Seed{}, nil
 	}
@@ -42,11 +43,12 @@ func DiscoverSeeds(root string, logger *slog.Logger) (map[string]Seed, error) {
 		seed, err := LoadSeed(templateDir)
 		if err != nil {
 			if logger != nil {
+				templateDirDisplay := logpath.Display(repoRoot, templateDir)
 				logger.Warn(
-					"render template skipped",
+					"渲染模板加载失败，已跳过目录："+templateDirDisplay,
 					"component", "render",
-					"template_dir", templateDir,
-					"err", err,
+					"template_dir", templateDirDisplay,
+					"err", logpath.Error(repoRoot, err, templateDir),
 				)
 			}
 			continue

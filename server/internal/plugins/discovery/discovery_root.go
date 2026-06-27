@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"sort"
 
+	"github.com/RayleaBot/RayleaBot/server/internal/logpath"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	pluginmanifest "github.com/RayleaBot/RayleaBot/server/internal/plugins/manifest"
 	"github.com/RayleaBot/RayleaBot/server/internal/schema"
@@ -15,9 +16,10 @@ import (
 func discoverRoot(root ScanRoot, validator *schema.Validator, repoRoot string, maxSummaryChars int, logger *slog.Logger) ([]plugins.Snapshot, int, error) {
 	if logger != nil {
 		logger.Info(
-			"plugin discovery starting",
+			fmt.Sprintf("开始扫描插件来源：%s（目录：%s）", root.Label, logpath.Display(repoRoot, root.Path)),
 			"component", "plugins",
 			"source_root", root.Label,
+			"source_path", logpath.Display(repoRoot, root.Path),
 		)
 	}
 
@@ -26,9 +28,10 @@ func discoverRoot(root ScanRoot, validator *schema.Validator, repoRoot string, m
 		if os.IsNotExist(err) {
 			if logger != nil {
 				logger.Info(
-					"plugin source root missing, skipping",
+					fmt.Sprintf("插件来源目录不存在，已跳过：%s（目录：%s）", root.Label, logpath.Display(repoRoot, root.Path)),
 					"component", "plugins",
 					"source_root", root.Label,
+					"source_path", logpath.Display(repoRoot, root.Path),
 				)
 			}
 			return nil, 0, nil
@@ -59,10 +62,10 @@ func discoverRoot(root ScanRoot, validator *schema.Validator, repoRoot string, m
 				skipped++
 				if logger != nil {
 					logger.Warn(
-						"plugin directory skipped because info.json is missing",
+						fmt.Sprintf("插件目录缺少 info.json，已跳过：%s", logpath.Display(repoRoot, pluginDir)),
 						"component", "plugins",
-						"plugin_dir", displayPath(repoRoot, pluginDir),
-						"manifest_path", displayPath(repoRoot, infoPath),
+						"plugin_dir", logpath.Display(repoRoot, pluginDir),
+						"manifest_path", logpath.Display(repoRoot, infoPath),
 						"source_root", root.Label,
 					)
 				}

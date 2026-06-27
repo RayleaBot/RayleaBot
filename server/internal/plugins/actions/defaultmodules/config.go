@@ -82,7 +82,7 @@ func dispatchConfigChanged(ctx context.Context, pluginID string, dispatcher acti
 		return
 	}
 	logger.Warn(
-		"config.changed event was not queued for plugin runtime",
+		"插件 "+pluginID+" 配置变更事件未能投递到运行时",
 		"component", "app",
 		"plugin_id", pluginID,
 		"outcome", result.Outcome,

@@ -24,7 +24,7 @@ func TestLogsWebSocketReplaysBufferedSummaries(t *testing.T) {
 
 	application := newTestApp(t, deterministicAuthOptions()...)
 	application.Logger().Warn(
-		"authentication failed for reverse websocket",
+		"OneBot 主动 WebSocket 鉴权失败：ws://127.0.0.1:6700",
 		"component", "adapter.onebot11",
 		"request_id", "req_adapter_0001",
 	)
@@ -38,7 +38,7 @@ func TestLogsWebSocketReplaysBufferedSummaries(t *testing.T) {
 
 	frame := readWebSocketFrameWhere(t, conn, func(frame map[string]any) bool {
 		data, ok := frame["data"].(map[string]any)
-		return ok && data["message"] == "authentication failed for reverse websocket"
+		return ok && data["message"] == "OneBot 主动 WebSocket 鉴权失败：ws://127.0.0.1:6700"
 	})
 	if frame["channel"] != "logs" {
 		t.Fatalf("unexpected channel: got %#v want %q", frame["channel"], "logs")
@@ -60,7 +60,7 @@ func TestLogsWebSocketReplaysBufferedSummaries(t *testing.T) {
 	if data["protocol"] != "onebot11" {
 		t.Fatalf("unexpected protocol: got %#v want %q", data["protocol"], "onebot11")
 	}
-	if data["message"] != "authentication failed for reverse websocket" {
+	if data["message"] != "OneBot 主动 WebSocket 鉴权失败：ws://127.0.0.1:6700" {
 		t.Fatalf("unexpected message: got %#v", data["message"])
 	}
 	if data["request_id"] != "req_adapter_0001" {
@@ -154,7 +154,7 @@ func TestLogsWebSocketAppendsCommandPolicyRejectionSummary(t *testing.T) {
 
 	frame := readWebSocketFrameWhere(t, conn, func(frame map[string]any) bool {
 		data, ok := frame["data"].(map[string]any)
-		return ok && data["message"] == "plugin raylea.echo command echo rejected by command policy: sender is not whitelisted"
+		return ok && data["message"] == "插件 raylea.echo 的命令 echo 被权限策略拒绝：发送者不在白名单中"
 	})
 
 	data := frame["data"].(map[string]any)
@@ -199,7 +199,7 @@ func TestLogsWebSocketDeliversLiveWhitelistedSummaries(t *testing.T) {
 	}
 
 	application.Logger().Error(
-		"plugin runtime stderr truncated",
+		"插件weather运行时 stderr 输出超过速率限制，已截断",
 		"component", "runtime",
 		"plugin_id", "weather",
 		"request_id", "req_plugin_0001",
@@ -209,7 +209,7 @@ func TestLogsWebSocketDeliversLiveWhitelistedSummaries(t *testing.T) {
 
 	payload := readWebSocketPayloadWhere(t, conn, func(frame map[string]any) bool {
 		data, ok := frame["data"].(map[string]any)
-		return ok && data["message"] == "plugin runtime stderr truncated"
+		return ok && data["message"] == "插件weather运行时 stderr 输出超过速率限制，已截断"
 	})
 	frame := decodeBody(t, payload)
 	data := frame["data"].(map[string]any)
@@ -264,7 +264,7 @@ func TestLogsWebSocketRedactsSensitiveMessageContent(t *testing.T) {
 	}
 
 	application.Logger().Error(
-		"downstream rejected fixture-only-secret during adapter handshake",
+		"下游适配器握手拒绝 fixture-only-secret",
 		"component", "runtime",
 	)
 
@@ -274,7 +274,7 @@ func TestLogsWebSocketRedactsSensitiveMessageContent(t *testing.T) {
 			return false
 		}
 		message, _ := data["message"].(string)
-		return strings.Contains(message, "adapter handshake")
+		return strings.Contains(message, "下游适配器握手")
 	})
 
 	raw := string(payload)
@@ -318,7 +318,7 @@ func TestLogsWebSocketReplaysCurrentBootOnlyAcrossRestart(t *testing.T) {
 	appA := newPersistentTestApp(t, configPath, func() time.Time { return time.Date(2026, 3, 20, 9, 0, 0, 0, time.UTC) }, "logs-ws-a")
 	_ = issueLoginToken(t, appA)
 	appA.Logger().Warn(
-		"persisted websocket replay",
+		"上次启动的 WebSocket 日志回放样例",
 		"component", "adapter.onebot11",
 		"request_id", "req_ws_persist_1",
 	)
@@ -332,7 +332,7 @@ func TestLogsWebSocketReplaysCurrentBootOnlyAcrossRestart(t *testing.T) {
 		}
 	}()
 	appB.Logger().Warn(
-		"current boot websocket replay",
+		"本次启动的 WebSocket 日志回放样例",
 		"component", "adapter.onebot11",
 		"request_id", "req_ws_current_1",
 	)
@@ -362,7 +362,7 @@ func TestLogsWebSocketReplaysCurrentBootOnlyAcrossRestart(t *testing.T) {
 		return ok && data["request_id"] == "req_ws_current_1"
 	})
 	data := frame["data"].(map[string]any)
-	if data["message"] != "current boot websocket replay" {
+	if data["message"] != "本次启动的 WebSocket 日志回放样例" {
 		t.Fatalf("unexpected websocket replay message: %#v", data["message"])
 	}
 	if data["log_id"] == "" {

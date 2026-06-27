@@ -18,7 +18,7 @@ func (s *Service) syncTemplatesFromFiles(ctx context.Context) error {
 	s.templateSyncMu.Lock()
 	defer s.templateSyncMu.Unlock()
 
-	Seeds, err := rendertemplates.DiscoverSeeds(s.templatesRoot, s.logger)
+	Seeds, err := rendertemplates.DiscoverSeeds(s.repoRoot, s.templatesRoot, s.logger)
 	if err != nil {
 		return err
 	}
@@ -54,7 +54,7 @@ func (s *Service) syncTemplateSeed(ctx context.Context, templateID string, seed 
 	s.rememberTemplateRoot(templateID, templateDir, resourceRoot)
 	if changed && s.logger != nil {
 		s.logger.Info(
-			"render template synchronized",
+			"渲染模板已同步："+templateID+"（版本 "+revision.RevisionID+"）",
 			"component", "render",
 			"template_id", templateID,
 			"revision_id", revision.RevisionID,

@@ -25,61 +25,69 @@ func bridgeEventSummary(action string, event adapterintake.NormalizedEvent) stri
 		return summary
 	}
 
-	base := "adapter event"
+	base := "适配器事件"
 	switch event.EventType {
 	case "message.group":
-		base = "group message"
+		base = "群消息"
 	case "message.private":
-		base = "private message"
+		base = "私聊消息"
 	case "message_sent.group":
-		base = "sent group message"
+		base = "群消息发送回执"
 	case "message_sent.private":
-		base = "sent private message"
+		base = "私聊消息发送回执"
 	case "notice.member_increase":
-		base = "group member increase notice"
+		base = "群成员增加通知"
 	case "notice.member_decrease":
-		base = "group member decrease notice"
+		base = "群成员减少通知"
 	case "notice.group_admin":
-		base = "group admin notice"
+		base = "群管理员变更通知"
 	case "notice.group_ban":
-		base = "group ban notice"
+		base = "群禁言通知"
 	case "notice.group_recall":
-		base = "group recall notice"
+		base = "群消息撤回通知"
 	case "notice.group_upload":
-		base = "group upload notice"
+		base = "群文件上传通知"
 	case "notice.group_card":
-		base = "group card notice"
+		base = "群名片变更通知"
 	case "notice.group_title":
-		base = "group title notice"
+		base = "群头衔变更通知"
 	case "notice.group_essence":
-		base = "group essence notice"
+		base = "群精华消息通知"
 	case "notice.group_message_emoji_like":
-		base = "group emoji reaction notice"
+		base = "群表情回应通知"
 	case "notice.friend_add":
-		base = "friend add notice"
+		base = "好友添加通知"
 	case "notice.friend_recall":
-		base = "friend recall notice"
+		base = "好友消息撤回通知"
 	case "notice.profile_like":
-		base = "profile like notice"
+		base = "资料卡点赞通知"
 	case "notice.poke":
-		base = "poke notice"
+		base = "戳一戳通知"
 	case "notice.poke_recall":
-		base = "poke recall notice"
+		base = "戳一戳撤回通知"
 	case "notice.flash_file":
-		base = "flash file notice"
+		base = "闪传文件通知"
 	case "request.friend":
-		base = "friend request"
+		base = "好友请求"
 	case "request.group":
-		base = "group request"
+		base = "群请求"
 	case "meta.heartbeat":
-		base = "heartbeat event"
+		base = "心跳事件"
 	case "meta.lifecycle":
-		base = "lifecycle event"
+		base = "生命周期事件"
 	}
 
-	summary := fmt.Sprintf("runtime bridge %s %s", action, base)
+	actionLabel := map[string]string{
+		"ignored":                        "已忽略",
+		"queued for dispatcher":          "已进入插件分发队列",
+		"failed to queue for dispatcher": "进入插件分发队列失败",
+	}[strings.TrimSpace(action)]
+	if actionLabel == "" {
+		actionLabel = strings.TrimSpace(action)
+	}
+	summary := fmt.Sprintf("插件桥接%s：%s", actionLabel, base)
 	if text := strings.TrimSpace(event.PlainText); text != "" {
-		summary += ": " + summarizeBridgeText(text)
+		summary += "：" + summarizeBridgeText(text)
 	}
 	return summary
 }
@@ -90,24 +98,44 @@ func commandPolicyRejectedSummary(rejection CommandPolicyRejection) string {
 	if reasonSummary == "" {
 		reasonSummary = strings.TrimSpace(rejection.Reason)
 	}
+	reasonSummary = commandPolicyReasonLabel(reasonSummary)
 
 	switch {
 	case commandName == "" && reasonSummary == "":
-		return "command rejected by command policy"
+		return "命令被权限策略拒绝"
 	case commandName == "":
-		return fmt.Sprintf("command rejected by command policy: %s", reasonSummary)
+		return fmt.Sprintf("命令被权限策略拒绝：%s", reasonSummary)
 	}
 
 	if pluginID := strings.TrimSpace(rejection.PluginID); pluginID != "" {
 		if reasonSummary == "" {
-			return fmt.Sprintf("plugin %s command %s rejected by command policy", pluginID, commandName)
+			return fmt.Sprintf("插件 %s 的命令 %s 被权限策略拒绝", pluginID, commandName)
 		}
-		return fmt.Sprintf("plugin %s command %s rejected by command policy: %s", pluginID, commandName, reasonSummary)
+		return fmt.Sprintf("插件 %s 的命令 %s 被权限策略拒绝：%s", pluginID, commandName, reasonSummary)
 	}
 	if reasonSummary == "" {
-		return fmt.Sprintf("command %s rejected by command policy", commandName)
+		return fmt.Sprintf("命令 %s 被权限策略拒绝", commandName)
 	}
-	return fmt.Sprintf("command %s rejected by command policy: %s", commandName, reasonSummary)
+	return fmt.Sprintf("命令 %s 被权限策略拒绝：%s", commandName, reasonSummary)
+}
+
+func commandPolicyReasonLabel(reason string) string {
+	switch strings.TrimSpace(reason) {
+	case "actor is not whitelisted", "sender is not whitelisted":
+		return "发送者不在白名单中"
+	case "user is blacklisted":
+		return "用户在黑名单中"
+	case "group is blacklisted":
+		return "群在黑名单中"
+	case "insufficient permission level":
+		return "权限等级不足"
+	case "user command rate limited":
+		return "用户命令触发频率限制"
+	case "group command rate limited":
+		return "群命令触发频率限制"
+	default:
+		return strings.TrimSpace(reason)
+	}
 }
 
 func summarizeBridgeText(text string) string {

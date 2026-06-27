@@ -47,9 +47,10 @@ func (c *Controller) handleCrash(pluginID string, crashCount int, _ string) {
 		}
 		if c.logger != nil {
 			c.logger.Warn(
-				"plugin entered dead_letter after repeated crashes",
+				"插件"+plugins.DisplayLabel(snapshot)+"连续崩溃，已进入死信状态",
 				"component", "app",
 				"plugin_id", pluginID,
+				"plugin_name", snapshot.Name,
 				"crash_count", crashCount,
 				"max_retries", maxRetries,
 			)
@@ -66,9 +67,10 @@ func (c *Controller) handleCrash(pluginID string, crashCount int, _ string) {
 
 	if c.logger != nil {
 		c.logger.Info(
-			"plugin runtime entering backoff before restart",
+			"插件"+plugins.DisplayLabel(snapshot)+"运行时崩溃，等待重启",
 			"component", "app",
 			"plugin_id", pluginID,
+			"plugin_name", snapshot.Name,
 			"crash_count", crashCount,
 			"backoff_seconds", int(delay.Seconds()),
 		)

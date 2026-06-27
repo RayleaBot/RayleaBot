@@ -16,7 +16,7 @@ func (s *Shell) forwardSupportedEvent(ctx context.Context, transport TransportKe
 	normalizedEvent, ok := normalizeSupportedEvent(frame.Frame, frame.Summary.ObservedAt)
 	if !ok {
 		s.logger.Debug(
-			"adapter event ignored by runtime bridge",
+			"OneBot 事件未进入插件桥接：事件类型 "+frame.Summary.Type,
 			"component", "adapter",
 			"adapter_state", s.Snapshot().State,
 			"transport", string(transport),
@@ -26,7 +26,7 @@ func (s *Shell) forwardSupportedEvent(ctx context.Context, transport TransportKe
 	}
 	if s.isDuplicateEvent(normalizedEvent.EventID, frame.Summary.ObservedAt) {
 		s.logger.Info(
-			"duplicate OneBot event dropped",
+			"OneBot 重复事件已丢弃：事件 ID "+normalizedEvent.EventID+"，类型 "+normalizedEvent.EventType,
 			"component", "adapter",
 			"adapter_state", s.Snapshot().State,
 			"transport", string(transport),
@@ -48,7 +48,7 @@ func (s *Shell) forwardSupportedEvent(ctx context.Context, transport TransportKe
 		return
 	default:
 		s.logger.Warn(
-			"adapter event queue is full; dropping event",
+			"OneBot 事件队列已满，已丢弃事件：类型 "+normalizedEvent.EventType,
 			"component", "adapter",
 			"adapter_state", s.Snapshot().State,
 			"event_kind", normalizedEvent.Kind,

@@ -85,7 +85,13 @@ func Discover(options DiscoverOptions) ([]plugins.Snapshot, DiscoverSummary, err
 
 	if options.Logger != nil {
 		options.Logger.Info(
-			"plugin discovery complete",
+			fmt.Sprintf(
+				"插件扫描完成：有效 %d 个，无效 %d 个，冲突 %d 个，跳过 %d 个",
+				summary.ValidCount,
+				summary.InvalidCount,
+				summary.ConflictCount,
+				summary.SkippedCount,
+			),
 			"component", "plugins",
 			"valid_count", summary.ValidCount,
 			"invalid_count", summary.InvalidCount,

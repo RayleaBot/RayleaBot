@@ -33,13 +33,13 @@ func (s *UninstallService) execute(job uninstallJob) {
 
 	if s.repository != nil {
 		if err := s.repository.DeleteDesiredState(job.ctx, job.pluginID); err != nil {
-			s.logger.Warn("delete desired_state during uninstall", "plugin_id", job.pluginID, "err", err.Error())
+			s.logger.Warn("卸载插件 "+job.pluginID+" 时删除启用状态记录失败", "plugin_id", job.pluginID, "err", err.Error())
 		}
 	}
 
 	if s.packageRepo != nil {
 		if err := s.packageRepo.DeletePackageMetadata(job.ctx, job.pluginID); err != nil {
-			s.logger.Warn("delete package metadata during uninstall", "plugin_id", job.pluginID, "err", err.Error())
+			s.logger.Warn("卸载插件 "+job.pluginID+" 时删除安装包元数据失败", "plugin_id", job.pluginID, "err", err.Error())
 		}
 	}
 

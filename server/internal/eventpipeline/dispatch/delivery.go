@@ -71,7 +71,7 @@ func (d *Dispatcher) enqueueTargets(ctx context.Context, event runtimeprotocol.E
 			results = append(results, DeliveryResult{PluginID: pluginID, Outcome: OutcomeDelivered})
 			d.recordOutcome(OutcomeDelivered, pluginID, "")
 		default:
-			d.logger.Warn("dispatch queue full, dropping event",
+			d.logger.Warn("插件 "+pluginID+" 的事件队列已满，已丢弃事件："+event.EventID,
 				"component", "dispatch",
 				"plugin_id", pluginID,
 				"event_id", event.EventID,

@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/deps"
+	"github.com/RayleaBot/RayleaBot/server/internal/logpath"
 	"github.com/RayleaBot/RayleaBot/server/internal/system/startup"
 )
 
@@ -40,7 +41,7 @@ func (s *Service) autoPrepareRuntimeEnvironments(ctx context.Context) {
 		if err != nil {
 			issue := startup.InspectionIssue(kind, err)
 			s.setStartupRuntimeState(kind, startupRuntimeFailed, &issue)
-			startup.LogFailure(s.currentLogger(), kind, err)
+			startup.LogFailure(s.currentLogger(), s.repoRootPath(), kind, err)
 			continue
 		}
 		if !inspection.MetadataComplete {
@@ -60,7 +61,7 @@ func (s *Service) autoPrepareRuntimeEnvironments(ctx context.Context) {
 		s.setStartupRuntimeState(kind, startupRuntimePending, nil)
 		if s.currentLogger() != nil {
 			s.currentLogger().Info(
-				"startup runtime prepare requested",
+				"运行环境准备已请求："+label,
 				"component", "app",
 				"resource_kind", kind,
 				"label", label,
@@ -68,13 +69,14 @@ func (s *Service) autoPrepareRuntimeEnvironments(ctx context.Context) {
 			)
 		}
 
-		report, err := prepareStartupRuntimeWithProgress(ctx, s.repoRootPath(), kind, func(event deps.PrepareProgress) {
-			startup.LogProgress(s.currentLogger(), event)
+		repoRoot := s.repoRootPath()
+		report, err := prepareStartupRuntimeWithProgress(ctx, repoRoot, kind, func(event deps.PrepareProgress) {
+			startup.LogProgress(s.currentLogger(), repoRoot, event)
 		})
 		if err != nil {
 			issue := startup.FailureIssue(kind, err)
 			s.setStartupRuntimeState(kind, startupRuntimeFailed, &issue)
-			startup.LogFailure(s.currentLogger(), kind, err)
+			startup.LogFailure(s.currentLogger(), repoRoot, kind, err)
 			continue
 		}
 
@@ -84,14 +86,14 @@ func (s *Service) autoPrepareRuntimeEnvironments(ctx context.Context) {
 		}
 		if s.currentLogger() != nil {
 			s.currentLogger().Info(
-				"startup runtime prepare completed",
+				"运行环境准备完成："+label,
 				"component", "app",
 				"resource_kind", kind,
 				"label", label,
 				"used_cached_archive", report.UsedCachedArchive,
 				"used_prepared_store", report.UsedPreparedStore,
 				"used_system_browser", report.UsedSystemBrowser,
-				"store_root", report.StoreRoot,
+				"store_root", logpath.Display(repoRoot, report.StoreRoot),
 			)
 		}
 	}

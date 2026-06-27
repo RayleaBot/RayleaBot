@@ -66,7 +66,7 @@ func (s *Shell) recordAndValidateFrame(transport TransportKey, frame adapterinta
 	switch {
 	case isIgnoredAPIResponse(frame):
 		s.logger.Warn(
-			"ignored OneBot API response with unsupported echo",
+			"OneBot API 响应没有匹配的请求，已忽略：端点 "+s.transportEndpoint(transport),
 			"component", "adapter",
 			"adapter_state", s.Snapshot().State,
 			"direction", "inbound",
@@ -80,7 +80,7 @@ func (s *Shell) recordAndValidateFrame(transport TransportKey, frame adapterinta
 		return nil
 	case frame.Summary.Category == adapterintake.FrameCategoryInvalid:
 		s.logger.Warn(
-			"invalid OneBot frame received",
+			"收到不合法的 OneBot 帧：端点 "+s.transportEndpoint(transport),
 			"component", "adapter",
 			"adapter_state", s.Snapshot().State,
 			"direction", "inbound",
@@ -94,7 +94,7 @@ func (s *Shell) recordAndValidateFrame(transport TransportKey, frame adapterinta
 		return fmt.Errorf("invalid frame: %s", frame.InvalidSummary)
 	case isLifecycleDisable(frame.Frame):
 		s.logger.Warn(
-			"adapter lifecycle disable observed",
+			"OneBot 上报生命周期 disable，适配器将按当前连接状态处理：端点 "+s.transportEndpoint(transport),
 			"component", "adapter",
 			"adapter_state", s.Snapshot().State,
 			"frame_type", frame.Summary.Type,

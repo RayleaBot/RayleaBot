@@ -30,7 +30,7 @@ func (s *Shell) Start(ctx context.Context) {
 	s.mu.Unlock()
 
 	s.logger.Info(
-		"adapter shell starting",
+		"OneBot 适配器正在启动，主动 WebSocket 地址："+sanitizeWSURL(s.forwardWSURL()),
 		"component", "adapter",
 		"adapter_state", StateIdle,
 		"forward_ws_url", sanitizeWSURL(s.forwardWSURL()),
@@ -72,7 +72,7 @@ func (s *Shell) Stop(ctx context.Context) error {
 	}
 
 	s.logger.Info(
-		"adapter shell stopping",
+		"OneBot 适配器正在停止，当前状态："+string(s.Snapshot().State),
 		"component", "adapter",
 		"adapter_state", s.Snapshot().State,
 	)

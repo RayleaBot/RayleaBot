@@ -78,7 +78,7 @@ func TestDiscoverWarnsForRealPluginDirectoryWithoutManifest(t *testing.T) {
 		t.Fatalf("unexpected skipped count: %#v", summary)
 	}
 	for _, item := range stream.Snapshot() {
-		if strings.Contains(item.Message, "plugin directory skipped because info.json is missing") {
+		if strings.Contains(item.Message, "插件目录缺少 info.json，已跳过") {
 			return
 		}
 	}

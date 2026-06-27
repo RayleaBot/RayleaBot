@@ -1,6 +1,10 @@
 package manager
 
-import runtimeprocess "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime/process"
+import (
+	"fmt"
+
+	runtimeprocess "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime/process"
+)
 
 func (m *Manager) watchRunningProcess(handle *runtimeprocess.Handle) {
 	<-handle.Done()
@@ -28,7 +32,7 @@ func (m *Manager) watchRunningProcess(handle *runtimeprocess.Handle) {
 		m.mu.Unlock()
 
 		m.logger.Warn(
-			"plugin runtime crashed",
+			fmt.Sprintf("插件%s运行时异常退出，累计崩溃 %d 次", pluginIDLabel(handle.Spec.PluginID), crashCount),
 			"component", "runtime",
 			"plugin_id", handle.Spec.PluginID,
 			"runtime_state", string(StateCrashed),
@@ -44,7 +48,7 @@ func (m *Manager) watchRunningProcess(handle *runtimeprocess.Handle) {
 
 	m.markStopped("", "", nil)
 	m.logger.Info(
-		"plugin runtime exited",
+		"插件"+pluginIDLabel(handle.Spec.PluginID)+"运行时已退出",
 		"component", "runtime",
 		"plugin_id", handle.Spec.PluginID,
 		"runtime_state", string(StateStopped),

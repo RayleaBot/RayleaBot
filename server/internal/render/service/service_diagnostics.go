@@ -38,7 +38,7 @@ func (s *Service) Diagnostics() []health.DiagnosticIssue {
 			Remediation: "请恢复仓库中的 templates 目录结构。",
 		})
 	default:
-		Seeds, err := rendertemplates.DiscoverSeeds(s.templatesRoot, s.logger)
+		Seeds, err := rendertemplates.DiscoverSeeds(s.repoRoot, s.templatesRoot, s.logger)
 		if err != nil {
 			issues = append(issues, health.DiagnosticIssue{
 				Code:        "platform.resource_missing",

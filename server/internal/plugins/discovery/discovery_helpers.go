@@ -14,17 +14,6 @@ func trimSummary(summary string, maxLen int) string {
 	return singleLine[:maxLen-3] + "..."
 }
 
-func displayPath(repoRoot, path string) string {
-	if repoRoot != "" {
-		relativePath, err := filepath.Rel(repoRoot, path)
-		if err == nil && relativePath != "." && !strings.HasPrefix(relativePath, "..") {
-			return filepath.ToSlash(relativePath)
-		}
-	}
-
-	return filepath.ToSlash(path)
-}
-
 func containsString(values []string, want string) bool {
 	for _, value := range values {
 		if value == want {

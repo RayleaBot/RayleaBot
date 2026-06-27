@@ -14,9 +14,9 @@ func validateConfigSchema(schemaPath string) error {
 	return err
 }
 
-func displaySchemaPath(schemaPath string) string {
+func displaySchemaPath(repoRoot, schemaPath string) string {
 	if schemaPath == "" {
 		return schemaassets.ConfigUserSchemaID
 	}
-	return schemaPath
+	return displayLogPath(repoRoot, schemaPath)
 }

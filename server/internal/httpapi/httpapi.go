@@ -111,7 +111,7 @@ func WithRequestContext(logger *slog.Logger, opts ...RequestContextOption) func(
 					}
 
 					logger.Error(
-						"panic recovered",
+						fmt.Sprintf("HTTP 请求处理发生内部异常：%s %s", r.Method, r.URL.Path),
 						"component", "http",
 						"request_id", requestID,
 						"method", r.Method,
@@ -141,7 +141,7 @@ func WithRequestContext(logger *slog.Logger, opts ...RequestContextOption) func(
 				logger.Log(
 					r.Context(),
 					accessLogLevel(r, recorder.statusCode),
-					"http request completed",
+					fmt.Sprintf("HTTP 请求完成：%s %s，状态 %d，耗时 %dms", r.Method, r.URL.Path, recorder.statusCode, duration.Milliseconds()),
 					"component", "http",
 					"request_id", requestID,
 					"method", r.Method,
@@ -200,6 +200,22 @@ func requestRoutePattern(r *http.Request) string {
 
 func accessLogLevel(_ *http.Request, _ int) slog.Level {
 	return slog.LevelDebug
+}
+
+func DisplayServerURL(listenAddr string) string {
+	host, port, err := net.SplitHostPort(strings.TrimSpace(listenAddr))
+	if err != nil {
+		addr := strings.TrimSpace(listenAddr)
+		if addr == "" {
+			return "http://127.0.0.1"
+		}
+		return "http://" + addr
+	}
+	switch host {
+	case "", "0.0.0.0", "::", "[::]":
+		host = "127.0.0.1"
+	}
+	return "http://" + net.JoinHostPort(host, port)
 }
 
 func RequestIDFromContext(ctx context.Context) string {

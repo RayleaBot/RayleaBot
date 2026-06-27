@@ -107,19 +107,19 @@ func ProjectState(snapshot Snapshot) (string, *StateDiagnosis) {
 	case "crashed":
 		return PluginStateFailed, &StateDiagnosis{
 			Kind:        StateDiagnosisCrashed,
-			Summary:     "plugin runtime crashed",
+			Summary:     "插件运行时异常退出",
 			Recoverable: false,
 		}
 	case "backoff":
 		return PluginStateFailed, &StateDiagnosis{
 			Kind:        StateDiagnosisRetrying,
-			Summary:     "plugin runtime is waiting before retry",
+			Summary:     "插件运行时正在等待重试",
 			Recoverable: false,
 		}
 	case "dead_letter":
 		diagnosis := &StateDiagnosis{
 			Kind:        StateDiagnosisRecoveryRequired,
-			Summary:     "plugin runtime requires manual recovery",
+			Summary:     "插件运行时需要人工恢复",
 			Recoverable: true,
 		}
 		if snapshot.DeadLetter != nil {

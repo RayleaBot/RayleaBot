@@ -10,19 +10,21 @@ import (
 
 func BuildDoctorReport(cmd Command) DoctorReport {
 	issues := make([]DoctorIssue, 0, 8)
+	repoRoot := recovery.RepoRootFromConfigPath(cmd.ConfigPath)
+	configPathDisplay := displayLogPath(repoRoot, cmd.ConfigPath)
 
 	if _, err := os.Stat(cmd.ConfigPath); err != nil {
 		issues = append(issues, DoctorIssue{
 			Code:        "config.not_accessible",
 			Severity:    "error",
-			Summary:     "Config file not accessible: " + cmd.ConfigPath,
+			Summary:     "配置文件不可访问：" + configPathDisplay,
 			Remediation: "请确认配置文件路径正确且可读。",
 		})
 	} else {
 		issues = append(issues, DoctorIssue{
 			Code:     "config.ok",
 			Severity: "ok",
-			Summary:  "Config file accessible",
+			Summary:  "配置文件可访问：" + configPathDisplay,
 		})
 	}
 
@@ -30,14 +32,14 @@ func BuildDoctorReport(cmd Command) DoctorReport {
 		issues = append(issues, DoctorIssue{
 			Code:        "schema.invalid",
 			Severity:    "error",
-			Summary:     "Config schema unavailable: " + displaySchemaPath(cmd.SchemaPath),
+			Summary:     "配置校验规则不可用：" + displaySchemaPath(repoRoot, cmd.SchemaPath),
 			Remediation: "请确认配置校验规则可用。",
 		})
 	} else {
 		issues = append(issues, DoctorIssue{
 			Code:     "schema.ok",
 			Severity: "ok",
-			Summary:  "Config schema available",
+			Summary:  "配置校验规则可用：" + displaySchemaPath(repoRoot, cmd.SchemaPath),
 		})
 	}
 
@@ -46,27 +48,27 @@ func BuildDoctorReport(cmd Command) DoctorReport {
 		issues = append(issues, DoctorIssue{
 			Code:        "database.path_unresolvable",
 			Severity:    "error",
-			Summary:     "Could not resolve database path",
+			Summary:     "无法从配置文件解析数据库路径：" + configPathDisplay,
 			Remediation: "请确认配置文件路径正确。",
 		})
 	} else {
+		databasePathDisplay := displayLogPath(repoRoot, databasePath)
 		if err := storage.QuickCheckPath(context.Background(), databasePath); err != nil {
 			issues = append(issues, DoctorIssue{
 				Code:        "database.ping_failed",
 				Severity:    "error",
-				Summary:     "Database integrity check failed: " + databasePath,
+				Summary:     "数据库完整性检查失败：" + databasePathDisplay,
 				Remediation: "数据库可能损坏。请查看 data/quarantine/ 与 data/sqlite-snapshots/。",
 			})
 		} else {
 			issues = append(issues, DoctorIssue{
 				Code:     "database.ok",
 				Severity: "ok",
-				Summary:  "Database accessible",
+				Summary:  "数据库可访问：" + databasePathDisplay,
 			})
 		}
 	}
 
-	repoRoot := recovery.RepoRootFromConfigPath(cmd.ConfigPath)
 	currentPlatform := currentManifestPlatform()
 	if manifest, err := loadDepsManifest(repoRoot); err != nil {
 		issues = append(issues, depsManifestDoctorIssues(err)...)

@@ -54,8 +54,8 @@ func TestWithRequestContextRecoversPanicAndLogsStack(t *testing.T) {
 		t.Fatalf("decode panic log: %v", err)
 	}
 
-	if got := record["msg"]; got != "panic recovered" {
-		t.Fatalf("unexpected log message: got %#v want %#v", got, "panic recovered")
+	if got := record["msg"]; got != "HTTP 请求处理发生内部异常：GET /api/panic" {
+		t.Fatalf("unexpected log message: got %#v want %#v", got, "HTTP 请求处理发生内部异常：GET /api/panic")
 	}
 	if got := record["panic"]; got != "boom" {
 		t.Fatalf("unexpected panic field: got %#v want %#v", got, "boom")
@@ -111,8 +111,9 @@ func TestWithRequestContextLogsAccessAndObservesRequest(t *testing.T) {
 	if err := json.Unmarshal([]byte(logLines[0]), &record); err != nil {
 		t.Fatalf("decode access log: %v", err)
 	}
-	if got := record["msg"]; got != "http request completed" {
-		t.Fatalf("unexpected log message: got %#v want %#v", got, "http request completed")
+	message, ok := record["msg"].(string)
+	if !ok || !strings.HasPrefix(message, "HTTP 请求完成：POST /api/config，状态 201，耗时 ") {
+		t.Fatalf("unexpected log message: got %#v", record["msg"])
 	}
 	if got := record["level"]; got != "DEBUG" {
 		t.Fatalf("unexpected access log level: got %#v want %#v", got, "DEBUG")

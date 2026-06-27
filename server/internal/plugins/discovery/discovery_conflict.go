@@ -1,6 +1,7 @@
 package discovery
 
 import (
+	"fmt"
 	"log/slog"
 	"sort"
 	"strings"
@@ -28,7 +29,7 @@ func buildConflictSnapshot(pluginID string, group []plugins.Snapshot) plugins.Sn
 		SourceRoot:        "",
 		SourceRoots:       sourceRoots,
 		Valid:             false,
-		ValidationSummary: "duplicate plugin_id discovered across multiple directories",
+		ValidationSummary: "多个目录中发现相同插件 ID",
 		RegistrationState: plugins.RegistrationStateInstalled,
 		DesiredState:      plugins.DesiredStateDisabled,
 		RuntimeState:      plugins.RuntimeStateStopped,
@@ -52,9 +53,10 @@ func logPluginDiscovered(logger *slog.Logger, entry plugins.Snapshot) {
 	}
 
 	logger.Info(
-		"plugin discovered",
+		fmt.Sprintf("插件%s已发现：来源 %s，清单 %s", plugins.DisplayLabel(entry), entry.SourceRoot, entry.ManifestPath),
 		"component", "plugins",
 		"plugin_id", entry.PluginID,
+		"plugin_name", entry.Name,
 		"manifest_path", entry.ManifestPath,
 		"source_root", entry.SourceRoot,
 	)
@@ -66,9 +68,10 @@ func logPluginInvalid(logger *slog.Logger, entry plugins.Snapshot) {
 	}
 
 	logger.Warn(
-		"plugin manifest invalid",
+		fmt.Sprintf("插件%s清单校验失败：%s", plugins.DisplayLabel(entry), entry.ValidationSummary),
 		"component", "plugins",
 		"plugin_id", entry.PluginID,
+		"plugin_name", entry.Name,
 		"manifest_path", entry.ManifestPath,
 		"source_root", entry.SourceRoot,
 		"validation_summary", entry.ValidationSummary,
@@ -81,7 +84,7 @@ func logPluginConflict(logger *slog.Logger, entry plugins.Snapshot) {
 	}
 
 	logger.Warn(
-		"plugin id conflict",
+		fmt.Sprintf("插件 ID 冲突：%s 同时出现在 %d 个目录", entry.PluginID, len(entry.ConflictPaths)),
 		"component", "plugins",
 		"plugin_id", entry.PluginID,
 		"count", len(entry.ConflictPaths),

@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 
+	"github.com/RayleaBot/RayleaBot/server/internal/logpath"
 	runtimeprocess "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime/process"
 	runtimeprotocol "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime/protocol"
 	runtimespec "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime/spec"
@@ -74,12 +75,14 @@ func (m *Manager) Start(ctx context.Context, spec runtimespec.Spec, payload runt
 	m.snap.PID = cmd.Process.Pid
 	m.mu.Unlock()
 
+	entryPathDisplay := logpath.Display(spec.RepoRoot, spec.EntryPath)
 	m.logger.Info(
-		"plugin runtime starting",
+		"插件"+runtimePluginLabel(spec)+"运行时正在启动，入口文件："+entryPathDisplay,
 		"component", "runtime",
 		"plugin_id", spec.PluginID,
+		"plugin_name", spec.PluginName,
 		"runtime_state", string(StateStarting),
-		"entry_path", spec.EntryPath,
+		"entry_path", entryPathDisplay,
 	)
 
 	var bot *runtimeprotocol.BotFrame
@@ -127,11 +130,12 @@ func (m *Manager) Start(ctx context.Context, spec runtimespec.Spec, payload runt
 	m.mu.Unlock()
 
 	m.logger.Info(
-		"plugin runtime started",
+		"插件"+runtimePluginLabel(spec)+"运行时已启动，入口文件："+entryPathDisplay,
 		"component", "runtime",
 		"plugin_id", spec.PluginID,
+		"plugin_name", spec.PluginName,
 		"runtime_state", string(StateRunning),
-		"entry_path", spec.EntryPath,
+		"entry_path", entryPathDisplay,
 	)
 
 	go m.readRuntimeFrames(handle)

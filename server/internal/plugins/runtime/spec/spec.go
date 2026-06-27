@@ -98,6 +98,8 @@ func BuildSpecWithContext(ctx context.Context, snapshot plugins.Snapshot, repoRo
 
 	return Spec{
 		PluginID:             snapshot.PluginID,
+		PluginName:           snapshot.Name,
+		RepoRoot:             repoRoot,
 		Runtime:              snapshot.Runtime,
 		Command:              command,
 		Args:                 []string{resolvedEntryPath},

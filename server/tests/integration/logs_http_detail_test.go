@@ -103,7 +103,7 @@ func TestLogsIncludeCommandPolicyRejectionFromEventIngress(t *testing.T) {
 	var rejectionSummary map[string]any
 	for _, raw := range items {
 		item := raw.(map[string]any)
-		if item["message"] == "plugin raylea.echo command echo rejected by command policy: sender is not whitelisted" {
+		if item["message"] == "插件 raylea.echo 的命令 echo 被权限策略拒绝：发送者不在白名单中" {
 			rejectionSummary = item
 			break
 		}
@@ -144,7 +144,7 @@ func TestLogsIncludeCommandPolicyRejectionFromEventIngress(t *testing.T) {
 	if details["command_name"] != "echo" || details["error_code"] != "permission.not_whitelisted" {
 		t.Fatalf("unexpected command rejection details: %#v", details)
 	}
-	if details["reason"] != "actor is not whitelisted" || details["policy_stage"] != "whitelist" {
+	if details["reason"] != "发送者不在白名单中" || details["policy_stage"] != "whitelist" {
 		t.Fatalf("unexpected command rejection details: %#v", details)
 	}
 	if !reflect.DeepEqual(details["matched_plugin_ids"], []any{"raylea.echo"}) {
@@ -472,7 +472,7 @@ func TestLogsListReadsPersistedSummariesAcrossRestart(t *testing.T) {
 	responseA.Body.Close()
 
 	appA.Logger().Error(
-		"persisted log survives restart",
+		"重启后仍可读取的持久化日志样例",
 		"component", "runtime",
 		"plugin_id", "weather",
 		"request_id", "req_persist_1",
@@ -508,7 +508,7 @@ func TestLogsListReadsPersistedSummariesAcrossRestart(t *testing.T) {
 		t.Fatalf("unexpected persisted logs count: %#v", body["items"])
 	}
 	item := items[0].(map[string]any)
-	if item["message"] != "persisted log survives restart" {
+	if item["message"] != "重启后仍可读取的持久化日志样例" {
 		t.Fatalf("unexpected persisted log message: %#v", item["message"])
 	}
 	if item["log_id"] == "" {

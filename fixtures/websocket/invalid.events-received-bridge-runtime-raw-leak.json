@@ -8,7 +8,7 @@
     "timestamp": "2026-03-18T10:22:00Z",
     "data": {
       "observability_scope": "bridge_runtime",
-      "summary": "bridge runtime emitted a protocol error",
+      "summary": "插件桥接运行时输出了协议错误",
       "delivered_count": 3,
       "result_count": 2,
       "error_count": 1,

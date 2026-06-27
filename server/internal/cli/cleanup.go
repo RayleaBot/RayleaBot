@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 )
@@ -20,10 +21,11 @@ func runCleanup(cmd Command) int {
 			name := entry.Name()
 			if len(name) > len(".plugin-install-") && name[:len(".plugin-install-")] == ".plugin-install-" {
 				orphanPath := filepath.Join(installedRoot, name)
+				orphanPathDisplay := displayLogPath(repoRoot, orphanPath)
 				if err := os.RemoveAll(orphanPath); err != nil {
-					cmd.Logger.Warn("failed to remove orphaned install dir", "path", orphanPath, "err", err.Error())
+					cmd.Logger.Warn("清理遗留插件安装目录失败："+orphanPathDisplay, "path", orphanPathDisplay, "err", displayLogError(repoRoot, err, orphanPath))
 				} else {
-					cmd.Logger.Info("removed orphaned install directory", "path", orphanPath)
+					cmd.Logger.Info("遗留插件安装目录已清理："+orphanPathDisplay, "path", orphanPathDisplay)
 					cleaned++
 				}
 			}
@@ -36,18 +38,20 @@ func runCleanup(cmd Command) int {
 		if err == nil {
 			for _, entry := range cacheEntries {
 				entryPath := filepath.Join(cacheRoot, entry.Name())
+				entryPathDisplay := displayLogPath(repoRoot, entryPath)
 				if err := os.RemoveAll(entryPath); err != nil {
-					cmd.Logger.Warn("failed to remove cache entry", "path", entryPath, "err", err.Error())
+					cmd.Logger.Warn("清理下载缓存条目失败："+entryPathDisplay, "path", entryPathDisplay, "err", displayLogError(repoRoot, err, entryPath))
 				} else {
 					cleaned++
 				}
 			}
 			if len(cacheEntries) > 0 {
-				cmd.Logger.Info("cleared download cache", "entries", len(cacheEntries))
+				cacheRootDisplay := displayLogPath(repoRoot, cacheRoot)
+				cmd.Logger.Info(fmt.Sprintf("下载缓存已清理：%s，条目 %d 个", cacheRootDisplay, len(cacheEntries)), "path", cacheRootDisplay, "entries", len(cacheEntries))
 			}
 		}
 	}
 
-	cmd.Logger.Info("cleanup completed", "cleaned_items", cleaned)
+	cmd.Logger.Info(fmt.Sprintf("清理完成，共处理 %d 项", cleaned), "cleaned_items", cleaned)
 	return 0
 }

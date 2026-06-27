@@ -5,6 +5,7 @@ import (
 	"os"
 
 	internalconfig "github.com/RayleaBot/RayleaBot/server/internal/config"
+	"github.com/RayleaBot/RayleaBot/server/internal/recovery"
 )
 
 func runConfig(cmd Command) int {
@@ -27,10 +28,26 @@ func runConfig(cmd Command) int {
 		fmt.Fprintln(os.Stderr, "可用子命令: config init, config normalize, config validate")
 		return 1
 	}
+	actionLabel := configActionLabel(action)
+	repoRoot := recovery.RepoRootFromConfigPath(cmd.ConfigPath)
+	configPathDisplay := displayLogPath(repoRoot, cmd.ConfigPath)
 	if err != nil {
-		cmd.Logger.Error("config "+action+" failed", "config_path", cmd.ConfigPath, "err", err.Error())
+		cmd.Logger.Error("配置文件"+actionLabel+"失败："+configPathDisplay, "config_path", configPathDisplay, "action", action, "err", displayLogError(repoRoot, err, cmd.ConfigPath))
 		return 1
 	}
-	cmd.Logger.Info("config "+action+" completed", "config_path", cmd.ConfigPath)
+	cmd.Logger.Info("配置文件"+actionLabel+"完成："+configPathDisplay, "config_path", configPathDisplay, "action", action)
 	return 0
+}
+
+func configActionLabel(action string) string {
+	switch action {
+	case "init":
+		return "初始化"
+	case "normalize":
+		return "规范化"
+	case "validate":
+		return "校验"
+	default:
+		return action
+	}
 }

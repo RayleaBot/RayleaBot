@@ -263,6 +263,13 @@
       "target_action": "Review when management handler generation is evaluated.",
       "due_stage": "next"
     },
+    "internal/logpath": {
+      "decision": "keep",
+      "reason": "Log path display is shared by startup, CLI, runtime, and template logs.",
+      "owner": "server",
+      "target_action": "Review if path display moves into the logging package.",
+      "due_stage": "next"
+    },
     "internal/management/authhttp": {
       "decision": "keep",
       "reason": "Auth middleware is the management HTTP boundary.",

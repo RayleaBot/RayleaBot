@@ -14,9 +14,9 @@ func runDoctor(cmd Command) int {
 	}
 
 	if hasProblems {
-		cmd.Logger.Warn("doctor completed with issues")
+		cmd.Logger.Warn("服务自检完成，发现需要处理的问题")
 		return 1
 	}
-	cmd.Logger.Info("doctor completed, all checks passed")
+	cmd.Logger.Info("服务自检完成，所有检查通过")
 	return 0
 }

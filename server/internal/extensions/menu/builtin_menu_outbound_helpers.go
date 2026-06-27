@@ -20,7 +20,7 @@ func (s *Service) logBuiltinMenuError(err error) {
 	if err == nil || s == nil || s.logger == nil {
 		return
 	}
-	s.logger.Warn("builtin menu response failed", "component", "app", "error", err)
+	s.logger.Warn("内置菜单回复发送失败："+err.Error(), "component", "app", "error", err)
 }
 
 func (s *Service) logBuiltinMenuTrigger(_ context.Context, event adapterintake.NormalizedEvent, request Request) {
@@ -40,7 +40,11 @@ func (s *Service) logBuiltinMenuTrigger(_ context.Context, event adapterintake.N
 		PayloadFields:    event.PayloadFields,
 	})
 	if !ok {
-		summary = "builtin menu command received"
+		command := strings.TrimSpace(request.Command)
+		if command == "" {
+			command = "未知命令"
+		}
+		summary = "收到内置菜单命令：" + command
 	}
 	fields := []any{
 		"component", "bridge",

@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/RayleaBot/RayleaBot/server/internal/httpapi"
 	"github.com/RayleaBot/RayleaBot/server/internal/storage"
 )
 
@@ -34,12 +35,13 @@ func (a *App) Run(ctx context.Context) error {
 			return nil
 		})
 	}
-	storage.StartSnapshotLoop(runCtx, a.platform.Storage, a.state.Logger)
+	storage.StartSnapshotLoop(runCtx, a.platform.Storage, a.state.Logger, a.state.RepoRoot())
 	a.eventStack.Adapter.Start(runCtx)
 	a.platform.Scheduler.Start(runCtx)
 
 	supervisor.GoCritical(func(context.Context) error {
-		a.state.Logger.Info("http server starting", "component", "app", "listen_addr", a.process.server.Addr)
+		serverURL := httpapi.DisplayServerURL(a.process.server.Addr)
+		a.state.Logger.Info("HTTP 服务正在启动，管理地址："+serverURL, "component", "app", "listen_addr", a.process.server.Addr, "url", serverURL)
 		if err := a.process.server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			return err
 		}
@@ -56,7 +58,8 @@ func (a *App) Run(ctx context.Context) error {
 
 func (a *App) shutdownFromContext() error {
 	a.process.shuttingDown.Store(true)
-	a.state.Logger.Info("http server shutting down", "component", "app", "listen_addr", a.process.server.Addr)
+	serverURL := httpapi.DisplayServerURL(a.process.server.Addr)
+	a.state.Logger.Info("HTTP 服务正在关闭，管理地址："+serverURL, "component", "app", "listen_addr", a.process.server.Addr, "url", serverURL)
 	a.platform.Scheduler.Stop()
 	if err := a.stopRuntimeManagers(5 * time.Second); err != nil {
 		return fmt.Errorf("stop runtime managers: %w", err)

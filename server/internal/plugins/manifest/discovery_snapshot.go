@@ -1,10 +1,12 @@
 package manifest
 
 import (
-	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
+	"fmt"
 	"log/slog"
 	"path/filepath"
 
+	"github.com/RayleaBot/RayleaBot/server/internal/logpath"
+	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	"github.com/RayleaBot/RayleaBot/server/internal/schema"
 )
 
@@ -13,9 +15,9 @@ func LoadSnapshot(infoPath, sourceRoot, repoRoot string, validator *schema.Valid
 	if err != nil {
 		if logger != nil {
 			logger.Warn(
-				"plugin manifest skipped because json parsing failed",
+				fmt.Sprintf("插件清单 JSON 解析失败，已跳过：%s（来源：%s）", logpath.Display(repoRoot, infoPath), sourceRoot),
 				"component", "plugins",
-				"manifest_path", displayPath(repoRoot, infoPath),
+				"manifest_path", logpath.Display(repoRoot, infoPath),
 				"source_root", sourceRoot,
 				"err", err.Error(),
 			)
@@ -27,9 +29,9 @@ func LoadSnapshot(infoPath, sourceRoot, repoRoot string, validator *schema.Valid
 	if !ok {
 		if logger != nil {
 			logger.Warn(
-				"plugin manifest skipped because the top-level document is not an object",
+				fmt.Sprintf("插件清单顶层结构不是对象，已跳过：%s（来源：%s）", logpath.Display(repoRoot, infoPath), sourceRoot),
 				"component", "plugins",
-				"manifest_path", displayPath(repoRoot, infoPath),
+				"manifest_path", logpath.Display(repoRoot, infoPath),
 				"source_root", sourceRoot,
 			)
 		}
@@ -40,9 +42,9 @@ func LoadSnapshot(infoPath, sourceRoot, repoRoot string, validator *schema.Valid
 	if !ok {
 		if logger != nil {
 			logger.Warn(
-				"plugin manifest skipped because id is missing or invalid",
+				fmt.Sprintf("插件清单缺少有效 ID，已跳过：%s（来源：%s）", logpath.Display(repoRoot, infoPath), sourceRoot),
 				"component", "plugins",
-				"manifest_path", displayPath(repoRoot, infoPath),
+				"manifest_path", logpath.Display(repoRoot, infoPath),
 				"source_root", sourceRoot,
 			)
 		}
@@ -78,7 +80,7 @@ func LoadSnapshot(infoPath, sourceRoot, repoRoot string, validator *schema.Valid
 		Help:               manifestHelp(manifest),
 		SystemDependencies: stringListField(manifest, "system_dependencies"),
 		DefaultConfig:      defaultConfig,
-		ManifestPath:       displayPath(repoRoot, infoPath),
+		ManifestPath:       logpath.Display(repoRoot, infoPath),
 		PackageRootPath:    filepath.Dir(infoPath),
 		SourceRoot:         sourceRoot,
 		SourceRoots:        []string{sourceRoot},

@@ -98,9 +98,10 @@ func (s *Service) HandleWebhook() http.HandlerFunc {
 			botID := strings.TrimSpace(s.runtime.CurrentBotID())
 			if err := s.runtime.EnsurePluginRunning(r.Context(), pluginID, botID); err != nil && s.logger != nil {
 				s.logger.Warn(
-					"ensure runtime before webhook dispatch failed",
+					"插件 "+pluginID+" Webhook 分发前启动运行时失败，路由："+route,
 					"component", "app",
 					"plugin_id", pluginID,
+					"route", route,
 					"err", err.Error(),
 				)
 			}

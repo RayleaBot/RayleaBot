@@ -164,7 +164,7 @@ func TestBridgeLogsUnmatchedNoticeAsDebugIgnored(t *testing.T) {
 	if summary.Level != "debug" {
 		t.Fatalf("unexpected log level: got %q want debug", summary.Level)
 	}
-	if summary.Message != "runtime bridge ignored group recall notice" {
+	if summary.Message != "插件桥接已忽略：群消息撤回通知" {
 		t.Fatalf("unexpected log message: got %q", summary.Message)
 	}
 	if summary.Details["reason"] != "no plugin subscription accepted the event" {
@@ -222,8 +222,8 @@ func TestBridgeLogsCommandPolicyRejected(t *testing.T) {
 		PluginID:         "raylea.echo",
 		MatchedPluginIDs: []string{"raylea.echo"},
 		ErrorCode:        "permission.not_whitelisted",
-		Reason:           "actor is not whitelisted",
-		ReasonSummary:    "sender is not whitelisted",
+		Reason:           "发送者不在白名单中",
+		ReasonSummary:    "发送者不在白名单中",
 		PolicyStage:      "whitelist",
 	})
 
@@ -240,7 +240,7 @@ func TestBridgeLogsCommandPolicyRejected(t *testing.T) {
 	if snapshot.LastOutcome != OutcomeRejected {
 		t.Fatalf("unexpected last outcome: got %q want %q", snapshot.LastOutcome, OutcomeRejected)
 	}
-	if snapshot.LastErrorCode != "permission.not_whitelisted" || snapshot.LastErrorText != "actor is not whitelisted" {
+	if snapshot.LastErrorCode != "permission.not_whitelisted" || snapshot.LastErrorText != "发送者不在白名单中" {
 		t.Fatalf("unexpected last rejection details: %+v", snapshot)
 	}
 
@@ -258,13 +258,13 @@ func TestBridgeLogsCommandPolicyRejected(t *testing.T) {
 	if summary.PluginID != "raylea.echo" {
 		t.Fatalf("unexpected plugin_id: got %q want raylea.echo", summary.PluginID)
 	}
-	if summary.Message != "plugin raylea.echo command help rejected by command policy: sender is not whitelisted" {
+	if summary.Message != "插件 raylea.echo 的命令 help 被权限策略拒绝：发送者不在白名单中" {
 		t.Fatalf("unexpected rejection message: got %q", summary.Message)
 	}
 	if summary.Details["command_name"] != "help" || summary.Details["policy_stage"] != "whitelist" {
 		t.Fatalf("unexpected rejection details: %#v", summary.Details)
 	}
-	if summary.Details["error_code"] != "permission.not_whitelisted" || summary.Details["reason"] != "actor is not whitelisted" {
+	if summary.Details["error_code"] != "permission.not_whitelisted" || summary.Details["reason"] != "发送者不在白名单中" {
 		t.Fatalf("unexpected rejection details: %#v", summary.Details)
 	}
 	if !reflect.DeepEqual(summary.Details["matched_plugin_ids"], []any{"raylea.echo"}) {

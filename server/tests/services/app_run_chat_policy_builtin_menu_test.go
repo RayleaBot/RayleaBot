@@ -483,7 +483,7 @@ func TestApplyChatPolicyLogsCooldownReplySuccess(t *testing.T) {
 	}
 
 	summary := waitForAppLog(t, stream, func(summary logging.Summary) bool {
-		return summary.Message == "plugin weather command weather rejected by command policy: user command rate limited"
+		return summary.Message == "插件 weather 的命令 weather 被权限策略拒绝：用户命令触发频率限制"
 	})
 	if summary.Level != "warn" || summary.Source != "bridge" {
 		t.Fatalf("unexpected cooldown rejection summary: %+v", summary)

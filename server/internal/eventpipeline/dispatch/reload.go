@@ -60,7 +60,7 @@ func (d *Dispatcher) ReloadPlugin(
 			defer cancel()
 			if err := manager.Stop(stopCtx); err != nil {
 				d.logger.Warn(
-					"reload left old runtime running after swap",
+					"插件 "+pluginID+" 重载已切换到新运行时，但旧运行时停止失败",
 					"component", "dispatch",
 					"plugin_id", pluginID,
 					"err", err.Error(),

@@ -49,7 +49,7 @@ func (e *Engine) fireJob(j Job, now time.Time) {
 
 	nextRun, err := nextCronTime(j.CronExpr, now, e.location)
 	if err != nil {
-		e.logger.Warn("failed to compute next run for job, disabling",
+		e.logger.Warn("定时任务 "+j.JobID+" 的下次运行时间计算失败，已停止继续调度",
 			"component", "scheduler",
 			"job_id", j.JobID,
 			"err", err.Error(),

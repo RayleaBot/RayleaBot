@@ -20,14 +20,14 @@ response:
         level: error
         source: adapter.onebot11
         protocol: onebot11
-        message: reverse websocket authentication failed
+        message: "OneBot 主动 WebSocket 鉴权失败：ws://127.0.0.1:6700"
         request_id: req_adapter_0002
       - log_id: log_protocol_0001
         timestamp: "2026-03-20T10:00:00Z"
         level: warn
         source: adapter
         protocol: onebot11
-        message: adapter reconnect scheduled
+        message: "OneBot 适配器将在 5s 后重连：ws://127.0.0.1:6700"
     page:
       limit: 10
       has_older: false

@@ -57,7 +57,7 @@ func (c *Checker) Check(ctx context.Context, actorID, actorRole, groupID string,
 	if cmd != nil && c.whitelistStateRepo != nil {
 		if enabled, err := c.whitelistStateRepo.Enabled(ctx); err == nil && enabled {
 			if !c.matchesWhitelist(ctx, actorID, groupID) {
-				return Verdict{Allowed: false, Reason: "actor is not whitelisted", ErrorCode: "permission.not_whitelisted"}
+				return Verdict{Allowed: false, Reason: "发送者不在白名单中", ErrorCode: "permission.not_whitelisted"}
 			}
 			skipBlacklist = true
 		}
@@ -66,11 +66,11 @@ func (c *Checker) Check(ctx context.Context, actorID, actorRole, groupID string,
 	// 2. Blacklist check.
 	if !skipBlacklist && c.blacklistRepo != nil {
 		if blocked, _ := c.blacklistRepo.IsBlacklisted(ctx, "user", actorID); blocked {
-			return Verdict{Allowed: false, Reason: "user is blacklisted", ErrorCode: "permission.blacklisted"}
+			return Verdict{Allowed: false, Reason: "用户在黑名单中", ErrorCode: "permission.blacklisted"}
 		}
 		if groupID != "" {
 			if blocked, _ := c.blacklistRepo.IsBlacklisted(ctx, "group", groupID); blocked {
-				return Verdict{Allowed: false, Reason: "group is blacklisted", ErrorCode: "permission.blacklisted"}
+				return Verdict{Allowed: false, Reason: "群在黑名单中", ErrorCode: "permission.blacklisted"}
 			}
 		}
 	}
@@ -78,7 +78,7 @@ func (c *Checker) Check(ctx context.Context, actorID, actorRole, groupID string,
 	// 3. Command permission level check.
 	if cmd != nil && cmd.Permission != "" && cmd.Permission != "everyone" {
 		if !hasPermissionLevel(actorRole, cmd.Permission) {
-			return Verdict{Allowed: false, Reason: "insufficient permission level", ErrorCode: "permission.denied"}
+			return Verdict{Allowed: false, Reason: "权限等级不足", ErrorCode: "permission.denied"}
 		}
 	}
 
@@ -86,12 +86,12 @@ func (c *Checker) Check(ctx context.Context, actorID, actorRole, groupID string,
 	if c.cooldown != nil && cmd != nil {
 		userKey := "user:" + actorID
 		if !c.cooldown.Allow(userKey) {
-			return Verdict{Allowed: false, Reason: "user command rate limited", ErrorCode: "platform.user_rate_limited"}
+			return Verdict{Allowed: false, Reason: "用户命令触发频率限制", ErrorCode: "platform.user_rate_limited"}
 		}
 		if groupID != "" {
 			groupKey := "group:" + groupID
 			if !c.cooldown.Allow(groupKey) {
-				return Verdict{Allowed: false, Reason: "group command rate limited", ErrorCode: "platform.rate_limited"}
+				return Verdict{Allowed: false, Reason: "群命令触发频率限制", ErrorCode: "platform.rate_limited"}
 			}
 		}
 	}

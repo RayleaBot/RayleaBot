@@ -6,6 +6,7 @@ import (
 	"net/http/httptest"
 	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
 )
 
@@ -23,14 +24,14 @@ func TestLogsListReturnsFilteredSummaries(t *testing.T) {
 		Timestamp: "2026-03-20T09:59:59Z",
 		Level:     "warn",
 		Source:    "runtime",
-		Message:   "ignored warning",
+		Message:   "按级别过滤掉的运行时警告样例",
 	})
 	application.Logs().Append(logging.Summary{
 		LogID:     "log_runtime_0001",
 		Timestamp: "2026-03-20T10:00:00Z",
 		Level:     "error",
 		Source:    "runtime",
-		Message:   "plugin runtime stderr truncated",
+		Message:   "插件weather运行时 stderr 输出超过速率限制，已截断",
 		PluginID:  "weather",
 		RequestID: "req_plugin_0001",
 	})
@@ -39,7 +40,7 @@ func TestLogsListReturnsFilteredSummaries(t *testing.T) {
 		Timestamp: "2026-03-20T10:00:01Z",
 		Level:     "error",
 		Source:    "adapter.onebot11",
-		Message:   "reverse websocket connection lost",
+		Message:   "OneBot 主动 WebSocket 连接断开：ws://127.0.0.1:6700",
 	})
 
 	server := httptest.NewServer(application.Handler())
@@ -78,7 +79,7 @@ func TestLogsListRefreshDoesNotAppendHTTPAccessLogAtInfoLevel(t *testing.T) {
 		Timestamp: "2026-03-20T10:00:00Z",
 		Level:     "info",
 		Source:    "runtime",
-		Message:   "seed log",
+		Message:   "日志刷新测试种子记录",
 	})
 
 	server := httptest.NewServer(application.Handler())
@@ -105,7 +106,7 @@ func TestLogsListRefreshDoesNotAppendHTTPAccessLogAtInfoLevel(t *testing.T) {
 	}
 
 	for _, summary := range application.Logs().Snapshot() {
-		if summary.Source == "http" || summary.Message == "http request completed" {
+		if summary.Source == "http" || strings.HasPrefix(summary.Message, "HTTP 请求完成：") {
 			t.Fatalf("logs refresh appended HTTP access log at info level: %#v", summary)
 		}
 	}
@@ -126,7 +127,7 @@ func TestLogsListReturnsMultiFilteredSummaries(t *testing.T) {
 			Timestamp: "2026-03-20T10:00:00Z",
 			Level:     "error",
 			Source:    "runtime",
-			Message:   "weather plugin error",
+			Message:   "天气插件运行异常：请求 req_weather_0001",
 			PluginID:  "weather",
 			RequestID: "req_weather_0001",
 		},
@@ -135,7 +136,7 @@ func TestLogsListReturnsMultiFilteredSummaries(t *testing.T) {
 			Timestamp: "2026-03-20T10:00:01Z",
 			Level:     "warn",
 			Source:    "runtime",
-			Message:   "echo plugin warning",
+			Message:   "Echo 插件运行警告：请求 req_echo_0001",
 			PluginID:  "raylea.echo",
 			RequestID: "req_echo_0001",
 		},
@@ -144,7 +145,7 @@ func TestLogsListReturnsMultiFilteredSummaries(t *testing.T) {
 			Timestamp: "2026-03-20T10:00:02Z",
 			Level:     "info",
 			Source:    "runtime",
-			Message:   "filtered by level",
+			Message:   "按级别过滤掉的日志样例：raylea.echo",
 			PluginID:  "weather",
 		},
 		{
@@ -152,7 +153,7 @@ func TestLogsListReturnsMultiFilteredSummaries(t *testing.T) {
 			Timestamp: "2026-03-20T10:00:03Z",
 			Level:     "error",
 			Source:    "runtime",
-			Message:   "filtered by plugin",
+			Message:   "按插件过滤掉的日志样例：ops",
 			PluginID:  "ops",
 		},
 	} {
@@ -198,14 +199,14 @@ func TestLogsListReturnsProtocolFilteredSummaries(t *testing.T) {
 			Timestamp: "2026-03-20T10:00:00Z",
 			Level:     "warn",
 			Source:    "adapter",
-			Message:   "adapter reconnect scheduled",
+			Message:   "OneBot 适配器将在 5s 后重连：ws://127.0.0.1:6700",
 		},
 		{
 			LogID:     "log_protocol_0002",
 			Timestamp: "2026-03-20T10:00:01Z",
 			Level:     "error",
 			Source:    "adapter.onebot11",
-			Message:   "reverse websocket authentication failed",
+			Message:   "OneBot 主动 WebSocket 鉴权失败：ws://127.0.0.1:6700",
 			RequestID: "req_adapter_0002",
 		},
 		{
@@ -220,7 +221,7 @@ func TestLogsListReturnsProtocolFilteredSummaries(t *testing.T) {
 			Timestamp: "2026-03-20T10:00:03Z",
 			Level:     "warn",
 			Source:    "runtime",
-			Message:   "plugin runtime stderr truncated",
+			Message:   "插件weather运行时 stderr 输出超过速率限制，已截断",
 		},
 	} {
 		application.Logs().Append(summary)
@@ -283,7 +284,7 @@ func TestLogsListReturnsOutboundProtocolFilteredSummaries(t *testing.T) {
 			Timestamp: "2026-04-10T09:18:02Z",
 			Level:     "warn",
 			Source:    "runtime",
-			Message:   "plugin runtime stderr truncated",
+			Message:   "插件weather运行时 stderr 输出超过速率限制，已截断",
 		},
 	} {
 		application.Logs().Append(summary)
@@ -326,7 +327,7 @@ func TestLogsListReturnsEmptyArrayForUnmatchedFilter(t *testing.T) {
 		Timestamp: "2026-03-20T10:00:00Z",
 		Level:     "info",
 		Source:    "adapter.onebot11",
-		Message:   "connected",
+		Message:   "OneBot 主动 WebSocket 已连接：ws://127.0.0.1:6700",
 	})
 
 	server := httptest.NewServer(application.Handler())
@@ -366,7 +367,7 @@ func TestLogsListReturnsEmptyArrayForUnmatchedProtocolFilter(t *testing.T) {
 		Timestamp: "2026-03-20T10:00:00Z",
 		Level:     "info",
 		Source:    "runtime",
-		Message:   "runtime only",
+		Message:   "仅运行时来源的日志样例",
 	})
 
 	server := httptest.NewServer(application.Handler())
@@ -464,7 +465,7 @@ func TestLogsListReturnsCurrentSessionScope(t *testing.T) {
 			Timestamp: "2026-03-20T10:00:00Z",
 			Level:     "warn",
 			Source:    "adapter.onebot11",
-			Message:   "reverse websocket connection lost",
+			Message:   "OneBot 主动 WebSocket 连接断开：ws://127.0.0.1:6700",
 			RequestID: "req_current_scope",
 		},
 		{
@@ -472,7 +473,7 @@ func TestLogsListReturnsCurrentSessionScope(t *testing.T) {
 			Timestamp: "2026-03-20T10:00:01Z",
 			Level:     "error",
 			Source:    "runtime",
-			Message:   "plugin runtime stderr truncated",
+			Message:   "插件weather运行时 stderr 输出超过速率限制，已截断",
 			PluginID:  "weather",
 			RequestID: "req_current_scope",
 		},
@@ -514,10 +515,10 @@ func TestLogsListReturnsCurrentSessionScope(t *testing.T) {
 	if items[0].(map[string]any)["message"] != "10001: [测试群(2001)]管理员/测试用户A(3001): hello bridge" {
 		t.Fatalf("unexpected first current session item: %#v", items[0])
 	}
-	if items[1].(map[string]any)["message"] != "plugin runtime stderr truncated" {
+	if items[1].(map[string]any)["message"] != "插件weather运行时 stderr 输出超过速率限制，已截断" {
 		t.Fatalf("unexpected second current session item: %#v", items[1])
 	}
-	if items[2].(map[string]any)["message"] != "reverse websocket connection lost" {
+	if items[2].(map[string]any)["message"] != "OneBot 主动 WebSocket 连接断开：ws://127.0.0.1:6700" {
 		t.Fatalf("unexpected third current session item: %#v", items[2])
 	}
 

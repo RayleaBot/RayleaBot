@@ -14,11 +14,11 @@ response:
       state: failed
       state_diagnosis:
         kind: recovery_required
-        summary: plugin runtime requires manual recovery
+        summary: 插件运行时需要人工恢复
         entered_at: '2026-05-13T08:00:00Z'
         crash_count: 5
         last_error_code: plugin.internal_error
-        last_error_message: plugin exited unexpectedly
+        last_error_message: 插件运行时异常退出
         recoverable: true
       source:
         root: plugins/installed

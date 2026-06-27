@@ -7,6 +7,8 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/bootstrap"
 	"github.com/RayleaBot/RayleaBot/server/internal/cli"
 	"github.com/RayleaBot/RayleaBot/server/internal/logging"
+	"github.com/RayleaBot/RayleaBot/server/internal/logpath"
+	"github.com/RayleaBot/RayleaBot/server/internal/recovery"
 	"github.com/RayleaBot/RayleaBot/server/internal/schemaassets"
 )
 
@@ -33,11 +35,14 @@ func main() {
 	}
 
 	bootstrapLogger := logging.Bootstrap()
+	repoRoot := recovery.RepoRootFromConfigPath(configPath)
+	configPathDisplay := logpath.Display(repoRoot, configPath)
+	schemaPathDisplay := logpath.Display(repoRoot, schemaPath)
 	bootstrapLogger.Info(
-		"starting raylea-server shell",
+		"RayleaBot 服务进程正在启动，配置文件："+configPathDisplay,
 		"component", "main",
-		"config_path", configPath,
-		"schema_path", schemaPath,
+		"config_path", configPathDisplay,
+		"schema_path", schemaPathDisplay,
 	)
 
 	runCtx, stop := bootstrap.SignalContext()
@@ -49,17 +54,17 @@ func main() {
 	})
 	if err != nil {
 		bootstrapLogger.Error(
-			"startup failed",
+			"RayleaBot 服务启动失败，配置文件："+configPathDisplay,
 			"component", "main",
-			"config_path", configPath,
-			"schema_path", schemaPath,
-			"err", err.Error(),
+			"config_path", configPathDisplay,
+			"schema_path", schemaPathDisplay,
+			"err", logpath.Error(repoRoot, err, configPath, schemaPath),
 		)
 		os.Exit(1)
 	}
 
 	if err := application.Run(runCtx); err != nil {
-		application.Logger().Error("server exited with error", "component", "main", "err", err.Error())
+		application.Logger().Error("RayleaBot 服务运行异常退出", "component", "main", "err", err.Error())
 		os.Exit(1)
 	}
 }

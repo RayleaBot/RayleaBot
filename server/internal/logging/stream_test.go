@@ -90,7 +90,7 @@ func TestLoggerAddsDefaultRequestID(t *testing.T) {
 	var output bytes.Buffer
 	logger := newLoggerWithWriter(slog.LevelInfo, &output)
 
-	logger.Info("runtime started", "component", "runtime")
+	logger.Info("运行时已启动：测试日志", "component", "runtime")
 
 	var body map[string]any
 	if err := json.Unmarshal(output.Bytes(), &body); err != nil {
@@ -107,7 +107,7 @@ func TestLoggerKeepsExplicitRequestID(t *testing.T) {
 	var output bytes.Buffer
 	logger := newLoggerWithWriter(slog.LevelInfo, &output)
 
-	logger.Info("request completed", "request_id", "req_fixture_001")
+	logger.Info("请求已完成：req_fixture_001", "request_id", "req_fixture_001")
 
 	line := output.String()
 	if count := strings.Count(line, `"request_id"`); count != 1 {
@@ -129,7 +129,7 @@ func TestLoggerKeepsScopedRequestID(t *testing.T) {
 	var output bytes.Buffer
 	logger := newLoggerWithWriter(slog.LevelInfo, &output).With("request_id", "req_scoped_001")
 
-	logger.Info("request scoped log")
+	logger.Info("带请求上下文的测试日志")
 
 	line := output.String()
 	if count := strings.Count(line, `"request_id"`); count != 1 {
@@ -166,7 +166,7 @@ func TestStreamAppendsAfterSavingRepositoryDetail(t *testing.T) {
 			Timestamp: "2026-04-09T20:42:01Z",
 			Level:     "info",
 			Source:    "bridge",
-			Message:   "runtime bridge delivered group message",
+			Message:   "运行时桥接已投递群消息",
 		})
 	}()
 
@@ -211,7 +211,7 @@ func TestStreamAppendInjectsCurrentBootID(t *testing.T) {
 		Timestamp: "2026-04-09T20:42:01Z",
 		Level:     "info",
 		Source:    "runtime",
-		Message:   "boot-aware summary",
+		Message:   "带启动批次的日志摘要",
 	})
 
 	summaries := stream.Snapshot()

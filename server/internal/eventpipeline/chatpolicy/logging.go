@@ -42,18 +42,18 @@ func commandPolicyStage(errorCode string) string {
 func commandPolicyReasonSummary(verdict permission.Verdict) string {
 	switch strings.TrimSpace(verdict.ErrorCode) {
 	case "permission.not_whitelisted":
-		return "sender is not whitelisted"
+		return "发送者不在白名单中"
 	case "permission.blacklisted":
-		if strings.TrimSpace(verdict.Reason) == "group is blacklisted" {
-			return "group is blacklisted"
+		if strings.TrimSpace(verdict.Reason) == "群在黑名单中" {
+			return "群在黑名单中"
 		}
-		return "user is blacklisted"
+		return "用户在黑名单中"
 	case "permission.denied":
-		return "insufficient permission level"
+		return "权限等级不足"
 	case "platform.user_rate_limited":
-		return "user command rate limited"
+		return "用户命令触发频率限制"
 	case "platform.rate_limited":
-		return "group command rate limited"
+		return "群命令触发频率限制"
 	default:
 		return strings.TrimSpace(verdict.Reason)
 	}

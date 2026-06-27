@@ -544,7 +544,7 @@ func TestDoctorReportChecksSQLiteIntegrity(t *testing.T) {
 		ConfigPath: configPath,
 		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
 	})
-	assertDoctorSummary(t, healthy.Issues, "database.ok", "Database accessible")
+	assertDoctorSummary(t, healthy.Issues, "database.ok", "数据库可访问：data/rayleabot.db")
 
 	if err := os.WriteFile(databasePath, []byte("not a sqlite database"), 0o644); err != nil {
 		t.Fatal(err)
@@ -558,7 +558,7 @@ func TestDoctorReportChecksSQLiteIntegrity(t *testing.T) {
 	if issue == nil {
 		t.Fatalf("doctor report should flag corrupt database, got %#v", corrupt.Issues)
 	}
-	if issue.Severity != "error" || !strings.Contains(issue.Summary, "Database integrity check failed") {
+	if issue.Severity != "error" || !strings.Contains(issue.Summary, "数据库完整性检查失败") {
 		t.Fatalf("unexpected corrupt database issue: %#v", issue)
 	}
 	if !strings.Contains(issue.Remediation, "data/quarantine/") || !strings.Contains(issue.Remediation, "data/sqlite-snapshots/") {

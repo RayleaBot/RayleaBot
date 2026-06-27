@@ -78,7 +78,7 @@ func (d *Dispatcher) worker(pluginID string, slot *pluginSlot) {
 					if err != nil {
 						duration := schedulerElapsed(item.event)
 						outcome, code, message := schedulerFailureFields(err, delivery)
-						d.logger.Warn("dispatch delivery failed",
+						d.logger.Warn("插件 "+pluginID+" 事件投递失败："+item.event.EventID,
 							"component", "dispatch",
 							"plugin_id", pluginID,
 							"event_id", item.event.EventID,

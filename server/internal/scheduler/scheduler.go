@@ -146,7 +146,7 @@ func (e *Engine) Hydrate(ctx context.Context) error {
 		e.jobs[j.JobID] = j
 	}
 
-	e.logger.Info("scheduler hydrated", "component", "scheduler", "job_count", len(jobs))
+	e.logger.Info(fmt.Sprintf("调度器已加载 %d 个定时任务", len(jobs)), "component", "scheduler", "job_count", len(jobs))
 	return nil
 }
 

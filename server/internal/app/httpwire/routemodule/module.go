@@ -15,6 +15,7 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/app/pluginstack"
 	"github.com/RayleaBot/RayleaBot/server/internal/app/servicegraph"
 	"github.com/RayleaBot/RayleaBot/server/internal/httpapi"
+	"github.com/RayleaBot/RayleaBot/server/internal/logpath"
 	managementrouter "github.com/RayleaBot/RayleaBot/server/internal/management/router"
 	"github.com/RayleaBot/RayleaBot/server/internal/metrics"
 	localaction "github.com/RayleaBot/RayleaBot/server/internal/plugins/actions"
@@ -119,29 +120,35 @@ func buildAppHTTPServer(deps serverDeps) (http.Handler, *http.Server, Handlers) 
 
 func logConfiguredServer(state configmodule.RuntimeState, renderer *renderservice.Service, listenAddr string) {
 	summary := state.CurrentSummary()
+	repoRoot := state.RepoRoot()
+	configPath := logpath.Display(repoRoot, summary.ConfigPath)
+	schemaPath := logpath.Display(repoRoot, summary.SchemaPath)
+	databasePath := logpath.Display(repoRoot, summary.DatabasePath)
 	state.RuntimeLogger().Info(
-		"configuration loaded",
+		"配置已加载：配置文件 "+configPath+"，数据库 "+databasePath+"，日志级别 "+summary.LoggingLevel,
 		"component", "config",
-		"config_path", summary.ConfigPath,
-		"schema_path", summary.SchemaPath,
+		"config_path", configPath,
+		"schema_path", schemaPath,
 		"server_host", summary.ServerHost,
 		"server_port", summary.ServerPort,
 		"database_engine", summary.DatabaseEngine,
-		"database_path", summary.DatabasePath,
+		"database_path", databasePath,
 		"web_exposure_mode", summary.WebExposureMode,
 		"logging_level", summary.LoggingLevel,
 		"super_admin_count", summary.SuperAdminCount,
 		"onebot_configured", summary.OneBotConfigured,
 		"onebot_endpoint", summary.OneBotEndpoint,
 	)
+	serverURL := httpapi.DisplayServerURL(listenAddr)
 	state.RuntimeLogger().Info(
-		"http server configured",
+		"HTTP 服务已配置，管理地址："+serverURL,
 		"component", "app",
 		"listen_addr", listenAddr,
+		"url", serverURL,
 	)
 	for _, issue := range renderer.Diagnostics() {
 		state.RuntimeLogger().Warn(
-			"render resource issue detected",
+			"渲染资源存在问题："+issue.Summary,
 			"component", "render",
 			"code", issue.Code,
 			"severity", issue.Severity,

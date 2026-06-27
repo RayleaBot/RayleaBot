@@ -21,7 +21,7 @@ response:
         last_duration_ms: 820
         last_error:
           code: plugin.event_timeout
-          message: plugin event response timed out
+          message: 插件事件响应超时
           at: '2026-05-24T00:00:00Z'
         payload_summary:
           conversation_id: group:20001

@@ -10,7 +10,7 @@
       "state": "failed",
       "state_diagnosis": {
         "kind": "retrying",
-        "summary": "plugin runtime is waiting before retry",
+        "summary": "插件运行时正在等待重试",
         "recoverable": false
       },
       "commands": [],

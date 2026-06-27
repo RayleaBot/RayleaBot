@@ -12,12 +12,12 @@ response:
         timestamp: "2026-03-20T20:12:00Z"
         level: info
         source: runtime
-        message: recovery summary refreshed
+        message: 插件 weather 的恢复状态摘要已刷新
       - log_id: log_history_range_0002
         timestamp: "2026-03-20T10:00:01Z"
         level: error
         source: runtime
-        message: plugin runtime stderr truncated
+        message: 插件weather运行时 stderr 输出超过速率限制，已截断
         plugin_id: weather
         request_id: req_plugin_0001
       - log_id: log_history_range_0001
@@ -25,7 +25,7 @@ response:
         level: warn
         source: adapter.onebot11
         protocol: onebot11
-        message: reverse websocket authentication failed
+        message: "OneBot 主动 WebSocket 鉴权失败：ws://127.0.0.1:6700"
         request_id: req_adapter_0002
     page:
       limit: 3

@@ -65,7 +65,7 @@ func (d *Dispatcher) recordSchedulerCompletion(ctx context.Context, event runtim
 		OccurredAt: time.Now(),
 	}); err != nil && d.logger != nil {
 		d.logger.Warn(
-			"scheduler run state update failed",
+			"定时任务 "+jobID+" 的运行结果保存失败",
 			"component", "scheduler",
 			"job_id", jobID,
 			"err", err.Error(),
