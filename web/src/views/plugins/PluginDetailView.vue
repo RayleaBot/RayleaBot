@@ -43,9 +43,10 @@ import { useSocketStore } from '@/stores/sockets'
 import type { PluginDetail } from '@/types/api'
 import { useReadyToRenderHeavyContent } from '@/layouts/usePageTransitionStage'
 
-type PluginDetailInnerTab = 'commands' | 'console'
+type PluginDetailInnerTab = 'summary' | 'commands' | 'console'
 type PluginPanelOption = { label: string; value: string }
 const CONSOLE_ROW_ESTIMATED_HEIGHT = 84
+const CONSOLE_VIEWPORT_HEIGHT = 'max(420px, calc(100vh - 430px))'
 
 const route = useRoute()
 const router = useRouter()
@@ -70,7 +71,7 @@ const consoleViewportRef = ref<{
   scrollToOffset: (offset: number) => void
 } | null>(null)
 const consoleFollowBottom = ref(true)
-const activeDetailTab = ref<PluginDetailInnerTab>('commands')
+const activeDetailTab = ref<PluginDetailInnerTab>('summary')
 const uninstallDialogVisible = ref(false)
 let detailLoadVersion = 0
 let pageActive = true
@@ -478,7 +479,10 @@ watch(
 </script>
 
 <template>
-  <AppPage :title="pluginId" :full-height="activePanel === 'management-ui'">
+  <AppPage
+    :title="pluginId"
+    :full-height="activePanel === 'management-ui' || (activePanel === 'overview' && activeDetailTab === 'console')"
+  >
     <template #title>
       <div class="plugin-page-title-layout">
         <h1>{{ pluginId }}</h1>
@@ -562,14 +566,158 @@ watch(
 
       <div class="plugin-detail-workspace">
         <main class="plugin-detail-main-column">
-          <a-card :bordered="false" class="plugin-detail-tab-card">
+          <a-card
+            :bordered="false"
+            class="plugin-detail-tab-card"
+            :class="{ 'is-console-tab-active': activeDetailTab === 'console' }"
+          >
             <a-tabs
               :active-key="activeDetailTab"
               :destroy-inactive-tab-pane="false"
               class="premium-detail-tabs"
               @change="setActiveDetailTab($event as PluginDetailInnerTab)"
             >
-              <!-- TAB 1: Commands -->
+              <a-tab-pane key="summary" force-render>
+                <template #tab>
+                  <span class="premium-tab-label">
+                    {{ t('plugins.sections.runtimeSummary') }}
+                  </span>
+                </template>
+
+                <section class="tab-pane-content plugin-detail-summary-panel" :aria-label="t('plugins.sections.runtimeSummary')">
+                  <div class="plugin-detail-summary-stack">
+                    <section class="plugin-detail-summary-section">
+                      <h3>{{ t('plugins.sections.packageInfo') }}</h3>
+                      <dl class="plugin-detail-kv-list">
+                        <div v-for="item in packageInfoRows" :key="item.key">
+                          <dt>{{ item.label }}</dt>
+                          <dd>{{ item.value }}</dd>
+                        </div>
+                      </dl>
+                    </section>
+
+                    <section class="plugin-detail-summary-section">
+                      <h3>{{ t('plugins.sections.sourceInfo') }}</h3>
+                      <dl class="plugin-detail-kv-list">
+                        <div v-for="item in sourceInfoRows" :key="item.key">
+                          <dt>{{ item.label }}</dt>
+                          <dd>{{ item.value }}</dd>
+                        </div>
+                      </dl>
+                    </section>
+
+                    <section class="plugin-detail-summary-section">
+                      <h3>{{ t('plugins.sections.runtimeConfig') }}</h3>
+                      <dl class="plugin-detail-kv-list">
+                        <div v-for="item in runtimeInfoRows" :key="item.key">
+                          <dt>{{ item.label }}</dt>
+                          <dd>{{ item.value }}</dd>
+                        </div>
+                      </dl>
+                      <div class="metadata-section">
+                        <strong>{{ t('plugins.fields.declaredCapabilities') }}</strong>
+                        <div v-if="hasItems(currentPlugin?.declared_capabilities)" class="tag-list">
+                          <a-tag
+                            v-for="capability in currentPlugin?.declared_capabilities"
+                            :key="capability"
+                            class="cap-tag"
+                            :title="getPluginCapabilityRawTitle(capability)"
+                          >
+                            {{ getPluginCapabilityLabel(capability) }}
+                          </a-tag>
+                        </div>
+                        <p v-else class="empty-val">{{ t('display.empty') }}</p>
+                      </div>
+                    </section>
+
+                    <details class="plugin-detail-disclosure">
+                      <summary>
+                        <span>{{ t('plugins.sections.details') }}</span>
+                        <a-tag class="meta-tag">{{ t('plugins.sections.metadata') }}</a-tag>
+                      </summary>
+
+                      <div class="plugin-detail-detail-stack">
+                        <section class="metadata-section">
+                          <strong>{{ t('plugins.fields.description') }}</strong>
+                          <p class="meta-desc">{{ getMetadataText(currentPlugin?.description) }}</p>
+                        </section>
+
+                        <section class="metadata-section">
+                          <strong>{{ t('plugins.fields.icon') }}</strong>
+                          <p class="meta-icon">{{ getMetadataText(currentPlugin?.icon) }}</p>
+                        </section>
+
+                        <section class="metadata-section">
+                          <strong>{{ t('plugins.fields.repo') }}</strong>
+                          <a v-if="currentPlugin?.repo" :href="currentPlugin.repo" target="_blank" rel="noreferrer" class="meta-link">{{ currentPlugin.repo }}</a>
+                          <p v-else class="empty-val">{{ t('display.empty') }}</p>
+                        </section>
+
+                        <section class="metadata-section">
+                          <strong>{{ t('plugins.fields.homepage') }}</strong>
+                          <a v-if="currentPlugin?.homepage" :href="currentPlugin.homepage" target="_blank" rel="noreferrer" class="meta-link">{{ currentPlugin.homepage }}</a>
+                          <p v-else class="empty-val">{{ t('display.empty') }}</p>
+                        </section>
+
+                        <section class="metadata-section">
+                          <strong>{{ t('plugins.fields.keywords') }}</strong>
+                          <div v-if="hasItems(currentPlugin?.keywords)" class="tag-list">
+                            <a-tag v-for="keyword in currentPlugin?.keywords" :key="keyword">{{ keyword }}</a-tag>
+                          </div>
+                          <p v-else class="empty-val">{{ t('display.empty') }}</p>
+                        </section>
+
+                        <section class="metadata-section">
+                          <strong>{{ t('plugins.fields.platforms') }}</strong>
+                          <div v-if="hasItems(currentPlugin?.platforms)" class="tag-list">
+                            <a-tag v-for="platform in currentPlugin?.platforms" :key="platform">{{ platform }}</a-tag>
+                          </div>
+                          <p v-else class="empty-val">{{ t('display.empty') }}</p>
+                        </section>
+
+                        <section class="metadata-section">
+                          <strong>{{ t('plugins.fields.systemDependencies') }}</strong>
+                          <div v-if="hasItems(currentPlugin?.system_dependencies)" class="tag-list">
+                            <a-tag v-for="dependency in currentPlugin?.system_dependencies" :key="dependency">{{ dependency }}</a-tag>
+                          </div>
+                          <p v-else class="empty-val">{{ t('display.empty') }}</p>
+                        </section>
+
+                        <section class="metadata-section">
+                          <strong>{{ t('plugins.fields.dependencies') }}</strong>
+                          <pre v-if="hasObjectValue(currentPlugin?.dependencies)" class="metadata-json">{{ getJsonPreview(currentPlugin?.dependencies) }}</pre>
+                          <p v-else class="empty-val">{{ t('display.empty') }}</p>
+                        </section>
+
+                        <section class="metadata-section">
+                          <strong>{{ t('plugins.fields.capabilityParameters') }}</strong>
+                          <pre v-if="hasObjectValue(currentPlugin?.capability_parameters)" class="metadata-json">{{ getJsonPreview(currentPlugin?.capability_parameters) }}</pre>
+                          <p v-else class="empty-val">{{ t('display.empty') }}</p>
+                        </section>
+
+                        <section class="metadata-section">
+                          <strong>{{ t('plugins.fields.defaultConfig') }}</strong>
+                          <pre v-if="hasObjectValue(currentPlugin?.default_config)" class="metadata-json">{{ getJsonPreview(currentPlugin?.default_config) }}</pre>
+                          <p v-else class="empty-val">{{ t('display.empty') }}</p>
+                        </section>
+
+                        <section class="metadata-section">
+                          <strong>{{ t('plugins.fields.screenshots') }}</strong>
+                          <div v-if="hasItems(currentPlugin?.screenshots)" class="screenshot-list">
+                            <article v-for="screenshot in currentPlugin?.screenshots" :key="screenshot.path" class="screenshot-item">
+                              <span class="ss-path">{{ t('plugins.fields.screenshotPath') }}：{{ screenshot.path }}</span>
+                              <span class="ss-alt">{{ t('plugins.fields.screenshotAlt') }}：{{ getScreenshotAlt(screenshot) }}</span>
+                            </article>
+                          </div>
+                          <p v-else class="empty-val">{{ t('display.empty') }}</p>
+                        </section>
+                      </div>
+                    </details>
+                  </div>
+                </section>
+              </a-tab-pane>
+
+              <!-- TAB 2: Commands -->
               <a-tab-pane key="commands" force-render>
                 <template #tab>
                   <span class="premium-tab-label">
@@ -578,7 +726,7 @@ watch(
                   </span>
                 </template>
 
-                <div class="tab-pane-content">
+                <div class="tab-pane-content plugin-console-tab-content">
                   <PluginCommandsPanel
                     :commands="currentPlugin?.commands ?? []"
                     :command-conflicts="currentPlugin?.command_conflicts ?? []"
@@ -587,7 +735,7 @@ watch(
                 </div>
               </a-tab-pane>
 
-              <!-- TAB 2: Console -->
+              <!-- TAB 3: Console -->
               <a-tab-pane key="console" force-render>
                 <template #tab>
                   <span class="premium-tab-label">
@@ -663,7 +811,7 @@ watch(
                       :dynamic-item-height="true"
                       :overscan="6"
                       :follow-bottom="consoleFollowBottom"
-                      viewport-height="clamp(260px, 48vh, 550px)"
+                      :viewport-height="CONSOLE_VIEWPORT_HEIGHT"
                       :empty-label="t('plugins.empty.console')"
                       :get-item-key="getConsoleFrameKey"
                       @at-bottom-change="onConsoleViewportBottomChange"
@@ -692,146 +840,6 @@ watch(
             </a-tabs>
           </a-card>
         </main>
-
-        <aside class="plugin-detail-side-column">
-          <a-card :bordered="false" class="plugin-detail-summary-card">
-            <template #title>
-              <div class="card-header">
-                <span>{{ t('plugins.sections.runtimeSummary') }}</span>
-              </div>
-            </template>
-
-            <div class="plugin-detail-summary-stack">
-              <section class="plugin-detail-summary-section">
-                <h3>{{ t('plugins.sections.packageInfo') }}</h3>
-                <dl class="plugin-detail-kv-list">
-                  <div v-for="item in packageInfoRows" :key="item.key">
-                    <dt>{{ item.label }}</dt>
-                    <dd>{{ item.value }}</dd>
-                  </div>
-                </dl>
-              </section>
-
-              <section class="plugin-detail-summary-section">
-                <h3>{{ t('plugins.sections.sourceInfo') }}</h3>
-                <dl class="plugin-detail-kv-list">
-                  <div v-for="item in sourceInfoRows" :key="item.key">
-                    <dt>{{ item.label }}</dt>
-                    <dd>{{ item.value }}</dd>
-                  </div>
-                </dl>
-              </section>
-
-              <section class="plugin-detail-summary-section">
-                <h3>{{ t('plugins.sections.runtimeConfig') }}</h3>
-                <dl class="plugin-detail-kv-list">
-                  <div v-for="item in runtimeInfoRows" :key="item.key">
-                    <dt>{{ item.label }}</dt>
-                    <dd>{{ item.value }}</dd>
-                  </div>
-                </dl>
-                <div class="metadata-section">
-                  <strong>{{ t('plugins.fields.declaredCapabilities') }}</strong>
-                  <div v-if="hasItems(currentPlugin?.declared_capabilities)" class="tag-list">
-                    <a-tag
-                      v-for="capability in currentPlugin?.declared_capabilities"
-                      :key="capability"
-                      class="cap-tag"
-                      :title="getPluginCapabilityRawTitle(capability)"
-                    >
-                      {{ getPluginCapabilityLabel(capability) }}
-                    </a-tag>
-                  </div>
-                  <p v-else class="empty-val">{{ t('display.empty') }}</p>
-                </div>
-              </section>
-
-              <details class="plugin-detail-disclosure">
-                <summary>
-                  <span>{{ t('plugins.sections.details') }}</span>
-                  <a-tag class="meta-tag">{{ t('plugins.sections.metadata') }}</a-tag>
-                </summary>
-
-                <div class="plugin-detail-detail-stack">
-                  <section class="metadata-section">
-                    <strong>{{ t('plugins.fields.description') }}</strong>
-                    <p class="meta-desc">{{ getMetadataText(currentPlugin?.description) }}</p>
-                  </section>
-
-                  <section class="metadata-section">
-                    <strong>{{ t('plugins.fields.icon') }}</strong>
-                    <p class="meta-icon">{{ getMetadataText(currentPlugin?.icon) }}</p>
-                  </section>
-
-                  <section class="metadata-section">
-                    <strong>{{ t('plugins.fields.repo') }}</strong>
-                    <a v-if="currentPlugin?.repo" :href="currentPlugin.repo" target="_blank" rel="noreferrer" class="meta-link">{{ currentPlugin.repo }}</a>
-                    <p v-else class="empty-val">{{ t('display.empty') }}</p>
-                  </section>
-
-                  <section class="metadata-section">
-                    <strong>{{ t('plugins.fields.homepage') }}</strong>
-                    <a v-if="currentPlugin?.homepage" :href="currentPlugin.homepage" target="_blank" rel="noreferrer" class="meta-link">{{ currentPlugin.homepage }}</a>
-                    <p v-else class="empty-val">{{ t('display.empty') }}</p>
-                  </section>
-
-                  <section class="metadata-section">
-                    <strong>{{ t('plugins.fields.keywords') }}</strong>
-                    <div v-if="hasItems(currentPlugin?.keywords)" class="tag-list">
-                      <a-tag v-for="keyword in currentPlugin?.keywords" :key="keyword">{{ keyword }}</a-tag>
-                    </div>
-                    <p v-else class="empty-val">{{ t('display.empty') }}</p>
-                  </section>
-
-                  <section class="metadata-section">
-                    <strong>{{ t('plugins.fields.platforms') }}</strong>
-                    <div v-if="hasItems(currentPlugin?.platforms)" class="tag-list">
-                      <a-tag v-for="platform in currentPlugin?.platforms" :key="platform">{{ platform }}</a-tag>
-                    </div>
-                    <p v-else class="empty-val">{{ t('display.empty') }}</p>
-                  </section>
-
-                  <section class="metadata-section">
-                    <strong>{{ t('plugins.fields.systemDependencies') }}</strong>
-                    <div v-if="hasItems(currentPlugin?.system_dependencies)" class="tag-list">
-                      <a-tag v-for="dependency in currentPlugin?.system_dependencies" :key="dependency">{{ dependency }}</a-tag>
-                    </div>
-                    <p v-else class="empty-val">{{ t('display.empty') }}</p>
-                  </section>
-
-                  <section class="metadata-section">
-                    <strong>{{ t('plugins.fields.dependencies') }}</strong>
-                    <pre v-if="hasObjectValue(currentPlugin?.dependencies)" class="metadata-json">{{ getJsonPreview(currentPlugin?.dependencies) }}</pre>
-                    <p v-else class="empty-val">{{ t('display.empty') }}</p>
-                  </section>
-
-                  <section class="metadata-section">
-                    <strong>{{ t('plugins.fields.capabilityParameters') }}</strong>
-                    <pre v-if="hasObjectValue(currentPlugin?.capability_parameters)" class="metadata-json">{{ getJsonPreview(currentPlugin?.capability_parameters) }}</pre>
-                    <p v-else class="empty-val">{{ t('display.empty') }}</p>
-                  </section>
-
-                  <section class="metadata-section">
-                    <strong>{{ t('plugins.fields.defaultConfig') }}</strong>
-                    <pre v-if="hasObjectValue(currentPlugin?.default_config)" class="metadata-json">{{ getJsonPreview(currentPlugin?.default_config) }}</pre>
-                    <p v-else class="empty-val">{{ t('display.empty') }}</p>
-                  </section>
-
-                  <section class="metadata-section">
-                    <strong>{{ t('plugins.fields.screenshots') }}</strong>
-                    <div v-if="hasItems(currentPlugin?.screenshots)" class="screenshot-list">
-                      <article v-for="screenshot in currentPlugin?.screenshots" :key="screenshot.path" class="screenshot-item">
-                        <span class="ss-path">{{ t('plugins.fields.screenshotPath') }}：{{ screenshot.path }}</span>
-                        <span class="ss-alt">{{ t('plugins.fields.screenshotAlt') }}：{{ getScreenshotAlt(screenshot) }}</span>
-                      </article>
-                    </div>
-                    <p v-else class="empty-val">{{ t('display.empty') }}</p>
-                  </section>
-                </div>
-              </details>
-            </div>
-          </a-card>
-        </aside>
       </div>
     </template>
 
@@ -914,6 +922,12 @@ watch(
 
 .tab-pane-content {
   padding: 18px;
+}
+
+.plugin-console-tab-content {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
 }
 
 /* Actions in title */
@@ -1220,32 +1234,37 @@ watch(
 /* Workspace Structure */
 .plugin-detail-workspace {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(310px, 370px);
+  grid-template-columns: minmax(0, 1fr);
   align-items: start;
   gap: 16px;
 }
 
 .plugin-detail-main-column,
-.plugin-detail-side-column,
 .plugin-detail-summary-stack,
 .plugin-detail-detail-stack {
   display: grid;
   gap: 14px;
 }
 
-/* Summary Card styling */
-.plugin-detail-summary-card :deep(.ant-card-body) {
-  padding: 16px;
+/* Summary tab styling */
+.plugin-detail-summary-panel {
+  min-width: 0;
+}
+
+.plugin-detail-summary-stack {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px 18px;
 }
 
 .plugin-detail-summary-section {
   display: grid;
+  align-content: start;
   gap: 12px;
 }
 
 .plugin-detail-summary-section + .plugin-detail-summary-section {
-  padding-top: 14px;
-  border-top: 1px solid var(--border);
+  padding-top: 0;
+  border-top: none;
 }
 
 .plugin-detail-summary-section h3 {
@@ -1353,6 +1372,7 @@ watch(
 }
 
 .plugin-detail-disclosure {
+  grid-column: 1 / -1;
   border-top: 1px solid var(--border);
   padding-top: 14px;
 
@@ -1445,6 +1465,7 @@ watch(
 
 /* Glass Console Terminal Design */
 .plugin-console-panel {
+  min-height: max(420px, calc(100vh - 430px));
   overflow: hidden;
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
@@ -1490,6 +1511,7 @@ watch(
   display: flex;
   align-items: center;
   gap: 12px;
+  min-height: max(420px, calc(100vh - 430px));
   padding: 32px 20px;
   color: var(--muted);
   font-size: 0.88rem;
@@ -1511,6 +1533,7 @@ watch(
 }
 
 .console-terminal-skeleton {
+  min-height: max(420px, calc(100vh - 430px));
   padding: 16px;
 }
 
@@ -1604,12 +1627,8 @@ watch(
 
 /* Responsive queries */
 @media (max-width: 1180px) {
-  .plugin-detail-workspace {
-    grid-template-columns: 1fr;
-  }
-
-  .plugin-detail-side-column {
-    order: -1;
+  .plugin-detail-summary-stack {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
@@ -1617,6 +1636,7 @@ watch(
   .plugin-detail-hero,
   .plugin-detail-status-chips,
   .plugin-detail-hero__facts,
+  .plugin-detail-summary-stack,
   .plugin-detail-kv-list {
     grid-template-columns: 1fr;
   }
