@@ -3,12 +3,12 @@ case: ok
 description: Core catalog excerpt with required fields and applicability metadata.
 input:
   codes:
-    - code: platform.task_not_cancellable
-      message_key: errors.platform.task_not_cancellable
-      message: 当前任务不可取消
-      description: The task has already entered an irreversible stage.
-      http_status: 409
-      retryable: false
+    - code: platform.task_timeout
+      message_key: errors.platform.task_timeout
+      message: 后台任务超时
+      description: A managed background task exceeded its absolute runtime limit.
+      http_status: 504
+      retryable: true
       applies_to: [http, websocket, task]
     - code: plugin.capability_violation
       message_key: errors.plugin.capability_violation

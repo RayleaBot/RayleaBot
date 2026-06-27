@@ -41,7 +41,6 @@ func TestAuthShellDoesNotAddPublicRoutes(t *testing.T) {
 		{method: http.MethodPost, path: "/api/system/shutdown", want: http.StatusUnauthorized},
 		{method: http.MethodGet, path: "/api/logs", want: http.StatusUnauthorized},
 		{method: http.MethodGet, path: "/api/logs/log_test_0001", want: http.StatusUnauthorized},
-		{method: http.MethodGet, path: "/api/tasks", want: http.StatusUnauthorized},
 		{method: http.MethodPost, path: "/api/plugins/install", want: http.StatusUnauthorized},
 		{method: http.MethodPost, path: "/api/plugins/raylea.echo/enable", want: http.StatusUnauthorized},
 		{method: http.MethodPost, path: "/api/plugins/raylea.echo/disable", want: http.StatusUnauthorized},
@@ -49,7 +48,6 @@ func TestAuthShellDoesNotAddPublicRoutes(t *testing.T) {
 		{method: http.MethodPut, path: "/api/plugins/raylea.echo/settings", want: http.StatusUnauthorized},
 		{method: http.MethodGet, path: "/plugin-ui/raylea.echo/web/index.html", want: http.StatusNotFound},
 		{method: http.MethodGet, path: "/ws/events", want: http.StatusUnauthorized},
-		{method: http.MethodGet, path: "/ws/tasks", want: http.StatusUnauthorized},
 		{method: http.MethodGet, path: "/ws/logs", want: http.StatusUnauthorized},
 		{method: http.MethodGet, path: "/ws/plugins/raylea.echo/console", want: http.StatusUnauthorized},
 	}

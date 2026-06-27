@@ -152,7 +152,6 @@ describe('PluginDetailPage', () => {
         { path: '/plugins/:id', name: 'plugin-detail', component: PluginDetailPage },
         { path: '/commands', name: 'commands', component: { template: '<div>commands</div>' } },
         { path: '/logs/history', name: 'logs-history', component: { template: '<div>logs-history</div>' } },
-        { path: '/tasks', name: 'tasks', component: { template: '<div>tasks</div>' } },
       ],
     })
   }

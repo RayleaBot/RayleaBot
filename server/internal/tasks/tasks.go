@@ -3,6 +3,8 @@ package tasks
 import (
 	"sync"
 	"time"
+
+	"github.com/RayleaBot/RayleaBot/server/internal/logging"
 )
 
 type Status string
@@ -49,6 +51,10 @@ type Update struct {
 	Error      *ErrorSummary
 }
 
+type LogSink interface {
+	Append(logging.Summary)
+}
+
 type Registry struct {
 	mu               sync.RWMutex
 	items            map[string]Snapshot
@@ -56,6 +62,7 @@ type Registry struct {
 	nextSubscriberID uint64
 	subscribers      map[uint64]chan Snapshot
 	repo             Repository
+	logs             LogSink
 }
 
 func NewRegistry() *Registry {

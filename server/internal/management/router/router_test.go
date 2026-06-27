@@ -20,7 +20,6 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/management/protocolapi"
 	"github.com/RayleaBot/RayleaBot/server/internal/management/renderapi"
 	"github.com/RayleaBot/RayleaBot/server/internal/management/systemapi"
-	"github.com/RayleaBot/RayleaBot/server/internal/management/taskapi"
 	"github.com/RayleaBot/RayleaBot/server/internal/management/thirdpartyapi"
 	pluginui "github.com/RayleaBot/RayleaBot/server/internal/plugins/managementui"
 	pluginwebhook "github.com/RayleaBot/RayleaBot/server/internal/plugins/webhook"
@@ -48,11 +47,9 @@ func TestRegisterManagementRoutes(t *testing.T) {
 			systemapi.NewRoutes(systemapi.NewSystemHandlers(nil), noopHandler),
 			renderapi.NewHandlers(nil),
 			thirdpartyapi.NewThirdPartyHandlers(nil, nil, nil),
-			taskapi.NewHandlers(nil, nil, nil),
 			pluginUI,
 			ProtectedRouteFunc(func(r chi.Router) {
 				r.Get("/ws/events", noopHandler)
-				r.Get("/ws/tasks", noopHandler)
 				r.Get("/ws/logs", noopHandler)
 				r.Get("/ws/plugins/{id}/console", noopHandler)
 			}),

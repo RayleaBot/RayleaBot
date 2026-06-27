@@ -140,7 +140,4 @@ func (a *App) SetPluginInstaller(installer plugins.InstallCoordinator) {
 		return
 	}
 	a.pluginStack.PluginInstaller = installer
-	if a.httpHandlers.Tasks != nil {
-		a.httpHandlers.Tasks.SetPluginInstaller(installer)
-	}
 }

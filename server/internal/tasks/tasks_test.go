@@ -1,9 +1,11 @@
 package tasks
 
 import (
+	"strings"
 	"testing"
 	"time"
 
+	"github.com/RayleaBot/RayleaBot/server/internal/logging"
 	"pgregory.net/rapid"
 )
 
@@ -144,4 +146,98 @@ func TestUpdate_ReplacesTaskSnapshotAndPublishes(t *testing.T) {
 	default:
 		t.Fatal("expected update to be published")
 	}
+}
+
+func TestCreateWritesTaskLogForEveryFrozenTaskType(t *testing.T) {
+	registry := NewRegistry()
+	logs := logging.NewStream(16)
+	registry.SetLogSink(logs)
+
+	taskTypes := []string{
+		"plugin.install",
+		"plugin.uninstall",
+		"plugin.reload",
+		"backup.create",
+		"recovery.recheck",
+		"recovery.confirm",
+		"restore.apply",
+		"runtime.bootstrap",
+	}
+
+	for _, taskType := range taskTypes {
+		if _, err := registry.Create(taskType, "summary for "+taskType); err != nil {
+			t.Fatalf("Create(%q) returned unexpected error: %v", taskType, err)
+		}
+	}
+
+	seen := map[string]bool{}
+	for _, summary := range logs.Snapshot() {
+		if summary.Source != "tasks" {
+			continue
+		}
+		taskType, _ := summary.Details["task_type"].(string)
+		if taskType == "" {
+			t.Fatalf("task log missing task_type: %#v", summary.Details)
+		}
+		if summary.Details["task_status"] != string(StatusPending) {
+			t.Fatalf("task log status for %s = %#v, want %q", taskType, summary.Details["task_status"], StatusPending)
+		}
+		if !strings.Contains(summary.Message, taskType) {
+			t.Fatalf("task log message %q does not include task type %q", summary.Message, taskType)
+		}
+		seen[taskType] = true
+	}
+
+	for _, taskType := range taskTypes {
+		if !seen[taskType] {
+			t.Fatalf("missing task log for task type %q; logs=%#v", taskType, logs.Snapshot())
+		}
+	}
+}
+
+func TestUpdateWritesTaskLogForTerminalStatus(t *testing.T) {
+	registry := NewRegistry()
+	logs := logging.NewStream(8)
+	registry.SetLogSink(logs)
+
+	taskID, err := registry.Create("plugin.reload", "reload plugin")
+	if err != nil {
+		t.Fatalf("Create returned unexpected error: %v", err)
+	}
+
+	status := StatusFailed
+	now := time.Date(2026, time.March, 20, 10, 0, 0, 0, time.UTC)
+	if _, ok := registry.Update(taskID, Update{
+		Status:     &status,
+		Summary:    strPtrForTest("插件重载失败"),
+		FinishedAt: &now,
+		Error: &ErrorSummary{
+			Code:    "plugin.internal_error",
+			Message: "插件重载失败",
+			Details: map[string]any{
+				"plugin_id": "weather",
+			},
+		},
+	}); !ok {
+		t.Fatalf("Update(%q) returned ok=false", taskID)
+	}
+
+	summaries := logs.Snapshot()
+	last := summaries[len(summaries)-1]
+	if last.Level != "error" {
+		t.Fatalf("terminal task log level = %q, want error", last.Level)
+	}
+	if last.PluginID != "weather" {
+		t.Fatalf("terminal task log plugin_id = %q, want weather", last.PluginID)
+	}
+	if last.Details["task_status"] != string(StatusFailed) {
+		t.Fatalf("terminal task log status = %#v, want %q", last.Details["task_status"], StatusFailed)
+	}
+	if last.Details["error_code"] != "plugin.internal_error" {
+		t.Fatalf("terminal task log error_code = %#v", last.Details["error_code"])
+	}
+}
+
+func strPtrForTest(value string) *string {
+	return &value
 }

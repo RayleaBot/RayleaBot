@@ -183,13 +183,12 @@ function installAvailabilityHandlers(
     () => [
       sessionStore.isAuthenticated,
       socketStore.snapshots.events.status,
-      socketStore.snapshots.tasks.status,
       socketStore.snapshots.logs.status,
       router.currentRoute.value.name,
     ] as const,
-    ([isAuthenticated, eventsStatus, tasksStatus, logsStatus, routeName]) => {
+    ([isAuthenticated, eventsStatus, logsStatus, routeName]) => {
       const shouldWatchSockets = isAuthenticated && routeName !== 'offline' && !availabilityStore.isOffline
-      const hasReconnectingCoreSocket = [eventsStatus, tasksStatus, logsStatus].some((status) => status === 'reconnecting')
+      const hasReconnectingCoreSocket = [eventsStatus, logsStatus].some((status) => status === 'reconnecting')
 
       if (!shouldWatchSockets || !hasReconnectingCoreSocket) {
         clearWebsocketOfflineTimer()
@@ -204,7 +203,6 @@ function installAvailabilityHandlers(
         websocketOfflineTimer = null
         const coreStatuses = [
           socketStore.snapshots.events.status,
-          socketStore.snapshots.tasks.status,
           socketStore.snapshots.logs.status,
         ]
 

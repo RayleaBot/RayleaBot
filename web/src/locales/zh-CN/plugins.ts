@@ -241,9 +241,9 @@ export const plugins = {
     'provider.luckylillia.friend_groups.get': '读取 LuckyLillia 好友分组',
   },
   uninstallConfirmTitle: '确认卸载插件',
-  uninstallConfirmBody: '卸载任务会异步执行，可在任务页继续查看状态。',
-  installAccepted: '安装任务已提交',
-  uninstallAccepted: '卸载任务已提交',
+  uninstallConfirmBody: '卸载会异步执行，可在实时日志查看结果。',
+  installAccepted: '安装任务已提交，可在实时日志查看结果',
+  uninstallAccepted: '卸载任务已提交，可在实时日志查看结果',
   actionAccepted: '操作已提交',
   managementUi: {
     loading: '正在载入插件页面',

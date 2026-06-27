@@ -29,7 +29,6 @@ import {
   areLocationQueriesEqual,
   buildPluginDetailLocation,
   buildPluginWorkbenchActions,
-  buildTaskLocation,
   readPluginDetailPanel,
   readPluginManagementPage,
   type PluginDetailPanel,
@@ -226,10 +225,9 @@ function getToggleAction() {
 async function uninstallPlugin() {
   operationError.value = null
   try {
-    const response = await pluginsStore.uninstallPlugin(pluginId.value)
+    await pluginsStore.uninstallPlugin(pluginId.value)
     uninstallDialogVisible.value = false
     notifySuccess(t('plugins.uninstallAccepted'))
-    await router.push(buildTaskLocation(response.task_id))
   } catch (error) {
     operationError.value = getDisplayErrorMessage(error)
   }

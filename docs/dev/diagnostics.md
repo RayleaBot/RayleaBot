@@ -33,12 +33,11 @@
 
 ## 管理面诊断路径
 
-- 系统状态页展示 readiness、reason code、checks、恢复摘要和近期变化，并提供到任务、协议中心、日志中心和插件详情的入口。
+- 系统状态页展示 readiness、reason code、checks、恢复摘要和近期变化，并提供到协议中心、日志中心和插件详情的入口。
 - 协议中心展示当前 provider、活跃 transport、异常摘要，并提供兼容矩阵与日志中心实时日志页入口；进入时会自动带上 `protocol=onebot11` 筛选。
 - 实时日志与历史日志支持按 `level`、`source`、`protocol`、`plugin_id`、`request_id` 和 `log_id` 查询；`level` 与 `plugin_id` 可重复传入多个值，历史日志额外支持 `start_at` 与 `end_at`。
 - 命令被白名单、黑名单、权限或冷却拒绝时，日志中心会显示拒绝摘要，并在日志详情中提供 `command_name`、`error_code`、`reason`、`policy_stage` 和匹配插件列表。
-- 日志详情会根据稳定字段提供插件详情、协议中心和请求 ID 对应日志页入口。
-- 任务详情会根据稳定字段提供插件详情、协议中心、请求历史日志和模板预览入口。
+- 日志详情会根据稳定字段提供插件详情、协议中心和请求 ID 对应日志页入口；异步任务更新以 `source=tasks` 写入日志。
 - 模板预览页的结果区显示当前模板的同步 HTML 预览结果。
 
 ## 健康接口语义

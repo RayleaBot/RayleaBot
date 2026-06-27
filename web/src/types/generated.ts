@@ -667,57 +667,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/tasks": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** List recent background tasks. */
-        get: operations["listTasks"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/tasks/{task_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Get a background task snapshot. */
-        get: operations["getTask"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/tasks/{task_id}/cancel": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Request cancellation for a cancellable background task. */
-        post: operations["cancelTask"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/logs": {
         parameters: {
             query?: never;
@@ -1437,42 +1386,6 @@ export interface components {
             /** @description Post-startup degraded summaries keep stable follow-up steps here; compatible summaries omit this field. */
             next_steps?: string[];
             audit?: components["schemas"]["RecoveryCompatibilityAuditEntry"][];
-        };
-        /** @enum {string} */
-        TaskStatus: "pending" | "running" | "succeeded" | "failed" | "cancelled" | "interrupted";
-        /** @enum {string} */
-        TaskType: "plugin.install" | "plugin.uninstall" | "plugin.reload" | "backup.create" | "recovery.recheck" | "recovery.confirm" | "restore.apply" | "runtime.bootstrap";
-        TaskErrorSummary: {
-            code: string;
-            message: string;
-            details?: {
-                [key: string]: unknown;
-            };
-        };
-        TaskResultSummary: {
-            summary: string;
-            details?: {
-                [key: string]: unknown;
-            };
-        };
-        TaskSummary: {
-            task_id: string;
-            task_type: components["schemas"]["TaskType"];
-            status: components["schemas"]["TaskStatus"];
-            progress?: number;
-            summary: string;
-            /** Format: date-time */
-            started_at?: string;
-            /** Format: date-time */
-            finished_at?: string;
-            result?: components["schemas"]["TaskResultSummary"];
-            error?: components["schemas"]["TaskErrorSummary"];
-        };
-        TaskListResponse: {
-            items: components["schemas"]["TaskSummary"][];
-        };
-        TaskDetailResponse: {
-            task: components["schemas"]["TaskSummary"];
         };
         TaskAcceptedResponse: {
             task_id: string;
@@ -2366,7 +2279,6 @@ export interface components {
         };
     };
     parameters: {
-        TaskId: string;
         LogId: string;
         PluginId: string;
         GovernanceEntryType: components["schemas"]["GovernanceEntryType"];
@@ -3321,83 +3233,6 @@ export interface operations {
                 };
             };
             401: components["responses"]["Error"];
-            default: components["responses"]["Error"];
-        };
-    };
-    listTasks: {
-        parameters: {
-            query?: {
-                status?: components["schemas"]["TaskStatus"];
-                task_type?: components["schemas"]["TaskType"];
-                limit?: number;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Recent task snapshots. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["TaskListResponse"];
-                };
-            };
-            401: components["responses"]["Error"];
-            default: components["responses"]["Error"];
-        };
-    };
-    getTask: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                task_id: components["parameters"]["TaskId"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Latest task snapshot. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["TaskDetailResponse"];
-                };
-            };
-            401: components["responses"]["Error"];
-            404: components["responses"]["Error"];
-            default: components["responses"]["Error"];
-        };
-    };
-    cancelTask: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                task_id: components["parameters"]["TaskId"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Cancellation request accepted. */
-            202: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["TaskAcceptedResponse"];
-                };
-            };
-            401: components["responses"]["Error"];
-            404: components["responses"]["Error"];
-            409: components["responses"]["Error"];
             default: components["responses"]["Error"];
         };
     };

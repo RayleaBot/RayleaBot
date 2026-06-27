@@ -7,7 +7,6 @@ import { createMemoryHistory, createRouter } from 'vue-router'
 import DashboardPage from '@/views/dashboard/DashboardView.vue'
 import { useProtocolsStore } from '@/stores/protocols'
 import { useSystemStore } from '@/stores/system'
-import { useTasksStore } from '@/stores/tasks'
 
 const feedbackMock = vi.hoisted(() => ({
   notifyError: vi.fn(),
@@ -53,10 +52,9 @@ function createProtocolSnapshot(overrides: Record<string, unknown> = {}) {
 function mockDashboardRefreshes() {
   const systemStore = useSystemStore()
   const protocolsStore = useProtocolsStore()
-  const tasksStore = useTasksStore()
   vi.spyOn(systemStore, 'refreshAll').mockResolvedValue(undefined)
   vi.spyOn(protocolsStore, 'refresh').mockImplementation(async () => ({ snapshot: protocolsStore.snapshot }))
-  return { protocolsStore, systemStore, tasksStore }
+  return { protocolsStore, systemStore }
 }
 
 function createDashboardRouter() {
@@ -64,7 +62,6 @@ function createDashboardRouter() {
     history: createMemoryHistory(),
     routes: [
       { path: '/', name: 'status', component: DashboardPage },
-      { path: '/tasks', name: 'tasks', component: { template: '<div>tasks</div>' } },
       { path: '/protocols', name: 'protocols', component: { template: '<div>protocols</div>' } },
       { path: '/logs', name: 'logs', component: { template: '<div>logs</div>' } },
       { path: '/plugins', name: 'plugins', component: { template: '<div>plugins</div>' } },
@@ -527,7 +524,7 @@ describe('DashboardPage', () => {
     await router.push('/')
     await router.isReady()
 
-    const { protocolsStore, systemStore: store, tasksStore } = mockDashboardRefreshes()
+    const { protocolsStore, systemStore: store } = mockDashboardRefreshes()
     store.health = { status: 'ok' }
     store.readiness = { status: 'degraded' }
     store.system = {
@@ -564,7 +561,6 @@ describe('DashboardPage', () => {
       },
     }
     protocolsStore.snapshot = createProtocolSnapshot()
-    vi.spyOn(tasksStore, 'findInProgressTaskByType').mockResolvedValue(null)
     const confirmSpy = vi.spyOn(store as never, 'confirmRecovery').mockResolvedValue({ task_id: 'task_recovery_confirm_0001' })
     const recheckSpy = vi.spyOn(store as never, 'recheckRecovery').mockResolvedValue({ task_id: 'task_recovery_recheck_0001' })
     const bootstrapSpy = vi.spyOn(store as never, 'bootstrapManagedRuntime').mockResolvedValue({ task_id: 'task_runtime_bootstrap_0001' })
@@ -598,6 +594,7 @@ describe('DashboardPage', () => {
 
     await router.push('/')
     await flushPromises()
+    feedbackMock.notifySuccess.mockClear()
 
     await checkbox.setValue(true)
     await noteInput.setValue('已确认当前跳过状态。')
@@ -607,8 +604,8 @@ describe('DashboardPage', () => {
       review_ids: ['review_weather_pro'],
       note: '已确认当前跳过状态。',
     })
-    expect(router.currentRoute.value.name).toBe('tasks')
-    expect(router.currentRoute.value.query.task_id).toBe('task_recovery_confirm_0001')
+    expect(router.currentRoute.value.name).toBe('status')
+    expect(feedbackMock.notifySuccess).toHaveBeenCalledWith('恢复项确认任务已提交，可在实时日志查看结果')
 
     await router.push('/')
     await flushPromises()
@@ -616,8 +613,8 @@ describe('DashboardPage', () => {
     await recheckButton.trigger('click')
     await flushPromises()
     expect(recheckSpy).toHaveBeenCalledTimes(1)
-    expect(router.currentRoute.value.name).toBe('tasks')
-    expect(router.currentRoute.value.query.task_id).toBe('task_recovery_recheck_0001')
+    expect(router.currentRoute.value.name).toBe('status')
+    expect(feedbackMock.notifySuccess).toHaveBeenCalledWith('恢复摘要重新检查任务已提交，可在实时日志查看结果')
 
     await router.push('/')
     await flushPromises()
@@ -625,68 +622,7 @@ describe('DashboardPage', () => {
     await bootstrapButton.trigger('click')
     await flushPromises()
     expect(bootstrapSpy).toHaveBeenCalledWith(['chromium'])
-    expect(router.currentRoute.value.name).toBe('tasks')
-    expect(router.currentRoute.value.query.task_id).toBe('task_runtime_bootstrap_0001')
-  })
-
-  it('opens the existing task instead of submitting duplicate recovery work', async () => {
-    const router = createDashboardRouter()
-    await router.push('/')
-    await router.isReady()
-
-    const { protocolsStore, systemStore: store, tasksStore } = mockDashboardRefreshes()
-    store.health = { status: 'ok' }
-    store.readiness = { status: 'degraded' }
-    store.system = {
-      status: 'running',
-      adapter_state: 'connected',
-      active_plugins: 2,
-      uptime_seconds: 120,
-      recovery_summary: {
-        status: 'degraded',
-        phase: 'post_startup',
-        operation: 'upgrade',
-        created_at: '2026-04-02T08:00:00Z',
-        updated_at: '2026-04-02T08:01:00Z',
-        issues: [
-          {
-            code: 'platform.resource_missing',
-            severity: 'warning',
-            summary: '图片渲染 Chromium 尚未准备完成。',
-            remediation: '请先准备图片渲染 Chromium。',
-          },
-        ],
-        skipped_plugins: [],
-        manual_actions: [],
-        next_steps: [],
-      },
-    }
-    protocolsStore.snapshot = createProtocolSnapshot()
-
-    const findTaskSpy = vi
-      .spyOn(tasksStore, 'findInProgressTaskByType')
-      .mockImplementation(async (taskType: string) =>
-        taskType === 'recovery.recheck' ? { task_id: 'task_recovery_recheck_existing' } : null,
-      )
-    const recheckSpy = vi.spyOn(store as never, 'recheckRecovery').mockResolvedValue({ task_id: 'task_recovery_recheck_0001' })
-
-    const wrapper = mount(DashboardPage, {
-      global: {
-        plugins: [Antd, router],
-      },
-    })
-
-    await flushPromises()
-
-    const recheckButton = wrapper.find('[data-testid="recovery-recheck-button"]')
-    expect(recheckButton.exists()).toBe(true)
-
-    await recheckButton.trigger('click')
-    await flushPromises()
-
-    expect(findTaskSpy).toHaveBeenCalledWith('recovery.recheck')
-    expect(recheckSpy).not.toHaveBeenCalled()
-    expect(router.currentRoute.value.name).toBe('tasks')
-    expect(router.currentRoute.value.query.task_id).toBe('task_recovery_recheck_existing')
+    expect(router.currentRoute.value.name).toBe('status')
+    expect(feedbackMock.notifySuccess).toHaveBeenCalledWith('运行环境准备任务已提交，可在实时日志查看结果')
   })
 })

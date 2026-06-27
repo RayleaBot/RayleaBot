@@ -200,7 +200,7 @@ func TestPropertyInvalidAuthUniformRejection(t *testing.T) {
 		handler, wasCalled, _ := dummyHandler()
 		wrapped := middleware(handler)
 
-		path := rapid.SampledFrom([]string{"/api/config", "/api/logs", "/api/logs/log_test_0001", "/api/plugins", "/api/tasks", "/ws/events", "/ws/tasks", "/ws/logs"}).Draw(t, "path")
+		path := rapid.SampledFrom([]string{"/api/config", "/api/logs", "/api/logs/log_test_0001", "/api/plugins", "/ws/events", "/ws/logs"}).Draw(t, "path")
 		req := httptest.NewRequest(http.MethodGet, path, nil)
 		if sc.header != "" {
 			req.Header.Set("Authorization", sc.header)
@@ -347,7 +347,7 @@ func TestPropertyWebSocketQueryParamFallback(t *testing.T) {
 		handler, wasCalled, claimsResult := dummyHandler()
 		wrapped := middleware(handler)
 
-		path := rapid.SampledFrom([]string{"/ws/events", "/ws/tasks", "/ws/logs"}).Draw(t, "path")
+		path := rapid.SampledFrom([]string{"/ws/events", "/ws/logs"}).Draw(t, "path")
 		req := httptest.NewRequest(http.MethodGet, path+"?session_token="+token, nil)
 		rec := httptest.NewRecorder()
 
@@ -394,7 +394,7 @@ func TestPropertyAuthHeaderPrecedence(t *testing.T) {
 		handler, wasCalled, claimsResult := dummyHandler()
 		wrapped := middleware(handler)
 
-		path := rapid.SampledFrom([]string{"/ws/events", "/ws/tasks", "/ws/logs"}).Draw(t, "path")
+		path := rapid.SampledFrom([]string{"/ws/events", "/ws/logs"}).Draw(t, "path")
 		req := httptest.NewRequest(http.MethodGet, path+"?session_token="+tokenB, nil)
 		req.Header.Set("Authorization", "Bearer "+tokenA)
 		rec := httptest.NewRecorder()
@@ -530,13 +530,11 @@ func TestProtectedRoutesReject401WithoutToken(t *testing.T) {
 		{http.MethodPost, "/api/system/shutdown"},
 		{http.MethodGet, "/api/logs"},
 		{http.MethodGet, "/api/logs/log_test_0001"},
-		{http.MethodGet, "/api/tasks"},
 		{http.MethodGet, "/api/plugins"},
 		{http.MethodGet, "/api/plugins/fake-plugin-id"},
 		{http.MethodGet, "/api/plugins/fake-plugin-id/settings"},
 		{http.MethodPut, "/api/plugins/fake-plugin-id/settings"},
 		{http.MethodGet, "/ws/events"},
-		{http.MethodGet, "/ws/tasks"},
 		{http.MethodGet, "/ws/logs"},
 	}
 
@@ -650,7 +648,7 @@ func TestWebSocketEventsSupportsSessionTokenQueryParam(t *testing.T) {
 func TestAdditionalWebSocketChannelsSupportAuthorizationHeaderAndQueryParam(t *testing.T) {
 	t.Parallel()
 
-	paths := []string{"/ws/tasks", "/ws/logs", "/ws/plugins/raylea.echo/console"}
+	paths := []string{"/ws/logs", "/ws/plugins/raylea.echo/console"}
 	for _, path := range paths {
 		path := path
 		t.Run(path, func(t *testing.T) {

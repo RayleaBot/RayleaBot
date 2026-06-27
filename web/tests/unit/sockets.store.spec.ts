@@ -57,17 +57,16 @@ describe('socket store', () => {
     store.ensureManagementSockets()
     store.ensureManagementSockets()
 
-    expect(MockManagedSocket.instances).toHaveLength(4)
+    expect(MockManagedSocket.instances).toHaveLength(3)
     expect(MockManagedSocket.instances[0].start).toHaveBeenCalledTimes(1)
     expect(MockManagedSocket.instances[1].start).toHaveBeenCalledTimes(1)
-    expect(MockManagedSocket.instances[2].start).toHaveBeenCalledTimes(1)
-    expect(MockManagedSocket.instances[3].start).not.toHaveBeenCalled()
+    expect(MockManagedSocket.instances[2].start).not.toHaveBeenCalled()
 
     MockManagedSocket.instances[0].emitStatus('authenticated')
-    MockManagedSocket.instances[1].emitStatus('reconnecting', 'tasks 连接异常')
+    MockManagedSocket.instances[1].emitStatus('reconnecting', 'logs 连接异常')
 
     expect(store.snapshots.events.status).toBe('authenticated')
-    expect(store.snapshots.tasks.lastError).toBe('tasks 连接异常')
+    expect(store.snapshots.logs.lastError).toBe('logs 连接异常')
   })
 
   it('keeps console and reconnect controls stable', () => {
@@ -80,18 +79,17 @@ describe('socket store', () => {
     store.reconnectConsole()
     store.reconnectAll()
 
-    expect(MockManagedSocket.instances[3].start).toHaveBeenCalledTimes(3)
-    expect(MockManagedSocket.instances[3].refresh).toHaveBeenCalledTimes(3)
+    expect(MockManagedSocket.instances[2].start).toHaveBeenCalledTimes(3)
+    expect(MockManagedSocket.instances[2].refresh).toHaveBeenCalledTimes(3)
 
     store.setConsolePlugin(null)
-    expect(MockManagedSocket.instances[3].stop).toHaveBeenCalledTimes(1)
+    expect(MockManagedSocket.instances[2].stop).toHaveBeenCalledTimes(1)
 
     store.disconnectAll()
 
     expect(MockManagedSocket.instances[0].stop).toHaveBeenCalledTimes(1)
     expect(MockManagedSocket.instances[1].stop).toHaveBeenCalledTimes(1)
-    expect(MockManagedSocket.instances[2].stop).toHaveBeenCalledTimes(1)
-    expect(MockManagedSocket.instances[3].stop).toHaveBeenCalledTimes(2)
+    expect(MockManagedSocket.instances[2].stop).toHaveBeenCalledTimes(2)
   })
 
   it('routes live log frames through the public socket store wiring', async () => {
@@ -101,7 +99,7 @@ describe('socket store', () => {
     const logsStore = useLogsStore()
 
     store.ensureManagementSockets()
-    MockManagedSocket.instances[2].options.onFrame?.({
+    MockManagedSocket.instances[1].options.onFrame?.({
       channel: 'logs',
       type: 'logs.appended',
       timestamp: '2026-04-05T08:00:01Z',
@@ -127,7 +125,7 @@ describe('socket store', () => {
     const store = useSocketStore()
 
     store.ensureManagementSockets()
-    MockManagedSocket.instances[2].options.onFrame?.({
+    MockManagedSocket.instances[1].options.onFrame?.({
       channel: 'logs',
       type: 'logs.appended',
       timestamp: '2026-05-25T08:00:01Z',

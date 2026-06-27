@@ -6,7 +6,6 @@ import { permissionPolicy } from './zh-CN/permission-policy'
 import { rateLimits } from './zh-CN/rate-limits'
 import { accessLists } from './zh-CN/access-lists'
 import { plugins } from './zh-CN/plugins'
-import { tasks } from './zh-CN/tasks'
 import { scheduler } from './zh-CN/scheduler'
 import { logs } from './zh-CN/logs'
 import { protocols } from './zh-CN/protocols'
@@ -28,7 +27,6 @@ export const zhCN = {
   rateLimits,
   accessLists,
   plugins,
-  tasks,
   scheduler,
   logs,
   protocols,

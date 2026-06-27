@@ -3,7 +3,7 @@
 
 import type { components } from './generated'
 
-export type ManagementWebSocketChannel = 'logs' | 'events' | 'tasks' | 'plugin_console'
+export type ManagementWebSocketChannel = 'logs' | 'events' | 'plugin_console'
 export type ConnectionStatus = 'disconnected' | 'connecting' | 'connected' | 'authenticated' | 'auth_failed' | 'reconnecting'
 
 export type WebSocketErrorPayload = {

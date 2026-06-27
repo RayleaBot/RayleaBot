@@ -59,7 +59,7 @@
 
 - `/api/protocols/onebot11`：校验 `reverse_ws`、`forward_ws`、`http_api`、`webhook` 四条 transport、provider、readiness 和摘要。
 - `/api/protocols/onebot11/compatibility`：校验 `events`、`message_segments`、`read_capabilities`、`provider_extensions` 四类矩阵和代表项。
-- 模板预览工作区：校验模板列表、模板详情、输入结构、自动预览、artifact 与任务详情跳转。
+- 模板预览工作区：校验模板列表、模板详情、输入结构、自动预览、artifact 与任务日志跳转。
 - 诊断、备份、recovery drill 与长期自托管 smoke：校验恢复与排障闭环。
 
 ### `release_manifest.json`

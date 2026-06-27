@@ -25,9 +25,6 @@ describe('socket frame router', () => {
         appendOutboundLog: vi.fn(),
         appendConsole: vi.fn(),
       },
-      tasks: {
-        upsert: vi.fn(),
-      },
       schedulerJobs: {
         scheduleDataSourceRefresh: vi.fn(),
       },
@@ -86,9 +83,6 @@ describe('socket frame router', () => {
       pluginConsole: {
         appendOutboundLog: vi.fn(),
         appendConsole: vi.fn(),
-      },
-      tasks: {
-        upsert: vi.fn(),
       },
       schedulerJobs: {
         scheduleDataSourceRefresh: vi.fn(),
@@ -150,7 +144,7 @@ describe('socket frame router', () => {
     expect(dependencies.protocols.applySnapshot).toHaveBeenCalledTimes(1)
   })
 
-  it('routes task, log, and console frames without changing payload semantics', async () => {
+  it('routes log and console frames without changing payload semantics', async () => {
     const dependencies = {
       system: {
         applyEvent: vi.fn(),
@@ -162,9 +156,6 @@ describe('socket frame router', () => {
       pluginConsole: {
         appendOutboundLog: vi.fn(),
         appendConsole: vi.fn(),
-      },
-      tasks: {
-        upsert: vi.fn(),
       },
       schedulerJobs: {
         scheduleDataSourceRefresh: vi.fn(),
@@ -181,17 +172,6 @@ describe('socket frame router', () => {
     }
     const router = createSocketFrameRouter(dependencies)
 
-    router.handleTasksFrame({
-      channel: 'tasks',
-      type: 'tasks.updated',
-      timestamp: '2026-04-05T08:00:03Z',
-      data: {
-        task_id: 'task_1',
-        task_type: 'runtime.bootstrap',
-        status: 'running',
-        summary: '运行环境准备中',
-      },
-    })
     router.handleLogsFrame({
       channel: 'logs',
       type: 'logs.appended',
@@ -221,12 +201,6 @@ describe('socket frame router', () => {
 
     await flushPromises()
 
-    expect(dependencies.tasks.upsert).toHaveBeenCalledWith({
-      task_id: 'task_1',
-      task_type: 'runtime.bootstrap',
-      status: 'running',
-      summary: '运行环境准备中',
-    })
     expect(dependencies.logs.appendBatch).toHaveBeenCalledTimes(1)
     expect(dependencies.logs.appendBatch).toHaveBeenCalledWith([
       {
@@ -262,9 +236,6 @@ describe('socket frame router', () => {
       pluginConsole: {
         appendOutboundLog: vi.fn(),
         appendConsole: vi.fn(),
-      },
-      tasks: {
-        upsert: vi.fn(),
       },
       schedulerJobs: {
         scheduleDataSourceRefresh: vi.fn(),
@@ -322,9 +293,6 @@ describe('socket frame router', () => {
       pluginConsole: {
         appendOutboundLog: vi.fn(),
         appendConsole: vi.fn(),
-      },
-      tasks: {
-        upsert: vi.fn(),
       },
       schedulerJobs: {
         scheduleDataSourceRefresh: vi.fn(),
@@ -385,9 +353,6 @@ describe('socket frame router', () => {
         appendOutboundLog: vi.fn(),
         appendConsole: vi.fn(),
       },
-      tasks: {
-        upsert: vi.fn(),
-      },
       schedulerJobs: {
         scheduleDataSourceRefresh: vi.fn(),
       },
@@ -446,9 +411,6 @@ describe('socket frame router', () => {
       pluginConsole: {
         appendOutboundLog: vi.fn(),
         appendConsole: vi.fn(),
-      },
-      tasks: {
-        upsert: vi.fn(),
       },
       schedulerJobs: {
         scheduleDataSourceRefresh: vi.fn(),

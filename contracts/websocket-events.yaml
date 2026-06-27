@@ -4,12 +4,8 @@ description: >
   envelope and the smallest set of server-push event types needed by the
   management surface.
 x-fixtures:
-  - fixtures/websocket/ok.tasks-updated-running.json
-  - fixtures/websocket/ok.tasks-updated-succeeded-recovery-recheck.json
-  - fixtures/websocket/ok.tasks-updated-succeeded-recovery-confirm.json
-  - fixtures/websocket/ok.tasks-updated-succeeded-install.json
-  - fixtures/websocket/ok.tasks-updated-succeeded-runtime-bootstrap.json
   - fixtures/websocket/ok.logs-appended.json
+  - fixtures/websocket/ok.logs-appended.task.json
   - fixtures/websocket/ok.logs-appended.protocol-onebot11.json
   - fixtures/websocket/ok.plugins-console-stderr.json
   - fixtures/websocket/ok.events-received-bridge-runtime-observability.json
@@ -18,7 +14,6 @@ x-fixtures:
   - fixtures/websocket/ok.events-received-service-running.json
   - fixtures/websocket/ok.events-received-service-stopping.json
   - fixtures/websocket/ok.events-received-governance-changed.json
-  - fixtures/websocket/edge.tasks-updated-failed-install.json
   - fixtures/websocket/edge.events-received-degraded.json
   - fixtures/websocket/edge.events-received-bridge-runtime-zeroed.json
   - fixtures/websocket/edge.events-received-plugin-crashed.json
@@ -40,7 +35,7 @@ envelope:
   properties:
     channel:
       type: string
-      enum: [logs, events, tasks, plugin_console]
+      enum: [logs, events, plugin_console]
     type:
       type: string
     timestamp:
@@ -64,64 +59,6 @@ envelope:
           type: object
 
 channels:
-  - path: /ws/tasks
-    channel: tasks
-    auth: session_token
-    replay_policy: latest_task_updates
-    events:
-      - event: tasks.updated
-        channel: tasks
-        description: Push a task snapshot update for a long-running background task.
-        payload_schema:
-          type: object
-          additionalProperties: false
-          required: [task_id, task_type, status, summary]
-          properties:
-            task_id:
-              type: string
-            task_type:
-              type: string
-              enum:
-                - plugin.install
-                - plugin.uninstall
-                - plugin.reload
-                - backup.create
-                - recovery.recheck
-                - recovery.confirm
-                - restore.apply
-                - runtime.bootstrap
-            status:
-              type: string
-              enum: [pending, running, succeeded, failed, cancelled, interrupted]
-            progress:
-              type: integer
-              minimum: 0
-              maximum: 100
-            summary:
-              type: string
-            result:
-              type: object
-              additionalProperties: false
-              required: [summary]
-              properties:
-                summary:
-                  type: string
-                details:
-                  type: object
-            error:
-              type: object
-              additionalProperties: false
-              required: [code, message]
-              properties:
-                code:
-                  type: string
-                message:
-                  type: string
-                details:
-                  type: object
-        required: [task_id, task_type, status, summary]
-        example_ref: fixtures/websocket/ok.tasks-updated-running.json
-
   - path: /ws/logs
     channel: logs
     auth: session_token

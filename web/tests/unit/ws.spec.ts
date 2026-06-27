@@ -291,7 +291,7 @@ describe('ManagedSocket', () => {
 
   it('counts attempts independently across sockets', () => {
     const socketA = makeSocket({ name: 'events' })
-    const socketB = makeSocket({ name: 'tasks', path: () => '/ws/tasks' })
+    const socketB = makeSocket({ name: 'logs', path: () => '/ws/logs' })
 
     socketA.start()
     socketB.start()

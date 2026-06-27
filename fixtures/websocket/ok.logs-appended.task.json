@@ -1,0 +1,19 @@
+{
+  "contract": "contracts/websocket-events.yaml",
+  "case": "ok",
+  "frame": {
+    "channel": "logs",
+    "type": "logs.appended",
+    "timestamp": "2026-03-20T10:00:00Z",
+    "data": {
+      "log_id": "log_task_0001",
+      "timestamp": "2026-03-20T10:00:00Z",
+      "level": "info",
+      "source": "tasks",
+      "message": "任务已提交 plugin.install：install plugin from local_directory: weather"
+    }
+  },
+  "expect": {
+    "valid": true
+  }
+}

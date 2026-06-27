@@ -19,7 +19,6 @@ import (
 )
 
 func TestGetLoginInfoReturnsIDAndNickname(t *testing.T) {
-
 	t.Parallel()
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -909,7 +908,6 @@ func TestGetStrangerInfoReturnsNickname(t *testing.T) {
 }
 
 func TestGetStrangerInfoSanitizesUnsafeNickname(t *testing.T) {
-
 	t.Parallel()
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -980,7 +978,6 @@ func TestGetStrangerInfoSanitizesUnsafeNickname(t *testing.T) {
 }
 
 func TestCallAPIReturnsErrorWhenNotConnected(t *testing.T) {
-
 	t.Parallel()
 
 	shell := newTestShell(oneBotForwardWS("ws://127.0.0.1:1"), shellDeps{

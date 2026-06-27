@@ -2,7 +2,6 @@ import type {
   EventsPayload,
   LogSummary,
   PluginConsoleFrameData,
-  TaskSummary,
   WebSocketFrame,
 } from '@/types/api'
 import type {
@@ -128,12 +127,6 @@ export function createSocketFrameRouter(
     }
   }
 
-  function handleTasksFrame(frame: WebSocketFrame<TaskSummary>) {
-    if (frame.type === 'tasks.updated') {
-      dependencies.tasks.upsert(frame.data)
-    }
-  }
-
   function flushPendingLiveLogs() {
     flushLiveLogsScheduled = false
     if (pendingLiveLogs.length === 0) {
@@ -178,7 +171,6 @@ export function createSocketFrameRouter(
   return {
     clearPendingStatusRefresh,
     handleEventsFrame,
-    handleTasksFrame,
     handleLogsFrame,
     handleConsoleFrame,
   }

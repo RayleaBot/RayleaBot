@@ -138,19 +138,6 @@ func TestActualManagementResponsesMatchOpenAPI(t *testing.T) {
 		assertActualResponseMatchesOpenAPI(t, fixture.Request.Method, "/api/system/render/templates/{template_id}/preview-html", preview.Code, decodeBody(t, preview.Body.Bytes()))
 	})
 
-	t.Run("tasks list", func(t *testing.T) {
-		t.Parallel()
-
-		application := newTestApp(t, deterministicAuthOptions()...)
-		token := issueLoginToken(t, application)
-
-		recorder := performOpenAPIJSONRequest(t, application, http.MethodGet, "/api/tasks?limit=1", nil, token)
-		if recorder.Code != http.StatusOK {
-			t.Fatalf("unexpected tasks list code: got %d want 200 body=%s", recorder.Code, recorder.Body.String())
-		}
-		assertActualResponseMatchesOpenAPI(t, http.MethodGet, "/api/tasks", recorder.Code, decodeBody(t, recorder.Body.Bytes()))
-	})
-
 	t.Run("logs list", func(t *testing.T) {
 		t.Parallel()
 

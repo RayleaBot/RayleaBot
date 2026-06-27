@@ -106,7 +106,6 @@ describe('web bootstrap', () => {
       disconnectAll: vi.fn(),
       snapshots: {
         events: { status: 'authenticated' },
-        tasks: { status: 'authenticated' },
         logs: { status: 'authenticated' },
       },
     })
@@ -289,7 +288,6 @@ describe('web bootstrap', () => {
         disconnectAll: vi.fn(),
         snapshots: {
           events: { status: 'authenticated' },
-          tasks: { status: 'authenticated' },
           logs: { status: 'authenticated' },
         },
       })
@@ -388,7 +386,6 @@ describe('web bootstrap', () => {
       disconnectAll: vi.fn(),
       snapshots: {
         events: { status: 'authenticated' },
-        tasks: { status: 'authenticated' },
         logs: { status: 'authenticated' },
       },
     }
@@ -413,7 +410,7 @@ describe('web bootstrap', () => {
     await import('@/main')
     await flushBootstrap()
 
-    const websocketWatcher = watchers.find((item) => Array.isArray(item.source()) && (item.source() as unknown[]).length === 5)
+    const websocketWatcher = watchers.find((item) => Array.isArray(item.source()) && (item.source() as unknown[]).length === 4)
     expect(websocketWatcher).toBeDefined()
 
     socketStore.snapshots.events.status = 'reconnecting'
@@ -459,7 +456,6 @@ describe('web bootstrap', () => {
       disconnectAll: vi.fn(),
       snapshots: {
         events: { status: 'authenticated' },
-        tasks: { status: 'authenticated' },
         logs: { status: 'authenticated' },
       },
     }
@@ -527,7 +523,6 @@ describe('web bootstrap', () => {
       disconnectAll: vi.fn(),
       snapshots: {
         events: { status: 'authenticated' },
-        tasks: { status: 'authenticated' },
         logs: { status: 'authenticated' },
       },
     }
@@ -552,7 +547,7 @@ describe('web bootstrap', () => {
     await import('@/main')
     await flushBootstrap()
 
-    const websocketWatcher = watchers.find((item) => Array.isArray(item.source()) && (item.source() as unknown[]).length === 5)
+    const websocketWatcher = watchers.find((item) => Array.isArray(item.source()) && (item.source() as unknown[]).length === 4)
     expect(websocketWatcher).toBeDefined()
 
     socketStore.snapshots.logs.status = 'reconnecting'

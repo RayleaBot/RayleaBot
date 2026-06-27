@@ -2,7 +2,6 @@ export const display = {
   empty: '—',
   connectionChannels: {
     events: '事件流',
-    tasks: '任务流',
     logs: '日志流',
     pluginConsole: '控制台',
   },
@@ -13,34 +12,6 @@ export const display = {
     authenticated: '已认证',
     auth_failed: '鉴权失败',
     reconnecting: '重连中',
-  },
-  taskTypes: {
-    plugin: {
-      install: '安装插件',
-      uninstall: '卸载插件',
-      reload: '重载插件',
-    },
-    backup: {
-      create: '创建备份',
-    },
-    recovery: {
-      recheck: '重新检查恢复状态',
-      confirm: '确认恢复处理结果',
-    },
-    restore: {
-      apply: '恢复备份',
-    },
-    runtime: {
-      bootstrap: '准备运行环境',
-    },
-  },
-  taskStatuses: {
-    pending: '等待中',
-    running: '执行中',
-    succeeded: '已完成',
-    failed: '失败',
-    cancelled: '已取消',
-    interrupted: '已中断',
   },
   pluginStates: {
     disabled: '已停用',

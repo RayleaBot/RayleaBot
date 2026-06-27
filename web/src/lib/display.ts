@@ -7,8 +7,6 @@ import type {
   RecoveryCompatibilitySummary,
   ReadinessStatusResponse,
   SystemStatusResponse,
-  TaskStatus,
-  TaskType,
 } from '@/types/api'
 import { i18n, t } from '@/i18n'
 
@@ -31,20 +29,12 @@ export function getPluginCapabilityRawTitle(capability: string) {
   return t('plugins.capabilityRawTitle', { capability })
 }
 
-export function getConnectionChannelLabel(channel: 'events' | 'tasks' | 'logs' | 'pluginConsole') {
+export function getConnectionChannelLabel(channel: 'events' | 'logs' | 'pluginConsole') {
   return t(`display.connectionChannels.${channel}`)
 }
 
 export function getConnectionStatusLabel(status?: ConnectionStatus) {
   return status ? t(`display.connectionStatuses.${status}`) : t('display.empty')
-}
-
-export function getTaskTypeLabel(taskType?: TaskType | string) {
-  return taskType ? translated(`display.taskTypes.${taskType}`, taskType) : t('display.empty')
-}
-
-export function getTaskStatusLabel(status?: TaskStatus) {
-  return status ? t(`display.taskStatuses.${status}`) : t('display.empty')
 }
 
 export function getPluginStateLabel(status?: PluginState | string) {

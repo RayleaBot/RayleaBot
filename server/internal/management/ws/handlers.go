@@ -8,7 +8,6 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/logging"
 	managementevents "github.com/RayleaBot/RayleaBot/server/internal/management/events"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
-	"github.com/RayleaBot/RayleaBot/server/internal/tasks"
 )
 
 type EventsHandler struct {
@@ -51,19 +50,6 @@ func (h *EventsHandler) SetBridge(bridge eventBridgeSource) {
 		return
 	}
 	h.bridge = bridge
-}
-
-type TasksHandler struct {
-	tasks taskEventSource
-}
-
-type taskEventSource interface {
-	List() []tasks.Snapshot
-	Subscribe(int) (<-chan tasks.Snapshot, func())
-}
-
-func NewTasksHandler(tasks taskEventSource) *TasksHandler {
-	return &TasksHandler{tasks: tasks}
 }
 
 type LogsHandler struct {

@@ -95,7 +95,7 @@
 
 当前基础：
 
-- 管理 HTTP / WebSocket、setup/session、config、system status/shutdown/diagnostics、OneBot 协议快照、reverse WebSocket 回连入口、webhook 入口、tasks、logs、plugin lifecycle（install/uninstall/enable/disable/reload）、console、render management、backup、recovery、三方账号、插件管理动作和 runtime metrics 已全部进入真实路由。
+- 管理 HTTP / WebSocket、setup/session、config、system status/shutdown/diagnostics、OneBot 协议快照、reverse WebSocket 回连入口、webhook 入口、logs、plugin lifecycle（install/uninstall/enable/disable/reload）、console、render management、backup、recovery、三方账号、插件管理动作和 runtime metrics 已全部进入真实路由；异步任务状态通过管理日志查看。
 
 进入本阶段时应继续遵守：
 

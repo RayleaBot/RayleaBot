@@ -132,6 +132,7 @@ func Build(deps Deps) (State, error) {
 	}
 	deps.Logs.ConfigureSpool(logging.NewSpoolQueue(logging.SpoolPathForDatabase(databasePath)), os.Stderr)
 	deps.Logs.SetRepository(logRepository, deps.Config.Log.RetentionDays)
+	deps.Tasks.SetLogSink(deps.Logs)
 	if err := deps.Logs.FlushSpool(ctx); err != nil {
 		deps.Logger.Warn("management log spool flush failed during startup",
 			"component", "logging",

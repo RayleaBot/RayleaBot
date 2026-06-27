@@ -50,11 +50,6 @@ const fixtures = {
   logsList: await readFixture('fixtures/web-api/ok.logs-list-response.yaml'),
   logDetail: await readFixture('fixtures/web-api/ok.log-detail-response.yaml'),
   logDetailNotFound: await readFixture('fixtures/web-api/edge.log-detail-not-found.yaml'),
-  tasksList: await readFixture('fixtures/web-api/ok.tasks-list-response.yaml'),
-  taskDetail: await readFixture('fixtures/web-api/ok.task-detail-response.yaml'),
-  taskDetailSucceededInstall: await readFixture('fixtures/web-api/ok.task-detail-succeeded-install.yaml'),
-  taskDetailFailedInstallScriptBlocked: await readFixture('fixtures/web-api/edge.task-detail-failed-install-script-blocked.yaml'),
-  taskCancel: await readFixture('fixtures/web-api/ok.task-cancel-accepted.yaml'),
   systemStatus: await readFixture('fixtures/web-api/ok.system-status.yaml'),
   systemShutdown: await readFixture('fixtures/web-api/ok.system-shutdown.yaml'),
   systemBackupAccepted: await readFixture('fixtures/web-api/ok.system-backup-accepted.yaml'),
@@ -98,7 +93,6 @@ const fixtures = {
   thirdPartyQRCodePollNeteaseMusicPending: await readFixture('fixtures/web-api/ok.third-party-login-qrcode-poll-netease-music-pending.yaml'),
   thirdPartyQRCodePollNeteaseMusicSucceeded: await readFixture('fixtures/web-api/ok.third-party-login-qrcode-poll-netease-music-succeeded.yaml'),
   wsLogs: await readFixture('fixtures/websocket/ok.logs-appended.protocol-onebot11.json'),
-  wsTasks: await readFixture('fixtures/websocket/ok.tasks-updated-running.json'),
   wsEvents: await readFixture('fixtures/websocket/edge.events-received-degraded.json'),
   wsEventsProtocolSnapshot: await readFixture('fixtures/websocket/ok.events-received-protocol-snapshot.json'),
   wsConsole: await readFixture('fixtures/websocket/ok.plugins-console-stderr.json'),
@@ -107,7 +101,6 @@ const fixtures = {
 
 const sockets = {
   events: new Set(),
-  tasks: new Set(),
   logs: new Set(),
   plugin_console: new Set(),
 }
@@ -127,7 +120,6 @@ function baseState() {
     pluginSettings: {
       'example-config-panel': structuredClone(fixtures.pluginSettings.response.body.values),
     },
-    tasks: structuredClone(fixtures.tasksList.response.body.items),
     logs: initialLogs,
     currentSessionLogIds: new Set(initialLogs.map((item) => item.log_id)),
     logDetails: createLogDetailMap(),
@@ -872,15 +864,6 @@ function mergePluginState(pluginId, patch) {
   return state.plugins[pluginId]
 }
 
-function taskSummary(taskId, taskType, summary) {
-  return {
-    task_id: taskId,
-    task_type: taskType,
-    status: 'pending',
-    summary,
-  }
-}
-
 function appendLogSummary(summary, detail, options = {}) {
   state.logs = [
     ...state.logs.filter((item) => item.log_id !== summary.log_id),
@@ -893,6 +876,59 @@ function appendLogSummary(summary, detail, options = {}) {
 
   if (detail) {
     state.logDetails[summary.log_id] = structuredClone(detail)
+  }
+}
+
+function appendTaskLog(taskId, taskType, status, summary, options = {}) {
+  const timestamp = options.timestamp ?? new Date().toISOString()
+  const level = status === 'failed'
+    ? 'error'
+    : ['cancelled', 'interrupted'].includes(status) ? 'warn' : 'info'
+  const logSummary = {
+    log_id: `log_${taskId}_${status}`,
+    timestamp,
+    level,
+    source: 'tasks',
+    plugin_id: options.plugin_id,
+    request_id: taskId,
+    message: `任务${taskStatusText(status)} ${taskType}：${summary}`,
+  }
+  const detail = {
+    ...logSummary,
+    details: {
+      task_id: taskId,
+      task_type: taskType,
+      task_status: status,
+      task_summary: summary,
+      ...(options.details ?? {}),
+    },
+  }
+  appendLogSummary(logSummary, detail)
+  broadcast('logs', {
+    channel: 'logs',
+    type: 'logs.appended',
+    timestamp,
+    data: logSummary,
+  })
+  return logSummary
+}
+
+function taskStatusText(status) {
+  switch (status) {
+    case 'pending':
+      return '已提交'
+    case 'running':
+      return '运行中'
+    case 'succeeded':
+      return '已完成'
+    case 'failed':
+      return '失败'
+    case 'cancelled':
+      return '已取消'
+    case 'interrupted':
+      return '已中断'
+    default:
+      return status
   }
 }
 
@@ -1277,20 +1313,17 @@ const server = http.createServer(async (request, response) => {
       return
     }
 
-    const task = {
-      task_id: String(payload.task_id),
-      task_type: String(payload.task_type),
-      status: String(payload.status),
-      progress: typeof payload.progress === 'number' ? payload.progress : undefined,
-      summary: String(payload.summary),
-      started_at: typeof payload.started_at === 'string' ? payload.started_at : '2026-04-22T10:00:00Z',
-      finished_at: typeof payload.finished_at === 'string' ? payload.finished_at : '2026-04-22T10:00:05Z',
-    }
-    state.tasks = [
-      task,
-      ...state.tasks.filter((item) => item.task_id !== task.task_id),
-    ]
-    json(response, 200, { ok: true })
+    const taskId = String(payload.task_id)
+    appendTaskLog(taskId, String(payload.task_type), String(payload.status), String(payload.summary), {
+      timestamp: typeof payload.finished_at === 'string' ? payload.finished_at : undefined,
+      plugin_id: typeof payload.plugin_id === 'string' ? payload.plugin_id : undefined,
+      details: {
+        progress: typeof payload.progress === 'number' ? payload.progress : undefined,
+        started_at: typeof payload.started_at === 'string' ? payload.started_at : '2026-04-22T10:00:00Z',
+        finished_at: typeof payload.finished_at === 'string' ? payload.finished_at : '2026-04-22T10:00:05Z',
+      },
+    })
+    json(response, 200, { ok: true, log_id: `log_${taskId}_${String(payload.status)}` })
     return
   }
 
@@ -1461,10 +1494,7 @@ const server = http.createServer(async (request, response) => {
     }
 
     const taskId = fixtures.systemBackupAccepted.response.body.task_id
-    state.tasks = [
-      taskSummary(taskId, 'backup.create', 'create online backup'),
-      ...state.tasks.filter((item) => item.task_id !== taskId),
-    ]
+    appendTaskLog(taskId, 'backup.create', 'pending', 'create online backup')
 
     json(response, fixtures.systemBackupAccepted.response.status, fixtures.systemBackupAccepted.response.body)
     return
@@ -1776,55 +1806,6 @@ const server = http.createServer(async (request, response) => {
     return
   }
 
-  if (pathname === '/api/tasks' && request.method === 'GET') {
-    if (!requireAuth(request, response)) {
-      return
-    }
-
-    json(response, 200, { items: state.tasks })
-    return
-  }
-
-  if (pathname.startsWith('/api/tasks/') && pathname.endsWith('/cancel') && request.method === 'POST') {
-    if (!requireAuth(request, response)) {
-      return
-    }
-
-    const taskId = pathname.split('/')[3]
-    const task = state.tasks.find((item) => item.task_id === taskId)
-    if (task) {
-      task.status = 'cancelled'
-      task.summary = `cancel requested for ${taskId}`
-      broadcast('tasks', {
-        channel: 'tasks',
-        type: 'tasks.updated',
-        timestamp: new Date().toISOString(),
-        data: task,
-      })
-    }
-
-    json(response, fixtures.taskCancel.response.status, fixtures.taskCancel.response.body)
-    return
-  }
-
-  if (pathname.startsWith('/api/tasks/') && request.method === 'GET') {
-    if (!requireAuth(request, response)) {
-      return
-    }
-
-    const taskId = pathname.split('/')[3]
-    let task
-    if (taskId === fixtures.taskDetailSucceededInstall.response.body.task.task_id) {
-      task = structuredClone(fixtures.taskDetailSucceededInstall.response.body.task)
-    } else if (taskId === fixtures.taskDetailFailedInstallScriptBlocked.response.body.task.task_id) {
-      task = structuredClone(fixtures.taskDetailFailedInstallScriptBlocked.response.body.task)
-    } else {
-      task = state.tasks.find((item) => item.task_id === taskId) ?? fixtures.taskDetail.response.body.task
-    }
-    json(response, 200, { task })
-    return
-  }
-
   if (pathname === '/api/plugins' && request.method === 'GET') {
     if (!requireAuth(request, response)) {
       return
@@ -1850,15 +1831,14 @@ const server = http.createServer(async (request, response) => {
     if (payload.source_type === 'remote_url') {
       taskId = fixtures.pluginInstallRemoteUrl.response.body.task_id
     } else if (payload.source.includes('script-blocked') && payload.allow_install_scripts !== true) {
-      taskId = fixtures.taskDetailFailedInstallScriptBlocked.response.body.task.task_id
+      taskId = 'task_plugin_install_failed_script_blocked_0001'
     } else if (payload.allow_install_scripts === true) {
       taskId = fixtures.pluginInstallAcceptedWithScripts.response.body.task_id
     }
 
-    state.tasks = [
-      taskSummary(taskId, 'plugin.install', `install ${payload.source}`),
-      ...state.tasks.filter((item) => item.task_id !== taskId),
-    ]
+    appendTaskLog(taskId, 'plugin.install', 'pending', `install ${payload.source}`, {
+      plugin_id: payload.source_type === 'remote_url' ? undefined : 'weather',
+    })
 
     json(response, 202, { task_id: taskId })
     return
@@ -1969,10 +1949,9 @@ const server = http.createServer(async (request, response) => {
     }
 
     const taskId = fixtures.pluginUninstallAccepted.response.body.task_id
-    state.tasks = [
-      taskSummary(taskId, 'plugin.uninstall', `uninstall ${pluginId}`),
-      ...state.tasks.filter((item) => item.task_id !== taskId),
-    ]
+    appendTaskLog(taskId, 'plugin.uninstall', 'pending', `uninstall ${pluginId}`, {
+      plugin_id: pluginId,
+    })
     json(response, fixtures.pluginUninstallAccepted.response.status, fixtures.pluginUninstallAccepted.response.body)
     return
   }
@@ -2030,8 +2009,6 @@ wsServer.on('connection', (socket, request) => {
       },
     })), 80)
     setTimeout(() => socket.send(JSON.stringify(fixtures.wsEvents.frame)), 120)
-  } else if (channel === 'tasks') {
-    setTimeout(() => socket.send(JSON.stringify(fixtures.wsTasks.frame)), 180)
   } else if (channel === 'logs') {
     setTimeout(() => {
       const liveLog = defaultProtocolLiveLog()

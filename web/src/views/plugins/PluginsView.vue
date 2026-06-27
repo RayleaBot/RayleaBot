@@ -347,13 +347,12 @@ async function reloadPlugin(pluginId: string) {
 async function submitInstall() {
   installError.value = null
   try {
-    const response = await pluginsStore.installPlugin(installForm)
+    await pluginsStore.installPlugin(installForm)
     installDialogVisible.value = false
     installForm.source_type = 'local_zip'
     installForm.source = ''
     delete installForm.allow_install_scripts
     notifySuccess(t('plugins.installAccepted'))
-    await router.push({ name: 'tasks', query: { task_id: response.task_id } })
   } catch (error) {
     installError.value = getDisplayErrorMessage(error)
   }

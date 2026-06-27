@@ -29,9 +29,6 @@
 - `GET /api/protocols/onebot11`
 - `GET /api/logs`
 - `GET /api/logs/{log_id}`
-- `GET /api/tasks`
-- `GET /api/tasks/{task_id}`
-- `POST /api/tasks/{task_id}/cancel`
 - `POST /api/system/backup`
 - `POST /api/system/recovery/recheck`
 - `POST /api/system/recovery/confirm`
@@ -64,7 +61,6 @@
 - `POST /api/plugins/{plugin_id}/recover`
 - `POST /api/webhooks/{plugin_id}/{route}`
 - `/ws/events`
-- `/ws/tasks`
 - `/ws/logs`
 - `/ws/plugins/{id}/console`
 - plugin lifecycle：
@@ -129,6 +125,7 @@
   - persisted summary storage
   - `/api/logs` historical queries
   - `/ws/logs` persisted replay + live stream
+  - asynchronous task lifecycle summaries use `source=tasks`
 - launcher local companion：
   - loopback-only launcher status
   - loopback-only launcher shutdown

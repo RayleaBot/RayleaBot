@@ -225,13 +225,6 @@
       "target_action": "Keep CloseRead roots isolated to WebSocket handlers.",
       "revisit_after": "next websocket audit"
     },
-    "server/internal/management/ws/tasks.go": {
-      "category": "websocket_close_read",
-      "reason": "WebSocket CloseRead needs its own read-drain context for the accepted connection.",
-      "owner": "server",
-      "target_action": "Keep CloseRead roots isolated to WebSocket handlers.",
-      "revisit_after": "next websocket audit"
-    },
     "server/internal/plugins/install/install_refresh.go": {
       "category": "nil_context_fallback",
       "reason": "Install catalog refresh accepts job context and falls back only for nil direct callers.",

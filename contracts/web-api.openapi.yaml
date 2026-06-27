@@ -51,14 +51,8 @@ x-fixtures:
   - fixtures/web-api/ok.logs-list-response.current-session.yaml
   - fixtures/web-api/ok.logs-list-response.history-range.yaml
   - fixtures/web-api/ok.logs-list-response.protocol-onebot11.yaml
+  - fixtures/web-api/ok.logs-list-response.task.yaml
   - fixtures/web-api/ok.log-detail-response.yaml
-  - fixtures/web-api/ok.tasks-list-response.yaml
-  - fixtures/web-api/ok.task-detail-response.yaml
-  - fixtures/web-api/ok.task-detail-succeeded-recovery-recheck.yaml
-  - fixtures/web-api/ok.task-detail-succeeded-recovery-confirm.yaml
-  - fixtures/web-api/ok.task-detail-succeeded-install.yaml
-  - fixtures/web-api/ok.task-detail-succeeded-runtime-bootstrap.yaml
-  - fixtures/web-api/ok.task-cancel-accepted.yaml
   - fixtures/web-api/ok.plugins-install-accepted.yaml
   - fixtures/web-api/ok.plugins-install-accepted-with-scripts.yaml
   - fixtures/web-api/ok.plugins-install-remote-url.yaml
@@ -72,9 +66,6 @@ x-fixtures:
   - fixtures/web-api/ok.plugin-secrets-update-response.yaml
   - fixtures/web-api/ok.plugins-enable-response.yaml
   - fixtures/web-api/ok.webhook-accepted.yaml
-  - fixtures/web-api/edge.task-detail-running-install.yaml
-  - fixtures/web-api/edge.task-detail-failed-install.yaml
-  - fixtures/web-api/edge.task-detail-failed-install-script-blocked.yaml
   - fixtures/web-api/edge.plugins-disable-response.yaml
   - fixtures/web-api/edge.plugins-command-conflict-response.yaml
   - fixtures/web-api/edge.readyz-degraded-response.yaml
@@ -132,7 +123,6 @@ x-fixtures:
   - fixtures/web-api/invalid.plugins-reload-not-enabled.yaml
   - fixtures/web-api/invalid.plugins-recover-not-recoverable.yaml
   - fixtures/web-api/invalid.plugins-uninstall-not-found.yaml
-  - fixtures/web-api/invalid.tasks-cancel-not-cancellable.yaml
   - fixtures/web-api/edge.governance-entry-delete-not-found.yaml
 
 paths:
@@ -954,89 +944,6 @@ paths:
         default:
           $ref: '#/components/responses/Error'
 
-  /api/tasks:
-    get:
-      summary: List recent background tasks.
-      operationId: listTasks
-      security:
-        - BearerAuth: []
-      parameters:
-        - name: status
-          in: query
-          required: false
-          schema:
-            $ref: '#/components/schemas/TaskStatus'
-        - name: task_type
-          in: query
-          required: false
-          schema:
-            $ref: '#/components/schemas/TaskType'
-        - name: limit
-          in: query
-          required: false
-          schema:
-            type: integer
-            minimum: 1
-            maximum: 100
-            default: 50
-      responses:
-        '200':
-          description: Recent task snapshots.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/TaskListResponse'
-        '401':
-          $ref: '#/components/responses/Error'
-        default:
-          $ref: '#/components/responses/Error'
-
-  /api/tasks/{task_id}:
-    get:
-      summary: Get a background task snapshot.
-      operationId: getTask
-      security:
-        - BearerAuth: []
-      parameters:
-        - $ref: '#/components/parameters/TaskId'
-      responses:
-        '200':
-          description: Latest task snapshot.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/TaskDetailResponse'
-        '401':
-          $ref: '#/components/responses/Error'
-        '404':
-          $ref: '#/components/responses/Error'
-        default:
-          $ref: '#/components/responses/Error'
-
-  /api/tasks/{task_id}/cancel:
-    post:
-      summary: Request cancellation for a cancellable background task.
-      operationId: cancelTask
-      security:
-        - BearerAuth: []
-      parameters:
-        - $ref: '#/components/parameters/TaskId'
-      responses:
-        '202':
-          description: Cancellation request accepted.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/TaskAcceptedResponse'
-        '401':
-          $ref: '#/components/responses/Error'
-        '404':
-          $ref: '#/components/responses/Error'
-        '409':
-          $ref: '#/components/responses/Error'
-        default:
-          $ref: '#/components/responses/Error'
-
   /api/logs:
     get:
       summary: List redacted management log summaries for current-session or historical browsing.
@@ -1649,13 +1556,6 @@ components:
         passed as a Bearer token in the Authorization header.
 
   parameters:
-    TaskId:
-      name: task_id
-      in: path
-      required: true
-      schema:
-        type: string
-        minLength: 1
     LogId:
       name: log_id
       in: path
@@ -2741,92 +2641,6 @@ components:
           maxItems: 50
           items:
             $ref: '#/components/schemas/RecoveryCompatibilityAuditEntry'
-
-    TaskStatus:
-      type: string
-      enum: [pending, running, succeeded, failed, cancelled, interrupted]
-
-    TaskType:
-      type: string
-      enum:
-        - plugin.install
-        - plugin.uninstall
-        - plugin.reload
-        - backup.create
-        - recovery.recheck
-        - recovery.confirm
-        - restore.apply
-        - runtime.bootstrap
-
-    TaskErrorSummary:
-      type: object
-      additionalProperties: false
-      required: [code, message]
-      properties:
-        code:
-          type: string
-        message:
-          type: string
-        details:
-          type: object
-          additionalProperties: true
-
-    TaskResultSummary:
-      type: object
-      additionalProperties: false
-      required: [summary]
-      properties:
-        summary:
-          type: string
-        details:
-          type: object
-          additionalProperties: true
-
-    TaskSummary:
-      type: object
-      additionalProperties: false
-      required: [task_id, task_type, status, summary]
-      properties:
-        task_id:
-          type: string
-        task_type:
-          $ref: '#/components/schemas/TaskType'
-        status:
-          $ref: '#/components/schemas/TaskStatus'
-        progress:
-          type: integer
-          minimum: 0
-          maximum: 100
-        summary:
-          type: string
-        started_at:
-          type: string
-          format: date-time
-        finished_at:
-          type: string
-          format: date-time
-        result:
-          $ref: '#/components/schemas/TaskResultSummary'
-        error:
-          $ref: '#/components/schemas/TaskErrorSummary'
-
-    TaskListResponse:
-      type: object
-      additionalProperties: false
-      required: [items]
-      properties:
-        items:
-          type: array
-          items:
-            $ref: '#/components/schemas/TaskSummary'
-
-    TaskDetailResponse:
-      type: object
-      additionalProperties: false
-      required: [task]
-      properties:
-        task:
-          $ref: '#/components/schemas/TaskSummary'
 
     TaskAcceptedResponse:
       type: object

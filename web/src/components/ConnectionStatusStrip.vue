@@ -10,7 +10,7 @@ import type { ConnectionStatus } from '@/types/api'
 const socketStore = useSocketStore()
 const { snapshots } = storeToRefs(socketStore)
 
-const managementChannels = ['events', 'tasks', 'logs'] as const
+const managementChannels = ['events', 'logs'] as const
 
 function formatLastErrorAt(value: string | undefined) {
   if (!value) return ''

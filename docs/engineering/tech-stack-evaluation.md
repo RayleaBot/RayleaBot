@@ -38,7 +38,7 @@
 
 ### 计划 A：契约驱动类型生成 ✅
 
-`openapi-typescript` 7.8.0 从 `contracts/web-api.openapi.yaml` 生成 `web/src/types/generated.ts`，覆盖当前 66 个操作的请求 / 响应定义。7 个领域类型文件（common, tasks, plugins, system, logs, config, events）从 `generated.ts` re-export。
+`openapi-typescript` 7.8.0 从 `contracts/web-api.openapi.yaml` 生成 `web/src/types/generated.ts`，覆盖当前管理操作的请求 / 响应定义。领域类型文件（common, tasks, plugins, system, logs, config, events）从 `generated.ts` re-export；tasks 只保留异步提交响应 `TaskAcceptedResponse`。
 
 lint CI 的 `web-core` job 包含生成文件一致性检查（`pnpm generate:types && git diff --exit-code`）。
 

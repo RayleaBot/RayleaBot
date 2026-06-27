@@ -94,16 +94,6 @@ codes:
     retryable: true
     applies_to: [http, websocket, task]
 
-  platform.task_not_cancellable:
-    code: platform.task_not_cancellable
-    domain: platform
-    message_key: errors.platform.task_not_cancellable
-    message: 当前任务不可取消
-    description: The task has already entered an irreversible stage and can no longer be cancelled.
-    http_status: 409
-    retryable: false
-    applies_to: [http, websocket, task]
-
   platform.install_script_blocked:
     code: platform.install_script_blocked
     domain: platform

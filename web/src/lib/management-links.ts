@@ -10,7 +10,6 @@ import type {
   EventsPayload,
   LogSummary,
   OneBot11ProtocolSnapshotResponse,
-  TaskSummary,
 } from '@/types/api'
 import { normalizeFilterValues, type LogScope, type LogFilters } from '@/stores/log-state'
 
@@ -36,8 +35,6 @@ interface ParsedLogWorkspaceState {
   startAt: string
   endAt: string
 }
-
-type ContextFieldSource = Record<string, unknown> | null | undefined
 
 function normalizeQueryValue(value: LocationQueryValue | LocationQueryValue[] | undefined) {
   if (Array.isArray(value)) {
@@ -102,19 +99,6 @@ function serializeQueryForCompare(query: LocationQuery | LocationQueryRaw) {
   }
 
   return params.toString()
-}
-
-function isPlainObject(value: unknown): value is Record<string, unknown> {
-  return Boolean(value) && typeof value === 'object' && !Array.isArray(value)
-}
-
-function readContextString(source: ContextFieldSource, key: string) {
-  if (!isPlainObject(source)) {
-    return undefined
-  }
-
-  const value = source[key]
-  return typeof value === 'string' && value.trim().length > 0 ? value.trim() : undefined
 }
 
 function pushAction(actions: ManagementContextAction[], action: ManagementContextAction | null) {
@@ -244,15 +228,6 @@ export function buildPluginDetailLocation(pluginId: string, options: { panel?: P
   } satisfies RouteLocationRaw
 }
 
-export function buildTaskLocation(taskId?: string | null) {
-  return {
-    name: 'tasks',
-    query: createLocationQuery([
-      ['task_id', normalizeString(taskId ?? undefined)],
-    ]),
-  } satisfies RouteLocationRaw
-}
-
 export function buildProtocolsLocation() {
   return { name: 'protocols' } satisfies RouteLocationRaw
 }
@@ -359,46 +334,6 @@ export function buildLogContextActions(summary: Pick<LogSummary, 'plugin_id' | '
 
   if (summary.request_id) {
     pushAction(actions, buildRequestLogsAction(summary.request_id, scope))
-  }
-
-  return actions
-}
-
-export function buildTaskContextActions(task: TaskSummary) {
-  const actions: ManagementContextAction[] = []
-  const resultDetails = isPlainObject(task.result?.details) ? task.result?.details : null
-  const errorDetails = isPlainObject(task.error?.details) ? task.error?.details : null
-  const pluginId = readContextString(resultDetails, 'plugin_id') ?? readContextString(errorDetails, 'plugin_id')
-  const requestId = readContextString(resultDetails, 'request_id') ?? readContextString(errorDetails, 'request_id')
-  const protocol = readContextString(resultDetails, 'protocol') ?? readContextString(errorDetails, 'protocol')
-
-  if (pluginId) {
-    pushAction(actions, {
-      key: `plugin:${pluginId}`,
-      label: t('tasks.actions.openPlugin'),
-      to: buildPluginDetailLocation(pluginId),
-    })
-  }
-
-  if (protocol === 'onebot11') {
-    pushAction(actions, {
-      key: 'protocol:onebot11',
-      label: t('tasks.actions.openProtocol'),
-      to: buildProtocolsLocation(),
-    })
-  }
-
-  if (requestId) {
-    pushAction(actions, {
-      key: `request-history:${requestId}`,
-      label: t('tasks.actions.openRequestHistory'),
-      to: buildLogsLocation({
-        history: true,
-        filters: {
-          requestId,
-        },
-      }),
-    })
   }
 
   return actions

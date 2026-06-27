@@ -174,18 +174,6 @@ export const adminRoutes: RouteRecordRaw[] = [
             },
           },
           {
-            path: '/tasks',
-            name: 'tasks',
-            component: () => import('@/views/operations/TasksView.vue'),
-            meta: {
-              icon: 'tasks',
-              keepAlive: true,
-              requiresAuth: true,
-              titleKey: 'routes.tasks',
-              viewKey: 'tasks',
-            },
-          },
-          {
             path: '/scheduler',
             name: 'scheduler',
             component: () => import('@/views/operations/SchedulerJobsView.vue'),

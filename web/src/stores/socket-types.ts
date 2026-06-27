@@ -6,11 +6,10 @@ import type {
   OneBot11ProtocolSnapshotResponse,
   PluginCommandSummary,
   PluginConsoleFrameData,
-  TaskSummary,
   WebSocketFrame,
 } from '@/types/api'
 
-export type SocketChannelKey = 'events' | 'tasks' | 'logs' | 'pluginConsole'
+export type SocketChannelKey = 'events' | 'logs' | 'pluginConsole'
 
 export interface SocketSnapshot {
   status: ConnectionStatus
@@ -44,9 +43,6 @@ export interface SocketFrameRouterDependencies {
     appendOutboundLog: (log: LogSummary) => void
     appendConsole: (frame: PluginConsoleFrameData) => void
   }
-  tasks: {
-    upsert: (task: TaskSummary) => void
-  }
   schedulerJobs: {
     scheduleDataSourceRefresh: () => void
   }
@@ -64,7 +60,6 @@ export interface SocketFrameRouterDependencies {
 export interface SocketFrameRouter {
   clearPendingStatusRefresh: () => void
   handleEventsFrame: (frame: WebSocketFrame<EventsPayload>) => void
-  handleTasksFrame: (frame: WebSocketFrame<TaskSummary>) => void
   handleLogsFrame: (frame: WebSocketFrame<LogSummary>) => void
   handleConsoleFrame: (frame: WebSocketFrame<PluginConsoleFrameData>) => void
 }

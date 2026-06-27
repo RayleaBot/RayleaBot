@@ -45,9 +45,11 @@ func (r *Registry) Create(taskType string, summary string) (string, error) {
 	r.order = append(r.order, taskID)
 	r.broadcastLocked(snapshot)
 	repo := r.repo
+	logs := r.logs
 	r.mu.Unlock()
 
 	r.persistAsync(repo, snapshot)
+	appendTaskLog(logs, snapshot, taskLogEventCreated)
 
 	return taskID, nil
 }
@@ -61,6 +63,7 @@ func (r *Registry) Update(taskID string, update Update) (Snapshot, bool) {
 		return Snapshot{}, false
 	}
 
+	previousStatus := snapshot.Status
 	if update.Status != nil {
 		snapshot.Status = *update.Status
 	}
@@ -89,9 +92,13 @@ func (r *Registry) Update(taskID string, update Update) (Snapshot, bool) {
 	r.broadcastLocked(snapshot)
 	cloned := cloneSnapshot(snapshot)
 	repo := r.repo
+	logs := r.logs
 	r.mu.Unlock()
 
 	r.persistAsync(repo, snapshot)
+	if update.Status != nil && snapshot.Status != previousStatus {
+		appendTaskLog(logs, cloned, taskLogEventStatusChanged)
+	}
 
 	return cloned, true
 }

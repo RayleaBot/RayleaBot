@@ -12,6 +12,12 @@ func (r *Registry) SetRepository(repo Repository) {
 	r.repo = repo
 }
 
+func (r *Registry) SetLogSink(logs LogSink) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.logs = logs
+}
+
 func (r *Registry) Hydrate(ctx context.Context) error {
 	r.mu.Lock()
 	repo := r.repo

@@ -4,7 +4,6 @@ import { ManagedSocket, type SocketStatusDetail } from '@/lib/ws'
 import type {
   EventsPayload,
   LogSummary,
-  TaskSummary,
 } from '@/types/api'
 import type {
   SocketChannelKey,
@@ -17,7 +16,6 @@ import type { PluginConsoleFrameData } from '@/types/api'
 export function createSocketController(options: SocketControllerOptions): SocketController {
   const snapshots = reactive<SocketSnapshotMap>({
     events: { status: 'disconnected' },
-    tasks: { status: 'disconnected' },
     logs: { status: 'disconnected' },
     pluginConsole: { status: 'disconnected' },
   })
@@ -31,14 +29,6 @@ export function createSocketController(options: SocketControllerOptions): Socket
     runtime: options.runtime,
     onStatusChange: createSnapshotUpdater(snapshots, 'events'),
     onFrame: options.router.handleEventsFrame,
-  })
-
-  const tasksSocket = new ManagedSocket<TaskSummary>({
-    name: 'tasks',
-    path: () => '/ws/tasks',
-    runtime: options.runtime,
-    onStatusChange: createSnapshotUpdater(snapshots, 'tasks'),
-    onFrame: options.router.handleTasksFrame,
   })
 
   const logsSocket = new ManagedSocket<LogSummary>({
@@ -59,7 +49,6 @@ export function createSocketController(options: SocketControllerOptions): Socket
 
   function refreshManagementSockets() {
     eventsSocket.refresh()
-    tasksSocket.refresh()
     logsSocket.refresh()
   }
 
@@ -71,14 +60,12 @@ export function createSocketController(options: SocketControllerOptions): Socket
 
     managementSocketsStarted = true
     eventsSocket.start()
-    tasksSocket.start()
     logsSocket.start()
   }
 
   function disconnectAll() {
     options.router.clearPendingStatusRefresh()
     eventsSocket.stop()
-    tasksSocket.stop()
     logsSocket.stop()
     consoleSocket.stop()
     managementSocketsStarted = false

@@ -50,14 +50,13 @@
   - 下载文件名解析
 - WebSocket 继续使用受控连接模型，覆盖：
   - `events`
-  - `tasks`
   - `logs`
   - `pluginConsole`
 - Dashboard 在事件连接正常时使用事件驱动刷新状态；手动刷新和断线回退继续使用 HTTP。
 
 ## 工作区与 keep-alive 规则
 
-- `commands`、`tasks`、`logs`、`logs-history` 和 `render-templates` 使用稳定 `viewKey`，在 query 变化时复用同一个工作区实例和同一个页签。
+- `commands`、`logs`、`logs-history` 和 `render-templates` 使用稳定 `viewKey`，在 query 变化时复用同一个工作区实例和同一个页签。
 - `plugin-detail` 保持按插件 ID 独立详情页签。
 - 工作区 query 只表达当前筛选、选中项和详情抽屉状态，不制造重复页签和历史噪音。
 - 模板预览页使用 `/render/templates/:templateId?` 单页工作区，模板切换使用同一页面实例。
@@ -68,7 +67,6 @@
 - 系统状态
 - 插件与插件详情
 - 指令中心
-- 任务
 - 实时日志与历史日志
 - 协议中心与兼容矩阵
 - 配置
@@ -76,9 +74,8 @@
 
 ## 页面联动基线
 
-- 仪表盘、协议中心、日志中心、任务、插件详情、指令中心和模板预览之间通过稳定字段跳转。
-- 日志详情使用 `plugin_id`、`protocol`、`request_id` 生成上下文入口。
-- 任务详情使用 `plugin_id`、`protocol`、`request_id`、`template` 生成上下文入口。
+- 仪表盘、协议中心、日志中心、插件详情、指令中心和模板预览之间通过稳定字段跳转。
+- 日志详情使用 `plugin_id`、`protocol`、`request_id` 生成上下文入口；任务更新以 `source=tasks` 日志进入同一日志工作区。
 - 协议中心提供兼容矩阵入口，并可进入日志中心的实时日志页，自动带上 `protocol=onebot11` 筛选。
 - 插件详情提供当前插件的指令中心和历史日志入口。
 

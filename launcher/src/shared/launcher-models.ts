@@ -14,7 +14,6 @@ export type RecoveryCompatibilityAuditItem = components["schemas"]["RecoveryComp
 export type RecoveryCompatibilityIssue = components["schemas"]["RecoveryCompatibilityIssue"];
 export type RecoveryCompatibilitySkippedPlugin = components["schemas"]["RecoveryCompatibilitySkippedPlugin"];
 export type RecoveryCompatibilitySummary = components["schemas"]["RecoveryCompatibilitySummary"];
-export type TaskSummary = components["schemas"]["TaskSummary"];
 
 export type CheckSeverity = LauncherDiagnosticIssue["severity"];
 export type EnvironmentCheckScope = "preflight" | "advisory";

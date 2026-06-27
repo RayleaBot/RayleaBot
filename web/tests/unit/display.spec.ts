@@ -6,8 +6,6 @@ import {
   getLogLevelLabel,
   getPluginStateLabel,
   getSystemStatusLabel,
-  getTaskStatusLabel,
-  getTaskTypeLabel,
 } from '@/lib/display'
 import { formatDurationSeconds } from '@/lib/format'
 
@@ -18,9 +16,7 @@ describe('display helpers', () => {
     expect(getConnectionStatusLabel('reconnecting')).toBe('重连中')
   })
 
-  it('renders chinese labels for task, plugin, log, and system states', () => {
-    expect(getTaskTypeLabel('runtime.bootstrap')).toBe('准备运行环境')
-    expect(getTaskStatusLabel('succeeded')).toBe('已完成')
+  it('renders chinese labels for plugin, log, and system states', () => {
     expect(getPluginStateLabel('running')).toBe('运行中')
     expect(getPluginStateLabel('invalid')).toBe('清单异常')
     expect(getLogLevelLabel('warn')).toBe('warn')

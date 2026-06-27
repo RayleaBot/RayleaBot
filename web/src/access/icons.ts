@@ -12,7 +12,6 @@ import {
   FileSearchOutlined,
   HddOutlined,
   LoginOutlined,
-  ProfileOutlined,
   SafetyCertificateOutlined,
   SettingOutlined,
   StopOutlined,
@@ -40,7 +39,6 @@ const iconMap: Record<string, Component> = {
   setting: SettingOutlined,
   system: HddOutlined,
   'third-party-accounts': LinkOutlined,
-  tasks: ProfileOutlined,
   toolbox: ToolOutlined,
 }
 

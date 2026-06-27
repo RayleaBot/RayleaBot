@@ -10,13 +10,11 @@ import { useProtocolsStore } from '@/stores/protocols'
 import { useSessionStore } from '@/stores/session'
 import { useSchedulerJobsStore } from '@/stores/scheduler-jobs'
 import { useSystemStore } from '@/stores/system'
-import { useTasksStore } from '@/stores/tasks'
 
 export const useSocketStore = defineStore('sockets', () => {
   const sessionStore = useSessionStore()
   const pluginsStore = usePluginsStore()
   const pluginConsoleStore = usePluginConsoleStore()
-  const tasksStore = useTasksStore()
   const schedulerJobsStore = useSchedulerJobsStore()
   const logsStore = useLogsStore()
   const governanceStore = useGovernanceStore()
@@ -34,9 +32,6 @@ export const useSocketStore = defineStore('sockets', () => {
     pluginConsole: {
       appendOutboundLog: pluginConsoleStore.appendOutboundLog,
       appendConsole: pluginConsoleStore.appendConsole,
-    },
-    tasks: {
-      upsert: tasksStore.upsert,
     },
     schedulerJobs: {
       scheduleDataSourceRefresh: schedulerJobsStore.scheduleDataSourceRefresh,

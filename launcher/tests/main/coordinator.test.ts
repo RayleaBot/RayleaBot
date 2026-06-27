@@ -561,9 +561,9 @@ describe("launcher coordinator", () => {
 
     await coordinator.initialize();
     const detailBeforeOpen = presentationState(coordinator.snapshot).detail;
-    await coordinator.openWebUi("/tasks?task_id=task_fixture_0001");
+    await coordinator.openWebUi("/logs?source=tasks");
 
-    expect(externalOpener.openedUris.at(-1)).toContain("/tasks?task_id=task_fixture_0001");
+    expect(externalOpener.openedUris.at(-1)).toContain("/logs?source=tasks");
     expect(externalOpener.openedUris.at(-1)).not.toContain("token=");
     expect(presentationState(coordinator.snapshot).detail).toBe(detailBeforeOpen);
 

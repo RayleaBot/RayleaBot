@@ -53,9 +53,9 @@ describe("launcher desktop actions", () => {
   test("openWebUi opens plain management urls without launcher tokens", async () => {
     const { desktopActions, externalOpener } = await createDesktopActionsHarness();
 
-    await desktopActions.openWebUi("/tasks?task_id=task_fixture_0001");
+    await desktopActions.openWebUi("/logs?source=tasks");
 
-    expect(externalOpener.openedUris.at(-1)).toContain("/tasks?task_id=task_fixture_0001");
+    expect(externalOpener.openedUris.at(-1)).toContain("/logs?source=tasks");
     expect(externalOpener.openedUris.at(-1)).not.toContain("token=");
 
     await desktopActions.openWebUi();
@@ -69,10 +69,10 @@ describe("launcher desktop actions", () => {
     process.env.RAYLEA_WEB_UI_BASE_URL = "http://127.0.0.1:4173/";
     const { desktopActions, externalOpener } = await createDesktopActionsHarness();
 
-    await desktopActions.openWebUi("/tasks?task_id=task_fixture_0001");
+    await desktopActions.openWebUi("/logs?source=tasks");
 
     expect(externalOpener.openedUris.at(-1)).toBe(
-      "http://127.0.0.1:4173/tasks?task_id=task_fixture_0001",
+      "http://127.0.0.1:4173/logs?source=tasks",
     );
   });
 

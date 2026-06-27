@@ -105,30 +105,6 @@ func TestPluginInstallRouteExecutesTaskAndRefreshesCatalog(t *testing.T) {
 		t.Fatalf("expected task result summary, got %#v", taskSnapshot.Result)
 	}
 
-	taskRequest, err := http.NewRequest(http.MethodGet, server.URL+"/api/tasks/"+taskID, nil)
-	if err != nil {
-		t.Fatalf("create task detail request: %v", err)
-	}
-	taskRequest.Header.Set("Authorization", "Bearer "+token)
-
-	taskResponse, err := server.Client().Do(taskRequest)
-	if err != nil {
-		t.Fatalf("perform task detail request: %v", err)
-	}
-	defer taskResponse.Body.Close()
-	if taskResponse.StatusCode != http.StatusOK {
-		t.Fatalf("unexpected task detail status: got %d want 200", taskResponse.StatusCode)
-	}
-
-	taskBody := decodeBody(t, readAll(t, taskResponse))
-	task := taskBody["task"].(map[string]any)
-	if task["task_id"] != taskID {
-		t.Fatalf("unexpected task detail id: got %#v want %q", task["task_id"], taskID)
-	}
-	if task["status"] != string(tasks.StatusSucceeded) {
-		t.Fatalf("unexpected task detail status: got %#v want %q", task["status"], tasks.StatusSucceeded)
-	}
-
 	pluginRequest, err := http.NewRequest(http.MethodGet, server.URL+"/api/plugins/weather-install", nil)
 	if err != nil {
 		t.Fatalf("create plugin detail request: %v", err)

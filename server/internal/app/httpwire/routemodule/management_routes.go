@@ -18,7 +18,6 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/management/renderapi"
 	managementrouter "github.com/RayleaBot/RayleaBot/server/internal/management/router"
 	"github.com/RayleaBot/RayleaBot/server/internal/management/systemapi"
-	"github.com/RayleaBot/RayleaBot/server/internal/management/taskapi"
 	"github.com/RayleaBot/RayleaBot/server/internal/management/thirdpartyapi"
 	managementws "github.com/RayleaBot/RayleaBot/server/internal/management/ws"
 )
@@ -26,7 +25,6 @@ import (
 type Handlers struct {
 	Auth       *authapi.Handlers
 	Management *coreapi.Handlers
-	Tasks      *taskapi.Handlers
 	EventsWS   *managementws.EventsHandler
 }
 
@@ -59,11 +57,6 @@ func buildManagementRoutes(deps Deps, configService configapi.Service, pluginMan
 		RequestShutdown: deps.RequestShutdown,
 	})
 	governanceHandler := governanceapi.NewModule(governanceapi.ModuleDeps{Service: services.Governance})
-	taskHandler := taskapi.NewModule(taskapi.ModuleDeps{
-		Tasks:           platformState.Tasks,
-		TaskExecutor:    platformState.TaskExecutor,
-		PluginInstaller: pluginState.PluginInstaller,
-	})
 	logHandler := logapi.NewModule(logapi.ModuleDeps{Logs: services.Logs})
 	renderHandler := renderapi.NewModule(renderapi.ModuleDeps{Renderer: deps.Renderer})
 	systemModule := systemapi.NewModule(systemapi.ModuleDeps{
@@ -78,7 +71,6 @@ func buildManagementRoutes(deps Deps, configService configapi.Service, pluginMan
 		QRLogin:          services.ThirdPartyQRLogin,
 	})
 	eventsWS := managementws.NewEventsHandler(eventState.Bridge, pluginState.Plugins, services.Protocol, deps.ServiceBuild.Status, services.GovernanceEvents)
-	tasksWS := managementws.NewTasksHandler(platformState.Tasks)
 	logsWS := managementws.NewLogsHandler(services.Logs)
 	consoleWS := managementws.NewConsoleHandler(platformState.Console, pluginState.Plugins)
 	configHandler := configapi.NewModule(configapi.ModuleDeps{Config: configService})
@@ -94,7 +86,6 @@ func buildManagementRoutes(deps Deps, configService configapi.Service, pluginMan
 	handlers := Handlers{
 		Auth:       authHandler,
 		Management: managementHandler,
-		Tasks:      taskHandler,
 		EventsWS:   eventsWS,
 	}
 
@@ -122,11 +113,9 @@ func buildManagementRoutes(deps Deps, configService configapi.Service, pluginMan
 				systemModule,
 				renderHandler,
 				thirdPartyHandler,
-				taskHandler,
 				pluginManagementUI,
 				managementrouter.ProtectedRouteFunc(func(r chi.Router) {
 					r.Get("/ws/events", eventsWS.HandleEventsWebSocket())
-					r.Get("/ws/tasks", tasksWS.HandleTasksWebSocket())
 					r.Get("/ws/logs", logsWS.HandleLogsWebSocket())
 					r.Get("/ws/plugins/{id}/console", consoleWS.HandlePluginConsoleWebSocket())
 				}),

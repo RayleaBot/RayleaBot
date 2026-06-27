@@ -123,12 +123,11 @@ OneBot11 上报帧
 
 | 频道 | 路径 | 事件 |
 | --- | --- | --- |
-| `tasks` | `/ws/tasks` | `tasks.updated` |
 | `logs` | `/ws/logs` | `logs.appended` |
 | `events` | `/ws/events` | `events.received` |
 | `plugin_console` | `/ws/plugins/{id}/console` | `plugins.console` |
 
-管理面 WebSocket 使用统一 envelope（`channel` / `type` / `timestamp` / `data`），承载任务更新、日志追加、平台观测事件和插件 console。`/ws/events` 的 `events.received` 复用同一个事件名，通过 payload 分支表达不同观测语义：
+管理面 WebSocket 使用统一 envelope（`channel` / `type` / `timestamp` / `data`），承载日志追加、平台观测事件和插件 console；异步任务更新通过 `logs.appended` 的 `source=tasks` 日志呈现。`/ws/events` 的 `events.received` 复用同一个事件名，通过 payload 分支表达不同观测语义：
 
 - `service_status`：服务总体状态变化摘要
 - `plugin_id` + `state` + `commands` + `command_conflicts` + 可选 `state_diagnosis`：插件生命周期状态投影

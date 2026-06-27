@@ -551,7 +551,7 @@ type Registrar interface {
 - [x] `GET /api/plugins/{plugin_id}`
 - [x] `GET /api/render/templates`
 - [x] `GET /api/system/status`
-- [x] `GET /api/tasks`
+- [x] `GET /api/logs?source=tasks`
 - [x] `GET /api/logs`
 
 #### 第三步：补高风险 write request test
@@ -564,7 +564,7 @@ type Registrar interface {
 - [ ] `POST /api/plugins/{plugin_id}/start`
 - [ ] `POST /api/plugins/{plugin_id}/stop`
 - [x] `POST /api/render/templates/{id}/preview`
-- [ ] `POST /api/tasks/{id}/cancel`
+- [ ] 异步任务终态写入 `source=tasks` 日志
 
 #### 第四步：验证 strict decode 与 OpenAPI 一致
 
@@ -994,7 +994,7 @@ management API DTO 大量手写。当前已经出现三方账号 proxy 字段漂
 P1-07 验证：
 
 - `cd server && go test ./tests/integration -run "Test(ActualManagementResponsesMatchOpenAPI|WebAPIRequestFixturesMatchOpenAPI|OpenAPIFixtureRegistryCoversOperations)$"` 通过。
-- 真实 response 合同覆盖新增 `GET /api/config`、`GET /api/plugins`、`GET /api/plugins/{plugin_id}`、`GET /api/system/render/templates`、`GET /api/system/render/templates/{template_id}`、`POST /api/system/render/templates/{template_id}/preview-html`、`GET /api/tasks`、`GET /api/logs`。
+- 真实 response 合同覆盖新增 `GET /api/config`、`GET /api/plugins`、`GET /api/plugins/{plugin_id}`、`GET /api/system/render/templates`、`GET /api/system/render/templates/{template_id}`、`POST /api/system/render/templates/{template_id}/preview-html`、`GET /api/logs?source=tasks`、`GET /api/logs`。
 - `TestOpenAPIFixtureRegistryCoversOperations` 要求每个 OpenAPI operation 都在 `x-fixtures` 中登记至少一个 fixture；本轮补登记 `ok.third-party-user-resolve.yaml`。
 - 修正 OpenAPI 校验根因：测试校验器把 `./config.user.schema.json` 解析到 `contracts/`；`RenderTemplateDetail` 与 `PluginDetail` 不再使用 `allOf + additionalProperties: false` 组合，避免真实字段被误判为额外字段。
 
