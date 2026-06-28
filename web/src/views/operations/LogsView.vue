@@ -2,7 +2,7 @@
 import { DownOutlined } from '@ant-design/icons-vue'
 import { computed, nextTick, onActivated, onDeactivated, onMounted, onUnmounted, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
-import { useRoute, useRouter } from 'vue-router'
+import { onBeforeRouteLeave, useRoute, useRouter } from 'vue-router'
 
 import ManagementLogDetailDrawer from '@/components/logs/ManagementLogDetailDrawer.vue'
 import RetryPanel from '@/components/RetryPanel.vue'
@@ -21,17 +21,20 @@ import { t } from '@/i18n'
 import { normalizeFilterValues } from '@/stores/log-state'
 import { useLogsStore } from '@/stores/logs'
 import { usePluginsStore } from '@/stores/plugins'
+import { useUiShellStore } from '@/stores/ui-shell'
 import type { LogFilters } from '@/stores/log-state'
 import type { LogLevel, LogSummary, PluginSummary } from '@/types/api'
 import { useLogDetailController } from '@/views/operations/useLogDetailController'
 import { useReadyToRenderHeavyContent } from '@/layouts/usePageTransitionStage'
 
 const LOG_ROW_ESTIMATED_HEIGHT = 80
+const LOG_BOTTOM_THRESHOLD = 24
 
 const route = useRoute()
 const router = useRouter()
 const logsStore = useLogsStore()
 const pluginsStore = usePluginsStore()
+const uiShellStore = useUiShellStore()
 const detailController = useLogDetailController()
 const {
   currentDetail,
@@ -43,11 +46,12 @@ const {
 } = detailController
 const logsLayoutRef = ref<HTMLElement | null>(null)
 const viewportRef = ref<{
+  isAtBottom: () => boolean
   scrollToBottom: () => void
 } | null>(null)
 const routeSyncing = ref(false)
+const restoringLatest = ref(false)
 let activatePageTask: Promise<void> | null = null
-let followOnNextActivation: boolean | null = null
 
 const {
   atBottom,
@@ -94,8 +98,14 @@ const pluginOptions = computed(() => {
   return options
 })
 
-const followBottom = computed(() => atBottom.value)
 const readyToRenderHeavyContent = useReadyToRenderHeavyContent()
+const followBottom = computed(() => atBottom.value)
+const showJumpToLatest = computed(() => (
+  readyToRenderHeavyContent.value
+  && initialized.value
+  && !restoringLatest.value
+  && !atBottom.value
+))
 
 useToastFeedback(pageErrorToast)
 
@@ -167,6 +177,67 @@ async function replaceRouteState(nextLogId: string | null = selectedLogId.value)
   }
 }
 
+function waitForAnimationFrame() {
+  if (typeof window === 'undefined' || typeof window.requestAnimationFrame !== 'function') {
+    return Promise.resolve()
+  }
+
+  return new Promise<void>((resolve) => {
+    window.requestAnimationFrame(() => resolve())
+  })
+}
+
+async function scrollRealtimeLogsToLatest() {
+  restoringLatest.value = true
+  logsStore.setViewportAtBottom(true)
+  logsStore.acknowledgePendingNew()
+
+  try {
+    await whenReadyToRenderHeavyContent()
+    await nextTick()
+    viewportRef.value?.scrollToBottom()
+    await waitForAnimationFrame()
+    viewportRef.value?.scrollToBottom()
+
+    if (viewportRef.value?.isAtBottom() ?? true) {
+      logsStore.setViewportAtBottom(true)
+    }
+  } finally {
+    restoringLatest.value = false
+  }
+}
+
+function syncLogsTabWithoutSelectedDetail() {
+  const routeState = readLogWorkspaceState(route.query)
+  const target = router.resolve(buildLogsLocation({
+    filters: routeState.filters,
+    logId: null,
+  }))
+  const tab = uiShellStore.tabs.find((item) => item.path === route.path)
+  if (!tab || tab.fullPath === target.fullPath) {
+    return
+  }
+
+  uiShellStore.upsertTab({
+    ...tab,
+    fullPath: target.fullPath,
+  })
+}
+
+function deactivateRealtimeLogsPage(options: { syncTabDetail?: boolean } = {}) {
+  logsStore.setViewportActive(false)
+  logsStore.setViewportAtBottom(true)
+  logsStore.acknowledgePendingNew()
+
+  if (detailOpen.value || selectedSummary.value) {
+    detailController.closeDetail()
+  }
+
+  if (options.syncTabDetail) {
+    syncLogsTabWithoutSelectedDetail()
+  }
+}
+
 async function syncFromRoute() {
   if (route.name !== 'logs') {
     return
@@ -183,6 +254,10 @@ async function syncFromRoute() {
     await logsStore.applyFilters()
   } else {
     await logsStore.ensureLoaded()
+  }
+
+  if (route.name !== 'logs') {
+    return
   }
 
   if (routeState.logId) {
@@ -205,18 +280,13 @@ async function activatePage() {
 
   activatePageTask = (async () => {
     logsStore.setViewportActive(true)
-    if (followOnNextActivation === true) {
-      logsStore.setViewportAtBottom(true)
-    }
-    followOnNextActivation = null
+    logsStore.setViewportAtBottom(true)
     try {
       await syncFromRoute()
-      await whenReadyToRenderHeavyContent()
-      await nextTick()
-      if (followBottom.value) {
-        logsStore.acknowledgePendingNew()
-        viewportRef.value?.scrollToBottom()
+      if (route.name !== 'logs') {
+        return
       }
+      await scrollRealtimeLogsToLatest()
     } catch {
       // store error drives the page
     }
@@ -234,9 +304,7 @@ async function applyFilters() {
     logsStore.setViewportAtBottom(true)
     await logsStore.applyFilters()
     await replaceRouteState(null)
-    await whenReadyToRenderHeavyContent()
-    await nextTick()
-    viewportRef.value?.scrollToBottom()
+    await scrollRealtimeLogsToLatest()
   } catch {
     // store error drives the page
   }
@@ -255,14 +323,14 @@ async function loadOlder() {
 }
 
 async function jumpToLatest() {
-  logsStore.acknowledgePendingNew()
-  logsStore.setViewportAtBottom(true)
-  await whenReadyToRenderHeavyContent()
-  await nextTick()
-  viewportRef.value?.scrollToBottom()
+  await scrollRealtimeLogsToLatest()
 }
 
 function onViewportBottomChange(value: boolean) {
+  if (restoringLatest.value && !value) {
+    return
+  }
+
   logsStore.setViewportAtBottom(value)
 }
 
@@ -302,13 +370,16 @@ onActivated(() => {
   void activatePage()
 })
 
+onBeforeRouteLeave(() => {
+  deactivateRealtimeLogsPage({ syncTabDetail: true })
+})
+
 onDeactivated(() => {
-  followOnNextActivation = atBottom.value
-  logsStore.setViewportActive(false)
+  deactivateRealtimeLogsPage({ syncTabDetail: true })
 })
 
 onUnmounted(() => {
-  logsStore.setViewportActive(false)
+  deactivateRealtimeLogsPage()
 })
 </script>
 
@@ -402,7 +473,7 @@ onUnmounted(() => {
             :dynamic-item-height="true"
             :overscan="6"
             :follow-bottom="followBottom"
-            :bottom-threshold="0"
+            :bottom-threshold="LOG_BOTTOM_THRESHOLD"
             :empty-label="t('display.empty')"
             :get-item-key="(item) => item.log_id"
             @reach-top="loadOlder"
@@ -438,7 +509,7 @@ onUnmounted(() => {
             </template>
           </VirtualDataViewport>
 
-          <div v-if="!atBottom" class="logs-jump-latest">
+          <div v-if="showJumpToLatest" class="logs-jump-latest">
             <a-badge :count="pendingNewCount || undefined" :offset="[-2, 4]">
               <a-tooltip
                 :title="pendingNewCount > 0 ? t('logs.current.pendingNew', { count: pendingNewCount }) : t('logs.current.jumpToLatest')"

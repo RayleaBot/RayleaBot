@@ -1,12 +1,14 @@
 import Antd from 'ant-design-vue'
+import { nextTick } from 'vue'
 import { createPinia, setActivePinia } from 'pinia'
 import { flushPromises, mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { createMemoryHistory, createRouter } from 'vue-router'
+import { createMemoryHistory, createRouter, type Router } from 'vue-router'
 
 import VirtualDataViewport from '@/components/VirtualDataViewport.vue'
 import { useLogsStore } from '@/stores/logs'
 import { usePluginsStore } from '@/stores/plugins'
+import { useUiShellStore } from '@/stores/ui-shell'
 import LogsPage from '@/views/operations/LogsView.vue'
 
 function jsonResponse(body: unknown, status = 200) {
@@ -35,10 +37,23 @@ function mockRect(element: Element, width: number, height: number, left = 0, top
   })
 }
 
+function mountRoutedView(router: Router) {
+  return mount({ template: '<RouterView />' }, {
+    attachTo: document.body,
+    global: {
+      plugins: [Antd, router],
+    },
+  })
+}
+
 describe('LogsPage', () => {
   beforeEach(() => {
     document.body.innerHTML = ''
     setActivePinia(createPinia())
+    vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => {
+      callback(0)
+      return 0
+    })
     const pluginsStore = usePluginsStore()
     pluginsStore.items = [
       {
@@ -104,12 +119,7 @@ describe('LogsPage', () => {
     vi.spyOn(store, 'applyFilters').mockResolvedValue(store.items)
     vi.spyOn(store, 'ensureLoaded').mockResolvedValue(store.items)
 
-    const wrapper = mount(LogsPage, {
-      attachTo: document.body,
-      global: {
-        plugins: [Antd, router],
-      },
-    })
+    const wrapper = mountRoutedView(router)
 
     await flushPromises()
     mockRect(wrapper.get('.logs-layout').element, 1600, 960)
@@ -118,7 +128,7 @@ describe('LogsPage', () => {
     expect(wrapper.text()).toContain('跟随最新')
     expect(wrapper.findComponent(VirtualDataViewport).props('dynamicItemHeight')).toBe(true)
     expect(wrapper.findComponent(VirtualDataViewport).props('itemHeight')).toBe(80)
-    expect(wrapper.findComponent(VirtualDataViewport).props('bottomThreshold')).toBe(0)
+    expect(wrapper.findComponent(VirtualDataViewport).props('bottomThreshold')).toBe(24)
     expect(wrapper.findAll('.logs-row')).toHaveLength(1)
     expect(store.filters.levels).toEqual(['warn', 'error'])
     expect(store.filters.pluginIds).toEqual(['raylea.echo', 'weather'])
@@ -140,7 +150,7 @@ describe('LogsPage', () => {
     expect(wrapper.text()).toContain('相关实时日志')
   })
 
-  it('shows pending live rows away from the bottom and jumps back to latest', async () => {
+  it('starts at latest and only shows the jump button after the user leaves the bottom', async () => {
     const store = useLogsStore()
     store.items = [
       {
@@ -151,24 +161,28 @@ describe('LogsPage', () => {
         message: 'runtime ready',
       },
     ]
+    store.initialized = true
     store.pendingNewCount = 2
     store.atBottom = false
 
     vi.spyOn(store, 'ensureLoaded').mockResolvedValue(store.items)
-    const acknowledgeSpy = vi.spyOn(store, 'acknowledgePendingNew')
-    const bottomSpy = vi.spyOn(store, 'setViewportAtBottom')
     const router = createTestRouter()
     await router.push('/logs')
     await router.isReady()
 
-    const wrapper = mount(LogsPage, {
-      attachTo: document.body,
-      global: {
-        plugins: [Antd, router],
-      },
-    })
+    const wrapper = mountRoutedView(router)
 
     await flushPromises()
+
+    expect(store.atBottom).toBe(true)
+    expect(store.pendingNewCount).toBe(0)
+    expect(wrapper.find('.logs-jump-latest').exists()).toBe(false)
+
+    const acknowledgeSpy = vi.spyOn(store, 'acknowledgePendingNew')
+    const bottomSpy = vi.spyOn(store, 'setViewportAtBottom')
+    store.setViewportAtBottom(false)
+    store.pendingNewCount = 2
+    await nextTick()
 
     expect(wrapper.find('.logs-jump-latest').exists()).toBe(true)
     expect(wrapper.find('.logs-jump-latest').text()).toContain('2')
@@ -179,6 +193,105 @@ describe('LogsPage', () => {
     expect(bottomSpy).toHaveBeenCalledWith(true)
     expect(store.pendingNewCount).toBe(0)
     expect(store.atBottom).toBe(true)
+  })
+
+  it('closes the current log detail and resets live state when leaving the realtime page', async () => {
+    const router = createTestRouter()
+    await router.push('/logs')
+    await router.isReady()
+
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({
+      log_id: 'log_info_0001',
+      timestamp: '2026-04-02T00:53:16Z',
+      level: 'info',
+      source: 'runtime',
+      message: 'runtime ready',
+    }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    const store = useLogsStore()
+    store.items = [
+      {
+        log_id: 'log_info_0001',
+        timestamp: '2026-04-02T00:53:16Z',
+        level: 'info',
+        source: 'runtime',
+        message: 'runtime ready',
+      },
+    ]
+    vi.spyOn(store, 'ensureLoaded').mockResolvedValue(store.items)
+
+    const uiShellStore = useUiShellStore()
+    uiShellStore.upsertTab({
+      fullPath: '/logs?log_id=log_info_0001',
+      keepAlive: true,
+      name: 'logs',
+      path: '/logs',
+      title: '实时日志',
+    })
+
+    const wrapper = mountRoutedView(router)
+
+    await flushPromises()
+    mockRect(wrapper.get('.logs-layout').element, 1600, 960)
+    await wrapper.get('.logs-row').trigger('click')
+    await flushPromises()
+
+    expect(router.currentRoute.value.query.log_id).toBe('log_info_0001')
+    expect(wrapper.find('.log-detail-window').exists()).toBe(true)
+
+    store.setViewportAtBottom(false)
+    store.pendingNewCount = 1
+    await router.push('/protocols')
+    await flushPromises()
+
+    expect(router.currentRoute.value.name).toBe('protocols')
+    expect(wrapper.find('.log-detail-window').exists()).toBe(false)
+    expect(store.active).toBe(false)
+    expect(store.atBottom).toBe(true)
+    expect(store.pendingNewCount).toBe(0)
+    expect(uiShellStore.tabs.find((item) => item.path === '/logs')?.fullPath).toBe('/logs')
+  })
+
+  it('does not open a stale detail after realtime log loading finishes on another page', async () => {
+    const router = createTestRouter()
+    await router.push('/logs?log_id=log_info_0001')
+    await router.isReady()
+
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({
+      log_id: 'log_info_0001',
+      timestamp: '2026-04-02T00:53:16Z',
+      level: 'info',
+      source: 'runtime',
+      message: 'runtime ready',
+    }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    const store = useLogsStore()
+    store.items = [
+      {
+        log_id: 'log_info_0001',
+        timestamp: '2026-04-02T00:53:16Z',
+        level: 'info',
+        source: 'runtime',
+        message: 'runtime ready',
+      },
+    ]
+    let resolveLoad!: (items: typeof store.items) => void
+    vi.spyOn(store, 'ensureLoaded').mockImplementation(() => new Promise((resolve) => {
+      resolveLoad = resolve
+    }))
+
+    const wrapper = mountRoutedView(router)
+    await nextTick()
+
+    await router.push('/protocols')
+    resolveLoad(store.items)
+    await flushPromises()
+
+    expect(router.currentRoute.value.name).toBe('protocols')
+    expect(fetchMock).not.toHaveBeenCalled()
+    expect(wrapper.find('.log-detail-window').exists()).toBe(false)
   })
 
   it('loads older rows from the top and marks the viewport inactive on unmount', async () => {
@@ -201,12 +314,7 @@ describe('LogsPage', () => {
     await router.push('/logs')
     await router.isReady()
 
-    const wrapper = mount(LogsPage, {
-      attachTo: document.body,
-      global: {
-        plugins: [Antd, router],
-      },
-    })
+    const wrapper = mountRoutedView(router)
 
     await flushPromises()
     loadOlderSpy.mockClear()
@@ -232,12 +340,7 @@ describe('LogsPage', () => {
     const store = useLogsStore()
     vi.spyOn(store, 'ensureLoaded').mockResolvedValue(store.items)
 
-    mount(LogsPage, {
-      attachTo: document.body,
-      global: {
-        plugins: [Antd, router],
-      },
-    })
+    mountRoutedView(router)
 
     await flushPromises()
     expect(fetchListSpy).not.toHaveBeenCalled()
