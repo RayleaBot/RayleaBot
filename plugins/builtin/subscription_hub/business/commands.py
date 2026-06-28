@@ -37,6 +37,7 @@ from .subscriptions import (
     subscription_id_for,
     user_label,
 )
+from .thirdparty_accounts import read_bilibili_cookie
 
 
 SUBSCRIBE_BILIBILI_USAGE = platform_subscribe_usage("bilibili")
@@ -106,11 +107,14 @@ def search_bilibili_users(ctx):
     query = parse_bilibili_search_query(ctx.args)
     if not query:
         return {"ok": False, "count": 0, "message": BILIBILI_SEARCH_UP_USAGE}
-    headers = build_cookie_headers("", None)
+    cookie, cookie_error = read_bilibili_cookie(ctx)
+    if not cookie:
+        return {"ok": False, "count": 0, "message": cookie_error}
+    headers = build_cookie_headers(cookie, None)
     response = None
     try:
         response = ctx.http_request("GET", user_search_url(query), headers=headers, timeout_seconds=12)
-        failure = bilibili_response_failure(response, "Bilibili UP 搜索失败")
+        failure = bilibili_response_failure(response, "Bilibili UP 搜索失败", friendly_risk_control=True)
         if failure:
             return {"ok": False, "count": 0, "message": failure}
         document = parse_json_response(response)
@@ -283,19 +287,22 @@ def resolve_bilibili_user(settings, ctx, query):
     text = str(query or "").strip()
     if not text:
         return {"ok": False, "message": "请填写 Bilibili UID 或昵称。"}
-    headers = build_cookie_headers("", text if text.isdigit() else None)
+    cookie, cookie_error = read_bilibili_cookie(ctx)
+    if not cookie:
+        return {"ok": False, "message": cookie_error}
+    headers = build_cookie_headers(cookie, text if text.isdigit() else None)
     timeout_seconds = 12
     try:
         if text.isdigit():
             response = ctx.http_request("GET", user_info_url(text), headers=headers, timeout_seconds=timeout_seconds)
-            failure = bilibili_response_failure(response, "Bilibili 用户信息读取失败")
+            failure = bilibili_response_failure(response, "Bilibili 用户信息读取失败", friendly_risk_control=True)
             if failure:
                 return {"ok": False, "message": failure}
             document = parse_json_response(response)
             result = normalize_user_info(document)
         else:
             response = ctx.http_request("GET", user_search_url(text), headers=headers, timeout_seconds=timeout_seconds)
-            failure = bilibili_response_failure(response, "Bilibili 用户信息读取失败")
+            failure = bilibili_response_failure(response, "Bilibili 用户信息读取失败", friendly_risk_control=True)
             if failure:
                 return {"ok": False, "message": failure}
             document = parse_json_response(response)

@@ -413,11 +413,12 @@ class SubscriptionHubTests(unittest.TestCase):
         self.assertEqual(parse_bilibili_command_args(["123456"])["services"], ["all"])
         self.assertTrue(parse_bilibili_command_args(["未知", "123456"])["error"])
 
-    def test_subscribe_command_saves_subscription_without_cookie_read(self):
+    def test_subscribe_command_reads_ck_and_sends_cookie(self):
         settings = merge_settings({}, {"subscriptions": []})
         ctx = FakeContext(
             args=["直播", "123456"],
             target_name="测试群",
+            thirdparty_accounts=self.bilibili_cookie_accounts(),
             http_responses=[self.user_info_response()],
         )
 
@@ -427,8 +428,35 @@ class SubscriptionHubTests(unittest.TestCase):
         self.assertIn("已订阅", result["message"])
         self.assertEqual(settings["subscriptions"][0]["services"], ["live"])
         self.assertEqual(settings["subscriptions"][0]["target_name"], "测试群")
-        self.assertEqual(ctx.http_requests[0]["headers"].get("Cookie"), None)
-        self.assertEqual(ctx.thirdparty_reads, [])
+        self.assertEqual(ctx.thirdparty_reads[0]["platform"], "bilibili")
+        self.assertIn("SESSDATA=fixture", ctx.http_requests[0]["headers"].get("Cookie", ""))
+
+    def test_subscribe_command_reads_ck_for_name_search(self):
+        settings = merge_settings({}, {"subscriptions": []})
+        ctx = FakeContext(
+            args=["测试 UP"],
+            target_name="测试群",
+            thirdparty_accounts=self.bilibili_cookie_accounts(),
+            http_responses=[self.user_search_response()],
+        )
+
+        result = add_bilibili_subscription(settings, ctx)
+
+        self.assertTrue(result["ok"])
+        self.assertEqual(ctx.http_requests[0]["url"], user_search_url("测试 UP"))
+        self.assertEqual(ctx.thirdparty_reads[0]["platform"], "bilibili")
+        self.assertIn("SESSDATA=fixture", ctx.http_requests[0]["headers"].get("Cookie", ""))
+
+    def test_subscribe_command_requires_bilibili_ck(self):
+        settings = merge_settings({}, {"subscriptions": []})
+        ctx = FakeContext(args=["直播", "123456"])
+
+        result = add_bilibili_subscription(settings, ctx)
+
+        self.assertFalse(result["ok"])
+        self.assertIn("没有可用的 Bilibili 账号 CK", result["message"])
+        self.assertEqual(ctx.http_requests, [])
+        self.assertEqual(ctx.thirdparty_reads[0]["platform"], "bilibili")
 
     def test_subscribe_command_validates_usage(self):
         settings = merge_settings({}, {})
@@ -546,6 +574,7 @@ class SubscriptionHubTests(unittest.TestCase):
         plugin = SubscriptionHubPlugin()
         ctx = FakeContext(
             args=["测试 UP"],
+            thirdparty_accounts=self.bilibili_cookie_accounts(),
             http_responses=[self.user_search_response(results=[
                 {"mid": "1000001", "uname": "测试 UP", "fans": 1280000, "upic": "//i0.hdslb.com/test-up.jpg"},
                 {"mid": "123456", "uname": "测试 UP官方粉丝团", "fans": 2048},
@@ -555,6 +584,8 @@ class SubscriptionHubTests(unittest.TestCase):
         plugin.handle_bilibili_user_search(ctx)
 
         self.assertEqual(ctx.http_requests[0]["url"], user_search_url("测试 UP"))
+        self.assertEqual(ctx.thirdparty_reads[0]["platform"], "bilibili")
+        self.assertIn("SESSDATA=fixture", ctx.http_requests[0]["headers"].get("Cookie", ""))
         self.assertEqual(ctx.results[-1], {"handled": True, "count": 2})
         self.assertIn("Bilibili UP 搜索结果：测试 UP", ctx.texts[0])
         self.assertIn("1. 测试 UP（UID 1000001）｜粉丝 128万", ctx.texts[0])
@@ -573,6 +604,7 @@ class SubscriptionHubTests(unittest.TestCase):
         plugin = SubscriptionHubPlugin()
         ctx = FakeContext(
             args=["test-user"],
+            thirdparty_accounts=self.bilibili_cookie_accounts(),
             http_responses=[self.user_search_response(results=[])],
         )
 
@@ -580,6 +612,35 @@ class SubscriptionHubTests(unittest.TestCase):
 
         self.assertEqual(ctx.texts, ["没有搜索到 Bilibili 用户：test-user"])
         self.assertNotIn("HTTP 200", ctx.texts[0])
+        self.assertNotIn('"code"', ctx.texts[0])
+        self.assertEqual(ctx.results[-1], {"handled": True, "count": 0})
+
+    def test_bilibili_user_search_requires_bilibili_ck(self):
+        plugin = SubscriptionHubPlugin()
+        ctx = FakeContext(args=["测试 UP"])
+
+        plugin.handle_bilibili_user_search(ctx)
+
+        self.assertIn("没有可用的 Bilibili 账号 CK", ctx.texts[0])
+        self.assertEqual(ctx.http_requests, [])
+        self.assertEqual(ctx.thirdparty_reads[0]["platform"], "bilibili")
+        self.assertEqual(ctx.results[-1], {"handled": True, "count": 0})
+
+    def test_bilibili_user_search_reports_risk_control(self):
+        plugin = SubscriptionHubPlugin()
+        ctx = FakeContext(
+            args=["测试 UP"],
+            thirdparty_accounts=self.bilibili_cookie_accounts(),
+            http_responses=[{
+                "status_code": 412,
+                "body_text": '{"code":-412,"message":"request was banned"}',
+            }],
+        )
+
+        plugin.handle_bilibili_user_search(ctx)
+
+        self.assertIn("Bilibili 请求被风控拦截，请稍后再试或重新扫码更新 CK", ctx.texts[0])
+        self.assertNotIn("HTTP 412", ctx.texts[0])
         self.assertNotIn('"code"', ctx.texts[0])
         self.assertEqual(ctx.results[-1], {"handled": True, "count": 0})
 
@@ -859,10 +920,11 @@ class SubscriptionHubTests(unittest.TestCase):
         self.assertIn("未识别到可预览的动态内容", ctx.texts[-1])
         self.assertNotIn("响应格式不正确", ctx.texts[-1])
 
-    def test_subscribe_user_lookup_reports_bilibili_code_and_body(self):
+    def test_subscribe_user_lookup_reports_bilibili_risk_control(self):
         settings = merge_settings({}, {"subscriptions": []})
         ctx = FakeContext(
             args=["123456"],
+            thirdparty_accounts=self.bilibili_cookie_accounts(),
             http_responses=[{
                 "status_code": 200,
                 "body_text": json.dumps({"code": -352, "message": "风控校验失败", "data": None}, ensure_ascii=False),
@@ -872,9 +934,27 @@ class SubscriptionHubTests(unittest.TestCase):
         result = add_bilibili_subscription(settings, ctx)
 
         self.assertFalse(result["ok"])
-        self.assertIn("Bilibili code -352", result["message"])
-        self.assertIn("HTTP 200", result["message"])
-        self.assertIn('"code": -352', result["message"])
+        self.assertIn("Bilibili 请求被风控拦截，请稍后再试或重新扫码更新 CK", result["message"])
+        self.assertNotIn("Bilibili code -352", result["message"])
+        self.assertNotIn("HTTP 200", result["message"])
+        self.assertNotIn('"code"', result["message"])
+
+    def test_subscribe_command_handler_reports_risk_control_as_handled(self):
+        plugin = SubscriptionHubPlugin()
+        ctx = FakeContext(
+            args=["123456"],
+            thirdparty_accounts=self.bilibili_cookie_accounts(),
+            http_responses=[{
+                "status_code": 412,
+                "body_text": '{"code":-412,"message":"request was banned"}',
+            }],
+        )
+
+        plugin.handle_subscribe_bilibili(ctx)
+
+        self.assertIn("Bilibili 请求被风控拦截，请稍后再试或重新扫码更新 CK", ctx.texts[-1])
+        self.assertEqual(ctx.results[-1], {"handled": True})
+        self.assertEqual(ctx.config_writes, [])
 
     def test_dynamic_updates_extract_video(self):
         updates = dynamic_updates({"data": {"items": [self.video_item("987", "新视频", pub_ts=1700000000)]}})

@@ -7,7 +7,7 @@ from rayleabot.protocol import ActionError
 
 from business.events import subscription_matches_event
 from business.http_utils import bilibili_response_failure, is_http_capability_error
-from business.platforms import platform_name
+from business.thirdparty_accounts import read_thirdparty_cookie as read_thirdparty_cookie_value
 from features.rendering import build_fallback_text, build_render_data
 from platforms.bilibili import (
     DYNAMIC_URL,
@@ -27,11 +27,6 @@ def storage_value(result, fallback=None):
         if "value" in result:
             return result.get("value")
     return fallback
-
-
-def account_label(platform):
-    label = platform_name(platform)
-    return f"{label} 账号" if label and all(ord(char) < 128 for char in label) else f"{label}账号"
 
 
 def response_document(response):
@@ -93,20 +88,7 @@ class SubscriptionCheckFeature:
         return result
 
     def read_thirdparty_cookie(self, ctx, platform):
-        label = account_label(platform)
-        try:
-            response = ctx.thirdparty_account_read(platform)
-        except ActionError as exc:
-            return "", f"{label}读取失败：{str(exc) or getattr(exc, 'code', '')}".strip()
-        except Exception:
-            return "", f"{label}读取失败。"
-        accounts = response.get("accounts") if isinstance(response, dict) else []
-        for account in accounts if isinstance(accounts, list) else []:
-            cookie = account.get("cookie") if isinstance(account, dict) else {}
-            value = str(cookie.get("value") or "").strip() if isinstance(cookie, dict) else ""
-            if value:
-                return value, ""
-        return "", f"没有可用的 {label} CK，请在 Web 三方账号页面保存账号。"
+        return read_thirdparty_cookie_value(ctx, platform)
 
     def fetch_bilibili_updates(self, ctx, uid, cookie):
         headers = build_cookie_headers(cookie, uid)
@@ -114,7 +96,7 @@ class SubscriptionCheckFeature:
         errors = []
         try:
             response = ctx.http_request("GET", DYNAMIC_URL.format(uid=uid), headers=headers, timeout_seconds=30)
-            failure = bilibili_response_failure(response, "Bilibili 动态检查失败")
+            failure = bilibili_response_failure(response, "Bilibili 动态检查失败", friendly_risk_control=True)
             if failure:
                 errors.append(failure)
             else:
@@ -131,7 +113,7 @@ class SubscriptionCheckFeature:
 
         try:
             response = ctx.http_request("GET", LIVE_URL.format(uid=uid), headers=headers, timeout_seconds=30)
-            failure = bilibili_response_failure(response, "Bilibili 直播检查失败")
+            failure = bilibili_response_failure(response, "Bilibili 直播检查失败", friendly_risk_control=True)
             if failure:
                 errors.append(failure)
             else:

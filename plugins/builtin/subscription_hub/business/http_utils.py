@@ -3,6 +3,9 @@ import base64
 from platforms.bilibili import bilibili_document_error, parse_json_response
 
 
+BILIBILI_RISK_CONTROL_MESSAGE = "Bilibili 请求被风控拦截，请稍后再试或重新扫码更新 CK。"
+
+
 def preview_response_document(response, label):
     failure_label = f"Bilibili {label}预览失败"
     response_failure = bilibili_response_failure(response, failure_label)
@@ -18,13 +21,27 @@ def preview_response_document(response, label):
     return document
 
 
-def bilibili_response_failure(response, label):
+def bilibili_response_failure(response, label, friendly_risk_control=False):
     status_code = response.get("status_code") if isinstance(response, dict) else None
+    if friendly_risk_control and status_code == 412:
+        return f"{label}：{BILIBILI_RISK_CONTROL_MESSAGE}"
     if not isinstance(status_code, int) or status_code < 200 or status_code >= 300:
         return f"{label}：{response_details_text(response)}"
-    if not parse_json_response(response):
+    document = parse_json_response(response)
+    if not document:
         return f"{label}：Bilibili 返回内容不是 JSON。{response_details_text(response)}"
+    if friendly_risk_control and is_bilibili_risk_control_document(document):
+        return f"{label}：{BILIBILI_RISK_CONTROL_MESSAGE}"
     return None
+
+
+def is_bilibili_risk_control_document(document):
+    if not isinstance(document, dict):
+        return False
+    code = document.get("code")
+    if isinstance(code, str):
+        code = code.strip()
+    return code in (-412, "-412", -352, "-352")
 
 
 def response_details_text(response):

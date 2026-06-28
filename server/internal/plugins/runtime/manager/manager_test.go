@@ -359,7 +359,12 @@ func TestBuildEventFrameIncludesMetaOneBotPayload(t *testing.T) {
 func TestManagerDeliverEventReturnsPluginError(t *testing.T) {
 	t.Parallel()
 
-	manager := testManager()
+	crashCh := make(chan struct{}, 1)
+	manager := testManagerWithOptions(Options{
+		OnCrash: func(string, int, string) {
+			crashCh <- struct{}{}
+		},
+	})
 	spec := helperSpec(t, "event-error", "")
 
 	if err := manager.Start(context.Background(), spec, testInitPayload()); err != nil {
@@ -371,6 +376,7 @@ func TestManagerDeliverEventReturnsPluginError(t *testing.T) {
 	if delivery.ErrorCode != codePluginNotHandled {
 		t.Fatalf("unexpected delivery error code: got %q want %q", delivery.ErrorCode, codePluginNotHandled)
 	}
+	assertRuntimeRunningWithoutCrash(t, manager, crashCh)
 
 	if err := manager.Stop(context.Background()); err != nil {
 		t.Fatalf("stop runtime: %v", err)
@@ -586,7 +592,11 @@ func TestManagerDeliverEventProcessesLocalActionsBeforeTerminalResult(t *testing
 func TestManagerDeliverEventWritesLocalActionErrorAndContinues(t *testing.T) {
 	t.Parallel()
 
+	crashCh := make(chan struct{}, 1)
 	manager := testManagerWithOptions(Options{
+		OnCrash: func(string, int, string) {
+			crashCh <- struct{}{}
+		},
 		ExecuteLocalAction: func(_ context.Context, _ string, _ string, action runtimeaction.Action, _ runtimeprotocol.Event) (map[string]any, error) {
 			if action.Kind != "logger.write" {
 				t.Fatalf("unexpected local action: %#v", action)
@@ -607,9 +617,27 @@ func TestManagerDeliverEventWritesLocalActionErrorAndContinues(t *testing.T) {
 	if got, _ := delivery.Result["local_error_code"].(string); got != "plugin.capability_violation" {
 		t.Fatalf("local_error_code = %q, want %q", got, "plugin.capability_violation")
 	}
+	assertRuntimeRunningWithoutCrash(t, manager, crashCh)
 
 	if err := manager.Stop(context.Background()); err != nil {
 		t.Fatalf("stop runtime: %v", err)
+	}
+}
+
+func assertRuntimeRunningWithoutCrash(t *testing.T, manager *Manager, crashCh <-chan struct{}) {
+	t.Helper()
+
+	snapshot := manager.Snapshot()
+	if snapshot.State != StateRunning {
+		t.Fatalf("runtime state after event error: got %q want %q", snapshot.State, StateRunning)
+	}
+	if snapshot.CrashCount != 0 {
+		t.Fatalf("runtime crash count after event error: got %d want 0", snapshot.CrashCount)
+	}
+	select {
+	case <-crashCh:
+		t.Fatal("event error triggered crash callback")
+	default:
 	}
 }
 
