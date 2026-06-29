@@ -83,11 +83,17 @@ func taskLogDetails(snapshot Snapshot, event taskLogEvent) map[string]any {
 	}
 	if snapshot.Result != nil {
 		details["result_summary"] = snapshot.Result.Summary
+		if len(snapshot.Result.Details) > 0 {
+			details["result_details"] = snapshot.Result.Details
+		}
 		mergeTaskContext(details, snapshot.Result.Details)
 	}
 	if snapshot.Error != nil {
 		details["error_code"] = snapshot.Error.Code
 		details["error_message"] = snapshot.Error.Message
+		if len(snapshot.Error.Details) > 0 {
+			details["error_details"] = snapshot.Error.Details
+		}
 		mergeTaskContext(details, snapshot.Error.Details)
 	}
 	return details

@@ -78,14 +78,6 @@ STRICT_OPENAPI_PATHS = {
     "/api/third-party/accounts/{platform}/login/qrcode",
     "/api/third-party/accounts/{platform}/login/qrcode/{login_id}",
     "/api/third-party/accounts/{platform}/{account_id}",
-    "/api/third-party/users/resolve",
-    "/api/third-party/media",
-    "/api/third-party/monitors",
-    "/api/bilibili/login/qrcode",
-    "/api/bilibili/login/qrcode/{login_id}",
-    "/api/bilibili/users/resolve",
-    "/api/bilibili/source/status",
-    "/api/bilibili/source/restart",
     "/api/governance/blacklist",
     "/api/governance/blacklist/entries",
     "/api/governance/blacklist/entries/{entry_type}/{target_id}",
@@ -98,6 +90,7 @@ STRICT_OPENAPI_PATHS = {
     "/api/system/shutdown",
     "/api/system/backup",
     "/api/system/metrics",
+    "/api/system/diagnostics",
     "/api/system/recovery/recheck",
     "/api/system/recovery/confirm",
     "/api/system/render/templates",
@@ -116,9 +109,6 @@ STRICT_OPENAPI_PATHS = {
     "/api/protocols/onebot11/reverse-ws",
     "/api/protocols/onebot11/targets",
     "/api/protocols/onebot11/webhook",
-    "/api/tasks",
-    "/api/tasks/{task_id}",
-    "/api/tasks/{task_id}/cancel",
     "/api/plugins",
     "/api/plugins/install",
     "/api/plugins/{plugin_id}",
@@ -126,6 +116,7 @@ STRICT_OPENAPI_PATHS = {
     "/api/plugins/{plugin_id}/disable",
     "/api/plugins/{plugin_id}/recover",
     "/api/plugins/{plugin_id}/reload",
+    "/api/plugins/{plugin_id}/management/actions",
     "/api/plugins/{plugin_id}/settings",
     "/api/plugins/{plugin_id}/secrets",
     "/api/webhooks/{plugin_id}/{route}",
@@ -242,7 +233,7 @@ def validate_openapi_basic(web_api: dict[str, Any]) -> None:
         fail("web-api paths must not be empty")
     components = require_object(web_api.get("components"), "web-api components")
     require_object(components.get("schemas"), "web-api components.schemas")
-    for path in ["/healthz", "/readyz", "/api/session/login", "/api/tasks"]:
+    for path in ["/healthz", "/readyz", "/api/session/login", "/api/logs"]:
         if path not in paths:
             fail(f"web-api missing required entry path: {path}")
 
@@ -477,7 +468,7 @@ def validate_strict_websocket(events: dict[str, Any]) -> None:
         for event in channel.get("events", [])
         if isinstance(event, dict)
     }
-    expected = {"tasks.updated", "logs.appended", "events.received", "plugins.console"}
+    expected = {"logs.appended", "events.received", "plugins.console"}
     if event_names != expected:
         fail(f"websocket event names drift: expected={sorted(expected)} actual={sorted(event_names)}")
 

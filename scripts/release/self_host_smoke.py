@@ -122,6 +122,40 @@ def extract_task_details(task_body: dict[str, object], expected_task_type: str) 
     return details
 
 
+def task_body_from_log_detail(log_detail: dict[str, object], expected_task_id: str, expected_task_type: str) -> dict[str, object] | None:
+    details = log_detail.get("details")
+    if not isinstance(details, dict):
+        return None
+    if details.get("task_id") != expected_task_id:
+        return None
+    if str(details.get("task_type", "")) != expected_task_type:
+        raise SmokeError(f"unexpected task type for {expected_task_type}: {details}")
+
+    task: dict[str, object] = {
+        "task_id": expected_task_id,
+        "task_type": expected_task_type,
+        "status": str(details.get("task_status", "")),
+        "summary": str(details.get("task_summary", "")),
+    }
+    progress = details.get("task_progress")
+    if isinstance(progress, int):
+        task["progress"] = progress
+    if isinstance(details.get("result_summary"), str):
+        result_details = details.get("result_details")
+        task["result"] = {
+            "summary": details["result_summary"],
+            "details": result_details if isinstance(result_details, dict) else {},
+        }
+    if isinstance(details.get("error_code"), str):
+        error_details = details.get("error_details")
+        task["error"] = {
+            "code": details["error_code"],
+            "message": str(details.get("error_message", "")),
+            "details": error_details if isinstance(error_details, dict) else {},
+        }
+    return {"task": task}
+
+
 def extract_runtime_bootstrap_results(task_body: dict[str, object]) -> list[dict[str, object]]:
     details = extract_task_details(task_body, "runtime.bootstrap")
     resources = details.get("resources")
@@ -660,28 +694,34 @@ def poll_task(
     timeout_seconds: int = 120,
 ) -> dict[str, object]:
     deadline = time.time() + timeout_seconds
-    seen_in_list = False
+    seen_task = False
     while time.time() < deadline:
-        tasks_list = request_json(f"{base_url}api/tasks?limit=50", headers=bearer_headers(session_token))
-        items = tasks_list.get("items")
+        logs_list = request_json(
+            f"{base_url}api/logs?scope=current_session&source=tasks&limit=50",
+            headers=bearer_headers(session_token),
+        )
+        items = logs_list.get("items")
         if isinstance(items, list):
-            seen_in_list = seen_in_list or any(isinstance(item, dict) and item.get("task_id") == task_id for item in items)
-
-        task_detail = request_json(f"{base_url}api/tasks/{task_id}", headers=bearer_headers(session_token))
-        task = task_detail.get("task")
-        if not isinstance(task, dict):
-            raise SmokeError(f"task detail missing task payload: {task_detail}")
-        if str(task.get("task_type", "")) != expected_task_type:
-            raise SmokeError(f"unexpected task type for {expected_task_type}: {task}")
-        status = str(task.get("status", ""))
-        if status == "succeeded":
-            if not seen_in_list:
-                raise SmokeError(f"task {task_id} never appeared in /api/tasks")
-            return task_detail
-        if status in {"failed", "cancelled", "interrupted"}:
-            raise SmokeError(f"task {task_id} ended in blocking state: {task_detail}")
+            for item in items:
+                if not isinstance(item, dict):
+                    continue
+                log_id = item.get("log_id")
+                if not isinstance(log_id, str) or not log_id:
+                    continue
+                log_detail = request_json(f"{base_url}api/logs/{log_id}", headers=bearer_headers(session_token))
+                task_detail = task_body_from_log_detail(log_detail, task_id, expected_task_type)
+                if task_detail is None:
+                    continue
+                seen_task = True
+                task = task_detail["task"]
+                status = str(task.get("status", "")) if isinstance(task, dict) else ""
+                if status == "succeeded":
+                    return task_detail
+                if status in {"failed", "cancelled", "interrupted"}:
+                    raise SmokeError(f"task {task_id} ended in blocking state: {task_detail}")
         time.sleep(1)
-    raise SmokeError(f"timed out waiting for task {task_id}")
+    suffix = " after task log appeared" if seen_task else " without task log"
+    raise SmokeError(f"timed out waiting for task {task_id}{suffix}")
 
 
 def poll_backup_task(base_url: str, session_token: str, task_id: str, *, timeout_seconds: int = 120) -> dict[str, object]:

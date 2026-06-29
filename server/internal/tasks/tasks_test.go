@@ -236,6 +236,42 @@ func TestUpdateWritesTaskLogForTerminalStatus(t *testing.T) {
 	if last.Details["error_code"] != "plugin.internal_error" {
 		t.Fatalf("terminal task log error_code = %#v", last.Details["error_code"])
 	}
+	errorDetails, ok := last.Details["error_details"].(map[string]any)
+	if !ok || errorDetails["plugin_id"] != "weather" {
+		t.Fatalf("terminal task log error_details = %#v", last.Details["error_details"])
+	}
+}
+
+func TestUpdateWritesTaskLogResultDetails(t *testing.T) {
+	registry := NewRegistry()
+	logs := logging.NewStream(8)
+	registry.SetLogSink(logs)
+
+	taskID, err := registry.Create("backup.create", "create backup")
+	if err != nil {
+		t.Fatalf("Create returned unexpected error: %v", err)
+	}
+
+	status := StatusSucceeded
+	if _, ok := registry.Update(taskID, Update{
+		Status:  &status,
+		Summary: strPtrForTest("备份完成"),
+		Result: &ResultSummary{
+			Summary: "备份文件已创建",
+			Details: map[string]any{
+				"archive_path": "backups/rayleabot.zip",
+			},
+		},
+	}); !ok {
+		t.Fatalf("Update(%q) returned ok=false", taskID)
+	}
+
+	summaries := logs.Snapshot()
+	last := summaries[len(summaries)-1]
+	resultDetails, ok := last.Details["result_details"].(map[string]any)
+	if !ok || resultDetails["archive_path"] != "backups/rayleabot.zip" {
+		t.Fatalf("terminal task log result_details = %#v", last.Details["result_details"])
+	}
 }
 
 func strPtrForTest(value string) *string {
