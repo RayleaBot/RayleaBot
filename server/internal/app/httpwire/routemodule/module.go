@@ -18,21 +18,20 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/logpath"
 	managementrouter "github.com/RayleaBot/RayleaBot/server/internal/management/router"
 	"github.com/RayleaBot/RayleaBot/server/internal/metrics"
-	localaction "github.com/RayleaBot/RayleaBot/server/internal/plugins/actions"
+	"github.com/RayleaBot/RayleaBot/server/internal/plugins/actions/actionwiring"
 	pluginui "github.com/RayleaBot/RayleaBot/server/internal/plugins/managementui"
 	renderservice "github.com/RayleaBot/RayleaBot/server/internal/render/service"
 )
 
 type Deps struct {
-	Runtime               configmodule.RuntimeState
-	Platform              appplatform.State
-	Plugins               pluginstack.State
-	Events                eventstack.State
-	Renderer              *renderservice.Service
-	ServiceBuild          servicegraph.BuildResult
-	Metrics               *metrics.Registry
-	BilibiliHTTPTransport http.RoundTripper
-	RequestShutdown       func()
+	Runtime         configmodule.RuntimeState
+	Platform        appplatform.State
+	Plugins         pluginstack.State
+	Events          eventstack.State
+	Renderer        *renderservice.Service
+	ServiceBuild    servicegraph.BuildResult
+	Metrics         *metrics.Registry
+	RequestShutdown func()
 }
 
 type State struct {
@@ -72,12 +71,12 @@ func Build(deps Deps) State {
 		PluginConfig: pluginState.PluginConfig,
 		Secrets:      platformState.Secrets,
 		NotifyConfigChange: func(ctx context.Context, pluginID string) {
-			dispatch := localaction.ConfigChangedDispatcher(eventState.Dispatcher)
+			dispatch := actionwiring.ConfigChangedDispatcher(eventState.Dispatcher)
 			if dispatch != nil {
 				dispatch(ctx, pluginID)
 			}
 		},
-		RefreshCommands: localaction.RefreshCommands(pluginState.Plugins, eventState.Dispatcher),
+		RefreshCommands: actionwiring.RefreshCommands(pluginState.Plugins, eventState.Dispatcher),
 		ActionInvoker:   services.PluginLifecycle,
 	})
 

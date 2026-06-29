@@ -48,14 +48,6 @@ func (s diagnosticsTestSystem) SubmitRuntimeBootstrapTask([]string) (string, err
 	return "", nil
 }
 
-func (s diagnosticsTestSystem) SchedulerPluginName(pluginID string) string {
-	return pluginID
-}
-
-func (s diagnosticsTestSystem) SchedulerTimezone() string {
-	return "UTC"
-}
-
 func TestSystemDiagnosticsHTTP(t *testing.T) {
 	t.Parallel()
 

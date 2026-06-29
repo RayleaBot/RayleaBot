@@ -14,7 +14,6 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/health"
 	"github.com/RayleaBot/RayleaBot/server/internal/logging"
 	"github.com/RayleaBot/RayleaBot/server/internal/recovery"
-	"github.com/RayleaBot/RayleaBot/server/internal/runtimepaths"
 	"github.com/RayleaBot/RayleaBot/server/internal/system/model"
 	"github.com/RayleaBot/RayleaBot/server/internal/system/startup"
 	"github.com/RayleaBot/RayleaBot/server/internal/tasks"
@@ -228,7 +227,7 @@ func (s *Service) diagnosticsFilesystem(summary config.Summary) []model.Diagnost
 		pathPermission("repo_root", s.repoRootPath()),
 		pathPermission("config", summary.ConfigPath),
 	}
-	if databasePath, err := runtimepaths.ResolveDatabasePath(summary.ConfigPath, s.config().Database.Path); err == nil {
+	if databasePath, err := s.databasePath(summary.ConfigPath, s.config().Database.Path); err == nil {
 		paths = append(paths, pathPermission("database", databasePath))
 		paths = append(paths, pathPermission("logs", filepath.Dir(logging.SpoolPathForDatabase(databasePath))))
 	}

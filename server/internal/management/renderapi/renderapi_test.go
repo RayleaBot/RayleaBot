@@ -81,6 +81,24 @@ func TestRenderTemplateHandlersExposePreviewWorkspaceOnly(t *testing.T) {
 	}
 }
 
+func TestRenderTemplateDetailUsesSingleSnapshotRead(t *testing.T) {
+	t.Parallel()
+
+	renderer := &snapshotRenderService{}
+	handlers := NewHandlers(renderer)
+	router := chi.NewRouter()
+	router.Get("/api/system/render/templates/{template_id}", handlers.HandleSystemRenderTemplateDetail())
+
+	recorder := httptest.NewRecorder()
+	router.ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, "/api/system/render/templates/help.menu", nil))
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("detail status = %d, want 200 (%s)", recorder.Code, recorder.Body.String())
+	}
+	if renderer.detailReads != 1 {
+		t.Fatalf("detail snapshot reads = %d, want 1", renderer.detailReads)
+	}
+}
+
 func TestRenderTemplateHandlersRejectUnknownTemplate(t *testing.T) {
 	t.Parallel()
 
@@ -276,4 +294,43 @@ func (f renderHTTPFixture) request(method, target string, body any) *httptest.Re
 	recorder := httptest.NewRecorder()
 	f.router.ServeHTTP(recorder, request)
 	return recorder
+}
+
+type snapshotRenderService struct {
+	detailReads int
+}
+
+func (s *snapshotRenderService) PreviewHTML(context.Context, renderservice.Request) (renderservice.PreviewHTML, error) {
+	return renderservice.PreviewHTML{}, nil
+}
+
+func (s *snapshotRenderService) LookupTemplateAsset(context.Context, string, string) (renderservice.TemplateAsset, error) {
+	return renderservice.TemplateAsset{}, nil
+}
+
+func (s *snapshotRenderService) ListTemplates(context.Context) ([]renderservice.TemplateSummary, error) {
+	return nil, nil
+}
+
+func (s *snapshotRenderService) GetTemplateDetailSnapshot(context.Context, string) (renderservice.TemplateDetailSnapshot, error) {
+	s.detailReads++
+	return renderservice.TemplateDetailSnapshot{
+		Detail: renderservice.TemplateDetail{
+			TemplateSummary: renderservice.TemplateSummary{
+				ID:             "help.menu",
+				Version:        "1.0.0",
+				Width:          960,
+				Height:         640,
+				HasInputSchema: true,
+				UpdatedAt:      "2026-06-29T00:00:00Z",
+				Source: renderservice.TemplateSourceInfo{
+					Type: "system",
+				},
+			},
+		},
+		Source: renderservice.TemplateSource{
+			InputSchemaJSON: map[string]any{"type": "object"},
+		},
+		PreviewData: map[string]any{"title": "preview"},
+	}, nil
 }

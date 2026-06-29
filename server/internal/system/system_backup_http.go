@@ -10,7 +10,6 @@ import (
 
 	"github.com/RayleaBot/RayleaBot/server/internal/logging"
 	"github.com/RayleaBot/RayleaBot/server/internal/recovery"
-	"github.com/RayleaBot/RayleaBot/server/internal/runtimepaths"
 	"github.com/RayleaBot/RayleaBot/server/internal/storage"
 	"github.com/RayleaBot/RayleaBot/server/internal/tasks"
 )
@@ -62,7 +61,7 @@ func (s *Service) createBackupArchive(ctx context.Context, progress tasks.Progre
 		directories = append(directories, recovery.Directory("config/user.yaml", "config"))
 	}
 
-	databasePath, err := runtimepaths.ResolveDatabasePath(s.summary().ConfigPath, s.config().Database.Path)
+	databasePath, err := s.databasePath(s.summary().ConfigPath, s.config().Database.Path)
 	if err == nil {
 		databaseSnapshotPath, err := s.createDatabaseSnapshot(ctx, databasePath)
 		if err != nil {

@@ -30,6 +30,7 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/permission"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	localaction "github.com/RayleaBot/RayleaBot/server/internal/plugins/actions"
+	"github.com/RayleaBot/RayleaBot/server/internal/plugins/actions/actionwiring"
 	defaultactionmodules "github.com/RayleaBot/RayleaBot/server/internal/plugins/actions/defaultmodules"
 	plugincapabilityview "github.com/RayleaBot/RayleaBot/server/internal/plugins/capabilityview"
 	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
@@ -286,10 +287,10 @@ func (a *serviceHarness) setTestLocalActions(capabilities localaction.Capability
 		PluginConfig:     pluginConfigRepo,
 		PluginFiles:      pluginFiles,
 		PluginKV:         pluginKV,
-		Secrets:          localaction.SecretReaderFromStore(a.platform.Secrets),
-		Scheduler:        localaction.Scheduler(schedulerEngine),
-		Dispatcher:       localaction.ConfigChangedDispatcher(dispatcher),
-		Renderer:         localaction.RendererFromService(rendererService),
+		Secrets:          actionwiring.SecretReaderFromStore(a.platform.Secrets),
+		Scheduler:        actionwiring.Scheduler(schedulerEngine),
+		Dispatcher:       actionwiring.ConfigChangedDispatcher(dispatcher),
+		Renderer:         actionwiring.RendererFromService(rendererService),
 		Adapter:          adapterShell,
 		PluginLogLimiter: limiter,
 		Governance:       a.services.Governance,
@@ -566,7 +567,7 @@ func (a *serviceHarness) dispatchPluginConfigChanged(ctx context.Context, plugin
 	if a == nil {
 		return
 	}
-	dispatch := localaction.ConfigChangedDispatcher(a.eventStack.Dispatcher)
+	dispatch := actionwiring.ConfigChangedDispatcher(a.eventStack.Dispatcher)
 	if dispatch != nil {
 		dispatch(ctx, pluginID)
 	}

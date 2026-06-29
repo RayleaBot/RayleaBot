@@ -13,47 +13,13 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/RayleaBot/RayleaBot/server/internal/health"
 	"github.com/RayleaBot/RayleaBot/server/internal/scheduler"
 	"github.com/RayleaBot/RayleaBot/server/internal/storage"
-	systemmodel "github.com/RayleaBot/RayleaBot/server/internal/system/model"
 )
 
 type schedulerTestSystem struct {
 	pluginNames map[string]string
 	timezone    string
-}
-
-func (s schedulerTestSystem) CurrentReadiness() health.ReadinessReport {
-	return health.ReadinessReport{Status: "ready"}
-}
-
-func (s schedulerTestSystem) DiagnosticsSnapshot(context.Context) systemmodel.DiagnosticsSnapshot {
-	return systemmodel.DiagnosticsSnapshot{}
-}
-
-func (s schedulerTestSystem) BuildDiagnosticsArchive(context.Context) ([]byte, error) {
-	return nil, nil
-}
-
-func (s schedulerTestSystem) SubmitSystemBackupTask() (string, error) {
-	return "", nil
-}
-
-func (s schedulerTestSystem) ValidateRecoveryConfirmRequest([]string, string) *systemmodel.Error {
-	return nil
-}
-
-func (s schedulerTestSystem) SubmitRecoveryRecheckTask() (string, *systemmodel.Error) {
-	return "", nil
-}
-
-func (s schedulerTestSystem) SubmitRecoveryConfirmTask([]string, string, string) (string, *systemmodel.Error) {
-	return "", nil
-}
-
-func (s schedulerTestSystem) SubmitRuntimeBootstrapTask([]string) (string, error) {
-	return "", nil
 }
 
 func (s schedulerTestSystem) SchedulerPluginName(pluginID string) string {
@@ -114,7 +80,7 @@ func TestSystemSchedulerJobListHTTP(t *testing.T) {
 	}
 
 	system := schedulerTestSystem{pluginNames: map[string]string{"weather": "天气插件"}, timezone: "Asia/Shanghai"}
-	handler := NewSystemHandlers(system, engine).HandleSystemSchedulerJobList()
+	handler := NewSchedulerHandlers(system, engine).HandleSystemSchedulerJobList()
 	req := httptest.NewRequest(http.MethodGet, "/api/system/scheduler/jobs", nil)
 	rec := httptest.NewRecorder()
 
@@ -165,7 +131,7 @@ func TestSystemSchedulerJobListHTTPEmpty(t *testing.T) {
 		t.Fatalf("scheduler.New: %v", err)
 	}
 
-	handler := NewSystemHandlers(nil, engine).HandleSystemSchedulerJobList()
+	handler := NewSchedulerHandlers(nil, engine).HandleSystemSchedulerJobList()
 	req := httptest.NewRequest(http.MethodGet, "/api/system/scheduler/jobs", nil)
 	rec := httptest.NewRecorder()
 
@@ -215,7 +181,7 @@ func TestSystemSchedulerJobTriggerHTTP(t *testing.T) {
 		t.Fatalf("UpsertTask: %v", err)
 	}
 
-	handler := NewSystemHandlers(nil, engine).HandleSystemSchedulerJobTrigger()
+	handler := NewSchedulerHandlers(nil, engine).HandleSystemSchedulerJobTrigger()
 	router := chi.NewRouter()
 	router.Post("/api/system/scheduler/jobs/{job_id}/trigger", handler)
 	req := httptest.NewRequest(http.MethodPost, "/api/system/scheduler/jobs/subscription-hub-poll/trigger", nil)
@@ -271,7 +237,7 @@ func TestSystemSchedulerJobTriggerHTTPDetachesRequestCancellation(t *testing.T) 
 		t.Fatalf("UpsertTask: %v", err)
 	}
 
-	handler := NewSystemHandlers(nil, engine).HandleSystemSchedulerJobTrigger()
+	handler := NewSchedulerHandlers(nil, engine).HandleSystemSchedulerJobTrigger()
 	router := chi.NewRouter()
 	router.Post("/api/system/scheduler/jobs/{job_id}/trigger", handler)
 	ctx, cancel := context.WithCancel(context.Background())
@@ -314,7 +280,7 @@ func TestSystemSchedulerJobTriggerHTTPMissingJob(t *testing.T) {
 		t.Fatalf("scheduler.New: %v", err)
 	}
 
-	handler := NewSystemHandlers(nil, engine).HandleSystemSchedulerJobTrigger()
+	handler := NewSchedulerHandlers(nil, engine).HandleSystemSchedulerJobTrigger()
 	router := chi.NewRouter()
 	router.Post("/api/system/scheduler/jobs/{job_id}/trigger", handler)
 	req := httptest.NewRequest(http.MethodPost, "/api/system/scheduler/jobs/missing/trigger", nil)

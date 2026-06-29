@@ -1,10 +1,10 @@
 package systemapi
 
 type schedulerHTTPServiceImpl struct {
-	system    SystemService
+	system    SchedulerMetadataService
 	scheduler SchedulerEngineService
 }
 
-func newSchedulerHTTPService(system SystemService, scheduler SchedulerEngineService) *schedulerHTTPServiceImpl {
+func newSchedulerHTTPService(system SchedulerMetadataService, scheduler SchedulerEngineService) *schedulerHTTPServiceImpl {
 	return &schedulerHTTPServiceImpl{system: system, scheduler: scheduler}
 }

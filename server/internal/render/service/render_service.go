@@ -38,6 +38,12 @@ type TemplateDetail = renderrepo.TemplateDetail
 type TemplateSource = renderrepo.TemplateSource
 type TemplateSourceInfo = renderrepo.TemplateSourceInfo
 
+type TemplateDetailSnapshot struct {
+	Detail      TemplateDetail
+	Source      TemplateSource
+	PreviewData map[string]any
+}
+
 type Options struct {
 	RepoRoot           string
 	OutputRoot         string

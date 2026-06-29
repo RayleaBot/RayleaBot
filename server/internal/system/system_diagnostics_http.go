@@ -8,7 +8,6 @@ import (
 
 	"github.com/RayleaBot/RayleaBot/server/internal/cli"
 	"github.com/RayleaBot/RayleaBot/server/internal/logging"
-	"github.com/RayleaBot/RayleaBot/server/internal/runtimepaths"
 )
 
 func (s *Service) BuildDiagnosticsArchive(ctx context.Context) ([]byte, error) {
@@ -48,7 +47,7 @@ func (s *Service) BuildDiagnosticsArchive(ctx context.Context) ([]byte, error) {
 			return nil, err
 		}
 	}
-	if databasePath, err := runtimepaths.ResolveDatabasePath(s.summary().ConfigPath, s.config().Database.Path); err == nil {
+	if databasePath, err := s.databasePath(s.summary().ConfigPath, s.config().Database.Path); err == nil {
 		spoolPath := logging.SpoolPathForDatabase(databasePath)
 		if err := addOptionalFileToZip(writer, spoolPath, filepath.ToSlash(filepath.Join("data", filepath.Base(spoolPath)))); err != nil {
 			return nil, err

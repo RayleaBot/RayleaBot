@@ -2,14 +2,14 @@
   "version": 2,
   "metrics": {
     "production_package_count": {
-      "current": 133,
-      "max": 133,
+      "current": 123,
+      "max": 123,
       "next_target": 115,
       "long_term_target": 115
     },
     "single_file_production_package_count": {
-      "current": 27,
-      "max": 27,
+      "current": 21,
+      "max": 21,
       "next_target": 20,
       "long_term_target": 20
     },
@@ -20,20 +20,20 @@
       "long_term_target": 8
     },
     "internal_app_external_internal_import_union": {
-      "current": 68,
-      "max": 68,
+      "current": 67,
+      "max": 67,
       "next_target": 50,
       "long_term_target": 45
     },
     "module_go_single_file_package_count": {
-      "current": 2,
-      "max": 2,
-      "next_target": 1,
+      "current": 0,
+      "max": 0,
+      "next_target": 0,
       "long_term_target": 0
     },
     "server_directory_count": {
-      "current": 155,
-      "max": 155,
+      "current": 146,
+      "max": 146,
       "next_target": 130,
       "long_term_target": 130
     }
@@ -82,8 +82,8 @@
       "long_term_target": 2
     },
     "module.go": {
-      "current": 5,
-      "max": 5,
+      "current": 4,
+      "max": 4,
       "next_target": 4,
       "long_term_target": 2
     },
@@ -132,8 +132,8 @@
       "long_term_target": 4
     },
     "internal/app/httpwire/routemodule": {
-      "current": 27,
-      "max": 27,
+      "current": 26,
+      "max": 26,
       "next_target": 18,
       "long_term_target": 12
     },
@@ -150,16 +150,16 @@
       "long_term_target": 10
     },
     "internal/app/servicegraph/integrationmodule": {
-      "current": 12,
-      "max": 12,
+      "current": 8,
+      "max": 8,
       "next_target": 8,
       "long_term_target": 8
     },
     "internal/plugins/actions": {
-      "current": 14,
-      "max": 14,
-      "next_target": 12,
-      "long_term_target": 10
+      "current": 9,
+      "max": 9,
+      "next_target": 9,
+      "long_term_target": 8
     },
     "internal/plugins/lifecycle": {
       "current": 12,
@@ -170,28 +170,19 @@
   },
   "package_production_files": {
     "internal/plugins/lifecycle": {
-      "current": 18,
-      "max": 18,
+      "current": 16,
+      "max": 16,
       "next_target": 16,
       "long_term_target": 12
     },
     "internal/render/service": {
-      "current": 19,
-      "max": 19,
+      "current": 16,
+      "max": 16,
       "next_target": 16,
       "long_term_target": 12
     }
   },
-  "warning_tasks": {
-    "internal/plugins/actions fan-out warning": {
-      "metric": "package_internal_fan_out.internal/plugins/actions",
-      "current": 14,
-      "warning": 12,
-      "target": 12,
-      "owner": "server",
-      "due_stage": "next"
-    }
-  },
+  "warning_tasks": {},
   "single_file_production_package_allowlist": {
     "internal/app/httpwire": {
       "decision": "merge",
@@ -212,20 +203,6 @@
       "reason": "Composition state holder remains separate while platform bootstrap still owns multiple long-lived services.",
       "owner": "server",
       "target_action": "Split platform state and lifecycle helpers when bootstrap flattening resumes.",
-      "due_stage": "next"
-    },
-    "internal/app/servicegraph/integrationmodule": {
-      "decision": "expand",
-      "reason": "Integration composition needs a stable module boundary before merging would reduce clarity.",
-      "owner": "server",
-      "target_action": "Move integration-specific construction behind an integration module surface.",
-      "due_stage": "next"
-    },
-    "internal/app/servicegraph/pluginmodule": {
-      "decision": "expand",
-      "reason": "Plugin composition still coordinates catalog, runtime, lifecycle, actions, and install services.",
-      "owner": "server",
-      "target_action": "Split plugin runtime wiring from install/catalog wiring.",
       "due_stage": "next"
     },
     "internal/bot/adapter/onebot11/shell/backoff": {

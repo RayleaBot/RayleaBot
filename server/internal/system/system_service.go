@@ -44,6 +44,8 @@ type DiagnosticsThirdParty = systemmodel.DiagnosticsThirdParty
 type DiagnosticsThirdPartyPlatform = systemmodel.DiagnosticsThirdPartyPlatform
 type DiagnosticsScheduler = systemmodel.DiagnosticsScheduler
 
+type DatabasePathResolver func(configPath, databasePath string) (string, error)
+
 type ThirdPartyDiagnosticsSource interface {
 	DiagnosticsThirdParty(context.Context) (DiagnosticsThirdParty, []health.DiagnosticIssue)
 }
@@ -53,51 +55,53 @@ type SchedulerDiagnosticsSource interface {
 }
 
 type Deps struct {
-	CurrentConfig    func() config.Config
-	CurrentSummary   func() config.Summary
-	CurrentRepoRoot  func() string
-	CurrentStartedAt func() time.Time
-	RepoRoot         string
-	Logger           *slog.Logger
-	StartedAt        time.Time
-	Auth             AuthBootstrapState
-	Adapter          AdapterStateSource
-	Plugins          plugins.CatalogView
-	Runtimes         RuntimeRegistry
-	Renderer         RendererState
-	Storage          *storage.Store
-	ThirdParty       ThirdPartyDiagnosticsSource
-	Scheduler        SchedulerDiagnosticsSource
-	PluginRepository plugins.DesiredStateRepository
-	TaskExecutor     *tasks.Executor
-	LogRepository    logging.Repository
+	CurrentConfig       func() config.Config
+	CurrentSummary      func() config.Summary
+	CurrentRepoRoot     func() string
+	CurrentStartedAt    func() time.Time
+	RepoRoot            string
+	Logger              *slog.Logger
+	StartedAt           time.Time
+	Auth                AuthBootstrapState
+	Adapter             AdapterStateSource
+	Plugins             plugins.CatalogView
+	Runtimes            RuntimeRegistry
+	Renderer            RendererState
+	Storage             *storage.Store
+	ThirdParty          ThirdPartyDiagnosticsSource
+	Scheduler           SchedulerDiagnosticsSource
+	PluginRepository    plugins.DesiredStateRepository
+	TaskExecutor        *tasks.Executor
+	LogRepository       logging.Repository
+	ResolveDatabasePath DatabasePathResolver
 }
 
 type Service struct {
-	currentConfig    func() config.Config
-	currentSummary   func() config.Summary
-	currentRepoRoot  func() string
-	currentStartedAt func() time.Time
-	repoRoot         string
-	logger           *slog.Logger
-	startedAt        time.Time
-	auth             AuthBootstrapState
-	adapter          AdapterStateSource
-	plugins          plugins.CatalogView
-	runtimes         RuntimeRegistry
-	renderer         RendererState
-	storage          *storage.Store
-	thirdParty       ThirdPartyDiagnosticsSource
-	scheduler        SchedulerDiagnosticsSource
-	pluginRepository plugins.DesiredStateRepository
-	taskExecutor     *tasks.Executor
-	logRepository    logging.Repository
-	shuttingDown     *atomic.Bool
-	statusPublisher  StatusPublisher
-	recoveryMu       sync.RWMutex
-	recoverySummary  *recovery.CompatibilitySummary
-	startupMu        sync.RWMutex
-	startupRuntimes  map[string]StartupRuntimeState
+	currentConfig       func() config.Config
+	currentSummary      func() config.Summary
+	currentRepoRoot     func() string
+	currentStartedAt    func() time.Time
+	repoRoot            string
+	logger              *slog.Logger
+	startedAt           time.Time
+	auth                AuthBootstrapState
+	adapter             AdapterStateSource
+	plugins             plugins.CatalogView
+	runtimes            RuntimeRegistry
+	renderer            RendererState
+	storage             *storage.Store
+	thirdParty          ThirdPartyDiagnosticsSource
+	scheduler           SchedulerDiagnosticsSource
+	pluginRepository    plugins.DesiredStateRepository
+	taskExecutor        *tasks.Executor
+	logRepository       logging.Repository
+	resolveDatabasePath DatabasePathResolver
+	shuttingDown        *atomic.Bool
+	statusPublisher     StatusPublisher
+	recoveryMu          sync.RWMutex
+	recoverySummary     *recovery.CompatibilitySummary
+	startupMu           sync.RWMutex
+	startupRuntimes     map[string]StartupRuntimeState
 }
 
 func New(deps Deps) *Service {
@@ -133,25 +137,26 @@ func New(deps Deps) *Service {
 		renderer = nil
 	}
 	return &Service{
-		currentConfig:    currentConfig,
-		currentSummary:   currentSummary,
-		currentRepoRoot:  deps.CurrentRepoRoot,
-		currentStartedAt: deps.CurrentStartedAt,
-		repoRoot:         deps.RepoRoot,
-		logger:           deps.Logger,
-		startedAt:        deps.StartedAt,
-		auth:             authState,
-		adapter:          adapter,
-		plugins:          pluginsCatalog,
-		runtimes:         runtimes,
-		renderer:         renderer,
-		storage:          deps.Storage,
-		thirdParty:       deps.ThirdParty,
-		scheduler:        deps.Scheduler,
-		pluginRepository: deps.PluginRepository,
-		taskExecutor:     deps.TaskExecutor,
-		logRepository:    deps.LogRepository,
-		startupRuntimes:  newStartupRuntimeStates(nil),
+		currentConfig:       currentConfig,
+		currentSummary:      currentSummary,
+		currentRepoRoot:     deps.CurrentRepoRoot,
+		currentStartedAt:    deps.CurrentStartedAt,
+		repoRoot:            deps.RepoRoot,
+		logger:              deps.Logger,
+		startedAt:           deps.StartedAt,
+		auth:                authState,
+		adapter:             adapter,
+		plugins:             pluginsCatalog,
+		runtimes:            runtimes,
+		renderer:            renderer,
+		storage:             deps.Storage,
+		thirdParty:          deps.ThirdParty,
+		scheduler:           deps.Scheduler,
+		pluginRepository:    deps.PluginRepository,
+		taskExecutor:        deps.TaskExecutor,
+		logRepository:       deps.LogRepository,
+		resolveDatabasePath: databasePathResolver(deps.ResolveDatabasePath),
+		startupRuntimes:     newStartupRuntimeStates(nil),
 	}
 }
 

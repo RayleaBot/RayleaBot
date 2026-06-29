@@ -1,6 +1,6 @@
 package systemapi
 
 type Handlers = SystemHandlers
-type Service = SystemService
+type Service = CoreService
 
 var NewHandlers = NewSystemHandlers

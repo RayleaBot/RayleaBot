@@ -9,11 +9,11 @@ import (
 )
 
 type SystemHandlers struct {
-	system    SystemService
+	system    CoreService
 	scheduler SchedulerService
 }
 
-type SystemService interface {
+type CoreService interface {
 	CurrentReadiness() health.ReadinessReport
 	DiagnosticsSnapshot(context.Context) systemmodel.DiagnosticsSnapshot
 	BuildDiagnosticsArchive(context.Context) ([]byte, error)
@@ -22,8 +22,16 @@ type SystemService interface {
 	SubmitRecoveryRecheckTask() (string, *systemmodel.Error)
 	SubmitRecoveryConfirmTask([]string, string, string) (string, *systemmodel.Error)
 	SubmitRuntimeBootstrapTask([]string) (string, error)
+}
+
+type SchedulerMetadataService interface {
 	SchedulerPluginName(string) string
 	SchedulerTimezone() string
+}
+
+type SystemService interface {
+	CoreService
+	SchedulerMetadataService
 }
 
 type SchedulerService interface {
@@ -36,12 +44,17 @@ type SchedulerEngineService interface {
 	Trigger(context.Context, string) (scheduler.Job, error)
 }
 
-func NewSystemHandlers(system SystemService, schedulerEngine ...SchedulerEngineService) *SystemHandlers {
+func NewSystemHandlers(system CoreService, schedulerEngine ...SchedulerEngineService) *SystemHandlers {
 	var schedulerValue SchedulerService
 	if len(schedulerEngine) > 0 {
-		schedulerValue = newSchedulerHTTPService(system, schedulerEngine[0])
+		metadata, _ := system.(SchedulerMetadataService)
+		schedulerValue = newSchedulerHTTPService(metadata, schedulerEngine[0])
 	}
 	return &SystemHandlers{system: system, scheduler: schedulerValue}
+}
+
+func NewSchedulerHandlers(metadata SchedulerMetadataService, schedulerEngine SchedulerEngineService) *SystemHandlers {
+	return &SystemHandlers{scheduler: newSchedulerHTTPService(metadata, schedulerEngine)}
 }
 
 func (h *SystemHandlers) CurrentReadiness() health.ReadinessReport {

@@ -25,9 +25,7 @@ type templateService interface {
 	PreviewHTML(context.Context, renderservice.Request) (renderservice.PreviewHTML, error)
 	LookupTemplateAsset(context.Context, string, string) (renderservice.TemplateAsset, error)
 	ListTemplates(context.Context) ([]renderservice.TemplateSummary, error)
-	GetTemplate(context.Context, string) (renderservice.TemplateDetail, error)
-	GetTemplateSource(context.Context, string) (string, renderservice.TemplateSource, error)
-	GetTemplatePreviewData(context.Context, string) (map[string]any, error)
+	GetTemplateDetailSnapshot(context.Context, string) (renderservice.TemplateDetailSnapshot, error)
 }
 
 type Service = templateService
@@ -115,25 +113,14 @@ func (h *Handlers) HandleSystemRenderTemplateList() http.HandlerFunc {
 func (h *Handlers) HandleSystemRenderTemplateDetail() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		templateID := chi.URLParam(r, "template_id")
-		detail, err := h.renderer.GetTemplate(r.Context(), templateID)
-		if err != nil {
-			writeTemplateError(w, r, err)
-			return
-		}
-
-		_, source, err := h.renderer.GetTemplateSource(r.Context(), templateID)
-		if err != nil {
-			writeTemplateError(w, r, err)
-			return
-		}
-		previewData, err := h.renderer.GetTemplatePreviewData(r.Context(), templateID)
+		snapshot, err := h.renderer.GetTemplateDetailSnapshot(r.Context(), templateID)
 		if err != nil {
 			writeTemplateError(w, r, err)
 			return
 		}
 
 		writeAuthJSON(w, http.StatusOK, detailResponse{
-			Template: toTemplateDetail(detail, source, previewData),
+			Template: toTemplateDetail(snapshot.Detail, snapshot.Source, snapshot.PreviewData),
 		})
 	}
 }

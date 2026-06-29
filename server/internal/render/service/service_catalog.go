@@ -30,6 +30,10 @@ func (s *Service) GetTemplate(ctx context.Context, templateID string) (renderrep
 		return renderrepo.TemplateDetail{}, err
 	}
 
+	return s.getTemplate(ctx, templateID)
+}
+
+func (s *Service) getTemplate(ctx context.Context, templateID string) (renderrepo.TemplateDetail, error) {
 	detail, err := s.templateRepo.GetTemplateDetail(ctx, strings.TrimSpace(templateID))
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -42,11 +46,16 @@ func (s *Service) GetTemplate(ctx context.Context, templateID string) (renderrep
 	}
 	return detail, nil
 }
+
 func (s *Service) GetTemplateSource(ctx context.Context, templateID string) (string, renderrepo.TemplateSource, error) {
 	if err := s.syncTemplatesFromFiles(ctx); err != nil {
 		return "", renderrepo.TemplateSource{}, err
 	}
 
+	return s.getTemplateSource(ctx, templateID)
+}
+
+func (s *Service) getTemplateSource(ctx context.Context, templateID string) (string, renderrepo.TemplateSource, error) {
 	revisionID, source, err := s.templateRepo.GetCurrentSource(ctx, strings.TrimSpace(templateID))
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -59,15 +68,44 @@ func (s *Service) GetTemplateSource(ctx context.Context, templateID string) (str
 	}
 	return revisionID, source, nil
 }
+
 func (s *Service) GetTemplatePreviewData(ctx context.Context, templateID string) (map[string]any, error) {
 	if err := s.syncTemplatesFromFiles(ctx); err != nil {
 		return nil, err
 	}
 	templateID = strings.TrimSpace(templateID)
-	if _, err := s.GetTemplate(ctx, templateID); err != nil {
+	if _, err := s.getTemplate(ctx, templateID); err != nil {
 		return nil, err
 	}
 
+	return s.readTemplatePreviewData(templateID)
+}
+
+func (s *Service) GetTemplateDetailSnapshot(ctx context.Context, templateID string) (TemplateDetailSnapshot, error) {
+	if err := s.syncTemplatesFromFiles(ctx); err != nil {
+		return TemplateDetailSnapshot{}, err
+	}
+	templateID = strings.TrimSpace(templateID)
+	detail, err := s.getTemplate(ctx, templateID)
+	if err != nil {
+		return TemplateDetailSnapshot{}, err
+	}
+	_, source, err := s.getTemplateSource(ctx, templateID)
+	if err != nil {
+		return TemplateDetailSnapshot{}, err
+	}
+	previewData, err := s.readTemplatePreviewData(templateID)
+	if err != nil {
+		return TemplateDetailSnapshot{}, err
+	}
+	return TemplateDetailSnapshot{
+		Detail:      detail,
+		Source:      source,
+		PreviewData: previewData,
+	}, nil
+}
+
+func (s *Service) readTemplatePreviewData(templateID string) (map[string]any, error) {
 	templateDir := s.templateDirFor(templateID)
 	previewPath, err := rendertemplates.TemplateFilePath(templateDir, rendertemplates.DefaultPreviewData)
 	if err != nil {
@@ -95,6 +133,7 @@ func (s *Service) GetTemplatePreviewData(ctx context.Context, templateID string)
 	}
 	return previewData, nil
 }
+
 func (s *Service) ValidateTemplate(ctx context.Context, templateID string, source *renderrepo.TemplateSource) (rendertemplates.TemplateValidationResult, error) {
 	templateID = strings.TrimSpace(templateID)
 	if templateID == "" {

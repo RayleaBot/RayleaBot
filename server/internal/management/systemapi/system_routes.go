@@ -12,7 +12,7 @@ type Routes struct {
 }
 
 type ModuleDeps struct {
-	System    SystemService
+	System    CoreService
 	Scheduler SchedulerEngineService
 	Metrics   http.Handler
 }

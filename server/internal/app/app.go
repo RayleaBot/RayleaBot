@@ -172,15 +172,14 @@ func NewWithContext(ctx context.Context, options Options) (*App, error) {
 	}
 	configureAppRuntimeCallbacks(application, schedulerTriggers)
 	httpState := httpwire.Build(httpwire.BuildDeps{
-		Runtime:               state,
-		Platform:              platformState,
-		Plugins:               pluginState,
-		Events:                eventState,
-		Renderer:              renderState.Renderer,
-		ServiceBuild:          serviceBuild,
-		Metrics:               metricRegistry,
-		BilibiliHTTPTransport: options.BilibiliHTTPTransport,
-		RequestShutdown:       application.requestShutdown,
+		Runtime:         state,
+		Platform:        platformState,
+		Plugins:         pluginState,
+		Events:          eventState,
+		Renderer:        renderState.Renderer,
+		ServiceBuild:    serviceBuild,
+		Metrics:         metricRegistry,
+		RequestShutdown: application.requestShutdown,
 	})
 	application.process.router = httpState.Router
 	application.process.server = httpState.Server
