@@ -18,6 +18,10 @@ func (c *Controller) buildStartInputs(ctx context.Context, pluginID, botID strin
 	return c.buildStartInputsWithCapabilities(pluginID, botID, c.declaredCapabilities(snapshot))
 }
 
+func (c *Controller) declaredCapabilities(snapshot plugins.Snapshot) []string {
+	return plugins.DedupeCapabilities(snapshot.DeclaredCapabilities)
+}
+
 func (c *Controller) buildStartInputsWithCapabilities(pluginID, botID string, capabilities []string) (runtimespec.Spec, runtimespec.InitPayload, error) {
 	snapshot, ok := c.plugins.Get(pluginID)
 	if !ok {

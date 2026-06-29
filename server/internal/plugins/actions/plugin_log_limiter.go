@@ -9,6 +9,8 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/permission"
 )
 
+const defaultPluginLogRateLimit = "200/10s"
+
 type PluginLogLimiter struct {
 	mu      sync.Mutex
 	now     func() time.Time

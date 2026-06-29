@@ -31,6 +31,8 @@ type State struct {
 	Renderer *renderservice.Service
 }
 
+type Module = State
+
 func Build(deps Deps) (State, error) {
 	ctx := deps.Context
 	if ctx == nil {
