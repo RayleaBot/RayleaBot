@@ -126,7 +126,7 @@ describe("LauncherReleaseFeedClient", () => {
       }),
     );
 
-    const client = new LauncherReleaseFeedClient(basePath);
+    const client = new LauncherReleaseFeedClient(basePath, { platform: "win32" });
     const snapshot = await client.getSnapshot();
 
     expect(snapshot.status).toBe("error");
@@ -149,7 +149,7 @@ describe("LauncherReleaseFeedClient", () => {
       }),
     );
 
-    const client = new LauncherReleaseFeedClient(basePath);
+    const client = new LauncherReleaseFeedClient(basePath, { platform: "win32" });
     const snapshot = await client.getSnapshot();
 
     expect(snapshot.status).toBe("up_to_date");
@@ -170,7 +170,7 @@ describe("LauncherReleaseFeedClient", () => {
       ),
     );
 
-    const client = new LauncherReleaseFeedClient(basePath);
+    const client = new LauncherReleaseFeedClient(basePath, { platform: "win32" });
     const snapshot = await client.getSnapshot();
 
     expect(snapshot.status).toBe("up_to_date");
@@ -190,7 +190,7 @@ describe("LauncherReleaseFeedClient", () => {
       ),
     );
 
-    const client = new LauncherReleaseFeedClient(basePath);
+    const client = new LauncherReleaseFeedClient(basePath, { platform: "win32" });
     const snapshot = await client.getSnapshot();
 
     expect(snapshot.status).toBe("up_to_date");

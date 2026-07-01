@@ -123,7 +123,7 @@ func TestManagerStartFailsOnInitAckTimeout(t *testing.T) {
 	t.Parallel()
 
 	manager := testManager()
-	spec := helperSpec(t, "timeout", "")
+	spec := helperSpecWithTimings(t, "timeout", "", 200*time.Millisecond, 4*time.Second, 400*time.Millisecond)
 
 	err := manager.Start(context.Background(), spec, testInitPayload())
 	assertRuntimeErrorCode(t, err, codePluginInitTimeout)

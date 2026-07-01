@@ -1110,6 +1110,15 @@ const server = http.createServer(async (request, response) => {
   const url = requestUrl(request)
   const { pathname, searchParams } = url
 
+  if (state.networkOffline && !pathname.startsWith('/__test/')) {
+    response.writeHead(503, {
+      'Content-Type': 'application/json',
+      'x-rayleabot-backend-unavailable': '1',
+    })
+    response.end(JSON.stringify(errorEnvelope('platform.unavailable', 'mock backend unavailable', 'req_mock_backend_unavailable')))
+    return
+  }
+
   if (pathname === '/__test/ping') {
     json(response, 200, { ok: true })
     return
@@ -1360,11 +1369,6 @@ const server = http.createServer(async (request, response) => {
       'Access-Control-Allow-Origin': '*',
     })
     response.end(externalPreviewImageBytes)
-    return
-  }
-
-  if (state.networkOffline) {
-    request.socket.destroy()
     return
   }
 

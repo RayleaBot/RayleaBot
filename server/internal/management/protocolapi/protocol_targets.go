@@ -73,14 +73,14 @@ func (s *ProtocolService) readOneBot11ProtocolTargets(ctx context.Context) (oneB
 	friendsCh := make(chan oneBot11FriendsResult, 1)
 	groupDone := groupCtx.Done()
 	friendDone := friendCtx.Done()
-	go func() {
+	go func(ch chan<- oneBot11GroupsResult) {
 		groups, err := s.adapter.ListGroups(groupCtx)
-		groupsCh <- oneBot11GroupsResult{groups: groups, err: err}
-	}()
-	go func() {
+		ch <- oneBot11GroupsResult{groups: groups, err: err}
+	}(groupsCh)
+	go func(ch chan<- oneBot11FriendsResult) {
 		friends, err := s.adapter.ListFriends(friendCtx)
-		friendsCh <- oneBot11FriendsResult{friends: friends, err: err}
-	}()
+		ch <- oneBot11FriendsResult{friends: friends, err: err}
+	}(friendsCh)
 
 	var groupsResult oneBot11GroupsResult
 	var friendsResult oneBot11FriendsResult
