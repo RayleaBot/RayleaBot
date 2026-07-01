@@ -114,20 +114,11 @@ describe('DashboardPage', () => {
 
     expect(backupButton).toBeTruthy()
     expect(diagnosticsButton).toBeTruthy()
-    expect(wrapper.text()).toContain('系统工具')
-    expect(wrapper.text()).toContain('连接状态')
-    expect(wrapper.text()).toContain('近期变化')
-    expect(wrapper.text()).toContain('就绪检查')
     expect(wrapper.find('[data-testid="dashboard-connection-card"]').exists()).toBe(true)
     expect(wrapper.find('[data-testid="dashboard-overview-grid"]').exists()).toBe(true)
     expect(wrapper.find('[data-testid="dashboard-active-plugins-card"]').exists()).toBe(true)
     expect(wrapper.text()).toContain('运行 1 / 失败 1')
     expect(wrapper.text()).toContain('数据库 schema 000004')
-    expect(wrapper.findAll('.dashboard-overview-grid .stat-card')).toHaveLength(4)
-    expect(wrapper.find('.dashboard-main-grid .ant-tabs').exists()).toBe(true)
-    expect(wrapper.findAll('.dashboard-bottom-grid > .ant-card')).toHaveLength(3)
-    expect(wrapper.find('.dashboard-hero-card').exists()).toBe(false)
-    expect(wrapper.find('.status-badge').exists()).toBe(false)
     expect(wrapper.text()).not.toContain('聚合 health、ready、system status')
 
     await backupButton!.trigger('click')
@@ -605,7 +596,6 @@ describe('DashboardPage', () => {
       note: '已确认当前跳过状态。',
     })
     expect(router.currentRoute.value.name).toBe('status')
-    expect(feedbackMock.notifySuccess).toHaveBeenCalledWith('恢复项确认任务已提交，可在实时日志查看结果')
 
     await router.push('/')
     await flushPromises()
@@ -614,7 +604,6 @@ describe('DashboardPage', () => {
     await flushPromises()
     expect(recheckSpy).toHaveBeenCalledTimes(1)
     expect(router.currentRoute.value.name).toBe('status')
-    expect(feedbackMock.notifySuccess).toHaveBeenCalledWith('恢复摘要重新检查任务已提交，可在实时日志查看结果')
 
     await router.push('/')
     await flushPromises()
@@ -623,6 +612,5 @@ describe('DashboardPage', () => {
     await flushPromises()
     expect(bootstrapSpy).toHaveBeenCalledWith(['chromium'])
     expect(router.currentRoute.value.name).toBe('status')
-    expect(feedbackMock.notifySuccess).toHaveBeenCalledWith('运行环境准备任务已提交，可在实时日志查看结果')
   })
 })

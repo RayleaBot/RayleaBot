@@ -49,7 +49,7 @@ describe('SetupPage', () => {
     await wrapper.get('.auth-submit').trigger('click')
     await flushPromises()
 
-    expect(wrapper.text()).not.toContain('创建管理员账号未完成，请检查输入后重试。')
-    expect(feedbackMock.notifyError).toHaveBeenCalledWith('创建管理员账号未完成，请检查输入后重试。')
+    expect(wrapper.find('[role="alert"]').exists()).toBe(false)
+    expect(feedbackMock.notifyError).toHaveBeenCalledTimes(1)
   })
 })

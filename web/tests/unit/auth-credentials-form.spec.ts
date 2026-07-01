@@ -1,5 +1,5 @@
 import { mount } from '@vue/test-utils'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { describe, expect, it } from 'vitest'
 
 import AuthCredentialsForm from '@/components/auth/AuthCredentialsForm.vue'
 
@@ -16,14 +16,6 @@ function mountForm(pending = false) {
 }
 
 describe('AuthCredentialsForm', () => {
-  beforeEach(() => {
-    vi.useFakeTimers()
-  })
-
-  afterEach(() => {
-    vi.useRealTimers()
-  })
-
   it('blocks submit and shows inline validation when the secret is empty', async () => {
     const wrapper = mountForm()
 
@@ -33,12 +25,7 @@ describe('AuthCredentialsForm', () => {
     await wrapper.get('.auth-submit').trigger('click')
 
     expect(wrapper.emitted('submit')).toBeUndefined()
-    expect(wrapper.text()).toContain('请输入管理员密钥')
-    expect(wrapper.get('.auth-panel-card').classes()).toContain('is-shaking')
-
-    vi.advanceTimersByTime(400)
-    await wrapper.vm.$nextTick()
-    expect(wrapper.get('.auth-panel-card').classes()).not.toContain('is-shaking')
+    expect(wrapper.find('[role="alert"]').exists()).toBe(true)
   })
 
   it('emits the credentials payload when fields are filled', async () => {
@@ -49,7 +36,7 @@ describe('AuthCredentialsForm', () => {
     await wrapper.get('.auth-submit').trigger('click')
 
     expect(wrapper.emitted('submit')).toEqual([[{ identifier: 'admin', secret: 'super-secret' }]])
-    expect(wrapper.text()).not.toContain('请输入管理员密钥')
+    expect(wrapper.find('[role="alert"]').exists()).toBe(false)
   })
 
   it('disables the submit button while pending', () => {

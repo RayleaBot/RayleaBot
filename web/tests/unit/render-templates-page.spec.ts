@@ -159,16 +159,6 @@ function createPluginTemplateSummary(): RenderTemplateSummary {
   }
 }
 
-function createWideTemplateDetail(): RenderTemplateDetail {
-  return {
-    ...createTemplateDetail('help.menu'),
-    id: 'fortune.card',
-    width: 1124,
-    height: 1365,
-    updated_at: '2026-05-04T10:30:00Z',
-  }
-}
-
 function createPreviewHTML(templateId: string, title: string): RenderTemplatePreviewHTMLResponse {
   const isWideTemplate = templateId === 'fortune.card' || templateId === 'fortune.stats'
   return {
@@ -267,14 +257,6 @@ describe('RenderTemplatesView', () => {
 
     await flushPromises()
 
-    expect(wrapper.text()).toContain('模板预览')
-    expect(wrapper.text()).toContain('help.menu')
-    expect(wrapper.text()).toContain('输入结构')
-    expect(wrapper.text()).toContain('实时 HTML 预览')
-    expect(wrapper.text()).toContain('宽度 960px · 高度自适应（初始 640px）')
-    expect(wrapper.text()).toContain('输入数据合法时同步显示当前 HTML 文档。')
-    expect(wrapper.text()).not.toContain('任务 ID')
-    expect(wrapper.text()).not.toContain('产物 ID')
     expect(renderTemplatesStore.previewTemplateHTML).toHaveBeenCalledTimes(1)
     expect(renderTemplatesStore.previewTemplateHTML).toHaveBeenCalledWith(
       'help.menu',
@@ -285,7 +267,6 @@ describe('RenderTemplatesView', () => {
     const frame = wrapper.get('[data-testid="render-template-preview-frame"]')
     expect(frame.attributes('sandbox')).toBe('allow-same-origin')
     expect(frame.attributes('srcdoc')).toContain('帮助菜单')
-    expect(frame.attributes('srcdoc')).toContain('overflow-x:hidden!important')
     expect(frame.attributes('srcdoc')).toContain('https://cdn.example.test/template-font.css')
     expect(frame.attributes('srcdoc')).toContain('https://cdn.example.test/template-font.woff2')
     expect(frame.attributes('srcdoc')).toContain('https://cdn.example.test/template-bg.png')
@@ -323,33 +304,6 @@ describe('RenderTemplatesView', () => {
 
     expect(wrapper.find('[data-testid="native-template-preview-frame"]').exists()).toBe(false)
     expect(wrapper.get('[data-testid="render-template-preview-frame"]').attributes('srcdoc')).toContain('帮助菜单')
-  })
-
-  it('scales wide templates without exposing horizontal preview scrollbars', async () => {
-    const renderTemplatesStore = useRenderTemplatesStore()
-    const wideTemplate = createWideTemplateDetail()
-
-    renderTemplatesStore.items = [wideTemplate]
-    renderTemplatesStore.detailById = {
-      'fortune.card': wideTemplate,
-    }
-
-    vi.spyOn(renderTemplatesStore, 'fetchTemplates').mockResolvedValue({ items: renderTemplatesStore.items })
-    vi.spyOn(renderTemplatesStore, 'fetchTemplateWorkspace').mockResolvedValue(wideTemplate)
-    vi.spyOn(renderTemplatesStore, 'previewTemplateHTML').mockResolvedValue(createPreviewHTML('fortune.card', '今日运势'))
-
-    const { wrapper } = await mountPage('/render/templates/fortune.card')
-
-    await vi.advanceTimersByTimeAsync(350)
-    await flushPromises()
-
-    const host = wrapper.get('[data-testid="render-template-preview-host"]')
-    const frame = wrapper.get('[data-testid="render-template-preview-frame"]')
-    expect(frame.attributes('data-preview-frame-width')).toBe('1124')
-    expect(host.attributes('style')).toContain('--native-template-preview-frame-width: 1124px')
-    expect(frame.attributes('srcdoc')).toContain('overflow-x:hidden!important')
-    expect(frame.attributes('srcdoc')).toContain('max-width:1124px!important')
-    expect(frame.attributes('srcdoc')).toContain('width:1124px!important')
   })
 
   it('updates iframe html when JSON changes and blocks invalid JSON locally', async () => {

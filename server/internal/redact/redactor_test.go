@@ -11,10 +11,17 @@ func TestRedactorNormalizesValuesAndRedactsMatches(t *testing.T) {
 	if got := redactor.Redact("token-secret longer-secret other-secret"); got != "[REDACTED] [REDACTED] [REDACTED]" {
 		t.Fatalf("redacted text = %q", got)
 	}
-	if len(redactor.values) != 4 {
-		t.Fatalf("values length = %d, want 4", len(redactor.values))
+	if got := redactor.Redact("tiny token-secret"); got != "[REDACTED] [REDACTED]" {
+		t.Fatalf("redacted text with short value = %q", got)
 	}
-	if redactor.values[0] != "longer-secret" {
-		t.Fatalf("expected longest value first, got %#v", redactor.values)
+}
+
+func TestRedactorPrefersLongerOverlappingSecrets(t *testing.T) {
+	t.Parallel()
+
+	redactor := New("token", "token-secret")
+
+	if got := redactor.Redact("token-secret"); got != "[REDACTED]" {
+		t.Fatalf("redacted overlapping secret = %q", got)
 	}
 }

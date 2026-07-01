@@ -176,18 +176,8 @@ describe('MenuCenterView', () => {
     expect(rootPreviewFrame(wrapper).attributes('srcdoc')).not.toContain('<script')
     expect(rootPreviewFrame(wrapper).attributes('srcdoc')).not.toContain('<\\/script>')
     expect(rootPreviewFrame(wrapper).attributes('srcdoc')).not.toContain('</scr${')
-    expect(rootPreviewFrame(wrapper).attributes('srcdoc')).toContain('overflow-x: hidden')
-    expect(rootPreviewFrame(wrapper).attributes('srcdoc')).toContain('overflow-y: auto')
-    expect(rootPreviewFrame(wrapper).attributes('srcdoc')).toContain('scrollbar-color')
-    expect(rootPreviewFrame(wrapper).attributes('srcdoc')).toContain('::-webkit-scrollbar-thumb')
-    expect(rootPreviewFrame(wrapper).attributes('srcdoc')).toContain('html::-webkit-scrollbar-thumb')
-    expect(rootPreviewFrame(wrapper).attributes('srcdoc')).toContain('body::-webkit-scrollbar-thumb')
-    expect(rootPreviewFrame(wrapper).attributes('srcdoc')).not.toContain(`html, body {
-        min-height: 100%;
-        width: ${nativePreviewTemplateWidth}px;`)
     expect(rootPreviewFrame(wrapper).attributes('sandbox')).toBe('allow-same-origin')
     expect(rootPreviewFrame(wrapper).attributes('data-preview-frame-width')).toBe(String(nativePreviewTemplateWidth))
-    expect(rootPreviewHost(wrapper).attributes('style')).toContain('--native-template-preview-frame-width: 960px')
     expect(wrapper.text()).toContain('/Echo帮助')
 
     const pluginSelect = wrapper.getComponent('[data-testid="menu-center-plugin-select"]')

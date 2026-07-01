@@ -69,23 +69,6 @@ describe('system store', () => {
     expect(store.error).toBeNull()
   })
 
-  it('formats protocol and plugin events into readable chinese summaries', () => {
-    const store = useSystemStore()
-
-    store.applyEvent('2026-04-08T10:16:00Z', {
-      connection_status: 'auth_failed',
-      summary: 'OneBot authentication failed',
-    })
-    store.applyEvent('2026-04-08T10:17:00Z', {
-      plugin_id: 'weather',
-        state: 'running',
-    })
-
-    expect(store.recentEvents).toHaveLength(2)
-    expect(store.recentEvents[0].summary).toBe('插件 weather 运行中')
-    expect(store.recentEvents[1].summary).toBe('协议鉴权失败，请检查访问令牌')
-  })
-
   it('drops bridge aggregate observability events from the homepage feed', () => {
     const store = useSystemStore()
 

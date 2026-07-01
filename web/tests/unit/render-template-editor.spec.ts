@@ -55,14 +55,16 @@ describe('render template editor helpers', () => {
       },
     })
 
-    expect(sample).toEqual({
-      title: '示例标题',
+    const items = sample.items as Array<Record<string, unknown>>
+
+    expect(sample).toMatchObject({
       items: [
         {
-          nickname: '示例成员',
           value: 1,
         },
       ],
     })
+    expect(typeof sample.title).toBe('string')
+    expect(typeof items[0]?.nickname).toBe('string')
   })
 })

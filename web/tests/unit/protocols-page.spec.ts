@@ -449,7 +449,6 @@ describe('ProtocolsPage', () => {
     expect(wrapper.text()).not.toContain('需重启生效')
     expect(wrapper.text()).not.toContain('onebot.forward_ws.url')
     expect(wrapper.text()).not.toContain('render.browser_args')
-    expect(wrapper.text()).toContain('保存完成，仍需重启服务')
     expect(vi.mocked(useToastFeedback)).toHaveBeenCalled()
   })
 

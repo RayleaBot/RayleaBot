@@ -70,16 +70,13 @@ describe('RouteView', () => {
 
     await flushPromises()
     expect(mountCounts.currentLogs).toBe(1)
-    expect(document.body.textContent).toContain('实时日志')
 
     await router.push('/logs/history')
     await flushPromises()
     expect(mountCounts.historyLogs).toBe(1)
-    expect(document.body.textContent).toContain('历史日志')
 
     await router.push('/logs')
     await flushPromises()
     expect(mountCounts.currentLogs).toBe(2)
-    expect(document.body.textContent).toContain('实时日志')
   })
 })

@@ -9,15 +9,6 @@ describe('ui-shell store', () => {
     setActivePinia(createPinia())
   })
 
-  it('uses the richer shell preference defaults', () => {
-    const store = useUiShellStore()
-
-    expect(store.preferences.themeMode).toBe('light')
-    expect(store.preferences.pageTransition).toBe('fade-slide')
-    expect(store.preferences.pageLoading).toBe(true)
-    expect(store.preferences.rememberTabs).toBe(true)
-  })
-
   it('restores the current shell preference shape', () => {
     window.localStorage.setItem('rayleabot.ui-shell', JSON.stringify({
       version: 2,

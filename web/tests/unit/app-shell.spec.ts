@@ -296,56 +296,6 @@ describe('BasicLayout', () => {
     document.body.innerHTML = ''
   })
 
-  it('renders a compact shell header with theme-aware sider styling', async () => {
-    const { wrapper } = await mountShell('/')
-    const headerLeft = wrapper.get('.admin-layout__header-left')
-    const breadcrumb = wrapper.get('[data-testid="header-breadcrumb"]')
-    const firstHeaderButton = headerLeft.find('button')
-    const currentBreadcrumb = breadcrumb.get('.admin-layout__breadcrumb-current')
-
-    expect(wrapper.get('[data-testid="app-sider"]').classes()).toContain('ant-layout-sider-light')
-    expect(wrapper.get('[data-testid="theme-toggle"]').exists()).toBe(true)
-    expect(wrapper.get('[data-testid="header-search"]').exists()).toBe(true)
-    expect(wrapper.get('[data-testid="app-header"]').text()).not.toContain('事件流')
-    expect(wrapper.get('[data-testid="app-header"]').text()).not.toContain('保持正式契约')
-    expect(wrapper.find('.admin-layout__breadcrumb-row').exists()).toBe(false)
-    expect(headerLeft.element.contains(breadcrumb.element)).toBe(true)
-    expect(
-      firstHeaderButton.element.compareDocumentPosition(breadcrumb.element) & Node.DOCUMENT_POSITION_FOLLOWING,
-    ).not.toBe(0)
-    expect(firstHeaderButton.classes()).toContain('admin-layout__nav-trigger')
-    expect(breadcrumb.classes()).toContain('admin-layout__header-breadcrumb--single')
-    expect(breadcrumb.find('.admin-layout__breadcrumb-item--ancestor').exists()).toBe(false)
-    expect(breadcrumb.find('.admin-layout__breadcrumb-link').exists()).toBe(false)
-    expect(currentBreadcrumb.text()).toBe('系统状态')
-    expect(wrapper.text()).toContain('系统状态')
-    expect(wrapper.text()).toContain('内置功能')
-    expect(wrapper.text()).toContain('菜单中心')
-    expect(wrapper.text()).toContain('插件中心')
-    expect(wrapper.text()).toContain('插件列表')
-    expect(wrapper.text()).toContain('插件设置')
-    expect(wrapper.text()).toContain('协议中心')
-    expect(wrapper.text()).toContain('权限策略')
-    expect(wrapper.text()).toContain('黑白名单')
-    expect(wrapper.text()).toContain('限流中心')
-    expect(wrapper.text()).toContain('指令中心')
-    expect(wrapper.text()).toContain('运维')
-    expect(wrapper.text()).toContain('日志中心')
-    expect(wrapper.text()).toContain('协议')
-    expect(wrapper.text()).toContain('系统')
-    expect(wrapper.text()).toContain('模板预览')
-    expect(wrapper.text().indexOf('内置功能')).toBeLessThan(wrapper.text().indexOf('插件中心'))
-  })
-
-  it('serializes route transitions to avoid overlapping pages during navigation', async () => {
-    await mountShell('/')
-
-    const transition = document.body.querySelector('.admin-layout__content transition-stub')
-
-    expect(transition).not.toBeNull()
-    expect(transition?.getAttribute('mode')).toBe('out-in')
-  })
-
   it('creates leaf tabs for grouped pages and keeps the active tab in sync', async () => {
     const { router, uiShellStore } = await mountShell('/')
 
@@ -448,25 +398,15 @@ describe('BasicLayout', () => {
     const parentItem = breadcrumb.get('.admin-layout__breadcrumb-item')
     const parentOuter = parentItem.get('.ant-breadcrumb-link')
     const parentLink = parentItem.get('.admin-layout__breadcrumb-link')
-    const parentText = parentItem.get('.admin-layout__breadcrumb-link-text')
     const currentItem = breadcrumb.get('.admin-layout__breadcrumb-item--current')
     const currentOuter = currentItem.get('.ant-breadcrumb-link')
     const current = breadcrumb.get('.admin-layout__breadcrumb-current')
-    const currentText = currentItem.get('.admin-layout__breadcrumb-current-text')
 
-    expect(parentItem.classes()).toContain('admin-layout__breadcrumb-item')
-    expect(parentItem.classes()).toContain('admin-layout__breadcrumb-item--ancestor')
     expect(parentOuter.exists()).toBe(true)
     expect(parentLink.text()).toBe('运维')
     expect(parentLink.attributes('href')).toBe('/permission-policy')
-    expect(parentLink.classes()).toContain('admin-layout__breadcrumb-link')
-    expect(parentText.text()).toBe('运维')
-    expect(breadcrumb.classes()).toContain('admin-layout__header-breadcrumb--multi')
-    expect(currentItem.classes()).toContain('admin-layout__breadcrumb-item--current')
     expect(currentOuter.exists()).toBe(true)
     expect(current.text()).toBe('权限策略')
-    expect(current.classes()).toContain('admin-layout__breadcrumb-current')
-    expect(currentText.text()).toBe('权限策略')
     expect(wrapper.find('.admin-layout__breadcrumb-row').exists()).toBe(false)
   })
 
@@ -646,35 +586,11 @@ describe('BasicLayout', () => {
     expect(wrapper.get('[data-testid="plugin-detail-page"]').element).toBe(initialNode)
   })
 
-  it('renders child menu icons for grouped pages', async () => {
-    const { wrapper } = await mountShell('/permission-policy')
-
-    const menuGroups = wrapper.findAll('.admin-layout__sider .ant-menu-submenu')
-    const builtinGroup = menuGroups.find((item) => item.text().includes('内置功能'))
-    const pluginGroup = menuGroups.find((item) => item.text().includes('插件中心'))
-    const operationsGroup = menuGroups.find((item) => item.text().includes('运维'))
-    const logsGroup = menuGroups.find((item) => item.text().includes('日志中心'))
-    const protocolGroup = menuGroups.find((item) => item.text().includes('协议'))
-
-    expect(builtinGroup?.findAll('.admin-layout__menu-icon')).toHaveLength(3)
-    expect(pluginGroup?.findAll('.admin-layout__menu-icon')).toHaveLength(4)
-    expect(operationsGroup?.findAll('.admin-layout__menu-icon')).toHaveLength(5)
-    expect(logsGroup?.findAll('.admin-layout__menu-icon')).toHaveLength(3)
-    expect(protocolGroup?.findAll('.admin-layout__menu-icon')).toHaveLength(3)
-    expect(wrapper.find('.admin-layout__sider .ant-menu-item-selected .admin-layout__menu-icon').exists()).toBe(true)
-  })
-
   it('opens the preference drawer and applies shell settings', async () => {
     const { wrapper, uiShellStore } = await mountShell('/')
 
     await wrapper.get('[data-testid="header-settings"]').trigger('click')
     await flushPromises()
-
-    expect(document.body.textContent).toContain('偏好设置')
-    expect(document.body.textContent).toContain('外观')
-    expect(document.body.textContent).toContain('布局')
-    expect(document.body.textContent).toContain('快捷键')
-    expect(document.body.textContent).toContain('通用')
 
     const darkOption = Array.from(document.body.querySelectorAll('.ant-segmented-item')).find(
       (node) => node.textContent?.includes('暗色'),

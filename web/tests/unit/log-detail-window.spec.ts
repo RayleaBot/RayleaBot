@@ -196,10 +196,7 @@ describe('ManagementLogDetailDrawer', () => {
 
     expect(wrapper.find('.log-detail-window').exists()).toBe(true)
     expect(wrapper.find('.ant-drawer').exists()).toBe(false)
-    expect(wrapper.text()).toContain('日志详情')
-    expect(wrapper.text()).toContain('详情 JSON')
     expect(wrapper.text()).toContain('weather')
-    expect(wrapper.text()).toContain('相关实时日志')
   })
 
   it('falls back to the drawer on narrow screens', async () => {

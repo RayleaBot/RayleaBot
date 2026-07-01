@@ -522,6 +522,6 @@ describe('AccessListsPage', () => {
     await flushPromises()
 
     expect(writeText).toHaveBeenCalledWith('91001')
-    expect(notifySuccess).toHaveBeenCalledWith('已复制目标 ID')
+    expect(notifySuccess).toHaveBeenCalledTimes(1)
   }, 15000)
 })

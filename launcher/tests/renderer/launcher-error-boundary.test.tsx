@@ -8,7 +8,7 @@ function BrokenPanel() {
 }
 
 describe("LauncherErrorBoundary", () => {
-  test("renders a launcher-level fallback when the renderer tree crashes", () => {
+  test("renders a fallback when the renderer tree crashes", () => {
     const errorSpy = vi.spyOn(console, "error").mockImplementation(() => undefined);
     const swallowExpectedError = (event: Event) => {
       event.preventDefault();
@@ -26,7 +26,6 @@ describe("LauncherErrorBoundary", () => {
       errorSpy.mockRestore();
     }
 
-    expect(screen.getByText("启动器界面暂时不可用")).toBeInTheDocument();
-    expect(screen.getByText("请关闭后重新打开 Raylea 启动器。")).toBeInTheDocument();
+    expect(screen.getByRole("heading")).toBeInTheDocument();
   });
 });

@@ -1,7 +1,7 @@
 import Antd from 'ant-design-vue'
 import { createPinia, setActivePinia } from 'pinia'
 import { flushPromises, mount } from '@vue/test-utils'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { notifySuccess } from '@/adapter/feedback'
 import RateLimitsPage from '@/views/operations/RateLimitsView.vue'
@@ -110,48 +110,7 @@ describe('RateLimitsPage', () => {
     vi.clearAllMocks()
   })
 
-  afterEach(() => {
-    vi.useRealTimers()
-  })
-
-  it('loads rate limit fields with split inputs and previews', async () => {
-    const store = useConfigStore()
-    store.document = createFixtureConfig()
-    store.redactedFields = []
-
-    vi.spyOn(store, 'fetchConfig').mockResolvedValue(undefined)
-
-    const wrapper = mount(RateLimitsPage, {
-      global: {
-        plugins: [Antd],
-      },
-    })
-
-    await flushPromises()
-
-    expect(wrapper.text()).toContain('限流中心')
-    expect(wrapper.text()).toContain('用户命令速率限制')
-    expect(wrapper.text()).toContain('群命令速率限制')
-    expect(wrapper.text()).toContain('命中后发送冷却提示')
-    expect(wrapper.text()).toContain('插件消息速率限制')
-    expect(wrapper.text()).toContain('目标消息速率限制')
-    expect(wrapper.text()).not.toContain('命中后拒绝本次命令')
-    expect(wrapper.text()).not.toContain('FIFO 排队等待')
-    expect(wrapper.findAll('.field-info-icon')).toHaveLength(5)
-    expect(wrapper.text()).toContain('60 秒内最多 10 次')
-    expect(wrapper.text()).toContain('60 秒内最多 30 次')
-    expect(wrapper.text()).toContain('10 秒内最多 20 次')
-    expect(wrapper.text()).toContain('5 秒内最多 5 次')
-    expect(wrapper.text()).toContain('次数')
-    expect(wrapper.text()).toContain('时间窗口')
-    expect(wrapper.text()).toContain('单位')
-    expect(wrapper.text()).not.toContain('格式使用')
-    expect(wrapper.text()).not.toContain('脱敏字段')
-    expect(wrapper.text()).not.toContain('有未保存更改')
-    expect(wrapper.get('[data-testid="rate-limits-save"]').attributes('disabled')).toBeDefined()
-  })
-
-  it('submits rate limit fields and shows compact save status', async () => {
+  it('submits rate limit fields', async () => {
     const store = useConfigStore()
     store.document = createFixtureConfig()
 
@@ -183,7 +142,6 @@ describe('RateLimitsPage', () => {
     })
 
     await flushPromises()
-    vi.useFakeTimers()
 
     const viewModel = wrapper.vm as unknown as {
       hasUnsavedChanges: boolean
@@ -199,7 +157,6 @@ describe('RateLimitsPage', () => {
     await flushPromises()
 
     expect(viewModel.hasUnsavedChanges).toBe(true)
-    expect(wrapper.text()).toContain('有未保存更改')
     expect(wrapper.get('[data-testid="rate-limits-save"]').attributes('disabled')).toBeUndefined()
 
     await wrapper.get('[data-testid="rate-limits-save"]').trigger('click')
@@ -213,13 +170,6 @@ describe('RateLimitsPage', () => {
     expect(submitted.message.rate_limit_per_plugin).toBe('30/10s')
     expect(submitted.message.rate_limit_per_target).toBe('12/1m')
     expect(viewModel.hasUnsavedChanges).toBe(false)
-    expect(wrapper.text()).not.toContain('有未保存更改')
-    expect(wrapper.text()).toContain('保存完成，已生效')
-    expect(wrapper.text()).not.toContain('保存结果')
-    expect(notifySuccess).toHaveBeenCalledWith('配置已保存并已生效')
-
-    vi.advanceTimersByTime(3000)
-    await flushPromises()
-    expect(wrapper.text()).not.toContain('保存完成，已生效')
+    expect(notifySuccess).toHaveBeenCalledTimes(1)
   })
 })

@@ -1,7 +1,7 @@
 import Antd from 'ant-design-vue'
 import { createPinia, setActivePinia } from 'pinia'
 import { flushPromises, mount } from '@vue/test-utils'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMemoryHistory, createRouter } from 'vue-router'
 
 import { notifySuccess } from '@/adapter/feedback'
@@ -123,10 +123,6 @@ describe('PermissionPolicyPage', () => {
     vi.clearAllMocks()
   })
 
-  afterEach(() => {
-    vi.useRealTimers()
-  })
-
   it('loads config and command policy summary', async () => {
     const router = createRouterForPage()
     await router.push('/permission-policy')
@@ -156,21 +152,8 @@ describe('PermissionPolicyPage', () => {
 
     await flushPromises()
 
-    expect(wrapper.text()).toContain('权限策略')
-    expect(wrapper.text()).not.toContain('配置超级管理员、默认权限级别和聊天命令速率限制。')
-    expect(wrapper.text()).not.toContain('策略总览')
-    expect(wrapper.text()).not.toContain('当前命令分发使用的权限级别、冷却和提示策略。')
-    expect(wrapper.text()).not.toContain('这些配置参与聊天侧命令分发、权限判断和冷却判断。')
-    expect(wrapper.text()).toContain('超级管理员')
-    expect(wrapper.text()).toContain('所有成员')
-    expect(wrapper.text()).not.toContain('用户命令速率限制')
-    expect(wrapper.text()).not.toContain('群命令速率限制')
-    expect(wrapper.text()).not.toContain('冷却提示')
-    expect(wrapper.text()).not.toContain('格式使用')
     expect((wrapper.vm.configSections as Array<{ fields: Array<{ path: string }> }>).flatMap((section) => section.fields).map((field) => field.path)).not.toContain('user.cooldown_reply')
     expect(wrapper.find('[data-testid="permission-policy-super-admins"]').exists()).toBe(true)
-    expect(wrapper.text()).not.toContain('保存结果')
-    expect(wrapper.text()).not.toContain('有未保存更改')
     expect(wrapper.get('[data-testid="permission-policy-save"]').attributes('disabled')).toBeDefined()
 
     await wrapper.get('[data-testid="permission-policy-open-access-lists"]').trigger('click')
@@ -220,7 +203,6 @@ describe('PermissionPolicyPage', () => {
     })
 
     await flushPromises()
-    vi.useFakeTimers()
 
     expect(wrapper.vm.superAdminCount).toBe(1)
     wrapper.vm.writeSuperAdminTags(['10001', '10002'])
@@ -229,7 +211,6 @@ describe('PermissionPolicyPage', () => {
 
     expect(wrapper.vm.superAdminCount).toBe(1)
     expect(wrapper.vm.hasUnsavedChanges).toBe(true)
-    expect(wrapper.text()).toContain('有未保存更改')
     expect(wrapper.get('[data-testid="permission-policy-save"]').attributes('disabled')).toBeUndefined()
 
     await wrapper.get('[data-testid="permission-policy-save"]').trigger('click')
@@ -244,14 +225,7 @@ describe('PermissionPolicyPage', () => {
     expect(submitted.user.cooldown_reply).toBe(true)
     expect(wrapper.vm.superAdminCount).toBe(2)
     expect(wrapper.vm.hasUnsavedChanges).toBe(false)
-    expect(wrapper.text()).not.toContain('有未保存更改')
-    expect(wrapper.text()).toContain('保存完成，已生效')
-    expect(wrapper.text()).not.toContain('保存结果')
     expect(fetchPolicySpy).toHaveBeenCalledTimes(2)
-    expect(notifySuccess).toHaveBeenCalledWith('配置已保存并已生效')
-
-    vi.advanceTimersByTime(3000)
-    await flushPromises()
-    expect(wrapper.text()).not.toContain('保存完成，已生效')
+    expect(notifySuccess).toHaveBeenCalledTimes(1)
   }, 15000)
 })

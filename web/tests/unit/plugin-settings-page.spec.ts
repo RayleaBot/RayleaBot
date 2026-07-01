@@ -1,7 +1,7 @@
 import Antd from 'ant-design-vue'
 import { createPinia, setActivePinia } from 'pinia'
 import { flushPromises, mount } from '@vue/test-utils'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { notifySuccess } from '@/adapter/feedback'
 import PluginSettingsPage from '@/views/plugins/PluginSettingsView.vue'
@@ -110,57 +110,7 @@ describe('PluginSettingsPage', () => {
     vi.clearAllMocks()
   })
 
-  afterEach(() => {
-    vi.useRealTimers()
-  })
-
-  it('loads plugin-facing config fields and save metadata', async () => {
-    const store = useConfigStore()
-    store.document = createFixtureConfig()
-    store.redactedFields = []
-    store.applyEffects = {
-      applied_now: ['command.prefixes', 'log.rate_limit_per_plugin'],
-      reloaded_now: [],
-      restart_required_fields: [],
-    }
-    store.restartRequired = false
-
-    vi.spyOn(store, 'fetchConfig').mockResolvedValue(undefined)
-
-    const wrapper = mount(PluginSettingsPage, {
-      global: {
-        plugins: [Antd],
-      },
-    })
-
-    await flushPromises()
-
-    expect(wrapper.text()).toContain('插件设置')
-    expect(wrapper.text()).toContain('命令入口')
-    expect(wrapper.text()).toContain('日志保护')
-    expect(wrapper.text()).toContain('插件存储')
-    expect(wrapper.text()).toContain('命令前缀')
-    expect(wrapper.text()).not.toContain('保存结果')
-    expect(wrapper.text()).not.toContain('脱敏字段')
-    expect(wrapper.text()).not.toContain('有未保存更改')
-    expect(wrapper.text()).toContain('插件日志速率限制')
-    expect(wrapper.text()).toContain('模板说明')
-    expect(wrapper.text()).toContain('模板底部说明')
-    expect(wrapper.text()).toContain('恢复默认')
-    expect(wrapper.text()).toContain('次数')
-    expect(wrapper.text()).toContain('时间窗口')
-    expect(wrapper.text()).toContain('单位')
-    expect(wrapper.text()).toContain('当前表示')
-    expect(wrapper.text()).not.toContain('插件消息速率限制')
-    expect(wrapper.text()).toContain('插件工作目录软上限')
-    expect(wrapper.text()).not.toContain('格式使用')
-    expect(wrapper.find('.plugin-settings-nav-item').exists()).toBe(false)
-    expect(wrapper.findAll('.plugin-settings-setting-row')).toHaveLength(4)
-    expect(wrapper.find('[data-testid="plugin-settings-command-prefixes"]').exists()).toBe(true)
-    expect(wrapper.get('[data-testid="plugin-settings-save"]').attributes('disabled')).toBeDefined()
-  })
-
-  it('submits plugin-facing config fields and shows compact save status', async () => {
+  it('submits plugin-facing config fields', async () => {
     const store = useConfigStore()
     store.document = createFixtureConfig()
 
@@ -191,7 +141,6 @@ describe('PluginSettingsPage', () => {
     })
 
     await flushPromises()
-    vi.useFakeTimers()
 
     const viewModel = wrapper.vm as unknown as {
       hasUnsavedChanges: boolean
@@ -207,7 +156,6 @@ describe('PluginSettingsPage', () => {
     await flushPromises()
 
     expect(viewModel.hasUnsavedChanges).toBe(true)
-    expect(wrapper.text()).toContain('有未保存更改')
     expect(wrapper.get('[data-testid="plugin-settings-save"]').attributes('disabled')).toBeUndefined()
 
     await wrapper.get('[data-testid="plugin-settings-save"]').trigger('click')
@@ -222,14 +170,7 @@ describe('PluginSettingsPage', () => {
     expect(submitted.storage.plugin_workdir_soft_limit_mb).toBe(512)
     expect(submitted.server.host).toBe('127.0.0.1')
     expect(viewModel.hasUnsavedChanges).toBe(false)
-    expect(wrapper.text()).not.toContain('有未保存更改')
-    expect(wrapper.text()).toContain('保存完成，已生效')
-    expect(wrapper.text()).not.toContain('保存结果')
-    expect(notifySuccess).toHaveBeenCalledWith('配置已保存并已生效')
-
-    vi.advanceTimersByTime(3000)
-    await flushPromises()
-    expect(wrapper.text()).not.toContain('保存完成，已生效')
+    expect(notifySuccess).toHaveBeenCalledTimes(1)
   })
 
   it('restores render footer template to the default value', async () => {

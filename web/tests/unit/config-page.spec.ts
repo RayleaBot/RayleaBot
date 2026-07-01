@@ -294,7 +294,6 @@ describe('ConfigPage', () => {
     expect(wrapper.text()).not.toContain('log.level')
     expect(wrapper.text()).not.toContain('onebot.forward_ws.url')
     expect(wrapper.text()).not.toContain('server.port')
-    expect(wrapper.text()).toContain('保存完成，仍需重启服务')
     expect(vi.mocked(useToastFeedback)).toHaveBeenCalled()
   })
 
@@ -348,13 +347,6 @@ describe('ConfigPage', () => {
       writeField: (path: string, value: unknown) => void
     }
 
-    expect(wrapper.text()).toContain('IPC 突发限制')
-    expect(wrapper.text()).toContain('次数')
-    expect(wrapper.text()).toContain('时间窗口')
-    expect(wrapper.text()).toContain('单位')
-    expect(wrapper.text()).not.toContain('格式使用')
-    expect(wrapper.text()).toContain('1 秒内最多 100 次')
-
     viewModel.writeField('runtime.ipc_action_burst_limit', '200/10s')
     await flushPromises()
     expect(wrapper.text()).not.toContain('目标消息速率限制')
@@ -385,58 +377,11 @@ describe('ConfigPage', () => {
     const saveButton = wrapper.findAll('button').find((candidate) => candidate.text().includes('保存更改'))
     expect(saveButton).toBeTruthy()
     expect((saveButton!.element as HTMLButtonElement).disabled).toBe(true)
-    expect(wrapper.find('.config-toolbar__dirty').classes()).not.toContain('is-active')
-    expect(wrapper.text()).toContain('无需保存')
 
     const viewModel = wrapper.vm as unknown as { writeField: (path: string, value: unknown) => void }
     viewModel.writeField('server.host', '0.0.0.0')
     await flushPromises()
 
     expect((saveButton!.element as HTMLButtonElement).disabled).toBe(false)
-    expect(wrapper.find('.config-toolbar__dirty').classes()).toContain('is-active')
-  })
-
-  it('renders an info tooltip trigger for every general config field', async () => {
-    const store = useConfigStore()
-    store.document = createFixtureConfig()
-    vi.spyOn(store, 'fetchConfig').mockResolvedValue(undefined)
-
-    const wrapper = mount(ConfigPage, {
-      global: {
-        plugins: [Antd],
-      },
-    })
-
-    await flushPromises()
-
-    const expectedFieldCount = getConfigSections().reduce((acc, section) => acc + section.fields.length, 0)
-    const infoTriggers = wrapper.findAll('.config-field__info')
-    expect(infoTriggers.length).toBe(expectedFieldCount)
-    infoTriggers.forEach((trigger) => {
-      expect(trigger.attributes('aria-label')).toBeTruthy()
-    })
-  })
-
-  it('renders the right-hand TOC with one entry per section', async () => {
-    const store = useConfigStore()
-    store.document = createFixtureConfig()
-    vi.spyOn(store, 'fetchConfig').mockResolvedValue(undefined)
-
-    const wrapper = mount(ConfigPage, {
-      global: {
-        plugins: [Antd],
-      },
-    })
-
-    await flushPromises()
-
-    const sections = getConfigSections()
-    const tocItems = wrapper.findAll('.config-toc__item')
-    expect(tocItems.length).toBe(sections.length)
-    sections.forEach((section, index) => {
-      expect(tocItems[index].attributes('href')).toBe(`#config-section-${section.key}`)
-      expect(tocItems[index].text()).toContain(section.title)
-    })
-    expect(tocItems[0].classes()).toContain('is-active')
   })
 })

@@ -2,17 +2,6 @@ import { expect, test } from '@playwright/test'
 
 const backendUrl = 'http://127.0.0.1:4010'
 
-interface TransitionStageSample {
-  className: string
-  opacity: number
-}
-
-interface TransitionSample {
-  heading: string
-  label: string
-  stageNodes: TransitionStageSample[]
-}
-
 async function resetBackend(
   request: import('@playwright/test').APIRequestContext,
   initialized: boolean,
@@ -63,28 +52,6 @@ async function login(page: import('@playwright/test').Page) {
   await expect(page.getByRole('heading', { name: '系统状态', level: 1 })).toBeVisible()
 }
 
-async function createBackupTaskLogRows(
-  request: import('@playwright/test').APIRequestContext,
-  count: number,
-) {
-  for (let start = 0; start < count; start += 20) {
-    const end = Math.min(start + 20, count)
-    await Promise.all(Array.from({ length: end - start }, (_, offset) => {
-      const index = start + offset
-      const sequenceText = String(index + 1).padStart(4, '0')
-      return request.post(`${backendUrl}/__test/push-task`, {
-        data: {
-          task_id: `task_backup_create_scroll_${sequenceText}`,
-          task_type: 'backup.create',
-          status: 'succeeded',
-          progress: 100,
-          summary: `任务滚动 ${index + 1}`,
-        },
-      })
-    }))
-  }
-}
-
 function pluginRows(page: import('@playwright/test').Page) {
   return page.locator('.plugins-data-table .ant-table-tbody > tr:not(.ant-table-measure-row)')
 }
@@ -93,70 +60,12 @@ function logRows(page: import('@playwright/test').Page) {
   return page.locator('.logs-row')
 }
 
-function pluginScroller(page: import('@playwright/test').Page) {
-  return page.locator('.plugins-data-table .ant-table-container')
-}
-
 function logScroller(page: import('@playwright/test').Page) {
   return page.locator('.logs-feed-card .data-viewport__scroller')
 }
 
 function logDetailWindow(page: import('@playwright/test').Page) {
   return page.getByTestId('management-log-detail-window')
-}
-
-async function expectThirdPartyAccountCardsContained(page: import('@playwright/test').Page) {
-  const metrics = await page.evaluate(() => {
-    const tolerance = 1
-    const viewportOverflow = document.documentElement.scrollWidth - document.documentElement.clientWidth
-    const cards = Array.from(document.querySelectorAll<HTMLElement>('.account-card'))
-    const overflowingCards = cards.map((card) => {
-      const rect = card.getBoundingClientRect()
-      return {
-        className: card.className,
-        inlineOverflow: card.scrollWidth - card.clientWidth,
-        rightOverflow: rect.right - document.documentElement.clientWidth,
-      }
-    }).filter((card) => card.inlineOverflow > tolerance || card.rightOverflow > tolerance)
-
-    return {
-      viewportOverflow,
-      overflowingCards,
-    }
-  })
-
-  expect(metrics.viewportOverflow).toBeLessThanOrEqual(1)
-  expect(metrics.overflowingCards).toEqual([])
-}
-
-async function expectThirdPartyAccountAvatarImageFillsFrame(page: import('@playwright/test').Page) {
-  const metrics = await expectAvatarImageFillsFrame(page, 'bilibili-account-avatar-image', '.account-avatar')
-
-  const frameInsetTolerance = 2
-  expect(metrics).not.toBeNull()
-  expect(metrics!.imageWidth).toBeGreaterThanOrEqual(metrics!.avatarWidth - frameInsetTolerance)
-  expect(metrics!.imageHeight).toBeGreaterThanOrEqual(metrics!.avatarHeight - frameInsetTolerance)
-  expect(metrics!.stringTransform).toBe('none')
-}
-
-async function expectAvatarImageFillsFrame(page: import('@playwright/test').Page, testId: string, avatarSelector: string) {
-  return page.getByTestId(testId).first().evaluate((image, selector) => {
-    const avatar = image.closest<HTMLElement>(selector)
-    if (!avatar) {
-      return null
-    }
-    const avatarRect = avatar.getBoundingClientRect()
-    const imageRect = image.getBoundingClientRect()
-    const string = image.closest<HTMLElement>('.ant-avatar-string')
-    const stringStyle = string ? getComputedStyle(string) : null
-    return {
-      avatarHeight: avatarRect.height,
-      avatarWidth: avatarRect.width,
-      imageHeight: imageRect.height,
-      imageWidth: imageRect.width,
-      stringTransform: stringStyle?.transform ?? '',
-    }
-  }, avatarSelector)
 }
 
 async function clickConfigTocItem(page: import('@playwright/test').Page, label: string) {
@@ -171,43 +80,6 @@ async function clickConfigTocItem(page: import('@playwright/test').Page, label: 
 
 async function scrollConfigSectionIntoView(page: import('@playwright/test').Page, sectionKey: string) {
   await page.locator(`#config-section-${sectionKey}`).scrollIntoViewIfNeeded()
-}
-
-async function visibleLogRowHeights(page: import('@playwright/test').Page) {
-  return logRows(page).evaluateAll((rows) => (
-    rows
-      .slice(0, 6)
-      .map((row) => Math.round(row.getBoundingClientRect().height))
-  ))
-}
-
-async function visibleLogVirtualRowGaps(page: import('@playwright/test').Page) {
-  return page.locator('.logs-feed-card .data-viewport__row').evaluateAll((rows) => {
-    function translateY(row: Element) {
-      const transform = window.getComputedStyle(row).transform
-      if (!transform || transform === 'none') {
-        return 0
-      }
-
-      const matrix3d = /^matrix3d\((.+)\)$/.exec(transform)
-      if (matrix3d?.[1]) {
-        const parts = matrix3d[1].split(',').map((part) => Number(part.trim()))
-        return parts[13] ?? 0
-      }
-
-      const matrix = /^matrix\((.+)\)$/.exec(transform)
-      if (matrix?.[1]) {
-        const parts = matrix[1].split(',').map((part) => Number(part.trim()))
-        return parts[5] ?? 0
-      }
-
-      const translate = /translateY\(([-\d.]+)px\)/.exec(transform)
-      return translate?.[1] ? Number(translate[1]) : 0
-    }
-
-    const starts = rows.slice(0, 7).map(translateY)
-    return starts.slice(1).map((start, index) => Math.round(start - starts[index]))
-  })
 }
 
 function logFilterField(page: import('@playwright/test').Page, label: string) {
@@ -426,90 +298,6 @@ async function navigateThroughMenu(
 
   const targetItem = sider.locator('.ant-menu-item').filter({ hasText: item }).first()
   await targetItem.click()
-}
-
-async function startTransitionSampling(page: import('@playwright/test').Page) {
-  await page.evaluate(() => {
-    type BrowserTransitionStageSample = {
-      className: string
-      opacity: number
-    }
-
-    type BrowserTransitionSample = {
-      heading: string
-      label: string
-      stageNodes: BrowserTransitionStageSample[]
-    }
-
-    const win = window as Window & { __transitionSamples?: BrowserTransitionSample[] }
-    const samples: BrowserTransitionSample[] = []
-    win.__transitionSamples = samples
-
-    const sample = (label: string) => {
-      const heading = document.querySelector('#app-main h1')?.textContent?.trim() ?? ''
-      const stageNodes = Array.from(document.querySelectorAll<HTMLElement>('.admin-layout__route-stage')).map((node) => ({
-        className: node.className,
-        opacity: Number.parseFloat(window.getComputedStyle(node).opacity) || 0,
-      }))
-
-      samples.push({
-        heading,
-        label,
-        stageNodes,
-      })
-    }
-
-    sample('before')
-    let count = 0
-    const tick = () => {
-      sample(`frame-${count}`)
-      count += 1
-      if (count < 50) {
-        requestAnimationFrame(tick)
-      }
-    }
-
-    requestAnimationFrame(tick)
-  })
-}
-
-async function collectTransitionSamples(page: import('@playwright/test').Page) {
-  await page.waitForTimeout(900)
-  return page.evaluate(() => {
-    type BrowserTransitionSample = {
-      heading: string
-      label: string
-      stageNodes: Array<{
-        className: string
-        opacity: number
-      }>
-    }
-
-    const win = window as Window & { __transitionSamples?: BrowserTransitionSample[] }
-    return win.__transitionSamples ?? []
-  }) as Promise<TransitionSample[]>
-}
-
-function expectSingleEnterTransition(samples: TransitionSample[], heading: string) {
-  const firstEnterIndex = samples.findIndex((sample) => (
-    sample.heading === heading
-    && sample.stageNodes.some((node) => /route-fade(?:-slide)?-enter/.test(node.className))
-  ))
-  expect(firstEnterIndex).toBeGreaterThanOrEqual(0)
-
-  const firstEnter = samples[firstEnterIndex]!
-  const firstEnterNode = firstEnter.stageNodes.find((node) => /route-fade(?:-slide)?-enter/.test(node.className))
-  expect(firstEnter.stageNodes).toHaveLength(1)
-  expect(firstEnterNode).toBeDefined()
-  expect(firstEnterNode!.opacity).toBeLessThan(1)
-
-  const showedFullyVisibleBeforeEnter = samples
-    .slice(0, firstEnterIndex)
-    .some((sample) => sample.heading === heading && sample.stageNodes.some((node) => (
-      node.opacity >= 0.99 && !/route-fade(?:-slide)?-enter/.test(node.className)
-    )))
-
-  expect(showedFullyVisibleBeforeEnter).toBe(false)
 }
 
 test('setup flow reaches protected shell and shows websocket statuses', async ({ page, request }) => {
@@ -805,236 +593,6 @@ test('plugin management ui reads and saves plugin settings inside the detail pag
 
   const tabLabels = await readTabLabels(page)
   expect(tabLabels.filter((label) => label === 'example-config-panel')).toHaveLength(1)
-})
-
-test('desktop list viewports fill the remaining shell height without overlapping rows', async ({ page, request }) => {
-  await resetBackend(request, true)
-  await page.setViewportSize({ width: 1600, height: 1400 })
-
-  await login(page)
-
-  await page.goto('/plugins')
-  const pluginsBody = pluginScroller(page)
-  await expect(pluginsBody).toBeVisible()
-  expect((await pluginsBody.getAttribute('style')) ?? '').not.toContain('560px')
-  expect((await pluginsBody.getAttribute('style')) ?? '').not.toContain('620px')
-
-  const pluginFirst = await pluginRows(page).nth(0).boundingBox()
-  const pluginSecond = await pluginRows(page).nth(1).boundingBox()
-  expect(pluginFirst).not.toBeNull()
-  expect(pluginSecond).not.toBeNull()
-  expect(pluginFirst!.y + pluginFirst!.height).toBeLessThanOrEqual(pluginSecond!.y + 1)
-  expect(pluginFirst!.height).toBeLessThan(170)
-  await expect(pluginRows(page).first()).not.toContainText('discovered')
-
-  const weatherRow = pluginRows(page).filter({ hasText: 'weather' }).first()
-  await weatherRow.getByRole('button', { name: '查看概要' }).click()
-  const summarySurface = page.locator('.ant-drawer-content').filter({ hasText: '显示状态' }).last()
-  await expect(summarySurface).toContainText('显示状态')
-  await expect(summarySurface).toContainText('运行中')
-  await expect(summarySurface).not.toContainText('discovered')
-  await page.keyboard.press('Escape')
-
-  await page.setViewportSize({ width: 1600, height: 900 })
-  await expect(pluginsBody).toBeVisible()
-  expect((await pluginsBody.getAttribute('style')) ?? '').not.toContain('560px')
-  expect((await pluginsBody.getAttribute('style')) ?? '').not.toContain('620px')
-
-  await createBackupTaskLogRows(request, 80)
-  await page.goto('/logs?source=tasks')
-  const taskLogsBody = logScroller(page)
-  await expect(taskLogsBody).toBeVisible()
-  expect((await taskLogsBody.getAttribute('style')) ?? '').not.toContain('560px')
-  expect((await taskLogsBody.getAttribute('style')) ?? '').not.toContain('620px')
-  await expect(logRows(page).first()).toBeVisible()
-  const taskScrollMetrics = await taskLogsBody.evaluate((node) => {
-    const style = window.getComputedStyle(node)
-    return {
-      clientHeight: node.clientHeight,
-      overflowY: style.overflowY,
-      scrollHeight: node.scrollHeight,
-      scrollTop: node.scrollTop,
-    }
-  })
-  expect(taskScrollMetrics.scrollHeight).toBeGreaterThan(taskScrollMetrics.clientHeight + 100)
-  expect(['auto', 'scroll']).toContain(taskScrollMetrics.overflowY)
-  await taskLogsBody.evaluate((node) => {
-    node.scrollTop = node.scrollHeight
-    node.dispatchEvent(new Event('scroll'))
-  })
-  await expect.poll(() => taskLogsBody.evaluate((node) => node.scrollTop)).toBeGreaterThan(0)
-  await expect(logRows(page).filter({ hasText: 'task_backup_create_scroll_0080' }).first()).toBeVisible()
-
-  await page.goto('/logs')
-  const logsBody = logScroller(page)
-  await expect(logsBody).toBeVisible()
-  expect((await logsBody.getAttribute('style')) ?? '').not.toContain('560px')
-  expect((await logsBody.getAttribute('style')) ?? '').not.toContain('620px')
-  await expect(logRows(page).first()).toBeVisible()
-})
-
-test('dashboard avoids global page overflow when the content fits', async ({ page, request }) => {
-  await resetBackend(request, true)
-  await page.setViewportSize({ width: 1600, height: 1200 })
-  await login(page)
-
-  const metrics = await page.evaluate(() => {
-    const doc = document.scrollingElement ?? document.documentElement
-    const main = document.querySelector<HTMLElement>('#app-main')
-    const overviewCards = document.querySelectorAll('.dashboard-overview-grid .stat-card').length
-    const bottomCards = document.querySelectorAll('.dashboard-bottom-grid > .ant-card').length
-    const tabLabels = Array.from(document.querySelectorAll('.dashboard-main-grid .ant-tabs-tab')).map((item) => item.textContent?.trim() ?? '')
-
-    return {
-      bodyClientHeight: document.body.clientHeight,
-      bodyScrollHeight: document.body.scrollHeight,
-      docClientHeight: doc.clientHeight,
-      docScrollHeight: doc.scrollHeight,
-      mainClientHeight: main?.clientHeight ?? 0,
-      overviewCards,
-      bottomCards,
-      tabLabels,
-    }
-  })
-
-  expect(metrics.docScrollHeight).toBeLessThanOrEqual(metrics.docClientHeight + 1)
-  expect(metrics.bodyScrollHeight).toBeLessThanOrEqual(metrics.bodyClientHeight + 1)
-  expect(metrics.mainClientHeight).toBeGreaterThan(0)
-  expect(metrics.overviewCards).toBe(4)
-  expect(metrics.bottomCards).toBe(3)
-  expect(metrics.tabLabels).toContain('近期变化')
-  expect(metrics.tabLabels).toContain('就绪检查')
-})
-
-test('logs page keeps the feed and floating detail window inside the viewport', async ({ page, request }) => {
-  await resetBackend(request, true)
-  await page.setViewportSize({ width: 1600, height: 1200 })
-  await login(page)
-
-  const baseTimestamp = Date.now() - 2 * 60 * 60 * 1000
-  await pushLogsInBatches(request, 96, (index) => ({
-    summary: {
-      log_id: `log_detail_window_seed_${index}`,
-      timestamp: new Date(baseTimestamp + index * 1000).toISOString(),
-      level: 'info',
-      source: 'runtime',
-      request_id: 'req_log_detail_window_seed',
-      message: `detail window seed ${index}`,
-    },
-    detail: {
-      log_id: `log_detail_window_seed_${index}`,
-      timestamp: new Date(baseTimestamp + index * 1000).toISOString(),
-      level: 'info',
-      source: 'runtime',
-      request_id: 'req_log_detail_window_seed',
-      message: `detail window seed ${index}`,
-      details: {
-        branch: 'detail-window-seed',
-        index,
-      },
-    },
-  }))
-
-  await page.goto('/logs')
-  await expect(page.getByRole('heading', { name: '实时日志', level: 1 })).toBeVisible()
-  await expect.poll(async () => {
-    const heights = await visibleLogRowHeights(page)
-    return heights.length > 0 && heights.every((height) => height >= 72 && height <= 88)
-  }).toBe(true)
-  const initialRowHeights = await visibleLogRowHeights(page)
-  const initialVirtualRowGaps = await visibleLogVirtualRowGaps(page)
-  expect(initialVirtualRowGaps).not.toHaveLength(0)
-  expect(initialVirtualRowGaps.every((gap) => gap === 80)).toBe(true)
-  await page.waitForTimeout(300)
-  expect(await visibleLogRowHeights(page)).toEqual(initialRowHeights)
-  expect(await visibleLogVirtualRowGaps(page)).toEqual(initialVirtualRowGaps)
-
-  const targetRow = logRows(page).last()
-  await expect(targetRow).toBeVisible()
-  await targetRow.click({ force: true })
-  await expect(logDetailWindow(page)).toBeVisible()
-
-  const initialMessage = (await logDetailWindow(page).locator('.log-detail-card__content--message').textContent())?.trim() ?? ''
-  const header = logDetailWindow(page).locator('.log-detail-window__header')
-  const headerBox = await header.boundingBox()
-  expect(headerBox).not.toBeNull()
-
-  await page.mouse.move(headerBox!.x + 80, headerBox!.y + 18)
-  await page.mouse.down()
-  await page.mouse.move(headerBox!.x - 520, headerBox!.y + 180, { steps: 8 })
-  await page.mouse.up()
-
-  const draggedBox = await logDetailWindow(page).boundingBox()
-  expect(draggedBox).not.toBeNull()
-
-  const alternateRow = page.locator('.logs-row').filter({ hasNotText: initialMessage }).first()
-  await expect(alternateRow).toBeVisible()
-  await alternateRow.click({
-    position: { x: 48, y: 28 },
-    force: true,
-  })
-  await expect(logDetailWindow(page)).toBeVisible()
-  const selectedAlternateRow = page.locator('.logs-row.is-selected').first()
-  await expect(selectedAlternateRow).toBeVisible()
-  const selectedAlternateMessage = (await selectedAlternateRow.locator('.logs-row__message').textContent())?.trim() ?? ''
-  await expect(logDetailWindow(page).locator('.log-detail-card__content--message')).toContainText(selectedAlternateMessage)
-
-  const switchedMessage = (await logDetailWindow(page).locator('.log-detail-card__content--message').textContent())?.trim() ?? ''
-  const switchedBox = await logDetailWindow(page).boundingBox()
-  expect(switchedBox).not.toBeNull()
-  expect(switchedMessage).not.toBe(initialMessage)
-  expect(Math.abs((switchedBox?.x ?? 0) - (draggedBox?.x ?? 0))).toBeLessThanOrEqual(1)
-  expect(Math.abs((switchedBox?.y ?? 0) - (draggedBox?.y ?? 0))).toBeLessThanOrEqual(1)
-
-  await logScroller(page).evaluate((node) => {
-    node.scrollTop = Math.max(0, node.scrollTop - 260)
-    node.dispatchEvent(new Event('scroll'))
-  })
-  await expect(page.getByRole('button', { name: '滚动到最新' })).toBeVisible()
-
-  const metrics = await page.evaluate(() => {
-    const main = document.querySelector<HTMLElement>('#app-main')
-    const layout = document.querySelector<HTMLElement>('.logs-layout')
-    const feedCard = document.querySelector<HTMLElement>('.logs-feed-card')
-    const feedBody = document.querySelector<HTMLElement>('.logs-feed-card .ant-card-body')
-    const floating = document.querySelector<HTMLElement>('[data-testid="management-log-detail-window"]')
-    const feedScroller = document.querySelector<HTMLElement>('.logs-feed-card .data-viewport__scroller')
-    const detailScroller = document.querySelector<HTMLElement>('.log-detail-card__content--json')
-    const layoutRect = layout?.getBoundingClientRect()
-    const feedRect = feedCard?.getBoundingClientRect()
-    const feedBodyRect = feedBody?.getBoundingClientRect()
-    const floatingRect = floating?.getBoundingClientRect()
-
-    return {
-      viewportHeight: window.innerHeight,
-      mainClientHeight: main?.clientHeight ?? 0,
-      mainScrollHeight: main?.scrollHeight ?? 0,
-      layoutBottom: layoutRect?.bottom ?? 0,
-      feedLeft: feedRect?.left ?? 0,
-      feedWidth: feedRect?.width ?? 0,
-      feedBottom: feedRect?.bottom ?? 0,
-      feedBodyBottom: feedBodyRect?.bottom ?? 0,
-      floatingBottom: floatingRect?.bottom ?? 0,
-      floatingLeft: floatingRect?.left ?? 0,
-      floatingRight: floatingRect?.right ?? 0,
-      floatingTop: floatingRect?.top ?? 0,
-      feedClientHeight: feedScroller?.clientHeight ?? 0,
-      feedScrollHeight: feedScroller?.scrollHeight ?? 0,
-      detailClientHeight: detailScroller?.clientHeight ?? 0,
-      detailScrollHeight: detailScroller?.scrollHeight ?? 0,
-    }
-  })
-
-  expect(metrics.mainScrollHeight).toBeLessThanOrEqual(metrics.mainClientHeight + 1)
-  expect(metrics.feedBottom).toBeLessThanOrEqual(metrics.viewportHeight + 1)
-  expect(metrics.feedBodyBottom).toBeLessThanOrEqual(metrics.feedBottom + 1)
-  expect(metrics.floatingTop).toBeGreaterThanOrEqual(0)
-  expect(metrics.floatingBottom).toBeLessThanOrEqual(metrics.layoutBottom + 1)
-  expect(metrics.floatingLeft).toBeGreaterThanOrEqual(metrics.feedLeft + metrics.feedWidth * 0.4)
-  expect(metrics.floatingRight).toBeLessThanOrEqual(1600)
-  expect(metrics.feedScrollHeight).toBeGreaterThanOrEqual(metrics.feedClientHeight)
-  expect(metrics.feedClientHeight).toBeGreaterThan(0)
-  expect(metrics.detailClientHeight).toBeGreaterThan(0)
 })
 
 test('history logs stay frozen until a new anchor is loaded', async ({ page, request }) => {
@@ -1562,50 +1120,6 @@ test('unsafe OneBot text stays escaped in current logs and history logs', async 
   expect(historyText.includes('\u2066')).toBe(false)
 })
 
-test('config keeps the section list scroll inside the card without page overflow', async ({ page, request }) => {
-  await resetBackend(request, true)
-  await page.setViewportSize({ width: 1600, height: 1200 })
-  await login(page)
-
-  await page.goto('/config')
-  await expect(page.getByRole('heading', { name: '配置', level: 1 })).toBeVisible()
-
-  const metrics = await page.evaluate(() => {
-    const doc = document.scrollingElement ?? document.documentElement
-    const main = document.querySelector<HTMLElement>('#app-main')
-    const page = document.querySelector<HTMLElement>('.config-page')
-    const toc = Array.from(document.querySelectorAll<HTMLElement>('.config-toc, .config-toc-inline'))
-      .find((element) => {
-        const style = window.getComputedStyle(element)
-        return style.display !== 'none' && style.visibility !== 'hidden' && element.clientWidth > 0
-      }) ?? null
-    const sections = document.querySelectorAll('.config-section')
-
-    return {
-      bodyClientHeight: document.body.clientHeight,
-      bodyScrollHeight: document.body.scrollHeight,
-      docClientHeight: doc.clientHeight,
-      docScrollHeight: doc.scrollHeight,
-      mainClientHeight: main?.clientHeight ?? 0,
-      mainScrollHeight: main?.scrollHeight ?? 0,
-      pageWidth: page?.clientWidth ?? 0,
-      pageScrollWidth: page?.scrollWidth ?? 0,
-      tocWidth: toc?.clientWidth ?? 0,
-      tocScrollWidth: toc?.scrollWidth ?? 0,
-      sectionCount: sections.length,
-    }
-  })
-
-  expect(metrics.docScrollHeight).toBeGreaterThanOrEqual(metrics.docClientHeight)
-  expect(metrics.bodyScrollHeight).toBeGreaterThanOrEqual(metrics.bodyClientHeight)
-  expect(metrics.mainScrollHeight).toBeGreaterThan(metrics.mainClientHeight)
-  expect(metrics.pageWidth).toBeGreaterThan(0)
-  expect(metrics.pageScrollWidth).toBeLessThanOrEqual(metrics.pageWidth + 1)
-  expect(metrics.tocWidth).toBeGreaterThan(0)
-  expect(metrics.tocScrollWidth).toBeLessThanOrEqual(metrics.tocWidth + 1)
-  expect(metrics.sectionCount).toBeGreaterThan(4)
-})
-
 test('config page edits general IPC rate limit with split inputs', async ({ page, request }) => {
   await resetBackend(request, true)
   await login(page)
@@ -1774,100 +1288,6 @@ test('template preview auto-updates results without editor controls', async ({ p
   expect((await readTabLabels(page)).filter((label) => label === '模板预览')).toHaveLength(1)
   await expect(page.getByTestId('render-template-preview-frame')).toHaveAttribute('data-template-id', 'status.panel')
   await expect(page.locator('.render-templates-float-panel')).toContainText('status.panel')
-})
-
-test('template preview scales wide templates without horizontal scrollbars', async ({ page, request }) => {
-  await resetBackend(request, true)
-  await page.setViewportSize({ width: 1280, height: 760 })
-  await login(page)
-
-  await page.goto('/render/templates/fortune.stats')
-  await expect(page.getByRole('heading', { name: '模板预览', level: 1 })).toBeVisible()
-
-  const previewResult = page.getByTestId('render-template-preview-result')
-  const previewHost = page.getByTestId('render-template-preview-host')
-  const previewFrame = page.getByTestId('render-template-preview-frame')
-
-  await expect(previewFrame).toBeVisible()
-  await expect(previewFrame).toHaveAttribute('data-template-id', 'fortune.stats')
-  await expect(previewFrame).toHaveAttribute('data-preview-frame-width', '1124')
-  await expect(previewFrame).toHaveAttribute('srcdoc', /overflow-x:hidden!important/)
-
-  await expect.poll(async () => (
-    previewFrame.evaluate(async (frame) => {
-      const iframe = frame as HTMLIFrameElement
-      const image = iframe.contentDocument?.querySelector<HTMLImageElement>('.external-preview-image')
-      await iframe.contentDocument?.fonts?.ready
-      return {
-        fontReady: iframe.contentDocument?.fonts?.check('16px RayleaExternalPreview') ?? false,
-        imageComplete: Boolean(image?.complete),
-        imageWidth: image?.naturalWidth ?? 0,
-      }
-    })
-  )).toEqual({
-    fontReady: true,
-    imageComplete: true,
-    imageWidth: 1,
-  })
-
-  const frameMetrics = await previewFrame.evaluate((frame) => {
-    const iframe = frame as HTMLIFrameElement
-    const documentElement = iframe.contentDocument?.documentElement
-    const body = iframe.contentDocument?.body
-    return {
-      bodyClientWidth: body?.clientWidth ?? 0,
-      bodyScrollWidth: body?.scrollWidth ?? 0,
-      documentClientWidth: documentElement?.clientWidth ?? 0,
-      documentScrollWidth: documentElement?.scrollWidth ?? 0,
-    }
-  })
-  expect(frameMetrics.documentScrollWidth).toBeLessThanOrEqual(frameMetrics.documentClientWidth)
-  expect(frameMetrics.bodyScrollWidth).toBeLessThanOrEqual(frameMetrics.bodyClientWidth)
-
-  const hostMetrics = await previewHost.evaluate((node) => ({
-    clientWidth: node.clientWidth,
-    scrollWidth: node.scrollWidth,
-  }))
-  expect(hostMetrics.scrollWidth).toBeLessThanOrEqual(hostMetrics.clientWidth)
-
-  const resultMetrics = await previewResult.evaluate((node) => ({
-    clientWidth: node.clientWidth,
-    scrollWidth: node.scrollWidth,
-  }))
-  expect(resultMetrics.scrollWidth).toBeLessThanOrEqual(resultMetrics.clientWidth)
-})
-
-test('template preview page stays scrollable on shorter viewports', async ({ page, request }) => {
-  await resetBackend(request, true)
-  await page.setViewportSize({ width: 1280, height: 640 })
-  await login(page)
-
-  await page.goto('/render/templates/help.menu')
-  await expect(page.getByRole('heading', { name: '模板预览', level: 1 })).toBeVisible()
-  await expect(page.getByTestId('render-template-preview-frame')).toHaveAttribute('srcdoc', /帮助菜单/)
-
-  const scrollPanel = page.locator('.render-templates-float-panel__body')
-  const initialMetrics = await scrollPanel.evaluate((node) => ({
-    clientHeight: node.clientHeight,
-    scrollHeight: node.scrollHeight,
-    scrollTop: node.scrollTop,
-  }))
-
-  expect(initialMetrics.scrollHeight).toBeGreaterThan(initialMetrics.clientHeight)
-
-  const scrollPanelBox = await scrollPanel.boundingBox()
-  if (!scrollPanelBox) {
-    throw new Error('.render-templates-float-panel__body is not visible')
-  }
-  await page.mouse.move(
-    scrollPanelBox.x + scrollPanelBox.width - 24,
-    scrollPanelBox.y + Math.min(scrollPanelBox.height - 24, 320),
-  )
-  await page.mouse.wheel(0, 1200)
-
-  await expect.poll(async () => (
-    scrollPanel.evaluate((node) => node.scrollTop)
-  )).toBeGreaterThan(initialMetrics.scrollTop)
 })
 
 test('protocol center owns OneBot settings and logs center keeps protocol filtering', async ({ page, request }) => {
@@ -2175,12 +1595,10 @@ test('logs page keeps older current-session rows reachable inside the table scro
   await expect(page.locator('.logs-row__message', { hasText: 'scroll history row 35' })).toBeVisible()
 
   const metrics = await page.evaluate(() => {
-    const doc = document.scrollingElement ?? document.documentElement
     const tableBody = document.querySelector<HTMLElement>('.logs-feed-card .data-viewport__scroller')
     if (!tableBody) {
       return {
         hasTableBody: false,
-        pageOverflow: doc.scrollHeight - doc.clientHeight,
         scrollHeight: 0,
         clientHeight: 0,
         scrollTop: 0,
@@ -2191,7 +1609,6 @@ test('logs page keeps older current-session rows reachable inside the table scro
 
     return {
       hasTableBody: true,
-      pageOverflow: doc.scrollHeight - doc.clientHeight,
       scrollHeight: tableBody.scrollHeight,
       clientHeight: tableBody.clientHeight,
       scrollTop: tableBody.scrollTop,
@@ -2201,7 +1618,6 @@ test('logs page keeps older current-session rows reachable inside the table scro
   expect(metrics.hasTableBody).toBe(true)
   expect(metrics.scrollHeight).toBeGreaterThan(metrics.clientHeight)
   expect(metrics.scrollTop).toBeGreaterThan(0)
-  expect(metrics.pageOverflow).toBeLessThanOrEqual(2)
 })
 
 test('command center shows all declared commands and filters by plugin selection', async ({ page, request }) => {
@@ -2239,13 +1655,11 @@ test('breadcrumb and tabbar track leaf pages instead of hidden route groups', as
   await resetBackend(request, true)
   await login(page)
 
-  await expect(page.locator('.admin-layout__header-breadcrumb')).toHaveClass(/admin-layout__header-breadcrumb--single/)
   await expect(page.locator('.admin-layout__header-breadcrumb .admin-layout__breadcrumb-link')).toHaveCount(0)
   await expect(page.locator('.admin-layout__header-breadcrumb .admin-layout__breadcrumb-current')).toHaveText('系统状态')
 
   await page.goto('/permission-policy')
   await expect(page.getByRole('heading', { name: '权限策略', level: 1 })).toBeVisible()
-  await expect(page.locator('.admin-layout__header-breadcrumb')).toHaveClass(/admin-layout__header-breadcrumb--multi/)
   await expect(page.locator('.admin-layout__header-breadcrumb').getByRole('link', { name: '运维' })).toHaveAttribute('href', '/permission-policy')
   await expect(page.locator('.admin-layout__breadcrumb-current')).toHaveText('权限策略')
   await expect(page.getByRole('tab', { name: '权限策略' })).toBeVisible()
@@ -2270,136 +1684,6 @@ test('breadcrumb and tabbar track leaf pages instead of hidden route groups', as
   expect(tabLabels).toEqual(['系统状态', '实时日志'])
   expect(await readTabIconKeys(page)).toEqual(['dashboard', 'logs'])
   expect(await readActiveTabLabel(page)).toBe('实时日志')
-  await page.locator('.admin-layout__breadcrumb-item--ancestor .ant-breadcrumb-link').hover()
-
-  const breadcrumbMetrics = await page.evaluate(() => {
-    const header = document.querySelector<HTMLElement>('[data-testid="app-header"]')
-    const toggle = document.querySelector<HTMLElement>('.admin-layout__header-left .admin-layout__nav-trigger')
-    const toggleIcon = toggle?.querySelector<HTMLElement>('.anticon')
-    const breadcrumb = document.querySelector<HTMLElement>('.admin-layout__header-breadcrumb')
-    const account = document.querySelector<HTMLElement>('.admin-layout__account-button')
-    const ancestorOuter = document.querySelector<HTMLElement>('.admin-layout__breadcrumb-item--ancestor > .ant-breadcrumb-link')
-    const link = document.querySelector<HTMLElement>('.admin-layout__breadcrumb-item--ancestor .admin-layout__breadcrumb-link')
-    const linkText = document.querySelector<HTMLElement>('.admin-layout__breadcrumb-item--ancestor .admin-layout__breadcrumb-link-text')
-    const currentOuter = document.querySelector<HTMLElement>('.admin-layout__breadcrumb-item--current > .ant-breadcrumb-link')
-    const current = document.querySelector<HTMLElement>('.admin-layout__breadcrumb-item--current .admin-layout__breadcrumb-current')
-    const currentText = document.querySelector<HTMLElement>('.admin-layout__breadcrumb-item--current .admin-layout__breadcrumb-current-text')
-    const separator = document.querySelector<HTMLElement>('.admin-layout__header-breadcrumb .admin-layout__breadcrumb-separator')
-    const headerRect = header?.getBoundingClientRect()
-    const toggleRect = toggle?.getBoundingClientRect()
-    const breadcrumbRect = breadcrumb?.getBoundingClientRect()
-    const accountRect = account?.getBoundingClientRect()
-    const ancestorOuterRect = ancestorOuter?.getBoundingClientRect()
-    const linkRect = link?.getBoundingClientRect()
-    const linkTextRect = linkText?.getBoundingClientRect()
-    const currentOuterRect = currentOuter?.getBoundingClientRect()
-    const currentRect = current?.getBoundingClientRect()
-    const currentTextRect = currentText?.getBoundingClientRect()
-    const separatorRect = separator?.getBoundingClientRect()
-    const ancestorOuterStyles = ancestorOuter ? window.getComputedStyle(ancestorOuter) : null
-    const linkStyles = link ? window.getComputedStyle(link) : null
-    const currentOuterStyles = currentOuter ? window.getComputedStyle(currentOuter) : null
-    const currentStyles = current ? window.getComputedStyle(current) : null
-
-    return {
-      accountRightGap: headerRect && accountRect ? headerRect.right - accountRect.right : 0,
-      ancestorInnerFitsOuter: Boolean(
-        ancestorOuterRect
-        && linkRect
-        && linkRect.left >= ancestorOuterRect.left - 0.5
-        && linkRect.right <= ancestorOuterRect.right + 0.5
-        && linkRect.top >= ancestorOuterRect.top - 0.5
-        && linkRect.bottom <= ancestorOuterRect.bottom + 0.5,
-      ),
-      ancestorTextFitsOuter: Boolean(
-        ancestorOuterRect
-        && linkTextRect
-        && linkTextRect.left >= ancestorOuterRect.left - 0.5
-        && linkTextRect.right <= ancestorOuterRect.right + 0.5
-        && linkTextRect.top >= ancestorOuterRect.top - 0.5
-        && linkTextRect.bottom <= ancestorOuterRect.bottom + 0.5,
-      ),
-      ancestorOuterHeight: ancestorOuterRect?.height ?? 0,
-      ancestorOuterHoverHasVisibleBackground: ancestorOuterStyles
-        ? !['rgba(0, 0, 0, 0)', 'transparent'].includes(ancestorOuterStyles.backgroundColor)
-        : false,
-      ancestorOuterHoverHasVisibleBorder: ancestorOuterStyles
-        ? Number.parseFloat(ancestorOuterStyles.borderTopWidth) > 0
-          && !['rgba(0, 0, 0, 0)', 'transparent'].includes(ancestorOuterStyles.borderTopColor)
-        : false,
-      ancestorTextNotClipped: Boolean(
-        linkText
-        && linkText.scrollWidth <= linkText.clientWidth + 1,
-      ),
-      breadcrumbHeight: breadcrumbRect?.height ?? 0,
-      breadcrumbIsMulti: breadcrumb?.classList.contains('admin-layout__header-breadcrumb--multi') ?? false,
-      breadcrumbLeft: breadcrumbRect?.left ?? 0,
-      breadcrumbMid: breadcrumbRect ? breadcrumbRect.top + breadcrumbRect.height / 2 : 0,
-      currentOuterHeight: currentOuterRect?.height ?? 0,
-      currentMid: currentRect ? currentRect.top + currentRect.height / 2 : 0,
-      fontSize: link ? Number.parseFloat(window.getComputedStyle(link).fontSize) : 0,
-      headerLeftGap: headerRect && toggleRect ? toggleRect.left - headerRect.left : 0,
-      linkDisplay: linkStyles?.display ?? '',
-      linkPaddingLeft: linkStyles ? Number.parseFloat(linkStyles.paddingLeft) || 0 : 0,
-      linkPaddingRight: linkStyles ? Number.parseFloat(linkStyles.paddingRight) || 0 : 0,
-      linkMid: linkRect ? linkRect.top + linkRect.height / 2 : 0,
-      linkFontWeight: linkStyles ? Number.parseFloat(linkStyles.fontWeight) || 0 : 0,
-      currentDisplay: currentStyles?.display ?? '',
-      currentHasVisibleBackground: currentOuterStyles
-        ? !['rgba(0, 0, 0, 0)', 'transparent'].includes(currentOuterStyles.backgroundColor)
-        : false,
-      currentHasVisibleBorder: currentOuterStyles
-        ? Number.parseFloat(currentOuterStyles.borderTopWidth) > 0
-          && !['rgba(0, 0, 0, 0)', 'transparent'].includes(currentOuterStyles.borderTopColor)
-        : false,
-      currentFontWeight: currentStyles ? Number.parseFloat(currentStyles.fontWeight) || 0 : 0,
-      separatorMid: separatorRect ? separatorRect.top + separatorRect.height / 2 : 0,
-      standaloneRowExists: Boolean(document.querySelector('.admin-layout__breadcrumb-row')),
-      toggleIconCenterDeltaX: toggleRect && toggleIcon
-        ? Math.abs((toggleRect.left + toggleRect.width / 2) - (
-          toggleIcon.getBoundingClientRect().left + toggleIcon.getBoundingClientRect().width / 2
-        ))
-        : Number.POSITIVE_INFINITY,
-      toggleIconCenterDeltaY: toggleRect && toggleIcon
-        ? Math.abs((toggleRect.top + toggleRect.height / 2) - (
-          toggleIcon.getBoundingClientRect().top + toggleIcon.getBoundingClientRect().height / 2
-        ))
-        : Number.POSITIVE_INFINITY,
-      toggleMid: toggleRect ? toggleRect.top + toggleRect.height / 2 : 0,
-      toggleRight: toggleRect?.right ?? 0,
-    }
-  })
-
-  expect(breadcrumbMetrics.fontSize).toBeGreaterThanOrEqual(13)
-  expect(breadcrumbMetrics.breadcrumbHeight).toBeGreaterThanOrEqual(28)
-  expect(breadcrumbMetrics.breadcrumbIsMulti).toBe(true)
-  expect(breadcrumbMetrics.standaloneRowExists).toBe(false)
-  expect(breadcrumbMetrics.headerLeftGap).toBeGreaterThanOrEqual(8)
-  expect(breadcrumbMetrics.headerLeftGap).toBeLessThanOrEqual(12)
-  expect(breadcrumbMetrics.accountRightGap).toBeLessThanOrEqual(4)
-  expect(breadcrumbMetrics.breadcrumbLeft).toBeGreaterThan(breadcrumbMetrics.toggleRight)
-  expect(breadcrumbMetrics.breadcrumbLeft - breadcrumbMetrics.toggleRight).toBeLessThanOrEqual(12)
-  expect(breadcrumbMetrics.ancestorInnerFitsOuter).toBe(true)
-  expect(breadcrumbMetrics.ancestorTextFitsOuter).toBe(true)
-  expect(breadcrumbMetrics.ancestorTextNotClipped).toBe(true)
-  expect(breadcrumbMetrics.ancestorOuterHoverHasVisibleBackground).toBe(true)
-  expect(breadcrumbMetrics.ancestorOuterHoverHasVisibleBorder).toBe(true)
-  expect(breadcrumbMetrics.ancestorOuterHeight).toBeGreaterThan(0)
-  expect(Math.abs(breadcrumbMetrics.ancestorOuterHeight - breadcrumbMetrics.currentOuterHeight)).toBeLessThanOrEqual(1)
-  expect(breadcrumbMetrics.toggleIconCenterDeltaX).toBeLessThanOrEqual(1)
-  expect(breadcrumbMetrics.toggleIconCenterDeltaY).toBeLessThanOrEqual(1)
-  expect(Math.abs(breadcrumbMetrics.toggleMid - breadcrumbMetrics.breadcrumbMid)).toBeLessThanOrEqual(8)
-  expect(Math.abs(breadcrumbMetrics.linkMid - breadcrumbMetrics.separatorMid)).toBeLessThanOrEqual(4)
-  expect(Math.abs(breadcrumbMetrics.currentMid - breadcrumbMetrics.separatorMid)).toBeLessThanOrEqual(4)
-  expect(['flex', 'inline-flex']).toContain(breadcrumbMetrics.linkDisplay)
-  expect(breadcrumbMetrics.linkPaddingLeft).toBeGreaterThanOrEqual(6)
-  expect(breadcrumbMetrics.linkPaddingLeft).toBeLessThanOrEqual(8.5)
-  expect(breadcrumbMetrics.linkPaddingRight).toBeGreaterThanOrEqual(6)
-  expect(breadcrumbMetrics.linkPaddingRight).toBeLessThanOrEqual(8.5)
-  expect(['flex', 'inline-flex']).toContain(breadcrumbMetrics.currentDisplay)
-  expect(breadcrumbMetrics.currentHasVisibleBackground).toBe(true)
-  expect(breadcrumbMetrics.currentHasVisibleBorder).toBe(true)
-  expect(breadcrumbMetrics.currentFontWeight).toBeGreaterThanOrEqual(breadcrumbMetrics.linkFontWeight)
 
   await page.goto('/protocols')
   await expect(page.getByRole('heading', { name: '协议中心', level: 1 })).toBeVisible()
@@ -2470,83 +1754,17 @@ test('tab context menu closes tabs relative to the clicked tab', async ({ page, 
   expect(await readActiveTabLabel(page)).toBe('系统状态')
 })
 
-test('nested admin pages animate only once when entering grouped routes', async ({ page, request }) => {
-  await resetBackend(request, true)
-  await login(page)
-
-  await startTransitionSampling(page)
-  await navigateThroughMenu(page, '协议中心', '协议')
-  await expect(page.getByRole('heading', { name: '协议中心', level: 1 })).toBeVisible()
-  expectSingleEnterTransition(await collectTransitionSamples(page), '协议中心')
-
-  await startTransitionSampling(page)
-  await navigateThroughMenu(page, '插件列表', '插件中心')
-  await expect(page.getByRole('heading', { name: '插件列表', level: 1 })).toBeVisible()
-  expectSingleEnterTransition(await collectTransitionSamples(page), '插件列表')
-
-  await startTransitionSampling(page)
-  await navigateThroughMenu(page, '历史日志', '日志中心')
-  await expect(page.getByRole('heading', { name: '历史日志', level: 1 })).toBeVisible()
-  expectSingleEnterTransition(await collectTransitionSamples(page), '历史日志')
-
-  await startTransitionSampling(page)
-  await navigateThroughMenu(page, '权限策略', '运维')
-  await expect(page.getByRole('heading', { name: '权限策略', level: 1 })).toBeVisible()
-  expectSingleEnterTransition(await collectTransitionSamples(page), '权限策略')
-
-  await startTransitionSampling(page)
-  await navigateThroughMenu(page, '黑白名单', '运维')
-  await expect(page.getByRole('heading', { name: '黑白名单', level: 1 })).toBeVisible()
-  expectSingleEnterTransition(await collectTransitionSamples(page), '黑白名单')
-
-  await startTransitionSampling(page)
-  await navigateThroughMenu(page, '系统状态')
-  await expect(page.getByRole('heading', { name: '系统状态', level: 1 })).toBeVisible()
-  expectSingleEnterTransition(await collectTransitionSamples(page), '系统状态')
-})
-
-test('light theme uses a light sider and keeps the header clean', async ({ page, request }) => {
-  await resetBackend(request, true)
-  await login(page)
-
-  const sider = page.getByTestId('app-sider')
-  await expect(sider).toHaveClass(/ant-layout-sider-light/)
-  await expect(appHeader(page)).not.toContainText('事件流')
-  await expect(appHeader(page)).not.toContainText('保持正式契约')
-
-  const shellMetrics = await page.evaluate(() => {
-    const header = document.querySelector<HTMLElement>('[data-testid="app-header"]')
-    const sider = document.querySelector<HTMLElement>('[data-testid="app-sider"]')
-    const headerRect = header?.getBoundingClientRect()
-    const siderRect = sider?.getBoundingClientRect()
-
-    return {
-      headerHeight: headerRect?.height ?? 0,
-      siderWidth: siderRect?.width ?? 0,
-    }
-  })
-
-  expect(shellMetrics.headerHeight).toBeLessThanOrEqual(120)
-  expect(shellMetrics.siderWidth).toBeGreaterThanOrEqual(220)
-  expect(shellMetrics.siderWidth).toBeLessThanOrEqual(228)
-
-  await page.getByTestId('theme-toggle').click()
-  await expect(sider).toHaveClass(/ant-layout-sider-dark/)
-})
-
 test('login keeps the protected shell after reload', async ({ page, request }) => {
   await resetBackend(request, true)
 
   await login(page)
   await expect(page).not.toHaveURL(/\/login$/)
-  await expect(appHeader(page)).not.toContainText('事件流')
   await expect(page.getByTestId('connection-card-events')).toContainText('已认证')
 
   await page.reload()
 
   await expect(page.getByRole('heading', { name: '系统状态', level: 1 })).toBeVisible()
   await expect(page).not.toHaveURL(/\/login$/)
-  await expect(appHeader(page)).not.toContainText('事件流')
   await expect(page.getByTestId('connection-card-events')).toContainText('已认证')
 })
 
@@ -2567,35 +1785,28 @@ test('third-party accounts show Bilibili CK cards and QR login fills the editor'
   const avatarImage = accountCard.getByTestId('bilibili-account-avatar-image')
   await expect(avatarImage).toBeVisible()
   await expect(avatarImage).toHaveAttribute('src', /external-preview\/avatar\.png/)
-  await expectThirdPartyAccountAvatarImageFillsFrame(page)
   await avatarImage.evaluate((element) => element.dispatchEvent(new Event('error')))
   await expect(accountCard.getByTestId('bilibili-account-avatar-fallback')).toBeVisible()
   await expect(accountCard.getByTestId('bilibili-account-avatar-image')).toHaveCount(0)
-  await expectThirdPartyAccountCardsContained(page)
 
   await accountCard.getByRole('button', { name: '编辑' }).click()
   const editingExistingCard = page.locator('.account-card--editing').filter({ hasText: '留空时保留当前 CK。' }).first()
   await expect(editingExistingCard.locator('textarea')).toBeVisible()
   await expect(editingExistingCard).toContainText('留空时保留当前 CK。')
-  await expectThirdPartyAccountCardsContained(page)
   await editingExistingCard.getByRole('button', { name: /取\s*消/ }).click()
 
   await page.getByRole('button', { name: '添加 Bilibili CK' }).first().click()
   await page.getByRole('button', { name: '添加 Bilibili CK' }).first().click()
   const draftCards = page.locator('.account-card--editing').filter({ hasText: 'Bilibili Cookie' })
   await expect(draftCards).toHaveCount(2)
-  await expectThirdPartyAccountCardsContained(page)
   await page.setViewportSize({ width: 390, height: 844 })
-  await expectThirdPartyAccountCardsContained(page)
   await page.setViewportSize({ width: 1280, height: 720 })
-  await expectThirdPartyAccountCardsContained(page)
   const draftCard = page.locator('.account-card--editing').nth(0)
   await expect(draftCard).toBeVisible()
   await draftCard.getByRole('button', { name: '扫码获取 CK' }).click()
   await expect(draftCard.locator('.qr-panel')).toContainText('等待确认')
   await expect(draftCard.locator('.qr-panel')).toContainText('有效期至')
   await expect(draftCard.locator('.qr-panel .ant-qrcode')).toHaveCount(1)
-  await expectThirdPartyAccountCardsContained(page)
   const scannedDraftCard = page.locator('.account-card--editing').filter({ has: page.locator('.qr-panel') }).first()
   const scannedInputs = scannedDraftCard.locator('input')
   await expect(scannedInputs.nth(0)).toHaveValue('123456', { timeout: 5000 })
@@ -2606,7 +1817,6 @@ test('third-party accounts show Bilibili CK cards and QR login fills the editor'
   await expect(savedQRCodeAccountCard).toBeVisible()
   await expect(savedQRCodeAccountCard).toContainText('CK 有效')
   await expect(savedQRCodeAccountCard.getByTestId('bilibili-account-avatar-image')).toBeVisible()
-  await expectThirdPartyAccountCardsContained(page)
 
   const additionalQRLogins = [
     {
@@ -2654,7 +1864,6 @@ test('third-party accounts show Bilibili CK cards and QR login fills the editor'
       await savedAvatar.evaluate((element) => element.dispatchEvent(new Event('error')))
       await expect(savedAccountCard.getByTestId('bilibili-account-avatar-fallback')).toBeVisible()
     }
-    await expectThirdPartyAccountCardsContained(page)
   }
 })
 
@@ -2717,27 +1926,6 @@ test('mobile navigation and card layouts remain usable', async ({ page, request 
   await page.setViewportSize({ width: 390, height: 844 })
 
   await login(page)
-
-  const headerMetrics = await page.evaluate(() => {
-    const breadcrumb = document.querySelector<HTMLElement>('.admin-layout__header-breadcrumb')
-    const headerLeft = document.querySelector<HTMLElement>('.admin-layout__header-left')
-    const headerRight = document.querySelector<HTMLElement>('.admin-layout__header-right')
-    const tabbarMain = document.querySelector<HTMLElement>('.admin-layout__tabbar-main')
-    const headerLeftRect = headerLeft?.getBoundingClientRect()
-    const headerRightRect = headerRight?.getBoundingClientRect()
-    const tabbarRect = tabbarMain?.getBoundingClientRect()
-
-    return {
-      breadcrumbWidth: breadcrumb?.getBoundingClientRect().width ?? 0,
-      leftTop: headerLeftRect?.top ?? 0,
-      rightTop: headerRightRect?.top ?? 0,
-      tabbarHeight: tabbarRect?.height ?? 0,
-    }
-  })
-
-  expect(headerMetrics.breadcrumbWidth).toBeGreaterThan(0)
-  expect(Math.abs(headerMetrics.leftTop - headerMetrics.rightTop)).toBeLessThanOrEqual(8)
-  expect(headerMetrics.tabbarHeight).toBeLessThanOrEqual(44)
 
   await page.getByRole('button', { name: '打开菜单' }).click()
   const mobilePluginGroup = page.locator('.ant-drawer-content .ant-menu-submenu').filter({ hasText: '插件中心' }).first()

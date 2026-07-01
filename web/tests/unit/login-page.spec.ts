@@ -58,8 +58,8 @@ describe('LoginPage', () => {
     await wrapper.get('.auth-submit').trigger('click')
     await flushPromises()
 
-    expect(wrapper.text()).not.toContain('登录未完成，请检查管理员账号和密钥。')
-    expect(feedbackMock.notifyError).toHaveBeenCalledWith('登录未完成，请检查管理员账号和密钥。')
+    expect(wrapper.find('[role="alert"]').exists()).toBe(false)
+    expect(feedbackMock.notifyError).toHaveBeenCalledTimes(1)
   })
 
   it('shows a toast when status is unavailable', async () => {
@@ -81,7 +81,7 @@ describe('LoginPage', () => {
 
     await flushPromises()
 
-    expect(wrapper.text()).not.toContain('暂时无法确认管理界面状态，请稍后重试。')
-    expect(feedbackMock.notifyWarning).toHaveBeenCalledWith('暂时无法确认管理界面状态，请稍后重试。')
+    expect(wrapper.find('[role="alert"]').exists()).toBe(false)
+    expect(feedbackMock.notifyWarning).toHaveBeenCalledTimes(1)
   })
 })

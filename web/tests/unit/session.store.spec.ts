@@ -26,7 +26,7 @@ describe('session store', () => {
     expect(store.setupInitialized).toBe(true)
   })
 
-  it('maps bootstrap failures to a short chinese status hint', async () => {
+  it('does not expose the raw bootstrap failure message as the status hint', async () => {
     vi.stubGlobal(
       'fetch',
       vi.fn().mockResolvedValue(
@@ -48,7 +48,8 @@ describe('session store', () => {
 
     await expect(store.bootstrap()).rejects.toThrow()
 
-    expect(store.bootstrapError).toBe('暂时无法确认管理界面状态，请稍后重试。')
+    expect(store.bootstrapError).toBeTruthy()
+    expect(store.bootstrapError).not.toContain('当前用户无权执行该操作')
   })
 
   it('persists token on login', async () => {

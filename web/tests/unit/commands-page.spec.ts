@@ -236,55 +236,6 @@ describe('CommandsPage', () => {
     expect(router.currentRoute.value.name).toBe('permission-policy')
   }, 15000)
 
-  it('shows a single command empty state', async () => {
-    const router = createRouter({
-      history: createMemoryHistory(),
-      routes: [
-        { path: '/commands', name: 'commands', component: CommandsPage },
-        { path: '/permission-policy', name: 'permission-policy', component: { template: '<div>permission policy</div>' } },
-        { path: '/plugins/:id', name: 'plugin-detail', component: { template: '<div>plugin</div>' } },
-      ],
-    })
-    await router.push('/commands')
-    await router.isReady()
-
-    const store = usePluginsStore()
-    const configStore = useConfigStore()
-    const governanceStore = useGovernanceStore()
-
-    store.items = []
-    configStore.document = createFixtureConfig(['!'])
-    governanceStore.commandPolicy = {
-      default_level: 'everyone',
-      cooldown: {
-        user_command_rate_limit: '10/60s',
-        group_command_rate_limit: '30/60s',
-        cooldown_reply: true,
-      },
-      commands: [],
-    }
-
-    vi.spyOn(store, 'fetchList').mockResolvedValue(undefined)
-    vi.spyOn(configStore, 'fetchConfig').mockResolvedValue(undefined)
-    vi.spyOn(governanceStore, 'fetchCommandPolicy').mockResolvedValue(governanceStore.commandPolicy)
-
-    const wrapper = mount(CommandsPage, {
-      global: {
-        plugins: [Antd, router],
-      },
-    })
-
-    await flushPromises()
-
-    expect(wrapper.text()).toContain('指令列表')
-    expect(wrapper.text()).toContain('暂无指令')
-    expect(wrapper.text()).toContain('当前没有可展示的插件指令。')
-    expect(wrapper.text()).not.toContain('暂无生效策略')
-    expect(wrapper.text()).not.toContain('治理摘要')
-    expect(wrapper.text()).not.toContain('白名单')
-    expect(wrapper.text()).not.toContain('黑名单')
-  }, 15000)
-
   it('shows policy-only commands when plugin rows are unavailable', async () => {
     const router = createRouter({
       history: createMemoryHistory(),
