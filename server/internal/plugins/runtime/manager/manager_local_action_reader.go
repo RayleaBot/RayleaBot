@@ -14,9 +14,15 @@ func (m *Manager) routeLocalActionFrameLocked(handle *runtimeprocess.Handle, lin
 	if err != nil {
 		return err
 	}
+	if action == nil && m.eventExpiredLocked(parentRequestID) {
+		return nil
+	}
 
 	session := m.pendingEvents[parentRequestID]
 	if session == nil {
+		if m.eventExpiredLocked(parentRequestID) {
+			return nil
+		}
 		return errorf(codePluginProtocolViolation, "plugin local action parent_request_id does not match an active event", nil)
 	}
 	if frame.RequestID == session.requestID {
@@ -52,6 +58,9 @@ func (m *Manager) parseLocalActionFrameLocked(handle *runtimeprocess.Handle, lin
 		}
 	}
 
+	if m.eventExpiredLocked(parentRequestID) {
+		return frame, nil, parentRequestID, nil
+	}
 	action, parseErr := runtimeaction.ParseLocalAction(frame.Action, frame.Data)
 	if parseErr != nil {
 		return runtimeprotocol.ActionFrame{}, nil, "", normalizeRuntimeError(parseErr, "parse local action frame")

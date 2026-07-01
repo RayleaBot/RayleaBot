@@ -29,6 +29,7 @@ class EventContext:
         self._plugin = plugin
         self.event = event or {}
         self.request_id = request_id
+        self._terminal_sent = False
 
     @property
     def payload(self):
@@ -93,6 +94,8 @@ class EventContext:
 
     def send_message(self, segments, target_type=None, target_id=None):
         """Send message segments to the current target by default."""
+        if not self._claim_terminal():
+            return
         self._plugin.send_message(
             self.request_id,
             target_type or self.target_type,
@@ -113,6 +116,8 @@ class EventContext:
 
     def send_reply(self, reply_to_event_id, segments, fallback_to_send_if_missing=False):
         """Reply to a recent upstream event."""
+        if not self._claim_terminal():
+            return
         self._plugin.send_reply(
             self.request_id,
             reply_to_event_id,
@@ -122,7 +127,15 @@ class EventContext:
 
     def send_result(self, data=None):
         """Send a success result for the current event."""
+        if not self._claim_terminal():
+            return
         self._plugin.send_result(self.request_id, data or {})
+
+    def _claim_terminal(self):
+        if self._terminal_sent:
+            return False
+        self._terminal_sent = True
+        return True
 
     def __getattr__(self, name):
         attr = getattr(self._plugin, name)
@@ -143,6 +156,8 @@ class RayleaBotPlugin:
         self._command_handlers = {}
         self._active_handlers = set()
         self._handler_lock = threading.Lock()
+        self._terminal_request_ids = set()
+        self._terminal_request_lock = threading.Lock()
         self._plugin_id = ""
         self._bot_id = ""
         self._bot_identity_event = threading.Event()
@@ -204,6 +219,8 @@ class RayleaBotPlugin:
 
     def send_message(self, request_id, target_type, target_id, segments):
         """Send a message to a target."""
+        if not self._claim_terminal_request(request_id):
+            return
         protocol.send_action(self._plugin_id, request_id, "message.send", {
             "target_type": target_type,
             "target_id": target_id,
@@ -214,6 +231,8 @@ class RayleaBotPlugin:
 
     def send_reply(self, request_id, reply_to_event_id, segments, fallback_to_send_if_missing=False):
         """Reply to a recent upstream event using reply_to_event_id."""
+        if not self._claim_terminal_request(request_id):
+            return
         data = {
             "reply_to_event_id": reply_to_event_id,
             "message": {
@@ -226,7 +245,25 @@ class RayleaBotPlugin:
 
     def send_result(self, request_id, data=None):
         """Send a success result for an event."""
+        if not self._claim_terminal_request(request_id):
+            return
         protocol.send_result(self._plugin_id, request_id, data or {})
+
+    def _send_error(self, request_id, code, message):
+        if not self._claim_terminal_request(request_id):
+            return
+        protocol.send_error(self._plugin_id, request_id, code, message)
+
+    def _claim_terminal_request(self, request_id):
+        with self._terminal_request_lock:
+            if request_id in self._terminal_request_ids:
+                return False
+            self._terminal_request_ids.add(request_id)
+            return True
+
+    def _release_terminal_request(self, request_id):
+        with self._terminal_request_lock:
+            self._terminal_request_ids.discard(request_id)
 
     def logger_write(self, request_id, level, message, fields=None, timeout_seconds=30):
         """Write a management log entry through the platform-local logger.write action."""
@@ -918,8 +955,9 @@ class RayleaBotPlugin:
             self._handle_event(frame, plugin_id, request_id)
         except Exception as exc:
             message = str(exc) or exc.__class__.__name__
-            protocol.send_error(plugin_id, request_id, "plugin.internal_error", message)
+            self._send_error(request_id, "plugin.internal_error", message)
         finally:
+            self._release_terminal_request(request_id)
             with self._handler_lock:
                 self._active_handlers.discard(threading.current_thread())
 
@@ -952,7 +990,7 @@ class RayleaBotPlugin:
                 return
 
         # No handler matched.
-        protocol.send_result(plugin_id, request_id, {"handled": False})
+        self.send_result(request_id, {"handled": False})
 
     def _invoke_handler(self, handler, event, request_id):
         if _uses_context_handler(handler):

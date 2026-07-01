@@ -419,23 +419,34 @@ func TestManagerDeliverEventFailsWhenRuntimeIsNotRunning(t *testing.T) {
 	assertRuntimeErrorCode(t, err, codePlatformInvalidRequest)
 }
 
-func TestManagerDeliverEventTimeoutStopsRuntime(t *testing.T) {
+func TestManagerDeliverEventTimeoutKeepsRuntimeRunningAndIgnoresLateResult(t *testing.T) {
 	t.Parallel()
 
-	manager := testManager()
-	spec := helperSpecWithEventTimeout(t, "event-timeout", "", 80*time.Millisecond)
+	crashCh := make(chan struct{}, 1)
+	manager := testManagerWithOptions(Options{
+		OnCrash: func(string, int, string) {
+			crashCh <- struct{}{}
+		},
+	})
+	spec := helperSpecWithEventTimeout(t, "event-timeout", "", runtimeTestDuration(80*time.Millisecond))
 
 	if err := manager.Start(context.Background(), spec, testInitPayload()); err != nil {
 		t.Fatalf("start runtime: %v", err)
 	}
 
-	_, err := manager.DeliverEvent(context.Background(), testRuntimeEvent())
+	delivery, err := manager.DeliverEvent(context.Background(), testRuntimeEvent())
 	assertRuntimeErrorCode(t, err, codePluginEventTimeout)
+	if delivery.ErrorCode != codePluginEventTimeout {
+		t.Fatalf("delivery error code = %q, want %q", delivery.ErrorCode, codePluginEventTimeout)
+	}
+	assertRuntimeRunningWithoutCrash(t, manager, crashCh)
 
-	waitForRuntimeState(t, manager, StateStopped)
+	time.Sleep(runtimeTestDuration(700 * time.Millisecond))
+	assertRuntimeRunningWithoutCrash(t, manager, crashCh)
 
-	_, err = manager.DeliverEvent(context.Background(), testRuntimeEvent())
-	assertRuntimeErrorCode(t, err, codePlatformInvalidRequest)
+	if err := manager.Stop(context.Background()); err != nil {
+		t.Fatalf("stop runtime: %v", err)
+	}
 }
 
 func TestManagerPingReturnsPong(t *testing.T) {

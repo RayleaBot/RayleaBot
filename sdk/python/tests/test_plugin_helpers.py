@@ -371,6 +371,135 @@ class PluginHelperTests(unittest.TestCase):
             },
         }, sent["data"])
 
+    def test_event_context_sends_only_one_terminal_frame(self):
+        sent_actions = []
+        sent_results = []
+
+        def fake_send_action(plugin_id, request_id, action, data, parent_request_id=None):
+            sent_actions.append({
+                "plugin_id": plugin_id,
+                "request_id": request_id,
+                "action": action,
+                "data": data,
+                "parent_request_id": parent_request_id,
+            })
+
+        def fake_send_result(plugin_id, request_id, data=None):
+            sent_results.append({
+                "plugin_id": plugin_id,
+                "request_id": request_id,
+                "data": data or {},
+            })
+
+        self.protocol.send_action = fake_send_action
+        self.protocol.send_result = fake_send_result
+
+        class ContextPlugin(self.plugin_module.RayleaBotPlugin):
+            def __init__(self):
+                super().__init__()
+                self.subscribe("message.group")
+
+            @self.plugin_module.command("hello")
+            def handle_hello(self, ctx):
+                ctx.send_text("first")
+                ctx.send_result({"handled": True})
+                ctx.send_text("second")
+
+        plugin = ContextPlugin()
+        plugin._plugin_id = "context-plugin"
+
+        plugin._handle_event(
+            {
+                "event": {
+                    "event_id": "evt-terminal",
+                    "source_protocol": "onebot11",
+                    "source_adapter": "adapter.onebot11",
+                    "event_type": "message.group",
+                    "timestamp": int(time.time()),
+                    "target": {
+                        "type": "group",
+                        "id": "20001",
+                    },
+                    "payload": {
+                        "command": "hello",
+                        "args": [],
+                    },
+                }
+            },
+            "context-plugin",
+            "evt-terminal-request",
+        )
+
+        self.assertEqual(1, len(sent_actions))
+        self.assertEqual([], sent_results)
+        self.assertEqual("message.send", sent_actions[0]["action"])
+        self.assertEqual([{
+            "type": "text",
+            "data": {"text": "first"},
+        }], sent_actions[0]["data"]["message"]["segments"])
+
+    def test_terminal_frame_suppresses_late_error_frame(self):
+        sent_actions = []
+        sent_errors = []
+
+        def fake_send_action(plugin_id, request_id, action, data, parent_request_id=None):
+            sent_actions.append({
+                "plugin_id": plugin_id,
+                "request_id": request_id,
+                "action": action,
+                "data": data,
+                "parent_request_id": parent_request_id,
+            })
+
+        def fake_send_error(plugin_id, request_id, code, message):
+            sent_errors.append({
+                "plugin_id": plugin_id,
+                "request_id": request_id,
+                "code": code,
+                "message": message,
+            })
+
+        self.protocol.send_action = fake_send_action
+        self.protocol.send_error = fake_send_error
+
+        class ContextPlugin(self.plugin_module.RayleaBotPlugin):
+            def __init__(self):
+                super().__init__()
+                self.subscribe("message.group")
+
+            @self.plugin_module.command("hello")
+            def handle_hello(self, ctx):
+                ctx.send_text("first")
+                raise RuntimeError("late failure")
+
+        plugin = ContextPlugin()
+        plugin._plugin_id = "context-plugin"
+
+        plugin._handle_event_safely(
+            {
+                "event": {
+                    "event_id": "evt-terminal-error",
+                    "source_protocol": "onebot11",
+                    "source_adapter": "adapter.onebot11",
+                    "event_type": "message.group",
+                    "timestamp": int(time.time()),
+                    "target": {
+                        "type": "group",
+                        "id": "20001",
+                    },
+                    "payload": {
+                        "command": "hello",
+                        "args": [],
+                    },
+                }
+            },
+            "context-plugin",
+            "evt-terminal-error-request",
+        )
+
+        self.assertEqual(1, len(sent_actions))
+        self.assertEqual([], sent_errors)
+
     def test_decorated_handler_registration_skips_unrelated_properties(self):
         class ContextPlugin(self.plugin_module.RayleaBotPlugin):
             def __init__(self):

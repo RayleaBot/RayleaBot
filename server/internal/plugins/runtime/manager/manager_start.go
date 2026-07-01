@@ -5,6 +5,7 @@ import (
 	"context"
 	"os"
 	"os/exec"
+	"time"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/logpath"
 	runtimeprocess "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime/process"
@@ -33,6 +34,7 @@ func (m *Manager) Start(ctx context.Context, spec runtimespec.Spec, payload runt
 		StartedAt:     &startedAt,
 		CrashCount:    crashCount,
 	}
+	m.expiredEvents = make(map[string]time.Time)
 	m.mu.Unlock()
 
 	cmd := exec.Command(spec.Command, spec.Args...)

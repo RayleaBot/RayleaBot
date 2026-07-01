@@ -21,6 +21,7 @@ type Manager struct {
 	snap          Snapshot
 	pendingEvents map[string]*eventSession
 	pendingPings  map[string]*pingRequest
+	expiredEvents map[string]time.Time
 }
 
 func New(logger *slog.Logger, options Options) *Manager {
@@ -59,6 +60,7 @@ func newManager(logger *slog.Logger, deps managerDeps, options Options) *Manager
 		opts:          options,
 		pendingEvents: make(map[string]*eventSession),
 		pendingPings:  make(map[string]*pingRequest),
+		expiredEvents: make(map[string]time.Time),
 		snap: Snapshot{
 			State: StateStopped,
 		},

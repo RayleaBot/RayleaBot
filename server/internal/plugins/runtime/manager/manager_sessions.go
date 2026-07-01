@@ -2,10 +2,13 @@ package manager
 
 import (
 	"context"
+	"time"
 
 	runtimeprocess "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime/process"
 	runtimeprotocol "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime/protocol"
 )
+
+const expiredEventRetention = 5 * time.Minute
 
 type eventSession struct {
 	requestID          string
@@ -67,4 +70,40 @@ func (m *Manager) completeEventLocked(session *eventSession, delivery Delivery, 
 	delete(m.pendingEvents, session.requestID)
 	session.cancel()
 	close(session.done)
+}
+
+func (m *Manager) markEventExpiredLocked(requestID string) {
+	if requestID == "" {
+		return
+	}
+	now := m.deps.now()
+	m.pruneExpiredEventsLocked(now)
+	if m.expiredEvents == nil {
+		m.expiredEvents = make(map[string]time.Time)
+	}
+	m.expiredEvents[requestID] = now.Add(expiredEventRetention)
+}
+
+func (m *Manager) eventExpiredLocked(requestID string) bool {
+	if requestID == "" {
+		return false
+	}
+	expiresAt, ok := m.expiredEvents[requestID]
+	if !ok {
+		return false
+	}
+	now := m.deps.now()
+	if !expiresAt.IsZero() && now.After(expiresAt) {
+		delete(m.expiredEvents, requestID)
+		return false
+	}
+	return true
+}
+
+func (m *Manager) pruneExpiredEventsLocked(now time.Time) {
+	for requestID, expiresAt := range m.expiredEvents {
+		if !expiresAt.IsZero() && now.After(expiresAt) {
+			delete(m.expiredEvents, requestID)
+		}
+	}
 }

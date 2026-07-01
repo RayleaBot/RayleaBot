@@ -32,6 +32,38 @@ func (m *Manager) failRuntime(handle *runtimeprocess.Handle, code, message strin
 	return runtimeErr
 }
 
+func (m *Manager) timeoutEvent(handle *runtimeprocess.Handle, session *eventSession, code, message string, err error) (Delivery, *Error) {
+	runtimeErr := errorf(code, message, err)
+	if session == nil {
+		return Delivery{}, runtimeErr
+	}
+
+	delivery := Delivery{
+		RequestID:    session.requestID,
+		ErrorCode:    runtimeErr.Code,
+		ErrorMessage: runtimeErr.Message,
+		ErrorDetails: cloneDetails(runtimeErr.Details),
+	}
+
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if session.completed {
+		if session.err == nil {
+			return session.delivery, nil
+		}
+		if runtimeSessionErr, ok := session.err.(*Error); ok {
+			return session.delivery, runtimeSessionErr
+		}
+		return session.delivery, errorf(codePluginInternalError, "plugin event delivery failed", session.err)
+	}
+	if m.proc != handle {
+		return delivery, runtimeErr
+	}
+	m.completeEventLocked(session, delivery, runtimeErr)
+	m.markEventExpiredLocked(session.requestID)
+	return delivery, runtimeErr
+}
+
 func (m *Manager) removeEventSession(handle *runtimeprocess.Handle, requestID string) {
 	m.mu.Lock()
 	defer m.mu.Unlock()

@@ -67,6 +67,10 @@ func (m *Manager) routeRuntimeFrame(handle *runtimeprocess.Handle, line []byte) 
 		return m.routeTerminalFrameLocked(session, envelope, line)
 	}
 
+	if m.eventExpiredLocked(envelope.RequestID) && (envelope.Type == "result" || envelope.Type == "error") {
+		return nil
+	}
+
 	if envelope.Type == "action" {
 		return m.routeLocalActionFrameLocked(handle, line)
 	}

@@ -47,8 +47,8 @@ func (m *Manager) DeliverEvent(ctx context.Context, event runtimeprotocol.Event)
 		}
 		return session.delivery, nil
 	case <-timer.C:
-		return Delivery{}, m.failRuntime(handle, codePluginEventTimeout, "plugin event response timed out", nil)
+		return m.timeoutEvent(handle, session, codePluginEventTimeout, "plugin event response timed out", nil)
 	case <-ctx.Done():
-		return Delivery{}, m.failRuntime(handle, codePluginEventTimeout, "plugin event response timed out", ctx.Err())
+		return m.timeoutEvent(handle, session, codePluginEventTimeout, "plugin event response timed out", ctx.Err())
 	}
 }
