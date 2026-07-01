@@ -2,11 +2,9 @@ package integration
 
 import (
 	"context"
-	internalapp "github.com/RayleaBot/RayleaBot/server/internal/app"
 	adapterintake "github.com/RayleaBot/RayleaBot/server/internal/bot/adapter/onebot11/intake"
 	adaptersegments "github.com/RayleaBot/RayleaBot/server/internal/bot/adapter/onebot11/segments"
 	"github.com/RayleaBot/RayleaBot/server/internal/logging"
-	plugindiscovery "github.com/RayleaBot/RayleaBot/server/internal/plugins/discovery"
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
@@ -81,15 +79,7 @@ func TestLogsIncludeCommandPolicyRejectionFromEventIngress(t *testing.T) {
 	configMutation := func(input map[string]any) {
 		input["log"].(map[string]any)["retention_days"] = 365
 	}
-	application, _, _ := newTestAppWithOptions(t, configMutation, func(options *internalapp.Options, configPath string) {
-		repoRoot := repoRootPath(t)
-		options.PluginRepoRoot = repoRoot
-		options.PluginSchemaPath = filepath.Join("..", "contracts", "plugin-info.schema.json")
-		options.PluginRoots = []plugindiscovery.ScanRoot{
-			{Label: "plugins/builtin", Path: filepath.Join(repoRoot, "plugins", "builtin")},
-			{Label: "plugins/installed", Path: filepath.Join(filepath.Dir(configPath), "..", "plugins", "installed")},
-		}
-	}, deterministicAuthOptions()...)
+	application, _, _ := newTestAppWithConfigMutation(t, configMutation, deterministicAuthOptions()...)
 	token := issueLoginToken(t, application)
 	server := httptest.NewServer(application.Handler())
 	defer server.Close()

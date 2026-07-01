@@ -205,7 +205,7 @@ func newPersistentTestApp(t *testing.T, configPath string, now func() time.Time,
 	t.Helper()
 
 	sessionCounter := 0
-	repoRoot := repoRootPath(t)
+	repoRoot := newPreparedTestRuntimeRoot(t)
 	application, err := app.New(app.Options{
 		ConfigPath:       configPath,
 		SchemaPath:       filepath.Join("..", "contracts", "config.user.schema.json"),

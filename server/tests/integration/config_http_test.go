@@ -581,7 +581,7 @@ func newTestAppWithOptions(
 	configPath := writeYAMLConfig(t, updated)
 	schemaPath := filepath.Join("..", "contracts", "config.user.schema.json")
 	repoRoot := newPreparedTestRuntimeRoot(t)
-	builtinRoot := filepath.Join(repoRootPath(t), "plugins", "builtin")
+	builtinRoot := filepath.Join(repoRoot, "plugins", "builtin")
 
 	options := internalapp.Options{
 		ConfigPath:       configPath,

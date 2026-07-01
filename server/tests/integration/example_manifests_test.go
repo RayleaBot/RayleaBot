@@ -9,7 +9,7 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/schema"
 )
 
-func TestBundledPluginManifestsMatchContract(t *testing.T) {
+func TestExamplePluginManifestsMatchContract(t *testing.T) {
 	t.Parallel()
 
 	validator := compileSchema(t, filepath.Join("..", "contracts", "plugin-info.schema.json"))
@@ -24,9 +24,6 @@ func TestBundledPluginManifestsMatchContract(t *testing.T) {
 		filepath.Join("..", "examples", "plugins", "hello-python", "info.json"),
 		filepath.Join("..", "examples", "plugins", "hello-node", "info.json"),
 		filepath.Join("..", "examples", "plugins", "notice-logger", "info.json"),
-		filepath.Join("..", "plugins", "builtin", "echo", "info.json"),
-		filepath.Join("..", "plugins", "builtin", "fortune", "info.json"),
-		filepath.Join("..", "plugins", "builtin", "subscription_hub", "info.json"),
 	}
 
 	for _, manifestPath := range manifestPaths {
@@ -42,7 +39,7 @@ func TestBundledPluginManifestsMatchContract(t *testing.T) {
 	}
 }
 
-func TestBundledPluginManifestsDeclareExpectedRuntimeCapabilities(t *testing.T) {
+func TestExamplePluginManifestsDeclareExpectedRuntimeCapabilities(t *testing.T) {
 	t.Parallel()
 
 	for _, tc := range []struct {
@@ -51,11 +48,6 @@ func TestBundledPluginManifestsDeclareExpectedRuntimeCapabilities(t *testing.T) 
 		wantCapabilities         []string
 		wantCapabilityParameters map[string][]string
 	}{
-		{
-			name:             "builtin echo",
-			manifestPath:     filepath.Join("..", "plugins", "builtin", "echo", "info.json"),
-			wantCapabilities: []string{"event.subscribe", "message.send"},
-		},
 		{
 			name:             "echo python",
 			manifestPath:     filepath.Join("..", "examples", "plugins", "echo-python", "info.json"),
