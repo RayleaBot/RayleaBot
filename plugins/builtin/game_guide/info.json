@@ -1,0 +1,64 @@
+{
+  "id": "raylea.game-guide",
+  "name": "游戏攻略",
+  "version": "0.1.0",
+  "manifest_version": "1",
+  "plugin_protocol_version": "1",
+  "type": "managed_runtime",
+  "runtime": "python",
+  "entry": "main.py",
+  "license": "MIT",
+  "description": "星穹铁道角色攻略图查询",
+  "author": "raylea",
+  "role": "builtin",
+  "capabilities": [
+    "event.subscribe",
+    "message.send",
+    "message.forward.send",
+    "logger.write",
+    "http.request"
+  ],
+  "capability_parameters": {
+    "http_hosts": [
+      "bbs-api.miyoushe.com",
+      "bbs-static.miyoushe.com",
+      "upload-bbs.mihoyo.com",
+      "upload-bbs.miyoushe.com"
+    ]
+  },
+  "commands": [
+    {
+      "name": "游戏攻略",
+      "description": "查询《崩坏：星穹铁道》角色攻略图",
+      "usage": "/游戏攻略 <角色名>",
+      "permission": "everyone"
+    }
+  ],
+  "command_patterns": [
+    {
+      "id": "character-guide",
+      "name": "角色攻略",
+      "pattern": "^(.+?)攻略$",
+      "description": "按角色名或别名查询攻略图",
+      "usage": "*<角色名>攻略",
+      "permission": "everyone"
+    }
+  ],
+  "help": {
+    "title": "游戏攻略",
+    "summary": "查询《崩坏：星穹铁道》角色攻略图",
+    "groups": [
+      {
+        "title": "角色攻略",
+        "items": [
+          {
+            "title": "查询角色攻略",
+            "description": "发送「*昔涟攻略」或「/游戏攻略 昔涟」，返回按来源顺序合并的角色攻略图。",
+            "usage": "*昔涟攻略",
+            "command": "游戏攻略"
+          }
+        ]
+      }
+    ]
+  }
+}
