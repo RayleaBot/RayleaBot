@@ -1528,7 +1528,7 @@ export interface components {
         /** @enum {string} */
         CommandPermissionSource: "declared" | "default_level";
         /** @enum {string} */
-        PluginCommandSource: "manifest" | "dynamic";
+        PluginCommandSource: "manifest" | "dynamic" | "pattern";
         GovernanceCommandCooldown: {
             user_command_rate_limit: string;
             group_command_rate_limit: string;

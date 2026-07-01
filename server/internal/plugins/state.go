@@ -37,6 +37,7 @@ const (
 
 	CommandSourceManifest = "manifest"
 	CommandSourceDynamic  = "dynamic"
+	CommandSourcePattern  = "pattern"
 )
 
 const (

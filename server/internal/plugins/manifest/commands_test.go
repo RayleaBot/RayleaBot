@@ -110,3 +110,43 @@ func TestProjectCommandsMarksManifestCommands(t *testing.T) {
 		t.Fatalf("unexpected manifest command projection: %#v", commands[0])
 	}
 }
+
+func TestProjectCommandsProjectsCommandPatterns(t *testing.T) {
+	snapshot := plugins.Snapshot{
+		CommandPatterns: []plugins.CommandPatternDecl{{
+			ID:          "character-guide",
+			Name:        " 角色攻略 ",
+			Pattern:     "^(.+?)攻略$",
+			Description: "按角色名查询攻略图",
+			Usage:       "*<角色名>攻略",
+			Permission:  "everyone",
+		}},
+	}
+
+	commands := ProjectCommands(snapshot, nil)
+	if len(commands) != 1 {
+		t.Fatalf("len(commands) = %d, want 1", len(commands))
+	}
+	got := commands[0]
+	if got.Name != "角色攻略" || got.MatchPattern != "^(.+?)攻略$" || got.CommandSource != CommandSourcePattern {
+		t.Fatalf("unexpected command pattern projection: %#v", got)
+	}
+	if got.DeclarationID != "character-guide" || got.Usage != "*<角色名>攻略" || got.Permission != "everyone" {
+		t.Fatalf("unexpected command pattern metadata: %#v", got)
+	}
+}
+
+func TestProjectCommandsIgnoresInvalidCommandPatterns(t *testing.T) {
+	snapshot := plugins.Snapshot{
+		CommandPatterns: []plugins.CommandPatternDecl{{
+			ID:      "bad-pattern",
+			Name:    "角色攻略",
+			Pattern: "[",
+		}},
+	}
+
+	commands := ProjectCommands(snapshot, nil)
+	if len(commands) != 0 {
+		t.Fatalf("commands = %#v, want empty", commands)
+	}
+}

@@ -109,3 +109,33 @@ func manifestDynamicCommands(document map[string]any) []plugins.DynamicCommandDe
 	}
 	return commands
 }
+
+func manifestCommandPatterns(document map[string]any) []plugins.CommandPatternDecl {
+	values, ok := document["command_patterns"].([]any)
+	if !ok {
+		return nil
+	}
+
+	commands := make([]plugins.CommandPatternDecl, 0, len(values))
+	for _, value := range values {
+		item, ok := value.(map[string]any)
+		if !ok {
+			continue
+		}
+		id := stringField(item, "id")
+		name := stringField(item, "name")
+		pattern := stringField(item, "pattern")
+		if id == "" || name == "" || pattern == "" {
+			continue
+		}
+		commands = append(commands, plugins.CommandPatternDecl{
+			ID:          id,
+			Name:        name,
+			Pattern:     pattern,
+			Description: stringField(item, "description"),
+			Usage:       stringField(item, "usage"),
+			Permission:  stringField(item, "permission"),
+		})
+	}
+	return commands
+}

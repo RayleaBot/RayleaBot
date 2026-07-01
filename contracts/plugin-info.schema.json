@@ -342,6 +342,48 @@
         }
       }
     },
+    "command_patterns": {
+      "type": "array",
+      "description": "Declared regular expression command rules matched after stripping the configured command prefix. Use this for families of commands such as '<character>攻略' instead of enumerating every alias.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "name", "pattern", "description", "usage"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "^[a-z0-9_-]+$",
+            "description": "Stable declaration identifier used by management and permission policy lookup."
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Short display name for the command family. It is not itself an exact trigger when pattern is present."
+          },
+          "pattern": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Go regexp pattern matched against the parsed command name without the global prefix."
+          },
+          "description": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Short command description for help output."
+          },
+          "usage": {
+            "type": "string",
+            "minLength": 1,
+            "description": "User-facing usage example for help output."
+          },
+          "permission": {
+            "type": "string",
+            "enum": ["super_admin", "group_admin", "everyone"],
+            "description": "Minimum chat-side permission level required to invoke matched commands. When omitted, the platform uses permission.default_level."
+          }
+        }
+      }
+    },
     "dynamic_commands": {
       "type": "array",
       "description": "Declared plugin settings fields that project runtime command names for command parser directed delivery, policy, conflict detection, and help generation.",
@@ -688,6 +730,7 @@
     "fixtures/plugin-info/invalid.unsupported-binary-runtime.json",
     "fixtures/plugin-info/edge.capability-parameters-and-migration.json",
     "fixtures/plugin-info/ok.plugin-with-commands.json",
+    "fixtures/plugin-info/ok.plugin-with-command-patterns.json",
     "fixtures/plugin-info/ok.plugin-with-dynamic-commands.json",
     "fixtures/plugin-info/ok.default-config-file.json",
     "fixtures/plugin-info/ok.concurrency-opt-in.json",
@@ -714,5 +757,5 @@
     "fixtures/plugin-info/invalid.screenshots-invalid-shape.json",
     "fixtures/plugin-info/invalid.system-dependencies-duplicates.json"
   ],
-  "$comment": "The manifest stays focused on install-time validation, declared capabilities, capability parameters, management role labeling, source metadata, default plugin config seeding, plugin-local management page entries, package-local render templates, migration boundaries, and opt-in event concurrency. The formal capability set covers event.subscribe and event.raw_payload, shared local actions including governance control, frozen OneBot single-action capabilities, and the current provider extension actions. Binary runtime support remains outside this frozen surface."
+  "$comment": "The manifest stays focused on install-time validation, declared capabilities, capability parameters, management role labeling, source metadata, default plugin config seeding, plugin-local management page entries, command and command-pattern declarations, package-local render templates, migration boundaries, and opt-in event concurrency. The formal capability set covers event.subscribe and event.raw_payload, shared local actions including governance control, frozen OneBot single-action capabilities, and the current provider extension actions. Binary runtime support remains outside this frozen surface."
 }

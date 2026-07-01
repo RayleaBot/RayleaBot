@@ -3006,7 +3006,7 @@ components:
 
     PluginCommandSource:
       type: string
-      enum: [manifest, dynamic]
+      enum: [manifest, dynamic, pattern]
 
     GovernanceCommandCooldown:
       type: object

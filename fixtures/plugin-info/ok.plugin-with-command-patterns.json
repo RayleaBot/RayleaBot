@@ -1,0 +1,34 @@
+{
+  "contract": "contracts/plugin-info.schema.json",
+  "case": "ok",
+  "input": {
+    "id": "game-guide",
+    "name": "Game Guide",
+    "version": "1.0.0",
+    "manifest_version": "1",
+    "plugin_protocol_version": "1",
+    "type": "managed_runtime",
+    "runtime": "python",
+    "entry": "main.py",
+    "license": "MIT",
+    "description": "Game guide plugin with command pattern declarations",
+    "author": "raylea",
+    "role": "user",
+    "capabilities": [
+      "event.subscribe"
+    ],
+    "command_patterns": [
+      {
+        "id": "character-guide",
+        "name": "角色攻略",
+        "pattern": "^(.+?)攻略$",
+        "description": "按角色名或别名查询攻略图",
+        "usage": "*<角色名>攻略",
+        "permission": "everyone"
+      }
+    ]
+  },
+  "expect": {
+    "valid": true
+  }
+}

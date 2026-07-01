@@ -50,6 +50,9 @@ func cloneSnapshot(snapshot Snapshot) Snapshot {
 	if len(snapshot.ManifestCommands) > 0 {
 		cloned.ManifestCommands = cloneCommands(snapshot.ManifestCommands)
 	}
+	if len(snapshot.CommandPatterns) > 0 {
+		cloned.CommandPatterns = append([]CommandPatternDecl(nil), snapshot.CommandPatterns...)
+	}
 	if len(snapshot.DynamicCommands) > 0 {
 		cloned.DynamicCommands = append([]DynamicCommandDecl(nil), snapshot.DynamicCommands...)
 	}

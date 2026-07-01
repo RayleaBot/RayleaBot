@@ -48,5 +48,6 @@ export const commands = {
   commandSource: {
     manifest: '固定指令',
     dynamic: '动态指令',
+    pattern: '规则指令',
   },
 } as const

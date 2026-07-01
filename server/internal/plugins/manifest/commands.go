@@ -1,23 +1,44 @@
 package manifest
 
 import (
-	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
+	"fmt"
+	"regexp"
 	"strings"
 	"unicode"
+
+	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 )
 
 func ProjectCommands(snapshot plugins.Snapshot, settings map[string]any) []plugins.Command {
-	items := make([]plugins.Command, 0, len(snapshot.ManifestCommands)+len(snapshot.DynamicCommands))
+	items := make([]plugins.Command, 0, len(snapshot.ManifestCommands)+len(snapshot.CommandPatterns)+len(snapshot.DynamicCommands))
 	for _, command := range snapshot.ManifestCommands {
 		normalized := command
 		normalized.CommandSource = CommandSourceManifest
 		normalized.DeclarationID = ""
+		normalized.MatchPattern = ""
 		normalized.Name = strings.TrimSpace(normalized.Name)
 		normalized.Aliases = normalizeStaticCommandTokens(normalized.Aliases)
 		if normalized.Name == "" {
 			continue
 		}
 		items = append(items, normalized)
+	}
+
+	for _, declaration := range snapshot.CommandPatterns {
+		name := strings.TrimSpace(declaration.Name)
+		pattern := strings.TrimSpace(declaration.Pattern)
+		if name == "" || !validCommandPattern(pattern) {
+			continue
+		}
+		items = append(items, plugins.Command{
+			Name:          name,
+			MatchPattern:  pattern,
+			Description:   strings.TrimSpace(declaration.Description),
+			Usage:         strings.TrimSpace(declaration.Usage),
+			Permission:    strings.TrimSpace(declaration.Permission),
+			CommandSource: CommandSourcePattern,
+			DeclarationID: strings.TrimSpace(declaration.ID),
+		})
 	}
 
 	for _, declaration := range snapshot.DynamicCommands {
@@ -45,6 +66,27 @@ func ProjectCommands(snapshot plugins.Snapshot, settings map[string]any) []plugi
 		})
 	}
 	return items
+}
+
+func validCommandPattern(pattern string) bool {
+	if pattern == "" {
+		return false
+	}
+	_, err := regexp.Compile(pattern)
+	return err == nil
+}
+
+func validateCommandPatterns(patterns []plugins.CommandPatternDecl) error {
+	for index, declaration := range patterns {
+		pattern := strings.TrimSpace(declaration.Pattern)
+		if pattern == "" {
+			continue
+		}
+		if _, err := regexp.Compile(pattern); err != nil {
+			return fmt.Errorf("command_patterns[%d].pattern is invalid: %w", index, err)
+		}
+	}
+	return nil
 }
 
 func normalizeStaticCommandTokens(values []string) []string {

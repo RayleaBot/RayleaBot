@@ -88,6 +88,9 @@ func DetectCommandConflicts(snapshots []Snapshot) map[string][]string {
 		}
 		seen := make(map[string]struct{})
 		for _, command := range snapshot.Commands {
+			if strings.TrimSpace(command.MatchPattern) != "" {
+				continue
+			}
 			addSummaryConflictToken(seen, command.Name)
 			for _, alias := range command.Aliases {
 				addSummaryConflictToken(seen, alias)

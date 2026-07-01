@@ -25,9 +25,10 @@ func dispatchCommands(commands []plugins.Command) []dispatch.CommandDecl {
 			continue
 		}
 		items = append(items, dispatch.CommandDecl{
-			Name:       command.Name,
-			Aliases:    append([]string(nil), command.Aliases...),
-			Permission: command.Permission,
+			Name:         command.Name,
+			Aliases:      append([]string(nil), command.Aliases...),
+			MatchPattern: command.MatchPattern,
+			Permission:   command.Permission,
 		})
 	}
 	return items

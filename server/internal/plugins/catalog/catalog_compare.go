@@ -34,6 +34,7 @@ func commandsEqual(left []plugins.Command, right []plugins.Command) bool {
 			left[index].Usage != right[index].Usage ||
 			left[index].Permission != right[index].Permission ||
 			left[index].CommandSource != right[index].CommandSource ||
+			left[index].MatchPattern != right[index].MatchPattern ||
 			left[index].DeclarationID != right[index].DeclarationID ||
 			!stringSlicesEqual(left[index].Aliases, right[index].Aliases) {
 			return false

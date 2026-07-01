@@ -4,6 +4,8 @@ import { t } from '@/i18n'
 import { isPluginCommandConflicted } from '@/lib/plugin-commands'
 import type { CommandPermissionLevel, PluginCommandSummary } from '@/types/api'
 
+const MAX_VISIBLE_ALIASES = 12
+
 const props = withDefaults(defineProps<{
   commands: PluginCommandSummary[]
   commandConflicts?: string[]
@@ -19,6 +21,14 @@ function getText(value?: string) {
 
 function getAliasesText(command: PluginCommandSummary) {
   return command.aliases?.length ? command.aliases.join(', ') : t('display.empty')
+}
+
+function getVisibleAliases(command: PluginCommandSummary) {
+  return (command.aliases ?? []).slice(0, MAX_VISIBLE_ALIASES)
+}
+
+function getHiddenAliasCount(command: PluginCommandSummary) {
+  return Math.max(0, (command.aliases?.length ?? 0) - MAX_VISIBLE_ALIASES)
 }
 
 function getPermissionText(command: PluginCommandSummary) {
@@ -47,6 +57,9 @@ function getCommandSourceText(command: PluginCommandSummary) {
 }
 
 function getCommandSourceColor(command: PluginCommandSummary) {
+  if (command.command_source === 'pattern') {
+    return 'blue'
+  }
   return command.command_source === 'dynamic' ? 'purple' : 'default'
 }
 
@@ -88,8 +101,11 @@ function isConflicted(command: PluginCommandSummary) {
         <div class="plugin-command-card__section">
           <span class="section-label">{{ t('plugins.commandAliases') }}</span>
           <div class="alias-tags" v-if="command.aliases?.length">
-            <a-tag v-for="alias in command.aliases" :key="alias" size="small" class="alias-tag">
+            <a-tag v-for="alias in getVisibleAliases(command)" :key="alias" size="small" class="alias-tag">
               {{ alias }}
+            </a-tag>
+            <a-tag v-if="getHiddenAliasCount(command) > 0" size="small" class="alias-tag alias-tag--more">
+              {{ t('plugins.commandOverflow', { count: getHiddenAliasCount(command) }) }}
             </a-tag>
             <!-- Hidden text for unit test compatibility -->
             <span class="sr-only">{{ getAliasesText(command) }}</span>
@@ -205,6 +221,10 @@ function isConflicted(command: PluginCommandSummary) {
 
 .alias-tag {
   font-size: 0.76rem;
+}
+
+.alias-tag--more {
+  color: var(--muted);
 }
 
 .empty-val {

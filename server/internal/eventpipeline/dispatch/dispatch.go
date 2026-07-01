@@ -36,9 +36,10 @@ type DeliveryResult struct {
 
 // CommandDecl captures a plugin's declared command for directed delivery.
 type CommandDecl struct {
-	Name       string
-	Aliases    []string
-	Permission string
+	Name         string
+	Aliases      []string
+	MatchPattern string
+	Permission   string
 }
 type dispatchItem struct {
 	ctx   context.Context

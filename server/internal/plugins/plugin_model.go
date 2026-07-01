@@ -20,11 +20,21 @@ type CatalogStore interface {
 type Command struct {
 	Name          string
 	Aliases       []string
+	MatchPattern  string
 	Description   string
 	Usage         string
 	Permission    string
 	CommandSource string
 	DeclarationID string
+}
+
+type CommandPatternDecl struct {
+	ID          string
+	Name        string
+	Pattern     string
+	Description string
+	Usage       string
+	Permission  string
 }
 
 type DynamicCommandDecl struct {
@@ -133,6 +143,7 @@ type Snapshot struct {
 	ScopeWebhooks           []WebhookScope
 	Commands                []Command
 	ManifestCommands        []Command
+	CommandPatterns         []CommandPatternDecl
 	DynamicCommands         []DynamicCommandDecl
 }
 

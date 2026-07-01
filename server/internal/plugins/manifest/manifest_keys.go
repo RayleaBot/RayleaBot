@@ -16,6 +16,7 @@ const (
 
 	CommandSourceManifest = plugins.CommandSourceManifest
 	CommandSourceDynamic  = plugins.CommandSourceDynamic
+	CommandSourcePattern  = plugins.CommandSourcePattern
 )
 
 func cloneMap(values map[string]any) map[string]any {

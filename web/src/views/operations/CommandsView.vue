@@ -180,6 +180,9 @@ function getCommandSourceLabel(source: PluginCommandSource) {
 }
 
 function getCommandSourceColor(source: PluginCommandSource) {
+  if (source === 'pattern') {
+    return 'blue'
+  }
   return source === 'dynamic' ? 'purple' : 'default'
 }
 

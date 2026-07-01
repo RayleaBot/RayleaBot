@@ -409,6 +409,43 @@ func TestDispatchDirectedDeliveryByAlias(t *testing.T) {
 	}
 }
 
+func TestDispatchDirectedDeliveryByCommandPattern(t *testing.T) {
+	sender := &fakeSender{}
+	d := New(slog.Default(), sender, nil, 16)
+	defer d.Close()
+
+	rt := &fakeDeliverer{delivery: runtimemanager.Delivery{Result: map[string]any{"ok": true}}}
+	d.Register("guide", rt, []string{"plugin.started"}, []CommandDecl{
+		{Name: "角色攻略", MatchPattern: "^(.+?)攻略$"},
+	}, 1)
+
+	results := d.Dispatch(context.Background(), testEvent(), "昔涟攻略")
+	if len(results) != 1 || results[0].PluginID != "guide" {
+		t.Fatalf("expected directed pattern result for guide, got %#v", results)
+	}
+
+	time.Sleep(50 * time.Millisecond)
+	if rt.eventCount() != 1 {
+		t.Fatalf("guide plugin should receive 1 event, got %d", rt.eventCount())
+	}
+}
+
+func TestDispatchCommandPatternDisplayNameIsNotExactTrigger(t *testing.T) {
+	sender := &fakeSender{}
+	d := New(slog.Default(), sender, nil, 16)
+	defer d.Close()
+
+	rt := &fakeDeliverer{delivery: runtimemanager.Delivery{Result: map[string]any{"ok": true}}}
+	d.Register("guide", rt, []string{"plugin.started"}, []CommandDecl{
+		{Name: "角色攻略查询", MatchPattern: "^(.+?)攻略$"},
+	}, 1)
+
+	results := d.Dispatch(context.Background(), testEvent(), "角色攻略查询")
+	if len(results) != 0 {
+		t.Fatalf("display name should not be an exact trigger, got %#v", results)
+	}
+}
+
 func TestDispatchFallbackWhenNoCommandMatch(t *testing.T) {
 	sender := &fakeSender{}
 	d := New(slog.Default(), sender, nil, 16)

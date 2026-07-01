@@ -91,10 +91,14 @@ func buildCommandPolicyEntries(snapshots []plugins.Snapshot, cfg config.Config) 
 }
 
 func commandSourceOrDefault(source string) string {
-	if strings.TrimSpace(source) == plugins.CommandSourceDynamic {
+	switch strings.TrimSpace(source) {
+	case plugins.CommandSourceDynamic:
 		return plugins.CommandSourceDynamic
+	case plugins.CommandSourcePattern:
+		return plugins.CommandSourcePattern
+	default:
+		return plugins.CommandSourceManifest
 	}
-	return plugins.CommandSourceManifest
 }
 
 func pluginDisplayName(snapshot plugins.Snapshot) string {

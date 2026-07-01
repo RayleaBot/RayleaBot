@@ -3,6 +3,7 @@ package menu
 import (
 	"context"
 	"log/slog"
+	"regexp"
 	"strings"
 
 	adapterintake "github.com/RayleaBot/RayleaBot/server/internal/bot/adapter/onebot11/intake"
@@ -163,6 +164,14 @@ func pluginParticipatesInCommandPolicy(snapshot plugins.Snapshot) bool {
 }
 
 func commandMatches(command plugins.Command, commandName string) bool {
+	commandName = strings.TrimSpace(commandName)
+	if commandName == "" {
+		return false
+	}
+	if pattern := strings.TrimSpace(command.MatchPattern); pattern != "" {
+		matched, err := regexp.MatchString(pattern, commandName)
+		return err == nil && matched
+	}
 	if strings.TrimSpace(command.Name) == commandName {
 		return true
 	}

@@ -2,6 +2,8 @@ package dispatch
 
 import (
 	"context"
+	"regexp"
+	"strings"
 
 	runtimemanager "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime/manager"
 	runtimeprotocol "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime/protocol"
@@ -115,18 +117,37 @@ func (d *Dispatcher) selectTargets(event runtimeprotocol.Event, commandName stri
 	return targets
 }
 func slotDeclaresCommand(slot *pluginSlot, commandName string) bool {
+	commandName = strings.TrimSpace(commandName)
+	if commandName == "" {
+		return false
+	}
 	for _, cmd := range slot.commands {
-		if cmd.Name == commandName {
+		if commandPatternMatches(cmd.MatchPattern, commandName) {
 			return true
 		}
-		for _, alias := range cmd.Aliases {
-			if alias == commandName {
+		if strings.TrimSpace(cmd.MatchPattern) == "" {
+			if strings.TrimSpace(cmd.Name) == commandName {
 				return true
+			}
+			for _, alias := range cmd.Aliases {
+				if strings.TrimSpace(alias) == commandName {
+					return true
+				}
 			}
 		}
 	}
 	return false
 }
+
+func commandPatternMatches(pattern string, commandName string) bool {
+	pattern = strings.TrimSpace(pattern)
+	if pattern == "" {
+		return false
+	}
+	matched, err := regexp.MatchString(pattern, commandName)
+	return err == nil && matched
+}
+
 func slotIsDeliverable(slot *pluginSlot) bool {
 	if slot == nil || slot.runtime == nil {
 		return false

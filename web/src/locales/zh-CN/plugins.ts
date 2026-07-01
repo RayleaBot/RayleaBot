@@ -141,6 +141,7 @@ export const plugins = {
   commandSourceLabel: {
     manifest: '固定指令',
     dynamic: '动态指令',
+    pattern: '规则指令',
   },
   commandAliasesCount: '{count} 个别名',
   commandOverflow: '还有 {count} 个',

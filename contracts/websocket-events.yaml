@@ -190,7 +190,7 @@ channels:
                         type: string
                       command_source:
                         type: string
-                        enum: [manifest, dynamic]
+                        enum: [manifest, dynamic, pattern]
                       declaration_id:
                         type: string
                 command_conflicts:

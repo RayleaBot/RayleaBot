@@ -43,13 +43,30 @@ func TestPluginDiscoveryContextUsesPluginDirectoriesOnly(t *testing.T) {
 	t.Parallel()
 
 	configPath := writePersistentYAMLConfig(t, filepath.Join(t.TempDir(), "state.db"))
-	repoRoot := repoRootPath(t)
+	repoRoot := t.TempDir()
+	builtinRoot := filepath.Join(repoRoot, "plugins", "builtin")
+	exampleRoot := filepath.Join(repoRoot, "examples", "plugins", "hello-python")
+	for _, dir := range []string{
+		filepath.Join(builtinRoot, "fixture-builtin"),
+		exampleRoot,
+	} {
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			t.Fatalf("mkdir %s: %v", dir, err)
+		}
+	}
+	if err := writePluginManifest(filepath.Join(builtinRoot, "fixture-builtin", "info.json"), pluginManifestWithCommand("fixture-builtin", "fixture")); err != nil {
+		t.Fatalf("write builtin manifest: %v", err)
+	}
+	if err := writePluginManifest(filepath.Join(exampleRoot, "info.json"), pluginManifestWithCommand("fixture-example", "example")); err != nil {
+		t.Fatalf("write example manifest: %v", err)
+	}
+
 	application, err := app.New(app.Options{
 		ConfigPath:       configPath,
 		PluginRepoRoot:   repoRoot,
 		PluginSchemaPath: testutil.RepoPath(t, "contracts", "plugin-info.schema.json"),
 		PluginRoots: []plugindiscovery.ScanRoot{
-			{Label: "plugins/builtin", Path: filepath.Join(repoRoot, "plugins", "builtin")},
+			{Label: "plugins/builtin", Path: builtinRoot},
 			{Label: "plugins/installed", Path: filepath.Join(filepath.Dir(configPath), "..", "plugins", "installed")},
 		},
 	})
@@ -62,16 +79,10 @@ func TestPluginDiscoveryContextUsesPluginDirectoriesOnly(t *testing.T) {
 		}
 	})
 
-	if _, ok := application.Plugins().Get("raylea.echo"); !ok {
-		t.Fatal("expected builtin echo plugin to be discovered")
+	if _, ok := application.Plugins().Get("fixture-builtin"); !ok {
+		t.Fatal("expected plugin from configured builtin root to be discovered")
 	}
-	if _, ok := application.Plugins().Get("raylea.fortune"); !ok {
-		t.Fatal("expected builtin fortune plugin to be discovered")
-	}
-	if _, ok := application.Plugins().Get("raylea.subscription-hub"); !ok {
-		t.Fatal("expected builtin subscription hub plugin to be discovered")
-	}
-	if _, ok := application.Plugins().Get("hello-python"); ok {
+	if _, ok := application.Plugins().Get("fixture-example"); ok {
 		t.Fatal("examples/plugins must not be discovered by the default application roots")
 	}
 }
@@ -239,11 +250,6 @@ func writePluginManifest(path string, document any) error {
 	return os.WriteFile(path, bytes, 0o644)
 }
 
-func repoRootPath(t *testing.T) string {
-	t.Helper()
-	return testutil.RepoRoot(t)
-}
-
 func TestConflictPathsUseStableSourceOrdering(t *testing.T) {
 	t.Parallel()
 
@@ -283,23 +289,32 @@ func TestConflictPathsUseStableSourceOrdering(t *testing.T) {
 	}
 }
 
-func TestDiscoverBuiltinPluginDefaultsToEnabledAndPreservesCommands(t *testing.T) {
+func TestDiscoverBuiltinSourceDefaultsToEnabledAndPreservesCommands(t *testing.T) {
 	t.Parallel()
 
-	repoRoot := repoRootPath(t)
+	repoRoot := t.TempDir()
+	builtinRoot := filepath.Join(repoRoot, "plugins", "builtin")
+	pluginDir := filepath.Join(builtinRoot, "fixture-builtin")
+	if err := os.MkdirAll(pluginDir, 0o755); err != nil {
+		t.Fatalf("mkdir %s: %v", pluginDir, err)
+	}
+	if err := writePluginManifest(filepath.Join(pluginDir, "info.json"), pluginManifestWithCommand("fixture-builtin", "fixture")); err != nil {
+		t.Fatalf("write builtin manifest: %v", err)
+	}
+
 	validator := compileSchema(t, testutil.RepoPath(t, "contracts", "plugin-info.schema.json"))
 	snapshots, _, err := plugindiscovery.Discover(plugindiscovery.DiscoverOptions{
 		Validator: validator,
 		Roots: []plugindiscovery.ScanRoot{
 			{
 				Label: "plugins/builtin",
-				Path:  filepath.Join(repoRoot, "plugins", "builtin"),
+				Path:  builtinRoot,
 			},
 		},
 		RepoRoot: repoRoot,
 	})
 	if err != nil {
-		t.Fatalf("Discover builtin plugins failed: %v", err)
+		t.Fatalf("Discover builtin source failed: %v", err)
 	}
 
 	catalog := plugincatalog.New(snapshots)
@@ -310,12 +325,11 @@ func TestDiscoverBuiltinPluginDefaultsToEnabledAndPreservesCommands(t *testing.T
 		declarationID string
 		commandCount  int
 	}{
-		{pluginID: "raylea.echo", commandName: "echo", source: plugins.CommandSourceManifest, commandCount: 1},
-		{pluginID: "raylea.fortune", commandName: "我的运势", source: plugins.CommandSourceDynamic, declarationID: "fortune", commandCount: 2},
+		{pluginID: "fixture-builtin", commandName: "fixture", source: plugins.CommandSourceManifest, commandCount: 1},
 	} {
 		snapshot, ok := catalog.Get(tc.pluginID)
 		if !ok {
-			t.Fatalf("expected builtin plugin %q to be discovered", tc.pluginID)
+			t.Fatalf("expected plugin %q to be discovered", tc.pluginID)
 		}
 		if snapshot.DesiredState != "enabled" {
 			t.Fatalf("unexpected desired_state for %s: got %q want enabled", tc.pluginID, snapshot.DesiredState)
@@ -336,6 +350,29 @@ func TestDiscoverBuiltinPluginDefaultsToEnabledAndPreservesCommands(t *testing.T
 		if command.DeclarationID != tc.declarationID {
 			t.Fatalf("unexpected builtin command declaration for %s: got %q want %q", tc.pluginID, command.DeclarationID, tc.declarationID)
 		}
+	}
+}
+
+func pluginManifestWithCommand(pluginID string, commandName string) map[string]any {
+	return map[string]any{
+		"id":                      pluginID,
+		"name":                    pluginID,
+		"version":                 "0.1.0",
+		"manifest_version":        "1",
+		"plugin_protocol_version": "1",
+		"type":                    "managed_runtime",
+		"runtime":                 "python",
+		"entry":                   "main.py",
+		"license":                 "MIT",
+		"capabilities":            []any{"event.subscribe", "message.send"},
+		"commands": []any{
+			map[string]any{
+				"name":        commandName,
+				"description": "fixture command",
+				"usage":       "/" + commandName,
+				"permission":  "everyone",
+			},
+		},
 	}
 }
 
@@ -390,6 +427,88 @@ func TestDiscoverManifestDynamicCommands(t *testing.T) {
 	}
 	if command.CommandSource != plugins.CommandSourceDynamic || command.DeclarationID != "fortune" || command.Permission != "everyone" {
 		t.Fatalf("unexpected dynamic command metadata: %#v", command)
+	}
+}
+
+func TestDiscoverManifestCommandPatterns(t *testing.T) {
+	t.Parallel()
+
+	rootDir := t.TempDir()
+	validator := compileSchema(t, testutil.RepoPath(t, "contracts", "plugin-info.schema.json"))
+	fixture := loadPluginInfoFixture(t, testutil.RepoPath(t, "fixtures", "plugin-info", "ok.plugin-with-command-patterns.json"))
+	pluginDir := filepath.Join(rootDir, "plugins", "game-guide")
+	if err := os.MkdirAll(pluginDir, 0o755); err != nil {
+		t.Fatalf("mkdir %s: %v", pluginDir, err)
+	}
+	if err := writePluginManifest(filepath.Join(pluginDir, "info.json"), fixture.Input); err != nil {
+		t.Fatalf("write manifest: %v", err)
+	}
+
+	snapshots, summary, err := plugindiscovery.Discover(plugindiscovery.DiscoverOptions{
+		Validator: validator,
+		Roots: []plugindiscovery.ScanRoot{{
+			Label: "plugins/installed",
+			Path:  filepath.Join(rootDir, "plugins"),
+		}},
+		RepoRoot: rootDir,
+	})
+	if err != nil {
+		t.Fatalf("Discover failed: %v", err)
+	}
+	if summary.ValidCount != 1 || len(snapshots) != 1 {
+		t.Fatalf("unexpected discovery summary: %#v len=%d", summary, len(snapshots))
+	}
+
+	snapshot := snapshots[0]
+	if len(snapshot.CommandPatterns) != 1 {
+		t.Fatalf("command pattern declarations = %#v, want one", snapshot.CommandPatterns)
+	}
+	if len(snapshot.Commands) != 1 {
+		t.Fatalf("projected commands = %#v, want one", snapshot.Commands)
+	}
+	command := snapshot.Commands[0]
+	if command.Name != "角色攻略" || command.MatchPattern != "^(.+?)攻略$" {
+		t.Fatalf("unexpected projected pattern command: %#v", command)
+	}
+	if command.CommandSource != plugins.CommandSourcePattern || command.DeclarationID != "character-guide" || command.Permission != "everyone" {
+		t.Fatalf("unexpected pattern command metadata: %#v", command)
+	}
+}
+
+func TestDiscoverManifestRejectsInvalidCommandPattern(t *testing.T) {
+	t.Parallel()
+
+	rootDir := t.TempDir()
+	validator := compileSchema(t, testutil.RepoPath(t, "contracts", "plugin-info.schema.json"))
+	fixture := loadPluginInfoFixture(t, testutil.RepoPath(t, "fixtures", "plugin-info", "ok.plugin-with-command-patterns.json"))
+	input := fixture.Input.(map[string]any)
+	patterns := input["command_patterns"].([]any)
+	patterns[0].(map[string]any)["pattern"] = "["
+
+	pluginDir := filepath.Join(rootDir, "plugins", "game-guide")
+	if err := os.MkdirAll(pluginDir, 0o755); err != nil {
+		t.Fatalf("mkdir %s: %v", pluginDir, err)
+	}
+	if err := writePluginManifest(filepath.Join(pluginDir, "info.json"), input); err != nil {
+		t.Fatalf("write manifest: %v", err)
+	}
+
+	snapshots, summary, err := plugindiscovery.Discover(plugindiscovery.DiscoverOptions{
+		Validator: validator,
+		Roots: []plugindiscovery.ScanRoot{{
+			Label: "plugins/installed",
+			Path:  filepath.Join(rootDir, "plugins"),
+		}},
+		RepoRoot: rootDir,
+	})
+	if err != nil {
+		t.Fatalf("Discover failed: %v", err)
+	}
+	if summary.InvalidCount != 1 || len(snapshots) != 1 {
+		t.Fatalf("unexpected discovery summary: %#v len=%d", summary, len(snapshots))
+	}
+	if snapshots[0].Valid || !strings.Contains(snapshots[0].ValidationSummary, "command_patterns[0].pattern is invalid") {
+		t.Fatalf("unexpected invalid pattern snapshot: %#v", snapshots[0])
 	}
 }
 

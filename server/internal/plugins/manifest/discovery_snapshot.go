@@ -97,6 +97,7 @@ func LoadSnapshot(infoPath, sourceRoot, repoRoot string, validator *schema.Valid
 	snapshot.ScopeThirdPartyAccounts = manifestCapabilityParameterList(manifest, "third_party_account_platforms")
 	snapshot.ScopeWebhooks = manifestWebhookParameters(manifest)
 	snapshot.ManifestCommands = manifestCommands(manifest)
+	snapshot.CommandPatterns = manifestCommandPatterns(manifest)
 	snapshot.DynamicCommands = manifestDynamicCommands(manifest)
 	snapshot.Commands = ProjectCommands(snapshot, snapshot.DefaultConfig)
 
@@ -108,6 +109,13 @@ func LoadSnapshot(infoPath, sourceRoot, repoRoot string, validator *schema.Valid
 	}
 
 	if err := validator.Validate(document); err != nil {
+		snapshot.Valid = false
+		snapshot.DisplayState = DisplayStateInvalidManifest
+		snapshot.ValidationSummary = trimSummary(err.Error(), maxSummaryChars)
+		return snapshot, true, nil
+	}
+
+	if err := validateCommandPatterns(snapshot.CommandPatterns); err != nil {
 		snapshot.Valid = false
 		snapshot.DisplayState = DisplayStateInvalidManifest
 		snapshot.ValidationSummary = trimSummary(err.Error(), maxSummaryChars)

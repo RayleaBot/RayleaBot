@@ -80,5 +80,8 @@ func commandSourceOrDefault(source string) string {
 	if source == plugins.CommandSourceDynamic {
 		return plugins.CommandSourceDynamic
 	}
+	if source == plugins.CommandSourcePattern {
+		return plugins.CommandSourcePattern
+	}
 	return plugins.CommandSourceManifest
 }
