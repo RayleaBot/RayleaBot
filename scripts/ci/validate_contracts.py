@@ -375,7 +375,7 @@ def validate_fixture_matrix() -> None:
 
 def validate_baseline() -> None:
     baseline = (ROOT / "docs" / "engineering" / "baseline.md").read_text(encoding="utf-8")
-    for snippet in ["Go `1.25.8`", "Node.js `24.14.0`", "`pnpm 11.9.0`", "Python `3.12.13`"]:
+    for snippet in ["Go `1.25.11`", "Node.js `24.14.0`", "`pnpm 11.9.0`", "Python `3.12.13`"]:
         if snippet not in baseline:
             fail(f"docs/engineering/baseline.md missing expected snippet: {snippet}")
 
@@ -392,8 +392,8 @@ def validate_baseline() -> None:
     go_mod = (ROOT / "server" / "go.mod").read_text(encoding="utf-8")
     if "module github.com/RayleaBot/RayleaBot/server" not in go_mod:
         fail("server/go.mod must use module path github.com/RayleaBot/RayleaBot/server")
-    if "go 1.25.8" not in go_mod:
-        fail("server/go.mod must pin Go 1.25.8")
+    if "go 1.25.11" not in go_mod:
+        fail("server/go.mod must pin Go 1.25.11")
 
     expected_pnpm_workspaces = {
         ROOT / "web" / "package.json": {

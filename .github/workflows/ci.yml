@@ -112,17 +112,17 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.9.0
+
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: "24.14.0"
           cache: pnpm
           cache-dependency-path: web/pnpm-lock.yaml
-
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 11.9.0
 
       - name: Install web dependencies
         working-directory: web
@@ -155,17 +155,17 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.9.0
+
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: "24.14.0"
           cache: pnpm
           cache-dependency-path: launcher/pnpm-lock.yaml
-
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 11.9.0
 
       - name: Install launcher dependencies
         working-directory: launcher

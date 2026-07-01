@@ -15,7 +15,7 @@ from dataclasses import dataclass
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
-REQUIRED_GO_VERSION = "go1.25.8"
+REQUIRED_GO_VERSION = "go1.25.11"
 REQUIRED_NODE_VERSION = "v24.14.0"
 REQUIRED_PNPM_VERSION = "11.9.0"
 REQUIRED_SQLC_VERSION = "v1.29.0"
@@ -85,11 +85,11 @@ def check_go() -> CheckResult:
             f"Go is not on PATH; required {REQUIRED_GO_VERSION}.",
             "\n".join(
                 [
-                    "Install Go 1.25.8 before running server tests.",
+                    "Install Go 1.25.11 before running server tests.",
                     f"Download: {GO_INSTALL_URL}",
-                    "Windows: winget install GoLang.Go --version 1.25.8",
-                    "Linux x64 online: curl -LO https://go.dev/dl/go1.25.8.linux-amd64.tar.gz && sudo tar -C /usr/local -xzf go1.25.8.linux-amd64.tar.gz",
-                    "Offline: copy the matching go1.25.8 archive into the runner image and put its bin directory on PATH; set GOTOOLCHAIN=local for a local-only failure.",
+                    "Windows: winget install GoLang.Go --version 1.25.11",
+                    "Linux x64 online: curl -LO https://go.dev/dl/go1.25.11.linux-amd64.tar.gz && sudo tar -C /usr/local -xzf go1.25.11.linux-amd64.tar.gz",
+                    "Offline: copy the matching go1.25.11 archive into the runner image and put its bin directory on PATH; set GOTOOLCHAIN=local for a local-only failure.",
                 ]
             ),
         )
@@ -112,9 +112,9 @@ def check_go() -> CheckResult:
                 [
                     "Install the exact Go patch version used by server/go.mod.",
                     f"Download: {GO_INSTALL_URL}",
-                    "Windows: winget install GoLang.Go --version 1.25.8",
-                    "Linux x64 online: curl -LO https://go.dev/dl/go1.25.8.linux-amd64.tar.gz && sudo tar -C /usr/local -xzf go1.25.8.linux-amd64.tar.gz",
-                    "Offline: preinstall go1.25.8 in the image or workstation and set GOTOOLCHAIN=local before running tests.",
+                    "Windows: winget install GoLang.Go --version 1.25.11",
+                    "Linux x64 online: curl -LO https://go.dev/dl/go1.25.11.linux-amd64.tar.gz && sudo tar -C /usr/local -xzf go1.25.11.linux-amd64.tar.gz",
+                    "Offline: preinstall go1.25.11 in the image or workstation and set GOTOOLCHAIN=local before running tests.",
                 ]
             ),
         )

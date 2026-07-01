@@ -24,8 +24,8 @@ class CheckToolchainTests(unittest.TestCase):
     def test_version_from_go_output(self) -> None:
         module = load_module()
         self.assertEqual(
-            module.version_from_go_output("go version go1.25.8 windows/amd64"),
-            "go1.25.8",
+            module.version_from_go_output("go version go1.25.11 windows/amd64"),
+            "go1.25.11",
         )
 
     def test_pnpm_uses_corepack_when_global_shim_is_old(self) -> None:

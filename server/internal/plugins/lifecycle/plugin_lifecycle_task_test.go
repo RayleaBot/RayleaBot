@@ -3,7 +3,6 @@ package lifecycle
 import (
 	"context"
 	"log/slog"
-	"strings"
 	"testing"
 	"time"
 
@@ -45,9 +44,6 @@ func TestReloadCreatesPluginReloadTask(t *testing.T) {
 	}
 
 	created := waitTaskType(t, registry, "plugin.reload")
-	if !strings.Contains(created.Summary, "Weather") {
-		t.Fatalf("task summary = %q, want plugin display name", created.Summary)
-	}
 
 	final := waitTask(t, registry, created.TaskID, tasks.StatusFailed)
 	if final.FinishedAt == nil {

@@ -1,4 +1,4 @@
-FROM golang:1.25.8-bookworm
+FROM golang:1.25.11-bookworm
 
 ARG NODE_VERSION=24.14.0
 ARG PNPM_VERSION=11.9.0

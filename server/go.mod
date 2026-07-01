@@ -1,6 +1,6 @@
 module github.com/RayleaBot/RayleaBot/server
 
-go 1.25.8
+go 1.25.11
 
 require (
 	github.com/andybalholm/brotli v1.2.1
