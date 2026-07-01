@@ -55,11 +55,9 @@ func Data(cfg config.Config, event runtimeprotocol.Event) Identity {
 		user["title"] = title
 	}
 
-	level := "member"
+	level := normalizePermissionLevel(firstText(actorRole, sender["role"]))
 	if userID != "" && renderIdentityUserIsSuperAdmin(cfg, userID) {
 		level = "super_admin"
-	} else {
-		level = normalizePermissionLevel(firstText(actorRole, sender["role"]))
 	}
 
 	identity := Identity{

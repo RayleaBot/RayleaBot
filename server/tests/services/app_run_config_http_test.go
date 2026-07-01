@@ -587,7 +587,7 @@ func newConfigHTTPOutboundLimiterFixture(t *testing.T, message config.MessageCon
 
 	configPath := filepath.Join(t.TempDir(), "user.yaml")
 	schemaPath := configHTTPTestSchemaPath(t)
-	cfg, summary, err := config.Load(configPath, schemaPath)
+	cfg, _, err := config.Load(configPath, schemaPath)
 	if err != nil {
 		t.Fatalf("load default config: %v", err)
 	}
@@ -597,7 +597,7 @@ func newConfigHTTPOutboundLimiterFixture(t *testing.T, message config.MessageCon
 	messageDoc["rate_limit_per_plugin"] = message.RateLimitPerPlugin
 	messageDoc["rate_limit_per_target"] = message.RateLimitPerTarget
 	messageDoc["circuit_breaker_seconds"] = message.CircuitBreakerSeconds
-	cfg, summary, err = config.SaveDocument(configPath, schemaPath, document)
+	cfg, summary, err := config.SaveDocument(configPath, schemaPath, document)
 	if err != nil {
 		t.Fatalf("save base config: %v", err)
 	}

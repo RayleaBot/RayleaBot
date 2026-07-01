@@ -2,11 +2,7 @@ package plugins
 
 import "time"
 
-const (
-	ManifestValidationMaxSummary = 256
-
-	validationMaxSummary = ManifestValidationMaxSummary
-)
+const ManifestValidationMaxSummary = 256
 
 const (
 	RegistrationStateInstalled = "installed"

@@ -19,7 +19,3 @@ func CurrentPlatform() string {
 func ManifestPlatform(goos, goarch string) string {
 	return depsmanifest.Platform(goos, goarch)
 }
-
-func normalizeManifestArch(goarch string) string {
-	return depsmanifest.NormalizeArch(goarch)
-}

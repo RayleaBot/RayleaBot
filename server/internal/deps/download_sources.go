@@ -4,7 +4,6 @@ import (
 	"context"
 	"math"
 	"sort"
-	"time"
 
 	depsdownload "github.com/RayleaBot/RayleaBot/server/internal/deps/download"
 )
@@ -14,8 +13,6 @@ const sourceProbeCloseRatio = 0.10
 type sourceProbeResult struct {
 	source      ResourceSource
 	index       int
-	bytesRead   int64
-	duration    time.Duration
 	bytesPerSec float64
 	ok          bool
 }

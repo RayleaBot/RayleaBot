@@ -136,6 +136,7 @@ func TestPluginConsoleWebSocketRejectsUnknownOrigin(t *testing.T) {
 	if response == nil || response.StatusCode != http.StatusForbidden {
 		if response == nil {
 			t.Fatal("expected forbidden response, got nil")
+			return
 		}
 		t.Fatalf("unexpected forbidden status: got %d want %d", response.StatusCode, http.StatusForbidden)
 	}
@@ -161,6 +162,7 @@ func TestPluginConsoleWebSocketRejectsUnauthorizedSession(t *testing.T) {
 	if response == nil || response.StatusCode != http.StatusUnauthorized {
 		if response == nil {
 			t.Fatal("expected unauthorized response, got nil")
+			return
 		}
 		t.Fatalf("unexpected unauthorized status: got %d want %d", response.StatusCode, http.StatusUnauthorized)
 	}

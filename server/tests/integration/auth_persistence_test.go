@@ -196,6 +196,7 @@ func TestDeletingPersistedSessionSigningKeyInvalidatesOlderTokens(t *testing.T) 
 	if response == nil || response.StatusCode != http.StatusUnauthorized {
 		if response == nil {
 			t.Fatalf("expected unauthorized response, got nil")
+			return
 		}
 		t.Fatalf("unexpected unauthorized status: got %d want %d", response.StatusCode, http.StatusUnauthorized)
 	}

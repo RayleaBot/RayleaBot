@@ -65,17 +65,3 @@ func emitPrepareProgress(reporter PrepareProgressReporter, event PrepareProgress
 	}
 	reporter(event)
 }
-
-func prepareProgressPercent(done, total int64) int {
-	if total <= 0 || done <= 0 {
-		return 0
-	}
-	percent := int((done * 100) / total)
-	if percent > 100 {
-		return 100
-	}
-	if percent < 0 {
-		return 0
-	}
-	return percent
-}

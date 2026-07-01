@@ -3,8 +3,6 @@ package shell
 import (
 	"context"
 	"errors"
-
-	"github.com/coder/websocket"
 )
 
 func (s *Shell) run(ctx context.Context) {
@@ -112,7 +110,7 @@ func (s *Shell) runAttempt(ctx context.Context) (bool, bool) {
 
 	s.setConn(conn)
 	defer func() {
-		_ = conn.Close(websocket.StatusNormalClosure, "")
+		_ = conn.CloseNow()
 		s.clearConn(conn)
 	}()
 

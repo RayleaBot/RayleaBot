@@ -557,6 +557,7 @@ func TestDoctorReportChecksSQLiteIntegrity(t *testing.T) {
 	issue := findDoctorIssue(corrupt.Issues, "database.ping_failed")
 	if issue == nil {
 		t.Fatalf("doctor report should flag corrupt database, got %#v", corrupt.Issues)
+		return
 	}
 	if issue.Severity != "error" || !strings.Contains(issue.Summary, "数据库完整性检查失败") {
 		t.Fatalf("unexpected corrupt database issue: %#v", issue)

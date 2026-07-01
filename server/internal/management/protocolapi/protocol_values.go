@@ -2,7 +2,6 @@ package protocolapi
 
 import (
 	"net/http"
-	"net/url"
 	"strings"
 )
 
@@ -68,18 +67,4 @@ func isDigits(raw string) bool {
 		}
 	}
 	return true
-}
-
-func sanitizeProtocolEndpoint(raw string) string {
-	if raw == "" {
-		return ""
-	}
-	parsed, err := url.Parse(raw)
-	if err != nil {
-		return ""
-	}
-	if parsed.Scheme == "" || parsed.Host == "" {
-		return ""
-	}
-	return parsed.Scheme + "://" + parsed.Host
 }

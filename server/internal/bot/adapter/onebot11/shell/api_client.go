@@ -70,14 +70,6 @@ func (c shellAPICaller) Errorf(code, message string, err error) error {
 	return errorf(code, message, err)
 }
 
-func extractStringField(data map[string]any, key string) string {
-	return adapterapi.ExtractStringField(data, key)
-}
-
-func normalizeAPIList(value any) ([]any, bool) {
-	return adapterapi.NormalizeAPIList(value)
-}
-
 func normalizeAPIResult(value any) any {
 	return adapterapi.NormalizeAPIResult(value)
 }

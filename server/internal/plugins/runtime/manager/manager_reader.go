@@ -17,7 +17,7 @@ func (m *Manager) readRuntimeFrames(handle *runtimeprocess.Handle) {
 				m.signalPendingRequests(handle, runtimeErr)
 				return
 			}
-			m.failRuntime(handle, runtimeErr.Code, runtimeErr.Message, runtimeErr.Err)
+			_ = m.failRuntime(handle, runtimeErr.Code, runtimeErr.Message, runtimeErr.Err)
 			return
 		}
 
@@ -25,7 +25,7 @@ func (m *Manager) readRuntimeFrames(handle *runtimeprocess.Handle) {
 		runtimeErr := m.routeRuntimeFrame(handle, line)
 		m.protocolMu.Unlock()
 		if runtimeErr != nil {
-			m.failRuntime(handle, runtimeErr.Code, runtimeErr.Message, runtimeErr.Err)
+			_ = m.failRuntime(handle, runtimeErr.Code, runtimeErr.Message, runtimeErr.Err)
 			return
 		}
 	}

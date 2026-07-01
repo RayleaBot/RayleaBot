@@ -50,19 +50,6 @@ func (m *Manager) cleanupFailedStart(handle *runtimeprocess.Handle, code, messag
 	m.markStopped(code, message, err)
 }
 
-func (m *Manager) cleanupFailedDelivery(handle *runtimeprocess.Handle, code, message string, err error) {
-	if handle != nil && handle.Cmd != nil && handle.Cmd.Process != nil {
-		_ = handle.Cmd.Process.Kill()
-	}
-	if handle != nil {
-		select {
-		case <-handle.Done():
-		case <-time.After(500 * time.Millisecond):
-		}
-	}
-	m.markStopped(code, message, err)
-}
-
 func (m *Manager) markStopped(code, message string, err error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()

@@ -328,6 +328,7 @@ func TestEventsWebSocketRejectsUnauthorizedSession(t *testing.T) {
 	if response == nil || response.StatusCode != http.StatusUnauthorized {
 		if response == nil {
 			t.Fatalf("expected unauthorized response, got nil")
+			return
 		}
 		t.Fatalf("unexpected unauthorized status: got %d want %d", response.StatusCode, http.StatusUnauthorized)
 	}
@@ -379,10 +380,10 @@ func dialEventsWebSocket(t *testing.T, baseURL, token string) *websocket.Conn {
 
 	conn, response, err := websocket.Dial(ctx, websocketURL(baseURL)+"/ws/events?session_token="+token, nil)
 	if err != nil {
-		if response == nil {
-			t.Fatalf("dial websocket: %v", err)
+		if response != nil {
+			t.Fatalf("dial websocket returned status %d: %v", response.StatusCode, err)
 		}
-		t.Fatalf("dial websocket returned status %d: %v", response.StatusCode, err)
+		t.Fatalf("dial websocket: %v", err)
 	}
 
 	return conn

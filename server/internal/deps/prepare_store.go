@@ -10,15 +10,6 @@ import (
 	"time"
 )
 
-func ensurePreparedResource(
-	ctx context.Context,
-	repoRoot string,
-	resource Resource,
-	archivePath string,
-	extractor func(context.Context, string, string, string) error,
-) error {
-	return ensurePreparedResourceWithProgress(ctx, repoRoot, resource, archivePath, extractor, nil)
-}
 func ensurePreparedResourceWithProgress(
 	ctx context.Context,
 	repoRoot string,

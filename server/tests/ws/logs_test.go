@@ -306,6 +306,7 @@ func TestLogsWebSocketRejectsUnauthorizedSession(t *testing.T) {
 	if response == nil || response.StatusCode != http.StatusUnauthorized {
 		if response == nil {
 			t.Fatal("expected unauthorized response, got nil")
+			return
 		}
 		t.Fatalf("unexpected unauthorized status: got %d want %d", response.StatusCode, http.StatusUnauthorized)
 	}

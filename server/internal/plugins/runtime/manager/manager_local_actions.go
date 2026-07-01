@@ -12,7 +12,7 @@ import (
 func (m *Manager) executeLocalAction(ctx context.Context, handle *runtimeprocess.Handle, parentRequestID string, requestID string, action runtimeaction.Action, parentEvent runtimeprotocol.Event) {
 	if m.opts.ExecuteLocalAction == nil {
 		if err := m.writeLocalError(handle, parentRequestID, requestID, codePluginInternalError, "plugin local action executor is not available", nil); err != nil {
-			m.failRuntime(handle, err.Code, err.Message, err.Err)
+			_ = m.failRuntime(handle, err.Code, err.Message, err.Err)
 		}
 		return
 	}
@@ -22,12 +22,12 @@ func (m *Manager) executeLocalAction(ctx context.Context, handle *runtimeprocess
 		var runtimeErr *Error
 		if errors.As(err, &runtimeErr) {
 			if writeErr := m.writeLocalError(handle, parentRequestID, requestID, runtimeErr.Code, runtimeErr.Message, runtimeErr.Details); writeErr != nil {
-				m.failRuntime(handle, writeErr.Code, writeErr.Message, writeErr.Err)
+				_ = m.failRuntime(handle, writeErr.Code, writeErr.Message, writeErr.Err)
 			}
 			return
 		}
 		if writeErr := m.writeLocalError(handle, parentRequestID, requestID, codePluginInternalError, "plugin local action failed", nil); writeErr != nil {
-			m.failRuntime(handle, writeErr.Code, writeErr.Message, writeErr.Err)
+			_ = m.failRuntime(handle, writeErr.Code, writeErr.Message, writeErr.Err)
 		}
 		return
 	}
@@ -36,7 +36,7 @@ func (m *Manager) executeLocalAction(ctx context.Context, handle *runtimeprocess
 		result = map[string]any{}
 	}
 	if err := m.writeLocalResult(handle, parentRequestID, requestID, result); err != nil {
-		m.failRuntime(handle, err.Code, err.Message, err.Err)
+		_ = m.failRuntime(handle, err.Code, err.Message, err.Err)
 	}
 }
 

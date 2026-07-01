@@ -71,10 +71,3 @@ func (p *IdentityProvider) JitteredDelay(base time.Duration) time.Duration {
 	p.mu.Unlock()
 	return time.Duration(float64(base) * factor)
 }
-
-func (p *IdentityProvider) formatCooldownDelay(delay time.Duration) string {
-	if delay <= 0 {
-		return "0s"
-	}
-	return delay.Round(time.Second).String()
-}

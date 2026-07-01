@@ -52,12 +52,3 @@ func (v *Validator) invalidStatus(message string) thirdparty.CredentialStatus {
 		LastError: strings.TrimSpace(message),
 	}
 }
-
-func (v *Validator) unknownStatus(message string) thirdparty.CredentialStatus {
-	checkedAt := v.now().UTC()
-	return thirdparty.CredentialStatus{
-		State:     thirdparty.CredentialUnknown,
-		CheckedAt: &checkedAt,
-		LastError: strings.TrimSpace(message),
-	}
-}

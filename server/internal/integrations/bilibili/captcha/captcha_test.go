@@ -140,6 +140,7 @@ func TestNewCaptchaClient(t *testing.T) {
 	client := NewCaptchaClient(nil, identity)
 	if client == nil {
 		t.Fatal("NewCaptchaClient returned nil")
+		return
 	}
 	if client.client == nil {
 		t.Fatal("CaptchaClient has nil http client")

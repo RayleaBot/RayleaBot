@@ -30,11 +30,6 @@ func websocketURL(httpURL string) string {
 	return testutil.WebSocketURL(httpURL)
 }
 
-func repoRootPath(t *testing.T) string {
-	t.Helper()
-	return testutil.RepoRoot(t)
-}
-
 func loadConfigFixture(t *testing.T, path string) testutil.ConfigFixture {
 	return testutil.LoadConfigFixture(t, path)
 }

@@ -41,6 +41,7 @@ func TestCommandInfoForEventUsesDefaultLevelForOmittedPermission(t *testing.T) {
 	}))
 	if info == nil {
 		t.Fatal("commandInfoForEvent returned nil")
+		return
 	}
 	if info.Permission != "group_admin" {
 		t.Fatalf("permission = %q, want group_admin", info.Permission)

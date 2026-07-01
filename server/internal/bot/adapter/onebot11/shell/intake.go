@@ -16,10 +16,6 @@ func normalizeSupportedEvent(frame adapterintake.OneBotFrame, observedAt time.Ti
 	return adapterintake.NormalizeSupportedEvent(frame, observedAt)
 }
 
-func previewFramePayload(payload []byte) any {
-	return adapterintake.PreviewFramePayload(payload)
-}
-
 func frameEcho(value any) (string, bool) {
 	return adapterintake.FrameEcho(value)
 }

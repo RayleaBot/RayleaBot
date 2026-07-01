@@ -70,26 +70,6 @@ func (p *Provider) Create(ctx context.Context, now time.Time) (qrcode.LoginSessi
 	return session, nil
 }
 
-func (p *Provider) createWithHTTP(ctx context.Context, now time.Time) (qrcode.LoginSession, error) {
-	// HTTP-only fallback: visit douyin.com first to obtain session cookies,
-	// then call the SSO API with those cookies (mimics browser behavior).
-	cookies := map[string]string{}
-	followClient := thirdparty.NewHTTPClientFollow(nil)
-	_, _ = thirdparty.FetchPageBody(ctx, followClient, douyinServiceURL, douyinHeaders(), cookies)
-	result, err := createDouyinQRCode(ctx, followClient, now, cookies)
-	if err != nil {
-		return qrcode.LoginSession{}, fmt.Errorf("douyin http fallback: %w", err)
-	}
-	return qrcode.LoginSession{
-		Platform:  thirdparty.PlatformDouyin,
-		Token:     result.Token,
-		QRCodeURL: result.QRCodeURL,
-		ExpiresAt: result.ExpiresAt,
-		State:     qrcode.StatePendingScan,
-		Cookies:   cookies,
-	}, nil
-}
-
 func (p *Provider) Poll(ctx context.Context, session qrcode.LoginSession, now time.Time) (qrcode.LoginSession, error) {
 	if p.browser != nil && session.Values["mode"] != douyinHTTPMode {
 		return p.pollWithBrowser(ctx, session)
@@ -194,52 +174,6 @@ func douyinHeaders() map[string]string {
 		"Referer":    douyinReferer,
 		"User-Agent": douyinUserAgent,
 	}
-}
-
-func createDouyinQRCode(ctx context.Context, client *http.Client, now time.Time, cookies map[string]string) (BrowserCreateResult, error) {
-	var response struct {
-		ErrorCode   int    `json:"error_code"`
-		Description string `json:"description"`
-		Message     string `json:"message"`
-		Data        struct {
-			ErrorCode      int    `json:"error_code"`
-			Description    string `json:"description"`
-			QRCode         string `json:"qrcode"`
-			QRCodeIndexURL string `json:"qrcode_index_url"`
-			Token          string `json:"token"`
-			ExpireTime     int64  `json:"expire_time"`
-		} `json:"data"`
-	}
-	requestURL := douyinQRCodeURL + "?" + url.Values{
-		"aid":       {douyinAid},
-		"service":   {douyinServiceURL},
-		"need_logo": {"true"},
-		"t":         {fmt.Sprintf("%d", now.UnixMilli())},
-	}.Encode()
-	if _, err := thirdparty.GetJSON(ctx, client, requestURL, douyinHeaders(), cookies, &response); err != nil {
-		return BrowserCreateResult{}, err
-	}
-	if response.ErrorCode != 0 || response.Data.ErrorCode != 0 {
-		return BrowserCreateResult{}, fmt.Errorf("douyin qrcode create failed: %s", thirdparty.FirstNonEmpty(response.Data.Description, response.Description, response.Message, "invalid response"))
-	}
-	token := strings.TrimSpace(response.Data.Token)
-	qrcodeURL := thirdparty.FirstNonEmpty(response.Data.QRCodeIndexURL, response.Data.QRCode)
-	if token == "" || qrcodeURL == "" {
-		return BrowserCreateResult{}, fmt.Errorf("douyin qrcode create missing token or qrcode url")
-	}
-	expiresAt := now.Add(3 * time.Minute)
-	if response.Data.ExpireTime > 0 {
-		remoteExpiresAt := time.Unix(response.Data.ExpireTime, 0).UTC()
-		if remoteExpiresAt.After(now) {
-			expiresAt = remoteExpiresAt
-		}
-	}
-	return BrowserCreateResult{
-		Token:     token,
-		QRCodeURL: qrcodeURL,
-		ExpiresAt: expiresAt,
-		Cookies:   thirdparty.CloneStringMap(cookies),
-	}, nil
 }
 
 func pollDouyinQRCode(ctx context.Context, client *http.Client, now time.Time, token string, cookies map[string]string) (BrowserPollResult, error) {

@@ -249,10 +249,10 @@ func DialProtectedWebSocket(t testing.TB, baseURL, path, token string) *websocke
 
 	conn, response, err := websocket.Dial(ctx, WebSocketURL(baseURL)+path+"?session_token="+token, nil)
 	if err != nil {
-		if response == nil {
-			t.Fatalf("dial websocket: %v", err)
+		if response != nil {
+			t.Fatalf("dial websocket returned status %d: %v", response.StatusCode, err)
 		}
-		t.Fatalf("dial websocket returned status %d: %v", response.StatusCode, err)
+		t.Fatalf("dial websocket: %v", err)
 	}
 
 	return conn

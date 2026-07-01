@@ -203,17 +203,6 @@ func neteaseDeviceID() (string, error) {
 	return strings.ToUpper(hex.EncodeToString(bytes[:])), nil
 }
 
-// neteaseUUID generates a random UUID v4 string used as the request key.
-func neteaseUUID() (string, error) {
-	var bytes [16]byte
-	if _, err := rand.Read(bytes[:]); err != nil {
-		return "", err
-	}
-	bytes[6] = (bytes[6] & 0x0f) | 0x40
-	bytes[8] = (bytes[8] & 0x3f) | 0x80
-	return fmt.Sprintf("%x-%x-%x-%x-%x", bytes[0:4], bytes[4:6], bytes[6:8], bytes[8:10], bytes[10:]), nil
-}
-
 func neteaseChainID(deviceID string, now time.Time) string {
 	return fmt.Sprintf("v1_%s_web_login_%d", strings.TrimSpace(deviceID), now.UnixMilli())
 }

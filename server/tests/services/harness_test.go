@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"log/slog"
 	"net/http"
-	"sync/atomic"
 	"time"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/app/eventstack"
@@ -26,7 +25,6 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/logging"
 	"github.com/RayleaBot/RayleaBot/server/internal/management/configapi"
 	managementevents "github.com/RayleaBot/RayleaBot/server/internal/management/events"
-	"github.com/RayleaBot/RayleaBot/server/internal/management/systemapi"
 	"github.com/RayleaBot/RayleaBot/server/internal/permission"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	localaction "github.com/RayleaBot/RayleaBot/server/internal/plugins/actions"
@@ -41,14 +39,10 @@ import (
 	pluginui "github.com/RayleaBot/RayleaBot/server/internal/plugins/managementui"
 	runtimeaction "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime/action"
 	runtimeprotocol "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime/protocol"
-	runtimeregistry "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime/registry"
 	pluginwebhook "github.com/RayleaBot/RayleaBot/server/internal/plugins/webhook"
-	"github.com/RayleaBot/RayleaBot/server/internal/recovery"
 	renderservice "github.com/RayleaBot/RayleaBot/server/internal/render/service"
 	"github.com/RayleaBot/RayleaBot/server/internal/scheduler"
 	"github.com/RayleaBot/RayleaBot/server/internal/secrets"
-	systemsvc "github.com/RayleaBot/RayleaBot/server/internal/system"
-	"github.com/RayleaBot/RayleaBot/server/internal/tasks"
 )
 
 // serviceHarness assembles individual application services in isolation, the
@@ -56,22 +50,16 @@ import (
 // lets service-level tests construct exactly the collaborators they exercise.
 type serviceHarness struct {
 	state        *harnessState
-	process      harnessProcess
 	platform     appplatform.State
 	pluginStack  pluginstack.State
 	renderStack  renderstack.State
 	eventStack   eventstack.State
 	services     servicegraph.Services
-	runtimes     *runtimeregistry.Registry
 	capabilities localaction.CapabilityView
 
 	blacklistRepo  permission.BlacklistRepository
 	whitelistRepo  permission.WhitelistRepository
 	whitelistState permission.WhitelistStateRepository
-}
-
-type harnessProcess struct {
-	shuttingDown atomic.Bool
 }
 
 // harnessState mirrors the app runtime state and satisfies both the
@@ -225,33 +213,6 @@ func (a *serviceHarness) setTestEventIngressWithGovernance(catalog *plugincatalo
 	})
 }
 
-func (a *serviceHarness) setTestLifecycle(catalog *plugincatalog.Catalog, desiredRepo plugins.DesiredStateRepository, _ any, runtimes *runtimeregistry.Registry, dispatcher *dispatch.Dispatcher, pluginConfigRepo pluginconfig.Repository, adapterShell *adaptershell.Shell, webhooks *pluginwebhook.Registry) {
-	if a == nil {
-		return
-	}
-	a.pluginStack.Plugins = catalog
-	a.pluginStack.PluginRepository = desiredRepo
-	a.runtimes = runtimes
-	a.eventStack.Dispatcher = dispatcher
-	a.pluginStack.PluginConfig = pluginConfigRepo
-	a.eventStack.Adapter = adapterShell
-	a.pluginStack.Webhooks = webhooks
-	a.services.PluginLifecycle = pluginservice.NewController(pluginservice.Deps{
-		CurrentConfig:    a.state.CurrentConfig,
-		RepoRoot:         a.state.repoRoot,
-		Logger:           a.state.Logger,
-		Plugins:          catalog,
-		DesiredStateRepo: desiredRepo,
-		Runtimes:         runtimes,
-		Dispatcher:       dispatcher,
-		Scheduler:        a.platform.Scheduler,
-		PluginConfig:     pluginConfigRepo,
-		Adapter:          adapterShell,
-		Webhooks:         webhooks,
-		Tasks:            a.platform.Tasks,
-	})
-}
-
 func (a *serviceHarness) setTestLocalActions(capabilities localaction.CapabilityView, pluginConfigRepo pluginconfig.Repository, pluginFiles *pluginfile.Service, pluginKV pluginkv.Repository, schedulerEngine *scheduler.Engine, dispatcher *dispatch.Dispatcher, rendererService *renderservice.Service, adapterShell *adaptershell.Shell, limiter *localaction.PluginLogLimiter, webhookService *pluginwebhook.Service) {
 	if a == nil {
 		return
@@ -299,31 +260,6 @@ func (a *serviceHarness) setTestLocalActions(capabilities localaction.Capability
 	if webhookService != nil {
 		a.services.LocalActions.SetWebhookGateway(webhookService)
 	}
-}
-
-func (a *serviceHarness) setTestSystem(taskRegistry *tasks.Registry, taskExecutor *tasks.Executor, rendererService *renderservice.Service, logRepository logging.Repository) {
-	if a == nil {
-		return
-	}
-	a.platform.Tasks = taskRegistry
-	a.platform.TaskExecutor = taskExecutor
-	a.renderStack.Renderer = rendererService
-	a.services.System = systemsvc.New(systemsvc.Deps{
-		CurrentConfig:    a.state.CurrentConfig,
-		CurrentSummary:   func() config.Summary { return a.state.Summary },
-		CurrentRepoRoot:  func() string { return a.state.repoRoot },
-		CurrentStartedAt: func() time.Time { return a.state.startedAt },
-		Logger:           a.state.Logger,
-		Auth:             a.platform.Auth,
-		Adapter:          a.eventStack.Adapter,
-		Plugins:          a.pluginStack.Plugins,
-		Runtimes:         a.runtimes,
-		Renderer:         rendererService,
-		PluginRepository: a.pluginStack.PluginRepository,
-		TaskExecutor:     taskExecutor,
-		LogRepository:    logRepository,
-	})
-	a.services.System.BindShutdownFlag(&a.process.shuttingDown)
 }
 
 func (a *serviceHarness) setTestWebhookService(secretStore secrets.Store, dispatcher *dispatch.Dispatcher, lifecycle *pluginservice.Controller, registry *pluginwebhook.Registry) {
@@ -374,34 +310,6 @@ func (a *serviceHarness) handleAdapterEvent(ctx context.Context, event adapterin
 
 func (a *serviceHarness) applyChatPolicy(ctx context.Context, event adapterintake.NormalizedEvent) (adapterintake.NormalizedEvent, bool) {
 	return a.services.EventIngress.ApplyChatPolicy(ctx, event)
-}
-
-func (a *serviceHarness) autoPrepareRuntimeEnvironments(ctx context.Context) {
-	a.services.System.AutoPrepareRuntimeEnvironments(ctx)
-}
-
-func (a *serviceHarness) startupRuntimeState(kind string) (systemsvc.StartupRuntimeState, bool) {
-	return a.services.System.StartupRuntimeState(kind)
-}
-
-func (a *serviceHarness) setStartupRuntimeState(kind string, phase systemsvc.StartupRuntimePhase, issue *recovery.CompatibilityIssue) {
-	a.services.System.SetStartupRuntimeState(kind, phase, issue)
-}
-
-func (a *serviceHarness) managedRuntimeDiagnostics(pluginsList []plugins.Snapshot) []recovery.CompatibilityIssue {
-	return a.services.System.ManagedRuntimeDiagnostics(pluginsList)
-}
-
-func (a *serviceHarness) handleSystemRecoveryRecheck() http.HandlerFunc {
-	return systemapi.NewHandlers(a.services.System).HandleSystemRecoveryRecheck()
-}
-
-func (a *serviceHarness) handleSystemRecoveryConfirm() http.HandlerFunc {
-	return systemapi.NewHandlers(a.services.System).HandleSystemRecoveryConfirm()
-}
-
-func (a *serviceHarness) handleSystemRuntimeBootstrap() http.HandlerFunc {
-	return systemapi.NewHandlers(a.services.System).HandleSystemRuntimeBootstrap()
 }
 
 func (a *serviceHarness) handlePluginWebhook() http.HandlerFunc {

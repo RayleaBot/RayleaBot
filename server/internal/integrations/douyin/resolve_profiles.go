@@ -179,36 +179,6 @@ func douyinProfileFromObject(object map[string]any) thirdparty.AccountProfile {
 	return profile
 }
 
-func collectDouyinProfiles(value any, seen map[string]bool, profiles *[]thirdparty.AccountProfile, depth int) {
-	if depth > maxDouyinResolveDepth || len(*profiles) >= maxDouyinResolveCandidates {
-		return
-	}
-	switch item := value.(type) {
-	case map[string]any:
-		profile := douyinProfileFromObject(item)
-		if profileIsUsable(profile) {
-			key := strings.TrimSpace(profile.UID)
-			if !seen[key] {
-				seen[key] = true
-				*profiles = append(*profiles, profile)
-			}
-		}
-		for _, child := range item {
-			collectDouyinProfiles(child, seen, profiles, depth+1)
-			if len(*profiles) >= maxDouyinResolveCandidates {
-				return
-			}
-		}
-	case []any:
-		for _, child := range item {
-			collectDouyinProfiles(child, seen, profiles, depth+1)
-			if len(*profiles) >= maxDouyinResolveCandidates {
-				return
-			}
-		}
-	}
-}
-
 func collectDouyinSearchProfiles(value any, seen map[string]bool, profiles *[]thirdparty.AccountProfile, depth int, inSearchResult bool) {
 	if depth > maxDouyinResolveDepth || len(*profiles) >= maxDouyinResolveCandidates {
 		return

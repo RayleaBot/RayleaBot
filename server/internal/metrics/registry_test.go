@@ -12,6 +12,7 @@ func TestNewRegistersAllFormalMetrics(t *testing.T) {
 	r := New()
 	if r == nil {
 		t.Fatal("New returned nil registry")
+		return
 	}
 	r.EventPipelineStage.WithLabelValues("adapter", "accepted").Inc()
 	r.PluginState.WithLabelValues("running").Set(2)
