@@ -7,7 +7,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
-const targetDir = 'server/internal/schemaassets/contracts'
+const targetDir = 'server/internal/config/contracts'
 
 const schemas = ['config.user.schema.json', 'plugin-info.schema.json']
 

@@ -9,10 +9,10 @@ import (
 	"testing"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/app"
+	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
 	plugindiscovery "github.com/RayleaBot/RayleaBot/server/internal/plugins/discovery"
-	"github.com/RayleaBot/RayleaBot/server/internal/schema"
 	"github.com/RayleaBot/RayleaBot/server/internal/testapp"
 	"github.com/RayleaBot/RayleaBot/server/internal/testutil"
 )
@@ -28,10 +28,10 @@ func writePersistentYAMLConfig(t *testing.T, databasePath string) string {
 	return testapp.WritePersistentYAMLConfig(t, databasePath)
 }
 
-func compileSchema(t *testing.T, path string) *schema.Validator {
+func compileSchema(t *testing.T, path string) *config.Validator {
 	t.Helper()
 
-	validator, err := schema.Compile(path)
+	validator, err := config.Compile(path)
 	if err != nil {
 		t.Fatalf("compile schema %s: %v", path, err)
 	}

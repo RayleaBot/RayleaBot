@@ -6,7 +6,7 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/RayleaBot/RayleaBot/server/internal/schemaassets"
+	"github.com/RayleaBot/RayleaBot/server/internal/config"
 )
 
 type ConfigFieldMetadata struct {
@@ -15,7 +15,7 @@ type ConfigFieldMetadata struct {
 	Redaction   string
 }
 
-var configFieldMetadata = mustLoadConfigFieldMetadata(schemaassets.ConfigUserSchemaJSON)
+var configFieldMetadata = mustLoadConfigFieldMetadata(config.ConfigUserSchemaJSON)
 
 func ConfigFieldMetadataForPath(path string) (ConfigFieldMetadata, bool) {
 	metadata, ok := configFieldMetadata[path]

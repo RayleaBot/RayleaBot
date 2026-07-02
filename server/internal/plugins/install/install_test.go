@@ -12,9 +12,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	plugindiscovery "github.com/RayleaBot/RayleaBot/server/internal/plugins/discovery"
-	"github.com/RayleaBot/RayleaBot/server/internal/schema"
 	"github.com/RayleaBot/RayleaBot/server/internal/tasks"
 )
 
@@ -487,7 +487,7 @@ func TestInstallServicePreparesRuntimeDependencies(t *testing.T) {
 func newInstallTestService(t *testing.T, repoRoot string, registry *tasks.Registry, initial []plugins.Snapshot, repository plugins.DesiredStateRepository, deps installerDeps) (*InstallService, *testCatalog) {
 	t.Helper()
 
-	validator, err := schema.Compile(filepath.Join("..", "..", "..", "..", "contracts", "plugin-info.schema.json"))
+	validator, err := config.Compile(filepath.Join("..", "..", "..", "..", "contracts", "plugin-info.schema.json"))
 	if err != nil {
 		t.Fatalf("compile plugin-info schema: %v", err)
 	}
@@ -692,7 +692,7 @@ func validateInstallRenderTemplates(snapshot plugins.Snapshot) error {
 			return fmt.Errorf("load plugin render template %s: template directory is missing", snapshot.PluginID)
 		}
 		manifestPath := filepath.Join(templateDir, "template.json")
-		document, err := schema.LoadJSONFile(manifestPath)
+		document, err := config.LoadJSONFile(manifestPath)
 		if err != nil {
 			return fmt.Errorf("load plugin render template %s: %w", snapshot.PluginID, err)
 		}

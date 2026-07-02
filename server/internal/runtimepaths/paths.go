@@ -6,10 +6,10 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/logpath"
 	plugindiscovery "github.com/RayleaBot/RayleaBot/server/internal/plugins/discovery"
 	"github.com/RayleaBot/RayleaBot/server/internal/recovery"
-	"github.com/RayleaBot/RayleaBot/server/internal/schemaassets"
 )
 
 type PluginDiscoverySpec struct {
@@ -78,7 +78,7 @@ func PluginDiscoveryContext(configPath string) (string, string, []plugindiscover
 	if err != nil {
 		return "", "", nil, err
 	}
-	pluginSchemaPath := schemaassets.PluginInfoSchemaID
+	pluginSchemaPath := config.PluginInfoSchemaID
 
 	roots := []plugindiscovery.ScanRoot{
 		{

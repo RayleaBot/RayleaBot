@@ -20,7 +20,6 @@ import (
 	runtimeregistry "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime/registry"
 	renderservice "github.com/RayleaBot/RayleaBot/server/internal/render/service"
 	"github.com/RayleaBot/RayleaBot/server/internal/runtimepaths"
-	"github.com/RayleaBot/RayleaBot/server/internal/schema"
 	systemsvc "github.com/RayleaBot/RayleaBot/server/internal/system"
 )
 
@@ -41,7 +40,7 @@ type BuildDeps struct {
 	Renderer              *renderservice.Service
 	Metrics               *metrics.Registry
 	Discovery             runtimepaths.PluginDiscoverySpec
-	PluginValidator       *schema.Validator
+	PluginValidator       *config.Validator
 	ManagementRedact      func(string) string
 	BilibiliHTTPTransport http.RoundTripper
 	BilibiliClock         func() time.Time

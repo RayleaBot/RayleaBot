@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"html/template"
 
-	"github.com/RayleaBot/RayleaBot/server/internal/schema"
+	"github.com/RayleaBot/RayleaBot/server/internal/config"
 )
 
 const templatePayloadExtraFields = 4
@@ -34,9 +34,9 @@ func CompileBundle(bundle SourceBundle) (*CompiledTemplate, []TemplateValidation
 		}}, nil
 	}
 
-	var validator *schema.Validator
+	var validator *config.Validator
 	if bundle.Source.InputSchemaJSON != nil {
-		validator, err = schema.CompileDocument("render-template://"+bundle.Manifest.ID+"/input.Schema.json", bundle.Source.InputSchemaJSON)
+		validator, err = config.CompileDocument("render-template://"+bundle.Manifest.ID+"/input.Schema.json", bundle.Source.InputSchemaJSON)
 		if err != nil {
 			return nil, []TemplateValidationIssue{{
 				Code:    "input_schema.compile_failed",

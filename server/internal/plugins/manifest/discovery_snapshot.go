@@ -5,13 +5,13 @@ import (
 	"log/slog"
 	"path/filepath"
 
+	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/logpath"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
-	"github.com/RayleaBot/RayleaBot/server/internal/schema"
 )
 
-func LoadSnapshot(infoPath, sourceRoot, repoRoot string, validator *schema.Validator, maxSummaryChars int, logger *slog.Logger) (plugins.Snapshot, bool, error) {
-	document, err := schema.LoadJSONFile(infoPath)
+func LoadSnapshot(infoPath, sourceRoot, repoRoot string, validator *config.Validator, maxSummaryChars int, logger *slog.Logger) (plugins.Snapshot, bool, error) {
+	document, err := config.LoadJSONFile(infoPath)
 	if err != nil {
 		if logger != nil {
 			logger.Warn(

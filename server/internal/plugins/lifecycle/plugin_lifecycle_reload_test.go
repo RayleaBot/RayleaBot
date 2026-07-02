@@ -19,7 +19,6 @@ import (
 	plugindiscovery "github.com/RayleaBot/RayleaBot/server/internal/plugins/discovery"
 	runtimemanager "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime/manager"
 	renderservice "github.com/RayleaBot/RayleaBot/server/internal/render/service"
-	"github.com/RayleaBot/RayleaBot/server/internal/schema"
 )
 
 func TestReloadRefreshesManifestCommandsAndCapabilityParameters(t *testing.T) {
@@ -354,14 +353,14 @@ func TestRefreshPluginManifestReadsUpdatedManifestFile(t *testing.T) {
 	}
 }
 
-func compilePluginValidatorForLifecycleTest(t *testing.T) *schema.Validator {
+func compilePluginValidatorForLifecycleTest(t *testing.T) *config.Validator {
 	t.Helper()
 
 	repoRoot, err := filepath.Abs(filepath.Join("..", "..", "..", ".."))
 	if err != nil {
 		t.Fatalf("resolve repo root: %v", err)
 	}
-	validator, err := schema.Compile(filepath.Join(repoRoot, "contracts", "plugin-info.schema.json"))
+	validator, err := config.Compile(filepath.Join(repoRoot, "contracts", "plugin-info.schema.json"))
 	if err != nil {
 		t.Fatalf("compile plugin manifest schema: %v", err)
 	}

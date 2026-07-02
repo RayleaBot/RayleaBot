@@ -5,9 +5,9 @@ import (
 	"log/slog"
 	"sort"
 
+	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	pluginmanifest "github.com/RayleaBot/RayleaBot/server/internal/plugins/manifest"
-	"github.com/RayleaBot/RayleaBot/server/internal/schema"
 )
 
 type ScanRoot struct {
@@ -16,7 +16,7 @@ type ScanRoot struct {
 }
 
 type DiscoverOptions struct {
-	Validator       *schema.Validator
+	Validator       *config.Validator
 	Roots           []ScanRoot
 	RepoRoot        string
 	Logger          *slog.Logger

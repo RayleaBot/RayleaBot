@@ -17,7 +17,6 @@ import (
 	pluginservice "github.com/RayleaBot/RayleaBot/server/internal/plugins/lifecycle"
 	pluginwebhook "github.com/RayleaBot/RayleaBot/server/internal/plugins/webhook"
 	"github.com/RayleaBot/RayleaBot/server/internal/runtimepaths"
-	"github.com/RayleaBot/RayleaBot/server/internal/schema"
 	"github.com/RayleaBot/RayleaBot/server/internal/tasks"
 )
 
@@ -26,7 +25,7 @@ type Deps struct {
 	Config    config.Config
 	Logger    *slog.Logger
 	Discovery runtimepaths.PluginDiscoverySpec
-	Validator *schema.Validator
+	Validator *config.Validator
 	Catalog   *plugincatalog.Catalog
 	Tasks     *tasks.Registry
 	Platform  appplatform.State

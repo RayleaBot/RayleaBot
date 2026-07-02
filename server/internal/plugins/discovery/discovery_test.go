@@ -8,8 +8,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/logging"
-	"github.com/RayleaBot/RayleaBot/server/internal/schema"
 )
 
 func TestDiscoverSkipsRuntimeCacheDirectoriesWithoutWarnings(t *testing.T) {
@@ -85,10 +85,10 @@ func TestDiscoverWarnsForRealPluginDirectoryWithoutManifest(t *testing.T) {
 	t.Fatal("expected missing-info warning for real plugin directory")
 }
 
-func compilePluginInfoValidator(t *testing.T) *schema.Validator {
+func compilePluginInfoValidator(t *testing.T) *config.Validator {
 	t.Helper()
 
-	validator, err := schema.Compile(filepath.Join("..", "..", "..", "..", "contracts", "plugin-info.schema.json"))
+	validator, err := config.Compile(filepath.Join("..", "..", "..", "..", "contracts", "plugin-info.schema.json"))
 	if err != nil {
 		t.Fatalf("compile plugin-info schema: %v", err)
 	}

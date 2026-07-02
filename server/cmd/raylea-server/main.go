@@ -6,10 +6,10 @@ import (
 
 	"github.com/RayleaBot/RayleaBot/server/internal/bootstrap"
 	"github.com/RayleaBot/RayleaBot/server/internal/cli"
+	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/logging"
 	"github.com/RayleaBot/RayleaBot/server/internal/logpath"
 	"github.com/RayleaBot/RayleaBot/server/internal/recovery"
-	"github.com/RayleaBot/RayleaBot/server/internal/schemaassets"
 )
 
 func main() {
@@ -17,7 +17,7 @@ func main() {
 	var schemaPath string
 
 	flag.StringVar(&configPath, "config", "config/user.yaml", "path to config/user.yaml")
-	flag.StringVar(&schemaPath, "config-schema", schemaassets.ConfigUserSchemaID, "path to config.user.schema.json or builtin schema id")
+	flag.StringVar(&schemaPath, "config-schema", config.ConfigUserSchemaID, "path to config.user.schema.json or builtin schema id")
 	flag.Parse()
 
 	// If a subcommand is provided as the first non-flag argument, dispatch to CLI.

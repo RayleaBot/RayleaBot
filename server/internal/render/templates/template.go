@@ -4,8 +4,8 @@ import (
 	"html/template"
 	"regexp"
 
+	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	renderrepo "github.com/RayleaBot/RayleaBot/server/internal/render/repository"
-	"github.com/RayleaBot/RayleaBot/server/internal/schema"
 )
 
 const (
@@ -89,7 +89,7 @@ type SourceBundle struct {
 type CompiledTemplate struct {
 	Bundle     SourceBundle
 	Stylesheet template.CSS
-	Schema     *schema.Validator
+	Schema     *config.Validator
 	HTML       *template.Template
 }
 

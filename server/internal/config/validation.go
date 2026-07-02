@@ -2,9 +2,6 @@ package config
 
 import (
 	"encoding/json"
-
-	"github.com/RayleaBot/RayleaBot/server/internal/schema"
-	"github.com/RayleaBot/RayleaBot/server/internal/schemaassets"
 )
 
 func normalizeDocument(raw map[string]any) (any, error) {
@@ -22,15 +19,15 @@ func normalizeDocument(raw map[string]any) (any, error) {
 }
 
 func validateDocument(schemaPath string, document any) error {
-	if schemaassets.IsConfigUserSchemaID(schemaPath) {
-		validator, err := schema.CompileJSON(schemaassets.ConfigUserSchemaID, schemaassets.ConfigUserSchemaJSON)
+	if IsConfigUserSchemaID(schemaPath) {
+		validator, err := CompileJSON(ConfigUserSchemaID, ConfigUserSchemaJSON)
 		if err != nil {
 			return err
 		}
 		return validator.Validate(document)
 	}
 
-	validator, err := schema.Compile(schemaPath)
+	validator, err := Compile(schemaPath)
 	if err != nil {
 		return err
 	}

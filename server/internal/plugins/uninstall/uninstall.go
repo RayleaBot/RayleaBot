@@ -8,9 +8,9 @@ import (
 	"sync"
 	"time"
 
+	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	plugindiscovery "github.com/RayleaBot/RayleaBot/server/internal/plugins/discovery"
-	"github.com/RayleaBot/RayleaBot/server/internal/schema"
 	"github.com/RayleaBot/RayleaBot/server/internal/tasks"
 )
 
@@ -24,7 +24,7 @@ type UninstallService struct {
 	catalog        plugins.CatalogStore
 	repository     plugins.DesiredStateRepository
 	packageRepo    plugins.PackageRepository
-	validator      *schema.Validator
+	validator      *config.Validator
 	repoRoot       string
 	discoveryRoots []plugindiscovery.ScanRoot
 	installedRoot  string
@@ -59,7 +59,7 @@ func NewUninstallService(
 	registry *tasks.Registry,
 	catalog plugins.CatalogStore,
 	repository plugins.DesiredStateRepository,
-	validator *schema.Validator,
+	validator *config.Validator,
 	repoRoot string,
 	discoveryRoots []plugindiscovery.ScanRoot,
 	stopPlugin plugins.StopPluginFunc,

@@ -7,13 +7,13 @@ import (
 	"path/filepath"
 	"sort"
 
+	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/logpath"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	pluginmanifest "github.com/RayleaBot/RayleaBot/server/internal/plugins/manifest"
-	"github.com/RayleaBot/RayleaBot/server/internal/schema"
 )
 
-func discoverRoot(root ScanRoot, validator *schema.Validator, repoRoot string, maxSummaryChars int, logger *slog.Logger) ([]plugins.Snapshot, int, error) {
+func discoverRoot(root ScanRoot, validator *config.Validator, repoRoot string, maxSummaryChars int, logger *slog.Logger) ([]plugins.Snapshot, int, error) {
 	if logger != nil {
 		logger.Info(
 			fmt.Sprintf("开始扫描插件来源：%s（目录：%s）", root.Label, logpath.Display(repoRoot, root.Path)),

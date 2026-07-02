@@ -1,4 +1,4 @@
-package schemaassets
+package config
 
 import _ "embed"
 

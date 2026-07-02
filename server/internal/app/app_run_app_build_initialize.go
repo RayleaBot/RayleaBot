@@ -11,8 +11,6 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/logging"
 	"github.com/RayleaBot/RayleaBot/server/internal/redact"
 	"github.com/RayleaBot/RayleaBot/server/internal/runtimepaths"
-	"github.com/RayleaBot/RayleaBot/server/internal/schema"
-	"github.com/RayleaBot/RayleaBot/server/internal/schemaassets"
 	"github.com/RayleaBot/RayleaBot/server/internal/tasks"
 )
 
@@ -23,7 +21,7 @@ type appBuildState struct {
 	taskRegistry     *tasks.Registry
 	taskExecutor     *tasks.Executor
 	discoverySpec    runtimepaths.PluginDiscoverySpec
-	pluginValidator  *schema.Validator
+	pluginValidator  *config.Validator
 	pluginCatalog    *plugincatalog.Catalog
 	managementRedact func(string) string
 }
@@ -87,9 +85,9 @@ func initializeAppBuild(options Options) (appBuildState, error) {
 	}, nil
 }
 
-func compilePluginSchema(schemaPath string) (*schema.Validator, error) {
-	if schemaassets.IsPluginInfoSchemaID(schemaPath) {
-		return schema.CompileJSON(schemaassets.PluginInfoSchemaID, schemaassets.PluginInfoSchemaJSON)
+func compilePluginSchema(schemaPath string) (*config.Validator, error) {
+	if config.IsPluginInfoSchemaID(schemaPath) {
+		return config.CompileJSON(config.PluginInfoSchemaID, config.PluginInfoSchemaJSON)
 	}
-	return schema.Compile(schemaPath)
+	return config.Compile(schemaPath)
 }

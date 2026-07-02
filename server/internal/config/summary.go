@@ -2,8 +2,6 @@ package config
 
 import (
 	"net/url"
-
-	"github.com/RayleaBot/RayleaBot/server/internal/schemaassets"
 )
 
 type Summary struct {
@@ -23,7 +21,7 @@ type Summary struct {
 func buildSummary(configPath, schemaPath string, cfg Config, _ map[string]any) Summary {
 	endpoint := firstConfiguredOneBotEndpoint(cfg.OneBot)
 	if schemaPath == "" {
-		schemaPath = schemaassets.ConfigUserSchemaID
+		schemaPath = ConfigUserSchemaID
 	}
 	return Summary{
 		ConfigPath:       configPath,

@@ -12,7 +12,6 @@ import (
 
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
-	"github.com/RayleaBot/RayleaBot/server/internal/schema"
 )
 
 func TestBuildSpecFromDiscoveredExamples(t *testing.T) {
@@ -227,7 +226,7 @@ func discoverRuntimeTestCatalog(t *testing.T, root string) *plugincatalog.Catalo
 	t.Helper()
 
 	repoRoot := runtimeRepoRoot(t)
-	validator, err := schema.Compile(filepath.Join(repoRoot, "contracts", "plugin-info.schema.json"))
+	validator, err := config.Compile(filepath.Join(repoRoot, "contracts", "plugin-info.schema.json"))
 	if err != nil {
 		t.Fatalf("compile plugin-info schema: %v", err)
 	}
@@ -284,7 +283,7 @@ func writePluginManifestFromFixture(t *testing.T, root string, pluginID string, 
 func loadFixtureInput(t *testing.T, path string) map[string]any {
 	t.Helper()
 
-	document, err := schema.LoadJSONFile(path)
+	document, err := config.LoadJSONFile(path)
 	if err != nil {
 		t.Fatalf("load fixture %s: %v", path, err)
 	}

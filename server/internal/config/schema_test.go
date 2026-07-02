@@ -1,4 +1,4 @@
-package schema
+package config
 
 import (
 	"bytes"
@@ -7,7 +7,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/RayleaBot/RayleaBot/server/internal/schemaassets"
 	"gopkg.in/yaml.v3"
 )
 
@@ -164,12 +163,12 @@ func TestEmbeddedRuntimeSchemasMatchFormalContracts(t *testing.T) {
 		{
 			name:         "config user",
 			contractPath: filepath.Join(repoRoot, "contracts", "config.user.schema.json"),
-			embedded:     schemaassets.ConfigUserSchemaJSON,
+			embedded:     ConfigUserSchemaJSON,
 		},
 		{
 			name:         "plugin info",
 			contractPath: filepath.Join(repoRoot, "contracts", "plugin-info.schema.json"),
-			embedded:     schemaassets.PluginInfoSchemaJSON,
+			embedded:     PluginInfoSchemaJSON,
 		},
 	}
 

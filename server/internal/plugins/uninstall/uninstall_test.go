@@ -7,9 +7,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	plugindiscovery "github.com/RayleaBot/RayleaBot/server/internal/plugins/discovery"
-	"github.com/RayleaBot/RayleaBot/server/internal/schema"
 	"github.com/RayleaBot/RayleaBot/server/internal/tasks"
 )
 
@@ -28,7 +28,7 @@ func TestUninstallServiceInvokesAfterSuccessCallback(t *testing.T) {
 		t.Fatal("expected plugin install source directory")
 	}
 
-	validator, err := schema.Compile(filepath.Join("..", "..", "..", "..", "contracts", "plugin-info.schema.json"))
+	validator, err := config.Compile(filepath.Join("..", "..", "..", "..", "contracts", "plugin-info.schema.json"))
 	if err != nil {
 		t.Fatalf("compile plugin-info schema: %v", err)
 	}
