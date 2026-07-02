@@ -6,7 +6,7 @@ import (
 
 	adapterintake "github.com/RayleaBot/RayleaBot/server/internal/bot/adapter/onebot11/intake"
 	"github.com/RayleaBot/RayleaBot/server/internal/logging"
-	"github.com/RayleaBot/RayleaBot/server/internal/textsafe"
+	"github.com/RayleaBot/RayleaBot/server/internal/redact"
 )
 
 func bridgeEventSummary(action string, event adapterintake.NormalizedEvent) string {
@@ -139,9 +139,9 @@ func commandPolicyReasonLabel(reason string) string {
 }
 
 func summarizeBridgeText(text string) string {
-	text = strings.TrimSpace(textsafe.SanitizeString(text))
+	text = strings.TrimSpace(redact.SanitizeString(text))
 	if text == "" {
 		return ""
 	}
-	return textsafe.TruncateRunes(text, 160, "...")
+	return redact.TruncateRunes(text, 160, "...")
 }

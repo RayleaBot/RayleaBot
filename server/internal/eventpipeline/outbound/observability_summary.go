@@ -3,7 +3,7 @@ package outbound
 import (
 	"strings"
 
-	"github.com/RayleaBot/RayleaBot/server/internal/textsafe"
+	"github.com/RayleaBot/RayleaBot/server/internal/redact"
 )
 
 func sendSummary(context SendLogContext, targetType, targetID, plainText string, failed bool) string {
@@ -31,5 +31,5 @@ func summarizePlainText(plainText string) string {
 	if plainText == "" {
 		return "[空消息]"
 	}
-	return textsafe.TruncateRunes(plainText, 72, "...")
+	return redact.TruncateRunes(plainText, 72, "...")
 }

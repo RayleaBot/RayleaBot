@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/RayleaBot/RayleaBot/server/internal/textsafe"
+	"github.com/RayleaBot/RayleaBot/server/internal/redact"
 )
 
 type OneBotInboundMessageSummaryInput struct {
@@ -63,16 +63,16 @@ func OneBotInboundMessageSummary(input OneBotInboundMessageSummaryInput) (string
 }
 
 func summarizeOneBotInboundMessageText(text string) string {
-	text = strings.TrimSpace(textsafe.SanitizeString(text))
+	text = strings.TrimSpace(redact.SanitizeString(text))
 	if text == "" {
 		return ""
 	}
-	return textsafe.TruncateRunes(text, 160, "...")
+	return redact.TruncateRunes(text, 160, "...")
 }
 
 func oneBotGroupDisplay(input OneBotInboundMessageSummaryInput) string {
 	groupID := strings.TrimSpace(input.ConversationID)
-	groupName := strings.TrimSpace(textsafe.SanitizeString(input.TargetName))
+	groupName := strings.TrimSpace(redact.SanitizeString(input.TargetName))
 	if groupName == "" {
 		return fmt.Sprintf("[%s]", groupID)
 	}
@@ -82,7 +82,7 @@ func oneBotGroupDisplay(input OneBotInboundMessageSummaryInput) string {
 func oneBotSenderTitle(payloadFields map[string]any) string {
 	onebot := oneBotPayload(payloadFields)
 	if sender, ok := onebot["sender"].(map[string]any); ok {
-		if title := strings.TrimSpace(textsafe.SanitizeString(fmt.Sprint(sender["title"]))); title != "" && title != "<nil>" {
+		if title := strings.TrimSpace(redact.SanitizeString(fmt.Sprint(sender["title"]))); title != "" && title != "<nil>" {
 			return fmt.Sprintf("[%s]", title)
 		}
 	}
@@ -92,11 +92,11 @@ func oneBotSenderTitle(payloadFields map[string]any) string {
 func oneBotSenderDisplay(input OneBotInboundMessageSummaryInput) string {
 	onebot := oneBotPayload(input.PayloadFields)
 	if sender, ok := onebot["sender"].(map[string]any); ok {
-		card := strings.TrimSpace(textsafe.SanitizeString(fmt.Sprint(sender["card"])))
+		card := strings.TrimSpace(redact.SanitizeString(fmt.Sprint(sender["card"])))
 		if card == "<nil>" {
 			card = ""
 		}
-		nickname := strings.TrimSpace(textsafe.SanitizeString(fmt.Sprint(sender["nickname"])))
+		nickname := strings.TrimSpace(redact.SanitizeString(fmt.Sprint(sender["nickname"])))
 		if nickname == "<nil>" {
 			nickname = ""
 		}
@@ -111,7 +111,7 @@ func oneBotSenderDisplay(input OneBotInboundMessageSummaryInput) string {
 		}
 	}
 
-	return strings.TrimSpace(textsafe.SanitizeString(input.ActorNickname))
+	return strings.TrimSpace(redact.SanitizeString(input.ActorNickname))
 }
 
 func oneBotPayload(payloadFields map[string]any) map[string]any {

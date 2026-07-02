@@ -3,7 +3,7 @@ package segments
 import (
 	"strings"
 
-	"github.com/RayleaBot/RayleaBot/server/internal/textsafe"
+	"github.com/RayleaBot/RayleaBot/server/internal/redact"
 )
 
 // parseCQString parses a OneBot11 CQ-coded message string into a slice of
@@ -20,7 +20,7 @@ func parseCQString(raw string) []MessageSegment {
 	for len(remaining) > 0 {
 		idx := strings.Index(remaining, "[CQ:")
 		if idx < 0 {
-			text := textsafe.SanitizeString(unescapeCQ(remaining))
+			text := redact.SanitizeString(unescapeCQ(remaining))
 			if text != "" {
 				segments = append(segments, MessageSegment{
 					Type: "text",
@@ -31,7 +31,7 @@ func parseCQString(raw string) []MessageSegment {
 		}
 
 		if idx > 0 {
-			text := textsafe.SanitizeString(unescapeCQ(remaining[:idx]))
+			text := redact.SanitizeString(unescapeCQ(remaining[:idx]))
 			if text != "" {
 				segments = append(segments, MessageSegment{
 					Type: "text",
@@ -43,7 +43,7 @@ func parseCQString(raw string) []MessageSegment {
 		remaining = remaining[idx:]
 		end := strings.Index(remaining, "]")
 		if end < 0 {
-			text := textsafe.SanitizeString(unescapeCQ(remaining))
+			text := redact.SanitizeString(unescapeCQ(remaining))
 			if text != "" {
 				segments = append(segments, MessageSegment{
 					Type: "text",
@@ -88,7 +88,7 @@ func parseCQCode(content string) MessageSegment {
 			continue
 		}
 		key := strings.TrimSpace(kv[0])
-		value := textsafe.SanitizeString(unescapeCQ(strings.TrimSpace(kv[1])))
+		value := redact.SanitizeString(unescapeCQ(strings.TrimSpace(kv[1])))
 		seg.Data[normalizeCQKey(cqType, key)] = value
 	}
 

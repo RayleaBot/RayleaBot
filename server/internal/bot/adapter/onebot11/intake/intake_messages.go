@@ -6,7 +6,7 @@ import (
 	"time"
 
 	adaptersegments "github.com/RayleaBot/RayleaBot/server/internal/bot/adapter/onebot11/segments"
-	"github.com/RayleaBot/RayleaBot/server/internal/textsafe"
+	"github.com/RayleaBot/RayleaBot/server/internal/redact"
 )
 
 func normalizeMessageEvent(frame OneBotFrame, observedAt time.Time) (NormalizedEvent, bool) {
@@ -68,7 +68,7 @@ func normalizeMessageLikeEvent(frame OneBotFrame, observedAt time.Time, sent boo
 	segments := parseFrameMessage(frame)
 	plainText := strings.TrimSpace(adaptersegments.ToPlainText(segments))
 	if plainText == "" {
-		plainText = strings.TrimSpace(textsafe.SanitizeString(frame.RawMessage))
+		plainText = strings.TrimSpace(redact.SanitizeString(frame.RawMessage))
 	}
 	if plainText == "" && len(segments) == 0 {
 		return NormalizedEvent{}, false
@@ -76,11 +76,11 @@ func normalizeMessageLikeEvent(frame OneBotFrame, observedAt time.Time, sent boo
 
 	var actorNickname, actorRole string
 	if frame.Sender != nil {
-		actorNickname = textsafe.SanitizeString(frame.Sender.Card)
+		actorNickname = redact.SanitizeString(frame.Sender.Card)
 		if actorNickname == "" {
-			actorNickname = textsafe.SanitizeString(frame.Sender.Nickname)
+			actorNickname = redact.SanitizeString(frame.Sender.Nickname)
 		}
-		actorRole = strings.TrimSpace(textsafe.SanitizeString(frame.Sender.Role))
+		actorRole = strings.TrimSpace(redact.SanitizeString(frame.Sender.Role))
 	}
 
 	var messageID string

@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/RayleaBot/RayleaBot/server/internal/textsafe"
+	"github.com/RayleaBot/RayleaBot/server/internal/redact"
 )
 
 func buildCommonPayloadFields(frame OneBotFrame) map[string]any {
@@ -44,19 +44,19 @@ func buildSenderPayload(sender *senderObject) map[string]any {
 	if sender.UserID > 0 {
 		payload["user_id"] = fmt.Sprintf("%d", sender.UserID)
 	}
-	if nickname := textsafe.SanitizeString(sender.Nickname); nickname != "" {
+	if nickname := redact.SanitizeString(sender.Nickname); nickname != "" {
 		payload["nickname"] = nickname
 	}
-	if card := textsafe.SanitizeString(sender.Card); card != "" {
+	if card := redact.SanitizeString(sender.Card); card != "" {
 		payload["card"] = card
 	}
-	if role := strings.TrimSpace(textsafe.SanitizeString(sender.Role)); role != "" {
+	if role := strings.TrimSpace(redact.SanitizeString(sender.Role)); role != "" {
 		payload["role"] = role
 	}
-	if title := textsafe.SanitizeString(sender.Title); title != "" {
+	if title := redact.SanitizeString(sender.Title); title != "" {
 		payload["title"] = title
 	}
-	if sex := strings.TrimSpace(textsafe.SanitizeString(sender.Sex)); sex != "" {
+	if sex := strings.TrimSpace(redact.SanitizeString(sender.Sex)); sex != "" {
 		payload["sex"] = sex
 	}
 	if sender.Age > 0 {
@@ -94,7 +94,7 @@ func buildOneBotPayload(frame OneBotFrame) map[string]any {
 	if frame.GroupID > 0 {
 		payload["group_id"] = fmt.Sprintf("%d", frame.GroupID)
 	}
-	if groupName := textsafe.SanitizeString(frame.GroupName); groupName != "" {
+	if groupName := redact.SanitizeString(frame.GroupName); groupName != "" {
 		payload["group_name"] = groupName
 	}
 	if frame.TargetID > 0 {
@@ -115,22 +115,22 @@ func buildOneBotPayload(frame OneBotFrame) map[string]any {
 	if frame.MessageSeq > 0 {
 		payload["message_seq"] = fmt.Sprintf("%d", frame.MessageSeq)
 	}
-	if rawMessage := textsafe.SanitizeString(frame.RawMessage); rawMessage != "" {
+	if rawMessage := redact.SanitizeString(frame.RawMessage); rawMessage != "" {
 		payload["raw_message"] = rawMessage
 	}
 	if frame.Font > 0 {
 		payload["font"] = frame.Font
 	}
-	if messageFormat := strings.TrimSpace(textsafe.SanitizeString(frame.MessageFormat)); messageFormat != "" {
+	if messageFormat := strings.TrimSpace(redact.SanitizeString(frame.MessageFormat)); messageFormat != "" {
 		payload["message_format"] = messageFormat
 	}
 	if sender := buildSenderPayload(frame.Sender); len(sender) > 0 {
 		payload["sender"] = sender
 	}
-	if comment := strings.TrimSpace(textsafe.SanitizeString(frame.Comment)); comment != "" {
+	if comment := strings.TrimSpace(redact.SanitizeString(frame.Comment)); comment != "" {
 		payload["comment"] = comment
 	}
-	if flag := strings.TrimSpace(textsafe.SanitizeString(frame.Flag)); flag != "" {
+	if flag := strings.TrimSpace(redact.SanitizeString(frame.Flag)); flag != "" {
 		payload["flag"] = flag
 	}
 	if status := buildDataPayload(frame.Status); len(status) > 0 {
@@ -146,7 +146,7 @@ func buildDataPayload(raw any) map[string]any {
 	}
 	payload := make(map[string]any, len(decoded))
 	for key, value := range decoded {
-		payload[key] = textsafe.SanitizeAny(value)
+		payload[key] = redact.SanitizeAny(value)
 	}
 	return payload
 }

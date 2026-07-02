@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/RayleaBot/RayleaBot/server/internal/textsafe"
+	"github.com/RayleaBot/RayleaBot/server/internal/redact"
 )
 
 // extractStringField extracts a string value from a data map.
@@ -19,11 +19,11 @@ func extractStringField(data map[string]any, key string) string {
 	case nil:
 		return ""
 	case string:
-		return strings.TrimSpace(textsafe.SanitizeString(value))
+		return strings.TrimSpace(redact.SanitizeString(value))
 	case float64:
 		return strconv.FormatInt(int64(value), 10)
 	default:
-		return textsafe.SanitizeString(fmt.Sprint(value))
+		return redact.SanitizeString(fmt.Sprint(value))
 	}
 }
 
@@ -92,7 +92,7 @@ func NormalizeAPIResult(value any) any {
 func normalizeScalarValue(value any) any {
 	switch typed := value.(type) {
 	case string:
-		return textsafe.SanitizeString(typed)
+		return redact.SanitizeString(typed)
 	case json.Number:
 		return typed.String()
 	case float64:
@@ -108,7 +108,7 @@ func normalizeScalarValue(value any) any {
 func extractStringValue(value any) string {
 	switch typed := value.(type) {
 	case string:
-		return strings.TrimSpace(textsafe.SanitizeString(typed))
+		return strings.TrimSpace(redact.SanitizeString(typed))
 	case json.Number:
 		return typed.String()
 	case float64:
@@ -117,7 +117,7 @@ func extractStringValue(value any) string {
 		}
 		return strconv.FormatFloat(typed, 'f', -1, 64)
 	default:
-		return strings.TrimSpace(textsafe.SanitizeString(fmt.Sprint(typed)))
+		return strings.TrimSpace(redact.SanitizeString(fmt.Sprint(typed)))
 	}
 }
 

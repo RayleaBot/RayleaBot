@@ -3,7 +3,7 @@ package bridge
 import (
 	adapterintake "github.com/RayleaBot/RayleaBot/server/internal/bot/adapter/onebot11/intake"
 	adaptersegments "github.com/RayleaBot/RayleaBot/server/internal/bot/adapter/onebot11/segments"
-	"github.com/RayleaBot/RayleaBot/server/internal/textsafe"
+	"github.com/RayleaBot/RayleaBot/server/internal/redact"
 )
 
 func bridgeEventLogAttrs(event adapterintake.NormalizedEvent) []any {
@@ -26,7 +26,7 @@ func bridgeEventLogAttrs(event adapterintake.NormalizedEvent) []any {
 		attrs = append(attrs, "target_id", event.TargetID)
 	}
 	if event.TargetName != "" && event.ConversationType == "group" {
-		attrs = append(attrs, "group_name", textsafe.SanitizeString(event.TargetName))
+		attrs = append(attrs, "group_name", redact.SanitizeString(event.TargetName))
 	}
 	if event.MessageID != "" {
 		attrs = append(attrs, "message_id", event.MessageID)

@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/RayleaBot/RayleaBot/server/internal/textsafe"
+	"github.com/RayleaBot/RayleaBot/server/internal/redact"
 )
 
 type TargetDisplayResolver interface {
@@ -23,14 +23,14 @@ func BuildTargetLabel(
 ) string {
 	targetType = strings.TrimSpace(targetType)
 	targetID = strings.TrimSpace(targetID)
-	targetName = strings.TrimSpace(textsafe.SanitizeString(targetName))
+	targetName = strings.TrimSpace(redact.SanitizeString(targetName))
 	actorID = strings.TrimSpace(actorID)
-	actorNickname = strings.TrimSpace(textsafe.SanitizeString(actorNickname))
+	actorNickname = strings.TrimSpace(redact.SanitizeString(actorNickname))
 
 	switch targetType {
 	case "group":
 		if targetName == "" && resolver != nil {
-			targetName = strings.TrimSpace(textsafe.SanitizeString(resolver.ResolveTargetName(ctx, targetType, targetID)))
+			targetName = strings.TrimSpace(redact.SanitizeString(resolver.ResolveTargetName(ctx, targetType, targetID)))
 		}
 		return formatTargetLabel(targetType, targetID, targetName)
 	case "private":
@@ -39,12 +39,12 @@ func BuildTargetLabel(
 			displayName = actorNickname
 		}
 		if displayName == "" && resolver != nil {
-			displayName = strings.TrimSpace(textsafe.SanitizeString(resolver.ResolveTargetName(ctx, targetType, targetID)))
+			displayName = strings.TrimSpace(redact.SanitizeString(resolver.ResolveTargetName(ctx, targetType, targetID)))
 		}
 		return formatTargetLabel(targetType, targetID, displayName)
 	default:
 		if targetName == "" && resolver != nil {
-			targetName = strings.TrimSpace(textsafe.SanitizeString(resolver.ResolveTargetName(ctx, targetType, targetID)))
+			targetName = strings.TrimSpace(redact.SanitizeString(resolver.ResolveTargetName(ctx, targetType, targetID)))
 		}
 		return formatTargetLabel(targetType, targetID, targetName)
 	}
@@ -53,7 +53,7 @@ func BuildTargetLabel(
 func formatTargetLabel(targetType string, targetID string, displayName string) string {
 	targetType = strings.TrimSpace(targetType)
 	targetID = strings.TrimSpace(targetID)
-	displayName = strings.TrimSpace(textsafe.SanitizeString(displayName))
+	displayName = strings.TrimSpace(redact.SanitizeString(displayName))
 
 	switch targetType {
 	case "group":

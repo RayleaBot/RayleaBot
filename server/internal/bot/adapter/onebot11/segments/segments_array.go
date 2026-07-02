@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/RayleaBot/RayleaBot/server/internal/textsafe"
+	"github.com/RayleaBot/RayleaBot/server/internal/redact"
 )
 
 // parseMessageArray parses a OneBot11 JSON message array into segments.
@@ -24,7 +24,7 @@ func parseMessageArray(raw json.RawMessage) ([]MessageSegment, error) {
 			Data: make(map[string]any),
 		}
 		for k, v := range item.Data {
-			seg.Data[normalizeCQKey(item.Type, k)] = textsafe.SanitizeAny(v)
+			seg.Data[normalizeCQKey(item.Type, k)] = redact.SanitizeAny(v)
 		}
 		// Normalize at with qq=all.
 		if seg.Type == "at" {
@@ -52,7 +52,7 @@ func ParseMessageArray(raw json.RawMessage) ([]MessageSegment, error) {
 func anyToString(v any) string {
 	switch val := v.(type) {
 	case string:
-		return textsafe.SanitizeString(val)
+		return redact.SanitizeString(val)
 	case float64:
 		if val == float64(int64(val)) {
 			return fmt.Sprintf("%d", int64(val))
@@ -62,6 +62,6 @@ func anyToString(v any) string {
 		return val.String()
 	default:
 		b, _ := json.Marshal(v)
-		return textsafe.SanitizeString(string(b))
+		return redact.SanitizeString(string(b))
 	}
 }

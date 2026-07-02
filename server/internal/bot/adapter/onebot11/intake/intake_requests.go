@@ -5,7 +5,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/RayleaBot/RayleaBot/server/internal/textsafe"
+	"github.com/RayleaBot/RayleaBot/server/internal/redact"
 )
 
 func normalizeRequestEvent(frame OneBotFrame, observedAt time.Time) (NormalizedEvent, bool) {
@@ -41,10 +41,10 @@ func normalizeRequestEvent(frame OneBotFrame, observedAt time.Time) (NormalizedE
 
 	eventID := fmt.Sprintf("onebot11-request-%s-%d-%d", strings.ReplaceAll(frame.RequestType, "_", "-"), timestamp, frame.UserID)
 	payloadFields := buildCommonPayloadFields(frame)
-	if comment := strings.TrimSpace(textsafe.SanitizeString(frame.Comment)); comment != "" {
+	if comment := strings.TrimSpace(redact.SanitizeString(frame.Comment)); comment != "" {
 		payloadFields["comment"] = comment
 	}
-	if flag := strings.TrimSpace(textsafe.SanitizeString(frame.Flag)); flag != "" {
+	if flag := strings.TrimSpace(redact.SanitizeString(frame.Flag)); flag != "" {
 		payloadFields["flag"] = flag
 	}
 

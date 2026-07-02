@@ -1,4 +1,4 @@
-package textsafe
+package redact
 
 import "testing"
 

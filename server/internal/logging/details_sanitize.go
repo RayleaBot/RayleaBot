@@ -3,7 +3,7 @@ package logging
 import (
 	"strings"
 
-	"github.com/RayleaBot/RayleaBot/server/internal/textsafe"
+	"github.com/RayleaBot/RayleaBot/server/internal/redact"
 )
 
 func sanitizeMap(details map[string]any) map[string]any {
@@ -34,11 +34,11 @@ func sanitizeValue(value any) any {
 	case []string:
 		items := make([]string, 0, len(typed))
 		for _, item := range typed {
-			items = append(items, textsafe.SanitizeString(item))
+			items = append(items, redact.SanitizeString(item))
 		}
 		return items
 	case string:
-		return textsafe.SanitizeString(typed)
+		return redact.SanitizeString(typed)
 	default:
 		return typed
 	}

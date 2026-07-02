@@ -4,7 +4,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/RayleaBot/RayleaBot/server/internal/textsafe"
+	"github.com/RayleaBot/RayleaBot/server/internal/redact"
 )
 
 const ProtocolOneBot11 = "onebot11"
@@ -31,7 +31,7 @@ func NormalizeSummary(summary Summary) Summary {
 		summary.Protocol = protocolFromSource(summary.Source)
 	}
 	if summary.Protocol == ProtocolOneBot11 {
-		summary.Message = strings.TrimSpace(textsafe.SanitizeString(summary.Message))
+		summary.Message = strings.TrimSpace(redact.SanitizeString(summary.Message))
 	}
 	summary.Details = NormalizeProtocol(summary.Protocol, summary.Details)
 

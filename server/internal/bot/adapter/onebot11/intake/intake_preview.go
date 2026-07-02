@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 
-	"github.com/RayleaBot/RayleaBot/server/internal/textsafe"
+	"github.com/RayleaBot/RayleaBot/server/internal/redact"
 )
 
 func PreviewFramePayload(payload []byte) any {
@@ -15,11 +15,11 @@ func PreviewFramePayload(payload []byte) any {
 
 	var decoded any
 	if err := json.Unmarshal(trimmed, &decoded); err == nil {
-		return textsafe.SanitizeAny(decoded)
+		return redact.SanitizeAny(decoded)
 	}
 
-	text := textsafe.SanitizeString(string(trimmed))
-	if utf8SafeText := textsafe.TruncateRunes(text, 256, "...(truncated)"); utf8SafeText != text {
+	text := redact.SanitizeString(string(trimmed))
+	if utf8SafeText := redact.TruncateRunes(text, 256, "...(truncated)"); utf8SafeText != text {
 		return utf8SafeText
 	}
 	return text
