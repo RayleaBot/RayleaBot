@@ -1,14 +1,12 @@
-package repository
+package logging
 
 import (
 	"context"
 	"fmt"
 	"strings"
-
-	"github.com/RayleaBot/RayleaBot/server/internal/logging"
 )
 
-func (r *SQLiteRepository) ListSummaries(ctx context.Context, query logging.Query) ([]logging.Summary, error) {
+func (r *SQLiteRepository) ListSummaries(ctx context.Context, query Query) ([]Summary, error) {
 	limit := query.Limit
 	if limit <= 0 {
 		limit = 50
@@ -45,10 +43,10 @@ func (r *SQLiteRepository) ListSummaries(ctx context.Context, query logging.Quer
 	}
 	defer rows.Close()
 
-	items := make([]logging.Summary, 0, limit)
+	items := make([]Summary, 0, limit)
 	for rows.Next() {
 		var rowID int64
-		var summary logging.Summary
+		var summary Summary
 		if err := rows.Scan(
 			&rowID,
 			&summary.LogID,
@@ -62,7 +60,7 @@ func (r *SQLiteRepository) ListSummaries(ctx context.Context, query logging.Quer
 		); err != nil {
 			return nil, fmt.Errorf("scan management log summary: %w", err)
 		}
-		summary = logging.NormalizeSummary(summary)
+		summary = NormalizeSummary(summary)
 		items = append(items, summary)
 	}
 	if err := rows.Err(); err != nil {

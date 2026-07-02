@@ -1,4 +1,4 @@
-package details
+package logging
 
 func CloneMap(details map[string]any) map[string]any {
 	if len(details) == 0 {

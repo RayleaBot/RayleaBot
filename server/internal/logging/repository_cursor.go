@@ -1,12 +1,10 @@
-package repository
+package logging
 
 import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"strings"
-
-	"github.com/RayleaBot/RayleaBot/server/internal/logging"
 )
 
 type logCursor struct {
@@ -32,15 +30,15 @@ func decodeLogCursor(raw string) (*logCursor, error) {
 
 	payload, err := base64.RawURLEncoding.DecodeString(trimmed)
 	if err != nil {
-		return nil, fmt.Errorf("%w: decode cursor: %v", logging.ErrInvalidCursor, err)
+		return nil, fmt.Errorf("%w: decode cursor: %v", ErrInvalidCursor, err)
 	}
 
 	var cursor logCursor
 	if err := json.Unmarshal(payload, &cursor); err != nil {
-		return nil, fmt.Errorf("%w: decode cursor json: %v", logging.ErrInvalidCursor, err)
+		return nil, fmt.Errorf("%w: decode cursor json: %v", ErrInvalidCursor, err)
 	}
 	if cursor.RowID <= 0 || strings.TrimSpace(cursor.Timestamp) == "" {
-		return nil, fmt.Errorf("%w: cursor payload is incomplete", logging.ErrInvalidCursor)
+		return nil, fmt.Errorf("%w: cursor payload is incomplete", ErrInvalidCursor)
 	}
 
 	return &cursor, nil

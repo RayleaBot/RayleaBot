@@ -6,8 +6,6 @@ import (
 	"strings"
 	"sync"
 	"time"
-
-	logdetails "github.com/RayleaBot/RayleaBot/server/internal/logging/details"
 )
 
 type Summary struct {
@@ -67,7 +65,7 @@ func (s *Stream) Snapshot() []Summary {
 	cloned := make([]Summary, len(s.history))
 	for index, item := range s.history {
 		cloned[index] = item
-		cloned[index].Details = logdetails.CloneMap(item.Details)
+		cloned[index].Details = CloneMap(item.Details)
 	}
 	return cloned
 }

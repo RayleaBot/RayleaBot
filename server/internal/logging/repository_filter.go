@@ -1,9 +1,7 @@
-package repository
+package logging
 
 import (
 	"strings"
-
-	"github.com/RayleaBot/RayleaBot/server/internal/logging"
 )
 
 type filterSpec struct {
@@ -32,7 +30,7 @@ func buildLogFilterClauses(spec filterSpec) ([]string, []any, error) {
 		args = append(args, strings.TrimSpace(spec.Source))
 	}
 	if spec.Protocol != "" {
-		sources := logging.SourcesForProtocol(spec.Protocol)
+		sources := SourcesForProtocol(spec.Protocol)
 		if len(sources) == 0 {
 			return []string{"1 = 0"}, args, nil
 		}

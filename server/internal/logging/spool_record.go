@@ -4,8 +4,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-
-	logdetails "github.com/RayleaBot/RayleaBot/server/internal/logging/details"
 )
 
 type spoolRecord struct {
@@ -33,7 +31,7 @@ func spoolRecordFromSummary(summary Summary) spoolRecord {
 		Protocol:  normalized.Protocol,
 		PluginID:  normalized.PluginID,
 		RequestID: normalized.RequestID,
-		Details:   logdetails.CloneMap(normalized.Details),
+		Details:   CloneMap(normalized.Details),
 	}
 }
 
@@ -52,6 +50,6 @@ func decodeSpoolRecord(line []byte) (Summary, error) {
 		Protocol:  record.Protocol,
 		PluginID:  record.PluginID,
 		RequestID: record.RequestID,
-		Details:   logdetails.CloneMap(record.Details),
+		Details:   CloneMap(record.Details),
 	}), nil
 }

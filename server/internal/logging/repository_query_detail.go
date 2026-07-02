@@ -1,4 +1,4 @@
-package repository
+package logging
 
 import (
 	"context"
@@ -7,12 +7,9 @@ import (
 	"fmt"
 	"strings"
 	"time"
-
-	"github.com/RayleaBot/RayleaBot/server/internal/logging"
-	logdetails "github.com/RayleaBot/RayleaBot/server/internal/logging/details"
 )
 
-func (r *SQLiteRepository) GetSummary(ctx context.Context, logID string) (logging.Summary, error) {
+func (r *SQLiteRepository) GetSummary(ctx context.Context, logID string) (Summary, error) {
 	row := r.read.QueryRowContext(
 		ctx,
 		`SELECT log_id, boot_id, ts, level, source, message, plugin_id, request_id, details_json
@@ -44,17 +41,17 @@ func (r *SQLiteRepository) GetSummary(ctx context.Context, logID string) (loggin
 		&item.DetailsRaw,
 	); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return logging.Summary{}, logging.ErrLogNotFound
+			return Summary{}, ErrLogNotFound
 		}
-		return logging.Summary{}, fmt.Errorf("query management log detail: %w", err)
+		return Summary{}, fmt.Errorf("query management log detail: %w", err)
 	}
 
-	details, err := logdetails.DecodeJSON(item.DetailsRaw)
+	details, err := DecodeJSON(item.DetailsRaw)
 	if err != nil {
-		return logging.Summary{}, fmt.Errorf("decode management log detail %s: %w", item.LogID, err)
+		return Summary{}, fmt.Errorf("decode management log detail %s: %w", item.LogID, err)
 	}
 
-	return logging.NormalizeSummary(logging.Summary{
+	return NormalizeSummary(Summary{
 		BootID:    item.BootID,
 		LogID:     item.LogID,
 		Timestamp: item.Timestamp,

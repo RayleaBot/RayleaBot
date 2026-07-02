@@ -1,4 +1,4 @@
-package repository
+package logging
 
 import (
 	"context"
@@ -7,8 +7,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/RayleaBot/RayleaBot/server/internal/logging"
-	logdetails "github.com/RayleaBot/RayleaBot/server/internal/logging/details"
 	"github.com/RayleaBot/RayleaBot/server/internal/storage"
 )
 
@@ -27,9 +25,9 @@ func NewSQLiteRepository(store *storage.Store) (*SQLiteRepository, error) {
 	}, nil
 }
 
-func (r *SQLiteRepository) SaveSummary(ctx context.Context, summary logging.Summary) error {
-	summary = logging.NormalizeSummary(summary)
-	detailsJSON, err := logdetails.EncodeJSON(summary.Details)
+func (r *SQLiteRepository) SaveSummary(ctx context.Context, summary Summary) error {
+	summary = NormalizeSummary(summary)
+	detailsJSON, err := EncodeJSON(summary.Details)
 	if err != nil {
 		return fmt.Errorf("encode management log details: %w", err)
 	}

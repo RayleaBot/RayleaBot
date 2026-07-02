@@ -1,14 +1,12 @@
-package repository
+package logging
 
 import (
 	"context"
 	"fmt"
 	"strings"
-
-	"github.com/RayleaBot/RayleaBot/server/internal/logging"
 )
 
-func (r *SQLiteRepository) ListPage(ctx context.Context, query logging.PageQuery) (logging.PageResult, error) {
+func (r *SQLiteRepository) ListPage(ctx context.Context, query PageQuery) (PageResult, error) {
 	limit := query.Limit
 	if limit <= 0 {
 		limit = 50
@@ -16,7 +14,7 @@ func (r *SQLiteRepository) ListPage(ctx context.Context, query logging.PageQuery
 
 	direction := query.Direction
 	if direction == "" {
-		direction = logging.PageDirectionOlder
+		direction = PageDirectionOlder
 	}
 
 	clauses, args, err := buildLogFilterClauses(filterSpec{
@@ -32,31 +30,31 @@ func (r *SQLiteRepository) ListPage(ctx context.Context, query logging.PageQuery
 		EndAt:     query.EndAt,
 	})
 	if err != nil {
-		return logging.PageResult{}, err
+		return PageResult{}, err
 	}
 
 	cursor, err := decodeLogCursor(query.Cursor)
 	if err != nil {
-		return logging.PageResult{}, err
+		return PageResult{}, err
 	}
 	if cursor == nil {
-		direction = logging.PageDirectionOlder
+		direction = PageDirectionOlder
 	}
 	if cursor != nil {
 		switch direction {
-		case logging.PageDirectionOlder:
+		case PageDirectionOlder:
 			clauses = append(clauses, "("+logTimestampExpr+" < julianday(?) OR ("+logTimestampExpr+" = julianday(?) AND id < ?))")
 			args = append(args, cursor.Timestamp, cursor.Timestamp, cursor.RowID)
-		case logging.PageDirectionNewer:
+		case PageDirectionNewer:
 			clauses = append(clauses, "("+logTimestampExpr+" > julianday(?) OR ("+logTimestampExpr+" = julianday(?) AND id > ?))")
 			args = append(args, cursor.Timestamp, cursor.Timestamp, cursor.RowID)
 		default:
-			return logging.PageResult{}, fmt.Errorf("%w: unsupported direction %q", logging.ErrInvalidCursor, direction)
+			return PageResult{}, fmt.Errorf("%w: unsupported direction %q", ErrInvalidCursor, direction)
 		}
 	}
 
 	orderClause := "ORDER BY " + logTimestampExpr + " DESC, id DESC"
-	if direction == logging.PageDirectionNewer {
+	if direction == PageDirectionNewer {
 		orderClause = "ORDER BY " + logTimestampExpr + " ASC, id ASC"
 	}
 	args = append(args, limit+1)
@@ -71,7 +69,7 @@ func (r *SQLiteRepository) ListPage(ctx context.Context, query logging.PageQuery
 		args...,
 	)
 	if err != nil {
-		return logging.PageResult{}, fmt.Errorf("query management log page: %w", err)
+		return PageResult{}, fmt.Errorf("query management log page: %w", err)
 	}
 	defer rows.Close()
 
@@ -79,15 +77,15 @@ func (r *SQLiteRepository) ListPage(ctx context.Context, query logging.PageQuery
 	for rows.Next() {
 		entry, err := scanPagedSummary(rows)
 		if err != nil {
-			return logging.PageResult{}, err
+			return PageResult{}, err
 		}
 		entries = append(entries, entry)
 	}
 	if err := rows.Err(); err != nil {
-		return logging.PageResult{}, fmt.Errorf("iterate management log page: %w", err)
+		return PageResult{}, fmt.Errorf("iterate management log page: %w", err)
 	}
 
-	if direction == logging.PageDirectionNewer {
+	if direction == PageDirectionNewer {
 		for left, right := 0, len(entries)-1; left < right; left, right = left+1, right-1 {
 			entries[left], entries[right] = entries[right], entries[left]
 		}
@@ -96,9 +94,9 @@ func (r *SQLiteRepository) ListPage(ctx context.Context, query logging.PageQuery
 		entries = entries[:limit]
 	}
 
-	result := logging.PageResult{
-		Items: make([]logging.Summary, 0, len(entries)),
-		Page: logging.PageInfo{
+	result := PageResult{
+		Items: make([]Summary, 0, len(entries)),
+		Page: PageInfo{
 			Limit: limit,
 		},
 	}
@@ -115,11 +113,11 @@ func (r *SQLiteRepository) ListPage(ctx context.Context, query logging.PageQuery
 
 	hasOlder, err := r.hasRows(ctx, filterSpecFromPageQuery(query), logBoundaryOlder, oldest.marker())
 	if err != nil {
-		return logging.PageResult{}, err
+		return PageResult{}, err
 	}
 	hasNewer, err := r.hasRows(ctx, filterSpecFromPageQuery(query), logBoundaryNewer, newest.marker())
 	if err != nil {
-		return logging.PageResult{}, err
+		return PageResult{}, err
 	}
 
 	result.Page.HasOlder = hasOlder
@@ -136,7 +134,7 @@ func (r *SQLiteRepository) ListPage(ctx context.Context, query logging.PageQuery
 	return result, nil
 }
 
-func filterSpecFromPageQuery(q logging.PageQuery) filterSpec {
+func filterSpecFromPageQuery(q PageQuery) filterSpec {
 	return filterSpec{
 		Level:     q.Level,
 		Levels:    q.Levels,

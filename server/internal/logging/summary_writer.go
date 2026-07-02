@@ -7,8 +7,6 @@ import (
 	"io"
 	"strings"
 	"sync"
-
-	logdetails "github.com/RayleaBot/RayleaBot/server/internal/logging/details"
 )
 
 type SummaryWriter struct {
@@ -133,7 +131,7 @@ func summaryFromJSONLine(line []byte) (Summary, bool) {
 		Message:   toString(body["msg"]),
 		PluginID:  toString(body["plugin_id"]),
 		RequestID: toString(body["request_id"]),
-		Details:   logdetails.ExtractSummary(body),
+		Details:   ExtractSummary(body),
 	}
 	summary = NormalizeSummary(summary)
 

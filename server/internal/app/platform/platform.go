@@ -12,7 +12,6 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/console"
 	"github.com/RayleaBot/RayleaBot/server/internal/logging"
-	logrepository "github.com/RayleaBot/RayleaBot/server/internal/logging/repository"
 	"github.com/RayleaBot/RayleaBot/server/internal/runtimepaths"
 	"github.com/RayleaBot/RayleaBot/server/internal/scheduler"
 	"github.com/RayleaBot/RayleaBot/server/internal/secrets"
@@ -126,7 +125,7 @@ func Build(deps Deps) (State, error) {
 	if err := deps.Tasks.Hydrate(ctx); err != nil {
 		return abort(fmt.Errorf("hydrate task registry: %w", err))
 	}
-	logRepository, err := logrepository.NewSQLiteRepository(storageStore)
+	logRepository, err := logging.NewSQLiteRepository(storageStore)
 	if err != nil {
 		return abort(fmt.Errorf("create logging repository: %w", err))
 	}

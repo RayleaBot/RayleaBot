@@ -1,4 +1,4 @@
-package repository
+package logging
 
 import (
 	"context"
@@ -6,13 +6,11 @@ import (
 	"errors"
 	"fmt"
 	"strings"
-
-	"github.com/RayleaBot/RayleaBot/server/internal/logging"
 )
 
 type pagedSummary struct {
 	RowID   int64
-	Summary logging.Summary
+	Summary Summary
 }
 
 func (p pagedSummary) marker() logCursor {
@@ -44,7 +42,7 @@ func scanPagedSummary(scanner interface{ Scan(...any) error }) (pagedSummary, er
 	); err != nil {
 		return pagedSummary{}, fmt.Errorf("scan management log summary: %w", err)
 	}
-	entry.Summary = logging.NormalizeSummary(entry.Summary)
+	entry.Summary = NormalizeSummary(entry.Summary)
 	return entry, nil
 }
 

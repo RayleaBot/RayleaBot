@@ -1,4 +1,4 @@
-package repository
+package logging
 
 import (
 	"context"
@@ -7,20 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/RayleaBot/RayleaBot/server/internal/logging"
 	"github.com/RayleaBot/RayleaBot/server/internal/storage"
 )
-
-type Summary = logging.Summary
-type Query = logging.Query
-type PageQuery = logging.PageQuery
-
-const ProtocolOneBot11 = logging.ProtocolOneBot11
-const PageDirectionOlder = logging.PageDirectionOlder
-const PageDirectionNewer = logging.PageDirectionNewer
-
-var ErrInvalidCursor = logging.ErrInvalidCursor
-var ErrLogNotFound = logging.ErrLogNotFound
 
 func TestSQLiteRepositoryListsFilteredSummariesInAscendingOrder(t *testing.T) {
 	t.Parallel()

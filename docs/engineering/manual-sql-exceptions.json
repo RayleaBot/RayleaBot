@@ -29,35 +29,35 @@
       "target_action": "migrate_to_sqlc",
       "revisit_after": "2026-08-01"
     },
-    "server/internal/logging/repository/repository.go": {
+    "server/internal/logging/repository_store.go": {
       "category": "A",
       "reason": "Management log insert query is static and should use existing sqlc logging queries.",
       "owner": "server-observability",
       "target_action": "migrate_to_sqlc",
       "revisit_after": "2026-08-01"
     },
-    "server/internal/logging/repository/repository_page.go": {
+    "server/internal/logging/repository_page.go": {
       "category": "C",
       "reason": "Management log page cursor query composes direction-specific paging clauses.",
       "owner": "server-observability",
       "target_action": "keep_wrapped_dynamic_query",
       "revisit_after": "2026-09-01"
     },
-    "server/internal/logging/repository/repository_query.go": {
+    "server/internal/logging/repository_query.go": {
       "category": "C",
       "reason": "Management log list query composes optional filters and ordering.",
       "owner": "server-observability",
       "target_action": "keep_wrapped_dynamic_query",
       "revisit_after": "2026-09-01"
     },
-    "server/internal/logging/repository/repository_query_detail.go": {
+    "server/internal/logging/repository_query_detail.go": {
       "category": "A",
       "reason": "Management log detail and prune queries are static outside pruning expression reuse.",
       "owner": "server-observability",
       "target_action": "migrate_to_sqlc_or_split_dynamic_prune",
       "revisit_after": "2026-08-01"
     },
-    "server/internal/logging/repository/repository_query_page.go": {
+    "server/internal/logging/repository_query_page.go": {
       "category": "C",
       "reason": "Management log cursor-window query composes optional pagination clauses.",
       "owner": "server-observability",
