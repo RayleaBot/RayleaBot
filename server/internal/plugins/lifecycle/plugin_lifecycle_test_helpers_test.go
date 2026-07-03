@@ -11,9 +11,9 @@ import (
 	"testing"
 	"time"
 
-	adaptershell "github.com/RayleaBot/RayleaBot/server/internal/bot/adapter/onebot11/shell"
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/dispatch"
+	"github.com/RayleaBot/RayleaBot/server/internal/onebot11"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
 	pluginconfig "github.com/RayleaBot/RayleaBot/server/internal/plugins/configstore"
@@ -68,7 +68,7 @@ func (a *testApp) setTestSystem(taskRegistry *tasks.Registry, _ any, _ any, _ an
 	a.platform.Tasks = taskRegistry
 }
 
-func (a *testApp) setTestLifecycle(catalog *plugincatalog.Catalog, desiredRepo plugins.DesiredStateRepository, runtimes *testRuntimeRegistry, dispatcher *dispatch.Dispatcher, pluginConfigRepo pluginconfig.Repository, adapterShell *adaptershell.Shell, webhooks *pluginwebhook.Registry) {
+func (a *testApp) setTestLifecycle(catalog *plugincatalog.Catalog, desiredRepo plugins.DesiredStateRepository, runtimes *testRuntimeRegistry, dispatcher *dispatch.Dispatcher, pluginConfigRepo pluginconfig.Repository, adapterShell *onebot11.Shell, webhooks *pluginwebhook.Registry) {
 	if a == nil {
 		return
 	}

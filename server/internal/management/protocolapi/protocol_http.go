@@ -4,9 +4,9 @@ import (
 	"sync"
 	"time"
 
-	adaptershell "github.com/RayleaBot/RayleaBot/server/internal/bot/adapter/onebot11/shell"
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	managementevents "github.com/RayleaBot/RayleaBot/server/internal/management/events"
+	"github.com/RayleaBot/RayleaBot/server/internal/onebot11"
 )
 
 type ConfigSource interface {
@@ -15,14 +15,14 @@ type ConfigSource interface {
 
 type ProtocolService struct {
 	config                    ConfigSource
-	adapter                   *adaptershell.Shell
+	adapter                   *onebot11.Shell
 	oneBot11TargetReadTimeout time.Duration
 	mu                        sync.RWMutex
 	nextSubID                 uint64
 	subscribers               map[uint64]chan managementevents.Frame
 }
 
-func NewProtocolService(configSource ConfigSource, adapterShell *adaptershell.Shell) *ProtocolService {
+func NewProtocolService(configSource ConfigSource, adapterShell *onebot11.Shell) *ProtocolService {
 	return &ProtocolService{
 		config:                    configSource,
 		adapter:                   adapterShell,

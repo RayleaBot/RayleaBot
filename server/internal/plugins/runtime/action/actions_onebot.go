@@ -3,15 +3,15 @@ package action
 import (
 	"encoding/json"
 
-	protocolonebot "github.com/RayleaBot/RayleaBot/server/internal/protocol/onebot"
+	"github.com/RayleaBot/RayleaBot/server/internal/onebot11"
 )
 
 func isOneBotFamilyAction(kind string) bool {
-	return protocolonebot.IsGenericAction(kind)
+	return onebot11.IsGenericAction(kind)
 }
 
 func isProviderExtensionAction(kind string) bool {
-	return protocolonebot.IsProviderExtensionAction(kind)
+	return onebot11.IsProviderExtensionAction(kind)
 }
 
 func parseOneBotFamilyAction(actionKind string, raw json.RawMessage) (*Action, error) {

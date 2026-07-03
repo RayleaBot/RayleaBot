@@ -5,28 +5,27 @@ import (
 	"strings"
 	"time"
 
-	adapterintake "github.com/RayleaBot/RayleaBot/server/internal/bot/adapter/onebot11/intake"
-	adapteroutbound "github.com/RayleaBot/RayleaBot/server/internal/bot/adapter/onebot11/outbound"
 	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/outbound"
+	"github.com/RayleaBot/RayleaBot/server/internal/onebot11"
 )
 
-func (s *Service) sendBuiltinMenuImage(ctx context.Context, event adapterintake.NormalizedEvent, commandName string, imagePath string) {
-	segments := []adapteroutbound.OutboundMessageSegment{{
+func (s *Service) sendBuiltinMenuImage(ctx context.Context, event onebot11.NormalizedEvent, commandName string, imagePath string) {
+	segments := []onebot11.OutboundMessageSegment{{
 		Type: "image",
 		Data: map[string]any{"file": imagePath},
 	}}
 	s.sendBuiltinMenuSegments(ctx, event, commandName, segments)
 }
 
-func (s *Service) sendBuiltinMenuText(ctx context.Context, event adapterintake.NormalizedEvent, commandName string, text string) {
-	segments := []adapteroutbound.OutboundMessageSegment{{
+func (s *Service) sendBuiltinMenuText(ctx context.Context, event onebot11.NormalizedEvent, commandName string, text string) {
+	segments := []onebot11.OutboundMessageSegment{{
 		Type: "text",
 		Data: map[string]any{"text": text},
 	}}
 	s.sendBuiltinMenuSegments(ctx, event, commandName, segments)
 }
 
-func (s *Service) sendBuiltinMenuSegments(ctx context.Context, event adapterintake.NormalizedEvent, commandName string, segments []adapteroutbound.OutboundMessageSegment) {
+func (s *Service) sendBuiltinMenuSegments(ctx context.Context, event onebot11.NormalizedEvent, commandName string, segments []onebot11.OutboundMessageSegment) {
 	if s == nil || s.sender == nil {
 		return
 	}
@@ -76,7 +75,7 @@ func (s *Service) sendBuiltinMenuSegments(ctx context.Context, event adapterinta
 	sendCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 	if targetType == "group" && strings.TrimSpace(event.MessageID) != "" {
-		result, err := s.sender.SendReply(sendCtx, adapteroutbound.OutboundMessageReply{
+		result, err := s.sender.SendReply(sendCtx, onebot11.OutboundMessageReply{
 			TargetType:       targetType,
 			TargetID:         targetID,
 			ReplyToMessageID: strings.TrimSpace(event.MessageID),
@@ -91,7 +90,7 @@ func (s *Service) sendBuiltinMenuSegments(ctx context.Context, event adapterinta
 		}, err)
 		return
 	}
-	result, err := s.sender.SendMessage(sendCtx, adapteroutbound.OutboundMessageSend{
+	result, err := s.sender.SendMessage(sendCtx, onebot11.OutboundMessageSend{
 		TargetType: targetType,
 		TargetID:   targetID,
 		Segments:   segments,

@@ -4,28 +4,28 @@ import (
 	"context"
 	"testing"
 
-	adapteroutbound "github.com/RayleaBot/RayleaBot/server/internal/bot/adapter/onebot11/outbound"
+	"github.com/RayleaBot/RayleaBot/server/internal/onebot11"
 	runtimeaction "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime/action"
 	runtimeprotocol "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime/protocol"
 )
 
 type stubSender struct {
-	sendRequest  adapteroutbound.OutboundMessageSend
-	replyRequest adapteroutbound.OutboundMessageReply
+	sendRequest  onebot11.OutboundMessageSend
+	replyRequest onebot11.OutboundMessageReply
 	replyErr     error
 }
 
-func (s *stubSender) SendMessage(_ context.Context, request adapteroutbound.OutboundMessageSend) (adapteroutbound.SendMessageResult, error) {
+func (s *stubSender) SendMessage(_ context.Context, request onebot11.OutboundMessageSend) (onebot11.SendMessageResult, error) {
 	s.sendRequest = request
-	return adapteroutbound.SendMessageResult{MessageID: "send-1"}, nil
+	return onebot11.SendMessageResult{MessageID: "send-1"}, nil
 }
 
-func (s *stubSender) SendReply(_ context.Context, request adapteroutbound.OutboundMessageReply) (adapteroutbound.SendMessageResult, error) {
+func (s *stubSender) SendReply(_ context.Context, request onebot11.OutboundMessageReply) (onebot11.SendMessageResult, error) {
 	s.replyRequest = request
 	if s.replyErr != nil {
-		return adapteroutbound.SendMessageResult{}, s.replyErr
+		return onebot11.SendMessageResult{}, s.replyErr
 	}
-	return adapteroutbound.SendMessageResult{MessageID: "reply-1"}, nil
+	return onebot11.SendMessageResult{MessageID: "reply-1"}, nil
 }
 
 type stubReplyTargets map[string]ReplyTarget
@@ -65,7 +65,7 @@ func TestSendActionFallsBackToSendWhenReplyTargetIsMissingAtAdapterLevel(t *test
 	t.Parallel()
 
 	sender := &stubSender{
-		replyErr: &adapteroutbound.Error{Code: codeAdapterReplyTargetMissing, Message: "missing"},
+		replyErr: &onebot11.Error{Code: codeAdapterReplyTargetMissing, Message: "missing"},
 	}
 	resolver := stubReplyTargets{
 		"evt_1": {

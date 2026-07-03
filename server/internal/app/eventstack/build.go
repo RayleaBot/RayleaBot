@@ -4,13 +4,13 @@ import (
 	"log/slog"
 	"time"
 
-	adaptershell "github.com/RayleaBot/RayleaBot/server/internal/bot/adapter/onebot11/shell"
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/bridge"
 	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/dispatch"
 	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/eventingress"
 	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/outbound"
 	"github.com/RayleaBot/RayleaBot/server/internal/metrics"
+	"github.com/RayleaBot/RayleaBot/server/internal/onebot11"
 )
 
 const dispatcherRuntimeFlushInterval = 10 * time.Second
@@ -21,7 +21,7 @@ type Deps struct {
 }
 
 type State struct {
-	Adapter         *adaptershell.Shell
+	Adapter         *onebot11.Shell
 	Bridge          *bridge.Bridge
 	Dispatcher      *dispatch.Dispatcher
 	ReplyTargets    *outbound.ReplyTargetCache
@@ -30,7 +30,7 @@ type State struct {
 }
 
 func Build(deps Deps) State {
-	adapterShell := adaptershell.New(deps.Config.OneBot, deps.Config.Adapter, deps.Logger)
+	adapterShell := onebot11.New(deps.Config.OneBot, deps.Config.Adapter, deps.Logger)
 	replyTargets := outbound.NewReplyTargetCache(outbound.DefaultReplyTargetCacheSize)
 	eventDispatcher := dispatch.New(deps.Logger, adapterShell, replyTargets, deps.Config.Runtime.MaxPendingEventsPerPlugin)
 	outboundLimiter := outbound.NewMessageRateLimiter(deps.Config)

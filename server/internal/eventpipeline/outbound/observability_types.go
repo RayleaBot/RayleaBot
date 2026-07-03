@@ -1,14 +1,14 @@
 package outbound
 
 import (
-	adapteroutbound "github.com/RayleaBot/RayleaBot/server/internal/bot/adapter/onebot11/outbound"
+	"github.com/RayleaBot/RayleaBot/server/internal/onebot11"
 )
 
 type SendAttempt struct {
 	ActionKind string
 	TargetType string
 	TargetID   string
-	Segments   []adapteroutbound.OutboundMessageSegment
+	Segments   []onebot11.OutboundMessageSegment
 }
 
 type SendLogContext struct {

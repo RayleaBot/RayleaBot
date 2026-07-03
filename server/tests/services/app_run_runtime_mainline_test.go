@@ -4,8 +4,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	adapterintake "github.com/RayleaBot/RayleaBot/server/internal/bot/adapter/onebot11/intake"
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
+	"github.com/RayleaBot/RayleaBot/server/internal/onebot11"
 	"github.com/RayleaBot/RayleaBot/server/internal/runtimepaths"
 )
 
@@ -31,7 +31,7 @@ func TestEnrichCommandEventAddsCommandPayload(t *testing.T) {
 	}, nil)
 	application.setTestEventIngress(nil, nil, nil, nil)
 
-	event := application.enrichCommandEvent(adapterintake.NormalizedEvent{
+	event := application.enrichCommandEvent(onebot11.NormalizedEvent{
 		PlainText: "/weather shanghai now",
 	})
 	if event.PayloadFields["command"] != "weather" {

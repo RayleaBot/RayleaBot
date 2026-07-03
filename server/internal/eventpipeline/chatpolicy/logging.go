@@ -3,12 +3,12 @@ package chatpolicy
 import (
 	"strings"
 
-	adapterintake "github.com/RayleaBot/RayleaBot/server/internal/bot/adapter/onebot11/intake"
 	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/bridge"
+	"github.com/RayleaBot/RayleaBot/server/internal/onebot11"
 	"github.com/RayleaBot/RayleaBot/server/internal/permission"
 )
 
-func (s *Service) logCommandPolicyRejection(event adapterintake.NormalizedEvent, verdict permission.Verdict, commandContext *commandPolicyContext) {
+func (s *Service) logCommandPolicyRejection(event onebot11.NormalizedEvent, verdict permission.Verdict, commandContext *commandPolicyContext) {
 	if s == nil || s.bridge == nil || commandContext == nil {
 		return
 	}

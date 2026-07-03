@@ -1,22 +1,22 @@
 package dispatch
 
 import (
-	adapteroutbound "github.com/RayleaBot/RayleaBot/server/internal/bot/adapter/onebot11/outbound"
+	"github.com/RayleaBot/RayleaBot/server/internal/onebot11"
 	runtimeaction "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime/action"
 )
 
-func toOutboundSegments(segments []runtimeaction.ActionSegment) []adapteroutbound.OutboundMessageSegment {
+func toOutboundSegments(segments []runtimeaction.ActionSegment) []onebot11.OutboundMessageSegment {
 	if len(segments) == 0 {
 		return nil
 	}
 
-	items := make([]adapteroutbound.OutboundMessageSegment, 0, len(segments))
+	items := make([]onebot11.OutboundMessageSegment, 0, len(segments))
 	for _, segment := range segments {
 		data := make(map[string]any, len(segment.Data))
 		for key, value := range segment.Data {
 			data[key] = value
 		}
-		items = append(items, adapteroutbound.OutboundMessageSegment{
+		items = append(items, onebot11.OutboundMessageSegment{
 			Type: segment.Type,
 			Data: data,
 		})

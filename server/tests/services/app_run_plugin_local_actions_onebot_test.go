@@ -11,8 +11,8 @@ import (
 
 	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
 
-	adaptershell "github.com/RayleaBot/RayleaBot/server/internal/bot/adapter/onebot11/shell"
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
+	"github.com/RayleaBot/RayleaBot/server/internal/onebot11"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	runtimeaction "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime/action"
 	runtimemanager "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime/manager"
@@ -70,7 +70,7 @@ func TestExecuteOneBotLocalActionMessageHistoryGet(t *testing.T) {
 	}))
 	defer server.Close()
 
-	shell := adaptershell.NewForTest(config.OneBotConfig{
+	shell := onebot11.NewForTest(config.OneBotConfig{
 		ForwardWS: config.OneBotTransportConfig{
 			Enabled: true,
 			URL:     "ws" + server.URL[len("http"):],
@@ -81,7 +81,7 @@ func TestExecuteOneBotLocalActionMessageHistoryGet(t *testing.T) {
 	defer cancel()
 
 	shell.Start(ctx)
-	waitForAdapterState(t, shell, adaptershell.StateConnected, time.Second)
+	waitForAdapterState(t, shell, onebot11.StateConnected, time.Second)
 
 	application := newTestAppState(config.Config{}, slog.New(slog.NewTextHandler(io.Discard, nil)))
 	application.setTestLocalActions(&stubCapabilityView{capabilities: map[string][]stubCapability{
@@ -140,7 +140,7 @@ func TestExecuteOneBotLocalActionProviderMismatch(t *testing.T) {
 	application := newTestAppState(config.Config{}, nil)
 	application.setTestLocalActions(&stubCapabilityView{capabilities: map[string][]stubCapability{
 		"weather": {{PluginID: "weather", Capability: "provider.napcat.message_emoji.like.set"}},
-	}}, nil, nil, nil, nil, nil, nil, &adaptershell.Shell{}, nil, nil)
+	}}, nil, nil, nil, nil, nil, nil, &onebot11.Shell{}, nil, nil)
 
 	_, err := application.executeOneBotLocalAction(context.Background(), "weather", "req_provider", runtimeaction.Action{
 		Kind: "provider.napcat.message_emoji.like.set",
@@ -229,7 +229,7 @@ func TestExecuteOneBotLocalActionProviderExtensionUsesDetectedProvider(t *testin
 	}))
 	defer server.Close()
 
-	shell := adaptershell.New(config.OneBotConfig{
+	shell := onebot11.New(config.OneBotConfig{
 		ForwardWS: config.OneBotTransportConfig{
 			Enabled: true,
 			URL:     "ws" + server.URL[len("http"):],
@@ -238,8 +238,8 @@ func TestExecuteOneBotLocalActionProviderExtensionUsesDetectedProvider(t *testin
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	shell.Start(ctx)
-	waitForAdapterState(t, shell, adaptershell.StateConnected, time.Second)
-	waitForRuntimeInfo(t, shell, adaptershell.TransportForwardWS, "napcat", time.Second)
+	waitForAdapterState(t, shell, onebot11.StateConnected, time.Second)
+	waitForRuntimeInfo(t, shell, onebot11.TransportForwardWS, "napcat", time.Second)
 
 	application := newTestAppState(config.Config{}, nil)
 	application.setTestLocalActions(&stubCapabilityView{capabilities: map[string][]stubCapability{
@@ -279,7 +279,7 @@ func TestExecuteOneBotLocalActionRejectsMissingCapability(t *testing.T) {
 	t.Parallel()
 
 	application := newTestAppState(config.Config{}, nil)
-	application.setTestLocalActions(nil, nil, nil, nil, nil, nil, nil, &adaptershell.Shell{}, nil, nil)
+	application.setTestLocalActions(nil, nil, nil, nil, nil, nil, nil, &onebot11.Shell{}, nil, nil)
 
 	_, err := application.executeOneBotLocalAction(context.Background(), "weather", "req_provider", runtimeaction.Action{
 		Kind: "message.history.get",
@@ -305,7 +305,7 @@ func TestExecuteOneBotLocalActionConnectionLossKeepsPluginRunning(t *testing.T) 
 	}})
 	application.setTestLocalActions(&stubCapabilityView{capabilities: map[string][]stubCapability{
 		"weather": {{PluginID: "weather", Capability: "message.history.get"}},
-	}}, nil, nil, nil, nil, nil, nil, &adaptershell.Shell{}, nil, nil)
+	}}, nil, nil, nil, nil, nil, nil, &onebot11.Shell{}, nil, nil)
 
 	_, err := application.executeOneBotLocalAction(context.Background(), "weather", "req_hist_disconnected", runtimeaction.Action{
 		Kind: "message.history.get",
@@ -325,7 +325,7 @@ func TestExecuteOneBotLocalActionConnectionLossKeepsPluginRunning(t *testing.T) 
 	}
 }
 
-func waitForAdapterState(t *testing.T, shell *adaptershell.Shell, want adaptershell.State, timeout time.Duration) {
+func waitForAdapterState(t *testing.T, shell *onebot11.Shell, want onebot11.State, timeout time.Duration) {
 	t.Helper()
 
 	deadline := time.Now().Add(timeout)
@@ -339,21 +339,21 @@ func waitForAdapterState(t *testing.T, shell *adaptershell.Shell, want adaptersh
 	t.Fatalf("timed out waiting for adapter state %s, got %s", want, shell.Snapshot().State)
 }
 
-func waitForRuntimeInfo(t *testing.T, shell *adaptershell.Shell, transport adaptershell.TransportKey, wantProvider string, timeout time.Duration) {
+func waitForRuntimeInfo(t *testing.T, shell *onebot11.Shell, transport onebot11.TransportKey, wantProvider string, timeout time.Duration) {
 	t.Helper()
 
 	deadline := time.Now().Add(timeout)
 	for time.Now().Before(deadline) {
 		snapshot := shell.Snapshot()
-		var info adaptershell.TransportRuntimeInfo
+		var info onebot11.TransportRuntimeInfo
 		switch transport {
-		case adaptershell.TransportForwardWS:
+		case onebot11.TransportForwardWS:
 			info = snapshot.ForwardWS.RuntimeInfo
-		case adaptershell.TransportReverseWS:
+		case onebot11.TransportReverseWS:
 			info = snapshot.ReverseWS.RuntimeInfo
-		case adaptershell.TransportHTTPAPI:
+		case onebot11.TransportHTTPAPI:
 			info = snapshot.HTTPAPI.RuntimeInfo
-		case adaptershell.TransportWebhook:
+		case onebot11.TransportWebhook:
 			info = snapshot.Webhook.RuntimeInfo
 		}
 		if info.Provider == wantProvider {

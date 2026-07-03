@@ -2,8 +2,8 @@ package dispatch
 
 import (
 	"context"
-	adapteroutbound "github.com/RayleaBot/RayleaBot/server/internal/bot/adapter/onebot11/outbound"
 	"github.com/RayleaBot/RayleaBot/server/internal/logging"
+	"github.com/RayleaBot/RayleaBot/server/internal/onebot11"
 	runtimeaction "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime/action"
 	runtimemanager "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime/manager"
 	runtimeprotocol "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime/protocol"
@@ -111,7 +111,7 @@ func TestDispatchLogsOutboundMessageSuccess(t *testing.T) {
 
 	logger, stream := newDispatchTestLogger()
 	sender := &fakeSender{
-		sendResult: adapteroutbound.SendMessageResult{MessageID: "send-100"},
+		sendResult: onebot11.SendMessageResult{MessageID: "send-100"},
 	}
 	d := New(logger, sender, nil, 16)
 	defer d.Close()
@@ -175,7 +175,7 @@ func TestDispatchLogsOutboundMessageFailure(t *testing.T) {
 
 	logger, stream := newDispatchTestLogger()
 	sender := &fakeSender{
-		sendErr: &adapteroutbound.Error{Code: "adapter.send_failed", Message: "send rejected by upstream"},
+		sendErr: &onebot11.Error{Code: "adapter.send_failed", Message: "send rejected by upstream"},
 	}
 	d := New(logger, sender, nil, 16)
 	defer d.Close()
@@ -221,8 +221,8 @@ func TestDispatchLogsReplyFallbackUsingActualDeliveryKind(t *testing.T) {
 
 	logger, stream := newDispatchTestLogger()
 	sender := &fakeSender{
-		replyErr:   &adapteroutbound.Error{Code: "adapter.reply_target_missing", Message: "reply target missing"},
-		sendResult: adapteroutbound.SendMessageResult{MessageID: "send-200"},
+		replyErr:   &onebot11.Error{Code: "adapter.reply_target_missing", Message: "reply target missing"},
+		sendResult: onebot11.SendMessageResult{MessageID: "send-200"},
 	}
 	resolver := fakeReplyTargets{
 		"evt_reply_target": {
@@ -281,7 +281,7 @@ func TestDispatchLogsOutboundMessageWithoutCommandContext(t *testing.T) {
 
 	logger, stream := newDispatchTestLogger()
 	sender := &fakeSender{
-		sendResult: adapteroutbound.SendMessageResult{MessageID: "send-300"},
+		sendResult: onebot11.SendMessageResult{MessageID: "send-300"},
 	}
 	d := New(logger, sender, nil, 16)
 	defer d.Close()

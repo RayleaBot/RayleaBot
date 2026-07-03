@@ -5,8 +5,8 @@ import (
 	"strings"
 	"time"
 
-	adapteroutbound "github.com/RayleaBot/RayleaBot/server/internal/bot/adapter/onebot11/outbound"
 	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/outbound"
+	"github.com/RayleaBot/RayleaBot/server/internal/onebot11"
 	runtimeaction "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime/action"
 	runtimeprotocol "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime/protocol"
 )
@@ -44,7 +44,7 @@ func (d *Dispatcher) executeAction(ctx context.Context, pluginID string, request
 			DeliveryKind: action.Kind,
 			TargetType:   targetType,
 			TargetID:     targetID,
-		}, &adapteroutbound.Error{
+		}, &onebot11.Error{
 			Code:    "plugin.capability_violation",
 			Message: action.Kind + " capability is not declared",
 		})

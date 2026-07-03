@@ -3,26 +3,26 @@ package outbound
 import (
 	"testing"
 
-	adapterintake "github.com/RayleaBot/RayleaBot/server/internal/bot/adapter/onebot11/intake"
+	"github.com/RayleaBot/RayleaBot/server/internal/onebot11"
 )
 
 func TestReplyTargetCacheStoresRecentEventTargets(t *testing.T) {
 	t.Parallel()
 
 	cache := NewReplyTargetCache(2)
-	cache.Record(adapterintake.NormalizedEvent{
+	cache.Record(onebot11.NormalizedEvent{
 		EventID:          "evt-1",
 		MessageID:        "msg-1",
 		ConversationType: "group",
 		ConversationID:   "2001",
 	})
-	cache.Record(adapterintake.NormalizedEvent{
+	cache.Record(onebot11.NormalizedEvent{
 		EventID:          "evt-2",
 		MessageID:        "msg-2",
 		ConversationType: "private",
 		ConversationID:   "3001",
 	})
-	cache.Record(adapterintake.NormalizedEvent{
+	cache.Record(onebot11.NormalizedEvent{
 		EventID:          "evt-3",
 		MessageID:        "msg-3",
 		ConversationType: "group",

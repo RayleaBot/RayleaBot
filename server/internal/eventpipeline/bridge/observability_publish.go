@@ -4,7 +4,7 @@ import (
 	"strings"
 	"time"
 
-	adapterintake "github.com/RayleaBot/RayleaBot/server/internal/bot/adapter/onebot11/intake"
+	"github.com/RayleaBot/RayleaBot/server/internal/onebot11"
 )
 
 func (b *Bridge) PublishDispatcherRuntime(data DispatcherRuntimeData) {
@@ -30,7 +30,7 @@ func (b *Bridge) PublishDispatcherRuntime(data DispatcherRuntimeData) {
 func (b *Bridge) emitObservabilityLocked(observedAt time.Time, outcome Outcome) {
 	lastKind := b.snapshot.LastEventKind
 	if lastKind == "" {
-		lastKind = adapterintake.EventKindMessageText
+		lastKind = onebot11.EventKindMessageText
 	}
 	data := ObservabilityData{
 		ObservabilityScope:  observabilityScopeBridge,

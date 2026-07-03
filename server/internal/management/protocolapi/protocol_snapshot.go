@@ -1,23 +1,23 @@
 package protocolapi
 
 import (
-	adaptershell "github.com/RayleaBot/RayleaBot/server/internal/bot/adapter/onebot11/shell"
+	"github.com/RayleaBot/RayleaBot/server/internal/onebot11"
 )
 
 func (s *ProtocolService) currentOneBot11ProtocolSnapshot() oneBot11ProtocolSnapshotView {
-	adapterSnapshot := adaptershell.Snapshot{}
+	adapterSnapshot := onebot11.Snapshot{}
 	if s.adapter != nil {
 		adapterSnapshot = s.adapter.Snapshot()
 	}
 
 	transports := []struct {
-		key      adaptershell.TransportKey
-		snapshot adaptershell.TransportSnapshot
+		key      onebot11.TransportKey
+		snapshot onebot11.TransportSnapshot
 	}{
-		{key: adaptershell.TransportReverseWS, snapshot: adapterSnapshot.ReverseWS},
-		{key: adaptershell.TransportForwardWS, snapshot: adapterSnapshot.ForwardWS},
-		{key: adaptershell.TransportHTTPAPI, snapshot: adapterSnapshot.HTTPAPI},
-		{key: adaptershell.TransportWebhook, snapshot: adapterSnapshot.Webhook},
+		{key: onebot11.TransportReverseWS, snapshot: adapterSnapshot.ReverseWS},
+		{key: onebot11.TransportForwardWS, snapshot: adapterSnapshot.ForwardWS},
+		{key: onebot11.TransportHTTPAPI, snapshot: adapterSnapshot.HTTPAPI},
+		{key: onebot11.TransportWebhook, snapshot: adapterSnapshot.Webhook},
 	}
 
 	configured := make([]string, 0, len(transports))
@@ -61,16 +61,16 @@ func (s *ProtocolService) currentOneBot11ProtocolSnapshot() oneBot11ProtocolSnap
 	}
 }
 
-func (s *ProtocolService) transportIngressEnabled(transport adaptershell.TransportKey) bool {
+func (s *ProtocolService) transportIngressEnabled(transport onebot11.TransportKey) bool {
 	if s == nil || s.adapter == nil {
 		return false
 	}
 
 	snapshot := s.adapter.Snapshot()
 	switch transport {
-	case adaptershell.TransportReverseWS:
+	case onebot11.TransportReverseWS:
 		return snapshot.ReverseWS.Enabled && snapshot.ReverseWS.Configured
-	case adaptershell.TransportWebhook:
+	case onebot11.TransportWebhook:
 		return snapshot.Webhook.Enabled && snapshot.Webhook.Configured
 	default:
 		return false

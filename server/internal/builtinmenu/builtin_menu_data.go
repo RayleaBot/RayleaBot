@@ -1,14 +1,14 @@
 package builtinmenu
 
 import (
-	adapterintake "github.com/RayleaBot/RayleaBot/server/internal/bot/adapter/onebot11/intake"
+	"github.com/RayleaBot/RayleaBot/server/internal/onebot11"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins/actions/renderidentity"
 	runtimeprotocol "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime/protocol"
 	renderservice "github.com/RayleaBot/RayleaBot/server/internal/render/service"
 )
 
-func (s *Service) buildBuiltinMenuData(event adapterintake.NormalizedEvent, target string) builtinMenuRenderData {
+func (s *Service) buildBuiltinMenuData(event onebot11.NormalizedEvent, target string) builtinMenuRenderData {
 	items := s.visibleBuiltinMenuItems(event)
 	runtimeEvent := runtimeEventFromAdapter(event)
 	cfg := s.config()
@@ -28,7 +28,7 @@ func (s *Service) buildBuiltinMenuData(event adapterintake.NormalizedEvent, targ
 	return builtinMenuRenderData{Data: s.withBuiltinMenuIdentity(builtinRootMenuData(items, cfg), runtimeEvent)}
 }
 
-func (s *Service) visibleBuiltinMenuItems(event adapterintake.NormalizedEvent) []map[string]any {
+func (s *Service) visibleBuiltinMenuItems(event onebot11.NormalizedEvent) []map[string]any {
 	if s == nil || s.plugins == nil {
 		return []map[string]any{}
 	}
@@ -63,7 +63,7 @@ func (s *Service) visibleBuiltinMenuItems(event adapterintake.NormalizedEvent) [
 	return items
 }
 
-func runtimeEventFromAdapter(event adapterintake.NormalizedEvent) runtimeprotocol.Event {
+func runtimeEventFromAdapter(event onebot11.NormalizedEvent) runtimeprotocol.Event {
 	result := runtimeprotocol.Event{
 		EventID:        event.EventID,
 		SourceProtocol: event.SourceProtocol,

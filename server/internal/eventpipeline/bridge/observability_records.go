@@ -3,10 +3,10 @@ package bridge
 import (
 	"time"
 
-	adapterintake "github.com/RayleaBot/RayleaBot/server/internal/bot/adapter/onebot11/intake"
+	"github.com/RayleaBot/RayleaBot/server/internal/onebot11"
 )
 
-func (b *Bridge) recordIgnored(event adapterintake.NormalizedEvent, observedAt time.Time) {
+func (b *Bridge) recordIgnored(event onebot11.NormalizedEvent, observedAt time.Time) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
@@ -23,7 +23,7 @@ func (b *Bridge) recordIgnored(event adapterintake.NormalizedEvent, observedAt t
 	}
 }
 
-func (b *Bridge) recordRejected(event adapterintake.NormalizedEvent, observedAt time.Time, code, message string) {
+func (b *Bridge) recordRejected(event onebot11.NormalizedEvent, observedAt time.Time, code, message string) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
@@ -40,7 +40,7 @@ func (b *Bridge) recordRejected(event adapterintake.NormalizedEvent, observedAt 
 	}
 }
 
-func (b *Bridge) recordError(event adapterintake.NormalizedEvent, observedAt time.Time, code, message string) {
+func (b *Bridge) recordError(event onebot11.NormalizedEvent, observedAt time.Time, code, message string) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
@@ -58,7 +58,7 @@ func (b *Bridge) recordError(event adapterintake.NormalizedEvent, observedAt tim
 	b.emitObservabilityLocked(observedAt, OutcomeError)
 }
 
-func (b *Bridge) recordDelivered(event adapterintake.NormalizedEvent, observedAt time.Time) {
+func (b *Bridge) recordDelivered(event onebot11.NormalizedEvent, observedAt time.Time) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 

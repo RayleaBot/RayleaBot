@@ -16,11 +16,11 @@ import (
 	"time"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/app/httpwire"
-	adaptershell "github.com/RayleaBot/RayleaBot/server/internal/bot/adapter/onebot11/shell"
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/outbound"
 	"github.com/RayleaBot/RayleaBot/server/internal/management/configapi"
 	"github.com/RayleaBot/RayleaBot/server/internal/management/protocolapi"
+	"github.com/RayleaBot/RayleaBot/server/internal/onebot11"
 	renderbrowser "github.com/RayleaBot/RayleaBot/server/internal/render/browser"
 	renderservice "github.com/RayleaBot/RayleaBot/server/internal/render/service"
 	"github.com/RayleaBot/RayleaBot/server/internal/storage"
@@ -198,7 +198,7 @@ func TestApplyHotReloadableFieldsFallsBackToRestartRequiredWhenAdapterReloadFail
 	}
 	app := newTestAppState(baseConfig, logger)
 
-	adapterShell := adaptershell.New(baseConfig.OneBot, baseConfig.Adapter, logger)
+	adapterShell := onebot11.New(baseConfig.OneBot, baseConfig.Adapter, logger)
 	startCtx, cancelStart := context.WithCancel(context.Background())
 	adapterShell.Start(startCtx)
 	cancelStart()

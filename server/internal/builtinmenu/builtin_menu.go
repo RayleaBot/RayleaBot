@@ -6,11 +6,10 @@ import (
 	"regexp"
 	"strings"
 
-	adapterintake "github.com/RayleaBot/RayleaBot/server/internal/bot/adapter/onebot11/intake"
-	adapteroutbound "github.com/RayleaBot/RayleaBot/server/internal/bot/adapter/onebot11/outbound"
 	"github.com/RayleaBot/RayleaBot/server/internal/command"
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/outbound"
+	"github.com/RayleaBot/RayleaBot/server/internal/onebot11"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	renderservice "github.com/RayleaBot/RayleaBot/server/internal/render/service"
 )
@@ -21,8 +20,8 @@ const (
 )
 
 type Sender interface {
-	SendMessage(context.Context, adapteroutbound.OutboundMessageSend) (adapteroutbound.SendMessageResult, error)
-	SendReply(context.Context, adapteroutbound.OutboundMessageReply) (adapteroutbound.SendMessageResult, error)
+	SendMessage(context.Context, onebot11.OutboundMessageSend) (onebot11.SendMessageResult, error)
+	SendReply(context.Context, onebot11.OutboundMessageReply) (onebot11.SendMessageResult, error)
 }
 
 type Deps struct {
@@ -66,7 +65,7 @@ func New(deps Deps) *Service {
 	}
 }
 
-func (s *Service) Handle(ctx context.Context, event adapterintake.NormalizedEvent) bool {
+func (s *Service) Handle(ctx context.Context, event onebot11.NormalizedEvent) bool {
 	request := s.Match(event)
 	if !request.Matched {
 		return false
@@ -92,7 +91,7 @@ func (s *Service) Handle(ctx context.Context, event adapterintake.NormalizedEven
 	return true
 }
 
-func (s *Service) Match(event adapterintake.NormalizedEvent) Request {
+func (s *Service) Match(event onebot11.NormalizedEvent) Request {
 	if s == nil || strings.TrimSpace(event.PlainText) == "" {
 		return Request{}
 	}

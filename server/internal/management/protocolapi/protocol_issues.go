@@ -3,12 +3,12 @@ package protocolapi
 import (
 	"strings"
 
-	adaptershell "github.com/RayleaBot/RayleaBot/server/internal/bot/adapter/onebot11/shell"
+	"github.com/RayleaBot/RayleaBot/server/internal/onebot11"
 )
 
-func protocolIssuesFromSnapshot(snapshot adaptershell.Snapshot) []protocolIssueResponse {
+func protocolIssuesFromSnapshot(snapshot onebot11.Snapshot) []protocolIssueResponse {
 	issues := make([]protocolIssueResponse, 0, 4)
-	appendIssue := func(transport adaptershell.TransportKey, transportSnapshot adaptershell.TransportSnapshot) {
+	appendIssue := func(transport onebot11.TransportKey, transportSnapshot onebot11.TransportSnapshot) {
 		code := strings.TrimSpace(transportSnapshot.LastErrorCode)
 		if code == "" {
 			return
@@ -20,20 +20,20 @@ func protocolIssuesFromSnapshot(snapshot adaptershell.Snapshot) []protocolIssueR
 		})
 	}
 
-	appendIssue(adaptershell.TransportForwardWS, snapshot.ForwardWS)
-	appendIssue(adaptershell.TransportReverseWS, snapshot.ReverseWS)
-	appendIssue(adaptershell.TransportHTTPAPI, snapshot.HTTPAPI)
-	appendIssue(adaptershell.TransportWebhook, snapshot.Webhook)
+	appendIssue(onebot11.TransportForwardWS, snapshot.ForwardWS)
+	appendIssue(onebot11.TransportReverseWS, snapshot.ReverseWS)
+	appendIssue(onebot11.TransportHTTPAPI, snapshot.HTTPAPI)
+	appendIssue(onebot11.TransportWebhook, snapshot.Webhook)
 	return issues
 }
 
-func transportIssueSummary(transport adaptershell.TransportKey, snapshot adaptershell.TransportSnapshot) string {
+func transportIssueSummary(transport onebot11.TransportKey, snapshot onebot11.TransportSnapshot) string {
 	switch transport {
-	case adaptershell.TransportForwardWS:
+	case onebot11.TransportForwardWS:
 		switch snapshot.State {
-		case adaptershell.TransportStateAuthFailed:
+		case onebot11.TransportStateAuthFailed:
 			return "OneBot 主动连接鉴权失败，请检查访问令牌。"
-		case adaptershell.TransportStateReconnecting:
+		case onebot11.TransportStateReconnecting:
 			return "OneBot 主动连接已断开，正在重试。"
 		}
 		switch strings.TrimSpace(snapshot.LastErrorCode) {
@@ -43,11 +43,11 @@ func transportIssueSummary(transport adaptershell.TransportKey, snapshot adapter
 			return "OneBot 主动连接失败，请检查地址与网络。"
 		}
 		return "OneBot 主动连接出现异常。"
-	case adaptershell.TransportReverseWS:
+	case onebot11.TransportReverseWS:
 		switch snapshot.State {
-		case adaptershell.TransportStateAuthFailed:
+		case onebot11.TransportStateAuthFailed:
 			return "OneBot 回连鉴权失败，请检查访问令牌。"
-		case adaptershell.TransportStateConnected:
+		case onebot11.TransportStateConnected:
 			return "OneBot 回连链路已恢复。"
 		}
 		switch strings.TrimSpace(snapshot.LastErrorCode) {
@@ -57,11 +57,11 @@ func transportIssueSummary(transport adaptershell.TransportKey, snapshot adapter
 			return "OneBot 回连会话已断开，请让 OneBot 重新回连。"
 		}
 		return "OneBot 回连链路出现异常。"
-	case adaptershell.TransportHTTPAPI:
+	case onebot11.TransportHTTPAPI:
 		switch snapshot.State {
-		case adaptershell.TransportStateAuthFailed:
+		case onebot11.TransportStateAuthFailed:
 			return "OneBot HTTP API 鉴权失败，请检查访问令牌。"
-		case adaptershell.TransportStateConnected:
+		case onebot11.TransportStateConnected:
 			return "OneBot HTTP API 已恢复可用。"
 		}
 		switch strings.TrimSpace(snapshot.LastErrorCode) {
@@ -73,11 +73,11 @@ func transportIssueSummary(transport adaptershell.TransportKey, snapshot adapter
 			return "OneBot HTTP API 请求失败，请检查地址与网络。"
 		}
 		return "OneBot HTTP API 出现异常。"
-	case adaptershell.TransportWebhook:
+	case onebot11.TransportWebhook:
 		switch snapshot.State {
-		case adaptershell.TransportStateAuthFailed:
+		case onebot11.TransportStateAuthFailed:
 			return "OneBot Webhook 鉴权失败，请检查访问令牌。"
-		case adaptershell.TransportStateListening, adaptershell.TransportStateConnected:
+		case onebot11.TransportStateListening, onebot11.TransportStateConnected:
 			if strings.TrimSpace(snapshot.LastErrorCode) == "" {
 				return "OneBot Webhook 入口运行正常。"
 			}

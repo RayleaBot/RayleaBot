@@ -4,8 +4,8 @@ import (
 	"regexp"
 	"strings"
 
-	adapterintake "github.com/RayleaBot/RayleaBot/server/internal/bot/adapter/onebot11/intake"
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
+	"github.com/RayleaBot/RayleaBot/server/internal/onebot11"
 	"github.com/RayleaBot/RayleaBot/server/internal/permission"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 )
@@ -17,7 +17,7 @@ type commandPolicyContext struct {
 	PrimaryPluginID  string
 }
 
-func (s *Service) CommandInfoForEvent(event adapterintake.NormalizedEvent) *permission.CommandInfo {
+func (s *Service) CommandInfoForEvent(event onebot11.NormalizedEvent) *permission.CommandInfo {
 	commandName := commandNameFromEvent(event)
 	if commandName == "" {
 		return nil
@@ -30,7 +30,7 @@ func (s *Service) CommandInfoForEvent(event adapterintake.NormalizedEvent) *perm
 	return commandContext.PermissionInfo
 }
 
-func (s *Service) commandPolicyContextForEvent(event adapterintake.NormalizedEvent) *commandPolicyContext {
+func (s *Service) commandPolicyContextForEvent(event onebot11.NormalizedEvent) *commandPolicyContext {
 	commandName := commandNameFromEvent(event)
 	if commandName == "" {
 		return nil
@@ -75,7 +75,7 @@ func (s *Service) commandPolicyContextForEvent(event adapterintake.NormalizedEve
 	return context
 }
 
-func commandNameFromEvent(event adapterintake.NormalizedEvent) string {
+func commandNameFromEvent(event onebot11.NormalizedEvent) string {
 	if event.PayloadFields == nil {
 		return ""
 	}

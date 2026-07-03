@@ -3,12 +3,11 @@ package bridge
 import (
 	"strings"
 
-	adapterintake "github.com/RayleaBot/RayleaBot/server/internal/bot/adapter/onebot11/intake"
-	adaptersegments "github.com/RayleaBot/RayleaBot/server/internal/bot/adapter/onebot11/segments"
+	"github.com/RayleaBot/RayleaBot/server/internal/onebot11"
 	runtimeprotocol "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime/protocol"
 )
 
-func runtimeEventFromAdapter(event adapterintake.NormalizedEvent) runtimeprotocol.Event {
+func runtimeEventFromAdapter(event onebot11.NormalizedEvent) runtimeprotocol.Event {
 	runtimeEvent := runtimeprotocol.Event{
 		EventID:        event.EventID,
 		SourceProtocol: event.SourceProtocol,
@@ -37,7 +36,7 @@ func runtimeEventFromAdapter(event adapterintake.NormalizedEvent) runtimeprotoco
 	return runtimeEvent
 }
 
-func runtimeSegmentsFromAdapter(segments []adaptersegments.MessageSegment) []runtimeprotocol.EventSegment {
+func runtimeSegmentsFromAdapter(segments []onebot11.MessageSegment) []runtimeprotocol.EventSegment {
 	if len(segments) == 0 {
 		return nil
 	}
@@ -51,14 +50,14 @@ func runtimeSegmentsFromAdapter(segments []adaptersegments.MessageSegment) []run
 	return projected
 }
 
-func bridgeTargetType(event adapterintake.NormalizedEvent) string {
+func bridgeTargetType(event onebot11.NormalizedEvent) string {
 	if strings.TrimSpace(event.TargetType) != "" {
 		return event.TargetType
 	}
 	return event.ConversationType
 }
 
-func bridgeTargetID(event adapterintake.NormalizedEvent) string {
+func bridgeTargetID(event onebot11.NormalizedEvent) string {
 	if strings.TrimSpace(event.TargetID) != "" {
 		return event.TargetID
 	}

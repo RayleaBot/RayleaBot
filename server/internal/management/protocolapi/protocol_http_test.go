@@ -10,9 +10,9 @@ import (
 	"testing"
 	"time"
 
-	adaptershell "github.com/RayleaBot/RayleaBot/server/internal/bot/adapter/onebot11/shell"
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	managementevents "github.com/RayleaBot/RayleaBot/server/internal/management/events"
+	"github.com/RayleaBot/RayleaBot/server/internal/onebot11"
 	"github.com/coder/websocket"
 	"github.com/coder/websocket/wsjson"
 )
@@ -30,15 +30,15 @@ func TestProtocolIssuesFromSnapshotUsesStableOperatorSummaries(t *testing.T) {
 
 	cases := []struct {
 		name        string
-		apply       func(*adaptershell.Snapshot)
+		apply       func(*onebot11.Snapshot)
 		wantCode    string
 		wantSummary string
 	}{
 		{
 			name: "forward websocket auth failure hides low level error",
-			apply: func(snapshot *adaptershell.Snapshot) {
-				snapshot.ForwardWS = adaptershell.TransportSnapshot{
-					State:            adaptershell.TransportStateAuthFailed,
+			apply: func(snapshot *onebot11.Snapshot) {
+				snapshot.ForwardWS = onebot11.TransportSnapshot{
+					State:            onebot11.TransportStateAuthFailed,
 					LastErrorCode:    "adapter.transport_forward_ws_connection_failed",
 					LastErrorMessage: "websocket: bad handshake",
 				}
@@ -48,9 +48,9 @@ func TestProtocolIssuesFromSnapshotUsesStableOperatorSummaries(t *testing.T) {
 		},
 		{
 			name: "reverse websocket auth failure stays readable",
-			apply: func(snapshot *adaptershell.Snapshot) {
-				snapshot.ReverseWS = adaptershell.TransportSnapshot{
-					State:            adaptershell.TransportStateAuthFailed,
+			apply: func(snapshot *onebot11.Snapshot) {
+				snapshot.ReverseWS = onebot11.TransportSnapshot{
+					State:            onebot11.TransportStateAuthFailed,
 					LastErrorCode:    "adapter.transport_reverse_ws_auth_failed",
 					LastErrorMessage: "reverse websocket authentication failed",
 				}
@@ -60,9 +60,9 @@ func TestProtocolIssuesFromSnapshotUsesStableOperatorSummaries(t *testing.T) {
 		},
 		{
 			name: "http api invalid response hides parse detail",
-			apply: func(snapshot *adaptershell.Snapshot) {
-				snapshot.HTTPAPI = adaptershell.TransportSnapshot{
-					State:            adaptershell.TransportStateReconnecting,
+			apply: func(snapshot *onebot11.Snapshot) {
+				snapshot.HTTPAPI = onebot11.TransportSnapshot{
+					State:            onebot11.TransportStateReconnecting,
 					LastErrorCode:    "adapter.transport_http_api_invalid_response",
 					LastErrorMessage: "invalid character 'b' looking for beginning of value",
 				}
@@ -72,9 +72,9 @@ func TestProtocolIssuesFromSnapshotUsesStableOperatorSummaries(t *testing.T) {
 		},
 		{
 			name: "webhook invalid payload hides raw frame detail",
-			apply: func(snapshot *adaptershell.Snapshot) {
-				snapshot.Webhook = adaptershell.TransportSnapshot{
-					State:            adaptershell.TransportStateListening,
+			apply: func(snapshot *onebot11.Snapshot) {
+				snapshot.Webhook = onebot11.TransportSnapshot{
+					State:            onebot11.TransportStateListening,
 					LastErrorCode:    "adapter.transport_webhook_invalid_payload",
 					LastErrorMessage: "invalid frame: unsupported payload",
 				}
@@ -88,7 +88,7 @@ func TestProtocolIssuesFromSnapshotUsesStableOperatorSummaries(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			snapshot := adaptershell.Snapshot{}
+			snapshot := onebot11.Snapshot{}
 			tc.apply(&snapshot)
 
 			issues := protocolIssuesFromSnapshot(snapshot)
@@ -111,14 +111,14 @@ func TestProtocolIssuesFromSnapshotUsesStableOperatorSummaries(t *testing.T) {
 func TestProtocolIssuesFromSnapshotSkipsClearedErrors(t *testing.T) {
 	t.Parallel()
 
-	snapshot := adaptershell.Snapshot{
-		ForwardWS: adaptershell.TransportSnapshot{
-			State:            adaptershell.TransportStateConnected,
+	snapshot := onebot11.Snapshot{
+		ForwardWS: onebot11.TransportSnapshot{
+			State:            onebot11.TransportStateConnected,
 			LastErrorCode:    "",
 			LastErrorMessage: "dial tcp 127.0.0.1:5700: connectex: connection refused",
 		},
-		Webhook: adaptershell.TransportSnapshot{
-			State:            adaptershell.TransportStateListening,
+		Webhook: onebot11.TransportSnapshot{
+			State:            onebot11.TransportStateListening,
 			LastErrorCode:    "",
 			LastErrorMessage: "invalid frame: unsupported payload",
 		},
@@ -191,7 +191,7 @@ func TestProtocolSnapshotEventMatchesCurrentProjection(t *testing.T) {
 	}))
 	defer server.Close()
 
-	shell := adaptershell.New(config.OneBotConfig{
+	shell := onebot11.New(config.OneBotConfig{
 		ForwardWS: config.OneBotTransportConfig{
 			Enabled: true,
 			URL:     "ws" + server.URL[len("http"):],
@@ -200,8 +200,8 @@ func TestProtocolSnapshotEventMatchesCurrentProjection(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	shell.Start(ctx)
-	waitForAdapterState(t, shell, adaptershell.StateConnected, time.Second)
-	waitForRuntimeInfo(t, shell, adaptershell.TransportForwardWS, "luckylillia", time.Second)
+	waitForAdapterState(t, shell, onebot11.StateConnected, time.Second)
+	waitForRuntimeInfo(t, shell, onebot11.TransportForwardWS, "luckylillia", time.Second)
 	if len(requests) != 2 {
 		t.Fatalf("runtime info requests = %d, want 2", len(requests))
 	}
@@ -300,7 +300,7 @@ func TestProtocolTargetsReturnPartialResultsWhenFriendListTimesOut(t *testing.T)
 	}))
 	defer server.Close()
 
-	shell := adaptershell.NewForTest(config.OneBotConfig{
+	shell := onebot11.NewForTest(config.OneBotConfig{
 		ForwardWS: config.OneBotTransportConfig{
 			Enabled: true,
 			URL:     "ws" + server.URL[len("http"):],
@@ -309,7 +309,7 @@ func TestProtocolTargetsReturnPartialResultsWhenFriendListTimesOut(t *testing.T)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	shell.Start(ctx)
-	waitForAdapterState(t, shell, adaptershell.StateConnected, time.Second)
+	waitForAdapterState(t, shell, onebot11.StateConnected, time.Second)
 
 	service := NewProtocolService(protocolTestConfigSource{}, shell)
 	service.oneBot11TargetReadTimeout = 60 * time.Millisecond

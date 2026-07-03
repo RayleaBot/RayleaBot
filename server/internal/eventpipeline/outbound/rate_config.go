@@ -4,13 +4,13 @@ import (
 	"strings"
 	"time"
 
-	adapteroutbound "github.com/RayleaBot/RayleaBot/server/internal/bot/adapter/onebot11/outbound"
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
+	"github.com/RayleaBot/RayleaBot/server/internal/onebot11"
 	"github.com/RayleaBot/RayleaBot/server/internal/permission"
 )
 
 func rateLimitedError() error {
-	return &adapteroutbound.Error{
+	return &onebot11.Error{
 		Code:    "platform.rate_limited",
 		Message: "outbound message rate limit exceeded",
 	}

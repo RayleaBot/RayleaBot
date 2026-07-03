@@ -4,12 +4,12 @@ import (
 	"fmt"
 	"strings"
 
-	adapterintake "github.com/RayleaBot/RayleaBot/server/internal/bot/adapter/onebot11/intake"
 	"github.com/RayleaBot/RayleaBot/server/internal/logging"
+	"github.com/RayleaBot/RayleaBot/server/internal/onebot11"
 	"github.com/RayleaBot/RayleaBot/server/internal/redact"
 )
 
-func bridgeEventSummary(action string, event adapterintake.NormalizedEvent) string {
+func bridgeEventSummary(action string, event onebot11.NormalizedEvent) string {
 	if summary, ok := logging.OneBotInboundMessageSummary(logging.OneBotInboundMessageSummaryInput{
 		SourceProtocol:   event.SourceProtocol,
 		BotID:            event.BotID,

@@ -3,10 +3,10 @@ package eventingress
 import (
 	"context"
 
-	adapterintake "github.com/RayleaBot/RayleaBot/server/internal/bot/adapter/onebot11/intake"
+	"github.com/RayleaBot/RayleaBot/server/internal/onebot11"
 )
 
-func (s *Service) HandleAdapterEvent(ctx context.Context, event adapterintake.NormalizedEvent) {
+func (s *Service) HandleAdapterEvent(ctx context.Context, event onebot11.NormalizedEvent) {
 	if s == nil {
 		return
 	}
@@ -33,7 +33,7 @@ func (s *Service) HandleAdapterEvent(ctx context.Context, event adapterintake.No
 	}
 }
 
-func (s *Service) enrichEventMetadata(ctx context.Context, event adapterintake.NormalizedEvent) adapterintake.NormalizedEvent {
+func (s *Service) enrichEventMetadata(ctx context.Context, event onebot11.NormalizedEvent) onebot11.NormalizedEvent {
 	if s == nil || s.metadataEnricher == nil {
 		return event
 	}

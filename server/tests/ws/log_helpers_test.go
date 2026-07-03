@@ -6,8 +6,7 @@ import (
 	"testing"
 	"time"
 
-	adapterintake "github.com/RayleaBot/RayleaBot/server/internal/bot/adapter/onebot11/intake"
-	adaptersegments "github.com/RayleaBot/RayleaBot/server/internal/bot/adapter/onebot11/segments"
+	"github.com/RayleaBot/RayleaBot/server/internal/onebot11"
 )
 
 func putWhitelistState(t *testing.T, baseURL, token string, enabled bool) {
@@ -35,10 +34,10 @@ func putWhitelistState(t *testing.T, baseURL, token string, enabled bool) {
 	}
 }
 
-func commandRejectionEvent() adapterintake.NormalizedEvent {
+func commandRejectionEvent() onebot11.NormalizedEvent {
 	now := time.Now()
-	return adapterintake.NormalizedEvent{
-		Kind:             adapterintake.EventKindMessage,
+	return onebot11.NormalizedEvent{
+		Kind:             onebot11.EventKindMessage,
 		EventID:          "evt-command-rejected-echo",
 		BotID:            "10001",
 		SourceProtocol:   "onebot11",
@@ -50,7 +49,7 @@ func commandRejectionEvent() adapterintake.NormalizedEvent {
 		SenderID:         "30001",
 		MessageID:        "90001",
 		PlainText:        "/echo",
-		Segments: []adaptersegments.MessageSegment{{
+		Segments: []onebot11.MessageSegment{{
 			Type: "text",
 			Data: map[string]any{"text": "/echo"},
 		}},

@@ -1,10 +1,10 @@
 package bridge
 
 import (
-	adapterintake "github.com/RayleaBot/RayleaBot/server/internal/bot/adapter/onebot11/intake"
+	"github.com/RayleaBot/RayleaBot/server/internal/onebot11"
 )
 
-func isSupportedEvent(event adapterintake.NormalizedEvent) bool {
+func isSupportedEvent(event onebot11.NormalizedEvent) bool {
 	if event.EventID == "" || event.SourceProtocol != "onebot11" || event.SourceAdapter != "adapter.onebot11" {
 		return false
 	}
@@ -25,7 +25,7 @@ func isSupportedEvent(event adapterintake.NormalizedEvent) bool {
 
 func isSupportedEventKind(kind string) bool {
 	switch kind {
-	case adapterintake.EventKindMessageText, adapterintake.EventKindMessage, adapterintake.EventKindMessageSent, adapterintake.EventKindNotice, adapterintake.EventKindRequest, adapterintake.EventKindMeta:
+	case onebot11.EventKindMessageText, onebot11.EventKindMessage, onebot11.EventKindMessageSent, onebot11.EventKindNotice, onebot11.EventKindRequest, onebot11.EventKindMeta:
 		return true
 	default:
 		return false
@@ -33,10 +33,10 @@ func isSupportedEventKind(kind string) bool {
 }
 
 func isMessageEventKind(kind string) bool {
-	return kind == adapterintake.EventKindMessageText || kind == adapterintake.EventKindMessage || kind == adapterintake.EventKindMessageSent
+	return kind == onebot11.EventKindMessageText || kind == onebot11.EventKindMessage || kind == onebot11.EventKindMessageSent
 }
 
-func isSupportedEventType(event adapterintake.NormalizedEvent) bool {
+func isSupportedEventType(event onebot11.NormalizedEvent) bool {
 	switch event.EventType {
 	case "message.group":
 		return event.ConversationType == "group"

@@ -1,6 +1,6 @@
 package onebot
 
-import protocolonebot "github.com/RayleaBot/RayleaBot/server/internal/protocol/onebot"
+import "github.com/RayleaBot/RayleaBot/server/internal/onebot11"
 
 type Spec struct {
 	Kind          string
@@ -39,7 +39,7 @@ func IsProviderExtensionAction(kind string) bool {
 }
 
 func buildRegistry() map[string]Spec {
-	baseSpecs := protocolonebot.Actions()
+	baseSpecs := onebot11.Actions()
 	items := make(map[string]Spec, len(baseSpecs))
 	for _, baseSpec := range baseSpecs {
 		spec := normalizeSpec(specFromProtocol(baseSpec))
@@ -58,7 +58,7 @@ var projectors = map[string]func(map[string]any) (string, map[string]any, error)
 	"file.group.fs.delete": projectGroupFilesDelete,
 }
 
-func specFromProtocol(baseSpec protocolonebot.ActionSpec) Spec {
+func specFromProtocol(baseSpec onebot11.ActionSpec) Spec {
 	spec := Spec{
 		Kind:          baseSpec.Kind,
 		Capability:    baseSpec.Capability,

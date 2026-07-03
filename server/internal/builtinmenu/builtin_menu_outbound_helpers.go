@@ -4,9 +4,9 @@ import (
 	"context"
 	"strings"
 
-	adapterintake "github.com/RayleaBot/RayleaBot/server/internal/bot/adapter/onebot11/intake"
 	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/outbound"
 	"github.com/RayleaBot/RayleaBot/server/internal/logging"
+	"github.com/RayleaBot/RayleaBot/server/internal/onebot11"
 )
 
 func (s *Service) waitLimit(ctx context.Context, request outbound.MessageLimitRequest) error {
@@ -23,7 +23,7 @@ func (s *Service) logBuiltinMenuError(err error) {
 	s.logger.Warn("内置菜单回复发送失败："+err.Error(), "component", "app", "error", err)
 }
 
-func (s *Service) logBuiltinMenuTrigger(_ context.Context, event adapterintake.NormalizedEvent, request Request) {
+func (s *Service) logBuiltinMenuTrigger(_ context.Context, event onebot11.NormalizedEvent, request Request) {
 	if s == nil || s.logger == nil {
 		return
 	}
@@ -60,7 +60,7 @@ func (s *Service) logBuiltinMenuTrigger(_ context.Context, event adapterintake.N
 	s.logger.Info(summary, fields...)
 }
 
-func (s *Service) builtinMenuTargetLabel(ctx context.Context, event adapterintake.NormalizedEvent) string {
+func (s *Service) builtinMenuTargetLabel(ctx context.Context, event onebot11.NormalizedEvent) string {
 	targetType := strings.TrimSpace(event.ConversationType)
 	targetID := strings.TrimSpace(event.ConversationID)
 	targetName := strings.TrimSpace(event.TargetName)

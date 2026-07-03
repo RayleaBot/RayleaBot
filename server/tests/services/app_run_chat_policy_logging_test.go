@@ -2,13 +2,12 @@ package services
 
 import (
 	"context"
-	adapterintake "github.com/RayleaBot/RayleaBot/server/internal/bot/adapter/onebot11/intake"
-	adapteroutbound "github.com/RayleaBot/RayleaBot/server/internal/bot/adapter/onebot11/outbound"
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/bridge"
 	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/dispatch"
 	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/outbound"
 	"github.com/RayleaBot/RayleaBot/server/internal/logging"
+	"github.com/RayleaBot/RayleaBot/server/internal/onebot11"
 	"github.com/RayleaBot/RayleaBot/server/internal/permission"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
@@ -26,7 +25,7 @@ func TestApplyChatPolicyLogsCooldownReplyFailure(t *testing.T) {
 
 	logger, stream := newAppTestLogger()
 	sender := &recordingOutboundSender{
-		replyErr: &adapteroutbound.Error{Code: "adapter.send_failed", Message: "cooldown reply blocked"},
+		replyErr: &onebot11.Error{Code: "adapter.send_failed", Message: "cooldown reply blocked"},
 	}
 	cfg := config.Config{
 		Command: &config.CommandConfig{
@@ -53,8 +52,8 @@ func TestApplyChatPolicyLogsCooldownReplyFailure(t *testing.T) {
 		}},
 	}}), nil, sender, bridge.New(logger, &recordingDispatcherClient{}))
 
-	event := adapterintake.NormalizedEvent{
-		Kind:             adapterintake.EventKindMessage,
+	event := onebot11.NormalizedEvent{
+		Kind:             onebot11.EventKindMessage,
 		EventID:          "evt-weather-log-failure",
 		SourceProtocol:   "onebot11",
 		SourceAdapter:    "adapter.onebot11",
@@ -245,18 +244,18 @@ type recordingOutboundSender struct {
 	messageErr       error
 }
 
-func (s *recordingOutboundSender) SendMessage(_ context.Context, action adapteroutbound.OutboundMessageSend) (adapteroutbound.SendMessageResult, error) {
+func (s *recordingOutboundSender) SendMessage(_ context.Context, action onebot11.OutboundMessageSend) (onebot11.SendMessageResult, error) {
 	s.messageCount++
 	s.lastMessageText = firstTextSegment(action.Segments)
 	s.lastMessageImage = firstImageSegment(action.Segments)
-	return adapteroutbound.SendMessageResult{MessageID: "msg-1"}, s.messageErr
+	return onebot11.SendMessageResult{MessageID: "msg-1"}, s.messageErr
 }
 
-func (s *recordingOutboundSender) SendReply(_ context.Context, action adapteroutbound.OutboundMessageReply) (adapteroutbound.SendMessageResult, error) {
+func (s *recordingOutboundSender) SendReply(_ context.Context, action onebot11.OutboundMessageReply) (onebot11.SendMessageResult, error) {
 	s.replyCount++
 	s.lastReplyText = firstTextSegment(action.Segments)
 	s.lastReplyImage = firstImageSegment(action.Segments)
-	return adapteroutbound.SendMessageResult{MessageID: "msg-2"}, s.replyErr
+	return onebot11.SendMessageResult{MessageID: "msg-2"}, s.replyErr
 }
 
 type recordingAppOutboundLimiter struct {
@@ -285,12 +284,12 @@ type contextAwareOutboundLimiter struct {
 func (l *contextAwareOutboundLimiter) Wait(ctx context.Context, _ outbound.MessageLimitRequest) error {
 	l.ctxErr = ctx.Err()
 	if l.ctxErr != nil {
-		return &adapteroutbound.Error{Code: "platform.rate_limited", Message: "outbound message rate limit exceeded"}
+		return &onebot11.Error{Code: "platform.rate_limited", Message: "outbound message rate limit exceeded"}
 	}
 	return nil
 }
 
-func firstTextSegment(segments []adapteroutbound.OutboundMessageSegment) string {
+func firstTextSegment(segments []onebot11.OutboundMessageSegment) string {
 	for _, segment := range segments {
 		if segment.Type != "text" {
 			continue
@@ -302,7 +301,7 @@ func firstTextSegment(segments []adapteroutbound.OutboundMessageSegment) string 
 	return ""
 }
 
-func firstImageSegment(segments []adapteroutbound.OutboundMessageSegment) string {
+func firstImageSegment(segments []onebot11.OutboundMessageSegment) string {
 	for _, segment := range segments {
 		if segment.Type != "image" {
 			continue

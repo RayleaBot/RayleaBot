@@ -13,8 +13,6 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/app/pluginstack"
 	"github.com/RayleaBot/RayleaBot/server/internal/app/renderstack"
 	"github.com/RayleaBot/RayleaBot/server/internal/app/servicegraph"
-	adapterintake "github.com/RayleaBot/RayleaBot/server/internal/bot/adapter/onebot11/intake"
-	adaptershell "github.com/RayleaBot/RayleaBot/server/internal/bot/adapter/onebot11/shell"
 	menuext "github.com/RayleaBot/RayleaBot/server/internal/builtinmenu"
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/bridge"
@@ -25,6 +23,7 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/logging"
 	"github.com/RayleaBot/RayleaBot/server/internal/management/configapi"
 	managementevents "github.com/RayleaBot/RayleaBot/server/internal/management/events"
+	"github.com/RayleaBot/RayleaBot/server/internal/onebot11"
 	"github.com/RayleaBot/RayleaBot/server/internal/permission"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	localaction "github.com/RayleaBot/RayleaBot/server/internal/plugins/actions"
@@ -213,7 +212,7 @@ func (a *serviceHarness) setTestEventIngressWithGovernance(catalog *plugincatalo
 	})
 }
 
-func (a *serviceHarness) setTestLocalActions(capabilities localaction.CapabilityView, pluginConfigRepo pluginconfig.Repository, pluginFiles *pluginfile.Service, pluginKV pluginkv.Repository, schedulerEngine *scheduler.Engine, dispatcher *dispatch.Dispatcher, rendererService *renderservice.Service, adapterShell *adaptershell.Shell, limiter *localaction.PluginLogLimiter, webhookService *pluginwebhook.Service) {
+func (a *serviceHarness) setTestLocalActions(capabilities localaction.CapabilityView, pluginConfigRepo pluginconfig.Repository, pluginFiles *pluginfile.Service, pluginKV pluginkv.Repository, schedulerEngine *scheduler.Engine, dispatcher *dispatch.Dispatcher, rendererService *renderservice.Service, adapterShell *onebot11.Shell, limiter *localaction.PluginLogLimiter, webhookService *pluginwebhook.Service) {
 	if a == nil {
 		return
 	}
@@ -296,19 +295,19 @@ func (a *serviceHarness) executeLocalActionForEvent(ctx context.Context, pluginI
 	return a.services.LocalActions.Execute(ctx, pluginID, requestID, action, parentEvent)
 }
 
-func (a *serviceHarness) commandInfoForEvent(event adapterintake.NormalizedEvent) *permission.CommandInfo {
+func (a *serviceHarness) commandInfoForEvent(event onebot11.NormalizedEvent) *permission.CommandInfo {
 	return a.services.EventIngress.CommandInfoForEvent(event)
 }
 
-func (a *serviceHarness) enrichCommandEvent(event adapterintake.NormalizedEvent) adapterintake.NormalizedEvent {
+func (a *serviceHarness) enrichCommandEvent(event onebot11.NormalizedEvent) onebot11.NormalizedEvent {
 	return a.services.EventIngress.EnrichCommandEvent(event)
 }
 
-func (a *serviceHarness) handleAdapterEvent(ctx context.Context, event adapterintake.NormalizedEvent) {
+func (a *serviceHarness) handleAdapterEvent(ctx context.Context, event onebot11.NormalizedEvent) {
 	a.services.EventIngress.HandleAdapterEvent(ctx, event)
 }
 
-func (a *serviceHarness) applyChatPolicy(ctx context.Context, event adapterintake.NormalizedEvent) (adapterintake.NormalizedEvent, bool) {
+func (a *serviceHarness) applyChatPolicy(ctx context.Context, event onebot11.NormalizedEvent) (onebot11.NormalizedEvent, bool) {
 	return a.services.EventIngress.ApplyChatPolicy(ctx, event)
 }
 

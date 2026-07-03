@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/app/renderstack"
-	adaptershell "github.com/RayleaBot/RayleaBot/server/internal/bot/adapter/onebot11/shell"
+	"github.com/RayleaBot/RayleaBot/server/internal/onebot11"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 )
 
@@ -53,7 +53,7 @@ func configureAppRuntimeCallbacks(application *App, schedulerTriggers *scheduler
 	if application.eventStack.Adapter != nil {
 		application.eventStack.Adapter.SetEventHandler(eventIngress.HandleAdapterEvent)
 		application.eventStack.Adapter.SetReadyHandler(eventIngress.HandleAdapterReady)
-		application.eventStack.Adapter.SetStateHandler(func(adaptershell.Snapshot) {
+		application.eventStack.Adapter.SetStateHandler(func(onebot11.Snapshot) {
 			systemService.PublishStatusSnapshot()
 			protocolService.PublishSnapshot()
 		})

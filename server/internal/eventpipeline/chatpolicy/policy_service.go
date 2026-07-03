@@ -5,13 +5,12 @@ import (
 	"log/slog"
 	"strings"
 
-	adapterintake "github.com/RayleaBot/RayleaBot/server/internal/bot/adapter/onebot11/intake"
-	adapteroutbound "github.com/RayleaBot/RayleaBot/server/internal/bot/adapter/onebot11/outbound"
 	menuext "github.com/RayleaBot/RayleaBot/server/internal/builtinmenu"
 	"github.com/RayleaBot/RayleaBot/server/internal/command"
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/bridge"
 	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/outbound"
+	"github.com/RayleaBot/RayleaBot/server/internal/onebot11"
 	"github.com/RayleaBot/RayleaBot/server/internal/permission"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 )
@@ -21,16 +20,16 @@ type PluginCatalog interface {
 }
 
 type MenuMatcher interface {
-	Match(adapterintake.NormalizedEvent) menuext.Request
+	Match(onebot11.NormalizedEvent) menuext.Request
 }
 
 type RejectionLogger interface {
-	LogCommandPolicyRejected(adapterintake.NormalizedEvent, bridge.CommandPolicyRejection)
+	LogCommandPolicyRejected(onebot11.NormalizedEvent, bridge.CommandPolicyRejection)
 }
 
 type OutboundSender interface {
-	SendMessage(context.Context, adapteroutbound.OutboundMessageSend) (adapteroutbound.SendMessageResult, error)
-	SendReply(context.Context, adapteroutbound.OutboundMessageReply) (adapteroutbound.SendMessageResult, error)
+	SendMessage(context.Context, onebot11.OutboundMessageSend) (onebot11.SendMessageResult, error)
+	SendReply(context.Context, onebot11.OutboundMessageReply) (onebot11.SendMessageResult, error)
 }
 
 type Deps struct {
@@ -121,7 +120,7 @@ func (s *Service) config() config.Config {
 	return s.currentConfig()
 }
 
-func (s *Service) Apply(ctx context.Context, event adapterintake.NormalizedEvent) (adapterintake.NormalizedEvent, bool) {
+func (s *Service) Apply(ctx context.Context, event onebot11.NormalizedEvent) (onebot11.NormalizedEvent, bool) {
 	enriched := s.EnrichCommandEvent(event)
 	if s == nil || s.permissionChecker == nil || !shouldEvaluateChatPolicy(enriched) {
 		return enriched, true
@@ -153,16 +152,16 @@ func (s *Service) Apply(ctx context.Context, event adapterintake.NormalizedEvent
 	return enriched, false
 }
 
-func shouldEvaluateChatPolicy(event adapterintake.NormalizedEvent) bool {
+func shouldEvaluateChatPolicy(event onebot11.NormalizedEvent) bool {
 	switch event.Kind {
-	case adapterintake.EventKindMessageText, adapterintake.EventKindMessage, adapterintake.EventKindNotice:
+	case onebot11.EventKindMessageText, onebot11.EventKindMessage, onebot11.EventKindNotice:
 		return true
 	default:
 		return false
 	}
 }
 
-func commandGroupID(event adapterintake.NormalizedEvent) string {
+func commandGroupID(event onebot11.NormalizedEvent) string {
 	if event.ConversationType != "group" {
 		return ""
 	}

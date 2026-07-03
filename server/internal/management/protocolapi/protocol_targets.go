@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	adapterapi "github.com/RayleaBot/RayleaBot/server/internal/bot/adapter/onebot11/api"
+	"github.com/RayleaBot/RayleaBot/server/internal/onebot11"
 )
 
 func (s *ProtocolService) currentOneBot11ProtocolTargets(ctx context.Context) oneBot11ProtocolTargetsResponse {
@@ -53,12 +53,12 @@ func (s *ProtocolService) currentOneBot11ProtocolTargets(ctx context.Context) on
 }
 
 type oneBot11GroupsResult struct {
-	groups []adapterapi.GroupTarget
+	groups []onebot11.GroupTarget
 	err    error
 }
 
 type oneBot11FriendsResult struct {
-	friends []adapterapi.FriendTarget
+	friends []onebot11.FriendTarget
 	err     error
 }
 

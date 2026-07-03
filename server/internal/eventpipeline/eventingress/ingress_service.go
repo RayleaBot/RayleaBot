@@ -4,13 +4,12 @@ import (
 	"context"
 	"log/slog"
 
-	adapterintake "github.com/RayleaBot/RayleaBot/server/internal/bot/adapter/onebot11/intake"
-	adapteroutbound "github.com/RayleaBot/RayleaBot/server/internal/bot/adapter/onebot11/outbound"
 	menuext "github.com/RayleaBot/RayleaBot/server/internal/builtinmenu"
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/bridge"
 	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/chatpolicy"
 	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/outbound"
+	"github.com/RayleaBot/RayleaBot/server/internal/onebot11"
 	"github.com/RayleaBot/RayleaBot/server/internal/permission"
 	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
 	pluginservice "github.com/RayleaBot/RayleaBot/server/internal/plugins/lifecycle"
@@ -18,12 +17,12 @@ import (
 )
 
 type OutboundActionSender interface {
-	SendMessage(context.Context, adapteroutbound.OutboundMessageSend) (adapteroutbound.SendMessageResult, error)
-	SendReply(context.Context, adapteroutbound.OutboundMessageReply) (adapteroutbound.SendMessageResult, error)
+	SendMessage(context.Context, onebot11.OutboundMessageSend) (onebot11.SendMessageResult, error)
+	SendReply(context.Context, onebot11.OutboundMessageReply) (onebot11.SendMessageResult, error)
 }
 
 type MetadataEnricher interface {
-	EnrichEventMetadata(context.Context, adapterintake.NormalizedEvent) adapterintake.NormalizedEvent
+	EnrichEventMetadata(context.Context, onebot11.NormalizedEvent) onebot11.NormalizedEvent
 }
 
 type Deps struct {
@@ -106,7 +105,7 @@ func (s *Service) UpdateConfig(cfg config.Config) {
 	}
 }
 
-func (s *Service) ApplyChatPolicy(ctx context.Context, event adapterintake.NormalizedEvent) (adapterintake.NormalizedEvent, bool) {
+func (s *Service) ApplyChatPolicy(ctx context.Context, event onebot11.NormalizedEvent) (onebot11.NormalizedEvent, bool) {
 	if s == nil || s.policy == nil {
 		return event, true
 	}
@@ -114,14 +113,14 @@ func (s *Service) ApplyChatPolicy(ctx context.Context, event adapterintake.Norma
 	return s.policy.Apply(ctx, event)
 }
 
-func (s *Service) EnrichCommandEvent(event adapterintake.NormalizedEvent) adapterintake.NormalizedEvent {
+func (s *Service) EnrichCommandEvent(event onebot11.NormalizedEvent) onebot11.NormalizedEvent {
 	if s == nil || s.policy == nil {
 		return event
 	}
 	return s.policy.EnrichCommandEvent(event)
 }
 
-func (s *Service) CommandInfoForEvent(event adapterintake.NormalizedEvent) *permission.CommandInfo {
+func (s *Service) CommandInfoForEvent(event onebot11.NormalizedEvent) *permission.CommandInfo {
 	if s == nil || s.policy == nil {
 		return nil
 	}

@@ -3,8 +3,8 @@ package protocolapi
 import (
 	"context"
 
-	adaptershell "github.com/RayleaBot/RayleaBot/server/internal/bot/adapter/onebot11/shell"
 	"github.com/RayleaBot/RayleaBot/server/internal/configruntime"
+	"github.com/RayleaBot/RayleaBot/server/internal/onebot11"
 	"github.com/coder/websocket"
 )
 
@@ -13,7 +13,7 @@ func (s *ProtocolService) reverseWSIngressAvailable() bool {
 }
 
 func (s *ProtocolService) reverseWSIngressEnabled() bool {
-	return s.transportIngressEnabled(adaptershell.TransportReverseWS)
+	return s.transportIngressEnabled(onebot11.TransportReverseWS)
 }
 
 func (s *ProtocolService) reverseWSAccessToken() string {
@@ -49,7 +49,7 @@ func (s *ProtocolService) webhookIngressAvailable() bool {
 }
 
 func (s *ProtocolService) webhookIngressEnabled() bool {
-	return s.transportIngressEnabled(adaptershell.TransportWebhook)
+	return s.transportIngressEnabled(onebot11.TransportWebhook)
 }
 
 func (s *ProtocolService) webhookAccessToken() string {

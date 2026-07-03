@@ -4,8 +4,8 @@ import (
 	"errors"
 	"time"
 
-	adapteroutbound "github.com/RayleaBot/RayleaBot/server/internal/bot/adapter/onebot11/outbound"
 	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/outbound"
+	"github.com/RayleaBot/RayleaBot/server/internal/onebot11"
 	runtimeaction "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime/action"
 )
 
@@ -32,7 +32,7 @@ func outboundOutcome(err error) string {
 	if err == nil {
 		return "delivered"
 	}
-	var adapterErr *adapteroutbound.Error
+	var adapterErr *onebot11.Error
 	if errors.As(err, &adapterErr) {
 		switch adapterErr.Code {
 		case "plugin.capability_violation":

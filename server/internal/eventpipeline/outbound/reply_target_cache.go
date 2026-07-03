@@ -5,7 +5,7 @@ import (
 	"strings"
 	"sync"
 
-	adapterintake "github.com/RayleaBot/RayleaBot/server/internal/bot/adapter/onebot11/intake"
+	"github.com/RayleaBot/RayleaBot/server/internal/onebot11"
 )
 
 const DefaultReplyTargetCacheSize = 10000
@@ -33,7 +33,7 @@ func NewReplyTargetCache(limit int) *ReplyTargetCache {
 	}
 }
 
-func (c *ReplyTargetCache) Record(event adapterintake.NormalizedEvent) {
+func (c *ReplyTargetCache) Record(event onebot11.NormalizedEvent) {
 	if c == nil {
 		return
 	}

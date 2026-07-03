@@ -3,9 +3,9 @@ package dispatch
 import (
 	"bytes"
 	"context"
-	adapteroutbound "github.com/RayleaBot/RayleaBot/server/internal/bot/adapter/onebot11/outbound"
 	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/outbound"
 	"github.com/RayleaBot/RayleaBot/server/internal/logging"
+	"github.com/RayleaBot/RayleaBot/server/internal/onebot11"
 	runtimeaction "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime/action"
 	runtimemanager "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime/manager"
 	runtimeprotocol "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime/protocol"
@@ -87,15 +87,15 @@ func (f *fakeDeliverer) setState(state runtimemanager.State) {
 
 type fakeSender struct {
 	mu          sync.Mutex
-	messages    []adapteroutbound.OutboundMessageSend
-	replies     []adapteroutbound.OutboundMessageReply
-	sendResult  adapteroutbound.SendMessageResult
-	replyResult adapteroutbound.SendMessageResult
+	messages    []onebot11.OutboundMessageSend
+	replies     []onebot11.OutboundMessageReply
+	sendResult  onebot11.SendMessageResult
+	replyResult onebot11.SendMessageResult
 	sendErr     error
 	replyErr    error
 }
 
-func (f *fakeSender) SendMessage(_ context.Context, msg adapteroutbound.OutboundMessageSend) (adapteroutbound.SendMessageResult, error) {
+func (f *fakeSender) SendMessage(_ context.Context, msg onebot11.OutboundMessageSend) (onebot11.SendMessageResult, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.messages = append(f.messages, msg)
@@ -106,7 +106,7 @@ func (f *fakeSender) SendMessage(_ context.Context, msg adapteroutbound.Outbound
 	return result, f.sendErr
 }
 
-func (f *fakeSender) SendReply(_ context.Context, reply adapteroutbound.OutboundMessageReply) (adapteroutbound.SendMessageResult, error) {
+func (f *fakeSender) SendReply(_ context.Context, reply onebot11.OutboundMessageReply) (onebot11.SendMessageResult, error) {
 	f.mu.Lock()
 	f.replies = append(f.replies, reply)
 	f.mu.Unlock()
@@ -834,7 +834,7 @@ func TestDispatchActionExecutionLogsRateLimitedOutcome(t *testing.T) {
 	logger, stream := newDispatchTestLogger()
 	sender := &fakeSender{}
 	limiter := &recordingOutboundLimiter{
-		err: &adapteroutbound.Error{Code: "platform.rate_limited", Message: "outbound message rate limit exceeded"},
+		err: &onebot11.Error{Code: "platform.rate_limited", Message: "outbound message rate limit exceeded"},
 	}
 	d := New(logger, sender, nil, 16)
 	d.SetOutboundLimiter(limiter)
