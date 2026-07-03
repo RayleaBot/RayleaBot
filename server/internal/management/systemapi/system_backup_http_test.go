@@ -1,4 +1,4 @@
-package system
+package systemapi
 
 import (
 	"archive/zip"
@@ -13,9 +13,10 @@ import (
 	"time"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
-	"github.com/RayleaBot/RayleaBot/server/internal/management/systemapi"
 	"github.com/RayleaBot/RayleaBot/server/internal/storage"
+	"github.com/RayleaBot/RayleaBot/server/internal/system"
 	"github.com/RayleaBot/RayleaBot/server/internal/tasks"
+	"github.com/RayleaBot/RayleaBot/server/internal/testutil"
 )
 
 func TestSystemBackupUsesSQLiteSnapshotAndPreservesTaskShape(t *testing.T) {
@@ -24,7 +25,7 @@ func TestSystemBackupUsesSQLiteSnapshotAndPreservesTaskShape(t *testing.T) {
 	repoRoot := t.TempDir()
 	configPath := filepath.Join(repoRoot, "config", "user.yaml")
 	databasePath := filepath.Join(repoRoot, "data", "rayleabot.db")
-	writeAppTestFile(t, configPath, "schema_version: \"2\"\nserver:\n  host: 127.0.0.1\n  port: 8080\n")
+	writeBackupTestFile(t, configPath, "schema_version: \"2\"\nserver:\n  host: 127.0.0.1\n  port: 8080\n")
 
 	store, err := storage.Open(databasePath)
 	if err != nil {
@@ -39,7 +40,7 @@ func TestSystemBackupUsesSQLiteSnapshotAndPreservesTaskShape(t *testing.T) {
 	executor := tasks.NewExecutor(registry, 5*time.Second)
 	defer executor.Close()
 
-	system := New(Deps{
+	service := system.New(system.Deps{
 		CurrentConfig: func() config.Config {
 			return config.Config{
 				Database: config.DatabaseConfig{Path: filepath.Join("data", "rayleabot.db")},
@@ -55,7 +56,7 @@ func TestSystemBackupUsesSQLiteSnapshotAndPreservesTaskShape(t *testing.T) {
 		Storage:         store,
 		TaskExecutor:    executor,
 	})
-	handler := systemapi.NewHandlers(system).HandleSystemBackup()
+	handler := NewSystemHandlers(service).HandleSystemBackup()
 
 	recorder := httptest.NewRecorder()
 	handler.ServeHTTP(recorder, httptest.NewRequest(http.MethodPost, "/api/system/backup", nil))
@@ -70,7 +71,7 @@ func TestSystemBackupUsesSQLiteSnapshotAndPreservesTaskShape(t *testing.T) {
 		t.Fatalf("backup response should include task_id: %#v", accepted)
 	}
 
-	snapshot := waitTask(t, registry, accepted.TaskID, tasks.StatusSucceeded)
+	snapshot := testutil.WaitTask(t, registry, accepted.TaskID, tasks.StatusSucceeded)
 	if snapshot.Result == nil {
 		t.Fatalf("backup task should expose result: %#v", snapshot)
 	}
@@ -94,13 +95,13 @@ func TestSystemBackupUsesSQLiteSnapshotAndPreservesTaskShape(t *testing.T) {
 	}
 
 	extractedDB := filepath.Join(t.TempDir(), "rayleabot.db")
-	extractAppZipEntry(t, reader.File, "data/rayleabot.db", extractedDB)
+	extractBackupZipEntry(t, reader.File, "data/rayleabot.db", extractedDB)
 	if err := storage.QuickCheckPath(t.Context(), extractedDB); err != nil {
 		t.Fatalf("backup database quick_check failed: %v", err)
 	}
 }
 
-func writeAppTestFile(t *testing.T, path, content string) {
+func writeBackupTestFile(t *testing.T, path, content string) {
 	t.Helper()
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		t.Fatal(err)
@@ -110,7 +111,7 @@ func writeAppTestFile(t *testing.T, path, content string) {
 	}
 }
 
-func extractAppZipEntry(t *testing.T, files []*zip.File, name string, targetPath string) {
+func extractBackupZipEntry(t *testing.T, files []*zip.File, name string, targetPath string) {
 	t.Helper()
 	for _, file := range files {
 		if file.Name != name {

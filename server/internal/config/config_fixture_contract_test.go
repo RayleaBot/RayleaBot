@@ -1,9 +1,10 @@
-package config
+package config_test
 
 import (
 	"path/filepath"
 	"testing"
 
+	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/testutil"
 )
 
@@ -46,7 +47,7 @@ func TestConfigFixtures(t *testing.T) {
 			fixture := testutil.LoadConfigFixture(t, tc.fixturePath)
 			configPath := testutil.WriteYAMLConfig(t, fixture.Input)
 
-			cfg, _, err := Load(configPath, schemaPath)
+			cfg, _, err := config.Load(configPath, schemaPath)
 			if tc.expectValidationErr {
 				if err == nil {
 					t.Fatalf("expected config.Load to fail for %s", tc.fixturePath)

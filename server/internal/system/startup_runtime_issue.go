@@ -1,4 +1,4 @@
-package startup
+package system
 
 import (
 	"errors"
@@ -9,7 +9,7 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/recovery"
 )
 
-func InspectionIssue(_ string, err error) recovery.CompatibilityIssue {
+func startupInspectionIssue(_ string, err error) recovery.CompatibilityIssue {
 	var bootstrapErr *deps.BootstrapError
 	if errors.As(err, &bootstrapErr) && (errors.Is(bootstrapErr.Err, os.ErrNotExist) || !strings.Contains(strings.ToLower(bootstrapErr.Err.Error()), "does not include")) {
 		return recovery.CompatibilityIssue{
@@ -27,7 +27,7 @@ func InspectionIssue(_ string, err error) recovery.CompatibilityIssue {
 	}
 }
 
-func MetadataIssue(kind string) recovery.CompatibilityIssue {
+func startupMetadataIssue(kind string) recovery.CompatibilityIssue {
 	switch kind {
 	case "python-runtime":
 		return recovery.CompatibilityIssue{
@@ -53,7 +53,7 @@ func MetadataIssue(kind string) recovery.CompatibilityIssue {
 	}
 }
 
-func FailureIssue(kind string, err error) recovery.CompatibilityIssue {
+func startupFailureIssue(kind string, err error) recovery.CompatibilityIssue {
 	issue := recovery.CompatibilityIssue{
 		Code:        "platform.resource_missing",
 		Severity:    "warning",

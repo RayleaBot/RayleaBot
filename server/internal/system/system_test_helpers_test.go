@@ -3,11 +3,9 @@ package system
 import (
 	"context"
 	"log/slog"
-	"net/http"
 	"time"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
-	"github.com/RayleaBot/RayleaBot/server/internal/management/systemapi"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
 	"github.com/RayleaBot/RayleaBot/server/internal/recovery"
@@ -36,10 +34,6 @@ type testAppState struct {
 	repoRoot  string
 	startedAt time.Time
 	Logger    *slog.Logger
-}
-
-type taskAcceptedResponse struct {
-	TaskID string `json:"task_id"`
 }
 
 func (s *testAppState) CurrentConfig() config.Config {
@@ -99,16 +93,4 @@ func (a *App) setStartupRuntimeState(kind string, phase StartupRuntimePhase, iss
 
 func (a *App) managedRuntimeDiagnostics(pluginsList []plugins.Snapshot) []recovery.CompatibilityIssue {
 	return a.services.system.ManagedRuntimeDiagnostics(pluginsList)
-}
-
-func (a *App) handleSystemRecoveryRecheck() http.HandlerFunc {
-	return systemapi.NewHandlers(a.services.system).HandleSystemRecoveryRecheck()
-}
-
-func (a *App) handleSystemRecoveryConfirm() http.HandlerFunc {
-	return systemapi.NewHandlers(a.services.system).HandleSystemRecoveryConfirm()
-}
-
-func (a *App) handleSystemRuntimeBootstrap() http.HandlerFunc {
-	return systemapi.NewHandlers(a.services.system).HandleSystemRuntimeBootstrap()
 }

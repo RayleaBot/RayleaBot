@@ -4,12 +4,11 @@ import (
 	"strings"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/recovery"
-	"github.com/RayleaBot/RayleaBot/server/internal/system/startup"
 )
 
 func newStartupRuntimeStates(requiredKinds []string) map[string]startupRuntimeState {
-	states := make(map[string]startupRuntimeState, len(startup.Kinds()))
-	for _, kind := range startup.Kinds() {
+	states := make(map[string]startupRuntimeState, len(startupRuntimeKinds()))
+	for _, kind := range startupRuntimeKinds() {
 		state := startupRuntimeState{Phase: startupRuntimeNotRequired}
 		if containsRuntimeKind(requiredKinds, kind) {
 			state.Phase = startupRuntimePending

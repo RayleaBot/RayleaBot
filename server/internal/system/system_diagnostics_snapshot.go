@@ -14,12 +14,10 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/health"
 	"github.com/RayleaBot/RayleaBot/server/internal/logging"
 	"github.com/RayleaBot/RayleaBot/server/internal/recovery"
-	"github.com/RayleaBot/RayleaBot/server/internal/system/model"
-	"github.com/RayleaBot/RayleaBot/server/internal/system/startup"
 	"github.com/RayleaBot/RayleaBot/server/internal/tasks"
 )
 
-func (s *Service) DiagnosticsSnapshot(ctx context.Context) model.DiagnosticsSnapshot {
+func (s *Service) DiagnosticsSnapshot(ctx context.Context) DiagnosticsSnapshot {
 	now := time.Now().UTC()
 	status := s.StatusSnapshot()
 	readiness := s.CurrentReadiness()
@@ -39,16 +37,16 @@ func (s *Service) DiagnosticsSnapshot(ctx context.Context) model.DiagnosticsSnap
 	issues = append(issues, dependencyIssues...)
 	issues = append(issues, logIssues...)
 
-	return model.DiagnosticsSnapshot{
+	return DiagnosticsSnapshot{
 		GeneratedAt: now.Format(time.RFC3339),
-		Build: model.DiagnosticsBuild{
+		Build: DiagnosticsBuild{
 			CoreVersion: recovery.DetectCoreVersion(s.repoRootPath()),
 		},
-		System: model.DiagnosticsSystem{
+		System: DiagnosticsSystem{
 			Status:        status.Status,
 			UptimeSeconds: status.UptimeSeconds,
 		},
-		Config: model.DiagnosticsConfig{
+		Config: DiagnosticsConfig{
 			SchemaVersion:    config.CurrentSchemaVersion(),
 			Status:           "loaded",
 			ApplyState:       "applied",
@@ -58,14 +56,14 @@ func (s *Service) DiagnosticsSnapshot(ctx context.Context) model.DiagnosticsSnap
 			DatabasePath:     summary.DatabasePath,
 			OneBotConfigured: summary.OneBotConfigured,
 		},
-		Secrets: model.DiagnosticsSecrets{
+		Secrets: DiagnosticsSecrets{
 			UnresolvedRefs: []string{},
 		},
 		Database: database,
-		Adapter: model.DiagnosticsAdapter{
+		Adapter: DiagnosticsAdapter{
 			State: status.AdapterState,
 		},
-		Plugins: model.DiagnosticsPlugins{
+		Plugins: DiagnosticsPlugins{
 			Total:   s.pluginCount(),
 			Active:  status.ActivePlugins,
 			Running: status.RunningPlugins,
@@ -90,10 +88,10 @@ func (s *Service) pluginCount() int {
 	return len(s.plugins.List())
 }
 
-func (s *Service) diagnosticsDatabase(ctx context.Context) (model.DiagnosticsDatabase, []health.DiagnosticIssue) {
-	result := model.DiagnosticsDatabase{
+func (s *Service) diagnosticsDatabase(ctx context.Context) (DiagnosticsDatabase, []health.DiagnosticIssue) {
+	result := DiagnosticsDatabase{
 		SchemaVersion:     s.dbSchemaVersion(),
-		AppliedMigrations: []model.DiagnosticsMigration{},
+		AppliedMigrations: []DiagnosticsMigration{},
 	}
 	if s == nil || s.storage == nil || s.storage.Read == nil {
 		return result, []health.DiagnosticIssue{{
@@ -115,7 +113,7 @@ func (s *Service) diagnosticsDatabase(ctx context.Context) (model.DiagnosticsDat
 	}
 
 	for _, migration := range migrations {
-		result.AppliedMigrations = append(result.AppliedMigrations, model.DiagnosticsMigration{
+		result.AppliedMigrations = append(result.AppliedMigrations, DiagnosticsMigration{
 			Version:   fmt.Sprintf("%06d", migration.Version),
 			Name:      migration.Name,
 			AppliedAt: migration.AppliedAt,
@@ -124,34 +122,34 @@ func (s *Service) diagnosticsDatabase(ctx context.Context) (model.DiagnosticsDat
 	return result, nil
 }
 
-func (s *Service) diagnosticsRender() model.DiagnosticsIssueGroup {
+func (s *Service) diagnosticsRender() DiagnosticsIssueGroup {
 	issues := recoveryIssuesToHealth(s.renderDiagnostics())
 	status := "ok"
 	if len(issues) > 0 {
 		status = "degraded"
 	}
-	return model.DiagnosticsIssueGroup{
+	return DiagnosticsIssueGroup{
 		Status: status,
 		Issues: nonNilIssues(issues),
 	}
 }
 
-func (s *Service) diagnosticsThirdParty(ctx context.Context) (model.DiagnosticsThirdParty, []health.DiagnosticIssue) {
+func (s *Service) diagnosticsThirdParty(ctx context.Context) (DiagnosticsThirdParty, []health.DiagnosticIssue) {
 	if s == nil || s.thirdParty == nil {
-		return model.DiagnosticsThirdParty{Platforms: []model.DiagnosticsThirdPartyPlatform{}}, nil
+		return DiagnosticsThirdParty{Platforms: []DiagnosticsThirdPartyPlatform{}}, nil
 	}
 	return s.thirdParty.DiagnosticsThirdParty(ctx)
 }
 
-func (s *Service) diagnosticsScheduler() model.DiagnosticsScheduler {
+func (s *Service) diagnosticsScheduler() DiagnosticsScheduler {
 	if s == nil || s.scheduler == nil {
-		return model.DiagnosticsScheduler{}
+		return DiagnosticsScheduler{}
 	}
 	return s.scheduler.DiagnosticsScheduler()
 }
 
-func (s *Service) diagnosticsTasks() model.DiagnosticsTaskSummary {
-	result := model.DiagnosticsTaskSummary{}
+func (s *Service) diagnosticsTasks() DiagnosticsTaskSummary {
+	result := DiagnosticsTaskSummary{}
 	if s == nil || s.taskExecutor == nil {
 		return result
 	}
@@ -168,16 +166,16 @@ func (s *Service) diagnosticsTasks() model.DiagnosticsTaskSummary {
 	return result
 }
 
-func (s *Service) diagnosticsDependencies() ([]model.DiagnosticsDependency, []health.DiagnosticIssue) {
+func (s *Service) diagnosticsDependencies() ([]DiagnosticsDependency, []health.DiagnosticIssue) {
 	if s == nil || strings.TrimSpace(s.repoRootPath()) == "" {
-		return []model.DiagnosticsDependency{}, nil
+		return []DiagnosticsDependency{}, nil
 	}
 	diagnostics := deps.NewDiagnostics(s.repoRootPath())
-	kinds := startup.Kinds()
-	items := make([]model.DiagnosticsDependency, 0, len(kinds))
+	kinds := startupRuntimeKinds()
+	items := make([]DiagnosticsDependency, 0, len(kinds))
 	issues := []health.DiagnosticIssue{}
 	for _, kind := range kinds {
-		item := model.DiagnosticsDependency{Kind: kind, Status: "unavailable"}
+		item := DiagnosticsDependency{Kind: kind, Status: "unavailable"}
 		inspection, err := diagnostics.InspectRuntime(kind)
 		if err != nil {
 			var bootstrapErr *deps.BootstrapError
@@ -222,8 +220,8 @@ func dependencyStatus(inspection *deps.BootstrapInspection) string {
 	return "on_demand"
 }
 
-func (s *Service) diagnosticsFilesystem(summary config.Summary) []model.DiagnosticsPathPermission {
-	paths := []model.DiagnosticsPathPermission{
+func (s *Service) diagnosticsFilesystem(summary config.Summary) []DiagnosticsPathPermission {
+	paths := []DiagnosticsPathPermission{
 		pathPermission("repo_root", s.repoRootPath()),
 		pathPermission("config", summary.ConfigPath),
 	}
@@ -235,8 +233,8 @@ func (s *Service) diagnosticsFilesystem(summary config.Summary) []model.Diagnost
 	return paths
 }
 
-func pathPermission(label, path string) model.DiagnosticsPathPermission {
-	item := model.DiagnosticsPathPermission{
+func pathPermission(label, path string) DiagnosticsPathPermission {
+	item := DiagnosticsPathPermission{
 		Label:  label,
 		Path:   path,
 		Status: "unknown",

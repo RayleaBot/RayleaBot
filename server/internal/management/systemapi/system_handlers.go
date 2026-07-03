@@ -5,7 +5,7 @@ import (
 
 	"github.com/RayleaBot/RayleaBot/server/internal/health"
 	"github.com/RayleaBot/RayleaBot/server/internal/scheduler"
-	systemmodel "github.com/RayleaBot/RayleaBot/server/internal/system/model"
+	systemsvc "github.com/RayleaBot/RayleaBot/server/internal/system"
 )
 
 type SystemHandlers struct {
@@ -15,12 +15,12 @@ type SystemHandlers struct {
 
 type CoreService interface {
 	CurrentReadiness() health.ReadinessReport
-	DiagnosticsSnapshot(context.Context) systemmodel.DiagnosticsSnapshot
+	DiagnosticsSnapshot(context.Context) systemsvc.DiagnosticsSnapshot
 	BuildDiagnosticsArchive(context.Context) ([]byte, error)
 	SubmitSystemBackupTask() (string, error)
-	ValidateRecoveryConfirmRequest([]string, string) *systemmodel.Error
-	SubmitRecoveryRecheckTask() (string, *systemmodel.Error)
-	SubmitRecoveryConfirmTask([]string, string, string) (string, *systemmodel.Error)
+	ValidateRecoveryConfirmRequest([]string, string) *systemsvc.Error
+	SubmitRecoveryRecheckTask() (string, *systemsvc.Error)
+	SubmitRecoveryConfirmTask([]string, string, string) (string, *systemsvc.Error)
 	SubmitRuntimeBootstrapTask([]string) (string, error)
 }
 

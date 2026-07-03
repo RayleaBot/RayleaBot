@@ -1,4 +1,4 @@
-package model
+package system
 
 import (
 	"github.com/RayleaBot/RayleaBot/server/internal/health"

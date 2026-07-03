@@ -1,33 +1,33 @@
-package startup
+package system
 
 import (
 	"github.com/RayleaBot/RayleaBot/server/internal/deps"
 	"github.com/RayleaBot/RayleaBot/server/internal/recovery"
 )
 
-type Phase string
+type StartupRuntimePhase string
 
 const (
-	PhasePending     Phase = "pending"
-	PhaseReady       Phase = "ready"
-	PhaseFailed      Phase = "failed"
-	PhaseNotRequired Phase = "not_required"
+	StartupRuntimePhasePending     StartupRuntimePhase = "pending"
+	StartupRuntimePhaseReady       StartupRuntimePhase = "ready"
+	StartupRuntimePhaseFailed      StartupRuntimePhase = "failed"
+	StartupRuntimePhaseNotRequired StartupRuntimePhase = "not_required"
 )
 
-type State struct {
-	Phase Phase
+type StartupRuntimeState struct {
+	Phase StartupRuntimePhase
 	Issue *recovery.CompatibilityIssue
 }
 
-func Kinds() []string {
+func startupRuntimeKinds() []string {
 	return []string{"chromium", "python-runtime", "nodejs-runtime"}
 }
 
-func ManagedDiagnosticKinds() []string {
+func managedDiagnosticKinds() []string {
 	return []string{"python-runtime", "nodejs-runtime"}
 }
 
-func Label(kind string) string {
+func managedRuntimeLabel(kind string) string {
 	switch kind {
 	case "chromium":
 		return "图片渲染 Chromium"

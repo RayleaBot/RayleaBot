@@ -4,7 +4,6 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/deps"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	"github.com/RayleaBot/RayleaBot/server/internal/recovery"
-	"github.com/RayleaBot/RayleaBot/server/internal/system/startup"
 )
 
 func (s *Service) renderDiagnostics() []recovery.CompatibilityIssue {
@@ -31,7 +30,7 @@ func (s *Service) managedRuntimeDiagnostics(pluginsList []plugins.Snapshot) []re
 	if s == nil || s.repoRootPath() == "" {
 		return nil
 	}
-	requiredKinds := startup.ManagedDiagnosticKinds()
+	requiredKinds := managedDiagnosticKinds()
 	if len(requiredKinds) == 0 {
 		return nil
 	}
@@ -40,11 +39,11 @@ func (s *Service) managedRuntimeDiagnostics(pluginsList []plugins.Snapshot) []re
 	for _, kind := range requiredKinds {
 		inspection, err := diagnostics.InspectRuntime(kind)
 		if err != nil {
-			issues = append(issues, startup.InspectionIssue(kind, err))
+			issues = append(issues, startupInspectionIssue(kind, err))
 			continue
 		}
 		if !inspection.MetadataComplete {
-			issues = append(issues, startup.MetadataIssue(kind))
+			issues = append(issues, startupMetadataIssue(kind))
 			continue
 		}
 		if inspection.PreparedStorePresent {

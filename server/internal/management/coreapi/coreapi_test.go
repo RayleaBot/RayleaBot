@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/health"
-	systemmodel "github.com/RayleaBot/RayleaBot/server/internal/system/model"
+	systemsvc "github.com/RayleaBot/RayleaBot/server/internal/system"
 )
 
 func TestSystemStatusIncludesPluginCountsAndDBSchemaVersion(t *testing.T) {
@@ -15,7 +15,7 @@ func TestSystemStatusIncludesPluginCountsAndDBSchemaVersion(t *testing.T) {
 
 	handlers := NewHandlers(Deps{
 		System: coreTestSystem{
-			snapshot: systemmodel.StatusSnapshot{
+			snapshot: systemsvc.StatusSnapshot{
 				Status:          "running",
 				AdapterState:    "connected",
 				ActivePlugins:   2,
@@ -68,10 +68,10 @@ func TestIsLoopbackRequestRejectsForwardedHeaders(t *testing.T) {
 }
 
 type coreTestSystem struct {
-	snapshot systemmodel.StatusSnapshot
+	snapshot systemsvc.StatusSnapshot
 }
 
-func (s coreTestSystem) StatusSnapshot() systemmodel.StatusSnapshot {
+func (s coreTestSystem) StatusSnapshot() systemsvc.StatusSnapshot {
 	return s.snapshot
 }
 

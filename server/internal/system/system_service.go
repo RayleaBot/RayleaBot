@@ -15,7 +15,6 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	"github.com/RayleaBot/RayleaBot/server/internal/recovery"
 	"github.com/RayleaBot/RayleaBot/server/internal/storage"
-	systemmodel "github.com/RayleaBot/RayleaBot/server/internal/system/model"
 	"github.com/RayleaBot/RayleaBot/server/internal/tasks"
 )
 
@@ -39,10 +38,6 @@ type RendererState interface {
 	Diagnostics() []health.DiagnosticIssue
 	RefreshBrowserPath(string)
 }
-
-type DiagnosticsThirdParty = systemmodel.DiagnosticsThirdParty
-type DiagnosticsThirdPartyPlatform = systemmodel.DiagnosticsThirdPartyPlatform
-type DiagnosticsScheduler = systemmodel.DiagnosticsScheduler
 
 type DatabasePathResolver func(configPath, databasePath string) (string, error)
 
@@ -188,13 +183,13 @@ func (s *Service) SchedulerTimezone() string {
 	return "UTC"
 }
 
-func (s *Service) StatusSnapshot() systemmodel.StatusSnapshot {
+func (s *Service) StatusSnapshot() StatusSnapshot {
 	adapterState := ""
 	if s != nil && s.adapter != nil {
 		adapterState = s.adapter.CurrentState()
 	}
 	runningPlugins, failedPlugins := s.pluginStateCounts()
-	return systemmodel.StatusSnapshot{
+	return StatusSnapshot{
 		Status:          s.systemStatus(),
 		AdapterState:    adapterState,
 		ActivePlugins:   s.activePluginCount(),

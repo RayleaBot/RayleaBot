@@ -4,7 +4,6 @@ import (
 	"context"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/deps"
-	"github.com/RayleaBot/RayleaBot/server/internal/system/startup"
 )
 
 var inspectStartupRuntime = func(repoRoot, kind string) (*deps.BootstrapInspection, error) {
@@ -22,17 +21,14 @@ var prepareStartupRuntimeWithProgress = func(ctx context.Context, repoRoot, kind
 	return deps.NewRuntime(repoRoot).PrepareWithReportOptions(ctx, kind, deps.PrepareOptions{Progress: progress})
 }
 
-type StartupRuntimePhase = startup.Phase
-type StartupRuntimeState = startup.State
-
 type startupRuntimePhase = StartupRuntimePhase
 type startupRuntimeState = StartupRuntimeState
 
 const (
-	StartupRuntimePending     = startup.PhasePending
-	StartupRuntimeReady       = startup.PhaseReady
-	StartupRuntimeFailed      = startup.PhaseFailed
-	StartupRuntimeNotRequired = startup.PhaseNotRequired
+	StartupRuntimePending     = StartupRuntimePhasePending
+	StartupRuntimeReady       = StartupRuntimePhaseReady
+	StartupRuntimeFailed      = StartupRuntimePhaseFailed
+	StartupRuntimeNotRequired = StartupRuntimePhaseNotRequired
 	startupRuntimePending     = StartupRuntimePending
 	startupRuntimeReady       = StartupRuntimeReady
 	startupRuntimeFailed      = StartupRuntimeFailed

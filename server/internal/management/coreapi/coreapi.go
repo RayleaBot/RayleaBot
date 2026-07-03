@@ -10,7 +10,7 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/httpapi"
 	authhttp "github.com/RayleaBot/RayleaBot/server/internal/management/authhttp"
 	"github.com/RayleaBot/RayleaBot/server/internal/recovery"
-	systemmodel "github.com/RayleaBot/RayleaBot/server/internal/system/model"
+	systemsvc "github.com/RayleaBot/RayleaBot/server/internal/system"
 )
 
 const (
@@ -55,7 +55,7 @@ type authService interface {
 }
 
 type systemService interface {
-	StatusSnapshot() systemmodel.StatusSnapshot
+	StatusSnapshot() systemsvc.StatusSnapshot
 	PublishStatusSnapshot()
 }
 
@@ -145,7 +145,7 @@ func (h *Handlers) writeSystemStatus(w http.ResponseWriter, statusCode int) {
 	writeAuthJSON(w, statusCode, systemStatusResponseFromSnapshot(h.system.StatusSnapshot()))
 }
 
-func systemStatusResponseFromSnapshot(snapshot systemmodel.StatusSnapshot) SystemStatusResponse {
+func systemStatusResponseFromSnapshot(snapshot systemsvc.StatusSnapshot) SystemStatusResponse {
 	return SystemStatusResponse{
 		Status:          snapshot.Status,
 		AdapterState:    snapshot.AdapterState,

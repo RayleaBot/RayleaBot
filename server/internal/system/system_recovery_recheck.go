@@ -4,21 +4,20 @@ import (
 	"context"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/recovery"
-	systemmodel "github.com/RayleaBot/RayleaBot/server/internal/system/model"
 	"github.com/RayleaBot/RayleaBot/server/internal/tasks"
 )
 
-func (s *Service) SubmitRecoveryRecheckTask() (string, *systemmodel.Error) {
+func (s *Service) SubmitRecoveryRecheckTask() (string, *Error) {
 	if s == nil || s.taskExecutor == nil {
-		return "", systemmodel.InternalError()
+		return "", InternalError()
 	}
 
 	summary, err := recovery.LoadSummary(s.repoRootPath())
 	if err != nil {
-		return "", systemmodel.InternalError()
+		return "", InternalError()
 	}
 	if summary == nil || (!summary.RequiresPostStartChecks && summary.Phase != "post_startup") {
-		return "", systemmodel.ResourceMissingError(systemmodel.RecoverySummaryDetails(s.repoRootPath()))
+		return "", ResourceMissingError(RecoverySummaryDetails(s.repoRootPath()))
 	}
 
 	taskID, err := s.taskExecutor.Submit("recovery.recheck", "重新检查恢复摘要", func(ctx context.Context, progress tasks.ProgressReporter) (*tasks.ResultSummary, error) {
@@ -31,7 +30,7 @@ func (s *Service) SubmitRecoveryRecheckTask() (string, *systemmodel.Error) {
 			return nil, &tasks.TaskError{
 				Code:    codeResourceMissing,
 				Message: "恢复摘要不存在或当前不可重新检查",
-				Details: systemmodel.RecoverySummaryDetails(s.repoRootPath()),
+				Details: RecoverySummaryDetails(s.repoRootPath()),
 			}
 		}
 		progress.Update(90, "写入恢复摘要")
@@ -43,7 +42,7 @@ func (s *Service) SubmitRecoveryRecheckTask() (string, *systemmodel.Error) {
 		}, nil
 	})
 	if err != nil {
-		return "", systemmodel.InternalError()
+		return "", InternalError()
 	}
 	return taskID, nil
 }

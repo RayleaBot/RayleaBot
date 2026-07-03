@@ -1,4 +1,4 @@
-package startup
+package system
 
 import (
 	"errors"
@@ -9,7 +9,7 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/logpath"
 )
 
-func LogFailure(logger *slog.Logger, repoRoot string, kind string, err error) {
+func logStartupFailure(logger *slog.Logger, repoRoot string, kind string, err error) {
 	if logger == nil || err == nil {
 		return
 	}
@@ -30,7 +30,7 @@ func LogFailure(logger *slog.Logger, repoRoot string, kind string, err error) {
 	logger.Warn(label+"运行环境准备失败，已跳过自动准备", append(fields, "err", logpath.Error(repoRoot, err, pathValues...))...)
 }
 
-func LogProgress(logger *slog.Logger, repoRoot string, event deps.PrepareProgress) {
+func logStartupProgress(logger *slog.Logger, repoRoot string, event deps.PrepareProgress) {
 	if logger == nil {
 		return
 	}

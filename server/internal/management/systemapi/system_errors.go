@@ -3,7 +3,7 @@ package systemapi
 import (
 	"net/http"
 
-	systemmodel "github.com/RayleaBot/RayleaBot/server/internal/system/model"
+	systemsvc "github.com/RayleaBot/RayleaBot/server/internal/system"
 )
 
 type SystemHTTPError struct {
@@ -50,18 +50,18 @@ func WriteSystemHTTPError(w http.ResponseWriter, r *http.Request, err *SystemHTT
 	writeAppError(w, r, err.statusCode, err.code, err.message, err.messageKey, err.details)
 }
 
-func WriteSystemError(w http.ResponseWriter, r *http.Request, err *systemmodel.Error) {
+func WriteSystemError(w http.ResponseWriter, r *http.Request, err *systemsvc.Error) {
 	WriteSystemHTTPError(w, r, systemHTTPErrorFromError(err))
 }
 
-func systemHTTPErrorFromError(err *systemmodel.Error) *SystemHTTPError {
+func systemHTTPErrorFromError(err *systemsvc.Error) *SystemHTTPError {
 	if err == nil {
 		return nil
 	}
 	switch err.Reason {
-	case systemmodel.ErrorReasonInvalidRequest:
+	case systemsvc.ErrorReasonInvalidRequest:
 		return InvalidSystemHTTPError(err.Details)
-	case systemmodel.ErrorReasonResourceMissing:
+	case systemsvc.ErrorReasonResourceMissing:
 		return MissingSystemResourceHTTPError(err.Details)
 	default:
 		return InternalSystemHTTPError()

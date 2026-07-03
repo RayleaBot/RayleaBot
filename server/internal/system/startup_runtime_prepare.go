@@ -6,14 +6,13 @@ import (
 
 	"github.com/RayleaBot/RayleaBot/server/internal/deps"
 	"github.com/RayleaBot/RayleaBot/server/internal/logpath"
-	"github.com/RayleaBot/RayleaBot/server/internal/system/startup"
 )
 
 func (s *Service) startupRequiredRuntimeKinds() []string {
 	if s == nil {
 		return nil
 	}
-	kinds := make([]string, 0, len(startup.Kinds()))
+	kinds := make([]string, 0, len(startupRuntimeKinds()))
 	if strings.TrimSpace(s.config().Render.BrowserPath) == "" {
 		kinds = append(kinds, "chromium")
 	}
@@ -39,13 +38,13 @@ func (s *Service) autoPrepareRuntimeEnvironments(ctx context.Context) {
 
 		inspection, err := inspectStartupRuntime(s.repoRootPath(), kind)
 		if err != nil {
-			issue := startup.InspectionIssue(kind, err)
+			issue := startupInspectionIssue(kind, err)
 			s.setStartupRuntimeState(kind, startupRuntimeFailed, &issue)
-			startup.LogFailure(s.currentLogger(), s.repoRootPath(), kind, err)
+			logStartupFailure(s.currentLogger(), s.repoRootPath(), kind, err)
 			continue
 		}
 		if !inspection.MetadataComplete {
-			issue := startup.MetadataIssue(kind)
+			issue := startupMetadataIssue(kind)
 			s.setStartupRuntimeState(kind, startupRuntimeFailed, &issue)
 			continue
 		}
@@ -57,7 +56,7 @@ func (s *Service) autoPrepareRuntimeEnvironments(ctx context.Context) {
 			continue
 		}
 
-		label := startup.Label(kind)
+		label := managedRuntimeLabel(kind)
 		s.setStartupRuntimeState(kind, startupRuntimePending, nil)
 		if s.currentLogger() != nil {
 			s.currentLogger().Info(
@@ -71,12 +70,12 @@ func (s *Service) autoPrepareRuntimeEnvironments(ctx context.Context) {
 
 		repoRoot := s.repoRootPath()
 		report, err := prepareStartupRuntimeWithProgress(ctx, repoRoot, kind, func(event deps.PrepareProgress) {
-			startup.LogProgress(s.currentLogger(), repoRoot, event)
+			logStartupProgress(s.currentLogger(), repoRoot, event)
 		})
 		if err != nil {
-			issue := startup.FailureIssue(kind, err)
+			issue := startupFailureIssue(kind, err)
 			s.setStartupRuntimeState(kind, startupRuntimeFailed, &issue)
-			startup.LogFailure(s.currentLogger(), repoRoot, kind, err)
+			logStartupFailure(s.currentLogger(), repoRoot, kind, err)
 			continue
 		}
 
