@@ -4,9 +4,9 @@ import (
 	"strings"
 
 	adapterintake "github.com/RayleaBot/RayleaBot/server/internal/bot/adapter/onebot11/intake"
+	menuext "github.com/RayleaBot/RayleaBot/server/internal/builtinmenu"
 	"github.com/RayleaBot/RayleaBot/server/internal/command"
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
-	menuext "github.com/RayleaBot/RayleaBot/server/internal/extensions/menu"
 )
 
 func newCommandParser(cfg config.Config) *command.Parser {

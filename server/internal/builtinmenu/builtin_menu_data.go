@@ -1,4 +1,4 @@
-package menu
+package builtinmenu
 
 import (
 	adapterintake "github.com/RayleaBot/RayleaBot/server/internal/bot/adapter/onebot11/intake"

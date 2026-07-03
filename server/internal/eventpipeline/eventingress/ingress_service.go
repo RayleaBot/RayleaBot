@@ -6,11 +6,11 @@ import (
 
 	adapterintake "github.com/RayleaBot/RayleaBot/server/internal/bot/adapter/onebot11/intake"
 	adapteroutbound "github.com/RayleaBot/RayleaBot/server/internal/bot/adapter/onebot11/outbound"
+	menuext "github.com/RayleaBot/RayleaBot/server/internal/builtinmenu"
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/bridge"
 	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/chatpolicy"
 	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/outbound"
-	menuext "github.com/RayleaBot/RayleaBot/server/internal/extensions/menu"
 	"github.com/RayleaBot/RayleaBot/server/internal/permission"
 	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
 	pluginservice "github.com/RayleaBot/RayleaBot/server/internal/plugins/lifecycle"
