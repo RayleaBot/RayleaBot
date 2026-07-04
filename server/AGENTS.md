@@ -18,6 +18,8 @@
 
 - 不新增平行配置读取链路、日志栈、路由栈或状态源。
 - 新增包需职责收敛，优先一包一职责，不为未来协议、未来 runtime 或未来持久化预埋大而全抽象。
+- Go 目录就是包边界；同一生命周期、同一调用路径、没有独立复用价值的 helper 优先放在同一包内，用文件名区分职责。
+- 不把同一领域内部细节拆成 `model`、`spec`、`process`、`protocol`、`repository` 等薄包，除非能减少循环依赖或形成真实复用边界。
 - 开发辅助工具不得通过 `server/go.mod` 的 `tool` 指令引入与 server 运行无关的大型依赖图；需要热重载或生成能力时，优先使用仓库脚本或独立工具边界，并同步工程基线文档。
 
 ## Config and Policy Reading
@@ -32,7 +34,8 @@
 
 ## Testing Rules
 
-- 任何会影响 HTTP shape、状态名、错误码、adapter 行为、plugin discovery、治理裁决、日志内容或配置读取的改动，都必须补最小回归测试。
+- 只有影响 HTTP shape、状态名、错误码、adapter 行为、plugin discovery、治理裁决、日志语义、配置读取或历史 bug 路径的改动，才补最小回归测试。
+- 纯搬移、包合并、等价改名或普通文案调整不新增测试；优先复用现有行为测试和构建验证。
 - 变更对外边界时，同时检查四件套是否齐全：实现、契约、测试、示例。
 - 优先复用 `fixtures/` 与 `examples/`，不要先写散乱的 ad-hoc 样例。
 - 插件 runtime helper 测试发出预期协议违规 frame 后，不要立刻退出进程；应等待 stdin 关闭或管理器终止进程，避免 CI 因进程退出竞态把协议违规误判为 `plugin.internal_error`。

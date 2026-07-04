@@ -32,7 +32,8 @@ This skill is a reusable workflow. It does not define project truth. Repository 
    - 当前边界内可做
    - 需要先补 contract / fixture / example 才能做
    - 明显越界、应延后的内容
-5. 给出最小可执行切片，避免把后续 phase 的能力一并带入。
+5. 判断测试是否必要：只有行为、契约、历史 bug、高风险路径或复杂逻辑变化才需要新增测试；纯搬移、等价合并或普通文案不新增测试。
+6. 给出最小可执行切片，避免把后续 phase 的能力一并带入。
 
 ## Outputs
 
@@ -54,3 +55,4 @@ This skill is a reusable workflow. It does not define project truth. Repository 
 - 把 README / examples / 实现细节当成正式来源
 - 因为“顺手能做”就默许越界扩张
 - 跳过局部 `AGENTS.md` 与 `contracts/` 直接给出范围判断
+- 把 companion updates 清单理解成每次都必须新增测试或文档；没有对应风险时写明不需要

@@ -13,9 +13,10 @@ This skill is a reusable workflow. Repository truth still lives in root/local `A
 2. Read `docs/engineering/baseline.md` before choosing a framework, library, or implementation shape.
 3. If the task touches an external boundary, also read the relevant files in `contracts/`, `fixtures/`, and `examples/`.
 4. Search the repo for prior art before designing a new helper, abstraction, wrapper, or dependency.
-5. Choose the lowest reuse tier that solves the task safely.
-6. Keep custom code thin and explicitly limited to orchestration, adapters, contract projection, data transformation, and repo-specific business rules.
-7. In your summary, name the reused building blocks and call out any unavoidable original glue.
+5. For Go server code, treat a directory as a real package boundary. Prefer file-level grouping inside the current package when code shares a lifecycle, call path, state, or tests.
+6. Choose the lowest reuse tier that solves the task safely.
+7. Keep custom code thin and explicitly limited to orchestration, adapters, contract projection, data transformation, and repo-specific business rules.
+8. In your summary, name the reused building blocks and call out any unavoidable original glue.
 
 ## Reuse Ladder
 
@@ -55,4 +56,5 @@ If any item fails, prefer the higher reuse tier or write the smallest possible g
 - Do not introduce a second router, ORM, logging stack, state manager, HTTP client, WebSocket client, UI component system, or launcher service layer without proving the frozen choice is insufficient.
 - Do not fork, vendor, or patch upstream libraries when a black-box integration works.
 - Do not create generic future-proof abstractions when a direct integration with current repo patterns is enough.
+- Do not split same-domain server helpers into thin `model`, `spec`, `process`, `protocol`, or `repository` packages unless the split removes a cycle, protects an external boundary, or creates a proven reuse boundary.
 - Do not describe fresh handwritten code as glue if it is actually reimplementing a mature wheel.

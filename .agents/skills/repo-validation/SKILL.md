@@ -18,7 +18,7 @@ This skill is a reusable workflow. It does not define project truth. Repository 
 
 1. 读取根 `AGENTS.md` 和受影响目录的局部 `AGENTS.md`。
 2. 识别改动面：
-   - `server/` → Go build + Go test
+   - `server/` → Go build + 受影响包的 Go test；外部行为或共享路径变化再扩到 `go test ./...`
    - `web/` → pnpm typecheck + pnpm test + pnpm build
    - `launcher/` → pnpm typecheck + pnpm test + pnpm build
    - `contracts/` → 检查对应 generated types（`web/src/types/generated.ts`、`web/src/types/websocket.generated.ts`、`launcher/src/shared/web-api.generated.ts`）
@@ -27,6 +27,7 @@ This skill is a reusable workflow. It does not define project truth. Repository 
 3. 运行最小命令集：
    - 只在受影响的子工程目录执行对应命令。
    - 不运行与本次改动无关的全量测试。
+   - 纯搬移、包合并、等价改名或普通文案调整用构建和现有相关测试证明，不新增测试。
 4. 检查生成物：
    - 若 contract 变更，确认 generated types 已重新生成且一致。
    - 若 SQL 变更，确认 `sqlc diff` 无漂移。
@@ -44,6 +45,7 @@ This skill is a reusable workflow. It does not define project truth. Repository 
 ## Do Not
 
 - 运行与改动无关的全量测试或构建以“保险起见”。
+- 把普通文案、文件搬迁或等价结构收拢误判成必须新增测试的行为变化。
 - 仅凭 exit code 0 就认定验证通过；必须确认产物存在。
 - 跳过 generated types、fixtures 或 sqlc 生成物的同步检查。
 - 把验证流程写成 `AGENTS.md` 中的长命令列表；验证策略应沉淀到本 skill，根文件只保留最小命令索引。
