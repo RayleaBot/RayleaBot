@@ -1,4 +1,4 @@
-package routemodule
+package httpwire
 
 import (
 	"net/http"
@@ -39,7 +39,7 @@ type managementUIModule interface {
 	managementrouter.ProtectedRouteModule
 }
 
-func buildManagementRoutes(deps Deps, configService configapi.Service, pluginManagementUI managementUIModule) managementRouteState {
+func buildManagementRoutes(deps BuildDeps, configService configapi.Service, pluginManagementUI managementUIModule) managementRouteState {
 	runtimeState := deps.Runtime
 	platformState := deps.Platform
 	pluginState := deps.Plugins

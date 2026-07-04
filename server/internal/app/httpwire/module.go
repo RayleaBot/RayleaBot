@@ -1,4 +1,4 @@
-package routemodule
+package httpwire
 
 import (
 	"context"
@@ -10,7 +10,6 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/app/eventstack"
-	"github.com/RayleaBot/RayleaBot/server/internal/app/httpwire/configmodule"
 	appplatform "github.com/RayleaBot/RayleaBot/server/internal/app/platform"
 	"github.com/RayleaBot/RayleaBot/server/internal/app/pluginstack"
 	"github.com/RayleaBot/RayleaBot/server/internal/app/servicegraph"
@@ -23,8 +22,8 @@ import (
 	renderservice "github.com/RayleaBot/RayleaBot/server/internal/render/service"
 )
 
-type Deps struct {
-	Runtime         configmodule.RuntimeState
+type BuildDeps struct {
+	Runtime         RuntimeState
 	Platform        appplatform.State
 	Plugins         pluginstack.State
 	Events          eventstack.State
@@ -41,13 +40,13 @@ type State struct {
 }
 
 type serverDeps struct {
-	runtime  configmodule.RuntimeState
+	runtime  RuntimeState
 	renderer *renderservice.Service
 	metrics  *metrics.Registry
 	routes   managementRouteState
 }
 
-func Build(deps Deps) State {
+func Build(deps BuildDeps) State {
 	runtimeState := deps.Runtime
 	platformState := deps.Platform
 	pluginState := deps.Plugins
@@ -55,7 +54,7 @@ func Build(deps Deps) State {
 	renderer := deps.Renderer
 	services := deps.ServiceBuild.Services
 
-	configService := configmodule.NewService(configmodule.Deps{
+	configService := NewConfigService(ConfigDeps{
 		Runtime:          runtimeState,
 		Logs:             platformState.Logs,
 		LogRepository:    platformState.LogRepository,
@@ -117,7 +116,7 @@ func buildAppHTTPServer(deps serverDeps) (http.Handler, *http.Server, Handlers) 
 	return router, server, handlers
 }
 
-func logConfiguredServer(state configmodule.RuntimeState, renderer *renderservice.Service, listenAddr string) {
+func logConfiguredServer(state RuntimeState, renderer *renderservice.Service, listenAddr string) {
 	summary := state.CurrentSummary()
 	repoRoot := state.RepoRoot()
 	configPath := logpath.Display(repoRoot, summary.ConfigPath)

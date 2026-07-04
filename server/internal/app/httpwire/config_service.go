@@ -1,4 +1,4 @@
-package configmodule
+package httpwire
 
 import (
 	"log/slog"
@@ -25,7 +25,7 @@ type RuntimeState interface {
 	AddRedactionValues(...string)
 }
 
-type Deps struct {
+type ConfigDeps struct {
 	Runtime          RuntimeState
 	Logs             *logging.Stream
 	LogRepository    logging.Repository
@@ -37,7 +37,9 @@ type Deps struct {
 	Secrets          secrets.Store
 }
 
-func NewService(deps Deps) *configruntime.Service {
+type ConfigService = configruntime.Service
+
+func NewConfigService(deps ConfigDeps) *ConfigService {
 	runtimeDeps := configruntime.Deps{
 		CurrentConfig: func() config.Config {
 			if deps.Runtime == nil {
@@ -96,7 +98,7 @@ func runtimeStateLogLevel(state RuntimeState) *logging.LevelController {
 	return state.RuntimeLogLevel()
 }
 
-func ClassifyApplyEffects(oldCfg config.Config, newCfg config.Config) configapi.ApplyEffects {
+func ClassifyConfigApplyEffects(oldCfg config.Config, newCfg config.Config) configapi.ApplyEffects {
 	return configruntime.ClassifyApplyEffects(oldCfg, newCfg)
 }
 
