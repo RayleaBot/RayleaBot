@@ -8,8 +8,7 @@ import (
 
 	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/dispatch"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
-	runtimemanager "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime/manager"
-	runtimeprotocol "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime/protocol"
+	pluginruntime "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime"
 )
 
 func (c *Controller) afterRuntimeRegistered(ctx context.Context, pluginID string, initBotID string) {
@@ -27,7 +26,7 @@ func (c *Controller) afterRuntimeRegistered(ctx context.Context, pluginID string
 	c.dispatchBotIdentityChangedToPlugin(ctx, pluginID, currentBotID)
 }
 
-func (c *Controller) registerRuntimeIfNeeded(pluginID string, manager *runtimemanager.Manager) {
+func (c *Controller) registerRuntimeIfNeeded(pluginID string, manager *pluginruntime.Manager) {
 	if c == nil || c.dispatcher == nil || manager == nil {
 		return
 	}
@@ -41,7 +40,7 @@ func (c *Controller) registerRuntimeIfNeeded(pluginID string, manager *runtimema
 	c.registerRuntime(pluginID, snapshot, manager)
 }
 
-func (c *Controller) registerRuntime(pluginID string, snapshot plugins.Snapshot, manager *runtimemanager.Manager) {
+func (c *Controller) registerRuntime(pluginID string, snapshot plugins.Snapshot, manager *pluginruntime.Manager) {
 	if c == nil || c.dispatcher == nil || manager == nil {
 		return
 	}
@@ -66,7 +65,7 @@ func (c *Controller) dispatchPluginStarted(ctx context.Context, pluginID string)
 	}
 
 	now := time.Now()
-	result := c.dispatcher.DispatchToPlugin(ctx, pluginID, runtimeprotocol.Event{
+	result := c.dispatcher.DispatchToPlugin(ctx, pluginID, pluginruntime.Event{
 		EventID:        fmt.Sprintf("plugin-started-%s-%d", pluginID, now.UnixNano()),
 		SourceProtocol: "platform",
 		SourceAdapter:  "plugin.lifecycle",

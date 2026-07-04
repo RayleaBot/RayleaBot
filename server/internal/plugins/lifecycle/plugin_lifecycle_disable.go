@@ -5,7 +5,7 @@ import (
 	"errors"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
-	runtimemanager "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime/manager"
+	pluginruntime "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime"
 )
 
 func (c *Controller) Disable(ctx context.Context, pluginID string) (plugins.Snapshot, error) {
@@ -32,8 +32,8 @@ func (c *Controller) Disable(ctx context.Context, pluginID string) (plugins.Snap
 
 	if manager, ok := c.runtimes.Get(pluginID); ok {
 		switch manager.Snapshot().State {
-		case runtimemanager.StateStarting, runtimemanager.StateRunning, runtimemanager.StateStopping:
-			if stoppingSnapshot, runtimeErr := c.plugins.SetRuntimeState(pluginID, string(runtimemanager.StateStopping)); runtimeErr == nil {
+		case pluginruntime.StateStarting, pluginruntime.StateRunning, pluginruntime.StateStopping:
+			if stoppingSnapshot, runtimeErr := c.plugins.SetRuntimeState(pluginID, string(pluginruntime.StateStopping)); runtimeErr == nil {
 				updated = stoppingSnapshot
 			}
 			go c.stopPluginAsync(pluginID, true)
@@ -42,7 +42,7 @@ func (c *Controller) Disable(ctx context.Context, pluginID string) (plugins.Snap
 			c.runtimes.Delete(pluginID)
 			manager.ResetCrashCount()
 			manager.SetStopped()
-			if stoppedSnapshot, runtimeErr := c.plugins.SetRuntimeState(pluginID, string(runtimemanager.StateStopped)); runtimeErr == nil {
+			if stoppedSnapshot, runtimeErr := c.plugins.SetRuntimeState(pluginID, string(pluginruntime.StateStopped)); runtimeErr == nil {
 				updated = stoppedSnapshot
 			}
 		}

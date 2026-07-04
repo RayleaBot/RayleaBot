@@ -3,16 +3,14 @@ package actions
 import (
 	"context"
 
-	runtimeaction "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime/action"
-	runtimemanager "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime/manager"
-	runtimeprotocol "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime/protocol"
+	pluginruntime "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime"
 )
 
 type ActionRequest struct {
 	PluginID    string
 	RequestID   string
-	Action      runtimeaction.Action
-	ParentEvent runtimeprotocol.Event
+	Action      pluginruntime.Action
+	ParentEvent pluginruntime.Event
 }
 
 type ActionHandler func(context.Context, ActionRequest) (map[string]any, error)
@@ -70,7 +68,7 @@ func (r *Registry) Dispatch(ctx context.Context, req ActionRequest) (map[string]
 	return result, true, err
 }
 
-func (s *Service) Execute(ctx context.Context, pluginID, requestID string, action runtimeaction.Action, parentEvent runtimeprotocol.Event) (map[string]any, error) {
+func (s *Service) Execute(ctx context.Context, pluginID, requestID string, action pluginruntime.Action, parentEvent pluginruntime.Event) (map[string]any, error) {
 	if s != nil && s.actionRegistry != nil {
 		result, handled, err := s.actionRegistry.Dispatch(ctx, ActionRequest{
 			PluginID:    pluginID,
@@ -82,7 +80,7 @@ func (s *Service) Execute(ctx context.Context, pluginID, requestID string, actio
 			return result, err
 		}
 	}
-	return nil, &runtimemanager.Error{
+	return nil, &pluginruntime.Error{
 		Code:    "plugin.protocol_violation",
 		Message: "received unsupported local action kind",
 	}

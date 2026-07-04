@@ -4,7 +4,7 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/onebot11"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins/actions/renderidentity"
-	runtimeprotocol "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime/protocol"
+	pluginruntime "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime"
 	renderservice "github.com/RayleaBot/RayleaBot/server/internal/render/service"
 )
 
@@ -63,19 +63,19 @@ func (s *Service) visibleBuiltinMenuItems(event onebot11.NormalizedEvent) []map[
 	return items
 }
 
-func runtimeEventFromAdapter(event onebot11.NormalizedEvent) runtimeprotocol.Event {
-	result := runtimeprotocol.Event{
+func runtimeEventFromAdapter(event onebot11.NormalizedEvent) pluginruntime.Event {
+	result := pluginruntime.Event{
 		EventID:        event.EventID,
 		SourceProtocol: event.SourceProtocol,
 		SourceAdapter:  event.SourceAdapter,
 		EventType:      event.EventType,
 		Timestamp:      event.Timestamp,
-		Actor: &runtimeprotocol.EventActor{
+		Actor: &pluginruntime.EventActor{
 			ID:       event.SenderID,
 			Nickname: event.ActorNickname,
 			Role:     event.ActorRole,
 		},
-		Target: &runtimeprotocol.EventTarget{
+		Target: &pluginruntime.EventTarget{
 			Type: event.ConversationType,
 			ID:   event.ConversationID,
 			Name: event.TargetName,
@@ -84,9 +84,9 @@ func runtimeEventFromAdapter(event onebot11.NormalizedEvent) runtimeprotocol.Eve
 		PayloadFields: event.PayloadFields,
 	}
 	if event.PlainText != "" || len(event.Segments) > 0 {
-		result.Message = &runtimeprotocol.EventMessage{PlainText: event.PlainText}
+		result.Message = &pluginruntime.EventMessage{PlainText: event.PlainText}
 		for _, segment := range event.Segments {
-			result.Message.Segments = append(result.Message.Segments, runtimeprotocol.EventSegment{
+			result.Message.Segments = append(result.Message.Segments, pluginruntime.EventSegment{
 				Type: segment.Type,
 				Data: segment.Data,
 			})
@@ -95,7 +95,7 @@ func runtimeEventFromAdapter(event onebot11.NormalizedEvent) runtimeprotocol.Eve
 	return result
 }
 
-func (s *Service) withBuiltinMenuIdentity(data map[string]any, event runtimeprotocol.Event) map[string]any {
+func (s *Service) withBuiltinMenuIdentity(data map[string]any, event pluginruntime.Event) map[string]any {
 	if data == nil {
 		data = map[string]any{}
 	}

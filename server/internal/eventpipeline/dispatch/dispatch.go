@@ -7,14 +7,13 @@ import (
 	"time"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/outbound"
-	runtimemanager "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime/manager"
-	runtimeprotocol "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime/protocol"
+	pluginruntime "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime"
 )
 
 // runtimeDeliverer is the interface a plugin runtime must satisfy for dispatch.
 type runtimeDeliverer interface {
-	DeliverEvent(context.Context, runtimeprotocol.Event) (runtimemanager.Delivery, error)
-	Snapshot() runtimemanager.Snapshot
+	DeliverEvent(context.Context, pluginruntime.Event) (pluginruntime.Delivery, error)
+	Snapshot() pluginruntime.Snapshot
 }
 
 // Outcome represents the result of delivering an event to a single plugin.
@@ -43,7 +42,7 @@ type CommandDecl struct {
 }
 type dispatchItem struct {
 	ctx   context.Context
-	event runtimeprotocol.Event
+	event pluginruntime.Event
 }
 type pluginSlot struct {
 	runtime       runtimeDeliverer

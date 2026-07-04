@@ -10,7 +10,7 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins/actions"
 	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
-	runtimeprotocol "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime/protocol"
+	pluginruntime "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime"
 	"github.com/RayleaBot/RayleaBot/server/internal/scheduler"
 )
 
@@ -38,13 +38,13 @@ func ConfigChangedDispatcher(dispatcher *dispatch.Dispatcher) actions.ConfigChan
 		if !dispatcher.HasDeliverablePlugin(pluginID) {
 			return actions.ConfigChangeDispatchResult{Delivered: true}
 		}
-		result := dispatcher.DispatchToPlugin(ctx, pluginID, runtimeprotocol.Event{
+		result := dispatcher.DispatchToPlugin(ctx, pluginID, pluginruntime.Event{
 			EventID:        fmt.Sprintf("config-changed-%s-%d", pluginID, time.Now().UnixNano()),
 			SourceProtocol: "platform",
 			SourceAdapter:  "config.internal",
 			EventType:      "config.changed",
 			Timestamp:      time.Now().Unix(),
-			Target: &runtimeprotocol.EventTarget{
+			Target: &pluginruntime.EventTarget{
 				Type: "plugin",
 				ID:   pluginID,
 				Name: pluginID,

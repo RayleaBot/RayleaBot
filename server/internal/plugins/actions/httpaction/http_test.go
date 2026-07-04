@@ -8,8 +8,7 @@ import (
 	"testing"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
-	runtimeaction "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime/action"
-	runtimemanager "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime/manager"
+	pluginruntime "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime"
 )
 
 func TestExecuteSendsExplicitRequestAndReturnsText(t *testing.T) {
@@ -28,7 +27,7 @@ func TestExecuteSendsExplicitRequestAndReturnsText(t *testing.T) {
 
 	result, err := Execute(context.Background(), Request{
 		PluginID: "plugin.http",
-		Action: runtimeaction.Action{
+		Action: pluginruntime.Action{
 			HTTPMethod:  "GET",
 			HTTPURL:     server.URL + "/v1/data",
 			HTTPHeaders: map[string]string{"X-Request": "fixture"},
@@ -58,7 +57,7 @@ func TestExecuteRejectsUndeclaredHost(t *testing.T) {
 
 	_, err := Execute(context.Background(), Request{
 		PluginID: "plugin.http",
-		Action: runtimeaction.Action{
+		Action: pluginruntime.Action{
 			HTTPMethod: "GET",
 			HTTPURL:    "https://api.example.test/v1/data",
 		},
@@ -69,7 +68,7 @@ func TestExecuteRejectsUndeclaredHost(t *testing.T) {
 		},
 	})
 
-	var runtimeErr *runtimemanager.Error
+	var runtimeErr *pluginruntime.Error
 	if !errors.As(err, &runtimeErr) {
 		t.Fatalf("expected runtime error, got %#v", err)
 	}

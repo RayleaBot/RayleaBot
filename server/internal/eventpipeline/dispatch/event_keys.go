@@ -4,10 +4,10 @@ import (
 	"fmt"
 	"strings"
 
-	runtimeprotocol "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime/protocol"
+	pluginruntime "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime"
 )
 
-func laneKeyForEvent(event runtimeprotocol.Event, fallbackCounter *int) string {
+func laneKeyForEvent(event pluginruntime.Event, fallbackCounter *int) string {
 	if event.Target != nil {
 		targetType := strings.TrimSpace(event.Target.Type)
 		targetID := strings.TrimSpace(event.Target.ID)
@@ -19,7 +19,7 @@ func laneKeyForEvent(event runtimeprotocol.Event, fallbackCounter *int) string {
 	return fmt.Sprintf("fallback:%d", *fallbackCounter)
 }
 
-func commandNameForEvent(event runtimeprotocol.Event) string {
+func commandNameForEvent(event pluginruntime.Event) string {
 	if event.PayloadFields == nil {
 		return ""
 	}

@@ -8,8 +8,7 @@ import (
 
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	pluginhttp "github.com/RayleaBot/RayleaBot/server/internal/plugins/httpclient"
-	runtimeaction "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime/action"
-	runtimemanager "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime/manager"
+	pluginruntime "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime"
 )
 
 type CapabilityView interface {
@@ -19,7 +18,7 @@ type CapabilityView interface {
 
 type Request struct {
 	PluginID     string
-	Action       runtimeaction.Action
+	Action       pluginruntime.Action
 	Config       config.Config
 	Capabilities CapabilityView
 }
@@ -31,7 +30,7 @@ const (
 
 func Execute(ctx context.Context, req Request) (map[string]any, error) {
 	if req.Capabilities == nil || !req.Capabilities.CapabilityDeclared(ctx, req.PluginID, "http.request") {
-		return nil, &runtimemanager.Error{
+		return nil, &pluginruntime.Error{
 			Code:    "plugin.capability_violation",
 			Message: "http.request capability is not declared",
 		}
@@ -53,19 +52,19 @@ func Execute(ctx context.Context, req Request) (map[string]any, error) {
 		ActionTimeout: currentActionTimeout(req.Action),
 	}, scopeHosts)
 	if err == pluginhttp.ErrScopeViolation {
-		return nil, &runtimemanager.Error{
+		return nil, &pluginruntime.Error{
 			Code:    "plugin.capability_violation",
 			Message: "http.request target is outside declared capability parameters",
 		}
 	}
 	if err == pluginhttp.ErrInvalidRequest {
-		return nil, &runtimemanager.Error{
+		return nil, &pluginruntime.Error{
 			Code:    "platform.invalid_request",
 			Message: "http.request request is invalid",
 		}
 	}
 	if err != nil {
-		return nil, &runtimemanager.Error{
+		return nil, &pluginruntime.Error{
 			Code:    "plugin.internal_error",
 			Message: "http.request failed",
 			Err:     err,
@@ -104,7 +103,7 @@ func currentMaxRetries(cfg config.Config) int {
 	return cfg.HTTP.MaxRetries
 }
 
-func currentActionTimeout(action runtimeaction.Action) time.Duration {
+func currentActionTimeout(action pluginruntime.Action) time.Duration {
 	if action.HTTPTimeoutSeconds <= 0 {
 		return 0
 	}

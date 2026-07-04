@@ -6,8 +6,7 @@ import (
 	"strings"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/onebot11"
-	runtimeaction "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime/action"
-	runtimeprotocol "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime/protocol"
+	pluginruntime "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime"
 )
 
 const (
@@ -38,7 +37,7 @@ type ReplyTargetResolver interface {
 	ResolveReplyTarget(eventID string) (ReplyTarget, bool)
 }
 
-func SendAction(ctx context.Context, sender ActionSender, resolver ReplyTargetResolver, origin runtimeprotocol.Event, action runtimeaction.Action) (SendResult, error) {
+func SendAction(ctx context.Context, sender ActionSender, resolver ReplyTargetResolver, origin pluginruntime.Event, action pluginruntime.Action) (SendResult, error) {
 	if sender == nil {
 		return SendResult{DeliveryKind: action.Kind}, &onebot11.Error{
 			Code:    codeAdapterSendFailed,
@@ -69,7 +68,7 @@ func SendAction(ctx context.Context, sender ActionSender, resolver ReplyTargetRe
 	}
 }
 
-func sendReplyAction(ctx context.Context, sender ActionSender, resolver ReplyTargetResolver, _ runtimeprotocol.Event, action runtimeaction.Action) (SendResult, error) {
+func sendReplyAction(ctx context.Context, sender ActionSender, resolver ReplyTargetResolver, _ pluginruntime.Event, action pluginruntime.Action) (SendResult, error) {
 	replyTarget, ok := resolveReplyTarget(action, resolver)
 	if !ok {
 		return SendResult{DeliveryKind: "message.reply"}, &onebot11.Error{
@@ -116,7 +115,7 @@ func sendReplyAction(ctx context.Context, sender ActionSender, resolver ReplyTar
 	}, fallbackErr
 }
 
-func resolveReplyTarget(action runtimeaction.Action, resolver ReplyTargetResolver) (ReplyTarget, bool) {
+func resolveReplyTarget(action pluginruntime.Action, resolver ReplyTargetResolver) (ReplyTarget, bool) {
 	replyToEventID := strings.TrimSpace(action.ReplyToEventID)
 	if replyToEventID == "" || resolver == nil {
 		return ReplyTarget{}, false
@@ -128,7 +127,7 @@ func resolveReplyTarget(action runtimeaction.Action, resolver ReplyTargetResolve
 	return target, target.MessageID != "" && target.TargetType != "" && target.TargetID != ""
 }
 
-func toAdapterSegments(segments []runtimeaction.ActionSegment) []onebot11.OutboundMessageSegment {
+func toAdapterSegments(segments []pluginruntime.ActionSegment) []onebot11.OutboundMessageSegment {
 	if len(segments) == 0 {
 		return nil
 	}

@@ -4,22 +4,22 @@ import (
 	"strings"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/onebot11"
-	runtimeprotocol "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime/protocol"
+	pluginruntime "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime"
 )
 
-func runtimeEventFromAdapter(event onebot11.NormalizedEvent) runtimeprotocol.Event {
-	runtimeEvent := runtimeprotocol.Event{
+func runtimeEventFromAdapter(event onebot11.NormalizedEvent) pluginruntime.Event {
+	runtimeEvent := pluginruntime.Event{
 		EventID:        event.EventID,
 		SourceProtocol: event.SourceProtocol,
 		SourceAdapter:  event.SourceAdapter,
 		EventType:      event.EventType,
 		Timestamp:      event.Timestamp,
-		Actor: &runtimeprotocol.EventActor{
+		Actor: &pluginruntime.EventActor{
 			ID:       event.SenderID,
 			Nickname: event.ActorNickname,
 			Role:     event.ActorRole,
 		},
-		Target: &runtimeprotocol.EventTarget{
+		Target: &pluginruntime.EventTarget{
 			Type: bridgeTargetType(event),
 			ID:   bridgeTargetID(event),
 			Name: event.TargetName,
@@ -28,7 +28,7 @@ func runtimeEventFromAdapter(event onebot11.NormalizedEvent) runtimeprotocol.Eve
 		MessageID:     event.MessageID,
 	}
 	if event.PlainText != "" || len(event.Segments) > 0 {
-		runtimeEvent.Message = &runtimeprotocol.EventMessage{
+		runtimeEvent.Message = &pluginruntime.EventMessage{
 			PlainText: event.PlainText,
 			Segments:  runtimeSegmentsFromAdapter(event.Segments),
 		}
@@ -36,13 +36,13 @@ func runtimeEventFromAdapter(event onebot11.NormalizedEvent) runtimeprotocol.Eve
 	return runtimeEvent
 }
 
-func runtimeSegmentsFromAdapter(segments []onebot11.MessageSegment) []runtimeprotocol.EventSegment {
+func runtimeSegmentsFromAdapter(segments []onebot11.MessageSegment) []pluginruntime.EventSegment {
 	if len(segments) == 0 {
 		return nil
 	}
-	projected := make([]runtimeprotocol.EventSegment, 0, len(segments))
+	projected := make([]pluginruntime.EventSegment, 0, len(segments))
 	for _, seg := range segments {
-		projected = append(projected, runtimeprotocol.EventSegment{
+		projected = append(projected, pluginruntime.EventSegment{
 			Type: seg.Type,
 			Data: seg.Data,
 		})

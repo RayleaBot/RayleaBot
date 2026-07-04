@@ -36,8 +36,7 @@ import (
 	pluginkv "github.com/RayleaBot/RayleaBot/server/internal/plugins/kvstore"
 	pluginservice "github.com/RayleaBot/RayleaBot/server/internal/plugins/lifecycle"
 	pluginui "github.com/RayleaBot/RayleaBot/server/internal/plugins/managementui"
-	runtimeaction "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime/action"
-	runtimeprotocol "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime/protocol"
+	pluginruntime "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime"
 	pluginwebhook "github.com/RayleaBot/RayleaBot/server/internal/plugins/webhook"
 	renderservice "github.com/RayleaBot/RayleaBot/server/internal/render/service"
 	"github.com/RayleaBot/RayleaBot/server/internal/scheduler"
@@ -283,15 +282,15 @@ func (a *serviceHarness) setTestWebhookService(secretStore secrets.Store, dispat
 	}
 }
 
-func (a *serviceHarness) executeLocalAction(ctx context.Context, pluginID, requestID string, action runtimeaction.Action) (map[string]any, error) {
-	return a.services.LocalActions.Execute(ctx, pluginID, requestID, action, runtimeprotocol.Event{})
+func (a *serviceHarness) executeLocalAction(ctx context.Context, pluginID, requestID string, action pluginruntime.Action) (map[string]any, error) {
+	return a.services.LocalActions.Execute(ctx, pluginID, requestID, action, pluginruntime.Event{})
 }
 
-func (a *serviceHarness) executeOneBotLocalAction(ctx context.Context, pluginID, requestID string, action runtimeaction.Action) (map[string]any, error) {
-	return a.services.LocalActions.Execute(ctx, pluginID, requestID, action, runtimeprotocol.Event{})
+func (a *serviceHarness) executeOneBotLocalAction(ctx context.Context, pluginID, requestID string, action pluginruntime.Action) (map[string]any, error) {
+	return a.services.LocalActions.Execute(ctx, pluginID, requestID, action, pluginruntime.Event{})
 }
 
-func (a *serviceHarness) executeLocalActionForEvent(ctx context.Context, pluginID, requestID string, action runtimeaction.Action, parentEvent runtimeprotocol.Event) (map[string]any, error) {
+func (a *serviceHarness) executeLocalActionForEvent(ctx context.Context, pluginID, requestID string, action pluginruntime.Action, parentEvent pluginruntime.Event) (map[string]any, error) {
 	return a.services.LocalActions.Execute(ctx, pluginID, requestID, action, parentEvent)
 }
 

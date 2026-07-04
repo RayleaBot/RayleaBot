@@ -2,10 +2,10 @@ package dispatch
 
 import (
 	"github.com/RayleaBot/RayleaBot/server/internal/onebot11"
-	runtimeaction "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime/action"
+	pluginruntime "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime"
 )
 
-func toOutboundSegments(segments []runtimeaction.ActionSegment) []onebot11.OutboundMessageSegment {
+func toOutboundSegments(segments []pluginruntime.ActionSegment) []onebot11.OutboundMessageSegment {
 	if len(segments) == 0 {
 		return nil
 	}

@@ -12,8 +12,7 @@ import (
 
 	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/dispatch"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
-	runtimemanager "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime/manager"
-	runtimeprotocol "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime/protocol"
+	pluginruntime "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime"
 	"github.com/go-chi/chi/v5"
 )
 
@@ -21,7 +20,7 @@ func TestHandleWebhookEnsuresRuntimeWithoutBotID(t *testing.T) {
 	t.Parallel()
 
 	dispatcher := dispatch.New(nil, nil, nil, 16)
-	events := make(chan runtimeprotocol.Event, 1)
+	events := make(chan pluginruntime.Event, 1)
 	ensurer := &recordingRuntimeEnsurer{
 		dispatcher: dispatcher,
 		events:     events,
@@ -88,7 +87,7 @@ func TestHandleWebhookEnsuresRuntimeWithoutBotID(t *testing.T) {
 
 type recordingRuntimeEnsurer struct {
 	dispatcher *dispatch.Dispatcher
-	events     chan runtimeprotocol.Event
+	events     chan pluginruntime.Event
 	called     bool
 	botID      string
 }
@@ -105,16 +104,16 @@ func (r *recordingRuntimeEnsurer) EnsurePluginRunning(_ context.Context, pluginI
 }
 
 type webhookRuntime struct {
-	events chan runtimeprotocol.Event
+	events chan pluginruntime.Event
 }
 
-func (r *webhookRuntime) DeliverEvent(_ context.Context, event runtimeprotocol.Event) (runtimemanager.Delivery, error) {
+func (r *webhookRuntime) DeliverEvent(_ context.Context, event pluginruntime.Event) (pluginruntime.Delivery, error) {
 	r.events <- event
-	return runtimemanager.Delivery{RequestID: "evt_webhook", Result: map[string]any{}}, nil
+	return pluginruntime.Delivery{RequestID: "evt_webhook", Result: map[string]any{}}, nil
 }
 
-func (r *webhookRuntime) Snapshot() runtimemanager.Snapshot {
-	return runtimemanager.Snapshot{State: runtimemanager.StateRunning}
+func (r *webhookRuntime) Snapshot() pluginruntime.Snapshot {
+	return pluginruntime.Snapshot{State: pluginruntime.StateRunning}
 }
 
 type alwaysCapabilityView struct{}

@@ -7,8 +7,7 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	pluginfile "github.com/RayleaBot/RayleaBot/server/internal/plugins/filestore"
 	pluginkv "github.com/RayleaBot/RayleaBot/server/internal/plugins/kvstore"
-	runtimeaction "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime/action"
-	runtimemanager "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime/manager"
+	pluginruntime "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime"
 )
 
 type CapabilityView interface {
@@ -32,7 +31,7 @@ type FileStore interface {
 
 type Request struct {
 	PluginID     string
-	Action       runtimeaction.Action
+	Action       pluginruntime.Action
 	Config       config.Config
 	Capabilities CapabilityView
 	KV           KVRepository
@@ -41,13 +40,13 @@ type Request struct {
 
 func ExecuteKV(ctx context.Context, req Request) (map[string]any, error) {
 	if req.Capabilities == nil || !req.Capabilities.CapabilityDeclared(ctx, req.PluginID, "storage.kv") {
-		return nil, &runtimemanager.Error{
+		return nil, &pluginruntime.Error{
 			Code:    "plugin.capability_violation",
 			Message: "storage.kv capability is not declared",
 		}
 	}
 	if req.KV == nil {
-		return nil, &runtimemanager.Error{
+		return nil, &pluginruntime.Error{
 			Code:    "plugin.internal_error",
 			Message: "storage.kv repository is not available",
 		}
@@ -57,7 +56,7 @@ func ExecuteKV(ctx context.Context, req Request) (map[string]any, error) {
 	case "get":
 		value, exists, err := req.KV.Get(ctx, req.PluginID, req.Action.StorageKey)
 		if err != nil {
-			return nil, &runtimemanager.Error{Code: "plugin.internal_error", Message: "storage.kv get failed", Err: err}
+			return nil, &pluginruntime.Error{Code: "plugin.internal_error", Message: "storage.kv get failed", Err: err}
 		}
 		result := map[string]any{
 			"key":    req.Action.StorageKey,
@@ -70,16 +69,16 @@ func ExecuteKV(ctx context.Context, req Request) (map[string]any, error) {
 	case "set":
 		err := req.KV.Set(ctx, req.PluginID, req.Action.StorageKey, req.Action.StorageValue, currentKVLimits(req.Config))
 		if errors.Is(err, pluginkv.ErrValueTooLarge) || errors.Is(err, pluginkv.ErrQuotaExceeded) {
-			return nil, &runtimemanager.Error{Code: "platform.value_too_large", Message: "storage.kv value exceeds configured platform limit"}
+			return nil, &pluginruntime.Error{Code: "platform.value_too_large", Message: "storage.kv value exceeds configured platform limit"}
 		}
 		if err != nil {
-			return nil, &runtimemanager.Error{Code: "plugin.internal_error", Message: "storage.kv set failed", Err: err}
+			return nil, &pluginruntime.Error{Code: "plugin.internal_error", Message: "storage.kv set failed", Err: err}
 		}
 		return map[string]any{}, nil
 	case "delete":
 		deleted, err := req.KV.Delete(ctx, req.PluginID, req.Action.StorageKey)
 		if err != nil {
-			return nil, &runtimemanager.Error{Code: "plugin.internal_error", Message: "storage.kv delete failed", Err: err}
+			return nil, &pluginruntime.Error{Code: "plugin.internal_error", Message: "storage.kv delete failed", Err: err}
 		}
 		return map[string]any{
 			"key":     req.Action.StorageKey,
@@ -88,14 +87,14 @@ func ExecuteKV(ctx context.Context, req Request) (map[string]any, error) {
 	case "list":
 		keys, err := req.KV.List(ctx, req.PluginID, req.Action.StoragePrefix)
 		if err != nil {
-			return nil, &runtimemanager.Error{Code: "plugin.internal_error", Message: "storage.kv list failed", Err: err}
+			return nil, &pluginruntime.Error{Code: "plugin.internal_error", Message: "storage.kv list failed", Err: err}
 		}
 		return map[string]any{
 			"prefix": req.Action.StoragePrefix,
 			"keys":   keys,
 		}, nil
 	default:
-		return nil, &runtimemanager.Error{
+		return nil, &pluginruntime.Error{
 			Code:    "plugin.protocol_violation",
 			Message: "received unsupported storage.kv operation",
 		}

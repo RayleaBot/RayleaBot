@@ -11,18 +11,18 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
 	pluginconfig "github.com/RayleaBot/RayleaBot/server/internal/plugins/configstore"
-	runtimemanager "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime/manager"
+	pluginruntime "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime"
 	pluginwebhook "github.com/RayleaBot/RayleaBot/server/internal/plugins/webhook"
 	"github.com/RayleaBot/RayleaBot/server/internal/scheduler"
 	"github.com/RayleaBot/RayleaBot/server/internal/tasks"
 )
 
 type RuntimeRegistry interface {
-	Get(pluginID string) (*runtimemanager.Manager, bool)
-	GetOrCreate(pluginID string) *runtimemanager.Manager
-	NewDetached() *runtimemanager.Manager
-	Replace(pluginID string, manager *runtimemanager.Manager) *runtimemanager.Manager
-	Delete(pluginID string) *runtimemanager.Manager
+	Get(pluginID string) (*pluginruntime.Manager, bool)
+	GetOrCreate(pluginID string) *pluginruntime.Manager
+	NewDetached() *pluginruntime.Manager
+	Replace(pluginID string, manager *pluginruntime.Manager) *pluginruntime.Manager
+	Delete(pluginID string) *pluginruntime.Manager
 }
 
 type BotIdentitySource interface {

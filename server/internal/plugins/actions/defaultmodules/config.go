@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins/actions"
-	runtimemanager "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime/manager"
+	pluginruntime "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime"
 )
 
 func init() {
@@ -36,34 +36,34 @@ func init() {
 
 func executeConfigRead(ctx context.Context, deps actions.Deps, req actions.ActionRequest) (map[string]any, error) {
 	if deps.Capabilities == nil || !deps.Capabilities.CapabilityDeclared(ctx, req.PluginID, "config.read") {
-		return nil, &runtimemanager.Error{Code: "plugin.capability_violation", Message: "config.read capability is not declared"}
+		return nil, &pluginruntime.Error{Code: "plugin.capability_violation", Message: "config.read capability is not declared"}
 	}
 	if deps.PluginConfig == nil {
-		return nil, &runtimemanager.Error{Code: "plugin.internal_error", Message: "config.read repository is not available"}
+		return nil, &pluginruntime.Error{Code: "plugin.internal_error", Message: "config.read repository is not available"}
 	}
 	values, err := deps.PluginConfig.Read(ctx, req.PluginID, req.Action.ConfigKeys)
 	if err != nil {
-		return nil, &runtimemanager.Error{Code: "plugin.internal_error", Message: "config.read failed", Err: err}
+		return nil, &pluginruntime.Error{Code: "plugin.internal_error", Message: "config.read failed", Err: err}
 	}
 	return map[string]any{"values": values}, nil
 }
 
 func executeConfigWrite(ctx context.Context, deps actions.Deps, req actions.ActionRequest) (map[string]any, error) {
 	if deps.Capabilities == nil || !deps.Capabilities.CapabilityDeclared(ctx, req.PluginID, "config.write") {
-		return nil, &runtimemanager.Error{Code: "plugin.capability_violation", Message: "config.write capability is not declared"}
+		return nil, &pluginruntime.Error{Code: "plugin.capability_violation", Message: "config.write capability is not declared"}
 	}
 	if deps.PluginConfig == nil {
-		return nil, &runtimemanager.Error{Code: "plugin.internal_error", Message: "config.write repository is not available"}
+		return nil, &pluginruntime.Error{Code: "plugin.internal_error", Message: "config.write repository is not available"}
 	}
 
 	changedKeys, err := deps.PluginConfig.Write(ctx, req.PluginID, req.Action.ConfigValues)
 	if err != nil {
-		return nil, &runtimemanager.Error{Code: "plugin.internal_error", Message: "config.write failed", Err: err}
+		return nil, &pluginruntime.Error{Code: "plugin.internal_error", Message: "config.write failed", Err: err}
 	}
 	if len(changedKeys) > 0 && deps.RefreshCommands != nil {
 		settings, readErr := deps.PluginConfig.ReadAll(ctx, req.PluginID)
 		if readErr != nil {
-			return nil, &runtimemanager.Error{Code: "plugin.internal_error", Message: "config.write failed", Err: readErr}
+			return nil, &pluginruntime.Error{Code: "plugin.internal_error", Message: "config.write failed", Err: readErr}
 		}
 		deps.RefreshCommands(ctx, req.PluginID, settings)
 	}

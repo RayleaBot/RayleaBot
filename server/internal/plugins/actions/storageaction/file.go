@@ -6,24 +6,24 @@ import (
 	"errors"
 
 	pluginfile "github.com/RayleaBot/RayleaBot/server/internal/plugins/filestore"
-	runtimemanager "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime/manager"
+	pluginruntime "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime"
 )
 
 func ExecuteFile(ctx context.Context, req Request) (map[string]any, error) {
 	if req.Capabilities == nil || !req.Capabilities.CapabilityDeclared(ctx, req.PluginID, "storage.file") {
-		return nil, &runtimemanager.Error{
+		return nil, &pluginruntime.Error{
 			Code:    "plugin.capability_violation",
 			Message: "storage.file capability is not declared",
 		}
 	}
 	if !req.Capabilities.StorageRootAllowed(ctx, req.PluginID, req.Action.StorageRoot) {
-		return nil, &runtimemanager.Error{
+		return nil, &pluginruntime.Error{
 			Code:    "plugin.capability_violation",
 			Message: "storage.file root is outside declared capability parameters",
 		}
 	}
 	if req.Files == nil {
-		return nil, &runtimemanager.Error{
+		return nil, &pluginruntime.Error{
 			Code:    "plugin.internal_error",
 			Message: "storage.file service is not available",
 		}
@@ -33,10 +33,10 @@ func ExecuteFile(ctx context.Context, req Request) (map[string]any, error) {
 	case "read":
 		result, err := req.Files.Read(req.PluginID, req.Action.StoragePath)
 		if errors.Is(err, pluginfile.ErrInvalidPath) {
-			return nil, &runtimemanager.Error{Code: "platform.invalid_request", Message: "storage.file path is invalid"}
+			return nil, &pluginruntime.Error{Code: "platform.invalid_request", Message: "storage.file path is invalid"}
 		}
 		if err != nil {
-			return nil, &runtimemanager.Error{Code: "plugin.internal_error", Message: "storage.file read failed", Err: err}
+			return nil, &pluginruntime.Error{Code: "plugin.internal_error", Message: "storage.file read failed", Err: err}
 		}
 		payload := map[string]any{
 			"root":   req.Action.StorageRoot,
@@ -54,13 +54,13 @@ func ExecuteFile(ctx context.Context, req Request) (map[string]any, error) {
 	case "write":
 		err := req.Files.Write(req.PluginID, req.Action.StoragePath, req.Action.StorageContent, currentFileLimits(req.Config))
 		if errors.Is(err, pluginfile.ErrInvalidPath) {
-			return nil, &runtimemanager.Error{Code: "platform.invalid_request", Message: "storage.file path is invalid"}
+			return nil, &pluginruntime.Error{Code: "platform.invalid_request", Message: "storage.file path is invalid"}
 		}
 		if errors.Is(err, pluginfile.ErrFileTooLarge) || errors.Is(err, pluginfile.ErrQuotaExceeded) {
-			return nil, &runtimemanager.Error{Code: "platform.value_too_large", Message: "storage.file write exceeds configured platform limit"}
+			return nil, &pluginruntime.Error{Code: "platform.value_too_large", Message: "storage.file write exceeds configured platform limit"}
 		}
 		if err != nil {
-			return nil, &runtimemanager.Error{Code: "plugin.internal_error", Message: "storage.file write failed", Err: err}
+			return nil, &pluginruntime.Error{Code: "plugin.internal_error", Message: "storage.file write failed", Err: err}
 		}
 		return map[string]any{
 			"root": req.Action.StorageRoot,
@@ -69,10 +69,10 @@ func ExecuteFile(ctx context.Context, req Request) (map[string]any, error) {
 	case "delete":
 		deleted, err := req.Files.Delete(req.PluginID, req.Action.StoragePath)
 		if errors.Is(err, pluginfile.ErrInvalidPath) {
-			return nil, &runtimemanager.Error{Code: "platform.invalid_request", Message: "storage.file path is invalid"}
+			return nil, &pluginruntime.Error{Code: "platform.invalid_request", Message: "storage.file path is invalid"}
 		}
 		if err != nil {
-			return nil, &runtimemanager.Error{Code: "plugin.internal_error", Message: "storage.file delete failed", Err: err}
+			return nil, &pluginruntime.Error{Code: "plugin.internal_error", Message: "storage.file delete failed", Err: err}
 		}
 		return map[string]any{
 			"root":    req.Action.StorageRoot,
@@ -82,10 +82,10 @@ func ExecuteFile(ctx context.Context, req Request) (map[string]any, error) {
 	case "list":
 		paths, err := req.Files.List(req.PluginID, req.Action.StoragePrefix)
 		if errors.Is(err, pluginfile.ErrInvalidPath) {
-			return nil, &runtimemanager.Error{Code: "platform.invalid_request", Message: "storage.file path is invalid"}
+			return nil, &pluginruntime.Error{Code: "platform.invalid_request", Message: "storage.file path is invalid"}
 		}
 		if err != nil {
-			return nil, &runtimemanager.Error{Code: "plugin.internal_error", Message: "storage.file list failed", Err: err}
+			return nil, &pluginruntime.Error{Code: "plugin.internal_error", Message: "storage.file list failed", Err: err}
 		}
 		return map[string]any{
 			"root":   req.Action.StorageRoot,
@@ -93,7 +93,7 @@ func ExecuteFile(ctx context.Context, req Request) (map[string]any, error) {
 			"paths":  paths,
 		}, nil
 	default:
-		return nil, &runtimemanager.Error{
+		return nil, &pluginruntime.Error{
 			Code:    "plugin.protocol_violation",
 			Message: "received unsupported storage.file operation",
 		}

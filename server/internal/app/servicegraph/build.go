@@ -17,7 +17,7 @@ import (
 	managementevents "github.com/RayleaBot/RayleaBot/server/internal/management/events"
 	"github.com/RayleaBot/RayleaBot/server/internal/management/protocolapi"
 	"github.com/RayleaBot/RayleaBot/server/internal/metrics"
-	runtimeregistry "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime/registry"
+	pluginruntime "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime"
 	renderservice "github.com/RayleaBot/RayleaBot/server/internal/render/service"
 	"github.com/RayleaBot/RayleaBot/server/internal/runtimepaths"
 	systemsvc "github.com/RayleaBot/RayleaBot/server/internal/system"
@@ -62,7 +62,7 @@ type Services struct {
 
 type BuildResult struct {
 	Services                   Services
-	Runtimes                   *runtimeregistry.Registry
+	Runtimes                   *pluginruntime.Registry
 	Status                     *managementevents.ServiceStatusService
 	ThirdPartyAccountValidator *integrationmodule.AccountValidator
 }

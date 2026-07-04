@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	runtimeprotocol "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime/protocol"
+	pluginruntime "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime"
 )
 
 // Trigger fires a registered job immediately without advancing the scheduled
@@ -69,7 +69,7 @@ func (e *Engine) RecordRunResult(ctx context.Context, result RunResult) error {
 	return nil
 }
 
-func (e *Engine) RecordSchedulerRunResult(ctx context.Context, result runtimeprotocol.SchedulerRunResult) error {
+func (e *Engine) RecordSchedulerRunResult(ctx context.Context, result pluginruntime.SchedulerRunResult) error {
 	return e.RecordRunResult(ctx, RunResult{
 		JobID:      result.JobID,
 		Outcome:    RunOutcome(result.Outcome),

@@ -17,8 +17,7 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
 	pluginconfig "github.com/RayleaBot/RayleaBot/server/internal/plugins/configstore"
-	runtimemanager "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime/manager"
-	runtimeprotocol "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime/protocol"
+	pluginruntime "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime"
 	pluginwebhook "github.com/RayleaBot/RayleaBot/server/internal/plugins/webhook"
 	renderbrowser "github.com/RayleaBot/RayleaBot/server/internal/render/browser"
 	renderservice "github.com/RayleaBot/RayleaBot/server/internal/render/service"
@@ -89,25 +88,25 @@ func (a *testApp) setTestLifecycle(catalog *plugincatalog.Catalog, desiredRepo p
 
 type testRuntimeRegistry struct {
 	logger  *slog.Logger
-	options runtimemanager.Options
+	options pluginruntime.Options
 
 	mu      sync.RWMutex
-	onCrash runtimemanager.CrashCallback
-	items   map[string]*runtimemanager.Manager
+	onCrash pluginruntime.CrashCallback
+	items   map[string]*pluginruntime.Manager
 }
 
-func newRuntimeRegistry(logger *slog.Logger, options runtimemanager.Options) *testRuntimeRegistry {
+func newRuntimeRegistry(logger *slog.Logger, options pluginruntime.Options) *testRuntimeRegistry {
 	if logger == nil {
 		logger = slog.Default()
 	}
 	return &testRuntimeRegistry{
 		logger:  logger,
 		options: options,
-		items:   make(map[string]*runtimemanager.Manager),
+		items:   make(map[string]*pluginruntime.Manager),
 	}
 }
 
-func (r *testRuntimeRegistry) Get(pluginID string) (*runtimemanager.Manager, bool) {
+func (r *testRuntimeRegistry) Get(pluginID string) (*pluginruntime.Manager, bool) {
 	if r == nil {
 		return nil, false
 	}
@@ -117,7 +116,7 @@ func (r *testRuntimeRegistry) Get(pluginID string) (*runtimemanager.Manager, boo
 	return manager, ok
 }
 
-func (r *testRuntimeRegistry) GetOrCreate(pluginID string) *runtimemanager.Manager {
+func (r *testRuntimeRegistry) GetOrCreate(pluginID string) *pluginruntime.Manager {
 	if r == nil {
 		return nil
 	}
@@ -126,22 +125,22 @@ func (r *testRuntimeRegistry) GetOrCreate(pluginID string) *runtimemanager.Manag
 	if manager, ok := r.items[pluginID]; ok {
 		return manager
 	}
-	manager := runtimemanager.New(r.logger, r.options)
+	manager := pluginruntime.NewManager(r.logger, r.options)
 	manager.SetOnCrash(r.onCrash)
 	r.items[pluginID] = manager
 	return manager
 }
 
-func (r *testRuntimeRegistry) NewDetached() *runtimemanager.Manager {
+func (r *testRuntimeRegistry) NewDetached() *pluginruntime.Manager {
 	if r == nil {
 		return nil
 	}
-	manager := runtimemanager.New(r.logger, r.options)
+	manager := pluginruntime.NewManager(r.logger, r.options)
 	manager.SetOnCrash(r.onCrash)
 	return manager
 }
 
-func (r *testRuntimeRegistry) Replace(pluginID string, manager *runtimemanager.Manager) *runtimemanager.Manager {
+func (r *testRuntimeRegistry) Replace(pluginID string, manager *pluginruntime.Manager) *pluginruntime.Manager {
 	if r == nil || manager == nil {
 		return nil
 	}
@@ -153,7 +152,7 @@ func (r *testRuntimeRegistry) Replace(pluginID string, manager *runtimemanager.M
 	return previous
 }
 
-func (r *testRuntimeRegistry) Delete(pluginID string) *runtimemanager.Manager {
+func (r *testRuntimeRegistry) Delete(pluginID string) *pluginruntime.Manager {
 	if r == nil {
 		return nil
 	}
@@ -169,22 +168,22 @@ func newPluginWebhookRegistry() *pluginwebhook.Registry {
 }
 
 type capturingRuntime struct {
-	events chan runtimeprotocol.Event
+	events chan pluginruntime.Event
 }
 
-func (r *capturingRuntime) DeliverEvent(_ context.Context, event runtimeprotocol.Event) (runtimemanager.Delivery, error) {
+func (r *capturingRuntime) DeliverEvent(_ context.Context, event pluginruntime.Event) (pluginruntime.Delivery, error) {
 	select {
 	case r.events <- event:
 	default:
 	}
-	return runtimemanager.Delivery{
+	return pluginruntime.Delivery{
 		RequestID: "event_test_1",
 		Result:    map[string]any{},
 	}, nil
 }
 
-func (r *capturingRuntime) Snapshot() runtimemanager.Snapshot {
-	return runtimemanager.Snapshot{State: runtimemanager.StateRunning}
+func (r *capturingRuntime) Snapshot() pluginruntime.Snapshot {
+	return pluginruntime.Snapshot{State: pluginruntime.StateRunning}
 }
 
 var (

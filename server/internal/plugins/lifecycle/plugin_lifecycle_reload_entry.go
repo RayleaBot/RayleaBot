@@ -5,7 +5,7 @@ import (
 	"errors"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
-	runtimemanager "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime/manager"
+	pluginruntime "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime"
 )
 
 func (c *Controller) Reload(ctx context.Context, pluginID string) (plugins.Snapshot, error) {
@@ -38,7 +38,7 @@ func (c *Controller) Reload(ctx context.Context, pluginID string) (plugins.Snaps
 		}
 	}
 
-	updated, err := c.plugins.SetRuntimeState(pluginID, string(runtimemanager.StateStarting))
+	updated, err := c.plugins.SetRuntimeState(pluginID, string(pluginruntime.StateStarting))
 	if err != nil {
 		updated = snapshot
 	}

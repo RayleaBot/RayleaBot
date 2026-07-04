@@ -5,10 +5,10 @@ import (
 
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
-	runtimeprotocol "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime/protocol"
+	pluginruntime "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime"
 )
 
-func visibleBuiltinCommands(commands []plugins.CommandView, cfg config.Config, event runtimeprotocol.Event) []plugins.CommandView {
+func visibleBuiltinCommands(commands []plugins.CommandView, cfg config.Config, event pluginruntime.Event) []plugins.CommandView {
 	callerRank := builtinMenuCallerPermissionRank(cfg, event)
 	items := make([]plugins.CommandView, 0, len(commands))
 	for _, item := range commands {
@@ -20,7 +20,7 @@ func visibleBuiltinCommands(commands []plugins.CommandView, cfg config.Config, e
 	return items
 }
 
-func visibleBuiltinHelp(help *plugins.HelpView, allCommands []plugins.CommandView, visibleCommands []plugins.CommandView, cfg config.Config, event runtimeprotocol.Event) *plugins.HelpView {
+func visibleBuiltinHelp(help *plugins.HelpView, allCommands []plugins.CommandView, visibleCommands []plugins.CommandView, cfg config.Config, event pluginruntime.Event) *plugins.HelpView {
 	if help == nil {
 		return nil
 	}

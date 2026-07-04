@@ -5,7 +5,7 @@ import (
 	"strings"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
-	runtimemanager "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime/manager"
+	pluginruntime "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime"
 )
 
 func (c *Controller) reconcileRuntime(ctx context.Context, botID string) {
@@ -35,16 +35,16 @@ func (c *Controller) ensurePluginRunning(ctx context.Context, pluginID, botID st
 
 	manager := c.runtimes.GetOrCreate(pluginID)
 	switch manager.Snapshot().State {
-	case runtimemanager.StateRunning:
+	case pluginruntime.StateRunning:
 		c.registerRuntimeIfNeeded(pluginID, manager)
-		_, _ = c.plugins.SetRuntimeState(pluginID, string(runtimemanager.StateRunning))
+		_, _ = c.plugins.SetRuntimeState(pluginID, string(pluginruntime.StateRunning))
 		return nil
-	case runtimemanager.StateStarting, runtimemanager.StateStopping, runtimemanager.StateBackoff, runtimemanager.StateCrashed, runtimemanager.StateDeadLetter:
+	case pluginruntime.StateStarting, pluginruntime.StateStopping, pluginruntime.StateBackoff, pluginruntime.StateCrashed, pluginruntime.StateDeadLetter:
 		return nil
 	default:
 	}
 
-	_, _ = c.plugins.SetRuntimeState(pluginID, string(runtimemanager.StateStarting))
+	_, _ = c.plugins.SetRuntimeState(pluginID, string(pluginruntime.StateStarting))
 	return c.startRuntime(ctx, pluginID, botID, manager)
 }
 
@@ -64,11 +64,11 @@ func (c *Controller) startPluginAsync(pluginID, botID string) {
 	manager := c.runtimes.GetOrCreate(pluginID)
 	if err := c.startRuntime(ctx, pluginID, botID, manager); err != nil {
 		c.logLifecycleWarn("start plugin runtime after enable", pluginID, err)
-		_, _ = c.plugins.SetRuntimeState(pluginID, string(runtimemanager.StateStopped))
+		_, _ = c.plugins.SetRuntimeState(pluginID, string(pluginruntime.StateStopped))
 	}
 }
 
-func (c *Controller) startRuntime(ctx context.Context, pluginID, botID string, manager *runtimemanager.Manager) error {
+func (c *Controller) startRuntime(ctx context.Context, pluginID, botID string, manager *pluginruntime.Manager) error {
 	if manager == nil {
 		return nil
 	}
@@ -78,7 +78,7 @@ func (c *Controller) startRuntime(ctx context.Context, pluginID, botID string, m
 		return plugins.ErrPluginNotFound
 	}
 	if snapshot.DesiredState != "enabled" {
-		_, _ = c.plugins.SetRuntimeState(pluginID, string(runtimemanager.StateStopped))
+		_, _ = c.plugins.SetRuntimeState(pluginID, string(pluginruntime.StateStopped))
 		return nil
 	}
 
@@ -98,7 +98,7 @@ func (c *Controller) startRuntime(ctx context.Context, pluginID, botID string, m
 
 	manager.ResetCrashCount()
 	c.registerRuntime(pluginID, snapshot, manager)
-	_, _ = c.plugins.SetRuntimeState(pluginID, string(runtimemanager.StateRunning))
+	_, _ = c.plugins.SetRuntimeState(pluginID, string(pluginruntime.StateRunning))
 	c.afterRuntimeRegistered(ctx, pluginID, botID)
 	return nil
 }

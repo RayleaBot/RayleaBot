@@ -13,7 +13,7 @@ import (
 	localaction "github.com/RayleaBot/RayleaBot/server/internal/plugins/actions"
 	plugincapabilityview "github.com/RayleaBot/RayleaBot/server/internal/plugins/capabilityview"
 	pluginservice "github.com/RayleaBot/RayleaBot/server/internal/plugins/lifecycle"
-	runtimeregistry "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime/registry"
+	pluginruntime "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime"
 	pluginwebhook "github.com/RayleaBot/RayleaBot/server/internal/plugins/webhook"
 	renderservice "github.com/RayleaBot/RayleaBot/server/internal/render/service"
 	systemsvc "github.com/RayleaBot/RayleaBot/server/internal/system"
@@ -22,7 +22,7 @@ import (
 type LocalActionService = localaction.Service
 type LifecycleController = pluginservice.Controller
 type WebhookService = pluginwebhook.Service
-type RuntimeRegistry = runtimeregistry.Registry
+type RuntimeRegistry = pluginruntime.Registry
 type MenuService = menuext.Service
 
 type Module struct {
@@ -57,7 +57,7 @@ type Runtime struct {
 func BuildRuntime(deps RuntimeDeps) Runtime {
 	capabilityView := buildPluginCapabilityView(deps.Plugins, deps.Events)
 	localActions := buildLocalActionService(deps.Runtime, deps.Platform, deps.Plugins, deps.Events, deps.Renderer, capabilityView, deps.Governance, deps.ThirdParty)
-	runtimeRegistry := runtimeregistry.NewManaged(
+	runtimeRegistry := pluginruntime.NewManaged(
 		deps.Runtime.RuntimeLogger(),
 		deps.Platform.Console,
 		deps.ManagementRedact,

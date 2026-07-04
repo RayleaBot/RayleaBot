@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/dispatch"
-	runtimeprotocol "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime/protocol"
+	pluginruntime "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime"
 )
 
 func (c *Controller) HandleAdapterReady(ctx context.Context) {
@@ -55,13 +55,13 @@ func (c *Controller) dispatchBotIdentityChangedToPlugin(ctx context.Context, plu
 	}
 
 	now := time.Now()
-	result := c.dispatcher.DispatchToPlugin(ctx, pluginID, runtimeprotocol.Event{
+	result := c.dispatcher.DispatchToPlugin(ctx, pluginID, pluginruntime.Event{
 		EventID:        fmt.Sprintf("onebot11-bot-identity-%d-%s", now.UnixNano(), botID),
 		SourceProtocol: "onebot11",
 		SourceAdapter:  "adapter.onebot11",
 		EventType:      "bot.identity.changed",
 		Timestamp:      now.Unix(),
-		Target: &runtimeprotocol.EventTarget{
+		Target: &pluginruntime.EventTarget{
 			Type: "bot",
 			ID:   botID,
 		},

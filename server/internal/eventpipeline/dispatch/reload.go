@@ -5,8 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	runtimemanager "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime/manager"
-	runtimespec "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime/spec"
+	pluginruntime "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime"
 )
 
 // ReloadPlugin performs a zero-gap reload by starting a new runtime before
@@ -20,10 +19,10 @@ import (
 func (d *Dispatcher) ReloadPlugin(
 	ctx context.Context,
 	pluginID string,
-	oldManager *runtimemanager.Manager,
-	newManager *runtimemanager.Manager,
-	spec runtimespec.Spec,
-	payload runtimespec.InitPayload,
+	oldManager *pluginruntime.Manager,
+	newManager *pluginruntime.Manager,
+	spec pluginruntime.Spec,
+	payload pluginruntime.InitPayload,
 	cmds []CommandDecl,
 ) error {
 	// Start the new process. This blocks until init_ack or failure.
@@ -50,7 +49,7 @@ func (d *Dispatcher) ReloadPlugin(
 
 	// Stop old runtime in background (non-blocking for the caller).
 	if hadOld && oldSlot != nil {
-		go func(slot *pluginSlot, manager *runtimemanager.Manager) {
+		go func(slot *pluginSlot, manager *pluginruntime.Manager) {
 			close(slot.queue)
 			<-slot.done
 			if manager == nil {

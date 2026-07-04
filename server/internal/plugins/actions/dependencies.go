@@ -8,7 +8,7 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	pluginfile "github.com/RayleaBot/RayleaBot/server/internal/plugins/filestore"
 	pluginkv "github.com/RayleaBot/RayleaBot/server/internal/plugins/kvstore"
-	runtimeaction "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime/action"
+	pluginruntime "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime"
 )
 
 type CapabilityView interface {
@@ -21,7 +21,7 @@ type CapabilityView interface {
 }
 
 type WebhookGateway interface {
-	Expose(context.Context, string, runtimeaction.Action) (map[string]any, error)
+	Expose(context.Context, string, pluginruntime.Action) (map[string]any, error)
 }
 
 type PluginConfigRepository interface {

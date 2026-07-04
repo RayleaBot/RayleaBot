@@ -6,14 +6,14 @@ import (
 
 	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/outbound"
 	"github.com/RayleaBot/RayleaBot/server/internal/onebot11"
-	runtimeaction "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime/action"
+	pluginruntime "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime"
 )
 
 // recordOutboundMetric routes a single outbound send outcome into the
 // dispatcher MetricsObserver. The adapter label is the OneBot11 shell;
 // outbound currently routes through a single shared adapter, so the label
 // stays bounded and predictable.
-func (d *Dispatcher) recordOutboundMetric(action runtimeaction.Action, result outbound.SendResult, err error, duration time.Duration) {
+func (d *Dispatcher) recordOutboundMetric(action pluginruntime.Action, result outbound.SendResult, err error, duration time.Duration) {
 	observer := d.currentMetrics()
 	if observer == nil {
 		return
@@ -24,7 +24,7 @@ func (d *Dispatcher) recordOutboundMetric(action runtimeaction.Action, result ou
 	_ = result
 }
 
-func outboundAdapterLabel(_ runtimeaction.Action) string {
+func outboundAdapterLabel(_ pluginruntime.Action) string {
 	return "onebot11"
 }
 

@@ -4,26 +4,26 @@ import (
 	"fmt"
 	"strings"
 
-	runtimemanager "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime/manager"
+	pluginruntime "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime"
 )
 
 func requiredString(data map[string]any, key string) (string, error) {
 	if len(data) == 0 {
-		return "", &runtimemanager.Error{
+		return "", &pluginruntime.Error{
 			Code:    "plugin.protocol_violation",
 			Message: fmt.Sprintf("onebot action missing %s", key),
 		}
 	}
 	value, ok := data[key]
 	if !ok {
-		return "", &runtimemanager.Error{
+		return "", &pluginruntime.Error{
 			Code:    "plugin.protocol_violation",
 			Message: fmt.Sprintf("onebot action missing %s", key),
 		}
 	}
 	text := strings.TrimSpace(fmt.Sprint(value))
 	if text == "" || text == "<nil>" {
-		return "", &runtimemanager.Error{
+		return "", &pluginruntime.Error{
 			Code:    "plugin.protocol_violation",
 			Message: fmt.Sprintf("onebot action missing %s", key),
 		}

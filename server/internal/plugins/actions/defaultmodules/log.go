@@ -6,7 +6,7 @@ import (
 	"strings"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins/actions"
-	runtimemanager "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime/manager"
+	pluginruntime "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime"
 )
 
 func init() {
@@ -26,13 +26,13 @@ func init() {
 
 func executeLogWrite(ctx context.Context, deps actions.Deps, req actions.ActionRequest) (map[string]any, error) {
 	if deps.Capabilities == nil || !deps.Capabilities.CapabilityDeclared(ctx, req.PluginID, "logger.write") {
-		return nil, &runtimemanager.Error{Code: "plugin.capability_violation", Message: "logger.write capability is not declared"}
+		return nil, &pluginruntime.Error{Code: "plugin.capability_violation", Message: "logger.write capability is not declared"}
 	}
 	if deps.PluginLogLimiter != nil && !deps.PluginLogLimiter.Allow(req.PluginID) {
-		return nil, &runtimemanager.Error{Code: "platform.rate_limited", Message: "plugin log throughput exceeded the configured platform limit"}
+		return nil, &pluginruntime.Error{Code: "platform.rate_limited", Message: "plugin log throughput exceeded the configured platform limit"}
 	}
 	if deps.Logger == nil {
-		return nil, &runtimemanager.Error{Code: "plugin.internal_error", Message: "logger.write is not available"}
+		return nil, &pluginruntime.Error{Code: "plugin.internal_error", Message: "logger.write is not available"}
 	}
 
 	level := strings.TrimSpace(req.Action.LogLevel)

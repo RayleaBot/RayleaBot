@@ -8,7 +8,7 @@ import (
 
 	"github.com/RayleaBot/RayleaBot/server/internal/integrations/thirdparty"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins/actions"
-	runtimemanager "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime/manager"
+	pluginruntime "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime"
 	"github.com/RayleaBot/RayleaBot/server/internal/secrets"
 )
 
@@ -32,27 +32,27 @@ func init() {
 
 func executeThirdPartyAccountRead(ctx context.Context, deps actions.Deps, req actions.ActionRequest) (map[string]any, error) {
 	if deps.Capabilities == nil || !deps.Capabilities.CapabilityDeclared(ctx, req.PluginID, "thirdparty.account.read") {
-		return nil, &runtimemanager.Error{Code: "plugin.capability_violation", Message: "thirdparty.account.read capability is not declared"}
+		return nil, &pluginruntime.Error{Code: "plugin.capability_violation", Message: "thirdparty.account.read capability is not declared"}
 	}
 
 	platform, err := thirdparty.NormalizePlatform(req.Action.ThirdPartyAccountPlatform)
 	if err != nil {
-		return nil, &runtimemanager.Error{Code: "platform.invalid_request", Message: "thirdparty.account.read platform is invalid"}
+		return nil, &pluginruntime.Error{Code: "platform.invalid_request", Message: "thirdparty.account.read platform is invalid"}
 	}
 	if !thirdPartyAccountPlatformAllowed(deps.Capabilities.ThirdPartyAccountPlatforms(ctx, req.PluginID), platform) {
-		return nil, &runtimemanager.Error{Code: "plugin.capability_violation", Message: "thirdparty.account.read platform is outside declared capability parameters"}
+		return nil, &pluginruntime.Error{Code: "plugin.capability_violation", Message: "thirdparty.account.read platform is outside declared capability parameters"}
 	}
 	accountID := strings.TrimSpace(req.Action.ThirdPartyAccountID)
 	if accountID != "" && !thirdPartyAccountIDPattern.MatchString(accountID) {
-		return nil, &runtimemanager.Error{Code: "platform.invalid_request", Message: "thirdparty.account.read account_id is invalid"}
+		return nil, &pluginruntime.Error{Code: "platform.invalid_request", Message: "thirdparty.account.read account_id is invalid"}
 	}
 	if deps.ThirdParty == nil {
-		return nil, &runtimemanager.Error{Code: "plugin.internal_error", Message: "thirdparty.account.read store is not available"}
+		return nil, &pluginruntime.Error{Code: "plugin.internal_error", Message: "thirdparty.account.read store is not available"}
 	}
 
 	accounts, err := deps.ThirdParty.ListEnabled(ctx, platform)
 	if err != nil {
-		return nil, &runtimemanager.Error{Code: "plugin.internal_error", Message: "thirdparty.account.read failed", Err: err}
+		return nil, &pluginruntime.Error{Code: "plugin.internal_error", Message: "thirdparty.account.read failed", Err: err}
 	}
 
 	items := make([]map[string]any, 0, len(accounts))
@@ -68,7 +68,7 @@ func executeThirdPartyAccountRead(ctx context.Context, deps actions.Deps, req ac
 			continue
 		}
 		if err != nil {
-			return nil, &runtimemanager.Error{Code: "plugin.internal_error", Message: "thirdparty.account.read failed", Err: err}
+			return nil, &pluginruntime.Error{Code: "plugin.internal_error", Message: "thirdparty.account.read failed", Err: err}
 		}
 		items = append(items, thirdPartyAccountReadItem(account, cookie))
 	}

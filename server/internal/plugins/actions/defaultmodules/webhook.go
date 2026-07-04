@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins/actions"
-	runtimemanager "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime/manager"
+	pluginruntime "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime"
 )
 
 func init() {
@@ -25,7 +25,7 @@ func init() {
 
 func executeWebhookExpose(ctx context.Context, deps actions.Deps, req actions.ActionRequest) (map[string]any, error) {
 	if deps.WebhookGateway == nil || deps.WebhookGateway() == nil {
-		return nil, &runtimemanager.Error{Code: "plugin.internal_error", Message: "webhook gateway is not available"}
+		return nil, &pluginruntime.Error{Code: "plugin.internal_error", Message: "webhook gateway is not available"}
 	}
 	return deps.WebhookGateway().Expose(ctx, req.PluginID, req.Action)
 }

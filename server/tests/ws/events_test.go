@@ -13,7 +13,7 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/bridge"
 	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/dispatch"
 	"github.com/RayleaBot/RayleaBot/server/internal/onebot11"
-	runtimeprotocol "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime/protocol"
+	pluginruntime "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime"
 	"github.com/coder/websocket"
 )
 
@@ -343,7 +343,7 @@ func (s *eventsDispatchStub) HasDeliverablePlugins() bool {
 	return s.deliverable
 }
 
-func (s *eventsDispatchStub) Dispatch(context.Context, runtimeprotocol.Event, string) []dispatch.DeliveryResult {
+func (s *eventsDispatchStub) Dispatch(context.Context, pluginruntime.Event, string) []dispatch.DeliveryResult {
 	return append([]dispatch.DeliveryResult(nil), s.results...)
 }
 

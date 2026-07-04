@@ -10,7 +10,7 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/bridge"
 	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/dispatch"
 	"github.com/RayleaBot/RayleaBot/server/internal/onebot11"
-	runtimeprotocol "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime/protocol"
+	pluginruntime "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime"
 )
 
 type metadataEnricherStub struct {
@@ -24,14 +24,14 @@ func (s *metadataEnricherStub) EnrichEventMetadata(_ context.Context, event oneb
 }
 
 type eventIngressDispatcherStub struct {
-	events []runtimeprotocol.Event
+	events []pluginruntime.Event
 }
 
 func (*eventIngressDispatcherStub) HasDeliverablePlugins() bool {
 	return true
 }
 
-func (s *eventIngressDispatcherStub) Dispatch(_ context.Context, event runtimeprotocol.Event, _ string) []dispatch.DeliveryResult {
+func (s *eventIngressDispatcherStub) Dispatch(_ context.Context, event pluginruntime.Event, _ string) []dispatch.DeliveryResult {
 	s.events = append(s.events, event)
 	return []dispatch.DeliveryResult{{
 		PluginID: "echo",

@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins/actions"
-	runtimemanager "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime/manager"
+	pluginruntime "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime"
 )
 
 func BlacklistRead(ctx context.Context, deps actions.Deps, req actions.ActionRequest) (map[string]any, error) {
@@ -37,7 +37,7 @@ func BlacklistWrite(ctx context.Context, deps actions.Deps, req actions.ActionRe
 		}
 		return map[string]any{"deleted": true}, nil
 	default:
-		return nil, &runtimemanager.Error{Code: "plugin.protocol_violation", Message: "governance.blacklist.write uses unsupported operation"}
+		return nil, &pluginruntime.Error{Code: "plugin.protocol_violation", Message: "governance.blacklist.write uses unsupported operation"}
 	}
 }
 
@@ -61,7 +61,7 @@ func WhitelistWrite(ctx context.Context, deps actions.Deps, req actions.ActionRe
 	switch req.Action.GovernanceOperation {
 	case "set_enabled":
 		if req.Action.GovernanceEnabled == nil {
-			return nil, &runtimemanager.Error{Code: "plugin.protocol_violation", Message: "governance.whitelist.write is missing enabled"}
+			return nil, &pluginruntime.Error{Code: "plugin.protocol_violation", Message: "governance.whitelist.write is missing enabled"}
 		}
 		response, err := service.SetWhitelistEnabled(ctx, *req.Action.GovernanceEnabled)
 		if err != nil {
@@ -80,7 +80,7 @@ func WhitelistWrite(ctx context.Context, deps actions.Deps, req actions.ActionRe
 		}
 		return map[string]any{"deleted": true}, nil
 	default:
-		return nil, &runtimemanager.Error{Code: "plugin.protocol_violation", Message: "governance.whitelist.write uses unsupported operation"}
+		return nil, &pluginruntime.Error{Code: "plugin.protocol_violation", Message: "governance.whitelist.write uses unsupported operation"}
 	}
 }
 

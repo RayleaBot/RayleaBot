@@ -5,7 +5,7 @@ import (
 	"strings"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
-	runtimeprotocol "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime/protocol"
+	pluginruntime "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime"
 )
 
 type Identity struct {
@@ -14,7 +14,7 @@ type Identity struct {
 	Permission map[string]any
 }
 
-func Data(cfg config.Config, event runtimeprotocol.Event) Identity {
+func Data(cfg config.Config, event pluginruntime.Event) Identity {
 	actor := event.Actor
 	target := event.Target
 	onebot := objectValue(event.PayloadFields["onebot"])

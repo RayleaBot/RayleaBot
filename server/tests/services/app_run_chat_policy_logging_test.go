@@ -11,7 +11,7 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/permission"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
-	runtimeprotocol "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime/protocol"
+	pluginruntime "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime"
 	"io"
 	"log/slog"
 	"reflect"
@@ -225,7 +225,7 @@ func (r *recordingDispatcherClient) HasDeliverablePlugins() bool {
 	return true
 }
 
-func (r *recordingDispatcherClient) Dispatch(_ context.Context, _ runtimeprotocol.Event, _ string) []dispatch.DeliveryResult {
+func (r *recordingDispatcherClient) Dispatch(_ context.Context, _ pluginruntime.Event, _ string) []dispatch.DeliveryResult {
 	r.deliverCount++
 	return []dispatch.DeliveryResult{{
 		PluginID: "test",

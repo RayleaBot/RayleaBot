@@ -12,7 +12,7 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/dispatch"
 	"github.com/RayleaBot/RayleaBot/server/internal/logging"
 	"github.com/RayleaBot/RayleaBot/server/internal/onebot11"
-	runtimeprotocol "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime/protocol"
+	pluginruntime "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime"
 )
 
 func TestBridgeQueuesSupportedEventToDispatcher(t *testing.T) {
@@ -597,7 +597,7 @@ func TestBridgeEventLogAttrsIncludeBotIDAndGroupName(t *testing.T) {
 type recordingDispatcher struct {
 	deliverable bool
 	results     []dispatch.DeliveryResult
-	events      []runtimeprotocol.Event
+	events      []pluginruntime.Event
 	commands    []string
 }
 
@@ -605,7 +605,7 @@ func (r *recordingDispatcher) HasDeliverablePlugins() bool {
 	return r.deliverable
 }
 
-func (r *recordingDispatcher) Dispatch(_ context.Context, event runtimeprotocol.Event, commandName string) []dispatch.DeliveryResult {
+func (r *recordingDispatcher) Dispatch(_ context.Context, event pluginruntime.Event, commandName string) []dispatch.DeliveryResult {
 	r.events = append(r.events, event)
 	r.commands = append(r.commands, commandName)
 	return append([]dispatch.DeliveryResult(nil), r.results...)

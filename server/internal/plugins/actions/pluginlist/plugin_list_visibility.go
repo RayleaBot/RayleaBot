@@ -5,10 +5,10 @@ import (
 
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
-	runtimeprotocol "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime/protocol"
+	pluginruntime "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime"
 )
 
-func VisibleCommandsForCaller(commands []plugins.CommandView, cfg config.Config, event runtimeprotocol.Event) []plugins.CommandView {
+func VisibleCommandsForCaller(commands []plugins.CommandView, cfg config.Config, event pluginruntime.Event) []plugins.CommandView {
 	if len(commands) == 0 {
 		return []plugins.CommandView{}
 	}
@@ -24,7 +24,7 @@ func VisibleCommandsForCaller(commands []plugins.CommandView, cfg config.Config,
 	return visible
 }
 
-func VisibleHelpForCaller(help *plugins.HelpView, allCommands []plugins.CommandView, visibleCommands []plugins.CommandView, cfg config.Config, event runtimeprotocol.Event) *plugins.HelpView {
+func VisibleHelpForCaller(help *plugins.HelpView, allCommands []plugins.CommandView, visibleCommands []plugins.CommandView, cfg config.Config, event pluginruntime.Event) *plugins.HelpView {
 	if help == nil {
 		return nil
 	}

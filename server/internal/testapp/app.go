@@ -14,7 +14,7 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/bridge"
 	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/dispatch"
 	plugindiscovery "github.com/RayleaBot/RayleaBot/server/internal/plugins/discovery"
-	runtimeprotocol "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime/protocol"
+	pluginruntime "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime"
 	"github.com/RayleaBot/RayleaBot/server/internal/testutil"
 )
 
@@ -159,7 +159,7 @@ func (s *persistentDispatchStub) HasDeliverablePlugins() bool {
 	return s.deliverable
 }
 
-func (s *persistentDispatchStub) Dispatch(context.Context, runtimeprotocol.Event, string) []dispatch.DeliveryResult {
+func (s *persistentDispatchStub) Dispatch(context.Context, pluginruntime.Event, string) []dispatch.DeliveryResult {
 	return append([]dispatch.DeliveryResult(nil), s.results...)
 }
 

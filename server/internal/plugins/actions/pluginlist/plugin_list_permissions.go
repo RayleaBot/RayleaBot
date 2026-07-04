@@ -5,10 +5,10 @@ import (
 	"strings"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
-	runtimeprotocol "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime/protocol"
+	pluginruntime "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime"
 )
 
-func pluginListCallerPermissionRank(cfg config.Config, event runtimeprotocol.Event) int {
+func pluginListCallerPermissionRank(cfg config.Config, event pluginruntime.Event) int {
 	actorID := ""
 	actorRole := ""
 	if event.Actor != nil {

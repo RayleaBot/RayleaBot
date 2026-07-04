@@ -6,7 +6,7 @@ import (
 
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
-	runtimeprotocol "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime/protocol"
+	pluginruntime "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime"
 )
 
 func builtinMenuCommandTokenSet(commands []plugins.CommandView) map[string]struct{} {
@@ -68,7 +68,7 @@ func builtinCommandUsageArgs(commandName string, usage string) string {
 	return ""
 }
 
-func builtinMenuCallerPermissionRank(cfg config.Config, event runtimeprotocol.Event) int {
+func builtinMenuCallerPermissionRank(cfg config.Config, event pluginruntime.Event) int {
 	actorID := ""
 	actorRole := ""
 	if event.Actor != nil {

@@ -11,7 +11,7 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/dispatch"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
-	runtimemanager "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime/manager"
+	pluginruntime "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime"
 	"github.com/RayleaBot/RayleaBot/server/internal/tasks"
 )
 
@@ -32,7 +32,7 @@ func TestReloadCreatesPluginReloadTask(t *testing.T) {
 	app.setTestLifecycle(
 		catalog,
 		nil,
-		newRuntimeRegistry(slog.Default(), runtimemanager.Options{}),
+		newRuntimeRegistry(slog.Default(), pluginruntime.Options{}),
 		dispatch.New(slog.Default(), nil, nil, 16),
 		nil,
 		nil,
@@ -74,7 +74,7 @@ func TestReloadRejectedBeforeAcceptanceDoesNotCreateTask(t *testing.T) {
 	app.setTestLifecycle(
 		catalog,
 		nil,
-		newRuntimeRegistry(slog.Default(), runtimemanager.Options{}),
+		newRuntimeRegistry(slog.Default(), pluginruntime.Options{}),
 		dispatch.New(slog.Default(), nil, nil, 16),
 		nil,
 		nil,

@@ -9,7 +9,7 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins/actions"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins/actions/renderidentity"
-	runtimemanager "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime/manager"
+	pluginruntime "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime"
 )
 
 func init() {
@@ -29,19 +29,19 @@ func init() {
 
 func executeRenderImage(ctx context.Context, deps actions.Deps, req actions.ActionRequest) (map[string]any, error) {
 	if deps.Capabilities == nil || !deps.Capabilities.CapabilityDeclared(ctx, req.PluginID, "render.image") {
-		return nil, &runtimemanager.Error{Code: "plugin.capability_violation", Message: "render.image capability is not declared"}
+		return nil, &pluginruntime.Error{Code: "plugin.capability_violation", Message: "render.image capability is not declared"}
 	}
 	if deps.Renderer == nil {
-		return nil, &runtimemanager.Error{Code: "plugin.internal_error", Message: "render.image service is not available"}
+		return nil, &pluginruntime.Error{Code: "plugin.internal_error", Message: "render.image service is not available"}
 	}
 
 	templateID, err := deps.Renderer.ResolvePluginTemplate(ctx, req.PluginID, req.Action.RenderTemplate)
 	if err != nil {
 		var renderErr *actions.RenderTemplateError
 		if errors.As(err, &renderErr) && renderErr.Code == "plugin.capability_violation" {
-			return nil, &runtimemanager.Error{Code: "plugin.capability_violation", Message: renderErr.Message, Err: err}
+			return nil, &pluginruntime.Error{Code: "plugin.capability_violation", Message: renderErr.Message, Err: err}
 		}
-		return nil, &runtimemanager.Error{Code: "plugin.internal_error", Message: "render.image failed", Err: err}
+		return nil, &pluginruntime.Error{Code: "plugin.internal_error", Message: "render.image failed", Err: err}
 	}
 
 	result, err := deps.Renderer.RenderImage(ctx, actions.RenderImageRequest{
@@ -52,7 +52,7 @@ func executeRenderImage(ctx context.Context, deps actions.Deps, req actions.Acti
 		Plugin:   renderPluginContext(req.PluginID, deps.Capabilities),
 	})
 	if err != nil {
-		return nil, &runtimemanager.Error{Code: "plugin.internal_error", Message: "render.image failed", Err: err}
+		return nil, &pluginruntime.Error{Code: "plugin.internal_error", Message: "render.image failed", Err: err}
 	}
 	return map[string]any{
 		"artifact_id":   result.ArtifactID,

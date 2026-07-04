@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
-	runtimeprotocol "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime/protocol"
+	pluginruntime "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime"
 )
 
 func (c *Controller) InvokeManagementAction(ctx context.Context, pluginID, action string, payload map[string]any) (map[string]any, error) {
@@ -35,7 +35,7 @@ func (c *Controller) InvokeManagementAction(ctx context.Context, pluginID, actio
 	}
 
 	now := time.Now()
-	delivery, err := manager.DeliverEvent(ctx, runtimeprotocol.Event{
+	delivery, err := manager.DeliverEvent(ctx, pluginruntime.Event{
 		EventID:        fmt.Sprintf("management-action-%s-%d", action, now.UnixNano()),
 		SourceProtocol: "management",
 		SourceAdapter:  "management.ui",

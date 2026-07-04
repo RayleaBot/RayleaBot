@@ -5,7 +5,7 @@ import (
 	"errors"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
-	runtimemanager "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime/manager"
+	pluginruntime "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime"
 )
 
 func (c *Controller) RecoverFromDeadLetter(ctx context.Context, pluginID string) (plugins.Snapshot, error) {
@@ -25,7 +25,7 @@ func (c *Controller) RecoverFromDeadLetter(ctx context.Context, pluginID string)
 	if !ok || manager == nil {
 		return plugins.Snapshot{}, plugins.ErrPluginNotInDeadLetter
 	}
-	if manager.Snapshot().State != runtimemanager.StateDeadLetter {
+	if manager.Snapshot().State != pluginruntime.StateDeadLetter {
 		return plugins.Snapshot{}, plugins.ErrPluginNotInDeadLetter
 	}
 
@@ -49,7 +49,7 @@ func (c *Controller) RecoverFromDeadLetter(ctx context.Context, pluginID string)
 	manager.ResetCrashCount()
 	manager.SetStopped()
 
-	if startingSnapshot, runtimeErr := c.plugins.SetRuntimeState(pluginID, string(runtimemanager.StateStarting)); runtimeErr == nil {
+	if startingSnapshot, runtimeErr := c.plugins.SetRuntimeState(pluginID, string(pluginruntime.StateStarting)); runtimeErr == nil {
 		updated = startingSnapshot
 	}
 

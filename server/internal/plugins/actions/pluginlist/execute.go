@@ -5,9 +5,7 @@ import (
 
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
-	runtimeaction "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime/action"
-	runtimemanager "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime/manager"
-	runtimeprotocol "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime/protocol"
+	pluginruntime "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime"
 )
 
 type CapabilityView interface {
@@ -17,15 +15,15 @@ type CapabilityView interface {
 
 type Request struct {
 	PluginID      string
-	Action        runtimeaction.Action
-	ParentEvent   runtimeprotocol.Event
+	Action        pluginruntime.Action
+	ParentEvent   pluginruntime.Event
 	Capabilities  CapabilityView
 	CurrentConfig func() config.Config
 }
 
 func Execute(ctx context.Context, req Request) (map[string]any, error) {
 	if req.Capabilities == nil || !req.Capabilities.CapabilityDeclared(ctx, req.PluginID, "plugin.list") {
-		return nil, &runtimemanager.Error{
+		return nil, &pluginruntime.Error{
 			Code:    "plugin.capability_violation",
 			Message: "plugin.list capability is not declared",
 		}

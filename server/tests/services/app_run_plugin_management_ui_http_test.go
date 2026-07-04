@@ -20,7 +20,7 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins/actions/actionwiring"
 	pluginconfig "github.com/RayleaBot/RayleaBot/server/internal/plugins/configstore"
 	pluginui "github.com/RayleaBot/RayleaBot/server/internal/plugins/managementui"
-	runtimeprotocol "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime/protocol"
+	pluginruntime "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime"
 	"github.com/RayleaBot/RayleaBot/server/internal/secrets"
 	"github.com/RayleaBot/RayleaBot/server/internal/storage"
 	"github.com/go-chi/chi/v5"
@@ -274,7 +274,7 @@ func TestHandlePluginSettingsPutDispatchesConfigChanged(t *testing.T) {
 		nil,
 		nil,
 	)
-	fakeRuntime := &capturingRuntime{events: make(chan runtimeprotocol.Event, 1)}
+	fakeRuntime := &capturingRuntime{events: make(chan pluginruntime.Event, 1)}
 	dispatcher.Register("example-config-panel", fakeRuntime, []string{"config.changed"}, nil, 1)
 
 	handlers := newPluginManagementUIHTTPHandlers(pluginManagementUIHTTPDeps{

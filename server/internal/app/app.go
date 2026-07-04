@@ -16,7 +16,7 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/configruntime"
 	"github.com/RayleaBot/RayleaBot/server/internal/metrics"
 	plugindiscovery "github.com/RayleaBot/RayleaBot/server/internal/plugins/discovery"
-	runtimeregistry "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime/registry"
+	pluginruntime "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime"
 	renderbrowser "github.com/RayleaBot/RayleaBot/server/internal/render/browser"
 )
 
@@ -41,7 +41,7 @@ type App struct {
 	eventStack  appEvents
 	services    appServices
 
-	runtimes *runtimeregistry.Registry
+	runtimes *pluginruntime.Registry
 
 	httpHandlers appHTTPHandlers
 

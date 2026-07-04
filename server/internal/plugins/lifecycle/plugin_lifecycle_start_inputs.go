@@ -6,14 +6,14 @@ import (
 
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
-	runtimespec "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime/spec"
+	pluginruntime "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime"
 )
 
-func (c *Controller) buildStartInputs(ctx context.Context, pluginID, botID string) (runtimespec.Spec, runtimespec.InitPayload, error) {
+func (c *Controller) buildStartInputs(ctx context.Context, pluginID, botID string) (pluginruntime.Spec, pluginruntime.InitPayload, error) {
 	_ = ctx
 	snapshot, ok := c.plugins.Get(pluginID)
 	if !ok {
-		return runtimespec.Spec{}, runtimespec.InitPayload{}, plugins.ErrPluginNotFound
+		return pluginruntime.Spec{}, pluginruntime.InitPayload{}, plugins.ErrPluginNotFound
 	}
 	return c.buildStartInputsWithCapabilities(pluginID, botID, c.declaredCapabilities(snapshot))
 }
@@ -22,20 +22,20 @@ func (c *Controller) declaredCapabilities(snapshot plugins.Snapshot) []string {
 	return plugins.DedupeCapabilities(snapshot.DeclaredCapabilities)
 }
 
-func (c *Controller) buildStartInputsWithCapabilities(pluginID, botID string, capabilities []string) (runtimespec.Spec, runtimespec.InitPayload, error) {
+func (c *Controller) buildStartInputsWithCapabilities(pluginID, botID string, capabilities []string) (pluginruntime.Spec, pluginruntime.InitPayload, error) {
 	snapshot, ok := c.plugins.Get(pluginID)
 	if !ok {
-		return runtimespec.Spec{}, runtimespec.InitPayload{}, plugins.ErrPluginNotFound
+		return pluginruntime.Spec{}, pluginruntime.InitPayload{}, plugins.ErrPluginNotFound
 	}
 
 	cfg := c.config()
-	spec, err := runtimespec.BuildSpec(snapshot, c.repoRoot, cfg.Runtime)
+	spec, err := pluginruntime.BuildSpec(snapshot, c.repoRoot, cfg.Runtime)
 	if err != nil {
-		return runtimespec.Spec{}, runtimespec.InitPayload{}, err
+		return pluginruntime.Spec{}, pluginruntime.InitPayload{}, err
 	}
 
-	payload := runtimespec.InitPayload{
-		Bot: runtimespec.BotInfo{
+	payload := pluginruntime.InitPayload{
+		Bot: pluginruntime.BotInfo{
 			ID: strings.TrimSpace(botID),
 		},
 		Capabilities:    append([]string(nil), capabilities...),

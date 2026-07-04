@@ -12,8 +12,7 @@ import (
 	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
 	pluginconfig "github.com/RayleaBot/RayleaBot/server/internal/plugins/configstore"
 	pluginkv "github.com/RayleaBot/RayleaBot/server/internal/plugins/kvstore"
-	runtimeaction "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime/action"
-	runtimeprotocol "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime/protocol"
+	pluginruntime "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime"
 	"github.com/RayleaBot/RayleaBot/server/internal/scheduler"
 	"github.com/RayleaBot/RayleaBot/server/internal/storage"
 	"log/slog"
@@ -50,7 +49,7 @@ func TestExecuteLoggerWriteAppliesRateLimit(t *testing.T) {
 		nil,
 	)
 
-	if _, err := application.executeLocalAction(context.Background(), "notice-logger", "req_local_2", runtimeaction.Action{
+	if _, err := application.executeLocalAction(context.Background(), "notice-logger", "req_local_2", pluginruntime.Action{
 		Kind:       "logger.write",
 		LogLevel:   "info",
 		LogMessage: "first log",
@@ -58,7 +57,7 @@ func TestExecuteLoggerWriteAppliesRateLimit(t *testing.T) {
 		t.Fatalf("first logger.write failed: %v", err)
 	}
 
-	_, err := application.executeLocalAction(context.Background(), "notice-logger", "req_local_3", runtimeaction.Action{
+	_, err := application.executeLocalAction(context.Background(), "notice-logger", "req_local_3", pluginruntime.Action{
 		Kind:       "logger.write",
 		LogLevel:   "info",
 		LogMessage: "second log",
@@ -106,7 +105,7 @@ func TestExecuteStorageKVRoundTrip(t *testing.T) {
 		nil,
 	)
 
-	if _, err := application.executeLocalAction(context.Background(), "notice-logger", "req_local_4", runtimeaction.Action{
+	if _, err := application.executeLocalAction(context.Background(), "notice-logger", "req_local_4", pluginruntime.Action{
 		Kind:             "storage.kv",
 		StorageOperation: "set",
 		StorageKey:       "notice:last_join",
@@ -118,7 +117,7 @@ func TestExecuteStorageKVRoundTrip(t *testing.T) {
 		t.Fatalf("storage set failed: %v", err)
 	}
 
-	getResult, err := application.executeLocalAction(context.Background(), "notice-logger", "req_local_5", runtimeaction.Action{
+	getResult, err := application.executeLocalAction(context.Background(), "notice-logger", "req_local_5", pluginruntime.Action{
 		Kind:             "storage.kv",
 		StorageOperation: "get",
 		StorageKey:       "notice:last_join",
@@ -130,7 +129,7 @@ func TestExecuteStorageKVRoundTrip(t *testing.T) {
 		t.Fatalf("expected get exists=true, got %#v", getResult)
 	}
 
-	listResult, err := application.executeLocalAction(context.Background(), "notice-logger", "req_local_6", runtimeaction.Action{
+	listResult, err := application.executeLocalAction(context.Background(), "notice-logger", "req_local_6", pluginruntime.Action{
 		Kind:             "storage.kv",
 		StorageOperation: "list",
 		StoragePrefix:    "notice:",
@@ -143,7 +142,7 @@ func TestExecuteStorageKVRoundTrip(t *testing.T) {
 		t.Fatalf("unexpected list keys: %#v", listResult["keys"])
 	}
 
-	deleteResult, err := application.executeLocalAction(context.Background(), "notice-logger", "req_local_7", runtimeaction.Action{
+	deleteResult, err := application.executeLocalAction(context.Background(), "notice-logger", "req_local_7", pluginruntime.Action{
 		Kind:             "storage.kv",
 		StorageOperation: "delete",
 		StorageKey:       "notice:last_join",
@@ -186,10 +185,10 @@ func TestExecuteConfigWriteDispatchesConfigChanged(t *testing.T) {
 		nil,
 		nil,
 	)
-	fakeRuntime := &capturingRuntime{events: make(chan runtimeprotocol.Event, 1)}
+	fakeRuntime := &capturingRuntime{events: make(chan pluginruntime.Event, 1)}
 	application.eventStack.Dispatcher.Register("weather", fakeRuntime, []string{"config.changed"}, nil, 1)
 
-	if _, err := application.executeLocalAction(context.Background(), "weather", "req_config_changed", runtimeaction.Action{
+	if _, err := application.executeLocalAction(context.Background(), "weather", "req_config_changed", pluginruntime.Action{
 		Kind: "config.write",
 		ConfigValues: map[string]any{
 			"default_city": "上海",
@@ -234,7 +233,7 @@ func TestExecuteGovernanceActionsRejectMissingCapability(t *testing.T) {
 		nil,
 	)
 
-	_, err = application.executeLocalAction(context.Background(), "governance-helper", "req_governance_unauthorized", runtimeaction.Action{
+	_, err = application.executeLocalAction(context.Background(), "governance-helper", "req_governance_unauthorized", pluginruntime.Action{
 		Kind: "governance.blacklist.read",
 	})
 	assertRuntimeErrorCode(t, err, "plugin.capability_violation")
@@ -292,7 +291,7 @@ func TestExecuteGovernanceActionsRoundTrip(t *testing.T) {
 		nil,
 	)
 
-	blacklistWrite, err := application.executeLocalAction(context.Background(), "governance-helper", "req_governance_blacklist_upsert", runtimeaction.Action{
+	blacklistWrite, err := application.executeLocalAction(context.Background(), "governance-helper", "req_governance_blacklist_upsert", pluginruntime.Action{
 		Kind:                "governance.blacklist.write",
 		GovernanceOperation: "upsert",
 		GovernanceEntryType: "user",
@@ -306,7 +305,7 @@ func TestExecuteGovernanceActionsRoundTrip(t *testing.T) {
 		t.Fatalf("unexpected blacklist write result: %#v", blacklistWrite)
 	}
 
-	blacklistRead, err := application.executeLocalAction(context.Background(), "governance-helper", "req_governance_blacklist_read", runtimeaction.Action{
+	blacklistRead, err := application.executeLocalAction(context.Background(), "governance-helper", "req_governance_blacklist_read", pluginruntime.Action{
 		Kind: "governance.blacklist.read",
 	})
 	if err != nil {
@@ -317,7 +316,7 @@ func TestExecuteGovernanceActionsRoundTrip(t *testing.T) {
 		t.Fatalf("unexpected blacklist snapshot: %#v", blacklistRead)
 	}
 
-	whitelistToggle, err := application.executeLocalAction(context.Background(), "governance-helper", "req_governance_whitelist_enabled", runtimeaction.Action{
+	whitelistToggle, err := application.executeLocalAction(context.Background(), "governance-helper", "req_governance_whitelist_enabled", pluginruntime.Action{
 		Kind:                "governance.whitelist.write",
 		GovernanceOperation: "set_enabled",
 		GovernanceEnabled:   boolPointer(true),
@@ -329,7 +328,7 @@ func TestExecuteGovernanceActionsRoundTrip(t *testing.T) {
 		t.Fatalf("unexpected whitelist toggle result: %#v", whitelistToggle)
 	}
 
-	if _, err := application.executeLocalAction(context.Background(), "governance-helper", "req_governance_whitelist_upsert", runtimeaction.Action{
+	if _, err := application.executeLocalAction(context.Background(), "governance-helper", "req_governance_whitelist_upsert", pluginruntime.Action{
 		Kind:                "governance.whitelist.write",
 		GovernanceOperation: "upsert",
 		GovernanceEntryType: "group",
@@ -339,7 +338,7 @@ func TestExecuteGovernanceActionsRoundTrip(t *testing.T) {
 		t.Fatalf("governance.whitelist.write upsert failed: %v", err)
 	}
 
-	whitelistRead, err := application.executeLocalAction(context.Background(), "governance-helper", "req_governance_whitelist_read", runtimeaction.Action{
+	whitelistRead, err := application.executeLocalAction(context.Background(), "governance-helper", "req_governance_whitelist_read", pluginruntime.Action{
 		Kind: "governance.whitelist.read",
 	})
 	if err != nil {
@@ -350,7 +349,7 @@ func TestExecuteGovernanceActionsRoundTrip(t *testing.T) {
 		t.Fatalf("unexpected whitelist snapshot: %#v", whitelistRead)
 	}
 
-	commandPolicy, err := application.executeLocalAction(context.Background(), "governance-helper", "req_governance_command_policy", runtimeaction.Action{
+	commandPolicy, err := application.executeLocalAction(context.Background(), "governance-helper", "req_governance_command_policy", pluginruntime.Action{
 		Kind: "governance.command_policy.read",
 	})
 	if err != nil {
@@ -366,7 +365,7 @@ func TestExecuteGovernanceActionsRoundTrip(t *testing.T) {
 		}
 	}
 
-	if _, err := application.executeLocalAction(context.Background(), "governance-helper", "req_governance_blacklist_delete", runtimeaction.Action{
+	if _, err := application.executeLocalAction(context.Background(), "governance-helper", "req_governance_blacklist_delete", pluginruntime.Action{
 		Kind:                "governance.blacklist.write",
 		GovernanceOperation: "delete",
 		GovernanceEntryType: "user",
@@ -407,7 +406,7 @@ func TestExecuteGovernanceWritePublishesGovernanceChanged(t *testing.T) {
 	events, unsubscribe := application.services.GovernanceEvents.Subscribe(1)
 	defer unsubscribe()
 
-	if _, err := application.executeLocalAction(context.Background(), "governance-helper", "req_governance_publish", runtimeaction.Action{
+	if _, err := application.executeLocalAction(context.Background(), "governance-helper", "req_governance_publish", pluginruntime.Action{
 		Kind:                "governance.blacklist.write",
 		GovernanceOperation: "upsert",
 		GovernanceEntryType: "user",
@@ -471,7 +470,7 @@ func TestExecuteSchedulerCreateUpsertDoesNotWriteManagementLog(t *testing.T) {
 		nil,
 	)
 
-	first, err := application.executeLocalAction(context.Background(), "weather", "req_sched_1", runtimeaction.Action{
+	first, err := application.executeLocalAction(context.Background(), "weather", "req_sched_1", pluginruntime.Action{
 		Kind:               "scheduler.create",
 		SchedulerTaskID:    "daily_report",
 		SchedulerLogLabel:  "每日早报",
@@ -491,7 +490,7 @@ func TestExecuteSchedulerCreateUpsertDoesNotWriteManagementLog(t *testing.T) {
 		t.Fatalf("expected next_run string, got %#v", first["next_run"])
 	}
 
-	second, err := application.executeLocalAction(context.Background(), "weather", "req_sched_2", runtimeaction.Action{
+	second, err := application.executeLocalAction(context.Background(), "weather", "req_sched_2", pluginruntime.Action{
 		Kind:               "scheduler.create",
 		SchedulerTaskID:    "daily_report",
 		SchedulerLogLabel:  "新版早报",

@@ -17,7 +17,7 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/dispatch"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	plugindiscovery "github.com/RayleaBot/RayleaBot/server/internal/plugins/discovery"
-	runtimemanager "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime/manager"
+	pluginruntime "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime"
 	renderservice "github.com/RayleaBot/RayleaBot/server/internal/render/service"
 )
 
@@ -54,7 +54,7 @@ func TestReloadRefreshesManifestCommandsAndCapabilityParameters(t *testing.T) {
 	app.setTestLifecycle(
 		catalog,
 		nil,
-		newRuntimeRegistry(slog.Default(), runtimemanager.Options{}),
+		newRuntimeRegistry(slog.Default(), pluginruntime.Options{}),
 		dispatch.New(slog.Default(), nil, nil, 16),
 		nil,
 		nil,
@@ -175,7 +175,7 @@ func TestReloadSyncsPluginRenderTemplates(t *testing.T) {
 	app.setTestLifecycle(
 		catalog,
 		nil,
-		newRuntimeRegistry(slog.Default(), runtimemanager.Options{}),
+		newRuntimeRegistry(slog.Default(), pluginruntime.Options{}),
 		dispatch.New(slog.Default(), nil, nil, 16),
 		nil,
 		nil,
@@ -234,7 +234,7 @@ func TestReloadReturnsTemplateSyncErrorBeforeStartingRuntime(t *testing.T) {
 	app.setTestLifecycle(
 		catalog,
 		nil,
-		newRuntimeRegistry(slog.Default(), runtimemanager.Options{}),
+		newRuntimeRegistry(slog.Default(), pluginruntime.Options{}),
 		dispatch.New(slog.Default(), nil, nil, 16),
 		nil,
 		nil,
@@ -283,7 +283,7 @@ func TestPluginRuntimeStartInputsIncludeSuperAdmins(t *testing.T) {
 	app.setTestLifecycle(
 		catalog,
 		nil,
-		newRuntimeRegistry(slog.Default(), runtimemanager.Options{}),
+		newRuntimeRegistry(slog.Default(), pluginruntime.Options{}),
 		dispatch.New(slog.Default(), nil, nil, 16),
 		nil,
 		nil,

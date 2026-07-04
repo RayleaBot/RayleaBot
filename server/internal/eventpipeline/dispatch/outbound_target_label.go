@@ -5,10 +5,10 @@ import (
 	"strings"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/outbound"
-	runtimeprotocol "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime/protocol"
+	pluginruntime "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime"
 )
 
-func buildOutboundTargetLabel(ctx context.Context, event runtimeprotocol.Event, targetType, targetID string, sender outbound.ActionSender) string {
+func buildOutboundTargetLabel(ctx context.Context, event pluginruntime.Event, targetType, targetID string, sender outbound.ActionSender) string {
 	targetName := ""
 	if event.Target != nil &&
 		strings.TrimSpace(event.Target.Type) == strings.TrimSpace(targetType) &&

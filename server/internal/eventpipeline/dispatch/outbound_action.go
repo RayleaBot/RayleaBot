@@ -7,11 +7,10 @@ import (
 
 	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/outbound"
 	"github.com/RayleaBot/RayleaBot/server/internal/onebot11"
-	runtimeaction "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime/action"
-	runtimeprotocol "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime/protocol"
+	pluginruntime "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime"
 )
 
-func (d *Dispatcher) executeAction(ctx context.Context, pluginID string, requestID string, event runtimeprotocol.Event, action runtimeaction.Action) {
+func (d *Dispatcher) executeAction(ctx context.Context, pluginID string, requestID string, event pluginruntime.Event, action pluginruntime.Action) {
 	if d.sender == nil {
 		return
 	}

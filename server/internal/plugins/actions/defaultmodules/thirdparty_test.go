@@ -9,8 +9,7 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/integrations/thirdparty"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins/actions"
-	runtimeaction "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime/action"
-	runtimemanager "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime/manager"
+	pluginruntime "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime"
 )
 
 func TestThirdPartyAccountReadReturnsDeclaredPlatformAccounts(t *testing.T) {
@@ -40,7 +39,7 @@ func TestThirdPartyAccountReadReturnsDeclaredPlatformAccounts(t *testing.T) {
 		},
 	}, actions.ActionRequest{
 		PluginID: "raylea.subscription-hub",
-		Action: runtimeaction.Action{
+		Action: pluginruntime.Action{
 			Kind:                      "thirdparty.account.read",
 			ThirdPartyAccountPlatform: thirdparty.PlatformBilibili,
 		},
@@ -72,13 +71,13 @@ func TestThirdPartyAccountReadRejectsUndeclaredPlatform(t *testing.T) {
 		ThirdParty: stubThirdPartyAccountReader{},
 	}, actions.ActionRequest{
 		PluginID: "raylea.subscription-hub",
-		Action: runtimeaction.Action{
+		Action: pluginruntime.Action{
 			Kind:                      "thirdparty.account.read",
 			ThirdPartyAccountPlatform: thirdparty.PlatformBilibili,
 		},
 	})
 
-	var runtimeErr *runtimemanager.Error
+	var runtimeErr *pluginruntime.Error
 	if !errors.As(err, &runtimeErr) {
 		t.Fatalf("expected runtime error, got %#v", err)
 	}
