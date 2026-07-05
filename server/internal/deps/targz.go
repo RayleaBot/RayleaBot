@@ -1,4 +1,4 @@
-package archive
+package deps
 
 import (
 	"archive/tar"
@@ -14,7 +14,7 @@ func TarGz(archivePath, destRoot string) error {
 	return TarGzWithProgress(archivePath, destRoot, nil)
 }
 
-func TarGzWithProgress(archivePath, destRoot string, progress func(Progress)) error {
+func TarGzWithProgress(archivePath, destRoot string, progress func(ExtractProgress)) error {
 	file, err := os.Open(archivePath)
 	if err != nil {
 		return err
@@ -36,7 +36,7 @@ func TarGzWithProgress(archivePath, destRoot string, progress func(Progress)) er
 		header, err := reader.Next()
 		if errors.Is(err, io.EOF) {
 			if progress != nil {
-				progress(Progress{
+				progress(ExtractProgress{
 					ExtractedEntries: extractedEntries,
 					TotalEntries:     totalEntries,
 					Progress:         100,
@@ -72,7 +72,7 @@ func TarGzWithProgress(archivePath, destRoot string, progress func(Progress)) er
 		}
 		extractedEntries++
 		if progress != nil {
-			progress(Progress{
+			progress(ExtractProgress{
 				ExtractedEntries: extractedEntries,
 				TotalEntries:     totalEntries,
 				Progress:         progressPercent(int64(extractedEntries), int64(totalEntries)),

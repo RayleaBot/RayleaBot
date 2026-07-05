@@ -1,4 +1,4 @@
-package download
+package deps
 
 import (
 	"context"
@@ -12,7 +12,7 @@ func HTTPSFile(ctx context.Context, rawURL, destPath string) error {
 	return HTTPSFileWithProgress(ctx, rawURL, destPath, nil)
 }
 
-func HTTPSFileWithProgress(ctx context.Context, rawURL, destPath string, progress func(Progress)) error {
+func HTTPSFileWithProgress(ctx context.Context, rawURL, destPath string, progress func(DownloadProgress)) error {
 	request, err := http.NewRequestWithContext(ctx, http.MethodGet, rawURL, nil)
 	if err != nil {
 		return err

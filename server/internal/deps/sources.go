@@ -1,4 +1,4 @@
-package download
+package deps
 
 import (
 	"context"
@@ -11,7 +11,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/RayleaBot/RayleaBot/server/internal/deps/manifest"
 )
 
 const (
@@ -22,7 +21,7 @@ const (
 )
 
 type probeResult struct {
-	source      manifest.ResourceSource
+	source      ResourceSource
 	index       int
 	bytesRead   int64
 	duration    time.Duration
@@ -30,7 +29,7 @@ type probeResult struct {
 	ok          bool
 }
 
-func SelectSources(ctx context.Context, sources []manifest.ResourceSource) []manifest.ResourceSource {
+func SelectSources(ctx context.Context, sources []ResourceSource) []ResourceSource {
 	normalized := NormalizeSources(sources)
 	if len(normalized) <= 1 {
 		return normalized
@@ -43,7 +42,7 @@ func SelectSources(ctx context.Context, sources []manifest.ResourceSource) []man
 	for index, source := range normalized {
 		results[index] = probeResult{source: source, index: index}
 		wg.Add(1)
-		go func(index int, source manifest.ResourceSource) {
+		go func(index int, source ResourceSource) {
 			defer wg.Done()
 			result := probeSource(ctx, source, index)
 			results[index] = result
@@ -74,7 +73,7 @@ func SelectSources(ctx context.Context, sources []manifest.ResourceSource) []man
 	})
 	ordered := restoreCloseOrder(successful)
 	ordered = append(ordered, failed...)
-	selected := make([]manifest.ResourceSource, 0, len(ordered))
+	selected := make([]ResourceSource, 0, len(ordered))
 	for _, result := range ordered {
 		selected = append(selected, result.source)
 	}
@@ -115,7 +114,7 @@ func restoreCloseOrder(results []probeResult) []probeResult {
 	return ordered
 }
 
-func probeSource(ctx context.Context, source manifest.ResourceSource, index int) probeResult {
+func probeSource(ctx context.Context, source ResourceSource, index int) probeResult {
 	result := probeResult{source: source, index: index}
 	probeCtx, cancel := context.WithTimeout(ctx, sourceProbePerSourceLimit)
 	defer cancel()
@@ -150,8 +149,8 @@ func probeSource(ctx context.Context, source manifest.ResourceSource, index int)
 	return result
 }
 
-func NormalizeSources(sources []manifest.ResourceSource) []manifest.ResourceSource {
-	normalized := make([]manifest.ResourceSource, 0, len(sources))
+func NormalizeSources(sources []ResourceSource) []ResourceSource {
+	normalized := make([]ResourceSource, 0, len(sources))
 	for _, source := range sources {
 		if strings.TrimSpace(source.URL) == "" {
 			continue
@@ -164,23 +163,10 @@ func NormalizeSources(sources []manifest.ResourceSource) []manifest.ResourceSour
 	return normalized
 }
 
-func SourceSummary(kind string, source manifest.ResourceSource) string {
+func SourceSummary(kind string, source ResourceSource) string {
 	label := strings.TrimSpace(source.Label)
 	if label == "" {
 		return "正在下载 " + managedResourceLabel(kind)
 	}
 	return "正在从 " + label + " 下载 " + managedResourceLabel(kind)
-}
-
-func managedResourceLabel(kind string) string {
-	switch kind {
-	case "chromium":
-		return "图片渲染 Chromium"
-	case "python-runtime":
-		return "Python 运行环境"
-	case "nodejs-runtime":
-		return "Node.js / npm 环境"
-	default:
-		return "运行环境"
-	}
 }

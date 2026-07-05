@@ -3,13 +3,7 @@ package deps
 import (
 	"context"
 	"errors"
-
-	depsmanifest "github.com/RayleaBot/RayleaBot/server/internal/deps/manifest"
 )
-
-type Manifest = depsmanifest.Manifest
-type ResourceSource = depsmanifest.ResourceSource
-type Resource = depsmanifest.Resource
 
 type PreparedResource struct {
 	Resource    Resource

@@ -1,4 +1,4 @@
-package download
+package deps
 
 import (
 	"errors"
@@ -11,7 +11,7 @@ type progressReader struct {
 	read       int64
 	lastNotify int
 	lastBytes  int64
-	notify     func(Progress)
+	notify     func(DownloadProgress)
 }
 
 func (r *progressReader) Read(p []byte) (int, error) {
@@ -39,7 +39,7 @@ func (r *progressReader) emit(force bool) {
 	}
 	r.lastNotify = percent
 	r.lastBytes = r.read
-	r.notify(Progress{
+	r.notify(DownloadProgress{
 		DownloadedBytes: r.read,
 		TotalBytes:      r.total,
 		Progress:        percent,

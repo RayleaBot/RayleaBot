@@ -1,4 +1,4 @@
-package manifest
+package deps
 
 import (
 	"net/url"
@@ -124,4 +124,12 @@ func RequiredEntrypoints(resource *Resource) []string {
 	default:
 		return nil
 	}
+}
+
+func ResourceMetadataComplete(resource *Resource) bool {
+	return MetadataComplete(resource)
+}
+
+func requiredEntrypoints(resource *Resource) []string {
+	return RequiredEntrypoints(resource)
 }

@@ -1,47 +1,16 @@
 package deps
 
-import (
-	"context"
+import "context"
 
-	depsdownload "github.com/RayleaBot/RayleaBot/server/internal/deps/download"
-)
-
-func downloadHTTPSFile(ctx context.Context, rawURL, destPath string) error {
-	return downloadHTTPSFileWithProgress(ctx, rawURL, destPath, nil)
+type DownloadProgress struct {
+	DownloadedBytes int64
+	TotalBytes      int64
+	Progress        int
 }
 
-func downloadHTTPSFileWithProgress(ctx context.Context, rawURL, destPath string, progress func(downloadProgress)) error {
-	return depsdownload.HTTPSFileWithProgress(ctx, rawURL, destPath, downloadProgressAdapter(progress))
-}
-
-func downloadWithProgress(ctx context.Context, rawURL, destPath string, downloader func(context.Context, string, string) error, progress func(downloadProgress)) error {
-	if downloader == nil || sameFunction(downloader, downloadHTTPSFile) {
-		return downloadHTTPSFileWithProgress(ctx, rawURL, destPath, progress)
+func WithProgress(ctx context.Context, rawURL, destPath string, downloader func(context.Context, string, string) error, progress func(DownloadProgress)) error {
+	if downloader != nil {
+		return downloader(ctx, rawURL, destPath)
 	}
-	return downloader(ctx, rawURL, destPath)
-}
-
-func downloadProgressAdapter(progress func(downloadProgress)) func(depsdownload.Progress) {
-	return func(event depsdownload.Progress) {
-		if progress == nil {
-			return
-		}
-		progress(downloadProgress{
-			DownloadedBytes: event.DownloadedBytes,
-			TotalBytes:      event.TotalBytes,
-			Progress:        event.Progress,
-		})
-	}
-}
-
-func sameFunction(left, right any) bool {
-	return depsdownload.SameFunction(left, right)
-}
-
-func normalizedResourceSources(sources []ResourceSource) []ResourceSource {
-	return depsdownload.NormalizeSources(sources)
-}
-
-func downloadSourceSummary(kind string, source ResourceSource) string {
-	return depsdownload.SourceSummary(kind, source)
+	return HTTPSFileWithProgress(ctx, rawURL, destPath, progress)
 }

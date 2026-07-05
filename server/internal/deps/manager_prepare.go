@@ -123,7 +123,7 @@ func (m *Manager) PrepareWithReportOptions(ctx context.Context, kind string, opt
 		}.withResource(resource, report.ArchivePath, report.StoreRoot))
 	}
 	sourceSelector := m.selectSources
-	if m.downloadFile != nil && !sameFunction(m.downloadFile, downloadHTTPSFile) && sameFunction(sourceSelector, selectDownloadSources) {
+	if m.downloadFile != nil && !sameFunction(m.downloadFile, downloadHTTPSFile) && sameFunction(sourceSelector, SelectSources) {
 		sourceSelector = nil
 	}
 	selectedSource, attemptedSources, err := ensureDownloadedArchiveWithProgress(ctx, report.ArchivePath, report.StoreRoot, resource, m.downloadFile, sourceSelector, options.Progress)

@@ -1,4 +1,4 @@
-package archive
+package deps
 
 import (
 	"context"
@@ -7,9 +7,9 @@ import (
 	"strings"
 )
 
-func TarXzWithProgress(ctx context.Context, archivePath, destRoot string, progress func(Progress)) error {
+func TarXzWithProgress(ctx context.Context, archivePath, destRoot string, progress func(ExtractProgress)) error {
 	if progress != nil {
-		progress(Progress{Progress: 0})
+		progress(ExtractProgress{Progress: 0})
 	}
 	cmd := exec.CommandContext(ctx, "tar", "-xf", archivePath, "-C", destRoot)
 	output, err := cmd.CombinedOutput()
@@ -20,7 +20,7 @@ func TarXzWithProgress(ctx context.Context, archivePath, destRoot string, progre
 		return fmt.Errorf("%w: %s", err, strings.TrimSpace(string(output)))
 	}
 	if progress != nil {
-		progress(Progress{Progress: 100})
+		progress(ExtractProgress{Progress: 100})
 	}
 	return nil
 }

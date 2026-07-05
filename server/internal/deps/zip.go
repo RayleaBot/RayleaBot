@@ -1,4 +1,4 @@
-package archive
+package deps
 
 import (
 	"archive/zip"
@@ -12,7 +12,7 @@ func Zip(archivePath, destRoot string) error {
 	return ZipWithProgress(archivePath, destRoot, nil)
 }
 
-func ZipWithProgress(archivePath, destRoot string, progress func(Progress)) error {
+func ZipWithProgress(archivePath, destRoot string, progress func(ExtractProgress)) error {
 	reader, err := zip.OpenReader(archivePath)
 	if err != nil {
 		return err
@@ -51,7 +51,7 @@ func ZipWithProgress(archivePath, destRoot string, progress func(Progress)) erro
 		out.Close()
 		in.Close()
 		if progress != nil {
-			progress(Progress{
+			progress(ExtractProgress{
 				ExtractedEntries: index + 1,
 				TotalEntries:     totalEntries,
 				Progress:         progressPercent(int64(index+1), int64(totalEntries)),
@@ -59,7 +59,7 @@ func ZipWithProgress(archivePath, destRoot string, progress func(Progress)) erro
 		}
 	}
 	if progress != nil {
-		progress(Progress{
+		progress(ExtractProgress{
 			ExtractedEntries: totalEntries,
 			TotalEntries:     totalEntries,
 			Progress:         100,

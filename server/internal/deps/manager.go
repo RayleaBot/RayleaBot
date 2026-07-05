@@ -29,7 +29,7 @@ func NewManager(repoRoot string) *Manager {
 	return &Manager{
 		repoRoot:           strings.TrimSpace(repoRoot),
 		downloadFile:       downloadHTTPSFile,
-		selectSources:      selectDownloadSources,
+		selectSources:      SelectSources,
 		extract:            extractArchive,
 		findSystemChromium: systemChromiumFinder,
 		now:                time.Now,
