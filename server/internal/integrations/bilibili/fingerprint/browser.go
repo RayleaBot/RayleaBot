@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+
+	genfp "github.com/RayleaBot/RayleaBot/server/internal/integrations/fingerprint"
 )
 
 // BrowserFingerprint holds all browser properties used for buvid_fp generation.
@@ -132,7 +134,7 @@ func genBuvidFP(browserData BrowserFingerprint) string {
 		strings.Join(browserData.EnumerateDevices, ","),
 	}
 	values := strings.Join(components, "~~~")
-	return murmurHash128(values, 31)
+	return genfp.MurmurHash128(values, 31)
 }
 
 func GenBuvidFP(ua string) string {

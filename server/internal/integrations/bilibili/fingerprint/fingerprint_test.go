@@ -2,29 +2,31 @@ package fingerprint
 
 import (
 	"testing"
+
+	genfp "github.com/RayleaBot/RayleaBot/server/internal/integrations/fingerprint"
 )
 
 func TestMurmurHash128KnownVectors(t *testing.T) {
 	t.Parallel()
 	// Verify murmurHash128 is deterministic.
-	a := murmurHash128("hello", 0)
-	b := murmurHash128("hello", 0)
+	a := genfp.MurmurHash128("hello", 0)
+	b := genfp.MurmurHash128("hello", 0)
 	if a != b {
-		t.Fatalf("murmurHash128 not deterministic: %q != %q", a, b)
+		t.Fatalf("MurmurHash128 not deterministic: %q != %q", a, b)
 	}
 	// Different seed should produce different hash.
-	c := murmurHash128("hello", 42)
+	c := genfp.MurmurHash128("hello", 42)
 	if c == a {
-		t.Fatalf("murmurHash128 with different seed should differ")
+		t.Fatalf("MurmurHash128 with different seed should differ")
 	}
 	// Different input should produce different hash.
-	d := murmurHash128("world", 0)
+	d := genfp.MurmurHash128("world", 0)
 	if d == a {
-		t.Fatalf("murmurHash128 with different input should differ")
+		t.Fatalf("MurmurHash128 with different input should differ")
 	}
 	// Length should be 32 hex chars.
 	if len(a) != 32 {
-		t.Fatalf("murmurHash128 length = %d, want 32", len(a))
+		t.Fatalf("MurmurHash128 length = %d, want 32", len(a))
 	}
 }
 

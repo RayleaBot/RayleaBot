@@ -1,6 +1,6 @@
 package fingerprint
 
-func murmurX64Add(m, n [2]uint32) [2]uint32 {
+func MurmurX64Add(m, n [2]uint32) [2]uint32 {
 	m0, m1 := m[0]>>16, m[0]&0xffff
 	m2, m3 := m[1]>>16, m[1]&0xffff
 	n0, n1 := n[0]>>16, n[0]&0xffff
@@ -15,7 +15,7 @@ func murmurX64Add(m, n [2]uint32) [2]uint32 {
 	}
 }
 
-func murmurX64Multiply(m, n [2]uint32) [2]uint32 {
+func MurmurX64Multiply(m, n [2]uint32) [2]uint32 {
 	m0, m1 := m[0]>>16, m[0]&0xffff
 	m2, m3 := m[1]>>16, m[1]&0xffff
 	n0, n1 := n[0]>>16, n[0]&0xffff
@@ -33,7 +33,7 @@ func murmurX64Multiply(m, n [2]uint32) [2]uint32 {
 	}
 }
 
-func murmurX64Rotl(m [2]uint32, n int) [2]uint32 {
+func MurmurX64Rotl(m [2]uint32, n int) [2]uint32 {
 	n %= 64
 	if n == 32 {
 		return [2]uint32{m[1], m[0]}
@@ -51,7 +51,7 @@ func murmurX64Rotl(m [2]uint32, n int) [2]uint32 {
 	}
 }
 
-func murmurX64LeftShift(m [2]uint32, n int) [2]uint32 {
+func MurmurX64LeftShift(m [2]uint32, n int) [2]uint32 {
 	n %= 64
 	if n == 0 {
 		return m
@@ -65,15 +65,15 @@ func murmurX64LeftShift(m [2]uint32, n int) [2]uint32 {
 	return [2]uint32{m[1] << (n - 32), 0}
 }
 
-func murmurX64Xor(m, n [2]uint32) [2]uint32 {
+func MurmurX64Xor(m, n [2]uint32) [2]uint32 {
 	return [2]uint32{m[0] ^ n[0], m[1] ^ n[1]}
 }
 
-func murmurX64Fmix(h [2]uint32) [2]uint32 {
-	h = murmurX64Xor(h, [2]uint32{0, h[0] >> 1})
-	h = murmurX64Multiply(h, [2]uint32{0xff51afd7, 0xed558ccd})
-	h = murmurX64Xor(h, [2]uint32{0, h[0] >> 1})
-	h = murmurX64Multiply(h, [2]uint32{0xc4ceb9fe, 0x1a85ec53})
-	h = murmurX64Xor(h, [2]uint32{0, h[0] >> 1})
+func MurmurX64Fmix(h [2]uint32) [2]uint32 {
+	h = MurmurX64Xor(h, [2]uint32{0, h[0] >> 1})
+	h = MurmurX64Multiply(h, [2]uint32{0xff51afd7, 0xed558ccd})
+	h = MurmurX64Xor(h, [2]uint32{0, h[0] >> 1})
+	h = MurmurX64Multiply(h, [2]uint32{0xc4ceb9fe, 0x1a85ec53})
+	h = MurmurX64Xor(h, [2]uint32{0, h[0] >> 1})
 	return h
 }
