@@ -21,8 +21,8 @@ import (
 type appPlatform = appplatform.State
 type schedulerTriggerProxy = appplatform.TriggerProxy
 type appPlugins = pluginstack.State
-type appRender = renderstack.Module
-type appEvents = eventstack.Module
+type appRender = renderstack.State
+type appEvents = eventstack.State
 type appServices = servicegraph.Services
 type appHTTPHandlers = httpwire.Handlers
 

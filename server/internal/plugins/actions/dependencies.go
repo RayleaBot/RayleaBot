@@ -111,7 +111,7 @@ func (e *RenderTemplateError) Unwrap() error {
 	return e.Err
 }
 
-type GovernanceService interface{}
+type GovernanceService = any
 
 type KVRepository interface {
 	Get(context.Context, string, string) (any, bool, error)

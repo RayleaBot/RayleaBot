@@ -1,10 +1,13 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"os"
+	"os/signal"
+	"syscall"
 
-	"github.com/RayleaBot/RayleaBot/server/internal/bootstrap"
+	"github.com/RayleaBot/RayleaBot/server/internal/app"
 	"github.com/RayleaBot/RayleaBot/server/internal/cli"
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/logging"
@@ -45,10 +48,10 @@ func main() {
 		"schema_path", schemaPathDisplay,
 	)
 
-	runCtx, stop := bootstrap.SignalContext()
+	runCtx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	application, err := bootstrap.NewWithContext(runCtx, bootstrap.Options{
+	application, err := app.NewWithContext(runCtx, app.Options{
 		ConfigPath: configPath,
 		SchemaPath: schemaPath,
 	})
