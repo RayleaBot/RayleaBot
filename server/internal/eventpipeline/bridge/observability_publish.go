@@ -20,45 +20,15 @@ func (b *Bridge) PublishDispatcherRuntime(data DispatcherRuntimeData) {
 		Timestamp: time.Now().UTC().Format(time.RFC3339),
 		Data:      data,
 	}
-	b.mu.RLock()
-	defer b.mu.RUnlock()
-	for _, subscriber := range b.subscribers {
-		emitObservabilityFrame(subscriber, frame)
-	}
+	b.hub.PublishReplace(frame)
 }
 
 func (b *Bridge) SubscribeObservability(buffer int) (<-chan ObservabilityFrame, func()) {
-	if buffer <= 0 {
-		buffer = 1
-	}
-
-	ch := make(chan ObservabilityFrame, buffer)
-
-	b.mu.Lock()
-	id := b.nextSubscriberID
-	b.nextSubscriberID++
-	b.subscribers[id] = ch
-	b.mu.Unlock()
-
-	return ch, func() {
-		b.mu.Lock()
-		defer b.mu.Unlock()
-
-		subscriber, ok := b.subscribers[id]
-		if !ok {
-			return
-		}
-
-		delete(b.subscribers, id)
-		close(subscriber)
-	}
+	return b.hub.Subscribe(buffer)
 }
 
 func (b *Bridge) ObservabilitySubscriberCount() int {
-	b.mu.RLock()
-	defer b.mu.RUnlock()
-
-	return len(b.subscribers)
+	return b.hub.SubscriberCount()
 }
 
 func (b *Bridge) SetAdapterStatsSource(source AdapterDedupStats) {
@@ -86,21 +56,6 @@ func (b *Bridge) SetMetricsObserver(observer MetricsObserver) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	b.metrics = observer
-}
-
-func emitObservabilityFrame(subscriber chan ObservabilityFrame, frame ObservabilityFrame) {
-	select {
-	case subscriber <- frame:
-	default:
-		select {
-		case <-subscriber:
-		default:
-		}
-		select {
-		case subscriber <- frame:
-		default:
-		}
-	}
 }
 
 func (b *Bridge) emitObservabilityLocked(observedAt time.Time, outcome Outcome) {
@@ -134,7 +89,5 @@ func (b *Bridge) emitObservabilityLocked(observedAt time.Time, outcome Outcome) 
 		Data:      data,
 	}
 
-	for _, subscriber := range b.subscribers {
-		emitObservabilityFrame(subscriber, frame)
-	}
+	b.hub.PublishReplace(frame)
 }

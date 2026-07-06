@@ -4,7 +4,6 @@ import (
 	"context"
 	"net/http"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/coder/websocket"
@@ -14,6 +13,7 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/configruntime"
 	"github.com/RayleaBot/RayleaBot/server/internal/httpapi"
 	"github.com/RayleaBot/RayleaBot/server/internal/onebot11"
+	"github.com/RayleaBot/RayleaBot/server/internal/pubsub"
 )
 
 type protocolAcceptedResponse struct {
@@ -140,9 +140,7 @@ type ProtocolService struct {
 	config                    ProtocolConfigSource
 	adapter                   *onebot11.Shell
 	oneBot11TargetReadTimeout time.Duration
-	mu                        sync.RWMutex
-	nextSubID                 uint64
-	subscribers               map[uint64]chan Frame
+	hub                       pubsub.Hub[Frame]
 }
 
 func NewProtocolService(configSource ProtocolConfigSource, adapterShell *onebot11.Shell) *ProtocolService {
@@ -150,7 +148,6 @@ func NewProtocolService(configSource ProtocolConfigSource, adapterShell *onebot1
 		config:                    configSource,
 		adapter:                   adapterShell,
 		oneBot11TargetReadTimeout: 3 * time.Second,
-		subscribers:               make(map[uint64]chan Frame),
 	}
 }
 
@@ -199,51 +196,14 @@ func (s *ProtocolService) ProtocolSnapshotEvent() Frame {
 }
 
 func (s *ProtocolService) PublishSnapshot() {
-	s.publishProtocolEvent(s.ProtocolSnapshotEvent())
-}
-
-func (s *ProtocolService) publishProtocolEvent(frame Frame) {
 	if s == nil {
 		return
 	}
-
-	s.mu.RLock()
-	subscribers := make([]chan Frame, 0, len(s.subscribers))
-	for _, subscriber := range s.subscribers {
-		subscribers = append(subscribers, subscriber)
-	}
-	s.mu.RUnlock()
-
-	for _, subscriber := range subscribers {
-		select {
-		case subscriber <- frame:
-		default:
-		}
-	}
+	s.hub.Publish(s.ProtocolSnapshotEvent())
 }
 
 func (s *ProtocolService) SubscribeProtocolEvents(buffer int) (<-chan Frame, func()) {
-	if buffer <= 0 {
-		buffer = 1
-	}
-
-	ch := make(chan Frame, buffer)
-	s.mu.Lock()
-	id := s.nextSubID
-	s.nextSubID++
-	s.subscribers[id] = ch
-	s.mu.Unlock()
-
-	return ch, func() {
-		s.mu.Lock()
-		defer s.mu.Unlock()
-		subscriber, ok := s.subscribers[id]
-		if !ok {
-			return
-		}
-		delete(s.subscribers, id)
-		close(subscriber)
-	}
+	return s.hub.Subscribe(buffer)
 }
 
 func (s *ProtocolService) reverseWSIngressAvailable() bool {

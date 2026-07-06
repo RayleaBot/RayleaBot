@@ -5,14 +5,14 @@ import (
 	"sync"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
+	"github.com/RayleaBot/RayleaBot/server/internal/pubsub"
 )
 
 type Catalog struct {
-	mu          sync.RWMutex
-	order       []string
-	items       map[string]plugins.Snapshot
-	nextSubID   uint64
-	subscribers map[uint64]chan plugins.Snapshot
+	mu    sync.RWMutex
+	order []string
+	items map[string]plugins.Snapshot
+	hub   pubsub.Hub[plugins.Snapshot]
 }
 
 func New(entries []plugins.Snapshot) *Catalog {
@@ -32,9 +32,8 @@ func New(entries []plugins.Snapshot) *Catalog {
 	sort.Strings(order)
 
 	return &Catalog{
-		order:       order,
-		items:       items,
-		subscribers: make(map[uint64]chan plugins.Snapshot),
+		order: order,
+		items: items,
 	}
 }
 

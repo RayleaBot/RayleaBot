@@ -8,6 +8,7 @@ import (
 
 	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/dispatch"
 	pluginruntime "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime"
+	"github.com/RayleaBot/RayleaBot/server/internal/pubsub"
 )
 
 const (
@@ -135,10 +136,9 @@ type Bridge struct {
 	logger     *slog.Logger
 	dispatcher Dispatch
 
-	mu               sync.RWMutex
-	snapshot         Snapshot
-	nextSubscriberID uint64
-	subscribers      map[uint64]chan ObservabilityFrame
+	mu       sync.RWMutex
+	snapshot Snapshot
+	hub      pubsub.Hub[ObservabilityFrame]
 
 	adapterStats    AdapterDedupStats
 	dispatcherStats DispatcherStatsSnapshot
@@ -151,9 +151,8 @@ func New(logger *slog.Logger, dispatcher Dispatch) *Bridge {
 	}
 
 	return &Bridge{
-		logger:      logger,
-		dispatcher:  dispatcher,
-		subscribers: make(map[uint64]chan ObservabilityFrame),
+		logger:     logger,
+		dispatcher: dispatcher,
 	}
 }
 

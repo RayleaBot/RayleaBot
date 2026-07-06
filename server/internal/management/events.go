@@ -2,11 +2,11 @@ package management
 
 import (
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/health"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
+	"github.com/RayleaBot/RayleaBot/server/internal/pubsub"
 )
 
 const (
@@ -66,22 +66,18 @@ func NewReceivedFrame(data any) Frame {
 }
 
 type GovernanceService struct {
-	mu          sync.RWMutex
-	nextSubID   uint64
-	subscribers map[uint64]chan Frame
+	hub pubsub.Hub[Frame]
 }
 
 func NewGovernanceService() *GovernanceService {
-	return &GovernanceService{
-		subscribers: make(map[uint64]chan Frame),
-	}
+	return &GovernanceService{}
 }
 
 func (s *GovernanceService) PublishChanged(summary string) {
 	if s == nil {
 		return
 	}
-	s.publishEvent(governanceChangedEventFrame(summary))
+	s.hub.Publish(governanceChangedEventFrame(summary))
 }
 
 func governanceChangedEventFrame(summary string) Frame {
@@ -95,48 +91,8 @@ func governanceChangedEventFrame(summary string) Frame {
 	})
 }
 
-func (s *GovernanceService) publishEvent(frame Frame) {
-	if s == nil {
-		return
-	}
-
-	s.mu.RLock()
-	subscribers := make([]chan Frame, 0, len(s.subscribers))
-	for _, subscriber := range s.subscribers {
-		subscribers = append(subscribers, subscriber)
-	}
-	s.mu.RUnlock()
-
-	for _, subscriber := range subscribers {
-		select {
-		case subscriber <- frame:
-		default:
-		}
-	}
-}
-
 func (s *GovernanceService) Subscribe(buffer int) (<-chan Frame, func()) {
-	if buffer <= 0 {
-		buffer = 1
-	}
-
-	ch := make(chan Frame, buffer)
-	s.mu.Lock()
-	id := s.nextSubID
-	s.nextSubID++
-	s.subscribers[id] = ch
-	s.mu.Unlock()
-
-	return ch, func() {
-		s.mu.Lock()
-		defer s.mu.Unlock()
-		subscriber, ok := s.subscribers[id]
-		if !ok {
-			return
-		}
-		delete(s.subscribers, id)
-		close(subscriber)
-	}
+	return s.hub.Subscribe(buffer)
 }
 
 type ServiceStatusProvider interface {
@@ -145,17 +101,12 @@ type ServiceStatusProvider interface {
 }
 
 type ServiceStatusService struct {
-	system      ServiceStatusProvider
-	mu          sync.RWMutex
-	nextSubID   uint64
-	subscribers map[uint64]chan Frame
+	system ServiceStatusProvider
+	hub    pubsub.Hub[Frame]
 }
 
 func NewServiceStatusService(system ServiceStatusProvider) *ServiceStatusService {
-	return &ServiceStatusService{
-		system:      system,
-		subscribers: make(map[uint64]chan Frame),
-	}
+	return &ServiceStatusService{system: system}
 }
 
 func (s *ServiceStatusService) CurrentEvent() Frame {
@@ -226,49 +177,12 @@ func serviceStatusSummary(status string) string {
 }
 
 func (s *ServiceStatusService) PublishSnapshot() {
-	s.publishStatusEvent(s.CurrentEvent())
-}
-
-func (s *ServiceStatusService) publishStatusEvent(frame Frame) {
 	if s == nil {
 		return
 	}
-
-	s.mu.RLock()
-	subscribers := make([]chan Frame, 0, len(s.subscribers))
-	for _, subscriber := range s.subscribers {
-		subscribers = append(subscribers, subscriber)
-	}
-	s.mu.RUnlock()
-
-	for _, subscriber := range subscribers {
-		select {
-		case subscriber <- frame:
-		default:
-		}
-	}
+	s.hub.Publish(s.CurrentEvent())
 }
 
 func (s *ServiceStatusService) Subscribe(buffer int) (<-chan Frame, func()) {
-	if buffer <= 0 {
-		buffer = 1
-	}
-
-	ch := make(chan Frame, buffer)
-	s.mu.Lock()
-	id := s.nextSubID
-	s.nextSubID++
-	s.subscribers[id] = ch
-	s.mu.Unlock()
-
-	return ch, func() {
-		s.mu.Lock()
-		defer s.mu.Unlock()
-		subscriber, ok := s.subscribers[id]
-		if !ok {
-			return
-		}
-		delete(s.subscribers, id)
-		close(subscriber)
-	}
+	return s.hub.Subscribe(buffer)
 }

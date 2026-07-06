@@ -7,6 +7,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/RayleaBot/RayleaBot/server/internal/pubsub"
 )
 
 type Summary struct {
@@ -27,8 +29,7 @@ type Stream struct {
 	history          []Summary
 	limit            int
 	bootID           string
-	nextSubscriberID uint64
-	subscribers      map[uint64]chan Summary
+	hub              pubsub.Hub[Summary]
 	repository       Repository
 	retentionDays    int
 	spool            *SpoolQueue
@@ -51,7 +52,6 @@ func NewStream(limit int) *Stream {
 
 	return &Stream{
 		limit:       limit,
-		subscribers: map[uint64]chan Summary{},
 		clock:       time.Now,
 		flushTicker: 5 * time.Second,
 		flushNotify: make(chan struct{}, 1),
@@ -152,54 +152,15 @@ func (s *Stream) appendInMemory(summary Summary) {
 		s.history = append(s.history, summary)
 	}
 
-	for _, subscriber := range s.subscribers {
-		select {
-		case subscriber <- summary:
-		default:
-			select {
-			case <-subscriber:
-			default:
-			}
-			select {
-			case subscriber <- summary:
-			default:
-			}
-		}
-	}
+	s.hub.PublishReplace(summary)
 }
 
 func (s *Stream) Subscribe(buffer int) (<-chan Summary, func()) {
-	if buffer <= 0 {
-		buffer = 1
-	}
-
-	ch := make(chan Summary, buffer)
-
-	s.mu.Lock()
-	id := s.nextSubscriberID
-	s.nextSubscriberID++
-	s.subscribers[id] = ch
-	s.mu.Unlock()
-
-	return ch, func() {
-		s.mu.Lock()
-		defer s.mu.Unlock()
-
-		subscriber, ok := s.subscribers[id]
-		if !ok {
-			return
-		}
-
-		delete(s.subscribers, id)
-		close(subscriber)
-	}
+	return s.hub.Subscribe(buffer)
 }
 
 func (s *Stream) SubscriberCount() int {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-
-	return len(s.subscribers)
+	return s.hub.SubscriberCount()
 }
 
 func (s *Stream) now() time.Time {

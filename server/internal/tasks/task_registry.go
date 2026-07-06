@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/logging"
+	"github.com/RayleaBot/RayleaBot/server/internal/pubsub"
 )
 
 type Status string
@@ -61,20 +62,18 @@ type LogSink interface {
 }
 
 type Registry struct {
-	mu               sync.RWMutex
-	items            map[string]Snapshot
-	order            []string
-	nextSubscriberID uint64
-	subscribers      map[uint64]chan Snapshot
-	repo             Repository
-	logs             LogSink
+	mu    sync.RWMutex
+	items map[string]Snapshot
+	order []string
+	hub   pubsub.Hub[Snapshot]
+	repo  Repository
+	logs  LogSink
 }
 
 func NewRegistry() *Registry {
 	return &Registry{
-		items:       map[string]Snapshot{},
-		order:       []string{},
-		subscribers: map[uint64]chan Snapshot{},
+		items: map[string]Snapshot{},
+		order: []string{},
 	}
 }
 
@@ -215,55 +214,15 @@ func (r *Registry) Update(taskID string, update Update) (Snapshot, bool) {
 }
 
 func (r *Registry) Subscribe(buffer int) (<-chan Snapshot, func()) {
-	if buffer <= 0 {
-		buffer = 1
-	}
-
-	ch := make(chan Snapshot, buffer)
-
-	r.mu.Lock()
-	id := r.nextSubscriberID
-	r.nextSubscriberID++
-	r.subscribers[id] = ch
-	r.mu.Unlock()
-
-	return ch, func() {
-		r.mu.Lock()
-		defer r.mu.Unlock()
-
-		subscriber, ok := r.subscribers[id]
-		if !ok {
-			return
-		}
-
-		delete(r.subscribers, id)
-		close(subscriber)
-	}
+	return r.hub.Subscribe(buffer)
 }
 
 func (r *Registry) SubscriberCount() int {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-
-	return len(r.subscribers)
+	return r.hub.SubscriberCount()
 }
 
 func (r *Registry) broadcastLocked(snapshot Snapshot) {
-	cloned := cloneSnapshot(snapshot)
-	for _, subscriber := range r.subscribers {
-		select {
-		case subscriber <- cloned:
-		default:
-			select {
-			case <-subscriber:
-			default:
-			}
-			select {
-			case subscriber <- cloned:
-			default:
-			}
-		}
-	}
+	r.hub.PublishReplace(cloneSnapshot(snapshot))
 }
 
 func (r *Registry) persistAsync(repo Repository, snapshot Snapshot) {
