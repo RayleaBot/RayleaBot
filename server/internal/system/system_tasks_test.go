@@ -14,7 +14,7 @@ import (
 	renderservice "github.com/RayleaBot/RayleaBot/server/internal/render/service"
 	"github.com/RayleaBot/RayleaBot/server/internal/storage"
 	"github.com/RayleaBot/RayleaBot/server/internal/tasks"
-	"github.com/RayleaBot/RayleaBot/server/internal/testutil"
+	"github.com/RayleaBot/RayleaBot/server/tests/testutil"
 )
 
 func TestManagedRuntimeTaskProgressSummarizesSourceProbe(t *testing.T) {

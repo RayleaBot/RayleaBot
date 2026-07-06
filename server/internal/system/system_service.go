@@ -2,7 +2,9 @@ package system
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
+	"path/filepath"
 	"reflect"
 	"strings"
 	"sync"
@@ -153,6 +155,37 @@ func New(deps Deps) *Service {
 		resolveDatabasePath: databasePathResolver(deps.ResolveDatabasePath),
 		startupRuntimes:     newStartupRuntimeStates(nil),
 	}
+}
+
+func databasePathResolver(resolver DatabasePathResolver) DatabasePathResolver {
+	if resolver != nil {
+		return resolver
+	}
+	return defaultDatabasePath
+}
+
+func (s *Service) databasePath(configPath, configuredPath string) (string, error) {
+	if s != nil && s.resolveDatabasePath != nil {
+		return s.resolveDatabasePath(configPath, configuredPath)
+	}
+	return defaultDatabasePath(configPath, configuredPath)
+}
+
+func defaultDatabasePath(configPath, configuredPath string) (string, error) {
+	if filepath.IsAbs(configuredPath) {
+		return filepath.Clean(configuredPath), nil
+	}
+
+	absoluteConfigPath, err := filepath.Abs(configPath)
+	if err != nil {
+		return "", fmt.Errorf("resolve runtime root from %s: %w", configPath, err)
+	}
+	repoRoot := recovery.RepoRootFromConfigPath(absoluteConfigPath)
+	resolved, err := filepath.Abs(filepath.Join(repoRoot, configuredPath))
+	if err != nil {
+		return "", fmt.Errorf("resolve database path %s: %w", configuredPath, err)
+	}
+	return resolved, nil
 }
 
 func (s *Service) SystemStatus() string {

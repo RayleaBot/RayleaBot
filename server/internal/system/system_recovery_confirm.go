@@ -8,6 +8,48 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/tasks"
 )
 
+const codeInvalidRequest = "platform.invalid_request"
+
+func (s *Service) SubmitRecoveryRecheckTask() (string, *Error) {
+	if s == nil || s.taskExecutor == nil {
+		return "", InternalError()
+	}
+
+	summary, err := recovery.LoadSummary(s.repoRootPath())
+	if err != nil {
+		return "", InternalError()
+	}
+	if summary == nil || (!summary.RequiresPostStartChecks && summary.Phase != "post_startup") {
+		return "", ResourceMissingError(RecoverySummaryDetails(s.repoRootPath()))
+	}
+
+	taskID, err := s.taskExecutor.Submit("recovery.recheck", "重新检查恢复摘要", func(ctx context.Context, progress tasks.ProgressReporter) (*tasks.ResultSummary, error) {
+		progress.Update(25, "读取恢复摘要")
+		reconciled, err := s.reconcileRecoverySummary()
+		if err != nil {
+			return nil, err
+		}
+		if reconciled == nil {
+			return nil, &tasks.TaskError{
+				Code:    codeResourceMissing,
+				Message: "恢复摘要不存在或当前不可重新检查",
+				Details: RecoverySummaryDetails(s.repoRootPath()),
+			}
+		}
+		progress.Update(90, "写入恢复摘要")
+		return &tasks.ResultSummary{
+			Summary: "恢复摘要已重新检查",
+			Details: map[string]any{
+				"recovery_summary": reconciled,
+			},
+		}, nil
+	})
+	if err != nil {
+		return "", InternalError()
+	}
+	return taskID, nil
+}
+
 func (s *Service) ValidateRecoveryConfirmRequest(reviewIDs []string, note string) *Error {
 	if s == nil {
 		return InternalError()
