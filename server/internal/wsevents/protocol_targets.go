@@ -1,4 +1,4 @@
-package management
+package wsevents
 
 import (
 	"context"
@@ -9,15 +9,15 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/onebot11"
 )
 
-func (s *ProtocolService) currentOneBot11ProtocolTargets(ctx context.Context) oneBot11ProtocolTargetsResponse {
-	response := oneBot11ProtocolTargetsResponse{
+func (s *ProtocolService) CurrentOneBot11ProtocolTargets(ctx context.Context) OneBot11ProtocolTargets {
+	response := OneBot11ProtocolTargets{
 		Protocol:     "onebot11",
-		Groups:       []oneBot11GroupTargetResponse{},
-		PrivateUsers: []oneBot11PrivateTargetResponse{},
-		Issues:       []oneBot11TargetIssueResponse{},
+		Groups:       []OneBot11GroupTarget{},
+		PrivateUsers: []OneBot11PrivateTarget{},
+		Issues:       []OneBot11TargetIssue{},
 	}
 	if s == nil || s.adapter == nil {
-		response.Issues = append(response.Issues, oneBot11TargetIssueResponse{Scope: "protocol", Message: "OneBot11 协议不可用"})
+		response.Issues = append(response.Issues, OneBot11TargetIssue{Scope: "protocol", Message: "OneBot11 协议不可用"})
 		return response
 	}
 
@@ -26,7 +26,7 @@ func (s *ProtocolService) currentOneBot11ProtocolTargets(ctx context.Context) on
 		response.Issues = append(response.Issues, oneBot11TargetIssue("groups", "群聊列表读取失败", groupsResult.err))
 	} else {
 		for _, group := range groupsResult.groups {
-			response.Groups = append(response.Groups, oneBot11GroupTargetResponse{
+			response.Groups = append(response.Groups, OneBot11GroupTarget{
 				TargetType: "group",
 				TargetID:   group.ID,
 				TargetName: group.Name,
@@ -39,7 +39,7 @@ func (s *ProtocolService) currentOneBot11ProtocolTargets(ctx context.Context) on
 		response.Issues = append(response.Issues, oneBot11TargetIssue("private_users", "私聊对象列表读取失败", friendsResult.err))
 	} else {
 		for _, friend := range friendsResult.friends {
-			response.PrivateUsers = append(response.PrivateUsers, oneBot11PrivateTargetResponse{
+			response.PrivateUsers = append(response.PrivateUsers, OneBot11PrivateTarget{
 				TargetType: "private",
 				TargetID:   friend.ID,
 				Nickname:   friend.Nickname,
@@ -120,8 +120,8 @@ func (s *ProtocolService) readOneBot11ProtocolTargets(ctx context.Context) (oneB
 	return groupsResult, friendsResult
 }
 
-func oneBot11TargetIssue(scope, fallback string, err error) oneBot11TargetIssueResponse {
-	return oneBot11TargetIssueResponse{
+func oneBot11TargetIssue(scope, fallback string, err error) OneBot11TargetIssue {
+	return OneBot11TargetIssue{
 		Scope:   scope,
 		Message: oneBot11TargetIssueMessage(fallback, err),
 	}
@@ -154,13 +154,13 @@ func (s *ProtocolService) oneBot11TargetTimeout() time.Duration {
 	return 3 * time.Second
 }
 
-func (s *ProtocolService) resolveOneBot11Identities(ctx context.Context, items []oneBot11IdentityResolveItem) oneBot11IdentityResolveResponse {
-	response := oneBot11IdentityResolveResponse{
-		Items:  []oneBot11IdentityResponse{},
-		Issues: []oneBot11TargetIssueResponse{},
+func (s *ProtocolService) ResolveOneBot11Identities(ctx context.Context, items []OneBot11IdentityResolveItem) OneBot11IdentityResolveResult {
+	response := OneBot11IdentityResolveResult{
+		Items:  []OneBot11Identity{},
+		Issues: []OneBot11TargetIssue{},
 	}
 	if s == nil || s.adapter == nil {
-		response.Issues = append(response.Issues, oneBot11TargetIssueResponse{Scope: "protocol", Message: "OneBot11 协议不可用"})
+		response.Issues = append(response.Issues, OneBot11TargetIssue{Scope: "protocol", Message: "OneBot11 协议不可用"})
 		return response
 	}
 
@@ -170,7 +170,7 @@ func (s *ProtocolService) resolveOneBot11Identities(ctx context.Context, items [
 		targetID := strings.TrimSpace(item.TargetID)
 		userID := strings.TrimSpace(item.UserID)
 		if (targetType != "group" && targetType != "private") || !isDigits(targetID) || !isDigits(userID) {
-			response.Issues = append(response.Issues, oneBot11TargetIssueResponse{Scope: "identity", Message: "身份解析参数不合法"})
+			response.Issues = append(response.Issues, OneBot11TargetIssue{Scope: "identity", Message: "身份解析参数不合法"})
 			continue
 		}
 		key := targetType + ":" + targetID + ":" + userID
@@ -183,14 +183,14 @@ func (s *ProtocolService) resolveOneBot11Identities(ctx context.Context, items [
 		case "group":
 			member, err := s.adapter.GetGroupMemberInfo(ctx, targetID, userID)
 			if err != nil {
-				response.Issues = append(response.Issues, oneBot11TargetIssueResponse{Scope: "identity", Message: "群成员身份读取失败"})
+				response.Issues = append(response.Issues, OneBot11TargetIssue{Scope: "identity", Message: "群成员身份读取失败"})
 				continue
 			}
 			nickname := member.Nickname
 			if nickname == "" {
 				nickname = userID
 			}
-			response.Items = append(response.Items, oneBot11IdentityResponse{
+			response.Items = append(response.Items, OneBot11Identity{
 				TargetType:    "group",
 				TargetID:      targetID,
 				UserID:        userID,
@@ -204,14 +204,14 @@ func (s *ProtocolService) resolveOneBot11Identities(ctx context.Context, items [
 		case "private":
 			stranger, err := s.adapter.GetStrangerInfo(ctx, userID)
 			if err != nil {
-				response.Issues = append(response.Issues, oneBot11TargetIssueResponse{Scope: "identity", Message: "私聊身份读取失败"})
+				response.Issues = append(response.Issues, OneBot11TargetIssue{Scope: "identity", Message: "私聊身份读取失败"})
 				continue
 			}
 			nickname := stranger.Nickname
 			if nickname == "" {
 				nickname = userID
 			}
-			response.Items = append(response.Items, oneBot11IdentityResponse{
+			response.Items = append(response.Items, OneBot11Identity{
 				TargetType: "private",
 				TargetID:   targetID,
 				UserID:     userID,

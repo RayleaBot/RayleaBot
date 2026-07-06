@@ -6,7 +6,7 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/dispatch"
 	"github.com/RayleaBot/RayleaBot/server/internal/governance"
-	managementevents "github.com/RayleaBot/RayleaBot/server/internal/management"
+	"github.com/RayleaBot/RayleaBot/server/internal/wsevents"
 	"github.com/RayleaBot/RayleaBot/server/internal/permission"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
@@ -417,7 +417,7 @@ func TestExecuteGovernanceWritePublishesGovernanceChanged(t *testing.T) {
 
 	select {
 	case frame := <-events:
-		data, ok := frame.Data.(managementevents.GenericPayload)
+		data, ok := frame.Data.(wsevents.GenericPayload)
 		if !ok || data.EventType != "governance.changed" {
 			t.Fatalf("unexpected governance event: %#v", frame)
 		}

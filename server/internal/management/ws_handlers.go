@@ -15,6 +15,7 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/httpapi"
 	"github.com/RayleaBot/RayleaBot/server/internal/logging"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
+	"github.com/RayleaBot/RayleaBot/server/internal/wsevents"
 )
 
 var managementWebSocketAcceptOptions = &websocket.AcceptOptions{
@@ -70,17 +71,17 @@ type pluginEventSource interface {
 }
 
 type protocolEventSource interface {
-	ProtocolSnapshotEvent() Frame
-	SubscribeProtocolEvents(int) (<-chan Frame, func())
+	ProtocolSnapshotEvent() wsevents.Frame
+	SubscribeProtocolEvents(int) (<-chan wsevents.Frame, func())
 }
 
 type serviceStatusEventSource interface {
-	CurrentEvent() Frame
-	Subscribe(int) (<-chan Frame, func())
+	CurrentEvent() wsevents.Frame
+	Subscribe(int) (<-chan wsevents.Frame, func())
 }
 
 type governanceEventSource interface {
-	Subscribe(int) (<-chan Frame, func())
+	Subscribe(int) (<-chan wsevents.Frame, func())
 }
 
 func NewEventsHandler(bridge eventBridgeSource, plugins pluginEventSource, protocol protocolEventSource, serviceStatus serviceStatusEventSource, governance governanceEventSource) *EventsHandler {
@@ -152,14 +153,14 @@ func (h *EventsHandler) streamEventsWebSocket(conn *websocket.Conn) {
 	defer unsubscribeProtocol()
 	statusFrames, unsubscribeStatus := h.serviceStatus.Subscribe(4)
 	defer unsubscribeStatus()
-	var governanceFrames <-chan Frame
+	var governanceFrames <-chan wsevents.Frame
 	unsubscribeGovernance := func() {}
 	if h.governance != nil {
 		governanceFrames, unsubscribeGovernance = h.governance.Subscribe(4)
 	}
 	defer unsubscribeGovernance()
 
-	for _, frame := range []Frame{
+	for _, frame := range []wsevents.Frame{
 		h.serviceStatus.CurrentEvent(),
 		h.protocol.ProtocolSnapshotEvent(),
 	} {
@@ -211,9 +212,9 @@ func (h *EventsHandler) streamEventsWebSocket(conn *websocket.Conn) {
 	}
 }
 
-func pluginStateEventFrame(snapshot plugins.Snapshot, snapshots []plugins.Snapshot) Frame {
+func pluginStateEventFrame(snapshot plugins.Snapshot, snapshots []plugins.Snapshot) wsevents.Frame {
 	state, diagnosis := plugins.ProjectState(snapshot)
-	return NewReceivedFrame(PluginStatePayload{
+	return wsevents.NewReceivedFrame(wsevents.PluginStatePayload{
 		PluginID:         snapshot.PluginID,
 		State:            state,
 		StateDiagnosis:   diagnosis,
@@ -229,16 +230,16 @@ func pluginSnapshotsForConflicts(catalog interface{ List() []plugins.Snapshot })
 	return catalog.List()
 }
 
-func pluginStateEventCommands(commands []plugins.Command) []PluginCommandItem {
+func pluginStateEventCommands(commands []plugins.Command) []wsevents.PluginCommandItem {
 	if len(commands) == 0 {
-		return []PluginCommandItem{}
+		return []wsevents.PluginCommandItem{}
 	}
-	items := make([]PluginCommandItem, 0, len(commands))
+	items := make([]wsevents.PluginCommandItem, 0, len(commands))
 	for _, command := range commands {
 		if command.Name == "" {
 			continue
 		}
-		item := PluginCommandItem{
+		item := wsevents.PluginCommandItem{
 			Name:          command.Name,
 			Aliases:       append([]string(nil), command.Aliases...),
 			Description:   command.Description,
@@ -250,7 +251,7 @@ func pluginStateEventCommands(commands []plugins.Command) []PluginCommandItem {
 		items = append(items, item)
 	}
 	if len(items) == 0 {
-		return []PluginCommandItem{}
+		return []wsevents.PluginCommandItem{}
 	}
 	return items
 }

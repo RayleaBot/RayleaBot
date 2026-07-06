@@ -1,4 +1,4 @@
-package management
+package wsevents
 
 import (
 	"strings"
@@ -6,7 +6,7 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/onebot11"
 )
 
-func (s *ProtocolService) currentOneBot11ProtocolSnapshot() oneBot11ProtocolSnapshotView {
+func (s *ProtocolService) CurrentOneBot11ProtocolSnapshot() OneBot11ProtocolSnapshot {
 	adapterSnapshot := onebot11.Snapshot{}
 	if s.adapter != nil {
 		adapterSnapshot = s.adapter.Snapshot()
@@ -23,13 +23,13 @@ func (s *ProtocolService) currentOneBot11ProtocolSnapshot() oneBot11ProtocolSnap
 	}
 
 	configured := make([]string, 0, len(transports))
-	status := make([]protocolTransportStatusResponse, 0, len(transports))
+	status := make([]TransportStatus, 0, len(transports))
 	for _, transport := range transports {
 		if transport.snapshot.Configured {
 			configured = append(configured, string(transport.key))
 		}
 		runtimeInfo := transport.snapshot.RuntimeInfo
-		status = append(status, protocolTransportStatusResponse{
+		status = append(status, TransportStatus{
 			Transport:       string(transport.key),
 			Enabled:         transport.snapshot.Enabled,
 			Configured:      transport.snapshot.Configured,
@@ -51,7 +51,7 @@ func (s *ProtocolService) currentOneBot11ProtocolSnapshot() oneBot11ProtocolSnap
 	}
 
 	readiness := protocolReadinessStatus(adapterSnapshot)
-	return oneBot11ProtocolSnapshotView{
+	return OneBot11ProtocolSnapshot{
 		Protocol:              "onebot11",
 		Provider:              adapterSnapshot.DetectedProvider(),
 		ConfiguredTransports:  configured,
@@ -79,14 +79,14 @@ func (s *ProtocolService) transportIngressEnabled(transport onebot11.TransportKe
 	}
 }
 
-func protocolIssuesFromSnapshot(snapshot onebot11.Snapshot) []protocolIssueResponse {
-	issues := make([]protocolIssueResponse, 0, 4)
+func protocolIssuesFromSnapshot(snapshot onebot11.Snapshot) []ProtocolIssue {
+	issues := make([]ProtocolIssue, 0, 4)
 	appendIssue := func(transport onebot11.TransportKey, transportSnapshot onebot11.TransportSnapshot) {
 		code := strings.TrimSpace(transportSnapshot.LastErrorCode)
 		if code == "" {
 			return
 		}
-		issues = append(issues, protocolIssueResponse{
+		issues = append(issues, ProtocolIssue{
 			Code:     code,
 			Severity: "warning",
 			Summary:  transportIssueSummary(transport, transportSnapshot),

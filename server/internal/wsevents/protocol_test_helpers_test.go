@@ -1,4 +1,4 @@
-package management
+package wsevents
 
 import (
 	"testing"

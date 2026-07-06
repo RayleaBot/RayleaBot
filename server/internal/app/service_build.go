@@ -10,7 +10,6 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/governance"
 	"github.com/RayleaBot/RayleaBot/server/internal/integrations/thirdparty"
 	"github.com/RayleaBot/RayleaBot/server/internal/logging"
-	managementevents "github.com/RayleaBot/RayleaBot/server/internal/management"
 	"github.com/RayleaBot/RayleaBot/server/internal/permission"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins/actions"
 	pluginservice "github.com/RayleaBot/RayleaBot/server/internal/plugins/lifecycle"
@@ -19,6 +18,7 @@ import (
 	renderservice "github.com/RayleaBot/RayleaBot/server/internal/render/service"
 	"github.com/RayleaBot/RayleaBot/server/internal/runtimepaths"
 	systemsvc "github.com/RayleaBot/RayleaBot/server/internal/system"
+	"github.com/RayleaBot/RayleaBot/server/internal/wsevents"
 )
 
 type runtimeStateView interface {
@@ -48,10 +48,10 @@ type Services struct {
 	LocalActions      *actions.Service
 	PluginLifecycle   *pluginservice.Controller
 	EventIngress      *chatpolicy.Ingress
-	Protocol          *managementevents.ProtocolService
+	Protocol          *wsevents.ProtocolService
 	PluginWebhooks    *pluginwebhook.Service
 	Governance        *governance.Service
-	GovernanceEvents  *managementevents.GovernanceService
+	GovernanceEvents  *wsevents.GovernanceService
 	Logs              *logging.ManagementService
 	System            *systemsvc.Service
 	ThirdParty        *thirdparty.Service
@@ -61,7 +61,7 @@ type Services struct {
 type serviceBuildResult struct {
 	Services                   Services
 	Runtimes                   *pluginruntime.Registry
-	Status                     *managementevents.ServiceStatusService
+	Status                     *wsevents.ServiceStatusService
 	ThirdPartyAccountValidator *AccountValidator
 }
 
@@ -73,7 +73,7 @@ func buildServices(deps serviceBuildDeps) (serviceBuildResult, error) {
 	renderer := deps.Renderer
 	logService := logging.NewManagementService(platform.Logs, platform.LogRepository)
 	policyRepos := buildPolicyRepositories(platform)
-	governanceEvents := managementevents.NewGovernanceService()
+	governanceEvents := wsevents.NewGovernanceService()
 	governanceService := buildGovernanceService(runtimeState, pluginStack, policyRepos, governanceEvents)
 	integrations, err := buildIntegrations(integrationDeps{
 		Config:        runtimeState.CurrentConfig(),
@@ -115,7 +115,7 @@ func buildServices(deps serviceBuildDeps) (serviceBuildResult, error) {
 		LogRepository:       platform.LogRepository,
 		ResolveDatabasePath: runtimepaths.ResolveDatabasePath,
 	})
-	serviceStatusService := managementevents.NewServiceStatusService(systemService)
+	serviceStatusService := wsevents.NewServiceStatusService(systemService)
 	systemService.SetStatusPublisher(serviceStatusService)
 	pluginServices := buildPluginServices(pluginServiceDeps{
 		Runtime:       runtimeState,
@@ -142,7 +142,7 @@ func buildServices(deps serviceBuildDeps) (serviceBuildResult, error) {
 		WhitelistState:   policyRepos.WhitelistState,
 		BlacklistRepo:    policyRepos.Blacklist,
 	})
-	protocolService := managementevents.NewProtocolService(runtimeState, eventStack.Adapter)
+	protocolService := wsevents.NewProtocolService(runtimeState, eventStack.Adapter)
 	return serviceBuildResult{
 		Services: Services{
 			LocalActions:      pluginRuntime.LocalActions,
@@ -163,7 +163,7 @@ func buildServices(deps serviceBuildDeps) (serviceBuildResult, error) {
 	}, nil
 }
 
-func buildGovernanceService(runtimeState runtimeStateView, pluginStack PluginStackState, policy policyRepositories, events *managementevents.GovernanceService) *governance.Service {
+func buildGovernanceService(runtimeState runtimeStateView, pluginStack PluginStackState, policy policyRepositories, events *wsevents.GovernanceService) *governance.Service {
 	return governance.NewService(governance.Deps{
 		CurrentConfig:  runtimeState.CurrentConfig,
 		Plugins:        pluginStack.Plugins,

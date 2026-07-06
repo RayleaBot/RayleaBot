@@ -7,10 +7,10 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/configruntime"
 	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/chatpolicy"
 	"github.com/RayleaBot/RayleaBot/server/internal/logging"
-	managementapi "github.com/RayleaBot/RayleaBot/server/internal/management"
 	localaction "github.com/RayleaBot/RayleaBot/server/internal/plugins/actions"
 	renderservice "github.com/RayleaBot/RayleaBot/server/internal/render/service"
 	"github.com/RayleaBot/RayleaBot/server/internal/secrets"
+	"github.com/RayleaBot/RayleaBot/server/internal/wsevents"
 )
 
 type configRuntimeState interface {
@@ -31,7 +31,7 @@ type configServiceDeps struct {
 	Renderer         *renderservice.Service
 	PluginLogLimiter *localaction.PluginLogLimiter
 	OutboundLimiter  interface{ ApplyConfig(config.Config) }
-	Protocol         *managementapi.ProtocolService
+	Protocol         *wsevents.ProtocolService
 	EventIngress     *chatpolicy.Ingress
 	Secrets          secrets.Store
 }

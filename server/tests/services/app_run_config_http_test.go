@@ -22,6 +22,7 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/onebot11"
 	renderservice "github.com/RayleaBot/RayleaBot/server/internal/render/service"
 	"github.com/RayleaBot/RayleaBot/server/internal/storage"
+	"github.com/RayleaBot/RayleaBot/server/internal/wsevents"
 )
 
 func TestApplyHotReloadableFieldsClassifiesCanonicalPaths(t *testing.T) {
@@ -200,7 +201,7 @@ func TestApplyHotReloadableFieldsFallsBackToRestartRequiredWhenAdapterReloadFail
 	startCtx, cancelStart := context.WithCancel(context.Background())
 	adapterShell.Start(startCtx)
 	cancelStart()
-	app.services.Protocol = managementapi.NewProtocolService(app.state, adapterShell)
+	app.services.Protocol = wsevents.NewProtocolService(app.state, adapterShell)
 	t.Cleanup(func() {
 		stopCtx, cancel := context.WithTimeout(context.Background(), time.Second)
 		defer cancel()

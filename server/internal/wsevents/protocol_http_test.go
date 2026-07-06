@@ -1,4 +1,4 @@
-package management
+package wsevents
 
 import (
 	"context"
@@ -206,11 +206,11 @@ func TestProtocolSnapshotEventMatchesCurrentProjection(t *testing.T) {
 	}
 	service := NewProtocolService(protocolTestConfigSource{}, shell)
 
-	snapshot := service.currentOneBot11ProtocolSnapshot()
+	snapshot := service.CurrentOneBot11ProtocolSnapshot()
 	if snapshot.Provider != "luckylillia" {
 		t.Fatalf("unexpected provider: got %q want %q", snapshot.Provider, "luckylillia")
 	}
-	var forward protocolTransportStatusResponse
+	var forward TransportStatus
 	for _, item := range snapshot.TransportStatus {
 		if item.Transport == "forward_ws" {
 			forward = item
@@ -314,7 +314,7 @@ func TestProtocolTargetsReturnPartialResultsWhenFriendListTimesOut(t *testing.T)
 	service.oneBot11TargetReadTimeout = 60 * time.Millisecond
 
 	started := time.Now()
-	response := service.currentOneBot11ProtocolTargets(context.Background())
+	response := service.CurrentOneBot11ProtocolTargets(context.Background())
 	if elapsed := time.Since(started); elapsed > time.Second {
 		t.Fatalf("target lookup took too long: %s", elapsed)
 	}
@@ -343,7 +343,7 @@ func TestProtocolCompatibilityProjectionKeepsUnsupportedGapsVisible(t *testing.T
 
 	service := NewProtocolService(protocolTestConfigSource{}, nil)
 
-	response, err := service.currentOneBot11ProtocolCompatibility()
+	response, err := service.CurrentOneBot11ProtocolCompatibility()
 	if err != nil {
 		t.Fatalf("unexpected compatibility projection error: %v", err)
 	}
