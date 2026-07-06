@@ -17,6 +17,7 @@ import (
 	"gopkg.in/yaml.v3"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/auth"
+	"github.com/RayleaBot/RayleaBot/server/tests/testutil"
 )
 
 func TestSetupAdminReturnsSessionToken(t *testing.T) {
@@ -127,7 +128,7 @@ func TestSetupAdminUnexpectedAuthFailureReturnsInternalError(t *testing.T) {
 	t.Parallel()
 
 	application := newTestApp(t)
-	application.SetAuthManager(newDeterministicAuthManagerWithRepository(t, &stubAuthRepository{
+	application.SetAuthManager(newDeterministicAuthManagerWithRepository(t, &testutil.StubAuthRepository{
 		SaveBootstrapFn: func(context.Context, auth.BootstrapState, auth.Claims) error {
 			return errors.New("disk full")
 		},

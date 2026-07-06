@@ -16,10 +16,11 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/app"
 	"github.com/RayleaBot/RayleaBot/server/internal/auth"
 	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/bridge"
-	plugindiscovery "github.com/RayleaBot/RayleaBot/server/internal/plugins/discovery"
+	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/dispatch"
+	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
+	pluginruntime "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime"
 	"github.com/RayleaBot/RayleaBot/server/internal/secrets"
 	"github.com/RayleaBot/RayleaBot/server/internal/storage"
-	"github.com/RayleaBot/RayleaBot/server/internal/testapp"
 )
 
 const sessionSigningKeySecret = "platform.auth.session_signing_key"
@@ -212,7 +213,7 @@ func newPersistentTestApp(t *testing.T, configPath string, now func() time.Time,
 		SchemaPath:       filepath.Join("..", "contracts", "config.user.schema.json"),
 		PluginRepoRoot:   repoRoot,
 		PluginSchemaPath: filepath.Join("..", "contracts", "plugin-info.schema.json"),
-		PluginRoots: []plugindiscovery.ScanRoot{
+		PluginRoots: []plugincatalog.ScanRoot{
 			{Label: "plugins/builtin", Path: filepath.Join(repoRoot, "plugins", "builtin")},
 			{Label: "plugins/installed", Path: filepath.Join(filepath.Dir(configPath), "..", "plugins", "installed")},
 		},
@@ -242,7 +243,26 @@ func closePersistentTestApp(t *testing.T, application *app.App) {
 }
 
 func newPersistentEventsBridge(application *app.App) *bridge.Bridge {
-	return testapp.NewPersistentEventsBridge(application)
+	return bridge.New(application.Logger(), &persistentDispatchStub{
+		deliverable: true,
+		results: []dispatch.DeliveryResult{{
+			PluginID: "weather",
+			Outcome:  dispatch.OutcomeDelivered,
+		}},
+	})
+}
+
+type persistentDispatchStub struct {
+	deliverable bool
+	results     []dispatch.DeliveryResult
+}
+
+func (s *persistentDispatchStub) HasDeliverablePlugins() bool {
+	return s.deliverable
+}
+
+func (s *persistentDispatchStub) Dispatch(context.Context, pluginruntime.Event, string) []dispatch.DeliveryResult {
+	return append([]dispatch.DeliveryResult(nil), s.results...)
 }
 
 func writePersistentYAMLConfig(t *testing.T, databasePath string) string {

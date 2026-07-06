@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/auth"
+	"github.com/RayleaBot/RayleaBot/server/tests/testutil"
 )
 
 func TestSessionLoginReturnsSessionToken(t *testing.T) {
@@ -232,7 +233,7 @@ func TestSessionLoginUnexpectedAuthFailureReturnsInternalError(t *testing.T) {
 	t.Parallel()
 
 	application := newTestApp(t)
-	application.SetAuthManager(newDeterministicAuthManagerWithRepository(t, &stubAuthRepository{
+	application.SetAuthManager(newDeterministicAuthManagerWithRepository(t, &testutil.StubAuthRepository{
 		SaveSessionFn: func(context.Context, auth.Claims) error {
 			return errors.New("database unavailable")
 		},

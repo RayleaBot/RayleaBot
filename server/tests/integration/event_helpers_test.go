@@ -10,7 +10,7 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/auth"
 	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/bridge"
 	"github.com/RayleaBot/RayleaBot/server/internal/onebot11"
-	"github.com/RayleaBot/RayleaBot/server/internal/testutil"
+	"github.com/RayleaBot/RayleaBot/server/tests/testutil"
 	"github.com/coder/websocket"
 )
 
