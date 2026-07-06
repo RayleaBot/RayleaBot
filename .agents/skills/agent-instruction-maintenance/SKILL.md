@@ -48,4 +48,3 @@ This skill is a reusable workflow. It does not define project truth. Repository 
 - 在 agent 指令文件中暴露真实凭据或凭据格式。
 - 让局部规则放宽或覆盖根规则中的硬约束（如 contract-first、secrets、frozen stack）。
 - 把多步骤流程直接塞进 `AGENTS.md`；流程应沉淀到 skill。
-- 新增 `server/internal/**/AGENTS.md` 或 `CLAUDE.md`（该区域本轮不新增 agent 文件）。

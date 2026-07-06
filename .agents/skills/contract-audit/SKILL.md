@@ -53,6 +53,6 @@ This skill is a reusable workflow. It does not define project truth. Formal trut
 ## Do Not
 
 - 把实现行为反向当成 contract 真相
-- 自动接受 speculative 字段或未来能力占位
+- 自动接受 speculative 字段
 - 在没有 fixtures / examples / tests 支撑时宣布 contract 已就绪
 - 跳过错误码、状态名、事件名的一致性检查
