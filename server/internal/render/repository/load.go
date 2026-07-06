@@ -115,6 +115,71 @@ func (r *SQLiteTemplateRepository) loadRevision(ctx context.Context, templateID,
 	return revision, nil
 }
 
+func (r *SQLiteTemplateRepository) GetCurrentSource(ctx context.Context, templateID string) (string, TemplateSource, error) {
+	_, revision, err := r.LoadCurrentTemplate(ctx, templateID)
+	if err != nil {
+		return "", TemplateSource{}, err
+	}
+
+	source, err := decodeStoredSource(templateID, revision)
+	if err != nil {
+		return "", TemplateSource{}, err
+	}
+	return revision.RevisionID, source, nil
+}
+
+func (r *SQLiteTemplateRepository) GetRevisionSource(ctx context.Context, templateID, revisionID string) (TemplateSource, error) {
+	revision, err := r.loadRevision(ctx, templateID, revisionID)
+	if err != nil {
+		return TemplateSource{}, err
+	}
+
+	return decodeStoredSource(templateID, revision)
+}
+
+func (r *SQLiteTemplateRepository) GetTemplateDetail(ctx context.Context, templateID string) (TemplateDetail, error) {
+	state, revision, err := r.LoadCurrentTemplate(ctx, templateID)
+	if err != nil {
+		return TemplateDetail{}, err
+	}
+
+	manifest, err := decodeStoredManifest(templateID, revision.ManifestJSON)
+	if err != nil {
+		return TemplateDetail{}, err
+	}
+
+	return TemplateDetail{
+		TemplateSummary: TemplateSummary{
+			ID:                templateID,
+			Version:           revision.TemplateVersion,
+			Width:             manifest.Width,
+			Height:            manifest.Height,
+			HasInputSchema:    revision.InputSchemaJSON.Valid && revision.InputSchemaJSON.String != "",
+			CurrentRevisionID: state.CurrentRevisionID,
+			UpdatedAt:         state.UpdatedAt,
+			Source:            normalizedTemplateSourceInfo(state.Source),
+		},
+		Files: TemplateFiles{
+			Manifest:    templateManifestFilename,
+			HTML:        manifest.EntryHTML,
+			Stylesheet:  manifest.Stylesheet,
+			InputSchema: manifest.InputSchema,
+		},
+		CurrentRevision: TemplateVersion{
+			RevisionID:      revision.RevisionID,
+			TemplateVersion: revision.TemplateVersion,
+			SavedAt:         revision.SavedAt,
+			Kind:            revision.Kind,
+			Message:         revision.Message,
+		},
+		LastValidation: TemplateValidationStatus{
+			Valid:      state.ValidationValid,
+			CheckedAt:  state.ValidationCheckedAt,
+			IssueCount: state.ValidationIssueCount,
+		},
+	}, nil
+}
+
 func (r *SQLiteTemplateRepository) TemplateExists(ctx context.Context, templateID string) (bool, error) {
 	var count int
 	if err := r.read.QueryRowContext(ctx, `SELECT COUNT(*) FROM render_template_states WHERE template_id = ?`, templateID).Scan(&count); err != nil {

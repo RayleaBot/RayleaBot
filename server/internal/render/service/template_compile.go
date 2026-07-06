@@ -1,4 +1,4 @@
-package templates
+package service
 
 import (
 	"bytes"

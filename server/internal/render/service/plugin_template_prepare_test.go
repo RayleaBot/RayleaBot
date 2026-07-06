@@ -1,4 +1,4 @@
-package pluginsync
+package service
 
 import (
 	"os"

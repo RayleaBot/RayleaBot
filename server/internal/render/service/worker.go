@@ -1,17 +1,14 @@
-package engine
+package service
 
 import (
 	"context"
 	"errors"
 	"sync"
 	"time"
-
-	renderbrowser "github.com/RayleaBot/RayleaBot/server/internal/render/browser"
-	rendertemplates "github.com/RayleaBot/RayleaBot/server/internal/render/templates"
 )
 
-type Config struct {
-	Runner           renderbrowser.Runner
+type WorkerConfig struct {
+	Runner           Runner
 	WorkerCount      int
 	QueueMaxLength   int
 	QueueWaitTimeout time.Duration
@@ -19,7 +16,7 @@ type Config struct {
 	OnQueueDepth     func(depth int)
 }
 
-type Limits struct {
+type WorkerLimits struct {
 	QueueMaxLength   int
 	QueueWaitTimeout time.Duration
 	RenderTimeout    time.Duration
@@ -27,7 +24,7 @@ type Limits struct {
 
 type Worker struct {
 	mu               sync.RWMutex
-	runner           renderbrowser.Runner
+	runner           Runner
 	slots            chan struct{}
 	workerCount      int
 	queueMaxLength   int
@@ -37,7 +34,7 @@ type Worker struct {
 	onQueueDepth     func(depth int)
 }
 
-func New(config Config) *Worker {
+func NewWorker(config WorkerConfig) *Worker {
 	workerCount := config.WorkerCount
 	if workerCount <= 0 {
 		workerCount = 1
@@ -55,7 +52,7 @@ func New(config Config) *Worker {
 
 func (w *Worker) Acquire(ctx context.Context) (func(), error) {
 	if w == nil {
-		return nil, &rendertemplates.Error{Code: "platform.resource_missing", Message: "render worker is not available"}
+		return nil, &Error{Code: "platform.resource_missing", Message: "render worker is not available"}
 	}
 
 	if err := w.reserveSlot(); err != nil {
@@ -86,7 +83,7 @@ func (w *Worker) Acquire(ctx context.Context) (func(), error) {
 	case <-queueCtx.Done():
 		cancel()
 		release()
-		return nil, &rendertemplates.Error{
+		return nil, &Error{
 			Code:    "platform.render_timeout",
 			Message: "render queue wait timed out",
 			Err:     queueCtx.Err(),
@@ -104,7 +101,7 @@ func (w *Worker) RenderContext(ctx context.Context) (context.Context, context.Ca
 	return ctx, func() {}
 }
 
-func (w *Worker) CurrentRunner() renderbrowser.Runner {
+func (w *Worker) CurrentRunner() Runner {
 	if w == nil {
 		return nil
 	}
@@ -113,7 +110,7 @@ func (w *Worker) CurrentRunner() renderbrowser.Runner {
 	return w.runner
 }
 
-func (w *Worker) UpdateLimits(limits Limits) {
+func (w *Worker) UpdateLimits(limits WorkerLimits) {
 	if w == nil {
 		return
 	}
@@ -169,7 +166,7 @@ func (w *Worker) RefreshChromiumRunner(browserPath string, browserArgs []string)
 
 	w.mu.RLock()
 	oldRunner := w.runner
-	replaceDefaultRunner := renderbrowser.IsChromiumRunner(oldRunner)
+	replaceDefaultRunner := IsChromiumRunner(oldRunner)
 	w.mu.RUnlock()
 	if !replaceDefaultRunner {
 		return false
@@ -183,7 +180,7 @@ func (w *Worker) RefreshChromiumRunner(browserPath string, browserArgs []string)
 		w.mu.Unlock()
 		return false
 	}
-	w.runner = renderbrowser.NewChromiumRunner(renderbrowser.ChromiumOptions{
+	w.runner = NewChromiumRunner(ChromiumOptions{
 		BrowserPath: browserPath,
 		BrowserArgs: append([]string(nil), browserArgs...),
 	})
@@ -202,7 +199,7 @@ func (w *Worker) reserveSlot() error {
 	}
 	if w.activeRequests >= limit {
 		w.publishQueueDepthLocked()
-		return &rendertemplates.Error{
+		return &Error{
 			Code:    "platform.render_queue_full",
 			Message: "render queue is full",
 		}
@@ -246,7 +243,7 @@ func (w *Worker) acquireAllWorkerSlots() func() {
 
 func WrapRenderError(ctx context.Context, err error) error {
 	if errors.Is(ctx.Err(), context.DeadlineExceeded) || errors.Is(err, context.DeadlineExceeded) {
-		return &rendertemplates.Error{
+		return &Error{
 			Code:    "platform.render_timeout",
 			Message: "render execution timed out",
 			Err:     err,
@@ -259,7 +256,7 @@ type closeableRunner interface {
 	Close() error
 }
 
-func closeRunner(runner renderbrowser.Runner) error {
+func closeRunner(runner Runner) error {
 	closeable, ok := runner.(closeableRunner)
 	if !ok || closeable == nil {
 		return nil

@@ -10,8 +10,6 @@ import (
 	"strings"
 	"testing"
 	"time"
-
-	rendertemplates "github.com/RayleaBot/RayleaBot/server/internal/render/templates"
 )
 
 func TestServiceSyncsTemplateFileChangesAfterRestart(t *testing.T) {
@@ -361,9 +359,9 @@ func TestServiceValidateTemplateRejectsInvalidManifestAndReportsCompileIssues(t 
 		t.Fatal("expected invalid manifest error")
 	}
 
-	var renderErr *rendertemplates.Error
+	var renderErr *Error
 	if !errors.As(err, &renderErr) {
-		t.Fatalf("expected *rendertemplates.Error, got %T", err)
+		t.Fatalf("expected *Error, got %T", err)
 	}
 	if renderErr.Code != "platform.template_source_invalid" {
 		t.Fatalf("unexpected error code: got %q want %q", renderErr.Code, "platform.template_source_invalid")

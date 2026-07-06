@@ -14,8 +14,6 @@ import (
 	"time"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/deps"
-	renderbrowser "github.com/RayleaBot/RayleaBot/server/internal/render/browser"
-	rendertemplates "github.com/RayleaBot/RayleaBot/server/internal/render/templates"
 )
 
 func TestServiceRenderRequestsAdaptiveDocumentHeight(t *testing.T) {
@@ -278,9 +276,9 @@ func TestServiceRenderRejectsInputTooLarge(t *testing.T) {
 		t.Fatal("expected oversized render data error")
 	}
 
-	var renderErr *rendertemplates.Error
+	var renderErr *Error
 	if !errors.As(err, &renderErr) {
-		t.Fatalf("expected *rendertemplates.Error, got %T", err)
+		t.Fatalf("expected *Error, got %T", err)
 	}
 	if renderErr.Code != "platform.render_input_too_large" {
 		t.Fatalf("unexpected error code: got %q want %q", renderErr.Code, "platform.render_input_too_large")
@@ -311,8 +309,8 @@ func TestChromiumRunnerLoadsRelativeTemplateAssets(t *testing.T) {
 		t.Fatalf("close asset: %v", err)
 	}
 
-	runner := renderbrowser.NewChromiumRunner(renderbrowser.ChromiumOptions{BrowserPath: browserPath})
-	content, err := runner.Render(context.Background(), renderbrowser.Document{
+	runner := NewChromiumRunner(ChromiumOptions{BrowserPath: browserPath})
+	content, err := runner.Render(context.Background(), Document{
 		Template:   "relative.asset",
 		Output:     "png",
 		BaseURL:    BaseURL(filepath.Join(templatesRoot, "asset.check")),
@@ -418,9 +416,9 @@ func TestServiceRenderRejectsQueueFull(t *testing.T) {
 		t.Fatal("expected queue full error")
 	}
 
-	var renderErr *rendertemplates.Error
+	var renderErr *Error
 	if !errors.As(err, &renderErr) {
-		t.Fatalf("expected *rendertemplates.Error, got %T", err)
+		t.Fatalf("expected *Error, got %T", err)
 	}
 	if renderErr.Code != "platform.render_queue_full" {
 		t.Fatalf("unexpected error code: got %q want %q", renderErr.Code, "platform.render_queue_full")
