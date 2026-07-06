@@ -48,7 +48,7 @@ func (m *Manager) awaitInitAck(ctx context.Context, handle *Handle, requestID st
 				"runtime_state", string(StateStarting),
 				"summary", summary,
 			)
-			ResetTimer(silenceTimer, handle.Spec.InitTimeout)
+			resetTimer(silenceTimer, handle.Spec.InitTimeout)
 		case readErr := <-readErrCh:
 			return nil, classifyProtocolReadError(handle, readErr, "plugin exited before init_ack", "read plugin init response")
 		case <-handle.Done():
@@ -65,6 +65,16 @@ func (m *Manager) awaitInitAck(ctx context.Context, handle *Handle, requestID st
 			return nil, errorf(codePluginInitTimeout, "plugin init_ack timed out", ctx.Err())
 		}
 	}
+}
+
+func resetTimer(timer *time.Timer, duration time.Duration) {
+	if !timer.Stop() {
+		select {
+		case <-timer.C:
+		default:
+		}
+	}
+	timer.Reset(duration)
 }
 
 func (m *Manager) parseInitResponse(line []byte, pluginID string, requestID string) (InitResponseStatus, []string, *Error) {

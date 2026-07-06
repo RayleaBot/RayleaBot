@@ -2,12 +2,45 @@ package runtime
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
+	"time"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
+	"github.com/RayleaBot/RayleaBot/server/internal/deps"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 )
+
+type BotInfo struct {
+	ID       string
+	Nickname string
+}
+
+type InitPayload struct {
+	Bot             BotInfo
+	Capabilities    []string
+	SuperAdmins     []string
+	CommandPrefixes []string
+}
+
+type Spec struct {
+	PluginID             string
+	PluginName           string
+	RepoRoot             string
+	Runtime              string
+	Command              string
+	Args                 []string
+	Env                  []string
+	WorkDir              string
+	EntryPath            string
+	InitTimeout          time.Duration
+	InitMaxTotal         time.Duration
+	EventTimeout         time.Duration
+	ShutdownGrace        time.Duration
+	EffectiveConcurrency int
+}
 
 func BuildSpec(snapshot plugins.Snapshot, repoRoot string, runtimeConfig config.RuntimeConfig) (Spec, error) {
 	return BuildSpecWithContext(context.Background(), snapshot, repoRoot, runtimeConfig)
@@ -125,4 +158,90 @@ func effectivePluginConcurrency(manifestConcurrency int, maxPerPlugin int) int {
 		return maxPerPlugin
 	}
 	return manifestConcurrency
+}
+
+func resolveManifestPath(repoRoot, manifestPath string) string {
+	if filepath.IsAbs(manifestPath) {
+		return manifestPath
+	}
+	if repoRoot == "" {
+		return filepath.Clean(filepath.FromSlash(manifestPath))
+	}
+	return filepath.Join(repoRoot, filepath.FromSlash(manifestPath))
+}
+
+func escapesDir(root, path string) bool {
+	relativePath, err := filepath.Rel(root, path)
+	if err != nil {
+		return true
+	}
+	return relativePath == ".." || strings.HasPrefix(relativePath, ".."+string(filepath.Separator))
+}
+
+func resolveSymlinkTarget(entryPath, linkTarget string) string {
+	if filepath.IsAbs(linkTarget) {
+		return filepath.Clean(linkTarget)
+	}
+	return filepath.Clean(filepath.Join(filepath.Dir(entryPath), linkTarget))
+}
+
+func runtimeCommand(ctx context.Context, runtimeName string, repoRoot string, manifestDir string, runtimeConfig config.RuntimeConfig) (string, []string, error) {
+	runtime := deps.NewRuntime(repoRoot)
+	switch runtimeName {
+	case "python":
+		if venvPython, ok := pythonVirtualenvExecutable(manifestDir); ok {
+			return venvPython, pythonRuntimeEnvironment(), nil
+		}
+		command, err := runtime.ResolveEntrypoint(ctx, "python-runtime", "python")
+		if err != nil {
+			return "", nil, errorf(codePlatformResourceMissing, "managed Python runtime is not available", err)
+		}
+		return command, pythonRuntimeEnvironment(), nil
+	case "nodejs":
+		command, err := runtime.ResolveEntrypoint(ctx, "nodejs-runtime", "node")
+		if err != nil {
+			return "", nil, errorf(codePlatformResourceMissing, "managed Node.js runtime is not available", err)
+		}
+		env := nodeRuntimeEnvironment(runtimeConfig)
+		return command, env, nil
+	default:
+		return "", nil, errorf(codePlatformInvalidRequest, "plugin runtime is not supported by the minimal runtime manager", nil)
+	}
+}
+
+func pythonRuntimeEnvironment() []string {
+	return []string{
+		"PYTHONIOENCODING=UTF-8",
+		"PYTHONUTF8=1",
+		"PYTHONUNBUFFERED=1",
+	}
+}
+
+func pythonVirtualenvExecutable(manifestDir string) (string, bool) {
+	candidates := []string{
+		filepath.Join(manifestDir, ".venv", "bin", "python"),
+		filepath.Join(manifestDir, ".venv", "bin", "python3"),
+		filepath.Join(manifestDir, ".venv", "Scripts", "python.exe"),
+	}
+	for _, candidate := range candidates {
+		info, err := os.Stat(candidate)
+		if err == nil && !info.IsDir() {
+			return candidate, true
+		}
+	}
+	return "", false
+}
+
+func nodeRuntimeEnvironment(runtimeConfig config.RuntimeConfig) []string {
+	if runtimeConfig.NodeMaxOldSpaceSizeMB <= 0 {
+		return nil
+	}
+	return []string{fmt.Sprintf("NODE_OPTIONS=--max-old-space-size=%d", runtimeConfig.NodeMaxOldSpaceSizeMB)}
+}
+
+func durationFromSeconds(seconds int, fallback int) time.Duration {
+	if seconds <= 0 {
+		seconds = fallback
+	}
+	return time.Duration(seconds) * time.Second
 }

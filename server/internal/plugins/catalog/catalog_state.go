@@ -66,3 +66,50 @@ func (c *Catalog) ApplyDesiredStates(states map[string]string) {
 
 	c.publishMany(updated)
 }
+
+func (c *Catalog) SetRuntimeState(pluginID string, runtimeState string) (plugins.Snapshot, error) {
+	c.mu.Lock()
+
+	entry, ok := c.items[pluginID]
+	if !ok {
+		c.mu.Unlock()
+		return plugins.Snapshot{}, plugins.ErrPluginNotFound
+	}
+
+	current := entry
+	entry.RuntimeState = runtimeState
+	if runtimeState != "dead_letter" {
+		entry.DeadLetter = nil
+	}
+	entry.DisplayState = plugins.DefaultDisplayState(entry)
+	c.items[pluginID] = entry
+	updated := plugins.CloneSnapshot(entry)
+	c.mu.Unlock()
+
+	if pluginStateChanged(current, entry) {
+		c.publish(updated)
+	}
+	return updated, nil
+}
+
+func (c *Catalog) SetDeadLetterSnapshot(pluginID string, info plugins.DeadLetterSnapshot) (plugins.Snapshot, error) {
+	c.mu.Lock()
+
+	entry, ok := c.items[pluginID]
+	if !ok {
+		c.mu.Unlock()
+		return plugins.Snapshot{}, plugins.ErrPluginNotFound
+	}
+
+	current := entry
+	copied := info
+	entry.DeadLetter = &copied
+	c.items[pluginID] = entry
+	updated := plugins.CloneSnapshot(entry)
+	c.mu.Unlock()
+
+	if pluginStateChanged(current, entry) {
+		c.publish(updated)
+	}
+	return updated, nil
+}

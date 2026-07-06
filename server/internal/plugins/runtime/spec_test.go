@@ -8,7 +8,6 @@ import (
 	"testing"
 
 	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
-	plugindiscovery "github.com/RayleaBot/RayleaBot/server/internal/plugins/discovery"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
@@ -231,9 +230,9 @@ func discoverRuntimeTestCatalog(t *testing.T, root string) *plugincatalog.Catalo
 		t.Fatalf("compile plugin-info schema: %v", err)
 	}
 
-	snapshots, _, err := plugindiscovery.Discover(plugindiscovery.DiscoverOptions{
+	snapshots, _, err := plugincatalog.Discover(plugincatalog.DiscoverOptions{
 		Validator: validator,
-		Roots: []plugindiscovery.ScanRoot{
+		Roots: []plugincatalog.ScanRoot{
 			{
 				Label: filepath.Base(root),
 				Path:  root,

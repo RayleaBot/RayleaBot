@@ -6,8 +6,7 @@ import (
 	"testing"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins/actions"
-	defaultactionmodules "github.com/RayleaBot/RayleaBot/server/internal/plugins/actions/defaultmodules"
-	pluginconfig "github.com/RayleaBot/RayleaBot/server/internal/plugins/configstore"
+	"github.com/RayleaBot/RayleaBot/server/internal/plugins/pluginstore"
 	pluginruntime "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime"
 	"github.com/RayleaBot/RayleaBot/server/internal/storage"
 )
@@ -21,7 +20,7 @@ func TestExecuteConfigReadWriteRoundTrip(t *testing.T) {
 	}
 	defer store.Close()
 
-	repo, err := pluginconfig.NewSQLiteRepository(store)
+	repo, err := pluginstore.NewConfigSQLiteRepository(store)
 	if err != nil {
 		t.Fatalf("NewSQLiteRepository: %v", err)
 	}
@@ -32,7 +31,6 @@ func TestExecuteConfigReadWriteRoundTrip(t *testing.T) {
 			"config.write": true,
 		}},
 		PluginConfig: repo,
-		Registrars:   defaultactionmodules.Registrars(),
 	})
 
 	if _, err := repo.SeedDefaults(context.Background(), "weather", map[string]any{

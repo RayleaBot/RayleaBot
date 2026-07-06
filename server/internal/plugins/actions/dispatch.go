@@ -36,7 +36,7 @@ func NewRegistry() *Registry {
 }
 
 func DefaultRegistry() *Registry {
-	return NewRegistry()
+	return NewDefaultRegistry(Deps{})
 }
 
 func NewRegistryWithRegistrars(deps Deps, registrars ...Registrar) *Registry {

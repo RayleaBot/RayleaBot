@@ -22,7 +22,7 @@ type Deps struct {
 	Renderer         Renderer
 	Adapter          OneBotAdapter
 	PluginLogLimiter *PluginLogLimiter
-	Governance       GovernanceService
+	Governance       any
 	RefreshCommands  func(context.Context, string, map[string]any)
 	WebhookGateway   func() WebhookGateway
 	Registrars       []Registrar
@@ -49,6 +49,9 @@ func New(deps Deps) *Service {
 	if deps.ActionRegistry != nil {
 		service.actionRegistry = deps.ActionRegistry
 	} else {
+		if len(deps.Registrars) == 0 {
+			deps.Registrars = DefaultRegistrars()
+		}
 		deps.RefreshCommands = func(ctx context.Context, pluginID string, settings map[string]any) {
 			if hooks.refreshCommands != nil {
 				hooks.refreshCommands(ctx, pluginID, settings)

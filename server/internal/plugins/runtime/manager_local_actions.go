@@ -2,8 +2,69 @@ package runtime
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"strings"
 )
+
+func (m *Manager) routeLocalActionFrameLocked(handle *Handle, line []byte) *Error {
+	frame, action, parentRequestID, err := m.parseLocalActionFrameLocked(handle, line)
+	if err != nil {
+		return err
+	}
+	if action == nil && m.eventExpiredLocked(parentRequestID) {
+		return nil
+	}
+
+	session := m.pendingEvents[parentRequestID]
+	if session == nil {
+		if m.eventExpiredLocked(parentRequestID) {
+			return nil
+		}
+		return errorf(codePluginProtocolViolation, "plugin local action parent_request_id does not match an active event", nil)
+	}
+	if frame.RequestID == session.requestID {
+		return errorf(codePluginProtocolViolation, "plugin local action request_id must differ from the current event request_id", nil)
+	}
+	if _, exists := session.localActionIDs[frame.RequestID]; exists {
+		return errorf(codePluginProtocolViolation, "plugin reused a local action request_id within one event delivery", nil)
+	}
+
+	session.localActionIDs[frame.RequestID] = struct{}{}
+	session.pendingLocalAction++
+
+	go m.executeLocalAction(session.ctx, handle, parentRequestID, frame.RequestID, *action, session.event)
+	return nil
+}
+
+func (m *Manager) parseLocalActionFrameLocked(handle *Handle, line []byte) (ActionFrame, *Action, string, *Error) {
+	var frame ActionFrame
+	if err := json.Unmarshal(line, &frame); err != nil {
+		return ActionFrame{}, nil, "", errorf(codePluginProtocolViolation, "plugin returned malformed action frame", err)
+	}
+
+	parentRequestID := strings.TrimSpace(frame.ParentRequestID)
+	if parentRequestID == "" {
+		if handle.Spec.EffectiveConcurrency > 1 {
+			return ActionFrame{}, nil, "", errorf(codePluginProtocolViolation, "concurrent plugin local actions must include parent_request_id", nil)
+		}
+		if len(m.pendingEvents) != 1 {
+			return ActionFrame{}, nil, "", errorf(codePluginProtocolViolation, "plugin local action parent_request_id is missing", nil)
+		}
+		for requestID := range m.pendingEvents {
+			parentRequestID = requestID
+		}
+	}
+
+	if m.eventExpiredLocked(parentRequestID) {
+		return frame, nil, parentRequestID, nil
+	}
+	action, parseErr := ParseLocalAction(frame.Action, frame.Data)
+	if parseErr != nil {
+		return ActionFrame{}, nil, "", normalizeRuntimeError(parseErr, "parse local action frame")
+	}
+	return frame, action, parentRequestID, nil
+}
 
 func (m *Manager) executeLocalAction(ctx context.Context, handle *Handle, parentRequestID string, requestID string, action Action, parentEvent Event) {
 	if m.opts.ExecuteLocalAction == nil {

@@ -6,8 +6,7 @@ import (
 
 	"github.com/RayleaBot/RayleaBot/server/internal/integrations/thirdparty"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
-	pluginfile "github.com/RayleaBot/RayleaBot/server/internal/plugins/filestore"
-	pluginkv "github.com/RayleaBot/RayleaBot/server/internal/plugins/kvstore"
+	"github.com/RayleaBot/RayleaBot/server/internal/plugins/pluginstore"
 	pluginruntime "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime"
 )
 
@@ -111,18 +110,16 @@ func (e *RenderTemplateError) Unwrap() error {
 	return e.Err
 }
 
-type GovernanceService = any
-
 type KVRepository interface {
 	Get(context.Context, string, string) (any, bool, error)
-	Set(context.Context, string, string, any, pluginkv.Limits) error
+	Set(context.Context, string, string, any, pluginstore.KVLimits) error
 	Delete(context.Context, string, string) (bool, error)
 	List(context.Context, string, string) ([]string, error)
 }
 
 type FileStore interface {
-	Read(string, string) (pluginfile.ReadResult, error)
-	Write(string, string, []byte, pluginfile.Limits) error
+	Read(string, string) (pluginstore.FileReadResult, error)
+	Write(string, string, []byte, pluginstore.FileLimits) error
 	Delete(string, string) (bool, error)
 	List(string, string) ([]string, error)
 }

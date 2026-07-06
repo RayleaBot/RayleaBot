@@ -11,8 +11,6 @@ import (
 	"testing"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins/actions"
-	defaultactionmodules "github.com/RayleaBot/RayleaBot/server/internal/plugins/actions/defaultmodules"
-	localonebot "github.com/RayleaBot/RayleaBot/server/internal/plugins/actions/onebot"
 	pluginruntime "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime"
 )
 
@@ -61,7 +59,7 @@ func pythonSDKExposesOneBotAction(content string, kind string) bool {
 func TestOneBotActionRegistrySpecsAreComplete(t *testing.T) {
 	t.Parallel()
 
-	for kind, spec := range localonebot.Registry() {
+	for kind, spec := range actions.OneBotActionRegistry() {
 		if strings.TrimSpace(spec.Kind) == "" || spec.Kind != kind {
 			t.Fatalf("registry key %q has mismatched spec kind %q", kind, spec.Kind)
 		}
@@ -92,13 +90,13 @@ func TestBaseActionHandlersMatchLocalActionCapabilities(t *testing.T) {
 	assertStringSetEqual(t, "base capabilities", protocolBase, infoBase)
 
 	baseCapabilitySet := stringSet(protocolBase)
-	metadata := defaultactionmodules.MetadataList()
+	metadata := actions.DefaultMetadataList()
 	handlerKinds := map[string]bool{}
 	for _, item := range metadata {
 		handlerKinds[item.Action] = true
 	}
 	for kind := range handlerKinds {
-		if _, ok := localonebot.Lookup(kind); ok {
+		if _, ok := actions.LookupOneBotAction(kind); ok {
 			continue
 		}
 		if !baseCapabilitySet[kind] {
@@ -125,8 +123,8 @@ func TestBaseActionHandlersMatchLocalActionCapabilities(t *testing.T) {
 func TestDefaultRegistryRegistersOneBotHandlers(t *testing.T) {
 	t.Parallel()
 
-	registry := defaultactionmodules.NewRegistry(actions.Deps{})
-	for kind := range localonebot.Registry() {
+	registry := actions.NewDefaultRegistry(actions.Deps{})
+	for kind := range actions.OneBotActionRegistry() {
 		_, handled, _ := registry.Dispatch(context.Background(), actions.ActionRequest{Action: pluginruntime.Action{Kind: kind}})
 		if !handled {
 			t.Fatalf("default registry is missing OneBot handler %q", kind)
@@ -137,7 +135,7 @@ func TestDefaultRegistryRegistersOneBotHandlers(t *testing.T) {
 func TestDefaultActionMetadataIsComplete(t *testing.T) {
 	t.Parallel()
 
-	for _, item := range defaultactionmodules.MetadataList() {
+	for _, item := range actions.DefaultMetadataList() {
 		if strings.TrimSpace(item.Action) == "" {
 			t.Fatal("default action metadata is missing action name")
 		}
@@ -184,7 +182,7 @@ func stringSet(items []string) map[string]bool {
 func oneBotRegistryKinds() ([]string, []string) {
 	var generic []string
 	var provider []string
-	for kind, spec := range localonebot.Registry() {
+	for kind, spec := range actions.OneBotActionRegistry() {
 		if spec.Provider == "" {
 			generic = append(generic, kind)
 		} else {

@@ -2,9 +2,18 @@ package catalog
 
 import (
 	"sort"
+	"sync"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 )
+
+type Catalog struct {
+	mu          sync.RWMutex
+	order       []string
+	items       map[string]plugins.Snapshot
+	nextSubID   uint64
+	subscribers map[uint64]chan plugins.Snapshot
+}
 
 func New(entries []plugins.Snapshot) *Catalog {
 	items := make(map[string]plugins.Snapshot, len(entries))
@@ -51,6 +60,35 @@ func (c *Catalog) Get(pluginID string) (plugins.Snapshot, bool) {
 	}
 
 	return plugins.CloneSnapshot(entry), true
+}
+
+func (c *Catalog) RefreshCommands(pluginID string, settings map[string]any) (plugins.Snapshot, bool) {
+	c.mu.Lock()
+
+	entry, ok := c.items[pluginID]
+	if !ok {
+		c.mu.Unlock()
+		return plugins.Snapshot{}, false
+	}
+
+	current := entry
+	entry.Commands = ProjectCommands(entry, settings)
+	changed := pluginStateChanged(current, entry)
+	c.items[pluginID] = entry
+	updated := plugins.CloneSnapshot(entry)
+	published := []plugins.Snapshot{updated}
+	if changed {
+		published = make([]plugins.Snapshot, 0, len(c.order))
+		for _, id := range c.order {
+			published = append(published, plugins.CloneSnapshot(c.items[id]))
+		}
+	}
+	c.mu.Unlock()
+
+	if changed {
+		c.publishMany(published)
+	}
+	return updated, true
 }
 
 func (c *Catalog) Replace(entries []plugins.Snapshot) {

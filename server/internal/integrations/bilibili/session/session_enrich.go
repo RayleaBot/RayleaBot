@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/RayleaBot/RayleaBot/server/internal/integrations/bilibili/fingerprint"
+	"github.com/RayleaBot/RayleaBot/server/internal/integrations/fingerprint"
 )
 
 func (c *SessionClient) enrichCookie(ctx context.Context, cookie string) (string, bool, error) {
@@ -45,7 +45,7 @@ func (c *SessionClient) enrichCookie(ctx context.Context, cookie string) (string
 		}
 	}
 	if strings.TrimSpace(values["buvid_fp"]) == "" {
-		updates["buvid_fp"] = fingerprint.GenBuvidFP(c.identity.UserAgent())
+		updates["buvid_fp"] = fingerprint.GenBuvidFP(fingerprint.DefaultFingerprint(c.identity.UserAgent()))
 	}
 	if strings.TrimSpace(values["_uuid"]) == "" {
 		updates["_uuid"] = fingerprint.GenUUID()
