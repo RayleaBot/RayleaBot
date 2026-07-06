@@ -1,11 +1,196 @@
 package configruntime
 
 import (
+	"context"
+	"errors"
+	"maps"
+	"reflect"
+	"slices"
 	"time"
 
 	internalconfig "github.com/RayleaBot/RayleaBot/server/internal/config"
 	renderservice "github.com/RayleaBot/RayleaBot/server/internal/render/service"
 )
+
+var ErrProtocolStopped = errors.New("protocol adapter stopped")
+
+type ApplyEffects struct {
+	AppliedNow            []string `json:"applied_now"`
+	ReloadedNow           []string `json:"reloaded_now"`
+	RestartRequiredFields []string `json:"restart_required_fields"`
+}
+
+func NewApplyEffects() ApplyEffects {
+	return ApplyEffects{
+		AppliedNow:            []string{},
+		ReloadedNow:           []string{},
+		RestartRequiredFields: []string{},
+	}
+}
+
+func (e ApplyEffects) RestartRequired() bool {
+	return len(e.RestartRequiredFields) > 0
+}
+
+type Document struct {
+	Config         map[string]any
+	RedactedFields []string
+}
+
+type UpdateResult struct {
+	Document        Document
+	RestartRequired bool
+	ApplyEffects    ApplyEffects
+}
+
+func (s *Service) CurrentConfigDocument() Document {
+	document, redactedFields := sanitizeConfigDocument(ConfigDocumentFromTyped(s.config()))
+	return Document{
+		Config:         document,
+		RedactedFields: redactedFields,
+	}
+}
+
+func (s *Service) UpdateConfigDocument(ctx context.Context, request map[string]any) (UpdateResult, error) {
+	summary := s.summary()
+	request = restoreRedactedConfigSecrets(request, ConfigDocumentFromTyped(s.config()))
+	if _, _, _, err := internalconfig.NormalizeDocument(summary.ConfigPath, summary.SchemaPath, request); err != nil {
+		return UpdateResult{}, err
+	}
+	storedRequest, err := StoreConfigSecrets(ctx, s.secrets, request)
+	if err != nil {
+		return UpdateResult{}, err
+	}
+	newCfg, newSummary, err := internalconfig.SaveDocument(summary.ConfigPath, summary.SchemaPath, storedRequest)
+	if err != nil {
+		return UpdateResult{}, err
+	}
+	newCfg, err = ResolveConfigSecretRefs(ctx, s.secrets, newCfg)
+	if err != nil {
+		return UpdateResult{}, err
+	}
+
+	applyEffects := s.ApplyHotReloadableFields(newCfg)
+	if s.setSummary != nil {
+		s.setSummary(newSummary)
+	}
+
+	document, redactedFields := sanitizeConfigDocument(ConfigDocumentFromTyped(newCfg))
+	return UpdateResult{
+		Document: Document{
+			Config:         document,
+			RedactedFields: redactedFields,
+		},
+		RestartRequired: applyEffects.RestartRequired(),
+		ApplyEffects:    applyEffects,
+	}, nil
+}
+
+func ConfigDocumentFromTyped(cfg internalconfig.Config) map[string]any {
+	return internalconfig.CanonicalDocumentFromTyped(cfg)
+}
+
+func (s *Service) config() internalconfig.Config {
+	if s == nil || s.currentConfig == nil {
+		return internalconfig.Config{}
+	}
+	return s.currentConfig()
+}
+
+func (s *Service) summary() internalconfig.Summary {
+	if s == nil || s.currentSummary == nil {
+		return internalconfig.Summary{}
+	}
+	return s.currentSummary()
+}
+
+type ConfigApplyPolicy string
+
+const (
+	ConfigApplyPolicyHotReload       ConfigApplyPolicy = "hot_reload"
+	ConfigApplyPolicyAdapterReload   ConfigApplyPolicy = "adapter_reload"
+	ConfigApplyPolicyRestartRequired ConfigApplyPolicy = "restart_required"
+	ConfigApplyPolicySecretOnly      ConfigApplyPolicy = "secret_only"
+	ConfigApplyPolicyReadOnly        ConfigApplyPolicy = "read_only"
+)
+
+func ClassifyApplyEffects(oldCfg internalconfig.Config, newCfg internalconfig.Config) ApplyEffects {
+	effects := NewApplyEffects()
+
+	for _, path := range diffConfigDocumentPaths(ConfigDocumentFromTyped(oldCfg), ConfigDocumentFromTyped(newCfg)) {
+		policy, ok := ConfigApplyPolicyForPath(path)
+		switch {
+		case !ok:
+			effects.RestartRequiredFields = append(effects.RestartRequiredFields, path)
+		case policy == ConfigApplyPolicyAdapterReload || policy == ConfigApplyPolicySecretOnly:
+			effects.ReloadedNow = append(effects.ReloadedNow, path)
+		case policy == ConfigApplyPolicyRestartRequired || policy == ConfigApplyPolicyReadOnly:
+			effects.RestartRequiredFields = append(effects.RestartRequiredFields, path)
+		default:
+			effects.AppliedNow = append(effects.AppliedNow, path)
+		}
+	}
+
+	normalizeConfigApplyEffects(&effects)
+	return effects
+}
+
+func diffConfigDocumentPaths(current, next map[string]any) []string {
+	paths := make([]string, 0)
+	collectConfigPathChanges("", current, next, &paths)
+	return normalizeConfigEffectPaths(paths)
+}
+
+func collectConfigPathChanges(prefix string, current, next any, paths *[]string) {
+	currentMap, currentIsMap := current.(map[string]any)
+	nextMap, nextIsMap := next.(map[string]any)
+	if currentIsMap && nextIsMap {
+		keys := make(map[string]struct{}, configDiffKeyCapacity(len(currentMap), len(nextMap)))
+		for key := range currentMap {
+			keys[key] = struct{}{}
+		}
+		for key := range nextMap {
+			keys[key] = struct{}{}
+		}
+		sortedKeys := slices.Collect(maps.Keys(keys))
+		slices.Sort(sortedKeys)
+		for _, key := range sortedKeys {
+			collectConfigPathChanges(joinConfigPath(prefix, key), currentMap[key], nextMap[key], paths)
+		}
+		return
+	}
+
+	if reflect.DeepEqual(current, next) || prefix == "" {
+		return
+	}
+
+	*paths = append(*paths, prefix)
+}
+
+func configDiffKeyCapacity(currentCount int, nextCount int) int {
+	maxInt := int(^uint(0) >> 1)
+	if currentCount < 0 || nextCount < 0 || currentCount > maxInt-nextCount {
+		return currentCount
+	}
+	return currentCount + nextCount
+}
+
+func joinConfigPath(prefix string, key string) string {
+	if prefix == "" {
+		return key
+	}
+	return prefix + "." + key
+}
+
+func normalizeConfigEffectPaths(paths []string) []string {
+	if len(paths) == 0 {
+		return []string{}
+	}
+
+	normalized := append([]string(nil), paths...)
+	slices.Sort(normalized)
+	return slices.Compact(normalized)
+}
 
 func normalizeConfigApplyEffects(e *ApplyEffects) {
 	e.AppliedNow = normalizeConfigEffectPaths(e.AppliedNow)

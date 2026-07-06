@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
-	"github.com/RayleaBot/RayleaBot/server/internal/testutil"
+	"github.com/RayleaBot/RayleaBot/server/tests/testutil"
 )
 
 func TestConfigFixtures(t *testing.T) {

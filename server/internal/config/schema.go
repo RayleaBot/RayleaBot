@@ -7,8 +7,35 @@ import (
 	"path/filepath"
 	"strings"
 
+	_ "embed"
+
 	jsonschema "github.com/santhosh-tekuri/jsonschema/v6"
 )
+
+const (
+	ConfigUserSchemaID = "builtin://contracts/config.user.schema.json"
+	PluginInfoSchemaID = "builtin://contracts/plugin-info.schema.json"
+)
+
+// ConfigUserSchemaJSON mirrors contracts/config.user.schema.json; keep the
+// copy in sync via scripts/generate-runtime-schemas.mjs.
+//
+//go:embed contracts/config.user.schema.json
+var ConfigUserSchemaJSON []byte
+
+// PluginInfoSchemaJSON mirrors contracts/plugin-info.schema.json; keep the
+// copy in sync via scripts/generate-runtime-schemas.mjs.
+//
+//go:embed contracts/plugin-info.schema.json
+var PluginInfoSchemaJSON []byte
+
+func IsConfigUserSchemaID(name string) bool {
+	return name == "" || name == ConfigUserSchemaID
+}
+
+func IsPluginInfoSchemaID(name string) bool {
+	return name == "" || name == PluginInfoSchemaID
+}
 
 type Validator struct {
 	path   string
@@ -93,4 +120,39 @@ func compileDocument(name string, document any) (*Validator, error) {
 		path:   name,
 		schema: compiledSchema,
 	}, nil
+}
+
+func normalizeDocument(raw map[string]any) (any, error) {
+	jsonBytes, err := json.Marshal(raw)
+	if err != nil {
+		return nil, err
+	}
+
+	var document any
+	if err := json.Unmarshal(jsonBytes, &document); err != nil {
+		return nil, err
+	}
+
+	return document, nil
+}
+
+func validateDocument(schemaPath string, document any) error {
+	if IsConfigUserSchemaID(schemaPath) {
+		validator, err := CompileJSON(ConfigUserSchemaID, ConfigUserSchemaJSON)
+		if err != nil {
+			return err
+		}
+		return validator.Validate(document)
+	}
+
+	validator, err := Compile(schemaPath)
+	if err != nil {
+		return err
+	}
+
+	if err := validator.Validate(document); err != nil {
+		return err
+	}
+
+	return nil
 }
