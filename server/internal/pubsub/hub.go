@@ -62,7 +62,10 @@ func (h *Hub[T]) Publish(value T) {
 // PublishEach behaves like Publish but computes a fresh value per
 // subscriber, for payloads that must not be shared across receivers.
 func (h *Hub[T]) PublishEach(next func() T) {
-	for _, subscriber := range h.snapshotSubscribers() {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+
+	for _, subscriber := range h.subscribers {
 		select {
 		case subscriber <- next():
 		default:
@@ -74,7 +77,10 @@ func (h *Hub[T]) PublishEach(next func() T) {
 // buffer is full the oldest buffered value is evicted and the send is
 // retried once, so laggards keep the newest data.
 func (h *Hub[T]) PublishReplace(value T) {
-	for _, subscriber := range h.snapshotSubscribers() {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+
+	for _, subscriber := range h.subscribers {
 		select {
 		case subscriber <- value:
 		default:
@@ -88,14 +94,4 @@ func (h *Hub[T]) PublishReplace(value T) {
 			}
 		}
 	}
-}
-
-func (h *Hub[T]) snapshotSubscribers() []chan T {
-	h.mu.RLock()
-	defer h.mu.RUnlock()
-	subscribers := make([]chan T, 0, len(h.subscribers))
-	for _, subscriber := range h.subscribers {
-		subscribers = append(subscribers, subscriber)
-	}
-	return subscribers
 }
