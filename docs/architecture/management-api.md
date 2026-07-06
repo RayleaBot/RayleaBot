@@ -6,15 +6,14 @@
 
 ```mermaid
 flowchart TD
-  web["web / launcher / local client"] --> http["internal/app/httpwire"]
-  http --> auth["internal/management/authhttp"]
-  auth --> router["internal/management/router"]
-  router --> handlers["domain handlers"]
+  web["web / launcher / local client"] --> http["internal/app HTTP wiring"]
+  http --> management["internal/management"]
+  management --> handlers["domain handlers"]
   handlers --> services["domain services"]
   services --> contracts["contracts + fixtures + generated types"]
 ```
 
-`internal/app/httpwire` 只负责统一中间件、鉴权接入和 handler 注册。各领域 handler 只返回管理 API 视图，不直接暴露 runtime、storage 或 provider 的内部模型。
+`internal/app` 的 HTTP wiring 只负责统一中间件、鉴权接入和 handler 注册。各领域 handler 只返回管理 API 视图，不直接暴露 runtime、storage 或 provider 的内部模型。
 
 ## 错误响应
 

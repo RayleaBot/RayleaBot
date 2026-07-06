@@ -7,12 +7,11 @@
 ```mermaid
 flowchart TD
   cmd["cmd/raylea-server"] --> run["internal/app.Run"]
-  run --> platform["internal/app/platform"]
-  platform --> pluginstack["internal/app/pluginstack"]
-  pluginstack --> renderstack["internal/app/renderstack"]
-  renderstack --> eventstack["internal/app/eventstack"]
-  eventstack --> servicegraph["internal/app/servicegraph"]
-  servicegraph --> httpwire["internal/app/httpwire"]
+  run --> platform["internal/app platform wiring"]
+  platform --> pluginstate["internal/app plugin stack"]
+  pluginstate --> render["internal/app render wiring"]
+  render --> services["internal/app service wiring"]
+  services --> httpwire["internal/app HTTP wiring"]
   httpwire --> server["net/http.Server"]
 ```
 
