@@ -6,9 +6,54 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/coder/websocket"
 )
+
+func classifyFrame(messageType websocket.MessageType, payload []byte, observedAt time.Time) ClassifiedFrame {
+	return ClassifyFrame(messageType, payload, observedAt)
+}
+
+func normalizeSupportedEvent(frame OneBotFrame, observedAt time.Time) (NormalizedEvent, bool) {
+	return NormalizeSupportedEvent(frame, observedAt)
+}
+
+func applyFrameSummary(snapshot *Snapshot, frame ClassifiedFrame) {
+	if snapshot == nil {
+		return
+	}
+	summary := frame.Summary
+
+	snapshot.TotalReceivedFrames++
+	snapshot.LastFrameCategory = summary.Category
+	snapshot.LastFrameType = summary.Type
+	if frame.Frame.SelfID > 0 {
+		snapshot.BotID = fmt.Sprintf("%d", frame.Frame.SelfID)
+	}
+
+	if summary.Category == FrameCategoryInvalid {
+		snapshot.InvalidReceivedFrames++
+	} else {
+		snapshot.LastFrameAt = cloneTime(&summary.ObservedAt)
+	}
+
+	if summary.Category == FrameCategoryHeartbeat {
+		snapshot.HeartbeatSeen = true
+		snapshot.LastHeartbeatAt = cloneTime(&summary.ObservedAt)
+		if summary.HeartbeatInterval > 0 {
+			snapshot.HeartbeatInterval = summary.HeartbeatInterval
+		}
+	}
+}
+
+func isReadySummary(summary FrameSummary) bool {
+	return summary.Category == FrameCategoryLifecycleReady || summary.Category == FrameCategoryHeartbeat
+}
+
+func isLifecycleDisable(frame OneBotFrame) bool {
+	return frame.PostType == "meta_event" && frame.MetaEventType == "lifecycle" && frame.SubType == "disable"
+}
 
 func (s *Shell) waitForReadyFrame(ctx context.Context, transport TransportKey, conn *websocket.Conn) (FrameSummary, error) {
 	waitingForFirstFrame := true
@@ -54,6 +99,85 @@ func (s *Shell) readLoop(ctx context.Context, transport TransportKey, conn *webs
 		s.forwardSupportedEvent(ctx, transport, frame)
 	}
 }
+
+func (s *Shell) forwardSupportedEvent(ctx context.Context, transport TransportKey, frame ClassifiedFrame) {
+	if frame.Summary.Category != FrameCategoryEvent {
+		return
+	}
+
+	s.invalidateIdentityCacheForFrame(frame.Frame)
+
+	normalizedEvent, ok := normalizeSupportedEvent(frame.Frame, frame.Summary.ObservedAt)
+	if !ok {
+		s.logger.Debug(
+			"OneBot 事件未进入插件桥接：事件类型 "+frame.Summary.Type,
+			"component", "adapter",
+			"adapter_state", s.Snapshot().State,
+			"transport", string(transport),
+			"frame_type", frame.Summary.Type,
+		)
+		return
+	}
+	if s.isDuplicateEvent(normalizedEvent.EventID, frame.Summary.ObservedAt) {
+		s.logger.Info(
+			"OneBot 重复事件已丢弃：事件 ID "+normalizedEvent.EventID+"，类型 "+normalizedEvent.EventType,
+			"component", "adapter",
+			"adapter_state", s.Snapshot().State,
+			"transport", string(transport),
+			"error_code", errorCodeWebhookDuplicateEvent,
+			"event_id", normalizedEvent.EventID,
+			"event_type", normalizedEvent.EventType,
+		)
+		return
+	}
+
+	handler := s.currentEventHandler()
+	if handler == nil {
+		return
+	}
+
+	select {
+	case s.eventQueue <- normalizedEvent:
+	case <-ctx.Done():
+		return
+	default:
+		s.logger.Warn(
+			"OneBot 事件队列已满，已丢弃事件：类型 "+normalizedEvent.EventType,
+			"component", "adapter",
+			"adapter_state", s.Snapshot().State,
+			"event_kind", normalizedEvent.Kind,
+			"event_type", normalizedEvent.EventType,
+		)
+	}
+}
+
+func (s *Shell) currentEventHandler() func(context.Context, NormalizedEvent) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.eventHandler
+}
+
+func (s *Shell) currentReadyHandler() func(context.Context) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.readyHandler
+}
+
+func (s *Shell) dispatchEvents(ctx context.Context) {
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case event := <-s.eventQueue:
+			handler := s.currentEventHandler()
+			if handler == nil {
+				continue
+			}
+			handler(ctx, event)
+		}
+	}
+}
+
 func (s *Shell) readContext(ctx context.Context) (context.Context, context.CancelFunc) {
 	snapshot := s.Snapshot()
 	timeout := s.provisionalReadTimeout(snapshot)

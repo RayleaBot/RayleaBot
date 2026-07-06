@@ -2,9 +2,12 @@ package onebot11
 
 import (
 	"context"
+	"errors"
 	"io"
 	"log/slog"
 	"net/http"
+	"net/url"
+	"strings"
 	"sync"
 	"time"
 
@@ -155,4 +158,275 @@ func (s *Shell) SetMetricsObserver(observer MetricsObserver) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.metrics = observer
+}
+
+func (s *Shell) currentWSConn() (*websocket.Conn, TransportKey, Snapshot) {
+	return s.currentWSConnForTransport("")
+}
+
+func (s *Shell) currentWSConnForTransport(transport TransportKey) (*websocket.Conn, TransportKey, Snapshot) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	snapshot := cloneSnapshot(s.snapshot)
+	switch transport {
+	case TransportForwardWS:
+		if s.conn != nil && snapshot.ForwardWS.State == TransportStateConnected {
+			return s.conn, TransportForwardWS, snapshot
+		}
+		return nil, "", snapshot
+	case TransportReverseWS:
+		if s.reverseConn != nil && snapshot.ReverseWS.State == TransportStateConnected {
+			return s.reverseConn, TransportReverseWS, snapshot
+		}
+		return nil, "", snapshot
+	case TransportHTTPAPI:
+		return nil, "", snapshot
+	}
+
+	switch {
+	case s.conn != nil && snapshot.ForwardWS.State == TransportStateConnected:
+		return s.conn, TransportForwardWS, snapshot
+	case s.reverseConn != nil && snapshot.ReverseWS.State == TransportStateConnected:
+		return s.reverseConn, TransportReverseWS, snapshot
+	default:
+		return nil, "", snapshot
+	}
+}
+
+func (s *Shell) isDuplicateEvent(eventID string, observedAt time.Time) bool {
+	if strings.TrimSpace(eventID) == "" {
+		return false
+	}
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	cutoff := observedAt.Add(-recentEventDedupRetention)
+	for key, seenAt := range s.recentEventIDs {
+		if seenAt.Before(cutoff) {
+			delete(s.recentEventIDs, key)
+		}
+	}
+	if _, ok := s.recentEventIDs[eventID]; ok {
+		s.dedupDrops++
+		if s.metrics != nil {
+			s.metrics.IncAdapterDedupDrop()
+			s.metrics.IncEventPipelineStage("adapter", "dedup_drop")
+		}
+		return true
+	}
+	s.recentEventIDs[eventID] = observedAt
+	if s.metrics != nil {
+		s.metrics.IncEventPipelineStage("adapter", "accepted")
+	}
+	return false
+}
+
+// DedupDropsSnapshot returns the cumulative number of inbound events dropped
+// because their event id matched a recently observed event within the
+// dedup retention window. The counter is monotonically non-decreasing and
+// safe to read from the bridge observability path.
+func (s *Shell) DedupDropsSnapshot() uint64 {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.dedupDrops
+}
+
+func (s *Shell) refreshRuntimeInfo(ctx context.Context, transport TransportKey) {
+	if transport == TransportWebhook || s.deps.skipRuntimeInfo {
+		return
+	}
+
+	lookupCtx, cancel := context.WithTimeout(ctx, defaultIdentityLookupTimeout)
+	defer cancel()
+
+	version, versionErr := s.getVersionInfoOnTransport(lookupCtx, transport)
+	login, loginErr := s.getLoginInfoOnTransport(lookupCtx, transport)
+	if versionErr != nil && loginErr != nil {
+		s.clearTransportRuntimeInfo(transport)
+		return
+	}
+
+	info := TransportRuntimeInfo{
+		Provider:        DetectProvider(version.AppName),
+		AppName:         version.AppName,
+		ProtocolVersion: version.ProtocolVersion,
+		AppVersion:      version.AppVersion,
+		UserID:          login.ID,
+		Nickname:        login.Nickname,
+	}
+	s.updateTransportRuntimeInfo(transport, info)
+}
+
+func (s *Shell) updateTransportRuntimeInfo(transport TransportKey, info TransportRuntimeInfo) {
+	s.mu.Lock()
+	switch transport {
+	case TransportForwardWS:
+		s.snapshot.ForwardWS.RuntimeInfo = info
+	case TransportReverseWS:
+		s.snapshot.ReverseWS.RuntimeInfo = info
+	case TransportHTTPAPI:
+		s.snapshot.HTTPAPI.RuntimeInfo = info
+	default:
+		s.mu.Unlock()
+		return
+	}
+	s.refreshAggregateStateLocked()
+	snapshot := cloneSnapshot(s.snapshot)
+	handler := s.stateHandler
+	s.mu.Unlock()
+	s.emitStateSnapshot(handler, snapshot)
+}
+
+func (s *Shell) clearTransportRuntimeInfo(transport TransportKey) {
+	s.mu.Lock()
+	s.clearTransportRuntimeInfoLocked(transport)
+	snapshot := cloneSnapshot(s.snapshot)
+	handler := s.stateHandler
+	s.mu.Unlock()
+	s.emitStateSnapshot(handler, snapshot)
+}
+
+func (s *Shell) clearTransportRuntimeInfoLocked(transport TransportKey) {
+	switch transport {
+	case TransportForwardWS:
+		s.snapshot.ForwardWS.RuntimeInfo = TransportRuntimeInfo{}
+	case TransportReverseWS:
+		s.snapshot.ReverseWS.RuntimeInfo = TransportRuntimeInfo{}
+	case TransportHTTPAPI:
+		s.snapshot.HTTPAPI.RuntimeInfo = TransportRuntimeInfo{}
+	case TransportWebhook:
+		s.snapshot.Webhook.RuntimeInfo = TransportRuntimeInfo{}
+	}
+}
+
+func (s *Shell) AcceptWebhookPayload(ctx context.Context, payload []byte) error {
+	frame := classifyFrame(websocket.MessageText, payload, s.deps.now())
+	if err := s.recordAndValidateFrame(TransportWebhook, frame); err != nil {
+		s.markTransportFailure(TransportWebhook, TransportStateListening, errorCodeWebhookInvalidPayload, err)
+		return errorf(errorCodeWebhookInvalidPayload, "webhook payload is invalid", err)
+	}
+
+	s.mu.Lock()
+	s.snapshot.Webhook.State = TransportStateListening
+	s.snapshot.Webhook.LastErrorCode = ""
+	s.snapshot.Webhook.LastErrorMessage = ""
+	s.syncLastErrorLocked()
+	s.refreshAggregateStateLocked()
+	snapshot := cloneSnapshot(s.snapshot)
+	handler := s.stateHandler
+	s.mu.Unlock()
+	s.emitStateSnapshot(handler, snapshot)
+
+	s.routeAPIResponse(frame)
+	s.forwardSupportedEvent(ctx, TransportWebhook, frame)
+	return nil
+}
+
+func (s *Shell) MarkReverseWSAuthFailed() {
+	s.markTransportFailure(TransportReverseWS, TransportStateAuthFailed, errorCodeReverseWSAuthFailed, errors.New("reverse websocket authentication failed"))
+}
+
+func (s *Shell) MarkWebhookAuthFailed() {
+	s.markTransportFailure(TransportWebhook, TransportStateAuthFailed, errorCodeWebhookAuthFailed, errors.New("webhook authentication failed"))
+}
+
+func isAuthFailure(response *http.Response) bool {
+	if response == nil {
+		return false
+	}
+
+	return response.StatusCode == http.StatusUnauthorized || response.StatusCode == http.StatusForbidden
+}
+
+func sanitizeWSURL(raw string) string {
+	if raw == "" {
+		return ""
+	}
+
+	parsed, err := url.Parse(raw)
+	if err != nil {
+		return ""
+	}
+
+	if parsed.Scheme == "" || parsed.Host == "" {
+		return ""
+	}
+
+	return parsed.Scheme + "://" + parsed.Host
+}
+
+func dialURL(raw, accessToken string, includeTokenQuery bool) string {
+	if raw == "" || accessToken == "" || !includeTokenQuery {
+		return raw
+	}
+
+	parsed, err := url.Parse(raw)
+	if err != nil {
+		return raw
+	}
+
+	query := parsed.Query()
+	query.Set("access_token", accessToken)
+	parsed.RawQuery = query.Encode()
+	return parsed.String()
+}
+
+func (s *Shell) waitContext(ctx context.Context) (context.Context, context.CancelFunc) {
+	if s.deps.connectTimeout <= 0 {
+		return context.WithCancel(ctx)
+	}
+
+	return context.WithTimeout(ctx, s.deps.connectTimeout)
+}
+
+func (s *Shell) provisionalReadTimeout(snapshot Snapshot) time.Duration {
+	if snapshot.HeartbeatInterval > 0 {
+		return snapshot.HeartbeatInterval * 3
+	}
+	if snapshot.State == StateConnected {
+		if s.deps.connectTimeout > defaultConnectedReadTimeout {
+			return s.deps.connectTimeout
+		}
+		return defaultConnectedReadTimeout
+	}
+	if s.deps.connectTimeout > 0 {
+		return s.deps.connectTimeout
+	}
+
+	return time.Second
+}
+
+func sleepWithContext(ctx context.Context, delay time.Duration) error {
+	timer := time.NewTimer(delay)
+	defer timer.Stop()
+
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-timer.C:
+		return nil
+	}
+}
+
+func waitForClosed(ctx context.Context, ch <-chan struct{}) error {
+	if ch == nil {
+		return nil
+	}
+
+	select {
+	case <-ch:
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+}
+
+func maxInt(value, fallback int) int {
+	if value <= 0 {
+		return fallback
+	}
+
+	return value
 }

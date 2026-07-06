@@ -3,6 +3,8 @@ package onebot11
 import (
 	"context"
 	"errors"
+	"math"
+	"math/rand"
 	"net/http"
 	"time"
 
@@ -167,4 +169,195 @@ func reconnectSettingsEqual(left config.AdapterConfig, right config.AdapterConfi
 		left.ReconnectMultiplier == right.ReconnectMultiplier &&
 		left.ReconnectMaxSeconds == right.ReconnectMaxSeconds &&
 		left.ReconnectJitterRatio == right.ReconnectJitterRatio
+}
+
+func (s *Shell) AttachReverseWS(conn *websocket.Conn) {
+	if conn == nil {
+		return
+	}
+
+	done := make(chan struct{})
+	var previous *websocket.Conn
+
+	s.mu.Lock()
+	if s.stopping || !s.started {
+		s.mu.Unlock()
+		_ = conn.Close(websocket.StatusNormalClosure, "")
+		return
+	}
+	if s.reverseConn != nil {
+		previous = s.reverseConn
+	}
+	s.reverseConn = conn
+	s.reverseDone = done
+	s.mu.Unlock()
+
+	if previous != nil {
+		_ = previous.Close(websocket.StatusNormalClosure, "")
+	}
+
+	go s.handleReverseSession(conn, done)
+}
+
+func (s *Shell) handleReverseSession(conn *websocket.Conn, done chan struct{}) {
+	ctx := context.Background()
+	defer func() {
+		defer close(done)
+		_ = conn.Close(websocket.StatusNormalClosure, "")
+		s.mu.Lock()
+		current := s.reverseConn == conn
+		if current {
+			s.reverseConn = nil
+			if s.reverseDone == done {
+				s.reverseDone = nil
+			}
+		}
+		if !current && !s.stopping {
+			s.mu.Unlock()
+			return
+		}
+		s.clearTransportRuntimeInfoLocked(TransportReverseWS)
+		if s.stopping && s.snapshot.ReverseWS.Enabled && s.snapshot.ReverseWS.Configured {
+			s.snapshot.ReverseWS.State = TransportStateStopped
+		} else if s.snapshot.ReverseWS.Enabled && s.snapshot.ReverseWS.Configured {
+			s.snapshot.ReverseWS.State = TransportStateListening
+		} else {
+			s.snapshot.ReverseWS.State = TransportStateIdle
+		}
+		s.refreshAggregateStateLocked()
+		snapshot := cloneSnapshot(s.snapshot)
+		handler := s.stateHandler
+		s.mu.Unlock()
+		s.emitStateSnapshot(handler, snapshot)
+	}()
+
+	ready, err := s.waitForReadyFrame(ctx, TransportReverseWS, conn)
+	if err != nil {
+		if ctx.Err() != nil || s.isStopping() {
+			return
+		}
+		s.markTransportFailure(TransportReverseWS, TransportStateListening, errorCodeConnectionLost, err)
+		return
+	}
+
+	s.mu.Lock()
+	s.snapshot.ReverseWS.State = TransportStateConnected
+	s.snapshot.ReverseWS.LastErrorCode = ""
+	s.snapshot.ReverseWS.LastErrorMessage = ""
+	s.snapshot.ReadyFrameSeen = true
+	s.snapshot.ConnectedAt = cloneTime(&ready.ObservedAt)
+	s.syncLastErrorLocked()
+	s.refreshAggregateStateLocked()
+	snapshot := cloneSnapshot(s.snapshot)
+	handler := s.stateHandler
+	s.mu.Unlock()
+	s.emitStateSnapshot(handler, snapshot)
+	go s.refreshRuntimeInfo(ctx, TransportReverseWS)
+
+	if readyHandler := s.currentReadyHandler(); readyHandler != nil {
+		go readyHandler(ctx)
+	}
+
+	if err := s.readLoop(ctx, TransportReverseWS, conn); err != nil && ctx.Err() == nil && !s.isStopping() {
+		s.markTransportFailure(TransportReverseWS, TransportStateListening, errorCodeConnectionLost, err)
+	}
+}
+
+func (s *Shell) isStopping() bool {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.stopping
+}
+
+type Backoff struct {
+	initial time.Duration
+	max     time.Duration
+
+	multiplier float64
+	jitter     float64
+	randFloat  func() float64
+}
+
+func NewBackoff(initialSeconds int, multiplier float64, maxSeconds int, jitterRatio float64, randFloat func() float64) *Backoff {
+	return NewWithDurations(
+		time.Duration(initialSeconds)*time.Second,
+		multiplier,
+		time.Duration(maxSeconds)*time.Second,
+		jitterRatio,
+		randFloat,
+	)
+}
+
+func NewWithDurations(initial time.Duration, multiplier float64, maxDelay time.Duration, jitterRatio float64, randFloat func() float64) *Backoff {
+	if initial <= 0 {
+		initial = time.Second
+	}
+
+	if maxDelay <= 0 {
+		maxDelay = initial
+	}
+	if maxDelay < initial {
+		maxDelay = initial
+	}
+
+	if multiplier < 1 {
+		multiplier = 1
+	}
+	if jitterRatio < 0 {
+		jitterRatio = 0
+	}
+	if jitterRatio > 1 {
+		jitterRatio = 1
+	}
+	if randFloat == nil {
+		rng := rand.New(rand.NewSource(time.Now().UnixNano()))
+		randFloat = rng.Float64
+	}
+
+	return &Backoff{
+		initial:    initial,
+		max:        maxDelay,
+		multiplier: multiplier,
+		jitter:     jitterRatio,
+		randFloat:  randFloat,
+	}
+}
+
+func (b *Backoff) RandFloat() func() float64 {
+	if b == nil {
+		return nil
+	}
+	return b.randFloat
+}
+
+func (b *Backoff) Duration(attempt int) time.Duration {
+	if b == nil {
+		return time.Second
+	}
+
+	base := float64(b.initial)
+	maxDelay := float64(b.max)
+
+	for i := 0; i < attempt; i++ {
+		base *= b.multiplier
+		if base >= maxDelay {
+			base = maxDelay
+			break
+		}
+	}
+
+	jittered := base
+	if b.jitter > 0 {
+		factor := 1 - b.jitter + (2 * b.jitter * b.randFloat())
+		jittered = base * factor
+	}
+
+	if jittered < 0 {
+		jittered = 0
+	}
+	if jittered > maxDelay {
+		jittered = maxDelay
+	}
+
+	return time.Duration(math.Round(jittered))
 }
