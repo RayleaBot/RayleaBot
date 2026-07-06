@@ -27,7 +27,7 @@ func (a *App) CurrentConfig() config.Config {
 	if a == nil || a.state == nil {
 		return config.Config{}
 	}
-	return a.state.Config
+	return a.state.CurrentConfig()
 }
 
 func (a *App) AuthManager() *auth.Manager {

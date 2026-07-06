@@ -4,6 +4,7 @@ import (
 	"context"
 	"log/slog"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	menuext "github.com/RayleaBot/RayleaBot/server/internal/builtinmenu"
@@ -46,19 +47,28 @@ type Deps struct {
 	BlacklistRepo   permission.BlacklistRepository
 }
 
+// policyEngine bundles the config-derived policy collaborators into one
+// immutable snapshot so hot reload can swap them atomically while event
+// goroutines keep reading a consistent set.
+type policyEngine struct {
+	parser   *command.Parser
+	checker  *permission.Checker
+	cooldown *permission.CooldownTracker
+	snapshot ConfigSnapshot
+}
+
 type Service struct {
-	currentConfig     func() config.Config
-	plugins           PluginCatalog
-	menu              MenuMatcher
-	bridge            RejectionLogger
-	outboundSender    OutboundSender
-	outboundLimiter   outbound.MessageLimiter
-	logger            *slog.Logger
-	whitelistRepo     permission.WhitelistRepository
-	whitelistState    permission.WhitelistStateRepository
-	blacklistRepo     permission.BlacklistRepository
-	commandParser     *command.Parser
-	permissionChecker *permission.Checker
+	currentConfig   func() config.Config
+	plugins         PluginCatalog
+	menu            MenuMatcher
+	bridge          RejectionLogger
+	outboundSender  OutboundSender
+	outboundLimiter outbound.MessageLimiter
+	logger          *slog.Logger
+	whitelistRepo   permission.WhitelistRepository
+	whitelistState  permission.WhitelistStateRepository
+	blacklistRepo   permission.BlacklistRepository
+	engine          atomic.Pointer[policyEngine]
 }
 
 func New(deps Deps) *Service {
@@ -82,22 +92,57 @@ func (s *Service) UpdateConfig(cfg config.Config) {
 	if s == nil {
 		return
 	}
-	s.commandParser = newCommandParser(cfg)
-	s.permissionChecker = newPermissionChecker(cfg, s.whitelistRepo, s.whitelistState, s.blacklistRepo)
+	settings := ResolveConfig(cfg)
+	previous := s.engine.Load()
+
+	// Preserve in-flight cooldown windows when the rate-limit fields did not
+	// change, so unrelated config updates do not reset every user/group
+	// cooldown counter.
+	var cooldown *permission.CooldownTracker
+	if previous != nil &&
+		previous.snapshot.UserCommandRateLimit == settings.UserCommandRateLimit &&
+		previous.snapshot.GroupCommandRateLimit == settings.GroupCommandRateLimit {
+		cooldown = previous.cooldown
+	} else {
+		userLimit := parseCooldownRateLimitWithFallback(settings.UserCommandRateLimit, config.DefaultUserCommandRateLimit)
+		groupLimit := parseCooldownRateLimitWithFallback(settings.GroupCommandRateLimit, config.DefaultGroupCommandRateLimit)
+		cooldown = permission.NewCooldownTracker(userLimit, groupLimit)
+	}
+
+	checker := permission.NewChecker(permission.CheckerConfig{
+		SuperAdmins:  settings.SuperAdmins,
+		DefaultLevel: settings.DefaultLevel,
+	}, s.whitelistRepo, s.whitelistState, s.blacklistRepo, cooldown)
+
+	s.engine.Store(&policyEngine{
+		parser:   newCommandParser(cfg),
+		checker:  checker,
+		cooldown: cooldown,
+		snapshot: settings,
+	})
+}
+
+func (s *Service) currentEngine() *policyEngine {
+	if s == nil {
+		return nil
+	}
+	return s.engine.Load()
 }
 
 func (s *Service) CommandParser() *command.Parser {
-	if s == nil {
+	engine := s.currentEngine()
+	if engine == nil {
 		return nil
 	}
-	return s.commandParser
+	return engine.parser
 }
 
 func (s *Service) PermissionChecker() *permission.Checker {
-	if s == nil {
+	engine := s.currentEngine()
+	if engine == nil {
 		return nil
 	}
-	return s.permissionChecker
+	return engine.checker
 }
 
 func (s *Service) SetBridge(logger RejectionLogger) {
@@ -123,7 +168,8 @@ func (s *Service) config() config.Config {
 
 func (s *Service) Apply(ctx context.Context, event onebot11.NormalizedEvent) (onebot11.NormalizedEvent, bool) {
 	enriched := s.EnrichCommandEvent(event)
-	if s == nil || s.permissionChecker == nil || !shouldEvaluateChatPolicy(enriched) {
+	checker := s.PermissionChecker()
+	if checker == nil || !shouldEvaluateChatPolicy(enriched) {
 		return enriched, true
 	}
 	commandContext := s.commandPolicyContextForEvent(enriched)
@@ -133,7 +179,7 @@ func (s *Service) Apply(ctx context.Context, event onebot11.NormalizedEvent) (on
 		permissionInfo = commandContext.PermissionInfo
 	}
 
-	verdict := s.permissionChecker.Check(
+	verdict := checker.Check(
 		ctx,
 		strings.TrimSpace(enriched.SenderID),
 		strings.TrimSpace(enriched.ActorRole),
@@ -175,17 +221,6 @@ type ConfigSnapshot struct {
 	UserCommandRateLimit  string
 	GroupCommandRateLimit string
 	CooldownReplyEnabled  bool
-}
-
-func newPermissionChecker(cfg config.Config, whitelistRepo permission.WhitelistRepository, whitelistState permission.WhitelistStateRepository, blacklistRepo permission.BlacklistRepository) *permission.Checker {
-	settings := ResolveConfig(cfg)
-	userLimit := parseCooldownRateLimitWithFallback(settings.UserCommandRateLimit, config.DefaultUserCommandRateLimit)
-	groupLimit := parseCooldownRateLimitWithFallback(settings.GroupCommandRateLimit, config.DefaultGroupCommandRateLimit)
-
-	return permission.NewChecker(permission.CheckerConfig{
-		SuperAdmins:  append([]string(nil), settings.SuperAdmins...),
-		DefaultLevel: settings.DefaultLevel,
-	}, whitelistRepo, whitelistState, blacklistRepo, permission.NewCooldownTracker(userLimit, groupLimit))
 }
 
 func parseCooldownRateLimitWithFallback(raw, fallback string) permission.RateLimit {

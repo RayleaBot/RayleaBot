@@ -52,6 +52,9 @@ func (s *Service) CurrentConfigDocument() Document {
 }
 
 func (s *Service) UpdateConfigDocument(ctx context.Context, request map[string]any) (UpdateResult, error) {
+	s.updateMu.Lock()
+	defer s.updateMu.Unlock()
+
 	summary := s.summary()
 	request = restoreRedactedConfigSecrets(request, ConfigDocumentFromTyped(s.config()))
 	if _, _, _, err := internalconfig.NormalizeDocument(summary.ConfigPath, summary.SchemaPath, request); err != nil {
@@ -70,7 +73,7 @@ func (s *Service) UpdateConfigDocument(ctx context.Context, request map[string]a
 		return UpdateResult{}, err
 	}
 
-	applyEffects := s.ApplyHotReloadableFields(newCfg)
+	applyEffects := s.applyHotReloadableFieldsLocked(newCfg)
 	if s.setSummary != nil {
 		s.setSummary(newSummary)
 	}
@@ -199,6 +202,12 @@ func normalizeConfigApplyEffects(e *ApplyEffects) {
 }
 
 func (s *Service) ApplyHotReloadableFields(newCfg internalconfig.Config) ApplyEffects {
+	s.updateMu.Lock()
+	defer s.updateMu.Unlock()
+	return s.applyHotReloadableFieldsLocked(newCfg)
+}
+
+func (s *Service) applyHotReloadableFieldsLocked(newCfg internalconfig.Config) ApplyEffects {
 	oldCfg := s.config()
 	effects := ClassifyApplyEffects(oldCfg, newCfg)
 	oneBotHotChanged := len(effects.ReloadedNow) > 0

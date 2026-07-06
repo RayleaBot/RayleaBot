@@ -63,7 +63,7 @@ func NewWithContext(ctx context.Context, options Options) (*App, error) {
 	platformState, err := buildPlatform(platformDeps{
 		Context:          ctx,
 		ConfigPath:       buildState.options.ConfigPath,
-		Config:           buildState.core.Config,
+		Config:           buildState.core.CurrentConfig(),
 		Logger:           buildState.core.Logger,
 		AuthOptions:      buildState.options.AuthOptions,
 		Tasks:            buildState.taskRegistry,
@@ -90,17 +90,17 @@ func NewWithContext(ctx context.Context, options Options) (*App, error) {
 		}
 		_ = partial.Close()
 	}
-	resolvedConfig, err := configruntime.ResolveConfigSecretRefs(ctx, platformState.Secrets, buildState.core.Config)
+	resolvedConfig, err := configruntime.ResolveConfigSecretRefs(ctx, platformState.Secrets, buildState.core.CurrentConfig())
 	if err != nil {
 		cleanupPartialBuild()
 		return nil, fmt.Errorf("resolve config secrets: %w", err)
 	}
-	buildState.core.Config = resolvedConfig
-	buildState.core.addRedactionValues(configruntime.ConfigSecretValues(resolvedConfig)...)
+	buildState.core.SetConfig(resolvedConfig)
+	buildState.core.AddRedactionValues(configruntime.ConfigSecretValues(resolvedConfig)...)
 
 	pluginState, err = buildPluginStack(pluginStackDeps{
 		Context:   ctx,
-		Config:    buildState.core.Config,
+		Config:    resolvedConfig,
 		Logger:    buildState.core.Logger,
 		Discovery: buildState.discoverySpec,
 		Validator: buildState.pluginValidator,
@@ -115,7 +115,7 @@ func NewWithContext(ctx context.Context, options Options) (*App, error) {
 
 	renderState, err = buildRender(renderDeps{
 		Context:   ctx,
-		Config:    buildState.core.Config,
+		Config:    resolvedConfig,
 		Logger:    buildState.core.Logger,
 		Discovery: buildState.discoverySpec,
 		Store:     platformState.Storage,
@@ -128,11 +128,11 @@ func NewWithContext(ctx context.Context, options Options) (*App, error) {
 	}
 
 	eventState = buildEvents(eventDeps{
-		Config: buildState.core.Config,
+		Config: resolvedConfig,
 		Logger: buildState.core.Logger,
 	})
 
-	state := newAppRuntimeState(buildState)
+	state := buildState.core
 	metricRegistry, stopRuntimeStateGauge := wireMetrics(platformState, eventState, renderState.Renderer, pluginState)
 	serviceBuild, err := buildServices(serviceBuildDeps{
 		Runtime:               state,

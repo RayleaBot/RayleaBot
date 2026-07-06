@@ -2,6 +2,7 @@ package configruntime
 
 import (
 	"log/slog"
+	"sync"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/logging"
@@ -11,6 +12,10 @@ import (
 )
 
 type Service struct {
+	// updateMu serializes config document updates and hot-reload application
+	// so concurrent PUT /api/config requests cannot interleave their
+	// read-modify-write cycles.
+	updateMu           sync.Mutex
 	currentConfig      func() config.Config
 	currentSummary     func() config.Summary
 	setConfig          func(config.Config)

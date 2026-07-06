@@ -28,8 +28,10 @@ type appProcessState struct {
 }
 
 type appRuntimeState struct {
-	Config             config.Config
-	Summary            config.Summary
+	mu      sync.RWMutex
+	config  config.Config
+	summary config.Summary
+
 	Logger             *slog.Logger
 	LogLevel           *logging.LevelController
 	repoRoot           string
@@ -38,35 +40,40 @@ type appRuntimeState struct {
 	startedAt          time.Time
 }
 
-func newAppRuntimeState(buildState appBuildState) *appRuntimeState {
-	state := buildState.core
-	return &state
-}
-
 func (s *appRuntimeState) CurrentConfig() config.Config {
 	if s == nil {
 		return config.Config{}
 	}
-	return s.Config
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.config
 }
 
 func (s *appRuntimeState) CurrentSummary() config.Summary {
 	if s == nil {
 		return config.Summary{}
 	}
-	return s.Summary
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.summary
 }
 
 func (s *appRuntimeState) SetConfig(cfg config.Config) {
-	if s != nil {
-		s.Config = cfg
+	if s == nil {
+		return
 	}
+	s.mu.Lock()
+	s.config = cfg
+	s.mu.Unlock()
 }
 
 func (s *appRuntimeState) SetSummary(summary config.Summary) {
-	if s != nil {
-		s.Summary = summary
+	if s == nil {
+		return
 	}
+	s.mu.Lock()
+	s.summary = summary
+	s.mu.Unlock()
 }
 
 func (s *appRuntimeState) RuntimeLogger() *slog.Logger {

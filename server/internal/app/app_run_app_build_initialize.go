@@ -14,7 +14,7 @@ import (
 )
 
 type appBuildState struct {
-	core             appRuntimeState
+	core             *appRuntimeState
 	options          Options
 	logStream        *logging.Stream
 	taskRegistry     *tasks.Registry
@@ -62,17 +62,19 @@ func initializeAppBuild(options Options) (appBuildState, error) {
 		return appBuildState{}, err
 	}
 
+	core := &appRuntimeState{
+		Logger:             logger,
+		LogLevel:           logLevel,
+		repoRoot:           discoverySpec.RepoRoot,
+		redactText:         managementRedactor.Redact,
+		addRedactionValues: managementRedactor.Add,
+		startedAt:          time.Now().UTC(),
+	}
+	core.SetConfig(cfg)
+	core.SetSummary(summary)
+
 	return appBuildState{
-		core: appRuntimeState{
-			Config:             cfg,
-			Summary:            summary,
-			Logger:             logger,
-			LogLevel:           logLevel,
-			repoRoot:           discoverySpec.RepoRoot,
-			redactText:         managementRedactor.Redact,
-			addRedactionValues: managementRedactor.Add,
-			startedAt:          time.Now().UTC(),
-		},
+		core: core,
 		options:          options,
 		logStream:        logStream,
 		taskRegistry:     taskRegistry,

@@ -45,11 +45,12 @@ func RuntimeCommandPrefixes(cfg config.Config) []string {
 }
 
 func (s *Service) EnrichCommandEvent(event onebot11.NormalizedEvent) onebot11.NormalizedEvent {
-	if s == nil || s.commandParser == nil || strings.TrimSpace(event.PlainText) == "" {
+	parser := s.CommandParser()
+	if parser == nil || strings.TrimSpace(event.PlainText) == "" {
 		return event
 	}
 
-	parsed := s.commandParser.Parse(event.PlainText)
+	parsed := parser.Parse(event.PlainText)
 	var builtinParsed menuext.Request
 	if s.menu != nil {
 		builtinParsed = s.menu.Match(event)
