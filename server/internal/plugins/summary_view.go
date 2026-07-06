@@ -51,6 +51,7 @@ type SummaryView struct {
 	Name             string
 	Version          string
 	Description      string
+	Author           string
 	Role             string
 	State            string
 	StateDiagnosis   *StateDiagnosis
@@ -69,6 +70,7 @@ func BuildSummaryView(snapshot Snapshot, conflicts []string) SummaryView {
 		Name:             summaryViewDisplayName(snapshot),
 		Version:          strings.TrimSpace(snapshot.Version),
 		Description:      strings.TrimSpace(snapshot.Description),
+		Author:           strings.TrimSpace(snapshot.Author),
 		Role:             role,
 		State:            state,
 		StateDiagnosis:   diagnosis,
@@ -138,11 +140,22 @@ func buildCommandViews(snapshot Snapshot) []CommandView {
 			Description:   strings.TrimSpace(command.Description),
 			Usage:         strings.TrimSpace(command.Usage),
 			Permission:    strings.TrimSpace(command.Permission),
-			CommandSource: strings.TrimSpace(command.CommandSource),
+			CommandSource: normalizeCommandSourceView(command.CommandSource),
 			DeclarationID: strings.TrimSpace(command.DeclarationID),
 		})
 	}
 	return items
+}
+
+func normalizeCommandSourceView(source string) string {
+	switch strings.TrimSpace(source) {
+	case CommandSourceDynamic:
+		return CommandSourceDynamic
+	case CommandSourcePattern:
+		return CommandSourcePattern
+	default:
+		return CommandSourceManifest
+	}
 }
 
 func buildHelpView(snapshot Snapshot) *HelpView {

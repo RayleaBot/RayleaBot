@@ -220,7 +220,7 @@ func pluginListBuildCommands(commands []plugins.CommandView) []map[string]any {
 	for _, command := range commands {
 		item := map[string]any{
 			"name":           command.Name,
-			"command_source": pluginListCommandSourceOrDefault(command.CommandSource),
+			"command_source": command.CommandSource,
 		}
 		if len(command.Aliases) > 0 {
 			item["aliases"] = append([]string(nil), command.Aliases...)
@@ -283,14 +283,4 @@ func pluginListBuildHelp(help *plugins.HelpView) map[string]any {
 		result["groups"] = groups
 	}
 	return result
-}
-
-func pluginListCommandSourceOrDefault(source string) string {
-	if source == plugins.CommandSourceDynamic {
-		return plugins.CommandSourceDynamic
-	}
-	if source == plugins.CommandSourcePattern {
-		return plugins.CommandSourcePattern
-	}
-	return plugins.CommandSourceManifest
 }
