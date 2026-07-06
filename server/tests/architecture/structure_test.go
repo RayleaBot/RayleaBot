@@ -5,6 +5,7 @@ import (
 	"go/token"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 )
@@ -21,6 +22,8 @@ const (
 	managementImportPrefix = managementImportPath + "/"
 	appImportPrefix        = modulePrefix + "app"
 )
+
+var numberedTestPartNameRE = regexp.MustCompile(`_part[0-9]+_`)
 
 func TestManagementPackagesDoNotLeakIntoDomainPackages(t *testing.T) {
 	serverRoot := testServerRoot(t)
@@ -44,11 +47,7 @@ func TestRenderImplementationPackagesStayBehindServiceBoundary(t *testing.T) {
 	internalRoot := filepath.Join(serverRoot, "internal")
 	renderRoot := filepath.Join(internalRoot, "render")
 	protectedPrefixes := []string{
-		modulePrefix + "render/catalog",
-		modulePrefix + "render/engine",
-		modulePrefix + "render/pluginsync",
 		modulePrefix + "render/repository",
-		modulePrefix + "render/templates",
 	}
 
 	walkGoFiles(t, internalRoot, func(path string) {
@@ -94,17 +93,14 @@ func TestInternalTreeHasNoEmptyDirectories(t *testing.T) {
 }
 
 // TestDomainPackagesDoNotImportApp forbids domain packages from importing the
-// composition root. Only the entry/assembly layer (internal/app,
-// internal/bootstrap), test harnesses (internal/testapp) and the server/tests
-// tree may depend on internal/app.
+// composition root. Only the entry/assembly layer (internal/app) and the
+// server/tests tree may depend on internal/app.
 func TestDomainPackagesDoNotImportApp(t *testing.T) {
 	serverRoot := testServerRoot(t)
 	internalRoot := filepath.Join(serverRoot, "internal")
 
 	exempt := []string{
 		filepath.Join(internalRoot, "app"),
-		filepath.Join(internalRoot, "bootstrap"),
-		filepath.Join(internalRoot, "testapp"),
 	}
 
 	walkGoFiles(t, internalRoot, func(path string) {
@@ -149,7 +145,7 @@ func TestTestFilesUseScenarioNames(t *testing.T) {
 			return
 		}
 		name := filepath.Base(path)
-		if strings.Contains(name, "_part2_") || strings.Contains(name, "_part3_") || strings.Contains(name, "_part4_") {
+		if numberedTestPartNameRE.MatchString(name) {
 			t.Errorf("%s uses numbered part naming; use a behavior or scenario name", relPath(t, serverRoot, path))
 		}
 	})
