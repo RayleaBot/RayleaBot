@@ -1,20 +1,20 @@
 ---
 name: contract-audit
-description: Use when a task or diff touches contracts, APIs, schemas, states, errors, events, plugin manifest/protocol, or release metadata in this repo, to audit contract drift and required companion updates.
+description: 任务或 diff 触及本仓库的 contract、API、schema、状态、错误码、事件、插件 manifest/协议或发布元数据时使用，审计 contract 漂移和必需的配套更新。
 ---
 
 # Contract Audit
 
-This skill is a reusable workflow. It does not define project truth. Formal truth still lives in `contracts/`, root/local `AGENTS.md`, and the engineering docs they reference.
+本 skill 是可复用工作流，不定义项目真相。正式真相仍在 `contracts/`、根/局部 `AGENTS.md` 及其引用的工程文档中。
 
-## Use This Skill When
+## 适用场景
 
 - 用户要修改 API、schema、状态、错误码、事件名
 - 代码改动疑似影响 contract，但用户没有显式提到 contract
 - 你需要判断五件套是否满足
 - 你需要做 contract-focused review，而不是普通代码 review
 
-## Inputs
+## 输入
 
 - 任务描述或 diff 范围
 - 受影响的 boundary：
@@ -26,7 +26,7 @@ This skill is a reusable workflow. It does not define project truth. Formal trut
   - plugin-protocol
   - release-manifest
 
-## Workflow
+## 工作流
 
 1. 先读根 `AGENTS.md` 和 `contracts/AGENTS.md`。
 2. 打开相关 contract 文件与 `contracts/README.md`。
@@ -42,7 +42,7 @@ This skill is a reusable workflow. It does not define project truth. Formal trut
    - 是否缺少 fixture / example / test / doc 同步
 5. 输出审计结论和缺口清单。
 
-## Outputs
+## 输出
 
 - 受影响 contract 清单
 - 命名漂移或 shape 漂移清单
@@ -50,7 +50,7 @@ This skill is a reusable workflow. It does not define project truth. Formal trut
 - 是否满足五件套门禁
 - 如有需要，给出建议的最小 contract-first 修正顺序
 
-## Do Not
+## 禁止
 
 - 把实现行为反向当成 contract 真相
 - 自动接受 speculative 字段

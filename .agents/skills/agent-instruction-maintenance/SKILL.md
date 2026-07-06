@@ -1,20 +1,20 @@
 ---
 name: agent-instruction-maintenance
-description: Use when modifying AGENTS.md, CLAUDE.md, or any .agents/skills/SKILL.md in this repo. Checks file length, path existence, bridge completeness, repetition, conflict, and secret leakage before finalizing changes.
+description: 修改本仓库的 AGENTS.md、CLAUDE.md 或任何 .agents/skills/SKILL.md 时使用。在定稿前检查文件行数、路径存在性、bridge 完整性、重复、冲突与 secret 泄露。
 ---
 
 # Agent Instruction Maintenance
 
-This skill is a reusable workflow. It does not define project truth. Repository truth still lives in `contracts/`, root/local `AGENTS.md`, and the engineering docs they reference.
+本 skill 是可复用工作流，不定义项目真相。仓库真相仍在 `contracts/`、根/局部 `AGENTS.md` 及其引用的工程文档中。
 
-## Use This Skill When
+## 适用场景
 
 - 新增、修改或删除 `AGENTS.md`、`CLAUDE.md`、`.agents/skills/**/SKILL.md`
 - 用户提到 agent instruction、rules、memory、Claude Code 配置或 agent 工作流调整
 - 需要确认 bridge 是否完整、路径是否过期、规则是否重复或冲突
 - 需要检查 agent 指令文件是否包含真实 secret 或凭据形态
 
-## Workflow
+## 工作流
 
 1. 读取根 `AGENTS.md` 和当前目录的局部 `AGENTS.md`（如果存在）。
 2. 读取目标 `CLAUDE.md` 或 `SKILL.md` 的当前内容。
@@ -33,7 +33,7 @@ This skill is a reusable workflow. It does not define project truth. Repository 
 8. 运行 `scripts/check-agent-docs.mjs`（如果存在），并处理其输出。
 9. 输出修正建议或确认当前修改可提交。
 
-## Outputs
+## 输出
 
 - 文件长度是否超标
 - 过期或不存在路径清单
@@ -42,7 +42,7 @@ This skill is a reusable workflow. It does not define project truth. Repository 
 - 疑似 secret 的位置
 - `scripts/check-agent-docs.mjs` 运行结果摘要
 
-## Do Not
+## 禁止
 
 - 把实现细节、当前功能清单或易过期的路径写进 `AGENTS.md` 或 `CLAUDE.md`。
 - 在 agent 指令文件中暴露真实凭据或凭据格式。

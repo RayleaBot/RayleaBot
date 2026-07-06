@@ -19,6 +19,7 @@ RayleaBot 是一个面向个人开发者和 GitHub 开源协作者的自托管�
 - Companion updates: 涉及协议、schema、状态机、配置、数据库结构、插件安装流程、渲染输入输出、Web API、WebSocket、错误码或迁移的改动，合并前同步实现代码、contract、tests、fixtures/examples、必要的 docs。
 - Frozen stack: 不新增平行技术栈，不升级冻结版本线，除非任务明确要求并同步 baseline、lockfile、CI 与发布文档。
 - Secrets: 不在配置响应、fixtures、examples、logs、docs、测试快照中暴露真实 token、secret、凭据。
+- Shared mutable state: 运行期可被多协程/多请求读写的共享状态必须有并发保护（原子快照或锁），不得依赖"碰巧不并发"。
 - Minimal verification: 完成前运行能证明本次改动正确性的最小验证。只有 exit code 不足以证明结果时，继续检查目标产物、生成文件或运行时效果是否真实存在。
 
 ## Source of Truth
@@ -60,11 +61,12 @@ RayleaBot 是一个面向个人开发者和 GitHub 开源协作者的自托管�
 ## Skills
 
 - `contract-audit`: contract、fixture、generated type 或 API drift 检查。
-- `glue-coding`: 跨面设计、依赖选择、复用策略。
+- `glue-coding`: 跨面设计、依赖选择、复用与注入策略。
 - `phase-boundary-check`: 阶段边界不清或可能抢跑后续能力。
-- `editing-final-state-content`: 文档、注释、用户可见文本。
+- `editing-final-state-content`: 文档、注释、用户可见文本保持最终态。
 - `agent-instruction-maintenance`: 修改 AGENTS/CLAUDE/skills。
-- `repo-validation`: 选择最小验证命令和 drift 检查。
+- `repo-validation`: 选择最小验证命令（含 -race、架构测试触发条件）和 drift 检查。
+- `rayleabot-evidence-scan`: 只看证据的 bug 扫描、性能观察、skill 推荐与 automation memory 更新。
 
 ## Maintaining Agent Instructions
 
