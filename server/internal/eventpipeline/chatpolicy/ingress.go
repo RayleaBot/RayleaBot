@@ -1,4 +1,4 @@
-package eventingress
+package chatpolicy
 
 import (
 	"context"
@@ -7,32 +7,24 @@ import (
 	menuext "github.com/RayleaBot/RayleaBot/server/internal/builtinmenu"
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/bridge"
-	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/chatpolicy"
 	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/outbound"
 	"github.com/RayleaBot/RayleaBot/server/internal/onebot11"
 	"github.com/RayleaBot/RayleaBot/server/internal/permission"
 	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
 	pluginservice "github.com/RayleaBot/RayleaBot/server/internal/plugins/lifecycle"
-	renderservice "github.com/RayleaBot/RayleaBot/server/internal/render/service"
 )
-
-type OutboundActionSender interface {
-	SendMessage(context.Context, onebot11.OutboundMessageSend) (onebot11.SendMessageResult, error)
-	SendReply(context.Context, onebot11.OutboundMessageReply) (onebot11.SendMessageResult, error)
-}
 
 type MetadataEnricher interface {
 	EnrichEventMetadata(context.Context, onebot11.NormalizedEvent) onebot11.NormalizedEvent
 }
 
-type Deps struct {
+type IngressDeps struct {
 	CurrentConfig    func() config.Config
 	Logger           *slog.Logger
 	Plugins          *plugincatalog.Catalog
 	ReplyTargets     *outbound.ReplyTargetCache
-	OutboundSender   OutboundActionSender
+	OutboundSender   OutboundSender
 	OutboundLimiter  outbound.MessageLimiter
-	Renderer         *renderservice.Service
 	Menu             *menuext.Service
 	Bridge           *bridge.Bridge
 	Lifecycle        *pluginservice.Controller
@@ -42,46 +34,30 @@ type Deps struct {
 	BlacklistRepo    permission.BlacklistRepository
 }
 
-type Service struct {
-	currentConfig    func() config.Config
-	logger           *slog.Logger
-	plugins          *plugincatalog.Catalog
+type Ingress struct {
 	replyTargets     *outbound.ReplyTargetCache
-	outboundSender   OutboundActionSender
 	outboundLimiter  outbound.MessageLimiter
-	renderer         *renderservice.Service
 	menu             *menuext.Service
 	bridge           *bridge.Bridge
 	lifecycle        *pluginservice.Controller
 	metadataEnricher MetadataEnricher
-	policy           *chatpolicy.Service
-	whitelistRepo    permission.WhitelistRepository
-	whitelistState   permission.WhitelistStateRepository
-	blacklistRepo    permission.BlacklistRepository
+	policy           *Service
 }
 
-func New(deps Deps) *Service {
+func NewIngress(deps IngressDeps) *Ingress {
 	currentConfig := deps.CurrentConfig
 	if currentConfig == nil {
 		currentConfig = func() config.Config { return config.Config{} }
 	}
-	service := &Service{
-		currentConfig:    currentConfig,
-		logger:           deps.Logger,
-		plugins:          deps.Plugins,
+	service := &Ingress{
 		replyTargets:     deps.ReplyTargets,
-		outboundSender:   deps.OutboundSender,
 		outboundLimiter:  deps.OutboundLimiter,
-		renderer:         deps.Renderer,
 		menu:             deps.Menu,
 		bridge:           deps.Bridge,
 		lifecycle:        deps.Lifecycle,
 		metadataEnricher: deps.MetadataEnricher,
-		whitelistRepo:    deps.WhitelistRepo,
-		whitelistState:   deps.WhitelistState,
-		blacklistRepo:    deps.BlacklistRepo,
 	}
-	service.policy = chatpolicy.New(chatpolicy.Deps{
+	service.policy = New(Deps{
 		CurrentConfig:   currentConfig,
 		Plugins:         deps.Plugins,
 		Menu:            deps.Menu,
@@ -96,7 +72,7 @@ func New(deps Deps) *Service {
 	return service
 }
 
-func (s *Service) UpdateConfig(cfg config.Config) {
+func (s *Ingress) UpdateConfig(cfg config.Config) {
 	if s == nil {
 		return
 	}
@@ -105,7 +81,7 @@ func (s *Service) UpdateConfig(cfg config.Config) {
 	}
 }
 
-func (s *Service) ApplyChatPolicy(ctx context.Context, event onebot11.NormalizedEvent) (onebot11.NormalizedEvent, bool) {
+func (s *Ingress) ApplyChatPolicy(ctx context.Context, event onebot11.NormalizedEvent) (onebot11.NormalizedEvent, bool) {
 	if s == nil || s.policy == nil {
 		return event, true
 	}
@@ -113,21 +89,21 @@ func (s *Service) ApplyChatPolicy(ctx context.Context, event onebot11.Normalized
 	return s.policy.Apply(ctx, event)
 }
 
-func (s *Service) EnrichCommandEvent(event onebot11.NormalizedEvent) onebot11.NormalizedEvent {
+func (s *Ingress) EnrichCommandEvent(event onebot11.NormalizedEvent) onebot11.NormalizedEvent {
 	if s == nil || s.policy == nil {
 		return event
 	}
 	return s.policy.EnrichCommandEvent(event)
 }
 
-func (s *Service) CommandInfoForEvent(event onebot11.NormalizedEvent) *permission.CommandInfo {
+func (s *Ingress) CommandInfoForEvent(event onebot11.NormalizedEvent) *permission.CommandInfo {
 	if s == nil || s.policy == nil {
 		return nil
 	}
 	return s.policy.CommandInfoForEvent(event)
 }
 
-func (s *Service) SetBridge(eventBridge *bridge.Bridge) {
+func (s *Ingress) SetBridge(eventBridge *bridge.Bridge) {
 	if s == nil {
 		return
 	}
@@ -137,13 +113,13 @@ func (s *Service) SetBridge(eventBridge *bridge.Bridge) {
 	}
 }
 
-func (s *Service) SetMetadataEnricher(enricher MetadataEnricher) {
+func (s *Ingress) SetMetadataEnricher(enricher MetadataEnricher) {
 	if s != nil {
 		s.metadataEnricher = enricher
 	}
 }
 
-func (s *Service) SetOutboundLimiter(limiter outbound.MessageLimiter) {
+func (s *Ingress) SetOutboundLimiter(limiter outbound.MessageLimiter) {
 	if s == nil {
 		return
 	}
@@ -153,9 +129,51 @@ func (s *Service) SetOutboundLimiter(limiter outbound.MessageLimiter) {
 	}
 }
 
-func (s *Service) Policy() *chatpolicy.Service {
+func (s *Ingress) Policy() *Service {
 	if s == nil {
 		return nil
 	}
 	return s.policy
+}
+
+func (s *Ingress) HandleAdapterEvent(ctx context.Context, event onebot11.NormalizedEvent) {
+	if s == nil {
+		return
+	}
+	event = s.enrichEventMetadata(ctx, event)
+	if s.replyTargets != nil {
+		s.replyTargets.Record(event)
+	}
+
+	enriched, allowed := s.ApplyChatPolicy(ctx, event)
+	if !allowed {
+		return
+	}
+
+	if s.menu != nil && s.menu.Handle(ctx, enriched) {
+		return
+	}
+
+	if s.lifecycle != nil {
+		s.lifecycle.HandleAdapterBotID(ctx, event.BotID)
+	}
+
+	if s.bridge != nil {
+		s.bridge.HandleAdapterEvent(ctx, enriched)
+	}
+}
+
+func (s *Ingress) enrichEventMetadata(ctx context.Context, event onebot11.NormalizedEvent) onebot11.NormalizedEvent {
+	if s == nil || s.metadataEnricher == nil {
+		return event
+	}
+	return s.metadataEnricher.EnrichEventMetadata(ctx, event)
+}
+
+func (s *Ingress) HandleAdapterReady(ctx context.Context) {
+	if s == nil || s.lifecycle == nil {
+		return
+	}
+
+	s.lifecycle.HandleAdapterReady(ctx)
 }
