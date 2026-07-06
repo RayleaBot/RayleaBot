@@ -141,28 +141,28 @@ func NewRuntime(repoRoot string) *Runtime {
 }
 
 func (r *Runtime) ResolveEntrypoint(ctx context.Context, kind, name string) (string, error) {
-	if r == nil || r.manager == nil {
+	if r.manager == nil {
 		return "", errManagerRequired()
 	}
 	return r.manager.ResolveEntrypoint(ctx, kind, name)
 }
 
 func (r *Runtime) ResolvePreparedEntrypoint(kind, name string) (string, error) {
-	if r == nil || r.manager == nil {
+	if r.manager == nil {
 		return "", errManagerRequired()
 	}
 	return r.manager.ResolvePreparedEntrypoint(kind, name)
 }
 
 func (r *Runtime) PrepareWithReport(ctx context.Context, kind string) (*PrepareReport, error) {
-	if r == nil || r.manager == nil {
+	if r.manager == nil {
 		return nil, errManagerRequired()
 	}
 	return r.manager.PrepareWithReport(ctx, kind)
 }
 
 func (r *Runtime) PrepareWithReportOptions(ctx context.Context, kind string, options PrepareOptions) (*PrepareReport, error) {
-	if r == nil || r.manager == nil {
+	if r.manager == nil {
 		return nil, errManagerRequired()
 	}
 	return r.manager.PrepareWithReportOptions(ctx, kind, options)
@@ -178,7 +178,7 @@ func NewDiagnostics(repoRoot string) *Diagnostics {
 }
 
 func (d *Diagnostics) InspectRuntime(kind string) (*BootstrapInspection, error) {
-	if d == nil || d.manager == nil {
+	if d.manager == nil {
 		return nil, errManagerRequired()
 	}
 	return d.manager.Inspect(kind)

@@ -147,7 +147,7 @@ func NewSystemRoutes(handlers *SystemHandlers, metrics http.Handler) SystemRoute
 }
 
 func (h *SystemHandlers) CurrentReadiness() health.ReadinessReport {
-	if h == nil || h.system == nil {
+	if h.system == nil {
 		return health.ReadinessReport{Status: "failed", Reason: "system service unavailable"}
 	}
 	return h.system.CurrentReadiness()
@@ -155,7 +155,7 @@ func (h *SystemHandlers) CurrentReadiness() health.ReadinessReport {
 
 func (h *SystemHandlers) HandleSystemBackup() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if h == nil || h.system == nil {
+		if h.system == nil {
 			httpapi.WriteError(w, r, http.StatusInternalServerError, systemCodeInternalError, "内部错误", "errors.platform.internal_error", nil)
 			return
 		}
@@ -172,7 +172,7 @@ func (h *SystemHandlers) HandleSystemBackup() http.HandlerFunc {
 
 func (h *SystemHandlers) HandleSystemDiagnostics() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if h == nil || h.system == nil {
+		if h.system == nil {
 			httpapi.WriteError(w, r, http.StatusInternalServerError, systemCodeInternalError, "内部错误", "errors.platform.internal_error", nil)
 			return
 		}
@@ -182,7 +182,7 @@ func (h *SystemHandlers) HandleSystemDiagnostics() http.HandlerFunc {
 
 func (h *SystemHandlers) HandleSystemDiagnosticsExport() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if h == nil || h.system == nil {
+		if h.system == nil {
 			httpapi.WriteError(w, r, http.StatusInternalServerError, systemCodeInternalError, "内部错误", "errors.platform.internal_error", nil)
 			return
 		}
@@ -201,7 +201,7 @@ func (h *SystemHandlers) HandleSystemDiagnosticsExport() http.HandlerFunc {
 
 func (h *SystemHandlers) HandleSystemRuntimeBootstrap() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if h == nil || h.system == nil {
+		if h.system == nil {
 			httpapi.WriteError(w, r, http.StatusInternalServerError, systemCodeInternalError, "内部错误", "errors.platform.internal_error", nil)
 			return
 		}

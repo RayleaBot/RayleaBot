@@ -62,7 +62,7 @@ func (s *Stream) Snapshot(pluginID string) []Entry {
 }
 
 func (s *Stream) Append(entry Entry) {
-	if s == nil || entry.PluginID == "" || entry.Stream == "" || entry.Text == "" {
+	if entry.PluginID == "" || entry.Stream == "" || entry.Text == "" {
 		return
 	}
 

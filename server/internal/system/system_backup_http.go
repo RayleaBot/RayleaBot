@@ -15,7 +15,7 @@ import (
 )
 
 func (s *Service) SubmitSystemBackupTask() (string, error) {
-	if s == nil || s.taskExecutor == nil {
+	if s.taskExecutor == nil {
 		return "", errSystemTaskUnavailable
 	}
 	return s.taskExecutor.Submit("backup.create", "创建在线备份", func(ctx context.Context, progress tasks.ProgressReporter) (*tasks.ResultSummary, error) {

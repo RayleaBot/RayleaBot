@@ -41,66 +41,42 @@ type appRuntimeState struct {
 }
 
 func (s *appRuntimeState) CurrentConfig() config.Config {
-	if s == nil {
-		return config.Config{}
-	}
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	return s.config
 }
 
 func (s *appRuntimeState) CurrentSummary() config.Summary {
-	if s == nil {
-		return config.Summary{}
-	}
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	return s.summary
 }
 
 func (s *appRuntimeState) SetConfig(cfg config.Config) {
-	if s == nil {
-		return
-	}
 	s.mu.Lock()
 	s.config = cfg
 	s.mu.Unlock()
 }
 
 func (s *appRuntimeState) SetSummary(summary config.Summary) {
-	if s == nil {
-		return
-	}
 	s.mu.Lock()
 	s.summary = summary
 	s.mu.Unlock()
 }
 
 func (s *appRuntimeState) RuntimeLogger() *slog.Logger {
-	if s == nil {
-		return nil
-	}
 	return s.Logger
 }
 
 func (s *appRuntimeState) RuntimeLogLevel() *logging.LevelController {
-	if s == nil {
-		return nil
-	}
 	return s.LogLevel
 }
 
 func (s *appRuntimeState) RepoRoot() string {
-	if s == nil {
-		return ""
-	}
 	return s.repoRoot
 }
 
 func (s *appRuntimeState) StartedAt() time.Time {
-	if s == nil {
-		return time.Time{}
-	}
 	return s.startedAt
 }
 
@@ -109,7 +85,7 @@ func (s *appRuntimeState) RedactString(value string) string {
 }
 
 func (s *appRuntimeState) AddRedactionValues(values ...string) {
-	if s == nil || s.addRedactionValues == nil {
+	if s.addRedactionValues == nil {
 		return
 	}
 	s.addRedactionValues(values...)
@@ -209,9 +185,6 @@ func (a *App) clearRunCancel() {
 }
 
 func (a *App) requestShutdown() {
-	if a == nil {
-		return
-	}
 
 	a.process.shuttingDown.Store(true)
 	a.process.shutdownOnce.Do(func() {
@@ -245,21 +218,15 @@ func newRunSupervisor(parent context.Context) *runSupervisor {
 }
 
 func (s *runSupervisor) Context() context.Context {
-	if s == nil {
-		return context.Background()
-	}
 	return s.ctx
 }
 
 func (s *runSupervisor) Cancel() {
-	if s == nil {
-		return
-	}
 	s.cancel()
 }
 
 func (s *runSupervisor) Go(run func(context.Context) error) {
-	if s == nil || run == nil {
+	if run == nil {
 		return
 	}
 	go func() {
@@ -270,7 +237,7 @@ func (s *runSupervisor) Go(run func(context.Context) error) {
 }
 
 func (s *runSupervisor) GoCritical(run func(context.Context) error) {
-	if s == nil || run == nil {
+	if run == nil {
 		return
 	}
 	go func() {
@@ -281,7 +248,7 @@ func (s *runSupervisor) GoCritical(run func(context.Context) error) {
 }
 
 func (s *runSupervisor) report(err error) {
-	if s == nil || err == nil {
+	if err == nil {
 		return
 	}
 	s.once.Do(func() {
@@ -290,16 +257,11 @@ func (s *runSupervisor) report(err error) {
 }
 
 func (s *runSupervisor) Errors() <-chan error {
-	if s == nil {
-		ch := make(chan error)
-		close(ch)
-		return ch
-	}
 	return s.errCh
 }
 
 func (s *appRuntimeState) redactString(value string) string {
-	if s == nil || s.redactText == nil {
+	if s.redactText == nil {
 		return value
 	}
 	return s.redactText(value)

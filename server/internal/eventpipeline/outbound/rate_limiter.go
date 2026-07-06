@@ -49,9 +49,6 @@ func NewMessageRateLimiter(cfg config.Config) *MessageRateLimiter {
 
 // ApplyConfig refreshes limiter settings from the latest saved config.
 func (l *MessageRateLimiter) ApplyConfig(cfg config.Config) {
-	if l == nil {
-		return
-	}
 
 	pluginLimit := parseOutboundRateLimit(cfg.Message.RateLimitPerPlugin, defaultMessageRateLimitPerPlugin)
 	targetLimit := parseOutboundRateLimit(cfg.Message.RateLimitPerTarget, defaultMessageRateLimitPerTarget)
@@ -68,9 +65,6 @@ func (l *MessageRateLimiter) ApplyConfig(cfg config.Config) {
 // Wait blocks in FIFO order until the message can be sent or the configured
 // wait limit is reached.
 func (l *MessageRateLimiter) Wait(ctx context.Context, request MessageLimitRequest) error {
-	if l == nil {
-		return nil
-	}
 
 	l.mu.RLock()
 	maxWait := l.maxWait

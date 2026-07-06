@@ -50,7 +50,7 @@ func CreateSnapshot(ctx context.Context, databasePath string) (string, error) {
 }
 
 func (s *Store) CreateSnapshot(ctx context.Context) (string, error) {
-	if s == nil || s.Write == nil {
+	if s.Write == nil {
 		return "", fmt.Errorf("sqlite store is required")
 	}
 	return createSnapshot(ctx, s.Write, s.Path, defaultSnapshotRetention)

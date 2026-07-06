@@ -16,6 +16,7 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
 	"github.com/RayleaBot/RayleaBot/server/internal/tasks"
+	"github.com/RayleaBot/RayleaBot/server/internal/testenv"
 )
 
 func TestInstallServiceInstallsLocalDirectoryAndRefreshesCatalog(t *testing.T) {
@@ -523,7 +524,7 @@ func newInstallTestService(t *testing.T, repoRoot string, registry *tasks.Regist
 }
 
 func installServiceTimeout() time.Duration {
-	if testing.CoverMode() != "" || testRaceEnabled {
+	if testing.CoverMode() != "" || testenv.RaceEnabled {
 		return 20 * time.Second
 	}
 	return 15 * time.Second
@@ -777,7 +778,7 @@ func waitForTaskCompletion(t *testing.T, registry *tasks.Registry, taskID string
 }
 
 func taskCompletionTimeout() time.Duration {
-	if testing.CoverMode() != "" || testRaceEnabled {
+	if testing.CoverMode() != "" || testenv.RaceEnabled {
 		return 20 * time.Second
 	}
 	return 15 * time.Second

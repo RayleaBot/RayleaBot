@@ -152,9 +152,6 @@ func (c *SessionClient) SignURL(ctx context.Context, rawURL, cookie string) (str
 }
 
 func (c *SessionClient) InvalidateWBI() {
-	if c == nil {
-		return
-	}
 	c.mu.Lock()
 	c.wbi = wbiKeyCache{}
 	c.ticket.WBI = wbiKeyCache{}

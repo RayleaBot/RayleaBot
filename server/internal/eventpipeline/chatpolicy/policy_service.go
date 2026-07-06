@@ -89,9 +89,6 @@ func New(deps Deps) *Service {
 }
 
 func (s *Service) UpdateConfig(cfg config.Config) {
-	if s == nil {
-		return
-	}
 	settings := ResolveConfig(cfg)
 	previous := s.engine.Load()
 
@@ -123,9 +120,6 @@ func (s *Service) UpdateConfig(cfg config.Config) {
 }
 
 func (s *Service) currentEngine() *policyEngine {
-	if s == nil {
-		return nil
-	}
 	return s.engine.Load()
 }
 
@@ -146,14 +140,11 @@ func (s *Service) PermissionChecker() *permission.Checker {
 }
 
 func (s *Service) SetOutboundLimiter(limiter outbound.MessageLimiter) {
-	if s == nil {
-		return
-	}
 	s.outboundLimiter = limiter
 }
 
 func (s *Service) config() config.Config {
-	if s == nil || s.currentConfig == nil {
+	if s.currentConfig == nil {
 		return config.Config{}
 	}
 	return s.currentConfig()
@@ -267,7 +258,7 @@ func ResolveConfig(cfg config.Config) ConfigSnapshot {
 }
 
 func (s *Service) logCommandPolicyRejection(event onebot11.NormalizedEvent, verdict permission.Verdict, commandContext *commandPolicyContext) {
-	if s == nil || s.bridge == nil || commandContext == nil {
+	if s.bridge == nil || commandContext == nil {
 		return
 	}
 

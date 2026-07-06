@@ -69,9 +69,6 @@ func New(deps Deps) *Service {
 }
 
 func (s *Service) SetRefreshPluginCommands(refresh func(context.Context, string, map[string]any)) {
-	if s == nil {
-		return
-	}
 	if s.runtimeHooks == nil {
 		s.runtimeHooks = &runtimeHooks{}
 	}
@@ -79,9 +76,6 @@ func (s *Service) SetRefreshPluginCommands(refresh func(context.Context, string,
 }
 
 func (s *Service) SetWebhookGateway(gateway WebhookGateway) {
-	if s == nil {
-		return
-	}
 	if s.runtimeHooks == nil {
 		s.runtimeHooks = &runtimeHooks{}
 	}

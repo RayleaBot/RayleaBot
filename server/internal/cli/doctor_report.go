@@ -5,6 +5,7 @@ import (
 	"os"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
+	"github.com/RayleaBot/RayleaBot/server/internal/deps"
 	"github.com/RayleaBot/RayleaBot/server/internal/recovery"
 	"github.com/RayleaBot/RayleaBot/server/internal/storage"
 )
@@ -119,8 +120,8 @@ func BuildDoctorReport(cmd Command) DoctorReport {
 		}
 	}
 
-	currentPlatform := currentManifestPlatform()
-	if manifest, err := loadDepsManifest(repoRoot); err != nil {
+	currentPlatform := deps.CurrentPlatform()
+	if manifest, err := deps.LoadManifest(repoRoot); err != nil {
 		issues = append(issues, depsManifestDoctorIssues(err)...)
 	} else {
 		issues = append(issues, depsManifestPlatformIssue(manifest, currentPlatform))
@@ -154,8 +155,8 @@ func depsManifestDoctorIssues(err error) []DoctorIssue {
 	}}
 }
 
-func depsManifestPlatformIssue(manifest *depsManifest, platform string) DoctorIssue {
-	if manifest.hasPlatform(platform) {
+func depsManifestPlatformIssue(manifest *deps.Manifest, platform string) DoctorIssue {
+	if manifest.HasPlatform(platform) {
 		return DoctorIssue{
 			Code:     "deps.manifest",
 			Severity: "ok",

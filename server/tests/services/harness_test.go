@@ -189,19 +189,28 @@ func (a *serviceHarness) setTestEventIngressWithGovernance(catalog *plugincatalo
 		},
 		Logger: a.state.Logger,
 	})
-	a.services.EventIngress = chatpolicy.NewIngress(chatpolicy.IngressDeps{
-		CurrentConfig:    a.state.CurrentConfig,
-		Logger:           a.state.Logger,
-		Plugins:          catalog,
-		OutboundSender:   sender,
-		OutboundLimiter:  a.eventStack.OutboundLimiter,
-		Menu:             menuService,
-		Bridge:           eventBridge,
-		MetadataEnricher: a.eventStack.Adapter,
-		WhitelistRepo:    whitelistRepo,
-		WhitelistState:   whitelistState,
-		BlacklistRepo:    blacklistRepo,
-	})
+	ingressDeps := chatpolicy.IngressDeps{
+		CurrentConfig:  a.state.CurrentConfig,
+		Logger:         a.state.Logger,
+		Plugins:        catalog,
+		OutboundSender: sender,
+		Menu:           menuService,
+		WhitelistRepo:  whitelistRepo,
+		WhitelistState: whitelistState,
+		BlacklistRepo:  blacklistRepo,
+	}
+	// Assign concrete pointers only when non-nil so interface deps stay nil
+	// instead of holding typed nils.
+	if eventBridge != nil {
+		ingressDeps.Bridge = eventBridge
+	}
+	if a.eventStack.Adapter != nil {
+		ingressDeps.MetadataEnricher = a.eventStack.Adapter
+	}
+	if a.eventStack.OutboundLimiter != nil {
+		ingressDeps.OutboundLimiter = a.eventStack.OutboundLimiter
+	}
+	a.services.EventIngress = chatpolicy.NewIngress(ingressDeps)
 }
 
 func (a *serviceHarness) setTestLocalActions(capabilities localaction.CapabilityView, pluginConfigRepo pluginstore.ConfigRepository, pluginFiles *pluginstore.FileService, pluginKV pluginstore.KVRepository, schedulerEngine *scheduler.Engine, dispatcher *dispatch.Dispatcher, rendererService *renderservice.Service, adapterShell *onebot11.Shell, limiter *localaction.PluginLogLimiter, webhookService *pluginwebhook.Service) {
@@ -322,8 +331,12 @@ func applyConfigApplyEffects(app *serviceHarness, newCfg config.Config) configru
 		AddRedactionValues: app.state.AddRedactionValues,
 		Renderer:           app.renderStack.Renderer,
 		PluginLogLimiter:   app.pluginStack.PluginLogLimiter,
-		OutboundLimiter:    app.eventStack.OutboundLimiter,
-		EventIngress:       app.services.EventIngress,
+	}
+	if app.eventStack.OutboundLimiter != nil {
+		deps.OutboundLimiter = app.eventStack.OutboundLimiter
+	}
+	if app.services.EventIngress != nil {
+		deps.EventIngress = app.services.EventIngress
 	}
 	if app.services.Protocol != nil {
 		deps.Protocol = app.services.Protocol

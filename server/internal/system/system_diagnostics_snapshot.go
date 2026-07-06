@@ -82,7 +82,7 @@ func (s *Service) DiagnosticsSnapshot(ctx context.Context) DiagnosticsSnapshot {
 }
 
 func (s *Service) pluginCount() int {
-	if s == nil || s.plugins == nil {
+	if s.plugins == nil {
 		return 0
 	}
 	return len(s.plugins.List())
@@ -93,7 +93,7 @@ func (s *Service) diagnosticsDatabase(ctx context.Context) (DiagnosticsDatabase,
 		SchemaVersion:     s.dbSchemaVersion(),
 		AppliedMigrations: []DiagnosticsMigration{},
 	}
-	if s == nil || s.storage == nil || s.storage.Read == nil {
+	if s.storage == nil || s.storage.Read == nil {
 		return result, []health.DiagnosticIssue{{
 			Code:        "storage.schema_migrations_unavailable",
 			Severity:    "warning",
@@ -135,14 +135,14 @@ func (s *Service) diagnosticsRender() DiagnosticsIssueGroup {
 }
 
 func (s *Service) diagnosticsThirdParty(ctx context.Context) (DiagnosticsThirdParty, []health.DiagnosticIssue) {
-	if s == nil || s.thirdParty == nil {
+	if s.thirdParty == nil {
 		return DiagnosticsThirdParty{Platforms: []DiagnosticsThirdPartyPlatform{}}, nil
 	}
 	return s.thirdParty.DiagnosticsThirdParty(ctx)
 }
 
 func (s *Service) diagnosticsScheduler() DiagnosticsScheduler {
-	if s == nil || s.scheduler == nil {
+	if s.scheduler == nil {
 		return DiagnosticsScheduler{}
 	}
 	return s.scheduler.DiagnosticsScheduler()
@@ -150,7 +150,7 @@ func (s *Service) diagnosticsScheduler() DiagnosticsScheduler {
 
 func (s *Service) diagnosticsTasks() DiagnosticsTaskSummary {
 	result := DiagnosticsTaskSummary{}
-	if s == nil || s.taskExecutor == nil {
+	if s.taskExecutor == nil {
 		return result
 	}
 	for _, task := range s.taskExecutor.List() {
@@ -167,7 +167,7 @@ func (s *Service) diagnosticsTasks() DiagnosticsTaskSummary {
 }
 
 func (s *Service) diagnosticsDependencies() ([]DiagnosticsDependency, []health.DiagnosticIssue) {
-	if s == nil || strings.TrimSpace(s.repoRootPath()) == "" {
+	if strings.TrimSpace(s.repoRootPath()) == "" {
 		return []DiagnosticsDependency{}, nil
 	}
 	diagnostics := deps.NewDiagnostics(s.repoRootPath())
@@ -258,7 +258,7 @@ func pathPermission(label, path string) DiagnosticsPathPermission {
 }
 
 func (s *Service) diagnosticsRecentErrors(ctx context.Context) ([]logging.Summary, []health.DiagnosticIssue) {
-	if s == nil || s.logRepository == nil {
+	if s.logRepository == nil {
 		return []logging.Summary{}, nil
 	}
 	items, err := s.logRepository.ListSummaries(ctx, logging.Query{Levels: []string{"error"}, Limit: 20})

@@ -304,7 +304,7 @@ func (p *Provider) LoginIDPrefix() string {
 }
 
 func (p *Provider) Create(ctx context.Context, now time.Time) (thirdparty.QRLoginSession, error) {
-	if p == nil || p.service == nil {
+	if p.service == nil {
 		return thirdparty.QRLoginSession{}, thirdparty.ErrQRLoginUnsupportedPlatform
 	}
 	session, err := p.service.createRemoteSession(ctx, now)
@@ -321,7 +321,7 @@ func (p *Provider) Create(ctx context.Context, now time.Time) (thirdparty.QRLogi
 }
 
 func (p *Provider) Poll(ctx context.Context, session thirdparty.QRLoginSession, now time.Time) (thirdparty.QRLoginSession, error) {
-	if p == nil || p.service == nil {
+	if p.service == nil {
 		return thirdparty.QRLoginSession{}, thirdparty.ErrQRLoginUnsupportedPlatform
 	}
 	if now.After(session.ExpiresAt) && session.State != thirdparty.QRLoginStateSucceeded {

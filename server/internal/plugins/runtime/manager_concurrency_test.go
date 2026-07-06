@@ -12,6 +12,8 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/RayleaBot/RayleaBot/server/internal/testenv"
 )
 
 func TestManagerDeliverEventConcurrentSessionsDoNotBlockOnSlowLocalAction(t *testing.T) {
@@ -840,7 +842,6 @@ func assertRuntimeErrorCode(t *testing.T, err error, want string) {
 	}
 }
 
-
 func recordedFrames(t *testing.T, path string) []map[string]any {
 	t.Helper()
 
@@ -880,7 +881,7 @@ func waitForRuntimeState(t *testing.T, manager *Manager, want State) {
 }
 
 func runtimeTestDuration(base time.Duration) time.Duration {
-	if testing.CoverMode() != "" || testRaceEnabled {
+	if testing.CoverMode() != "" || testenv.RaceEnabled {
 		return base * 3
 	}
 	return base

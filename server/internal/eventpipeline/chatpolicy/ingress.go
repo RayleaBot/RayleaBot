@@ -57,32 +57,34 @@ func NewIngress(deps IngressDeps) *Ingress {
 		lifecycle:        deps.Lifecycle,
 		metadataEnricher: deps.MetadataEnricher,
 	}
-	service.policy = New(Deps{
+	policyDeps := Deps{
 		CurrentConfig:   currentConfig,
 		Plugins:         deps.Plugins,
 		Menu:            deps.Menu,
-		Bridge:          deps.Bridge,
 		OutboundSender:  deps.OutboundSender,
 		OutboundLimiter: deps.OutboundLimiter,
 		Logger:          deps.Logger,
 		WhitelistRepo:   deps.WhitelistRepo,
 		WhitelistState:  deps.WhitelistState,
 		BlacklistRepo:   deps.BlacklistRepo,
-	})
+	}
+	// Assign the concrete bridge only when non-nil so the interface dep stays
+	// nil instead of holding a typed nil.
+	if deps.Bridge != nil {
+		policyDeps.Bridge = deps.Bridge
+	}
+	service.policy = New(policyDeps)
 	return service
 }
 
 func (s *Ingress) UpdateConfig(cfg config.Config) {
-	if s == nil {
-		return
-	}
 	if s.policy != nil {
 		s.policy.UpdateConfig(cfg)
 	}
 }
 
 func (s *Ingress) ApplyChatPolicy(ctx context.Context, event onebot11.NormalizedEvent) (onebot11.NormalizedEvent, bool) {
-	if s == nil || s.policy == nil {
+	if s.policy == nil {
 		return event, true
 	}
 	s.policy.SetOutboundLimiter(s.outboundLimiter)
@@ -90,14 +92,14 @@ func (s *Ingress) ApplyChatPolicy(ctx context.Context, event onebot11.Normalized
 }
 
 func (s *Ingress) EnrichCommandEvent(event onebot11.NormalizedEvent) onebot11.NormalizedEvent {
-	if s == nil || s.policy == nil {
+	if s.policy == nil {
 		return event
 	}
 	return s.policy.EnrichCommandEvent(event)
 }
 
 func (s *Ingress) CommandInfoForEvent(event onebot11.NormalizedEvent) *permission.CommandInfo {
-	if s == nil || s.policy == nil {
+	if s.policy == nil {
 		return nil
 	}
 	return s.policy.CommandInfoForEvent(event)
@@ -110,9 +112,6 @@ func (s *Ingress) SetMetadataEnricher(enricher MetadataEnricher) {
 }
 
 func (s *Ingress) SetOutboundLimiter(limiter outbound.MessageLimiter) {
-	if s == nil {
-		return
-	}
 	s.outboundLimiter = limiter
 	if s.policy != nil {
 		s.policy.SetOutboundLimiter(limiter)
@@ -120,16 +119,10 @@ func (s *Ingress) SetOutboundLimiter(limiter outbound.MessageLimiter) {
 }
 
 func (s *Ingress) Policy() *Service {
-	if s == nil {
-		return nil
-	}
 	return s.policy
 }
 
 func (s *Ingress) HandleAdapterEvent(ctx context.Context, event onebot11.NormalizedEvent) {
-	if s == nil {
-		return
-	}
 	event = s.enrichEventMetadata(ctx, event)
 	if s.replyTargets != nil {
 		s.replyTargets.Record(event)
@@ -154,14 +147,14 @@ func (s *Ingress) HandleAdapterEvent(ctx context.Context, event onebot11.Normali
 }
 
 func (s *Ingress) enrichEventMetadata(ctx context.Context, event onebot11.NormalizedEvent) onebot11.NormalizedEvent {
-	if s == nil || s.metadataEnricher == nil {
+	if s.metadataEnricher == nil {
 		return event
 	}
 	return s.metadataEnricher.EnrichEventMetadata(ctx, event)
 }
 
 func (s *Ingress) HandleAdapterReady(ctx context.Context) {
-	if s == nil || s.lifecycle == nil {
+	if s.lifecycle == nil {
 		return
 	}
 

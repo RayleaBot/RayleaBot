@@ -61,7 +61,7 @@ type authSessionService interface {
 }
 
 func (h *AuthHandlers) currentConfig() AuthConfig {
-	if h == nil || h.config == nil {
+	if h.config == nil {
 		return AuthConfig{}
 	}
 	return h.config.AuthConfig()

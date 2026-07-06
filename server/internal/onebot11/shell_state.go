@@ -143,9 +143,6 @@ func DetectProvider(appName string) string {
 }
 
 func (s *Shell) CurrentBotID() string {
-	if s == nil {
-		return ""
-	}
 	snapshot := s.Snapshot()
 	if snapshot.State != StateConnected {
 		return ""
@@ -154,9 +151,6 @@ func (s *Shell) CurrentBotID() string {
 }
 
 func (s *Shell) CurrentState() string {
-	if s == nil {
-		return string(StateIdle)
-	}
 	state := s.Snapshot().State
 	if state == "" {
 		return string(StateIdle)
@@ -165,8 +159,5 @@ func (s *Shell) CurrentState() string {
 }
 
 func (s *Shell) DetectedProvider() string {
-	if s == nil {
-		return ProviderUnknown
-	}
 	return s.Snapshot().DetectedProvider()
 }

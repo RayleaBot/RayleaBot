@@ -292,16 +292,10 @@ func (s *InstallService) Cancel(taskID string) bool {
 }
 
 func (s *InstallService) SetAfterSuccess(fn func(context.Context, string) error) {
-	if s == nil {
-		return
-	}
 	s.afterSuccess = fn
 }
 
 func (s *InstallService) SetRenderTemplateValidator(fn func(plugins.Snapshot) error) {
-	if s == nil {
-		return
-	}
 	s.validateRenderTemplates = fn
 }
 

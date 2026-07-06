@@ -104,14 +104,14 @@ func IsEntryType(value string) bool {
 }
 
 func (s *Service) currentCfg() config.Config {
-	if s == nil || s.currentConfig == nil {
+	if s.currentConfig == nil {
 		return config.Config{}
 	}
 	return s.currentConfig()
 }
 
 func (s *Service) notify(summary string) {
-	if s == nil || s.notifyChanged == nil {
+	if s.notifyChanged == nil {
 		return
 	}
 	s.notifyChanged(strings.TrimSpace(summary))
@@ -135,7 +135,7 @@ func validEntryDeleteInput(entryType, targetID string) bool {
 }
 
 func (s *Service) ReadBlacklist(ctx context.Context) (BlacklistSnapshot, error) {
-	if s == nil || s.blacklistRepo == nil {
+	if s.blacklistRepo == nil {
 		return BlacklistSnapshot{
 			UserEntries:  []EntryResponse{},
 			GroupEntries: []EntryResponse{},
@@ -164,7 +164,7 @@ func (s *Service) UpsertBlacklistEntry(ctx context.Context, entryType, targetID,
 	if !validEntryInput(entryType, targetID, reason) {
 		return EntryResponse{}, ErrInvalidRequest
 	}
-	if s == nil || s.blacklistRepo == nil {
+	if s.blacklistRepo == nil {
 		return EntryResponse{}, ErrServiceUnavailable
 	}
 
@@ -185,7 +185,7 @@ func (s *Service) DeleteBlacklistEntry(ctx context.Context, entryType, targetID 
 	if !validEntryDeleteInput(entryType, targetID) {
 		return ErrInvalidRequest
 	}
-	if s == nil || s.blacklistRepo == nil {
+	if s.blacklistRepo == nil {
 		return ErrServiceUnavailable
 	}
 
@@ -209,13 +209,6 @@ func buildBlacklistEntries(entries []permission.BlacklistEntry) []EntryResponse 
 }
 
 func (s *Service) ReadWhitelist(ctx context.Context) (WhitelistSnapshot, error) {
-	if s == nil {
-		return WhitelistSnapshot{
-			Enabled:      false,
-			UserEntries:  []EntryResponse{},
-			GroupEntries: []EntryResponse{},
-		}, nil
-	}
 
 	enabled, err := whitelistEnabled(ctx, s.whitelistState)
 	if err != nil {
@@ -234,7 +227,7 @@ func (s *Service) ReadWhitelist(ctx context.Context) (WhitelistSnapshot, error) 
 }
 
 func (s *Service) SetWhitelistEnabled(ctx context.Context, enabled bool) (WhitelistStateResponse, error) {
-	if s == nil || s.whitelistState == nil {
+	if s.whitelistState == nil {
 		return WhitelistStateResponse{}, ErrServiceUnavailable
 	}
 	if err := s.whitelistState.SetEnabled(ctx, enabled); err != nil {
@@ -251,7 +244,7 @@ func (s *Service) UpsertWhitelistEntry(ctx context.Context, entryType, targetID,
 	if !validEntryInput(entryType, targetID, reason) {
 		return EntryResponse{}, ErrInvalidRequest
 	}
-	if s == nil || s.whitelistRepo == nil {
+	if s.whitelistRepo == nil {
 		return EntryResponse{}, ErrServiceUnavailable
 	}
 
@@ -272,7 +265,7 @@ func (s *Service) DeleteWhitelistEntry(ctx context.Context, entryType, targetID 
 	if !validEntryDeleteInput(entryType, targetID) {
 		return ErrInvalidRequest
 	}
-	if s == nil || s.whitelistRepo == nil {
+	if s.whitelistRepo == nil {
 		return ErrServiceUnavailable
 	}
 

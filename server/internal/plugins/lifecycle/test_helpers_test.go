@@ -70,7 +70,7 @@ func (a *testApp) setTestLifecycle(catalog *plugincatalog.Catalog, desiredRepo p
 	if a == nil {
 		return
 	}
-	a.services.pluginLifecycle = NewController(Deps{
+	deps := Deps{
 		CurrentConfig:    a.state.CurrentConfig,
 		RepoRoot:         a.state.repoRoot,
 		Logger:           a.state.Logger,
@@ -79,10 +79,15 @@ func (a *testApp) setTestLifecycle(catalog *plugincatalog.Catalog, desiredRepo p
 		Runtimes:         runtimes,
 		Dispatcher:       dispatcher,
 		PluginConfig:     pluginConfigRepo,
-		Adapter:          adapterShell,
 		Webhooks:         webhooks,
 		Tasks:            a.platform.Tasks,
-	})
+	}
+	// Assign the adapter only when non-nil so the interface dep stays nil
+	// instead of holding a typed nil.
+	if adapterShell != nil {
+		deps.Adapter = adapterShell
+	}
+	a.services.pluginLifecycle = NewController(deps)
 }
 
 type testRuntimeRegistry struct {

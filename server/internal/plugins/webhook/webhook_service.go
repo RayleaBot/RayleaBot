@@ -104,9 +104,6 @@ func New(deps Deps) *Service {
 // protection outcome ("rejected", "grace_observed", "skew"). Optional; the
 // service runs without it when nil.
 func (s *Service) SetReplayMetrics(observer ReplayMetricsObserver) {
-	if s == nil {
-		return
-	}
 	s.metrics = observer
 }
 
@@ -124,18 +121,12 @@ func NewRegistry() *Registry {
 }
 
 func (r *Registry) Register(item Registration) {
-	if r == nil {
-		return
-	}
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.items[webhookKey(item.PluginID, item.Route)] = item
 }
 
 func (r *Registry) Get(pluginID, route string) (Registration, bool) {
-	if r == nil {
-		return Registration{}, false
-	}
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	item, ok := r.items[webhookKey(pluginID, route)]
@@ -143,9 +134,6 @@ func (r *Registry) Get(pluginID, route string) (Registration, bool) {
 }
 
 func (r *Registry) DeletePlugin(pluginID string) {
-	if r == nil {
-		return
-	}
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	prefix := pluginID + "\x00"
@@ -255,7 +243,7 @@ func (s *Service) evaluateReplayProtection(pluginID, route string, cfg ReplayPro
 }
 
 func (s *Service) recordReplayMetric(outcome string) {
-	if s == nil || s.metrics == nil {
+	if s.metrics == nil {
 		return
 	}
 	s.metrics.IncReplayObserved(outcome)
@@ -270,9 +258,6 @@ func newReplayCache() *replayCache {
 // before authentication; the authoritative duplicate decision is made
 // later by commitIfAbsent under a single critical section.
 func (c *replayCache) peek(key string, observedAt time.Time, ttl time.Duration) bool {
-	if c == nil {
-		return false
-	}
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
@@ -296,9 +281,6 @@ func (c *replayCache) peek(key string, observedAt time.Time, ttl time.Duration) 
 // commits; commitIfAbsent collapses both steps under one lock so replay
 // protection holds even under concurrent legitimate retries.
 func (c *replayCache) commitIfAbsent(key string, observedAt time.Time, ttl time.Duration) bool {
-	if c == nil {
-		return true
-	}
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
@@ -323,9 +305,6 @@ func (c *replayCache) purgeExpiredLocked(observedAt time.Time, ttl time.Duration
 
 // Reset drops every cached entry. Intended for tests.
 func (c *replayCache) Reset() {
-	if c == nil {
-		return
-	}
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	c.items = make(map[string]time.Time)

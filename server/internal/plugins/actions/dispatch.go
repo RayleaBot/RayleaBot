@@ -50,16 +50,13 @@ func NewRegistryWithRegistrars(deps Deps, registrars ...Registrar) *Registry {
 }
 
 func (r *Registry) Register(kind string, handler ActionHandler) {
-	if r == nil || kind == "" || handler == nil {
+	if kind == "" || handler == nil {
 		return
 	}
 	r.handlers[kind] = handler
 }
 
 func (r *Registry) Dispatch(ctx context.Context, req ActionRequest) (map[string]any, bool, error) {
-	if r == nil {
-		return nil, false, nil
-	}
 	handler, ok := r.handlers[req.Action.Kind]
 	if !ok {
 		return nil, false, nil

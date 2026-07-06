@@ -75,7 +75,7 @@ func newSchedulerHTTPService(system SchedulerMetadataService, scheduler Schedule
 
 func (h *SystemHandlers) HandleSystemSchedulerJobList() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if h == nil || h.scheduler == nil {
+		if h.scheduler == nil {
 			WriteSystemHTTPError(w, r, missingSchedulerJobHTTPError(""))
 			return
 		}
@@ -90,7 +90,7 @@ func (h *SystemHandlers) HandleSystemSchedulerJobList() http.HandlerFunc {
 }
 
 func (s *schedulerHTTPServiceImpl) ListJobs() (schedulerJobListResponse, bool) {
-	if s == nil || s.scheduler == nil {
+	if s.scheduler == nil {
 		return schedulerJobListResponse{}, false
 	}
 	jobs := s.scheduler.Jobs()
@@ -108,7 +108,7 @@ func (s *schedulerHTTPServiceImpl) ListJobs() (schedulerJobListResponse, bool) {
 }
 
 func (s *schedulerHTTPServiceImpl) TriggerJob(ctx context.Context, jobID string) (schedulerJobTriggerResponse, *SystemHTTPError) {
-	if s == nil || s.scheduler == nil {
+	if s.scheduler == nil {
 		return schedulerJobTriggerResponse{}, missingSchedulerJobHTTPError("")
 	}
 	job, err := s.scheduler.Trigger(ctx, jobID)
@@ -255,7 +255,7 @@ func strconvFormatFloat(value float64) string {
 
 func (h *SystemHandlers) HandleSystemSchedulerJobTrigger() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if h == nil || h.scheduler == nil {
+		if h.scheduler == nil {
 			WriteSystemHTTPError(w, r, missingSchedulerJobHTTPError(""))
 			return
 		}

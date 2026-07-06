@@ -11,7 +11,7 @@ import (
 const codeInvalidRequest = "platform.invalid_request"
 
 func (s *Service) SubmitRecoveryRecheckTask() (string, *Error) {
-	if s == nil || s.taskExecutor == nil {
+	if s.taskExecutor == nil {
 		return "", InternalError()
 	}
 
@@ -51,9 +51,6 @@ func (s *Service) SubmitRecoveryRecheckTask() (string, *Error) {
 }
 
 func (s *Service) ValidateRecoveryConfirmRequest(reviewIDs []string, note string) *Error {
-	if s == nil {
-		return InternalError()
-	}
 	summary, err := recovery.LoadSummary(s.repoRootPath())
 	if err != nil {
 		return InternalError()
@@ -72,7 +69,7 @@ func (s *Service) ValidateRecoveryConfirmRequest(reviewIDs []string, note string
 }
 
 func (s *Service) SubmitRecoveryConfirmTask(reviewIDs []string, note, operatorID string) (string, *Error) {
-	if s == nil || s.taskExecutor == nil {
+	if s.taskExecutor == nil {
 		return "", InternalError()
 	}
 	taskIDCh := make(chan string, 1)

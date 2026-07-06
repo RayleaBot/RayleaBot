@@ -160,7 +160,7 @@ func (s *Service) HandleWebhook() http.HandlerFunc {
 }
 
 func (s *Service) validateWebhookAuth(ctx context.Context, registration Registration, presented, timestampRaw, eventID string, body []byte) bool {
-	if s == nil || s.secrets == nil {
+	if s.secrets == nil {
 		return false
 	}
 	secretValue, err := s.secrets.Get(ctx, registration.SecretRef)

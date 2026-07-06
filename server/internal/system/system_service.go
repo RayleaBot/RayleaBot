@@ -252,23 +252,20 @@ func (s *Service) BindShutdownFlag(flag *atomic.Bool) {
 }
 
 func (s *Service) config() config.Config {
-	if s == nil || s.currentConfig == nil {
+	if s.currentConfig == nil {
 		return config.Config{}
 	}
 	return s.currentConfig()
 }
 
 func (s *Service) summary() config.Summary {
-	if s == nil || s.currentSummary == nil {
+	if s.currentSummary == nil {
 		return config.Summary{}
 	}
 	return s.currentSummary()
 }
 
 func (s *Service) repoRootPath() string {
-	if s == nil {
-		return ""
-	}
 	if s.currentRepoRoot != nil {
 		return s.currentRepoRoot()
 	}
@@ -276,9 +273,6 @@ func (s *Service) repoRootPath() string {
 }
 
 func (s *Service) startedAtValue() time.Time {
-	if s == nil {
-		return time.Time{}
-	}
 	if s.currentStartedAt != nil {
 		return s.currentStartedAt()
 	}
@@ -286,7 +280,7 @@ func (s *Service) startedAtValue() time.Time {
 }
 
 func (s *Service) currentLogger() *slog.Logger {
-	if s == nil || s.logger == nil {
+	if s.logger == nil {
 		return slog.Default()
 	}
 	return s.logger
@@ -306,9 +300,6 @@ func isNilDependency(value any) bool {
 }
 
 func (s *Service) recoverySummarySnapshot() *recovery.CompatibilitySummary {
-	if s == nil {
-		return nil
-	}
 	s.recoveryMu.RLock()
 	defer s.recoveryMu.RUnlock()
 	if s.recoverySummary == nil {
@@ -324,9 +315,6 @@ func (s *Service) recoverySummarySnapshot() *recovery.CompatibilitySummary {
 }
 
 func (s *Service) setRecoverySummary(summary *recovery.CompatibilitySummary) {
-	if s == nil {
-		return
-	}
 	s.recoveryMu.Lock()
 	defer s.recoveryMu.Unlock()
 	if summary == nil {

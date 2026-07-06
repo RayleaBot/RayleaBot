@@ -16,7 +16,7 @@ func (s *ProtocolService) CurrentOneBot11ProtocolTargets(ctx context.Context) On
 		PrivateUsers: []OneBot11PrivateTarget{},
 		Issues:       []OneBot11TargetIssue{},
 	}
-	if s == nil || s.adapter == nil {
+	if s.adapter == nil {
 		response.Issues = append(response.Issues, OneBot11TargetIssue{Scope: "protocol", Message: "OneBot11 协议不可用"})
 		return response
 	}
@@ -159,7 +159,7 @@ func (s *ProtocolService) ResolveOneBot11Identities(ctx context.Context, items [
 		Items:  []OneBot11Identity{},
 		Issues: []OneBot11TargetIssue{},
 	}
-	if s == nil || s.adapter == nil {
+	if s.adapter == nil {
 		response.Issues = append(response.Issues, OneBot11TargetIssue{Scope: "protocol", Message: "OneBot11 协议不可用"})
 		return response
 	}

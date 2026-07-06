@@ -66,9 +66,6 @@ func (b *Bridge) HandleAdapterEvent(ctx context.Context, event onebot11.Normaliz
 }
 
 func (b *Bridge) LogCommandPolicyRejected(event onebot11.NormalizedEvent, rejection CommandPolicyRejection) {
-	if b == nil {
-		return
-	}
 
 	now := time.Now().UTC()
 	errorCode := strings.TrimSpace(rejection.ErrorCode)

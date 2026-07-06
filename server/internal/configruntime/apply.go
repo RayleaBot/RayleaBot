@@ -94,14 +94,14 @@ func ConfigDocumentFromTyped(cfg internalconfig.Config) map[string]any {
 }
 
 func (s *Service) config() internalconfig.Config {
-	if s == nil || s.currentConfig == nil {
+	if s.currentConfig == nil {
 		return internalconfig.Config{}
 	}
 	return s.currentConfig()
 }
 
 func (s *Service) summary() internalconfig.Summary {
-	if s == nil || s.currentSummary == nil {
+	if s.currentSummary == nil {
 		return internalconfig.Summary{}
 	}
 	return s.currentSummary()

@@ -75,16 +75,13 @@ func newStartupRuntimeStates(requiredKinds []string) map[string]StartupRuntimeSt
 }
 
 func (s *Service) resetStartupRuntimeStates(requiredKinds []string) {
-	if s == nil {
-		return
-	}
 	s.startupMu.Lock()
 	defer s.startupMu.Unlock()
 	s.startupRuntimes = newStartupRuntimeStates(requiredKinds)
 }
 
 func (s *Service) setStartupRuntimeState(kind string, phase StartupRuntimePhase, issue *recovery.CompatibilityIssue) {
-	if s == nil || strings.TrimSpace(kind) == "" {
+	if strings.TrimSpace(kind) == "" {
 		return
 	}
 	s.startupMu.Lock()
@@ -104,9 +101,6 @@ func (s *Service) setStartupRuntimeState(kind string, phase StartupRuntimePhase,
 }
 
 func (s *Service) startupRuntimeState(kind string) (StartupRuntimeState, bool) {
-	if s == nil {
-		return StartupRuntimeState{}, false
-	}
 	s.startupMu.RLock()
 	defer s.startupMu.RUnlock()
 	if s.startupRuntimes == nil {
@@ -125,9 +119,6 @@ func (s *Service) SetStartupRuntimeState(kind string, phase StartupRuntimePhase,
 }
 
 func (s *Service) startupRequiredRuntimeKinds() []string {
-	if s == nil {
-		return nil
-	}
 	kinds := make([]string, 0, len(startupRuntimeKinds()))
 	if strings.TrimSpace(s.config().Render.BrowserPath) == "" {
 		kinds = append(kinds, "chromium")
@@ -206,7 +197,7 @@ func startupFailureIssue(kind string, err error) recovery.CompatibilityIssue {
 }
 
 func (s *Service) autoPrepareRuntimeEnvironments(ctx context.Context) {
-	if s == nil || s.repoRootPath() == "" {
+	if s.repoRootPath() == "" {
 		return
 	}
 

@@ -161,7 +161,7 @@ func NewMetricsRegistry() *MetricsRegistry {
 // HTTPHandler returns the Prometheus text-exposition HTTP handler bound to the
 // owned registry.
 func (r *MetricsRegistry) HTTPHandler() http.Handler {
-	if r == nil || r.registry == nil {
+	if r.registry == nil {
 		return http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 			http.Error(w, "metrics registry not initialised", http.StatusInternalServerError)
 		})
@@ -174,8 +174,5 @@ func (r *MetricsRegistry) HTTPHandler() http.Handler {
 // PrometheusRegistry exposes the underlying registry for callers that need to
 // register custom collectors (eg. test scaffolding).
 func (r *MetricsRegistry) PrometheusRegistry() *prometheus.Registry {
-	if r == nil {
-		return nil
-	}
 	return r.registry
 }

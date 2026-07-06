@@ -84,9 +84,6 @@ func (s *Stream) BootID() string {
 }
 
 func (s *Stream) SetBootID(bootID string) {
-	if s == nil {
-		return
-	}
 
 	s.mu.Lock()
 	s.bootID = strings.TrimSpace(bootID)
@@ -164,7 +161,7 @@ func (s *Stream) SubscriberCount() int {
 }
 
 func (s *Stream) now() time.Time {
-	if s == nil || s.clock == nil {
+	if s.clock == nil {
 		return time.Now()
 	}
 	return s.clock()
@@ -183,9 +180,6 @@ func (s *Stream) SetRepository(repository Repository, retentionDays int) {
 }
 
 func (s *Stream) ConfigureSpool(queue *SpoolQueue, stderr io.Writer) {
-	if s == nil {
-		return
-	}
 
 	s.mu.Lock()
 	s.spool = queue
@@ -254,9 +248,6 @@ func (s *Stream) flushLoop() {
 }
 
 func (s *Stream) flushSpool(ctx context.Context, reportError bool) error {
-	if s == nil {
-		return nil
-	}
 
 	s.mu.RLock()
 	repository := s.repository
@@ -288,9 +279,6 @@ func (s *Stream) flushSpool(ctx context.Context, reportError bool) error {
 }
 
 func (s *Stream) signalFlush() {
-	if s == nil {
-		return
-	}
 	select {
 	case s.flushNotify <- struct{}{}:
 	default:
@@ -298,9 +286,6 @@ func (s *Stream) signalFlush() {
 }
 
 func (s *Stream) reportPersistenceFailure(format string, args ...any) {
-	if s == nil {
-		return
-	}
 
 	s.mu.RLock()
 	stderr := s.stderr

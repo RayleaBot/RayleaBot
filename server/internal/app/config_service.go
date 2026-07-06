@@ -72,8 +72,12 @@ func newConfigService(deps configServiceDeps) *configruntime.Service {
 		Renderer:         deps.Renderer,
 		PluginLogLimiter: deps.PluginLogLimiter,
 		OutboundLimiter:  deps.OutboundLimiter,
-		EventIngress:     deps.EventIngress,
 		Secrets:          deps.Secrets,
+	}
+	// Assign concrete pointers only when non-nil so interface deps stay nil
+	// instead of holding typed nils.
+	if deps.EventIngress != nil {
+		runtimeDeps.EventIngress = deps.EventIngress
 	}
 	if deps.Protocol != nil {
 		runtimeDeps.Protocol = deps.Protocol

@@ -45,9 +45,6 @@ func NewManaged(
 }
 
 func (r *Registry) SetOnCrash(callback CrashCallback) {
-	if r == nil {
-		return
-	}
 
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -59,9 +56,6 @@ func (r *Registry) SetOnCrash(callback CrashCallback) {
 }
 
 func (r *Registry) Get(pluginID string) (*Manager, bool) {
-	if r == nil {
-		return nil, false
-	}
 
 	r.mu.RLock()
 	defer r.mu.RUnlock()
@@ -71,9 +65,6 @@ func (r *Registry) Get(pluginID string) (*Manager, bool) {
 }
 
 func (r *Registry) GetOrCreate(pluginID string) *Manager {
-	if r == nil {
-		return nil
-	}
 
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -89,9 +80,6 @@ func (r *Registry) GetOrCreate(pluginID string) *Manager {
 }
 
 func (r *Registry) NewDetached() *Manager {
-	if r == nil {
-		return nil
-	}
 
 	manager := NewManager(r.logger, r.options)
 	manager.SetOnCrash(r.onCrash)
@@ -99,7 +87,7 @@ func (r *Registry) NewDetached() *Manager {
 }
 
 func (r *Registry) Replace(pluginID string, manager *Manager) *Manager {
-	if r == nil || manager == nil {
+	if manager == nil {
 		return nil
 	}
 
@@ -113,9 +101,6 @@ func (r *Registry) Replace(pluginID string, manager *Manager) *Manager {
 }
 
 func (r *Registry) Delete(pluginID string) *Manager {
-	if r == nil {
-		return nil
-	}
 
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -126,9 +111,6 @@ func (r *Registry) Delete(pluginID string) *Manager {
 }
 
 func (r *Registry) ActiveCount() int {
-	if r == nil {
-		return 0
-	}
 
 	r.mu.RLock()
 	defer r.mu.RUnlock()
@@ -144,9 +126,6 @@ func (r *Registry) ActiveCount() int {
 }
 
 func (r *Registry) StopAll(ctx context.Context) error {
-	if r == nil {
-		return nil
-	}
 
 	r.mu.RLock()
 	managers := make([]*Manager, 0, len(r.items))

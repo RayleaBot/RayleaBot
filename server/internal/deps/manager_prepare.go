@@ -54,9 +54,6 @@ func (m *Manager) PrepareWithReport(ctx context.Context, kind string) (*PrepareR
 }
 
 func (m *Manager) PrepareWithReportOptions(ctx context.Context, kind string, options PrepareOptions) (*PrepareReport, error) {
-	if m == nil {
-		return nil, errors.New("deps manager is required")
-	}
 	if ctx == nil {
 		ctx = context.Background()
 	}
@@ -225,9 +222,6 @@ func systemChromiumPrepareReport(path string) *PrepareReport {
 }
 
 func (m *Manager) Inspect(kind string) (*BootstrapInspection, error) {
-	if m == nil {
-		return nil, errors.New("deps manager is required")
-	}
 
 	manifest, resource, err := m.currentResource(kind)
 	if err != nil {
@@ -302,7 +296,7 @@ func (m *Manager) ResolveEntrypoint(ctx context.Context, kind, name string) (str
 }
 
 func (m *Manager) resolveSystemChromiumEntrypoint(ctx context.Context) (string, error) {
-	if m == nil || m.findSystemChromium == nil {
+	if m.findSystemChromium == nil {
 		return "", errSystemChromiumUnavailable
 	}
 	path, err := m.findSystemChromium(ctx)

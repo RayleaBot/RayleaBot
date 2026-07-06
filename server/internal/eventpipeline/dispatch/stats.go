@@ -1,9 +1,6 @@
 package dispatch
 
 func (d *Dispatcher) recordOutcome(outcome Outcome, pluginID, reason string) {
-	if d == nil {
-		return
-	}
 	d.statsMu.Lock()
 	switch outcome {
 	case OutcomeDelivered:
@@ -43,9 +40,6 @@ func (d *Dispatcher) recordOutcome(outcome Outcome, pluginID, reason string) {
 
 // Stats returns a deep-copied snapshot of cumulative dispatcher outcome counts.
 func (d *Dispatcher) Stats() DispatcherStats {
-	if d == nil {
-		return DispatcherStats{}
-	}
 	d.statsMu.Lock()
 	defer d.statsMu.Unlock()
 	cloned := make(map[string]map[string]uint64, len(d.dropsByReason))

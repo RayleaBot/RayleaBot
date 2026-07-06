@@ -62,7 +62,7 @@ func runtimePrepareReportFromDeps(report *deps.PrepareReport) *managedRuntimePre
 }
 
 func (s *Service) SubmitRuntimeBootstrapTask(resources []string) (string, error) {
-	if s == nil || s.taskExecutor == nil {
+	if s.taskExecutor == nil {
 		return "", errSystemTaskUnavailable
 	}
 	return s.taskExecutor.Submit("runtime.bootstrap", "准备运行环境", func(ctx context.Context, progress tasks.ProgressReporter) (*tasks.ResultSummary, error) {

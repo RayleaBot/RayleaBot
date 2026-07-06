@@ -21,7 +21,7 @@ type recoveryConfirmRequest struct {
 
 func (h *SystemHandlers) HandleSystemRecoveryRecheck() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if h == nil || h.system == nil {
+		if h.system == nil {
 			httpapi.WriteError(w, r, http.StatusInternalServerError, systemCodeInternalError, "内部错误", "errors.platform.internal_error", nil)
 			return
 		}
@@ -38,7 +38,7 @@ func (h *SystemHandlers) HandleSystemRecoveryRecheck() http.HandlerFunc {
 
 func (h *SystemHandlers) HandleSystemRecoveryConfirm() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if h == nil || h.system == nil {
+		if h.system == nil {
 			httpapi.WriteError(w, r, http.StatusInternalServerError, systemCodeInternalError, "内部错误", "errors.platform.internal_error", nil)
 			return
 		}

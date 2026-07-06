@@ -76,9 +76,6 @@ func (s *Service) Handle(ctx context.Context, event onebot11.NormalizedEvent) bo
 	if !request.Matched {
 		return false
 	}
-	if s.sender == nil {
-		return true
-	}
 
 	payload := s.buildBuiltinMenuData(event, request.Target)
 	if len(payload.Data) == 0 {
@@ -98,7 +95,7 @@ func (s *Service) Handle(ctx context.Context, event onebot11.NormalizedEvent) bo
 }
 
 func (s *Service) renderBuiltinMenu(ctx context.Context, payload builtinMenuRenderData) (renderservice.Result, error) {
-	if s == nil || s.renderer == nil {
+	if s.renderer == nil {
 		return renderservice.Result{}, fmt.Errorf("render service is not available")
 	}
 	renderCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
@@ -115,7 +112,7 @@ func (s *Service) renderBuiltinMenu(ctx context.Context, payload builtinMenuRend
 }
 
 func (s *Service) Match(event onebot11.NormalizedEvent) Request {
-	if s == nil || strings.TrimSpace(event.PlainText) == "" {
+	if strings.TrimSpace(event.PlainText) == "" {
 		return Request{}
 	}
 	cfg := s.config()
@@ -173,7 +170,7 @@ func (s *Service) hasExactPluginCommand(commandName string) bool {
 }
 
 func (s *Service) config() config.Config {
-	if s == nil || s.currentConfig == nil {
+	if s.currentConfig == nil {
 		return config.Config{}
 	}
 	return s.currentConfig()
@@ -408,7 +405,7 @@ func (s *Service) buildBuiltinMenuData(event onebot11.NormalizedEvent, target st
 }
 
 func (s *Service) visibleBuiltinMenuItems(event onebot11.NormalizedEvent) []map[string]any {
-	if s == nil || s.plugins == nil {
+	if s.plugins == nil {
 		return []map[string]any{}
 	}
 	runtimeEvent := runtimeEventFromAdapter(event)
@@ -628,7 +625,7 @@ func findBuiltinMenuItem(items []map[string]any, target string) (map[string]any,
 }
 
 func (s *Service) waitLimit(ctx context.Context, request outbound.MessageLimitRequest) error {
-	if s == nil || s.waitOutbound == nil {
+	if s.waitOutbound == nil {
 		return nil
 	}
 	return s.waitOutbound(ctx, request)
@@ -642,7 +639,7 @@ func (s *Service) logBuiltinMenuError(err error) {
 }
 
 func (s *Service) logBuiltinMenuTrigger(_ context.Context, event onebot11.NormalizedEvent, request Request) {
-	if s == nil || s.logger == nil {
+	if s.logger == nil {
 		return
 	}
 	summary, ok := logging.OneBotInboundMessageSummary(logging.OneBotInboundMessageSummaryInput{
@@ -708,7 +705,7 @@ func (s *Service) sendBuiltinMenuText(ctx context.Context, event onebot11.Normal
 }
 
 func (s *Service) sendBuiltinMenuSegments(ctx context.Context, event onebot11.NormalizedEvent, commandName string, segments []onebot11.OutboundMessageSegment) {
-	if s == nil || s.sender == nil {
+	if s.sender == nil {
 		return
 	}
 	if ctx == nil {

@@ -15,9 +15,6 @@ func NewGovernanceService() *GovernanceService {
 }
 
 func (s *GovernanceService) PublishChanged(summary string) {
-	if s == nil {
-		return
-	}
 	s.hub.Publish(governanceChangedEventFrame(summary))
 }
 

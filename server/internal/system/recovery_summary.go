@@ -9,7 +9,7 @@ import (
 )
 
 func (s *Service) RefreshRecoverySummary() {
-	if s == nil || s.repoRootPath() == "" {
+	if s.repoRootPath() == "" {
 		return
 	}
 
@@ -44,7 +44,7 @@ func (s *Service) recoveryFinalizeInput() recovery.FinalizeInput {
 }
 
 func (s *Service) reconcileRecoverySummary() (*recovery.CompatibilitySummary, error) {
-	if s == nil || s.repoRootPath() == "" {
+	if s.repoRootPath() == "" {
 		return nil, nil
 	}
 	summary, err := recovery.LoadSummary(s.repoRootPath())
@@ -64,9 +64,6 @@ func (s *Service) reconcileRecoverySummary() (*recovery.CompatibilitySummary, er
 }
 
 func (s *Service) ReconcileRecoverySummaryBestEffort(trigger string) {
-	if s == nil {
-		return
-	}
 	if _, err := s.reconcileRecoverySummary(); err != nil && s.currentLogger() != nil {
 		s.currentLogger().Warn(
 			"failed to reconcile recovery summary",
@@ -78,9 +75,6 @@ func (s *Service) ReconcileRecoverySummaryBestEffort(trigger string) {
 }
 
 func (s *Service) applyRecoverySummary(summary *recovery.CompatibilitySummary) {
-	if s == nil {
-		return
-	}
 	if summary != nil && s.plugins != nil {
 		for _, skipped := range summary.SkippedPlugins {
 			if snapshot, ok := s.plugins.Get(skipped.PluginID); ok && snapshot.DesiredState != "disabled" {
@@ -93,7 +87,7 @@ func (s *Service) applyRecoverySummary(summary *recovery.CompatibilitySummary) {
 }
 
 func (s *Service) renderDiagnostics() []recovery.CompatibilityIssue {
-	if s == nil || s.renderer == nil {
+	if s.renderer == nil {
 		return nil
 	}
 	diagnostics := s.renderer.Diagnostics()
@@ -113,7 +107,7 @@ func (s *Service) renderDiagnostics() []recovery.CompatibilityIssue {
 }
 
 func (s *Service) managedRuntimeDiagnostics(pluginsList []plugins.Snapshot) []recovery.CompatibilityIssue {
-	if s == nil || s.repoRootPath() == "" {
+	if s.repoRootPath() == "" {
 		return nil
 	}
 	requiredKinds := managedDiagnosticKinds()

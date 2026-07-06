@@ -18,7 +18,7 @@ func schedulerElapsed(event pluginruntime.Event) time.Duration {
 }
 
 func (d *Dispatcher) logSchedulerCompletion(pluginID string, event pluginruntime.Event, status string, duration time.Duration, extra map[string]any) {
-	if d == nil || d.logger == nil || event.SchedulerLog == nil {
+	if d.logger == nil || event.SchedulerLog == nil {
 		return
 	}
 	ctx := event.SchedulerLog

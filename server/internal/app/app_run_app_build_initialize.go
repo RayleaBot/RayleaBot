@@ -74,7 +74,7 @@ func initializeAppBuild(options Options) (appBuildState, error) {
 	core.SetSummary(summary)
 
 	return appBuildState{
-		core: core,
+		core:             core,
 		options:          options,
 		logStream:        logStream,
 		taskRegistry:     taskRegistry,

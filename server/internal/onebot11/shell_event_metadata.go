@@ -12,7 +12,7 @@ const (
 )
 
 func (s *Shell) EnrichEventMetadata(ctx context.Context, event NormalizedEvent) NormalizedEvent {
-	if s == nil || strings.TrimSpace(event.SourceProtocol) != "onebot11" {
+	if strings.TrimSpace(event.SourceProtocol) != "onebot11" {
 		return event
 	}
 	s.invalidateIdentityCacheForEvent(event)

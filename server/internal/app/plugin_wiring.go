@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"errors"
 
 	menuext "github.com/RayleaBot/RayleaBot/server/internal/builtinmenu"
 	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/outbound"
@@ -106,9 +107,12 @@ type pluginServices struct {
 	Menu            *menuext.Service
 }
 
-func buildPluginServices(deps pluginServiceDeps) pluginServices {
+func buildPluginServices(deps pluginServiceDeps) (pluginServices, error) {
 	lifecycle := buildPluginLifecycle(deps)
-	menu := buildBuiltinMenuService(deps.Runtime, deps.Plugins, deps.Events, deps.Renderer)
+	menu, err := buildBuiltinMenuService(deps.Runtime, deps.Plugins, deps.Events, deps.Renderer)
+	if err != nil {
+		return pluginServices{}, err
+	}
 	pluginWebhooks := buildPluginWebhookGateway(deps.Runtime, deps.Platform, deps.Plugins, deps.Events, lifecycle, deps.PluginRuntime.CapabilityView)
 	pluginWebhooks.SetReplayMetrics(NewWebhookReplayObserver(deps.Metrics))
 	deps.PluginRuntime.LocalActions.SetWebhookGateway(pluginWebhooks)
@@ -116,7 +120,7 @@ func buildPluginServices(deps pluginServiceDeps) pluginServices {
 		PluginLifecycle: lifecycle,
 		PluginWebhooks:  pluginWebhooks,
 		Menu:            menu,
-	}
+	}, nil
 }
 
 func buildPluginLifecycle(deps pluginServiceDeps) *pluginservice.Controller {
@@ -139,7 +143,10 @@ func buildPluginLifecycle(deps pluginServiceDeps) *pluginservice.Controller {
 	})
 }
 
-func buildBuiltinMenuService(runtimeState runtimeStateView, pluginStack PluginStackState, eventStack EventState, renderer *renderservice.Service) *menuext.Service {
+func buildBuiltinMenuService(runtimeState runtimeStateView, pluginStack PluginStackState, eventStack EventState, renderer *renderservice.Service) (*menuext.Service, error) {
+	if eventStack.OutboundSender == nil {
+		return nil, errors.New("builtin menu requires an outbound sender")
+	}
 	return menuext.New(menuext.Deps{
 		CurrentConfig: runtimeState.CurrentConfig,
 		Plugins:       pluginStack.Plugins,
@@ -152,7 +159,7 @@ func buildBuiltinMenuService(runtimeState runtimeStateView, pluginStack PluginSt
 			return eventStack.OutboundLimiter.Wait(ctx, request)
 		},
 		Logger: runtimeState.RuntimeLogger(),
-	})
+	}), nil
 }
 
 func buildPluginWebhookGateway(

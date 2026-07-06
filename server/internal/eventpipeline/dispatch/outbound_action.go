@@ -86,9 +86,6 @@ func (d *Dispatcher) executeAction(ctx context.Context, pluginID string, request
 }
 
 func (d *Dispatcher) capabilityDeclared(ctx context.Context, pluginID string, capability string) bool {
-	if d == nil {
-		return false
-	}
 	d.mu.RLock()
 	checker := d.capabilityChecker
 	d.mu.RUnlock()
@@ -99,9 +96,6 @@ func (d *Dispatcher) capabilityDeclared(ctx context.Context, pluginID string, ca
 }
 
 func (d *Dispatcher) waitOutboundLimit(ctx context.Context, request outbound.MessageLimitRequest) error {
-	if d == nil {
-		return nil
-	}
 	d.mu.RLock()
 	limiter := d.outboundLimiter
 	d.mu.RUnlock()

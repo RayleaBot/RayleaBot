@@ -12,7 +12,7 @@ import (
 )
 
 func (s *Service) Expose(ctx context.Context, pluginID string, action pluginruntime.Action) (map[string]any, error) {
-	if s == nil || s.capabilities == nil || !s.capabilities.CapabilityDeclared(ctx, pluginID, "event.expose_webhook") {
+	if s.capabilities == nil || !s.capabilities.CapabilityDeclared(ctx, pluginID, "event.expose_webhook") {
 		return nil, &pluginruntime.Error{
 			Code:    "plugin.capability_violation",
 			Message: "event.expose_webhook capability is not declared",

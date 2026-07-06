@@ -96,9 +96,6 @@ func NewController(deps Deps) *Controller {
 }
 
 func (c *Controller) BindLifecycleContext(ctx context.Context) {
-	if c == nil {
-		return
-	}
 	if ctx == nil {
 		ctx = context.Background()
 	}
@@ -108,9 +105,6 @@ func (c *Controller) BindLifecycleContext(ctx context.Context) {
 }
 
 func (c *Controller) lifecycleContext() context.Context {
-	if c == nil {
-		return context.Background()
-	}
 	c.lifecycleCtxMu.RLock()
 	ctx := c.lifecycleCtx
 	c.lifecycleCtxMu.RUnlock()
@@ -125,7 +119,7 @@ func (c *Controller) lifecycleTimeoutContext(timeout time.Duration) (context.Con
 }
 
 func (c *Controller) config() config.Config {
-	if c == nil || c.currentConfig == nil {
+	if c.currentConfig == nil {
 		return config.Config{}
 	}
 	return c.currentConfig()
@@ -214,7 +208,7 @@ func RefreshPluginManifest(
 }
 
 func (c *Controller) Enable(ctx context.Context, pluginID string) (plugins.Snapshot, error) {
-	if c == nil || c.plugins == nil {
+	if c.plugins == nil {
 		return plugins.Snapshot{}, errors.New("plugin lifecycle controller is not available")
 	}
 
@@ -245,7 +239,7 @@ func (c *Controller) Enable(ctx context.Context, pluginID string) (plugins.Snaps
 }
 
 func (c *Controller) Disable(ctx context.Context, pluginID string) (plugins.Snapshot, error) {
-	if c == nil || c.plugins == nil {
+	if c.plugins == nil {
 		return plugins.Snapshot{}, errors.New("plugin lifecycle controller is not available")
 	}
 
@@ -289,7 +283,7 @@ func (c *Controller) Disable(ctx context.Context, pluginID string) (plugins.Snap
 }
 
 func (c *Controller) RecoverFromDeadLetter(ctx context.Context, pluginID string) (plugins.Snapshot, error) {
-	if c == nil || c.plugins == nil {
+	if c.plugins == nil {
 		return plugins.Snapshot{}, errors.New("plugin lifecycle controller is not available")
 	}
 
@@ -339,7 +333,7 @@ func (c *Controller) RecoverFromDeadLetter(ctx context.Context, pluginID string)
 }
 
 func (c *Controller) InvokeManagementAction(ctx context.Context, pluginID, action string, payload map[string]any) (map[string]any, error) {
-	if c == nil || c.plugins == nil || c.runtimes == nil {
+	if c.plugins == nil || c.runtimes == nil {
 		return nil, fmt.Errorf("plugin management action service is not available")
 	}
 	pluginID = strings.TrimSpace(pluginID)
@@ -381,7 +375,7 @@ func (c *Controller) InvokeManagementAction(ctx context.Context, pluginID, actio
 }
 
 func (c *Controller) reconcileRuntime(ctx context.Context, botID string) {
-	if c == nil || c.plugins == nil {
+	if c.plugins == nil {
 		return
 	}
 	botID = strings.TrimSpace(botID)
@@ -401,7 +395,7 @@ func (c *Controller) ReconcileRuntime(ctx context.Context, botID string) {
 }
 
 func (c *Controller) ensurePluginRunning(ctx context.Context, pluginID, botID string) error {
-	if c == nil || c.runtimes == nil {
+	if c.runtimes == nil {
 		return nil
 	}
 
@@ -425,9 +419,6 @@ func (c *Controller) EnsurePluginRunning(ctx context.Context, pluginID, botID st
 }
 
 func (c *Controller) startPluginAsync(pluginID, botID string) {
-	if c == nil {
-		return
-	}
 	botID = strings.TrimSpace(botID)
 
 	ctx, cancel := c.lifecycleTimeoutContext(runtimeInitTimeout(c.config().Runtime))
@@ -476,9 +467,6 @@ func (c *Controller) startRuntime(ctx context.Context, pluginID, botID string, m
 }
 
 func (c *Controller) stopAndResetPlugin(pluginID string) {
-	if c == nil {
-		return
-	}
 	c.stopPlugin(c.lifecycleContext(), pluginID, true)
 }
 
@@ -494,9 +482,6 @@ func (c *Controller) StopAndResetPluginWithContext(ctx context.Context, pluginID
 }
 
 func (c *Controller) stopPluginAsync(pluginID string, remove bool) {
-	if c == nil {
-		return
-	}
 
 	ctx, cancel := c.lifecycleTimeoutContext(5 * time.Second)
 	defer cancel()
@@ -504,7 +489,7 @@ func (c *Controller) stopPluginAsync(pluginID string, remove bool) {
 }
 
 func (c *Controller) stopPlugin(ctx context.Context, pluginID string, remove bool) {
-	if c == nil || c.runtimes == nil {
+	if c.runtimes == nil {
 		return
 	}
 
@@ -638,7 +623,7 @@ func (c *Controller) afterRuntimeRegistered(ctx context.Context, pluginID string
 }
 
 func (c *Controller) registerRuntimeIfNeeded(pluginID string, manager *pluginruntime.Manager) {
-	if c == nil || c.dispatcher == nil || manager == nil {
+	if c.dispatcher == nil || manager == nil {
 		return
 	}
 	if c.dispatcher.HasDeliverablePlugin(pluginID) {
@@ -652,7 +637,7 @@ func (c *Controller) registerRuntimeIfNeeded(pluginID string, manager *pluginrun
 }
 
 func (c *Controller) registerRuntime(pluginID string, snapshot plugins.Snapshot, manager *pluginruntime.Manager) {
-	if c == nil || c.dispatcher == nil || manager == nil {
+	if c.dispatcher == nil || manager == nil {
 		return
 	}
 	runtimeSnapshot := manager.Snapshot()
@@ -667,7 +652,7 @@ func (c *Controller) registerRuntime(pluginID string, snapshot plugins.Snapshot,
 }
 
 func (c *Controller) dispatchPluginStarted(ctx context.Context, pluginID string) {
-	if c == nil || c.dispatcher == nil {
+	if c.dispatcher == nil {
 		return
 	}
 	pluginID = strings.TrimSpace(pluginID)
@@ -705,9 +690,6 @@ func (c *Controller) dispatchPluginStarted(ctx context.Context, pluginID string)
 }
 
 func (c *Controller) HandleSchedulerTrigger(ctx context.Context, job scheduler.Job) {
-	if c == nil {
-		return
-	}
 
 	pluginID := strings.TrimSpace(job.PluginID)
 	if pluginID == "" {
@@ -752,9 +734,6 @@ func (c *Controller) HandleSchedulerTrigger(ctx context.Context, job scheduler.J
 }
 
 func (c *Controller) logSchedulerTriggerFailure(ctx context.Context, pluginID, pluginName, taskName, logLabel string, startedAt time.Time, errorCode, errorText string) {
-	if c == nil {
-		return
-	}
 	duration := time.Since(startedAt)
 	c.recordSchedulerRunResult(ctx, taskName, scheduler.RunOutcomeFailed, duration, errorCode, errorText, time.Now())
 	if c.logger == nil {
@@ -774,7 +753,7 @@ func (c *Controller) logSchedulerTriggerFailure(ctx context.Context, pluginID, p
 }
 
 func (c *Controller) recordSchedulerRunResult(ctx context.Context, jobID string, outcome scheduler.RunOutcome, duration time.Duration, errorCode, errorText string, occurredAt time.Time) {
-	if c == nil || c.scheduler == nil {
+	if c.scheduler == nil {
 		return
 	}
 	if err := c.scheduler.RecordRunResult(ctx, scheduler.RunResult{
@@ -826,25 +805,19 @@ func schedulerPayloadFields(job scheduler.Job) map[string]any {
 }
 
 func (c *Controller) HandleAdapterReady(ctx context.Context) {
-	if c == nil {
-		return
-	}
 	botID := c.currentBotID()
 	c.reconcileRuntime(ctx, botID)
 	c.broadcastBotIdentityChanged(ctx, botID)
 }
 
 func (c *Controller) HandleAdapterBotID(ctx context.Context, botID string) {
-	if c == nil {
-		return
-	}
 	botID = strings.TrimSpace(botID)
 	c.reconcileRuntime(ctx, botID)
 	c.broadcastBotIdentityChanged(ctx, botID)
 }
 
 func (c *Controller) broadcastBotIdentityChanged(ctx context.Context, botID string) {
-	if c == nil || c.dispatcher == nil {
+	if c.dispatcher == nil {
 		return
 	}
 	botID = strings.TrimSpace(botID)
@@ -857,7 +830,7 @@ func (c *Controller) broadcastBotIdentityChanged(ctx context.Context, botID stri
 }
 
 func (c *Controller) dispatchBotIdentityChangedToPlugin(ctx context.Context, pluginID string, botID string) {
-	if c == nil || c.dispatcher == nil {
+	if c.dispatcher == nil {
 		return
 	}
 	pluginID = strings.TrimSpace(pluginID)
@@ -908,9 +881,6 @@ func (c *Controller) markBotIdentitySent(pluginID string, botID string) {
 }
 
 func (c *Controller) clearBotIdentity(pluginID string) {
-	if c == nil {
-		return
-	}
 	c.identityMu.Lock()
 	defer c.identityMu.Unlock()
 	if c.identityByPlugin != nil {
@@ -919,7 +889,7 @@ func (c *Controller) clearBotIdentity(pluginID string) {
 }
 
 func (c *Controller) currentBotID() string {
-	if c == nil || c.adapter == nil {
+	if c.adapter == nil {
 		return ""
 	}
 	return strings.TrimSpace(c.adapter.CurrentBotID())
@@ -930,9 +900,6 @@ func (c *Controller) CurrentBotID() string {
 }
 
 func (c *Controller) handleCrash(pluginID string, crashCount int, _ string) {
-	if c == nil {
-		return
-	}
 	if c.dispatcher != nil {
 		c.dispatcher.Deregister(pluginID)
 	}
@@ -1005,9 +972,6 @@ func (c *Controller) HandleCrash(pluginID string, crashCount int, reason string)
 }
 
 func (c *Controller) backoffRestart(pluginID string, delay time.Duration) {
-	if c == nil {
-		return
-	}
 
 	lifecycleCtx := c.lifecycleContext()
 	timer := time.NewTimer(delay)
@@ -1079,7 +1043,7 @@ func runtimeInitTimeout(cfg config.RuntimeConfig) time.Duration {
 }
 
 func (c *Controller) seedPluginDefaultConfig(ctx context.Context, snapshot plugins.Snapshot) error {
-	if c == nil || c.pluginConfig == nil || len(snapshot.DefaultConfig) == 0 {
+	if c.pluginConfig == nil || len(snapshot.DefaultConfig) == 0 {
 		return nil
 	}
 	_, err := c.pluginConfig.SeedDefaults(ctx, snapshot.PluginID, snapshot.DefaultConfig)
@@ -1087,14 +1051,14 @@ func (c *Controller) seedPluginDefaultConfig(ctx context.Context, snapshot plugi
 }
 
 func (c *Controller) reconcileRecoverySummaryBestEffort(trigger string) {
-	if c == nil || c.onRecoveryChange == nil {
+	if c.onRecoveryChange == nil {
 		return
 	}
 	c.onRecoveryChange(trigger)
 }
 
 func (c *Controller) logLifecycleWarn(message, pluginID string, err error) {
-	if c == nil || c.logger == nil || err == nil {
+	if c.logger == nil || err == nil {
 		return
 	}
 
@@ -1152,7 +1116,7 @@ func lifecycleActionLabel(message string) string {
 }
 
 func (c *Controller) createReloadTask(pluginID string, snapshot plugins.Snapshot) string {
-	if c == nil || c.tasks == nil {
+	if c.tasks == nil {
 		return ""
 	}
 	displayName := strings.TrimSpace(snapshot.Name)
@@ -1168,7 +1132,7 @@ func (c *Controller) createReloadTask(pluginID string, snapshot plugins.Snapshot
 }
 
 func (c *Controller) startReloadTask(taskID string) {
-	if c == nil || c.tasks == nil || strings.TrimSpace(taskID) == "" {
+	if c.tasks == nil || strings.TrimSpace(taskID) == "" {
 		return
 	}
 	now := time.Now().UTC()
@@ -1181,7 +1145,7 @@ func (c *Controller) startReloadTask(taskID string) {
 }
 
 func (c *Controller) updateReloadTask(taskID string, progress int, summary string) {
-	if c == nil || c.tasks == nil || strings.TrimSpace(taskID) == "" {
+	if c.tasks == nil || strings.TrimSpace(taskID) == "" {
 		return
 	}
 	c.tasks.Update(taskID, tasks.Update{
@@ -1191,7 +1155,7 @@ func (c *Controller) updateReloadTask(taskID string, progress int, summary strin
 }
 
 func (c *Controller) finishReloadTask(taskID string, pluginID string) {
-	if c == nil || c.tasks == nil || strings.TrimSpace(taskID) == "" {
+	if c.tasks == nil || strings.TrimSpace(taskID) == "" {
 		return
 	}
 	now := time.Now().UTC()
@@ -1210,7 +1174,7 @@ func (c *Controller) finishReloadTask(taskID string, pluginID string) {
 }
 
 func (c *Controller) failReloadTask(taskID string, pluginID string, code string, message string) {
-	if c == nil || c.tasks == nil || strings.TrimSpace(taskID) == "" {
+	if c.tasks == nil || strings.TrimSpace(taskID) == "" {
 		return
 	}
 	if strings.TrimSpace(code) == "" {

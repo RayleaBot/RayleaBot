@@ -96,12 +96,12 @@ func (v *AccountValidator) CheckCookie(ctx context.Context, platform string, coo
 		return thirdparty.AccountProfile{}, thirdparty.CredentialStatus{}, err
 	}
 	if normalized == thirdparty.PlatformBilibili {
-		if v == nil || v.bilibili == nil {
+		if v.bilibili == nil {
 			return thirdparty.AccountProfile{}, thirdparty.CredentialStatus{}, thirdparty.ErrInvalidAccount
 		}
 		return v.bilibili.CheckCookie(ctx, cookie)
 	}
-	if v == nil || v.thirdParty == nil {
+	if v.thirdParty == nil {
 		return thirdparty.AccountProfile{}, thirdparty.CredentialStatus{}, thirdparty.ErrInvalidAccount
 	}
 	return v.thirdParty.CheckCookie(ctx, normalized, cookie)

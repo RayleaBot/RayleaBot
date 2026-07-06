@@ -32,9 +32,6 @@ type DispatcherRuntimePublisher interface {
 // SetRuntimePublisher wires the runtime publisher the dispatcher hands window
 // snapshots to. Calling with nil disables publication.
 func (d *Dispatcher) SetRuntimePublisher(publisher DispatcherRuntimePublisher) {
-	if d == nil {
-		return
-	}
 	d.flushMu.Lock()
 	defer d.flushMu.Unlock()
 	d.runtimePublisher = publisher
@@ -43,17 +40,11 @@ func (d *Dispatcher) SetRuntimePublisher(publisher DispatcherRuntimePublisher) {
 // SetMetricsObserver wires the Prometheus observer the dispatcher uses to
 // record drop and pipeline counters. Passing nil disables instrumentation.
 func (d *Dispatcher) SetMetricsObserver(observer MetricsObserver) {
-	if d == nil {
-		return
-	}
 	d.flushMu.Lock()
 	defer d.flushMu.Unlock()
 	d.metrics = observer
 }
 func (d *Dispatcher) currentMetrics() MetricsObserver {
-	if d == nil {
-		return nil
-	}
 	d.flushMu.Lock()
 	defer d.flushMu.Unlock()
 	return d.metrics
@@ -112,9 +103,6 @@ func diffDropsByReason(current, baseline map[string]map[string]uint64) []Dispatc
 // and forwards it to the runtime publisher. Exposed primarily for tests; the
 // flush goroutine started by StartObservabilityFlush calls it on a ticker.
 func (d *Dispatcher) FlushDispatcherWindow(windowSeconds int) {
-	if d == nil {
-		return
-	}
 	d.flushMu.Lock()
 	publisher := d.runtimePublisher
 	baseline := d.flushBaseline
@@ -143,7 +131,7 @@ func (d *Dispatcher) FlushDispatcherWindow(windowSeconds int) {
 // snapshots. The goroutine exits when Close is called. Calling more than once
 // without an intervening Close is a no-op after the first call.
 func (d *Dispatcher) StartObservabilityFlush(interval time.Duration) {
-	if d == nil || interval <= 0 {
+	if interval <= 0 {
 		return
 	}
 	windowSeconds := int(interval / time.Second)

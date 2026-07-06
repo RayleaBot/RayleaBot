@@ -65,9 +65,6 @@ func NewReplyTargetCache(limit int) *ReplyTargetCache {
 }
 
 func (c *ReplyTargetCache) Record(event onebot11.NormalizedEvent) {
-	if c == nil {
-		return
-	}
 
 	eventID := strings.TrimSpace(event.EventID)
 	messageID := strings.TrimSpace(event.MessageID)
@@ -115,9 +112,6 @@ func (c *ReplyTargetCache) Record(event onebot11.NormalizedEvent) {
 }
 
 func (c *ReplyTargetCache) ResolveReplyTarget(eventID string) (ReplyTarget, bool) {
-	if c == nil {
-		return ReplyTarget{}, false
-	}
 
 	eventID = strings.TrimSpace(eventID)
 	if eventID == "" {

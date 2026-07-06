@@ -69,7 +69,7 @@ func (h *ConfigHandlers) HandleConfigPut() http.HandlerFunc {
 }
 
 func (h *ConfigHandlers) ApplyHotReloadableFields(newCfg internalconfig.Config) configruntime.ApplyEffects {
-	if h == nil || h.config == nil {
+	if h.config == nil {
 		return configruntime.NewApplyEffects()
 	}
 	return h.config.ApplyHotReloadableFields(newCfg)

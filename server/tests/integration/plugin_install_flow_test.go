@@ -15,6 +15,7 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/auth"
 	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
 	"github.com/RayleaBot/RayleaBot/server/internal/tasks"
+	"github.com/RayleaBot/RayleaBot/server/internal/testenv"
 )
 
 func TestPluginInstallRouteExecutesTaskAndRefreshesCatalog(t *testing.T) {
@@ -224,7 +225,7 @@ func waitForTaskStatus(t *testing.T, registry *tasks.Registry, taskID string, wa
 }
 
 func taskStatusTimeout() time.Duration {
-	if testing.CoverMode() != "" || testRaceEnabled {
+	if testing.CoverMode() != "" || testenv.RaceEnabled {
 		return 20 * time.Second
 	}
 	return 15 * time.Second

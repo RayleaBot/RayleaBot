@@ -117,7 +117,7 @@ func buildServices(deps serviceBuildDeps) (serviceBuildResult, error) {
 	})
 	serviceStatusService := wsevents.NewServiceStatusService(systemService)
 	systemService.SetStatusPublisher(serviceStatusService)
-	pluginServices := buildPluginServices(pluginServiceDeps{
+	pluginServices, err := buildPluginServices(pluginServiceDeps{
 		Runtime:       runtimeState,
 		Platform:      platform,
 		Plugins:       pluginStack,
@@ -127,6 +127,9 @@ func buildServices(deps serviceBuildDeps) (serviceBuildResult, error) {
 		PluginRuntime: pluginRuntime,
 		Metrics:       deps.Metrics,
 	})
+	if err != nil {
+		return serviceBuildResult{}, err
+	}
 	eventIngress := chatpolicy.NewIngress(chatpolicy.IngressDeps{
 		CurrentConfig:    runtimeState.CurrentConfig,
 		Logger:           runtimeState.RuntimeLogger(),

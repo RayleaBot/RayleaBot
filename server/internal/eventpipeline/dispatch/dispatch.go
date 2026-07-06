@@ -125,17 +125,11 @@ func New(logger *slog.Logger, sender outbound.ActionSender, resolver outbound.Re
 	}
 }
 func (d *Dispatcher) SetCapabilityChecker(checker CapabilityChecker) {
-	if d == nil {
-		return
-	}
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	d.capabilityChecker = checker
 }
 func (d *Dispatcher) SetOutboundLimiter(limiter outbound.MessageLimiter) {
-	if d == nil {
-		return
-	}
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	d.outboundLimiter = limiter

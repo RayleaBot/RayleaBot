@@ -152,9 +152,6 @@ func (s *Shell) SetStateHandler(handler func(Snapshot)) {
 // SetMetricsObserver wires the adapter dedup and pipeline stage counters
 // behind the MetricsObserver interface. Passing nil disables instrumentation.
 func (s *Shell) SetMetricsObserver(observer MetricsObserver) {
-	if s == nil {
-		return
-	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.metrics = observer

@@ -190,18 +190,12 @@ func newSchedulerTriggerProxy() *schedulerTriggerProxy {
 }
 
 func (p *schedulerTriggerProxy) Set(handler func(context.Context, scheduler.Job)) {
-	if p == nil {
-		return
-	}
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	p.handler = handler
 }
 
 func (p *schedulerTriggerProxy) Handle(ctx context.Context, job scheduler.Job) {
-	if p == nil {
-		return
-	}
 	p.mu.RLock()
 	handler := p.handler
 	p.mu.RUnlock()

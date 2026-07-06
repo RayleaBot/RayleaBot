@@ -14,7 +14,7 @@ const (
 )
 
 func (s *Service) sendCooldownReply(ctx context.Context, event onebot11.NormalizedEvent) {
-	if s == nil || s.outboundSender == nil {
+	if s.outboundSender == nil {
 		return
 	}
 	if ctx == nil {
@@ -111,7 +111,7 @@ func (s *Service) sendCooldownReply(ctx context.Context, event onebot11.Normaliz
 }
 
 func (s *Service) waitOutboundLimit(ctx context.Context, request outbound.MessageLimitRequest) error {
-	if s == nil || s.outboundLimiter == nil {
+	if s.outboundLimiter == nil {
 		return nil
 	}
 	return s.outboundLimiter.Wait(ctx, request)

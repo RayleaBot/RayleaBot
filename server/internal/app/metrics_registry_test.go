@@ -54,12 +54,3 @@ func TestNewRegistersAllFormalMetrics(t *testing.T) {
 		}
 	}
 }
-
-func TestRegistryNilHTTPHandler(t *testing.T) {
-	var r *MetricsRegistry
-	w := httptest.NewRecorder()
-	r.HTTPHandler().ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/", nil))
-	if w.Code != http.StatusInternalServerError {
-		t.Fatalf("expected 500 from nil registry, got %d", w.Code)
-	}
-}

@@ -83,9 +83,6 @@ func (s *Shell) Stop(ctx context.Context) error {
 }
 
 func (s *Shell) Reload(nextCfg config.OneBotConfig, nextAdapterCfg config.AdapterConfig) error {
-	if s == nil {
-		return nil
-	}
 
 	s.mu.RLock()
 	started := s.started

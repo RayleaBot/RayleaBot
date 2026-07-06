@@ -47,21 +47,15 @@ func SpoolPathForDatabase(databasePath string) string {
 }
 
 func (q *SpoolQueue) Path() string {
-	if q == nil {
-		return ""
-	}
 	return q.path
 }
 
 func (q *SpoolQueue) QuarantinePath() string {
-	if q == nil {
-		return ""
-	}
 	return q.quarantinePath
 }
 
 func (q *SpoolQueue) Append(summary Summary) error {
-	if q == nil || q.path == "" {
+	if q.path == "" {
 		return errors.New("management log spool path is not configured")
 	}
 
@@ -92,7 +86,7 @@ func (q *SpoolQueue) Append(summary Summary) error {
 }
 
 func (q *SpoolQueue) HasEntries() bool {
-	if q == nil || q.path == "" {
+	if q.path == "" {
 		return false
 	}
 
@@ -104,7 +98,7 @@ func (q *SpoolQueue) HasEntries() bool {
 }
 
 func (q *SpoolQueue) Flush(ctx context.Context, repository Repository) (SpoolFlushResult, error) {
-	if q == nil || q.path == "" {
+	if q.path == "" {
 		return SpoolFlushResult{}, nil
 	}
 	if repository == nil {
@@ -227,7 +221,7 @@ func (q *SpoolQueue) rewrite(lines [][]byte) error {
 }
 
 func (q *SpoolQueue) appendQuarantine(line []byte) error {
-	if q == nil || q.quarantinePath == "" {
+	if q.quarantinePath == "" {
 		return errors.New("management log quarantine path is not configured")
 	}
 

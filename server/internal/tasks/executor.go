@@ -123,7 +123,7 @@ func (e *Executor) Submit(taskType, summary string, fn ExecuteFunc) (string, err
 }
 
 func (e *Executor) List() []Snapshot {
-	if e == nil || e.registry == nil {
+	if e.registry == nil {
 		return nil
 	}
 	return e.registry.List()
@@ -263,18 +263,12 @@ func (e *Executor) execute(job executorJob) {
 }
 
 func (e *Executor) SetMetricsObserver(observer MetricsObserver) {
-	if e == nil {
-		return
-	}
 	e.metricsMu.Lock()
 	defer e.metricsMu.Unlock()
 	e.metrics = observer
 }
 
 func (e *Executor) currentMetrics() MetricsObserver {
-	if e == nil {
-		return nil
-	}
 	e.metricsMu.RLock()
 	defer e.metricsMu.RUnlock()
 	return e.metrics

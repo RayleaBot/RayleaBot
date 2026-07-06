@@ -166,14 +166,14 @@ func ResourceMissingError(details map[string]any) *Error {
 }
 
 func (s *Service) activePluginCount() int {
-	if s == nil || s.runtimes == nil {
+	if s.runtimes == nil {
 		return 0
 	}
 	return s.runtimes.ActiveCount()
 }
 
 func (s *Service) pluginStateCounts() (running int, failed int) {
-	if s == nil || s.plugins == nil {
+	if s.plugins == nil {
 		return 0, 0
 	}
 	for _, snapshot := range s.plugins.List() {
@@ -214,7 +214,7 @@ func (s *Service) systemStatus() string {
 }
 
 func (s *Service) PublishStatusSnapshot() {
-	if s == nil || s.statusPublisher == nil {
+	if s.statusPublisher == nil {
 		return
 	}
 	s.statusPublisher.PublishSnapshot()

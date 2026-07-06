@@ -94,14 +94,14 @@ func (v *CapabilityView) WebhookParameters(ctx context.Context, pluginID, route 
 }
 
 func (v *CapabilityView) ListPluginSnapshots() []Snapshot {
-	if v == nil || v.plugins == nil {
+	if v.plugins == nil {
 		return nil
 	}
 	return v.plugins.List()
 }
 
 func (v *CapabilityView) snapshot(pluginID string) (Snapshot, bool) {
-	if v == nil || v.plugins == nil {
+	if v.plugins == nil {
 		return Snapshot{}, false
 	}
 	return v.plugins.Get(pluginID)

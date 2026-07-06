@@ -273,7 +273,7 @@ func (t *LoginFailureTracker) RecordFailure(source string, limit int, window tim
 }
 
 func (t *LoginFailureTracker) Reset(source string) {
-	if t == nil || source == "" {
+	if source == "" {
 		return
 	}
 
@@ -283,7 +283,7 @@ func (t *LoginFailureTracker) Reset(source string) {
 }
 
 func (t *LoginFailureTracker) prunedLocked(source string, window time.Duration) []time.Time {
-	if t == nil || source == "" {
+	if source == "" {
 		return nil
 	}
 

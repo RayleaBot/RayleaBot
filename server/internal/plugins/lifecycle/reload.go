@@ -10,7 +10,7 @@ import (
 )
 
 func (c *Controller) Reload(ctx context.Context, pluginID string) (plugins.Snapshot, error) {
-	if c == nil || c.plugins == nil {
+	if c.plugins == nil {
 		return plugins.Snapshot{}, errors.New("plugin lifecycle controller is not available")
 	}
 
@@ -51,9 +51,6 @@ func (c *Controller) Reload(ctx context.Context, pluginID string) (plugins.Snaps
 }
 
 func (c *Controller) reloadPluginAsync(pluginID, botID string, taskID string) {
-	if c == nil {
-		return
-	}
 	botID = strings.TrimSpace(botID)
 	c.startReloadTask(taskID)
 

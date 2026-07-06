@@ -137,7 +137,7 @@ type AppliedMigration struct {
 }
 
 func (s *Store) ListAppliedMigrations(ctx context.Context) ([]AppliedMigration, error) {
-	if s == nil || s.Read == nil {
+	if s.Read == nil {
 		return nil, errors.New("sqlite store is required")
 	}
 	rows, err := sqlcgen.New(s.Read).ListSchemaMigrations(ctx)

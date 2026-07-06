@@ -124,7 +124,7 @@ func (h *RenderHandlers) HandleSystemRenderTemplateDetail() http.HandlerFunc {
 
 func (h *RenderHandlers) HandleSystemRenderTemplatePreviewHTML() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if h == nil || h.renderer == nil {
+		if h.renderer == nil {
 			httpapi.WriteError(w, r, http.StatusInternalServerError, renderCodeInternalError, "内部错误", "errors.platform.internal_error", nil)
 			return
 		}
@@ -152,7 +152,7 @@ func (h *RenderHandlers) HandleSystemRenderTemplatePreviewHTML() http.HandlerFun
 
 func (h *RenderHandlers) HandleSystemRenderTemplateAsset() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if h == nil || h.renderer == nil {
+		if h.renderer == nil {
 			httpapi.WriteError(w, r, http.StatusNotFound, renderCodeResourceMissing, "缺少必要资源", "errors.platform.resource_missing", map[string]any{
 				"resource_type": "render_template_asset",
 			})

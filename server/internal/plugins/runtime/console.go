@@ -124,7 +124,7 @@ func (m *Manager) captureStderr(pluginID string, reader io.ReadCloser) {
 }
 
 func (m *Manager) appendConsoleEntry(entry console.Entry) {
-	if m == nil || m.opts.Console == nil || entry.Text == "" {
+	if m.opts.Console == nil || entry.Text == "" {
 		return
 	}
 

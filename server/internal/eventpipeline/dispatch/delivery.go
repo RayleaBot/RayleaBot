@@ -13,9 +13,6 @@ import (
 // preferred (directed delivery). Otherwise all message-subscribed
 // plugins receive the event.
 func (d *Dispatcher) Dispatch(ctx context.Context, event pluginruntime.Event, commandName string) []DeliveryResult {
-	if d == nil {
-		return nil
-	}
 
 	d.mu.RLock()
 	targets := d.selectTargets(event, commandName)
@@ -31,13 +28,6 @@ func (d *Dispatcher) Dispatch(ctx context.Context, event pluginruntime.Event, co
 
 // DispatchToPlugin delivers an event to one specific registered plugin.
 func (d *Dispatcher) DispatchToPlugin(ctx context.Context, pluginID string, event pluginruntime.Event) DeliveryResult {
-	if d == nil {
-		return DeliveryResult{
-			PluginID:  pluginID,
-			Outcome:   OutcomeError,
-			ErrorCode: "platform.invalid_request",
-		}
-	}
 
 	results := d.enqueueTargets(ctx, event, []string{pluginID})
 	if len(results) == 0 {

@@ -23,9 +23,6 @@ func New(values ...string) *Redactor {
 }
 
 func (r *Redactor) Add(values ...string) {
-	if r == nil {
-		return
-	}
 
 	normalized := normalizeValues(values)
 	if len(normalized) == 0 {
@@ -40,7 +37,7 @@ func (r *Redactor) Add(values ...string) {
 }
 
 func (r *Redactor) Redact(text string) string {
-	if r == nil || text == "" {
+	if text == "" {
 		return text
 	}
 

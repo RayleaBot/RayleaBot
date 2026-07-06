@@ -26,7 +26,7 @@ func (s *ServiceStatusService) CurrentEvent() Frame {
 }
 
 func (s *ServiceStatusService) currentServiceStatusPayload() ServiceStatusPayload {
-	if s == nil || s.system == nil {
+	if s.system == nil {
 		return ServiceStatusPayload{
 			ServiceStatus: "failed",
 			Summary:       "服务运行异常",
@@ -89,9 +89,6 @@ func serviceStatusSummary(status string) string {
 }
 
 func (s *ServiceStatusService) PublishSnapshot() {
-	if s == nil {
-		return
-	}
 	s.hub.Publish(s.CurrentEvent())
 }
 

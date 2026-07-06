@@ -59,9 +59,6 @@ func NewChecker(cfg CheckerConfig, whitelistRepo WhitelistRepository, whitelistS
 // groupID is the conversation group ID (empty for private messages)
 // cmd is non-nil only when the message is a parsed command
 func (c *Checker) Check(ctx context.Context, actorID, actorRole, groupID string, cmd *CommandInfo) Verdict {
-	if c == nil {
-		return Verdict{Allowed: true}
-	}
 
 	// 1. Super admin bypass - skip all other checks.
 	if slices.Contains(c.cfg.SuperAdmins, actorID) {
@@ -115,7 +112,7 @@ func (c *Checker) Check(ctx context.Context, actorID, actorRole, groupID string,
 }
 
 func (c *Checker) matchesWhitelist(ctx context.Context, actorID, groupID string) bool {
-	if c == nil || c.whitelistRepo == nil {
+	if c.whitelistRepo == nil {
 		return false
 	}
 

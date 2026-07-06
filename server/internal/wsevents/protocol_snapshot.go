@@ -64,7 +64,7 @@ func (s *ProtocolService) CurrentOneBot11ProtocolSnapshot() OneBot11ProtocolSnap
 }
 
 func (s *ProtocolService) transportIngressEnabled(transport onebot11.TransportKey) bool {
-	if s == nil || s.adapter == nil {
+	if s.adapter == nil {
 		return false
 	}
 

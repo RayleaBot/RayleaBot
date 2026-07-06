@@ -139,7 +139,7 @@ func NewProtocolService(configSource ProtocolConfigSource, adapterShell *onebot1
 }
 
 func (s *ProtocolService) ApplyConfigReload(cfg config.Config) error {
-	if s == nil || s.adapter == nil {
+	if s.adapter == nil {
 		return nil
 	}
 	if s.adapter.Snapshot().State == onebot11.StateStopped {
@@ -156,9 +156,6 @@ func (s *ProtocolService) ProtocolSnapshotEvent() Frame {
 }
 
 func (s *ProtocolService) PublishSnapshot() {
-	if s == nil {
-		return
-	}
 	s.hub.Publish(s.ProtocolSnapshotEvent())
 }
 
@@ -175,28 +172,28 @@ func (s *ProtocolService) ReverseWSIngressEnabled() bool {
 }
 
 func (s *ProtocolService) ReverseWSAccessToken() string {
-	if s == nil || s.config == nil {
+	if s.config == nil {
 		return ""
 	}
 	return s.config.CurrentConfig().OneBot.ReverseWS.AccessToken
 }
 
 func (s *ProtocolService) ReverseWSAccessTokenQueryCompat() bool {
-	if s == nil || s.config == nil {
+	if s.config == nil {
 		return false
 	}
 	return s.config.CurrentConfig().OneBot.ReverseWS.AccessTokenQueryCompat
 }
 
 func (s *ProtocolService) MarkReverseWSAuthFailed() {
-	if s == nil || s.adapter == nil {
+	if s.adapter == nil {
 		return
 	}
 	s.adapter.MarkReverseWSAuthFailed()
 }
 
 func (s *ProtocolService) AttachReverseWS(conn *websocket.Conn) {
-	if s == nil || s.adapter == nil {
+	if s.adapter == nil {
 		return
 	}
 	s.adapter.AttachReverseWS(conn)
@@ -211,28 +208,28 @@ func (s *ProtocolService) WebhookIngressEnabled() bool {
 }
 
 func (s *ProtocolService) WebhookAccessToken() string {
-	if s == nil || s.config == nil {
+	if s.config == nil {
 		return ""
 	}
 	return s.config.CurrentConfig().OneBot.Webhook.AccessToken
 }
 
 func (s *ProtocolService) WebhookAccessTokenQueryCompat() bool {
-	if s == nil || s.config == nil {
+	if s.config == nil {
 		return false
 	}
 	return s.config.CurrentConfig().OneBot.Webhook.AccessTokenQueryCompat
 }
 
 func (s *ProtocolService) MarkWebhookAuthFailed() {
-	if s == nil || s.adapter == nil {
+	if s.adapter == nil {
 		return
 	}
 	s.adapter.MarkWebhookAuthFailed()
 }
 
 func (s *ProtocolService) AcceptWebhookPayload(ctx context.Context, payload []byte) error {
-	if s == nil || s.adapter == nil {
+	if s.adapter == nil {
 		return configruntime.ErrProtocolStopped
 	}
 	return s.adapter.AcceptWebhookPayload(ctx, payload)

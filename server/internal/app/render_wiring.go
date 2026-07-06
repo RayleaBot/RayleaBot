@@ -144,7 +144,7 @@ func prepareBrowserPath(ctx context.Context, logger *slog.Logger, repoRoot strin
 }
 
 func (s *appRenderState) Close() error {
-	if s == nil || s.Renderer == nil {
+	if s.Renderer == nil {
 		return nil
 	}
 	err := s.Renderer.Close()

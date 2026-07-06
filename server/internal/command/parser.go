@@ -27,7 +27,7 @@ func NewParser(prefixes []string) *Parser {
 }
 
 func (p *Parser) Parse(plainText string) ParseResult {
-	if p == nil || len(p.prefixes) == 0 {
+	if len(p.prefixes) == 0 {
 		return ParseResult{}
 	}
 

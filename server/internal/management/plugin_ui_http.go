@@ -184,7 +184,7 @@ func (h *PluginManagementUIHandlers) HandlePluginManagementUIStatic() http.Handl
 }
 
 func (h *PluginManagementUIHandlers) resolvePluginUISnapshot(pluginID string) (plugins.Snapshot, bool) {
-	if h == nil || h.plugins == nil {
+	if h.plugins == nil {
 		return plugins.Snapshot{}, false
 	}
 
@@ -199,7 +199,7 @@ func (h *PluginManagementUIHandlers) resolvePluginUISnapshot(pluginID string) (p
 }
 
 func (h *PluginManagementUIHandlers) resolveSettingsSnapshot(w http.ResponseWriter, r *http.Request) (plugins.Snapshot, bool) {
-	if h == nil || h.plugins == nil {
+	if h.plugins == nil {
 		httpapi.WriteError(w, r, http.StatusInternalServerError, "platform.internal_error", "内部错误", "errors.platform.internal_error", nil)
 		return plugins.Snapshot{}, false
 	}

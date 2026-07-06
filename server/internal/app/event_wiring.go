@@ -55,7 +55,7 @@ func buildEvents(deps eventDeps) EventState {
 }
 
 func (s *EventState) Close() {
-	if s == nil || s.Dispatcher == nil {
+	if s.Dispatcher == nil {
 		return
 	}
 	s.Dispatcher.Close()

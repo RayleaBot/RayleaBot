@@ -51,9 +51,6 @@ func pruneWindowRecords(entries []time.Time, now time.Time, window time.Duration
 }
 
 func (l *windowLimiter) SetLimit(limit permission.RateLimit) {
-	if l == nil {
-		return
-	}
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	l.limit = limit
@@ -69,7 +66,7 @@ func (l *windowLimiter) SetLimit(limit permission.RateLimit) {
 }
 
 func (l *windowLimiter) Wait(ctx context.Context, key string) error {
-	if l == nil || strings.TrimSpace(key) == "" {
+	if strings.TrimSpace(key) == "" {
 		return nil
 	}
 
