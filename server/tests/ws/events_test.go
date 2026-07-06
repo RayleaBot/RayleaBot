@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/RayleaBot/RayleaBot/server/internal/app"
 	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/bridge"
 	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/dispatch"
 	"github.com/RayleaBot/RayleaBot/server/internal/onebot11"
@@ -20,15 +21,16 @@ import (
 func TestEventsWebSocketDeliversBridgeRuntimeFrame(t *testing.T) {
 	t.Parallel()
 
-	application := newTestApp(t, deterministicAuthOptions()...)
-	eventBridge := bridge.New(application.Logger(), &eventsDispatchStub{
-		deliverable: true,
-		results: []dispatch.DeliveryResult{{
-			PluginID: "weather",
-			Outcome:  dispatch.OutcomeDelivered,
-		}},
-	})
-	application.SetBridge(eventBridge)
+	application, _, _ := newTestAppWithOptions(t, nil, func(options *app.Options, _ string) {
+		options.BridgeDispatch = &eventsDispatchStub{
+			deliverable: true,
+			results: []dispatch.DeliveryResult{{
+				PluginID: "weather",
+				Outcome:  dispatch.OutcomeDelivered,
+			}},
+		}
+	}, deterministicAuthOptions()...)
+	eventBridge := application.Bridge()
 
 	token := issueLoginToken(t, application)
 	server := httptest.NewServer(application.Handler())
@@ -98,11 +100,10 @@ func TestEventsWebSocketDeliversBridgeRuntimeFrame(t *testing.T) {
 func TestEventsWebSocketReplaysProtocolStateOnConnect(t *testing.T) {
 	t.Parallel()
 
-	application := newTestApp(t, deterministicAuthOptions()...)
-	eventBridge := bridge.New(application.Logger(), &eventsDispatchStub{
-		deliverable: true,
-	})
-	application.SetBridge(eventBridge)
+	application, _, _ := newTestAppWithOptions(t, nil, func(options *app.Options, _ string) {
+		options.BridgeDispatch = &eventsDispatchStub{deliverable: true}
+	}, deterministicAuthOptions()...)
+	eventBridge := application.Bridge()
 
 	token := issueLoginToken(t, application)
 	server := httptest.NewServer(application.Handler())

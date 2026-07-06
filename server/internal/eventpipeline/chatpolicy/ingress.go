@@ -103,16 +103,6 @@ func (s *Ingress) CommandInfoForEvent(event onebot11.NormalizedEvent) *permissio
 	return s.policy.CommandInfoForEvent(event)
 }
 
-func (s *Ingress) SetBridge(eventBridge *bridge.Bridge) {
-	if s == nil {
-		return
-	}
-	s.bridge = eventBridge
-	if s.policy != nil {
-		s.policy.SetBridge(eventBridge)
-	}
-}
-
 func (s *Ingress) SetMetadataEnricher(enricher MetadataEnricher) {
 	if s != nil {
 		s.metadataEnricher = enricher

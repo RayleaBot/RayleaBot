@@ -60,8 +60,7 @@ func TestLogsListReadsPersistedBridgeMessageAcrossRestart(t *testing.T) {
 	t.Parallel()
 
 	configPath := writePersistentYAMLConfig(t, filepath.Join(t.TempDir(), "state.db"))
-	appA := newPersistentTestApp(t, configPath, func() time.Time { return time.Date(2026, 4, 15, 3, 0, 0, 0, time.UTC) }, "bridge-a")
-	appA.SetBridge(newPersistentEventsBridge(appA))
+	appA := newPersistentTestApp(t, configPath, func() time.Time { return time.Date(2026, 4, 15, 3, 0, 0, 0, time.UTC) }, "bridge-a", withPersistentBridgeDispatch())
 	_ = issueLoginToken(t, appA)
 
 	event := onebot11.NormalizedEvent{

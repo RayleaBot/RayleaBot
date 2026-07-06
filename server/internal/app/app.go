@@ -8,6 +8,8 @@ import (
 
 	"github.com/RayleaBot/RayleaBot/server/internal/auth"
 	"github.com/RayleaBot/RayleaBot/server/internal/configruntime"
+	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/bridge"
+	"github.com/RayleaBot/RayleaBot/server/internal/logging"
 	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
 	pluginruntime "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime"
 	renderservice "github.com/RayleaBot/RayleaBot/server/internal/render/service"
@@ -23,6 +25,12 @@ type Options struct {
 	RenderRunner          renderservice.Runner
 	BilibiliHTTPTransport http.RoundTripper
 	BilibiliClock         func() time.Time
+	// LogRepository overrides the SQLite-backed management log repository.
+	// Test-only seam; nil means the default repository is built.
+	LogRepository logging.Repository
+	// BridgeDispatch overrides the dispatcher the event bridge talks to.
+	// Test-only seam; nil means the real dispatcher is used.
+	BridgeDispatch bridge.Dispatch
 }
 
 type App struct {
@@ -69,6 +77,7 @@ func NewWithContext(ctx context.Context, options Options) (*App, error) {
 		Tasks:            buildState.taskRegistry,
 		TaskExecutor:     buildState.taskExecutor,
 		Logs:             buildState.logStream,
+		LogRepository:    options.LogRepository,
 		SchedulerTrigger: schedulerTriggers.Handle,
 	})
 	if err != nil {
@@ -128,8 +137,9 @@ func NewWithContext(ctx context.Context, options Options) (*App, error) {
 	}
 
 	eventState = buildEvents(eventDeps{
-		Config: resolvedConfig,
-		Logger: buildState.core.Logger,
+		Config:         resolvedConfig,
+		Logger:         buildState.core.Logger,
+		BridgeDispatch: options.BridgeDispatch,
 	})
 
 	state := buildState.core

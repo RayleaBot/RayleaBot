@@ -86,7 +86,9 @@ type ObservabilityData struct {
 	DispatcherIgnored      uint64  `json:"dispatcher_ignored_total,omitempty"`
 }
 
-type dispatcherClient interface {
+// Dispatch is the dispatcher capability the bridge depends on. It is
+// exported so app.Options can inject a test double at construction time.
+type Dispatch interface {
 	HasDeliverablePlugins() bool
 	Dispatch(context.Context, pluginruntime.Event, string) []dispatch.DeliveryResult
 }
@@ -131,7 +133,7 @@ type MetricsObserver interface {
 
 type Bridge struct {
 	logger     *slog.Logger
-	dispatcher dispatcherClient
+	dispatcher Dispatch
 
 	mu               sync.RWMutex
 	snapshot         Snapshot
@@ -143,7 +145,7 @@ type Bridge struct {
 	metrics         MetricsObserver
 }
 
-func New(logger *slog.Logger, dispatcher dispatcherClient) *Bridge {
+func New(logger *slog.Logger, dispatcher Dispatch) *Bridge {
 	if logger == nil {
 		logger = slog.Default()
 	}

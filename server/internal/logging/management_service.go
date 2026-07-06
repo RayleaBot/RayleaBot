@@ -15,13 +15,6 @@ func NewManagementService(stream *Stream, repository Repository) *ManagementServ
 	return &ManagementService{stream: stream, repository: repository}
 }
 
-func (s *ManagementService) SetRepository(repository Repository) {
-	if s == nil {
-		return
-	}
-	s.repository = repository
-}
-
 func (s *ManagementService) CurrentBootID() string {
 	if s == nil || s.stream == nil {
 		return ""

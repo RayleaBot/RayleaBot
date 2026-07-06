@@ -7,7 +7,6 @@ import (
 	"reflect"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/auth"
 	"github.com/RayleaBot/RayleaBot/server/tests/testutil"
@@ -16,8 +15,7 @@ import (
 func TestSessionLoginReturnsSessionToken(t *testing.T) {
 	t.Parallel()
 
-	application := newTestApp(t)
-	application.SetAuthManager(newDeterministicAuthManager(t))
+	application := newTestApp(t, deterministicAuthOptions()...)
 
 	setupFixture := loadWebAPIFixtureDocument(t, filepath.Join("..", "fixtures", "web-api", "ok.setup-admin.yaml"))
 	loginFixture := loadWebAPIFixtureDocument(t, filepath.Join("..", "fixtures", "web-api", "ok.session-login.yaml"))
@@ -56,8 +54,7 @@ func TestSessionLoginReturnsSessionToken(t *testing.T) {
 func TestSessionLoginRejectsBadCredentials(t *testing.T) {
 	t.Parallel()
 
-	application := newTestApp(t)
-	application.SetAuthManager(newDeterministicAuthManager(t))
+	application := newTestApp(t, deterministicAuthOptions()...)
 
 	setupFixture := loadWebAPIFixtureDocument(t, filepath.Join("..", "fixtures", "web-api", "ok.setup-admin.yaml"))
 	loginFixture := loadWebAPIFixtureDocument(t, filepath.Join("..", "fixtures", "web-api", "invalid.session-login-bad-credentials.yaml"))
@@ -84,8 +81,9 @@ func TestSessionLoginRejectsBadCredentials(t *testing.T) {
 func TestSessionLoginRecyclesOldestSessionWhenMaxSessionsReached(t *testing.T) {
 	t.Parallel()
 
-	application := newTestApp(t)
-	application.SetAuthManager(newLimitedAuthManager(t, 1))
+	application, _, _ := newTestAppWithConfigMutation(t, func(input map[string]any) {
+		input["admin"].(map[string]any)["max_sessions"] = 1
+	}, deterministicAuthOptions()...)
 
 	setupFixture := loadWebAPIFixtureDocument(t, filepath.Join("..", "fixtures", "web-api", "ok.setup-admin.yaml"))
 	loginFixture := loadWebAPIFixtureDocument(t, filepath.Join("..", "fixtures", "web-api", "edge.session-login-max-sessions.yaml"))
@@ -135,8 +133,7 @@ func TestSessionLoginRecyclesOldestSessionWhenMaxSessionsReached(t *testing.T) {
 func TestSessionLoginRejectsMalformedRequest(t *testing.T) {
 	t.Parallel()
 
-	application := newTestApp(t)
-	application.SetAuthManager(newDeterministicAuthManager(t))
+	application := newTestApp(t, deterministicAuthOptions()...)
 
 	setupFixture := loadWebAPIFixtureDocument(t, filepath.Join("..", "fixtures", "web-api", "ok.setup-admin.yaml"))
 	setup := performJSONRequest(t, application, setupFixture.Request.Method, setupFixture.Request.Path, setupFixture.Request.Body)
@@ -165,8 +162,7 @@ func TestSessionLoginRejectsMalformedRequest(t *testing.T) {
 func TestSessionLoginRateLimitsAfterRepeatedFailuresFromSameSourceIP(t *testing.T) {
 	t.Parallel()
 
-	application := newTestApp(t)
-	application.SetAuthManager(newDeterministicAuthManager(t))
+	application := newTestApp(t, deterministicAuthOptions()...)
 
 	setupFixture := loadWebAPIFixtureDocument(t, filepath.Join("..", "fixtures", "web-api", "ok.setup-admin.yaml"))
 	loginFixture := loadWebAPIFixtureDocument(t, filepath.Join("..", "fixtures", "web-api", "invalid.session-login-bad-credentials.yaml"))
@@ -203,8 +199,7 @@ func TestSessionLoginRateLimitsAfterRepeatedFailuresFromSameSourceIP(t *testing.
 func TestSessionLoginRejectsOversizedBody(t *testing.T) {
 	t.Parallel()
 
-	application := newTestApp(t)
-	application.SetAuthManager(newDeterministicAuthManager(t))
+	application := newTestApp(t, deterministicAuthOptions()...)
 
 	setupFixture := loadWebAPIFixtureDocument(t, filepath.Join("..", "fixtures", "web-api", "ok.setup-admin.yaml"))
 	setup := performJSONRequest(t, application, setupFixture.Request.Method, setupFixture.Request.Path, setupFixture.Request.Body)
@@ -232,12 +227,11 @@ func TestSessionLoginRejectsOversizedBody(t *testing.T) {
 func TestSessionLoginUnexpectedAuthFailureReturnsInternalError(t *testing.T) {
 	t.Parallel()
 
-	application := newTestApp(t)
-	application.SetAuthManager(newDeterministicAuthManagerWithRepository(t, &testutil.StubAuthRepository{
+	application := newTestApp(t, append(deterministicAuthOptions(), auth.WithRepository(&testutil.StubAuthRepository{
 		SaveSessionFn: func(context.Context, auth.Claims) error {
 			return errors.New("database unavailable")
 		},
-	}))
+	}))...)
 
 	setupFixture := loadWebAPIFixtureDocument(t, filepath.Join("..", "fixtures", "web-api", "ok.setup-admin.yaml"))
 	loginFixture := loadWebAPIFixtureDocument(t, filepath.Join("..", "fixtures", "web-api", "ok.session-login.yaml"))
@@ -261,31 +255,4 @@ func TestSessionLoginUnexpectedAuthFailureReturnsInternalError(t *testing.T) {
 			"request_id":  "fixture_request_id_placeholder",
 		},
 	}, "platform.internal_error")
-}
-
-func newLimitedAuthManager(t *testing.T, maxSessions int) *auth.Manager {
-	t.Helper()
-
-	current := time.Date(2026, 3, 19, 10, 0, 0, 0, time.UTC)
-	sessionCounter := 0
-	manager, err := auth.NewManager(
-		auth.Config{
-			SessionTTLDays: 1,
-			SlidingRenewal: false,
-			MaxSessions:    maxSessions,
-		},
-		auth.WithClock(func() time.Time {
-			return current
-		}),
-		auth.WithSigningKey([]byte("0123456789abcdef0123456789abcdef")),
-		auth.WithSessionIDGenerator(func() (string, error) {
-			sessionCounter++
-			return "session-test-" + string(rune('0'+sessionCounter)), nil
-		}),
-	)
-	if err != nil {
-		t.Fatalf("NewManager failed: %v", err)
-	}
-
-	return manager
 }

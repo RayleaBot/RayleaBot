@@ -23,8 +23,7 @@ import (
 func TestSetupAdminReturnsSessionToken(t *testing.T) {
 	t.Parallel()
 
-	application := newTestApp(t)
-	application.SetAuthManager(newDeterministicAuthManager(t))
+	application := newTestApp(t, deterministicAuthOptions()...)
 	fixture := loadWebAPIFixtureDocument(t, filepath.Join("..", "fixtures", "web-api", "ok.setup-admin.yaml"))
 
 	recorder := performJSONRequest(t, application, fixture.Request.Method, fixture.Request.Path, fixture.Request.Body)
@@ -56,8 +55,7 @@ func TestSetupAdminReturnsSessionToken(t *testing.T) {
 func TestSetupAdminRejectsMalformedRequest(t *testing.T) {
 	t.Parallel()
 
-	application := newTestApp(t)
-	application.SetAuthManager(newDeterministicAuthManager(t))
+	application := newTestApp(t, deterministicAuthOptions()...)
 	fixture := loadWebAPIFixtureDocument(t, filepath.Join("..", "fixtures", "web-api", "invalid.setup-admin-bad-request.yaml"))
 
 	recorder := performJSONRequest(t, application, fixture.Request.Method, fixture.Request.Path, fixture.Request.Body)
@@ -77,8 +75,7 @@ func TestSetupAdminRejectsMalformedRequest(t *testing.T) {
 func TestSetupAdminRejectsAlreadyInitialized(t *testing.T) {
 	t.Parallel()
 
-	application := newTestApp(t)
-	application.SetAuthManager(newDeterministicAuthManager(t))
+	application := newTestApp(t, deterministicAuthOptions()...)
 	okFixture := loadWebAPIFixtureDocument(t, filepath.Join("..", "fixtures", "web-api", "ok.setup-admin.yaml"))
 	edgeFixture := loadWebAPIFixtureDocument(t, filepath.Join("..", "fixtures", "web-api", "edge.setup-admin-already-initialized.yaml"))
 
@@ -104,8 +101,7 @@ func TestSetupAdminRejectsAlreadyInitialized(t *testing.T) {
 func TestSetupAdminRejectsNonLoopbackWhenSetupLocalOnlyEnabled(t *testing.T) {
 	t.Parallel()
 
-	application := newTestApp(t)
-	application.SetAuthManager(newDeterministicAuthManager(t))
+	application := newTestApp(t, deterministicAuthOptions()...)
 	fixture := loadWebAPIFixtureDocument(t, filepath.Join("..", "fixtures", "web-api", "ok.setup-admin.yaml"))
 
 	recorder := performJSONRequestWithRemoteAddr(t, application, fixture.Request.Method, fixture.Request.Path, fixture.Request.Body, "198.51.100.20:3210")
@@ -127,12 +123,11 @@ func TestSetupAdminRejectsNonLoopbackWhenSetupLocalOnlyEnabled(t *testing.T) {
 func TestSetupAdminUnexpectedAuthFailureReturnsInternalError(t *testing.T) {
 	t.Parallel()
 
-	application := newTestApp(t)
-	application.SetAuthManager(newDeterministicAuthManagerWithRepository(t, &testutil.StubAuthRepository{
+	application := newTestApp(t, append(deterministicAuthOptions(), auth.WithRepository(&testutil.StubAuthRepository{
 		SaveBootstrapFn: func(context.Context, auth.BootstrapState, auth.Claims) error {
 			return errors.New("disk full")
 		},
-	}))
+	}))...)
 	fixture := loadWebAPIFixtureDocument(t, filepath.Join("..", "fixtures", "web-api", "ok.setup-admin.yaml"))
 
 	recorder := performJSONRequest(t, application, fixture.Request.Method, fixture.Request.Path, fixture.Request.Body)
@@ -264,33 +259,6 @@ func cloneMap(input map[string]any) map[string]any {
 		output[key] = value
 	}
 	return output
-}
-
-func newDeterministicAuthManager(t *testing.T) *auth.Manager {
-	t.Helper()
-
-	current := time.Date(2026, 3, 19, 10, 0, 0, 0, time.UTC)
-	sessionCounter := 0
-	manager, err := auth.NewManager(
-		auth.Config{
-			SessionTTLDays: 1,
-			SlidingRenewal: false,
-			MaxSessions:    3,
-		},
-		auth.WithClock(func() time.Time {
-			return current
-		}),
-		auth.WithSigningKey([]byte("0123456789abcdef0123456789abcdef")),
-		auth.WithSessionIDGenerator(func() (string, error) {
-			sessionCounter++
-			return "session-test-" + string(rune('0'+sessionCounter)), nil
-		}),
-	)
-	if err != nil {
-		t.Fatalf("NewManager failed: %v", err)
-	}
-
-	return manager
 }
 
 // deterministicAuthOptions returns auth.Option values that produce a

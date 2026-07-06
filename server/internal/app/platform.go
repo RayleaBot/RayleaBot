@@ -28,6 +28,7 @@ type platformDeps struct {
 	Tasks            *tasks.Registry
 	TaskExecutor     *tasks.Executor
 	Logs             *logging.Stream
+	LogRepository    logging.Repository
 	SchedulerTrigger func(context.Context, scheduler.Job)
 }
 
@@ -125,9 +126,13 @@ func buildPlatform(deps platformDeps) (PlatformState, error) {
 	if err := deps.Tasks.Hydrate(ctx); err != nil {
 		return abort(fmt.Errorf("hydrate task registry: %w", err))
 	}
-	logRepository, err := logging.NewSQLiteRepository(storageStore)
-	if err != nil {
-		return abort(fmt.Errorf("create logging repository: %w", err))
+	logRepository := deps.LogRepository
+	if logRepository == nil {
+		sqliteLogRepository, err := logging.NewSQLiteRepository(storageStore)
+		if err != nil {
+			return abort(fmt.Errorf("create logging repository: %w", err))
+		}
+		logRepository = sqliteLogRepository
 	}
 	deps.Logs.ConfigureSpool(logging.NewSpoolQueue(logging.SpoolPathForDatabase(databasePath)), os.Stderr)
 	deps.Logs.SetRepository(logRepository, deps.Config.Log.RetentionDays)

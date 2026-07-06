@@ -50,13 +50,6 @@ func NewAuthHandlers(deps AuthDeps) *AuthHandlers {
 	}
 }
 
-func (h *AuthHandlers) SetAuthManager(manager authSessionService) {
-	if h == nil {
-		return
-	}
-	h.auth = manager
-}
-
 func (h *AuthHandlers) RegisterPublicRoutes(router chi.Router) {
 	router.Post("/api/setup/admin", h.HandleSetupAdmin())
 	router.Post("/api/session/login", h.HandleSessionLogin())

@@ -33,8 +33,7 @@ func TestBootstrapStateAndBootstrapTokenSurviveRestart(t *testing.T) {
 
 	appA := newPersistentTestApp(t, configPath, func() time.Time {
 		return current
-	}, "persist-a")
-	appA.SetBridge(newPersistentEventsBridge(appA))
+	}, "persist-a", withPersistentBridgeDispatch())
 
 	setupFixture := loadWebAPIFixtureDocument(t, filepath.Join("..", "fixtures", "web-api", "ok.setup-admin.yaml"))
 	edgeFixture := loadWebAPIFixtureDocument(t, filepath.Join("..", "fixtures", "web-api", "edge.setup-admin-already-initialized.yaml"))
@@ -49,9 +48,8 @@ func TestBootstrapStateAndBootstrapTokenSurviveRestart(t *testing.T) {
 
 	appB := newPersistentTestApp(t, configPath, func() time.Time {
 		return current
-	}, "persist-b")
+	}, "persist-b", withPersistentBridgeDispatch())
 	defer closePersistentTestApp(t, appB)
-	appB.SetBridge(newPersistentEventsBridge(appB))
 
 	repeatSetup := performJSONRequest(t, appB, edgeFixture.Request.Method, edgeFixture.Request.Path, edgeFixture.Request.Body)
 	if repeatSetup.Code != edgeFixture.Response.Status {
@@ -78,8 +76,7 @@ func TestLoginTokenSurvivesRestartAndReceivesEvents(t *testing.T) {
 
 	appA := newPersistentTestApp(t, configPath, func() time.Time {
 		return current
-	}, "ws-a")
-	appA.SetBridge(newPersistentEventsBridge(appA))
+	}, "ws-a", withPersistentBridgeDispatch())
 
 	setupFixture := loadWebAPIFixtureDocument(t, filepath.Join("..", "fixtures", "web-api", "ok.setup-admin.yaml"))
 	loginFixture := loadWebAPIFixtureDocument(t, filepath.Join("..", "fixtures", "web-api", "ok.session-login.yaml"))
@@ -97,9 +94,8 @@ func TestLoginTokenSurvivesRestartAndReceivesEvents(t *testing.T) {
 
 	appB := newPersistentTestApp(t, configPath, func() time.Time {
 		return current
-	}, "ws-b")
+	}, "ws-b", withPersistentBridgeDispatch())
 	defer closePersistentTestApp(t, appB)
-	appB.SetBridge(newPersistentEventsBridge(appB))
 
 	server := httptest.NewServer(appB.Handler())
 	defer server.Close()
@@ -203,12 +199,12 @@ func TestDeletingPersistedSessionSigningKeyInvalidatesOlderTokens(t *testing.T) 
 	}
 }
 
-func newPersistentTestApp(t *testing.T, configPath string, now func() time.Time, sessionPrefix string) *app.App {
+func newPersistentTestApp(t *testing.T, configPath string, now func() time.Time, sessionPrefix string, configureOptions ...func(*app.Options)) *app.App {
 	t.Helper()
 
 	sessionCounter := 0
 	repoRoot := newPreparedTestRuntimeRoot(t)
-	application, err := app.New(app.Options{
+	options := app.Options{
 		ConfigPath:       configPath,
 		SchemaPath:       filepath.Join("..", "contracts", "config.user.schema.json"),
 		PluginRepoRoot:   repoRoot,
@@ -224,7 +220,11 @@ func newPersistentTestApp(t *testing.T, configPath string, now func() time.Time,
 				return sessionPrefix + "-" + string(rune('0'+sessionCounter)), nil
 			}),
 		},
-	})
+	}
+	for _, configure := range configureOptions {
+		configure(&options)
+	}
+	application, err := app.New(options)
 	if err != nil {
 		t.Fatalf("app.New failed: %v", err)
 	}
@@ -242,14 +242,18 @@ func closePersistentTestApp(t *testing.T, application *app.App) {
 	}
 }
 
-func newPersistentEventsBridge(application *app.App) *bridge.Bridge {
-	return bridge.New(application.Logger(), &persistentDispatchStub{
-		deliverable: true,
-		results: []dispatch.DeliveryResult{{
-			PluginID: "weather",
-			Outcome:  dispatch.OutcomeDelivered,
-		}},
-	})
+// withPersistentBridgeDispatch injects a deliverable dispatch stub so bridge
+// runtime frames flow without a real plugin runtime.
+func withPersistentBridgeDispatch() func(*app.Options) {
+	return func(options *app.Options) {
+		options.BridgeDispatch = &persistentDispatchStub{
+			deliverable: true,
+			results: []dispatch.DeliveryResult{{
+				PluginID: "weather",
+				Outcome:  dispatch.OutcomeDelivered,
+			}},
+		}
+	}
 }
 
 type persistentDispatchStub struct {

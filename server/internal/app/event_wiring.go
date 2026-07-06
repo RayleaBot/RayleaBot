@@ -14,8 +14,9 @@ import (
 const dispatcherRuntimeFlushInterval = 10 * time.Second
 
 type eventDeps struct {
-	Config config.Config
-	Logger *slog.Logger
+	Config         config.Config
+	Logger         *slog.Logger
+	BridgeDispatch bridge.Dispatch
 }
 
 type EventState struct {
@@ -33,7 +34,11 @@ func buildEvents(deps eventDeps) EventState {
 	eventDispatcher := dispatch.New(deps.Logger, adapterShell, replyTargets, deps.Config.Runtime.MaxPendingEventsPerPlugin)
 	outboundLimiter := outbound.NewMessageRateLimiter(deps.Config)
 	eventDispatcher.SetOutboundLimiter(outboundLimiter)
-	eventBridge := bridge.New(deps.Logger, eventDispatcher)
+	var bridgeDispatch bridge.Dispatch = eventDispatcher
+	if deps.BridgeDispatch != nil {
+		bridgeDispatch = deps.BridgeDispatch
+	}
+	eventBridge := bridge.New(deps.Logger, bridgeDispatch)
 	eventBridge.SetAdapterStatsSource(adapterShell)
 	eventBridge.SetDispatcherStatsSource(NewDispatcherStatsAdapter(eventDispatcher))
 	eventDispatcher.SetRuntimePublisher(NewDispatcherRuntimePublisher(eventBridge))

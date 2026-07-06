@@ -145,13 +145,6 @@ func (s *Service) PermissionChecker() *permission.Checker {
 	return engine.checker
 }
 
-func (s *Service) SetBridge(logger RejectionLogger) {
-	if s == nil {
-		return
-	}
-	s.bridge = logger
-}
-
 func (s *Service) SetOutboundLimiter(limiter outbound.MessageLimiter) {
 	if s == nil {
 		return

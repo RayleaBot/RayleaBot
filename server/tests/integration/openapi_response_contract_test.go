@@ -37,8 +37,7 @@ func TestActualManagementResponsesMatchOpenAPI(t *testing.T) {
 	t.Run("setup admin", func(t *testing.T) {
 		t.Parallel()
 
-		application := newTestApp(t)
-		application.SetAuthManager(newDeterministicAuthManager(t))
+		application := newTestApp(t, deterministicAuthOptions()...)
 		fixture := loadWebAPIFixtureDocument(t, filepath.Join("..", "fixtures", "web-api", "ok.setup-admin.yaml"))
 
 		recorder := performOpenAPIJSONRequest(t, application, fixture.Request.Method, fixture.Request.Path, fixture.Request.Body, "")

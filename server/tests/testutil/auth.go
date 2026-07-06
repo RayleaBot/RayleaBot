@@ -2,7 +2,6 @@ package testutil
 
 import (
 	"context"
-	"testing"
 	"time"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/auth"
@@ -57,52 +56,6 @@ func (r *StubAuthRepository) DeleteSessions(ctx context.Context, sessionIDs []st
 		return r.DeleteSessionsFn(ctx, sessionIDs)
 	}
 	return nil
-}
-
-func NewDeterministicAuthManagerWithRepository(t testing.TB, repo auth.Repository) *auth.Manager {
-	t.Helper()
-
-	current := time.Date(2026, 3, 19, 10, 0, 0, 0, time.UTC)
-	sessionCounter := 0
-	manager, err := auth.NewManager(
-		auth.Config{
-			SessionTTLDays: 1,
-			SlidingRenewal: false,
-			MaxSessions:    3,
-		},
-		auth.WithClock(func() time.Time {
-			return current
-		}),
-		auth.WithSigningKey([]byte("0123456789abcdef0123456789abcdef")),
-		auth.WithSessionIDGenerator(func() (string, error) {
-			sessionCounter++
-			return "session-test-" + string(rune('0'+sessionCounter)), nil
-		}),
-		auth.WithRepository(repo),
-	)
-	if err != nil {
-		t.Fatalf("NewManager failed: %v", err)
-	}
-
-	return manager
-}
-
-func NewDeterministicAuthManager(t testing.TB) *auth.Manager {
-	t.Helper()
-
-	manager, err := auth.NewManager(
-		auth.Config{
-			SessionTTLDays: 1,
-			SlidingRenewal: false,
-			MaxSessions:    3,
-		},
-		DeterministicAuthOptions()...,
-	)
-	if err != nil {
-		t.Fatalf("NewManager failed: %v", err)
-	}
-
-	return manager
 }
 
 func DeterministicAuthOptions() []auth.Option {

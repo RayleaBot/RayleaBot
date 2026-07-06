@@ -87,13 +87,6 @@ func NewEventsHandler(bridge eventBridgeSource, plugins pluginEventSource, proto
 	return &EventsHandler{bridge: bridge, plugins: plugins, protocol: protocol, serviceStatus: serviceStatus, governance: governance}
 }
 
-func (h *EventsHandler) SetBridge(bridge eventBridgeSource) {
-	if h == nil {
-		return
-	}
-	h.bridge = bridge
-}
-
 type LogsHandler struct {
 	logs logEventSource
 }

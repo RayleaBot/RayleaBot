@@ -239,21 +239,6 @@ func readinessReportPtr(report health.ReadinessReport) *health.ReadinessReport {
 	return &report
 }
 
-func (s *Service) SetAuth(manager AuthBootstrapState) {
-	if s != nil {
-		if isNilDependency(manager) {
-			manager = nil
-		}
-		s.auth = manager
-	}
-}
-
-func (s *Service) SetLogRepository(repository logging.Repository) {
-	if s != nil {
-		s.logRepository = repository
-	}
-}
-
 func (s *Service) SetStatusPublisher(publisher StatusPublisher) {
 	if s != nil {
 		s.statusPublisher = publisher

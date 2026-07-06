@@ -39,13 +39,6 @@ func NewCoreHandlers(deps CoreDeps) *CoreHandlers {
 	}
 }
 
-func (h *CoreHandlers) SetAuthManager(auth coreAuthService) {
-	if h == nil {
-		return
-	}
-	h.auth = auth
-}
-
 func (h *CoreHandlers) RegisterPublicRoutes(router chi.Router) {
 	router.Get("/api/setup/status", h.HandleSetupStatus())
 	router.Get("/api/launcher/status", h.HandleLauncherStatus())

@@ -611,7 +611,7 @@ func (r *recordingDispatcher) Dispatch(_ context.Context, event pluginruntime.Ev
 	return append([]dispatch.DeliveryResult(nil), r.results...)
 }
 
-func testBridge(dispatcher dispatcherClient) *Bridge {
+func testBridge(dispatcher Dispatch) *Bridge {
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	return New(logger, dispatcher)
 }

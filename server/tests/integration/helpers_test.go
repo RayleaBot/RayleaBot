@@ -7,7 +7,6 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/RayleaBot/RayleaBot/server/internal/auth"
 	"github.com/RayleaBot/RayleaBot/server/tests/testutil"
 )
 
@@ -86,8 +85,4 @@ func writeIntegrationBuiltinPluginFixtures(t *testing.T, repoRoot string) {
 	if err := os.WriteFile(filepath.Join(pluginDir, "main.py"), []byte("print('fixture echo')\n"), 0o644); err != nil {
 		t.Fatalf("write builtin plugin fixture entry: %v", err)
 	}
-}
-
-func newDeterministicAuthManagerWithRepository(t *testing.T, repo auth.Repository) *auth.Manager {
-	return testutil.NewDeterministicAuthManagerWithRepository(t, repo)
 }

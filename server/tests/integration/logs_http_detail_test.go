@@ -2,8 +2,6 @@ package integration
 
 import (
 	"context"
-	"github.com/RayleaBot/RayleaBot/server/internal/logging"
-	"github.com/RayleaBot/RayleaBot/server/internal/onebot11"
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
@@ -11,6 +9,10 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	internalapp "github.com/RayleaBot/RayleaBot/server/internal/app"
+	"github.com/RayleaBot/RayleaBot/server/internal/logging"
+	"github.com/RayleaBot/RayleaBot/server/internal/onebot11"
 )
 
 func TestLogDetailReturnsOutboundStructuredDetail(t *testing.T) {
@@ -172,12 +174,13 @@ func TestLogDetailReturnsNotFound(t *testing.T) {
 func TestLogDetailFallsBackToLiveStreamWhenRepositoryMissesNewLog(t *testing.T) {
 	t.Parallel()
 
-	application, _, _ := newTestAppWithConfigMutation(t, func(input map[string]any) {
+	application, _, _ := newTestAppWithOptions(t, func(input map[string]any) {
 		input["log"].(map[string]any)["retention_days"] = 365
+	}, func(options *internalapp.Options, _ string) {
+		options.LogRepository = &stubMissingLogRepository{}
 	}, deterministicAuthOptions()...)
 	token := issueLoginToken(t, application)
 
-	application.SetLogRepository(&stubMissingLogRepository{})
 	application.Logs().Append(logging.Summary{
 		LogID:     "log_live_only_0001",
 		Timestamp: "2026-04-09T20:51:46Z",
@@ -251,12 +254,13 @@ func TestLogDetailFallsBackToLiveStreamWhenRepositoryMissesNewLog(t *testing.T) 
 func TestLogDetailFallbackSanitizesUnsafeOneBotText(t *testing.T) {
 	t.Parallel()
 
-	application, _, _ := newTestAppWithConfigMutation(t, func(input map[string]any) {
+	application, _, _ := newTestAppWithOptions(t, func(input map[string]any) {
 		input["log"].(map[string]any)["retention_days"] = 365
+	}, func(options *internalapp.Options, _ string) {
+		options.LogRepository = &stubMissingLogRepository{}
 	}, deterministicAuthOptions()...)
 	token := issueLoginToken(t, application)
 
-	application.SetLogRepository(&stubMissingLogRepository{})
 	application.Logs().Append(logging.Summary{
 		LogID:     "log_live_only_unsafe_0001",
 		Timestamp: "2026-04-09T20:51:46Z",
