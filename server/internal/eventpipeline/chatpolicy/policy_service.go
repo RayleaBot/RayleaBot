@@ -302,7 +302,7 @@ func commandPolicyReasonSummary(verdict permission.Verdict) string {
 	case "permission.not_whitelisted":
 		return "发送者不在白名单中"
 	case "permission.blacklisted":
-		if strings.TrimSpace(verdict.Reason) == "群在黑名单中" {
+		if verdict.Scope == permission.ScopeGroup {
 			return "群在黑名单中"
 		}
 		return "用户在黑名单中"

@@ -16,7 +16,15 @@ type Verdict struct {
 	Allowed   bool
 	Reason    string
 	ErrorCode string
+	// Scope identifies which target a blacklist/rate-limit rejection applies
+	// to: "user" or "group". Empty for verdicts without a target scope.
+	Scope string
 }
+
+const (
+	ScopeUser  = "user"
+	ScopeGroup = "group"
+)
 
 type CheckerConfig struct {
 	SuperAdmins  []string
@@ -73,11 +81,11 @@ func (c *Checker) Check(ctx context.Context, actorID, actorRole, groupID string,
 	// 2. Blacklist check.
 	if !skipBlacklist && c.blacklistRepo != nil {
 		if blocked, _ := c.blacklistRepo.IsBlacklisted(ctx, "user", actorID); blocked {
-			return Verdict{Allowed: false, Reason: "用户在黑名单中", ErrorCode: "permission.blacklisted"}
+			return Verdict{Allowed: false, Reason: "用户在黑名单中", ErrorCode: "permission.blacklisted", Scope: ScopeUser}
 		}
 		if groupID != "" {
 			if blocked, _ := c.blacklistRepo.IsBlacklisted(ctx, "group", groupID); blocked {
-				return Verdict{Allowed: false, Reason: "群在黑名单中", ErrorCode: "permission.blacklisted"}
+				return Verdict{Allowed: false, Reason: "群在黑名单中", ErrorCode: "permission.blacklisted", Scope: ScopeGroup}
 			}
 		}
 	}
@@ -93,12 +101,12 @@ func (c *Checker) Check(ctx context.Context, actorID, actorRole, groupID string,
 	if c.cooldown != nil && cmd != nil {
 		userKey := "user:" + actorID
 		if !c.cooldown.Allow(userKey) {
-			return Verdict{Allowed: false, Reason: "用户命令触发频率限制", ErrorCode: "platform.user_rate_limited"}
+			return Verdict{Allowed: false, Reason: "用户命令触发频率限制", ErrorCode: "platform.user_rate_limited", Scope: ScopeUser}
 		}
 		if groupID != "" {
 			groupKey := "group:" + groupID
 			if !c.cooldown.Allow(groupKey) {
-				return Verdict{Allowed: false, Reason: "群命令触发频率限制", ErrorCode: "platform.rate_limited"}
+				return Verdict{Allowed: false, Reason: "群命令触发频率限制", ErrorCode: "platform.rate_limited", Scope: ScopeGroup}
 			}
 		}
 	}
