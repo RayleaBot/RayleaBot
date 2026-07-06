@@ -5,13 +5,14 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/app"
 	"github.com/RayleaBot/RayleaBot/server/internal/auth"
-	"github.com/RayleaBot/RayleaBot/server/internal/testapp"
-	"github.com/RayleaBot/RayleaBot/server/internal/testutil"
+	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
+	"github.com/RayleaBot/RayleaBot/server/tests/testutil"
 )
 
 func TestMain(m *testing.M) {
@@ -22,11 +23,68 @@ func TestMain(m *testing.M) {
 }
 
 func newTestApp(t *testing.T, authOptions ...auth.Option) *app.App {
-	return testapp.NewTestApp(t, authOptions...)
+	application, _, _ := newTestAppWithOptions(t, nil, nil, authOptions...)
+	return application
 }
 
 func newTestAppWithConfigMutation(t *testing.T, mutate func(map[string]any), authOptions ...auth.Option) (*app.App, string, string) {
-	return testapp.NewTestAppWithConfigMutation(t, mutate, authOptions...)
+	return newTestAppWithOptions(t, mutate, nil, authOptions...)
+}
+
+func newTestAppWithOptions(
+	t *testing.T,
+	mutate func(map[string]any),
+	configureOptions func(*app.Options, string),
+	authOptions ...auth.Option,
+) (*app.App, string, string) {
+	t.Helper()
+
+	fixture := testutil.LoadConfigFixture(t, filepath.Join("..", "fixtures", "config", "ok.minimal.json"))
+
+	var input map[string]any
+	if err := json.Unmarshal(fixture.Input, &input); err != nil {
+		t.Fatalf("unmarshal config fixture input: %v", err)
+	}
+	if mutate != nil {
+		mutate(input)
+	}
+
+	updated, err := json.Marshal(input)
+	if err != nil {
+		t.Fatalf("marshal config fixture input: %v", err)
+	}
+
+	configPath := testutil.WriteYAMLConfig(t, updated)
+	schemaPath := testutil.RepoPath(t, "contracts", "config.user.schema.json")
+	repoRoot := testutil.NewPreparedTestRuntimeRoot(t)
+	builtinRoot := testutil.RepoPath(t, "plugins", "builtin")
+
+	options := app.Options{
+		ConfigPath:       configPath,
+		SchemaPath:       schemaPath,
+		PluginRepoRoot:   repoRoot,
+		PluginSchemaPath: testutil.RepoPath(t, "contracts", "plugin-info.schema.json"),
+		PluginRoots: []plugincatalog.ScanRoot{
+			{Label: "plugins/builtin", Path: builtinRoot},
+			{Label: "plugins/installed", Path: filepath.Join(filepath.Dir(configPath), "..", "plugins", "installed")},
+		},
+		AuthOptions: authOptions,
+	}
+	if configureOptions != nil {
+		configureOptions(&options, configPath)
+	}
+
+	application, err := app.New(options)
+	if err != nil {
+		t.Fatalf("app.New failed: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := application.Close(); err != nil {
+			t.Fatalf("close app resources: %v", err)
+		}
+	})
+
+	return application, configPath, schemaPath
 }
 
 func deterministicAuthOptions() []auth.Option {
@@ -42,15 +100,46 @@ func writeYAMLConfig(t *testing.T, raw json.RawMessage) string {
 }
 
 func writePersistentYAMLConfig(t *testing.T, databasePath string) string {
-	return testapp.WritePersistentYAMLConfig(t, databasePath)
+	return testutil.WritePersistentYAMLConfig(t, databasePath)
 }
 
 func newPersistentTestApp(t *testing.T, configPath string, now func() time.Time, sessionPrefix string) *app.App {
-	return testapp.NewPersistentTestApp(t, configPath, now, sessionPrefix)
+	t.Helper()
+
+	sessionCounter := 0
+	repoRoot := testutil.RepoRoot(t)
+	application, err := app.New(app.Options{
+		ConfigPath:       configPath,
+		SchemaPath:       testutil.RepoPath(t, "contracts", "config.user.schema.json"),
+		PluginRepoRoot:   repoRoot,
+		PluginSchemaPath: testutil.RepoPath(t, "contracts", "plugin-info.schema.json"),
+		PluginRoots: []plugincatalog.ScanRoot{
+			{Label: "plugins/builtin", Path: testutil.RepoPath(t, "plugins", "builtin")},
+			{Label: "plugins/installed", Path: filepath.Join(filepath.Dir(configPath), "..", "plugins", "installed")},
+		},
+		AuthOptions: []auth.Option{
+			auth.WithClock(now),
+			auth.WithSessionIDGenerator(func() (string, error) {
+				sessionCounter++
+				return sessionPrefix + "-" + string(rune('0'+sessionCounter)), nil
+			}),
+		},
+	})
+	if err != nil {
+		t.Fatalf("app.New failed: %v", err)
+	}
+
+	return application
 }
 
 func closePersistentTestApp(t *testing.T, application *app.App) {
-	testapp.ClosePersistentTestApp(t, application)
+	t.Helper()
+
+	if application != nil {
+		if err := application.Close(); err != nil {
+			t.Fatalf("close persistent app resources: %v", err)
+		}
+	}
 }
 
 func issueExistingBootstrapLoginToken(t *testing.T, application interface{ Handler() http.Handler }) string {

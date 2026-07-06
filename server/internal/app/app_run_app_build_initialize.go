@@ -5,7 +5,6 @@ import (
 	"time"
 
 	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
-	plugindiscovery "github.com/RayleaBot/RayleaBot/server/internal/plugins/discovery"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/logging"
@@ -53,7 +52,7 @@ func initializeAppBuild(options Options) (appBuildState, error) {
 	if err != nil {
 		return appBuildState{}, fmt.Errorf("compile plugin manifest schema %s: %w", discoverySpec.PluginSchemaPath, err)
 	}
-	snapshots, _, err := plugindiscovery.Discover(plugindiscovery.DiscoverOptions{
+	snapshots, _, err := plugincatalog.Discover(plugincatalog.DiscoverOptions{
 		Validator: pluginValidator,
 		Roots:     discoverySpec.Roots,
 		RepoRoot:  discoverySpec.RepoRoot,

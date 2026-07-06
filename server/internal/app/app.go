@@ -6,18 +6,11 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/RayleaBot/RayleaBot/server/internal/app/eventstack"
-	"github.com/RayleaBot/RayleaBot/server/internal/app/httpwire"
-	appplatform "github.com/RayleaBot/RayleaBot/server/internal/app/platform"
-	"github.com/RayleaBot/RayleaBot/server/internal/app/pluginstack"
-	"github.com/RayleaBot/RayleaBot/server/internal/app/renderstack"
-	"github.com/RayleaBot/RayleaBot/server/internal/app/servicegraph"
 	"github.com/RayleaBot/RayleaBot/server/internal/auth"
 	"github.com/RayleaBot/RayleaBot/server/internal/configruntime"
-	"github.com/RayleaBot/RayleaBot/server/internal/metrics"
-	plugindiscovery "github.com/RayleaBot/RayleaBot/server/internal/plugins/discovery"
+	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
 	pluginruntime "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime"
-	renderbrowser "github.com/RayleaBot/RayleaBot/server/internal/render/browser"
+	renderservice "github.com/RayleaBot/RayleaBot/server/internal/render/service"
 )
 
 type Options struct {
@@ -26,8 +19,8 @@ type Options struct {
 	AuthOptions           []auth.Option
 	PluginRepoRoot        string
 	PluginSchemaPath      string
-	PluginRoots           []plugindiscovery.ScanRoot
-	RenderRunner          renderbrowser.Runner
+	PluginRoots           []plugincatalog.ScanRoot
+	RenderRunner          renderservice.Runner
 	BilibiliHTTPTransport http.RoundTripper
 	BilibiliClock         func() time.Time
 }
@@ -35,17 +28,17 @@ type Options struct {
 type App struct {
 	state       *appRuntimeState
 	process     appProcessState
-	platform    appPlatform
-	pluginStack appPlugins
-	renderStack appRender
-	eventStack  appEvents
-	services    appServices
+	platform    PlatformState
+	pluginStack PluginStackState
+	renderStack appRenderState
+	eventStack  EventState
+	services    Services
 
 	runtimes *pluginruntime.Registry
 
-	httpHandlers appHTTPHandlers
+	httpHandlers httpHandlers
 
-	metrics                 *metrics.Registry
+	metrics                 *MetricsRegistry
 	metricsRuntimeGaugeStop func()
 }
 
@@ -66,8 +59,8 @@ func NewWithContext(ctx context.Context, options Options) (*App, error) {
 		return nil, err
 	}
 
-	schedulerTriggers := appplatform.NewTriggerProxy()
-	platformState, err := appplatform.Build(appplatform.Deps{
+	schedulerTriggers := newSchedulerTriggerProxy()
+	platformState, err := buildPlatform(platformDeps{
 		Context:          ctx,
 		ConfigPath:       buildState.options.ConfigPath,
 		Config:           buildState.core.Config,
@@ -82,9 +75,9 @@ func NewWithContext(ctx context.Context, options Options) (*App, error) {
 		return nil, err
 	}
 	var (
-		pluginState           pluginstack.State
-		renderState           renderstack.State
-		eventState            eventstack.State
+		pluginState           PluginStackState
+		renderState           appRenderState
+		eventState            EventState
 		stopRuntimeStateGauge func()
 	)
 	cleanupPartialBuild := func() {
@@ -105,7 +98,7 @@ func NewWithContext(ctx context.Context, options Options) (*App, error) {
 	buildState.core.Config = resolvedConfig
 	buildState.core.addRedactionValues(configruntime.ConfigSecretValues(resolvedConfig)...)
 
-	pluginState, err = pluginstack.Build(pluginstack.Deps{
+	pluginState, err = buildPluginStack(pluginStackDeps{
 		Context:   ctx,
 		Config:    buildState.core.Config,
 		Logger:    buildState.core.Logger,
@@ -120,7 +113,7 @@ func NewWithContext(ctx context.Context, options Options) (*App, error) {
 		return nil, err
 	}
 
-	renderState, err = renderstack.Build(renderstack.Deps{
+	renderState, err = buildRender(renderDeps{
 		Context:   ctx,
 		Config:    buildState.core.Config,
 		Logger:    buildState.core.Logger,
@@ -134,14 +127,14 @@ func NewWithContext(ctx context.Context, options Options) (*App, error) {
 		return nil, err
 	}
 
-	eventState = eventstack.Build(eventstack.Deps{
+	eventState = buildEvents(eventDeps{
 		Config: buildState.core.Config,
 		Logger: buildState.core.Logger,
 	})
 
 	state := newAppRuntimeState(buildState)
 	metricRegistry, stopRuntimeStateGauge := wireMetrics(platformState, eventState, renderState.Renderer, pluginState)
-	serviceBuild, err := servicegraph.Build(servicegraph.BuildDeps{
+	serviceBuild, err := buildServices(serviceBuildDeps{
 		Runtime:               state,
 		Platform:              platformState,
 		Plugins:               pluginState,
@@ -171,7 +164,7 @@ func NewWithContext(ctx context.Context, options Options) (*App, error) {
 		metricsRuntimeGaugeStop: stopRuntimeStateGauge,
 	}
 	configureAppRuntimeCallbacks(application, schedulerTriggers)
-	httpState := httpwire.Build(httpwire.BuildDeps{
+	httpState := buildHTTP(httpBuildDeps{
 		Runtime:         state,
 		Platform:        platformState,
 		Plugins:         pluginState,
@@ -185,4 +178,14 @@ func NewWithContext(ctx context.Context, options Options) (*App, error) {
 	application.process.server = httpState.Server
 	application.httpHandlers = httpState.Handlers
 	return application, nil
+}
+
+func wireMetrics(platform PlatformState, events EventState, renderer *renderservice.Service, plugins PluginStackState) (*MetricsRegistry, func()) {
+	registry := NewMetricsRegistry()
+	events.Bridge.SetMetricsObserver(NewBridgeObserver(registry))
+	events.Dispatcher.SetMetricsObserver(NewDispatchObserver(registry))
+	events.Adapter.SetMetricsObserver(NewAdapterObserver(registry))
+	platform.TaskExecutor.SetMetricsObserver(NewTaskObserver(registry))
+	renderer.SetMetricsObserver(NewRenderObserver(registry))
+	return registry, StartPluginStateGaugeRefresh(registry, plugins.Plugins)
 }

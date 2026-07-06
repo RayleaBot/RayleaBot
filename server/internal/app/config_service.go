@@ -1,20 +1,19 @@
-package httpwire
+package app
 
 import (
 	"log/slog"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/configruntime"
-	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/eventingress"
+	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/chatpolicy"
 	"github.com/RayleaBot/RayleaBot/server/internal/logging"
-	"github.com/RayleaBot/RayleaBot/server/internal/management/configapi"
-	"github.com/RayleaBot/RayleaBot/server/internal/management/protocolapi"
+	managementapi "github.com/RayleaBot/RayleaBot/server/internal/management"
 	localaction "github.com/RayleaBot/RayleaBot/server/internal/plugins/actions"
 	renderservice "github.com/RayleaBot/RayleaBot/server/internal/render/service"
 	"github.com/RayleaBot/RayleaBot/server/internal/secrets"
 )
 
-type RuntimeState interface {
+type configRuntimeState interface {
 	CurrentConfig() config.Config
 	CurrentSummary() config.Summary
 	SetConfig(config.Config)
@@ -25,21 +24,19 @@ type RuntimeState interface {
 	AddRedactionValues(...string)
 }
 
-type ConfigDeps struct {
-	Runtime          RuntimeState
+type configServiceDeps struct {
+	Runtime          configRuntimeState
 	Logs             *logging.Stream
 	LogRepository    logging.Repository
 	Renderer         *renderservice.Service
 	PluginLogLimiter *localaction.PluginLogLimiter
 	OutboundLimiter  interface{ ApplyConfig(config.Config) }
-	Protocol         *protocolapi.Service
-	EventIngress     *eventingress.Service
+	Protocol         *managementapi.ProtocolService
+	EventIngress     *chatpolicy.Ingress
 	Secrets          secrets.Store
 }
 
-type ConfigService = configruntime.Service
-
-func NewConfigService(deps ConfigDeps) *ConfigService {
+func newConfigService(deps configServiceDeps) *configruntime.Service {
 	runtimeDeps := configruntime.Deps{
 		CurrentConfig: func() config.Config {
 			if deps.Runtime == nil {
@@ -84,24 +81,16 @@ func NewConfigService(deps ConfigDeps) *ConfigService {
 	return configruntime.NewService(runtimeDeps)
 }
 
-func runtimeStateLogger(state RuntimeState) *slog.Logger {
+func runtimeStateLogger(state configRuntimeState) *slog.Logger {
 	if state == nil {
 		return nil
 	}
 	return state.RuntimeLogger()
 }
 
-func runtimeStateLogLevel(state RuntimeState) *logging.LevelController {
+func runtimeStateLogLevel(state configRuntimeState) *logging.LevelController {
 	if state == nil {
 		return nil
 	}
 	return state.RuntimeLogLevel()
-}
-
-func ClassifyConfigApplyEffects(oldCfg config.Config, newCfg config.Config) configapi.ApplyEffects {
-	return configruntime.ClassifyApplyEffects(oldCfg, newCfg)
-}
-
-func ConfigDocumentFromTyped(cfg config.Config) map[string]any {
-	return configruntime.ConfigDocumentFromTyped(cfg)
 }

@@ -1,4 +1,4 @@
-package servicegraph
+package app
 
 import (
 	"context"
@@ -6,7 +6,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/RayleaBot/RayleaBot/server/internal/app/servicegraph/integrationmodule"
 	"github.com/RayleaBot/RayleaBot/server/internal/health"
 	"github.com/RayleaBot/RayleaBot/server/internal/integrations/thirdparty"
 	"github.com/RayleaBot/RayleaBot/server/internal/scheduler"
@@ -14,7 +13,7 @@ import (
 )
 
 type thirdPartyDiagnostics struct {
-	service *integrationmodule.ThirdPartyService
+	service *thirdparty.Service
 }
 
 func (d thirdPartyDiagnostics) DiagnosticsThirdParty(ctx context.Context) (systemsvc.DiagnosticsThirdParty, []health.DiagnosticIssue) {

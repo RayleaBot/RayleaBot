@@ -15,13 +15,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/RayleaBot/RayleaBot/server/internal/app/httpwire"
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
+	"github.com/RayleaBot/RayleaBot/server/internal/configruntime"
 	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/outbound"
-	"github.com/RayleaBot/RayleaBot/server/internal/management/configapi"
-	"github.com/RayleaBot/RayleaBot/server/internal/management/protocolapi"
+	managementapi "github.com/RayleaBot/RayleaBot/server/internal/management"
 	"github.com/RayleaBot/RayleaBot/server/internal/onebot11"
-	renderbrowser "github.com/RayleaBot/RayleaBot/server/internal/render/browser"
 	renderservice "github.com/RayleaBot/RayleaBot/server/internal/render/service"
 	"github.com/RayleaBot/RayleaBot/server/internal/storage"
 )
@@ -202,7 +200,7 @@ func TestApplyHotReloadableFieldsFallsBackToRestartRequiredWhenAdapterReloadFail
 	startCtx, cancelStart := context.WithCancel(context.Background())
 	adapterShell.Start(startCtx)
 	cancelStart()
-	app.services.Protocol = protocolapi.NewService(app.state, adapterShell)
+	app.services.Protocol = managementapi.NewProtocolService(app.state, adapterShell)
 	t.Cleanup(func() {
 		stopCtx, cancel := context.WithTimeout(context.Background(), time.Second)
 		defer cancel()
@@ -264,7 +262,7 @@ func TestApplyHotReloadableFieldsClassifiesRenderDefaultsAsAppliedNow(t *testing
 	newCfg.Render.DefaultOutput = "jpeg"
 	newCfg.Render.DeviceScalePercent = 200
 
-	effects := httpwire.ClassifyConfigApplyEffects(oldCfg, newCfg)
+	effects := configruntime.ClassifyApplyEffects(oldCfg, newCfg)
 	if !reflect.DeepEqual(effects.AppliedNow, []string{
 		"render.default_output",
 		"render.device_scale_percent",
@@ -313,14 +311,20 @@ func TestHandleConfigPutHotReloadsRenderDefaults(t *testing.T) {
 
 	app := newTestAppState(cfg, nil)
 	app.state.Summary = summary
-	document := httpwire.ConfigDocumentFromTyped(cfg)
+	document := configruntime.ConfigDocumentFromTyped(cfg)
 	renderDoc := document["render"].(map[string]any)
 	renderDoc["default_output"] = "jpeg"
 	renderDoc["device_scale_percent"] = 200
 
-	handler := configapi.NewHandlers(httpwire.NewConfigService(httpwire.ConfigDeps{
-		Runtime:  app.state,
-		Renderer: renderer,
+	handler := managementapi.NewConfigHandlers(configruntime.NewService(configruntime.Deps{
+		CurrentConfig:      app.state.CurrentConfig,
+		CurrentSummary:     app.state.CurrentSummary,
+		SetConfig:          app.state.SetConfig,
+		SetSummary:         app.state.SetSummary,
+		Logger:             app.state.RuntimeLogger(),
+		LogLevel:           app.state.RuntimeLogLevel(),
+		AddRedactionValues: app.state.AddRedactionValues,
+		Renderer:           renderer,
 	}))
 	body, err := json.Marshal(document)
 	if err != nil {
@@ -333,7 +337,7 @@ func TestHandleConfigPutHotReloadsRenderDefaults(t *testing.T) {
 		t.Fatalf("PUT /api/config status = %d, body = %s", recorder.Code, recorder.Body.String())
 	}
 
-	var response configapi.UpdateResponse
+	var response managementapi.ConfigUpdateResponse
 	if err := json.Unmarshal(recorder.Body.Bytes(), &response); err != nil {
 		t.Fatalf("decode config response: %v", err)
 	}
@@ -472,7 +476,7 @@ func TestHandleConfigPutHotReloadsOutboundLimiterMessageFields(t *testing.T) {
 				t.Fatalf("prime outbound limiter: %v", err)
 			}
 
-			document := httpwire.ConfigDocumentFromTyped(app.state.Config)
+			document := configruntime.ConfigDocumentFromTyped(app.state.Config)
 			tt.mutate(t, document)
 			response := putConfigDocument(t, app, limiter, document)
 
@@ -503,10 +507,10 @@ type recordingConfigOutboundLimiter struct {
 
 type recordingConfigRenderRunner struct {
 	mu   sync.Mutex
-	docs []renderbrowser.Document
+	docs []renderservice.Document
 }
 
-func (r *recordingConfigRenderRunner) Render(_ context.Context, doc renderbrowser.Document) ([]byte, error) {
+func (r *recordingConfigRenderRunner) Render(_ context.Context, doc renderservice.Document) ([]byte, error) {
 	r.mu.Lock()
 	r.docs = append(r.docs, doc)
 	r.mu.Unlock()
@@ -516,11 +520,11 @@ func (r *recordingConfigRenderRunner) Render(_ context.Context, doc renderbrowse
 	return []byte{137, 80, 78, 71}, nil
 }
 
-func (r *recordingConfigRenderRunner) lastDocument() (renderbrowser.Document, bool) {
+func (r *recordingConfigRenderRunner) lastDocument() (renderservice.Document, bool) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	if len(r.docs) == 0 {
-		return renderbrowser.Document{}, false
+		return renderservice.Document{}, false
 	}
 	return r.docs[len(r.docs)-1], true
 }
@@ -592,7 +596,7 @@ func newConfigHTTPOutboundLimiterFixture(t *testing.T, message config.MessageCon
 		t.Fatalf("load default config: %v", err)
 	}
 
-	document := httpwire.ConfigDocumentFromTyped(cfg)
+	document := configruntime.ConfigDocumentFromTyped(cfg)
 	messageDoc := messageSection(t, document)
 	messageDoc["rate_limit_per_plugin"] = message.RateLimitPerPlugin
 	messageDoc["rate_limit_per_target"] = message.RateLimitPerTarget
@@ -608,7 +612,7 @@ func newConfigHTTPOutboundLimiterFixture(t *testing.T, message config.MessageCon
 	return app, limiter
 }
 
-func putConfigDocument(t *testing.T, app *serviceHarness, limiter *recordingConfigOutboundLimiter, document map[string]any) configapi.UpdateResponse {
+func putConfigDocument(t *testing.T, app *serviceHarness, limiter *recordingConfigOutboundLimiter, document map[string]any) managementapi.ConfigUpdateResponse {
 	t.Helper()
 
 	body, err := json.Marshal(document)
@@ -616,9 +620,15 @@ func putConfigDocument(t *testing.T, app *serviceHarness, limiter *recordingConf
 		t.Fatalf("marshal config request: %v", err)
 	}
 
-	handler := configapi.NewHandlers(httpwire.NewConfigService(httpwire.ConfigDeps{
-		Runtime:         app.state,
-		OutboundLimiter: limiter,
+	handler := managementapi.NewConfigHandlers(configruntime.NewService(configruntime.Deps{
+		CurrentConfig:      app.state.CurrentConfig,
+		CurrentSummary:     app.state.CurrentSummary,
+		SetConfig:          app.state.SetConfig,
+		SetSummary:         app.state.SetSummary,
+		Logger:             app.state.RuntimeLogger(),
+		LogLevel:           app.state.RuntimeLogLevel(),
+		AddRedactionValues: app.state.AddRedactionValues,
+		OutboundLimiter:    limiter,
 	}))
 	request := httptest.NewRequest(http.MethodPut, "/api/config", bytes.NewReader(body))
 	recorder := httptest.NewRecorder()
@@ -628,7 +638,7 @@ func putConfigDocument(t *testing.T, app *serviceHarness, limiter *recordingConf
 		t.Fatalf("PUT /api/config status = %d, body = %s", recorder.Code, recorder.Body.String())
 	}
 
-	var response configapi.UpdateResponse
+	var response managementapi.ConfigUpdateResponse
 	if err := json.Unmarshal(recorder.Body.Bytes(), &response); err != nil {
 		t.Fatalf("decode config response: %v", err)
 	}

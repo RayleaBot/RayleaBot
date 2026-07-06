@@ -1,4 +1,4 @@
-package platform
+package app
 
 import (
 	"context"
@@ -19,7 +19,7 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/tasks"
 )
 
-type Deps struct {
+type platformDeps struct {
 	Context          context.Context
 	ConfigPath       string
 	Config           config.Config
@@ -31,7 +31,7 @@ type Deps struct {
 	SchedulerTrigger func(context.Context, scheduler.Job)
 }
 
-type State struct {
+type PlatformState struct {
 	Auth          *auth.Manager
 	Storage       *storage.Store
 	Secrets       secrets.Store
@@ -44,33 +44,33 @@ type State struct {
 	LoginFailures *auth.LoginFailureTracker
 }
 
-func Build(deps Deps) (State, error) {
+func buildPlatform(deps platformDeps) (PlatformState, error) {
 	ctx := deps.Context
 	if ctx == nil {
 		ctx = context.Background()
 	}
 	if err := ctx.Err(); err != nil {
-		return State{}, err
+		return PlatformState{}, err
 	}
 
 	databasePath, err := runtimepaths.ResolveDatabasePath(deps.ConfigPath, deps.Config.Database.Path)
 	if err != nil {
-		return State{}, err
+		return PlatformState{}, err
 	}
 
 	storageStore, err := storage.Open(databasePath)
 	if err != nil {
-		return State{}, fmt.Errorf("open sqlite store: %w", err)
+		return PlatformState{}, fmt.Errorf("open sqlite store: %w", err)
 	}
 
 	var cleanups []func()
 	cleanups = append(cleanups, func() { _ = storageStore.Close() })
 
-	abort := func(cause error) (State, error) {
+	abort := func(cause error) (PlatformState, error) {
 		for i := len(cleanups) - 1; i >= 0; i-- {
 			cleanups[i]()
 		}
-		return State{}, cause
+		return PlatformState{}, cause
 	}
 
 	authRepository, err := auth.NewSQLiteRepository(storageStore)
@@ -161,7 +161,7 @@ func Build(deps Deps) (State, error) {
 		return abort(fmt.Errorf("hydrate scheduler: %w", err))
 	}
 
-	return State{
+	return PlatformState{
 		Auth:          authManager,
 		Storage:       storageStore,
 		Secrets:       secretStore,
@@ -175,16 +175,16 @@ func Build(deps Deps) (State, error) {
 	}, nil
 }
 
-type TriggerProxy struct {
+type schedulerTriggerProxy struct {
 	mu      sync.RWMutex
 	handler func(context.Context, scheduler.Job)
 }
 
-func NewTriggerProxy() *TriggerProxy {
-	return &TriggerProxy{}
+func newSchedulerTriggerProxy() *schedulerTriggerProxy {
+	return &schedulerTriggerProxy{}
 }
 
-func (p *TriggerProxy) Set(handler func(context.Context, scheduler.Job)) {
+func (p *schedulerTriggerProxy) Set(handler func(context.Context, scheduler.Job)) {
 	if p == nil {
 		return
 	}
@@ -193,7 +193,7 @@ func (p *TriggerProxy) Set(handler func(context.Context, scheduler.Job)) {
 	p.handler = handler
 }
 
-func (p *TriggerProxy) Handle(ctx context.Context, job scheduler.Job) {
+func (p *schedulerTriggerProxy) Handle(ctx context.Context, job scheduler.Job) {
 	if p == nil {
 		return
 	}

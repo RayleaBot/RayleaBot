@@ -1,4 +1,4 @@
-package eventstack
+package app
 
 import (
 	"log/slog"
@@ -7,29 +7,27 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/bridge"
 	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/dispatch"
-	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/eventingress"
 	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/outbound"
-	"github.com/RayleaBot/RayleaBot/server/internal/metrics"
 	"github.com/RayleaBot/RayleaBot/server/internal/onebot11"
 )
 
 const dispatcherRuntimeFlushInterval = 10 * time.Second
 
-type Deps struct {
+type eventDeps struct {
 	Config config.Config
 	Logger *slog.Logger
 }
 
-type State struct {
+type EventState struct {
 	Adapter         *onebot11.Shell
 	Bridge          *bridge.Bridge
 	Dispatcher      *dispatch.Dispatcher
 	ReplyTargets    *outbound.ReplyTargetCache
-	OutboundSender  eventingress.OutboundActionSender
+	OutboundSender  outbound.ActionSender
 	OutboundLimiter *outbound.MessageRateLimiter
 }
 
-func Build(deps Deps) State {
+func buildEvents(deps eventDeps) EventState {
 	adapterShell := onebot11.New(deps.Config.OneBot, deps.Config.Adapter, deps.Logger)
 	replyTargets := outbound.NewReplyTargetCache(outbound.DefaultReplyTargetCacheSize)
 	eventDispatcher := dispatch.New(deps.Logger, adapterShell, replyTargets, deps.Config.Runtime.MaxPendingEventsPerPlugin)
@@ -37,11 +35,11 @@ func Build(deps Deps) State {
 	eventDispatcher.SetOutboundLimiter(outboundLimiter)
 	eventBridge := bridge.New(deps.Logger, eventDispatcher)
 	eventBridge.SetAdapterStatsSource(adapterShell)
-	eventBridge.SetDispatcherStatsSource(metrics.NewDispatcherStatsAdapter(eventDispatcher))
-	eventDispatcher.SetRuntimePublisher(metrics.NewDispatcherRuntimePublisher(eventBridge))
+	eventBridge.SetDispatcherStatsSource(NewDispatcherStatsAdapter(eventDispatcher))
+	eventDispatcher.SetRuntimePublisher(NewDispatcherRuntimePublisher(eventBridge))
 	eventDispatcher.StartObservabilityFlush(dispatcherRuntimeFlushInterval)
 
-	return State{
+	return EventState{
 		Adapter:         adapterShell,
 		Bridge:          eventBridge,
 		Dispatcher:      eventDispatcher,
@@ -51,7 +49,7 @@ func Build(deps Deps) State {
 	}
 }
 
-func (s *State) Close() {
+func (s *EventState) Close() {
 	if s == nil || s.Dispatcher == nil {
 		return
 	}

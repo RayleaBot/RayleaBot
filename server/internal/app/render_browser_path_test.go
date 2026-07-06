@@ -1,4 +1,4 @@
-package renderstack
+package app
 
 import (
 	"context"

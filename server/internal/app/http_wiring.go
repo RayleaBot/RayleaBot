@@ -1,4 +1,4 @@
-package httpwire
+package app
 
 import (
 	"context"
@@ -7,46 +7,39 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/go-chi/chi/v5"
-
-	"github.com/RayleaBot/RayleaBot/server/internal/app/eventstack"
-	appplatform "github.com/RayleaBot/RayleaBot/server/internal/app/platform"
-	"github.com/RayleaBot/RayleaBot/server/internal/app/pluginstack"
-	"github.com/RayleaBot/RayleaBot/server/internal/app/servicegraph"
 	"github.com/RayleaBot/RayleaBot/server/internal/httpapi"
 	"github.com/RayleaBot/RayleaBot/server/internal/logpath"
-	managementrouter "github.com/RayleaBot/RayleaBot/server/internal/management/router"
-	"github.com/RayleaBot/RayleaBot/server/internal/metrics"
-	"github.com/RayleaBot/RayleaBot/server/internal/plugins/actions/actionwiring"
-	pluginui "github.com/RayleaBot/RayleaBot/server/internal/plugins/managementui"
+	managementapi "github.com/RayleaBot/RayleaBot/server/internal/management"
+	localaction "github.com/RayleaBot/RayleaBot/server/internal/plugins/actions"
 	renderservice "github.com/RayleaBot/RayleaBot/server/internal/render/service"
+	"github.com/go-chi/chi/v5"
 )
 
-type BuildDeps struct {
-	Runtime         RuntimeState
-	Platform        appplatform.State
-	Plugins         pluginstack.State
-	Events          eventstack.State
+type httpBuildDeps struct {
+	Runtime         configRuntimeState
+	Platform        PlatformState
+	Plugins         PluginStackState
+	Events          EventState
 	Renderer        *renderservice.Service
-	ServiceBuild    servicegraph.BuildResult
-	Metrics         *metrics.Registry
+	ServiceBuild    serviceBuildResult
+	Metrics         *MetricsRegistry
 	RequestShutdown func()
 }
 
-type State struct {
+type appHTTPState struct {
 	Router   http.Handler
 	Server   *http.Server
-	Handlers Handlers
+	Handlers httpHandlers
 }
 
 type serverDeps struct {
-	runtime  RuntimeState
+	runtime  configRuntimeState
 	renderer *renderservice.Service
-	metrics  *metrics.Registry
+	metrics  *MetricsRegistry
 	routes   managementRouteState
 }
 
-func Build(deps BuildDeps) State {
+func buildHTTP(deps httpBuildDeps) appHTTPState {
 	runtimeState := deps.Runtime
 	platformState := deps.Platform
 	pluginState := deps.Plugins
@@ -54,7 +47,7 @@ func Build(deps BuildDeps) State {
 	renderer := deps.Renderer
 	services := deps.ServiceBuild.Services
 
-	configService := NewConfigService(ConfigDeps{
+	configService := newConfigService(configServiceDeps{
 		Runtime:          runtimeState,
 		Logs:             platformState.Logs,
 		LogRepository:    platformState.LogRepository,
@@ -65,17 +58,17 @@ func Build(deps BuildDeps) State {
 		EventIngress:     services.EventIngress,
 		Secrets:          platformState.Secrets,
 	})
-	pluginManagementUIHandler := pluginui.NewHandlers(pluginui.Deps{
+	pluginManagementUIHandler := managementapi.NewPluginManagementUIHandlers(managementapi.PluginManagementUIDeps{
 		Plugins:      pluginState.Plugins,
 		PluginConfig: pluginState.PluginConfig,
 		Secrets:      platformState.Secrets,
 		NotifyConfigChange: func(ctx context.Context, pluginID string) {
-			dispatch := actionwiring.ConfigChangedDispatcher(eventState.Dispatcher)
+			dispatch := localaction.ConfigChangedDispatcher(eventState.Dispatcher)
 			if dispatch != nil {
 				dispatch(ctx, pluginID)
 			}
 		},
-		RefreshCommands: actionwiring.RefreshCommands(pluginState.Plugins, eventState.Dispatcher),
+		RefreshCommands: localaction.RefreshCommands(pluginState.Plugins, eventState.Dispatcher),
 		ActionInvoker:   services.PluginLifecycle,
 	})
 
@@ -86,18 +79,18 @@ func Build(deps BuildDeps) State {
 		metrics:  deps.Metrics,
 		routes:   managementRoutes,
 	})
-	return State{
+	return appHTTPState{
 		Router:   router,
 		Server:   server,
 		Handlers: handlers,
 	}
 }
 
-func buildAppHTTPServer(deps serverDeps) (http.Handler, *http.Server, Handlers) {
+func buildAppHTTPServer(deps serverDeps) (http.Handler, *http.Server, httpHandlers) {
 	router := chi.NewRouter()
-	router.Use(httpapi.WithRequestContext(deps.runtime.RuntimeLogger(), httpapi.WithRequestObserver(metrics.NewHTTPObserver(deps.metrics))))
+	router.Use(httpapi.WithRequestContext(deps.runtime.RuntimeLogger(), httpapi.WithRequestObserver(NewHTTPObserver(deps.metrics))))
 
-	managementrouter.Register(router, deps.routes.RouterDeps, deps.routes.RequireAuth)
+	managementapi.RegisterRoutes(router, deps.routes.RouterDeps, deps.routes.RequireAuth)
 	handlers := deps.routes.Handlers
 
 	cfg := deps.runtime.CurrentConfig()
@@ -116,7 +109,7 @@ func buildAppHTTPServer(deps serverDeps) (http.Handler, *http.Server, Handlers) 
 	return router, server, handlers
 }
 
-func logConfiguredServer(state RuntimeState, renderer *renderservice.Service, listenAddr string) {
+func logConfiguredServer(state configRuntimeState, renderer *renderservice.Service, listenAddr string) {
 	summary := state.CurrentSummary()
 	repoRoot := state.RepoRoot()
 	configPath := logpath.Display(repoRoot, summary.ConfigPath)

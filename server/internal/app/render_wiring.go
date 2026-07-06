@@ -1,64 +1,66 @@
-package renderstack
+package app
 
 import (
 	"context"
 	"fmt"
 	"log/slog"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
+	"github.com/RayleaBot/RayleaBot/server/internal/deps"
 	"github.com/RayleaBot/RayleaBot/server/internal/httpapi"
+	"github.com/RayleaBot/RayleaBot/server/internal/logpath"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
-	renderbrowser "github.com/RayleaBot/RayleaBot/server/internal/render/browser"
 	renderservice "github.com/RayleaBot/RayleaBot/server/internal/render/service"
 	"github.com/RayleaBot/RayleaBot/server/internal/runtimepaths"
 	"github.com/RayleaBot/RayleaBot/server/internal/storage"
 )
 
-type Deps struct {
+type renderDeps struct {
 	Context   context.Context
 	Config    config.Config
 	Logger    *slog.Logger
 	Discovery runtimepaths.PluginDiscoverySpec
 	Store     *storage.Store
 	Catalog   *plugincatalog.Catalog
-	Runner    renderbrowser.Runner
+	Runner    renderservice.Runner
 }
 
-type State struct {
+type appRenderState struct {
 	Renderer *renderservice.Service
 }
 
-func Build(deps Deps) (State, error) {
+func buildRender(deps renderDeps) (appRenderState, error) {
 	ctx := deps.Context
 	if ctx == nil {
 		ctx = context.Background()
 	}
 	if err := ctx.Err(); err != nil {
-		return State{}, err
+		return appRenderState{}, err
 	}
 
 	renderer, err := buildRenderService(deps)
 	if err != nil {
-		return State{}, err
+		return appRenderState{}, err
 	}
-	if err := SyncCatalogRenderTemplates(ctx, renderer, deps.Catalog); err != nil {
+	if err := syncCatalogRenderTemplates(ctx, renderer, deps.Catalog); err != nil {
 		_ = renderer.Close()
-		return State{}, err
+		return appRenderState{}, err
 	}
-	return State{Renderer: renderer}, nil
+	return appRenderState{Renderer: renderer}, nil
 }
 
-func SyncCatalogRenderTemplates(ctx context.Context, renderer *renderservice.Service, catalog *plugincatalog.Catalog) error {
+func syncCatalogRenderTemplates(ctx context.Context, renderer *renderservice.Service, catalog *plugincatalog.Catalog) error {
 	if renderer == nil || catalog == nil {
 		return nil
 	}
 	return renderer.SyncPluginTemplateDeclarations(ctx, pluginRenderTemplateDeclarations(catalog.List()))
 }
 
-func ValidatePluginRenderTemplates(snapshot plugins.Snapshot) error {
+func validatePluginRenderTemplates(snapshot plugins.Snapshot) error {
 	return renderservice.ValidatePluginTemplateDeclarations(pluginRenderTemplateDeclarations([]plugins.Snapshot{snapshot}))
 }
 
@@ -78,7 +80,7 @@ func pluginRenderTemplateDeclarations(snapshots []plugins.Snapshot) []renderserv
 	return declarations
 }
 
-func buildRenderService(deps Deps) (*renderservice.Service, error) {
+func buildRenderService(deps renderDeps) (*renderservice.Service, error) {
 	ctx := deps.Context
 	if ctx == nil {
 		ctx = context.Background()
@@ -107,7 +109,41 @@ func buildRenderService(deps Deps) (*renderservice.Service, error) {
 	return renderService, nil
 }
 
-func (s *State) Close() error {
+var resolveManagedBrowserPath = func(ctx context.Context, repoRoot string) (string, error) {
+	return deps.NewRuntime(repoRoot).ResolveEntrypoint(ctx, "chromium", "browser")
+}
+
+func prepareBrowserPath(ctx context.Context, logger *slog.Logger, repoRoot string, configuredPath string) string {
+	browserPath := strings.TrimSpace(configuredPath)
+	if browserPath != "" {
+		return browserPath
+	}
+
+	managedBrowserPath, err := resolveManagedBrowserPath(ctx, repoRoot)
+	if err != nil {
+		if logger != nil {
+			logger.Warn(
+				"托管 Chromium 暂不可用，图片渲染等待运行环境准备",
+				"component", "render",
+				"code", "platform.resource_missing",
+				"err", logpath.Error(repoRoot, err, repoRoot),
+			)
+		}
+		return ""
+	}
+
+	if logger != nil {
+		browserDisplayPath := logpath.Display(repoRoot, managedBrowserPath)
+		logger.Info(
+			"托管 Chromium 已就绪，浏览器路径："+browserDisplayPath,
+			"component", "render",
+			"browser_path", browserDisplayPath,
+		)
+	}
+	return managedBrowserPath
+}
+
+func (s *appRenderState) Close() error {
 	if s == nil || s.Renderer == nil {
 		return nil
 	}

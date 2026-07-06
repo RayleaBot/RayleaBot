@@ -6,12 +6,11 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/dispatch"
 	"github.com/RayleaBot/RayleaBot/server/internal/governance"
-	managementevents "github.com/RayleaBot/RayleaBot/server/internal/management/events"
+	managementevents "github.com/RayleaBot/RayleaBot/server/internal/management"
 	"github.com/RayleaBot/RayleaBot/server/internal/permission"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
-	pluginconfig "github.com/RayleaBot/RayleaBot/server/internal/plugins/configstore"
-	pluginkv "github.com/RayleaBot/RayleaBot/server/internal/plugins/kvstore"
+	"github.com/RayleaBot/RayleaBot/server/internal/plugins/pluginstore"
 	pluginruntime "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime"
 	"github.com/RayleaBot/RayleaBot/server/internal/scheduler"
 	"github.com/RayleaBot/RayleaBot/server/internal/storage"
@@ -74,7 +73,7 @@ func TestExecuteStorageKVRoundTrip(t *testing.T) {
 	}
 	defer store.Close()
 
-	repo, err := pluginkv.NewSQLiteRepository(store)
+	repo, err := pluginstore.NewKVSQLiteRepository(store)
 	if err != nil {
 		t.Fatalf("NewSQLiteRepository: %v", err)
 	}
@@ -164,7 +163,7 @@ func TestExecuteConfigWriteDispatchesConfigChanged(t *testing.T) {
 	}
 	defer store.Close()
 
-	repo, err := pluginconfig.NewSQLiteRepository(store)
+	repo, err := pluginstore.NewConfigSQLiteRepository(store)
 	if err != nil {
 		t.Fatalf("NewSQLiteRepository: %v", err)
 	}

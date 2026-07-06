@@ -16,10 +16,10 @@ import (
 
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/dispatch"
+	managementapi "github.com/RayleaBot/RayleaBot/server/internal/management"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
-	"github.com/RayleaBot/RayleaBot/server/internal/plugins/actions/actionwiring"
-	pluginconfig "github.com/RayleaBot/RayleaBot/server/internal/plugins/configstore"
-	pluginui "github.com/RayleaBot/RayleaBot/server/internal/plugins/managementui"
+	localaction "github.com/RayleaBot/RayleaBot/server/internal/plugins/actions"
+	"github.com/RayleaBot/RayleaBot/server/internal/plugins/pluginstore"
 	pluginruntime "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime"
 	"github.com/RayleaBot/RayleaBot/server/internal/secrets"
 	"github.com/RayleaBot/RayleaBot/server/internal/storage"
@@ -33,7 +33,7 @@ type pluginManagementUIErrorEnvelope struct {
 	} `json:"error"`
 }
 
-func openPluginSettingsRepo(t *testing.T) pluginconfig.Repository {
+func openPluginSettingsRepo(t *testing.T) pluginstore.ConfigRepository {
 	t.Helper()
 
 	store, err := storage.Open(filepath.Join(t.TempDir(), "state.db"))
@@ -44,9 +44,9 @@ func openPluginSettingsRepo(t *testing.T) pluginconfig.Repository {
 		_ = store.Close()
 	})
 
-	repo, err := pluginconfig.NewSQLiteRepository(store)
+	repo, err := pluginstore.NewConfigSQLiteRepository(store)
 	if err != nil {
-		t.Fatalf("pluginconfig.NewSQLiteRepository: %v", err)
+		t.Fatalf("pluginstore.NewConfigSQLiteRepository: %v", err)
 	}
 	return repo
 }
@@ -220,7 +220,7 @@ func TestHandlePluginSettingsGetMergesDefaultsAndPersistedValues(t *testing.T) {
 		t.Fatalf("status = %d, want 200; body=%s", recorder.Code, recorder.Body.String())
 	}
 
-	var response pluginui.PluginSettingsResponse
+	var response managementapi.PluginSettingsResponse
 	if err := json.Unmarshal(recorder.Body.Bytes(), &response); err != nil {
 		t.Fatalf("decode response: %v", err)
 	}
@@ -281,7 +281,7 @@ func TestHandlePluginSettingsPutDispatchesConfigChanged(t *testing.T) {
 		plugins:            catalog,
 		pluginConfig:       repo,
 		notifyConfigChange: application.dispatchPluginConfigChanged,
-		refreshCommands:    actionwiring.RefreshCommands(catalog, dispatcher),
+		refreshCommands:    localaction.RefreshCommands(catalog, dispatcher),
 	})
 	router := chi.NewRouter()
 	router.Put("/api/plugins/{plugin_id}/settings", handlers.handlePluginSettingsPut())
@@ -296,7 +296,7 @@ func TestHandlePluginSettingsPutDispatchesConfigChanged(t *testing.T) {
 		t.Fatalf("status = %d, want 200; body=%s", recorder.Code, recorder.Body.String())
 	}
 
-	var response pluginui.PluginSettingsUpdateResponse
+	var response managementapi.PluginSettingsUpdateResponse
 	if err := json.Unmarshal(recorder.Body.Bytes(), &response); err != nil {
 		t.Fatalf("decode response: %v", err)
 	}
@@ -365,7 +365,7 @@ func TestHandlePluginSecretsGetAndPutAreScopedToPlugin(t *testing.T) {
 		t.Fatalf("get status = %d, want 200; body=%s", getRecorder.Code, getRecorder.Body.String())
 	}
 
-	var getResponse pluginui.PluginSecretsResponse
+	var getResponse managementapi.PluginSecretsResponse
 	if err := json.Unmarshal(getRecorder.Body.Bytes(), &getResponse); err != nil {
 		t.Fatalf("decode get response: %v", err)
 	}
@@ -386,7 +386,7 @@ func TestHandlePluginSecretsGetAndPutAreScopedToPlugin(t *testing.T) {
 		t.Fatalf("put status = %d, want 200; body=%s", putRecorder.Code, putRecorder.Body.String())
 	}
 
-	var putResponse pluginui.PluginSecretsUpdateResponse
+	var putResponse managementapi.PluginSecretsUpdateResponse
 	if err := json.Unmarshal(putRecorder.Body.Bytes(), &putResponse); err != nil {
 		t.Fatalf("decode put response: %v", err)
 	}

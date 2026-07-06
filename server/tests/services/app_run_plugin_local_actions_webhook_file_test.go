@@ -5,7 +5,7 @@ import (
 	"context"
 	"encoding/base64"
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
-	pluginfile "github.com/RayleaBot/RayleaBot/server/internal/plugins/filestore"
+	"github.com/RayleaBot/RayleaBot/server/internal/plugins/pluginstore"
 	pluginruntime "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime"
 	"log/slog"
 	"path/filepath"
@@ -92,7 +92,7 @@ func TestExecuteStorageFileRoundTrip(t *testing.T) {
 			},
 		},
 		nil,
-		pluginfile.NewService(filepath.Join(t.TempDir(), "plugins")),
+		pluginstore.NewFileService(filepath.Join(t.TempDir(), "plugins")),
 		nil,
 		nil,
 		nil,
@@ -164,7 +164,7 @@ func TestExecuteStorageFileRejectsMissingScope(t *testing.T) {
 			},
 		},
 		nil,
-		pluginfile.NewService(filepath.Join(t.TempDir(), "plugins")),
+		pluginstore.NewFileService(filepath.Join(t.TempDir(), "plugins")),
 		nil,
 		nil,
 		nil,

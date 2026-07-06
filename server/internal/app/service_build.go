@@ -1,29 +1,27 @@
-package servicegraph
+package app
 
 import (
 	"log/slog"
 	"net/http"
 	"time"
 
-	"github.com/RayleaBot/RayleaBot/server/internal/app/eventstack"
-	appplatform "github.com/RayleaBot/RayleaBot/server/internal/app/platform"
-	"github.com/RayleaBot/RayleaBot/server/internal/app/pluginstack"
-	"github.com/RayleaBot/RayleaBot/server/internal/app/servicegraph/integrationmodule"
-	"github.com/RayleaBot/RayleaBot/server/internal/app/servicegraph/pluginmodule"
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
-	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/eventingress"
+	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/chatpolicy"
 	"github.com/RayleaBot/RayleaBot/server/internal/governance"
+	"github.com/RayleaBot/RayleaBot/server/internal/integrations/thirdparty"
 	"github.com/RayleaBot/RayleaBot/server/internal/logging"
-	managementevents "github.com/RayleaBot/RayleaBot/server/internal/management/events"
-	"github.com/RayleaBot/RayleaBot/server/internal/management/protocolapi"
-	"github.com/RayleaBot/RayleaBot/server/internal/metrics"
+	managementevents "github.com/RayleaBot/RayleaBot/server/internal/management"
+	"github.com/RayleaBot/RayleaBot/server/internal/permission"
+	"github.com/RayleaBot/RayleaBot/server/internal/plugins/actions"
+	pluginservice "github.com/RayleaBot/RayleaBot/server/internal/plugins/lifecycle"
 	pluginruntime "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime"
+	pluginwebhook "github.com/RayleaBot/RayleaBot/server/internal/plugins/webhook"
 	renderservice "github.com/RayleaBot/RayleaBot/server/internal/render/service"
 	"github.com/RayleaBot/RayleaBot/server/internal/runtimepaths"
 	systemsvc "github.com/RayleaBot/RayleaBot/server/internal/system"
 )
 
-type RuntimeState interface {
+type runtimeStateView interface {
 	CurrentConfig() config.Config
 	CurrentSummary() config.Summary
 	RepoRoot() string
@@ -32,13 +30,13 @@ type RuntimeState interface {
 	RedactString(string) string
 }
 
-type BuildDeps struct {
-	Runtime               RuntimeState
-	Platform              appplatform.State
-	Plugins               pluginstack.State
-	Events                eventstack.State
+type serviceBuildDeps struct {
+	Runtime               runtimeStateView
+	Platform              PlatformState
+	Plugins               PluginStackState
+	Events                EventState
 	Renderer              *renderservice.Service
-	Metrics               *metrics.Registry
+	Metrics               *MetricsRegistry
 	Discovery             runtimepaths.PluginDiscoverySpec
 	PluginValidator       *config.Validator
 	ManagementRedact      func(string) string
@@ -47,27 +45,27 @@ type BuildDeps struct {
 }
 
 type Services struct {
-	LocalActions      *pluginmodule.LocalActionService
-	PluginLifecycle   *pluginmodule.LifecycleController
-	EventIngress      *eventingress.Service
-	Protocol          *protocolapi.Service
-	PluginWebhooks    *pluginmodule.WebhookService
+	LocalActions      *actions.Service
+	PluginLifecycle   *pluginservice.Controller
+	EventIngress      *chatpolicy.Ingress
+	Protocol          *managementevents.ProtocolService
+	PluginWebhooks    *pluginwebhook.Service
 	Governance        *governance.Service
 	GovernanceEvents  *managementevents.GovernanceService
 	Logs              *logging.ManagementService
 	System            *systemsvc.Service
-	ThirdParty        *integrationmodule.ThirdPartyService
-	ThirdPartyQRLogin *integrationmodule.ThirdPartyQRLoginService
+	ThirdParty        *thirdparty.Service
+	ThirdPartyQRLogin *thirdparty.QRLoginService
 }
 
-type BuildResult struct {
+type serviceBuildResult struct {
 	Services                   Services
 	Runtimes                   *pluginruntime.Registry
 	Status                     *managementevents.ServiceStatusService
-	ThirdPartyAccountValidator *integrationmodule.AccountValidator
+	ThirdPartyAccountValidator *AccountValidator
 }
 
-func Build(deps BuildDeps) (BuildResult, error) {
+func buildServices(deps serviceBuildDeps) (serviceBuildResult, error) {
 	runtimeState := deps.Runtime
 	platform := deps.Platform
 	pluginStack := deps.Plugins
@@ -77,7 +75,7 @@ func Build(deps BuildDeps) (BuildResult, error) {
 	policyRepos := buildPolicyRepositories(platform)
 	governanceEvents := managementevents.NewGovernanceService()
 	governanceService := buildGovernanceService(runtimeState, pluginStack, policyRepos, governanceEvents)
-	integrations, err := integrationmodule.Build(integrationmodule.Deps{
+	integrations, err := buildIntegrations(integrationDeps{
 		Config:        runtimeState.CurrentConfig(),
 		Platform:      platform,
 		Renderer:      renderer,
@@ -85,9 +83,9 @@ func Build(deps BuildDeps) (BuildResult, error) {
 		Clock:         deps.BilibiliClock,
 	})
 	if err != nil {
-		return BuildResult{}, err
+		return serviceBuildResult{}, err
 	}
-	pluginRuntime := pluginmodule.BuildRuntime(pluginmodule.RuntimeDeps{
+	pluginRuntime := buildPluginRuntime(pluginRuntimeDeps{
 		Runtime:          runtimeState,
 		Platform:         platform,
 		Plugins:          pluginStack,
@@ -119,7 +117,7 @@ func Build(deps BuildDeps) (BuildResult, error) {
 	})
 	serviceStatusService := managementevents.NewServiceStatusService(systemService)
 	systemService.SetStatusPublisher(serviceStatusService)
-	pluginServices := pluginmodule.BuildServices(pluginmodule.ServiceDeps{
+	pluginServices := buildPluginServices(pluginServiceDeps{
 		Runtime:       runtimeState,
 		Platform:      platform,
 		Plugins:       pluginStack,
@@ -129,14 +127,13 @@ func Build(deps BuildDeps) (BuildResult, error) {
 		PluginRuntime: pluginRuntime,
 		Metrics:       deps.Metrics,
 	})
-	eventIngress := eventingress.New(eventingress.Deps{
+	eventIngress := chatpolicy.NewIngress(chatpolicy.IngressDeps{
 		CurrentConfig:    runtimeState.CurrentConfig,
 		Logger:           runtimeState.RuntimeLogger(),
 		Plugins:          pluginStack.Plugins,
 		ReplyTargets:     eventStack.ReplyTargets,
 		OutboundSender:   eventStack.OutboundSender,
 		OutboundLimiter:  eventStack.OutboundLimiter,
-		Renderer:         renderer,
 		Menu:             pluginServices.Menu,
 		Bridge:           eventStack.Bridge,
 		Lifecycle:        pluginServices.PluginLifecycle,
@@ -145,8 +142,8 @@ func Build(deps BuildDeps) (BuildResult, error) {
 		WhitelistState:   policyRepos.WhitelistState,
 		BlacklistRepo:    policyRepos.Blacklist,
 	})
-	protocolService := protocolapi.NewService(runtimeState, eventStack.Adapter)
-	return BuildResult{
+	protocolService := managementevents.NewProtocolService(runtimeState, eventStack.Adapter)
+	return serviceBuildResult{
 		Services: Services{
 			LocalActions:      pluginRuntime.LocalActions,
 			PluginLifecycle:   pluginServices.PluginLifecycle,
@@ -166,7 +163,7 @@ func Build(deps BuildDeps) (BuildResult, error) {
 	}, nil
 }
 
-func buildGovernanceService(runtimeState RuntimeState, pluginStack pluginstack.State, policy policyRepositories, events *managementevents.GovernanceService) *governance.Service {
+func buildGovernanceService(runtimeState runtimeStateView, pluginStack PluginStackState, policy policyRepositories, events *managementevents.GovernanceService) *governance.Service {
 	return governance.NewService(governance.Deps{
 		CurrentConfig:  runtimeState.CurrentConfig,
 		Plugins:        pluginStack.Plugins,
@@ -175,4 +172,18 @@ func buildGovernanceService(runtimeState RuntimeState, pluginStack pluginstack.S
 		WhitelistState: policy.WhitelistState,
 		NotifyChanged:  events.PublishChanged,
 	})
+}
+
+type policyRepositories struct {
+	Blacklist      permission.BlacklistRepository
+	Whitelist      permission.WhitelistRepository
+	WhitelistState permission.WhitelistStateRepository
+}
+
+func buildPolicyRepositories(platform PlatformState) policyRepositories {
+	return policyRepositories{
+		Blacklist:      permission.NewSQLiteBlacklistRepository(platform.Storage.Read, platform.Storage.Write),
+		Whitelist:      permission.NewSQLiteWhitelistRepository(platform.Storage.Read, platform.Storage.Write),
+		WhitelistState: permission.NewSQLiteWhitelistStateRepository(platform.Storage.Read, platform.Storage.Write),
+	}
 }

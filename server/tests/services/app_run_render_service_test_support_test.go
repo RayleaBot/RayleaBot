@@ -3,14 +3,12 @@ package services
 import (
 	"context"
 	"encoding/base64"
+	renderservice "github.com/RayleaBot/RayleaBot/server/internal/render/service"
+	"github.com/RayleaBot/RayleaBot/server/internal/storage"
 	"path/filepath"
 	"sync"
 	"testing"
 	"time"
-
-	renderbrowser "github.com/RayleaBot/RayleaBot/server/internal/render/browser"
-	renderservice "github.com/RayleaBot/RayleaBot/server/internal/render/service"
-	"github.com/RayleaBot/RayleaBot/server/internal/storage"
 )
 
 var (
@@ -20,7 +18,7 @@ var (
 
 type staticRenderRunner struct{}
 
-func (staticRenderRunner) Render(_ context.Context, doc renderbrowser.Document) ([]byte, error) {
+func (staticRenderRunner) Render(_ context.Context, doc renderservice.Document) ([]byte, error) {
 	if doc.Output == "jpeg" {
 		return append([]byte(nil), testRenderJPEGBytes...), nil
 	}
@@ -29,10 +27,10 @@ func (staticRenderRunner) Render(_ context.Context, doc renderbrowser.Document) 
 
 type captureRenderRunner struct {
 	mu   sync.Mutex
-	docs []renderbrowser.Document
+	docs []renderservice.Document
 }
 
-func (r *captureRenderRunner) Render(_ context.Context, doc renderbrowser.Document) ([]byte, error) {
+func (r *captureRenderRunner) Render(_ context.Context, doc renderservice.Document) ([]byte, error) {
 	r.mu.Lock()
 	r.docs = append(r.docs, doc)
 	r.mu.Unlock()
@@ -62,7 +60,7 @@ func newRenderService(t *testing.T, root string) *renderservice.Service {
 	return newRenderServiceForRepo(t, repoRoot, root, staticRenderRunner{})
 }
 
-func newRenderServiceForRepo(t *testing.T, repoRoot string, root string, runner renderbrowser.Runner) *renderservice.Service {
+func newRenderServiceForRepo(t *testing.T, repoRoot string, root string, runner renderservice.Runner) *renderservice.Service {
 	t.Helper()
 
 	store, err := storage.Open(filepath.Join(root, "render-state.db"))
