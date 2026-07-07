@@ -1,11 +1,11 @@
 package app
 
 import (
-	"context"
 	"net/http"
 	"time"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
+	"github.com/RayleaBot/RayleaBot/server/internal/integrations/accountvalidation"
 	bilibilisession "github.com/RayleaBot/RayleaBot/server/internal/integrations/bilibili/session"
 	"github.com/RayleaBot/RayleaBot/server/internal/integrations/douyin"
 	"github.com/RayleaBot/RayleaBot/server/internal/integrations/netease_music"
@@ -28,7 +28,7 @@ type integrationDeps struct {
 type integrationState struct {
 	ThirdParty        *thirdparty.Service
 	ThirdPartyQRLogin *thirdparty.QRLoginService
-	AccountValidator  *AccountValidator
+	AccountValidator  *accountvalidation.Validator
 }
 
 func buildIntegrations(deps integrationDeps) (integrationState, error) {
@@ -40,7 +40,7 @@ func buildIntegrations(deps integrationDeps) (integrationState, error) {
 	return integrationState{
 		ThirdParty:        thirdPartyService,
 		ThirdPartyQRLogin: buildQRLoginService(deps, thirdPartyService),
-		AccountValidator:  newDefaultAccountValidator(deps.HTTPTransport, deps.Clock),
+		AccountValidator:  accountvalidation.NewDefault(deps.HTTPTransport, deps.Clock),
 	}, nil
 }
 
@@ -62,47 +62,4 @@ func browserLaunchConfig(deps integrationDeps) (string, []string) {
 		browserPath, browserArgs = deps.Renderer.BrowserLaunchConfig()
 	}
 	return browserPath, browserArgs
-}
-
-type AccountValidator struct {
-	bilibili   *bilibilisession.AccountClient
-	thirdParty *thirdparty.AccountValidator
-}
-
-func newDefaultAccountValidator(transport http.RoundTripper, now func() time.Time) *AccountValidator {
-	return NewAccountValidator(transport, now, bilibilisession.NewAccountClient(transport, now, nil))
-}
-
-func NewAccountValidator(transport http.RoundTripper, now func() time.Time, bilibiliClient *bilibilisession.AccountClient) *AccountValidator {
-	validator := thirdparty.NewAccountValidator(transport, now)
-	validator.RegisterPlatform(thirdparty.PlatformWeibo, func(ctx context.Context, client *http.Client, cookies map[string]string) (thirdparty.AccountProfile, error) {
-		return weibo.FetchAccountProfile(ctx, client, cookies)
-	})
-	validator.RegisterPlatform(thirdparty.PlatformDouyin, func(ctx context.Context, client *http.Client, cookies map[string]string) (thirdparty.AccountProfile, error) {
-		return douyin.FetchAccountProfile(ctx, client, cookies)
-	})
-	validator.RegisterPlatform(thirdparty.PlatformNeteaseMusic, func(ctx context.Context, client *http.Client, cookies map[string]string) (thirdparty.AccountProfile, error) {
-		return netease_music.FetchAccountProfile(ctx, client, cookies)
-	})
-	return &AccountValidator{
-		bilibili:   bilibiliClient,
-		thirdParty: validator,
-	}
-}
-
-func (v *AccountValidator) CheckCookie(ctx context.Context, platform string, cookie string) (thirdparty.AccountProfile, thirdparty.CredentialStatus, error) {
-	normalized, err := thirdparty.NormalizePlatform(platform)
-	if err != nil {
-		return thirdparty.AccountProfile{}, thirdparty.CredentialStatus{}, err
-	}
-	if normalized == thirdparty.PlatformBilibili {
-		if v.bilibili == nil {
-			return thirdparty.AccountProfile{}, thirdparty.CredentialStatus{}, thirdparty.ErrInvalidAccount
-		}
-		return v.bilibili.CheckCookie(ctx, cookie)
-	}
-	if v.thirdParty == nil {
-		return thirdparty.AccountProfile{}, thirdparty.CredentialStatus{}, thirdparty.ErrInvalidAccount
-	}
-	return v.thirdParty.CheckCookie(ctx, normalized, cookie)
 }

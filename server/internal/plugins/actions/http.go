@@ -15,20 +15,23 @@ const (
 	defaultHTTPMaxRetries     = 2
 )
 
-func init() {
-	register(Metadata{
-		Action:          "http.request",
-		Capability:      "http.request",
-		RequestSchema:   "plugin-protocol.action_http_request",
-		ResponseSchema:  "plugin-protocol.local_action_result",
-		AccessesNetwork: true,
-		AuditFields:     []string{"plugin_id", "method", "url"},
-		ErrorCodes:      commonErrorCodes("platform.invalid_request"),
-	}, func(deps Deps) ActionHandler {
-		return func(ctx context.Context, req ActionRequest) (map[string]any, error) {
-			return executeHTTPRequest(ctx, req.PluginID, req.Action, currentConfig(deps), deps.Capabilities)
-		}
-	})
+func httpRequestRegistrar() registrar {
+	return registrar{
+		metadata: Metadata{
+			Action:          "http.request",
+			Capability:      "http.request",
+			RequestSchema:   "plugin-protocol.action_http_request",
+			ResponseSchema:  "plugin-protocol.local_action_result",
+			AccessesNetwork: true,
+			AuditFields:     []string{"plugin_id", "method", "url"},
+			ErrorCodes:      commonErrorCodes("platform.invalid_request"),
+		},
+		factory: func(deps Deps) ActionHandler {
+			return func(ctx context.Context, req ActionRequest) (map[string]any, error) {
+				return executeHTTPRequest(ctx, req.PluginID, req.Action, currentConfig(deps), deps.Capabilities)
+			}
+		},
+	}
 }
 
 func executeHTTPRequest(ctx context.Context, pluginID string, action pluginruntime.Action, cfg config.Config, capabilities CapabilityView) (map[string]any, error) {

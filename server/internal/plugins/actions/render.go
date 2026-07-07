@@ -10,19 +10,22 @@ import (
 	pluginruntime "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime"
 )
 
-func init() {
-	register(Metadata{
-		Action:         "render.image",
-		Capability:     "render.image",
-		RequestSchema:  "plugin-protocol.action_render_image",
-		ResponseSchema: "plugin-protocol.local_action_result",
-		AuditFields:    []string{"plugin_id", "template", "output"},
-		ErrorCodes:     commonErrorCodes(),
-	}, func(deps Deps) ActionHandler {
-		return func(ctx context.Context, req ActionRequest) (map[string]any, error) {
-			return executeRenderImage(ctx, deps, req)
-		}
-	})
+func renderImageRegistrar() registrar {
+	return registrar{
+		metadata: Metadata{
+			Action:         "render.image",
+			Capability:     "render.image",
+			RequestSchema:  "plugin-protocol.action_render_image",
+			ResponseSchema: "plugin-protocol.local_action_result",
+			AuditFields:    []string{"plugin_id", "template", "output"},
+			ErrorCodes:     commonErrorCodes(),
+		},
+		factory: func(deps Deps) ActionHandler {
+			return func(ctx context.Context, req ActionRequest) (map[string]any, error) {
+				return executeRenderImage(ctx, deps, req)
+			}
+		},
+	}
 }
 
 func executeRenderImage(ctx context.Context, deps Deps, req ActionRequest) (map[string]any, error) {

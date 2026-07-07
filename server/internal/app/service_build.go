@@ -8,6 +8,7 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/chatpolicy"
 	"github.com/RayleaBot/RayleaBot/server/internal/governance"
+	"github.com/RayleaBot/RayleaBot/server/internal/integrations/accountvalidation"
 	"github.com/RayleaBot/RayleaBot/server/internal/integrations/thirdparty"
 	"github.com/RayleaBot/RayleaBot/server/internal/logging"
 	"github.com/RayleaBot/RayleaBot/server/internal/permission"
@@ -62,7 +63,15 @@ type serviceBuildResult struct {
 	Services                   Services
 	Runtimes                   *pluginruntime.Registry
 	Status                     *wsevents.ServiceStatusService
-	ThirdPartyAccountValidator *AccountValidator
+	ThirdPartyAccountValidator *accountvalidation.Validator
+}
+
+type statusPublisherFunc func()
+
+func (fn statusPublisherFunc) PublishSnapshot() {
+	if fn != nil {
+		fn()
+	}
 }
 
 func buildServices(deps serviceBuildDeps) (serviceBuildResult, error) {
@@ -96,27 +105,32 @@ func buildServices(deps serviceBuildDeps) (serviceBuildResult, error) {
 		ThirdParty:       integrations.ThirdParty,
 	})
 	runtimeRegistry := pluginRuntime.Runtimes
+	var serviceStatusService *wsevents.ServiceStatusService
 	systemService := systemsvc.New(systemsvc.Deps{
-		CurrentConfig:       runtimeState.CurrentConfig,
-		CurrentSummary:      runtimeState.CurrentSummary,
-		CurrentRepoRoot:     runtimeState.RepoRoot,
-		CurrentStartedAt:    runtimeState.StartedAt,
-		Logger:              runtimeState.RuntimeLogger(),
-		Auth:                platform.Auth,
-		Adapter:             eventStack.Adapter,
-		Plugins:             pluginStack.Plugins,
-		Runtimes:            runtimeRegistry,
-		Renderer:            renderer,
-		Storage:             platform.Storage,
-		ThirdParty:          thirdPartyDiagnostics{service: integrations.ThirdParty},
-		Scheduler:           schedulerDiagnostics{scheduler: platform.Scheduler},
-		PluginRepository:    pluginStack.PluginRepository,
-		TaskExecutor:        platform.TaskExecutor,
-		LogRepository:       platform.LogRepository,
+		CurrentConfig:    runtimeState.CurrentConfig,
+		CurrentSummary:   runtimeState.CurrentSummary,
+		CurrentRepoRoot:  runtimeState.RepoRoot,
+		CurrentStartedAt: runtimeState.StartedAt,
+		Logger:           runtimeState.RuntimeLogger(),
+		Auth:             platform.Auth,
+		Adapter:          eventStack.Adapter,
+		Plugins:          pluginStack.Plugins,
+		Runtimes:         runtimeRegistry,
+		Renderer:         renderer,
+		Storage:          platform.Storage,
+		ThirdParty:       thirdPartyDiagnostics{service: integrations.ThirdParty},
+		Scheduler:        schedulerDiagnostics{scheduler: platform.Scheduler},
+		PluginRepository: pluginStack.PluginRepository,
+		TaskExecutor:     platform.TaskExecutor,
+		LogRepository:    platform.LogRepository,
+		StatusPublisher: statusPublisherFunc(func() {
+			if serviceStatusService != nil {
+				serviceStatusService.PublishSnapshot()
+			}
+		}),
 		ResolveDatabasePath: runtimepaths.ResolveDatabasePath,
 	})
-	serviceStatusService := wsevents.NewServiceStatusService(systemService)
-	systemService.SetStatusPublisher(serviceStatusService)
+	serviceStatusService = wsevents.NewServiceStatusService(systemService)
 	pluginServices, err := buildPluginServices(pluginServiceDeps{
 		Runtime:       runtimeState,
 		Platform:      platform,

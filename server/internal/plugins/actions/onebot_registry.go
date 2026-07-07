@@ -20,28 +20,33 @@ type OneBotActionSpec struct {
 
 var oneBotActions = buildOneBotActionRegistry()
 
-func init() {
+func oneBotRegistrars() []registrar {
+	registrars := make([]registrar, 0, len(oneBotActions))
 	for kind, spec := range OneBotActionRegistry() {
 		kind := kind
 		spec := spec
-		register(Metadata{
-			Action:         kind,
-			Capability:     spec.Capability,
-			RequestSchema:  "plugin-protocol.onebot_action",
-			ResponseSchema: "plugin-protocol.local_action_result",
-			AuditFields:    []string{"plugin_id", "action", "provider"},
-			ErrorCodes:     commonErrorCodes("adapter.transport_not_implemented", "adapter.provider_extension_not_supported"),
-		}, func(deps Deps) ActionHandler {
-			return func(ctx context.Context, req ActionRequest) (map[string]any, error) {
-				return executeOneBotAction(ctx, oneBotActionRequest{
-					PluginID:     req.PluginID,
-					Action:       req.Action,
-					Capabilities: deps.Capabilities,
-					Adapter:      deps.Adapter,
-				})
-			}
+		registrars = append(registrars, registrar{
+			metadata: Metadata{
+				Action:         kind,
+				Capability:     spec.Capability,
+				RequestSchema:  "plugin-protocol.onebot_action",
+				ResponseSchema: "plugin-protocol.local_action_result",
+				AuditFields:    []string{"plugin_id", "action", "provider"},
+				ErrorCodes:     commonErrorCodes("adapter.transport_not_implemented", "adapter.provider_extension_not_supported"),
+			},
+			factory: func(deps Deps) ActionHandler {
+				return func(ctx context.Context, req ActionRequest) (map[string]any, error) {
+					return executeOneBotAction(ctx, oneBotActionRequest{
+						PluginID:     req.PluginID,
+						Action:       req.Action,
+						Capabilities: deps.Capabilities,
+						Adapter:      deps.Adapter,
+					})
+				}
+			},
 		})
 	}
+	return registrars
 }
 
 func OneBotActionRegistry() map[string]OneBotActionSpec {

@@ -267,7 +267,7 @@ func (s *appRuntimeState) redactString(value string) string {
 	return s.redactText(value)
 }
 
-func configureAppRuntimeCallbacks(application *App, schedulerTriggers *schedulerTriggerProxy) {
+func configureAppRuntimeCallbacks(application *App) {
 	systemService := application.services.System
 	lifecycle := application.services.PluginLifecycle
 	eventIngress := application.services.EventIngress
@@ -275,7 +275,6 @@ func configureAppRuntimeCallbacks(application *App, schedulerTriggers *scheduler
 
 	systemService.BindShutdownFlag(&application.process.shuttingDown)
 	systemService.RefreshRecoverySummary()
-	schedulerTriggers.Set(lifecycle.HandleSchedulerTrigger)
 
 	if installer, ok := application.pluginStack.PluginInstaller.(interface {
 		SetAfterSuccess(func(context.Context, string) error)

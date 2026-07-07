@@ -36,41 +36,13 @@ func (r registrar) RegisterActions(registry *Registry, deps Deps) {
 	registry.Register(r.metadata.Action, r.factory(deps))
 }
 
-var registrars []registrar
-
-func register(metadata Metadata, factory func(Deps) ActionHandler) {
-	registrars = append(registrars, registrar{metadata: metadata, factory: factory})
-}
-
-func init() {
-	register(Metadata{
-		Action:          "event.expose_webhook",
-		Capability:      "event.expose_webhook",
-		RequestSchema:   "plugin-protocol.action_event_expose_webhook",
-		ResponseSchema:  "plugin-protocol.local_action_result",
-		AccessesNetwork: true,
-		AuditFields:     []string{"plugin_id", "route_id"},
-		ErrorCodes:      commonErrorCodes("platform.invalid_request"),
-	}, func(deps Deps) ActionHandler {
-		return func(ctx context.Context, req ActionRequest) (map[string]any, error) {
-			return executeWebhookExpose(ctx, deps, req)
-		}
-	})
-}
-
-func executeWebhookExpose(ctx context.Context, deps Deps, req ActionRequest) (map[string]any, error) {
-	if deps.WebhookGateway == nil || deps.WebhookGateway() == nil {
-		return nil, &pluginruntime.Error{Code: "plugin.internal_error", Message: "webhook gateway is not available"}
-	}
-	return deps.WebhookGateway().Expose(ctx, req.PluginID, req.Action)
-}
-
 func DefaultRegistrars() []Registrar {
-	items := make([]Registrar, 0, len(registrars))
-	for _, item := range registrars {
-		items = append(items, item)
+	items := defaultRegistrarItems()
+	result := make([]Registrar, 0, len(items))
+	for _, item := range items {
+		result = append(result, item)
 	}
-	return items
+	return result
 }
 
 func NewDefaultRegistry(deps Deps) *Registry {
@@ -78,6 +50,7 @@ func NewDefaultRegistry(deps Deps) *Registry {
 }
 
 func DefaultMetadataList() []Metadata {
+	registrars := defaultRegistrarItems()
 	items := make([]Metadata, 0, len(registrars))
 	for _, item := range registrars {
 		metadata := item.metadata
@@ -97,19 +70,66 @@ func commonErrorCodes(extra ...string) []string {
 	return append(codes, extra...)
 }
 
-func init() {
-	register(Metadata{
-		Action:         "scheduler.create",
-		Capability:     "scheduler.create",
-		RequestSchema:  "plugin-protocol.action_scheduler_create",
-		ResponseSchema: "plugin-protocol.local_action_result",
-		AuditFields:    []string{"plugin_id", "task_id", "cron"},
-		ErrorCodes:     commonErrorCodes(),
-	}, func(deps Deps) ActionHandler {
-		return func(ctx context.Context, req ActionRequest) (map[string]any, error) {
-			return executeSchedulerCreate(ctx, deps, req)
-		}
-	})
+func defaultRegistrarItems() []registrar {
+	items := []registrar{
+		webhookExposeRegistrar(),
+		schedulerCreateRegistrar(),
+		secretReadRegistrar(),
+		httpRequestRegistrar(),
+		renderImageRegistrar(),
+		logWriteRegistrar(),
+		pluginListRegistrar(),
+		thirdPartyAccountReadRegistrar(),
+	}
+	items = append(items, configRegistrars()...)
+	items = append(items, governanceRegistrars()...)
+	items = append(items, oneBotRegistrars()...)
+	items = append(items, storageRegistrars()...)
+	return items
+}
+
+func webhookExposeRegistrar() registrar {
+	return registrar{
+		metadata: Metadata{
+			Action:          "event.expose_webhook",
+			Capability:      "event.expose_webhook",
+			RequestSchema:   "plugin-protocol.action_event_expose_webhook",
+			ResponseSchema:  "plugin-protocol.local_action_result",
+			AccessesNetwork: true,
+			AuditFields:     []string{"plugin_id", "route_id"},
+			ErrorCodes:      commonErrorCodes("platform.invalid_request"),
+		},
+		factory: func(deps Deps) ActionHandler {
+			return func(ctx context.Context, req ActionRequest) (map[string]any, error) {
+				return executeWebhookExpose(ctx, deps, req)
+			}
+		},
+	}
+}
+
+func executeWebhookExpose(ctx context.Context, deps Deps, req ActionRequest) (map[string]any, error) {
+	if deps.WebhookGateway == nil || deps.WebhookGateway() == nil {
+		return nil, &pluginruntime.Error{Code: "plugin.internal_error", Message: "webhook gateway is not available"}
+	}
+	return deps.WebhookGateway().Expose(ctx, req.PluginID, req.Action)
+}
+
+func schedulerCreateRegistrar() registrar {
+	return registrar{
+		metadata: Metadata{
+			Action:         "scheduler.create",
+			Capability:     "scheduler.create",
+			RequestSchema:  "plugin-protocol.action_scheduler_create",
+			ResponseSchema: "plugin-protocol.local_action_result",
+			AuditFields:    []string{"plugin_id", "task_id", "cron"},
+			ErrorCodes:     commonErrorCodes(),
+		},
+		factory: func(deps Deps) ActionHandler {
+			return func(ctx context.Context, req ActionRequest) (map[string]any, error) {
+				return executeSchedulerCreate(ctx, deps, req)
+			}
+		},
+	}
 }
 
 func executeSchedulerCreate(ctx context.Context, deps Deps, req ActionRequest) (map[string]any, error) {
@@ -136,20 +156,23 @@ func executeSchedulerCreate(ctx context.Context, deps Deps, req ActionRequest) (
 
 var pluginSecretKeyPattern = regexp.MustCompile(`^[a-z0-9](?:[a-z0-9_.-]{0,126}[a-z0-9])?$`)
 
-func init() {
-	register(Metadata{
-		Action:         "secret.read",
-		Capability:     "secret.read",
-		RequestSchema:  "plugin-protocol.action_secret_read",
-		ResponseSchema: "plugin-protocol.local_action_result",
-		ReadsSecret:    true,
-		AuditFields:    []string{"plugin_id", "key", "exists"},
-		ErrorCodes:     commonErrorCodes(),
-	}, func(deps Deps) ActionHandler {
-		return func(ctx context.Context, req ActionRequest) (map[string]any, error) {
-			return executeSecretRead(ctx, deps, req)
-		}
-	})
+func secretReadRegistrar() registrar {
+	return registrar{
+		metadata: Metadata{
+			Action:         "secret.read",
+			Capability:     "secret.read",
+			RequestSchema:  "plugin-protocol.action_secret_read",
+			ResponseSchema: "plugin-protocol.local_action_result",
+			ReadsSecret:    true,
+			AuditFields:    []string{"plugin_id", "key", "exists"},
+			ErrorCodes:     commonErrorCodes(),
+		},
+		factory: func(deps Deps) ActionHandler {
+			return func(ctx context.Context, req ActionRequest) (map[string]any, error) {
+				return executeSecretRead(ctx, deps, req)
+			}
+		},
+	}
 }
 
 func executeSecretRead(ctx context.Context, deps Deps, req ActionRequest) (map[string]any, error) {
@@ -183,31 +206,39 @@ func isPluginSecretKey(key string) bool {
 	return pluginSecretKeyPattern.MatchString(strings.TrimSpace(key))
 }
 
-func init() {
-	register(Metadata{
-		Action:         "config.read",
-		Capability:     "config.read",
-		RequestSchema:  "plugin-protocol.action_config_read",
-		ResponseSchema: "plugin-protocol.local_action_result",
-		AuditFields:    []string{"plugin_id", "keys"},
-		ErrorCodes:     commonErrorCodes(),
-	}, func(deps Deps) ActionHandler {
-		return func(ctx context.Context, req ActionRequest) (map[string]any, error) {
-			return executeConfigRead(ctx, deps, req)
-		}
-	})
-	register(Metadata{
-		Action:         "config.write",
-		Capability:     "config.write",
-		RequestSchema:  "plugin-protocol.action_config_write",
-		ResponseSchema: "plugin-protocol.local_action_result",
-		AuditFields:    []string{"plugin_id", "changed_keys"},
-		ErrorCodes:     commonErrorCodes(),
-	}, func(deps Deps) ActionHandler {
-		return func(ctx context.Context, req ActionRequest) (map[string]any, error) {
-			return executeConfigWrite(ctx, deps, req)
-		}
-	})
+func configRegistrars() []registrar {
+	return []registrar{
+		{
+			metadata: Metadata{
+				Action:         "config.read",
+				Capability:     "config.read",
+				RequestSchema:  "plugin-protocol.action_config_read",
+				ResponseSchema: "plugin-protocol.local_action_result",
+				AuditFields:    []string{"plugin_id", "keys"},
+				ErrorCodes:     commonErrorCodes(),
+			},
+			factory: func(deps Deps) ActionHandler {
+				return func(ctx context.Context, req ActionRequest) (map[string]any, error) {
+					return executeConfigRead(ctx, deps, req)
+				}
+			},
+		},
+		{
+			metadata: Metadata{
+				Action:         "config.write",
+				Capability:     "config.write",
+				RequestSchema:  "plugin-protocol.action_config_write",
+				ResponseSchema: "plugin-protocol.local_action_result",
+				AuditFields:    []string{"plugin_id", "changed_keys"},
+				ErrorCodes:     commonErrorCodes(),
+			},
+			factory: func(deps Deps) ActionHandler {
+				return func(ctx context.Context, req ActionRequest) (map[string]any, error) {
+					return executeConfigWrite(ctx, deps, req)
+				}
+			},
+		},
+	}
 }
 
 func executeConfigRead(ctx context.Context, deps Deps, req ActionRequest) (map[string]any, error) {

@@ -9,27 +9,32 @@ import (
 	pluginruntime "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime"
 )
 
-func init() {
-	registerGovernance("governance.blacklist.read", "plugin-protocol.action_governance_blacklist_read", blacklistRead)
-	registerGovernance("governance.blacklist.write", "plugin-protocol.action_governance_blacklist_write", blacklistWrite)
-	registerGovernance("governance.whitelist.read", "plugin-protocol.action_governance_whitelist_read", whitelistRead)
-	registerGovernance("governance.whitelist.write", "plugin-protocol.action_governance_whitelist_write", whitelistWrite)
-	registerGovernance("governance.command_policy.read", "plugin-protocol.action_governance_command_policy_read", commandPolicyRead)
+func governanceRegistrars() []registrar {
+	return []registrar{
+		governanceRegistrar("governance.blacklist.read", "plugin-protocol.action_governance_blacklist_read", blacklistRead),
+		governanceRegistrar("governance.blacklist.write", "plugin-protocol.action_governance_blacklist_write", blacklistWrite),
+		governanceRegistrar("governance.whitelist.read", "plugin-protocol.action_governance_whitelist_read", whitelistRead),
+		governanceRegistrar("governance.whitelist.write", "plugin-protocol.action_governance_whitelist_write", whitelistWrite),
+		governanceRegistrar("governance.command_policy.read", "plugin-protocol.action_governance_command_policy_read", commandPolicyRead),
+	}
 }
 
-func registerGovernance(action string, schema string, execute func(context.Context, Deps, ActionRequest) (map[string]any, error)) {
-	register(Metadata{
-		Action:         action,
-		Capability:     action,
-		RequestSchema:  schema,
-		ResponseSchema: "plugin-protocol.local_action_result",
-		AuditFields:    []string{"plugin_id", "operation", "entry_type", "target_id"},
-		ErrorCodes:     commonErrorCodes("platform.resource_missing"),
-	}, func(deps Deps) ActionHandler {
-		return func(ctx context.Context, req ActionRequest) (map[string]any, error) {
-			return execute(ctx, deps, req)
-		}
-	})
+func governanceRegistrar(action string, schema string, execute func(context.Context, Deps, ActionRequest) (map[string]any, error)) registrar {
+	return registrar{
+		metadata: Metadata{
+			Action:         action,
+			Capability:     action,
+			RequestSchema:  schema,
+			ResponseSchema: "plugin-protocol.local_action_result",
+			AuditFields:    []string{"plugin_id", "operation", "entry_type", "target_id"},
+			ErrorCodes:     commonErrorCodes("platform.resource_missing"),
+		},
+		factory: func(deps Deps) ActionHandler {
+			return func(ctx context.Context, req ActionRequest) (map[string]any, error) {
+				return execute(ctx, deps, req)
+			}
+		},
+	}
 }
 
 type governanceService interface {

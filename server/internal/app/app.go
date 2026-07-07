@@ -13,6 +13,7 @@ import (
 	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
 	pluginruntime "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime"
 	renderservice "github.com/RayleaBot/RayleaBot/server/internal/render/service"
+	"github.com/RayleaBot/RayleaBot/server/internal/scheduler"
 )
 
 type Options struct {
@@ -67,7 +68,15 @@ func NewWithContext(ctx context.Context, options Options) (*App, error) {
 		return nil, err
 	}
 
-	schedulerTriggers := newSchedulerTriggerProxy()
+	var schedulerLifecycle interface {
+		HandleSchedulerTrigger(context.Context, scheduler.Job)
+	}
+	schedulerTrigger := func(ctx context.Context, job scheduler.Job) {
+		if schedulerLifecycle == nil {
+			return
+		}
+		schedulerLifecycle.HandleSchedulerTrigger(ctx, job)
+	}
 	platformState, err := buildPlatform(platformDeps{
 		Context:          ctx,
 		ConfigPath:       buildState.options.ConfigPath,
@@ -78,7 +87,7 @@ func NewWithContext(ctx context.Context, options Options) (*App, error) {
 		TaskExecutor:     buildState.taskExecutor,
 		Logs:             buildState.logStream,
 		LogRepository:    options.LogRepository,
-		SchedulerTrigger: schedulerTriggers.Handle,
+		SchedulerTrigger: schedulerTrigger,
 	})
 	if err != nil {
 		return nil, err
@@ -161,6 +170,11 @@ func NewWithContext(ctx context.Context, options Options) (*App, error) {
 		cleanupPartialBuild()
 		return nil, err
 	}
+	if serviceBuild.Services.PluginLifecycle == nil {
+		cleanupPartialBuild()
+		return nil, fmt.Errorf("plugin lifecycle service is required")
+	}
+	schedulerLifecycle = serviceBuild.Services.PluginLifecycle
 
 	application := &App{
 		state:                   state,
@@ -173,7 +187,7 @@ func NewWithContext(ctx context.Context, options Options) (*App, error) {
 		metrics:                 metricRegistry,
 		metricsRuntimeGaugeStop: stopRuntimeStateGauge,
 	}
-	configureAppRuntimeCallbacks(application, schedulerTriggers)
+	configureAppRuntimeCallbacks(application)
 	httpState := buildHTTP(httpBuildDeps{
 		Runtime:         state,
 		Platform:        platformState,

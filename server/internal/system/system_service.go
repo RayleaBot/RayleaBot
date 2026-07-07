@@ -70,6 +70,7 @@ type Deps struct {
 	PluginRepository    plugins.DesiredStateRepository
 	TaskExecutor        *tasks.Executor
 	LogRepository       logging.Repository
+	StatusPublisher     StatusPublisher
 	ResolveDatabasePath DatabasePathResolver
 }
 
@@ -152,6 +153,7 @@ func New(deps Deps) *Service {
 		pluginRepository:    deps.PluginRepository,
 		taskExecutor:        deps.TaskExecutor,
 		logRepository:       deps.LogRepository,
+		statusPublisher:     deps.StatusPublisher,
 		resolveDatabasePath: databasePathResolver(deps.ResolveDatabasePath),
 		startupRuntimes:     newStartupRuntimeStates(nil),
 	}
@@ -237,12 +239,6 @@ func (s *Service) StatusSnapshot() StatusSnapshot {
 
 func readinessReportPtr(report health.ReadinessReport) *health.ReadinessReport {
 	return &report
-}
-
-func (s *Service) SetStatusPublisher(publisher StatusPublisher) {
-	if s != nil {
-		s.statusPublisher = publisher
-	}
 }
 
 func (s *Service) BindShutdownFlag(flag *atomic.Bool) {

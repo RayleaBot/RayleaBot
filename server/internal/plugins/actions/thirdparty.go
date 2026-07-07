@@ -13,20 +13,23 @@ import (
 
 var thirdPartyAccountIDPattern = regexp.MustCompile(`^[a-z0-9](?:[a-z0-9_.-]{0,62}[a-z0-9])?$`)
 
-func init() {
-	register(Metadata{
-		Action:         "thirdparty.account.read",
-		Capability:     "thirdparty.account.read",
-		RequestSchema:  "plugin-protocol.action_thirdparty_account_read",
-		ResponseSchema: "plugin-protocol.local_action_result",
-		ReadsSecret:    true,
-		AuditFields:    []string{"plugin_id", "platform", "account_id", "count"},
-		ErrorCodes:     commonErrorCodes("platform.invalid_request"),
-	}, func(deps Deps) ActionHandler {
-		return func(ctx context.Context, req ActionRequest) (map[string]any, error) {
-			return executeThirdPartyAccountRead(ctx, deps, req)
-		}
-	})
+func thirdPartyAccountReadRegistrar() registrar {
+	return registrar{
+		metadata: Metadata{
+			Action:         "thirdparty.account.read",
+			Capability:     "thirdparty.account.read",
+			RequestSchema:  "plugin-protocol.action_thirdparty_account_read",
+			ResponseSchema: "plugin-protocol.local_action_result",
+			ReadsSecret:    true,
+			AuditFields:    []string{"plugin_id", "platform", "account_id", "count"},
+			ErrorCodes:     commonErrorCodes("platform.invalid_request"),
+		},
+		factory: func(deps Deps) ActionHandler {
+			return func(ctx context.Context, req ActionRequest) (map[string]any, error) {
+				return executeThirdPartyAccountRead(ctx, deps, req)
+			}
+		},
+	}
 }
 
 func executeThirdPartyAccountRead(ctx context.Context, deps Deps, req ActionRequest) (map[string]any, error) {

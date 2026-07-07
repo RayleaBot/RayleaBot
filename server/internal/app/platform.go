@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
-	"sync"
 	"time"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/auth"
@@ -178,28 +177,4 @@ func buildPlatform(deps platformDeps) (PlatformState, error) {
 		Console:       console.NewStream(1000, 2*1024*1024),
 		LoginFailures: auth.NewLoginFailureTracker(time.Now),
 	}, nil
-}
-
-type schedulerTriggerProxy struct {
-	mu      sync.RWMutex
-	handler func(context.Context, scheduler.Job)
-}
-
-func newSchedulerTriggerProxy() *schedulerTriggerProxy {
-	return &schedulerTriggerProxy{}
-}
-
-func (p *schedulerTriggerProxy) Set(handler func(context.Context, scheduler.Job)) {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-	p.handler = handler
-}
-
-func (p *schedulerTriggerProxy) Handle(ctx context.Context, job scheduler.Job) {
-	p.mu.RLock()
-	handler := p.handler
-	p.mu.RUnlock()
-	if handler != nil {
-		handler(ctx, job)
-	}
 }

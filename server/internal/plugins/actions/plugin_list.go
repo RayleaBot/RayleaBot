@@ -10,20 +10,23 @@ import (
 	pluginruntime "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime"
 )
 
-func init() {
-	register(Metadata{
-		Action:             "plugin.list",
-		Capability:         "plugin.list",
-		RequestSchema:      "plugin-protocol.action_plugin_list",
-		ResponseSchema:     "plugin-protocol.local_action_result",
-		RequiredPermission: "declared capability",
-		AuditFields:        []string{"plugin_id", "visibility"},
-		ErrorCodes:         commonErrorCodes(),
-	}, func(deps Deps) ActionHandler {
-		return func(ctx context.Context, req ActionRequest) (map[string]any, error) {
-			return executePluginList(ctx, deps, req)
-		}
-	})
+func pluginListRegistrar() registrar {
+	return registrar{
+		metadata: Metadata{
+			Action:             "plugin.list",
+			Capability:         "plugin.list",
+			RequestSchema:      "plugin-protocol.action_plugin_list",
+			ResponseSchema:     "plugin-protocol.local_action_result",
+			RequiredPermission: "declared capability",
+			AuditFields:        []string{"plugin_id", "visibility"},
+			ErrorCodes:         commonErrorCodes(),
+		},
+		factory: func(deps Deps) ActionHandler {
+			return func(ctx context.Context, req ActionRequest) (map[string]any, error) {
+				return executePluginList(ctx, deps, req)
+			}
+		},
+	}
 }
 
 func executePluginList(ctx context.Context, deps Deps, req ActionRequest) (map[string]any, error) {

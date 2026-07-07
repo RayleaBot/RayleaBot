@@ -93,19 +93,22 @@ func parsePluginLogRateLimit(cfg config.Config) permission.RateLimit {
 	return limit
 }
 
-func init() {
-	register(Metadata{
-		Action:         "logger.write",
-		Capability:     "logger.write",
-		RequestSchema:  "plugin-protocol.action_logger_write",
-		ResponseSchema: "plugin-protocol.local_action_result",
-		AuditFields:    []string{"plugin_id", "request_id", "level"},
-		ErrorCodes:     commonErrorCodes("platform.rate_limited"),
-	}, func(deps Deps) ActionHandler {
-		return func(ctx context.Context, req ActionRequest) (map[string]any, error) {
-			return executeLogWrite(ctx, deps, req)
-		}
-	})
+func logWriteRegistrar() registrar {
+	return registrar{
+		metadata: Metadata{
+			Action:         "logger.write",
+			Capability:     "logger.write",
+			RequestSchema:  "plugin-protocol.action_logger_write",
+			ResponseSchema: "plugin-protocol.local_action_result",
+			AuditFields:    []string{"plugin_id", "request_id", "level"},
+			ErrorCodes:     commonErrorCodes("platform.rate_limited"),
+		},
+		factory: func(deps Deps) ActionHandler {
+			return func(ctx context.Context, req ActionRequest) (map[string]any, error) {
+				return executeLogWrite(ctx, deps, req)
+			}
+		},
+	}
 }
 
 func executeLogWrite(ctx context.Context, deps Deps, req ActionRequest) (map[string]any, error) {
