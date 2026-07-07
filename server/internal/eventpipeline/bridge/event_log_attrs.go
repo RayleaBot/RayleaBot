@@ -1,12 +1,11 @@
 package bridge
 
 import (
-	adapterintake "github.com/RayleaBot/RayleaBot/server/internal/bot/adapter/onebot11/intake"
-	adaptersegments "github.com/RayleaBot/RayleaBot/server/internal/bot/adapter/onebot11/segments"
-	"github.com/RayleaBot/RayleaBot/server/internal/textsafe"
+	"github.com/RayleaBot/RayleaBot/server/internal/onebot11"
+	"github.com/RayleaBot/RayleaBot/server/internal/redact"
 )
 
-func bridgeEventLogAttrs(event adapterintake.NormalizedEvent) []any {
+func bridgeEventLogAttrs(event onebot11.NormalizedEvent) []any {
 	attrs := []any{
 		"direction", "inbound",
 		"event_kind", event.Kind,
@@ -26,7 +25,7 @@ func bridgeEventLogAttrs(event adapterintake.NormalizedEvent) []any {
 		attrs = append(attrs, "target_id", event.TargetID)
 	}
 	if event.TargetName != "" && event.ConversationType == "group" {
-		attrs = append(attrs, "group_name", textsafe.SanitizeString(event.TargetName))
+		attrs = append(attrs, "group_name", redact.SanitizeString(event.TargetName))
 	}
 	if event.MessageID != "" {
 		attrs = append(attrs, "message_id", event.MessageID)
@@ -87,7 +86,7 @@ func bridgeEventLogAttrs(event adapterintake.NormalizedEvent) []any {
 	return attrs
 }
 
-func bridgeEventOneBotPayload(event adapterintake.NormalizedEvent) map[string]any {
+func bridgeEventOneBotPayload(event onebot11.NormalizedEvent) map[string]any {
 	if event.PayloadFields == nil {
 		return map[string]any{}
 	}
@@ -98,7 +97,7 @@ func bridgeEventOneBotPayload(event adapterintake.NormalizedEvent) map[string]an
 	return cloneBridgeData(raw)
 }
 
-func bridgeSegmentsToAny(segments []adaptersegments.MessageSegment) []any {
+func bridgeSegmentsToAny(segments []onebot11.MessageSegment) []any {
 	items := make([]any, 0, len(segments))
 	for _, segment := range segments {
 		items = append(items, map[string]any{

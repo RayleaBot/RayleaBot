@@ -6,10 +6,8 @@ import (
 	"testing"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins/actions"
-	defaultactionmodules "github.com/RayleaBot/RayleaBot/server/internal/plugins/actions/defaultmodules"
-	pluginconfig "github.com/RayleaBot/RayleaBot/server/internal/plugins/configstore"
-	runtimeaction "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime/action"
-	runtimeprotocol "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime/protocol"
+	"github.com/RayleaBot/RayleaBot/server/internal/plugins/pluginstore"
+	pluginruntime "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime"
 	"github.com/RayleaBot/RayleaBot/server/internal/storage"
 )
 
@@ -22,7 +20,7 @@ func TestExecuteConfigReadWriteRoundTrip(t *testing.T) {
 	}
 	defer store.Close()
 
-	repo, err := pluginconfig.NewSQLiteRepository(store)
+	repo, err := pluginstore.NewConfigSQLiteRepository(store)
 	if err != nil {
 		t.Fatalf("NewSQLiteRepository: %v", err)
 	}
@@ -33,7 +31,6 @@ func TestExecuteConfigReadWriteRoundTrip(t *testing.T) {
 			"config.write": true,
 		}},
 		PluginConfig: repo,
-		Registrars:   defaultactionmodules.Registrars(),
 	})
 
 	if _, err := repo.SeedDefaults(context.Background(), "weather", map[string]any{
@@ -43,10 +40,10 @@ func TestExecuteConfigReadWriteRoundTrip(t *testing.T) {
 		t.Fatalf("SeedDefaults: %v", err)
 	}
 
-	readResult, err := service.Execute(context.Background(), "weather", "req_config_1", runtimeaction.Action{
+	readResult, err := service.Execute(context.Background(), "weather", "req_config_1", pluginruntime.Action{
 		Kind:       "config.read",
 		ConfigKeys: []string{"default_city", "unit", "missing"},
-	}, runtimeprotocol.Event{})
+	}, pluginruntime.Event{})
 	if err != nil {
 		t.Fatalf("config.read failed: %v", err)
 	}
@@ -58,13 +55,13 @@ func TestExecuteConfigReadWriteRoundTrip(t *testing.T) {
 		t.Fatalf("missing key should not be returned: %#v", values)
 	}
 
-	writeResult, err := service.Execute(context.Background(), "weather", "req_config_2", runtimeaction.Action{
+	writeResult, err := service.Execute(context.Background(), "weather", "req_config_2", pluginruntime.Action{
 		Kind: "config.write",
 		ConfigValues: map[string]any{
 			"default_city": "上海",
 			"unit":         "fahrenheit",
 		},
-	}, runtimeprotocol.Event{})
+	}, pluginruntime.Event{})
 	if err != nil {
 		t.Fatalf("config.write failed: %v", err)
 	}
@@ -73,10 +70,10 @@ func TestExecuteConfigReadWriteRoundTrip(t *testing.T) {
 		t.Fatalf("unexpected changed_keys: %#v", writeResult["changed_keys"])
 	}
 
-	readResult, err = service.Execute(context.Background(), "weather", "req_config_3", runtimeaction.Action{
+	readResult, err = service.Execute(context.Background(), "weather", "req_config_3", pluginruntime.Action{
 		Kind:       "config.read",
 		ConfigKeys: []string{"default_city", "unit"},
-	}, runtimeprotocol.Event{})
+	}, pluginruntime.Event{})
 	if err != nil {
 		t.Fatalf("config.read second call failed: %v", err)
 	}

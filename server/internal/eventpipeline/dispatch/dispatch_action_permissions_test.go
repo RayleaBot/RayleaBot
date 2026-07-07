@@ -2,11 +2,9 @@ package dispatch
 
 import (
 	"context"
-	adapteroutbound "github.com/RayleaBot/RayleaBot/server/internal/bot/adapter/onebot11/outbound"
 	"github.com/RayleaBot/RayleaBot/server/internal/logging"
-	runtimeaction "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime/action"
-	runtimemanager "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime/manager"
-	runtimeprotocol "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime/protocol"
+	"github.com/RayleaBot/RayleaBot/server/internal/onebot11"
+	pluginruntime "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime"
 	"log/slog"
 	"sync"
 	"testing"
@@ -24,13 +22,13 @@ func TestDispatchActionExecutionRejectsMissingMessageSendCapability(t *testing.T
 	})
 	defer d.Close()
 
-	rt := &fakeDeliverer{delivery: runtimemanager.Delivery{
+	rt := &fakeDeliverer{delivery: pluginruntime.Delivery{
 		RequestID: "req_runtime_delivery_permission_send",
-		Action: &runtimeaction.Action{
+		Action: &pluginruntime.Action{
 			Kind:       "message.send",
 			TargetType: "group",
 			TargetID:   "200",
-			MessageSegments: []runtimeaction.ActionSegment{{
+			MessageSegments: []pluginruntime.ActionSegment{{
 				Type: "text",
 				Data: map[string]any{"text": "should be denied"},
 			}},
@@ -74,12 +72,12 @@ func TestDispatchActionExecutionRejectsMissingMessageReplyCapability(t *testing.
 	})
 	defer d.Close()
 
-	rt := &fakeDeliverer{delivery: runtimemanager.Delivery{
+	rt := &fakeDeliverer{delivery: pluginruntime.Delivery{
 		RequestID: "req_runtime_delivery_permission_reply",
-		Action: &runtimeaction.Action{
+		Action: &pluginruntime.Action{
 			Kind:           "message.reply",
 			ReplyToEventID: "evt_reply_target",
-			MessageSegments: []runtimeaction.ActionSegment{{
+			MessageSegments: []pluginruntime.ActionSegment{{
 				Type: "text",
 				Data: map[string]any{"text": "reply denied"},
 			}},
@@ -111,18 +109,18 @@ func TestDispatchLogsOutboundMessageSuccess(t *testing.T) {
 
 	logger, stream := newDispatchTestLogger()
 	sender := &fakeSender{
-		sendResult: adapteroutbound.SendMessageResult{MessageID: "send-100"},
+		sendResult: onebot11.SendMessageResult{MessageID: "send-100"},
 	}
 	d := New(logger, sender, nil, 16)
 	defer d.Close()
 
-	rt := &fakeDeliverer{delivery: runtimemanager.Delivery{
+	rt := &fakeDeliverer{delivery: pluginruntime.Delivery{
 		RequestID: "req_runtime_delivery_0001",
-		Action: &runtimeaction.Action{
+		Action: &pluginruntime.Action{
 			Kind:       "message.send",
 			TargetType: "group",
 			TargetID:   "200",
-			MessageSegments: []runtimeaction.ActionSegment{{
+			MessageSegments: []pluginruntime.ActionSegment{{
 				Type: "text",
 				Data: map[string]any{"text": "hello dispatch"},
 			}},
@@ -175,18 +173,18 @@ func TestDispatchLogsOutboundMessageFailure(t *testing.T) {
 
 	logger, stream := newDispatchTestLogger()
 	sender := &fakeSender{
-		sendErr: &adapteroutbound.Error{Code: "adapter.send_failed", Message: "send rejected by upstream"},
+		sendErr: &onebot11.Error{Code: "adapter.send_failed", Message: "send rejected by upstream"},
 	}
 	d := New(logger, sender, nil, 16)
 	defer d.Close()
 
-	rt := &fakeDeliverer{delivery: runtimemanager.Delivery{
+	rt := &fakeDeliverer{delivery: pluginruntime.Delivery{
 		RequestID: "req_runtime_delivery_0002",
-		Action: &runtimeaction.Action{
+		Action: &pluginruntime.Action{
 			Kind:       "message.send",
 			TargetType: "group",
 			TargetID:   "200",
-			MessageSegments: []runtimeaction.ActionSegment{{
+			MessageSegments: []pluginruntime.ActionSegment{{
 				Type: "text",
 				Data: map[string]any{"text": "hello dispatch"},
 			}},
@@ -221,8 +219,8 @@ func TestDispatchLogsReplyFallbackUsingActualDeliveryKind(t *testing.T) {
 
 	logger, stream := newDispatchTestLogger()
 	sender := &fakeSender{
-		replyErr:   &adapteroutbound.Error{Code: "adapter.reply_target_missing", Message: "reply target missing"},
-		sendResult: adapteroutbound.SendMessageResult{MessageID: "send-200"},
+		replyErr:   &onebot11.Error{Code: "adapter.reply_target_missing", Message: "reply target missing"},
+		sendResult: onebot11.SendMessageResult{MessageID: "send-200"},
 	}
 	resolver := fakeReplyTargets{
 		"evt_reply_target": {
@@ -234,13 +232,13 @@ func TestDispatchLogsReplyFallbackUsingActualDeliveryKind(t *testing.T) {
 	d := New(logger, sender, resolver, 16)
 	defer d.Close()
 
-	rt := &fakeDeliverer{delivery: runtimemanager.Delivery{
+	rt := &fakeDeliverer{delivery: pluginruntime.Delivery{
 		RequestID: "req_runtime_delivery_0003",
-		Action: &runtimeaction.Action{
+		Action: &pluginruntime.Action{
 			Kind:                    "message.reply",
 			ReplyToEventID:          "evt_reply_target",
 			FallbackToSendIfMissing: true,
-			MessageSegments: []runtimeaction.ActionSegment{{
+			MessageSegments: []pluginruntime.ActionSegment{{
 				Type: "text",
 				Data: map[string]any{"text": "fallback reply"},
 			}},
@@ -281,18 +279,18 @@ func TestDispatchLogsOutboundMessageWithoutCommandContext(t *testing.T) {
 
 	logger, stream := newDispatchTestLogger()
 	sender := &fakeSender{
-		sendResult: adapteroutbound.SendMessageResult{MessageID: "send-300"},
+		sendResult: onebot11.SendMessageResult{MessageID: "send-300"},
 	}
 	d := New(logger, sender, nil, 16)
 	defer d.Close()
 
-	rt := &fakeDeliverer{delivery: runtimemanager.Delivery{
+	rt := &fakeDeliverer{delivery: pluginruntime.Delivery{
 		RequestID: "req_runtime_delivery_0004",
-		Action: &runtimeaction.Action{
+		Action: &pluginruntime.Action{
 			Kind:       "message.send",
 			TargetType: "group",
 			TargetID:   "200",
-			MessageSegments: []runtimeaction.ActionSegment{{
+			MessageSegments: []pluginruntime.ActionSegment{{
 				Type: "text",
 				Data: map[string]any{"text": "hello dispatch"},
 			}},
@@ -318,7 +316,7 @@ func TestDispatcherWindowFlushPublishesDeltas(t *testing.T) {
 	d := New(slog.Default(), sender, nil, 16)
 	defer d.Close()
 
-	rt := &fakeDeliverer{delivery: runtimemanager.Delivery{Result: map[string]any{}}}
+	rt := &fakeDeliverer{delivery: pluginruntime.Delivery{Result: map[string]any{}}}
 	d.Register("p", rt, []string{"message.group"}, nil, 1)
 
 	pub := &recordingRuntimePublisher{}
@@ -336,7 +334,7 @@ func TestDispatcherWindowFlushPublishesDeltas(t *testing.T) {
 		t.Fatalf("unexpected snapshot: %+v", first)
 	}
 
-	noTarget := runtimeprotocol.Event{
+	noTarget := pluginruntime.Event{
 		EventID:        "evt-no-target",
 		SourceProtocol: "onebot11",
 		SourceAdapter:  "adapter.onebot11",
@@ -362,7 +360,7 @@ func TestDispatcherFlushDropsByReasonRecordsQueueFull(t *testing.T) {
 
 	blocker := &fakeDeliverer{
 		blockCh:  make(chan struct{}),
-		delivery: runtimemanager.Delivery{Result: map[string]any{"ok": true}},
+		delivery: pluginruntime.Delivery{Result: map[string]any{"ok": true}},
 	}
 	d.Register("blocker", blocker, nil, nil, 1)
 
@@ -484,12 +482,12 @@ func TestDispatchActionExecutionRecordsOutboundMetrics(t *testing.T) {
 	metrics := newRecordingDispatchMetrics()
 	d.SetMetricsObserver(metrics)
 
-	rt := &fakeDeliverer{delivery: runtimemanager.Delivery{
-		Action: &runtimeaction.Action{
+	rt := &fakeDeliverer{delivery: pluginruntime.Delivery{
+		Action: &pluginruntime.Action{
 			Kind:       "message.send",
 			TargetType: "group",
 			TargetID:   "200",
-			MessageSegments: []runtimeaction.ActionSegment{{
+			MessageSegments: []pluginruntime.ActionSegment{{
 				Type: "text",
 				Data: map[string]any{"text": "metric reply"},
 			}},

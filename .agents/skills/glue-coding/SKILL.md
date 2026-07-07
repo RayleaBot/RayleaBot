@@ -1,58 +1,68 @@
 ---
 name: glue-coding
-description: Use when planning or coding RayleaBot implementation changes in server, web, launcher, storage, render, or dependency selection, especially when deciding whether to add a new library, framework, service, or cross-surface pattern. Prefer existing repo code, the frozen stack, standard library, and thin glue over parallel stacks or fresh reimplementation.
+description: 在 server、web、launcher、storage、render 或依赖选型上规划、编写 RayleaBot 实现改动时使用，尤其是在决定是否引入新库、新框架、新服务或跨面模式时。优先复用仓库现有代码、冻结技术栈、标准库和薄胶水层，而不是平行栈或重新造轮子。
 ---
 
 # Glue Coding
 
-This skill is a reusable workflow. Repository truth still lives in root/local `AGENTS.md`, `contracts/`, and the engineering docs they reference.
+本 skill 是可复用工作流，不定义项目真相。仓库真相仍在根/局部 `AGENTS.md`、`contracts/` 及其引用的工程文档中。
 
-## Workflow
+## 工作流
 
-1. Read root `AGENTS.md` and any closer local `AGENTS.md`.
-2. Read `docs/engineering/baseline.md` before choosing a framework, library, or implementation shape.
-3. If the task touches an external boundary, also read the relevant files in `contracts/`, `fixtures/`, and `examples/`.
-4. Search the repo for prior art before designing a new helper, abstraction, wrapper, or dependency.
-5. Choose the lowest reuse tier that solves the task safely.
-6. Keep custom code thin and explicitly limited to orchestration, adapters, contract projection, data transformation, and repo-specific business rules.
-7. In your summary, name the reused building blocks and call out any unavoidable original glue.
+1. 读取根 `AGENTS.md` 和更近的局部 `AGENTS.md`。
+2. 在选择框架、库或实现形态前，先读 `docs/engineering/baseline.md`。
+3. 若任务触及对外边界，同时读取 `contracts/`、`fixtures/`、`examples/` 中的相关文件。
+4. 在设计新的 helper、抽象、wrapper 或依赖之前，先在仓库内搜索既有先例。
+5. Go 服务端代码把目录当作真实包边界；同一生命周期、同一调用路径、共享状态或测试的代码优先用包内文件分组。
+6. 选择能安全解决任务的最低复用层级。
+7. 自写代码保持薄，只做编排、适配、contract 投影、数据转换和仓库特有业务规则。
+8. 总结中列出复用的既有构件，并说明无法避免的自写胶水部分。
 
-## Reuse Ladder
+## 复用层级
 
-Choose options in this order:
+按以下顺序选择：
 
-1. Existing repo code and the frozen stack
-2. Standard library or built-in platform capability
-3. Official SDK or upstream dependency already frozen in the repo
-4. Mature, production-validated OSS with the smallest practical dependency surface
-5. Thin custom glue
+1. 仓库现有代码与冻结技术栈
+2. 标准库或平台内建能力
+3. 官方 SDK 或仓库已冻结的上游依赖
+4. 成熟、经生产验证、依赖面最小的 OSS
+5. 薄自写胶水
 
-Do not skip to a lower tier until the higher tier is demonstrably insufficient.
+在上一层被证明不足之前，不得跳到下一层。
 
-## Reuse Anchors
+## 复用锚点
 
-- Server: start from `server/internal/*`, especially existing repositories, services, HTTP handlers, runtime, adapter, scheduler, storage, and logging packages.
-- Web: start from `web/src/lib/http.ts`, `web/src/lib/ws.ts`, `web/src/stores/*`, `web/src/components/*`, and existing page patterns.
-- Launcher: start from `launcher/src/main/services/*`, `launcher/src/shared/*`, and the current Electron `main` / `preload` / `renderer` split.
-- Contracts and examples: use `contracts/`, `fixtures/`, and `examples/` as the first stop for frozen shapes, sample payloads, and regression anchors.
+- Server：从 `server/internal/*` 出发，尤其是既有 repository、service、HTTP handler、runtime、adapter、scheduler、storage、logging 包。
+- Server 订阅/广播：一律复用 `server/internal/pubsub` 的泛型 Hub，不手写订阅表。
+- Server 投影：领域视图只在领域包构建一次（如 `plugins.BuildSummaryView`）；`management` 层只做序列化标注，不复制投影逻辑。
+- Web：从 `web/src/lib/http.ts`、`web/src/lib/ws.ts`、`web/src/stores/*`、`web/src/components/*` 和既有页面模式出发。
+- Launcher：从 `launcher/src/main/services/*`、`launcher/src/shared/*` 和现有 Electron `main` / `preload` / `renderer` 分层出发。
+- Contracts 与示例：`contracts/`、`fixtures/`、`examples/` 是冻结结构、示例 payload 和回归锚点的首选来源。
 
-## Dependency Gate
+## 依赖门禁
 
-Before introducing a new dependency, explicitly check all of the following:
+引入新依赖前，逐项确认：
 
-- The repo does not already contain a suitable implementation or frozen stack choice.
-- The standard library or platform capability is not enough.
-- The candidate is official or well maintained.
-- The license is clear and acceptable for the repo.
-- The project shows real production adoption or strong maintenance signals.
-- The added surface area is narrow and does not duplicate a stack already frozen in repo docs.
-- The version can be pinned through the existing lockfile, manifest, or engineering file for that surface.
+- 仓库中不存在合适的既有实现或冻结栈选择。
+- 标准库或平台能力不足以完成任务。
+- 候选依赖是官方或维护良好的项目。
+- License 明确且可接受。
+- 项目有真实生产采用或强维护信号。
+- 引入面窄，不与仓库文档已冻结的栈重复。
+- 版本可通过既有 lockfile、manifest 或对应面的工程文件固定。
 
-If any item fails, prefer the higher reuse tier or write the smallest possible glue code instead.
+任一项不满足时，回到更高复用层级或写最小胶水代码。
 
-## Do Not
+## 注入与状态
 
-- Do not introduce a second router, ORM, logging stack, state manager, HTTP client, WebSocket client, UI component system, or launcher service layer without proving the frozen choice is insufficient.
-- Do not fork, vendor, or patch upstream libraries when a black-box integration works.
-- Do not create generic future-proof abstractions when a direct integration with current repo patterns is enough.
-- Do not describe fresh handwritten code as glue if it is actually reimplementing a mature wheel.
+- 测试替身通过构造期注入（如 `app.Options`），不为测试在服务上加运行期 setter。
+- 运行期可变共享状态必须原子快照或锁保护；热更新写路径不得与读路径共享裸字段。
+- 必选依赖缺失在装配层 fail-fast；不在业务方法里加接收者 nil 样板或静默降级。
+
+## 禁止
+
+- 在未证明冻结选择不足之前，不引入第二套 router、ORM、日志栈、状态管理、HTTP client、WebSocket client、UI 组件体系或 launcher 服务层。
+- 黑盒集成可行时，不 fork、不 vendor、不 patch 上游库。
+- 直接对接当前仓库模式已够用时，不造通用的"面向未来"抽象。
+- 除非能消除循环依赖、保护外部边界或形成已验证的复用边界，不把同一领域的服务端 helper 拆成薄 `model`、`spec`、`process`、`protocol`、`repository` 包。
+- 实际是在重造成熟轮子的手写代码，不得描述为胶水。

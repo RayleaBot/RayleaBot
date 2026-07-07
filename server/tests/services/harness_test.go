@@ -7,42 +7,30 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/RayleaBot/RayleaBot/server/internal/app/eventstack"
-	"github.com/RayleaBot/RayleaBot/server/internal/app/httpwire"
-	appplatform "github.com/RayleaBot/RayleaBot/server/internal/app/platform"
-	"github.com/RayleaBot/RayleaBot/server/internal/app/pluginstack"
-	"github.com/RayleaBot/RayleaBot/server/internal/app/renderstack"
-	"github.com/RayleaBot/RayleaBot/server/internal/app/servicegraph"
-	adapterintake "github.com/RayleaBot/RayleaBot/server/internal/bot/adapter/onebot11/intake"
-	adaptershell "github.com/RayleaBot/RayleaBot/server/internal/bot/adapter/onebot11/shell"
+	appcore "github.com/RayleaBot/RayleaBot/server/internal/app"
+	menuext "github.com/RayleaBot/RayleaBot/server/internal/builtinmenu"
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
+	"github.com/RayleaBot/RayleaBot/server/internal/configruntime"
 	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/bridge"
+	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/chatpolicy"
 	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/dispatch"
-	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/eventingress"
 	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/outbound"
-	menuext "github.com/RayleaBot/RayleaBot/server/internal/extensions/menu"
 	"github.com/RayleaBot/RayleaBot/server/internal/governance"
 	"github.com/RayleaBot/RayleaBot/server/internal/logging"
-	"github.com/RayleaBot/RayleaBot/server/internal/management/configapi"
-	managementevents "github.com/RayleaBot/RayleaBot/server/internal/management/events"
+	managementapi "github.com/RayleaBot/RayleaBot/server/internal/management"
+	"github.com/RayleaBot/RayleaBot/server/internal/onebot11"
 	"github.com/RayleaBot/RayleaBot/server/internal/permission"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	localaction "github.com/RayleaBot/RayleaBot/server/internal/plugins/actions"
-	"github.com/RayleaBot/RayleaBot/server/internal/plugins/actions/actionwiring"
-	defaultactionmodules "github.com/RayleaBot/RayleaBot/server/internal/plugins/actions/defaultmodules"
-	plugincapabilityview "github.com/RayleaBot/RayleaBot/server/internal/plugins/capabilityview"
 	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
-	pluginconfig "github.com/RayleaBot/RayleaBot/server/internal/plugins/configstore"
-	pluginfile "github.com/RayleaBot/RayleaBot/server/internal/plugins/filestore"
-	pluginkv "github.com/RayleaBot/RayleaBot/server/internal/plugins/kvstore"
 	pluginservice "github.com/RayleaBot/RayleaBot/server/internal/plugins/lifecycle"
-	pluginui "github.com/RayleaBot/RayleaBot/server/internal/plugins/managementui"
-	runtimeaction "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime/action"
-	runtimeprotocol "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime/protocol"
+	"github.com/RayleaBot/RayleaBot/server/internal/plugins/pluginstore"
+	pluginruntime "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime"
 	pluginwebhook "github.com/RayleaBot/RayleaBot/server/internal/plugins/webhook"
 	renderservice "github.com/RayleaBot/RayleaBot/server/internal/render/service"
 	"github.com/RayleaBot/RayleaBot/server/internal/scheduler"
 	"github.com/RayleaBot/RayleaBot/server/internal/secrets"
+	"github.com/RayleaBot/RayleaBot/server/internal/wsevents"
 )
 
 // serviceHarness assembles individual application services in isolation, the
@@ -50,11 +38,11 @@ import (
 // lets service-level tests construct exactly the collaborators they exercise.
 type serviceHarness struct {
 	state        *harnessState
-	platform     appplatform.State
-	pluginStack  pluginstack.State
-	renderStack  renderstack.State
-	eventStack   eventstack.State
-	services     servicegraph.Services
+	platform     appcore.PlatformState
+	pluginStack  appcore.PluginStackState
+	renderStack  harnessRenderState
+	eventStack   appcore.EventState
+	services     appcore.Services
 	capabilities localaction.CapabilityView
 
 	blacklistRepo  permission.BlacklistRepository
@@ -62,8 +50,12 @@ type serviceHarness struct {
 	whitelistState permission.WhitelistStateRepository
 }
 
+type harnessRenderState struct {
+	Renderer *renderservice.Service
+}
+
 // harnessState mirrors the app runtime state and satisfies both the
-// httpwire.RuntimeState and servicegraph.RuntimeState interfaces.
+// configruntime and app runtime-state interfaces.
 type harnessState struct {
 	Config             config.Config
 	Summary            config.Summary
@@ -170,11 +162,11 @@ func defaultAdapterTestConfig() config.AdapterConfig {
 	}
 }
 
-func (a *serviceHarness) setTestEventIngress(catalog *plugincatalog.Catalog, blacklistRepo permission.BlacklistRepository, sender eventingress.OutboundActionSender, eventBridge *bridge.Bridge) {
+func (a *serviceHarness) setTestEventIngress(catalog *plugincatalog.Catalog, blacklistRepo permission.BlacklistRepository, sender chatpolicy.OutboundSender, eventBridge *bridge.Bridge) {
 	a.setTestEventIngressWithGovernance(catalog, nil, nil, blacklistRepo, sender, eventBridge)
 }
 
-func (a *serviceHarness) setTestEventIngressWithGovernance(catalog *plugincatalog.Catalog, whitelistRepo permission.WhitelistRepository, whitelistState permission.WhitelistStateRepository, blacklistRepo permission.BlacklistRepository, sender eventingress.OutboundActionSender, eventBridge *bridge.Bridge) {
+func (a *serviceHarness) setTestEventIngressWithGovernance(catalog *plugincatalog.Catalog, whitelistRepo permission.WhitelistRepository, whitelistState permission.WhitelistStateRepository, blacklistRepo permission.BlacklistRepository, sender chatpolicy.OutboundSender, eventBridge *bridge.Bridge) {
 	if a == nil {
 		return
 	}
@@ -197,23 +189,31 @@ func (a *serviceHarness) setTestEventIngressWithGovernance(catalog *plugincatalo
 		},
 		Logger: a.state.Logger,
 	})
-	a.services.EventIngress = eventingress.New(eventingress.Deps{
-		CurrentConfig:    a.state.CurrentConfig,
-		Logger:           a.state.Logger,
-		Plugins:          catalog,
-		OutboundSender:   sender,
-		OutboundLimiter:  a.eventStack.OutboundLimiter,
-		Renderer:         a.renderStack.Renderer,
-		Menu:             menuService,
-		Bridge:           eventBridge,
-		MetadataEnricher: a.eventStack.Adapter,
-		WhitelistRepo:    whitelistRepo,
-		WhitelistState:   whitelistState,
-		BlacklistRepo:    blacklistRepo,
-	})
+	ingressDeps := chatpolicy.IngressDeps{
+		CurrentConfig:  a.state.CurrentConfig,
+		Logger:         a.state.Logger,
+		Plugins:        catalog,
+		OutboundSender: sender,
+		Menu:           menuService,
+		WhitelistRepo:  whitelistRepo,
+		WhitelistState: whitelistState,
+		BlacklistRepo:  blacklistRepo,
+	}
+	// Assign concrete pointers only when non-nil so interface deps stay nil
+	// instead of holding typed nils.
+	if eventBridge != nil {
+		ingressDeps.Bridge = eventBridge
+	}
+	if a.eventStack.Adapter != nil {
+		ingressDeps.MetadataEnricher = a.eventStack.Adapter
+	}
+	if a.eventStack.OutboundLimiter != nil {
+		ingressDeps.OutboundLimiter = a.eventStack.OutboundLimiter
+	}
+	a.services.EventIngress = chatpolicy.NewIngress(ingressDeps)
 }
 
-func (a *serviceHarness) setTestLocalActions(capabilities localaction.CapabilityView, pluginConfigRepo pluginconfig.Repository, pluginFiles *pluginfile.Service, pluginKV pluginkv.Repository, schedulerEngine *scheduler.Engine, dispatcher *dispatch.Dispatcher, rendererService *renderservice.Service, adapterShell *adaptershell.Shell, limiter *localaction.PluginLogLimiter, webhookService *pluginwebhook.Service) {
+func (a *serviceHarness) setTestLocalActions(capabilities localaction.CapabilityView, pluginConfigRepo pluginstore.ConfigRepository, pluginFiles *pluginstore.FileService, pluginKV pluginstore.KVRepository, schedulerEngine *scheduler.Engine, dispatcher *dispatch.Dispatcher, rendererService *renderservice.Service, adapterShell *onebot11.Shell, limiter *localaction.PluginLogLimiter, webhookService *pluginwebhook.Service) {
 	if a == nil {
 		return
 	}
@@ -230,7 +230,7 @@ func (a *serviceHarness) setTestLocalActions(capabilities localaction.Capability
 	a.eventStack.Adapter = adapterShell
 	a.pluginStack.PluginLogLimiter = limiter
 	if a.services.GovernanceEvents == nil {
-		a.services.GovernanceEvents = managementevents.NewGovernanceService()
+		a.services.GovernanceEvents = wsevents.NewGovernanceService()
 	}
 	a.services.Governance = governance.NewService(governance.Deps{
 		CurrentConfig:  func() config.Config { return a.state.Config },
@@ -248,14 +248,13 @@ func (a *serviceHarness) setTestLocalActions(capabilities localaction.Capability
 		PluginConfig:     pluginConfigRepo,
 		PluginFiles:      pluginFiles,
 		PluginKV:         pluginKV,
-		Secrets:          actionwiring.SecretReaderFromStore(a.platform.Secrets),
-		Scheduler:        actionwiring.Scheduler(schedulerEngine),
-		Dispatcher:       actionwiring.ConfigChangedDispatcher(dispatcher),
-		Renderer:         actionwiring.RendererFromService(rendererService),
+		Secrets:          localaction.SecretReaderFromStore(a.platform.Secrets),
+		Scheduler:        localaction.Scheduler(schedulerEngine),
+		Dispatcher:       localaction.ConfigChangedDispatcher(dispatcher),
+		Renderer:         localaction.RendererFromService(rendererService),
 		Adapter:          adapterShell,
 		PluginLogLimiter: limiter,
 		Governance:       a.services.Governance,
-		Registrars:       defaultactionmodules.Registrars(),
 	})
 	if webhookService != nil {
 		a.services.LocalActions.SetWebhookGateway(webhookService)
@@ -284,31 +283,31 @@ func (a *serviceHarness) setTestWebhookService(secretStore secrets.Store, dispat
 	}
 }
 
-func (a *serviceHarness) executeLocalAction(ctx context.Context, pluginID, requestID string, action runtimeaction.Action) (map[string]any, error) {
-	return a.services.LocalActions.Execute(ctx, pluginID, requestID, action, runtimeprotocol.Event{})
+func (a *serviceHarness) executeLocalAction(ctx context.Context, pluginID, requestID string, action pluginruntime.Action) (map[string]any, error) {
+	return a.services.LocalActions.Execute(ctx, pluginID, requestID, action, pluginruntime.Event{})
 }
 
-func (a *serviceHarness) executeOneBotLocalAction(ctx context.Context, pluginID, requestID string, action runtimeaction.Action) (map[string]any, error) {
-	return a.services.LocalActions.Execute(ctx, pluginID, requestID, action, runtimeprotocol.Event{})
+func (a *serviceHarness) executeOneBotLocalAction(ctx context.Context, pluginID, requestID string, action pluginruntime.Action) (map[string]any, error) {
+	return a.services.LocalActions.Execute(ctx, pluginID, requestID, action, pluginruntime.Event{})
 }
 
-func (a *serviceHarness) executeLocalActionForEvent(ctx context.Context, pluginID, requestID string, action runtimeaction.Action, parentEvent runtimeprotocol.Event) (map[string]any, error) {
+func (a *serviceHarness) executeLocalActionForEvent(ctx context.Context, pluginID, requestID string, action pluginruntime.Action, parentEvent pluginruntime.Event) (map[string]any, error) {
 	return a.services.LocalActions.Execute(ctx, pluginID, requestID, action, parentEvent)
 }
 
-func (a *serviceHarness) commandInfoForEvent(event adapterintake.NormalizedEvent) *permission.CommandInfo {
+func (a *serviceHarness) commandInfoForEvent(event onebot11.NormalizedEvent) *permission.CommandInfo {
 	return a.services.EventIngress.CommandInfoForEvent(event)
 }
 
-func (a *serviceHarness) enrichCommandEvent(event adapterintake.NormalizedEvent) adapterintake.NormalizedEvent {
+func (a *serviceHarness) enrichCommandEvent(event onebot11.NormalizedEvent) onebot11.NormalizedEvent {
 	return a.services.EventIngress.EnrichCommandEvent(event)
 }
 
-func (a *serviceHarness) handleAdapterEvent(ctx context.Context, event adapterintake.NormalizedEvent) {
+func (a *serviceHarness) handleAdapterEvent(ctx context.Context, event onebot11.NormalizedEvent) {
 	a.services.EventIngress.HandleAdapterEvent(ctx, event)
 }
 
-func (a *serviceHarness) applyChatPolicy(ctx context.Context, event adapterintake.NormalizedEvent) (adapterintake.NormalizedEvent, bool) {
+func (a *serviceHarness) applyChatPolicy(ctx context.Context, event onebot11.NormalizedEvent) (onebot11.NormalizedEvent, bool) {
 	return a.services.EventIngress.ApplyChatPolicy(ctx, event)
 }
 
@@ -316,21 +315,34 @@ func (a *serviceHarness) handlePluginWebhook() http.HandlerFunc {
 	return a.services.PluginWebhooks.HandleWebhook()
 }
 
-func applyConfigApplyEffects(app *serviceHarness, newCfg config.Config) configapi.ApplyEffects {
+func applyConfigApplyEffects(app *serviceHarness, newCfg config.Config) configruntime.ApplyEffects {
 	if app == nil {
-		return configapi.NewApplyEffects()
+		return configruntime.NewApplyEffects()
 	}
-	service := httpwire.NewConfigService(httpwire.ConfigDeps{
-		Runtime:          app.state,
-		Logs:             app.platform.Logs,
-		LogRepository:    app.platform.LogRepository,
-		Renderer:         app.renderStack.Renderer,
-		PluginLogLimiter: app.pluginStack.PluginLogLimiter,
-		OutboundLimiter:  app.eventStack.OutboundLimiter,
-		Protocol:         app.services.Protocol,
-		EventIngress:     app.services.EventIngress,
-	})
-	return configapi.NewHandlers(service).ApplyHotReloadableFields(newCfg)
+	deps := configruntime.Deps{
+		CurrentConfig:      app.state.CurrentConfig,
+		CurrentSummary:     app.state.CurrentSummary,
+		SetConfig:          app.state.SetConfig,
+		SetSummary:         app.state.SetSummary,
+		Logger:             app.state.RuntimeLogger(),
+		LogLevel:           app.state.RuntimeLogLevel(),
+		Logs:               app.platform.Logs,
+		LogRepository:      app.platform.LogRepository,
+		AddRedactionValues: app.state.AddRedactionValues,
+		Renderer:           app.renderStack.Renderer,
+		PluginLogLimiter:   app.pluginStack.PluginLogLimiter,
+	}
+	if app.eventStack.OutboundLimiter != nil {
+		deps.OutboundLimiter = app.eventStack.OutboundLimiter
+	}
+	if app.services.EventIngress != nil {
+		deps.EventIngress = app.services.EventIngress
+	}
+	if app.services.Protocol != nil {
+		deps.Protocol = app.services.Protocol
+	}
+	service := configruntime.NewService(deps)
+	return managementapi.NewConfigHandlers(service).ApplyHotReloadableFields(newCfg)
 }
 
 func applyHotReloadableFields(app *serviceHarness, newCfg config.Config) bool {
@@ -356,7 +368,7 @@ func (a *serviceHarness) currentCapabilityView() localaction.CapabilityView {
 		a.capabilities = &stubCapabilityView{capabilities: map[string][]stubCapability{}}
 		return a.capabilities
 	}
-	a.capabilities = plugincapabilityview.New(plugincapabilityview.Deps{Plugins: a.pluginStack.Plugins})
+	a.capabilities = plugins.NewCapabilityView(plugins.CapabilityViewDeps{Plugins: a.pluginStack.Plugins})
 	return a.capabilities
 }
 
@@ -475,7 +487,7 @@ func (a *serviceHarness) dispatchPluginConfigChanged(ctx context.Context, plugin
 	if a == nil {
 		return
 	}
-	dispatch := actionwiring.ConfigChangedDispatcher(a.eventStack.Dispatcher)
+	dispatch := localaction.ConfigChangedDispatcher(a.eventStack.Dispatcher)
 	if dispatch != nil {
 		dispatch(ctx, pluginID)
 	}
@@ -483,18 +495,18 @@ func (a *serviceHarness) dispatchPluginConfigChanged(ctx context.Context, plugin
 
 type pluginManagementUIHTTPDeps struct {
 	plugins            *plugincatalog.Catalog
-	pluginConfig       pluginconfig.Repository
+	pluginConfig       pluginstore.ConfigRepository
 	secrets            secrets.Store
 	notifyConfigChange func(context.Context, string)
 	refreshCommands    func(context.Context, string, map[string]any)
 }
 
 type pluginManagementUIHTTPHandlers struct {
-	*pluginui.Handlers
+	*managementapi.PluginManagementUIHandlers
 }
 
 func newPluginManagementUIHTTPHandlers(deps pluginManagementUIHTTPDeps) *pluginManagementUIHTTPHandlers {
-	return &pluginManagementUIHTTPHandlers{Handlers: pluginui.NewHandlers(pluginui.Deps{
+	return &pluginManagementUIHTTPHandlers{PluginManagementUIHandlers: managementapi.NewPluginManagementUIHandlers(managementapi.PluginManagementUIDeps{
 		Plugins:            deps.plugins,
 		PluginConfig:       deps.pluginConfig,
 		Secrets:            deps.secrets,
@@ -504,21 +516,21 @@ func newPluginManagementUIHTTPHandlers(deps pluginManagementUIHTTPDeps) *pluginM
 }
 
 func (h *pluginManagementUIHTTPHandlers) handlePluginManagementUIStatic() http.HandlerFunc {
-	return h.Handlers.HandlePluginManagementUIStatic()
+	return h.PluginManagementUIHandlers.HandlePluginManagementUIStatic()
 }
 
 func (h *pluginManagementUIHTTPHandlers) handlePluginSettingsGet() http.HandlerFunc {
-	return h.Handlers.HandlePluginSettingsGet()
+	return h.PluginManagementUIHandlers.HandlePluginSettingsGet()
 }
 
 func (h *pluginManagementUIHTTPHandlers) handlePluginSettingsPut() http.HandlerFunc {
-	return h.Handlers.HandlePluginSettingsPut()
+	return h.PluginManagementUIHandlers.HandlePluginSettingsPut()
 }
 
 func (h *pluginManagementUIHTTPHandlers) handlePluginSecretsGet() http.HandlerFunc {
-	return h.Handlers.HandlePluginSecretsGet()
+	return h.PluginManagementUIHandlers.HandlePluginSecretsGet()
 }
 
 func (h *pluginManagementUIHTTPHandlers) handlePluginSecretsPut() http.HandlerFunc {
-	return h.Handlers.HandlePluginSecretsPut()
+	return h.PluginManagementUIHandlers.HandlePluginSecretsPut()
 }

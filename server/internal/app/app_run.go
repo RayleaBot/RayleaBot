@@ -4,12 +4,92 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net/http"
+	"sync"
+	"sync/atomic"
 	"time"
 
+	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/httpapi"
+	"github.com/RayleaBot/RayleaBot/server/internal/logging"
+	"github.com/RayleaBot/RayleaBot/server/internal/onebot11"
+	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	"github.com/RayleaBot/RayleaBot/server/internal/storage"
 )
+
+type appProcessState struct {
+	router       http.Handler
+	server       *http.Server
+	shuttingDown atomic.Bool
+	runCancelMu  sync.Mutex
+	runCancel    context.CancelFunc
+	shutdownOnce sync.Once
+}
+
+type appRuntimeState struct {
+	mu      sync.RWMutex
+	config  config.Config
+	summary config.Summary
+
+	Logger             *slog.Logger
+	LogLevel           *logging.LevelController
+	repoRoot           string
+	redactText         func(string) string
+	addRedactionValues func(...string)
+	startedAt          time.Time
+}
+
+func (s *appRuntimeState) CurrentConfig() config.Config {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.config
+}
+
+func (s *appRuntimeState) CurrentSummary() config.Summary {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.summary
+}
+
+func (s *appRuntimeState) SetConfig(cfg config.Config) {
+	s.mu.Lock()
+	s.config = cfg
+	s.mu.Unlock()
+}
+
+func (s *appRuntimeState) SetSummary(summary config.Summary) {
+	s.mu.Lock()
+	s.summary = summary
+	s.mu.Unlock()
+}
+
+func (s *appRuntimeState) RuntimeLogger() *slog.Logger {
+	return s.Logger
+}
+
+func (s *appRuntimeState) RuntimeLogLevel() *logging.LevelController {
+	return s.LogLevel
+}
+
+func (s *appRuntimeState) RepoRoot() string {
+	return s.repoRoot
+}
+
+func (s *appRuntimeState) StartedAt() time.Time {
+	return s.startedAt
+}
+
+func (s *appRuntimeState) RedactString(value string) string {
+	return s.redactString(value)
+}
+
+func (s *appRuntimeState) AddRedactionValues(values ...string) {
+	if s.addRedactionValues == nil {
+		return
+	}
+	s.addRedactionValues(values...)
+}
 
 func (a *App) Run(ctx context.Context) error {
 	supervisor := newRunSupervisor(ctx)
@@ -105,9 +185,6 @@ func (a *App) clearRunCancel() {
 }
 
 func (a *App) requestShutdown() {
-	if a == nil {
-		return
-	}
 
 	a.process.shuttingDown.Store(true)
 	a.process.shutdownOnce.Do(func() {
@@ -124,9 +201,119 @@ func (a *App) Handler() http.Handler {
 	return a.process.router
 }
 
+type runSupervisor struct {
+	ctx    context.Context
+	cancel context.CancelFunc
+	errCh  chan error
+	once   sync.Once
+}
+
+func newRunSupervisor(parent context.Context) *runSupervisor {
+	ctx, cancel := context.WithCancel(parent)
+	return &runSupervisor{
+		ctx:    ctx,
+		cancel: cancel,
+		errCh:  make(chan error, 1),
+	}
+}
+
+func (s *runSupervisor) Context() context.Context {
+	return s.ctx
+}
+
+func (s *runSupervisor) Cancel() {
+	s.cancel()
+}
+
+func (s *runSupervisor) Go(run func(context.Context) error) {
+	if run == nil {
+		return
+	}
+	go func() {
+		if err := run(s.ctx); err != nil {
+			s.report(err)
+		}
+	}()
+}
+
+func (s *runSupervisor) GoCritical(run func(context.Context) error) {
+	if run == nil {
+		return
+	}
+	go func() {
+		s.once.Do(func() {
+			s.errCh <- run(s.ctx)
+		})
+	}()
+}
+
+func (s *runSupervisor) report(err error) {
+	if err == nil {
+		return
+	}
+	s.once.Do(func() {
+		s.errCh <- err
+	})
+}
+
+func (s *runSupervisor) Errors() <-chan error {
+	return s.errCh
+}
+
 func (s *appRuntimeState) redactString(value string) string {
-	if s == nil || s.redactText == nil {
+	if s.redactText == nil {
 		return value
 	}
 	return s.redactText(value)
+}
+
+func configureAppRuntimeCallbacks(application *App) {
+	systemService := application.services.System
+	lifecycle := application.services.PluginLifecycle
+	eventIngress := application.services.EventIngress
+	protocolService := application.services.Protocol
+
+	systemService.BindShutdownFlag(&application.process.shuttingDown)
+	systemService.RefreshRecoverySummary()
+
+	if installer, ok := application.pluginStack.PluginInstaller.(interface {
+		SetAfterSuccess(func(context.Context, string) error)
+	}); ok {
+		installer.SetAfterSuccess(func(ctx context.Context, _ string) error {
+			if err := syncCatalogRenderTemplates(ctx, application.renderStack.Renderer, application.pluginStack.Plugins); err != nil {
+				return err
+			}
+			systemService.ReconcileRecoverySummaryBestEffort("plugin.install")
+			return nil
+		})
+	}
+	if installer, ok := application.pluginStack.PluginInstaller.(interface {
+		SetRenderTemplateValidator(func(plugins.Snapshot) error)
+	}); ok {
+		installer.SetRenderTemplateValidator(validatePluginRenderTemplates)
+	}
+	if uninstaller, ok := application.pluginStack.PluginUninstaller.(interface {
+		SetStopPlugin(plugins.StopPluginFunc)
+		SetAfterSuccess(func(context.Context, string))
+	}); ok {
+		uninstaller.SetStopPlugin(lifecycle.StopAndResetPluginWithContext)
+		uninstaller.SetAfterSuccess(func(ctx context.Context, pluginID string) {
+			if application.renderStack.Renderer != nil {
+				_ = application.renderStack.Renderer.RemovePluginTemplates(ctx, pluginID)
+			}
+			_ = syncCatalogRenderTemplates(ctx, application.renderStack.Renderer, application.pluginStack.Plugins)
+			systemService.ReconcileRecoverySummaryBestEffort("plugin.uninstall")
+		})
+	}
+	if application.runtimes != nil {
+		application.runtimes.SetOnCrash(lifecycle.HandleCrash)
+	}
+	if application.eventStack.Adapter != nil {
+		application.eventStack.Adapter.SetEventHandler(eventIngress.HandleAdapterEvent)
+		application.eventStack.Adapter.SetReadyHandler(eventIngress.HandleAdapterReady)
+		application.eventStack.Adapter.SetStateHandler(func(onebot11.Snapshot) {
+			systemService.PublishStatusSnapshot()
+			protocolService.PublishSnapshot()
+		})
+	}
 }

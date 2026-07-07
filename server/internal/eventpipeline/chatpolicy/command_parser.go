@@ -3,10 +3,10 @@ package chatpolicy
 import (
 	"strings"
 
-	adapterintake "github.com/RayleaBot/RayleaBot/server/internal/bot/adapter/onebot11/intake"
+	menuext "github.com/RayleaBot/RayleaBot/server/internal/builtinmenu"
 	"github.com/RayleaBot/RayleaBot/server/internal/command"
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
-	menuext "github.com/RayleaBot/RayleaBot/server/internal/extensions/menu"
+	"github.com/RayleaBot/RayleaBot/server/internal/onebot11"
 )
 
 func newCommandParser(cfg config.Config) *command.Parser {
@@ -44,12 +44,13 @@ func RuntimeCommandPrefixes(cfg config.Config) []string {
 	return []string{"/"}
 }
 
-func (s *Service) EnrichCommandEvent(event adapterintake.NormalizedEvent) adapterintake.NormalizedEvent {
-	if s == nil || s.commandParser == nil || strings.TrimSpace(event.PlainText) == "" {
+func (s *Service) EnrichCommandEvent(event onebot11.NormalizedEvent) onebot11.NormalizedEvent {
+	parser := s.CommandParser()
+	if parser == nil || strings.TrimSpace(event.PlainText) == "" {
 		return event
 	}
 
-	parsed := s.commandParser.Parse(event.PlainText)
+	parsed := parser.Parse(event.PlainText)
 	var builtinParsed menuext.Request
 	if s.menu != nil {
 		builtinParsed = s.menu.Match(event)

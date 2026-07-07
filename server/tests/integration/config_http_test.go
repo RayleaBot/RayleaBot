@@ -15,7 +15,7 @@ import (
 	internalapp "github.com/RayleaBot/RayleaBot/server/internal/app"
 	"github.com/RayleaBot/RayleaBot/server/internal/auth"
 	internalconfig "github.com/RayleaBot/RayleaBot/server/internal/config"
-	plugindiscovery "github.com/RayleaBot/RayleaBot/server/internal/plugins/discovery"
+	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
 	"github.com/RayleaBot/RayleaBot/server/internal/runtimepaths"
 	"github.com/RayleaBot/RayleaBot/server/internal/secrets"
 	"github.com/RayleaBot/RayleaBot/server/internal/storage"
@@ -588,7 +588,7 @@ func newTestAppWithOptions(
 		SchemaPath:       schemaPath,
 		PluginRepoRoot:   repoRoot,
 		PluginSchemaPath: filepath.Join("..", "contracts", "plugin-info.schema.json"),
-		PluginRoots: []plugindiscovery.ScanRoot{
+		PluginRoots: []plugincatalog.ScanRoot{
 			{Label: "plugins/builtin", Path: builtinRoot},
 			{Label: "plugins/installed", Path: filepath.Join(filepath.Dir(configPath), "..", "plugins", "installed")},
 		},

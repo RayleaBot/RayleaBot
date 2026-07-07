@@ -8,25 +8,24 @@ import (
 	"strings"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
-	runtimeaction "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime/action"
-	runtimemanager "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime/manager"
+	pluginruntime "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime"
 )
 
-func (s *Service) Expose(ctx context.Context, pluginID string, action runtimeaction.Action) (map[string]any, error) {
-	if s == nil || s.capabilities == nil || !s.capabilities.CapabilityDeclared(ctx, pluginID, "event.expose_webhook") {
-		return nil, &runtimemanager.Error{
+func (s *Service) Expose(ctx context.Context, pluginID string, action pluginruntime.Action) (map[string]any, error) {
+	if s.capabilities == nil || !s.capabilities.CapabilityDeclared(ctx, pluginID, "event.expose_webhook") {
+		return nil, &pluginruntime.Error{
 			Code:    "plugin.capability_violation",
 			Message: "event.expose_webhook capability is not declared",
 		}
 	}
 	if s.registry == nil {
-		return nil, &runtimemanager.Error{
+		return nil, &pluginruntime.Error{
 			Code:    "plugin.internal_error",
 			Message: "webhook gateway is not available",
 		}
 	}
 	if action.WebhookReplayProtection == nil {
-		return nil, &runtimemanager.Error{
+		return nil, &pluginruntime.Error{
 			Code:    "plugin.protocol_violation",
 			Message: "event.expose_webhook requires replay_protection",
 		}
@@ -34,7 +33,7 @@ func (s *Service) Expose(ctx context.Context, pluginID string, action runtimeact
 
 	scope, ok := s.capabilities.WebhookParameters(ctx, pluginID, action.WebhookRoute)
 	if !ok {
-		return nil, &runtimemanager.Error{
+		return nil, &pluginruntime.Error{
 			Code:    "plugin.capability_violation",
 			Message: "event.expose_webhook route is outside declared capability parameters",
 		}
@@ -42,7 +41,7 @@ func (s *Service) Expose(ctx context.Context, pluginID string, action runtimeact
 	if strings.TrimSpace(scope.AuthStrategy) != strings.TrimSpace(action.WebhookAuthStrategy) ||
 		strings.TrimSpace(scope.Header) != strings.TrimSpace(action.WebhookHeader) ||
 		strings.TrimSpace(scope.SecretRef) != strings.TrimSpace(action.WebhookSecretRef) {
-		return nil, &runtimemanager.Error{
+		return nil, &pluginruntime.Error{
 			Code:    "plugin.capability_violation",
 			Message: "event.expose_webhook settings exceed the declared capability parameters",
 		}
@@ -50,7 +49,7 @@ func (s *Service) Expose(ctx context.Context, pluginID string, action runtimeact
 
 	sourceIPs := selectWebhookSourceIPs(scope.SourceIPs, action.WebhookSourceIPs)
 	if !webhookSourceIPsWithinScope(scope.SourceIPs, sourceIPs) {
-		return nil, &runtimemanager.Error{
+		return nil, &pluginruntime.Error{
 			Code:    "plugin.capability_violation",
 			Message: "event.expose_webhook source_ips exceed the declared capability parameters",
 		}

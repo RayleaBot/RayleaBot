@@ -3,8 +3,6 @@ package config
 import (
 	"encoding/json"
 	"fmt"
-
-	"github.com/RayleaBot/RayleaBot/server/internal/schemaassets"
 )
 
 var defaultDocumentTemplate = mustDefaultDocumentTemplate()
@@ -14,7 +12,7 @@ func defaultDocument() map[string]any {
 }
 
 func mustDefaultDocumentTemplate() map[string]any {
-	document, err := defaultDocumentFromSchema(schemaassets.ConfigUserSchemaJSON)
+	document, err := defaultDocumentFromSchema(ConfigUserSchemaJSON)
 	if err != nil {
 		panic(fmt.Sprintf("build default config document: %v", err))
 	}

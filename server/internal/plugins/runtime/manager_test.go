@@ -1,0 +1,812 @@
+package runtime
+
+import (
+	"context"
+	"encoding/json"
+	"errors"
+	"path/filepath"
+	"sync"
+	"testing"
+	"time"
+)
+
+func TestManagerStartInitAckSuccess(t *testing.T) {
+	t.Parallel()
+
+	recordPath := filepath.Join(t.TempDir(), "frames.jsonl")
+	manager := testManager()
+	spec := helperSpec(t, "success", recordPath)
+
+	if err := manager.Start(context.Background(), spec, testInitPayload()); err != nil {
+		t.Fatalf("start runtime: %v", err)
+	}
+
+	snapshot := manager.Snapshot()
+	if snapshot.State != StateRunning {
+		t.Fatalf("unexpected state: got %q want %q", snapshot.State, StateRunning)
+	}
+
+	frames := recordedFrames(t, recordPath)
+	if len(frames) == 0 {
+		t.Fatalf("expected recorded init frame")
+	}
+	if frames[0]["type"] != "init" {
+		t.Fatalf("unexpected first frame type: %v", frames[0]["type"])
+	}
+	commandPrefixes, ok := frames[0]["command_prefixes"].([]any)
+	if !ok || len(commandPrefixes) != 2 || commandPrefixes[0] != "!" || commandPrefixes[1] != "/" {
+		t.Fatalf("unexpected init command_prefixes: %#v", frames[0]["command_prefixes"])
+	}
+	permissions, ok := frames[0]["permissions"].(map[string]any)
+	if !ok {
+		t.Fatalf("missing init permissions: %#v", frames[0])
+	}
+	superAdmins, ok := permissions["super_admins"].([]any)
+	if !ok || len(superAdmins) != 2 || superAdmins[0] != "9001" || superAdmins[1] != "9002" {
+		t.Fatalf("unexpected init super_admins: %#v", permissions["super_admins"])
+	}
+
+	if err := manager.Stop(context.Background()); err != nil {
+		t.Fatalf("stop runtime: %v", err)
+	}
+}
+
+func TestManagerStartOmitsBotWhenUnavailable(t *testing.T) {
+	t.Parallel()
+
+	recordPath := filepath.Join(t.TempDir(), "frames.jsonl")
+	manager := testManager()
+	spec := helperSpec(t, "success", recordPath)
+	payload := testInitPayload()
+	payload.Bot = BotInfo{}
+
+	if err := manager.Start(context.Background(), spec, payload); err != nil {
+		t.Fatalf("start runtime without bot identity: %v", err)
+	}
+
+	frames := recordedFrames(t, recordPath)
+	if len(frames) == 0 {
+		t.Fatalf("expected recorded init frame")
+	}
+	if _, ok := frames[0]["bot"]; ok {
+		t.Fatalf("init frame should omit bot when identity is unavailable: %#v", frames[0])
+	}
+
+	if err := manager.Stop(context.Background()); err != nil {
+		t.Fatalf("stop runtime: %v", err)
+	}
+}
+
+func TestManagerStartAllowsInitProgressBeforeReady(t *testing.T) {
+	t.Parallel()
+
+	manager := testManager()
+	spec := helperSpecWithTimings(t, "progress-then-ready", "", 2*time.Second, 4*time.Second, 400*time.Millisecond)
+
+	if err := manager.Start(context.Background(), spec, testInitPayload()); err != nil {
+		t.Fatalf("start runtime with init_progress: %v", err)
+	}
+
+	if err := manager.Stop(context.Background()); err != nil {
+		t.Fatalf("stop runtime: %v", err)
+	}
+}
+
+func TestManagerStartStoresInitAckSubscriptions(t *testing.T) {
+	t.Parallel()
+
+	manager := testManager()
+	spec := helperSpec(t, "success", "")
+
+	if err := manager.Start(context.Background(), spec, testInitPayload()); err != nil {
+		t.Fatalf("start runtime: %v", err)
+	}
+	defer func() {
+		if err := manager.Stop(context.Background()); err != nil {
+			t.Fatalf("stop runtime: %v", err)
+		}
+	}()
+
+	snapshot := manager.Snapshot()
+	if len(snapshot.Subscriptions) != 2 {
+		t.Fatalf("unexpected subscriptions: %#v", snapshot.Subscriptions)
+	}
+	if snapshot.Subscriptions[0] != "message.group" || snapshot.Subscriptions[1] != "scheduler.trigger" {
+		t.Fatalf("unexpected subscriptions: %#v", snapshot.Subscriptions)
+	}
+}
+
+func TestManagerStartFailsOnInitAckTimeout(t *testing.T) {
+	t.Parallel()
+
+	manager := testManager()
+	spec := helperSpecWithTimings(t, "timeout", "", 200*time.Millisecond, 4*time.Second, 400*time.Millisecond)
+
+	err := manager.Start(context.Background(), spec, testInitPayload())
+	assertRuntimeErrorCode(t, err, codePluginInitTimeout)
+
+	snapshot := manager.Snapshot()
+	if snapshot.State != StateStopped {
+		t.Fatalf("unexpected state after timeout: got %q want %q", snapshot.State, StateStopped)
+	}
+}
+
+func TestManagerStartFailsWhenInitExceedsMaxTotal(t *testing.T) {
+	t.Parallel()
+
+	manager := testManager()
+	spec := helperSpecWithTimings(t, "progress-forever", "", 200*time.Millisecond, 350*time.Millisecond, 400*time.Millisecond)
+
+	err := manager.Start(context.Background(), spec, testInitPayload())
+	assertRuntimeErrorCode(t, err, codePluginInitTimeout)
+}
+
+func TestManagerStartFailsOnProtocolViolation(t *testing.T) {
+	t.Parallel()
+
+	manager := testManager()
+	spec := helperSpec(t, "wrong-type", "")
+
+	err := manager.Start(context.Background(), spec, testInitPayload())
+	assertRuntimeErrorCode(t, err, codePluginProtocolViolation)
+}
+
+func TestManagerStartFailsOnEarlyExit(t *testing.T) {
+	t.Parallel()
+
+	manager := testManager()
+	spec := helperSpec(t, "early-exit", "")
+
+	err := manager.Start(context.Background(), spec, testInitPayload())
+	assertRuntimeErrorCode(t, err, codePluginInternalError)
+}
+
+func TestManagerStartSucceedsWithLargeStderrOutput(t *testing.T) {
+	t.Parallel()
+
+	manager := testManager()
+	spec := helperSpec(t, "stderr-noise", "")
+
+	if err := manager.Start(context.Background(), spec, testInitPayload()); err != nil {
+		t.Fatalf("start runtime with stderr noise: %v", err)
+	}
+
+	if err := manager.Stop(context.Background()); err != nil {
+		t.Fatalf("stop runtime: %v", err)
+	}
+}
+
+func TestManagerGracefulStop(t *testing.T) {
+	t.Parallel()
+
+	recordPath := filepath.Join(t.TempDir(), "frames.jsonl")
+	manager := testManager()
+	spec := helperSpec(t, "success", recordPath)
+
+	if err := manager.Start(context.Background(), spec, testInitPayload()); err != nil {
+		t.Fatalf("start runtime: %v", err)
+	}
+	if err := manager.Stop(context.Background()); err != nil {
+		t.Fatalf("stop runtime: %v", err)
+	}
+
+	snapshot := manager.Snapshot()
+	if snapshot.State != StateStopped {
+		t.Fatalf("unexpected state after stop: got %q want %q", snapshot.State, StateStopped)
+	}
+
+	frames := recordedFrames(t, recordPath)
+	if len(frames) < 2 {
+		t.Fatalf("expected init and shutdown frames, got %d", len(frames))
+	}
+	if frames[1]["type"] != "shutdown" {
+		t.Fatalf("unexpected second frame type: %v", frames[1]["type"])
+	}
+}
+
+func TestManagerDeliverEventReturnsResult(t *testing.T) {
+	t.Parallel()
+
+	recordPath := filepath.Join(t.TempDir(), "frames.jsonl")
+	manager := testManager()
+	spec := helperSpec(t, "event-result", recordPath)
+
+	if err := manager.Start(context.Background(), spec, testInitPayload()); err != nil {
+		t.Fatalf("start runtime: %v", err)
+	}
+
+	delivery, err := manager.DeliverEvent(context.Background(), testRuntimeEvent())
+	if err != nil {
+		t.Fatalf("deliver event: %v", err)
+	}
+	if delivery.RequestID == "" {
+		t.Fatal("expected request id on successful delivery")
+	}
+	if handled, _ := delivery.Result["handled"].(bool); !handled {
+		t.Fatalf("unexpected delivery result: %#v", delivery.Result)
+	}
+
+	frames := recordedFrames(t, recordPath)
+	if len(frames) < 2 {
+		t.Fatalf("expected init and event frames, got %d", len(frames))
+	}
+	if frames[1]["type"] != "event" {
+		t.Fatalf("unexpected event frame type: %#v", frames[1]["type"])
+	}
+
+	if err := manager.Stop(context.Background()); err != nil {
+		t.Fatalf("stop runtime: %v", err)
+	}
+}
+
+func TestBuildEventFrameIncludesOneBotPayload(t *testing.T) {
+	t.Parallel()
+
+	frame := BuildEventFrame(Event{
+		EventID:        "evt-onebot-1",
+		SourceProtocol: "onebot11",
+		SourceAdapter:  "adapter.onebot11",
+		EventType:      "message_sent.group",
+		Timestamp:      1_729_679_125,
+		Actor: &EventActor{
+			ID:       "10001",
+			Nickname: "--",
+			Role:     "owner",
+		},
+		Target: &EventTarget{
+			Type: "group",
+			ID:   "20001",
+		},
+		Message: &EventMessage{
+			PlainText: "您好",
+			Segments: []EventSegment{{
+				Type: "text",
+				Data: map[string]any{"text": "您好"},
+			}},
+		},
+		MessageID: "40001",
+		PayloadFields: map[string]any{
+			"sub_type": "normal",
+			"onebot": map[string]any{
+				"post_type":      "message_sent",
+				"message_type":   "group",
+				"self_id":        "10001",
+				"user_id":        "10001",
+				"group_id":       "20001",
+				"time":           int64(1_729_679_125),
+				"message_id":     "40001",
+				"real_id":        "40001",
+				"message_seq":    "40001",
+				"raw_message":    "您好",
+				"font":           14,
+				"message_format": "array",
+				"sender": map[string]any{
+					"user_id":  "10001",
+					"nickname": "--",
+					"role":     "owner",
+				},
+			},
+		},
+	}, "echo", "req_evt_onebot", 1_729_679_126)
+
+	if frame.Event.Payload == nil || frame.Event.Payload.OneBot == nil {
+		t.Fatalf("expected onebot payload, got %#v", frame.Event.Payload)
+	}
+	if frame.Event.Payload.MessageID != "40001" {
+		t.Fatalf("unexpected payload message_id: %#v", frame.Event.Payload.MessageID)
+	}
+	if frame.Event.Payload.OneBot.PostType != "message_sent" {
+		t.Fatalf("unexpected onebot post_type: %#v", frame.Event.Payload.OneBot)
+	}
+	if frame.Event.Payload.OneBot.GroupID != "20001" {
+		t.Fatalf("unexpected onebot group_id: %#v", frame.Event.Payload.OneBot)
+	}
+	if frame.Event.Payload.OneBot.Time != 1_729_679_125 {
+		t.Fatalf("unexpected onebot time: %#v", frame.Event.Payload.OneBot)
+	}
+	if frame.Event.Payload.OneBot.Sender == nil || frame.Event.Payload.OneBot.Sender.Nickname != "--" {
+		t.Fatalf("unexpected onebot sender: %#v", frame.Event.Payload.OneBot.Sender)
+	}
+}
+
+func TestBuildEventFrameIncludesMetaOneBotPayload(t *testing.T) {
+	t.Parallel()
+
+	frame := BuildEventFrame(Event{
+		EventID:        "evt-onebot-meta-1",
+		SourceProtocol: "onebot11",
+		SourceAdapter:  "adapter.onebot11",
+		EventType:      "meta.heartbeat",
+		Timestamp:      1_729_679_130,
+		Actor: &EventActor{
+			ID: "10001",
+		},
+		Target: &EventTarget{
+			Type: "bot",
+			ID:   "10001",
+		},
+		PayloadFields: map[string]any{
+			"onebot": map[string]any{
+				"post_type":       "meta_event",
+				"meta_event_type": "heartbeat",
+				"self_id":         "10001",
+				"time":            int64(1_729_679_130),
+				"interval":        5000,
+				"status": map[string]any{
+					"online": true,
+				},
+			},
+		},
+	}, "echo", "req_evt_onebot_meta", 1_729_679_131)
+
+	if frame.Event.Payload == nil || frame.Event.Payload.OneBot == nil {
+		t.Fatalf("expected onebot payload, got %#v", frame.Event.Payload)
+	}
+	if frame.Event.Payload.OneBot.MetaEventType != "heartbeat" {
+		t.Fatalf("unexpected meta_event_type: %#v", frame.Event.Payload.OneBot)
+	}
+	if frame.Event.Payload.OneBot.Interval != 5000 {
+		t.Fatalf("unexpected interval: %#v", frame.Event.Payload.OneBot)
+	}
+	if got := frame.Event.Payload.OneBot.Status["online"]; got != true {
+		t.Fatalf("unexpected status payload: %#v", frame.Event.Payload.OneBot.Status)
+	}
+}
+
+func TestManagerDeliverEventReturnsPluginError(t *testing.T) {
+	t.Parallel()
+
+	crashCh := make(chan struct{}, 1)
+	manager := testManagerWithOptions(Options{
+		OnCrash: func(string, int, string) {
+			crashCh <- struct{}{}
+		},
+	})
+	spec := helperSpec(t, "event-error", "")
+
+	if err := manager.Start(context.Background(), spec, testInitPayload()); err != nil {
+		t.Fatalf("start runtime: %v", err)
+	}
+
+	delivery, err := manager.DeliverEvent(context.Background(), testRuntimeEvent())
+	assertRuntimeErrorCode(t, err, codePluginNotHandled)
+	if delivery.ErrorCode != codePluginNotHandled {
+		t.Fatalf("unexpected delivery error code: got %q want %q", delivery.ErrorCode, codePluginNotHandled)
+	}
+	assertRuntimeRunningWithoutCrash(t, manager, crashCh)
+
+	if err := manager.Stop(context.Background()); err != nil {
+		t.Fatalf("stop runtime: %v", err)
+	}
+}
+
+func TestManagerDeliverEventReturnsPluginErrorDetails(t *testing.T) {
+	t.Parallel()
+
+	manager := testManager()
+	spec := helperSpec(t, "event-error-with-details", "")
+
+	if err := manager.Start(context.Background(), spec, testInitPayload()); err != nil {
+		t.Fatalf("start runtime: %v", err)
+	}
+
+	delivery, err := manager.DeliverEvent(context.Background(), testRuntimeEvent())
+	assertRuntimeErrorCode(t, err, codePluginNotHandled)
+	if got, ok := delivery.ErrorDetails["reason"].(string); !ok || got != "policy_skip" {
+		t.Fatalf("unexpected delivery error details: %#v", delivery.ErrorDetails)
+	}
+
+	var runtimeErr *Error
+	if !errors.As(err, &runtimeErr) {
+		t.Fatalf("expected runtime error, got %T", err)
+	}
+	if got, ok := runtimeErr.Details["reason"].(string); !ok || got != "policy_skip" {
+		t.Fatalf("unexpected runtime error details: %#v", runtimeErr.Details)
+	}
+
+	if err := manager.Stop(context.Background()); err != nil {
+		t.Fatalf("stop runtime: %v", err)
+	}
+}
+
+func TestManagerDeliverEventReturnsAction(t *testing.T) {
+	t.Parallel()
+
+	manager := testManager()
+	spec := helperSpec(t, "event-action-message-send", "")
+
+	if err := manager.Start(context.Background(), spec, testInitPayload()); err != nil {
+		t.Fatalf("start runtime: %v", err)
+	}
+
+	delivery, err := manager.DeliverEvent(context.Background(), testRuntimeEvent())
+	if err != nil {
+		t.Fatalf("deliver event: %v", err)
+	}
+	if delivery.Action == nil {
+		t.Fatalf("expected outbound action delivery, got %#v", delivery)
+	}
+	if delivery.Action.Kind != "message.send" {
+		t.Fatalf("unexpected action kind: got %q want %q", delivery.Action.Kind, "message.send")
+	}
+	if delivery.Action.TargetType != "group" || delivery.Action.TargetID != "2001" {
+		t.Fatalf("unexpected action payload: %#v", delivery.Action)
+	}
+	if len(delivery.Action.MessageSegments) != 1 || delivery.Action.MessageSegments[0].Type != "text" || delivery.Action.MessageSegments[0].Data["text"] != "hello from plugin" {
+		t.Fatalf("unexpected action segments: %#v", delivery.Action.MessageSegments)
+	}
+	if delivery.Result != nil {
+		t.Fatalf("did not expect result payload alongside action: %#v", delivery.Result)
+	}
+
+	if err := manager.Stop(context.Background()); err != nil {
+		t.Fatalf("stop runtime: %v", err)
+	}
+}
+
+func TestManagerDeliverEventReturnsRichMessageSendAction(t *testing.T) {
+	t.Parallel()
+
+	manager := testManager()
+	spec := helperSpec(t, "event-action-message-send-segments", "")
+
+	if err := manager.Start(context.Background(), spec, testInitPayload()); err != nil {
+		t.Fatalf("start runtime: %v", err)
+	}
+
+	delivery, err := manager.DeliverEvent(context.Background(), testRuntimeEvent())
+	if err != nil {
+		t.Fatalf("deliver event: %v", err)
+	}
+	if delivery.Action == nil {
+		t.Fatalf("expected outbound action delivery, got %#v", delivery)
+	}
+	if len(delivery.Action.MessageSegments) != 3 {
+		t.Fatalf("unexpected message segments: %#v", delivery.Action.MessageSegments)
+	}
+	if delivery.Action.MessageSegments[0].Type != "at" || delivery.Action.MessageSegments[1].Type != "text" || delivery.Action.MessageSegments[2].Type != "image" {
+		t.Fatalf("unexpected rich action payload: %#v", delivery.Action)
+	}
+
+	if err := manager.Stop(context.Background()); err != nil {
+		t.Fatalf("stop runtime: %v", err)
+	}
+}
+
+func TestManagerDeliverEventReturnsRichMessageReplyAction(t *testing.T) {
+	t.Parallel()
+
+	manager := testManager()
+	spec := helperSpec(t, "event-action-message-reply-to-event", "")
+
+	if err := manager.Start(context.Background(), spec, testInitPayload()); err != nil {
+		t.Fatalf("start runtime: %v", err)
+	}
+
+	delivery, err := manager.DeliverEvent(context.Background(), testRuntimeEvent())
+	if err != nil {
+		t.Fatalf("deliver event: %v", err)
+	}
+	if delivery.Action == nil {
+		t.Fatalf("expected outbound action delivery, got %#v", delivery)
+	}
+	if delivery.Action.ReplyToEventID != "onebot11-message-12345" {
+		t.Fatalf("unexpected rich reply action payload: %#v", delivery.Action)
+	}
+	if !delivery.Action.FallbackToSendIfMissing {
+		t.Fatalf("expected fallback flag on rich reply: %#v", delivery.Action)
+	}
+	if len(delivery.Action.MessageSegments) != 1 || delivery.Action.MessageSegments[0].Type != "text" {
+		t.Fatalf("unexpected rich reply segments: %#v", delivery.Action.MessageSegments)
+	}
+
+	if err := manager.Stop(context.Background()); err != nil {
+		t.Fatalf("stop runtime: %v", err)
+	}
+}
+
+func TestParseMessageSendActionRejectsRemovedTextPayload(t *testing.T) {
+	t.Parallel()
+
+	_, err := ParseTerminalAction("message.send", json.RawMessage(`{
+		"target_type": "group",
+		"target_id": "2001",
+		"text": "removed text payload"
+	}`))
+	assertActionErrorCode(t, err, codePluginProtocolViolation)
+}
+
+func TestManagerDeliverEventProcessesLocalActionsBeforeTerminalResult(t *testing.T) {
+	t.Parallel()
+
+	var (
+		mu      sync.Mutex
+		actions []Action
+	)
+	manager := testManagerWithOptions(Options{
+		ExecuteLocalAction: func(_ context.Context, pluginID string, requestID string, action Action, parentEvent Event) (map[string]any, error) {
+			mu.Lock()
+			actions = append(actions, action)
+			mu.Unlock()
+
+			if pluginID != "helper-plugin" {
+				t.Fatalf("pluginID = %q, want helper-plugin", pluginID)
+			}
+			if parentEvent.EventID != "evt-1" || parentEvent.Target == nil || parentEvent.Target.ID != "2001" {
+				t.Fatalf("unexpected parent event: %#v", parentEvent)
+			}
+			switch requestID {
+			case "local_logger_1":
+				return map[string]any{}, nil
+			case "local_storage_1":
+				return map[string]any{
+					"key":    action.StorageKey,
+					"exists": true,
+					"value": map[string]any{
+						"count": 3,
+					},
+				}, nil
+			default:
+				t.Fatalf("unexpected local request_id: %q", requestID)
+				return nil, nil
+			}
+		},
+	})
+	spec := helperSpec(t, "event-local-actions-then-result", "")
+
+	if err := manager.Start(context.Background(), spec, testInitPayload()); err != nil {
+		t.Fatalf("start runtime: %v", err)
+	}
+
+	delivery, err := manager.DeliverEvent(context.Background(), testRuntimeEvent())
+	if err != nil {
+		t.Fatalf("deliver event: %v", err)
+	}
+	if handled, _ := delivery.Result["handled"].(bool); !handled {
+		t.Fatalf("unexpected delivery result: %#v", delivery.Result)
+	}
+	if got, _ := delivery.Result["storage_exists"].(bool); !got {
+		t.Fatalf("expected storage_exists=true, got %#v", delivery.Result)
+	}
+
+	mu.Lock()
+	defer mu.Unlock()
+	if len(actions) != 2 {
+		t.Fatalf("len(actions) = %d, want 2", len(actions))
+	}
+	if actions[0].Kind != "logger.write" || actions[0].LogMessage != "notice.member_increase received" {
+		t.Fatalf("unexpected first local action: %#v", actions[0])
+	}
+	if actions[1].Kind != "storage.kv" || actions[1].StorageOperation != "get" || actions[1].StorageKey != "notice:last_join" {
+		t.Fatalf("unexpected second local action: %#v", actions[1])
+	}
+
+	if err := manager.Stop(context.Background()); err != nil {
+		t.Fatalf("stop runtime: %v", err)
+	}
+}
+
+func TestManagerDeliverEventWritesLocalActionErrorAndContinues(t *testing.T) {
+	t.Parallel()
+
+	crashCh := make(chan struct{}, 1)
+	manager := testManagerWithOptions(Options{
+		OnCrash: func(string, int, string) {
+			crashCh <- struct{}{}
+		},
+		ExecuteLocalAction: func(_ context.Context, _ string, _ string, action Action, _ Event) (map[string]any, error) {
+			if action.Kind != "logger.write" {
+				t.Fatalf("unexpected local action: %#v", action)
+			}
+			return nil, errorf("plugin.capability_violation", "capability not declared", nil)
+		},
+	})
+	spec := helperSpec(t, "event-local-action-error-then-result", "")
+
+	if err := manager.Start(context.Background(), spec, testInitPayload()); err != nil {
+		t.Fatalf("start runtime: %v", err)
+	}
+
+	delivery, err := manager.DeliverEvent(context.Background(), testRuntimeEvent())
+	if err != nil {
+		t.Fatalf("deliver event: %v", err)
+	}
+	if got, _ := delivery.Result["local_error_code"].(string); got != "plugin.capability_violation" {
+		t.Fatalf("local_error_code = %q, want %q", got, "plugin.capability_violation")
+	}
+	assertRuntimeRunningWithoutCrash(t, manager, crashCh)
+
+	if err := manager.Stop(context.Background()); err != nil {
+		t.Fatalf("stop runtime: %v", err)
+	}
+}
+
+func assertRuntimeRunningWithoutCrash(t *testing.T, manager *Manager, crashCh <-chan struct{}) {
+	t.Helper()
+
+	snapshot := manager.Snapshot()
+	if snapshot.State != StateRunning {
+		t.Fatalf("runtime state after event error: got %q want %q", snapshot.State, StateRunning)
+	}
+	if snapshot.CrashCount != 0 {
+		t.Fatalf("runtime crash count after event error: got %d want 0", snapshot.CrashCount)
+	}
+	select {
+	case <-crashCh:
+		t.Fatal("event error triggered crash callback")
+	default:
+	}
+}
+
+func TestManagerDeliverEventWritesLocalActionErrorDetailsAndContinues(t *testing.T) {
+	t.Parallel()
+
+	manager := testManagerWithOptions(Options{
+		ExecuteLocalAction: func(_ context.Context, _ string, _ string, action Action, _ Event) (map[string]any, error) {
+			if action.Kind != "logger.write" {
+				t.Fatalf("unexpected local action: %#v", action)
+			}
+			return nil, &Error{
+				Code:    "plugin.capability_violation",
+				Message: "capability not declared",
+				Details: map[string]any{
+					"missing_capability": "logger.write",
+					"scope":              "management.logs:write",
+				},
+			}
+		},
+	})
+	spec := helperSpec(t, "event-local-action-error-then-result", "")
+
+	if err := manager.Start(context.Background(), spec, testInitPayload()); err != nil {
+		t.Fatalf("start runtime: %v", err)
+	}
+
+	delivery, err := manager.DeliverEvent(context.Background(), testRuntimeEvent())
+	if err != nil {
+		t.Fatalf("deliver event: %v", err)
+	}
+	details, ok := delivery.Result["local_error_details"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected local_error_details map, got %#v", delivery.Result["local_error_details"])
+	}
+	if details["missing_capability"] != "logger.write" {
+		t.Fatalf("unexpected local error details: %#v", details)
+	}
+
+	if err := manager.Stop(context.Background()); err != nil {
+		t.Fatalf("stop runtime: %v", err)
+	}
+}
+
+func TestManagerDeliverEventRejectsLocalActionWithoutParentRequestIDWhenConcurrent(t *testing.T) {
+	t.Parallel()
+
+	manager := testManager()
+	spec := helperSpecWithConcurrency(t, "event-local-action-missing-parent-request-id", "", 2)
+
+	if err := manager.Start(context.Background(), spec, testInitPayload()); err != nil {
+		t.Fatalf("start runtime: %v", err)
+	}
+
+	_, err := manager.DeliverEvent(context.Background(), testRuntimeEvent())
+	assertRuntimeErrorCode(t, err, codePluginProtocolViolation)
+
+	if err := manager.Stop(context.Background()); err != nil {
+		t.Fatalf("stop runtime: %v", err)
+	}
+}
+
+func TestManagerDeliverEventProcessesConcurrentLocalActionsWithinOneSession(t *testing.T) {
+	t.Parallel()
+
+	started := make(chan string, 2)
+	release := make(chan struct{})
+	manager := testManagerWithOptions(Options{
+		ExecuteLocalAction: func(_ context.Context, pluginID string, requestID string, action Action, _ Event) (map[string]any, error) {
+			if pluginID != "helper-plugin" {
+				t.Fatalf("pluginID = %q, want helper-plugin", pluginID)
+			}
+			started <- requestID
+			<-release
+			return map[string]any{"request_id": requestID}, nil
+		},
+	})
+	spec := helperSpecWithConcurrency(t, "event-concurrent-local-actions-then-result", "", 2)
+
+	if err := manager.Start(context.Background(), spec, testInitPayload()); err != nil {
+		t.Fatalf("start runtime: %v", err)
+	}
+
+	type deliveryResult struct {
+		delivery Delivery
+		err      error
+	}
+	done := make(chan deliveryResult, 1)
+	go func() {
+		delivery, err := manager.DeliverEvent(context.Background(), testRuntimeEvent())
+		done <- deliveryResult{delivery: delivery, err: err}
+	}()
+
+	seen := map[string]bool{}
+	for len(seen) < 2 {
+		select {
+		case requestID := <-started:
+			seen[requestID] = true
+		case <-time.After(runtimeTestDuration(500 * time.Millisecond)):
+			t.Fatalf("expected two local actions to start concurrently, got %#v", seen)
+		}
+	}
+	if !seen["local_logger_3"] || !seen["local_storage_3"] {
+		t.Fatalf("unexpected local action request ids: %#v", seen)
+	}
+
+	close(release)
+
+	select {
+	case result := <-done:
+		if result.err != nil {
+			t.Fatalf("deliver event: %v", result.err)
+		}
+		if got, _ := result.delivery.Result["logger_started"].(bool); !got {
+			t.Fatalf("unexpected logger_started result: %#v", result.delivery.Result)
+		}
+		if got, _ := result.delivery.Result["storage_started"].(bool); !got {
+			t.Fatalf("unexpected storage_started result: %#v", result.delivery.Result)
+		}
+	case <-time.After(runtimeTestDuration(time.Second)):
+		t.Fatal("deliver event did not finish after local actions completed")
+	}
+
+	if err := manager.Stop(context.Background()); err != nil {
+		t.Fatalf("stop runtime: %v", err)
+	}
+}
+
+func TestManagerDeliverEventRejectsTerminalFrameBeforePendingLocalActionsComplete(t *testing.T) {
+	t.Parallel()
+
+	release := make(chan struct{})
+	manager := testManagerWithOptions(Options{
+		ExecuteLocalAction: func(context.Context, string, string, Action, Event) (map[string]any, error) {
+			<-release
+			return map[string]any{}, nil
+		},
+	})
+	spec := helperSpecWithConcurrency(t, "event-local-action-early-terminal-result", "", 2)
+
+	if err := manager.Start(context.Background(), spec, testInitPayload()); err != nil {
+		t.Fatalf("start runtime: %v", err)
+	}
+
+	_, err := manager.DeliverEvent(context.Background(), testRuntimeEvent())
+	assertRuntimeErrorCode(t, err, codePluginProtocolViolation)
+	close(release)
+
+	if err := manager.Stop(context.Background()); err != nil {
+		t.Fatalf("stop runtime: %v", err)
+	}
+}
+
+func TestManagerDeliverEventRejectsLocalActionUsingEventRequestID(t *testing.T) {
+	t.Parallel()
+
+	manager := testManagerWithOptions(Options{
+		ExecuteLocalAction: func(context.Context, string, string, Action, Event) (map[string]any, error) {
+			t.Fatal("ExecuteLocalAction should not be called when request_id reuses the event request_id")
+			return nil, nil
+		},
+	})
+	spec := helperSpec(t, "event-local-action-same-request-id", "")
+
+	if err := manager.Start(context.Background(), spec, testInitPayload()); err != nil {
+		t.Fatalf("start runtime: %v", err)
+	}
+
+	_, err := manager.DeliverEvent(context.Background(), testRuntimeEvent())
+	assertRuntimeErrorCode(t, err, codePluginProtocolViolation)
+
+	if err := manager.Stop(context.Background()); err != nil {
+		t.Fatalf("stop runtime: %v", err)
+	}
+}

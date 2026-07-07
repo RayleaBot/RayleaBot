@@ -359,16 +359,6 @@ func TestCooldownTriggered(t *testing.T) {
 	}
 }
 
-func TestNilCheckerAllowsEverything(t *testing.T) {
-	t.Parallel()
-
-	var checker *Checker
-	verdict := checker.Check(context.Background(), "anyone", "member", "group1", &CommandInfo{Permission: "super_admin"})
-	if !verdict.Allowed {
-		t.Fatal("nil checker should allow everything")
-	}
-}
-
 func TestPrivateMessageSkipsGroupChecks(t *testing.T) {
 	t.Parallel()
 

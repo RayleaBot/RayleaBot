@@ -1,6 +1,10 @@
 package dispatch
 
 import (
+	"fmt"
+	"strings"
+
+	pluginruntime "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime"
 	"github.com/RayleaBot/RayleaBot/server/internal/scheduler"
 )
 
@@ -140,4 +144,16 @@ func (d *Dispatcher) worker(pluginID string, slot *pluginSlot) {
 			}
 		}
 	}
+}
+
+func laneKeyForEvent(event pluginruntime.Event, fallbackCounter *int) string {
+	if event.Target != nil {
+		targetType := strings.TrimSpace(event.Target.Type)
+		targetID := strings.TrimSpace(event.Target.ID)
+		if targetType != "" && targetID != "" {
+			return targetType + ":" + targetID
+		}
+	}
+	*fallbackCounter = *fallbackCounter + 1
+	return fmt.Sprintf("fallback:%d", *fallbackCounter)
 }

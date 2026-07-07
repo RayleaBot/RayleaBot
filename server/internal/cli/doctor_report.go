@@ -4,9 +4,60 @@ import (
 	"context"
 	"os"
 
+	"github.com/RayleaBot/RayleaBot/server/internal/config"
+	"github.com/RayleaBot/RayleaBot/server/internal/deps"
 	"github.com/RayleaBot/RayleaBot/server/internal/recovery"
 	"github.com/RayleaBot/RayleaBot/server/internal/storage"
 )
+
+type DoctorIssue struct {
+	Code        string `json:"code"`
+	Severity    string `json:"severity"`
+	Summary     string `json:"summary"`
+	Remediation string `json:"remediation"`
+}
+
+type DoctorReport struct {
+	Issues          []DoctorIssue                  `json:"issues"`
+	RecoverySummary *recovery.CompatibilitySummary `json:"recovery_summary,omitempty"`
+}
+
+func validateConfigSchema(schemaPath string) error {
+	if config.IsConfigUserSchemaID(schemaPath) {
+		_, err := config.CompileJSON(config.ConfigUserSchemaID, config.ConfigUserSchemaJSON)
+		return err
+	}
+	_, err := config.Compile(schemaPath)
+	return err
+}
+
+func displaySchemaPath(repoRoot, schemaPath string) string {
+	if schemaPath == "" {
+		return config.ConfigUserSchemaID
+	}
+	return displayLogPath(repoRoot, schemaPath)
+}
+
+func runDoctor(cmd Command) int {
+	report := BuildDoctorReport(cmd)
+
+	hasProblems := false
+	for _, issue := range report.Issues {
+		if issue.Severity != "ok" {
+			cmd.Logger.Warn(issue.Summary, "code", issue.Code)
+			hasProblems = true
+		} else {
+			cmd.Logger.Info(issue.Summary, "code", issue.Code)
+		}
+	}
+
+	if hasProblems {
+		cmd.Logger.Warn("服务自检完成，发现需要处理的问题")
+		return 1
+	}
+	cmd.Logger.Info("服务自检完成，所有检查通过")
+	return 0
+}
 
 func BuildDoctorReport(cmd Command) DoctorReport {
 	issues := make([]DoctorIssue, 0, 8)
@@ -69,8 +120,8 @@ func BuildDoctorReport(cmd Command) DoctorReport {
 		}
 	}
 
-	currentPlatform := currentManifestPlatform()
-	if manifest, err := loadDepsManifest(repoRoot); err != nil {
+	currentPlatform := deps.CurrentPlatform()
+	if manifest, err := deps.LoadManifest(repoRoot); err != nil {
 		issues = append(issues, depsManifestDoctorIssues(err)...)
 	} else {
 		issues = append(issues, depsManifestPlatformIssue(manifest, currentPlatform))
@@ -104,8 +155,8 @@ func depsManifestDoctorIssues(err error) []DoctorIssue {
 	}}
 }
 
-func depsManifestPlatformIssue(manifest *depsManifest, platform string) DoctorIssue {
-	if manifest.hasPlatform(platform) {
+func depsManifestPlatformIssue(manifest *deps.Manifest, platform string) DoctorIssue {
+	if manifest.HasPlatform(platform) {
 		return DoctorIssue{
 			Code:     "deps.manifest",
 			Severity: "ok",

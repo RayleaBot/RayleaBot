@@ -1,13 +1,14 @@
 package outbound
 
 import (
+	"container/list"
 	"context"
 	"errors"
 	"strings"
+	"sync"
 
-	adapteroutbound "github.com/RayleaBot/RayleaBot/server/internal/bot/adapter/onebot11/outbound"
-	runtimeaction "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime/action"
-	runtimeprotocol "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime/protocol"
+	"github.com/RayleaBot/RayleaBot/server/internal/onebot11"
+	pluginruntime "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime"
 )
 
 const (
@@ -17,8 +18,8 @@ const (
 )
 
 type ActionSender interface {
-	SendMessage(context.Context, adapteroutbound.OutboundMessageSend) (adapteroutbound.SendMessageResult, error)
-	SendReply(context.Context, adapteroutbound.OutboundMessageReply) (adapteroutbound.SendMessageResult, error)
+	SendMessage(context.Context, onebot11.OutboundMessageSend) (onebot11.SendMessageResult, error)
+	SendReply(context.Context, onebot11.OutboundMessageReply) (onebot11.SendMessageResult, error)
 }
 
 type ReplyTarget struct {
@@ -38,9 +39,100 @@ type ReplyTargetResolver interface {
 	ResolveReplyTarget(eventID string) (ReplyTarget, bool)
 }
 
-func SendAction(ctx context.Context, sender ActionSender, resolver ReplyTargetResolver, origin runtimeprotocol.Event, action runtimeaction.Action) (SendResult, error) {
+const DefaultReplyTargetCacheSize = 10000
+
+type ReplyTargetCache struct {
+	mu    sync.Mutex
+	limit int
+	order *list.List
+	items map[string]*list.Element
+}
+
+type replyTargetEntry struct {
+	EventID string
+	Target  ReplyTarget
+}
+
+func NewReplyTargetCache(limit int) *ReplyTargetCache {
+	if limit <= 0 {
+		limit = DefaultReplyTargetCacheSize
+	}
+	return &ReplyTargetCache{
+		limit: limit,
+		order: list.New(),
+		items: make(map[string]*list.Element, limit),
+	}
+}
+
+func (c *ReplyTargetCache) Record(event onebot11.NormalizedEvent) {
+
+	eventID := strings.TrimSpace(event.EventID)
+	messageID := strings.TrimSpace(event.MessageID)
+	targetType := strings.TrimSpace(event.ConversationType)
+	targetID := strings.TrimSpace(event.ConversationID)
+	if eventID == "" || messageID == "" || targetType == "" || targetID == "" {
+		return
+	}
+
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	if existing, ok := c.items[eventID]; ok {
+		existing.Value = replyTargetEntry{
+			EventID: eventID,
+			Target: ReplyTarget{
+				MessageID:  messageID,
+				TargetType: targetType,
+				TargetID:   targetID,
+			},
+		}
+		c.order.MoveToFront(existing)
+		return
+	}
+
+	element := c.order.PushFront(replyTargetEntry{
+		EventID: eventID,
+		Target: ReplyTarget{
+			MessageID:  messageID,
+			TargetType: targetType,
+			TargetID:   targetID,
+		},
+	})
+	c.items[eventID] = element
+
+	for c.order.Len() > c.limit {
+		tail := c.order.Back()
+		if tail == nil {
+			return
+		}
+		entry, _ := tail.Value.(replyTargetEntry)
+		delete(c.items, entry.EventID)
+		c.order.Remove(tail)
+	}
+}
+
+func (c *ReplyTargetCache) ResolveReplyTarget(eventID string) (ReplyTarget, bool) {
+
+	eventID = strings.TrimSpace(eventID)
+	if eventID == "" {
+		return ReplyTarget{}, false
+	}
+
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	element, ok := c.items[eventID]
+	if !ok {
+		return ReplyTarget{}, false
+	}
+	c.order.MoveToFront(element)
+	entry, _ := element.Value.(replyTargetEntry)
+	return entry.Target, true
+}
+
+func SendAction(ctx context.Context, sender ActionSender, resolver ReplyTargetResolver, origin pluginruntime.Event, action pluginruntime.Action) (SendResult, error) {
 	if sender == nil {
-		return SendResult{DeliveryKind: action.Kind}, &adapteroutbound.Error{
+		return SendResult{DeliveryKind: action.Kind}, &onebot11.Error{
 			Code:    codeAdapterSendFailed,
 			Message: "adapter outbound sender is not available",
 		}
@@ -48,7 +140,7 @@ func SendAction(ctx context.Context, sender ActionSender, resolver ReplyTargetRe
 
 	switch action.Kind {
 	case "message.send":
-		result, err := sender.SendMessage(ctx, adapteroutbound.OutboundMessageSend{
+		result, err := sender.SendMessage(ctx, onebot11.OutboundMessageSend{
 			TargetType: action.TargetType,
 			TargetID:   action.TargetID,
 			Segments:   toAdapterSegments(action.MessageSegments),
@@ -62,23 +154,23 @@ func SendAction(ctx context.Context, sender ActionSender, resolver ReplyTargetRe
 	case "message.reply":
 		return sendReplyAction(ctx, sender, resolver, origin, action)
 	default:
-		return SendResult{DeliveryKind: action.Kind}, &adapteroutbound.Error{
+		return SendResult{DeliveryKind: action.Kind}, &onebot11.Error{
 			Code:    codePluginProtocolViolation,
 			Message: "received unsupported outbound action kind",
 		}
 	}
 }
 
-func sendReplyAction(ctx context.Context, sender ActionSender, resolver ReplyTargetResolver, _ runtimeprotocol.Event, action runtimeaction.Action) (SendResult, error) {
+func sendReplyAction(ctx context.Context, sender ActionSender, resolver ReplyTargetResolver, _ pluginruntime.Event, action pluginruntime.Action) (SendResult, error) {
 	replyTarget, ok := resolveReplyTarget(action, resolver)
 	if !ok {
-		return SendResult{DeliveryKind: "message.reply"}, &adapteroutbound.Error{
+		return SendResult{DeliveryKind: "message.reply"}, &onebot11.Error{
 			Code:    codeAdapterReplyTargetMissing,
 			Message: "reply target is not available in the current event window",
 		}
 	}
 
-	replyRequest := adapteroutbound.OutboundMessageReply{
+	replyRequest := onebot11.OutboundMessageReply{
 		TargetType:       replyTarget.TargetType,
 		TargetID:         replyTarget.TargetID,
 		ReplyToMessageID: replyTarget.MessageID,
@@ -94,7 +186,7 @@ func sendReplyAction(ctx context.Context, sender ActionSender, resolver ReplyTar
 		}, nil
 	}
 
-	var adapterErr *adapteroutbound.Error
+	var adapterErr *onebot11.Error
 	if !action.FallbackToSendIfMissing || !errors.As(err, &adapterErr) || adapterErr.Code != codeAdapterReplyTargetMissing {
 		return SendResult{
 			DeliveryKind: "message.reply",
@@ -103,7 +195,7 @@ func sendReplyAction(ctx context.Context, sender ActionSender, resolver ReplyTar
 		}, err
 	}
 
-	fallbackResult, fallbackErr := sender.SendMessage(ctx, adapteroutbound.OutboundMessageSend{
+	fallbackResult, fallbackErr := sender.SendMessage(ctx, onebot11.OutboundMessageSend{
 		TargetType: replyTarget.TargetType,
 		TargetID:   replyTarget.TargetID,
 		Segments:   stripReplySegments(toAdapterSegments(action.MessageSegments)),
@@ -116,7 +208,7 @@ func sendReplyAction(ctx context.Context, sender ActionSender, resolver ReplyTar
 	}, fallbackErr
 }
 
-func resolveReplyTarget(action runtimeaction.Action, resolver ReplyTargetResolver) (ReplyTarget, bool) {
+func resolveReplyTarget(action pluginruntime.Action, resolver ReplyTargetResolver) (ReplyTarget, bool) {
 	replyToEventID := strings.TrimSpace(action.ReplyToEventID)
 	if replyToEventID == "" || resolver == nil {
 		return ReplyTarget{}, false
@@ -128,17 +220,17 @@ func resolveReplyTarget(action runtimeaction.Action, resolver ReplyTargetResolve
 	return target, target.MessageID != "" && target.TargetType != "" && target.TargetID != ""
 }
 
-func toAdapterSegments(segments []runtimeaction.ActionSegment) []adapteroutbound.OutboundMessageSegment {
+func toAdapterSegments(segments []pluginruntime.ActionSegment) []onebot11.OutboundMessageSegment {
 	if len(segments) == 0 {
 		return nil
 	}
-	items := make([]adapteroutbound.OutboundMessageSegment, 0, len(segments))
+	items := make([]onebot11.OutboundMessageSegment, 0, len(segments))
 	for _, segment := range segments {
 		data := make(map[string]any, len(segment.Data))
 		for key, value := range segment.Data {
 			data[key] = value
 		}
-		items = append(items, adapteroutbound.OutboundMessageSegment{
+		items = append(items, onebot11.OutboundMessageSegment{
 			Type: segment.Type,
 			Data: data,
 		})
@@ -146,11 +238,11 @@ func toAdapterSegments(segments []runtimeaction.ActionSegment) []adapteroutbound
 	return items
 }
 
-func stripReplySegments(segments []adapteroutbound.OutboundMessageSegment) []adapteroutbound.OutboundMessageSegment {
+func stripReplySegments(segments []onebot11.OutboundMessageSegment) []onebot11.OutboundMessageSegment {
 	if len(segments) == 0 {
 		return nil
 	}
-	items := make([]adapteroutbound.OutboundMessageSegment, 0, len(segments))
+	items := make([]onebot11.OutboundMessageSegment, 0, len(segments))
 	for _, segment := range segments {
 		if strings.TrimSpace(segment.Type) == "reply" {
 			continue

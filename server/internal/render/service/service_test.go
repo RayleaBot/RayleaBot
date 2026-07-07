@@ -10,10 +10,6 @@ import (
 	"strings"
 	"testing"
 	"time"
-
-	renderbrowser "github.com/RayleaBot/RayleaBot/server/internal/render/browser"
-	renderworker "github.com/RayleaBot/RayleaBot/server/internal/render/engine"
-	rendertemplates "github.com/RayleaBot/RayleaBot/server/internal/render/templates"
 )
 
 func TestNewServiceSkipsInvalidTemplateDirectories(t *testing.T) {
@@ -102,10 +98,10 @@ func TestServiceCloseClosesRunner(t *testing.T) {
 func TestRefreshBrowserPathReplacesAndClosesDefaultChromiumRunner(t *testing.T) {
 	t.Parallel()
 
-	oldChromiumRunner := renderbrowser.NewChromiumRunner(renderbrowser.ChromiumOptions{BrowserPath: "old-browser"})
+	oldChromiumRunner := NewChromiumRunner(ChromiumOptions{BrowserPath: "old-browser"})
 	service := &Service{
 		browserArgs: []string{"--disable-dev-shm-usage"},
-		worker: renderworker.New(renderworker.Config{
+		worker: NewWorker(WorkerConfig{
 			Runner:      oldChromiumRunner,
 			WorkerCount: 1,
 		}),
@@ -118,7 +114,7 @@ func TestRefreshBrowserPathReplacesAndClosesDefaultChromiumRunner(t *testing.T) 
 	if currentRunner == oldRunner {
 		t.Fatal("expected default chromium runner to be replaced")
 	}
-	if !renderbrowser.IsChromiumRunner(currentRunner) {
+	if !IsChromiumRunner(currentRunner) {
 		t.Fatalf("expected chromium runner, got %T", currentRunner)
 	}
 }
@@ -127,7 +123,7 @@ func TestRefreshBrowserPathKeepsInjectedRunner(t *testing.T) {
 	t.Parallel()
 
 	runner := &fakeCloseableRunner{}
-	service := &Service{worker: renderworker.New(renderworker.Config{Runner: runner, WorkerCount: 1})}
+	service := &Service{worker: NewWorker(WorkerConfig{Runner: runner, WorkerCount: 1})}
 
 	service.RefreshBrowserPath("new-browser")
 
@@ -299,7 +295,7 @@ func TestServicePreviewHTMLReusesValidationAndSkipsRunnerAndArtifacts(t *testing
 			"title": make(chan int),
 		},
 	})
-	var renderErr *rendertemplates.Error
+	var renderErr *Error
 	if !errors.As(err, &renderErr) || renderErr.Code != "platform.invalid_request" {
 		t.Fatalf("expected invalid request for unserializable input, got %v", err)
 	}

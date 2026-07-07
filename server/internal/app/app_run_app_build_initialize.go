@@ -5,25 +5,22 @@ import (
 	"time"
 
 	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
-	plugindiscovery "github.com/RayleaBot/RayleaBot/server/internal/plugins/discovery"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/logging"
 	"github.com/RayleaBot/RayleaBot/server/internal/redact"
 	"github.com/RayleaBot/RayleaBot/server/internal/runtimepaths"
-	"github.com/RayleaBot/RayleaBot/server/internal/schema"
-	"github.com/RayleaBot/RayleaBot/server/internal/schemaassets"
 	"github.com/RayleaBot/RayleaBot/server/internal/tasks"
 )
 
 type appBuildState struct {
-	core             appRuntimeState
+	core             *appRuntimeState
 	options          Options
 	logStream        *logging.Stream
 	taskRegistry     *tasks.Registry
 	taskExecutor     *tasks.Executor
 	discoverySpec    runtimepaths.PluginDiscoverySpec
-	pluginValidator  *schema.Validator
+	pluginValidator  *config.Validator
 	pluginCatalog    *plugincatalog.Catalog
 	managementRedact func(string) string
 }
@@ -55,7 +52,7 @@ func initializeAppBuild(options Options) (appBuildState, error) {
 	if err != nil {
 		return appBuildState{}, fmt.Errorf("compile plugin manifest schema %s: %w", discoverySpec.PluginSchemaPath, err)
 	}
-	snapshots, _, err := plugindiscovery.Discover(plugindiscovery.DiscoverOptions{
+	snapshots, _, err := plugincatalog.Discover(plugincatalog.DiscoverOptions{
 		Validator: pluginValidator,
 		Roots:     discoverySpec.Roots,
 		RepoRoot:  discoverySpec.RepoRoot,
@@ -65,17 +62,19 @@ func initializeAppBuild(options Options) (appBuildState, error) {
 		return appBuildState{}, err
 	}
 
+	core := &appRuntimeState{
+		Logger:             logger,
+		LogLevel:           logLevel,
+		repoRoot:           discoverySpec.RepoRoot,
+		redactText:         managementRedactor.Redact,
+		addRedactionValues: managementRedactor.Add,
+		startedAt:          time.Now().UTC(),
+	}
+	core.SetConfig(cfg)
+	core.SetSummary(summary)
+
 	return appBuildState{
-		core: appRuntimeState{
-			Config:             cfg,
-			Summary:            summary,
-			Logger:             logger,
-			LogLevel:           logLevel,
-			repoRoot:           discoverySpec.RepoRoot,
-			redactText:         managementRedactor.Redact,
-			addRedactionValues: managementRedactor.Add,
-			startedAt:          time.Now().UTC(),
-		},
+		core:             core,
 		options:          options,
 		logStream:        logStream,
 		taskRegistry:     taskRegistry,
@@ -87,9 +86,9 @@ func initializeAppBuild(options Options) (appBuildState, error) {
 	}, nil
 }
 
-func compilePluginSchema(schemaPath string) (*schema.Validator, error) {
-	if schemaassets.IsPluginInfoSchemaID(schemaPath) {
-		return schema.CompileJSON(schemaassets.PluginInfoSchemaID, schemaassets.PluginInfoSchemaJSON)
+func compilePluginSchema(schemaPath string) (*config.Validator, error) {
+	if config.IsPluginInfoSchemaID(schemaPath) {
+		return config.CompileJSON(config.PluginInfoSchemaID, config.PluginInfoSchemaJSON)
 	}
-	return schema.Compile(schemaPath)
+	return config.Compile(schemaPath)
 }

@@ -7,7 +7,8 @@ import (
 	"time"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/dispatch"
-	runtimeprotocol "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime/protocol"
+	pluginruntime "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime"
+	"github.com/RayleaBot/RayleaBot/server/internal/pubsub"
 )
 
 const (
@@ -86,9 +87,11 @@ type ObservabilityData struct {
 	DispatcherIgnored      uint64  `json:"dispatcher_ignored_total,omitempty"`
 }
 
-type dispatcherClient interface {
+// Dispatch is the dispatcher capability the bridge depends on. It is
+// exported so app.Options can inject a test double at construction time.
+type Dispatch interface {
 	HasDeliverablePlugins() bool
-	Dispatch(context.Context, runtimeprotocol.Event, string) []dispatch.DeliveryResult
+	Dispatch(context.Context, pluginruntime.Event, string) []dispatch.DeliveryResult
 }
 
 type CommandPolicyRejection struct {
@@ -131,27 +134,25 @@ type MetricsObserver interface {
 
 type Bridge struct {
 	logger     *slog.Logger
-	dispatcher dispatcherClient
+	dispatcher Dispatch
 
-	mu               sync.RWMutex
-	snapshot         Snapshot
-	nextSubscriberID uint64
-	subscribers      map[uint64]chan ObservabilityFrame
+	mu       sync.RWMutex
+	snapshot Snapshot
+	hub      pubsub.Hub[ObservabilityFrame]
 
 	adapterStats    AdapterDedupStats
 	dispatcherStats DispatcherStatsSnapshot
 	metrics         MetricsObserver
 }
 
-func New(logger *slog.Logger, dispatcher dispatcherClient) *Bridge {
+func New(logger *slog.Logger, dispatcher Dispatch) *Bridge {
 	if logger == nil {
 		logger = slog.Default()
 	}
 
 	return &Bridge{
-		logger:      logger,
-		dispatcher:  dispatcher,
-		subscribers: make(map[uint64]chan ObservabilityFrame),
+		logger:     logger,
+		dispatcher: dispatcher,
 	}
 }
 

@@ -132,5 +132,5 @@ func GenBuvidFP(browserData BrowserFingerprint) string {
 		strings.Join(browserData.EnumerateDevices, ","),
 	}
 	values := strings.Join(components, "~~~")
-	return murmurHash128(values, 31)
+	return MurmurHash128(values, 31)
 }

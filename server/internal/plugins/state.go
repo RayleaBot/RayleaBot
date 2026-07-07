@@ -1,8 +1,18 @@
 package plugins
 
-import "time"
+import (
+	"errors"
+	"strings"
+	"time"
+)
 
 const ManifestValidationMaxSummary = 256
+
+var (
+	ErrPluginNotFound        = errors.New("plugin not found")
+	ErrStateConflict         = errors.New("state conflict")
+	ErrPluginNotInDeadLetter = errors.New("plugin is not in dead_letter")
+)
 
 const (
 	RegistrationStateInstalled = "installed"
@@ -71,6 +81,26 @@ type StateDiagnosis struct {
 	EnteredAt        *time.Time `json:"entered_at,omitempty"`
 	RetryAt          *time.Time `json:"retry_at,omitempty"`
 	Recoverable      bool       `json:"recoverable,omitempty"`
+}
+
+func DisplayName(snapshot Snapshot) string {
+	if name := strings.TrimSpace(snapshot.Name); name != "" {
+		return name
+	}
+	return strings.TrimSpace(snapshot.PluginID)
+}
+
+func DisplayLabel(snapshot Snapshot) string {
+	pluginID := strings.TrimSpace(snapshot.PluginID)
+	name := strings.TrimSpace(snapshot.Name)
+	switch {
+	case name != "" && pluginID != "" && name != pluginID:
+		return name + "（" + pluginID + "）"
+	case name != "":
+		return name
+	default:
+		return pluginID
+	}
 }
 
 func ProjectState(snapshot Snapshot) (string, *StateDiagnosis) {

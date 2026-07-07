@@ -5,34 +5,72 @@ import (
 	"errors"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/recovery"
-	systemmodel "github.com/RayleaBot/RayleaBot/server/internal/system/model"
 	"github.com/RayleaBot/RayleaBot/server/internal/tasks"
 )
 
-func (s *Service) ValidateRecoveryConfirmRequest(reviewIDs []string, note string) *systemmodel.Error {
-	if s == nil {
-		return systemmodel.InternalError()
+const codeInvalidRequest = "platform.invalid_request"
+
+func (s *Service) SubmitRecoveryRecheckTask() (string, *Error) {
+	if s.taskExecutor == nil {
+		return "", InternalError()
 	}
+
 	summary, err := recovery.LoadSummary(s.repoRootPath())
 	if err != nil {
-		return systemmodel.InternalError()
+		return "", InternalError()
+	}
+	if summary == nil || (!summary.RequiresPostStartChecks && summary.Phase != "post_startup") {
+		return "", ResourceMissingError(RecoverySummaryDetails(s.repoRootPath()))
+	}
+
+	taskID, err := s.taskExecutor.Submit("recovery.recheck", "重新检查恢复摘要", func(ctx context.Context, progress tasks.ProgressReporter) (*tasks.ResultSummary, error) {
+		progress.Update(25, "读取恢复摘要")
+		reconciled, err := s.reconcileRecoverySummary()
+		if err != nil {
+			return nil, err
+		}
+		if reconciled == nil {
+			return nil, &tasks.TaskError{
+				Code:    codeResourceMissing,
+				Message: "恢复摘要不存在或当前不可重新检查",
+				Details: RecoverySummaryDetails(s.repoRootPath()),
+			}
+		}
+		progress.Update(90, "写入恢复摘要")
+		return &tasks.ResultSummary{
+			Summary: "恢复摘要已重新检查",
+			Details: map[string]any{
+				"recovery_summary": reconciled,
+			},
+		}, nil
+	})
+	if err != nil {
+		return "", InternalError()
+	}
+	return taskID, nil
+}
+
+func (s *Service) ValidateRecoveryConfirmRequest(reviewIDs []string, note string) *Error {
+	summary, err := recovery.LoadSummary(s.repoRootPath())
+	if err != nil {
+		return InternalError()
 	}
 	if summary == nil || summary.Phase != "post_startup" {
-		return systemmodel.ResourceMissingError(systemmodel.RecoverySummaryDetails(s.repoRootPath()))
+		return ResourceMissingError(RecoverySummaryDetails(s.repoRootPath()))
 	}
 	if _, _, err := recovery.ConfirmSkippedPlugins(*summary, reviewIDs, "validation", note, "validation"); err != nil {
 		var unknownErr *recovery.UnknownReviewIDsError
 		if errors.As(err, &unknownErr) {
-			return systemmodel.InvalidRequestError(map[string]any{"review_ids": unknownErr.ReviewIDs})
+			return InvalidRequestError(map[string]any{"review_ids": unknownErr.ReviewIDs})
 		}
-		return systemmodel.InvalidRequestError(nil)
+		return InvalidRequestError(nil)
 	}
 	return nil
 }
 
-func (s *Service) SubmitRecoveryConfirmTask(reviewIDs []string, note, operatorID string) (string, *systemmodel.Error) {
-	if s == nil || s.taskExecutor == nil {
-		return "", systemmodel.InternalError()
+func (s *Service) SubmitRecoveryConfirmTask(reviewIDs []string, note, operatorID string) (string, *Error) {
+	if s.taskExecutor == nil {
+		return "", InternalError()
 	}
 	taskIDCh := make(chan string, 1)
 	taskID, err := s.taskExecutor.Submit("recovery.confirm", "确认恢复处理结果", func(ctx context.Context, progress tasks.ProgressReporter) (*tasks.ResultSummary, error) {
@@ -45,7 +83,7 @@ func (s *Service) SubmitRecoveryConfirmTask(reviewIDs []string, note, operatorID
 			return nil, &tasks.TaskError{
 				Code:    codeResourceMissing,
 				Message: "恢复摘要不存在或当前不可确认",
-				Details: systemmodel.RecoverySummaryDetails(s.repoRootPath()),
+				Details: RecoverySummaryDetails(s.repoRootPath()),
 			}
 		}
 		progress.Update(55, "确认恢复项")
@@ -85,7 +123,7 @@ func (s *Service) SubmitRecoveryConfirmTask(reviewIDs []string, note, operatorID
 		}, nil
 	})
 	if err != nil {
-		return "", systemmodel.InternalError()
+		return "", InternalError()
 	}
 	taskIDCh <- taskID
 	return taskID, nil

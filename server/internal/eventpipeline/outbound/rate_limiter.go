@@ -7,6 +7,8 @@ import (
 	"time"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
+	"github.com/RayleaBot/RayleaBot/server/internal/onebot11"
+	"github.com/RayleaBot/RayleaBot/server/internal/permission"
 )
 
 const (
@@ -47,9 +49,6 @@ func NewMessageRateLimiter(cfg config.Config) *MessageRateLimiter {
 
 // ApplyConfig refreshes limiter settings from the latest saved config.
 func (l *MessageRateLimiter) ApplyConfig(cfg config.Config) {
-	if l == nil {
-		return
-	}
 
 	pluginLimit := parseOutboundRateLimit(cfg.Message.RateLimitPerPlugin, defaultMessageRateLimitPerPlugin)
 	targetLimit := parseOutboundRateLimit(cfg.Message.RateLimitPerTarget, defaultMessageRateLimitPerTarget)
@@ -66,9 +65,6 @@ func (l *MessageRateLimiter) ApplyConfig(cfg config.Config) {
 // Wait blocks in FIFO order until the message can be sent or the configured
 // wait limit is reached.
 func (l *MessageRateLimiter) Wait(ctx context.Context, request MessageLimitRequest) error {
-	if l == nil {
-		return nil
-	}
 
 	l.mu.RLock()
 	maxWait := l.maxWait
@@ -96,4 +92,28 @@ func (l *MessageRateLimiter) Wait(ctx context.Context, request MessageLimitReque
 	}
 
 	return nil
+}
+
+func rateLimitedError() error {
+	return &onebot11.Error{
+		Code:    "platform.rate_limited",
+		Message: "outbound message rate limit exceeded",
+	}
+}
+
+func parseOutboundRateLimit(raw string, fallback string) permission.RateLimit {
+	limit, err := permission.ParseRateLimit(strings.TrimSpace(raw))
+	if err == nil {
+		return limit
+	}
+	limit, _ = permission.ParseRateLimit(fallback)
+	return limit
+}
+
+func messageCircuitBreaker(cfg config.Config) time.Duration {
+	seconds := cfg.Message.CircuitBreakerSeconds
+	if seconds <= 0 {
+		seconds = defaultMessageCircuitBreakerSecs
+	}
+	return time.Duration(seconds) * time.Second
 }

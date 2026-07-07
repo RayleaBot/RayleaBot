@@ -3,16 +3,14 @@ package actions
 import (
 	"context"
 
-	runtimeaction "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime/action"
-	runtimemanager "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime/manager"
-	runtimeprotocol "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime/protocol"
+	pluginruntime "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime"
 )
 
 type ActionRequest struct {
 	PluginID    string
 	RequestID   string
-	Action      runtimeaction.Action
-	ParentEvent runtimeprotocol.Event
+	Action      pluginruntime.Action
+	ParentEvent pluginruntime.Event
 }
 
 type ActionHandler func(context.Context, ActionRequest) (map[string]any, error)
@@ -38,7 +36,7 @@ func NewRegistry() *Registry {
 }
 
 func DefaultRegistry() *Registry {
-	return NewRegistry()
+	return NewDefaultRegistry(Deps{})
 }
 
 func NewRegistryWithRegistrars(deps Deps, registrars ...Registrar) *Registry {
@@ -52,16 +50,13 @@ func NewRegistryWithRegistrars(deps Deps, registrars ...Registrar) *Registry {
 }
 
 func (r *Registry) Register(kind string, handler ActionHandler) {
-	if r == nil || kind == "" || handler == nil {
+	if kind == "" || handler == nil {
 		return
 	}
 	r.handlers[kind] = handler
 }
 
 func (r *Registry) Dispatch(ctx context.Context, req ActionRequest) (map[string]any, bool, error) {
-	if r == nil {
-		return nil, false, nil
-	}
 	handler, ok := r.handlers[req.Action.Kind]
 	if !ok {
 		return nil, false, nil
@@ -70,7 +65,7 @@ func (r *Registry) Dispatch(ctx context.Context, req ActionRequest) (map[string]
 	return result, true, err
 }
 
-func (s *Service) Execute(ctx context.Context, pluginID, requestID string, action runtimeaction.Action, parentEvent runtimeprotocol.Event) (map[string]any, error) {
+func (s *Service) Execute(ctx context.Context, pluginID, requestID string, action pluginruntime.Action, parentEvent pluginruntime.Event) (map[string]any, error) {
 	if s != nil && s.actionRegistry != nil {
 		result, handled, err := s.actionRegistry.Dispatch(ctx, ActionRequest{
 			PluginID:    pluginID,
@@ -82,7 +77,7 @@ func (s *Service) Execute(ctx context.Context, pluginID, requestID string, actio
 			return result, err
 		}
 	}
-	return nil, &runtimemanager.Error{
+	return nil, &pluginruntime.Error{
 		Code:    "plugin.protocol_violation",
 		Message: "received unsupported local action kind",
 	}

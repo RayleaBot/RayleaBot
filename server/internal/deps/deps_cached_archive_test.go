@@ -9,7 +9,6 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
-	depsarchive "github.com/RayleaBot/RayleaBot/server/internal/deps/archive"
 	"os"
 	"path/filepath"
 	"strings"
@@ -90,7 +89,7 @@ func TestExtractZipReportsEntryProgress(t *testing.T) {
 	})
 	var events []extractProgress
 
-	if err := depsarchive.ZipWithProgress(archivePath, t.TempDir(), func(event depsarchive.Progress) {
+	if err := ZipWithProgress(archivePath, t.TempDir(), func(event ExtractProgress) {
 		events = append(events, extractProgress{
 			ExtractedEntries: event.ExtractedEntries,
 			TotalEntries:     event.TotalEntries,
@@ -119,7 +118,7 @@ func TestExtractTarGzReportsEntryProgress(t *testing.T) {
 	})
 	var events []extractProgress
 
-	if err := depsarchive.TarGzWithProgress(archivePath, t.TempDir(), func(event depsarchive.Progress) {
+	if err := TarGzWithProgress(archivePath, t.TempDir(), func(event ExtractProgress) {
 		events = append(events, extractProgress{
 			ExtractedEntries: event.ExtractedEntries,
 			TotalEntries:     event.TotalEntries,

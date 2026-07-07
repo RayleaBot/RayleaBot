@@ -7,7 +7,35 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 )
+
+type Manager struct {
+	repoRoot           string
+	downloadFile       func(context.Context, string, string) error
+	selectSources      func(context.Context, []ResourceSource) []ResourceSource
+	extract            func(context.Context, string, string, string) error
+	findSystemChromium func(context.Context) (string, error)
+	now                func() time.Time
+}
+
+var systemChromiumFinder = FindSystemChromium
+
+func SetSystemChromiumFinderForTest(finder func(context.Context) (string, error)) func() {
+	previous := systemChromiumFinder
+	systemChromiumFinder = finder
+	return func() {
+		systemChromiumFinder = previous
+	}
+}
+
+func NewManager(repoRoot string) *Manager {
+	return &Manager{
+		repoRoot:           strings.TrimSpace(repoRoot),
+		findSystemChromium: systemChromiumFinder,
+		now:                time.Now,
+	}
+}
 
 func (m *Manager) Prepare(ctx context.Context, kind string) (*PreparedResource, error) {
 	report, err := m.PrepareWithReport(ctx, kind)
@@ -26,9 +54,6 @@ func (m *Manager) PrepareWithReport(ctx context.Context, kind string) (*PrepareR
 }
 
 func (m *Manager) PrepareWithReportOptions(ctx context.Context, kind string, options PrepareOptions) (*PrepareReport, error) {
-	if m == nil {
-		return nil, errors.New("deps manager is required")
-	}
 	if ctx == nil {
 		ctx = context.Background()
 	}
@@ -123,8 +148,8 @@ func (m *Manager) PrepareWithReportOptions(ctx context.Context, kind string, opt
 		}.withResource(resource, report.ArchivePath, report.StoreRoot))
 	}
 	sourceSelector := m.selectSources
-	if m.downloadFile != nil && !sameFunction(m.downloadFile, downloadHTTPSFile) && sameFunction(sourceSelector, selectDownloadSources) {
-		sourceSelector = nil
+	if sourceSelector == nil && m.downloadFile == nil {
+		sourceSelector = SelectSources
 	}
 	selectedSource, attemptedSources, err := ensureDownloadedArchiveWithProgress(ctx, report.ArchivePath, report.StoreRoot, resource, m.downloadFile, sourceSelector, options.Progress)
 	report.SelectedSource = strings.TrimSpace(selectedSource)
@@ -194,4 +219,200 @@ func systemChromiumPrepareReport(path string) *PrepareReport {
 		PreparedEntrypoint: path,
 		Entrypoints:        prepared.Entrypoints,
 	}
+}
+
+func (m *Manager) Inspect(kind string) (*BootstrapInspection, error) {
+
+	manifest, resource, err := m.currentResource(kind)
+	if err != nil {
+		if kind == "chromium" {
+			if path, pathErr := m.resolveSystemChromiumEntrypoint(context.Background()); pathErr == nil {
+				return &BootstrapInspection{
+					Kind:                 kind,
+					MetadataComplete:     true,
+					PreparedStorePresent: true,
+					SystemBrowserPath:    path,
+				}, nil
+			}
+		}
+		return nil, classifyBootstrapError(m.repoRoot, kind, nil, "manifest", "", nil, err)
+	}
+	inspection := &BootstrapInspection{
+		Kind:             kind,
+		Resource:         resource,
+		ArchivePath:      filepath.Join(CacheRoot(m.repoRoot), resource.ID+"-"+resource.Version+archiveSuffix(resource.ArchiveFormat)),
+		StoreRoot:        StoreRoot(m.repoRoot, resource),
+		MetadataComplete: manifest.HasPlatform(CurrentPlatform()) && ResourceMetadataComplete(resource),
+	}
+	if !inspection.MetadataComplete && kind == "chromium" {
+		if path, err := m.resolveSystemChromiumEntrypoint(context.Background()); err == nil {
+			inspection.MetadataComplete = true
+			inspection.PreparedStorePresent = true
+			inspection.SystemBrowserPath = path
+			return inspection, nil
+		}
+	}
+	if inspection.MetadataComplete && verifyFileSHA256(inspection.ArchivePath, resource.SHA256) == nil {
+		inspection.CachedArchivePresent = true
+	}
+	if _, err := m.resolvePreparedManifestResource(manifest, resource); err == nil {
+		inspection.PreparedStorePresent = true
+		return inspection, nil
+	}
+	if kind == "chromium" {
+		if path, err := m.resolveSystemChromiumEntrypoint(context.Background()); err == nil {
+			inspection.PreparedStorePresent = true
+			inspection.SystemBrowserPath = path
+		}
+	}
+	return inspection, nil
+}
+
+func (m *Manager) ResolvePreparedEntrypoint(kind, name string) (string, error) {
+	prepared, err := m.resolvePreparedResource(kind)
+	if err != nil {
+		if kind == "chromium" && name == "browser" {
+			return m.resolveSystemChromiumEntrypoint(context.Background())
+		}
+		return "", err
+	}
+	path, ok := prepared.Entrypoints[name]
+	if !ok {
+		return "", fmt.Errorf("entrypoint %s is not declared for %s", name, kind)
+	}
+	return path, nil
+}
+
+func (m *Manager) ResolveEntrypoint(ctx context.Context, kind, name string) (string, error) {
+	prepared, err := m.Prepare(ctx, kind)
+	if err != nil {
+		return "", err
+	}
+	path, ok := prepared.Entrypoints[name]
+	if !ok {
+		return "", fmt.Errorf("entrypoint %s is not declared for %s", name, kind)
+	}
+	return path, nil
+}
+
+func (m *Manager) resolveSystemChromiumEntrypoint(ctx context.Context) (string, error) {
+	if m.findSystemChromium == nil {
+		return "", errSystemChromiumUnavailable
+	}
+	path, err := m.findSystemChromium(ctx)
+	if err != nil {
+		return "", err
+	}
+	path = strings.TrimSpace(path)
+	if path == "" {
+		return "", errSystemChromiumUnavailable
+	}
+	return path, nil
+}
+
+func systemChromiumPreparedResource(path string) *PreparedResource {
+	path = strings.TrimSpace(path)
+	if path == "" {
+		return nil
+	}
+	resource := Resource{
+		ID:       "system-chromium",
+		Kind:     "chromium",
+		Version:  "system",
+		Platform: CurrentPlatform(),
+	}
+	return &PreparedResource{
+		Resource: resource,
+		Root:     filepath.Dir(path),
+		Entrypoints: map[string]string{
+			"browser": path,
+		},
+	}
+}
+
+func (m *Manager) resolvePreparedResource(kind string) (*PreparedResource, error) {
+	manifest, resource, err := m.currentResource(kind)
+	if err != nil {
+		if kind == "chromium" {
+			if path, pathErr := m.resolveSystemChromiumEntrypoint(context.Background()); pathErr == nil {
+				return systemChromiumPreparedResource(path), nil
+			}
+		}
+		return nil, err
+	}
+	prepared, err := m.resolvePreparedManifestResource(manifest, resource)
+	if err == nil {
+		return prepared, nil
+	}
+	if kind == "chromium" {
+		if path, pathErr := m.resolveSystemChromiumEntrypoint(context.Background()); pathErr == nil {
+			return systemChromiumPreparedResource(path), nil
+		}
+	}
+	return nil, err
+}
+
+func (m *Manager) resolvePreparedManifestResource(_ *Manifest, resource *Resource) (*PreparedResource, error) {
+	storeRoot := StoreRoot(m.repoRoot, resource)
+	entrypoints, err := resolvePreparedEntrypoints(storeRoot, resource)
+	if err != nil {
+		return nil, err
+	}
+	return &PreparedResource{
+		Resource:    *resource,
+		Root:        storeRoot,
+		Entrypoints: entrypoints,
+	}, nil
+}
+
+func (m *Manager) currentResource(kind string) (*Manifest, *Resource, error) {
+	manifest, err := LoadManifest(m.repoRoot)
+	if err != nil {
+		return nil, nil, err
+	}
+	resource := manifest.FindResource(CurrentPlatform(), kind)
+	if resource == nil {
+		return manifest, nil, fmt.Errorf("deps manifest does not include %s for %s", kind, CurrentPlatform())
+	}
+	return manifest, resource, nil
+}
+
+func resolvePreparedEntrypoints(storeRoot string, resource *Resource) (map[string]string, error) {
+	if resource == nil {
+		return nil, errors.New("deps resource is required")
+	}
+	entrypoints := make(map[string]string, len(resource.Entrypoints))
+	for _, key := range requiredEntrypoints(resource) {
+		candidates := resource.Entrypoints[key]
+		var resolved string
+		for _, candidate := range candidates {
+			clean := filepath.Clean(filepath.Join(storeRoot, filepath.FromSlash(candidate)))
+			if !pathWithinRoot(storeRoot, clean) {
+				continue
+			}
+			info, err := os.Stat(clean)
+			if err != nil || info.IsDir() {
+				continue
+			}
+			resolved = clean
+			break
+		}
+		if resolved == "" {
+			return nil, fmt.Errorf("prepared deps resource %s is missing entrypoint %s", resource.Kind, key)
+		}
+		entrypoints[key] = resolved
+	}
+	return entrypoints, nil
+}
+
+func primaryEntrypoint(prepared *PreparedResource) string {
+	if prepared == nil {
+		return ""
+	}
+	for _, key := range requiredEntrypoints(&prepared.Resource) {
+		if entry := strings.TrimSpace(prepared.Entrypoints[key]); entry != "" {
+			return entry
+		}
+	}
+	return ""
 }

@@ -6,34 +6,34 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"path/filepath"
 	"strings"
 	"sync/atomic"
 	"time"
 
 	renderrepo "github.com/RayleaBot/RayleaBot/server/internal/render/repository"
-	rendertemplates "github.com/RayleaBot/RayleaBot/server/internal/render/templates"
 )
 
-func (s *Service) UpdateTemplateSource(ctx context.Context, templateID, baseRevisionID, message string, source renderrepo.TemplateSource) (renderrepo.TemplateDetail, error) {
+func (s *Service) UpdateTemplateSource(ctx context.Context, templateID, baseRevisionID, message string, source TemplateSource) (TemplateDetail, error) {
 	templateID = strings.TrimSpace(templateID)
 	baseRevisionID = strings.TrimSpace(baseRevisionID)
 	message = strings.TrimSpace(message)
 
-	bundle, compiled, validation, err := s.validateTemplateForWrite(ctx, templateID, source)
+	bundle, compiled, validation, err := s.validateTemplateForWrite(ctx, templateID, templateSourceToRepo(source))
 	if err != nil {
-		return renderrepo.TemplateDetail{}, err
+		return TemplateDetail{}, err
 	}
 
 	savedAt := time.Now().UTC().Format(time.RFC3339Nano)
 	revision := newStoredRevision(templateID, newRevisionID(templateID, bundle.Digest), compiled, "save", &message, savedAt)
 	if err := s.templateRepo.SaveCurrentRevision(ctx, templateID, baseRevisionID, revision, validation); err != nil {
-		return renderrepo.TemplateDetail{}, s.mapTemplateWriteError(err)
+		return TemplateDetail{}, s.mapTemplateWriteError(err)
 	}
 
 	return s.GetTemplate(ctx, templateID)
 }
 
-func (s *Service) RollbackTemplate(ctx context.Context, templateID, targetRevisionID, baseRevisionID, message string) (renderrepo.TemplateDetail, error) {
+func (s *Service) RollbackTemplate(ctx context.Context, templateID, targetRevisionID, baseRevisionID, message string) (TemplateDetail, error) {
 	templateID = strings.TrimSpace(templateID)
 	targetRevisionID = strings.TrimSpace(targetRevisionID)
 	baseRevisionID = strings.TrimSpace(baseRevisionID)
@@ -42,21 +42,21 @@ func (s *Service) RollbackTemplate(ctx context.Context, templateID, targetRevisi
 	state, _, err := s.templateRepo.LoadCurrentTemplate(ctx, templateID)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return renderrepo.TemplateDetail{}, &rendertemplates.Error{
+			return TemplateDetail{}, &Error{
 				Code:    "platform.template_not_found",
 				Message: "render template was not found",
 			}
 		}
-		return renderrepo.TemplateDetail{}, fmt.Errorf("get render template state %s: %w", templateID, err)
+		return TemplateDetail{}, fmt.Errorf("get render template state %s: %w", templateID, err)
 	}
 	if state.CurrentRevisionID != baseRevisionID {
-		return renderrepo.TemplateDetail{}, &rendertemplates.Error{
+		return TemplateDetail{}, &Error{
 			Code:    "platform.template_revision_conflict",
 			Message: "render template revision is stale",
 		}
 	}
 	if targetRevisionID == state.CurrentRevisionID {
-		return renderrepo.TemplateDetail{}, &rendertemplates.Error{
+		return TemplateDetail{}, &Error{
 			Code:    "platform.template_rollback_target_invalid",
 			Message: "render template rollback target is invalid",
 		}
@@ -65,30 +65,30 @@ func (s *Service) RollbackTemplate(ctx context.Context, templateID, targetRevisi
 	targetSource, err := s.templateRepo.GetRevisionSource(ctx, templateID, targetRevisionID)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return renderrepo.TemplateDetail{}, &rendertemplates.Error{
+			return TemplateDetail{}, &Error{
 				Code:    "platform.template_revision_not_found",
 				Message: "render template revision was not found",
 			}
 		}
-		return renderrepo.TemplateDetail{}, fmt.Errorf("get render template rollback source %s/%s: %w", templateID, targetRevisionID, err)
+		return TemplateDetail{}, fmt.Errorf("get render template rollback source %s/%s: %w", templateID, targetRevisionID, err)
 	}
 
 	bundle, compiled, validation, err := s.validateTemplateForWrite(ctx, templateID, targetSource)
 	if err != nil {
-		var renderErr *rendertemplates.Error
+		var renderErr *Error
 		if errors.As(err, &renderErr) && renderErr.Code == "platform.template_source_invalid" {
-			return renderrepo.TemplateDetail{}, &rendertemplates.Error{
+			return TemplateDetail{}, &Error{
 				Code:    "platform.template_rollback_target_invalid",
 				Message: "render template rollback target is invalid",
 			}
 		}
-		return renderrepo.TemplateDetail{}, err
+		return TemplateDetail{}, err
 	}
 
 	savedAt := time.Now().UTC().Format(time.RFC3339Nano)
 	revision := newStoredRevision(templateID, newRevisionID(templateID, bundle.Digest), compiled, "rollback", &message, savedAt)
 	if err := s.templateRepo.SaveCurrentRevision(ctx, templateID, baseRevisionID, revision, validation); err != nil {
-		return renderrepo.TemplateDetail{}, s.mapTemplateWriteError(err)
+		return TemplateDetail{}, s.mapTemplateWriteError(err)
 	}
 
 	return s.GetTemplate(ctx, templateID)
@@ -103,7 +103,7 @@ func newRevisionID(templateID, digest string) string {
 	return fmt.Sprintf("rev_%s_%s_%s_%06d", templateID, time.Now().UTC().Format("20060102T150405000000000"), digest, sequence)
 }
 
-func newStoredRevision(templateID, revisionID string, compiled *rendertemplates.CompiledTemplate, kind string, message *string, savedAt string) renderrepo.StoredTemplateRevision {
+func newStoredRevision(templateID, revisionID string, compiled *CompiledTemplate, kind string, message *string, savedAt string) renderrepo.StoredTemplateRevision {
 	manifestJSON, _ := json.Marshal(compiled.Bundle.NormalizedManifest)
 	inputSchemaJSON := sql.NullString{}
 	if compiled.Bundle.Source.InputSchemaJSON != nil {
@@ -134,40 +134,40 @@ func newValidationStatus(valid bool, issueCount int) renderrepo.TemplateValidati
 	}
 }
 
-func issuesOrEmpty(issues []rendertemplates.TemplateValidationIssue) []rendertemplates.TemplateValidationIssue {
+func issuesOrEmpty(issues []TemplateValidationIssue) []TemplateValidationIssue {
 	if len(issues) == 0 {
-		return []rendertemplates.TemplateValidationIssue{}
+		return []TemplateValidationIssue{}
 	}
 	return issues
 }
 
-func (s *Service) validateTemplateForWrite(ctx context.Context, templateID string, source renderrepo.TemplateSource) (rendertemplates.SourceBundle, *rendertemplates.CompiledTemplate, renderrepo.TemplateValidationStatus, error) {
+func (s *Service) validateTemplateForWrite(ctx context.Context, templateID string, source renderrepo.TemplateSource) (SourceBundle, *CompiledTemplate, renderrepo.TemplateValidationStatus, error) {
 	if exists, err := s.templateRepo.TemplateExists(ctx, templateID); err != nil {
-		return rendertemplates.SourceBundle{}, nil, renderrepo.TemplateValidationStatus{}, fmt.Errorf("query render template %s: %w", templateID, err)
+		return SourceBundle{}, nil, renderrepo.TemplateValidationStatus{}, fmt.Errorf("query render template %s: %w", templateID, err)
 	} else if !exists {
-		return rendertemplates.SourceBundle{}, nil, renderrepo.TemplateValidationStatus{}, &rendertemplates.Error{
+		return SourceBundle{}, nil, renderrepo.TemplateValidationStatus{}, &Error{
 			Code:    "platform.template_not_found",
 			Message: "render template was not found",
 		}
 	}
 
-	bundle, err := rendertemplates.BuildSourceBundle(templateID, source)
+	bundle, err := BuildSourceBundle(templateID, source)
 	if err != nil {
 		_ = s.templateRepo.UpdateValidationStatus(ctx, templateID, newValidationStatus(false, 1))
-		return rendertemplates.SourceBundle{}, nil, renderrepo.TemplateValidationStatus{}, err
+		return SourceBundle{}, nil, renderrepo.TemplateValidationStatus{}, err
 	}
 
-	compiled, issues, err := rendertemplates.CompileBundle(bundle)
+	compiled, issues, err := CompileBundle(bundle)
 	if err != nil {
-		return rendertemplates.SourceBundle{}, nil, renderrepo.TemplateValidationStatus{}, fmt.Errorf("compile render template %s: %w", templateID, err)
+		return SourceBundle{}, nil, renderrepo.TemplateValidationStatus{}, fmt.Errorf("compile render template %s: %w", templateID, err)
 	}
 
 	validation := newValidationStatus(len(issues) == 0, len(issues))
 	if err := s.templateRepo.UpdateValidationStatus(ctx, templateID, validation); err != nil && !errors.Is(err, sql.ErrNoRows) {
-		return rendertemplates.SourceBundle{}, nil, renderrepo.TemplateValidationStatus{}, fmt.Errorf("update render template validation %s: %w", templateID, err)
+		return SourceBundle{}, nil, renderrepo.TemplateValidationStatus{}, fmt.Errorf("update render template validation %s: %w", templateID, err)
 	}
 	if len(issues) > 0 {
-		return rendertemplates.SourceBundle{}, nil, renderrepo.TemplateValidationStatus{}, &rendertemplates.Error{
+		return SourceBundle{}, nil, renderrepo.TemplateValidationStatus{}, &Error{
 			Code:    "platform.template_source_invalid",
 			Message: issues[0].Message,
 		}
@@ -177,15 +177,70 @@ func (s *Service) validateTemplateForWrite(ctx context.Context, templateID strin
 }
 
 func (s *Service) mapTemplateWriteError(err error) error {
-	var renderErr *rendertemplates.Error
+	var renderErr *Error
 	if errors.As(err, &renderErr) {
 		return renderErr
 	}
 	if errors.Is(err, sql.ErrNoRows) {
-		return &rendertemplates.Error{
+		return &Error{
 			Code:    "platform.template_not_found",
 			Message: "render template was not found",
 		}
 	}
 	return fmt.Errorf("write render template revision: %w", err)
+}
+
+func (s *Service) syncTemplatesFromFiles(ctx context.Context) error {
+	if s == nil {
+		return nil
+	}
+
+	s.templateSyncMu.Lock()
+	defer s.templateSyncMu.Unlock()
+
+	Seeds, err := DiscoverSeeds(s.repoRoot, s.templatesRoot, s.logger)
+	if err != nil {
+		return err
+	}
+
+	for _, templateID := range SortedIDs(Seeds) {
+		seed := Seeds[templateID]
+		templateDir := filepath.Join(s.templatesRoot, filepath.Clean(templateID))
+		if err := s.syncTemplateSeed(ctx, templateID, seed, renderrepo.TemplateSourceInfo{Type: "system"}, templateDir, s.templatesRoot); err != nil {
+			return fmt.Errorf("sync render template %s: %w", templateID, err)
+		}
+	}
+	return nil
+}
+
+func (s *Service) syncTemplateSeed(ctx context.Context, templateID string, seed Seed, sourceInfo renderrepo.TemplateSourceInfo, templateDir string, resourceRoot string) error {
+	savedAt := time.Now().UTC().Format(time.RFC3339Nano)
+	revision := newStoredRevision(
+		templateID,
+		newRevisionID(templateID, seed.Compiled.Bundle.Digest),
+		seed.Compiled,
+		"save",
+		nil,
+		savedAt,
+	)
+	changed, err := s.templateRepo.SyncTemplateRevision(ctx, revision, renderrepo.TemplateValidationStatus{
+		Valid:      true,
+		CheckedAt:  savedAt,
+		IssueCount: 0,
+	}, sourceInfo)
+	if err != nil {
+		return err
+	}
+
+	s.rememberTemplateRoot(templateID, templateDir, resourceRoot)
+	if changed && s.logger != nil {
+		s.logger.Info(
+			"渲染模板已同步："+templateID+"（版本 "+revision.RevisionID+"）",
+			"component", "render",
+			"template_id", templateID,
+			"revision_id", revision.RevisionID,
+			"source_digest", revision.SourceDigest,
+		)
+	}
+	return nil
 }

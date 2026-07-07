@@ -2,9 +2,6 @@ package integration
 
 import (
 	"context"
-	adapterintake "github.com/RayleaBot/RayleaBot/server/internal/bot/adapter/onebot11/intake"
-	adaptersegments "github.com/RayleaBot/RayleaBot/server/internal/bot/adapter/onebot11/segments"
-	"github.com/RayleaBot/RayleaBot/server/internal/logging"
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
@@ -12,6 +9,10 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	internalapp "github.com/RayleaBot/RayleaBot/server/internal/app"
+	"github.com/RayleaBot/RayleaBot/server/internal/logging"
+	"github.com/RayleaBot/RayleaBot/server/internal/onebot11"
 )
 
 func TestLogDetailReturnsOutboundStructuredDetail(t *testing.T) {
@@ -173,12 +174,13 @@ func TestLogDetailReturnsNotFound(t *testing.T) {
 func TestLogDetailFallsBackToLiveStreamWhenRepositoryMissesNewLog(t *testing.T) {
 	t.Parallel()
 
-	application, _, _ := newTestAppWithConfigMutation(t, func(input map[string]any) {
+	application, _, _ := newTestAppWithOptions(t, func(input map[string]any) {
 		input["log"].(map[string]any)["retention_days"] = 365
+	}, func(options *internalapp.Options, _ string) {
+		options.LogRepository = &stubMissingLogRepository{}
 	}, deterministicAuthOptions()...)
 	token := issueLoginToken(t, application)
 
-	application.SetLogRepository(&stubMissingLogRepository{})
 	application.Logs().Append(logging.Summary{
 		LogID:     "log_live_only_0001",
 		Timestamp: "2026-04-09T20:51:46Z",
@@ -252,12 +254,13 @@ func TestLogDetailFallsBackToLiveStreamWhenRepositoryMissesNewLog(t *testing.T) 
 func TestLogDetailFallbackSanitizesUnsafeOneBotText(t *testing.T) {
 	t.Parallel()
 
-	application, _, _ := newTestAppWithConfigMutation(t, func(input map[string]any) {
+	application, _, _ := newTestAppWithOptions(t, func(input map[string]any) {
 		input["log"].(map[string]any)["retention_days"] = 365
+	}, func(options *internalapp.Options, _ string) {
+		options.LogRepository = &stubMissingLogRepository{}
 	}, deterministicAuthOptions()...)
 	token := issueLoginToken(t, application)
 
-	application.SetLogRepository(&stubMissingLogRepository{})
 	application.Logs().Append(logging.Summary{
 		LogID:     "log_live_only_unsafe_0001",
 		Timestamp: "2026-04-09T20:51:46Z",
@@ -384,10 +387,10 @@ func putWhitelistState(t *testing.T, baseURL, token string, enabled bool) {
 	}
 }
 
-func commandRejectionEvent() adapterintake.NormalizedEvent {
+func commandRejectionEvent() onebot11.NormalizedEvent {
 	now := time.Now()
-	return adapterintake.NormalizedEvent{
-		Kind:             adapterintake.EventKindMessage,
+	return onebot11.NormalizedEvent{
+		Kind:             onebot11.EventKindMessage,
 		EventID:          "evt-command-rejected-echo",
 		BotID:            "10001",
 		SourceProtocol:   "onebot11",
@@ -399,7 +402,7 @@ func commandRejectionEvent() adapterintake.NormalizedEvent {
 		SenderID:         "30001",
 		MessageID:        "90001",
 		PlainText:        "/echo",
-		Segments: []adaptersegments.MessageSegment{{
+		Segments: []onebot11.MessageSegment{{
 			Type: "text",
 			Data: map[string]any{"text": "/echo"},
 		}},

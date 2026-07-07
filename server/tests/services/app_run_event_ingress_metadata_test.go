@@ -6,32 +6,32 @@ import (
 	"testing"
 	"time"
 
-	adapterintake "github.com/RayleaBot/RayleaBot/server/internal/bot/adapter/onebot11/intake"
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/bridge"
 	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/dispatch"
-	runtimeprotocol "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime/protocol"
+	"github.com/RayleaBot/RayleaBot/server/internal/onebot11"
+	pluginruntime "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime"
 )
 
 type metadataEnricherStub struct {
 	calls int
 }
 
-func (s *metadataEnricherStub) EnrichEventMetadata(_ context.Context, event adapterintake.NormalizedEvent) adapterintake.NormalizedEvent {
+func (s *metadataEnricherStub) EnrichEventMetadata(_ context.Context, event onebot11.NormalizedEvent) onebot11.NormalizedEvent {
 	s.calls++
 	event.TargetName = "测试群"
 	return event
 }
 
 type eventIngressDispatcherStub struct {
-	events []runtimeprotocol.Event
+	events []pluginruntime.Event
 }
 
 func (*eventIngressDispatcherStub) HasDeliverablePlugins() bool {
 	return true
 }
 
-func (s *eventIngressDispatcherStub) Dispatch(_ context.Context, event runtimeprotocol.Event, _ string) []dispatch.DeliveryResult {
+func (s *eventIngressDispatcherStub) Dispatch(_ context.Context, event pluginruntime.Event, _ string) []dispatch.DeliveryResult {
 	s.events = append(s.events, event)
 	return []dispatch.DeliveryResult{{
 		PluginID: "echo",
@@ -48,8 +48,8 @@ func TestEventIngressEnrichesMetadataBeforeBridgeDispatch(t *testing.T) {
 	enricher := &metadataEnricherStub{}
 	application.services.EventIngress.SetMetadataEnricher(enricher)
 
-	application.handleAdapterEvent(context.Background(), adapterintake.NormalizedEvent{
-		Kind:             adapterintake.EventKindMessage,
+	application.handleAdapterEvent(context.Background(), onebot11.NormalizedEvent{
+		Kind:             onebot11.EventKindMessage,
 		EventID:          "onebot11-message-1001",
 		BotID:            "10001",
 		SourceProtocol:   "onebot11",

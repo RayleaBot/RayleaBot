@@ -4,28 +4,27 @@ import (
 	"context"
 	"testing"
 
-	adapteroutbound "github.com/RayleaBot/RayleaBot/server/internal/bot/adapter/onebot11/outbound"
-	runtimeaction "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime/action"
-	runtimeprotocol "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime/protocol"
+	"github.com/RayleaBot/RayleaBot/server/internal/onebot11"
+	pluginruntime "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime"
 )
 
 type stubSender struct {
-	sendRequest  adapteroutbound.OutboundMessageSend
-	replyRequest adapteroutbound.OutboundMessageReply
+	sendRequest  onebot11.OutboundMessageSend
+	replyRequest onebot11.OutboundMessageReply
 	replyErr     error
 }
 
-func (s *stubSender) SendMessage(_ context.Context, request adapteroutbound.OutboundMessageSend) (adapteroutbound.SendMessageResult, error) {
+func (s *stubSender) SendMessage(_ context.Context, request onebot11.OutboundMessageSend) (onebot11.SendMessageResult, error) {
 	s.sendRequest = request
-	return adapteroutbound.SendMessageResult{MessageID: "send-1"}, nil
+	return onebot11.SendMessageResult{MessageID: "send-1"}, nil
 }
 
-func (s *stubSender) SendReply(_ context.Context, request adapteroutbound.OutboundMessageReply) (adapteroutbound.SendMessageResult, error) {
+func (s *stubSender) SendReply(_ context.Context, request onebot11.OutboundMessageReply) (onebot11.SendMessageResult, error) {
 	s.replyRequest = request
 	if s.replyErr != nil {
-		return adapteroutbound.SendMessageResult{}, s.replyErr
+		return onebot11.SendMessageResult{}, s.replyErr
 	}
-	return adapteroutbound.SendMessageResult{MessageID: "reply-1"}, nil
+	return onebot11.SendMessageResult{MessageID: "reply-1"}, nil
 }
 
 type stubReplyTargets map[string]ReplyTarget
@@ -39,11 +38,11 @@ func TestSendActionRoutesMessageSend(t *testing.T) {
 	t.Parallel()
 
 	sender := &stubSender{}
-	result, err := SendAction(context.Background(), sender, nil, runtimeprotocol.Event{}, runtimeaction.Action{
+	result, err := SendAction(context.Background(), sender, nil, pluginruntime.Event{}, pluginruntime.Action{
 		Kind:       "message.send",
 		TargetType: "group",
 		TargetID:   "10001",
-		MessageSegments: []runtimeaction.ActionSegment{
+		MessageSegments: []pluginruntime.ActionSegment{
 			{Type: "text", Data: map[string]any{"text": "hello"}},
 		},
 	})
@@ -65,7 +64,7 @@ func TestSendActionFallsBackToSendWhenReplyTargetIsMissingAtAdapterLevel(t *test
 	t.Parallel()
 
 	sender := &stubSender{
-		replyErr: &adapteroutbound.Error{Code: codeAdapterReplyTargetMissing, Message: "missing"},
+		replyErr: &onebot11.Error{Code: codeAdapterReplyTargetMissing, Message: "missing"},
 	}
 	resolver := stubReplyTargets{
 		"evt_1": {
@@ -74,11 +73,11 @@ func TestSendActionFallsBackToSendWhenReplyTargetIsMissingAtAdapterLevel(t *test
 			TargetID:   "10001",
 		},
 	}
-	result, err := SendAction(context.Background(), sender, resolver, runtimeprotocol.Event{}, runtimeaction.Action{
+	result, err := SendAction(context.Background(), sender, resolver, pluginruntime.Event{}, pluginruntime.Action{
 		Kind:                    "message.reply",
 		ReplyToEventID:          "evt_1",
 		FallbackToSendIfMissing: true,
-		MessageSegments: []runtimeaction.ActionSegment{
+		MessageSegments: []pluginruntime.ActionSegment{
 			{Type: "reply", Data: map[string]any{"id": "msg_1"}},
 			{Type: "text", Data: map[string]any{"text": "fallback"}},
 		},

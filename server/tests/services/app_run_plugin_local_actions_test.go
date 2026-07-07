@@ -6,8 +6,7 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
-	runtimeaction "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime/action"
-	runtimeprotocol "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime/protocol"
+	pluginruntime "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime"
 	"github.com/RayleaBot/RayleaBot/server/internal/secrets"
 	"github.com/RayleaBot/RayleaBot/server/internal/storage"
 	"log/slog"
@@ -38,7 +37,7 @@ func TestExecuteLocalActionRejectsMissingCapability(t *testing.T) {
 		nil,
 	)
 
-	_, err := application.executeLocalAction(context.Background(), "notice-logger", "req_local_1", runtimeaction.Action{
+	_, err := application.executeLocalAction(context.Background(), "notice-logger", "req_local_1", pluginruntime.Action{
 		Kind:             "storage.kv",
 		StorageOperation: "get",
 		StorageKey:       "notice:last_join",
@@ -95,7 +94,7 @@ func TestExecutePluginListUsesDeclaredCapability(t *testing.T) {
 		nil,
 	)
 
-	result, err := application.executeLocalAction(context.Background(), "raylea.echo", "req_local_plugin_list_1", runtimeaction.Action{
+	result, err := application.executeLocalAction(context.Background(), "raylea.echo", "req_local_plugin_list_1", pluginruntime.Action{
 		Kind: "plugin.list",
 	})
 	if err != nil {
@@ -124,7 +123,7 @@ func TestExecutePluginListCallerVisibilityFiltersCommands(t *testing.T) {
 	tests := []struct {
 		name      string
 		config    config.Config
-		event     runtimeprotocol.Event
+		event     pluginruntime.Event
 		wantNames []string
 	}{
 		{
@@ -179,7 +178,7 @@ func TestExecutePluginListCallerVisibilityFiltersCommands(t *testing.T) {
 			t.Parallel()
 
 			application := newPluginListVisibilityTestApp(tc.config)
-			result, err := application.executeLocalActionForEvent(context.Background(), "raylea.echo", "req_local_plugin_list_visibility", runtimeaction.Action{
+			result, err := application.executeLocalActionForEvent(context.Background(), "raylea.echo", "req_local_plugin_list_visibility", pluginruntime.Action{
 				Kind:                 "plugin.list",
 				PluginListVisibility: "caller",
 			}, tc.event)
@@ -201,7 +200,7 @@ func TestExecutePluginListCallerVisibilityFiltersHelp(t *testing.T) {
 	tests := []struct {
 		name           string
 		config         config.Config
-		event          runtimeprotocol.Event
+		event          pluginruntime.Event
 		wantHelpTitles []string
 	}{
 		{
@@ -248,7 +247,7 @@ func TestExecutePluginListCallerVisibilityFiltersHelp(t *testing.T) {
 			t.Parallel()
 
 			application := newPluginListVisibilityTestApp(tc.config)
-			result, err := application.executeLocalActionForEvent(context.Background(), "raylea.echo", "req_local_plugin_list_help_visibility", runtimeaction.Action{
+			result, err := application.executeLocalActionForEvent(context.Background(), "raylea.echo", "req_local_plugin_list_help_visibility", pluginruntime.Action{
 				Kind:                 "plugin.list",
 				PluginListVisibility: "caller",
 			}, tc.event)
@@ -323,18 +322,18 @@ func newPluginListVisibilityTestApp(cfg config.Config) *serviceHarness {
 	return application
 }
 
-func pluginListCallerEvent(actorID, actorRole, targetType string) runtimeprotocol.Event {
-	event := runtimeprotocol.Event{
+func pluginListCallerEvent(actorID, actorRole, targetType string) pluginruntime.Event {
+	event := pluginruntime.Event{
 		EventID:        "event-help-visibility",
 		SourceProtocol: "onebot11",
 		SourceAdapter:  "test",
 		EventType:      "message." + targetType,
 		Timestamp:      time.Now().Unix(),
-		Actor: &runtimeprotocol.EventActor{
+		Actor: &pluginruntime.EventActor{
 			ID:   actorID,
 			Role: actorRole,
 		},
-		Target: &runtimeprotocol.EventTarget{
+		Target: &pluginruntime.EventTarget{
 			Type: targetType,
 			ID:   actorID,
 		},
@@ -459,7 +458,7 @@ func TestExecuteSecretReadReturnsPluginScopedValue(t *testing.T) {
 		nil,
 	)
 
-	result, err := application.executeLocalAction(context.Background(), "subscription-hub", "req_local_secret_1", runtimeaction.Action{
+	result, err := application.executeLocalAction(context.Background(), "subscription-hub", "req_local_secret_1", pluginruntime.Action{
 		Kind:      "secret.read",
 		SecretKey: "bili_token_primary",
 	})
@@ -470,7 +469,7 @@ func TestExecuteSecretReadReturnsPluginScopedValue(t *testing.T) {
 		t.Fatalf("unexpected secret.read result: %#v", result)
 	}
 
-	missing, err := application.executeLocalAction(context.Background(), "subscription-hub", "req_local_secret_2", runtimeaction.Action{
+	missing, err := application.executeLocalAction(context.Background(), "subscription-hub", "req_local_secret_2", pluginruntime.Action{
 		Kind:      "secret.read",
 		SecretKey: "missing",
 	})
@@ -504,7 +503,7 @@ func TestExecuteSecretReadRejectsInvalidKey(t *testing.T) {
 		nil,
 	)
 
-	_, err := application.executeLocalAction(context.Background(), "subscription-hub", "req_local_secret_invalid", runtimeaction.Action{
+	_, err := application.executeLocalAction(context.Background(), "subscription-hub", "req_local_secret_invalid", pluginruntime.Action{
 		Kind:      "secret.read",
 		SecretKey: "Bad Key",
 	})

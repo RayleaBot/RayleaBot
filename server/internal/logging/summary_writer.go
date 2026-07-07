@@ -7,9 +7,25 @@ import (
 	"io"
 	"strings"
 	"sync"
+	"time"
 
-	logdetails "github.com/RayleaBot/RayleaBot/server/internal/logging/details"
+	"github.com/RayleaBot/RayleaBot/server/internal/redact"
 )
+
+const ProtocolOneBot11 = "onebot11"
+
+type OneBotInboundMessageSummaryInput struct {
+	SourceProtocol   string
+	BotID            string
+	EventType        string
+	ConversationType string
+	ConversationID   string
+	SenderID         string
+	TargetName       string
+	ActorNickname    string
+	PlainText        string
+	PayloadFields    map[string]any
+}
 
 type SummaryWriter struct {
 	out    io.Writer
@@ -133,7 +149,7 @@ func summaryFromJSONLine(line []byte) (Summary, bool) {
 		Message:   toString(body["msg"]),
 		PluginID:  toString(body["plugin_id"]),
 		RequestID: toString(body["request_id"]),
-		Details:   logdetails.ExtractSummary(body),
+		Details:   ExtractSummary(body),
 	}
 	summary = NormalizeSummary(summary)
 
@@ -156,4 +172,176 @@ func toString(value any) string {
 		}
 		return strings.TrimSpace(fmt.Sprint(value))
 	}
+}
+
+func NormalizeSummary(summary Summary) Summary {
+	summary.BootID = strings.TrimSpace(summary.BootID)
+	summary.LogID = strings.TrimSpace(summary.LogID)
+	summary.Timestamp = normalizeSummaryTimestamp(summary.Timestamp)
+	summary.Level = strings.ToLower(strings.TrimSpace(summary.Level))
+	summary.Source = strings.TrimSpace(summary.Source)
+	summary.Message = strings.TrimSpace(summary.Message)
+	summary.PluginID = strings.TrimSpace(summary.PluginID)
+	summary.RequestID = strings.TrimSpace(summary.RequestID)
+	summary.Protocol = strings.TrimSpace(summary.Protocol)
+
+	if summary.LogID == "" {
+		summary.LogID = generateLogID()
+	}
+
+	if summary.Source == "" {
+		summary.Source = "server"
+	}
+	if summary.Protocol == "" {
+		summary.Protocol = protocolFromSource(summary.Source)
+	}
+	if summary.Protocol == ProtocolOneBot11 {
+		summary.Message = strings.TrimSpace(redact.SanitizeString(summary.Message))
+	}
+	summary.Details = NormalizeProtocol(summary.Protocol, summary.Details)
+
+	return summary
+}
+
+func normalizeSummaryTimestamp(raw string) string {
+	trimmed := strings.TrimSpace(raw)
+	if trimmed == "" {
+		return ""
+	}
+
+	parsed, err := time.Parse(time.RFC3339Nano, trimmed)
+	if err != nil {
+		return trimmed
+	}
+
+	return parsed.UTC().Format(time.RFC3339Nano)
+}
+
+func IsSupportedProtocol(protocol string) bool {
+	switch strings.TrimSpace(protocol) {
+	case ProtocolOneBot11:
+		return true
+	default:
+		return false
+	}
+}
+
+func protocolFromSource(source string) string {
+	switch strings.TrimSpace(source) {
+	case "adapter", "adapter.onebot11", "bridge":
+		return ProtocolOneBot11
+	default:
+		return ""
+	}
+}
+
+func SourcesForProtocol(protocol string) []string {
+	switch strings.TrimSpace(protocol) {
+	case ProtocolOneBot11:
+		return []string{"adapter", "adapter.onebot11", "bridge"}
+	default:
+		return nil
+	}
+}
+
+func OneBotInboundMessageSummary(input OneBotInboundMessageSummaryInput) (string, bool) {
+	if strings.TrimSpace(input.SourceProtocol) != ProtocolOneBot11 {
+		return "", false
+	}
+
+	messageText := summarizeOneBotInboundMessageText(input.PlainText)
+	if messageText == "" {
+		return "", false
+	}
+
+	botID := strings.TrimSpace(input.BotID)
+	if botID == "" {
+		return "", false
+	}
+
+	senderID := strings.TrimSpace(input.SenderID)
+	if senderID == "" {
+		return "", false
+	}
+
+	senderDisplay := oneBotSenderDisplay(input)
+	if senderDisplay == "" {
+		senderDisplay = senderID
+	}
+
+	switch strings.TrimSpace(input.EventType) {
+	case "message.group":
+		return fmt.Sprintf("%s: %s%s%s(%s): %s",
+			botID,
+			oneBotGroupDisplay(input),
+			oneBotSenderTitle(input.PayloadFields),
+			senderDisplay,
+			senderID,
+			messageText,
+		), true
+	case "message.private":
+		return fmt.Sprintf("%s: %s(%s): %s", botID, senderDisplay, senderID, messageText), true
+	default:
+		return "", false
+	}
+}
+
+func summarizeOneBotInboundMessageText(text string) string {
+	text = strings.TrimSpace(redact.SanitizeString(text))
+	if text == "" {
+		return ""
+	}
+	return redact.TruncateRunes(text, 160, "...")
+}
+
+func oneBotGroupDisplay(input OneBotInboundMessageSummaryInput) string {
+	groupID := strings.TrimSpace(input.ConversationID)
+	groupName := strings.TrimSpace(redact.SanitizeString(input.TargetName))
+	if groupName == "" {
+		return fmt.Sprintf("[%s]", groupID)
+	}
+	return fmt.Sprintf("[%s(%s)]", groupName, groupID)
+}
+
+func oneBotSenderTitle(payloadFields map[string]any) string {
+	onebot := oneBotPayload(payloadFields)
+	if sender, ok := onebot["sender"].(map[string]any); ok {
+		if title := strings.TrimSpace(redact.SanitizeString(fmt.Sprint(sender["title"]))); title != "" && title != "<nil>" {
+			return fmt.Sprintf("[%s]", title)
+		}
+	}
+	return ""
+}
+
+func oneBotSenderDisplay(input OneBotInboundMessageSummaryInput) string {
+	onebot := oneBotPayload(input.PayloadFields)
+	if sender, ok := onebot["sender"].(map[string]any); ok {
+		card := strings.TrimSpace(redact.SanitizeString(fmt.Sprint(sender["card"])))
+		if card == "<nil>" {
+			card = ""
+		}
+		nickname := strings.TrimSpace(redact.SanitizeString(fmt.Sprint(sender["nickname"])))
+		if nickname == "<nil>" {
+			nickname = ""
+		}
+
+		switch {
+		case card != "" && nickname != "" && card != nickname:
+			return card + "/" + nickname
+		case card != "":
+			return card
+		case nickname != "":
+			return nickname
+		}
+	}
+
+	return strings.TrimSpace(redact.SanitizeString(input.ActorNickname))
+}
+
+func oneBotPayload(payloadFields map[string]any) map[string]any {
+	if payloadFields == nil {
+		return nil
+	}
+	onebot, _ := payloadFields["onebot"].(map[string]any)
+	return onebot
 }

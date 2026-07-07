@@ -6,18 +6,14 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/RayleaBot/RayleaBot/server/internal/app/eventstack"
-	"github.com/RayleaBot/RayleaBot/server/internal/app/httpwire"
-	appplatform "github.com/RayleaBot/RayleaBot/server/internal/app/platform"
-	"github.com/RayleaBot/RayleaBot/server/internal/app/pluginstack"
-	"github.com/RayleaBot/RayleaBot/server/internal/app/renderstack"
-	"github.com/RayleaBot/RayleaBot/server/internal/app/servicegraph"
 	"github.com/RayleaBot/RayleaBot/server/internal/auth"
 	"github.com/RayleaBot/RayleaBot/server/internal/configruntime"
-	"github.com/RayleaBot/RayleaBot/server/internal/metrics"
-	plugindiscovery "github.com/RayleaBot/RayleaBot/server/internal/plugins/discovery"
-	runtimeregistry "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime/registry"
-	renderbrowser "github.com/RayleaBot/RayleaBot/server/internal/render/browser"
+	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/bridge"
+	"github.com/RayleaBot/RayleaBot/server/internal/logging"
+	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
+	pluginruntime "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime"
+	renderservice "github.com/RayleaBot/RayleaBot/server/internal/render/service"
+	"github.com/RayleaBot/RayleaBot/server/internal/scheduler"
 )
 
 type Options struct {
@@ -26,26 +22,32 @@ type Options struct {
 	AuthOptions           []auth.Option
 	PluginRepoRoot        string
 	PluginSchemaPath      string
-	PluginRoots           []plugindiscovery.ScanRoot
-	RenderRunner          renderbrowser.Runner
+	PluginRoots           []plugincatalog.ScanRoot
+	RenderRunner          renderservice.Runner
 	BilibiliHTTPTransport http.RoundTripper
 	BilibiliClock         func() time.Time
+	// LogRepository overrides the SQLite-backed management log repository.
+	// Test-only seam; nil means the default repository is built.
+	LogRepository logging.Repository
+	// BridgeDispatch overrides the dispatcher the event bridge talks to.
+	// Test-only seam; nil means the real dispatcher is used.
+	BridgeDispatch bridge.Dispatch
 }
 
 type App struct {
 	state       *appRuntimeState
 	process     appProcessState
-	platform    appPlatform
-	pluginStack appPlugins
-	renderStack appRender
-	eventStack  appEvents
-	services    appServices
+	platform    PlatformState
+	pluginStack PluginStackState
+	renderStack appRenderState
+	eventStack  EventState
+	services    Services
 
-	runtimes *runtimeregistry.Registry
+	runtimes *pluginruntime.Registry
 
-	httpHandlers appHTTPHandlers
+	httpHandlers httpHandlers
 
-	metrics                 *metrics.Registry
+	metrics                 *MetricsRegistry
 	metricsRuntimeGaugeStop func()
 }
 
@@ -66,25 +68,34 @@ func NewWithContext(ctx context.Context, options Options) (*App, error) {
 		return nil, err
 	}
 
-	schedulerTriggers := appplatform.NewTriggerProxy()
-	platformState, err := appplatform.Build(appplatform.Deps{
+	var schedulerLifecycle interface {
+		HandleSchedulerTrigger(context.Context, scheduler.Job)
+	}
+	schedulerTrigger := func(ctx context.Context, job scheduler.Job) {
+		if schedulerLifecycle == nil {
+			return
+		}
+		schedulerLifecycle.HandleSchedulerTrigger(ctx, job)
+	}
+	platformState, err := buildPlatform(platformDeps{
 		Context:          ctx,
 		ConfigPath:       buildState.options.ConfigPath,
-		Config:           buildState.core.Config,
+		Config:           buildState.core.CurrentConfig(),
 		Logger:           buildState.core.Logger,
 		AuthOptions:      buildState.options.AuthOptions,
 		Tasks:            buildState.taskRegistry,
 		TaskExecutor:     buildState.taskExecutor,
 		Logs:             buildState.logStream,
-		SchedulerTrigger: schedulerTriggers.Handle,
+		LogRepository:    options.LogRepository,
+		SchedulerTrigger: schedulerTrigger,
 	})
 	if err != nil {
 		return nil, err
 	}
 	var (
-		pluginState           pluginstack.State
-		renderState           renderstack.State
-		eventState            eventstack.State
+		pluginState           PluginStackState
+		renderState           appRenderState
+		eventState            EventState
 		stopRuntimeStateGauge func()
 	)
 	cleanupPartialBuild := func() {
@@ -97,17 +108,17 @@ func NewWithContext(ctx context.Context, options Options) (*App, error) {
 		}
 		_ = partial.Close()
 	}
-	resolvedConfig, err := configruntime.ResolveConfigSecretRefs(ctx, platformState.Secrets, buildState.core.Config)
+	resolvedConfig, err := configruntime.ResolveConfigSecretRefs(ctx, platformState.Secrets, buildState.core.CurrentConfig())
 	if err != nil {
 		cleanupPartialBuild()
 		return nil, fmt.Errorf("resolve config secrets: %w", err)
 	}
-	buildState.core.Config = resolvedConfig
-	buildState.core.addRedactionValues(configruntime.ConfigSecretValues(resolvedConfig)...)
+	buildState.core.SetConfig(resolvedConfig)
+	buildState.core.AddRedactionValues(configruntime.ConfigSecretValues(resolvedConfig)...)
 
-	pluginState, err = pluginstack.Build(pluginstack.Deps{
+	pluginState, err = buildPluginStack(pluginStackDeps{
 		Context:   ctx,
-		Config:    buildState.core.Config,
+		Config:    resolvedConfig,
 		Logger:    buildState.core.Logger,
 		Discovery: buildState.discoverySpec,
 		Validator: buildState.pluginValidator,
@@ -120,9 +131,9 @@ func NewWithContext(ctx context.Context, options Options) (*App, error) {
 		return nil, err
 	}
 
-	renderState, err = renderstack.Build(renderstack.Deps{
+	renderState, err = buildRender(renderDeps{
 		Context:   ctx,
-		Config:    buildState.core.Config,
+		Config:    resolvedConfig,
 		Logger:    buildState.core.Logger,
 		Discovery: buildState.discoverySpec,
 		Store:     platformState.Storage,
@@ -134,14 +145,15 @@ func NewWithContext(ctx context.Context, options Options) (*App, error) {
 		return nil, err
 	}
 
-	eventState = eventstack.Build(eventstack.Deps{
-		Config: buildState.core.Config,
-		Logger: buildState.core.Logger,
+	eventState = buildEvents(eventDeps{
+		Config:         resolvedConfig,
+		Logger:         buildState.core.Logger,
+		BridgeDispatch: options.BridgeDispatch,
 	})
 
-	state := newAppRuntimeState(buildState)
+	state := buildState.core
 	metricRegistry, stopRuntimeStateGauge := wireMetrics(platformState, eventState, renderState.Renderer, pluginState)
-	serviceBuild, err := servicegraph.Build(servicegraph.BuildDeps{
+	serviceBuild, err := buildServices(serviceBuildDeps{
 		Runtime:               state,
 		Platform:              platformState,
 		Plugins:               pluginState,
@@ -158,6 +170,11 @@ func NewWithContext(ctx context.Context, options Options) (*App, error) {
 		cleanupPartialBuild()
 		return nil, err
 	}
+	if serviceBuild.Services.PluginLifecycle == nil {
+		cleanupPartialBuild()
+		return nil, fmt.Errorf("plugin lifecycle service is required")
+	}
+	schedulerLifecycle = serviceBuild.Services.PluginLifecycle
 
 	application := &App{
 		state:                   state,
@@ -170,8 +187,8 @@ func NewWithContext(ctx context.Context, options Options) (*App, error) {
 		metrics:                 metricRegistry,
 		metricsRuntimeGaugeStop: stopRuntimeStateGauge,
 	}
-	configureAppRuntimeCallbacks(application, schedulerTriggers)
-	httpState := httpwire.Build(httpwire.BuildDeps{
+	configureAppRuntimeCallbacks(application)
+	httpState := buildHTTP(httpBuildDeps{
 		Runtime:         state,
 		Platform:        platformState,
 		Plugins:         pluginState,
@@ -185,4 +202,14 @@ func NewWithContext(ctx context.Context, options Options) (*App, error) {
 	application.process.server = httpState.Server
 	application.httpHandlers = httpState.Handlers
 	return application, nil
+}
+
+func wireMetrics(platform PlatformState, events EventState, renderer *renderservice.Service, plugins PluginStackState) (*MetricsRegistry, func()) {
+	registry := NewMetricsRegistry()
+	events.Bridge.SetMetricsObserver(NewBridgeObserver(registry))
+	events.Dispatcher.SetMetricsObserver(NewDispatchObserver(registry))
+	events.Adapter.SetMetricsObserver(NewAdapterObserver(registry))
+	platform.TaskExecutor.SetMetricsObserver(NewTaskObserver(registry))
+	renderer.SetMetricsObserver(NewRenderObserver(registry))
+	return registry, StartPluginStateGaugeRefresh(registry, plugins.Plugins)
 }

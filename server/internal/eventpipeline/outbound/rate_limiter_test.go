@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
-	adapteroutbound "github.com/RayleaBot/RayleaBot/server/internal/bot/adapter/onebot11/outbound"
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
+	"github.com/RayleaBot/RayleaBot/server/internal/onebot11"
 )
 
 func TestMessageRateLimiterDelaysPluginMessagesUntilWindowAllows(t *testing.T) {
@@ -67,7 +67,7 @@ func TestMessageRateLimiterReturnsPlatformRateLimitedAfterWaitLimit(t *testing.T
 	if err == nil {
 		t.Fatal("second Wait() error = nil, want platform.rate_limited")
 	}
-	var adapterErr *adapteroutbound.Error
+	var adapterErr *onebot11.Error
 	if !errors.As(err, &adapterErr) || adapterErr.Code != "platform.rate_limited" {
 		t.Fatalf("error = %#v, want platform.rate_limited", err)
 	}

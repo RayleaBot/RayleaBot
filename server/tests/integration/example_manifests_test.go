@@ -6,7 +6,7 @@ import (
 	"sort"
 	"testing"
 
-	"github.com/RayleaBot/RayleaBot/server/internal/schema"
+	"github.com/RayleaBot/RayleaBot/server/internal/config"
 )
 
 func TestExamplePluginManifestsMatchContract(t *testing.T) {
@@ -118,10 +118,10 @@ func TestExamplePluginManifestsDeclareExpectedRuntimeCapabilities(t *testing.T) 
 	}
 }
 
-func compileSchema(t *testing.T, path string) *schema.Validator {
+func compileSchema(t *testing.T, path string) *config.Validator {
 	t.Helper()
 
-	validator, err := schema.Compile(path)
+	validator, err := config.Compile(path)
 	if err != nil {
 		t.Fatalf("compile schema %s: %v", path, err)
 	}
@@ -132,7 +132,7 @@ func compileSchema(t *testing.T, path string) *schema.Validator {
 func loadJSONDocument(t *testing.T, path string) any {
 	t.Helper()
 
-	document, err := schema.LoadJSONFile(path)
+	document, err := config.LoadJSONFile(path)
 	if err != nil {
 		t.Fatalf("load json %s: %v", path, err)
 	}

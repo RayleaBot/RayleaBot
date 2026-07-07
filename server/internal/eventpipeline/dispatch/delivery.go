@@ -5,18 +5,14 @@ import (
 	"regexp"
 	"strings"
 
-	runtimemanager "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime/manager"
-	runtimeprotocol "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime/protocol"
+	pluginruntime "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime"
 )
 
 // Dispatch fans out an event to all matching registered plugins.
 // If commandName is non-empty, plugins declaring that command are
 // preferred (directed delivery). Otherwise all message-subscribed
 // plugins receive the event.
-func (d *Dispatcher) Dispatch(ctx context.Context, event runtimeprotocol.Event, commandName string) []DeliveryResult {
-	if d == nil {
-		return nil
-	}
+func (d *Dispatcher) Dispatch(ctx context.Context, event pluginruntime.Event, commandName string) []DeliveryResult {
 
 	d.mu.RLock()
 	targets := d.selectTargets(event, commandName)
@@ -31,14 +27,7 @@ func (d *Dispatcher) Dispatch(ctx context.Context, event runtimeprotocol.Event, 
 }
 
 // DispatchToPlugin delivers an event to one specific registered plugin.
-func (d *Dispatcher) DispatchToPlugin(ctx context.Context, pluginID string, event runtimeprotocol.Event) DeliveryResult {
-	if d == nil {
-		return DeliveryResult{
-			PluginID:  pluginID,
-			Outcome:   OutcomeError,
-			ErrorCode: "platform.invalid_request",
-		}
-	}
+func (d *Dispatcher) DispatchToPlugin(ctx context.Context, pluginID string, event pluginruntime.Event) DeliveryResult {
 
 	results := d.enqueueTargets(ctx, event, []string{pluginID})
 	if len(results) == 0 {
@@ -50,7 +39,7 @@ func (d *Dispatcher) DispatchToPlugin(ctx context.Context, pluginID string, even
 	}
 	return results[0]
 }
-func (d *Dispatcher) enqueueTargets(ctx context.Context, event runtimeprotocol.Event, targets []string) []DeliveryResult {
+func (d *Dispatcher) enqueueTargets(ctx context.Context, event pluginruntime.Event, targets []string) []DeliveryResult {
 	results := make([]DeliveryResult, 0, len(targets))
 	for _, pluginID := range targets {
 		d.mu.RLock()
@@ -87,7 +76,7 @@ func (d *Dispatcher) enqueueTargets(ctx context.Context, event runtimeprotocol.E
 
 // selectTargets picks which plugins should receive the event.
 // Must be called with d.mu held for reading.
-func (d *Dispatcher) selectTargets(event runtimeprotocol.Event, commandName string) []string {
+func (d *Dispatcher) selectTargets(event pluginruntime.Event, commandName string) []string {
 	// If there's a command, try directed delivery first.
 	if commandName != "" {
 		var directed []string
@@ -152,7 +141,7 @@ func slotIsDeliverable(slot *pluginSlot) bool {
 	if slot == nil || slot.runtime == nil {
 		return false
 	}
-	return slot.runtime.Snapshot().State == runtimemanager.StateRunning
+	return slot.runtime.Snapshot().State == pluginruntime.StateRunning
 }
 func slotAcceptsEvent(slot *pluginSlot, eventType string) bool {
 	// No subscriptions means accept all events.

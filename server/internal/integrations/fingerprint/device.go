@@ -2,6 +2,7 @@ package fingerprint
 
 import (
 	"crypto/rand"
+	"encoding/base64"
 	"encoding/hex"
 	"fmt"
 	"strings"
@@ -23,6 +24,23 @@ func GenUUID() string {
 	randomBytes[6] = (randomBytes[6] & 0x0f) | 0x40
 	randomBytes[8] = (randomBytes[8] & 0x3f) | 0x80
 	return fmt.Sprintf("%x-%x-%x-%x-%x", randomBytes[0:4], randomBytes[4:6], randomBytes[6:8], randomBytes[8:10], randomBytes[10:])
+}
+
+// DmImgParams holds the dm_img query parameters for Bilibili dynamic feed requests.
+type DmImgParams struct {
+	DmImgList     string
+	DmImgStr      string
+	DmCoverImgStr string
+	DmImgInter    string
+}
+
+func GetDmImg() DmImgParams {
+	return DmImgParams{
+		DmImgList:     "[]",
+		DmImgStr:      base64.StdEncoding.EncodeToString([]byte("V2ViR0wgMS4wIChPcGVuR0wgRVMgMi4wIENocm9taXVtKQ")),
+		DmCoverImgStr: base64.StdEncoding.EncodeToString([]byte("R29vZ2xlIEluYy4gKEludGVsKUFOR0xFIChJbnRlbCwgSW50ZWwoUikgVUhEIEdyYXBoaWNzIERpcmVjdDNEMTEgdnNfNV8wIHBzXzVfMCwgRDNEMTEp")),
+		DmImgInter:    `{"ds":[],"wh":[0,0,0],"of":[0,0,0]}`,
+	}
 }
 
 // GenDeviceID generates a random 26-byte uppercase hex device ID.

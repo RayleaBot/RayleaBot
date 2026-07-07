@@ -15,8 +15,7 @@ import (
 
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
-	runtimeaction "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime/action"
-	runtimeprotocol "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime/protocol"
+	pluginruntime "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime"
 	renderservice "github.com/RayleaBot/RayleaBot/server/internal/render/service"
 )
 
@@ -38,7 +37,7 @@ func TestExecuteRenderImageReturnsArtifact(t *testing.T) {
 		nil,
 	)
 
-	result, err := application.executeLocalAction(context.Background(), "help-menu", "req_render_1", runtimeaction.Action{
+	result, err := application.executeLocalAction(context.Background(), "help-menu", "req_render_1", pluginruntime.Action{
 		Kind:               "render.image",
 		RenderTemplate:     "help.menu",
 		RenderTheme:        "default",
@@ -97,7 +96,7 @@ func TestExecuteRenderImageInjectsPluginFooter(t *testing.T) {
 		nil,
 	)
 
-	_, err := application.executeLocalAction(context.Background(), "help-menu", "req_render_footer", runtimeaction.Action{
+	_, err := application.executeLocalAction(context.Background(), "help-menu", "req_render_footer", pluginruntime.Action{
 		Kind:           "render.image",
 		RenderTemplate: "help.menu",
 		RenderTheme:    "default",
@@ -155,7 +154,7 @@ func TestExecuteRenderImageResolvesOwnPluginTemplateShortID(t *testing.T) {
 		nil,
 	)
 
-	result, err := application.executeLocalAction(context.Background(), "weather-card", "req_render_plugin_short", runtimeaction.Action{
+	result, err := application.executeLocalAction(context.Background(), "weather-card", "req_render_plugin_short", pluginruntime.Action{
 		Kind:           "render.image",
 		RenderTemplate: "card",
 		RenderTheme:    "default",
@@ -222,7 +221,7 @@ func TestExecuteRenderImageRejectsOtherPluginTemplate(t *testing.T) {
 		nil,
 	)
 
-	_, err := application.executeLocalAction(context.Background(), "other-plugin", "req_render_other_plugin", runtimeaction.Action{
+	_, err := application.executeLocalAction(context.Background(), "other-plugin", "req_render_other_plugin", pluginruntime.Action{
 		Kind:           "render.image",
 		RenderTemplate: "plugin.weather-card.card",
 		RenderTheme:    "default",
@@ -272,7 +271,7 @@ func TestExecuteRenderImageRejectsUnknownOtherPluginTemplate(t *testing.T) {
 		nil,
 	)
 
-	_, err = application.executeLocalAction(context.Background(), "other-plugin", "req_render_unknown_other_plugin", runtimeaction.Action{
+	_, err = application.executeLocalAction(context.Background(), "other-plugin", "req_render_unknown_other_plugin", pluginruntime.Action{
 		Kind:           "render.image",
 		RenderTemplate: "plugin.weather-card.card",
 		RenderTheme:    "default",
@@ -311,7 +310,7 @@ func TestExecuteRenderImageInjectsGroupIdentityFromParentEvent(t *testing.T) {
 		nil,
 	)
 
-	_, err = application.executeLocalActionForEvent(context.Background(), "help-menu", "req_render_identity_group", runtimeaction.Action{
+	_, err = application.executeLocalActionForEvent(context.Background(), "help-menu", "req_render_identity_group", pluginruntime.Action{
 		Kind:           "render.image",
 		RenderTemplate: "help.menu",
 		RenderTheme:    "default",
@@ -329,18 +328,18 @@ func TestExecuteRenderImageInjectsGroupIdentityFromParentEvent(t *testing.T) {
 				"level": "member",
 			},
 		},
-	}, runtimeprotocol.Event{
+	}, pluginruntime.Event{
 		EventID:        "event-render-group",
 		SourceProtocol: "onebot11",
 		SourceAdapter:  "test",
 		EventType:      "message.group",
 		Timestamp:      time.Now().Unix(),
-		Actor: &runtimeprotocol.EventActor{
+		Actor: &pluginruntime.EventActor{
 			ID:       "30001",
 			Nickname: "角色昵称",
 			Role:     "owner",
 		},
-		Target: &runtimeprotocol.EventTarget{
+		Target: &pluginruntime.EventTarget{
 			Type: "group",
 			ID:   "2001",
 			Name: "长名称测试群组",
@@ -398,7 +397,7 @@ func TestExecuteRenderImageInjectsPrivateIdentityWithoutGroup(t *testing.T) {
 		nil,
 	)
 
-	_, err = application.executeLocalActionForEvent(context.Background(), "help-menu", "req_render_identity_private", runtimeaction.Action{
+	_, err = application.executeLocalActionForEvent(context.Background(), "help-menu", "req_render_identity_private", pluginruntime.Action{
 		Kind:           "render.image",
 		RenderTemplate: "help.menu",
 		RenderTheme:    "default",
@@ -409,17 +408,17 @@ func TestExecuteRenderImageInjectsPrivateIdentityWithoutGroup(t *testing.T) {
 				"name": "插件群",
 			},
 		},
-	}, runtimeprotocol.Event{
+	}, pluginruntime.Event{
 		EventID:        "event-render-private",
 		SourceProtocol: "onebot11",
 		SourceAdapter:  "test",
 		EventType:      "message.private",
 		Timestamp:      time.Now().Unix(),
-		Actor: &runtimeprotocol.EventActor{
+		Actor: &pluginruntime.EventActor{
 			ID:       "30002",
 			Nickname: "好友昵称",
 		},
-		Target: &runtimeprotocol.EventTarget{
+		Target: &pluginruntime.EventTarget{
 			Type: "private",
 			ID:   "30002",
 		},
@@ -478,7 +477,7 @@ func TestExecuteRenderImageKeepsPrivateSuperAdminBadge(t *testing.T) {
 		nil,
 	)
 
-	_, err = application.executeLocalActionForEvent(context.Background(), "help-menu", "req_render_identity_private_super", runtimeaction.Action{
+	_, err = application.executeLocalActionForEvent(context.Background(), "help-menu", "req_render_identity_private_super", pluginruntime.Action{
 		Kind:           "render.image",
 		RenderTemplate: "help.menu",
 		RenderTheme:    "default",
@@ -486,17 +485,17 @@ func TestExecuteRenderImageKeepsPrivateSuperAdminBadge(t *testing.T) {
 		RenderData: map[string]any{
 			"title": "帮助菜单",
 		},
-	}, runtimeprotocol.Event{
+	}, pluginruntime.Event{
 		EventID:        "event-render-private-super",
 		SourceProtocol: "onebot11",
 		SourceAdapter:  "test",
 		EventType:      "message.private",
 		Timestamp:      time.Now().Unix(),
-		Actor: &runtimeprotocol.EventActor{
+		Actor: &pluginruntime.EventActor{
 			ID:       "30002",
 			Nickname: "超级用户",
 		},
-		Target: &runtimeprotocol.EventTarget{
+		Target: &pluginruntime.EventTarget{
 			Type: "private",
 			ID:   "30002",
 		},
@@ -546,9 +545,9 @@ func TestExecuteRenderImageAppliesIdentityBadgeRulesToStatusPanel(t *testing.T) 
 		nil,
 	)
 
-	renderStatus := func(requestID string, event runtimeprotocol.Event) string {
+	renderStatus := func(requestID string, event pluginruntime.Event) string {
 		t.Helper()
-		_, err := application.executeLocalActionForEvent(context.Background(), "status-panel", requestID, runtimeaction.Action{
+		_, err := application.executeLocalActionForEvent(context.Background(), "status-panel", requestID, pluginruntime.Action{
 			Kind:           "render.image",
 			RenderTemplate: "status.panel",
 			RenderTheme:    "default",
@@ -565,17 +564,17 @@ func TestExecuteRenderImageAppliesIdentityBadgeRulesToStatusPanel(t *testing.T) 
 		return runner.lastHTML()
 	}
 
-	privateHTML := renderStatus("req_render_status_private", runtimeprotocol.Event{
+	privateHTML := renderStatus("req_render_status_private", pluginruntime.Event{
 		EventID:        "event-render-status-private",
 		SourceProtocol: "onebot11",
 		SourceAdapter:  "test",
 		EventType:      "message.private",
 		Timestamp:      time.Now().Unix(),
-		Actor: &runtimeprotocol.EventActor{
+		Actor: &pluginruntime.EventActor{
 			ID:       "30004",
 			Nickname: "普通好友",
 		},
-		Target: &runtimeprotocol.EventTarget{
+		Target: &pluginruntime.EventTarget{
 			Type: "private",
 			ID:   "30004",
 		},
@@ -589,17 +588,17 @@ func TestExecuteRenderImageAppliesIdentityBadgeRulesToStatusPanel(t *testing.T) 
 		t.Fatalf("status private rendered html should not contain member badge:\n%s", privateHTML)
 	}
 
-	superHTML := renderStatus("req_render_status_private_super", runtimeprotocol.Event{
+	superHTML := renderStatus("req_render_status_private_super", pluginruntime.Event{
 		EventID:        "event-render-status-private-super",
 		SourceProtocol: "onebot11",
 		SourceAdapter:  "test",
 		EventType:      "message.private",
 		Timestamp:      time.Now().Unix(),
-		Actor: &runtimeprotocol.EventActor{
+		Actor: &pluginruntime.EventActor{
 			ID:       "30005",
 			Nickname: "超级用户",
 		},
-		Target: &runtimeprotocol.EventTarget{
+		Target: &pluginruntime.EventTarget{
 			Type: "private",
 			ID:   "30005",
 		},
@@ -614,18 +613,18 @@ func TestExecuteRenderImageAppliesIdentityBadgeRulesToStatusPanel(t *testing.T) 
 	}
 
 	longGroupName := "长名称测试群组"
-	groupHTML := renderStatus("req_render_status_group", runtimeprotocol.Event{
+	groupHTML := renderStatus("req_render_status_group", pluginruntime.Event{
 		EventID:        "event-render-status-group",
 		SourceProtocol: "onebot11",
 		SourceAdapter:  "test",
 		EventType:      "message.group",
 		Timestamp:      time.Now().Unix(),
-		Actor: &runtimeprotocol.EventActor{
+		Actor: &pluginruntime.EventActor{
 			ID:       "30006",
 			Nickname: "群名片",
 			Role:     "admin",
 		},
-		Target: &runtimeprotocol.EventTarget{
+		Target: &pluginruntime.EventTarget{
 			Type: "group",
 			ID:   "2006",
 			Name: longGroupName,
@@ -671,7 +670,7 @@ func TestExecuteRenderImageLeavesNonIdentityTemplateDataUnchanged(t *testing.T) 
 		nil,
 	)
 
-	_, err := application.executeLocalActionForEvent(context.Background(), "plain-card", "req_render_plain", runtimeaction.Action{
+	_, err := application.executeLocalActionForEvent(context.Background(), "plain-card", "req_render_plain", pluginruntime.Action{
 		Kind:           "render.image",
 		RenderTemplate: "plain.card",
 		RenderTheme:    "default",
@@ -688,18 +687,18 @@ func TestExecuteRenderImageLeavesNonIdentityTemplateDataUnchanged(t *testing.T) 
 				"level": "admin",
 			},
 		},
-	}, runtimeprotocol.Event{
+	}, pluginruntime.Event{
 		EventID:        "event-render-plain",
 		SourceProtocol: "onebot11",
 		SourceAdapter:  "test",
 		EventType:      "message.group",
 		Timestamp:      time.Now().Unix(),
-		Actor: &runtimeprotocol.EventActor{
+		Actor: &pluginruntime.EventActor{
 			ID:       "30003",
 			Nickname: "外部昵称",
 			Role:     "owner",
 		},
-		Target: &runtimeprotocol.EventTarget{
+		Target: &pluginruntime.EventTarget{
 			Type: "group",
 			ID:   "2003",
 			Name: "外部群组",

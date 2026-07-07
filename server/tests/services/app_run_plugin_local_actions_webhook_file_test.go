@@ -5,8 +5,8 @@ import (
 	"context"
 	"encoding/base64"
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
-	pluginfile "github.com/RayleaBot/RayleaBot/server/internal/plugins/filestore"
-	runtimeaction "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime/action"
+	"github.com/RayleaBot/RayleaBot/server/internal/plugins/pluginstore"
+	pluginruntime "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime"
 	"log/slog"
 	"path/filepath"
 	"testing"
@@ -34,7 +34,7 @@ func TestExecuteExposeWebhookRegistersGateway(t *testing.T) {
 	application.setTestLocalActions(capabilityRepo, nil, nil, nil, nil, nil, nil, nil, nil, nil)
 	application.setTestWebhookService(nil, nil, nil, registry)
 
-	result, err := application.executeLocalAction(context.Background(), "repo-watcher", "req_webhook_1", runtimeaction.Action{
+	result, err := application.executeLocalAction(context.Background(), "repo-watcher", "req_webhook_1", pluginruntime.Action{
 		Kind:                   "event.expose_webhook",
 		WebhookRoute:           "github",
 		WebhookMethods:         []string{"POST"},
@@ -42,7 +42,7 @@ func TestExecuteExposeWebhookRegistersGateway(t *testing.T) {
 		WebhookHeader:          "X-Hub-Signature-256",
 		WebhookSecretRef:       "webhook.github.secret",
 		WebhookSignaturePrefix: "sha256=",
-		WebhookReplayProtection: &runtimeaction.WebhookReplayProtection{
+		WebhookReplayProtection: &pluginruntime.WebhookReplayProtection{
 			TimestampHeader:  "X-Raylea-Timestamp",
 			EventIDHeader:    "X-Raylea-Event-Id",
 			ToleranceSeconds: 300,
@@ -92,7 +92,7 @@ func TestExecuteStorageFileRoundTrip(t *testing.T) {
 			},
 		},
 		nil,
-		pluginfile.NewService(filepath.Join(t.TempDir(), "plugins")),
+		pluginstore.NewFileService(filepath.Join(t.TempDir(), "plugins")),
 		nil,
 		nil,
 		nil,
@@ -102,7 +102,7 @@ func TestExecuteStorageFileRoundTrip(t *testing.T) {
 		nil,
 	)
 
-	if _, err := application.executeLocalAction(context.Background(), "scope-cache", "req_local_file_1", runtimeaction.Action{
+	if _, err := application.executeLocalAction(context.Background(), "scope-cache", "req_local_file_1", pluginruntime.Action{
 		Kind:             "storage.file",
 		StorageOperation: "write",
 		StorageRoot:      "plugin_data",
@@ -112,7 +112,7 @@ func TestExecuteStorageFileRoundTrip(t *testing.T) {
 		t.Fatalf("storage.file write failed: %v", err)
 	}
 
-	readResult, err := application.executeLocalAction(context.Background(), "scope-cache", "req_local_file_2", runtimeaction.Action{
+	readResult, err := application.executeLocalAction(context.Background(), "scope-cache", "req_local_file_2", pluginruntime.Action{
 		Kind:             "storage.file",
 		StorageOperation: "read",
 		StorageRoot:      "plugin_data",
@@ -125,7 +125,7 @@ func TestExecuteStorageFileRoundTrip(t *testing.T) {
 		t.Fatalf("unexpected text content: %#v", got)
 	}
 
-	if _, err := application.executeLocalAction(context.Background(), "scope-cache", "req_local_file_3", runtimeaction.Action{
+	if _, err := application.executeLocalAction(context.Background(), "scope-cache", "req_local_file_3", pluginruntime.Action{
 		Kind:             "storage.file",
 		StorageOperation: "write",
 		StorageRoot:      "plugin_data",
@@ -135,7 +135,7 @@ func TestExecuteStorageFileRoundTrip(t *testing.T) {
 		t.Fatalf("storage.file binary write failed: %v", err)
 	}
 
-	binaryResult, err := application.executeLocalAction(context.Background(), "scope-cache", "req_local_file_4", runtimeaction.Action{
+	binaryResult, err := application.executeLocalAction(context.Background(), "scope-cache", "req_local_file_4", pluginruntime.Action{
 		Kind:             "storage.file",
 		StorageOperation: "read",
 		StorageRoot:      "plugin_data",
@@ -164,7 +164,7 @@ func TestExecuteStorageFileRejectsMissingScope(t *testing.T) {
 			},
 		},
 		nil,
-		pluginfile.NewService(filepath.Join(t.TempDir(), "plugins")),
+		pluginstore.NewFileService(filepath.Join(t.TempDir(), "plugins")),
 		nil,
 		nil,
 		nil,
@@ -174,7 +174,7 @@ func TestExecuteStorageFileRejectsMissingScope(t *testing.T) {
 		nil,
 	)
 
-	_, err := application.executeLocalAction(context.Background(), "scope-cache", "req_local_file_5", runtimeaction.Action{
+	_, err := application.executeLocalAction(context.Background(), "scope-cache", "req_local_file_5", pluginruntime.Action{
 		Kind:             "storage.file",
 		StorageOperation: "read",
 		StorageRoot:      "plugin_data",

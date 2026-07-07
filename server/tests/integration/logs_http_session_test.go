@@ -2,7 +2,7 @@ package integration
 
 import (
 	"context"
-	adapterintake "github.com/RayleaBot/RayleaBot/server/internal/bot/adapter/onebot11/intake"
+	"github.com/RayleaBot/RayleaBot/server/internal/onebot11"
 	"net/http/httptest"
 	"path/filepath"
 	"strings"
@@ -60,12 +60,11 @@ func TestLogsListReadsPersistedBridgeMessageAcrossRestart(t *testing.T) {
 	t.Parallel()
 
 	configPath := writePersistentYAMLConfig(t, filepath.Join(t.TempDir(), "state.db"))
-	appA := newPersistentTestApp(t, configPath, func() time.Time { return time.Date(2026, 4, 15, 3, 0, 0, 0, time.UTC) }, "bridge-a")
-	appA.SetBridge(newPersistentEventsBridge(appA))
+	appA := newPersistentTestApp(t, configPath, func() time.Time { return time.Date(2026, 4, 15, 3, 0, 0, 0, time.UTC) }, "bridge-a", withPersistentBridgeDispatch())
 	_ = issueLoginToken(t, appA)
 
-	event := adapterintake.NormalizedEvent{
-		Kind:             adapterintake.EventKindMessageText,
+	event := onebot11.NormalizedEvent{
+		Kind:             onebot11.EventKindMessageText,
 		EventID:          "onebot11-message-40002",
 		BotID:            "10001",
 		SourceProtocol:   "onebot11",

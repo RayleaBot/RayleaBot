@@ -4,14 +4,20 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"sort"
 	"strings"
 	"time"
+
+	"github.com/RayleaBot/RayleaBot/server/internal/logpath"
 )
 
-const defaultSnapshotRetention = 3
+const (
+	defaultSnapshotRetention = 3
+	SnapshotInterval         = 6 * time.Hour
+)
 
 type snapshotFile struct {
 	path    string
@@ -44,10 +50,50 @@ func CreateSnapshot(ctx context.Context, databasePath string) (string, error) {
 }
 
 func (s *Store) CreateSnapshot(ctx context.Context) (string, error) {
-	if s == nil || s.Write == nil {
+	if s.Write == nil {
 		return "", fmt.Errorf("sqlite store is required")
 	}
 	return createSnapshot(ctx, s.Write, s.Path, defaultSnapshotRetention)
+}
+
+func StartSnapshotLoop(ctx context.Context, store *Store, logger *slog.Logger, repoRoot string) {
+	if store == nil {
+		return
+	}
+
+	go func() {
+		CreateSnapshotBestEffort(ctx, store, logger, repoRoot)
+		ticker := time.NewTicker(SnapshotInterval)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				CreateSnapshotBestEffort(ctx, store, logger, repoRoot)
+			}
+		}
+	}()
+}
+
+func CreateSnapshotBestEffort(parent context.Context, store *Store, logger *slog.Logger, repoRoot string) {
+	if store == nil {
+		return
+	}
+	ctx, cancel := context.WithTimeout(parent, 5*time.Minute)
+	defer cancel()
+
+	path, err := store.CreateSnapshot(ctx)
+	if err != nil {
+		if logger != nil {
+			logger.Warn("SQLite 数据库快照创建失败", "component", "storage", "err", logpath.Error(repoRoot, err, store.Path, SnapshotDirForDatabase(store.Path)))
+		}
+		return
+	}
+	if logger != nil {
+		pathDisplay := logpath.Display(repoRoot, path)
+		logger.Info("SQLite 数据库快照已创建："+pathDisplay, "component", "storage", "path", pathDisplay)
+	}
 }
 
 func createSnapshot(ctx context.Context, db *sql.DB, databasePath string, retain int) (string, error) {

@@ -16,7 +16,7 @@ import (
 	"time"
 
 	internalapp "github.com/RayleaBot/RayleaBot/server/internal/app"
-	"github.com/RayleaBot/RayleaBot/server/internal/schema"
+	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"gopkg.in/yaml.v3"
 )
 
@@ -37,8 +37,7 @@ func TestActualManagementResponsesMatchOpenAPI(t *testing.T) {
 	t.Run("setup admin", func(t *testing.T) {
 		t.Parallel()
 
-		application := newTestApp(t)
-		application.SetAuthManager(newDeterministicAuthManager(t))
+		application := newTestApp(t, deterministicAuthOptions()...)
 		fixture := loadWebAPIFixtureDocument(t, filepath.Join("..", "fixtures", "web-api", "ok.setup-admin.yaml"))
 
 		recorder := performOpenAPIJSONRequest(t, application, fixture.Request.Method, fixture.Request.Path, fixture.Request.Body, "")
@@ -300,7 +299,7 @@ func assertRequestMatchesOpenAPI(t *testing.T, method, path string, body map[str
 	}
 }
 
-func compileOpenAPIRequestValidator(t *testing.T, method, path string) *schema.Validator {
+func compileOpenAPIRequestValidator(t *testing.T, method, path string) *config.Validator {
 	t.Helper()
 
 	document := loadOpenAPIContractDocument(t)
@@ -316,7 +315,7 @@ func compileOpenAPIRequestValidator(t *testing.T, method, path string) *schema.V
 	return compileOpenAPISchemaValidator(t, requestSchema, openAPISchemaName("openapi-request", method, contractPath, ""))
 }
 
-func compileOpenAPIResponseValidator(t *testing.T, method, path string, status int) *schema.Validator {
+func compileOpenAPIResponseValidator(t *testing.T, method, path string, status int) *config.Validator {
 	t.Helper()
 
 	document := loadOpenAPIContractDocument(t)
@@ -342,7 +341,7 @@ func openAPISchemaName(prefix, method, path, suffix string) string {
 	return name
 }
 
-func compileOpenAPISchemaValidator(t *testing.T, documentSchema map[string]any, name string) *schema.Validator {
+func compileOpenAPISchemaValidator(t *testing.T, documentSchema map[string]any, name string) *config.Validator {
 	t.Helper()
 
 	document := loadOpenAPIContractDocument(t)
@@ -360,7 +359,7 @@ func compileOpenAPISchemaValidator(t *testing.T, documentSchema map[string]any, 
 		schemaDocument[key] = value
 	}
 
-	validator, err := schema.CompileDocument(name, schemaDocument)
+	validator, err := config.CompileDocument(name, schemaDocument)
 	if err != nil {
 		t.Fatalf("compile OpenAPI schema %s: %v", name, err)
 	}

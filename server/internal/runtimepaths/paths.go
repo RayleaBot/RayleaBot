@@ -6,16 +6,16 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/logpath"
-	plugindiscovery "github.com/RayleaBot/RayleaBot/server/internal/plugins/discovery"
+	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
 	"github.com/RayleaBot/RayleaBot/server/internal/recovery"
-	"github.com/RayleaBot/RayleaBot/server/internal/schemaassets"
 )
 
 type PluginDiscoverySpec struct {
 	RepoRoot         string
 	PluginSchemaPath string
-	Roots            []plugindiscovery.ScanRoot
+	Roots            []plugincatalog.ScanRoot
 }
 
 func ResolveDatabasePath(configPath, databasePath string) (string, error) {
@@ -47,7 +47,7 @@ type PluginDiscoveryOptions struct {
 	ConfigPath       string
 	PluginRepoRoot   string
 	PluginSchemaPath string
-	PluginRoots      []plugindiscovery.ScanRoot
+	PluginRoots      []plugincatalog.ScanRoot
 }
 
 func ResolvePluginDiscovery(options PluginDiscoveryOptions) (PluginDiscoverySpec, error) {
@@ -58,7 +58,7 @@ func ResolvePluginDiscovery(options PluginDiscoveryOptions) (PluginDiscoverySpec
 		return PluginDiscoverySpec{
 			RepoRoot:         options.PluginRepoRoot,
 			PluginSchemaPath: options.PluginSchemaPath,
-			Roots:            append([]plugindiscovery.ScanRoot(nil), options.PluginRoots...),
+			Roots:            append([]plugincatalog.ScanRoot(nil), options.PluginRoots...),
 		}, nil
 	}
 
@@ -73,14 +73,14 @@ func ResolvePluginDiscovery(options PluginDiscoveryOptions) (PluginDiscoverySpec
 	}, nil
 }
 
-func PluginDiscoveryContext(configPath string) (string, string, []plugindiscovery.ScanRoot, error) {
+func PluginDiscoveryContext(configPath string) (string, string, []plugincatalog.ScanRoot, error) {
 	repoRoot, err := ResolveRuntimeRoot(configPath)
 	if err != nil {
 		return "", "", nil, err
 	}
-	pluginSchemaPath := schemaassets.PluginInfoSchemaID
+	pluginSchemaPath := config.PluginInfoSchemaID
 
-	roots := []plugindiscovery.ScanRoot{
+	roots := []plugincatalog.ScanRoot{
 		{
 			Label: "plugins/builtin",
 			Path:  filepath.Join(repoRoot, "plugins", "builtin"),
@@ -94,7 +94,7 @@ func PluginDiscoveryContext(configPath string) (string, string, []plugindiscover
 	return repoRoot, pluginSchemaPath, roots, nil
 }
 
-func CleanupOrphanedInstallDirs(logger *slog.Logger, roots []plugindiscovery.ScanRoot) {
+func CleanupOrphanedInstallDirs(logger *slog.Logger, roots []plugincatalog.ScanRoot) {
 	for _, root := range roots {
 		if root.Label != "plugins/installed" {
 			continue

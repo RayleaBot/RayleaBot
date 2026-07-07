@@ -18,13 +18,13 @@ stateDiagram-v2
   enabled --> disabled: disable
 ```
 
-`internal/plugins/lifecycle` 负责 desired state、runtime state、重载和崩溃恢复。`internal/plugins/runtime/manager` 负责单个插件进程的握手、ping、事件 session 和本地 action RPC。
+`internal/plugins/lifecycle` 负责 desired state、runtime state、重载和崩溃恢复。`internal/plugins/runtime` 负责单个插件进程的握手、ping、事件 session 和本地 action RPC。
 
 ## 事件与本地 action
 
 ```mermaid
 flowchart TD
-  dispatcher["eventpipeline/dispatch"] --> runtime["plugins/runtime/manager"]
+  dispatcher["eventpipeline/dispatch"] --> runtime["plugins/runtime"]
   runtime --> plugin["plugin subprocess"]
   plugin --> localaction["plugins/actions"]
   localaction --> service["storage / config / render / scheduler / webhook / protocol"]

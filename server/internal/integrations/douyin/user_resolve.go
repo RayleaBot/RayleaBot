@@ -74,12 +74,14 @@ func ResolveUserWithBrowser(ctx context.Context, client *http.Client, query stri
 			return candidates, exactProfileMatch(candidates, normalizedQuery), nil
 		}
 	}
-	if profiles, exact, err := resolveDouyinUserWithBrowser(ctx, browser, normalizedQuery, cookieAttempts); err != nil {
-		if firstErr == nil {
-			firstErr = err
+	if browser != nil {
+		if profiles, exact, err := browser.ResolveUser(ctx, normalizedQuery, cookieAttempts); err != nil {
+			if firstErr == nil {
+				firstErr = err
+			}
+		} else if len(profiles) > 0 {
+			return profiles, exact, nil
 		}
-	} else if len(profiles) > 0 {
-		return profiles, exact, nil
 	}
 	if firstErr != nil && isDirectProfile {
 		return nil, false, firstErr
@@ -98,4 +100,28 @@ func douyinResolveCookieAttempts(cookieSets []map[string]string) []map[string]st
 		attempts = append(attempts, map[string]string{})
 	}
 	return attempts
+}
+
+func fetchDouyinPublicUserBySecUID(ctx context.Context, client *http.Client, secUID string, cookies map[string]string) (thirdparty.AccountProfile, error) {
+	values := douyinWebParams()
+	values.Set("sec_user_id", strings.TrimSpace(secUID))
+	rawURL := "https://www.douyin.com/aweme/v1/web/user/profile/other/?" + values.Encode()
+	document, err := getDouyinJSON(ctx, client, rawURL, douyinHeaders(), cookies)
+	if err != nil {
+		return thirdparty.AccountProfile{}, err
+	}
+	return douyinProfileFromUserPayload(document), nil
+}
+
+func fetchDouyinPublicUser(ctx context.Context, client *http.Client, rawURL string, cookies map[string]string) (thirdparty.AccountProfile, error) {
+	if client == nil {
+		client = thirdparty.NewHTTPClientFollow(nil)
+	} else {
+		client = thirdparty.NewHTTPClientFollow(client.Transport)
+	}
+	body, err := thirdparty.FetchPageBody(ctx, client, rawURL, douyinHeaders(), cookies)
+	if err != nil {
+		return thirdparty.AccountProfile{}, err
+	}
+	return douyinProfileFromPage(body), nil
 }

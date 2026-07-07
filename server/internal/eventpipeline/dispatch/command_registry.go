@@ -48,9 +48,6 @@ func (d *Dispatcher) Deregister(pluginID string) {
 
 // PluginIDs returns a snapshot of currently registered plugin IDs.
 func (d *Dispatcher) PluginIDs() []string {
-	if d == nil {
-		return nil
-	}
 
 	d.mu.RLock()
 	defer d.mu.RUnlock()
@@ -64,9 +61,6 @@ func (d *Dispatcher) PluginIDs() []string {
 
 // HasPlugin reports whether a plugin slot is currently registered.
 func (d *Dispatcher) HasPlugin(pluginID string) bool {
-	if d == nil {
-		return false
-	}
 
 	d.mu.RLock()
 	defer d.mu.RUnlock()
@@ -75,9 +69,6 @@ func (d *Dispatcher) HasPlugin(pluginID string) bool {
 	return ok
 }
 func (d *Dispatcher) UpdateCommands(pluginID string, cmds []CommandDecl) bool {
-	if d == nil {
-		return false
-	}
 
 	d.mu.Lock()
 	defer d.mu.Unlock()
@@ -93,9 +84,6 @@ func (d *Dispatcher) UpdateCommands(pluginID string, cmds []CommandDecl) bool {
 // HasDeliverablePlugins reports whether at least one registered runtime is in
 // the running state and can accept delivery.
 func (d *Dispatcher) HasDeliverablePlugins() bool {
-	if d == nil {
-		return false
-	}
 
 	d.mu.RLock()
 	defer d.mu.RUnlock()
@@ -111,9 +99,6 @@ func (d *Dispatcher) HasDeliverablePlugins() bool {
 // HasDeliverablePlugin reports whether the given plugin currently has a
 // running runtime and can accept delivery.
 func (d *Dispatcher) HasDeliverablePlugin(pluginID string) bool {
-	if d == nil {
-		return false
-	}
 
 	d.mu.RLock()
 	defer d.mu.RUnlock()

@@ -2,7 +2,9 @@ package system
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
+	"path/filepath"
 	"reflect"
 	"strings"
 	"sync"
@@ -15,7 +17,6 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	"github.com/RayleaBot/RayleaBot/server/internal/recovery"
 	"github.com/RayleaBot/RayleaBot/server/internal/storage"
-	systemmodel "github.com/RayleaBot/RayleaBot/server/internal/system/model"
 	"github.com/RayleaBot/RayleaBot/server/internal/tasks"
 )
 
@@ -39,10 +40,6 @@ type RendererState interface {
 	Diagnostics() []health.DiagnosticIssue
 	RefreshBrowserPath(string)
 }
-
-type DiagnosticsThirdParty = systemmodel.DiagnosticsThirdParty
-type DiagnosticsThirdPartyPlatform = systemmodel.DiagnosticsThirdPartyPlatform
-type DiagnosticsScheduler = systemmodel.DiagnosticsScheduler
 
 type DatabasePathResolver func(configPath, databasePath string) (string, error)
 
@@ -73,6 +70,7 @@ type Deps struct {
 	PluginRepository    plugins.DesiredStateRepository
 	TaskExecutor        *tasks.Executor
 	LogRepository       logging.Repository
+	StatusPublisher     StatusPublisher
 	ResolveDatabasePath DatabasePathResolver
 }
 
@@ -155,9 +153,41 @@ func New(deps Deps) *Service {
 		pluginRepository:    deps.PluginRepository,
 		taskExecutor:        deps.TaskExecutor,
 		logRepository:       deps.LogRepository,
+		statusPublisher:     deps.StatusPublisher,
 		resolveDatabasePath: databasePathResolver(deps.ResolveDatabasePath),
 		startupRuntimes:     newStartupRuntimeStates(nil),
 	}
+}
+
+func databasePathResolver(resolver DatabasePathResolver) DatabasePathResolver {
+	if resolver != nil {
+		return resolver
+	}
+	return defaultDatabasePath
+}
+
+func (s *Service) databasePath(configPath, configuredPath string) (string, error) {
+	if s != nil && s.resolveDatabasePath != nil {
+		return s.resolveDatabasePath(configPath, configuredPath)
+	}
+	return defaultDatabasePath(configPath, configuredPath)
+}
+
+func defaultDatabasePath(configPath, configuredPath string) (string, error) {
+	if filepath.IsAbs(configuredPath) {
+		return filepath.Clean(configuredPath), nil
+	}
+
+	absoluteConfigPath, err := filepath.Abs(configPath)
+	if err != nil {
+		return "", fmt.Errorf("resolve runtime root from %s: %w", configPath, err)
+	}
+	repoRoot := recovery.RepoRootFromConfigPath(absoluteConfigPath)
+	resolved, err := filepath.Abs(filepath.Join(repoRoot, configuredPath))
+	if err != nil {
+		return "", fmt.Errorf("resolve database path %s: %w", configuredPath, err)
+	}
+	return resolved, nil
 }
 
 func (s *Service) SystemStatus() string {
@@ -188,13 +218,13 @@ func (s *Service) SchedulerTimezone() string {
 	return "UTC"
 }
 
-func (s *Service) StatusSnapshot() systemmodel.StatusSnapshot {
+func (s *Service) StatusSnapshot() StatusSnapshot {
 	adapterState := ""
 	if s != nil && s.adapter != nil {
 		adapterState = s.adapter.CurrentState()
 	}
 	runningPlugins, failedPlugins := s.pluginStateCounts()
-	return systemmodel.StatusSnapshot{
+	return StatusSnapshot{
 		Status:          s.systemStatus(),
 		AdapterState:    adapterState,
 		ActivePlugins:   s.activePluginCount(),
@@ -211,27 +241,6 @@ func readinessReportPtr(report health.ReadinessReport) *health.ReadinessReport {
 	return &report
 }
 
-func (s *Service) SetAuth(manager AuthBootstrapState) {
-	if s != nil {
-		if isNilDependency(manager) {
-			manager = nil
-		}
-		s.auth = manager
-	}
-}
-
-func (s *Service) SetLogRepository(repository logging.Repository) {
-	if s != nil {
-		s.logRepository = repository
-	}
-}
-
-func (s *Service) SetStatusPublisher(publisher StatusPublisher) {
-	if s != nil {
-		s.statusPublisher = publisher
-	}
-}
-
 func (s *Service) BindShutdownFlag(flag *atomic.Bool) {
 	if s != nil {
 		s.shuttingDown = flag
@@ -239,23 +248,20 @@ func (s *Service) BindShutdownFlag(flag *atomic.Bool) {
 }
 
 func (s *Service) config() config.Config {
-	if s == nil || s.currentConfig == nil {
+	if s.currentConfig == nil {
 		return config.Config{}
 	}
 	return s.currentConfig()
 }
 
 func (s *Service) summary() config.Summary {
-	if s == nil || s.currentSummary == nil {
+	if s.currentSummary == nil {
 		return config.Summary{}
 	}
 	return s.currentSummary()
 }
 
 func (s *Service) repoRootPath() string {
-	if s == nil {
-		return ""
-	}
 	if s.currentRepoRoot != nil {
 		return s.currentRepoRoot()
 	}
@@ -263,9 +269,6 @@ func (s *Service) repoRootPath() string {
 }
 
 func (s *Service) startedAtValue() time.Time {
-	if s == nil {
-		return time.Time{}
-	}
 	if s.currentStartedAt != nil {
 		return s.currentStartedAt()
 	}
@@ -273,7 +276,7 @@ func (s *Service) startedAtValue() time.Time {
 }
 
 func (s *Service) currentLogger() *slog.Logger {
-	if s == nil || s.logger == nil {
+	if s.logger == nil {
 		return slog.Default()
 	}
 	return s.logger
@@ -293,9 +296,6 @@ func isNilDependency(value any) bool {
 }
 
 func (s *Service) recoverySummarySnapshot() *recovery.CompatibilitySummary {
-	if s == nil {
-		return nil
-	}
 	s.recoveryMu.RLock()
 	defer s.recoveryMu.RUnlock()
 	if s.recoverySummary == nil {
@@ -311,9 +311,6 @@ func (s *Service) recoverySummarySnapshot() *recovery.CompatibilitySummary {
 }
 
 func (s *Service) setRecoverySummary(summary *recovery.CompatibilitySummary) {
-	if s == nil {
-		return
-	}
 	s.recoveryMu.Lock()
 	defer s.recoveryMu.Unlock()
 	if summary == nil {

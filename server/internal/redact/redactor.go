@@ -1,9 +1,12 @@
 package redact
 
 import (
+	"os"
 	"slices"
 	"strings"
 	"sync"
+
+	"github.com/RayleaBot/RayleaBot/server/internal/config"
 )
 
 const placeholder = "[REDACTED]"
@@ -20,9 +23,6 @@ func New(values ...string) *Redactor {
 }
 
 func (r *Redactor) Add(values ...string) {
-	if r == nil {
-		return
-	}
 
 	normalized := normalizeValues(values)
 	if len(normalized) == 0 {
@@ -37,7 +37,7 @@ func (r *Redactor) Add(values ...string) {
 }
 
 func (r *Redactor) Redact(text string) string {
-	if r == nil || text == "" {
+	if text == "" {
 		return text
 	}
 
@@ -83,4 +83,57 @@ func normalizeValues(values []string) []string {
 	})
 
 	return result
+}
+
+func NewManagementRedactor(cfg config.Config) *Redactor {
+	values := []string{
+		cfg.OneBot.ReverseWS.AccessToken,
+		cfg.OneBot.ForwardWS.AccessToken,
+		cfg.OneBot.HTTPAPI.AccessToken,
+		cfg.OneBot.Webhook.AccessToken,
+	}
+	values = append(values, sensitiveEnvironmentValues(os.Environ())...)
+	return New(values...)
+}
+
+func sensitiveEnvironmentValues(env []string) []string {
+	result := make([]string, 0, len(env))
+	for _, binding := range env {
+		name, value, ok := strings.Cut(binding, "=")
+		if !ok || !isSensitiveEnvName(name) {
+			continue
+		}
+		result = append(result, value)
+	}
+	return result
+}
+
+func isSensitiveEnvName(name string) bool {
+	name = strings.ToUpper(strings.TrimSpace(name))
+	if name == "" {
+		return false
+	}
+	if strings.HasPrefix(name, "RAYLEABOT_SECRET_") {
+		return true
+	}
+
+	keywords := []string{
+		"SECRET",
+		"TOKEN",
+		"PASSWORD",
+		"PASSWD",
+		"API_KEY",
+		"ACCESS_KEY",
+		"PRIVATE_KEY",
+	}
+	for _, keyword := range keywords {
+		if strings.Contains(name, keyword) {
+			return true
+		}
+	}
+	if strings.HasSuffix(name, "_KEY") || strings.Contains(name, "_KEY_") {
+		return true
+	}
+
+	return false
 }

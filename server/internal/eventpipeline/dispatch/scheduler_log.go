@@ -6,20 +6,19 @@ import (
 	"strings"
 	"time"
 
-	runtimemanager "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime/manager"
-	runtimeprotocol "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime/protocol"
+	pluginruntime "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime"
 	"github.com/RayleaBot/RayleaBot/server/internal/scheduler"
 )
 
-func schedulerElapsed(event runtimeprotocol.Event) time.Duration {
+func schedulerElapsed(event pluginruntime.Event) time.Duration {
 	if event.SchedulerLog == nil {
 		return 0
 	}
 	return time.Since(event.SchedulerLog.StartedAt)
 }
 
-func (d *Dispatcher) logSchedulerCompletion(pluginID string, event runtimeprotocol.Event, status string, duration time.Duration, extra map[string]any) {
-	if d == nil || d.logger == nil || event.SchedulerLog == nil {
+func (d *Dispatcher) logSchedulerCompletion(pluginID string, event pluginruntime.Event, status string, duration time.Duration, extra map[string]any) {
+	if d.logger == nil || event.SchedulerLog == nil {
 		return
 	}
 	ctx := event.SchedulerLog
@@ -42,7 +41,7 @@ func (d *Dispatcher) logSchedulerCompletion(pluginID string, event runtimeprotoc
 	d.logger.Info(message, attrs...)
 }
 
-func (d *Dispatcher) recordSchedulerCompletion(ctx context.Context, event runtimeprotocol.Event, outcome scheduler.RunOutcome, duration time.Duration, errorCode, errorText string) {
+func (d *Dispatcher) recordSchedulerCompletion(ctx context.Context, event pluginruntime.Event, outcome scheduler.RunOutcome, duration time.Duration, errorCode, errorText string) {
 	if event.SchedulerLog == nil || event.SchedulerLog.Recorder == nil {
 		return
 	}
@@ -56,7 +55,7 @@ func (d *Dispatcher) recordSchedulerCompletion(ctx context.Context, event runtim
 	if ctx == nil {
 		ctx = context.Background()
 	}
-	if err := event.SchedulerLog.Recorder.RecordSchedulerRunResult(ctx, runtimeprotocol.SchedulerRunResult{
+	if err := event.SchedulerLog.Recorder.RecordSchedulerRunResult(ctx, pluginruntime.SchedulerRunResult{
 		JobID:      jobID,
 		Outcome:    string(outcome),
 		Duration:   duration,
@@ -73,11 +72,11 @@ func (d *Dispatcher) recordSchedulerCompletion(ctx context.Context, event runtim
 	}
 }
 
-func schedulerFailureFields(err error, delivery runtimemanager.Delivery) (scheduler.RunOutcome, string, string) {
+func schedulerFailureFields(err error, delivery pluginruntime.Delivery) (scheduler.RunOutcome, string, string) {
 	code := strings.TrimSpace(delivery.ErrorCode)
 	message := strings.TrimSpace(delivery.ErrorMessage)
 	if code == "" {
-		var runtimeErr *runtimemanager.Error
+		var runtimeErr *pluginruntime.Error
 		if errors.As(err, &runtimeErr) {
 			code = runtimeErr.Code
 			message = runtimeErr.Message

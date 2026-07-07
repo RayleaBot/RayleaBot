@@ -3,7 +3,6 @@ package weibo
 import (
 	"context"
 	"fmt"
-	"github.com/RayleaBot/RayleaBot/server/internal/integrations/qrcode"
 	"github.com/RayleaBot/RayleaBot/server/internal/integrations/thirdparty"
 	"net/http"
 	"net/url"
@@ -31,7 +30,7 @@ func NewProvider(client *http.Client) *Provider {
 	return &Provider{client: client}
 }
 
-func (p *Provider) Create(ctx context.Context, now time.Time) (qrcode.LoginSession, error) {
+func (p *Provider) Create(ctx context.Context, now time.Time) (thirdparty.QRLoginSession, error) {
 	cookies := map[string]string{}
 	headers := weiboHeaders("")
 	signinURL := weiboSigninURL + "?" + url.Values{
@@ -40,11 +39,11 @@ func (p *Provider) Create(ctx context.Context, now time.Time) (qrcode.LoginSessi
 		"url":    {weiboRedirectURL},
 	}.Encode()
 	if _, err := thirdparty.GetJSON(ctx, p.client, signinURL, headers, cookies, nil); err != nil {
-		return qrcode.LoginSession{}, err
+		return thirdparty.QRLoginSession{}, err
 	}
 	csrf := strings.TrimSpace(cookies["X-CSRF-TOKEN"])
 	if csrf == "" {
-		return qrcode.LoginSession{}, fmt.Errorf("weibo qrcode login missing csrf token")
+		return thirdparty.QRLoginSession{}, fmt.Errorf("weibo qrcode login missing csrf token")
 	}
 	var response struct {
 		RetCode int    `json:"retcode"`
@@ -56,18 +55,18 @@ func (p *Provider) Create(ctx context.Context, now time.Time) (qrcode.LoginSessi
 	}
 	qrcodeURL := weiboQRCodeURL + "?" + url.Values{"entry": {"miniblog"}, "size": {"180"}}.Encode()
 	if _, err := thirdparty.GetJSON(ctx, p.client, qrcodeURL, weiboHeaders(csrf), cookies, &response); err != nil {
-		return qrcode.LoginSession{}, err
+		return thirdparty.QRLoginSession{}, err
 	}
 	if response.RetCode != 20000000 || strings.TrimSpace(response.Data.QRID) == "" {
-		return qrcode.LoginSession{}, fmt.Errorf("weibo qrcode create failed: %s", thirdparty.FirstNonEmpty(response.Message, "invalid response"))
+		return thirdparty.QRLoginSession{}, fmt.Errorf("weibo qrcode create failed: %s", thirdparty.FirstNonEmpty(response.Message, "invalid response"))
 	}
 	scanURL := weiboScanURL(response.Data.Image, response.Data.QRID)
-	return qrcode.LoginSession{
+	return thirdparty.QRLoginSession{
 		Platform:  thirdparty.PlatformWeibo,
 		Token:     strings.TrimSpace(response.Data.QRID),
 		QRCodeURL: scanURL,
 		ExpiresAt: now.Add(3 * time.Minute),
-		State:     qrcode.StatePendingScan,
+		State:     thirdparty.QRLoginStatePendingScan,
 		Values: map[string]string{
 			"csrf": csrf,
 		},
@@ -75,10 +74,10 @@ func (p *Provider) Create(ctx context.Context, now time.Time) (qrcode.LoginSessi
 	}, nil
 }
 
-func (p *Provider) Poll(ctx context.Context, session qrcode.LoginSession, _ time.Time) (qrcode.LoginSession, error) {
+func (p *Provider) Poll(ctx context.Context, session thirdparty.QRLoginSession, _ time.Time) (thirdparty.QRLoginSession, error) {
 	qrid := strings.TrimSpace(session.Token)
 	if qrid == "" {
-		return session, qrcode.ErrLoginSessionNotFound
+		return session, thirdparty.ErrQRLoginSessionNotFound
 	}
 	cookies := thirdparty.CloneStringMap(session.Cookies)
 	var response struct {
@@ -122,7 +121,7 @@ func (p *Provider) Poll(ctx context.Context, session qrcode.LoginSession, _ time
 		if !weiboHasLoginCookie(cookies) {
 			return session, fmt.Errorf("weibo qrcode login succeeded without login cookies")
 		}
-		session.State = qrcode.StateSucceeded
+		session.State = thirdparty.QRLoginStateSucceeded
 		if response.Data.UID != "" {
 			session.Account = thirdparty.AccountProfile{UID: response.Data.UID, Nickname: response.Data.Nick, AvatarURL: response.Data.Avatar}
 		}
@@ -135,15 +134,15 @@ func (p *Provider) Poll(ctx context.Context, session qrcode.LoginSession, _ time
 		}
 		session.Cookie = thirdparty.CookieHeader(cookies)
 	case 50114001:
-		session.State = qrcode.StatePendingScan
+		session.State = thirdparty.QRLoginStatePendingScan
 	case 50114002:
-		session.State = qrcode.StatePendingConfirm
+		session.State = thirdparty.QRLoginStatePendingConfirm
 	case 50114004:
-		session.State = qrcode.StateExpired
+		session.State = thirdparty.QRLoginStateExpired
 	default:
 		message := strings.TrimSpace(response.Message)
 		if strings.Contains(message, "扫") || strings.Contains(message, "scan") {
-			session.State = qrcode.StatePendingConfirm
+			session.State = thirdparty.QRLoginStatePendingConfirm
 			break
 		}
 		return session, fmt.Errorf("weibo qrcode poll retcode %d: %s", response.RetCode, thirdparty.FirstNonEmpty(message, "invalid response"))

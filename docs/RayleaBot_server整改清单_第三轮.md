@@ -169,7 +169,7 @@ server strict JSON decoder 可能因 unknown field 拒绝
 
 ### 问题描述
 
-当前 `internal/management/router/modules.go` 直接理解大量业务域和 handler 构造细节，导入内部包约 35 个，包括 auth、config、console、eventpipeline、governance、health、integrations、logging、plugins、render、scheduler、system、tasks 等。
+旧 router 分层直接理解大量业务域和 handler 构造细节，导入内部包约 35 个，包括 auth、config、console、eventpipeline、governance、health、integrations、logging、plugins、render、scheduler、system、tasks 等。
 
 这使它成为新的 HTTP 组合巨石。
 
@@ -214,7 +214,7 @@ type RouteModule interface {
 
 #### 第一步：定义 route module 抽象
 
-- [x] 在 `internal/management/router` 或新包中定义 `Module` 接口。
+- [x] 在管理路由装配中定义 `Module` 接口。
 - [x] 明确 public/protected/admin/ws 的注册方式。
 - [x] 保留现有 router 外部 API，避免一次性大改。
 
@@ -257,7 +257,7 @@ func NewModule(deps Deps) router.Module
 
 ### 验收标准
 
-- [x] `internal/management/router` fan-out ≤20。
+- [x] 管理路由装配 fan-out ≤20。
 - [x] `BuildDeps` 字段数明显减少。
 - [x] 新增 API domain 不需要改大型 router 构造函数。
 - [x] 每个 API domain 的 routes 可以在本包内定位。
@@ -597,24 +597,15 @@ type Registrar interface {
 
 ### 问题描述
 
-`internal/plugins` 约 238 个文件，是 server 最大子系统，包含：
+`internal/plugins` 约 181 个 Go 文件（含测试），仍是 server 最大子系统之一，包含：
 
 ```text
 actions
-capabilityview
 catalog
-configstore
-discovery
-filestore
-httpclient
-install
-kvstore
 lifecycle
-managementui
 manifest
-repository
+pluginstore
 runtime
-uninstall
 webhook
 ```
 
@@ -706,14 +697,11 @@ internal/integrations/
     validator.go
     repository.go
 
-  login/
-    qrcode/
-      service.go
-      session.go
-      provider.go
-      persist.go
-    cookie/
-      validator.go
+  thirdparty/
+    qr_login_service.go
+    qr_login_model.go
+    qr_login_persist.go
+    validator.go
 
   httpclient/
     client.go
@@ -754,23 +742,10 @@ internal/integrations/
 
 ### 问题描述
 
-Bilibili 目录已包含：
+Bilibili 子系统收敛在 `server/internal/integrations/bilibili/session`：
 
 ```text
-accountusage
-captcha
-credential
-diagnostics
-dynamic
-fingerprint
-live
-media
-monitoring
-proxy
 session
-source
-subscriptions
-values
 ```
 
 它已经是独立子系统，而不是一个普通 provider。
@@ -807,7 +782,7 @@ type Module struct {
 
 - [x] Bilibili 外部可见接口文档化。
 - [x] 管理 API 测试通过。
-- [x] 新增 Bilibili 功能不需要修改 app/servicegraph 内部装配细节。
+- [x] 新增 Bilibili 功能不需要修改 `internal/app` 内部装配细节。
 
 ---
 
@@ -815,7 +790,7 @@ type Module struct {
 
 ### 问题描述
 
-Douyin 已经拆分了部分 browser 文件，但 `resolve.go` 仍约 476 行，是当前较大的生产文件之一。
+Douyin 解析入口保留在 `user_resolve.go`，URL 规范化、搜索、profile 抽取、浏览器运行时和扫码登录按职责分文件。
 
 ### 影响
 
@@ -828,21 +803,23 @@ Douyin 已经拆分了部分 browser 文件，但 `resolve.go` 仍约 476 行，
 
 ```text
 douyin/
+  user_resolve.go
   resolve_url.go
   resolve_search.go
-  resolve_profile.go
-  resolve_browser.go
-  extract_profile.go
-  browser_session.go
+  resolve_profiles.go
+  resolve_browser_search.go
+  resolve_http.go
+  profile.go
+  browser.go
   browser_qrcode.go
   browser_runtime.go
-  errors.go
-  diagnostics.go
+  qrcode_login.go
+  account_validator.go
 ```
 
 ### 实施路径
 
-- [x] 从 `resolve.go` 中先抽出纯 URL normalize 函数。
+- [x] URL normalize 函数保持在独立文件。
 - [x] 抽出 profile extraction，不依赖 browser。
 - [x] 抽出 browser fallback 流程。
 - [x] 抽出错误分类和安全错误文案。
@@ -851,7 +828,7 @@ douyin/
 
 ### 验收标准
 
-- [x] `douyin/resolve.go` ≤250 行。
+- [x] `douyin/user_resolve.go` ≤250 行。
 - [x] URL normalize、profile extract、browser fallback 有独立测试。
 - [x] 第三方错误不会直接返回上游原文。
 - [x] Douyin 集成测试通过。
@@ -904,7 +881,7 @@ D 类：SQLite PRAGMA/维护命令，保留手写
 P1-05 验证：
 
 - [x] `python scripts/check-server-structure.py`。
-- [x] `go test ./internal/secrets ./internal/configruntime ./internal/plugins/managementui ./internal/integrations/thirdparty -run "Test"`。
+- [x] `go test ./internal/secrets ./internal/configruntime ./internal/management ./internal/integrations/thirdparty -run "Test"`。
 - [x] `sqlc diff`。
 
 ---
@@ -1060,7 +1037,7 @@ P2-01 验证：
 - `server/internal/integrations/{weibo,douyin,netease_music}/login.go` 改为 `qrcode_login.go`。
 - `server/internal/integrations/{weibo,douyin,netease_music}/resolve.go` 改为 `user_resolve.go`。
 - `server/internal/integrations/{weibo,douyin,netease_music}/validator.go` 改为 `account_validator.go`。
-- `server/internal/app/httpwire/configmodule/module.go` 改为 `config_http_module.go`。
+- `server/internal/app/config_service.go` 承接配置管理 HTTP 服务。
 - `python scripts/check-server-structure.py` 输出泛化文件名指标，并通过 `docs/engineering/server-architecture-budget.json` 的 `generic_filenames` 预算阻止数量回涨。
 - 当前计数：`login.go=2`、`resolve.go=2`、`validator.go=1`、`module.go=5`。
 
@@ -1091,13 +1068,13 @@ P2-01 验证：
 
 ### 优先处理对象
 
-- [x] `internal/app/httpwire/configmodule`
-- [x] `internal/app/httpwire/routemodule`
-- [x] `internal/app/servicegraph/pluginmodule`
-- [x] `internal/app/servicegraph/integrationmodule`
+- [x] `internal/app/config_service.go`
+- [x] `internal/app/management_routes.go`
+- [x] `internal/app/plugin_wiring.go`
+- [x] `internal/app/integration_wiring.go`
 - [x] `internal/plugins/actions/*action`
 - [x] `internal/integrations/bilibili/*` 中的单文件工具包
-- [x] `internal/render/engine`
+- [x] `internal/render/service`
 - [x] `internal/textsafe`
 
 ### 验收标准
@@ -1245,7 +1222,7 @@ P2-05 验证：
 - `deps.NewDiagnostics(repoRoot)` 负责只读状态检查。
 - render/app/plugin runtime/plugin install 改为通过 runtime 门面获取 Chromium、Python、Node.js、npm entrypoint。
 - CLI doctor 和 system diagnostics 改为通过 diagnostics 门面读取依赖状态。
-- `cd server && go test ./internal/deps ./internal/render/service ./internal/app/renderstack ./internal/cli ./internal/system ./internal/plugins/install ./internal/plugins/runtime/spec` 通过。
+- `cd server && go test ./internal/deps ./internal/render/service ./internal/app ./internal/cli ./internal/system ./internal/plugins/lifecycle ./internal/plugins/runtime` 通过。
 
 ---
 
@@ -1407,7 +1384,7 @@ GET /api/system/diagnostics
 
 阶段 1 验证：
 
-- [x] `go test ./internal/integrations/thirdparty ./internal/management/thirdpartyapi ./internal/management/bilibiliapi ./tests/integration -run "Test(Upsert|ThirdParty|BilibiliAccountSummaryFieldsMatchOpenAPI|ThirdPartyAccountDTOFieldsMatchOpenAPI|ActualManagementResponsesMatchOpenAPI)"`。
+- [x] `go test ./internal/integrations/thirdparty ./internal/management ./tests/integration -run "Test(Upsert|ThirdParty|BilibiliAccountSummaryFieldsMatchOpenAPI|ThirdPartyAccountDTOFieldsMatchOpenAPI|ActualManagementResponsesMatchOpenAPI)"`。
 - [x] `go test ./tests/integration -run "TestThirdPartyAccountAndBilibiliSourceHandlers"`。
 - [x] `go test ./tests/integration -run "Test(ActualManagementResponsesMatchOpenAPI|WebAPIRequestFixturesMatchOpenAPI)"`。
 - [x] `python scripts/ci/validate_contracts.py --mode pr`。
@@ -1515,9 +1492,9 @@ GET /api/system/diagnostics
 
 阶段 5 验证：
 
-- [x] `go test ./internal/integrations/thirdparty ./internal/integrations/qrcode ./internal/integrations/douyin ./internal/integrations/weibo ./internal/integrations/netease_music ./internal/integrations/bilibili ./internal/app/servicegraph/integrationmodule ./internal/management/thirdpartyapi ./internal/management/bilibiliapi`。
-- [x] `go test ./internal/render/service ./internal/management/renderapi ./internal/plugins/actions`。
-- [x] `go test ./internal/plugins/lifecycle ./internal/app/pluginstack ./internal/app/servicegraph/pluginmodule ./internal/metrics ./internal/app ./internal/app/servicegraph`。
+- [x] `go test ./internal/integrations/thirdparty ./internal/integrations/douyin ./internal/integrations/weibo ./internal/integrations/netease_music ./internal/integrations/bilibili/session ./internal/app ./internal/management`。
+- [x] `go test ./internal/render/service ./internal/management ./internal/plugins/actions`。
+- [x] `go test ./internal/plugins/lifecycle ./internal/app`。
 - [x] `python scripts/check-server-structure.py`。
 
 ---
@@ -1541,7 +1518,7 @@ GET /api/system/diagnostics
 
 阶段 6 验证：
 
-- [x] `go test ./internal/scheduler ./internal/system ./internal/app/servicegraph ./internal/management/systemapi ./tests/integration -run "Test(EngineRunningCountDuringTrigger|SystemDiagnostics|DiagnosticsIssuesExpose|DiagnosticsIssueGroupsExpose|ActualManagementResponsesMatchOpenAPI|WebAPIRequestFixturesMatchOpenAPI)"`。
+- [x] `go test ./internal/scheduler ./internal/system ./internal/app ./internal/management ./tests/integration -run "Test(EngineRunningCountDuringTrigger|SystemDiagnostics|DiagnosticsIssuesExpose|DiagnosticsIssueGroupsExpose|ActualManagementResponsesMatchOpenAPI|WebAPIRequestFixturesMatchOpenAPI)"`。
 - [x] `python -m unittest scripts.tests.test_check_toolchain`。
 - [x] `pnpm run typecheck` in `web/`。
 - [x] `pnpm run typecheck` in `launcher/`。

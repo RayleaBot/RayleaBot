@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	adapteroutbound "github.com/RayleaBot/RayleaBot/server/internal/bot/adapter/onebot11/outbound"
 	"github.com/RayleaBot/RayleaBot/server/internal/logging"
+	"github.com/RayleaBot/RayleaBot/server/internal/onebot11"
 )
 
 func newObservabilityTestLogger() (*slog.Logger, *logging.Stream) {
@@ -59,7 +59,7 @@ func TestLogSendOutcomeUsesPlatformSummaryWithoutPluginContext(t *testing.T) {
 		ActionKind: "message.send",
 		TargetType: "group",
 		TargetID:   "200",
-		Segments: []adapteroutbound.OutboundMessageSegment{{
+		Segments: []onebot11.OutboundMessageSegment{{
 			Type: "text",
 			Data: map[string]any{"text": "cooldown reply"},
 		}},
@@ -91,7 +91,7 @@ func TestLogSendOutcomeUsesPlatformFailureSummaryWithoutPluginContext(t *testing
 		ActionKind: "message.send",
 		TargetType: "private",
 		TargetID:   "300",
-		Segments: []adapteroutbound.OutboundMessageSegment{{
+		Segments: []onebot11.OutboundMessageSegment{{
 			Type: "text",
 			Data: map[string]any{"text": "cooldown reply"},
 		}},
@@ -99,7 +99,7 @@ func TestLogSendOutcomeUsesPlatformFailureSummaryWithoutPluginContext(t *testing
 		DeliveryKind: "message.send",
 		TargetType:   "private",
 		TargetID:     "300",
-	}, &adapteroutbound.Error{
+	}, &onebot11.Error{
 		Code:    "adapter.send_failed",
 		Message: "send rejected by upstream",
 	})

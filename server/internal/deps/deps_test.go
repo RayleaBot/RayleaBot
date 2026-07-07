@@ -661,7 +661,7 @@ func TestPrepareWithReportFallsBackWhenFastestSourceFailsVerification(t *testing
 func TestSelectDownloadSourcesKeepsManifestOrderForCloseProbeSpeeds(t *testing.T) {
 	t.Parallel()
 
-	ordered := restoreCloseProbeOrder([]sourceProbeResult{
+	ordered := restoreCloseOrder([]probeResult{
 		{
 			source:      ResourceSource{URL: "https://mirror.example.invalid/node.tar.xz"},
 			index:       1,

@@ -104,8 +104,8 @@ Dispatcher 是插件事件投递与插件出站 action 执行的唯一出口。`
 | 状态层 | 位置 | 职责 |
 | --- | --- | --- |
 | Manifest / Catalog Snapshot | `server/internal/plugins/`、`server/internal/plugins/catalog/` | 插件静态声明、安装来源、desired state、校验结果和管理面只读快照 |
-| Runtime Snapshot | `server/internal/plugins/runtime/manager/` | 插件子进程状态、协议握手、重试、dead-letter 与运行时订阅 |
-| Management Projection | `server/internal/management/pluginapi/view/`、`server/internal/plugins/managementui/` | 管理 API 和插件内置管理页响应结构 |
+| Runtime Snapshot | `server/internal/plugins/runtime/` | 插件子进程状态、协议握手、重试、dead-letter 与运行时订阅 |
+| Management Projection | `server/internal/management/` | 管理 API 和插件内置管理页响应结构 |
 
 Runtime Manager 不依赖管理面投影；管理 API 和插件管理 UI 不直接依赖 runtime manager 内部结构。管理面通过 Catalog Snapshot 与 Lifecycle Controller 返回的快照生成响应。
 
@@ -122,16 +122,15 @@ Runtime Manager 不依赖管理面投影；管理 API 和插件管理 UI 不直�
 
 | 包 | 职责 |
 | --- | --- |
-| `server/internal/integrations/thirdparty` | 三方账号模型、账号仓储、凭据状态、平台错误、账号资料工具、受控第三方 HTTP 请求与账号校验 |
-| `server/internal/integrations/qrcode` | 微博、抖音、网易云音乐和 Bilibili 共用的二维码登录会话模型、状态与持久化 |
+| `server/internal/integrations/thirdparty` | 三方账号模型、账号仓储、凭据状态、平台错误、账号资料工具、受控第三方 HTTP 请求、账号校验与二维码登录会话 |
 | `server/internal/integrations/fingerprint` | 三方请求冷却和平台请求需要的通用浏览器/设备指纹 |
 | `server/internal/integrations/{weibo,douyin,netease_music}` | 平台登录、账号资料读取和 Cookie 校验 |
 
-新增三方平台只实现平台 provider 和账号校验函数；共享账号、二维码会话和受控 HTTP 请求能力由上述基础包提供。订阅或解析等业务能力放在插件内。
+新增三方平台只实现平台 provider 和账号校验函数；共享账号、二维码会话和受控 HTTP 请求能力由基础包提供。订阅或解析等业务能力放在插件内。
 
 ### Bilibili 模块边界
 
-`server/internal/integrations/bilibili` 是 Bilibili 子系统对 app/servicegraph 和 management 层的入口。
+`server/internal/integrations/bilibili` 是 Bilibili 子系统对 app 和 management 层的入口。
 
 | 对外对象 | 职责 |
 | --- | --- |
@@ -150,7 +149,7 @@ Local Action Service 是插件访问平台能力的唯一入口，负责声明�
 - **治理**：`governance.blacklist.*` / `governance.whitelist.*` / `governance.command_policy.read`
 - **日志与插件元数据**：`logger.write`、`plugin.list`
 - **三方账号读取**：`thirdparty.account.read`
-- **OneBot 协议直通**：OneBot11 generic action 与 `protocolcap` 注册的 provider 扩展动作（`provider.*`）
+- **OneBot 协议直通**：OneBot11 generic action 与 provider 扩展动作（`provider.*`）共享冻结动作注册表。
 
 ## 出站链路
 
@@ -215,21 +214,21 @@ Local Action Service 是插件访问平台能力的唯一入口，负责声明�
 
 | 逻辑组件 | 实际位置 |
 | --- | --- |
-| App / 服务组装 | `server/internal/app/`、`server/internal/app/platform/`、`server/internal/app/pluginstack/`、`server/internal/app/renderstack/`、`server/internal/app/eventstack/`、`server/internal/app/actionwire/`、`server/internal/app/servicegraph/`、`server/internal/app/httpwire/` |
-| HTTP / WebSocket 路由 | `server/internal/app/httpwire/`、`server/internal/management/router/` |
-| HTTP / WebSocket handlers | `server/internal/management/*api/`、`server/internal/management/ws/` |
-| Event Ingress | `server/internal/eventpipeline/eventingress/` |
-| Event stack wiring | `server/internal/app/eventstack/` |
+| App / 服务组装 | `server/internal/app/` |
+| HTTP / WebSocket 路由 | `server/internal/app/`、`server/internal/management/` |
+| HTTP / WebSocket handlers | `server/internal/management/` |
+| Event Ingress | `server/internal/eventpipeline/chatpolicy/` |
+| Event stack wiring | `server/internal/app/` |
 | Plugin Lifecycle Controller | `server/internal/plugins/lifecycle/` |
-| Runtime Registry | `server/internal/plugins/runtime/registry/` |
-| Runtime Manager | `server/internal/plugins/runtime/manager/` |
+| Runtime Registry | `server/internal/plugins/runtime/` |
+| Runtime Manager | `server/internal/plugins/runtime/` |
 | Local Action Service | `server/internal/plugins/actions/` |
-| Adapter | `server/internal/bot/adapter/onebot11/` |
+| Adapter | `server/internal/onebot11/` |
 | Bridge | `server/internal/eventpipeline/bridge/` |
 | Dispatcher | `server/internal/eventpipeline/dispatch/` |
 | Outbound | `server/internal/eventpipeline/outbound/` |
-| Render Service | `server/internal/render/` |
-| Render stack wiring | `server/internal/app/renderstack/` |
+| Render Service | `server/internal/render/service/`、`server/internal/render/repository/` |
+| Render wiring | `server/internal/app/render_wiring.go` |
 | Scheduler | `server/internal/scheduler/` |
 | Storage(SQLite) | `server/internal/storage/`（内置 migration） |
 | sqlc 生成入口 | `server/internal/sqlcgen/`(SQL 源在 `sqlcqueries/`) |
@@ -240,20 +239,20 @@ Local Action Service 是插件访问平台能力的唯一入口，负责声明�
 | Tasks | `server/internal/tasks/` |
 | CLI 子命令 | `server/internal/cli/` |
 | 健康检查 | `server/internal/health/` |
-| 启动恢复 | `server/internal/recovery/`、`server/internal/system/startup/` |
+| 启动恢复 | `server/internal/recovery/`、`server/internal/system/` |
 | 依赖资源解析 | `server/internal/deps/` |
-| 三方账号与三方集成基础 | `server/internal/integrations/thirdparty/`、`server/internal/integrations/qrcode/`、`server/internal/integrations/fingerprint/` |
+| 三方账号与三方集成基础 | `server/internal/integrations/thirdparty/`、`server/internal/integrations/fingerprint/` |
 | Bilibili 登录与账号资料 | `server/internal/integrations/bilibili/` |
 
 插件子系统按职责分布：
 
-- **Plugin Catalog / manifest / discovery**：`server/internal/plugins/`、`server/internal/plugins/catalog/`、`server/internal/plugins/manifest/`、`server/internal/plugins/discovery/`
-- **插件安装、卸载和生命周期**：`server/internal/plugins/install/`、`server/internal/plugins/uninstall/`、`server/internal/plugins/lifecycle/`
-- **插件 desired state 与能力视图**：`server/internal/plugins/repository/`、`server/internal/plugins/capabilityview/`
+- **Plugin Catalog / manifest / discovery**：`server/internal/plugins/`、`server/internal/plugins/catalog/`
+- **插件安装和生命周期**：`server/internal/plugins/lifecycle/`
+- **插件 desired state 与能力视图**：`server/internal/plugins/`
 - **插件 runtime**：`server/internal/plugins/runtime/`
 - **插件 local actions**：`server/internal/plugins/actions/`
-- **插件配置、文件、KV 与 HTTP 能力**：`server/internal/plugins/configstore/`、`server/internal/plugins/filestore/`、`server/internal/plugins/kvstore/`、`server/internal/plugins/httpclient/`
-- **插件管理 UI 与 Webhook**：`server/internal/plugins/managementui/`、`server/internal/plugins/webhook/`
-- **OneBot provider 扩展能力注册**：`server/internal/protocolcap/`
+- **插件配置、文件、KV 与 HTTP 能力**：`server/internal/plugins/pluginstore/`、`server/internal/plugins/actions/`
+- **插件管理 UI 与 Webhook**：`server/internal/management/`、`server/internal/plugins/webhook/`
+- **OneBot provider 扩展能力注册**：`server/internal/plugins/actions/`、`server/internal/onebot11/`
 
 入口位于 `server/cmd/raylea-server/main.go`，根据是否带子命令参数分发到 `cli.Run(...)` 或 `app.New(...).Run(ctx)`。

@@ -14,7 +14,6 @@ import (
 
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/deps"
-	"github.com/RayleaBot/RayleaBot/server/internal/system/startup"
 )
 
 func TestAutoPrepareRuntimeEnvironmentsPreparesStartupManagedRuntimes(t *testing.T) {
@@ -57,15 +56,15 @@ func TestAutoPrepareRuntimeEnvironmentsPreparesStartupManagedRuntimes(t *testing
 		t.Fatalf("unexpected prepared kinds: %#v", preparedKinds)
 	}
 	chromiumState, ok := application.startupRuntimeState("chromium")
-	if !ok || chromiumState.Phase != startupRuntimeReady {
+	if !ok || chromiumState.Phase != StartupRuntimePhaseReady {
 		t.Fatalf("chromium runtime state = %#v, want ready", chromiumState)
 	}
 	pythonState, ok := application.startupRuntimeState("python-runtime")
-	if !ok || pythonState.Phase != startupRuntimeReady {
+	if !ok || pythonState.Phase != StartupRuntimePhaseReady {
 		t.Fatalf("python runtime state = %#v, want ready", pythonState)
 	}
 	nodeState, ok := application.startupRuntimeState("nodejs-runtime")
-	if !ok || nodeState.Phase != startupRuntimeReady {
+	if !ok || nodeState.Phase != StartupRuntimePhaseReady {
 		t.Fatalf("nodejs runtime state = %#v, want ready", nodeState)
 	}
 }
@@ -224,16 +223,16 @@ func TestManagedRuntimeDiagnosticsUsesStartupFailureReason(t *testing.T) {
 	application := newTestAppState(config.Config{}, nil)
 	application.state.repoRoot = repoRoot
 	application.setTestSystem(nil, nil, nil, nil)
-	issue := startup.FailureIssue("python-runtime", &deps.BootstrapError{
+	issue := startupFailureIssue("python-runtime", &deps.BootstrapError{
 		Kind:        "python-runtime",
 		Stage:       "download",
 		Remediation: "请联网准备 Python 运行环境。",
 		Message:     "Python 运行环境归档下载失败",
 		Err:         errors.New("offline"),
 	})
-	application.setStartupRuntimeState("python-runtime", startupRuntimeFailed, &issue)
+	application.setStartupRuntimeState("python-runtime", StartupRuntimePhaseFailed, &issue)
 
-	application.setStartupRuntimeState("nodejs-runtime", startupRuntimeReady, nil)
+	application.setStartupRuntimeState("nodejs-runtime", StartupRuntimePhaseReady, nil)
 
 	issues := application.managedRuntimeDiagnostics(nil)
 	if len(issues) != 1 {
@@ -259,8 +258,8 @@ func TestManagedRuntimeDiagnosticsDoesNotReportPendingStartupRuntime(t *testing.
 	application := newTestAppState(config.Config{}, nil)
 	application.state.repoRoot = repoRoot
 	application.setTestSystem(nil, nil, nil, nil)
-	application.setStartupRuntimeState("python-runtime", startupRuntimePending, nil)
-	application.setStartupRuntimeState("nodejs-runtime", startupRuntimeReady, nil)
+	application.setStartupRuntimeState("python-runtime", StartupRuntimePhasePending, nil)
+	application.setStartupRuntimeState("nodejs-runtime", StartupRuntimePhaseReady, nil)
 
 	if issues := application.managedRuntimeDiagnostics(nil); len(issues) != 0 {
 		t.Fatalf("managedRuntimeDiagnostics returned issues during pending prepare: %#v", issues)

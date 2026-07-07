@@ -2,11 +2,11 @@ package services
 
 import (
 	"context"
-	adapterintake "github.com/RayleaBot/RayleaBot/server/internal/bot/adapter/onebot11/intake"
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/bridge"
 	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/chatpolicy"
 	"github.com/RayleaBot/RayleaBot/server/internal/logging"
+	"github.com/RayleaBot/RayleaBot/server/internal/onebot11"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
 	"log/slog"
@@ -36,7 +36,7 @@ func TestCommandInfoForEventUsesDefaultLevelForOmittedPermission(t *testing.T) {
 		}},
 	}}), nil, nil, nil)
 
-	info := application.commandInfoForEvent(application.enrichCommandEvent(adapterintake.NormalizedEvent{
+	info := application.commandInfoForEvent(application.enrichCommandEvent(onebot11.NormalizedEvent{
 		PlainText: "/weather-admin",
 	}))
 	if info == nil {
@@ -89,8 +89,8 @@ func TestHandleAdapterEventBlocksBlacklistedMessageBeforeBridge(t *testing.T) {
 	application := newTestAppState(config.Config{}, nil)
 	application.setTestEventIngress(nil, repo, nil, bridge.New(slog.Default(), dispatcherClient))
 
-	application.handleAdapterEvent(context.Background(), adapterintake.NormalizedEvent{
-		Kind:             adapterintake.EventKindMessage,
+	application.handleAdapterEvent(context.Background(), onebot11.NormalizedEvent{
+		Kind:             onebot11.EventKindMessage,
 		EventID:          "evt-1",
 		SourceProtocol:   "onebot11",
 		SourceAdapter:    "adapter.onebot11",
@@ -117,8 +117,8 @@ func TestHandleAdapterEventKeepsBlacklistedNonCommandMessageSilent(t *testing.T)
 	application := newTestAppState(config.Config{}, logger)
 	application.setTestEventIngress(nil, repo, nil, bridge.New(logger, dispatcherClient))
 
-	application.handleAdapterEvent(context.Background(), adapterintake.NormalizedEvent{
-		Kind:             adapterintake.EventKindMessage,
+	application.handleAdapterEvent(context.Background(), onebot11.NormalizedEvent{
+		Kind:             onebot11.EventKindMessage,
 		EventID:          "evt-blacklist-silent-1",
 		SourceProtocol:   "onebot11",
 		SourceAdapter:    "adapter.onebot11",
@@ -166,8 +166,8 @@ func TestHandleAdapterEventBlocksCommandWhenNotWhitelistedBeforeBridge(t *testin
 		bridge.New(slog.Default(), dispatcherClient),
 	)
 
-	application.handleAdapterEvent(context.Background(), adapterintake.NormalizedEvent{
-		Kind:             adapterintake.EventKindMessage,
+	application.handleAdapterEvent(context.Background(), onebot11.NormalizedEvent{
+		Kind:             onebot11.EventKindMessage,
 		EventID:          "evt-white-1",
 		SourceProtocol:   "onebot11",
 		SourceAdapter:    "adapter.onebot11",
@@ -213,8 +213,8 @@ func TestHandleAdapterEventLogsWhitelistedCommandRejection(t *testing.T) {
 		bridge.New(logger, dispatcherClient),
 	)
 
-	application.handleAdapterEvent(context.Background(), adapterintake.NormalizedEvent{
-		Kind:             adapterintake.EventKindMessage,
+	application.handleAdapterEvent(context.Background(), onebot11.NormalizedEvent{
+		Kind:             onebot11.EventKindMessage,
 		EventID:          "evt-white-log-1",
 		SourceProtocol:   "onebot11",
 		SourceAdapter:    "adapter.onebot11",
@@ -283,8 +283,8 @@ func TestHandleAdapterEventLogsBlacklistedCommandRejection(t *testing.T) {
 		bridge.New(logger, dispatcherClient),
 	)
 
-	application.handleAdapterEvent(context.Background(), adapterintake.NormalizedEvent{
-		Kind:             adapterintake.EventKindMessage,
+	application.handleAdapterEvent(context.Background(), onebot11.NormalizedEvent{
+		Kind:             onebot11.EventKindMessage,
 		EventID:          "evt-blacklist-log-1",
 		SourceProtocol:   "onebot11",
 		SourceAdapter:    "adapter.onebot11",
@@ -344,8 +344,8 @@ func TestHandleAdapterEventUsesMostStrictMatchingCommandPermission(t *testing.T)
 		},
 	}), nil, nil, bridge.New(slog.Default(), dispatcherClient))
 
-	application.handleAdapterEvent(context.Background(), adapterintake.NormalizedEvent{
-		Kind:             adapterintake.EventKindMessage,
+	application.handleAdapterEvent(context.Background(), onebot11.NormalizedEvent{
+		Kind:             onebot11.EventKindMessage,
 		EventID:          "evt-ops",
 		SourceProtocol:   "onebot11",
 		SourceAdapter:    "adapter.onebot11",
@@ -393,8 +393,8 @@ func TestHandleAdapterEventLogsPermissionDeniedCommandRejection(t *testing.T) {
 		bridge.New(logger, dispatcherClient),
 	)
 
-	application.handleAdapterEvent(context.Background(), adapterintake.NormalizedEvent{
-		Kind:             adapterintake.EventKindMessage,
+	application.handleAdapterEvent(context.Background(), onebot11.NormalizedEvent{
+		Kind:             onebot11.EventKindMessage,
 		EventID:          "evt-permission-log-1",
 		SourceProtocol:   "onebot11",
 		SourceAdapter:    "adapter.onebot11",
@@ -453,8 +453,8 @@ func TestHandleAdapterEventLogsConflictingCommandRejectionWithoutPluginID(t *tes
 		},
 	}), nil, nil, bridge.New(logger, dispatcherClient))
 
-	application.handleAdapterEvent(context.Background(), adapterintake.NormalizedEvent{
-		Kind:             adapterintake.EventKindMessage,
+	application.handleAdapterEvent(context.Background(), onebot11.NormalizedEvent{
+		Kind:             onebot11.EventKindMessage,
 		EventID:          "evt-conflict-log-1",
 		SourceProtocol:   "onebot11",
 		SourceAdapter:    "adapter.onebot11",
@@ -507,8 +507,8 @@ func TestApplyChatPolicySendsCooldownReplyForGroupCommand(t *testing.T) {
 			Permission: "everyone",
 		}},
 	}}), nil, sender, nil)
-	event := adapterintake.NormalizedEvent{
-		Kind:             adapterintake.EventKindMessage,
+	event := onebot11.NormalizedEvent{
+		Kind:             onebot11.EventKindMessage,
 		EventID:          "evt-weather",
 		SourceProtocol:   "onebot11",
 		SourceAdapter:    "adapter.onebot11",

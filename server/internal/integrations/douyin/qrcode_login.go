@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/RayleaBot/RayleaBot/server/internal/integrations/qrcode"
 	"github.com/RayleaBot/RayleaBot/server/internal/integrations/thirdparty"
 	"net/http"
 	"net/url"
@@ -57,26 +56,26 @@ func NewProvider(client *http.Client, browser LoginBrowser) *Provider {
 	return &Provider{client: client, browser: browser}
 }
 
-func (p *Provider) Create(ctx context.Context, now time.Time) (qrcode.LoginSession, error) {
+func (p *Provider) Create(ctx context.Context, now time.Time) (thirdparty.QRLoginSession, error) {
 	if p.browser == nil {
-		return qrcode.LoginSession{}, fmt.Errorf("douyin login requires Chrome/Chromium browser (configure browser_path in config)")
+		return thirdparty.QRLoginSession{}, fmt.Errorf("douyin login requires Chrome/Chromium browser (configure browser_path in config)")
 	}
 	browserCtx, cancel := context.WithTimeout(ctx, douyinBrowserCreateTimeout)
 	defer cancel()
 	session, err := p.createWithBrowser(browserCtx, now)
 	if err != nil {
-		return qrcode.LoginSession{}, fmt.Errorf("douyin browser login failed (Chrome/Chromium required): %w", err)
+		return thirdparty.QRLoginSession{}, fmt.Errorf("douyin browser login failed (Chrome/Chromium required): %w", err)
 	}
 	return session, nil
 }
 
-func (p *Provider) Poll(ctx context.Context, session qrcode.LoginSession, now time.Time) (qrcode.LoginSession, error) {
+func (p *Provider) Poll(ctx context.Context, session thirdparty.QRLoginSession, now time.Time) (thirdparty.QRLoginSession, error) {
 	if p.browser != nil && session.Values["mode"] != douyinHTTPMode {
 		return p.pollWithBrowser(ctx, session)
 	}
 	token := strings.TrimSpace(session.Token)
 	if token == "" {
-		return session, qrcode.ErrLoginSessionNotFound
+		return session, thirdparty.ErrQRLoginSessionNotFound
 	}
 	cookies := thirdparty.CloneStringMap(session.Cookies)
 	followClient := thirdparty.NewHTTPClientFollow(nil)
@@ -87,7 +86,7 @@ func (p *Provider) Poll(ctx context.Context, session qrcode.LoginSession, now ti
 	session.State = result.State
 	session.Cookie = result.Cookie
 	session.Account = thirdparty.AccountProfile{}
-	if result.State == qrcode.StateSucceeded {
+	if result.State == thirdparty.QRLoginStateSucceeded {
 		if profile, err := FetchAccountProfile(ctx, p.client, cookies); err == nil {
 			session.Account = profile
 		}
@@ -96,17 +95,17 @@ func (p *Provider) Poll(ctx context.Context, session qrcode.LoginSession, now ti
 	return session, nil
 }
 
-func (p *Provider) Close(session qrcode.LoginSession) {
+func (p *Provider) Close(session thirdparty.QRLoginSession) {
 	if p.browser == nil || session.Values["mode"] == douyinHTTPMode {
 		return
 	}
 	p.browser.Close(session.Token)
 }
 
-func (p *Provider) createWithBrowser(ctx context.Context, now time.Time) (qrcode.LoginSession, error) {
+func (p *Provider) createWithBrowser(ctx context.Context, now time.Time) (thirdparty.QRLoginSession, error) {
 	result, err := p.browser.Create(ctx, now)
 	if err != nil {
-		return qrcode.LoginSession{}, err
+		return thirdparty.QRLoginSession{}, err
 	}
 	token := strings.TrimSpace(result.Token)
 	qrcodeURL := strings.TrimSpace(result.QRCodeURL)
@@ -114,32 +113,32 @@ func (p *Provider) createWithBrowser(ctx context.Context, now time.Time) (qrcode
 		if token != "" {
 			p.browser.Close(token)
 		}
-		return qrcode.LoginSession{}, fmt.Errorf("douyin qrcode create invalid browser response")
+		return thirdparty.QRLoginSession{}, fmt.Errorf("douyin qrcode create invalid browser response")
 	}
 	expiresAt := result.ExpiresAt
 	if expiresAt.IsZero() || !expiresAt.After(now) {
 		expiresAt = now.Add(3 * time.Minute)
 	}
-	return qrcode.LoginSession{
+	return thirdparty.QRLoginSession{
 		Platform:  thirdparty.PlatformDouyin,
 		Token:     token,
 		QRCodeURL: qrcodeURL,
 		ExpiresAt: expiresAt,
-		State:     qrcode.StatePendingScan,
+		State:     thirdparty.QRLoginStatePendingScan,
 		Cookies:   thirdparty.CloneStringMap(result.Cookies),
 	}, nil
 }
 
-func (p *Provider) pollWithBrowser(ctx context.Context, session qrcode.LoginSession) (qrcode.LoginSession, error) {
+func (p *Provider) pollWithBrowser(ctx context.Context, session thirdparty.QRLoginSession) (thirdparty.QRLoginSession, error) {
 	token := strings.TrimSpace(session.Token)
 	if token == "" {
-		return session, qrcode.ErrLoginSessionNotFound
+		return session, thirdparty.ErrQRLoginSessionNotFound
 	}
 	result, err := p.browser.Poll(ctx, token)
 	if err != nil {
 		return session, err
 	}
-	state := qrcode.NormalizeState(result.State)
+	state := thirdparty.NormalizeQRLoginState(result.State)
 	if state == "" {
 		state = session.State
 	}
@@ -147,7 +146,7 @@ func (p *Provider) pollWithBrowser(ctx context.Context, session qrcode.LoginSess
 	if len(result.Cookies) > 0 {
 		session.Cookies = thirdparty.CloneStringMap(result.Cookies)
 	}
-	if state == qrcode.StateSucceeded {
+	if state == thirdparty.QRLoginStateSucceeded {
 		session.Cookie = thirdparty.FirstNonEmpty(result.Cookie, thirdparty.CookieHeader(session.Cookies))
 		if strings.TrimSpace(session.Cookie) == "" {
 			return session, fmt.Errorf("douyin qrcode login succeeded without cookies")
@@ -205,9 +204,9 @@ func pollDouyinQRCode(ctx context.Context, client *http.Client, now time.Time, t
 	}
 	switch douyinStatus(response.Data.Status) {
 	case "1", "new":
-		return BrowserPollResult{State: qrcode.StatePendingScan, Cookies: thirdparty.CloneStringMap(cookies)}, nil
+		return BrowserPollResult{State: thirdparty.QRLoginStatePendingScan, Cookies: thirdparty.CloneStringMap(cookies)}, nil
 	case "2", "scanned":
-		return BrowserPollResult{State: qrcode.StatePendingConfirm, Cookies: thirdparty.CloneStringMap(cookies)}, nil
+		return BrowserPollResult{State: thirdparty.QRLoginStatePendingConfirm, Cookies: thirdparty.CloneStringMap(cookies)}, nil
 	case "3", "confirmed", "success", "succeeded":
 		if err := followDouyinRedirect(ctx, client, response.Data.RedirectURL, cookies); err != nil {
 			return BrowserPollResult{}, err
@@ -216,12 +215,12 @@ func pollDouyinQRCode(ctx context.Context, client *http.Client, now time.Time, t
 			return BrowserPollResult{}, fmt.Errorf("douyin qrcode login succeeded without login cookie")
 		}
 		return BrowserPollResult{
-			State:   qrcode.StateSucceeded,
+			State:   thirdparty.QRLoginStateSucceeded,
 			Cookie:  thirdparty.CookieHeader(cookies),
 			Cookies: thirdparty.CloneStringMap(cookies),
 		}, nil
 	case "4", "5", "expired", "canceled", "cancelled":
-		return BrowserPollResult{State: qrcode.StateExpired, Cookies: thirdparty.CloneStringMap(cookies)}, nil
+		return BrowserPollResult{State: thirdparty.QRLoginStateExpired, Cookies: thirdparty.CloneStringMap(cookies)}, nil
 	default:
 		return BrowserPollResult{}, fmt.Errorf("douyin qrcode poll status %s", string(response.Data.Status))
 	}

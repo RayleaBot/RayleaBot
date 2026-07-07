@@ -1,64 +1,64 @@
 ---
 name: rayleabot-evidence-scan
-description: Use when RayleaBot tasks require evidence-only investigation, including daily bug scans, measurable performance regression watches, recent PR/review/commit skill recommendations, automation memory updates, or Windows worktree evidence gathering. Prefer concrete repo evidence, measured artifacts, targeted tests, and local Git fallback over guesses, churn-based conclusions, or generic advice.
+description: RayleaBot 任务需要"只看证据"式调查时使用，包括每日 bug 扫描、可度量的性能回归观察、近期 PR/review/commit 的 skill 推荐、automation memory 更新、Windows worktree 证据收集。优先采用具体仓库证据、实测产物、定向测试和本地 Git 回退，而不是猜测、按改动量下结论或泛泛建议。
 ---
 
 # RayleaBot Evidence Scan
 
-This skill preserves the evidence boundary for recurring RayleaBot scans. Repository truth still lives in root/local `AGENTS.md`, `contracts/`, formal docs, tests, fixtures, and current Git state.
+本 skill 维护 RayleaBot 周期性扫描的证据边界。仓库真相仍在根/局部 `AGENTS.md`、`contracts/`、正式文档、测试、fixtures 和当前 Git 状态中。
 
-## Workflow
+## 工作流
 
-1. Read root `AGENTS.md` and any closer local `AGENTS.md` for the touched area.
-2. Classify the task:
-   - `bug-scan`: recent commit or diff review for concrete bugs
-   - `performance-watch`: measurable regression check
-   - `skill-recommendation`: next skill or learning recommendation from recent work
-   - `automation-memory`: memory update for an automation result
-3. Gather the smallest evidence set that can answer the task:
-   - recent commits, diff, changed files, and ownership boundaries
-   - targeted test, build, typecheck, CI, or `git diff --check` output
-   - contract, generated type, fixture, example, or doc drift
-   - benchmark, trace, profile, timing, or Web Vitals artifacts
-4. Report only what the evidence supports.
-5. If evidence is missing, state the uncertainty briefly and name the next measurement or check that would resolve it.
+1. 读取根 `AGENTS.md` 和触及区域更近的局部 `AGENTS.md`。
+2. 对任务分类：
+   - `bug-scan`：审查近期 commit 或 diff，寻找具体 bug
+   - `performance-watch`：检查可度量的性能回归
+   - `skill-recommendation`：从近期工作中推荐下一个 skill 或学习方向
+   - `automation-memory`：为 automation 结果更新 memory
+3. 收集能回答任务的最小证据集：
+   - 近期 commit、diff、变更文件与归属边界
+   - 定向测试、构建、typecheck、CI 或 `git diff --check` 输出
+   - contract、generated type、fixture、example 或文档漂移
+   - benchmark、trace、profile、计时或 Web Vitals 产物
+4. 只报告证据支持的结论。
+5. 证据缺失时，简要说明不确定性，并指出能消除它的下一个测量或检查。
 
-## Bug Scans
+## Bug 扫描
 
-- Report a bug only when there is concrete evidence: failing command output, compile/typecheck error, test failure, invalid diff, contract drift, or a directly traceable logic regression.
-- Prefer the smallest safe fix when implementation is requested.
-- Stop at `no concrete bug found` when targeted evidence does not support a bug.
-- Do not infer bugs from churn, file count, commit titles, broad risk, or unfamiliar code.
+- 只有存在具体证据时才报告 bug：失败的命令输出、编译/typecheck 错误、测试失败、无效 diff、contract 漂移或可直接追溯的逻辑回归。
+- 被要求修复时，优先最小安全修复。
+- 定向证据不支持 bug 时，以"未发现具体 bug"收尾。
+- 不从改动量、文件数、commit 标题、宽泛风险或陌生代码推断 bug。
 
-## Performance Watches
+## 性能观察
 
-- Treat these as measurement tasks, not code-shape reviews.
-- Search for measured artifacts such as `Benchmark`, `benchstat`, `ns/op`, `allocs/op`, `trace`, `pprof`, `profile`, `flamegraph`, `Lighthouse`, `performance.mark`, `performance.measure`, `console.time`, `PerformanceObserver`, `Web Vitals`, CPU profile, heap profile, and timing logs.
-- If no measured artifacts are found, write `No measurements found`.
-- A local one-off benchmark can be described only as an early signal unless it is an established comparable baseline.
-- Do not convert diff size, UI complexity, commit names, or one-line changes into a performance verdict.
+- 视为测量任务，不是代码形态审查。
+- 搜索实测产物：`Benchmark`、`benchstat`、`ns/op`、`allocs/op`、`trace`、`pprof`、`profile`、`flamegraph`、`Lighthouse`、`performance.mark`、`performance.measure`、`console.time`、`PerformanceObserver`、`Web Vitals`、CPU profile、heap profile、计时日志。
+- 找不到实测产物时，写 `No measurements found`。
+- 本地一次性 benchmark 只能描述为早期信号，除非它已是可比较的既定基线。
+- 不把 diff 大小、UI 复杂度、commit 名称或单行修改换算成性能结论。
 
-## Skill Recommendations
+## Skill 推荐
 
-- Anchor each recommendation to concrete evidence from PR themes, review comments, commit clusters, touched paths, failures, or recurring fixes.
-- If GitHub API or `gh pr list` is blocked by `connectex` or network policy, use local Git history and touched-file clustering instead.
-- Avoid generic advice. Each recommendation must name the repeated work pattern and the skill that would reduce it.
+- 每条推荐都锚定具体证据：PR 主题、review 评论、commit 聚类、触及路径、失败或重复修复。
+- GitHub API 或 `gh pr list` 被 `connectex` 或网络策略阻断时，改用本地 Git 历史和触及文件聚类。
+- 不给泛泛建议。每条推荐都必须点名重复出现的工作模式和能减少它的 skill。
 
 ## Automation Memory
 
-- Use explicit paths under `<user-home>\.codex\automations\<automation-name>\memory.md`.
-- Do not rely on `$CODEX_HOME` or `$env:CODEX_HOME` in this Windows environment.
-- Keep memory entries aligned with the user-facing conclusion and the evidence that supports it.
+- 使用显式路径 `<user-home>\.codex\automations\<automation-name>\memory.md`。
+- 本 Windows 环境不依赖 `$CODEX_HOME` 或 `$env:CODEX_HOME`。
+- memory 条目与面向用户的结论及其支撑证据保持一致。
 
-## Windows Worktrees
+## Windows Worktree
 
-- If read-only Git commands hit dubious ownership, use `git -c safe.directory=<repo> ...`.
-- Do not change global Git config for temporary scans.
-- If a verified fix from a scan worktree must be committed to `main`, keep unrelated dirty changes out of the commit.
+- 只读 Git 命令遇到 dubious ownership 时，使用 `git -c safe.directory=<repo> ...`。
+- 不为临时扫描修改全局 Git 配置。
+- 扫描 worktree 中已验证的修复要提交到 `main` 时，把无关的脏改动排除在 commit 之外。
 
-## Output
+## 输出
 
-- Lead with the conclusion.
-- Include the actual reason and verification result.
-- Use `No measurements found` exactly for missing performance measurements.
-- Do not include speculation, generic risk language, or process narration.
+- 结论先行。
+- 给出真实原因和验证结果。
+- 性能测量缺失时，原样使用 `No measurements found`。
+- 不包含推测、泛泛的风险话术或过程叙述。

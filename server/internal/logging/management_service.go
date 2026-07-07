@@ -15,15 +15,8 @@ func NewManagementService(stream *Stream, repository Repository) *ManagementServ
 	return &ManagementService{stream: stream, repository: repository}
 }
 
-func (s *ManagementService) SetRepository(repository Repository) {
-	if s == nil {
-		return
-	}
-	s.repository = repository
-}
-
 func (s *ManagementService) CurrentBootID() string {
-	if s == nil || s.stream == nil {
+	if s.stream == nil {
 		return ""
 	}
 	return s.stream.BootID()
@@ -49,7 +42,7 @@ func (s *ManagementService) GetLogSummary(ctx context.Context, logID string) (Su
 		return item, nil
 	}
 
-	if s == nil || s.stream == nil {
+	if s.stream == nil {
 		return Summary{}, ErrLogNotFound
 	}
 
@@ -57,7 +50,7 @@ func (s *ManagementService) GetLogSummary(ctx context.Context, logID string) (Su
 }
 
 func (s *ManagementService) findStreamLogSummary(logID string) (Summary, bool) {
-	if s == nil || s.stream == nil || logID == "" {
+	if s.stream == nil || logID == "" {
 		return Summary{}, false
 	}
 
@@ -76,7 +69,7 @@ func (s *ManagementService) listLogSummaries(ctx context.Context, query Query) (
 	}
 
 	items := make([]Summary, 0)
-	if s == nil || s.stream == nil {
+	if s.stream == nil {
 		return items, nil
 	}
 	for _, summary := range s.stream.Snapshot() {
@@ -147,9 +140,6 @@ func (s *ManagementService) ListLogPage(ctx context.Context, query PageQuery) (P
 }
 
 func (s *ManagementService) Replay(ctx context.Context) []Summary {
-	if s == nil {
-		return nil
-	}
 	limit := 32
 	if s.stream != nil && s.stream.Limit() > 0 {
 		limit = s.stream.Limit()
@@ -165,14 +155,14 @@ func (s *ManagementService) Replay(ctx context.Context) []Summary {
 }
 
 func (s *ManagementService) Snapshot() []Summary {
-	if s == nil || s.stream == nil {
+	if s.stream == nil {
 		return nil
 	}
 	return s.stream.Snapshot()
 }
 
 func (s *ManagementService) Subscribe(buffer int) (<-chan Summary, func()) {
-	if s == nil || s.stream == nil {
+	if s.stream == nil {
 		ch := make(chan Summary)
 		close(ch)
 		return ch, func() {}

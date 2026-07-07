@@ -6,7 +6,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"github.com/RayleaBot/RayleaBot/server/internal/integrations/qrcode"
 	"github.com/RayleaBot/RayleaBot/server/internal/integrations/thirdparty"
 	"net/http"
 	"net/url"
@@ -49,7 +48,7 @@ func (p *Provider) ensureDeviceID() string {
 // Create initiates a NetEase Music QR code login session.
 // The flow mirrors the official web client: first visit the home page to
 // obtain __csrf and other session cookies, then call the unikey WEAPI.
-func (p *Provider) Create(ctx context.Context, now time.Time) (qrcode.LoginSession, error) {
+func (p *Provider) Create(ctx context.Context, now time.Time) (thirdparty.QRLoginSession, error) {
 	deviceID := p.ensureDeviceID()
 	// Complete tracking cookies matching the official web client fingerprint.
 	// Reference: gmg137/netease-cloud-music-gtk (Rust, actively maintained 2025).
@@ -84,34 +83,34 @@ func (p *Provider) Create(ctx context.Context, now time.Time) (qrcode.LoginSessi
 		"csrf_token": csrf,
 	})
 	if err != nil {
-		return qrcode.LoginSession{}, err
+		return thirdparty.QRLoginSession{}, err
 	}
 	unikeyURL := "https://music.163.com/weapi/login/qrcode/unikey?csrf_token=" + url.QueryEscape(csrf)
 	if _, err := thirdparty.PostFormJSON(ctx, p.client, unikeyURL, form, neteaseHeaders(), cookies, &response); err != nil {
-		return qrcode.LoginSession{}, err
+		return thirdparty.QRLoginSession{}, err
 	}
 	if response.Code != 200 || strings.TrimSpace(response.UniKey) == "" {
-		return qrcode.LoginSession{}, fmt.Errorf("netease music qrcode create code %d", response.Code)
+		return thirdparty.QRLoginSession{}, fmt.Errorf("netease music qrcode create code %d", response.Code)
 	}
 	key := strings.TrimSpace(response.UniKey)
 	qrcodeURL := "https://music.163.com/login?" + url.Values{
 		"codekey": {key},
 		"chainId": {neteaseChainID(deviceID, now)},
 	}.Encode()
-	return qrcode.LoginSession{
+	return thirdparty.QRLoginSession{
 		Platform:  thirdparty.PlatformNeteaseMusic,
 		Token:     key,
 		QRCodeURL: qrcodeURL,
 		ExpiresAt: now.Add(3 * time.Minute),
-		State:     qrcode.StatePendingScan,
+		State:     thirdparty.QRLoginStatePendingScan,
 		Cookies:   cookies,
 	}, nil
 }
 
-func (p *Provider) Poll(ctx context.Context, session qrcode.LoginSession, _ time.Time) (qrcode.LoginSession, error) {
+func (p *Provider) Poll(ctx context.Context, session thirdparty.QRLoginSession, _ time.Time) (thirdparty.QRLoginSession, error) {
 	key := strings.TrimSpace(session.Token)
 	if key == "" {
-		return session, qrcode.ErrLoginSessionNotFound
+		return session, thirdparty.ErrQRLoginSessionNotFound
 	}
 	cookies := thirdparty.CloneStringMap(session.Cookies)
 	if strings.TrimSpace(cookies["os"]) == "" {
@@ -132,14 +131,14 @@ func (p *Provider) Poll(ctx context.Context, session qrcode.LoginSession, _ time
 	}
 	switch response.Code {
 	case 801:
-		session.State = qrcode.StatePendingScan
+		session.State = thirdparty.QRLoginStatePendingScan
 	case 802:
-		session.State = qrcode.StatePendingConfirm
+		session.State = thirdparty.QRLoginStatePendingConfirm
 		if profile := neteaseProfile(response); !thirdparty.AccountProfileEmpty(profile) {
 			session.Account = profile
 		}
 	case 803:
-		session.State = qrcode.StateSucceeded
+		session.State = thirdparty.QRLoginStateSucceeded
 		for key, value := range thirdparty.CookieMapFromHeader(response.Cookie) {
 			cookies[key] = value
 		}
@@ -158,7 +157,7 @@ func (p *Provider) Poll(ctx context.Context, session qrcode.LoginSession, _ time
 		}
 		session.Account = profile
 	case 800:
-		session.State = qrcode.StateExpired
+		session.State = thirdparty.QRLoginStateExpired
 	default:
 		return session, fmt.Errorf("netease music qrcode poll code %d: %s", response.Code, strings.TrimSpace(response.Message))
 	}

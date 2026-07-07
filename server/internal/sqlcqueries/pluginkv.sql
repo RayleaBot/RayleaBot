@@ -19,4 +19,4 @@ ON CONFLICT(plugin_id, key) DO UPDATE SET
 DELETE FROM plugin_kv WHERE plugin_id = ? AND key = ?;
 
 -- ListKVKeys uses ESCAPE clause not supported by sqlc's SQLite parser.
--- Kept as hand-written SQL in pluginkv/repository.go.
+-- Kept as hand-written SQL in pluginstore/kv.go.

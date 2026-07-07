@@ -12,7 +12,6 @@ import (
 	"testing"
 	"time"
 
-	renderbrowser "github.com/RayleaBot/RayleaBot/server/internal/render/browser"
 	"github.com/RayleaBot/RayleaBot/server/internal/storage"
 )
 
@@ -26,10 +25,10 @@ type fakeRunner struct {
 	waitCh  chan struct{}
 	content []byte
 	err     error
-	docs    []renderbrowser.Document
+	docs    []Document
 }
 
-func (f *fakeRunner) Render(ctx context.Context, doc renderbrowser.Document) ([]byte, error) {
+func (f *fakeRunner) Render(ctx context.Context, doc Document) ([]byte, error) {
 	f.mu.Lock()
 	f.calls++
 	f.docs = append(f.docs, doc)
@@ -73,11 +72,11 @@ func (f *fakeRunner) callCount() int {
 	return f.calls
 }
 
-func (f *fakeRunner) lastDocument() (renderbrowser.Document, bool) {
+func (f *fakeRunner) lastDocument() (Document, bool) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	if len(f.docs) == 0 {
-		return renderbrowser.Document{}, false
+		return Document{}, false
 	}
 	return f.docs[len(f.docs)-1], true
 }
@@ -150,7 +149,7 @@ func writeRenderTemplateSeed(t *testing.T, templatesRoot, templateID string) {
 	}
 }
 
-func openPersistentRenderService(t *testing.T, repoRoot, dbPath, outputRoot string, runner renderbrowser.Runner) (*Service, func()) {
+func openPersistentRenderService(t *testing.T, repoRoot, dbPath, outputRoot string, runner Runner) (*Service, func()) {
 	t.Helper()
 
 	store, err := storage.Open(dbPath)

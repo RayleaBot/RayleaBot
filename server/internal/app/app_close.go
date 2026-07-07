@@ -63,7 +63,7 @@ func (a *App) Close() error {
 }
 
 func (a *App) stopRuntimeManagers(timeout time.Duration) error {
-	if a == nil || a.runtimes == nil {
+	if a.runtimes == nil {
 		return nil
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
@@ -75,7 +75,7 @@ func (a *App) stopRuntimeManagers(timeout time.Duration) error {
 }
 
 func (a *App) stopAdapter(timeout time.Duration) error {
-	if a == nil || a.eventStack.Adapter == nil {
+	if a.eventStack.Adapter == nil {
 		return nil
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
@@ -87,7 +87,7 @@ func (a *App) stopAdapter(timeout time.Duration) error {
 }
 
 func (a *App) shutdownHTTPServer(timeout time.Duration) error {
-	if a == nil || a.process.server == nil {
+	if a.process.server == nil {
 		return nil
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)

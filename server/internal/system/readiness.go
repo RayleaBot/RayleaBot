@@ -8,24 +8,6 @@ import (
 )
 
 func (s *Service) CurrentReadiness() health.ReadinessReport {
-	if s == nil {
-		return normalizeReadinessReport(health.ReadinessReport{
-			Status: "failed",
-			Reason: "Management application is unavailable",
-			Checks: map[string]string{
-				"config": "unknown", "database": "unknown", "runtime": "unknown", "render": "unknown",
-			},
-			Issues: []health.DiagnosticIssue{
-				{
-					Code:        "management.unavailable",
-					Severity:    "error",
-					Summary:     "Management application is unavailable",
-					Remediation: "请检查服务进程是否已正确启动。",
-				},
-			},
-			RecoverySummary: nil,
-		})
-	}
 	if s.auth == nil {
 		return normalizeReadinessReport(health.ReadinessReport{
 			Status: "failed",

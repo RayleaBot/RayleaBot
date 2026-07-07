@@ -4,13 +4,10 @@ import (
 	"strings"
 	"time"
 
-	adapterintake "github.com/RayleaBot/RayleaBot/server/internal/bot/adapter/onebot11/intake"
+	"github.com/RayleaBot/RayleaBot/server/internal/onebot11"
 )
 
 func (b *Bridge) PublishDispatcherRuntime(data DispatcherRuntimeData) {
-	if b == nil {
-		return
-	}
 	if strings.TrimSpace(data.ObservabilityScope) == "" {
 		data.ObservabilityScope = observabilityScopeDispatcher
 	}
@@ -20,17 +17,39 @@ func (b *Bridge) PublishDispatcherRuntime(data DispatcherRuntimeData) {
 		Timestamp: time.Now().UTC().Format(time.RFC3339),
 		Data:      data,
 	}
-	b.mu.RLock()
-	defer b.mu.RUnlock()
-	for _, subscriber := range b.subscribers {
-		emitObservabilityFrame(subscriber, frame)
-	}
+	b.hub.PublishReplace(frame)
+}
+
+func (b *Bridge) SubscribeObservability(buffer int) (<-chan ObservabilityFrame, func()) {
+	return b.hub.Subscribe(buffer)
+}
+
+func (b *Bridge) ObservabilitySubscriberCount() int {
+	return b.hub.SubscriberCount()
+}
+
+func (b *Bridge) SetAdapterStatsSource(source AdapterDedupStats) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	b.adapterStats = source
+}
+
+func (b *Bridge) SetDispatcherStatsSource(source DispatcherStatsSnapshot) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	b.dispatcherStats = source
+}
+
+func (b *Bridge) SetMetricsObserver(observer MetricsObserver) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	b.metrics = observer
 }
 
 func (b *Bridge) emitObservabilityLocked(observedAt time.Time, outcome Outcome) {
 	lastKind := b.snapshot.LastEventKind
 	if lastKind == "" {
-		lastKind = adapterintake.EventKindMessageText
+		lastKind = onebot11.EventKindMessageText
 	}
 	data := ObservabilityData{
 		ObservabilityScope:  observabilityScopeBridge,
@@ -58,7 +77,5 @@ func (b *Bridge) emitObservabilityLocked(observedAt time.Time, outcome Outcome) 
 		Data:      data,
 	}
 
-	for _, subscriber := range b.subscribers {
-		emitObservabilityFrame(subscriber, frame)
-	}
+	b.hub.PublishReplace(frame)
 }

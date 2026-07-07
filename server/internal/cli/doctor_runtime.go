@@ -7,15 +7,14 @@ import (
 )
 
 func runtimeMetadataIssue(
-	manifest *depsManifest,
+	manifest *deps.Manifest,
 	platform string,
 	kind string,
 	label string,
 	okCode string,
 	incompleteCode string,
 ) DoctorIssue {
-	resource := manifest.findResource(platform, kind)
-	if manifestResourceMetadataComplete(resource) {
+	if deps.ResourceMetadataComplete(manifest.FindResource(platform, kind)) {
 		return DoctorIssue{
 			Code:     okCode,
 			Severity: "ok",

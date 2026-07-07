@@ -5,17 +5,16 @@ import (
 	"strings"
 	"time"
 
-	adapterintake "github.com/RayleaBot/RayleaBot/server/internal/bot/adapter/onebot11/intake"
-	adapteroutbound "github.com/RayleaBot/RayleaBot/server/internal/bot/adapter/onebot11/outbound"
 	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/outbound"
+	"github.com/RayleaBot/RayleaBot/server/internal/onebot11"
 )
 
 const (
 	CooldownReplyText = "命令触发冷却，请稍后再试。"
 )
 
-func (s *Service) sendCooldownReply(ctx context.Context, event adapterintake.NormalizedEvent) {
-	if s == nil || s.outboundSender == nil {
+func (s *Service) sendCooldownReply(ctx context.Context, event onebot11.NormalizedEvent) {
+	if s.outboundSender == nil {
 		return
 	}
 	if ctx == nil {
@@ -31,7 +30,7 @@ func (s *Service) sendCooldownReply(ctx context.Context, event adapterintake.Nor
 	switch strings.TrimSpace(event.ConversationType) {
 	case "group":
 		if messageID := strings.TrimSpace(event.MessageID); messageID != "" {
-			segments := []adapteroutbound.OutboundMessageSegment{{
+			segments := []onebot11.OutboundMessageSegment{{
 				Type: "text",
 				Data: map[string]any{"text": CooldownReplyText},
 			}}
@@ -54,7 +53,7 @@ func (s *Service) sendCooldownReply(ctx context.Context, event adapterintake.Nor
 				break
 			}
 			sendCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
-			sendResult, sendErr := s.outboundSender.SendReply(sendCtx, adapteroutbound.OutboundMessageReply{
+			sendResult, sendErr := s.outboundSender.SendReply(sendCtx, onebot11.OutboundMessageReply{
 				TargetType:       "group",
 				TargetID:         strings.TrimSpace(event.ConversationID),
 				ReplyToMessageID: messageID,
@@ -68,7 +67,7 @@ func (s *Service) sendCooldownReply(ctx context.Context, event adapterintake.Nor
 		fallthrough
 	case "private":
 		if targetID := strings.TrimSpace(event.ConversationID); targetID != "" {
-			segments := []adapteroutbound.OutboundMessageSegment{{
+			segments := []onebot11.OutboundMessageSegment{{
 				Type: "text",
 				Data: map[string]any{"text": CooldownReplyText},
 			}}
@@ -91,7 +90,7 @@ func (s *Service) sendCooldownReply(ctx context.Context, event adapterintake.Nor
 				break
 			}
 			sendCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
-			sendResult, sendErr := s.outboundSender.SendMessage(sendCtx, adapteroutbound.OutboundMessageSend{
+			sendResult, sendErr := s.outboundSender.SendMessage(sendCtx, onebot11.OutboundMessageSend{
 				TargetType: strings.TrimSpace(event.ConversationType),
 				TargetID:   targetID,
 				Segments:   segments,
@@ -112,13 +111,13 @@ func (s *Service) sendCooldownReply(ctx context.Context, event adapterintake.Nor
 }
 
 func (s *Service) waitOutboundLimit(ctx context.Context, request outbound.MessageLimitRequest) error {
-	if s == nil || s.outboundLimiter == nil {
+	if s.outboundLimiter == nil {
 		return nil
 	}
 	return s.outboundLimiter.Wait(ctx, request)
 }
 
-func buildCooldownTargetLabel(ctx context.Context, event adapterintake.NormalizedEvent, sender OutboundSender) string {
+func buildCooldownTargetLabel(ctx context.Context, event onebot11.NormalizedEvent, sender OutboundSender) string {
 	targetType := strings.TrimSpace(event.ConversationType)
 	targetID := strings.TrimSpace(event.ConversationID)
 	targetName := ""

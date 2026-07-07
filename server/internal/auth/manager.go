@@ -16,6 +16,13 @@ var (
 	ErrSessionLimitReached = errors.New("maximum active sessions reached")
 )
 
+func normalizeContext(ctx context.Context) context.Context {
+	if ctx == nil {
+		return context.Background()
+	}
+	return ctx
+}
+
 type Config struct {
 	SessionTTLDays int
 	SlidingRenewal bool
@@ -155,4 +162,154 @@ func NewManagerWithContext(ctx context.Context, cfg Config, opts ...Option) (*Ma
 	}
 
 	return manager, nil
+}
+
+func (m *Manager) hydrate(ctx context.Context) error {
+	state, err := m.repo.LoadBootstrap(ctx)
+	if err != nil {
+		return fmt.Errorf("load bootstrap state: %w", err)
+	}
+	if state != nil {
+		m.bootstrap = &bootstrapCredentials{
+			Identifier:    state.Identifier,
+			SecretDigest:  append([]byte(nil), state.SecretDigest...),
+			InitializedAt: state.InitializedAt.UTC(),
+		}
+		m.signingKey = append([]byte(nil), state.SigningKey...)
+	}
+
+	sessions, err := m.repo.LoadSessions(ctx)
+	if err != nil {
+		return fmt.Errorf("load admin sessions: %w", err)
+	}
+
+	now := m.now().UTC()
+	var expired []string
+	for _, claims := range sessions {
+		claims.IssuedAt = canonicalSessionTimestamp(claims.IssuedAt)
+		claims.ExpiresAt = canonicalSessionTimestamp(claims.ExpiresAt)
+		if now.Before(claims.ExpiresAt) {
+			m.sessions[claims.SessionID] = claims
+			continue
+		}
+		expired = append(expired, claims.SessionID)
+	}
+	if err := m.deleteSessionsLocked(ctx, expired...); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (m *Manager) saveSessionLocked(ctx context.Context, claims Claims) error {
+	if m.repo == nil {
+		return nil
+	}
+
+	if err := m.repo.SaveSession(ctx, claims); err != nil {
+		return fmt.Errorf("persist admin session: %w", err)
+	}
+
+	return nil
+}
+
+func (m *Manager) deleteSessionsLocked(ctx context.Context, sessionIDs ...string) error {
+	if m.repo == nil || len(sessionIDs) == 0 {
+		return nil
+	}
+
+	if err := m.repo.DeleteSessions(ctx, sessionIDs); err != nil {
+		return fmt.Errorf("delete persisted sessions: %w", err)
+	}
+
+	return nil
+}
+
+type LoginFailureRecorder interface {
+	IsLimited(string, int, time.Duration) bool
+	RecordFailure(string, int, time.Duration)
+	Reset(string)
+}
+
+type LoginFailureTracker struct {
+	now func() time.Time
+
+	mu      sync.Mutex
+	entries map[string][]time.Time
+}
+
+func NewLoginFailureTracker(now func() time.Time) *LoginFailureTracker {
+	if now == nil {
+		now = time.Now
+	}
+	return &LoginFailureTracker{
+		now:     now,
+		entries: make(map[string][]time.Time),
+	}
+}
+
+func (t *LoginFailureTracker) IsLimited(source string, limit int, window time.Duration) bool {
+	if !loginFailureTrackingEnabled(source, limit, window) {
+		return false
+	}
+
+	t.mu.Lock()
+	defer t.mu.Unlock()
+
+	entries := t.prunedLocked(source, window)
+	return len(entries) >= limit
+}
+
+func (t *LoginFailureTracker) RecordFailure(source string, limit int, window time.Duration) {
+	if !loginFailureTrackingEnabled(source, limit, window) {
+		return
+	}
+
+	t.mu.Lock()
+	defer t.mu.Unlock()
+
+	entries := append(t.prunedLocked(source, window), t.now().UTC())
+	t.entries[source] = entries
+}
+
+func (t *LoginFailureTracker) Reset(source string) {
+	if source == "" {
+		return
+	}
+
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	delete(t.entries, source)
+}
+
+func (t *LoginFailureTracker) prunedLocked(source string, window time.Duration) []time.Time {
+	if source == "" {
+		return nil
+	}
+
+	entries := t.entries[source]
+	if len(entries) == 0 {
+		delete(t.entries, source)
+		return nil
+	}
+
+	cutoff := t.now().UTC().Add(-window)
+	filtered := entries[:0]
+	for _, entry := range entries {
+		if !entry.Before(cutoff) {
+			filtered = append(filtered, entry)
+		}
+	}
+
+	if len(filtered) == 0 {
+		delete(t.entries, source)
+		return nil
+	}
+
+	t.entries[source] = filtered
+	return filtered
+}
+
+func loginFailureTrackingEnabled(source string, limit int, window time.Duration) bool {
+	return source != "" && limit > 0 && window > 0
 }

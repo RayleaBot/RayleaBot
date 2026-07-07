@@ -1,59 +1,59 @@
 ---
 name: editing-final-state-content
-description: Use when editing documentation, code comments, or user-facing copy in this repo to keep text in final-state form and remove change-trace wording, stage labels, and unnecessary design, technical, or intent explanations.
+description: 编辑本仓库的文档、代码注释或用户可见文案时使用，让文本保持最终态成稿，删除改动痕迹措辞、阶段标签和不必要的设计、技术或用意说明。
 ---
 
 # Editing Final-State Content
 
-This skill is a reusable workflow. Repository truth still lives in root/local `AGENTS.md`, `contracts/`, and the formal docs they reference.
+本 skill 是可复用工作流。仓库真相仍在根/局部 `AGENTS.md`、`contracts/` 及其引用的正式文档中。
 
-## Use This Skill When
+## 适用场景
 
 - 任务会修改 `docs/`、`AGENTS.md`、README、代码注释、错误文案、按钮标签、空态文案、提示文案或其他用户可见文本
 - 你准备解释界面行为、接口消费顺序、内部实现顺序、数据流拼接顺序或设计用意
 - 你不确定一段文字是否泄露了编辑过程、实现过程或阶段性口径
 
-## Workflow
+## 工作流
 
 1. 只写最终态成稿，让文本看起来从一开始就是当前版本。
 2. 只保留读者完成当前任务必须知道的事实、约束、操作和结果。
 3. 删除编辑痕迹、迁移叙事、阶段标签、实现顺序说明和无直接用途的设计说明。
 4. 提交前逐段重读，确认每句话都服务于读者当前要看到的最终内容。
 
-## Keep
+## 保留
 
 - 稳定事实：能力、限制、参数、路径、前置条件、结果
 - 对读者有直接作用的操作说明
 - 为避免误用或歧义而必须保留的最小技术事实
 
-## Remove
+## 删除
 
 - 编辑痕迹：`不再`、`已改为`、`已移到`、`前后对比`、`不会再`、`这里改成`、`原来`、`之前`、`现改为`
 - 开发态标签：`阶段1`、`第一步`、`phase 1` 等阶段或步骤叙事，除非当前文档本身就是变更记录、迁移说明或发布说明
 - 不必要的设计说明、技术说明、用意说明
 - 通过“先……再……”解释实现顺序、拉流顺序或接口拼接顺序的句子，除非缺少它会直接导致使用错误
 
-## Rewrite Direction
+## 改写方向
 
 - 把“如何改过来的”改成“现在是什么”
 - 把“内部怎么串起来”改成“读者要做什么”或“读者会看到什么”
 - 把“作者为什么这样设计”改成“读者必须知道的约束”
 
-## Red Flags
+## 警示信号
 
 - 句子在解释修改过程，而不是交付内容
 - 句子在解释内部实现顺序，而不是外部行为
 - 句子删掉之后，读者依然能正确使用内容
 - 句子读起来像评审说明、设计说明、提交说明或口头补充
 
-## Bad Patterns
+## 反例
 
 - `列表先读 HTTP，再吃 \`/ws/tasks\` 增量更新。`
 - `先回放 \`/api/logs\`，再接 \`/ws/logs\` 追加。`
 - `这里改成统一入口。`
 - `之前使用旧字段。`
 
-## Final Check
+## 最终检查
 
 - 扫描禁用措辞与阶段词
 - 逐段删除对最终读者没有直接价值的解释
