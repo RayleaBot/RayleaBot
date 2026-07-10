@@ -1,299 +1,81 @@
 # RayleaBot Launcher Design System
 
-本设计系统服务于 `launcher/` 的 Electron 桌面启动器界面，基于 Fluent 2 设计语言与 Fluent UI React v9 组件库建立现代前端 Web 风格，支持亮/暗双色主题。
+本规范服务于 `launcher/` 的 Electron 桌面启动器。项目级视觉语义以根目录 [`DESIGN.md`](../../DESIGN.md) 为准；Launcher 继续使用 React 18、Fluent UI React v9 和现有 main、preload、renderer 分层。
 
-## 设计原则
+## 产品职责
 
-- 启动器是本地服务壳和 Web 入口，不做大屏展示面板。
-- 视觉层级以信息效率优先，使用实色表面、清晰边框和足够的留白。
-- 主操作必须唯一突出；危险操作明确标识；工具操作统一降级。
-- 组件样式优先通过 Fluent UI React v9 tokens 和全局 CSS 变量复用，不在页面中散落硬编码颜色与间距。
-- 亮/暗主题切换必须即时生效，所有自定义表面与 Fluent 组件同步响应。
+- Launcher 是本机服务壳、环境预检入口和 Web 管理面入口，不复制 Web 的业务页面或服务端状态机。
+- 界面优先回答服务是否可用、是否需要人工处理、当前可以执行什么操作。
+- 主操作保持唯一突出；停止、重置和退出等危险操作使用危险语义；工具操作保持低权重。
+- 系统诊断、恢复和运行环境状态直接展示正式服务结果，不从日志文本推断状态。
 
-## 设计决策
+## 主题与 token 映射
 
-### 为什么用 Fluent UI React v9
+Launcher 支持 `system`、`light` 和 `dark`，首次显示跟随系统。`FluentProvider` 与自定义 CSS variables 必须使用同一有效主题，窗口背景、原生控件和自定义表面保持一致。
 
-- 启动器渲染层使用 React 18，与 Web 管理面分离但保持现代前端风格对齐。
-- Fluent UI React v9 提供 `FluentProvider` + `webLightTheme` / `webDarkTheme`，原生支持双色主题。
-- 组件涵盖启动器所需的按钮、单选组、输入框、标签、导航，无需第三方 UI 库。
+| 产品语义 | Fluent / Launcher 角色 | 浅色 token | 暗色 token |
+| --- | --- | --- | --- |
+| 窗口画布 | 页面与窗口背景 | `light-canvas` | `dark-canvas` |
+| 内容表面 | Fluent surface 与独立面板 | `light-surface` | `dark-surface` |
+| 抬升表面 | Dialog、Popover、浮动确认 | `light-surface` | `dark-surface-raised` |
+| 主文本 | `colorNeutralForeground1` | `light-text` | `dark-text` |
+| 次文本 | `colorNeutralForeground2` | `light-text-muted` | `dark-text-muted` |
+| 边界 | `colorNeutralStroke1` | `light-border` | `dark-border` |
+| 主操作与选择 | 品牌色、焦点、当前导航 | `light-cool-action` | `cool-signature` |
+| 人工关注 | 本地 attention token | `light-warm-attention` | `warm-signature` |
+| 状态 | Fluent semantic colors | 浅色语义 tokens | 暗色语义 tokens |
 
-### 全局 CSS 策略
+人工关注色只标记需要操作者判断或确认的事项，不替代 warning、danger 或普通 primary action。
 
-启动器的全局 CSS（`style.css`）定义了实色背景、布局网格和非 Fluent 元素的样式（如 `.app-shell`、`.shell-sidebar`、`.hero-card`、`.panel`）。Fluent UI React v9 的 CSS-in-JS 机制负责组件级样式，CSS 变量提供主题色板和间距系统的引用点。
+## 桌面壳结构
 
-主题切换通过 `data-theme="light"` / `data-theme="dark"` 驱动 CSS 变量变更，同时向 `FluentProvider` 传入对应主题对象，保证自定义表面与 Fluent 组件步调一致。
+- 顶部拖动区负责窗口标题与原生窗口控制，不承载页面主操作。
+- 宽窗口使用 `72px` 紧凑导航栏和单一主内容区；导航项由图标、可访问名称和选中淡面组成。
+- 状态、运行环境、设置和关于信息保持稳定分区，切换时保留当前任务上下文。
+- 主内容区优先使用单列任务流；只有状态与操作真实并行时才使用双列。
+- 日志与路径使用等宽字体，保持可选择、可复制和可横向查看。
 
-## Fluent UI React v9 组件映射
+## Fluent 组件映射
 
-| UI 场景 | Fluent 组件 | 说明 |
-|---|---|---|
-| 主操作按钮 | `<Button appearance="primary">` | 启动服务、打开管理界面 |
-| 危险操作按钮 | `<Button appearance="primary">` + CSS `.action.danger` | 停止服务 |
-| 次级按钮 | `<Button>` | 默认灰阶按钮 |
-| 幽灵按钮 | `<Button appearance="subtle">` | 工具栏操作、编辑路径 |
-| 关闭策略单选 | `<RadioGroup>` + `<Radio>` | 询问/隐藏到托盘/完全退出 |
-| 路径输入框 | `<Input readOnly>` | 只读路径展示 |
-| 可编辑路径输入框 | `<Input>` | 编辑状态下可修改 |
-| 导航按钮 | `<Button appearance="subtle">` | 侧边栏导航项 |
-| 状态徽章 | Fluent `Badge` + CSS | 阻塞项/警告项/正常项计数 |
-| 问题横幅 | 自定义 `.issue-banner` CSS + Fluent 语义色 | 错误/警告等级 banner |
-| 面板容器 | 自定义 `.panel` CSS | 卡片表面 |
-| 日志面板 | 自定义 `.log-surface` CSS | 等宽字体、低反差背景 |
+| 场景 | 组件 | 规则 |
+| --- | --- | --- |
+| 主操作 | `Button appearance="primary"` | 当前工作流保持唯一，使用冷色主操作语义 |
+| 人工确认 | `Button` + attention token | 只用于需要明确判断的动作，不与警告色混用 |
+| 危险操作 | `Button` + danger token | 停止、重置和完全退出，必须有明确结果文案 |
+| 次级操作 | `Button` | 使用中性边界和表面，不与主操作竞争 |
+| 工具操作 | `Button appearance="subtle"` | 编辑路径、刷新、复制和导航工具 |
+| 文本输入 | `Input` | 完整标签、清晰焦点和禁用状态 |
+| 单项选择 | `RadioGroup`、`Radio` | 关闭策略和互斥设置 |
+| 状态 | `Badge`、`MessageBar` | 同时提供文字、图标或结构化标签 |
+| 确认 | `Dialog` | 仅用于破坏性或不可在原位安全完成的决定 |
 
-## Tokens
+自定义 CSS 只补充窗口布局、日志表面和 Fluent token 无法表达的最小业务差异。页面不得重新实现 Fluent 已提供的按钮、输入、单选、Badge 或 Dialog。
 
-### 颜色
+## 密度与层次
 
-Fluent UI React v9 通过 `webLightTheme` / `webDarkTheme` 提供主题 tokens。本启动器在此基础上叠加全局 CSS 变量，以 `:root`（暗色默认）和 `:root[data-theme="light"]` 区分两套值：
+- 桌面控件高度为 `36px`，导航与关键操作目标至少为 `40px`；窄窗口和触控场景提升到 `44px`。
+- 页面间距使用项目级 `4/8/12/16/24/32px` 标尺，导航、字段和面板按任务关系选择不同节奏。
+- 独立面板使用 `12px` 圆角和低对比阴影，Dialog 使用 `16px` 圆角和浮层阴影。
+- 普通说明与字段不包裹为卡片；状态摘要不使用 hero 指标模板。
+- 选中导航使用完整淡面和轮廓，不使用内嵌彩色侧边条。
 
-```css
-:root {
-  --accent: #1677ff;
-  --accent-hover: #4096ff;
-  --accent-subtle: rgba(22, 119, 255, 0.15);
-  --error: #ff4d4f;
-  --error-subtle: rgba(255, 77, 79, 0.15);
-  --warning: #faad14;
-  --warning-subtle: rgba(250, 173, 20, 0.15);
-  --success: #52c41a;
-  --success-subtle: rgba(82, 196, 26, 0.15);
-  --app-bg: #0f172a;
-  --surface-bg: #1e293b;
-  --surface-bg-subtle: #1a2535;
-  --surface-border: #334155;
-  --surface-border-strong: #475569;
-  --surface-hover: #27354f;
-  --text-primary: #f1f5f9;
-  --text-secondary: #cbd5e1;
-  --text-muted: #94a3b8;
-}
+## 动效与反馈
 
-:root[data-theme="light"] {
-  --accent: #1677ff;
-  --accent-hover: #0958d9;
-  --accent-subtle: rgba(22, 119, 255, 0.08);
-  --error: #ff4d4f;
-  --error-subtle: rgba(255, 77, 79, 0.08);
-  --warning: #fa8c16;
-  --warning-subtle: rgba(250, 140, 22, 0.08);
-  --success: #52c41a;
-  --success-subtle: rgba(82, 196, 26, 0.08);
-  --app-bg: #f8fafc;
-  --surface-bg: #ffffff;
-  --surface-bg-subtle: #f1f5f9;
-  --surface-border: #e2e8f0;
-  --surface-border-strong: #cbd5e1;
-  --surface-hover: #f1f5f9;
-  --text-primary: #0f172a;
-  --text-secondary: #475569;
-  --text-muted: #64748b;
-}
-```
+- 控件状态使用 `160ms`，分区切换使用 `200ms`，Dialog 使用 `220ms`。
+- 动效统一使用 `cubic-bezier(0.16, 1, 0.3, 1)`，只表达状态、反馈、载入和内容显隐。
+- 悬停不平移或缩放面板；按下状态通过色面和边界变化表达。
+- `prefers-reduced-motion` 下关闭非必要动画，进度与忙碌状态保留静态文字或图标。
 
-### 间距
+## 窄窗口策略
 
-| Token | 值 | 用途 |
-|---|---|---|
-| `--spacing-page` | `24px` | 页面区块节奏 |
-| `--spacing-section` | `18px` | 卡片之间的默认间距 |
-| `--spacing-row` | `12px` | 表单行、定义列表行距 |
-| `--spacing-inline` | `8px` | 行内按钮和 badge 间距 |
+- 窗口宽度低于 `900px` 时，垂直导航转为顶部或横向紧凑导航，主内容保持单列。
+- 低于 `640px` 时，操作按优先级换行，路径和日志允许横向滚动，不截断关键标识符。
+- 窄窗口仍保留启动、停止、预检、设置、恢复入口和打开 Web 管理面的完整能力。
 
-### 圆角
+## 验收条件
 
-| Token | 值 | 用途 |
-|---|---|---|
-| `--radius-small` | `8px` | 按钮、输入框、小卡片 |
-| `--radius-medium` | `12px` | 导航项、面板、卡片 |
-| `--radius-large` | `12px` | 侧边栏卡片、设置区 |
-| `--radius-xl` | `12px` | Hero 卡片 |
-
-## 组件样式规范
-
-### 按钮
-
-所有按钮统一使用 `<Button>` 组件，样式通过 `className` 指定全局 CSS 类：
-
-```css
-.action {
-  border: 1px solid var(--surface-border);
-  border-radius: var(--radius-small);
-  background: var(--surface-bg-subtle);
-  color: var(--text-primary);
-  padding: 12px 14px;
-  transition: transform 160ms ease, background 160ms ease;
-}
-
-.action.primary {
-  background: var(--accent-subtle);
-  border-color: var(--accent);
-  color: var(--accent);
-}
-
-.action.ghost {
-  background: transparent;
-  border-color: transparent;
-  color: var(--text-secondary);
-}
-
-.action.danger {
-  background: var(--error-subtle);
-  border-color: var(--error);
-  color: var(--error);
-}
-```
-
-### 面板
-
-```css
-.panel {
-  border: 1px solid var(--surface-border);
-  background: var(--surface-bg);
-  border-radius: var(--radius-medium);
-  padding: 22px;
-  box-shadow: var(--shadow-card);
-}
-```
-
-### 导航项
-
-```css
-.nav-item {
-  border: 1px solid transparent;
-  padding: 14px 16px;
-  border-radius: var(--radius-medium);
-  background: transparent;
-  color: var(--text-secondary);
-  transition: background-color 180ms ease, border-color 180ms ease, color 180ms ease;
-}
-
-.nav-item:hover {
-  background: var(--surface-hover);
-  color: var(--text-primary);
-}
-
-.nav-item.active {
-  background: var(--accent-subtle);
-  border-color: var(--accent);
-  color: var(--text-primary);
-  box-shadow: inset 3px 0 0 var(--accent);
-}
-```
-
-### 问题横幅
-
-```css
-.issue-banner {
-  border-radius: var(--radius-medium);
-  padding: 18px 22px;
-  display: grid;
-  gap: 6px;
-}
-
-.issue-banner.warning {
-  border-color: var(--warning);
-  background: var(--warning-subtle);
-}
-
-.issue-banner.error {
-  border-color: var(--error);
-  background: var(--error-subtle);
-}
-```
-
-### 指标卡
-
-```css
-.metric {
-  border-radius: var(--radius-medium);
-  background: var(--surface-bg-subtle);
-  border: 1px solid var(--surface-border);
-  padding: 18px;
-  display: grid;
-  gap: 6px;
-}
-
-.metric strong {
-  font-size: 2rem;
-}
-```
-
-### 关闭策略单选组
-
-```css
-.radio-label {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.close-behavior {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
-  margin-bottom: 18px;
-}
-```
-
-### Fluent Input 样式覆盖
-
-Fluent UI React v9 的 `<Input>` 组件在 `.field-inline` 容器中使用时需要样式适配：
-
-```css
-.field-inline .field-input input {
-  border-radius: var(--radius-small);
-  border: 1px solid var(--surface-border);
-  background: var(--surface-bg-subtle);
-  color: var(--text-primary);
-  padding: 12px 14px;
-  font: inherit;
-  width: 100%;
-}
-
-.field-inline .field-input input:focus {
-  outline: 1px solid var(--accent);
-}
-
-.field-inline .field-input input:read-only {
-  opacity: 0.7;
-  cursor: default;
-}
-```
-
-## 响应式策略
-
-```css
-@media (max-width: 1080px) {
-  .app-shell {
-    grid-template-columns: 1fr;
-  }
-
-  .hero-card {
-    grid-template-columns: 1fr;
-  }
-
-  .content-grid {
-    grid-template-columns: 1fr;
-  }
-}
-```
-
-## 主题切换
-
-主题偏好存储在渲染层 `localStorage`（`raylea-theme-mode`），支持 `light` / `dark` / `system` 三档：
-
-- `system`：通过 `matchMedia('(prefers-color-scheme: dark)')` 实时响应系统主题变化。
-- `light` / `dark`：固定使用对应主题，不跟随系统。
-
-切换时同步更新：
-1. `document.documentElement.dataset.theme`
-2. `FluentProvider` 的 `theme` 属性（`webLightTheme` / `webDarkTheme` + 品牌色覆盖）
-3. Electron 主进程窗口背景色（仅创建时，基于 `nativeTheme.shouldUseDarkColors`）
-
-## 可维护性规则
-
-- Fluent UI React v9 组件的样式优先通过 `className` + 全局 CSS 变量覆盖，而不是内联样式或 `makeStyles`。
-- 新增 token 前优先复用既有 CSS 变量。
-- 页面内如需特殊样式，应先评估是否能抽为通用 CSS 类，再决定是否局部定义。
-- 禁止重新引入 `backdrop-filter`、`acrylic` 材质或低透明度堆叠等玻璃质感实现。
+- `system`、`light` 和 `dark` 三种偏好均同步作用于 `FluentProvider`、CSS variables 和窗口背景。
+- 主操作、人工关注、警告和危险具有独立且稳定的语义。
+- 界面不存在嵌套卡片、巨型指标、彩色侧边条、玻璃材质或装饰性动效。
+- 键盘顺序、焦点、对比度、状态标签和 reduced-motion 达到 WCAG 2.2 AA。
+- Launcher 继续只负责本机进程、系统集成、更新确认和打开 Web，不复制管理面业务。

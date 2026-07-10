@@ -104,6 +104,7 @@ flowchart LR
 | 目录 | 内容 |
 | --- | --- |
 | [`architecture/`](./architecture/README.md) | 组件 owner、信任边界、状态源和运行链路 |
+| [`design/`](./design/README.md) | 项目级视觉规范、Web、Launcher 与插件管理面映射 |
 | [`engineering/`](./engineering/README.md) | 工具链、实施顺序、质量门禁和存储治理 |
 | [`plugin/`](./plugin/README.md) | manifest、capabilities、自定义管理页、协议、生命周期和 SDK |
 | [`user/`](./user/README.md) | 部署、配置、管理、CLI 与恢复 |

@@ -22,7 +22,8 @@ OUTPUT_KEYS = (
     "ci",
 )
 
-DOC_ROOT_FILES = {"AGENTS.md", "CLAUDE.md", "README.md", "PRODUCT.md", ".impeccable.md"}
+DOC_ROOT_FILES = {"AGENTS.md", "CLAUDE.md", "README.md", "PRODUCT.md", "DESIGN.md", ".impeccable.md"}
+DOC_AUX_FILES = {".impeccable/design.json"}
 TOOLCHAIN_ROOT_FILES = {".gitignore", ".tool-versions", "Makefile", "start.bat", "start.sh"}
 
 
@@ -67,7 +68,7 @@ def diff_files(base: str | None, head: str | None) -> list[str]:
 
 
 def is_docs_path(path: str) -> bool:
-    if path in DOC_ROOT_FILES:
+    if path in DOC_ROOT_FILES or path in DOC_AUX_FILES:
         return True
     if path.startswith("docs/"):
         return True
@@ -191,6 +192,8 @@ def write_outputs(result: dict[str, bool], output_file: str | None) -> None:
 def self_test() -> None:
     cases = [
         (["docs/test.md"], {"docs": True, "docs_only": True}),
+        (["DESIGN.md"], {"docs": True, "docs_only": True}),
+        ([".impeccable/design.json"], {"docs": True, "docs_only": True}),
         (["server/internal/app/app.go"], {"server": True, "docs_only": False}),
         (["contracts/web-api.openapi.yaml"], {"contracts": True}),
         (["scripts/release/release_tool.py"], {"release": True}),
