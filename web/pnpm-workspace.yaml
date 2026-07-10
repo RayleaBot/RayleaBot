@@ -1,6 +1,17 @@
 packages:
   - "."
 
+supportedArchitectures:
+  os:
+    - win32
+    - linux
+    - darwin
+  cpu:
+    - x64
+    - arm64
+  libc:
+    - glibc
+
 allowBuilds:
   "@parcel/watcher": true
   core-js: false

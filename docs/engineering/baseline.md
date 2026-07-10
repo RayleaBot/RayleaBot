@@ -28,13 +28,13 @@
 
 | 领域 | 固定基线 |
 | --- | --- |
-| Server | Go `1.25.11` |
-| Web / Node runtime | Node.js `24.14.0` |
-| JS package manager | `pnpm 11.9.0` |
-| Web UI | Vue `3.5.34` + Vite `8.0.16` + Ant Design Vue `4.2.6` + Vue Vben Admin `5.7.0` 对齐方案 + Vue Router `5.0.7` + Pinia `3.0.4` |
-| Launcher runtime | Electron `41.1.0` + TypeScript `6.0.2` + React `18.3.1` + Fluent UI React v9 + Vite `8.0.16` + `@vitejs/plugin-react 6.0.1` + `electron-builder 26.8.1` |
+| Server | Go `1.25.12` |
+| Web / Node runtime | Node.js `24.18.0` |
+| JS package manager | `pnpm 11.11.0` |
+| Web UI | Vue `3.5.39` + Vite `8.1.4` + Ant Design Vue `4.2.6` + Vue Vben Admin `5.7.0` 对齐方案 + Vue Router `5.1.0` + Pinia `3.0.4` |
+| Launcher runtime | Electron `41.10.1` + TypeScript `6.0.2` + React `18.3.1` + Fluent UI React v9 + Vite `8.1.4` + `@vitejs/plugin-react 6.0.3` + `electron-builder 26.15.3` |
 | Python runtime | Python `3.12.13` |
-| Database | SQLite via `modernc.org/sqlite v1.47.0` |
+| Database | SQLite via `modernc.org/sqlite v1.53.0` |
 | Render | `chromedp 0.14.2` + 图片渲染 Chromium |
 | Metrics | `github.com/prometheus/client_golang 1.23.2`（Prometheus 文本暴露格式） |
 
@@ -43,19 +43,19 @@ Web 管理面采用 `Ant Design Vue + Vue Vben Admin` 对齐方案作为正式�
 ## 工具链获取
 
 - 仓库根目录的 `.tool-versions` 与本节固定版本线保持一致，可由 mise 或 asdf 读取。
-- `server/go.mod` 的 `go 1.25.11` 是 CI 与本地 server 测试的 Go 版本来源；当前保持 patch 级锁定，不使用单独 `toolchain` 指令替代。离线环境需要预装 Go 1.25.11，并设置 `GOTOOLCHAIN=local` 让版本错误在本地直接失败。
-- Node.js 使用 24.14.0；pnpm 使用 Corepack 管理的 11.9.0。若全局 `pnpm` 版本不同，优先执行 `corepack enable` 与 `corepack prepare pnpm@11.9.0 --activate`。
+- `server/go.mod` 的 `go 1.25.12` 是 CI 与本地 server 测试的 Go 版本来源；当前保持 patch 级锁定，不使用单独 `toolchain` 指令替代。离线环境需要预装 Go 1.25.12，并设置 `GOTOOLCHAIN=local` 让版本错误在本地直接失败。
+- Node.js 使用 24.18.0；pnpm 使用 Corepack 管理的 11.11.0。若全局 `pnpm` 版本不同，优先执行 `corepack enable` 与 `corepack prepare pnpm@11.11.0 --activate`。
 - sqlc 固定为 v1.29.0，安装命令为 `go install github.com/sqlc-dev/sqlc/cmd/sqlc@v1.29.0`。
 - 无网络环境需要提前把 Go、Node.js、Corepack pnpm、sqlc 和 `.deps/manifest.json` 对应的 Chromium 资源放入镜像或工作站。Chromium 可使用系统 Chrome / Chromium / Edge，也可使用 `.deps/store/` 中已展开的托管资源。
-- 仓库提供 devcontainer，包含 Go 1.25.11、Node.js 24.14.0、pnpm 11.9.0、sqlc v1.29.0、Chromium、SQLite 与 `make doctor`。
+- 仓库提供 devcontainer，包含 Go 1.25.12、Node.js 24.18.0、pnpm 11.11.0、sqlc v1.29.0、Chromium、SQLite 与 `make doctor`。
 - 本地环境诊断入口是仓库根目录的 `make doctor`，无 make 环境时运行 `python scripts/check-toolchain.py` 和 `python scripts/check-server-structure.py`。
 
 ## 固定工程选型
 
 | 领域 | 固定选型 |
 | --- | --- |
-| HTTP 路由 | `net/http` + `go-chi/chi v5.2.5` |
-| WebSocket | `github.com/coder/websocket v1.8.14` |
+| HTTP 路由 | `net/http` + `go-chi/chi v5.3.1` |
+| WebSocket | `github.com/coder/websocket v1.8.15` |
 | 运行指标 | `github.com/prometheus/client_golang` + 受 admin session 保护的 `/api/system/metrics` |
 | 日志 | `log/slog` |
 | 配置解析 | `gopkg.in/yaml.v3` |
@@ -130,11 +130,11 @@ Web 管理面采用 `Ant Design Vue + Vue Vben Admin` 对齐方案作为正式�
 
 | 路径 | 约束 |
 | --- | --- |
-| `server/go.mod` | 固定 `module github.com/RayleaBot/RayleaBot/server`、Go `1.25.11` 与 server 依赖版本 |
+| `server/go.mod` | 固定 `module github.com/RayleaBot/RayleaBot/server`、Go `1.25.12` 与 server 依赖版本 |
 | `server/go.sum` | 维护 server 依赖锁定结果 |
-| `web/package.json` | 固定 `packageManager = pnpm@11.9.0` 与 `engines.node = 24.14.0` |
+| `web/package.json` | 固定 `packageManager = pnpm@11.11.0` 与 `engines.node = 24.18.0` |
 | `web/pnpm-lock.yaml` | 作为 Web 工程唯一 JS 锁文件 |
-| `launcher/package.json` | 固定 `packageManager = pnpm@11.9.0`、`engines.node = 24.14.0`、Electron/Vite/React/`@vitejs/plugin-react`/build 脚本与打包配置 |
+| `launcher/package.json` | 固定 `packageManager = pnpm@11.11.0`、`engines.node = 24.18.0`、Electron/Vite/React/`@vitejs/plugin-react`/build 脚本与打包配置 |
 | `launcher/pnpm-lock.yaml` | 作为 Launcher 工程唯一 JS 锁文件 |
 | `.deps/manifest.json` | 固定资源名、版本线、可信来源列表、SHA256、archive_format、entrypoints 与平台矩阵 |
 | `contracts/*` | 对外接口与错误码唯一正式来源 |

@@ -5,10 +5,10 @@
   "description": "RayleaBot Electron desktop launcher",
   "author": "RayleaBot",
   "main": "dist/main/main/index.js",
-  "packageManager": "pnpm@11.9.0",
+  "packageManager": "pnpm@11.11.0",
   "engines": {
-    "node": "24.14.0",
-    "pnpm": "11.9.0"
+    "node": "24.18.0",
+    "pnpm": "11.11.0"
   },
   "scripts": {
     "clean": "node scripts/clean.mjs",
@@ -17,36 +17,36 @@
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
     "typecheck": "tsc -p tsconfig.main.json --noEmit && tsc -p tsconfig.preload.json --noEmit && tsc -p tsconfig.renderer.json --noEmit",
-    "build:app": "tsc -p tsconfig.main.json && tsc -p tsconfig.preload.json && vite build",
+    "build:app": "tsc -p tsconfig.main.json && vite build --config vite.preload.config.ts && vite build",
     "build": "corepack pnpm run clean && corepack pnpm run build:app && node scripts/build-package.mjs"
   },
   "dependencies": {
-    "@fluentui/react-components": "9.73.5",
+    "@fluentui/react-components": "9.74.3",
     "@fluentui/react-icons": "2.0.316",
-    "@fluentui/react-message-bar": "9.7.0",
+    "@fluentui/react-message-bar": "9.7.3",
     "react": "18.3.1",
     "react-dom": "18.3.1",
-    "semver": "7.8.1",
+    "semver": "7.8.5",
     "yaml": "2.9.0"
   },
   "devDependencies": {
     "@testing-library/dom": "10.4.1",
     "@testing-library/jest-dom": "6.9.1",
     "@testing-library/react": "16.3.2",
-    "@types/node": "25.5.0",
+    "@types/node": "24.13.3",
     "@types/react": "18.3.28",
     "@types/react-dom": "18.3.7",
     "@types/semver": "7.7.1",
-    "@vitejs/plugin-react": "6.0.1",
-    "@vitest/coverage-v8": "4.1.5",
-    "electron": "41.1.0",
-    "electron-builder": "26.8.1",
+    "@vitejs/plugin-react": "6.0.3",
+    "@vitest/coverage-v8": "4.1.10",
+    "electron": "41.10.1",
+    "electron-builder": "26.15.3",
     "jsdom": "29.1.1",
-    "openapi-typescript": "7.8.0",
+    "openapi-typescript": "7.13.0",
     "typescript": "6.0.2",
-    "vite": "8.0.16",
-    "vitest": "4.1.5",
-    "wait-on": "9.0.4"
+    "vite": "8.1.4",
+    "vitest": "4.1.10",
+    "wait-on": "9.0.10"
   },
   "build": {
     "appId": "local.rayleabot.launcher",

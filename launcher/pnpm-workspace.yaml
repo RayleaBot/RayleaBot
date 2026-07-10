@@ -1,11 +1,23 @@
 packages:
   - "."
 
+supportedArchitectures:
+  os:
+    - win32
+    - linux
+    - darwin
+  cpu:
+    - x64
+    - arm64
+  libc:
+    - glibc
+
 allowBuilds:
   electron: true
   electron-winstaller: true
 
 overrides:
+  "@fluentui/react-motion": 9.16.1
   "@xmldom/xmldom": 0.8.13
   axios: 1.16.0
   follow-redirects: 1.16.0

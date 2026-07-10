@@ -21,12 +21,27 @@ def load_module():
 
 
 class CheckToolchainTests(unittest.TestCase):
-    def test_version_from_go_output(self) -> None:
+    def test_go_reads_effective_server_toolchain(self) -> None:
         module = load_module()
-        self.assertEqual(
-            module.version_from_go_output("go version go1.25.11 windows/amd64"),
-            "go1.25.11",
-        )
+
+        calls: list[tuple[list[str], Path | None]] = []
+
+        def fake_run(args: list[str], cwd: Path | None = None):
+            calls.append((args, cwd))
+            return module.CommandOutput(0, "go1.25.12\n", "")
+
+        original_exists = module.executable_exists
+        original_run = module.run_command
+        try:
+            module.executable_exists = lambda name: name == "go"
+            module.run_command = fake_run
+            result = module.check_go()
+        finally:
+            module.executable_exists = original_exists
+            module.run_command = original_run
+
+        self.assertEqual(result.status, "ok")
+        self.assertEqual(calls, [(["go", "env", "GOVERSION"], module.REPO_ROOT / "server")])
 
     def test_pnpm_uses_corepack_when_global_shim_is_old(self) -> None:
         module = load_module()
@@ -38,7 +53,7 @@ class CheckToolchainTests(unittest.TestCase):
             if args == ["pnpm", "--version"]:
                 return module.CommandOutput(0, "11.8.0\n", "")
             if args == ["corepack", "pnpm", "--version"]:
-                return module.CommandOutput(0, "11.9.0\n", "")
+                return module.CommandOutput(0, "11.11.0\n", "")
             return module.CommandOutput(127, "", "unexpected command")
 
         original_exists = module.executable_exists
@@ -53,7 +68,7 @@ class CheckToolchainTests(unittest.TestCase):
 
         self.assertEqual(result.status, "warning")
         self.assertIn("corepack pnpm --version", result.detail)
-        self.assertIn("corepack prepare pnpm@11.9.0 --activate", result.remediation)
+        self.assertIn("corepack prepare pnpm@11.11.0 --activate", result.remediation)
 
 
 if __name__ == "__main__":

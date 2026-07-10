@@ -15,13 +15,13 @@ from dataclasses import dataclass
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
-REQUIRED_GO_VERSION = "go1.25.11"
-REQUIRED_NODE_VERSION = "v24.14.0"
-REQUIRED_PNPM_VERSION = "11.9.0"
+REQUIRED_GO_VERSION = "go1.25.12"
+REQUIRED_NODE_VERSION = "v24.18.0"
+REQUIRED_PNPM_VERSION = "11.11.0"
 REQUIRED_SQLC_VERSION = "v1.29.0"
 
 GO_INSTALL_URL = "https://go.dev/dl/"
-NODE_INSTALL_URL = "https://nodejs.org/dist/v24.14.0/"
+NODE_INSTALL_URL = "https://nodejs.org/dist/v24.18.0/"
 SQLC_INSTALL = "go install github.com/sqlc-dev/sqlc/cmd/sqlc@v1.29.0"
 
 
@@ -44,12 +44,12 @@ class CheckResult:
         return self.status == "error"
 
 
-def run_command(args: list[str]) -> CommandOutput:
+def run_command(args: list[str], cwd: Path | None = None) -> CommandOutput:
     resolved = shutil.which(args[0])
     if resolved:
         args = [resolved, *args[1:]]
     try:
-        result = subprocess.run(args, capture_output=True, check=False, text=True)
+        result = subprocess.run(args, capture_output=True, check=False, text=True, cwd=cwd)
     except OSError as exc:
         return CommandOutput(127, "", str(exc))
     return CommandOutput(result.returncode, result.stdout.strip(), result.stderr.strip())
@@ -61,11 +61,6 @@ def executable_exists(name: str) -> bool:
 
 def first_line(value: str) -> str:
     return value.strip().splitlines()[0].strip() if value.strip() else ""
-
-
-def version_from_go_output(output: str) -> str:
-    parts = output.split()
-    return parts[2] if len(parts) >= 3 else ""
 
 
 def normalize_sqlc_version(output: str) -> str:
@@ -85,24 +80,24 @@ def check_go() -> CheckResult:
             f"Go is not on PATH; required {REQUIRED_GO_VERSION}.",
             "\n".join(
                 [
-                    "Install Go 1.25.11 before running server tests.",
+                    "Install Go 1.25.12 before running server tests.",
                     f"Download: {GO_INSTALL_URL}",
-                    "Windows: winget install GoLang.Go --version 1.25.11",
-                    "Linux x64 online: curl -LO https://go.dev/dl/go1.25.11.linux-amd64.tar.gz && sudo tar -C /usr/local -xzf go1.25.11.linux-amd64.tar.gz",
-                    "Offline: copy the matching go1.25.11 archive into the runner image and put its bin directory on PATH; set GOTOOLCHAIN=local for a local-only failure.",
+                    "Windows: winget install GoLang.Go --version 1.25.12",
+                    "Linux x64 online: curl -LO https://go.dev/dl/go1.25.12.linux-amd64.tar.gz && sudo tar -C /usr/local -xzf go1.25.12.linux-amd64.tar.gz",
+                    "Offline: copy the matching go1.25.12 archive into the runner image and put its bin directory on PATH; set GOTOOLCHAIN=local for a local-only failure.",
                 ]
             ),
         )
 
-    result = run_command(["go", "version"])
+    result = run_command(["go", "env", "GOVERSION"], cwd=REPO_ROOT / "server")
     if result.returncode != 0:
         return CheckResult(
             "Go",
             "error",
-            f"Unable to read Go version: {command_failure_detail(result)}.",
-            "Fix PATH so `go version` runs, then rerun `python scripts/check-toolchain.py`.",
+            f"Unable to read the server Go toolchain version: {command_failure_detail(result)}.",
+            "Fix PATH so `go env GOVERSION` runs from server/, then rerun `python scripts/check-toolchain.py`.",
         )
-    actual = version_from_go_output(result.stdout)
+    actual = first_line(result.stdout)
     if actual != REQUIRED_GO_VERSION:
         return CheckResult(
             "Go",
@@ -112,9 +107,9 @@ def check_go() -> CheckResult:
                 [
                     "Install the exact Go patch version used by server/go.mod.",
                     f"Download: {GO_INSTALL_URL}",
-                    "Windows: winget install GoLang.Go --version 1.25.11",
-                    "Linux x64 online: curl -LO https://go.dev/dl/go1.25.11.linux-amd64.tar.gz && sudo tar -C /usr/local -xzf go1.25.11.linux-amd64.tar.gz",
-                    "Offline: preinstall go1.25.11 in the image or workstation and set GOTOOLCHAIN=local before running tests.",
+                    "Windows: winget install GoLang.Go --version 1.25.12",
+                    "Linux x64 online: curl -LO https://go.dev/dl/go1.25.12.linux-amd64.tar.gz && sudo tar -C /usr/local -xzf go1.25.12.linux-amd64.tar.gz",
+                    "Offline: preinstall go1.25.12 in the image or workstation and set GOTOOLCHAIN=local before running tests.",
                 ]
             ),
         )
@@ -127,7 +122,7 @@ def check_node() -> CheckResult:
             "Node.js",
             "error",
             f"Node.js is not on PATH; required {REQUIRED_NODE_VERSION}.",
-            f"Install Node.js 24.14.0 from {NODE_INSTALL_URL}; offline images must preinstall it before running Web or Launcher tests.",
+            f"Install Node.js 24.18.0 from {NODE_INSTALL_URL}; offline images must preinstall it before running Web or Launcher tests.",
         )
 
     result = run_command(["node", "--version"])
@@ -144,7 +139,7 @@ def check_node() -> CheckResult:
             "Node.js",
             "error",
             f"Found {actual}; required {REQUIRED_NODE_VERSION}.",
-            f"Install Node.js 24.14.0 from {NODE_INSTALL_URL}, then run `corepack enable`.",
+            f"Install Node.js 24.18.0 from {NODE_INSTALL_URL}, then run `corepack enable`.",
         )
     return CheckResult("Node.js", "ok", actual)
 
@@ -169,7 +164,7 @@ def check_pnpm() -> CheckResult:
                     "pnpm",
                     "warning",
                     f"`pnpm --version` is {found}; `corepack pnpm --version` is {corepack_actual}.",
-                    "Run `corepack enable` and `corepack prepare pnpm@11.9.0 --activate`, or use `corepack pnpm` for project commands.",
+                    "Run `corepack enable` and `corepack prepare pnpm@11.11.0 --activate`, or use `corepack pnpm` for project commands.",
                 )
 
     found = pnpm_actual or corepack_actual or "not found"
@@ -177,7 +172,7 @@ def check_pnpm() -> CheckResult:
         "pnpm",
         "error",
         f"Found {found}; required {REQUIRED_PNPM_VERSION}.",
-        "Run `corepack enable` and `corepack prepare pnpm@11.9.0 --activate`; offline images must pre-seed Corepack's pnpm 11.9.0 package.",
+        "Run `corepack enable` and `corepack prepare pnpm@11.11.0 --activate`; offline images must pre-seed Corepack's pnpm 11.11.0 package.",
     )
 
 
