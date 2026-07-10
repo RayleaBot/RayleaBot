@@ -1,10 +1,9 @@
-import { Button, Text } from "@fluentui/react-components";
+import { Button } from "@fluentui/react-components";
 import { FolderOpen20Filled, CheckmarkCircle20Regular } from "@fluentui/react-icons";
 
 type AppShellStatusLogsProps = {
   hasRecentStderr: boolean;
   logAlert: "none" | "error";
-  logHighlight: "none" | "fresh";
   logs: string[];
   onOpenLogs: () => void;
 };
@@ -12,30 +11,34 @@ type AppShellStatusLogsProps = {
 export function AppShellStatusLogs({
   hasRecentStderr,
   logAlert,
-  logHighlight,
   logs,
   onOpenLogs,
 }: AppShellStatusLogsProps) {
-  return (
-    <article className="status-log-panel panel surface-panel" data-alert={logAlert} data-highlight={logHighlight}>
-      <div className="panel-header-row">
-        <div className="brand-eyebrow">异常输出监控</div>
-        <span className={`status-log-indicator status-log-indicator--${hasRecentStderr ? "alert" : "quiet"}`}>
-          {hasRecentStderr ? "已检测到异常输出" : "当前无新异常"}
-        </span>
-      </div>
-      {hasRecentStderr ? (
-        <pre className="log-surface status-log-surface--modern">{logs.join("\n")}</pre>
-      ) : (
-        <div className="log-empty-state">
-          <CheckmarkCircle20Regular style={{ color: "var(--success)", width: 32, height: 32 }} />
-          <div className="log-empty-state__title">当前没有新的异常日志</div>
-          <Text size={200} className="log-empty-state__detail">服务输出保持安静，完整日志仍可随时打开。</Text>
+  if (!hasRecentStderr) {
+    return (
+      <section className="log-summary-row" data-alert={logAlert} aria-labelledby="status-log-title">
+        <div className="log-summary-row__status" role="status">
+          <CheckmarkCircle20Regular />
+          <div>
+            <h3 id="status-log-title">异常输出</h3>
+            <span>当前没有新的异常日志。</span>
+          </div>
         </div>
-      )}
-      <div className="panel-footer-actions">
-        <Button appearance="transparent" size="small" className="action-button action-button--ghost-bright" onClick={onOpenLogs} icon={<FolderOpen20Filled />}>查看完整日志</Button>
+        <Button appearance="subtle" onClick={onOpenLogs} icon={<FolderOpen20Filled />}>打开完整日志</Button>
+      </section>
+    );
+  }
+
+  return (
+    <section className="log-workspace" data-alert={logAlert} aria-labelledby="status-log-title">
+      <div className="workspace-heading">
+        <h3 id="status-log-title">异常输出</h3>
+        <span className="status-label" data-state="danger">已检测到异常输出</span>
       </div>
-    </article>
+      <pre className="log-surface status-log-surface">{logs.join("\n")}</pre>
+      <div className="workspace-footer">
+        <Button appearance="subtle" onClick={onOpenLogs} icon={<FolderOpen20Filled />}>打开完整日志</Button>
+      </div>
+    </section>
   );
 }

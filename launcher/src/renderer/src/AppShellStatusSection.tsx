@@ -1,10 +1,10 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo } from "react";
 import { deriveLauncherPresentation, resolveRecoverySummary } from "@shared/launcher-presentation";
 import type { LauncherResolvedSettings, LauncherSnapshot } from "@shared/launcher-models";
 
 import { busyActionLabels, sortChecks } from "./AppShell.shared";
 import { formatRecoverySummary } from "./AppShell.copy";
-import { AppShellStatusHero } from "./AppShellStatusHero";
+import { AppShellServiceControl } from "./AppShellServiceControl";
 import { AppShellStatusLogs } from "./AppShellStatusLogs";
 import { AppShellStatusRail } from "./AppShellStatusRail";
 import { AppShellStatusSummary } from "./AppShellStatusSummary";
@@ -23,6 +23,10 @@ type StatusSectionProps = {
   onOpenLogs: () => void;
 };
 
+function isRuntimePreparationIssue(code: string) {
+  return ["deps.", "chromium.", "python.", "nodejs.", "npm."].some((prefix) => code.startsWith(prefix));
+}
+
 export function AppShellStatusSection({
   snapshot,
   resolvedSettings,
@@ -35,9 +39,6 @@ export function AppShellStatusSection({
   onOpenRuntimeTasks,
   onOpenLogs,
 }: StatusSectionProps) {
-  const [statusHighlight, setStatusHighlight] = useState<"none" | "signal" | "alert">("none");
-  const [logHighlight, setLogHighlight] = useState<"none" | "fresh">("none");
-
   const presentation = useMemo(() => deriveLauncherPresentation(snapshot), [snapshot]);
   const recoverySummary = useMemo(() => resolveRecoverySummary(snapshot), [snapshot]);
   const runtimePrepare = snapshot.launcher.runtimePrepare ?? null;
@@ -63,15 +64,6 @@ export function AppShellStatusSection({
             ? "warning"
           : "none";
   const logAlert = hasRecentStderr ? "error" : "none";
-  const statusReasonLabel =
-    runtimePrepare?.active
-      ? "准备进度"
-      : presentation.state === "degraded"
-      || presentation.state === "setup_required"
-      || presentation.state === "failed"
-      || Boolean(readinessReason || primaryReadinessIssue)
-      ? "当前限制"
-      : "运行说明";
   const statusReasonText =
     runtimePrepare?.active
       ? (runtimePrepare.summary || "正在准备运行环境。")
@@ -82,7 +74,7 @@ export function AppShellStatusSection({
       : primaryEnvironmentIssue
         ? `${primaryEnvironmentIssue.title}：${primaryEnvironmentIssue.summary}`
         : presentation.detail);
-  const heroServiceDetail =
+  const serviceControlDetail =
     runtimePrepare?.active
       ? "运行环境准备中。"
       : snapshot.launcher.lastLocalError
@@ -102,6 +94,9 @@ export function AppShellStatusSection({
   const canOpenWebUi = presentation.canOpenWebUi;
   const canRunRecoveryActions = presentation.canRunRecoveryActions && !controlsDisabled;
   const canRecheckRecovery = canRunRecoveryActions && presentation.canRecheckRecovery;
+  const canPrepareRuntime = canRunRecoveryActions && nonOkChecks.some((item) => isRuntimePreparationIssue(item.code));
+  const showRecoveryPanel = Boolean(recoverySummary) || canPrepareRuntime;
+  const showStatusRail = nonOkChecks.length > 0 || showRecoveryPanel;
   const startDisabled =
     controlsDisabled
     || busyAction === "start"
@@ -120,59 +115,33 @@ export function AppShellStatusSection({
     || presentation.state === "stopping"
     || snapshot.launcher.processOwnership === "none";
   const busyLabel = busyAction ? (busyActionLabels[busyAction] ?? "正在执行操作") : "";
-
-  const previousStatusRef = useRef({
-    serviceState: presentation.state,
-    busyAction,
-    lastError: snapshot.launcher.lastLocalError,
-  });
-  const previousLogsRef = useRef(snapshot.launcher.recentStderr.join("\n"));
-
-  useEffect(() => {
-    const previous = previousStatusRef.current;
-    const serviceStateChanged = previous.serviceState !== presentation.state;
-    const actionChanged = previous.busyAction !== busyAction && busyAction !== null;
-    const errorChanged = previous.lastError !== snapshot.launcher.lastLocalError && Boolean(snapshot.launcher.lastLocalError);
-
-    previousStatusRef.current = {
-      serviceState: presentation.state,
-      busyAction,
-      lastError: snapshot.launcher.lastLocalError,
-    };
-
-    if (!(serviceStateChanged || actionChanged || errorChanged)) {
-      return;
+  const serviceAttention = (() => {
+    if (runtimePrepare?.active) {
+      return { label: "准备进度", text: statusReasonText, tone: "attention" as const };
     }
-
-    setStatusHighlight(errorChanged ? "alert" : "signal");
-    const timeoutId = window.setTimeout(() => {
-      setStatusHighlight("none");
-    }, 1200);
-
-    return () => window.clearTimeout(timeoutId);
-  }, [presentation.state, snapshot.launcher.lastLocalError, busyAction]);
-
-  useEffect(() => {
-    const nextLogState = snapshot.launcher.recentStderr.join("\n");
-    const hadLogs = previousLogsRef.current.length > 0;
-    const hasLogsNow = nextLogState.length > 0;
-    previousLogsRef.current = nextLogState;
-
-    if (!hasLogsNow || hadLogs === hasLogsNow) {
-      return;
+    if (snapshot.launcher.lastLocalError || presentation.state === "failed") {
+      return { label: "当前限制", text: statusReasonText, tone: "danger" as const };
     }
-
-    setLogHighlight("fresh");
-    const timeoutId = window.setTimeout(() => {
-      setLogHighlight("none");
-    }, 1600);
-
-    return () => window.clearTimeout(timeoutId);
-  }, [snapshot.launcher.recentStderr]);
+    if (presentation.state === "degraded") {
+      return { label: "当前限制", text: statusReasonText, tone: "warning" as const };
+    }
+    if (presentation.state === "setup_required") {
+      return { label: "需要处理", text: statusReasonText, tone: "attention" as const };
+    }
+    if (readinessReason || primaryReadinessIssue) {
+      return {
+        label: "当前限制",
+        text: statusReasonText,
+        tone: statusAlert === "error" ? "danger" as const : "warning" as const,
+      };
+    }
+    return null;
+  })();
 
   return (
     <div className="status-homepage status-view-flow" data-state={presentation.state} data-busy={busyAction ?? "idle"} data-alert={statusAlert}>
-      <AppShellStatusHero
+      <AppShellServiceControl
+        attention={serviceAttention}
         busyLabel={busyLabel}
         canOpenWebUi={canOpenWebUi}
         controlsDisabled={controlsDisabled}
@@ -181,24 +150,20 @@ export function AppShellStatusSection({
         onStop={onStop}
         primaryActionLabel={presentation.primaryActionLabel}
         snapshot={{
-          lastError: snapshot.launcher.lastLocalError,
-          serviceDetail: heroServiceDetail,
+          serviceDetail: serviceControlDetail,
           serviceState: presentation.state,
         }}
         startDisabled={startDisabled}
-        statusHighlight={statusHighlight}
-        statusReasonLabel={statusReasonLabel}
-        statusReasonText={statusReasonText}
         stopDisabled={stopDisabled}
       />
 
-      <div className="status-summary-grid status-grid">
-        <div className="status-summary-main status-main-column">
+      <div className="status-layout" data-has-rail={showStatusRail ? "true" : "false"}>
+        <div className="status-main-column">
           <AppShellRuntimePreparePanel runtimePrepare={runtimePrepare} />
 
           {hasReadinessDiagnostics ? (
-            <article className="panel surface-panel surface-panel--subtle status-diagnostics-panel">
-              <div className="brand-eyebrow">服务诊断</div>
+            <section className="data-section service-diagnostics">
+              <h3>服务诊断</h3>
 
               {readinessReasonCodes.length > 0 ? (
                 <div className="status-diagnostics-block">
@@ -246,26 +211,28 @@ export function AppShellStatusSection({
                   </div>
                 </div>
               ) : null}
-            </article>
+            </section>
           ) : null}
 
           <AppShellStatusSummary snapshot={snapshot} resolvedSettings={resolvedSettings} />
         </div>
 
-        <AppShellStatusRail
-          canRecheckRecovery={canRecheckRecovery}
-          canRunRecoveryActions={canRunRecoveryActions}
-          checks={nonOkChecks}
-          onOpenRecoveryTasks={onOpenRecoveryTasks}
-          onOpenRuntimeTasks={onOpenRuntimeTasks}
-          recoveryStatusSummary={recoveryStatusSummary}
-        />
+        {showStatusRail ? (
+          <AppShellStatusRail
+            canPrepareRuntime={canPrepareRuntime}
+            canRecheckRecovery={canRecheckRecovery}
+            checks={nonOkChecks}
+            onOpenRecoveryTasks={onOpenRecoveryTasks}
+            onOpenRuntimeTasks={onOpenRuntimeTasks}
+            recoveryStatusSummary={recoveryStatusSummary}
+            showRecoverySummary={Boolean(recoverySummary)}
+          />
+        ) : null}
       </div>
 
       <AppShellStatusLogs
         hasRecentStderr={hasRecentStderr}
         logAlert={logAlert}
-        logHighlight={logHighlight}
         logs={snapshot.launcher.recentStderr}
         onOpenLogs={onOpenLogs}
       />

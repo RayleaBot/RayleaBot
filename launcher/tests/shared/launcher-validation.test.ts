@@ -2,6 +2,7 @@ import { describe, expect, test } from "vitest";
 import {
   parseLauncherCloseConfirmResponse,
   parseLauncherSettingsInput,
+  parseLauncherThemeMode,
   parseRuntimeBootstrapResources,
   sanitizeLauncherWebTargetPath,
 } from "@shared/launcher-validation";
@@ -55,6 +56,13 @@ describe("launcher validation", () => {
     expect(() =>
       parseLauncherCloseConfirmResponse({ action: "hide", setAsDefault: true, unknown: true }),
     ).toThrow("关闭确认格式无效。");
+  });
+
+  test("accepts only the fixed launcher theme modes", () => {
+    expect(parseLauncherThemeMode("system")).toBe("system");
+    expect(parseLauncherThemeMode("light")).toBe("light");
+    expect(parseLauncherThemeMode("dark")).toBe("dark");
+    expect(() => parseLauncherThemeMode("sepia")).toThrow("启动器主题模式无效。");
   });
 
   test("rejects runtime bootstrap payloads with non-string resource ids", () => {

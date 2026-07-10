@@ -1,4 +1,4 @@
-import { startTransition, useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { deriveLauncherPresentation } from "@shared/launcher-presentation";
 import type { LauncherAdvancedOverrides, LauncherSettings } from "@shared/launcher-models";
 
@@ -190,9 +190,7 @@ export function App() {
       if (section === activeSection) {
         return;
       }
-      startTransition(() => {
-        setActiveSection(section);
-      });
+      setActiveSection(section);
     },
     [activeSection, setActiveSection],
   );
@@ -200,7 +198,7 @@ export function App() {
   if (initializing) {
     return (
       <div className="launcher-loading-shell">
-        <div className="launcher-loading-shell__eyebrow">Raylea 启动器</div>
+        <div className="section-kicker">RayleaBot 启动器</div>
         <h1 className="launcher-loading-shell__title">正在准备启动器</h1>
         <p className="launcher-loading-shell__detail">正在读取安装设置并检查本地服务状态。</p>
       </div>

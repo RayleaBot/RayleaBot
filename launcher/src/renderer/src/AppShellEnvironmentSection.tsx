@@ -1,4 +1,3 @@
-import { Text } from "@fluentui/react-components";
 import { getEnvironmentSummaryLabel, resolveRecoverySummary } from "@shared/launcher-presentation";
 import type { LauncherSnapshot } from "@shared/launcher-models";
 
@@ -43,63 +42,104 @@ export function AppShellEnvironmentSection({
         ? { label: environmentSummaryLabel, detail: "核心能力可用，建议先检查告警项。" }
         : { label: environmentSummaryLabel, detail: "当前未发现阻塞或告警项。" };
   const recoverySummary = resolveRecoverySummary(snapshot);
-  const recoveryStatusSummary = formatRecoverySummary(recoverySummary);
+  const recoveryStatusSummary = recoverySummary ? formatRecoverySummary(recoverySummary) : "";
+  const categories = [
+    { key: "core", title: "系统核心", data: categorizedChecks.core },
+    { key: "runtimes", title: "运行环境", data: categorizedChecks.runtimes },
+    { key: "others", title: "环境特性", data: categorizedChecks.others },
+  ].filter((section) => section.data.length > 0);
+  const totalChecks = checks.length;
+  const allChecksReady = groupedChecks.blocking.length === 0 && groupedChecks.warnings.length === 0;
 
   return (
-    <div className="env-details-flow">
-      <article className="panel surface-panel env-overview-card">
-        <div className="brand-eyebrow">启动前检查</div>
-        <div className="env-overview-strip">
-          <div className="env-overview-card__lead">
-            <span className="env-overview-card__label">当前结论</span>
-            <strong className="env-overview-card__title">{environmentReadiness.label}</strong>
-            <Text size={200} className="panel-muted">{environmentReadiness.detail}</Text>
-          </div>
-          <div className="env-overview-metrics">
-            <div className="metric-card metric-card--error"><Text size={100} block className="metric-label">阻塞项</Text><Text size={600} weight="bold">{groupedChecks.blocking.length}</Text></div>
-            <div className="metric-card metric-card--warning"><Text size={100} block className="metric-label">警告项</Text><Text size={600} weight="bold">{groupedChecks.warnings.length}</Text></div>
-            <div className="metric-card metric-card--ok"><Text size={100} block className="metric-label">正常项</Text><Text size={600} weight="bold">{groupedChecks.ready.length}</Text></div>
-            <div className="metric-card"><Text size={100} block className="metric-label">平台架构</Text><Text size={300} weight="bold">{platformLabel || "—"}</Text></div>
-          </div>
+    <div className="environment-workspace">
+      <section className="environment-summary" aria-labelledby="environment-summary-title">
+        <div>
+          <div className="section-kicker">启动前检查</div>
+          <h2 id="environment-summary-title">{environmentReadiness.label}</h2>
+          <p>{environmentReadiness.detail}</p>
         </div>
-        <div className="status-list env-status-grid">
-          <div className="status-item"><span className="status-label">核心版本</span><span className="status-value">{snapshot.launcher.releaseCheck.currentVersion || "—"}</span></div>
-          <div className="status-item"><span className="status-label">安装路径</span><span className="status-value mono">{snapshot.launcher.settings.installationRoot || "—"}</span></div>
-          <div className="status-item"><span className="status-label">恢复兼容性</span><span className="status-value">{recoveryStatusSummary}</span></div>
-          <div className="status-item"><span className="status-label">服务地址</span><span className="status-value mono">{snapshot.launcher.endpoint.baseUrl}</span></div>
+        <div className="count-badges" aria-label="检查计数">
+          {groupedChecks.blocking.length > 0 ? <span data-state="danger">阻塞 {groupedChecks.blocking.length}</span> : null}
+          {groupedChecks.warnings.length > 0 ? <span data-state="warning">警告 {groupedChecks.warnings.length}</span> : null}
+          {totalChecks > 0 ? (
+            <span data-state={allChecksReady ? "neutral" : "success"}>{groupedChecks.ready.length}/{totalChecks} 正常</span>
+          ) : (
+            <span>暂无检查项</span>
+          )}
+          <span>平台 {platformLabel || "—"}</span>
         </div>
-      </article>
+      </section>
 
-      {[{ title: "系统核心", data: categorizedChecks.core }, { title: "运行环境", data: categorizedChecks.runtimes }, { title: "环境特性", data: categorizedChecks.others }]
-        .filter((section) => section.data.length > 0)
-        .map((section) => (
-          <section key={section.title} className="env-section">
-            <div className="brand-eyebrow brand-eyebrow--section">{section.title}</div>
-            <div className="checks-stack checks-stack--grid">
-              {section.data.map((item) => (
-                <div key={item.code} className={`check-item surface-panel surface-panel--subtle check-item--${item.severity}`}>
-                  <div className="check-item__lead">
-                    <div className="check-item__icon">{severityConfig[item.severity as keyof typeof severityConfig]?.icon}</div>
-                    <div className="check-item__copy">
-                      <div className="check-item__headline">
-                        <Text weight="bold" size={200}>{item.title}</Text>
-                        <span className={`status-pill status-pill--${item.severity}`}>{severityConfig[item.severity as keyof typeof severityConfig]?.label}</span>
+      <dl className="definition-list environment-meta">
+        {snapshot.launcher.releaseCheck.currentVersion ? (
+          <div className="definition-row"><dt>核心版本</dt><dd>{snapshot.launcher.releaseCheck.currentVersion}</dd></div>
+        ) : null}
+        {snapshot.launcher.settings.installationRoot ? (
+          <div className="definition-row"><dt>安装路径</dt><dd className="mono">{snapshot.launcher.settings.installationRoot}</dd></div>
+        ) : null}
+        {recoverySummary ? (
+          <div className="definition-row"><dt>恢复兼容性</dt><dd>{recoveryStatusSummary}</dd></div>
+        ) : null}
+        <div className="definition-row"><dt>服务地址</dt><dd className="mono">{snapshot.launcher.endpoint.baseUrl}</dd></div>
+      </dl>
+
+      {categories.map((section) => {
+        const issues = section.data.filter((item) => item.severity !== "ok");
+        const healthy = section.data.filter((item) => item.severity === "ok");
+        return (
+          <section key={section.key} className="check-group" aria-labelledby={`check-group-${section.key}`}>
+            <div className="check-group__heading">
+              <h3 id={`check-group-${section.key}`}>{section.title}</h3>
+              {issues.length > 0 ? <span>{issues.length} 项需要处理</span> : null}
+            </div>
+
+            {issues.length > 0 ? (
+              <div className="check-list check-list--issues">
+                {issues.map((item) => (
+                  <div key={item.code} className="check-row" data-severity={item.severity}>
+                    <span className="check-row__icon">{severityConfig[item.severity as keyof typeof severityConfig]?.icon}</span>
+                    <div className="check-row__copy">
+                      <div className="check-row__heading">
+                        <strong>{item.title}</strong>
+                        <span className="status-label" data-state={item.severity}>{severityConfig[item.severity as keyof typeof severityConfig]?.label}</span>
                       </div>
-                      <Text size={100} className="check-item__summary">{item.summary}</Text>
-                      {item.detail && item.detail !== item.summary && <Text size={100} className="check-item__detail">{item.detail}</Text>}
-                      {item.remediation && (
-                        <div className="check-item__remediation">
-                          <span className="check-item__remediation-label">{item.severity === "ok" ? "离线准备" : "处理方式"}</span>
-                          <Text size={100} className="check-item__remediation-text">{item.remediation}</Text>
+                      <p>{item.summary}</p>
+                      {item.detail && item.detail !== item.summary ? <p className="muted">{item.detail}</p> : null}
+                      {item.remediation ? (
+                        <div className="check-row__remediation">
+                          <strong>处理方式</strong>
+                          <span>{item.remediation}</span>
                         </div>
-                      )}
+                      ) : null}
                     </div>
                   </div>
+                ))}
+              </div>
+            ) : null}
+
+            {healthy.length > 0 ? (
+              <details className="healthy-disclosure">
+                <summary>
+                  <span>{issues.length > 0 ? "查看正常项" : "检查全部正常"}</span>
+                  <span>{healthy.length} 项通过</span>
+                </summary>
+                <div className="check-list check-list--healthy">
+                  {healthy.map((item) => (
+                    <div key={item.code} className="check-row check-row--healthy" data-severity="ok">
+                      <span className="check-row__icon">{severityConfig.ok.icon}</span>
+                      <div className="check-row__copy">
+                        <strong>{item.title}</strong>
+                        <p>{item.summary}</p>
+                      </div>
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
+              </details>
+            ) : null}
           </section>
-        ))}
+        );
+      })}
     </div>
   );
 }

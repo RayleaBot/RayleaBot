@@ -1,4 +1,4 @@
-import { Button, Input, Radio, RadioGroup, Text } from "@fluentui/react-components";
+import { Button, Input, Radio, RadioGroup } from "@fluentui/react-components";
 import {
   FolderOpen20Filled,
   Stop20Filled,
@@ -32,6 +32,10 @@ type SettingsSectionProps = {
   onExit: () => void;
 };
 
+function displayPath(value: string) {
+  return value.trim() || "未设置";
+}
+
 export function AppShellSettingsSection({
   snapshot,
   settingsDraft,
@@ -50,120 +54,118 @@ export function AppShellSettingsSection({
   onExit,
 }: SettingsSectionProps) {
   const presentation = deriveLauncherPresentation(snapshot);
-  const pathSurfaceTag = editingSettings ? "可编辑" : "当前生效";
   const serverExecutablePath = settingsDraft.advancedOverrides?.serverExecutablePath || resolvedSettings.serverExecutablePath;
   const configPath = settingsDraft.advancedOverrides?.configPath || resolvedSettings.configPath;
   const workdir = settingsDraft.advancedOverrides?.workdir || resolvedSettings.workdir;
+  const closeBehavior = closeBehaviorOptions.find((option) => option.value === settingsDraft.closeBehavior)
+    ?? closeBehaviorOptions[0];
 
   return (
-    <article className="panel surface-panel settings-panel" data-busy={busyAction ?? "idle"}>
-      {editingSettings && (
-        <div className="settings-edit-bar surface-panel surface-panel--subtle">
-          <div className="settings-edit-status">
-            <span className="settings-edit-status__dot" aria-hidden="true"></span>
-            <div className="settings-edit-status__copy">
-              <div className="settings-edit-status__title">编辑中</div>
-              <Text size={200} className="settings-edit-status__detail">当前显示草稿路径与预览结果，保存后才会切换为生效值。</Text>
+    <article className="settings-workspace" data-busy={busyAction ?? "idle"}>
+      {editingSettings ? (
+        <div className="attention-note settings-edit-notice" role="status">
+          <strong>正在编辑设置</strong>
+          <span>当前内容是草稿，保存后生效。</span>
+        </div>
+      ) : null}
+
+      <section className="settings-section">
+        <div className="settings-section__heading">
+          <FolderOpen20Filled />
+          <div><h3>路径设置</h3><p>启动器当前使用的目录和文件位置。</p></div>
+        </div>
+
+        {editingSettings ? (
+          <div className="settings-path-fields">
+            <label className="path-field">
+              <span className="path-field__label">安装目录</span>
+              <div className="path-control">
+                <Input aria-label="安装目录" value={settingsDraft.installationRoot} className="settings-input settings-input--path" onChange={(_, data) => onUpdateInstallationRoot(data.value)} />
+                <Button appearance="secondary" onClick={onChooseInstallationRoot} icon={<FolderOpen20Filled />}>浏览</Button>
+              </div>
+            </label>
+            <label className="path-field">
+              <span className="path-field__label">服务端程序</span>
+              <div className="path-control">
+                <Input aria-label="服务端程序" value={serverExecutablePath} className="settings-input settings-input--path" onChange={(_, data) => onUpdateAdvancedOverride("serverExecutablePath", data.value)} />
+                <Button appearance="secondary" onClick={onChooseServer} icon={<FolderOpen20Filled />}>浏览</Button>
+              </div>
+            </label>
+            <label className="path-field">
+              <span className="path-field__label">配置文件</span>
+              <div className="path-control">
+                <Input aria-label="配置文件" value={configPath} className="settings-input settings-input--path" onChange={(_, data) => onUpdateAdvancedOverride("configPath", data.value)} />
+                <Button appearance="secondary" onClick={onChooseConfig} icon={<FolderOpen20Filled />}>浏览</Button>
+              </div>
+            </label>
+            <label className="path-field">
+              <span className="path-field__label">进程工作目录</span>
+              <div className="path-control">
+                <Input aria-label="进程工作目录" value={workdir} className="settings-input settings-input--path" onChange={(_, data) => onUpdateAdvancedOverride("workdir", data.value)} />
+                <Button appearance="secondary" onClick={onChooseWorkdir} icon={<FolderOpen20Filled />}>选择</Button>
+              </div>
+            </label>
+          </div>
+        ) : (
+          <dl className="definition-list settings-read-list">
+            <div className="definition-row"><dt>安装目录</dt><dd className="mono" title={settingsDraft.installationRoot}>{displayPath(settingsDraft.installationRoot)}</dd></div>
+            <div className="definition-row"><dt>服务端程序</dt><dd className="mono" title={serverExecutablePath}>{displayPath(serverExecutablePath)}</dd></div>
+            <div className="definition-row"><dt>配置文件</dt><dd className="mono" title={configPath}>{displayPath(configPath)}</dd></div>
+            <div className="definition-row"><dt>进程工作目录</dt><dd className="mono" title={workdir}>{displayPath(workdir)}</dd></div>
+          </dl>
+        )}
+      </section>
+
+      <section className="settings-section">
+        <div className="settings-section__heading">
+          <div><h3>关闭行为</h3><p>关闭窗口时采用的默认动作，托盘模式会保留后台入口。</p></div>
+        </div>
+
+        {editingSettings ? (
+          <RadioGroup value={settingsDraft.closeBehavior} onChange={(_, data) => onUpdateCloseBehavior(data.value as LauncherSettings["closeBehavior"])}>
+            <div className="preference-options">
+              {closeBehaviorOptions.map((option) => (
+                <label key={option.value} className={`preference-option${settingsDraft.closeBehavior === option.value ? " is-selected" : ""}`}>
+                  <Radio className="preference-radio" value={option.value} />
+                  <span className="preference-option__body">
+                    <span className="preference-option__title">{option.label}</span>
+                    <span className="preference-option__detail">{option.detail}</span>
+                  </span>
+                </label>
+              ))}
             </div>
+          </RadioGroup>
+        ) : (
+          <div className="settings-choice-summary">
+            <strong>{closeBehavior.label}</strong>
+            <span>{closeBehavior.detail}</span>
+          </div>
+        )}
+      </section>
+
+      <section className="settings-section maintenance-section">
+        <div className="settings-section__heading">
+          <div><h3>维护操作</h3><p>用于重置本地凭据或结束启动器进程。</p></div>
+        </div>
+        <div className="maintenance-action-list">
+          <div className="maintenance-row" data-tone="danger">
+            <span className="maintenance-row__icon" aria-hidden="true"><Warning20Filled /></span>
+            <div className="maintenance-row__copy">
+              <strong>重置凭据</strong>
+              <span>清除本地管理凭据，下次启动时重新完成初始化。</span>
+            </div>
+            <Button appearance="secondary" className="danger-button" onClick={onResetAdmin} disabled={controlsDisabled || presentation.state === "starting" || presentation.state === "stopping"}>立即重置</Button>
+          </div>
+          <div className="maintenance-row">
+            <span className="maintenance-row__icon" aria-hidden="true"><Stop20Filled /></span>
+            <div className="maintenance-row__copy">
+              <strong>退出启动器</strong>
+              <span>关闭窗口和托盘入口，不影响已保存配置与服务文件。</span>
+            </div>
+            <Button appearance="secondary" className="danger-outline-button" onClick={onExit}>退出启动器</Button>
           </div>
         </div>
-      )}
-
-      <div className="settings-layout">
-        <div className="settings-column settings-column--primary">
-          <section className="settings-section settings-paths-panel surface-panel surface-panel--subtle">
-            <div className="settings-section__header">
-              <FolderOpen20Filled className="settings-section__icon" />
-              <div className="panel-copy">
-                <div className="brand-eyebrow brand-eyebrow--tight">路径设置</div>
-                <Text size={200} className="panel-muted">当前使用的目录和文件路径。</Text>
-              </div>
-              <span className="settings-surface-tag">{pathSurfaceTag}</span>
-            </div>
-            <div className="settings-path-fields">
-              <label className="path-field">
-                <span className="path-field__label">安装目录</span>
-                <div className="path-control">
-                  <Input aria-label="安装目录" value={settingsDraft.installationRoot} readOnly={!editingSettings} className="settings-input settings-input--path" onChange={(_, data) => onUpdateInstallationRoot(data.value)} />
-                  <Button appearance="transparent" disabled={!editingSettings} size="small" className="action-button action-button--secondary action-button--compact" onClick={onChooseInstallationRoot} icon={<FolderOpen20Filled />}>浏览</Button>
-                </div>
-              </label>
-              <label className="path-field">
-                <span className="path-field__label">服务端程序</span>
-                <div className="path-control">
-                  <Input aria-label="服务端程序" value={serverExecutablePath} readOnly={!editingSettings} className="settings-input settings-input--path" onChange={(_, data) => onUpdateAdvancedOverride("serverExecutablePath", data.value)} />
-                  <Button appearance="transparent" disabled={!editingSettings} size="small" className="action-button action-button--secondary action-button--compact" onClick={onChooseServer} icon={<FolderOpen20Filled />}>浏览</Button>
-                </div>
-              </label>
-              <label className="path-field">
-                <span className="path-field__label">配置文件</span>
-                <div className="path-control">
-                  <Input aria-label="配置文件" value={configPath} readOnly={!editingSettings} className="settings-input settings-input--path" onChange={(_, data) => onUpdateAdvancedOverride("configPath", data.value)} />
-                  <Button appearance="transparent" disabled={!editingSettings} size="small" className="action-button action-button--secondary action-button--compact" onClick={onChooseConfig} icon={<FolderOpen20Filled />}>浏览</Button>
-                </div>
-              </label>
-              <label className="path-field">
-                <span className="path-field__label">进程工作目录</span>
-                <div className="path-control">
-                  <Input aria-label="进程工作目录" value={workdir} readOnly={!editingSettings} className="settings-input settings-input--path" onChange={(_, data) => onUpdateAdvancedOverride("workdir", data.value)} />
-                  <Button appearance="transparent" disabled={!editingSettings} size="small" className="action-button action-button--secondary action-button--compact" onClick={onChooseWorkdir} icon={<FolderOpen20Filled />}>选择</Button>
-                </div>
-              </label>
-            </div>
-          </section>
-        </div>
-
-        <div className="settings-column settings-column--secondary">
-          <section className="preferences-panel surface-panel surface-panel--subtle">
-            <div className="panel-copy">
-              <div className="brand-eyebrow brand-eyebrow--tight">退出行为偏好</div>
-              <Text size={200} className="panel-muted">关闭窗口时采用的默认动作。托盘模式会保留后台入口。</Text>
-            </div>
-            <RadioGroup value={settingsDraft.closeBehavior} onChange={(_, data) => onUpdateCloseBehavior(data.value as LauncherSettings["closeBehavior"])}>
-              <div className="preference-options">
-                {closeBehaviorOptions.map((option) => (
-                  <label key={option.value} className={`preference-option${settingsDraft.closeBehavior === option.value ? " is-selected" : ""}${!editingSettings ? " is-disabled" : ""}`}>
-                    <Radio className="preference-radio" value={option.value} disabled={!editingSettings} />
-                    <span className="preference-option__body">
-                      <span className="preference-option__title">{option.label}</span>
-                      <span className="preference-option__detail">{option.detail}</span>
-                    </span>
-                  </label>
-                ))}
-              </div>
-            </RadioGroup>
-          </section>
-
-          <section className="maintenance-panel surface-panel surface-panel--subtle">
-            <div className="panel-copy">
-              <div className="brand-eyebrow brand-eyebrow--tight">维护操作</div>
-              <Text size={200} className="panel-muted">用于重置本地凭据或直接结束启动器进程。</Text>
-            </div>
-            <div className="maintenance-action-list">
-              <div className="maintenance-action-card maintenance-action-card--danger">
-                <div className="maintenance-action-card__lead">
-                  <span className="maintenance-action-card__badge" aria-hidden="true"><Warning20Filled /></span>
-                  <div className="maintenance-action-card__copy">
-                    <div className="maintenance-action-card__title">重置凭据</div>
-                    <Text size={200} className="maintenance-action-card__detail">清除本地管理凭据，下次启动时重新完成初始化。</Text>
-                  </div>
-                </div>
-                <Button appearance="transparent" size="small" className="action-button action-button--danger maintenance-action-card__button" onClick={onResetAdmin} disabled={controlsDisabled || presentation.state === "starting" || presentation.state === "stopping"}>立即重置</Button>
-              </div>
-              <div className="maintenance-action-card maintenance-action-card--soft">
-                <div className="maintenance-action-card__lead">
-                  <span className="maintenance-action-card__badge" aria-hidden="true"><Stop20Filled /></span>
-                  <div className="maintenance-action-card__copy">
-                    <div className="maintenance-action-card__title">退出启动器</div>
-                    <Text size={200} className="maintenance-action-card__detail">关闭窗口和托盘入口，不影响已保存配置与服务文件。</Text>
-                  </div>
-                </div>
-                <Button appearance="transparent" size="small" className="action-button action-button--secondary maintenance-action-card__button" onClick={onExit}>退出启动器</Button>
-              </div>
-            </div>
-          </section>
-        </div>
-      </div>
+      </section>
     </article>
   );
 }

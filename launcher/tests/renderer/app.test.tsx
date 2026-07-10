@@ -269,7 +269,7 @@ describe("App", () => {
     expect(screen.queryByRole("button", { name: "重启服务" })).not.toBeInTheDocument();
   });
 
-  test("disables recovery actions while setup is still required", async () => {
+  test("omits unavailable recovery actions while setup is still required", async () => {
     let initialized = false;
     installDesktopApi({
       getPlatform: vi.fn(async () => "win32-x64"),
@@ -307,9 +307,9 @@ describe("App", () => {
 
     render(<App />);
 
-    expect(await screen.findByRole("button", { name: "执行恢复检查" })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "准备运行环境" })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "管理界面" })).not.toBeDisabled();
+    expect(await screen.findByRole("button", { name: "管理界面" })).not.toBeDisabled();
+    expect(screen.queryByRole("button", { name: "执行恢复检查" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "准备运行环境" })).not.toBeInTheDocument();
   });
 
   test("previews derived settings while editing the installation root", async () => {

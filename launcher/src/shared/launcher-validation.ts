@@ -4,6 +4,7 @@ import type {
   LauncherCloseConfirmResponse,
   LauncherSettings,
 } from "./launcher-models";
+import { isLauncherThemeMode, type LauncherThemeMode } from "./launcher-theme";
 
 const CLOSE_BEHAVIORS = new Set<LauncherCloseBehavior>([
   "ask_every_time",
@@ -92,6 +93,13 @@ export function parseLauncherCloseConfirmResponse(value: unknown): LauncherClose
     action: value.action,
     setAsDefault: value.setAsDefault,
   };
+}
+
+export function parseLauncherThemeMode(value: unknown): LauncherThemeMode {
+  if (!isLauncherThemeMode(value)) {
+    throw new Error("启动器主题模式无效。");
+  }
+  return value;
 }
 
 export function parseRuntimeBootstrapResources(value: unknown): string[] | undefined {

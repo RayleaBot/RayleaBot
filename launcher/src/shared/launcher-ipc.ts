@@ -22,6 +22,7 @@ export const launcherInvokeChannels = {
   chooseWorkdir: "launcher:choose-workdir",
   exit: "launcher:exit",
   closeConfirmResponse: "launcher:close-confirm-response",
+  setThemeMode: "launcher:set-theme-mode",
   minimize: "launcher:minimize",
   maximize: "launcher:maximize",
   close: "launcher:close",

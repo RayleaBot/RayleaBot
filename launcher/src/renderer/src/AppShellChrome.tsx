@@ -4,16 +4,13 @@ import {
   Square20Regular,
   SquareMultiple20Regular,
   Subtract20Regular,
-  WeatherMoon20Regular,
-  WeatherSunny20Regular,
-  Desktop20Regular,
 } from "@fluentui/react-icons";
 import { deriveLauncherPresentation } from "@shared/launcher-presentation";
 import type { LauncherSnapshot } from "@shared/launcher-models";
 
 import { sections, serviceStateConfig, statusSummary } from "./AppShell.shared";
 import type { SectionId } from "./AppShell.shared";
-import { useTheme, type ThemeMode } from "./useTheme";
+import { ThemeModeMenu } from "./ThemeModeMenu";
 
 type AppShellChromeProps = {
   snapshot: LauncherSnapshot;
@@ -23,18 +20,6 @@ type AppShellChromeProps = {
   onRefresh: () => void;
 };
 
-const modeIcons: Record<ThemeMode, React.ReactNode> = {
-  light: <WeatherSunny20Regular />,
-  dark: <WeatherMoon20Regular />,
-  system: <Desktop20Regular />,
-};
-
-const modeLabels: Record<ThemeMode, string> = {
-  light: "浅色",
-  dark: "深色",
-  system: "跟随系统",
-};
-
 export function AppShellChrome({
   snapshot,
   activeSection,
@@ -42,17 +27,18 @@ export function AppShellChrome({
   onNavigate,
   onRefresh,
 }: AppShellChromeProps) {
-  const trayStatus = statusSummary(deriveLauncherPresentation(snapshot).state);
-  const { mode, toggleMode } = useTheme();
+  const presentation = deriveLauncherPresentation(snapshot);
+  const stateConfig = serviceStateConfig[presentation.state];
+  const trayStatus = statusSummary(presentation.state);
 
   return (
     <>
       <div className="window-drag-handle">
-        <div className="window-title">RAYLEALAUNCHER</div>
+        <div className="window-title">RayleaBot 启动器</div>
         <div className="window-controls">
-          <button className="window-control-btn" onClick={() => window.rayleaLauncher.minimize()} title="最小化"><Subtract20Regular /></button>
-          <button className="window-control-btn" onClick={() => window.rayleaLauncher.maximize()} title={isMaximized ? "还原" : "最大化"}>{isMaximized ? <SquareMultiple20Regular /> : <Square20Regular />}</button>
-          <button className="window-control-btn danger" onClick={() => window.rayleaLauncher.close()} title="关闭"><Dismiss20Regular /></button>
+          <button className="window-control-btn" onClick={() => window.rayleaLauncher.minimize()} title="最小化" aria-label="最小化"><Subtract20Regular /></button>
+          <button className="window-control-btn" onClick={() => window.rayleaLauncher.maximize()} title={isMaximized ? "还原" : "最大化"} aria-label={isMaximized ? "还原" : "最大化"}>{isMaximized ? <SquareMultiple20Regular /> : <Square20Regular />}</button>
+          <button className="window-control-btn danger" onClick={() => window.rayleaLauncher.close()} title="关闭" aria-label="关闭"><Dismiss20Regular /></button>
         </div>
       </div>
 
@@ -75,19 +61,11 @@ export function AppShellChrome({
         <div className="sidebar-footer--compact">
           <div className="sidebar-footer__status-dot" title={`运行状态：${trayStatus}`}>
             <span
-              className={`status-indicator status-indicator--${serviceStateConfig[deriveLauncherPresentation(snapshot).state].status}`}
+              className={`status-indicator status-indicator--${stateConfig.tone}`}
               aria-label={`运行状态：${trayStatus}`}
             />
           </div>
-          <button
-            type="button"
-            className="sidebar-icon-btn"
-            onClick={toggleMode}
-            title={`当前主题：${modeLabels[mode]}，点击切换`}
-            aria-label={`当前主题：${modeLabels[mode]}，点击切换`}
-          >
-            {modeIcons[mode]}
-          </button>
+          <ThemeModeMenu />
           <button
             type="button"
             className="sidebar-icon-btn"

@@ -2,6 +2,7 @@ import { contextBridge, ipcRenderer } from "electron";
 import type { LauncherDesktopApi } from "../shared/desktop-api";
 import type { LauncherSettings, LauncherSnapshot } from "../shared/launcher-models";
 import { launcherEventChannels, launcherInvokeChannels } from "../shared/launcher-ipc";
+import type { LauncherThemeMode } from "../shared/launcher-theme";
 
 const api: LauncherDesktopApi = {
   getPlatform: () => ipcRenderer.invoke(launcherInvokeChannels.getPlatform),
@@ -30,6 +31,7 @@ const api: LauncherDesktopApi = {
   maximize: () => ipcRenderer.invoke(launcherInvokeChannels.maximize),
   close: () => ipcRenderer.invoke(launcherInvokeChannels.close),
   closeConfirmResponse: (response) => ipcRenderer.invoke(launcherInvokeChannels.closeConfirmResponse, response),
+  setThemeMode: (mode: LauncherThemeMode) => ipcRenderer.invoke(launcherInvokeChannels.setThemeMode, mode),
   isMaximized: () => ipcRenderer.invoke(launcherInvokeChannels.isMaximized),
   onSnapshot(listener: (snapshot: LauncherSnapshot) => void) {
     const handler = (_event: unknown, snapshot: LauncherSnapshot) => listener(snapshot);

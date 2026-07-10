@@ -1,5 +1,3 @@
-import { DocumentText20Filled, FolderOpen20Filled, Globe20Filled, Status20Filled } from "@fluentui/react-icons";
-
 import type { LauncherResolvedSettings, LauncherSnapshot } from "@shared/launcher-models";
 
 type AppShellStatusSummaryProps = {
@@ -38,40 +36,28 @@ export function AppShellStatusSummary({ resolvedSettings, snapshot }: AppShellSt
   const showWorkdir = Boolean(workdir.trim()) && !isSameDirectoryPath(installationRoot, workdir);
 
   return (
-    <article className="panel surface-panel panel--interactive">
-      <div className="brand-eyebrow">核心参数</div>
-      <div className="status-list status-list--grid-modern">
-        <div className="status-item-modern">
-          <div className="status-item-modern__icon"><Status20Filled /></div>
-          <div className="status-item-modern__content">
-            <span className="status-label">进程 ID</span>
-            <code className="status-value status-value--highlight">{snapshot.launcher.processId ?? "—"}</code>
-          </div>
+    <section className="data-section" aria-labelledby="status-details-title">
+      <h3 id="status-details-title">运行详情</h3>
+      <dl className="definition-list">
+        <div className="definition-row">
+          <dt>进程 ID</dt>
+          <dd><code>{snapshot.launcher.processId ?? "—"}</code></dd>
         </div>
-        <div className="status-item-modern">
-          <div className="status-item-modern__icon"><Globe20Filled /></div>
-          <div className="status-item-modern__content">
-            <span className="status-label">服务地址</span>
-            <span className="status-value mono">{snapshot.launcher.endpoint.baseUrl}</span>
-          </div>
+        <div className="definition-row">
+          <dt>服务地址</dt>
+          <dd className="mono">{snapshot.launcher.endpoint.baseUrl}</dd>
         </div>
-        <div className="status-item-modern status-item-modern--full">
-          <div className="status-item-modern__icon"><FolderOpen20Filled /></div>
-          <div className="status-item-modern__content">
-            <span className="status-label">安装目录</span>
-            <span className="status-value mono" title={installationRoot}>{installationRoot || "—"}</span>
-          </div>
+        <div className="definition-row">
+          <dt>安装目录</dt>
+          <dd className="mono" title={installationRoot}>{installationRoot || "—"}</dd>
         </div>
         {showWorkdir ? (
-          <div className="status-item-modern status-item-modern--full">
-            <div className="status-item-modern__icon"><DocumentText20Filled /></div>
-            <div className="status-item-modern__content">
-              <span className="status-label">进程工作目录</span>
-              <span className="status-value mono" title={workdir}>{workdir}</span>
-            </div>
+          <div className="definition-row">
+            <dt>工作目录</dt>
+            <dd className="mono" title={workdir}>{workdir}</dd>
           </div>
         ) : null}
-      </div>
-    </article>
+      </dl>
+    </section>
   );
 }

@@ -1,4 +1,3 @@
-import type { PresenceBadgeStatus } from "@fluentui/react-components";
 import {
   CheckmarkCircle20Filled,
   DocumentText20Filled,
@@ -14,15 +13,16 @@ import type { LauncherSettings } from "@shared/launcher-models";
 
 export type SectionId = "status" | "environment" | "diagnostics" | "settings" | "about";
 export type SectionTransitionState = "idle" | "exiting" | "entering";
+export type LauncherVisualTone = "neutral" | "info" | "success" | "attention" | "warning" | "danger";
 
-export const serviceStateConfig: Record<LauncherPresentationState, { status: PresenceBadgeStatus; label: string }> = {
-  stopped: { status: "offline", label: getLauncherStateLabel("stopped") },
-  starting: { status: "busy", label: getLauncherStateLabel("starting") },
-  running: { status: "available", label: getLauncherStateLabel("running") },
-  degraded: { status: "busy", label: getLauncherStateLabel("degraded") },
-  setup_required: { status: "blocked", label: getLauncherStateLabel("setup_required") },
-  stopping: { status: "busy", label: getLauncherStateLabel("stopping") },
-  failed: { status: "blocked", label: getLauncherStateLabel("failed") },
+export const serviceStateConfig: Record<LauncherPresentationState, { label: string; tone: LauncherVisualTone }> = {
+  stopped: { label: getLauncherStateLabel("stopped"), tone: "neutral" },
+  starting: { label: getLauncherStateLabel("starting"), tone: "info" },
+  running: { label: getLauncherStateLabel("running"), tone: "success" },
+  degraded: { label: getLauncherStateLabel("degraded"), tone: "warning" },
+  setup_required: { label: getLauncherStateLabel("setup_required"), tone: "attention" },
+  stopping: { label: getLauncherStateLabel("stopping"), tone: "info" },
+  failed: { label: getLauncherStateLabel("failed"), tone: "danger" },
 };
 
 export const severityConfig = {

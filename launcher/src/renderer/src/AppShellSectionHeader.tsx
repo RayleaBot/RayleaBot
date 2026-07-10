@@ -1,10 +1,10 @@
 import { Button } from "@fluentui/react-components";
-import { ArrowClockwise20Regular, FolderOpen20Filled } from "@fluentui/react-icons";
-import { deriveLauncherPresentation, getEnvironmentSummaryLabel } from "@shared/launcher-presentation";
+import { ArrowClockwise20Regular } from "@fluentui/react-icons";
+import { deriveLauncherPresentation } from "@shared/launcher-presentation";
 import type { LauncherSnapshot } from "@shared/launcher-models";
 import type { ReactNode } from "react";
 
-import { busyActionLabels, formatReleaseVersion, sectionContent, serviceStateConfig } from "./AppShell.shared";
+import { busyActionLabels, sectionContent, serviceStateConfig } from "./AppShell.shared";
 import type { SectionId } from "./AppShell.shared";
 
 type AppShellSectionHeaderProps = {
@@ -15,7 +15,6 @@ type AppShellSectionHeaderProps = {
   editingSettings: boolean;
   onRefresh: () => void;
   onOpenRuntimeTasks: () => void;
-  onOpenLogs: () => void;
   onBeginEdit: () => void;
   onCancelEdit: () => void;
   onSaveSettings: () => void;
@@ -26,7 +25,6 @@ function getSectionHeaderBadges(
   snapshot: LauncherSnapshot,
   busyAction: string | null,
   editingSettings: boolean,
-  environmentLabel: string,
   hasRecentStderr: boolean,
 ): ReactNode {
   const presentation = deriveLauncherPresentation(snapshot);
@@ -34,41 +32,34 @@ function getSectionHeaderBadges(
   if (renderedSection === "status") {
     return (
       <>
-        <span className="status-chip status-chip--accent">{serviceStateConfig[presentation.state]?.label ?? "未知"}</span>
+        <span className="status-chip" data-tone={serviceStateConfig[presentation.state]?.tone ?? "neutral"}>
+          {serviceStateConfig[presentation.state]?.label ?? "未知"}
+        </span>
         {busyAction && <span className="status-chip status-chip--muted">{busyActionLabels[busyAction] ?? "正在执行操作"}</span>}
       </>
     );
   }
   if (renderedSection === "environment") {
-    return (
-      <>
-        <span className="status-chip status-chip--accent">{environmentLabel}</span>
-        <span className="status-chip status-chip--muted">{snapshot.launcher.preflightChecks.length} 项检查</span>
-      </>
-    );
+    return null;
   }
   if (renderedSection === "diagnostics") {
-    return (
-      <>
-        <span className={`status-chip ${hasRecentStderr ? "status-chip--danger" : "status-chip--muted"}`}>
-          {hasRecentStderr ? "发现异常日志" : "暂无异常日志"}
-        </span>
-        <span className="status-chip status-chip--muted">{snapshot.launcher.endpoint.baseUrl}</span>
-      </>
-    );
+    return hasRecentStderr ? <span className="status-chip" data-tone="danger">发现异常日志</span> : null;
   }
   if (renderedSection === "about") {
-    return <span className="status-chip status-chip--muted">{formatReleaseVersion(snapshot.launcher.releaseCheck.currentVersion)}</span>;
+    return null;
   }
-  return <span className="status-chip status-chip--accent">{editingSettings ? "草稿编辑中" : "已加载当前配置"}</span>;
+  return editingSettings ? <span className="status-chip" data-tone="attention">草稿编辑中</span> : null;
 }
 
-function getSectionHeaderActions(props: AppShellSectionHeaderProps, canRunRecoveryActions: boolean): ReactNode {
+function isRuntimePreparationIssue(code: string) {
+  return ["deps.", "chromium.", "python.", "nodejs.", "npm."].some((prefix) => code.startsWith(prefix));
+}
+
+function getSectionHeaderActions(props: AppShellSectionHeaderProps, canPrepareRuntime: boolean): ReactNode {
   if (props.renderedSection === "status") {
     return (
       <Button
-        appearance="transparent"
-        size="small"
+        appearance="subtle"
         onClick={props.onRefresh}
         icon={<ArrowClockwise20Regular />}
         className="action-button action-button--ghost"
@@ -82,20 +73,18 @@ function getSectionHeaderActions(props: AppShellSectionHeaderProps, canRunRecove
     return (
       <>
         <Button
-          appearance="transparent"
-          size="small"
-          className="action-button action-button--secondary"
+          appearance="secondary"
           onClick={props.onRefresh}
           disabled={props.controlsDisabled}
         >
           重新检查
         </Button>
-        <Button appearance="transparent" size="small" className="action-button action-button--primary" onClick={props.onOpenRuntimeTasks} disabled={!canRunRecoveryActions}>准备运行环境</Button>
+        {canPrepareRuntime ? <Button appearance="primary" onClick={props.onOpenRuntimeTasks}>准备运行环境</Button> : null}
       </>
     );
   }
   if (props.renderedSection === "diagnostics") {
-    return <Button appearance="transparent" size="small" className="action-button action-button--secondary" onClick={props.onOpenLogs} icon={<FolderOpen20Filled />}>查看完整日志</Button>;
+    return null;
   }
   if (props.renderedSection === "about") {
     return null;
@@ -103,34 +92,34 @@ function getSectionHeaderActions(props: AppShellSectionHeaderProps, canRunRecove
   if (props.editingSettings) {
     return (
       <>
-        <Button appearance="transparent" size="small" className="action-button action-button--ghost" onClick={props.onCancelEdit}>放弃</Button>
-        <Button appearance="transparent" size="small" className="action-button action-button--primary" onClick={props.onSaveSettings}>保存</Button>
+        <Button appearance="subtle" onClick={props.onCancelEdit}>放弃</Button>
+        <Button appearance="primary" onClick={props.onSaveSettings}>保存</Button>
       </>
     );
   }
-  return <Button appearance="transparent" size="small" className="action-button action-button--primary" onClick={props.onBeginEdit}>编辑配置</Button>;
+  return <Button appearance="primary" onClick={props.onBeginEdit}>编辑配置</Button>;
 }
 
 export function AppShellSectionHeader(props: AppShellSectionHeaderProps) {
   const sectionMeta = sectionContent[props.renderedSection];
   const presentation = deriveLauncherPresentation(props.snapshot);
   const hasRecentStderr = props.snapshot.launcher.recentStderr.length > 0;
-  const canRunRecoveryActions = presentation.canRunRecoveryActions && !props.controlsDisabled;
-  const environmentLabel = getEnvironmentSummaryLabel(props.snapshot.launcher.preflightChecks);
+  const canPrepareRuntime = presentation.canRunRecoveryActions
+    && !props.controlsDisabled
+    && props.snapshot.launcher.preflightChecks.some((item) => item.severity !== "ok" && isRuntimePreparationIssue(item.code));
 
   return (
-    <header className="section-header surface-panel surface-panel--subtle">
+    <header className="section-header">
       <div className="section-header__copy">
-        <div className="section-header__eyebrow">{sectionMeta.eyebrow}</div>
         <div className="section-header__title-row">
-          <h2 className="section-header__title">{sectionMeta.title}</h2>
+          <h1 className="section-header__title">{sectionMeta.title}</h1>
           <div className="section-header__badges">
-            {getSectionHeaderBadges(props.renderedSection, props.snapshot, props.busyAction, props.editingSettings, environmentLabel, hasRecentStderr)}
+            {getSectionHeaderBadges(props.renderedSection, props.snapshot, props.busyAction, props.editingSettings, hasRecentStderr)}
           </div>
         </div>
       </div>
       <div className="section-header__actions">
-        {getSectionHeaderActions(props, canRunRecoveryActions)}
+        {getSectionHeaderActions(props, canPrepareRuntime)}
       </div>
     </header>
   );

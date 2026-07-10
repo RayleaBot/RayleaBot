@@ -1,10 +1,5 @@
 import { Button } from "@fluentui/react-components";
-import {
-  ArrowClockwise20Regular,
-  Code20Filled,
-  Info20Filled,
-  Open20Regular,
-} from "@fluentui/react-icons";
+import { ArrowClockwise20Regular, Open20Regular } from "@fluentui/react-icons";
 import type { LauncherSnapshot } from "@shared/launcher-models";
 
 import { formatReleaseVersion } from "./AppShell.shared";
@@ -87,6 +82,13 @@ export function AppShellAboutSection({
     || releaseCheck.status === "downloading"
     || releaseCheck.status === "installing"
     || (!releaseCheck.canCheck && !releaseCheck.canDownload && !releaseCheck.canInstall);
+  const updateInProgress = releaseCheck.status === "checking"
+    || releaseCheck.status === "downloading"
+    || releaseCheck.status === "installing";
+  const showUpdateAction = releaseCheck.canCheck
+    || releaseCheck.canDownload
+    || releaseCheck.canInstall
+    || updateInProgress;
   const onUpdateAction =
     releaseCheck.canInstall
       ? onInstallDownloadedUpdate
@@ -95,62 +97,49 @@ export function AppShellAboutSection({
         : onCheckForUpdates;
 
   return (
-    <article className="about-section">
-      <section className="about-hero surface-panel">
-        <div className="about-hero__mark" aria-hidden="true">
-          <Code20Filled />
+    <article className="about-workspace">
+      <section className="about-panel">
+        <div className="about-panel__header">
+          <div className="about-panel__identity">
+            <div className="section-kicker">RayleaBot</div>
+            <h2>RayleaBot 启动器</h2>
+            <p>检查本地环境、管理服务并定位运行问题。</p>
+          </div>
+          <div className="about-panel__actions">
+            {showUpdateAction ? (
+              <Button
+                appearance={releaseCheck.canInstall ? "primary" : "secondary"}
+                className={releaseCheck.canInstall ? "attention-button" : undefined}
+                icon={<ArrowClockwise20Regular />}
+                disabled={updateDisabled}
+                onClick={onUpdateAction}
+              >
+                {updateButtonLabel}
+              </Button>
+            ) : (
+              <span className="update-unavailable">当前构建不提供更新检查</span>
+            )}
+            <Button appearance="subtle" icon={<Open20Regular />} onClick={onOpenRepositoryPage}>GitHub</Button>
+          </div>
         </div>
-        <div className="about-hero__copy">
-          <div className="brand-eyebrow brand-eyebrow--tight">RayleaBot</div>
-          <h3 className="about-hero__title">RayleaBot 启动器</h3>
-        </div>
-        <div className="about-hero__actions">
-          <Button
-            appearance="transparent"
-            className="action-button action-button--secondary"
-            icon={<ArrowClockwise20Regular />}
-            disabled={updateDisabled}
-            onClick={onUpdateAction}
-          >
-            {updateButtonLabel}
-          </Button>
-          <Button
-            appearance="transparent"
-            className="action-button action-button--primary"
-            icon={<Open20Regular />}
-            onClick={onOpenRepositoryPage}
-          >
-            GitHub
-          </Button>
-        </div>
-      </section>
 
-      <section className="about-info-panel surface-panel surface-panel--subtle">
-        <div className="about-panel-heading">
-          <Info20Filled className="about-panel-heading__icon" />
-          <div className="brand-eyebrow brand-eyebrow--tight">应用信息</div>
-        </div>
-        <div className="about-info-list">
-          <div className="about-info-row">
-            <span className="about-info-row__label">应用</span>
-            <span className="about-info-row__value">RayleaBot</span>
+        <dl className="definition-list about-information">
+          <div className="definition-row">
+            <dt>程序</dt>
+            <dd>RayleaLauncher</dd>
           </div>
-          <div className="about-info-row">
-            <span className="about-info-row__label">启动器</span>
-            <span className="about-info-row__value">RayleaLauncher</span>
-          </div>
-          <div className="about-info-row">
-            <span className="about-info-row__label">版本</span>
-            <span className="about-info-row__value about-version-value">
+          <div className="definition-row">
+            <dt>版本</dt>
+            <dd className="version-value" data-status={releaseCheck.status}>
               <span>{currentVersion}</span>
-              {versionHint ? <span className="about-version-hint">{versionHint}</span> : null}
-            </span>
+              {versionHint ? <span>{versionHint}</span> : null}
+            </dd>
           </div>
-          <div className="about-info-row">
-            <span className="about-info-row__label">许可证</span>
-            <span className="about-info-row__value">AGPL-3.0</span>
+          <div className="definition-row">
+            <dt>许可证</dt>
+            <dd>AGPL-3.0</dd>
           </div>
-        </div>
+        </dl>
       </section>
     </article>
   );

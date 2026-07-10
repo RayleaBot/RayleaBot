@@ -4,6 +4,7 @@ import type {
   LauncherSettings,
   LauncherSnapshot,
 } from "./launcher-models";
+import type { LauncherThemeMode } from "./launcher-theme";
 
 export interface LauncherDesktopApi {
   getPlatform(): Promise<string>;
@@ -32,6 +33,7 @@ export interface LauncherDesktopApi {
   maximize(): Promise<void>;
   close(): Promise<void>;
   closeConfirmResponse(response: LauncherCloseConfirmResponse): Promise<void>;
+  setThemeMode(mode: LauncherThemeMode): Promise<void>;
   isMaximized(): Promise<boolean>;
   onSnapshot(listener: (snapshot: LauncherSnapshot) => void): () => void;
   onMaximizedChange(listener: (maximized: boolean) => void): () => void;

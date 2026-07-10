@@ -102,7 +102,7 @@ export function AppShellView({
         onRefresh={onRefresh}
       />
 
-      <main className={`shell-main ${renderedSection === "environment" ? "active-environment" : ""}`} data-active-section={activeSection} data-rendered-section={renderedSection} data-transition={sectionTransitionState}>
+      <main className={`shell-main active-${renderedSection}`} data-active-section={activeSection} data-rendered-section={renderedSection} data-transition={sectionTransitionState}>
         <div className="section-shell" data-section={renderedSection} data-transition={sectionTransitionState}>
           <AppShellSectionHeader
             snapshot={snapshot}
@@ -112,13 +112,12 @@ export function AppShellView({
             editingSettings={editingSettings}
             onRefresh={onRefresh}
             onOpenRuntimeTasks={onOpenRuntimeTasks}
-            onOpenLogs={onOpenLogs}
             onBeginEdit={onBeginEdit}
             onCancelEdit={onCancelEdit}
             onSaveSettings={onSaveSettings}
           />
 
-          <div className="section-shell__content">
+          <div key={renderedSection} className="section-shell__content">
             {renderedSection === "status" && (
               <AppShellStatusSection
                 snapshot={snapshot}
@@ -145,6 +144,7 @@ export function AppShellView({
               <AppShellDiagnosticsSection
                 snapshot={snapshot}
                 diagnosticsSummary={diagnosticsSummary}
+                onOpenLogs={onOpenLogs}
               />
             )}
 

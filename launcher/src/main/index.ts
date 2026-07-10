@@ -7,8 +7,10 @@ import { launcherEventChannels, launcherInvokeChannels } from "../shared/launche
 import {
   parseLauncherCloseConfirmResponse,
   parseLauncherSettingsInput,
+  parseLauncherThemeMode,
   sanitizeLauncherWebTargetPath,
 } from "../shared/launcher-validation";
+import { resolveLauncherWindowBackground } from "../shared/launcher-theme";
 import { createLauncherCoordinator } from "./services/launcher-coordinator";
 import { inspectEnvironmentFromNode } from "./services/environment";
 import { JsonLauncherSettingsStore, resolveLauncherSettings } from "./services/settings-store";
@@ -24,6 +26,7 @@ import { buildTrayMenuEntries } from "./services/tray-menu";
 import { createApplicationExitManager } from "./services/app-exit";
 import { resolveLauncherAssetPaths, resolveLauncherBasePath } from "./services/app-paths";
 import { NodeRecoverySummaryReader } from "./services/recovery-summary-reader";
+import { applyLauncherThemeMode, syncLauncherWindowBackground } from "./services/launcher-theme";
 import { createTrayImage } from "./services/tray-icon";
 import { wireSingleInstanceLifecycle } from "./services/single-instance";
 import {
@@ -235,7 +238,7 @@ async function createMainWindow() {
     title: "RayleaBot 启动器",
     frame: false,
     roundedCorners: true,
-    backgroundColor: isDark ? "#0f172a" : "#f8fafc",
+    backgroundColor: resolveLauncherWindowBackground(isDark ? "dark" : "light"),
     show: false,
     autoHideMenuBar: true,
     webPreferences: {
@@ -375,6 +378,9 @@ function wireIpc() {
       await appExitManager.requestExit();
     }
   });
+  secureIpc.oneArg(launcherInvokeChannels.setThemeMode, parseLauncherThemeMode, (mode) => {
+    applyLauncherThemeMode(nativeTheme, mainWindow, mode);
+  });
   secureIpc.noArgs(launcherInvokeChannels.exit, () => appExitManager.requestExit());
 }
 
@@ -390,6 +396,7 @@ async function bootstrap() {
   }
   wireIpc();
   await createMainWindow();
+  nativeTheme.on("updated", () => syncLauncherWindowBackground(nativeTheme, mainWindow));
 
   tray = new Tray(createTrayImage());
   tray.on("click", () => {

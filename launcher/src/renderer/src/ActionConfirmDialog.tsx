@@ -54,7 +54,7 @@ export const ActionConfirmDialog = React.memo(function ActionConfirmDialog({
         if (!data.open) onCancel();
       }}
     >
-      <DialogSurface>
+      <DialogSurface className="confirmation-surface" data-tone={action === "reset-admin" ? "danger" : "attention"}>
         <DialogBody>
           <DialogTitle action={null}>
             <span aria-hidden="true">{copy.icon}</span>
@@ -68,6 +68,7 @@ export const ActionConfirmDialog = React.memo(function ActionConfirmDialog({
             <Button appearance="secondary" autoFocus onClick={onCancel}>取消</Button>
             <Button
               appearance="primary"
+              className={action === "reset-admin" ? "danger-button" : "attention-button"}
               onClick={() => {
                 if (action) onConfirm(action);
               }}
