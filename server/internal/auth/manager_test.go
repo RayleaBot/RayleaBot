@@ -168,6 +168,63 @@ func TestValidateRenewsExpiryWhenSlidingRenewalEnabled(t *testing.T) {
 	}
 }
 
+func TestValidateDoesNotPersistBeforeRenewalThreshold(t *testing.T) {
+	t.Parallel()
+
+	current := time.Date(2026, 3, 19, 10, 0, 0, 0, time.UTC)
+	repository := &memoryAuthRepository{}
+	manager, err := NewManager(
+		Config{SessionTTLDays: 1, SessionAbsoluteTTLDays: 30, SlidingRenewal: true, MaxSessions: 2},
+		WithClock(func() time.Time { return current }),
+		WithRepository(repository),
+		WithSessionIDGenerator(func() (string, error) { return "threshold-session", nil }),
+	)
+	if err != nil {
+		t.Fatalf("NewManager failed: %v", err)
+	}
+	token, _, err := manager.Issue("admin")
+	if err != nil {
+		t.Fatalf("Issue failed: %v", err)
+	}
+	if len(repository.savedSessions) != 1 {
+		t.Fatalf("saved sessions after Issue = %d, want 1", len(repository.savedSessions))
+	}
+
+	current = current.Add(11 * time.Hour)
+	if _, err := manager.Validate(token); err != nil {
+		t.Fatalf("Validate failed: %v", err)
+	}
+	if len(repository.savedSessions) != 1 {
+		t.Fatalf("Validate persisted before renewal threshold: writes = %d", len(repository.savedSessions))
+	}
+}
+
+func TestValidateRenewalNeverExceedsAbsoluteTTL(t *testing.T) {
+	t.Parallel()
+
+	current := time.Date(2026, 3, 19, 10, 0, 0, 0, time.UTC)
+	manager := newTestManager(t, Config{
+		SessionTTLDays:         10,
+		SessionAbsoluteTTLDays: 12,
+		SlidingRenewal:         true,
+		MaxSessions:            2,
+	}, func() time.Time { return current })
+
+	token, issued, err := manager.Issue("admin")
+	if err != nil {
+		t.Fatalf("Issue failed: %v", err)
+	}
+	current = current.Add(6 * 24 * time.Hour)
+	claims, err := manager.Validate(token)
+	if err != nil {
+		t.Fatalf("Validate failed: %v", err)
+	}
+	wantAbsoluteExpiry := issued.IssuedAt.Add(12 * 24 * time.Hour)
+	if !claims.ExpiresAt.Equal(wantAbsoluteExpiry) {
+		t.Fatalf("renewed expiry = %s, want absolute cap %s", claims.ExpiresAt, wantAbsoluteExpiry)
+	}
+}
+
 func TestIssueRecyclesOldestSessionWhenMaxSessionsReached(t *testing.T) {
 	t.Parallel()
 

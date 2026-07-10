@@ -17,6 +17,7 @@ import (
 )
 
 const sessionSigningKeySecret = "platform.auth.session_signing_key"
+const csrfTokenContext = "rayleabot-csrf-v1"
 
 type tokenClaims struct {
 	Version   int    `json:"v"`
@@ -93,6 +94,38 @@ func randomTokenSegment(size int) (string, error) {
 	}
 
 	return base64.RawURLEncoding.EncodeToString(buffer), nil
+}
+
+func GenerateOpaqueToken(bytes int) (string, error) {
+	if bytes < 32 {
+		return "", fmt.Errorf("opaque token requires at least 32 bytes")
+	}
+	return randomTokenSegment(bytes)
+}
+
+func ValidateOpaqueToken(token string) error {
+	decoded, err := base64.RawURLEncoding.DecodeString(strings.TrimSpace(token))
+	if err != nil || len(decoded) < 32 {
+		return fmt.Errorf("opaque token must contain at least 256 bits")
+	}
+	return nil
+}
+
+func (m *Manager) CSRFToken(claims Claims) string {
+	mac := hmac.New(sha256.New, m.signingKey)
+	mac.Write([]byte(csrfTokenContext))
+	mac.Write([]byte{0})
+	mac.Write([]byte(claims.SessionID))
+	mac.Write([]byte{0})
+	mac.Write([]byte(claims.Subject))
+	mac.Write([]byte{0})
+	mac.Write([]byte(fmt.Sprintf("%d", claims.IssuedAt.UTC().Unix())))
+	return base64.RawURLEncoding.EncodeToString(mac.Sum(nil))
+}
+
+func (m *Manager) ValidateCSRF(claims Claims, candidate string) bool {
+	expected := m.CSRFToken(claims)
+	return hmac.Equal([]byte(expected), []byte(strings.TrimSpace(candidate)))
 }
 
 func EnsureSessionSigningKey(ctx context.Context, secretStore secrets.Store) ([]byte, bool, error) {

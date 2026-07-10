@@ -15,6 +15,11 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/tests/testutil"
 )
 
+const (
+	testManagementAuthority = testutil.TestManagementAuthority
+	testManagementOrigin    = testutil.TestManagementOrigin
+)
+
 func TestMain(m *testing.M) {
 	if err := os.Chdir(testutil.ResolveRepoPath("server")); err != nil {
 		panic(err)
@@ -25,6 +30,10 @@ func TestMain(m *testing.M) {
 func newTestApp(t *testing.T, authOptions ...auth.Option) *app.App {
 	application, _, _ := newTestAppWithOptions(t, nil, nil, authOptions...)
 	return application
+}
+
+func newManagementTestServer(t *testing.T, handler http.Handler) *httptest.Server {
+	return testutil.NewManagementTestServer(t, handler)
 }
 
 func newTestAppWithConfigMutation(t *testing.T, mutate func(map[string]any), authOptions ...auth.Option) (*app.App, string, string) {
@@ -60,10 +69,12 @@ func newTestAppWithOptions(
 	builtinRoot := testutil.RepoPath(t, "plugins", "builtin")
 
 	options := app.Options{
-		ConfigPath:       configPath,
-		SchemaPath:       schemaPath,
-		PluginRepoRoot:   repoRoot,
-		PluginSchemaPath: testutil.RepoPath(t, "contracts", "plugin-info.schema.json"),
+		ConfigPath:           configPath,
+		SchemaPath:           schemaPath,
+		SetupToken:           testutil.TestSetupToken,
+		LauncherControlToken: testutil.TestLauncherControlToken,
+		PluginRepoRoot:       repoRoot,
+		PluginSchemaPath:     testutil.RepoPath(t, "contracts", "plugin-info.schema.json"),
 		PluginRoots: []plugincatalog.ScanRoot{
 			{Label: "plugins/builtin", Path: builtinRoot},
 			{Label: "plugins/installed", Path: filepath.Join(filepath.Dir(configPath), "..", "plugins", "installed")},
@@ -109,10 +120,12 @@ func newPersistentTestApp(t *testing.T, configPath string, now func() time.Time,
 	sessionCounter := 0
 	repoRoot := testutil.RepoRoot(t)
 	application, err := app.New(app.Options{
-		ConfigPath:       configPath,
-		SchemaPath:       testutil.RepoPath(t, "contracts", "config.user.schema.json"),
-		PluginRepoRoot:   repoRoot,
-		PluginSchemaPath: testutil.RepoPath(t, "contracts", "plugin-info.schema.json"),
+		ConfigPath:           configPath,
+		SchemaPath:           testutil.RepoPath(t, "contracts", "config.user.schema.json"),
+		SetupToken:           testutil.TestSetupToken,
+		LauncherControlToken: testutil.TestLauncherControlToken,
+		PluginRepoRoot:       repoRoot,
+		PluginSchemaPath:     testutil.RepoPath(t, "contracts", "plugin-info.schema.json"),
 		PluginRoots: []plugincatalog.ScanRoot{
 			{Label: "plugins/builtin", Path: testutil.RepoPath(t, "plugins", "builtin")},
 			{Label: "plugins/installed", Path: filepath.Join(filepath.Dir(configPath), "..", "plugins", "installed")},

@@ -35,7 +35,7 @@ func TestSessionLoginReturnsSessionToken(t *testing.T) {
 	if !ok || token == "" {
 		t.Fatalf("expected opaque session_token, got %#v", body["session_token"])
 	}
-	if len(body) != 1 {
+	if len(body) != 3 {
 		t.Fatalf("unexpected success body shape: %#v", body)
 	}
 
@@ -107,7 +107,7 @@ func TestSessionLoginRecyclesOldestSessionWhenMaxSessionsReached(t *testing.T) {
 	if !ok || token == "" {
 		t.Fatalf("expected opaque session_token, got %#v", body["session_token"])
 	}
-	if len(body) != 1 {
+	if len(body) != 3 {
 		t.Fatalf("unexpected success body shape: %#v", body)
 	}
 

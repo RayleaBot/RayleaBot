@@ -332,9 +332,9 @@ func TestPropertyValidTokenClaimsContext(t *testing.T) {
 	})
 }
 
-// Feature: http-auth-middleware, Property 5: WebSocket 查询参数备用来源
+// Feature: http-auth-middleware, Property 5: WebSocket 查询参数被拒绝
 // Validates: Requirements 5.2
-func TestPropertyWebSocketQueryParamFallback(t *testing.T) {
+func TestPropertyWebSocketQueryParamRejected(t *testing.T) {
 	t.Parallel()
 
 	rapid.Check(t, func(t *rapid.T) {
@@ -344,7 +344,7 @@ func TestPropertyWebSocketQueryParamFallback(t *testing.T) {
 		subject := rapid.StringMatching(`[a-z]{3,12}`).Draw(t, "subject")
 		token := issueToken(t, manager, subject)
 
-		handler, wasCalled, claimsResult := dummyHandler()
+		handler, wasCalled, _ := dummyHandler()
 		wrapped := middleware(handler)
 
 		path := rapid.SampledFrom([]string{"/ws/events", "/ws/logs"}).Draw(t, "path")
@@ -353,26 +353,18 @@ func TestPropertyWebSocketQueryParamFallback(t *testing.T) {
 
 		wrapped.ServeHTTP(rec, req)
 
-		if !wasCalled() {
-			t.Fatalf("handler should have been called for valid query param token on %s", path)
+		if wasCalled() {
+			t.Fatalf("handler should not accept query token on %s", path)
 		}
-		if rec.Code != http.StatusOK {
-			t.Fatalf("expected 200, got %d", rec.Code)
-		}
-
-		claims, ok := claimsResult()
-		if !ok {
-			t.Fatal("expected claims in context")
-		}
-		if claims.Subject != subject {
-			t.Fatalf("expected subject %q, got %q", subject, claims.Subject)
+		if rec.Code != http.StatusUnauthorized {
+			t.Fatalf("expected 401, got %d", rec.Code)
 		}
 	})
 }
 
-// Feature: http-auth-middleware, Property 6: Authorization 头优先于查询参数
+// Feature: http-auth-middleware, Property 6: 查询参数不会被 Authorization 绕过
 // Validates: Requirements 5.3
-func TestPropertyAuthHeaderPrecedence(t *testing.T) {
+func TestPropertyQueryTokenRejectedEvenWithAuthorization(t *testing.T) {
 	t.Parallel()
 
 	rapid.Check(t, func(t *rapid.T) {
@@ -391,30 +383,22 @@ func TestPropertyAuthHeaderPrecedence(t *testing.T) {
 		tokenA := issueToken(t, manager, subjectA)
 		tokenB := issueToken(t, manager, subjectB)
 
-		handler, wasCalled, claimsResult := dummyHandler()
+		handler, wasCalled, _ := dummyHandler()
 		wrapped := middleware(handler)
 
 		path := rapid.SampledFrom([]string{"/ws/events", "/ws/logs"}).Draw(t, "path")
 		req := httptest.NewRequest(http.MethodGet, path+"?session_token="+tokenB, nil)
 		req.Header.Set("Authorization", "Bearer "+tokenA)
+		req.Header.Set("Origin", "http://example.com")
 		rec := httptest.NewRecorder()
 
 		wrapped.ServeHTTP(rec, req)
 
-		if !wasCalled() {
-			t.Fatal("handler should have been called")
+		if wasCalled() {
+			t.Fatal("handler should not be called when a query token is present")
 		}
-		if rec.Code != http.StatusOK {
-			t.Fatalf("expected 200, got %d", rec.Code)
-		}
-
-		claims, ok := claimsResult()
-		if !ok {
-			t.Fatal("expected claims in context")
-		}
-		// Header token (subjectA) should take precedence.
-		if claims.Subject != subjectA {
-			t.Fatalf("expected header token subject %q, got %q (query param subject was %q)", subjectA, claims.Subject, subjectB)
+		if rec.Code != http.StatusUnauthorized {
+			t.Fatalf("expected 401, got %d", rec.Code)
 		}
 	})
 }
@@ -465,7 +449,7 @@ func TestPublicRoutesAccessibleWithoutToken(t *testing.T) {
 	t.Parallel()
 
 	application := newTestApp(t, deterministicAuthOptions()...)
-	server := httptest.NewServer(application.Handler())
+	server := newManagementTestServer(t, application.Handler())
 	defer server.Close()
 
 	publicRoutes := []struct {
@@ -479,7 +463,7 @@ func TestPublicRoutesAccessibleWithoutToken(t *testing.T) {
 		{http.MethodPost, "/api/session/login"},
 		{http.MethodGet, "/api/launcher/status"},
 		{http.MethodPost, "/api/launcher/shutdown"},
-		{http.MethodGet, "/plugin-ui/raylea.echo/web/index.html"},
+		{http.MethodGet, "/plugin" + "-ui/raylea.echo/web/" + "index.html"},
 	}
 
 	client := server.Client()
@@ -516,7 +500,7 @@ func TestProtectedRoutesReject401WithoutToken(t *testing.T) {
 	t.Parallel()
 
 	application := newTestApp(t, deterministicAuthOptions()...)
-	server := httptest.NewServer(application.Handler())
+	server := newManagementTestServer(t, application.Handler())
 	defer server.Close()
 
 	protectedRoutes := []struct {
@@ -597,7 +581,7 @@ func TestWebSocketEventsSupportsAuthorizationHeader(t *testing.T) {
 
 	application := newTestApp(t, deterministicAuthOptions()...)
 	token := issueLoginToken(t, application)
-	server := httptest.NewServer(application.Handler())
+	server := newManagementTestServer(t, application.Handler())
 	defer server.Close()
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
@@ -605,8 +589,10 @@ func TestWebSocketEventsSupportsAuthorizationHeader(t *testing.T) {
 
 	wsURL := websocketURL(server.URL) + "/ws/events"
 	conn, resp, err := websocket.Dial(ctx, wsURL, &websocket.DialOptions{
+		Host: testManagementAuthority,
 		HTTPHeader: http.Header{
 			"Authorization": []string{"Bearer " + token},
+			"Origin":        []string{testManagementOrigin},
 		},
 	})
 	if err != nil {
@@ -619,33 +605,35 @@ func TestWebSocketEventsSupportsAuthorizationHeader(t *testing.T) {
 	_ = conn.Close(websocket.StatusNormalClosure, "")
 }
 
-// TestWebSocketEventsSupportsSessionTokenQueryParam verifies that /ws/events
-// accepts a valid token via the session_token query parameter.
+// TestWebSocketEventsRejectsSessionTokenQueryParam verifies that query tokens
+// cannot cross the browser trust boundary.
 // Validates: Requirements 5.2
-func TestWebSocketEventsSupportsSessionTokenQueryParam(t *testing.T) {
+func TestWebSocketEventsRejectsSessionTokenQueryParam(t *testing.T) {
 	t.Parallel()
 
 	application := newTestApp(t, deterministicAuthOptions()...)
 	token := issueLoginToken(t, application)
-	server := httptest.NewServer(application.Handler())
+	server := newManagementTestServer(t, application.Handler())
 	defer server.Close()
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 
 	wsURL := websocketURL(server.URL) + "/ws/events?session_token=" + token
-	conn, resp, err := websocket.Dial(ctx, wsURL, nil)
-	if err != nil {
-		status := 0
-		if resp != nil {
-			status = resp.StatusCode
-		}
-		t.Fatalf("dial websocket with session_token query param failed (status %d): %v", status, err)
+	conn, resp, err := websocket.Dial(ctx, wsURL, &websocket.DialOptions{
+		Host:       testManagementAuthority,
+		HTTPHeader: http.Header{"Origin": []string{testManagementOrigin}},
+	})
+	if err == nil {
+		_ = conn.Close(websocket.StatusNormalClosure, "")
+		t.Fatal("query token websocket unexpectedly connected")
 	}
-	_ = conn.Close(websocket.StatusNormalClosure, "")
+	if resp == nil || resp.StatusCode != http.StatusUnauthorized {
+		t.Fatalf("query token websocket status = %#v, want 401", resp)
+	}
 }
 
-func TestAdditionalWebSocketChannelsSupportAuthorizationHeaderAndQueryParam(t *testing.T) {
+func TestAdditionalWebSocketChannelsSupportAuthorizationHeaderAndRejectQueryParam(t *testing.T) {
 	t.Parallel()
 
 	paths := []string{"/ws/logs", "/ws/plugins/raylea.echo/console"}
@@ -654,13 +642,15 @@ func TestAdditionalWebSocketChannelsSupportAuthorizationHeaderAndQueryParam(t *t
 		t.Run(path, func(t *testing.T) {
 			application := newTestApp(t, deterministicAuthOptions()...)
 			token := issueLoginToken(t, application)
-			server := httptest.NewServer(application.Handler())
+			server := newManagementTestServer(t, application.Handler())
 			defer server.Close()
 
 			headerCtx, headerCancel := context.WithTimeout(context.Background(), 3*time.Second)
 			conn, resp, err := websocket.Dial(headerCtx, websocketURL(server.URL)+path, &websocket.DialOptions{
+				Host: testManagementAuthority,
 				HTTPHeader: http.Header{
 					"Authorization": []string{"Bearer " + token},
+					"Origin":        []string{testManagementOrigin},
 				},
 			})
 			headerCancel()
@@ -674,16 +664,18 @@ func TestAdditionalWebSocketChannelsSupportAuthorizationHeaderAndQueryParam(t *t
 			_ = conn.Close(websocket.StatusNormalClosure, "")
 
 			queryCtx, queryCancel := context.WithTimeout(context.Background(), 3*time.Second)
-			queryConn, queryResp, queryErr := websocket.Dial(queryCtx, websocketURL(server.URL)+path+"?session_token="+token, nil)
+			queryConn, queryResp, queryErr := websocket.Dial(queryCtx, websocketURL(server.URL)+path+"?session_token="+token, &websocket.DialOptions{
+				Host:       testManagementAuthority,
+				HTTPHeader: http.Header{"Origin": []string{testManagementOrigin}},
+			})
 			queryCancel()
-			if queryErr != nil {
-				status := 0
-				if queryResp != nil {
-					status = queryResp.StatusCode
-				}
-				t.Fatalf("dial websocket with session_token query param failed (status %d): %v", status, queryErr)
+			if queryErr == nil {
+				_ = queryConn.Close(websocket.StatusNormalClosure, "")
+				t.Fatal("query token websocket unexpectedly connected")
 			}
-			_ = queryConn.Close(websocket.StatusNormalClosure, "")
+			if queryResp == nil || queryResp.StatusCode != http.StatusUnauthorized {
+				t.Fatalf("query token websocket status = %#v, want 401", queryResp)
+			}
 		})
 	}
 }

@@ -5,6 +5,7 @@ import (
 	"net"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 
@@ -20,22 +21,25 @@ const (
 )
 
 type CoreHandlers struct {
-	auth            coreAuthService
-	system          coreSystemService
-	requestShutdown func()
+	auth                 coreAuthService
+	system               coreSystemService
+	requestShutdown      func()
+	launcherControlToken *StaticToken
 }
 
 type CoreDeps struct {
-	Auth            coreAuthService
-	System          coreSystemService
-	RequestShutdown func()
+	Auth                 coreAuthService
+	System               coreSystemService
+	RequestShutdown      func()
+	LauncherControlToken *StaticToken
 }
 
 func NewCoreHandlers(deps CoreDeps) *CoreHandlers {
 	return &CoreHandlers{
-		auth:            deps.Auth,
-		system:          deps.System,
-		requestShutdown: deps.RequestShutdown,
+		auth:                 deps.Auth,
+		system:               deps.System,
+		requestShutdown:      deps.RequestShutdown,
+		launcherControlToken: deps.LauncherControlToken,
 	}
 }
 
@@ -100,6 +104,15 @@ func (h *CoreHandlers) HandleSessionLogout() http.HandlerFunc {
 			httpapi.WriteError(w, r, http.StatusInternalServerError, coreCodeInternalError, "内部错误", "errors.platform.internal_error", nil)
 			return
 		}
+		http.SetCookie(w, &http.Cookie{
+			Name:     SessionCookieName,
+			Value:    "",
+			Path:     "/",
+			HttpOnly: true,
+			SameSite: http.SameSiteStrictMode,
+			MaxAge:   -1,
+			Expires:  time.Unix(1, 0).UTC(),
+		})
 
 		w.WriteHeader(http.StatusNoContent)
 	}
@@ -107,7 +120,7 @@ func (h *CoreHandlers) HandleSessionLogout() http.HandlerFunc {
 
 func (h *CoreHandlers) HandleLauncherStatus() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if !isLoopbackRequest(r) {
+		if !h.validLauncherControlRequest(r) {
 			writeCoreAuthError(w, r, http.StatusForbidden, coreCodePermissionDenied, "当前用户无权执行该操作", "errors.permission.denied")
 			return
 		}
@@ -132,7 +145,7 @@ func (h *CoreHandlers) HandleSystemShutdown() http.HandlerFunc {
 
 func (h *CoreHandlers) HandleLauncherShutdown() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if !isLoopbackRequest(r) {
+		if !h.validLauncherControlRequest(r) {
 			writeCoreAuthError(w, r, http.StatusForbidden, coreCodePermissionDenied, "当前用户无权执行该操作", "errors.permission.denied")
 			return
 		}
@@ -141,6 +154,11 @@ func (h *CoreHandlers) HandleLauncherShutdown() http.HandlerFunc {
 		h.system.PublishStatusSnapshot()
 		httpapi.WriteJSON(w, http.StatusAccepted, coreShutdownResponse{Accepted: true})
 	}
+}
+
+func (h *CoreHandlers) validLauncherControlRequest(r *http.Request) bool {
+	return isLoopbackRequest(r) && h.launcherControlToken != nil &&
+		h.launcherControlToken.Matches(strings.TrimSpace(r.Header.Get(LauncherControlTokenHeader)))
 }
 
 func (h *CoreHandlers) writeSystemStatus(w http.ResponseWriter, statusCode int) {

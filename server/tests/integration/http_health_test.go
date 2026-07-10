@@ -17,6 +17,7 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/health"
 	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
 	"github.com/RayleaBot/RayleaBot/server/internal/recovery"
+	"github.com/RayleaBot/RayleaBot/server/tests/testutil"
 )
 
 type webAPIFixture struct {
@@ -217,10 +218,12 @@ func newTestApp(t *testing.T, authOptions ...auth.Option) *app.App {
 	builtinRoot := filepath.Join(repoRoot, "plugins", "builtin")
 
 	application, err := app.New(app.Options{
-		ConfigPath:       configPath,
-		SchemaPath:       schemaPath,
-		PluginRepoRoot:   repoRoot,
-		PluginSchemaPath: filepath.Join("..", "contracts", "plugin-info.schema.json"),
+		ConfigPath:           configPath,
+		SchemaPath:           schemaPath,
+		SetupToken:           testutil.TestSetupToken,
+		LauncherControlToken: testutil.TestLauncherControlToken,
+		PluginRepoRoot:       repoRoot,
+		PluginSchemaPath:     filepath.Join("..", "contracts", "plugin-info.schema.json"),
 		PluginRoots: []plugincatalog.ScanRoot{
 			{Label: "plugins/builtin", Path: builtinRoot},
 			{Label: "plugins/installed", Path: filepath.Join(filepath.Dir(configPath), "..", "plugins", "installed")},

@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
-	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -17,6 +16,7 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/app"
 	"github.com/RayleaBot/RayleaBot/server/internal/auth"
 	"github.com/RayleaBot/RayleaBot/server/internal/logging"
+	"github.com/RayleaBot/RayleaBot/server/tests/testutil"
 )
 
 func TestLogsWebSocketReplaysBufferedSummaries(t *testing.T) {
@@ -30,7 +30,7 @@ func TestLogsWebSocketReplaysBufferedSummaries(t *testing.T) {
 	)
 
 	token := issueLoginToken(t, application)
-	server := httptest.NewServer(application.Handler())
+	server := newManagementTestServer(t, application.Handler())
 	defer server.Close()
 
 	conn := dialProtectedWebSocket(t, server.URL, "/ws/logs", token)
@@ -93,7 +93,7 @@ func TestLogsWebSocketReplaysOutboundDeliverySummary(t *testing.T) {
 	})
 
 	token := issueLoginToken(t, application)
-	server := httptest.NewServer(application.Handler())
+	server := newManagementTestServer(t, application.Handler())
 	defer server.Close()
 
 	conn := dialProtectedWebSocket(t, server.URL, "/ws/logs", token)
@@ -141,7 +141,7 @@ func TestLogsWebSocketAppendsCommandPolicyRejectionSummary(t *testing.T) {
 
 	application := newTestApp(t, deterministicAuthOptions()...)
 	token := issueLoginToken(t, application)
-	server := httptest.NewServer(application.Handler())
+	server := newManagementTestServer(t, application.Handler())
 	defer server.Close()
 
 	putWhitelistState(t, server.URL, token, true)
@@ -187,7 +187,7 @@ func TestLogsWebSocketDeliversLiveWhitelistedSummaries(t *testing.T) {
 	application := newTestApp(t, deterministicAuthOptions()...)
 	replayCount := len(application.Logs().Snapshot())
 	token := issueLoginToken(t, application)
-	server := httptest.NewServer(application.Handler())
+	server := newManagementTestServer(t, application.Handler())
 	defer server.Close()
 
 	conn := dialProtectedWebSocket(t, server.URL, "/ws/logs", token)
@@ -252,7 +252,7 @@ func TestLogsWebSocketRedactsSensitiveMessageContent(t *testing.T) {
 	application := newTestAppWithOneBotAccessToken(t, "fixture-only-secret", deterministicAuthOptions()...)
 	replayCount := len(application.Logs().Snapshot())
 	token := issueLoginToken(t, application)
-	server := httptest.NewServer(application.Handler())
+	server := newManagementTestServer(t, application.Handler())
 	defer server.Close()
 
 	conn := dialProtectedWebSocket(t, server.URL, "/ws/logs", token)
@@ -290,13 +290,16 @@ func TestLogsWebSocketRejectsUnauthorizedSession(t *testing.T) {
 	t.Parallel()
 
 	application := newTestApp(t)
-	server := httptest.NewServer(application.Handler())
+	server := newManagementTestServer(t, application.Handler())
 	defer server.Close()
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 
-	conn, response, err := websocket.Dial(ctx, websocketURL(server.URL)+"/ws/logs", nil)
+	conn, response, err := websocket.Dial(ctx, websocketURL(server.URL)+"/ws/logs", &websocket.DialOptions{
+		Host:       testManagementAuthority,
+		HTTPHeader: http.Header{"Origin": []string{testManagementOrigin}},
+	})
 	if conn != nil {
 		_ = conn.Close(websocket.StatusNormalClosure, "")
 	}
@@ -337,7 +340,7 @@ func TestLogsWebSocketReplaysCurrentBootOnlyAcrossRestart(t *testing.T) {
 		"component", "adapter.onebot11",
 		"request_id", "req_ws_current_1",
 	)
-	server := httptest.NewServer(appB.Handler())
+	server := newManagementTestServer(t, appB.Handler())
 	serverClosed := false
 	defer func() {
 		if !serverClosed {
@@ -442,9 +445,11 @@ func newTestAppWithOneBotAccessToken(t *testing.T, accessToken string, authOptio
 	schemaPath := filepath.Join("..", "contracts", "config.user.schema.json")
 
 	application, err := app.New(app.Options{
-		ConfigPath:  configPath,
-		SchemaPath:  schemaPath,
-		AuthOptions: authOptions,
+		ConfigPath:           configPath,
+		SchemaPath:           schemaPath,
+		SetupToken:           testutil.TestSetupToken,
+		LauncherControlToken: testutil.TestLauncherControlToken,
+		AuthOptions:          authOptions,
 	})
 	if err != nil {
 		t.Fatalf("app.New failed: %v", err)

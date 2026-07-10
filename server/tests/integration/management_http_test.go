@@ -5,9 +5,9 @@ import (
 	"fmt"
 	internalapp "github.com/RayleaBot/RayleaBot/server/internal/app"
 	"github.com/RayleaBot/RayleaBot/server/internal/permission"
+	"github.com/RayleaBot/RayleaBot/server/tests/testutil"
 	"io"
 	"net/http"
-	"net/http/httptest"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -49,7 +49,7 @@ func TestSessionLogoutRevokesCurrentToken(t *testing.T) {
 
 	application := newTestApp(t, deterministicAuthOptions()...)
 	token := issueLoginToken(t, application)
-	server := httptest.NewServer(application.Handler())
+	server := newManagementTestServer(t, application.Handler())
 	defer server.Close()
 
 	request, err := http.NewRequest(http.MethodDelete, server.URL+"/api/session", nil)
@@ -87,7 +87,7 @@ func TestSystemStatusAndShutdownHandlers(t *testing.T) {
 
 	application := newTestApp(t, deterministicAuthOptions()...)
 	token := issueLoginToken(t, application)
-	server := httptest.NewServer(application.Handler())
+	server := newManagementTestServer(t, application.Handler())
 	defer server.Close()
 
 	statusReq, err := http.NewRequest(http.MethodGet, server.URL+"/api/system/status", nil)
@@ -165,7 +165,7 @@ func TestLauncherStatusAndShutdownHandlers(t *testing.T) {
 	t.Parallel()
 
 	application := newTestApp(t, deterministicAuthOptions()...)
-	server := httptest.NewServer(application.Handler())
+	server := newManagementTestServer(t, application.Handler())
 	defer server.Close()
 
 	statusFixture := loadWebAPIFixtureDocument(t, filepath.Join("..", "fixtures", "web-api", "ok.launcher-status.yaml"))
@@ -173,6 +173,7 @@ func TestLauncherStatusAndShutdownHandlers(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create launcher status request: %v", err)
 	}
+	statusReq.Header.Set("X-Raylea-Launcher-Control", testutil.TestLauncherControlToken)
 	statusResp, err := server.Client().Do(statusReq)
 	if err != nil {
 		t.Fatalf("perform launcher status request: %v", err)
@@ -209,6 +210,7 @@ func TestLauncherStatusAndShutdownHandlers(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create launcher shutdown request: %v", err)
 	}
+	shutdownReq.Header.Set("X-Raylea-Launcher-Control", testutil.TestLauncherControlToken)
 	shutdownResp, err := server.Client().Do(shutdownReq)
 	if err != nil {
 		t.Fatalf("perform launcher shutdown request: %v", err)
@@ -226,6 +228,7 @@ func TestLauncherStatusAndShutdownHandlers(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create post-shutdown launcher status request: %v", err)
 	}
+	statusAfterReq.Header.Set("X-Raylea-Launcher-Control", testutil.TestLauncherControlToken)
 	statusAfterResp, err := server.Client().Do(statusAfterReq)
 	if err != nil {
 		t.Fatalf("perform post-shutdown launcher status request: %v", err)
@@ -241,7 +244,7 @@ func TestLauncherHandlersRejectForwardedHeadersAndOldTokenRoutesAreGone(t *testi
 	t.Parallel()
 
 	application := newTestApp(t, deterministicAuthOptions()...)
-	server := httptest.NewServer(application.Handler())
+	server := newManagementTestServer(t, application.Handler())
 	defer server.Close()
 
 	for _, tc := range []struct {
@@ -308,7 +311,7 @@ func TestThirdPartyAccountAndQRCodeHandlers(t *testing.T) {
 		options.BilibiliClock = func() time.Time { return time.Date(2026, 6, 8, 8, 0, 0, 0, time.UTC) }
 	}, deterministicAuthOptions()...)
 	token := issueLoginToken(t, application)
-	server := httptest.NewServer(application.Handler())
+	server := newManagementTestServer(t, application.Handler())
 	defer server.Close()
 
 	doRequest := func(method, path, body string) (*http.Response, []byte) {
@@ -546,7 +549,7 @@ func TestProtocolSnapshotHandler(t *testing.T) {
 
 	application := newTestApp(t, deterministicAuthOptions()...)
 	token := issueLoginToken(t, application)
-	server := httptest.NewServer(application.Handler())
+	server := newManagementTestServer(t, application.Handler())
 	defer server.Close()
 
 	snapshotReq, err := http.NewRequest(http.MethodGet, server.URL+"/api/protocols/onebot11", nil)
@@ -576,7 +579,7 @@ func TestProtocolCompatibilityHandler(t *testing.T) {
 
 	application := newTestApp(t, deterministicAuthOptions()...)
 	token := issueLoginToken(t, application)
-	server := httptest.NewServer(application.Handler())
+	server := newManagementTestServer(t, application.Handler())
 	defer server.Close()
 
 	request, err := http.NewRequest(http.MethodGet, server.URL+"/api/protocols/onebot11/compatibility", nil)
@@ -616,7 +619,7 @@ func TestGovernanceBlacklistHandler(t *testing.T) {
 		t.Fatalf("seed group blacklist entry: %v", err)
 	}
 
-	server := httptest.NewServer(application.Handler())
+	server := newManagementTestServer(t, application.Handler())
 	defer server.Close()
 
 	request, err := http.NewRequest(http.MethodGet, server.URL+"/api/governance/blacklist", nil)
@@ -675,7 +678,7 @@ func TestGovernanceBlacklistWriteHandlers(t *testing.T) {
 		t.Fatalf("get seeded blacklist entry: %v", err)
 	}
 
-	server := httptest.NewServer(application.Handler())
+	server := newManagementTestServer(t, application.Handler())
 	defer server.Close()
 
 	upsertReq, err := http.NewRequest(http.MethodPost, server.URL+"/api/governance/blacklist/entries", strings.NewReader(`{"entry_type":"user","target_id":"10001","reason":"新原因"}`))

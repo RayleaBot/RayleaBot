@@ -51,6 +51,9 @@ func loadCanonicalDocument(configPath, schemaPath string) (map[string]any, Confi
 	if err != nil {
 		return nil, Config{}, fmt.Errorf("decode typed config %s: %w", configPath, err)
 	}
+	if err := validateRuntimeConstraints(cfg); err != nil {
+		return nil, Config{}, fmt.Errorf("config runtime constraints failed for %s: %w", configPath, err)
+	}
 
 	return document, cfg, nil
 }
@@ -82,6 +85,9 @@ func normalizeCanonicalDocument(configPath, schemaPath string) (Config, Summary,
 	cfg, err := decodeTypedConfig(document)
 	if err != nil {
 		return Config{}, Summary{}, fmt.Errorf("decode typed config %s: %w", configPath, err)
+	}
+	if err := validateRuntimeConstraints(cfg); err != nil {
+		return Config{}, Summary{}, fmt.Errorf("config runtime constraints failed for %s: %w", configPath, err)
 	}
 	if err := writeCanonicalDocument(configPath, document); err != nil {
 		return Config{}, Summary{}, err

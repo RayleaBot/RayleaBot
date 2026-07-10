@@ -9,9 +9,12 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 )
+
+const abandonedLockAge = 30 * time.Minute
 
 func VerifyFileSHA256(path string, want string) error {
 	file, err := os.Open(path)
@@ -32,6 +35,10 @@ func VerifyFileSHA256(path string, want string) error {
 }
 
 func AcquireLock(ctx context.Context, path string, now func() time.Time) (func(), error) {
+	return acquireLockWithOwnerCheck(ctx, path, now, processIsRunning)
+}
+
+func acquireLockWithOwnerCheck(ctx context.Context, path string, now func() time.Time, ownerIsRunning func(int) bool) (func(), error) {
 	for {
 		file, err := os.OpenFile(path, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o644)
 		if err == nil {
@@ -44,8 +51,7 @@ func AcquireLock(ctx context.Context, path string, now func() time.Time) (func()
 		if !errors.Is(err, os.ErrExist) {
 			return nil, fmt.Errorf("acquire deps lock: %w", err)
 		}
-		info, statErr := os.Stat(path)
-		if statErr == nil && now().Sub(info.ModTime()) > 30*time.Minute {
+		if lockCanBeReclaimed(path, now(), ownerIsRunning) {
 			_ = os.Remove(path)
 			continue
 		}
@@ -55,6 +61,27 @@ func AcquireLock(ctx context.Context, path string, now func() time.Time) (func()
 		case <-time.After(250 * time.Millisecond):
 		}
 	}
+}
+
+func lockCanBeReclaimed(path string, now time.Time, ownerIsRunning func(int) bool) bool {
+	if ownerPID, ok := readLockOwnerPID(path); ok && ownerPID != os.Getpid() && ownerIsRunning != nil && !ownerIsRunning(ownerPID) {
+		return true
+	}
+	info, err := os.Stat(path)
+	return err == nil && now.Sub(info.ModTime()) > abandonedLockAge
+}
+
+func readLockOwnerPID(path string) (int, bool) {
+	payload, err := os.ReadFile(path)
+	if err != nil {
+		return 0, false
+	}
+	fields := strings.Fields(string(payload))
+	if len(fields) == 0 {
+		return 0, false
+	}
+	pid, err := strconv.Atoi(fields[0])
+	return pid, err == nil && pid > 0
 }
 
 func ensurePreparedResourceWithProgress(
@@ -103,7 +130,16 @@ func ensurePreparedResourceWithProgress(
 		Status:  "running",
 		Summary: "正在解压 " + managedResourceLabel(resource.Kind),
 	}.withResource(&resource, archivePath, storeRoot))
+	lastExtractProgress := -1
+	lastExtractEntries := 0
 	if err := extractWithProgress(ctx, archivePath, resource.ArchiveFormat, tempRoot, extractor, func(progress extractProgress) {
+		if progress.Progress == lastExtractProgress {
+			if progress.TotalEntries > 0 || progress.ExtractedEntries-lastExtractEntries < 100 {
+				return
+			}
+		}
+		lastExtractProgress = progress.Progress
+		lastExtractEntries = progress.ExtractedEntries
 		emitPrepareProgress(reporter, PrepareProgress{
 			Stage:            "extract",
 			Status:           "running",

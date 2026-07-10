@@ -19,6 +19,7 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/runtimepaths"
 	"github.com/RayleaBot/RayleaBot/server/internal/secrets"
 	"github.com/RayleaBot/RayleaBot/server/internal/storage"
+	"github.com/RayleaBot/RayleaBot/server/tests/testutil"
 )
 
 func TestConfigGetRedactsOneBotTransportTokens(t *testing.T) {
@@ -33,7 +34,7 @@ func TestConfigGetRedactsOneBotTransportTokens(t *testing.T) {
 	}, deterministicAuthOptions()...)
 	token := issueLoginToken(t, application)
 	fixture := loadWebAPIFixtureDocument(t, filepath.Join("..", "fixtures", "web-api", "ok.config-get-response.yaml"))
-	server := httptest.NewServer(application.Handler())
+	server := newManagementTestServer(t, application.Handler())
 	defer server.Close()
 
 	request, err := http.NewRequest(http.MethodGet, server.URL+fixture.Request.Path, nil)
@@ -76,7 +77,7 @@ func TestConfigPutWritesValidatedDocumentAndRedactsTransportTokens(t *testing.T)
 	}, deterministicAuthOptions()...)
 	token := issueLoginToken(t, application)
 	fixture := loadWebAPIFixtureDocument(t, filepath.Join("..", "fixtures", "web-api", "ok.config-update-response.yaml"))
-	server := httptest.NewServer(application.Handler())
+	server := newManagementTestServer(t, application.Handler())
 	defer server.Close()
 
 	updateRequest := normalizeJSONMap(t, fixture.Request.Body)
@@ -148,7 +149,7 @@ func TestConfigPutRetainsRedactedTransportTokenAndClearsEmptyToken(t *testing.T)
 		onebot["reverse_ws"].(map[string]any)["access_token"] = "old-reverse-secret"
 	}, deterministicAuthOptions()...)
 	token := issueLoginToken(t, application)
-	server := httptest.NewServer(application.Handler())
+	server := newManagementTestServer(t, application.Handler())
 	defer server.Close()
 
 	getRequest, err := http.NewRequest(http.MethodGet, server.URL+"/api/config", nil)
@@ -237,6 +238,7 @@ func TestConfigPutRejectsInvalidConfig(t *testing.T) {
 	}
 	request.Header.Set("Authorization", "Bearer "+token)
 	request.Header.Set("Content-Type", "application/json")
+	request.Host = testManagementAuthority
 	recorder := httptest.NewRecorder()
 
 	application.Handler().ServeHTTP(recorder, request)
@@ -264,7 +266,7 @@ func TestConfigPutHotReloadsOneBotTransportStateWithoutRestart(t *testing.T) {
 
 	application, _, _ := newTestAppWithConfigMutation(t, nil, deterministicAuthOptions()...)
 	token := issueLoginToken(t, application)
-	server := httptest.NewServer(application.Handler())
+	server := newManagementTestServer(t, application.Handler())
 	defer server.Close()
 
 	payload := map[string]any{
@@ -311,6 +313,7 @@ func TestConfigPutHotReloadsOneBotTransportStateWithoutRestart(t *testing.T) {
 		"admin": map[string]any{
 			"super_admins":              []any{},
 			"session_ttl_days":          7,
+			"session_absolute_ttl_days": 30,
 			"sliding_renewal":           true,
 			"max_sessions":              3,
 			"login_fail_limit":          5,
@@ -387,13 +390,16 @@ func TestConfigPutHotReloadsOneBotTransportStateWithoutRestart(t *testing.T) {
 			"reconnect_jitter_ratio":    0.2,
 		},
 		"http": map[string]any{
-			"timeout_seconds":     10,
-			"max_retries":         2,
-			"allow_private_hosts": []any{},
+			"timeout_seconds":         10,
+			"max_retries":             2,
+			"max_response_body_bytes": 4194304,
+			"allow_private_hosts":     []any{},
 		},
 		"web": map[string]any{
-			"exposure_mode":    "localhost_only",
-			"setup_local_only": true,
+			"exposure_mode":       "localhost_only",
+			"setup_local_only":    true,
+			"public_origin":       "",
+			"trusted_proxy_cidrs": []any{},
 		},
 		"backup": map[string]any{
 			"default_consistency": "offline",
@@ -584,10 +590,12 @@ func newTestAppWithOptions(
 	builtinRoot := filepath.Join(repoRoot, "plugins", "builtin")
 
 	options := internalapp.Options{
-		ConfigPath:       configPath,
-		SchemaPath:       schemaPath,
-		PluginRepoRoot:   repoRoot,
-		PluginSchemaPath: filepath.Join("..", "contracts", "plugin-info.schema.json"),
+		ConfigPath:           configPath,
+		SchemaPath:           schemaPath,
+		SetupToken:           testutil.TestSetupToken,
+		LauncherControlToken: testutil.TestLauncherControlToken,
+		PluginRepoRoot:       repoRoot,
+		PluginSchemaPath:     filepath.Join("..", "contracts", "plugin-info.schema.json"),
 		PluginRoots: []plugincatalog.ScanRoot{
 			{Label: "plugins/builtin", Path: builtinRoot},
 			{Label: "plugins/installed", Path: filepath.Join(filepath.Dir(configPath), "..", "plugins", "installed")},

@@ -24,9 +24,10 @@ func normalizeContext(ctx context.Context) context.Context {
 }
 
 type Config struct {
-	SessionTTLDays int
-	SlidingRenewal bool
-	MaxSessions    int
+	SessionTTLDays         int
+	SessionAbsoluteTTLDays int
+	SlidingRenewal         bool
+	MaxSessions            int
 }
 
 type Claims struct {
@@ -55,9 +56,11 @@ type Manager struct {
 	repo               Repository
 	passwordHashParams passwordHashParams
 
-	mu        sync.Mutex
-	sessions  map[string]Claims
-	bootstrap *bootstrapCredentials
+	stateMu           sync.RWMutex
+	mutationMu        sync.Mutex
+	passwordSemaphore chan struct{}
+	sessions          map[string]Claims
+	bootstrap         *bootstrapCredentials
 }
 
 func WithClock(now func() time.Time) Option {
@@ -116,8 +119,17 @@ func NewManager(cfg Config, opts ...Option) (*Manager, error) {
 
 func NewManagerWithContext(ctx context.Context, cfg Config, opts ...Option) (*Manager, error) {
 	ctx = normalizeContext(ctx)
+	if cfg.SessionAbsoluteTTLDays == 0 {
+		cfg.SessionAbsoluteTTLDays = 30
+	}
 	if cfg.SessionTTLDays <= 0 {
 		return nil, fmt.Errorf("session_ttl_days must be positive")
+	}
+	if cfg.SessionAbsoluteTTLDays <= 0 {
+		return nil, fmt.Errorf("session_absolute_ttl_days must be positive")
+	}
+	if cfg.SessionAbsoluteTTLDays < cfg.SessionTTLDays {
+		return nil, fmt.Errorf("session_absolute_ttl_days must be greater than or equal to session_ttl_days")
 	}
 	if cfg.MaxSessions <= 0 {
 		return nil, fmt.Errorf("max_sessions must be positive")
@@ -152,6 +164,7 @@ func NewManagerWithContext(ctx context.Context, cfg Config, opts ...Option) (*Ma
 		sessionID:          options.sessionID,
 		repo:               options.repo,
 		passwordHashParams: options.passwordHashParams,
+		passwordSemaphore:  make(chan struct{}, 2),
 		sessions:           make(map[string]Claims),
 	}
 
@@ -185,23 +198,34 @@ func (m *Manager) hydrate(ctx context.Context) error {
 
 	now := m.now().UTC()
 	var expired []string
+	var clamped []Claims
 	for _, claims := range sessions {
 		claims.IssuedAt = canonicalSessionTimestamp(claims.IssuedAt)
 		claims.ExpiresAt = canonicalSessionTimestamp(claims.ExpiresAt)
-		if now.Before(claims.ExpiresAt) {
-			m.sessions[claims.SessionID] = claims
+		absoluteExpiry := canonicalSessionTimestamp(claims.IssuedAt.Add(m.absoluteTTL()))
+		if !now.Before(absoluteExpiry) || !now.Before(claims.ExpiresAt) {
+			expired = append(expired, claims.SessionID)
 			continue
 		}
-		expired = append(expired, claims.SessionID)
+		if claims.ExpiresAt.After(absoluteExpiry) {
+			claims.ExpiresAt = absoluteExpiry
+			clamped = append(clamped, claims)
+		}
+		m.sessions[claims.SessionID] = claims
 	}
-	if err := m.deleteSessionsLocked(ctx, expired...); err != nil {
+	if err := m.deleteSessions(ctx, expired...); err != nil {
 		return err
+	}
+	for _, claims := range clamped {
+		if err := m.saveSession(ctx, claims); err != nil {
+			return err
+		}
 	}
 
 	return nil
 }
 
-func (m *Manager) saveSessionLocked(ctx context.Context, claims Claims) error {
+func (m *Manager) saveSession(ctx context.Context, claims Claims) error {
 	if m.repo == nil {
 		return nil
 	}
@@ -213,7 +237,7 @@ func (m *Manager) saveSessionLocked(ctx context.Context, claims Claims) error {
 	return nil
 }
 
-func (m *Manager) deleteSessionsLocked(ctx context.Context, sessionIDs ...string) error {
+func (m *Manager) deleteSessions(ctx context.Context, sessionIDs ...string) error {
 	if m.repo == nil || len(sessionIDs) == 0 {
 		return nil
 	}
@@ -226,9 +250,23 @@ func (m *Manager) deleteSessionsLocked(ctx context.Context, sessionIDs ...string
 }
 
 type LoginFailureRecorder interface {
-	IsLimited(string, int, time.Duration) bool
-	RecordFailure(string, int, time.Duration)
+	Reserve(string, int, time.Duration) bool
 	Reset(string)
+}
+
+func (t *LoginFailureTracker) Reserve(source string, limit int, window time.Duration) bool {
+	if !loginFailureTrackingEnabled(source, limit, window) {
+		return true
+	}
+
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	entries := t.prunedLocked(source, window)
+	if len(entries) >= limit {
+		return false
+	}
+	t.entries[source] = append(entries, t.now().UTC())
+	return true
 }
 
 type LoginFailureTracker struct {
@@ -246,30 +284,6 @@ func NewLoginFailureTracker(now func() time.Time) *LoginFailureTracker {
 		now:     now,
 		entries: make(map[string][]time.Time),
 	}
-}
-
-func (t *LoginFailureTracker) IsLimited(source string, limit int, window time.Duration) bool {
-	if !loginFailureTrackingEnabled(source, limit, window) {
-		return false
-	}
-
-	t.mu.Lock()
-	defer t.mu.Unlock()
-
-	entries := t.prunedLocked(source, window)
-	return len(entries) >= limit
-}
-
-func (t *LoginFailureTracker) RecordFailure(source string, limit int, window time.Duration) {
-	if !loginFailureTrackingEnabled(source, limit, window) {
-		return
-	}
-
-	t.mu.Lock()
-	defer t.mu.Unlock()
-
-	entries := append(t.prunedLocked(source, window), t.now().UTC())
-	t.entries[source] = entries
 }
 
 func (t *LoginFailureTracker) Reset(source string) {

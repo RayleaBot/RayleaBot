@@ -37,6 +37,7 @@ func TestRegisterManagementRoutes(t *testing.T) {
 			managementapi.NewSystemRoutes(managementapi.NewSystemHandlers(nil), noopHandler),
 			managementapi.NewRenderHandlers(nil),
 			managementapi.NewThirdPartyHandlers(nil, nil, nil),
+			managementapi.NewUpdateHandlers(nil),
 			pluginUI,
 			managementapi.ProtectedRouteFunc(func(r chi.Router) {
 				r.Get("/ws/events", noopHandler)

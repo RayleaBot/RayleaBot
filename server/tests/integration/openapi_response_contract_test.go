@@ -17,6 +17,7 @@ import (
 
 	internalapp "github.com/RayleaBot/RayleaBot/server/internal/app"
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
+	"github.com/RayleaBot/RayleaBot/server/tests/testutil"
 	"gopkg.in/yaml.v3"
 )
 
@@ -266,7 +267,15 @@ func performOpenAPIJSONRequest(t *testing.T, application interface{ Handler() ht
 	}
 
 	request := httptest.NewRequest(method, path, bytes.NewReader(payload))
+	request.Host = "127.0.0.1:8080"
 	request.Header.Set("Content-Type", "application/json")
+	if path == "/api/setup/admin" {
+		request.Header.Set("Origin", "http://127.0.0.1:8080")
+		request.Header.Set("X-Raylea-Setup-Token", testutil.TestSetupToken)
+	}
+	if strings.HasPrefix(path, "/api/launcher/") {
+		request.Header.Set("X-Raylea-Launcher-Control", testutil.TestLauncherControlToken)
+	}
 	request.RemoteAddr = "127.0.0.1:0"
 	if token != "" {
 		request.Header.Set("Authorization", "Bearer "+token)
@@ -514,16 +523,21 @@ func rewriteOpenAPIValue(value any) any {
 	}
 }
 
-func contractFileURI(path string) string {
+func contractFileURI(reference string) string {
+	path, fragment, _ := strings.Cut(reference, "#")
 	abs, err := filepath.Abs(filepath.Join("..", "contracts", filepath.FromSlash(path)))
 	if err != nil {
-		return path
+		return reference
 	}
 	normalized := filepath.ToSlash(abs)
 	if !strings.HasPrefix(normalized, "/") {
 		normalized = "/" + normalized
 	}
-	return (&url.URL{Scheme: "file", Path: normalized}).String()
+	uri := (&url.URL{Scheme: "file", Path: normalized}).String()
+	if fragment != "" {
+		uri += "#" + fragment
+	}
+	return uri
 }
 
 func requireOpenAPIMap(t *testing.T, value any, label string) map[string]any {

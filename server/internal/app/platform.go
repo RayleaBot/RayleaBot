@@ -109,9 +109,10 @@ func buildPlatform(deps platformDeps) (PlatformState, error) {
 		auth.WithSigningKey(sessionSigningKey),
 	}, deps.AuthOptions...)
 	authManager, err := auth.NewManagerWithContext(ctx, auth.Config{
-		SessionTTLDays: deps.Config.Admin.SessionTTLDays,
-		SlidingRenewal: deps.Config.Admin.SlidingRenewal,
-		MaxSessions:    deps.Config.Admin.MaxSessions,
+		SessionTTLDays:         deps.Config.Admin.SessionTTLDays,
+		SessionAbsoluteTTLDays: deps.Config.Admin.SessionAbsoluteTTLDays,
+		SlidingRenewal:         deps.Config.Admin.SlidingRenewal,
+		MaxSessions:            deps.Config.Admin.MaxSessions,
 	}, authOptions...)
 	if err != nil {
 		return abort(fmt.Errorf("create auth manager: %w", err))

@@ -31,8 +31,9 @@ func TestAuthHTTPSetupAndLoginResponseShape(t *testing.T) {
 	}
 
 	handlers := NewAuthHandlers(AuthDeps{
-		Config: testAuthConfigSource{},
-		Auth:   manager,
+		Config:     testAuthConfigSource{},
+		Auth:       manager,
+		SetupToken: NewOneTimeToken("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"),
 	})
 
 	setupBody := authHTTPJSON(t, map[string]string{
@@ -40,7 +41,11 @@ func TestAuthHTTPSetupAndLoginResponseShape(t *testing.T) {
 		"secret":     "fixture-only-secret",
 	})
 	setupResponse := httptest.NewRecorder()
-	handlers.HandleSetupAdmin().ServeHTTP(setupResponse, httptest.NewRequest(http.MethodPost, "/api/setup/admin", setupBody))
+	setupRequest := httptest.NewRequest(http.MethodPost, "/api/setup/admin", setupBody)
+	setupRequest.Header.Set("Content-Type", "application/json")
+	setupRequest.Header.Set("Origin", "http://example.com")
+	setupRequest.Header.Set(SetupTokenHeader, "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA")
+	handlers.HandleSetupAdmin().ServeHTTP(setupResponse, setupRequest)
 
 	assertAuthHTTPSessionTokenResponse(t, setupResponse)
 
@@ -49,7 +54,9 @@ func TestAuthHTTPSetupAndLoginResponseShape(t *testing.T) {
 		"secret":     "fixture-only-secret",
 	})
 	loginResponse := httptest.NewRecorder()
-	handlers.HandleSessionLogin().ServeHTTP(loginResponse, httptest.NewRequest(http.MethodPost, "/api/session/login", loginBody))
+	loginRequest := httptest.NewRequest(http.MethodPost, "/api/session/login", loginBody)
+	loginRequest.Header.Set("Content-Type", "application/json")
+	handlers.HandleSessionLogin().ServeHTTP(loginResponse, loginRequest)
 
 	assertAuthHTTPSessionTokenResponse(t, loginResponse)
 }
@@ -75,7 +82,7 @@ func assertAuthHTTPSessionTokenResponse(t *testing.T, recorder *httptest.Respons
 	if err := json.Unmarshal(recorder.Body.Bytes(), &payload); err != nil {
 		t.Fatalf("decode response: %v", err)
 	}
-	if len(payload) != 1 || payload["session_token"] == "" {
+	if payload["transport"] != "bearer" || payload["session_token"] == "" || payload["expires_at"] == "" {
 		t.Fatalf("unexpected auth response shape: %#v", payload)
 	}
 }

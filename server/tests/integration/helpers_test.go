@@ -3,11 +3,17 @@ package integration
 import (
 	"encoding/json"
 	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"testing"
 
 	"github.com/RayleaBot/RayleaBot/server/tests/testutil"
+)
+
+const (
+	testManagementAuthority = testutil.TestManagementAuthority
+	testManagementOrigin    = testutil.TestManagementOrigin
 )
 
 func TestMain(m *testing.M) {
@@ -23,6 +29,10 @@ func decodeBody(t *testing.T, raw []byte) map[string]any {
 
 func issueLoginToken(t *testing.T, application interface{ Handler() http.Handler }) string {
 	return testutil.IssueLoginToken(t, application)
+}
+
+func newManagementTestServer(t *testing.T, handler http.Handler) *httptest.Server {
+	return testutil.NewManagementTestServer(t, handler)
 }
 
 func websocketURL(httpURL string) string {

@@ -102,6 +102,8 @@ func TestBackupCreatesValidArchive(t *testing.T) {
 
 	writeFile(t, filepath.Join(configDir, "user.yaml"), "server:\n  listen: 127.0.0.1:9600\n")
 	createTestSQLiteDatabase(t, filepath.Join(dataDir, "rayleabot.db"))
+	writeFile(t, filepath.Join(dataDir, "plugin-state", "settings.json"), `{"enabled":true}`)
+	writeFile(t, filepath.Join(dataDir, ".state", "cursor"), "42")
 	writeFile(t, filepath.Join(pluginsDir, "info.json"), `{"id":"hello-python"}`)
 
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
@@ -141,6 +143,12 @@ func TestBackupCreatesValidArchive(t *testing.T) {
 	}
 	if !names["data/rayleabot.db"] {
 		t.Error("missing data/rayleabot.db in archive")
+	}
+	if !names["data/plugin-state/settings.json"] {
+		t.Error("missing application data file in archive")
+	}
+	if !names["data/.state/cursor"] {
+		t.Error("missing hidden application data file in archive")
 	}
 	extractedDB := filepath.Join(t.TempDir(), "rayleabot.db")
 	extractZipEntry(t, reader.File, "data/rayleabot.db", extractedDB)
@@ -193,6 +201,8 @@ func TestRestoreExtractsArchiveContents(t *testing.T) {
 	}
 	writeFile(t, filepath.Join(configDir, "user.yaml"), "server:\n  listen: 127.0.0.1:9600\n")
 	createTestSQLiteDatabase(t, filepath.Join(dataDir, "rayleabot.db"))
+	writeFile(t, filepath.Join(dataDir, "plugin-state", "settings.json"), `{"enabled":true}`)
+	writeFile(t, filepath.Join(dataDir, ".state", "cursor"), "42")
 
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	code := runBackup(Command{
@@ -234,6 +244,14 @@ func TestRestoreExtractsArchiveContents(t *testing.T) {
 	restoredDB := filepath.Join(destDir, "data", "rayleabot.db")
 	if _, err := os.Stat(restoredDB); err != nil {
 		t.Errorf("restored database not found: %v", err)
+	}
+	restoredState, err := os.ReadFile(filepath.Join(destDir, "data", "plugin-state", "settings.json"))
+	if err != nil || string(restoredState) != `{"enabled":true}` {
+		t.Errorf("restored application data mismatch: %q, %v", string(restoredState), err)
+	}
+	restoredHiddenState, err := os.ReadFile(filepath.Join(destDir, "data", ".state", "cursor"))
+	if err != nil || string(restoredHiddenState) != "42" {
+		t.Errorf("restored hidden application data mismatch: %q, %v", string(restoredHiddenState), err)
 	}
 
 	summary, err := recovery.LoadSummary(destDir)

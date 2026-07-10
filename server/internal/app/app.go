@@ -19,6 +19,8 @@ import (
 type Options struct {
 	ConfigPath            string
 	SchemaPath            string
+	SetupToken            string
+	LauncherControlToken  string
 	AuthOptions           []auth.Option
 	PluginRepoRoot        string
 	PluginSchemaPath      string
@@ -61,6 +63,26 @@ func NewWithContext(ctx context.Context, options Options) (*App, error) {
 	}
 	if err := ctx.Err(); err != nil {
 		return nil, err
+	}
+	if options.SetupToken == "" {
+		generated, err := auth.GenerateOpaqueToken(32)
+		if err != nil {
+			return nil, fmt.Errorf("generate setup token: %w", err)
+		}
+		options.SetupToken = generated
+	}
+	if err := auth.ValidateOpaqueToken(options.SetupToken); err != nil {
+		return nil, fmt.Errorf("validate setup token: %w", err)
+	}
+	if options.LauncherControlToken == "" {
+		generated, err := auth.GenerateOpaqueToken(32)
+		if err != nil {
+			return nil, fmt.Errorf("generate launcher control token: %w", err)
+		}
+		options.LauncherControlToken = generated
+	}
+	if err := auth.ValidateOpaqueToken(options.LauncherControlToken); err != nil {
+		return nil, fmt.Errorf("validate launcher control token: %w", err)
 	}
 
 	buildState, err := initializeAppBuild(options)
@@ -189,14 +211,16 @@ func NewWithContext(ctx context.Context, options Options) (*App, error) {
 	}
 	configureAppRuntimeCallbacks(application)
 	httpState := buildHTTP(httpBuildDeps{
-		Runtime:         state,
-		Platform:        platformState,
-		Plugins:         pluginState,
-		Events:          eventState,
-		Renderer:        renderState.Renderer,
-		ServiceBuild:    serviceBuild,
-		Metrics:         metricRegistry,
-		RequestShutdown: application.requestShutdown,
+		Runtime:              state,
+		Platform:             platformState,
+		Plugins:              pluginState,
+		Events:               eventState,
+		Renderer:             renderState.Renderer,
+		ServiceBuild:         serviceBuild,
+		Metrics:              metricRegistry,
+		RequestShutdown:      application.requestShutdown,
+		SetupToken:           options.SetupToken,
+		LauncherControlToken: options.LauncherControlToken,
 	})
 	application.process.router = httpState.Router
 	application.process.server = httpState.Server

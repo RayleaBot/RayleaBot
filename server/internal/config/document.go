@@ -38,6 +38,9 @@ func NormalizeDocument(configPath, schemaPath string, document map[string]any) (
 	if err != nil {
 		return Config{}, Summary{}, nil, fmt.Errorf("decode typed config %s: %w", configPath, err)
 	}
+	if err := validateRuntimeConstraints(cfg); err != nil {
+		return Config{}, Summary{}, nil, fmt.Errorf("config runtime constraints failed for %s: %w", configPath, err)
+	}
 	return cfg, buildSummary(configPath, schemaPath, cfg, canonical), canonical, nil
 }
 

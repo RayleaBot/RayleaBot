@@ -8,7 +8,6 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/permission"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	"net/http"
-	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -24,7 +23,7 @@ func TestGovernanceWhitelistHandlers(t *testing.T) {
 	entryRepo := permission.NewSQLiteWhitelistRepository(application.Storage().Read, application.Storage().Write)
 	stateRepo := permission.NewSQLiteWhitelistStateRepository(application.Storage().Read, application.Storage().Write)
 
-	server := httptest.NewServer(application.Handler())
+	server := newManagementTestServer(t, application.Handler())
 	defer server.Close()
 
 	getReq, err := http.NewRequest(http.MethodGet, server.URL+"/api/governance/whitelist", nil)
@@ -217,7 +216,7 @@ func TestGovernanceCommandPolicyHandler(t *testing.T) {
 	})
 
 	token := issueLoginToken(t, application)
-	server := httptest.NewServer(application.Handler())
+	server := newManagementTestServer(t, application.Handler())
 	defer server.Close()
 
 	request, err := http.NewRequest(http.MethodGet, server.URL+"/api/governance/command-policy", nil)
@@ -285,7 +284,7 @@ func TestSystemBackupAcceptsTaskAndCreatesArchive(t *testing.T) {
 	application := newTestApp(t, deterministicAuthOptions()...)
 	token := issueLoginToken(t, application)
 	fixture := loadWebAPIFixtureDocument(t, filepath.Join("..", "fixtures", "web-api", "ok.system-backup-accepted.yaml"))
-	server := httptest.NewServer(application.Handler())
+	server := newManagementTestServer(t, application.Handler())
 	defer server.Close()
 
 	request, err := http.NewRequest(http.MethodPost, server.URL+fixture.Request.Path, nil)
@@ -354,7 +353,7 @@ func TestSystemDiagnosticsExportReturnsZipBundle(t *testing.T) {
 	application := newTestApp(t, deterministicAuthOptions()...)
 	token := issueLoginToken(t, application)
 	fixture := loadWebAPIFixtureDocument(t, filepath.Join("..", "fixtures", "web-api", "ok.system-diagnostics-export.yaml"))
-	server := httptest.NewServer(application.Handler())
+	server := newManagementTestServer(t, application.Handler())
 	defer server.Close()
 
 	request, err := http.NewRequest(http.MethodGet, server.URL+fixture.Request.Path, nil)

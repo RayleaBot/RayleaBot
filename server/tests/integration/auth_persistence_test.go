@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
-	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"testing"
@@ -21,6 +20,7 @@ import (
 	pluginruntime "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime"
 	"github.com/RayleaBot/RayleaBot/server/internal/secrets"
 	"github.com/RayleaBot/RayleaBot/server/internal/storage"
+	"github.com/RayleaBot/RayleaBot/server/tests/testutil"
 )
 
 const sessionSigningKeySecret = "platform.auth.session_signing_key"
@@ -62,7 +62,7 @@ func TestBootstrapStateAndBootstrapTokenSurviveRestart(t *testing.T) {
 		t.Fatalf("unexpected login status after restart: got %d want %d", login.Code, loginFixture.Response.Status)
 	}
 
-	server := httptest.NewServer(appB.Handler())
+	server := newManagementTestServer(t, appB.Handler())
 	defer server.Close()
 	conn := dialEventsWebSocket(t, server.URL, bootstrapToken)
 	defer conn.Close(1000, "")
@@ -97,7 +97,7 @@ func TestLoginTokenSurvivesRestartAndReceivesEvents(t *testing.T) {
 	}, "ws-b", withPersistentBridgeDispatch())
 	defer closePersistentTestApp(t, appB)
 
-	server := httptest.NewServer(appB.Handler())
+	server := newManagementTestServer(t, appB.Handler())
 	defer server.Close()
 
 	conn := dialEventsWebSocket(t, server.URL, loginToken)
@@ -177,13 +177,19 @@ func TestDeletingPersistedSessionSigningKeyInvalidatesOlderTokens(t *testing.T) 
 	}, "secret-c")
 	defer closePersistentTestApp(t, appB)
 
-	server := httptest.NewServer(appB.Handler())
+	server := newManagementTestServer(t, appB.Handler())
 	defer server.Close()
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 
-	conn, response, err := websocket.Dial(ctx, websocketURL(server.URL)+"/ws/events?session_token="+loginToken, nil)
+	conn, response, err := websocket.Dial(ctx, websocketURL(server.URL)+"/ws/events", &websocket.DialOptions{
+		Host: testManagementAuthority,
+		HTTPHeader: http.Header{
+			"Authorization": []string{"Bearer " + loginToken},
+			"Origin":        []string{testManagementOrigin},
+		},
+	})
 	if conn != nil {
 		_ = conn.Close(websocket.StatusNormalClosure, "")
 	}
@@ -205,10 +211,12 @@ func newPersistentTestApp(t *testing.T, configPath string, now func() time.Time,
 	sessionCounter := 0
 	repoRoot := newPreparedTestRuntimeRoot(t)
 	options := app.Options{
-		ConfigPath:       configPath,
-		SchemaPath:       filepath.Join("..", "contracts", "config.user.schema.json"),
-		PluginRepoRoot:   repoRoot,
-		PluginSchemaPath: filepath.Join("..", "contracts", "plugin-info.schema.json"),
+		ConfigPath:           configPath,
+		SchemaPath:           filepath.Join("..", "contracts", "config.user.schema.json"),
+		SetupToken:           testutil.TestSetupToken,
+		LauncherControlToken: testutil.TestLauncherControlToken,
+		PluginRepoRoot:       repoRoot,
+		PluginSchemaPath:     filepath.Join("..", "contracts", "plugin-info.schema.json"),
 		PluginRoots: []plugincatalog.ScanRoot{
 			{Label: "plugins/builtin", Path: filepath.Join(repoRoot, "plugins", "builtin")},
 			{Label: "plugins/installed", Path: filepath.Join(filepath.Dir(configPath), "..", "plugins", "installed")},

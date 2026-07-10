@@ -3,7 +3,6 @@ package ws
 import (
 	"context"
 	"net/http"
-	"net/http/httptest"
 	"testing"
 	"time"
 
@@ -24,7 +23,7 @@ func TestPluginConsoleWebSocketReplaysBufferedFrames(t *testing.T) {
 	})
 
 	token := issueLoginToken(t, application)
-	server := httptest.NewServer(application.Handler())
+	server := newManagementTestServer(t, application.Handler())
 	defer server.Close()
 
 	conn := dialProtectedWebSocket(t, server.URL, "/ws/plugins/raylea.echo/console", token)
@@ -58,7 +57,7 @@ func TestPluginConsoleWebSocketDeliversLiveFrames(t *testing.T) {
 
 	application := newTestApp(t, deterministicAuthOptions()...)
 	token := issueLoginToken(t, application)
-	server := httptest.NewServer(application.Handler())
+	server := newManagementTestServer(t, application.Handler())
 	defer server.Close()
 
 	conn := dialProtectedWebSocket(t, server.URL, "/ws/plugins/raylea.echo/console", token)
@@ -86,19 +85,21 @@ func TestPluginConsoleWebSocketDeliversLiveFrames(t *testing.T) {
 }
 
 func TestPluginConsoleWebSocketAcceptsLocalDevOrigin(t *testing.T) {
-	t.Parallel()
+	t.Setenv("RAYLEA_WEB_UI_BASE_URL", "http://127.0.0.1:4173")
 
 	application := newTestApp(t, deterministicAuthOptions()...)
 	token := issueLoginToken(t, application)
-	server := httptest.NewServer(application.Handler())
+	server := newManagementTestServer(t, application.Handler())
 	defer server.Close()
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 
-	conn, response, err := websocket.Dial(ctx, websocketURL(server.URL)+"/ws/plugins/raylea.echo/console?session_token="+token, &websocket.DialOptions{
+	conn, response, err := websocket.Dial(ctx, websocketURL(server.URL)+"/ws/plugins/raylea.echo/console", &websocket.DialOptions{
+		Host: testManagementAuthority,
 		HTTPHeader: http.Header{
-			"Origin": []string{"http://127.0.0.1:4173"},
+			"Authorization": []string{"Bearer " + token},
+			"Origin":        []string{"http://127.0.0.1:4173"},
 		},
 	})
 	if err != nil {
@@ -116,15 +117,17 @@ func TestPluginConsoleWebSocketRejectsUnknownOrigin(t *testing.T) {
 
 	application := newTestApp(t, deterministicAuthOptions()...)
 	token := issueLoginToken(t, application)
-	server := httptest.NewServer(application.Handler())
+	server := newManagementTestServer(t, application.Handler())
 	defer server.Close()
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 
-	conn, response, err := websocket.Dial(ctx, websocketURL(server.URL)+"/ws/plugins/raylea.echo/console?session_token="+token, &websocket.DialOptions{
+	conn, response, err := websocket.Dial(ctx, websocketURL(server.URL)+"/ws/plugins/raylea.echo/console", &websocket.DialOptions{
+		Host: testManagementAuthority,
 		HTTPHeader: http.Header{
-			"Origin": []string{"https://example.invalid"},
+			"Authorization": []string{"Bearer " + token},
+			"Origin":        []string{"https://example.invalid"},
 		},
 	})
 	if conn != nil {
@@ -133,12 +136,12 @@ func TestPluginConsoleWebSocketRejectsUnknownOrigin(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected websocket dial with unknown origin to fail")
 	}
-	if response == nil || response.StatusCode != http.StatusForbidden {
+	if response == nil || response.StatusCode != http.StatusUnauthorized {
 		if response == nil {
 			t.Fatal("expected forbidden response, got nil")
 			return
 		}
-		t.Fatalf("unexpected forbidden status: got %d want %d", response.StatusCode, http.StatusForbidden)
+		t.Fatalf("unexpected rejection status: got %d want %d", response.StatusCode, http.StatusUnauthorized)
 	}
 }
 
@@ -146,13 +149,16 @@ func TestPluginConsoleWebSocketRejectsUnauthorizedSession(t *testing.T) {
 	t.Parallel()
 
 	application := newTestApp(t)
-	server := httptest.NewServer(application.Handler())
+	server := newManagementTestServer(t, application.Handler())
 	defer server.Close()
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 
-	conn, response, err := websocket.Dial(ctx, websocketURL(server.URL)+"/ws/plugins/raylea.echo/console", nil)
+	conn, response, err := websocket.Dial(ctx, websocketURL(server.URL)+"/ws/plugins/raylea.echo/console", &websocket.DialOptions{
+		Host:       testManagementAuthority,
+		HTTPHeader: http.Header{"Origin": []string{testManagementOrigin}},
+	})
 	if conn != nil {
 		_ = conn.Close(websocket.StatusNormalClosure, "")
 	}

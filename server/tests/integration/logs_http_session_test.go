@@ -3,7 +3,6 @@ package integration
 import (
 	"context"
 	"github.com/RayleaBot/RayleaBot/server/internal/onebot11"
-	"net/http/httptest"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -32,7 +31,7 @@ func TestLogsListCurrentSessionDoesNotCrossRestartBoundary(t *testing.T) {
 		"request_id", "req_current_new",
 	)
 
-	serverB := httptest.NewServer(appB.Handler())
+	serverB := newManagementTestServer(t, appB.Handler())
 	defer serverB.Close()
 
 	body := doLogsListRequest(t, serverB.URL, tokenB, "/api/logs?scope=current_session&limit=20")
@@ -107,7 +106,7 @@ func TestLogsListReadsPersistedBridgeMessageAcrossRestart(t *testing.T) {
 	defer closePersistentTestApp(t, appB)
 
 	tokenB := issueExistingBootstrapLoginToken(t, appB)
-	serverB := httptest.NewServer(appB.Handler())
+	serverB := newManagementTestServer(t, appB.Handler())
 	defer serverB.Close()
 
 	bridgeBody := doLogsListRequest(t, serverB.URL, tokenB, "/api/logs?source=bridge&limit=20")

@@ -3,23 +3,31 @@ package cli
 import (
 	"database/sql"
 	"fmt"
+	"io"
 	"log/slog"
+	"net/http"
 	"os"
 	"path/filepath"
+	"time"
 
 	internalconfig "github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/logpath"
 	"github.com/RayleaBot/RayleaBot/server/internal/recovery"
+	"github.com/RayleaBot/RayleaBot/server/internal/releaseupdate"
 
 	_ "modernc.org/sqlite"
 )
 
 type Command struct {
-	Name       string
-	ConfigPath string
-	SchemaPath string
-	Logger     *slog.Logger
-	Args       []string // additional positional arguments after the subcommand name
+	Name             string
+	ConfigPath       string
+	SchemaPath       string
+	Logger           *slog.Logger
+	Args             []string // additional positional arguments after the subcommand name
+	Stdout           io.Writer
+	UpdateVerifier   *releaseupdate.Verifier
+	UpdateHTTPClient *http.Client
+	Now              func() time.Time
 }
 
 func Run(cmd Command) int {
@@ -36,11 +44,22 @@ func Run(cmd Command) int {
 		return runBackup(cmd)
 	case "restore":
 		return runRestore(cmd)
+	case "version":
+		return runVersion(cmd)
+	case "update":
+		return runUpdate(cmd)
 	default:
 		fmt.Fprintf(os.Stderr, "未知子命令: %s\n", cmd.Name)
-		fmt.Fprintln(os.Stderr, "可用子命令: config, reset-admin, backup, restore, doctor, cleanup")
+		fmt.Fprintln(os.Stderr, "可用子命令: config, reset-admin, backup, restore, doctor, cleanup, version, update")
 		return 1
 	}
+}
+
+func commandStdout(cmd Command) io.Writer {
+	if cmd.Stdout != nil {
+		return cmd.Stdout
+	}
+	return os.Stdout
 }
 
 func displayLogPath(repoRoot, path string) string {

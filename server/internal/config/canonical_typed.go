@@ -153,6 +153,7 @@ func configAdminDocument(cfg Config) map[string]any {
 	return map[string]any{
 		"super_admins":              append([]string{}, cfg.Admin.SuperAdmins...),
 		"session_ttl_days":          cfg.Admin.SessionTTLDays,
+		"session_absolute_ttl_days": cfg.Admin.SessionAbsoluteTTLDays,
 		"sliding_renewal":           cfg.Admin.SlidingRenewal,
 		"max_sessions":              cfg.Admin.MaxSessions,
 		"login_fail_limit":          cfg.Admin.LoginFailLimit,
@@ -199,16 +200,19 @@ func configAdapterDocument(cfg Config) map[string]any {
 
 func configHTTPDocument(cfg Config) map[string]any {
 	return map[string]any{
-		"timeout_seconds":     cfg.HTTP.TimeoutSeconds,
-		"max_retries":         cfg.HTTP.MaxRetries,
-		"allow_private_hosts": append([]string{}, cfg.HTTP.AllowPrivateHosts...),
+		"timeout_seconds":         cfg.HTTP.TimeoutSeconds,
+		"max_retries":             cfg.HTTP.MaxRetries,
+		"max_response_body_bytes": cfg.HTTP.MaxResponseBodyBytes,
+		"allow_private_hosts":     append([]string{}, cfg.HTTP.AllowPrivateHosts...),
 	}
 }
 
 func configWebDocument(cfg Config) map[string]any {
 	return map[string]any{
-		"exposure_mode":    cfg.Web.ExposureMode,
-		"setup_local_only": cfg.Web.SetupLocalOnly,
+		"exposure_mode":       cfg.Web.ExposureMode,
+		"setup_local_only":    cfg.Web.SetupLocalOnly,
+		"public_origin":       cfg.Web.PublicOrigin,
+		"trusted_proxy_cidrs": append([]string{}, cfg.Web.TrustedProxyCIDRs...),
 	}
 }
 

@@ -3,7 +3,6 @@ package integration
 import (
 	"context"
 	"net/http"
-	"net/http/httptest"
 	"path/filepath"
 	"reflect"
 	"strings"
@@ -50,7 +49,7 @@ func TestLogDetailReturnsOutboundStructuredDetail(t *testing.T) {
 		},
 	})
 
-	server := httptest.NewServer(application.Handler())
+	server := newManagementTestServer(t, application.Handler())
 	defer server.Close()
 
 	request, err := http.NewRequest(http.MethodGet, server.URL+fixture.Request.Path, nil)
@@ -82,7 +81,7 @@ func TestLogsIncludeCommandPolicyRejectionFromEventIngress(t *testing.T) {
 	}
 	application, _, _ := newTestAppWithConfigMutation(t, configMutation, deterministicAuthOptions()...)
 	token := issueLoginToken(t, application)
-	server := httptest.NewServer(application.Handler())
+	server := newManagementTestServer(t, application.Handler())
 	defer server.Close()
 
 	putWhitelistState(t, server.URL, token, true)
@@ -149,7 +148,7 @@ func TestLogDetailReturnsNotFound(t *testing.T) {
 	application := newTestApp(t, deterministicAuthOptions()...)
 	token := issueLoginToken(t, application)
 	fixture := loadWebAPIFixtureDocument(t, filepath.Join("..", "fixtures", "web-api", "edge.log-detail-not-found.yaml"))
-	server := httptest.NewServer(application.Handler())
+	server := newManagementTestServer(t, application.Handler())
 	defer server.Close()
 
 	request, err := http.NewRequest(http.MethodGet, server.URL+fixture.Request.Path, nil)
@@ -201,7 +200,7 @@ func TestLogDetailFallsBackToLiveStreamWhenRepositoryMissesNewLog(t *testing.T) 
 		},
 	})
 
-	server := httptest.NewServer(application.Handler())
+	server := newManagementTestServer(t, application.Handler())
 	defer server.Close()
 
 	request, err := http.NewRequest(http.MethodGet, server.URL+"/api/logs/log_live_only_0001", nil)
@@ -278,7 +277,7 @@ func TestLogDetailFallbackSanitizesUnsafeOneBotText(t *testing.T) {
 		},
 	})
 
-	server := httptest.NewServer(application.Handler())
+	server := newManagementTestServer(t, application.Handler())
 	defer server.Close()
 
 	request, err := http.NewRequest(http.MethodGet, server.URL+"/api/logs/log_live_only_unsafe_0001", nil)
@@ -323,7 +322,7 @@ func TestLogsRouteRequiresAuth(t *testing.T) {
 	t.Parallel()
 
 	application := newTestApp(t, deterministicAuthOptions()...)
-	server := httptest.NewServer(application.Handler())
+	server := newManagementTestServer(t, application.Handler())
 	defer server.Close()
 
 	request, err := http.NewRequest(http.MethodGet, server.URL+"/api/logs", nil)
@@ -451,7 +450,7 @@ func TestLogsListReadsPersistedSummariesAcrossRestart(t *testing.T) {
 	configPath := writePersistentYAMLConfig(t, filepath.Join(t.TempDir(), "state.db"))
 	appA := newPersistentTestApp(t, configPath, func() time.Time { return time.Date(2026, 3, 20, 9, 0, 0, 0, time.UTC) }, "logs-a")
 	tokenA := issueLoginToken(t, appA)
-	serverA := httptest.NewServer(appA.Handler())
+	serverA := newManagementTestServer(t, appA.Handler())
 
 	requestA, err := http.NewRequest(http.MethodGet, serverA.URL+"/api/logs?limit=1", nil)
 	if err != nil {
@@ -477,7 +476,7 @@ func TestLogsListReadsPersistedSummariesAcrossRestart(t *testing.T) {
 	appB := newPersistentTestApp(t, configPath, func() time.Time { return time.Date(2026, 3, 20, 9, 5, 0, 0, time.UTC) }, "logs-b")
 	defer closePersistentTestApp(t, appB)
 	tokenB := issueExistingBootstrapLoginToken(t, appB)
-	serverB := httptest.NewServer(appB.Handler())
+	serverB := newManagementTestServer(t, appB.Handler())
 	defer serverB.Close()
 
 	requestB, err := http.NewRequest(http.MethodGet, serverB.URL+"/api/logs?request_id=req_persist_1&limit=10", nil)

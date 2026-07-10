@@ -8,6 +8,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/recovery"
@@ -72,7 +73,30 @@ func runBackup(cmd Command) int {
 		cmd.Logger.Info("数据库已备份："+dbPathDisplay, "path", dbPathDisplay)
 	}
 
-	// 3. plugins/installed/
+	// 3. data/** outside the canonical SQLite database and its transient sidecars.
+	// The database itself is written from the verified snapshot above. All other
+	// application and plugin state under data/ must survive an offline restore.
+	dataRoot := filepath.Join(repoRoot, "data")
+	if info, statErr := os.Stat(dataRoot); statErr == nil && info.IsDir() {
+		dataRootDisplay := displayLogPath(repoRoot, dataRoot)
+		skippedDatabasePaths := []string{databasePath, databasePath + "-wal", databasePath + "-shm"}
+		count, addErr := addDirToZipFiltered(w, dataRoot, "data", func(path string, _ os.DirEntry) bool {
+			for _, skipped := range skippedDatabasePaths {
+				if skipped != "" && strings.EqualFold(filepath.Clean(path), filepath.Clean(skipped)) {
+					return true
+				}
+			}
+			return false
+		})
+		if addErr != nil {
+			cmd.Logger.Warn("备份数据目录失败，已跳过："+dataRootDisplay, "path", dataRootDisplay, "err", displayLogError(repoRoot, addErr, dataRoot))
+		} else {
+			directories = append(directories, recovery.Directory("data", "data"))
+			cmd.Logger.Info(fmt.Sprintf("数据目录已备份：%s，文件数 %d", dataRootDisplay, count), "path", dataRootDisplay, "files", count)
+		}
+	}
+
+	// 4. plugins/installed/
 	installedRoot := filepath.Join(repoRoot, "plugins", "installed")
 	if info, err := os.Stat(installedRoot); err == nil && info.IsDir() {
 		installedRootDisplay := displayLogPath(repoRoot, installedRoot)
@@ -85,7 +109,7 @@ func runBackup(cmd Command) int {
 		}
 	}
 
-	// 4. Write manifest
+	// 5. Write manifest
 	manifest := recovery.BuildBackupManifest(repoRoot, "offline")
 	if len(directories) == 0 {
 		directories = recovery.ScanRepoPaths(repoRoot, configFile, databasePath)
@@ -125,6 +149,13 @@ func addManifestToZip(w *zip.Writer, manifest recovery.BackupManifest) error {
 }
 
 func addFileToZip(w *zip.Writer, srcPath, zipPath string) error {
+	lstat, err := os.Lstat(srcPath)
+	if err != nil {
+		return err
+	}
+	if !lstat.Mode().IsRegular() {
+		return fmt.Errorf("backup source is not a regular file: %s", srcPath)
+	}
 	f, err := os.Open(srcPath)
 	if err != nil {
 		return err
@@ -153,10 +184,20 @@ func addFileToZip(w *zip.Writer, srcPath, zipPath string) error {
 }
 
 func addDirToZip(w *zip.Writer, srcRoot, zipPrefix string) (int, error) {
+	return addDirToZipFiltered(w, srcRoot, zipPrefix, nil)
+}
+
+func addDirToZipFiltered(w *zip.Writer, srcRoot, zipPrefix string, skip func(string, os.DirEntry) bool) (int, error) {
 	count := 0
 	err := filepath.WalkDir(srcRoot, func(path string, d os.DirEntry, walkErr error) error {
 		if walkErr != nil {
 			return walkErr
+		}
+		if skip != nil && skip(path, d) {
+			if d.IsDir() {
+				return filepath.SkipDir
+			}
+			return nil
 		}
 
 		relPath, err := filepath.Rel(srcRoot, path)
@@ -166,11 +207,15 @@ func addDirToZip(w *zip.Writer, srcRoot, zipPrefix string) (int, error) {
 		zipPath := filepath.ToSlash(filepath.Join(zipPrefix, relPath))
 
 		if d.IsDir() {
-			if len(d.Name()) > 1 && d.Name()[0] == '.' {
-				return filepath.SkipDir
-			}
 			_, err := w.Create(zipPath + "/")
 			return err
+		}
+		info, err := d.Info()
+		if err != nil {
+			return err
+		}
+		if !info.Mode().IsRegular() {
+			return fmt.Errorf("backup source contains a non-regular file: %s", path)
 		}
 
 		if err := addFileToZip(w, path, zipPath); err != nil {

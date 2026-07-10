@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"github.com/RayleaBot/RayleaBot/server/internal/logging"
 	"net/http"
-	"net/http/httptest"
 	"path/filepath"
 	"reflect"
 	"strings"
@@ -63,7 +62,7 @@ func TestLogsListReturnsHistoryRange(t *testing.T) {
 		application.Logs().Append(summary)
 	}
 
-	server := httptest.NewServer(application.Handler())
+	server := newManagementTestServer(t, application.Handler())
 	defer server.Close()
 
 	request, err := http.NewRequest(http.MethodGet, server.URL+fixture.Request.Path, nil)
@@ -114,7 +113,7 @@ func TestLogsListReturnsHistoryRangeForOffsetTimestamps(t *testing.T) {
 		application.Logs().Append(summary)
 	}
 
-	server := httptest.NewServer(application.Handler())
+	server := newManagementTestServer(t, application.Handler())
 	defer server.Close()
 
 	request, err := http.NewRequest(http.MethodGet, server.URL+"/api/logs?scope=history&start_at=2026-04-16T18:00:00Z&end_at=2026-04-16T18:04:00Z&limit=10", nil)
@@ -148,7 +147,7 @@ func TestLogsListRejectsInvalidScope(t *testing.T) {
 	application := newTestApp(t, deterministicAuthOptions()...)
 	token := issueLoginToken(t, application)
 	fixture := loadWebAPIFixtureDocument(t, filepath.Join("..", "fixtures", "web-api", "invalid.logs-list-invalid-scope.yaml"))
-	server := httptest.NewServer(application.Handler())
+	server := newManagementTestServer(t, application.Handler())
 	defer server.Close()
 
 	request, err := http.NewRequest(http.MethodGet, server.URL+fixture.Request.Path, nil)
@@ -175,7 +174,7 @@ func TestLogsListRejectsStartAfterEnd(t *testing.T) {
 	application := newTestApp(t, deterministicAuthOptions()...)
 	token := issueLoginToken(t, application)
 	fixture := loadWebAPIFixtureDocument(t, filepath.Join("..", "fixtures", "web-api", "invalid.logs-list-start-after-end.yaml"))
-	server := httptest.NewServer(application.Handler())
+	server := newManagementTestServer(t, application.Handler())
 	defer server.Close()
 
 	request, err := http.NewRequest(http.MethodGet, server.URL+fixture.Request.Path, nil)
@@ -202,7 +201,7 @@ func TestLogsListRejectsCurrentSessionTimeRange(t *testing.T) {
 	application := newTestApp(t, deterministicAuthOptions()...)
 	token := issueLoginToken(t, application)
 	fixture := loadWebAPIFixtureDocument(t, filepath.Join("..", "fixtures", "web-api", "invalid.logs-list-current-session-with-time-range.yaml"))
-	server := httptest.NewServer(application.Handler())
+	server := newManagementTestServer(t, application.Handler())
 	defer server.Close()
 
 	request, err := http.NewRequest(http.MethodGet, server.URL+fixture.Request.Path, nil)
@@ -230,7 +229,7 @@ func TestLogsListSupportsCursorPaging(t *testing.T) {
 		input["log"].(map[string]any)["retention_days"] = 365
 	}, deterministicAuthOptions()...)
 	token := issueLoginToken(t, application)
-	server := httptest.NewServer(application.Handler())
+	server := newManagementTestServer(t, application.Handler())
 	defer server.Close()
 
 	for _, summary := range []logging.Summary{
@@ -287,7 +286,7 @@ func TestLogsListSupportsCursorPagingWithMultiFilters(t *testing.T) {
 		input["log"].(map[string]any)["retention_days"] = 365
 	}, deterministicAuthOptions()...)
 	token := issueLoginToken(t, application)
-	server := httptest.NewServer(application.Handler())
+	server := newManagementTestServer(t, application.Handler())
 	defer server.Close()
 
 	for _, summary := range []logging.Summary{
@@ -334,7 +333,7 @@ func TestLogsListIgnoresNewerDirectionWithoutCursorOnFirstPage(t *testing.T) {
 
 	application := newTestApp(t, deterministicAuthOptions()...)
 	token := issueLoginToken(t, application)
-	server := httptest.NewServer(application.Handler())
+	server := newManagementTestServer(t, application.Handler())
 	defer server.Close()
 
 	for _, summary := range []logging.Summary{
@@ -360,7 +359,7 @@ func TestLogsListDoesNotLeakRawAttrs(t *testing.T) {
 
 	application := newTestAppWithOneBotAccessToken(t, "fixture-only-secret", deterministicAuthOptions()...)
 	token := issueLoginToken(t, application)
-	server := httptest.NewServer(application.Handler())
+	server := newManagementTestServer(t, application.Handler())
 	defer server.Close()
 
 	application.Logger().Error(
@@ -477,7 +476,7 @@ func TestLogDetailReturnsStructuredDetails(t *testing.T) {
 		},
 	})
 
-	server := httptest.NewServer(application.Handler())
+	server := newManagementTestServer(t, application.Handler())
 	defer server.Close()
 
 	request, err := http.NewRequest(http.MethodGet, server.URL+fixture.Request.Path, nil)

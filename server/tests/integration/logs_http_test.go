@@ -3,7 +3,6 @@ package integration
 import (
 	"github.com/RayleaBot/RayleaBot/server/internal/logging"
 	"net/http"
-	"net/http/httptest"
 	"path/filepath"
 	"reflect"
 	"strings"
@@ -43,7 +42,7 @@ func TestLogsListReturnsFilteredSummaries(t *testing.T) {
 		Message:   "OneBot 主动 WebSocket 连接断开：ws://127.0.0.1:6700",
 	})
 
-	server := httptest.NewServer(application.Handler())
+	server := newManagementTestServer(t, application.Handler())
 	defer server.Close()
 
 	request, err := http.NewRequest(http.MethodGet, server.URL+fixture.Request.Path, nil)
@@ -82,7 +81,7 @@ func TestLogsListRefreshDoesNotAppendHTTPAccessLogAtInfoLevel(t *testing.T) {
 		Message:   "日志刷新测试种子记录",
 	})
 
-	server := httptest.NewServer(application.Handler())
+	server := newManagementTestServer(t, application.Handler())
 	defer server.Close()
 
 	for range 2 {
@@ -160,7 +159,7 @@ func TestLogsListReturnsMultiFilteredSummaries(t *testing.T) {
 		application.Logs().Append(summary)
 	}
 
-	server := httptest.NewServer(application.Handler())
+	server := newManagementTestServer(t, application.Handler())
 	defer server.Close()
 
 	request, err := http.NewRequest(http.MethodGet, server.URL+fixture.Request.Path, nil)
@@ -227,7 +226,7 @@ func TestLogsListReturnsProtocolFilteredSummaries(t *testing.T) {
 		application.Logs().Append(summary)
 	}
 
-	server := httptest.NewServer(application.Handler())
+	server := newManagementTestServer(t, application.Handler())
 	defer server.Close()
 
 	request, err := http.NewRequest(http.MethodGet, server.URL+fixture.Request.Path, nil)
@@ -290,7 +289,7 @@ func TestLogsListReturnsOutboundProtocolFilteredSummaries(t *testing.T) {
 		application.Logs().Append(summary)
 	}
 
-	server := httptest.NewServer(application.Handler())
+	server := newManagementTestServer(t, application.Handler())
 	defer server.Close()
 
 	request, err := http.NewRequest(http.MethodGet, server.URL+fixture.Request.Path, nil)
@@ -330,7 +329,7 @@ func TestLogsListReturnsEmptyArrayForUnmatchedFilter(t *testing.T) {
 		Message:   "OneBot 主动 WebSocket 已连接：ws://127.0.0.1:6700",
 	})
 
-	server := httptest.NewServer(application.Handler())
+	server := newManagementTestServer(t, application.Handler())
 	defer server.Close()
 
 	request, err := http.NewRequest(http.MethodGet, server.URL+fixture.Request.Path, nil)
@@ -370,7 +369,7 @@ func TestLogsListReturnsEmptyArrayForUnmatchedProtocolFilter(t *testing.T) {
 		Message:   "仅运行时来源的日志样例",
 	})
 
-	server := httptest.NewServer(application.Handler())
+	server := newManagementTestServer(t, application.Handler())
 	defer server.Close()
 
 	request, err := http.NewRequest(http.MethodGet, server.URL+fixture.Request.Path, nil)
@@ -399,7 +398,7 @@ func TestLogsListRejectsInvalidFilters(t *testing.T) {
 
 	application := newTestApp(t, deterministicAuthOptions()...)
 	token := issueLoginToken(t, application)
-	server := httptest.NewServer(application.Handler())
+	server := newManagementTestServer(t, application.Handler())
 	defer server.Close()
 
 	request, err := http.NewRequest(http.MethodGet, server.URL+"/api/logs?level=warn&level=fatal&limit=50", nil)
@@ -430,7 +429,7 @@ func TestLogsListRejectsLimitAboveFormalMaximum(t *testing.T) {
 	application := newTestApp(t, deterministicAuthOptions()...)
 	token := issueLoginToken(t, application)
 	fixture := loadWebAPIFixtureDocument(t, filepath.Join("..", "fixtures", "web-api", "invalid.logs-list-limit-too-large.yaml"))
-	server := httptest.NewServer(application.Handler())
+	server := newManagementTestServer(t, application.Handler())
 	defer server.Close()
 
 	request, err := http.NewRequest(http.MethodGet, server.URL+fixture.Request.Path, nil)
@@ -489,7 +488,7 @@ func TestLogsListReturnsCurrentSessionScope(t *testing.T) {
 		application.Logs().Append(summary)
 	}
 
-	server := httptest.NewServer(application.Handler())
+	server := newManagementTestServer(t, application.Handler())
 	defer server.Close()
 
 	request, err := http.NewRequest(http.MethodGet, server.URL+"/api/logs?scope=current_session&request_id=req_current_scope&limit=3", nil)

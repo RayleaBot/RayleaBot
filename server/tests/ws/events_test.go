@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
-	"net/http/httptest"
 	"reflect"
 	"strings"
 	"testing"
@@ -33,7 +32,7 @@ func TestEventsWebSocketDeliversBridgeRuntimeFrame(t *testing.T) {
 	eventBridge := application.Bridge()
 
 	token := issueLoginToken(t, application)
-	server := httptest.NewServer(application.Handler())
+	server := newManagementTestServer(t, application.Handler())
 	defer server.Close()
 
 	conn := dialEventsWebSocket(t, server.URL, token)
@@ -106,7 +105,7 @@ func TestEventsWebSocketReplaysProtocolStateOnConnect(t *testing.T) {
 	eventBridge := application.Bridge()
 
 	token := issueLoginToken(t, application)
-	server := httptest.NewServer(application.Handler())
+	server := newManagementTestServer(t, application.Handler())
 	defer server.Close()
 
 	conn := dialEventsWebSocket(t, server.URL, token)
@@ -124,7 +123,7 @@ func TestEventsWebSocketReplaysServiceStatusOnConnect(t *testing.T) {
 
 	application := newTestApp(t, deterministicAuthOptions()...)
 	token := issueLoginToken(t, application)
-	server := httptest.NewServer(application.Handler())
+	server := newManagementTestServer(t, application.Handler())
 	defer server.Close()
 
 	conn := dialEventsWebSocket(t, server.URL, token)
@@ -145,7 +144,7 @@ func TestEventsWebSocketReplaysSameProtocolSnapshotAsHTTPHandler(t *testing.T) {
 		reverseWS["access_token"] = "fixture-token"
 	}, deterministicAuthOptions()...)
 	token := issueLoginToken(t, application)
-	server := httptest.NewServer(application.Handler())
+	server := newManagementTestServer(t, application.Handler())
 	defer server.Close()
 
 	unauthorizedReq, err := http.NewRequest(http.MethodGet, server.URL+"/api/protocols/onebot11/reverse-ws", nil)
@@ -200,7 +199,7 @@ func TestEventsWebSocketDeliversPluginStateFrame(t *testing.T) {
 
 	application := newTestApp(t, deterministicAuthOptions()...)
 	token := issueLoginToken(t, application)
-	server := httptest.NewServer(application.Handler())
+	server := newManagementTestServer(t, application.Handler())
 	defer server.Close()
 
 	conn := dialEventsWebSocket(t, server.URL, token)
@@ -238,7 +237,7 @@ func TestEventsWebSocketPublishesStoppingServiceStatusAfterShutdownRequest(t *te
 
 	application := newTestApp(t, deterministicAuthOptions()...)
 	token := issueLoginToken(t, application)
-	server := httptest.NewServer(application.Handler())
+	server := newManagementTestServer(t, application.Handler())
 	defer server.Close()
 
 	conn := dialEventsWebSocket(t, server.URL, token)
@@ -271,7 +270,7 @@ func TestEventsWebSocketPublishesGovernanceChangedAfterGovernanceWrite(t *testin
 
 	application := newTestApp(t, deterministicAuthOptions()...)
 	token := issueLoginToken(t, application)
-	server := httptest.NewServer(application.Handler())
+	server := newManagementTestServer(t, application.Handler())
 	defer server.Close()
 
 	conn := dialEventsWebSocket(t, server.URL, token)
@@ -313,13 +312,16 @@ func TestEventsWebSocketRejectsUnauthorizedSession(t *testing.T) {
 	t.Parallel()
 
 	application := newTestApp(t)
-	server := httptest.NewServer(application.Handler())
+	server := newManagementTestServer(t, application.Handler())
 	defer server.Close()
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 
-	conn, response, err := websocket.Dial(ctx, websocketURL(server.URL)+"/ws/events", nil)
+	conn, response, err := websocket.Dial(ctx, websocketURL(server.URL)+"/ws/events", &websocket.DialOptions{
+		Host:       testManagementAuthority,
+		HTTPHeader: http.Header{"Origin": []string{testManagementOrigin}},
+	})
 	if conn != nil {
 		_ = conn.Close(websocket.StatusNormalClosure, "")
 	}
@@ -374,20 +376,7 @@ func issueLoginToken(t *testing.T, application interface{ Handler() http.Handler
 }
 
 func dialEventsWebSocket(t *testing.T, baseURL, token string) *websocket.Conn {
-	t.Helper()
-
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
-	defer cancel()
-
-	conn, response, err := websocket.Dial(ctx, websocketURL(baseURL)+"/ws/events?session_token="+token, nil)
-	if err != nil {
-		if response != nil {
-			t.Fatalf("dial websocket returned status %d: %v", response.StatusCode, err)
-		}
-		t.Fatalf("dial websocket: %v", err)
-	}
-
-	return conn
+	return dialProtectedWebSocket(t, baseURL, "/ws/events", token)
 }
 
 func websocketURL(httpURL string) string {

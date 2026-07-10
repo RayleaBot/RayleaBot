@@ -38,12 +38,13 @@ type BuiltinMenuConfig struct {
 }
 
 type AdminConfig struct {
-	SuperAdmins         []string `json:"super_admins" yaml:"super_admins"`
-	SessionTTLDays      int      `json:"session_ttl_days" yaml:"session_ttl_days"`
-	SlidingRenewal      bool     `json:"sliding_renewal" yaml:"sliding_renewal"`
-	MaxSessions         int      `json:"max_sessions" yaml:"max_sessions"`
-	LoginFailLimit      int      `json:"login_fail_limit" yaml:"login_fail_limit"`
-	LoginFailWindowSecs int      `json:"login_fail_window_seconds" yaml:"login_fail_window_seconds"`
+	SuperAdmins           []string `json:"super_admins" yaml:"super_admins"`
+	SessionTTLDays        int      `json:"session_ttl_days" yaml:"session_ttl_days"`
+	SessionAbsoluteTTLDays int      `json:"session_absolute_ttl_days" yaml:"session_absolute_ttl_days"`
+	SlidingRenewal        bool     `json:"sliding_renewal" yaml:"sliding_renewal"`
+	MaxSessions           int      `json:"max_sessions" yaml:"max_sessions"`
+	LoginFailLimit        int      `json:"login_fail_limit" yaml:"login_fail_limit"`
+	LoginFailWindowSecs   int      `json:"login_fail_window_seconds" yaml:"login_fail_window_seconds"`
 }
 
 type PermissionConfig struct {
@@ -121,9 +122,10 @@ type StorageConfig struct {
 }
 
 type HTTPConfig struct {
-	TimeoutSeconds    int      `json:"timeout_seconds" yaml:"timeout_seconds"`
-	MaxRetries        int      `json:"max_retries" yaml:"max_retries"`
-	AllowPrivateHosts []string `json:"allow_private_hosts" yaml:"allow_private_hosts"`
+	TimeoutSeconds       int      `json:"timeout_seconds" yaml:"timeout_seconds"`
+	MaxRetries           int      `json:"max_retries" yaml:"max_retries"`
+	MaxResponseBodyBytes int64    `json:"max_response_body_bytes" yaml:"max_response_body_bytes"`
+	AllowPrivateHosts    []string `json:"allow_private_hosts" yaml:"allow_private_hosts"`
 }
 
 type RuntimeConfig struct {
@@ -158,8 +160,10 @@ type RenderConfig struct {
 }
 
 type WebConfig struct {
-	ExposureMode   string `json:"exposure_mode" yaml:"exposure_mode"`
-	SetupLocalOnly bool   `json:"setup_local_only" yaml:"setup_local_only"`
+	ExposureMode      string   `json:"exposure_mode" yaml:"exposure_mode"`
+	SetupLocalOnly    bool     `json:"setup_local_only" yaml:"setup_local_only"`
+	PublicOrigin      string   `json:"public_origin" yaml:"public_origin"`
+	TrustedProxyCIDRs []string `json:"trusted_proxy_cidrs" yaml:"trusted_proxy_cidrs"`
 }
 
 type BackupConfig struct {

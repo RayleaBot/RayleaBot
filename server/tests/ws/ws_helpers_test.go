@@ -3,6 +3,7 @@ package ws
 import (
 	"context"
 	"encoding/json"
+	"net/http"
 	"testing"
 	"time"
 
@@ -15,7 +16,13 @@ func dialProtectedWebSocket(t *testing.T, baseURL, path, token string) *websocke
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 
-	conn, response, err := websocket.Dial(ctx, websocketURL(baseURL)+path+"?session_token="+token, nil)
+	conn, response, err := websocket.Dial(ctx, websocketURL(baseURL)+path, &websocket.DialOptions{
+		Host: testManagementAuthority,
+		HTTPHeader: http.Header{
+			"Authorization": []string{"Bearer " + token},
+			"Origin":        []string{testManagementOrigin},
+		},
+	})
 	if err != nil {
 		if response != nil {
 			t.Fatalf("dial websocket returned status %d: %v", response.StatusCode, err)

@@ -9,10 +9,13 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestPrepareWithReportUsesCachedArchiveWithoutDownload(t *testing.T) {
@@ -134,6 +137,107 @@ func TestExtractTarGzReportsEntryProgress(t *testing.T) {
 	last := events[len(events)-1]
 	if last.TotalEntries != 2 || last.ExtractedEntries != 2 || last.Progress != 100 {
 		t.Fatalf("unexpected final tar.gz progress: %#v", last)
+	}
+}
+
+func TestPrepareStoreCoalescesExtractProgressByPercentage(t *testing.T) {
+	t.Parallel()
+
+	repoRoot := t.TempDir()
+	archivePath := filepath.Join(t.TempDir(), "runtime.zip")
+	files := map[string]string{
+		"node/node.exe": "node",
+		"node/npm.cmd":  "npm",
+	}
+	for index := 0; index < 250; index++ {
+		files[fmt.Sprintf("node/lib/file-%03d.txt", index)] = "fixture"
+	}
+	writeZipArchive(t, archivePath, files)
+	resource := Resource{
+		ID:            "node-test",
+		Kind:          "nodejs-runtime",
+		Version:       "24.18.0",
+		ArchiveFormat: "zip",
+		Entrypoints: map[string][]string{
+			"node": {"node/node.exe"},
+			"npm":  {"node/npm.cmd"},
+		},
+	}
+	var progresses []int
+	err := ensurePreparedResourceWithProgress(
+		context.Background(),
+		repoRoot,
+		resource,
+		archivePath,
+		nil,
+		func(event PrepareProgress) {
+			if event.Stage == "extract" && event.Status == "running" && event.TotalEntries > 0 {
+				progresses = append(progresses, event.Progress)
+			}
+		},
+	)
+	if err != nil {
+		t.Fatalf("ensure prepared resource: %v", err)
+	}
+	if len(progresses) == 0 || len(progresses) > 101 {
+		t.Fatalf("extract progress event count = %d, want 1..101", len(progresses))
+	}
+	for index := 1; index < len(progresses); index++ {
+		if progresses[index] == progresses[index-1] {
+			t.Fatalf("duplicate extract progress percentage at index %d: %d", index, progresses[index])
+		}
+	}
+	if progresses[len(progresses)-1] != 100 {
+		t.Fatalf("final extract progress = %d, want 100", progresses[len(progresses)-1])
+	}
+}
+
+func TestAcquireLockReclaimsLockFromExitedProcess(t *testing.T) {
+	t.Parallel()
+
+	lockPath := filepath.Join(t.TempDir(), "platform.lock")
+	if err := os.WriteFile(lockPath, []byte("4242 2026-07-10T00:00:00Z\n"), 0o644); err != nil {
+		t.Fatalf("write abandoned lock: %v", err)
+	}
+	checkedPID := 0
+	release, err := acquireLockWithOwnerCheck(
+		context.Background(),
+		lockPath,
+		time.Now,
+		func(pid int) bool {
+			checkedPID = pid
+			return false
+		},
+	)
+	if err != nil {
+		t.Fatalf("reclaim abandoned lock: %v", err)
+	}
+	defer release()
+	if checkedPID != 4242 {
+		t.Fatalf("checked lock owner pid = %d, want 4242", checkedPID)
+	}
+	ownerPID, ok := readLockOwnerPID(lockPath)
+	if !ok || ownerPID != os.Getpid() {
+		t.Fatalf("reclaimed lock owner = %d, %v; want current pid %d", ownerPID, ok, os.Getpid())
+	}
+}
+
+func TestProcessIsRunningDistinguishesCurrentAndExitedProcess(t *testing.T) {
+	t.Parallel()
+
+	if !processIsRunning(os.Getpid()) {
+		t.Fatal("current process should be reported as running")
+	}
+	command := exec.Command(os.Args[0], "-test.run=^$")
+	if err := command.Start(); err != nil {
+		t.Fatalf("start short-lived process: %v", err)
+	}
+	pid := command.Process.Pid
+	if err := command.Wait(); err != nil {
+		t.Fatalf("wait for short-lived process: %v", err)
+	}
+	if processIsRunning(pid) {
+		t.Fatalf("exited process %d should not be reported as running", pid)
 	}
 }
 

@@ -29,6 +29,22 @@ type WebAPIFixtureDocument struct {
 	} `yaml:"response"`
 }
 
+const (
+	TestSetupToken           = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+	TestLauncherControlToken = "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB"
+	TestManagementAuthority  = "127.0.0.1:8080"
+	TestManagementOrigin     = "http://" + TestManagementAuthority
+)
+
+func NewManagementTestServer(t testing.TB, handler http.Handler) *httptest.Server {
+	t.Helper()
+
+	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		r.Host = TestManagementAuthority
+		handler.ServeHTTP(w, r)
+	}))
+}
+
 type WebAPIFixture struct {
 	Response struct {
 		Body map[string]any `yaml:"body"`
@@ -115,7 +131,15 @@ func PerformJSONBytesRequestWithRemoteAddr(t testing.TB, application interface{ 
 	t.Helper()
 
 	request := httptest.NewRequest(method, path, bytes.NewReader(payload))
+	request.Host = "127.0.0.1:8080"
 	request.Header.Set("Content-Type", "application/json")
+	if path == "/api/setup/admin" {
+		request.Header.Set("Origin", "http://127.0.0.1:8080")
+		request.Header.Set("X-Raylea-Setup-Token", TestSetupToken)
+	}
+	if strings.HasPrefix(path, "/api/launcher/") {
+		request.Header.Set("X-Raylea-Launcher-Control", TestLauncherControlToken)
+	}
 	request.RemoteAddr = remoteAddr
 	recorder := httptest.NewRecorder()
 	application.Handler().ServeHTTP(recorder, request)
@@ -247,7 +271,13 @@ func DialProtectedWebSocket(t testing.TB, baseURL, path, token string) *websocke
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 
-	conn, response, err := websocket.Dial(ctx, WebSocketURL(baseURL)+path+"?session_token="+token, nil)
+	conn, response, err := websocket.Dial(ctx, WebSocketURL(baseURL)+path, &websocket.DialOptions{
+		Host: TestManagementAuthority,
+		HTTPHeader: http.Header{
+			"Authorization": []string{"Bearer " + token},
+			"Origin":        []string{TestManagementOrigin},
+		},
+	})
 	if err != nil {
 		if response != nil {
 			t.Fatalf("dial websocket returned status %d: %v", response.StatusCode, err)

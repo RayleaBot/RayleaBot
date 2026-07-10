@@ -2,6 +2,7 @@ package management
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"strings"
 	"time"
@@ -18,15 +19,14 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/wsevents"
 )
 
-var managementWebSocketAcceptOptions = &websocket.AcceptOptions{
-	OriginPatterns: []string{
-		"127.0.0.1:4173",
-		"localhost:4173",
-	},
-}
+type webSocketOriginAuthorityKey struct{}
 
 func acceptManagementWebSocket(w http.ResponseWriter, r *http.Request) (*websocket.Conn, error) {
-	return websocket.Accept(w, r, managementWebSocketAcceptOptions)
+	authority, ok := r.Context().Value(webSocketOriginAuthorityKey{}).(string)
+	if !ok || strings.TrimSpace(authority) == "" {
+		return nil, errors.New("validated websocket origin is required")
+	}
+	return websocket.Accept(w, r, &websocket.AcceptOptions{OriginPatterns: []string{authority}})
 }
 
 func writeWebSocketPermissionDenied(w http.ResponseWriter, r *http.Request) {

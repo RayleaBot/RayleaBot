@@ -19,13 +19,13 @@ func TestAuthShellDoesNotAddPublicRoutes(t *testing.T) {
 		path   string
 		want   int
 	}{
-		{method: http.MethodPost, path: "/api/setup/admin", want: http.StatusBadRequest},
+		{method: http.MethodPost, path: "/api/setup/admin", want: http.StatusForbidden},
 		{method: http.MethodGet, path: "/api/setup/status", want: http.StatusOK},
 		{method: http.MethodPost, path: "/api/session/login", want: http.StatusBadRequest},
 		{method: http.MethodPost, path: "/api/session/launcher-token", want: http.StatusNotFound},
 		{method: http.MethodPost, path: "/api/session/launcher-admission", want: http.StatusNotFound},
-		{method: http.MethodGet, path: "/api/launcher/status", want: http.StatusOK},
-		{method: http.MethodPost, path: "/api/launcher/shutdown", want: http.StatusAccepted},
+		{method: http.MethodGet, path: "/api/launcher/status", want: http.StatusForbidden},
+		{method: http.MethodPost, path: "/api/launcher/shutdown", want: http.StatusForbidden},
 		{method: http.MethodDelete, path: "/api/session", want: http.StatusUnauthorized},
 		{method: http.MethodGet, path: "/api/config", want: http.StatusUnauthorized},
 		{method: http.MethodPut, path: "/api/config", want: http.StatusUnauthorized},
@@ -46,7 +46,7 @@ func TestAuthShellDoesNotAddPublicRoutes(t *testing.T) {
 		{method: http.MethodPost, path: "/api/plugins/raylea.echo/disable", want: http.StatusUnauthorized},
 		{method: http.MethodGet, path: "/api/plugins/raylea.echo/settings", want: http.StatusUnauthorized},
 		{method: http.MethodPut, path: "/api/plugins/raylea.echo/settings", want: http.StatusUnauthorized},
-		{method: http.MethodGet, path: "/plugin-ui/raylea.echo/web/index.html", want: http.StatusNotFound},
+		{method: http.MethodGet, path: "/plugin" + "-ui/raylea.echo/web/" + "index.html", want: http.StatusNotFound},
 		{method: http.MethodGet, path: "/ws/events", want: http.StatusUnauthorized},
 		{method: http.MethodGet, path: "/ws/logs", want: http.StatusUnauthorized},
 		{method: http.MethodGet, path: "/ws/plugins/raylea.echo/console", want: http.StatusUnauthorized},
@@ -54,6 +54,7 @@ func TestAuthShellDoesNotAddPublicRoutes(t *testing.T) {
 
 	for _, tc := range cases {
 		request := httptest.NewRequest(tc.method, tc.path, nil)
+		request.Host = "127.0.0.1:8080"
 		request.RemoteAddr = "127.0.0.1:0"
 		recorder := httptest.NewRecorder()
 		application.Handler().ServeHTTP(recorder, request)

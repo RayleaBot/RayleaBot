@@ -1,13 +1,19 @@
 package app
 
 import (
+	"net"
 	"net/http"
+	"net/url"
+	"os"
+	"strconv"
+	"strings"
 
 	"github.com/go-chi/chi/v5"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/health"
 	managementapi "github.com/RayleaBot/RayleaBot/server/internal/management"
+	"github.com/RayleaBot/RayleaBot/server/internal/releaseupdate"
 )
 
 type httpHandlers struct {
@@ -34,15 +40,18 @@ func buildManagementRoutes(deps httpBuildDeps, configService managementapi.Confi
 	eventState := deps.Events
 	services := deps.ServiceBuild.Services
 
+	authConfig := authConfigSource{source: runtimeState}
 	authHandler := managementapi.NewAuthHandlers(managementapi.AuthDeps{
-		Config:        authConfigSource{source: runtimeState},
+		Config:        authConfig,
 		Auth:          platformState.Auth,
 		LoginFailures: platformState.LoginFailures,
+		SetupToken:    managementapi.NewOneTimeToken(deps.SetupToken),
 	})
 	managementHandler := managementapi.NewCoreHandlers(managementapi.CoreDeps{
-		Auth:            platformState.Auth,
-		System:          services.System,
-		RequestShutdown: deps.RequestShutdown,
+		Auth:                 platformState.Auth,
+		System:               services.System,
+		RequestShutdown:      deps.RequestShutdown,
+		LauncherControlToken: managementapi.NewStaticToken(deps.LauncherControlToken),
 	})
 	governanceHandler := managementapi.NewGovernanceHandlersWithService(services.Governance)
 	logHandler := managementapi.NewLogHandlers(services.Logs)
@@ -58,6 +67,7 @@ func buildManagementRoutes(deps httpBuildDeps, configService managementapi.Confi
 		deps.ServiceBuild.ThirdPartyAccountValidator,
 		services.ThirdPartyQRLogin,
 	)
+	updateHandler := managementapi.NewUpdateHandlers(releaseupdate.NewEmbeddedService(runtimeState.RepoRoot()))
 	eventsWS := managementapi.NewEventsHandler(eventState.Bridge, pluginState.Plugins, services.Protocol, deps.ServiceBuild.Status, services.GovernanceEvents)
 	logsWS := managementapi.NewLogsHandler(services.Logs)
 	consoleWS := managementapi.NewConsoleHandler(platformState.Console, pluginState.Plugins)
@@ -79,7 +89,7 @@ func buildManagementRoutes(deps httpBuildDeps, configService managementapi.Confi
 
 	return managementRouteState{
 		Handlers:    handlers,
-		RequireAuth: managementapi.RequireAuth(platformState.Auth),
+		RequireAuth: managementapi.RequireAuthWithConfig(platformState.Auth, authConfig),
 		RouterDeps: managementapi.RouteDeps{
 			RepoRoot: runtimeState.RepoRoot(),
 			Readiness: func() health.ReadinessReport {
@@ -101,6 +111,7 @@ func buildManagementRoutes(deps httpBuildDeps, configService managementapi.Confi
 				systemRoutes,
 				renderHandler,
 				thirdPartyHandler,
+				updateHandler,
 				pluginManagementUI,
 				managementapi.ProtectedRouteFunc(func(r chi.Router) {
 					r.Get("/ws/events", eventsWS.HandleEventsWebSocket())
@@ -126,9 +137,74 @@ func (s authConfigSource) AuthConfig() managementapi.AuthConfig {
 		return managementapi.AuthConfig{}
 	}
 	cfg := s.source.CurrentConfig()
+	allowedHosts, allowedOrigins, secureCookie := managementBrowserOrigins(cfg, os.Getenv("RAYLEA_WEB_UI_BASE_URL"))
 	return managementapi.AuthConfig{
 		SetupLocalOnly:     cfg.Web.SetupLocalOnly,
 		LoginFailureLimit:  managementapi.LoginFailureLimit(cfg),
 		LoginFailureWindow: managementapi.LoginFailureWindow(cfg),
+		AllowedHosts:       allowedHosts,
+		AllowedOrigins:     allowedOrigins,
+		SecureCookie:       secureCookie,
 	}
+}
+
+func managementBrowserOrigins(cfg config.Config, developmentUIOrigin string) ([]string, []string, bool) {
+	port := strconv.Itoa(cfg.Server.Port)
+	directAuthority := net.JoinHostPort(cfg.Server.Host, port)
+	hosts := []string{directAuthority}
+	origins := []string{"http://" + directAuthority}
+	secureCookie := false
+
+	if parsed, err := url.Parse(strings.TrimSpace(cfg.Web.PublicOrigin)); err == nil && parsed.Host != "" {
+		hosts = appendUniqueString(hosts, parsed.Host)
+		origins = appendUniqueString(origins, strings.TrimRight(parsed.String(), "/"))
+		secureCookie = strings.EqualFold(parsed.Scheme, "https")
+	}
+
+	if isLoopbackHost(cfg.Server.Host) {
+		for _, host := range []string{
+			net.JoinHostPort("127.0.0.1", port),
+			net.JoinHostPort("localhost", port),
+			net.JoinHostPort("::1", port),
+		} {
+			hosts = appendUniqueString(hosts, host)
+			origins = appendUniqueString(origins, "http://"+host)
+		}
+		if developmentOrigin, developmentHost, ok := localDevelopmentUIOrigin(developmentUIOrigin); ok {
+			hosts = appendUniqueString(hosts, developmentHost)
+			origins = appendUniqueString(origins, developmentOrigin)
+		}
+	}
+
+	return hosts, origins, secureCookie
+}
+
+func localDevelopmentUIOrigin(raw string) (string, string, bool) {
+	parsed, err := url.Parse(strings.TrimSpace(raw))
+	if err != nil || !strings.EqualFold(parsed.Scheme, "http") || parsed.User != nil || parsed.Host == "" ||
+		(parsed.Path != "" && parsed.Path != "/") || parsed.RawQuery != "" || parsed.Fragment != "" || !isLoopbackHost(parsed.Hostname()) {
+		return "", "", false
+	}
+	if _, err := strconv.Atoi(parsed.Port()); err != nil {
+		return "", "", false
+	}
+	return "http://" + parsed.Host, parsed.Host, true
+}
+
+func isLoopbackHost(host string) bool {
+	host = strings.Trim(strings.TrimSpace(host), "[]")
+	if strings.EqualFold(host, "localhost") {
+		return true
+	}
+	ip := net.ParseIP(host)
+	return ip != nil && ip.IsLoopback()
+}
+
+func appendUniqueString(values []string, candidate string) []string {
+	for _, value := range values {
+		if strings.EqualFold(value, candidate) {
+			return values
+		}
+	}
+	return append(values, candidate)
 }

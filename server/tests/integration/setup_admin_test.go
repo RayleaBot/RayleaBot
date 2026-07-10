@@ -36,7 +36,7 @@ func TestSetupAdminReturnsSessionToken(t *testing.T) {
 	if !ok || token == "" {
 		t.Fatalf("expected opaque session_token, got %#v", body["session_token"])
 	}
-	if len(body) != 1 {
+	if len(body) != 3 {
 		t.Fatalf("unexpected success body shape: %#v", body)
 	}
 
@@ -205,7 +205,15 @@ func performJSONBytesRequestWithRemoteAddr(t *testing.T, application interface{ 
 	t.Helper()
 
 	request := httptest.NewRequest(method, path, bytes.NewReader(payload))
+	request.Host = "127.0.0.1:8080"
 	request.Header.Set("Content-Type", "application/json")
+	if path == "/api/setup/admin" {
+		request.Header.Set("Origin", "http://127.0.0.1:8080")
+		request.Header.Set("X-Raylea-Setup-Token", testutil.TestSetupToken)
+	}
+	if strings.HasPrefix(path, "/api/launcher/") {
+		request.Header.Set("X-Raylea-Launcher-Control", testutil.TestLauncherControlToken)
+	}
 	request.RemoteAddr = remoteAddr
 	recorder := httptest.NewRecorder()
 	application.Handler().ServeHTTP(recorder, request)
