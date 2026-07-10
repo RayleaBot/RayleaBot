@@ -13,6 +13,9 @@ export class PluginEventContext {
     get payload() {
         return this.event.payload ?? {};
     }
+    get webhook() {
+        return this.event.webhook;
+    }
     get target() {
         return this.event.target;
     }

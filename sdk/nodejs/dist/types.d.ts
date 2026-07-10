@@ -45,11 +45,18 @@ export interface ReplySegment {
         message_id: string;
     };
 }
-export type PassthroughSegmentType = 'record' | 'video' | 'file' | 'flash_file' | 'json' | 'xml' | 'markdown' | 'music' | 'contact' | 'forward' | 'node' | 'poke' | 'dice' | 'rps' | 'mface' | 'keyboard' | 'shake';
-export interface PassthroughSegment {
-    type: PassthroughSegmentType;
+export type MediaPassthroughSegmentType = 'record' | 'video' | 'file' | 'flash_file';
+export type PayloadPassthroughSegmentType = 'json' | 'xml' | 'markdown' | 'music' | 'contact' | 'forward' | 'node' | 'poke' | 'dice' | 'rps' | 'mface' | 'keyboard' | 'shake';
+export type PassthroughSegmentType = MediaPassthroughSegmentType | PayloadPassthroughSegmentType;
+export interface MediaPassthroughSegment {
+    type: MediaPassthroughSegmentType;
+    data: Record<string, unknown>;
+}
+export interface PayloadPassthroughSegment {
+    type: PayloadPassthroughSegmentType;
     data?: Record<string, unknown>;
 }
+export type PassthroughSegment = MediaPassthroughSegment | PayloadPassthroughSegment;
 export type Segment = TextSegment | ImageSegment | AtSegment | AtAllSegment | FaceSegment | ReplySegment | PassthroughSegment;
 export type NonReplySegment = Exclude<Segment, ReplySegment>;
 export interface OutboundMessage {
@@ -141,6 +148,12 @@ export interface EventPayload {
     onebot?: OneBotPayload;
     bilibili?: BilibiliPayload;
 }
+export interface WebhookMetadata {
+    route: string;
+    received_at: number;
+    client_timestamp?: number;
+    client_event_id?: string;
+}
 export interface EventMessage {
     segments?: Segment[];
     plain_text?: string;
@@ -155,6 +168,7 @@ export interface EventBody {
     target?: EventTarget;
     payload?: EventPayload;
     message?: EventMessage;
+    webhook?: WebhookMetadata;
     raw_payload?: Record<string, unknown>;
 }
 export interface InitFrame extends FrameCommon {
@@ -217,23 +231,24 @@ export declare function atSegment(userId: string): AtSegment;
 export declare function atAllSegment(): AtAllSegment;
 export declare function faceSegment(faceId: string): FaceSegment;
 export declare function replySegment(messageId: string): ReplySegment;
-export declare function passthroughSegment(type: PassthroughSegmentType, data?: Record<string, unknown>): PassthroughSegment;
-export declare function recordSegment(data?: Record<string, unknown>): PassthroughSegment;
-export declare function videoSegment(data?: Record<string, unknown>): PassthroughSegment;
-export declare function fileSegment(data?: Record<string, unknown>): PassthroughSegment;
-export declare function flashFileSegment(data?: Record<string, unknown>): PassthroughSegment;
-export declare function jsonSegment(data?: Record<string, unknown>): PassthroughSegment;
-export declare function xmlSegment(data?: Record<string, unknown>): PassthroughSegment;
-export declare function markdownSegment(content: string): PassthroughSegment;
-export declare function markdownSegment(data?: Record<string, unknown>): PassthroughSegment;
-export declare function musicSegment(data?: Record<string, unknown>): PassthroughSegment;
-export declare function contactSegment(data?: Record<string, unknown>): PassthroughSegment;
-export declare function forwardSegment(data?: Record<string, unknown>): PassthroughSegment;
-export declare function nodeSegment(data?: Record<string, unknown>): PassthroughSegment;
-export declare function pokeSegment(data?: Record<string, unknown>): PassthroughSegment;
-export declare function diceSegment(data?: Record<string, unknown>): PassthroughSegment;
-export declare function rpsSegment(data?: Record<string, unknown>): PassthroughSegment;
-export declare function mfaceSegment(data?: Record<string, unknown>): PassthroughSegment;
-export declare function keyboardSegment(data?: Record<string, unknown>): PassthroughSegment;
-export declare function shakeSegment(data?: Record<string, unknown>): PassthroughSegment;
+export declare function passthroughSegment(type: MediaPassthroughSegmentType, data: Record<string, unknown>): MediaPassthroughSegment;
+export declare function passthroughSegment(type: PayloadPassthroughSegmentType, data?: Record<string, unknown>): PayloadPassthroughSegment;
+export declare function recordSegment(data: Record<string, unknown>): MediaPassthroughSegment;
+export declare function videoSegment(data: Record<string, unknown>): MediaPassthroughSegment;
+export declare function fileSegment(data: Record<string, unknown>): MediaPassthroughSegment;
+export declare function flashFileSegment(data: Record<string, unknown>): MediaPassthroughSegment;
+export declare function jsonSegment(data?: Record<string, unknown>): PayloadPassthroughSegment;
+export declare function xmlSegment(data?: Record<string, unknown>): PayloadPassthroughSegment;
+export declare function markdownSegment(content: string): PayloadPassthroughSegment;
+export declare function markdownSegment(data?: Record<string, unknown>): PayloadPassthroughSegment;
+export declare function musicSegment(data?: Record<string, unknown>): PayloadPassthroughSegment;
+export declare function contactSegment(data?: Record<string, unknown>): PayloadPassthroughSegment;
+export declare function forwardSegment(data?: Record<string, unknown>): PayloadPassthroughSegment;
+export declare function nodeSegment(data?: Record<string, unknown>): PayloadPassthroughSegment;
+export declare function pokeSegment(data?: Record<string, unknown>): PayloadPassthroughSegment;
+export declare function diceSegment(data?: Record<string, unknown>): PayloadPassthroughSegment;
+export declare function rpsSegment(data?: Record<string, unknown>): PayloadPassthroughSegment;
+export declare function mfaceSegment(data?: Record<string, unknown>): PayloadPassthroughSegment;
+export declare function keyboardSegment(data?: Record<string, unknown>): PayloadPassthroughSegment;
+export declare function shakeSegment(data?: Record<string, unknown>): PayloadPassthroughSegment;
 //# sourceMappingURL=types.d.ts.map

@@ -5,16 +5,20 @@
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "type": "module",
+  "files": [
+    "dist",
+    "LICENSE"
+  ],
   "scripts": {
-    "build": "tsc",
+    "build": "node scripts/build.mjs",
     "typecheck": "tsc --noEmit"
   },
   "engines": {
     "node": ">=24"
   },
   "devDependencies": {
-    "typescript": "~5.8.3",
-    "@types/node": "^24.0.0"
+    "typescript": "5.9.2",
+    "@types/node": "24.13.3"
   },
-  "license": "MIT"
+  "license": "AGPL-3.0-only"
 }

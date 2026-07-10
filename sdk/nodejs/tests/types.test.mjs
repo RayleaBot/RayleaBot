@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url';
 import {
   flashFileSegment,
   markdownSegment,
+  passthroughSegment,
   recordSegment,
   shakeSegment,
 } from '../dist/types.js';
@@ -31,6 +32,8 @@ test('named segment builders cover flash_file and passthrough families', () => {
     type: 'shake',
     data: { strength: 'full' },
   });
+  assert.throws(() => recordSegment({}), /require non-empty media data/);
+  assert.throws(() => passthroughSegment('location', {}), /unknown passthrough segment type/);
 });
 
 test('generated declaration files include meta fields and new helpers', async () => {
@@ -38,6 +41,8 @@ test('generated declaration files include meta fields and new helpers', async ()
   const indexText = await fs.readFile(path.join(sdkRoot, 'dist', 'index.d.ts'), 'utf8');
 
   assert.match(typesText, /flash_file/);
+  assert.match(typesText, /export interface WebhookMetadata/);
+  assert.match(typesText, /webhook\?: WebhookMetadata;/);
   assert.match(typesText, /meta_event_type\?: string;/);
   assert.match(typesText, /interval\?: number;/);
   assert.match(typesText, /status\?: Record<string, unknown>;/);

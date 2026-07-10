@@ -36,6 +36,10 @@ class EventContext:
         return self.event.get("payload") or {}
 
     @property
+    def webhook(self):
+        return self.event.get("webhook")
+
+    @property
     def target(self):
         return self.event.get("target") or {}
 

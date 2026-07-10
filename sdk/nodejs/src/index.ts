@@ -15,7 +15,15 @@ import {
   sendResult,
 } from './protocol.js';
 
-export type { Frame, Segment, EventBody } from './types.js';
+export type {
+  Frame,
+  Segment,
+  EventBody,
+  WebhookMetadata,
+  MediaPassthroughSegment,
+  PayloadPassthroughSegment,
+  PassthroughSegment,
+} from './types.js';
 export {
   textSegment,
   imageSegment,
@@ -496,6 +504,10 @@ export class PluginEventContext {
 
   get payload(): EventBody['payload'] {
     return this.event.payload ?? {};
+  }
+
+  get webhook(): EventBody['webhook'] {
+    return this.event.webhook;
   }
 
   get target(): EventBody['target'] {

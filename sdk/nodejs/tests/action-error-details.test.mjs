@@ -10,7 +10,7 @@ const sdkRoot = path.resolve(__dirname, '..');
 async function requestLocalActionError(errorFrame) {
   return await new Promise((resolve, reject) => {
     const script = `
-      import { requestLocalAction } from './src/protocol.js';
+      import { requestLocalAction } from './dist/protocol.js';
 
       try {
         await requestLocalAction(

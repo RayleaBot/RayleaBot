@@ -3,7 +3,13 @@ name = "rayleabot-sdk"
 version = "0.1.0"
 description = "RayleaBot Plugin SDK for Python"
 requires-python = ">=3.12"
+license = "AGPL-3.0-only"
+license-files = ["LICENSE"]
 
 [build-system]
-requires = ["setuptools>=68"]
-build-backend = "setuptools.backends._legacy:_Backend"
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["rayleabot*"]

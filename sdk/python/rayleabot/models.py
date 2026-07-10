@@ -92,11 +92,14 @@ class ReplySegment:
         return {"type": "reply", "data": {"message_id": self.message_id}}
 
 
-PassthroughSegmentType = Literal[
+MediaPassthroughSegmentType = Literal[
     "record",
     "video",
     "file",
     "flash_file",
+]
+
+PayloadPassthroughSegmentType = Literal[
     "json",
     "xml",
     "markdown",
@@ -112,11 +115,27 @@ PassthroughSegmentType = Literal[
     "shake",
 ]
 
+PassthroughSegmentType = MediaPassthroughSegmentType | PayloadPassthroughSegmentType
+
+_MEDIA_PASSTHROUGH_SEGMENT_TYPES = frozenset({"record", "video", "file", "flash_file"})
+_PAYLOAD_PASSTHROUGH_SEGMENT_TYPES = frozenset({
+    "json", "xml", "markdown", "music", "contact", "forward", "node",
+    "poke", "dice", "rps", "mface", "keyboard", "shake",
+})
+
 
 @dataclass(slots=True)
 class PassthroughSegment:
     segment_type: PassthroughSegmentType
     data: dict[str, Any] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        if self.segment_type in _MEDIA_PASSTHROUGH_SEGMENT_TYPES:
+            if not self.data:
+                raise ValueError(f"{self.segment_type} segments require non-empty media data")
+            return
+        if self.segment_type not in _PAYLOAD_PASSTHROUGH_SEGMENT_TYPES:
+            raise ValueError(f"unknown passthrough segment type: {self.segment_type}")
 
     def to_dict(self) -> dict:
         return {"type": self.segment_type, "data": self.data}
@@ -155,19 +174,19 @@ def passthrough_segment(
     return PassthroughSegment(segment_type=segment_type, data=data or {})
 
 
-def record_segment(data: dict[str, Any] | None = None) -> PassthroughSegment:
+def record_segment(data: dict[str, Any]) -> PassthroughSegment:
     return passthrough_segment("record", data)
 
 
-def video_segment(data: dict[str, Any] | None = None) -> PassthroughSegment:
+def video_segment(data: dict[str, Any]) -> PassthroughSegment:
     return passthrough_segment("video", data)
 
 
-def file_segment(data: dict[str, Any] | None = None) -> PassthroughSegment:
+def file_segment(data: dict[str, Any]) -> PassthroughSegment:
     return passthrough_segment("file", data)
 
 
-def flash_file_segment(data: dict[str, Any] | None = None) -> PassthroughSegment:
+def flash_file_segment(data: dict[str, Any]) -> PassthroughSegment:
     return passthrough_segment("flash_file", data)
 
 
@@ -491,6 +510,26 @@ class EventPayload:
 
 
 @dataclass(slots=True)
+class WebhookMetadata:
+    route: str
+    received_at: int
+    client_timestamp: int | None = None
+    client_event_id: str | None = None
+
+    def to_dict(self) -> dict:
+        return _strip_none(asdict(self))
+
+    @classmethod
+    def from_dict(cls, d: dict) -> WebhookMetadata:
+        return cls(
+            route=d["route"],
+            received_at=d["received_at"],
+            client_timestamp=d.get("client_timestamp"),
+            client_event_id=d.get("client_event_id"),
+        )
+
+
+@dataclass(slots=True)
 class EventMessage:
     segments: list[Segment] = field(default_factory=list)
     plain_text: str | None = None
@@ -518,6 +557,7 @@ class EventBody:
     target: Target | None = None
     payload: EventPayload | None = None
     message: EventMessage | None = None
+    webhook: WebhookMetadata | None = None
     raw_payload: dict | None = None
 
     def to_dict(self) -> dict:
@@ -536,6 +576,8 @@ class EventBody:
             d["payload"] = self.payload.to_dict()
         if self.message is not None:
             d["message"] = self.message.to_dict()
+        if self.webhook is not None:
+            d["webhook"] = self.webhook.to_dict()
         if self.raw_payload is not None:
             d["raw_payload"] = self.raw_payload
         return d
@@ -552,6 +594,7 @@ class EventBody:
             target=Target.from_dict(d["target"]) if "target" in d else None,
             payload=EventPayload.from_dict(d["payload"]) if "payload" in d else None,
             message=EventMessage.from_dict(d["message"]) if "message" in d else None,
+            webhook=WebhookMetadata.from_dict(d["webhook"]) if "webhook" in d else None,
             raw_payload=d.get("raw_payload"),
         )
 

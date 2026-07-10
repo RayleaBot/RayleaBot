@@ -9,6 +9,7 @@ from rayleabot import (
     BilibiliImage,
     BilibiliPayload,
     Bot,
+    EventBody,
     EventPayload,
     InitFrame,
     OneBotPayload,
@@ -18,6 +19,7 @@ from rayleabot import (
     record_segment,
     segment_from_dict,
     shake_segment,
+    WebhookMetadata,
 )
 
 
@@ -51,6 +53,30 @@ class ModelHelpersTests(unittest.TestCase):
             {"type": "shake", "data": {"strength": "full"}},
             shake_segment({"strength": "full"}).to_dict(),
         )
+
+    def test_media_passthrough_segment_requires_data(self):
+        with self.assertRaisesRegex(ValueError, "require non-empty media data"):
+            record_segment({})
+
+    def test_webhook_metadata_roundtrip_stays_at_event_root(self):
+        event = EventBody(
+            event_id="delivery-1",
+            source_protocol="webhook",
+            source_adapter="webhook.gateway",
+            event_type="webhook.received",
+            timestamp=1710000405,
+            webhook=WebhookMetadata(
+                route="github",
+                received_at=1710000406,
+                client_timestamp=1710000405,
+                client_event_id="delivery-1",
+            ),
+        )
+
+        encoded = event.to_dict()
+        self.assertEqual("github", encoded["webhook"]["route"])
+        self.assertNotIn("payload", encoded)
+        self.assertEqual("delivery-1", EventBody.from_dict(encoded).webhook.client_event_id)
 
     def test_onebot_payload_preserves_meta_fields(self):
         payload = OneBotPayload.from_dict({

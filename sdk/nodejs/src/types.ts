@@ -50,11 +50,13 @@ export interface ReplySegment {
   data: { message_id: string };
 }
 
-export type PassthroughSegmentType =
+export type MediaPassthroughSegmentType =
   | 'record'
   | 'video'
   | 'file'
-  | 'flash_file'
+  | 'flash_file';
+
+export type PayloadPassthroughSegmentType =
   | 'json'
   | 'xml'
   | 'markdown'
@@ -69,10 +71,21 @@ export type PassthroughSegmentType =
   | 'keyboard'
   | 'shake';
 
-export interface PassthroughSegment {
-  type: PassthroughSegmentType;
+export type PassthroughSegmentType =
+  | MediaPassthroughSegmentType
+  | PayloadPassthroughSegmentType;
+
+export interface MediaPassthroughSegment {
+  type: MediaPassthroughSegmentType;
+  data: Record<string, unknown>;
+}
+
+export interface PayloadPassthroughSegment {
+  type: PayloadPassthroughSegmentType;
   data?: Record<string, unknown>;
 }
+
+export type PassthroughSegment = MediaPassthroughSegment | PayloadPassthroughSegment;
 
 export type Segment =
   | TextSegment
@@ -188,6 +201,13 @@ export interface EventPayload {
   bilibili?: BilibiliPayload;
 }
 
+export interface WebhookMetadata {
+  route: string;
+  received_at: number;
+  client_timestamp?: number;
+  client_event_id?: string;
+}
+
 export interface EventMessage {
   segments?: Segment[];
   plain_text?: string;
@@ -203,6 +223,7 @@ export interface EventBody {
   target?: EventTarget;
   payload?: EventPayload;
   message?: EventMessage;
+  webhook?: WebhookMetadata;
   raw_payload?: Record<string, unknown>;
 }
 
@@ -310,84 +331,120 @@ export function replySegment(messageId: string): ReplySegment {
   return { type: 'reply', data: { message_id: messageId } };
 }
 
+const mediaPassthroughSegmentTypes = new Set<PassthroughSegmentType>([
+  'record',
+  'video',
+  'file',
+  'flash_file',
+]);
+const payloadPassthroughSegmentTypes = new Set<PassthroughSegmentType>([
+  'json',
+  'xml',
+  'markdown',
+  'music',
+  'contact',
+  'forward',
+  'node',
+  'poke',
+  'dice',
+  'rps',
+  'mface',
+  'keyboard',
+  'shake',
+]);
+
+export function passthroughSegment(
+  type: MediaPassthroughSegmentType,
+  data: Record<string, unknown>,
+): MediaPassthroughSegment;
+export function passthroughSegment(
+  type: PayloadPassthroughSegmentType,
+  data?: Record<string, unknown>,
+): PayloadPassthroughSegment;
 export function passthroughSegment(
   type: PassthroughSegmentType,
   data: Record<string, unknown> = {},
 ): PassthroughSegment {
+  if (!mediaPassthroughSegmentTypes.has(type) && !payloadPassthroughSegmentTypes.has(type)) {
+    throw new TypeError(`unknown passthrough segment type: ${type}`);
+  }
+  if (mediaPassthroughSegmentTypes.has(type) && Object.keys(data).length === 0) {
+    throw new TypeError(`${type} segments require non-empty media data`);
+  }
   return { type, data };
 }
 
-export function recordSegment(data: Record<string, unknown> = {}): PassthroughSegment {
+export function recordSegment(data: Record<string, unknown>): MediaPassthroughSegment {
   return passthroughSegment('record', data);
 }
 
-export function videoSegment(data: Record<string, unknown> = {}): PassthroughSegment {
+export function videoSegment(data: Record<string, unknown>): MediaPassthroughSegment {
   return passthroughSegment('video', data);
 }
 
-export function fileSegment(data: Record<string, unknown> = {}): PassthroughSegment {
+export function fileSegment(data: Record<string, unknown>): MediaPassthroughSegment {
   return passthroughSegment('file', data);
 }
 
-export function flashFileSegment(data: Record<string, unknown> = {}): PassthroughSegment {
+export function flashFileSegment(data: Record<string, unknown>): MediaPassthroughSegment {
   return passthroughSegment('flash_file', data);
 }
 
-export function jsonSegment(data: Record<string, unknown> = {}): PassthroughSegment {
+export function jsonSegment(data: Record<string, unknown> = {}): PayloadPassthroughSegment {
   return passthroughSegment('json', data);
 }
 
-export function xmlSegment(data: Record<string, unknown> = {}): PassthroughSegment {
+export function xmlSegment(data: Record<string, unknown> = {}): PayloadPassthroughSegment {
   return passthroughSegment('xml', data);
 }
 
-export function markdownSegment(content: string): PassthroughSegment;
-export function markdownSegment(data?: Record<string, unknown>): PassthroughSegment;
+export function markdownSegment(content: string): PayloadPassthroughSegment;
+export function markdownSegment(data?: Record<string, unknown>): PayloadPassthroughSegment;
 export function markdownSegment(
   contentOrData: string | Record<string, unknown> = {},
-): PassthroughSegment {
+): PayloadPassthroughSegment {
   if (typeof contentOrData === 'string') {
     return passthroughSegment('markdown', { content: contentOrData });
   }
   return passthroughSegment('markdown', contentOrData);
 }
 
-export function musicSegment(data: Record<string, unknown> = {}): PassthroughSegment {
+export function musicSegment(data: Record<string, unknown> = {}): PayloadPassthroughSegment {
   return passthroughSegment('music', data);
 }
 
-export function contactSegment(data: Record<string, unknown> = {}): PassthroughSegment {
+export function contactSegment(data: Record<string, unknown> = {}): PayloadPassthroughSegment {
   return passthroughSegment('contact', data);
 }
 
-export function forwardSegment(data: Record<string, unknown> = {}): PassthroughSegment {
+export function forwardSegment(data: Record<string, unknown> = {}): PayloadPassthroughSegment {
   return passthroughSegment('forward', data);
 }
 
-export function nodeSegment(data: Record<string, unknown> = {}): PassthroughSegment {
+export function nodeSegment(data: Record<string, unknown> = {}): PayloadPassthroughSegment {
   return passthroughSegment('node', data);
 }
 
-export function pokeSegment(data: Record<string, unknown> = {}): PassthroughSegment {
+export function pokeSegment(data: Record<string, unknown> = {}): PayloadPassthroughSegment {
   return passthroughSegment('poke', data);
 }
 
-export function diceSegment(data: Record<string, unknown> = {}): PassthroughSegment {
+export function diceSegment(data: Record<string, unknown> = {}): PayloadPassthroughSegment {
   return passthroughSegment('dice', data);
 }
 
-export function rpsSegment(data: Record<string, unknown> = {}): PassthroughSegment {
+export function rpsSegment(data: Record<string, unknown> = {}): PayloadPassthroughSegment {
   return passthroughSegment('rps', data);
 }
 
-export function mfaceSegment(data: Record<string, unknown> = {}): PassthroughSegment {
+export function mfaceSegment(data: Record<string, unknown> = {}): PayloadPassthroughSegment {
   return passthroughSegment('mface', data);
 }
 
-export function keyboardSegment(data: Record<string, unknown> = {}): PassthroughSegment {
+export function keyboardSegment(data: Record<string, unknown> = {}): PayloadPassthroughSegment {
   return passthroughSegment('keyboard', data);
 }
 
-export function shakeSegment(data: Record<string, unknown> = {}): PassthroughSegment {
+export function shakeSegment(data: Record<string, unknown> = {}): PayloadPassthroughSegment {
   return passthroughSegment('shake', data);
 }

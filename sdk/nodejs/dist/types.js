@@ -24,19 +24,46 @@ export function faceSegment(faceId) {
 export function replySegment(messageId) {
     return { type: 'reply', data: { message_id: messageId } };
 }
+const mediaPassthroughSegmentTypes = new Set([
+    'record',
+    'video',
+    'file',
+    'flash_file',
+]);
+const payloadPassthroughSegmentTypes = new Set([
+    'json',
+    'xml',
+    'markdown',
+    'music',
+    'contact',
+    'forward',
+    'node',
+    'poke',
+    'dice',
+    'rps',
+    'mface',
+    'keyboard',
+    'shake',
+]);
 export function passthroughSegment(type, data = {}) {
+    if (!mediaPassthroughSegmentTypes.has(type) && !payloadPassthroughSegmentTypes.has(type)) {
+        throw new TypeError(`unknown passthrough segment type: ${type}`);
+    }
+    if (mediaPassthroughSegmentTypes.has(type) && Object.keys(data).length === 0) {
+        throw new TypeError(`${type} segments require non-empty media data`);
+    }
     return { type, data };
 }
-export function recordSegment(data = {}) {
+export function recordSegment(data) {
     return passthroughSegment('record', data);
 }
-export function videoSegment(data = {}) {
+export function videoSegment(data) {
     return passthroughSegment('video', data);
 }
-export function fileSegment(data = {}) {
+export function fileSegment(data) {
     return passthroughSegment('file', data);
 }
-export function flashFileSegment(data = {}) {
+export function flashFileSegment(data) {
     return passthroughSegment('flash_file', data);
 }
 export function jsonSegment(data = {}) {
