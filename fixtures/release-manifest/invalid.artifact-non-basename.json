@@ -11,14 +11,15 @@
     "published_at": "2026-03-17T10:00:00Z",
     "expires_at": "2026-03-24T10:00:00Z",
     "update_protocol_version": 2,
-    "config_schema_version": "1",
+    "config_schema_version": "2",
     "db_schema_version": "000004",
     "plugin_protocol_version": "1",
     "artifacts": [
       {
         "artifact_id": "windows-x64-full",
-        "file_name": "RayleaBot-v0.1.0-windows-x64-full.zip",
+        "file_name": "../RayleaBot.zip",
         "platform": "windows-x64",
+        "sha256": "1111111111111111111111111111111111111111111111111111111111111111",
         "archive_size_bytes": 104857600,
         "expanded_size_bytes": 314572800,
         "file_count": 1200,
@@ -31,8 +32,5 @@
     ],
     "release_notes_ref": "https://example.com/releases/v0.1.0"
   },
-  "expect": {
-    "valid": false,
-    "reason": "Every artifact entry must carry its own sha256 digest."
-  }
+  "expect": { "valid": false }
 }

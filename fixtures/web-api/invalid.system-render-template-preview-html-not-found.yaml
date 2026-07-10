@@ -14,5 +14,6 @@ response:
       code: platform.template_not_found
       message: 模板不存在
       message_key: errors.platform.template_not_found
+      request_id: req_render_preview_not_found
 expect:
   valid: true

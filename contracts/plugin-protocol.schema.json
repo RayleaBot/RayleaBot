@@ -640,6 +640,26 @@
                   }
                 }
               },
+              "allOf": [
+                {
+                  "if": {
+                    "required": ["event_type"],
+                    "properties": {
+                      "event_type": {
+                        "const": "webhook.received"
+                      }
+                    }
+                  },
+                  "then": {
+                    "required": ["webhook"]
+                  },
+                  "else": {
+                    "not": {
+                      "required": ["webhook"]
+                    }
+                  }
+                }
+              ],
               "unevaluatedProperties": false
             }
           }
@@ -697,52 +717,10 @@
           "$ref": "#/$defs/outbound_message_segment_face"
         },
         {
-          "$ref": "#/$defs/outbound_message_segment_record"
+          "$ref": "#/$defs/outbound_message_segment_passthrough_media"
         },
         {
-          "$ref": "#/$defs/outbound_message_segment_video"
-        },
-        {
-          "$ref": "#/$defs/outbound_message_segment_file"
-        },
-        {
-          "$ref": "#/$defs/outbound_message_segment_json"
-        },
-        {
-          "$ref": "#/$defs/outbound_message_segment_xml"
-        },
-        {
-          "$ref": "#/$defs/outbound_message_segment_markdown"
-        },
-        {
-          "$ref": "#/$defs/outbound_message_segment_music"
-        },
-        {
-          "$ref": "#/$defs/outbound_message_segment_contact"
-        },
-        {
-          "$ref": "#/$defs/outbound_message_segment_forward"
-        },
-        {
-          "$ref": "#/$defs/outbound_message_segment_node"
-        },
-        {
-          "$ref": "#/$defs/outbound_message_segment_poke"
-        },
-        {
-          "$ref": "#/$defs/outbound_message_segment_dice"
-        },
-        {
-          "$ref": "#/$defs/outbound_message_segment_rps"
-        },
-        {
-          "$ref": "#/$defs/outbound_message_segment_mface"
-        },
-        {
-          "$ref": "#/$defs/outbound_message_segment_keyboard"
-        },
-        {
-          "$ref": "#/$defs/outbound_message_segment_shake"
+          "$ref": "#/$defs/outbound_message_segment_passthrough_payload"
         },
         {
           "$ref": "#/$defs/outbound_message_segment_reply"
@@ -767,52 +745,10 @@
           "$ref": "#/$defs/outbound_message_segment_face"
         },
         {
-          "$ref": "#/$defs/outbound_message_segment_record"
+          "$ref": "#/$defs/outbound_message_segment_passthrough_media"
         },
         {
-          "$ref": "#/$defs/outbound_message_segment_video"
-        },
-        {
-          "$ref": "#/$defs/outbound_message_segment_file"
-        },
-        {
-          "$ref": "#/$defs/outbound_message_segment_json"
-        },
-        {
-          "$ref": "#/$defs/outbound_message_segment_xml"
-        },
-        {
-          "$ref": "#/$defs/outbound_message_segment_markdown"
-        },
-        {
-          "$ref": "#/$defs/outbound_message_segment_music"
-        },
-        {
-          "$ref": "#/$defs/outbound_message_segment_contact"
-        },
-        {
-          "$ref": "#/$defs/outbound_message_segment_forward"
-        },
-        {
-          "$ref": "#/$defs/outbound_message_segment_node"
-        },
-        {
-          "$ref": "#/$defs/outbound_message_segment_poke"
-        },
-        {
-          "$ref": "#/$defs/outbound_message_segment_dice"
-        },
-        {
-          "$ref": "#/$defs/outbound_message_segment_rps"
-        },
-        {
-          "$ref": "#/$defs/outbound_message_segment_mface"
-        },
-        {
-          "$ref": "#/$defs/outbound_message_segment_keyboard"
-        },
-        {
-          "$ref": "#/$defs/outbound_message_segment_shake"
+          "$ref": "#/$defs/outbound_message_segment_passthrough_payload"
         }
       ]
     },
@@ -975,54 +911,6 @@
           }
         }
       }
-    },
-    "outbound_message_segment_record": {
-      "$ref": "#/$defs/outbound_message_segment_passthrough_media"
-    },
-    "outbound_message_segment_video": {
-      "$ref": "#/$defs/outbound_message_segment_passthrough_media"
-    },
-    "outbound_message_segment_file": {
-      "$ref": "#/$defs/outbound_message_segment_passthrough_media"
-    },
-    "outbound_message_segment_json": {
-      "$ref": "#/$defs/outbound_message_segment_passthrough_payload"
-    },
-    "outbound_message_segment_xml": {
-      "$ref": "#/$defs/outbound_message_segment_passthrough_payload"
-    },
-    "outbound_message_segment_markdown": {
-      "$ref": "#/$defs/outbound_message_segment_passthrough_payload"
-    },
-    "outbound_message_segment_music": {
-      "$ref": "#/$defs/outbound_message_segment_passthrough_payload"
-    },
-    "outbound_message_segment_contact": {
-      "$ref": "#/$defs/outbound_message_segment_passthrough_payload"
-    },
-    "outbound_message_segment_forward": {
-      "$ref": "#/$defs/outbound_message_segment_passthrough_payload"
-    },
-    "outbound_message_segment_node": {
-      "$ref": "#/$defs/outbound_message_segment_passthrough_payload"
-    },
-    "outbound_message_segment_poke": {
-      "$ref": "#/$defs/outbound_message_segment_passthrough_payload"
-    },
-    "outbound_message_segment_dice": {
-      "$ref": "#/$defs/outbound_message_segment_passthrough_payload"
-    },
-    "outbound_message_segment_rps": {
-      "$ref": "#/$defs/outbound_message_segment_passthrough_payload"
-    },
-    "outbound_message_segment_mface": {
-      "$ref": "#/$defs/outbound_message_segment_passthrough_payload"
-    },
-    "outbound_message_segment_keyboard": {
-      "$ref": "#/$defs/outbound_message_segment_passthrough_payload"
-    },
-    "outbound_message_segment_shake": {
-      "$ref": "#/$defs/outbound_message_segment_passthrough_payload"
     },
     "outbound_message_segment_passthrough_media": {
       "type": "object",
@@ -3265,6 +3153,7 @@
     "fixtures/plugin-protocol/invalid.action-http-request-invalid-method.yaml",
     "fixtures/plugin-protocol/invalid.action-scheduler-create-missing-cron.yaml",
     "fixtures/plugin-protocol/invalid.action-event-expose-webhook-invalid-route.yaml",
+    "fixtures/plugin-protocol/invalid.event-webhook-in-payload.yaml",
     "fixtures/plugin-protocol/invalid.action-render-image-missing-template.yaml",
     "fixtures/plugin-protocol/invalid.action-message-send-unsupported-segment.yaml",
     "fixtures/plugin-protocol/invalid.action-message-send-missing-image-ref.yaml",

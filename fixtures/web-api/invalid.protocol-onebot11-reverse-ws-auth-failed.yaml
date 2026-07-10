@@ -11,5 +11,8 @@ response:
   body:
     error:
       code: adapter.transport_reverse_ws_auth_failed
+      message: OneBot 反向 WebSocket 鉴权失败
+      message_key: errors.adapter.transport_reverse_ws_auth_failed
+      request_id: req_reverse_ws_auth_failed
 expect:
   valid: true

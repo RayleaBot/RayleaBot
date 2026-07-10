@@ -22,6 +22,19 @@ x-fixtures:
   - fixtures/websocket/invalid.events-received-raw-chat.json
   - fixtures/websocket/invalid.events-received-bridge-runtime-raw-leak.json
 
+admission:
+  authentication:
+    accepted: [cookie, authorization_header]
+    cookie_name: raylea_session
+    authorization_scheme: Bearer
+    forbidden: [query_token, query_session_token]
+  origin:
+    required_for_browser_cookie_auth: true
+    validation: Exact match against web.public_origin or the direct listener origin for the active exposure mode.
+  failure:
+    code: permission.denied
+    disclosure: Missing, invalid, expired, origin-mismatched, and forbidden-transport credentials are indistinguishable.
+
 envelope:
   description: Shared envelope for all management WebSocket channels.
   required:
@@ -61,7 +74,7 @@ envelope:
 channels:
   - path: /ws/logs
     channel: logs
-    auth: session_token
+    auth: cookie_or_authorization_header
     replay_policy: summary_only
     events:
       - event: logs.appended
@@ -98,7 +111,7 @@ channels:
 
   - path: /ws/events
     channel: events
-    auth: session_token
+    auth: cookie_or_authorization_header
     replay_policy: state_changes_only
     events:
       - event: events.received
@@ -410,7 +423,7 @@ channels:
 
   - path: /ws/plugins/{id}/console
     channel: plugin_console
-    auth: session_token
+    auth: cookie_or_authorization_header
     replay_policy: ring_buffer
     events:
       - event: plugins.console
@@ -438,7 +451,7 @@ session_events:
   - event: session_expired
     description: >
       Sent when the current management session expires or is invalidated. The
-      client must reconnect with a fresh session token. This event is channel
+      client must reconnect with a fresh cookie or Authorization session. This event is channel
       agnostic and does not authorize continued use of an expired connection.
     payload_schema:
       type: object

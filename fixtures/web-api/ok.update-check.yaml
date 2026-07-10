@@ -1,0 +1,16 @@
+contract: contracts/web-api.openapi.yaml
+case: ok
+description: An explicit update check only refreshes trusted metadata.
+request:
+  method: POST
+  path: /api/update/check
+response:
+  status: 200
+  body:
+    state: up_to_date
+    current_version: 0.3.1
+    checked_at: '2026-07-10T12:00:00Z'
+    update_mode: guided
+    automatic_install_supported: false
+expect:
+  valid: true

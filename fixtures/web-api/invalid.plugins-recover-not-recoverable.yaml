@@ -11,6 +11,7 @@ response:
       code: plugin.not_recoverable
       message: 插件当前不可恢复
       message_key: errors.plugin.not_recoverable
+      request_id: req_plugin_recover_not_recoverable
       details:
         state: running
 expect:

@@ -9,15 +9,14 @@ frames:
     event:
       event_id: gh-evt-7c2f1a
       source_protocol: webhook
-      source_adapter: pluginwebhook.local
+      source_adapter: webhook.gateway
       event_type: webhook.received
       timestamp: 1710000405
-      payload:
-        webhook:
-          route: github
-          received_at: 1710000406
-          client_timestamp: 1710000405
-          client_event_id: gh-evt-7c2f1a
+      webhook:
+        route: github
+        received_at: 1710000406
+        client_timestamp: 1710000405
+        client_event_id: gh-evt-7c2f1a
   - protocol_version: "1"
     type: result
     timestamp: 1710000407
@@ -29,5 +28,5 @@ frames:
 expect:
   valid: true
   notes:
-    - webhook.received events carry a normalized webhook subobject sourced from the inbound replay-protection headers and the server clock.
+    - webhook.received events carry normalized metadata in event.webhook, outside the event payload.
     - parent event_id mirrors the client-supplied event id when present so dedup is observable end to end.

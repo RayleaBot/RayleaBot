@@ -4,12 +4,18 @@ description: Minimal management login issues one opaque session token.
 request:
   method: POST
   path: /api/session/login
+  headers:
+    X-Raylea-Session-Transport: bearer
   body:
     identifier: admin
     secret: fixture-only-secret
 response:
   status: 200
+  headers:
+    X-Raylea-Session-Transport: bearer
   body:
+    transport: bearer
     session_token: session_token_fixture_issued_0001
+    expires_at: "2026-03-26T10:00:00Z"
 expect:
   valid: true

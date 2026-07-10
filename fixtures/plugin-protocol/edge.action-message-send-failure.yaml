@@ -10,7 +10,11 @@ frames:
     data:
       target_type: private
       target_id: "123"
-      text: 当前天气服务暂时不可用，请稍后再试。
+      message:
+        segments:
+          - type: text
+            data:
+              text: 当前天气服务暂时不可用，请稍后再试。
 expect:
   valid: true
   notes:

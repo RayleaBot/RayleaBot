@@ -4,6 +4,8 @@ description: Local Launcher graceful shutdown request is accepted.
 request:
   method: POST
   path: /api/launcher/shutdown
+  headers:
+    X-Raylea-Launcher-Control: fixture-control-token-not-a-real-secret
 response:
   status: 202
   body:

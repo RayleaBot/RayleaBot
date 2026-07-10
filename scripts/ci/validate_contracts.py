@@ -9,11 +9,33 @@ import re
 import sys
 from pathlib import Path
 from typing import Any
+from urllib.parse import parse_qs, unquote, urlsplit
 
 try:
     import yaml
 except ImportError as exc:  # pragma: no cover - exercised by CI environment setup.
     raise SystemExit("PyYAML is required: python -m pip install pyyaml") from exc
+
+try:
+    from jsonschema import Draft202012Validator, FormatChecker
+    from referencing import Registry, Resource
+    from referencing.jsonschema import DRAFT202012
+except ImportError as exc:  # pragma: no cover - exercised by CI environment setup.
+    raise SystemExit("jsonschema is required: python -m pip install jsonschema") from exc
+
+
+class JSONSafeLoader(yaml.SafeLoader):
+    """Safe YAML loader that keeps date-like scalars as JSON strings."""
+
+
+JSONSafeLoader.yaml_implicit_resolvers = {
+    key: [
+        (tag, regexp)
+        for tag, regexp in resolvers
+        if tag != "tag:yaml.org,2002:timestamp"
+    ]
+    for key, resolvers in yaml.SafeLoader.yaml_implicit_resolvers.items()
+}
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -49,6 +71,14 @@ STRICT_FIXTURE_DIRS = [
     FIXTURES / "release-manifest",
     FIXTURES / "cli",
 ]
+
+JSON_SCHEMA_FIXTURE_AREAS = {
+    "config": "config.user.schema.json",
+    "backup-manifest": "backup-manifest.schema.json",
+    "deps-manifest": "deps-manifest.schema.json",
+    "plugin-info": "plugin-info.schema.json",
+    "release-manifest": "release-manifest.schema.json",
+}
 
 FIXTURE_SECRET_PATTERNS = [
     ("OpenAI API key", re.compile(r"\bsk-[A-Za-z0-9_-]{20,}\b")),
@@ -111,6 +141,7 @@ STRICT_OPENAPI_PATHS = {
     "/api/protocols/onebot11/webhook",
     "/api/plugins",
     "/api/plugins/install",
+    "/api/plugins/install/inspect",
     "/api/plugins/{plugin_id}",
     "/api/plugins/{plugin_id}/enable",
     "/api/plugins/{plugin_id}/disable",
@@ -119,6 +150,8 @@ STRICT_OPENAPI_PATHS = {
     "/api/plugins/{plugin_id}/management/actions",
     "/api/plugins/{plugin_id}/settings",
     "/api/plugins/{plugin_id}/secrets",
+    "/api/update/status",
+    "/api/update/check",
     "/api/webhooks/{plugin_id}/{route}",
 }
 
@@ -136,7 +169,7 @@ def load_json(path: Path) -> Any:
 
 def load_yaml(path: Path) -> Any:
     try:
-        return yaml.safe_load(path.read_text(encoding="utf-8"))
+        return yaml.load(path.read_text(encoding="utf-8"), Loader=JSONSafeLoader)
     except Exception as exc:
         fail(f"{path.relative_to(ROOT)}: invalid YAML: {exc}")
 
@@ -223,6 +256,538 @@ def validate_fixture_secret_scan() -> None:
             match = pattern.search(text)
             if match:
                 fail(f"{path.relative_to(ROOT)} contains possible real {label}: {match.group(0)}")
+
+
+def iter_refs(value: Any, location: str = "$") -> list[tuple[str, str]]:
+    refs: list[tuple[str, str]] = []
+    if isinstance(value, dict):
+        ref = value.get("$ref")
+        if isinstance(ref, str):
+            refs.append((location, ref))
+        for key, child in value.items():
+            refs.extend(iter_refs(child, f"{location}/{key}"))
+    elif isinstance(value, list):
+        for index, child in enumerate(value):
+            refs.extend(iter_refs(child, f"{location}/{index}"))
+    return refs
+
+
+def validate_no_network_refs(documents: dict[Path, Any]) -> None:
+    for path, document in documents.items():
+        for location, ref in iter_refs(document):
+            parsed = urlsplit(ref)
+            if parsed.scheme in {"http", "https"} or parsed.netloc:
+                fail(f"{path.relative_to(ROOT)} {location}: network $ref is forbidden: {ref}")
+
+
+def format_schema_error(error: Any) -> str:
+    path = "/".join(str(item) for item in error.absolute_path)
+    return f"{path or '<root>'}: {error.message}"
+
+
+def fixture_expected_valid(path: Path, document: dict[str, Any]) -> bool:
+    expect = document.get("expect")
+    if isinstance(expect, dict) and isinstance(expect.get("valid"), bool):
+        return expect["valid"]
+    return not path.name.startswith("invalid.")
+
+
+def require_fixture_outcome(path: Path, expected: bool, errors: list[str]) -> None:
+    actual = not errors
+    if actual == expected:
+        return
+    if expected:
+        fail(f"{path.relative_to(ROOT)}: expected valid fixture; validation errors={errors[:3]}")
+    fail(f"{path.relative_to(ROOT)}: invalid fixture did not fail validation")
+
+
+def plugin_info_package_errors(document: dict[str, Any], manifest: Any) -> list[str]:
+    package_files = document.get("package_files")
+    if package_files is None:
+        return []
+    if not isinstance(package_files, dict):
+        return ["package_files must be an object"]
+    if not isinstance(manifest, dict):
+        return []
+
+    errors: list[str] = []
+    for template in manifest.get("render_templates", []):
+        if not isinstance(template, dict) or not isinstance(template.get("path"), str):
+            continue
+        manifest_path = template["path"].rstrip("/") + "/template.json"
+        if manifest_path not in package_files:
+            errors.append(f"missing package file: {manifest_path}")
+            continue
+        content = package_files[manifest_path]
+        if not isinstance(content, dict):
+            errors.append(f"invalid template manifest: {manifest_path}")
+    return errors
+
+
+def dependency_manifest_errors(manifest: Any) -> list[str]:
+    if not isinstance(manifest, dict):
+        return []
+    errors: list[str] = []
+    for index, resource in enumerate(manifest.get("resources", [])):
+        if not isinstance(resource, dict):
+            continue
+        urls = [source.get("url") for source in resource.get("sources", []) if isinstance(source, dict)]
+        if len(urls) != len(set(urls)):
+            errors.append(f"resources/{index}/sources: source URLs must be unique")
+    return errors
+
+
+def validate_json_schema_fixtures() -> None:
+    for area, schema_name in JSON_SCHEMA_FIXTURE_AREAS.items():
+        schema_path = CONTRACTS / schema_name
+        schema = require_object(load_json(schema_path), f"{schema_name} schema")
+        try:
+            Draft202012Validator.check_schema(schema)
+        except Exception as exc:
+            fail(f"{schema_path.relative_to(ROOT)} is not valid Draft 2020-12 schema: {exc}")
+        validator = Draft202012Validator(schema, format_checker=FormatChecker())
+
+        for path in sorted((FIXTURES / area).iterdir()):
+            if not path.is_file() or path.suffix not in {".json", ".yaml", ".yml"}:
+                continue
+            document = require_object(load_any(path), str(path.relative_to(ROOT)))
+            instance = document.get("input") if "input" in document else document
+            errors = [format_schema_error(error) for error in validator.iter_errors(instance)]
+            if area == "plugin-info":
+                errors.extend(plugin_info_package_errors(document, instance))
+            elif area == "deps-manifest":
+                errors.extend(dependency_manifest_errors(instance))
+            require_fixture_outcome(path, fixture_expected_valid(path, document), errors)
+
+        if area == "deps-manifest":
+            runtime_manifest_path = ROOT / ".deps" / "manifest.json"
+            runtime_manifest = require_object(
+                load_json(runtime_manifest_path),
+                str(runtime_manifest_path.relative_to(ROOT)),
+            )
+            runtime_errors = [format_schema_error(error) for error in validator.iter_errors(runtime_manifest)]
+            runtime_errors.extend(dependency_manifest_errors(runtime_manifest))
+            if runtime_errors:
+                fail(
+                    f"{runtime_manifest_path.relative_to(ROOT)} drifted from {schema_name}: "
+                    + "; ".join(runtime_errors)
+                )
+
+def validate_plugin_protocol_fixtures() -> None:
+    schema_path = CONTRACTS / "plugin-protocol.schema.json"
+    schema = require_object(load_json(schema_path), "plugin protocol schema")
+    try:
+        Draft202012Validator.check_schema(schema)
+    except Exception as exc:
+        fail(f"{schema_path.relative_to(ROOT)} is not valid Draft 2020-12 schema: {exc}")
+    validator = Draft202012Validator(schema, format_checker=FormatChecker())
+
+    for path in sorted((FIXTURES / "plugin-protocol").iterdir()):
+        if not path.is_file() or path.suffix not in {".json", ".yaml", ".yml"}:
+            continue
+        document = require_object(load_any(path), str(path.relative_to(ROOT)))
+        frames = document.get("frames")
+        if not isinstance(frames, list) or not frames:
+            fail(f"{path.relative_to(ROOT)}: frames must be a non-empty array")
+        errors: list[str] = []
+        for index, frame in enumerate(frames):
+            errors.extend(
+                f"frames/{index}/{format_schema_error(error)}"
+                for error in validator.iter_errors(frame)
+            )
+
+        manifest = document.get("manifest")
+        concurrency = manifest.get("concurrency", 1) if isinstance(manifest, dict) else 1
+        if isinstance(concurrency, int) and concurrency > 1:
+            for index, frame in enumerate(frames):
+                if isinstance(frame, dict) and frame.get("type") == "action" and not frame.get("parent_request_id"):
+                    errors.append(f"frames/{index}: concurrent plugin action requires parent_request_id")
+        require_fixture_outcome(path, fixture_expected_valid(path, document), errors)
+
+
+def pointer_escape(value: str) -> str:
+    return value.replace("~", "~0").replace("/", "~1")
+
+
+def pointer_get(document: Any, pointer: str) -> Any:
+    current = document
+    for token in pointer.removeprefix("/").split("/") if pointer else []:
+        token = token.replace("~1", "/").replace("~0", "~")
+        if isinstance(current, list):
+            current = current[int(token)]
+        else:
+            current = current[token]
+    return current
+
+
+def resolve_local_object(document: dict[str, Any], value: Any, pointer: str) -> tuple[Any, str]:
+    seen: set[str] = set()
+    while isinstance(value, dict) and isinstance(value.get("$ref"), str):
+        ref = value["$ref"]
+        if not ref.startswith("#/"):
+            return value, pointer
+        pointer = ref[1:]
+        if pointer in seen:
+            fail(f"contracts/web-api.openapi.yaml: cyclic object $ref at {pointer}")
+        seen.add(pointer)
+        value = pointer_get(document, pointer)
+    return value, pointer
+
+
+def build_contract_registry(documents: dict[Path, Any]) -> Registry:
+    registry = Registry()
+    for path, document in documents.items():
+        registry = registry.with_resource(
+            path.resolve().as_uri(),
+            Resource.from_contents(document, default_specification=DRAFT202012),
+        )
+    return registry
+
+
+def schema_errors_at_pointer(
+    contract_path: Path,
+    registry: Registry,
+    pointer: str,
+    instance: Any,
+) -> list[str]:
+    validator = Draft202012Validator(
+        {"$ref": f"{contract_path.resolve().as_uri()}#{pointer}"},
+        registry=registry,
+        format_checker=FormatChecker(),
+    )
+    try:
+        return [format_schema_error(error) for error in validator.iter_errors(instance)]
+    except Exception as exc:
+        fail(f"{contract_path.relative_to(ROOT)}{pointer}: schema resolution failed: {exc}")
+
+
+def matching_openapi_path(paths: dict[str, Any], request_path: str) -> str | None:
+    request_path = urlsplit(request_path).path
+    if request_path in paths:
+        return request_path
+    for candidate in paths:
+        candidate_parts = candidate.strip("/").split("/")
+        request_parts = request_path.strip("/").split("/")
+        if len(candidate_parts) != len(request_parts):
+            continue
+        if all(
+            (part.startswith("{") and part.endswith("}") and bool(actual)) or part == actual
+            for part, actual in zip(candidate_parts, request_parts, strict=True)
+        ):
+            return candidate
+    return None
+
+
+def request_path_parameters(contract_path: str, request_target: str) -> dict[str, str]:
+    actual_parts = urlsplit(request_target).path.strip("/").split("/")
+    contract_parts = contract_path.strip("/").split("/")
+    return {
+        contract.removeprefix("{").removesuffix("}"): unquote(actual)
+        for contract, actual in zip(contract_parts, actual_parts, strict=True)
+        if contract.startswith("{") and contract.endswith("}")
+    }
+
+
+def header_value(headers: Any, name: str) -> str | None:
+    if not isinstance(headers, dict):
+        return None
+    for key, value in headers.items():
+        if str(key).lower() == name.lower() and isinstance(value, str):
+            return value.split(";", 1)[0].strip().lower()
+    return None
+
+
+def parameter_schema_type(document: dict[str, Any], schema: Any, pointer: str) -> Any:
+    resolved, _ = resolve_local_object(document, schema, pointer)
+    if not isinstance(resolved, dict):
+        return None
+    return resolved.get("type")
+
+
+def coerce_parameter_scalar(value: str, schema_type: Any) -> Any:
+    allowed_types = set(schema_type) if isinstance(schema_type, list) else {schema_type}
+    if "integer" in allowed_types:
+        if not re.fullmatch(r"-?(?:0|[1-9][0-9]*)", value):
+            raise ValueError("must be an integer")
+        return int(value)
+    if "number" in allowed_types:
+        try:
+            return float(value)
+        except ValueError as exc:
+            raise ValueError("must be a number") from exc
+    if "boolean" in allowed_types:
+        if value == "true":
+            return True
+        if value == "false":
+            return False
+        raise ValueError("must be true or false")
+    return value
+
+
+def parameter_instance(
+    document: dict[str, Any],
+    parameter: dict[str, Any],
+    schema: Any,
+    schema_pointer: str,
+    values: list[str],
+) -> Any:
+    resolved_schema, resolved_pointer = resolve_local_object(document, schema, schema_pointer)
+    if not isinstance(resolved_schema, dict):
+        raise ValueError("schema must be an object")
+    schema_type = resolved_schema.get("type")
+    if schema_type == "array":
+        items = resolved_schema.get("items")
+        item_type = parameter_schema_type(document, items, resolved_pointer + "/items")
+        serialized_values = values
+        if parameter.get("explode") is False:
+            serialized_values = [part for value in values for part in value.split(",")]
+        return [coerce_parameter_scalar(value, item_type) for value in serialized_values]
+    if len(values) != 1:
+        raise ValueError("must not be repeated")
+    return coerce_parameter_scalar(values[0], schema_type)
+
+
+def validate_openapi_request_parameters(
+    web_api: dict[str, Any],
+    registry: Registry,
+    contract_path: Path,
+    contract_route: str,
+    operation: dict[str, Any],
+    operation_pointer: str,
+    request: dict[str, Any],
+) -> list[str]:
+    request_target = str(request.get("path", ""))
+    query = parse_qs(urlsplit(request_target).query, keep_blank_values=True)
+    path_values = request_path_parameters(contract_route, request_target)
+    headers = request.get("headers")
+    route_object = require_object(web_api["paths"][contract_route], f"OpenAPI route {contract_route}")
+    parameter_sources = [
+        (route_object.get("parameters", []), f"/paths/{pointer_escape(contract_route)}/parameters"),
+        (operation.get("parameters", []), operation_pointer + "/parameters"),
+    ]
+    errors: list[str] = []
+
+    for parameters, parameters_pointer in parameter_sources:
+        if parameters is None:
+            continue
+        if not isinstance(parameters, list):
+            fail(f"contracts/web-api.openapi.yaml{parameters_pointer}: parameters must be an array")
+        for index, parameter_value in enumerate(parameters):
+            parameter_pointer = f"{parameters_pointer}/{index}"
+            parameter, parameter_pointer = resolve_local_object(
+                web_api,
+                parameter_value,
+                parameter_pointer,
+            )
+            if not isinstance(parameter, dict):
+                fail(f"contracts/web-api.openapi.yaml{parameter_pointer}: parameter must be an object")
+            name = parameter.get("name")
+            location = parameter.get("in")
+            schema = parameter.get("schema")
+            if not isinstance(name, str) or not isinstance(location, str) or not isinstance(schema, dict):
+                fail(f"contracts/web-api.openapi.yaml{parameter_pointer}: parameter requires name, in, and schema")
+
+            values: list[str] | None
+            if location == "query":
+                values = query.get(name)
+            elif location == "path":
+                value = path_values.get(name)
+                values = [value] if value is not None else None
+            elif location == "header":
+                value = header_value(headers, name)
+                values = [value] if value is not None else None
+            else:
+                continue
+
+            if values is None:
+                if parameter.get("required") is True:
+                    errors.append(f"parameters/{location}/{name}: required parameter is missing")
+                continue
+
+            schema_pointer = parameter_pointer + "/schema"
+            try:
+                instance = parameter_instance(web_api, parameter, schema, schema_pointer, values)
+            except ValueError as exc:
+                errors.append(f"parameters/{location}/{name}: {exc}")
+                continue
+            errors.extend(
+                f"parameters/{location}/{name}/{error}"
+                for error in schema_errors_at_pointer(contract_path, registry, schema_pointer, instance)
+            )
+    return errors
+
+
+def select_media_type(content: Any, preferred: str | None, body: Any) -> str | None:
+    if not isinstance(content, dict) or not content:
+        return None
+    if preferred and preferred in content:
+        return preferred
+    if isinstance(body, (dict, list)) and "application/json" in content:
+        return "application/json"
+    if "application/json" in content:
+        return "application/json"
+    if len(content) == 1:
+        return next(iter(content))
+    return None
+
+
+def response_entry(responses: dict[Any, Any], status: int) -> tuple[Any, str] | None:
+    for key, value in responses.items():
+        if str(key) == str(status):
+            return value, str(key)
+    if "default" in responses:
+        return responses["default"], "default"
+    return None
+
+
+def validate_openapi_fixtures(web_api: dict[str, Any], registry: Registry) -> None:
+    contract_path = CONTRACTS / "web-api.openapi.yaml"
+    paths = require_object(web_api.get("paths"), "web-api paths")
+    for name, schema in require_object(web_api.get("components", {}).get("schemas"), "web-api schemas").items():
+        try:
+            Draft202012Validator.check_schema(schema)
+        except Exception as exc:
+            fail(f"contracts/web-api.openapi.yaml components.schemas.{name}: invalid Draft 2020-12 schema: {exc}")
+
+    for path in sorted((FIXTURES / "web-api").iterdir()):
+        if not path.is_file() or path.suffix not in {".json", ".yaml", ".yml"}:
+            continue
+        document = require_object(load_any(path), str(path.relative_to(ROOT)))
+        request = require_object(document.get("request"), f"{path.relative_to(ROOT)} request")
+        response = require_object(document.get("response"), f"{path.relative_to(ROOT)} response")
+        method = str(request.get("method", "")).lower()
+        contract_route = matching_openapi_path(paths, str(request.get("path", "")))
+        if contract_route is None:
+            fail(f"{path.relative_to(ROOT)}: request path is not declared in OpenAPI")
+        operation = paths[contract_route].get(method)
+        if not isinstance(operation, dict):
+            fail(f"{path.relative_to(ROOT)}: method {method.upper()} is not declared for {contract_route}")
+        operation_pointer = f"/paths/{pointer_escape(contract_route)}/{method}"
+
+        request_errors = validate_openapi_request_parameters(
+            web_api,
+            registry,
+            contract_path,
+            contract_route,
+            operation,
+            operation_pointer,
+            request,
+        )
+        if "body" in request:
+            request_body, request_pointer = resolve_local_object(
+                web_api,
+                operation.get("requestBody"),
+                operation_pointer + "/requestBody",
+            )
+            if not isinstance(request_body, dict):
+                request_errors.append("request body is not declared")
+            else:
+                content = request_body.get("content")
+                media_type = select_media_type(
+                    content,
+                    header_value(request.get("headers"), "content-type"),
+                    request["body"],
+                )
+                if media_type is None or not isinstance(content.get(media_type), dict) or "schema" not in content[media_type]:
+                    request_errors.append("request body media type has no schema")
+                else:
+                    schema_pointer = f"{request_pointer}/content/{pointer_escape(media_type)}/schema"
+                    request_errors.extend(schema_errors_at_pointer(contract_path, registry, schema_pointer, request["body"]))
+
+        status = response.get("status")
+        if not isinstance(status, int):
+            fail(f"{path.relative_to(ROOT)}: response.status must be an integer")
+        responses = require_object(operation.get("responses"), f"OpenAPI responses for {contract_route}")
+        entry = response_entry(responses, status)
+        if entry is None:
+            fail(f"{path.relative_to(ROOT)}: response status {status} is not declared")
+        response_object, response_key = entry
+        response_pointer = f"{operation_pointer}/responses/{pointer_escape(response_key)}"
+        response_object, response_pointer = resolve_local_object(web_api, response_object, response_pointer)
+
+        response_errors: list[str] = []
+        if "body" in response:
+            content = response_object.get("content") if isinstance(response_object, dict) else None
+            media_type = select_media_type(
+                content,
+                response.get("content_type") or header_value(response.get("headers"), "content-type"),
+                response["body"],
+            )
+            if media_type is None or not isinstance(content.get(media_type), dict) or "schema" not in content[media_type]:
+                response_errors.append("response body media type has no schema")
+            else:
+                schema_pointer = f"{response_pointer}/content/{pointer_escape(media_type)}/schema"
+                response_errors.extend(schema_errors_at_pointer(contract_path, registry, schema_pointer, response["body"]))
+
+        expected = fixture_expected_valid(path, document)
+        if expected:
+            require_fixture_outcome(path, True, response_errors)
+            if document.get("case") != "invalid" and request_errors:
+                fail(f"{path.relative_to(ROOT)}: request body validation failed: {request_errors[:3]}")
+        elif not request_errors and not response_errors:
+            fail(f"{path.relative_to(ROOT)}: invalid fixture did not fail request or response validation")
+
+
+def websocket_event_schema(events: dict[str, Any], frame: dict[str, Any]) -> Any:
+    frame_type = frame.get("type")
+    for event in events.get("session_events", []):
+        if isinstance(event, dict) and event.get("event") == frame_type:
+            return event.get("payload_schema")
+    for channel in events.get("channels", []):
+        if not isinstance(channel, dict) or channel.get("channel") != frame.get("channel"):
+            continue
+        for event in channel.get("events", []):
+            if isinstance(event, dict) and event.get("event") == frame_type:
+                return event.get("payload_schema")
+    return None
+
+
+def validate_websocket_fixtures(events: dict[str, Any]) -> None:
+    envelope = require_object(events.get("envelope"), "websocket envelope")
+    envelope_schema = {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "additionalProperties": False,
+        "required": envelope.get("required", []),
+        "properties": envelope.get("properties", {}),
+    }
+    try:
+        Draft202012Validator.check_schema(envelope_schema)
+    except Exception as exc:
+        fail(f"contracts/websocket-events.yaml envelope is not valid Draft 2020-12 schema: {exc}")
+    envelope_validator = Draft202012Validator(envelope_schema, format_checker=FormatChecker())
+
+    for path in sorted((FIXTURES / "websocket").iterdir()):
+        if not path.is_file() or path.suffix not in {".json", ".yaml", ".yml"}:
+            continue
+        document = require_object(load_any(path), str(path.relative_to(ROOT)))
+        frame = require_object(document.get("frame"), f"{path.relative_to(ROOT)} frame")
+        errors = [format_schema_error(error) for error in envelope_validator.iter_errors(frame)]
+        payload_schema = websocket_event_schema(events, frame)
+        if not isinstance(payload_schema, dict):
+            errors.append(f"unknown websocket event {frame.get('channel')}/{frame.get('type')}")
+        else:
+            try:
+                Draft202012Validator.check_schema(payload_schema)
+            except Exception as exc:
+                fail(f"contracts/websocket-events.yaml {frame.get('type')}: invalid payload schema: {exc}")
+            payload_validator = Draft202012Validator(payload_schema, format_checker=FormatChecker())
+            errors.extend(f"data/{format_schema_error(error)}" for error in payload_validator.iter_errors(frame.get("data")))
+        require_fixture_outcome(path, fixture_expected_valid(path, document), errors)
+
+
+def validate_contract_instances(web_api: dict[str, Any], websocket_events: dict[str, Any]) -> None:
+    contract_documents = {
+        path.resolve(): load_any(path)
+        for path in sorted(CONTRACTS.iterdir())
+        if path.suffix in {".json", ".yaml", ".yml"}
+    }
+    validate_no_network_refs(contract_documents)
+    registry = build_contract_registry(contract_documents)
+    validate_json_schema_fixtures()
+    validate_plugin_protocol_fixtures()
+    validate_openapi_fixtures(web_api, registry)
+    validate_websocket_fixtures(websocket_events)
 
 
 def validate_openapi_basic(web_api: dict[str, Any]) -> None:
@@ -330,9 +895,19 @@ def validate_config_field_metadata(config_schema: dict[str, Any]) -> None:
 
 def validate_release_basic(release_schema: dict[str, Any]) -> None:
     if "oneOf" not in release_schema:
-        fail("release-manifest.schema.json must distinguish release_manifest and build_info via oneOf")
+        fail("release-manifest.schema.json must distinguish manifest, signature envelope, and build info via oneOf")
     artifact = require_object(release_schema.get("$defs", {}).get("artifact"), "release artifact")
-    for field in ["artifact_id", "file_name", "platform", "sha256", "size"]:
+    for field in [
+        "artifact_id",
+        "file_name",
+        "platform",
+        "sha256",
+        "archive_size_bytes",
+        "expanded_size_bytes",
+        "file_count",
+        "update_mode",
+        "min_updater_protocol_version",
+    ]:
         if field not in artifact.get("required", []):
             fail(f"release-manifest.schema.json artifact missing required field: {field}")
 
@@ -354,6 +929,7 @@ def validate_pr() -> dict[str, Any]:
     validate_websocket_basic(websocket_events)
     validate_config_basic(config_schema)
     validate_release_basic(release_schema)
+    validate_contract_instances(web_api, websocket_events)
 
     return {
         "web_api": web_api,
@@ -375,7 +951,7 @@ def validate_fixture_matrix() -> None:
 
 def validate_baseline() -> None:
     baseline = (ROOT / "docs" / "engineering" / "baseline.md").read_text(encoding="utf-8")
-    for snippet in ["Go `1.25.11`", "Node.js `24.14.0`", "`pnpm 11.9.0`", "Python `3.12.13`"]:
+    for snippet in ["Go `1.25.12`", "Node.js `24.18.0`", "`pnpm 11.11.0`", "Python `3.12.13`"]:
         if snippet not in baseline:
             fail(f"docs/engineering/baseline.md missing expected snippet: {snippet}")
 
@@ -392,8 +968,8 @@ def validate_baseline() -> None:
     go_mod = (ROOT / "server" / "go.mod").read_text(encoding="utf-8")
     if "module github.com/RayleaBot/RayleaBot/server" not in go_mod:
         fail("server/go.mod must use module path github.com/RayleaBot/RayleaBot/server")
-    if "go 1.25.11" not in go_mod:
-        fail("server/go.mod must pin Go 1.25.11")
+    if "go 1.25.12" not in go_mod:
+        fail("server/go.mod must pin Go 1.25.12")
 
     expected_pnpm_workspaces = {
         ROOT / "web" / "package.json": {
@@ -416,6 +992,7 @@ def validate_baseline() -> None:
                 "electron-winstaller": True,
             },
             "overrides": {
+                "@fluentui/react-motion": "9.16.1",
                 "@xmldom/xmldom": "0.8.13",
                 "axios": "1.16.0",
                 "follow-redirects": "1.16.0",
@@ -433,13 +1010,13 @@ def validate_baseline() -> None:
 
     for package_path, expected_workspace in expected_pnpm_workspaces.items():
         package_json = load_json(package_path)
-        if package_json.get("packageManager") != "pnpm@11.9.0":
-            fail(f"{package_path.relative_to(ROOT)} packageManager must be pnpm@11.9.0")
+        if package_json.get("packageManager") != "pnpm@11.11.0":
+            fail(f"{package_path.relative_to(ROOT)} packageManager must be pnpm@11.11.0")
         engines = package_json.get("engines", {})
-        if engines.get("node") != "24.14.0":
-            fail(f"{package_path.relative_to(ROOT)} engines.node must be 24.14.0")
-        if engines.get("pnpm") != "11.9.0":
-            fail(f"{package_path.relative_to(ROOT)} engines.pnpm must be 11.9.0")
+        if engines.get("node") != "24.18.0":
+            fail(f"{package_path.relative_to(ROOT)} engines.node must be 24.18.0")
+        if engines.get("pnpm") != "11.11.0":
+            fail(f"{package_path.relative_to(ROOT)} engines.pnpm must be 11.11.0")
         if "pnpm" in package_json:
             fail(f"{package_path.relative_to(ROOT)} must keep pnpm settings in pnpm-workspace.yaml")
 
@@ -447,6 +1024,12 @@ def validate_baseline() -> None:
         workspace_config = require_object(load_yaml(workspace_path), f"{workspace_path.relative_to(ROOT)}")
         if workspace_config.get("packages") != ["."]:
             fail(f"{workspace_path.relative_to(ROOT)} packages must include only the project root")
+        if workspace_config.get("supportedArchitectures") != {
+            "os": ["win32", "linux", "darwin"],
+            "cpu": ["x64", "arm64"],
+            "libc": ["glibc"],
+        }:
+            fail(f"{workspace_path.relative_to(ROOT)} supportedArchitectures drifted")
         if workspace_config.get("allowBuilds") != expected_workspace["allowBuilds"]:
             fail(f"{workspace_path.relative_to(ROOT)} allowBuilds drifted")
         if workspace_config.get("overrides") != expected_workspace["overrides"]:
@@ -474,9 +1057,8 @@ def validate_strict_websocket(events: dict[str, Any]) -> None:
 
 
 def validate_strict_release(release_schema: dict[str, Any]) -> None:
-    artifact = release_schema["$defs"]["artifact"]
     expected = {"windows-x64-full", "linux-x64-full", "macos-arm64-full", "linux-x64-server"}
-    actual = set(artifact["properties"]["artifact_id"].get("enum", []))
+    actual = set(release_schema["$defs"]["artifactId"].get("enum", []))
     if actual != expected:
         fail(f"release artifact matrix drift: expected={sorted(expected)} actual={sorted(actual)}")
 
@@ -497,7 +1079,7 @@ def validate_no_legacy_contract_content() -> None:
 
 def validate_strict_cli() -> None:
     cli_commands = require_object(load_yaml(CONTRACTS / "cli-commands.yaml"), "cli commands")
-    expected = {"reset-admin", "backup", "restore", "doctor", "cleanup"}
+    expected = {"version", "update", "reset-admin", "backup", "restore", "doctor", "cleanup"}
     actual = set(cli_commands.get("commands", {}).keys())
     if actual != expected:
         fail(f"cli commands drift: expected={sorted(expected)} actual={sorted(actual)}")

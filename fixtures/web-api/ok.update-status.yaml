@@ -1,0 +1,18 @@
+contract: contracts/web-api.openapi.yaml
+case: ok
+description: Update status reports a trusted guided release without exposing an install action.
+request:
+  method: GET
+  path: /api/update/status
+response:
+  status: 200
+  body:
+    state: update_available
+    current_version: 0.3.0
+    available_version: 0.3.1
+    checked_at: '2026-07-10T12:00:00Z'
+    update_mode: guided
+    automatic_install_supported: false
+    release_notes_ref: https://example.com/releases/v0.3.1
+expect:
+  valid: true

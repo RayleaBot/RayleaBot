@@ -7,6 +7,7 @@
     "git_commit": "a8ee7bb",
     "artifact_id": "windows-x64-full",
     "built_at": "2026-03-17T10:00:00Z",
+    "update_protocol_version": 2,
     "release_notes_ref": "https://example.com/releases/v0.1.0"
   },
   "expect": {

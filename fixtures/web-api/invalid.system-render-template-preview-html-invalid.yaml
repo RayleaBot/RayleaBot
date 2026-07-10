@@ -13,5 +13,6 @@ response:
       code: platform.invalid_request
       message: 请求参数不合法
       message_key: errors.platform.invalid_request
+      request_id: req_render_preview_invalid
 expect:
   valid: true

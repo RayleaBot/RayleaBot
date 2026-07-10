@@ -12,7 +12,7 @@ frames:
       target_id: "456"
       message:
         segments:
-          - type: markdown
+          - type: location
             data:
               text: "# unsupported"
 expect:

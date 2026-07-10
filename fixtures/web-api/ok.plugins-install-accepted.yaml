@@ -7,6 +7,9 @@ request:
   body:
     source_type: local_zip
     source: C:/plugins/weather.zip
+    inspection_id: inspection_fixture_weather_local_0001
+    package_sha256: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+    trusted_code_confirmed: true
 response:
   status: 202
   body:

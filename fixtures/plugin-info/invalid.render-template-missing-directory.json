@@ -24,6 +24,7 @@
       }
     ]
   },
+  "package_files": {},
   "expect": {
     "valid": false,
     "reason": "install-time validation rejects render_templates entries whose package-local directory cannot be read."

@@ -7,6 +7,9 @@ request:
   body:
     source_type: local_directory
     source: C:/plugins/weather
+    inspection_id: inspection_fixture_weather_scripts_0002
+    package_sha256: bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
+    trusted_code_confirmed: true
     allow_install_scripts: true
 response:
   status: 202

@@ -4,6 +4,8 @@ description: Local Launcher status query returns the current system status snaps
 request:
   method: GET
   path: /api/launcher/status
+  headers:
+    X-Raylea-Launcher-Control: fixture-control-token-not-a-real-secret
 response:
   status: 200
   body:

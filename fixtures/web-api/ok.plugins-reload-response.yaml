@@ -29,6 +29,8 @@ response:
           usage: weather <城市>
           permission: member
           command_source: manifest
+      help:
+        groups: []
       command_conflicts: []
 expect:
   valid: true

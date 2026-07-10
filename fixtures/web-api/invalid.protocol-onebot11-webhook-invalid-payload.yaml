@@ -13,5 +13,8 @@ response:
   body:
     error:
       code: adapter.transport_webhook_invalid_payload
+      message: OneBot Webhook 请求体无效
+      message_key: errors.adapter.transport_webhook_invalid_payload
+      request_id: req_onebot_webhook_invalid_payload
 expect:
   valid: true

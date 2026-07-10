@@ -20,10 +20,84 @@ x-fixtures:
   - fixtures/cli/ok.cleanup.online.yaml
   - fixtures/cli/invalid.cleanup.unsupported-mode.yaml
   - fixtures/cli/edge.cleanup.offline-exit-code-1.yaml
+  - fixtures/cli/ok.version-json.yaml
+  - fixtures/cli/ok.update-check-json.yaml
+  - fixtures/cli/ok.update-verify.yaml
 
 x-design-source: docs/user/cli.md
 
 commands:
+  version:
+    name: version
+    summary: 输出当前构建版本与更新协议版本。
+    availability:
+      online: true
+      offline: true
+    options:
+      json:
+        flag: --json
+        type: boolean
+        required: true
+    exit_codes:
+      0: 版本信息已输出
+      1: 构建信息不可读
+    task_model: false
+    cancellable: false
+    implemented: true
+    x-fixtures:
+      - fixtures/cli/ok.version-json.yaml
+
+  update:
+    name: update
+    summary: 检查或离线验证受信任更新包。
+    availability:
+      online: true
+      offline: true
+    task_model: false
+    cancellable: false
+    implemented: true
+    subcommands:
+      check:
+        name: check
+        summary: 获取并验证签名发布清单，不下载或安装更新。
+        availability:
+          online: true
+          offline: false
+        options:
+          json:
+            flag: --json
+            type: boolean
+            required: true
+        exit_codes:
+          0: 检查完成
+          1: 网络、契约或信任校验失败
+        x-fixtures:
+          - fixtures/cli/ok.update-check-json.yaml
+      verify:
+        name: verify
+        summary: 离线验证发布清单、签名 envelope 与 artifact。
+        availability:
+          online: true
+          offline: true
+        options:
+          manifest:
+            flag: --manifest
+            type: path
+            required: true
+          signature:
+            flag: --signature
+            type: path
+            required: true
+          artifact:
+            flag: --artifact
+            type: path
+            required: true
+        exit_codes:
+          0: 契约、签名和 artifact 校验通过
+          1: 任一校验失败
+        x-fixtures:
+          - fixtures/cli/ok.update-verify.yaml
+
   reset-admin:
     name: reset-admin
     summary: 重置管理员凭据并重新进入初始化向导。

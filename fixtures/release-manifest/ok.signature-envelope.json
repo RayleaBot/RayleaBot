@@ -1,0 +1,18 @@
+{
+  "contract": "contracts/release-manifest.schema.json",
+  "case": "ok",
+  "document_type": "signature_envelope",
+  "input": {
+    "signature_version": 1,
+    "algorithm": "ed25519",
+    "manifest_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "key_id": "release-2026-primary",
+    "signatures": [
+      {
+        "key_id": "release-2026-primary",
+        "signature": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=="
+      }
+    ]
+  },
+  "expect": { "valid": true }
+}

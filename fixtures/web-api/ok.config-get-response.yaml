@@ -47,6 +47,7 @@ response:
       admin:
         super_admins: []
         session_ttl_days: 7
+        session_absolute_ttl_days: 30
         sliding_renewal: true
         max_sessions: 3
         login_fail_limit: 5
@@ -114,10 +115,13 @@ response:
       http:
         timeout_seconds: 10
         max_retries: 2
+        max_response_body_bytes: 4194304
         allow_private_hosts: []
       web:
         exposure_mode: localhost_only
+        public_origin: ""
         setup_local_only: true
+        trusted_proxy_cidrs: []
       backup:
         default_consistency: offline
     redacted_fields:

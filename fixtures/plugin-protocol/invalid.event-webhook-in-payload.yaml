@@ -1,0 +1,21 @@
+contract: contracts/plugin-protocol.schema.json
+case: invalid
+frames:
+  - protocol_version: "1"
+    type: event
+    timestamp: 1710000406
+    plugin_id: repo-watcher
+    request_id: evt_webhook_invalid_001
+    event:
+      event_id: gh-evt-invalid-001
+      source_protocol: webhook
+      source_adapter: webhook.gateway
+      event_type: webhook.received
+      timestamp: 1710000405
+      payload:
+        webhook:
+          route: github
+          received_at: 1710000406
+expect:
+  valid: false
+  reason: Webhook metadata belongs to event.webhook and is not part of event.payload.

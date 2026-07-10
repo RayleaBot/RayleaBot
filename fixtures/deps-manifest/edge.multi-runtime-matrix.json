@@ -120,72 +120,72 @@
     {
       "id": "nodejs-windows-x64",
       "kind": "nodejs-runtime",
-      "version": "24.14.0",
+      "version": "24.18.0",
       "platform": "windows-x64",
       "sources": [
         {
-          "url": "https://nodejs.org/download/release/v24.14.0/node-v24.14.0-win-x64.zip",
+          "url": "https://nodejs.org/download/release/v24.18.0/node-v24.18.0-win-x64.zip",
           "kind": "upstream"
         }
       ],
-      "sha256": "313fa40c0d7b18575821de8cb17483031fe07d95de5994f6f435f3b345f85c66",
+      "sha256": "0ae68406b42d7725661da979b1403ec9926da205c6770827f33aac9d8f26e821",
       "archive_format": "zip",
       "entrypoints": {
         "node": [
-          "node-v24.14.0-win-x64/node.exe"
+          "node-v24.18.0-win-x64/node.exe"
         ],
         "npm": [
-          "node-v24.14.0-win-x64/npm.cmd"
+          "node-v24.18.0-win-x64/npm.cmd"
         ]
       }
     },
     {
       "id": "nodejs-linux-x64",
       "kind": "nodejs-runtime",
-      "version": "24.14.0",
+      "version": "24.18.0",
       "platform": "linux-x64",
       "sources": [
         {
-          "url": "https://nodejs.org/download/release/v24.14.0/node-v24.14.0-linux-x64.tar.xz",
+          "url": "https://nodejs.org/download/release/v24.18.0/node-v24.18.0-linux-x64.tar.xz",
           "kind": "upstream"
         }
       ],
-      "sha256": "41cd79bb7877c81605a9e68ec4c91547774f46a40c67a17e34d7179ef11729df",
+      "sha256": "55aa7153f9d88f28d765fcdad5ae6945b5c0f98a36881703817e4c450fa76742",
       "archive_format": "tar.xz",
       "entrypoints": {
         "node": [
-          "node-v24.14.0-linux-x64/bin/node"
+          "node-v24.18.0-linux-x64/bin/node"
         ],
         "npm": [
-          "node-v24.14.0-linux-x64/bin/npm"
+          "node-v24.18.0-linux-x64/bin/npm"
         ]
       }
     },
     {
       "id": "nodejs-macos-arm64",
       "kind": "nodejs-runtime",
-      "version": "24.14.0",
+      "version": "24.18.0",
       "platform": "macos-arm64",
       "sources": [
         {
-          "url": "https://nodejs.org/download/release/v24.14.0/node-v24.14.0-darwin-arm64.tar.xz",
+          "url": "https://nodejs.org/download/release/v24.18.0/node-v24.18.0-darwin-arm64.tar.xz",
           "kind": "upstream"
         }
       ],
-      "sha256": "448f01d4dfa5a21d280cfbacf00abc22b51aad52f38db0f4886e0e5d00df541d",
+      "sha256": "4477b9f78efb77744cf5eb57a0e9594dba66466b38b4e93fa9f35cb907a095a6",
       "archive_format": "tar.xz",
       "entrypoints": {
         "node": [
-          "node-v24.14.0-darwin-arm64/bin/node"
+          "node-v24.18.0-darwin-arm64/bin/node"
         ],
         "npm": [
-          "node-v24.14.0-darwin-arm64/bin/npm"
+          "node-v24.18.0-darwin-arm64/bin/npm"
         ]
       }
     }
   ],
   "notes": [
     "Python 3.12.13 使用 python-build-standalone install_only_stripped 归档，供 Launcher、doctor、启动前准备与插件依赖安装共用。",
-    "Node.js 24.14.0 与 Chromium 147.0.7727.24 继续通过 .deps/manifest.json 统一定义正式来源、SHA256 与相对入口。"
+    "Node.js 24.18.0 与 Chromium 147.0.7727.24 通过 .deps/manifest.json 统一定义正式来源、SHA256 与相对入口。"
   ]
 }

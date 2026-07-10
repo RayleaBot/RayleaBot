@@ -17,5 +17,12 @@ input:
       http_status: 403
       retryable: false
       applies_to: [http, websocket, plugin_protocol, task]
+    - code: release.signature_invalid
+      message_key: errors.release.signature_invalid
+      message: 发布签名验证失败
+      description: No trusted Ed25519 key produced a valid signature for the exact release manifest bytes.
+      http_status: 502
+      retryable: false
+      applies_to: [http, task, cli]
 expect:
   valid: true

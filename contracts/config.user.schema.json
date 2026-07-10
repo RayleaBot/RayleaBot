@@ -175,6 +175,7 @@
       "required": [
         "super_admins",
         "session_ttl_days",
+        "session_absolute_ttl_days",
         "sliding_renewal",
         "max_sessions",
         "login_fail_limit",
@@ -195,7 +196,14 @@
           "type": "integer",
           "minimum": 1,
           "default": 7,
-          "description": "Default admin session lifetime in days. Default: 7.",
+          "description": "Idle lifetime for an admin session in days. Activity may renew this deadline without extending the absolute lifetime. Default: 7.",
+          "x-apply-policy": "restart_required"
+        },
+        "session_absolute_ttl_days": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 30,
+          "description": "Absolute lifetime for an admin session in days. Runtime validation requires this value to be greater than or equal to session_ttl_days. Default: 30.",
           "x-apply-policy": "restart_required"
         },
         "sliding_renewal": {
@@ -694,7 +702,8 @@
       "required": [
         "timeout_seconds",
         "max_retries",
-        "allow_private_hosts"
+        "allow_private_hosts",
+        "max_response_body_bytes"
       ],
       "properties": {
         "timeout_seconds": {
@@ -721,6 +730,14 @@
           "uniqueItems": true,
           "description": "Allow-list of private or LAN hosts that plugins may reach; private networks are blocked by default to prevent SSRF.",
           "x-apply-policy": "hot_reload"
+        },
+        "max_response_body_bytes": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 67108864,
+          "default": 4194304,
+          "description": "Maximum decompressed response body accepted from a plugin-issued HTTP request. Default: 4194304.",
+          "x-apply-policy": "hot_reload"
         }
       }
     },
@@ -729,7 +746,9 @@
       "additionalProperties": false,
       "required": [
         "exposure_mode",
-        "setup_local_only"
+        "setup_local_only",
+        "public_origin",
+        "trusted_proxy_cidrs"
       ],
       "properties": {
         "exposure_mode": {
@@ -747,6 +766,32 @@
           "type": "boolean",
           "default": true,
           "description": "When enabled, first-run setup is only reachable from 127.0.0.1, preventing remote takeover. Requires restart.",
+          "x-apply-policy": "restart_required"
+        },
+        "public_origin": {
+          "type": "string",
+          "default": "",
+          "anyOf": [
+            { "const": "" },
+            {
+              "format": "uri",
+              "pattern": "^https?://[^/?#]+$"
+            }
+          ],
+          "description": "Canonical browser origin for Origin validation and secure-cookie decisions. public_via_reverse_proxy requires an HTTPS origin; other modes may leave it empty and use the direct listener origin.",
+          "x-apply-policy": "restart_required"
+        },
+        "trusted_proxy_cidrs": {
+          "type": "array",
+          "default": [],
+          "items": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 64,
+            "pattern": "^[0-9A-Fa-f:.]+/[0-9]{1,3}$"
+          },
+          "uniqueItems": true,
+          "description": "Proxy source networks whose Forwarded and X-Forwarded-* headers may be trusted. Required and non-empty for public_via_reverse_proxy.",
           "x-apply-policy": "restart_required"
         }
       }
@@ -911,6 +956,12 @@
     "fixtures/config/invalid.onebot-url.json",
     "fixtures/config/edge.public-via-reverse-proxy.json",
     "fixtures/config/ok.with-command-and-cooldown.json"
+  ],
+  "x-runtime-constraints": [
+    "admin.session_absolute_ttl_days must be greater than or equal to admin.session_ttl_days",
+    "localhost_only requires a loopback server.host",
+    "lan_enabled rejects public-wildcard binds unless explicitly allowed by a future contract",
+    "public_via_reverse_proxy requires a loopback server.host, an https web.public_origin, and at least one web.trusted_proxy_cidrs entry"
   ],
   "$comment": "The canonical config document follows the planning-aligned section names and current runtime configuration groups."
 }

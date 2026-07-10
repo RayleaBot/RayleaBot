@@ -12,6 +12,7 @@ domains:
   - plugin
   - permission
   - adapter
+  - release
 
 codes:
   platform.render_queue_full:
@@ -94,6 +95,16 @@ codes:
     retryable: true
     applies_to: [http, websocket, task]
 
+  platform.task_queue_full:
+    code: platform.task_queue_full
+    domain: platform
+    message_key: errors.platform.task_queue_full
+    message: 后台任务队列已满
+    description: A bounded execution queue rejected admission before a task record was created.
+    http_status: 429
+    retryable: true
+    applies_to: [http, websocket, task]
+
   platform.install_script_blocked:
     code: platform.install_script_blocked
     domain: platform
@@ -133,6 +144,16 @@ codes:
     http_status: 502
     retryable: true
     applies_to: [http, websocket, plugin_protocol, readiness]
+
+  platform.upstream_response_too_large:
+    code: platform.upstream_response_too_large
+    domain: platform
+    message_key: errors.platform.upstream_response_too_large
+    message: 上游响应超过大小限制
+    description: A plugin-issued HTTP response exceeded the configured decoded body or fixed header limit and was rejected without retry.
+    http_status: 502
+    retryable: false
+    applies_to: [http, websocket, plugin_protocol, task]
 
   platform.value_too_large:
     code: platform.value_too_large
@@ -234,6 +255,66 @@ codes:
     retryable: true
     applies_to: [http, websocket, task]
 
+  plugin.install_inspection_required:
+    code: plugin.install_inspection_required
+    domain: plugin
+    message_key: errors.plugin.install_inspection_required
+    message: 请先检查插件包并确认信任
+    description: Plugin installation was requested without a current inspection id and matching package digest.
+    http_status: 409
+    retryable: false
+    applies_to: [http, task]
+
+  plugin.install_inspection_expired:
+    code: plugin.install_inspection_expired
+    domain: plugin
+    message_key: errors.plugin.install_inspection_expired
+    message: 插件包检查结果已过期
+    description: The supplied plugin inspection id expired before installation admission.
+    http_status: 409
+    retryable: true
+    applies_to: [http, task]
+
+  plugin.install_digest_mismatch:
+    code: plugin.install_digest_mismatch
+    domain: plugin
+    message_key: errors.plugin.install_digest_mismatch
+    message: 插件包与检查结果不一致
+    description: The package digest no longer matches the inspected package and installation was rejected.
+    http_status: 409
+    retryable: false
+    applies_to: [http, task]
+
+  plugin.trusted_code_confirmation_required:
+    code: plugin.trusted_code_confirmation_required
+    domain: plugin
+    message_key: errors.plugin.trusted_code_confirmation_required
+    message: 必须确认该插件将作为完全可信的本地代码运行
+    description: Installation requires explicit confirmation that the third-party plugin and its install script execute with the user's local privileges.
+    http_status: 403
+    retryable: false
+    applies_to: [http, task]
+
+  plugin.package_resource_limit_exceeded:
+    code: plugin.package_resource_limit_exceeded
+    domain: plugin
+    message_key: errors.plugin.package_resource_limit_exceeded
+    message: 插件包超过资源限制
+    description: A remote archive exceeded the download, entry, per-file, expanded-size, or compression-ratio limit.
+    http_status: 413
+    retryable: false
+    applies_to: [http, task]
+
+  plugin.package_unsafe_entry:
+    code: plugin.package_unsafe_entry
+    domain: plugin
+    message_key: errors.plugin.package_unsafe_entry
+    message: 插件包包含不安全文件
+    description: A plugin archive contains a path escape, symbolic link, device, FIFO, or another unsupported entry type.
+    http_status: 400
+    retryable: false
+    applies_to: [http, task]
+
   plugin.uninstall_failed:
     code: plugin.uninstall_failed
     domain: plugin
@@ -329,6 +410,106 @@ codes:
     http_status: 403
     retryable: false
     applies_to: [plugin_protocol, logs]
+
+  release.trust_required:
+    code: release.trust_required
+    domain: release
+    message_key: errors.release.trust_required
+    message: 当前安装不具备自动更新信任基线
+    description: The installed version predates the signed updater trust baseline and must be upgraded manually.
+    http_status: 409
+    retryable: false
+    applies_to: [http, task, cli]
+
+  release.manifest_invalid:
+    code: release.manifest_invalid
+    domain: release
+    message_key: errors.release.manifest_invalid
+    message: 发布清单无效
+    description: The release manifest or signature envelope does not satisfy the v2 contract.
+    http_status: 502
+    retryable: false
+    applies_to: [http, task, cli]
+
+  release.signature_invalid:
+    code: release.signature_invalid
+    domain: release
+    message_key: errors.release.signature_invalid
+    message: 发布签名验证失败
+    description: No trusted Ed25519 key produced a valid signature for the exact release manifest bytes.
+    http_status: 502
+    retryable: false
+    applies_to: [http, task, cli]
+
+  release.manifest_expired:
+    code: release.manifest_expired
+    domain: release
+    message_key: errors.release.manifest_expired
+    message: 发布清单已过期
+    description: The signed release manifest is outside its validity window; only manual update guidance is permitted.
+    http_status: 409
+    retryable: true
+    applies_to: [http, task, cli]
+
+  release.replay_rejected:
+    code: release.replay_rejected
+    domain: release
+    message_key: errors.release.replay_rejected
+    message: 已拒绝旧版或被替换的发布清单
+    description: The manifest attempts a downgrade, replays an older observation, or changes the digest for an already observed version.
+    http_status: 409
+    retryable: false
+    applies_to: [http, task, cli]
+
+  release.artifact_invalid:
+    code: release.artifact_invalid
+    domain: release
+    message_key: errors.release.artifact_invalid
+    message: 更新包完整性或签名验证失败
+    description: Artifact hash, size, platform, version, file inventory, or required Windows signer validation failed.
+    http_status: 502
+    retryable: false
+    applies_to: [http, task, cli]
+
+  release.update_not_supported:
+    code: release.update_not_supported
+    domain: release
+    message_key: errors.release.update_not_supported
+    message: 当前平台仅支持引导更新
+    description: The selected artifact or current platform does not permit automatic installation.
+    http_status: 409
+    retryable: false
+    applies_to: [http, task, cli]
+
+  release.disk_space_insufficient:
+    code: release.disk_space_insufficient
+    domain: release
+    message_key: errors.release.disk_space_insufficient
+    message: 磁盘空间不足
+    description: The updater cannot reserve enough space for the artifact handoff, staging tree, offline backup, and restored user state.
+    http_status: 507
+    retryable: true
+    applies_to: [http, task, cli]
+
+  release.install_failed:
+    code: release.install_failed
+    domain: release
+    message_key: errors.release.install_failed
+    message: 更新安装失败
+    description: A transactional update failed and rollback was started or completed.
+    http_status: 500
+    retryable: true
+    applies_to: [http, task, cli]
+
+  release.rollback_failed:
+    code: release.rollback_failed
+    domain: release
+    message_key: errors.release.rollback_failed
+    message: 更新回滚失败
+    description: The updater could not restore the previous installation and automatic restart is disabled.
+    http_status: 500
+    retryable: false
+    applies_to: [http, task, cli]
 
   adapter.connection_failed:
     code: adapter.connection_failed

@@ -37,7 +37,7 @@
   - 统一错误码命名、默认消息资源键、HTTP 语义和适用范围
 - `web-api.openapi.yaml`
   - 当前已冻结的管理 HTTP 接口
-  - 当前包含 setup / session、loopback launcher bootstrap、config snapshot/update、protocol snapshot / compatibility、OneBot target / identity resolution、plugin lifecycle、plugin rich detail、plugin settings、plugin secrets、third-party accounts、third-party QR login、plugin management actions、governance 管理面、logs / system / metrics surfaces、scheduler 任务列表与手动触发、recovery recheck / confirm、runtime bootstrap、render templates、preview HTML 与模板资源读取面
+  - 当前包含 setup / cookie 与 Bearer session、launcher control、config snapshot/update、protocol snapshot / compatibility、OneBot target / identity resolution、plugin lifecycle、安装检查与可信代码确认、自定义插件管理页、plugin settings / secrets、third-party accounts、governance 管理面、logs / system / metrics、scheduler、recovery、runtime bootstrap、render templates 以及受信更新状态与检查入口
   - `PUT /api/config` response 固定返回 `apply_effects.applied_now`、`apply_effects.reloaded_now`、`apply_effects.restart_required_fields`
   - plugin lifecycle surface 统一使用正式 `state` 枚举与可选 `state_diagnosis`
 - `websocket-events.yaml`
@@ -70,10 +70,11 @@
   - `event.payload.onebot` 正式暴露 `meta_event_type`、`interval`、`status`
   - 正式 inbound / outbound segment 种类当前为 `text`、`image`、`at`、`at_all`、`face`、`reply`、`record`、`video`、`file`、`flash_file`、`json`、`xml`、`markdown`、`music`、`contact`、`forward`、`node`、`poke`、`dice`、`rps`、`mface`、`keyboard`、`shake`
 - `release-manifest.schema.json`
-  - `release_manifest.json` 与 `build_info.json` 的正式字段结构
+  - `release_manifest.v2.json`、`release_manifest.v2.sig.json` 与 `build_info.json` 的正式字段结构
+  - Ed25519 双签轮换、artifact 摘要与资源上限、更新协议、平台模式和 Windows signer 摘要
   - `SHA256SUMS.txt` 继续由 release tool 的生成与校验规则裁决，不作为独立 schema
 - `cli-commands.yaml`
-  - `reset-admin`、`backup`、`restore`、`doctor`、`cleanup` 的正式命令模型
+  - `reset-admin`、`backup`、`restore`、`doctor`、`cleanup`、`version --json`、`update check --json` 与 `update verify` 的正式命令模型
 
 ## 当前延后到后续版本的边界
 
@@ -85,9 +86,7 @@
 
 ### Release Metadata
 
-- 签名服务
-- 增量升级
-- 发布流水线策略
+- 增量或差分更新
 
 ## OpenAPI 已冻结范围
 
@@ -128,7 +127,7 @@
 - `PUT /api/plugins/{plugin_id}/settings`
 - `POST /api/plugins/{plugin_id}/management/actions`
 
-其中插件详情 response 会暴露只读 `management_ui` 元数据；插件设置接口只读写插件自己的当前生效配置；插件管理动作接口只把插件管理页动作转给插件 runtime 处理。
+其中插件详情 response 会暴露只读 `management_ui` 元数据；插件设置接口只读写插件自己的当前生效配置；插件管理动作接口只把插件管理页动作转给所属插件 runtime 处理。
 
 当前已进入 OpenAPI 冻结范围的 plugin secrets surface：
 
@@ -142,7 +141,14 @@
 - `GET /api/launcher/status`
 - `POST /api/launcher/shutdown`
 
-其中 launcher surface 只接受本机直连请求，带代理转发头或来自非本机地址的请求返回 `403`。Web 管理面会话仍通过初始化和登录接口建立。
+其中 launcher surface 只接受本机直连请求和独立 launcher control token，带代理转发头、来自非本机地址或缺少凭据的请求统一拒绝。浏览器管理面通过 Host-only HttpOnly cookie 与 CSRF 建立会话；Bearer transport 保留给非浏览器客户端。
+
+当前已进入 OpenAPI 冻结范围的 release update surface：
+
+- `GET /api/update/status`
+- `POST /api/update/check`
+
+Web 只读取状态并触发受信元数据检查，不下载或安装更新。Windows 自动安装由 Launcher 和外置 updater 执行；正式 Authenticode 与真实签名 packaged E2E 未满足时，发布元数据必须保持 `guided`。
 
 当前已进入 OpenAPI 冻结范围的 render management surface：
 

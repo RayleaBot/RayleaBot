@@ -4,12 +4,19 @@ description: First-time bootstrap creates the initial management credential sour
 request:
   method: POST
   path: /api/setup/admin
+  headers:
+    X-Raylea-Setup-Token: fixture-setup-token-not-a-real-secret
+    X-Raylea-Session-Transport: bearer
   body:
     identifier: admin
     secret: fixture-only-secret
 response:
   status: 200
+  headers:
+    X-Raylea-Session-Transport: bearer
   body:
+    transport: bearer
     session_token: session_token_fixture_bootstrap_0001
+    expires_at: "2026-03-26T10:00:00Z"
 expect:
   valid: true

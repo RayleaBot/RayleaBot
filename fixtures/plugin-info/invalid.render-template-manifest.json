@@ -24,6 +24,9 @@
       }
     ]
   },
+  "package_files": {
+    "templates/card/template.json": "not-json"
+  },
   "expect": {
     "valid": false,
     "reason": "install-time validation rejects declared template directories whose template.json cannot be compiled as a render template."

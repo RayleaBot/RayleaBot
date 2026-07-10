@@ -8,6 +8,8 @@ frames:
     request_id: init_0002
     bot:
       id: "10001"
+    command_prefixes:
+      - "/"
   - protocol_version: "1"
     type: init_progress
     timestamp: 1710000005

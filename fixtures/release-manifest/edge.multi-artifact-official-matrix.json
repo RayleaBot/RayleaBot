@@ -3,9 +3,14 @@
   "case": "edge",
   "document_type": "release_manifest",
   "input": {
+    "manifest_version": 2,
     "version": "0.1.0",
     "git_commit": "a8ee7bb",
     "built_at": "2026-03-17T10:00:00Z",
+    "channel": "stable",
+    "published_at": "2026-03-17T10:00:00Z",
+    "expires_at": "2026-03-24T10:00:00Z",
+    "update_protocol_version": 2,
     "config_schema_version": "1",
     "db_schema_version": "000004",
     "plugin_protocol_version": "1",
@@ -15,7 +20,11 @@
         "file_name": "RayleaBot-v0.1.0-windows-x64-full.zip",
         "platform": "windows-x64",
         "sha256": "1111111111111111111111111111111111111111111111111111111111111111",
-        "size": 104857600,
+        "archive_size_bytes": 104857600,
+        "expanded_size_bytes": 314572800,
+        "file_count": 1200,
+        "update_mode": "guided",
+        "min_updater_protocol_version": 2,
         "support_level": "first_class",
         "deps_manifest_sha256": "2222222222222222222222222222222222222222222222222222222222222222",
         "smoke_profile": "windows_full_smoke"
@@ -25,7 +34,11 @@
         "file_name": "RayleaBot-v0.1.0-linux-x64-full.tar.gz",
         "platform": "linux-x64",
         "sha256": "3333333333333333333333333333333333333333333333333333333333333333",
-        "size": 94371840,
+        "archive_size_bytes": 94371840,
+        "expanded_size_bytes": 283115520,
+        "file_count": 1100,
+        "update_mode": "guided",
+        "min_updater_protocol_version": 2,
         "support_level": "first_class",
         "deps_manifest_sha256": "2222222222222222222222222222222222222222222222222222222222222222",
         "smoke_profile": "linux_full_smoke"
@@ -35,7 +48,11 @@
         "file_name": "RayleaBot-v0.1.0-macos-arm64-full.tar.gz",
         "platform": "macos-arm64",
         "sha256": "5555555555555555555555555555555555555555555555555555555555555555",
-        "size": 104857600,
+        "archive_size_bytes": 104857600,
+        "expanded_size_bytes": 314572800,
+        "file_count": 1200,
+        "update_mode": "guided",
+        "min_updater_protocol_version": 2,
         "support_level": "first_class",
         "deps_manifest_sha256": "2222222222222222222222222222222222222222222222222222222222222222",
         "smoke_profile": "macos_full_smoke"
@@ -45,7 +62,11 @@
         "file_name": "RayleaBot-v0.1.0-linux-x64-server.tar.gz",
         "platform": "linux-x64",
         "sha256": "4444444444444444444444444444444444444444444444444444444444444444",
-        "size": 73400320,
+        "archive_size_bytes": 73400320,
+        "expanded_size_bytes": 220200960,
+        "file_count": 900,
+        "update_mode": "manual",
+        "min_updater_protocol_version": 2,
         "support_level": "first_class",
         "deps_manifest_sha256": "2222222222222222222222222222222222222222222222222222222222222222",
         "smoke_profile": "linux_server_smoke"
@@ -57,7 +78,7 @@
     "valid": true,
     "notes": [
       "This fixture represents the full v0.1 official release matrix.",
-      "The controlled runtime inventory remains external to release_manifest.json and is linked only by deps_manifest_sha256."
+      "The controlled runtime inventory remains external to release_manifest.v2.json and is linked only by deps_manifest_sha256."
     ]
   }
 }

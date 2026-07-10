@@ -1,15 +1,12 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://rayleabot.local/contracts/release-manifest.schema.json",
-  "title": "RayleaBot Release Manifest",
-  "description": "Fixture-ready schema for release_manifest.json and build_info.json. This contract freezes the minimal release JSON metadata surface and the link to the controlled dependency manifest via deps_manifest_sha256.",
+  "title": "RayleaBot Release Trust Metadata",
+  "description": "Formal contract for release_manifest.v2.json, release_manifest.v2.sig.json, and packaged build_info.json.",
   "oneOf": [
-    {
-      "$ref": "#/$defs/releaseManifest"
-    },
-    {
-      "$ref": "#/$defs/buildInfo"
-    }
+    { "$ref": "#/$defs/releaseManifestV2" },
+    { "$ref": "#/$defs/signatureEnvelope" },
+    { "$ref": "#/$defs/buildInfo" }
   ],
   "$defs": {
     "semver": {
@@ -22,7 +19,16 @@
     },
     "sha256": {
       "type": "string",
-      "pattern": "^[a-fA-F0-9]{64}$"
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "artifactId": {
+      "type": "string",
+      "enum": [
+        "windows-x64-full",
+        "linux-x64-full",
+        "macos-arm64-full",
+        "linux-x64-server"
+      ]
     },
     "artifact": {
       "type": "object",
@@ -32,68 +38,78 @@
         "file_name",
         "platform",
         "sha256",
-        "size",
+        "archive_size_bytes",
+        "expanded_size_bytes",
+        "file_count",
+        "update_mode",
+        "min_updater_protocol_version",
         "support_level",
         "deps_manifest_sha256",
         "smoke_profile"
       ],
       "properties": {
-        "artifact_id": {
-          "type": "string",
-          "enum": [
-            "windows-x64-full",
-            "linux-x64-full",
-            "macos-arm64-full",
-            "linux-x64-server"
-          ]
-        },
+        "artifact_id": { "$ref": "#/$defs/artifactId" },
         "file_name": {
           "type": "string",
-          "minLength": 1
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,254}$",
+          "description": "Release asset basename. Directory separators, drive prefixes and parent paths are not valid."
         },
         "platform": {
           "type": "string",
-          "enum": [
-            "windows-x64",
-            "linux-x64",
-            "macos-arm64"
-          ]
+          "enum": ["windows-x64", "linux-x64", "macos-arm64"]
         },
-        "sha256": {
-          "$ref": "#/$defs/sha256"
-        },
-        "size": {
+        "sha256": { "$ref": "#/$defs/sha256" },
+        "archive_size_bytes": {
           "type": "integer",
-          "minimum": 0
+          "minimum": 1,
+          "maximum": 2147483648
+        },
+        "expanded_size_bytes": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 8589934592
+        },
+        "file_count": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100000
+        },
+        "update_mode": {
+          "type": "string",
+          "enum": ["automatic", "guided", "manual"],
+          "description": "automatic permits a user-confirmed transactional install; guided and manual never expose automatic installation."
+        },
+        "min_updater_protocol_version": {
+          "type": "integer",
+          "minimum": 2
+        },
+        "windows_signer_sha256": {
+          "$ref": "#/$defs/sha256",
+          "description": "SHA256 certificate thumbprint required for every PE in an automatic Windows artifact."
         },
         "support_level": {
           "type": "string",
-          "enum": [
-            "first_class",
-            "experimental"
-          ]
+          "enum": ["first_class", "experimental"]
         },
-        "deps_manifest_sha256": {
-          "$ref": "#/$defs/sha256"
-        },
+        "deps_manifest_sha256": { "$ref": "#/$defs/sha256" },
         "smoke_profile": {
           "type": "string",
-          "enum": [
-            "windows_full_smoke",
-            "linux_full_smoke",
-            "macos_full_smoke",
-            "linux_server_smoke"
-          ]
+          "enum": ["windows_full_smoke", "linux_full_smoke", "macos_full_smoke", "linux_server_smoke"]
         }
       }
     },
-    "releaseManifest": {
+    "releaseManifestV2": {
       "type": "object",
       "additionalProperties": false,
       "required": [
+        "manifest_version",
         "version",
         "git_commit",
         "built_at",
+        "channel",
+        "published_at",
+        "expires_at",
+        "update_protocol_version",
         "config_schema_version",
         "db_schema_version",
         "plugin_protocol_version",
@@ -101,136 +117,111 @@
         "release_notes_ref"
       ],
       "properties": {
-        "version": {
-          "$ref": "#/$defs/semver"
-        },
-        "git_commit": {
-          "$ref": "#/$defs/gitCommit"
-        },
-        "built_at": {
-          "type": "string",
-          "format": "date-time"
-        },
-        "config_schema_version": {
-          "type": "string",
-          "minLength": 1
-        },
-        "db_schema_version": {
-          "type": "string",
-          "minLength": 1
-        },
-        "plugin_protocol_version": {
-          "type": "string",
-          "minLength": 1
-        },
+        "manifest_version": { "const": 2 },
+        "version": { "$ref": "#/$defs/semver" },
+        "git_commit": { "$ref": "#/$defs/gitCommit" },
+        "built_at": { "type": "string", "format": "date-time" },
+        "channel": { "type": "string", "enum": ["stable", "beta"] },
+        "published_at": { "type": "string", "format": "date-time" },
+        "expires_at": { "type": "string", "format": "date-time" },
+        "update_protocol_version": { "type": "integer", "minimum": 2 },
+        "config_schema_version": { "type": "string", "minLength": 1 },
+        "db_schema_version": { "type": "string", "minLength": 1 },
+        "plugin_protocol_version": { "type": "string", "minLength": 1 },
         "onebot_matrix": {
           "type": "object",
           "additionalProperties": false,
-          "required": [
-            "transport_matrix_version",
-            "compatibility_matrix_version",
-            "provider_extension_matrix_version"
-          ],
+          "required": ["transport_matrix_version", "compatibility_matrix_version", "provider_extension_matrix_version"],
           "properties": {
-            "transport_matrix_version": {
-              "type": "string",
-              "minLength": 1
-            },
-            "compatibility_matrix_version": {
-              "type": "string",
-              "minLength": 1
-            },
-            "provider_extension_matrix_version": {
-              "type": "string",
-              "minLength": 1
-            }
-          },
-          "description": "Optional validated OneBot11 matrix versions published when the release workflow provides them."
+            "transport_matrix_version": { "type": "string", "minLength": 1 },
+            "compatibility_matrix_version": { "type": "string", "minLength": 1 },
+            "provider_extension_matrix_version": { "type": "string", "minLength": 1 }
+          }
         },
         "artifacts": {
           "type": "array",
-          "items": {
-            "$ref": "#/$defs/artifact"
-          },
-          "minItems": 1
+          "minItems": 1,
+          "maxItems": 16,
+          "items": { "$ref": "#/$defs/artifact" }
         },
         "release_notes_ref": {
           "type": "string",
-          "minLength": 1
+          "format": "uri",
+          "pattern": "^https://"
+        }
+      }
+    },
+    "signatureEnvelope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["signature_version", "algorithm", "manifest_sha256", "key_id", "signatures"],
+      "properties": {
+        "signature_version": { "const": 1 },
+        "algorithm": { "const": "ed25519" },
+        "manifest_sha256": { "$ref": "#/$defs/sha256" },
+        "key_id": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9._-]{2,63}$",
+          "description": "Primary trusted key for this publication; a rotation envelope may additionally carry the next trusted key signature."
+        },
+        "signatures": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 2,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["key_id", "signature"],
+            "properties": {
+              "key_id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._-]{2,63}$" },
+              "signature": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9_-]{86}==$",
+                "description": "Base64url-encoded 64-byte Ed25519 signature over the exact manifest bytes."
+              }
+            }
+          }
         }
       }
     },
     "buildInfo": {
       "type": "object",
       "additionalProperties": false,
-      "required": [
-        "version",
-        "git_commit",
-        "artifact_id",
-        "built_at"
-      ],
+      "required": ["version", "git_commit", "artifact_id", "built_at", "update_protocol_version"],
       "properties": {
-        "version": {
-          "$ref": "#/$defs/semver"
-        },
-        "git_commit": {
-          "$ref": "#/$defs/gitCommit"
-        },
-        "artifact_id": {
-          "type": "string",
-          "enum": [
-            "windows-x64-full",
-            "linux-x64-full",
-            "macos-arm64-full",
-            "linux-x64-server"
-          ]
-        },
-        "built_at": {
-          "type": "string",
-          "format": "date-time"
-        },
-        "release_notes_ref": {
-          "type": "string",
-          "minLength": 1,
-          "description": "Optional release page reference copied from release_manifest.json so packaged builds can open the authoritative release page without querying the Web API."
-        },
-        "release_manifest_sha256": {
-          "$ref": "#/$defs/sha256",
-          "description": "Optional digest of the published release_manifest.json. Release packaging keeps this field optional so the package archive checksum remains a stable checksum of the final uploaded bytes."
-        },
+        "version": { "$ref": "#/$defs/semver" },
+        "git_commit": { "$ref": "#/$defs/gitCommit" },
+        "artifact_id": { "$ref": "#/$defs/artifactId" },
+        "built_at": { "type": "string", "format": "date-time" },
+        "update_protocol_version": { "type": "integer", "minimum": 2 },
+        "release_notes_ref": { "type": "string", "format": "uri", "pattern": "^https://" },
+        "release_manifest_sha256": { "$ref": "#/$defs/sha256" },
         "onebot_matrix": {
           "type": "object",
           "additionalProperties": false,
-          "required": [
-            "transport_matrix_version",
-            "compatibility_matrix_version",
-            "provider_extension_matrix_version"
-          ],
+          "required": ["transport_matrix_version", "compatibility_matrix_version", "provider_extension_matrix_version"],
           "properties": {
-            "transport_matrix_version": {
-              "type": "string",
-              "minLength": 1
-            },
-            "compatibility_matrix_version": {
-              "type": "string",
-              "minLength": 1
-            },
-            "provider_extension_matrix_version": {
-              "type": "string",
-              "minLength": 1
-            }
-          },
-          "description": "Optional OneBot11 matrix versions copied from release_manifest.json so packaged builds can expose the validated matrix set."
+            "transport_matrix_version": { "type": "string", "minLength": 1 },
+            "compatibility_matrix_version": { "type": "string", "minLength": 1 },
+            "provider_extension_matrix_version": { "type": "string", "minLength": 1 }
+          }
         }
       }
     }
   },
+  "x-runtime-constraints": [
+    "expires_at must be later than published_at",
+    "artifact ids and platforms must match the release matrix",
+    "automatic is allowed only for windows-x64-full with windows_signer_sha256 and a successful release signing gate",
+    "the updater rejects version downgrade, older manifest replay, and a changed digest for an already observed version"
+  ],
   "x-fixtures": [
     "fixtures/release-manifest/ok.release-manifest-minimal.json",
+    "fixtures/release-manifest/ok.signature-envelope.json",
     "fixtures/release-manifest/ok.build-info-minimal.json",
     "fixtures/release-manifest/edge.build-info-with-release-notes.json",
     "fixtures/release-manifest/invalid.artifact-missing-sha256.json",
+    "fixtures/release-manifest/invalid.artifact-non-basename.json",
     "fixtures/release-manifest/edge.multi-artifact-official-matrix.json"
-  ],
-  "$comment": "The release manifest stays focused on artifact metadata and the controlled dependency manifest link. The managed runtime inventory remains in .deps/manifest.json. SHA256SUMS.txt stays on the release-tool verification boundary rather than entering this JSON schema."
+  ]
 }

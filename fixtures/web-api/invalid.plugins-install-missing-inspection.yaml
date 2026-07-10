@@ -1,0 +1,19 @@
+contract: contracts/web-api.openapi.yaml
+case: invalid
+description: Installation without an inspection id, digest, and trusted-code confirmation is rejected.
+request:
+  method: POST
+  path: /api/plugins/install
+  body:
+    source_type: local_zip
+    source: C:/plugins/weather.zip
+response:
+  status: 409
+  body:
+    error:
+      code: plugin.install_inspection_required
+      message: 请先检查插件包并确认信任
+      message_key: errors.plugin.install_inspection_required
+      request_id: req_fixture_install_inspection
+expect:
+  valid: false

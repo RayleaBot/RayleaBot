@@ -14,5 +14,8 @@ response:
   body:
     error:
       code: adapter.transport_webhook_auth_failed
+      message: OneBot Webhook 鉴权失败
+      message_key: errors.adapter.transport_webhook_auth_failed
+      request_id: req_onebot_webhook_auth_failed
 expect:
   valid: true

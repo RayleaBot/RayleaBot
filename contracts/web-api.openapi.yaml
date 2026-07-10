@@ -56,6 +56,8 @@ x-fixtures:
   - fixtures/web-api/ok.plugins-install-accepted.yaml
   - fixtures/web-api/ok.plugins-install-accepted-with-scripts.yaml
   - fixtures/web-api/ok.plugins-install-remote-url.yaml
+  - fixtures/web-api/ok.plugins-install-inspect.yaml
+  - fixtures/web-api/invalid.plugins-install-missing-inspection.yaml
   - fixtures/web-api/ok.plugins-list-response.yaml
   - fixtures/web-api/ok.plugin-detail-response.yaml
   - fixtures/web-api/ok.plugin-detail-response.management-ui.yaml
@@ -108,6 +110,8 @@ x-fixtures:
   - fixtures/web-api/ok.third-party-account-upsert-weibo.yaml
   - fixtures/web-api/ok.third-party-account-delete.yaml
   - fixtures/web-api/ok.plugin-management-action.yaml
+  - fixtures/web-api/ok.update-status.yaml
+  - fixtures/web-api/ok.update-check.yaml
   - fixtures/web-api/ok.third-party-login-qrcode-create-weibo.yaml
   - fixtures/web-api/ok.third-party-login-qrcode-poll-weibo-pending.yaml
   - fixtures/web-api/ok.third-party-login-qrcode-poll-weibo-succeeded.yaml
@@ -124,6 +128,13 @@ x-fixtures:
   - fixtures/web-api/invalid.plugins-recover-not-recoverable.yaml
   - fixtures/web-api/invalid.plugins-uninstall-not-found.yaml
   - fixtures/web-api/edge.governance-entry-delete-not-found.yaml
+
+x-browser-session-policy:
+  cookie: raylea_session; Host-only; HttpOnly; SameSite=Strict
+  secure: Required when web.public_origin uses HTTPS
+  csrf_header: X-Raylea-CSRF
+  rule: Every POST, PUT, PATCH, or DELETE admitted through CookieAuth must also satisfy CSRFAuth; BearerAuth clients do not send the CSRF header.
+  websocket: Browser WebSocket admission uses CookieAuth and exact Origin validation; query-string session tokens are forbidden.
 
 paths:
   /healthz:
@@ -162,8 +173,12 @@ paths:
 
   /api/setup/admin:
     post:
-      summary: Bootstrap the initial management credential source and issue a session token.
+      summary: Bootstrap the initial management credential source and issue a cookie or bearer session.
       operationId: setupAdmin
+      security:
+        - SetupTokenAuth: []
+      parameters:
+        - $ref: '#/components/parameters/SessionTransport'
       requestBody:
         required: true
         content:
@@ -172,7 +187,10 @@ paths:
               $ref: '#/components/schemas/SessionLoginRequest'
       responses:
         '200':
-          description: Initial management credential source created and session token issued.
+          description: Initial management credential source created and the selected session transport issued.
+          headers:
+            X-Raylea-Session-Transport:
+              $ref: '#/components/headers/SessionTransport'
           content:
             application/json:
               schema:
@@ -205,6 +223,8 @@ paths:
         When the configured max_sessions limit is already reached, the service
         may recycle the oldest active management session before issuing a new one.
       operationId: loginSession
+      parameters:
+        - $ref: '#/components/parameters/SessionTransport'
       requestBody:
         required: true
         content:
@@ -213,7 +233,10 @@ paths:
               $ref: '#/components/schemas/SessionLoginRequest'
       responses:
         '200':
-          description: Session token issued for later management admission.
+          description: The selected session transport was issued; bearer remains the default for API compatibility.
+          headers:
+            X-Raylea-Session-Transport:
+              $ref: '#/components/headers/SessionTransport'
           content:
             application/json:
               schema:
@@ -233,6 +256,8 @@ paths:
       operationId: logoutSession
       security:
         - BearerAuth: []
+        - CookieAuth: []
+          CSRFAuth: []
       responses:
         '204':
           description: Session invalidated.
@@ -248,6 +273,8 @@ paths:
         This endpoint accepts only direct loopback requests and rejects requests
         containing forwarding headers.
       operationId: getLauncherStatus
+      security:
+        - LauncherControlAuth: []
       responses:
         '200':
           description: Current system status snapshot for local Launcher display.
@@ -267,6 +294,8 @@ paths:
         This endpoint accepts only direct loopback requests and rejects requests
         containing forwarding headers.
       operationId: shutdownFromLauncher
+      security:
+        - LauncherControlAuth: []
       responses:
         '202':
           description: Shutdown request accepted.
@@ -285,6 +314,7 @@ paths:
       operationId: getConfig
       security:
         - BearerAuth: []
+        - CookieAuth: []
       responses:
         '200':
           description: Current effective config snapshot with sensitive fields redacted.
@@ -301,6 +331,8 @@ paths:
       operationId: updateConfig
       security:
         - BearerAuth: []
+        - CookieAuth: []
+          CSRFAuth: []
       requestBody:
         required: true
         content:
@@ -327,6 +359,7 @@ paths:
       operationId: getGovernanceBlacklist
       security:
         - BearerAuth: []
+        - CookieAuth: []
       responses:
         '200':
           description: Current user and group blacklist entries.
@@ -345,6 +378,8 @@ paths:
       operationId: upsertGovernanceBlacklistEntry
       security:
         - BearerAuth: []
+        - CookieAuth: []
+          CSRFAuth: []
       requestBody:
         required: true
         content:
@@ -371,6 +406,8 @@ paths:
       operationId: deleteGovernanceBlacklistEntry
       security:
         - BearerAuth: []
+        - CookieAuth: []
+          CSRFAuth: []
       parameters:
         - $ref: '#/components/parameters/GovernanceEntryType'
         - $ref: '#/components/parameters/GovernanceTargetId'
@@ -390,6 +427,7 @@ paths:
       operationId: getGovernanceWhitelist
       security:
         - BearerAuth: []
+        - CookieAuth: []
       responses:
         '200':
           description: Current whitelist enable state and user/group whitelist entries.
@@ -408,6 +446,8 @@ paths:
       operationId: updateGovernanceWhitelistState
       security:
         - BearerAuth: []
+        - CookieAuth: []
+          CSRFAuth: []
       requestBody:
         required: true
         content:
@@ -434,6 +474,8 @@ paths:
       operationId: upsertGovernanceWhitelistEntry
       security:
         - BearerAuth: []
+        - CookieAuth: []
+          CSRFAuth: []
       requestBody:
         required: true
         content:
@@ -460,6 +502,8 @@ paths:
       operationId: deleteGovernanceWhitelistEntry
       security:
         - BearerAuth: []
+        - CookieAuth: []
+          CSRFAuth: []
       parameters:
         - $ref: '#/components/parameters/GovernanceEntryType'
         - $ref: '#/components/parameters/GovernanceTargetId'
@@ -479,6 +523,7 @@ paths:
       operationId: getGovernanceCommandPolicy
       security:
         - BearerAuth: []
+        - CookieAuth: []
       responses:
         '200':
           description: Effective command permission defaults, cooldown configuration, and command-level policy view.
@@ -497,9 +542,13 @@ paths:
       operationId: getSystemStatus
       security:
         - BearerAuth: []
+        - CookieAuth: []
       responses:
         '200':
           description: Current system status snapshot.
+          headers:
+            X-Raylea-CSRF:
+              $ref: '#/components/headers/CSRFToken'
           content:
             application/json:
               schema:
@@ -515,6 +564,8 @@ paths:
       operationId: shutdownSystem
       security:
         - BearerAuth: []
+        - CookieAuth: []
+          CSRFAuth: []
       responses:
         '202':
           description: Shutdown request accepted.
@@ -533,6 +584,8 @@ paths:
       operationId: createBackup
       security:
         - BearerAuth: []
+        - CookieAuth: []
+          CSRFAuth: []
       responses:
         '202':
           description: Backup task accepted.
@@ -541,6 +594,8 @@ paths:
               schema:
                 $ref: '#/components/schemas/TaskAcceptedResponse'
         '401':
+          $ref: '#/components/responses/Error'
+        '429':
           $ref: '#/components/responses/Error'
         default:
           $ref: '#/components/responses/Error'
@@ -551,6 +606,7 @@ paths:
       operationId: getOneBot11ProtocolSnapshot
       security:
         - BearerAuth: []
+        - CookieAuth: []
       responses:
         '200':
           description: OneBot11 protocol snapshot.
@@ -569,6 +625,7 @@ paths:
       operationId: getOneBot11ProtocolTargets
       security:
         - BearerAuth: []
+        - CookieAuth: []
       responses:
         '200':
           description: Current OneBot11 selectable targets.
@@ -587,6 +644,8 @@ paths:
       operationId: resolveOneBot11ProtocolIdentities
       security:
         - BearerAuth: []
+        - CookieAuth: []
+          CSRFAuth: []
       requestBody:
         required: true
         content:
@@ -613,6 +672,7 @@ paths:
       operationId: getOneBot11ProtocolCompatibility
       security:
         - BearerAuth: []
+        - CookieAuth: []
       responses:
         '200':
           description: OneBot11 compatibility matrix.
@@ -670,6 +730,8 @@ paths:
       operationId: createRecoveryRecheck
       security:
         - BearerAuth: []
+        - CookieAuth: []
+          CSRFAuth: []
       responses:
         '202':
           description: Recovery recheck task accepted.
@@ -681,6 +743,8 @@ paths:
           $ref: '#/components/responses/Error'
         '404':
           $ref: '#/components/responses/Error'
+        '429':
+          $ref: '#/components/responses/Error'
         default:
           $ref: '#/components/responses/Error'
 
@@ -690,6 +754,8 @@ paths:
       operationId: createRecoveryConfirm
       security:
         - BearerAuth: []
+        - CookieAuth: []
+          CSRFAuth: []
       requestBody:
         required: true
         content:
@@ -709,6 +775,8 @@ paths:
           $ref: '#/components/responses/Error'
         '404':
           $ref: '#/components/responses/Error'
+        '429':
+          $ref: '#/components/responses/Error'
         default:
           $ref: '#/components/responses/Error'
 
@@ -718,6 +786,8 @@ paths:
       operationId: createRuntimeBootstrap
       security:
         - BearerAuth: []
+        - CookieAuth: []
+          CSRFAuth: []
       requestBody:
         required: false
         content:
@@ -735,6 +805,8 @@ paths:
           $ref: '#/components/responses/Error'
         '401':
           $ref: '#/components/responses/Error'
+        '429':
+          $ref: '#/components/responses/Error'
         default:
           $ref: '#/components/responses/Error'
 
@@ -744,6 +816,7 @@ paths:
       operationId: listRenderTemplates
       security:
         - BearerAuth: []
+        - CookieAuth: []
       responses:
         '200':
           description: Managed render template list.
@@ -762,6 +835,7 @@ paths:
       operationId: getRenderTemplate
       security:
         - BearerAuth: []
+        - CookieAuth: []
       parameters:
         - $ref: '#/components/parameters/TemplateId'
       responses:
@@ -784,6 +858,8 @@ paths:
       operationId: createRenderTemplatePreviewHTML
       security:
         - BearerAuth: []
+        - CookieAuth: []
+          CSRFAuth: []
       parameters:
         - $ref: '#/components/parameters/TemplateId'
       requestBody:
@@ -816,6 +892,7 @@ paths:
       operationId: getRenderTemplateAsset
       security:
         - BearerAuth: []
+        - CookieAuth: []
       parameters:
         - $ref: '#/components/parameters/TemplateId'
         - name: path
@@ -847,6 +924,7 @@ paths:
       operationId: listSchedulerJobs
       security:
         - BearerAuth: []
+        - CookieAuth: []
       responses:
         '200':
           description: Scheduler job summaries.
@@ -865,6 +943,8 @@ paths:
       operationId: triggerSchedulerJob
       security:
         - BearerAuth: []
+        - CookieAuth: []
+          CSRFAuth: []
       parameters:
         - $ref: '#/components/parameters/SchedulerJobId'
       responses:
@@ -887,6 +967,7 @@ paths:
       operationId: getSystemDiagnostics
       security:
         - BearerAuth: []
+        - CookieAuth: []
       responses:
         '200':
           description: Aggregated diagnostics snapshot.
@@ -905,6 +986,7 @@ paths:
       operationId: exportDiagnostics
       security:
         - BearerAuth: []
+        - CookieAuth: []
       responses:
         '200':
           description: Diagnostics ZIP archive.
@@ -931,6 +1013,7 @@ paths:
       operationId: getSystemMetrics
       security:
         - BearerAuth: []
+        - CookieAuth: []
       responses:
         '200':
           description: Prometheus text exposition payload.
@@ -950,6 +1033,7 @@ paths:
       operationId: listLogs
       security:
         - BearerAuth: []
+        - CookieAuth: []
       parameters:
         - name: scope
           in: query
@@ -1055,6 +1139,7 @@ paths:
       operationId: getLogDetail
       security:
         - BearerAuth: []
+        - CookieAuth: []
       parameters:
         - $ref: '#/components/parameters/LogId'
       responses:
@@ -1077,6 +1162,7 @@ paths:
       operationId: listPlugins
       security:
         - BearerAuth: []
+        - CookieAuth: []
       responses:
         '200':
           description: Plugin list.
@@ -1095,6 +1181,8 @@ paths:
       operationId: enablePlugin
       security:
         - BearerAuth: []
+        - CookieAuth: []
+          CSRFAuth: []
       parameters:
         - $ref: '#/components/parameters/PluginId'
       responses:
@@ -1119,6 +1207,8 @@ paths:
       operationId: disablePlugin
       security:
         - BearerAuth: []
+        - CookieAuth: []
+          CSRFAuth: []
       parameters:
         - $ref: '#/components/parameters/PluginId'
       responses:
@@ -1141,6 +1231,8 @@ paths:
       operationId: reloadPlugin
       security:
         - BearerAuth: []
+        - CookieAuth: []
+          CSRFAuth: []
       parameters:
         - $ref: '#/components/parameters/PluginId'
       responses:
@@ -1169,6 +1261,8 @@ paths:
       operationId: recoverPlugin
       security:
         - BearerAuth: []
+        - CookieAuth: []
+          CSRFAuth: []
       parameters:
         - $ref: '#/components/parameters/PluginId'
       responses:
@@ -1193,6 +1287,7 @@ paths:
       operationId: getPluginSettings
       security:
         - BearerAuth: []
+        - CookieAuth: []
       parameters:
         - $ref: '#/components/parameters/PluginId'
       responses:
@@ -1215,6 +1310,8 @@ paths:
       operationId: updatePluginSettings
       security:
         - BearerAuth: []
+        - CookieAuth: []
+          CSRFAuth: []
       parameters:
         - $ref: '#/components/parameters/PluginId'
       requestBody:
@@ -1247,6 +1344,7 @@ paths:
       operationId: getPluginSecrets
       security:
         - BearerAuth: []
+        - CookieAuth: []
       parameters:
         - $ref: '#/components/parameters/PluginId'
       responses:
@@ -1269,6 +1367,8 @@ paths:
       operationId: updatePluginSecrets
       security:
         - BearerAuth: []
+        - CookieAuth: []
+          CSRFAuth: []
       parameters:
         - $ref: '#/components/parameters/PluginId'
       requestBody:
@@ -1301,6 +1401,8 @@ paths:
       operationId: invokePluginManagementAction
       security:
         - BearerAuth: []
+        - CookieAuth: []
+          CSRFAuth: []
       parameters:
         - $ref: '#/components/parameters/PluginId'
       requestBody:
@@ -1333,6 +1435,7 @@ paths:
       operationId: getPlugin
       security:
         - BearerAuth: []
+        - CookieAuth: []
       parameters:
         - $ref: '#/components/parameters/PluginId'
       responses:
@@ -1353,6 +1456,8 @@ paths:
       operationId: uninstallPlugin
       security:
         - BearerAuth: []
+        - CookieAuth: []
+          CSRFAuth: []
       parameters:
         - $ref: '#/components/parameters/PluginId'
       responses:
@@ -1368,6 +1473,38 @@ paths:
           $ref: '#/components/responses/Error'
         '409':
           $ref: '#/components/responses/Error'
+        '429':
+          $ref: '#/components/responses/Error'
+        default:
+          $ref: '#/components/responses/Error'
+
+  /api/plugins/install/inspect:
+    post:
+      summary: Inspect a plugin source and freeze its digest, metadata, capabilities and install scripts before trust confirmation.
+      operationId: inspectPluginInstall
+      security:
+        - BearerAuth: []
+        - CookieAuth: []
+          CSRFAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PluginInstallInspectionRequest'
+      responses:
+        '200':
+          description: Time-limited inspection result for a byte-identical plugin package.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PluginInstallInspectionResponse'
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+        '413':
+          $ref: '#/components/responses/Error'
         default:
           $ref: '#/components/responses/Error'
 
@@ -1377,6 +1514,8 @@ paths:
       operationId: installPlugin
       security:
         - BearerAuth: []
+        - CookieAuth: []
+          CSRFAuth: []
       requestBody:
         required: true
         content:
@@ -1394,6 +1533,10 @@ paths:
           $ref: '#/components/responses/Error'
         '401':
           $ref: '#/components/responses/Error'
+        '409':
+          $ref: '#/components/responses/Error'
+        '429':
+          $ref: '#/components/responses/Error'
         default:
           $ref: '#/components/responses/Error'
 
@@ -1403,6 +1546,7 @@ paths:
       operationId: listThirdPartyAccounts
       security:
         - BearerAuth: []
+        - CookieAuth: []
       responses:
         '200':
           description: Current third-party account summaries.
@@ -1421,6 +1565,8 @@ paths:
       operationId: upsertThirdPartyAccount
       security:
         - BearerAuth: []
+        - CookieAuth: []
+          CSRFAuth: []
       parameters:
         - $ref: '#/components/parameters/ThirdPartyPlatform'
         - $ref: '#/components/parameters/ThirdPartyAccountId'
@@ -1448,6 +1594,8 @@ paths:
       operationId: deleteThirdPartyAccount
       security:
         - BearerAuth: []
+        - CookieAuth: []
+          CSRFAuth: []
       parameters:
         - $ref: '#/components/parameters/ThirdPartyPlatform'
         - $ref: '#/components/parameters/ThirdPartyAccountId'
@@ -1465,6 +1613,8 @@ paths:
       operationId: createThirdPartyQRCodeLogin
       security:
         - BearerAuth: []
+        - CookieAuth: []
+          CSRFAuth: []
       parameters:
         - $ref: '#/components/parameters/ThirdPartyPlatform'
       responses:
@@ -1487,6 +1637,7 @@ paths:
       operationId: pollThirdPartyQRCodeLogin
       security:
         - BearerAuth: []
+        - CookieAuth: []
       parameters:
         - $ref: '#/components/parameters/ThirdPartyPlatform'
         - $ref: '#/components/parameters/ThirdPartyQRCodeLoginId'
@@ -1500,6 +1651,51 @@ paths:
         '400':
           $ref: '#/components/responses/Error'
         '401':
+          $ref: '#/components/responses/Error'
+        default:
+          $ref: '#/components/responses/Error'
+
+  /api/update/status:
+    get:
+      summary: Query the shared release trust and update state without starting installation.
+      operationId: getUpdateStatus
+      security:
+        - BearerAuth: []
+        - CookieAuth: []
+      responses:
+        '200':
+          description: Current update state and latest trusted release observation.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UpdateStatusResponse'
+        '401':
+          $ref: '#/components/responses/Error'
+        '429':
+          $ref: '#/components/responses/Error'
+        default:
+          $ref: '#/components/responses/Error'
+
+  /api/update/check:
+    post:
+      summary: Check the compiled release repository for a trusted v2 manifest; never download or install an artifact.
+      operationId: checkForUpdate
+      security:
+        - BearerAuth: []
+        - CookieAuth: []
+          CSRFAuth: []
+      responses:
+        '200':
+          description: Completed trusted update check.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UpdateStatusResponse'
+        '401':
+          $ref: '#/components/responses/Error'
+        '409':
+          $ref: '#/components/responses/Error'
+        '429':
           $ref: '#/components/responses/Error'
         default:
           $ref: '#/components/responses/Error'
@@ -1554,8 +1750,49 @@ components:
       description: >
         Session token issued by /api/session/login or /api/setup/admin,
         passed as a Bearer token in the Authorization header.
+    CookieAuth:
+      type: apiKey
+      in: cookie
+      name: raylea_session
+      description: Host-only HttpOnly SameSite=Strict browser session cookie. Secure is required when web.public_origin is HTTPS.
+    CSRFAuth:
+      type: apiKey
+      in: header
+      name: X-Raylea-CSRF
+      description: Required on every state-changing request authenticated by CookieAuth. Invalid or missing values map to permission.denied.
+    SetupTokenAuth:
+      type: apiKey
+      in: header
+      name: X-Raylea-Setup-Token
+      description: One-time 256-bit setup token. Invalid, missing, or reused values map to permission.denied.
+    LauncherControlAuth:
+      type: apiKey
+      in: header
+      name: X-Raylea-Launcher-Control
+      description: Per-process launcher control token. Invalid or missing values map to permission.denied.
+
+  headers:
+    SessionTransport:
+      description: Session transport selected for this response.
+      schema:
+        type: string
+        enum: [cookie, bearer]
+    CSRFToken:
+      description: Session-bound CSRF value returned to an authenticated same-origin browser and kept in memory only.
+      schema:
+        type: string
+        minLength: 32
 
   parameters:
+    SessionTransport:
+      name: X-Raylea-Session-Transport
+      in: header
+      required: false
+      description: Select cookie for the browser session flow or bearer for API clients. Defaults to bearer.
+      schema:
+        type: string
+        enum: [cookie, bearer]
+        default: bearer
     LogId:
       name: log_id
       in: path
@@ -1664,12 +1901,31 @@ components:
     SessionLoginResponse:
       type: object
       additionalProperties: false
-      required: [session_token]
+      required: [transport]
+      oneOf:
+        - required: [session_token]
+          properties:
+            transport:
+              const: bearer
+        - required: [csrf_token]
+          properties:
+            transport:
+              const: cookie
       properties:
+        transport:
+          type: string
+          enum: [cookie, bearer]
         session_token:
           type: string
           minLength: 1
-          description: Opaque management session token for later BearerAuth or auth=session_token admission.
+          description: Opaque management session token returned only for bearer transport.
+        csrf_token:
+          type: string
+          minLength: 32
+          description: Session-bound CSRF value returned only for cookie transport and kept in browser memory.
+        expires_at:
+          type: string
+          format: date-time
 
     SetupStatusResponse:
       type: object
@@ -2354,9 +2610,8 @@ components:
       enum: [history, current_session]
       default: history
 
-    LogSummary:
+    LogSummaryFields:
       type: object
-      additionalProperties: false
       required: [log_id, timestamp, level, source, message]
       properties:
         log_id:
@@ -2377,6 +2632,11 @@ components:
           type: string
         request_id:
           type: string
+
+    LogSummary:
+      allOf:
+        - $ref: '#/components/schemas/LogSummaryFields'
+      unevaluatedProperties: false
 
     LogListResponse:
       type: object
@@ -2408,25 +2668,23 @@ components:
         has_newer:
           type: boolean
         older_cursor:
-          type: string
-          nullable: true
+          type: [string, 'null']
           description: Opaque cursor used to request the next older page relative to the current oldest item.
         newer_cursor:
-          type: string
-          nullable: true
+          type: [string, 'null']
           description: Opaque cursor used to request the next newer page relative to the current newest item.
 
     LogDetailResponse:
       allOf:
-        - $ref: '#/components/schemas/LogSummary'
+        - $ref: '#/components/schemas/LogSummaryFields'
         - type: object
-          additionalProperties: false
           required: [details]
           properties:
             details:
               type: object
               additionalProperties: true
               description: Redacted structured detail payload. OneBot11 log details keep the canonical structured form and may omit protocol-native mirror fields when the value can be derived directly from retained fields such as sender, event_timestamp, conversation_id, or message_id.
+      unevaluatedProperties: false
 
     LivenessStatusResponse:
       type: object
@@ -2707,13 +2965,11 @@ components:
           type: string
           enum: [system, plugin]
         plugin_id:
-          type: string
+          type: [string, 'null']
           minLength: 1
-          nullable: true
         local_id:
-          type: string
+          type: [string, 'null']
           minLength: 1
-          nullable: true
 
     RenderTemplateSummary:
       type: object
@@ -2773,13 +3029,11 @@ components:
         source:
           $ref: '#/components/schemas/RenderTemplateSource'
         input_schema_json:
-          type: object
+          type: [object, 'null']
           additionalProperties: true
-          nullable: true
         preview_data_json:
-          type: object
+          type: [object, 'null']
           additionalProperties: true
-          nullable: true
 
     RenderTemplateDetailResponse:
       type: object
@@ -2873,9 +3127,8 @@ components:
           type: string
           format: date-time
         last_run:
-          type: string
+          type: [string, 'null']
           format: date-time
-          nullable: true
         last_duration_ms:
           type: integer
           minimum: 0
@@ -3046,8 +3299,9 @@ components:
           type: string
           minLength: 1
         declared_permission:
-          $ref: '#/components/schemas/CommandPermissionLevel'
-          nullable: true
+          oneOf:
+            - $ref: '#/components/schemas/CommandPermissionLevel'
+            - type: 'null'
         effective_permission:
           $ref: '#/components/schemas/CommandPermissionLevel'
         permission_source:
@@ -3552,8 +3806,7 @@ components:
           format: date-time
 
     ThirdPartyAccountProfile:
-      type: object
-      nullable: true
+      type: [object, 'null']
       additionalProperties: false
       required: [uid, nickname, avatar_url]
       properties:
@@ -3577,8 +3830,7 @@ components:
         state:
           $ref: '#/components/schemas/ThirdPartyCredentialState'
         checked_at:
-          type: string
-          nullable: true
+          type: [string, 'null']
           format: date-time
         last_error:
           type: string
@@ -3705,7 +3957,7 @@ components:
         values:
           $ref: '#/components/schemas/PluginSecretValues'
 
-    PluginInstallRequest:
+    PluginInstallSource:
       type: object
       additionalProperties: false
       required: [source_type, source]
@@ -3719,6 +3971,67 @@ components:
           description: >
             Local filesystem path to the plugin package or directory,
             or an HTTPS URL to a remote ZIP archive.
+
+    PluginInstallInspectionRequest:
+      $ref: '#/components/schemas/PluginInstallSource'
+
+    PluginInstallInspectionResponse:
+      type: object
+      additionalProperties: false
+      required: [inspection_id, expires_at, package_sha256, source, plugin, capabilities, install_scripts]
+      properties:
+        inspection_id:
+          type: string
+          minLength: 32
+        expires_at:
+          type: string
+          format: date-time
+        package_sha256:
+          type: string
+          pattern: '^[a-f0-9]{64}$'
+        source:
+          $ref: '#/components/schemas/PluginInstallSource'
+        plugin:
+          type: object
+          additionalProperties: false
+          required: [id, name, version, author, license, source_label]
+          properties:
+            id: { type: string, minLength: 1 }
+            name: { type: string, minLength: 1 }
+            version: { type: string, minLength: 1 }
+            author: { type: string, minLength: 1 }
+            license: { type: string, minLength: 1 }
+            source_label: { type: string, minLength: 1 }
+        capabilities:
+          type: array
+          items: { type: string, minLength: 1 }
+          uniqueItems: true
+        install_scripts:
+          type: array
+          items: { type: string, minLength: 1 }
+          uniqueItems: true
+
+    PluginInstallRequest:
+      type: object
+      additionalProperties: false
+      required: [source_type, source, inspection_id, package_sha256, trusted_code_confirmed]
+      properties:
+        source_type:
+          type: string
+          enum: [local_zip, local_directory, remote_url]
+        source:
+          type: string
+          minLength: 1
+        inspection_id:
+          type: string
+          minLength: 32
+        package_sha256:
+          type: string
+          pattern: '^[a-f0-9]{64}$'
+        trusted_code_confirmed:
+          type: boolean
+          const: true
+          description: Explicit acknowledgement that third-party plugins and approved install scripts run as fully trusted local code.
         allow_install_scripts:
           type: boolean
           description: >
@@ -3726,6 +4039,41 @@ components:
             declares require_install_scripts=true. When omitted or false, the
             install task keeps the default safety policy and may later fail with
             platform.install_script_blocked.
+
+    UpdateState:
+      type: string
+      enum: [disabled, idle, checking, up_to_date, update_available, downloading, ready_to_install, installing, succeeded, failed, rolled_back, rollback_failed]
+
+    UpdatePhase:
+      type: string
+      enum: [metadata, artifact, backup, extract, preflight, stop, swap, postflight, commit, rollback]
+
+    UpdateStatusResponse:
+      type: object
+      additionalProperties: false
+      required: [state, current_version, checked_at, update_mode, automatic_install_supported]
+      properties:
+        state:
+          $ref: '#/components/schemas/UpdateState'
+        phase:
+          $ref: '#/components/schemas/UpdatePhase'
+        current_version:
+          type: string
+        available_version:
+          type: string
+        checked_at:
+          type: [string, 'null']
+          format: date-time
+        update_mode:
+          type: string
+          enum: [automatic, guided, manual, unavailable]
+        automatic_install_supported:
+          type: boolean
+        release_notes_ref:
+          type: string
+          format: uri
+        error:
+          $ref: '#/components/schemas/ErrorEnvelope'
 
     WebhookAcceptedResponse:
       type: object

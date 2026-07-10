@@ -47,7 +47,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Bootstrap the initial management credential source and issue a session token. */
+        /** Bootstrap the initial management credential source and issue a cookie or bearer session. */
         post: operations["setupAdmin"];
         delete?: never;
         options?: never;
@@ -84,7 +84,6 @@ export interface paths {
         /**
          * Exchange management credentials for a session token.
          * @description When the configured max_sessions limit is already reached, the service may recycle the oldest active management session before issuing a new one.
-         *
          */
         post: operations["loginSession"];
         delete?: never;
@@ -120,7 +119,6 @@ export interface paths {
         /**
          * Query the current system status from a local Launcher process.
          * @description This endpoint accepts only direct loopback requests and rejects requests containing forwarding headers.
-         *
          */
         get: operations["getLauncherStatus"];
         put?: never;
@@ -143,7 +141,6 @@ export interface paths {
         /**
          * Request graceful server shutdown from a local Launcher process.
          * @description This endpoint accepts only direct loopback requests and rejects requests containing forwarding headers.
-         *
          */
         post: operations["shutdownFromLauncher"];
         delete?: never;
@@ -656,7 +653,6 @@ export interface paths {
         /**
          * Expose runtime metrics in Prometheus exposition format.
          * @description Returns counters, gauges, and histograms covering the event pipeline (adapter / bridge / dispatcher / runtime), task execution, render queue, outbound send, plugin runtime state, dispatcher drops, and webhook replay protection. Label cardinality is bounded by static enumerations and the set of registered plugins. Scrape with the standard Prometheus exposition parser (text/plain; version=0.0.4).
-         *
          */
         get: operations["getSystemMetrics"];
         put?: never;
@@ -781,7 +777,6 @@ export interface paths {
         /**
          * Recover a failed plugin runtime.
          * @description Reset the plugin's crash counter and start the runtime again. Only accepted for failed plugins that require manual recovery; any other state returns 409 with `plugin.not_recoverable`.
-         *
          */
         post: operations["recoverPlugin"];
         delete?: never;
@@ -856,6 +851,23 @@ export interface paths {
         post?: never;
         /** Uninstall a plugin asynchronously. */
         delete: operations["uninstallPlugin"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/plugins/install/inspect": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Inspect a plugin source and freeze its digest, metadata, capabilities and install scripts before trust confirmation. */
+        post: operations["inspectPluginInstall"];
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -947,6 +959,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/update/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Query the shared release trust and update state without starting installation. */
+        get: operations["getUpdateStatus"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/update/check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Check the compiled release repository for a trusted v2 manifest; never download or install an artifact. */
+        post: operations["checkForUpdate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/webhooks/{plugin_id}/{route}": {
         parameters: {
             query?: never;
@@ -984,9 +1030,21 @@ export interface components {
             secret: string;
         };
         SessionLoginResponse: {
-            /** @description Opaque management session token for later BearerAuth or auth=session_token admission. */
-            session_token: string;
-        };
+            /** @enum {string} */
+            transport: "cookie" | "bearer";
+            /** @description Opaque management session token returned only for bearer transport. */
+            session_token?: string;
+            /** @description Session-bound CSRF value returned only for cookie transport and kept in browser memory. */
+            csrf_token?: string;
+            /** Format: date-time */
+            expires_at?: string;
+        } & ({
+            /** @constant */
+            transport?: "bearer";
+        } | {
+            /** @constant */
+            transport?: "cookie";
+        });
         SetupStatusResponse: {
             /** @description Whether the initial management credential source has been bootstrapped. */
             initialized: boolean;
@@ -1259,7 +1317,7 @@ export interface components {
          * @enum {string}
          */
         LogScope: "history" | "current_session";
-        LogSummary: {
+        LogSummaryFields: {
             log_id: string;
             timestamp: string;
             level: components["schemas"]["LogLevel"];
@@ -1270,6 +1328,7 @@ export interface components {
             plugin_id?: string;
             request_id?: string;
         };
+        LogSummary: components["schemas"]["LogSummaryFields"];
         LogListResponse: {
             items: components["schemas"]["LogSummary"][];
             page: components["schemas"]["LogPage"];
@@ -1288,7 +1347,7 @@ export interface components {
             /** @description Opaque cursor used to request the next newer page relative to the current newest item. */
             newer_cursor: string | null;
         };
-        LogDetailResponse: components["schemas"]["LogSummary"] & {
+        LogDetailResponse: components["schemas"]["LogSummaryFields"] & {
             /** @description Redacted structured detail payload. OneBot11 log details keep the canonical structured form and may omit protocol-native mirror fields when the value can be derived directly from retained fields such as sender, event_timestamp, conversation_id, or message_id. */
             details: {
                 [key: string]: unknown;
@@ -1541,7 +1600,7 @@ export interface components {
             aliases: string[];
             command_source: components["schemas"]["PluginCommandSource"];
             declaration_id?: string;
-            declared_permission: components["schemas"]["CommandPermissionLevel"];
+            declared_permission: components["schemas"]["CommandPermissionLevel"] | null;
             effective_permission: components["schemas"]["CommandPermissionLevel"];
             permission_source: components["schemas"]["CommandPermissionSource"];
         };
@@ -1810,15 +1869,61 @@ export interface components {
             changed_keys: string[];
             values: components["schemas"]["PluginSecretValues"];
         };
+        PluginInstallSource: {
+            /** @enum {string} */
+            source_type: "local_zip" | "local_directory" | "remote_url";
+            /** @description Local filesystem path to the plugin package or directory, or an HTTPS URL to a remote ZIP archive. */
+            source: string;
+        };
+        PluginInstallInspectionRequest: components["schemas"]["PluginInstallSource"];
+        PluginInstallInspectionResponse: {
+            inspection_id: string;
+            /** Format: date-time */
+            expires_at: string;
+            package_sha256: string;
+            source: components["schemas"]["PluginInstallSource"];
+            plugin: {
+                id: string;
+                name: string;
+                version: string;
+                author: string;
+                license: string;
+                source_label: string;
+            };
+            capabilities: string[];
+            install_scripts: string[];
+        };
         PluginInstallRequest: {
             /** @enum {string} */
             source_type: "local_zip" | "local_directory" | "remote_url";
-            /** @description Local filesystem path to the plugin package or directory, or an HTTPS URL to a remote ZIP archive.
-             *      */
             source: string;
-            /** @description Explicitly authorizes install-time scripts for plugins whose manifest declares require_install_scripts=true. When omitted or false, the install task keeps the default safety policy and may later fail with platform.install_script_blocked.
-             *      */
+            inspection_id: string;
+            package_sha256: string;
+            /**
+             * @description Explicit acknowledgement that third-party plugins and approved install scripts run as fully trusted local code.
+             * @constant
+             */
+            trusted_code_confirmed: true;
+            /** @description Explicitly authorizes install-time scripts for plugins whose manifest declares require_install_scripts=true. When omitted or false, the install task keeps the default safety policy and may later fail with platform.install_script_blocked. */
             allow_install_scripts?: boolean;
+        };
+        /** @enum {string} */
+        UpdateState: "disabled" | "idle" | "checking" | "up_to_date" | "update_available" | "downloading" | "ready_to_install" | "installing" | "succeeded" | "failed" | "rolled_back" | "rollback_failed";
+        /** @enum {string} */
+        UpdatePhase: "metadata" | "artifact" | "backup" | "extract" | "preflight" | "stop" | "swap" | "postflight" | "commit" | "rollback";
+        UpdateStatusResponse: {
+            state: components["schemas"]["UpdateState"];
+            phase?: components["schemas"]["UpdatePhase"];
+            current_version: string;
+            available_version?: string;
+            /** Format: date-time */
+            checked_at: string | null;
+            /** @enum {string} */
+            update_mode: "automatic" | "guided" | "manual" | "unavailable";
+            automatic_install_supported: boolean;
+            /** Format: uri */
+            release_notes_ref?: string;
+            error?: components["schemas"]["ErrorEnvelope"];
         };
         WebhookAcceptedResponse: {
             accepted: boolean;
@@ -1909,17 +2014,21 @@ export interface components {
                 path: string;
             };
             command: {
-                /** @default [
+                /**
+                 * @default [
                  *       "/"
-                 *     ] */
+                 *     ]
+                 */
                 prefixes: string[];
             };
             builtin_features: {
                 menu: {
-                    /** @default [
+                    /**
+                     * @default [
                      *       "help",
                      *       "帮助"
-                     *     ] */
+                     *     ]
+                     */
                     commands: string[];
                     /** @default [] */
                     prefixes: string[];
@@ -1929,10 +2038,15 @@ export interface components {
                 /** @default [] */
                 super_admins: string[];
                 /**
-                 * @description Default admin session lifetime in days. Default: 7.
+                 * @description Idle lifetime for an admin session in days. Activity may renew this deadline without extending the absolute lifetime. Default: 7.
                  * @default 7
                  */
                 session_ttl_days: number;
+                /**
+                 * @description Absolute lifetime for an admin session in days. Runtime validation requires this value to be greater than or equal to session_ttl_days. Default: 30.
+                 * @default 30
+                 */
+                session_absolute_ttl_days: number;
                 /**
                  * @description When enabled, active sessions are automatically extended.
                  * @default true
@@ -2197,6 +2311,11 @@ export interface components {
                  * @default []
                  */
                 allow_private_hosts: string[];
+                /**
+                 * @description Maximum decompressed response body accepted from a plugin-issued HTTP request. Default: 4194304.
+                 * @default 4194304
+                 */
+                max_response_body_bytes: number;
             };
             web: {
                 /**
@@ -2210,6 +2329,16 @@ export interface components {
                  * @default true
                  */
                 setup_local_only: boolean;
+                /**
+                 * @description Canonical browser origin for Origin validation and secure-cookie decisions. public_via_reverse_proxy requires an HTTPS origin; other modes may leave it empty and use the direct listener origin.
+                 * @default
+                 */
+                public_origin: string | "" | unknown;
+                /**
+                 * @description Proxy source networks whose Forwarded and X-Forwarded-* headers may be trusted. Required and non-empty for public_via_reverse_proxy.
+                 * @default []
+                 */
+                trusted_proxy_cidrs: string[];
             };
             backup: {
                 /**
@@ -2279,6 +2408,8 @@ export interface components {
         };
     };
     parameters: {
+        /** @description Select cookie for the browser session flow or bearer for API clients. Defaults to bearer. */
+        SessionTransport: "cookie" | "bearer";
         LogId: string;
         PluginId: string;
         GovernanceEntryType: components["schemas"]["GovernanceEntryType"];
@@ -2290,7 +2421,12 @@ export interface components {
         ThirdPartyQRCodeLoginId: string;
     };
     requestBodies: never;
-    headers: never;
+    headers: {
+        /** @description Session transport selected for this response. */
+        SessionTransport: "cookie" | "bearer";
+        /** @description Session-bound CSRF value returned to an authenticated same-origin browser and kept in memory only. */
+        CSRFToken: string;
+    };
     pathItems: never;
 }
 export type $defs = Record<string, never>;
@@ -2349,7 +2485,10 @@ export interface operations {
     setupAdmin: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                /** @description Select cookie for the browser session flow or bearer for API clients. Defaults to bearer. */
+                "X-Raylea-Session-Transport"?: components["parameters"]["SessionTransport"];
+            };
             path?: never;
             cookie?: never;
         };
@@ -2359,9 +2498,10 @@ export interface operations {
             };
         };
         responses: {
-            /** @description Initial management credential source created and session token issued. */
+            /** @description Initial management credential source created and the selected session transport issued. */
             200: {
                 headers: {
+                    "X-Raylea-Session-Transport": components["headers"]["SessionTransport"];
                     [name: string]: unknown;
                 };
                 content: {
@@ -2397,7 +2537,10 @@ export interface operations {
     loginSession: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                /** @description Select cookie for the browser session flow or bearer for API clients. Defaults to bearer. */
+                "X-Raylea-Session-Transport"?: components["parameters"]["SessionTransport"];
+            };
             path?: never;
             cookie?: never;
         };
@@ -2407,9 +2550,10 @@ export interface operations {
             };
         };
         responses: {
-            /** @description Session token issued for later management admission. */
+            /** @description The selected session transport was issued; bearer remains the default for API compatibility. */
             200: {
                 headers: {
+                    "X-Raylea-Session-Transport": components["headers"]["SessionTransport"];
                     [name: string]: unknown;
                 };
                 content: {
@@ -2742,6 +2886,7 @@ export interface operations {
             /** @description Current system status snapshot. */
             200: {
                 headers: {
+                    "X-Raylea-CSRF": components["headers"]["CSRFToken"];
                     [name: string]: unknown;
                 };
                 content: {
@@ -2793,6 +2938,7 @@ export interface operations {
                 };
             };
             401: components["responses"]["Error"];
+            429: components["responses"]["Error"];
             default: components["responses"]["Error"];
         };
     };
@@ -2959,6 +3105,7 @@ export interface operations {
             };
             401: components["responses"]["Error"];
             404: components["responses"]["Error"];
+            429: components["responses"]["Error"];
             default: components["responses"]["Error"];
         };
     };
@@ -2987,6 +3134,7 @@ export interface operations {
             400: components["responses"]["Error"];
             401: components["responses"]["Error"];
             404: components["responses"]["Error"];
+            429: components["responses"]["Error"];
             default: components["responses"]["Error"];
         };
     };
@@ -3014,6 +3162,7 @@ export interface operations {
             };
             400: components["responses"]["Error"];
             401: components["responses"]["Error"];
+            429: components["responses"]["Error"];
             default: components["responses"]["Error"];
         };
     };
@@ -3239,8 +3388,7 @@ export interface operations {
     listLogs: {
         parameters: {
             query?: {
-                /** @description Select whether to browse persisted history or only the current server boot session. start_at and end_at are only valid when scope=history.
-                 *      */
+                /** @description Select whether to browse persisted history or only the current server boot session. start_at and end_at are only valid when scope=history. */
                 scope?: components["schemas"]["LogScope"];
                 /** @description Repeat level to include logs matching any selected level. */
                 level?: components["schemas"]["LogLevel"][];
@@ -3622,6 +3770,35 @@ export interface operations {
             401: components["responses"]["Error"];
             404: components["responses"]["Error"];
             409: components["responses"]["Error"];
+            429: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    inspectPluginInstall: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PluginInstallInspectionRequest"];
+            };
+        };
+        responses: {
+            /** @description Time-limited inspection result for a byte-identical plugin package. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PluginInstallInspectionResponse"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            413: components["responses"]["Error"];
             default: components["responses"]["Error"];
         };
     };
@@ -3649,6 +3826,8 @@ export interface operations {
             };
             400: components["responses"]["Error"];
             401: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            429: components["responses"]["Error"];
             default: components["responses"]["Error"];
         };
     };
@@ -3775,6 +3954,53 @@ export interface operations {
             };
             400: components["responses"]["Error"];
             401: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    getUpdateStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Current update state and latest trusted release observation. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UpdateStatusResponse"];
+                };
+            };
+            401: components["responses"]["Error"];
+            429: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    checkForUpdate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Completed trusted update check. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UpdateStatusResponse"];
+                };
+            };
+            401: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            429: components["responses"]["Error"];
             default: components["responses"]["Error"];
         };
     };

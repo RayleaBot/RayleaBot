@@ -1,0 +1,29 @@
+contract: contracts/web-api.openapi.yaml
+case: ok
+description: Plugin installation begins with a time-limited, digest-bound trust inspection.
+request:
+  method: POST
+  path: /api/plugins/install/inspect
+  body:
+    source_type: remote_url
+    source: https://example.com/plugins/weather-1.0.0.zip
+response:
+  status: 200
+  body:
+    inspection_id: inspection_fixture_weather_remote_0003
+    expires_at: '2026-07-10T12:15:00Z'
+    package_sha256: cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    source:
+      source_type: remote_url
+      source: https://example.com/plugins/weather-1.0.0.zip
+    plugin:
+      id: example.weather
+      name: Weather
+      version: 1.0.0
+      author: example
+      license: MIT
+      source_label: example.com
+    capabilities: [event.subscribe, http.request]
+    install_scripts: []
+expect:
+  valid: true
