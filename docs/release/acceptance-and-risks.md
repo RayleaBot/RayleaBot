@@ -1,59 +1,54 @@
 # Acceptance and Risks
 
-本页说明 RayleaBot 当前正式验收口径、关键场景和主要风险。
+本页定义正式发布的风险控制与验收门槛。
 
-## 当前主要风险
+## 主要风险
 
-| 风险 | 当前控制方向 |
+| 风险 | 控制 |
 | --- | --- |
-| Chromium 渲染环境缺失、队列拥塞或浏览器超时 | 受控队列上限、执行超时、资源检查和结构化错误 |
-| SQLite 锁争用、容器或网络文件系统导致状态库异常 | 本地文件系统要求、短时重试、降级摘要和恢复指引 |
-| OneBot11 鉴权失败、链路断连或持续重连失败 | 明确连接状态、退避重连和管理面告警 |
-| 插件升级后能力声明扩大、能力参数越界、数据版本不兼容或运行时反复崩溃 | manifest 校验、兼容检查、`state=failed` 诊断和人工干预 |
-| 运行环境资源缺失、模板资源缺失或恢复后兼容检查失败 | `doctor`、Launcher、管理面和恢复摘要共用同一份问题口径 |
+| 发布元数据伪造、过期或重放 | 固定仓库与 Ed25519 公钥、双签轮换、过期时间、最高版本和同版本 digest 记录 |
+| Windows artifact 被替换或 signer 不符 | manifest 摘要与 Authenticode 双重校验，正式证书和 RFC3161 timestamp |
+| 安装中断、磁盘不足或新版不可用 | 外置 updater、磁盘预检、journal、同卷 staging、双 rename、postflight 与自动回滚 |
+| 回滚状态不可读 | offline backup、旧安装根保留、旧版 restore/doctor 和 `rollback_failed` 停机保护 |
+| 恶意插件包或能力扩大 | 安装检查、包摘要、能力和安装脚本展示、可信代码确认、归档资源上限 |
+| Chromium、SQLite、OneBot11 或插件运行时故障 | readiness、diagnostics、结构化错误、恢复摘要和受控重试 |
 
-## 验收结论
+## 发布验收
 
-当前发布门槛不是“开发者环境能运行”，而是用户能按受支持文档完成安装、初始化、插件启用、基础管理、协议接入和恢复排障闭环。
+正式发行物必须通过：
 
-## 核心验收场景
+- strict contracts、valid/invalid fixtures、embedded schema 和 generated types drift；
+- server tests、目标包 `-race`、server build 与 binary-mode govulncheck；
+- Web 与 Launcher typecheck、test、build 和受影响的 E2E；
+- Node SDK dist drift 与 Python wheel/sdist fresh-venv import；
+- 四种归档的 `LICENSE`、`THIRD_PARTY_NOTICES.md`、metadata、artifact smoke 和 recovery drill；
+- doctor、agent docs、文档链接和 `git diff --check`。
 
-- OneBot11 `reverse_ws`、`forward_ws`、`http_api` 和 `webhook` 都能建立受控链路。
-- 鉴权失败进入明确失败状态，而不是静默重试。
-- packaged `/api/protocols/onebot11` 能稳定返回四条 transport 状态、provider、readiness 和摘要。
-- packaged `/api/protocols/onebot11/compatibility` 能稳定返回 `events`、`message_segments`、`read_capabilities`、`provider_extensions` 四类矩阵和代表项。
-- 群聊或私聊消息能够进入插件处理并返回回复。
-- `message_sent.private` 与 `message_sent.group` 能进入日志中心、桥接链路和插件协议。
-- 协议中心能够显示当前 transport 状态、摘要和最近传输问题。
-- 日志中心能够区分本次服务端启动日志与历史日志，并可查看单条日志详情中的摘要字段与脱敏后的 `details` JSON。
-- 插件列表和指令中心能够直接显示已声明命令，并按插件筛选查看。
-- 插件完成 `init -> init_ack` 握手。
-- 插件崩溃后进入受控重试等待；超过阈值后进入 `state=failed` 且诊断为 `recovery_required`。
-- 插件安装、能力声明、能力参数、重载和卸载都可追溯。
-- 首次启动没有管理员账户时，服务进入 `setup_required`，仅允许本机初始化。
-- 用户能完成初始化、登录、查看状态、管理插件、查看日志和编辑配置。
-- 插件安装使用异步任务模型，管理面可持续看到阶段、输出摘要和最终结果。
-- Launcher 能启动 / 停止服务、检查环境并打开管理面。
-- Launcher 检测到现有服务、端口占用或启动失败时，都会给出可读提示。
-- Launcher 打开管理面只打开普通 Web URL；管理会话由 Web 初始化和登录流程建立。
-- Launcher 本机状态与停服入口只接受本机直连请求，带代理转发头或来自非本机地址的请求会被拒绝。
-- Web UI、CLI 和 Launcher 不形成第二套状态源。
-- 官方模板可通过统一渲染链路输出图片。
-- 渲染队列已满或 Chromium 缺失时返回结构化错误。
-- 运行环境资源缺失时，`doctor`、Launcher 和管理面给出同一份失败摘要。
-- 相同模板与相同数据可命中缓存，渲染失败时仍保留文本降级路径。
-- `backup`、`restore`、`doctor`、`reset-admin` 至少具备一条受支持执行路径。
-- 恢复流程遵循停服、导入、兼容检查和人工处理摘要路径。
-- `/healthz`、`/readyz`、诊断导出和恢复摘要能支撑基本排障闭环。
-- 恢复后发现插件或数据不兼容时，平台保留插件包与业务数据，但阻止自动启用。
-- 安装缺失 manifest、字段不合法或版本不满足要求的插件时，平台直接拒绝安装，不留下半完成目录。
-- 管理员重置后，旧管理会话全部失效。
-- 配置、数据库或运行环境检查失败时，服务不会进入 `running`。
-- 默认配置下，管理接口以 loopback 为主，API 与 WebSocket 都要求鉴权。
-- packaged 模板预览工作区支持列表、模板详情、输入结构、自动预览、artifact 和任务日志跳转。
-- 正式发布包通过 release metadata 校验、packaged recovery drill 和长期自托管 smoke。
+## 更新安全验收
 
-## 当前边界
+更新核心必须拒绝：错误 key、错误签名、过期或重放 manifest、降级、同版本不同摘要、artifact hash/size/platform/version/signer 不匹配、路径穿越、reparse point、大小写冲突、额外根目录、zip bomb、磁盘不足和超时。
 
-- 多协议、多实例和平台级 LLM 能力不属于当前正式验收范围。
-- 自动覆盖更新、插件市场和强沙盒不属于当前正式交付范围。
+事务恢复测试必须覆盖每个 journal phase、helper 启动失败、停止服务失败、健康检查失败、回滚成功和回滚失败。升级前后的 `config/user.yaml`、`data/**` 和 `plugins/installed/**` 必须保持一致。
+
+Windows packaged E2E 必须使用正式签名证书覆盖：
+
+- 服务运行时的真实 N→N+1；
+- 服务停止时的真实 N→N+1；
+- 强制 postflight 失败后的旧版与旧状态恢复；
+- Launcher、server、updater 的 `signtool verify /pa /all`。
+
+正式 Authenticode 证书与真实签名 packaged E2E 是 Phase 3 的阻塞门槛。证书可用前，`windows-x64-full` 保持 `guided`，不能用自签名证书替代验收。
+
+## 产品验收
+
+- OneBot11 `reverse_ws`、`forward_ws`、`http_api` 和 `webhook` 具备可观察的连接、鉴权与失败状态。
+- 首次初始化、cookie 会话、CSRF、WebSocket Origin 和 Launcher control token 的安全用例全部通过。
+- 插件安装、卸载、启停、重载、自定义管理页动作、日志和任务终态可追溯。
+- 任务队列满时不产生 orphan task；重启把未完成任务收敛为 interrupted。
+- 插件事件、调度触发、出站消息、渲染和恢复共享正式状态与错误语义。
+- Web、Launcher 和 CLI 不维护服务端状态的平行副本。
+- WCAG 2.2 AA 的键盘、焦点、ARIA、对比度、reduced-motion 和目标视口验收通过。
+
+## 正式边界
+
+多协议、多实例、高可用、插件市场和插件 OS 强沙盒不属于本次发布门槛。第三方插件是用户明确确认后执行的完全可信本地代码。

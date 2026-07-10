@@ -35,12 +35,14 @@
 2. 运行桌面入口或 `raylea-server`；服务器包可参考包内 `systemd/rayleabot.service` 托管。
 3. 浏览器访问 `http://127.0.0.1:8080`，按引导完成管理员初始化。
 
-完整部署说明见 [`docs/user/deployment.md`](./docs/user/deployment.md)。
+首个支持签名更新的版本需要手动安装。Launcher 每 6 小时检查一次更新；Windows 只有在 Ed25519 发布签名和正式 Authenticode 全部通过时才提供用户确认后的事务安装，Linux、macOS 和未满足签名门槛的 Windows 包使用引导更新。
+
+完整部署与发布信任说明见 [`docs/user/deployment.md`](./docs/user/deployment.md) 和 [`docs/release/delivery-and-upgrade.md`](./docs/release/delivery-and-upgrade.md)。
 
 ### 方式二：从源码启动
 
-前置条件：Go 1.25.11、Node.js 24.14.0、pnpm 11.9.0、Python 3.12.13、Git 2.x。`.tool-versions` 可由 mise 或 asdf 读取。
-工具链检查：`make doctor`；无 make 环境时运行 `python scripts/check-toolchain.py` 和 `python scripts/check-server-structure.py`。离线环境需要预装 Go 1.25.11，并设置 `GOTOOLCHAIN=local` 让版本错误在本地直接失败。
+前置条件：Go 1.25.12、Node.js 24.18.0、pnpm 11.11.0、Python 3.12.13、Git 2.x。`.tool-versions` 可由 mise 或 asdf 读取。
+工具链检查：`make doctor`；无 make 环境时运行 `python scripts/check-toolchain.py` 和 `python scripts/check-server-structure.py`。离线环境需要预装 Go 1.25.12，并设置 `GOTOOLCHAIN=local` 让版本错误在本地直接失败。
 Devcontainer 位于 `.devcontainer/`，可直接提供 server tests 所需的 Go、Node、pnpm、sqlc、Chromium 与 SQLite 环境。
 
 ```bash
@@ -67,7 +69,7 @@ node scripts/start-dev.mjs
 
 | 文档 | 说明 |
 |---|---|
-| [项目规划](./docs/RayleaBot机器人项目规划.md) | 产品目标、架构与路线图 |
+| [项目章程](./docs/RayleaBot机器人项目规划.md) | 产品使命、长期边界与工程原则 |
 | [架构总览](./docs/architecture/README.md) | 内部设计、事件模型、状态模型 |
 | [插件开发](./docs/plugin/README.md) | 生命周期、manifest、协议、SDK |
 | [用户指南](./docs/user/README.md) | 部署、配置、CLI、恢复 |

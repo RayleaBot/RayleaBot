@@ -79,6 +79,7 @@
 - 管理页读取和保存插件设置使用正式受保护接口 `GET /api/plugins/{plugin_id}/settings` 与 `PUT /api/plugins/{plugin_id}/settings`。
 - 未验证来源插件首次打开内置管理页时需要手动确认；插件版本或来源变化后会重新确认。
 - 插件管理页读取和保存插件设置；插件管理动作通过 `POST /api/plugins/{plugin_id}/management/actions` 转给插件 runtime 处理。
+- 插件安装前会展示来源、摘要、能力和安装脚本；操作者必须明确确认第三方插件会作为完全可信的本地代码运行。
 
 ## 内置三方功能
 

@@ -11,8 +11,8 @@
   - Python：继承 `RayleaBotPlugin`，使用 `@command(...)` 与 `@event_handler(...)` 注册类方法
   - Node.js：继承 `RayleaBotPlugin`，在构造函数中使用 `this.onCommand(...)` 与 `this.onEvent(...)` 注册实例方法
 - 事件上下文：
-  - Python：`EventContext` 提供 `event`、`request_id`、`target`、`actor`、`payload`、`args`、`plain_text`、`bot_id`、`super_admins` 和 request-bound helper
-  - Node.js：`PluginEventContext` 提供 `event`、`requestId`、`target`、`actor`、`payload`、`args`、`plainText`、`botId`、`superAdmins` 和 request-bound helper
+  - Python：`EventContext` 提供 `event`、`request_id`、`target`、`actor`、`payload`、`webhook`、`args`、`plain_text`、`bot_id`、`super_admins` 和 request-bound helper
+  - Node.js：`PluginEventContext` 提供 `event`、`requestId`、`target`、`actor`、`payload`、`webhook`、`args`、`plainText`、`botId`、`superAdmins` 和 request-bound helper
 - 启动上下文 helper：
   - Python：`bot_id`、`capabilities`、`super_admins`、`command_prefixes`、`primary_command_prefix`
   - Node.js：`botId`、`capabilities`、`superAdmins`、`commandPrefixes`、`primaryCommandPrefix`
@@ -84,7 +84,7 @@ await new EchoPlugin().run()
 - 互动段：`poke`、`dice`、`rps`
 - provider 扩展段：`mface`、`keyboard`、`shake`
 
-Python 使用 snake_case builder，例如 `flash_file_segment()`、`keyboard_segment()`；Node.js 使用 camelCase builder，例如 `flashFileSegment()`、`keyboardSegment()`。两套 SDK 都保留 `passthrough_segment()` / `passthroughSegment()` 作为通用构造入口。
+Python 使用 snake_case builder，例如 `flash_file_segment(data)`、`keyboard_segment()`；Node.js 使用 camelCase builder，例如 `flashFileSegment(data)`、`keyboardSegment()`。两套 SDK 都保留 `passthrough_segment()` / `passthroughSegment()` 作为通用构造入口。媒体类型 `record`、`video`、`file`、`flash_file` 要求非空 `data`，其余 passthrough 类型允许省略 `data`。
 
 ## 并发与请求归属
 
@@ -95,6 +95,8 @@ Python 使用 snake_case builder，例如 `flash_file_segment()`、`keyboard_seg
 - 事件处理函数需要满足可重入要求
 
 ## 相关文档
+
+Python wheel、sdist 与 Node.js package 使用仓库统一的 `AGPL-3.0-only` 许可证，并携带根仓库 `LICENSE`。
 
 - [Plugin Lifecycle](../lifecycle.md)
 - [Capabilities and Manifest](../capabilities-and-manifest.md)

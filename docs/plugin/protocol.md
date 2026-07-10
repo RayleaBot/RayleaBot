@@ -56,6 +56,7 @@
 - `event.payload.message_id` 表示单条消息编号。
 - `event.target.id` 与 `event.payload.onebot.group_id` / `event.payload.onebot.user_id` 一起用于定位会话。
 - `event.payload.onebot` 保留 OneBot11 原生字段，包括 `post_type`、`message_type`、`group_id`、`user_id`、`time`、`real_id`、`message_seq`、`raw_message`、`message_format`、`font`、`sender`、`meta_event_type`、`interval` 和 `status`。
+- `webhook.received` 的来源元数据位于 `event.webhook`；`route` 与服务端接收时间 `received_at` 必填，客户端时间 `client_timestamp` 与事件编号 `client_event_id` 在调用方提供时出现。
 - `message_sent.private` 与 `message_sent.group` 作为独立事件类型进入插件协议，不并入普通 `message.*`。
 - `meta.*` 事件使用系统会话：`conversation_type=system`、`conversation_id=bot:<self_id>`、`sender_id=<self_id>`、`target.type=bot`、`target.id=<self_id>`；`event.message` 保持为空。
 - `bot.identity.changed` 使用 `target.type=bot`、`target.id=<self_id>`，并在 `event.payload.onebot.self_id` 中提供同一身份。
@@ -189,6 +190,8 @@ OneBot 单动作 capability 名称与 action kind 保持一致，provider capabi
 - `shake`
 
 平台负责把 shared `message.segments` 投影到当前适配器支持的消息格式。
+
+`record`、`video`、`file` 与 `flash_file` 属于媒体分支，必须携带非空 `data`；其余 passthrough 类型属于 payload 分支，`data` 可省略。两个分支按 `type` 互斥。
 
 管理面兼容矩阵通过 `GET /api/protocols/onebot11/compatibility` 提供正式读取面，固定覆盖 `events`、`message_segments`、`read_capabilities` 和 `provider_extensions` 四类能力。
 

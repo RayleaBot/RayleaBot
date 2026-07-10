@@ -1,15 +1,19 @@
 # Release Docs
 
-本目录说明 RayleaBot 的交付矩阵、发布元数据、升级回滚和当前正式验收口径。
+本目录说明 RayleaBot 的产物矩阵、发布信任、升级事务、回滚和验收门槛。
 
 ## 阅读入口
 
 | 文档 | 主题 |
 | --- | --- |
-| [delivery-and-upgrade.md](./delivery-and-upgrade.md) | 构建目标、产物矩阵、包目录、元数据和升级回滚 |
-| [acceptance-and-risks.md](./acceptance-and-risks.md) | 当前风险、验收结论和关键场景 |
+| [Delivery and Upgrade](./delivery-and-upgrade.md) | 产物矩阵、manifest v2、Ed25519、Authenticode、自动检查、事务安装与 guided update |
+| [Acceptance and Risks](./acceptance-and-risks.md) | 风险控制、发布门禁、故障注入和真实签名 Windows E2E |
 
-## 当前原则
+## 正式来源
 
-- 发布元数据字段以 `contracts/release-manifest.schema.json` 为准。
-- 本目录说明交付内容和发布边界，不替代正式契约。
+- 发布元数据字段与限制：[`contracts/release-manifest.schema.json`](../../contracts/release-manifest.schema.json)
+- 更新状态、阶段与 Web API：[`contracts/web-api.openapi.yaml`](../../contracts/web-api.openapi.yaml)
+- CLI 更新入口：[`contracts/cli-commands.yaml`](../../contracts/cli-commands.yaml)
+- 固定工具链与发布基线：[`docs/engineering/baseline.md`](../engineering/baseline.md)
+
+正式 Authenticode 证书和真实签名 Windows packaged E2E 通过前，`windows-x64-full` 的正式更新方式为 `guided`。
