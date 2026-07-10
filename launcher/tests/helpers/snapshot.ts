@@ -22,7 +22,7 @@ export function createLauncherSnapshot(overrides: DeepPartial<LauncherSnapshot> 
       recentStderr: [],
       runtimePrepare: null,
       releaseCheck: {
-        status: "unavailable",
+        status: "disabled",
         currentVersion: "",
         latestVersion: "",
         summary: "版本信息不可用",

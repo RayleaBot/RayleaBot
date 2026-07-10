@@ -103,10 +103,21 @@ async function fetchWithTimeout(fetchLike: FetchLike, input: URL, init: RequestI
 export class FetchLauncherManagementClient {
   private readonly fetchLike: FetchLike;
   private readonly timeoutMs: number;
+  private readonly getLauncherControlToken: () => string;
 
-  constructor(options: { fetchLike?: FetchLike; timeoutMs?: number } = {}) {
+  constructor(options: { fetchLike?: FetchLike; timeoutMs?: number; getLauncherControlToken?: () => string } = {}) {
     this.fetchLike = options.fetchLike ?? fetch;
     this.timeoutMs = options.timeoutMs ?? DEFAULT_REQUEST_TIMEOUT_MS;
+    this.getLauncherControlToken = options.getLauncherControlToken ?? (() => "");
+  }
+
+  private launcherControlHeaders(): Record<string, string> {
+    const token = this.getLauncherControlToken().trim();
+    const headers: Record<string, string> = {};
+    if (token) {
+      headers["X-Raylea-Launcher-Control"] = token;
+    }
+    return headers;
   }
 
   async isHealthy(endpoint: ServerEndpoint) {
@@ -140,7 +151,7 @@ export class FetchLauncherManagementClient {
       await fetchWithTimeout(
         this.fetchLike,
         new URL("api/launcher/shutdown", endpoint.baseUrl),
-        { method: "POST" },
+        { method: "POST", headers: this.launcherControlHeaders() },
         this.timeoutMs,
       ),
     );
@@ -151,7 +162,7 @@ export class FetchLauncherManagementClient {
       await fetchWithTimeout(
         this.fetchLike,
         new URL("api/launcher/status", endpoint.baseUrl),
-        undefined,
+        { headers: this.launcherControlHeaders() },
         this.timeoutMs,
       ),
     );

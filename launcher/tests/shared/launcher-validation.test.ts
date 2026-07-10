@@ -1,5 +1,6 @@
 import { describe, expect, test } from "vitest";
 import {
+  parseLauncherCloseConfirmResponse,
   parseLauncherSettingsInput,
   parseRuntimeBootstrapResources,
   sanitizeLauncherWebTargetPath,
@@ -36,6 +37,24 @@ describe("launcher validation", () => {
         },
       }),
     ).toThrow("启动器设置格式无效。");
+
+    expect(() =>
+      parseLauncherSettingsInput({
+        installationRoot: "C:\\RayleaBot",
+        closeBehavior: "hide_to_tray",
+        unknown: true,
+      }),
+    ).toThrow("启动器设置格式无效。");
+  });
+
+  test("accepts only the exact close-confirm payload shape", () => {
+    expect(parseLauncherCloseConfirmResponse({ action: "hide", setAsDefault: true })).toEqual({
+      action: "hide",
+      setAsDefault: true,
+    });
+    expect(() =>
+      parseLauncherCloseConfirmResponse({ action: "hide", setAsDefault: true, unknown: true }),
+    ).toThrow("关闭确认格式无效。");
   });
 
   test("rejects runtime bootstrap payloads with non-string resource ids", () => {

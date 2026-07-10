@@ -38,7 +38,7 @@ export function AppShellStatusSummary({ resolvedSettings, snapshot }: AppShellSt
   const showWorkdir = Boolean(workdir.trim()) && !isSameDirectoryPath(installationRoot, workdir);
 
   return (
-    <article className="panel glass-panel panel--interactive">
+    <article className="panel surface-panel panel--interactive">
       <div className="brand-eyebrow">核心参数</div>
       <div className="status-list status-list--grid-modern">
         <div className="status-item-modern">

@@ -40,13 +40,12 @@ export function AppShellStatusHero({
   stopDisabled,
 }: AppShellStatusHeroProps) {
   return (
-    <section className="status-hero glass-panel hero-card hero-card--fancy" data-highlight={statusHighlight}>
+    <section className="status-hero surface-panel hero-card hero-card--fancy" data-highlight={statusHighlight}>
       <div className="status-hero__body hero-copy">
         <div className="brand-eyebrow brand-eyebrow--faded">Service Control</div>
         <div className="hero-status-row hero-status-row--main">
           <div className="hero-status-indicator">
             <PresenceBadge status={serviceStateConfig[snapshot.serviceState]?.status ?? "unknown"} size="extra-large" />
-            <div className={`hero-status-glow hero-status-glow--${serviceStateConfig[snapshot.serviceState]?.status}`} />
           </div>
           <div className="hero-status-content">
             <Text weight="bold" size={800} className="hero-status-text hero-status-text--huge">{serviceStateConfig[snapshot.serviceState]?.label ?? "未知"}</Text>
@@ -68,13 +67,13 @@ export function AppShellStatusHero({
 
       <div className="status-hero__actions hero-actions hero-actions--premium">
         <div className="status-hero__primary-action">
-          <Button appearance="transparent" size="large" className="frost-button frost-button--primary status-action status-action--primary" onClick={onStart} disabled={startDisabled} icon={<Play20Filled />}>
+          <Button appearance="transparent" size="large" className="action-button action-button--primary status-action status-action--primary" onClick={onStart} disabled={startDisabled} icon={<Play20Filled />}>
             <span className="button-text-large">{primaryActionLabel}</span>
           </Button>
         </div>
         <div className="status-hero__secondary-actions hero-actions-row">
-          <Button appearance="transparent" size="large" className="frost-button frost-button--secondary status-action" onClick={onStop} disabled={stopDisabled} icon={<Stop20Filled />}>停止服务</Button>
-          <Button appearance="transparent" size="large" className="frost-button frost-button--secondary status-action" onClick={onOpenWeb} disabled={controlsDisabled || !canOpenWebUi} icon={<Globe20Filled />}>管理界面</Button>
+          <Button appearance="transparent" size="large" className="action-button action-button--secondary status-action" onClick={onStop} disabled={stopDisabled} icon={<Stop20Filled />}>停止服务</Button>
+          <Button appearance="transparent" size="large" className="action-button action-button--secondary status-action" onClick={onOpenWeb} disabled={controlsDisabled || !canOpenWebUi} icon={<Globe20Filled />}>管理界面</Button>
         </div>
         <div className="status-action-feedback" data-busy={busyLabel ? "true" : "false"}>
           <span className="status-action-feedback__dot" aria-hidden="true"></span>

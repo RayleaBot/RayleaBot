@@ -154,7 +154,7 @@ class FakeReleaseFeedClient implements ReleaseFeedClient {
 
 function releaseSnapshot(overrides: Partial<ReleaseCheckSnapshot> = {}): ReleaseCheckSnapshot {
   return {
-    status: "unavailable",
+    status: "disabled",
     currentVersion: "",
     latestVersion: "",
     summary: "版本信息不可用",
@@ -1437,7 +1437,7 @@ describe("launcher coordinator", () => {
     });
     const downloadedRelease = releaseSnapshot({
       ...availableRelease,
-      status: "downloaded",
+      status: "ready_to_install",
       summary: "新版本 1.2.0 已下载。",
       downloadProgress: 1,
       downloadedBytes: 100,
@@ -1478,7 +1478,7 @@ describe("launcher coordinator", () => {
 
     await coordinator.downloadUpdate();
 
-    expect(coordinator.snapshot.launcher.releaseCheck.status).toBe("downloaded");
+    expect(coordinator.snapshot.launcher.releaseCheck.status).toBe("ready_to_install");
     expect(coordinator.snapshot.launcher.releaseCheck.downloadProgress).toBe(1);
     expect(installDownloadedUpdate).not.toHaveBeenCalled();
   });
@@ -1502,7 +1502,7 @@ describe("launcher coordinator", () => {
     const releaseFeedClient: ReleaseFeedClient = {
       getSnapshot: vi.fn(async () =>
         releaseSnapshot({
-          status: "downloaded",
+          status: "ready_to_install",
           currentVersion: "1.0.0",
           latestVersion: "1.2.0",
           summary: "新版本 1.2.0 已下载。",
@@ -1533,13 +1533,63 @@ describe("launcher coordinator", () => {
     });
 
     await coordinator.initialize();
-    await waitForCondition(() => expect(coordinator.snapshot.launcher.releaseCheck.status).toBe("downloaded"));
+    await waitForCondition(() => expect(coordinator.snapshot.launcher.releaseCheck.status).toBe("ready_to_install"));
 
     await coordinator.prepareUpdateInstall(12345);
 
     expect(processController.forceKillCalls).toBeGreaterThan(0);
-    expect(installDownloadedUpdate).toHaveBeenCalledWith(12345);
+    expect(installDownloadedUpdate).toHaveBeenCalledWith(
+      12345,
+      true,
+      coordinator.snapshot.launcher.resolvedSettings,
+    );
     expect(coordinator.snapshot.launcher.releaseCheck.status).toBe("installing");
+  });
+
+  test("restarts a previously running service when the update helper cannot start", async () => {
+    const processController = new FakeProcessController();
+    processController.isRunning = true;
+    const managementClient = new FakeManagementClient();
+    managementClient.isHealthy = vi.fn(async () => processController.isRunning);
+    const readyToInstall = releaseSnapshot({
+      status: "ready_to_install",
+      currentVersion: "1.0.0",
+      latestVersion: "1.2.0",
+      summary: "新版本 1.2.0 已下载。",
+      updateAvailable: true,
+      canCheck: true,
+      canInstall: true,
+    });
+    const releaseFeedClient: ReleaseFeedClient = {
+      getSnapshot: vi.fn(async () => readyToInstall),
+      downloadUpdate: vi.fn(async () => readyToInstall),
+      installDownloadedUpdate: vi.fn(async () => releaseSnapshot({
+        ...readyToInstall,
+        status: "failed",
+        detail: "更新助手启动失败。",
+      })),
+    };
+    const coordinator = createLauncherCoordinator({
+      settingsStore: new FakeSettingsStore(),
+      endpointResolver: new FakeEndpointResolver(),
+      inspectEnvironment: vi.fn(async () => okInspection()),
+      managementClient,
+      processController,
+      isEndpointListening: vi.fn(async () => false),
+      tryStopEndpointProcess: vi.fn(async () => false),
+      externalOpener: new FakeExternalOpener(),
+      releaseFeedClient,
+      options: { pollIntervalMs: 1, shutdownTimeoutMs: 1 },
+    });
+
+    await coordinator.initialize();
+    await waitForCondition(() => expect(coordinator.snapshot.launcher.releaseCheck.status).toBe("ready_to_install"));
+
+    await expect(coordinator.prepareUpdateInstall(12345)).rejects.toThrow("更新助手启动失败");
+
+    expect(processController.forceKillCalls).toBeGreaterThan(0);
+    expect(processController.startCalls).toBeGreaterThan(0);
+    expect(processController.isRunning).toBe(true);
   });
 
   test("reset admin waits for startup readiness before opening the setup entry", async () => {
@@ -1588,7 +1638,7 @@ describe("launcher coordinator", () => {
     expect(processController.startCalls).toBe(1);
     expect(managementClient.getReadiness).toHaveBeenCalled();
     expect(presentationState(coordinator.snapshot).state).toBe("setup_required");
-    expect(externalOpener.openedUris.at(-1)).toBe("http://127.0.0.1:8080/");
+    expect(externalOpener.openedUris.at(-1)).toBe("http://127.0.0.1:8080/setup");
   });
 
   test("reset admin surfaces start failure with contextual error", async () => {

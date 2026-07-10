@@ -262,13 +262,14 @@ describe("launcher lifecycle service", () => {
       managementClient,
       resetAdminRunner,
     });
+    processController.setupToken = "setup-token";
 
     await lifecycleService.resetAdmin();
 
     expect(resetAdminRunner.calls).toBe(1);
     expect(processController.startCalls).toBe(1);
     expect(deriveLauncherPresentation(snapshotStore.snapshot).state).toBe("setup_required");
-    expect(externalOpener.openedUris.at(-1)).toBe("http://127.0.0.1:8080/");
+    expect(externalOpener.openedUris.at(-1)).toBe("http://127.0.0.1:8080/setup#setup_token=setup-token");
   });
 
   test("resetAdmin surfaces restart failures with contextual errors", async () => {

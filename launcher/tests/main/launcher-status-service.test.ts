@@ -194,6 +194,6 @@ describe("launcher status service", () => {
     const { snapshotStore, statusService } = await createStatusHarness();
 
     await statusService.refresh(false);
-    expect(snapshotStore.snapshot.launcher.releaseCheck.status).toBe("unavailable");
+    expect(snapshotStore.snapshot.launcher.releaseCheck.status).toBe("disabled");
   });
 });

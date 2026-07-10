@@ -1,4 +1,9 @@
-import type { LauncherAdvancedOverrides, LauncherCloseBehavior, LauncherSettings } from "./launcher-models";
+import type {
+  LauncherAdvancedOverrides,
+  LauncherCloseBehavior,
+  LauncherCloseConfirmResponse,
+  LauncherSettings,
+} from "./launcher-models";
 
 const CLOSE_BEHAVIORS = new Set<LauncherCloseBehavior>([
   "ask_every_time",
@@ -8,6 +13,11 @@ const CLOSE_BEHAVIORS = new Set<LauncherCloseBehavior>([
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function hasOnlyKeys(value: Record<string, unknown>, allowedKeys: readonly string[]) {
+  const allowed = new Set(allowedKeys);
+  return Object.keys(value).every((key) => allowed.has(key));
 }
 
 function readRequiredString(value: unknown) {
@@ -28,7 +38,7 @@ function readOptionalString(value: unknown) {
 }
 
 export function parseLauncherSettingsInput(value: unknown): LauncherSettings {
-  if (!isRecord(value)) {
+  if (!isRecord(value) || !hasOnlyKeys(value, ["installationRoot", "closeBehavior", "advancedOverrides"])) {
     throw new Error("启动器设置格式无效。");
   }
 
@@ -41,7 +51,10 @@ export function parseLauncherSettingsInput(value: unknown): LauncherSettings {
 
   let advancedOverrides: LauncherAdvancedOverrides | undefined;
   if (value.advancedOverrides !== undefined) {
-    if (!isRecord(value.advancedOverrides)) {
+    if (
+      !isRecord(value.advancedOverrides) ||
+      !hasOnlyKeys(value.advancedOverrides, ["serverExecutablePath", "configPath", "workdir"])
+    ) {
       throw new Error("启动器设置格式无效。");
     }
 
@@ -60,6 +73,24 @@ export function parseLauncherSettingsInput(value: unknown): LauncherSettings {
     installationRoot,
     closeBehavior: normalizedCloseBehavior,
     advancedOverrides,
+  };
+}
+
+export function parseLauncherCloseConfirmResponse(value: unknown): LauncherCloseConfirmResponse {
+  if (!isRecord(value) || !hasOnlyKeys(value, ["action", "setAsDefault"])) {
+    throw new Error("关闭确认格式无效。");
+  }
+
+  if (
+    (value.action !== "hide" && value.action !== "exit" && value.action !== "cancel") ||
+    typeof value.setAsDefault !== "boolean"
+  ) {
+    throw new Error("关闭确认格式无效。");
+  }
+
+  return {
+    action: value.action,
+    setAsDefault: value.setAsDefault,
   };
 }
 

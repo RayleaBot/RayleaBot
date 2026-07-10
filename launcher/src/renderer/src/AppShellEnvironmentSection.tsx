@@ -47,7 +47,7 @@ export function AppShellEnvironmentSection({
 
   return (
     <div className="env-details-flow">
-      <article className="panel glass-panel env-overview-card">
+      <article className="panel surface-panel env-overview-card">
         <div className="brand-eyebrow">启动前检查</div>
         <div className="env-overview-strip">
           <div className="env-overview-card__lead">
@@ -77,7 +77,7 @@ export function AppShellEnvironmentSection({
             <div className="brand-eyebrow brand-eyebrow--section">{section.title}</div>
             <div className="checks-stack checks-stack--grid">
               {section.data.map((item) => (
-                <div key={item.code} className={`check-item glass-panel glass-panel--subtle check-item--${item.severity}`}>
+                <div key={item.code} className={`check-item surface-panel surface-panel--subtle check-item--${item.severity}`}>
                   <div className="check-item__lead">
                     <div className="check-item__icon">{severityConfig[item.severity as keyof typeof severityConfig]?.icon}</div>
                     <div className="check-item__copy">

@@ -118,7 +118,7 @@ export function AppShellRuntimePreparePanel({ runtimePrepare }: AppShellRuntimeP
     ?? null;
 
   return (
-    <article className="panel glass-panel glass-panel--subtle runtime-prepare-panel">
+    <article className="panel surface-panel surface-panel--subtle runtime-prepare-panel">
       <div className="runtime-prepare-panel__header">
         <div>
           <div className="brand-eyebrow">运行环境准备</div>

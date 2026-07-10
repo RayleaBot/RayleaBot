@@ -30,6 +30,11 @@ export interface LauncherSettings {
   advancedOverrides?: LauncherAdvancedOverrides;
 }
 
+export interface LauncherCloseConfirmResponse {
+  action: "hide" | "exit" | "cancel";
+  setAsDefault: boolean;
+}
+
 export interface LauncherResolvedSettings {
   installationRoot: string;
   serverExecutablePath: string;
@@ -63,15 +68,18 @@ export interface EnvironmentInspection {
 
 export interface ReleaseCheckSnapshot {
   status:
-    | "unavailable"
     | "disabled"
+    | "idle"
     | "checking"
     | "up_to_date"
     | "update_available"
     | "downloading"
-    | "downloaded"
+    | "ready_to_install"
     | "installing"
-    | "error";
+    | "succeeded"
+    | "failed"
+    | "rolled_back"
+    | "rollback_failed";
   currentVersion: string;
   latestVersion: string;
   summary: string;

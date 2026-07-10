@@ -34,7 +34,7 @@ export const launcherCopy = {
 
 export function createReleaseUnavailable(detail = "当前运行没有可读取的版本包信息。") {
   return {
-    status: "unavailable",
+    status: "disabled",
     currentVersion: "",
     latestVersion: "",
     summary: "版本信息不可用",

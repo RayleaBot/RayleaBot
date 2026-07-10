@@ -31,7 +31,7 @@ process.on("SIGINT", () => shutdown(0));
 process.on("SIGTERM", () => shutdown(0));
 
 run("pnpm", ["exec", "tsc", "-p", "tsconfig.main.json", "--watch", "--preserveWatchOutput"]);
-run("pnpm", ["exec", "tsc", "-p", "tsconfig.preload.json", "--watch", "--preserveWatchOutput"]);
+run("pnpm", ["exec", "vite", "build", "--config", "vite.preload.config.ts", "--watch"]);
 run("pnpm", ["exec", "vite", "--host", "127.0.0.1", "--port", "5174"]);
 
 await waitOn(createDevWaitOnOptions(root));

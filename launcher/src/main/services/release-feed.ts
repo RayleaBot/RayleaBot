@@ -1,68 +1,197 @@
-import { spawn } from "node:child_process";
-import { createHash } from "node:crypto";
+import { execFile, spawn } from "node:child_process";
+import { randomBytes } from "node:crypto";
+import { constants as fsConstants } from "node:fs";
 import fs from "node:fs/promises";
 import path from "node:path";
-import { compare as compareSemver, valid as validSemver } from "semver";
-import type { ReleaseCheckSnapshot } from "../../shared/launcher-models";
+import type { LauncherResolvedSettings, ReleaseCheckSnapshot } from "../../shared/launcher-models";
 import { createReleaseDisabled, createReleaseUnavailable } from "../../shared/launcher-copy";
 
-interface LauncherReleaseFeedClientOptions {
-  cacheTtlMs?: number;
-  fetchLike?: typeof fetch;
-  platform?: NodeJS.Platform;
-  requestTimeoutMs?: number;
-  targetArtifactId?: string;
-}
-
-interface BuildInfo {
-  version: string;
-  artifactId: string;
-  releaseNotesRef: string;
-}
-
-interface ReleaseArtifactCandidate {
-  artifactId: string;
-  downloadUrl: string;
-  fileName: string;
-  releasePageUrl: string;
-  sha256: string;
-  size: number;
-  version: string;
-}
-
 const DEFAULT_CACHE_TTL_MS = 6 * 60 * 60 * 1000;
-const DEFAULT_TARGET_ARTIFACT_ID = "windows-x64-full";
-const PRESERVED_TOP_LEVEL_DIRS = ["cache", "data", "logs"];
+const HELPER_TIMEOUT_MS = 30 * 60 * 1000;
+const MAX_HELPER_OUTPUT_BYTES = 4 * 1024 * 1024;
+const MANIFEST_FILE_NAME = "release_manifest.v2.json";
+const SIGNATURE_FILE_NAME = "release_manifest.v2.sig.json";
+const SEMVER_PATTERN = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/;
 
-function normalizeSemver(value: string) {
-  const trimmed = value.trim();
-  return validSemver(trimmed) ?? validSemver(trimmed.replace(/^[vV]/, ""));
+interface TrustedArtifact {
+  artifact_id: string;
+  file_name: string;
+  archive_size_bytes: number;
+  update_mode: "automatic" | "guided" | "manual";
 }
 
-function resolveRepositoryUrl(releaseNotesRef: string) {
+interface TrustedCheckResult {
+  status: "up_to_date" | "update_available";
+  current_version: string;
+  available_version?: string;
+  update_mode: "automatic" | "guided" | "manual";
+  release_page_url?: string;
+  automatic_install_supported: boolean;
+  manifest_path?: string;
+  signature_path?: string;
+  artifact: TrustedArtifact;
+}
+
+interface TrustedDownloadResult extends TrustedCheckResult {
+  artifact_path: string;
+}
+
+interface PackagedBuildInfo {
+  version: string;
+  artifact_id: string;
+  update_protocol_version: number;
+}
+
+export interface UpdaterCommandResult {
+  stdout: string;
+  stderr: string;
+}
+
+export interface LauncherUpdaterRunner {
+  run(executable: string, args: string[]): Promise<UpdaterCommandResult>;
+  spawnDetached(executable: string, args: string[]): Promise<void>;
+}
+
+export interface LauncherReleaseFeedClientOptions {
+  cacheTtlMs?: number;
+  platform?: NodeJS.Platform;
+  runner?: LauncherUpdaterRunner;
+  updaterPath?: string;
+}
+
+function defaultUpdaterRunner(): LauncherUpdaterRunner {
+  return {
+    run(executable, args) {
+      return new Promise((resolve, reject) => {
+        execFile(
+          executable,
+          args,
+          {
+            encoding: "utf8",
+            maxBuffer: MAX_HELPER_OUTPUT_BYTES,
+            timeout: HELPER_TIMEOUT_MS,
+            windowsHide: true,
+          },
+          (error, stdout, stderr) => {
+            if (error) {
+              reject(new Error(safeHelperFailure(stderr, error.message)));
+              return;
+            }
+            resolve({ stdout, stderr });
+          },
+        );
+      });
+    },
+    spawnDetached(executable, args) {
+      return new Promise((resolve, reject) => {
+        const child = spawn(executable, args, {
+          detached: true,
+          stdio: "ignore",
+          windowsHide: true,
+        });
+        child.once("spawn", () => {
+          child.unref();
+          resolve();
+        });
+        child.once("error", reject);
+      });
+    },
+  };
+}
+
+function safeHelperFailure(stderr: string, fallback: string) {
   try {
-    const url = new URL(releaseNotesRef);
-    if (url.hostname.toLowerCase() !== "github.com") {
-      return "";
+    const payload = JSON.parse(stderr.trim()) as Record<string, unknown>;
+    const code = stringValue(payload.code);
+    if (code) {
+      return `更新助手拒绝了操作（${code}）。`;
     }
-    const [owner, repo] = url.pathname.split("/").filter(Boolean);
-    return owner && repo ? `https://github.com/${owner}/${repo}` : "";
   } catch {
-    return "";
+    // The helper's raw stderr can contain local paths. Do not surface it to the renderer.
   }
+  return fallback ? "更新助手执行失败。" : "更新助手未返回结果。";
+}
+
+function stringValue(value: unknown) {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function numberValue(value: unknown) {
+  return typeof value === "number" && Number.isSafeInteger(value) ? value : 0;
+}
+
+function parseArtifact(value: unknown): TrustedArtifact {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new Error("更新助手返回了无效 artifact。");
+  }
+  const input = value as Record<string, unknown>;
+  const artifactId = stringValue(input.artifact_id);
+  const fileName = stringValue(input.file_name);
+  const archiveSize = numberValue(input.archive_size_bytes);
+  const updateMode = stringValue(input.update_mode);
+  if (
+    artifactId !== "windows-x64-full"
+    || !/^[A-Za-z0-9][A-Za-z0-9._-]{0,254}$/.test(fileName)
+    || archiveSize <= 0
+    || archiveSize > 2 * 1024 * 1024 * 1024
+    || !["automatic", "guided", "manual"].includes(updateMode)
+  ) {
+    throw new Error("更新助手返回了无效 artifact。");
+  }
+  return {
+    artifact_id: artifactId,
+    file_name: fileName,
+    archive_size_bytes: archiveSize,
+    update_mode: updateMode as TrustedArtifact["update_mode"],
+  };
+}
+
+function parseCheckResult(stdout: string): TrustedCheckResult {
+  const payload = JSON.parse(stdout) as Record<string, unknown>;
+  const status = stringValue(payload.status);
+  const updateMode = stringValue(payload.update_mode);
+  const currentVersion = stringValue(payload.current_version);
+  const availableVersion = stringValue(payload.available_version);
+  const automaticInstallSupported = payload.automatic_install_supported === true;
+  const releasePageUrl = stringValue(payload.release_page_url);
+  const artifact = parseArtifact(payload.artifact);
+  if (
+    !["up_to_date", "update_available"].includes(status)
+    || !["automatic", "guided", "manual"].includes(updateMode)
+    || !SEMVER_PATTERN.test(currentVersion)
+    || (status === "update_available" && !SEMVER_PATTERN.test(availableVersion))
+    || (releasePageUrl && !isSafeReleaseURL(releasePageUrl))
+    || artifact.update_mode !== updateMode
+    || (automaticInstallSupported && updateMode !== "automatic")
+  ) {
+    throw new Error("更新助手返回了无效检查结果。");
+  }
+  return {
+    status: status as TrustedCheckResult["status"],
+    current_version: currentVersion,
+    available_version: availableVersion || undefined,
+    update_mode: updateMode as TrustedCheckResult["update_mode"],
+    release_page_url: releasePageUrl || undefined,
+    automatic_install_supported: automaticInstallSupported,
+    manifest_path: stringValue(payload.manifest_path) || undefined,
+    signature_path: stringValue(payload.signature_path) || undefined,
+    artifact,
+  };
+}
+
+function parseDownloadResult(stdout: string): TrustedDownloadResult {
+  const checked = parseCheckResult(stdout);
+  const payload = JSON.parse(stdout) as Record<string, unknown>;
+  const artifactPath = stringValue(payload.artifact_path);
+  if (!artifactPath) {
+    throw new Error("更新助手未返回下载包路径。");
+  }
+  return { ...checked, artifact_path: artifactPath };
 }
 
 function createSnapshot(input: Partial<ReleaseCheckSnapshot>): ReleaseCheckSnapshot {
-  const status = input.status ?? "unavailable";
-  const canCheck = Boolean(input.canCheck ?? (
-    status !== "disabled"
-    && status !== "unavailable"
-    && status !== "checking"
-    && status !== "downloading"
-    && status !== "installing"
-    && Boolean(input.currentVersion)
-  ));
-
+  const status = input.status ?? "disabled";
+  const busy = status === "checking" || status === "downloading" || status === "installing";
   return {
     status,
     currentVersion: input.currentVersion ?? "",
@@ -75,167 +204,149 @@ function createSnapshot(input: Partial<ReleaseCheckSnapshot>): ReleaseCheckSnaps
     downloadedBytes: input.downloadedBytes ?? null,
     totalBytes: input.totalBytes ?? null,
     artifactFileName: input.artifactFileName ?? "",
-    canCheck,
+    canCheck: input.canCheck ?? (!busy && status !== "disabled"),
     canDownload: input.canDownload ?? status === "update_available",
-    canInstall: input.canInstall ?? status === "downloaded",
+    canInstall: input.canInstall ?? status === "ready_to_install",
   };
 }
 
-function updateDisabled(detail: string): ReleaseCheckSnapshot {
-  return createSnapshot(createReleaseDisabled(detail));
-}
-
-function updateUnavailable(detail: string): ReleaseCheckSnapshot {
-  return createSnapshot(createReleaseUnavailable(detail));
-}
-
-function stringValue(value: unknown) {
-  return typeof value === "string" ? value.trim() : "";
-}
-
-function numberValue(value: unknown) {
-  return typeof value === "number" && Number.isFinite(value) ? value : 0;
-}
-
-function psSingleQuoted(value: string) {
-  return `'${value.replace(/'/g, "''")}'`;
-}
-
-async function sha256File(filePath: string) {
-  const hash = createHash("sha256");
-  const handle = await fs.open(filePath, "r");
+function isSafeReleaseURL(value: string) {
   try {
-    const stream = handle.createReadStream();
-    for await (const chunk of stream) {
-      hash.update(chunk);
-    }
-  } finally {
-    await handle.close();
+    const parsed = new URL(value);
+    return parsed.protocol === "https:" && parsed.username === "" && parsed.password === "";
+  } catch {
+    return false;
   }
-  return hash.digest("hex");
 }
 
-async function ensureDirectory(directory: string) {
-  await fs.mkdir(directory, { recursive: true });
+async function readPackagedBuildInfo(basePath: string): Promise<PackagedBuildInfo | null> {
+  try {
+    const payload = JSON.parse(await fs.readFile(path.join(basePath, "build_info.json"), "utf8")) as Record<string, unknown>;
+    const version = stringValue(payload.version);
+    const artifactId = stringValue(payload.artifact_id);
+    const updateProtocolVersion = numberValue(payload.update_protocol_version);
+    if (!version || artifactId !== "windows-x64-full" || updateProtocolVersion < 2) {
+      return null;
+    }
+    return { version, artifact_id: artifactId, update_protocol_version: updateProtocolVersion };
+  } catch {
+    return null;
+  }
+}
+
+async function assertRegularFile(filePath: string) {
+  const info = await fs.lstat(filePath);
+  if (!info.isFile() || info.isSymbolicLink()) {
+    throw new Error("更新事务输入不是普通文件。");
+  }
 }
 
 export class LauncherReleaseFeedClient {
   private cachedAt = 0;
-  private cached: ReleaseCheckSnapshot = updateUnavailable("尚未检查版本。");
-  private downloadedArchivePath = "";
+  private cached: ReleaseCheckSnapshot = createSnapshot(createReleaseUnavailable("尚未检查版本。"));
   private readonly cacheTtlMs: number;
-  private readonly fetchLike: typeof fetch;
   private readonly platform: NodeJS.Platform;
-  private readonly requestTimeoutMs: number;
-  private readonly targetArtifactId: string;
-  private updateCandidate: ReleaseArtifactCandidate | null = null;
+  private readonly runner: LauncherUpdaterRunner;
+  private readonly updaterPath: string;
+  private checked: TrustedCheckResult | null = null;
+  private downloaded: TrustedDownloadResult | null = null;
 
   constructor(private readonly basePath: string, options: LauncherReleaseFeedClientOptions = {}) {
     this.cacheTtlMs = options.cacheTtlMs ?? DEFAULT_CACHE_TTL_MS;
-    this.fetchLike = options.fetchLike ?? fetch;
     this.platform = options.platform ?? process.platform;
-    this.requestTimeoutMs = options.requestTimeoutMs ?? 5000;
-    this.targetArtifactId = options.targetArtifactId ?? DEFAULT_TARGET_ARTIFACT_ID;
+    this.runner = options.runner ?? defaultUpdaterRunner();
+    this.updaterPath = options.updaterPath ?? path.join(basePath, "raylea-updater.exe");
   }
 
   async getSnapshot(options: { force?: boolean } = {}) {
     if (!options.force && Date.now() - this.cachedAt < this.cacheTtlMs) {
       return this.cached;
     }
-    this.cached = await this.loadSnapshot();
+    const buildInfo = await readPackagedBuildInfo(this.basePath);
+    if (!buildInfo) {
+      this.cached = createSnapshot(createReleaseDisabled("当前安装缺少可信更新基线，需要手动安装首个 v2 正式包。"));
+      this.cachedAt = Date.now();
+      return this.cached;
+    }
+    if (this.platform !== "win32") {
+      this.cached = createSnapshot(createReleaseDisabled("当前平台使用签名校验后的引导更新；自动安装首批仅支持 Windows x64 整包。"));
+      this.cached.currentVersion = buildInfo.version;
+      this.cachedAt = Date.now();
+      return this.cached;
+    }
+    try {
+      await assertRegularFile(this.updaterPath);
+      const { stdout } = await this.runner.run(this.updaterPath, ["check", "--install-root", this.basePath, "--json"]);
+      const result = parseCheckResult(stdout);
+      this.checked = result;
+      this.downloaded = null;
+      this.cached = this.snapshotFromCheck(result);
+    } catch (error) {
+      this.checked = null;
+      this.downloaded = null;
+      this.cached = createSnapshot({
+        status: "failed",
+        currentVersion: buildInfo.version,
+        summary: "无法确认受信任的更新。",
+        detail: error instanceof Error ? error.message : "更新助手执行失败。",
+        canCheck: true,
+        canDownload: false,
+        canInstall: false,
+      });
+    }
     this.cachedAt = Date.now();
     return this.cached;
   }
 
   async downloadUpdate(onProgress?: (snapshot: ReleaseCheckSnapshot) => void | Promise<void>) {
-    if (!this.updateCandidate) {
-      const refreshed = await this.getSnapshot({ force: true });
-      if (refreshed.status !== "update_available" || !this.updateCandidate) {
-        return refreshed;
-      }
+    if (!this.checked || this.checked.status !== "update_available") {
+      await this.getSnapshot({ force: true });
     }
-
-    const candidate = this.updateCandidate;
-    const updateRoot = this.updateRoot();
-    await ensureDirectory(updateRoot);
-    const archivePath = path.join(updateRoot, candidate.fileName);
-    const partialPath = `${archivePath}.download`;
-    await fs.rm(partialPath, { force: true });
-
-    const totalBytes = candidate.size;
-    let downloadedBytes = 0;
-    await onProgress?.(this.downloadingSnapshot(candidate, downloadedBytes, totalBytes));
-
+    if (!this.checked || !this.checked.automatic_install_supported || this.checked.update_mode !== "automatic") {
+      return this.cached;
+    }
+    const previous = this.cached;
+    await onProgress?.(createSnapshot({
+      ...previous,
+      status: "downloading",
+      summary: `正在下载 ${previous.latestVersion}。`,
+      detail: "下载完成后仍会再次校验签名、摘要和 Authenticode。",
+      canCheck: false,
+      canDownload: false,
+      canInstall: false,
+    }));
     try {
-      const response = await this.fetchLike(candidate.downloadUrl, {
-        headers: { Accept: "application/octet-stream", "User-Agent": `RayleaLauncher/${candidate.version}` },
-        signal: AbortSignal.timeout(this.requestTimeoutMs),
-      });
-      if (!response.ok) {
-        throw new Error(`${response.status} ${response.statusText}`);
+      const { stdout } = await this.runner.run(this.updaterPath, ["download", "--install-root", this.basePath, "--json"]);
+      const result = parseDownloadResult(stdout);
+      if (!result.automatic_install_supported || result.update_mode !== "automatic") {
+        throw new Error("受信任清单未授权自动安装。");
       }
-
-      if (response.body) {
-        const handle = await fs.open(partialPath, "w");
-        try {
-          const reader = response.body.getReader();
-          while (true) {
-            const next = await reader.read();
-            if (next.done) {
-              break;
-            }
-            downloadedBytes += next.value.byteLength;
-            await handle.write(next.value);
-            await onProgress?.(this.downloadingSnapshot(candidate, downloadedBytes, totalBytes));
-          }
-        } finally {
-          await handle.close();
-        }
-      } else {
-        const buffer = Buffer.from(await response.arrayBuffer());
-        downloadedBytes = buffer.byteLength;
-        await fs.writeFile(partialPath, buffer);
-        await onProgress?.(this.downloadingSnapshot(candidate, downloadedBytes, totalBytes));
-      }
-
-      const stat = await fs.stat(partialPath);
-      if (stat.size !== candidate.size) {
-        throw new Error(`下载大小不一致：期望 ${candidate.size} 字节，实际 ${stat.size} 字节。`);
-      }
-      const digest = await sha256File(partialPath);
-      if (digest.toLowerCase() !== candidate.sha256.toLowerCase()) {
-        throw new Error("下载包校验失败。");
-      }
-
-      await fs.rm(archivePath, { force: true });
-      await fs.rename(partialPath, archivePath);
-      this.downloadedArchivePath = archivePath;
+      this.checked = result;
+      this.downloaded = result;
       this.cached = createSnapshot({
-        status: "downloaded",
-        currentVersion: this.cached.currentVersion,
-        latestVersion: candidate.version,
-        summary: `新版本 ${candidate.version} 已下载。`,
-        detail: "点击重启安装后，启动器会关闭并替换本地程序文件。",
-        releasePageUrl: candidate.releasePageUrl,
+        status: "ready_to_install",
+        currentVersion: result.current_version,
+        latestVersion: result.available_version ?? "",
+        summary: `新版本 ${result.available_version ?? ""} 已验证并准备安装。`,
+        detail: "确认安装后会停服、离线备份、事务替换并在失败时自动回滚。",
+        releasePageUrl: result.release_page_url ?? "",
         updateAvailable: true,
         downloadProgress: 1,
-        downloadedBytes: stat.size,
-        totalBytes: candidate.size,
-        artifactFileName: candidate.fileName,
+        downloadedBytes: result.artifact.archive_size_bytes,
+        totalBytes: result.artifact.archive_size_bytes,
+        artifactFileName: result.artifact.file_name,
         canCheck: true,
         canDownload: false,
         canInstall: true,
       });
       return this.cached;
     } catch (error) {
-      await fs.rm(partialPath, { force: true });
-      const detail = error instanceof Error ? error.message : "下载更新失败。";
+      this.downloaded = null;
       this.cached = createSnapshot({
-        ...this.cached,
-        status: "error",
-        summary: "下载更新失败。",
-        detail,
-        updateAvailable: true,
+        ...previous,
+        status: "failed",
+        summary: "下载或校验更新失败。",
+        detail: error instanceof Error ? error.message : "更新助手执行失败。",
         canCheck: true,
         canDownload: true,
         canInstall: false,
@@ -244,291 +355,134 @@ export class LauncherReleaseFeedClient {
     }
   }
 
-  async installDownloadedUpdate(appProcessId: number) {
-    if (this.platform !== "win32") {
+  async installDownloadedUpdate(
+    appProcessId: number,
+    serviceWasRunning: boolean,
+    settings: LauncherResolvedSettings,
+  ) {
+    if (this.platform !== "win32" || !this.downloaded || !this.downloaded.automatic_install_supported) {
       this.cached = createSnapshot({
         ...this.cached,
-        status: "error",
-        summary: "当前平台暂不支持自动安装。",
-        detail: "首版自动安装只支持 Windows。",
+        status: "failed",
+        summary: "没有可自动安装的受信任更新。",
+        detail: "请重新检查并下载更新，或按发布页指引手动升级。",
         canInstall: false,
       });
       return this.cached;
     }
-    if (!this.downloadedArchivePath || !this.updateCandidate) {
+    const officialServer = path.join(this.basePath, "raylea-server.exe");
+    const officialConfig = path.join(this.basePath, "config", "user.yaml");
+    if (
+      !sameLocalPath(settings.installationRoot, this.basePath)
+      || !sameLocalPath(settings.serverExecutablePath, officialServer)
+      || !sameLocalPath(settings.configPath, officialConfig)
+    ) {
       this.cached = createSnapshot({
         ...this.cached,
-        status: "error",
-        summary: "没有可安装的更新包。",
-        detail: "请先下载更新。",
+        status: "failed",
+        summary: "当前运行方式不支持自动安装。",
+        detail: "检测到自定义安装根、服务程序或配置路径，请按发布页指引手动升级。",
         canInstall: false,
       });
       return this.cached;
     }
 
-    const scriptPath = path.join(this.updateRoot(), "install-update.ps1");
-    await fs.writeFile(scriptPath, this.buildInstallScript(appProcessId), "utf8");
-    const child = spawn("powershell.exe", ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", scriptPath], {
-      detached: true,
-      stdio: "ignore",
-      windowsHide: true,
-    });
-    child.unref();
-
-    this.cached = createSnapshot({
-      ...this.cached,
-      status: "installing",
-      summary: "正在重启并安装更新。",
-      detail: "启动器关闭后会替换程序文件，然后重新打开。",
-      canCheck: false,
-      canDownload: false,
-      canInstall: false,
-    });
-    return this.cached;
-  }
-
-  private async readBuildInfo(): Promise<BuildInfo | ReleaseCheckSnapshot> {
-    if (this.platform !== "win32") {
-      return updateDisabled("当前平台暂不支持自动更新。");
-    }
-
-    const buildInfoPath = path.join(this.basePath, "build_info.json");
-    let payload: Record<string, unknown>;
+    const transactionRoot = path.join(
+      path.dirname(path.resolve(this.basePath)),
+      `.rayleabot-update-${Date.now()}-${randomBytes(8).toString("hex")}`,
+    );
     try {
-      payload = JSON.parse(await fs.readFile(buildInfoPath, "utf8")) as Record<string, unknown>;
-    } catch {
-      return updateDisabled("开发版本不支持更新。");
-    }
-
-    const version = stringValue(payload.version);
-    const artifactId = stringValue(payload.artifact_id);
-    const releaseNotesRef = stringValue(payload.release_notes_ref);
-    if (!normalizeSemver(version) || !releaseNotesRef) {
-      return updateDisabled("开发版本不支持更新。");
-    }
-    if (artifactId && artifactId !== this.targetArtifactId) {
-      return updateDisabled("当前包不属于 Windows 整包，暂不支持自动更新。");
-    }
-    if (!resolveRepositoryUrl(releaseNotesRef)) {
-      return updateDisabled("当前包元数据未声明 GitHub 发布页。");
-    }
-
-    return { artifactId, releaseNotesRef, version };
-  }
-
-  private async loadSnapshot() {
-    const buildInfo = await this.readBuildInfo();
-    if ("status" in buildInfo) {
-      this.updateCandidate = null;
-      this.downloadedArchivePath = "";
-      return buildInfo;
-    }
-
-    const currentVersion = buildInfo.version;
-    const current = normalizeSemver(currentVersion);
-    const repositoryUrl = resolveRepositoryUrl(buildInfo.releaseNotesRef);
-    try {
-      const latestReleaseResponse = await this.fetchLike(
-        repositoryUrl.replace("https://github.com/", "https://api.github.com/repos/") + "/releases/latest",
-        {
-          headers: { Accept: "application/vnd.github+json", "User-Agent": `RayleaLauncher/${currentVersion}` },
-          signal: AbortSignal.timeout(this.requestTimeoutMs),
-        },
-      );
-
-      if (!latestReleaseResponse.ok) {
-        throw new Error(`${latestReleaseResponse.status} ${latestReleaseResponse.statusText}`);
+      const manifestSource = this.downloaded.manifest_path;
+      const signatureSource = this.downloaded.signature_path;
+      if (!manifestSource || !signatureSource) {
+        throw new Error("更新助手未保留已验证元数据。");
       }
-
-      const latestPayload = (await latestReleaseResponse.json()) as Record<string, unknown>;
-      const releasePageUrl = stringValue(latestPayload.html_url) || buildInfo.releaseNotesRef;
-      const assets = Array.isArray(latestPayload.assets) ? latestPayload.assets as Array<Record<string, unknown>> : [];
-      const manifestAsset = assets.find((asset) =>
-        stringValue(asset.name) === "release_manifest.json"
-        && Boolean(stringValue(asset.browser_download_url))
-      );
-      if (!manifestAsset) {
-        throw new Error("GitHub Release 中没有 release_manifest.json。");
+      const sources = [this.updaterPath, manifestSource, signatureSource, this.downloaded.artifact_path];
+      await Promise.all(sources.map(assertRegularFile));
+      const cacheRoot = path.join(this.basePath, "cache", "downloads", "updates");
+      for (const source of [manifestSource, signatureSource, this.downloaded.artifact_path]) {
+        if (!pathInside(cacheRoot, source)) {
+          throw new Error("更新事务输入位于受控下载缓存之外。");
+        }
       }
+      await fs.mkdir(transactionRoot, { recursive: false, mode: 0o700 });
+      const externalHelper = path.join(transactionRoot, "raylea-updater.exe");
+      const manifestPath = path.join(transactionRoot, MANIFEST_FILE_NAME);
+      const signaturePath = path.join(transactionRoot, SIGNATURE_FILE_NAME);
+      const artifactPath = path.join(transactionRoot, this.downloaded.artifact.file_name);
+      await fs.copyFile(this.updaterPath, externalHelper, fsConstants.COPYFILE_EXCL);
+      await fs.copyFile(manifestSource, manifestPath, fsConstants.COPYFILE_EXCL);
+      await fs.copyFile(signatureSource, signaturePath, fsConstants.COPYFILE_EXCL);
+      await fs.copyFile(this.downloaded.artifact_path, artifactPath, fsConstants.COPYFILE_EXCL);
 
-      const manifestResponse = await this.fetchLike(stringValue(manifestAsset.browser_download_url), {
-        headers: { Accept: "application/json", "User-Agent": `RayleaLauncher/${currentVersion}` },
-        signal: AbortSignal.timeout(this.requestTimeoutMs),
+      const args = [
+        "install",
+        "--install-root", this.basePath,
+        "--transaction-root", transactionRoot,
+        "--manifest", manifestPath,
+        "--signature", signaturePath,
+        "--artifact", artifactPath,
+        "--launcher-pid", String(appProcessId),
+        `--service-was-running=${serviceWasRunning ? "true" : "false"}`,
+      ];
+      await this.runner.spawnDetached(externalHelper, args);
+      this.cached = createSnapshot({
+        ...this.cached,
+        status: "installing",
+        summary: "正在准备事务式安装。",
+        detail: "Launcher 退出后，外置更新助手会完成备份、替换、健康检查和必要的回滚。",
+        canCheck: false,
+        canDownload: false,
+        canInstall: false,
       });
-      if (!manifestResponse.ok) {
-        throw new Error(`${manifestResponse.status} ${manifestResponse.statusText}`);
-      }
-      const manifest = (await manifestResponse.json()) as Record<string, unknown>;
-      const latestVersion = stringValue(manifest.version);
-      const latest = normalizeSemver(latestVersion);
-      if (!current || !latest) {
-        return createSnapshot({
-          status: "error",
-          currentVersion,
-          latestVersion,
-          summary: "发布源返回的版本号无法比较。",
-          detail: "请检查 release_manifest.json 中的 version 字段。",
-          releasePageUrl,
-          updateAvailable: false,
-          canCheck: true,
-        });
-      }
-
-      const artifact = this.findTargetArtifact(manifest);
-      const artifactAsset = assets.find((asset) =>
-        stringValue(asset.name) === artifact.fileName
-        && Boolean(stringValue(asset.browser_download_url))
-      );
-      if (!artifactAsset) {
-        throw new Error(`GitHub Release 中没有 ${artifact.fileName}。`);
-      }
-
-      const releaseNotesRef = stringValue(manifest.release_notes_ref) || releasePageUrl;
-      if (compareSemver(latest, current) > 0) {
-        this.updateCandidate = {
-          artifactId: this.targetArtifactId,
-          downloadUrl: stringValue(artifactAsset.browser_download_url),
-          fileName: artifact.fileName,
-          releasePageUrl: releaseNotesRef,
-          sha256: artifact.sha256,
-          size: artifact.size,
-          version: latest,
-        };
-        this.downloadedArchivePath = "";
-        return createSnapshot({
-          status: "update_available",
-          currentVersion,
-          latestVersion: latest,
-          summary: `发现新版本 ${latest}。`,
-          detail: "可以下载 Windows 整包，下载完成后重启安装。",
-          releasePageUrl: releaseNotesRef,
-          updateAvailable: true,
-          artifactFileName: artifact.fileName,
-          totalBytes: artifact.size,
-          canCheck: true,
-          canDownload: true,
-          canInstall: false,
-        });
-      }
-
-      this.updateCandidate = null;
-      this.downloadedArchivePath = "";
-      return createSnapshot({
-        status: "up_to_date",
-        currentVersion,
-        latestVersion: current,
-        summary: `当前版本 ${current} 已是最新。`,
-        detail: "",
-        releasePageUrl: releaseNotesRef,
-        updateAvailable: false,
-        canCheck: true,
-      });
+      return this.cached;
     } catch (error) {
-      const detail = error instanceof Error ? error.message : "版本源不可用。";
-      return createSnapshot({
-        status: "error",
-        currentVersion,
-        latestVersion: "",
-        summary: "暂时无法连接版本源。",
-        detail,
-        releasePageUrl: buildInfo.releaseNotesRef,
-        updateAvailable: false,
+      await fs.rm(transactionRoot, { recursive: true, force: true });
+      this.cached = createSnapshot({
+        ...this.cached,
+        status: "failed",
+        summary: "无法启动事务式安装。",
+        detail: error instanceof Error ? error.message : "更新助手启动失败。",
         canCheck: true,
+        canInstall: this.downloaded !== null,
       });
+      return this.cached;
     }
   }
 
-  private findTargetArtifact(manifest: Record<string, unknown>) {
-    const artifacts = Array.isArray(manifest.artifacts) ? manifest.artifacts as Array<Record<string, unknown>> : [];
-    const artifact = artifacts.find((item) => stringValue(item.artifact_id) === this.targetArtifactId);
-    if (!artifact) {
-      throw new Error(`release_manifest.json 中没有 ${this.targetArtifactId}。`);
-    }
-
-    const fileName = stringValue(artifact.file_name);
-    const sha256 = stringValue(artifact.sha256);
-    const size = numberValue(artifact.size);
-    if (!fileName || !/^[0-9a-f]{64}$/i.test(sha256) || size <= 0) {
-      throw new Error(`${this.targetArtifactId} 的发布元数据不完整。`);
-    }
-    return { fileName, sha256, size };
-  }
-
-  private downloadingSnapshot(candidate: ReleaseArtifactCandidate, downloadedBytes: number, totalBytes: number) {
+  private snapshotFromCheck(result: TrustedCheckResult) {
+    const updateAvailable = result.status === "update_available";
+    const automatic = updateAvailable && result.update_mode === "automatic" && result.automatic_install_supported;
+    const summary = updateAvailable
+      ? `发现新版本 ${result.available_version ?? ""}。`
+      : `当前版本 ${result.current_version} 已是最新。`;
+    const detail = updateAvailable
+      ? automatic
+        ? "用户确认后才会下载和安装；安装前后均执行完整信任校验。"
+        : "此发布仅提供引导更新，请打开发布页按说明手动升级。"
+      : "";
     return createSnapshot({
-      ...this.cached,
-      status: "downloading",
-      latestVersion: candidate.version,
-      summary: `正在下载 ${candidate.version}。`,
-      detail: candidate.fileName,
-      releasePageUrl: candidate.releasePageUrl,
-      updateAvailable: true,
-      downloadProgress: totalBytes > 0 ? Math.min(1, downloadedBytes / totalBytes) : null,
-      downloadedBytes,
-      totalBytes,
-      artifactFileName: candidate.fileName,
-      canCheck: false,
-      canDownload: false,
+      status: result.status,
+      currentVersion: result.current_version,
+      latestVersion: result.available_version ?? result.current_version,
+      summary,
+      detail,
+      releasePageUrl: result.release_page_url ?? "",
+      updateAvailable,
+      totalBytes: result.artifact.archive_size_bytes,
+      artifactFileName: result.artifact.file_name,
+      canCheck: true,
+      canDownload: automatic,
       canInstall: false,
     });
   }
-
-  private updateRoot() {
-    return path.join(this.basePath, "cache", "downloads", "updates");
-  }
-
-  private buildInstallScript(appProcessId: number) {
-    const installRoot = path.resolve(this.basePath);
-    const updateRoot = path.resolve(this.updateRoot());
-    const archivePath = path.resolve(this.downloadedArchivePath);
-    const launcherPath = path.join(installRoot, "RayleaLauncher.exe");
-    const preservedArray = PRESERVED_TOP_LEVEL_DIRS.map(psSingleQuoted).join(", ");
-
-    return `
-$ErrorActionPreference = 'Stop'
-$installRoot = [System.IO.Path]::GetFullPath(${psSingleQuoted(installRoot)})
-$updateRoot = [System.IO.Path]::GetFullPath(${psSingleQuoted(updateRoot)})
-$archivePath = [System.IO.Path]::GetFullPath(${psSingleQuoted(archivePath)})
-$launcherPath = [System.IO.Path]::GetFullPath(${psSingleQuoted(launcherPath)})
-$preservedTopLevelDirs = @(${preservedArray})
-function Test-IsInside($candidate, $root) {
-  $candidateFull = [System.IO.Path]::GetFullPath($candidate)
-  $rootPrefix = [System.IO.Path]::GetFullPath($root)
-  if (-not $rootPrefix.EndsWith([System.IO.Path]::DirectorySeparatorChar)) { $rootPrefix += [System.IO.Path]::DirectorySeparatorChar }
-  return $candidateFull.StartsWith($rootPrefix, [System.StringComparison]::OrdinalIgnoreCase)
 }
-if (-not (Test-Path -LiteralPath $installRoot -PathType Container)) { throw "install root not found" }
-if (-not (Test-Path -LiteralPath $archivePath -PathType Leaf)) { throw "update archive not found" }
-if (-not (Test-IsInside $archivePath $updateRoot)) { throw "update archive is outside update cache" }
-$extractRoot = Join-Path $updateRoot 'install-extract'
-if (Test-Path -LiteralPath $extractRoot) { Remove-Item -LiteralPath $extractRoot -Recurse -Force }
-New-Item -ItemType Directory -Path $extractRoot -Force | Out-Null
-Expand-Archive -LiteralPath $archivePath -DestinationPath $extractRoot -Force
-$payloadRoots = @(Get-ChildItem -LiteralPath $extractRoot -Directory)
-if ($payloadRoots.Count -ne 1) { throw "update archive must contain exactly one root directory" }
-$payloadRoot = [System.IO.Path]::GetFullPath($payloadRoots[0].FullName)
-try { Wait-Process -Id ${appProcessId} -Timeout 120 } catch {}
-foreach ($child in Get-ChildItem -LiteralPath $payloadRoot -Force) {
-  if ($preservedTopLevelDirs -contains $child.Name) { continue }
-  $target = [System.IO.Path]::GetFullPath((Join-Path $installRoot $child.Name))
-  if (-not (Test-IsInside $target $installRoot)) { throw "target path escaped install root" }
-  if ($child.Name -eq 'config') {
-    New-Item -ItemType Directory -Path $target -Force | Out-Null
-    foreach ($configChild in Get-ChildItem -LiteralPath $child.FullName -Force) {
-      if ($configChild.Name -eq 'user.yaml') { continue }
-      $configTarget = [System.IO.Path]::GetFullPath((Join-Path $target $configChild.Name))
-      if (-not (Test-IsInside $configTarget $target)) { throw "config target escaped config root" }
-      if (Test-Path -LiteralPath $configTarget) { Remove-Item -LiteralPath $configTarget -Recurse -Force }
-      Copy-Item -LiteralPath $configChild.FullName -Destination $configTarget -Recurse -Force
-    }
-    continue
-  }
-  if (Test-Path -LiteralPath $target) { Remove-Item -LiteralPath $target -Recurse -Force }
-  Copy-Item -LiteralPath $child.FullName -Destination $target -Recurse -Force
+
+function sameLocalPath(left: string, right: string) {
+  return path.resolve(left).toLowerCase() === path.resolve(right).toLowerCase();
 }
-if (Test-Path -LiteralPath $launcherPath -PathType Leaf) {
-  Start-Process -FilePath $launcherPath -WorkingDirectory $installRoot -WindowStyle Hidden
-}
-`.trimStart();
-  }
+
+function pathInside(root: string, candidate: string) {
+  const relative = path.relative(path.resolve(root), path.resolve(candidate));
+  return relative !== "" && relative !== ".." && !relative.startsWith(`..${path.sep}`) && !path.isAbsolute(relative);
 }

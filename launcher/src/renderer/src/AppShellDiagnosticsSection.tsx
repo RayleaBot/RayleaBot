@@ -17,7 +17,7 @@ export function AppShellDiagnosticsSection({
   const logAlert = hasRecentStderr ? "error" : "none";
 
   return (
-    <article className="panel glass-panel diagnostics-panel" data-alert={logAlert}>
+    <article className="panel surface-panel diagnostics-panel" data-alert={logAlert}>
       <div className="diagnostics-context-grid">
         <div className="diagnostics-context-card">
           <span className="status-label">服务状态</span>

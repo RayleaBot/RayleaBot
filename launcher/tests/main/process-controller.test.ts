@@ -300,7 +300,8 @@ describe("ServerProcessController", () => {
 
     await controller.start(createSettings(installRoot, runtimeRoot));
     child.stdout.emit("data", JSON.stringify({
-      msg: "runtime_prepare_progress",
+      component: "runtime_prepare",
+      msg: "运行环境准备：图片渲染 Chromium，测试下载来源进行中",
       ts: "2026-06-06T00:00:00Z",
       resource_kind: "chromium",
       label: "图片渲染 Chromium",
@@ -323,10 +324,10 @@ describe("ServerProcessController", () => {
     expect(snapshot?.resources[0]?.stage).toBe("probe");
     expect(snapshot?.resources[0]?.sourceUrl).toBe("https://example.invalid/chrome.zip");
     expect(snapshot?.resources[0]?.progress).toBe(0);
-    expect(controller.getRecentStderr().join("\n")).not.toContain("runtime_prepare_progress");
+    expect(controller.getRecentStderr().join("\n")).not.toContain("测试下载来源进行中");
     expect(fileSystem.appendFile).toHaveBeenCalledWith(
       datedLogPath(runtimeRoot, "server"),
-      expect.stringContaining("runtime_prepare_progress"),
+      expect.stringContaining('"component":"runtime_prepare"'),
       "utf8",
     );
   });

@@ -1,4 +1,9 @@
-import type { LauncherResolvedSettings, LauncherSettings, LauncherSnapshot } from "./launcher-models";
+import type {
+  LauncherCloseConfirmResponse,
+  LauncherResolvedSettings,
+  LauncherSettings,
+  LauncherSnapshot,
+} from "./launcher-models";
 
 export interface LauncherDesktopApi {
   getPlatform(): Promise<string>;
@@ -26,7 +31,7 @@ export interface LauncherDesktopApi {
   minimize(): Promise<void>;
   maximize(): Promise<void>;
   close(): Promise<void>;
-  closeConfirmResponse(response: { action: "hide" | "exit" | "cancel"; setAsDefault: boolean }): Promise<void>;
+  closeConfirmResponse(response: LauncherCloseConfirmResponse): Promise<void>;
   isMaximized(): Promise<boolean>;
   onSnapshot(listener: (snapshot: LauncherSnapshot) => void): () => void;
   onMaximizedChange(listener: (maximized: boolean) => void): () => void;

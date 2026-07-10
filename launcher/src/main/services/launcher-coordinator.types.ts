@@ -37,6 +37,7 @@ export interface ServerProcessController {
   isRunning: boolean;
   processId: number | null;
   logDirectory: string;
+  getSetupToken?(): string;
   start(settings: LauncherResolvedSettings): Promise<void>;
   forceKill(): Promise<void>;
   getRecentStderr(): string[];
@@ -52,7 +53,11 @@ export interface ExternalOpener {
 export interface ReleaseFeedClient {
   getSnapshot(options?: { force?: boolean }): Promise<ReleaseCheckSnapshot>;
   downloadUpdate(onProgress?: (snapshot: ReleaseCheckSnapshot) => void | Promise<void>): Promise<ReleaseCheckSnapshot>;
-  installDownloadedUpdate(appProcessId: number): Promise<ReleaseCheckSnapshot>;
+  installDownloadedUpdate(
+    appProcessId: number,
+    serviceWasRunning: boolean,
+    settings: LauncherResolvedSettings,
+  ): Promise<ReleaseCheckSnapshot>;
 }
 
 export interface RecoverySummaryReader {

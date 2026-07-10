@@ -481,7 +481,12 @@ export function createLauncherLifecycleService(deps: LauncherLifecycleServiceDep
       }
 
       await deps.snapshotStore.publish(await deps.statusService.buildSnapshotFromReadiness(context, inspection, readiness, true));
-      await deps.externalOpener.openUri(new URL(context.endpoint.baseUrl).toString());
+      const setupURL = new URL("setup", context.endpoint.baseUrl);
+      const setupToken = deps.processController.getSetupToken?.().trim() ?? "";
+      if (setupToken) {
+        setupURL.hash = `setup_token=${setupToken}`;
+      }
+      await deps.externalOpener.openUri(setupURL.toString());
     },
   };
 }

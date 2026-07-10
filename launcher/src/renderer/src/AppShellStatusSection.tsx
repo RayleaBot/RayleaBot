@@ -197,7 +197,7 @@ export function AppShellStatusSection({
           <AppShellRuntimePreparePanel runtimePrepare={runtimePrepare} />
 
           {hasReadinessDiagnostics ? (
-            <article className="panel glass-panel glass-panel--subtle status-diagnostics-panel">
+            <article className="panel surface-panel surface-panel--subtle status-diagnostics-panel">
               <div className="brand-eyebrow">服务诊断</div>
 
               {readinessReasonCodes.length > 0 ? (
@@ -205,7 +205,7 @@ export function AppShellStatusSection({
                   <span className="status-label">原因代码</span>
                   <div className="status-diagnostics-codes">
                     {readinessReasonCodes.map((code) => (
-                      <code key={code} className="glass-chip glass-chip--muted mono">{code}</code>
+                      <code key={code} className="status-chip status-chip--muted mono">{code}</code>
                     ))}
                   </div>
                 </div>

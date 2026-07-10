@@ -5,6 +5,7 @@ import type { LauncherAdvancedOverrides, LauncherSettings } from "@shared/launch
 import { AppShell } from "./AppShell";
 import { describeLauncherError, type SectionId } from "./AppState.shared";
 import { ExitConfirmDialog } from "./ExitConfirmDialog";
+import { ActionConfirmDialog, type ConfirmedLauncherAction } from "./ActionConfirmDialog";
 import { useLauncherInitialization } from "./useLauncherInitialization";
 import { useLauncherSectionState } from "./useLauncherSectionState";
 import { useLauncherSettingsState } from "./useLauncherSettingsState";
@@ -13,6 +14,7 @@ export function App() {
   const [busyAction, setBusyAction] = useState<string | null>(null);
   const [editingSettings, setEditingSettings] = useState(false);
   const [exitConfirmOpen, setExitConfirmOpen] = useState(false);
+  const [confirmedAction, setConfirmedAction] = useState<ConfirmedLauncherAction | null>(null);
   const {
     activeSection,
     renderedSection,
@@ -136,6 +138,15 @@ export function App() {
     setExitConfirmOpen(false);
   }, []);
 
+  const handleConfirmedAction = useCallback((action: ConfirmedLauncherAction) => {
+    setConfirmedAction(null);
+    if (action === "install-update") {
+      void runAction(action, () => window.rayleaLauncher.installDownloadedUpdate());
+      return;
+    }
+    void runAction(action, () => window.rayleaLauncher.resetAdmin());
+  }, [runAction]);
+
   useEffect(() => {
     const unsubscribe = window.rayleaLauncher.onShowExitConfirm(() => {
       setExitConfirmOpen(true);
@@ -221,10 +232,10 @@ export function App() {
       onOpenRecoveryPlugin={(pluginId: string) => runAction("open-plugin", () => window.rayleaLauncher.openWebUi(`/plugins/${encodeURIComponent(pluginId)}`))}
       onCheckForUpdates={() => runAction("check-updates", () => window.rayleaLauncher.checkForUpdates())}
       onDownloadUpdate={() => runAction("download-update", () => window.rayleaLauncher.downloadUpdate())}
-      onInstallDownloadedUpdate={() => runAction("install-update", () => window.rayleaLauncher.installDownloadedUpdate())}
+      onInstallDownloadedUpdate={() => setConfirmedAction("install-update")}
       onOpenRepositoryPage={() => runAction("open-repository-page", () => window.rayleaLauncher.openRepositoryPage())}
       onOpenLogs={() => runAction("open-logs", () => window.rayleaLauncher.openLogsDirectory())}
-      onResetAdmin={() => runAction("reset-admin", () => window.rayleaLauncher.resetAdmin())}
+      onResetAdmin={() => setConfirmedAction("reset-admin")}
       onBeginEdit={handleBeginEdit}
       onCancelEdit={handleCancelEdit}
       onSaveSettings={handleSaveSettings}
@@ -257,6 +268,11 @@ export function App() {
       open={exitConfirmOpen}
       onClose={handleExitConfirmClose}
       onConfirm={handleExitConfirm}
+    />
+    <ActionConfirmDialog
+      action={confirmedAction}
+      onCancel={() => setConfirmedAction(null)}
+      onConfirm={handleConfirmedAction}
     />
   </>);
 }

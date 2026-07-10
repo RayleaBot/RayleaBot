@@ -138,7 +138,7 @@ export function createLauncherCoordinator(deps: LauncherCoordinatorDependencies)
     }
     const status = snapshotStore.snapshot.launcher.releaseCheck.status;
     return status !== "disabled"
-      && status !== "downloaded"
+      && status !== "ready_to_install"
       && status !== "downloading"
       && status !== "installing";
   }
@@ -175,7 +175,7 @@ export function createLauncherCoordinator(deps: LauncherCoordinatorDependencies)
   function releaseErrorSnapshot(previous: ReleaseCheckSnapshot, error: unknown): ReleaseCheckSnapshot {
     return {
       ...previous,
-      status: "error",
+      status: "failed",
       summary: "暂时无法连接版本源。",
       detail: error instanceof Error ? error.message : "版本源不可用。",
       updateAvailable: false,
@@ -232,15 +232,31 @@ export function createLauncherCoordinator(deps: LauncherCoordinatorDependencies)
     }
     clearReleaseCheckTimer();
     releaseInstallInFlight = true;
+    let serviceWasRunning = false;
     try {
-      if (deps.processController.isRunning) {
+      serviceWasRunning = deps.processController.isRunning;
+      if (serviceWasRunning) {
         await lifecycleService.stop();
       }
-      const releaseCheck = await deps.releaseFeedClient.installDownloadedUpdate(appProcessId);
+      const releaseCheck = await deps.releaseFeedClient.installDownloadedUpdate(
+        appProcessId,
+        serviceWasRunning,
+        snapshotStore.snapshot.launcher.resolvedSettings,
+      );
       await snapshotStore.publishReleaseCheck(releaseCheck);
       if (releaseCheck.status !== "installing") {
         throw new Error(releaseCheck.detail || releaseCheck.summary);
       }
+    } catch (error) {
+      if (serviceWasRunning && !deps.processController.isRunning) {
+        try {
+          await lifecycleService.start();
+        } catch (restartError) {
+          const detail = restartError instanceof Error ? restartError.message : String(restartError);
+          throw new Error(`更新助手启动失败，且原服务恢复失败：${detail}`, { cause: error });
+        }
+      }
+      throw error;
     } finally {
       releaseInstallInFlight = false;
     }

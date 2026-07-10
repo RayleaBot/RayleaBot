@@ -29,7 +29,7 @@ export function AppShellStatusRail({
   return (
     <aside className="status-summary-rail status-side-column">
       {checks.length > 0 && (
-        <div className="checks-stack checks-stack--side panel glass-panel glass-panel--subtle panel--side">
+        <div className="checks-stack checks-stack--side panel surface-panel surface-panel--subtle panel--side">
           <div className="brand-eyebrow brand-eyebrow--tight">环境预警</div>
           {checks.map((item) => (
             <div key={item.code} className={`check-item-mini check-item-mini--${item.severity}`}>
@@ -48,12 +48,12 @@ export function AppShellStatusRail({
         </div>
       )}
 
-      <article className="panel glass-panel glass-panel--subtle panel--side">
+      <article className="panel surface-panel surface-panel--subtle panel--side">
         <div className="brand-eyebrow brand-eyebrow--tight">恢复兼容性</div>
         <Text size={200} className="panel-muted">{recoveryStatusSummary}</Text>
         <div className="side-actions-stack">
-          <Button appearance="transparent" size="small" className="frost-button frost-button--secondary frost-button--block" onClick={onOpenRecoveryTasks} disabled={!canRecheckRecovery}>执行恢复检查</Button>
-          <Button appearance="transparent" size="small" className="frost-button frost-button--secondary frost-button--block" onClick={onOpenRuntimeTasks} disabled={!canRunRecoveryActions}>准备运行环境</Button>
+          <Button appearance="transparent" size="small" className="action-button action-button--secondary action-button--block" onClick={onOpenRecoveryTasks} disabled={!canRecheckRecovery}>执行恢复检查</Button>
+          <Button appearance="transparent" size="small" className="action-button action-button--secondary action-button--block" onClick={onOpenRuntimeTasks} disabled={!canRunRecoveryActions}>准备运行环境</Button>
         </div>
       </article>
     </aside>

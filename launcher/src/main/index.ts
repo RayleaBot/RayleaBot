@@ -1,9 +1,11 @@
-import { app, BrowserWindow, dialog, ipcMain, Menu, Tray, nativeTheme } from "electron";
+import path from "node:path";
+import { app, BrowserWindow, dialog, ipcMain, Menu, Tray, nativeTheme, protocol } from "electron";
 import type { LauncherSettings, LauncherSnapshot, TrayMenuEntry, TrayMenuState } from "../shared/launcher-models";
 import { deriveLauncherPresentation } from "../shared/launcher-presentation";
 import { launcherCopy } from "../shared/launcher-copy";
 import { launcherEventChannels, launcherInvokeChannels } from "../shared/launcher-ipc";
 import {
+  parseLauncherCloseConfirmResponse,
   parseLauncherSettingsInput,
   sanitizeLauncherWebTargetPath,
 } from "../shared/launcher-validation";
@@ -13,6 +15,7 @@ import { JsonLauncherSettingsStore, resolveLauncherSettings } from "./services/s
 import { resolveServerEndpoint } from "./services/endpoint-resolver";
 import { FetchLauncherManagementClient } from "./services/management-client";
 import { ServerProcessController } from "./services/process-controller";
+import { LauncherServerCredentials } from "./services/server-credentials";
 import { isEndpointListening, tryStopEndpointProcess } from "./services/port-process";
 import { externalOpener } from "./services/external-opener";
 import { LauncherReleaseFeedClient } from "./services/release-feed";
@@ -23,8 +26,42 @@ import { resolveLauncherAssetPaths, resolveLauncherBasePath } from "./services/a
 import { NodeRecoverySummaryReader } from "./services/recovery-summary-reader";
 import { createTrayImage } from "./services/tray-icon";
 import { wireSingleInstanceLifecycle } from "./services/single-instance";
+import {
+  LAUNCHER_RENDERER_SCHEME,
+  createSecureIpcRegistrar,
+  denyRendererPermissions,
+  installRendererNavigationGuards,
+  launcherRendererContentSecurityPolicy,
+  resolveLauncherRendererTarget,
+  wirePackagedRendererProtocol,
+} from "./services/electron-security";
+import {
+  completeUpdateHeartbeat,
+  consumeUpdateHeartbeatEnvironment,
+  launchInterruptedUpdateRecovery,
+} from "./services/update-resume";
 
-const devServerUrl = process.env.RAYLEA_DEV_SERVER_URL;
+protocol.registerSchemesAsPrivileged([
+  {
+    scheme: LAUNCHER_RENDERER_SCHEME,
+    privileges: {
+      allowServiceWorkers: false,
+      bypassCSP: false,
+      codeCache: true,
+      corsEnabled: false,
+      secure: true,
+      standard: true,
+      stream: false,
+      supportFetchAPI: false,
+    },
+  },
+]);
+app.enableSandbox();
+
+const rendererTarget = resolveLauncherRendererTarget({
+  isPackaged: app.isPackaged,
+  devServerUrl: process.env.RAYLEA_DEV_SERVER_URL,
+});
 
 let mainWindow: BrowserWindow | null = null;
 let tray: Tray | null = null;
@@ -35,13 +72,20 @@ const executableBasePath = resolveLauncherBasePath({
   executablePath: app.getPath("exe"),
   isPackaged: app.isPackaged,
 });
+const updateHeartbeatEnvironmentPresent = Boolean(
+  process.env.RAYLEA_UPDATE_HEARTBEAT || process.env.RAYLEA_UPDATE_TOKEN,
+);
+const updateHeartbeatRequest = consumeUpdateHeartbeatEnvironment();
 const settingsStore = new JsonLauncherSettingsStore(executableBasePath, process.platform);
-const processController = new ServerProcessController();
+const serverCredentials = new LauncherServerCredentials();
+const processController = new ServerProcessController({ credentials: serverCredentials });
 const coordinator = createLauncherCoordinator({
   settingsStore,
   endpointResolver: { resolve: resolveServerEndpoint },
   inspectEnvironment: inspectEnvironmentFromNode,
-  managementClient: new FetchLauncherManagementClient(),
+  managementClient: new FetchLauncherManagementClient({
+    getLauncherControlToken: () => serverCredentials.controlToken,
+  }),
   processController,
   isEndpointListening,
   tryStopEndpointProcess,
@@ -181,13 +225,13 @@ function refreshTrayMenu(snapshot: LauncherSnapshot) {
 async function createMainWindow() {
   nativeTheme.themeSource = "system";
   const isDark = nativeTheme.shouldUseDarkColors;
-  const { preloadPath, rendererPath } = resolveLauncherAssetPaths(app.getAppPath());
+  const { preloadPath } = resolveLauncherAssetPaths(app.getAppPath());
 
   mainWindow = new BrowserWindow({
     width: 1380,
     height: 920,
-    minWidth: 1120,
-    minHeight: 760,
+    minWidth: 760,
+    minHeight: 560,
     title: "RayleaBot 启动器",
     frame: false,
     roundedCorners: true,
@@ -195,11 +239,42 @@ async function createMainWindow() {
     show: false,
     autoHideMenuBar: true,
     webPreferences: {
+      allowRunningInsecureContent: false,
+      devTools: !app.isPackaged,
+      navigateOnDragDrop: false,
+      nodeIntegration: false,
       preload: preloadPath,
       contextIsolation: true,
-      sandbox: false,
+      sandbox: true,
+      safeDialogs: true,
+      webSecurity: true,
+      webviewTag: false,
     },
   });
+
+  installRendererNavigationGuards(mainWindow.webContents);
+  denyRendererPermissions(mainWindow.webContents.session);
+
+  if (rendererTarget.kind === "development") {
+    const contentSecurityPolicy = launcherRendererContentSecurityPolicy(rendererTarget);
+    mainWindow.webContents.session.webRequest.onHeadersReceived(
+      { urls: [`${rendererTarget.origin}/*`] },
+      (details, callback) => {
+        callback({
+          responseHeaders: {
+            ...details.responseHeaders,
+            "Content-Security-Policy": [contentSecurityPolicy],
+            "Cross-Origin-Opener-Policy": ["same-origin"],
+            "Permissions-Policy": [
+              "accelerometer=(), camera=(), geolocation=(), microphone=(), payment=(), usb=()",
+            ],
+            "Referrer-Policy": ["no-referrer"],
+            "X-Content-Type-Options": ["nosniff"],
+          },
+        });
+      },
+    );
+  }
 
   mainWindow.on("ready-to-show", () => {
     mainWindow?.show();
@@ -223,16 +298,18 @@ async function createMainWindow() {
     void handleCloseRequest();
   });
 
-  if (devServerUrl) {
-    await mainWindow.loadURL(devServerUrl);
-  } else {
-    await mainWindow.loadFile(rendererPath);
-  }
+  await mainWindow.loadURL(rendererTarget.url);
 }
 
 function wireIpc() {
-  ipcMain.handle(launcherInvokeChannels.minimize, () => mainWindow?.minimize());
-  ipcMain.handle(launcherInvokeChannels.maximize, () => {
+  const secureIpc = createSecureIpcRegistrar({
+    ipcMain,
+    expectedOrigin: rendererTarget.origin,
+    getMainWebContents: () => mainWindow?.webContents ?? null,
+  });
+
+  secureIpc.noArgs(launcherInvokeChannels.minimize, () => mainWindow?.minimize());
+  secureIpc.noArgs(launcherInvokeChannels.maximize, () => {
     if (!mainWindow) return;
     if (windowMaximized) {
       mainWindow.unmaximize();
@@ -240,39 +317,45 @@ function wireIpc() {
       mainWindow.maximize();
     }
   });
-  ipcMain.handle(launcherInvokeChannels.close, () => handleCloseRequest());
-  ipcMain.handle(launcherInvokeChannels.isMaximized, () => windowMaximized);
-  ipcMain.handle(launcherInvokeChannels.getPlatform, async () => `${process.platform}-${process.arch}`);
-  ipcMain.handle(launcherInvokeChannels.getSnapshot, async () => coordinator.snapshot);
-  ipcMain.handle(launcherInvokeChannels.initialize, async () => coordinator.initialize());
-  ipcMain.handle(launcherInvokeChannels.refresh, async () => coordinator.refresh());
-  ipcMain.handle(launcherInvokeChannels.retry, async () => coordinator.retry());
-  ipcMain.handle(launcherInvokeChannels.start, async () => coordinator.start());
-  ipcMain.handle(launcherInvokeChannels.stop, async () => coordinator.stop());
-  ipcMain.handle(launcherInvokeChannels.resetAdmin, async () => coordinator.resetAdmin());
-  ipcMain.handle(launcherInvokeChannels.checkForUpdates, async () => coordinator.checkForUpdates());
-  ipcMain.handle(launcherInvokeChannels.downloadUpdate, async () => coordinator.downloadUpdate());
-  ipcMain.handle(launcherInvokeChannels.installDownloadedUpdate, async () => {
+  secureIpc.noArgs(launcherInvokeChannels.close, () => handleCloseRequest());
+  secureIpc.noArgs(launcherInvokeChannels.isMaximized, () => windowMaximized);
+  secureIpc.noArgs(launcherInvokeChannels.getPlatform, () => `${process.platform}-${process.arch}`);
+  secureIpc.noArgs(launcherInvokeChannels.getSnapshot, () => coordinator.snapshot);
+  secureIpc.noArgs(launcherInvokeChannels.initialize, () => coordinator.initialize());
+  secureIpc.noArgs(launcherInvokeChannels.refresh, () => coordinator.refresh());
+  secureIpc.noArgs(launcherInvokeChannels.retry, () => coordinator.retry());
+  secureIpc.noArgs(launcherInvokeChannels.start, () => coordinator.start());
+  secureIpc.noArgs(launcherInvokeChannels.stop, () => coordinator.stop());
+  secureIpc.noArgs(launcherInvokeChannels.resetAdmin, () => coordinator.resetAdmin());
+  secureIpc.noArgs(launcherInvokeChannels.checkForUpdates, () => coordinator.checkForUpdates());
+  secureIpc.noArgs(launcherInvokeChannels.downloadUpdate, () => coordinator.downloadUpdate());
+  secureIpc.noArgs(launcherInvokeChannels.installDownloadedUpdate, async () => {
     await coordinator.prepareUpdateInstall(process.pid);
     await appExitManager.requestExit();
   });
-  ipcMain.handle(launcherInvokeChannels.openWeb, async (_event, targetPath?: string) =>
-    coordinator.openWebUi(sanitizeLauncherWebTargetPath(targetPath)),
+  secureIpc.oneArg(
+    launcherInvokeChannels.openWeb,
+    sanitizeLauncherWebTargetPath,
+    (targetPath) => coordinator.openWebUi(targetPath),
   );
-  ipcMain.handle(launcherInvokeChannels.openReleasePage, async () => coordinator.openReleasePage());
-  ipcMain.handle(launcherInvokeChannels.openRepositoryPage, async () => coordinator.openRepositoryPage());
-  ipcMain.handle(launcherInvokeChannels.openLogs, async () => coordinator.openLogsDirectory());
-  ipcMain.handle(launcherInvokeChannels.saveSettings, async (_event, settings: LauncherSettings) =>
-    coordinator.saveSettings(parseLauncherSettingsInput(settings)),
+  secureIpc.noArgs(launcherInvokeChannels.openReleasePage, () => coordinator.openReleasePage());
+  secureIpc.noArgs(launcherInvokeChannels.openRepositoryPage, () => coordinator.openRepositoryPage());
+  secureIpc.noArgs(launcherInvokeChannels.openLogs, () => coordinator.openLogsDirectory());
+  secureIpc.oneArg(
+    launcherInvokeChannels.saveSettings,
+    parseLauncherSettingsInput,
+    (settings) => coordinator.saveSettings(settings),
   );
-  ipcMain.handle(launcherInvokeChannels.previewResolvedSettings, async (_event, settings: LauncherSettings) =>
-    resolveLauncherSettings(parseLauncherSettingsInput(settings), process.platform),
+  secureIpc.oneArg(
+    launcherInvokeChannels.previewResolvedSettings,
+    parseLauncherSettingsInput,
+    (settings) => resolveLauncherSettings(settings, process.platform),
   );
-  ipcMain.handle(launcherInvokeChannels.chooseInstallationRoot, async () => chooseInstallationRoot());
-  ipcMain.handle(launcherInvokeChannels.chooseServer, async () => chooseServerExecutable());
-  ipcMain.handle(launcherInvokeChannels.chooseConfig, async () => chooseConfigFile());
-  ipcMain.handle(launcherInvokeChannels.chooseWorkdir, async () => chooseWorkdir());
-  ipcMain.handle(launcherInvokeChannels.closeConfirmResponse, async (_event, response: { action: "hide" | "exit" | "cancel"; setAsDefault: boolean }) => {
+  secureIpc.noArgs(launcherInvokeChannels.chooseInstallationRoot, () => chooseInstallationRoot());
+  secureIpc.noArgs(launcherInvokeChannels.chooseServer, () => chooseServerExecutable());
+  secureIpc.noArgs(launcherInvokeChannels.chooseConfig, () => chooseConfigFile());
+  secureIpc.noArgs(launcherInvokeChannels.chooseWorkdir, () => chooseWorkdir());
+  secureIpc.oneArg(launcherInvokeChannels.closeConfirmResponse, parseLauncherCloseConfirmResponse, async (response) => {
     if (response.action === "cancel") {
       return;
     }
@@ -292,11 +375,19 @@ function wireIpc() {
       await appExitManager.requestExit();
     }
   });
-  ipcMain.handle(launcherInvokeChannels.exit, async () => appExitManager.requestExit());
+  secureIpc.noArgs(launcherInvokeChannels.exit, () => appExitManager.requestExit());
 }
 
 async function bootstrap() {
   await app.whenReady();
+  if (!updateHeartbeatEnvironmentPresent && await launchInterruptedUpdateRecovery(executableBasePath, process.pid)) {
+    await appExitManager.requestExit();
+    return;
+  }
+  if (rendererTarget.kind === "packaged") {
+    const { rendererPath } = resolveLauncherAssetPaths(app.getAppPath());
+    wirePackagedRendererProtocol({ protocol, rendererRoot: path.dirname(rendererPath) });
+  }
   wireIpc();
   await createMainWindow();
 
@@ -316,6 +407,12 @@ async function bootstrap() {
   });
 
   await coordinator.initialize();
+  await completeUpdateHeartbeat(executableBasePath, updateHeartbeatRequest, {
+    startService: () => coordinator.start(),
+    getSnapshot: () => coordinator.snapshot,
+    launcherPid: process.pid,
+    servicePid: () => processController.processId,
+  });
 }
 
 app.on("window-all-closed", () => {

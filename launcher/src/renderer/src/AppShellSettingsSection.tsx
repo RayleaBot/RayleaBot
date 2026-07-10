@@ -56,9 +56,9 @@ export function AppShellSettingsSection({
   const workdir = settingsDraft.advancedOverrides?.workdir || resolvedSettings.workdir;
 
   return (
-    <article className="panel glass-panel settings-panel" data-busy={busyAction ?? "idle"}>
+    <article className="panel surface-panel settings-panel" data-busy={busyAction ?? "idle"}>
       {editingSettings && (
-        <div className="settings-edit-bar glass-panel glass-panel--subtle">
+        <div className="settings-edit-bar surface-panel surface-panel--subtle">
           <div className="settings-edit-status">
             <span className="settings-edit-status__dot" aria-hidden="true"></span>
             <div className="settings-edit-status__copy">
@@ -71,7 +71,7 @@ export function AppShellSettingsSection({
 
       <div className="settings-layout">
         <div className="settings-column settings-column--primary">
-          <section className="settings-section settings-paths-panel glass-panel glass-panel--subtle">
+          <section className="settings-section settings-paths-panel surface-panel surface-panel--subtle">
             <div className="settings-section__header">
               <FolderOpen20Filled className="settings-section__icon" />
               <div className="panel-copy">
@@ -84,29 +84,29 @@ export function AppShellSettingsSection({
               <label className="path-field">
                 <span className="path-field__label">安装目录</span>
                 <div className="path-control">
-                  <Input aria-label="安装目录" value={settingsDraft.installationRoot} readOnly={!editingSettings} className="frost-input frost-input--path" onChange={(_, data) => onUpdateInstallationRoot(data.value)} />
-                  <Button appearance="transparent" disabled={!editingSettings} size="small" className="frost-button frost-button--secondary frost-button--compact" onClick={onChooseInstallationRoot} icon={<FolderOpen20Filled />}>浏览</Button>
+                  <Input aria-label="安装目录" value={settingsDraft.installationRoot} readOnly={!editingSettings} className="settings-input settings-input--path" onChange={(_, data) => onUpdateInstallationRoot(data.value)} />
+                  <Button appearance="transparent" disabled={!editingSettings} size="small" className="action-button action-button--secondary action-button--compact" onClick={onChooseInstallationRoot} icon={<FolderOpen20Filled />}>浏览</Button>
                 </div>
               </label>
               <label className="path-field">
                 <span className="path-field__label">服务端程序</span>
                 <div className="path-control">
-                  <Input aria-label="服务端程序" value={serverExecutablePath} readOnly={!editingSettings} className="frost-input frost-input--path" onChange={(_, data) => onUpdateAdvancedOverride("serverExecutablePath", data.value)} />
-                  <Button appearance="transparent" disabled={!editingSettings} size="small" className="frost-button frost-button--secondary frost-button--compact" onClick={onChooseServer} icon={<FolderOpen20Filled />}>浏览</Button>
+                  <Input aria-label="服务端程序" value={serverExecutablePath} readOnly={!editingSettings} className="settings-input settings-input--path" onChange={(_, data) => onUpdateAdvancedOverride("serverExecutablePath", data.value)} />
+                  <Button appearance="transparent" disabled={!editingSettings} size="small" className="action-button action-button--secondary action-button--compact" onClick={onChooseServer} icon={<FolderOpen20Filled />}>浏览</Button>
                 </div>
               </label>
               <label className="path-field">
                 <span className="path-field__label">配置文件</span>
                 <div className="path-control">
-                  <Input aria-label="配置文件" value={configPath} readOnly={!editingSettings} className="frost-input frost-input--path" onChange={(_, data) => onUpdateAdvancedOverride("configPath", data.value)} />
-                  <Button appearance="transparent" disabled={!editingSettings} size="small" className="frost-button frost-button--secondary frost-button--compact" onClick={onChooseConfig} icon={<FolderOpen20Filled />}>浏览</Button>
+                  <Input aria-label="配置文件" value={configPath} readOnly={!editingSettings} className="settings-input settings-input--path" onChange={(_, data) => onUpdateAdvancedOverride("configPath", data.value)} />
+                  <Button appearance="transparent" disabled={!editingSettings} size="small" className="action-button action-button--secondary action-button--compact" onClick={onChooseConfig} icon={<FolderOpen20Filled />}>浏览</Button>
                 </div>
               </label>
               <label className="path-field">
                 <span className="path-field__label">进程工作目录</span>
                 <div className="path-control">
-                  <Input aria-label="进程工作目录" value={workdir} readOnly={!editingSettings} className="frost-input frost-input--path" onChange={(_, data) => onUpdateAdvancedOverride("workdir", data.value)} />
-                  <Button appearance="transparent" disabled={!editingSettings} size="small" className="frost-button frost-button--secondary frost-button--compact" onClick={onChooseWorkdir} icon={<FolderOpen20Filled />}>选择</Button>
+                  <Input aria-label="进程工作目录" value={workdir} readOnly={!editingSettings} className="settings-input settings-input--path" onChange={(_, data) => onUpdateAdvancedOverride("workdir", data.value)} />
+                  <Button appearance="transparent" disabled={!editingSettings} size="small" className="action-button action-button--secondary action-button--compact" onClick={onChooseWorkdir} icon={<FolderOpen20Filled />}>选择</Button>
                 </div>
               </label>
             </div>
@@ -114,7 +114,7 @@ export function AppShellSettingsSection({
         </div>
 
         <div className="settings-column settings-column--secondary">
-          <section className="preferences-panel glass-panel glass-panel--subtle">
+          <section className="preferences-panel surface-panel surface-panel--subtle">
             <div className="panel-copy">
               <div className="brand-eyebrow brand-eyebrow--tight">退出行为偏好</div>
               <Text size={200} className="panel-muted">关闭窗口时采用的默认动作。托盘模式会保留后台入口。</Text>
@@ -134,7 +134,7 @@ export function AppShellSettingsSection({
             </RadioGroup>
           </section>
 
-          <section className="maintenance-panel glass-panel glass-panel--subtle">
+          <section className="maintenance-panel surface-panel surface-panel--subtle">
             <div className="panel-copy">
               <div className="brand-eyebrow brand-eyebrow--tight">维护操作</div>
               <Text size={200} className="panel-muted">用于重置本地凭据或直接结束启动器进程。</Text>
@@ -148,7 +148,7 @@ export function AppShellSettingsSection({
                     <Text size={200} className="maintenance-action-card__detail">清除本地管理凭据，下次启动时重新完成初始化。</Text>
                   </div>
                 </div>
-                <Button appearance="transparent" size="small" className="frost-button frost-button--danger maintenance-action-card__button" onClick={onResetAdmin} disabled={controlsDisabled || presentation.state === "starting" || presentation.state === "stopping"}>立即重置</Button>
+                <Button appearance="transparent" size="small" className="action-button action-button--danger maintenance-action-card__button" onClick={onResetAdmin} disabled={controlsDisabled || presentation.state === "starting" || presentation.state === "stopping"}>立即重置</Button>
               </div>
               <div className="maintenance-action-card maintenance-action-card--soft">
                 <div className="maintenance-action-card__lead">
@@ -158,7 +158,7 @@ export function AppShellSettingsSection({
                     <Text size={200} className="maintenance-action-card__detail">关闭窗口和托盘入口，不影响已保存配置与服务文件。</Text>
                   </div>
                 </div>
-                <Button appearance="transparent" size="small" className="frost-button frost-button--secondary maintenance-action-card__button" onClick={onExit}>退出启动器</Button>
+                <Button appearance="transparent" size="small" className="action-button action-button--secondary maintenance-action-card__button" onClick={onExit}>退出启动器</Button>
               </div>
             </div>
           </section>

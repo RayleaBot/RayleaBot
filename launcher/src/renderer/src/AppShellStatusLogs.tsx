@@ -17,7 +17,7 @@ export function AppShellStatusLogs({
   onOpenLogs,
 }: AppShellStatusLogsProps) {
   return (
-    <article className="status-log-panel panel glass-panel" data-alert={logAlert} data-highlight={logHighlight}>
+    <article className="status-log-panel panel surface-panel" data-alert={logAlert} data-highlight={logHighlight}>
       <div className="panel-header-row">
         <div className="brand-eyebrow">异常输出监控</div>
         <span className={`status-log-indicator status-log-indicator--${hasRecentStderr ? "alert" : "quiet"}`}>
@@ -34,7 +34,7 @@ export function AppShellStatusLogs({
         </div>
       )}
       <div className="panel-footer-actions">
-        <Button appearance="transparent" size="small" className="frost-button frost-button--ghost-bright" onClick={onOpenLogs} icon={<FolderOpen20Filled />}>查看完整日志</Button>
+        <Button appearance="transparent" size="small" className="action-button action-button--ghost-bright" onClick={onOpenLogs} icon={<FolderOpen20Filled />}>查看完整日志</Button>
       </div>
     </article>
   );

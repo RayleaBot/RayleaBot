@@ -34,33 +34,33 @@ function getSectionHeaderBadges(
   if (renderedSection === "status") {
     return (
       <>
-        <span className="glass-chip glass-chip--accent">{serviceStateConfig[presentation.state]?.label ?? "未知"}</span>
-        {busyAction && <span className="glass-chip glass-chip--muted">{busyActionLabels[busyAction] ?? "正在执行操作"}</span>}
+        <span className="status-chip status-chip--accent">{serviceStateConfig[presentation.state]?.label ?? "未知"}</span>
+        {busyAction && <span className="status-chip status-chip--muted">{busyActionLabels[busyAction] ?? "正在执行操作"}</span>}
       </>
     );
   }
   if (renderedSection === "environment") {
     return (
       <>
-        <span className="glass-chip glass-chip--accent">{environmentLabel}</span>
-        <span className="glass-chip glass-chip--muted">{snapshot.launcher.preflightChecks.length} 项检查</span>
+        <span className="status-chip status-chip--accent">{environmentLabel}</span>
+        <span className="status-chip status-chip--muted">{snapshot.launcher.preflightChecks.length} 项检查</span>
       </>
     );
   }
   if (renderedSection === "diagnostics") {
     return (
       <>
-        <span className={`glass-chip ${hasRecentStderr ? "glass-chip--danger" : "glass-chip--muted"}`}>
+        <span className={`status-chip ${hasRecentStderr ? "status-chip--danger" : "status-chip--muted"}`}>
           {hasRecentStderr ? "发现异常日志" : "暂无异常日志"}
         </span>
-        <span className="glass-chip glass-chip--muted">{snapshot.launcher.endpoint.baseUrl}</span>
+        <span className="status-chip status-chip--muted">{snapshot.launcher.endpoint.baseUrl}</span>
       </>
     );
   }
   if (renderedSection === "about") {
-    return <span className="glass-chip glass-chip--muted">{formatReleaseVersion(snapshot.launcher.releaseCheck.currentVersion)}</span>;
+    return <span className="status-chip status-chip--muted">{formatReleaseVersion(snapshot.launcher.releaseCheck.currentVersion)}</span>;
   }
-  return <span className="glass-chip glass-chip--accent">{editingSettings ? "草稿编辑中" : "已加载当前配置"}</span>;
+  return <span className="status-chip status-chip--accent">{editingSettings ? "草稿编辑中" : "已加载当前配置"}</span>;
 }
 
 function getSectionHeaderActions(props: AppShellSectionHeaderProps, canRunRecoveryActions: boolean): ReactNode {
@@ -71,7 +71,7 @@ function getSectionHeaderActions(props: AppShellSectionHeaderProps, canRunRecove
         size="small"
         onClick={props.onRefresh}
         icon={<ArrowClockwise20Regular />}
-        className="frost-button frost-button--ghost"
+        className="action-button action-button--ghost"
         disabled={props.controlsDisabled}
       >
         刷新状态
@@ -84,18 +84,18 @@ function getSectionHeaderActions(props: AppShellSectionHeaderProps, canRunRecove
         <Button
           appearance="transparent"
           size="small"
-          className="frost-button frost-button--secondary"
+          className="action-button action-button--secondary"
           onClick={props.onRefresh}
           disabled={props.controlsDisabled}
         >
           重新检查
         </Button>
-        <Button appearance="transparent" size="small" className="frost-button frost-button--primary" onClick={props.onOpenRuntimeTasks} disabled={!canRunRecoveryActions}>准备运行环境</Button>
+        <Button appearance="transparent" size="small" className="action-button action-button--primary" onClick={props.onOpenRuntimeTasks} disabled={!canRunRecoveryActions}>准备运行环境</Button>
       </>
     );
   }
   if (props.renderedSection === "diagnostics") {
-    return <Button appearance="transparent" size="small" className="frost-button frost-button--secondary" onClick={props.onOpenLogs} icon={<FolderOpen20Filled />}>查看完整日志</Button>;
+    return <Button appearance="transparent" size="small" className="action-button action-button--secondary" onClick={props.onOpenLogs} icon={<FolderOpen20Filled />}>查看完整日志</Button>;
   }
   if (props.renderedSection === "about") {
     return null;
@@ -103,12 +103,12 @@ function getSectionHeaderActions(props: AppShellSectionHeaderProps, canRunRecove
   if (props.editingSettings) {
     return (
       <>
-        <Button appearance="transparent" size="small" className="frost-button frost-button--ghost" onClick={props.onCancelEdit}>放弃</Button>
-        <Button appearance="transparent" size="small" className="frost-button frost-button--primary" onClick={props.onSaveSettings}>保存</Button>
+        <Button appearance="transparent" size="small" className="action-button action-button--ghost" onClick={props.onCancelEdit}>放弃</Button>
+        <Button appearance="transparent" size="small" className="action-button action-button--primary" onClick={props.onSaveSettings}>保存</Button>
       </>
     );
   }
-  return <Button appearance="transparent" size="small" className="frost-button frost-button--primary" onClick={props.onBeginEdit}>编辑配置</Button>;
+  return <Button appearance="transparent" size="small" className="action-button action-button--primary" onClick={props.onBeginEdit}>编辑配置</Button>;
 }
 
 export function AppShellSectionHeader(props: AppShellSectionHeaderProps) {
@@ -119,7 +119,7 @@ export function AppShellSectionHeader(props: AppShellSectionHeaderProps) {
   const environmentLabel = getEnvironmentSummaryLabel(props.snapshot.launcher.preflightChecks);
 
   return (
-    <header className="section-header glass-panel glass-panel--subtle">
+    <header className="section-header surface-panel surface-panel--subtle">
       <div className="section-header__copy">
         <div className="section-header__eyebrow">{sectionMeta.eyebrow}</div>
         <div className="section-header__title-row">

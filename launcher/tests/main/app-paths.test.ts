@@ -7,7 +7,7 @@ describe("launcher app paths", () => {
     const appPath = path.win32.join("C:\\", "RayleaBot", "launcher");
 
     expect(resolveLauncherAssetPaths(appPath)).toEqual({
-      preloadPath: path.win32.join(appPath, "dist", "preload", "preload", "index.js"),
+      preloadPath: path.win32.join(appPath, "dist", "preload", "index.js"),
       rendererPath: path.win32.join(appPath, "dist", "renderer", "index.html"),
     });
   });

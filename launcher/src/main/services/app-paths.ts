@@ -32,7 +32,7 @@ export function resolveLauncherAssetPaths(appPath: string) {
   const root = resolveAbsolutePath(appPath);
   const pathFlavor = getPathFlavor(root);
   return {
-    preloadPath: pathFlavor.join(root, "dist", "preload", "preload", "index.js"),
+    preloadPath: pathFlavor.join(root, "dist", "preload", "index.js"),
     rendererPath: pathFlavor.join(root, "dist", "renderer", "index.html"),
   };
 }

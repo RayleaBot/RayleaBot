@@ -92,6 +92,7 @@ export class FakeProcessController implements ServerProcessController {
   forceKillCalls = 0;
   recentStderr = ["stderr line"];
   logDirectory = "C:\\RayleaBot\\logs";
+  setupToken = "";
 
   async start() {
     this.startCalls += 1;
@@ -105,6 +106,10 @@ export class FakeProcessController implements ServerProcessController {
 
   getRecentStderr() {
     return this.recentStderr;
+  }
+
+  getSetupToken() {
+    return this.setupToken;
   }
 }
 

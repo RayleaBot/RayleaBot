@@ -8,6 +8,7 @@ import type {
   RuntimePrepareStatus,
 } from "../../shared/launcher-models";
 import { terminateProcessId } from "./process-termination";
+import { LauncherServerCredentials } from "./server-credentials";
 
 const MAX_STDERR_LINES = 40;
 
@@ -21,9 +22,11 @@ interface ServerProcessControllerDependencies {
   fileSystem?: FileSystemLike;
   terminateProcessId?: (pid: number) => Promise<boolean>;
   now?: () => Date;
+  credentials?: LauncherServerCredentials;
 }
 
 type RuntimePrepareLogLine = {
+  component?: unknown;
   msg?: unknown;
   resource_kind?: unknown;
   label?: unknown;
@@ -89,7 +92,9 @@ function parseRuntimePrepareProgressLine(line: string): RuntimePrepareResourcePr
   } catch {
     return null;
   }
-  if (parsed.msg !== "runtime_prepare_progress") {
+  const component = stringValue(parsed.component);
+  const message = stringValue(parsed.msg);
+  if (component !== "runtime_prepare" && message !== "runtime_prepare_progress") {
     return null;
   }
   const kind = stringValue(parsed.resource_kind);
@@ -125,6 +130,7 @@ export class ServerProcessController {
   private readonly fileSystem: FileSystemLike;
   private readonly terminateProcessId: (pid: number) => Promise<boolean>;
   private readonly now: () => Date;
+  private readonly credentials: LauncherServerCredentials;
   private process: ChildProcessWithoutNullStreams | null = null;
   private stderrLines: string[] = [];
   private runtimePrepareResources = new Map<string, RuntimePrepareResourceProgress>();
@@ -140,6 +146,7 @@ export class ServerProcessController {
     this.fileSystem = dependencies.fileSystem ?? fs;
     this.terminateProcessId = dependencies.terminateProcessId ?? terminateProcessId;
     this.now = dependencies.now ?? (() => new Date());
+    this.credentials = dependencies.credentials ?? new LauncherServerCredentials();
   }
 
   get isRunning() {
@@ -153,6 +160,10 @@ export class ServerProcessController {
 
   getRecentStderr() {
     return [...this.stderrLines];
+  }
+
+  getSetupToken() {
+    return this.credentials.setupToken;
   }
 
   getRuntimePrepareSnapshot(): RuntimePrepareSnapshot | null {
@@ -185,8 +196,14 @@ export class ServerProcessController {
     await this.fileSystem.mkdir(settings.workdir, { recursive: true });
     this.logDirectory = path.join(settings.workdir, "logs");
     await this.fileSystem.mkdir(this.logDirectory, { recursive: true });
+    this.credentials.rotate();
     const child = this.spawnProcess(settings.serverExecutablePath, ["-config", settings.configPath], {
       cwd: settings.workdir,
+      env: {
+        ...process.env,
+        RAYLEA_SETUP_TOKEN: this.credentials.setupToken,
+        RAYLEA_LAUNCHER_CONTROL_TOKEN: this.credentials.controlToken,
+      },
       windowsHide: true,
       stdio: "pipe",
     });
@@ -207,6 +224,7 @@ export class ServerProcessController {
     child.on("exit", (code, signal) => {
       if (this.process === child) {
         this.process = null;
+        this.credentials.clear();
       }
 
       if ((code ?? 0) === 0 && !signal) {

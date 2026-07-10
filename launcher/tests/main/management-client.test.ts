@@ -76,7 +76,7 @@ describe("FetchLauncherManagementClient", () => {
     expect(readiness.reason).toContain("管理员尚未初始化");
   });
 
-  test("reads launcher status and requests launcher shutdown without auth headers", async () => {
+  test("authenticates launcher status and shutdown with the control token", async () => {
     const requests: Array<{ url: string; init?: RequestInit }> = [];
 
     vi.stubGlobal(
@@ -91,7 +91,9 @@ describe("FetchLauncherManagementClient", () => {
       }),
     );
 
-    const client = new FetchLauncherManagementClient();
+    const client = new FetchLauncherManagementClient({
+      getLauncherControlToken: () => "launcher-control-token",
+    });
     const endpoint = {
       host: "127.0.0.1",
       port: 8080,
@@ -104,11 +106,15 @@ describe("FetchLauncherManagementClient", () => {
     expect(status.status).toBe("running");
     expect(requests[0]?.url).toBe("http://127.0.0.1:8080/api/launcher/status");
     expect(requests[0]?.init?.method).toBeUndefined();
-    expect(requests[0]?.init?.headers).toBeUndefined();
+    expect(requests[0]?.init?.headers).toEqual({
+      "X-Raylea-Launcher-Control": "launcher-control-token",
+    });
 
     expect(requests[1]?.url).toBe("http://127.0.0.1:8080/api/launcher/shutdown");
     expect(requests[1]?.init?.method).toBe("POST");
-    expect(requests[1]?.init?.headers).toBeUndefined();
+    expect(requests[1]?.init?.headers).toEqual({
+      "X-Raylea-Launcher-Control": "launcher-control-token",
+    });
     expect(requests[1]?.init?.body).toBeUndefined();
   });
 

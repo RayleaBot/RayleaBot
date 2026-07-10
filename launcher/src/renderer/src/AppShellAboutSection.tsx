@@ -40,12 +40,15 @@ function buildVersionHint(releaseCheck: LauncherSnapshot["launcher"]["releaseChe
       return latestVersion ? `有新版本 ${latestVersion}` : "有新版本";
     case "downloading":
       return progressLabel ? `下载中 ${progressLabel}` : "正在下载更新";
-    case "downloaded":
-      return latestVersion ? `已下载 ${latestVersion}` : "更新已下载";
+    case "ready_to_install":
+      return latestVersion ? `已验证 ${latestVersion}` : "更新已准备安装";
     case "installing":
       return "正在安装更新";
-    case "error":
+    case "failed":
+    case "rollback_failed":
       return releaseCheck.summary || "更新检查失败";
+    case "rolled_back":
+      return "新版启动失败，已恢复上一版本";
     default:
       return "";
   }
@@ -67,8 +70,8 @@ export function AppShellAboutSection({
       : "";
   const versionHint = buildVersionHint(releaseCheck, progressLabel);
   const updateButtonLabel =
-    releaseCheck.status === "downloaded"
-      ? "重启安装"
+    releaseCheck.status === "ready_to_install"
+      ? "确认安装"
       : releaseCheck.status === "downloading"
         ? "下载中"
         : releaseCheck.status === "checking"
@@ -93,7 +96,7 @@ export function AppShellAboutSection({
 
   return (
     <article className="about-section">
-      <section className="about-hero glass-panel">
+      <section className="about-hero surface-panel">
         <div className="about-hero__mark" aria-hidden="true">
           <Code20Filled />
         </div>
@@ -104,7 +107,7 @@ export function AppShellAboutSection({
         <div className="about-hero__actions">
           <Button
             appearance="transparent"
-            className="frost-button frost-button--secondary"
+            className="action-button action-button--secondary"
             icon={<ArrowClockwise20Regular />}
             disabled={updateDisabled}
             onClick={onUpdateAction}
@@ -113,7 +116,7 @@ export function AppShellAboutSection({
           </Button>
           <Button
             appearance="transparent"
-            className="frost-button frost-button--primary"
+            className="action-button action-button--primary"
             icon={<Open20Regular />}
             onClick={onOpenRepositoryPage}
           >
@@ -122,7 +125,7 @@ export function AppShellAboutSection({
         </div>
       </section>
 
-      <section className="about-info-panel glass-panel glass-panel--subtle">
+      <section className="about-info-panel surface-panel surface-panel--subtle">
         <div className="about-panel-heading">
           <Info20Filled className="about-panel-heading__icon" />
           <div className="brand-eyebrow brand-eyebrow--tight">应用信息</div>

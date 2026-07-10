@@ -38,6 +38,11 @@ export function createLauncherDesktopActions(deps: LauncherDesktopActionsDepende
     const normalizedTarget = sanitizeLauncherWebTargetPath(targetPath);
     const webUiBaseUrl = resolveWebUiBaseUrl(context.endpoint.baseUrl);
     const url = normalizedTarget ? new URL(normalizedTarget, webUiBaseUrl) : new URL(webUiBaseUrl);
+    const setupToken = deps.processController.getSetupToken?.().trim() ?? "";
+    if (!normalizedTarget && setupToken && deps.snapshotStore.snapshot.server.readiness?.status === "setup_required") {
+      url.pathname = "/setup";
+      url.hash = `setup_token=${setupToken}`;
+    }
 
     await deps.externalOpener.openUri(url.toString());
   }
