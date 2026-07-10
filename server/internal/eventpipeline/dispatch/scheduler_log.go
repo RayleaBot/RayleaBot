@@ -57,6 +57,7 @@ func (d *Dispatcher) recordSchedulerCompletion(ctx context.Context, event plugin
 	}
 	if err := event.SchedulerLog.Recorder.RecordSchedulerRunResult(ctx, pluginruntime.SchedulerRunResult{
 		JobID:      jobID,
+		Revision:   event.SchedulerLog.Revision,
 		Outcome:    string(outcome),
 		Duration:   duration,
 		ErrorCode:  errorCode,

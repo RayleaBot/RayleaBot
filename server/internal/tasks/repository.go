@@ -17,6 +17,7 @@ type Repository interface {
 	SaveTask(ctx context.Context, snapshot Snapshot) error
 	LoadTasks(ctx context.Context) ([]Snapshot, error)
 	DeleteTask(ctx context.Context, taskID string) error
+	InterruptInProgressTasks(ctx context.Context, finishedAt time.Time) error
 }
 
 // SQLiteRepository implements Repository using SQLite.
@@ -105,6 +106,19 @@ func (r *SQLiteRepository) LoadTasks(ctx context.Context) ([]Snapshot, error) {
 func (r *SQLiteRepository) DeleteTask(ctx context.Context, taskID string) error {
 	if err := r.writeQ.DeleteTask(ctx, taskID); err != nil {
 		return fmt.Errorf("delete task %s: %w", taskID, err)
+	}
+	return nil
+}
+
+func (r *SQLiteRepository) InterruptInProgressTasks(ctx context.Context, finishedAt time.Time) error {
+	if finishedAt.IsZero() {
+		finishedAt = time.Now().UTC()
+	}
+	if err := r.writeQ.InterruptInProgressTasks(ctx, sqlcgen.InterruptInProgressTasksParams{
+		Summary:    "任务因服务重启中断",
+		FinishedAt: toNullString(finishedAt.UTC().Format(time.RFC3339Nano)),
+	}); err != nil {
+		return fmt.Errorf("interrupt in-progress tasks: %w", err)
 	}
 	return nil
 }

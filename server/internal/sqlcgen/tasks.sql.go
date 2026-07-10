@@ -19,6 +19,26 @@ func (q *Queries) DeleteTask(ctx context.Context, taskID string) error {
 	return err
 }
 
+const interruptInProgressTasks = `-- name: InterruptInProgressTasks :exec
+UPDATE tasks
+SET status = 'interrupted',
+    summary = ?,
+    finished_at = ?,
+    result_json = NULL,
+    error_json = NULL
+WHERE status IN ('pending', 'running')
+`
+
+type InterruptInProgressTasksParams struct {
+	Summary    string
+	FinishedAt sql.NullString
+}
+
+func (q *Queries) InterruptInProgressTasks(ctx context.Context, arg InterruptInProgressTasksParams) error {
+	_, err := q.db.ExecContext(ctx, interruptInProgressTasks, arg.Summary, arg.FinishedAt)
+	return err
+}
+
 const loadTasks = `-- name: LoadTasks :many
 SELECT task_id, task_type, status, progress, summary, started_at, finished_at, result_json, error_json
 FROM tasks ORDER BY created_at ASC

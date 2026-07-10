@@ -45,6 +45,9 @@ func (s *Service) SubmitRecoveryRecheckTask() (string, *Error) {
 		}, nil
 	})
 	if err != nil {
+		if errors.Is(err, tasks.ErrQueueFull) {
+			return "", TaskQueueFullError()
+		}
 		return "", InternalError()
 	}
 	return taskID, nil
@@ -123,6 +126,9 @@ func (s *Service) SubmitRecoveryConfirmTask(reviewIDs []string, note, operatorID
 		}, nil
 	})
 	if err != nil {
+		if errors.Is(err, tasks.ErrQueueFull) {
+			return "", TaskQueueFullError()
+		}
 		return "", InternalError()
 	}
 	taskIDCh <- taskID

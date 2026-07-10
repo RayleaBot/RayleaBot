@@ -742,6 +742,135 @@ func TestEngine_TickPreservesRunStateRecordedDuringTrigger(t *testing.T) {
 	}
 }
 
+func TestEngineStaleTriggerCannotOverwriteUpsertedJob(t *testing.T) {
+	store := openTestStore(t)
+	repo, err := NewSQLiteRepository(store)
+	if err != nil {
+		t.Fatalf("new repository: %v", err)
+	}
+
+	ctx := context.Background()
+	triggered := make(chan Job, 1)
+	release := make(chan struct{})
+	var engine *Engine
+	engine, err = New(Options{
+		Repository: repo,
+		Logger:     testLogger(),
+		Trigger: func(triggerCtx context.Context, job Job) {
+			triggered <- job
+			<-release
+			if err := engine.RecordRunResult(triggerCtx, RunResult{
+				JobID:      job.JobID,
+				Revision:   job.Revision,
+				Outcome:    RunOutcomeSuccess,
+				OccurredAt: time.Now().UTC(),
+			}); err != nil {
+				t.Errorf("record stale result: %v", err)
+			}
+		},
+	})
+	if err != nil {
+		t.Fatalf("new engine: %v", err)
+	}
+
+	baseTime := time.Date(2026, 7, 10, 8, 0, 0, 0, time.UTC)
+	engine.now = func() time.Time { return baseTime }
+	original, err := engine.UpsertTask(ctx, "weather", "daily-report", "* * * * *", nil)
+	if err != nil {
+		t.Fatalf("initial upsert: %v", err)
+	}
+	engine.now = func() time.Time { return original.NextRun.Add(time.Second) }
+
+	tickDone := make(chan struct{})
+	go func() {
+		defer close(tickDone)
+		engine.tick()
+	}()
+	stale := <-triggered
+
+	updated, err := engine.UpsertTask(ctx, "weather", original.JobID, "30 * * * *", json.RawMessage(`{"version":2}`))
+	if err != nil {
+		t.Fatalf("replace job while trigger is running: %v", err)
+	}
+	if updated.Revision == stale.Revision {
+		t.Fatalf("job revision did not change: %d", updated.Revision)
+	}
+	close(release)
+	<-tickDone
+
+	jobs := engine.Jobs()
+	if len(jobs) != 1 {
+		t.Fatalf("jobs = %d, want 1", len(jobs))
+	}
+	if jobs[0].Revision != updated.Revision || jobs[0].CronExpr != "30 * * * *" || !jobs[0].NextRun.Equal(updated.NextRun) {
+		t.Fatalf("stale trigger overwrote updated job: %#v", jobs[0])
+	}
+	if jobs[0].RunStats.Total() != 0 {
+		t.Fatalf("stale trigger result was applied: %#v", jobs[0].RunStats)
+	}
+
+	persisted, err := repo.LoadJobs(ctx)
+	if err != nil {
+		t.Fatalf("load persisted jobs: %v", err)
+	}
+	if len(persisted) != 1 || persisted[0].CronExpr != "30 * * * *" || !persisted[0].NextRun.Equal(updated.NextRun) || persisted[0].RunStats.Total() != 0 {
+		t.Fatalf("stale trigger overwrote persisted job: %#v", persisted)
+	}
+}
+
+func TestEngineStaleTriggerCannotResurrectUnregisteredJob(t *testing.T) {
+	store := openTestStore(t)
+	repo, err := NewSQLiteRepository(store)
+	if err != nil {
+		t.Fatalf("new repository: %v", err)
+	}
+
+	ctx := context.Background()
+	triggered := make(chan struct{})
+	release := make(chan struct{})
+	engine, err := New(Options{
+		Repository: repo,
+		Logger:     testLogger(),
+		Trigger: func(context.Context, Job) {
+			close(triggered)
+			<-release
+		},
+	})
+	if err != nil {
+		t.Fatalf("new engine: %v", err)
+	}
+	baseTime := time.Date(2026, 7, 10, 8, 0, 0, 0, time.UTC)
+	engine.now = func() time.Time { return baseTime }
+	job, err := engine.UpsertTask(ctx, "weather", "obsolete-job", "* * * * *", nil)
+	if err != nil {
+		t.Fatalf("upsert: %v", err)
+	}
+	engine.now = func() time.Time { return job.NextRun.Add(time.Second) }
+
+	tickDone := make(chan struct{})
+	go func() {
+		defer close(tickDone)
+		engine.tick()
+	}()
+	<-triggered
+	if err := engine.Unregister(ctx, job.JobID); err != nil {
+		t.Fatalf("unregister while trigger is running: %v", err)
+	}
+	close(release)
+	<-tickDone
+
+	if jobs := engine.Jobs(); len(jobs) != 0 {
+		t.Fatalf("stale trigger resurrected in-memory job: %#v", jobs)
+	}
+	persisted, err := repo.LoadJobs(ctx)
+	if err != nil {
+		t.Fatalf("load persisted jobs: %v", err)
+	}
+	if len(persisted) != 0 {
+		t.Fatalf("stale trigger resurrected persisted job: %#v", persisted)
+	}
+}
+
 func TestEngine_TickFiresDueJob(t *testing.T) {
 	t.Parallel()
 	store := openTestStore(t)

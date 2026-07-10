@@ -45,6 +45,12 @@ func (a *App) Close() error {
 		}
 		a.pluginStack.PluginUninstaller = nil
 	}
+	if a != nil && a.platform.Tasks != nil {
+		if err := a.platform.Tasks.Close(); err != nil {
+			errs = append(errs, fmt.Errorf("flush task registry: %w", err))
+		}
+		a.platform.Tasks = nil
+	}
 	if a != nil && a.renderStack.Renderer != nil {
 		if err := a.renderStack.Close(); err != nil {
 			errs = append(errs, fmt.Errorf("close render service: %w", err))

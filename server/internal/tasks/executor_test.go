@@ -180,6 +180,44 @@ func TestExecutor_Close(t *testing.T) {
 	}
 }
 
+func TestExecutorRejectsFullQueueBeforeCreatingTask(t *testing.T) {
+	registry := NewRegistry()
+	executor := NewExecutor(registry, 30*time.Second)
+
+	started := make(chan struct{})
+	release := make(chan struct{})
+	if _, err := executor.Submit("backup.create", "running", func(context.Context, ProgressReporter) (*ResultSummary, error) {
+		close(started)
+		<-release
+		return &ResultSummary{Summary: "done"}, nil
+	}); err != nil {
+		t.Fatalf("submit running task: %v", err)
+	}
+	<-started
+
+	for index := 0; index < 32; index++ {
+		if _, err := executor.Submit("backup.create", "queued", func(context.Context, ProgressReporter) (*ResultSummary, error) {
+			return &ResultSummary{Summary: "done"}, nil
+		}); err != nil {
+			t.Fatalf("submit queued task %d: %v", index, err)
+		}
+	}
+	before := len(registry.List())
+	if _, err := executor.Submit("backup.create", "rejected", func(context.Context, ProgressReporter) (*ResultSummary, error) {
+		return nil, nil
+	}); !errors.Is(err, ErrQueueFull) {
+		t.Fatalf("queue-full error = %v, want ErrQueueFull", err)
+	}
+	if after := len(registry.List()); after != before {
+		t.Fatalf("queue-full submission created a task: before=%d after=%d", before, after)
+	}
+
+	close(release)
+	if err := executor.Close(); err != nil {
+		t.Fatalf("close executor: %v", err)
+	}
+}
+
 // recordingTaskMetrics captures every observed task execution outcome for
 // assertions in TestExecutor_RecordsMetrics. The executor invokes
 // ObserveTaskExecution from a background goroutine, so the helper must

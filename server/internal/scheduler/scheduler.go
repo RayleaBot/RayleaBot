@@ -35,6 +35,7 @@ type Job struct {
 	RunStats       RunStats        `json:"run_stats"`
 	CreatedAt      time.Time       `json:"created_at"`
 	UpdatedAt      time.Time       `json:"updated_at"`
+	Revision       uint64          `json:"-"`
 }
 
 type RunOutcome string
@@ -67,6 +68,7 @@ func (s RunStats) Total() int64 {
 
 type RunResult struct {
 	JobID      string
+	Revision   uint64
 	Outcome    RunOutcome
 	Duration   time.Duration
 	ErrorCode  string
@@ -119,6 +121,9 @@ type Engine struct {
 	jobs    map[string]Job
 	running int
 
+	mutationMu   sync.Mutex
+	nextRevision uint64
+
 	ctx    context.Context
 	cancel context.CancelFunc
 	wg     sync.WaitGroup
@@ -168,6 +173,9 @@ func New(opts Options) (*Engine, error) {
 // Hydrate loads persisted jobs into the in-memory map. Should be called once
 // before Start.
 func (e *Engine) Hydrate(ctx context.Context) error {
+	e.mutationMu.Lock()
+	defer e.mutationMu.Unlock()
+
 	jobs, err := e.repo.LoadJobs(ctx)
 	if err != nil {
 		return fmt.Errorf("hydrate scheduler: %w", err)
@@ -176,7 +184,8 @@ func (e *Engine) Hydrate(ctx context.Context) error {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	for _, j := range jobs {
-		e.jobs[j.JobID] = j
+		j.Revision = e.nextJobRevision()
+		e.jobs[j.JobID] = cloneJob(j)
 	}
 
 	e.logger.Info(fmt.Sprintf("调度器已加载 %d 个定时任务", len(jobs)), "component", "scheduler", "job_count", len(jobs))
@@ -224,7 +233,7 @@ func (e *Engine) tick() {
 	var due []Job
 	for _, j := range e.jobs {
 		if j.Enabled && !j.NextRun.After(now) {
-			due = append(due, j)
+			due = append(due, cloneJob(j))
 		}
 	}
 	e.mu.Unlock()
@@ -253,21 +262,30 @@ func (e *Engine) fireJob(j Job, now time.Time) {
 	j.NextRun = nextRun
 	j.UpdatedAt = now
 
+	e.mutationMu.Lock()
+	defer e.mutationMu.Unlock()
+
 	e.mu.Lock()
-	if current, ok := e.jobs[j.JobID]; ok {
-		current.NextRun = j.NextRun
-		current.UpdatedAt = j.UpdatedAt
-		j = current
+	current, ok := e.jobs[j.JobID]
+	if !ok || current.Revision != j.Revision {
+		e.mu.Unlock()
+		return
 	}
+	current.NextRun = j.NextRun
+	current.UpdatedAt = j.UpdatedAt
+	j = current
 	e.jobs[j.JobID] = j
 	e.mu.Unlock()
 
-	// Persist asynchronously; in-memory is authoritative during process lifetime.
-	go func() {
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
-		_ = e.repo.UpdateJobSchedule(ctx, j)
-	}()
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if err := e.repo.UpdateJobSchedule(ctx, j); err != nil {
+		e.logger.Warn("定时任务 "+j.JobID+" 的下次运行时间保存失败",
+			"component", "scheduler",
+			"job_id", j.JobID,
+			"err", err.Error(),
+		)
+	}
 }
 
 func (e *Engine) markRunning(delta int) {
@@ -306,12 +324,15 @@ func (e *Engine) RegisterWithLabel(ctx context.Context, pluginID, logLabel, cron
 		PluginID:  pluginID,
 		LogLabel:  logLabel,
 		CronExpr:  cronExpr,
-		Payload:   payload,
+		Payload:   append(json.RawMessage(nil), payload...),
 		Enabled:   true,
 		NextRun:   nextRun,
 		CreatedAt: now,
 		UpdatedAt: now,
 	}
+	e.mutationMu.Lock()
+	defer e.mutationMu.Unlock()
+	job.Revision = e.nextJobRevision()
 
 	if err := e.repo.SaveJob(ctx, job); err != nil {
 		return Job{}, fmt.Errorf("persist scheduled job: %w", err)
@@ -321,7 +342,7 @@ func (e *Engine) RegisterWithLabel(ctx context.Context, pluginID, logLabel, cron
 	e.jobs[job.JobID] = job
 	e.mu.Unlock()
 
-	return job, nil
+	return cloneJob(job), nil
 }
 
 // UpsertTask creates or updates a plugin-owned scheduled job keyed by task_id.
@@ -347,12 +368,14 @@ func (e *Engine) UpsertTaskWithLabel(ctx context.Context, pluginID, taskID, logL
 		PluginID:  pluginID,
 		LogLabel:  logLabel,
 		CronExpr:  cronExpr,
-		Payload:   payload,
+		Payload:   append(json.RawMessage(nil), payload...),
 		Enabled:   true,
 		NextRun:   nextRun,
 		CreatedAt: now,
 		UpdatedAt: now,
 	}
+	e.mutationMu.Lock()
+	defer e.mutationMu.Unlock()
 
 	e.mu.Lock()
 	if existing, ok := e.jobs[taskID]; ok {
@@ -366,6 +389,7 @@ func (e *Engine) UpsertTaskWithLabel(ctx context.Context, pluginID, taskID, logL
 		job.RunStats = existing.RunStats
 	}
 	e.mu.Unlock()
+	job.Revision = e.nextJobRevision()
 
 	if err := e.repo.SaveJob(ctx, job); err != nil {
 		return Job{}, fmt.Errorf("upsert scheduled task %s: %w", taskID, err)
@@ -375,23 +399,28 @@ func (e *Engine) UpsertTaskWithLabel(ctx context.Context, pluginID, taskID, logL
 	e.jobs[job.JobID] = job
 	e.mu.Unlock()
 
-	return job, nil
+	return cloneJob(job), nil
 }
 
 // Unregister removes a scheduled job.
 func (e *Engine) Unregister(ctx context.Context, jobID string) error {
-	e.mu.Lock()
-	delete(e.jobs, jobID)
-	e.mu.Unlock()
-
+	e.mutationMu.Lock()
+	defer e.mutationMu.Unlock()
 	if err := e.repo.DeleteJob(ctx, jobID); err != nil {
 		return fmt.Errorf("delete scheduled job %s: %w", jobID, err)
 	}
+	e.mu.Lock()
+	delete(e.jobs, jobID)
+	e.mu.Unlock()
+	e.nextJobRevision()
 	return nil
 }
 
 // UnregisterByPlugin removes all jobs for a given plugin.
 func (e *Engine) UnregisterByPlugin(ctx context.Context, pluginID string) error {
+	e.mutationMu.Lock()
+	defer e.mutationMu.Unlock()
+
 	e.mu.Lock()
 	var toDelete []string
 	for id, j := range e.jobs {
@@ -399,13 +428,18 @@ func (e *Engine) UnregisterByPlugin(ctx context.Context, pluginID string) error 
 			toDelete = append(toDelete, id)
 		}
 	}
-	for _, id := range toDelete {
-		delete(e.jobs, id)
-	}
 	e.mu.Unlock()
 
 	if err := e.repo.DeleteJobsByPlugin(ctx, pluginID); err != nil {
 		return fmt.Errorf("delete jobs for plugin %s: %w", pluginID, err)
+	}
+	e.mu.Lock()
+	for _, id := range toDelete {
+		delete(e.jobs, id)
+	}
+	e.mu.Unlock()
+	if len(toDelete) > 0 {
+		e.nextJobRevision()
 	}
 	return nil
 }
@@ -417,7 +451,7 @@ func (e *Engine) Jobs() []Job {
 
 	result := make([]Job, 0, len(e.jobs))
 	for _, j := range e.jobs {
-		result = append(result, j)
+		result = append(result, cloneJob(j))
 	}
 	return result
 }
@@ -441,6 +475,7 @@ func generateJobID() (string, error) {
 func (e *Engine) Trigger(ctx context.Context, jobID string) (Job, error) {
 	e.mu.Lock()
 	job, ok := e.jobs[jobID]
+	job = cloneJob(job)
 	e.mu.Unlock()
 	if !ok {
 		return Job{}, ErrJobNotFound
@@ -470,12 +505,18 @@ func (e *Engine) RecordRunResult(ctx context.Context, result RunResult) error {
 		result.Duration = 0
 	}
 	result.Outcome = normalizeRunOutcome(result.Outcome)
+	e.mutationMu.Lock()
+	defer e.mutationMu.Unlock()
 
 	e.mu.Lock()
 	job, ok := e.jobs[result.JobID]
 	if !ok {
 		e.mu.Unlock()
 		return ErrJobNotFound
+	}
+	if result.Revision != 0 && job.Revision != result.Revision {
+		e.mu.Unlock()
+		return nil
 	}
 	lastRun := result.OccurredAt
 	job.LastRun = &lastRun
@@ -489,24 +530,35 @@ func (e *Engine) RecordRunResult(ctx context.Context, result RunResult) error {
 		}
 	}
 	job.UpdatedAt = result.OccurredAt
-	e.jobs[job.JobID] = job
 	e.mu.Unlock()
 
 	if err := e.repo.RecordJobRunResult(ctx, result); err != nil {
 		return fmt.Errorf("record scheduler run result %s: %w", result.JobID, err)
 	}
+	e.mu.Lock()
+	e.jobs[job.JobID] = job
+	e.mu.Unlock()
 	return nil
 }
 
 func (e *Engine) RecordSchedulerRunResult(ctx context.Context, result pluginruntime.SchedulerRunResult) error {
 	return e.RecordRunResult(ctx, RunResult{
 		JobID:      result.JobID,
+		Revision:   result.Revision,
 		Outcome:    RunOutcome(result.Outcome),
 		Duration:   result.Duration,
 		ErrorCode:  result.ErrorCode,
 		ErrorText:  result.ErrorText,
 		OccurredAt: result.OccurredAt,
 	})
+}
+
+func (e *Engine) nextJobRevision() uint64 {
+	e.nextRevision++
+	if e.nextRevision == 0 {
+		e.nextRevision++
+	}
+	return e.nextRevision
 }
 
 func normalizeRunOutcome(outcome RunOutcome) RunOutcome {
@@ -539,4 +591,15 @@ func cloneRunError(err *RunError) *RunError {
 	}
 	cloned := *err
 	return &cloned
+}
+
+func cloneJob(job Job) Job {
+	cloned := job
+	cloned.Payload = append(json.RawMessage(nil), job.Payload...)
+	if job.LastRun != nil {
+		lastRun := *job.LastRun
+		cloned.LastRun = &lastRun
+	}
+	cloned.LastError = cloneRunError(job.LastError)
+	return cloned
 }

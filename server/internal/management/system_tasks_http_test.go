@@ -39,6 +39,13 @@ func newTaskOnlyHandlers(t *testing.T, repoRoot string) (*SystemHandlers, *tasks
 	return NewSystemHandlers(service), registry
 }
 
+func TestSystemTaskQueueFullMapsToTooManyRequests(t *testing.T) {
+	httpErr := systemHTTPErrorFromError(system.TaskQueueFullError())
+	if httpErr == nil || httpErr.statusCode != http.StatusTooManyRequests || httpErr.code != "platform.task_queue_full" {
+		t.Fatalf("unexpected task queue mapping: %#v", httpErr)
+	}
+}
+
 func TestHandleSystemRecoveryRecheckAcceptsTaskAndPersistsCompatibleSummary(t *testing.T) {
 	repoRoot := t.TempDir()
 	testutil.WritePlatformDepsManifest(t, repoRoot)

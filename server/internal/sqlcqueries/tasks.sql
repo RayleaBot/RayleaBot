@@ -51,3 +51,12 @@ FROM tasks ORDER BY created_at ASC;
 
 -- name: DeleteTask :exec
 DELETE FROM tasks WHERE task_id = ?;
+
+-- name: InterruptInProgressTasks :exec
+UPDATE tasks
+SET status = 'interrupted',
+    summary = ?,
+    finished_at = ?,
+    result_json = NULL,
+    error_json = NULL
+WHERE status IN ('pending', 'running');

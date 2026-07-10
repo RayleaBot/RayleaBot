@@ -53,6 +53,7 @@ type Executor struct {
 	baseCancel context.CancelFunc
 	wg         sync.WaitGroup
 	jobs       chan executorJob
+	admission  *QueueAdmission
 
 	mu      sync.Mutex
 	closed  bool
@@ -83,6 +84,7 @@ func NewExecutor(registry *Registry, timeout time.Duration) *Executor {
 		baseCtx:    baseCtx,
 		baseCancel: baseCancel,
 		jobs:       make(chan executorJob, 32),
+		admission:  NewQueueAdmission(32),
 		cancels:    map[string]context.CancelFunc{},
 	}
 	e.wg.Add(1)
@@ -96,30 +98,24 @@ func (e *Executor) Submit(taskType, summary string, fn ExecuteFunc) (string, err
 		e.mu.Unlock()
 		return "", context.Canceled
 	}
-	e.mu.Unlock()
+	if !e.admission.TryAcquire() {
+		e.mu.Unlock()
+		return "", ErrQueueFull
+	}
 
 	taskID, err := e.registry.Create(taskType, summary)
 	if err != nil {
+		e.admission.Release()
+		e.mu.Unlock()
 		return "", err
 	}
 
 	runCtx, cancel := context.WithTimeout(e.baseCtx, e.timeout)
-	e.mu.Lock()
-	if e.closed {
-		e.mu.Unlock()
-		cancel()
-		return "", context.Canceled
-	}
 	e.cancels[taskID] = cancel
-	e.mu.Unlock()
 
-	select {
-	case e.jobs <- executorJob{taskID: taskID, execute: fn, ctx: runCtx}:
-		return taskID, nil
-	case <-e.baseCtx.Done():
-		cancel()
-		return "", context.Canceled
-	}
+	e.jobs <- executorJob{taskID: taskID, execute: fn, ctx: runCtx}
+	e.mu.Unlock()
+	return taskID, nil
 }
 
 func (e *Executor) List() []Snapshot {
@@ -184,6 +180,7 @@ func (e *Executor) run() {
 		case <-e.baseCtx.Done():
 			return
 		case job := <-e.jobs:
+			e.admission.Release()
 			e.execute(job)
 		}
 	}

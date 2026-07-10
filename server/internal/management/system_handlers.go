@@ -13,6 +13,7 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/httpapi"
 	"github.com/RayleaBot/RayleaBot/server/internal/scheduler"
 	systemsvc "github.com/RayleaBot/RayleaBot/server/internal/system"
+	"github.com/RayleaBot/RayleaBot/server/internal/tasks"
 )
 
 type SystemRoutes struct {
@@ -61,6 +62,7 @@ const (
 	systemCodeInvalidRequest   = "platform.invalid_request"
 	systemCodeResourceMissing  = "platform.resource_missing"
 	systemCodeInternalError    = "platform.internal_error"
+	systemCodeTaskQueueFull    = "platform.task_queue_full"
 )
 
 type SystemHTTPError struct {
@@ -100,6 +102,15 @@ func MissingSystemResourceHTTPError(details map[string]any) *SystemHTTPError {
 	}
 }
 
+func TaskQueueFullSystemHTTPError() *SystemHTTPError {
+	return &SystemHTTPError{
+		statusCode: http.StatusTooManyRequests,
+		code:       systemCodeTaskQueueFull,
+		message:    "任务队列已满，请稍后重试",
+		messageKey: "errors.platform.task_queue_full",
+	}
+}
+
 func WriteSystemHTTPError(w http.ResponseWriter, r *http.Request, err *SystemHTTPError) {
 	if err == nil {
 		return
@@ -120,6 +131,8 @@ func systemHTTPErrorFromError(err *systemsvc.Error) *SystemHTTPError {
 		return InvalidSystemHTTPError(err.Details)
 	case systemsvc.ErrorReasonResourceMissing:
 		return MissingSystemResourceHTTPError(err.Details)
+	case systemsvc.ErrorReasonTaskQueueFull:
+		return TaskQueueFullSystemHTTPError()
 	default:
 		return InternalSystemHTTPError()
 	}
@@ -162,6 +175,10 @@ func (h *SystemHandlers) HandleSystemBackup() http.HandlerFunc {
 
 		taskID, err := h.system.SubmitSystemBackupTask()
 		if err != nil {
+			if errors.Is(err, tasks.ErrQueueFull) {
+				WriteSystemHTTPError(w, r, TaskQueueFullSystemHTTPError())
+				return
+			}
 			httpapi.WriteError(w, r, http.StatusInternalServerError, systemCodeInternalError, "内部错误", "errors.platform.internal_error", nil)
 			return
 		}
@@ -220,6 +237,10 @@ func (h *SystemHandlers) HandleSystemRuntimeBootstrap() http.HandlerFunc {
 
 		taskID, err := h.system.SubmitRuntimeBootstrapTask(resources)
 		if err != nil {
+			if errors.Is(err, tasks.ErrQueueFull) {
+				WriteSystemHTTPError(w, r, TaskQueueFullSystemHTTPError())
+				return
+			}
 			httpapi.WriteError(w, r, http.StatusInternalServerError, systemCodeInternalError, "内部错误", "errors.platform.internal_error", nil)
 			return
 		}

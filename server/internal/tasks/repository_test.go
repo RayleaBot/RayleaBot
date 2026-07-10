@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"sync"
 	"testing"
 	"time"
 
@@ -309,6 +310,140 @@ func TestRegistry_HydrateFromRepository(t *testing.T) {
 	}
 	if snap.Status != StatusSucceeded {
 		t.Errorf("task_h1 status = %q, want succeeded", snap.Status)
+	}
+}
+
+func TestRegistryHydrateInterruptsInProgressTasks(t *testing.T) {
+	t.Parallel()
+	store := openTestStore(t)
+	repo, err := NewSQLiteRepository(store)
+	if err != nil {
+		t.Fatalf("new repository: %v", err)
+	}
+
+	ctx := context.Background()
+	for _, snapshot := range []Snapshot{
+		{TaskID: "task_pending", TaskType: "plugin.install", Status: StatusPending, Summary: "pending"},
+		{TaskID: "task_running", TaskType: "backup.create", Status: StatusRunning, Summary: "running"},
+		{TaskID: "task_done", TaskType: "backup.create", Status: StatusSucceeded, Summary: "done"},
+	} {
+		if err := repo.SaveTask(ctx, snapshot); err != nil {
+			t.Fatalf("seed %s: %v", snapshot.TaskID, err)
+		}
+	}
+
+	registry := NewRegistry()
+	registry.SetRepository(repo)
+	if err := registry.Hydrate(ctx); err != nil {
+		t.Fatalf("hydrate: %v", err)
+	}
+	defer registry.Close()
+
+	for _, taskID := range []string{"task_pending", "task_running"} {
+		snapshot, ok := registry.Get(taskID)
+		if !ok || snapshot.Status != StatusInterrupted || snapshot.FinishedAt == nil {
+			t.Fatalf("%s was not reconciled: %#v", taskID, snapshot)
+		}
+	}
+	if snapshot, _ := registry.Get("task_done"); snapshot.Status != StatusSucceeded {
+		t.Fatalf("terminal task changed during hydrate: %#v", snapshot)
+	}
+
+	persisted, err := repo.LoadTasks(ctx)
+	if err != nil {
+		t.Fatalf("reload reconciled tasks: %v", err)
+	}
+	for _, snapshot := range persisted {
+		if snapshot.TaskID != "task_done" && snapshot.Status != StatusInterrupted {
+			t.Fatalf("persisted task was not interrupted: %#v", snapshot)
+		}
+	}
+}
+
+type recordingRepository struct {
+	mu          sync.Mutex
+	saves       []Snapshot
+	firstSave   chan struct{}
+	releaseSave chan struct{}
+}
+
+func (r *recordingRepository) SaveTask(_ context.Context, snapshot Snapshot) error {
+	if r.firstSave != nil {
+		close(r.firstSave)
+		<-r.releaseSave
+		r.firstSave = nil
+	}
+	r.mu.Lock()
+	r.saves = append(r.saves, cloneSnapshot(snapshot))
+	r.mu.Unlock()
+	return nil
+}
+
+func (*recordingRepository) LoadTasks(context.Context) ([]Snapshot, error) { return nil, nil }
+func (*recordingRepository) DeleteTask(context.Context, string) error      { return nil }
+func (*recordingRepository) InterruptInProgressTasks(context.Context, time.Time) error {
+	return nil
+}
+
+func (r *recordingRepository) snapshots() []Snapshot {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return append([]Snapshot(nil), r.saves...)
+}
+
+func TestRegistryCreateWaitsForFirstPersistence(t *testing.T) {
+	repo := &recordingRepository{
+		firstSave:   make(chan struct{}),
+		releaseSave: make(chan struct{}),
+	}
+	registry := NewRegistry()
+	registry.SetRepository(repo)
+	defer registry.Close()
+
+	returned := make(chan error, 1)
+	go func() {
+		_, err := registry.Create("backup.create", "durable create")
+		returned <- err
+	}()
+
+	<-repo.firstSave
+	select {
+	case err := <-returned:
+		t.Fatalf("Create returned before persistence completed: %v", err)
+	default:
+	}
+	close(repo.releaseSave)
+	if err := <-returned; err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+}
+
+func TestRegistryCloseDrainsUpdatesInOrder(t *testing.T) {
+	repo := &recordingRepository{}
+	registry := NewRegistry()
+	registry.SetRepository(repo)
+
+	taskID, err := registry.Create("runtime.bootstrap", "pending")
+	if err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+	for progress := 1; progress <= 3; progress++ {
+		if _, ok := registry.Update(taskID, Update{Progress: &progress}); !ok {
+			t.Fatalf("Update(%d) failed", progress)
+		}
+	}
+	if err := registry.Close(); err != nil {
+		t.Fatalf("Close: %v", err)
+	}
+
+	saves := repo.snapshots()
+	if len(saves) != 4 {
+		t.Fatalf("saves = %d, want 4", len(saves))
+	}
+	for index, snapshot := range saves {
+		if snapshot.Progress != index {
+			t.Fatalf("save[%d].Progress = %d, want %d", index, snapshot.Progress, index)
+		}
 	}
 }
 

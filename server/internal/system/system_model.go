@@ -146,6 +146,7 @@ const (
 	ErrorReasonInternal        ErrorReason = "internal"
 	ErrorReasonInvalidRequest  ErrorReason = "invalid_request"
 	ErrorReasonResourceMissing ErrorReason = "resource_missing"
+	ErrorReasonTaskQueueFull   ErrorReason = "task_queue_full"
 )
 
 type Error struct {
@@ -163,6 +164,10 @@ func InvalidRequestError(details map[string]any) *Error {
 
 func ResourceMissingError(details map[string]any) *Error {
 	return &Error{Reason: ErrorReasonResourceMissing, Details: details}
+}
+
+func TaskQueueFullError() *Error {
+	return &Error{Reason: ErrorReasonTaskQueueFull}
 }
 
 func (s *Service) activePluginCount() int {

@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"strings"
 	"sync"
@@ -61,6 +62,16 @@ type LogSink interface {
 	Append(logging.Summary)
 }
 
+var (
+	ErrQueueFull      = errors.New("task queue is full")
+	ErrRegistryClosed = errors.New("task registry is closed")
+)
+
+type persistRequest struct {
+	snapshot *Snapshot
+	done     chan error
+}
+
 type Registry struct {
 	mu    sync.RWMutex
 	items map[string]Snapshot
@@ -68,13 +79,23 @@ type Registry struct {
 	hub   pubsub.Hub[Snapshot]
 	repo  Repository
 	logs  LogSink
+
+	persistMu      sync.Mutex
+	persistCond    *sync.Cond
+	persistQueue   []persistRequest
+	persistClosing bool
+	persistStarted bool
+	persistDone    chan struct{}
+	persistErr     error
 }
 
 func NewRegistry() *Registry {
-	return &Registry{
+	registry := &Registry{
 		items: map[string]Snapshot{},
 		order: []string{},
 	}
+	registry.persistCond = sync.NewCond(&registry.persistMu)
+	return registry
 }
 
 func (r *Registry) List() []Snapshot {
@@ -110,12 +131,15 @@ func (r *Registry) SetLogSink(logs LogSink) {
 }
 
 func (r *Registry) Hydrate(ctx context.Context) error {
-	r.mu.Lock()
+	r.mu.RLock()
 	repo := r.repo
-	r.mu.Unlock()
+	r.mu.RUnlock()
 
 	if repo == nil {
 		return nil
+	}
+	if err := repo.InterruptInProgressTasks(ctx, time.Now().UTC()); err != nil {
+		return fmt.Errorf("reconcile interrupted tasks: %w", err)
 	}
 
 	snapshots, err := repo.LoadTasks(ctx)
@@ -149,16 +173,22 @@ func (r *Registry) Create(taskType string, summary string) (string, error) {
 		Status:   StatusPending,
 		Summary:  summary,
 	}
+	r.mu.RLock()
+	hasRepository := r.repo != nil
+	r.mu.RUnlock()
+	if hasRepository {
+		if err := r.persist(snapshot, true); err != nil {
+			return "", fmt.Errorf("persist new task: %w", err)
+		}
+	}
 
 	r.mu.Lock()
 	r.items[taskID] = snapshot
 	r.order = append(r.order, taskID)
 	r.broadcastLocked(snapshot)
-	repo := r.repo
 	logs := r.logs
 	r.mu.Unlock()
 
-	r.persistAsync(repo, snapshot)
 	appendTaskLog(logs, snapshot, taskLogEventCreated)
 
 	return taskID, nil
@@ -201,11 +231,12 @@ func (r *Registry) Update(taskID string, update Update) (Snapshot, bool) {
 	r.items[taskID] = snapshot
 	r.broadcastLocked(snapshot)
 	cloned := cloneSnapshot(snapshot)
-	repo := r.repo
 	logs := r.logs
+	if r.repo != nil {
+		_ = r.persist(cloned, false)
+	}
 	r.mu.Unlock()
 
-	r.persistAsync(repo, snapshot)
 	if update.Status != nil && snapshot.Status != previousStatus {
 		appendTaskLog(logs, cloned, taskLogEventStatusChanged)
 	}
@@ -225,15 +256,132 @@ func (r *Registry) broadcastLocked(snapshot Snapshot) {
 	r.hub.PublishReplace(cloneSnapshot(snapshot))
 }
 
-func (r *Registry) persistAsync(repo Repository, snapshot Snapshot) {
-	if repo == nil {
-		return
+func (r *Registry) Flush(ctx context.Context) error {
+	if ctx == nil {
+		ctx = context.Background()
 	}
-	go func() {
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
-		_ = repo.SaveTask(ctx, snapshot)
-	}()
+	r.persistMu.Lock()
+	if !r.persistStarted {
+		err := r.persistErr
+		r.persistMu.Unlock()
+		return err
+	}
+	r.persistMu.Unlock()
+	done := make(chan error, 1)
+	if err := r.enqueuePersistence(persistRequest{done: done}); err != nil {
+		return err
+	}
+	select {
+	case err := <-done:
+		return err
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+}
+
+func (r *Registry) Close() error {
+	if r == nil {
+		return nil
+	}
+	r.persistMu.Lock()
+	if !r.persistClosing {
+		r.persistClosing = true
+		r.persistCond.Broadcast()
+	}
+	if !r.persistStarted {
+		err := r.persistErr
+		r.persistMu.Unlock()
+		return err
+	}
+	done := r.persistDone
+	r.persistMu.Unlock()
+
+	<-done
+	r.persistMu.Lock()
+	defer r.persistMu.Unlock()
+	return r.persistErr
+}
+
+func (r *Registry) persist(snapshot Snapshot, wait bool) error {
+	var done chan error
+	if wait {
+		done = make(chan error, 1)
+	}
+	cloned := cloneSnapshot(snapshot)
+	if err := r.enqueuePersistence(persistRequest{snapshot: &cloned, done: done}); err != nil {
+		return err
+	}
+	if done == nil {
+		return nil
+	}
+	return <-done
+}
+
+func (r *Registry) enqueuePersistence(request persistRequest) error {
+	r.persistMu.Lock()
+	defer r.persistMu.Unlock()
+	if r.persistClosing {
+		return ErrRegistryClosed
+	}
+	if !r.persistStarted {
+		r.persistStarted = true
+		r.persistDone = make(chan struct{})
+		go r.runPersistence()
+	}
+	r.persistQueue = append(r.persistQueue, request)
+	r.persistCond.Signal()
+	return nil
+}
+
+func (r *Registry) runPersistence() {
+	defer close(r.persistDone)
+	for {
+		r.persistMu.Lock()
+		for len(r.persistQueue) == 0 && !r.persistClosing {
+			r.persistCond.Wait()
+		}
+		if len(r.persistQueue) == 0 && r.persistClosing {
+			r.persistMu.Unlock()
+			return
+		}
+		request := r.persistQueue[0]
+		r.persistQueue[0] = persistRequest{}
+		r.persistQueue = r.persistQueue[1:]
+		r.persistMu.Unlock()
+
+		err := r.savePersistedSnapshot(request.snapshot)
+		if err != nil {
+			r.persistMu.Lock()
+			if r.persistErr == nil {
+				r.persistErr = err
+			}
+			r.persistMu.Unlock()
+		}
+		if request.done != nil {
+			request.done <- err
+			close(request.done)
+		}
+	}
+}
+
+func (r *Registry) savePersistedSnapshot(snapshot *Snapshot) error {
+	if snapshot == nil {
+		r.persistMu.Lock()
+		err := r.persistErr
+		r.persistMu.Unlock()
+		return err
+	}
+
+	r.mu.RLock()
+	repo := r.repo
+	r.mu.RUnlock()
+	if repo == nil {
+		return nil
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	return repo.SaveTask(ctx, *snapshot)
 }
 
 func cloneSnapshot(snapshot Snapshot) Snapshot {
