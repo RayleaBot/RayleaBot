@@ -2,15 +2,18 @@
 from __future__ import annotations
 
 import argparse
+import base64
 import hashlib
 import json
 import fnmatch
+import re
 import shutil
+import subprocess
 import tarfile
 import tempfile
 import zipfile
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 
@@ -87,6 +90,10 @@ class ArtifactSidecar:
     platform: str
     support_level: str
     smoke_profile: str
+    expanded_size_bytes: int
+    file_count: int
+    update_mode: str
+    windows_signer_sha256: str | None
 
 
 def utc_now_iso() -> str:
@@ -216,6 +223,10 @@ def stage_release_root(
     launcher_bundle: Path | None,
     systemd_file: Path | None,
     release_notes_ref: str | None,
+    updater_bin: Path | None,
+    license_file: Path,
+    third_party_notices: Path,
+    windows_signer_sha256: str | None = None,
 ) -> tuple[Path, ArtifactSidecar]:
     if artifact_id not in ARTIFACT_MATRIX:
         raise ValueError(f"unsupported artifact_id: {artifact_id}")
@@ -225,12 +236,24 @@ def stage_release_root(
         raise ValueError(f"{artifact_id} requires --launcher-bundle")
     if artifact_id == "linux-x64-server" and systemd_file is None:
         raise ValueError("linux-x64-server requires --systemd-file")
+    if artifact_id == "windows-x64-full" and updater_bin is None:
+        raise ValueError("windows-x64-full requires --updater-bin")
+    for required_file, label in ((license_file, "LICENSE"), (third_party_notices, "THIRD_PARTY_NOTICES.md")):
+        if not required_file.is_file() or required_file.stat().st_size == 0:
+            raise ValueError(f"release package requires non-empty {label}")
+    signer_digest = (windows_signer_sha256 or "").strip().lower()
+    if signer_digest and not re.fullmatch(r"[0-9a-f]{64}", signer_digest):
+        raise ValueError("windows signer SHA256 must be 64 lowercase hexadecimal characters")
+    if artifact_id != "windows-x64-full" and signer_digest:
+        raise ValueError("windows signer SHA256 is only valid for windows-x64-full")
 
     root_name = f"RayleaBot-v{version}-{artifact_id}"
     stage_root = output_dir / "staging" / root_name
     ensure_clean_dir(stage_root)
 
     copy_file(server_bin, stage_root / server_bin.name)
+    if artifact_id == "windows-x64-full" and updater_bin is not None:
+        copy_file(updater_bin, stage_root / "raylea-updater.exe")
     if matrix["launcher_required"] and launcher_bundle is not None:
         copy_launcher_bundle(launcher_bundle, stage_root)
     if artifact_id == "linux-x64-server" and systemd_file is not None:
@@ -241,17 +264,24 @@ def stage_release_root(
     copy_deps_manifest(deps_dir, stage_root / ".deps")
     copy_release_tree(templates_dir, stage_root / "templates")
     copy_file(default_config, stage_root / "config" / "default.yaml")
+    copy_file(license_file, stage_root / "LICENSE")
+    copy_file(third_party_notices, stage_root / "THIRD_PARTY_NOTICES.md")
 
     build_info = {
         "version": version,
         "git_commit": git_commit,
         "artifact_id": artifact_id,
         "built_at": built_at,
+        "update_protocol_version": 2,
     }
     if release_notes_ref:
         build_info["release_notes_ref"] = release_notes_ref
     (stage_root / "build_info.json").write_text(json.dumps(build_info, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     assert_release_tree_clean(stage_root)
+
+    packaged_files = sorted(path for path in stage_root.rglob("*") if path.is_file())
+    expanded_size_bytes = sum(path.stat().st_size for path in packaged_files)
+    file_count = len(packaged_files)
 
     archive_name = f"{root_name}{matrix['extension']}"
     archive_path = output_dir / archive_name
@@ -276,6 +306,10 @@ def stage_release_root(
         platform=matrix["platform"],
         support_level=matrix["support_level"],
         smoke_profile=matrix["smoke_profile"],
+        expanded_size_bytes=expanded_size_bytes,
+        file_count=file_count,
+        update_mode="automatic" if artifact_id == "windows-x64-full" and signer_digest else "guided",
+        windows_signer_sha256=signer_digest or None,
     )
     sidecar_path = archive_path.with_suffix(archive_path.suffix + ".artifact.json")
     if archive_path.suffix == ".gz":
@@ -289,6 +323,10 @@ def stage_release_root(
                 "platform": sidecar.platform,
                 "support_level": sidecar.support_level,
                 "smoke_profile": sidecar.smoke_profile,
+                "expanded_size_bytes": sidecar.expanded_size_bytes,
+                "file_count": sidecar.file_count,
+                "update_mode": sidecar.update_mode,
+                "windows_signer_sha256": sidecar.windows_signer_sha256,
             },
             ensure_ascii=False,
             indent=2,
@@ -301,13 +339,23 @@ def stage_release_root(
 
 def load_sidecar(path: Path) -> ArtifactSidecar:
     payload = json.loads(path.read_text(encoding="utf-8"))
+    file_name = str(payload["file_name"])
+    if Path(file_name).name != file_name:
+        raise ValueError("artifact sidecar file_name must be a basename")
+    archive_path = path.parent / file_name
+    if not archive_path.is_file():
+        raise ValueError(f"artifact archive is not adjacent to its sidecar: {archive_path}")
     return ArtifactSidecar(
         artifact_id=payload["artifact_id"],
-        archive_path=Path(payload["archive_path"]),
-        file_name=payload["file_name"],
+        archive_path=archive_path,
+        file_name=file_name,
         platform=payload["platform"],
         support_level=payload["support_level"],
         smoke_profile=payload["smoke_profile"],
+        expanded_size_bytes=int(payload["expanded_size_bytes"]),
+        file_count=int(payload["file_count"]),
+        update_mode=payload["update_mode"],
+        windows_signer_sha256=payload.get("windows_signer_sha256"),
     )
 
 
@@ -322,13 +370,38 @@ def build_release_metadata(
     deps_manifest: Path,
     sidecars: list[ArtifactSidecar],
     output_dir: Path,
+    channel: str = "stable",
+    published_at: str | None = None,
+    expires_at: str | None = None,
 ) -> tuple[Path, Path]:
     output_dir.mkdir(parents=True, exist_ok=True)
+    if channel not in {"stable", "beta"}:
+        raise ValueError("release channel must be stable or beta")
+    publication = parse_release_time(published_at or built_at)
+    expiration = parse_release_time(expires_at) if expires_at else publication + timedelta(days=7)
+    if expiration <= publication:
+        raise ValueError("release manifest expiration must be later than publication")
     deps_manifest_sha256 = sha256_file(deps_manifest)
     artifacts = []
     checksum_lines = []
     for sidecar in sorted(sidecars, key=lambda item: item.artifact_id):
         archive = sidecar.archive_path
+        if not archive.is_file() or archive.name != sidecar.file_name or Path(sidecar.file_name).name != sidecar.file_name:
+            raise ValueError(f"invalid release artifact path for {sidecar.artifact_id}")
+        if not 1 <= sidecar.file_count <= 100_000:
+            raise ValueError(f"invalid release file count for {sidecar.artifact_id}")
+        if not 1 <= sidecar.expanded_size_bytes <= 8 * 1024 * 1024 * 1024:
+            raise ValueError(f"invalid expanded size for {sidecar.artifact_id}")
+        if not 1 <= archive.stat().st_size <= 2 * 1024 * 1024 * 1024:
+            raise ValueError(f"invalid archive size for {sidecar.artifact_id}")
+        if sidecar.update_mode not in {"automatic", "guided", "manual"}:
+            raise ValueError(f"invalid update mode for {sidecar.artifact_id}")
+        if sidecar.update_mode == "automatic" and (
+            sidecar.artifact_id != "windows-x64-full"
+            or not sidecar.windows_signer_sha256
+            or not re.fullmatch(r"[0-9a-f]{64}", sidecar.windows_signer_sha256)
+        ):
+            raise ValueError("automatic updates require a verified windows-x64-full signer")
         artifact_sha = sha256_file(archive)
         artifacts.append(
             {
@@ -336,30 +409,55 @@ def build_release_metadata(
                 "file_name": sidecar.file_name,
                 "platform": sidecar.platform,
                 "sha256": artifact_sha,
-                "size": archive.stat().st_size,
+                "archive_size_bytes": archive.stat().st_size,
+                "expanded_size_bytes": sidecar.expanded_size_bytes,
+                "file_count": sidecar.file_count,
+                "update_mode": sidecar.update_mode,
+                "min_updater_protocol_version": 2,
                 "support_level": sidecar.support_level,
                 "deps_manifest_sha256": deps_manifest_sha256,
                 "smoke_profile": sidecar.smoke_profile,
             }
         )
+        if sidecar.windows_signer_sha256:
+            artifacts[-1]["windows_signer_sha256"] = sidecar.windows_signer_sha256
         checksum_lines.append(f"{artifact_sha}  {sidecar.file_name}")
 
     release_manifest = {
+        "manifest_version": 2,
         "version": version,
         "git_commit": git_commit,
         "built_at": built_at,
+        "channel": channel,
+        "published_at": iso_release_time(publication),
+        "expires_at": iso_release_time(expiration),
+        "update_protocol_version": 2,
         "config_schema_version": config_schema_version,
         "db_schema_version": db_schema_version,
         "plugin_protocol_version": plugin_protocol_version,
         "artifacts": artifacts,
         "release_notes_ref": release_notes_ref,
     }
-    manifest_path = output_dir / "release_manifest.json"
+    manifest_path = output_dir / "release_manifest.v2.json"
     manifest_path.write_text(json.dumps(release_manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-    checksum_lines.append(f"{sha256_file(manifest_path)}  release_manifest.json")
+    checksum_lines.append(f"{sha256_file(manifest_path)}  release_manifest.v2.json")
     checksums_path = output_dir / "SHA256SUMS.txt"
     checksums_path.write_text("\n".join(checksum_lines) + "\n", encoding="utf-8")
     return manifest_path, checksums_path
+
+
+def parse_release_time(value: str | None) -> datetime:
+    if not value:
+        raise ValueError("release timestamp is required")
+    normalized = value.strip().replace("Z", "+00:00")
+    parsed = datetime.fromisoformat(normalized)
+    if parsed.tzinfo is None:
+        raise ValueError("release timestamp must include a timezone")
+    return parsed.astimezone(timezone.utc).replace(microsecond=0)
+
+
+def iso_release_time(value: datetime) -> str:
+    return value.astimezone(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
 
 def parse_checksums(path: Path) -> dict[str, str]:
@@ -376,8 +474,8 @@ def verify_release_bundle(manifest_path: Path, checksums_path: Path, artifact_di
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     checksums = parse_checksums(checksums_path)
     manifest_digest = sha256_file(manifest_path)
-    if checksums.get("release_manifest.json") != manifest_digest:
-        raise SystemExit("SHA256SUMS.txt does not match release_manifest.json")
+    if checksums.get(manifest_path.name) != manifest_digest:
+        raise SystemExit(f"SHA256SUMS.txt does not match {manifest_path.name}")
 
     for artifact in manifest.get("artifacts", []):
         file_name = artifact["file_name"]
@@ -389,8 +487,56 @@ def verify_release_bundle(manifest_path: Path, checksums_path: Path, artifact_di
             raise SystemExit(f"artifact sha256 mismatch: {file_name}")
         if checksums.get(file_name) != digest:
             raise SystemExit(f"SHA256SUMS.txt mismatch: {file_name}")
-        if path.stat().st_size != artifact["size"]:
+        if path.stat().st_size != artifact["archive_size_bytes"]:
             raise SystemExit(f"artifact size mismatch: {file_name}")
+
+
+def sign_release_manifest(
+    manifest_path: Path,
+    output_path: Path,
+    keys: list[tuple[str, Path]],
+    openssl: str = "openssl",
+) -> Path:
+    if not manifest_path.is_file():
+        raise ValueError(f"release manifest does not exist: {manifest_path}")
+    if not 1 <= len(keys) <= 2:
+        raise ValueError("one or two Ed25519 signing keys are required")
+    seen: set[str] = set()
+    manifest_bytes = manifest_path.read_bytes()
+    signatures: list[dict[str, str]] = []
+    with tempfile.TemporaryDirectory(prefix="raylea-release-sign-") as temp_dir:
+        for key_id, private_key in keys:
+            if not re.fullmatch(r"[a-z0-9][a-z0-9._-]{2,63}", key_id) or key_id in seen:
+                raise ValueError(f"invalid or duplicate release key id: {key_id}")
+            if not private_key.is_file():
+                raise ValueError(f"release private key does not exist: {private_key}")
+            seen.add(key_id)
+            signature_path = Path(temp_dir) / f"{key_id}.sig"
+            result = subprocess.run(
+                [openssl, "pkeyutl", "-sign", "-rawin", "-inkey", str(private_key), "-in", str(manifest_path), "-out", str(signature_path)],
+                check=False,
+                capture_output=True,
+                text=True,
+            )
+            if result.returncode != 0:
+                raise RuntimeError(f"OpenSSL Ed25519 signing failed for {key_id}")
+            signature = signature_path.read_bytes()
+            if len(signature) != 64:
+                raise RuntimeError(f"OpenSSL returned an invalid Ed25519 signature for {key_id}")
+            signatures.append({
+                "key_id": key_id,
+                "signature": base64.urlsafe_b64encode(signature).decode("ascii"),
+            })
+    envelope = {
+        "signature_version": 1,
+        "algorithm": "ed25519",
+        "manifest_sha256": hashlib.sha256(manifest_bytes).hexdigest(),
+        "key_id": keys[0][0],
+        "signatures": signatures,
+    }
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text(json.dumps(envelope, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    return output_path
 
 
 def cmd_package(args: argparse.Namespace) -> int:
@@ -409,6 +555,10 @@ def cmd_package(args: argparse.Namespace) -> int:
         launcher_bundle=Path(args.launcher_bundle) if args.launcher_bundle else None,
         systemd_file=Path(args.systemd_file) if args.systemd_file else None,
         release_notes_ref=args.release_notes_ref,
+        updater_bin=Path(args.updater_bin) if args.updater_bin else None,
+        license_file=Path(args.license_file),
+        third_party_notices=Path(args.third_party_notices),
+        windows_signer_sha256=args.windows_signer_sha256,
     )
     print(archive_path)
     return 0
@@ -427,6 +577,9 @@ def cmd_metadata(args: argparse.Namespace) -> int:
         deps_manifest=Path(args.deps_manifest),
         sidecars=sidecars,
         output_dir=Path(args.output_dir),
+        channel=args.channel,
+        published_at=args.published_at,
+        expires_at=args.expires_at,
     )
     print(manifest_path)
     print(checksums_path)
@@ -436,6 +589,18 @@ def cmd_metadata(args: argparse.Namespace) -> int:
 def cmd_verify(args: argparse.Namespace) -> int:
     verify_release_bundle(Path(args.manifest), Path(args.checksums), Path(args.artifact_dir))
     print("release bundle verified")
+    return 0
+
+
+def cmd_sign(args: argparse.Namespace) -> int:
+    keys: list[tuple[str, Path]] = []
+    for value in args.key:
+        key_id, separator, key_path = value.partition("=")
+        if not separator:
+            raise ValueError("--key must use key_id=private_key_path")
+        keys.append((key_id, Path(key_path)))
+    output = sign_release_manifest(Path(args.manifest), Path(args.output), keys, args.openssl)
+    print(output)
     return 0
 
 
@@ -455,8 +620,12 @@ def build_parser() -> argparse.ArgumentParser:
     package.add_argument("--templates-dir", required=True)
     package.add_argument("--default-config", required=True)
     package.add_argument("--launcher-bundle")
+    package.add_argument("--updater-bin")
     package.add_argument("--systemd-file")
     package.add_argument("--release-notes-ref")
+    package.add_argument("--license-file", default="LICENSE")
+    package.add_argument("--third-party-notices", default="THIRD_PARTY_NOTICES.md")
+    package.add_argument("--windows-signer-sha256")
     package.add_argument("--output-dir", required=True)
     package.set_defaults(func=cmd_package)
 
@@ -468,6 +637,9 @@ def build_parser() -> argparse.ArgumentParser:
     metadata.add_argument("--db-schema-version", required=True)
     metadata.add_argument("--plugin-protocol-version", required=True)
     metadata.add_argument("--release-notes-ref", required=True)
+    metadata.add_argument("--channel", default="stable", choices=["stable", "beta"])
+    metadata.add_argument("--published-at")
+    metadata.add_argument("--expires-at")
     metadata.add_argument("--deps-manifest", required=True)
     metadata.add_argument("--sidecar", action="append", required=True)
     metadata.add_argument("--output-dir", required=True)
@@ -478,6 +650,13 @@ def build_parser() -> argparse.ArgumentParser:
     verify.add_argument("--checksums", required=True)
     verify.add_argument("--artifact-dir", required=True)
     verify.set_defaults(func=cmd_verify)
+
+    sign = sub.add_parser("sign")
+    sign.add_argument("--manifest", required=True)
+    sign.add_argument("--output", required=True)
+    sign.add_argument("--key", action="append", required=True, help="key_id=PEM_private_key_path; repeat once for dual-sign rotation")
+    sign.add_argument("--openssl", default="openssl")
+    sign.set_defaults(func=cmd_sign)
 
     return parser
 

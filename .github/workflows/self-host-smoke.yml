@@ -88,13 +88,13 @@ jobs:
         if: steps.filter.outputs.selected == 'true'
         uses: actions/setup-node@v4
         with:
-          node-version: "24.14.0"
+          node-version: "24.18.0"
 
       - name: Setup pnpm
         if: steps.filter.outputs.selected == 'true'
         uses: pnpm/action-setup@v4
         with:
-          version: 11.9.0
+          version: 11.11.0
 
       - name: Setup Python
         if: steps.filter.outputs.selected == 'true'

@@ -39,7 +39,11 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     parser.add_argument("--default-config", default="config/default.yaml")
     parser.add_argument("--output-dir", default="dist/release")
     parser.add_argument("--launcher-bundle", default="")
+    parser.add_argument("--updater-bin", default="")
     parser.add_argument("--systemd-file", default="")
+    parser.add_argument("--license-file", default="LICENSE")
+    parser.add_argument("--third-party-notices", default="THIRD_PARTY_NOTICES.md")
+    parser.add_argument("--windows-signer-sha256", default="")
     parser.add_argument("--repository", default="")
     parser.add_argument("--run-smoke", action="store_true")
     parser.add_argument("--run-recovery-drill", action="store_true")
@@ -79,13 +83,21 @@ def main(argv: list[str] | None = None) -> int:
         args.templates_dir,
         "--default-config",
         args.default_config,
+        "--license-file",
+        args.license_file,
+        "--third-party-notices",
+        args.third_party_notices,
         "--output-dir",
         args.output_dir,
     ]
     if args.launcher_bundle:
         package_args.extend(["--launcher-bundle", args.launcher_bundle])
+    if args.updater_bin:
+        package_args.extend(["--updater-bin", args.updater_bin])
     if args.systemd_file:
         package_args.extend(["--systemd-file", args.systemd_file])
+    if args.windows_signer_sha256:
+        package_args.extend(["--windows-signer-sha256", args.windows_signer_sha256])
     run(package_args)
 
     archive = archive_path(output_dir, args.version, args.artifact_id)

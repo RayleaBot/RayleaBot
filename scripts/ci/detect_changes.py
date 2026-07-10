@@ -17,11 +17,13 @@ OUTPUT_KEYS = (
     "sdk",
     "contracts",
     "release",
+    "docs",
     "docs_only",
     "ci",
 )
 
-DOC_ROOT_FILES = {"AGENTS.md", "CLAUDE.md", "README.md", "PRODUCT.md", "LICENSE"}
+DOC_ROOT_FILES = {"AGENTS.md", "CLAUDE.md", "README.md", "PRODUCT.md", ".impeccable.md"}
+TOOLCHAIN_ROOT_FILES = {".gitignore", ".tool-versions", "Makefile", "start.bat", "start.sh"}
 
 
 def normalize_path(path: str) -> str:
@@ -33,7 +35,7 @@ def normalize_path(path: str) -> str:
 
 def run_git(args: list[str]) -> list[str]:
     completed = subprocess.run(
-        ["git", *args],
+        ["git", "-c", "core.quotepath=false", *args],
         check=True,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
@@ -69,6 +71,8 @@ def is_docs_path(path: str) -> bool:
         return True
     if path.startswith("docs/"):
         return True
+    if path.startswith(".agents/"):
+        return True
     if path.endswith("/AGENTS.md") or path.endswith("/CLAUDE.md") or path.endswith("/README.md"):
         return True
     return False
@@ -77,28 +81,98 @@ def is_docs_path(path: str) -> bool:
 def classify(files: list[str]) -> dict[str, bool]:
     paths = [normalize_path(path) for path in files if normalize_path(path)]
     result = {key: False for key in OUTPUT_KEYS}
+    unclassified: list[str] = []
 
     for path in paths:
-        if path.startswith("server/") or path.startswith("config/") or path.startswith("templates/"):
+        matched = False
+
+        if path.startswith("server/"):
             result["server"] = True
-        if path.startswith("plugins/builtin/") or path == "scripts/generate-runtime-schemas.mjs":
+            matched = True
+        if path.startswith("config/") or path.startswith("templates/"):
             result["server"] = True
+            result["release"] = True
+            matched = True
+        if path.startswith("plugins/"):
+            result["server"] = True
+            result["release"] = True
+            matched = True
         if path.startswith("web/"):
             result["web"] = True
+            matched = True
         if path.startswith("launcher/"):
             result["launcher"] = True
+            matched = True
         if path.startswith("sdk/"):
             result["sdk"] = True
+            matched = True
         if path.startswith("contracts/") or path.startswith("fixtures/") or path.startswith("examples/"):
             result["contracts"] = True
+            matched = True
         if path.startswith("scripts/release/") or path.startswith("packaging/") or path.startswith(".deps/"):
             result["release"] = True
+            matched = True
+        if path.startswith(".deps/"):
+            result["server"] = True
         if path in {".github/workflows/release.yml", ".github/workflows/self-host-smoke.yml"}:
             result["release"] = True
+            matched = True
         if path.startswith(".github/workflows/") or path.startswith("scripts/ci/"):
             result["ci"] = True
-        if path == "scripts/check-agent-docs.mjs":
+            matched = True
+        if path.startswith(".github/"):
             result["ci"] = True
+            matched = True
+        if path == "scripts/generate-runtime-schemas.mjs":
+            result["server"] = True
+            result["contracts"] = True
+            result["ci"] = True
+            matched = True
+        if path.startswith("scripts/") and not path.startswith("scripts/release/"):
+            result["ci"] = True
+            matched = True
+        if path in {
+            "scripts/check-toolchain.py",
+            "scripts/gbash.cmd",
+            "scripts/gbash.ps1",
+            "scripts/start-dev.mjs",
+            "scripts/start-dev-support.mjs",
+        } or path.startswith("scripts/tests/"):
+            result["server"] = True
+            result["web"] = True
+            result["launcher"] = True
+        if path == "scripts/check-server-structure.py":
+            result["server"] = True
+        if path.startswith(".devcontainer/") or path in TOOLCHAIN_ROOT_FILES:
+            result["server"] = True
+            result["web"] = True
+            result["launcher"] = True
+            result["ci"] = True
+            matched = True
+        if path == "LICENSE":
+            result["sdk"] = True
+            result["release"] = True
+            matched = True
+        if path == "THIRD_PARTY_NOTICES.md":
+            result["release"] = True
+            matched = True
+        if is_docs_path(path):
+            result["docs"] = True
+            matched = True
+        if (
+            path.startswith(".agents/")
+            or path.endswith("/AGENTS.md")
+            or path.endswith("/CLAUDE.md")
+            or path in {"AGENTS.md", "CLAUDE.md"}
+        ):
+            result["ci"] = True
+
+        if not matched:
+            unclassified.append(path)
+
+    if unclassified:
+        joined = ", ".join(sorted(unclassified))
+        raise ValueError(f"unclassified tracked path(s): {joined}")
 
     result["docs_only"] = bool(paths) and all(is_docs_path(path) for path in paths)
     return result
@@ -116,18 +190,32 @@ def write_outputs(result: dict[str, bool], output_file: str | None) -> None:
 
 def self_test() -> None:
     cases = [
-        (["docs/test.md"], {"docs_only": True}),
+        (["docs/test.md"], {"docs": True, "docs_only": True}),
         (["server/internal/app/app.go"], {"server": True, "docs_only": False}),
         (["contracts/web-api.openapi.yaml"], {"contracts": True}),
         (["scripts/release/release_tool.py"], {"release": True}),
         ([".github/workflows/ci.yml"], {"ci": True, "docs_only": False}),
-        (["AGENTS.md"], {"docs_only": True}),
+        (["AGENTS.md"], {"docs": True, "docs_only": True}),
+        (["templates/help.menu/template.json"], {"server": True, "release": True}),
+        (["plugins/builtin/fortune/info.json"], {"server": True, "release": True}),
+        ([".deps/manifest.json"], {"server": True, "release": True}),
+        (["scripts/check-toolchain.py"], {"server": True, "web": True, "launcher": True, "ci": True}),
+        (["server/AGENTS.md", "server/internal/app/app.go"], {"server": True, "ci": True}),
     ]
     for files, expected in cases:
         result = classify(files)
         for key, value in expected.items():
             if result[key] != value:
                 raise AssertionError(f"{files}: expected {key}={value}, got {result[key]}")
+
+    try:
+        classify(["unclassified.future-file"])
+    except ValueError:
+        pass
+    else:
+        raise AssertionError("an unclassified path must fail closed")
+
+    classify(run_git(["ls-files"]))
     print("detect_changes self-test passed")
 
 
@@ -154,7 +242,12 @@ def main(argv: list[str] | None = None) -> int:
             print(f"- {path}")
     else:
         print("- <none detected>")
-    write_outputs(classify(files), args.github_output)
+    try:
+        result = classify(files)
+    except ValueError as exc:
+        print(f"change classification failed: {exc}", file=sys.stderr)
+        return 2
+    write_outputs(result, args.github_output)
     return 0
 
 

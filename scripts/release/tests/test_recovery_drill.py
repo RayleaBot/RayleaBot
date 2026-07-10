@@ -18,10 +18,13 @@ from package_runtime import FORBIDDEN_DIRECTORY_NAMES, FORBIDDEN_TOP_LEVEL_PATHS
 
 
 class RecoveryDrillTests(unittest.TestCase):
-    def test_required_paths_include_contracts_and_web_dist(self) -> None:
+    def test_required_paths_exclude_contracts_and_include_runtime_files(self) -> None:
         required = recovery_drill.REQUIRED_PATHS["windows-x64-full"]
 
         self.assertIn("RayleaLauncher.exe", required)
+        self.assertIn("raylea-updater.exe", required)
+        self.assertIn("LICENSE", required)
+        self.assertIn("THIRD_PARTY_NOTICES.md", required)
         self.assertNotIn("contracts/config.user.schema.json", required)
         self.assertNotIn("contracts/plugin-info.schema.json", required)
         self.assertIn("web/dist/index.html", required)
@@ -62,7 +65,7 @@ class RecoveryDrillTests(unittest.TestCase):
                 "tag_name": "v0.2.0",
                 "draft": False,
                 "prerelease": False,
-                "assets": [{"name": "release_manifest.json"}],
+                "assets": [{"name": "release_manifest.v2.json"}],
             },
             {
                 "tag_name": "v0.1.0",

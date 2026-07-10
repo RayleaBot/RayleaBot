@@ -46,8 +46,11 @@ SOURCE_PROBE_CLOSE_RATIO = 0.10
 REQUIRED_PATHS = {
     "windows-x64-full": {
         "raylea-server.exe",
+        "raylea-updater.exe",
         "RayleaLauncher.exe",
         "build_info.json",
+        "LICENSE",
+        "THIRD_PARTY_NOTICES.md",
         "config/default.yaml",
         "web/dist/index.html",
         ".deps/manifest.json",
@@ -59,6 +62,8 @@ REQUIRED_PATHS = {
         "raylea-server",
         "RayleaLauncher",
         "build_info.json",
+        "LICENSE",
+        "THIRD_PARTY_NOTICES.md",
         "config/default.yaml",
         "web/dist/index.html",
         ".deps/manifest.json",
@@ -70,6 +75,8 @@ REQUIRED_PATHS = {
         "raylea-server",
         "RayleaLauncher.app/Contents/MacOS/RayleaLauncher",
         "build_info.json",
+        "LICENSE",
+        "THIRD_PARTY_NOTICES.md",
         "config/default.yaml",
         "web/dist/index.html",
         ".deps/manifest.json",
@@ -80,6 +87,8 @@ REQUIRED_PATHS = {
     "linux-x64-server": {
         "raylea-server",
         "build_info.json",
+        "LICENSE",
+        "THIRD_PARTY_NOTICES.md",
         "config/default.yaml",
         "web/dist/index.html",
         ".deps/manifest.json",

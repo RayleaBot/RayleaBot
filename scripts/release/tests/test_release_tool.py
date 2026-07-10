@@ -1,4 +1,8 @@
 import json
+import hashlib
+import base64
+import shutil
+import subprocess
 import sys
 import tarfile
 import tempfile
@@ -13,6 +17,40 @@ import release_tool
 
 
 class ReleaseToolTests(unittest.TestCase):
+    @unittest.skipUnless(shutil.which("openssl"), "OpenSSL is required")
+    def test_sign_release_manifest_emits_exact_dual_signed_ed25519_envelope(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            private_key = root / "release.pem"
+            next_private_key = root / "release-next.pem"
+            manifest = root / "release_manifest.v2.json"
+            signature = root / "release_manifest.v2.sig.json"
+            manifest.write_bytes(b'{"manifest_version":2}\n')
+            subprocess.run(
+                ["openssl", "genpkey", "-algorithm", "ED25519", "-out", str(private_key)],
+                check=True,
+                capture_output=True,
+            )
+            subprocess.run(
+                ["openssl", "genpkey", "-algorithm", "ED25519", "-out", str(next_private_key)],
+                check=True,
+                capture_output=True,
+            )
+
+            release_tool.sign_release_manifest(
+                manifest,
+                signature,
+                [("release-2026", private_key), ("release-2027", next_private_key)],
+            )
+
+            envelope = json.loads(signature.read_text(encoding="utf-8"))
+            self.assertEqual("ed25519", envelope["algorithm"])
+            self.assertEqual("release-2026", envelope["key_id"])
+            self.assertEqual(hashlib.sha256(manifest.read_bytes()).hexdigest(), envelope["manifest_sha256"])
+            self.assertEqual(["release-2026", "release-2027"], [item["key_id"] for item in envelope["signatures"]])
+            for item in envelope["signatures"]:
+                self.assertEqual(64, len(base64.urlsafe_b64decode(item["signature"])))
+
     def test_package_metadata_and_verify_windows_bundle(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             temp = Path(tmp)
@@ -23,9 +61,15 @@ class ReleaseToolTests(unittest.TestCase):
             deps = temp / ".deps"
             templates = temp / "templates"
             default_config = temp / "config" / "default.yaml"
+            updater_bin = temp / "raylea-updater.exe"
+            license_file = temp / "LICENSE"
+            notices_file = temp / "THIRD_PARTY_NOTICES.md"
             output = temp / "out"
 
             server_bin.write_text("server", encoding="utf-8")
+            updater_bin.write_text("updater", encoding="utf-8")
+            license_file.write_text("AGPL", encoding="utf-8")
+            notices_file.write_text("notices", encoding="utf-8")
             (launcher_bundle / "RayleaLauncher.exe").parent.mkdir(parents=True, exist_ok=True)
             (launcher_bundle / "RayleaLauncher.exe").write_text("launcher", encoding="utf-8")
             (launcher_bundle / "resources" / "app.asar").parent.mkdir(parents=True, exist_ok=True)
@@ -34,10 +78,9 @@ class ReleaseToolTests(unittest.TestCase):
             (web_dist / "index.html").write_text("<html></html>", encoding="utf-8")
             (web_dist / "app.js.map").write_text("source map", encoding="utf-8")
             (web_dist / "README.md").write_text("dev docs", encoding="utf-8")
-            (builtin / "fortune" / "web").mkdir(parents=True, exist_ok=True)
+            (builtin / "fortune").mkdir(parents=True, exist_ok=True)
             (builtin / "fortune" / "info.json").write_text("{}", encoding="utf-8")
             (builtin / "fortune" / "main.py").write_text("print('fortune')\n", encoding="utf-8")
-            (builtin / "fortune" / "web" / "index.html").write_text("<html></html>", encoding="utf-8")
             (builtin / "fortune" / "tests").mkdir(parents=True, exist_ok=True)
             (builtin / "fortune" / "tests" / "test_fortune.py").write_text("def test_fortune(): pass\n", encoding="utf-8")
             (builtin / "fortune" / "__pycache__").mkdir(parents=True, exist_ok=True)
@@ -71,6 +114,9 @@ class ReleaseToolTests(unittest.TestCase):
                 launcher_bundle=launcher_bundle,
                 systemd_file=None,
                 release_notes_ref="https://example.invalid/releases/v0.1.0",
+                updater_bin=updater_bin,
+                license_file=license_file,
+                third_party_notices=notices_file,
             )
 
             self.assertTrue(archive_path.exists())
@@ -81,6 +127,9 @@ class ReleaseToolTests(unittest.TestCase):
                 )
             self.assertIn("RayleaBot-v0.1.0-windows-x64-full/build_info.json", names)
             self.assertIn("RayleaBot-v0.1.0-windows-x64-full/RayleaLauncher.exe", names)
+            self.assertIn("RayleaBot-v0.1.0-windows-x64-full/raylea-updater.exe", names)
+            self.assertIn("RayleaBot-v0.1.0-windows-x64-full/LICENSE", names)
+            self.assertIn("RayleaBot-v0.1.0-windows-x64-full/THIRD_PARTY_NOTICES.md", names)
             self.assertIn("RayleaBot-v0.1.0-windows-x64-full/resources/app.asar", names)
             self.assertIn("RayleaBot-v0.1.0-windows-x64-full/config/default.yaml", names)
             self.assertNotIn("RayleaBot-v0.1.0-windows-x64-full/contracts/config.user.schema.json", names)
@@ -94,11 +143,19 @@ class ReleaseToolTests(unittest.TestCase):
             self.assertNotIn("RayleaBot-v0.1.0-windows-x64-full/templates/help.menu/template.test.mjs", names)
             self.assertIn("RayleaBot-v0.1.0-windows-x64-full/plugins/builtin/fortune/info.json", names)
             self.assertIn("RayleaBot-v0.1.0-windows-x64-full/plugins/builtin/fortune/main.py", names)
-            self.assertIn("RayleaBot-v0.1.0-windows-x64-full/plugins/builtin/fortune/web/index.html", names)
             self.assertIn("RayleaBot-v0.1.0-windows-x64-full/templates/help.menu/template.json", names)
             self.assertIn("RayleaBot-v0.1.0-windows-x64-full/templates/status.panel/template.json", names)
             self.assertIn("RayleaBot-v0.1.0-windows-x64-full/web/dist/index.html", names)
             self.assertEqual("https://example.invalid/releases/v0.1.0", build_info["release_notes_ref"])
+            self.assertEqual(2, build_info["update_protocol_version"])
+
+            sidecar_path = archive_path.with_suffix(archive_path.suffix + ".artifact.json")
+            relocated = temp / "downloaded"
+            relocated.mkdir()
+            shutil.copy2(archive_path, relocated / archive_path.name)
+            shutil.copy2(sidecar_path, relocated / sidecar_path.name)
+            loaded_sidecar = release_tool.load_sidecar(relocated / sidecar_path.name)
+            self.assertEqual(relocated / archive_path.name, loaded_sidecar.archive_path)
 
             manifest_path, checksums_path = release_tool.build_release_metadata(
                 version="0.1.0",
@@ -117,8 +174,10 @@ class ReleaseToolTests(unittest.TestCase):
             checksums = release_tool.parse_checksums(checksums_path)
             self.assertEqual(manifest["artifacts"][0]["artifact_id"], "windows-x64-full")
             self.assertEqual(manifest["artifacts"][0]["smoke_profile"], "windows_full_smoke")
-            self.assertIn("release_manifest.json", checksums_path.read_text(encoding="utf-8"))
-            self.assertEqual(release_tool.sha256_file(manifest_path), checksums["release_manifest.json"])
+            self.assertEqual(2, manifest["manifest_version"])
+            self.assertEqual("guided", manifest["artifacts"][0]["update_mode"])
+            self.assertIn("release_manifest.v2.json", checksums_path.read_text(encoding="utf-8"))
+            self.assertEqual(release_tool.sha256_file(manifest_path), checksums["release_manifest.v2.json"])
 
             release_tool.verify_release_bundle(manifest_path, checksums_path, output)
 
@@ -132,9 +191,13 @@ class ReleaseToolTests(unittest.TestCase):
             deps = temp / ".deps"
             templates = temp / "templates"
             default_config = temp / "config" / "default.yaml"
+            license_file = temp / "LICENSE"
+            notices_file = temp / "THIRD_PARTY_NOTICES.md"
             output = temp / "out"
 
             server_bin.write_text("server", encoding="utf-8")
+            license_file.write_text("AGPL", encoding="utf-8")
+            notices_file.write_text("notices", encoding="utf-8")
             (launcher_bundle / "RayleaLauncher").parent.mkdir(parents=True, exist_ok=True)
             (launcher_bundle / "RayleaLauncher").write_text("launcher", encoding="utf-8")
             (launcher_bundle / "locales" / "en-US.pak").parent.mkdir(parents=True, exist_ok=True)
@@ -167,12 +230,17 @@ class ReleaseToolTests(unittest.TestCase):
                 launcher_bundle=launcher_bundle,
                 systemd_file=None,
                 release_notes_ref=None,
+                updater_bin=None,
+                license_file=license_file,
+                third_party_notices=notices_file,
             )
 
             with tarfile.open(archive_path, "r:gz") as tf:
                 names = set(tf.getnames())
             self.assertIn("RayleaBot-v0.1.0-linux-x64-full/RayleaLauncher", names)
             self.assertIn("RayleaBot-v0.1.0-linux-x64-full/locales/en-US.pak", names)
+            self.assertIn("RayleaBot-v0.1.0-linux-x64-full/LICENSE", names)
+            self.assertIn("RayleaBot-v0.1.0-linux-x64-full/THIRD_PARTY_NOTICES.md", names)
             self.assertNotIn("RayleaBot-v0.1.0-linux-x64-full/contracts/config.user.schema.json", names)
             self.assertIn("RayleaBot-v0.1.0-linux-x64-full/web/dist/index.html", names)
             self.assertIn("RayleaBot-v0.1.0-linux-x64-full/templates/help.menu/template.json", names)
@@ -187,9 +255,13 @@ class ReleaseToolTests(unittest.TestCase):
             deps = temp / ".deps"
             templates = temp / "templates"
             default_config = temp / "config" / "default.yaml"
+            license_file = temp / "LICENSE"
+            notices_file = temp / "THIRD_PARTY_NOTICES.md"
             output = temp / "out"
 
             server_bin.write_text("server", encoding="utf-8")
+            license_file.write_text("AGPL", encoding="utf-8")
+            notices_file.write_text("notices", encoding="utf-8")
             mac_binary = launcher_bundle / "Contents" / "MacOS" / "RayleaLauncher"
             mac_binary.parent.mkdir(parents=True, exist_ok=True)
             mac_binary.write_text("launcher", encoding="utf-8")
@@ -223,12 +295,17 @@ class ReleaseToolTests(unittest.TestCase):
                 launcher_bundle=launcher_bundle,
                 systemd_file=None,
                 release_notes_ref=None,
+                updater_bin=None,
+                license_file=license_file,
+                third_party_notices=notices_file,
             )
 
             with tarfile.open(archive_path, "r:gz") as tf:
                 names = set(tf.getnames())
             self.assertIn("RayleaBot-v0.1.0-macos-arm64-full/RayleaLauncher.app/Contents/MacOS/RayleaLauncher", names)
             self.assertIn("RayleaBot-v0.1.0-macos-arm64-full/RayleaLauncher.app/Contents/Info.plist", names)
+            self.assertIn("RayleaBot-v0.1.0-macos-arm64-full/LICENSE", names)
+            self.assertIn("RayleaBot-v0.1.0-macos-arm64-full/THIRD_PARTY_NOTICES.md", names)
             self.assertNotIn("RayleaBot-v0.1.0-macos-arm64-full/contracts/plugin-info.schema.json", names)
             self.assertIn("RayleaBot-v0.1.0-macos-arm64-full/web/dist/index.html", names)
             self.assertIn("RayleaBot-v0.1.0-macos-arm64-full/templates/status.panel/template.json", names)
@@ -243,9 +320,13 @@ class ReleaseToolTests(unittest.TestCase):
             templates = temp / "templates"
             default_config = temp / "config" / "default.yaml"
             systemd_file = temp / "rayleabot.service"
+            license_file = temp / "LICENSE"
+            notices_file = temp / "THIRD_PARTY_NOTICES.md"
             output = temp / "out"
 
             server_bin.write_text("server", encoding="utf-8")
+            license_file.write_text("AGPL", encoding="utf-8")
+            notices_file.write_text("notices", encoding="utf-8")
             (web_dist / "index.html").parent.mkdir(parents=True, exist_ok=True)
             (web_dist / "index.html").write_text("<html></html>", encoding="utf-8")
             (builtin / "help" / "info.json").parent.mkdir(parents=True, exist_ok=True)
@@ -275,11 +356,16 @@ class ReleaseToolTests(unittest.TestCase):
                 launcher_bundle=None,
                 systemd_file=systemd_file,
                 release_notes_ref=None,
+                updater_bin=None,
+                license_file=license_file,
+                third_party_notices=notices_file,
             )
 
             with tarfile.open(archive_path, "r:gz") as tf:
                 names = set(tf.getnames())
             self.assertIn("RayleaBot-v0.1.0-linux-x64-server/systemd/rayleabot.service", names)
+            self.assertIn("RayleaBot-v0.1.0-linux-x64-server/LICENSE", names)
+            self.assertIn("RayleaBot-v0.1.0-linux-x64-server/THIRD_PARTY_NOTICES.md", names)
             self.assertNotIn("RayleaBot-v0.1.0-linux-x64-server/contracts/config.user.schema.json", names)
             self.assertIn("RayleaBot-v0.1.0-linux-x64-server/web/dist/index.html", names)
             self.assertIn("RayleaBot-v0.1.0-linux-x64-server/templates/help.menu/template.json", names)

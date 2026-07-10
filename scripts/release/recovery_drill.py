@@ -394,7 +394,7 @@ def select_previous_release(releases: list[dict[str, object]], current_version: 
         tag_name = str(release.get("tag_name", ""))
         if tag_name == current_tag:
             continue
-        if find_release_asset(release, "release_manifest.json") is not None:
+        if find_release_asset(release, "release_manifest.v2.json") is not None:
             return release
     return None
 
@@ -425,10 +425,10 @@ def download_previous_archive(repository: str, current_version: str, artifact_id
         raise DrillBootstrapSkip(f"no previous published release found for {artifact_id}")
     download_dir.mkdir(parents=True, exist_ok=True)
     release_tag = str(release.get("tag_name", "")).strip() or "previous"
-    manifest_asset = find_release_asset(release, "release_manifest.json")
+    manifest_asset = find_release_asset(release, "release_manifest.v2.json")
     if manifest_asset is None:
-        raise DrillBootstrapSkip(f"previous release {release_tag} does not include release_manifest.json")
-    manifest_path = download_asset(manifest_asset, download_dir / release_tag / "release_manifest.json")
+        raise DrillBootstrapSkip(f"previous release {release_tag} does not include release_manifest.v2.json")
+    manifest_path = download_asset(manifest_asset, download_dir / release_tag / "release_manifest.v2.json")
     manifest = read_json_file(manifest_path)
     artifact_record = next(
         (

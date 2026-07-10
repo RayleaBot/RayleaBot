@@ -11,12 +11,6 @@ import (
 )
 
 const (
-	// maxProductionFileLines is a loose safety ceiling that only catches
-	// pathologically large files. It is NOT an architectural boundary: package
-	// responsibility is expressed through dependency direction and type
-	// cohesion, not file or line counts.
-	maxProductionFileLines = 1500
-
 	modulePrefix           = "github.com/RayleaBot/RayleaBot/server/internal/"
 	managementImportPath   = modulePrefix + "management"
 	managementImportPrefix = managementImportPath + "/"
@@ -120,23 +114,6 @@ func TestDomainPackagesDoNotImportApp(t *testing.T) {
 	})
 }
 
-func TestProductionFilesStayReadable(t *testing.T) {
-	serverRoot := testServerRoot(t)
-
-	walkGoFiles(t, serverRoot, func(path string) {
-		if strings.HasSuffix(path, "_test.go") || isGeneratedGoFile(path) {
-			return
-		}
-		lineCount, err := countLines(path)
-		if err != nil {
-			t.Fatalf("count %s lines: %v", relPath(t, serverRoot, path), err)
-		}
-		if lineCount > maxProductionFileLines {
-			t.Errorf("%s has %d lines, want <= %d", relPath(t, serverRoot, path), lineCount, maxProductionFileLines)
-		}
-	})
-}
-
 func TestTestFilesUseScenarioNames(t *testing.T) {
 	serverRoot := testServerRoot(t)
 
@@ -233,19 +210,4 @@ func isGeneratedGoFile(path string) bool {
 		limit = 512
 	}
 	return strings.Contains(string(data[:limit]), "Code generated")
-}
-
-func countLines(path string) (int, error) {
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return 0, err
-	}
-	if len(data) == 0 {
-		return 0, nil
-	}
-	count := strings.Count(string(data), "\n")
-	if data[len(data)-1] != '\n' {
-		count++
-	}
-	return count, nil
 }

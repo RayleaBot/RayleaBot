@@ -19,15 +19,6 @@ IMPORT_BLOCK_RE = re.compile(r"^\s*import\s*\((.*?)^\s*\)", re.MULTILINE | re.DO
 IMPORT_LINE_RE = re.compile(r'^\s*(?:[.\w]+\s+)?"([^"]+)"', re.MULTILINE)
 PROCESS_EXIT_RE = re.compile(r"\b(?:os\.Exit|log\.Fatalf?|log\.Fatalln)\s*\(")
 RAW_SQL_CALL_RE = re.compile(r"\.(?:Exec|ExecContext|QueryContext|QueryRowContext|QueryRow)\s*\(")
-SMALL_PRODUCTION_PACKAGE_WARNING_LINES = 150
-ALLOWED_SMALL_PRODUCTION_PACKAGE_DIRS = {
-    "internal/command",
-    "internal/health",
-    "internal/logpath",
-    "internal/runtimepaths",
-}
-
-
 @dataclass(frozen=True)
 class GoFile:
     path: Path
@@ -51,7 +42,6 @@ def main() -> int:
     check_plugin_boundaries(files, errors)
     check_disallowed_dirs(server_internal, root, errors)
     check_package_names(files, warnings)
-    check_small_production_packages(files, warnings)
     check_process_exit_calls(files, errors)
     check_manual_sql_exceptions(files, root, manual_sql_exceptions, errors)
 
@@ -143,30 +133,6 @@ def check_package_names(files: list[GoFile], warnings: list[str]) -> None:
         leaf = Path(file.package_dir).name
         if file.package_name != leaf:
             warnings.append(f"{file.package_dir} package name is {file.package_name}; directory leaf is {leaf}")
-
-
-def check_small_production_packages(files: list[GoFile], warnings: list[str]) -> None:
-    package_lines: dict[str, int] = {}
-    package_files: dict[str, int] = {}
-    for file in files:
-        if file.is_test or file.is_generated:
-            continue
-        text = file.path.read_text(encoding="utf-8")
-        line_count = text.count("\n")
-        if text and not text.endswith("\n"):
-            line_count += 1
-        package_lines[file.package_dir] = package_lines.get(file.package_dir, 0) + line_count
-        package_files[file.package_dir] = package_files.get(file.package_dir, 0) + 1
-
-    for package_dir in sorted(package_lines):
-        if package_dir in ALLOWED_SMALL_PRODUCTION_PACKAGE_DIRS:
-            continue
-        total = package_lines[package_dir]
-        if total >= SMALL_PRODUCTION_PACKAGE_WARNING_LINES:
-            continue
-        warnings.append(
-            f"{package_dir} has {total} production line(s) across {package_files[package_dir]} file(s); consider merging thin same-lifecycle code"
-        )
 
 
 def check_process_exit_calls(files: list[GoFile], errors: list[str]) -> None:

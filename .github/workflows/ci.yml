@@ -23,6 +23,7 @@ jobs:
       sdk: ${{ steps.detect.outputs.sdk }}
       contracts: ${{ steps.detect.outputs.contracts }}
       release: ${{ steps.detect.outputs.release }}
+      docs: ${{ steps.detect.outputs.docs }}
       docs_only: ${{ steps.detect.outputs.docs_only }}
       ci: ${{ steps.detect.outputs.ci }}
 
@@ -54,8 +55,8 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Install YAML parser
-        run: python -m pip install --disable-pip-version-check pyyaml
+      - name: Install contract validators
+        run: python -m pip install --disable-pip-version-check pyyaml jsonschema==4.26.0
 
       - name: Validate contracts
         run: python scripts/ci/validate_contracts.py --mode=strict
@@ -78,18 +79,21 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: "24.14.0"
+          node-version: "24.18.0"
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
-          version: 11.9.0
+          version: 11.11.0
 
       - name: Install sqlc
         run: go install github.com/sqlc-dev/sqlc/cmd/sqlc@v1.29.0
 
       - name: Run server doctor
         run: make doctor
+
+      - name: Check embedded schema drift
+        run: node scripts/generate-runtime-schemas.mjs --verify
 
       - name: Run go test
         working-directory: server
@@ -98,6 +102,10 @@ jobs:
       - name: Build server
         working-directory: server
         run: mkdir -p dist && go build -o dist/raylea-server ./cmd/raylea-server
+
+      - name: Run binary vulnerability scan
+        working-directory: server
+        run: go run golang.org/x/vuln/cmd/govulncheck@v1.1.4 -mode=binary dist/raylea-server
 
       - name: Check sqlc generated code drift
         working-directory: server
@@ -115,18 +123,22 @@ jobs:
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
-          version: 11.9.0
+          version: 11.11.0
 
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: "24.14.0"
+          node-version: "24.18.0"
           cache: pnpm
           cache-dependency-path: web/pnpm-lock.yaml
 
       - name: Install web dependencies
         working-directory: web
         run: pnpm install --frozen-lockfile
+
+      - name: Audit Web production dependencies
+        working-directory: web
+        run: pnpm audit --prod --audit-level=high --registry=https://registry.npmjs.org
 
       - name: Check generated types drift
         working-directory: web
@@ -158,18 +170,22 @@ jobs:
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
-          version: 11.9.0
+          version: 11.11.0
 
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: "24.14.0"
+          node-version: "24.18.0"
           cache: pnpm
           cache-dependency-path: launcher/pnpm-lock.yaml
 
       - name: Install launcher dependencies
         working-directory: launcher
         run: pnpm install --frozen-lockfile
+
+      - name: Audit Launcher production dependencies
+        working-directory: launcher
+        run: pnpm audit --prod --audit-level=high --registry=https://registry.npmjs.org
 
       - name: Check generated types drift
         working-directory: launcher
@@ -197,7 +213,7 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: "24.14.0"
+          node-version: "24.18.0"
           cache: npm
           cache-dependency-path: sdk/nodejs/package-lock.json
 
@@ -205,6 +221,14 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+
+      - name: Install Python SDK build tools
+        run: python -m pip install --disable-pip-version-check build
+
+      - name: Check SDK license copies
+        run: |
+          cmp LICENSE sdk/nodejs/LICENSE
+          cmp LICENSE sdk/python/LICENSE
 
       - name: Install Node SDK dependencies
         working-directory: sdk/nodejs
@@ -216,7 +240,9 @@ jobs:
 
       - name: Check Node SDK dist drift
         working-directory: sdk/nodejs
-        run: git diff --exit-code dist
+        run: |
+          git diff --exit-code -- dist
+          test -z "$(git status --porcelain --untracked-files=all -- dist)"
 
       - name: Run Node SDK typecheck
         working-directory: sdk/nodejs
@@ -226,9 +252,22 @@ jobs:
         working-directory: sdk/nodejs
         run: node --test tests/*.test.mjs
 
+      - name: Check Node SDK package license
+        working-directory: sdk/nodejs
+        run: npm pack --dry-run --json | node -e "let input=''; process.stdin.on('data', chunk => input += chunk); process.stdin.on('end', () => { const files = JSON.parse(input)[0].files.map(file => file.path); if (!files.includes('LICENSE')) process.exit(1); });"
+
       - name: Run Python SDK tests
         working-directory: sdk/python
         run: python -m unittest discover -s tests
+
+      - name: Build and install Python SDK package
+        working-directory: sdk/python
+        run: |
+          python -m build --outdir "$RUNNER_TEMP/rayleabot-python-sdk"
+          python -m venv "$RUNNER_TEMP/rayleabot-python-sdk-venv"
+          "$RUNNER_TEMP/rayleabot-python-sdk-venv/bin/python" -m pip install "$RUNNER_TEMP"/rayleabot-python-sdk/*.whl
+          "$RUNNER_TEMP/rayleabot-python-sdk-venv/bin/python" -c "import rayleabot"
+          python -c "import glob, zipfile; wheel=glob.glob('$RUNNER_TEMP/rayleabot-python-sdk/*.whl')[0]; names=zipfile.ZipFile(wheel).namelist(); assert any(name.endswith('/LICENSE') for name in names), names"
 
   release-helper:
     if: needs.changes.outputs.release == 'true'
@@ -249,8 +288,46 @@ jobs:
           python -m py_compile scripts/release/*.py
           python -m unittest discover -s scripts/release/tests
 
+  third-party-notices:
+    if: >-
+      needs.changes.outputs.server == 'true' ||
+      needs.changes.outputs.web == 'true' ||
+      needs.changes.outputs.launcher == 'true' ||
+      needs.changes.outputs.release == 'true'
+    runs-on: ubuntu-latest
+    needs: changes
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: server/go.mod
+          cache-dependency-path: server/go.sum
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.11.0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24.18.0"
+
+      - name: Install production graph inputs
+        run: |
+          pnpm --dir web install --frozen-lockfile
+          pnpm --dir launcher install --frozen-lockfile
+          cd server && go mod download
+
+      - name: Check third-party notice drift
+        run: python scripts/release/generate_third_party_notices.py --check --output THIRD_PARTY_NOTICES.md
+
   agent-docs:
-    if: needs.changes.outputs.docs_only == 'true' || needs.changes.outputs.ci == 'true'
+    if: needs.changes.outputs.docs == 'true' || needs.changes.outputs.ci == 'true'
     runs-on: ubuntu-latest
     needs: changes
 
@@ -261,10 +338,17 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: "24.14.0"
+          node-version: "24.18.0"
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
 
       - name: Check agent docs
-        run: node scripts/check-agent-docs.mjs
+        run: |
+          node scripts/check-agent-docs.mjs
+          python scripts/check-doc-links.py
 
   ci-self-check:
     if: needs.changes.outputs.ci == 'true'
@@ -280,12 +364,13 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Install YAML parser
-        run: python -m pip install --disable-pip-version-check pyyaml
+      - name: Install contract validators
+        run: python -m pip install --disable-pip-version-check pyyaml jsonschema==4.26.0
 
       - name: Check CI scripts
         run: |
           python -m py_compile scripts/ci/*.py
+          python -m unittest scripts.tests.test_check_doc_links
           python scripts/ci/detect_changes.py --self-test
           python scripts/ci/validate_contracts.py --mode=strict
 
@@ -300,6 +385,7 @@ jobs:
       - launcher
       - sdk
       - release-helper
+      - third-party-notices
       - agent-docs
       - ci-self-check
 

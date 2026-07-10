@@ -25,6 +25,9 @@ class SmokeReleaseTests(unittest.TestCase):
             entries = smoke_release.list_entries("windows-x64-full", archive_path)
 
             self.assertIn("RayleaLauncher.exe", entries)
+            self.assertIn("raylea-updater.exe", entries)
+            self.assertIn("LICENSE", entries)
+            self.assertIn("THIRD_PARTY_NOTICES.md", entries)
             self.assertNotIn("contracts/config.user.schema.json", entries)
             self.assertNotIn("contracts/plugin-info.schema.json", entries)
             self.assertIn("web/dist/index.html", entries)
@@ -43,6 +46,8 @@ class SmokeReleaseTests(unittest.TestCase):
 
             entries = smoke_release.list_entries("linux-x64-server", archive_path)
 
+            self.assertIn("LICENSE", entries)
+            self.assertIn("THIRD_PARTY_NOTICES.md", entries)
             self.assertNotIn("contracts/config.user.schema.json", entries)
             self.assertIn("web/dist/index.html", entries)
 
