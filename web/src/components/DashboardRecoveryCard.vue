@@ -106,10 +106,9 @@ defineEmits<{
   border: 1px solid var(--border);
   background: var(--surface-strong);
   box-shadow: var(--shadow-xs);
-  transition: transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1), box-shadow 0.3s cubic-bezier(0.25, 0.8, 0.25, 1), border-color 0.3s cubic-bezier(0.25, 0.8, 0.25, 1), background-color 0.3s cubic-bezier(0.25, 0.8, 0.25, 1), color 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+  transition: border-color 150ms ease;
 
   &:hover {
-    box-shadow: var(--shadow-elevated);
     border-color: var(--border-accent);
   }
 }

@@ -53,10 +53,9 @@ defineEmits<{
   border: 1px solid var(--border);
   background: var(--surface-strong);
   box-shadow: var(--shadow-xs);
-  transition: transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1), box-shadow 0.3s cubic-bezier(0.25, 0.8, 0.25, 1), border-color 0.3s cubic-bezier(0.25, 0.8, 0.25, 1), background-color 0.3s cubic-bezier(0.25, 0.8, 0.25, 1), color 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+  transition: border-color 150ms ease;
 
   &:hover {
-    box-shadow: var(--shadow-elevated);
     border-color: var(--border-accent);
   }
 }
@@ -90,27 +89,25 @@ defineEmits<{
   gap: 8px;
   box-shadow: var(--shadow-xs);
   border: 1px solid transparent;
-  transition: transform 0.24s cubic-bezier(0.25, 0.8, 0.25, 1), box-shadow 0.24s cubic-bezier(0.25, 0.8, 0.25, 1), border-color 0.24s cubic-bezier(0.25, 0.8, 0.25, 1), background-color 0.24s cubic-bezier(0.25, 0.8, 0.25, 1), color 0.24s cubic-bezier(0.25, 0.8, 0.25, 1);
+  transition: border-color 150ms ease, background-color 150ms ease;
 
   &--backup {
-    background: linear-gradient(135deg, var(--accent) 0%, color-mix(in srgb, var(--accent) 80%, #ffffff) 100%) !important;
+    background: var(--accent) !important;
     border-color: var(--accent);
     color: #ffffff;
 
     &:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 4px 12px -3px color-mix(in srgb, var(--accent) 40%, transparent);
+      background: var(--accent) !important;
     }
   }
 
   &--diagnostics {
-    background: linear-gradient(135deg, #17a2b8 0%, color-mix(in srgb, #17a2b8 80%, #ffffff) 100%) !important;
-    border-color: #17a2b8;
+    background: #117386 !important;
+    border-color: #117386;
     color: #ffffff;
 
     &:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 4px 12px -3px color-mix(in srgb, #17a2b8 40%, transparent);
+      background: #117386 !important;
     }
   }
 

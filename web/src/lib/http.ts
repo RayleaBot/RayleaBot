@@ -26,22 +26,28 @@ export class ApiError extends Error {
 }
 
 interface RuntimeConfig {
-  getToken: () => string | null
+  getCSRFToken: () => string | null
+  onCSRFToken: (token: string) => void
   onNetworkUnavailable: (path: string, error: Error) => void
   onReachable: (path: string, status: number) => void
-  onUnauthorized: (tokenSnapshot: string | null) => void
+  onUnauthorized: () => void
 }
 
 const runtime: RuntimeConfig = {
-  getToken: () => null,
+  getCSRFToken: () => null,
+  onCSRFToken: () => undefined,
   onNetworkUnavailable: () => undefined,
   onReachable: () => undefined,
   onUnauthorized: () => undefined,
 }
 
 export function configureApiRuntime(config: Partial<RuntimeConfig>) {
-  if (config.getToken) {
-    runtime.getToken = config.getToken
+  if (config.getCSRFToken) {
+    runtime.getCSRFToken = config.getCSRFToken
+  }
+
+  if (config.onCSRFToken) {
+    runtime.onCSRFToken = config.onCSRFToken
   }
 
   if (config.onNetworkUnavailable) {
@@ -76,7 +82,7 @@ function withRuntimeHeaders(
   headers: HeadersInit | undefined,
   auth: boolean,
   hasBody: boolean,
-  tokenSnapshot: string | null,
+  method: string,
 ) {
   const requestHeaders = new Headers(headers)
 
@@ -84,8 +90,11 @@ function withRuntimeHeaders(
     requestHeaders.set('Content-Type', 'application/json')
   }
 
-  if (auth && tokenSnapshot) {
-    requestHeaders.set('Authorization', `Bearer ${tokenSnapshot}`)
+  const csrfToken = auth && !['GET', 'HEAD', 'OPTIONS', 'TRACE'].includes(method.toUpperCase())
+    ? runtime.getCSRFToken()
+    : null
+  if (csrfToken) {
+    requestHeaders.set('X-Raylea-CSRF', csrfToken)
   }
 
   return requestHeaders
@@ -187,8 +196,8 @@ function isBackendUnavailableResponse(response: Response) {
 
 export async function apiRequest<T>(path: string, options: ApiRequestOptions = {}): Promise<T> {
   const { auth = true, headers, body, timeoutMs = DEFAULT_TIMEOUT_MS, signal: callerSignal, acceptStatuses = [], ...rest } = options
-  const tokenSnapshot = auth ? runtime.getToken() : null
-  const requestHeaders = withRuntimeHeaders(headers, auth, body !== undefined, tokenSnapshot)
+  const method = rest.method ?? 'GET'
+  const requestHeaders = withRuntimeHeaders(headers, auth, body !== undefined, method)
 
   const controller = new AbortController()
   const timeoutId = timeoutMs > 0 ? setTimeout(() => controller.abort(), timeoutMs) : undefined
@@ -198,6 +207,7 @@ export async function apiRequest<T>(path: string, options: ApiRequestOptions = {
   try {
     response = await fetch(path, {
       ...rest,
+      credentials: 'same-origin',
       signal: controller.signal,
       headers: requestHeaders,
       body: body === undefined ? undefined : JSON.stringify(body),
@@ -214,6 +224,11 @@ export async function apiRequest<T>(path: string, options: ApiRequestOptions = {
 
   const payload = await readResponsePayload(response)
 
+  const nextCSRFToken = response.headers.get('X-Raylea-CSRF')?.trim()
+  if (nextCSRFToken) {
+    runtime.onCSRFToken(nextCSRFToken)
+  }
+
   if (isBackendUnavailableResponse(response)) {
     const error = createApiError(response, payload)
     runtime.onNetworkUnavailable(path, error)
@@ -224,7 +239,7 @@ export async function apiRequest<T>(path: string, options: ApiRequestOptions = {
 
   if (!response.ok && !acceptStatuses.includes(response.status)) {
     if (response.status === 401 && auth) {
-      runtime.onUnauthorized(tokenSnapshot)
+      runtime.onUnauthorized()
     }
 
     throw createApiError(response, payload)
@@ -239,8 +254,8 @@ export async function apiRequest<T>(path: string, options: ApiRequestOptions = {
 
 export async function apiDownload(path: string, options: ApiRequestOptions = {}): Promise<ApiDownloadResult> {
   const { auth = true, headers, body, timeoutMs = DEFAULT_TIMEOUT_MS, signal: callerSignal, ...rest } = options
-  const tokenSnapshot = auth ? runtime.getToken() : null
-  const requestHeaders = withRuntimeHeaders(headers, auth, body !== undefined, tokenSnapshot)
+  const method = rest.method ?? 'GET'
+  const requestHeaders = withRuntimeHeaders(headers, auth, body !== undefined, method)
 
   const controller = new AbortController()
   const timeoutId = timeoutMs > 0 ? setTimeout(() => controller.abort(), timeoutMs) : undefined
@@ -250,6 +265,7 @@ export async function apiDownload(path: string, options: ApiRequestOptions = {})
   try {
     response = await fetch(path, {
       ...rest,
+      credentials: 'same-origin',
       signal: controller.signal,
       headers: requestHeaders,
       body: body === undefined ? undefined : JSON.stringify(body),
@@ -276,13 +292,18 @@ export async function apiDownload(path: string, options: ApiRequestOptions = {})
     runtime.onReachable(path, response.status)
 
     if (response.status === 401 && auth) {
-      runtime.onUnauthorized(tokenSnapshot)
+      runtime.onUnauthorized()
     }
 
     throw createApiError(response, payload)
   }
 
   runtime.onReachable(path, response.status)
+
+  const nextCSRFToken = response.headers.get('X-Raylea-CSRF')?.trim()
+  if (nextCSRFToken) {
+    runtime.onCSRFToken(nextCSRFToken)
+  }
 
   return {
     blob: await response.blob(),

@@ -10,6 +10,14 @@ const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 const repoRoot = path.resolve(__dirname, '..', '..', '..')
 const exampleConfigPanelRoot = path.join(repoRoot, 'examples', 'plugins', 'example-config-panel')
+const configuredWebOrigin = String(process.env.RAYLEA_E2E_WEB_ORIGIN ?? 'http://127.0.0.1:4173').trim()
+if (!/^http:\/\/(?:127\.0\.0\.1|localhost):\d{1,5}$/.test(configuredWebOrigin)) {
+  throw new Error('RAYLEA_E2E_WEB_ORIGIN must be a loopback HTTP origin')
+}
+const allowedWebSocketOrigins = new Set([
+  configuredWebOrigin,
+  configuredWebOrigin.replace('://127.0.0.1:', '://localhost:'),
+])
 const externalPreviewImageBytes = Buffer.from(
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO2W4n8AAAAASUVORK5CYII=',
   'base64',
@@ -51,6 +59,8 @@ const fixtures = {
   logDetail: await readFixture('fixtures/web-api/ok.log-detail-response.yaml'),
   logDetailNotFound: await readFixture('fixtures/web-api/edge.log-detail-not-found.yaml'),
   systemStatus: await readFixture('fixtures/web-api/ok.system-status.yaml'),
+  updateStatus: await readFixture('fixtures/web-api/ok.update-status.yaml'),
+  updateCheck: await readFixture('fixtures/web-api/ok.update-check.yaml'),
   systemShutdown: await readFixture('fixtures/web-api/ok.system-shutdown.yaml'),
   systemBackupAccepted: await readFixture('fixtures/web-api/ok.system-backup-accepted.yaml'),
   renderTemplatesList: await readFixture('fixtures/web-api/ok.system-render-templates-list-response.yaml'),
@@ -116,10 +126,15 @@ function baseState() {
   return {
     initialized: false,
     token: null,
+    csrfToken: null,
     plugins: pluginMap,
     pluginSettings: {
       'example-config-panel': structuredClone(fixtures.pluginSettings.response.body.values),
     },
+    pluginSecrets: {
+      'example-config-panel': { api_key: '' },
+    },
+    pluginInstallInspections: {},
     logs: initialLogs,
     currentSessionLogIds: new Set(initialLogs.map((item) => item.log_id)),
     logDetails: createLogDetailMap(),
@@ -578,9 +593,33 @@ function authToken(request) {
   return header.startsWith('Bearer ') ? header.slice('Bearer '.length) : null
 }
 
+function cookieValue(request, name) {
+  const header = request.headers.cookie ?? ''
+  for (const part of header.split(';')) {
+    const [key, ...valueParts] = part.trim().split('=')
+    if (key === name) return decodeURIComponent(valueParts.join('='))
+  }
+  return null
+}
+
+function isSafeMethod(method) {
+  return ['GET', 'HEAD', 'OPTIONS', 'TRACE'].includes(String(method ?? 'GET').toUpperCase())
+}
+
 function requireAuth(request, response) {
-  if (authToken(request) && authToken(request) === state.token) {
+  const bearer = authToken(request)
+  if (bearer && bearer === state.token) {
     return true
+  }
+
+  const cookie = cookieValue(request, 'raylea_session')
+  if (cookie && cookie === state.token) {
+    response.setHeader('X-Raylea-CSRF', state.csrfToken)
+    if (isSafeMethod(request.method) || request.headers['x-raylea-csrf'] === state.csrfToken) {
+      return true
+    }
+    json(response, 403, errorEnvelope('permission.denied', '请求缺少有效的 CSRF 凭据', 'req_csrf_missing_fixture'))
+    return false
   }
 
   json(response, 401, {
@@ -617,6 +656,7 @@ function resetState(payload = {}) {
   state = baseState()
   state.initialized = Boolean(payload.initialized)
   state.token = null
+  state.csrfToken = null
   state.failures = {
     ...state.failures,
     ...(payload.failures ?? {}),
@@ -792,6 +832,34 @@ function removeGovernanceEntry(snapshot, entryType, targetId) {
   return true
 }
 
+function mergePluginState(pluginId, patch) {
+  const previous = state.plugins[pluginId] ?? {}
+  state.plugins[pluginId] = {
+    ...structuredClone(previous),
+    ...structuredClone(patch),
+    source: structuredClone(patch.source ?? previous.source),
+    trust: structuredClone(patch.trust ?? previous.trust),
+    commands: structuredClone(patch.commands ?? previous.commands ?? []),
+    command_conflicts: structuredClone(patch.command_conflicts ?? previous.command_conflicts ?? []),
+  }
+  return state.plugins[pluginId]
+}
+
+function appendLogSummary(summary, detail, options = {}) {
+  state.logs = [
+    ...state.logs.filter((item) => item.log_id !== summary.log_id),
+    structuredClone(summary),
+  ]
+
+  if (options.currentSession !== false) {
+    state.currentSessionLogIds.add(summary.log_id)
+  }
+
+  if (detail) {
+    state.logDetails[summary.log_id] = structuredClone(detail)
+  }
+}
+
 function isPathInside(parentPath, candidatePath) {
   const relative = path.relative(parentPath, candidatePath)
   return relative === '' || (!relative.startsWith('..') && !path.isAbsolute(relative))
@@ -848,34 +916,6 @@ function getContentType(filePath) {
       return 'image/png'
     default:
       return 'application/octet-stream'
-  }
-}
-
-function mergePluginState(pluginId, patch) {
-  const previous = state.plugins[pluginId] ?? {}
-  state.plugins[pluginId] = {
-    ...structuredClone(previous),
-    ...structuredClone(patch),
-    source: structuredClone(patch.source ?? previous.source),
-    trust: structuredClone(patch.trust ?? previous.trust),
-    commands: structuredClone(patch.commands ?? previous.commands ?? []),
-    command_conflicts: structuredClone(patch.command_conflicts ?? previous.command_conflicts ?? []),
-  }
-  return state.plugins[pluginId]
-}
-
-function appendLogSummary(summary, detail, options = {}) {
-  state.logs = [
-    ...state.logs.filter((item) => item.log_id !== summary.log_id),
-    structuredClone(summary),
-  ]
-
-  if (options.currentSession !== false) {
-    state.currentSessionLogIds.add(summary.log_id)
-  }
-
-  if (detail) {
-    state.logDetails[summary.log_id] = structuredClone(detail)
   }
 }
 
@@ -1133,6 +1173,7 @@ const server = http.createServer(async (request, response) => {
 
   if (pathname === '/__test/session-expire' && request.method === 'POST') {
     state.token = null
+    state.csrfToken = null
     for (const channel of Object.keys(sockets)) {
       for (const socket of sockets[channel]) {
         socket.send(JSON.stringify(sessionExpiredFrame(channel)))
@@ -1198,39 +1239,6 @@ const server = http.createServer(async (request, response) => {
     return
   }
 
-  if (pathname.startsWith('/plugin-ui/') && (request.method === 'GET' || request.method === 'HEAD')) {
-    const pathSegments = pathname.split('/')
-    const pluginId = decodeURIComponent(pathSegments[2] ?? '')
-    const requestedPath = pathSegments
-      .slice(3)
-      .map((segment) => decodeURIComponent(segment))
-      .join('/')
-    const filePath = resolvePluginManagementUIFile(pluginId, requestedPath)
-
-    if (!filePath) {
-      json(response, 404, errorEnvelope('platform.not_found', 'plugin management page not found', 'req_plugin_ui_not_found'))
-      return
-    }
-
-    try {
-      const file = await readFile(filePath)
-      response.writeHead(200, {
-        'Content-Type': getContentType(filePath),
-        'Cache-Control': 'no-store',
-      })
-      if (request.method === 'HEAD') {
-        response.end()
-        return
-      }
-
-      response.end(file)
-      return
-    } catch {
-      json(response, 404, errorEnvelope('platform.not_found', 'plugin management page not found', 'req_plugin_ui_missing'))
-      return
-    }
-  }
-
   if (pathname === '/api/setup/status' && request.method === 'GET') {
     json(response, fixtures.setupStatus.response.status, {
       initialized: state.initialized,
@@ -1259,6 +1267,19 @@ const server = http.createServer(async (request, response) => {
 
     state.initialized = true
     state.token = fixtures.setupAdmin.response.body.session_token
+    const cookieTransport = request.headers['x-raylea-session-transport'] === 'cookie'
+    if (cookieTransport) {
+      state.csrfToken = 'fixture-csrf-token-setup'
+      response.setHeader('Set-Cookie', `raylea_session=${encodeURIComponent(state.token)}; Path=/; HttpOnly; SameSite=Strict`)
+      response.setHeader('X-Raylea-Session-Transport', 'cookie')
+      response.setHeader('X-Raylea-CSRF', state.csrfToken)
+      json(response, fixtures.setupAdmin.response.status, {
+        transport: 'cookie',
+        csrf_token: state.csrfToken,
+        expires_at: fixtures.setupAdmin.response.body.expires_at,
+      })
+      return
+    }
     json(response, fixtures.setupAdmin.response.status, fixtures.setupAdmin.response.body)
     return
   }
@@ -1271,6 +1292,19 @@ const server = http.createServer(async (request, response) => {
     }
 
     state.token = fixtures.sessionLogin.response.body.session_token
+    const cookieTransport = request.headers['x-raylea-session-transport'] === 'cookie'
+    if (cookieTransport) {
+      state.csrfToken = 'fixture-csrf-token-login'
+      response.setHeader('Set-Cookie', `raylea_session=${encodeURIComponent(state.token)}; Path=/; HttpOnly; SameSite=Strict`)
+      response.setHeader('X-Raylea-Session-Transport', 'cookie')
+      response.setHeader('X-Raylea-CSRF', state.csrfToken)
+      json(response, fixtures.sessionLogin.response.status, {
+        transport: 'cookie',
+        csrf_token: state.csrfToken,
+        expires_at: fixtures.sessionLogin.response.body.expires_at,
+      })
+      return
+    }
     json(response, fixtures.sessionLogin.response.status, fixtures.sessionLogin.response.body)
     return
   }
@@ -1281,6 +1315,8 @@ const server = http.createServer(async (request, response) => {
     }
 
     state.token = null
+    state.csrfToken = null
+    response.setHeader('Set-Cookie', 'raylea_session=; Path=/; HttpOnly; SameSite=Strict; Max-Age=0')
     noContent(response)
     return
   }
@@ -1334,6 +1370,39 @@ const server = http.createServer(async (request, response) => {
     })
     json(response, 200, { ok: true, log_id: `log_${taskId}_${String(payload.status)}` })
     return
+  }
+
+  if (pathname.startsWith('/plugin-ui/') && (request.method === 'GET' || request.method === 'HEAD')) {
+    const pathSegments = pathname.split('/')
+    const pluginId = decodeURIComponent(pathSegments[2] ?? '')
+    const requestedPath = pathSegments
+      .slice(3)
+      .map((segment) => decodeURIComponent(segment))
+      .join('/')
+    const filePath = resolvePluginManagementUIFile(pluginId, requestedPath)
+
+    if (!filePath) {
+      json(response, 404, errorEnvelope('platform.not_found', 'plugin management page not found', 'req_plugin_ui_not_found'))
+      return
+    }
+
+    try {
+      const file = await readFile(filePath)
+      response.writeHead(200, {
+        'Content-Type': getContentType(filePath),
+        'Cache-Control': 'no-store',
+      })
+      if (request.method === 'HEAD') {
+        response.end()
+        return
+      }
+
+      response.end(file)
+      return
+    } catch {
+      json(response, 404, errorEnvelope('platform.not_found', 'plugin management page not found', 'req_plugin_ui_missing'))
+      return
+    }
   }
 
   if (pathname === '/__test/network-online' && request.method === 'POST') {
@@ -1824,12 +1893,80 @@ const server = http.createServer(async (request, response) => {
     return
   }
 
+  if (pathname === '/api/update/status' && request.method === 'GET') {
+    if (!requireAuth(request, response)) {
+      return
+    }
+    json(response, fixtures.updateStatus.response.status, structuredClone(fixtures.updateStatus.response.body))
+    return
+  }
+
+  if (pathname === '/api/update/check' && request.method === 'POST') {
+    if (!requireAuth(request, response)) {
+      return
+    }
+    json(response, fixtures.updateCheck.response.status, structuredClone(fixtures.updateCheck.response.body))
+    return
+  }
+
+  if (pathname === '/api/plugins/install/inspect' && request.method === 'POST') {
+    if (!requireAuth(request, response)) {
+      return
+    }
+
+    const payload = await parseBody(request)
+    if (!['local_zip', 'local_directory', 'remote_url'].includes(payload.source_type) || typeof payload.source !== 'string' || !payload.source.trim()) {
+      json(response, 400, errorEnvelope('platform.invalid_request', 'invalid plugin source', 'req_plugin_inspect_invalid'))
+      return
+    }
+    const inspectionId = 'inspection_mock_weather_package_0000001'
+    const packageSha256 = 'a'.repeat(64)
+    const installScripts = payload.source.includes('script') ? ['preinstall', 'install'] : []
+    state.pluginInstallInspections[inspectionId] = {
+      source_type: payload.source_type,
+      source: payload.source,
+      package_sha256: packageSha256,
+    }
+    json(response, 200, {
+      inspection_id: inspectionId,
+      expires_at: '2026-07-10T12:15:00Z',
+      package_sha256: packageSha256,
+      source: {
+        source_type: payload.source_type,
+        source: payload.source,
+      },
+      plugin: {
+        id: 'example.weather-package',
+        name: 'Weather Package',
+        version: '1.0.0',
+        author: 'example',
+        license: 'MIT',
+        source_label: payload.source_type === 'remote_url' ? 'example.com' : '本地插件包',
+      },
+      capabilities: ['event.subscribe', 'http.request'],
+      install_scripts: installScripts,
+    })
+    return
+  }
+
   if (pathname === '/api/plugins/install' && request.method === 'POST') {
     if (!requireAuth(request, response)) {
       return
     }
 
     const payload = await parseBody(request)
+    const inspection = state.pluginInstallInspections[payload.inspection_id]
+    if (
+      !inspection
+      || payload.trusted_code_confirmed !== true
+      || payload.package_sha256 !== inspection.package_sha256
+      || payload.source_type !== inspection.source_type
+      || payload.source !== inspection.source
+    ) {
+      json(response, 409, errorEnvelope('plugin.install_inspection_required', 'plugin inspection is required', 'req_plugin_install_inspection'))
+      return
+    }
+    delete state.pluginInstallInspections[payload.inspection_id]
     let taskId = fixtures.pluginInstallAccepted.response.body.task_id
 
     if (payload.source_type === 'remote_url') {
@@ -1903,6 +2040,20 @@ const server = http.createServer(async (request, response) => {
     return
   }
 
+  if (pathname.match(/^\/api\/plugins\/[^/]+\/management\/actions$/) && request.method === 'POST') {
+    if (!requireAuth(request, response)) {
+      return
+    }
+    const pluginId = decodeURIComponent(pathname.split('/')[3])
+    const payload = await parseBody(request)
+    json(response, 200, {
+      plugin_id: pluginId,
+      action: String(payload.action ?? ''),
+      result: { handled: true },
+    })
+    return
+  }
+
   if (pathname.startsWith('/api/plugins/') && pathname.endsWith('/settings') && request.method === 'GET') {
     if (!requireAuth(request, response)) {
       return
@@ -1938,6 +2089,41 @@ const server = http.createServer(async (request, response) => {
     }
 
     json(response, 200, updatedBody)
+    return
+  }
+
+  if (pathname.startsWith('/api/plugins/') && pathname.endsWith('/secrets') && request.method === 'GET') {
+    if (!requireAuth(request, response)) {
+      return
+    }
+    const pluginId = pathname.split('/')[3]
+    if (!state.plugins[pluginId]) {
+      json(response, 404, errorEnvelope('platform.resource_missing', 'plugin secrets not found', 'req_plugin_secrets_not_found'))
+      return
+    }
+    json(response, 200, { plugin_id: pluginId, values: structuredClone(state.pluginSecrets[pluginId] ?? {}) })
+    return
+  }
+
+  if (pathname.startsWith('/api/plugins/') && pathname.endsWith('/secrets') && request.method === 'PUT') {
+    if (!requireAuth(request, response)) {
+      return
+    }
+    const pluginId = pathname.split('/')[3]
+    const payload = await parseBody(request)
+    if (!state.plugins[pluginId] || !payload?.values || typeof payload.values !== 'object' || Array.isArray(payload.values)) {
+      json(response, 400, errorEnvelope('platform.invalid_request', 'plugin secrets payload is invalid', 'req_plugin_secrets_invalid'))
+      return
+    }
+    const previous = state.pluginSecrets[pluginId] ?? {}
+    const next = { ...previous, ...payload.values }
+    for (const key of payload.deleted_keys ?? []) delete next[key]
+    state.pluginSecrets[pluginId] = next
+    json(response, 200, {
+      plugin_id: pluginId,
+      changed_keys: [...new Set([...Object.keys(payload.values), ...(payload.deleted_keys ?? [])])].sort(),
+      values: structuredClone(next),
+    })
     return
   }
 
@@ -1988,12 +2174,15 @@ const wsServer = new WebSocketServer({ noServer: true })
 
 wsServer.on('connection', (socket, request) => {
   const url = requestUrl(request)
-  const token = url.searchParams.get('session_token')
   const pathname = url.pathname
 
   const channel = pathname.startsWith('/ws/plugins/') ? 'plugin_console' : pathname.replace('/ws/', '')
 
-  if (!token || token !== state.token || !sockets[channel]) {
+  const token = cookieValue(request, 'raylea_session')
+  const origin = String(request.headers.origin ?? '')
+  const validOrigin = allowedWebSocketOrigins.has(origin)
+
+  if (url.searchParams.has('session_token') || !validOrigin || !token || token !== state.token || !sockets[channel]) {
     socket.send(JSON.stringify(sessionExpiredFrame(channel === 'plugin_console' ? 'plugin_console' : channel)))
     socket.close()
     return

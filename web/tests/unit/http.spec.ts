@@ -22,17 +22,17 @@ function unauthorizedResponse() {
 describe('api runtime', () => {
   afterEach(() => {
     configureApiRuntime({
-      getToken: () => null,
+      getCSRFToken: () => null,
+      onCSRFToken: () => undefined,
       onNetworkUnavailable: () => undefined,
       onReachable: () => undefined,
       onUnauthorized: () => undefined,
     })
   })
 
-  it('reports the request token snapshot on unauthorized responses', async () => {
-    let currentToken = 'stale-token'
+  it('reports unauthorized cookie sessions without retaining bearer credentials', async () => {
     let resolveResponse: ((response: Response) => void) | null = null
-    const unauthorizedTokens: Array<string | null> = []
+    const onUnauthorized = vi.fn()
 
     vi.stubGlobal(
       'fetch',
@@ -45,18 +45,44 @@ describe('api runtime', () => {
     )
 
     configureApiRuntime({
-      getToken: () => currentToken,
-      onUnauthorized: (tokenSnapshot) => {
-        unauthorizedTokens.push(tokenSnapshot)
-      },
+      onUnauthorized,
     })
 
     const request = apiRequest('/api/system/status')
-    currentToken = 'fresh-token'
     resolveResponse?.(unauthorizedResponse())
 
     await expect(request).rejects.toThrow('需要有效的管理会话')
-    expect(unauthorizedTokens).toEqual(['stale-token'])
+    expect(onUnauthorized).toHaveBeenCalledOnce()
+  })
+
+  it('sends CSRF only for unsafe authenticated requests and rotates it from responses', async () => {
+    const rotatedTokens: string[] = []
+    const fetchMock = vi.fn().mockImplementation(() => Promise.resolve(new Response(JSON.stringify({ ok: true }), {
+      status: 200,
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Raylea-CSRF': 'rotated-csrf-token',
+      },
+    })))
+    vi.stubGlobal('fetch', fetchMock)
+
+    configureApiRuntime({
+      getCSRFToken: () => 'current-csrf-token',
+      onCSRFToken: (token) => rotatedTokens.push(token),
+    })
+
+    await apiRequest('/api/system/status')
+    await apiRequest('/api/config', { method: 'PUT', body: { fixture: true } })
+    await apiRequest('/api/session/login', { method: 'POST', auth: false, body: { fixture: true } })
+
+    const getHeaders = fetchMock.mock.calls[0]?.[1]?.headers as Headers
+    const putHeaders = fetchMock.mock.calls[1]?.[1]?.headers as Headers
+    const publicPostHeaders = fetchMock.mock.calls[2]?.[1]?.headers as Headers
+    expect(getHeaders.has('X-Raylea-CSRF')).toBe(false)
+    expect(putHeaders.get('X-Raylea-CSRF')).toBe('current-csrf-token')
+    expect(publicPostHeaders.has('X-Raylea-CSRF')).toBe(false)
+    expect(fetchMock.mock.calls.every(([, init]) => init?.credentials === 'same-origin')).toBe(true)
+    expect(rotatedTokens).toEqual(['rotated-csrf-token', 'rotated-csrf-token', 'rotated-csrf-token'])
   })
 
   it('reports network failures and reachable responses to the runtime', async () => {

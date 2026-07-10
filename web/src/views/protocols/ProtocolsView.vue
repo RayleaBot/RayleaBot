@@ -1,32 +1,23 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, onMounted } from 'vue'
 import { storeToRefs } from 'pinia'
 
-import { notifySuccess, useToastFeedback } from '@/adapter/feedback'
+import { useToastFeedback } from '@/adapter/feedback'
 import ManagementContextActions from '@/components/ManagementContextActions.vue'
 import AppPage from '@/components/page/AppPage.vue'
 import RetryPanel from '@/components/RetryPanel.vue'
-import {
-  cloneConfig,
-  getProtocolConfigSections,
-  getValueByPath,
-  setValueByPath,
-  type ConfigFieldDefinition,
-} from '@/lib/config-form'
 import { getAdapterStateLabel, getReadinessStatusLabel, getStatusType } from '@/lib/display'
-import { fromMultilineList, toMultilineList } from '@/lib/format'
 import { buildProtocolWorkbenchActions } from '@/lib/management-links'
 import { ONEBOT11_PROTOCOL_NAME } from '@/lib/protocols'
 import { t } from '@/i18n'
 import { useConfigStore } from '@/stores/config'
 import { useProtocolsStore } from '@/stores/protocols'
-import type { ConfigDocument } from '@/types/api'
+import { useProtocolConfigEditor } from './useProtocolConfigEditor'
 
 const configStore = useConfigStore()
 const protocolsStore = useProtocolsStore()
 
 const {
-  document,
   error: configError,
   loading: configLoading,
   redactedFields,
@@ -38,10 +29,15 @@ const {
   snapshot,
 } = storeToRefs(protocolsStore)
 
-const draft = ref<ConfigDocument | null>(null)
-const advancedExpanded = ref(false)
-
-const configSections = computed(() => getProtocolConfigSections())
+const {
+  advancedExpanded,
+  canSave,
+  configSections,
+  draft,
+  readField,
+  save,
+  writeField,
+} = useProtocolConfigEditor(configStore, protocolsStore)
 const activeTransportState = computed(() => {
   if (!snapshot.value) {
     return undefined
@@ -166,10 +162,6 @@ function getIssueTagColor(severity?: string) {
   return 'warning'
 }
 
-watch(document, (value) => {
-  draft.value = value ? cloneConfig(value) : null
-}, { immediate: true })
-
 async function loadPage() {
   try {
     await Promise.all([
@@ -186,58 +178,6 @@ onMounted(() => {
 })
 
 useToastFeedback(feedbackToast)
-
-function readField(path: string, type: ConfigFieldDefinition['type']) {
-  if (!draft.value) {
-    if (type === 'boolean') {
-      return false
-    }
-
-    return type === 'number' ? null : ''
-  }
-
-  const current = getValueByPath(draft.value as unknown as Record<string, unknown>, path)
-  if (type === 'list') {
-    return Array.isArray(current) ? toMultilineList(current as string[]) : ''
-  }
-  return current
-}
-
-function writeField(path: string, type: ConfigFieldDefinition['type'], value: unknown) {
-  if (!draft.value) {
-    return
-  }
-
-  let normalized = value
-  if (type === 'number') {
-    if (value === null || value === undefined || value === '') {
-      normalized = undefined
-    } else {
-      const nextNumber = Number(value)
-      normalized = Number.isFinite(nextNumber) ? nextNumber : undefined
-    }
-  } else if (type === 'list') {
-    normalized = fromMultilineList(String(value))
-  }
-
-  setValueByPath(draft.value as unknown as Record<string, unknown>, path, normalized)
-}
-
-const canSave = computed(() => Boolean(draft.value) && !saving.value)
-
-async function save() {
-  if (!draft.value) {
-    return
-  }
-
-  const response = await configStore.saveConfig(draft.value)
-  try {
-    await protocolsStore.refresh()
-  } catch {
-    // store error state drives the page
-  }
-  notifySuccess(response.restart_required ? t('config.saveRestart') : t('config.saveSuccess'))
-}
 
 // Unified Transports Layout data structure
 const transportConfigs = computed(() => [
@@ -326,7 +266,7 @@ const adapterConfigFields = computed(() => {
   <AppPage :title="t('protocols.title')" :description="t('protocols.subtitle')">
     <template #extra>
       <div class="table-actions">
-        <a-button type="primary" :disabled="!canSave" :loading="saving" @click="save" class="save-glow-btn">
+        <a-button type="primary" :disabled="!canSave" :loading="saving" @click="save" class="save-action-btn">
           <template #icon>
             <span class="btn-icon">✓</span>
           </template>
@@ -336,8 +276,7 @@ const adapterConfigFields = computed(() => {
     </template>
 
     <div class="protocol-settings-page">
-      <!-- Summary status dashboard strip -->
-      <div class="summary-status-strip" v-motion="{ initial: { opacity: 0, y: -10 }, enter: { opacity: 1, y: 0 } }">
+      <div class="summary-status-strip">
         <div class="strip-item">
           <span class="strip-label">{{ t('protocols.overviewTitle') }}</span>
           <div class="strip-value-wrap">
@@ -351,7 +290,7 @@ const adapterConfigFields = computed(() => {
         <div class="strip-item">
           <span class="strip-label">{{ t('protocols.activeTransportLabel') }}</span>
           <div class="strip-value-wrap">
-            <span class="strip-value font-bold text-gradient">{{ snapshot?.active_transports.length || 0 }}</span>
+            <span class="strip-value font-bold transport-count">{{ snapshot?.active_transports.length || 0 }}</span>
             <span class="strip-subtext">/ {{ snapshot?.configured_transports.length || 0 }} {{ t('config.fieldCount') }}</span>
           </div>
         </div>
@@ -361,14 +300,14 @@ const adapterConfigFields = computed(() => {
         <div class="strip-item">
           <span class="strip-label">{{ t('protocols.healthLabel') }}</span>
           <div class="strip-value-wrap">
-            <span class="status-pulse-dot" :class="protocolStatusType"></span>
+            <span class="status-indicator" :class="protocolStatusType" aria-hidden="true"></span>
             <span class="strip-value" :class="`text-${protocolStatusType}`">{{ readinessLabel }}</span>
           </div>
           <span class="strip-subtext truncate" :title="protocolSummary" style="color: var(--app-text-secondary);">{{ protocolSummary }}</span>
         </div>
       </div>
 
-      <div v-if="transportIssues.length > 0" class="premium-diagnostics-card" data-testid="protocol-issues" v-motion="{ initial: { opacity: 0, y: 10 }, enter: { opacity: 1, y: 0 } }">
+      <div v-if="transportIssues.length > 0" class="premium-diagnostics-card" data-testid="protocol-issues" role="alert">
         <div class="diagnostics-header">
           <div class="diagnostics-title-wrap">
             <span class="diagnostics-alert-icon">⚠️</span>
@@ -389,15 +328,14 @@ const adapterConfigFields = computed(() => {
         </div>
       </div>
 
-      <!-- Main unified content workspace -->
-      <div class="unified-workspace-card" v-motion="{ initial: { opacity: 0, y: 15 }, enter: { opacity: 1, y: 0, transition: { duration: 350 } } }">
+      <div class="unified-workspace-card">
         <div class="workspace-header">
           <div class="title-area">
             <h2 class="workspace-title">{{ t('protocols.workspaceTitle') }}</h2>
             <p class="workspace-subtitle">{{ t('protocols.workspaceSubtitle') }}</p>
           </div>
           <div v-if="restartRequired !== null" class="restart-indicator">
-            <a-tag :color="restartRequired ? 'warning' : 'success'" class="pulse-tag">
+            <a-tag :color="restartRequired ? 'warning' : 'success'" class="restart-status-tag">
               {{ restartRequired ? t('config.restartNeeded') : t('config.hotApplied') }}
             </a-tag>
           </div>
@@ -580,12 +518,9 @@ const adapterConfigFields = computed(() => {
 
 <style lang="scss" scoped>
 .protocol-settings-page {
-  --primary-rgb: 99, 102, 241;
   --success-rgb: 34, 197, 94;
   --warning-rgb: 234, 179, 8;
   --danger-rgb: 239, 68, 68;
-  --glass-bg: rgba(255, 255, 255, 0.45);
-  --glass-border: rgba(255, 255, 255, 0.6);
   --font-mono: "Cascadia Mono", "Consolas", monospace;
 
   display: flex;
@@ -595,23 +530,16 @@ const adapterConfigFields = computed(() => {
   padding: 4px;
 }
 
-/* Glassmorphism Summary Dashboard Strip */
 .summary-status-strip {
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 16px 24px;
-  background: var(--glass-bg);
-  border: 1px solid var(--glass-border);
+  background: var(--surface-strong);
+  border: 1px solid var(--app-border);
   border-radius: var(--radius-xl, 16px);
-  box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.05);
+  box-shadow: var(--shadow-xs);
   gap: 16px;
-  transition: border-color 0.3s ease, box-shadow 0.3s ease;
-
-  &:hover {
-    box-shadow: 0 10px 40px 0 rgba(31, 38, 135, 0.08);
-    background: rgba(255, 255, 255, 0.55);
-  }
 }
 
 .strip-item {
@@ -658,41 +586,21 @@ const adapterConfigFields = computed(() => {
   align-self: flex-start;
 }
 
-.status-pulse-dot {
+.status-indicator {
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  position: relative;
   background: color-mix(in srgb, var(--app-border) 70%, var(--accent) 30%);
   display: inline-block;
 
-  &::after {
-    content: '';
-    position: absolute;
-    top: -2px;
-    left: -2px;
-    right: -2px;
-    bottom: -2px;
-    border-radius: 50%;
-    border: 2px solid currentColor;
-    opacity: 0;
-    animation: ripple 2s infinite ease-out;
-  }
-
   &.success {
     background: var(--app-success);
-    color: var(--app-success);
-    &::after { opacity: 0.4; }
   }
   &.danger {
     background: var(--app-danger);
-    color: var(--app-danger);
-    &::after { opacity: 0.4; }
   }
   &.warning {
     background: var(--app-warning);
-    color: var(--app-warning);
-    &::after { opacity: 0.4; }
   }
 }
 
@@ -708,7 +616,6 @@ const adapterConfigFields = computed(() => {
   margin-left: 4px;
 }
 
-/* Premium Main Workspace Card */
 .unified-workspace-card {
   background: var(--app-bg-card, #ffffff);
   border: 1px solid var(--app-border);
@@ -717,11 +624,6 @@ const adapterConfigFields = computed(() => {
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  transition: transform 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease, background-color 0.3s ease, color 0.3s ease;
-
-  &:hover {
-    box-shadow: 0 6px 30px rgba(0, 0, 0, 0.04);
-  }
 }
 
 .workspace-header {
@@ -757,7 +659,6 @@ const adapterConfigFields = computed(() => {
   padding: 0;
 }
 
-/* Integrated Table custom styles */
 .table-container {
   overflow: hidden;
   border-radius: 0 0 var(--radius-xl, 16px) var(--radius-xl, 16px);
@@ -777,7 +678,7 @@ const adapterConfigFields = computed(() => {
     border-bottom: 1px solid var(--app-border);
     padding: 16px 20px;
     vertical-align: middle;
-    transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease, background-color 0.25s ease, color 0.25s ease;
+    transition: background-color 150ms ease;
   }
 
   :deep(.ant-table-row:hover > td) {
@@ -803,7 +704,7 @@ const adapterConfigFields = computed(() => {
   font-size: 0.72rem;
   color: #ffffff;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
-  transition: transform 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease, background-color 0.3s ease, color 0.3s ease;
+  transition: background-color 150ms ease, border-color 150ms ease;
 
   &.reverse_ws {
     background: linear-gradient(135deg, #3b82f6, #1d4ed8);
@@ -902,7 +803,7 @@ const adapterConfigFields = computed(() => {
   box-shadow: none;
   font-size: 0.85rem;
   padding: 6px 12px;
-  transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease, background-color 0.25s ease, color 0.25s ease;
+  transition: border-color 150ms ease, background-color 150ms ease;
 
   &:hover {
     border-color: color-mix(in srgb, var(--accent) 30%, var(--app-border));
@@ -916,7 +817,6 @@ const adapterConfigFields = computed(() => {
   }
 }
 
-/* Integrated Inline Error */
 .inline-error-alert {
   display: flex;
   align-items: center;
@@ -942,18 +842,12 @@ const adapterConfigFields = computed(() => {
   white-space: nowrap;
 }
 
-/* Collapsible Advanced settings section */
 .advanced-settings-zone {
   border: 1px solid var(--app-border);
   border-radius: var(--radius-xl, 16px);
   background: var(--app-bg-card, #ffffff);
   overflow: hidden;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.01);
-  transition: transform 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease, background-color 0.3s ease, color 0.3s ease;
-
-  &:hover {
-    box-shadow: 0 6px 25px rgba(0, 0, 0, 0.03);
-  }
 }
 
 .advanced-toggle-bar {
@@ -964,7 +858,7 @@ const adapterConfigFields = computed(() => {
   background: var(--surface-soft);
   cursor: pointer;
   user-select: none;
-  transition: background 0.2s ease;
+  transition: background-color 150ms ease;
 
   &:hover {
     background: color-mix(in srgb, var(--accent) 2%, var(--surface-soft));
@@ -980,7 +874,7 @@ const adapterConfigFields = computed(() => {
 .toggle-icon {
   font-size: 1rem;
   color: var(--app-text-secondary);
-  transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: transform 150ms ease;
 
   &.is-active {
     transform: rotate(90deg);
@@ -1051,7 +945,7 @@ const adapterConfigFields = computed(() => {
   font-size: 0.72rem;
   cursor: help;
   font-weight: bold;
-  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease, background-color 0.2s ease, color 0.2s ease;
+  transition: background-color 150ms ease, color 150ms ease;
 
   &:hover {
     background: var(--accent);
@@ -1096,10 +990,9 @@ const adapterConfigFields = computed(() => {
   }
 }
 
-/* Animations & Transitions */
 .collapse-fade-enter-active,
 .collapse-fade-leave-active {
-  transition: max-height 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.2s linear;
+  transition: max-height 150ms ease, opacity 150ms linear;
   max-height: 500px;
   overflow: hidden;
 }
@@ -1110,43 +1003,15 @@ const adapterConfigFields = computed(() => {
   opacity: 0;
 }
 
-@keyframes ripple {
-  0% {
-    transform: scale(0.95);
-    opacity: 0.5;
-  }
-  100% {
-    transform: scale(2.2);
-    opacity: 0;
-  }
-}
-
-.save-glow-btn {
-  box-shadow: 0 4px 14px rgba(var(--primary-rgb), 0.25);
-  transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease, background-color 0.25s ease, color 0.25s ease;
-
-  &:hover:not(:disabled) {
-    box-shadow: 0 6px 20px rgba(var(--primary-rgb), 0.4);
-    transform: translateY(-1px);
-  }
-
-  &:active:not(:disabled) {
-    transform: translateY(0);
-  }
-}
-
 .btn-icon {
   margin-right: 4px;
   font-weight: bold;
 }
 
-.text-gradient {
-  background: linear-gradient(135deg, #4f46e5, #7c3aed);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
+.transport-count {
+  color: var(--accent);
 }
 
-/* Responsive queries */
 @media (max-width: 1024px) {
   .summary-status-strip {
     flex-wrap: wrap;
@@ -1223,14 +1088,14 @@ const adapterConfigFields = computed(() => {
 }
 
 .diagnostics-item {
-  background: rgba(255, 255, 255, 0.6);
+  background: var(--surface-strong);
   border: 1px solid rgba(239, 68, 68, 0.08);
   border-radius: 8px;
   padding: 10px 14px;
   display: flex;
   flex-direction: column;
   gap: 6px;
-  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease, background-color 0.2s ease, color 0.2s ease;
+  transition: border-color 150ms ease, background-color 150ms ease;
 
   &:hover {
     background: #ffffff;

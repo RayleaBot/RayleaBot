@@ -49,8 +49,8 @@ export const useSocketStore = defineStore('sockets', () => {
 
   const controller = createSocketController({
     runtime: {
-      getToken: () => sessionStore.token,
-      onSessionExpired: (tokenSnapshot: string | null) => sessionStore.handleSessionExpired(tokenSnapshot),
+      isAuthenticated: () => sessionStore.isAuthenticated,
+      onSessionExpired: () => sessionStore.handleSessionExpired(),
     },
     router,
   })

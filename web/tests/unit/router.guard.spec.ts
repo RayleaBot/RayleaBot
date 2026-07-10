@@ -13,6 +13,17 @@ function jsonResponse(body: unknown) {
   })
 }
 
+function bootstrappedFetch(authenticated: boolean) {
+  return vi.fn()
+    .mockImplementationOnce(() => Promise.resolve(jsonResponse({ initialized: true })))
+    .mockImplementationOnce(() => Promise.resolve(authenticated
+      ? jsonResponse({ ok: true })
+      : new Response(JSON.stringify({ error: { code: 'permission.denied', message: '需要有效的管理会话' } }), {
+        status: 401,
+        headers: { 'Content-Type': 'application/json' },
+      })))
+}
+
 describe('router guards', () => {
   beforeEach(() => {
     setActivePinia(createPinia())
@@ -31,7 +42,7 @@ describe('router guards', () => {
   })
 
   it('redirects protected routes to login when setup is done but session is missing', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse({ initialized: true })))
+    vi.stubGlobal('fetch', bootstrappedFetch(false))
     const router = createAppRouter(createMemoryHistory())
 
     await router.push('/plugins')
@@ -67,8 +78,7 @@ describe('router guards', () => {
   })
 
   it('registers Vben fallback routes and redirects unmatched paths to 404', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse({ initialized: true })))
-    window.localStorage.setItem('rayleabot.session_token', 'fixture-session-token')
+    vi.stubGlobal('fetch', bootstrappedFetch(true))
     const router = createAppRouter(createMemoryHistory())
 
     await router.push('/missing-page')
@@ -78,9 +88,8 @@ describe('router guards', () => {
     expect(router.currentRoute.value.path).toBe('/missing-page')
   })
 
-  it('keeps protected routes open when a persisted session token exists', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse({ initialized: true })))
-    window.localStorage.setItem('rayleabot.session_token', 'fixture-session-token')
+  it('keeps protected routes open when the Host-only cookie session is valid', async () => {
+    vi.stubGlobal('fetch', bootstrappedFetch(true))
     const router = createAppRouter(createMemoryHistory())
 
     await router.push('/plugins')
@@ -89,7 +98,7 @@ describe('router guards', () => {
     expect(router.currentRoute.value.name).toBe('plugins')
   })
 
-  it('clears persisted tokens and opens setup when initialization is required', async () => {
+  it('clears legacy bearer storage and opens setup when initialization is required', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse({ initialized: false })))
     window.localStorage.setItem('rayleabot.session_token', 'stale-session-token')
     const router = createAppRouter(createMemoryHistory())

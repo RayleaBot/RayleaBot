@@ -41,7 +41,7 @@ describe('socket controller', () => {
   it('starts management sockets separately and keeps snapshots public', () => {
     const controller = createSocketController({
       runtime: {
-        getToken: () => 'session-token',
+        isAuthenticated: () => true,
         onSessionExpired: vi.fn(),
       },
       router: {
@@ -78,7 +78,7 @@ describe('socket controller', () => {
     }
     const controller = createSocketController({
       runtime: {
-        getToken: () => 'session-token',
+        isAuthenticated: () => true,
         onSessionExpired: vi.fn(),
       },
       router,

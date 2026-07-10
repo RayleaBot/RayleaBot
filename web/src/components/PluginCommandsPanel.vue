@@ -145,15 +145,13 @@ function isConflicted(command: PluginCommandSummary) {
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   background: var(--surface-soft);
-  transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.28s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.28s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.28s cubic-bezier(0.4, 0, 0.2, 1), color 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: border-color 150ms ease, background-color 150ms ease;
   overflow: hidden;
   box-shadow: var(--shadow-xs);
 
   &:hover {
-    transform: translateY(-2px);
     border-color: var(--border-accent);
     background: var(--surface);
-    box-shadow: var(--shadow-sm);
   }
 
   &.is-conflicted {

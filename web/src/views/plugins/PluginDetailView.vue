@@ -3,7 +3,7 @@ import {
   ClearOutlined,
   ReloadOutlined,
 } from '@ant-design/icons-vue'
-import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useRoute, useRouter } from 'vue-router'
 
@@ -36,13 +36,13 @@ import {
 import { escapeUnsafeDisplayText, safeJsonStringify } from '@/lib/text-safety'
 import { t } from '@/i18n'
 import { useConfigStore } from '@/stores/config'
-import { usePluginConsoleStore, type ConsoleFrame } from '@/stores/plugin-console'
+import { usePluginConsoleStore } from '@/stores/plugin-console'
 import { usePluginsStore } from '@/stores/plugins'
 import { useSocketStore } from '@/stores/sockets'
 import type { PluginDetail } from '@/types/api'
 import { useReadyToRenderHeavyContent } from '@/layouts/usePageTransitionStage'
+import { usePluginConsolePanel, type PluginDetailInnerTab } from './usePluginConsolePanel'
 
-type PluginDetailInnerTab = 'summary' | 'commands' | 'console'
 type PluginPanelOption = { label: string; value: string }
 const CONSOLE_ROW_ESTIMATED_HEIGHT = 84
 const CONSOLE_VIEWPORT_HEIGHT = 'max(420px, calc(100vh - 430px))'
@@ -59,22 +59,37 @@ const { document: configDocument } = storeToRefs(configStore)
 
 const pluginId = computed(() => String(route.params.id))
 const currentPlugin = computed(() => current.value?.id === pluginId.value ? current.value : null)
-const consoleFrames = computed(() => pluginConsoleStore.getConsole(pluginId.value))
-const consoleFrameCount = computed(() => consoleFrames.value.length)
-const consoleSnapshot = computed(() => socketStore.snapshots.pluginConsole)
 const readyToRenderHeavyContent = useReadyToRenderHeavyContent()
 const loadError = ref<string | null>(null)
 const operationError = ref<string | null>(null)
-const consoleViewportRef = ref<{
-  scrollToBottom: () => void
-  scrollToOffset: (offset: number) => void
-} | null>(null)
-const consoleFollowBottom = ref(true)
-const activeDetailTab = ref<PluginDetailInnerTab>('summary')
+const {
+  activeDetailTab,
+  clearConsole,
+  consoleFollowBottom,
+  consoleFrameCount,
+  consoleFrames,
+  consoleSnapshot,
+  consoleViewportRef,
+  getConsoleFrameKey,
+  getConsoleLevel,
+  getConsoleLevelColor,
+  getConsoleLevelLabel,
+  getConsoleRequestId,
+  getConsoleSnapshotStatusColor,
+  getConsoleStatusColor,
+  getConsoleStreamColor,
+  getConsoleStreamLabel,
+  onConsoleViewportBottomChange,
+  setActiveDetailTab,
+} = usePluginConsolePanel({
+  pluginConsoleStore,
+  pluginId,
+  readyToRenderHeavyContent,
+  socketStore,
+})
 const uninstallDialogVisible = ref(false)
 let detailLoadVersion = 0
 let pageActive = true
-let consoleBottomSyncToken = 0
 
 const commandPrefix = computed(() => getPrimaryCommandPrefix(configDocument.value?.command?.prefixes))
 const requestedPanel = computed(() => readPluginDetailPanel(route.query))
@@ -233,58 +248,6 @@ async function uninstallPlugin() {
   }
 }
 
-function clearConsole() {
-  pluginConsoleStore.clearConsole(pluginId.value)
-}
-
-function onConsoleViewportBottomChange(nextAtBottom: boolean) {
-  consoleFollowBottom.value = nextAtBottom
-  if (!nextAtBottom) {
-    consoleBottomSyncToken += 1
-  }
-}
-
-function getConsoleFrameKey(frame: ConsoleFrame, index: number) {
-  if (frame.stream === 'outbound') {
-    return frame.log_id
-  }
-  return `${frame.plugin_id}-${frame.stream}-${frame.timestamp}-${index}`
-}
-
-function getConsoleLevel(frame: ConsoleFrame) {
-  return frame.stream === 'outbound' ? frame.level : ''
-}
-
-function getConsoleStreamLabel(stream: ConsoleFrame['stream']) {
-  return t(`plugins.console.streams.${stream}`)
-}
-
-function getConsoleStreamColor(stream: ConsoleFrame['stream']) {
-  if (stream === 'stderr') return 'error'
-  if (stream === 'system') return 'warning'
-  if (stream === 'outbound') return 'blue'
-  return 'default'
-}
-
-function getConsoleLevelLabel(level: string) {
-  if (level === 'debug' || level === 'info' || level === 'warn' || level === 'error') {
-    return t(`plugins.console.levels.${level}`)
-  }
-
-  return level || t('display.empty')
-}
-
-function getConsoleLevelColor(level: string) {
-  if (level === 'error') return 'error'
-  if (level === 'warn') return 'warning'
-  if (level === 'info') return 'blue'
-  return 'default'
-}
-
-function getConsoleRequestId(frame: ConsoleFrame) {
-  return frame.stream === 'outbound' ? frame.request_id ?? '' : ''
-}
-
 function getMetadataText(value?: string | null) {
   return value?.trim() || t('display.empty')
 }
@@ -303,20 +266,6 @@ function getJsonPreview(value: unknown) {
 
 function getScreenshotAlt(screenshot: NonNullable<PluginDetail['screenshots']>[number]) {
   return screenshot.alt?.trim() || t('display.empty')
-}
-
-function getConsoleStatusColor(status: string) {
-  if (status === 'authenticated') return 'success'
-  if (status === 'reconnecting' || status === 'connecting') return 'warning'
-  if (status === 'auth_failed') return 'error'
-  return 'default'
-}
-
-function getConsoleSnapshotStatusColor(status: string) {
-  if (status === 'authenticated') return 'var(--success)'
-  if (status === 'reconnecting' || status === 'connecting') return 'var(--warning)'
-  if (status === 'auth_failed') return 'var(--danger)'
-  return 'var(--muted)'
 }
 
 function getPluginStateColor(status?: string | null) {
@@ -379,56 +328,9 @@ async function setActivePanelKey(nextKey: string) {
   await syncPanelQuery('management-ui')
 }
 
-function setActiveDetailTab(nextTab: PluginDetailInnerTab) {
-  activeDetailTab.value = nextTab
-  if (nextTab === 'console') {
-    void syncConsoleViewportToBottom()
-  }
-}
-
-async function syncConsoleViewportToBottom() {
-  const syncToken = ++consoleBottomSyncToken
-  consoleFollowBottom.value = true
-  await nextTick()
-  for (let attempt = 0; attempt < 4; attempt += 1) {
-    if (syncToken !== consoleBottomSyncToken || activeDetailTab.value !== 'console') {
-      return
-    }
-
-    await waitForAnimationFrame()
-    if (syncToken !== consoleBottomSyncToken || activeDetailTab.value !== 'console') {
-      return
-    }
-
-    consoleViewportRef.value?.scrollToBottom()
-    await nextTick()
-  }
-}
-
-async function waitForAnimationFrame() {
-  if (typeof window === 'undefined' || typeof window.requestAnimationFrame !== 'function') {
-    await nextTick()
-    return
-  }
-
-  await new Promise<void>((resolve) => {
-    window.requestAnimationFrame(() => resolve())
-  })
-}
-
 watch(pluginId, () => {
   void loadDetail()
 })
-
-watch(
-  () => consoleFrames.value.length,
-  async () => {
-    if (activeDetailTab.value === 'console' && consoleFollowBottom.value) {
-      await nextTick()
-      consoleViewportRef.value?.scrollToBottom()
-    }
-  },
-)
 
 watch(
   [requestedPanel, requestedManagementPage, currentPlugin, activeManagementPage],
@@ -458,22 +360,8 @@ onMounted(() => {
 
 onUnmounted(() => {
   pageActive = false
-  consoleBottomSyncToken += 1
   detailLoadVersion += 1
-  socketStore.setConsolePlugin(null)
 })
-
-watch(
-  readyToRenderHeavyContent,
-  (ready) => {
-    if (!ready || activeDetailTab.value !== 'console') {
-      return
-    }
-
-    void syncConsoleViewportToBottom()
-  },
-  { immediate: true },
-)
 </script>
 
 <template>
@@ -746,7 +634,7 @@ watch(
                   <div class="plugin-console-header">
                     <div class="plugin-console-title">
                       <span class="console-status-indicator">
-                        <span class="status-chip__dot pulsing" :style="{ backgroundColor: getConsoleSnapshotStatusColor(consoleSnapshot.status) }"></span>
+                        <span class="status-chip__dot" :style="{ backgroundColor: getConsoleSnapshotStatusColor(consoleSnapshot.status) }"></span>
                         <a-tag :color="getConsoleStatusColor(consoleSnapshot.status)" class="console-status-tag">{{ getConnectionStatusLabel(consoleSnapshot.status) }}</a-tag>
                       </span>
                       <span class="plugin-console-count">{{ t('plugins.console.outputCount', { count: consoleFrameCount }) }}</span>
@@ -939,7 +827,7 @@ watch(
   flex: 0 0 auto;
 }
 
-/* Premium Detail Header switcher styling */
+/* Detail header switcher */
 .plugin-page-title-layout {
   display: flex;
   align-items: center;
@@ -966,7 +854,7 @@ watch(
   :deep(.ant-segmented-item) {
     border-radius: 4px;
     font-weight: 550;
-    transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease, background-color 0.2s ease, color 0.2s ease;
+    transition: border-color 120ms ease-out, background-color 120ms ease-out, color 120ms ease-out;
   }
 
   :deep(.ant-segmented-item-selected) {
@@ -976,7 +864,6 @@ watch(
   }
 }
 
-/* Premium Hero Design Overhaul */
 .plugin-detail-hero {
   display: grid;
   grid-template-columns: 1fr auto;
@@ -984,30 +871,8 @@ watch(
   padding: 14px 18px;
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
-  background: linear-gradient(135deg,
-    color-mix(in srgb, var(--surface-soft) 96%, var(--accent-soft)) 0%,
-    var(--surface-strong) 100%
-  );
+  background: var(--surface);
   box-shadow: var(--shadow-sm);
-  position: relative;
-  overflow: hidden;
-  transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease, background-color 0.25s ease, color 0.25s ease;
-
-  &::before {
-    content: '';
-    position: absolute;
-    top: -40px;
-    right: -40px;
-    width: 100px;
-    height: 100px;
-    background: radial-gradient(circle, color-mix(in srgb, var(--accent) 6%, transparent) 0%, transparent 70%);
-    pointer-events: none;
-  }
-
-  &:hover {
-    box-shadow: var(--shadow-md);
-    border-color: color-mix(in srgb, var(--border) 80%, var(--accent));
-  }
 }
 
 .plugin-detail-hero__identity {
@@ -1098,7 +963,6 @@ watch(
   gap: 8px;
 }
 
-/* Premium micro indicators dot bar - relocated to row 2 left */
 .plugin-detail-status-chips {
   grid-area: 2 / 1 / 3 / 2;
   display: flex;
@@ -1125,15 +989,6 @@ watch(
   flex-shrink: 0;
   display: inline-block;
 
-  &.pulsing {
-    animation: status-pulse 2s infinite ease-in-out;
-  }
-}
-
-@keyframes status-pulse {
-  0% { transform: scale(0.9); opacity: 0.6; }
-  50% { transform: scale(1.2); opacity: 1; }
-  100% { transform: scale(0.9); opacity: 0.6; }
 }
 
 .status-chip__label {
@@ -1141,7 +996,7 @@ watch(
   font-weight: 550;
 }
 
-/* Ant design tag overrides for compact, modern design inside hero */
+/* Compact status tags inside the detail header */
 .status-tag.ant-tag {
   font-family: var(--font-mono);
   font-size: 0.72rem;
@@ -1184,7 +1039,6 @@ watch(
   }
 }
 
-/* Fact list - relocated to row 2 right */
 .plugin-detail-hero__facts {
   grid-area: 2 / 2 / 3 / 3;
   display: flex;
@@ -1461,7 +1315,7 @@ watch(
   font-size: 0.8rem;
 }
 
-/* Glass Console Terminal Design */
+/* Console terminal surface */
 .plugin-console-panel {
   min-height: max(420px, calc(100vh - 430px));
   overflow: hidden;

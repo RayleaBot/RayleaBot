@@ -5,7 +5,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useGovernanceStore } from '@/stores/governance'
 import { useLogsStore } from '@/stores/logs'
 import { useSchedulerJobsStore } from '@/stores/scheduler-jobs'
-import { useSessionStore } from '@/stores/session'
 import { useSocketStore } from '@/stores/sockets'
 
 const { MockManagedSocket } = vi.hoisted(() => {
@@ -50,8 +49,6 @@ describe('socket store', () => {
   })
 
   it('starts management sockets once and keeps snapshots public', () => {
-    const sessionStore = useSessionStore()
-    sessionStore.token = 'session-token'
     const store = useSocketStore()
 
     store.ensureManagementSockets()
@@ -70,8 +67,6 @@ describe('socket store', () => {
   })
 
   it('keeps console and reconnect controls stable', () => {
-    const sessionStore = useSessionStore()
-    sessionStore.token = 'session-token'
     const store = useSocketStore()
 
     store.ensureManagementSockets()
@@ -93,8 +88,6 @@ describe('socket store', () => {
   })
 
   it('routes live log frames through the public socket store wiring', async () => {
-    const sessionStore = useSessionStore()
-    sessionStore.token = 'session-token'
     const store = useSocketStore()
     const logsStore = useLogsStore()
 
@@ -118,8 +111,6 @@ describe('socket store', () => {
   })
 
   it('routes scheduler log frames through the public socket store wiring', async () => {
-    const sessionStore = useSessionStore()
-    sessionStore.token = 'session-token'
     const schedulerJobsStore = useSchedulerJobsStore()
     const refreshSpy = vi.spyOn(schedulerJobsStore, 'scheduleDataSourceRefresh')
     const store = useSocketStore()
@@ -146,8 +137,6 @@ describe('socket store', () => {
 
   it('refreshes governance state through the public socket store wiring', async () => {
     vi.useFakeTimers()
-    const sessionStore = useSessionStore()
-    sessionStore.token = 'session-token'
     const governanceStore = useGovernanceStore()
     const refreshSpy = vi.spyOn(governanceStore, 'refresh').mockResolvedValue({
       blacklist: null,

@@ -30,7 +30,7 @@ export function resolveClientWebSocketBaseUrl(command: string, configuredBaseUrl
 
 function isBackendProxyPath(requestUrl: string | undefined) {
   const pathname = new URL(requestUrl ?? '/', 'http://rayleabot.local').pathname
-  return /^\/(?:api(?:\/|$)|healthz$|readyz$|plugin-ui(?:\/|$))/.test(pathname)
+  return /^\/(?:api(?:\/|$)|healthz$|readyz$)/.test(pathname)
 }
 
 function createBackendAvailabilityChecker(target: string) {
@@ -162,7 +162,7 @@ export default defineConfig(({ command }) => {
         allow: resolveServerFsAllow(process.cwd()),
       },
       proxy: {
-        '^/(api|healthz|readyz|plugin-ui)': createBackendProxyOptions(backendTarget),
+        '^/(api|healthz|readyz)': createBackendProxyOptions(backendTarget),
       },
     },
     preview: {

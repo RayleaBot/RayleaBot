@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useRouter } from 'vue-router'
 import {
@@ -30,8 +30,9 @@ import {
 import { getDisplayErrorMessage } from '@/lib/error-text'
 import { t } from '@/i18n'
 import { isPluginCommandConflicted } from '@/lib/plugin-commands'
-import type { PluginCommandSummary, PluginInstallRequest } from '@/types/api'
+import type { PluginCommandSummary } from '@/types/api'
 import { usePluginsStore } from '@/stores/plugins'
+import { usePluginInstallFlow } from './usePluginInstallFlow'
 
 type HealthNoticeTone = '' | 'info' | 'warning' | 'danger'
 
@@ -42,16 +43,19 @@ interface PluginHealthNotice {
 
 const router = useRouter()
 const pluginsStore = usePluginsStore()
-const { actionPending, error, installPending, loading, sortedItems } = storeToRefs(pluginsStore)
-const installDialogVisible = ref(false)
-const installError = ref<string | null>(null)
+const { actionPending, error, inspectionPending, installPending, loading, sortedItems } = storeToRefs(pluginsStore)
+const {
+  allowInstallScripts,
+  installDialogVisible,
+  installForm,
+  installInspection,
+  resetInstallDialog,
+  submitInstall,
+  trustedCodeConfirmed,
+} = usePluginInstallFlow(pluginsStore)
 const summaryDrawerVisible = ref(false)
 const summaryPluginId = ref<string | null>(null)
 const expandedCommandPluginIds = ref(new Set<string>())
-const installForm = reactive<PluginInstallRequest>({
-  source_type: 'local_zip',
-  source: '',
-})
 
 const searchQuery = ref('')
 const filterState = ref<'all' | 'running' | 'disabled' | 'alert'>('all')
@@ -96,18 +100,7 @@ const pageErrorToast = computed(() => (
       }
     : null
 ))
-const installErrorToast = computed(() => (
-  installError.value
-    ? {
-        key: `plugins-install-error:${installError.value}`,
-        level: 'error' as const,
-        message: installError.value,
-      }
-    : null
-))
-
 useToastFeedback(pageErrorToast)
-useToastFeedback(installErrorToast)
 
 function getPluginGradient(id: string) {
   const colors = [
@@ -344,19 +337,6 @@ async function reloadPlugin(pluginId: string) {
   }
 }
 
-async function submitInstall() {
-  installError.value = null
-  try {
-    await pluginsStore.installPlugin(installForm)
-    installDialogVisible.value = false
-    installForm.source_type = 'local_zip'
-    installForm.source = ''
-    delete installForm.allow_install_scripts
-    notifySuccess(t('plugins.installAccepted'))
-  } catch (error) {
-    installError.value = getDisplayErrorMessage(error)
-  }
-}
 </script>
 
 <template>
@@ -370,8 +350,8 @@ async function submitInstall() {
     />
 
     <div v-else class="plugins-page-content">
-      <div class="plugins-stats-row" v-motion="{ initial: { opacity: 0, y: -10 }, enter: { opacity: 1, y: 0, transition: { duration: 350 } } }">
-        <div class="stat-card" @click="filterState = 'all'" :class="{ active: filterState === 'all' }">
+      <div class="plugins-stats-row">
+        <button type="button" class="stat-card" :aria-pressed="filterState === 'all'" @click="filterState = 'all'" :class="{ active: filterState === 'all' }">
           <div class="stat-icon-wrapper total">
             <AppstoreOutlined />
           </div>
@@ -379,8 +359,8 @@ async function submitInstall() {
             <span class="stat-label">{{ t('plugins.stats.total') }}</span>
             <span class="stat-value">{{ sortedItems.length }}</span>
           </div>
-        </div>
-        <div class="stat-card" @click="filterState = 'running'" :class="{ active: filterState === 'running' }">
+        </button>
+        <button type="button" class="stat-card" :aria-pressed="filterState === 'running'" @click="filterState = 'running'" :class="{ active: filterState === 'running' }">
           <div class="stat-icon-wrapper running">
             <CheckCircleOutlined />
           </div>
@@ -388,8 +368,8 @@ async function submitInstall() {
             <span class="stat-label">{{ t('plugins.stats.running') }}</span>
             <span class="stat-value">{{ runningCount }}</span>
           </div>
-        </div>
-        <div class="stat-card" @click="filterState = 'disabled'" :class="{ active: filterState === 'disabled' }">
+        </button>
+        <button type="button" class="stat-card" :aria-pressed="filterState === 'disabled'" @click="filterState = 'disabled'" :class="{ active: filterState === 'disabled' }">
           <div class="stat-icon-wrapper disabled">
             <PauseCircleOutlined />
           </div>
@@ -397,8 +377,8 @@ async function submitInstall() {
             <span class="stat-label">{{ t('plugins.stats.disabled') }}</span>
             <span class="stat-value">{{ disabledCount }}</span>
           </div>
-        </div>
-        <div class="stat-card" @click="filterState = 'alert'" :class="{ active: filterState === 'alert' }">
+        </button>
+        <button type="button" class="stat-card" :aria-pressed="filterState === 'alert'" @click="filterState = 'alert'" :class="{ active: filterState === 'alert' }">
           <div class="stat-icon-wrapper alert">
             <WarningOutlined />
           </div>
@@ -406,13 +386,12 @@ async function submitInstall() {
             <span class="stat-label">{{ t('plugins.stats.alert') }}</span>
             <span class="stat-value">{{ alertCount }}</span>
           </div>
-        </div>
+        </button>
       </div>
 
       <AppCard
         borderless
         class="plugins-card"
-        v-motion="{ initial: { opacity: 0, y: 12 }, enter: { opacity: 1, y: 0, transition: { duration: 300, delay: 50 } } }"
       >
         <AppTableToolbar class="plugins-toolbar">
           <template #left>
@@ -764,11 +743,16 @@ async function submitInstall() {
     <a-modal
       v-model:open="installDialogVisible"
       :title="t('plugins.installDialogTitle')"
-      :confirm-loading="installPending"
-      :ok-text="t('plugins.installSubmit')"
+      :confirm-loading="inspectionPending || installPending"
+      :ok-text="installInspection ? t('plugins.installSubmit') : '检查插件包'"
       :cancel-text="t('dashboard.previewCancel')"
-      :ok-button-props="{ disabled: !installForm.source }"
+      :ok-button-props="{
+        disabled: !installForm.source.trim()
+          || Boolean(installInspection && !trustedCodeConfirmed)
+          || Boolean(installInspection?.install_scripts.length && !allowInstallScripts),
+      }"
       @ok="submitInstall"
+      @cancel="resetInstallDialog"
     >
       <a-form layout="vertical">
         <a-form-item :label="t('plugins.sourceType')">
@@ -786,11 +770,52 @@ async function submitInstall() {
           <a-input v-model:value="installForm.source" />
         </a-form-item>
 
-        <a-form-item>
-          <a-checkbox v-model:checked="installForm.allow_install_scripts">
-            {{ t('plugins.allowScripts') }}
-          </a-checkbox>
-        </a-form-item>
+        <template v-if="installInspection">
+          <a-alert
+            type="warning"
+            show-icon
+            message="第三方插件是完全可信的本地代码"
+            description="插件进程和获准的安装脚本使用当前用户权限运行。仅安装来源、摘要和能力均符合预期的代码。"
+          />
+
+          <a-descriptions class="install-inspection" :column="1" bordered size="small">
+            <a-descriptions-item label="插件">{{ installInspection.plugin.name }}（{{ installInspection.plugin.id }}）</a-descriptions-item>
+            <a-descriptions-item label="版本">{{ installInspection.plugin.version }}</a-descriptions-item>
+            <a-descriptions-item label="作者">{{ installInspection.plugin.author }}</a-descriptions-item>
+            <a-descriptions-item label="许可证">{{ installInspection.plugin.license }}</a-descriptions-item>
+            <a-descriptions-item label="来源">{{ installInspection.plugin.source_label }}</a-descriptions-item>
+            <a-descriptions-item label="包摘要"><code>{{ installInspection.package_sha256 }}</code></a-descriptions-item>
+            <a-descriptions-item label="有效期">{{ installInspection.expires_at }}</a-descriptions-item>
+          </a-descriptions>
+
+          <div class="install-inspection-list">
+            <strong>声明能力</strong>
+            <div>
+              <a-tag v-for="capability in installInspection.capabilities" :key="capability">{{ capability }}</a-tag>
+              <span v-if="installInspection.capabilities.length === 0">未声明能力</span>
+            </div>
+          </div>
+
+          <div class="install-inspection-list">
+            <strong>安装脚本</strong>
+            <div>
+              <a-tag v-for="script in installInspection.install_scripts" :key="script" color="warning">{{ script }}</a-tag>
+              <span v-if="installInspection.install_scripts.length === 0">无</span>
+            </div>
+          </div>
+
+          <a-form-item v-if="installInspection.install_scripts.length > 0">
+            <a-checkbox v-model:checked="allowInstallScripts">
+              {{ t('plugins.allowScripts') }}
+            </a-checkbox>
+          </a-form-item>
+
+          <a-form-item>
+            <a-checkbox v-model:checked="trustedCodeConfirmed">
+              我已核对来源、摘要、能力和安装脚本，并信任此代码使用本机当前用户权限运行。
+            </a-checkbox>
+          </a-form-item>
+        </template>
       </a-form>
     </a-modal>
 
@@ -865,36 +890,25 @@ async function submitInstall() {
   border-radius: var(--app-card-radius);
   box-shadow: var(--shadow-sm);
   cursor: pointer;
-  transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.25s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.25s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.25s cubic-bezier(0.4, 0, 0.2, 1), color 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-  position: relative;
-  overflow: hidden;
-
-  &::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 4px;
-    height: 100%;
-    background: transparent;
-    transition: background-color 0.25s ease;
-  }
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  transition: border-color 120ms ease-out, background-color 120ms ease-out;
 
   &:hover {
-    transform: translateY(-2px);
-    box-shadow: var(--shadow-lg);
     border-color: var(--border-accent);
     background: var(--surface-soft);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
   }
 
   &.active {
     background: var(--surface-accent);
     border-color: var(--border-accent);
-    box-shadow: var(--shadow);
-
-    &::before {
-      background: var(--accent);
-    }
+    box-shadow: var(--shadow-sm);
   }
 }
 
@@ -906,7 +920,6 @@ async function submitInstall() {
   height: 42px;
   border-radius: 50%;
   font-size: 1.25rem;
-  transition: transform 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease, background-color 0.3s ease, color 0.3s ease;
 
   &.total {
     background: var(--accent-soft);
@@ -1010,7 +1023,7 @@ async function submitInstall() {
   justify-content: center;
   border-radius: 6px !important;
   color: var(--muted);
-  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease, background-color 0.2s ease, color 0.2s ease;
+  transition: background-color 120ms ease-out, color 120ms ease-out;
 
   &:hover {
     background: var(--surface-soft);
@@ -1051,13 +1064,11 @@ async function submitInstall() {
   box-shadow: var(--shadow-sm);
   display: flex;
   flex-direction: column;
-  transition: transform 0.25s cubic-bezier(0.25, 0.8, 0.25, 1), box-shadow 0.25s cubic-bezier(0.25, 0.8, 0.25, 1), border-color 0.25s cubic-bezier(0.25, 0.8, 0.25, 1), background-color 0.25s cubic-bezier(0.25, 0.8, 0.25, 1), color 0.25s cubic-bezier(0.25, 0.8, 0.25, 1);
+  transition: border-color 120ms ease-out, background-color 120ms ease-out;
   position: relative;
   overflow: hidden;
 
   &:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 8px 20px -8px rgba(15, 23, 42, 0.12), var(--shadow);
     border-color: var(--border-strong);
   }
 
@@ -1128,30 +1139,15 @@ async function submitInstall() {
 
   &.running {
     background-color: var(--success);
-    animation: status-pulse 2s infinite;
   }
   &.disabled {
     background-color: var(--muted);
   }
   &.failed, &.invalid {
     background-color: var(--danger);
-    animation: status-pulse 1.5s infinite;
   }
   &.starting, &.stopping, &.enabled {
     background-color: var(--warning);
-    animation: status-pulse 2s infinite;
-  }
-}
-
-@keyframes status-pulse {
-  0% {
-    box-shadow: 0 0 0 0 rgba(63, 190, 115, 0.4);
-  }
-  70% {
-    box-shadow: 0 0 0 6px rgba(63, 190, 115, 0);
-  }
-  100% {
-    box-shadow: 0 0 0 0 rgba(63, 190, 115, 0);
   }
 }
 
@@ -1178,7 +1174,7 @@ async function submitInstall() {
   overflow: hidden;
   text-overflow: ellipsis;
   cursor: pointer;
-  transition: color 0.2s ease;
+  transition: color 120ms ease-out;
 
   &:hover {
     color: var(--accent);
@@ -1316,34 +1312,16 @@ async function submitInstall() {
   align-items: center;
   gap: var(--space-xs);
   border-radius: 6px !important;
-  transition: background-color 0.25s ease, color 0.25s ease, transform 0.25s cubic-bezier(0.25, 0.8, 0.25, 1);
+  transition: background-color 120ms ease-out, color 120ms ease-out;
   font-weight: 500;
 
   .anticon {
     font-size: 13px;
-    transition: transform 0.35s cubic-bezier(0.25, 0.8, 0.25, 1);
   }
 
   &:hover {
     color: var(--accent);
     background: var(--surface-accent) !important;
-    transform: translateY(-1px);
-
-    .anticon-eye {
-      transform: scale(1.12);
-    }
-
-    .anticon-setting {
-      transform: rotate(45deg);
-    }
-
-    .anticon-reload {
-      transform: rotate(180deg);
-    }
-  }
-
-  &:active {
-    transform: translateY(0) scale(0.97);
   }
 }
 
@@ -1536,6 +1514,27 @@ async function submitInstall() {
 
 .drawer-card {
   margin-top: 12px;
+}
+
+.install-inspection {
+  margin-top: 16px;
+}
+
+.install-inspection code {
+  overflow-wrap: anywhere;
+  font-size: 0.75rem;
+}
+
+.install-inspection-list {
+  display: grid;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.install-inspection-list > div {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
 }
 
 .drawer-section {

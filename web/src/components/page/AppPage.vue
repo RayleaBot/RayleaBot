@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { MotionDirective as vMotion } from '@vueuse/motion'
 import { computed } from 'vue'
 
 import { useUiShellStore } from '@/stores/ui-shell'
@@ -39,13 +38,7 @@ defineProps<{
       <slot name="toolbar" />
     </div>
 
-    <div
-      v-motion="{
-        initial: { opacity: 0 },
-        enter: { opacity: 1, transition: { duration: 280, ease: 'easeOut' } },
-      }"
-      class="app-page__content"
-    >
+    <div class="app-page__content">
       <slot />
     </div>
   </div>

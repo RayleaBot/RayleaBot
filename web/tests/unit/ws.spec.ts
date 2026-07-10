@@ -54,7 +54,7 @@ function makeSocket(options: Partial<ConstructorParameters<typeof ManagedSocket>
     name: options.name ?? 'events',
     path: options.path ?? (() => '/ws/events'),
     runtime: options.runtime ?? {
-      getToken: () => 'fixture-token',
+      isAuthenticated: () => true,
       onSessionExpired: vi.fn(),
     },
     onFrame: options.onFrame,
@@ -131,7 +131,7 @@ describe('ManagedSocket', () => {
     const onSessionExpired = vi.fn()
     const socket = makeSocket({
       runtime: {
-        getToken: () => 'fixture-token',
+        isAuthenticated: () => true,
         onSessionExpired,
       },
     })
@@ -148,12 +148,11 @@ describe('ManagedSocket', () => {
     expect(socket.getStatus()).toBe('disconnected')
   })
 
-  it('reports the socket token snapshot on session expiration', () => {
-    let currentToken = 'stale-token'
+  it('does not put a bearer token in the WebSocket URL', () => {
     const onSessionExpired = vi.fn()
     const socket = makeSocket({
       runtime: {
-        getToken: () => currentToken,
+        isAuthenticated: () => true,
         onSessionExpired,
       },
     })
@@ -161,13 +160,10 @@ describe('ManagedSocket', () => {
     socket.start()
     const instance = FakeWebSocket.instances[0]
     instance.emit('open')
-    currentToken = 'fresh-token'
-    instance.emit('message', {
-      type: 'session_expired',
-      data: {},
-    })
 
-    expect(onSessionExpired).toHaveBeenCalledWith('stale-token')
+    const url = new URL(instance.url)
+    expect(url.searchParams.has('session_token')).toBe(false)
+    expect(url.pathname).toBe('/ws/events')
   })
 
   it('records the last error and reconnects after close', () => {
@@ -242,7 +238,7 @@ describe('ManagedSocket', () => {
   it('stops scheduling reconnects after session_expired', () => {
     const onSessionExpired = vi.fn()
     const socket = makeSocket({
-      runtime: { getToken: () => 'fixture-token', onSessionExpired },
+      runtime: { isAuthenticated: () => true, onSessionExpired },
     })
 
     socket.start()

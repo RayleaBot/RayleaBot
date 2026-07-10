@@ -39,33 +39,14 @@ defineProps<{
 
 <style scoped lang="scss">
 .app-card {
-  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+  transition: border-color 150ms ease, background-color 150ms ease;
   box-shadow: var(--shadow-xs);
 }
 
 .app-card:hover {
-  transform: translateY(-1px);
-  box-shadow: var(--shadow-lg);
   border-color: var(--border-strong);
 }
 
-.app-card--shadow-sm:hover {
-  box-shadow: var(--shadow-sm);
-}
-
-.app-card--shadow-md:hover {
-  box-shadow: var(--shadow);
-}
-
-.app-card--shadow-lg:hover {
-  box-shadow: var(--shadow-lg);
-}
-
-.app-card--shadow-none:hover {
-  box-shadow: none;
-}
-
-/* Variant: stat — metric cards with top accent bar */
 .app-card--stat {
   position: relative;
   overflow: hidden;
@@ -79,27 +60,19 @@ defineProps<{
   background: color-mix(in srgb, var(--muted) 26%, transparent);
 }
 
-.app-card--stat:hover::before {
-  background: color-mix(in srgb, var(--accent) 50%, transparent);
-}
-
-/* Variant: highlight — stronger border and subtle glow on hover */
 .app-card--highlight {
   border-color: color-mix(in srgb, var(--accent) 12%, var(--border));
 }
 
 .app-card--highlight:hover {
   border-color: color-mix(in srgb, var(--accent) 30%, var(--border));
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 10%, transparent), var(--shadow-lg);
 }
 
-/* Variant: flat — no lift, minimal hover */
 .app-card--flat {
   box-shadow: none;
 }
 
 .app-card--flat:hover {
-  transform: none;
   box-shadow: none;
   border-color: var(--border-strong);
 }

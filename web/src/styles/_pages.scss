@@ -1,0 +1,30 @@
+/* Render template preview image modal */
+.preview-image-modal .ant-modal {
+  width: auto !important;
+  max-width: 95vw;
+}
+
+.preview-image-modal .ant-modal-content {
+  padding: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.preview-image-modal .ant-modal-body {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 0;
+}
+
+/* Overlay layer compositing hints — keep modal/drawer transforms on the GPU */
+.ant-modal,
+.ant-drawer-content-wrapper {
+  will-change: transform, opacity;
+  contain: layout paint;
+}
+
+.ant-modal-mask,
+.ant-drawer-mask {
+  will-change: opacity;
+}

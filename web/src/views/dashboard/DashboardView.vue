@@ -12,6 +12,7 @@ import ConnectionStatusStrip from '@/components/ConnectionStatusStrip.vue'
 import DashboardRecoveryCard from '@/components/DashboardRecoveryCard.vue'
 import DashboardStatusGrid from '@/components/DashboardStatusGrid.vue'
 import DashboardToolsPanel from '@/components/DashboardToolsPanel.vue'
+import DashboardUpdateCard from '@/components/DashboardUpdateCard.vue'
 import ManagementContextActions from '@/components/ManagementContextActions.vue'
 import AppPage from '@/components/page/AppPage.vue'
 import RetryPanel from '@/components/RetryPanel.vue'
@@ -221,7 +222,6 @@ useToastFeedback(protocolIssueToast)
     />
 
     <DashboardStatusGrid
-      v-motion="{ initial: { opacity: 0, y: 12 }, enter: { opacity: 1, y: 0, transition: { duration: 300, delay: 0 } } }"
       :health-status-type="healthStatusType"
       :readiness-status-type="readinessStatusType"
       :health-label="t('dashboard.health')"
@@ -244,7 +244,6 @@ useToastFeedback(protocolIssueToast)
       <AppCard
         borderless
         class="dashboard-activity-card"
-        v-motion="{ initial: { opacity: 0, y: 12 }, enter: { opacity: 1, y: 0, transition: { duration: 300, delay: 50 } } }"
       >
         <a-tabs v-model:activeKey="activeOverviewTab" size="small">
           <a-tab-pane key="events" :tab="t('dashboard.overviewEvents')">
@@ -260,7 +259,6 @@ useToastFeedback(protocolIssueToast)
                   v-for="(event, index) in recentEvents"
                   :key="`${event.timestamp}-${event.summary}`"
                   :color="getEventSeverityColor(getEventSeverity(event.payload))"
-                  v-motion="{ initial: { opacity: 0, y: 12 }, enter: { opacity: 1, y: 0, transition: { duration: 300, delay: index * 50 } } }"
                 >
                   <template #dot>
                     <component
@@ -298,7 +296,6 @@ useToastFeedback(protocolIssueToast)
                 v-for="(item, index) in checkItems"
                 :key="item.key"
                 :class="['readiness-check', `readiness-check--${item.status}`]"
-                v-motion="{ initial: { opacity: 0, y: 12 }, enter: { opacity: 1, y: 0, transition: { duration: 300, delay: index * 50 } } }"
               >
                 <div class="readiness-check__header">
                   <span class="readiness-check__icon" role="img" :aria-label="`检查状态：${item.status}`">{{ getCheckIcon(item.status) }}</span>
@@ -353,7 +350,6 @@ useToastFeedback(protocolIssueToast)
                 v-for="(item, index) in diagnosticsSubsystemItems"
                 :key="item.key"
                 :class="['diagnostics-subsystem', `diagnostics-subsystem--${item.status}`]"
-                v-motion="{ initial: { opacity: 0, y: 12 }, enter: { opacity: 1, y: 0, transition: { duration: 300, delay: index * 35 } } }"
               >
                 <div class="diagnostics-subsystem__header">
                   <span class="diagnostics-subsystem__icon" role="img" :aria-label="`子系统状态：${item.status}`">{{ getCheckIcon(item.status) }}</span>
@@ -401,7 +397,6 @@ useToastFeedback(protocolIssueToast)
       </AppCard>
 
       <DashboardRecoveryCard
-        v-motion="{ initial: { opacity: 0, y: 12 }, enter: { opacity: 1, y: 0, transition: { duration: 300, delay: 100 } } }"
         v-model:selected-recovery-review-ids="selectedRecoveryReviewIds"
         v-model:recovery-confirm-note="recoveryConfirmNote"
         :recovery-summary="recoverySummary"
@@ -420,22 +415,21 @@ useToastFeedback(protocolIssueToast)
 
     <div class="dashboard-bottom-grid">
       <ConnectionStatusStrip
-        v-motion="{ initial: { opacity: 0, y: 12 }, enter: { opacity: 1, y: 0, transition: { duration: 300, delay: 150 } } }"
       />
 
       <DashboardToolsPanel
-        v-motion="{ initial: { opacity: 0, y: 12 }, enter: { opacity: 1, y: 0, transition: { duration: 300, delay: 200 } } }"
         :backup-pending="backupPending"
         :diagnostics-pending="diagnosticsPending"
         @create-backup="createBackup"
         @export-diagnostics="exportDiagnostics"
       />
 
+      <DashboardUpdateCard />
+
       <AppCard
         :title="t('dashboard.runtimeInfo')"
         borderless
         class="dashboard-runtime-card"
-        v-motion="{ initial: { opacity: 0, y: 12 }, enter: { opacity: 1, y: 0, transition: { duration: 300, delay: 250 } } }"
       >
         <div class="dashboard-runtime-grid">
           <div class="dashboard-runtime-item">
@@ -464,7 +458,7 @@ useToastFeedback(protocolIssueToast)
 
 .dashboard-bottom-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
   gap: var(--space-lg);
 }
 
@@ -473,10 +467,9 @@ useToastFeedback(protocolIssueToast)
   border: 1px solid var(--border);
   background: var(--surface-strong);
   box-shadow: var(--shadow-xs);
-  transition: transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1), box-shadow 0.3s cubic-bezier(0.25, 0.8, 0.25, 1), border-color 0.3s cubic-bezier(0.25, 0.8, 0.25, 1), background-color 0.3s cubic-bezier(0.25, 0.8, 0.25, 1), color 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+  transition: border-color 150ms ease;
 
   &:hover {
-    box-shadow: var(--shadow-elevated);
     border-color: var(--border-accent);
   }
 }
@@ -495,7 +488,7 @@ useToastFeedback(protocolIssueToast)
   font-size: 0.9rem;
   font-weight: 500;
   color: var(--muted);
-  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease, background-color 0.2s ease, color 0.2s ease;
+  transition: color 150ms ease;
 
   &:hover {
     color: var(--accent);
@@ -598,13 +591,11 @@ useToastFeedback(protocolIssueToast)
   border-radius: var(--radius-md);
   border: 1px solid transparent;
   background: transparent;
-  transition: transform 0.24s ease, box-shadow 0.24s ease, border-color 0.24s ease, background-color 0.24s ease, color 0.24s ease;
+  transition: border-color 150ms ease, background-color 150ms ease;
 
   &:hover {
     background: var(--surface-soft);
     border-color: var(--border);
-    transform: translateX(4px);
-    box-shadow: var(--shadow-xs);
   }
 }
 
@@ -640,11 +631,9 @@ useToastFeedback(protocolIssueToast)
   border-radius: var(--radius-lg);
   border: 1px solid var(--border);
   background: var(--surface-soft);
-  transition: transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1), box-shadow 0.3s cubic-bezier(0.25, 0.8, 0.25, 1), border-color 0.3s cubic-bezier(0.25, 0.8, 0.25, 1), background-color 0.3s cubic-bezier(0.25, 0.8, 0.25, 1), color 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+  transition: border-color 150ms ease, background-color 150ms ease;
 
   &:hover {
-    transform: translateY(-2px);
-    box-shadow: var(--shadow-sm);
     border-color: var(--border-accent);
   }
 }
@@ -715,11 +704,10 @@ useToastFeedback(protocolIssueToast)
   border: 1px solid var(--border);
   background: var(--surface-soft);
   box-shadow: var(--shadow-xs);
-  transition: transform 0.24s ease, box-shadow 0.24s ease, border-color 0.24s ease, background-color 0.24s ease, color 0.24s ease;
+  transition: border-color 150ms ease, background-color 150ms ease;
 
   &:hover {
-    transform: translateY(-2px);
-    box-shadow: var(--shadow-sm);
+    border-color: var(--border-accent);
   }
 }
 
@@ -894,7 +882,7 @@ useToastFeedback(protocolIssueToast)
   box-shadow: var(--shadow-xs);
   position: relative;
   overflow: hidden;
-  transition: transform 0.24s ease, box-shadow 0.24s ease, border-color 0.24s ease, background-color 0.24s ease, color 0.24s ease;
+  transition: border-color 150ms ease, background-color 150ms ease;
 
   &::before {
     content: '';
@@ -905,8 +893,6 @@ useToastFeedback(protocolIssueToast)
   }
 
   &:hover {
-    transform: translateY(-2px);
-    box-shadow: var(--shadow-sm);
     border-color: color-mix(in srgb, var(--danger) 30%, var(--border));
   }
 }
@@ -948,10 +934,9 @@ useToastFeedback(protocolIssueToast)
   border: 1px solid var(--border);
   background: var(--surface-strong);
   box-shadow: var(--shadow-xs);
-  transition: transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1), box-shadow 0.3s cubic-bezier(0.25, 0.8, 0.25, 1), border-color 0.3s cubic-bezier(0.25, 0.8, 0.25, 1), background-color 0.3s cubic-bezier(0.25, 0.8, 0.25, 1), color 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+  transition: border-color 150ms ease;
 
   &:hover {
-    box-shadow: var(--shadow-elevated);
     border-color: var(--border-accent);
   }
 }
@@ -965,7 +950,7 @@ useToastFeedback(protocolIssueToast)
   border: 1px solid var(--border);
   background: var(--surface-soft);
   box-shadow: var(--shadow-xs);
-  transition: transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1), box-shadow 0.3s cubic-bezier(0.25, 0.8, 0.25, 1), border-color 0.3s cubic-bezier(0.25, 0.8, 0.25, 1), background-color 0.3s cubic-bezier(0.25, 0.8, 0.25, 1), color 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+  transition: border-color 150ms ease, background-color 150ms ease;
   overflow: hidden;
 
   &::before {
@@ -980,8 +965,6 @@ useToastFeedback(protocolIssueToast)
   }
 
   &:hover {
-    transform: translateY(-2px);
-    box-shadow: var(--shadow-sm);
     border-color: var(--border-accent);
   }
 

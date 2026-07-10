@@ -63,11 +63,6 @@ function resolveBadgeStatus(status: ConnectionStatus) {
   }
 }
 
-function getPulseClass(status: ConnectionStatus) {
-  if (status === 'authenticated') return 'status-pulse--success'
-  if (status === 'connecting' || status === 'reconnecting') return 'status-pulse--processing'
-  return ''
-}
 </script>
 
 <template>
@@ -96,7 +91,7 @@ function getPulseClass(status: ConnectionStatus) {
       >
         <div class="connection-card__row">
           <span class="connection-card__label">{{ getConnectionChannelLabel(channel) }}</span>
-          <span :class="['connection-card__badge-wrap', getPulseClass(snapshot.status)]">
+          <span class="connection-card__badge-wrap">
             <a-badge :status="resolveBadgeStatus(snapshot.status)" :text="getConnectionStatusLabel(snapshot.status)" />
           </span>
         </div>
@@ -114,7 +109,7 @@ function getPulseClass(status: ConnectionStatus) {
   border: 1px solid var(--border);
   background: var(--surface-strong);
   box-shadow: var(--shadow-xs);
-  transition: transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1), box-shadow 0.3s cubic-bezier(0.25, 0.8, 0.25, 1), border-color 0.3s cubic-bezier(0.25, 0.8, 0.25, 1), background-color 0.3s cubic-bezier(0.25, 0.8, 0.25, 1), color 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+  transition: border-color 150ms ease;
 
   &:hover {
     box-shadow: var(--shadow-elevated);
@@ -153,11 +148,9 @@ function getPulseClass(status: ConnectionStatus) {
   background: var(--surface-soft);
   display: grid;
   gap: 6px;
-  transition: transform 0.24s cubic-bezier(0.25, 0.8, 0.25, 1), box-shadow 0.24s cubic-bezier(0.25, 0.8, 0.25, 1), border-color 0.24s cubic-bezier(0.25, 0.8, 0.25, 1), background-color 0.24s cubic-bezier(0.25, 0.8, 0.25, 1), color 0.24s cubic-bezier(0.25, 0.8, 0.25, 1);
+  transition: border-color 150ms ease, background-color 150ms ease;
 
   &:hover {
-    transform: translateY(-2px);
-    box-shadow: var(--shadow-sm);
     border-color: var(--border-accent);
   }
 }
@@ -190,36 +183,4 @@ function getPulseClass(status: ConnectionStatus) {
   border: 1px solid var(--border);
 }
 
-/* breathing status badge animations */
-.status-pulse--success :deep(.ant-badge-status-dot) {
-  animation: status-pulse-glow 2s infinite;
-}
-
-.status-pulse--processing :deep(.ant-badge-status-dot) {
-  animation: status-pulse-glow-processing 2s infinite;
-}
-
-@keyframes status-pulse-glow {
-  0% {
-    box-shadow: 0 0 0 0 rgba(63, 190, 115, 0.65);
-  }
-  70% {
-    box-shadow: 0 0 0 6px rgba(63, 190, 115, 0);
-  }
-  100% {
-    box-shadow: 0 0 0 0 rgba(63, 190, 115, 0);
-  }
-}
-
-@keyframes status-pulse-glow-processing {
-  0% {
-    box-shadow: 0 0 0 0 rgba(22, 104, 220, 0.65);
-  }
-  70% {
-    box-shadow: 0 0 0 6px rgba(22, 104, 220, 0);
-  }
-  100% {
-    box-shadow: 0 0 0 0 rgba(22, 104, 220, 0);
-  }
-}
 </style>

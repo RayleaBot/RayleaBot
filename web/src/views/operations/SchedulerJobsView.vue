@@ -15,7 +15,7 @@ import {
   CheckOutlined,
   WarningOutlined,
 } from '@ant-design/icons-vue'
-import { computed, nextTick, onMounted, onUnmounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { storeToRefs } from 'pinia'
 
 import { notifyError, notifySuccess } from '@/adapter/feedback'
@@ -27,41 +27,27 @@ import { formatDateTime } from '@/lib/format'
 import { t } from '@/i18n'
 import { useSchedulerJobsStore } from '@/stores/scheduler-jobs'
 import type { SchedulerJobRunStats, SchedulerJobSummary } from '@/types/api'
+import { useSchedulerJobDetail } from './useSchedulerJobDetail'
 
 const schedulerStore = useSchedulerJobsStore()
 const { error, loading, sortedItems, triggeringJobId } = storeToRefs(schedulerStore)
 
-// 交互状态
-const detailVisible = ref(false)
-const currentJob = ref<SchedulerJobSummary | null>(null)
-const modalContentReady = ref(false)
-const detailCardRef = ref<HTMLDivElement | null>(null)
-const detailModalTitleId = `scheduler-detail-modal-title-${cryptoRandomSuffix()}`
+const {
+  closeJobDetail,
+  currentJob,
+  detailCardRef,
+  detailModalTitleId,
+  detailVisible,
+  modalContentReady,
+  showJobDetail,
+} = useSchedulerJobDetail()
 const searchQuery = ref('')
 const statusFilter = ref<'all' | 'success' | 'error'>('all')
 const sortBy = ref<'name' | 'last_run' | 'duration'>('name')
 const viewMode = ref<'table' | 'grid'>('table')
 
-// 更新相对时间显示
 const timeTick = ref(0)
 let timerId: any = null
-
-// modal 入场动画时长（与 .scheduler-detail-modal-* transition 对齐）
-const MODAL_ANIMATION_MS = 200
-let modalReadyTimer: number | null = null
-
-function cryptoRandomSuffix(length = 6) {
-  const bytes = new Uint8Array(length)
-  crypto.getRandomValues(bytes)
-  return Array.from(bytes, (byte) => (byte % 36).toString(36)).join('')
-}
-
-function clearModalReadyTimer() {
-  if (modalReadyTimer !== null) {
-    window.clearTimeout(modalReadyTimer)
-    modalReadyTimer = null
-  }
-}
 
 onMounted(() => {
   schedulerStore.setLiveRefreshActive(true)
@@ -74,10 +60,8 @@ onMounted(() => {
 onUnmounted(() => {
   schedulerStore.setLiveRefreshActive(false)
   if (timerId) clearInterval(timerId)
-  clearModalReadyTimer()
 })
 
-// 极致精修合并列定义
 const tableColumns = computed(() => [
   { title: `${t('scheduler.fields.plugin')} / ${t('scheduler.fields.task')}`, key: 'plugin', dataIndex: 'plugin_name', width: 300 },
   { title: `${t('scheduler.fields.label')} / ${t('scheduler.fields.conversation')}`, key: 'label', dataIndex: 'log_label', width: 250 },
@@ -102,29 +86,6 @@ async function triggerJob(job: SchedulerJobSummary) {
   } catch (err) {
     notifyError(getDisplayErrorMessage(err))
   }
-}
-
-function showJobDetail(job: SchedulerJobSummary) {
-  currentJob.value = job
-  detailVisible.value = true
-  clearModalReadyTimer()
-  modalReadyTimer = window.setTimeout(() => {
-    modalContentReady.value = true
-    modalReadyTimer = null
-  }, MODAL_ANIMATION_MS)
-  void nextTick(() => detailCardRef.value?.focus())
-}
-
-function closeJobDetail() {
-  if (!detailVisible.value) return
-  detailVisible.value = false
-  clearModalReadyTimer()
-  window.setTimeout(() => {
-    if (!detailVisible.value) {
-      modalContentReady.value = false
-      currentJob.value = null
-    }
-  }, MODAL_ANIMATION_MS)
 }
 
 // 格式化耗时胶囊
@@ -309,7 +270,7 @@ const filteredItems = computed(() => {
 <template>
   <AppPage :title="t('scheduler.title')" full-height>
     <div class="scheduler-page-container">
-      <!-- 高级交互搜索过滤栏 -->
+      <!-- 任务筛选 -->
       <div class="scheduler-filter-card">
       <div class="filter-left">
         <a-input
@@ -385,7 +346,7 @@ const filteredItems = computed(() => {
       :description="searchQuery ? '未找到符合筛选条件的定时任务' : t('scheduler.empty.description')"
     />
 
-    <!-- 双视图之：表格式 (Table View) 极致精修 -->
+    <!-- 任务表格 -->
     <div v-else-if="viewMode === 'table'" class="table-container-wrapper">
       <a-table
         class="scheduler-data-table app-data-table refactored-table"
@@ -482,7 +443,7 @@ const filteredItems = computed(() => {
                 <span class="success-rate-pct">{{ successRateText(record.stats) }}</span>
               </div>
 
-              <!-- 微型堆叠条 (Mini Stacked Bar) -->
+              <!-- 运行结果占比 -->
               <div class="mini-stacked-bar" v-if="record.stats.total > 0">
                 <div
                   class="bar-success"
@@ -640,10 +601,9 @@ const filteredItems = computed(() => {
         </div>
       </div>
     </div>
-  </div> <!-- .scheduler-content-stage 闭合 -->
-</div> <!-- .scheduler-page-container 闭合 -->
+  </div>
+</div>
 
-    <!-- 极客控制台详情弹窗 (Console Details Modal) -->
     <Teleport to="body">
       <Transition name="scheduler-detail-modal">
         <div
@@ -664,8 +624,8 @@ const filteredItems = computed(() => {
           >
             <header class="scheduler-detail-modal__header">
               <div class="modal-header-title" :id="detailModalTitleId">
-                <div class="pulse-dot" aria-hidden="true"></div>
-                <span>定时任务详情控制台</span>
+                <div class="status-dot" aria-hidden="true"></div>
+                <span>定时任务详情</span>
               </div>
               <button
                 type="button"
@@ -841,9 +801,6 @@ const filteredItems = computed(() => {
   min-height: 0;
 }
 
-/* ----------------------------------------------------
- * 高级交互搜索过滤栏 (Glassmorphism Control Panel)
- * ---------------------------------------------------- */
 .scheduler-filter-card {
   display: flex;
   justify-content: space-between;
@@ -856,11 +813,10 @@ const filteredItems = computed(() => {
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-sm);
   margin-bottom: var(--space-md);
-  transition: border-color 0.3s ease, box-shadow 0.3s ease;
+  transition: border-color 150ms ease;
 
   &:hover {
     border-color: var(--border-accent);
-    box-shadow: var(--shadow);
   }
 
   .filter-left,
@@ -876,7 +832,7 @@ const filteredItems = computed(() => {
     height: 36px;
     border-radius: var(--radius-md);
     border-color: var(--border);
-    transition: border-color 0.25s ease;
+    transition: border-color 150ms ease;
 
     &:hover, &:focus {
       border-color: var(--accent);
@@ -927,24 +883,16 @@ const filteredItems = computed(() => {
   padding: 24px;
 }
 
-/* ----------------------------------------------------
- * 双视图之：表格式 (Table View) 极致精修
- * ---------------------------------------------------- */
 .table-container-wrapper {
   flex: 1 1 auto;
   min-height: 0;
   display: flex;
   flex-direction: column;
-  background: color-mix(in srgb, var(--surface) 90%, transparent);
+  background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-sm);
   overflow: hidden;
-  transition: box-shadow 0.3s ease;
-
-  &:hover {
-    box-shadow: var(--shadow);
-  }
 }
 
 .refactored-table {
@@ -978,7 +926,6 @@ const filteredItems = computed(() => {
     overflow: auto !important;
   }
 
-  /* 极致清爽边框线 */
   :deep(.ant-table-thead > tr > th) {
     background: color-mix(in srgb, var(--text) 3%, var(--surface)) !important;
     border-bottom: 2px solid var(--border) !important;
@@ -992,13 +939,12 @@ const filteredItems = computed(() => {
     border-bottom: 1px solid var(--border) !important;
     padding: 14px 16px !important;
     background: transparent !important;
-    transition: background-color 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: background-color 150ms ease;
   }
 
-  /* 表格行 Hover 左侧指示条与底色 */
   :deep(.ant-table-tbody > tr:not(.ant-table-measure-row)) {
     position: relative;
-    transition: background-color 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: background-color 150ms ease;
 
     &:hover {
       background-color: var(--surface-accent) !important;
@@ -1022,7 +968,7 @@ const filteredItems = computed(() => {
       background: transparent;
       transform: scaleY(0);
       transform-origin: center;
-      transition: transform 0.22s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.22s ease;
+      transition: transform 150ms ease, background-color 150ms ease;
       z-index: 10;
     }
   }
@@ -1040,7 +986,7 @@ const filteredItems = computed(() => {
   }
 }
 
-/* 单元格排版设计 */
+/* 单元格布局 */
 .scheduler-cell-plugin-task {
   display: flex;
   align-items: center;
@@ -1287,7 +1233,6 @@ const filteredItems = computed(() => {
     padding-right: 0;
   }
 
-  /* 微型堆叠条 (Mini Stacked Bar) */
   .mini-stacked-bar {
     display: flex;
     height: 6px;
@@ -1299,19 +1244,19 @@ const filteredItems = computed(() => {
     .bar-success {
       height: 100%;
       background: var(--success);
-      transition: width 0.3s ease;
+      transition: width 150ms ease;
     }
 
     .bar-failed {
       height: 100%;
       background: var(--danger);
-      transition: width 0.3s ease;
+      transition: width 150ms ease;
     }
 
     .bar-other {
       height: 100%;
       background: var(--warning);
-      transition: width 0.3s ease;
+      transition: width 150ms ease;
     }
   }
 
@@ -1332,7 +1277,7 @@ const filteredItems = computed(() => {
     font-family: var(--font-mono);
     text-transform: uppercase;
     letter-spacing: 0.02em;
-    transition: background-color 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
+    transition: background-color 150ms ease, color 150ms ease;
 
     &:hover {
       background: var(--danger);
@@ -1410,11 +1355,10 @@ const filteredItems = computed(() => {
     border-radius: var(--radius-sm);
     border: 1px solid var(--border);
     background: var(--surface);
-    transition: transform 0.22s cubic-bezier(0.25, 0.8, 0.25, 1), box-shadow 0.22s cubic-bezier(0.25, 0.8, 0.25, 1), color 0.22s cubic-bezier(0.25, 0.8, 0.25, 1), border-color 0.22s cubic-bezier(0.25, 0.8, 0.25, 1), background-color 0.22s cubic-bezier(0.25, 0.8, 0.25, 1);
+    transition: color 150ms ease, border-color 150ms ease, background-color 150ms ease;
 
     &:hover {
-      transform: translateY(-1px);
-      box-shadow: var(--shadow-xs);
+      border-color: var(--border-strong);
     }
 
     &.view-btn:hover {
@@ -1431,9 +1375,6 @@ const filteredItems = computed(() => {
   }
 }
 
-/* ----------------------------------------------------
- * 双视图之：卡片看板 (Grid View)
- * ---------------------------------------------------- */
 .scheduler-grid-container {
   flex: 1 1 auto;
   overflow-y: auto;
@@ -1453,21 +1394,17 @@ const filteredItems = computed(() => {
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-sm);
   overflow: hidden;
-  transition: transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1), box-shadow 0.3s cubic-bezier(0.25, 0.8, 0.25, 1), border-color 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+  transition: border-color 150ms ease, background-color 150ms ease;
 
   &:hover {
-    transform: translateY(-4px);
     border-color: var(--border-accent);
-    box-shadow: var(--shadow-lg);
   }
 
-  /* 异常行脉冲呼吸灯阴影 */
   &.card-has-error {
     border-color: color-mix(in srgb, var(--danger) 30%, var(--border));
 
     &:hover {
       border-color: var(--danger);
-      box-shadow: 0 8px 24px color-mix(in srgb, var(--danger) 12%, transparent);
     }
   }
 
@@ -1703,7 +1640,7 @@ const filteredItems = computed(() => {
       height: 32px;
       font-size: 12px;
       border-radius: var(--radius-md);
-      transition: color 0.2s ease, border-color 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease;
+      transition: color 150ms ease, border-color 150ms ease, background-color 150ms ease;
 
       &.view {
         border-color: var(--border);
@@ -1730,9 +1667,7 @@ const filteredItems = computed(() => {
   }
 }
 
-/* ----------------------------------------------------
- * 科技感控制台详情弹窗 (Console Details Dashboard)
- * ---------------------------------------------------- */
+/* 任务详情弹窗 */
 .scheduler-detail-modal__host {
   position: fixed;
   inset: 0;
@@ -1780,7 +1715,7 @@ const filteredItems = computed(() => {
   background: transparent;
   color: var(--muted);
   cursor: pointer;
-  transition: color 0.2s ease, background-color 0.2s ease;
+  transition: color 150ms ease, background-color 150ms ease;
 
   &:hover {
     color: var(--text);
@@ -1801,10 +1736,9 @@ const filteredItems = computed(() => {
   min-height: 0;
 }
 
-/* Skeleton ↔ content cross-fade */
 .scheduler-modal-content-enter-active,
 .scheduler-modal-content-leave-active {
-  transition: opacity 180ms cubic-bezier(0.2, 0, 0, 1);
+  transition: opacity 150ms ease;
 }
 
 .scheduler-modal-content-leave-active {
@@ -1818,10 +1752,9 @@ const filteredItems = computed(() => {
   opacity: 0;
 }
 
-/* Host (mask) fade */
 .scheduler-detail-modal-enter-active,
 .scheduler-detail-modal-leave-active {
-  transition: opacity 180ms cubic-bezier(0.2, 0, 0, 1);
+  transition: opacity 150ms ease;
 }
 
 .scheduler-detail-modal-enter-from,
@@ -1829,17 +1762,14 @@ const filteredItems = computed(() => {
   opacity: 0;
 }
 
-/* Card fade + lift */
 .scheduler-detail-modal-enter-active .scheduler-detail-modal__card,
 .scheduler-detail-modal-leave-active .scheduler-detail-modal__card {
-  transition: opacity 180ms cubic-bezier(0.2, 0, 0, 1),
-              transform 180ms cubic-bezier(0.2, 0, 0, 1);
+  transition: opacity 150ms ease;
 }
 
 .scheduler-detail-modal-enter-from .scheduler-detail-modal__card,
 .scheduler-detail-modal-leave-to .scheduler-detail-modal__card {
   opacity: 0;
-  transform: translateY(8px);
 }
 
 .modal-header-title {
@@ -1850,33 +1780,13 @@ const filteredItems = computed(() => {
   font-weight: 700;
   color: var(--text);
 
-  .pulse-dot {
-    position: relative;
+  .status-dot {
     width: 8px;
     height: 8px;
     background: var(--success);
     border-radius: 50%;
     flex-shrink: 0;
-
-    &::after {
-      content: '';
-      position: absolute;
-      inset: -3px;
-      border-radius: 50%;
-      border: 2px solid color-mix(in srgb, var(--success) 60%, transparent);
-      opacity: 0;
-      transform: scale(0.6);
-      animation: pulse-ring 2s ease-out infinite;
-      pointer-events: none;
-      will-change: transform, opacity;
-    }
   }
-}
-
-@keyframes pulse-ring {
-  0%   { transform: scale(0.6); opacity: 1; }
-  70%  { transform: scale(1.6); opacity: 0; }
-  100% { transform: scale(1.6); opacity: 0; }
 }
 
 .modal-console-layout {
@@ -2068,7 +1978,7 @@ const filteredItems = computed(() => {
     }
   }
 
-  /* 科技感故障诊断堆栈报告 */
+  /* 故障诊断 */
   .console-error-report {
     background: color-mix(in srgb, var(--danger) 8%, transparent);
     border: 1px solid color-mix(in srgb, var(--danger) 22%, transparent);

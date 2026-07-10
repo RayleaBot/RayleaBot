@@ -253,13 +253,16 @@ async function bootstrap() {
   const uiShellStore = useUiShellStore(pinia)
 
   configureApiRuntime({
-    getToken: () => sessionStore.token,
+    getCSRFToken: () => sessionStore.csrfToken,
+    onCSRFToken: (token) => {
+      sessionStore.csrfToken = token
+    },
     onNetworkUnavailable: () => {
       uiShellStore.resetRestoredTabs()
       availabilityStore.markOffline('http', currentBrowserPath())
     },
     onReachable: () => availabilityStore.markOnline(),
-    onUnauthorized: (tokenSnapshot) => sessionStore.handleSessionExpired(tokenSnapshot),
+    onUnauthorized: () => sessionStore.handleSessionExpired(),
   })
 
   uiShellStore.resetRestoredTabs()

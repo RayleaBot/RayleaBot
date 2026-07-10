@@ -241,7 +241,6 @@ onMounted(() => {
       <a-card
         :bordered="false"
         class="app-view-card commands-filter-toolbar"
-        v-motion="{ initial: { opacity: 0, y: 12 }, enter: { opacity: 1, y: 0, transition: { duration: 300, delay: 0 } } }"
       >
         <a-form layout="vertical">
           <a-form-item :label="t('commands.filters.plugins')">
@@ -271,7 +270,6 @@ onMounted(() => {
       <a-card
         :bordered="false"
         class="app-view-card commands-section-card"
-        v-motion="{ initial: { opacity: 0, y: 12 }, enter: { opacity: 1, y: 0, transition: { duration: 300, delay: 100 } } }"
       >
         <template #title>
           <div class="card-header">

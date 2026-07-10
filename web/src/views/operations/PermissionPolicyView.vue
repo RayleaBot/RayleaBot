@@ -8,7 +8,6 @@ import {
   TeamOutlined,
   UserAddOutlined,
 } from '@ant-design/icons-vue'
-import { MotionDirective as vMotion } from '@vueuse/motion'
 import { computed, onBeforeUnmount, onDeactivated, onMounted, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useRouter } from 'vue-router'
@@ -118,13 +117,6 @@ const summaryCards = computed(() => [
     description: t('permissionPolicy.summary.defaultPermissionMeta'),
   },
 ])
-
-function cardMotion(delay: number) {
-  return {
-    initial: { opacity: 0, y: 12 },
-    enter: { opacity: 1, y: 0, transition: { duration: 320, delay: delay * 60, ease: 'easeOut' } },
-  }
-}
 
 function getCommandPermissionLabel(level: CommandPermissionLevel | null | undefined) {
   switch (level) {
@@ -320,7 +312,6 @@ async function save() {
       <template v-else>
         <template v-if="draft || commandPolicy">
           <div
-            v-motion="cardMotion(0)"
             class="permission-policy-summary-cards"
             data-testid="permission-policy-summary-card"
             :aria-label="t('permissionPolicy.sections.summary')"
@@ -339,7 +330,6 @@ async function save() {
 
         <div
           v-else
-          v-motion="cardMotion(0)"
           class="permission-policy-summary-empty"
           data-testid="permission-policy-summary-card"
         >

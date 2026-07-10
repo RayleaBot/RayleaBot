@@ -1,6 +1,7 @@
 export const app = {
   brand: 'RayleaBot',
   loading: '正在加载管理界面',
+  mainNavigation: '主导航',
   skipToMain: '跳到主内容',
 } as const
 
@@ -45,11 +46,7 @@ export const shell = {
   exitFullscreen: '退出全屏',
   featurePending: '{feature}暂未开放',
   fullscreenUnsupported: '当前环境不支持全屏',
-  language: '语言',
-  languagePending: '语言切换保持预留入口。',
   logout: '退出登录',
-  notifications: '通知',
-  notificationsPending: '通知中心保持预留入口。',
   openMenu: '打开菜单',
   search: '搜索',
   searchEmpty: '没有匹配的页面',

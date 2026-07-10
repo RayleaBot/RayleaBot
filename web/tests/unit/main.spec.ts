@@ -127,7 +127,7 @@ describe('web bootstrap', () => {
     vi.useRealTimers()
   })
 
-  it('forwards unauthorized token snapshots to the session store handler', async () => {
+  it('forwards unauthorized responses to the session store handler', async () => {
     await import('@/main')
 
     expect(configureApiRuntime).toHaveBeenCalled()
@@ -137,9 +137,10 @@ describe('web bootstrap', () => {
       .find((config) => typeof config.onUnauthorized === 'function')
     const sessionStore = sessionStoreFactory.mock.results[0]?.value
 
-    runtime.onUnauthorized('stale-token')
+    runtime.onUnauthorized()
 
-    expect(sessionStore.handleSessionExpired).toHaveBeenCalledWith('stale-token')
+    expect(sessionStore.handleSessionExpired).toHaveBeenCalledOnce()
+    expect(sessionStore.handleSessionExpired).toHaveBeenCalledWith()
   })
 
   it('preserves the current deep link when startup detects offline state', async () => {

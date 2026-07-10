@@ -38,7 +38,6 @@ defineProps<{
 
 <template>
   <div class="dashboard-status-grid dashboard-overview-grid" data-testid="dashboard-overview-grid">
-    <!-- Health Check Card -->
     <div :class="['custom-stat-card', 'stat-card', `custom-stat-card--${healthStatusType}`, `stat-card--${healthStatusType}`]">
       <div class="custom-stat-card__icon-container">
         <component :is="iconMap.health" class="custom-stat-card__icon" />
@@ -48,10 +47,8 @@ defineProps<{
         <strong class="custom-stat-card__value">{{ healthValueText }}</strong>
         <span class="custom-stat-card__desc">{{ healthDetailText }}</span>
       </div>
-      <div class="custom-stat-card__shine" />
     </div>
 
-    <!-- Readiness Status Card -->
     <div :class="['custom-stat-card', 'stat-card', `custom-stat-card--${readinessStatusType}`, `stat-card--${readinessStatusType}`]">
       <div class="custom-stat-card__icon-container">
         <component :is="iconMap.readiness" class="custom-stat-card__icon" />
@@ -61,10 +58,8 @@ defineProps<{
         <strong class="custom-stat-card__value">{{ readinessValueText }}</strong>
         <span class="custom-stat-card__desc">{{ readinessDetailText }}</span>
       </div>
-      <div class="custom-stat-card__shine" />
     </div>
 
-    <!-- Active Plugins Card -->
     <RouterLink
       :to="activePluginsTo"
       class="custom-stat-card stat-card custom-stat-card--primary stat-card--primary custom-stat-card--link"
@@ -79,10 +74,8 @@ defineProps<{
         <strong class="custom-stat-card__value">{{ activePluginsCount }}</strong>
         <span class="custom-stat-card__desc">{{ activePluginsDetailText }}</span>
       </div>
-      <div class="custom-stat-card__shine" />
     </RouterLink>
 
-    <!-- Uptime Card -->
     <div class="custom-stat-card stat-card custom-stat-card--info stat-card--info">
       <div class="custom-stat-card__icon-container">
         <component :is="iconMap.uptime" class="custom-stat-card__icon" />
@@ -92,7 +85,6 @@ defineProps<{
         <strong class="custom-stat-card__value monospace">{{ uptimeText }}</strong>
         <span class="custom-stat-card__desc">{{ runtimeMetaText }}</span>
       </div>
-      <div class="custom-stat-card__shine" />
     </div>
   </div>
 </template>
@@ -116,21 +108,8 @@ defineProps<{
   background: var(--surface-strong);
   box-shadow: var(--shadow-xs);
   overflow: hidden;
-  transition: transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1), box-shadow 0.3s cubic-bezier(0.25, 0.8, 0.25, 1), border-color 0.3s cubic-bezier(0.25, 0.8, 0.25, 1), background-color 0.3s cubic-bezier(0.25, 0.8, 0.25, 1), color 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+  transition: border-color 150ms ease, background-color 150ms ease;
   cursor: default;
-
-  &::after {
-    content: '';
-    position: absolute;
-    inset: 0;
-    border-radius: inherit;
-    padding: 1px;
-    background: linear-gradient(135deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0));
-    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-    -webkit-mask-composite: xor;
-    mask-composite: exclude;
-    pointer-events: none;
-  }
 }
 
 .custom-stat-card--link {
@@ -140,50 +119,13 @@ defineProps<{
 
   &:focus-visible {
     border-color: var(--card-color, var(--border-accent));
-    box-shadow: 0 0 0 3px color-mix(in srgb, var(--card-color, var(--accent)) 22%, transparent);
-    outline: none;
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
   }
 }
 
 .custom-stat-card:hover {
-  transform: translateY(-4px);
-  box-shadow: var(--shadow-elevated), 0 8px 24px -8px color-mix(in srgb, var(--card-color, var(--accent)) 25%, transparent);
   border-color: var(--card-color, var(--border-accent));
-
-  .custom-stat-card__icon-container {
-    transform: scale(1.06);
-    box-shadow: 0 0 12px color-mix(in srgb, var(--card-color, var(--accent)) 25%, transparent);
-  }
-
-  .custom-stat-card__shine {
-    transform: translateX(100%) rotate(45deg);
-  }
-}
-
-.custom-stat-card__shine {
-  position: absolute;
-  top: 0;
-  left: -50%;
-  width: 20%;
-  height: 100%;
-  background: linear-gradient(
-    to right,
-    rgba(255, 255, 255, 0) 0%,
-    rgba(255, 255, 255, 0.12) 50%,
-    rgba(255, 255, 255, 0) 100%
-  );
-  transform: skewX(-25deg);
-  transition: transform 0.6s ease;
-  pointer-events: none;
-}
-
-[data-theme='dark'] .custom-stat-card__shine {
-  background: linear-gradient(
-    to right,
-    rgba(255, 255, 255, 0) 0%,
-    rgba(255, 255, 255, 0.06) 50%,
-    rgba(255, 255, 255, 0) 100%
-  );
 }
 
 .custom-stat-card__icon-container {
@@ -197,7 +139,7 @@ defineProps<{
   background: var(--surface-soft);
   border: 1px solid var(--border);
   flex-shrink: 0;
-  transition: transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1), box-shadow 0.3s cubic-bezier(0.25, 0.8, 0.25, 1), border-color 0.3s cubic-bezier(0.25, 0.8, 0.25, 1), background-color 0.3s cubic-bezier(0.25, 0.8, 0.25, 1), color 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+  transition: border-color 150ms ease, background-color 150ms ease;
 }
 
 .custom-stat-card__icon {

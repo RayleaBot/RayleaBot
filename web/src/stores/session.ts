@@ -2,41 +2,73 @@ import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
 
 import { toBootstrapStatusMessage } from '@/lib/auth-feedback'
-import { apiRequest } from '@/lib/http'
+import { ApiError, apiRequest } from '@/lib/http'
 import type { SessionLoginRequest, SessionLoginResponse, SetupStatusResponse } from '@/types/api'
 
-const sessionStorageKey = 'rayleabot.session_token'
+const legacySessionStorageKey = 'rayleabot.session_token'
 
-function readStoredToken() {
-  return window.localStorage.getItem(sessionStorageKey)
+function clearLegacyBearerToken() {
+  if (typeof window !== 'undefined') {
+    window.localStorage.removeItem(legacySessionStorageKey)
+  }
 }
 
-function writeStoredToken(token: string | null) {
-  if (token) {
-    window.localStorage.setItem(sessionStorageKey, token)
-    return
+function consumeSetupTokenFragment() {
+  if (typeof window === 'undefined' || !window.location.hash) {
+    return null
   }
 
-  window.localStorage.removeItem(sessionStorageKey)
+  const parameters = new URLSearchParams(window.location.hash.slice(1))
+  const token = parameters.get('setup_token')?.trim() ?? ''
+  if (!token) {
+    return null
+  }
+
+  parameters.delete('setup_token')
+  const remainingFragment = parameters.toString()
+  window.history.replaceState(
+    window.history.state,
+    '',
+    `${window.location.pathname}${window.location.search}${remainingFragment ? `#${remainingFragment}` : ''}`,
+  )
+  return token
+}
+
+type BrowserSessionResponse = SessionLoginResponse & {
+  transport: 'cookie' | 'bearer'
+  csrf_token?: string
 }
 
 export const useSessionStore = defineStore('session', () => {
-  const token = ref<string | null>(typeof window === 'undefined' ? null : readStoredToken())
+  clearLegacyBearerToken()
+
+  const authenticated = ref(false)
+  const csrfToken = ref<string | null>(null)
+  const setupToken = ref<string | null>(consumeSetupTokenFragment())
   const setupInitialized = ref<boolean | null>(null)
   const bootstrapPending = ref(false)
   const loginPending = ref(false)
   const bootstrapError = ref<string | null>(null)
 
-  const isAuthenticated = computed(() => Boolean(token.value))
+  const isAuthenticated = computed(() => authenticated.value)
   const requiresSetup = computed(() => setupInitialized.value === false)
   const isBootstrapped = computed(() => setupInitialized.value !== null)
 
-  async function bootstrap(force = false) {
-    if (bootstrapPending.value) {
-      return
+  async function restoreCookieSession() {
+    try {
+      await apiRequest('/api/system/status')
+      authenticated.value = true
+    } catch (error) {
+      authenticated.value = false
+      csrfToken.value = null
+      if (!(error instanceof ApiError) || error.status !== 401) {
+        throw error
+      }
     }
+  }
 
-    if (isBootstrapped.value && !force) {
+  async function bootstrap(force = false) {
+    if (bootstrapPending.value || (isBootstrapped.value && !force)) {
       return
     }
 
@@ -45,6 +77,11 @@ export const useSessionStore = defineStore('session', () => {
     try {
       const response = await apiRequest<SetupStatusResponse>('/api/setup/status', { auth: false })
       setupInitialized.value = response.initialized
+      if (response.initialized) {
+        await restoreCookieSession()
+      } else {
+        clearSession()
+      }
     } catch (error) {
       bootstrapError.value = toBootstrapStatusMessage(error)
       throw error
@@ -53,25 +90,25 @@ export const useSessionStore = defineStore('session', () => {
     }
   }
 
-  function setToken(nextToken: string | null) {
-    token.value = nextToken
-    writeStoredToken(nextToken)
-  }
-
-  function matchesCurrentToken(tokenSnapshot?: string | null) {
-    return tokenSnapshot === undefined || tokenSnapshot === token.value
+  function acceptBrowserSession(response: BrowserSessionResponse) {
+    if (response.transport !== 'cookie' || !response.csrf_token?.trim()) {
+      throw new Error('服务端未建立浏览器会话。')
+    }
+    csrfToken.value = response.csrf_token
+    authenticated.value = true
+    setupInitialized.value = true
   }
 
   async function login(payload: SessionLoginRequest) {
     loginPending.value = true
     try {
-      const response = await apiRequest<SessionLoginResponse>('/api/session/login', {
+      const response = await apiRequest<BrowserSessionResponse>('/api/session/login', {
         method: 'POST',
         auth: false,
+        headers: { 'X-Raylea-Session-Transport': 'cookie' },
         body: payload,
       })
-      setupInitialized.value = true
-      setToken(response.session_token)
+      acceptBrowserSession(response)
       return response
     } finally {
       loginPending.value = false
@@ -81,13 +118,17 @@ export const useSessionStore = defineStore('session', () => {
   async function setupAdmin(payload: SessionLoginRequest) {
     loginPending.value = true
     try {
-      const response = await apiRequest<SessionLoginResponse>('/api/setup/admin', {
+      const response = await apiRequest<BrowserSessionResponse>('/api/setup/admin', {
         method: 'POST',
         auth: false,
+        headers: {
+          'X-Raylea-Session-Transport': 'cookie',
+          ...(setupToken.value ? { 'X-Raylea-Setup-Token': setupToken.value } : {}),
+        },
         body: payload,
       })
-      setupInitialized.value = true
-      setToken(response.session_token)
+      acceptBrowserSession(response)
+      setupToken.value = null
       return response
     } finally {
       loginPending.value = false
@@ -95,44 +136,41 @@ export const useSessionStore = defineStore('session', () => {
   }
 
   async function logout() {
-    if (token.value) {
+    if (authenticated.value) {
       try {
         await apiRequest<void>('/api/session', { method: 'DELETE' })
       } catch {
-        // local logout still wins
+        // Clearing browser state remains safe when the server is unavailable.
       }
     }
     clearSession()
   }
 
-  function clearSession(tokenSnapshot?: string | null) {
-    if (!matchesCurrentToken(tokenSnapshot)) {
-      return false
-    }
-
-    setToken(null)
+  function clearSession() {
+    authenticated.value = false
+    csrfToken.value = null
+    clearLegacyBearerToken()
     return true
   }
 
-  function handleSessionExpired(tokenSnapshot?: string | null) {
-    clearSession(tokenSnapshot)
+  function handleSessionExpired() {
+    clearSession()
   }
 
   return {
     bootstrapError,
     bootstrapPending,
+    csrfToken,
     isAuthenticated,
     isBootstrapped,
     loginPending,
     requiresSetup,
     setupInitialized,
-    token,
     bootstrap,
     clearSession,
     handleSessionExpired,
     login,
     logout,
-    setToken,
     setupAdmin,
   }
 })

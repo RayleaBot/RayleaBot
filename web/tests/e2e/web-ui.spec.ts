@@ -56,6 +56,38 @@ function pluginRows(page: import('@playwright/test').Page) {
   return page.locator('.plugins-data-table .ant-table-tbody > tr:not(.ant-table-measure-row)')
 }
 
+async function expectDocumentWithinViewport(page: import('@playwright/test').Page) {
+  await expect.poll(() => page.evaluate(() => (
+    document.documentElement.scrollWidth - document.documentElement.clientWidth
+  ))).toBeLessThanOrEqual(1)
+}
+
+async function tabToLocator(
+  page: import('@playwright/test').Page,
+  locator: import('@playwright/test').Locator,
+  maximumTabs = 20,
+) {
+  for (let index = 0; index < maximumTabs; index += 1) {
+    await page.keyboard.press('Tab')
+    if (await locator.evaluate((element) => element === document.activeElement || element.contains(document.activeElement)).catch(() => false)) {
+      return
+    }
+  }
+  throw new Error(`Keyboard focus did not reach ${await locator.first().evaluate((element) => element.outerHTML).catch(() => 'the target')}`)
+}
+
+async function expectMenuKeyboardReachable(
+  page: import('@playwright/test').Page,
+  menu: import('@playwright/test').Locator,
+) {
+  await tabToLocator(page, menu)
+  await page.keyboard.press('ArrowDown')
+  await expect.poll(() => menu.evaluate((element) => (
+    element.contains(document.activeElement)
+    && document.activeElement?.getAttribute('role') === 'menuitem'
+  ))).toBe(true)
+}
+
 function logRows(page: import('@playwright/test').Page) {
   return page.locator('.logs-row')
 }
@@ -326,7 +358,6 @@ test('protected deep links return to the target after login', async ({ page, req
 
   await expect(page.getByRole('heading', { name: '登录', level: 1 })).toBeVisible()
   await expect(page.getByTestId('auth-theme-toggle')).toBeVisible()
-  await expect(page.getByTestId('auth-language')).toBeVisible()
 
   await page.getByLabel('管理员密钥').fill('fixture-only-secret')
   await page.getByRole('button', { name: /登\s*录/ }).click()
@@ -362,6 +393,16 @@ test('plugin management flow covers install, manifest detail and console recover
   const installDialog = page.getByRole('dialog', { name: '安装插件' })
   await expect(installDialog).toBeVisible()
   await installDialog.getByRole('textbox').fill('C:/plugins/weather.zip')
+  const inspectionResponsePromise = page.waitForResponse((response) => (
+    response.request().method() === 'POST'
+    && response.url().endsWith('/api/plugins/install/inspect')
+  ))
+  await installDialog.getByRole('button', { name: '检查插件包' }).click()
+  expect((await inspectionResponsePromise).status()).toBe(200)
+  await expect(installDialog.getByRole('checkbox', { name: /我已核对来源、摘要、能力和安装脚本/ })).toBeVisible()
+  await expect(installDialog.getByText('Weather Package（example.weather-package）')).toBeVisible()
+  await expect(installDialog.getByText('a'.repeat(64))).toBeVisible()
+  await installDialog.getByRole('checkbox', { name: /我已核对来源、摘要、能力和安装脚本/ }).check()
   await installDialog.getByRole('button', { name: '开始安装' }).click()
 
   await expect(page.locator('#app-main').getByRole('heading', { name: '插件列表', level: 1 })).toBeVisible()
@@ -447,9 +488,15 @@ test('access lists page manages blacklist and whitelist entries', async ({ page,
   await page.getByTestId('access-lists-blacklist-add-btn').click()
   await page.getByTestId('blacklist-draft-target-id').fill('30003')
   await page.getByTestId('blacklist-draft-reason').fill('临时封禁')
+  const blacklistAddResponsePromise = page.waitForResponse((response) => (
+    response.request().method() === 'POST'
+    && response.url().endsWith('/api/governance/blacklist/entries')
+  ))
   await page.getByTestId('blacklist-draft-save').click()
-  await expect(blacklistCard).toContainText('30003')
-  await expect(blacklistCard).toContainText('临时封禁')
+  expect((await blacklistAddResponsePromise).status()).toBe(200)
+  const addedBlacklistRow = governanceEntryCard(blacklistCard, '30003')
+  await expect(addedBlacklistRow).toBeVisible()
+  await expect(addedBlacklistRow).toContainText('临时封禁')
 
   await governanceEntryCard(blacklistCard, '30003').getByRole('button', { name: '移除' }).click()
   await page.locator('.ant-popconfirm-buttons button.ant-btn-primary').click()
@@ -458,9 +505,15 @@ test('access lists page manages blacklist and whitelist entries', async ({ page,
   await page.getByTestId('access-lists-whitelist-add-btn').click()
   await page.getByTestId('whitelist-draft-target-id').fill('30003')
   await page.getByTestId('whitelist-draft-reason').fill('临时放行')
+  const whitelistAddResponsePromise = page.waitForResponse((response) => (
+    response.request().method() === 'POST'
+    && response.url().endsWith('/api/governance/whitelist/entries')
+  ))
   await page.getByTestId('whitelist-draft-save').click()
-  await expect(whitelistCard).toContainText('30003')
-  await expect(whitelistCard).toContainText('临时放行')
+  expect((await whitelistAddResponsePromise).status()).toBe(200)
+  const addedWhitelistRow = governanceEntryCard(whitelistCard, '30003')
+  await expect(addedWhitelistRow).toBeVisible()
+  await expect(addedWhitelistRow).toContainText('临时放行')
 
   await page.getByTestId('access-lists-whitelist-enabled').dispatchEvent('click')
   await expect(page.getByTestId('access-lists-whitelist-enabled')).toHaveAttribute('aria-checked', 'false')
@@ -524,8 +577,12 @@ test('permission policy page edits command policy config', async ({ page, reques
 
   await expect(page.getByTestId('permission-policy-unsaved-status')).toContainText('有未保存更改')
 
+  const policySaveResponsePromise = page.waitForResponse((response) => (
+    response.request().method() === 'PUT'
+    && response.url().endsWith('/api/config')
+  ))
   await page.getByTestId('permission-policy-save').click()
-  await expect(page.getByTestId('permission-policy-save-status')).toContainText('保存完成，已生效')
+  expect((await policySaveResponsePromise).status()).toBe(200)
   await expect(page.getByTestId('permission-policy-unsaved-status')).toHaveCount(0)
   await expect(page.getByTestId('permission-policy-summary-card').getByText('群管理员').first()).toBeVisible()
 
@@ -1231,7 +1288,12 @@ test('template preview auto-updates results without editor controls', async ({ p
   await resetBackend(request, true)
   await login(page)
 
+  const initialPreviewResponsePromise = page.waitForResponse((response) => (
+    response.request().method() === 'POST'
+    && response.url().includes('/api/system/render/templates/help.menu/preview-html')
+  ))
   await page.goto('/render/templates/help.menu')
+  expect((await initialPreviewResponsePromise).status()).toBe(200)
   await expect(page.getByRole('heading', { name: '模板预览', level: 1 })).toBeVisible()
   await expect(page.getByText('模板不存在。')).toHaveCount(0)
   await expect(page).toHaveURL(/\/render\/templates\/help\.menu$/)
@@ -1256,10 +1318,20 @@ test('template preview auto-updates results without editor controls', async ({ p
   await expect(previewFrame).toBeVisible()
   await expect(previewFrame).toHaveAttribute('srcdoc', /帮助菜单/)
 
+  const updatedPreviewResponsePromise = page.waitForResponse((response) => (
+    response.request().method() === 'POST'
+    && response.url().includes('/api/system/render/templates/help.menu/preview-html')
+  ))
   await page.getByLabel('输入数据 JSON').fill('{\n  "title": "帮助菜单（自动同步）"\n}')
+  expect((await updatedPreviewResponsePromise).status()).toBe(200)
   await expect(previewFrame).toHaveAttribute('srcdoc', /帮助菜单（自动同步）/)
 
+  const statusPreviewResponsePromise = page.waitForResponse((response) => (
+    response.request().method() === 'POST'
+    && response.url().includes('/api/system/render/templates/status.panel/preview-html')
+  ))
   await page.locator('.template-nav-item').filter({ hasText: 'status.panel' }).first().click()
+  expect((await statusPreviewResponsePromise).status()).toBe(200)
   await expect(page).toHaveURL(/\/render\/templates\/status\.panel$/)
   expect((await readTabLabels(page)).filter((label) => label === '模板预览')).toHaveLength(1)
   await expect(page.getByTestId('render-template-preview-frame')).toHaveAttribute('data-template-id', 'status.panel')
@@ -1284,8 +1356,12 @@ test('protocol center owns OneBot settings and logs center keeps protocol filter
   await page.getByLabel('回连地址').fill('wss://bot.example.com/reverse/onebot')
   await page.getByText('展开更多配置项').click()
   await page.getByLabel('连接超时（秒）').fill('18')
+  const firstProtocolSaveResponsePromise = page.waitForResponse((response) => (
+    response.request().method() === 'PUT'
+    && response.url().endsWith('/api/config')
+  ))
   await page.getByRole('button', { name: '保存协议设置' }).click()
-  await expect(page.getByText('配置已保存并已生效')).toBeVisible()
+  expect((await firstProtocolSaveResponsePromise).status()).toBe(200)
   await expect(reverseTransportRow).toContainText('未启用')
 
   await page.reload()
@@ -1293,8 +1369,12 @@ test('protocol center owns OneBot settings and logs center keeps protocol filter
   await expect(page.locator('.integrated-protocol-table tr').filter({ hasText: '回连 WebSocket' }).first()).toContainText('未启用')
 
   await page.locator('.integrated-protocol-table tr').filter({ hasText: '回连 WebSocket' }).first().getByRole('switch', { name: '回连 WebSocket' }).click()
+  const secondProtocolSaveResponsePromise = page.waitForResponse((response) => (
+    response.request().method() === 'PUT'
+    && response.url().endsWith('/api/config')
+  ))
   await page.getByRole('button', { name: '保存协议设置' }).click()
-  await expect(page.getByText('配置已保存并已生效')).toBeVisible()
+  expect((await secondProtocolSaveResponsePromise).status()).toBe(200)
   await expect(page.locator('.integrated-protocol-table tr').filter({ hasText: '回连 WebSocket' }).first()).toContainText('等待 OneBot 回连')
   await expect(page.getByRole('button', { name: '查看实时日志' })).toBeVisible()
 
@@ -1909,8 +1989,60 @@ test('mobile navigation and card layouts remain usable', async ({ page, request 
 
   await page.goto('/logs?log_id=log_adapter_live_0001')
   await expect(logRows(page).filter({ hasText: 'ignored OneBot API response with unsupported echo' }).first()).toBeVisible()
-  await expect(page.locator('.log-detail-drawer, .log-detail-window')).toContainText('api response echo must be a non-empty string')
+  await expect(page.locator('.log-detail-drawer:visible')).toContainText('api response echo must be a non-empty string')
   await expect(logDetailWindow(page)).toHaveCount(0)
+})
+
+test('critical workspaces fit supported viewports and keep shell navigation keyboard reachable', async ({ page, request }) => {
+  await resetBackend(request, true)
+  await login(page)
+
+  const viewports = [
+    { width: 360, height: 800 },
+    { width: 768, height: 1024 },
+    { width: 1280, height: 800 },
+  ]
+  const workspaces = [
+    { path: '/', heading: '系统状态' },
+    { path: '/plugins', heading: '插件列表' },
+    { path: '/protocols', heading: '协议中心' },
+    { path: '/render/templates/help.menu', heading: '模板预览' },
+  ]
+
+  for (const viewport of viewports) {
+    await page.setViewportSize(viewport)
+    for (const workspace of workspaces) {
+      await page.goto(workspace.path)
+      await expect(page.getByRole('heading', { name: workspace.heading, level: 1 })).toBeVisible()
+      if (workspace.path === '/plugins') await expect(pluginRows(page).first()).toBeVisible()
+      if (workspace.path === '/protocols') await expect(page.locator('.integrated-protocol-table')).toBeVisible()
+      if (workspace.path.startsWith('/render/')) await expect(page.getByTestId('render-template-preview-result').locator('iframe')).toBeVisible()
+      await expectDocumentWithinViewport(page)
+    }
+
+    await page.goto('/')
+    await expect(page.getByRole('heading', { name: '系统状态', level: 1 })).toBeVisible()
+    const skipLink = page.getByRole('link', { name: '跳到主内容' })
+    await page.keyboard.press('Tab')
+    await expect(skipLink).toBeFocused()
+    await page.keyboard.press('Enter')
+    await expect(page.locator('#app-main')).toBeFocused()
+
+    await page.goto('/')
+    await expect(page.getByRole('heading', { name: '系统状态', level: 1 })).toBeVisible()
+    await page.keyboard.press('Tab')
+    await expect(skipLink).toBeFocused()
+
+    if (viewport.width < 992) {
+      const openMenuButton = page.getByRole('button', { name: '打开菜单' })
+      await tabToLocator(page, openMenuButton)
+      await page.keyboard.press('Enter')
+      await expect(page.locator('.admin-layout__mobile-drawer')).toBeVisible()
+      await expectMenuKeyboardReachable(page, page.locator('.admin-layout__mobile-drawer:visible .admin-layout__primary-navigation'))
+    } else {
+      await expectMenuKeyboardReachable(page, page.locator('.admin-layout__sider:visible .admin-layout__primary-navigation'))
+    }
+  }
 })
 
 test('session expiration redirects back to login', async ({ page, request }) => {

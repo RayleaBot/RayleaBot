@@ -615,7 +615,7 @@ async function save() {
   font-size: 0.82rem;
   line-height: 1.4;
   word-break: break-all;
-  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease, background-color 0.2s ease, color 0.2s ease;
+  transition: border-color 150ms ease, background-color 150ms ease, color 150ms ease;
   cursor: default;
 
   &::before {
@@ -631,8 +631,6 @@ async function save() {
   &:hover {
     border-color: var(--border-accent);
     background: var(--surface-accent);
-    transform: translateY(-1px);
-    box-shadow: var(--shadow-sm);
   }
 }
 

@@ -7,6 +7,8 @@ import type {
   PluginDetail,
   PluginDetailResponse,
   PluginInstallRequest,
+  PluginInstallInspectionRequest,
+  PluginInstallInspectionResponse,
   PluginListResponse,
   PluginState,
   PluginSettingsResponse,
@@ -37,6 +39,7 @@ export const usePluginsStore = defineStore('plugins', () => {
   const secretsLoading = ref<Record<string, boolean>>({})
   const secretsSaving = ref<Record<string, boolean>>({})
   const installPending = ref(false)
+  const inspectionPending = ref(false)
   let detailRequestVersion = 0
   let listRequest: Promise<void> | null = null
   const lifecycleRefreshTimers = new Map<string, ReturnType<typeof setTimeout>>()
@@ -311,6 +314,18 @@ export const usePluginsStore = defineStore('plugins', () => {
     }
   }
 
+  async function inspectPlugin(payload: PluginInstallInspectionRequest) {
+    inspectionPending.value = true
+    try {
+      return await apiRequest<PluginInstallInspectionResponse>('/api/plugins/install/inspect', {
+        method: 'POST',
+        body: payload,
+      })
+    } finally {
+      inspectionPending.value = false
+    }
+  }
+
   async function fetchSecrets(pluginId: string) {
     setSecretsLoading(pluginId, true)
     try {
@@ -360,6 +375,7 @@ export const usePluginsStore = defineStore('plugins', () => {
     error,
     items,
     installPending,
+    inspectionPending,
     loading,
     settingsByPluginId,
     secretsByPluginId,
@@ -376,6 +392,7 @@ export const usePluginsStore = defineStore('plugins', () => {
     getSettings,
     getSecrets,
     installPlugin,
+    inspectPlugin,
     uninstallPlugin,
     updateSettings,
     updateSecrets,

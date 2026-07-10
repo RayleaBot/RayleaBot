@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, reactive, ref, onBeforeUnmount, onMounted } from 'vue'
+import { computed, nextTick, reactive, ref, onBeforeUnmount, onMounted } from 'vue'
 import { storeToRefs } from 'pinia'
 import {
   DeleteOutlined,
@@ -86,6 +86,7 @@ const drafts = reactive<Record<string, AccountDraft>>({})
 const qrLogins = reactive<Record<string, QRLoginState>>({})
 const avatarLoadFailures = reactive<Record<string, boolean>>({})
 const editingAccountKey = ref<string>('')
+const deleteCandidate = ref<ThirdPartyAccountSummary | null>(null)
 const draftSequence = ref(0)
 let qrPollTimer: number | undefined
 
@@ -226,10 +227,17 @@ async function deleteAccount(account: ThirdPartyAccountSummary) {
   try {
     await store.deleteAccount(account.platform, account.account_id)
     cancelEdit(accountKey(account))
+    deleteCandidate.value = null
     notifySuccess(t('builtinFeatures.thirdPartyAccounts.deleted'))
+    await nextTick()
+    document.querySelector<HTMLElement>(`[data-add-platform="${account.platform}"]`)?.focus()
   } catch (err) {
     notifyError(getDisplayErrorMessage(err))
   }
+}
+
+function requestDeleteAccount(account: ThirdPartyAccountSummary) {
+  deleteCandidate.value = account
 }
 
 function deleteDraft(key: string) {
@@ -485,6 +493,7 @@ function timeText(value?: string | null) {
               :key="section.platform"
               type="primary"
               size="small"
+              :data-add-platform="section.platform"
               @click="addDraft(section.platform)"
             >
               <template #icon><PlusOutlined /></template>
@@ -504,7 +513,7 @@ function timeText(value?: string | null) {
                 <h3>{{ section.label }}</h3>
                 <p>{{ t('builtinFeatures.thirdPartyAccounts.accountSummary', { configured: section.configuredCount, enabled: section.enabledCount }) }}</p>
               </div>
-              <a-button type="primary" size="small" @click="addDraft(section.platform)">
+              <a-button type="primary" size="small" :data-add-platform="section.platform" @click="addDraft(section.platform)">
                 <template #icon><PlusOutlined /></template>
                 {{ section.addLabel }}
               </a-button>
@@ -650,7 +659,7 @@ function timeText(value?: string | null) {
                     <template #icon><EditOutlined /></template>
                     {{ t('builtinFeatures.thirdPartyAccounts.edit') }}
                   </a-button>
-                  <a-button danger size="small" :loading="deletingAccountId === operationKey(account.platform, account.account_id)" @click="deleteAccount(account)">
+                  <a-button danger size="small" :loading="deletingAccountId === operationKey(account.platform, account.account_id)" @click="requestDeleteAccount(account)">
                     <template #icon><DeleteOutlined /></template>
                     {{ t('builtinFeatures.thirdPartyAccounts.delete') }}
                   </a-button>
@@ -699,7 +708,7 @@ function timeText(value?: string | null) {
                       <template #icon><QrcodeOutlined /></template>
                       {{ t('builtinFeatures.thirdPartyAccounts.scanLogin') }}
                     </a-button>
-                    <a-button danger :loading="deletingAccountId === operationKey(account.platform, account.account_id)" @click="deleteAccount(account)">
+                    <a-button danger :loading="deletingAccountId === operationKey(account.platform, account.account_id)" @click="requestDeleteAccount(account)">
                       <template #icon><DeleteOutlined /></template>
                       {{ t('builtinFeatures.thirdPartyAccounts.delete') }}
                     </a-button>
@@ -718,6 +727,21 @@ function timeText(value?: string | null) {
         </div>
       </section>
     </div>
+
+    <a-modal
+      :open="Boolean(deleteCandidate)"
+      :title="t('builtinFeatures.thirdPartyAccounts.deleteConfirmTitle')"
+      :ok-text="t('builtinFeatures.thirdPartyAccounts.deleteConfirmAction')"
+      :cancel-text="t('builtinFeatures.thirdPartyAccounts.cancel')"
+      :confirm-loading="Boolean(deleteCandidate && deletingAccountId === operationKey(deleteCandidate.platform, deleteCandidate.account_id))"
+      ok-type="danger"
+      @cancel="deleteCandidate = null"
+      @ok="deleteCandidate && deleteAccount(deleteCandidate)"
+    >
+      <p v-if="deleteCandidate">
+        {{ t('builtinFeatures.thirdPartyAccounts.deleteConfirmBody', { account: displayName(deleteCandidate), platform: platformLabel(deleteCandidate.platform) }) }}
+      </p>
+    </a-modal>
   </AppPage>
 </template>
 

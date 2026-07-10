@@ -170,8 +170,8 @@ describe('MenuCenterView', () => {
     expect(rootPreviewFrame(wrapper).attributes('srcdoc')).not.toContain('/help Weather')
     expect(rootPreviewFrame(wrapper).attributes('srcdoc')).toContain('template-footer__text')
     expect(rootPreviewFrame(wrapper).attributes('srcdoc')).toContain('Created By RayleaBot 开发版本 &amp; Plugin RayleaBot 开发版本')
-    expect(rootPreviewFrame(wrapper).attributes('srcdoc')).toContain('Raylea Footer WenKai')
-    expect(rootPreviewFrame(wrapper).attributes('srcdoc')).toContain('lxgw-wenkai-bold')
+    expect(rootPreviewFrame(wrapper).attributes('srcdoc')).toContain('LXGW WenKai Medium')
+    expect(rootPreviewFrame(wrapper).attributes('srcdoc')).not.toMatch(/\.ttf\b/i)
     expect(rootPreviewFrame(wrapper).attributes('srcdoc')).not.toContain('../fortune.card/assets/fonts')
     expect(rootPreviewFrame(wrapper).attributes('srcdoc')).not.toContain('<script')
     expect(rootPreviewFrame(wrapper).attributes('srcdoc')).not.toContain('<\\/script>')
@@ -480,10 +480,8 @@ describe('MenuCenterView', () => {
 
     expect(preview).not.toContain('../fortune.card/assets/fonts/lxgwwenkai-medium/result.css')
     expect(preview).not.toContain('../fortune.card/assets/fonts/lxgw-wenkai-medium/result.css')
-    expect(preview).toContain('../fortune.card/assets/fonts/lxgw-wenkai-bold/lxgw-wenkai-bold.ttf')
-    expect(preview).toContain('--text-base: 16px')
-    expect(preview).toContain('--text-3xl:  46px')
-    expect(preview).toMatch(/\.command-usage code\s*\{[\s\S]*font-size: 14px/)
+    expect(preview).toContain('LXGW WenKai Medium')
+    expect(preview).not.toMatch(/\.ttf\b/i)
   })
 })
 

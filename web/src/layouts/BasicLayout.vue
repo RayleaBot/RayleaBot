@@ -1,10 +1,9 @@
 <script setup lang="ts">
-import { computed, defineComponent, h, markRaw, nextTick, onBeforeUnmount, onMounted, provide, readonly, ref, resolveDynamicComponent, watch } from 'vue'
+import { computed, defineComponent, h, markRaw, onBeforeUnmount, onMounted, provide, readonly, ref, resolveDynamicComponent, watch } from 'vue'
 import type { Component as VueComponent } from 'vue'
 import { useRoute, useRouter, type RouteLocationNormalizedLoaded, type RouteRecordRaw } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import {
-  BellOutlined,
   DownOutlined,
   FullscreenExitOutlined,
   FullscreenOutlined,
@@ -17,7 +16,6 @@ import {
   RightOutlined,
   SearchOutlined,
   SettingOutlined,
-  TranslationOutlined,
   UserOutlined,
 } from '@ant-design/icons-vue'
 
@@ -40,6 +38,7 @@ import { useSessionStore } from '@/stores/session'
 import { useSystemStore } from '@/stores/system'
 import { useUiShellStore, type ShellTabItem } from '@/stores/ui-shell'
 import { PAGE_TRANSITION_STAGE_KEY, type PageTransitionStage } from '@/layouts/usePageTransitionStage'
+import { useWorkspaceTabs, type WorkspaceTabProjection } from '@/layouts/useWorkspaceTabs'
 
 const route = useRoute()
 const router = useRouter()
@@ -98,14 +97,6 @@ interface AppBreadcrumbItem {
   title: string
 }
 
-type TabActionKey = 'close-current' | 'close-other' | 'close-left' | 'close-right' | 'close-all'
-
-interface TabActionItem {
-  disabled?: boolean
-  key: TabActionKey
-  label: string
-}
-
 const siderTheme = computed(() => (preferences.value.themeMode === 'dark' ? 'dark' : 'light'))
 const themeToggleLabel = computed(() => (
   preferences.value.themeMode === 'dark' ? t('shell.switchLightTheme') : t('shell.switchDarkTheme')
@@ -113,8 +104,6 @@ const themeToggleLabel = computed(() => (
 const fullscreenLabel = computed(() => (
   isFullscreen.value ? t('shell.exitFullscreen') : t('shell.enterFullscreen')
 ))
-const currentTabPath = computed(() => resolveTabPath(route))
-const currentTab = computed(() => tabs.value.find((item) => item.path === currentTabPath.value) ?? null)
 const effectiveTransitionName = computed(() => {
   if (preferences.value.pageTransition === 'none') {
     return 'route-none'
@@ -344,6 +333,54 @@ function resolveCurrentTabIcon(viewRoute: RouteLocationNormalizedLoaded) {
   return resolveResolvedRouteIconName(viewRoute)
 }
 
+function resolveCurrentWorkspaceTab(viewRoute: RouteLocationNormalizedLoaded): WorkspaceTabProjection | null {
+  const leafRecord = getLeafMatchedRecord(viewRoute)
+  const leafMeta = getLeafRouteMeta(viewRoute)
+
+  if (!leafRecord || leafMeta?.hideInTab || !viewRoute.name) {
+    return null
+  }
+
+  const title = resolveCurrentTabTitle(viewRoute)
+  if (!title) {
+    return null
+  }
+
+  const path = resolveTabPath(viewRoute)
+  return {
+    replaceByName: typeof leafMeta?.viewKey === 'string' && leafMeta.viewKey
+      ? String(viewRoute.name)
+      : undefined,
+    tab: {
+      affix: Boolean(leafMeta?.affixTab),
+      fullPath: viewRoute.fullPath,
+      icon: resolveCurrentTabIcon(viewRoute),
+      keepAlive: Boolean(leafMeta?.keepAlive),
+      name: String(viewRoute.name),
+      path,
+      title,
+    },
+  }
+}
+
+const {
+  currentTab,
+  currentTabPath,
+  getTabCloseActionItems,
+  handleTabAction,
+  onTabChange,
+  onTabEdit,
+  tabActionItems,
+} = useWorkspaceTabs({
+  affixTabs,
+  resolveCurrentTab: resolveCurrentWorkspaceTab,
+  resolveTabPath,
+  route,
+  router,
+  tabs,
+  uiShellStore,
+})
+
 function flattenMenu(items: AppMenuItem[], lineage: Array<{ key: string; path: string }> = []) {
   return items.flatMap((item) => {
     const currentLineage = [...lineage, { key: item.key, path: item.path }]
@@ -375,144 +412,42 @@ watch(
   { immediate: true },
 )
 
-watch(
-  () => route.fullPath,
-  () => {
-    nextTick(() => {
-      const leafRecord = getLeafMatchedRecord(route)
-      const leafMeta = getLeafRouteMeta(route)
-
-      if (!leafRecord || leafMeta?.hideInTab || !route.name) {
-        return
-      }
-
-      const title = resolveCurrentTabTitle(route)
-      if (!title) {
-        return
-      }
-
-      if (typeof leafMeta?.viewKey === 'string' && leafMeta.viewKey) {
-        uiShellStore.removeTabsByName(String(route.name), { exceptPath: resolveTabPath(route) })
-      }
-
-      uiShellStore.upsertTab({
-        affix: Boolean(leafMeta?.affixTab),
-        fullPath: route.fullPath,
-        icon: resolveCurrentTabIcon(route),
-        keepAlive: Boolean(leafMeta?.keepAlive),
-        name: String(route.name),
-        path: resolveTabPath(route),
-        title,
-      })
-      uiShellStore.setMobileMenuOpen(false)
-    })
-  },
-  { immediate: true },
-)
-
 function navigateTo(path: string) {
   void router.push(path)
 }
 
+function handlePrimaryNavigationKeydown(event: KeyboardEvent) {
+  if (!['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) {
+    return
+  }
+
+  const container = event.currentTarget
+  if (!(container instanceof HTMLElement)) {
+    return
+  }
+
+  const items = Array.from(container.querySelectorAll<HTMLElement>('[role="menuitem"], .ant-menu-submenu-title'))
+    .filter((item) => item.getClientRects().length > 0 && item.getAttribute('aria-disabled') !== 'true')
+  if (items.length === 0) {
+    return
+  }
+
+  const activeIndex = items.findIndex((item) => item === document.activeElement || item.contains(document.activeElement))
+  let nextIndex = 0
+  if (event.key === 'End') {
+    nextIndex = items.length - 1
+  } else if (event.key === 'ArrowUp') {
+    nextIndex = activeIndex <= 0 ? items.length - 1 : activeIndex - 1
+  } else if (event.key === 'ArrowDown' && activeIndex >= 0) {
+    nextIndex = (activeIndex + 1) % items.length
+  }
+
+  event.preventDefault()
+  items[nextIndex]?.focus()
+}
+
 function handleOpenChange(keys: string[]) {
   openMenuKeys.value = keys
-}
-
-function onTabChange(targetKey: string) {
-  const targetTab = tabs.value.find((item) => item.path === targetKey)
-  void router.push(targetTab?.fullPath ?? targetKey)
-}
-
-function findTab(path: string) {
-  return tabs.value.find((item) => item.path === path) ?? null
-}
-
-function getFallbackTab(targetPath: string, beforeTabs: ShellTabItem[], afterTabs: ShellTabItem[]) {
-  const targetTab = afterTabs.find((item) => item.path === targetPath)
-  if (targetTab) {
-    return targetTab
-  }
-
-  const targetIndex = beforeTabs.findIndex((item) => item.path === targetPath)
-  if (targetIndex >= 0) {
-    const leftTab = beforeTabs
-      .slice(0, targetIndex)
-      .reverse()
-      .find((item) => afterTabs.some((candidate) => candidate.path === item.path))
-    if (leftTab) {
-      return afterTabs.find((item) => item.path === leftTab.path) ?? leftTab
-    }
-
-    const rightTab = beforeTabs
-      .slice(targetIndex + 1)
-      .find((item) => afterTabs.some((candidate) => candidate.path === item.path))
-    if (rightTab) {
-      return afterTabs.find((item) => item.path === rightTab.path) ?? rightTab
-    }
-  }
-
-  return afterTabs[0] ?? affixTabs[0] ?? null
-}
-
-function closeTabsWithFallback(targetPath: string, mutateTabs: () => void) {
-  const beforeTabs = [...tabs.value]
-  const activePathBefore = currentTabPath.value
-
-  mutateTabs()
-
-  if (tabs.value.some((item) => item.path === activePathBefore)) {
-    return
-  }
-
-  const fallback = getFallbackTab(targetPath, beforeTabs, tabs.value)
-  if (fallback) {
-    void router.push(fallback.fullPath)
-  }
-}
-
-function closeTab(targetPath: string) {
-  const targetTab = findTab(targetPath)
-  if (!targetTab || targetTab.affix) {
-    return
-  }
-
-  closeTabsWithFallback(targetPath, () => uiShellStore.removeTab(targetPath))
-}
-
-function onTabEdit(targetKey: string | MouseEvent, action: 'add' | 'remove') {
-  if (action !== 'remove' || typeof targetKey !== 'string') {
-    return
-  }
-
-  closeTab(targetKey)
-}
-
-function closeOtherTabs(targetPath = currentTabPath.value) {
-  if (!findTab(targetPath)) {
-    return
-  }
-
-  closeTabsWithFallback(targetPath, () => uiShellStore.closeOtherTabs(targetPath))
-}
-
-function closeTabsToLeft(targetPath = currentTabPath.value) {
-  if (!findTab(targetPath)) {
-    return
-  }
-
-  closeTabsWithFallback(targetPath, () => uiShellStore.closeTabsToLeft(targetPath))
-}
-
-function closeTabsToRight(targetPath = currentTabPath.value) {
-  if (!findTab(targetPath)) {
-    return
-  }
-
-  closeTabsWithFallback(targetPath, () => uiShellStore.closeTabsToRight(targetPath))
-}
-
-function closeAllTabs(targetPath = currentTabPath.value) {
-  closeTabsWithFallback(targetPath, () => uiShellStore.closeAllTabs())
 }
 
 function syncFullscreenState() {
@@ -574,125 +509,6 @@ function onSearchOpenUpdate(open: boolean) {
   }
 }
 
-function handleTabAction(key: string | number, targetTab = currentTab.value) {
-  const actionKey = String(key) as TabActionKey
-  switch (actionKey) {
-    case 'close-current':
-      if (targetTab && !targetTab.affix) {
-        closeTab(targetTab.path)
-      }
-      return
-    case 'close-other':
-      if (targetTab) {
-        closeOtherTabs(targetTab.path)
-      }
-      return
-    case 'close-left':
-      if (targetTab) {
-        closeTabsToLeft(targetTab.path)
-      }
-      return
-    case 'close-right':
-      if (targetTab) {
-        closeTabsToRight(targetTab.path)
-      }
-      return
-    case 'close-all':
-      closeAllTabs(targetTab?.path ?? currentTabPath.value)
-      return
-    default:
-      return
-  }
-}
-
-function hasClosableTabsBefore(index: number) {
-  return tabs.value.slice(0, index).some((item) => !item.affix)
-}
-
-function hasClosableTabsAfter(index: number) {
-  return tabs.value.slice(index + 1).some((item) => !item.affix)
-}
-
-function getTabCloseActionItems(targetTab: ShellTabItem | null | undefined): TabActionItem[] {
-  const targetIndex = targetTab ? tabs.value.findIndex((item) => item.path === targetTab.path) : -1
-  const hasClosableTabs = tabs.value.some((item) => !item.affix)
-
-  return [
-    {
-      disabled: !targetTab || targetTab.affix,
-      key: 'close-current',
-      label: t('shell.tabActions.closeCurrent'),
-    },
-    {
-      disabled: !targetTab || !tabs.value.some((item) => !item.affix && item.path !== targetTab.path),
-      key: 'close-other',
-      label: t('shell.tabActions.closeOther'),
-    },
-    {
-      disabled: targetIndex < 0 || !hasClosableTabsBefore(targetIndex),
-      key: 'close-left',
-      label: t('shell.tabActions.closeLeft'),
-    },
-    {
-      disabled: targetIndex < 0 || !hasClosableTabsAfter(targetIndex),
-      key: 'close-right',
-      label: t('shell.tabActions.closeRight'),
-    },
-    {
-      disabled: !hasClosableTabs,
-      key: 'close-all',
-      label: t('shell.tabActions.closeAll'),
-    },
-  ]
-}
-
-const tabActionItems = computed<TabActionItem[]>(() => getTabCloseActionItems(currentTab.value))
-
-function isEditableTarget(target: EventTarget | null) {
-  if (!(target instanceof HTMLElement)) {
-    return false
-  }
-
-  return target.isContentEditable
-    || ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName)
-}
-
-function handleGlobalShortcut(event: KeyboardEvent) {
-  const targetIsEditable = isEditableTarget(event.target)
-  const commandKey = event.metaKey || event.ctrlKey
-
-  if (commandKey && event.key.toLowerCase() === 'k') {
-    event.preventDefault()
-    uiShellStore.openSearch()
-    return
-  }
-
-  if (event.altKey && event.shiftKey && event.key.toLowerCase() === 's') {
-    event.preventDefault()
-    uiShellStore.openSettings()
-    return
-  }
-
-  if (targetIsEditable) {
-    return
-  }
-
-  if (commandKey && event.shiftKey && event.key.toLowerCase() === 'w') {
-    event.preventDefault()
-    closeOtherTabs()
-    return
-  }
-
-  if (commandKey && event.key.toLowerCase() === 'w') {
-    if (!currentTab.value || currentTab.value.affix) {
-      return
-    }
-
-    event.preventDefault()
-    closeTab(currentTab.value.path)
-  }
-}
-
 function handleReducedMotionPreference(event?: MediaQueryList | MediaQueryListEvent) {
   if ('matches' in (event ?? {})) {
     reducedMotion.value = Boolean((event as MediaQueryList | MediaQueryListEvent).matches)
@@ -712,7 +528,6 @@ onMounted(() => {
   syncFullscreenState()
   if (typeof document !== 'undefined') {
     document.addEventListener('fullscreenchange', syncFullscreenState)
-    document.addEventListener('keydown', handleGlobalShortcut)
   }
 
   if (typeof window !== 'undefined' && typeof window.matchMedia === 'function') {
@@ -725,7 +540,6 @@ onMounted(() => {
 onBeforeUnmount(() => {
   if (typeof document !== 'undefined') {
     document.removeEventListener('fullscreenchange', syncFullscreenState)
-    document.removeEventListener('keydown', handleGlobalShortcut)
   }
 
   if (reducedMotionMediaQuery) {
@@ -762,7 +576,12 @@ onBeforeUnmount(() => {
         </span>
       </button>
 
-      <div class="admin-layout__sider-scroll">
+      <nav
+        class="admin-layout__sider-scroll admin-layout__primary-navigation"
+        tabindex="0"
+        :aria-label="t('app.mainNavigation')"
+        @keydown="handlePrimaryNavigationKeydown"
+      >
         <a-menu
           mode="inline"
           :inline-collapsed="siderCollapsed"
@@ -799,7 +618,7 @@ onBeforeUnmount(() => {
             </a-menu-item>
           </template>
         </a-menu>
-      </div>
+      </nav>
     </a-layout-sider>
 
     <a-drawer
@@ -813,6 +632,12 @@ onBeforeUnmount(() => {
         <strong>{{ t('app.brand') }}</strong>
       </div>
 
+      <nav
+        class="admin-layout__primary-navigation"
+        tabindex="0"
+        :aria-label="t('app.mainNavigation')"
+        @keydown="handlePrimaryNavigationKeydown"
+      >
       <a-menu mode="inline" :selected-keys="selectedMenuKeys">
         <template v-for="item in menuItems" :key="item.key">
           <a-sub-menu v-if="item.children?.length" :key="item.key">
@@ -843,6 +668,7 @@ onBeforeUnmount(() => {
           </a-menu-item>
         </template>
       </a-menu>
+      </nav>
     </a-drawer>
 
     <a-layout>
@@ -947,40 +773,6 @@ onBeforeUnmount(() => {
                   </template>
                 </a-button>
               </a-tooltip>
-
-              <a-popover placement="bottom" trigger="click">
-                <template #content>
-                  <div class="admin-layout__pending-panel">{{ t('shell.languagePending') }}</div>
-                </template>
-
-                <a-button
-                  class="admin-layout__icon-button"
-                  type="text"
-                  :aria-label="t('shell.language')"
-                  data-testid="header-language"
-                >
-                  <template #icon>
-                    <TranslationOutlined />
-                  </template>
-                </a-button>
-              </a-popover>
-
-              <a-popover placement="bottomRight" trigger="click">
-                <template #content>
-                  <div class="admin-layout__pending-panel">{{ t('shell.notificationsPending') }}</div>
-                </template>
-
-                <a-button
-                  class="admin-layout__icon-button"
-                  type="text"
-                  :aria-label="t('shell.notifications')"
-                  data-testid="header-notifications"
-                >
-                  <template #icon>
-                    <BellOutlined />
-                  </template>
-                </a-button>
-              </a-popover>
 
               <a-tooltip :title="fullscreenLabel">
                 <a-button

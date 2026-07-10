@@ -14,6 +14,7 @@ export type ReadinessStatusResponse = components['schemas']['ReadinessStatusResp
 export type SystemDiagnosticsResponse = components['schemas']['SystemDiagnosticsResponse']
 export type SystemStatusResponse = components['schemas']['SystemStatusResponse']
 export type SystemShutdownResponse = components['schemas']['SystemShutdownResponse']
+export type UpdateStatusResponse = components['schemas']['UpdateStatusResponse']
 export type RecoveryConfirmRequest = components['schemas']['RecoveryConfirmRequest']
 export type RuntimeBootstrapResource = components['schemas']['RuntimeBootstrapResource']
 export type RuntimeBootstrapRequest = components['schemas']['RuntimeBootstrapRequest']

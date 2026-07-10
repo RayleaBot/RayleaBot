@@ -18,7 +18,6 @@ export function stripHelpMenuPreviewFontImports(styles: string) {
 import { computed } from 'vue'
 
 import TemplatePreviewFrame from '@/components/TemplatePreviewFrame.vue'
-import helpMenuFooterFontUrl from '../../../templates/fortune.card/assets/fonts/lxgw-wenkai-bold/lxgw-wenkai-bold.ttf?url'
 import helpMenuStyles from '../../../templates/help.menu/styles.css?raw'
 
 type PreviewData = Record<string, unknown>
@@ -31,7 +30,7 @@ const props = defineProps<{
 
 const serializedData = computed(() => JSON.stringify(props.data))
 const srcdoc = computed(() => buildPreviewDocument(props.templateId, props.data))
-const helpMenuPreviewStyles = computed(() => buildHelpMenuPreviewStyles(helpMenuStyles, helpMenuFooterFontUrl))
+const helpMenuPreviewStyles = computed(() => stripHelpMenuPreviewFontImports(helpMenuStyles))
 
 function buildPreviewDocument(templateId: string, data: PreviewData) {
   if (templateId !== 'help.menu') {
@@ -116,14 +115,6 @@ function renderHelpMenu(data: PreviewData) {
       ${body}
       ${renderFooter(payload.render_footer)}
     </main>`
-}
-
-function buildHelpMenuPreviewStyles(styles: string, footerFontUrl: string) {
-  return stripHelpMenuPreviewFontImports(styles)
-    .replace(
-      /url\((["'])\.\.\/fortune\.card\/assets\/fonts\/lxgw-wenkai-bold\/lxgw-wenkai-bold\.ttf\1\)/,
-      `url("${escapeCssString(footerFontUrl)}")`,
-    )
 }
 
 function renderIdentity(data: PreviewRecord) {
@@ -337,9 +328,6 @@ function escapeAttribute(input: string) {
   return escapeHtml(input).replace(/`/g, '&#96;')
 }
 
-function escapeCssString(input: string) {
-  return input.replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/\n/g, '\\a ')
-}
 </script>
 
 <template>

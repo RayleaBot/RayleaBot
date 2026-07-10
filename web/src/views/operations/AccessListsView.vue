@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { MotionDirective as vMotion } from '@vueuse/motion'
 import { computed, onMounted, reactive, ref } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useRouter } from 'vue-router'
@@ -208,13 +207,6 @@ const tableColumns = computed(() => [
   { title: t('accessLists.table.columns.createdAt'), key: 'createdAt', dataIndex: 'created_at', width: 170 },
   { title: t('accessLists.table.columns.actions'), key: 'actions', width: 120, align: 'center' as const, fixed: 'right' as const },
 ])
-
-function cardMotion(delay: number) {
-  return {
-    initial: { opacity: 0, y: 12 },
-    enter: { opacity: 1, y: 0, transition: { duration: 320, delay: delay * 60, ease: 'easeOut' } },
-  }
-}
 
 function getEntryTypeLabel(type: GovernanceEntryType) {
   return type === 'user' ? t('accessLists.scopes.user') : t('accessLists.scopes.group')
@@ -434,7 +426,6 @@ onMounted(() => {
     <div v-else class="access-lists-page__grid">
       <!-- Whitelist Card -->
       <AppCard
-        v-motion="cardMotion(0)"
         borderless
         class="access-lists-card whitelist-card-premium"
         :loading="whitelistLoading && !whitelist"
@@ -643,7 +634,6 @@ onMounted(() => {
 
       <!-- Blacklist Card -->
       <AppCard
-        v-motion="cardMotion(1)"
         borderless
         class="access-lists-card blacklist-card-premium"
         :loading="blacklistLoading && !blacklist"
@@ -871,7 +861,7 @@ onMounted(() => {
   border-radius: var(--radius-lg);
   background: var(--surface);
   border: 1px solid var(--border);
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  transition: border-color 150ms ease;
 }
 
 :deep(.access-lists-card) {
@@ -880,20 +870,10 @@ onMounted(() => {
 
 .whitelist-card-premium {
   border-top: 4px solid var(--accent, #3b82f6) !important;
-
-  &:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.06) !important;
-  }
 }
 
 .blacklist-card-premium {
   border-top: 4px solid #f43f5e !important;
-
-  &:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.06) !important;
-  }
 }
 
 .access-lists-card-content {
@@ -1042,7 +1022,7 @@ onMounted(() => {
   align-items: center;
   gap: 8px;
   color: var(--fg);
-  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.2s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.2s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.2s cubic-bezier(0.4, 0, 0.2, 1), color 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: border-color 150ms ease, background-color 150ms ease, color 150ms ease;
   font-size: 0.85rem;
   font-weight: 600;
   max-width: 100%;
@@ -1058,12 +1038,10 @@ onMounted(() => {
 
   .font-dot-success {
     background-color: var(--accent, #3b82f6);
-    box-shadow: 0 0 8px var(--accent);
   }
 
   .font-dot-danger {
     background-color: #f43f5e;
-    box-shadow: 0 0 8px #f43f5e;
   }
 
   .chip-text {
@@ -1084,7 +1062,6 @@ onMounted(() => {
   &:hover {
     border-color: var(--accent);
     background: color-mix(in srgb, var(--accent) 12%, var(--surface));
-    transform: scale(1.02);
 
     .copy-icon-hover {
       opacity: 1;
@@ -1167,13 +1144,6 @@ onMounted(() => {
     color: var(--muted);
     opacity: 0.45;
     margin-bottom: 12px;
-    transition: transform 0.25s ease, color 0.25s ease;
-  }
-
-  &:hover .empty-graphic {
-    transform: scale(1.1) rotate(5deg);
-    color: var(--accent);
-    opacity: 0.8;
   }
 
   .empty-title {

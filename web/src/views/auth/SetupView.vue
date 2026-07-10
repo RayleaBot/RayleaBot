@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 
 import { notifyError, notifySuccess } from '@/adapter/feedback'
@@ -10,7 +9,6 @@ import { useSessionStore } from '@/stores/session'
 
 const router = useRouter()
 const sessionStore = useSessionStore()
-const formRef = ref<InstanceType<typeof AuthCredentialsForm> | null>(null)
 
 async function handleSubmit(payload: { identifier: string, secret: string }) {
   try {
@@ -19,7 +17,6 @@ async function handleSubmit(payload: { identifier: string, secret: string }) {
     await router.push(resolvePostAuthTarget())
   } catch (error) {
     notifyError(toSetupErrorMessage(error))
-    formRef.value?.shake()
   }
 }
 
@@ -36,7 +33,6 @@ function resolvePostAuthTarget() {
 
 <template>
   <AuthCredentialsForm
-    ref="formRef"
     :title="t('auth.setupTitle')"
     :subtitle="t('auth.setupBody')"
     :submit-label="t('auth.setupSubmit')"

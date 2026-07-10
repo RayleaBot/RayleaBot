@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { TranslationOutlined } from '@ant-design/icons-vue'
 
 import AuroraBackground from '@/components/auth/AuroraBackground.vue'
 import ThemeToggleSwitch from '@/components/shell/ThemeToggleSwitch.vue'
@@ -18,20 +17,6 @@ const themeToggleLabel = computed(() => (
     <AuroraBackground />
 
     <div class="auth-layout__toolbar">
-      <a-popover placement="bottom" trigger="click">
-        <template #content>
-          <div class="auth-layout__pending-panel">{{ t('shell.languagePending') }}</div>
-        </template>
-
-        <button
-          type="button"
-          class="auth-layout__toolbar-button"
-          :aria-label="t('shell.language')"
-          data-testid="auth-language"
-        >
-          <TranslationOutlined />
-        </button>
-      </a-popover>
       <a-tooltip :title="themeToggleLabel">
         <ThemeToggleSwitch
           class="auth-layout__theme-toggle"
@@ -69,43 +54,9 @@ const themeToggleLabel = computed(() => (
   align-items: center;
   gap: 10px;
   padding: 8px 10px;
-  border: 1px solid var(--auth-glass-border);
+  border: 1px solid var(--auth-toolbar-border);
   border-radius: 999px;
-  background: color-mix(in srgb, var(--auth-glass-bg) 80%, transparent);
-  backdrop-filter: blur(16px) saturate(140%);
-  -webkit-backdrop-filter: blur(16px) saturate(140%);
-}
-
-.auth-layout__toolbar-button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 38px;
-  height: 38px;
-  border: 0;
-  border-radius: 999px;
-  background: transparent;
-  color: var(--muted);
-  font-size: 16px;
-  cursor: pointer;
-  transition: color 0.2s ease, background-color 0.2s ease, transform 0.2s ease;
-
-  &:hover {
-    background: color-mix(in srgb, var(--text) 8%, transparent);
-    color: var(--text);
-    transform: translateY(-1px);
-  }
-
-  &:focus-visible {
-    outline: 2px solid var(--auth-accent);
-    outline-offset: 1px;
-  }
-}
-
-.auth-layout__pending-panel {
-  max-width: 220px;
-  color: var(--muted);
-  font-size: 13px;
+  background: var(--auth-toolbar-bg);
 }
 
 @media (max-width: 960px) {
@@ -125,9 +76,4 @@ const themeToggleLabel = computed(() => (
   }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .auth-layout__toolbar-button {
-    transition: none;
-  }
-}
 </style>

@@ -304,8 +304,7 @@ async function save() {
   justify-content: space-between;
   gap: var(--space-md);
   padding: 10px var(--space-md);
-  background: color-mix(in srgb, var(--surface) 92%, transparent);
-  backdrop-filter: blur(8px);
+  background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-xs);
@@ -326,14 +325,13 @@ async function save() {
   border-radius: 50%;
   background: transparent;
   border: 1px solid var(--border-strong);
-  transition: background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+  transition: background-color 150ms ease, border-color 150ms ease;
   flex-shrink: 0;
 }
 
 .config-toolbar__dirty.is-active {
   background: var(--accent);
   border-color: var(--accent);
-  box-shadow: 0 0 0 3px var(--accent-soft);
 }
 
 .config-toolbar__status-text {
@@ -455,7 +453,8 @@ async function save() {
   justify-content: space-between;
   gap: 8px;
   padding: 6px 12px;
-  border-left: 2px solid transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
   color: var(--muted);
   font-size: 0.84rem;
   text-decoration: none;
@@ -469,7 +468,8 @@ async function save() {
 
 .config-toc__item.is-active {
   color: var(--text-accent);
-  border-left-color: var(--accent);
+  border-color: var(--border-accent);
+  background: var(--surface-accent);
   font-weight: 600;
 }
 

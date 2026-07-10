@@ -60,36 +60,14 @@ function handleClick(event: MouseEvent) {
     @click="handleClick"
   >
     <span class="plugin-holo-button__track" aria-hidden="true">
-      <span class="plugin-holo-button__track-lines">
-        <span class="plugin-holo-button__track-line" />
-      </span>
-
       <span class="plugin-holo-button__thumb">
-        <span class="plugin-holo-button__thumb-core" />
         <span class="plugin-holo-button__thumb-inner" />
-        <span class="plugin-holo-button__thumb-scan" />
-        <span class="plugin-holo-button__thumb-particles">
-          <span v-for="index in 5" :key="index" class="plugin-holo-button__thumb-particle" />
-        </span>
       </span>
 
       <span class="plugin-holo-button__data">
         <span class="plugin-holo-button__text plugin-holo-button__text--off">{{ uncheckedLabel }}</span>
         <span class="plugin-holo-button__text plugin-holo-button__text--on">{{ checkedLabel }}</span>
-        <span class="plugin-holo-button__status plugin-holo-button__status--off" />
-        <span class="plugin-holo-button__status plugin-holo-button__status--on" />
       </span>
-
-      <span class="plugin-holo-button__energy">
-        <span v-for="index in 3" :key="index" class="plugin-holo-button__energy-ring" />
-      </span>
-
-      <span class="plugin-holo-button__interface">
-        <span v-for="index in 6" :key="index" class="plugin-holo-button__interface-line" />
-      </span>
-
-      <span class="plugin-holo-button__reflection" />
-      <span class="plugin-holo-button__glow" />
     </span>
   </button>
 </template>
@@ -117,7 +95,7 @@ function handleClick(event: MouseEvent) {
   background: transparent;
   cursor: pointer;
   appearance: none;
-  transition: transform 0.25s cubic-bezier(0.25, 0.8, 0.25, 1), opacity 0.2s ease;
+  transition: opacity 150ms ease;
   user-select: none;
 }
 
@@ -127,17 +105,13 @@ function handleClick(event: MouseEvent) {
   --thumb-size: 22px;
 }
 
-.plugin-holo-button:hover:not(:disabled) {
-  transform: translateY(-1px);
-}
-
 .plugin-holo-button:hover:not(:disabled):not(.is-checked) .plugin-holo-button__track {
   background: color-mix(in srgb, var(--text) 12%, var(--surface-soft));
   border-color: color-mix(in srgb, var(--text) 24%, var(--surface-soft));
 }
 
 .plugin-holo-button:active:not(:disabled) {
-  transform: translateY(0) scale(0.97);
+  opacity: 0.86;
 }
 
 .plugin-holo-button:disabled {
@@ -159,7 +133,7 @@ function handleClick(event: MouseEvent) {
   border: 1px solid var(--off-track-border);
   background: var(--off-track);
   box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.05);
-  transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.25s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.25s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.25s cubic-bezier(0.4, 0, 0.2, 1), color 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: border-color 150ms ease, background-color 150ms ease;
   display: flex;
   align-items: center;
 }
@@ -174,7 +148,7 @@ function handleClick(event: MouseEvent) {
   border-radius: 50%;
   background: var(--thumb-bg);
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1), 0 1px 2px rgba(0, 0, 0, 0.06);
-  transition: left 0.25s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.25s ease, box-shadow 0.25s ease;
+  transition: left 150ms ease, background-color 150ms ease;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -187,7 +161,7 @@ function handleClick(event: MouseEvent) {
   border: 2px solid var(--accent);
   border-top-color: transparent;
   border-radius: 50%;
-  transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease, background-color 0.25s ease, color 0.25s ease;
+  transition: border-color 150ms ease;
 }
 
 .plugin-holo-button--compact .plugin-holo-button__thumb-inner {
@@ -224,7 +198,7 @@ function handleClick(event: MouseEvent) {
   line-height: 1;
   white-space: nowrap;
   letter-spacing: 0.04em;
-  transition: opacity 0.2s ease, transform 0.2s ease;
+  transition: opacity 150ms ease, transform 150ms ease;
 }
 
 .plugin-holo-button--compact .plugin-holo-button__text {
@@ -271,22 +245,6 @@ function handleClick(event: MouseEvent) {
 .plugin-holo-button.is-checked .plugin-holo-button__text--on {
   opacity: 1;
   transform: translateY(-50%) scale(1);
-}
-
-.plugin-holo-button__track-lines,
-.plugin-holo-button__track-line,
-.plugin-holo-button__thumb-core,
-.plugin-holo-button__thumb-scan,
-.plugin-holo-button__thumb-particles,
-.plugin-holo-button__thumb-particle,
-.plugin-holo-button__energy,
-.plugin-holo-button__energy-ring,
-.plugin-holo-button__interface,
-.plugin-holo-button__interface-line,
-.plugin-holo-button__reflection,
-.plugin-holo-button__glow,
-.plugin-holo-button__status {
-  display: none !important;
 }
 
 @keyframes spinner {

@@ -28,18 +28,17 @@ export function computeBackoffMs(
   return Math.max(0, Math.round(withJitter))
 }
 
-function buildSocketUrl(path: string, token: string) {
+function buildSocketUrl(path: string) {
   const configuredBase = import.meta.env.VITE_WS_BASE_URL as string | undefined
   const base = configuredBase ? new URL(configuredBase) : new URL(window.location.origin)
   const protocol = base.protocol === 'https:' ? 'wss:' : 'ws:'
   const url = new URL(path, `${protocol}//${base.host}`)
-  url.searchParams.set('session_token', token)
   return url.toString()
 }
 
 export interface SocketRuntime {
-  getToken: () => string | null
-  onSessionExpired: (tokenSnapshot: string | null) => void
+  isAuthenticated: () => boolean
+  onSessionExpired: () => void
 }
 
 export interface SocketStatusDetail {
@@ -77,7 +76,6 @@ export class ManagedSocket<TFrameData = Record<string, unknown>> {
   private lastErrorAt: string | undefined
   private nextBackoffMs: number | undefined
   private pathSnapshot: string | null = null
-  private tokenSnapshot: string | null = null
   private status: ConnectionStatus = 'disconnected'
 
   constructor(options: ManagedSocketOptions<TFrameData>) {
@@ -132,21 +130,18 @@ export class ManagedSocket<TFrameData = Record<string, unknown>> {
   }
 
   private connect() {
-    const token = this.runtime.getToken()
     const path = this.getPath()
 
-    if (!this.started || !token || !path) {
-      this.tokenSnapshot = null
+    if (!this.started || !this.runtime.isAuthenticated() || !path) {
       this.setStatus('disconnected')
       return
     }
 
     this.pathSnapshot = path
-    this.tokenSnapshot = token
     this.nextBackoffMs = undefined
     this.setStatus(this.reconnectAttempts > 0 ? 'reconnecting' : 'connecting')
 
-    const socket = new WebSocket(buildSocketUrl(path, token))
+    const socket = new WebSocket(buildSocketUrl(path))
     this.socket = socket
 
     socket.addEventListener('open', () => {
@@ -176,7 +171,7 @@ export class ManagedSocket<TFrameData = Record<string, unknown>> {
       if ('type' in frame && frame.type === 'session_expired') {
         this.recordError('会话已失效')
         this.setStatus('auth_failed')
-        this.runtime.onSessionExpired(this.tokenSnapshot)
+        this.runtime.onSessionExpired()
         this.stop()
         return
       }
