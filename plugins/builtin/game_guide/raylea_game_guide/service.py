@@ -350,29 +350,39 @@ class GameGuideService:
             "target_id": getattr(ctx, "target_id", ""),
         })
 
-        images, from_cache = self.load_cached_images(character)
-        if images:
-            log_info(ctx, "游戏攻略命中缓存", {
-                "character": character["name"],
-                "images": len(images),
-                "cache_dir": str(self.guide_dir(character)),
-            })
-        if not images:
-            log_info(ctx, "游戏攻略缓存未命中，开始刷新", {
-                "character": character["name"],
-                "cache_dir": str(self.guide_dir(character)),
-            })
-            legacy_images, legacy_from_cache = self.scan_cached_images(character)
-            if legacy_images:
-                log_info(ctx, "游戏攻略发现旧缓存", {
+        try:
+            images, from_cache = self.load_cached_images(character)
+            if images:
+                log_info(ctx, "游戏攻略命中缓存", {
                     "character": character["name"],
-                    "images": len(legacy_images),
+                    "images": len(images),
+                    "cache_dir": str(self.guide_dir(character)),
                 })
-            images = self.refresh_cache(ctx, character)
-            from_cache = False
-            if not images and legacy_images:
-                images = legacy_images
-                from_cache = legacy_from_cache
+            if not images:
+                log_info(ctx, "游戏攻略缓存未命中，开始刷新", {
+                    "character": character["name"],
+                    "cache_dir": str(self.guide_dir(character)),
+                })
+                legacy_images, legacy_from_cache = self.scan_cached_images(character)
+                if legacy_images:
+                    log_info(ctx, "游戏攻略发现旧缓存", {
+                        "character": character["name"],
+                        "images": len(legacy_images),
+                    })
+                images = self.refresh_cache(ctx, character)
+                from_cache = False
+                if not images and legacy_images:
+                    images = legacy_images
+                    from_cache = legacy_from_cache
+        except Exception as exc:
+            fields = {
+                "query": requested,
+                "character": character["name"],
+            }
+            fields.update(error_log_fields(exc))
+            log_warn(ctx, "游戏攻略查询失败", fields)
+            ctx.send_text("攻略图查询失败，请稍后再试。")
+            return
 
         if not images:
             log_warn(ctx, "游戏攻略没有可发送图片", {
@@ -381,7 +391,9 @@ class GameGuideService:
             ctx.send_text(f"没有找到「{character['name']}」的星穹铁道攻略图。")
             return
 
-        self.send_images(ctx, character, images, from_cache)
+        if not self.send_images(ctx, character, images, from_cache):
+            ctx.send_text("攻略图发送失败，请稍后重试。")
+            return
         ctx.send_result({
             "handled": True,
             "character": character["name"],
@@ -443,31 +455,64 @@ class GameGuideService:
                     "batches": len(batches),
                     "images": len(batch),
                 })
-                forward_sender(
-                    getattr(ctx, "target_type", ""),
-                    getattr(ctx, "target_id", ""),
-                    build_forward_messages(character, batch, getattr(ctx, "bot_id", "")),
-                    timeout_seconds=self.forward_send_timeout_seconds,
-                )
+                try:
+                    forward_sender(
+                        getattr(ctx, "target_type", ""),
+                        getattr(ctx, "target_id", ""),
+                        build_forward_messages(character, batch, getattr(ctx, "bot_id", "")),
+                        timeout_seconds=self.forward_send_timeout_seconds,
+                    )
+                except Exception as exc:
+                    fields = {
+                        "character": character["name"],
+                        "delivery_kind": "message.forward.send",
+                        "target_type": getattr(ctx, "target_type", ""),
+                        "target_id": getattr(ctx, "target_id", ""),
+                        "images": len(images),
+                        "batch": batch_index,
+                        "batches": len(batches),
+                        "batch_images": len(batch),
+                        "from_cache": from_cache,
+                    }
+                    fields.update(error_log_fields(exc))
+                    log_warn(ctx, "游戏攻略发送失败", fields)
+                    return False
             log_info(ctx, "游戏攻略合并转发发送完成", {
                 "character": character["name"],
                 "images": len(images),
                 "batches": len(batches),
             })
-            return
+            return True
 
         log_info(ctx, "游戏攻略开始发送普通图片消息", {
             "character": character["name"],
             "images": len(images),
             "from_cache": from_cache,
         })
-        ctx.send_message([
-            {
-                "type": "image",
-                "data": {"file": image["file_uri"]},
+        try:
+            ctx.send_message([
+                {
+                    "type": "image",
+                    "data": {"file": image["file_uri"]},
+                }
+                for image in images
+            ])
+        except Exception as exc:
+            fields = {
+                "character": character["name"],
+                "delivery_kind": "message.send",
+                "target_type": getattr(ctx, "target_type", ""),
+                "target_id": getattr(ctx, "target_id", ""),
+                "images": len(images),
+                "batch": 1,
+                "batches": 1,
+                "batch_images": len(images),
+                "from_cache": from_cache,
             }
-            for image in images
-        ])
+            fields.update(error_log_fields(exc))
+            log_warn(ctx, "游戏攻略发送失败", fields)
+            return False
+        return True
 
     def load_cached_images(self, character):
         index_path = self.cache_index_path(character)
@@ -887,6 +932,17 @@ def log_info(ctx, message, fields=None):
 
 def log_warn(ctx, message, fields=None):
     write_log(ctx, "warn", message, fields)
+
+
+def error_log_fields(exc):
+    fields = {"error": str(exc)}
+    code = str(getattr(exc, "code", "") or "").strip()
+    if code:
+        fields["error_code"] = code
+    details = getattr(exc, "details", None)
+    if isinstance(details, dict) and details:
+        fields["error_details"] = details
+    return fields
 
 
 def write_log(ctx, level, message, fields=None):

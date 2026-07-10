@@ -17,8 +17,15 @@ from raylea_game_guide import (  # noqa: E402
 from main import GameGuidePlugin  # noqa: E402
 
 
+class FakeActionError(RuntimeError):
+    def __init__(self, code, message, details=None):
+        super().__init__(message)
+        self.code = code
+        self.details = details or {}
+
+
 class FakeContext:
-    def __init__(self, plain_text="*昔涟攻略", command=None, args=None, responses=None):
+    def __init__(self, plain_text="*昔涟攻略", command=None, args=None, responses=None, forward_error=None):
         self.event_type = "message.group"
         self.command_prefixes = ["*"]
         self.plain_text = plain_text
@@ -28,6 +35,7 @@ class FakeContext:
         self.target_id = "553855023"
         self.bot_id = "2609164374"
         self.responses = list(responses or [])
+        self.forward_error = forward_error
         self.requests = []
         self.messages = []
         self.forward_messages = []
@@ -59,6 +67,8 @@ class FakeContext:
             "messages": messages,
             "timeout_seconds": timeout_seconds,
         })
+        if self.forward_error is not None:
+            raise self.forward_error
         return {"message_id": f"forward-{len(self.forward_messages)}"}
 
     def send_text(self, text):
@@ -258,6 +268,43 @@ class GameGuideServiceTest(unittest.TestCase):
             self.assertEqual(len(ctx.forward_messages), 1)
             self.assertEqual(len(forwarded_image_files(ctx)), 2)
             self.assertEqual(ctx.results[-1]["images"], 2)
+
+    def test_reports_forward_send_failure_without_query_mislabel(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            service = GameGuideService(plugin_dir=PLUGIN_DIR, cache_root=temp_dir)
+            ctx = FakeContext(
+                responses=[
+                    search_response(),
+                    detail_response("70078539", [
+                        "https://upload-bbs.miyoushe.com/upload/guide-1.png",
+                    ]),
+                    detail_response("70078540", []),
+                    image_response(b"first image"),
+                ],
+                forward_error=FakeActionError(
+                    "adapter.api_call_failed",
+                    "PMHQ send failed: cmd=HttpConn.0x6ff_501 code=2001002",
+                    {"retcode": 2001002},
+                ),
+            )
+
+            service.handle_message(ctx)
+
+            failure_logs = [item for item in ctx.logs if item["message"] == "游戏攻略发送失败"]
+            self.assertEqual(len(failure_logs), 1)
+            self.assertFalse(any(item["message"] == "游戏攻略查询失败" for item in ctx.logs))
+            fields = failure_logs[0]["fields"]
+            self.assertEqual(fields["delivery_kind"], "message.forward.send")
+            self.assertEqual(fields["target_type"], "group")
+            self.assertEqual(fields["images"], 1)
+            self.assertEqual(fields["batch"], 1)
+            self.assertEqual(fields["batches"], 1)
+            self.assertEqual(fields["batch_images"], 1)
+            self.assertEqual(fields["error_code"], "adapter.api_call_failed")
+            self.assertEqual(fields["error_details"], {"retcode": 2001002})
+            self.assertIn("HttpConn.0x6ff_501", fields["error"])
+            self.assertEqual(ctx.texts, ["攻略图发送失败，请稍后重试。"])
+            self.assertEqual(ctx.results, [])
 
     def test_expands_search_result_with_post_detail_images(self):
         with tempfile.TemporaryDirectory() as temp_dir:

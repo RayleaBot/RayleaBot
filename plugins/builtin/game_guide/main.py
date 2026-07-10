@@ -25,10 +25,10 @@ class GameGuidePlugin(RayleaBotPlugin):
             self._service.handle_message(ctx)
         except Exception as exc:
             try:
-                ctx.logger_write("warn", "游戏攻略查询失败", {"error": str(exc)})
+                ctx.logger_write("warn", "游戏攻略处理失败", {"error": str(exc)})
             except Exception:
                 pass
-            ctx.send_text("攻略图查询失败，请稍后再试。")
+            ctx.send_text("游戏攻略处理失败，请稍后再试。")
 
 
 if __name__ == "__main__":
