@@ -25,12 +25,12 @@ HTTP、WebSocket、schema、错误码、插件协议和发布元数据继续由 
 | --- | --- | --- | --- |
 | 设计上下文 | `documented` | `PRODUCT.md`、`DESIGN.md` 与 `.impeccable/design.json` 提供战略、视觉和扩展元数据 | loader 能同时读取产品与设计上下文，设计文件由 CI 识别为 docs |
 | Web 管理面 | `pending-runtime` | 现有 Ant Design Vue tokens 与 CSS variables 继续生效；主题偏好只包含显式亮色和暗色 | 语义 token 完成映射，首次主题跟随系统，页面组合满足 Web 分面验收条件 |
-| Launcher | `pending-runtime` | 已支持 `light`、`dark`、`system`；现有 Fluent theme 与 CSS variables 尚未映射项目级冷暖语义 | 颜色、层次、密度与组件状态完成映射，桌面壳职责保持不变 |
+| Launcher | `adopted` | Fluent theme、CSS variables、原生窗口背景与五个工作区已采用项目级冷暖语义；`760×560` 最小窗口使用顶部紧凑导航 | 后续变更保持语义 token、主题同步、桌面壳职责与 Launcher 分面验收条件 |
 | 内置及官方插件 | `pending-runtime` | 页面各自维护本地 CSS，不共享运行时组件或全局样式 | 本地 token 映射符合项目规范，亮暗主题、焦点、状态和窄屏行为通过验收 |
 | 第三方插件 | `compatible-envelope` | 宿主负责 iframe 边界、载入状态、安全确认和错误恢复；页面不获得宿主全局样式 | 页面支持系统主题媒体查询、键盘操作、对比度和 reduced-motion，不要求使用 RayleaBot 组件 |
 | 宿主手动主题同步 | `requires-contract-first` | `host.init` 没有主题字段，页面不得依赖未声明消息 | 新字段先进入 bridge contract，再同步 fixture、宿主、官方插件示例和文档 |
 
-`documented` 表示正式文档与机器可读上下文完整，`pending-runtime` 表示运行时仍需采用，`compatible-envelope` 表示当前边界允许独立实现，`requires-contract-first` 表示实现前必须冻结正式契约。
+`documented` 表示正式文档与机器可读上下文完整，`adopted` 表示运行时已采用并由对应分面测试约束，`pending-runtime` 表示运行时仍需采用，`compatible-envelope` 表示当前边界允许独立实现，`requires-contract-first` 表示实现前必须冻结正式契约。
 
 ## 共同边界
 
