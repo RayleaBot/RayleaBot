@@ -56,7 +56,9 @@ func ParseLocalAction(kind string, raw json.RawMessage) (*Action, error) {
 		return parseEventExposeWebhookAction(raw)
 	case "render.image":
 		return parseRenderImageAction(raw)
-	case "message.send", "message.reply":
+	case "message.send":
+		return parseMessageSendAction(raw)
+	case "message.reply":
 		return nil, errorf(codePluginProtocolViolation, "terminal message actions must use the current event request_id", nil)
 	default:
 		switch {
@@ -86,7 +88,8 @@ func isLocalActionKind(kind string) bool {
 		"http.request",
 		"scheduler.create",
 		"event.expose_webhook",
-		"render.image":
+		"render.image",
+		"message.send":
 		return true
 	default:
 		return false

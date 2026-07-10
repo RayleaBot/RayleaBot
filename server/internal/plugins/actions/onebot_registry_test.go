@@ -107,7 +107,6 @@ func TestBaseActionHandlersMatchLocalActionCapabilities(t *testing.T) {
 	nonLocalCapabilities := map[string]bool{
 		"event.subscribe":   true,
 		"event.raw_payload": true,
-		"message.send":      true,
 		"message.reply":     true,
 	}
 	for _, capability := range protocolBase {

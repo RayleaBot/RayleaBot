@@ -78,6 +78,27 @@ class PluginHelperTests(unittest.TestCase):
         self.assertEqual({"forward_id": "forward-001"}, sent["data"])
         self.assertEqual("evt-1", sent["parent_request_id"])
 
+    def test_message_send_keeps_parent_event_active(self):
+        sent = self._invoke_local_action(
+            lambda plugin: plugin.message_send(
+                "evt-progress",
+                "group",
+                "20001",
+                [{"type": "text", "data": {"text": "正在处理"}}],
+                timeout_seconds=1,
+            ),
+        )
+
+        self.assertEqual("message.send", sent["action"])
+        self.assertEqual("evt-progress", sent["parent_request_id"])
+        self.assertEqual({
+            "target_type": "group",
+            "target_id": "20001",
+            "message": {
+                "segments": [{"type": "text", "data": {"text": "正在处理"}}],
+            },
+        }, sent["data"])
+
     def test_file_group_fs_delete_requires_folder_or_file_id(self):
         plugin = self.plugin_module.RayleaBotPlugin()
         with self.assertRaises(ValueError):

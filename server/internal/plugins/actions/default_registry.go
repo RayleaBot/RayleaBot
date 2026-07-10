@@ -77,6 +77,7 @@ func defaultRegistrarItems() []registrar {
 		secretReadRegistrar(),
 		httpRequestRegistrar(),
 		renderImageRegistrar(),
+		messageSendRegistrar(),
 		logWriteRegistrar(),
 		pluginListRegistrar(),
 		thirdPartyAccountReadRegistrar(),

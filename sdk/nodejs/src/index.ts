@@ -114,6 +114,13 @@ export interface RayleaBotPluginRuntime {
     options?: { fallbackToSendIfMissing?: boolean },
   ): void;
   sendResult(requestId: string, data?: Record<string, unknown>): void;
+  messageSend(
+    requestId: string,
+    targetType: string,
+    targetId: string,
+    segments: Segment[],
+    options?: ActionOptions,
+  ): Promise<Record<string, unknown>>;
 
   loggerWrite(
     requestId: string,
@@ -562,6 +569,19 @@ export class PluginEventContext {
 
   sendText(text: string, options: { targetType?: string; targetId?: string } = {}): void {
     this.sendMessage([{ type: 'text', data: { text } }], options);
+  }
+
+  messageSend(
+    segments: Segment[],
+    options: ActionOptions & { targetType?: string; targetId?: string } = {},
+  ): Promise<Record<string, unknown>> {
+    return this.plugin.messageSend(
+      this.requestId,
+      options.targetType ?? this.targetType,
+      options.targetId ?? this.targetId,
+      segments,
+      options,
+    );
   }
 
   sendReply(
@@ -1146,6 +1166,21 @@ function createPluginRuntime(owner?: RayleaBotPlugin): RayleaBotPluginRuntime {
 
     sendResult(requestId: string, data: Record<string, unknown> = {}): void {
       sendResult(pluginId, requestId, data);
+    },
+
+    async messageSend(
+      requestId: string,
+      targetType: string,
+      targetId: string,
+      segments: Segment[],
+      options: ActionOptions = {},
+    ): Promise<Record<string, unknown>> {
+      const { timeoutMs = 30000 } = options;
+      return await requestLocalAction(pluginId, requestId, 'message.send', {
+        target_type: targetType,
+        target_id: targetId,
+        message: { segments },
+      }, { timeoutMs });
     },
 
     async loggerWrite(
@@ -2234,6 +2269,7 @@ const delegatedRuntimeMethods = [
   'sendMessage',
   'sendReply',
   'sendResult',
+  'messageSend',
   'loggerWrite',
   'storageGet',
   'storageSet',

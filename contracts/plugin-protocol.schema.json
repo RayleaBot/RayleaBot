@@ -1242,6 +1242,10 @@
             "type": {
               "const": "action"
             },
+            "parent_request_id": {
+              "type": "string",
+              "minLength": 1
+            },
             "action": {
               "type": "string",
               "const": "message.send"
@@ -2759,13 +2763,14 @@
       "type": "action",
       "action_kind": "message.send",
       "direction": "plugin->platform",
-      "request_id_policy": "required_new_request",
+      "request_id_policy": "required_new_request_distinct_from_event",
       "required_fields": [
         "protocol_version",
         "type",
         "timestamp",
         "plugin_id",
         "request_id",
+        "parent_request_id",
         "action",
         "data"
       ],

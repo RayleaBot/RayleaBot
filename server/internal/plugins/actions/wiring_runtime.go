@@ -57,6 +57,24 @@ func ConfigChangedDispatcher(dispatcher *dispatch.Dispatcher) ConfigChangeDispat
 	}
 }
 
+func OutboundMessageSender(dispatcher *dispatch.Dispatcher) MessageSendFunc {
+	if dispatcher == nil {
+		return nil
+	}
+	return func(ctx context.Context, pluginID, requestID string, parentEvent pluginruntime.Event, action pluginruntime.Action) (map[string]any, error) {
+		result, err := dispatcher.ExecuteOutboundAction(ctx, pluginID, requestID, parentEvent, action)
+		if err != nil {
+			return nil, oneBotRuntimeActionError(err)
+		}
+		return map[string]any{
+			"message_id":    result.MessageID,
+			"delivery_kind": result.DeliveryKind,
+			"target_type":   result.TargetType,
+			"target_id":     result.TargetID,
+		}, nil
+	}
+}
+
 func RefreshCommands(catalog *plugincatalog.Catalog, dispatcher *dispatch.Dispatcher) func(context.Context, string, map[string]any) {
 	return func(ctx context.Context, pluginID string, settings map[string]any) {
 		refreshPluginCommands(catalog, dispatcher, pluginID, settings)

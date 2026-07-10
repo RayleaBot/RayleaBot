@@ -82,6 +82,7 @@ func buildLocalActionService(
 		ThirdParty:       thirdParty,
 		Scheduler:        localaction.Scheduler(platform.Scheduler),
 		Dispatcher:       localaction.ConfigChangedDispatcher(eventStack.Dispatcher),
+		MessageSender:    localaction.OutboundMessageSender(eventStack.Dispatcher),
 		Renderer:         localaction.RendererFromService(renderer),
 		Adapter:          eventStack.Adapter,
 		PluginLogLimiter: pluginStack.PluginLogLimiter,

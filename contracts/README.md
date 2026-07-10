@@ -60,7 +60,7 @@
   - 插件 Runtime JSONL 协议
   - 当前冻结 `init`、`init_progress`、`init_ack`、`event`、`result`、`error`、`ping`、`pong`、`shutdown`
   - `error` 帧由插件终态失败与平台 local action 失败共用，固定包含 `code`、`message`，可选 `details`
-  - `message.send`、`message.reply` 使用 shared `message.segments` payload
+  - `message.send`、`message.reply` 使用 shared `message.segments` payload；非终态 `message.send` 通过独立 `request_id` 和当前事件 `parent_request_id` 返回发送结果后继续处理
   - `init.bot` 在协议身份可用时出现，`bot.identity.changed` 用于向运行中插件同步当前 bot 身份
   - 协议身份不可用时 `init.bot` 缺省或 `bot.identity.changed` 携带空身份；依赖 `self_id` 的出站 OneBot 动作返回正式 `error` 帧，不依赖身份的 local action 保持可用
   - `logger.write`、`storage.kv`、`storage.file`、`http.request`、`config.read`、`config.write`、`plugin.list`、`secret.read`、`thirdparty.account.read`、`governance.blacklist.read`、`governance.blacklist.write`、`governance.whitelist.read`、`governance.whitelist.write`、`governance.command_policy.read`、`scheduler.create`、`event.expose_webhook`、`render.image` 已进入正式 local action RPC surface；`scheduler.create.log_label` 用于定时任务管理日志展示；`secret.read` 只读取调用插件自己的 secret 命名空间；`thirdparty.account.read` 只读取插件 manifest 声明平台的已启用有效三方账号，并把 CK 标记为 secret 值；`render.image` 支持系统模板 ID 和调用插件声明的模板短 ID

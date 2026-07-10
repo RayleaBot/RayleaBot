@@ -64,6 +64,9 @@ export class PluginEventContext {
     sendText(text, options = {}) {
         this.sendMessage([{ type: 'text', data: { text } }], options);
     }
+    messageSend(segments, options = {}) {
+        return this.plugin.messageSend(this.requestId, options.targetType ?? this.targetType, options.targetId ?? this.targetId, segments, options);
+    }
     sendReply(replyToEventId, segments, options = {}) {
         this.plugin.sendReply(this.requestId, replyToEventId, segments, options);
     }
@@ -395,6 +398,14 @@ function createPluginRuntime(owner) {
         },
         sendResult(requestId, data = {}) {
             sendResult(pluginId, requestId, data);
+        },
+        async messageSend(requestId, targetType, targetId, segments, options = {}) {
+            const { timeoutMs = 30000 } = options;
+            return await requestLocalAction(pluginId, requestId, 'message.send', {
+                target_type: targetType,
+                target_id: targetId,
+                message: { segments },
+            }, { timeoutMs });
         },
         async loggerWrite(requestId, level, message, fields, options = {}) {
             const data = { level, message };
@@ -930,6 +941,7 @@ const delegatedRuntimeMethods = [
     'sendMessage',
     'sendReply',
     'sendResult',
+    'messageSend',
     'loggerWrite',
     'storageGet',
     'storageSet',

@@ -49,6 +49,7 @@ test('generated declaration files include meta fields and new helpers', async ()
   assert.match(typesText, /bilibili\?: BilibiliPayload;/);
 
   assert.match(indexText, /messageForwardGet/);
+  assert.match(indexText, /messageSend/);
   assert.match(indexText, /fileGroupFsDelete/);
   assert.match(indexText, /napcatGroupSignSet/);
   assert.match(indexText, /export declare class PluginEventContext/);
@@ -68,6 +69,7 @@ test('generated declaration files include meta fields and new helpers', async ()
     'storageFileDelete',
     'storageFileList',
     'messageGet',
+    'messageSend',
     'messageForwardSend',
     'groupList',
     'fileGroupFsDelete',

@@ -6,6 +6,7 @@ frames:
     timestamp: 1710000100
     plugin_id: weather
     request_id: act_seg_0001
+    parent_request_id: evt_weather_0001
     action: message.send
     data:
       target_type: group
@@ -20,3 +21,4 @@ expect:
   notes:
     - message.send rich payload uses message.segments instead of a top-level text field.
     - text-only delivery remains valid through the richer shared segment model.
+    - parent_request_id keeps the event active so the plugin can continue processing after this send.

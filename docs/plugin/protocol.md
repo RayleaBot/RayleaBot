@@ -142,6 +142,8 @@
   - `provider.napcat.group.sign.set`
   - `provider.luckylillia.friend_groups.get`
 
+同一事件需要先发送进度提示、再继续查询或渲染时，使用非终态 `message.send` local action：Python SDK 为 `ctx.message_send(...)`，Node.js SDK 为 `ctx.messageSend(...)`。它使用独立 `request_id` 和当前事件的 `parent_request_id`；`ctx.send_text(...)` / `ctx.sendMessage(...)` 仍用于结束当前事件的单次回复。
+
 所有 action 都走正式 capability 校验、scope 校验和结构化错误返回。
 
 `message.send`、`message.reply`、OneBot family actions 与 provider extension actions 需要可用的 OneBot adapter 连接；连接不可用时返回 adapter 类错误，插件进程保持运行。

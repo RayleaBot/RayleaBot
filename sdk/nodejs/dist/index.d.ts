@@ -57,6 +57,7 @@ export interface RayleaBotPluginRuntime {
         fallbackToSendIfMissing?: boolean;
     }): void;
     sendResult(requestId: string, data?: Record<string, unknown>): void;
+    messageSend(requestId: string, targetType: string, targetId: string, segments: Segment[], options?: ActionOptions): Promise<Record<string, unknown>>;
     loggerWrite(requestId: string, level: string, message: string, fields?: Record<string, unknown>, options?: ActionOptions): Promise<Record<string, unknown>>;
     storageGet(requestId: string, key: string, options?: ActionOptions): Promise<Record<string, unknown>>;
     storageSet(requestId: string, key: string, value: unknown, options?: ActionOptions): Promise<Record<string, unknown>>;
@@ -194,6 +195,10 @@ export declare class PluginEventContext {
         targetType?: string;
         targetId?: string;
     }): void;
+    messageSend(segments: Segment[], options?: ActionOptions & {
+        targetType?: string;
+        targetId?: string;
+    }): Promise<Record<string, unknown>>;
     sendReply(replyToEventId: string, segments: Segment[], options?: {
         fallbackToSendIfMissing?: boolean;
     }): void;

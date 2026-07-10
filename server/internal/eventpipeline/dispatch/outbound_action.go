@@ -12,8 +12,17 @@ import (
 )
 
 func (d *Dispatcher) executeAction(ctx context.Context, pluginID string, requestID string, event pluginruntime.Event, action pluginruntime.Action) {
-	if d.sender == nil {
-		return
+	_, _ = d.ExecuteOutboundAction(ctx, pluginID, requestID, event, action)
+}
+
+// ExecuteOutboundAction sends one plugin message action through the shared
+// capability, rate-limit, metrics, and outbound logging path.
+func (d *Dispatcher) ExecuteOutboundAction(ctx context.Context, pluginID string, requestID string, event pluginruntime.Event, action pluginruntime.Action) (outbound.SendResult, error) {
+	if d == nil || d.sender == nil {
+		return outbound.SendResult{DeliveryKind: action.Kind}, &onebot11.Error{
+			Code:    onebot11.ErrorCodeSendFailed,
+			Message: "adapter outbound sender is not available",
+		}
 	}
 
 	commandName := commandNameForEvent(event)
@@ -35,20 +44,22 @@ func (d *Dispatcher) executeAction(ctx context.Context, pluginID string, request
 	}
 	targetLabel := buildOutboundTargetLabel(ctx, event, targetType, targetID, d.sender)
 	if !d.capabilityDeclared(ctx, pluginID, action.Kind) {
+		err := &onebot11.Error{
+			Code:    "plugin.capability_violation",
+			Message: action.Kind + " capability is not declared",
+		}
+		result := outbound.SendResult{
+			DeliveryKind: action.Kind,
+			TargetType:   targetType,
+			TargetID:     targetID,
+		}
 		outbound.LogSendOutcome(d.logger, outbound.SendLogContext{
 			PluginID:    pluginID,
 			RequestID:   requestID,
 			CommandName: commandName,
 			TargetLabel: targetLabel,
-		}, attempt, outbound.SendResult{
-			DeliveryKind: action.Kind,
-			TargetType:   targetType,
-			TargetID:     targetID,
-		}, &onebot11.Error{
-			Code:    "plugin.capability_violation",
-			Message: action.Kind + " capability is not declared",
-		})
-		return
+		}, attempt, result, err)
+		return result, err
 	}
 	limitTargetType, limitTargetID := d.limitTargetForAction(action)
 	if strings.TrimSpace(limitTargetType) == "" {
@@ -62,17 +73,18 @@ func (d *Dispatcher) executeAction(ctx context.Context, pluginID string, request
 		TargetType: limitTargetType,
 		TargetID:   limitTargetID,
 	}); err != nil {
+		result := outbound.SendResult{
+			DeliveryKind: action.Kind,
+			TargetType:   limitTargetType,
+			TargetID:     limitTargetID,
+		}
 		outbound.LogSendOutcome(d.logger, outbound.SendLogContext{
 			PluginID:    pluginID,
 			RequestID:   requestID,
 			CommandName: commandName,
 			TargetLabel: targetLabel,
-		}, attempt, outbound.SendResult{
-			DeliveryKind: action.Kind,
-			TargetType:   limitTargetType,
-			TargetID:     limitTargetID,
-		}, err)
-		return
+		}, attempt, result, err)
+		return result, err
 	}
 	outboundStart := time.Now()
 	result, err := outbound.SendAction(ctx, d.sender, d.resolver, event, action)
@@ -83,6 +95,7 @@ func (d *Dispatcher) executeAction(ctx context.Context, pluginID string, request
 		CommandName: commandName,
 		TargetLabel: targetLabel,
 	}, attempt, result, err)
+	return result, err
 }
 
 func (d *Dispatcher) capabilityDeclared(ctx context.Context, pluginID string, capability string) bool {

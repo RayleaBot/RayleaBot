@@ -265,6 +265,22 @@ class RayleaBotPlugin:
         with self._terminal_request_lock:
             self._terminal_request_ids.discard(request_id)
 
+    def message_send(self, request_id, target_type, target_id, segments, timeout_seconds=30):
+        """Send a non-terminal message and keep the parent event active."""
+        return protocol.request_local_action(
+            self._plugin_id,
+            request_id,
+            "message.send",
+            {
+                "target_type": target_type,
+                "target_id": target_id,
+                "message": {
+                    "segments": segments,
+                },
+            },
+            timeout_seconds=timeout_seconds,
+        )
+
     def logger_write(self, request_id, level, message, fields=None, timeout_seconds=30):
         """Write a management log entry through the platform-local logger.write action."""
         data = {

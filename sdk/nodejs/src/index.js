@@ -70,6 +70,14 @@ export function createPlugin() {
       });
     },
 
+    async messageSend(requestId, targetType, targetId, segments, options = {}) {
+      return await requestLocalAction(pluginId, requestId, 'message.send', {
+        target_type: targetType,
+        target_id: targetId,
+        message: { segments },
+      }, options);
+    },
+
     sendReply(requestId, replyToEventId, segments, options = {}) {
       const data = {
         reply_to_event_id: replyToEventId,

@@ -160,6 +160,27 @@ func TestParseConfigReadAction(t *testing.T) {
 	}
 }
 
+func TestParseLocalMessageSendAction(t *testing.T) {
+	t.Parallel()
+
+	action, err := ParseLocalAction("message.send", json.RawMessage(`{
+		"target_type": "group",
+		"target_id": "2001",
+		"message": {
+			"segments": [{"type": "text", "data": {"text": "正在处理"}}]
+		}
+	}`))
+	if err != nil {
+		t.Fatalf("parse message.send local action: %v", err)
+	}
+	if action.Kind != "message.send" || action.TargetType != "group" || action.TargetID != "2001" {
+		t.Fatalf("unexpected message.send action: %#v", action)
+	}
+	if len(action.MessageSegments) != 1 || action.MessageSegments[0].Type != "text" {
+		t.Fatalf("unexpected message.send segments: %#v", action.MessageSegments)
+	}
+}
+
 func TestParsePluginListActionVisibility(t *testing.T) {
 	t.Parallel()
 

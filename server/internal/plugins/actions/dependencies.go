@@ -42,6 +42,8 @@ type ConfigChangeDispatchResult struct {
 
 type ConfigChangeDispatcher func(context.Context, string) ConfigChangeDispatchResult
 
+type MessageSendFunc func(context.Context, string, string, pluginruntime.Event, pluginruntime.Action) (map[string]any, error)
+
 type ScheduledTask struct {
 	JobID   string
 	NextRun time.Time

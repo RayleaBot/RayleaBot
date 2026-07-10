@@ -19,6 +19,7 @@ type Deps struct {
 	ThirdParty       ThirdPartyAccountReader
 	Scheduler        SchedulerCreateFunc
 	Dispatcher       ConfigChangeDispatcher
+	MessageSender    MessageSendFunc
 	Renderer         Renderer
 	Adapter          OneBotAdapter
 	PluginLogLimiter *PluginLogLimiter
