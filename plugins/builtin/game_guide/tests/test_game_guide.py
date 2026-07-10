@@ -25,7 +25,15 @@ class FakeActionError(RuntimeError):
 
 
 class FakeContext:
-    def __init__(self, plain_text="*昔涟攻略", command=None, args=None, responses=None, forward_error=None):
+    def __init__(
+        self,
+        plain_text="*昔涟攻略",
+        command=None,
+        args=None,
+        responses=None,
+        forward_error=None,
+        progress_error=None,
+    ):
         self.event_type = "message.group"
         self.command_prefixes = ["*"]
         self.plain_text = plain_text
@@ -36,14 +44,18 @@ class FakeContext:
         self.bot_id = "2609164374"
         self.responses = list(responses or [])
         self.forward_error = forward_error
+        self.progress_error = progress_error
         self.requests = []
         self.messages = []
         self.forward_messages = []
         self.texts = []
         self.results = []
         self.logs = []
+        self.progress_messages = []
+        self.outbound_events = []
 
     def http_request(self, method, url, headers=None, timeout_seconds=30):
+        self.outbound_events.append("http")
         self.requests.append({
             "method": method,
             "url": url,
@@ -58,9 +70,23 @@ class FakeContext:
         return response
 
     def send_message(self, segments, target_type=None, target_id=None):
+        self.outbound_events.append("message")
         self.messages.append({"segments": segments, "target_type": target_type, "target_id": target_id})
 
+    def message_send(self, target_type, target_id, segments, timeout_seconds=30):
+        self.outbound_events.append("progress")
+        self.progress_messages.append({
+            "target_type": target_type,
+            "target_id": target_id,
+            "segments": segments,
+            "timeout_seconds": timeout_seconds,
+        })
+        if self.progress_error is not None:
+            raise self.progress_error
+        return {"message_id": f"progress-{len(self.progress_messages)}"}
+
     def message_forward_send(self, target_type, target_id, messages, timeout_seconds=30):
+        self.outbound_events.append("forward")
         self.forward_messages.append({
             "target_type": target_type,
             "target_id": target_id,
@@ -198,6 +224,9 @@ class GameGuideServiceTest(unittest.TestCase):
 
             service.handle_message(ctx)
 
+            self.assertEqual(ctx.outbound_events[0], "progress")
+            self.assertEqual(len(ctx.progress_messages), 1)
+            self.assertIn("昔涟", ctx.progress_messages[0]["segments"][0]["data"]["text"])
             self.assertEqual(len(ctx.forward_messages), 1)
             self.assertEqual(len(forwarded_image_files(ctx)), 3)
             self.assertEqual(len(ctx.messages), 0)
@@ -218,6 +247,28 @@ class GameGuideServiceTest(unittest.TestCase):
             self.assertEqual(len(forwarded_image_files(cached_ctx)), 3)
             self.assertTrue(cached_ctx.results[-1]["from_cache"])
             self.assertTrue(any(item["message"] == "游戏攻略命中缓存" for item in cached_ctx.logs))
+
+    def test_progress_notice_failure_does_not_abort_guide_delivery(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            service = GameGuideService(plugin_dir=PLUGIN_DIR, cache_root=temp_dir)
+            ctx = FakeContext(
+                responses=[
+                    search_response(),
+                    detail_response("70078539", [
+                        "https://upload-bbs.miyoushe.com/upload/guide-1.png",
+                    ]),
+                    detail_response("70078540", []),
+                    image_response(b"first image"),
+                ],
+                progress_error=FakeActionError("adapter.send_failed", "progress send failed"),
+            )
+
+            service.handle_message(ctx)
+
+            self.assertEqual(len(ctx.progress_messages), 1)
+            self.assertEqual(len(ctx.forward_messages), 1)
+            self.assertEqual(ctx.results[-1]["character"], "昔涟")
+            self.assertTrue(any(item["message"] == "游戏攻略获取提示发送失败" for item in ctx.logs))
 
     def test_alias_resolves_before_search(self):
         with tempfile.TemporaryDirectory() as temp_dir:

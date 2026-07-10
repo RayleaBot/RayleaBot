@@ -27,6 +27,7 @@ DEFAULT_MAX_IMAGES_PER_SOURCE = 60
 DEFAULT_MAX_TOTAL_IMAGES = 120
 DEFAULT_FORWARD_IMAGES_PER_MESSAGE = 100
 DEFAULT_FORWARD_SEND_TIMEOUT_SECONDS = 45
+DEFAULT_PROGRESS_SEND_TIMEOUT_SECONDS = 5
 SUPPORTED_IMAGE_HOSTS = {
     "bbs-static.miyoushe.com",
     "upload-bbs.mihoyo.com",
@@ -342,6 +343,7 @@ class GameGuideService:
             ctx.send_text("请在攻略前写角色名，例如「*昔涟攻略」。")
             return
 
+        self.send_fetching_notice(ctx, character)
         log_info(ctx, "游戏攻略开始查询", {
             "query": requested,
             "character": character["name"],
@@ -400,6 +402,30 @@ class GameGuideService:
             "images": len(images),
             "from_cache": from_cache,
         })
+
+    def send_fetching_notice(self, ctx, character):
+        sender = getattr(ctx, "message_send", None)
+        if not callable(sender):
+            return
+        try:
+            sender(
+                getattr(ctx, "target_type", ""),
+                getattr(ctx, "target_id", ""),
+                [{
+                    "type": "text",
+                    "data": {"text": f"收到，正在获取「{character['name']}」攻略图，请稍候…"},
+                }],
+                timeout_seconds=DEFAULT_PROGRESS_SEND_TIMEOUT_SECONDS,
+            )
+        except Exception as exc:
+            fields = {
+                "character": character["name"],
+                "delivery_kind": "message.send",
+                "target_type": getattr(ctx, "target_type", ""),
+                "target_id": getattr(ctx, "target_id", ""),
+            }
+            fields.update(error_log_fields(exc))
+            log_warn(ctx, "游戏攻略获取提示发送失败", fields)
 
     def handle_character_list(self, ctx):
         characters = self.characters.all()
