@@ -30,15 +30,30 @@ func TestOneBotActionRegistryMatchesContractsAndSDKHelpers(t *testing.T) {
 	assertStringSetEqual(t, "plugin info provider capabilities", infoProviderActions, registryProviderActions)
 
 	pythonSDK := string(readRepoFile(t, filepath.Join(repoRoot, "sdk", "python", "rayleabot", "plugin.py")))
-	nodeSDK := string(readRepoFile(t, filepath.Join(repoRoot, "sdk", "nodejs", "src", "index.js")))
+	nodeSDK := string(readRepoFile(t, filepath.Join(repoRoot, "sdk", "nodejs", "src", "index.ts")))
 	for _, kind := range append(append([]string{}, registryActions...), registryProviderActions...) {
 		if !pythonSDKExposesOneBotAction(pythonSDK, kind) {
 			t.Fatalf("python SDK helper does not expose OneBot action %q", kind)
 		}
-		if !strings.Contains(nodeSDK, "'"+kind+"'") {
+		if !nodeSDKExposesOneBotAction(nodeSDK, kind) {
 			t.Fatalf("node SDK helper does not expose OneBot action %q", kind)
 		}
 	}
+}
+
+func nodeSDKExposesOneBotAction(content string, kind string) bool {
+	if strings.Contains(content, "'"+kind+"'") {
+		return true
+	}
+	providerAction, ok := strings.CutPrefix(kind, "provider.")
+	if !ok {
+		return false
+	}
+	provider, action, ok := strings.Cut(providerAction, ".")
+	if !ok {
+		return false
+	}
+	return strings.Contains(content, "'"+provider+"'") && strings.Contains(content, "'"+action+"'")
 }
 
 func pythonSDKExposesOneBotAction(content string, kind string) bool {

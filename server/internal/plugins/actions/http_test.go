@@ -68,6 +68,32 @@ func TestExecuteHTTPRejectsUndeclaredHost(t *testing.T) {
 	}
 }
 
+func TestExecuteHTTPMapsOversizedResponseToStableError(t *testing.T) {
+	t.Parallel()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte("response is too large"))
+	}))
+	defer server.Close()
+
+	_, err := executeHTTPRequest(context.Background(), "plugin.http", pluginruntime.Action{
+		HTTPMethod: "GET",
+		HTTPURL:    server.URL,
+	}, config.Config{HTTP: config.HTTPConfig{
+		TimeoutSeconds:       5,
+		MaxResponseBodyBytes: 4,
+		AllowPrivateHosts:    []string{"127.0.0.1"},
+	}}, stubHTTPActionCapabilities{
+		capabilities: map[string]bool{"http.request": true},
+		httpHosts:    []string{"127.0.0.1"},
+	})
+
+	var runtimeErr *pluginruntime.Error
+	if !errors.As(err, &runtimeErr) || runtimeErr.Code != "platform.upstream_response_too_large" {
+		t.Fatalf("unexpected oversized response error: %#v", err)
+	}
+}
+
 type stubHTTPActionCapabilities struct {
 	capabilities map[string]bool
 	httpHosts    []string

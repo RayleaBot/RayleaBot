@@ -4,7 +4,10 @@ import (
 	"archive/zip"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -30,7 +33,7 @@ func TestInstallServiceInstallsLocalDirectoryAndRefreshesCatalog(t *testing.T) {
 	service, catalog := newInstallTestService(t, repoRoot, registry, nil, repository, installerDeps{})
 	defer service.Close()
 
-	taskID, err := service.Accept(context.Background(), plugins.InstallRequest{
+	taskID, err := acceptInspected(t, service, plugins.InstallRequest{
 		SourceType: "local_directory",
 		Source:     sourceDir,
 	})
@@ -98,7 +101,7 @@ func TestInstallServiceInvokesAfterSuccessCallback(t *testing.T) {
 		return nil
 	})
 
-	taskID, err := service.Accept(context.Background(), plugins.InstallRequest{
+	taskID, err := acceptInspected(t, service, plugins.InstallRequest{
 		SourceType: "local_directory",
 		Source:     sourceDir,
 	})
@@ -141,7 +144,7 @@ func TestInstallServiceFailsWhenAfterSuccessCallbackFails(t *testing.T) {
 		return fmt.Errorf("sync plugin render template callback-fail-weather: source conflict")
 	})
 
-	taskID, err := service.Accept(context.Background(), plugins.InstallRequest{
+	taskID, err := acceptInspected(t, service, plugins.InstallRequest{
 		SourceType: "local_directory",
 		Source:     sourceDir,
 	})
@@ -179,7 +182,7 @@ func TestInstallServiceInstallsLocalZip(t *testing.T) {
 	service, catalog := newInstallTestService(t, repoRoot, registry, nil, &stubInstallRepository{}, installerDeps{})
 	defer service.Close()
 
-	taskID, err := service.Accept(context.Background(), plugins.InstallRequest{
+	taskID, err := acceptInspected(t, service, plugins.InstallRequest{
 		SourceType: "local_zip",
 		Source:     archivePath,
 	})
@@ -197,6 +200,191 @@ func TestInstallServiceInstallsLocalZip(t *testing.T) {
 	}
 }
 
+func TestInstallServiceMapsRemoteDownloadLimitToStableError(t *testing.T) {
+	t.Parallel()
+
+	registry := tasks.NewRegistry()
+	service, _ := newInstallTestService(t, t.TempDir(), registry, nil, &stubInstallRepository{}, installerDeps{
+		downloadFile: func(context.Context, string, string) error {
+			return fmt.Errorf("%w: fixture", errPluginPackageResourceLimit)
+		},
+	})
+	defer service.Close()
+
+	_, err := service.Inspect(context.Background(), plugins.InstallRequest{
+		SourceType: "remote_url",
+		Source:     "https://downloads.example/plugin.zip",
+	})
+	if InstallErrorCode(err) != codePackageResourceLimit {
+		t.Fatalf("unexpected inspection error: %v", err)
+	}
+	if len(registry.List()) != 0 {
+		t.Fatal("failed inspection created an install task")
+	}
+}
+
+func TestInstallServiceBindsAcceptanceToInspectionDigestAndTrust(t *testing.T) {
+	t.Parallel()
+
+	registry := tasks.NewRegistry()
+	sourceDir := writeInstallSourcePlugin(t, filepath.Join(t.TempDir(), "inspect-src"), "inspect-weather", "nodejs", "index.js")
+	service, _ := newInstallTestService(t, t.TempDir(), registry, nil, &stubInstallRepository{}, installerDeps{})
+	defer service.Close()
+
+	request := plugins.InstallRequest{SourceType: "local_directory", Source: sourceDir}
+	inspection, err := service.Inspect(context.Background(), request)
+	if err != nil {
+		t.Fatalf("Inspect failed: %v", err)
+	}
+	request.InspectionID = inspection.InspectionID
+	request.PackageSHA256 = inspection.PackageSHA256
+	if _, err := service.Accept(context.Background(), request); !errors.Is(err, plugins.ErrTrustedCodeConfirmation) {
+		t.Fatalf("untrusted acceptance error = %v", err)
+	}
+
+	request.TrustedCodeConfirmed = true
+	request.PackageSHA256 = strings.Repeat("f", 64)
+	if _, err := service.Accept(context.Background(), request); !errors.Is(err, plugins.ErrInstallDigestMismatch) {
+		t.Fatalf("digest mismatch error = %v", err)
+	}
+	if len(registry.List()) != 0 {
+		t.Fatal("rejected inspection created a task")
+	}
+
+	request.PackageSHA256 = inspection.PackageSHA256
+	if _, err := service.Accept(context.Background(), request); err != nil {
+		t.Fatalf("accept inspected package: %v", err)
+	}
+}
+
+func TestInstallServiceRejectsFullQueueBeforeTaskCreation(t *testing.T) {
+	registry := tasks.NewRegistry()
+	repoRoot := t.TempDir()
+	sourceDir := writeInstallSourcePlugin(t, filepath.Join(t.TempDir(), "queue-src"), "queue-weather", "nodejs", "index.js")
+	started := make(chan struct{})
+	release := make(chan struct{})
+	service, _ := newInstallTestService(t, repoRoot, registry, nil, &stubInstallRepository{}, installerDeps{})
+	service.SetAfterSuccess(func(ctx context.Context, _ string) error {
+		select {
+		case <-started:
+		default:
+			close(started)
+		}
+		select {
+		case <-release:
+			return nil
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+	})
+
+	request := plugins.InstallRequest{SourceType: "local_directory", Source: sourceDir}
+	if _, err := acceptInspected(t, service, request); err != nil {
+		t.Fatalf("submit running install: %v", err)
+	}
+	<-started
+	for index := 0; index < 32; index++ {
+		if _, err := acceptInspected(t, service, request); err != nil {
+			t.Fatalf("submit queued install %d: %v", index, err)
+		}
+	}
+	before := len(registry.List())
+	if _, err := acceptInspected(t, service, request); !errors.Is(err, tasks.ErrQueueFull) {
+		t.Fatalf("queue-full error = %v, want tasks.ErrQueueFull", err)
+	}
+	if after := len(registry.List()); after != before {
+		t.Fatalf("queue-full install created a task: before=%d after=%d", before, after)
+	}
+	close(release)
+	if err := service.Close(); err != nil {
+		t.Fatalf("close install service: %v", err)
+	}
+}
+
+func TestExtractZipSourceRejectsUnsafeEntriesAndCompressionBombs(t *testing.T) {
+	tests := []struct {
+		name    string
+		header  zip.FileHeader
+		content string
+		code    string
+	}{
+		{
+			name: "symlink",
+			header: func() zip.FileHeader {
+				header := zip.FileHeader{Name: "plugin/link", Method: zip.Store}
+				header.SetMode(os.ModeSymlink | 0o777)
+				return header
+			}(),
+			content: "../outside",
+			code:    codePackageUnsafeEntry,
+		},
+		{
+			name:    "zip bomb ratio",
+			header:  zip.FileHeader{Name: "plugin/payload.txt", Method: zip.Deflate},
+			content: strings.Repeat("0", 1024*1024),
+			code:    codePackageResourceLimit,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			archivePath := filepath.Join(t.TempDir(), "unsafe.zip")
+			writeZipEntries(t, archivePath, []zipTestEntry{{header: test.header, content: test.content}})
+			_, err := extractZipSource(context.Background(), archivePath, t.TempDir())
+			if err == nil {
+				t.Fatal("expected unsafe archive to be rejected")
+			}
+			var installErr *installTaskError
+			if !errors.As(err, &installErr) || installErr.Code != test.code {
+				t.Fatalf("archive error = %#v, want code %s", err, test.code)
+			}
+		})
+	}
+}
+
+func TestExtractZipSourceRejectsEntryCountLimit(t *testing.T) {
+	entries := make([]zipTestEntry, maxPluginArchiveEntries+1)
+	for index := range entries {
+		entries[index].header = zip.FileHeader{
+			Name:   fmt.Sprintf("plugin/file-%05d.txt", index),
+			Method: zip.Store,
+		}
+	}
+	archivePath := filepath.Join(t.TempDir(), "too-many-entries.zip")
+	writeZipEntries(t, archivePath, entries)
+
+	_, err := extractZipSource(context.Background(), archivePath, t.TempDir())
+	var installErr *installTaskError
+	if !errors.As(err, &installErr) || installErr.Code != codePackageResourceLimit {
+		t.Fatalf("entry-limit error = %#v, want %s", err, codePackageResourceLimit)
+	}
+}
+
+func TestValidatePluginDownloadRedirect(t *testing.T) {
+	request := func(rawURL string) *http.Request {
+		parsed, err := url.Parse(rawURL)
+		if err != nil {
+			t.Fatalf("parse URL: %v", err)
+		}
+		return &http.Request{URL: parsed}
+	}
+
+	if err := validatePluginDownloadRedirect(request("https://downloads.example/plugin.zip"), make([]*http.Request, maxPluginDownloadRedirects)); err != nil {
+		t.Fatalf("valid redirect rejected: %v", err)
+	}
+	for _, rawURL := range []string{
+		"http://downloads.example/plugin.zip",
+		"https://user:password@downloads.example/plugin.zip",
+	} {
+		if err := validatePluginDownloadRedirect(request(rawURL), nil); err == nil {
+			t.Fatalf("unsafe redirect accepted: %s", rawURL)
+		}
+	}
+	if err := validatePluginDownloadRedirect(request("https://downloads.example/plugin.zip"), make([]*http.Request, maxPluginDownloadRedirects+1)); err == nil {
+		t.Fatal("redirect limit was not enforced")
+	}
+}
+
 func TestInstallServiceRejectsInvalidRenderTemplatePackage(t *testing.T) {
 	t.Parallel()
 
@@ -211,7 +399,7 @@ func TestInstallServiceRejectsInvalidRenderTemplatePackage(t *testing.T) {
 	})
 	defer service.Close()
 
-	taskID, err := service.Accept(context.Background(), plugins.InstallRequest{
+	taskID, err := acceptInspected(t, service, plugins.InstallRequest{
 		SourceType: "local_directory",
 		Source:     sourceDir,
 	})
@@ -241,7 +429,7 @@ func TestInstallServiceInstallsRenderTemplatePackage(t *testing.T) {
 	service.SetRenderTemplateValidator(validateInstallRenderTemplates)
 	defer service.Close()
 
-	taskID, err := service.Accept(context.Background(), plugins.InstallRequest{
+	taskID, err := acceptInspected(t, service, plugins.InstallRequest{
 		SourceType: "local_directory",
 		Source:     sourceDir,
 	})
@@ -275,7 +463,7 @@ func TestInstallServiceRejectsInvalidRenderTemplateManifest(t *testing.T) {
 	service.SetRenderTemplateValidator(validateInstallRenderTemplates)
 	defer service.Close()
 
-	taskID, err := service.Accept(context.Background(), plugins.InstallRequest{
+	taskID, err := acceptInspected(t, service, plugins.InstallRequest{
 		SourceType: "local_directory",
 		Source:     sourceDir,
 	})
@@ -309,7 +497,7 @@ func TestInstallServiceFailsDuplicatePluginID(t *testing.T) {
 	service, _ := newInstallTestService(t, repoRoot, registry, existing, &stubInstallRepository{}, installerDeps{})
 	defer service.Close()
 
-	taskID, err := service.Accept(context.Background(), plugins.InstallRequest{
+	taskID, err := acceptInspected(t, service, plugins.InstallRequest{
 		SourceType: "local_directory",
 		Source:     sourceDir,
 	})
@@ -333,22 +521,19 @@ func TestInstallServiceCancelsRunningTask(t *testing.T) {
 	repoRoot := t.TempDir()
 	sourceDir := writeInstallSourcePlugin(t, filepath.Join(t.TempDir(), "cancel-src"), "cancel-weather", "nodejs", "index.js")
 
-	copyStarted := make(chan struct{}, 1)
-	deps := installerDeps{
-		copyDir: func(ctx context.Context, sourceRoot, targetRoot string) error {
-			select {
-			case copyStarted <- struct{}{}:
-			default:
-			}
-			<-ctx.Done()
-			return ctx.Err()
-		},
-	}
-
-	service, _ := newInstallTestService(t, repoRoot, registry, nil, &stubInstallRepository{}, deps)
+	installStarted := make(chan struct{}, 1)
+	service, _ := newInstallTestService(t, repoRoot, registry, nil, &stubInstallRepository{}, installerDeps{})
+	service.SetAfterSuccess(func(ctx context.Context, _ string) error {
+		select {
+		case installStarted <- struct{}{}:
+		default:
+		}
+		<-ctx.Done()
+		return ctx.Err()
+	})
 	defer service.Close()
 
-	taskID, err := service.Accept(context.Background(), plugins.InstallRequest{
+	taskID, err := acceptInspected(t, service, plugins.InstallRequest{
 		SourceType: "local_directory",
 		Source:     sourceDir,
 	})
@@ -357,7 +542,7 @@ func TestInstallServiceCancelsRunningTask(t *testing.T) {
 	}
 
 	select {
-	case <-copyStarted:
+	case <-installStarted:
 	case <-time.After(time.Second):
 		t.Fatal("timed out waiting for running install phase")
 	}
@@ -384,7 +569,7 @@ func TestInstallServiceBlocksInstallScriptsWithoutAuthorization(t *testing.T) {
 	service, _ := newInstallTestService(t, repoRoot, registry, nil, &stubInstallRepository{}, installerDeps{})
 	defer service.Close()
 
-	taskID, err := service.Accept(context.Background(), plugins.InstallRequest{
+	taskID, err := acceptInspected(t, service, plugins.InstallRequest{
 		SourceType: "local_directory",
 		Source:     sourceDir,
 	})
@@ -447,14 +632,14 @@ func TestInstallServicePreparesRuntimeDependencies(t *testing.T) {
 	})
 	defer service.Close()
 
-	pythonTaskID, err := service.Accept(context.Background(), plugins.InstallRequest{
+	pythonTaskID, err := acceptInspected(t, service, plugins.InstallRequest{
 		SourceType: "local_directory",
 		Source:     pythonSource,
 	})
 	if err != nil {
 		t.Fatalf("python Accept failed: %v", err)
 	}
-	nodeTaskID, err := service.Accept(context.Background(), plugins.InstallRequest{
+	nodeTaskID, err := acceptInspected(t, service, plugins.InstallRequest{
 		SourceType:          "local_directory",
 		Source:              nodeSource,
 		AllowInstallScripts: true,
@@ -541,6 +726,18 @@ type stubInstallRepository struct {
 	saved          map[string]string
 	lastPackage    plugins.PackageMetadata
 	deletedPackage string
+}
+
+func acceptInspected(t *testing.T, service *InstallService, request plugins.InstallRequest) (string, error) {
+	t.Helper()
+	inspection, err := service.Inspect(context.Background(), request)
+	if err != nil {
+		return "", err
+	}
+	request.InspectionID = inspection.InspectionID
+	request.PackageSHA256 = inspection.PackageSHA256
+	request.TrustedCodeConfirmed = true
+	return service.Accept(context.Background(), request)
 }
 
 func (r *stubInstallRepository) LoadDesiredStates(context.Context) (map[string]string, error) {
@@ -755,6 +952,35 @@ func writePluginZip(t *testing.T, archivePath, sourceDir string) {
 
 	if err := writer.Close(); err != nil {
 		t.Fatalf("close zip writer: %v", err)
+	}
+}
+
+type zipTestEntry struct {
+	header  zip.FileHeader
+	content string
+}
+
+func writeZipEntries(t *testing.T, archivePath string, entries []zipTestEntry) {
+	t.Helper()
+	file, err := os.Create(archivePath)
+	if err != nil {
+		t.Fatalf("create zip: %v", err)
+	}
+	writer := zip.NewWriter(file)
+	for _, entry := range entries {
+		entryWriter, err := writer.CreateHeader(&entry.header)
+		if err != nil {
+			t.Fatalf("create zip entry: %v", err)
+		}
+		if _, err := entryWriter.Write([]byte(entry.content)); err != nil {
+			t.Fatalf("write zip entry: %v", err)
+		}
+	}
+	if err := writer.Close(); err != nil {
+		t.Fatalf("close zip writer: %v", err)
+	}
+	if err := file.Close(); err != nil {
+		t.Fatalf("close zip file: %v", err)
 	}
 }
 

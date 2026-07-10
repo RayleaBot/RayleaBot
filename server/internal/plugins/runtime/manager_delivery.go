@@ -10,6 +10,13 @@ func (m *Manager) DeliverEvent(ctx context.Context, event Event) (Delivery, erro
 	if event.EventID == "" || event.SourceProtocol == "" || event.SourceAdapter == "" || event.EventType == "" || event.Timestamp <= 0 {
 		return Delivery{}, errorf(codePlatformInvalidRequest, "event payload is missing required fields", nil)
 	}
+	if event.EventType == "webhook.received" {
+		if event.Webhook == nil || event.Webhook.Route == "" || event.Webhook.ReceivedAt <= 0 {
+			return Delivery{}, errorf(codePlatformInvalidRequest, "webhook event metadata is missing required fields", nil)
+		}
+	} else if event.Webhook != nil {
+		return Delivery{}, errorf(codePlatformInvalidRequest, "webhook metadata is only valid for webhook.received events", nil)
+	}
 
 	m.mu.RLock()
 	handle := m.proc
@@ -93,6 +100,14 @@ func BuildEventFrame(event Event, pluginID string, requestID string, timestamp i
 	}
 	if payload, ok := buildEventPayload(event); ok {
 		frame.Event.Payload = payload
+	}
+	if event.Webhook != nil {
+		frame.Event.Webhook = &ProtocolWebhookFrame{
+			Route:           event.Webhook.Route,
+			ReceivedAt:      event.Webhook.ReceivedAt,
+			ClientTimestamp: event.Webhook.ClientTimestamp,
+			ClientEventID:   event.Webhook.ClientEventID,
+		}
 	}
 	if event.RawPayload != nil {
 		frame.Event.RawPayload = event.RawPayload

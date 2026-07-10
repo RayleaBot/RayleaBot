@@ -1,6 +1,7 @@
 package actions
 
 import (
+	"compress/gzip"
 	"context"
 	"errors"
 	"net"
@@ -8,6 +9,7 @@ import (
 	"net/http/httptest"
 	"net/netip"
 	"net/url"
+	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -141,6 +143,70 @@ func TestHTTPClientRetriesIdempotentStatusCodes(t *testing.T) {
 	}
 	if got := hits.Load(); got != 2 {
 		t.Fatalf("hits = %d, want 2", got)
+	}
+}
+
+func TestHTTPClientRejectsDecodedBodyLimitWithoutRetry(t *testing.T) {
+	t.Parallel()
+
+	var hits atomic.Int32
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		hits.Add(1)
+		w.Header().Set("Content-Encoding", "gzip")
+		w.WriteHeader(http.StatusServiceUnavailable)
+		writer := gzip.NewWriter(w)
+		_, _ = writer.Write([]byte(strings.Repeat("a", 128)))
+		_ = writer.Close()
+	}))
+	defer server.Close()
+
+	requestURL, resolver := testHTTPURLAndResolver(t, server.URL, "internal.test")
+	client := newHTTPClient(httpClientConfig{
+		Resolver:             resolver,
+		Timeout:              5 * time.Second,
+		MaxRetries:           2,
+		MaxResponseBodyBytes: 64,
+		AllowPrivateHosts:    []string{"internal.test"},
+	})
+
+	_, err := client.do(context.Background(), httpClientRequest{
+		Method:  "GET",
+		URL:     requestURL,
+		Headers: map[string]string{"Accept-Encoding": "gzip"},
+	}, []string{"internal.test"})
+	if !errors.Is(err, errHTTPResponseTooLarge) {
+		t.Fatalf("decoded body limit error = %v, want errHTTPResponseTooLarge", err)
+	}
+	if got := hits.Load(); got != 1 {
+		t.Fatalf("oversized response was retried: hits=%d want=1", got)
+	}
+}
+
+func TestHTTPClientRejectsHeaderLimitWithoutRetry(t *testing.T) {
+	t.Parallel()
+
+	var hits atomic.Int32
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		hits.Add(1)
+		w.Header().Set("X-Large", strings.Repeat("h", int(maxHTTPResponseHeaderBytes)))
+		w.WriteHeader(http.StatusServiceUnavailable)
+	}))
+	defer server.Close()
+
+	requestURL, resolver := testHTTPURLAndResolver(t, server.URL, "internal.test")
+	client := newHTTPClient(httpClientConfig{
+		Resolver:          resolver,
+		Timeout:           5 * time.Second,
+		MaxRetries:        2,
+		AllowPrivateHosts: []string{"internal.test"},
+	})
+
+	_, err := client.do(context.Background(), httpClientRequest{Method: "GET", URL: requestURL}, []string{"internal.test"})
+	if !errors.Is(err, errHTTPResponseTooLarge) {
+		t.Fatalf("header limit error = %v, want errHTTPResponseTooLarge", err)
+	}
+	if got := hits.Load(); got != 1 {
+		t.Fatalf("oversized headers were retried: hits=%d want=1", got)
 	}
 }
 

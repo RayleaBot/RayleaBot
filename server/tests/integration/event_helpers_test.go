@@ -70,9 +70,11 @@ func newTestAppWithOneBotAccessToken(t *testing.T, accessToken string, authOptio
 	schemaPath := filepath.Join("..", "contracts", "config.user.schema.json")
 
 	application, err := app.New(app.Options{
-		ConfigPath:  configPath,
-		SchemaPath:  schemaPath,
-		AuthOptions: authOptions,
+		ConfigPath:           configPath,
+		SchemaPath:           schemaPath,
+		SetupToken:           testutil.TestSetupToken,
+		LauncherControlToken: testutil.TestLauncherControlToken,
+		AuthOptions:          authOptions,
 	})
 	if err != nil {
 		t.Fatalf("app.New failed: %v", err)

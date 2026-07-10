@@ -24,7 +24,7 @@ func httpRequestRegistrar() registrar {
 			ResponseSchema:  "plugin-protocol.local_action_result",
 			AccessesNetwork: true,
 			AuditFields:     []string{"plugin_id", "method", "url"},
-			ErrorCodes:      commonErrorCodes("platform.invalid_request"),
+			ErrorCodes:      commonErrorCodes("platform.invalid_request", "platform.upstream_response_too_large"),
 		},
 		factory: func(deps Deps) ActionHandler {
 			return func(ctx context.Context, req ActionRequest) (map[string]any, error) {
@@ -43,9 +43,10 @@ func executeHTTPRequest(ctx context.Context, pluginID string, action pluginrunti
 	}
 
 	client := newHTTPClient(httpClientConfig{
-		Timeout:           currentHTTPTimeout(cfg),
-		MaxRetries:        currentHTTPMaxRetries(cfg),
-		AllowPrivateHosts: append([]string(nil), cfg.HTTP.AllowPrivateHosts...),
+		Timeout:              currentHTTPTimeout(cfg),
+		MaxRetries:           currentHTTPMaxRetries(cfg),
+		MaxResponseBodyBytes: currentHTTPMaxResponseBodyBytes(cfg),
+		AllowPrivateHosts:    append([]string(nil), cfg.HTTP.AllowPrivateHosts...),
 	})
 	scopeHosts := capabilities.HTTPHosts(ctx, pluginID)
 	headers := cloneHTTPHeaders(action.HTTPHeaders)
@@ -67,6 +68,13 @@ func executeHTTPRequest(ctx context.Context, pluginID string, action pluginrunti
 		return nil, &pluginruntime.Error{
 			Code:    "platform.invalid_request",
 			Message: "http.request request is invalid",
+		}
+	}
+	if err == errHTTPResponseTooLarge {
+		return nil, &pluginruntime.Error{
+			Code:    "platform.upstream_response_too_large",
+			Message: "http.request response exceeded resource limits",
+			Err:     err,
 		}
 	}
 	if err != nil {
@@ -107,6 +115,13 @@ func currentHTTPMaxRetries(cfg config.Config) int {
 		return 0
 	}
 	return cfg.HTTP.MaxRetries
+}
+
+func currentHTTPMaxResponseBodyBytes(cfg config.Config) int64 {
+	if cfg.HTTP.MaxResponseBodyBytes <= 0 {
+		return defaultHTTPMaxResponseBodyBytes
+	}
+	return cfg.HTTP.MaxResponseBodyBytes
 }
 
 func currentHTTPActionTimeout(action pluginruntime.Action) time.Duration {

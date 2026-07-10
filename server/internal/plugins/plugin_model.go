@@ -2,7 +2,15 @@ package plugins
 
 import (
 	"context"
+	"errors"
 	"time"
+)
+
+var (
+	ErrInstallInspectionRequired = errors.New("plugin install inspection required")
+	ErrInstallInspectionExpired  = errors.New("plugin install inspection expired")
+	ErrInstallDigestMismatch     = errors.New("plugin install digest mismatch")
+	ErrTrustedCodeConfirmation   = errors.New("trusted code confirmation required")
 )
 
 type CatalogView interface {
@@ -184,9 +192,32 @@ type PackageMetadataLoader interface {
 }
 
 type InstallRequest struct {
-	SourceType          string
-	Source              string
-	AllowInstallScripts bool
+	SourceType           string
+	Source               string
+	InspectionID         string
+	PackageSHA256        string
+	TrustedCodeConfirmed bool
+	AllowInstallScripts  bool
+}
+
+type InstallInspection struct {
+	InspectionID   string
+	ExpiresAt      time.Time
+	PackageSHA256  string
+	SourceType     string
+	Source         string
+	PluginID       string
+	PluginName     string
+	Version        string
+	Author         string
+	License        string
+	SourceLabel    string
+	Capabilities   []string
+	InstallScripts []string
+}
+
+type InstallInspector interface {
+	Inspect(context.Context, InstallRequest) (InstallInspection, error)
 }
 
 type InstallCoordinator interface {

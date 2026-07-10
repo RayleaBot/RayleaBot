@@ -2,15 +2,119 @@ package management
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
+	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	"github.com/RayleaBot/RayleaBot/server/internal/tasks"
 	"pgregory.net/rapid"
 )
+
+type queueFullInstaller struct{}
+
+func (queueFullInstaller) Accept(context.Context, plugins.InstallRequest) (string, error) {
+	return "", tasks.ErrQueueFull
+}
+
+func (queueFullInstaller) Cancel(string) bool { return false }
+func (queueFullInstaller) Close() error       { return nil }
+
+type inspectionInstaller struct {
+	inspection plugins.InstallInspection
+	request    plugins.InstallRequest
+}
+
+func (installer *inspectionInstaller) Inspect(_ context.Context, request plugins.InstallRequest) (plugins.InstallInspection, error) {
+	installer.request = request
+	return installer.inspection, nil
+}
+
+func (*inspectionInstaller) Accept(context.Context, plugins.InstallRequest) (string, error) {
+	return "task_inspected", nil
+}
+
+func (*inspectionInstaller) Cancel(string) bool { return false }
+func (*inspectionInstaller) Close() error       { return nil }
+
+func TestInstallInspectHandlerReturnsDigestBoundMetadata(t *testing.T) {
+	installer := &inspectionInstaller{inspection: plugins.InstallInspection{
+		InspectionID:   strings.Repeat("i", 64),
+		ExpiresAt:      time.Date(2026, 7, 10, 12, 15, 0, 0, time.UTC),
+		PackageSHA256:  strings.Repeat("a", 64),
+		SourceType:     "local_zip",
+		Source:         "C:/plugins/weather.zip",
+		PluginID:       "example.weather",
+		PluginName:     "Weather",
+		Version:        "1.0.0",
+		Author:         "example",
+		License:        "MIT",
+		SourceLabel:    "本地插件包",
+		Capabilities:   []string{"event.subscribe", "http.request"},
+		InstallScripts: []string{"install"},
+	}}
+	handler := newInstallInspectHandler(newTestCatalog(nil), installer)
+	request := httptest.NewRequest(http.MethodPost, "/api/plugins/install/inspect", strings.NewReader(`{"source_type":"local_zip","source":"C:/plugins/weather.zip"}`))
+	recorder := httptest.NewRecorder()
+
+	handler.ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200: %s", recorder.Code, recorder.Body.String())
+	}
+	var response pluginInstallInspectionResponse
+	if err := json.Unmarshal(recorder.Body.Bytes(), &response); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if response.InspectionID != installer.inspection.InspectionID || response.PackageSHA256 != installer.inspection.PackageSHA256 {
+		t.Fatalf("unexpected inspection response: %#v", response)
+	}
+	if installer.request.Source != "C:/plugins/weather.zip" {
+		t.Fatalf("unexpected inspect request: %#v", installer.request)
+	}
+}
+
+func TestInstallHandlerRequiresTrustedCodeConfirmation(t *testing.T) {
+	payload := trustedInstallRequest("local_zip", "C:/plugins/weather.zip")
+	payload.TrustedCodeConfirmed = false
+	body, _ := json.Marshal(payload)
+	handler := newInstallHandler(nil, nil, &inspectionInstaller{})
+	request := httptest.NewRequest(http.MethodPost, "/api/plugins/install", bytes.NewReader(body))
+	recorder := httptest.NewRecorder()
+
+	handler.ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusForbidden {
+		t.Fatalf("status = %d, want 403: %s", recorder.Code, recorder.Body.String())
+	}
+	if envelope := decodeErrorEnvelope(t, recorder.Body.Bytes()); envelope.Error.Code != "plugin.trusted_code_confirmation_required" {
+		t.Fatalf("unexpected error code: %q", envelope.Error.Code)
+	}
+}
+
+func TestInstallHandlerMapsQueueFullWithoutCreatingTask(t *testing.T) {
+	registry := tasks.NewRegistry()
+	handler := newInstallHandler(nil, registry, queueFullInstaller{})
+	request := httptest.NewRequest(http.MethodPost, "/api/plugins/install", strings.NewReader(`{"source_type":"local_zip","source":"plugin.zip","inspection_id":"iiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii","package_sha256":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","trusted_code_confirmed":true}`))
+	request.Header.Set("Content-Type", "application/json")
+	recorder := httptest.NewRecorder()
+
+	handler.ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusTooManyRequests {
+		t.Fatalf("status = %d, want 429: %s", recorder.Code, recorder.Body.String())
+	}
+	if envelope := decodeErrorEnvelope(t, recorder.Body.Bytes()); envelope.Error.Code != "platform.task_queue_full" {
+		t.Fatalf("error code = %q, want platform.task_queue_full", envelope.Error.Code)
+	}
+	if len(registry.List()) != 0 {
+		t.Fatal("queue-full handler created a pending task")
+	}
+}
 
 func TestProperty_InstallCreatesQueryableTask(t *testing.T) {
 	rapid.Check(t, func(t *rapid.T) {
@@ -19,7 +123,7 @@ func TestProperty_InstallCreatesQueryableTask(t *testing.T) {
 
 		router, _, taskRegistry, _ := setupRouter(nil)
 
-		reqBody, _ := json.Marshal(pluginInstallRequest{SourceType: sourceType, Source: source})
+		reqBody, _ := json.Marshal(trustedInstallRequest(sourceType, source))
 		req := httptest.NewRequest(http.MethodPost, "/api/plugins/install", bytes.NewReader(reqBody))
 		req.Header.Set("Content-Type", "application/json")
 		rec := httptest.NewRecorder()
@@ -105,7 +209,7 @@ func TestProperty_InvalidInstallRequestRejected(t *testing.T) {
 func TestInstallHandler_ValidLocalZip(t *testing.T) {
 	router, _, taskRegistry, _ := setupRouter(nil)
 
-	body, _ := json.Marshal(pluginInstallRequest{SourceType: "local_zip", Source: "C:/plugins/weather.zip"})
+	body, _ := json.Marshal(trustedInstallRequest("local_zip", "C:/plugins/weather.zip"))
 	req := httptest.NewRequest(http.MethodPost, "/api/plugins/install", bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	rec := httptest.NewRecorder()
@@ -139,11 +243,9 @@ func TestInstallHandler_ValidLocalZip(t *testing.T) {
 func TestInstallHandler_AllowsExplicitInstallScriptAuthorization(t *testing.T) {
 	router, _, taskRegistry, _ := setupRouter(nil)
 
-	body, _ := json.Marshal(pluginInstallRequest{
-		SourceType:          "local_directory",
-		Source:              "C:/plugins/weather",
-		AllowInstallScripts: true,
-	})
+	payload := trustedInstallRequest("local_directory", "C:/plugins/weather")
+	payload.AllowInstallScripts = true
+	body, _ := json.Marshal(payload)
 	req := httptest.NewRequest(http.MethodPost, "/api/plugins/install", bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	rec := httptest.NewRecorder()

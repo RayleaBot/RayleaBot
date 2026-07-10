@@ -118,6 +118,7 @@ type Event struct {
 	Actor          *EventActor
 	Target         *EventTarget
 	Message        *EventMessage
+	Webhook        *EventWebhook
 	PayloadFields  map[string]any
 	MessageID      string
 	RawPayload     any
@@ -126,6 +127,7 @@ type Event struct {
 
 type SchedulerLogContext struct {
 	JobID      string
+	Revision   uint64
 	PluginName string
 	TaskName   string
 	LogLabel   string
@@ -139,6 +141,7 @@ type SchedulerRunRecorder interface {
 
 type SchedulerRunResult struct {
 	JobID      string
+	Revision   uint64
 	Outcome    string
 	Duration   time.Duration
 	ErrorCode  string
@@ -168,6 +171,13 @@ type EventSegment struct {
 	Data map[string]any
 }
 
+type EventWebhook struct {
+	Route           string
+	ReceivedAt      int64
+	ClientTimestamp *int64
+	ClientEventID   string
+}
+
 type EventFrame struct {
 	ProtocolVersion string             `json:"protocol_version"`
 	Type            string             `json:"type"`
@@ -187,7 +197,15 @@ type ProtocolEventFrame struct {
 	Target         *ProtocolTargetFrame  `json:"target,omitempty"`
 	Message        *ProtocolMessageFrame `json:"message,omitempty"`
 	Payload        *ProtocolPayloadFrame `json:"payload,omitempty"`
+	Webhook        *ProtocolWebhookFrame `json:"webhook,omitempty"`
 	RawPayload     any                   `json:"raw_payload,omitempty"`
+}
+
+type ProtocolWebhookFrame struct {
+	Route           string `json:"route"`
+	ReceivedAt      int64  `json:"received_at"`
+	ClientTimestamp *int64 `json:"client_timestamp,omitempty"`
+	ClientEventID   string `json:"client_event_id,omitempty"`
 }
 
 type ProtocolActorFrame struct {

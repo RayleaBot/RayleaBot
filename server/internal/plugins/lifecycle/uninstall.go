@@ -36,8 +36,10 @@ type UninstallService struct {
 	baseCancel context.CancelFunc
 	wg         sync.WaitGroup
 	jobs       chan uninstallJob
+	admission  *tasks.QueueAdmission
 
 	mu      sync.Mutex
+	closed  bool
 	cancels map[string]context.CancelFunc
 	deps    uninstallerDeps
 
@@ -108,6 +110,7 @@ func NewUninstallService(
 		baseCtx:        baseCtx,
 		baseCancel:     baseCancel,
 		jobs:           make(chan uninstallJob, 32),
+		admission:      tasks.NewQueueAdmission(32),
 		cancels:        map[string]context.CancelFunc{},
 		deps: uninstallerDeps{
 			now:       time.Now,
@@ -149,38 +152,48 @@ func (s *UninstallService) dropCancel(taskID string) {
 }
 
 func (s *UninstallService) Accept(_ context.Context, pluginID string) (string, error) {
+	s.mu.Lock()
+	if s.closed {
+		s.mu.Unlock()
+		return "", context.Canceled
+	}
+	if !s.admission.TryAcquire() {
+		s.mu.Unlock()
+		return "", tasks.ErrQueueFull
+	}
+
 	summary := fmt.Sprintf("uninstall plugin: %s", pluginID)
 	taskID, err := s.registry.Create("plugin.uninstall", summary)
 	if err != nil {
+		s.admission.Release()
+		s.mu.Unlock()
 		return "", err
 	}
 
 	runCtx, cancel := context.WithTimeout(s.baseCtx, 5*time.Minute)
-	s.mu.Lock()
 	s.cancels[taskID] = cancel
+	s.jobs <- uninstallJob{taskID: taskID, pluginID: pluginID, ctx: runCtx}
 	s.mu.Unlock()
-
-	select {
-	case s.jobs <- uninstallJob{taskID: taskID, pluginID: pluginID, ctx: runCtx}:
-		return taskID, nil
-	case <-s.baseCtx.Done():
-		cancel()
-		return "", errors.New("uninstall service is shutting down")
-	}
+	return taskID, nil
 }
 
 func (s *UninstallService) Close() error {
 	if s == nil {
 		return nil
 	}
-	s.baseCancel()
-
 	s.mu.Lock()
+	if s.closed {
+		s.mu.Unlock()
+		s.wg.Wait()
+		return nil
+	}
+	s.closed = true
 	cancels := make([]context.CancelFunc, 0, len(s.cancels))
 	for _, cancel := range s.cancels {
 		cancels = append(cancels, cancel)
 	}
 	s.mu.Unlock()
+	s.baseCancel()
 	for _, cancel := range cancels {
 		cancel()
 	}
@@ -196,6 +209,7 @@ func (s *UninstallService) run() {
 		case <-s.baseCtx.Done():
 			return
 		case job := <-s.jobs:
+			s.admission.Release()
 			s.execute(job)
 		}
 	}

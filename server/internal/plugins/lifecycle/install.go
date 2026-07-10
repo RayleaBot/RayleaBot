@@ -3,9 +3,11 @@ package lifecycle
 import (
 	"archive/zip"
 	"context"
+	"crypto/rand"
 	"crypto/sha256"
 	"crypto/tls"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -28,13 +30,23 @@ import (
 )
 
 const (
-	codeInvalidRequest      = "platform.invalid_request"
-	codePlatformTaskTimeout = "platform.task_timeout"
-	codePluginInstallFailed = "plugin.install_failed"
-	codeResourceMissing     = "platform.resource_missing"
+	codeInvalidRequest       = "platform.invalid_request"
+	codePlatformTaskTimeout  = "platform.task_timeout"
+	codePluginInstallFailed  = "plugin.install_failed"
+	codePackageResourceLimit = "plugin.package_resource_limit_exceeded"
+	codePackageUnsafeEntry   = "plugin.package_unsafe_entry"
+	codeResourceMissing      = "platform.resource_missing"
 
-	maxRemoteDownloadBytes = 256 * 1024 * 1024 // 256 MB
+	maxRemoteDownloadBytes      = 256 * 1024 * 1024
+	maxPluginArchiveEntries     = 10_000
+	maxPluginArchiveFileBytes   = 64 * 1024 * 1024
+	maxPluginArchiveExpandBytes = 512 * 1024 * 1024
+	maxPluginArchiveRatio       = 100
+	maxPluginDownloadRedirects  = 5
+	pluginInspectionTTL         = 10 * time.Minute
 )
+
+var errPluginPackageResourceLimit = errors.New("plugin package resource limit exceeded")
 
 type installerDeps struct {
 	now           func() time.Time
@@ -64,13 +76,16 @@ type InstallService struct {
 	installedRoot  string
 	timeout        time.Duration
 	jobs           chan installJob
+	admission      *tasks.QueueAdmission
 
 	baseCtx    context.Context
 	baseCancel context.CancelFunc
 
-	mu      sync.Mutex
-	cancels map[string]context.CancelFunc
-	deps    installerDeps
+	mu          sync.Mutex
+	closed      bool
+	cancels     map[string]context.CancelFunc
+	inspections map[string]*installInspectionEntry
+	deps        installerDeps
 
 	afterSuccess            func(context.Context, string) error
 	validateRenderTemplates func(plugins.Snapshot) error
@@ -78,9 +93,20 @@ type InstallService struct {
 }
 
 type installJob struct {
-	taskID  string
-	request plugins.InstallRequest
-	ctx     context.Context
+	taskID     string
+	request    plugins.InstallRequest
+	inspection *installInspectionEntry
+	ctx        context.Context
+}
+
+type installInspectionEntry struct {
+	inspection   plugins.InstallInspection
+	request      plugins.InstallRequest
+	workingRoot  string
+	candidateDir string
+	cleanup      func()
+	snapshot     plugins.Snapshot
+	metadata     plugins.PackageMetadata
 }
 
 func executeManagedCommand(ctx context.Context, dir string, env []string, command string, args ...string) error {
@@ -168,9 +194,11 @@ func newInstallService(
 		installedRoot:  installedRoot,
 		timeout:        timeout,
 		jobs:           make(chan installJob, 32),
+		admission:      tasks.NewQueueAdmission(32),
 		baseCtx:        baseCtx,
 		baseCancel:     baseCancel,
 		cancels:        map[string]context.CancelFunc{},
+		inspections:    map[string]*installInspectionEntry{},
 		deps:           deps,
 	}
 
@@ -195,6 +223,14 @@ func installError(code, message, summary string) error {
 		Message: message,
 		Summary: summary,
 	}
+}
+
+func InstallErrorCode(err error) string {
+	var installErr *installTaskError
+	if errors.As(err, &installErr) {
+		return installErr.Code
+	}
+	return ""
 }
 
 func (s *InstallService) failTask(taskID, code, message, summary string) {
@@ -233,31 +269,139 @@ func timePtr(value time.Time) *time.Time {
 }
 
 func (s *InstallService) Accept(_ context.Context, request plugins.InstallRequest) (string, error) {
+	s.mu.Lock()
+	if s.closed {
+		s.mu.Unlock()
+		return "", context.Canceled
+	}
+	if !request.TrustedCodeConfirmed {
+		s.mu.Unlock()
+		return "", plugins.ErrTrustedCodeConfirmation
+	}
+	entry, err := s.consumeInspectionLocked(request)
+	if err != nil {
+		s.mu.Unlock()
+		return "", err
+	}
+	if !s.admission.TryAcquire() {
+		s.mu.Unlock()
+		return "", tasks.ErrQueueFull
+	}
+
 	taskID, err := s.registry.Create("plugin.install", "install plugin from "+request.SourceType+": "+request.Source)
 	if err != nil {
+		s.admission.Release()
+		s.mu.Unlock()
 		return "", err
 	}
 
 	runCtx, cancel := context.WithTimeout(s.baseCtx, s.timeout)
-	s.mu.Lock()
 	s.cancels[taskID] = cancel
+	delete(s.inspections, request.InspectionID)
+	s.jobs <- installJob{taskID: taskID, request: request, inspection: entry, ctx: runCtx}
+	s.mu.Unlock()
+	return taskID, nil
+}
+
+func (s *InstallService) Inspect(ctx context.Context, request plugins.InstallRequest) (plugins.InstallInspection, error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	s.mu.Lock()
+	if s.closed {
+		s.mu.Unlock()
+		return plugins.InstallInspection{}, context.Canceled
+	}
+	s.cleanupExpiredInspectionsLocked(s.deps.now().UTC())
 	s.mu.Unlock()
 
-	select {
-	case s.jobs <- installJob{taskID: taskID, request: request, ctx: runCtx}:
-		return taskID, nil
-	case <-s.baseCtx.Done():
-		cancel()
-		s.registry.Update(taskID, tasks.Update{
-			Status:     taskStatusPtr(tasks.StatusFailed),
-			FinishedAt: timePtr(s.deps.now().UTC()),
-			Summary:    stringPtr("后台安装执行器不可用"),
-			Error: &tasks.ErrorSummary{
-				Code:    "platform.internal_error",
-				Message: "安装执行器不可用",
-			},
-		})
-		return "", errors.New("install service is shutting down")
+	workingRoot, candidateDir, cleanup, err := s.prepareSource(ctx, request)
+	if err != nil {
+		return plugins.InstallInspection{}, err
+	}
+	succeeded := false
+	defer func() {
+		if !succeeded {
+			cleanup()
+		}
+	}()
+
+	snapshot, err := s.loadCandidateSnapshot(candidateDir)
+	if err != nil {
+		return plugins.InstallInspection{}, err
+	}
+	metadata, err := s.buildPackageMetadata(request, snapshot, candidateDir)
+	if err != nil {
+		return plugins.InstallInspection{}, err
+	}
+	id, err := newInspectionID()
+	if err != nil {
+		return plugins.InstallInspection{}, installError(codePluginInstallFailed, "生成插件检查标识失败", "生成插件检查标识失败")
+	}
+	now := s.deps.now().UTC()
+	inspection := plugins.InstallInspection{
+		InspectionID:   id,
+		ExpiresAt:      now.Add(pluginInspectionTTL),
+		PackageSHA256:  metadata.PackageHash,
+		SourceType:     request.SourceType,
+		Source:         request.Source,
+		PluginID:       snapshot.PluginID,
+		PluginName:     snapshot.Name,
+		Version:        snapshot.Version,
+		Author:         snapshot.Author,
+		License:        snapshot.License,
+		SourceLabel:    installSourceLabel(request),
+		Capabilities:   append([]string(nil), snapshot.DeclaredCapabilities...),
+		InstallScripts: inspectInstallScripts(candidateDir, snapshot.RequireInstallScripts),
+	}
+	entry := &installInspectionEntry{
+		inspection:   inspection,
+		request:      request,
+		workingRoot:  workingRoot,
+		candidateDir: candidateDir,
+		cleanup:      cleanup,
+		snapshot:     snapshot,
+		metadata:     metadata,
+	}
+
+	s.mu.Lock()
+	if s.closed {
+		s.mu.Unlock()
+		return plugins.InstallInspection{}, context.Canceled
+	}
+	s.inspections[id] = entry
+	s.mu.Unlock()
+	succeeded = true
+	return inspection, nil
+}
+
+func (s *InstallService) consumeInspectionLocked(request plugins.InstallRequest) (*installInspectionEntry, error) {
+	id := strings.TrimSpace(request.InspectionID)
+	if id == "" || strings.TrimSpace(request.PackageSHA256) == "" {
+		return nil, plugins.ErrInstallInspectionRequired
+	}
+	entry, ok := s.inspections[id]
+	if !ok {
+		return nil, plugins.ErrInstallInspectionRequired
+	}
+	if !entry.inspection.ExpiresAt.After(s.deps.now().UTC()) {
+		delete(s.inspections, id)
+		entry.cleanup()
+		return nil, plugins.ErrInstallInspectionExpired
+	}
+	if request.PackageSHA256 != entry.inspection.PackageSHA256 || request.SourceType != entry.request.SourceType || request.Source != entry.request.Source {
+		return nil, plugins.ErrInstallDigestMismatch
+	}
+	return entry, nil
+}
+
+func (s *InstallService) cleanupExpiredInspectionsLocked(now time.Time) {
+	for id, entry := range s.inspections {
+		if entry.inspection.ExpiresAt.After(now) {
+			continue
+		}
+		delete(s.inspections, id)
+		entry.cleanup()
 	}
 }
 
@@ -304,14 +448,23 @@ func (s *InstallService) Close() error {
 		return nil
 	}
 
-	s.baseCancel()
-
 	s.mu.Lock()
+	if s.closed {
+		s.mu.Unlock()
+		s.wg.Wait()
+		return nil
+	}
+	s.closed = true
+	for id, inspection := range s.inspections {
+		delete(s.inspections, id)
+		inspection.cleanup()
+	}
 	cancels := make([]context.CancelFunc, 0, len(s.cancels))
 	for _, cancel := range s.cancels {
 		cancels = append(cancels, cancel)
 	}
 	s.mu.Unlock()
+	s.baseCancel()
 
 	for _, cancel := range cancels {
 		cancel()
@@ -327,8 +480,18 @@ func (s *InstallService) run() {
 	for {
 		select {
 		case <-s.baseCtx.Done():
-			return
+			for {
+				select {
+				case job := <-s.jobs:
+					if job.inspection != nil {
+						job.inspection.cleanup()
+					}
+				default:
+					return
+				}
+			}
 		case job := <-s.jobs:
+			s.admission.Release()
 			s.execute(job)
 		}
 	}
@@ -336,6 +499,9 @@ func (s *InstallService) run() {
 
 func (s *InstallService) execute(job installJob) {
 	defer s.dropCancel(job.taskID)
+	if job.inspection != nil {
+		defer job.inspection.cleanup()
+	}
 
 	snapshot, ok := s.registry.Get(job.taskID)
 	if !ok {
@@ -515,7 +681,7 @@ func (s *InstallService) prepareDependencies(ctx context.Context, candidateDir s
 
 func downloadHTTPSFile(ctx context.Context, rawURL, destPath string) error {
 	parsed, err := url.Parse(rawURL)
-	if err != nil || parsed.Scheme != "https" || parsed.Host == "" {
+	if err != nil || parsed.Scheme != "https" || parsed.Host == "" || parsed.User != nil {
 		return fmt.Errorf("invalid HTTPS URL: %s", rawURL)
 	}
 
@@ -524,6 +690,7 @@ func downloadHTTPSFile(ctx context.Context, rawURL, destPath string) error {
 		Transport: &http.Transport{
 			TLSClientConfig: &tls.Config{MinVersion: tls.VersionTLS12},
 		},
+		CheckRedirect: validatePluginDownloadRedirect,
 	}
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, rawURL, nil)
@@ -540,6 +707,9 @@ func downloadHTTPSFile(ctx context.Context, rawURL, destPath string) error {
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("remote server returned HTTP %d", resp.StatusCode)
 	}
+	if resp.ContentLength > maxRemoteDownloadBytes {
+		return fmt.Errorf("%w: download exceeded maximum size of %d bytes", errPluginPackageResourceLimit, maxRemoteDownloadBytes)
+	}
 
 	outFile, err := os.Create(destPath)
 	if err != nil {
@@ -553,17 +723,27 @@ func downloadHTTPSFile(ctx context.Context, rawURL, destPath string) error {
 		return err
 	}
 	if written > maxRemoteDownloadBytes {
-		return fmt.Errorf("download exceeded maximum size of %d bytes", maxRemoteDownloadBytes)
+		return fmt.Errorf("%w: download exceeded maximum size of %d bytes", errPluginPackageResourceLimit, maxRemoteDownloadBytes)
+	}
+	return nil
+}
+
+func validatePluginDownloadRedirect(request *http.Request, via []*http.Request) error {
+	if len(via) > maxPluginDownloadRedirects {
+		return errors.New("remote plugin download exceeded redirect limit")
+	}
+	if request == nil || request.URL == nil || request.URL.Scheme != "https" || request.URL.Host == "" || request.URL.User != nil {
+		return errors.New("remote plugin redirect must use HTTPS without userinfo")
 	}
 	return nil
 }
 
 func (s *InstallService) runInstall(job installJob) error {
-	workingRoot, candidateDir, cleanup, err := s.prepareSource(job.ctx, job.request)
-	if err != nil {
-		return err
+	if job.inspection == nil {
+		return installError(codeInvalidRequest, "插件安装缺少有效检查结果", "插件安装缺少有效检查结果")
 	}
-	defer cleanup()
+	workingRoot := job.inspection.workingRoot
+	candidateDir := job.inspection.candidateDir
 
 	if err := job.ctx.Err(); err != nil {
 		return err
@@ -574,14 +754,8 @@ func (s *InstallService) runInstall(job installJob) error {
 		Summary:  stringPtr("校验插件 manifest"),
 	})
 
-	candidateSnapshot, err := s.loadCandidateSnapshot(candidateDir)
-	if err != nil {
-		return err
-	}
-	metadata, err := s.buildPackageMetadata(job.request, candidateSnapshot, candidateDir)
-	if err != nil {
-		return err
-	}
+	candidateSnapshot := job.inspection.snapshot
+	metadata := job.inspection.metadata
 	if _, exists := s.catalog.Get(candidateSnapshot.PluginID); exists {
 		return installError(codePluginInstallFailed, "检测到同 ID 插件，安装被拒绝", "检测到同 ID 插件")
 	}
@@ -649,11 +823,15 @@ func (s *InstallService) runInstall(job installJob) error {
 	}
 	if s.afterSuccess != nil {
 		if err := s.afterSuccess(job.ctx, candidateSnapshot.PluginID); err != nil {
+			cleanupCtx := context.WithoutCancel(job.ctx)
 			if s.packageRepo != nil {
-				_ = s.packageRepo.DeletePackageMetadata(job.ctx, candidateSnapshot.PluginID)
+				_ = s.packageRepo.DeletePackageMetadata(cleanupCtx, candidateSnapshot.PluginID)
 			}
 			_ = s.deps.removeAll(finalTarget)
-			_ = s.refreshCatalog(job.ctx)
+			_ = s.refreshCatalog(cleanupCtx)
+			if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+				return err
+			}
 			return installError(codePluginInstallFailed, err.Error(), "插件安装后处理失败")
 		}
 	}
@@ -698,6 +876,51 @@ func (s *InstallService) buildPackageMetadata(request plugins.InstallRequest, sn
 		ManifestHash: manifestHash,
 		PackageHash:  packageHash,
 	}, nil
+}
+
+func newInspectionID() (string, error) {
+	buffer := make([]byte, 32)
+	if _, err := rand.Read(buffer); err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(buffer), nil
+}
+
+func installSourceLabel(request plugins.InstallRequest) string {
+	if request.SourceType == "remote_url" {
+		if parsed, err := url.Parse(request.Source); err == nil && parsed.Host != "" {
+			return parsed.Host
+		}
+	}
+	label := filepath.Base(filepath.Clean(request.Source))
+	if label == "." || label == string(filepath.Separator) || label == "" {
+		return request.SourceType
+	}
+	return label
+}
+
+func inspectInstallScripts(candidateDir string, requiresInstallScripts bool) []string {
+	packageJSON, err := os.ReadFile(filepath.Join(candidateDir, "package.json"))
+	if err == nil {
+		var document struct {
+			Scripts map[string]string `json:"scripts"`
+		}
+		if json.Unmarshal(packageJSON, &document) == nil {
+			scripts := make([]string, 0, 3)
+			for _, name := range []string{"preinstall", "install", "postinstall"} {
+				if strings.TrimSpace(document.Scripts[name]) != "" {
+					scripts = append(scripts, "npm:"+name)
+				}
+			}
+			if len(scripts) > 0 {
+				return scripts
+			}
+		}
+	}
+	if requiresInstallScripts {
+		return []string{"manifest:require_install_scripts"}
+	}
+	return []string{}
 }
 
 func (s *InstallService) prepareSource(ctx context.Context, request plugins.InstallRequest) (string, string, func(), error) {
@@ -764,7 +987,7 @@ func (s *InstallService) prepareSource(ctx context.Context, request plugins.Inst
 		return tempRoot, candidate, cleanup, nil
 	case "remote_url":
 		parsed, err := url.Parse(request.Source)
-		if err != nil || parsed.Scheme != "https" || parsed.Host == "" {
+		if err != nil || parsed.Scheme != "https" || parsed.Host == "" || parsed.User != nil {
 			cleanup()
 			return "", "", func() {}, installError(codeInvalidRequest, "远程来源必须是 HTTPS URL", "远程来源必须是 HTTPS URL")
 		}
@@ -774,6 +997,9 @@ func (s *InstallService) prepareSource(ctx context.Context, request plugins.Inst
 			cleanup()
 			if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
 				return "", "", func() {}, err
+			}
+			if errors.Is(err, errPluginPackageResourceLimit) {
+				return "", "", func() {}, installError(codePackageResourceLimit, "插件包超过资源限制", "插件包超过资源限制")
 			}
 			return "", "", func() {}, installError(codePluginInstallFailed, "下载远程插件压缩包失败", "下载远程插件压缩包失败")
 		}
@@ -933,11 +1159,22 @@ func hashDirectorySHA256(root string) (string, error) {
 }
 
 func extractZipSource(ctx context.Context, archivePath, tempRoot string) (string, error) {
+	archiveInfo, err := os.Stat(archivePath)
+	if err != nil {
+		return "", installError(codePluginInstallFailed, "读取插件压缩包失败", "读取插件压缩包失败")
+	}
+	if archiveInfo.Size() > maxRemoteDownloadBytes {
+		return "", installError(codePackageResourceLimit, "插件包超过资源限制", "插件包超过资源限制")
+	}
+
 	reader, err := zip.OpenReader(archivePath)
 	if err != nil {
 		return "", installError(codePluginInstallFailed, "解压插件压缩包失败", "解压插件压缩包失败")
 	}
 	defer reader.Close()
+	if len(reader.File) > maxPluginArchiveEntries {
+		return "", installError(codePackageResourceLimit, "插件包超过资源限制", "插件包超过资源限制")
+	}
 
 	extractRoot := filepath.Join(tempRoot, "unzipped")
 	if err := os.MkdirAll(extractRoot, 0o755); err != nil {
@@ -945,6 +1182,8 @@ func extractZipSource(ctx context.Context, archivePath, tempRoot string) (string
 	}
 
 	topLevels := map[string]struct{}{}
+	seenPaths := make(map[string]struct{}, len(reader.File))
+	var expandedBytes uint64
 
 	for _, file := range reader.File {
 		if err := ctx.Err(); err != nil {
@@ -952,8 +1191,30 @@ func extractZipSource(ctx context.Context, archivePath, tempRoot string) (string
 		}
 
 		cleanName := filepath.Clean(file.Name)
-		if filepath.IsAbs(cleanName) || strings.HasPrefix(cleanName, "..") {
-			return "", installError(codePluginInstallFailed, "插件压缩包包含越界路径", "插件压缩包包含越界路径")
+		if cleanName == "." || filepath.IsAbs(cleanName) || filepath.VolumeName(cleanName) != "" || strings.Contains(cleanName, ":") || cleanName == ".." || strings.HasPrefix(cleanName, ".."+string(filepath.Separator)) {
+			return "", installError(codePackageUnsafeEntry, "插件包包含不安全文件", "插件包包含不安全文件")
+		}
+		canonicalName := strings.ToLower(filepath.ToSlash(cleanName))
+		if _, exists := seenPaths[canonicalName]; exists {
+			return "", installError(codePackageUnsafeEntry, "插件包包含不安全文件", "插件包包含不安全文件")
+		}
+		seenPaths[canonicalName] = struct{}{}
+
+		mode := file.Mode()
+		if mode&(os.ModeSymlink|os.ModeDevice|os.ModeCharDevice|os.ModeNamedPipe|os.ModeSocket|os.ModeIrregular) != 0 {
+			return "", installError(codePackageUnsafeEntry, "插件包包含不安全文件", "插件包包含不安全文件")
+		}
+		if !file.FileInfo().IsDir() {
+			if file.UncompressedSize64 > maxPluginArchiveFileBytes {
+				return "", installError(codePackageResourceLimit, "插件包超过资源限制", "插件包超过资源限制")
+			}
+			if exceedsCompressionRatio(file.UncompressedSize64, file.CompressedSize64, maxPluginArchiveRatio) {
+				return "", installError(codePackageResourceLimit, "插件包超过资源限制", "插件包超过资源限制")
+			}
+			if expandedBytes > maxPluginArchiveExpandBytes-file.UncompressedSize64 {
+				return "", installError(codePackageResourceLimit, "插件包超过资源限制", "插件包超过资源限制")
+			}
+			expandedBytes += file.UncompressedSize64
 		}
 
 		targetPath := filepath.Join(extractRoot, cleanName)
@@ -989,10 +1250,16 @@ func extractZipSource(ctx context.Context, archivePath, tempRoot string) (string
 			return "", installError(codePluginInstallFailed, "写入解压文件失败", "写入解压文件失败")
 		}
 
-		if _, err := io.Copy(targetFile, readerHandle); err != nil {
+		written, copyErr := io.Copy(targetFile, io.LimitReader(readerHandle, maxPluginArchiveFileBytes+1))
+		if copyErr != nil {
 			targetFile.Close()
 			readerHandle.Close()
 			return "", installError(codePluginInstallFailed, "写入解压文件失败", "写入解压文件失败")
+		}
+		if written > maxPluginArchiveFileBytes || uint64(written) != file.UncompressedSize64 {
+			targetFile.Close()
+			readerHandle.Close()
+			return "", installError(codePackageResourceLimit, "插件包超过资源限制", "插件包超过资源限制")
 		}
 
 		targetFile.Close()
@@ -1028,6 +1295,17 @@ func normalizedZipEntryMode(file *zip.File) os.FileMode {
 		return 0o644
 	}
 	return mode
+}
+
+func exceedsCompressionRatio(uncompressed, compressed uint64, maxRatio uint64) bool {
+	if uncompressed == 0 {
+		return false
+	}
+	if compressed == 0 || maxRatio == 0 {
+		return true
+	}
+	quotient := uncompressed / compressed
+	return quotient > maxRatio || quotient == maxRatio && uncompressed%compressed != 0
 }
 
 type runtimeResolver interface {

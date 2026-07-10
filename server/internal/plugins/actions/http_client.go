@@ -15,8 +15,14 @@ import (
 )
 
 var (
-	errHTTPInvalidRequest = errors.New("plugin http request is invalid")
-	errHTTPScopeViolation = errors.New("plugin http request violates declared capability parameters")
+	errHTTPInvalidRequest   = errors.New("plugin http request is invalid")
+	errHTTPScopeViolation   = errors.New("plugin http request violates declared capability parameters")
+	errHTTPResponseTooLarge = errors.New("plugin http response exceeded resource limits")
+)
+
+const (
+	defaultHTTPMaxResponseBodyBytes int64 = 4 * 1024 * 1024
+	maxHTTPResponseHeaderBytes      int64 = 1024 * 1024
 )
 
 type httpResolver interface {
@@ -24,10 +30,11 @@ type httpResolver interface {
 }
 
 type httpClientConfig struct {
-	Resolver          httpResolver
-	Timeout           time.Duration
-	MaxRetries        int
-	AllowPrivateHosts []string
+	Resolver             httpResolver
+	Timeout              time.Duration
+	MaxRetries           int
+	MaxResponseBodyBytes int64
+	AllowPrivateHosts    []string
 }
 
 type httpClientRequest struct {
@@ -45,10 +52,11 @@ type httpClientResponse struct {
 }
 
 type httpClient struct {
-	resolver          httpResolver
-	timeout           time.Duration
-	maxRetries        int
-	allowPrivateHosts map[string]struct{}
+	resolver             httpResolver
+	timeout              time.Duration
+	maxRetries           int
+	maxResponseBodyBytes int64
+	allowPrivateHosts    map[string]struct{}
 }
 
 type httpAttemptOptions struct {
@@ -70,11 +78,16 @@ func newHTTPClient(cfg httpClientConfig) *httpClient {
 	if maxRetries < 0 {
 		maxRetries = 0
 	}
+	maxResponseBodyBytes := cfg.MaxResponseBodyBytes
+	if maxResponseBodyBytes <= 0 {
+		maxResponseBodyBytes = defaultHTTPMaxResponseBodyBytes
+	}
 	return &httpClient{
-		resolver:          cfg.Resolver,
-		timeout:           timeout,
-		maxRetries:        maxRetries,
-		allowPrivateHosts: toHostSet(cfg.AllowPrivateHosts),
+		resolver:             cfg.Resolver,
+		timeout:              timeout,
+		maxRetries:           maxRetries,
+		maxResponseBodyBytes: maxResponseBodyBytes,
+		allowPrivateHosts:    toHostSet(cfg.AllowPrivateHosts),
 	}
 }
 
@@ -177,12 +190,16 @@ func (c *httpClient) doAttempt(ctx context.Context, opts httpAttemptOptions) (ht
 		return httpClientResponse{}, false, errHTTPInvalidRequest
 	}
 	for key, value := range opts.headers {
+		if strings.EqualFold(key, "Accept-Encoding") {
+			continue
+		}
 		httpRequest.Header.Set(key, value)
 	}
 
 	transport := http.DefaultTransport.(*http.Transport).Clone()
 	transport.Proxy = nil
 	transport.DisableCompression = false
+	transport.MaxResponseHeaderBytes = maxHTTPResponseHeaderBytes
 	transport.DialContext = func(innerCtx context.Context, network, address string) (net.Conn, error) {
 		host, port, err := net.SplitHostPort(address)
 		if err != nil {
@@ -217,6 +234,9 @@ func (c *httpClient) doAttempt(ctx context.Context, opts httpAttemptOptions) (ht
 
 	httpResponse, err := client.Do(httpRequest)
 	if err != nil {
+		if isResponseHeaderLimitError(err) {
+			return httpClientResponse{}, false, errHTTPResponseTooLarge
+		}
 		if errors.Is(err, errHTTPScopeViolation) || errors.Is(err, errHTTPInvalidRequest) {
 			return httpClientResponse{}, false, err
 		}
@@ -224,10 +244,16 @@ func (c *httpClient) doAttempt(ctx context.Context, opts httpAttemptOptions) (ht
 		return httpClientResponse{}, retryable, err
 	}
 	defer httpResponse.Body.Close()
+	if responseHeaderBytes(httpResponse.Header) > maxHTTPResponseHeaderBytes {
+		return httpClientResponse{}, false, errHTTPResponseTooLarge
+	}
 
-	body, err := io.ReadAll(httpResponse.Body)
+	body, err := io.ReadAll(io.LimitReader(httpResponse.Body, c.maxResponseBodyBytes+1))
 	if err != nil {
 		return httpClientResponse{}, false, err
+	}
+	if int64(len(body)) > c.maxResponseBodyBytes {
+		return httpClientResponse{}, false, errHTTPResponseTooLarge
 	}
 
 	response := httpClientResponse{
@@ -398,6 +424,24 @@ func flattenHeaders(header http.Header) map[string]string {
 		result[key] = strings.Join(values, ", ")
 	}
 	return result
+}
+
+func responseHeaderBytes(header http.Header) int64 {
+	var total int64
+	for key, values := range header {
+		for _, value := range values {
+			total += int64(len(key) + len(value) + 4)
+		}
+	}
+	return total
+}
+
+func isResponseHeaderLimitError(err error) bool {
+	if err == nil {
+		return false
+	}
+	message := strings.ToLower(err.Error())
+	return strings.Contains(message, "response headers exceeded") || strings.Contains(message, "message too large")
 }
 
 func isRetryableTransportError(method string, err error) bool {

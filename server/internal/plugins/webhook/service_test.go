@@ -80,6 +80,12 @@ func TestHandleWebhookEnsuresRuntimeWithoutBotID(t *testing.T) {
 		if event.EventType != "webhook.received" {
 			t.Fatalf("event_type = %q, want webhook.received", event.EventType)
 		}
+		if event.Webhook == nil || event.Webhook.Route != "github" || event.Webhook.ReceivedAt <= 0 {
+			t.Fatalf("webhook metadata = %#v, want typed github metadata", event.Webhook)
+		}
+		if _, exists := event.PayloadFields["webhook"]; exists {
+			t.Fatalf("webhook metadata leaked into payload fields: %#v", event.PayloadFields)
+		}
 	case <-time.After(2 * time.Second):
 		t.Fatal("expected webhook event")
 	}

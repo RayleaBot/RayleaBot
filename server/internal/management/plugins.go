@@ -4,8 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
+	"io"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/httpapi"
@@ -35,9 +36,41 @@ type pluginTaskAcceptedResponse struct {
 }
 
 type pluginInstallRequest struct {
-	SourceType          string `json:"source_type"`
-	Source              string `json:"source"`
-	AllowInstallScripts bool   `json:"allow_install_scripts,omitempty"`
+	SourceType           string `json:"source_type"`
+	Source               string `json:"source"`
+	InspectionID         string `json:"inspection_id"`
+	PackageSHA256        string `json:"package_sha256"`
+	TrustedCodeConfirmed bool   `json:"trusted_code_confirmed"`
+	AllowInstallScripts  bool   `json:"allow_install_scripts,omitempty"`
+}
+
+type pluginInstallInspectionRequest struct {
+	SourceType string `json:"source_type"`
+	Source     string `json:"source"`
+}
+
+type pluginInstallSourceResponse struct {
+	SourceType string `json:"source_type"`
+	Source     string `json:"source"`
+}
+
+type pluginInstallInspectionPluginResponse struct {
+	ID          string `json:"id"`
+	Name        string `json:"name"`
+	Version     string `json:"version"`
+	Author      string `json:"author"`
+	License     string `json:"license"`
+	SourceLabel string `json:"source_label"`
+}
+
+type pluginInstallInspectionResponse struct {
+	InspectionID   string                                `json:"inspection_id"`
+	ExpiresAt      time.Time                             `json:"expires_at"`
+	PackageSHA256  string                                `json:"package_sha256"`
+	Source         pluginInstallSourceResponse           `json:"source"`
+	Plugin         pluginInstallInspectionPluginResponse `json:"plugin"`
+	Capabilities   []string                              `json:"capabilities"`
+	InstallScripts []string                              `json:"install_scripts"`
 }
 
 type DesiredStateController interface {
@@ -53,13 +86,13 @@ type UninstallCoordinator interface {
 	Accept(ctx context.Context, pluginID string) (string, error)
 }
 
-func RegisterPluginRoutes(router chi.Router, catalog plugins.CatalogView, taskRegistry *tasks.Registry, repo plugins.DesiredStateRepository, installer plugins.InstallCoordinator, controller DesiredStateController, uninstaller UninstallCoordinator) {
+func RegisterPluginRoutes(router chi.Router, catalog plugins.CatalogView, _ *tasks.Registry, repo plugins.DesiredStateRepository, installer plugins.InstallCoordinator, controller DesiredStateController, uninstaller UninstallCoordinator) {
 	if catalog == nil {
 		catalog = emptyCatalogView{}
 	}
 
 	registerPluginReadRoutes(router, catalog)
-	registerPluginInstallRoutes(router, catalog, taskRegistry, installer)
+	registerPluginInstallRoutes(router, catalog, installer)
 	registerPluginLifecycleRoutes(router, catalog, repo, controller, uninstaller)
 	registerPluginDeadLetterRoutes(router, catalog, controller)
 }
@@ -69,8 +102,9 @@ func registerPluginReadRoutes(router chi.Router, catalog plugins.CatalogView) {
 	router.Get("/api/plugins/{plugin_id}", newDetailHandler(catalog))
 }
 
-func registerPluginInstallRoutes(router chi.Router, catalog plugins.CatalogView, taskRegistry *tasks.Registry, installer plugins.InstallCoordinator) {
-	router.Post("/api/plugins/install", newInstallHandler(catalog, taskRegistry, installer))
+func registerPluginInstallRoutes(router chi.Router, catalog plugins.CatalogView, installer plugins.InstallCoordinator) {
+	router.Post("/api/plugins/install/inspect", newInstallInspectHandler(catalog, installer))
+	router.Post("/api/plugins/install", newInstallHandler(catalog, nil, installer))
 }
 
 func registerPluginLifecycleRoutes(router chi.Router, catalog plugins.CatalogView, repo plugins.DesiredStateRepository, controller DesiredStateController, uninstaller UninstallCoordinator) {
@@ -125,29 +159,84 @@ func buildPluginDetailResponse(catalog plugins.CatalogView, snapshot plugins.Sna
 	return BuildDetail(catalog, snapshot)
 }
 
-func newInstallHandler(catalog plugins.CatalogView, taskRegistry *tasks.Registry, installer plugins.InstallCoordinator) http.HandlerFunc {
+func newInstallInspectHandler(catalog plugins.CatalogView, installer plugins.InstallCoordinator) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var req pluginInstallInspectionRequest
+		if err := decodeStrictJSON(r, &req); err != nil || !validPluginInstallSource(req.SourceType, req.Source) {
+			writeError(w, r, http.StatusBadRequest, pluginCodeInvalidRequest, "请求参数不合法", "errors.platform.invalid_request", nil)
+			return
+		}
+		inspector, ok := installer.(plugins.InstallInspector)
+		if !ok || inspector == nil {
+			writeError(w, r, http.StatusInternalServerError, "platform.internal_error", "内部错误", "errors.platform.internal_error", nil)
+			return
+		}
+		inspection, err := inspector.Inspect(r.Context(), plugins.InstallRequest{
+			SourceType: req.SourceType,
+			Source:     req.Source,
+		})
+		if err != nil {
+			writePluginInstallError(w, r, err)
+			return
+		}
+		if _, exists := catalog.Get(inspection.PluginID); exists {
+			writeError(w, r, http.StatusConflict, "plugin.install_failed", "检测到同 ID 插件", "errors.plugin.install_failed", map[string]any{"plugin_id": inspection.PluginID})
+			return
+		}
+		writeJSON(w, http.StatusOK, pluginInstallInspectionResponse{
+			InspectionID:  inspection.InspectionID,
+			ExpiresAt:     inspection.ExpiresAt,
+			PackageSHA256: inspection.PackageSHA256,
+			Source: pluginInstallSourceResponse{
+				SourceType: inspection.SourceType,
+				Source:     inspection.Source,
+			},
+			Plugin: pluginInstallInspectionPluginResponse{
+				ID:          inspection.PluginID,
+				Name:        inspection.PluginName,
+				Version:     inspection.Version,
+				Author:      inspection.Author,
+				License:     inspection.License,
+				SourceLabel: inspection.SourceLabel,
+			},
+			Capabilities:   append([]string(nil), inspection.Capabilities...),
+			InstallScripts: append([]string(nil), inspection.InstallScripts...),
+		})
+	}
+}
+
+func newInstallHandler(catalog plugins.CatalogView, _ *tasks.Registry, installer plugins.InstallCoordinator) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req pluginInstallRequest
-		decoder := json.NewDecoder(r.Body)
-		decoder.DisallowUnknownFields()
-		if err := decoder.Decode(&req); err != nil {
+		if err := decodeStrictJSON(r, &req); err != nil {
 			writeError(w, r, http.StatusBadRequest, pluginCodeInvalidRequest, "请求参数不合法", "errors.platform.invalid_request", nil)
 			return
 		}
 
-		if (req.SourceType != "local_zip" && req.SourceType != "local_directory" && req.SourceType != "remote_url") || req.Source == "" {
+		if !validPluginInstallSource(req.SourceType, req.Source) {
 			writeError(w, r, http.StatusBadRequest, pluginCodeInvalidRequest, "请求参数不合法", "errors.platform.invalid_request", nil)
+			return
+		}
+		if !req.TrustedCodeConfirmed {
+			writePluginInstallError(w, r, plugins.ErrTrustedCodeConfirmation)
+			return
+		}
+		if strings.TrimSpace(req.InspectionID) == "" || strings.TrimSpace(req.PackageSHA256) == "" {
+			writePluginInstallError(w, r, plugins.ErrInstallInspectionRequired)
 			return
 		}
 
 		if installer != nil {
 			taskID, err := installer.Accept(r.Context(), plugins.InstallRequest{
-				SourceType:          req.SourceType,
-				Source:              req.Source,
-				AllowInstallScripts: req.AllowInstallScripts,
+				SourceType:           req.SourceType,
+				Source:               req.Source,
+				InspectionID:         req.InspectionID,
+				PackageSHA256:        req.PackageSHA256,
+				TrustedCodeConfirmed: req.TrustedCodeConfirmed,
+				AllowInstallScripts:  req.AllowInstallScripts,
 			})
 			if err != nil {
-				writeError(w, r, http.StatusInternalServerError, "platform.internal_error", "内部错误", "errors.platform.internal_error", nil)
+				writePluginInstallError(w, r, err)
 				return
 			}
 
@@ -155,14 +244,49 @@ func newInstallHandler(catalog plugins.CatalogView, taskRegistry *tasks.Registry
 			return
 		}
 
-		summary := fmt.Sprintf("install plugin from %s: %s", req.SourceType, req.Source)
-		taskID, err := taskRegistry.Create("plugin.install", summary)
-		if err != nil {
-			writeError(w, r, http.StatusInternalServerError, "platform.internal_error", "内部错误", "errors.platform.internal_error", nil)
-			return
-		}
+		writeError(w, r, http.StatusInternalServerError, "platform.internal_error", "内部错误", "errors.platform.internal_error", nil)
+	}
+}
 
-		writeJSON(w, http.StatusAccepted, pluginTaskAcceptedResponse{TaskID: taskID})
+func validPluginInstallSource(sourceType, source string) bool {
+	return (sourceType == "local_zip" || sourceType == "local_directory" || sourceType == "remote_url") && strings.TrimSpace(source) != ""
+}
+
+func decodeStrictJSON(r *http.Request, destination any) error {
+	decoder := json.NewDecoder(r.Body)
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(destination); err != nil {
+		return err
+	}
+	if err := decoder.Decode(&struct{}{}); err != io.EOF {
+		if err == nil {
+			return errors.New("request body must contain exactly one JSON value")
+		}
+		return err
+	}
+	return nil
+}
+
+func writePluginInstallError(w http.ResponseWriter, r *http.Request, err error) {
+	switch {
+	case errors.Is(err, tasks.ErrQueueFull):
+		writeError(w, r, http.StatusTooManyRequests, "platform.task_queue_full", "任务队列已满，请稍后重试", "errors.platform.task_queue_full", nil)
+	case errors.Is(err, plugins.ErrTrustedCodeConfirmation):
+		writeError(w, r, http.StatusForbidden, "plugin.trusted_code_confirmation_required", "必须确认该插件将作为完全可信的本地代码运行", "errors.plugin.trusted_code_confirmation_required", nil)
+	case errors.Is(err, plugins.ErrInstallInspectionExpired):
+		writeError(w, r, http.StatusConflict, "plugin.install_inspection_expired", "插件包检查结果已过期", "errors.plugin.install_inspection_expired", nil)
+	case errors.Is(err, plugins.ErrInstallDigestMismatch):
+		writeError(w, r, http.StatusConflict, "plugin.install_digest_mismatch", "插件包与检查结果不一致", "errors.plugin.install_digest_mismatch", nil)
+	case errors.Is(err, plugins.ErrInstallInspectionRequired):
+		writeError(w, r, http.StatusConflict, "plugin.install_inspection_required", "请先检查插件包并确认信任", "errors.plugin.install_inspection_required", nil)
+	case pluginservice.InstallErrorCode(err) == "plugin.package_resource_limit_exceeded":
+		writeError(w, r, http.StatusRequestEntityTooLarge, "plugin.package_resource_limit_exceeded", "插件包超过资源限制", "errors.plugin.package_resource_limit_exceeded", nil)
+	case pluginservice.InstallErrorCode(err) == "plugin.package_unsafe_entry":
+		writeError(w, r, http.StatusBadRequest, "plugin.package_unsafe_entry", "插件包包含不安全条目", "errors.plugin.package_unsafe_entry", nil)
+	case pluginservice.InstallErrorCode(err) == "platform.invalid_request" || pluginservice.InstallErrorCode(err) == "platform.resource_missing":
+		writeError(w, r, http.StatusBadRequest, pluginCodeInvalidRequest, "请求参数不合法", "errors.platform.invalid_request", nil)
+	default:
+		writeError(w, r, http.StatusConflict, "plugin.install_failed", "插件安装失败", "errors.plugin.install_failed", nil)
 	}
 }
 
@@ -267,6 +391,10 @@ func newUninstallHandler(catalog plugins.CatalogView, coordinator UninstallCoord
 		}
 		taskID, err := coordinator.Accept(r.Context(), pluginID)
 		if err != nil {
+			if errors.Is(err, tasks.ErrQueueFull) {
+				writeError(w, r, http.StatusTooManyRequests, "platform.task_queue_full", "任务队列已满，请稍后重试", "errors.platform.task_queue_full", nil)
+				return
+			}
 			writeError(w, r, http.StatusInternalServerError, "platform.internal_error", "内部错误", "errors.platform.internal_error", nil)
 			return
 		}

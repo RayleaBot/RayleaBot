@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"testing"
@@ -16,6 +15,7 @@ import (
 	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
 	"github.com/RayleaBot/RayleaBot/server/internal/tasks"
 	"github.com/RayleaBot/RayleaBot/server/internal/testenv"
+	"github.com/RayleaBot/RayleaBot/server/tests/testutil"
 )
 
 func TestPluginInstallRouteExecutesTaskAndRefreshesCatalog(t *testing.T) {
@@ -35,10 +35,12 @@ func TestPluginInstallRouteExecutesTaskAndRefreshesCatalog(t *testing.T) {
 
 	sessionCounter := 0
 	application, err := app.New(app.Options{
-		ConfigPath:       configPath,
-		SchemaPath:       filepath.Join("..", "contracts", "config.user.schema.json"),
-		PluginRepoRoot:   repoRoot,
-		PluginSchemaPath: pluginSchemaPath,
+		ConfigPath:           configPath,
+		SchemaPath:           filepath.Join("..", "contracts", "config.user.schema.json"),
+		SetupToken:           testutil.TestSetupToken,
+		LauncherControlToken: testutil.TestLauncherControlToken,
+		PluginRepoRoot:       repoRoot,
+		PluginSchemaPath:     pluginSchemaPath,
 		PluginRoots: []plugincatalog.ScanRoot{
 			{Label: "examples/plugins", Path: examplesRoot},
 			{Label: "plugins/installed", Path: installedRoot},
@@ -65,17 +67,52 @@ func TestPluginInstallRouteExecutesTaskAndRefreshesCatalog(t *testing.T) {
 	token := issueLoginToken(t, application)
 	sourceDir := writePluginInstallSource(t, filepath.Join(t.TempDir(), "weather-source"), "weather-install", "nodejs", "index.js")
 
-	server := httptest.NewServer(application.Handler())
+	server := newManagementTestServer(t, application.Handler())
 	defer server.Close()
 
-	requestBody, err := json.Marshal(map[string]any{
+	inspectionBody, err := json.Marshal(map[string]any{
 		"source_type": "local_directory",
 		"source":      sourceDir,
 	})
 	if err != nil {
-		t.Fatalf("marshal install request: %v", err)
+		t.Fatalf("marshal install inspection request: %v", err)
 	}
 
+	inspectionRequest, err := http.NewRequest(http.MethodPost, server.URL+"/api/plugins/install/inspect", bytes.NewReader(inspectionBody))
+	if err != nil {
+		t.Fatalf("create install inspection request: %v", err)
+	}
+	inspectionRequest.Header.Set("Authorization", "Bearer "+token)
+	inspectionRequest.Header.Set("Content-Type", "application/json")
+
+	inspectionResponse, err := server.Client().Do(inspectionRequest)
+	if err != nil {
+		t.Fatalf("perform install inspection request: %v", err)
+	}
+	defer inspectionResponse.Body.Close()
+	if inspectionResponse.StatusCode != http.StatusOK {
+		t.Fatalf("unexpected install inspection status: got %d want 200", inspectionResponse.StatusCode)
+	}
+	inspection := decodeBody(t, readAll(t, inspectionResponse))
+	inspectionID, ok := inspection["inspection_id"].(string)
+	if !ok || inspectionID == "" {
+		t.Fatalf("unexpected install inspection id: %#v", inspection)
+	}
+	packageSHA256, ok := inspection["package_sha256"].(string)
+	if !ok || packageSHA256 == "" {
+		t.Fatalf("unexpected install package digest: %#v", inspection)
+	}
+
+	requestBody, err := json.Marshal(map[string]any{
+		"source_type":            "local_directory",
+		"source":                 sourceDir,
+		"inspection_id":          inspectionID,
+		"package_sha256":         packageSHA256,
+		"trusted_code_confirmed": true,
+	})
+	if err != nil {
+		t.Fatalf("marshal install request: %v", err)
+	}
 	request, err := http.NewRequest(http.MethodPost, server.URL+"/api/plugins/install", bytes.NewReader(requestBody))
 	if err != nil {
 		t.Fatalf("create install request: %v", err)

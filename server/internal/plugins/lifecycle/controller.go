@@ -701,12 +701,12 @@ func (c *Controller) HandleSchedulerTrigger(ctx context.Context, job scheduler.J
 
 	snapshot, ok := c.plugins.Get(pluginID)
 	if !ok || snapshot.RegistrationState != "installed" || snapshot.DesiredState != "enabled" || !snapshot.Valid {
-		c.logSchedulerTriggerFailure(ctx, pluginID, schedulerPluginDisplayName(snapshot, pluginID), taskName, logLabel, startedAt, "platform.invalid_request", "plugin is not available")
+		c.logSchedulerTriggerFailure(ctx, pluginID, schedulerPluginDisplayName(snapshot, pluginID), taskName, logLabel, job.Revision, startedAt, "platform.invalid_request", "plugin is not available")
 		return
 	}
 
 	if err := c.ensurePluginRunning(ctx, pluginID, c.currentBotID()); err != nil {
-		c.logSchedulerTriggerFailure(ctx, pluginID, schedulerPluginDisplayName(snapshot, pluginID), taskName, logLabel, startedAt, "plugin.internal_error", err.Error())
+		c.logSchedulerTriggerFailure(ctx, pluginID, schedulerPluginDisplayName(snapshot, pluginID), taskName, logLabel, job.Revision, startedAt, "plugin.internal_error", err.Error())
 		return
 	}
 
@@ -721,6 +721,7 @@ func (c *Controller) HandleSchedulerTrigger(ctx context.Context, job scheduler.J
 		PayloadFields:  schedulerPayloadFields(job),
 		SchedulerLog: &pluginruntime.SchedulerLogContext{
 			JobID:      job.JobID,
+			Revision:   job.Revision,
 			PluginName: pluginName,
 			TaskName:   taskName,
 			LogLabel:   logLabel,
@@ -729,13 +730,13 @@ func (c *Controller) HandleSchedulerTrigger(ctx context.Context, job scheduler.J
 		},
 	})
 	if result.Outcome != dispatch.OutcomeDelivered {
-		c.logSchedulerTriggerFailure(ctx, pluginID, pluginName, taskName, logLabel, startedAt, result.ErrorCode, string(result.Outcome))
+		c.logSchedulerTriggerFailure(ctx, pluginID, pluginName, taskName, logLabel, job.Revision, startedAt, result.ErrorCode, string(result.Outcome))
 	}
 }
 
-func (c *Controller) logSchedulerTriggerFailure(ctx context.Context, pluginID, pluginName, taskName, logLabel string, startedAt time.Time, errorCode, errorText string) {
+func (c *Controller) logSchedulerTriggerFailure(ctx context.Context, pluginID, pluginName, taskName, logLabel string, revision uint64, startedAt time.Time, errorCode, errorText string) {
 	duration := time.Since(startedAt)
-	c.recordSchedulerRunResult(ctx, taskName, scheduler.RunOutcomeFailed, duration, errorCode, errorText, time.Now())
+	c.recordSchedulerRunResult(ctx, taskName, revision, scheduler.RunOutcomeFailed, duration, errorCode, errorText, time.Now())
 	if c.logger == nil {
 		return
 	}
@@ -752,12 +753,13 @@ func (c *Controller) logSchedulerTriggerFailure(ctx context.Context, pluginID, p
 	)
 }
 
-func (c *Controller) recordSchedulerRunResult(ctx context.Context, jobID string, outcome scheduler.RunOutcome, duration time.Duration, errorCode, errorText string, occurredAt time.Time) {
+func (c *Controller) recordSchedulerRunResult(ctx context.Context, jobID string, revision uint64, outcome scheduler.RunOutcome, duration time.Duration, errorCode, errorText string, occurredAt time.Time) {
 	if c.scheduler == nil {
 		return
 	}
 	if err := c.scheduler.RecordRunResult(ctx, scheduler.RunResult{
 		JobID:      jobID,
+		Revision:   revision,
 		Outcome:    outcome,
 		Duration:   duration,
 		ErrorCode:  errorCode,

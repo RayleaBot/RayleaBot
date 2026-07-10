@@ -121,15 +121,16 @@ func (s *Service) HandleWebhook() http.HandlerFunc {
 		if strings.TrimSpace(eventID) == "" {
 			eventID = fmt.Sprintf("webhook-%s-%d", route, nowTime.UnixNano())
 		}
-		webhookMeta := map[string]any{
-			"route":       route,
-			"received_at": nowTime.Unix(),
+		webhookMeta := &pluginruntime.EventWebhook{
+			Route:      route,
+			ReceivedAt: nowTime.Unix(),
 		}
 		if replayDecision.timestamp > 0 {
-			webhookMeta["client_timestamp"] = replayDecision.timestamp
+			clientTimestamp := replayDecision.timestamp
+			webhookMeta.ClientTimestamp = &clientTimestamp
 		}
 		if strings.TrimSpace(replayDecision.eventID) != "" {
-			webhookMeta["client_event_id"] = replayDecision.eventID
+			webhookMeta.ClientEventID = replayDecision.eventID
 		}
 
 		result := s.dispatcher.DispatchToPlugin(r.Context(), pluginID, pluginruntime.Event{
@@ -147,8 +148,8 @@ func (s *Service) HandleWebhook() http.HandlerFunc {
 				ID:   webhookRemoteIP(r.RemoteAddr),
 				Role: "remote",
 			},
-			PayloadFields: map[string]any{"webhook": webhookMeta},
-			RawPayload:    s.buildWebhookRawPayload(r, route, body, s.capabilities.CapabilityDeclared(r.Context(), pluginID, "event.raw_payload")),
+			Webhook:    webhookMeta,
+			RawPayload: s.buildWebhookRawPayload(r, route, body, s.capabilities.CapabilityDeclared(r.Context(), pluginID, "event.raw_payload")),
 		})
 		if result.Outcome != dispatch.OutcomeDelivered {
 			httpapi.WriteError(w, r, http.StatusInternalServerError, "platform.internal_error", "内部错误", "errors.platform.internal_error", nil)

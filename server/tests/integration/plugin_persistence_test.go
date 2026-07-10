@@ -2,7 +2,6 @@ package integration
 
 import (
 	"net/http"
-	"net/http/httptest"
 	"path/filepath"
 	"testing"
 	"time"
@@ -16,7 +15,7 @@ func TestPluginDesiredStatePersistsAcrossRestart(t *testing.T) {
 
 	appA := newPersistentTestApp(t, configPath, func() time.Time { return current }, "plugin-a")
 	token := issueLoginToken(t, appA)
-	serverA := httptest.NewServer(appA.Handler())
+	serverA := newManagementTestServer(t, appA.Handler())
 
 	enableReq, err := http.NewRequest(http.MethodPost, serverA.URL+"/api/plugins/raylea.echo/disable", nil)
 	if err != nil {
@@ -36,7 +35,7 @@ func TestPluginDesiredStatePersistsAcrossRestart(t *testing.T) {
 
 	appB := newPersistentTestApp(t, configPath, func() time.Time { return current }, "plugin-b")
 	defer closePersistentTestApp(t, appB)
-	serverB := httptest.NewServer(appB.Handler())
+	serverB := newManagementTestServer(t, appB.Handler())
 	defer serverB.Close()
 
 	loginToken := issueExistingBootstrapLoginToken(t, appB)
