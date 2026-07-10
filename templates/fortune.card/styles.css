@@ -1,13 +1,5 @@
 @import url("assets/fonts/lxgwwenkai-medium/result.css");
 
-@font-face {
-  font-family: "Raylea Footer WenKai";
-  src: url("assets/fonts/lxgw-wenkai-bold/lxgw-wenkai-bold.ttf") format("truetype");
-  font-display: swap;
-  font-style: normal;
-  font-weight: 700;
-}
-
 :root {
   --color-bg: #fff8ec;
   --color-paper: rgba(255, 254, 248, 0.94);
@@ -769,9 +761,9 @@ h1 {
   flex: 0 1 auto;
   max-width: 100%;
   color: rgba(100, 68, 39, 0.68);
-  font-family: "Raylea Footer WenKai", "HarmonyOS Sans SC", "PingFang SC", "Microsoft YaHei UI", "Noto Sans SC", "Segoe UI Variable Text", sans-serif;
+  font-family: "LXGW WenKai Medium", "HarmonyOS Sans SC", "PingFang SC", "Microsoft YaHei UI", "Noto Sans SC", "Segoe UI Variable Text", sans-serif;
   font-size: 18px;
-  font-weight: 700;
+  font-weight: 500;
   font-variant-numeric: tabular-nums;
   letter-spacing: 0.012em;
   line-height: 1.65;

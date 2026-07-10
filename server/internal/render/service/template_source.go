@@ -2,11 +2,16 @@ package service
 
 import (
 	"crypto/sha256"
+	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
+	"sync"
+	"time"
 
 	renderrepo "github.com/RayleaBot/RayleaBot/server/internal/render/repository"
 )
@@ -99,17 +104,113 @@ func DigestSource(source renderrepo.TemplateSource) string {
 	return hex.EncodeToString(sum[:])
 }
 
-func ResourceDigest(templateDir string) string {
-	templateDir, err := filepath.Abs(templateDir)
-	if err != nil || templateDir == "" {
-		return ""
+const resourceDigestFullRecheckInterval = time.Second
+
+type resourceDigestEntry struct {
+	fingerprint  string
+	digest       string
+	fullyChecked time.Time
+}
+
+type resourceFile struct {
+	path     string
+	relative string
+}
+
+type resourceDigester struct {
+	mu              sync.Mutex
+	cache           map[string]resourceDigestEntry
+	now             func() time.Time
+	recheckInterval time.Duration
+}
+
+var defaultResourceDigester = newResourceDigester(time.Now, resourceDigestFullRecheckInterval)
+
+func newResourceDigester(now func() time.Time, recheckInterval time.Duration) *resourceDigester {
+	if now == nil {
+		now = time.Now
 	}
-	assetsDir := filepath.Join(templateDir, "assets")
-	if !pathWithinRoot(templateDir, assetsDir) {
-		return ""
+	return &resourceDigester{
+		cache:           make(map[string]resourceDigestEntry),
+		now:             now,
+		recheckInterval: recheckInterval,
+	}
+}
+
+func ResourceDigest(templateDir string) (string, error) {
+	return defaultResourceDigester.Digest(templateDir)
+}
+
+func InvalidateResourceDigest(templateDir string) {
+	defaultResourceDigester.Invalidate(templateDir)
+}
+
+func (d *resourceDigester) Invalidate(templateDir string) {
+	templateDir, err := filepath.Abs(templateDir)
+	if err != nil {
+		return
+	}
+	d.mu.Lock()
+	delete(d.cache, templateDir)
+	d.mu.Unlock()
+}
+
+func (d *resourceDigester) Digest(templateDir string) (string, error) {
+	templateDir, err := filepath.Abs(templateDir)
+	if err != nil {
+		return "", fmt.Errorf("resolve render resource directory: %w", err)
+	}
+	if templateDir == "" {
+		return "", fmt.Errorf("resolve render resource directory: empty path")
 	}
 
-	digest := sha256.New()
+	files, fingerprint, exists, err := scanResourceFiles(templateDir)
+	if err != nil || !exists {
+		return "", err
+	}
+
+	now := d.now().UTC()
+	d.mu.Lock()
+	cached, ok := d.cache[templateDir]
+	d.mu.Unlock()
+	age := now.Sub(cached.fullyChecked)
+	if ok && cached.fingerprint == fingerprint && age >= 0 && age < d.recheckInterval {
+		return cached.digest, nil
+	}
+
+	digest, err := digestResourceFiles(files)
+	if err != nil {
+		return "", err
+	}
+	d.mu.Lock()
+	d.cache[templateDir] = resourceDigestEntry{
+		fingerprint:  fingerprint,
+		digest:       digest,
+		fullyChecked: now,
+	}
+	d.mu.Unlock()
+	return digest, nil
+}
+
+func scanResourceFiles(templateDir string) ([]resourceFile, string, bool, error) {
+	assetsDir := filepath.Join(templateDir, "assets")
+	if !pathWithinRoot(templateDir, assetsDir) {
+		return nil, "", false, fmt.Errorf("render resource directory escapes template root")
+	}
+	assetsInfo, err := os.Stat(assetsDir)
+	if errors.Is(err, os.ErrNotExist) {
+		return nil, "", false, nil
+	}
+	if err != nil {
+		return nil, "", false, fmt.Errorf("inspect render resource directory: %w", err)
+	}
+	if !assetsInfo.IsDir() {
+		return nil, "", false, fmt.Errorf("render resource path is not a directory")
+	}
+
+	files := make([]resourceFile, 0, 32)
+	fingerprint := sha256.New()
+	var encodedNumber [8]byte
 	walkErr := filepath.WalkDir(assetsDir, func(path string, entry os.DirEntry, err error) error {
 		if err != nil {
 			return err
@@ -117,22 +218,52 @@ func ResourceDigest(templateDir string) string {
 		if entry.IsDir() {
 			return nil
 		}
+		if entry.Type()&os.ModeSymlink != 0 {
+			return fmt.Errorf("render resource symlink is not allowed: %s", path)
+		}
 		relative, err := filepath.Rel(templateDir, path)
 		if err != nil {
 			return err
 		}
-		digest.Write([]byte(filepath.ToSlash(relative)))
-		digest.Write([]byte{0})
-		content, err := os.ReadFile(path)
+		info, err := entry.Info()
 		if err != nil {
 			return err
 		}
-		digest.Write(content)
-		digest.Write([]byte{0})
+		relative = filepath.ToSlash(relative)
+		files = append(files, resourceFile{path: path, relative: relative})
+		_, _ = fingerprint.Write([]byte(relative))
+		_, _ = fingerprint.Write([]byte{0})
+		binary.LittleEndian.PutUint64(encodedNumber[:], uint64(info.Size()))
+		_, _ = fingerprint.Write(encodedNumber[:])
+		binary.LittleEndian.PutUint64(encodedNumber[:], uint64(info.ModTime().UnixNano()))
+		_, _ = fingerprint.Write(encodedNumber[:])
 		return nil
 	})
 	if walkErr != nil {
-		return ""
+		return nil, "", false, fmt.Errorf("inspect render resources: %w", walkErr)
 	}
-	return hex.EncodeToString(digest.Sum(nil))
+	return files, hex.EncodeToString(fingerprint.Sum(nil)), true, nil
+}
+
+func digestResourceFiles(files []resourceFile) (string, error) {
+	digest := sha256.New()
+	buffer := make([]byte, 32*1024)
+	for _, file := range files {
+		_, _ = digest.Write([]byte(file.relative))
+		_, _ = digest.Write([]byte{0})
+		reader, err := os.Open(file.path)
+		if err != nil {
+			return "", fmt.Errorf("open render resource %s: %w", file.relative, err)
+		}
+		_, copyErr := io.CopyBuffer(digest, reader, buffer)
+		closeErr := reader.Close()
+		if copyErr != nil {
+			return "", fmt.Errorf("digest render resource %s: %w", file.relative, copyErr)
+		}
+		if closeErr != nil {
+			return "", fmt.Errorf("close render resource %s: %w", file.relative, closeErr)
+		}
+		_, _ = digest.Write([]byte{0})
+	}
+	return hex.EncodeToString(digest.Sum(nil)), nil
 }

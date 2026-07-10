@@ -43,6 +43,9 @@ func (s *Service) SyncPluginTemplates(ctx context.Context, sources []Source) err
 
 	s.templateSyncMu.Lock()
 	defer s.templateSyncMu.Unlock()
+	for _, source := range sources {
+		InvalidateResourceDigest(source.Dir)
+	}
 
 	prepared, err := PrepareSync(sources)
 	if err != nil {

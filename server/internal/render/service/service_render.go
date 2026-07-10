@@ -76,7 +76,10 @@ func (s *Service) renderInternal(ctx context.Context, request Request) (Result, 
 		return Result{}, err
 	}
 	templateDir := s.templateDirFor(normalized.Template)
-	resourceDigest := ResourceDigest(templateDir)
+	resourceDigest, err := ResourceDigest(templateDir)
+	if err != nil {
+		return Result{}, &Error{Code: "platform.internal_error", Message: "render template resources are unavailable", Err: err}
+	}
 	deviceScalePercent := s.currentDeviceScalePercent()
 	cacheKey := buildCacheKey(normalized, cacheVersion, cacheDigest, resourceDigest, deviceScalePercent, payloadBytes)
 	if cached, ok := s.artifactStore.cachedResult(cacheKey); ok {
