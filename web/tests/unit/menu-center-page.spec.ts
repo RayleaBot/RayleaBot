@@ -284,6 +284,161 @@ describe('MenuCenterView', () => {
     }))
   })
 
+  it('renders pattern command bodies with every effective prefix instead of display names', async () => {
+    const configStore = useConfigStore()
+    const pluginsStore = usePluginsStore()
+    configStore.document = {
+      ...createConfig(),
+      command: { prefixes: ['/', '*'] },
+    } as ConfigDocument
+    pluginsStore.items = [
+      createPlugin({
+        id: 'game-guide',
+        name: '游戏攻略',
+        commands: [
+          {
+            name: '已适配角色列表',
+            description: '查看全部已适配角色',
+            usage: '*角色列表',
+            permission: 'everyone',
+            command_source: 'pattern',
+            declaration_id: 'character-list',
+          },
+          {
+            name: '角色攻略',
+            description: '按角色名或别名查询攻略图',
+            usage: '*<角色名>攻略',
+            permission: 'everyone',
+            command_source: 'pattern',
+            declaration_id: 'character-guide',
+          },
+          {
+            name: '每日运势',
+            description: '查看每日运势',
+            usage: '每日运势 [日期]',
+            permission: 'everyone',
+            command_source: 'dynamic',
+          },
+        ],
+        help: {
+          summary: '星穹铁道攻略菜单',
+          groups: [],
+        },
+      }),
+    ]
+
+    vi.spyOn(configStore, 'fetchConfig').mockResolvedValue(undefined)
+    vi.spyOn(pluginsStore, 'fetchList').mockResolvedValue(undefined)
+    const wrapper = mount(MenuCenterView, {
+      global: {
+        plugins: [Antd],
+      },
+    })
+    await flushPromises()
+
+    const payload = pluginPreviewPayload(wrapper)
+    expect(payload.groups).toHaveLength(1)
+    expect(payload.groups[0].title).toBe('命令')
+    expect(payload.groups[0].items[0]).toMatchObject({
+      name: '已适配角色列表',
+      command_source: 'pattern',
+      command_prefixes: ['/', '*'],
+      usage: '角色列表',
+    })
+    expect(payload.groups[0].items[1]).toMatchObject({
+      name: '角色攻略',
+      command_source: 'pattern',
+      command_prefixes: ['/', '*'],
+      usage: '<角色名>攻略',
+    })
+    expect(payload.groups[0].items[2]).toMatchObject({
+      name: '每日运势',
+      command_source: 'dynamic',
+      command_prefixes: ['/', '*'],
+    })
+    expect(payload.groups[0].items[2]).not.toHaveProperty('usage')
+
+    const previewDoc = new DOMParser().parseFromString(pluginPreviewFrame(wrapper).attributes('srcdoc') ?? '', 'text/html')
+    const cards = Array.from(previewDoc.querySelectorAll('.card'))
+    const listCard = cards.find((card) => card.querySelector('.meta')?.textContent === '已适配角色列表')
+    const guideCard = cards.find((card) => card.querySelector('.meta')?.textContent === '角色攻略')
+    const dynamicCard = cards.find((card) => card.querySelector('.meta')?.textContent === '每日运势')
+    expect(listCard?.querySelector('.command-usage__prefix-group')?.textContent).toBe('/*')
+    expect(listCard?.querySelector('.command-usage__name')?.textContent).toBe('角色列表')
+    expect(guideCard?.querySelector('.command-usage__prefix-group')?.textContent).toBe('/*')
+    expect(guideCard?.querySelector('.command-usage__name')?.textContent).toBe('<角色名>攻略')
+    expect(dynamicCard?.querySelector('.command-usage__prefix-group')?.textContent).toBe('/*')
+    expect(dynamicCard?.querySelector('.command-usage__text')?.textContent).toBe('每日运势')
+    expect(previewDoc.body.textContent).not.toContain('*已适配角色列表')
+  })
+
+  it('strips multi-character configured prefixes and full-width fallback prefixes from pattern usages', async () => {
+    const configStore = useConfigStore()
+    const pluginsStore = usePluginsStore()
+    configStore.document = {
+      ...createConfig(),
+      command: { prefixes: ['::', '/'] },
+    } as ConfigDocument
+    pluginsStore.items = [
+      createPlugin({
+        id: 'game-guide',
+        name: '游戏攻略',
+        commands: [
+          {
+            name: '多字符前缀示例',
+            description: '测试多字符前缀',
+            usage: '::角色列表',
+            permission: 'everyone',
+            command_source: 'pattern',
+          },
+          {
+            name: '全角前缀示例',
+            description: '测试全角前缀',
+            usage: '＊<角色名>攻略',
+            permission: 'everyone',
+            command_source: 'pattern',
+          },
+        ],
+        help: {
+          summary: '星穹铁道攻略菜单',
+          groups: [],
+        },
+      }),
+    ]
+
+    vi.spyOn(configStore, 'fetchConfig').mockResolvedValue(undefined)
+    vi.spyOn(pluginsStore, 'fetchList').mockResolvedValue(undefined)
+    const wrapper = mount(MenuCenterView, {
+      global: {
+        plugins: [Antd],
+      },
+    })
+    await flushPromises()
+
+    const items = pluginPreviewPayload(wrapper).groups[0].items
+    expect(items[0]).toMatchObject({
+      name: '多字符前缀示例',
+      command_prefixes: ['::', '/'],
+      usage: '角色列表',
+    })
+    expect(items[1]).toMatchObject({
+      name: '全角前缀示例',
+      command_prefixes: ['::', '/'],
+      usage: '<角色名>攻略',
+    })
+
+    const previewDoc = new DOMParser().parseFromString(pluginPreviewFrame(wrapper).attributes('srcdoc') ?? '', 'text/html')
+    const usages = Array.from(previewDoc.querySelectorAll('.command-usage'))
+    expect(usages).toHaveLength(2)
+    for (const usage of usages) {
+      expect(usage.querySelector('.command-usage__prefix-group')?.textContent).toBe('::/')
+    }
+    expect(usages[0].querySelector('.command-usage__name')?.textContent).toBe('角色列表')
+    expect(usages[1].querySelector('.command-usage__name')?.textContent).toBe('<角色名>攻略')
+    expect(previewDoc.body.textContent).not.toContain('多字符前缀示例::')
+    expect(previewDoc.body.textContent).not.toContain('全角前缀示例::')
+  })
+
   it('calculates native preview scaling and internal scroll bounds', () => {
     const fitted = calculateNativePreviewLayout({
       containerTop: 80,

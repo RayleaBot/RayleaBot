@@ -305,11 +305,16 @@ func buildBuiltinCommands(commands []plugins.CommandView, cfg config.Config) []m
 	items := make([]map[string]any, 0, len(commands))
 	prefixes := builtinMenuPrefixes(cfg)
 	for _, command := range commands {
+		commandSource := normalizeBuiltinMenuCommandSource(command.CommandSource)
 		item := map[string]any{
 			"name":             command.Name,
+			"command_source":   commandSource,
 			"command_prefixes": append([]string(nil), prefixes...),
 			"description":      firstBuiltinMenuText(command.Description, command.Name),
 			"permission":       builtinMenuEffectiveCommandPermission(command.Permission, cfg),
+		}
+		if commandSource == plugins.CommandSourcePattern {
+			item["usage"] = builtinPatternCommandUsage(command.Usage, prefixes)
 		}
 		if len(command.Aliases) > 0 {
 			item["aliases"] = append([]string(nil), command.Aliases...)
@@ -347,7 +352,15 @@ func buildBuiltinHelp(help *plugins.HelpView, commands []plugins.CommandView, cf
 			}
 			if commandName != "" {
 				entry["command_name"] = commandName
-				if usageArgs := builtinCommandUsageArgs(commandName, item.Usage); usageArgs != "" {
+				if command, ok := findBuiltinCommandView(commands, commandName); ok {
+					commandSource := normalizeBuiltinMenuCommandSource(command.CommandSource)
+					entry["command_source"] = commandSource
+					if commandSource == plugins.CommandSourcePattern {
+						entry["usage"] = builtinPatternCommandUsage(command.Usage, builtinMenuPrefixes(cfg))
+					} else if usageArgs := builtinCommandUsageArgs(commandName, item.Usage); usageArgs != "" {
+						entry["usage_args"] = usageArgs
+					}
+				} else if usageArgs := builtinCommandUsageArgs(commandName, item.Usage); usageArgs != "" {
 					entry["usage_args"] = usageArgs
 				}
 			}
@@ -377,7 +390,9 @@ func applyBuiltinHelpCommandPrefixes(help map[string]any, cfg config.Config) map
 				continue
 			}
 			item["command_prefixes"] = append([]string(nil), prefixes...)
-			delete(item, "usage")
+			if stringValueFromMap(item, "command_source") != plugins.CommandSourcePattern {
+				delete(item, "usage")
+			}
 			delete(item, "command_name")
 		}
 	}
@@ -585,6 +600,56 @@ func builtinCommandCoveredByHelp(commandItem map[string]any, helpCommandNames ma
 		}
 	}
 	return false
+}
+
+func findBuiltinCommandView(commands []plugins.CommandView, value string) (plugins.CommandView, bool) {
+	value = normalizeMenuLookup(value)
+	if value == "" {
+		return plugins.CommandView{}, false
+	}
+	for _, command := range commands {
+		for _, candidate := range append([]string{command.Name, command.DeclarationID}, command.Aliases...) {
+			if normalizeMenuLookup(candidate) == value {
+				return command, true
+			}
+		}
+	}
+	return plugins.CommandView{}, false
+}
+
+func normalizeBuiltinMenuCommandSource(source string) string {
+	switch strings.TrimSpace(source) {
+	case plugins.CommandSourceDynamic:
+		return plugins.CommandSourceDynamic
+	case plugins.CommandSourcePattern:
+		return plugins.CommandSourcePattern
+	default:
+		return plugins.CommandSourceManifest
+	}
+}
+
+func builtinPatternCommandUsage(usage string, prefixes []string) string {
+	usage = strings.TrimSpace(usage)
+	if usage == "" {
+		return ""
+	}
+
+	matchedPrefix := ""
+	for _, prefix := range prefixes {
+		prefix = strings.TrimSpace(prefix)
+		if prefix != "" && len(prefix) > len(matchedPrefix) && strings.HasPrefix(usage, prefix) {
+			matchedPrefix = prefix
+		}
+	}
+	if matchedPrefix != "" {
+		return strings.TrimSpace(strings.TrimPrefix(usage, matchedPrefix))
+	}
+	for _, prefix := range []string{"/", "#", "*", "＊"} {
+		if strings.HasPrefix(usage, prefix) {
+			return strings.TrimSpace(strings.TrimPrefix(usage, prefix))
+		}
+	}
+	return usage
 }
 
 func builtinHelpCommandNames(help map[string]any) map[string]struct{} {

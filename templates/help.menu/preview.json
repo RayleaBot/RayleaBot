@@ -13,6 +13,7 @@
   "permission": {
     "level": "admin"
   },
+  "command_prefixes": ["/", "*"],
   "groups": [
     {
       "title": "基础指令",
@@ -20,7 +21,32 @@
         {
           "name": "weather",
           "description": "查询天气",
-          "usage": "/weather <城市>",
+          "command_source": "manifest",
+          "command_prefixes": ["/", "*"],
+          "usage_args": "<城市>",
+          "permission": "everyone",
+          "permission_label": "所有人可用"
+        }
+      ]
+    },
+    {
+      "title": "游戏攻略",
+      "items": [
+        {
+          "name": "已适配角色列表",
+          "description": "查看当前已适配攻略图的全部角色",
+          "command_source": "pattern",
+          "command_prefixes": ["/", "*"],
+          "usage": "角色列表",
+          "permission": "everyone",
+          "permission_label": "所有人可用"
+        },
+        {
+          "name": "角色攻略",
+          "description": "按角色名或别名查询攻略图",
+          "command_source": "pattern",
+          "command_prefixes": ["/", "*"],
+          "usage": "<角色名>攻略",
           "permission": "everyone",
           "permission_label": "所有人可用"
         }

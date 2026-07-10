@@ -75,22 +75,21 @@ const selectedPluginPreviewGroups = computed(() => {
 
   const coveredCommandNames = helpCommandNames(selectedPlugin.value)
   const visibleCommands = selectedPlugin.value.commands.filter((command) => !isCommandCoveredByHelp(command, coveredCommandNames))
-  const commandItems = visibleCommands.map((command) => ({
+  const commandItems: Array<Record<string, unknown>> = visibleCommands.map((command) => ({
     name: command.name,
-    command_prefixes: effectiveMenuPrefixes.value,
+    ...commandPreviewFields(command),
     description: command.description || command.name,
     permission: command.permission || 'everyone',
   }))
-  const groups = commandItems.length > 0
+  const groups: Array<{ title: string, items: Array<Record<string, unknown>> }> = commandItems.length > 0
     ? [{ title: '命令', items: commandItems }]
     : []
 
   for (const group of selectedPlugin.value.help?.groups ?? []) {
     const items = group.items.map((item) => ({
       name: item.command || item.title,
-      command_prefixes: item.command ? effectiveMenuPrefixes.value : [],
+      ...helpCommandPreviewFields(selectedPlugin.value!, item.command, item.usage),
       description: item.description || item.title,
-      usage_args: item.command ? commandUsageArgs(item.command, item.usage) : '',
       permission: item.permission || 'everyone',
     }))
     if (items.length > 0) {
@@ -238,8 +237,59 @@ function isCommandCoveredByHelp(command: PluginCommandSummary, helpCommands: Set
   return names.some((name) => helpCommands.has(normalizeMenuLookup(name)))
 }
 
+function commandPreviewFields(command: PluginCommandSummary) {
+  if (command.command_source === 'pattern') {
+    return {
+      command_source: command.command_source,
+      command_prefixes: effectiveMenuPrefixes.value,
+      usage: patternCommandUsage(command.usage, effectiveMenuPrefixes.value),
+    }
+  }
+  return {
+    command_source: command.command_source,
+    command_prefixes: effectiveMenuPrefixes.value,
+  }
+}
+
+function helpCommandPreviewFields(plugin: PluginSummary, commandName?: string | null, usage?: string | null) {
+  const name = String(commandName ?? '').trim()
+  if (!name) {
+    return {}
+  }
+  const command = findPluginCommand(plugin, name)
+  if (command?.command_source === 'pattern') {
+    return commandPreviewFields(command)
+  }
+  return {
+    ...(command ? { command_source: command.command_source } : {}),
+    command_prefixes: effectiveMenuPrefixes.value,
+    usage_args: commandUsageArgs(name, usage),
+  }
+}
+
+function findPluginCommand(plugin: PluginSummary, value: string) {
+  const target = normalizeMenuLookup(value)
+  return plugin.commands.find((command) => (
+    [command.name, command.declaration_id, ...(command.aliases ?? [])]
+      .some((candidate) => normalizeMenuLookup(candidate) === target)
+  )) ?? null
+}
+
 function normalizeMenuLookup(value?: string | null) {
   return String(value ?? '').trim().toLowerCase()
+}
+
+function patternCommandUsage(usage: string | null | undefined, prefixes: string[]) {
+  const value = String(usage ?? '').trim()
+  if (!value) {
+    return ''
+  }
+  const examplePrefixes = [...new Set([...prefixes, '/', '#', '*', '＊'])]
+    .map((prefix) => prefix.trim())
+    .filter(Boolean)
+    .sort((left, right) => right.length - left.length)
+  const matchedPrefix = examplePrefixes.find((prefix) => value.startsWith(prefix))
+  return matchedPrefix ? value.slice(matchedPrefix.length).trimStart() : value
 }
 
 function commandUsageArgs(commandName?: string | null, usage?: string | null) {

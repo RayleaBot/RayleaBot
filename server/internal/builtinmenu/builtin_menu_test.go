@@ -134,6 +134,107 @@ func TestBuiltinPluginMenuDataUsesMenuPrefixesWithoutTriggerExamples(t *testing.
 	}
 }
 
+func TestBuildBuiltinCommandsUsesDeclaredUsageBodyAndConfiguredPrefixesForPatternCommands(t *testing.T) {
+	t.Parallel()
+
+	items := buildBuiltinCommands([]plugins.CommandView{
+		{
+			Name:          "已适配角色列表",
+			Description:   "查看全部已适配角色",
+			Usage:         "*角色列表",
+			Permission:    "everyone",
+			CommandSource: plugins.CommandSourcePattern,
+			DeclarationID: "character-list",
+		},
+		{
+			Name:          "角色攻略",
+			Description:   "按角色名或别名查询攻略图",
+			Usage:         "*<角色名>攻略",
+			Permission:    "everyone",
+			CommandSource: plugins.CommandSourcePattern,
+			DeclarationID: "character-guide",
+		},
+		{
+			Name:          "游戏攻略",
+			Description:   "查询角色攻略图",
+			Usage:         "/游戏攻略 <角色名>",
+			Permission:    "everyone",
+			CommandSource: plugins.CommandSourceManifest,
+		},
+		{
+			Name:          "每日运势",
+			Description:   "查看每日运势",
+			Usage:         "每日运势 [日期]",
+			Permission:    "everyone",
+			CommandSource: plugins.CommandSourceDynamic,
+		},
+	}, config.Config{Builtin: config.BuiltinConfig{Menu: config.BuiltinMenuConfig{Prefixes: []string{"/", "*"}}}})
+
+	if len(items) != 4 {
+		t.Fatalf("unexpected command item count: %d", len(items))
+	}
+	for index, want := range []struct {
+		name  string
+		usage string
+	}{
+		{name: "已适配角色列表", usage: "角色列表"},
+		{name: "角色攻略", usage: "<角色名>攻略"},
+	} {
+		item := items[index]
+		if got := item["name"]; got != want.name {
+			t.Fatalf("pattern item %d name = %#v, want %q", index, got, want.name)
+		}
+		if got := item["usage"]; got != want.usage {
+			t.Fatalf("pattern item %d usage = %#v, want %q", index, got, want.usage)
+		}
+		if got := item["command_source"]; got != plugins.CommandSourcePattern {
+			t.Fatalf("pattern item %d command_source = %#v, want pattern", index, got)
+		}
+		if got := item["command_prefixes"]; !reflect.DeepEqual(got, []string{"/", "*"}) {
+			t.Fatalf("pattern item %d prefixes = %#v, want [/ *]", index, got)
+		}
+	}
+	for index, wantSource := range []string{plugins.CommandSourceManifest, plugins.CommandSourceDynamic} {
+		item := items[index+2]
+		if got := item["command_source"]; got != wantSource {
+			t.Fatalf("command item %d command_source = %#v, want %q", index+2, got, wantSource)
+		}
+		if got := item["command_prefixes"]; !reflect.DeepEqual(got, []string{"/", "*"}) {
+			t.Fatalf("command item %d prefixes = %#v, want [/ *]", index+2, got)
+		}
+		if _, ok := item["usage"]; ok {
+			t.Fatalf("non-pattern item %d should not expose literal usage: %#v", index+2, item)
+		}
+	}
+}
+
+func TestBuiltinPatternCommandUsageStripsConfiguredAndCommonExamplePrefixes(t *testing.T) {
+	t.Parallel()
+
+	testCases := []struct {
+		name     string
+		usage    string
+		prefixes []string
+		want     string
+	}{
+		{name: "longest configured prefix", usage: "::角色列表", prefixes: []string{":", "::"}, want: "角色列表"},
+		{name: "slash fallback", usage: "/角色列表", prefixes: []string{"!"}, want: "角色列表"},
+		{name: "hash fallback", usage: "#角色列表", prefixes: []string{"!"}, want: "角色列表"},
+		{name: "asterisk fallback", usage: "*角色列表", prefixes: []string{"!"}, want: "角色列表"},
+		{name: "full width asterisk fallback", usage: "＊角色列表", prefixes: []string{"!"}, want: "角色列表"},
+		{name: "usage without example prefix", usage: "角色列表", prefixes: []string{"/", "*"}, want: "角色列表"},
+	}
+
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+			if got := builtinPatternCommandUsage(testCase.usage, testCase.prefixes); got != testCase.want {
+				t.Fatalf("builtinPatternCommandUsage(%q, %#v) = %q, want %q", testCase.usage, testCase.prefixes, got, testCase.want)
+			}
+		})
+	}
+}
+
 func TestBuiltinPluginMenuDataDoesNotTreatHelpTitleAsCommand(t *testing.T) {
 	t.Parallel()
 

@@ -79,6 +79,10 @@
           "usage": {
             "type": "string"
           },
+          "command_source": {
+            "type": "string",
+            "enum": ["manifest", "dynamic", "pattern"]
+          },
           "usage_args": {
             "type": "string"
           },
@@ -129,6 +133,10 @@
                 },
                 "usage": {
                   "type": "string"
+                },
+                "command_source": {
+                  "type": "string",
+                  "enum": ["manifest", "dynamic", "pattern"]
                 },
                 "usage_args": {
                   "type": "string"

@@ -101,7 +101,16 @@
             </div>
             <p class="description">{{ .description }}</p>
             {{ $commandName := .name }}
-            {{ if and .command_prefixes $commandName }}
+            {{ if and .command_source (eq .command_source "pattern") .usage .command_prefixes }}
+            <div class="command-usage" aria-label="指令示意">
+              <code>
+                <span class="command-usage__prefix-group" aria-label="可用前缀">
+                  {{ range .command_prefixes }}<span class="command-usage__prefix">{{ . }}</span>{{ end }}
+                </span>
+                <span class="command-usage__text"><span class="command-usage__name">{{ .usage }}</span></span>
+              </code>
+            </div>
+            {{ else if and .command_prefixes $commandName }}
             <div class="command-usage" aria-label="指令示意">
               <code>
                 <span class="command-usage__prefix-group" aria-label="可用前缀">
