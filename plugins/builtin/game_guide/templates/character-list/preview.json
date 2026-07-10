@@ -1,0 +1,31 @@
+{
+  "title": "星穹铁道角色目录",
+  "subtitle": "已适配 9 名角色 · 名称与别名均可用于查询",
+  "total": 9,
+  "groups": [
+    {
+      "label": "A",
+      "characters": [
+        {"name": "Archer", "slug": "archer", "aliases": ["阿彻"]},
+        {"name": "阿格莱雅", "slug": "阿格莱雅", "aliases": []},
+        {"name": "阿兰", "slug": "阿兰", "aliases": []},
+        {"name": "艾丝妲", "slug": "艾丝妲", "aliases": ["asta"]}
+      ]
+    },
+    {
+      "label": "K",
+      "characters": [
+        {"name": "卡芙卡", "slug": "kafka", "aliases": ["卡夫卡", "kafka"]},
+        {"name": "开拓者•毁灭", "slug": "开拓者毁灭", "aliases": ["毁灭开拓者", "开拓者毁灭", "物主"]},
+        {"name": "克拉拉", "slug": "克拉拉", "aliases": ["clara"]}
+      ]
+    },
+    {
+      "label": "X",
+      "characters": [
+        {"name": "昔涟", "slug": "xilian", "aliases": ["昔莲", "xilian", "cyrene"]},
+        {"name": "希儿", "slug": "希儿", "aliases": ["seele"]}
+      ]
+    }
+  ]
+}

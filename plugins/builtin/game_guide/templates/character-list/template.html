@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style>{{ .Stylesheet }}</style>
+  </head>
+  <body class="theme-{{ .Theme }}">
+    <main class="charlist">
+      <header class="charlist__header">
+        <h1>{{ .title }}</h1>
+        {{ if .subtitle }}
+        <p class="charlist__subtitle">{{ .subtitle }}</p>
+        {{ end }}
+      </header>
+
+      {{ if .groups }}
+      <div class="charlist__columns" aria-label="按首字母分组的角色目录">
+        {{ range .groups }}
+        <section class="charlist__group">
+          <div class="charlist__group-heading">
+            <h2 class="charlist__group-letter">{{ .label }}</h2>
+            <span class="charlist__group-count">{{ len .characters }} 名</span>
+          </div>
+          <ul class="charlist__entries">
+            {{ range .characters }}
+            <li class="charlist__entry">
+              <span class="charlist__name">{{ .name }}</span>
+            {{ if .aliases }}
+              <span class="charlist__aliases" aria-label="别名">
+                <span class="charlist__aliases-divider" aria-hidden="true">/</span>
+              {{ range $index, $alias := .aliases }}
+                {{ if $index }}<span class="charlist__alias-separator">·</span>{{ end }}
+                <span class="charlist__alias">{{ $alias }}</span>
+              {{ end }}
+              </span>
+            {{ end }}
+            </li>
+            {{ end }}
+          </ul>
+        </section>
+        {{ end }}
+      </div>
+      {{ else }}
+      <section class="charlist__empty" aria-label="空角色目录">
+        <p>暂无已适配角色</p>
+      </section>
+      {{ end }}
+
+      {{ if .render_footer }}
+      <footer class="charlist__footer" aria-label="生成信息">
+        <span>{{ .render_footer }}</span>
+      </footer>
+      {{ end }}
+    </main>
+  </body>
+</html>

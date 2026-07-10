@@ -71,6 +71,135 @@ def parse_game_guide_command(command, args):
     return character or None
 
 
+def parse_character_list_request(plain_text, trigger_prefixes=None):
+    text = str(plain_text or "").strip()
+    if not text:
+        return False
+    prefixes = list(trigger_prefixes or DEFAULT_TRIGGER_PREFIXES)
+    prefixes = sorted({str(item) for item in prefixes if str(item or "")}, key=len, reverse=True)
+    for prefix in prefixes:
+        if text.startswith(prefix):
+            body = text[len(prefix):].strip()
+            if body == "角色列表":
+                return True
+    return False
+
+
+# Mapping of common Chinese characters to pinyin initials used for grouping
+# character names in the character list.  Covers all first characters that
+# appear in data/characters.json plus common extensions.
+_PINYIN_INITIAL = {
+    "阿": "A", "爱": "A", "安": "A", "暗": "A",
+    "白": "B", "百": "B", "半": "B", "宝": "B", "北": "B", "本": "B", "比": "B",
+    "波": "B", "不": "B", "布": "B",
+    "才": "C", "苍": "C", "草": "C", "长": "C", "朝": "C", "沉": "C", "成": "C",
+    "赤": "C", "初": "C", "春": "C", "纯": "C",
+    "大": "D", "丹": "D", "东": "D", "冬": "D", "独": "D", "渡": "D",
+    "俄": "E", "恩": "E",
+    "菲": "F", "飞": "F", "绯": "F", "翡": "F", "风": "F", "枫": "F",
+    "伏": "F", "芙": "F", "符": "F", "福": "F",
+    "盖": "G", "甘": "G", "钢": "G", "格": "G", "公": "G", "古": "G",
+    "关": "G", "光": "G", "归": "G", "桂": "G", "国": "G",
+    "海": "H", "寒": "H", "好": "H", "浩": "H", "河": "H", "黑": "H",
+    "红": "H", "虎": "H", "花": "H", "华": "H", "幻": "H", "黄": "H",
+    "辉": "H", "回": "H", "火": "H", "霍": "H", "藿": "H",
+    "疾": "J", "极": "J", "季": "J", "嘉": "J", "加": "J", "迦": "J",
+    "剑": "J", "姜": "J", "椒": "J", "杰": "J", "洁": "J", "金": "J",
+    "近": "J", "京": "J", "晶": "J", "景": "J", "静": "J", "镜": "J",
+    "九": "J", "姬": "J",
+    "卡": "K", "开": "K", "凯": "K", "康": "K", "柯": "K", "克": "K",
+    "刻": "K", "空": "K", "苦": "K", "库": "K",
+    "拉": "L", "莱": "L", "蓝": "L", "老": "L", "雷": "L", "冷": "L",
+    "李": "L", "丽": "L", "莲": "L", "炼": "L", "烈": "L", "林": "L",
+    "铃": "L", "玲": "L", "零": "L", "灵": "L", "流": "L", "龙": "L",
+    "露": "L", "卢": "L", "陆": "L", "路": "L", "乱": "L", "伦": "L",
+    "罗": "L", "洛": "L", "绿": "L",
+    "玛": "M", "麦": "M", "满": "M", "猫": "M", "梅": "M", "美": "M",
+    "梦": "M", "米": "M", "密": "M", "明": "M", "鸣": "M", "铭": "M",
+    "摩": "M", "魔": "M", "墨": "M", "木": "M", "牧": "M", "貊": "M",
+    "那": "N", "娜": "N", "南": "N", "尼": "N", "逆": "N", "诺": "N",
+    "帕": "P", "派": "P", "庞": "P", "佩": "P", "皮": "P", "平": "P",
+    "七": "Q", "奇": "Q", "契": "Q", "千": "Q", "浅": "Q", "乔": "Q",
+    "切": "Q", "琴": "Q", "青": "Q", "清": "Q", "轻": "Q", "秋": "Q",
+    "泉": "Q",
+    "然": "R", "日": "R", "荣": "R", "如": "R", "瑞": "R", "若": "R",
+    "阮": "R", "刃": "R",
+    "萨": "S", "赛": "S", "三": "S", "桑": "S", "瑟": "S", "森": "S",
+    "沙": "S", "砂": "S", "山": "S", "深": "S", "神": "S", "圣": "S",
+    "十": "S", "石": "S", "时": "S", "史": "S", "霜": "S", "水": "S",
+    "丝": "S", "死": "S", "四": "S", "苏": "S", "素": "S", "速": "S",
+    "岁": "S",
+    "塔": "T", "太": "T", "泰": "T", "唐": "T", "桃": "T", "特": "T",
+    "天": "T", "铁": "T", "停": "T", "同": "T", "托": "T", "缇": "T",
+    "万": "W", "王": "W", "忘": "W", "威": "W", "维": "W", "未": "W",
+    "温": "W", "文": "W", "乌": "W", "无": "W", "瓦": "W",
+    "夕": "X", "希": "X", "昔": "X", "西": "X", "夏": "X", "仙": "X",
+    "先": "X", "贤": "X", "香": "X", "享": "X", "小": "X", "晓": "X",
+    "邪": "X", "辛": "X", "星": "X", "行": "X", "修": "X", "虚": "X",
+    "墟": "X", "雪": "X", "血": "X", "巡": "X", "希": "X", "遐": "X",
+    "雪": "X",
+    "鸦": "Y", "芽": "Y", "炎": "Y", "彦": "Y", "雁": "Y", "夜": "Y",
+    "伊": "Y", "依": "Y", "以": "Y", "银": "Y", "饮": "Y", "樱": "Y",
+    "影": "Y", "永": "Y", "幽": "Y", "尤": "Y", "游": "Y", "宇": "Y",
+    "雨": "Y", "羽": "Y", "御": "Y", "元": "Y", "原": "Y", "缘": "Y",
+    "远": "Y", "月": "Y", "云": "Y", "驭": "Y", "爻": "Y",
+    "灾": "Z", "造": "Z", "泽": "Z", "战": "Z", "张": "Z", "长": "Z",
+    "哲": "Z", "真": "Z", "正": "Z", "之": "Z", "知": "Z", "止": "Z",
+    "至": "Z", "志": "Z", "中": "Z", "终": "Z", "重": "Z", "朱": "Z",
+    "诛": "Z", "逐": "Z", "主": "Z", "祝": "Z", "追": "Z", "自": "Z",
+    "罪": "Z", "佐": "Z",
+}
+
+
+def _character_group_key(name):
+    """Return the uppercase grouping key for a character name.
+
+    Chinese names use the pinyin initial of the first character.
+    ASCII letters use the first character uppercased.
+    Digits and symbols fall into '#'.
+    """
+    if not name:
+        return "#"
+    first = name[0]
+    mapped = _PINYIN_INITIAL.get(first)
+    if mapped:
+        return mapped
+    if "A" <= first.upper() <= "Z":
+        return first.upper()
+    return "#"
+
+
+def build_character_list_render_data(characters, title=None, subtitle=None):
+    """Group a list of character dicts by first-letter for template rendering."""
+    grouped = {}
+    for character in characters:
+        name = str(character.get("name") or "").strip()
+        if not name:
+            continue
+        key = _character_group_key(name)
+        grouped.setdefault(key, []).append({
+            "name": name,
+            "slug": str(character.get("slug") or "").strip(),
+            "aliases": [str(alias) for alias in character.get("aliases") or [] if str(alias).strip()],
+        })
+
+    groups = [
+        {
+            "label": letter,
+            "characters": sorted(items, key=lambda c: c["name"]),
+        }
+        for letter, items in sorted(grouped.items())
+    ]
+
+    total = sum(len(group["characters"]) for group in groups)
+    return {
+        "title": title or "星穹铁道角色目录",
+        "subtitle": subtitle or f"已适配 {total} 名角色 · 名称与别名均可用于查询",
+        "total": total,
+        "groups": groups,
+    }
+
+
 def response_text(response):
     if not isinstance(response, dict):
         return ""
@@ -147,6 +276,20 @@ class CharacterIndex:
             "matched": False,
         }
 
+    def all(self):
+        """Return every indexed character with name, slug and aliases."""
+        result = []
+        for item in self._characters:
+            name = str(item.get("name") or "").strip()
+            if not name:
+                continue
+            result.append({
+                "name": name,
+                "slug": str(item.get("slug") or "").strip() or name,
+                "aliases": [str(alias) for alias in item.get("aliases") or [] if str(alias).strip()],
+            })
+        return result
+
 
 class GameGuideService:
     def __init__(
@@ -175,6 +318,13 @@ class GameGuideService:
     def handle_message(self, ctx):
         if getattr(ctx, "event_type", "") not in {"message.group", "message.private"}:
             ctx.send_result({"handled": False})
+            return
+
+        if parse_character_list_request(
+            getattr(ctx, "plain_text", ""),
+            trigger_prefixes=getattr(ctx, "command_prefixes", []),
+        ):
+            self.handle_character_list(ctx)
             return
 
         requested = parse_game_guide_command(getattr(ctx, "command", None), getattr(ctx, "args", []))
@@ -237,6 +387,43 @@ class GameGuideService:
             "character": character["name"],
             "images": len(images),
             "from_cache": from_cache,
+        })
+
+    def handle_character_list(self, ctx):
+        characters = self.characters.all()
+        render_data = build_character_list_render_data(characters)
+        log_info(ctx, "游戏攻略生成角色列表图片", {
+            "total": render_data["total"],
+            "groups": len(render_data["groups"]),
+        })
+        try:
+            result = ctx.render_image(
+                "character-list",
+                render_data,
+                output="png",
+                fallback_text=f"当前已适配 {render_data['total']} 名角色，发送「*角色名攻略」查看角色攻略图。",
+            )
+        except Exception as exc:
+            log_warn(ctx, "游戏攻略角色列表渲染失败", {"error": str(exc)})
+            ctx.send_text("角色列表图片生成失败，请稍后再试。")
+            ctx.send_result({"handled": True, "command": "character-list", "error": str(exc)})
+            return
+
+        image_path = str(result.get("image_path") or "").strip()
+        if not image_path:
+            log_warn(ctx, "游戏攻略角色列表图片结果缺少路径")
+            ctx.send_text("角色列表图片生成失败，请稍后再试。")
+            ctx.send_result({"handled": True, "command": "character-list", "error": "missing image_path"})
+            return
+
+        ctx.send_message([{"type": "image", "data": {"file": image_path}}])
+        log_info(ctx, "游戏攻略角色列表已发送", {
+            "total": render_data["total"],
+        })
+        ctx.send_result({
+            "handled": True,
+            "command": "character-list",
+            "total": render_data["total"],
         })
 
     def send_images(self, ctx, character, images, from_cache):

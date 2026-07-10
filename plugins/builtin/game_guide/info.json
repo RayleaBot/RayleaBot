@@ -16,7 +16,8 @@
     "message.send",
     "message.forward.send",
     "logger.write",
-    "http.request"
+    "http.request",
+    "render.image"
   ],
   "capability_parameters": {
     "http_hosts": [
@@ -26,6 +27,11 @@
       "upload-bbs.miyoushe.com"
     ]
   },
+  "render_templates": [
+    {
+      "path": "templates/character-list"
+    }
+  ],
   "commands": [
     {
       "name": "游戏攻略",
@@ -41,6 +47,14 @@
       "pattern": "^(.+?)攻略$",
       "description": "按角色名或别名查询攻略图",
       "usage": "*<角色名>攻略",
+      "permission": "everyone"
+    },
+    {
+      "id": "character-list",
+      "name": "已适配角色列表",
+      "pattern": "^角色列表$",
+      "description": "查看当前已适配星穹铁道攻略的全部角色",
+      "usage": "*角色列表",
       "permission": "everyone"
     }
   ],
