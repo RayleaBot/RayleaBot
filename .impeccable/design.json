@@ -47,6 +47,10 @@
       {"name":"state-feedback","value":"160ms","purpose":"悬停、按下、选择和状态反馈。"},
       {"name":"content-switch","value":"200ms","purpose":"页签、分区和内容显隐。"},
       {"name":"overlay","value":"220ms","purpose":"抽屉、弹出层和确认界面。"},
+      {"name":"view-transition","value":"native progressive enhancement","purpose":"Web 页面与亮暗主题使用命名快照切换，不支持时保持可操作。"},
+      {"name":"launcher-workspace-waapi","value":"300ms cubic-bezier(0.25, 0.1, 0.25, 1)","purpose":"Launcher 工作区使用可取消且完整可感知的透明度动画，切换期间保持桌面导航可交互。"},
+      {"name":"motion-mini","value":"12.42.2","purpose":"Web 路由在 View Transition 不可用或历史导航时使用 WAAPI 降级动画。"},
+      {"name":"fluent-motion","value":"9.16.1","purpose":"Launcher Fluent 浮层使用 WAAPI presence 管理进入、退出、取消和卸载。"},
       {"name":"auth-particle-network","value":"80-160 particles","purpose":"认证画布使用单一 Canvas 2D 帧循环呈现受限粒子网络，150px 内连线，并在约 196px 范围内平滑追踪细指针排斥目标。细指针逐帧绘制，粗指针限制为 30fps。"},
       {"name":"ease-out","value":"cubic-bezier(0.16, 1, 0.3, 1)","purpose":"所有非线性状态过渡。"}
     ],
@@ -140,6 +144,7 @@
       {"name":"The Readable Measure Rule","body":"说明正文保持在 65ch 到 75ch，数据表和日志工作区可根据任务需要延展。","section":"typography"},
       {"name":"The Structural Shadow Rule","body":"阴影只说明层级关系，静态容器不得因为装饰需要获得阴影。","section":"elevation"},
       {"name":"The No Lift Rule","body":"悬停不使用位移或缩放制造漂浮感，反馈只改变色面、边框、文字或阴影强度。","section":"elevation"},
+      {"name":"The Single Motion Owner Rule","body":"同一元素只接受 View Transition、WAAPI/Motion 或 CSS transition 中的一种机制；连续操作取消旧动画，主题快照期间暂停元素自身颜色过渡。","section":"elevation"},
       {"name":"The Ambient Motion Budget Rule","body":"认证粒子网络使用单一 Canvas 2D 与单一 requestAnimationFrame 循环，限制像素比、粒子数量、速度和连线距离，不读取布局、不进入 Vue 响应式更新，也不移动任务表面；该规则是认证入口的局部例外，不作为其他页面的默认模式。","section":"elevation"}
     ],
     "dos": [

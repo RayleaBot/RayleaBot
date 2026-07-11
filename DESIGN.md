@@ -213,7 +213,9 @@ RayleaBot 使用柔和层叠。普通内容依靠相邻色面、边框和间距�
 - **暗色独立面板**（`box-shadow: 0 2px 10px rgba(0, 0, 0, 0.28)`）：用于暗色主题中的独立任务表面。
 - **暗色浮层**（`box-shadow: 0 18px 48px rgba(0, 0, 0, 0.42)`）：用于暗色主题中需要盖过工作区的浮层。
 
-状态反馈使用 `160ms`，内容切换使用 `200ms`，浮层使用 `220ms`，统一采用 `cubic-bezier(0.16, 1, 0.3, 1)`。`prefers-reduced-motion` 下移除非必要运动并保留即时反馈。
+状态反馈使用 `160ms`，内容切换使用 `200ms`，浮层使用 `220ms`，统一采用 `cubic-bezier(0.16, 1, 0.3, 1)`。Launcher 工作区的可中断透明度转场使用 `300ms` 与 `cubic-bezier(0.25, 0.1, 0.25, 1)`，确保整个转场时长清晰可感知。`prefers-reduced-motion` 下移除非必要运动并保留即时反馈。
+
+Web 页面与亮暗主题切换优先使用 View Transition API；Web 的降级动画使用 Motion Mini，Launcher 工作区使用可取消的 WAAPI 透明度动画，Launcher 浮层使用 Fluent Motion。每个元素只由一种动效机制控制，连续操作取消旧动画并以最新状态为准。动效只改变 `opacity` 与 `transform`，不读取布局来驱动动画，也不使用固定计时器推断完成状态。
 
 认证画布允许使用低对比的抽象粒子网络。粒子数量随视口在 `80–160` 之间调整，以低速运动、生命周期淡入淡出和 `150px` 内连线形成连续环境层；细指针在约 `196px` 的作用范围内平滑追踪有速度上限的排斥目标，离开后缓慢衰减。细指针环境逐帧绘制，粗指针环境限制为 `30fps`。动画仅作用于无语义 Canvas 背景，任务表面保持静止；页面隐藏时停止帧循环，`prefers-reduced-motion` 环境只绘制静态网络。
 
@@ -222,6 +224,8 @@ RayleaBot 使用柔和层叠。普通内容依靠相邻色面、边框和间距�
 **The Structural Shadow Rule.** 阴影只说明层级关系，静态容器不得因为装饰需要获得阴影。
 
 **The No Lift Rule.** 悬停不使用位移或缩放制造漂浮感，反馈只改变色面、边框、文字或阴影强度。
+
+**The Single Motion Owner Rule.** 同一元素只接受 View Transition、WAAPI/Motion 或 CSS transition 中的一种机制；主题与内容快照期间暂停元素自身的颜色过渡，避免叠加和中间态截帧。
 
 **The Ambient Motion Budget Rule.** 认证粒子网络使用单一 Canvas 2D 与单一 `requestAnimationFrame` 循环，限制像素比、粒子数量、速度和连线距离，不读取布局、不进入 Vue 响应式更新，也不移动任务表面；该规则是认证入口的局部例外，不作为其他页面的默认模式。
 

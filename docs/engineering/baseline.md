@@ -31,8 +31,8 @@
 | Server | Go `1.25.12` |
 | Web / Node runtime | Node.js `24.18.0` |
 | JS package manager | `pnpm 11.11.0` |
-| Web UI | Vue `3.5.39` + Vite `8.1.4` + Ant Design Vue `4.2.6` + Vue Vben Admin `5.7.0` 对齐方案 + Vue Router `5.1.0` + Pinia `3.0.4` |
-| Launcher runtime | Electron `41.10.1` + TypeScript `6.0.2` + React `18.3.1` + Fluent UI React v9 + Vite `8.1.4` + `@vitejs/plugin-react 6.0.3` + `electron-builder 26.15.3` |
+| Web UI | Vue `3.5.39` + Vite `8.1.4` + Ant Design Vue `4.2.6` + Vue Vben Admin `5.7.0` 对齐方案 + Vue Router `5.1.0` + Pinia `3.0.4` + Motion Mini `12.42.2` |
+| Launcher runtime | Electron `41.10.1` + TypeScript `6.0.2` + React `18.3.1` + Fluent UI React v9 + Fluent Motion `9.16.1` + Vite `8.1.4` + `@vitejs/plugin-react 6.0.3` + `electron-builder 26.15.3` |
 | Python runtime | Python `3.12.13` |
 | Database | SQLite via `modernc.org/sqlite v1.53.0` |
 | Render | `chromedp 0.14.2` + 图片渲染 Chromium |
@@ -65,9 +65,10 @@ Web 管理面采用 `Ant Design Vue + Vue Vben Admin` 对齐方案作为正式�
 | Web HTTP | Vben request 风格封装 + RayleaBot 鉴权 / 错误语义适配 |
 | Web 实时通信 | 原生 `WebSocket` + 受控连接封装 |
 | Web 样式 | Ant Design Vue Tokens + Vue Vben Admin 样式体系 + Vue SFC `lang="scss"` + Tailwind CSS `4.x` + CSS Variables |
+| Web 动效 | View Transition API + `motion/mini`，CSS transition 只承担简单控件状态 |
 | Launcher 主进程 | Electron `main` + typed service layer |
 | Launcher 桌面桥接 | `preload` 暴露受限 IPC API |
-| Launcher 渲染层 | React 18 + Fluent UI React v9 + Vite 单页面桌面壳，支持亮/暗双色主题 |
+| Launcher 渲染层 | React 18 + Fluent UI React v9 + Fluent Motion + WAAPI + View Transition API + Vite 单页面桌面壳，支持亮/暗双色主题 |
 | 仓库级 JS 包管理器 | `pnpm` |
 | Node.js 插件依赖安装器 | `npm` |
 | Python 插件依赖安装链路 | Python 运行环境 + 每插件独立 `.venv/` |
