@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { act, fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import type { LauncherDesktopApi } from "@shared/desktop-api";
 import { ThemeModeMenu } from "@renderer/ThemeModeMenu";
@@ -24,15 +24,14 @@ function renderMenu() {
 describe("ThemeModeMenu", () => {
   beforeEach(() => {
     window.localStorage.clear();
-    vi.useFakeTimers();
   });
 
   afterEach(() => {
-    vi.useRealTimers();
+    vi.restoreAllMocks();
     vi.unstubAllGlobals();
   });
 
-  test("acknowledges a selection before closing and commits the theme after exit", () => {
+  test("commits a selection after the presence surface closes", async () => {
     setupMatchMedia(false);
     renderMenu();
 
@@ -42,25 +41,14 @@ describe("ThemeModeMenu", () => {
     expect(screen.getByRole("menuitemradio", { name: "深色" })).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("menuitemradio", { name: "深色" }));
-    expect(screen.getByRole("menuitemradio", { name: "深色" })).toHaveAttribute(
-      "aria-checked",
-      "true",
-    );
-    expect(screen.getByRole("button", { name: "主题：跟随系统" })).toBeInTheDocument();
 
-    const surface = document.querySelector<HTMLElement>(".theme-menu-surface");
-    expect(surface).toHaveAttribute("data-state", "closing");
-    expect(surface?.parentElement).toHaveClass("theme-menu-positioner");
-    expect(surface?.parentElement).not.toHaveAttribute("data-state");
-    act(() => vi.advanceTimersByTime(179));
-    expect(screen.getByRole("menuitemradio", { name: "深色" })).toBeInTheDocument();
-    act(() => vi.advanceTimersByTime(1));
-    expect(screen.queryByRole("menuitemradio", { name: "深色" })).not.toBeInTheDocument();
-    act(() => vi.advanceTimersByTime(1));
+    await waitFor(() => {
+      expect(screen.queryByRole("menuitemradio", { name: "深色" })).not.toBeInTheDocument();
+    });
     expect(screen.getByRole("button", { name: "主题：深色" })).toHaveFocus();
   });
 
-  test("keeps a cancelled menu mounted until its exit animation completes", () => {
+  test("closes a cancelled menu and restores trigger focus", async () => {
     setupMatchMedia(false);
     renderMenu();
 
@@ -68,26 +56,23 @@ describe("ThemeModeMenu", () => {
     fireEvent.click(trigger);
     fireEvent.click(trigger);
 
-    expect(screen.getByRole("menuitemradio", { name: "浅色" })).toBeInTheDocument();
-    const surface = document.querySelector<HTMLElement>(".theme-menu-surface");
-    expect(surface).toHaveAttribute("data-state", "closing");
-
-    act(() => vi.advanceTimersByTime(180));
-    expect(screen.queryByRole("menuitemradio", { name: "浅色" })).not.toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.queryByRole("menuitemradio", { name: "浅色" })).not.toBeInTheDocument();
+    });
     expect(trigger).toHaveFocus();
   });
 
-  test("allows the first theme option to be selected", () => {
+  test("allows the first theme option to be selected", async () => {
     setupMatchMedia(false);
     window.localStorage.setItem("raylea-theme-mode", "light");
     renderMenu();
 
     fireEvent.click(screen.getByRole("button", { name: "主题：浅色" }));
     fireEvent.click(screen.getByRole("menuitemradio", { name: "跟随系统" }));
-    act(() => vi.advanceTimersByTime(180));
-    act(() => vi.advanceTimersByTime(1));
 
-    expect(screen.getByRole("button", { name: "主题：跟随系统" })).toHaveFocus();
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "主题：跟随系统" })).toHaveFocus();
+    });
   });
 
   test("closes immediately when reduced motion is requested", () => {

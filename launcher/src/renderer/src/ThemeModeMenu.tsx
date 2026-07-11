@@ -1,10 +1,9 @@
 import {
-  useEffect,
   useRef,
   useState,
-  type AnimationEvent,
   type ReactElement,
 } from "react";
+import { createPresenceComponent } from "@fluentui/react-motion";
 import {
   Menu,
   MenuButton,
@@ -19,6 +18,7 @@ import {
   WeatherSunny20Regular,
 } from "@fluentui/react-icons";
 import type { LauncherThemeMode } from "@shared/launcher-theme";
+import { launcherMotion, prefersReducedMotion } from "./launcherMotion";
 import { useTheme } from "./useTheme";
 
 const modeConfig: Record<LauncherThemeMode, { icon: ReactElement; label: string }> = {
@@ -27,51 +27,45 @@ const modeConfig: Record<LauncherThemeMode, { icon: ReactElement; label: string 
   dark: { icon: <WeatherMoon20Regular />, label: "深色" },
 };
 
-const menuExitFallbackMs = 180;
-
-function prefersReducedMotion(): boolean {
-  return typeof window !== "undefined" &&
-    Boolean(window.matchMedia?.("(prefers-reduced-motion: reduce)").matches);
-}
+const ThemeMenuPresence = createPresenceComponent({
+  enter: {
+    keyframes: [
+      { opacity: 0, transform: "translateY(5px)" },
+      { opacity: 1, transform: "translateY(0)" },
+    ],
+    duration: launcherMotion.overlay,
+    easing: launcherMotion.ease,
+  },
+  exit: {
+    keyframes: [
+      { opacity: 1, transform: "translateY(0)" },
+      { opacity: 0, transform: "translateY(3px)" },
+    ],
+    duration: launcherMotion.overlay,
+    easing: launcherMotion.ease,
+  },
+});
 
 export function ThemeModeMenu() {
   const { mode, setMode, syncError } = useTheme();
   const [open, setOpen] = useState(false);
-  const [closing, setClosing] = useState(false);
+  const [surfaceVisible, setSurfaceVisible] = useState(false);
   const [pendingMode, setPendingMode] = useState<LauncherThemeMode | null>(null);
-  const closeTimer = useRef<number | null>(null);
-  const commitTimer = useRef<number | null>(null);
   const pendingModeRef = useRef<LauncherThemeMode | null>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
 
-  const finishClose = (deferThemeChange = true) => {
-    if (closeTimer.current !== null) {
-      window.clearTimeout(closeTimer.current);
-    }
-    closeTimer.current = null;
-
+  const finishClose = () => {
     const nextMode = pendingModeRef.current;
     pendingModeRef.current = null;
     setOpen(false);
-    setClosing(false);
+    setSurfaceVisible(false);
     setPendingMode(null);
     triggerRef.current?.focus();
 
     if (nextMode === null || nextMode === mode) {
       return;
     }
-
-    if (!deferThemeChange) {
-      setMode(nextMode);
-      return;
-    }
-
-    // Commit on the next task so the popover is removed before its provider
-    // changes theme. This keeps the exit animation visually continuous.
-    commitTimer.current = window.setTimeout(() => {
-      commitTimer.current = null;
-      setMode(nextMode);
-    }, 0);
+    setMode(nextMode);
   };
 
   const requestClose = (nextMode?: LauncherThemeMode) => {
@@ -80,32 +74,22 @@ export function ThemeModeMenu() {
       setPendingMode(nextMode);
     }
 
-    if (!open || closing || closeTimer.current !== null) {
+    if (!open || !surfaceVisible) {
       return;
     }
     if (prefersReducedMotion()) {
-      finishClose(false);
+      finishClose();
       return;
     }
-    setClosing(true);
-    closeTimer.current = window.setTimeout(finishClose, menuExitFallbackMs);
+    setSurfaceVisible(false);
   };
-
-  useEffect(() => () => {
-    if (closeTimer.current !== null) {
-      window.clearTimeout(closeTimer.current);
-    }
-    if (commitTimer.current !== null) {
-      window.clearTimeout(commitTimer.current);
-    }
-  }, []);
 
   const selectMode = (nextMode: LauncherThemeMode) => {
     requestClose(nextMode);
   };
 
-  const handleSurfaceAnimationEnd = (event: AnimationEvent<HTMLDivElement>) => {
-    if (closing && event.currentTarget === event.target) {
+  const handleSurfaceMotionFinish = (_event: null, data: { direction: "enter" | "exit" }) => {
+    if (data.direction === "exit") {
       finishClose();
     }
   };
@@ -116,18 +100,10 @@ export function ThemeModeMenu() {
       checkedValues={{ theme: [pendingMode ?? mode] }}
       onOpenChange={(_event, data) => {
         if (data.open) {
-          if (closeTimer.current !== null) {
-            window.clearTimeout(closeTimer.current);
-            closeTimer.current = null;
-          }
-          if (commitTimer.current !== null) {
-            window.clearTimeout(commitTimer.current);
-            commitTimer.current = null;
-          }
           pendingModeRef.current = null;
           setPendingMode(null);
-          setClosing(false);
           setOpen(true);
+          setSurfaceVisible(true);
         } else {
           requestClose();
         }
@@ -144,27 +120,30 @@ export function ThemeModeMenu() {
         />
       </MenuTrigger>
       <MenuPopover className="theme-menu-positioner">
-        <div
-          className="theme-menu-surface"
-          data-state={closing ? "closing" : "open"}
-          onAnimationEnd={handleSurfaceAnimationEnd}
+        <ThemeMenuPresence
+          appear
+          visible={surfaceVisible}
+          unmountOnExit
+          onMotionFinish={handleSurfaceMotionFinish}
         >
-          <MenuList aria-label="选择主题">
-            {(Object.keys(modeConfig) as LauncherThemeMode[]).map((itemMode) => (
-              <MenuItemRadio
-                key={itemMode}
-                className="theme-menu-item"
-                name="theme"
-                value={itemMode}
-                icon={modeConfig[itemMode].icon}
-                onClick={() => selectMode(itemMode)}
-              >
-                {modeConfig[itemMode].label}
-              </MenuItemRadio>
-            ))}
-          </MenuList>
-          {syncError ? <p className="theme-menu-error" role="status">{syncError}</p> : null}
-        </div>
+          <div className="theme-menu-surface" data-state={surfaceVisible ? "open" : "closing"}>
+            <MenuList aria-label="选择主题">
+              {(Object.keys(modeConfig) as LauncherThemeMode[]).map((itemMode) => (
+                <MenuItemRadio
+                  key={itemMode}
+                  className="theme-menu-item"
+                  name="theme"
+                  value={itemMode}
+                  icon={modeConfig[itemMode].icon}
+                  onClick={() => selectMode(itemMode)}
+                >
+                  {modeConfig[itemMode].label}
+                </MenuItemRadio>
+              ))}
+            </MenuList>
+            {syncError ? <p className="theme-menu-error" role="status">{syncError}</p> : null}
+          </div>
+        </ThemeMenuPresence>
       </MenuPopover>
     </Menu>
   );

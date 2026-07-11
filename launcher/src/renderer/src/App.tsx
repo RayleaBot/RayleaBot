@@ -17,8 +17,6 @@ export function App() {
   const [confirmedAction, setConfirmedAction] = useState<ConfirmedLauncherAction | null>(null);
   const {
     activeSection,
-    renderedSection,
-    sectionTransitionState,
     setActiveSection,
   } = useLauncherSectionState();
   const {
@@ -210,8 +208,6 @@ export function App() {
     <AppShell
       snapshot={snapshot}
       activeSection={activeSection}
-      renderedSection={renderedSection}
-      sectionTransitionState={sectionTransitionState}
       platformLabel={platformLabel}
       settingsDraft={settingsDraft}
       resolvedSettings={editingSettings ? previewResolvedSettings : snapshot.launcher.resolvedSettings}

@@ -13,7 +13,6 @@ import {
 } from "./AppShell.copy";
 
 export type SectionId = "status" | "environment" | "diagnostics" | "settings" | "about";
-export type SectionTransitionState = "idle" | "exiting" | "entering";
 
 export const initialSnapshot: LauncherSnapshot = {
   server: {

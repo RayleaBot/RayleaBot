@@ -14,10 +14,9 @@ import {
   type LauncherThemeMode,
 } from "@shared/launcher-theme";
 import { applyLauncherDocumentTheme } from "./launcherTheme";
+import { runLauncherViewTransition } from "./launcherMotion";
 
 export type ThemeMode = LauncherThemeMode;
-
-const themeTransitionMs = 220;
 
 function resolveSystemTheme(): LauncherEffectiveTheme {
   if (typeof window === "undefined" || !window.matchMedia) {
@@ -44,11 +43,6 @@ function writeStoredMode(mode: ThemeMode) {
   window.localStorage.setItem("raylea-theme-mode", mode);
 }
 
-function prefersReducedMotion(): boolean {
-  return typeof window !== "undefined" &&
-    Boolean(window.matchMedia?.("(prefers-reduced-motion: reduce)").matches);
-}
-
 export interface ThemeContextValue {
   mode: ThemeMode;
   effectiveTheme: LauncherEffectiveTheme;
@@ -70,7 +64,6 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   );
   const [syncError, setSyncError] = useState<string | null>(null);
   const effectiveThemeRef = useRef(effectiveTheme);
-  const transitionTimer = useRef<number | null>(null);
 
   const transitionToEffectiveTheme = useCallback((nextTheme: LauncherEffectiveTheme) => {
     if (effectiveThemeRef.current === nextTheme) {
@@ -78,31 +71,11 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     }
     effectiveThemeRef.current = nextTheme;
 
-    if (transitionTimer.current !== null) {
-      window.clearTimeout(transitionTimer.current);
-      transitionTimer.current = null;
-    }
-
-    if (typeof document === "undefined" || prefersReducedMotion()) {
-      if (typeof document !== "undefined") {
-        delete document.documentElement.dataset.themeTransition;
-      }
+    if (typeof document === "undefined") {
       setEffectiveTheme(nextTheme);
       return;
     }
-
-    const root = document.documentElement;
-    root.dataset.themeTransition = "active";
-
-    // Flush the old palette once with the transition rules enabled. The next
-    // React commit can then interpolate both Fluent tokens and CSS variables.
-    void root.offsetWidth;
-    setEffectiveTheme(nextTheme);
-
-    transitionTimer.current = window.setTimeout(() => {
-      transitionTimer.current = null;
-      delete root.dataset.themeTransition;
-    }, themeTransitionMs);
+    runLauncherViewTransition("theme", () => setEffectiveTheme(nextTheme));
   }, []);
 
   const setMode = useCallback((next: ThemeMode) => {
@@ -117,13 +90,6 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     effectiveThemeRef.current = effectiveTheme;
     applyLauncherDocumentTheme(effectiveTheme);
   }, [effectiveTheme]);
-
-  useEffect(() => () => {
-    if (transitionTimer.current !== null) {
-      window.clearTimeout(transitionTimer.current);
-    }
-    delete document.documentElement.dataset.themeTransition;
-  }, []);
 
   useEffect(() => {
     let active = true;

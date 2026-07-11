@@ -5,7 +5,7 @@ import type {
   LauncherSnapshot,
 } from "@shared/launcher-models";
 
-import type { SectionId, SectionTransitionState } from "./AppShell.shared";
+import type { SectionId } from "./AppShell.shared";
 import { AppShellAboutSection } from "./AppShellAboutSection";
 import { AppShellChrome } from "./AppShellChrome";
 import { AppShellDiagnosticsSection } from "./AppShellDiagnosticsSection";
@@ -17,8 +17,6 @@ import { AppShellStatusSection } from "./AppShellStatusSection";
 export type AppShellViewProps = {
   snapshot: LauncherSnapshot;
   activeSection: SectionId;
-  renderedSection: SectionId;
-  sectionTransitionState: SectionTransitionState;
   platformLabel?: string;
   settingsDraft: LauncherSettings;
   resolvedSettings: LauncherResolvedSettings;
@@ -57,8 +55,6 @@ export type AppShellViewProps = {
 export function AppShellView({
   snapshot,
   activeSection,
-  renderedSection,
-  sectionTransitionState,
   platformLabel = "",
   settingsDraft,
   resolvedSettings,
@@ -102,11 +98,11 @@ export function AppShellView({
         onRefresh={onRefresh}
       />
 
-      <main className={`shell-main active-${renderedSection}`} data-active-section={activeSection} data-rendered-section={renderedSection} data-transition={sectionTransitionState}>
-        <div className="section-shell" data-section={renderedSection} data-transition={sectionTransitionState}>
+      <main className={`shell-main active-${activeSection}`} data-active-section={activeSection}>
+        <div className="section-shell" data-section={activeSection}>
           <AppShellSectionHeader
             snapshot={snapshot}
-            renderedSection={renderedSection}
+            renderedSection={activeSection}
             busyAction={busyAction}
             controlsDisabled={controlsDisabled}
             editingSettings={editingSettings}
@@ -117,8 +113,8 @@ export function AppShellView({
             onSaveSettings={onSaveSettings}
           />
 
-          <div key={renderedSection} className="section-shell__content">
-            {renderedSection === "status" && (
+          <div key={activeSection} className="section-shell__content">
+            {activeSection === "status" && (
               <AppShellStatusSection
                 snapshot={snapshot}
                 resolvedSettings={resolvedSettings}
@@ -133,14 +129,14 @@ export function AppShellView({
               />
             )}
 
-            {renderedSection === "environment" && (
+            {activeSection === "environment" && (
               <AppShellEnvironmentSection
                 snapshot={snapshot}
                 platformLabel={platformLabel}
               />
             )}
 
-            {renderedSection === "diagnostics" && (
+            {activeSection === "diagnostics" && (
               <AppShellDiagnosticsSection
                 snapshot={snapshot}
                 diagnosticsSummary={diagnosticsSummary}
@@ -148,7 +144,7 @@ export function AppShellView({
               />
             )}
 
-            {renderedSection === "settings" && (
+            {activeSection === "settings" && (
               <AppShellSettingsSection
                 snapshot={snapshot}
                 settingsDraft={settingsDraft}
@@ -168,7 +164,7 @@ export function AppShellView({
               />
             )}
 
-            {renderedSection === "about" && (
+            {activeSection === "about" && (
               <AppShellAboutSection
                 snapshot={snapshot}
                 controlsDisabled={controlsDisabled}

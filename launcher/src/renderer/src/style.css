@@ -60,14 +60,41 @@ input,
     opacity var(--motion-control) var(--ease-precision);
 }
 
-html[data-theme-transition="active"] body,
-html[data-theme-transition="active"] .launcher-theme,
-html[data-theme-transition="active"] .launcher-theme *,
-html[data-theme-transition="active"] .launcher-theme *::before,
-html[data-theme-transition="active"] .launcher-theme *::after {
-  transition-property: color, background-color, border-color, box-shadow, outline-color, fill, stroke;
-  transition-duration: var(--motion-layer);
-  transition-timing-function: var(--ease-precision);
+html::view-transition,
+html::view-transition-group(root),
+html::view-transition-image-pair(root),
+html::view-transition-old(root),
+html::view-transition-new(root) {
+  pointer-events: none;
+}
+
+html[data-launcher-view-transition-kind="theme"]::view-transition-old(root),
+html[data-launcher-view-transition-kind="theme"]::view-transition-new(root) {
+  mix-blend-mode: normal;
+}
+
+html[data-launcher-view-transition-kind="theme"] .launcher-theme *,
+html[data-launcher-view-transition-kind="theme"] .launcher-theme *::before,
+html[data-launcher-view-transition-kind="theme"] .launcher-theme *::after {
+  transition-duration: 0s !important;
+}
+
+html[data-launcher-view-transition-kind="theme"]::view-transition-old(root) {
+  animation: launcher-view-fade-out 120ms linear both;
+}
+
+html[data-launcher-view-transition-kind="theme"]::view-transition-new(root) {
+  animation: launcher-view-fade-in var(--motion-content) var(--ease-precision) both;
+}
+
+@keyframes launcher-view-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes launcher-view-fade-out {
+  from { opacity: 1; }
+  to { opacity: 0; }
 }
 
 :focus-visible {
@@ -334,7 +361,6 @@ code,
   box-shadow: var(--shadow-floating);
   transform-origin: bottom left;
   will-change: opacity, transform;
-  animation: theme-menu-in var(--motion-layer) var(--ease-precision) both;
 }
 
 .theme-menu-surface .fui-MenuList {
@@ -391,9 +417,6 @@ code,
 
 .theme-menu-surface[data-state="closing"] {
   pointer-events: none;
-  animation:
-    theme-menu-out-opacity var(--motion-control) linear both,
-    theme-menu-out-transform var(--motion-control) var(--ease-precision) both;
 }
 
 .theme-menu-error {
@@ -401,21 +424,6 @@ code,
   padding: 8px 12px 12px;
   color: var(--color-danger);
   font-size: 12px;
-}
-
-@keyframes theme-menu-in {
-  from { opacity: 0; transform: translateY(5px) scale(0.985); }
-  to { opacity: 1; transform: translateY(0) scale(1); }
-}
-
-@keyframes theme-menu-out-opacity {
-  from { opacity: 1; }
-  to { opacity: 0; }
-}
-
-@keyframes theme-menu-out-transform {
-  from { transform: translateY(0) scale(1); }
-  to { transform: translateY(2px) scale(0.99); }
 }
 
 .shell-main {
@@ -459,16 +467,6 @@ code,
 .section-shell[data-section="diagnostics"] .section-shell__content {
   min-height: 0;
   flex: 1;
-}
-
-.section-shell[data-transition="entering"] .section-shell__content {
-  animation: section-enter var(--motion-content) var(--ease-precision) both;
-  will-change: opacity;
-}
-
-@keyframes section-enter {
-  from { opacity: 0; }
-  to { opacity: 1; }
 }
 
 .section-header {
