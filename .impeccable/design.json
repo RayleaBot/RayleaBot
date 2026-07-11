@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-07-10T15:14:09Z",
+  "generatedAt": "2026-07-11T00:01:37Z",
   "title": "Design System: RayleaBot",
   "extensions": {
     "colorMeta": {
@@ -47,6 +47,7 @@
       {"name":"state-feedback","value":"160ms","purpose":"悬停、按下、选择和状态反馈。"},
       {"name":"content-switch","value":"200ms","purpose":"页签、分区和内容显隐。"},
       {"name":"overlay","value":"220ms","purpose":"抽屉、弹出层和确认界面。"},
+      {"name":"auth-particle-network","value":"80-160 particles","purpose":"认证画布使用单一 Canvas 2D 帧循环呈现受限粒子网络，150px 内连线，并在约 196px 范围内平滑追踪细指针排斥目标。细指针逐帧绘制，粗指针限制为 30fps。"},
       {"name":"ease-out","value":"cubic-bezier(0.16, 1, 0.3, 1)","purpose":"所有非线性状态过渡。"}
     ],
     "breakpoints": [
@@ -138,7 +139,8 @@
       {"name":"The Quiet Hierarchy Rule","body":"层级依靠字号、字重和间距建立，不通过展示字体、过度字距或全大写标签制造噪音。","section":"typography"},
       {"name":"The Readable Measure Rule","body":"说明正文保持在 65ch 到 75ch，数据表和日志工作区可根据任务需要延展。","section":"typography"},
       {"name":"The Structural Shadow Rule","body":"阴影只说明层级关系，静态容器不得因为装饰需要获得阴影。","section":"elevation"},
-      {"name":"The No Lift Rule","body":"悬停不使用位移或缩放制造漂浮感，反馈只改变色面、边框、文字或阴影强度。","section":"elevation"}
+      {"name":"The No Lift Rule","body":"悬停不使用位移或缩放制造漂浮感，反馈只改变色面、边框、文字或阴影强度。","section":"elevation"},
+      {"name":"The Ambient Motion Budget Rule","body":"认证粒子网络使用单一 Canvas 2D 与单一 requestAnimationFrame 循环，限制像素比、粒子数量、速度和连线距离，不读取布局、不进入 Vue 响应式更新，也不移动任务表面；该规则是认证入口的局部例外，不作为其他页面的默认模式。","section":"elevation"}
     ],
     "dos": [
       "Do 让冷色系统操作和暖色人工关注保持稳定、可解释的任务语义。",
@@ -152,7 +154,7 @@
       "Don't 使用强烈渐变、渐变文字、玻璃拟态和无意义装饰。",
       "Don't 使用同尺寸卡片墙、嵌套卡片和组件拼贴式页面。",
       "Don't 使用 hero 指标模板，用巨型数字、辅助统计和渐变强调代替真实任务层级。",
-      "Don't 使用彩色侧边条、装饰性动效或悬停位移表达状态。",
+      "Don't 使用抢占注意力、依赖布局或无资源上限地占用主线程的装饰性动效，也不使用悬停位移表达状态。",
       "Don't 依赖颜色单独表达成功、警告、危险或需要人工处理。",
       "Don't 为了风格重造标准控件，或让 Web、Launcher 和插件页面出现互不一致的操作词汇。"
     ]

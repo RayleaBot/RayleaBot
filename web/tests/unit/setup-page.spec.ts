@@ -8,12 +8,8 @@ import { ApiError } from '@/lib/http'
 import SetupPage from '@/views/auth/SetupView.vue'
 import { useSessionStore } from '@/stores/session'
 
-const feedbackMock = vi.hoisted(() => ({
-  notifyError: vi.fn(),
-}))
-
 vi.mock('@/adapter/feedback', () => ({
-  notifyError: feedbackMock.notifyError,
+  notifyError: vi.fn(),
   notifySuccess: vi.fn(),
   notifyInfo: vi.fn(),
 }))
@@ -21,10 +17,9 @@ vi.mock('@/adapter/feedback', () => ({
 describe('SetupPage', () => {
   beforeEach(() => {
     setActivePinia(createPinia())
-    feedbackMock.notifyError.mockClear()
   })
 
-  it('shows a toast when setup fails', async () => {
+  it('shows form feedback when setup fails', async () => {
     const router = createRouter({
       history: createMemoryHistory(),
       routes: [{ path: '/setup', component: SetupPage }],
@@ -46,10 +41,9 @@ describe('SetupPage', () => {
     const inputs = wrapper.findAll('input')
     await inputs[0].setValue('admin')
     await inputs[1].setValue('admin')
-    await wrapper.get('.auth-submit').trigger('click')
+    await wrapper.get('form').trigger('submit')
     await flushPromises()
 
-    expect(wrapper.find('[role="alert"]').exists()).toBe(false)
-    expect(feedbackMock.notifyError).toHaveBeenCalledTimes(1)
+    expect(wrapper.get('[role="alert"]').text()).toContain('创建管理员账号未完成，请检查输入后重试。')
   })
 })

@@ -366,6 +366,53 @@ test('protected deep links return to the target after login', async ({ page, req
   await expect(page).toHaveURL(/\/plugins\?token=launcher_token_fixture_0001$/)
 })
 
+test('authentication surface keeps theme controls and credentials reachable on a narrow viewport', async ({ page, request }) => {
+  await resetBackend(request, true)
+  await page.setViewportSize({ width: 390, height: 844 })
+  await page.goto('/login')
+
+  const themeToggle = page.getByTestId('auth-theme-toggle')
+  const authSurface = page.locator('.auth-layout__surface')
+  await expect(page.getByRole('heading', { name: '登录', level: 1 })).toBeVisible()
+  await expect(authSurface.getByTestId('auth-theme-toggle')).toBeVisible()
+  await expect(themeToggle).toHaveAttribute('aria-label', '切换到暗色主题')
+  await expectDocumentWithinViewport(page)
+
+  await themeToggle.focus()
+  await page.keyboard.press('Enter')
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark')
+  await expect(themeToggle).toHaveAttribute('aria-label', '切换到亮色主题')
+
+  await page.keyboard.press('Tab')
+  await expect(page.getByLabel('管理员账号')).toBeFocused()
+  await page.getByLabel('管理员密钥').fill('fixture-only-secret')
+  await expectDocumentWithinViewport(page)
+})
+
+test('authentication particle field responds to a fine pointer without moving the task surface', async ({ page, request }) => {
+  await resetBackend(request, true)
+  await page.setViewportSize({ width: 1440, height: 900 })
+  await page.goto('/login')
+
+  const particleField = page.getByTestId('auth-particle-field')
+  const surface = page.locator('.auth-layout__surface')
+  const surfaceBefore = await surface.boundingBox()
+  expect(surfaceBefore).not.toBeNull()
+
+  await expect(particleField).toHaveAttribute('data-auth-particle-state', 'running')
+  await expect.poll(() => particleField.evaluate((element) => (
+    Number((element as HTMLCanvasElement).dataset.authParticleCount)
+  ))).toBeGreaterThanOrEqual(80)
+  await page.mouse.move(120, 140)
+  await expect(particleField).toHaveAttribute('data-auth-pointer-active', 'true')
+
+  const surfaceAfter = await surface.boundingBox()
+  expect(surfaceAfter).toEqual(surfaceBefore)
+
+  await page.emulateMedia({ reducedMotion: 'reduce' })
+  await expect(particleField).toHaveAttribute('data-auth-particle-state', 'static')
+})
+
 test('setup-required deep links return to the target after initialization', async ({ page, request }) => {
   await resetBackend(request, false)
 

@@ -1,50 +1,81 @@
 <script setup lang="ts">
-import { reactive, ref, watch } from 'vue'
+import { h, nextTick, reactive, ref, watch } from 'vue'
+import { EyeInvisibleOutlined, EyeOutlined } from '@ant-design/icons-vue'
 
-import AuthTextField from '@/components/auth/AuthTextField.vue'
 import { t } from '@/i18n'
 
-const props = defineProps<{
-  title: string
-  subtitle: string
-  submitLabel: string
+type AuthFormFeedback = {
+  level: 'error' | 'warning'
+  message: string
+}
+
+type FocusableInput = {
+  focus: () => void
+}
+
+const props = withDefaults(defineProps<{
+  feedback?: AuthFormFeedback | null
   pending: boolean
   secretAutocomplete: 'current-password' | 'new-password'
-}>()
+  submitLabel: string
+  subtitle: string
+  title: string
+}>(), {
+  feedback: null,
+})
 
 const emit = defineEmits<{
+  change: []
   submit: [payload: { identifier: string, secret: string }]
 }>()
 
-const identifier = ref('admin')
-const secret = ref('')
+const credentials = reactive({
+  identifier: 'admin',
+  secret: '',
+})
 const errors = reactive<{ identifier: string | null, secret: string | null }>({
   identifier: null,
   secret: null,
 })
+const identifierField = ref<FocusableInput | null>(null)
+const secretField = ref<FocusableInput | null>(null)
 
-const identifierField = ref<InstanceType<typeof AuthTextField> | null>(null)
-const secretField = ref<InstanceType<typeof AuthTextField> | null>(null)
-
-watch(identifier, (value) => {
+watch(() => credentials.identifier, (value) => {
   if (value.trim()) {
     errors.identifier = null
   }
+  emit('change')
 })
 
-watch(secret, (value) => {
+watch(() => credentials.secret, (value) => {
   if (value) {
     errors.secret = null
   }
+  emit('change')
 })
 
-function handleSubmit() {
+function renderPasswordIcon(visible: boolean) {
+  return h(
+    'button',
+    {
+      'aria-label': visible ? t('auth.hideSecret') : t('auth.showSecret'),
+      'aria-pressed': String(visible),
+      type: 'button',
+    },
+    [h(visible ? EyeOutlined : EyeInvisibleOutlined)],
+  )
+}
+
+async function handleSubmit() {
   if (props.pending) {
     return
   }
-  errors.identifier = identifier.value.trim() ? null : t('auth.validation.identifierRequired')
-  errors.secret = secret.value ? null : t('auth.validation.secretRequired')
+
+  errors.identifier = credentials.identifier.trim() ? null : t('auth.validation.identifierRequired')
+  errors.secret = credentials.secret ? null : t('auth.validation.secretRequired')
+
   if (errors.identifier || errors.secret) {
+    await nextTick()
     if (errors.identifier) {
       identifierField.value?.focus()
     } else {
@@ -52,185 +83,301 @@ function handleSubmit() {
     }
     return
   }
-  emit('submit', { identifier: identifier.value, secret: secret.value })
+
+  emit('submit', {
+    identifier: credentials.identifier,
+    secret: credentials.secret,
+  })
 }
 </script>
 
 <template>
-  <section class="auth-panel-card">
-    <header class="auth-panel-card__header">
-      <span class="auth-panel-card__badge" aria-hidden="true">R</span>
-      <p class="auth-panel-card__eyebrow">{{ t('app.brand') }} · {{ t('auth.surface') }}</p>
-      <h1 class="auth-panel-card__title">{{ title }}</h1>
-      <p class="auth-panel-card__subtitle">{{ subtitle }}</p>
+  <section class="auth-panel" aria-labelledby="auth-panel-title">
+    <header class="auth-panel__header">
+      <p class="auth-panel__brand">{{ t('app.brand') }} {{ t('auth.surface') }}</p>
+      <h1 id="auth-panel-title" class="auth-panel__title">{{ title }}</h1>
+      <p class="auth-panel__subtitle">{{ subtitle }}</p>
     </header>
 
-    <form
-      class="auth-panel-card__form"
+    <a-form
+      class="auth-form"
+      layout="vertical"
+      :model="credentials"
       novalidate
-      @submit.prevent="handleSubmit"
+      @submit="handleSubmit"
     >
-      <AuthTextField
-        ref="identifierField"
-        v-model="identifier"
-        name="identifier"
+      <a-form-item
+        html-for="auth-identifier"
         :label="t('auth.identifier')"
-        autocomplete="username"
-        :error="errors.identifier"
-      />
-      <AuthTextField
-        ref="secretField"
-        v-model="secret"
-        name="secret"
-        type="password"
-        :label="t('auth.secret')"
-        :autocomplete="secretAutocomplete"
-        :error="errors.secret"
-      />
-      <button
-        type="submit"
-        class="auth-submit"
-        :disabled="pending"
-        :aria-busy="pending || undefined"
-        @click.prevent="handleSubmit"
+        name="identifier"
+        :validate-status="errors.identifier ? 'error' : undefined"
       >
-        <span
-          v-if="pending"
-          class="auth-submit__spinner"
-          aria-hidden="true"
+        <template v-if="errors.identifier" #help>
+          <span id="auth-identifier-error" role="alert">{{ errors.identifier }}</span>
+        </template>
+        <a-input
+          id="auth-identifier"
+          ref="identifierField"
+          v-model:value="credentials.identifier"
+          autocomplete="username"
+          :disabled="pending"
+          name="identifier"
+          aria-required="true"
+          :aria-describedby="errors.identifier ? 'auth-identifier-error' : undefined"
+          :aria-invalid="errors.identifier ? 'true' : undefined"
         />
-        <span class="auth-submit__label">{{ submitLabel }}</span>
-      </button>
-    </form>
+      </a-form-item>
+
+      <a-form-item
+        html-for="auth-secret"
+        :label="t('auth.secret')"
+        name="secret"
+        :validate-status="errors.secret ? 'error' : undefined"
+      >
+        <template v-if="errors.secret" #help>
+          <span id="auth-secret-error" role="alert">{{ errors.secret }}</span>
+        </template>
+        <a-input-password
+          id="auth-secret"
+          ref="secretField"
+          v-model:value="credentials.secret"
+          :autocomplete="secretAutocomplete"
+          :disabled="pending"
+          :icon-render="renderPasswordIcon"
+          name="secret"
+          aria-required="true"
+          :aria-describedby="errors.secret ? 'auth-secret-error' : undefined"
+          :aria-invalid="errors.secret ? 'true' : undefined"
+        />
+      </a-form-item>
+
+      <a-alert
+        v-if="feedback"
+        class="auth-form__feedback"
+        :message="feedback.message"
+        :role="feedback.level === 'error' ? 'alert' : 'status'"
+        show-icon
+        :type="feedback.level"
+      />
+
+      <a-button
+        class="auth-form__submit"
+        block
+        html-type="submit"
+        :loading="pending"
+        type="primary"
+        :aria-busy="pending || undefined"
+      >
+        {{ submitLabel }}
+      </a-button>
+    </a-form>
   </section>
 </template>
 
 <style scoped lang="scss">
-.auth-panel-card {
-  position: relative;
-  z-index: 1;
-  width: min(420px, calc(100vw - 32px));
-  padding: var(--auth-card-padding);
-  border: 1px solid var(--border);
-  border-radius: var(--auth-card-radius);
-  background: var(--surface);
-  box-shadow: 0 16px 40px rgba(2, 6, 23, 0.14);
+.auth-panel {
+  width: 100%;
+  padding: 40px;
+  color: var(--auth-text);
 }
 
-.auth-panel-card__header {
-  position: relative;
-  z-index: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 10px;
-  text-align: center;
+.auth-panel__header {
+  min-height: 132px;
+  padding: 2px 56px 28px 0;
+  border-bottom: 1px solid var(--auth-border);
 }
 
-.auth-panel-card__badge {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 48px;
-  height: 48px;
-  border-radius: 14px;
-  background: linear-gradient(135deg, var(--auth-accent-deep), var(--auth-accent));
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.25);
-  color: #fff;
-  font-size: 22px;
+.auth-panel__brand {
+  margin: 0 0 12px;
+  color: var(--auth-cool);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.auth-panel__title {
+  margin: 0;
+  color: var(--auth-text);
+  font-size: 24px;
   font-weight: 700;
-}
-
-.auth-panel-card__eyebrow {
-  margin: 2px 0 0;
-  color: var(--muted);
-  font-size: 12px;
-  letter-spacing: 0.12em;
-}
-
-.auth-panel-card__title {
-  margin: 0;
-  color: var(--text);
-  font-size: 1.6rem;
-  font-weight: 650;
   line-height: 1.25;
+  letter-spacing: -0.015em;
 }
 
-.auth-panel-card__subtitle {
-  margin: 0;
-  color: var(--muted);
+.auth-panel__subtitle {
+  max-width: 34ch;
+  margin: 10px 0 0;
+  color: var(--auth-text-muted);
   font-size: 14px;
-  line-height: 1.6;
+  line-height: 1.55;
 }
 
-.auth-panel-card__form {
-  position: relative;
-  z-index: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 18px;
+.auth-form {
+  display: grid;
+  gap: 20px;
   margin-top: 28px;
 }
 
-.auth-submit {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  width: 100%;
-  height: 48px;
-  margin-top: 6px;
-  border: 0;
-  border-radius: 14px;
-  background: linear-gradient(135deg, var(--auth-accent-deep), var(--auth-accent));
-  color: #fff;
-  font-family: inherit;
-  font-size: 15px;
+.auth-form :deep(.ant-form-item) {
+  margin-bottom: 0;
+}
+
+.auth-form :deep(.ant-form-item-label) {
+  padding-bottom: 6px;
+}
+
+.auth-form :deep(.ant-form-item-label > label) {
+  height: auto;
+  color: var(--auth-text);
+  font-size: 13px;
   font-weight: 600;
-  letter-spacing: 0.08em;
+  line-height: 1.4;
+}
+
+.auth-form :deep(.ant-input),
+.auth-form :deep(.ant-input-affix-wrapper) {
+  border-color: var(--auth-border);
+  border-radius: 8px;
+  background: var(--auth-control);
+  transition:
+    color 160ms cubic-bezier(0.16, 1, 0.3, 1),
+    background-color 160ms cubic-bezier(0.16, 1, 0.3, 1),
+    border-color 160ms cubic-bezier(0.16, 1, 0.3, 1),
+    box-shadow 160ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.auth-form :deep(.ant-input:hover),
+.auth-form :deep(.ant-input-affix-wrapper:hover) {
+  border-color: var(--auth-cool);
+  background: var(--auth-control-hover);
+}
+
+.auth-form :deep(.ant-input:focus),
+.auth-form :deep(.ant-input-affix-wrapper-focused) {
+  border-color: var(--auth-cool);
+  background: var(--auth-control-hover);
+}
+
+.auth-form :deep(.ant-input-affix-wrapper .ant-input) {
+  min-height: auto;
+  background: transparent;
+}
+
+.auth-form :deep(.ant-input:disabled),
+.auth-form :deep(.ant-input-affix-wrapper-disabled) {
+  color: var(--auth-text-muted);
+  border-color: var(--auth-border);
+  background: color-mix(in srgb, var(--auth-control) 72%, var(--auth-canvas));
+}
+
+.auth-form :deep(input:-webkit-autofill),
+.auth-form :deep(input:-webkit-autofill:hover),
+.auth-form :deep(input:-webkit-autofill:focus) {
+  box-shadow: 0 0 0 1000px var(--auth-control) inset;
+  -webkit-text-fill-color: var(--auth-text);
+  caret-color: var(--auth-text);
+}
+
+.auth-form :deep(.ant-form-item-explain-error) {
+  padding-top: 4px;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.auth-form :deep(.ant-input-password-icon) {
+  display: grid;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  place-items: center;
+  color: var(--auth-text-muted);
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
   cursor: pointer;
-  transition: background-color 120ms ease, filter 120ms ease;
+  transition: color 160ms cubic-bezier(0.16, 1, 0.3, 1), background-color 160ms cubic-bezier(0.16, 1, 0.3, 1);
+}
 
-  &:hover:not(:disabled) {
-    filter: brightness(1.06);
+.auth-form :deep(.ant-input-password-icon:hover),
+.auth-form :deep(.ant-input-password-icon:focus-visible) {
+  color: var(--auth-cool);
+  background: var(--auth-cool-soft);
+  outline: 2px solid var(--auth-cool);
+  outline-offset: 1px;
+}
+
+.auth-form__feedback {
+  border-radius: 8px;
+}
+
+.auth-form__submit.ant-btn {
+  margin-top: 4px;
+  border-color: var(--auth-cool);
+  border-radius: 8px;
+  background: var(--auth-cool);
+  box-shadow: var(--auth-primary-shadow), inset 0 1px 0 var(--auth-primary-highlight);
+  font-weight: 600;
+  transition:
+    color 160ms cubic-bezier(0.16, 1, 0.3, 1),
+    background-color 160ms cubic-bezier(0.16, 1, 0.3, 1),
+    border-color 160ms cubic-bezier(0.16, 1, 0.3, 1),
+    box-shadow 160ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.auth-form__submit.ant-btn:not(:disabled):hover,
+.auth-form__submit.ant-btn:not(:disabled):focus-visible {
+  border-color: var(--auth-cool-hover);
+  background: var(--auth-cool-hover);
+  box-shadow: var(--auth-primary-shadow), inset 0 1px 0 var(--auth-primary-highlight), 0 0 0 2px var(--auth-cool-soft);
+}
+
+.auth-form__submit.ant-btn:not(:disabled):active {
+  border-color: var(--auth-cool-hover);
+  background: var(--auth-cool-hover);
+  box-shadow: inset 0 2px 4px rgb(17 24 28 / 18%);
+}
+
+@media (max-width: 600px) {
+  .auth-panel {
+    padding: 24px;
   }
 
-  &:active:not(:disabled) {
-    filter: brightness(0.98);
+  .auth-panel__header {
+    min-height: 124px;
+    padding: 0 48px 24px 0;
   }
 
-  &:disabled {
-    opacity: 0.75;
-    cursor: default;
+  .auth-form {
+    gap: 16px;
+    margin-top: 24px;
+  }
+
+  .auth-form :deep(.ant-input),
+  .auth-form :deep(.ant-input-affix-wrapper),
+  .auth-form__submit.ant-btn {
+    min-height: 44px;
+  }
+
+  .auth-form :deep(.ant-input-password-icon) {
+    width: 36px;
+    height: 36px;
   }
 }
 
-.auth-submit__spinner {
-  width: 16px;
-  height: 16px;
-  border: 2px solid rgba(255, 255, 255, 0.45);
-  border-top-color: #fff;
-  border-radius: 50%;
-  animation: authSpin 0.8s linear infinite;
+@media (pointer: coarse) {
+  .auth-form :deep(.ant-input),
+  .auth-form :deep(.ant-input-affix-wrapper),
+  .auth-form__submit.ant-btn {
+    min-height: 44px;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .auth-submit {
+  .auth-form :deep(.ant-input),
+  .auth-form :deep(.ant-input-affix-wrapper),
+  .auth-form :deep(.ant-input-password-icon),
+  .auth-form__submit.ant-btn {
     transition: none;
-  }
-}
-
-@media (max-width: 480px) {
-  .auth-panel-card {
-    padding: 28px 22px;
-    border-radius: 16px;
-  }
-}
-
-@keyframes authSpin {
-  to {
-    transform: rotate(360deg);
   }
 }
 </style>
