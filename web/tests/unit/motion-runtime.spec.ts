@@ -11,6 +11,11 @@ import {
 } from '@/motion/runtime'
 
 function installViewTransitionMock() {
+  const workspace = document.createElement('main') as HTMLElement & {
+    startViewTransition?: typeof document.startViewTransition
+  }
+  workspace.className = 'admin-layout__content'
+  document.body.append(workspace)
   const transitions: Array<{ resolve: () => void; skipTransition: ReturnType<typeof vi.fn> }> = []
   const startViewTransition = vi.fn((update: () => void | Promise<void>) => {
     let resolve = () => {}
@@ -25,11 +30,11 @@ function installViewTransitionMock() {
       skipTransition,
     } as ViewTransition
   })
-  Object.defineProperty(document, 'startViewTransition', {
+  Object.defineProperty(workspace, 'startViewTransition', {
     configurable: true,
     value: startViewTransition,
   })
-  return { startViewTransition, transitions }
+  return { startViewTransition, transitions, workspace }
 }
 
 function createRouterMock() {
@@ -42,6 +47,7 @@ describe('motion runtime', () => {
   beforeEach(() => {
     animateMock.mockReset()
     Reflect.deleteProperty(document, 'startViewTransition')
+    document.querySelector('.admin-layout__content')?.remove()
     delete document.documentElement.dataset.viewTransitionKind
     delete document.documentElement.dataset.motionProfile
     vi.stubGlobal('matchMedia', vi.fn(() => ({ matches: false })))
@@ -63,8 +69,8 @@ describe('motion runtime', () => {
     const navigation = navigateWithMotion(router, '/plugins', 'fade-slide')
 
     expect(startViewTransition).toHaveBeenCalledOnce()
-    expect(document.documentElement.dataset.viewTransitionKind).toBe('route')
-    expect(document.documentElement.dataset.motionProfile).toBe('fade-slide')
+    expect(document.querySelector<HTMLElement>('.admin-layout__content')?.dataset.viewTransitionKind).toBe('route')
+    expect(document.querySelector<HTMLElement>('.admin-layout__content')?.dataset.motionProfile).toBe('fade-slide')
     await navigation
     transitions[0]?.resolve()
   })

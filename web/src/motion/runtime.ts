@@ -19,6 +19,15 @@ interface ActiveViewTransition {
   transition: ViewTransition
 }
 
+interface ScopedViewTransitionElement extends HTMLElement {
+  startViewTransition?: (update: () => void | Promise<void>) => ViewTransition
+}
+
+interface ViewTransitionTarget {
+  marker: HTMLElement
+  start: (update: () => void | Promise<void>) => ViewTransition
+}
+
 let activeViewTransition: ActiveViewTransition | null = null
 let viewTransitionSequence = 0
 const routeMotionListeners = new Set<RouteMotionListener>()
@@ -32,6 +41,30 @@ export function prefersReducedMotion(): boolean {
 export function supportsViewTransitions(): boolean {
   return typeof document !== 'undefined'
     && typeof document.startViewTransition === 'function'
+}
+
+function resolveViewTransitionTarget(kind: ViewTransitionKind): ViewTransitionTarget | null {
+  if (typeof document === 'undefined') {
+    return null
+  }
+  if (kind === 'theme') {
+    if (typeof document.startViewTransition !== 'function') {
+      return null
+    }
+    return {
+      marker: document.documentElement,
+      start: (update) => document.startViewTransition(update),
+    }
+  }
+
+  const workspace = document.querySelector<ScopedViewTransitionElement>('.admin-layout__content')
+  if (!workspace || typeof workspace.startViewTransition !== 'function') {
+    return null
+  }
+  return {
+    marker: workspace,
+    start: (update) => workspace.startViewTransition!(update),
+  }
 }
 
 export function isManagedViewTransitionActive(): boolean {
@@ -59,16 +92,16 @@ function startManagedViewTransition(
   update: () => void | Promise<void>,
   profile: PageMotionProfile = 'fade',
 ): ViewTransition | null {
-  if (!supportsViewTransitions() || prefersReducedMotion() || profile === 'none') {
+  const target = resolveViewTransitionTarget(kind)
+  if (!target || prefersReducedMotion() || profile === 'none') {
     void update()
     return null
   }
 
   finishActiveViewTransition()
   const sequence = ++viewTransitionSequence
-  const root = document.documentElement
-  root.dataset.viewTransitionKind = kind
-  root.dataset.motionProfile = profile
+  target.marker.dataset.viewTransitionKind = kind
+  target.marker.dataset.motionProfile = profile
   if (kind === 'route') {
     notifyRouteMotion(true)
   }
@@ -83,13 +116,13 @@ function startManagedViewTransition(
       notifyRouteMotion(false)
     }
     if (sequence === viewTransitionSequence) {
-      delete root.dataset.viewTransitionKind
-      delete root.dataset.motionProfile
+      delete target.marker.dataset.viewTransitionKind
+      delete target.marker.dataset.motionProfile
       activeViewTransition = null
     }
   }
 
-  const transition = document.startViewTransition(async () => {
+  const transition = target.start(async () => {
     await update()
     await nextTick()
   })

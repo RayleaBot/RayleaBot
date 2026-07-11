@@ -589,41 +589,32 @@ textarea:focus-visible,
   background: color-mix(in srgb, var(--muted) 32%, transparent);
 }
 
-html[data-view-transition-kind='route'] .admin-layout__content {
-  view-transition-name: raylea-web-workspace;
-  contain: paint;
-}
-
 html::view-transition,
 html::view-transition-group(root),
 html::view-transition-image-pair(root),
 html::view-transition-old(root),
 html::view-transition-new(root),
-html::view-transition-group(raylea-web-workspace),
-html::view-transition-image-pair(raylea-web-workspace),
-html::view-transition-old(raylea-web-workspace),
-html::view-transition-new(raylea-web-workspace) {
+.admin-layout__content::view-transition,
+.admin-layout__content::view-transition-group(root),
+.admin-layout__content::view-transition-image-pair(root),
+.admin-layout__content::view-transition-old(root),
+.admin-layout__content::view-transition-new(root) {
   pointer-events: none;
 }
 
-html[data-view-transition-kind='route']::view-transition-old(root),
-html[data-view-transition-kind='route']::view-transition-new(root) {
-  animation: none;
-}
-
-html[data-view-transition-kind='route'][data-motion-profile='fade']::view-transition-old(raylea-web-workspace) {
+.admin-layout__content[data-view-transition-kind='route'][data-motion-profile='fade']::view-transition-old(root) {
   animation: raylea-view-fade-out 120ms linear both;
 }
 
-html[data-view-transition-kind='route'][data-motion-profile='fade']::view-transition-new(raylea-web-workspace) {
+.admin-layout__content[data-view-transition-kind='route'][data-motion-profile='fade']::view-transition-new(root) {
   animation: raylea-view-fade-in 200ms cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
-html[data-view-transition-kind='route'][data-motion-profile='fade-slide']::view-transition-old(raylea-web-workspace) {
+.admin-layout__content[data-view-transition-kind='route'][data-motion-profile='fade-slide']::view-transition-old(root) {
   animation: raylea-view-slide-out 120ms linear both;
 }
 
-html[data-view-transition-kind='route'][data-motion-profile='fade-slide']::view-transition-new(raylea-web-workspace) {
+.admin-layout__content[data-view-transition-kind='route'][data-motion-profile='fade-slide']::view-transition-new(root) {
   animation: raylea-view-slide-in 200ms cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 

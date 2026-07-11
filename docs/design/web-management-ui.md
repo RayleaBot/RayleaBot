@@ -45,7 +45,7 @@
 
 ## 动效与切换
 
-- 管理工作区和主题使用 View Transition API。工作区切换只捕获主内容，侧栏、页头和固定导航保持稳定；主题切换使用根快照交叉淡化。
+- 管理工作区使用元素级 View Transition，切换只捕获主内容，侧栏、页头和固定导航在动画期间保持稳定且可交互；主题切换使用根快照交叉淡化。
 - 页面偏好 `fade` 使用透明度切换，`fade-slide` 只增加最多 `6px` 的垂直位移，`none` 立即替换内容。内容切换固定为 `200ms`。
 - View Transition 不可用、浏览器历史导航或未包装导航使用 Motion Mini 的 WAAPI 降级；连续导航取消旧动画，以最新路由为准。
 - 同一元素不叠加 View Transition、Motion 和 CSS 动画。`prefers-reduced-motion` 下导航和主题立即完成。
