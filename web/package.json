@@ -23,6 +23,7 @@
     "@ant-design/icons-vue": "7.0.1",
     "@tanstack/vue-virtual": "3.13.24",
     "ant-design-vue": "4.2.6",
+    "motion": "12.42.2",
     "pinia": "3.0.4",
     "vue": "3.5.39",
     "vue-i18n": "11.4.6",

@@ -7,6 +7,7 @@ import {
 } from '@ant-design/icons-vue'
 import type { RouteLocationRaw } from 'vue-router'
 
+import MotionRouterLink from '@/components/shell/MotionRouterLink.vue'
 import type { StatusType } from '@/lib/display'
 
 const iconMap = {
@@ -60,7 +61,7 @@ defineProps<{
       </div>
     </div>
 
-    <RouterLink
+    <MotionRouterLink
       :to="activePluginsTo"
       class="custom-stat-card stat-card custom-stat-card--primary stat-card--primary custom-stat-card--link"
       data-testid="dashboard-active-plugins-card"
@@ -74,7 +75,7 @@ defineProps<{
         <strong class="custom-stat-card__value">{{ activePluginsCount }}</strong>
         <span class="custom-stat-card__desc">{{ activePluginsDetailText }}</span>
       </div>
-    </RouterLink>
+    </MotionRouterLink>
 
     <div class="custom-stat-card stat-card custom-stat-card--info stat-card--info">
       <div class="custom-stat-card__icon-container">

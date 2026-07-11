@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
 import { storeToRefs } from 'pinia'
-import { useRouter } from 'vue-router'
 
 import { notifySuccess, useToastFeedback } from '@/adapter/feedback'
 import AppCard from '@/components/AppCard.vue'
@@ -12,12 +11,13 @@ import { formatDateTime } from '@/lib/format'
 import { buildCommandsLocation } from '@/lib/management-links'
 import { t } from '@/i18n'
 import { useGovernanceStore } from '@/stores/governance'
+import { useMotionNavigation } from '@/motion/useMotionNavigation'
 import type {
   BlacklistEntry,
   GovernanceEntryType,
 } from '@/types/api'
 
-const router = useRouter()
+const navigate = useMotionNavigation()
 const governanceStore = useGovernanceStore()
 
 const {
@@ -409,7 +409,7 @@ onMounted(() => {
   <AppPage :title="t('accessLists.title')" :description="t('accessLists.subtitle')">
     <template #extra>
       <div class="table-actions">
-        <a-button data-testid="access-lists-open-commands" type="primary" @click="router.push(buildCommandsLocation())">
+        <a-button data-testid="access-lists-open-commands" type="primary" @click="navigate(buildCommandsLocation())">
           {{ t('accessLists.actions.openCommands') }}
         </a-button>
       </div>

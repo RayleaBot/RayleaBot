@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
-import { useRouter } from 'vue-router'
 
 import { useToastFeedback } from '@/adapter/feedback'
 import RetryPanel from '@/components/RetryPanel.vue'
@@ -11,6 +10,7 @@ import { buildRenderTemplateLocation } from '@/lib/management-links'
 import { useGovernanceStore } from '@/stores/governance'
 import { usePluginsStore } from '@/stores/plugins'
 import type { PluginDetail, PluginSettingsUpdateRequest, SchedulerJobTriggerResponse } from '@/types/api'
+import { useMotionNavigation } from '@/motion/useMotionNavigation'
 
 interface PluginManagementUIHostInitPayload {
   plugin_id: string
@@ -187,7 +187,7 @@ const props = defineProps<{
 
 const pluginsStore = usePluginsStore()
 const governanceStore = useGovernanceStore()
-const router = useRouter()
+const navigate = useMotionNavigation()
 
 const iframeRef = ref<HTMLIFrameElement | null>(null)
 const iframeNonce = ref(0)
@@ -824,7 +824,7 @@ async function triggerSchedulerJob(jobId: string, requestId?: string) {
 
 async function openRenderTemplate(templateId: string, requestId?: string) {
   try {
-    await router.push(buildRenderTemplateLocation(templateId))
+    await navigate(buildRenderTemplateLocation(templateId))
   } catch (error) {
     actionError.value = getDisplayErrorMessage(error)
     postBridgeError(actionError.value, {

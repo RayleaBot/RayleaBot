@@ -105,7 +105,9 @@ function handleToggle() {
   box-shadow:
     0 8px 18px color-mix(in srgb, #94a3b8 34%, transparent),
     inset 0 0 0 1px rgba(255, 255, 255, 0.55);
-  transition: background-color 0.5s ease, box-shadow 0.5s ease;
+  transition:
+    background-color 160ms cubic-bezier(0.16, 1, 0.3, 1),
+    box-shadow 160ms cubic-bezier(0.16, 1, 0.3, 1);
 
   &::before,
   &::after {
@@ -120,10 +122,10 @@ function handleToggle() {
     font-size: var(--toggle-emoji-size);
     line-height: 1;
     transition:
-      transform 0.7s cubic-bezier(0.22, 1, 0.36, 1),
-      opacity 0.7s cubic-bezier(0.22, 1, 0.36, 1),
-      background-color 0.5s ease,
-      box-shadow 0.5s ease;
+      transform 160ms cubic-bezier(0.16, 1, 0.3, 1),
+      opacity 160ms cubic-bezier(0.16, 1, 0.3, 1),
+      background-color 160ms cubic-bezier(0.16, 1, 0.3, 1),
+      box-shadow 160ms cubic-bezier(0.16, 1, 0.3, 1);
   }
 
   &::before {

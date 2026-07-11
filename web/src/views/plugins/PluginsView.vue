@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { storeToRefs } from 'pinia'
-import { useRouter } from 'vue-router'
 import {
   AppstoreOutlined,
   UnorderedListOutlined,
@@ -32,6 +31,7 @@ import { t } from '@/i18n'
 import { isPluginCommandConflicted } from '@/lib/plugin-commands'
 import type { PluginCommandSummary } from '@/types/api'
 import { usePluginsStore } from '@/stores/plugins'
+import { useMotionNavigation } from '@/motion/useMotionNavigation'
 import { usePluginInstallFlow } from './usePluginInstallFlow'
 
 type HealthNoticeTone = '' | 'info' | 'warning' | 'danger'
@@ -41,7 +41,7 @@ interface PluginHealthNotice {
   tone: HealthNoticeTone
 }
 
-const router = useRouter()
+const navigate = useMotionNavigation()
 const pluginsStore = usePluginsStore()
 const { actionPending, error, inspectionPending, installPending, loading, sortedItems } = storeToRefs(pluginsStore)
 const {
@@ -299,7 +299,7 @@ onMounted(() => {
 })
 
 function openDetail(id: string) {
-  void router.push({ name: 'plugin-detail', params: { id } })
+  void navigate({ name: 'plugin-detail', params: { id } })
 }
 
 function openSummary(id: string) {

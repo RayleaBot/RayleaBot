@@ -1,6 +1,10 @@
 <script setup lang="ts">
 import type { RouteLocationRaw } from 'vue-router'
 
+import { useMotionNavigation } from '@/motion/useMotionNavigation'
+
+const navigate = useMotionNavigation()
+
 defineProps<{
   actions: Array<{
     key: string
@@ -17,17 +21,14 @@ const emit = defineEmits<{
 
 <template>
   <div v-if="actions.length" class="management-context-actions">
-    <RouterLink
+    <a-button
       v-for="action in actions"
       :key="action.key"
-      :to="action.to"
-      custom
-      v-slot="{ navigate }"
+      :size="size ?? 'small'"
+      @click="() => { emit('action'); void navigate(action.to) }"
     >
-      <a-button :size="size ?? 'small'" @click="() => { emit('action'); navigate() }">
-        {{ action.label }}
-      </a-button>
-    </RouterLink>
+      {{ action.label }}
+    </a-button>
   </div>
 </template>
 

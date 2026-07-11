@@ -589,28 +589,102 @@ textarea:focus-visible,
   background: color-mix(in srgb, var(--muted) 32%, transparent);
 }
 
-.route-fade-enter-active,
-.route-fade-leave-active,
-.route-fade-slide-enter-active,
-.route-fade-slide-leave-active {
-  transition: opacity 0.14s ease, transform 0.14s ease;
+html[data-view-transition-kind='route'] .admin-layout__content {
+  view-transition-name: raylea-web-workspace;
+  contain: paint;
 }
 
-.route-fade-enter-from,
-.route-fade-leave-to,
-.route-fade-slide-enter-from,
-.route-fade-slide-leave-to {
-  opacity: 0;
+html::view-transition,
+html::view-transition-group(root),
+html::view-transition-image-pair(root),
+html::view-transition-old(root),
+html::view-transition-new(root),
+html::view-transition-group(raylea-web-workspace),
+html::view-transition-image-pair(raylea-web-workspace),
+html::view-transition-old(raylea-web-workspace),
+html::view-transition-new(raylea-web-workspace) {
+  pointer-events: none;
 }
 
-.route-fade-slide-enter-from,
-.route-fade-slide-leave-to {
-  transform: translateY(8px);
+html[data-view-transition-kind='route']::view-transition-old(root),
+html[data-view-transition-kind='route']::view-transition-new(root) {
+  animation: none;
 }
 
-.route-none-enter-active,
-.route-none-leave-active {
-  transition: none;
+html[data-view-transition-kind='route'][data-motion-profile='fade']::view-transition-old(raylea-web-workspace) {
+  animation: raylea-view-fade-out 120ms linear both;
+}
+
+html[data-view-transition-kind='route'][data-motion-profile='fade']::view-transition-new(raylea-web-workspace) {
+  animation: raylea-view-fade-in 200ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+html[data-view-transition-kind='route'][data-motion-profile='fade-slide']::view-transition-old(raylea-web-workspace) {
+  animation: raylea-view-slide-out 120ms linear both;
+}
+
+html[data-view-transition-kind='route'][data-motion-profile='fade-slide']::view-transition-new(raylea-web-workspace) {
+  animation: raylea-view-slide-in 200ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+html[data-view-transition-kind='theme']::view-transition-old(root),
+html[data-view-transition-kind='theme']::view-transition-new(root) {
+  mix-blend-mode: normal;
+}
+
+html[data-view-transition-kind='theme'] *,
+html[data-view-transition-kind='theme'] *::before,
+html[data-view-transition-kind='theme'] *::after {
+  transition-duration: 0s !important;
+}
+
+html[data-view-transition-kind='theme']::view-transition-old(root) {
+  animation: raylea-view-fade-out 120ms linear both;
+}
+
+html[data-view-transition-kind='theme']::view-transition-new(root) {
+  animation: raylea-view-fade-in 200ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes raylea-view-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes raylea-view-fade-out {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+@keyframes raylea-view-slide-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes raylea-view-slide-out {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-2px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation-duration: 0.01ms !important;
+    animation-delay: 0s !important;
+  }
 }
 
 ::-webkit-scrollbar {

@@ -28,6 +28,7 @@ import {
   type AppMenuItem,
 } from '@/access/menu'
 import { notifyError, notifyInfo, notifySuccess, useToastFeedback } from '@/adapter/feedback'
+import MotionRouterLink from '@/components/shell/MotionRouterLink.vue'
 import PreferencesDrawer from '@/components/shell/PreferencesDrawer.vue'
 import RouteSearchPanel from '@/components/shell/RouteSearchPanel.vue'
 import ThemeToggleSwitch from '@/components/shell/ThemeToggleSwitch.vue'
@@ -39,6 +40,15 @@ import { useSystemStore } from '@/stores/system'
 import { useUiShellStore, type ShellTabItem } from '@/stores/ui-shell'
 import { PAGE_TRANSITION_STAGE_KEY, type PageTransitionStage } from '@/layouts/usePageTransitionStage'
 import { useWorkspaceTabs, type WorkspaceTabProjection } from '@/layouts/useWorkspaceTabs'
+import {
+  applyThemeWithMotion,
+  cancelRouteFallbackMotion,
+  isManagedViewTransitionActive,
+  navigateWithMotion,
+  runRouteFallbackMotion,
+  subscribeRouteMotion,
+  type PageMotionProfile,
+} from '@/motion/runtime'
 
 const route = useRoute()
 const router = useRouter()
@@ -62,6 +72,7 @@ const isFullscreen = ref(false)
 const reducedMotion = ref(false)
 const openMenuKeys = ref<string[]>([])
 let reducedMotionMediaQuery: MediaQueryList | null = null
+let unsubscribeRouteMotion: (() => void) | null = null
 
 useToastFeedback(() => (
   shutdownRequested.value
@@ -104,17 +115,7 @@ const themeToggleLabel = computed(() => (
 const fullscreenLabel = computed(() => (
   isFullscreen.value ? t('shell.exitFullscreen') : t('shell.enterFullscreen')
 ))
-const effectiveTransitionName = computed(() => {
-  if (preferences.value.pageTransition === 'none') {
-    return 'route-none'
-  }
-
-  if (reducedMotion.value) {
-    return 'route-fade'
-  }
-
-  return preferences.value.pageTransition === 'fade' ? 'route-fade' : 'route-fade-slide'
-})
+const pageMotionProfile = computed<PageMotionProfile>(() => preferences.value.pageTransition)
 
 const skipPageTransitionStage = computed(() => (
   preferences.value.pageTransition === 'none' || reducedMotion.value
@@ -134,10 +135,21 @@ function handlePageTransitionBeforeEnter() {
 }
 
 function handlePageTransitionAfterEnter() {
-  internalPageTransitionStage.value = 'idle'
+  if (!isManagedViewTransitionActive()) {
+    internalPageTransitionStage.value = 'idle'
+  }
 }
 
-function handlePageTransitionEnterCancelled() {
+function handlePageTransitionEnter(element: Element, done: () => void) {
+  runRouteFallbackMotion(element as HTMLElement, 'enter', pageMotionProfile.value, done)
+}
+
+function handlePageTransitionLeave(element: Element, done: () => void) {
+  runRouteFallbackMotion(element as HTMLElement, 'leave', pageMotionProfile.value, done)
+}
+
+function handlePageTransitionCancelled(element: Element) {
+  cancelRouteFallbackMotion(element as HTMLElement)
   internalPageTransitionStage.value = 'idle'
 }
 const routeStageRegistry = new Map<string, VueComponent>()
@@ -379,6 +391,7 @@ const {
   router,
   tabs,
   uiShellStore,
+  navigate: (target) => navigateWithMotion(router, target, pageMotionProfile.value),
 })
 
 function flattenMenu(items: AppMenuItem[], lineage: Array<{ key: string; path: string }> = []) {
@@ -407,13 +420,18 @@ const selectedMenuKeys = computed(() => {
 watch(
   menuLineage,
   (lineage) => {
-    openMenuKeys.value = lineage.slice(0, -1).map((item) => item.key)
+    const routeKeys = lineage.slice(0, -1).map((item) => item.key)
+    openMenuKeys.value = Array.from(new Set([...openMenuKeys.value, ...routeKeys]))
   },
   { immediate: true },
 )
 
 function navigateTo(path: string) {
-  void router.push(path)
+  void navigateWithMotion(router, path, pageMotionProfile.value)
+}
+
+function toggleThemeModeWithMotion() {
+  applyThemeWithMotion(() => uiShellStore.toggleThemeMode())
 }
 
 function handlePrimaryNavigationKeydown(event: KeyboardEvent) {
@@ -535,6 +553,10 @@ onMounted(() => {
     reducedMotion.value = reducedMotionMediaQuery.matches
     reducedMotionMediaQuery.addEventListener('change', handleReducedMotionPreference)
   }
+
+  unsubscribeRouteMotion = subscribeRouteMotion((active) => {
+    internalPageTransitionStage.value = active ? 'entering' : 'idle'
+  })
 })
 
 onBeforeUnmount(() => {
@@ -546,6 +568,8 @@ onBeforeUnmount(() => {
     reducedMotionMediaQuery.removeEventListener('change', handleReducedMotionPreference)
     reducedMotionMediaQuery = null
   }
+  unsubscribeRouteMotion?.()
+  unsubscribeRouteMotion = null
 })
 </script>
 
@@ -724,13 +748,13 @@ onBeforeUnmount(() => {
                     },
                   ]"
                   >
-                    <RouterLink
+                    <MotionRouterLink
                       v-if="!item.current"
                       :to="item.path"
                       class="ant-breadcrumb-link admin-layout__breadcrumb-link"
                     >
-                    <span class="admin-layout__breadcrumb-link-text">{{ item.title }}</span>
-                    </RouterLink>
+                      <span class="admin-layout__breadcrumb-link-text">{{ item.title }}</span>
+                    </MotionRouterLink>
                     <span v-else class="ant-breadcrumb-link admin-layout__breadcrumb-current">
                       <span class="admin-layout__breadcrumb-current-text">{{ item.title }}</span>
                     </span>
@@ -796,7 +820,7 @@ onBeforeUnmount(() => {
                 :checked="preferences.themeMode === 'dark'"
                 :label="themeToggleLabel"
                 test-id="theme-toggle"
-                @toggle="uiShellStore.toggleThemeMode()"
+                @toggle="toggleThemeModeWithMotion"
               />
             </a-tooltip>
 
@@ -909,11 +933,14 @@ onBeforeUnmount(() => {
       <a-layout-content id="app-main" class="admin-layout__content" tabindex="-1">
         <RouterView v-slot="{ route: currentViewRoute }">
           <Transition
-            :name="effectiveTransitionName"
+            :css="false"
             mode="out-in"
             @before-enter="handlePageTransitionBeforeEnter"
+            @enter="handlePageTransitionEnter"
+            @leave="handlePageTransitionLeave"
             @after-enter="handlePageTransitionAfterEnter"
-            @enter-cancelled="handlePageTransitionEnterCancelled"
+            @enter-cancelled="handlePageTransitionCancelled"
+            @leave-cancelled="handlePageTransitionCancelled"
           >
             <KeepAlive :include="effectiveCachedViewNames">
               <component

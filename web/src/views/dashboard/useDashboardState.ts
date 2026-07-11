@@ -1,6 +1,5 @@
 import { ref } from 'vue'
 import { storeToRefs } from 'pinia'
-import { useRouter } from 'vue-router'
 
 import { useProtocolsStore } from '@/stores/protocols'
 import { useSystemStore } from '@/stores/system'
@@ -8,7 +7,6 @@ import { useDashboardDerivedState } from '@/views/dashboard/useDashboardDerivedS
 import { useDashboardRefresh } from '@/views/dashboard/useDashboardRefresh'
 
 export function useDashboardState() {
-  const router = useRouter()
   const protocolsStore = useProtocolsStore()
   const systemStore = useSystemStore()
   const {
@@ -65,7 +63,6 @@ export function useDashboardState() {
     recoveryConfirmNote,
     recoveryConfirmPending,
     recoveryRecheckPending,
-    router,
     runtimeBootstrapPending,
     selectedRecoveryReviewIds,
     system,

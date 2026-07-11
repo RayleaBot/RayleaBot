@@ -13,6 +13,7 @@ import {
 } from '@/preferences/app'
 import { t } from '@/i18n'
 import { useUiShellStore } from '@/stores/ui-shell'
+import { applyThemeWithMotion } from '@/motion/runtime'
 
 type SettingsTabKey = 'appearance' | 'general' | 'layout' | 'shortcuts'
 
@@ -62,7 +63,12 @@ const shortcutItems = computed(() => [
 ])
 
 function patchPreference<T extends keyof LayoutPreferences>(key: T, value: LayoutPreferences[T]) {
-  uiShellStore.patchPreferences({ [key]: value })
+  const update = () => uiShellStore.patchPreferences({ [key]: value })
+  if (key === 'themeMode') {
+    applyThemeWithMotion(update)
+    return
+  }
+  update()
 }
 </script>
 

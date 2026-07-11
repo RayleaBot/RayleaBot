@@ -10,6 +10,7 @@ import {
   resolveAuthThemeConfig,
 } from '@/preferences/auth'
 import { useUiShellStore } from '@/stores/ui-shell'
+import { applyThemeWithMotion } from '@/motion/runtime'
 
 const uiShellStore = useUiShellStore()
 const authThemeConfig = computed(() => resolveAuthThemeConfig(uiShellStore.themeMode))
@@ -18,6 +19,10 @@ const authParticlePalette = computed(() => resolveAuthParticlePalette(uiShellSto
 const themeToggleLabel = computed(() => (
   uiShellStore.themeMode === 'dark' ? t('shell.switchLightTheme') : t('shell.switchDarkTheme')
 ))
+
+function toggleThemeModeWithMotion() {
+  applyThemeWithMotion(() => uiShellStore.toggleThemeMode())
+}
 </script>
 
 <template>
@@ -28,16 +33,10 @@ const themeToggleLabel = computed(() => (
       :style="authThemeStyle"
     >
       <div aria-hidden="true" class="auth-layout__motion">
-        <Transition name="auth-atmosphere" appear>
-          <div
-            :key="uiShellStore.themeMode"
-            class="auth-layout__atmosphere"
-            :style="authThemeStyle"
-          >
-            <div class="auth-layout__ambient" />
-            <AuthParticleField :palette="authParticlePalette" />
-          </div>
-        </Transition>
+        <div class="auth-layout__atmosphere" :style="authThemeStyle">
+          <div class="auth-layout__ambient" />
+          <AuthParticleField :palette="authParticlePalette" />
+        </div>
       </div>
 
       <section class="auth-layout__surface">
@@ -48,7 +47,7 @@ const themeToggleLabel = computed(() => (
               type="text"
               :aria-label="themeToggleLabel"
               data-testid="auth-theme-toggle"
-              @click="uiShellStore.toggleThemeMode()"
+              @click="toggleThemeModeWithMotion"
             >
               <span class="auth-layout__theme-icon" aria-hidden="true">
                 <BulbOutlined
@@ -107,20 +106,6 @@ const themeToggleLabel = computed(() => (
     radial-gradient(circle at 50% 45%, var(--auth-canvas-focus) 0, transparent min(36vw, 32rem)),
     radial-gradient(circle at 16% 12%, var(--auth-canvas-wash) 0, transparent min(44vw, 40rem));
   background-position: center;
-}
-
-.auth-atmosphere-enter-active,
-.auth-atmosphere-leave-active {
-  transition: opacity 200ms cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.auth-atmosphere-enter-from,
-.auth-atmosphere-leave-to {
-  opacity: 0;
-}
-
-.auth-atmosphere-leave-active {
-  position: absolute;
 }
 
 .auth-layout__surface {
@@ -234,9 +219,7 @@ const themeToggleLabel = computed(() => (
   .auth-layout,
   .auth-layout__surface,
   .auth-layout__theme-toggle.ant-btn,
-  .auth-layout__theme-glyph,
-  .auth-atmosphere-enter-active,
-  .auth-atmosphere-leave-active {
+  .auth-layout__theme-glyph {
     animation: none;
     transition: none;
   }

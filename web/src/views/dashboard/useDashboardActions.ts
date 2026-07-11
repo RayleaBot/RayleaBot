@@ -4,6 +4,7 @@ import { notifyError, notifySuccess } from '@/adapter/feedback'
 import { getDisplayErrorMessage } from '@/lib/error-text'
 import { buildPluginDetailLocation } from '@/lib/management-links'
 import { t } from '@/i18n'
+import { useMotionNavigation } from '@/motion/useMotionNavigation'
 type DashboardActionState = {
   systemStore: {
     createBackup: () => Promise<{ task_id: string }>
@@ -12,15 +13,13 @@ type DashboardActionState = {
     confirmRecovery: (payload: { review_ids: string[]; note?: string }) => Promise<{ task_id: string }>
     bootstrapManagedRuntime: (resources: string[]) => Promise<{ task_id: string }>
   }
-  router: {
-    push: (location: unknown) => Promise<unknown>
-  }
   recoveryBootstrapResources: ComputedRef<string[]>
   recoveryConfirmNote: Ref<string>
   selectedRecoveryReviewIds: Ref<string[]>
 }
 
 export function useDashboardActions(state: DashboardActionState) {
+  const navigate = useMotionNavigation()
   async function createBackup() {
     try {
       await state.systemStore.createBackup()
@@ -74,7 +73,7 @@ export function useDashboardActions(state: DashboardActionState) {
   }
 
   async function openRecoveryPlugin(pluginID: string) {
-    await state.router.push(buildPluginDetailLocation(pluginID))
+    await navigate(buildPluginDetailLocation(pluginID))
   }
 
   return {

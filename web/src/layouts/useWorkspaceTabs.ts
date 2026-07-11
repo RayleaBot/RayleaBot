@@ -1,5 +1,5 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, watch, type Ref } from 'vue'
-import type { RouteLocationNormalizedLoaded, Router } from 'vue-router'
+import type { RouteLocationNormalizedLoaded, RouteLocationRaw, Router } from 'vue-router'
 
 import { t } from '@/i18n'
 import { useUiShellStore, type ShellTabItem } from '@/stores/ui-shell'
@@ -25,10 +25,11 @@ interface WorkspaceTabsOptions {
   router: Router
   tabs: Ref<ShellTabItem[]>
   uiShellStore: ReturnType<typeof useUiShellStore>
+  navigate: (target: RouteLocationRaw) => unknown
 }
 
 export function useWorkspaceTabs(options: WorkspaceTabsOptions) {
-  const { affixTabs, resolveCurrentTab, resolveTabPath, route, router, tabs, uiShellStore } = options
+  const { affixTabs, navigate, resolveCurrentTab, resolveTabPath, route, tabs, uiShellStore } = options
   const currentTabPath = computed(() => resolveTabPath(route))
   const currentTab = computed(() => tabs.value.find((item) => item.path === currentTabPath.value) ?? null)
 
@@ -54,7 +55,7 @@ export function useWorkspaceTabs(options: WorkspaceTabsOptions) {
 
   function onTabChange(targetKey: string) {
     const targetTab = tabs.value.find((item) => item.path === targetKey)
-    void router.push(targetTab?.fullPath ?? targetKey)
+    void navigate(targetTab?.fullPath ?? targetKey)
   }
 
   function findTab(path: string) {
@@ -100,7 +101,7 @@ export function useWorkspaceTabs(options: WorkspaceTabsOptions) {
 
     const fallback = getFallbackTab(targetPath, beforeTabs, tabs.value)
     if (fallback) {
-      void router.push(fallback.fullPath)
+      void navigate(fallback.fullPath)
     }
   }
 

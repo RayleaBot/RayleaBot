@@ -10,7 +10,6 @@ import {
 } from '@ant-design/icons-vue'
 import { computed, onBeforeUnmount, onDeactivated, onMounted, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
-import { useRouter } from 'vue-router'
 
 import { notifySuccess, useToastFeedback } from '@/adapter/feedback'
 import AppEmptyState from '@/components/AppEmptyState.vue'
@@ -30,8 +29,9 @@ import { t } from '@/i18n'
 import { useConfigStore } from '@/stores/config'
 import { useGovernanceStore } from '@/stores/governance'
 import type { CommandPermissionLevel, ConfigDocument } from '@/types/api'
+import { useMotionNavigation } from '@/motion/useMotionNavigation'
 
-const router = useRouter()
+const navigate = useMotionNavigation()
 const configStore = useConfigStore()
 const governanceStore = useGovernanceStore()
 
@@ -279,7 +279,7 @@ async function save() {
   <AppPage :title="t('permissionPolicy.title')">
     <template #extra>
       <div class="table-actions permission-policy-actions">
-        <a-button data-testid="permission-policy-open-access-lists" @click="router.push(buildAccessListsLocation())">
+        <a-button data-testid="permission-policy-open-access-lists" @click="navigate(buildAccessListsLocation())">
           <template #icon>
             <TeamOutlined />
           </template>

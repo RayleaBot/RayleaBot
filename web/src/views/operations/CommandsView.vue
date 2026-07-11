@@ -6,6 +6,7 @@ import { useRoute, useRouter } from 'vue-router'
 import AppEmptyState from '@/components/AppEmptyState.vue'
 import AppPage from '@/components/page/AppPage.vue'
 import RetryPanel from '@/components/RetryPanel.vue'
+import MotionRouterLink from '@/components/shell/MotionRouterLink.vue'
 import { useToastFeedback } from '@/adapter/feedback'
 import { formatCommandUsage, getPrimaryCommandPrefix } from '@/lib/command-usage'
 import {
@@ -20,6 +21,7 @@ import { mergeCommandCenterRows, type PluginCommandAvailability } from '@/lib/pl
 import { useConfigStore } from '@/stores/config'
 import { useGovernanceStore } from '@/stores/governance'
 import { usePluginsStore } from '@/stores/plugins'
+import { useMotionNavigation } from '@/motion/useMotionNavigation'
 import type {
   CommandPermissionLevel,
   CommandPermissionSource,
@@ -30,6 +32,7 @@ import type {
 
 const route = useRoute()
 const router = useRouter()
+const navigate = useMotionNavigation()
 const pluginsStore = usePluginsStore()
 const configStore = useConfigStore()
 const governanceStore = useGovernanceStore()
@@ -231,7 +234,7 @@ onMounted(() => {
   <AppPage :title="t('commands.title')" :description="t('commands.subtitle')" full-height>
     <template #extra>
       <div class="commands-page__actions">
-        <a-button type="primary" data-testid="commands-open-permission-policy" :aria-label="t('commands.actions.openPermissionPolicy')" @click="router.push(buildPermissionPolicyLocation())">
+        <a-button type="primary" data-testid="commands-open-permission-policy" :aria-label="t('commands.actions.openPermissionPolicy')" @click="navigate(buildPermissionPolicyLocation())">
           {{ t('commands.actions.openPermissionPolicy') }}
         </a-button>
       </div>
@@ -334,9 +337,9 @@ onMounted(() => {
 
             <template v-else-if="column.key === 'plugin'">
               <div class="command-plugin-cell">
-                <RouterLink class="command-plugin-link" :to="buildPluginDetailLocation(record.pluginId)">
+                <MotionRouterLink class="command-plugin-link" :to="buildPluginDetailLocation(record.pluginId)">
                   {{ record.pluginName }}
-                </RouterLink>
+                </MotionRouterLink>
                 <small>{{ record.pluginId }}</small>
               </div>
             </template>
