@@ -21,6 +21,7 @@ const ANTIPATTERNS = [
   {
     id: 'overused-font',
     category: 'slop',
+    scopes: ['type'],
     name: 'Overused font',
     description:
       'Inter, Roboto, Fraunces, Geist, Plus Jakarta Sans, and Space Grotesk are used on so many sites they no longer feel distinctive. Each new wave of AI-generated UIs converges on the same handful of faces. Choose a face that gives your interface personality.',
@@ -30,6 +31,7 @@ const ANTIPATTERNS = [
   {
     id: 'single-font',
     category: 'slop',
+    scopes: ['type'],
     name: 'Single font for everything',
     description:
       'Only one font family is used for the entire page. Pair a distinctive display font with a refined body font to create typographic hierarchy.',
@@ -39,6 +41,7 @@ const ANTIPATTERNS = [
   {
     id: 'flat-type-hierarchy',
     category: 'slop',
+    scopes: ['type'],
     name: 'Flat type hierarchy',
     description:
       'Font sizes are too close together — no clear visual hierarchy. Use fewer sizes with more contrast (aim for at least a 1.25 ratio between steps).',
@@ -64,8 +67,18 @@ const ANTIPATTERNS = [
     skillGuideline: 'AI color palette',
   },
   {
+    id: 'cream-palette',
+    category: 'slop',
+    name: 'Cream / beige palette',
+    description:
+      'A warm cream or beige page background has become the default "tasteful" AI surface, reached for by reflex. Choose a background that comes from a deliberate palette, not the safe warm off-white.',
+    skillSection: 'Color & Contrast',
+    skillGuideline: 'cream and beige as the default surface',
+  },
+  {
     id: 'nested-cards',
     category: 'slop',
+    scopes: ['layout'],
     name: 'Nested cards',
     description:
       'Cards inside cards create visual noise and excessive depth. Flatten the hierarchy — use spacing, typography, and dividers instead of nesting containers.',
@@ -75,20 +88,12 @@ const ANTIPATTERNS = [
   {
     id: 'monotonous-spacing',
     category: 'slop',
+    scopes: ['layout'],
     name: 'Monotonous spacing',
     description:
       'The same spacing value used everywhere — no rhythm, no variation. Use tight groupings for related items and generous separations between sections.',
     skillSection: 'Layout & Space',
     skillGuideline: 'same spacing everywhere',
-  },
-  {
-    id: 'everything-centered',
-    category: 'slop',
-    name: 'Everything centered',
-    description:
-      'Every text element is center-aligned. Left-aligned text with asymmetric layouts feels more designed. Center only hero sections and CTAs.',
-    skillSection: 'Layout & Space',
-    skillGuideline: 'Center everything',
   },
   {
     id: 'bounce-easing',
@@ -111,6 +116,7 @@ const ANTIPATTERNS = [
   {
     id: 'icon-tile-stack',
     category: 'slop',
+    scopes: ['layout'],
     name: 'Icon tile stacked above heading',
     description:
       'A small rounded-square icon container above a heading is the universal AI feature-card template — every generator outputs this exact shape. Try a side-by-side icon and heading, or let the icon sit in flow without its own container.',
@@ -120,6 +126,7 @@ const ANTIPATTERNS = [
   {
     id: 'italic-serif-display',
     category: 'slop',
+    scopes: ['type'],
     name: 'Italic serif display headline',
     description:
       'Oversized italic serif (Fraunces, Recoleta, Playfair, Newsreader-italic) as the primary hero headline reads as taste in isolation but has become the universal AI-startup landing page hero. Set roman, or move to a non-serif display face. Editorial / magazine register may legitimately want this — judge by context.',
@@ -129,6 +136,7 @@ const ANTIPATTERNS = [
   {
     id: 'hero-eyebrow-chip',
     category: 'slop',
+    scopes: ['type'],
     name: 'Hero eyebrow / pill chip',
     description:
       'A tiny uppercase letter-spaced label sitting immediately above an oversized hero headline — or the same shape rendered as a pill chip — is now the default AI SaaS hero. Drop the eyebrow, integrate the kicker into the headline, or run it as a navigation breadcrumb instead.',
@@ -138,6 +146,7 @@ const ANTIPATTERNS = [
   {
     id: 'repeated-section-kickers',
     category: 'slop',
+    scopes: ['type'],
     severity: 'advisory',
     name: 'Repeated section kicker labels',
     description:
@@ -145,17 +154,75 @@ const ANTIPATTERNS = [
     skillSection: 'Typography',
     skillGuideline: 'repeated eyebrow or kicker labels as section scaffolding',
   },
+  {
+    id: 'numbered-section-markers',
+    category: 'slop',
+    scopes: ['layout'],
+    severity: 'advisory',
+    name: 'Numbered section markers (01 / 02 / 03)',
+    description:
+      'Numbered display markers as section labels (01, 02, 03) are the AI editorial scaffold one tier deeper than tracked eyebrow chips. If you find yourself reaching for them, choose a different section cadence.',
+    skillSection: 'Layout & Space',
+    skillGuideline: 'numbered section markers',
+  },
+  {
+    id: 'em-dash-overuse',
+    category: 'slop',
+    name: 'Em-dash overuse',
+    description:
+      'More than two em-dashes (— or --) in body copy is an AI cadence tell. Use commas, colons, periods, or parentheses instead.',
+    skillSection: 'Copy',
+    skillGuideline: 'no em dashes',
+  },
+  {
+    id: 'marketing-buzzword',
+    category: 'slop',
+    name: 'Marketing buzzword',
+    description:
+      'Generic SaaS phrases (streamline / empower / supercharge / world-class / enterprise-grade / next-generation / cutting-edge / etc) are instant AI tells. Pick a specific verb and noun that says what the product literally does.',
+    skillSection: 'Copy',
+    skillGuideline: 'marketing buzzwords',
+  },
+  {
+    id: 'aphoristic-cadence',
+    category: 'slop',
+    name: 'Aphoristic-cadence copy',
+    description:
+      'Three or more sections landing on a short rebuttal sentence ("X. No Y." / "X. Just Y.") or a manufactured-contrast aphorism ("Not a feature. A platform.") reads as AI cadence, not voice. Once is fine; the pattern is the tell.',
+    skillSection: 'Copy',
+    skillGuideline: 'aphoristic cadence',
+  },
+  {
+    id: 'oversized-h1',
+    category: 'slop',
+    scopes: ['type'],
+    name: 'Oversized hero headline',
+    description:
+      'A full-sentence headline set at display size ends up dominating the viewport, leaving no room for anything else above the fold. A punchy one- or two-word headline at that size is fine — the problem is a long headline blown up too large. Set long headlines smaller, or tighten the copy.',
+    skillSection: 'Typography',
+    skillGuideline: 'long headline set at display size',
+  },
+  {
+    id: 'extreme-negative-tracking',
+    category: 'slop',
+    scopes: ['type'],
+    name: 'Crushed letter spacing',
+    description:
+      'Letter-spacing pulled tighter than the point where characters keep their own shapes costs legibility. Tighten display type optically, not destructively.',
+    skillSection: 'Typography',
+    skillGuideline: 'letter spacing crushed past legibility',
+  },
+  {
+    id: 'broken-image',
+    category: 'quality',
+    name: 'Broken or placeholder image',
+    description:
+      '<img> tags with empty src, missing src, or placeholder values ship as broken-image boxes. Use real images, generated assets, or remove the tag.',
+    skillSection: 'Imagery',
+    skillGuideline: 'broken image references',
+  },
 
   // ── Quality: general design and accessibility issues ──
-  {
-    id: 'pure-black-white',
-    category: 'quality',
-    name: 'Pure black background',
-    description:
-      'Pure #000000 as a background color looks harsh and unnatural. Tint it slightly toward your brand hue (e.g., oklch(12% 0.01 250)) for a more refined feel.',
-    skillSection: 'Color & Contrast',
-    skillGuideline: 'pure black (#000)',
-  },
   {
     id: 'gray-on-color',
     category: 'quality',
@@ -184,6 +251,7 @@ const ANTIPATTERNS = [
   {
     id: 'line-length',
     category: 'quality',
+    scopes: ['type', 'layout'],
     name: 'Line length too long',
     description:
       'Text lines wider than ~80 characters are hard to read. The eye loses its place tracking back to the start of the next line. Add a max-width (65ch to 75ch) to text containers.',
@@ -193,13 +261,17 @@ const ANTIPATTERNS = [
   {
     id: 'cramped-padding',
     category: 'quality',
+    scopes: ['layout'],
     name: 'Cramped padding',
     description:
-      'Text is too close to the edge of its container. Add at least 8px (ideally 12-16px) of padding inside bordered or colored containers.',
+      'Text is too close to the edge of its container. Two shapes: (1) an element with its own text where the padding is too low for the font size, and (2) a wrapper with text-bearing children and near-zero padding against a visible boundary (border, outline, or non-transparent background) — children land flush against the boundary line. Add at least 8px (ideally 12–16px) of padding inside bordered, outlined, or colored containers.',
+    skillSection: 'Layout & Space',
+    skillGuideline: 'inside bordered or colored containers',
   },
   {
     id: 'body-text-viewport-edge',
     category: 'quality',
+    scopes: ['layout'],
     name: 'Body text touching viewport edge',
     description:
       'Body paragraphs render flush against the left or right viewport edge with no container providing horizontal padding. Wrap content in a container with at least 16px (ideally 24-32px) of horizontal padding, or apply max-width with mx-auto.',
@@ -207,6 +279,7 @@ const ANTIPATTERNS = [
   {
     id: 'tight-leading',
     category: 'quality',
+    scopes: ['type'],
     name: 'Tight line height',
     description:
       'Line height below 1.3x the font size makes multi-line text hard to read. Use 1.5 to 1.7 for body text so lines have room to breathe.',
@@ -214,6 +287,7 @@ const ANTIPATTERNS = [
   {
     id: 'skipped-heading',
     category: 'quality',
+    scopes: ['type'],
     name: 'Skipped heading level',
     description:
       'Heading levels should not skip (e.g. h1 then h3 with no h2). Screen readers use heading hierarchy for navigation. Skipping levels breaks the document outline.',
@@ -221,6 +295,7 @@ const ANTIPATTERNS = [
   {
     id: 'justified-text',
     category: 'quality',
+    scopes: ['type'],
     name: 'Justified text',
     description:
       'Justified text without hyphenation creates uneven word spacing ("rivers of white"). Use text-align: left for body text, or enable hyphens: auto if you must justify.',
@@ -228,6 +303,7 @@ const ANTIPATTERNS = [
   {
     id: 'tiny-text',
     category: 'quality',
+    scopes: ['type'],
     name: 'Tiny body text',
     description:
       'Body text below 12px is hard to read, especially on high-DPI screens. Use at least 14px for body content, 16px is ideal.',
@@ -235,6 +311,7 @@ const ANTIPATTERNS = [
   {
     id: 'all-caps-body',
     category: 'quality',
+    scopes: ['type'],
     name: 'All-caps body text',
     description:
       'Long passages in uppercase are hard to read. We recognize words by shape (ascenders and descenders), which all-caps removes. Reserve uppercase for short labels and headings.',
@@ -244,9 +321,128 @@ const ANTIPATTERNS = [
   {
     id: 'wide-tracking',
     category: 'quality',
+    scopes: ['type'],
     name: 'Wide letter spacing on body text',
     description:
       'Letter spacing above 0.05em on body text disrupts natural character groupings and slows reading. Reserve wide tracking for short uppercase labels only.',
+  },
+  {
+    id: 'text-overflow',
+    category: 'quality',
+    scopes: ['layout'],
+    name: 'Content overflowing its container',
+    description:
+      'Content renders wider than its container, spilling out or forcing a horizontal scrollbar. Let text wrap, constrain widths, or give the region a deliberate scroll affordance.',
+    skillSection: 'Layout & Space',
+    skillGuideline: 'content wider than its container',
+  },
+  {
+    id: 'clipped-overflow-container',
+    category: 'quality',
+    scopes: ['layout'],
+    name: 'Positioned child clipped by overflow container',
+    description:
+      'A clipping container (overflow hidden or clip) wrapping an absolutely-positioned child cuts off tooltips, menus, and popovers that need to escape. Let the overflow be visible, or move the positioned layer out of the clip.',
+    skillSection: 'Layout & Space',
+    skillGuideline: 'overflow container clipping positioned children',
+  },
+  {
+    id: 'design-system-font',
+    category: 'quality',
+    scopes: ['type'],
+    name: 'Font outside DESIGN.md',
+    description:
+      'A font is used that is not declared in DESIGN.md typography. Use the documented type system or update DESIGN.md if this is an intentional brand addition.',
+    skillSection: 'Typography',
+    skillGuideline: 'font family outside the project design system',
+  },
+  {
+    id: 'design-system-color',
+    category: 'quality',
+    severity: 'advisory',
+    name: 'Color outside DESIGN.md',
+    description:
+      'A literal color is outside the DESIGN.md palette and sidecar tonal ramps. This may be legitimate, but it should be an intentional design-system addition rather than drift.',
+    skillSection: 'Color & Contrast',
+    skillGuideline: 'literal color outside the project design system',
+  },
+  {
+    id: 'design-system-radius',
+    category: 'quality',
+    severity: 'advisory',
+    name: 'Radius outside DESIGN.md',
+    description:
+      'A border-radius value is outside the DESIGN.md rounded scale. Use a documented radius token or update the design system if the new shape is intentional.',
+    skillSection: 'Visual Details',
+    skillGuideline: 'border radius outside the project design system',
+  },
+  {
+    id: 'design-system-font-size',
+    category: 'quality',
+    severity: 'advisory',
+    scopes: ['type'],
+    name: 'Font size outside DESIGN.md',
+    description:
+      'A literal font-size is off the type ramp documented in DESIGN.md typography. Use a documented size step or update the design system if the new step is intentional.',
+    skillSection: 'Typography',
+    skillGuideline: 'font size outside the project design system',
+  },
+
+  // ── Provider tells: opt-in via --gpt / --gemini (gated off by default) ──
+  {
+    id: 'gpt-thin-border-wide-shadow',
+    category: 'slop',
+    severity: 'advisory',
+    gated: 'gpt',
+    name: 'Hairline border with wide shadow',
+    description:
+      'A hairline border paired with a wide, diffuse shadow is a recurring generated-UI signature. Commit to one — a defined edge or a soft elevation — rather than both at once.',
+    skillSection: 'Visual Details',
+    skillGuideline: 'hairline border plus wide diffuse shadow',
+  },
+  {
+    id: 'repeating-stripes-gradient',
+    category: 'slop',
+    severity: 'advisory',
+    gated: 'gpt',
+    name: 'Repeating-gradient stripes',
+    description:
+      'Repeating-gradient stripes used as surface decoration are a recurring generated-UI signature. Reach for a deliberate texture or leave the surface plain.',
+    skillSection: 'Visual Details',
+    skillGuideline: 'repeating-gradient decorative stripes',
+  },
+  {
+    id: 'codex-grid-background',
+    category: 'slop',
+    severity: 'advisory',
+    gated: 'gpt',
+    name: 'Decorative grid-line background',
+    description:
+      'A two-axis grid drawn with hairline linear-gradient layers ("1px, transparent 1px" on both axes) is a recurring generated-UI signature. Reserve grid overlays for actual canvas, map, blueprint, or measurement surfaces; elsewhere use product structure or a plain surface.',
+    skillSection: 'Visual Details',
+    skillGuideline: 'two-axis grid-line gradient background',
+  },
+  {
+    id: 'theater-slop-phrase',
+    category: 'slop',
+    severity: 'advisory',
+    gated: 'gpt',
+    name: 'Theater framing copy',
+    description:
+      'Dismissing something as "theater" is a recurring generated-copy tic. Say plainly what the thing does or does not do.',
+    skillSection: 'Copy',
+    skillGuideline: 'theater framing copy',
+  },
+  {
+    id: 'image-hover-transform',
+    category: 'slop',
+    severity: 'advisory',
+    gated: 'gemini',
+    name: 'Image hover transform',
+    description:
+      'Scaling or rotating an image on hover is a recurring generated-UI signature. Let imagery sit still, or use a subtler, purposeful interaction.',
+    skillSection: 'Motion',
+    skillGuideline: 'image scale or rotate on hover',
   },
 ];
 
@@ -269,10 +465,50 @@ function getRuleEngineSupport(engine) {
   return RULE_ENGINE_SUPPORT[engine] || new Set();
 }
 
+// Set of provider tags that gate rules off by default (e.g. 'gpt', 'gemini').
+const GATED_PROVIDERS = new Set(
+  ANTIPATTERNS.map(rule => rule.gated).filter(Boolean),
+);
+
+// Drop findings for rules gated behind a provider tag unless that provider
+// was explicitly enabled (CLI --gpt / --gemini). Non-gated findings always
+// pass through. `findings` carry the rule id on `.antipattern`.
+function filterByProviders(findings, providers = []) {
+  const enabled = new Set(providers || []);
+  if (!GATED_PROVIDERS.size) return findings;
+  return findings.filter(f => {
+    const rule = getAntipattern(f.antipattern);
+    if (!rule || !rule.gated) return true;
+    return enabled.has(rule.gated);
+  });
+}
+
+
+// Set of scope tags rules can declare (e.g. 'type', 'layout'). Used by the
+// CLI --scope flag to narrow output to one design domain.
+const RULE_SCOPES = new Set(
+  ANTIPATTERNS.flatMap(rule => rule.scopes || []),
+);
+
+// Keep only findings whose rule declares at least one of the requested
+// scopes. An empty scope list means no filtering (default CLI behavior).
+function filterByScopes(findings, scopes = []) {
+  if (!scopes || scopes.length === 0) return findings;
+  const enabled = new Set(scopes);
+  return findings.filter(f => {
+    const rule = getAntipattern(f.antipattern);
+    return (rule?.scopes || []).some(scope => enabled.has(scope));
+  });
+}
+
 export {
   ANTIPATTERNS,
+  RULE_SCOPES,
   RULE_ENGINE_SUPPORT,
+  GATED_PROVIDERS,
   getAntipattern,
   getRulesForCategory,
   getRuleEngineSupport,
+  filterByProviders,
+  filterByScopes,
 };
