@@ -246,7 +246,7 @@ function getSearchScore(item: AppNavigationItem, normalizedKeyword: string) {
 
 .route-search-panel__footer {
   color: var(--muted);
-  font-size: 0.8rem;
+  font-size: 13px;
 }
 
 </style>

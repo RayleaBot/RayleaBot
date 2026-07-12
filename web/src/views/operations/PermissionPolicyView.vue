@@ -14,7 +14,6 @@ import { storeToRefs } from 'pinia'
 import { notifySuccess, useToastFeedback } from '@/adapter/feedback'
 import AppEmptyState from '@/components/AppEmptyState.vue'
 import AppPage from '@/components/page/AppPage.vue'
-import AppStatCard from '@/components/AppStatCard.vue'
 import RetryPanel from '@/components/RetryPanel.vue'
 import {
   cloneConfig,
@@ -276,7 +275,7 @@ async function save() {
 </script>
 
 <template>
-  <AppPage :title="t('permissionPolicy.title')">
+  <AppPage :title="t('permissionPolicy.title')" width="form">
     <template #extra>
       <div class="table-actions permission-policy-actions">
         <a-button data-testid="permission-policy-open-access-lists" @click="navigate(buildAccessListsLocation())">
@@ -316,15 +315,19 @@ async function save() {
             data-testid="permission-policy-summary-card"
             :aria-label="t('permissionPolicy.sections.summary')"
           >
-            <AppStatCard
+            <div
               v-for="card in summaryCards"
               :key="card.key"
-              :icon="card.icon"
-              :label="card.label"
-              :tone="card.tone"
-              :value="card.value"
-              :description="card.description"
-            />
+              class="permission-policy-summary-item"
+              :data-tone="card.tone"
+            >
+              <component :is="card.icon" class="permission-policy-summary-item__icon" />
+              <div class="permission-policy-summary-item__copy">
+                <span>{{ card.label }}</span>
+                <strong>{{ card.value }}</strong>
+                <small>{{ card.description }}</small>
+              </div>
+            </div>
           </div>
         </template>
 
@@ -468,8 +471,9 @@ async function save() {
 
 .permission-policy-summary-cards {
   display: grid;
-  gap: 14px;
+  gap: 0;
   grid-template-columns: repeat(2, minmax(0, 1fr));
+  border-block: 1px solid var(--border);
 }
 
 .permission-policy-summary-empty {
@@ -479,34 +483,46 @@ async function save() {
   padding: 28px;
 }
 
-.permission-policy-summary-cards :deep(> *) {
-  min-height: 112px;
-  padding: 18px;
-  border-radius: var(--app-card-radius);
-  background:
-    linear-gradient(135deg, color-mix(in srgb, var(--surface-strong) 92%, white) 0%, var(--surface) 100%);
-  box-shadow: 0 8px 24px color-mix(in srgb, var(--shadow-color, #0f172a) 7%, transparent);
+.permission-policy-summary-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  padding: 14px 16px;
 }
 
-.permission-policy-summary-cards :deep(.app-stat-card__accent) {
-  opacity: 0;
+.permission-policy-summary-item + .permission-policy-summary-item {
+  border-inline-start: 1px solid var(--border);
 }
 
-.permission-policy-summary-cards :deep(.stat-card)::before {
-  display: none;
+.permission-policy-summary-item__icon {
+  color: var(--accent);
+  font-size: 20px;
 }
 
-.permission-policy-summary-cards :deep(.app-stat-card__icon-wrap) {
-  width: 48px;
-  height: 48px;
+.permission-policy-summary-item[data-tone='success'] .permission-policy-summary-item__icon {
+  color: var(--success);
 }
 
-.permission-policy-summary-cards :deep(.app-stat-card__value) {
-  font-size: 1.35rem;
+.permission-policy-summary-item[data-tone='warning'] .permission-policy-summary-item__icon {
+  color: var(--warning);
 }
 
-.permission-policy-summary-cards :deep(.app-stat-card__desc) {
-  max-width: 220px;
+.permission-policy-summary-item__copy {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.permission-policy-summary-item__copy span,
+.permission-policy-summary-item__copy small {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.permission-policy-summary-item__copy strong {
+  color: var(--text);
+  font-size: 18px;
 }
 
 .permission-policy-settings-section {
@@ -549,9 +565,9 @@ async function save() {
 }
 
 .permission-policy-status-pill--dirty {
-  color: color-mix(in srgb, var(--warning) 72%, #7c2d12);
-  background: color-mix(in srgb, var(--surface-warning) 86%, white);
-  border: 1px solid color-mix(in srgb, var(--warning) 35%, var(--border));
+  color: var(--text-attention);
+  background: var(--surface-attention);
+  border: 1px solid var(--border-attention);
 }
 
 .permission-policy-status-pill--saved {
@@ -562,16 +578,18 @@ async function save() {
 
 .permission-policy-settings-layout {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 16px;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0;
   align-items: stretch;
 }
 
 .permission-policy-config-card {
   overflow: hidden;
-  border: 1px solid var(--border);
-  border-radius: var(--app-card-radius);
-  background: var(--surface-strong);
+  border: 0;
+  border-top: 1px solid var(--border);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
   box-shadow: var(--shadow-xs);
 }
 
@@ -607,7 +625,7 @@ async function save() {
 
 .field-count-badge {
   color: var(--muted);
-  font-size: 0.8rem;
+  font-size: 13px;
   font-weight: 500;
 }
 
@@ -660,7 +678,7 @@ async function save() {
   background: transparent;
   color: var(--muted);
   cursor: help;
-  font-size: 0.8rem;
+  font-size: 13px;
   font-weight: bold;
   opacity: 0.7;
   width: 18px;

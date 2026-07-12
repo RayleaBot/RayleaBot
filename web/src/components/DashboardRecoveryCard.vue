@@ -102,15 +102,9 @@ defineEmits<{
 
 <style scoped lang="scss">
 .dashboard-recovery-card {
-  border-radius: var(--radius-xl);
   border: 1px solid var(--border);
   background: var(--surface-strong);
-  box-shadow: var(--shadow-xs);
-  transition: border-color 150ms ease;
-
-  &:hover {
-    border-color: var(--border-accent);
-  }
+  box-shadow: none;
 }
 
 .dashboard-recovery-card :deep(.ant-card-body) {

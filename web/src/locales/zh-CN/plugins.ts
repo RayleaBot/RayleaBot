@@ -14,6 +14,7 @@ export const plugins = {
     list: '列表视图',
   },
   filter: {
+    title: '筛选插件',
     searchPlaceholder: '搜索插件名称、ID或描述...',
     stateAll: '全部状态',
     sourceAll: '全部来源',

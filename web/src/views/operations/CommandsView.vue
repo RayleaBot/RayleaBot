@@ -231,7 +231,7 @@ onMounted(() => {
 </script>
 
 <template>
-  <AppPage :title="t('commands.title')" :description="t('commands.subtitle')" full-height>
+  <AppPage :title="t('commands.title')" :description="t('commands.subtitle')" width="detail">
     <template #extra>
       <div class="commands-page__actions">
         <a-button type="primary" data-testid="commands-open-permission-policy" :aria-label="t('commands.actions.openPermissionPolicy')" @click="navigate(buildPermissionPolicyLocation())">
@@ -241,10 +241,7 @@ onMounted(() => {
     </template>
 
     <template #toolbar>
-      <a-card
-        :bordered="false"
-        class="app-view-card commands-filter-toolbar"
-      >
+      <div class="app-view-card commands-filter-toolbar">
         <a-form layout="vertical">
           <a-form-item :label="t('commands.filters.plugins')">
             <a-select
@@ -258,7 +255,7 @@ onMounted(() => {
             />
           </a-form-item>
         </a-form>
-      </a-card>
+      </div>
     </template>
 
     <RetryPanel
@@ -351,6 +348,43 @@ onMounted(() => {
             </template>
           </template>
         </a-table>
+
+        <div class="commands-mobile-list" aria-label="指令列表">
+          <article v-for="record in commandRows" :key="record.key" class="commands-mobile-row">
+            <div class="commands-mobile-row__heading">
+              <strong>{{ record.command.name }}</strong>
+              <a-tag :color="getStatusColor(record.availability)">
+                {{ getStatusLabel(record.availability) }}
+              </a-tag>
+            </div>
+            <p>{{ record.command.description || t('display.empty') }}</p>
+            <dl>
+              <div>
+                <dt>{{ t('commands.fields.plugin') }}</dt>
+                <dd>
+                  <MotionRouterLink :to="buildPluginDetailLocation(record.pluginId)">
+                    {{ record.pluginName }}
+                  </MotionRouterLink>
+                </dd>
+              </div>
+              <div>
+                <dt>{{ t('commands.fields.usage') }}</dt>
+                <dd class="monospace">{{ getUsageText(record.command) }}</dd>
+              </div>
+              <div>
+                <dt>{{ t('commands.fields.permission') }}</dt>
+                <dd>{{ getEffectivePermissionText(record.policy) }}</dd>
+              </div>
+            </dl>
+          </article>
+
+          <AppEmptyState
+            v-if="commandRows.length === 0"
+            icon="command"
+            :title="t('commands.empty.title')"
+            :description="t('commands.empty.description')"
+          />
+        </div>
       </a-card>
     </template>
   </AppPage>
@@ -365,7 +399,15 @@ onMounted(() => {
 
 .commands-filter-toolbar,
 .commands-section-card {
-  box-shadow: var(--shadow-xs);
+  box-shadow: none;
+}
+
+.commands-filter-toolbar {
+  padding: 16px;
+
+  :deep(.ant-form-item) {
+    margin-bottom: 0;
+  }
 }
 
 :global(.commands-plugin-select-popup) {
@@ -416,9 +458,69 @@ onMounted(() => {
   font-family: var(--font-mono);
 }
 
-@media (max-width: 768px) {
+.commands-mobile-list {
+  display: none;
+}
+
+.commands-mobile-row {
+  display: grid;
+  gap: 10px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.commands-mobile-row:last-child {
+  border-bottom: 0;
+}
+
+.commands-mobile-row__heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.commands-mobile-row p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.commands-mobile-row dl {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+}
+
+.commands-mobile-row dl > div {
+  display: grid;
+  grid-template-columns: 76px minmax(0, 1fr);
+  gap: 12px;
+}
+
+.commands-mobile-row dt,
+.commands-mobile-row dd {
+  margin: 0;
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+.commands-mobile-row dt {
+  color: var(--muted);
+}
+
+@media (max-width: 639px) {
   .commands-page__actions {
     justify-content: flex-end;
+  }
+
+  .commands-data-table {
+    display: none;
+  }
+
+  .commands-mobile-list {
+    display: block;
   }
 }
 </style>

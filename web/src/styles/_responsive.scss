@@ -8,7 +8,7 @@
   }
 }
 
-@media (max-width: 960px) {
+@media (max-width: 899px) {
   .desktop-only {
     display: none !important;
   }
@@ -39,6 +39,10 @@
     display: none;
   }
 
+  .admin-layout__tabbar {
+    display: none;
+  }
+
   .auth-layout__toolbar {
     top: 18px;
     right: 20px;
@@ -49,7 +53,7 @@
   }
 }
 
-@media (max-width: 720px) {
+@media (max-width: 639px) {
   .app-page__header {
     flex-direction: column;
     align-items: stretch;
@@ -72,34 +76,37 @@
   }
 
   .admin-layout__nav-trigger {
-    width: 34px;
-    height: 34px;
+    width: 44px;
+    height: 44px;
     margin-inline-start: 6px;
   }
 
   .admin-layout__header-breadcrumb {
-    padding-inline-start: 2px;
-    font-size: 12.5px;
-  }
-
-  .admin-layout__breadcrumb-link {
-    max-width: min(6rem, 18vw);
-    padding-inline: 6px;
-  }
-
-  .admin-layout__breadcrumb-current {
-    max-width: min(8.25rem, 28vw);
-    padding-inline: 7px;
-  }
-
-  .admin-layout__header-breadcrumb--single .admin-layout__breadcrumb-current {
-    max-width: min(7rem, 22vw);
+    display: none;
   }
 
   .admin-layout__header-tools {
     margin-right: 0;
     padding-right: 0;
     border-right: 0;
+  }
+
+  .admin-layout__content {
+    padding: 12px;
+  }
+
+  .admin-layout__icon-button,
+  .admin-layout__theme-menu.ant-btn {
+    width: 44px;
+    height: 44px;
+  }
+
+  .app-page__extra .ant-btn,
+  .app-table-toolbar .ant-btn,
+  .app-table-toolbar .ant-input,
+  .app-table-toolbar .ant-input-affix-wrapper,
+  .app-table-toolbar .ant-select-selector {
+    min-height: 44px;
   }
 
   .logs-filter-grid {
@@ -115,7 +122,7 @@
   }
 }
 
-@media (max-width: 560px) {
+@media (max-width: 639px) {
   .readiness-checks {
     grid-template-columns: 1fr;
   }

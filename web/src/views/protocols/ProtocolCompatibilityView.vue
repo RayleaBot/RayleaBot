@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, watch } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 
 import { useToastFeedback } from '@/adapter/feedback'
@@ -24,6 +24,9 @@ const {
   matrix,
 } = storeToRefs(compatibilityStore)
 
+const selectedCategory = ref<string>('all')
+const compatibilitySearch = ref('')
+
 const transportLabelMap = {
   reverse_ws: t('config.sections.onebotReverseWs'),
   forward_ws: t('config.sections.onebotForwardWs'),
@@ -34,6 +37,25 @@ const transportLabelMap = {
 const pageLoading = computed(() => protocolsLoading.value || compatibilityLoading.value)
 const pageError = computed(() => protocolsError.value || compatibilityError.value)
 const matrixSections = computed(() => matrix.value?.categories ?? [])
+const categoryOptions = computed(() => [
+  { label: '全部能力', value: 'all' },
+  ...matrixSections.value.map((section) => ({ label: section.title, value: section.key })),
+])
+const filteredMatrixSections = computed(() => {
+  const query = compatibilitySearch.value.trim().toLocaleLowerCase('zh-CN')
+  return matrixSections.value
+    .filter((section) => selectedCategory.value === 'all' || section.key === selectedCategory.value)
+    .map((section) => ({
+      ...section,
+      items: section.items.filter((item) => (
+        !query
+        || item.label.toLocaleLowerCase('zh-CN').includes(query)
+        || item.key.toLocaleLowerCase('zh-CN').includes(query)
+        || item.summary.toLocaleLowerCase('zh-CN').includes(query)
+      )),
+    }))
+    .filter((section) => section.items.length > 0)
+})
 const currentProvider = computed(() => snapshot.value?.provider ?? 'unknown')
 const currentProviderLabel = computed(() => formatProvider(currentProvider.value))
 const currentTransportText = computed(() => joinTransportLabels(snapshot.value?.active_transports))
@@ -121,39 +143,25 @@ function providerColumnClass(provider: string) {
 </script>
 
 <template>
-  <AppPage :title="t('protocols.compatibilityTitle')" :description="t('protocols.compatibilitySubtitle')">
+  <AppPage :title="t('protocols.compatibilityTitle')" :description="t('protocols.compatibilitySubtitle')" width="detail">
     <div class="protocol-compatibility-page" data-testid="protocol-compatibility-page">
-      <div class="protocol-overview-grid">
-        <a-card :bordered="false" class="protocol-overview-card">
-          <div class="protocol-overview-card__top">
-            <span class="overview-label">{{ t('protocols.overviewTitle') }}</span>
-            <a-tag color="blue">{{ ONEBOT11_PROTOCOL_NAME }}</a-tag>
-          </div>
-          <div class="protocol-overview-card__value-row">
-            <strong>{{ currentProviderLabel }}</strong>
-            <a-tag>{{ t('protocols.compatibilityCurrentProvider') }}</a-tag>
-          </div>
-          <p>{{ currentTransportSummary }}</p>
-        </a-card>
-
-        <a-card :bordered="false" class="protocol-overview-card">
-          <div class="protocol-overview-card__top">
-            <span class="overview-label">{{ t('protocols.activeTransportLabel') }}</span>
-            <a-tag>{{ snapshot?.active_transports.length || 0 }}</a-tag>
-          </div>
+      <section class="protocol-overview-band" aria-label="协议运行摘要">
+        <div class="protocol-overview-item">
+          <span>{{ t('protocols.overviewTitle') }}</span>
+          <strong>{{ currentProviderLabel }}</strong>
+          <small>{{ ONEBOT11_PROTOCOL_NAME }} · {{ currentTransportSummary }}</small>
+        </div>
+        <div class="protocol-overview-item">
+          <span>{{ t('protocols.activeTransportLabel') }}</span>
           <strong>{{ currentTransportText }}</strong>
-          <p>{{ t('protocols.configuredTransportLabel') }}：{{ configuredTransportText }}</p>
-        </a-card>
-
-        <a-card :bordered="false" class="protocol-overview-card">
-          <div class="protocol-overview-card__top">
-            <span class="overview-label">{{ t('protocols.compatibilityTransportSummary') }}</span>
-            <a-tag>{{ currentProviderLabel }}</a-tag>
-          </div>
-          <strong>{{ currentTransportSummary }}</strong>
-          <p>{{ t('protocols.compatibilityMatrixHint') }}</p>
-        </a-card>
-      </div>
+          <small>{{ t('protocols.configuredTransportLabel') }}：{{ configuredTransportText }}</small>
+        </div>
+        <div class="protocol-overview-item">
+          <span>{{ t('protocols.compatibilityTransportSummary') }}</span>
+          <strong>{{ matrixSections.length }}</strong>
+          <small>{{ t('protocols.compatibilityMatrixHint') }}</small>
+        </div>
+      </section>
 
       <RetryPanel
         v-if="pageError && matrixSections.length === 0"
@@ -163,60 +171,69 @@ function providerColumnClass(provider: string) {
         @retry="loadPage"
       />
 
-      <div v-else class="protocol-compatibility-sections">
-        <a-card
-          v-for="section in matrixSections"
-          :key="section.key"
-          :bordered="false"
-          class="protocol-compatibility-card"
-          :data-testid="`protocol-compatibility-${section.key}`"
-        >
-          <div class="section-heading">
-            <div>
-              <h2>{{ section.title }}</h2>
-              <p class="subtitle">{{ t('protocols.compatibilityMatrixHint') }}</p>
-            </div>
-          </div>
+      <section v-else class="protocol-compatibility-surface">
+        <div class="protocol-compatibility-toolbar">
+          <a-select
+            v-model:value="selectedCategory"
+            :options="categoryOptions"
+            aria-label="能力分类"
+          />
+          <a-input
+            v-model:value="compatibilitySearch"
+            allow-clear
+            aria-label="筛选兼容能力"
+            placeholder="筛选能力名称、标识或说明"
+          />
+        </div>
 
-          <div class="protocol-compatibility-table-wrap">
-            <table class="protocol-compatibility-table">
-              <thead>
-                <tr>
-                  <th>{{ t('protocols.compatibilityCapability') }}</th>
-                  <th :class="providerColumnClass('standard')">Standard</th>
-                  <th :class="providerColumnClass('napcat')">NapCat</th>
-                  <th :class="providerColumnClass('luckylillia')">LuckyLillia</th>
-                  <th>{{ t('protocols.compatibilitySummary') }}</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="item in section.items" :key="item.key">
-                  <th scope="row" class="protocol-compatibility-table__capability">
-                    <div class="protocol-compatibility-table__label">{{ item.label }}</div>
-                    <code>{{ item.key }}</code>
-                  </th>
-                  <td :class="providerColumnClass('standard')">
-                    <span class="protocol-support-pill" :class="supportClass(item.support.standard)">
-                      {{ formatSupport(item.support.standard) }}
-                    </span>
-                  </td>
-                  <td :class="providerColumnClass('napcat')">
-                    <span class="protocol-support-pill" :class="supportClass(item.support.napcat)">
-                      {{ formatSupport(item.support.napcat) }}
-                    </span>
-                  </td>
-                  <td :class="providerColumnClass('luckylillia')">
-                    <span class="protocol-support-pill" :class="supportClass(item.support.luckylillia)">
-                      {{ formatSupport(item.support.luckylillia) }}
-                    </span>
-                  </td>
-                  <td class="protocol-compatibility-table__summary">{{ item.summary }}</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </a-card>
-      </div>
+        <div v-if="filteredMatrixSections.length > 0" class="protocol-compatibility-table-wrap">
+          <table class="protocol-compatibility-table">
+            <thead>
+              <tr>
+                <th>{{ t('protocols.compatibilityCapability') }}</th>
+                <th>{{ '分类' }}</th>
+                <th :class="providerColumnClass('standard')">Standard</th>
+                <th :class="providerColumnClass('napcat')">NapCat</th>
+                <th :class="providerColumnClass('luckylillia')">LuckyLillia</th>
+                <th>{{ t('protocols.compatibilitySummary') }}</th>
+              </tr>
+            </thead>
+            <tbody
+              v-for="section in filteredMatrixSections"
+              :key="section.key"
+              :data-testid="`protocol-compatibility-${section.key}`"
+            >
+              <tr v-for="item in section.items" :key="item.key">
+                <th scope="row" class="protocol-compatibility-table__capability">
+                  <div class="protocol-compatibility-table__label">{{ item.label }}</div>
+                  <code>{{ item.key }}</code>
+                </th>
+                <td class="protocol-compatibility-table__category">{{ section.title }}</td>
+                <td :class="providerColumnClass('standard')">
+                  <span class="protocol-support-pill" :class="supportClass(item.support.standard)">
+                    {{ formatSupport(item.support.standard) }}
+                  </span>
+                </td>
+                <td :class="providerColumnClass('napcat')">
+                  <span class="protocol-support-pill" :class="supportClass(item.support.napcat)">
+                    {{ formatSupport(item.support.napcat) }}
+                  </span>
+                </td>
+                <td :class="providerColumnClass('luckylillia')">
+                  <span class="protocol-support-pill" :class="supportClass(item.support.luckylillia)">
+                    {{ formatSupport(item.support.luckylillia) }}
+                  </span>
+                </td>
+                <td class="protocol-compatibility-table__summary">{{ item.summary }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div v-else class="protocol-compatibility-empty" role="status">
+          没有匹配的兼容能力。
+        </div>
+      </section>
     </div>
   </AppPage>
 </template>
@@ -227,45 +244,54 @@ function providerColumnClass(provider: string) {
   gap: var(--app-layout-gap);
 }
 
-.protocol-overview-grid {
+.protocol-overview-band {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 12px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--app-card-radius);
+  background: var(--surface-strong);
 }
 
-.protocol-overview-card :deep(.ant-card-body),
-.protocol-compatibility-card :deep(.ant-card-body) {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-md);
-}
-
-.protocol-overview-card :deep(.ant-card-body) {
-  padding: 14px;
-}
-
-.protocol-overview-card__top,
-.protocol-overview-card__value-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.protocol-overview-card__value-row {
-  align-items: flex-start;
-}
-
-.overview-label {
-  color: var(--app-text-secondary);
-  font-size: 12px;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-}
-
-.protocol-compatibility-sections {
+.protocol-overview-item {
   display: grid;
+  gap: 4px;
+  min-width: 0;
+  padding: 16px;
+}
+
+.protocol-overview-item + .protocol-overview-item {
+  border-inline-start: 1px solid var(--border);
+}
+
+.protocol-overview-item span,
+.protocol-overview-item small {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.protocol-overview-item strong {
+  color: var(--text);
+  font-size: 18px;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.protocol-compatibility-surface {
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--app-card-radius);
+  background: var(--surface-strong);
+}
+
+.protocol-compatibility-toolbar {
+  display: grid;
+  grid-template-columns: minmax(160px, 220px) minmax(220px, 1fr);
   gap: 12px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border);
 }
 
 .protocol-compatibility-table-wrap {
@@ -276,7 +302,7 @@ function providerColumnClass(provider: string) {
   width: 100%;
   border-collapse: separate;
   border-spacing: 0;
-  min-width: 860px;
+  min-width: 980px;
 }
 
 .protocol-compatibility-table th,
@@ -288,11 +314,10 @@ function providerColumnClass(provider: string) {
 }
 
 .protocol-compatibility-table thead th {
-  color: var(--app-text-secondary);
-  font-size: 12px;
+  color: var(--muted);
+  font-size: 13px;
   font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
+  background: var(--surface-soft);
 }
 
 .protocol-compatibility-table__capability {
@@ -306,8 +331,13 @@ function providerColumnClass(provider: string) {
 }
 
 .protocol-compatibility-table__summary {
-  color: var(--app-text-secondary);
+  color: var(--muted);
   min-width: 260px;
+}
+
+.protocol-compatibility-table__category {
+  min-width: 120px;
+  color: var(--muted);
 }
 
 .protocol-compatibility-table code {
@@ -328,23 +358,41 @@ function providerColumnClass(provider: string) {
 }
 
 .protocol-support-pill.is-supported {
-  background: rgba(22, 163, 74, 0.08);
-  border-color: rgba(22, 163, 74, 0.24);
+  background: var(--success-soft);
+  border-color: color-mix(in srgb, var(--success) 32%, var(--border));
   color: var(--text-success);
 }
 
 .protocol-support-pill.is-unsupported {
-  background: rgba(148, 163, 184, 0.12);
-  border-color: rgba(148, 163, 184, 0.24);
-  color: var(--app-text-secondary);
+  background: var(--surface-soft);
+  border-color: var(--border);
+  color: var(--muted);
 }
 
 .is-current-provider {
-  background: rgba(24, 144, 255, 0.08);
+  background: var(--surface-accent);
+}
+
+.protocol-compatibility-empty {
+  padding: 32px 16px;
+  color: var(--muted);
+  text-align: center;
+  font-size: 14px;
 }
 
 @media (max-width: 960px) {
-  .protocol-overview-grid {
+  .protocol-overview-band {
+    grid-template-columns: 1fr;
+  }
+
+  .protocol-overview-item + .protocol-overview-item {
+    border-inline-start: 0;
+    border-top: 1px solid var(--border);
+  }
+}
+
+@media (max-width: 639px) {
+  .protocol-compatibility-toolbar {
     grid-template-columns: 1fr;
   }
 }

@@ -21,7 +21,7 @@ defineEmits<{
 
 const instance = getCurrentInstance()
 const router = instance?.appContext.config.globalProperties.$router as Router | undefined
-const isPageVariant = computed(() => props.variant !== 'compact')
+const isPageVariant = computed(() => props.variant === 'page')
 const fallbackStatus = computed(() => props.status ?? resolveExceptionStatusFromText(props.description))
 const usesNativeFallbackCopy = computed(() => {
   const genericCopy = new Set([
@@ -53,12 +53,51 @@ function goHome() {
       @home="goHome"
       @retry="$emit('retry')"
     />
-    <a-result v-else status="warning" :title="title" :sub-title="description">
-      <template #extra>
-        <a-button type="primary" :loading="loading" @click="$emit('retry')">
-          {{ retryLabel ?? '重试' }}
-        </a-button>
-      </template>
-    </a-result>
+    <div v-else class="retry-panel__inline">
+      <div class="retry-panel__copy">
+        <strong>{{ title }}</strong>
+        <span>{{ description }}</span>
+      </div>
+      <a-button type="primary" :loading="loading" @click="$emit('retry')">
+        {{ retryLabel ?? '重试' }}
+      </a-button>
+    </div>
   </section>
 </template>
+
+<style scoped lang="scss">
+.retry-panel__inline {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px;
+  border: 1px solid color-mix(in srgb, var(--danger) 28%, var(--border));
+  border-radius: var(--radius-md);
+  background: var(--surface-danger);
+}
+
+.retry-panel__copy {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.retry-panel__copy strong {
+  color: var(--text);
+  font-size: 14px;
+}
+
+.retry-panel__copy span {
+  color: var(--muted);
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 639px) {
+  .retry-panel__inline {
+    align-items: stretch;
+    flex-direction: column;
+  }
+}
+</style>

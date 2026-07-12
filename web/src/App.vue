@@ -7,7 +7,10 @@ import { resolvePreferenceCssVariables, resolveThemeConfig } from '@/preferences
 import { useUiShellStore } from '@/stores/ui-shell'
 
 const uiShellStore = useUiShellStore()
-const themeConfig = computed(() => resolveThemeConfig(uiShellStore.preferences))
+const themeConfig = computed(() => resolveThemeConfig(
+  uiShellStore.resolvedThemeMode,
+  uiShellStore.preferences.density,
+))
 
 watchEffect(() => {
   if (typeof document === 'undefined') {
@@ -17,7 +20,8 @@ watchEffect(() => {
   const root = document.documentElement
   const cssVariables = resolvePreferenceCssVariables(uiShellStore.preferences)
 
-  root.dataset.theme = uiShellStore.preferences.themeMode
+  root.dataset.theme = uiShellStore.resolvedThemeMode
+  root.dataset.themeMode = uiShellStore.preferences.themeMode
   root.dataset.density = uiShellStore.preferences.density
   root.dataset.contentWidth = uiShellStore.preferences.contentWidth
 
@@ -29,7 +33,7 @@ watchEffect(() => {
 
 <template>
   <a-config-provider :locale="zhCN" :theme="themeConfig">
-    <a-app :class="['app-root', `app-root--${uiShellStore.preferences.themeMode}`, `app-root--${uiShellStore.preferences.density}`]">
+    <a-app :class="['app-root', `app-root--${uiShellStore.resolvedThemeMode}`, `app-root--${uiShellStore.preferences.density}`]">
       <RouterView v-slot="{ Component }">
         <component :is="Component" v-if="Component" />
         <div v-else class="app-startup" role="status" aria-live="polite">

@@ -109,6 +109,7 @@ function createFixtureConfig(): ConfigDocument {
 describe('ProtocolsPage', () => {
   beforeEach(() => {
     setActivePinia(createPinia())
+    document.body.innerHTML = ''
     vi.mocked(notifySuccess).mockClear()
     vi.mocked(useToastFeedback).mockClear()
   })
@@ -196,6 +197,11 @@ describe('ProtocolsPage', () => {
     expect(wrapper.text()).toContain('OneBot 主动连接鉴权失败，请检查访问令牌。')
     expect(wrapper.text()).toContain('连接设置')
     expect(wrapper.findAll('input[aria-label="访问令牌"]')).toHaveLength(4)
+    expect(document.body.querySelector('.ant-drawer')).toBeNull()
+    expect(wrapper.find('[data-testid="protocol-unsaved-status"]').exists()).toBe(false)
+    await wrapper.get('input[aria-label="回连地址"]').setValue('wss://bot.example.com/reverse')
+    await flushPromises()
+    expect(wrapper.get('[data-testid="protocol-unsaved-status"]').text()).toContain('协议设置尚未保存')
     expect(wrapper.html()).not.toContain('__REDACTED__')
     expect(wrapper.text()).toContain('兼容矩阵')
     expect(wrapper.text()).toContain('查看实时日志')
@@ -325,12 +331,17 @@ describe('ProtocolsPage', () => {
 
     await flushPromises()
 
-    const wsUrlInput = wrapper.find('input[aria-label="回连地址"]')
-    expect(wsUrlInput.exists()).toBe(true)
+    const reverseTransportRow = wrapper.findAll('.ant-table-row')
+      .find((candidate) => candidate.text().includes('回连 WebSocket'))
+    expect(reverseTransportRow).toBeTruthy()
+
+    const wsUrlInput = reverseTransportRow!.get<HTMLInputElement>('input[aria-label="回连地址"]')
     await wsUrlInput.setValue('wss://bot.example.com/reverse/onebot')
-    const tokenInputs = wrapper.findAll('input[aria-label="访问令牌"]')
-    expect(tokenInputs).toHaveLength(4)
-    await tokenInputs[0].setValue('reverse-secret')
+    const tokenInput = reverseTransportRow!.get<HTMLInputElement>('input[aria-label="访问令牌"]')
+    await tokenInput.setValue('reverse-secret')
+    await flushPromises()
+
+    expect(wrapper.get('[data-testid="protocol-unsaved-status"]').text()).toContain('协议设置尚未保存')
 
     const saveButton = wrapper.findAll('button').find((candidate) => candidate.text().includes('保存协议设置'))
     expect(saveButton).toBeTruthy()
@@ -502,6 +513,9 @@ describe('ProtocolsPage', () => {
     expect(wrapper.text()).toContain('未知')
     expect(wrapper.text()).not.toContain('Provider')
     expect(wrapper.find('input[aria-label="Provider"]').exists()).toBe(false)
+
+    await wrapper.get('input[aria-label="上报回调地址"]').setValue('https://bot.example.com/events')
+    await flushPromises()
 
     const saveButton = wrapper.findAll('button').find((candidate) => candidate.text().includes('保存协议设置'))
     expect(saveButton).toBeTruthy()

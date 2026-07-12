@@ -139,6 +139,7 @@ const panelOptions = computed(() => {
 const pluginWorkbenchActions = computed(() => buildPluginWorkbenchActions(pluginId.value))
 const managementPanelTitle = computed(() => activeManagementPage.value?.label?.trim() || t('plugins.sections.managementUi'))
 const pluginDisplayName = computed(() => currentPlugin.value?.name?.trim() || pluginId.value)
+const requiresTrustAttention = computed(() => currentPlugin.value?.trust?.level === 'unverified')
 const pluginInitial = computed(() => pluginDisplayName.value.trim().slice(0, 1).toUpperCase() || 'P')
 const sourceRefText = computed(() => currentPlugin.value?.source?.package_source_ref ?? currentPlugin.value?.source?.package_source_type ?? '')
 const statusSummaryItems = computed(() => [
@@ -285,16 +286,9 @@ function getPluginStateDotColor(status?: string | null) {
 }
 
 function getPluginAvatarStyle(name: string) {
-  let hash = 0
-  const cleanName = name?.trim() || 'P'
-  for (let i = 0; i < cleanName.length; i++) {
-    hash = cleanName.charCodeAt(i) + ((hash << 5) - hash)
-  }
-  const h = Math.abs(hash) % 360
   return {
-    background: `linear-gradient(135deg, hsl(${h}, 72%, 58%) 0%, hsl(${(h + 40) % 360}, 78%, 46%) 100%)`,
-    color: '#ffffff',
-    textShadow: '0 1px 2px rgba(0, 0, 0, 0.15)',
+    background: 'var(--surface-accent)',
+    color: 'var(--accent)',
   }
 }
 
@@ -366,6 +360,7 @@ onUnmounted(() => {
 
 <template>
   <AppPage
+    width="detail"
     :title="pluginId"
     :full-height="activePanel === 'management-ui' || (activePanel === 'overview' && activeDetailTab === 'console')"
   >
@@ -416,7 +411,7 @@ onUnmounted(() => {
             <div class="plugin-detail-hero__copy">
               <div class="plugin-detail-hero__eyebrow">
                 <a-tag class="premium-badge role-badge">{{ getPluginRoleLabel(currentPlugin?.role) }}</a-tag>
-                <a-tag class="premium-badge trust-badge">{{ currentPlugin?.trust?.label ?? t('display.empty') }}</a-tag>
+                <a-tag class="premium-badge trust-badge" :class="{ 'is-attention': requiresTrustAttention }">{{ currentPlugin?.trust?.label ?? t('display.empty') }}</a-tag>
               </div>
               <strong class="plugin-title">{{ pluginDisplayName }}</strong>
               <span class="plugin-id-sub">{{ pluginId }}</span>
@@ -449,6 +444,15 @@ onUnmounted(() => {
           </dl>
         </section>
       </a-skeleton>
+
+      <a-alert
+        v-if="requiresTrustAttention"
+        class="plugin-trust-attention"
+        type="warning"
+        show-icon
+        message="插件来源尚未验证"
+        description="执行启停、重载或管理操作前，请确认插件来源、能力声明和安装脚本符合预期。"
+      />
 
       <div class="plugin-detail-workspace">
         <main class="plugin-detail-main-column">
@@ -801,7 +805,7 @@ onUnmounted(() => {
 
 .tab-badge {
   font-family: var(--font-mono);
-  font-size: 0.72rem;
+  font-size: 12px;
   padding-inline: 6px;
   border-radius: 4px;
 }
@@ -923,7 +927,7 @@ onUnmounted(() => {
   overflow: hidden;
   color: var(--muted);
   font-family: var(--font-mono);
-  font-size: 0.76rem;
+  font-size: 13px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -936,7 +940,7 @@ onUnmounted(() => {
 }
 
 .premium-badge {
-  font-size: 0.68rem;
+  font-size: 12px;
   font-weight: 600;
   border-radius: 4px;
   padding-inline: 6px;
@@ -979,7 +983,7 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 0.74rem;
+  font-size: 12px;
 }
 
 .status-chip__dot {
@@ -991,6 +995,17 @@ onUnmounted(() => {
 
 }
 
+.trust-badge.is-attention {
+  color: var(--text-attention);
+  background: var(--surface-attention);
+  border-color: var(--border-attention);
+}
+
+.plugin-trust-attention {
+  border-color: var(--border-attention);
+  background: var(--surface-attention);
+}
+
 .status-chip__label {
   color: var(--muted);
   font-weight: 550;
@@ -999,7 +1014,7 @@ onUnmounted(() => {
 /* Compact status tags inside the detail header */
 .status-tag.ant-tag {
   font-family: var(--font-mono);
-  font-size: 0.72rem;
+  font-size: 12px;
   padding-inline: 6px;
   margin-inline-end: 0 !important;
   border-radius: 4px;
@@ -1010,7 +1025,7 @@ onUnmounted(() => {
   color: inherit;
 
   small {
-    font-size: 0.65rem;
+    font-size: 12px;
     opacity: 0.8;
   }
 
@@ -1053,7 +1068,7 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   gap: 5px;
-  font-size: 0.74rem;
+  font-size: 12px;
   background: color-mix(in srgb, var(--surface-soft) 20%, transparent);
   padding: 3px 6px;
   border-radius: var(--radius-sm);
@@ -1075,7 +1090,7 @@ onUnmounted(() => {
   min-width: 0;
   margin: 0;
   color: var(--text);
-  font-size: 0.74rem;
+  font-size: 12px;
   font-weight: 600;
   font-family: var(--font-mono);
   overflow: hidden;
@@ -1141,7 +1156,7 @@ onUnmounted(() => {
 
   dt {
     color: var(--muted);
-    font-size: 0.74rem;
+    font-size: 12px;
     font-weight: 500;
   }
 
@@ -1174,7 +1189,7 @@ onUnmounted(() => {
 }
 
 .cap-tag {
-  font-size: 0.76rem;
+  font-size: 13px;
   border-radius: 4px;
   margin-block: 2px;
 }
@@ -1189,7 +1204,7 @@ onUnmounted(() => {
   white-space: pre-wrap;
   word-break: break-word;
   font-family: var(--font-mono);
-  font-size: 0.8rem;
+  font-size: 13px;
   line-height: 1.6;
 }
 
@@ -1211,7 +1226,7 @@ onUnmounted(() => {
   border-radius: var(--radius-md);
   background: var(--surface-soft);
   border: 1px solid var(--border);
-  font-size: 0.8rem;
+  font-size: 13px;
 
   .ss-path {
     font-family: var(--font-mono);
@@ -1255,7 +1270,7 @@ onUnmounted(() => {
       color: var(--muted);
       font-family: var(--font-mono);
       font-weight: 500;
-      font-size: 0.8rem;
+      font-size: 13px;
     }
   }
 
@@ -1269,7 +1284,7 @@ onUnmounted(() => {
 }
 
 .meta-tag {
-  font-size: 0.72rem;
+  font-size: 12px;
 }
 
 
@@ -1297,7 +1312,7 @@ onUnmounted(() => {
 
 .console-status-tag {
   font-family: var(--font-mono);
-  font-size: 0.74rem;
+  font-size: 12px;
 }
 
 .plugin-console-actions {
@@ -1312,7 +1327,7 @@ onUnmounted(() => {
   justify-content: center;
   height: 28px;
   gap: 6px;
-  font-size: 0.8rem;
+  font-size: 13px;
 }
 
 /* Console terminal surface */
@@ -1321,9 +1336,7 @@ onUnmounted(() => {
   overflow: hidden;
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
-  background:
-    linear-gradient(180deg, rgba(15, 23, 42, 0.02), rgba(30, 41, 59, 0.05)),
-    var(--surface-soft);
+  background: var(--surface-soft);
   box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.04);
 
   &.is-empty {
@@ -1332,9 +1345,7 @@ onUnmounted(() => {
 }
 
 [data-theme='dark'] .plugin-console-panel {
-  background:
-    linear-gradient(180deg, rgba(2, 6, 23, 0.6) 0%, rgba(2, 6, 23, 0.85) 100%),
-    #050811;
+  background: #11181c;
   box-shadow: inset 0 0 16px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.05);
   border-color: rgba(148, 163, 184, 0.12);
 }
@@ -1380,7 +1391,7 @@ onUnmounted(() => {
   background: var(--surface-strong);
   color: var(--accent);
   font-family: var(--font-mono);
-  font-size: 0.8rem;
+  font-size: 13px;
   font-weight: bold;
 }
 
@@ -1430,7 +1441,7 @@ onUnmounted(() => {
   time {
     color: var(--muted);
     font-family: var(--font-mono);
-    font-size: 0.74rem;
+    font-size: 12px;
     line-height: 1.4;
   }
 }
@@ -1444,7 +1455,7 @@ onUnmounted(() => {
 }
 
 .stream-badge, .level-badge {
-  font-size: 0.7rem;
+  font-size: 12px;
   padding-inline: 4px;
   border-radius: 3px;
   margin-inline-end: 0 !important;
@@ -1455,7 +1466,7 @@ onUnmounted(() => {
   overflow: hidden;
   color: var(--muted);
   font-family: var(--font-mono);
-  font-size: 0.7rem;
+  font-size: 12px;
   line-height: 1.4;
   text-overflow: ellipsis;
   white-space: nowrap;

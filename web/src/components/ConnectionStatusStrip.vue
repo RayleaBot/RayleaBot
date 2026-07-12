@@ -105,16 +105,9 @@ function resolveBadgeStatus(status: ConnectionStatus) {
 
 <style scoped lang="scss">
 .connection-card {
-  border-radius: var(--radius-xl);
   border: 1px solid var(--border);
   background: var(--surface-strong);
-  box-shadow: var(--shadow-xs);
-  transition: border-color 150ms ease;
-
-  &:hover {
-    box-shadow: var(--shadow-elevated);
-    border-color: var(--border-accent);
-  }
+  box-shadow: none;
 }
 
 .connection-card :deep(.ant-card-body) {
@@ -128,7 +121,7 @@ function resolveBadgeStatus(status: ConnectionStatus) {
     color: var(--text);
   }
   p {
-    font-size: 0.78rem;
+    font-size: 13px;
     color: var(--muted);
     margin: 2px 0 0;
     font-weight: 500;
@@ -137,22 +130,21 @@ function resolveBadgeStatus(status: ConnectionStatus) {
 
 .connection-card__grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 12px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0;
+  border-block: 1px solid var(--border);
 }
 
 .connection-card__item {
-  padding: 12px 14px;
-  border-radius: var(--radius-lg);
-  border: 1px solid var(--border);
-  background: var(--surface-soft);
+  padding: 12px 0;
   display: grid;
   gap: 6px;
-  transition: border-color 150ms ease, background-color 150ms ease;
+}
 
-  &:hover {
-    border-color: var(--border-accent);
-  }
+.connection-card__item + .connection-card__item {
+  margin-inline-start: 16px;
+  padding-inline-start: 16px;
+  border-inline-start: 1px solid var(--border);
 }
 
 .connection-card__row {
@@ -171,16 +163,25 @@ function resolveBadgeStatus(status: ConnectionStatus) {
 .connection-card__meta {
   color: var(--muted);
   line-height: 1.4;
-  font-size: 0.78rem;
+  font-size: 13px;
   font-weight: 500;
 }
 
 .connection-card__badge-wrap {
   display: inline-flex;
-  border-radius: 999px;
-  padding: 2px 6px;
-  background: var(--surface-strong);
-  border: 1px solid var(--border);
+}
+
+@media (max-width: 639px) {
+  .connection-card__grid {
+    grid-template-columns: 1fr;
+  }
+
+  .connection-card__item + .connection-card__item {
+    margin-inline-start: 0;
+    padding-inline-start: 0;
+    border-inline-start: 0;
+    border-top: 1px solid var(--border);
+  }
 }
 
 </style>

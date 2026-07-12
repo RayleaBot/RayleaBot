@@ -39,6 +39,7 @@ export const protocols = {
   compatibilitySupported: '支持',
   compatibilityUnsupported: '不支持',
   save: '保存协议设置',
+  unsaved: '协议设置尚未保存',
   fixedProtocolLabel: '当前正式支持协议',
   openSettings: '查看连接设置',
   actions: {

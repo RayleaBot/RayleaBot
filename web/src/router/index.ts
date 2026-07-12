@@ -79,7 +79,7 @@ function installRouteGuards(router: Router) {
       loadingTimer = null
     }
 
-    if (to.fullPath !== router.currentRoute.value.fullPath && uiShellStore.preferences.pageLoading) {
+    if (to.fullPath !== router.currentRoute.value.fullPath) {
       uiShellStore.setRouteLoading(true)
     }
 
@@ -139,11 +139,6 @@ function installRouteGuards(router: Router) {
 
   router.afterEach(() => {
     const uiShellStore = useUiShellStore()
-
-    if (!uiShellStore.preferences.pageLoading) {
-      uiShellStore.setRouteLoading(false)
-      return
-    }
 
     if (typeof window === 'undefined') {
       uiShellStore.setRouteLoading(false)

@@ -80,28 +80,23 @@ const retryButtonLabel = computed(() => props.retryLabel || (
 
 <style scoped lang="scss">
 .vben-fallback {
-  --primary: 220 86% 48%;
   display: flex;
   flex: 1 1 auto;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 28px;
-  min-height: min(720px, calc(100vh - 150px));
+  gap: 20px;
+  min-height: min(520px, calc(100vh - 150px));
   width: 100%;
   padding: 48px 24px;
   color: var(--text);
   text-align: center;
 }
 
-[data-theme='dark'] .vben-fallback {
-  --primary: 218 100% 65%;
-}
-
 .vben-fallback__visual {
   display: block;
-  width: min(360px, 58vw);
-  max-height: 38vh;
+  width: 96px;
+  max-height: 96px;
   color: var(--accent);
 }
 
@@ -114,7 +109,7 @@ const retryButtonLabel = computed(() => props.retryLabel || (
 
 .vben-fallback__content h1 {
   margin: 0;
-  font-size: clamp(1.7rem, 3vw, 2.5rem);
+  font-size: 24px;
   font-weight: 700;
   line-height: 1.2;
   letter-spacing: 0;
@@ -123,7 +118,7 @@ const retryButtonLabel = computed(() => props.retryLabel || (
 .vben-fallback__content p {
   margin: 0;
   color: var(--muted);
-  font-size: clamp(0.95rem, 1.2vw, 1.1rem);
+  font-size: 14px;
   line-height: 1.65;
 }
 
@@ -141,12 +136,12 @@ const retryButtonLabel = computed(() => props.retryLabel || (
 
 @media (max-width: 720px) {
   .vben-fallback {
-    min-height: calc(100vh - 132px);
+    min-height: min(440px, calc(100vh - 132px));
     padding: 36px 18px;
   }
 
   .vben-fallback__visual {
-    width: min(300px, 76vw);
+    width: 80px;
   }
 }
 </style>

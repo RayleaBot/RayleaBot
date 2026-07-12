@@ -1,9 +1,8 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { BulbFilled, BulbOutlined } from '@ant-design/icons-vue'
 
 import AuthParticleField from '@/components/auth/AuthParticleField.vue'
-import { t } from '@/i18n'
+import ThemeModeMenu from '@/components/shell/ThemeModeMenu.vue'
 import {
   resolveAuthCssVariables,
   resolveAuthParticlePalette,
@@ -11,17 +10,15 @@ import {
 } from '@/preferences/auth'
 import { useUiShellStore } from '@/stores/ui-shell'
 import { applyThemeWithMotion } from '@/motion/runtime'
+import type { ThemeMode } from '@/preferences/app'
 
 const uiShellStore = useUiShellStore()
-const authThemeConfig = computed(() => resolveAuthThemeConfig(uiShellStore.themeMode))
-const authThemeStyle = computed(() => resolveAuthCssVariables(uiShellStore.themeMode))
-const authParticlePalette = computed(() => resolveAuthParticlePalette(uiShellStore.themeMode))
-const themeToggleLabel = computed(() => (
-  uiShellStore.themeMode === 'dark' ? t('shell.switchLightTheme') : t('shell.switchDarkTheme')
-))
+const authThemeConfig = computed(() => resolveAuthThemeConfig(uiShellStore.resolvedThemeMode))
+const authThemeStyle = computed(() => resolveAuthCssVariables(uiShellStore.resolvedThemeMode))
+const authParticlePalette = computed(() => resolveAuthParticlePalette(uiShellStore.resolvedThemeMode))
 
-function toggleThemeModeWithMotion() {
-  applyThemeWithMotion(() => uiShellStore.toggleThemeMode())
+function setThemeModeWithMotion(mode: ThemeMode) {
+  applyThemeWithMotion(() => uiShellStore.setThemeMode(mode))
 }
 </script>
 
@@ -29,7 +26,7 @@ function toggleThemeModeWithMotion() {
   <a-config-provider :theme="authThemeConfig">
     <main
       class="auth-layout"
-      :data-auth-theme="uiShellStore.themeMode"
+      :data-auth-theme="uiShellStore.resolvedThemeMode"
       :style="authThemeStyle"
     >
       <div aria-hidden="true" class="auth-layout__motion">
@@ -41,24 +38,13 @@ function toggleThemeModeWithMotion() {
 
       <section class="auth-layout__surface">
         <div class="auth-layout__toolbar">
-          <a-tooltip :title="themeToggleLabel">
-            <a-button
-              class="auth-layout__theme-toggle"
-              type="text"
-              :aria-label="themeToggleLabel"
-              data-testid="auth-theme-toggle"
-              @click="toggleThemeModeWithMotion"
-            >
-              <span class="auth-layout__theme-icon" aria-hidden="true">
-                <BulbOutlined
-                  class="auth-layout__theme-glyph auth-layout__theme-glyph--light"
-                />
-                <BulbFilled
-                  class="auth-layout__theme-glyph auth-layout__theme-glyph--dark"
-                />
-              </span>
-            </a-button>
-          </a-tooltip>
+          <ThemeModeMenu
+            class="auth-layout__theme-toggle"
+            :mode="uiShellStore.themeMode"
+            :resolved-mode="uiShellStore.resolvedThemeMode"
+            test-id="auth-theme-toggle"
+            @change="setThemeModeWithMotion"
+          />
         </div>
 
         <RouterView />
@@ -159,28 +145,6 @@ function toggleThemeModeWithMotion() {
   }
 }
 
-.auth-layout__theme-icon {
-  position: relative;
-  display: block;
-  width: 16px;
-  height: 16px;
-}
-
-.auth-layout__theme-glyph {
-  position: absolute;
-  inset: 0;
-  transition: opacity 160ms cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.auth-layout__theme-glyph--dark,
-.auth-layout[data-auth-theme='dark'] .auth-layout__theme-glyph--light {
-  opacity: 0;
-}
-
-.auth-layout[data-auth-theme='dark'] .auth-layout__theme-glyph--dark {
-  opacity: 1;
-}
-
 @keyframes auth-surface-enter {
   from {
     opacity: 0;
@@ -218,8 +182,7 @@ function toggleThemeModeWithMotion() {
 @media (prefers-reduced-motion: reduce) {
   .auth-layout,
   .auth-layout__surface,
-  .auth-layout__theme-toggle.ant-btn,
-  .auth-layout__theme-glyph {
+  .auth-layout__theme-toggle.ant-btn {
     animation: none;
     transition: none;
   }

@@ -180,7 +180,7 @@ async function save() {
 </script>
 
 <template>
-  <AppPage :title="t('config.title')">
+  <AppPage :title="t('config.title')" width="form">
     <RetryPanel
       v-if="error && !draft"
       :title="t('config.title')"
@@ -195,7 +195,7 @@ async function save() {
     </div>
 
     <div v-else-if="draft" class="config-page">
-      <div class="config-toolbar" role="region" :aria-label="t('config.title')">
+      <div class="config-toolbar" :class="{ 'is-dirty': isDirty }" role="region" :aria-label="t('config.title')">
         <div class="config-toolbar__status">
           <span
             class="config-toolbar__dirty"
@@ -225,9 +225,10 @@ async function save() {
       </div>
 
       <div class="config-toc-inline" :aria-label="t('config.tocLabel')">
-        <a-segmented
+        <a-select
           :value="activeSectionKey"
           :options="segmentedOptions"
+          :aria-label="t('config.tocLabel')"
           @change="onSegmentedChange"
         />
       </div>
@@ -310,6 +311,11 @@ async function save() {
   box-shadow: var(--shadow-xs);
 }
 
+.config-toolbar.is-dirty {
+  border-color: var(--border-attention);
+  background: var(--surface-attention);
+}
+
 .config-toolbar__status {
   display: inline-flex;
   align-items: center;
@@ -330,8 +336,8 @@ async function save() {
 }
 
 .config-toolbar__dirty.is-active {
-  background: var(--accent);
-  border-color: var(--accent);
+  background: var(--attention);
+  border-color: var(--attention);
 }
 
 .config-toolbar__status-text {
@@ -353,18 +359,8 @@ async function save() {
   display: none;
 }
 
-.config-toc-inline :deep(.ant-segmented) {
+.config-toc-inline :deep(.ant-select) {
   width: 100%;
-  overflow-x: auto;
-  scroll-snap-type: x mandatory;
-  background: var(--surface-soft);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  padding: 4px;
-}
-
-.config-toc-inline :deep(.ant-segmented-item) {
-  scroll-snap-align: start;
 }
 
 .config-grid {
@@ -435,7 +431,7 @@ async function save() {
 
 .config-toc__heading {
   margin: 0 0 4px 12px;
-  font-size: 0.72rem;
+  font-size: 12px;
   font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -480,7 +476,7 @@ async function save() {
 }
 
 .config-toc__count {
-  font-size: 0.72rem;
+  font-size: 12px;
   color: var(--muted);
   font-variant-numeric: tabular-nums;
   font-weight: 500;

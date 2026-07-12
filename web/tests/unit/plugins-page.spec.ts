@@ -275,7 +275,8 @@ describe('PluginsPage', () => {
     expect(wrapper.text()).toContain('1.2.3')
     expect(wrapper.text()).toContain('raylea')
     expect(wrapper.text()).toContain('提供当前城市天气与未来天气查询。')
-    expect(wrapper.text()).toContain('操作')
+    expect(wrapper.text()).toContain('查看概要')
+    expect(wrapper.text()).toContain('查看详情')
     expect(wrapper.text()).toContain('未验证来源')
     expect(wrapper.text()).toContain('plugins/installed')
     expect(wrapper.text()).toContain('运行中')
@@ -285,8 +286,8 @@ describe('PluginsPage', () => {
     expect(wrapper.text()).not.toContain('fortune')
     expect(wrapper.text()).not.toContain('显示状态')
     expect(wrapper.text()).not.toContain('discovered')
-    expect(wrapper.find('.plugins-data-table').exists()).toBe(true)
-    expect(wrapper.find('.plugin-cell-source').exists()).toBe(true)
+    expect(wrapper.find('.plugins-grid').exists()).toBe(true)
+    expect(wrapper.find('.plugin-card__meta').exists()).toBe(true)
     expect(wrapper.find('.plugin-cell-commands').exists()).toBe(true)
     expect(wrapper.findAll('.plugin-cell-commands .plugin-command-chip')).toHaveLength(3)
     expect(wrapper.text()).toContain('还有 2 个')
@@ -349,14 +350,14 @@ describe('PluginsPage', () => {
     sourceFilter.vm.$emit('update:value', 'community')
     await flushPromises()
 
-    expect(wrapper.find('.plugins-data-table').text()).toContain('Verified Third Party')
-    expect(wrapper.find('.plugins-data-table').text()).not.toContain('Builtin Help')
+    expect(wrapper.find('.plugins-grid').text()).toContain('Verified Third Party')
+    expect(wrapper.find('.plugins-grid').text()).not.toContain('Builtin Help')
 
     sourceFilter.vm.$emit('update:value', 'official')
     await flushPromises()
 
-    expect(wrapper.find('.plugins-data-table').text()).toContain('Builtin Help')
-    expect(wrapper.find('.plugins-data-table').text()).not.toContain('Verified Third Party')
+    expect(wrapper.find('.plugins-grid').text()).toContain('Builtin Help')
+    expect(wrapper.find('.plugins-grid').text()).not.toContain('Verified Third Party')
   })
 
   it('expands and collapses overflow plugin commands in the list', async () => {

@@ -38,204 +38,172 @@ defineProps<{
 </script>
 
 <template>
-  <div class="dashboard-status-grid dashboard-overview-grid" data-testid="dashboard-overview-grid">
-    <div :class="['custom-stat-card', 'stat-card', `custom-stat-card--${healthStatusType}`, `stat-card--${healthStatusType}`]">
-      <div class="custom-stat-card__icon-container">
-        <component :is="iconMap.health" class="custom-stat-card__icon" />
+  <section class="dashboard-status-grid" data-testid="dashboard-overview-grid" aria-label="系统运行摘要">
+    <div class="dashboard-status-item" :data-tone="healthStatusType">
+      <div class="dashboard-status-item__icon">
+        <component :is="iconMap.health" class="dashboard-status-item__glyph" />
       </div>
-      <div class="custom-stat-card__body">
-        <span class="custom-stat-card__label">{{ healthLabel }}</span>
-        <strong class="custom-stat-card__value">{{ healthValueText }}</strong>
-        <span class="custom-stat-card__desc">{{ healthDetailText }}</span>
+      <div class="dashboard-status-item__body">
+        <span>{{ healthLabel }}</span>
+        <strong>{{ healthValueText }}</strong>
+        <small>{{ healthDetailText }}</small>
       </div>
     </div>
 
-    <div :class="['custom-stat-card', 'stat-card', `custom-stat-card--${readinessStatusType}`, `stat-card--${readinessStatusType}`]">
-      <div class="custom-stat-card__icon-container">
-        <component :is="iconMap.readiness" class="custom-stat-card__icon" />
+    <div class="dashboard-status-item" :data-tone="readinessStatusType">
+      <div class="dashboard-status-item__icon">
+        <component :is="iconMap.readiness" class="dashboard-status-item__glyph" />
       </div>
-      <div class="custom-stat-card__body">
-        <span class="custom-stat-card__label">{{ readinessLabel }}</span>
-        <strong class="custom-stat-card__value">{{ readinessValueText }}</strong>
-        <span class="custom-stat-card__desc">{{ readinessDetailText }}</span>
+      <div class="dashboard-status-item__body">
+        <span>{{ readinessLabel }}</span>
+        <strong>{{ readinessValueText }}</strong>
+        <small>{{ readinessDetailText }}</small>
       </div>
     </div>
 
     <MotionRouterLink
       :to="activePluginsTo"
-      class="custom-stat-card stat-card custom-stat-card--primary stat-card--primary custom-stat-card--link"
+      class="dashboard-status-item dashboard-status-item--link"
+      data-tone="info"
       data-testid="dashboard-active-plugins-card"
       :aria-label="activePluginsAriaLabel"
     >
-      <div class="custom-stat-card__icon-container">
-        <component :is="iconMap.plugins" class="custom-stat-card__icon" />
+      <div class="dashboard-status-item__icon">
+        <component :is="iconMap.plugins" class="dashboard-status-item__glyph" />
       </div>
-      <div class="custom-stat-card__body">
-        <span class="custom-stat-card__label">{{ activePluginsLabel }}</span>
-        <strong class="custom-stat-card__value">{{ activePluginsCount }}</strong>
-        <span class="custom-stat-card__desc">{{ activePluginsDetailText }}</span>
+      <div class="dashboard-status-item__body">
+        <span>{{ activePluginsLabel }}</span>
+        <strong>{{ activePluginsCount }}</strong>
+        <small>{{ activePluginsDetailText }}</small>
       </div>
     </MotionRouterLink>
 
-    <div class="custom-stat-card stat-card custom-stat-card--info stat-card--info">
-      <div class="custom-stat-card__icon-container">
-        <component :is="iconMap.uptime" class="custom-stat-card__icon" />
+    <div class="dashboard-status-item" data-tone="neutral">
+      <div class="dashboard-status-item__icon">
+        <component :is="iconMap.uptime" class="dashboard-status-item__glyph" />
       </div>
-      <div class="custom-stat-card__body">
-        <span class="custom-stat-card__label">{{ uptimeLabel }}</span>
-        <strong class="custom-stat-card__value monospace">{{ uptimeText }}</strong>
-        <span class="custom-stat-card__desc">{{ runtimeMetaText }}</span>
+      <div class="dashboard-status-item__body">
+        <span>{{ uptimeLabel }}</span>
+        <strong class="monospace">{{ uptimeText }}</strong>
+        <small>{{ runtimeMetaText }}</small>
       </div>
     </div>
-  </div>
+  </section>
 </template>
 
 <style scoped lang="scss">
 .dashboard-status-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: var(--app-layout-gap);
-  margin-bottom: var(--app-layout-gap);
-}
-
-.custom-stat-card {
-  position: relative;
-  display: flex;
-  align-items: flex-start;
-  gap: var(--space-md);
-  padding: var(--space-lg);
-  border-radius: var(--radius-xl);
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  overflow: hidden;
   border: 1px solid var(--border);
+  border-radius: var(--app-card-radius);
   background: var(--surface-strong);
   box-shadow: var(--shadow-xs);
-  overflow: hidden;
-  transition: border-color 150ms ease, background-color 150ms ease;
-  cursor: default;
 }
 
-.custom-stat-card--link {
-  color: inherit;
-  cursor: pointer;
-  text-decoration: none;
+.dashboard-status-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  padding: 16px;
+}
 
+.dashboard-status-item + .dashboard-status-item {
+  border-inline-start: 1px solid var(--border);
+}
+
+.dashboard-status-item--link {
+  color: inherit;
+  text-decoration: none;
+  transition: background-color var(--motion-fast) var(--motion-easing);
+
+  &:hover {
+    background: var(--surface-accent);
+  }
   &:focus-visible {
-    border-color: var(--card-color, var(--border-accent));
     outline: 2px solid var(--accent);
-    outline-offset: 2px;
+    outline-offset: -3px;
   }
 }
 
-.custom-stat-card:hover {
-  border-color: var(--card-color, var(--border-accent));
-}
-
-.custom-stat-card__icon-container {
-  position: relative;
+.dashboard-status-item__icon {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 42px;
-  height: 42px;
-  border-radius: var(--radius-lg);
-  background: var(--surface-soft);
-  border: 1px solid var(--border);
+  width: 36px;
+  height: 36px;
+  color: var(--muted);
   flex-shrink: 0;
-  transition: border-color 150ms ease, background-color 150ms ease;
 }
 
-.custom-stat-card__icon {
-  font-size: 1.35rem;
-  color: var(--card-color, var(--accent));
+.dashboard-status-item__glyph {
+  font-size: 20px;
 }
 
-.custom-stat-card__body {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
+.dashboard-status-item__body {
+  display: grid;
+  gap: 2px;
   min-width: 0;
 }
 
-.custom-stat-card__label {
-  font-size: 0.74rem;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
+.dashboard-status-item__body span,
+.dashboard-status-item__body small {
   color: var(--muted);
+  font-size: 13px;
+  overflow-wrap: anywhere;
 }
 
-.custom-stat-card__value {
-  font-size: 1.45rem;
-  font-weight: 800;
-  line-height: 1.2;
+.dashboard-status-item__body strong {
   color: var(--text);
-  letter-spacing: -0.01em;
+  font-size: 18px;
+  line-height: 1.3;
 
   &.monospace {
     font-family: var(--font-mono);
-    font-size: 1.2rem;
-    font-weight: 700;
+    font-size: 16px;
   }
 }
 
-.custom-stat-card__desc {
-  font-size: 0.8rem;
-  color: var(--muted);
-  line-height: 1.4;
-  margin-top: 1px;
+.dashboard-status-item[data-tone='success'] .dashboard-status-item__icon {
+  color: var(--success);
 }
 
-/* Card States & Tone Mapping */
-.custom-stat-card--success {
-  --card-color: var(--success);
-  border-left: 3px solid var(--success);
-  .custom-stat-card__icon-container {
-    background: var(--surface-success);
-    border-color: var(--border-success);
+.dashboard-status-item[data-tone='warning'] .dashboard-status-item__icon {
+  color: var(--warning);
+}
+
+.dashboard-status-item[data-tone='danger'] .dashboard-status-item__icon {
+  color: var(--danger);
+}
+
+.dashboard-status-item[data-tone='info'] .dashboard-status-item__icon {
+  color: var(--accent);
+}
+
+@media (max-width: 899px) {
+  .dashboard-status-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .dashboard-status-item:nth-child(3) {
+    border-inline-start: 0;
+  }
+
+  .dashboard-status-item:nth-child(n + 3) {
+    border-top: 1px solid var(--border);
   }
 }
 
-.custom-stat-card--warning {
-  --card-color: var(--warning);
-  border-left: 3px solid var(--warning);
-  .custom-stat-card__icon-container {
-    background: var(--surface-warning);
-    border-color: var(--border-warning);
+@media (max-width: 639px) {
+  .dashboard-status-grid {
+    grid-template-columns: 1fr;
   }
-}
 
-.custom-stat-card--danger {
-  --card-color: var(--danger);
-  border-left: 3px solid var(--danger);
-  .custom-stat-card__icon-container {
-    background: var(--surface-danger);
-    border-color: var(--border-danger);
-  }
-}
-
-.custom-stat-card--primary {
-  --card-color: var(--accent);
-  border-left: 3px solid var(--accent);
-  .custom-stat-card__icon-container {
-    background: var(--surface-accent);
-    border-color: var(--border-accent);
-  }
-}
-
-.custom-stat-card--info {
-  --card-color: #17a2b8;
-  border-left: 3px solid #17a2b8;
-  .custom-stat-card__icon-container {
-    background: color-mix(in srgb, #17a2b8 10%, var(--surface));
-    border-color: color-mix(in srgb, #17a2b8 30%, var(--border));
-  }
-}
-
-.custom-stat-card--muted {
-  --card-color: var(--muted);
-  border-left: 3px solid var(--muted);
-  .custom-stat-card__icon-container {
-    background: var(--surface-soft);
-    border-color: var(--border);
+  .dashboard-status-item + .dashboard-status-item {
+    border-inline-start: 0;
+    border-top: 1px solid var(--border);
   }
 }
 </style>

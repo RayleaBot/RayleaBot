@@ -1,186 +1,149 @@
 import theme from 'ant-design-vue/es/theme'
 import type { ThemeConfig } from 'ant-design-vue/es/config-provider/context'
 
-export type ThemeMode = 'dark' | 'light'
-export type RadiusLevel = 'sm' | 'md' | 'lg' | 'xl'
-export type FontScale = 'sm' | 'md' | 'lg'
+export type ThemeMode = 'system' | 'light' | 'dark'
+export type ResolvedThemeMode = 'light' | 'dark'
 export type DensityMode = 'compact' | 'default'
 export type ContentWidth = 'fixed' | 'wide'
 export type PageTransition = 'fade' | 'fade-slide' | 'none'
 
 export interface LayoutPreferences {
-  breadcrumb: boolean
-  colorPrimary: string
   chromeTabbar: boolean
   contentWidth: ContentWidth
   density: DensityMode
-  fontScale: FontScale
-  fixedHeader: boolean
   layoutMode: 'sidebar-nav'
-  pageLoading: boolean
   pageTransition: PageTransition
-  radiusLevel: RadiusLevel
   rememberTabs: boolean
   themeMode: ThemeMode
 }
 
-export const themeColorPresets = [
-  '#1677ff',
-  '#13c2c2',
-  '#52c41a',
-  '#722ed1',
-  '#fa541c',
-] as const
-
-const radiusMap: Record<RadiusLevel, number> = {
-  sm: 8,
-  md: 10,
-  lg: 12,
-  xl: 14,
-}
-
-const fontScaleMap: Record<FontScale, number> = {
-  sm: 13,
-  md: 14,
-  lg: 15,
-}
-
-const densityControlHeightMap: Record<DensityMode, number> = {
-  compact: 30,
-  default: 34,
-}
-
 export const defaultLayoutPreferences: LayoutPreferences = {
-  breadcrumb: true,
-  colorPrimary: themeColorPresets[0],
   chromeTabbar: true,
   contentWidth: 'wide',
   density: 'default',
-  fontScale: 'md',
-  fixedHeader: true,
   layoutMode: 'sidebar-nav',
-  pageLoading: true,
   pageTransition: 'fade-slide',
-  radiusLevel: 'md',
   rememberTabs: true,
-  themeMode: 'light',
+  themeMode: 'system',
 }
 
 export function normalizeLayoutPreferences(
   value?: Partial<LayoutPreferences> | null,
 ): LayoutPreferences {
   const nextValue = value ?? {}
-  const themeMode = nextValue.themeMode === 'dark' ? 'dark' : 'light'
-  const colorPrimary = typeof nextValue.colorPrimary === 'string' && nextValue.colorPrimary.trim()
-    ? nextValue.colorPrimary.trim()
-    : defaultLayoutPreferences.colorPrimary
-  const radiusLevel = nextValue.radiusLevel && radiusMap[nextValue.radiusLevel]
-    ? nextValue.radiusLevel
-    : defaultLayoutPreferences.radiusLevel
-  const fontScale = nextValue.fontScale && fontScaleMap[nextValue.fontScale]
-    ? nextValue.fontScale
-    : defaultLayoutPreferences.fontScale
-  const density = nextValue.density && densityControlHeightMap[nextValue.density]
-    ? nextValue.density
-    : defaultLayoutPreferences.density
-  const contentWidth = nextValue.contentWidth === 'fixed' ? 'fixed' : 'wide'
-  const pageTransition = nextValue.pageTransition === 'fade'
+  const themeMode: ThemeMode = nextValue.themeMode === 'dark'
+    || nextValue.themeMode === 'light'
+    || nextValue.themeMode === 'system'
+    ? nextValue.themeMode
+    : defaultLayoutPreferences.themeMode
+  const density: DensityMode = nextValue.density === 'compact' ? 'compact' : 'default'
+  const contentWidth: ContentWidth = nextValue.contentWidth === 'fixed' ? 'fixed' : 'wide'
+  const pageTransition: PageTransition = nextValue.pageTransition === 'fade'
     || nextValue.pageTransition === 'fade-slide'
     || nextValue.pageTransition === 'none'
     ? nextValue.pageTransition
     : defaultLayoutPreferences.pageTransition
 
   return {
-    ...defaultLayoutPreferences,
-    ...nextValue,
-    colorPrimary,
+    chromeTabbar: nextValue.chromeTabbar !== false,
     contentWidth,
     density,
-    fontScale,
+    layoutMode: 'sidebar-nav',
     pageTransition,
-    radiusLevel,
+    rememberTabs: nextValue.rememberTabs !== false,
     themeMode,
   }
 }
 
-export function resolveThemeConfig(preferences: Pick<
-  LayoutPreferences,
-  'colorPrimary' | 'density' | 'fontScale' | 'radiusLevel' | 'themeMode'
->): ThemeConfig {
-  const isDark = preferences.themeMode === 'dark'
-  const colorPrimary = preferences.colorPrimary
-  const borderRadius = radiusMap[preferences.radiusLevel]
-  const controlHeight = densityControlHeightMap[preferences.density]
-  const fontSize = fontScaleMap[preferences.fontScale]
+export function resolveThemeConfig(
+  resolvedThemeMode: ResolvedThemeMode,
+  density: DensityMode,
+): ThemeConfig {
+  const isDark = resolvedThemeMode === 'dark'
+  const controlHeight = 36
+  const surface = isDark ? '#182126' : '#FAF9F5'
+  const canvas = isDark ? '#11181C' : '#F3F6F7'
+  const text = isDark ? '#E9F0F2' : '#1F272C'
+  const textSecondary = isDark ? '#A7B4BA' : '#58656E'
+  const border = isDark ? '#314047' : '#D8E0E4'
+  const primary = isDark ? '#66CCFF' : '#0B6B8F'
 
   return {
     algorithm: isDark ? theme.darkAlgorithm : theme.defaultAlgorithm,
     token: {
-      colorPrimary,
-      colorInfo: colorPrimary,
-      colorSuccess: '#3fbe73',
-      colorWarning: '#e4a11b',
-      colorError: '#e15b64',
-      borderRadius,
-      borderRadiusLG: borderRadius + 2,
-      borderRadiusSM: Math.max(6, borderRadius - 2),
-      fontSize,
+      colorBgBase: canvas,
+      colorBgContainer: surface,
+      colorBgElevated: surface,
+      colorBgLayout: canvas,
+      colorBorder: border,
+      colorBorderSecondary: border,
+      colorError: isDark ? '#FF8089' : '#C2414B',
+      colorInfo: primary,
+      colorPrimary: primary,
+      colorSuccess: isDark ? '#67C99B' : '#2F7D5C',
+      colorText: text,
+      colorTextSecondary: textSecondary,
+      colorWarning: isDark ? '#F0B95A' : '#8A5600',
+      borderRadius: 8,
+      borderRadiusLG: 12,
+      borderRadiusSM: 6,
+      controlHeight,
+      fontFamily: 'Inter, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Noto Sans SC", "Microsoft YaHei", system-ui, sans-serif',
+      fontSize: 14,
       wireframe: false,
-      fontFamily: '"PingFang SC", "Hiragino Sans GB", "Noto Sans SC", "Microsoft YaHei", sans-serif',
     },
     components: {
-      Layout: {
-        siderBg: isDark ? '#111827' : '#ffffff',
-        headerBg: isDark ? '#0f172a' : '#ffffff',
-        bodyBg: 'transparent',
-        triggerBg: isDark ? '#0b1220' : '#f5f7fa',
-      },
-      Menu: {
-        darkItemBg: '#111827',
-        darkSubMenuItemBg: '#0f172a',
-        darkItemSelectedBg: colorPrimary,
-        itemBg: 'transparent',
-        itemSelectedBg: colorPrimary === '#1677ff' ? '#e8f1ff' : 'color-mix(in srgb, var(--accent) 14%, transparent)',
-        itemSelectedColor: colorPrimary,
-        borderRadius,
-      },
       Button: {
         controlHeight,
+      },
+      Card: {
+        borderRadiusLG: 12,
       },
       Input: {
         controlHeight,
       },
+      Layout: {
+        bodyBg: canvas,
+        headerBg: surface,
+        siderBg: surface,
+        triggerBg: canvas,
+      },
+      Menu: {
+        darkItemBg: surface,
+        darkSubMenuItemBg: surface,
+        darkItemSelectedBg: 'color-mix(in srgb, #66CCFF 14%, #182126)',
+        itemBg: 'transparent',
+        itemSelectedBg: isDark
+          ? 'color-mix(in srgb, #66CCFF 14%, #182126)'
+          : 'color-mix(in srgb, #0B6B8F 10%, #FAF9F5)',
+        itemSelectedColor: primary,
+        borderRadius: 8,
+      },
       Select: {
         controlHeight,
       },
-      Card: {
-        borderRadiusLG: borderRadius + 2,
+      Table: {
+        headerBg: isDark ? '#1E292F' : '#F3F6F7',
+        headerColor: textSecondary,
+        rowHoverBg: isDark
+          ? 'color-mix(in srgb, #66CCFF 5%, #182126)'
+          : 'color-mix(in srgb, #0B6B8F 4%, #FAF9F5)',
       },
     },
   }
 }
 
 export function resolvePreferenceCssVariables(preferences: LayoutPreferences) {
-  const borderRadius = radiusMap[preferences.radiusLevel]
-  const controlHeight = densityControlHeightMap[preferences.density]
-  const fontSize = fontScaleMap[preferences.fontScale]
   const compact = preferences.density === 'compact'
 
   return {
-    '--accent': preferences.colorPrimary,
-    '--app-primary': preferences.colorPrimary,
-    '--app-border-radius': `${borderRadius}px`,
-    '--app-card-radius': `${borderRadius + 2}px`,
-    '--app-content-max-width': preferences.contentWidth === 'fixed' ? '1380px' : 'none',
-    '--app-control-height': `${controlHeight}px`,
-    '--app-font-size': `${fontSize}px`,
-    '--app-layout-gap': compact ? '10px' : '12px',
-    '--app-page-gap': compact ? '10px' : '12px',
-    '--app-page-header-gap': compact ? '12px' : '16px',
-    '--app-page-toolbar-gap': compact ? '10px' : '12px',
-    '--app-shell-padding-inline': compact ? '10px' : '12px',
-    '--app-shell-padding-block': compact ? '8px' : '10px',
-    '--sider-menu-active': preferences.colorPrimary,
-    '--sider-menu-active-bg': 'color-mix(in srgb, var(--accent) 12%, transparent)',
+    '--app-content-max-width': preferences.contentWidth === 'fixed' ? '1240px' : 'none',
+    '--app-control-height': '36px',
+    '--app-layout-gap': compact ? '12px' : '16px',
+    '--app-page-gap': compact ? '16px' : '24px',
+    '--app-page-header-gap': compact ? '16px' : '24px',
+    '--app-page-toolbar-gap': compact ? '12px' : '16px',
+    '--app-shell-padding-inline': compact ? '16px' : '24px',
+    '--app-shell-padding-block': compact ? '16px' : '24px',
   }
 }

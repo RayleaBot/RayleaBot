@@ -82,7 +82,7 @@ onMounted(() => {
 .dashboard-update-card {
   border: 1px solid var(--border);
   background: var(--surface-strong);
-  box-shadow: var(--shadow-xs);
+  box-shadow: none;
 }
 
 .dashboard-update-card__body {

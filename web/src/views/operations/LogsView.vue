@@ -5,6 +5,7 @@ import { storeToRefs } from 'pinia'
 import { onBeforeRouteLeave, useRoute, useRouter } from 'vue-router'
 
 import ManagementLogDetailDrawer from '@/components/logs/ManagementLogDetailDrawer.vue'
+import ManagementLogAdvancedFilters from '@/components/logs/ManagementLogAdvancedFilters.vue'
 import RetryPanel from '@/components/RetryPanel.vue'
 import VirtualDataViewport from '@/components/VirtualDataViewport.vue'
 import AppPage from '@/components/page/AppPage.vue'
@@ -403,32 +404,17 @@ onUnmounted(() => {
           <a-form-item :label="t('logs.filters.source')">
             <a-input v-model:value="filters.source" :placeholder="t('logs.filters.sourcePlaceholder')" />
           </a-form-item>
-          <a-form-item :label="t('logs.filters.protocol')">
-            <a-select
-              v-model:value="filters.protocol"
-              allow-clear
-              :options="[{ label: 'OneBot11', value: 'onebot11' }]"
-              :placeholder="t('logs.filters.all')"
+          <div class="logs-toolbar__actions">
+            <ManagementLogAdvancedFilters
+              v-model:protocol="filters.protocol"
+              v-model:plugin-ids="filters.pluginIds"
+              v-model:request-id="filters.requestId"
+              :plugin-options="pluginOptions"
+              @plugin-focus="openPluginFilter"
             />
-          </a-form-item>
-          <a-form-item :label="t('logs.filters.plugin')">
-            <a-select
-              v-model:value="filters.pluginIds"
-              mode="multiple"
-              allow-clear
-              :options="pluginOptions"
-              :placeholder="t('logs.filters.all')"
-              @focus="openPluginFilter"
-            />
-          </a-form-item>
-          <a-form-item :label="t('logs.filters.requestId')">
-            <a-input v-model:value="filters.requestId" :placeholder="t('logs.filters.requestPlaceholder')" />
-          </a-form-item>
+            <a-button class="logs-toolbar__apply" type="primary" :aria-label="t('logs.filters.apply')" @click="applyFilters">{{ t('logs.filters.apply') }}</a-button>
+          </div>
         </a-form>
-
-        <div class="logs-toolbar__actions">
-          <a-button type="primary" :aria-label="t('logs.filters.apply')" @click="applyFilters">{{ t('logs.filters.apply') }}</a-button>
-        </div>
       </a-card>
     </template>
 
@@ -559,25 +545,40 @@ onUnmounted(() => {
 }
 
 .logs-toolbar {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
   border-radius: var(--radius-md);
   border: 1px solid var(--border);
-  box-shadow: var(--shadow-xs);
+  box-shadow: none;
+}
+
+.logs-toolbar :deep(.ant-card-body) {
+  padding: 12px 14px;
 }
 
 .logs-filter-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  display: flex;
+  flex-wrap: wrap;
   gap: 12px;
   align-items: end;
+  width: 100%;
+}
+
+.logs-filter-grid :deep(.ant-form-item) {
+  flex: 1 1 200px;
+  max-width: 320px;
+  margin-bottom: 0;
+}
+
+.logs-filter-grid :deep(.ant-form-item:first-child) {
+  max-width: 220px;
 }
 
 .logs-toolbar__actions {
   display: flex;
+  flex: 0 0 auto;
+  gap: 8px;
   justify-content: flex-end;
-  align-self: end;
+  align-items: center;
+  margin-inline-start: auto;
 }
 
 .logs-feed-card,
@@ -589,7 +590,7 @@ onUnmounted(() => {
 }
 
 .logs-feed-card {
-  box-shadow: var(--shadow-xs);
+  box-shadow: none;
 }
 
 .logs-feed-card__body {
@@ -647,7 +648,8 @@ onUnmounted(() => {
 }
 
 .logs-row.is-selected {
-  box-shadow: inset 3px 0 0 var(--accent);
+  outline: 2px solid color-mix(in srgb, var(--accent) 34%, transparent);
+  outline-offset: -2px;
   background: var(--surface-accent) !important;
 }
 
@@ -675,7 +677,7 @@ onUnmounted(() => {
   flex-wrap: wrap;
   gap: 6px;
   color: var(--muted);
-  font-size: 0.78rem;
+  font-size: 13px;
 }
 
 .logs-row__protocol {
@@ -691,7 +693,7 @@ onUnmounted(() => {
 
 .logs-row__sub {
   color: var(--muted);
-  font-size: 0.76rem;
+  font-size: 13px;
 }
 
 .logs-row__message {
@@ -705,6 +707,22 @@ onUnmounted(() => {
 }
 
 @media (max-width: 760px) {
+  .logs-filter-grid :deep(.ant-form-item) {
+    flex-basis: 100%;
+    max-width: none;
+  }
+
+  .logs-toolbar__actions {
+    flex: 1 1 100%;
+    align-items: stretch;
+    justify-content: flex-start;
+    margin-inline-start: 0;
+  }
+
+  .logs-toolbar__apply {
+    flex: 1 1 auto;
+  }
+
   .logs-jump-latest {
     right: 14px;
     bottom: 14px;

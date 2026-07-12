@@ -767,32 +767,29 @@ onBeforeUnmount(() => {
   --render-template-panel-inset: var(--space-md);
   --render-template-preview-max-width: 1120px;
 
-  position: relative;
-  display: flex;
+  display: grid;
+  grid-template-columns: var(--render-template-panel-width) minmax(0, 1fr);
+  gap: var(--space-xl);
   flex: 1 1 auto;
   min-height: 0;
   padding: var(--space-lg);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   background: var(--surface-strong);
-  box-shadow: var(--shadow-card);
+  box-shadow: var(--shadow-xs);
 }
 
 .render-templates-float-panel {
-  position: absolute;
-  top: var(--render-template-panel-inset);
-  left: var(--render-template-panel-inset);
-  z-index: 10;
   display: flex;
   flex-direction: column;
   width: var(--render-template-panel-width);
-  max-height: calc(100% - var(--render-template-panel-inset) * 2);
+  max-height: 100%;
   min-height: 0;
   padding: var(--space-md);
   border-radius: var(--radius-lg);
   border: 1px solid var(--border);
   background: var(--surface-strong);
-  box-shadow: var(--shadow-elevated);
+  box-shadow: none;
 }
 
 .render-templates-float-panel__header {
@@ -812,7 +809,7 @@ onBeforeUnmount(() => {
 
 .render-templates-live-tag {
   margin: 0;
-  font-size: 0.75rem;
+  font-size: 12px;
 }
 
 .render-templates-float-panel__body {
@@ -842,7 +839,7 @@ onBeforeUnmount(() => {
 
   small {
     color: var(--muted);
-    font-size: 0.74rem;
+    font-size: 13px;
     font-weight: 500;
     text-align: right;
   }
@@ -865,7 +862,7 @@ onBeforeUnmount(() => {
   justify-content: space-between;
   gap: var(--space-sm);
   color: var(--muted);
-  font-size: 0.76rem;
+  font-size: 13px;
 }
 
 .template-nav-item {
@@ -902,7 +899,7 @@ onBeforeUnmount(() => {
 
 .template-nav-item__meta {
   color: var(--muted);
-  font-size: 0.76rem;
+  font-size: 13px;
   overflow-wrap: anywhere;
 }
 
@@ -919,21 +916,21 @@ onBeforeUnmount(() => {
 
   dt {
     color: var(--muted);
-    font-size: 0.76rem;
+    font-size: 13px;
   }
 
   dd {
     min-width: 0;
     margin: 0;
     color: var(--text);
-    font-size: 0.8rem;
+    font-size: 13px;
     overflow-wrap: anywhere;
   }
 }
 
 .render-templates-json-input {
   font-family: var(--font-mono);
-  font-size: 0.8rem;
+  font-size: 13px;
 }
 
 .schema-tree {
@@ -971,7 +968,7 @@ onBeforeUnmount(() => {
 
 .schema-tree-row__name {
   font-family: var(--font-mono);
-  font-size: 0.8rem;
+  font-size: 13px;
   font-weight: 600;
 }
 
@@ -980,18 +977,18 @@ onBeforeUnmount(() => {
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   color: var(--muted);
-  font-size: 0.72rem;
+  font-size: 12px;
 }
 
 .schema-tree-row__required {
   color: #ff4d4f;
-  font-size: 0.72rem;
+  font-size: 12px;
   font-weight: 600;
 }
 
 .schema-tree-row__desc {
   color: var(--muted);
-  font-size: 0.76rem;
+  font-size: 13px;
   line-height: 1.45;
 }
 
@@ -1003,7 +1000,7 @@ onBeforeUnmount(() => {
   align-items: center;
   min-width: 0;
   min-height: 0;
-  padding-left: calc(var(--render-template-panel-width) + var(--space-xl));
+  padding-left: 0;
 }
 
 .render-template-preview-area__header {
@@ -1027,7 +1024,7 @@ onBeforeUnmount(() => {
 
   small {
     color: var(--muted);
-    font-size: 0.78rem;
+    font-size: 13px;
   }
 }
 
@@ -1037,6 +1034,7 @@ onBeforeUnmount(() => {
   flex-direction: column;
   width: min(100%, var(--render-template-preview-max-width));
   min-height: 0;
+  overflow: auto;
 }
 
 .render-template-preview-empty {
@@ -1052,12 +1050,11 @@ onBeforeUnmount(() => {
 
 @media (max-width: 1180px) {
   .render-templates-shell {
-    flex-direction: column;
+    grid-template-columns: minmax(0, 1fr);
     gap: var(--space-md);
   }
 
   .render-templates-float-panel {
-    position: static;
     width: 100%;
     max-height: none;
     background: var(--surface);

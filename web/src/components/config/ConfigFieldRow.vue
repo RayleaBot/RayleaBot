@@ -219,7 +219,7 @@ function handleTextareaUpdate(value: unknown) {
 .config-field__unit {
   color: var(--muted);
   font-weight: 500;
-  font-size: 0.78rem;
+  font-size: 13px;
 }
 
 .config-field__info {
@@ -274,7 +274,7 @@ function handleTextareaUpdate(value: unknown) {
   background: var(--surface-soft);
   border: 1px solid var(--border);
   color: var(--muted);
-  font-size: 0.78rem;
+  font-size: 13px;
   line-height: 1.4;
   width: max-content;
   max-width: 100%;

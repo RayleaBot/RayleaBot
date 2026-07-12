@@ -258,7 +258,7 @@ watch([skippedPlugins, pendingSkippedPlugins, confirmedSkippedPlugins], ([all, p
 .recovery-summary__section-label {
   color: var(--muted);
   display: block;
-  font-size: 0.76rem;
+  font-size: 13px;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -278,7 +278,7 @@ watch([skippedPlugins, pendingSkippedPlugins, confirmedSkippedPlugins], ([all, p
 .recovery-summary__filters :deep(.ant-btn) {
   border-radius: var(--radius-sm);
   font-weight: 500;
-  font-size: 0.8rem;
+  font-size: 13px;
   box-shadow: none;
 
   &:not(.ant-btn-primary) {

@@ -467,7 +467,7 @@ function timeText(value?: string | null) {
 </script>
 
 <template>
-  <AppPage :title="t('builtinFeatures.thirdPartyAccounts.title')" :description="t('builtinFeatures.thirdPartyAccounts.subtitle')">
+  <AppPage :title="t('builtinFeatures.thirdPartyAccounts.title')" :description="t('builtinFeatures.thirdPartyAccounts.subtitle')" width="detail">
     <RetryPanel
       v-if="fatalError"
       :title="t('errors.common.loadFailed')"
@@ -764,7 +764,7 @@ function timeText(value?: string | null) {
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   background: var(--surface-strong);
-  box-shadow: var(--shadow-card);
+  box-shadow: var(--shadow-xs);
 }
 
 .accounts-panel {
@@ -792,7 +792,7 @@ function timeText(value?: string | null) {
 .accounts-panel__header p {
   margin: 3px 0 0;
   color: var(--muted);
-  font-size: 0.8rem;
+  font-size: 13px;
 }
 
 .accounts-empty {
@@ -830,6 +830,7 @@ function timeText(value?: string | null) {
 
 .platform-section {
   min-width: 0;
+  gap: var(--space-sm);
 }
 
 .platform-section__header {
@@ -838,6 +839,8 @@ function timeText(value?: string | null) {
   justify-content: space-between;
   gap: var(--space-md);
   min-width: 0;
+  padding-block: 12px;
+  border-bottom: 1px solid var(--border);
 }
 
 .platform-section__header h3 {
@@ -850,7 +853,7 @@ function timeText(value?: string | null) {
 .platform-section__header p {
   margin: 3px 0 0;
   color: var(--muted);
-  font-size: 0.78rem;
+  font-size: 13px;
 }
 
 .accounts-grid {
@@ -873,12 +876,18 @@ function timeText(value?: string | null) {
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   background: var(--surface);
-  transition: border-color 180ms ease, background-color 180ms ease;
+  box-shadow: var(--shadow-xs);
+  transition: border-color 160ms var(--motion-easing), box-shadow 160ms var(--motion-easing);
+}
+
+.account-card:hover {
+  border-color: var(--border-strong);
+  box-shadow: var(--shadow-sm);
 }
 
 .account-card--editing {
-  border-color: var(--border-accent);
-  background: color-mix(in srgb, var(--surface-soft) 80%, var(--surface));
+  border-color: var(--border-attention);
+  background: var(--surface-attention);
 }
 
 .account-card__head {
@@ -914,7 +923,7 @@ function timeText(value?: string | null) {
 
 .account-platform {
   color: var(--text-accent);
-  font-size: 0.76rem;
+  font-size: 13px;
   font-weight: 650;
 }
 
@@ -969,14 +978,14 @@ function timeText(value?: string | null) {
 }
 
 .account-card__facts dt {
-  font-size: 0.74rem;
+  font-size: 13px;
 }
 
 .account-card__facts dd {
   margin: 2px 0 0;
   overflow: hidden;
   color: var(--text);
-  font-size: 0.84rem;
+  font-size: 14px;
   font-weight: 500;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -986,9 +995,9 @@ function timeText(value?: string | null) {
   margin: 0;
   padding: 7px 9px;
   border-radius: var(--radius-sm);
-  background: color-mix(in srgb, #ef4444 7%, var(--surface));
-  color: #b91c1c;
-  font-size: 0.78rem;
+  background: var(--surface-danger);
+  color: var(--text-danger);
+  font-size: 13px;
   line-height: 1.45;
   overflow-wrap: anywhere;
 }

@@ -39,42 +39,21 @@ defineProps<{
 
 <style scoped lang="scss">
 .app-card {
-  transition: border-color 150ms ease, background-color 150ms ease;
+  background: var(--surface-strong);
+  border-color: var(--border);
   box-shadow: var(--shadow-xs);
-}
-
-.app-card:hover {
-  border-color: var(--border-strong);
-}
-
-.app-card--stat {
-  position: relative;
-  overflow: hidden;
-}
-
-.app-card--stat::before {
-  content: '';
-  position: absolute;
-  inset: 0 0 auto;
-  height: 2px;
-  background: color-mix(in srgb, var(--muted) 26%, transparent);
+  transition: border-color var(--motion-fast) var(--motion-easing), background-color var(--motion-fast) var(--motion-easing);
 }
 
 .app-card--highlight {
-  border-color: color-mix(in srgb, var(--accent) 12%, var(--border));
+  border-color: color-mix(in srgb, var(--attention) 28%, var(--border));
+  background: var(--surface-attention);
 }
 
-.app-card--highlight:hover {
-  border-color: color-mix(in srgb, var(--accent) 30%, var(--border));
-}
-
-.app-card--flat {
+.app-card--flat,
+.app-card--stat {
   box-shadow: none;
-}
-
-.app-card--flat:hover {
-  box-shadow: none;
-  border-color: var(--border-strong);
+  background: transparent;
 }
 
 .app-card__header {
@@ -98,7 +77,7 @@ defineProps<{
 }
 
 .app-card__desc {
-  font-size: 0.8rem;
+  font-size: 13px;
   color: var(--muted);
   line-height: 1.4;
 }

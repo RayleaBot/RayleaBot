@@ -204,7 +204,7 @@ function isConflicted(command: PluginCommandSummary) {
 }
 
 .section-label {
-  font-size: 0.72rem;
+  font-size: 12px;
   color: var(--muted);
   font-weight: 500;
   text-transform: uppercase;
@@ -218,7 +218,7 @@ function isConflicted(command: PluginCommandSummary) {
 }
 
 .alias-tag {
-  font-size: 0.76rem;
+  font-size: 13px;
 }
 
 .alias-tag--more {
@@ -243,7 +243,7 @@ function isConflicted(command: PluginCommandSummary) {
 
 .usage-prefix {
   font-family: var(--font-mono);
-  font-size: 0.76rem;
+  font-size: 13px;
   color: var(--accent);
   user-select: none;
   font-weight: bold;
@@ -251,7 +251,7 @@ function isConflicted(command: PluginCommandSummary) {
 
 .usage-text {
   font-family: var(--font-mono);
-  font-size: 0.8rem;
+  font-size: 13px;
   color: var(--text);
   word-break: break-all;
 }
@@ -266,7 +266,7 @@ function isConflicted(command: PluginCommandSummary) {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  font-size: 0.76rem;
+  font-size: 13px;
   color: var(--text);
   background: color-mix(in srgb, var(--accent) 8%, var(--surface-soft));
   border: 1px solid color-mix(in srgb, var(--accent) 15%, var(--border));

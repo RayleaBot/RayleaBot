@@ -299,8 +299,8 @@ describe('BasicLayout', () => {
   it('creates leaf tabs for grouped pages and keeps the active tab in sync', async () => {
     const { router, uiShellStore } = await mountShell('/')
 
-    expect(getTabLabels()).toEqual(['系统状态'])
-    expect(getTabIconKeys()).toEqual(['dashboard'])
+    expect(getTabLabels()).toEqual([])
+    expect(uiShellStore.tabs.map((item) => item.title)).toEqual(['系统状态'])
 
     await router.push('/permission-policy')
     await flushPromises()
@@ -519,19 +519,21 @@ describe('BasicLayout', () => {
   })
 
   it('closes all non-affix tabs from the right-click menu', async () => {
-    const { router } = await mountShell('/')
+    const { router, wrapper } = await mountShell('/')
     await openStandardTabs(router)
 
     await openTabContextMenu('指令中心')
     await clickContextMenuItem('关闭所有标签')
 
     expect(router.currentRoute.value.path).toBe('/')
-    expect(getTabLabels()).toEqual(['系统状态'])
-    expect(getActiveTabLabel()).toBe('系统状态')
+    expect(getTabLabels()).toEqual([])
+    expect(wrapper.find('.admin-layout__tabbar').exists()).toBe(false)
   })
 
   it('keeps the affix tab protected in the right-click menu', async () => {
-    await mountShell('/')
+    const { router } = await mountShell('/')
+    await router.push('/commands')
+    await flushPromises()
 
     await openTabContextMenu('系统状态')
 
@@ -547,7 +549,7 @@ describe('BasicLayout', () => {
     await router.push('/offline')
     await flushPromises()
 
-    expect(getTabLabels()).toEqual(['系统状态'])
+    expect(getTabLabels()).toEqual([])
     expect(uiShellStore.tabs).toEqual([
       expect.objectContaining({
         affix: true,
@@ -589,7 +591,12 @@ describe('BasicLayout', () => {
   it('opens the preference drawer and applies shell settings', async () => {
     const { wrapper, uiShellStore } = await mountShell('/')
 
-    await wrapper.get('[data-testid="header-settings"]').trigger('click')
+    await wrapper.get('[data-testid="header-more"]').trigger('click')
+    await flushPromises()
+    const settingsItem = Array.from(document.body.querySelectorAll<HTMLElement>('.ant-dropdown-menu-item')).find(
+      (node) => node.textContent?.includes('设置'),
+    )
+    settingsItem?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
     await flushPromises()
 
     const darkOption = Array.from(document.body.querySelectorAll('.ant-segmented-item')).find(

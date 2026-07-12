@@ -5,16 +5,24 @@ import { useUiShellStore } from '@/stores/ui-shell'
 
 const uiShellStore = useUiShellStore()
 
-const pageClasses = computed(() => ({
-  'app-page--fixed-width': uiShellStore.preferences.contentWidth === 'fixed',
-}))
-
-defineProps<{
+const props = withDefaults(defineProps<{
   description?: string
   eyebrow?: string
   fullHeight?: boolean
   title: string
-}>()
+  width?: 'detail' | 'form' | 'wide'
+}>(), {
+  width: 'wide',
+})
+
+const pageClasses = computed(() => {
+  const usesFixedWidth = uiShellStore.preferences.contentWidth === 'fixed'
+
+  return {
+    'app-page--fixed-width': usesFixedWidth,
+    [`app-page--${props.width}`]: usesFixedWidth && props.width !== 'wide',
+  }
+})
 </script>
 
 <template>
@@ -22,9 +30,14 @@ defineProps<{
     <header class="app-page__header">
       <div class="app-page__heading">
         <span v-if="eyebrow" class="page-eyebrow">{{ eyebrow }}</span>
-        <h1 v-if="!$slots.title">{{ title }}</h1>
-        <div v-else class="app-page__title-slot-wrapper">
-          <slot name="title" />
+        <div class="app-page__title-row">
+          <h1 v-if="!$slots.title">{{ title }}</h1>
+          <div v-else class="app-page__title-slot-wrapper">
+            <slot name="title" />
+          </div>
+          <div v-if="$slots.status" class="app-page__status">
+            <slot name="status" />
+          </div>
         </div>
         <p v-if="description">{{ description }}</p>
       </div>

@@ -31,13 +31,14 @@ import { notifyError, notifyInfo, notifySuccess, useToastFeedback } from '@/adap
 import MotionRouterLink from '@/components/shell/MotionRouterLink.vue'
 import PreferencesDrawer from '@/components/shell/PreferencesDrawer.vue'
 import RouteSearchPanel from '@/components/shell/RouteSearchPanel.vue'
-import ThemeToggleSwitch from '@/components/shell/ThemeToggleSwitch.vue'
+import ThemeModeMenu from '@/components/shell/ThemeModeMenu.vue'
 import { t } from '@/i18n'
 import { getDisplayErrorMessage } from '@/lib/error-text'
 import { adminRoutes } from '@/router/routes/modules/admin'
 import { useSessionStore } from '@/stores/session'
 import { useSystemStore } from '@/stores/system'
 import { useUiShellStore, type ShellTabItem } from '@/stores/ui-shell'
+import type { ThemeMode } from '@/preferences/app'
 import { PAGE_TRANSITION_STAGE_KEY, type PageTransitionStage } from '@/layouts/usePageTransitionStage'
 import { useWorkspaceTabs, type WorkspaceTabProjection } from '@/layouts/useWorkspaceTabs'
 import {
@@ -108,10 +109,7 @@ interface AppBreadcrumbItem {
   title: string
 }
 
-const siderTheme = computed(() => (preferences.value.themeMode === 'dark' ? 'dark' : 'light'))
-const themeToggleLabel = computed(() => (
-  preferences.value.themeMode === 'dark' ? t('shell.switchLightTheme') : t('shell.switchDarkTheme')
-))
+const siderTheme = computed(() => (uiShellStore.resolvedThemeMode === 'dark' ? 'dark' : 'light'))
 const fullscreenLabel = computed(() => (
   isFullscreen.value ? t('shell.exitFullscreen') : t('shell.enterFullscreen')
 ))
@@ -184,6 +182,7 @@ const breadcrumbItems = computed<AppBreadcrumbItem[]>(() => {
   }))
 })
 const hasMultiBreadcrumb = computed(() => breadcrumbItems.value.length > 1)
+const showWorkspaceTabs = computed(() => preferences.value.chromeTabbar && tabs.value.length > 1)
 
 function getRouteStageComponent(viewRoute: RouteLocationNormalizedLoaded) {
   const stageName = String(viewRoute.name ?? viewRoute.path)
@@ -430,8 +429,8 @@ function navigateTo(path: string) {
   void navigateWithMotion(router, path, pageMotionProfile.value)
 }
 
-function toggleThemeModeWithMotion() {
-  applyThemeWithMotion(() => uiShellStore.toggleThemeMode())
+function setThemeModeWithMotion(mode: ThemeMode) {
+  applyThemeWithMotion(() => uiShellStore.setThemeMode(mode))
 }
 
 function handlePrimaryNavigationKeydown(event: KeyboardEvent) {
@@ -594,8 +593,8 @@ onBeforeUnmount(() => {
         :title="siderCollapsed ? t('app.brand') : undefined"
         @click="navigateTo('/')"
       >
-        <span class="admin-layout__brand-mark">R</span>
-        <span v-if="!siderCollapsed" class="admin-layout__brand-copy">
+        <span v-if="siderCollapsed" class="admin-layout__brand-mark">R</span>
+        <span v-else class="admin-layout__brand-copy">
           <strong>{{ t('app.brand') }}</strong>
         </span>
       </button>
@@ -696,8 +695,8 @@ onBeforeUnmount(() => {
     </a-drawer>
 
     <a-layout>
-      <a-layout-header :class="['admin-layout__header', { 'is-static': !preferences.fixedHeader }]" data-testid="app-header">
-        <div v-if="preferences.pageLoading" class="admin-layout__progress-track">
+      <a-layout-header class="admin-layout__header" data-testid="app-header">
+        <div class="admin-layout__progress-track">
           <div :class="['admin-layout__progress-bar', { 'is-active': routeLoading }]" />
         </div>
 
@@ -726,7 +725,7 @@ onBeforeUnmount(() => {
             </a-button>
 
             <div
-              v-if="preferences.breadcrumb && breadcrumbItems.length"
+              v-if="hasMultiBreadcrumb"
               :class="[
                 'admin-layout__header-breadcrumb',
                 hasMultiBreadcrumb
@@ -769,7 +768,7 @@ onBeforeUnmount(() => {
           </div>
 
           <div class="admin-layout__header-right">
-            <div class="admin-layout__header-tools desktop-only">
+            <div class="admin-layout__header-tools">
               <a-tooltip :title="t('shell.search')">
                 <a-button
                   class="admin-layout__icon-button"
@@ -783,56 +782,45 @@ onBeforeUnmount(() => {
                   </template>
                 </a-button>
               </a-tooltip>
-
-              <a-tooltip :title="t('shell.settings')">
-                <a-button
-                  class="admin-layout__icon-button"
-                  type="text"
-                  :aria-label="t('shell.settings')"
-                  data-testid="header-settings"
-                  @click="uiShellStore.openSettings()"
-                >
-                  <template #icon>
-                    <SettingOutlined />
-                  </template>
-                </a-button>
-              </a-tooltip>
-
-              <a-tooltip :title="fullscreenLabel">
-                <a-button
-                  class="admin-layout__icon-button"
-                  type="text"
-                  :aria-label="fullscreenLabel"
-                  data-testid="header-fullscreen"
-                  @click="toggleFullscreen"
-                >
-                  <template #icon>
-                    <FullscreenExitOutlined v-if="isFullscreen" />
-                    <FullscreenOutlined v-else />
-                  </template>
-                </a-button>
-              </a-tooltip>
             </div>
 
-            <a-tooltip :title="themeToggleLabel">
-              <ThemeToggleSwitch
-                class="admin-layout__theme-toggle"
-                :checked="preferences.themeMode === 'dark'"
-                :label="themeToggleLabel"
-                test-id="theme-toggle"
-                @toggle="toggleThemeModeWithMotion"
-              />
-            </a-tooltip>
+            <ThemeModeMenu
+              class="admin-layout__icon-button admin-layout__theme-menu"
+              :mode="uiShellStore.themeMode"
+              :resolved-mode="uiShellStore.resolvedThemeMode"
+              test-id="theme-toggle"
+              @change="setThemeModeWithMotion"
+            />
 
-            <a-button
-              class="admin-layout__shutdown-button"
-              danger
-              :aria-label="t('shell.shutdown')"
-              @click="shutdownDialogVisible = true"
-            >
-              <template #icon><PoweroffOutlined /></template>
-              <span class="desktop-only">{{ t('shell.shutdown') }}</span>
-            </a-button>
+            <a-dropdown :trigger="['click']" placement="bottomRight">
+              <a-button
+                class="admin-layout__icon-button"
+                type="text"
+                :aria-label="t('shell.moreActions')"
+                data-testid="header-more"
+              >
+                <template #icon><MoreOutlined /></template>
+              </a-button>
+
+              <template #overlay>
+                <a-menu>
+                  <a-menu-item key="settings" data-testid="header-settings" @click="uiShellStore.openSettings()">
+                    <SettingOutlined />
+                    {{ t('shell.settings') }}
+                  </a-menu-item>
+                  <a-menu-item key="fullscreen" data-testid="header-fullscreen" @click="toggleFullscreen">
+                    <FullscreenExitOutlined v-if="isFullscreen" />
+                    <FullscreenOutlined v-else />
+                    {{ fullscreenLabel }}
+                  </a-menu-item>
+                  <a-menu-divider />
+                  <a-menu-item key="shutdown" danger @click="shutdownDialogVisible = true">
+                    <PoweroffOutlined />
+                    {{ t('shell.shutdown') }}
+                  </a-menu-item>
+                </a-menu>
+              </template>
+            </a-dropdown>
 
             <a-dropdown placement="bottomRight">
               <a-button class="admin-layout__account-button" :aria-label="t('shell.account')">
@@ -853,7 +841,7 @@ onBeforeUnmount(() => {
           </div>
         </div>
 
-        <div v-if="preferences.chromeTabbar" class="admin-layout__tabbar">
+        <div v-if="showWorkspaceTabs" class="admin-layout__tabbar">
           <div class="admin-layout__tabbar-main">
             <a-tabs
               hide-add

@@ -53,7 +53,7 @@ async function login(page: import('@playwright/test').Page) {
 }
 
 function pluginRows(page: import('@playwright/test').Page) {
-  return page.locator('.plugins-data-table .ant-table-tbody > tr:not(.ant-table-measure-row)')
+  return page.locator('.plugin-grid-card:visible')
 }
 
 async function expectDocumentWithinViewport(page: import('@playwright/test').Page) {
@@ -115,7 +115,17 @@ async function scrollConfigSectionIntoView(page: import('@playwright/test').Page
 }
 
 function logFilterField(page: import('@playwright/test').Page, label: string) {
-  return page.locator('.logs-filter-grid .ant-form-item').filter({ hasText: label }).first()
+  return page.locator('.logs-filter-grid:visible .ant-form-item, .log-advanced-filters__panel:visible .ant-form-item')
+    .filter({ hasText: label })
+    .first()
+}
+
+async function openLogAdvancedFilters(page: import('@playwright/test').Page) {
+  const panel = page.locator('.log-advanced-filters__panel:visible')
+  if (!await panel.isVisible().catch(() => false)) {
+    await page.locator('.log-advanced-filters__trigger:visible').click()
+    await expect(panel).toBeVisible()
+  }
 }
 
 function appHeader(page: import('@playwright/test').Page) {
@@ -157,8 +167,8 @@ async function readTabLabels(page: import('@playwright/test').Page) {
 }
 
 async function readActiveTabLabel(page: import('@playwright/test').Page) {
-  return page.locator('.admin-layout__tabbar .ant-tabs-tab-active .ant-tabs-tab-btn').evaluate((node) => (
-    node.textContent?.trim() ?? ''
+  return page.locator('.admin-layout__tabbar .ant-tabs-tab-active .ant-tabs-tab-btn').evaluateAll((nodes) => (
+    nodes[0]?.textContent?.trim() ?? ''
   ))
 }
 
@@ -175,11 +185,11 @@ async function openStandardTabs(page: import('@playwright/test').Page) {
   await page.goto('/')
   await expect(page.getByRole('heading', { name: '系统状态', level: 1 })).toBeVisible()
 
-  await navigateThroughMenu(page, '权限策略', '运维')
+  await navigateThroughMenu(page, '权限策略', '治理')
   await expect(page.getByRole('heading', { name: '权限策略', level: 1 })).toBeVisible()
   await expect.poll(() => readTabLabels(page)).toEqual(['系统状态', '权限策略'])
 
-  await navigateThroughMenu(page, '实时日志', '日志中心')
+  await navigateThroughMenu(page, '实时日志', '运行与诊断')
   await expect(page.getByRole('heading', { name: '实时日志', level: 1 })).toBeVisible()
 
   await expect.poll(() => readTabLabels(page)).toEqual(['系统状态', '权限策略', '实时日志'])
@@ -223,6 +233,7 @@ async function expectRepeatedLogFilterControls(page: import('@playwright/test').
   await expect(levelTags.filter({ hasText: 'warn' })).toHaveCount(1)
   await expect(levelTags.filter({ hasText: 'error' })).toHaveCount(1)
 
+  await openLogAdvancedFilters(page)
   const pluginTags = logFilterField(page, '插件').locator('.ant-select-selection-item-content')
   await expect(pluginTags.filter({ hasText: 'weather' })).toHaveCount(1)
   await expect(pluginTags.filter({ hasText: 'raylea.echo' })).toHaveCount(1)
@@ -375,14 +386,16 @@ test('authentication surface keeps theme controls and credentials reachable on a
   const authSurface = page.locator('.auth-layout__surface')
   await expect(page.getByRole('heading', { name: '登录', level: 1 })).toBeVisible()
   await expect(authSurface.getByTestId('auth-theme-toggle')).toBeVisible()
-  await expect(themeToggle).toHaveAttribute('aria-label', '切换到暗色主题')
+  await expect(themeToggle).toHaveAttribute('aria-label', '主题模式：跟随系统')
   await expectDocumentWithinViewport(page)
 
   await themeToggle.focus()
   await page.keyboard.press('Enter')
+  await page.getByRole('menuitem', { name: '暗色' }).click()
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark')
-  await expect(themeToggle).toHaveAttribute('aria-label', '切换到亮色主题')
+  await expect(themeToggle).toHaveAttribute('aria-label', '主题模式：暗色')
 
+  await themeToggle.focus()
   await page.keyboard.press('Tab')
   await expect(page.getByLabel('管理员账号')).toBeFocused()
   await page.getByLabel('管理员密钥').fill('fixture-only-secret')
@@ -433,8 +446,8 @@ test('plugin management flow covers install, manifest detail and console recover
   await page.goto('/plugins')
   await expect(page.locator('#app-main').getByRole('heading', { name: '插件列表', level: 1 })).toBeVisible()
   await expect(pluginRows(page).first()).toBeVisible()
-  await expect(page.locator('.plugins-data-table')).toContainText('example-config-panel')
-  await expect(page.locator('.plugins-data-table')).toContainText('weather')
+  await expect(page.locator('.plugins-grid')).toContainText('example-config-panel')
+  await expect(page.locator('.plugins-grid')).toContainText('weather')
 
   await page.getByRole('button', { name: '安装插件' }).click()
   const installDialog = page.getByRole('dialog', { name: '安装插件' })
@@ -710,6 +723,8 @@ test('history logs stay frozen until a new anchor is loaded', async ({ page, req
 
   await page.goto('/logs/history')
   await expect(page.getByRole('heading', { name: '历史日志', level: 1 })).toBeVisible()
+  await openLogAdvancedFilters(page)
+  await expect(page.locator('.logs-toolbar .log-advanced-filters__panel')).toHaveCount(0)
   await page.getByPlaceholder('例如 req_*').fill('req_logs_history_e2e')
   await page.getByRole('button', { name: '应用筛选' }).click()
 
@@ -775,6 +790,7 @@ test('current logs reveal older rows after scrolling to the top edge', async ({ 
 
   await page.goto('/logs')
   await expect(page.getByRole('heading', { name: '实时日志', level: 1 })).toBeVisible()
+  await openLogAdvancedFilters(page)
   await page.getByPlaceholder('例如 req_*').fill('req_logs_current_scroll_e2e')
   await Promise.all([
     page.waitForResponse((response) => (
@@ -831,6 +847,7 @@ test('current logs keep following new rows while follow mode stays active', asyn
 
   await page.goto('/logs')
   await expect(page.getByRole('heading', { name: '实时日志', level: 1 })).toBeVisible()
+  await openLogAdvancedFilters(page)
   await page.getByPlaceholder('例如 req_*').fill('req_live_follow_keep')
   await Promise.all([
     page.waitForResponse((response) => (
@@ -898,6 +915,7 @@ test('current logs stop following immediately when the user scrolls upward durin
 
   await page.goto('/logs')
   await expect(page.getByRole('heading', { name: '实时日志', level: 1 })).toBeVisible()
+  await openLogAdvancedFilters(page)
   await page.getByPlaceholder('例如 req_*').fill('req_live_follow_pause')
   await Promise.all([
     page.waitForResponse((response) => (
@@ -991,6 +1009,7 @@ test('current logs do not snap back to the bottom when scrolling upward without 
 
   await page.goto('/logs')
   await expect(page.getByRole('heading', { name: '实时日志', level: 1 })).toBeVisible()
+  await openLogAdvancedFilters(page)
   await page.getByPlaceholder('例如 req_*').fill('req_scroll_hold')
   await Promise.all([
     page.waitForResponse((response) => (
@@ -1047,6 +1066,7 @@ test('history logs reveal older rows after scrolling to the top edge', async ({ 
 
   await page.goto('/logs/history')
   await expect(page.getByRole('heading', { name: '历史日志', level: 1 })).toBeVisible()
+  await openLogAdvancedFilters(page)
   await page.getByPlaceholder('例如 req_*').fill('req_logs_history_scroll_e2e')
   await Promise.all([
     page.waitForResponse((response) => (
@@ -1091,8 +1111,9 @@ test('logs page reloads the latest page after hidden updates arrive', async ({ p
   await resetBackend(request, true)
   await login(page)
 
-  await navigateThroughMenu(page, '实时日志', '日志中心')
+  await navigateThroughMenu(page, '实时日志', '运行与诊断')
   await expect(page.getByRole('heading', { name: '实时日志', level: 1 })).toBeVisible()
+  await openLogAdvancedFilters(page)
   await page.getByPlaceholder('例如 req_*').fill('req_logs_reactivate_e2e')
   await Promise.all([
     page.waitForResponse((response) => (
@@ -1104,7 +1125,7 @@ test('logs page reloads the latest page after hidden updates arrive', async ({ p
   ])
   await expect(page.locator('.logs-row__message', { hasText: 'reactivate latest row' })).toHaveCount(0)
 
-  await navigateThroughMenu(page, '插件列表', '插件中心')
+  await navigateThroughMenu(page, '插件列表', '功能与插件')
   await expect(page.getByRole('heading', { name: '插件列表', level: 1 })).toBeVisible()
 
   await request.post(`${backendUrl}/__test/push-log`, {
@@ -1120,7 +1141,7 @@ test('logs page reloads the latest page after hidden updates arrive', async ({ p
     },
   })
 
-  await navigateThroughMenu(page, '实时日志', '日志中心')
+  await navigateThroughMenu(page, '实时日志', '运行与诊断')
   await expect(page.getByRole('heading', { name: '实时日志', level: 1 })).toBeVisible()
   await expect(page.locator('.logs-row__message', { hasText: 'reactivate latest row' }).first()).toBeVisible()
   await expect(page.getByText('跟随最新')).toBeVisible()
@@ -1170,6 +1191,7 @@ test('unsafe OneBot text stays escaped in current logs and history logs', async 
 
   await page.goto('/logs')
   await expect(page.getByRole('heading', { name: '实时日志', level: 1 })).toBeVisible()
+  await openLogAdvancedFilters(page)
   await page.getByPlaceholder('例如 req_*').fill('req_bridge_unsafe_0001')
   await page.getByRole('button', { name: '应用筛选' }).click()
 
@@ -1191,6 +1213,7 @@ test('unsafe OneBot text stays escaped in current logs and history logs', async 
 
   await page.goto('/logs/history')
   await expect(page.getByRole('heading', { name: '历史日志', level: 1 })).toBeVisible()
+  await openLogAdvancedFilters(page)
   await page.getByPlaceholder('例如 req_*').fill('req_bridge_unsafe_0001')
   await page.getByRole('button', { name: '应用筛选' }).click()
   const unsafeHistoryMessage = page.locator('.logs-row__message', { hasText: '测试群名片' }).first()
@@ -1232,7 +1255,7 @@ test('rate limits page edits chat and outbound limits', async ({ page, request }
   await resetBackend(request, true)
   await login(page)
 
-  await navigateThroughMenu(page, '限流中心', '运维')
+  await navigateThroughMenu(page, '限流中心', '治理')
   await expect(page.getByRole('heading', { name: '限流中心', level: 1 })).toBeVisible()
   await expect(page.getByTestId('rate-limits-unsaved-status')).toHaveCount(0)
 
@@ -1274,7 +1297,7 @@ test('plugin settings page edits plugin global config', async ({ page, request }
   await resetBackend(request, true)
   await login(page)
 
-  await navigateThroughMenu(page, '插件设置', '插件中心')
+  await navigateThroughMenu(page, '插件设置', '功能与插件')
   await expect(page.getByRole('heading', { name: '插件设置', level: 1 })).toBeVisible()
   await expect(page.getByTestId('plugin-settings-unsaved-status')).toHaveCount(0)
 
@@ -1398,17 +1421,21 @@ test('protocol center owns OneBot settings and logs center keeps protocol filter
   await expect(page.getByText('当前正式支持协议：OneBot11')).toBeVisible()
   await expect(page.getByText('OneBot11 主动连接已就绪')).toBeVisible()
   await expect(page.locator('.integrated-protocol-table')).toContainText('主动连接 WebSocket')
+  await expect(page.getByTestId('protocol-unsaved-status')).toHaveCount(0)
 
   const reverseTransportRow = page.locator('.integrated-protocol-table tr').filter({ hasText: '回连 WebSocket' }).first()
-  await page.getByLabel('回连地址').fill('wss://bot.example.com/reverse/onebot')
+  await reverseTransportRow.getByLabel('回连地址').fill('wss://bot.example.com/reverse/onebot')
+  await expect(page.getByTestId('protocol-unsaved-status')).toContainText('协议设置尚未保存')
+  await expect(page.locator('.ant-drawer')).toHaveCount(0)
   await page.getByText('展开更多配置项').click()
   await page.getByLabel('连接超时（秒）').fill('18')
   const firstProtocolSaveResponsePromise = page.waitForResponse((response) => (
     response.request().method() === 'PUT'
     && response.url().endsWith('/api/config')
   ))
-  await page.getByRole('button', { name: '保存协议设置' }).click()
+  await page.getByTestId('protocol-save').click()
   expect((await firstProtocolSaveResponsePromise).status()).toBe(200)
+  await expect(page.getByTestId('protocol-unsaved-status')).toHaveCount(0)
   await expect(reverseTransportRow).toContainText('未启用')
 
   await page.reload()
@@ -1420,16 +1447,18 @@ test('protocol center owns OneBot settings and logs center keeps protocol filter
     response.request().method() === 'PUT'
     && response.url().endsWith('/api/config')
   ))
-  await page.getByRole('button', { name: '保存协议设置' }).click()
+  await page.getByTestId('protocol-save').click()
   expect((await secondProtocolSaveResponsePromise).status()).toBe(200)
   await expect(page.locator('.integrated-protocol-table tr').filter({ hasText: '回连 WebSocket' }).first()).toContainText('等待 OneBot 回连')
   await expect(page.getByRole('button', { name: '查看实时日志' })).toBeVisible()
 
   await page.goto('/logs')
   await expect(page.getByRole('heading', { name: '实时日志', level: 1 })).toBeVisible()
-  await expect(page.locator('.logs-toolbar').getByText('协议')).toHaveCount(1)
+  await expect(page.getByRole('button', { name: '更多筛选' })).toBeVisible()
 
-  const protocolField = page.locator('.logs-filter-grid .ant-form-item').filter({ hasText: '协议' })
+  await openLogAdvancedFilters(page)
+  const protocolField = logFilterField(page, '协议')
+  await expect(protocolField).toBeVisible()
   await protocolField.locator('.ant-select').click()
   await page.getByTitle('OneBot11').click()
   await page.getByRole('button', { name: '应用筛选' }).click()
@@ -1588,6 +1617,7 @@ test('logs pages load plugin options only when the plugin filter is opened', asy
   await page.waitForTimeout(200)
   expect(pluginRequests).toHaveLength(0)
 
+  await openLogAdvancedFilters(page)
   await Promise.all([
     page.waitForResponse((response) => (
       response.request().method() === 'GET'
@@ -1597,11 +1627,12 @@ test('logs pages load plugin options only when the plugin filter is opened', asy
   ])
   expect(pluginRequests).toHaveLength(1)
 
-  await navigateThroughMenu(page, '历史日志', '日志中心')
+  await navigateThroughMenu(page, '历史日志', '运行与诊断')
   await expect(page.getByRole('heading', { name: '历史日志', level: 1 })).toBeVisible()
   await page.waitForTimeout(200)
   expect(pluginRequests).toHaveLength(1)
 
+  await openLogAdvancedFilters(page)
   await logFilterField(page, '插件').locator('.ant-select').click()
   await page.waitForTimeout(200)
   expect(pluginRequests).toHaveLength(1)
@@ -1758,12 +1789,11 @@ test('breadcrumb and tabbar track leaf pages instead of hidden route groups', as
   await resetBackend(request, true)
   await login(page)
 
-  await expect(page.locator('.admin-layout__header-breadcrumb .admin-layout__breadcrumb-link')).toHaveCount(0)
-  await expect(page.locator('.admin-layout__header-breadcrumb .admin-layout__breadcrumb-current')).toHaveText('系统状态')
+  await expect(page.locator('.admin-layout__header-breadcrumb')).toHaveCount(0)
 
   await page.goto('/permission-policy')
   await expect(page.getByRole('heading', { name: '权限策略', level: 1 })).toBeVisible()
-  await expect(page.locator('.admin-layout__header-breadcrumb').getByRole('link', { name: '运维' })).toHaveAttribute('href', '/permission-policy')
+  await expect(page.locator('.admin-layout__header-breadcrumb').getByRole('link', { name: '治理' })).toHaveAttribute('href', '/permission-policy')
   await expect(page.locator('.admin-layout__breadcrumb-current')).toHaveText('权限策略')
   await expect(page.getByRole('tab', { name: '权限策略' })).toBeVisible()
 
@@ -1771,28 +1801,28 @@ test('breadcrumb and tabbar track leaf pages instead of hidden route groups', as
   expect(tabLabels).toEqual(['系统状态', '权限策略'])
   expect(await readTabIconKeys(page)).toEqual(['dashboard', 'permission-policy'])
   expect(await readActiveTabLabel(page)).toBe('权限策略')
-  await expect(page.locator('.admin-layout__sider .ant-menu-submenu-open').filter({ hasText: '运维' }).locator('.ant-menu-item .admin-layout__menu-icon')).toHaveCount(4)
+  await expect(page.locator('.admin-layout__sider .ant-menu-submenu-open').filter({ hasText: '治理' }).locator('.ant-menu-item .admin-layout__menu-icon')).toHaveCount(3)
 
   await page.goto('/commands')
   await expect(page.getByRole('heading', { name: '指令中心', level: 1 })).toBeVisible()
   tabLabels = await readTabLabels(page)
-  expect(tabLabels).toEqual(['系统状态', '指令中心'])
-  expect(await readTabIconKeys(page)).toEqual(['dashboard', 'commands'])
+  expect(tabLabels).toEqual(expect.arrayContaining(['系统状态', '权限策略', '指令中心']))
+  expect(await readTabIconKeys(page)).toEqual(expect.arrayContaining(['dashboard', 'permission-policy', 'commands']))
   expect(await readActiveTabLabel(page)).toBe('指令中心')
-  await expect(page.locator('.admin-layout__sider .ant-menu-submenu-open').filter({ hasText: '插件中心' }).locator('.ant-menu-item .admin-layout__menu-icon')).toHaveCount(3)
+  await expect(page.locator('.admin-layout__sider .ant-menu-submenu-open').filter({ hasText: '功能与插件' }).locator('.ant-menu-item .admin-layout__menu-icon')).toHaveCount(4)
 
   await page.goto('/logs')
   await expect(page.getByRole('heading', { name: '实时日志', level: 1 })).toBeVisible()
   tabLabels = await readTabLabels(page)
-  expect(tabLabels).toEqual(['系统状态', '实时日志'])
-  expect(await readTabIconKeys(page)).toEqual(['dashboard', 'logs'])
+  expect(tabLabels).toEqual(expect.arrayContaining(['系统状态', '权限策略', '指令中心', '实时日志']))
+  expect(await readTabIconKeys(page)).toEqual(expect.arrayContaining(['dashboard', 'permission-policy', 'commands', 'logs']))
   expect(await readActiveTabLabel(page)).toBe('实时日志')
 
   await page.goto('/protocols')
   await expect(page.getByRole('heading', { name: '协议中心', level: 1 })).toBeVisible()
   expect(await readActiveTabLabel(page)).toBe('协议中心')
   expect(await readTabLabels(page)).toContain('协议中心')
-  await expect(page.locator('.admin-layout__sider .ant-menu-submenu-open').filter({ hasText: '协议' }).locator('.ant-menu-item .admin-layout__menu-icon')).toHaveCount(2)
+  await expect(page.locator('.admin-layout__sider .ant-menu-submenu-open').filter({ hasText: '账号与连接' }).locator('.ant-menu-item .admin-layout__menu-icon')).toHaveCount(3)
 
   await page.goto('/config')
   await expect(page.getByRole('heading', { name: '配置', level: 1 })).toBeVisible()
@@ -1853,8 +1883,9 @@ test('tab context menu closes tabs relative to the clicked tab', async ({ page, 
   await openTabContextMenu(page, '权限策略')
   await clickTabContextAction(page, '关闭所有标签')
   await expect(page).toHaveURL(/\/$/)
-  expect(await readTabLabels(page)).toEqual(['系统状态'])
-  expect(await readActiveTabLabel(page)).toBe('系统状态')
+  await expect(page.getByRole('heading', { name: '系统状态', level: 1 })).toBeVisible()
+  expect(await readTabLabels(page)).toEqual([])
+  expect(await readActiveTabLabel(page)).toBe('')
 })
 
 test('login keeps the protected shell after reload', async ({ page, request }) => {
@@ -1963,13 +1994,13 @@ test('error recovery covers retry and uninstall failure', async ({ page, request
   await login(page)
 
   await page.goto('/plugins')
-  await expect(page.getByRole('heading', { name: '哎呀！出错了' })).toBeVisible()
+  await expect(page.locator('.retry-panel__inline')).toBeVisible()
   await page.getByRole('button', { name: /重\s*试/ }).click({ force: true })
   await expect(page.getByText('weather').first()).toBeVisible()
 
   const weatherRow = pluginRows(page).filter({ hasText: 'Weather' })
   await weatherRow.getByRole('button', { name: '查看详情' }).click()
-  await expect(page.getByRole('heading', { name: '哎呀！出错了' })).toBeVisible()
+  await expect(page.locator('.retry-panel__inline')).toBeVisible()
   await page.getByRole('button', { name: /重\s*试/ }).click({ force: true })
   await expect(page.getByRole('heading', { name: 'weather' })).toBeVisible()
 
@@ -2001,7 +2032,8 @@ test('shutdown flow shows the draining toast', async ({ page, request }) => {
   await resetBackend(request, true)
   await login(page)
 
-  await page.getByRole('button', { name: '关闭服务' }).click({ force: true })
+  await page.getByRole('button', { name: '更多操作' }).click()
+  await page.getByRole('menuitem', { name: '关闭服务' }).click()
   await page.getByRole('button', { name: '确认关闭' }).click()
 
   await expect(page.locator('.ant-message')).toContainText('停机请求已发送')
@@ -2015,7 +2047,7 @@ test('mobile navigation and card layouts remain usable', async ({ page, request 
   await login(page)
 
   await page.getByRole('button', { name: '打开菜单' }).click()
-  const mobilePluginGroup = page.locator('.ant-drawer-content .ant-menu-submenu').filter({ hasText: '插件中心' }).first()
+  const mobilePluginGroup = page.locator('.ant-drawer-content .ant-menu-submenu').filter({ hasText: '功能与插件' }).first()
   const mobilePluginListItem = mobilePluginGroup.locator('.ant-menu-item').filter({ hasText: '插件列表' }).first()
   if (!await mobilePluginListItem.isVisible().catch(() => false)) {
     await mobilePluginGroup.locator('.ant-menu-submenu-title').click()
@@ -2025,7 +2057,7 @@ test('mobile navigation and card layouts remain usable', async ({ page, request 
   await expect(pluginRows(page).first()).toBeVisible()
 
   await page.getByRole('button', { name: '打开菜单' }).click()
-  const mobilePluginSettingsGroup = page.locator('.ant-drawer-content .ant-menu-submenu').filter({ hasText: '插件中心' }).first()
+  const mobilePluginSettingsGroup = page.locator('.ant-drawer-content .ant-menu-submenu').filter({ hasText: '功能与插件' }).first()
   const mobilePluginSettingsItem = mobilePluginSettingsGroup.locator('.ant-menu-item').filter({ hasText: '插件设置' }).first()
   if (!await mobilePluginSettingsItem.isVisible().catch(() => false)) {
     await mobilePluginSettingsGroup.locator('.ant-menu-submenu-title').click()

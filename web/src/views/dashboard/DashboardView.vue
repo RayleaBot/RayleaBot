@@ -212,7 +212,7 @@ useToastFeedback(protocolIssueToast)
 </script>
 
 <template>
-  <AppPage :title="t('dashboard.title')">
+  <AppPage :title="t('dashboard.title')" width="detail">
     <RetryPanel
       v-if="error && !system"
       :title="t('routes.status')"
@@ -458,8 +458,27 @@ useToastFeedback(protocolIssueToast)
 
 .dashboard-bottom-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-  gap: var(--space-lg);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--app-card-radius);
+  background: var(--surface-strong);
+}
+
+.dashboard-bottom-grid :deep(.ant-card) {
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  background: transparent;
+}
+
+.dashboard-bottom-grid :deep(.ant-card:nth-child(even)) {
+  border-inline-start: 1px solid var(--border);
+}
+
+.dashboard-bottom-grid :deep(.ant-card:nth-child(n + 3)) {
+  border-top: 1px solid var(--border);
 }
 
 .dashboard-activity-card {
@@ -467,11 +486,6 @@ useToastFeedback(protocolIssueToast)
   border: 1px solid var(--border);
   background: var(--surface-strong);
   box-shadow: var(--shadow-xs);
-  transition: border-color 150ms ease;
-
-  &:hover {
-    border-color: var(--border-accent);
-  }
 }
 
 .dashboard-activity-card :deep(.ant-card-body) {
@@ -535,14 +549,7 @@ useToastFeedback(protocolIssueToast)
 }
 
 .events-timeline-wrapper--collapsed::after {
-  content: '';
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  height: 60px;
-  background: linear-gradient(transparent, var(--surface-strong));
-  pointer-events: none;
+  display: none;
 }
 
 .events-toggle {
@@ -609,7 +616,7 @@ useToastFeedback(protocolIssueToast)
 .events-timeline__time {
   flex-shrink: 0;
   color: var(--muted);
-  font-size: 0.76rem;
+  font-size: 13px;
   font-weight: 500;
   white-space: nowrap;
 }
@@ -631,38 +638,21 @@ useToastFeedback(protocolIssueToast)
   border-radius: var(--radius-lg);
   border: 1px solid var(--border);
   background: var(--surface-soft);
-  transition: border-color 150ms ease, background-color 150ms ease;
-
-  &:hover {
-    border-color: var(--border-accent);
-  }
 }
 
 .readiness-check--success {
   border-color: var(--border-success);
   background: var(--surface-success);
-  &:hover {
-    border-color: var(--success);
-    box-shadow: 0 4px 12px -4px color-mix(in srgb, var(--success) 20%, transparent);
-  }
 }
 
 .readiness-check--warning {
   border-color: var(--border-warning);
   background: var(--surface-warning);
-  &:hover {
-    border-color: var(--warning);
-    box-shadow: 0 4px 12px -4px color-mix(in srgb, var(--warning) 20%, transparent);
-  }
 }
 
 .readiness-check--danger {
   border-color: var(--border-danger);
   background: var(--surface-danger);
-  &:hover {
-    border-color: var(--danger);
-    box-shadow: 0 4px 12px -4px color-mix(in srgb, var(--danger) 20%, transparent);
-  }
 }
 
 .readiness-check__header {
@@ -683,7 +673,7 @@ useToastFeedback(protocolIssueToast)
 }
 
 .readiness-check__value {
-  font-size: 0.84rem;
+  font-size: 13px;
   color: var(--muted);
   font-weight: 500;
   line-height: 1.4;
@@ -703,12 +693,7 @@ useToastFeedback(protocolIssueToast)
   border-radius: var(--radius-lg);
   border: 1px solid var(--border);
   background: var(--surface-soft);
-  box-shadow: var(--shadow-xs);
-  transition: border-color 150ms ease, background-color 150ms ease;
-
-  &:hover {
-    border-color: var(--border-accent);
-  }
+  box-shadow: none;
 }
 
 .diagnostics-subsystem--success {
@@ -756,7 +741,7 @@ useToastFeedback(protocolIssueToast)
 .diagnostics-subsystem__detail {
   min-width: 0;
   color: var(--muted);
-  font-size: 0.8rem;
+  font-size: 13px;
   font-weight: 500;
   line-height: 1.45;
   overflow-wrap: anywhere;
@@ -780,21 +765,20 @@ useToastFeedback(protocolIssueToast)
   border-radius: var(--radius-lg);
   border: 1px solid var(--border);
   background: var(--surface-soft);
-  box-shadow: var(--shadow-xs);
-  border-left-width: 4px;
+  box-shadow: none;
 }
 
 .diagnostics-issue-card--success {
-  border-left-color: var(--success);
+  border-color: color-mix(in srgb, var(--success) 28%, var(--border));
 }
 
 .diagnostics-issue-card--warning {
-  border-left-color: var(--warning);
+  border-color: color-mix(in srgb, var(--warning) 28%, var(--border));
   background: color-mix(in srgb, var(--warning) 5%, var(--surface-soft));
 }
 
 .diagnostics-issue-card--danger {
-  border-left-color: var(--danger);
+  border-color: color-mix(in srgb, var(--danger) 28%, var(--border));
   background: color-mix(in srgb, var(--danger) 5%, var(--surface-soft));
 }
 
@@ -830,7 +814,7 @@ useToastFeedback(protocolIssueToast)
   dt {
     margin-bottom: 4px;
     color: var(--muted);
-    font-size: 0.72rem;
+    font-size: 13px;
     font-weight: 800;
   }
 
@@ -857,14 +841,7 @@ useToastFeedback(protocolIssueToast)
 }
 
 .issues-list--collapsed::after {
-  content: '';
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  height: 60px;
-  background: linear-gradient(transparent, var(--surface-strong));
-  pointer-events: none;
+  display: none;
 }
 
 .issues-toggle {
@@ -879,34 +856,13 @@ useToastFeedback(protocolIssueToast)
   border-radius: var(--radius-lg);
   border: 1px solid var(--border);
   background: color-mix(in srgb, var(--danger) 5%, var(--surface-soft));
-  box-shadow: var(--shadow-xs);
-  position: relative;
-  overflow: hidden;
-  transition: border-color 150ms ease, background-color 150ms ease;
-
-  &::before {
-    content: '';
-    position: absolute;
-    inset: 0 auto 0 0;
-    width: 4px;
-    background: var(--danger);
-  }
-
-  &:hover {
-    border-color: color-mix(in srgb, var(--danger) 30%, var(--border));
-  }
+  border-color: color-mix(in srgb, var(--danger) 28%, var(--border));
+  box-shadow: none;
 }
 
 .issue-alert-card--warning {
+  border-color: color-mix(in srgb, var(--warning) 28%, var(--border));
   background: color-mix(in srgb, var(--warning) 5%, var(--surface-soft));
-
-  &::before {
-    background: var(--warning);
-  }
-
-  &:hover {
-    border-color: color-mix(in srgb, var(--warning) 30%, var(--border));
-  }
 }
 
 .issue-alert-card__header {
@@ -933,44 +889,21 @@ useToastFeedback(protocolIssueToast)
   border-radius: var(--radius-xl);
   border: 1px solid var(--border);
   background: var(--surface-strong);
-  box-shadow: var(--shadow-xs);
-  transition: border-color 150ms ease;
-
-  &:hover {
-    border-color: var(--border-accent);
-  }
+  box-shadow: none;
 }
 
 .dashboard-runtime-item {
-  position: relative;
   display: grid;
   gap: 4px;
   padding: 14px;
   border-radius: var(--radius-lg);
   border: 1px solid var(--border);
   background: var(--surface-soft);
-  box-shadow: var(--shadow-xs);
-  transition: border-color 150ms ease, background-color 150ms ease;
-  overflow: hidden;
-
-  &::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 3px;
-    height: 100%;
-    background: var(--border-accent);
-    opacity: 0.7;
-  }
-
-  &:hover {
-    border-color: var(--border-accent);
-  }
+  box-shadow: none;
 
   span {
     color: var(--muted);
-    font-size: 0.75rem;
+    font-size: 13px;
     font-weight: 700;
     letter-spacing: 0.04em;
     text-transform: uppercase;
@@ -986,7 +919,7 @@ useToastFeedback(protocolIssueToast)
   small {
     color: var(--muted);
     line-height: 1.45;
-    font-size: 0.78rem;
+    font-size: 13px;
     font-weight: 500;
   }
 }
@@ -1007,6 +940,14 @@ useToastFeedback(protocolIssueToast)
   .dashboard-main-grid,
   .dashboard-bottom-grid {
     grid-template-columns: 1fr;
+  }
+
+  .dashboard-bottom-grid :deep(.ant-card:nth-child(even)) {
+    border-inline-start: 0;
+  }
+
+  .dashboard-bottom-grid :deep(.ant-card + .ant-card) {
+    border-top: 1px solid var(--border);
   }
 }
 

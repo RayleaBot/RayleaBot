@@ -246,7 +246,7 @@ async function save() {
 </script>
 
 <template>
-  <AppPage :title="t('plugins.settings.title')">
+  <AppPage :title="t('plugins.settings.title')" width="form">
     <template #extra>
       <div class="table-actions">
         <a-button
@@ -478,9 +478,9 @@ async function save() {
 }
 
 .plugin-settings-status-pill--dirty {
-  color: color-mix(in srgb, var(--warning) 72%, #7c2d12);
-  background: color-mix(in srgb, var(--surface-warning) 86%, white);
-  border: 1px solid color-mix(in srgb, var(--warning) 35%, var(--border));
+  color: var(--text-attention);
+  background: var(--surface-attention);
+  border: 1px solid var(--border-attention);
 }
 
 .plugin-settings-status-pill--saved {
@@ -584,7 +584,7 @@ async function save() {
   background: transparent;
   color: var(--muted);
   cursor: help;
-  font-size: 0.8rem;
+  font-size: 13px;
   font-weight: bold;
   opacity: 0.7;
   width: 18px;
@@ -687,9 +687,8 @@ async function save() {
 }
 
 .plugin-settings-rate-preview__label {
-  font-size: 0.75rem;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  font-size: 13px;
+  letter-spacing: 0;
   color: var(--accent);
 }
 

@@ -142,7 +142,7 @@ function emitIfValid() {
 
   span {
     color: var(--muted);
-    font-size: 0.78rem;
+    font-size: 13px;
     font-weight: 600;
     line-height: 1.35;
   }
@@ -166,7 +166,7 @@ function emitIfValid() {
 .rate-limit-input__error {
   margin: 0;
   color: var(--danger);
-  font-size: 0.8rem;
+  font-size: 13px;
   line-height: 1.45;
 }
 

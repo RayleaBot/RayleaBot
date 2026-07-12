@@ -1,9 +1,10 @@
-import { computed, ref } from 'vue'
+import { computed, onScopeDispose, ref } from 'vue'
 import { defineStore } from 'pinia'
 
 import {
   defaultLayoutPreferences,
   type LayoutPreferences,
+  type ResolvedThemeMode,
   type ThemeMode,
   normalizeLayoutPreferences,
 } from '@/preferences/app'
@@ -22,15 +23,24 @@ interface PersistedShellState {
   preferences?: Partial<LayoutPreferences>
   siderCollapsed?: boolean
   tabs?: ShellTabItem[]
-  version: 2
+  version: 3
 }
 
 const storageKey = 'rayleabot.ui-shell'
+const systemThemeQuery = '(prefers-color-scheme: dark)'
+
+function readSystemTheme(): ResolvedThemeMode {
+  if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
+    return 'light'
+  }
+
+  return window.matchMedia(systemThemeQuery).matches ? 'dark' : 'light'
+}
 
 function readPersistedState(): PersistedShellState {
   if (typeof window === 'undefined') {
     return {
-      version: 2,
+      version: 3,
     }
   }
 
@@ -39,7 +49,7 @@ function readPersistedState(): PersistedShellState {
     return normalizePersistedState(raw ? JSON.parse(raw) : null)
   } catch {
     return {
-      version: 2,
+      version: 3,
     }
   }
 }
@@ -55,19 +65,19 @@ function writePersistedState(state: PersistedShellState) {
 function normalizePersistedState(value: unknown): PersistedShellState {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
     return {
-      version: 2,
+      version: 3,
     }
   }
 
-  if (!('version' in value) || value.version !== 2) {
+  if (!('version' in value) || (value.version !== 2 && value.version !== 3)) {
     return {
-      version: 2,
+      version: 3,
     }
   }
 
   const nextValue = value as Partial<PersistedShellState>
   return {
-    version: 2,
+    version: 3,
     preferences: normalizeLayoutPreferences(nextValue.preferences),
     siderCollapsed: Boolean(nextValue.siderCollapsed),
     tabs: normalizeTabs(nextValue.tabs),
@@ -128,10 +138,14 @@ export const useUiShellStore = defineStore('ui-shell', () => {
   const searchOpen = ref(false)
   const settingsOpen = ref(false)
   const routeLoading = ref(false)
+  const systemTheme = ref<ResolvedThemeMode>(readSystemTheme())
   const tabs = ref<ShellTabItem[]>(
     normalizeTabs(preferences.value.rememberTabs ? persistedState.tabs : []),
   )
   const themeMode = computed(() => preferences.value.themeMode)
+  const resolvedThemeMode = computed<ResolvedThemeMode>(() => (
+    themeMode.value === 'system' ? systemTheme.value : themeMode.value
+  ))
   const cachedViewNames = computed(() => {
     const names = tabs.value
       .filter((item) => item.keepAlive)
@@ -141,9 +155,23 @@ export const useUiShellStore = defineStore('ui-shell', () => {
   })
   const effectiveCachedViewNames = computed(() => cachedViewNames.value)
 
+  let systemThemeMediaQuery: MediaQueryList | null = null
+  const handleSystemThemeChange = (event: MediaQueryListEvent) => {
+    systemTheme.value = event.matches ? 'dark' : 'light'
+  }
+
+  if (typeof window !== 'undefined' && typeof window.matchMedia === 'function') {
+    systemThemeMediaQuery = window.matchMedia(systemThemeQuery)
+    systemThemeMediaQuery.addEventListener?.('change', handleSystemThemeChange)
+  }
+
+  onScopeDispose(() => {
+    systemThemeMediaQuery?.removeEventListener?.('change', handleSystemThemeChange)
+  })
+
   function persist() {
     writePersistedState({
-      version: 2,
+      version: 3,
       preferences: preferences.value,
       siderCollapsed: siderCollapsed.value,
       tabs: preferences.value.rememberTabs ? tabs.value : undefined,
@@ -172,7 +200,7 @@ export const useUiShellStore = defineStore('ui-shell', () => {
   }
 
   function toggleThemeMode() {
-    setThemeMode(themeMode.value === 'dark' ? 'light' : 'dark')
+    setThemeMode(resolvedThemeMode.value === 'dark' ? 'light' : 'dark')
   }
 
   function syncTabs(affixTabs: ShellTabItem[]) {
@@ -297,6 +325,7 @@ export const useUiShellStore = defineStore('ui-shell', () => {
     closeTabsToRight,
     mobileMenuOpen,
     preferences,
+    resolvedThemeMode,
     patchPreferences,
     resetPreferences,
     resetRestoredTabs,

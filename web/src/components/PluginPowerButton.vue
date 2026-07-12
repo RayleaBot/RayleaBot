@@ -100,9 +100,9 @@ function handleClick(event: MouseEvent) {
 }
 
 .plugin-holo-button--compact {
-  --button-width: 78px;
-  --button-height: 28px;
-  --thumb-size: 22px;
+  --button-width: 92px;
+  --button-height: 36px;
+  --thumb-size: 28px;
 }
 
 .plugin-holo-button:hover:not(:disabled):not(.is-checked) .plugin-holo-button__track {
@@ -198,11 +198,11 @@ function handleClick(event: MouseEvent) {
   line-height: 1;
   white-space: nowrap;
   letter-spacing: 0.04em;
-  transition: opacity 150ms ease, transform 150ms ease;
+  transition: opacity var(--motion-fast) var(--motion-easing);
 }
 
 .plugin-holo-button--compact .plugin-holo-button__text {
-  font-size: 11px;
+  font-size: 13px;
 }
 
 .plugin-holo-button__text--off {
@@ -219,7 +219,7 @@ function handleClick(event: MouseEvent) {
   left: 14px;
   color: var(--on-text);
   opacity: 0;
-  transform: translateY(-50%) scale(0.85);
+  transform: translateY(-50%);
 }
 
 .plugin-holo-button--compact .plugin-holo-button__text--on {
@@ -239,12 +239,12 @@ function handleClick(event: MouseEvent) {
 
 .plugin-holo-button.is-checked .plugin-holo-button__text--off {
   opacity: 0;
-  transform: translateY(-50%) scale(0.85);
+  transform: translateY(-50%);
 }
 
 .plugin-holo-button.is-checked .plugin-holo-button__text--on {
   opacity: 1;
-  transform: translateY(-50%) scale(1);
+  transform: translateY(-50%);
 }
 
 @keyframes spinner {

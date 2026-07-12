@@ -464,8 +464,8 @@ describe('AccessListsPage', () => {
     await confirmModal!.vm.$emit('ok')
     await flushPromises()
 
-    expect(wrapper.text()).not.toContain('白名单已启用且当前为空')
-    expect(wrapper.text()).not.toContain('除超级管理员外，所有命令都会被挡下')
+    expect(wrapper.text()).toContain('白名单已启用且当前为空')
+    expect(wrapper.text()).toContain('除超级管理员外，所有命令都会被挡下')
     expect(toastMessages()).toContain('白名单已启用且当前为空：除超级管理员外，所有命令都会被挡下。请尽快补充条目，或先关闭白名单。')
   }, 15000)
 

@@ -2,22 +2,17 @@
 import { computed, onMounted, ref } from 'vue'
 import { storeToRefs } from 'pinia'
 import {
-  AppstoreOutlined,
-  UnorderedListOutlined,
+  FilterOutlined,
   SearchOutlined,
   PlusOutlined,
   ReloadOutlined,
-  CheckCircleOutlined,
-  PauseCircleOutlined,
-  WarningOutlined,
-  SettingOutlined,
-  EyeOutlined,
 } from '@ant-design/icons-vue'
 
 import AppCard from '@/components/AppCard.vue'
 import AppEmptyState from '@/components/AppEmptyState.vue'
 import PluginPowerButton from '@/components/PluginPowerButton.vue'
 import AppTableToolbar from '@/components/AppTableToolbar.vue'
+import AppStatusTag from '@/components/AppStatusTag.vue'
 import { notifyError, notifySuccess, useToastFeedback } from '@/adapter/feedback'
 import AppPage from '@/components/page/AppPage.vue'
 import PluginCommandsPanel from '@/components/PluginCommandsPanel.vue'
@@ -56,41 +51,12 @@ const {
 const summaryDrawerVisible = ref(false)
 const summaryPluginId = ref<string | null>(null)
 const expandedCommandPluginIds = ref(new Set<string>())
+const filterDrawerVisible = ref(false)
 
 const searchQuery = ref('')
 const filterState = ref<'all' | 'running' | 'disabled' | 'alert'>('all')
 const filterSource = ref<'all' | 'official' | 'community'>('all')
 
-const isTestEnv = computed(() => {
-  const isVitest = typeof window !== 'undefined' && ((window as any).__vitest_worker__ || (window as any).VTU_COMPONENT)
-  const isE2E = typeof navigator !== 'undefined' && navigator.webdriver
-  return Boolean(isVitest || isE2E)
-})
-
-const layoutMode = ref<'grid' | 'list'>('list')
-
-onMounted(() => {
-  if (!isTestEnv.value) {
-    layoutMode.value = (localStorage.getItem('plugins-layout-mode') as 'grid' | 'list') || 'grid'
-  }
-})
-
-function changeLayoutMode(mode: 'grid' | 'list') {
-  layoutMode.value = mode
-  if (!isTestEnv.value) {
-    localStorage.setItem('plugins-layout-mode', mode)
-  }
-}
-
-const runningCount = computed(() => sortedItems.value.filter((item) => item.state === 'running').length)
-const disabledCount = computed(() => sortedItems.value.filter((item) => item.state === 'disabled').length)
-const alertCount = computed(() =>
-  sortedItems.value.filter((item) =>
-    item.state === 'failed' ||
-    item.state === 'invalid' ||
-    (item.command_conflicts?.length ?? 0) > 0
-  ).length
-)
 const pageErrorToast = computed(() => (
   error.value
     ? {
@@ -101,36 +67,6 @@ const pageErrorToast = computed(() => (
     : null
 ))
 useToastFeedback(pageErrorToast)
-
-function getPluginGradient(id: string) {
-  const colors = [
-    ['rgba(79, 140, 255, 0.85)', 'rgba(22, 104, 220, 0.95)'], // Blue
-    ['rgba(74, 208, 125, 0.85)', 'rgba(42, 161, 95, 0.95)'],  // Green
-    ['rgba(240, 183, 62, 0.85)', 'rgba(217, 154, 28, 0.95)'],  // Yellow/Orange
-    ['rgba(239, 115, 123, 0.85)', 'rgba(225, 91, 100, 0.95)'], // Red
-    ['rgba(155, 93, 229, 0.85)', 'rgba(131, 56, 236, 0.95)'],  // Purple
-    ['rgba(0, 245, 212, 0.85)', 'rgba(0, 187, 249, 0.95)'],   // Cyan
-  ]
-  let hash = 0
-  for (let i = 0; i < id.length; i++) {
-    hash = id.charCodeAt(i) + ((hash << 5) - hash)
-  }
-  const index = Math.abs(hash) % colors.length
-  return `linear-gradient(135deg, ${colors[index][0]} 0%, ${colors[index][1]} 100%)`
-}
-
-function getPluginInitials(name: string) {
-  if (!name) return ''
-  const trimmed = name.trim()
-  if (/^[\u4e00-\u9fa5]/.test(trimmed)) {
-    return trimmed.slice(0, 2)
-  }
-  const words = trimmed.split(/[\s._-]+/)
-  if (words.length > 1) {
-    return (words[0][0] + words[1][0]).toUpperCase()
-  }
-  return trimmed.slice(0, 2).toUpperCase()
-}
 
 function isOfficialPlugin(record: (typeof sortedItems.value)[number]) {
   return record.trust?.level === 'official' || record.source?.root?.startsWith('plugins/builtin') === true
@@ -146,14 +82,20 @@ function getTrustLabel(record: (typeof sortedItems.value)[number]) {
   return record.trust?.label || t('plugins.trustLabels.thirdParty')
 }
 
-function getTrustBadgeTone(record: (typeof sortedItems.value)[number]) {
-  if (isOfficialPlugin(record)) {
-    return { label: getTrustLabel(record), color: 'blue' }
-  }
-  if (record.trust?.level === 'unverified') {
-    return { label: getTrustLabel(record), color: 'error' }
-  }
-  return { label: getTrustLabel(record), color: 'warning' }
+function getTrustColor(record: (typeof sortedItems.value)[number]) {
+  if (isOfficialPlugin(record)) return 'blue'
+  if (record.trust?.level === 'unverified') return 'warning'
+  return 'default'
+}
+
+function getPluginInitials(name: string) {
+  const normalized = name.trim()
+  if (!normalized) return 'PL'
+  if (/^[\u4e00-\u9fa5]/.test(normalized)) return normalized.slice(0, 2)
+  const words = normalized.split(/[\s._-]+/).filter(Boolean)
+  return words.length > 1
+    ? `${words[0][0]}${words[1][0]}`.toUpperCase()
+    : normalized.slice(0, 2).toUpperCase()
 }
 
 function getSourceTypeLabel(type?: string) {
@@ -199,16 +141,6 @@ const filteredItems = computed(() => {
 })
 
 const summaryPlugin = computed(() => sortedItems.value.find((item) => item.id === summaryPluginId.value) ?? null)
-const tableColumns = computed(() => [
-  { title: t('plugins.fields.plugin'), key: 'title', dataIndex: 'name', width: 240 },
-  { title: t('plugins.fields.version'), key: 'version', dataIndex: 'version', width: 96, className: 'plugin-col-responsive plugin-col-md' },
-  { title: t('plugins.fields.author'), key: 'author', dataIndex: 'author', width: 140, className: 'plugin-col-responsive plugin-col-lg' },
-  { title: t('plugins.fields.description'), key: 'description', dataIndex: 'description', width: 320, className: 'plugin-col-responsive plugin-col-lg' },
-  { title: t('plugins.fields.source'), key: 'source', dataIndex: 'source', width: 220, className: 'plugin-col-responsive plugin-col-md' },
-  { title: t('plugins.fields.commands'), key: 'commands', dataIndex: 'commands', width: 300, className: 'plugin-col-responsive plugin-col-md' },
-  { title: t('plugins.fields.state'), key: 'state', dataIndex: 'state', width: 140 },
-  { title: t('plugins.fields.actions'), key: 'actions', dataIndex: 'actions', width: 280 },
-])
 
 function getConflictNotice(count: number) {
   return t('plugins.health.commandConflicts', { count })
@@ -279,13 +211,6 @@ function getTagColor(tone: HealthNoticeTone) {
   return 'default'
 }
 
-function getStateColor(state?: string) {
-  if (state === 'running') return 'success'
-  if (state === 'disabled') return 'default'
-  if (state === 'enabled' || state === 'starting' || state === 'stopping') return 'warning'
-  return 'error'
-}
-
 async function loadPlugins() {
   try {
     await pluginsStore.fetchList()
@@ -340,7 +265,7 @@ async function reloadPlugin(pluginId: string) {
 </script>
 
 <template>
-  <AppPage :title="t('plugins.title')" full-height>
+  <AppPage :title="t('plugins.title')">
     <RetryPanel
       v-if="error && sortedItems.length === 0"
       :title="t('errors.common.loadFailed')"
@@ -350,52 +275,13 @@ async function reloadPlugin(pluginId: string) {
     />
 
     <div v-else class="plugins-page-content">
-      <div class="plugins-stats-row">
-        <button type="button" class="stat-card" :aria-pressed="filterState === 'all'" @click="filterState = 'all'" :class="{ active: filterState === 'all' }">
-          <div class="stat-icon-wrapper total">
-            <AppstoreOutlined />
-          </div>
-          <div class="stat-info">
-            <span class="stat-label">{{ t('plugins.stats.total') }}</span>
-            <span class="stat-value">{{ sortedItems.length }}</span>
-          </div>
-        </button>
-        <button type="button" class="stat-card" :aria-pressed="filterState === 'running'" @click="filterState = 'running'" :class="{ active: filterState === 'running' }">
-          <div class="stat-icon-wrapper running">
-            <CheckCircleOutlined />
-          </div>
-          <div class="stat-info">
-            <span class="stat-label">{{ t('plugins.stats.running') }}</span>
-            <span class="stat-value">{{ runningCount }}</span>
-          </div>
-        </button>
-        <button type="button" class="stat-card" :aria-pressed="filterState === 'disabled'" @click="filterState = 'disabled'" :class="{ active: filterState === 'disabled' }">
-          <div class="stat-icon-wrapper disabled">
-            <PauseCircleOutlined />
-          </div>
-          <div class="stat-info">
-            <span class="stat-label">{{ t('plugins.stats.disabled') }}</span>
-            <span class="stat-value">{{ disabledCount }}</span>
-          </div>
-        </button>
-        <button type="button" class="stat-card" :aria-pressed="filterState === 'alert'" @click="filterState = 'alert'" :class="{ active: filterState === 'alert' }">
-          <div class="stat-icon-wrapper alert">
-            <WarningOutlined />
-          </div>
-          <div class="stat-info">
-            <span class="stat-label">{{ t('plugins.stats.alert') }}</span>
-            <span class="stat-value">{{ alertCount }}</span>
-          </div>
-        </button>
-      </div>
-
       <AppCard
         borderless
         class="plugins-card"
       >
         <AppTableToolbar class="plugins-toolbar">
           <template #left>
-            <div class="toolbar-filters">
+            <div class="toolbar-filters plugins-filter-desktop">
               <a-input
                 v-model:value="searchQuery"
                 :placeholder="t('plugins.filter.searchPlaceholder')"
@@ -423,26 +309,10 @@ async function reloadPlugin(pluginId: string) {
           </template>
 
           <template #right>
-            <div v-if="!isTestEnv" class="layout-switcher">
-              <a-button
-                type="text"
-                class="switcher-btn"
-                :class="{ active: layoutMode === 'grid' }"
-                @click="changeLayoutMode('grid')"
-              >
-                <template #icon><AppstoreOutlined /></template>
-              </a-button>
-              <a-button
-                type="text"
-                class="switcher-btn"
-                :class="{ active: layoutMode === 'list' }"
-                @click="changeLayoutMode('list')"
-              >
-                <template #icon><UnorderedListOutlined /></template>
-              </a-button>
-              <span class="toolbar-divider" />
-            </div>
-
+            <a-button class="plugins-filter-mobile-trigger" @click="filterDrawerVisible = true">
+              <template #icon><FilterOutlined /></template>
+              {{ t('plugins.filter.title') }}
+            </a-button>
             <a-button type="primary" @click="installDialogVisible = true">
               <template #icon><PlusOutlined /></template>
               {{ t('plugins.install') }}
@@ -450,128 +320,101 @@ async function reloadPlugin(pluginId: string) {
           </template>
         </AppTableToolbar>
 
-        <div v-if="layoutMode === 'grid'" class="plugins-grid-container">
-          <div v-if="filteredItems.length === 0" class="empty-container">
-            <AppEmptyState
-              icon="plugin"
-              :title="t('plugins.empty.title')"
-              :description="t('plugins.empty.description')"
-              :action-label="t('plugins.install')"
-              @action="installDialogVisible = true"
-            />
-          </div>
-          <div v-else class="plugins-grid">
-            <div
-              v-for="item in filteredItems"
-              :key="item.id"
-              class="plugin-grid-card"
-              :class="`status-${item.state}`"
-            >
-              <div class="card-header">
-                <div class="plugin-avatar-wrapper">
-                  <div class="plugin-avatar" :style="{ background: getPluginGradient(item.id) }">
-                    <span class="avatar-initials">{{ getPluginInitials(item.name) }}</span>
-                  </div>
-                  <span class="status-indicator-dot" :class="item.state" />
-                </div>
+        <div class="plugins-grid-container">
+          <AppEmptyState
+            v-if="filteredItems.length === 0"
+            icon="plugin"
+            :title="t('plugins.empty.title')"
+            :description="t('plugins.empty.description')"
+            :action-label="t('plugins.install')"
+            @action="installDialogVisible = true"
+          />
 
-                <div class="plugin-identity">
-                  <div class="name-row">
-                    <h4 class="grid-plugin-name" @click="openDetail(item.id)">{{ item.name }}</h4>
-                    <a-tag size="small" :color="getTrustBadgeTone(item).color">
-                      {{ getTrustBadgeTone(item).label }}
-                    </a-tag>
-                  </div>
-                  <span class="grid-plugin-id">{{ item.id }}</span>
+          <div v-else class="plugins-grid" aria-label="插件列表">
+            <article v-for="item in filteredItems" :key="item.id" class="plugin-grid-card">
+              <header class="plugin-card__header">
+                <div class="plugin-card__avatar" aria-hidden="true">
+                  {{ getPluginInitials(item.name) }}
                 </div>
+                <div class="plugin-card__identity">
+                  <button type="button" class="plugin-card__name" @click="openDetail(item.id)">
+                    {{ item.name }}
+                  </button>
+                  <span class="plugin-card__id">{{ item.id }}</span>
+                </div>
+                <AppStatusTag :status="item.state" :label="getPluginStateLabel(item.state)" :aria-label="`状态：${getPluginStateLabel(item.state)}`" />
+              </header>
+
+              <p class="plugin-card__description" :title="getOptionalDisplayText(item.description)">
+                {{ getOptionalDisplayText(item.description) }}
+              </p>
+
+              <div class="plugin-card__meta">
+                <span>{{ getOptionalDisplayText(item.version) }}</span>
+                <span>{{ getOptionalDisplayText(item.author) }}</span>
+                <span class="plugin-card__source" :title="item.source?.root ?? t('display.empty')">
+                  {{ item.source?.root ?? t('display.empty') }}
+                </span>
+                <span>{{ getSourceTypeLabel(item.source?.package_source_type) }}</span>
+                <a-tag size="small" :color="getTrustColor(item)">{{ getTrustLabel(item) }}</a-tag>
               </div>
 
-              <div class="card-body">
-                <p class="grid-plugin-description" :title="getOptionalDisplayText(item.description)">
-                  {{ getOptionalDisplayText(item.description) }}
-                </p>
+              <div v-if="getPluginHealthNotices(item).length > 0" class="plugin-health-notices">
+                <a-tag
+                  v-for="notice in getPluginHealthNotices(item)"
+                  :key="notice.label"
+                  size="small"
+                  :color="getTagColor(notice.tone)"
+                  :aria-label="`健康状态：${notice.label}`"
+                >
+                  {{ notice.label }}
+                </a-tag>
+              </div>
 
-                <div class="grid-plugin-meta">
-                  <span v-if="item.version" class="meta-item meta-version">
-                    v{{ item.version }}
-                  </span>
-                  <span v-if="item.author" class="meta-item meta-author">
-                    {{ t('plugins.fields.author') }} {{ item.author }}
-                  </span>
-                  <span class="meta-item meta-source" :title="item.source?.root">
-                    {{ getSourceTypeLabel(item.source?.package_source_type) }}
-                  </span>
-                </div>
-
-                <div class="grid-plugin-status-bar">
-                  <a-tag size="small" :color="getStateColor(item.state)">
-                    {{ getPluginStateLabel(item.state) }}
-                  </a-tag>
-                  <a-tag
-                    v-for="notice in getPluginHealthNotices(item)"
-                    :key="notice.label"
-                    size="small"
-                    :color="getTagColor(notice.tone)"
+              <div class="plugin-card__commands">
+                <div class="plugin-card__section-label">{{ t('plugins.fields.commands') }}</div>
+                <div v-if="item.commands.length > 0" class="plugin-cell-commands">
+                  <div
+                    v-for="command in getVisibleCommands(item.id, item.commands)"
+                    :key="`${item.id}-${command.name}`"
+                    class="plugin-command-chip"
                   >
-                    {{ notice.label }}
-                  </a-tag>
+                    <a-tag
+                      size="small"
+                      :color="isConflictedCommand(command, item.command_conflicts) ? 'warning' : 'success'"
+                      :aria-label="`指令：${command.name}`"
+                    >
+                      {{ command.name }}
+                    </a-tag>
+                    <a-tooltip v-if="command.aliases?.length" :title="getCommandAliasesText(command)">
+                      <small>{{ t('plugins.commandAliasesCount', { count: command.aliases.length }) }}</small>
+                    </a-tooltip>
+                  </div>
+                  <a-button
+                    v-if="getOverflowCommandCount(item.commands) > 0"
+                    class="plugin-command-expander"
+                    size="small"
+                    type="link"
+                    :aria-expanded="isCommandsExpanded(item.id)"
+                    :aria-label="isCommandsExpanded(item.id)
+                      ? t('plugins.commandCollapseAria', { name: item.name })
+                      : t('plugins.commandExpandAria', { name: item.name, count: getOverflowCommandCount(item.commands) })"
+                    @click="toggleCommandExpansion(item.id)"
+                  >
+                    {{ isCommandsExpanded(item.id)
+                      ? t('plugins.commandCollapse')
+                      : t('plugins.commandOverflow', { count: getOverflowCommandCount(item.commands) }) }}
+                  </a-button>
                 </div>
-
-                <div class="grid-plugin-commands">
-                  <template v-if="item.commands.length > 0">
-                    <div class="plugin-commands-summary">
-                      <span class="commands-summary-text">
-                        {{ t('plugins.commandSummary', { count: item.commands.length }) }}
-                      </span>
-                      <a-button
-                        size="small"
-                        type="link"
-                        class="plugin-command-expander"
-                        @click="toggleCommandExpansion(item.id)"
-                      >
-                        {{ isCommandsExpanded(item.id)
-                          ? t('plugins.commandCollapse')
-                          : t('plugins.commandExpand') }}
-                      </a-button>
-                    </div>
-                    <div v-if="isCommandsExpanded(item.id)" class="plugin-cell-commands">
-                      <div
-                        v-for="command in item.commands"
-                        :key="`${item.id}-${command.name}`"
-                        class="plugin-command-chip"
-                      >
-                        <a-tag
-                          size="small"
-                          :color="isConflictedCommand(command, item.command_conflicts) ? 'warning' : 'success'"
-                        >
-                          {{ command.name }}
-                        </a-tag>
-                        <a-tooltip v-if="command.aliases?.length" :title="getCommandAliasesText(command)">
-                          <small>{{ t('plugins.commandAliasesCount', { count: command.aliases.length }) }}</small>
-                        </a-tooltip>
-                      </div>
-                    </div>
-                  </template>
-                  <span v-else class="plugin-command-empty">
-                    {{ t('plugins.empty.commands') }}
-                  </span>
-                </div>
+                <span v-else class="plugin-command-empty">{{ t('plugins.empty.commands') }}</span>
               </div>
 
-              <div class="card-actions">
-                <div class="action-buttons-group">
-                  <a-button size="small" type="text" class="btn-action" @click="openSummary(item.id)">
-                    <template #icon><EyeOutlined /></template>
-                    {{ t('plugins.actions.summary') }}
-                  </a-button>
-                  <a-button size="small" type="text" class="btn-action" @click="openDetail(item.id)">
-                    <template #icon><SettingOutlined /></template>
-                    {{ t('plugins.actions.detail') }}
-                  </a-button>
+              <footer class="plugin-card__actions">
+                <div class="plugin-card__action-buttons">
+                  <a-button size="small" @click="openSummary(item.id)">{{ t('plugins.actions.summary') }}</a-button>
+                  <a-button size="small" @click="openDetail(item.id)">{{ t('plugins.actions.detail') }}</a-button>
                   <a-button
                     size="small"
-                    type="text"
-                    class="btn-action"
                     :data-testid="`plugin-reload-button-${item.id}`"
                     :loading="actionPending[item.id] === 'reload'"
                     :disabled="isReloadDisabled(item.state)"
@@ -581,164 +424,51 @@ async function reloadPlugin(pluginId: string) {
                     {{ t('plugins.actions.reload') }}
                   </a-button>
                 </div>
-
-                <div class="action-controls-group">
-                  <PluginPowerButton
-                    compact
-                    :checked="item.state !== 'disabled'"
-                    :data-testid="`plugin-enable-button-${item.id}`"
-                    :loading="isToggleLoading(item.id, item.state)"
-                    :checked-label="t('plugins.actions.enable')"
-                    :unchecked-label="t('plugins.actions.disable')"
-                    @click="pluginsStore.executeAction(item.id, getToggleAction(item.state))"
-                  />
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <a-table
-          v-else
-          class="plugins-data-table app-data-table"
-          :columns="tableColumns"
-          :data-source="filteredItems"
-          :pagination="false"
-          :row-key="(row) => row.id"
-          :scroll="{ x: 1280 }"
-        >
-          <template #emptyText>
-            <AppEmptyState
-              icon="plugin"
-              :title="t('plugins.empty.title')"
-              :description="t('plugins.empty.description')"
-              :action-label="t('plugins.install')"
-              @action="installDialogVisible = true"
-            />
-          </template>
-
-          <template #bodyCell="{ column, record }">
-            <template v-if="column.key === 'title'">
-              <div class="plugin-cell-identity">
-                <strong class="plugin-name">{{ record.name }}</strong>
-                <small class="plugin-id">{{ record.id }}</small>
-              </div>
-            </template>
-
-            <template v-else-if="column.key === 'source'">
-              <div class="plugin-cell-source">
-                <div class="plugin-source-root" :title="record.source?.root ?? t('display.empty')">
-                  {{ record.source?.root ?? t('display.empty') }}
-                </div>
-                <div class="plugin-trust-label">
-                  {{ record.trust?.label ?? t('display.empty') }}
-                </div>
-              </div>
-            </template>
-
-            <template v-else-if="column.key === 'version'">
-              <span class="plugin-cell-version">{{ getOptionalDisplayText(record.version) }}</span>
-            </template>
-
-            <template v-else-if="column.key === 'author'">
-              <span class="plugin-cell-author" :title="getOptionalDisplayText(record.author)">
-                {{ getOptionalDisplayText(record.author) }}
-              </span>
-            </template>
-
-            <template v-else-if="column.key === 'description'">
-              <span class="plugin-cell-description" :title="getOptionalDisplayText(record.description)">
-                {{ getOptionalDisplayText(record.description) }}
-              </span>
-            </template>
-
-            <template v-else-if="column.key === 'commands'">
-              <div v-if="record.commands.length > 0" class="plugin-cell-commands">
-                <div
-                  v-for="command in getVisibleCommands(record.id, record.commands)"
-                  :key="`${record.id}-${command.name}`"
-                  class="plugin-command-chip"
-                >
-                  <a-tag
-                    size="small"
-                    :color="isConflictedCommand(command, record.command_conflicts) ? 'warning' : 'success'"
-                    :aria-label="`指令：${command.name}`"
-                  >
-                    {{ command.name }}
-                  </a-tag>
-                  <a-tooltip v-if="command.aliases?.length" :title="getCommandAliasesText(command)">
-                    <small>{{ t('plugins.commandAliasesCount', { count: command.aliases.length }) }}</small>
-                  </a-tooltip>
-                </div>
-                <a-button
-                  v-if="getOverflowCommandCount(record.commands) > 0"
-                  class="plugin-command-expander"
-                  size="small"
-                  type="link"
-                  :aria-expanded="isCommandsExpanded(record.id)"
-                  :aria-label="isCommandsExpanded(record.id)
-                    ? t('plugins.commandCollapseAria', { name: record.name })
-                    : t('plugins.commandExpandAria', { name: record.name, count: getOverflowCommandCount(record.commands) })"
-                  @click="toggleCommandExpansion(record.id)"
-                >
-                  {{ isCommandsExpanded(record.id)
-                    ? t('plugins.commandCollapse')
-                    : t('plugins.commandOverflow', { count: getOverflowCommandCount(record.commands) }) }}
-                </a-button>
-              </div>
-              <span v-else class="plugin-command-empty">{{ t('plugins.empty.commands') }}</span>
-            </template>
-
-            <template v-else-if="column.key === 'state'">
-              <div class="plugin-cell-status">
-                <div class="plugin-status-badges">
-                  <a-tag size="small" :color="getStateColor(record.state)" :aria-label="`状态：${getPluginStateLabel(record.state)}`">{{ getPluginStateLabel(record.state) }}</a-tag>
-                </div>
-                <div v-if="getPluginHealthNotices(record).length > 0" class="plugin-health-notices">
-                  <a-tag
-                    v-for="notice in getPluginHealthNotices(record)"
-                    :key="notice.label"
-                    size="small"
-                    :color="getTagColor(notice.tone)"
-                    :aria-label="`健康状态：${notice.label}`"
-                  >
-                    {{ notice.label }}
-                  </a-tag>
-                </div>
-              </div>
-            </template>
-
-            <template v-else-if="column.key === 'actions'">
-              <div class="plugin-cell-actions">
-                <a-button size="small" @click="openSummary(record.id)">{{ t('plugins.actions.summary') }}</a-button>
-                <a-button size="small" @click="openDetail(record.id)">{{ t('plugins.actions.detail') }}</a-button>
-
-                <a-divider type="vertical" />
-
                 <PluginPowerButton
                   compact
-                  :checked="record.state !== 'disabled'"
-                  :data-testid="`plugin-enable-button-${record.id}`"
-                  :loading="isToggleLoading(record.id, record.state)"
+                  :checked="item.state !== 'disabled'"
+                  :data-testid="`plugin-enable-button-${item.id}`"
+                  :loading="isToggleLoading(item.id, item.state)"
                   :checked-label="t('plugins.actions.enable')"
                   :unchecked-label="t('plugins.actions.disable')"
-                  @click="pluginsStore.executeAction(record.id, getToggleAction(record.state))"
+                  @click="pluginsStore.executeAction(item.id, getToggleAction(item.state))"
                 />
-                <a-button
-                  size="small"
-                  :data-testid="`plugin-reload-button-${record.id}`"
-                  :loading="actionPending[record.id] === 'reload'"
-                  :disabled="isReloadDisabled(record.state)"
-                  @click="reloadPlugin(record.id)"
-                >
-                  {{ t('plugins.actions.reload') }}
-                </a-button>
-              </div>
-            </template>
-          </template>
-        </a-table>
+              </footer>
+            </article>
+          </div>
+        </div>
       </AppCard>
     </div>
+
+    <a-drawer
+      v-model:open="filterDrawerVisible"
+      placement="bottom"
+      height="auto"
+      :title="t('plugins.filter.title')"
+      :destroy-on-close="true"
+    >
+      <div class="plugins-filter-drawer">
+        <a-input
+          v-model:value="searchQuery"
+          :placeholder="t('plugins.filter.searchPlaceholder')"
+          allow-clear
+        >
+          <template #prefix><SearchOutlined /></template>
+        </a-input>
+        <a-radio-group v-model:value="filterState" button-style="solid">
+          <a-radio-button value="all">{{ t('plugins.filter.stateAll') }}</a-radio-button>
+          <a-radio-button value="running">{{ t('plugins.stats.running') }}</a-radio-button>
+          <a-radio-button value="disabled">{{ t('plugins.stats.disabled') }}</a-radio-button>
+          <a-radio-button value="alert">{{ t('plugins.stats.alert') }}</a-radio-button>
+        </a-radio-group>
+        <a-select v-model:value="filterSource">
+          <a-select-option value="all">{{ t('plugins.filter.sourceAll') }}</a-select-option>
+          <a-select-option value="official">{{ t('plugins.filter.sourceOfficial') }}</a-select-option>
+          <a-select-option value="community">{{ t('plugins.filter.sourceCommunity') }}</a-select-option>
+        </a-select>
+        <a-button type="primary" @click="filterDrawerVisible = false">完成</a-button>
+      </div>
+    </a-drawer>
 
     <a-modal
       v-model:open="installDialogVisible"
@@ -873,91 +603,6 @@ async function reloadPlugin(pluginId: string) {
   min-height: 0;
 }
 
-.plugins-stats-row {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: var(--space-md);
-  width: 100%;
-}
-
-.stat-card {
-  display: flex;
-  align-items: center;
-  gap: var(--space-lg);
-  padding: 16px 20px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--app-card-radius);
-  box-shadow: var(--shadow-sm);
-  cursor: pointer;
-  color: inherit;
-  font: inherit;
-  text-align: left;
-  transition: border-color 120ms ease-out, background-color 120ms ease-out;
-
-  &:hover {
-    border-color: var(--border-accent);
-    background: var(--surface-soft);
-  }
-
-  &:focus-visible {
-    outline: 2px solid var(--primary);
-    outline-offset: 2px;
-  }
-
-  &.active {
-    background: var(--surface-accent);
-    border-color: var(--border-accent);
-    box-shadow: var(--shadow-sm);
-  }
-}
-
-.stat-icon-wrapper {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 42px;
-  height: 42px;
-  border-radius: 50%;
-  font-size: 1.25rem;
-
-  &.total {
-    background: var(--accent-soft);
-    color: var(--accent);
-  }
-  &.running {
-    background: color-mix(in srgb, var(--success) 12%, transparent);
-    color: var(--success);
-  }
-  &.disabled {
-    background: rgba(100, 116, 139, 0.12);
-    color: var(--muted);
-  }
-  &.alert {
-    background: color-mix(in srgb, var(--danger) 12%, transparent);
-    color: var(--danger);
-  }
-}
-
-.stat-info {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.stat-label {
-  font-size: 0.875rem;
-  font-weight: 500;
-  color: var(--muted);
-}
-
-.stat-value {
-  font-size: 1.5rem;
-  font-weight: 700;
-  color: var(--text);
-  line-height: 1.2;
-}
-
 .plugins-toolbar {
   border-bottom: 1px solid var(--border);
   padding: var(--space-md) var(--space-lg);
@@ -1008,278 +653,40 @@ async function reloadPlugin(pluginId: string) {
   }
 }
 
-.layout-switcher {
-  display: flex;
-  align-items: center;
-  gap: var(--space-xs);
-  margin-right: 4px;
+.plugins-filter-mobile-trigger {
+  display: none;
 }
 
-.switcher-btn {
-  width: 32px;
-  height: 32px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 6px !important;
-  color: var(--muted);
-  transition: background-color 120ms ease-out, color 120ms ease-out;
-
-  &:hover {
-    background: var(--surface-soft);
-    color: var(--text);
-  }
-
-  &.active {
-    background: var(--accent-soft) !important;
-    color: var(--accent) !important;
-  }
-}
-
-.toolbar-divider {
-  width: 1px;
-  height: 20px;
-  background: var(--border);
-  margin: 0 8px;
-}
-
-.plugins-grid-container {
-  padding: var(--space-xl);
-  background: var(--surface-soft);
-  flex: 1 1 auto;
-  min-height: 0;
-  overflow-y: auto;
-}
-
-.plugins-grid {
+.plugins-filter-drawer {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
-  gap: var(--space-xl);
+  gap: 16px;
 }
 
-.plugin-grid-card {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--app-card-radius);
-  box-shadow: var(--shadow-sm);
+.plugins-filter-drawer :deep(.ant-radio-group) {
   display: flex;
-  flex-direction: column;
-  transition: border-color 120ms ease-out, background-color 120ms ease-out;
-  position: relative;
-  overflow: hidden;
-
-  &:hover {
-    border-color: var(--border-strong);
-  }
-
-  &::before {
-    content: '';
-    position: absolute;
-    inset: 0 0 auto;
-    height: 2px;
-    background: var(--border);
-  }
-
-  &.status-running::before {
-    background: var(--success);
-  }
-  &.status-disabled::before {
-    background: var(--muted);
-  }
-  &.status-failed::before,
-  &.status-invalid::before {
-    background: var(--danger);
-  }
-  &.status-starting::before,
-  &.status-stopping::before,
-  &.status-enabled::before {
-    background: var(--warning);
-  }
-}
-
-.card-header {
-  display: flex;
-  gap: var(--space-lg);
-  padding: 20px 20px 14px;
-  align-items: center;
-}
-
-.plugin-avatar-wrapper {
-  position: relative;
-  flex-shrink: 0;
-}
-
-.plugin-avatar {
-  width: 56px;
-  height: 56px;
-  border-radius: 12px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: var(--shadow-sm);
-  color: #fff;
-}
-
-.avatar-initials {
-  font-weight: 700;
-  font-size: 1.125rem;
-  letter-spacing: -0.5px;
-}
-
-.status-indicator-dot {
-  position: absolute;
-  bottom: -2px;
-  right: -2px;
-  width: 14px;
-  height: 14px;
-  border-radius: 50%;
-  border: 2.5px solid var(--surface);
-  box-shadow: var(--shadow-sm);
-  background-color: var(--muted);
-
-  &.running {
-    background-color: var(--success);
-  }
-  &.disabled {
-    background-color: var(--muted);
-  }
-  &.failed, &.invalid {
-    background-color: var(--danger);
-  }
-  &.starting, &.stopping, &.enabled {
-    background-color: var(--warning);
-  }
-}
-
-.plugin-identity {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-  flex: 1 1 auto;
-}
-
-.name-row {
-  display: flex;
-  align-items: center;
-  gap: var(--space-sm);
-  min-width: 0;
-}
-
-.grid-plugin-name {
-  font-size: 1rem;
-  font-weight: 600;
-  color: var(--text);
-  margin: 0;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  cursor: pointer;
-  transition: color 120ms ease-out;
-
-  &:hover {
-    color: var(--accent);
-  }
-}
-
-.grid-plugin-id {
-  font-family: var(--font-mono);
-  font-size: 0.75rem;
-  color: var(--muted);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  margin-top: 2px;
-}
-
-.card-body {
-  padding: 0 20px 20px;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-md);
-  flex: 1 1 auto;
-}
-
-.grid-plugin-description {
-  font-size: 0.875rem;
-  color: var(--muted);
-  line-height: 1.5;
-  margin: 0;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-  min-height: 2.625rem;
-}
-
-.grid-plugin-meta {
-  display: flex;
-  align-items: center;
-  gap: var(--space-sm);
-  padding: 8px 12px;
-  background: var(--surface-soft);
-  border-radius: 8px;
-  font-size: 0.75rem;
-  color: var(--muted);
   flex-wrap: wrap;
 }
 
-.meta-item {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-xs);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-
-  &:not(:last-child) {
-    position: relative;
-    padding-right: 10px;
-
-    &::after {
-      content: '';
-      position: absolute;
-      right: 0;
-      top: 50%;
-      transform: translateY(-50%);
-      width: 3px;
-      height: 3px;
-      border-radius: 50%;
-      background: var(--border-strong);
-    }
+@media (max-width: 639px) {
+  .plugins-filter-desktop {
+    display: none;
   }
 
-  &.meta-version {
-    font-family: var(--font-mono);
-    color: var(--text);
+  .plugins-filter-mobile-trigger {
+    display: inline-flex;
   }
 
-  &.meta-source {
-    max-width: 45%;
+  .plugin-card__actions,
+  .plugin-card__action-buttons {
+    align-items: stretch;
+    flex-direction: column;
   }
-}
 
-.grid-plugin-status-bar {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: var(--space-sm);
-}
-
-.grid-plugin-commands {
-  border-top: 1px dashed var(--border);
-  padding-top: var(--space-md);
-}
-
-.plugin-commands-summary {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-sm);
-}
-
-.commands-summary-text {
-  font-size: 0.875rem;
-  color: var(--muted);
+  .plugin-card__actions :deep(.ant-btn),
+  .plugin-card__actions :deep(.plugin-holo-button) {
+    width: 100%;
+    min-height: 44px;
+  }
 }
 
 .plugin-command-empty {
@@ -1288,178 +695,173 @@ async function reloadPlugin(pluginId: string) {
   display: block;
 }
 
-.card-actions {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: var(--space-md) var(--space-lg);
-  border-top: 1px solid var(--border);
-  background: var(--surface-soft);
-  gap: var(--space-sm);
-}
-
-.action-buttons-group {
-  display: flex;
-  gap: var(--space-xs);
-}
-
-.btn-action {
-  font-size: 0.875rem;
-  padding: 0 8px;
-  height: 28px;
-  color: var(--muted);
-  display: flex;
-  align-items: center;
-  gap: var(--space-xs);
-  border-radius: 6px !important;
-  transition: background-color 120ms ease-out, color 120ms ease-out;
-  font-weight: 500;
-
-  .anticon {
-    font-size: 13px;
-  }
-
-  &:hover {
-    color: var(--accent);
-    background: var(--surface-accent) !important;
-  }
-}
-
-.action-controls-group {
-  display: flex;
-  align-items: center;
-  gap: var(--space-sm);
-}
-
-.empty-container {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 40px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--app-card-radius);
-}
-
 .plugins-card {
-  display: flex;
-  flex-direction: column;
-  flex: 1 1 auto;
-  min-height: 0;
-  box-shadow: var(--shadow-xs);
+  box-shadow: none;
 }
 
 .plugins-card :deep(.ant-card-body) {
-  display: flex;
-  flex-direction: column;
-  flex: 1 1 auto;
-  min-height: 0;
   padding: 0;
 }
 
-.plugins-data-table {
+.plugins-grid-container {
+  min-height: 220px;
+  padding: var(--space-lg);
+  background: var(--surface-soft);
+}
+
+.plugins-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr));
+  gap: var(--space-lg);
+  align-items: start;
+}
+
+.plugin-grid-card {
+  display: flex;
+  min-width: 0;
+  overflow: hidden;
+  flex-direction: column;
+  border: 1px solid var(--border);
+  border-radius: var(--app-card-radius);
+  background: var(--surface-strong);
+  box-shadow: var(--shadow-xs);
+  transition: border-color 160ms var(--motion-easing), box-shadow 160ms var(--motion-easing);
+}
+
+.plugin-grid-card:hover {
+  border-color: var(--border-strong);
+  box-shadow: var(--shadow-sm);
+}
+
+.plugin-card__header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  padding: 16px 16px 12px;
+}
+
+.plugin-card__avatar {
+  display: grid;
+  width: 42px;
+  height: 42px;
+  flex: 0 0 auto;
+  place-items: center;
+  border: 1px solid var(--border-accent);
+  border-radius: 10px;
+  background: var(--surface-accent);
+  color: var(--text-accent);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.plugin-card__identity {
+  display: grid;
+  min-width: 0;
   flex: 1 1 auto;
-  min-height: 0;
-  border-radius: 0 0 var(--app-card-radius) var(--app-card-radius);
+  gap: 2px;
+}
+
+.plugin-card__name {
   overflow: hidden;
-
-  :deep(.plugin-col-responsive) {
-    display: none;
-  }
-
-  @media (min-width: 768px) {
-    :deep(.plugin-col-responsive.plugin-col-md) {
-      display: table-cell;
-    }
-  }
-
-  @media (min-width: 992px) {
-    :deep(.plugin-col-responsive.plugin-col-lg) {
-      display: table-cell;
-    }
-  }
-}
-
-.plugins-data-table :deep(.ant-table-row:hover > td) {
-  background: var(--surface-accent) !important;
-}
-
-.plugin-cell-identity {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-xs);
-}
-
-.plugin-name {
-  font-size: 1rem;
+  padding: 0;
+  border: 0;
+  background: transparent;
   color: var(--text);
-  font-weight: 600;
-}
-
-.plugin-id {
-  font-family: var(--font-mono);
-  font-size: 0.75rem;
-  color: var(--muted);
-}
-
-.plugin-cell-source {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-xs);
-}
-
-.plugin-source-root {
-  font-size: 0.875rem;
-  color: var(--text);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 100%;
-}
-
-.plugin-trust-label {
-  font-size: 0.75rem;
-  color: var(--muted);
-}
-
-.plugin-cell-version {
-  font-family: var(--font-mono);
-  font-size: 0.75rem;
-  color: var(--muted);
-}
-
-.plugin-cell-author {
-  display: block;
-  max-width: 100%;
-  overflow: hidden;
-  color: var(--muted);
-  font-size: 0.875rem;
+  cursor: pointer;
+  font: inherit;
+  font-size: 15px;
+  font-weight: 650;
+  text-align: left;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.plugin-cell-description {
+.plugin-card__name:hover,
+.plugin-card__name:focus-visible {
+  color: var(--text-accent);
+}
+
+.plugin-card__name:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+
+.plugin-card__id {
+  overflow: hidden;
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.plugin-card__description {
   display: -webkit-box;
+  min-height: 44px;
+  margin: 0;
   overflow: hidden;
+  padding: 0 16px;
   color: var(--muted);
-  font-size: 0.875rem;
-  line-height: 1.45;
+  font-size: 14px;
+  line-height: 1.55;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
 }
 
-.plugin-cell-status {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-sm);
-  align-items: flex-start;
-}
-
-.plugin-status-badges,
+.plugin-card__meta,
 .plugin-health-notices {
   display: flex;
-  gap: var(--space-sm);
+  align-items: center;
   flex-wrap: wrap;
+  gap: 6px 10px;
+}
+
+.plugin-card__meta {
+  margin: 12px 16px 0;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: var(--surface-soft);
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.plugin-card__meta > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.plugin-card__source {
+  max-width: 180px;
+}
+
+.plugin-card__meta :deep(.ant-tag),
+.plugin-health-notices :deep(.ant-tag) {
+  margin-inline-end: 0;
+}
+
+.plugin-health-notices {
+  padding: 10px 16px 0;
+}
+
+.plugin-card__commands {
+  display: grid;
+  flex: 1 1 auto;
+  align-content: start;
+  gap: 8px;
+  margin-top: 14px;
+  padding: 14px 16px 16px;
+  border-top: 1px solid var(--border);
+}
+
+.plugin-card__section-label {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 600;
 }
 
 .plugin-cell-commands {
@@ -1484,7 +886,7 @@ async function reloadPlugin(pluginId: string) {
 .plugin-command-chip small,
 .plugin-command-empty {
   color: var(--muted);
-  font-size: 0.75rem;
+  font-size: 13px;
 }
 
 .plugin-command-expander {
@@ -1500,15 +902,22 @@ async function reloadPlugin(pluginId: string) {
   color: var(--primary);
 }
 
-.plugin-cell-actions {
+.plugin-card__actions,
+.plugin-card__action-buttons {
   display: flex;
   align-items: center;
-  justify-content: flex-end;
-  gap: var(--space-sm);
   flex-wrap: wrap;
+  gap: 8px;
 }
 
-.plugin-cell-actions :deep(.plugin-holo-button) {
+.plugin-card__actions {
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-top: 1px solid var(--border);
+  background: var(--surface-soft);
+}
+
+.plugin-card__actions :deep(.plugin-holo-button) {
   flex: 0 0 auto;
 }
 
@@ -1522,7 +931,7 @@ async function reloadPlugin(pluginId: string) {
 
 .install-inspection code {
   overflow-wrap: anywhere;
-  font-size: 0.75rem;
+  font-size: 13px;
 }
 
 .install-inspection-list {
@@ -1547,6 +956,6 @@ async function reloadPlugin(pluginId: string) {
   flex-direction: column;
   gap: var(--space-xs);
   strong { font-size: 1rem; font-weight: 600; }
-  small { font-family: var(--font-mono); font-size: 0.75rem; color: var(--muted); }
+  small { font-family: var(--font-mono); font-size: 13px; color: var(--muted); }
 }
 </style>

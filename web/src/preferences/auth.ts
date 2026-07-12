@@ -1,7 +1,7 @@
 import theme from 'ant-design-vue/es/theme'
 import type { ThemeConfig } from 'ant-design-vue/es/config-provider/context'
 
-import type { ThemeMode } from '@/preferences/app'
+import type { ResolvedThemeMode } from '@/preferences/app'
 
 interface AuthThemeTokens {
   border: string
@@ -32,7 +32,7 @@ export interface AuthParticlePalette {
   particle: string
 }
 
-const authThemes: Record<ThemeMode, AuthThemeTokens> = {
+const authThemes: Record<ResolvedThemeMode, AuthThemeTokens> = {
   light: {
     border: '#D8E0E4',
     canvas: '#F3F6F7',
@@ -81,7 +81,7 @@ const authThemes: Record<ThemeMode, AuthThemeTokens> = {
   },
 }
 
-export function resolveAuthThemeConfig(mode: ThemeMode): ThemeConfig {
+export function resolveAuthThemeConfig(mode: ResolvedThemeMode): ThemeConfig {
   const tokens = authThemes[mode]
   return {
     algorithm: mode === 'dark' ? theme.darkAlgorithm : theme.defaultAlgorithm,
@@ -121,7 +121,7 @@ export function resolveAuthThemeConfig(mode: ThemeMode): ThemeConfig {
   }
 }
 
-export function resolveAuthCssVariables(mode: ThemeMode): Record<string, string> {
+export function resolveAuthCssVariables(mode: ResolvedThemeMode): Record<string, string> {
   const tokens = authThemes[mode]
   return {
     '--auth-border': tokens.border,
@@ -143,7 +143,7 @@ export function resolveAuthCssVariables(mode: ThemeMode): Record<string, string>
   }
 }
 
-export function resolveAuthParticlePalette(mode: ThemeMode): AuthParticlePalette {
+export function resolveAuthParticlePalette(mode: ResolvedThemeMode): AuthParticlePalette {
   return mode === 'dark'
     ? {
         line: 'rgb(102 204 255 / 22%)',

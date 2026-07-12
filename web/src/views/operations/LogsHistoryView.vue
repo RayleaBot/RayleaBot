@@ -4,6 +4,7 @@ import { storeToRefs } from 'pinia'
 import { useRoute, useRouter } from 'vue-router'
 
 import ManagementLogDetailDrawer from '@/components/logs/ManagementLogDetailDrawer.vue'
+import ManagementLogAdvancedFilters from '@/components/logs/ManagementLogAdvancedFilters.vue'
 import RetryPanel from '@/components/RetryPanel.vue'
 import VirtualDataViewport from '@/components/VirtualDataViewport.vue'
 import AppPage from '@/components/page/AppPage.vue'
@@ -385,7 +386,7 @@ onBeforeUnmount(() => {
   <AppPage :title="t('logs.historyTitle')" full-height>
     <template #toolbar>
       <a-card :bordered="false" class="app-view-card logs-toolbar">
-        <a-form layout="vertical" class="logs-filter-grid">
+        <a-form layout="vertical" class="logs-filter-grid logs-filter-grid--history">
           <a-form-item :label="t('logs.filters.level')">
             <a-select
               v-model:value="filters.levels"
@@ -398,42 +399,27 @@ onBeforeUnmount(() => {
           <a-form-item :label="t('logs.filters.source')">
             <a-input v-model:value="filters.source" :placeholder="t('logs.filters.sourcePlaceholder')" />
           </a-form-item>
-          <a-form-item :label="t('logs.filters.protocol')">
-            <a-select
-              v-model:value="filters.protocol"
-              allow-clear
-              :options="[{ label: 'OneBot11', value: 'onebot11' }]"
-              :placeholder="t('logs.filters.all')"
-            />
-          </a-form-item>
-          <a-form-item :label="t('logs.filters.plugin')">
-            <a-select
-              v-model:value="filters.pluginIds"
-              mode="multiple"
-              allow-clear
-              :options="pluginOptions"
-              :placeholder="t('logs.filters.all')"
-              @focus="openPluginFilter"
-            />
-          </a-form-item>
-          <a-form-item :label="t('logs.filters.requestId')">
-            <a-input v-model:value="filters.requestId" :placeholder="t('logs.filters.requestPlaceholder')" />
-          </a-form-item>
           <a-form-item :label="t('logs.history.startAt')">
             <a-input v-model:value="timeRangeInput.startLocal" type="datetime-local" />
           </a-form-item>
           <a-form-item :label="t('logs.history.endAt')">
             <a-input v-model:value="timeRangeInput.endLocal" type="datetime-local" />
           </a-form-item>
+          <div class="logs-toolbar__actions">
+            <a-button @click="useRecentDay">{{ t('logs.history.lastDay') }}</a-button>
+            <a-button @click="useRecentDays(7)">{{ t('logs.history.lastWeek') }}</a-button>
+            <a-button @click="useRecentDays(30)">{{ t('logs.history.lastMonth') }}</a-button>
+            <a-button @click="useRecentDays(180)">{{ t('logs.history.lastHalfYear') }}</a-button>
+            <ManagementLogAdvancedFilters
+              v-model:protocol="filters.protocol"
+              v-model:plugin-ids="filters.pluginIds"
+              v-model:request-id="filters.requestId"
+              :plugin-options="pluginOptions"
+              @plugin-focus="openPluginFilter"
+            />
+            <a-button class="logs-toolbar__apply" type="primary" @click="applyFilters">{{ t('logs.filters.apply') }}</a-button>
+          </div>
         </a-form>
-
-        <div class="logs-toolbar__actions">
-          <a-button @click="useRecentDay">{{ t('logs.history.lastDay') }}</a-button>
-          <a-button @click="useRecentDays(7)">{{ t('logs.history.lastWeek') }}</a-button>
-          <a-button @click="useRecentDays(30)">{{ t('logs.history.lastMonth') }}</a-button>
-          <a-button @click="useRecentDays(180)">{{ t('logs.history.lastHalfYear') }}</a-button>
-          <a-button type="primary" @click="applyFilters">{{ t('logs.filters.apply') }}</a-button>
-        </div>
       </a-card>
     </template>
 
@@ -533,27 +519,41 @@ onBeforeUnmount(() => {
 }
 
 .logs-toolbar {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
   border-radius: var(--radius-md);
   border: 1px solid var(--border);
-  box-shadow: var(--shadow-xs);
+  box-shadow: none;
+}
+
+.logs-toolbar :deep(.ant-card-body) {
+  padding: 12px 14px;
 }
 
 .logs-filter-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  display: flex;
+  flex-wrap: wrap;
   gap: 12px;
   align-items: end;
+  width: 100%;
+}
+
+.logs-filter-grid :deep(.ant-form-item) {
+  flex: 1 1 190px;
+  max-width: 300px;
+  margin-bottom: 0;
+}
+
+.logs-filter-grid :deep(.ant-form-item:first-child) {
+  max-width: 220px;
 }
 
 .logs-toolbar__actions {
   display: flex;
+  flex: 0 0 auto;
   justify-content: flex-end;
   flex-wrap: wrap;
   gap: 8px;
-  align-self: end;
+  align-items: center;
+  margin-inline-start: auto;
 }
 
 .logs-feed-card,
@@ -565,7 +565,7 @@ onBeforeUnmount(() => {
 }
 
 .logs-feed-card {
-  box-shadow: var(--shadow-xs);
+  box-shadow: none;
 }
 
 .logs-feed-card__title {
@@ -593,7 +593,8 @@ onBeforeUnmount(() => {
 }
 
 .logs-row.is-selected {
-  box-shadow: inset 3px 0 0 var(--accent);
+  outline: 2px solid color-mix(in srgb, var(--accent) 34%, transparent);
+  outline-offset: -2px;
   background: var(--surface-accent) !important;
 }
 
@@ -621,7 +622,7 @@ onBeforeUnmount(() => {
   flex-wrap: wrap;
   gap: 6px;
   color: var(--muted);
-  font-size: 0.78rem;
+  font-size: 13px;
 }
 
 .logs-row__protocol {
@@ -637,7 +638,7 @@ onBeforeUnmount(() => {
 
 .logs-row__sub {
   color: var(--muted);
-  font-size: 0.76rem;
+  font-size: 13px;
 }
 
 .logs-row__message {
@@ -651,6 +652,22 @@ onBeforeUnmount(() => {
 }
 
 @media (max-width: 760px) {
+  .logs-filter-grid :deep(.ant-form-item) {
+    flex-basis: 100%;
+    max-width: none;
+  }
+
+  .logs-toolbar__actions {
+    flex: 1 1 100%;
+    align-items: stretch;
+    justify-content: flex-start;
+    margin-inline-start: 0;
+  }
+
+  .logs-toolbar__apply {
+    flex: 1 1 auto;
+  }
+
   .logs-row {
     grid-template-columns: 1fr;
   }

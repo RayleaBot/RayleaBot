@@ -8,6 +8,7 @@ export const logs = {
     protocol: '协议',
     plugin: '插件',
     requestId: '请求 ID',
+    more: '更多筛选',
     apply: '应用筛选',
     all: '全部',
     sourcePlaceholder: '例如 runtime / adapter.onebot11',

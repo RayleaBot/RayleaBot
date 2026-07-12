@@ -17,7 +17,6 @@ import { notifySuccess, useToastFeedback } from '@/adapter/feedback'
 import AppSkeletonCard from '@/components/AppSkeletonCard.vue'
 import RateLimitInput from '@/components/config/RateLimitInput.vue'
 import AppPage from '@/components/page/AppPage.vue'
-import AppStatCard from '@/components/AppStatCard.vue'
 import RetryPanel from '@/components/RetryPanel.vue'
 import {
   cloneConfig,
@@ -240,7 +239,7 @@ async function save() {
 </script>
 
 <template>
-  <AppPage :title="t('rateLimits.title')">
+  <AppPage :title="t('rateLimits.title')" width="form">
     <template #extra>
       <div class="table-actions">
         <a-button
@@ -274,15 +273,19 @@ async function save() {
 
       <template v-else-if="draft">
         <div class="rate-limits-summary-cards" data-testid="rate-limits-summary-card">
-          <AppStatCard
+          <div
             v-for="card in summaryCards"
             :key="card.key"
-            :icon="card.icon"
-            :label="card.label"
-            :tone="card.tone"
-            :value="card.value"
-            :description="card.description"
-          />
+            class="rate-limits-summary-item"
+            :data-tone="card.tone"
+          >
+            <component :is="card.icon" class="rate-limits-summary-item__icon" />
+            <div class="rate-limits-summary-item__copy">
+              <span>{{ card.label }}</span>
+              <strong>{{ card.value }}</strong>
+              <small>{{ card.description }}</small>
+            </div>
+          </div>
         </div>
 
         <section class="rate-limits-board" :aria-label="t('rateLimits.sections.settings')">
@@ -387,32 +390,49 @@ async function save() {
 .rate-limits-summary-cards {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 14px;
+  border-block: 1px solid var(--border);
 }
 
-.rate-limits-summary-cards :deep(> *) {
-  min-height: 112px;
-  padding: 18px;
-  border-radius: var(--app-card-radius);
-  background: linear-gradient(135deg, color-mix(in srgb, var(--surface-strong) 92%, white) 0%, var(--surface) 100%);
-  box-shadow: 0 8px 24px color-mix(in srgb, var(--shadow-color, #0f172a) 7%, transparent);
+.rate-limits-summary-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  padding: 14px 12px;
 }
 
-.rate-limits-summary-cards :deep(.app-stat-card__accent) {
-  opacity: 0;
+.rate-limits-summary-item + .rate-limits-summary-item {
+  border-inline-start: 1px solid var(--border);
 }
 
-.rate-limits-summary-cards :deep(.stat-card)::before {
-  display: none;
+.rate-limits-summary-item__icon {
+  color: var(--accent);
+  font-size: 18px;
 }
 
-.rate-limits-summary-cards :deep(.app-stat-card__icon-wrap) {
-  width: 44px;
-  height: 44px;
+.rate-limits-summary-item[data-tone='success'] .rate-limits-summary-item__icon {
+  color: var(--success);
 }
 
-.rate-limits-summary-cards :deep(.app-stat-card__value) {
-  font-size: 1.08rem;
+.rate-limits-summary-item[data-tone='warning'] .rate-limits-summary-item__icon {
+  color: var(--warning);
+}
+
+.rate-limits-summary-item__copy {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.rate-limits-summary-item__copy span,
+.rate-limits-summary-item__copy small {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.rate-limits-summary-item__copy strong {
+  color: var(--text);
+  font-size: 16px;
 }
 
 .rate-limits-board {
@@ -485,9 +505,9 @@ async function save() {
 }
 
 .rate-limits-status-pill--dirty {
-  color: color-mix(in srgb, var(--warning) 72%, #7c2d12);
-  background: color-mix(in srgb, var(--surface-warning) 86%, white);
-  border: 1px solid color-mix(in srgb, var(--warning) 35%, var(--border));
+  color: var(--text-attention);
+  background: var(--surface-attention);
+  border: 1px solid var(--border-attention);
 }
 
 .rate-limits-status-pill--saved {
@@ -560,7 +580,7 @@ async function save() {
   background: transparent;
   color: var(--muted);
   cursor: help;
-  font-size: 0.8rem;
+  font-size: 13px;
   font-weight: bold;
   opacity: 0.7;
   width: 18px;
@@ -611,9 +631,8 @@ async function save() {
 }
 
 .rate-limits-rate-preview__label {
-  font-size: 0.75rem;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  font-size: 13px;
+  letter-spacing: 0;
   color: var(--accent);
 }
 

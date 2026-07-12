@@ -195,7 +195,7 @@ describe('web bootstrap', () => {
     await flushBootstrap()
 
     const uiShellStore = useUiShellStore.mock.results[0]?.value
-    expect(uiShellStore.resetRestoredTabs).toHaveBeenCalled()
+    expect(uiShellStore.resetRestoredTabs).not.toHaveBeenCalled()
     expect(router.replace).not.toHaveBeenCalledWith({ name: 'status' })
   })
 

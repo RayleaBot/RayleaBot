@@ -136,16 +136,14 @@ const summaryFields = computed(() => {
   padding: 12px 14px;
   border-radius: var(--radius-lg);
   border: 1px solid color-mix(in srgb, var(--border) 92%, transparent);
-  background:
-    linear-gradient(180deg, color-mix(in srgb, var(--surface-soft) 96%, transparent), transparent 100%),
-    color-mix(in srgb, var(--surface-strong) 96%, transparent);
+  background: var(--surface-soft);
 }
 
 .log-detail-content__field-label {
   color: var(--muted);
-  font-size: 0.75rem;
+  font-size: 13px;
   font-weight: 600;
-  letter-spacing: 0.06em;
+  letter-spacing: 0;
   text-transform: uppercase;
 }
 
@@ -167,9 +165,7 @@ const summaryFields = computed(() => {
   margin-top: 16px;
   border-radius: var(--radius-lg);
   border: 1px solid color-mix(in srgb, var(--border) 92%, transparent);
-  background:
-    linear-gradient(180deg, color-mix(in srgb, var(--surface-soft) 96%, transparent), transparent 44%),
-    color-mix(in srgb, var(--surface-strong) 96%, transparent);
+  background: var(--surface-strong);
   overflow: hidden;
 }
 

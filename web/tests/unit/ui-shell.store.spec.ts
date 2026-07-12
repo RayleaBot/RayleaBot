@@ -1,10 +1,11 @@
 import { createPinia, setActivePinia } from 'pinia'
-import { beforeEach, describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { useUiShellStore } from '@/stores/ui-shell'
 
 describe('ui-shell store', () => {
   beforeEach(() => {
+    vi.restoreAllMocks()
     window.localStorage.clear()
     setActivePinia(createPinia())
   })
@@ -70,6 +71,32 @@ describe('ui-shell store', () => {
 
     persisted = JSON.parse(window.localStorage.getItem('rayleabot.ui-shell') ?? '{}')
     expect(persisted.tabs).toBeUndefined()
+  })
+
+  it('follows system color changes only while system mode is selected', () => {
+    let listener: ((event: MediaQueryListEvent) => void) | undefined
+    const removeEventListener = vi.fn()
+    vi.spyOn(window, 'matchMedia').mockReturnValue({
+      matches: true,
+      addEventListener: (_type: string, nextListener: (event: MediaQueryListEvent) => void) => {
+        listener = nextListener
+      },
+      removeEventListener,
+    } as unknown as MediaQueryList)
+
+    const store = useUiShellStore()
+    expect(store.preferences.themeMode).toBe('system')
+    expect(store.resolvedThemeMode).toBe('dark')
+
+    listener?.({ matches: false } as MediaQueryListEvent)
+    expect(store.resolvedThemeMode).toBe('light')
+
+    store.setThemeMode('dark')
+    listener?.({ matches: false } as MediaQueryListEvent)
+    expect(store.resolvedThemeMode).toBe('dark')
+
+    store.$dispose()
+    expect(removeEventListener).toHaveBeenCalledOnce()
   })
 
   it('closes all non-affix tabs and keeps the persisted affix tabs', () => {

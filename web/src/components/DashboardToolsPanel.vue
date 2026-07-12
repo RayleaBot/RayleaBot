@@ -35,7 +35,6 @@ defineEmits<{
         {{ t('dashboard.createBackup') }}
       </a-button>
       <a-button
-        type="primary"
         class="tool-button tool-button--diagnostics"
         :loading="diagnosticsPending"
         @click="$emit('exportDiagnostics')"
@@ -49,15 +48,9 @@ defineEmits<{
 
 <style scoped lang="scss">
 .tools-panel {
-  border-radius: var(--radius-xl);
   border: 1px solid var(--border);
   background: var(--surface-strong);
-  box-shadow: var(--shadow-xs);
-  transition: border-color 150ms ease;
-
-  &:hover {
-    border-color: var(--border-accent);
-  }
+  box-shadow: none;
 }
 
 .tools-panel :deep(.ant-card-body) {
@@ -87,9 +80,8 @@ defineEmits<{
   align-items: center;
   justify-content: center;
   gap: 8px;
-  box-shadow: var(--shadow-xs);
-  border: 1px solid transparent;
-  transition: border-color 150ms ease, background-color 150ms ease;
+  box-shadow: none;
+  transition: border-color var(--motion-fast) var(--motion-easing), background-color var(--motion-fast) var(--motion-easing);
 
   &--backup {
     background: var(--accent) !important;
@@ -98,16 +90,6 @@ defineEmits<{
 
     &:hover {
       background: var(--accent) !important;
-    }
-  }
-
-  &--diagnostics {
-    background: #117386 !important;
-    border-color: #117386;
-    color: #ffffff;
-
-    &:hover {
-      background: #117386 !important;
     }
   }
 

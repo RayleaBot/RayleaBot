@@ -2,41 +2,27 @@
 import { computed, ref } from 'vue'
 import { storeToRefs } from 'pinia'
 
-import {
-  themeColorPresets,
-  type ContentWidth,
-  type LayoutPreferences,
-  type DensityMode,
-  type FontScale,
-  type PageTransition,
-  type RadiusLevel,
-} from '@/preferences/app'
 import { t } from '@/i18n'
-import { useUiShellStore } from '@/stores/ui-shell'
 import { applyThemeWithMotion } from '@/motion/runtime'
+import type {
+  ContentWidth,
+  DensityMode,
+  LayoutPreferences,
+  PageTransition,
+  ThemeMode,
+} from '@/preferences/app'
+import { useUiShellStore } from '@/stores/ui-shell'
 
-type SettingsTabKey = 'appearance' | 'general' | 'layout' | 'shortcuts'
+type SettingsTabKey = 'appearance' | 'workspace' | 'shortcuts'
 
 const uiShellStore = useUiShellStore()
 const { preferences, settingsOpen } = storeToRefs(uiShellStore)
 const activeTab = ref<SettingsTabKey>('appearance')
 
-const themeOptions = [
+const themeOptions: Array<{ label: string; value: ThemeMode }> = [
+  { label: t('shell.preferences.themeSystem'), value: 'system' },
   { label: t('shell.preferences.themeLight'), value: 'light' },
   { label: t('shell.preferences.themeDark'), value: 'dark' },
-]
-
-const radiusOptions: Array<{ label: string; value: RadiusLevel }> = [
-  { label: t('shell.preferences.radiusSm'), value: 'sm' },
-  { label: t('shell.preferences.radiusMd'), value: 'md' },
-  { label: t('shell.preferences.radiusLg'), value: 'lg' },
-  { label: t('shell.preferences.radiusXl'), value: 'xl' },
-]
-
-const fontScaleOptions: Array<{ label: string; value: FontScale }> = [
-  { label: t('shell.preferences.fontSm'), value: 'sm' },
-  { label: t('shell.preferences.fontMd'), value: 'md' },
-  { label: t('shell.preferences.fontLg'), value: 'lg' },
 ]
 
 const densityOptions: Array<{ label: string; value: DensityMode }> = [
@@ -76,7 +62,7 @@ function patchPreference<T extends keyof LayoutPreferences>(key: T, value: Layou
   <a-drawer
     :open="settingsOpen"
     :title="t('shell.preferences.title')"
-    :width="360"
+    :width="380"
     class="preferences-drawer"
     data-testid="preferences-drawer"
     @close="uiShellStore.closeSettings()"
@@ -84,51 +70,23 @@ function patchPreference<T extends keyof LayoutPreferences>(key: T, value: Layou
     <a-tabs v-model:activeKey="activeTab" class="preferences-drawer__tabs" size="small">
       <a-tab-pane key="appearance" :tab="t('shell.preferences.appearance')">
         <div class="preferences-group">
-          <label>{{ t('shell.preferences.themeMode') }}</label>
+          <div class="preferences-group__heading">
+            <strong>{{ t('shell.preferences.themeMode') }}</strong>
+            <span>{{ t('shell.preferences.themeModeHelp') }}</span>
+          </div>
           <a-segmented
             :options="themeOptions"
             :value="preferences.themeMode"
             block
-            @change="patchPreference('themeMode', $event as 'light' | 'dark')"
+            @change="patchPreference('themeMode', $event as ThemeMode)"
           />
         </div>
 
         <div class="preferences-group">
-          <label>{{ t('shell.preferences.primaryColor') }}</label>
-          <div class="preferences-colors">
-            <button
-              v-for="color in themeColorPresets"
-              :key="color"
-              type="button"
-              :class="['preferences-color', { 'is-active': preferences.colorPrimary === color }]"
-              :style="{ '--preferences-color': color }"
-              @click="patchPreference('colorPrimary', color)"
-            />
+          <div class="preferences-group__heading">
+            <strong>{{ t('shell.preferences.density') }}</strong>
+            <span>{{ t('shell.preferences.densityHelp') }}</span>
           </div>
-        </div>
-
-        <div class="preferences-group">
-          <label>{{ t('shell.preferences.radius') }}</label>
-          <a-segmented
-            :options="radiusOptions"
-            :value="preferences.radiusLevel"
-            block
-            @change="patchPreference('radiusLevel', $event as RadiusLevel)"
-          />
-        </div>
-
-        <div class="preferences-group">
-          <label>{{ t('shell.preferences.fontScale') }}</label>
-          <a-segmented
-            :options="fontScaleOptions"
-            :value="preferences.fontScale"
-            block
-            @change="patchPreference('fontScale', $event as FontScale)"
-          />
-        </div>
-
-        <div class="preferences-group">
-          <label>{{ t('shell.preferences.density') }}</label>
           <a-segmented
             :options="densityOptions"
             :value="preferences.density"
@@ -136,11 +94,27 @@ function patchPreference<T extends keyof LayoutPreferences>(key: T, value: Layou
             @change="patchPreference('density', $event as DensityMode)"
           />
         </div>
+
+        <div class="preferences-group">
+          <div class="preferences-group__heading">
+            <strong>{{ t('shell.preferences.pageTransition') }}</strong>
+            <span>{{ t('shell.preferences.pageTransitionHelp') }}</span>
+          </div>
+          <a-segmented
+            :options="pageTransitionOptions"
+            :value="preferences.pageTransition"
+            block
+            @change="patchPreference('pageTransition', $event as PageTransition)"
+          />
+        </div>
       </a-tab-pane>
 
-      <a-tab-pane key="layout" :tab="t('shell.preferences.layout')">
+      <a-tab-pane key="workspace" :tab="t('shell.preferences.workspace')">
         <div class="preferences-group">
-          <label>{{ t('shell.preferences.contentWidth') }}</label>
+          <div class="preferences-group__heading">
+            <strong>{{ t('shell.preferences.contentWidth') }}</strong>
+            <span>{{ t('shell.preferences.contentWidthHelp') }}</span>
+          </div>
           <a-segmented
             :options="contentWidthOptions"
             :value="preferences.contentWidth"
@@ -152,48 +126,10 @@ function patchPreference<T extends keyof LayoutPreferences>(key: T, value: Layou
         <div class="preferences-switches">
           <div class="preferences-switch">
             <div>
-              <strong>{{ t('shell.preferences.fixedHeader') }}</strong>
-              <span>{{ t('shell.preferences.fixedHeaderHelp') }}</span>
-            </div>
-            <a-switch :checked="preferences.fixedHeader" @change="patchPreference('fixedHeader', $event)" />
-          </div>
-
-          <div class="preferences-switch">
-            <div>
-              <strong>{{ t('shell.preferences.breadcrumb') }}</strong>
-              <span>{{ t('shell.preferences.breadcrumbHelp') }}</span>
-            </div>
-            <a-switch :checked="preferences.breadcrumb" @change="patchPreference('breadcrumb', $event)" />
-          </div>
-
-          <div class="preferences-switch">
-            <div>
               <strong>{{ t('shell.preferences.chromeTabbar') }}</strong>
               <span>{{ t('shell.preferences.chromeTabbarHelp') }}</span>
             </div>
             <a-switch :checked="preferences.chromeTabbar" @change="patchPreference('chromeTabbar', $event)" />
-          </div>
-        </div>
-      </a-tab-pane>
-
-      <a-tab-pane key="general" :tab="t('shell.preferences.general')">
-        <div class="preferences-group">
-          <label>{{ t('shell.preferences.pageTransition') }}</label>
-          <a-segmented
-            :options="pageTransitionOptions"
-            :value="preferences.pageTransition"
-            block
-            @change="patchPreference('pageTransition', $event as PageTransition)"
-          />
-        </div>
-
-        <div class="preferences-switches">
-          <div class="preferences-switch">
-            <div>
-              <strong>{{ t('shell.preferences.pageLoading') }}</strong>
-              <span>{{ t('shell.preferences.pageLoadingHelp') }}</span>
-            </div>
-            <a-switch :checked="preferences.pageLoading" @change="patchPreference('pageLoading', $event)" />
           </div>
 
           <div class="preferences-switch">
@@ -204,29 +140,29 @@ function patchPreference<T extends keyof LayoutPreferences>(key: T, value: Layou
             <a-switch :checked="preferences.rememberTabs" @change="patchPreference('rememberTabs', $event)" />
           </div>
         </div>
-
-        <a-button block @click="uiShellStore.resetPreferences()">
-          {{ t('shell.preferences.reset') }}
-        </a-button>
       </a-tab-pane>
 
       <a-tab-pane key="shortcuts" :tab="t('shell.preferences.shortcuts')">
         <div class="shortcut-list">
           <div v-for="item in shortcutItems" :key="item.combo" class="shortcut-item">
-            <strong>{{ item.combo }}</strong>
+            <kbd>{{ item.combo }}</kbd>
             <span>{{ item.description }}</span>
           </div>
         </div>
       </a-tab-pane>
     </a-tabs>
+
+    <template #footer>
+      <a-button block @click="uiShellStore.resetPreferences()">
+        {{ t('shell.preferences.reset') }}
+      </a-button>
+    </template>
   </a-drawer>
 </template>
 
 <style scoped lang="scss">
-.preferences-drawer__tabs {
-  :deep(.ant-tabs-nav) {
-    margin-bottom: 16px;
-  }
+.preferences-drawer__tabs :deep(.ant-tabs-nav) {
+  margin-bottom: 24px;
 }
 
 .preferences-group,
@@ -237,77 +173,60 @@ function patchPreference<T extends keyof LayoutPreferences>(key: T, value: Layou
 }
 
 .preferences-group {
-  margin-bottom: 20px;
+  margin-bottom: 28px;
+}
 
-  label {
-    font-size: 0.82rem;
-    font-weight: 600;
-    color: var(--text);
-  }
+.preferences-group__heading {
+  display: grid;
+  gap: 4px;
+}
+
+.preferences-group__heading strong,
+.preferences-switch strong {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.preferences-group__heading span,
+.preferences-switch span,
+.shortcut-item span {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.5;
 }
 
 .preferences-switch {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
-  padding: 12px 0;
+  gap: 20px;
+  padding: 16px 0;
   border-bottom: 1px solid var(--border);
-
-  strong,
-  span {
-    display: block;
-  }
-
-  strong {
-    font-size: 0.9rem;
-  }
-
-  span {
-    margin-top: 4px;
-    color: var(--muted);
-    font-size: 0.8rem;
-    line-height: 1.5;
-  }
 }
 
-.preferences-colors {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-}
-
-.preferences-color {
-  width: 28px;
-  height: 28px;
-  border-radius: 999px;
-  border: 2px solid transparent;
-  background: var(--preferences-color);
-  cursor: pointer;
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.45);
-
-  &.is-active {
-    border-color: color-mix(in srgb, var(--preferences-color) 60%, var(--surface-strong) 40%);
-  }
+.preferences-switch > div {
+  display: grid;
+  gap: 4px;
 }
 
 .shortcut-item {
   display: grid;
-  gap: 6px;
-  padding: 12px 14px;
+  grid-template-columns: minmax(130px, auto) minmax(0, 1fr);
+  align-items: center;
+  gap: 16px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.shortcut-item kbd {
+  width: fit-content;
+  padding: 4px 8px;
   border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  background: var(--surface);
-
-  strong {
-    font-family: var(--font-mono);
-    font-size: 0.84rem;
-  }
-
-  span {
-    color: var(--muted);
-    font-size: 0.82rem;
-    line-height: 1.5;
-  }
+  border-radius: 6px;
+  color: var(--text);
+  background: var(--surface-soft);
+  font-family: var(--font-mono);
+  font-size: 12px;
 }
 </style>

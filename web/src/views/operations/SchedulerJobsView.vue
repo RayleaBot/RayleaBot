@@ -7,8 +7,6 @@ import {
   EyeOutlined,
   ThunderboltOutlined,
   SearchOutlined,
-  AppstoreOutlined,
-  UnorderedListOutlined,
   MessageOutlined,
   CopyOutlined,
   InfoCircleOutlined,
@@ -44,7 +42,6 @@ const {
 const searchQuery = ref('')
 const statusFilter = ref<'all' | 'success' | 'error'>('all')
 const sortBy = ref<'name' | 'last_run' | 'duration'>('name')
-const viewMode = ref<'table' | 'grid'>('table')
 
 const timeTick = ref(0)
 let timerId: any = null
@@ -121,19 +118,10 @@ function conversationText(job: SchedulerJobSummary) {
   return ''
 }
 
-// 动态色彩 Avatar 算法
-function getPluginAvatarStyle(pluginName: string) {
-  let hash = 0
-  for (let i = 0; i < pluginName.length; i++) {
-    hash = pluginName.charCodeAt(i) + ((hash << 5) - hash)
-  }
-  const h1 = Math.abs(hash) % 360
-  const h2 = (h1 + 50) % 360
+function getPluginAvatarStyle() {
   return {
-    background: `linear-gradient(135deg, hsl(${h1}, 75%, 55%) 0%, hsl(${h2}, 80%, 45%) 100%)`,
-    color: '#ffffff',
-    textShadow: '0 1px 2px rgba(0, 0, 0, 0.15)',
-    boxShadow: 'var(--shadow-xs)',
+    background: 'var(--surface-accent)',
+    color: 'var(--accent)',
   }
 }
 
@@ -268,7 +256,7 @@ const filteredItems = computed(() => {
 </script>
 
 <template>
-  <AppPage :title="t('scheduler.title')" full-height>
+  <AppPage :title="t('scheduler.title')">
     <div class="scheduler-page-container">
       <!-- 任务筛选 -->
       <div class="scheduler-filter-card">
@@ -305,23 +293,6 @@ const filteredItems = computed(() => {
           </a-select>
         </div>
 
-        <a-segmented
-          v-model:value="viewMode"
-          :options="[
-            { value: 'table', payload: 'table' },
-            { value: 'grid', payload: 'grid' },
-          ]"
-          class="view-mode-segmented"
-        >
-          <template #label="{ value: val }">
-            <template v-if="val === 'table'">
-              <UnorderedListOutlined />
-            </template>
-            <template v-else-if="val === 'grid'">
-              <AppstoreOutlined />
-            </template>
-          </template>
-        </a-segmented>
       </div>
     </div>
 
@@ -347,7 +318,7 @@ const filteredItems = computed(() => {
     />
 
     <!-- 任务表格 -->
-    <div v-else-if="viewMode === 'table'" class="table-container-wrapper">
+    <div v-else class="table-container-wrapper">
       <a-table
         class="scheduler-data-table app-data-table refactored-table"
         :columns="tableColumns"
@@ -513,92 +484,33 @@ const filteredItems = computed(() => {
           </template>
         </template>
       </a-table>
-    </div>
-
-    <!-- 双视图之：卡片看板 (Grid View) -->
-    <div v-else-if="viewMode === 'grid'" class="scheduler-grid-container">
-      <div
-        v-for="job in filteredItems"
-        :key="job.job_id"
-        class="scheduler-card"
-        :class="{ 'card-has-error': job.last_error }"
-      >
-        <div class="card-header">
-          <div class="plugin-avatar" :style="getPluginAvatarStyle(job.plugin_name)">
-            {{ getPluginInitials(job.plugin_name) }}
+      <div class="scheduler-mobile-list" aria-label="定时任务列表">
+        <article v-for="job in filteredItems" :key="job.job_id" class="scheduler-mobile-row">
+          <div class="scheduler-mobile-row__heading">
+            <div>
+              <strong>{{ job.plugin_name }}</strong>
+              <span>{{ job.task_name }}</span>
+            </div>
+            <a-tag :color="job.last_error ? 'error' : 'success'">
+              {{ job.last_error ? job.last_error.code : '正常' }}
+            </a-tag>
           </div>
-          <div class="card-meta">
-            <div class="plugin-info">
-              <span class="p-name">{{ job.plugin_name }}</span>
-              <span class="p-id">{{ job.plugin_id }}</span>
-            </div>
-            <div class="task-info">
-              <span class="t-tag">{{ job.task_name }}</span>
-              <span class="t-id">{{ job.job_id }}</span>
-            </div>
+          <dl>
+            <div><dt>计划</dt><dd>{{ parseCronToChinese(job.cron_expr) }}</dd></div>
+            <div><dt>下次执行</dt><dd>{{ formatDateTime(job.next_run) }}</dd></div>
+            <div><dt>最近耗时</dt><dd>{{ formatDurationMs(job.last_duration_ms) }}</dd></div>
+          </dl>
+          <div class="scheduler-mobile-row__actions">
+            <a-button @click="showJobDetail(job)">{{ t('scheduler.view') }}</a-button>
+            <a-button
+              type="primary"
+              :loading="triggeringJobId === job.job_id"
+              @click="triggerJob(job)"
+            >
+              {{ t('scheduler.trigger') }}
+            </a-button>
           </div>
-        </div>
-
-        <div class="card-body">
-          <div class="card-label-section">
-            <div class="section-title">自定义内容 / 会话</div>
-            <div class="label-desc">{{ displayText(job.log_label || job.payload_summary.content) }}</div>
-            <span class="conv-badge" v-if="conversationText(job)">
-              <MessageOutlined class="badge-icon" />
-              <span>{{ conversationText(job) }}</span>
-            </span>
-            <span class="conv-badge global" v-else>全局会话</span>
-          </div>
-
-          <div class="card-cron-section">
-            <div class="section-title">定时计划</div>
-            <div class="cron-text-row">
-              <span class="cron-c-text">{{ parseCronToChinese(job.cron_expr) }}</span>
-              <span class="cron-expr-tag">{{ job.cron_expr }}</span>
-            </div>
-            <div class="next-time-row" v-if="job.next_run">
-              <ClockCircleOutlined />
-              <span class="next-val">{{ formatDateTime(job.next_run) }}</span>
-              <span class="next-rel-pill">{{ getNextRunRelativeText(job.next_run) }}</span>
-            </div>
-          </div>
-
-          <div class="card-stats-section">
-            <div class="stats-summary">
-              <span>已执行: <strong>{{ job.stats.total }}</strong>次</span>
-              <span>成功率: <strong class="pct">{{ job.stats.total ? `${getSuccessRate(job.stats)}%` : '未执行' }}</strong></span>
-            </div>
-            <div class="mini-stacked-bar">
-              <div class="bar-success" :style="{ width: `${(job.stats.success / (job.stats.total || 1)) * 100}%` }"></div>
-              <div class="bar-failed" :style="{ width: `${(job.stats.failed / (job.stats.total || 1)) * 100}%` }"></div>
-              <div class="bar-other" :style="{ width: `${((job.stats.total - job.stats.success - job.stats.failed) / (job.stats.total || 1)) * 100}%` }"></div>
-            </div>
-          </div>
-
-          <!-- 看板错误通知 -->
-          <div class="card-error-alert" v-if="job.last_error">
-            <div class="err-head">
-              <WarningOutlined />
-              <span>{{ job.last_error.code }}</span>
-            </div>
-            <p class="err-msg" :title="job.last_error.message">{{ job.last_error.message }}</p>
-          </div>
-        </div>
-
-        <div class="card-actions">
-          <a-button class="card-action-btn view" @click="showJobDetail(job)">
-            <template #icon><EyeOutlined /></template>
-            查看详情
-          </a-button>
-          <a-button
-            class="card-action-btn trigger"
-            :loading="triggeringJobId === job.job_id"
-            @click="triggerJob(job)"
-          >
-            <template #icon><ThunderboltOutlined /></template>
-            立即执行
-          </a-button>
-        </div>
+        </article>
       </div>
     </div>
   </div>
@@ -782,23 +694,13 @@ const filteredItems = computed(() => {
 </template>
 
 <style lang="scss" scoped>
-/* ----------------------------------------------------
- * 高阶 Flex-box 弹性布局包裹容器
- * ---------------------------------------------------- */
 .scheduler-page-container {
-  display: flex;
-  flex-direction: column;
-  flex: 1 1 auto;
-  min-height: 0;
+  display: grid;
   gap: var(--space-md);
-  height: 100%;
 }
 
 .scheduler-content-stage {
-  display: flex;
-  flex-direction: column;
-  flex: 1 1 auto;
-  min-height: 0;
+  display: grid;
 }
 
 .scheduler-filter-card {
@@ -811,13 +713,8 @@ const filteredItems = computed(() => {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-sm);
+  box-shadow: none;
   margin-bottom: var(--space-md);
-  transition: border-color 150ms ease;
-
-  &:hover {
-    border-color: var(--border-accent);
-  }
 
   .filter-left,
   .filter-right {
@@ -843,8 +740,7 @@ const filteredItems = computed(() => {
     }
   }
 
-  .filter-segmented,
-  .view-mode-segmented {
+  .filter-segmented {
     background: color-mix(in srgb, var(--text) 5%, transparent);
     padding: 2px;
     border-radius: var(--radius-md);
@@ -884,45 +780,25 @@ const filteredItems = computed(() => {
 }
 
 .table-container-wrapper {
-  flex: 1 1 auto;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-sm);
+  box-shadow: none;
   overflow: hidden;
 }
 
 .refactored-table {
-  display: flex;
-  flex: 1 1 auto;
-  flex-direction: column;
-  min-height: 0;
-  overflow: hidden;
-
   :deep(.ant-spin-nested-loading),
   :deep(.ant-spin-container),
   :deep(.ant-table) {
-    display: flex;
-    flex: 1 1 auto;
-    flex-direction: column;
-    min-height: 0;
     background: transparent !important;
   }
 
   :deep(.ant-table-container) {
-    display: flex;
-    flex: 1 1 auto;
-    flex-direction: column;
-    min-height: 0;
-    overflow: hidden;
+    overflow: auto;
   }
 
   :deep(.ant-table-content) {
-    flex: 1 1 auto;
-    min-height: 0;
     overflow: auto !important;
   }
 
@@ -955,34 +831,78 @@ const filteredItems = computed(() => {
     }
   }
 
-  :deep(.ant-table-tbody > tr:not(.ant-table-measure-row) > td:first-child) {
-    position: relative;
+}
 
-    &::before {
-      content: '';
-      position: absolute;
-      left: 0;
-      top: 0;
-      bottom: 0;
-      width: 4px;
-      background: transparent;
-      transform: scaleY(0);
-      transform-origin: center;
-      transition: transform 150ms ease, background-color 150ms ease;
-      z-index: 10;
-    }
+.scheduler-mobile-list {
+  display: none;
+}
+
+.scheduler-mobile-row {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  border-top: 1px solid var(--border);
+}
+
+.scheduler-mobile-row__heading,
+.scheduler-mobile-row__actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.scheduler-mobile-row__heading > div {
+  display: grid;
+  min-width: 0;
+}
+
+.scheduler-mobile-row__heading span {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.scheduler-mobile-row dl {
+  display: grid;
+  gap: 0;
+  margin: 0;
+}
+
+.scheduler-mobile-row dl > div {
+  display: grid;
+  grid-template-columns: 96px minmax(0, 1fr);
+  gap: 12px;
+  padding-block: 8px;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.scheduler-mobile-row dt,
+.scheduler-mobile-row dd {
+  margin: 0;
+  font-size: 13px;
+}
+
+.scheduler-mobile-row dt {
+  color: var(--muted);
+}
+
+.scheduler-mobile-row dd {
+  color: var(--text);
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 639px) {
+  .scheduler-data-table {
+    display: none;
   }
 
-  :deep(.ant-table-tbody > tr:not(.ant-table-measure-row):hover > td:first-child::before) {
-    transform: scaleY(1);
+  .scheduler-mobile-list {
+    display: grid;
   }
 
-  :deep(.ant-table-tbody > tr.row-success > td:first-child::before) {
-      background: var(--success);
-  }
-
-  :deep(.ant-table-tbody > tr.row-error > td:first-child::before) {
-      background: var(--danger);
+  .scheduler-mobile-row__actions > * {
+    min-height: 44px;
+    flex: 1 1 0;
   }
 }
 
@@ -1029,7 +949,7 @@ const filteredItems = computed(() => {
     }
 
     .task-tag {
-      font-size: 11px;
+      font-size: 13px;
       background: color-mix(in srgb, var(--accent) 8%, transparent);
       color: var(--accent);
       border: 1px solid color-mix(in srgb, var(--accent) 20%, transparent);
@@ -1044,7 +964,7 @@ const filteredItems = computed(() => {
     display: flex;
     align-items: center;
     gap: 4px;
-    font-size: 11px;
+    font-size: 13px;
     color: var(--muted);
     font-family: var(--font-mono);
 
@@ -1085,7 +1005,7 @@ const filteredItems = computed(() => {
     display: inline-flex;
     align-items: center;
     gap: 4px;
-    font-size: 11px;
+    font-size: 13px;
     background: color-mix(in srgb, var(--text) 5%, transparent);
     border: 1px solid var(--border);
     color: var(--muted);
@@ -1095,7 +1015,7 @@ const filteredItems = computed(() => {
     font-family: var(--font-mono);
 
     .badge-icon {
-      font-size: 10px;
+      font-size: 12px;
     }
     .badge-text {
       overflow: hidden;
@@ -1133,7 +1053,7 @@ const filteredItems = computed(() => {
     }
 
     .raw-cron {
-      font-size: 11px;
+      font-size: 13px;
       font-family: var(--font-mono);
       color: var(--muted);
       background: color-mix(in srgb, var(--text) 4%, transparent);
@@ -1150,7 +1070,7 @@ const filteredItems = computed(() => {
     color: var(--muted);
 
     .clock-icon {
-      font-size: 11px;
+      font-size: 13px;
     }
 
     .next-time {
@@ -1160,7 +1080,7 @@ const filteredItems = computed(() => {
     }
 
     .relative-time-pill {
-      font-size: 10px;
+      font-size: 12px;
       background: var(--accent-soft);
       color: var(--accent);
       padding: 0px 5px;
@@ -1187,7 +1107,7 @@ const filteredItems = computed(() => {
   }
 
   .duration-badge {
-    font-size: 11px;
+    font-size: 13px;
     font-weight: 600;
     padding: 1px 6px;
     border-radius: 5px;
@@ -1226,7 +1146,7 @@ const filteredItems = computed(() => {
     justify-content: flex-start;
     align-items: center;
     gap: 8px;
-    font-size: 11px;
+    font-size: 13px;
     color: var(--muted);
     font-weight: 500;
     white-space: nowrap;
@@ -1266,7 +1186,7 @@ const filteredItems = computed(() => {
   }
 
   .error-capsule {
-    font-size: 10px;
+    font-size: 12px;
     font-weight: 700;
     background: color-mix(in srgb, var(--danger) 10%, transparent);
     border: 1px solid color-mix(in srgb, var(--danger) 24%, transparent);
@@ -1293,7 +1213,7 @@ const filteredItems = computed(() => {
   }
 
   .success-dot {
-    font-size: 11px;
+    font-size: 13px;
     color: var(--success);
     font-weight: 600;
     display: inline-flex;
@@ -1301,7 +1221,7 @@ const filteredItems = computed(() => {
     gap: 4px;
 
     .ok-icon {
-      font-size: 10px;
+      font-size: 12px;
     }
   }
 }
@@ -1339,7 +1259,7 @@ const filteredItems = computed(() => {
   .copy-err-btn {
     padding: 0;
     height: auto;
-    font-size: 11px;
+    font-size: 13px;
     margin-top: 8px;
   }
 }
@@ -1371,298 +1291,6 @@ const filteredItems = computed(() => {
       color: var(--success) !important;
       border-color: var(--success) !important;
       background: var(--surface-success) !important;
-    }
-  }
-}
-
-.scheduler-grid-container {
-  flex: 1 1 auto;
-  overflow-y: auto;
-  min-height: 0;
-  padding: 4px;
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
-  gap: 16px;
-  align-content: start;
-}
-
-.scheduler-card {
-  display: flex;
-  flex-direction: column;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-sm);
-  overflow: hidden;
-  transition: border-color 150ms ease, background-color 150ms ease;
-
-  &:hover {
-    border-color: var(--border-accent);
-  }
-
-  &.card-has-error {
-    border-color: color-mix(in srgb, var(--danger) 30%, var(--border));
-
-    &:hover {
-      border-color: var(--danger);
-    }
-  }
-
-  .card-header {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 16px;
-    border-bottom: 1px solid var(--border);
-    background: color-mix(in srgb, var(--text) 2%, transparent);
-
-    .plugin-avatar {
-      width: 42px;
-      height: 42px;
-      border-radius: var(--radius-md);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 15px;
-      font-weight: 800;
-      flex-shrink: 0;
-    }
-
-    .card-meta {
-      display: flex;
-      flex-direction: column;
-      gap: 3px;
-      min-width: 0;
-    }
-
-    .plugin-info {
-      display: flex;
-      align-items: baseline;
-      gap: 6px;
-      min-width: 0;
-
-      .p-name {
-        font-weight: 700;
-        color: var(--text);
-        font-size: 14px;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-      }
-      .p-id {
-        font-size: 10px;
-        color: var(--muted);
-        font-family: var(--font-mono);
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-      }
-    }
-
-    .task-info {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      min-width: 0;
-
-      .t-tag {
-        font-size: 11px;
-        background: var(--accent-soft);
-        color: var(--accent);
-        border: 1px solid color-mix(in srgb, var(--accent) 18%, transparent);
-        padding: 0 5px;
-        border-radius: 4px;
-        font-weight: 600;
-      }
-      .t-id {
-        font-size: 10px;
-        color: var(--muted);
-        font-family: var(--font-mono);
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-      }
-    }
-  }
-
-  .card-body {
-    padding: 16px;
-    display: flex;
-    flex-direction: column;
-    gap: 14px;
-    flex: 1 1 auto;
-
-    .section-title {
-      font-size: 11px;
-      color: var(--muted);
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 0.02em;
-      margin-bottom: 4px;
-    }
-
-    .label-desc {
-      font-size: 14px;
-      font-weight: 600;
-      color: var(--text);
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-
-    .conv-badge {
-      display: inline-flex;
-      align-items: center;
-      gap: 4px;
-      font-size: 11px;
-      background: color-mix(in srgb, var(--text) 5%, transparent);
-      border: 1px solid var(--border);
-      color: var(--muted);
-      padding: 1px 6px;
-      border-radius: 6px;
-      margin-top: 4px;
-      width: fit-content;
-      font-family: var(--font-mono);
-
-      &.global {
-        background: color-mix(in srgb, var(--success) 6%, transparent);
-        border-color: color-mix(in srgb, var(--success) 18%, transparent);
-        color: var(--success);
-        font-weight: 500;
-      }
-    }
-
-    .cron-text-row {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      margin-bottom: 3px;
-
-      .cron-c-text {
-        font-size: 14px;
-        font-weight: 700;
-        color: var(--text);
-      }
-      .cron-expr-tag {
-        font-size: 11px;
-        font-family: var(--font-mono);
-        color: var(--muted);
-        background: color-mix(in srgb, var(--text) 4%, transparent);
-        padding: 0 4px;
-        border-radius: 3px;
-      }
-    }
-
-    .next-time-row {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      font-size: 12px;
-      color: var(--muted);
-
-      .next-rel-pill {
-        background: var(--accent-soft);
-        color: var(--accent);
-        font-size: 10px;
-        font-weight: 700;
-        padding: 0 5px;
-        border-radius: 4px;
-      }
-    }
-
-    .stats-summary {
-      display: flex;
-      justify-content: space-between;
-      font-size: 12px;
-      color: var(--muted);
-      margin-bottom: 5px;
-
-      strong {
-        color: var(--text);
-      }
-      .pct {
-        color: var(--success);
-      }
-    }
-
-    .mini-stacked-bar {
-      display: flex;
-      height: 6px;
-      width: 100%;
-      background: color-mix(in srgb, var(--text) 8%, transparent);
-      border-radius: 3px;
-      overflow: hidden;
-
-      .bar-success { height: 100%; background: var(--success); }
-      .bar-failed { height: 100%; background: var(--danger); }
-      .bar-other { height: 100%; background: var(--warning); }
-    }
-
-    .card-error-alert {
-      background: color-mix(in srgb, var(--danger) 8%, transparent);
-      border: 1px solid color-mix(in srgb, var(--danger) 18%, transparent);
-      border-radius: 8px;
-      padding: 8px 12px;
-      display: flex;
-      flex-direction: column;
-      gap: 4px;
-
-      .err-head {
-        display: flex;
-        align-items: center;
-        gap: 6px;
-        font-weight: 700;
-        font-size: 12px;
-        color: var(--danger);
-      }
-
-      .err-msg {
-        font-size: 11px;
-        color: var(--text);
-        margin: 0;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-        font-family: var(--font-mono);
-      }
-    }
-  }
-
-  .card-actions {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 8px;
-    padding: 12px 16px;
-    border-top: 1px solid var(--border);
-    background: color-mix(in srgb, var(--text) 2%, transparent);
-
-    .card-action-btn {
-      height: 32px;
-      font-size: 12px;
-      border-radius: var(--radius-md);
-      transition: color 150ms ease, border-color 150ms ease, background-color 150ms ease;
-
-      &.view {
-        border-color: var(--border);
-        background: var(--surface);
-
-        &:hover {
-          color: var(--accent) !important;
-          border-color: var(--accent) !important;
-          background: var(--surface-accent) !important;
-        }
-      }
-
-      &.trigger {
-        background: var(--success);
-        color: #ffffff;
-        border: none;
-
-        &:hover {
-          background: color-mix(in srgb, var(--success) 85%, #ffffff) !important;
-          box-shadow: 0 4px 10px rgba(63, 190, 115, 0.25);
-        }
-      }
     }
   }
 }
@@ -1811,14 +1439,11 @@ const filteredItems = computed(() => {
   gap: 16px;
 
   .pane-group-title {
-    font-size: 11px;
+    font-size: 13px;
     font-weight: 700;
     color: var(--accent);
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
+    letter-spacing: 0;
     margin-bottom: 8px;
-    border-left: 2px solid var(--accent);
-    padding-left: 6px;
   }
 
   .pane-group {
@@ -1836,7 +1461,7 @@ const filteredItems = computed(() => {
     border: 1px solid var(--border);
 
     .label {
-      font-size: 11px;
+      font-size: 13px;
       color: var(--muted);
       margin-bottom: 3px;
     }
@@ -1866,7 +1491,7 @@ const filteredItems = computed(() => {
     }
 
     .sub-val {
-      font-size: 11px;
+      font-size: 13px;
       color: var(--muted);
       font-family: var(--font-mono);
       margin-top: 2px;
@@ -1942,7 +1567,7 @@ const filteredItems = computed(() => {
     }
 
     .gauge-desc {
-      font-size: 10px;
+      font-size: 12px;
       color: var(--muted);
       margin-top: 2px;
     }
@@ -2017,7 +1642,7 @@ const filteredItems = computed(() => {
       }
 
       .err-msg {
-        font-size: 11px;
+        font-size: 13px;
         color: var(--text);
         font-family: var(--font-mono);
         background: color-mix(in srgb, var(--surface) 60%, transparent);
@@ -2032,7 +1657,7 @@ const filteredItems = computed(() => {
 
       .copy-console-err-btn {
         margin-top: 4px;
-        font-size: 11px;
+        font-size: 13px;
         height: 28px;
         width: fit-content;
         align-self: flex-end;

@@ -28,6 +28,13 @@ export function useProtocolConfigEditor(
     draft.value = value ? cloneConfig(value) : null
   }, { immediate: true })
 
+  const isDirty = computed(() => {
+    if (!draft.value || !document.value) {
+      return false
+    }
+    return JSON.stringify(draft.value) !== JSON.stringify(document.value)
+  })
+
   function readField(path: string, type: ConfigFieldDefinition['type']) {
     if (!draft.value) {
       if (type === 'boolean') {
@@ -64,7 +71,7 @@ export function useProtocolConfigEditor(
     setValueByPath(draft.value as unknown as Record<string, unknown>, path, normalized)
   }
 
-  const canSave = computed(() => Boolean(draft.value) && !saving.value)
+  const canSave = computed(() => isDirty.value && !saving.value)
 
   async function save() {
     if (!draft.value) {
@@ -85,6 +92,7 @@ export function useProtocolConfigEditor(
     canSave,
     configSections,
     draft,
+    isDirty,
     readField,
     save,
     writeField,

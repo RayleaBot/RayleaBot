@@ -406,7 +406,7 @@ onMounted(() => {
 </script>
 
 <template>
-  <AppPage :title="t('accessLists.title')" :description="t('accessLists.subtitle')">
+  <AppPage :title="t('accessLists.title')" :description="t('accessLists.subtitle')" width="form">
     <template #extra>
       <div class="table-actions">
         <a-button data-testid="access-lists-open-commands" type="primary" @click="navigate(buildCommandsLocation())">
@@ -454,6 +454,14 @@ onMounted(() => {
               />
             </div>
           </div>
+
+          <a-alert
+            v-if="whitelistEnabled && totalWhitelistEntries === 0"
+            type="warning"
+            show-icon
+            :message="t('accessLists.whitelist.emptyWarningTitle')"
+            :description="t('accessLists.whitelist.emptyWarningDescription')"
+          />
 
           <div class="access-lists-toolbar">
             <div class="access-lists-toolbar__row">
@@ -851,12 +859,6 @@ onMounted(() => {
   gap: 24px;
 }
 
-@media (min-width: 1024px) {
-  .access-lists-page__grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
-
 .access-lists-card {
   border-radius: var(--radius-lg);
   background: var(--surface);
@@ -865,15 +867,7 @@ onMounted(() => {
 }
 
 :deep(.access-lists-card) {
-  box-shadow: var(--shadow-xs);
-}
-
-.whitelist-card-premium {
-  border-top: 4px solid var(--accent, #3b82f6) !important;
-}
-
-.blacklist-card-premium {
-  border-top: 4px solid #f43f5e !important;
+  box-shadow: none;
 }
 
 .access-lists-card-content {
@@ -918,7 +912,7 @@ onMounted(() => {
   background: transparent;
   color: var(--muted);
   cursor: help;
-  font-size: 0.8rem;
+  font-size: 13px;
   font-weight: 700;
   line-height: 1;
   opacity: 0.75;
@@ -1098,7 +1092,7 @@ onMounted(() => {
 }
 
 .inline-error-text {
-  font-size: 0.78rem;
+  font-size: 13px;
   color: #ef4444;
   text-align: left;
   line-height: 1.2;

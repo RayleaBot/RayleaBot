@@ -25,7 +25,9 @@
 - 组件层统一使用 Ant Design Vue。
 - 页面壳、菜单、页签、面包屑、主题偏好和工作区行为按 Vben 风格组织。
 - 现有业务语义保留在 `stores/`、`lib/`、`views/` 与 `components/` 内，不重定义后端 contract。
-- `AppCard`、`AppPage`、`AppEmptyState`、`ManagementContextActions`、日志详情抽屉、模板预览工作区和恢复卡片作为当前正式业务组件。
+- `AppPage` 统一标题、说明、状态、主操作、工具栏、内容宽度和全高工作区；`AppCard` 只承载真实独立表面或无阴影分区。
+- `AppStatusTag`、`RetryPanel`、`AppEmptyState`、`ManagementContextActions`、共享日志筛选与详情抽屉、模板预览工作区作为正式业务组件。
+- 不保留统计卡组件、彩色侧边条、全局卡片悬停和页面级自由视觉参数。
 
 ## 目录与职责
 
@@ -60,17 +62,18 @@
 - `plugin-detail` 保持按插件 ID 独立详情页签。
 - 工作区 query 只表达当前筛选、选中项和详情抽屉状态，不制造重复页签和历史噪音。
 - 模板预览页使用 `/render/templates/:templateId?` 单页工作区，模板切换使用同一页面实例。
+- 桌面端只有在打开多个工作区时显示页签，移动端隐藏页签；页签隐藏不改变 keep-alive、搜索跳转和工作区恢复语义。
+- 偏好持久化版本为 `3`，正式字段为主题、密度、内容宽度、页面动效、页签、工作区记忆和快捷键。旧版本在读取时迁移，废弃的自由视觉字段不再写回。
 
 ## 当前正式页面
 
 - 登录、初始化和会话入口
 - 系统状态
-- 插件与插件详情
-- 指令中心
-- 实时日志与历史日志
-- 协议中心与兼容矩阵
-- 配置
-- 模板预览
+- 菜单中心、插件列表、插件设置、插件详情和指令中心
+- 三方账号、协议中心和兼容矩阵
+- 权限策略、黑白名单和限流中心
+- 定时任务、实时日志和历史日志
+- 配置和模板预览
 
 ## 页面联动基线
 
@@ -82,7 +85,10 @@
 ## 样式与组件映射
 
 - 样式系统采用 Ant Design Vue tokens、Tailwind CSS 4、SCSS 和 CSS Variables。
+- `system`、`light`、`dark` 主题通过同一语义映射生成 Ant Design tokens 与 CSS variables；系统主题变化只影响 `system` 模式。
+- 状态色调统一为 `neutral`、`info`、`success`、`warning`、`attention`、`danger`，未知状态回落为中性。
 - 表单、表格、弹窗、抽屉、空态、骨架屏、标签和消息提示统一使用 Ant Design Vue 对应组件。
+- 普通业务列表在窄屏使用摘要行；只有兼容矩阵、代码和技术字段允许局部横向滚动。
 - 不保留 `element-plus`、`ElMessage` 和 `.el-*` 样式选择器。
 
 ## 验证门禁

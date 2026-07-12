@@ -570,9 +570,7 @@ onBeforeUnmount(() => {
 <style lang="scss" scoped>
 .log-detail-drawer :deep(.ant-drawer-body) {
   padding: 16px;
-  background:
-    linear-gradient(180deg, color-mix(in srgb, var(--surface-soft) 72%, transparent), transparent 24%),
-    var(--surface-strong);
+  background: var(--surface-strong);
 }
 
 .log-detail-window {
@@ -583,8 +581,7 @@ onBeforeUnmount(() => {
   min-height: 0;
   border-radius: var(--radius-lg);
   border: 1px solid color-mix(in srgb, var(--border-strong) 82%, var(--border));
-  background:
-    linear-gradient(180deg, color-mix(in srgb, var(--surface-strong) 98%, transparent), color-mix(in srgb, var(--surface-soft) 80%, transparent));
+  background: var(--surface-strong);
   box-shadow:
     0 22px 50px color-mix(in srgb, var(--text) 12%, transparent),
     0 6px 18px color-mix(in srgb, var(--accent) 10%, transparent);
@@ -597,8 +594,7 @@ onBeforeUnmount(() => {
   gap: 14px;
   padding: 16px 18px 14px;
   border-bottom: 1px solid color-mix(in srgb, var(--border) 92%, transparent);
-  background:
-    linear-gradient(180deg, color-mix(in srgb, var(--surface-strong) 96%, transparent), color-mix(in srgb, var(--surface-soft) 82%, transparent));
+  background: var(--surface-soft);
   cursor: grab;
   user-select: none;
 }
@@ -629,7 +625,7 @@ onBeforeUnmount(() => {
 
 .log-detail-window__eyebrow {
   color: var(--muted);
-  font-size: 0.72rem;
+  font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -668,7 +664,7 @@ onBeforeUnmount(() => {
   border: 1px solid color-mix(in srgb, var(--border) 92%, transparent);
   background: color-mix(in srgb, var(--surface-soft) 92%, transparent);
   color: var(--text);
-  font-size: 0.74rem;
+  font-size: 12px;
   font-weight: 600;
   line-height: 1.2;
 }
@@ -705,7 +701,7 @@ onBeforeUnmount(() => {
 .log-detail-window__subtitle {
   margin: 8px 0 0;
   color: var(--muted);
-  font-size: 0.78rem;
+  font-size: 13px;
   line-height: 1.5;
 }
 
@@ -722,17 +718,13 @@ onBeforeUnmount(() => {
   background: color-mix(in srgb, var(--surface-soft) 92%, transparent);
   color: var(--muted);
   cursor: pointer;
-  transition: border-color 0.2s ease, background-color 0.2s ease, color 0.2s ease, transform 0.12s ease;
+  transition: border-color var(--motion-fast) var(--motion-easing), background-color var(--motion-fast) var(--motion-easing), color var(--motion-fast) var(--motion-easing);
 }
 
 .log-detail-window__close:hover {
   border-color: color-mix(in srgb, var(--accent) 18%, var(--border));
   background: color-mix(in srgb, var(--accent) 10%, var(--surface-soft));
   color: var(--text);
-}
-
-.log-detail-window__close:active {
-  transform: scale(0.96);
 }
 
 .log-detail-window__body {

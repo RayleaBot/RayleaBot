@@ -361,7 +361,7 @@ async function save() {
       <div class="menu-center-float-panel">
         <div class="menu-center-float-panel__header">
           <span class="menu-center-float-panel__title">{{ t('builtinFeatures.menuCenter.title') }}</span>
-          <a-tag v-if="hasUnsavedChanges" color="blue" class="menu-center-unsaved-tag">
+          <a-tag v-if="hasUnsavedChanges" class="menu-center-unsaved-tag">
             {{ t('builtinFeatures.menuCenter.unsaved') }}
           </a-tag>
         </div>
@@ -458,9 +458,8 @@ async function save() {
   --menu-center-preview-max-width: 1040px;
   --menu-center-preview-top-space: 0px;
 
-  position: relative;
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: var(--menu-center-panel-width) minmax(0, 1fr);
   gap: var(--space-lg);
   min-height: 0;
   flex: 1 1 auto;
@@ -468,20 +467,16 @@ async function save() {
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   background: var(--surface-strong);
-  box-shadow: var(--shadow-card);
+  box-shadow: var(--shadow-xs);
 }
 
 .menu-center-float-panel {
-  position: absolute;
-  top: var(--menu-center-panel-inset);
-  left: var(--menu-center-panel-inset);
-  z-index: 10;
-  width: var(--menu-center-panel-width);
+  width: 100%;
   padding: var(--space-md);
   border-radius: var(--radius-lg);
   border: 1px solid var(--border);
   background: var(--surface-strong);
-  box-shadow: var(--shadow-elevated);
+  box-shadow: none;
 }
 
 .menu-center-float-panel__header {
@@ -501,7 +496,10 @@ async function save() {
 }
 
 .menu-center-unsaved-tag {
-  font-size: 0.75rem;
+  color: var(--text-attention);
+  background: var(--surface-attention);
+  border-color: var(--border-attention);
+  font-size: 13px;
   margin: 0;
 }
 
@@ -518,7 +516,7 @@ async function save() {
 }
 
 .menu-center-float-panel__label {
-  font-size: 0.8rem;
+  font-size: 13px;
   font-weight: 500;
   color: var(--text);
   line-height: 1.4;
@@ -530,7 +528,7 @@ async function save() {
 
 .menu-center-field-note {
   color: var(--muted);
-  font-size: 0.75rem;
+  font-size: 13px;
   line-height: 1.5;
 }
 
@@ -591,7 +589,7 @@ async function save() {
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   background: var(--surface-strong);
-  box-shadow: var(--shadow-card);
+  box-shadow: none;
 }
 
 .menu-trigger-row {
@@ -628,10 +626,6 @@ async function save() {
     flex-shrink: 0;
   }
 
-  &:hover {
-    border-color: var(--border-accent);
-    background: var(--surface-accent);
-  }
 }
 
 .menu-preview-empty {
@@ -655,10 +649,10 @@ async function save() {
 @media (max-width: 1023px) {
   .menu-center-layout {
     --menu-center-preview-top-space: 0px;
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .menu-center-float-panel {
-    position: static;
     width: 100%;
     margin-bottom: var(--space-md);
     background: var(--surface);

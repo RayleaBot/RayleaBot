@@ -265,8 +265,6 @@ async function bootstrap() {
     onUnauthorized: () => sessionStore.handleSessionExpired(),
   })
 
-  uiShellStore.resetRestoredTabs()
-
   const router = createAppRouter()
   installAvailabilityHandlers(router, sessionStore, socketStore, availabilityStore, uiShellStore)
   app.use(router)

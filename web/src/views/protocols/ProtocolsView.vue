@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { ExclamationCircleOutlined } from '@ant-design/icons-vue'
 import { computed, onMounted } from 'vue'
 import { storeToRefs } from 'pinia'
 
@@ -34,6 +35,7 @@ const {
   canSave,
   configSections,
   draft,
+  isDirty,
   readField,
   save,
   writeField,
@@ -247,13 +249,12 @@ function getLiveTransportIssues(type: string) {
 
 // Columns for unified Table
 const tableColumns = computed(() => [
-  { title: t('protocols.transportStatusTitle'), key: 'name', width: 220 },
-  { title: t('display.empty'), key: 'enabled', width: 80 },
-  { title: t('protocols.activeTransportLabel'), key: 'status', width: 160 },
-  { title: t('protocols.runtimeInfoColumn'), key: 'runtime', width: 260 },
-  { title: t('protocols.loginInfoColumn'), key: 'login', width: 220 },
-  { title: t('config.fields.onebotReverseWsUrl'), key: 'url', width: 320 },
+  { title: t('protocols.transportStatusTitle'), key: 'name', width: 240 },
+  { title: t('protocols.activeTransportLabel'), key: 'status', width: 150 },
+  { title: t('protocols.fields.endpoint'), key: 'url', width: 320 },
   { title: t('config.fields.onebotAccessToken'), key: 'token', width: 220 },
+  { title: t('protocols.loginInfoColumn'), key: 'login', width: 180 },
+  { title: t('protocols.runtimeInfoColumn'), key: 'runtime', width: 210 },
 ])
 
 const adapterConfigFields = computed(() => {
@@ -263,10 +264,10 @@ const adapterConfigFields = computed(() => {
 </script>
 
 <template>
-  <AppPage :title="t('protocols.title')" :description="t('protocols.subtitle')">
+  <AppPage :title="t('protocols.title')" :description="t('protocols.subtitle')" width="detail">
     <template #extra>
       <div class="table-actions">
-        <a-button type="primary" :disabled="!canSave" :loading="saving" @click="save" class="save-action-btn">
+        <a-button data-testid="protocol-save" type="primary" :disabled="!canSave" :loading="saving" @click="save" class="save-action-btn">
           <template #icon>
             <span class="btn-icon">✓</span>
           </template>
@@ -358,7 +359,7 @@ const adapterConfigFields = computed(() => {
               :data-source="transportConfigs"
               :pagination="false"
               :row-key="(row) => row.key"
-              :scroll="{ x: 1420 }"
+              :scroll="{ x: 1320 }"
             >
               <template #bodyCell="{ column, record }">
                 <!-- Column 1: Transport Name & Icon -->
@@ -371,12 +372,6 @@ const adapterConfigFields = computed(() => {
                       <span class="channel-name">{{ record.name }}</span>
                       <span class="channel-desc">{{ record.description }}</span>
                     </div>
-                  </div>
-                </template>
-
-                <!-- Column 2: Enable Switch -->
-                <template v-else-if="column.key === 'enabled'">
-                  <div class="switch-cell">
                     <a-switch
                       :checked="Boolean(readField(record.enabledPath, 'boolean'))"
                       :aria-label="record.name"
@@ -424,7 +419,6 @@ const adapterConfigFields = computed(() => {
                   <span class="login-cell">{{ loginInfoText(record.type) }}</span>
                 </template>
 
-                <!-- Column 6: Connection URL Input -->
                 <template v-else-if="column.key === 'url'">
                   <div class="input-cell-wrap">
                     <a-input
@@ -434,9 +428,9 @@ const adapterConfigFields = computed(() => {
                       class="refined-table-input"
                       @update:value="(value) => writeField(record.urlPath, 'text', value)"
                     />
-                    
-                    <div v-if="getLiveTransportIssues(record.type).length > 0" class="inline-error-alert">
-                      <span class="inline-err-icon">⚠️</span>
+
+                    <div v-if="getLiveTransportIssues(record.type).length > 0" class="inline-error-alert" role="alert">
+                      <span class="inline-err-icon" aria-hidden="true">⚠</span>
                       <span class="inline-err-msg" :title="getLiveTransportIssues(record.type)[0].summary">
                         {{ getLiveTransportIssues(record.type)[0].summary }}
                       </span>
@@ -444,7 +438,6 @@ const adapterConfigFields = computed(() => {
                   </div>
                 </template>
 
-                <!-- Column 7: Access Token Password Input -->
                 <template v-else-if="column.key === 'token'">
                   <div class="input-cell-wrap">
                     <a-input-password
@@ -512,7 +505,24 @@ const adapterConfigFields = computed(() => {
           </div>
         </transition>
       </div>
+
     </div>
+
+    <Transition name="protocol-unsaved">
+      <div
+        v-if="isDirty"
+        class="protocol-unsaved-toast"
+        data-testid="protocol-unsaved-status"
+        role="status"
+        aria-live="polite"
+      >
+        <ExclamationCircleOutlined aria-hidden="true" />
+        <span>{{ t('protocols.unsaved') }}</span>
+        <a-button data-testid="protocol-unsaved-save" size="small" type="primary" :loading="saving" @click="save">
+          {{ t('protocols.save') }}
+        </a-button>
+      </div>
+    </Transition>
   </AppPage>
 </template>
 
@@ -528,6 +538,47 @@ const adapterConfigFields = computed(() => {
   gap: 20px;
   color: var(--app-text);
   padding: 4px;
+}
+
+.protocol-unsaved-toast {
+  position: fixed;
+  z-index: 950;
+  bottom: max(24px, env(safe-area-inset-bottom));
+  left: 50%;
+  display: flex;
+  width: max-content;
+  max-width: min(520px, calc(100vw - 32px));
+  min-height: 48px;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px 8px 14px;
+  transform: translateX(-50%);
+  border: 1px solid var(--border-attention);
+  border-radius: 12px;
+  background: var(--surface-attention);
+  box-shadow: 0 14px 36px color-mix(in srgb, var(--text) 14%, transparent);
+  color: var(--text-attention);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.protocol-unsaved-toast :deep(.anticon) {
+  font-size: 16px;
+}
+
+.protocol-unsaved-toast :deep(.ant-btn) {
+  margin-inline-start: 6px;
+}
+
+.protocol-unsaved-enter-active,
+.protocol-unsaved-leave-active {
+  transition: opacity 160ms var(--motion-easing), transform 160ms var(--motion-easing);
+}
+
+.protocol-unsaved-enter-from,
+.protocol-unsaved-leave-to {
+  opacity: 0;
+  transform: translate(-50%, 6px);
 }
 
 .summary-status-strip {
@@ -557,10 +608,8 @@ const adapterConfigFields = computed(() => {
 }
 
 .strip-label {
-  font-size: 0.75rem;
+  font-size: 13px;
   font-weight: 500;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
   color: var(--app-text-secondary);
 }
 
@@ -581,7 +630,7 @@ const adapterConfigFields = computed(() => {
 }
 
 .strip-subtext {
-  font-size: 0.78rem;
+  font-size: 13px;
   color: var(--app-text-secondary);
   align-self: flex-start;
 }
@@ -632,7 +681,7 @@ const adapterConfigFields = computed(() => {
   align-items: center;
   padding: 20px 24px;
   border-bottom: 1px solid var(--app-border);
-  background: linear-gradient(to right, var(--surface-soft), transparent);
+  background: var(--surface-soft);
 }
 
 .title-area {
@@ -650,7 +699,7 @@ const adapterConfigFields = computed(() => {
 }
 
 .workspace-subtitle {
-  font-size: 0.8rem;
+  font-size: 13px;
   color: var(--app-text-secondary);
   margin: 0;
 }
@@ -682,7 +731,7 @@ const adapterConfigFields = computed(() => {
   }
 
   :deep(.ant-table-row:hover > td) {
-    background: linear-gradient(90deg, color-mix(in srgb, var(--accent) 3%, transparent), transparent) !important;
+    background: var(--surface-accent) !important;
   }
 }
 
@@ -690,7 +739,13 @@ const adapterConfigFields = computed(() => {
 .channel-identity {
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 10px;
+  min-width: 0;
+}
+
+.channel-identity :deep(.ant-switch) {
+  margin-inline-start: auto;
+  flex: 0 0 auto;
 }
 
 .channel-avatar {
@@ -701,27 +756,16 @@ const adapterConfigFields = computed(() => {
   align-items: center;
   justify-content: center;
   font-weight: 800;
-  font-size: 0.72rem;
-  color: #ffffff;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
-  transition: background-color 150ms ease, border-color 150ms ease;
-
-  &.reverse_ws {
-    background: linear-gradient(135deg, #3b82f6, #1d4ed8);
-  }
-  &.forward_ws {
-    background: linear-gradient(135deg, #10b981, #047857);
-  }
-  &.http_api {
-    background: linear-gradient(135deg, #8b5cf6, #5b21b6);
-  }
-  &.webhook {
-    background: linear-gradient(135deg, #f59e0b, #b45309);
-  }
+  font-size: 12px;
+  color: var(--accent);
+  background: var(--surface-accent);
+  border: 1px solid var(--border-accent);
 }
 
 .channel-meta {
   display: flex;
+  min-width: 0;
+  flex: 1 1 auto;
   flex-direction: column;
   gap: 2px;
 }
@@ -733,13 +777,8 @@ const adapterConfigFields = computed(() => {
 }
 
 .channel-desc {
-  font-size: 0.75rem;
+  font-size: 13px;
   color: var(--app-text-secondary);
-}
-
-.switch-cell {
-  display: flex;
-  align-items: center;
 }
 
 .status-cell {
@@ -768,7 +807,7 @@ const adapterConfigFields = computed(() => {
 
 .state-tag {
   border-radius: 4px;
-  font-size: 0.78rem;
+  font-size: 13px;
   font-weight: 500;
   border: none;
   padding: 0 6px;
@@ -780,7 +819,7 @@ const adapterConfigFields = computed(() => {
 }
 
 .status-summary {
-  font-size: 0.74rem;
+  font-size: 13px;
   color: var(--app-text-secondary);
   max-width: 140px;
   white-space: nowrap;
@@ -829,12 +868,12 @@ const adapterConfigFields = computed(() => {
 }
 
 .inline-err-icon {
-  font-size: 0.78rem;
+  font-size: 13px;
   line-height: 1;
 }
 
 .inline-err-msg {
-  font-size: 0.74rem;
+  font-size: 13px;
   color: var(--app-danger);
   font-weight: 500;
   overflow: hidden;
@@ -890,7 +929,7 @@ const adapterConfigFields = computed(() => {
 }
 
 .toggle-hint {
-  font-size: 0.76rem;
+  font-size: 13px;
   color: var(--app-text-secondary);
   font-weight: 500;
 }
@@ -942,7 +981,7 @@ const adapterConfigFields = computed(() => {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-size: 0.72rem;
+  font-size: 12px;
   cursor: help;
   font-weight: bold;
   transition: background-color 150ms ease, color 150ms ease;
@@ -1028,6 +1067,20 @@ const adapterConfigFields = computed(() => {
 }
 
 @media (max-width: 640px) {
+  .protocol-unsaved-toast {
+    right: 16px;
+    bottom: max(16px, env(safe-area-inset-bottom));
+    left: 16px;
+    width: auto;
+    max-width: none;
+    transform: none;
+  }
+
+  .protocol-unsaved-enter-from,
+  .protocol-unsaved-leave-to {
+    transform: translateY(6px);
+  }
+
   .summary-status-strip {
     padding: 14px 18px;
   }
@@ -1045,7 +1098,7 @@ const adapterConfigFields = computed(() => {
 
 .premium-diagnostics-card {
   padding: 16px 24px;
-  background: linear-gradient(135deg, color-mix(in srgb, var(--app-danger) 6%, #ffffff), color-mix(in srgb, var(--app-danger) 2%, #ffffff));
+  background: var(--surface-danger);
   border: 1px solid color-mix(in srgb, var(--app-danger) 15%, var(--app-border));
   border-radius: var(--radius-xl, 16px);
   box-shadow: 0 4px 20px rgba(239, 68, 68, 0.03);
@@ -1077,7 +1130,7 @@ const adapterConfigFields = computed(() => {
 }
 
 .diagnostics-subtitle {
-  font-size: 0.78rem;
+  font-size: 13px;
   color: var(--app-text-secondary);
 }
 
@@ -1111,13 +1164,13 @@ const adapterConfigFields = computed(() => {
 
 .diagnostics-tag {
   font-family: var(--font-mono);
-  font-size: 0.76rem;
+  font-size: 13px;
   border-radius: 4px;
   padding: 1px 6px;
 }
 
 .diagnostics-time {
-  font-size: 0.72rem;
+  font-size: 13px;
   color: var(--app-text-secondary);
 }
 
