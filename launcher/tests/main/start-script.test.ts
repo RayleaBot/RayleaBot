@@ -25,6 +25,10 @@ async function writeNodeStub(binDir: string, logPath: string) {
     path.join(binDir, "node.cmd"),
     [
       "@echo off",
+      "if \"%~1\"==\"--version\" (",
+      "  echo v24.18.0",
+      "  exit /b 0",
+      ")",
       `>>"${logPath}" echo CWD=%CD%`,
       `>>"${logPath}" echo ARGS=%*`,
       `>>"${logPath}" echo PROFILE=%RAYLEA_START_PROFILE%`,
@@ -72,6 +76,7 @@ describe("start.bat", () => {
     await execFileAsync(commandShell, ["/d", "/c", startScriptPath, "--dry-run"], {
       cwd: repositoryRoot,
       env: startScriptTestEnv(binDir, {
+        RAYLEA_START_NODE: path.join(binDir, "node.cmd"),
         RAYLEA_START_SKIP_LAUNCH: "1",
       }),
       windowsHide: true,
@@ -93,6 +98,7 @@ describe("start.bat", () => {
     await execFileAsync(commandShell, ["/d", "/c", startScriptPath], {
       cwd: repositoryRoot,
       env: startScriptTestEnv(binDir, {
+        RAYLEA_START_NODE: path.join(binDir, "node.cmd"),
         RAYLEA_START_PROFILE: "build",
       }),
       windowsHide: true,

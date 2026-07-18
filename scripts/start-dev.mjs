@@ -15,6 +15,7 @@ import {
   createDevEnvironment,
   createDependencyInstallEnvironment,
   markDependenciesInstalled,
+  createTrustedChildEnvironment,
   resolveDatedLogPath,
   resolveBackendBaseUrl,
   resolveInstallMode,
@@ -42,6 +43,7 @@ const serverWatchExcludedDirs = new Set([".cache", ".gocache", "dist", "logs", "
 const serverReloadDebounceMs = 500;
 const childGoCacheDir = path.join(rootDir, ".tmp", "gocache");
 const baseChildEnvironment = {
+  ...createTrustedChildEnvironment({ nodeExecutablePath: process.execPath }),
   GOCACHE: childGoCacheDir,
 };
 const launcherDir = path.join(rootDir, "launcher");
@@ -72,6 +74,7 @@ try {
   startLog.end();
 } catch (error) {
   log(`启动失败：${error?.message ?? error}`, "error");
+  log(`启动日志：${relativePath(startLogPath)}`, "error");
   await cleanup();
   startLog.end();
   process.exitCode = 1;
@@ -440,12 +443,34 @@ function createSpawnSpec(command, args) {
     return { command: process.execPath, args: [corepackCliPath, "pnpm", ...args] };
   }
   if (command === "go") {
-    return { command: process.platform === "win32" ? "go.exe" : "go", args };
+    return { command: resolveGoExecutablePath(), args };
   }
   if (command === "tmp/" + serverDevBinaryName) {
     return { command: path.join(".", "tmp", serverDevBinaryName), args };
   }
   throw new Error(`Unsupported child command: ${command}`);
+}
+
+function resolveGoExecutablePath() {
+  const executableName = process.platform === "win32" ? "go.exe" : "go";
+  const candidates = String(process.env.PATH ?? "")
+    .split(path.delimiter)
+    .map((directory) => directory.trim().replace(/^"|"$/g, ""))
+    .filter(Boolean)
+    .map((directory) => path.join(directory, executableName));
+
+  if (process.platform === "win32") {
+    const programFiles = process.env.ProgramFiles?.trim();
+    if (programFiles) {
+      candidates.push(path.join(programFiles, "Go", "bin", executableName));
+    }
+  }
+
+  const executablePath = candidates.find((candidate) => fs.existsSync(candidate));
+  if (!executablePath) {
+    throw new Error("Go executable was not found. Run python scripts/check-toolchain.py for installation guidance.");
+  }
+  return executablePath;
 }
 
 function waitForChild(child) {

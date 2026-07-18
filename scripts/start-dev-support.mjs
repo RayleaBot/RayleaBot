@@ -160,6 +160,43 @@ export function createDependencyInstallEnvironment() {
   };
 }
 
+export function createTrustedChildEnvironment({
+  nodeExecutablePath,
+  env = process.env,
+  platform = process.platform,
+} = {}) {
+  if (!nodeExecutablePath) {
+    throw new Error("nodeExecutablePath is required");
+  }
+
+  const isWindows = platform === "win32";
+  const delimiter = isWindows ? ";" : ":";
+  const pathEntries = [path.dirname(nodeExecutablePath)];
+  const childEnvironment = {};
+
+  if (isWindows) {
+    const systemRoot = env.SystemRoot?.trim() || env.WINDIR?.trim();
+    if (systemRoot) {
+      pathEntries.push(path.join(systemRoot, "System32"), systemRoot);
+      childEnvironment.SystemRoot = systemRoot;
+      childEnvironment.ComSpec = path.join(systemRoot, "System32", "cmd.exe");
+    }
+    childEnvironment.PATHEXT = ".COM;.EXE;.BAT;.CMD";
+  } else {
+    pathEntries.push("/usr/local/bin", "/usr/bin", "/bin");
+  }
+
+  for (const key of ["TEMP", "TMP"]) {
+    const value = env[key]?.trim();
+    if (value) {
+      childEnvironment[key] = value;
+    }
+  }
+
+  childEnvironment.PATH = uniquePathEntries(pathEntries, isWindows).join(delimiter);
+  return childEnvironment;
+}
+
 export async function shouldInstallDependencies({
   projectDir,
   lockfileName = "pnpm-lock.yaml",
@@ -334,4 +371,19 @@ async function fetchWithTimeout(fetchImpl, url, timeoutMs) {
   } finally {
     clearTimeout(timeout);
   }
+}
+
+function uniquePathEntries(entries, caseInsensitive) {
+  const seen = new Set();
+  return entries.filter((entry) => {
+    if (!entry) {
+      return false;
+    }
+    const key = caseInsensitive ? entry.toLowerCase() : entry;
+    if (seen.has(key)) {
+      return false;
+    }
+    seen.add(key);
+    return true;
+  });
 }

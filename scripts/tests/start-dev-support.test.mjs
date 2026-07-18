@@ -13,6 +13,7 @@ import {
   classifyWebDevServer,
   createDependencyInstallEnvironment,
   createDevEnvironment,
+  createTrustedChildEnvironment,
   formatLocalLogDate,
   parseBackendEndpointFromConfigText,
   resolveDatedLogPath,
@@ -121,6 +122,30 @@ test("creates dev server environment", () => {
 
 test("creates non-interactive dependency install environment", () => {
   assert.deepEqual(createDependencyInstallEnvironment(), { CI: "true" });
+});
+
+test("creates a minimal child environment with the managed Node executable", () => {
+  const environment = createTrustedChildEnvironment({
+    nodeExecutablePath: String.raw`C:\Users\Raylea\.local\opt\node-v24.18.0-win-x64\node.exe`,
+    env: {
+      SystemRoot: String.raw`C:\Windows`,
+      TEMP: String.raw`C:\Users\Raylea\AppData\Local\Temp`,
+      PATH: String.raw`C:\untrusted;C:\Program Files\Go\bin`,
+    },
+    platform: "win32",
+  });
+
+  assert.equal(
+    environment.PATH,
+    [
+      String.raw`C:\Users\Raylea\.local\opt\node-v24.18.0-win-x64`,
+      String.raw`C:\Windows\System32`,
+      String.raw`C:\Windows`,
+    ].join(";"),
+  );
+  assert.equal(environment.ComSpec, String.raw`C:\Windows\System32\cmd.exe`);
+  assert.equal(environment.TEMP, String.raw`C:\Users\Raylea\AppData\Local\Temp`);
+  assert.equal(environment.PATH.includes("untrusted"), false);
 });
 
 test("detects install need from node_modules and lockfile marker", async () => {
