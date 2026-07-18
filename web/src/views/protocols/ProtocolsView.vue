@@ -1,15 +1,15 @@
 <script setup lang="ts">
-import { ExclamationCircleOutlined } from '@ant-design/icons-vue'
+import { CopyOutlined, ExclamationCircleOutlined } from '@ant-design/icons-vue'
 import { computed, onMounted } from 'vue'
 import { storeToRefs } from 'pinia'
 
-import { useToastFeedback } from '@/adapter/feedback'
+import { notifyError, notifySuccess, useToastFeedback } from '@/adapter/feedback'
 import ManagementContextActions from '@/components/ManagementContextActions.vue'
 import AppPage from '@/components/page/AppPage.vue'
 import RetryPanel from '@/components/RetryPanel.vue'
 import { getAdapterStateLabel, getReadinessStatusLabel, getStatusType } from '@/lib/display'
 import { buildProtocolWorkbenchActions } from '@/lib/management-links'
-import { ONEBOT11_PROTOCOL_NAME } from '@/lib/protocols'
+import { buildOneBot11ReverseWsUrl, ONEBOT11_PROTOCOL_NAME } from '@/lib/protocols'
 import { t } from '@/i18n'
 import { useConfigStore } from '@/stores/config'
 import { useProtocolsStore } from '@/stores/protocols'
@@ -119,6 +119,42 @@ const transportStatusItems = computed(() => (
 ))
 const transportIssues = computed(() => snapshot.value?.recent_transport_issues ?? [])
 const protocolWorkbenchActions = computed(() => buildProtocolWorkbenchActions(snapshot.value))
+const reverseWsCallbackUrl = computed(() => buildOneBot11ReverseWsUrl(
+  import.meta.env.VITE_WS_BASE_URL || window.location.origin,
+))
+const reverseWsEnabled = computed(() => Boolean(readField('onebot.reverse_ws.enabled', 'boolean')))
+const reverseWsAddressNeedsSync = computed(() => (
+  reverseWsEnabled.value
+  && String(readField('onebot.reverse_ws.url', 'text') ?? '').trim() !== reverseWsCallbackUrl.value
+))
+const canSaveProtocolSettings = computed(() => (canSave.value || reverseWsAddressNeedsSync.value) && !saving.value)
+const hasUnsavedProtocolSettings = computed(() => isDirty.value || reverseWsAddressNeedsSync.value)
+
+function updateTransportEnabled(
+  record: { type: string; enabledPath: string; urlPath: string },
+  value: boolean,
+) {
+  writeField(record.enabledPath, 'boolean', value)
+  if (record.type === 'reverse_ws' && value) {
+    writeField(record.urlPath, 'text', reverseWsCallbackUrl.value)
+  }
+}
+
+async function saveProtocolSettings() {
+  if (reverseWsEnabled.value) {
+    writeField('onebot.reverse_ws.url', 'text', reverseWsCallbackUrl.value)
+  }
+  await save()
+}
+
+async function copyReverseWsCallback() {
+  try {
+    await navigator.clipboard.writeText(reverseWsCallbackUrl.value)
+    notifySuccess(t('protocols.reverseWsCallbackCopied'))
+  } catch {
+    notifyError(t('protocols.reverseWsCallbackCopyFailed'))
+  }
+}
 
 function formatProvider(provider?: string) {
   switch (provider) {
@@ -267,7 +303,7 @@ const adapterConfigFields = computed(() => {
   <AppPage :title="t('protocols.title')" :description="t('protocols.subtitle')" width="detail">
     <template #extra>
       <div class="table-actions">
-        <a-button data-testid="protocol-save" type="primary" :disabled="!canSave" :loading="saving" @click="save" class="save-action-btn">
+        <a-button data-testid="protocol-save" type="primary" :disabled="!canSaveProtocolSettings" :loading="saving" @click="saveProtocolSettings" class="save-action-btn">
           <template #icon>
             <span class="btn-icon">✓</span>
           </template>
@@ -375,7 +411,7 @@ const adapterConfigFields = computed(() => {
                     <a-switch
                       :checked="Boolean(readField(record.enabledPath, 'boolean'))"
                       :aria-label="record.name"
-                      @update:checked="(value) => writeField(record.enabledPath, 'boolean', value)"
+                      @update:checked="(value) => updateTransportEnabled(record, value)"
                     />
                   </div>
                 </template>
@@ -421,7 +457,33 @@ const adapterConfigFields = computed(() => {
 
                 <template v-else-if="column.key === 'url'">
                   <div class="input-cell-wrap">
+                    <template v-if="record.type === 'reverse_ws'">
+                      <a-input
+                        :value="reverseWsCallbackUrl"
+                        :aria-label="t('protocols.reverseWsCallbackLabel')"
+                        class="refined-table-input callback-address-input"
+                        readonly
+                      >
+                        <template #suffix>
+                          <a-tooltip :title="t('protocols.copyReverseWsCallback')">
+                            <a-button
+                              type="text"
+                              size="small"
+                              :aria-label="t('protocols.copyReverseWsCallback')"
+                              data-testid="reverse-ws-copy"
+                              class="callback-copy-button"
+                              @click="copyReverseWsCallback"
+                            >
+                              <template #icon><CopyOutlined /></template>
+                            </a-button>
+                          </a-tooltip>
+                        </template>
+                      </a-input>
+                      <span class="callback-address-hint">{{ t('protocols.reverseWsCallbackHint') }}</span>
+                    </template>
+
                     <a-input
+                      v-else
                       :value="String(readField(record.urlPath, 'text') ?? '')"
                       :placeholder="record.urlHint"
                       :aria-label="record.urlLabel"
@@ -510,7 +572,7 @@ const adapterConfigFields = computed(() => {
 
     <Transition name="protocol-unsaved">
       <div
-        v-if="isDirty"
+        v-if="hasUnsavedProtocolSettings"
         class="protocol-unsaved-toast"
         data-testid="protocol-unsaved-status"
         role="status"
@@ -518,7 +580,7 @@ const adapterConfigFields = computed(() => {
       >
         <ExclamationCircleOutlined aria-hidden="true" />
         <span>{{ t('protocols.unsaved') }}</span>
-        <a-button data-testid="protocol-unsaved-save" size="small" type="primary" :loading="saving" @click="save">
+        <a-button data-testid="protocol-unsaved-save" size="small" type="primary" :loading="saving" @click="saveProtocolSettings">
           {{ t('protocols.save') }}
         </a-button>
       </div>
@@ -832,6 +894,29 @@ const adapterConfigFields = computed(() => {
   flex-direction: column;
   gap: 6px;
   position: relative;
+}
+
+.callback-address-input {
+  font-family: var(--font-mono);
+}
+
+.callback-address-input :deep(.ant-input) {
+  cursor: text;
+}
+
+.callback-copy-button {
+  color: var(--app-text-secondary);
+}
+
+.callback-copy-button:hover,
+.callback-copy-button:focus-visible {
+  color: var(--accent);
+}
+
+.callback-address-hint {
+  color: var(--app-text-secondary);
+  font-size: 12px;
+  line-height: 1.45;
 }
 
 :deep(.refined-table-input.ant-input),

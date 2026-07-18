@@ -2,6 +2,13 @@ import type { EventsPayload, LogProtocol, ReadinessIssue } from '@/types/api'
 
 export const ONEBOT11_PROTOCOL: LogProtocol = 'onebot11'
 export const ONEBOT11_PROTOCOL_NAME = 'OneBot11'
+export const ONEBOT11_REVERSE_WS_PATH = '/api/protocols/onebot11/reverse-ws'
+
+export function buildOneBot11ReverseWsUrl(baseUrl: string) {
+  const endpoint = new URL(ONEBOT11_REVERSE_WS_PATH, baseUrl)
+  endpoint.protocol = endpoint.protocol === 'https:' ? 'wss:' : 'ws:'
+  return endpoint.toString()
+}
 
 export function isProtocolIssue(issue: ReadinessIssue | undefined | null) {
   if (!issue) {

@@ -4,13 +4,14 @@ import { flushPromises, mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMemoryHistory, createRouter } from 'vue-router'
 
-import { notifySuccess, useToastFeedback } from '@/adapter/feedback'
+import { notifyError, notifySuccess, useToastFeedback } from '@/adapter/feedback'
 import ProtocolsPage from '@/views/protocols/ProtocolsView.vue'
 import { useConfigStore } from '@/stores/config'
 import { useProtocolsStore } from '@/stores/protocols'
 import type { ConfigDocument } from '@/types/api'
 
 vi.mock('@/adapter/feedback', () => ({
+  notifyError: vi.fn(),
   notifySuccess: vi.fn(),
   useToastFeedback: vi.fn(),
 }))
@@ -111,6 +112,7 @@ describe('ProtocolsPage', () => {
     setActivePinia(createPinia())
     document.body.innerHTML = ''
     vi.mocked(notifySuccess).mockClear()
+    vi.mocked(notifyError).mockClear()
     vi.mocked(useToastFeedback).mockClear()
   })
 
@@ -199,7 +201,7 @@ describe('ProtocolsPage', () => {
     expect(wrapper.findAll('input[aria-label="访问令牌"]')).toHaveLength(4)
     expect(document.body.querySelector('.ant-drawer')).toBeNull()
     expect(wrapper.find('[data-testid="protocol-unsaved-status"]').exists()).toBe(false)
-    await wrapper.get('input[aria-label="回连地址"]').setValue('wss://bot.example.com/reverse')
+    await wrapper.get('input[aria-label="主动连接地址"]').setValue('ws://127.0.0.1:8089')
     await flushPromises()
     expect(wrapper.get('[data-testid="protocol-unsaved-status"]').text()).toContain('协议设置尚未保存')
     expect(wrapper.html()).not.toContain('__REDACTED__')
@@ -335,8 +337,11 @@ describe('ProtocolsPage', () => {
       .find((candidate) => candidate.text().includes('回连 WebSocket'))
     expect(reverseTransportRow).toBeTruthy()
 
-    const wsUrlInput = reverseTransportRow!.get<HTMLInputElement>('input[aria-label="回连地址"]')
-    await wsUrlInput.setValue('wss://bot.example.com/reverse/onebot')
+    const wsUrlInput = reverseTransportRow!.get<HTMLInputElement>('input[aria-label="协议端回连地址"]')
+    expect(wsUrlInput.attributes('readonly')).toBeDefined()
+    expect(wsUrlInput.element.value).toBe('ws://127.0.0.1:8080/api/protocols/onebot11/reverse-ws')
+    const reverseSwitch = reverseTransportRow!.get('[role="switch"]')
+    await reverseSwitch.trigger('click')
     const tokenInput = reverseTransportRow!.get<HTMLInputElement>('input[aria-label="访问令牌"]')
     await tokenInput.setValue('reverse-secret')
     await flushPromises()
@@ -349,7 +354,7 @@ describe('ProtocolsPage', () => {
 
     expect(saveSpy).toHaveBeenCalledTimes(1)
     expect(refreshSpy).toHaveBeenCalledTimes(2)
-    expect(saveSpy.mock.calls[0][0].onebot.reverse_ws.url).toBe('wss://bot.example.com/reverse/onebot')
+    expect(saveSpy.mock.calls[0][0].onebot.reverse_ws.url).toBe('ws://127.0.0.1:8080/api/protocols/onebot11/reverse-ws')
     expect(saveSpy.mock.calls[0][0].onebot.reverse_ws.access_token).toBe('reverse-secret')
     expect(saveSpy.mock.calls[0][0].onebot.forward_ws.access_token).toBe('')
     expect('access_token' in saveSpy.mock.calls[0][0].onebot).toBe(false)
