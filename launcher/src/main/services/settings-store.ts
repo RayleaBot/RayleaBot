@@ -101,6 +101,35 @@ function normalizeInstallationRoot(value: string) {
   return path.resolve(value || ".");
 }
 
+function isPathWithinRoot(root: string, candidate: string) {
+  const relative = path.relative(path.resolve(root), path.resolve(candidate));
+  return relative === "" || (!relative.startsWith(`..${path.sep}`) && relative !== ".." && !path.isAbsolute(relative));
+}
+
+function removeRelocatedRootOverrides(
+  overrides: LauncherAdvancedOverrides | undefined,
+  relocatedRoot: string,
+) {
+  if (!overrides) {
+    return undefined;
+  }
+
+  return normalizeOverrides({
+    serverExecutablePath:
+      overrides.serverExecutablePath && !isPathWithinRoot(relocatedRoot, overrides.serverExecutablePath)
+        ? overrides.serverExecutablePath
+        : undefined,
+    configPath:
+      overrides.configPath && !isPathWithinRoot(relocatedRoot, overrides.configPath)
+        ? overrides.configPath
+        : undefined,
+    workdir:
+      overrides.workdir && !isPathWithinRoot(relocatedRoot, overrides.workdir)
+        ? overrides.workdir
+        : undefined,
+  });
+}
+
 function findManagedWorktreeOwnerRoot(targetPath: string) {
   let current = path.resolve(targetPath);
   while (true) {
@@ -183,10 +212,20 @@ async function normalizeSettings(
   platform: NodeJS.Platform,
 ): Promise<LauncherSettings> {
   const savedInstallationRoot = readString(payload.installationRoot);
-  const explicitOverrides = normalizeOverrides(payload.advancedOverrides);
+  const normalizedSavedRoot = savedInstallationRoot
+    ? normalizeInstallationRoot(savedInstallationRoot)
+    : "";
+  const shouldRecoverRelocatedRoot = Boolean(
+    normalizedSavedRoot
+    && !(await hasInstallationMarkers(normalizedSavedRoot))
+    && (await hasInstallationMarkers(defaults.installationRoot)),
+  );
+  const explicitOverrides = shouldRecoverRelocatedRoot
+    ? removeRelocatedRootOverrides(normalizeOverrides(payload.advancedOverrides), normalizedSavedRoot)
+    : normalizeOverrides(payload.advancedOverrides);
   const baseSettings = {
-    installationRoot: savedInstallationRoot
-      ? normalizeInstallationRoot(savedInstallationRoot)
+    installationRoot: normalizedSavedRoot && !shouldRecoverRelocatedRoot
+      ? normalizedSavedRoot
       : defaults.installationRoot,
     closeBehavior: normalizeCloseBehavior(payload.closeBehavior),
   } satisfies LauncherSettings;

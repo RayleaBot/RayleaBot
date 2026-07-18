@@ -109,6 +109,39 @@ describe("launcher settings store", () => {
     expect(persisted.closeBehavior).toBe("ask_every_time");
   });
 
+  test("recovers settings when the repository moved to a new installation root", async () => {
+    const currentRoot = await createTempDir("relocated-workspace");
+    const previousRoot = path.join(currentRoot, "missing-previous-location");
+
+    await createWorkspace(currentRoot);
+    await fs.mkdir(path.join(currentRoot, "data"), { recursive: true });
+    await fs.writeFile(settingsPath(currentRoot), JSON.stringify({
+      installationRoot: previousRoot,
+      advancedOverrides: {
+        serverExecutablePath: path.join(previousRoot, "server", "raylea-server.exe"),
+        configPath: path.join(previousRoot, "config", "user.yaml"),
+        workdir: previousRoot,
+      },
+      closeBehavior: "hide_to_tray",
+    }), "utf8");
+
+    const store = new JsonLauncherSettingsStore(launcherBasePath(currentRoot), "win32");
+    const loaded = await store.load();
+    const resolved = await resolveLauncherSettings(loaded, "win32");
+
+    expect(loaded.installationRoot).toBe(currentRoot);
+    expect(loaded.advancedOverrides).toBeUndefined();
+    expect(loaded.closeBehavior).toBe("hide_to_tray");
+    expect(resolved.serverExecutablePath).toBe(path.join(currentRoot, "server", "raylea-server.exe"));
+    expect(resolved.configPath).toBe(path.join(currentRoot, "config", "user.yaml"));
+    expect(resolved.workdir).toBe(currentRoot);
+
+    const persisted = await readSettingsFile(settingsPath(currentRoot));
+    expect(persisted.installationRoot).toBe(currentRoot);
+    expect(persisted.advancedOverrides).toBeUndefined();
+    expect(persisted.closeBehavior).toBe("hide_to_tray");
+  });
+
   test("keeps explicit advanced overrides when they differ from installation-root defaults", async () => {
     const currentRoot = await createTempDir("override-workspace");
     const altWorkdir = await createTempDir("override-workdir");
