@@ -622,7 +622,7 @@ async function save() {
     width: 6px;
     height: 6px;
     border-radius: 50%;
-    background: var(--accent);
+    background: var(--brand-fill);
     flex-shrink: 0;
   }
 

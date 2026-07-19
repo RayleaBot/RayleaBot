@@ -1031,11 +1031,11 @@ onMounted(() => {
   }
 
   .font-dot-success {
-    background-color: var(--accent, #3b82f6);
+    background-color: var(--success);
   }
 
   .font-dot-danger {
-    background-color: #f43f5e;
+    background-color: var(--danger);
   }
 
   .chip-text {
@@ -1065,7 +1065,7 @@ onMounted(() => {
   }
 
   &:focus-visible {
-    outline: 2px solid var(--accent);
+    outline: 2px solid var(--focus);
     outline-offset: 2px;
   }
 }
@@ -1081,7 +1081,7 @@ onMounted(() => {
   padding: 0 4px;
 
   &:hover {
-    color: #ef4444 !important;
+    color: var(--danger) !important;
   }
 }
 
@@ -1093,7 +1093,7 @@ onMounted(() => {
 
 .inline-error-text {
   font-size: 13px;
-  color: #ef4444;
+  color: var(--danger);
   text-align: left;
   line-height: 1.2;
 }

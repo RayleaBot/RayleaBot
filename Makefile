@@ -1,4 +1,4 @@
-.PHONY: doctor check-server-structure check-toolchain server-build test test-server test-web test-launcher web-typecheck launcher-typecheck
+.PHONY: doctor check-server-structure check-toolchain design-tokens design-tokens-check server-build test test-server test-web test-launcher web-typecheck launcher-typecheck
 
 doctor: check-toolchain check-server-structure
 
@@ -7,6 +7,12 @@ check-toolchain:
 
 check-server-structure:
 	python scripts/check-server-structure.py
+
+design-tokens:
+	node scripts/generate-design-tokens.mjs
+
+design-tokens-check:
+	node scripts/generate-design-tokens.mjs --check
 
 server-build: doctor
 	cd server && mkdir -p dist && go build -o "dist/raylea-server$$(go env GOEXE)" ./cmd/raylea-server

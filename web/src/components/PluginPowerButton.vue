@@ -82,9 +82,9 @@ function handleClick(event: MouseEvent) {
   --off-track: color-mix(in srgb, var(--text) 8%, var(--surface-soft));
   --off-track-border: color-mix(in srgb, var(--text) 16%, var(--surface-soft));
   --off-text: color-mix(in srgb, var(--text) 65%, transparent);
-  --thumb-bg: #ffffff;
-  --on-track: var(--accent);
-  --on-text: #ffffff;
+  --thumb-bg: var(--surface-raised);
+  --on-track: var(--brand-fill);
+  --on-text: var(--on-brand);
   position: relative;
   display: inline-flex;
   width: var(--button-width);
@@ -132,7 +132,7 @@ function handleClick(event: MouseEvent) {
   border-radius: var(--track-radius);
   border: 1px solid var(--off-track-border);
   background: var(--off-track);
-  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.05);
+  box-shadow: none;
   transition: border-color 150ms ease, background-color 150ms ease;
   display: flex;
   align-items: center;
@@ -147,7 +147,7 @@ function handleClick(event: MouseEvent) {
   z-index: 2;
   border-radius: 50%;
   background: var(--thumb-bg);
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1), 0 1px 2px rgba(0, 0, 0, 0.06);
+  box-shadow: var(--shadow-xs);
   transition: left 150ms ease, background-color 150ms ease;
   display: flex;
   align-items: center;
@@ -234,7 +234,7 @@ function handleClick(event: MouseEvent) {
 
 .plugin-holo-button.is-checked .plugin-holo-button__thumb {
   left: calc(100% - var(--thumb-size) - var(--thumb-offset));
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15), 0 1px 2px rgba(0, 0, 0, 0.1);
+  box-shadow: var(--shadow-xs);
 }
 
 .plugin-holo-button.is-checked .plugin-holo-button__text--off {

@@ -633,6 +633,8 @@ useToastFeedback(protocolIssueToast)
 
 .readiness-check {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  min-width: 0;
   gap: 6px;
   padding: 14px;
   border-radius: var(--radius-lg);

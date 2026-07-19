@@ -1,6 +1,8 @@
 import theme from 'ant-design-vue/es/theme'
 import type { ThemeConfig } from 'ant-design-vue/es/config-provider/context'
 
+import { webThemes } from '@/preferences/theme-tokens'
+
 export type ThemeMode = 'system' | 'light' | 'dark'
 export type ResolvedThemeMode = 'light' | 'dark'
 export type DensityMode = 'compact' | 'default'
@@ -61,31 +63,33 @@ export function resolveThemeConfig(
 ): ThemeConfig {
   const isDark = resolvedThemeMode === 'dark'
   const controlHeight = 36
-  const surface = isDark ? '#182126' : '#FAF9F5'
-  const canvas = isDark ? '#11181C' : '#F3F6F7'
-  const text = isDark ? '#E9F0F2' : '#1F272C'
-  const textSecondary = isDark ? '#A7B4BA' : '#58656E'
-  const border = isDark ? '#314047' : '#D8E0E4'
-  const primary = isDark ? '#66CCFF' : '#0B6B8F'
+  const tokens = webThemes[resolvedThemeMode]
 
   return {
     algorithm: isDark ? theme.darkAlgorithm : theme.defaultAlgorithm,
     token: {
-      colorBgBase: canvas,
-      colorBgContainer: surface,
-      colorBgElevated: surface,
-      colorBgLayout: canvas,
-      colorBorder: border,
-      colorBorderSecondary: border,
-      colorError: isDark ? '#FF8089' : '#C2414B',
-      colorInfo: primary,
-      colorPrimary: primary,
-      colorSuccess: isDark ? '#67C99B' : '#2F7D5C',
-      colorText: text,
-      colorTextSecondary: textSecondary,
-      colorWarning: isDark ? '#F0B95A' : '#8A5600',
-      borderRadius: 8,
-      borderRadiusLG: 12,
+      colorBgBase: tokens.canvas,
+      colorBgContainer: tokens.surface,
+      colorBgElevated: tokens.surfaceRaised,
+      colorBgLayout: tokens.canvas,
+      colorBorder: tokens.borderControl,
+      colorBorderSecondary: tokens.border,
+      colorError: tokens.danger,
+      colorInfo: tokens.brandForeground,
+      colorLink: tokens.brandForeground,
+      colorLinkActive: tokens.brandFillPressed,
+      colorLinkHover: tokens.brandFillHover,
+      colorPrimary: tokens.brandFill,
+      colorPrimaryActive: tokens.brandFillPressed,
+      colorPrimaryHover: tokens.brandFillHover,
+      colorSuccess: tokens.success,
+      colorText: tokens.text,
+      colorTextLightSolid: tokens.onBrand,
+      colorTextSecondary: tokens.textMuted,
+      colorWarning: tokens.warning,
+      controlOutline: tokens.focus,
+      borderRadius: 10,
+      borderRadiusLG: 14,
       borderRadiusSM: 6,
       controlHeight,
       fontFamily: 'Inter, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Noto Sans SC", "Microsoft YaHei", system-ui, sans-serif',
@@ -97,37 +101,36 @@ export function resolveThemeConfig(
         controlHeight,
       },
       Card: {
-        borderRadiusLG: 12,
+        borderRadiusLG: 14,
       },
       Input: {
         controlHeight,
       },
       Layout: {
-        bodyBg: canvas,
-        headerBg: surface,
-        siderBg: surface,
-        triggerBg: canvas,
+        bodyBg: tokens.canvas,
+        headerBg: tokens.surface,
+        siderBg: tokens.chrome,
+        triggerBg: tokens.canvas,
       },
       Menu: {
-        darkItemBg: surface,
-        darkSubMenuItemBg: surface,
-        darkItemSelectedBg: 'color-mix(in srgb, #66CCFF 14%, #182126)',
+        darkItemBg: tokens.chrome,
+        darkItemColor: tokens.chromeMuted,
+        darkItemHoverBg: tokens.navHover,
+        darkItemSelectedBg: tokens.navSelected,
+        darkItemSelectedColor: tokens.navSelectedText,
+        darkSubMenuItemBg: tokens.chrome,
         itemBg: 'transparent',
-        itemSelectedBg: isDark
-          ? 'color-mix(in srgb, #66CCFF 14%, #182126)'
-          : 'color-mix(in srgb, #0B6B8F 10%, #FAF9F5)',
-        itemSelectedColor: primary,
-        borderRadius: 8,
+        itemSelectedBg: tokens.brandSoft,
+        itemSelectedColor: tokens.brandForeground,
+        borderRadius: 10,
       },
       Select: {
         controlHeight,
       },
       Table: {
-        headerBg: isDark ? '#1E292F' : '#F3F6F7',
-        headerColor: textSecondary,
-        rowHoverBg: isDark
-          ? 'color-mix(in srgb, #66CCFF 5%, #182126)'
-          : 'color-mix(in srgb, #0B6B8F 4%, #FAF9F5)',
+        headerBg: tokens.canvas,
+        headerColor: tokens.textMuted,
+        rowHoverBg: `color-mix(in srgb, ${tokens.brandFill} ${isDark ? '5%' : '9%'}, ${tokens.surface})`,
       },
     },
   }

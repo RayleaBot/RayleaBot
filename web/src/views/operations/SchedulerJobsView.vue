@@ -1201,7 +1201,7 @@ const filteredItems = computed(() => {
 
     &:hover {
       background: var(--danger);
-      color: #ffffff;
+      color: var(--on-brand);
       box-shadow: 0 2px 6px color-mix(in srgb, var(--danger) 30%, transparent);
     }
   }
@@ -1304,7 +1304,7 @@ const filteredItems = computed(() => {
   align-items: center;
   justify-content: center;
   padding: 24px;
-  background: rgba(0, 0, 0, 0.45);
+  background: color-mix(in srgb, var(--surface-inverse) 72%, transparent);
   overscroll-behavior: contain;
 }
 

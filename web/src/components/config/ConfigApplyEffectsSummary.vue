@@ -81,8 +81,8 @@ const sections = computed(() => {
 
 .config-apply-effects__item {
   border-radius: 999px;
-  border: 1px solid color-mix(in srgb, var(--border) 88%, white);
-  background: color-mix(in srgb, var(--surface-soft) 92%, white);
+  border: 1px solid color-mix(in srgb, var(--border) 88%, var(--surface-raised));
+  background: color-mix(in srgb, var(--surface-soft) 92%, var(--surface-raised));
   color: var(--text);
   padding: 6px 10px;
   font-size: 12px;

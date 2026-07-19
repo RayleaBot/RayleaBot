@@ -28,6 +28,7 @@ import {
   type AppMenuItem,
 } from '@/access/menu'
 import { notifyError, notifyInfo, notifySuccess, useToastFeedback } from '@/adapter/feedback'
+import RayleaMark from '@/components/brand/RayleaMark.vue'
 import MotionRouterLink from '@/components/shell/MotionRouterLink.vue'
 import PreferencesDrawer from '@/components/shell/PreferencesDrawer.vue'
 import RouteSearchPanel from '@/components/shell/RouteSearchPanel.vue'
@@ -109,7 +110,7 @@ interface AppBreadcrumbItem {
   title: string
 }
 
-const siderTheme = computed(() => (uiShellStore.resolvedThemeMode === 'dark' ? 'dark' : 'light'))
+const siderTheme = 'dark'
 const fullscreenLabel = computed(() => (
   isFullscreen.value ? t('shell.exitFullscreen') : t('shell.enterFullscreen')
 ))
@@ -593,8 +594,8 @@ onBeforeUnmount(() => {
         :title="siderCollapsed ? t('app.brand') : undefined"
         @click="navigateTo('/')"
       >
-        <span v-if="siderCollapsed" class="admin-layout__brand-mark">R</span>
-        <span v-else class="admin-layout__brand-copy">
+        <RayleaMark class="admin-layout__brand-mark" variant="chrome" />
+        <span v-if="!siderCollapsed" class="admin-layout__brand-copy">
           <strong>{{ t('app.brand') }}</strong>
         </span>
       </button>
@@ -629,6 +630,7 @@ onBeforeUnmount(() => {
                 <span class="admin-layout__menu-label">
                   <component :is="resolveMenuIcon(child.icon)" v-if="resolveMenuIcon(child.icon)" class="admin-layout__menu-icon" />
                   <span>{{ child.title }}</span>
+                  <RayleaMark class="admin-layout__menu-locator" variant="chrome" />
                 </span>
               </a-menu-item>
             </a-sub-menu>
@@ -637,6 +639,7 @@ onBeforeUnmount(() => {
               <span class="admin-layout__menu-label">
                 <component :is="resolveMenuIcon(item.icon)" v-if="resolveMenuIcon(item.icon)" class="admin-layout__menu-icon" />
                 <span>{{ item.title }}</span>
+                <RayleaMark class="admin-layout__menu-locator" variant="chrome" />
               </span>
             </a-menu-item>
           </template>
@@ -652,6 +655,7 @@ onBeforeUnmount(() => {
       @close="uiShellStore.setMobileMenuOpen(false)"
     >
       <div class="admin-layout__mobile-brand">
+        <RayleaMark variant="chrome" />
         <strong>{{ t('app.brand') }}</strong>
       </div>
 
@@ -679,6 +683,7 @@ onBeforeUnmount(() => {
               <span class="admin-layout__menu-label">
                 <component :is="resolveMenuIcon(child.icon)" v-if="resolveMenuIcon(child.icon)" class="admin-layout__menu-icon" />
                 <span>{{ child.title }}</span>
+                <RayleaMark class="admin-layout__menu-locator" variant="chrome" />
               </span>
             </a-menu-item>
           </a-sub-menu>
@@ -687,6 +692,7 @@ onBeforeUnmount(() => {
             <span class="admin-layout__menu-label">
               <component :is="resolveMenuIcon(item.icon)" v-if="resolveMenuIcon(item.icon)" class="admin-layout__menu-icon" />
               <span>{{ item.title }}</span>
+              <RayleaMark class="admin-layout__menu-locator" variant="chrome" />
             </span>
           </a-menu-item>
         </template>
@@ -970,7 +976,21 @@ onBeforeUnmount(() => {
 .admin-layout__icon-button:focus-visible,
 .admin-layout__shutdown-button:focus-visible,
 .admin-layout__account-button:focus-visible {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--focus);
   outline-offset: 2px;
+}
+
+.admin-layout__brand:focus-visible {
+  outline-color: var(--chrome-muted);
+  outline-offset: 2px;
+}
+
+@media (forced-colors: active) {
+  .admin-layout__brand:focus-visible,
+  .admin-layout__icon-button:focus-visible,
+  .admin-layout__shutdown-button:focus-visible,
+  .admin-layout__account-button:focus-visible {
+    outline-color: Highlight;
+  }
 }
 </style>

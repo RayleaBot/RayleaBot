@@ -719,7 +719,7 @@ const adapterConfigFields = computed(() => {
   border-radius: 6px;
   font-weight: 600;
   padding: 2px 10px;
-  box-shadow: 0 2px 8px rgba(124, 58, 237, 0.08);
+  box-shadow: none;
 }
 
 .compact-actions {
@@ -728,10 +728,10 @@ const adapterConfigFields = computed(() => {
 }
 
 .unified-workspace-card {
-  background: var(--app-bg-card, #ffffff);
+  background: var(--app-bg-card);
   border: 1px solid var(--app-border);
   border-radius: var(--radius-xl, 16px);
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.02);
+  box-shadow: none;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -777,7 +777,7 @@ const adapterConfigFields = computed(() => {
 
 .integrated-protocol-table {
   :deep(.ant-table-thead > tr > th) {
-    background: var(--surface-soft, #f9fafb);
+    background: var(--surface-soft);
     font-weight: 600;
     color: var(--app-text-secondary);
     border-bottom: 1px solid var(--app-border);
@@ -922,7 +922,7 @@ const adapterConfigFields = computed(() => {
 :deep(.refined-table-input.ant-input),
 :deep(.refined-table-input.ant-input-affix-wrapper) {
   border-radius: 8px;
-  background: var(--surface-soft, #f9fafb);
+  background: var(--surface-soft);
   border: 1px solid var(--app-border);
   box-shadow: none;
   font-size: 0.85rem;
@@ -936,7 +936,7 @@ const adapterConfigFields = computed(() => {
   &.ant-input-affix-wrapper-focused,
   &:focus {
     border-color: var(--accent);
-    background: #ffffff;
+    background: var(--surface-raised);
     box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 15%, transparent);
   }
 }
@@ -969,9 +969,9 @@ const adapterConfigFields = computed(() => {
 .advanced-settings-zone {
   border: 1px solid var(--app-border);
   border-radius: var(--radius-xl, 16px);
-  background: var(--app-bg-card, #ffffff);
+  background: var(--app-bg-card);
   overflow: hidden;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.01);
+  box-shadow: none;
 }
 
 .advanced-toggle-bar {
@@ -1021,7 +1021,7 @@ const adapterConfigFields = computed(() => {
 
 .advanced-content-panel {
   border-top: 1px solid var(--app-border);
-  background: #ffffff;
+  background: var(--surface-raised);
 }
 
 .advanced-card {
@@ -1072,8 +1072,8 @@ const adapterConfigFields = computed(() => {
   transition: background-color 150ms ease, color 150ms ease;
 
   &:hover {
-    background: var(--accent);
-    color: #ffffff;
+    background: var(--brand-fill);
+    color: var(--on-brand);
   }
 }
 
@@ -1109,7 +1109,7 @@ const adapterConfigFields = computed(() => {
 
   &.ant-input-number-focused {
     border-color: var(--accent);
-    background: #ffffff;
+    background: var(--surface-raised);
     box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 15%, transparent);
   }
 }
@@ -1186,7 +1186,7 @@ const adapterConfigFields = computed(() => {
   background: var(--surface-danger);
   border: 1px solid color-mix(in srgb, var(--app-danger) 15%, var(--app-border));
   border-radius: var(--radius-xl, 16px);
-  box-shadow: 0 4px 20px rgba(239, 68, 68, 0.03);
+  box-shadow: none;
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -1227,7 +1227,7 @@ const adapterConfigFields = computed(() => {
 
 .diagnostics-item {
   background: var(--surface-strong);
-  border: 1px solid rgba(239, 68, 68, 0.08);
+  border: 1px solid color-mix(in srgb, var(--danger) 18%, var(--border));
   border-radius: 8px;
   padding: 10px 14px;
   display: flex;
@@ -1236,8 +1236,8 @@ const adapterConfigFields = computed(() => {
   transition: border-color 150ms ease, background-color 150ms ease;
 
   &:hover {
-    background: #ffffff;
-    border-color: rgba(239, 68, 68, 0.15);
+    background: var(--surface-raised);
+    border-color: color-mix(in srgb, var(--danger) 32%, var(--border));
   }
 }
 

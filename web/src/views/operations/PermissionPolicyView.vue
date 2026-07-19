@@ -571,8 +571,8 @@ async function save() {
 }
 
 .permission-policy-status-pill--saved {
-  color: color-mix(in srgb, var(--success) 76%, #14532d);
-  background: color-mix(in srgb, var(--surface-success) 88%, white);
+  color: var(--success);
+  background: var(--surface-success);
   border: 1px solid color-mix(in srgb, var(--success) 32%, var(--border));
 }
 

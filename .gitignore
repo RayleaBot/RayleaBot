@@ -32,6 +32,7 @@ plugins/**/node_modules/
 /web/node_modules/
 /web/dist/
 /web/test-results/
+/output/
 
 # Go local outputs.
 /server/raylea-server

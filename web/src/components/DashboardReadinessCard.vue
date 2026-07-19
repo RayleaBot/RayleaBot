@@ -99,8 +99,8 @@ function getCheckIcon(status: StatusType): string {
   margin-top: 14px;
   padding: 10px 12px;
   border-radius: var(--radius-lg);
-  background: rgba(15, 23, 42, 0.04);
-  border: 1px solid rgba(148, 163, 184, 0.18);
+  background: var(--surface-soft);
+  border: 1px solid var(--border);
   line-height: 1.5;
 }
 </style>

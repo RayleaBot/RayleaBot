@@ -101,6 +101,27 @@ function resizeCanvas() {
   drawParticleField()
 }
 
+function drawLocatorNode(x: number, y: number, size: number) {
+  if (!context) {
+    return
+  }
+  const arm = size * 0.42
+  context.beginPath()
+  context.moveTo(x - size + arm, y - size)
+  context.lineTo(x - size, y - size)
+  context.lineTo(x - size, y - size + arm)
+  context.moveTo(x + size - arm, y - size)
+  context.lineTo(x + size, y - size)
+  context.lineTo(x + size, y - size + arm)
+  context.moveTo(x + size, y + size - arm)
+  context.lineTo(x + size, y + size)
+  context.lineTo(x + size - arm, y + size)
+  context.moveTo(x - size + arm, y + size)
+  context.lineTo(x - size, y + size)
+  context.lineTo(x - size, y + size - arm)
+  context.stroke()
+}
+
 function drawParticleField() {
   if (!context) {
     return
@@ -174,6 +195,8 @@ function drawParticleField() {
   }
 
   context.fillStyle = props.palette.particle
+  context.strokeStyle = props.palette.particle
+  context.lineWidth = 1
   for (let index = 0; index < particles.length; index += 1) {
     const particle = particles[index]
     const opacity = particleOpacities[index]
@@ -184,6 +207,9 @@ function drawParticleField() {
     context.beginPath()
     context.arc(particle.x, particle.y, particle.radius, 0, Math.PI * 2)
     context.fill()
+    if (index % 7 === 0) {
+      drawLocatorNode(particle.x, particle.y, Math.max(5, particle.radius * 3.2))
+    }
   }
   context.globalAlpha = 1
 }

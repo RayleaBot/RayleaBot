@@ -41,6 +41,8 @@ def run_git(args: list[str]) -> list[str]:
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         text=True,
+        encoding="utf-8",
+        errors="surrogateescape",
     )
     return [normalize_path(line) for line in completed.stdout.splitlines() if line.strip()]
 
@@ -129,6 +131,12 @@ def classify(files: list[str]) -> dict[str, bool]:
             result["contracts"] = True
             result["ci"] = True
             matched = True
+        if path.startswith("design/") or path == "scripts/generate-design-tokens.mjs":
+            result["web"] = True
+            result["launcher"] = True
+            result["docs"] = True
+            result["ci"] = True
+            matched = True
         if path.startswith("scripts/") and not path.startswith("scripts/release/"):
             result["ci"] = True
             matched = True
@@ -194,6 +202,8 @@ def self_test() -> None:
         (["docs/test.md"], {"docs": True, "docs_only": True}),
         (["DESIGN.md"], {"docs": True, "docs_only": True}),
         ([".impeccable/design.json"], {"docs": True, "docs_only": True}),
+        (["design/tokens.json"], {"web": True, "launcher": True, "docs": True, "ci": True, "docs_only": False}),
+        (["scripts/generate-design-tokens.mjs"], {"web": True, "launcher": True, "docs": True, "ci": True, "docs_only": False}),
         (["server/internal/app/app.go"], {"server": True, "docs_only": False}),
         (["contracts/web-api.openapi.yaml"], {"contracts": True}),
         (["scripts/release/release_tool.py"], {"release": True}),

@@ -3,6 +3,7 @@ import { Globe20Filled, Play20Filled, Stop20Filled } from "@fluentui/react-icons
 import type { LauncherPresentationState } from "@shared/launcher-presentation";
 
 import { serviceStateConfig } from "./AppShell.shared";
+import { RayleaMark } from "./RayleaMark";
 
 type AppShellServiceControlProps = {
   attention: {
@@ -63,7 +64,7 @@ export function AppShellServiceControl({
           </span>
         </div>
         <div className="service-control__state" aria-live="polite">
-          <span className="service-state-mark" data-tone={tone} aria-hidden="true" />
+          <RayleaMark className="service-state-mark" tone={tone} variant="neutral" />
           <div className="service-control__state-copy">
             <span className="service-control__state-hint">{stateHint}</span>
             <h2 id="service-control-title">{stateLabel}</h2>

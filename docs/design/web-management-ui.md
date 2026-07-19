@@ -6,7 +6,7 @@
 
 - 组件继续使用 Ant Design Vue，页面壳与工作区行为继续按 Vue Vben Admin 对齐方案组织。
 - HTTP、WebSocket、Pinia store、generated types 和路由语义保持现有正式来源。
-- 项目级语义通过 Ant Design theme tokens 与现有 CSS variables 映射，不建立第二套组件库或运行时主题服务。
+- `design/tokens.json` 通过生成脚本映射为 Ant Design theme tokens 与 CSS variables，不建立第二套组件库或运行时主题服务。
 - 页面局部样式只负责业务布局和无法由组件 token 表达的最小差异。
 
 ## 主题映射
@@ -21,22 +21,26 @@
 | 主文本 | `colorText` | `light-text` | `dark-text` |
 | 次文本 | `colorTextSecondary` | `light-text-muted` | `dark-text-muted` |
 | 结构边界 | `colorBorder`、`colorSplit` | `light-border` | `dark-border` |
-| 主操作 | `colorPrimary`、链接、焦点 | `light-cool-action` | `cool-signature` |
-| 人工关注 | 页面级 attention token | `light-warm-attention` | `warm-signature` |
+| 主操作填充 | `colorPrimary`、主按钮 | `light-primary` | `dark-primary` |
+| 品牌前景 | `colorLink`、品牌标识、强调文字 | `light-brand-foreground` | `dark-brand-foreground` |
+| 焦点 | `controlOutline`、全局焦点轮廓 | `light-focus` | `dark-focus` |
+| 品牌壳层 | 桌面侧栏、移动抽屉 | `light-chrome` | `dark-chrome` |
+| 品牌填充内容 | `colorTextLightSolid` | `on-brand` | `on-brand` |
+| 人工关注 | 页面级 attention token | `light-attention` | `dark-attention` |
 | 成功、警告、危险 | Ant Design semantic tokens | `light-success`、`light-warning`、`light-danger` | `dark-success`、`dark-warning`、`dark-danger` |
 
 人工关注色不映射为 `colorWarning`。需要人工确认的区域使用独立 token、明确标题和直接操作，警告仍使用正式语义色。
 
 ## 应用壳
 
-- 侧栏负责稳定的一级与二级导航，当前项使用冷蓝淡面、冷色文字和完整轮廓，不使用彩色侧边条。
+- 侧栏使用深梅紫品牌壳层并负责稳定的一级与二级导航；当前项同时使用完整背景、高对比文字和定位器标记，不使用彩色侧边条。
 - 侧栏按“系统状态”“功能与插件”“账号与连接”“治理”“运行与诊断”“系统”组织。隐藏详情路由继承所属分组，不建立平行导航语义。
 - 页头承载面包屑、搜索、主题和会话操作，保持单行优先，不与页面主操作竞争。
 - 全屏和关闭服务收纳到页头“更多操作”，关闭服务继续经过危险确认。
 - 桌面端仅在存在多个工作区时显示页签；移动端隐藏页签，但继续保留缓存、搜索跳转和稳定 `viewKey`。开启“记住工作区”时，正常启动不得清空已恢复页签。
 - 工作区页签只表达稳定页面实例；query 变化继续复用既有 `viewKey` 规则。
-- 页面主操作位于页面头或对应工作区的稳定位置，同一区域保持一个冷色主按钮。
-- 暖色操作只出现在人工确认、可信代码确认或需要明确判断的上下文中。
+- 页面主操作位于页面头或对应工作区的稳定位置，同一区域保持一个梅紫主按钮。
+- Attention 操作只出现在人工确认、可信代码确认或需要明确判断的上下文中。
 
 ## 状态与偏好
 
@@ -71,7 +75,7 @@
 - 登录与首次初始化使用居中单栏认证表面，共享相同的字段、反馈和响应式结构。
 - 认证表面使用 Web 局部 Ant Design token 映射，亮暗主题保持相同的信息、验证和提交能力。
 - 页面只保留产品身份、任务标题、必要说明和凭据表单，不使用 hero 或功能宣传。
-- 认证画布可以使用低对比冷色光域和单层 Canvas 2D 粒子网络。粒子数量按视口在 `80–160` 之间调整，自动运动并通过生命周期淡入淡出，距离小于 `150px` 时连接；细指针在约 `196px` 的作用范围内平滑追踪有速度上限的排斥目标，离开后缓慢衰减。
+- 认证画布使用低对比梅紫定位框和单层 Canvas 2D 稀疏定位节点。粒子数量按视口在 `80–160` 之间调整，自动运动并通过生命周期淡入淡出，距离小于 `150px` 时连接；细指针在约 `196px` 的作用范围内平滑追踪有速度上限的排斥目标，离开后缓慢衰减。
 - 细指针环境跟随浏览器刷新逐帧绘制，不使用接近 `16.67ms` 的阈值过滤；粗指针环境限制为 `30fps`，避免阈值抖动造成隔帧绘制。
 - 粒子系统限制设备像素比并复用单一帧循环，不读取布局、不写入 Vue 响应式状态；页面隐藏时暂停，reduced-motion 环境只绘制静态网络。禁止任务表面跟随、波纹形变、布局动画、WebGL、多 Canvas 叠层和无资源上限的主线程动画。
 - 字段使用标准输入控件和持续可见标签；字段错误就近显示，服务错误与状态异常显示在表单反馈区。
@@ -81,7 +85,7 @@
 
 - 按钮、输入、选择器、页签、导航、表格行和可点击表面覆盖默认、悬停、焦点、按下、禁用、加载和错误状态。
 - 桌面控件默认高度 `36px`；窄屏或粗指针环境使用至少 `44px` 的可点击目标。
-- 焦点轮廓使用冷色交互 token，轮廓与相邻背景至少达到 `3:1`。
+- 焦点轮廓使用专用 `focus` token，统一为 `2px` 外轮廓与 `2px` 间距，轮廓与相邻背景至少达到 `3:1`。
 - 加载状态使用与最终内容形状一致的骨架；空态说明原因、前置条件和可执行动作。
 - 状态标签同时包含文字或图标，颜色不作为唯一信息。
 
@@ -99,7 +103,7 @@
 ## 验收条件
 
 - 首次主题跟随系统，显式亮暗选择可持久化，切换后无不可读或缺失状态。
-- 主文本、次文本、链接、按钮、焦点和语义状态达到 WCAG 2.2 AA。
+- 主文本、次文本、链接、按钮、控件边界、焦点和语义状态达到 WCAG 2.2 AA，并支持 forced-colors。
 - 页面不存在嵌套卡片、同尺寸卡片墙、彩色侧边条、渐变文字或装饰性悬停位移。
 - 页面继续复用 Ant Design Vue、现有请求层、WebSocket 封装、Pinia stores 和管理深链 helper。
 - `prefers-reduced-motion` 下移除非必要过渡，状态变化仍能立即理解。

@@ -1,63 +1,830 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-07-11T00:01:37Z",
+  "generatedAt": "2026-07-19T06:00:00Z",
   "title": "Design System: RayleaBot",
   "extensions": {
     "colorMeta": {
-      "light-canvas": {"role":"neutral","displayName":"冷雾画布","canonical":"#F3F6F7","tonalRamp":["#0A0B0C","#252728","#434546","#646667","#878A8A","#ACAEAF","#D2D5D6","#ECEFF0"]},
-      "light-surface": {"role":"neutral","displayName":"暖瓷表面","canonical":"#FAF9F5","tonalRamp":["#0C0B09","#272623","#464542","#676663","#8A8985","#AFAEAA","#D5D4D0","#EFEEEA"]},
-      "light-cool-soft": {"role":"primary","displayName":"冷蓝淡面","canonical":"#E8F6FC","tonalRamp":["#040D11","#1E282D","#3C474C","#5C686D","#7F8C91","#A3B0B6","#C9D7DD","#E3F1F7"]},
-      "light-warm-soft": {"role":"secondary","displayName":"暖橙淡面","canonical":"#F8ECE7","tonalRamp":["#110906","#2D2421","#4C433F","#6E645F","#918782","#B6ABA6","#DDD1CD","#F8ECE7"]},
-      "light-text": {"role":"neutral","displayName":"石墨正文","canonical":"#1F272C","tonalRamp":["#060C11","#20282D","#3E464C","#5E686D","#818B91","#A6B0B6","#CBD6DD","#E6F0F7"]},
-      "light-text-muted": {"role":"neutral","displayName":"岩灰辅文","canonical":"#58656E","tonalRamp":["#040C13","#1D2830","#3B474F","#5B6871","#7E8B95","#A2B0BA","#C8D7E1","#E2F1FC"]},
-      "light-border": {"role":"neutral","displayName":"雾灰边界","canonical":"#D8E0E4","tonalRamp":["#070C0F","#21272A","#404649","#60676B","#838A8E","#A8AFB3","#CED6DA","#E8F0F4"]},
-      "light-cool-action": {"role":"primary","displayName":"深海交互蓝","canonical":"#0B6B8F","tonalRamp":["#000D16","#002B3C","#004C67","#146F93","#4293B9","#69B9E0","#9FDEFF","#DCF3FF"]},
-      "light-warm-attention": {"role":"secondary","displayName":"深陶关注橙","canonical":"#A44F32","tonalRamp":["#1B0300","#471200","#772604","#9E4A2D","#C66D50","#EF9274","#FFC5B1","#FFE9E2"]},
-      "light-success": {"role":"semantic-success","displayName":"常青成功色","canonical":"#2F7D5C","tonalRamp":["#000F07","#002F1E","#005337","#277656","#4F9B78","#74C19C","#9BE8C2","#C1FFE0"]},
-      "light-warning": {"role":"semantic-warning","displayName":"琥珀警告色","canonical":"#8A5600","tonalRamp":["#140800","#382000","#613B00","#8D5906","#B37C38","#DAA15E","#FFC98B","#FFEBD5"]},
-      "light-danger": {"role":"semantic-danger","displayName":"砖红危险色","canonical":"#C2414B","tonalRamp":["#1E0003","#4F000E","#85001F","#B1303D","#DA585F","#FF8386","#FFC3C2","#FFE8E8"]},
-      "dark-canvas": {"role":"neutral","displayName":"夜幕画布","canonical":"#11181C","tonalRamp":["#060C10","#20282C","#3E464B","#5F686D","#828B90","#A6B0B5","#CCD6DC","#E6F0F6"]},
-      "dark-surface": {"role":"neutral","displayName":"深灰表面","canonical":"#182126","tonalRamp":["#050C11","#1F282D","#3D474C","#5D686E","#808B91","#A4B0B7","#CAD6DD","#E4F1F8"]},
-      "dark-surface-raised": {"role":"neutral","displayName":"抬升表面","canonical":"#202C32","tonalRamp":["#030D12","#1C282E","#3A474E","#5B686F","#7E8C93","#A2B1B8","#C8D7DF","#E2F1F9"]},
-      "dark-cool-soft": {"role":"primary","displayName":"夜间冷蓝淡面","canonical":"#16323F","tonalRamp":["#000D15","#0E2A37","#2D4957","#4E6B79","#708E9E","#94B3C3","#BADAEB","#DBF3FF"]},
-      "dark-warm-soft": {"role":"secondary","displayName":"夜间暖橙淡面","canonical":"#34231E","tonalRamp":["#150704","#33221D","#53403B","#75615B","#99847D","#BFA8A2","#E6CEC8","#FFE9E3"]},
-      "dark-text": {"role":"neutral","displayName":"霜白正文","canonical":"#E9F0F2","tonalRamp":["#080C0D","#222729","#404648","#616769","#848A8C","#A9AFB1","#CFD6D8","#E9F0F2"]},
-      "dark-text-muted": {"role":"neutral","displayName":"银灰辅文","canonical":"#A7B4BA","tonalRamp":["#040D11","#1E282D","#3C474C","#5C686E","#7F8B91","#A3B0B6","#C9D7DD","#E3F1F7"]},
-      "dark-border": {"role":"neutral","displayName":"深雾边界","canonical":"#314047","tonalRamp":["#020D13","#1A292F","#38484F","#596971","#7B8C94","#A0B1BA","#C6D8E0","#E0F2FB"]},
-      "cool-signature": {"role":"primary","displayName":"冰川签名蓝","canonical":"#66CCFF","tonalRamp":["#000D16","#002B3D","#004C69","#006F98","#2494C5","#53BAED","#A1DEFF","#DCF2FF"]},
-      "warm-signature": {"role":"secondary","displayName":"陶土签名橙","canonical":"#D97757","tonalRamp":["#1B0300","#471100","#792400","#A24626","#CB6A4A","#F48F6E","#FFC5B2","#FFE9E2"]},
-      "dark-success": {"role":"semantic-success","displayName":"夜间成功色","canonical":"#67C99B","tonalRamp":["#000F07","#002F1D","#005336","#007951","#399E73","#62C597","#8AECBC","#C2FFDF"]},
-      "dark-warning": {"role":"semantic-warning","displayName":"夜间警告色","canonical":"#F0B95A","tonalRamp":["#120900","#352200","#5C3F00","#865D00","#B27E0A","#D9A342","#FFCB74","#FFECCE"]},
-      "dark-danger": {"role":"semantic-danger","displayName":"夜间危险色","canonical":"#FF8089","tonalRamp":["#1E0003","#4E0012","#840225","#AD3545","#D65B67","#FF828B","#FFC2C4","#FFE8E8"]}
+      "plum-50": {
+        "role": "brand-base",
+        "displayName": "梅紫 50",
+        "canonical": "#FFF4F9",
+        "tonalRamp": [
+          "#FFF4F9",
+          "#FBE8F2",
+          "#F4CEE0",
+          "#E8AAC7",
+          "#D57BA6",
+          "#BF4F87",
+          "#9F356C",
+          "#8A285D",
+          "#6C204B",
+          "#3F1830",
+          "#27101E"
+        ]
+      },
+      "plum-100": {
+        "role": "brand-base",
+        "displayName": "梅紫 100",
+        "canonical": "#FBE8F2",
+        "tonalRamp": [
+          "#FFF4F9",
+          "#FBE8F2",
+          "#F4CEE0",
+          "#E8AAC7",
+          "#D57BA6",
+          "#BF4F87",
+          "#9F356C",
+          "#8A285D",
+          "#6C204B",
+          "#3F1830",
+          "#27101E"
+        ]
+      },
+      "plum-200": {
+        "role": "brand-base",
+        "displayName": "梅紫 200",
+        "canonical": "#F4CEE0",
+        "tonalRamp": [
+          "#FFF4F9",
+          "#FBE8F2",
+          "#F4CEE0",
+          "#E8AAC7",
+          "#D57BA6",
+          "#BF4F87",
+          "#9F356C",
+          "#8A285D",
+          "#6C204B",
+          "#3F1830",
+          "#27101E"
+        ]
+      },
+      "plum-300": {
+        "role": "brand-base",
+        "displayName": "梅紫 300",
+        "canonical": "#E8AAC7",
+        "tonalRamp": [
+          "#FFF4F9",
+          "#FBE8F2",
+          "#F4CEE0",
+          "#E8AAC7",
+          "#D57BA6",
+          "#BF4F87",
+          "#9F356C",
+          "#8A285D",
+          "#6C204B",
+          "#3F1830",
+          "#27101E"
+        ]
+      },
+      "plum-400": {
+        "role": "brand-base",
+        "displayName": "梅紫 400",
+        "canonical": "#D57BA6",
+        "tonalRamp": [
+          "#FFF4F9",
+          "#FBE8F2",
+          "#F4CEE0",
+          "#E8AAC7",
+          "#D57BA6",
+          "#BF4F87",
+          "#9F356C",
+          "#8A285D",
+          "#6C204B",
+          "#3F1830",
+          "#27101E"
+        ]
+      },
+      "plum-500": {
+        "role": "brand-base",
+        "displayName": "梅紫 500",
+        "canonical": "#BF4F87",
+        "tonalRamp": [
+          "#FFF4F9",
+          "#FBE8F2",
+          "#F4CEE0",
+          "#E8AAC7",
+          "#D57BA6",
+          "#BF4F87",
+          "#9F356C",
+          "#8A285D",
+          "#6C204B",
+          "#3F1830",
+          "#27101E"
+        ]
+      },
+      "plum-600": {
+        "role": "brand-base",
+        "displayName": "梅紫 600",
+        "canonical": "#9F356C",
+        "tonalRamp": [
+          "#FFF4F9",
+          "#FBE8F2",
+          "#F4CEE0",
+          "#E8AAC7",
+          "#D57BA6",
+          "#BF4F87",
+          "#9F356C",
+          "#8A285D",
+          "#6C204B",
+          "#3F1830",
+          "#27101E"
+        ]
+      },
+      "plum-700": {
+        "role": "brand-base",
+        "displayName": "梅紫 700",
+        "canonical": "#8A285D",
+        "tonalRamp": [
+          "#FFF4F9",
+          "#FBE8F2",
+          "#F4CEE0",
+          "#E8AAC7",
+          "#D57BA6",
+          "#BF4F87",
+          "#9F356C",
+          "#8A285D",
+          "#6C204B",
+          "#3F1830",
+          "#27101E"
+        ]
+      },
+      "plum-800": {
+        "role": "brand-base",
+        "displayName": "梅紫 800",
+        "canonical": "#6C204B",
+        "tonalRamp": [
+          "#FFF4F9",
+          "#FBE8F2",
+          "#F4CEE0",
+          "#E8AAC7",
+          "#D57BA6",
+          "#BF4F87",
+          "#9F356C",
+          "#8A285D",
+          "#6C204B",
+          "#3F1830",
+          "#27101E"
+        ]
+      },
+      "plum-900": {
+        "role": "brand-base",
+        "displayName": "梅紫 900",
+        "canonical": "#3F1830",
+        "tonalRamp": [
+          "#FFF4F9",
+          "#FBE8F2",
+          "#F4CEE0",
+          "#E8AAC7",
+          "#D57BA6",
+          "#BF4F87",
+          "#9F356C",
+          "#8A285D",
+          "#6C204B",
+          "#3F1830",
+          "#27101E"
+        ]
+      },
+      "plum-1000": {
+        "role": "brand-base",
+        "displayName": "梅紫 1000",
+        "canonical": "#27101E",
+        "tonalRamp": [
+          "#FFF4F9",
+          "#FBE8F2",
+          "#F4CEE0",
+          "#E8AAC7",
+          "#D57BA6",
+          "#BF4F87",
+          "#9F356C",
+          "#8A285D",
+          "#6C204B",
+          "#3F1830",
+          "#27101E"
+        ]
+      },
+      "light-canvas": {
+        "role": "neutral",
+        "displayName": "浅色画布",
+        "canonical": "#F6F3F5",
+        "tonalRamp": [
+          "#151114",
+          "#1D181C",
+          "#282127",
+          "#41363D",
+          "#806C78",
+          "#6B5E66",
+          "#DDD4D9",
+          "#F6F3F5",
+          "#FFFBFD",
+          "#FFFFFF"
+        ]
+      },
+      "light-surface": {
+        "role": "neutral",
+        "displayName": "浅色表面",
+        "canonical": "#FFFBFD",
+        "tonalRamp": [
+          "#151114",
+          "#1D181C",
+          "#282127",
+          "#41363D",
+          "#806C78",
+          "#6B5E66",
+          "#DDD4D9",
+          "#F6F3F5",
+          "#FFFBFD",
+          "#FFFFFF"
+        ]
+      },
+      "light-surface-raised": {
+        "role": "neutral",
+        "displayName": "浅色抬升表面",
+        "canonical": "#FFFFFF",
+        "tonalRamp": [
+          "#151114",
+          "#1D181C",
+          "#282127",
+          "#41363D",
+          "#806C78",
+          "#6B5E66",
+          "#DDD4D9",
+          "#F6F3F5",
+          "#FFFBFD",
+          "#FFFFFF"
+        ]
+      },
+      "light-text": {
+        "role": "neutral",
+        "displayName": "浅色正文",
+        "canonical": "#211820",
+        "tonalRamp": [
+          "#151114",
+          "#1D181C",
+          "#282127",
+          "#41363D",
+          "#806C78",
+          "#6B5E66",
+          "#DDD4D9",
+          "#F6F3F5",
+          "#FFFBFD",
+          "#FFFFFF"
+        ]
+      },
+      "light-text-muted": {
+        "role": "neutral",
+        "displayName": "浅色辅文",
+        "canonical": "#6B5E66",
+        "tonalRamp": [
+          "#151114",
+          "#1D181C",
+          "#282127",
+          "#41363D",
+          "#806C78",
+          "#6B5E66",
+          "#DDD4D9",
+          "#F6F3F5",
+          "#FFFBFD",
+          "#FFFFFF"
+        ]
+      },
+      "light-border": {
+        "role": "neutral",
+        "displayName": "浅色结构边界",
+        "canonical": "#DDD4D9",
+        "tonalRamp": [
+          "#151114",
+          "#1D181C",
+          "#282127",
+          "#41363D",
+          "#806C78",
+          "#6B5E66",
+          "#DDD4D9",
+          "#F6F3F5",
+          "#FFFBFD",
+          "#FFFFFF"
+        ]
+      },
+      "light-border-control": {
+        "role": "neutral",
+        "displayName": "浅色控件边界",
+        "canonical": "#93868E",
+        "tonalRamp": [
+          "#151114",
+          "#1D181C",
+          "#282127",
+          "#41363D",
+          "#806C78",
+          "#6B5E66",
+          "#DDD4D9",
+          "#F6F3F5",
+          "#FFFBFD",
+          "#FFFFFF"
+        ]
+      },
+      "light-brand-fill": {
+        "role": "primary",
+        "displayName": "浅色主操作",
+        "canonical": "#8A285D",
+        "tonalRamp": [
+          "#FFF4F9",
+          "#FBE8F2",
+          "#F4CEE0",
+          "#E8AAC7",
+          "#D57BA6",
+          "#BF4F87",
+          "#9F356C",
+          "#8A285D",
+          "#6C204B",
+          "#3F1830",
+          "#27101E"
+        ]
+      },
+      "light-brand-soft": {
+        "role": "primary",
+        "displayName": "浅色品牌淡面",
+        "canonical": "#F7E9F1",
+        "tonalRamp": [
+          "#FFF4F9",
+          "#FBE8F2",
+          "#F4CEE0",
+          "#E8AAC7",
+          "#D57BA6",
+          "#BF4F87",
+          "#9F356C",
+          "#8A285D",
+          "#6C204B",
+          "#3F1830",
+          "#27101E"
+        ]
+      },
+      "light-focus": {
+        "role": "primary",
+        "displayName": "浅色焦点",
+        "canonical": "#9F356C",
+        "tonalRamp": [
+          "#FFF4F9",
+          "#FBE8F2",
+          "#F4CEE0",
+          "#E8AAC7",
+          "#D57BA6",
+          "#BF4F87",
+          "#9F356C",
+          "#8A285D",
+          "#6C204B",
+          "#3F1830",
+          "#27101E"
+        ]
+      },
+      "light-chrome": {
+        "role": "primary",
+        "displayName": "浅色品牌壳层",
+        "canonical": "#3F1830",
+        "tonalRamp": [
+          "#FFF4F9",
+          "#FBE8F2",
+          "#F4CEE0",
+          "#E8AAC7",
+          "#D57BA6",
+          "#BF4F87",
+          "#9F356C",
+          "#8A285D",
+          "#6C204B",
+          "#3F1830",
+          "#27101E"
+        ]
+      },
+      "light-attention": {
+        "role": "semantic-attention",
+        "displayName": "浅色人工关注",
+        "canonical": "#9B4A2F",
+        "tonalRamp": [
+          "#151114",
+          "#1D181C",
+          "#282127",
+          "#41363D",
+          "#806C78",
+          "#6B5E66",
+          "#DDD4D9",
+          "#F6F3F5",
+          "#FFFBFD",
+          "#FFFFFF"
+        ]
+      },
+      "light-success": {
+        "role": "semantic-success",
+        "displayName": "浅色成功",
+        "canonical": "#227653",
+        "tonalRamp": [
+          "#151114",
+          "#1D181C",
+          "#282127",
+          "#41363D",
+          "#806C78",
+          "#6B5E66",
+          "#DDD4D9",
+          "#F6F3F5",
+          "#FFFBFD",
+          "#FFFFFF"
+        ]
+      },
+      "light-warning": {
+        "role": "semantic-warning",
+        "displayName": "浅色警告",
+        "canonical": "#8A5600",
+        "tonalRamp": [
+          "#151114",
+          "#1D181C",
+          "#282127",
+          "#41363D",
+          "#806C78",
+          "#6B5E66",
+          "#DDD4D9",
+          "#F6F3F5",
+          "#FFFBFD",
+          "#FFFFFF"
+        ]
+      },
+      "light-danger": {
+        "role": "semantic-danger",
+        "displayName": "浅色危险",
+        "canonical": "#B9384E",
+        "tonalRamp": [
+          "#151114",
+          "#1D181C",
+          "#282127",
+          "#41363D",
+          "#806C78",
+          "#6B5E66",
+          "#DDD4D9",
+          "#F6F3F5",
+          "#FFFBFD",
+          "#FFFFFF"
+        ]
+      },
+      "dark-canvas": {
+        "role": "neutral",
+        "displayName": "暗色画布",
+        "canonical": "#151114",
+        "tonalRamp": [
+          "#151114",
+          "#1D181C",
+          "#282127",
+          "#41363D",
+          "#806C78",
+          "#6B5E66",
+          "#DDD4D9",
+          "#F6F3F5",
+          "#FFFBFD",
+          "#FFFFFF"
+        ]
+      },
+      "dark-surface": {
+        "role": "neutral",
+        "displayName": "暗色表面",
+        "canonical": "#1D181C",
+        "tonalRamp": [
+          "#151114",
+          "#1D181C",
+          "#282127",
+          "#41363D",
+          "#806C78",
+          "#6B5E66",
+          "#DDD4D9",
+          "#F6F3F5",
+          "#FFFBFD",
+          "#FFFFFF"
+        ]
+      },
+      "dark-surface-raised": {
+        "role": "neutral",
+        "displayName": "暗色抬升表面",
+        "canonical": "#282127",
+        "tonalRamp": [
+          "#151114",
+          "#1D181C",
+          "#282127",
+          "#41363D",
+          "#806C78",
+          "#6B5E66",
+          "#DDD4D9",
+          "#F6F3F5",
+          "#FFFBFD",
+          "#FFFFFF"
+        ]
+      },
+      "dark-text": {
+        "role": "neutral",
+        "displayName": "暗色正文",
+        "canonical": "#F4EDF1",
+        "tonalRamp": [
+          "#151114",
+          "#1D181C",
+          "#282127",
+          "#41363D",
+          "#806C78",
+          "#6B5E66",
+          "#DDD4D9",
+          "#F6F3F5",
+          "#FFFBFD",
+          "#FFFFFF"
+        ]
+      },
+      "dark-text-muted": {
+        "role": "neutral",
+        "displayName": "暗色辅文",
+        "canonical": "#BAADB4",
+        "tonalRamp": [
+          "#151114",
+          "#1D181C",
+          "#282127",
+          "#41363D",
+          "#806C78",
+          "#6B5E66",
+          "#DDD4D9",
+          "#F6F3F5",
+          "#FFFBFD",
+          "#FFFFFF"
+        ]
+      },
+      "dark-border": {
+        "role": "neutral",
+        "displayName": "暗色结构边界",
+        "canonical": "#41363D",
+        "tonalRamp": [
+          "#151114",
+          "#1D181C",
+          "#282127",
+          "#41363D",
+          "#806C78",
+          "#6B5E66",
+          "#DDD4D9",
+          "#F6F3F5",
+          "#FFFBFD",
+          "#FFFFFF"
+        ]
+      },
+      "dark-border-control": {
+        "role": "neutral",
+        "displayName": "暗色控件边界",
+        "canonical": "#806C78",
+        "tonalRamp": [
+          "#151114",
+          "#1D181C",
+          "#282127",
+          "#41363D",
+          "#806C78",
+          "#6B5E66",
+          "#DDD4D9",
+          "#F6F3F5",
+          "#FFFBFD",
+          "#FFFFFF"
+        ]
+      },
+      "dark-brand-fill": {
+        "role": "primary",
+        "displayName": "暗色主操作",
+        "canonical": "#D57BA6",
+        "tonalRamp": [
+          "#FFF4F9",
+          "#FBE8F2",
+          "#F4CEE0",
+          "#E8AAC7",
+          "#D57BA6",
+          "#BF4F87",
+          "#9F356C",
+          "#8A285D",
+          "#6C204B",
+          "#3F1830",
+          "#27101E"
+        ]
+      },
+      "dark-brand-soft": {
+        "role": "primary",
+        "displayName": "暗色品牌淡面",
+        "canonical": "#3A2030",
+        "tonalRamp": [
+          "#FFF4F9",
+          "#FBE8F2",
+          "#F4CEE0",
+          "#E8AAC7",
+          "#D57BA6",
+          "#BF4F87",
+          "#9F356C",
+          "#8A285D",
+          "#6C204B",
+          "#3F1830",
+          "#27101E"
+        ]
+      },
+      "dark-focus": {
+        "role": "primary",
+        "displayName": "暗色焦点",
+        "canonical": "#F0A4C9",
+        "tonalRamp": [
+          "#FFF4F9",
+          "#FBE8F2",
+          "#F4CEE0",
+          "#E8AAC7",
+          "#D57BA6",
+          "#BF4F87",
+          "#9F356C",
+          "#8A285D",
+          "#6C204B",
+          "#3F1830",
+          "#27101E"
+        ]
+      },
+      "dark-chrome": {
+        "role": "primary",
+        "displayName": "暗色品牌壳层",
+        "canonical": "#24151F",
+        "tonalRamp": [
+          "#FFF4F9",
+          "#FBE8F2",
+          "#F4CEE0",
+          "#E8AAC7",
+          "#D57BA6",
+          "#BF4F87",
+          "#9F356C",
+          "#8A285D",
+          "#6C204B",
+          "#3F1830",
+          "#27101E"
+        ]
+      },
+      "dark-attention": {
+        "role": "semantic-attention",
+        "displayName": "暗色人工关注",
+        "canonical": "#E08A61",
+        "tonalRamp": [
+          "#151114",
+          "#1D181C",
+          "#282127",
+          "#41363D",
+          "#806C78",
+          "#6B5E66",
+          "#DDD4D9",
+          "#F6F3F5",
+          "#FFFBFD",
+          "#FFFFFF"
+        ]
+      },
+      "dark-success": {
+        "role": "semantic-success",
+        "displayName": "暗色成功",
+        "canonical": "#65D39A",
+        "tonalRamp": [
+          "#151114",
+          "#1D181C",
+          "#282127",
+          "#41363D",
+          "#806C78",
+          "#6B5E66",
+          "#DDD4D9",
+          "#F6F3F5",
+          "#FFFBFD",
+          "#FFFFFF"
+        ]
+      },
+      "dark-warning": {
+        "role": "semantic-warning",
+        "displayName": "暗色警告",
+        "canonical": "#F0BB5A",
+        "tonalRamp": [
+          "#151114",
+          "#1D181C",
+          "#282127",
+          "#41363D",
+          "#806C78",
+          "#6B5E66",
+          "#DDD4D9",
+          "#F6F3F5",
+          "#FFFBFD",
+          "#FFFFFF"
+        ]
+      },
+      "dark-danger": {
+        "role": "semantic-danger",
+        "displayName": "暗色危险",
+        "canonical": "#FF8494",
+        "tonalRamp": [
+          "#151114",
+          "#1D181C",
+          "#282127",
+          "#41363D",
+          "#806C78",
+          "#6B5E66",
+          "#DDD4D9",
+          "#F6F3F5",
+          "#FFFBFD",
+          "#FFFFFF"
+        ]
+      }
     },
     "typographyMeta": {
-      "display": {"displayName":"页面标题","purpose":"页面顶层标题和少量关键状态。"},
-      "title": {"displayName":"分区标题","purpose":"面板、工作区和分区名称。"},
-      "body": {"displayName":"正文","purpose":"说明、表单与详情内容。"},
-      "label": {"displayName":"标签","purpose":"控件、表头与紧凑状态标题。"},
-      "mono": {"displayName":"等宽数据","purpose":"日志、路径、标识符和代码。"}
+      "display": {
+        "displayName": "页面标题",
+        "purpose": "页面顶层标题和少量关键状态。"
+      },
+      "title": {
+        "displayName": "分区标题",
+        "purpose": "面板、工作区和分区名称。"
+      },
+      "body": {
+        "displayName": "正文",
+        "purpose": "说明、表单与详情内容。"
+      },
+      "label": {
+        "displayName": "标签",
+        "purpose": "控件、表头与紧凑状态标题。"
+      },
+      "mono": {
+        "displayName": "等宽数据",
+        "purpose": "日志、路径、标识符和代码。"
+      }
     },
     "shadows": [
-      {"name":"surface-light","value":"0 2px 8px rgba(31, 39, 44, 0.08)","purpose":"浅色主题中的独立任务表面。"},
-      {"name":"floating-light","value":"0 16px 40px rgba(31, 39, 44, 0.14)","purpose":"浅色主题中的抽屉、弹出层和确认界面。"},
-      {"name":"surface-dark","value":"0 2px 10px rgba(0, 0, 0, 0.28)","purpose":"暗色主题中的独立任务表面。"},
-      {"name":"floating-dark","value":"0 18px 48px rgba(0, 0, 0, 0.42)","purpose":"暗色主题中盖过工作区的浮层。"}
+      {
+        "name": "surface-light",
+        "value": "0 2px 8px #21182014",
+        "purpose": "浅色主题中的独立任务表面。"
+      },
+      {
+        "name": "floating-light",
+        "value": "0 18px 48px #21182029",
+        "purpose": "浅色主题中的菜单、抽屉和对话框。"
+      },
+      {
+        "name": "surface-dark",
+        "value": "0 2px 10px #00000047",
+        "purpose": "暗色主题中的独立任务表面。"
+      },
+      {
+        "name": "floating-dark",
+        "value": "0 20px 56px #00000070",
+        "purpose": "暗色主题中的菜单、抽屉和对话框。"
+      }
     ],
     "motion": [
-      {"name":"state-feedback","value":"160ms","purpose":"悬停、按下、选择和状态反馈。"},
-      {"name":"content-switch","value":"200ms","purpose":"页签、分区和内容显隐。"},
-      {"name":"overlay","value":"220ms","purpose":"抽屉、弹出层和确认界面。"},
-      {"name":"view-transition","value":"native progressive enhancement","purpose":"Web 页面与亮暗主题使用命名快照切换，不支持时保持可操作。"},
-      {"name":"launcher-workspace-waapi","value":"300ms cubic-bezier(0.25, 0.1, 0.25, 1)","purpose":"Launcher 工作区使用可取消且完整可感知的透明度动画，切换期间保持桌面导航可交互。"},
-      {"name":"motion-mini","value":"12.42.2","purpose":"Web 路由在 View Transition 不可用或历史导航时使用 WAAPI 降级动画。"},
-      {"name":"fluent-motion","value":"9.16.1","purpose":"Launcher Fluent 浮层使用 WAAPI presence 管理进入、退出、取消和卸载。"},
-      {"name":"auth-particle-network","value":"80-160 particles","purpose":"认证画布使用单一 Canvas 2D 帧循环呈现受限粒子网络，150px 内连线，并在约 196px 范围内平滑追踪细指针排斥目标。细指针逐帧绘制，粗指针限制为 30fps。"},
-      {"name":"ease-out","value":"cubic-bezier(0.16, 1, 0.3, 1)","purpose":"所有非线性状态过渡。"}
+      {
+        "name": "state-feedback",
+        "value": "160ms",
+        "purpose": "悬停、按下、选择和状态反馈。"
+      },
+      {
+        "name": "content-switch",
+        "value": "200ms",
+        "purpose": "页签、分区和内容显隐。"
+      },
+      {
+        "name": "overlay",
+        "value": "220ms",
+        "purpose": "抽屉、弹出层和确认界面。"
+      },
+      {
+        "name": "view-transition",
+        "value": "native progressive enhancement",
+        "purpose": "Web 页面与亮暗主题使用命名快照切换，不支持时保持可操作。"
+      },
+      {
+        "name": "launcher-workspace-waapi",
+        "value": "300ms cubic-bezier(0.25, 0.1, 0.25, 1)",
+        "purpose": "Launcher 工作区使用可取消且完整可感知的透明度动画，切换期间保持桌面导航可交互。"
+      },
+      {
+        "name": "motion-mini",
+        "value": "12.42.2",
+        "purpose": "Web 路由在 View Transition 不可用或历史导航时使用 WAAPI 降级动画。"
+      },
+      {
+        "name": "fluent-motion",
+        "value": "9.16.1",
+        "purpose": "Launcher Fluent 浮层使用 WAAPI presence 管理进入、退出、取消和卸载。"
+      },
+      {
+        "name": "auth-particle-network",
+        "value": "80-160 particles",
+        "purpose": "认证画布使用单一 Canvas 2D 帧循环呈现稀疏定位节点与低对比连接线，并保留既有资源预算、指针边界和静态 reduced-motion 模式。"
+      },
+      {
+        "name": "ease-out",
+        "value": "cubic-bezier(0.16, 1, 0.3, 1)",
+        "purpose": "所有非线性状态过渡。"
+      }
     ],
     "breakpoints": [
-      {"name":"compact","value":"640px"},
-      {"name":"workspace","value":"900px"},
-      {"name":"wide","value":"1200px"}
+      {
+        "name": "compact",
+        "value": "640px"
+      },
+      {
+        "name": "workspace",
+        "value": "900px"
+      },
+      {
+        "name": "wide",
+        "value": "1200px"
+      }
     ]
   },
   "components": [
@@ -67,7 +834,7 @@
       "refersTo": "button-primary",
       "description": "当前工作流唯一突出的主操作。",
       "html": "<button class=\"ds-btn-primary\">保存设置</button>",
-      "css": ".ds-btn-primary { height: 36px; padding: 8px 14px; border: 1px solid #0B6B8F; border-radius: 8px; background: #0B6B8F; color: #FAF9F5; font: 600 14px/1.4 Inter, system-ui, sans-serif; cursor: pointer; transition: background-color 160ms cubic-bezier(0.16, 1, 0.3, 1), border-color 160ms cubic-bezier(0.16, 1, 0.3, 1); } .ds-btn-primary:hover { background: #075B79; border-color: #075B79; } .ds-btn-primary:focus-visible { outline: 2px solid #0B6B8F; outline-offset: 2px; } .ds-btn-primary:active { background: #064C66; } .ds-btn-primary:disabled { cursor: not-allowed; opacity: 0.58; } @media (prefers-color-scheme: dark) { .ds-btn-primary { border-color: #66CCFF; background: #66CCFF; color: #11181C; } .ds-btn-primary:hover { background: #8AD8FF; border-color: #8AD8FF; } .ds-btn-primary:focus-visible { outline-color: #66CCFF; } .ds-btn-primary:active { background: #4FBCEB; } }"
+      "css": ".ds-btn-primary { height: 36px; padding: 8px 14px; border: 1px solid #8A285D; border-radius: 10px; background: #8A285D; color: #FFFFFF; font: 600 14px/1.4 Inter, system-ui, sans-serif; cursor: pointer; transition: background-color 160ms cubic-bezier(0.16, 1, 0.3, 1), border-color 160ms cubic-bezier(0.16, 1, 0.3, 1); } .ds-btn-primary:hover { background: #6C204B; border-color: #6C204B; } .ds-btn-primary:focus-visible { outline: 2px solid #9F356C; outline-offset: 2px; } .ds-btn-primary:active { background: #3F1830; border-color: #3F1830; } .ds-btn-primary:disabled { cursor: not-allowed; opacity: 0.58; } @media (prefers-color-scheme: dark) { .ds-btn-primary { border-color: #D57BA6; background: #D57BA6; color: #27101E; } .ds-btn-primary:hover { border-color: #E8AAC7; background: #E8AAC7; } .ds-btn-primary:focus-visible { outline-color: #F0A4C9; } .ds-btn-primary:active { border-color: #BF4F87; background: #BF4F87; } }"
     },
     {
       "name": "Attention Button",
@@ -75,31 +842,31 @@
       "refersTo": "button-attention",
       "description": "需要人工判断或确认的明确操作。",
       "html": "<button class=\"ds-btn-attention\">确认继续</button>",
-      "css": ".ds-btn-attention { height: 36px; padding: 8px 14px; border: 1px solid #A44F32; border-radius: 8px; background: #A44F32; color: #FAF9F5; font: 600 14px/1.4 Inter, system-ui, sans-serif; cursor: pointer; transition: background-color 160ms cubic-bezier(0.16, 1, 0.3, 1), border-color 160ms cubic-bezier(0.16, 1, 0.3, 1); } .ds-btn-attention:hover { background: #8F422A; border-color: #8F422A; } .ds-btn-attention:focus-visible { outline: 2px solid #A44F32; outline-offset: 2px; } .ds-btn-attention:active { background: #7A3723; } .ds-btn-attention:disabled { cursor: not-allowed; opacity: 0.58; } @media (prefers-color-scheme: dark) { .ds-btn-attention { border-color: #D97757; background: #D97757; color: #11181C; } .ds-btn-attention:hover { background: #E58A69; border-color: #E58A69; } .ds-btn-attention:focus-visible { outline-color: #D97757; } .ds-btn-attention:active { background: #C76849; } }"
+      "css": ".ds-btn-attention { height: 36px; padding: 8px 14px; border: 1px solid #9B4A2F; border-radius: 10px; background: #9B4A2F; color: #FFFFFF; font: 600 14px/1.4 Inter, system-ui, sans-serif; cursor: pointer; } .ds-btn-attention:focus-visible { outline: 2px solid #9F356C; outline-offset: 2px; } @media (prefers-color-scheme: dark) { .ds-btn-attention { border-color: #E08A61; background: #E08A61; color: #27101E; } .ds-btn-attention:focus-visible { outline-color: #F0A4C9; } }"
     },
     {
       "name": "Text Input",
       "kind": "input",
       "refersTo": "input",
-      "description": "带有持续标签和清晰焦点的标准输入框。",
+      "description": "带持续标签、控件边界和清晰焦点的标准输入框。",
       "html": "<label class=\"ds-field\"><span>服务地址</span><input value=\"http://127.0.0.1:8080\"></label>",
-      "css": ".ds-field { display: grid; gap: 6px; color: #1F272C; font: 600 13px/1.4 Inter, system-ui, sans-serif; } .ds-field input { width: 100%; height: 36px; padding: 8px 12px; border: 1px solid #D8E0E4; border-radius: 8px; background: #FAF9F5; color: #1F272C; font: 400 14px/1.55 Inter, system-ui, sans-serif; transition: border-color 160ms cubic-bezier(0.16, 1, 0.3, 1), outline-color 160ms cubic-bezier(0.16, 1, 0.3, 1); } .ds-field input:hover { border-color: #0B6B8F; } .ds-field input:focus-visible { outline: 2px solid #0B6B8F; outline-offset: 1px; } .ds-field input:disabled { cursor: not-allowed; opacity: 0.62; } @media (prefers-color-scheme: dark) { .ds-field { color: #E9F0F2; } .ds-field input { border-color: #314047; background: #182126; color: #E9F0F2; } .ds-field input:hover, .ds-field input:focus-visible { border-color: #66CCFF; outline-color: #66CCFF; } }"
+      "css": ".ds-field { display: grid; gap: 6px; color: #211820; font: 600 13px/1.4 Inter, system-ui, sans-serif; } .ds-field input { width: 100%; height: 36px; padding: 8px 12px; border: 1px solid #93868E; border-radius: 10px; background: #FFFFFF; color: #211820; font: 400 14px/1.55 Inter, system-ui, sans-serif; } .ds-field input:focus-visible { outline: 2px solid #9F356C; outline-offset: 2px; } @media (prefers-color-scheme: dark) { .ds-field { color: #F4EDF1; } .ds-field input { border-color: #806C78; background: #282127; color: #F4EDF1; } .ds-field input:focus-visible { outline-color: #F0A4C9; } }"
     },
     {
       "name": "Selected Navigation Item",
       "kind": "nav",
       "refersTo": "navigation-item",
-      "description": "使用完整色面和轮廓表达当前工作区。",
-      "html": "<a class=\"ds-nav-item\" href=\"#\" aria-current=\"page\">系统状态</a>",
-      "css": ".ds-nav-item { display: inline-flex; align-items: center; min-height: 36px; padding: 8px 12px; border: 1px solid #0B6B8F; border-radius: 8px; background: #E8F6FC; color: #0B6B8F; font: 600 14px/1.4 Inter, system-ui, sans-serif; text-decoration: none; transition: background-color 160ms cubic-bezier(0.16, 1, 0.3, 1), border-color 160ms cubic-bezier(0.16, 1, 0.3, 1); } .ds-nav-item:hover { background: #D8EFF8; } .ds-nav-item:focus-visible { outline: 2px solid #0B6B8F; outline-offset: 2px; } .ds-nav-item:active { background: #CAE8F3; } @media (prefers-color-scheme: dark) { .ds-nav-item { border-color: #66CCFF; background: #16323F; color: #66CCFF; } .ds-nav-item:hover { background: #1C3E4E; } .ds-nav-item:focus-visible { outline-color: #66CCFF; } .ds-nav-item:active { background: #21495B; } }"
+      "description": "使用完整色面、文字和定位器表达当前工作区。",
+      "html": "<a class=\"ds-nav-item\" href=\"#\" aria-current=\"page\">⌖ 系统状态</a>",
+      "css": ".ds-nav-item { display: inline-flex; align-items: center; min-height: 40px; padding: 8px 12px; border-radius: 10px; background: #6C204B; color: #FFF4F9; font: 600 14px/1.4 Inter, system-ui, sans-serif; text-decoration: none; } .ds-nav-item:focus-visible { outline: 2px solid #E8AAC7; outline-offset: 2px; } @media (prefers-color-scheme: dark) { .ds-nav-item { background: #3F1830; color: #FFF4F9; } .ds-nav-item:focus-visible { outline-color: #E8AAC7; } }"
     },
     {
       "name": "Status Chip",
       "kind": "chip",
       "refersTo": "status-chip",
-      "description": "同时使用语义色和文字表达状态。",
+      "description": "同时使用语义色、文字和形状表达状态。",
       "html": "<span class=\"ds-status-chip\">● 运行正常</span>",
-      "css": ".ds-status-chip { display: inline-flex; align-items: center; min-height: 24px; padding: 4px 8px; border: 1px solid #2F7D5C; border-radius: 999px; background: #EDF7F1; color: #2F7D5C; font: 600 13px/1.4 Inter, system-ui, sans-serif; } @media (prefers-color-scheme: dark) { .ds-status-chip { border-color: #67C99B; background: #17362A; color: #67C99B; } }"
+      "css": ".ds-status-chip { display: inline-flex; align-items: center; min-height: 24px; padding: 4px 8px; border: 1px solid #227653; border-radius: 999px; background: #E8F4EE; color: #227653; font: 600 13px/1.4 Inter, system-ui, sans-serif; } @media (prefers-color-scheme: dark) { .ds-status-chip { border-color: #65D39A; background: #193429; color: #65D39A; } }"
     },
     {
       "name": "Section Surface",
@@ -107,7 +874,7 @@
       "refersTo": "section-surface",
       "description": "只承载具有独立任务边界的内容。",
       "html": "<section class=\"ds-section-surface\"><h3>运行环境</h3><p>检查托管运行时与模板资源。</p></section>",
-      "css": ".ds-section-surface { max-width: 560px; padding: 16px; border: 1px solid #D8E0E4; border-radius: 12px; background: #FAF9F5; color: #1F272C; box-shadow: 0 2px 8px rgba(31, 39, 44, 0.08); font: 400 14px/1.55 Inter, system-ui, sans-serif; } .ds-section-surface h3 { margin: 0 0 8px; font-size: 18px; line-height: 1.35; } .ds-section-surface p { margin: 0; max-width: 72ch; color: #58656E; } @media (prefers-color-scheme: dark) { .ds-section-surface { border-color: #314047; background: #182126; color: #E9F0F2; box-shadow: 0 2px 10px rgba(0, 0, 0, 0.28); } .ds-section-surface p { color: #A7B4BA; } }"
+      "css": ".ds-section-surface { max-width: 560px; padding: 16px; border: 1px solid #DDD4D9; border-radius: 14px; background: #FFFBFD; color: #211820; font: 400 14px/1.55 Inter, system-ui, sans-serif; } .ds-section-surface h3 { margin: 0 0 8px; font-size: 18px; } .ds-section-surface p { margin: 0; color: #6B5E66; } @media (prefers-color-scheme: dark) { .ds-section-surface { border-color: #41363D; background: #1D181C; color: #F4EDF1; } .ds-section-surface p { color: #BAADB4; } }"
     },
     {
       "name": "Attention Callout",
@@ -115,7 +882,7 @@
       "refersTo": "attention-callout",
       "description": "解释需要人工判断的事项并提供直接操作。",
       "html": "<aside class=\"ds-attention\"><strong>需要人工确认</strong><p>继续前请检查插件来源和声明能力。</p></aside>",
-      "css": ".ds-attention { display: grid; gap: 4px; padding: 12px 16px; border: 1px solid #A44F32; border-radius: 12px; background: #F8ECE7; color: #A44F32; font: 400 14px/1.55 Inter, system-ui, sans-serif; } .ds-attention strong { font-weight: 650; } .ds-attention p { margin: 0; color: #1F272C; } @media (prefers-color-scheme: dark) { .ds-attention { border-color: #D97757; background: #34231E; color: #D97757; } .ds-attention p { color: #E9F0F2; } }"
+      "css": ".ds-attention { display: grid; gap: 4px; padding: 12px 16px; border: 1px solid #9B4A2F; border-radius: 14px; background: #F9ECE6; color: #9B4A2F; font: 400 14px/1.55 Inter, system-ui, sans-serif; } .ds-attention p { margin: 0; color: #211820; } @media (prefers-color-scheme: dark) { .ds-attention { border-color: #E08A61; background: #3B261E; color: #E08A61; } .ds-attention p { color: #F4EDF1; } }"
     },
     {
       "name": "Data Row",
@@ -123,45 +890,75 @@
       "refersTo": "data-row",
       "description": "紧凑展示对象、状态和右侧操作。",
       "html": "<div class=\"ds-data-row\" role=\"row\" tabindex=\"0\"><strong>subscription_hub</strong><span>运行中</span><button>查看</button></div>",
-      "css": ".ds-data-row { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 12px; min-height: 44px; padding: 10px 12px; border: 1px solid #D8E0E4; border-radius: 8px; background: #FAF9F5; color: #1F272C; font: 400 14px/1.4 Inter, system-ui, sans-serif; transition: background-color 160ms cubic-bezier(0.16, 1, 0.3, 1), border-color 160ms cubic-bezier(0.16, 1, 0.3, 1); } .ds-data-row:hover { border-color: #0B6B8F; background: #E8F6FC; } .ds-data-row:focus-visible { outline: 2px solid #0B6B8F; outline-offset: 2px; } .ds-data-row button { border: 0; background: transparent; color: #0B6B8F; font: 600 13px/1.4 Inter, system-ui, sans-serif; cursor: pointer; } @media (prefers-color-scheme: dark) { .ds-data-row { border-color: #314047; background: #182126; color: #E9F0F2; } .ds-data-row:hover { border-color: #66CCFF; background: #16323F; } .ds-data-row:focus-visible { outline-color: #66CCFF; } .ds-data-row button { color: #66CCFF; } }"
+      "css": ".ds-data-row { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 12px; min-height: 44px; padding: 10px 12px; border: 1px solid #DDD4D9; border-radius: 10px; background: #FFFBFD; color: #211820; font: 400 14px/1.4 Inter, system-ui, sans-serif; } .ds-data-row:hover { border-color: #8A285D; background: #F7E9F1; } .ds-data-row:focus-visible { outline: 2px solid #9F356C; outline-offset: 2px; } .ds-data-row button { border: 0; background: transparent; color: #8A285D; font: 600 13px/1.4 Inter, system-ui, sans-serif; } @media (prefers-color-scheme: dark) { .ds-data-row { border-color: #41363D; background: #1D181C; color: #F4EDF1; } .ds-data-row:hover { border-color: #F0A4C9; background: #3A2030; } .ds-data-row:focus-visible { outline-color: #F0A4C9; } .ds-data-row button { color: #F0A4C9; } }"
     }
   ],
   "narrative": {
-    "northStar": "冷暖精密工作台",
-    "overview": "RayleaBot 面向需要持续判断系统状态的机器人运维者。操作者可能在白天的工作环境中连续编辑配置，也可能在夜间快速处理恢复事项。界面首次显示跟随系统主题，亮色与暗色具有同等完整的信息层级、状态语义和操作能力。冷色代表系统、自动化、导航与主操作，暖色代表需要人工判断、确认和关注的时刻。两种温度形成稳定的工作语义，而不是装饰性配色。布局保持紧凑、清晰和可预测，熟悉的控件应让操作者直接进入任务。视觉层级依靠色面、边框、留白和柔和阴影建立。界面拒绝通用的深色科技感仪表盘、组件拼贴和夸张动效，也不通过巨型指标或装饰图表制造专业感。",
+    "northStar": "梅紫仪表盘",
+    "overview": "RayleaBot 使用深梅紫应用壳建立稳定方位感，以中性高密度工作区承载诊断、配置和恢复任务。原创定位器连接品牌、当前导航和真实运行状态。Web 克制使用品牌色，Launcher 的标题栏与导航轨具有更明确的品牌识别；亮暗主题提供等价的信息层级、状态语义与操作能力。",
     "keyCharacteristics": [
-      "冷色系统操作，暖色人工关注",
-      "跟随系统的完整双主题",
-      "紧凑但不拥挤的工作区密度",
-      "柔和层叠与稳定组件状态",
-      "Web、Launcher 和官方插件共享语义，不共享框架"
+      "深梅紫应用壳与中性工作区",
+      "定位器品牌与状态母题",
+      "完整且等价的亮暗主题",
+      "紧凑、清晰、可预测的任务密度",
+      "Web 与 Launcher 共享语义而不共享框架"
     ],
     "rules": [
-      {"name":"The Temperature Rule","body":"冷色表达系统与自动化，暖色表达人工判断。任何使用都必须能回答它属于哪一类任务语义。","section":"colors"},
-      {"name":"The Accessible Anchor Rule","body":"cool-signature 与 warm-signature 不直接承载浅色主题的普通正文，必须使用对应深色交互变体。","section":"colors"},
-      {"name":"The Semantic Independence Rule","body":"暖色关注、警告和危险是三个独立角色，状态必须同时提供文字、图标或结构化标签。","section":"colors"},
-      {"name":"The Quiet Hierarchy Rule","body":"层级依靠字号、字重和间距建立，不通过展示字体、过度字距或全大写标签制造噪音。","section":"typography"},
-      {"name":"The Readable Measure Rule","body":"说明正文保持在 65ch 到 75ch，数据表和日志工作区可根据任务需要延展。","section":"typography"},
-      {"name":"The Structural Shadow Rule","body":"阴影只说明层级关系，静态容器不得因为装饰需要获得阴影。","section":"elevation"},
-      {"name":"The No Lift Rule","body":"悬停不使用位移或缩放制造漂浮感，反馈只改变色面、边框、文字或阴影强度。","section":"elevation"},
-      {"name":"The Single Motion Owner Rule","body":"同一元素只接受 View Transition、WAAPI/Motion 或 CSS transition 中的一种机制；连续操作取消旧动画，主题快照期间暂停元素自身颜色过渡。","section":"elevation"},
-      {"name":"The Ambient Motion Budget Rule","body":"认证粒子网络使用单一 Canvas 2D 与单一 requestAnimationFrame 循环，限制像素比、粒子数量、速度和连线距离，不读取布局、不进入 Vue 响应式更新，也不移动任务表面；该规则是认证入口的局部例外，不作为其他页面的默认模式。","section":"elevation"}
+      {
+        "name": "The Semantic Token Rule",
+        "body": "运行代码只消费语义和组件 token；基础色阶仅用于建立映射。",
+        "section": "colors"
+      },
+      {
+        "name": "The Plum Shell Rule",
+        "body": "大面积品牌色只用于应用壳；中性工作区依靠表面、边界和间距建立层级。",
+        "section": "colors"
+      },
+      {
+        "name": "The Locator Rule",
+        "body": "定位器只用于品牌、当前导航和真实主任务状态，不作为无意义装饰。",
+        "section": "components"
+      },
+      {
+        "name": "The Semantic Independence Rule",
+        "body": "人工关注、警告和危险保持独立，状态同时提供文字、图标或结构化标签。",
+        "section": "colors"
+      },
+      {
+        "name": "The Quiet Hierarchy Rule",
+        "body": "层级依靠字号、字重和间距建立，不通过全大写标签、渐变或巨型指标制造噪音。",
+        "section": "typography"
+      },
+      {
+        "name": "The Structural Shadow Rule",
+        "body": "静态边框表面不叠加大阴影，阴影只说明真实浮层关系。",
+        "section": "elevation"
+      },
+      {
+        "name": "The Focus Rule",
+        "body": "焦点使用 2px 外轮廓和 2px 间距，并与相邻背景保持至少 3:1。",
+        "section": "accessibility"
+      },
+      {
+        "name": "The Single Motion Owner Rule",
+        "body": "同一元素只接受一种动效机制，连续操作取消旧动画并以最新状态为准。",
+        "section": "motion"
+      }
     ],
     "dos": [
-      "Do 让冷色系统操作和暖色人工关注保持稳定、可解释的任务语义。",
-      "Do 首次跟随系统主题，并让亮暗主题具有等价的层级、对比度和状态信息。",
-      "Do 使用 4/8/12/16/24/32px 间距建立紧凑但不拥挤的节奏。",
-      "Do 使用标准控件、可见焦点、文字标签和 reduced-motion 支持完成 WCAG 2.2 AA。",
-      "Do 只在真实任务边界使用独立表面和柔和阴影。"
+      "Do 使用深梅紫壳层和中性工作区建立稳定方位。",
+      "Do 让亮暗主题具有等价层级、对比度和状态信息。",
+      "Do 使用 4/8/12/16/24/32px 间距与 4/6/10/14/999px 圆角。",
+      "Do 使用可见焦点、键盘操作、reduced-motion 和 forced-colors 完成 WCAG 2.2 AA。",
+      "Do 只在真实浮层使用阴影。"
     ],
     "donts": [
-      "Don't 使用通用的深色科技感仪表盘、霓虹蓝或发光边框作为默认风格。",
-      "Don't 使用强烈渐变、渐变文字、玻璃拟态和无意义装饰。",
-      "Don't 使用同尺寸卡片墙、嵌套卡片和组件拼贴式页面。",
-      "Don't 使用 hero 指标模板，用巨型数字、辅助统计和渐变强调代替真实任务层级。",
-      "Don't 使用抢占注意力、依赖布局或无资源上限地占用主线程的装饰性动效，也不使用悬停位移表达状态。",
-      "Don't 依赖颜色单独表达成功、警告、危险或需要人工处理。",
-      "Don't 为了风格重造标准控件，或让 Web、Launcher 和插件页面出现互不一致的操作词汇。"
+      "Don't 使用退役蓝色、霓虹边界或通用科技感仪表盘。",
+      "Don't 使用渐变、渐变文字、玻璃拟态或无意义装饰。",
+      "Don't 使用同尺寸卡片墙、嵌套卡片和组件拼贴页面。",
+      "Don't 使用彩色侧边条代替完整导航选中态。",
+      "Don't 依赖颜色单独表达状态。",
+      "Don't 为视觉风格引入新的组件库、字体或运行时主题服务。"
     ]
   }
 }

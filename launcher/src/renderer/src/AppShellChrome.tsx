@@ -10,6 +10,7 @@ import type { LauncherSnapshot } from "@shared/launcher-models";
 
 import { sections, serviceStateConfig, statusSummary } from "./AppShell.shared";
 import type { SectionId } from "./AppShell.shared";
+import { RayleaMark } from "./RayleaMark";
 import { ThemeModeMenu } from "./ThemeModeMenu";
 
 type AppShellChromeProps = {
@@ -34,7 +35,7 @@ export function AppShellChrome({
   return (
     <>
       <div className="window-drag-handle">
-        <div className="window-title">RayleaBot 启动器</div>
+        <div className="window-title"><RayleaMark variant="chrome" />RayleaBot 启动器</div>
         <div className="window-controls">
           <button className="window-control-btn" onClick={() => window.rayleaLauncher.minimize()} title="最小化" aria-label="最小化"><Subtract20Regular /></button>
           <button className="window-control-btn" onClick={() => window.rayleaLauncher.maximize()} title={isMaximized ? "还原" : "最大化"} aria-label={isMaximized ? "还原" : "最大化"}>{isMaximized ? <SquareMultiple20Regular /> : <Square20Regular />}</button>
@@ -54,6 +55,7 @@ export function AppShellChrome({
             >
               <span className="nav-item__icon">{section.icon}</span>
               <span className="nav-item__label">{section.title}</span>
+              <RayleaMark className="nav-item__locator" variant="chrome" />
             </button>
           ))}
         </nav>

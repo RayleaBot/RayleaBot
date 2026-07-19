@@ -1,14 +1,17 @@
 import { nativeImage } from "electron";
+import { launcherThemes } from "../../shared/launcher-theme";
 
-const TRAY_ICON_SVG = `
-  <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64">
-    <rect width="64" height="64" rx="18" fill="#122032"/>
-    <path d="M18 18h28v28H18z" fill="#264763" rx="10"/>
-    <path d="M24 22h16c4 0 8 4 8 8v12H36V30c0-2-2-4-4-4h-8z" fill="#7fd6ff"/>
-    <circle cx="28" cy="42" r="6" fill="#d6f5ff"/>
-  </svg>
-`;
+function renderTrayIconSvg() {
+  const monochrome = launcherThemes.light.brandFill;
+  return `
+    <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+      <path d="M25 10H16a6 6 0 0 0-6 6v9M39 10h9a6 6 0 0 1 6 6v9M54 39v9a6 6 0 0 1-6 6h-9M25 54h-9a6 6 0 0 1-6-6v-9" fill="none" stroke="${monochrome}" stroke-linecap="round" stroke-linejoin="round" stroke-width="6"/>
+      <circle cx="32" cy="32" r="7" fill="${monochrome}"/>
+    </svg>
+  `;
+}
 
 export function createTrayImage() {
-  return nativeImage.createFromDataURL(`data:image/svg+xml;base64,${Buffer.from(TRAY_ICON_SVG).toString("base64")}`);
+  const svg = renderTrayIconSvg();
+  return nativeImage.createFromDataURL(`data:image/svg+xml;base64,${Buffer.from(svg).toString("base64")}`);
 }

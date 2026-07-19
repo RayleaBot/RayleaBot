@@ -88,10 +88,32 @@ function setThemeModeWithMotion(mode: ThemeMode) {
 .auth-layout__ambient {
   position: absolute;
   inset: 0;
-  background-image:
-    radial-gradient(circle at 50% 45%, var(--auth-canvas-focus) 0, transparent min(36vw, 32rem)),
-    radial-gradient(circle at 16% 12%, var(--auth-canvas-wash) 0, transparent min(44vw, 40rem));
-  background-position: center;
+  background: transparent;
+}
+
+.auth-layout__ambient::before,
+.auth-layout__ambient::after {
+  position: absolute;
+  content: '';
+  border: 1px solid var(--auth-canvas-focus);
+  border-radius: 14px;
+}
+
+.auth-layout__ambient::before {
+  width: min(54vw, 720px);
+  height: min(54vw, 720px);
+  top: 50%;
+  left: 50%;
+  opacity: 0.45;
+  transform: translate(-50%, -50%);
+}
+
+.auth-layout__ambient::after {
+  width: min(22vw, 280px);
+  height: min(22vw, 280px);
+  top: 8%;
+  left: 8%;
+  background: var(--auth-canvas-wash);
 }
 
 .auth-layout__surface {
@@ -100,9 +122,9 @@ function setThemeModeWithMotion(mode: ThemeMode) {
   width: min(520px, calc(100vw - 32px));
   color: var(--auth-text);
   border: 1px solid var(--auth-border);
-  border-radius: 12px;
+  border-radius: 14px;
   background: var(--auth-surface);
-  box-shadow: var(--auth-panel-shadow), inset 0 1px 0 var(--auth-panel-highlight);
+  box-shadow: var(--auth-panel-shadow);
   animation: auth-surface-enter 220ms cubic-bezier(0.16, 1, 0.3, 1) both;
   transition:
     color 200ms cubic-bezier(0.16, 1, 0.3, 1),
@@ -127,21 +149,27 @@ function setThemeModeWithMotion(mode: ThemeMode) {
   place-items: center;
   color: var(--auth-text-muted);
   border: 1px solid var(--auth-border);
-  border-radius: 8px;
+  border-radius: 10px;
   background: var(--auth-control);
-  box-shadow: inset 0 1px 0 var(--auth-panel-highlight);
   transition:
     color 160ms cubic-bezier(0.16, 1, 0.3, 1),
     background-color 160ms cubic-bezier(0.16, 1, 0.3, 1),
     border-color 160ms cubic-bezier(0.16, 1, 0.3, 1),
     box-shadow 160ms cubic-bezier(0.16, 1, 0.3, 1);
 
-  &:hover,
+  &:hover {
+    color: var(--auth-brand-foreground);
+    border-color: var(--auth-brand-foreground);
+    background: var(--auth-brand-soft);
+  }
+
   &:focus-visible {
-    color: var(--auth-cool);
-    border-color: var(--auth-cool);
-    background: var(--auth-cool-soft);
-    box-shadow: inset 0 1px 0 var(--auth-panel-highlight), 0 0 0 2px var(--auth-cool-soft);
+    color: var(--auth-brand-foreground);
+    border-color: var(--auth-brand-foreground);
+    background: var(--auth-brand-soft);
+    outline: 2px solid var(--auth-focus);
+    outline-offset: 2px;
+    box-shadow: none;
   }
 }
 
@@ -185,6 +213,17 @@ function setThemeModeWithMotion(mode: ThemeMode) {
   .auth-layout__theme-toggle.ant-btn {
     animation: none;
     transition: none;
+  }
+}
+
+@media (forced-colors: active) {
+  .auth-layout__surface,
+  .auth-layout__theme-toggle.ant-btn {
+    border-color: CanvasText;
+  }
+
+  .auth-layout__theme-toggle.ant-btn:focus-visible {
+    outline-color: Highlight;
   }
 }
 </style>

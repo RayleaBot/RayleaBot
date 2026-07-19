@@ -287,7 +287,7 @@ watch([skippedPlugins, pendingSkippedPlugins, confirmedSkippedPlugins], ([all, p
     color: var(--muted);
 
     &:hover {
-      background: rgba(15, 23, 42, 0.04);
+      background: var(--surface-soft);
       color: var(--text);
     }
   }
@@ -322,7 +322,7 @@ watch([skippedPlugins, pendingSkippedPlugins, confirmedSkippedPlugins], ([all, p
       width: 5px;
       height: 5px;
       border-radius: 50%;
-      background: var(--accent);
+      background: var(--brand-fill);
       opacity: 0.8;
     }
   }
@@ -389,7 +389,7 @@ watch([skippedPlugins, pendingSkippedPlugins, confirmedSkippedPlugins], ([all, p
     color: var(--accent);
 
     &:hover {
-      color: color-mix(in srgb, var(--accent) 80%, #ffffff) !important;
+      color: var(--brand-fill-hover) !important;
       text-decoration: underline;
     }
   }

@@ -2,6 +2,7 @@
 import { h, nextTick, reactive, ref, watch } from 'vue'
 import { EyeInvisibleOutlined, EyeOutlined } from '@ant-design/icons-vue'
 
+import RayleaMark from '@/components/brand/RayleaMark.vue'
 import { t } from '@/i18n'
 
 type AuthFormFeedback = {
@@ -94,7 +95,10 @@ async function handleSubmit() {
 <template>
   <section class="auth-panel" aria-labelledby="auth-panel-title">
     <header class="auth-panel__header">
-      <p class="auth-panel__brand">{{ t('app.brand') }} {{ t('auth.surface') }}</p>
+      <div class="auth-panel__brand-row">
+        <RayleaMark variant="neutral" />
+        <p class="auth-panel__brand">{{ t('app.brand') }} {{ t('auth.surface') }}</p>
+      </div>
       <h1 id="auth-panel-title" class="auth-panel__title">{{ title }}</h1>
       <p class="auth-panel__subtitle">{{ subtitle }}</p>
     </header>
@@ -188,11 +192,18 @@ async function handleSubmit() {
 }
 
 .auth-panel__brand {
-  margin: 0 0 12px;
-  color: var(--auth-cool);
+  margin: 0;
+  color: var(--auth-brand-foreground);
   font-size: 13px;
   font-weight: 600;
   line-height: 1.4;
+}
+
+.auth-panel__brand-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
 }
 
 .auth-panel__title {
@@ -237,7 +248,7 @@ async function handleSubmit() {
 .auth-form :deep(.ant-input),
 .auth-form :deep(.ant-input-affix-wrapper) {
   border-color: var(--auth-border);
-  border-radius: 8px;
+  border-radius: 10px;
   background: var(--auth-control);
   transition:
     color 160ms cubic-bezier(0.16, 1, 0.3, 1),
@@ -248,14 +259,19 @@ async function handleSubmit() {
 
 .auth-form :deep(.ant-input:hover),
 .auth-form :deep(.ant-input-affix-wrapper:hover) {
-  border-color: var(--auth-cool);
+  border-color: var(--auth-brand-stroke, var(--auth-brand-foreground));
   background: var(--auth-control-hover);
 }
 
 .auth-form :deep(.ant-input:focus),
 .auth-form :deep(.ant-input-affix-wrapper-focused) {
-  border-color: var(--auth-cool);
+  border-color: var(--auth-brand-stroke, var(--auth-brand-foreground));
   background: var(--auth-control-hover);
+}
+
+.auth-form :deep(.ant-input-affix-wrapper:has(input:focus-visible)) {
+  outline: 2px solid var(--auth-focus);
+  outline-offset: 2px;
 }
 
 .auth-form :deep(.ant-input-affix-wrapper .ant-input) {
@@ -292,7 +308,7 @@ async function handleSubmit() {
   place-items: center;
   color: var(--auth-text-muted);
   border: 0;
-  border-radius: 8px;
+  border-radius: 10px;
   background: transparent;
   cursor: pointer;
   transition: color 160ms cubic-bezier(0.16, 1, 0.3, 1), background-color 160ms cubic-bezier(0.16, 1, 0.3, 1);
@@ -300,22 +316,23 @@ async function handleSubmit() {
 
 .auth-form :deep(.ant-input-password-icon:hover),
 .auth-form :deep(.ant-input-password-icon:focus-visible) {
-  color: var(--auth-cool);
-  background: var(--auth-cool-soft);
-  outline: 2px solid var(--auth-cool);
-  outline-offset: 1px;
+  color: var(--auth-brand-foreground);
+  background: var(--auth-brand-soft);
+  outline: 2px solid var(--auth-focus);
+  outline-offset: 2px;
 }
 
 .auth-form__feedback {
-  border-radius: 8px;
+  border-radius: 10px;
 }
 
 .auth-form__submit.ant-btn {
   margin-top: 4px;
-  border-color: var(--auth-cool);
-  border-radius: 8px;
-  background: var(--auth-cool);
-  box-shadow: var(--auth-primary-shadow), inset 0 1px 0 var(--auth-primary-highlight);
+  color: var(--auth-on-brand);
+  border-color: var(--auth-brand-fill);
+  border-radius: 10px;
+  background: var(--auth-brand-fill);
+  box-shadow: var(--auth-primary-shadow);
   font-weight: 600;
   transition:
     color 160ms cubic-bezier(0.16, 1, 0.3, 1),
@@ -324,17 +341,23 @@ async function handleSubmit() {
     box-shadow 160ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-.auth-form__submit.ant-btn:not(:disabled):hover,
+.auth-form__submit.ant-btn:not(:disabled):hover {
+  border-color: var(--auth-brand-fill-hover);
+  background: var(--auth-brand-fill-hover);
+}
+
 .auth-form__submit.ant-btn:not(:disabled):focus-visible {
-  border-color: var(--auth-cool-hover);
-  background: var(--auth-cool-hover);
-  box-shadow: var(--auth-primary-shadow), inset 0 1px 0 var(--auth-primary-highlight), 0 0 0 2px var(--auth-cool-soft);
+  border-color: var(--auth-brand-fill-hover);
+  background: var(--auth-brand-fill-hover);
+  outline: 2px solid var(--auth-focus);
+  outline-offset: 2px;
+  box-shadow: none;
 }
 
 .auth-form__submit.ant-btn:not(:disabled):active {
-  border-color: var(--auth-cool-hover);
-  background: var(--auth-cool-hover);
-  box-shadow: inset 0 2px 4px rgb(17 24 28 / 18%);
+  border-color: var(--auth-brand-fill-pressed);
+  background: var(--auth-brand-fill-pressed);
+  box-shadow: none;
 }
 
 @media (max-width: 600px) {

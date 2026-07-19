@@ -1,66 +1,46 @@
+import {
+  launcherGeneratedThemes,
+  type GeneratedLauncherThemeTokens,
+} from "./launcher-theme-tokens.generated";
+
 export const launcherThemeModes = ["system", "light", "dark"] as const;
 
 export type LauncherThemeMode = (typeof launcherThemeModes)[number];
 export type LauncherEffectiveTheme = Exclude<LauncherThemeMode, "system">;
 
-export interface LauncherThemeTokens {
-  canvas: string;
-  surface: string;
-  surfaceRaised: string;
-  text: string;
-  textMuted: string;
-  border: string;
+export interface LauncherThemeTokens extends GeneratedLauncherThemeTokens {
+  /** Compatibility alias for brandForeground. */
+  brandStroke: string;
+  /** @deprecated Use brandForeground. Kept for compatibility with existing consumers. */
   coolAction: string;
-  warmAttention: string;
+  /** @deprecated Use brandSoft. Kept for compatibility with existing consumers. */
   coolSoft: string;
-  warmSoft: string;
-  success: string;
-  warning: string;
-  danger: string;
+  /** @deprecated Use onBrand. Kept for compatibility with existing consumers. */
   onAction: string;
-  onAttention: string;
-  shadowSurface: string;
-  shadowFloating: string;
+  /** @deprecated Use attention. Kept for compatibility with existing consumers. */
+  warmAttention: string;
+  /** @deprecated Use attentionSoft. Kept for compatibility with existing consumers. */
+  warmSoft: string;
 }
 
 export const launcherThemes: Record<LauncherEffectiveTheme, LauncherThemeTokens> = {
   light: {
-    canvas: "#EDF2F4",
-    surface: "#F8FAFB",
-    surfaceRaised: "#FFFFFF",
-    text: "#1B2328",
-    textMuted: "#5B6873",
-    border: "#D9E1E6",
-    coolAction: "#0A6E94",
-    warmAttention: "#B04A2E",
-    coolSoft: "#E3F2F9",
-    warmSoft: "#F9EDE8",
-    success: "#23795A",
-    warning: "#8F5A00",
-    danger: "#C2404A",
-    onAction: "#FFFFFF",
-    onAttention: "#FFFFFF",
-    shadowSurface: "0 1px 2px rgb(20 33 41 / 4%), 0 10px 30px rgb(20 33 41 / 7%)",
-    shadowFloating: "0 2px 6px rgb(20 33 41 / 6%), 0 24px 60px rgb(20 33 41 / 16%)",
+    ...launcherGeneratedThemes.light,
+    brandStroke: launcherGeneratedThemes.light.brandForeground,
+    coolAction: launcherGeneratedThemes.light.brandForeground,
+    coolSoft: launcherGeneratedThemes.light.brandSoft,
+    onAction: launcherGeneratedThemes.light.onBrand,
+    warmAttention: launcherGeneratedThemes.light.attention,
+    warmSoft: launcherGeneratedThemes.light.attentionSoft,
   },
   dark: {
-    canvas: "#0D1417",
-    surface: "#131D22",
-    surfaceRaised: "#1B2830",
-    text: "#E9F1F3",
-    textMuted: "#9FB0B8",
-    border: "#2A3A42",
-    coolAction: "#5EC9F2",
-    warmAttention: "#DE7E58",
-    coolSoft: "#13303E",
-    warmSoft: "#33241D",
-    success: "#6CCE9D",
-    warning: "#F0BC5F",
-    danger: "#FF828B",
-    onAction: "#082029",
-    onAttention: "#082029",
-    shadowSurface: "0 1px 2px rgb(0 0 0 / 24%), 0 12px 32px rgb(0 0 0 / 26%)",
-    shadowFloating: "0 2px 8px rgb(0 0 0 / 28%), 0 28px 64px rgb(0 0 0 / 46%)",
+    ...launcherGeneratedThemes.dark,
+    brandStroke: launcherGeneratedThemes.dark.brandForeground,
+    coolAction: launcherGeneratedThemes.dark.brandForeground,
+    coolSoft: launcherGeneratedThemes.dark.brandSoft,
+    onAction: launcherGeneratedThemes.dark.onBrand,
+    warmAttention: launcherGeneratedThemes.dark.attention,
+    warmSoft: launcherGeneratedThemes.dark.attentionSoft,
   },
 };
 

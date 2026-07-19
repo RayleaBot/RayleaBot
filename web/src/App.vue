@@ -49,6 +49,6 @@ watchEffect(() => {
   display: grid;
   min-height: 100vh;
   place-items: center;
-  background: var(--app-background, #f6f7fb);
+  background: var(--app-background);
 }
 </style>

@@ -84,12 +84,18 @@ defineEmits<{
   transition: border-color var(--motion-fast) var(--motion-easing), background-color var(--motion-fast) var(--motion-easing);
 
   &--backup {
-    background: var(--accent) !important;
-    border-color: var(--accent);
-    color: #ffffff;
+    background: var(--brand-fill) !important;
+    border-color: var(--brand-fill);
+    color: var(--on-brand);
 
     &:hover {
-      background: var(--accent) !important;
+      border-color: var(--brand-fill-hover);
+      background: var(--brand-fill-hover) !important;
+    }
+
+    &:active {
+      border-color: var(--brand-fill-pressed);
+      background: var(--brand-fill-pressed) !important;
     }
   }
 

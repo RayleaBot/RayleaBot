@@ -981,7 +981,7 @@ onBeforeUnmount(() => {
 }
 
 .schema-tree-row__required {
-  color: #ff4d4f;
+  color: var(--danger);
   font-size: 12px;
   font-weight: 600;
 }

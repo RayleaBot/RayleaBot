@@ -53,8 +53,8 @@ a {
   padding: 10px 14px;
   clip: auto;
   overflow: visible;
-  z-index: 1000;
-  border-radius: 12px;
+  z-index: var(--z-emergency);
+  border-radius: var(--radius-md);
   background: var(--surface-strong);
   box-shadow: var(--shadow);
 }
@@ -64,8 +64,26 @@ a:focus-visible,
 input:focus-visible,
 textarea:focus-visible,
 [role='button']:focus-visible {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--focus);
   outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+  }
+}
+
+@media (forced-colors: active) {
+  button:focus-visible,
+  a:focus-visible,
+  input:focus-visible,
+  textarea:focus-visible,
+  [role='button']:focus-visible {
+    outline-color: Highlight;
+  }
 }
 
 .desktop-only {

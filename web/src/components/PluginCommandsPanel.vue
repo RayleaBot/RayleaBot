@@ -279,6 +279,6 @@ function isConflicted(command: PluginCommandSummary) {
   width: 5px;
   height: 5px;
   border-radius: 50%;
-  background: var(--accent);
+  background: var(--brand-fill);
 }
 </style>

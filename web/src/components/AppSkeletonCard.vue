@@ -38,9 +38,8 @@ defineProps<{
   height: 16px;
   width: 120px;
   border-radius: 4px;
-  background: linear-gradient(90deg, var(--surface-soft), var(--surface), var(--surface-soft));
-  background-size: 200% 100%;
-  animation: skeleton-shimmer 1.4s linear infinite;
+  background: var(--surface-soft);
+  animation: skeleton-pulse 1.4s ease-in-out infinite;
 }
 
 .app-skeleton-card__body {
@@ -53,17 +52,17 @@ defineProps<{
 .app-skeleton-card__row {
   height: 12px;
   border-radius: 4px;
-  background: linear-gradient(90deg, var(--surface-soft), var(--surface), var(--surface-soft));
-  background-size: 200% 100%;
-  animation: skeleton-shimmer 1.4s linear infinite;
+  background: var(--surface-soft);
+  animation: skeleton-pulse 1.4s ease-in-out infinite;
 }
 
-@keyframes skeleton-shimmer {
-  0% {
-    background-position: 200% 0;
+@keyframes skeleton-pulse {
+  0%, 100% {
+    opacity: 0.48;
   }
-  100% {
-    background-position: -200% 0;
+
+  50% {
+    opacity: 1;
   }
 }
 

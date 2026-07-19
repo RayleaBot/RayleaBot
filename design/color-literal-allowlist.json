@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "files": {
+    "templates/fortune.card/styles.css": "内置聊天卡片模板，使用独立渲染调色板，不属于管理面重绘范围。",
+    "templates/fortune.stats/styles.css": "内置聊天卡片模板，使用独立渲染调色板，不属于管理面重绘范围。",
+    "templates/help.menu/styles.css": "内置聊天卡片模板，使用独立渲染调色板，不属于管理面重绘范围。",
+    "templates/status.panel/preview.html": "内置聊天卡片预览，使用独立渲染调色板，不属于管理面重绘范围。",
+    "web/src/components/NativeTemplatePreviewFrame.vue": "独立插件模板预览画布，使用模板自身的隔离调色板。"
+  }
+}
