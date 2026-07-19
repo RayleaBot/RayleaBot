@@ -1424,11 +1424,14 @@ test('protocol center owns OneBot settings and logs center keeps protocol filter
   await expect(page.getByTestId('protocol-unsaved-status')).toHaveCount(0)
 
   const reverseTransportRow = page.locator('.integrated-protocol-table tr').filter({ hasText: '回连 WebSocket' }).first()
-  await reverseTransportRow.getByLabel('回连地址').fill('wss://bot.example.com/reverse/onebot')
-  await expect(page.getByTestId('protocol-unsaved-status')).toContainText('协议设置尚未保存')
+  const reverseCallbackAddress = reverseTransportRow.getByRole('textbox', { name: '协议端回连地址', exact: true })
+  await expect(reverseCallbackAddress).toHaveAttribute('readonly', '')
+  await expect(reverseCallbackAddress).toHaveValue('ws://127.0.0.1:4010/api/protocols/onebot11/reverse-ws')
+  await expect(reverseTransportRow.getByRole('button', { name: '复制回连地址', exact: true })).toBeVisible()
   await expect(page.locator('.ant-drawer')).toHaveCount(0)
   await page.getByText('展开更多配置项').click()
   await page.getByLabel('连接超时（秒）').fill('18')
+  await expect(page.getByTestId('protocol-unsaved-status')).toContainText('协议设置尚未保存')
   const firstProtocolSaveResponsePromise = page.waitForResponse((response) => (
     response.request().method() === 'PUT'
     && response.url().endsWith('/api/config')
@@ -1626,6 +1629,7 @@ test('logs pages load plugin options only when the plugin filter is opened', asy
     logFilterField(page, '插件').locator('.ant-select').click(),
   ])
   expect(pluginRequests).toHaveLength(1)
+  await page.keyboard.press('Escape')
 
   await navigateThroughMenu(page, '历史日志', '运行与诊断')
   await expect(page.getByRole('heading', { name: '历史日志', level: 1 })).toBeVisible()
