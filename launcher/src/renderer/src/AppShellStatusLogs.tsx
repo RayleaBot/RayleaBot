@@ -1,5 +1,5 @@
 import { Button } from "@fluentui/react-components";
-import { FolderOpen20Filled, CheckmarkCircle20Regular } from "@fluentui/react-icons";
+import { FolderOpen20Filled, CheckmarkCircle20Filled } from "@fluentui/react-icons";
 
 type AppShellStatusLogsProps = {
   hasRecentStderr: boolean;
@@ -18,7 +18,9 @@ export function AppShellStatusLogs({
     return (
       <section className="log-summary-row" data-alert={logAlert} aria-labelledby="status-log-title">
         <div className="log-summary-row__status" role="status">
-          <CheckmarkCircle20Regular />
+          <span className="log-summary-row__icon" aria-hidden="true">
+            <CheckmarkCircle20Filled />
+          </span>
           <div>
             <h3 id="status-log-title">异常输出</h3>
             <span>当前没有新的异常日志。</span>

@@ -1,5 +1,5 @@
 import { Button } from "@fluentui/react-components";
-import { ArrowClockwise20Regular, Open20Regular } from "@fluentui/react-icons";
+import { ArrowClockwise20Regular, Bot24Regular, Open20Regular } from "@fluentui/react-icons";
 import type { LauncherSnapshot } from "@shared/launcher-models";
 
 import { formatReleaseVersion } from "./AppShell.shared";
@@ -101,9 +101,12 @@ export function AppShellAboutSection({
       <section className="about-panel">
         <div className="about-panel__header">
           <div className="about-panel__identity">
-            <div className="section-kicker">RayleaBot</div>
-            <h2>RayleaBot 启动器</h2>
-            <p>检查本地环境、管理服务并定位运行问题。</p>
+            <span className="about-panel__mark" aria-hidden="true"><Bot24Regular /></span>
+            <div>
+              <div className="section-kicker">RayleaBot</div>
+              <h2>RayleaBot 启动器</h2>
+              <p>检查本地环境、管理服务并定位运行问题。</p>
+            </div>
           </div>
           <div className="about-panel__actions">
             {showUpdateAction ? (

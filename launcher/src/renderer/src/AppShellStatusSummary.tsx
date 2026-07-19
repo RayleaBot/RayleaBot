@@ -37,24 +37,29 @@ export function AppShellStatusSummary({ resolvedSettings, snapshot }: AppShellSt
 
   return (
     <section className="data-section" aria-labelledby="status-details-title">
-      <h3 id="status-details-title">运行详情</h3>
-      <dl className="definition-list">
-        <div className="definition-row">
+      <div className="data-section__heading">
+        <h3 id="status-details-title">运行详情</h3>
+        <span className="data-section__hint">本地服务关键信息</span>
+      </div>
+      <dl className="definition-list detail-grid">
+        <div className="definition-row detail-card">
           <dt>进程 ID</dt>
-          <dd><code>{snapshot.launcher.processId ?? "—"}</code></dd>
+          <dd><code className="detail-card__value">{snapshot.launcher.processId ?? "—"}</code></dd>
         </div>
-        <div className="definition-row">
+        <div className="definition-row detail-card">
           <dt>服务地址</dt>
-          <dd className="mono">{snapshot.launcher.endpoint.baseUrl}</dd>
+          <dd className="mono detail-card__value" title={snapshot.launcher.endpoint.baseUrl}>
+            {snapshot.launcher.endpoint.baseUrl}
+          </dd>
         </div>
-        <div className="definition-row">
+        <div className="definition-row detail-card detail-card--wide">
           <dt>安装目录</dt>
-          <dd className="mono" title={installationRoot}>{installationRoot || "—"}</dd>
+          <dd className="mono detail-card__value" title={installationRoot}>{installationRoot || "—"}</dd>
         </div>
         {showWorkdir ? (
-          <div className="definition-row">
+          <div className="definition-row detail-card detail-card--wide">
             <dt>工作目录</dt>
-            <dd className="mono" title={workdir}>{workdir}</dd>
+            <dd className="mono detail-card__value" title={workdir}>{workdir}</dd>
           </div>
         ) : null}
       </dl>

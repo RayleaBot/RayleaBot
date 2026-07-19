@@ -23,16 +23,16 @@ function contrast(foreground: string, background: string) {
 describe("launcher themes", () => {
   test("maps the project semantic colors into complete light and dark themes", () => {
     expect(launcherThemes.light).toMatchObject({
-      canvas: "#F3F6F7",
-      surface: "#FAF9F5",
-      coolAction: "#0B6B8F",
-      warmAttention: "#A44F32",
+      canvas: "#EDF2F4",
+      surface: "#F8FAFB",
+      coolAction: "#0A6E94",
+      warmAttention: "#B04A2E",
     });
     expect(launcherThemes.dark).toMatchObject({
-      canvas: "#11181C",
-      surface: "#182126",
-      coolAction: "#66CCFF",
-      warmAttention: "#D97757",
+      canvas: "#0D1417",
+      surface: "#131D22",
+      coolAction: "#5EC9F2",
+      warmAttention: "#DE7E58",
     });
   });
 
