@@ -82,8 +82,7 @@ class SubscriptionCheckFeature:
                 if self.seen_update(ctx, subscription, update):
                     continue
                 prepared = self.prepare_push_update(ctx, subscription, update)
-                if prepared:
-                    self.send_prepared_update(ctx, prepared)
+                if prepared and self.send_prepared_update(ctx, subscription, update, prepared, result["errors"]):
                     result["sent"] += 1
         return result
 
@@ -165,7 +164,6 @@ class SubscriptionCheckFeature:
         if not image_path:
             self.try_log(ctx, "warn", "订阅图片生成结果缺少图片路径")
             return None
-        self.mark_seen(ctx, subscription, update)
         return {
             "image_path": image_path,
             "target_type": subscription["target_type"],
@@ -190,12 +188,24 @@ class SubscriptionCheckFeature:
                 prepared["summary"] = detailed["summary"]
         return prepared
 
-    def send_prepared_update(self, ctx, prepared):
-        ctx.send_message(
-            [{
-                "type": "image",
-                "data": {"file": prepared["image_path"]},
-            }],
-            target_type=prepared["target_type"],
-            target_id=prepared["target_id"],
-        )
+    def send_prepared_update(self, ctx, subscription, update, prepared, errors):
+        try:
+            ctx.message_send(
+                prepared["target_type"],
+                prepared["target_id"],
+                [{
+                    "type": "image",
+                    "data": {"file": prepared["image_path"]},
+                }],
+            )
+        except Exception as exc:
+            errors.append("Bilibili 订阅推送失败。")
+            self.try_log(ctx, "warn", "Bilibili 订阅推送失败", {
+                "error": str(exc),
+                "subscription_id": subscription.get("id"),
+                "target_type": prepared["target_type"],
+                "target_id": prepared["target_id"],
+            })
+            return False
+        self.mark_seen(ctx, subscription, update)
+        return True

@@ -755,7 +755,7 @@ class SubscriptionHubTests(unittest.TestCase):
         self.assertFalse(subscription_matches_event(subscription, self.dynamic_event_payload(service="live")))
         self.assertFalse(subscription_matches_event(subscription, self.dynamic_event_payload(uid="999999")))
 
-    def test_check_subscriptions_renders_live_update_marks_seen_then_sends_image(self):
+    def test_check_subscriptions_renders_live_update_sends_image_then_marks_seen(self):
         settings = merge_settings({}, self.subscription_settings(subscriptions=[{
             **self.subscription_settings()["subscriptions"][0],
             "services": ["live"],
@@ -781,6 +781,88 @@ class SubscriptionHubTests(unittest.TestCase):
         self.assertEqual(ctx.messages[0]["target_type"], "group")
         self.assertEqual(ctx.messages[0]["target_id"], "10000")
         self.assertEqual(ctx.messages[0]["segments"][0]["data"]["file"], "plugin-test.png")
+        self.assertEqual(
+            [action["kind"] for action in ctx.actions],
+            ["render_image", "message_send", "storage_set"],
+        )
+
+    def test_check_subscriptions_fans_out_one_update_to_every_target(self):
+        base_subscription = self.subscription_settings()["subscriptions"][0]
+        settings = merge_settings({}, self.subscription_settings(subscriptions=[
+            {**base_subscription, "services": ["live"]},
+            {
+                **base_subscription,
+                "id": "bilibili-123456-private-20000",
+                "target_type": "private",
+                "target_id": "20000",
+                "target_name": "测试私聊",
+                "services": ["live"],
+            },
+        ]))
+        plugin = SubscriptionHubPlugin()
+        ctx = FakeContext(
+            config_values=settings,
+            thirdparty_accounts=self.bilibili_cookie_accounts(),
+            http_responses=[self.dynamic_feed_response(), self.live_status_response()],
+        )
+
+        result = plugin.check_subscriptions(ctx, settings)
+
+        self.assertEqual(result["checked"], 1)
+        self.assertEqual(result["sent"], 2)
+        self.assertEqual(result["errors"], [])
+        self.assertEqual(
+            [(message["target_type"], message["target_id"]) for message in ctx.messages],
+            [("group", "10000"), ("private", "20000")],
+        )
+        self.assertEqual(
+            [item["key"] for item in ctx.storage_sets],
+            [
+                "seen:bilibili-123456-group-10000:live:live-123456-1-10001-1700000000",
+                "seen:bilibili-123456-private-20000:live:live-123456-1-10001-1700000000",
+            ],
+        )
+
+    def test_failed_target_remains_unseen_and_does_not_stop_fanout(self):
+        base_subscription = self.subscription_settings()["subscriptions"][0]
+        settings = merge_settings({}, self.subscription_settings(subscriptions=[
+            {**base_subscription, "services": ["live"]},
+            {
+                **base_subscription,
+                "id": "bilibili-123456-private-20000",
+                "target_type": "private",
+                "target_id": "20000",
+                "target_name": "测试私聊",
+                "services": ["live"],
+            },
+        ]))
+        plugin = SubscriptionHubPlugin()
+        ctx = FakeContext(
+            config_values=settings,
+            thirdparty_accounts=self.bilibili_cookie_accounts(),
+            http_responses=[self.dynamic_feed_response(), self.live_status_response()],
+            message_send_errors=[RuntimeError("send failed"), None],
+        )
+
+        result = plugin.check_subscriptions(ctx, settings)
+
+        self.assertEqual(result["sent"], 1)
+        self.assertEqual(result["errors"], ["Bilibili 订阅推送失败。"])
+        self.assertEqual(
+            [(message["target_type"], message["target_id"]) for message in ctx.message_send_attempts],
+            [("group", "10000"), ("private", "20000")],
+        )
+        self.assertEqual(
+            [(message["target_type"], message["target_id"]) for message in ctx.messages],
+            [("private", "20000")],
+        )
+        self.assertNotIn(
+            "seen:bilibili-123456-group-10000:live:live-123456-1-10001-1700000000",
+            ctx.storage,
+        )
+        self.assertTrue(ctx.storage[
+            "seen:bilibili-123456-private-20000:live:live-123456-1-10001-1700000000"
+        ])
 
     def test_duplicate_event_is_skipped(self):
         settings = merge_settings({}, self.subscription_settings(subscriptions=[{

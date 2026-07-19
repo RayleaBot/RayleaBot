@@ -18,6 +18,7 @@ class FakePluginContext:
         secrets=None,
         storage=None,
         render_result=None,
+        message_send_errors=None,
     ):
         self.args = args or []
         self.request_id = request_id
@@ -35,6 +36,7 @@ class FakePluginContext:
         self.secrets = secrets or {}
         self.storage = storage or {}
         self.render_result = {"image_path": "plugin-test.png"} if render_result is None else render_result
+        self.message_send_errors = list(message_send_errors or [])
         self.config_writes = []
         self.scheduler_creates = []
         self.texts = []
@@ -45,6 +47,7 @@ class FakePluginContext:
         self.thirdparty_reads = []
         self.render_calls = []
         self.messages = []
+        self.message_send_attempts = []
         self.storage_sets = []
         self.actions = []
 
@@ -124,3 +127,19 @@ class FakePluginContext:
         message = {"segments": segments, "target_type": target_type, "target_id": target_id}
         self.actions.append({"kind": "send_message", "message": message})
         self.messages.append(message)
+
+    def message_send(self, target_type, target_id, segments, timeout_seconds=30):
+        message = {
+            "segments": segments,
+            "target_type": target_type,
+            "target_id": target_id,
+            "timeout_seconds": timeout_seconds,
+        }
+        self.actions.append({"kind": "message_send", "message": message})
+        self.message_send_attempts.append(message)
+        if self.message_send_errors:
+            error = self.message_send_errors.pop(0)
+            if error is not None:
+                raise error
+        self.messages.append(message)
+        return {"message_id": f"message-{len(self.messages)}"}
