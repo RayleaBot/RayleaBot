@@ -578,7 +578,7 @@ function checkResultText(result) {
   const checked = Number(result.checked || 0)
   const sent = Number(result.sent || 0)
   const errors = Array.isArray(result.errors) ? result.errors.filter(Boolean) : []
-  const base = `订阅检查完成：检查 ${checked} 个账号，推送 ${sent} 条更新`
+  const base = `订阅检查完成：检查 ${checked} 个订阅账号，推送 ${sent} 条更新`
   return errors.length ? `${base}；${errors[0]}` : base
 }
 

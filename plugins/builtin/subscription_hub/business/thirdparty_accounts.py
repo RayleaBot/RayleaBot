@@ -11,21 +11,40 @@ def account_label(platform):
 
 
 def read_thirdparty_cookie(ctx, platform):
+    accounts, error = read_thirdparty_accounts(ctx, platform)
+    if accounts:
+        return accounts[0]["cookie"], ""
+    return "", error
+
+
+def read_thirdparty_accounts(ctx, platform):
     label = account_label(platform)
     try:
         response = ctx.thirdparty_account_read(platform)
     except ActionError as exc:
         detail = str(exc) or getattr(exc, "code", "")
-        return "", f"{label}读取失败：{detail}".strip()
+        return [], f"{label}读取失败：{detail}".strip()
     except Exception:
-        return "", f"{label}读取失败。"
+        return [], f"{label}读取失败。"
     accounts = response.get("accounts") if isinstance(response, dict) else []
+    result = []
     for account in accounts if isinstance(accounts, list) else []:
         cookie = account.get("cookie") if isinstance(account, dict) else {}
         value = str(cookie.get("value") or "").strip() if isinstance(cookie, dict) else ""
         if value:
-            return value, ""
-    return "", f"没有可用的 {label} CK，请在 Web 三方账号页面保存账号。"
+            profile = account.get("profile") if isinstance(account.get("profile"), dict) else {}
+            result.append({
+                "account_id": str(account.get("account_id") or "").strip(),
+                "label": str(account.get("label") or "").strip(),
+                "cookie": value,
+                "profile": {
+                    "uid": str(profile.get("uid") or "").strip(),
+                    "nickname": str(profile.get("nickname") or "").strip(),
+                },
+            })
+    if result:
+        return result, ""
+    return [], f"没有可用的 {label} CK，请在 Web 三方账号页面保存账号。"
 
 
 def read_bilibili_cookie(ctx):

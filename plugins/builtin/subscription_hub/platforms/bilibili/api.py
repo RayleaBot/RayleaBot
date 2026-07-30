@@ -6,7 +6,6 @@ from html import unescape
 from urllib.parse import unquote, urlencode, urlparse, urlunparse
 
 
-DYNAMIC_URL = "https://api.bilibili.com/x/polymer/web-dynamic/v1/feed/space?host_mid={uid}&timezone_offset=-480&platform=web&web_location=333.1365&features=itemOpusStyle,listOnlyfans,opusBigCover,onlyfansVote,decorationCard,onlyfansAssetsV2,forwardListHidden,ugcDelete"
 LIVE_URL = "https://api.live.bilibili.com/room/v1/Room/get_status_info_by_uids?uids[]={uid}"
 NAV_URL = "https://api.bilibili.com/x/web-interface/nav"
 USER_INFO_URL = "https://api.bilibili.com/x/space/acc/info?mid={uid}&jsonp=jsonp"
@@ -599,10 +598,11 @@ def normalize_user_search_results(document, keyword):
 def dynamic_updates(document):
     data = document.get("data") if isinstance(document, dict) else {}
     items = data.get("items") if isinstance(data, dict) else []
-    if not isinstance(items, list):
-        return []
+    cards = data.get("cards") if isinstance(data, dict) else []
+    items = items if isinstance(items, list) else []
+    cards = cards if isinstance(cards, list) else []
     updates = []
-    for item in items:
+    for item in items + cards:
         update = normalize_dynamic_item(item)
         if update:
             updates.append(update)

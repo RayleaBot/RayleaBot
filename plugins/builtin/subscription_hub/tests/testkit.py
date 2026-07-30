@@ -34,7 +34,7 @@ class FakePluginContext:
         self.http_responses = list(http_responses or [])
         self.thirdparty_accounts = thirdparty_accounts or {}
         self.secrets = secrets or {}
-        self.storage = storage or {}
+        self.storage = storage if storage is not None else {}
         self.render_result = {"image_path": "plugin-test.png"} if render_result is None else render_result
         self.message_send_errors = list(message_send_errors or [])
         self.config_writes = []
@@ -72,12 +72,14 @@ class FakePluginContext:
         self.logs.append({"level": level, "message": message, "fields": fields or {}})
         return {"ok": True}
 
-    def http_request(self, method, url, headers=None, timeout_seconds=30):
+    def http_request(self, method, url, headers=None, timeout_seconds=30, body_text=None, body_base64=None):
         self.http_requests.append({
             "method": method,
             "url": url,
             "headers": headers or {},
             "timeout_seconds": timeout_seconds,
+            "body_text": body_text,
+            "body_base64": body_base64,
         })
         if self.http_responses:
             response = self.http_responses.pop(0)
@@ -109,6 +111,11 @@ class FakePluginContext:
         self.actions.append({"kind": "storage_set", "key": key, "value": value})
         self.storage_sets.append({"key": key, "value": value})
         self.storage[key] = value
+        return {"ok": True}
+
+    def storage_delete(self, key):
+        self.actions.append({"kind": "storage_delete", "key": key})
+        self.storage.pop(key, None)
         return {"ok": True}
 
     def render_image(self, template, data, theme, output, fallback_text):

@@ -33,7 +33,7 @@ from features.management import ManagementActionFeature
 
 DEFAULT_SETTINGS_PATH = os.path.join(PLUGIN_DIR, "default_config.json")
 SCHEDULER_TASK_ID = "subscription-hub-check"
-SCHEDULER_CRON = "*/10 * * * *"
+SCHEDULER_CRON = "*/1 * * * *"
 
 
 def load_default_settings(path=DEFAULT_SETTINGS_PATH):

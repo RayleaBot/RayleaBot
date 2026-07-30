@@ -1305,7 +1305,7 @@
     const checked = Number(result.checked || 0);
     const sent = Number(result.sent || 0);
     const errors = Array.isArray(result.errors) ? result.errors.filter(Boolean) : [];
-    const base = `\u8BA2\u9605\u68C0\u67E5\u5B8C\u6210\uFF1A\u68C0\u67E5 ${checked} \u4E2A\u8D26\u53F7\uFF0C\u63A8\u9001 ${sent} \u6761\u66F4\u65B0`;
+    const base = `\u8BA2\u9605\u68C0\u67E5\u5B8C\u6210\uFF1A\u68C0\u67E5 ${checked} \u4E2A\u8BA2\u9605\u8D26\u53F7\uFF0C\u63A8\u9001 ${sent} \u6761\u66F4\u65B0`;
     return errors.length ? `${base}\uFF1B${errors[0]}` : base;
   }
   function addTargetToRow(row, liveTarget) {

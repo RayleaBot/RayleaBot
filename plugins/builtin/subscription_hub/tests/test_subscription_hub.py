@@ -3,6 +3,7 @@ import os
 import sys
 import time
 import unittest
+from urllib.parse import parse_qs, urlparse
 
 
 PLUGIN_DIR = os.path.dirname(os.path.dirname(__file__))
@@ -25,6 +26,16 @@ from main import (
     preview_response_document,
     remove_bilibili_subscription,
     remove_platform_subscription,
+)
+from platforms.bilibili.source import (
+    DM_COVER_IMG_STR,
+    DM_IMG_STR,
+    DYNAMIC_FEED_URL,
+    FOLLOW_URL,
+    LIVE_STATUS_URL,
+    RELATION_URL,
+    dynamic_feed_url,
+    sign_wbi_url,
 )
 from features.rendering import build_render_data
 from business.events import normalize_bilibili_event_payload, subscription_matches_event
@@ -74,14 +85,14 @@ class SubscriptionHubTests(unittest.TestCase):
             }),
         }
 
-    def video_item(self, dynamic_id, title, pub_ts=None):
+    def video_item(self, dynamic_id, title, pub_ts=None, uid="123456"):
         pub_ts = int(pub_ts or time.time())
         return {
             "id_str": dynamic_id,
             "type": "DYNAMIC_TYPE_AV",
             "basic": {"jump_url": f"//www.bilibili.com/video/{dynamic_id}"},
             "modules": {
-                "module_author": {"name": "测试 UP", "pub_ts": pub_ts, "pub_time": "今天 12:00"},
+                "module_author": {"mid": uid, "name": "测试 UP", "pub_ts": pub_ts, "pub_time": "今天 12:00"},
                 "module_dynamic": {
                     "major": {
                         "type": "MAJOR_TYPE_ARCHIVE",
@@ -280,6 +291,49 @@ class SubscriptionHubTests(unittest.TestCase):
         return {
             "status_code": 200,
             "body_text": json.dumps({"code": 0, "data": {"items": items or []}}, ensure_ascii=False),
+        }
+
+    def source_storage(self, *, initialized=True, live_state=None, account_ids=("primary",), uids=("123456",)):
+        now = int(time.time())
+        storage = {}
+        for account_id in account_ids:
+            storage[f"source:bilibili:wbi:{account_id}"] = {
+                "img_key": "a" * 32,
+                "sub_key": "b" * 32,
+                "expires_at": now + 3600,
+            }
+            for uid in uids:
+                storage[f"source:bilibili:follow:{account_id}:{uid}"] = {
+                    "checked_at": now,
+                    "following": True,
+                }
+        if initialized:
+            storage["source:bilibili:dynamic:initialized:bilibili-123456-group-10000"] = True
+        if live_state is not None:
+            storage["source:bilibili:live:123456"] = live_state
+        return storage
+
+    def relation_response(self, attribute=0):
+        return {
+            "status_code": 200,
+            "body_text": json.dumps({"code": 0, "data": {"attribute": attribute}}, ensure_ascii=False),
+        }
+
+    def ok_response(self):
+        return {"status_code": 200, "body_text": '{"code":0,"data":{}}'}
+
+    def nav_response(self):
+        return {
+            "status_code": 200,
+            "body_text": json.dumps({
+                "code": 0,
+                "data": {
+                    "wbi_img": {
+                        "img_url": "https://i0.hdslb.com/bfs/wbi/7cd084941338484aae1ad9425b84077c.png",
+                        "sub_url": "https://i0.hdslb.com/bfs/wbi/4932caff0ff746eab6f01bf08b70ac45.png",
+                    },
+                },
+            }),
         }
 
     def live_status_response(self, **overrides):
@@ -539,8 +593,9 @@ class SubscriptionHubTests(unittest.TestCase):
 
         result = plugin.check_subscriptions(ctx, self.subscription_settings())
 
-        self.assertEqual(result["checked"], 0)
+        self.assertEqual(result["checked"], 1)
         self.assertEqual(result["sent"], 0)
+        self.assertTrue(result["degraded"])
         self.assertEqual(ctx.http_requests, [])
         self.assertIn("没有可用的 Bilibili 账号 CK", result["errors"][0])
 
@@ -554,10 +609,8 @@ class SubscriptionHubTests(unittest.TestCase):
                     "cookie": {"secret": True, "value": cookie},
                 }],
             },
-            http_responses=[
-                {"status_code": 200, "body_text": json.dumps({"code": 0, "data": {"items": []}}, ensure_ascii=False)},
-                {"status_code": 200, "body_text": json.dumps({"code": 0, "data": {}}, ensure_ascii=False)},
-            ],
+            http_responses=[self.dynamic_feed_response()],
+            storage=self.source_storage(),
         )
 
         result = plugin.check_subscriptions(ctx, self.subscription_settings())
@@ -565,10 +618,195 @@ class SubscriptionHubTests(unittest.TestCase):
         self.assertEqual(result["checked"], 1)
         self.assertEqual(result["sent"], 0)
         self.assertEqual(result["errors"], [])
+        self.assertTrue(result["source"]["dynamic_ok"])
         self.assertEqual(ctx.thirdparty_reads[0]["platform"], "bilibili")
-        self.assertEqual(len(ctx.http_requests), 2)
-        for request in ctx.http_requests:
-            self.assertIn("SESSDATA=fixture", request["headers"].get("Cookie", ""))
+        self.assertEqual(len(ctx.http_requests), 1)
+        self.assertTrue(ctx.http_requests[0]["url"].startswith(DYNAMIC_FEED_URL + "?"))
+        self.assertNotIn("/feed/space", ctx.http_requests[0]["url"])
+        self.assertIn("w_rid=", ctx.http_requests[0]["url"])
+        self.assertIn("SESSDATA=fixture", ctx.http_requests[0]["headers"].get("Cookie", ""))
+
+    def test_dynamic_source_baselines_existing_items_then_pushes_new_items(self):
+        settings = merge_settings({}, self.subscription_settings())
+        storage = self.source_storage(initialized=False)
+        plugin = SubscriptionHubPlugin()
+        first_ctx = FakeContext(
+            thirdparty_accounts=self.bilibili_cookie_accounts(),
+            http_responses=[self.dynamic_feed_response([self.video_item("old", "已有视频", pub_ts=1700000000)])],
+            storage=storage,
+        )
+
+        first_result = plugin.check_subscriptions(first_ctx, settings)
+
+        self.assertEqual(first_result["sent"], 0)
+        self.assertTrue(storage["source:bilibili:dynamic:initialized:bilibili-123456-group-10000"])
+        self.assertTrue(storage["seen:bilibili-123456-group-10000:video:old"])
+
+        second_ctx = FakeContext(
+            thirdparty_accounts=self.bilibili_cookie_accounts(),
+            http_responses=[self.dynamic_feed_response([
+                self.video_item("new", "新视频", pub_ts=1700000060),
+                self.video_item("old", "已有视频", pub_ts=1700000000),
+            ])],
+            storage=storage,
+        )
+
+        second_result = plugin.check_subscriptions(second_ctx, settings)
+
+        self.assertEqual(second_result["sent"], 1)
+        self.assertEqual(second_ctx.render_calls[0]["data"]["title"], "新视频")
+        self.assertTrue(storage["seen:bilibili-123456-group-10000:video:new"])
+
+    def test_wbi_signing_matches_previous_source_vector(self):
+        signed = sign_wbi_url(
+            "https://api.bilibili.com/x/polymer/web-dynamic/v1/feed/all?type=all&page=1",
+            "7cd084941338484aae1ad9425b84077c",
+            "4932caff0ff746eab6f01bf08b70ac45",
+            1780905600,
+        )
+
+        self.assertIn("wts=1780905600", signed)
+        self.assertIn("w_rid=389c1304f65697bbde60fdd8f8a6f9b6", signed)
+
+    def test_dynamic_feed_uses_single_encoded_device_fingerprint(self):
+        query = parse_qs(urlparse(dynamic_feed_url()).query)
+
+        self.assertEqual(query["dm_img_str"], [DM_IMG_STR])
+        self.assertEqual(query["dm_cover_img_str"], [DM_COVER_IMG_STR])
+        self.assertTrue(DM_IMG_STR.startswith("V2ViR0wg"))
+        self.assertFalse(DM_IMG_STR.startswith("VjJWaVIw"))
+
+    def test_dynamic_source_auto_follows_subject_before_reading_account_feed(self):
+        storage = self.source_storage()
+        storage.pop("source:bilibili:follow:primary:123456")
+        ctx = FakeContext(
+            thirdparty_accounts=self.bilibili_cookie_accounts(),
+            http_responses=[self.relation_response(attribute=0), self.ok_response(), self.dynamic_feed_response()],
+            storage=storage,
+        )
+
+        result = SubscriptionHubPlugin().check_subscriptions(ctx, self.subscription_settings())
+
+        self.assertEqual(result["errors"], [])
+        self.assertTrue(ctx.http_requests[0]["url"].startswith(RELATION_URL + "?"))
+        self.assertEqual(ctx.http_requests[1]["method"], "POST")
+        self.assertTrue(ctx.http_requests[1]["url"].startswith(FOLLOW_URL + "?"))
+        self.assertIn("fid=123456", ctx.http_requests[1]["body_text"])
+        self.assertIn("csrf=fixture", ctx.http_requests[1]["body_text"])
+        self.assertTrue(ctx.http_requests[2]["url"].startswith(DYNAMIC_FEED_URL + "?"))
+
+    def test_dynamic_source_rotates_accounts_after_risk_control(self):
+        accounts = {
+            "bilibili": [
+                {"account_id": "primary", "cookie": {"secret": True, "value": "SESSDATA=primary; bili_jct=one;"}},
+                {"account_id": "backup", "cookie": {"secret": True, "value": "SESSDATA=backup; bili_jct=two;"}},
+            ],
+        }
+        storage = self.source_storage(account_ids=("primary", "backup"))
+        ctx = FakeContext(
+            thirdparty_accounts=accounts,
+            http_responses=[
+                {"status_code": 412, "body_text": '{"code":-412,"message":"request was banned"}'},
+                self.dynamic_feed_response(),
+            ],
+            storage=storage,
+        )
+
+        result = SubscriptionHubPlugin().check_subscriptions(ctx, self.subscription_settings())
+
+        self.assertTrue(result["source"]["dynamic_ok"])
+        self.assertTrue(result["degraded"])
+        self.assertIn("风控", result["errors"][0])
+        self.assertIn("SESSDATA=primary", ctx.http_requests[0]["headers"]["Cookie"])
+        self.assertIn("SESSDATA=backup", ctx.http_requests[1]["headers"]["Cookie"])
+        self.assertIn("source:bilibili:cooldown:dynamic:primary", storage)
+        self.assertTrue(any(log["message"] == "Bilibili 订阅源检查失败" for log in ctx.logs))
+
+    def test_dynamic_source_classifies_non_json_http_risk_control_with_diagnostics(self):
+        accounts = {
+            "bilibili": [
+                {"account_id": "primary", "cookie": {"secret": True, "value": "SESSDATA=primary; bili_jct=one;"}},
+                {"account_id": "backup", "cookie": {"secret": True, "value": "SESSDATA=backup; bili_jct=two;"}},
+            ],
+        }
+        storage = self.source_storage(account_ids=("primary", "backup"))
+        ctx = FakeContext(
+            thirdparty_accounts=accounts,
+            http_responses=[
+                {
+                    "status_code": 412,
+                    "body_text": "<html>request blocked; SESSDATA=should-not-leak;</html>",
+                    "headers": {"x-bili-trace-id": "trace-fixture"},
+                },
+                self.dynamic_feed_response(),
+            ],
+            storage=storage,
+        )
+
+        result = SubscriptionHubPlugin().check_subscriptions(ctx, self.subscription_settings())
+
+        self.assertTrue(result["source"]["dynamic_ok"])
+        self.assertTrue(result["degraded"])
+        self.assertIn("source:bilibili:cooldown:dynamic:primary", storage)
+        error_fields = next(log["fields"] for log in ctx.logs if log["fields"].get("scope") == "dynamic")
+        self.assertEqual(error_fields["kind"], "risk_control")
+        self.assertIn("HTTP 412", error_fields["error"])
+        self.assertIn("trace-fixture", error_fields["error"])
+        self.assertNotIn("should-not-leak", error_fields["error"])
+
+    def test_dynamic_source_refreshes_wbi_keys_after_signature_rejection(self):
+        storage = self.source_storage()
+        ctx = FakeContext(
+            thirdparty_accounts=self.bilibili_cookie_accounts(),
+            http_responses=[
+                {"status_code": 200, "body_text": '{"code":-403,"message":"signature expired"}'},
+                self.nav_response(),
+                self.dynamic_feed_response(),
+            ],
+            storage=storage,
+        )
+
+        result = SubscriptionHubPlugin().check_subscriptions(ctx, self.subscription_settings())
+
+        self.assertTrue(result["source"]["dynamic_ok"])
+        self.assertEqual(result["errors"], [])
+        self.assertTrue(ctx.http_requests[0]["url"].startswith(DYNAMIC_FEED_URL + "?"))
+        self.assertIn("/x/web-interface/nav", ctx.http_requests[1]["url"])
+        self.assertTrue(ctx.http_requests[2]["url"].startswith(DYNAMIC_FEED_URL + "?"))
+        self.assertTrue(any(action["kind"] == "storage_delete" for action in ctx.actions))
+
+    def test_account_feed_fans_out_multiple_subjects_from_one_request(self):
+        base = self.subscription_settings()["subscriptions"][0]
+        second = {
+            **base,
+            "id": "bilibili-654321-private-20000",
+            "uid": "654321",
+            "name": "第二个 UP",
+            "target_type": "private",
+            "target_id": "20000",
+        }
+        settings = merge_settings({}, self.subscription_settings(subscriptions=[base, second]))
+        storage = self.source_storage(uids=("123456", "654321"))
+        storage["source:bilibili:dynamic:initialized:bilibili-654321-private-20000"] = True
+        ctx = FakeContext(
+            thirdparty_accounts=self.bilibili_cookie_accounts(),
+            http_responses=[self.dynamic_feed_response([
+                self.video_item("one", "第一个更新", pub_ts=1700000100, uid="123456"),
+                self.video_item("two", "第二个更新", pub_ts=1700000200, uid="654321"),
+            ])],
+            storage=storage,
+        )
+
+        result = SubscriptionHubPlugin().check_subscriptions(ctx, settings)
+
+        feed_requests = [request for request in ctx.http_requests if request["url"].startswith(DYNAMIC_FEED_URL + "?")]
+        self.assertEqual(len(feed_requests), 1)
+        self.assertEqual(result["checked"], 2)
+        self.assertEqual(result["sent"], 2)
+        self.assertEqual(
+            [(message["target_type"], message["target_id"]) for message in ctx.messages],
+            [("group", "10000"), ("private", "20000")],
+        )
 
     def test_bilibili_user_search_returns_multiple_candidates(self):
         plugin = SubscriptionHubPlugin()
@@ -634,13 +872,17 @@ class SubscriptionHubTests(unittest.TestCase):
             http_responses=[{
                 "status_code": 412,
                 "body_text": '{"code":-412,"message":"request was banned"}',
+                "headers": {"X-Bili-Trace-Id": "trace-search-412"},
             }],
         )
 
         plugin.handle_bilibili_user_search(ctx)
 
         self.assertIn("Bilibili 请求被风控拦截，请稍后再试或重新扫码更新 CK", ctx.texts[0])
-        self.assertNotIn("HTTP 412", ctx.texts[0])
+        self.assertIn("HTTP 412", ctx.texts[0])
+        self.assertIn("Bilibili code -412", ctx.texts[0])
+        self.assertIn("原始原因：request was banned", ctx.texts[0])
+        self.assertIn("请求标识：trace-search-412", ctx.texts[0])
         self.assertNotIn('"code"', ctx.texts[0])
         self.assertEqual(ctx.results[-1], {"handled": True, "count": 0})
 
@@ -764,7 +1006,8 @@ class SubscriptionHubTests(unittest.TestCase):
         ctx = FakeContext(
             config_values=settings,
             thirdparty_accounts=self.bilibili_cookie_accounts(),
-            http_responses=[self.dynamic_feed_response(), self.live_status_response()],
+            http_responses=[self.live_status_response()],
+            storage=self.source_storage(live_state={"status": 0, "session": "previous", "room_id": "10001"}),
         )
 
         result = plugin.check_subscriptions(ctx, settings)
@@ -774,17 +1017,67 @@ class SubscriptionHubTests(unittest.TestCase):
         self.assertEqual(result["errors"], [])
         self.assertEqual(ctx.render_calls[0]["template"], "bilibili-update")
         self.assertEqual(ctx.render_calls[0]["data"]["title"], "测试直播标题")
-        self.assertEqual(ctx.storage_sets, [{
-            "key": "seen:bilibili-123456-group-10000:live:live-123456-1-10001-1700000000",
-            "value": True,
-        }])
+        self.assertTrue(ctx.storage["seen:bilibili-123456-group-10000:live:live-123456-started-1700000000"])
         self.assertEqual(ctx.messages[0]["target_type"], "group")
         self.assertEqual(ctx.messages[0]["target_id"], "10000")
         self.assertEqual(ctx.messages[0]["segments"][0]["data"]["file"], "plugin-test.png")
-        self.assertEqual(
-            [action["kind"] for action in ctx.actions],
-            ["render_image", "message_send", "storage_set"],
+        action_kinds = [action["kind"] for action in ctx.actions]
+        self.assertLess(action_kinds.index("message_send"), next(
+            index for index, action in enumerate(ctx.actions)
+            if action.get("key", "").startswith("seen:")
+        ))
+
+    def test_live_source_establishes_baseline_without_historical_push(self):
+        settings = merge_settings({}, self.subscription_settings(subscriptions=[{
+            **self.subscription_settings()["subscriptions"][0],
+            "services": ["live"],
+        }]))
+        storage = {}
+        ctx = FakeContext(
+            thirdparty_accounts=self.bilibili_cookie_accounts(),
+            http_responses=[self.live_status_response()],
+            storage=storage,
         )
+
+        result = SubscriptionHubPlugin().check_subscriptions(ctx, settings)
+
+        self.assertEqual(result["sent"], 0)
+        self.assertEqual(storage["source:bilibili:live:123456"], {
+            "status": 1,
+            "session": "1700000000",
+            "room_id": "10001",
+        })
+        self.assertEqual(ctx.messages, [])
+
+    def test_scheduler_logs_source_failures_instead_of_silent_success(self):
+        settings = merge_settings({}, self.subscription_settings())
+        ctx = FakeContext(
+            payload={},
+            config_values=settings,
+        )
+
+        SubscriptionHubPlugin().handle_scheduler_trigger(ctx)
+
+        self.assertTrue(ctx.results[-1]["degraded"])
+        self.assertTrue(any(log["message"] == "Bilibili 订阅源检查降级" for log in ctx.logs))
+
+    def test_scheduler_accepts_contract_nested_payload(self):
+        settings = merge_settings({}, self.subscription_settings(enabled=False))
+        ctx = FakeContext(
+            payload={"payload": {"action": "check_subscriptions"}},
+            config_values=settings,
+        )
+
+        SubscriptionHubPlugin().handle_scheduler_trigger(ctx)
+
+        self.assertEqual(ctx.results[-1], {
+            "handled": True,
+            "checked": 0,
+            "sent": 0,
+            "errors": [],
+            "degraded": False,
+            "skipped": "disabled",
+        })
 
     def test_check_subscriptions_fans_out_one_update_to_every_target(self):
         base_subscription = self.subscription_settings()["subscriptions"][0]
@@ -803,7 +1096,8 @@ class SubscriptionHubTests(unittest.TestCase):
         ctx = FakeContext(
             config_values=settings,
             thirdparty_accounts=self.bilibili_cookie_accounts(),
-            http_responses=[self.dynamic_feed_response(), self.live_status_response()],
+            http_responses=[self.live_status_response()],
+            storage=self.source_storage(live_state={"status": 0, "session": "previous", "room_id": "10001"}),
         )
 
         result = plugin.check_subscriptions(ctx, settings)
@@ -816,10 +1110,10 @@ class SubscriptionHubTests(unittest.TestCase):
             [("group", "10000"), ("private", "20000")],
         )
         self.assertEqual(
-            [item["key"] for item in ctx.storage_sets],
+            [item["key"] for item in ctx.storage_sets if item["key"].startswith("seen:")],
             [
-                "seen:bilibili-123456-group-10000:live:live-123456-1-10001-1700000000",
-                "seen:bilibili-123456-private-20000:live:live-123456-1-10001-1700000000",
+                "seen:bilibili-123456-group-10000:live:live-123456-started-1700000000",
+                "seen:bilibili-123456-private-20000:live:live-123456-started-1700000000",
             ],
         )
 
@@ -840,7 +1134,8 @@ class SubscriptionHubTests(unittest.TestCase):
         ctx = FakeContext(
             config_values=settings,
             thirdparty_accounts=self.bilibili_cookie_accounts(),
-            http_responses=[self.dynamic_feed_response(), self.live_status_response()],
+            http_responses=[self.live_status_response()],
+            storage=self.source_storage(live_state={"status": 0, "session": "previous", "room_id": "10001"}),
             message_send_errors=[RuntimeError("send failed"), None],
         )
 
@@ -857,11 +1152,11 @@ class SubscriptionHubTests(unittest.TestCase):
             [("private", "20000")],
         )
         self.assertNotIn(
-            "seen:bilibili-123456-group-10000:live:live-123456-1-10001-1700000000",
+            "seen:bilibili-123456-group-10000:live:live-123456-started-1700000000",
             ctx.storage,
         )
         self.assertTrue(ctx.storage[
-            "seen:bilibili-123456-private-20000:live:live-123456-1-10001-1700000000"
+            "seen:bilibili-123456-private-20000:live:live-123456-started-1700000000"
         ])
 
     def test_duplicate_event_is_skipped(self):
@@ -870,11 +1165,12 @@ class SubscriptionHubTests(unittest.TestCase):
             "services": ["live"],
         }]))
         plugin = SubscriptionHubPlugin()
-        storage = {"seen:bilibili-123456-group-10000:live:live-123456-1-10001-1700000000": True}
+        storage = self.source_storage(live_state={"status": 0, "session": "previous", "room_id": "10001"})
+        storage["seen:bilibili-123456-group-10000:live:live-123456-started-1700000000"] = True
         ctx = FakeContext(
             config_values=settings,
             thirdparty_accounts=self.bilibili_cookie_accounts(),
-            http_responses=[self.dynamic_feed_response(), self.live_status_response()],
+            http_responses=[self.live_status_response()],
             storage=storage,
         )
 
@@ -894,7 +1190,7 @@ class SubscriptionHubTests(unittest.TestCase):
         ctx = FakeContext(
             config_values=settings,
             thirdparty_accounts=self.bilibili_cookie_accounts(),
-            http_responses=[self.dynamic_feed_response([self.video_item("987", "新视频", pub_ts=1700000000)]), self.empty_live_status_response()],
+            http_responses=[self.empty_live_status_response()],
         )
 
         result = plugin.check_subscriptions(ctx, settings)
@@ -902,6 +1198,7 @@ class SubscriptionHubTests(unittest.TestCase):
         self.assertEqual(result["checked"], 1)
         self.assertEqual(result["sent"], 0)
         self.assertEqual(ctx.render_calls, [])
+        self.assertTrue(ctx.http_requests[0]["url"].startswith(LIVE_STATUS_URL + "?"))
 
     def test_disabled_settings_skip_events(self):
         settings = merge_settings({}, self.subscription_settings(enabled=False))
@@ -1017,9 +1314,34 @@ class SubscriptionHubTests(unittest.TestCase):
 
         self.assertFalse(result["ok"])
         self.assertIn("Bilibili 请求被风控拦截，请稍后再试或重新扫码更新 CK", result["message"])
-        self.assertNotIn("Bilibili code -352", result["message"])
-        self.assertNotIn("HTTP 200", result["message"])
+        self.assertIn("Bilibili code -352", result["message"])
+        self.assertIn("HTTP 200", result["message"])
+        self.assertIn("原始原因：风控校验失败", result["message"])
         self.assertNotIn('"code"', result["message"])
+
+    def test_subscribe_user_lookup_redacts_secrets_from_risk_control_reason(self):
+        settings = merge_settings({}, {"subscriptions": []})
+        ctx = FakeContext(
+            args=["123456"],
+            thirdparty_accounts=self.bilibili_cookie_accounts(),
+            http_responses=[{
+                "status_code": 412,
+                "body_text": json.dumps({
+                    "code": -412,
+                    "message": "blocked SESSDATA=private-value; bili_jct=private-csrf; Authorization: Bearer private-token",
+                }),
+            }],
+        )
+
+        result = add_bilibili_subscription(settings, ctx)
+
+        self.assertFalse(result["ok"])
+        self.assertIn("SESSDATA=[已隐藏]", result["message"])
+        self.assertIn("bili_jct=[已隐藏]", result["message"])
+        self.assertIn("authorization=[已隐藏]", result["message"])
+        self.assertNotIn("private-value", result["message"])
+        self.assertNotIn("private-csrf", result["message"])
+        self.assertNotIn("private-token", result["message"])
 
     def test_subscribe_command_handler_reports_risk_control_as_handled(self):
         plugin = SubscriptionHubPlugin()
