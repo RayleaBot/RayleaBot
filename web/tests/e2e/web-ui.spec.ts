@@ -1941,14 +1941,16 @@ test('third-party accounts show Bilibili CK cards and QR login updates account c
   await expect(draftCard).toBeVisible()
   await draftCard.getByRole('button', { name: '扫码获取 CK' }).click()
   await expect(draftCard.locator('.qr-panel')).toBeVisible()
-  const scannedDraftCard = page.locator('.account-card--editing').filter({ has: page.locator('.qr-panel') }).first()
-  const scannedInputs = scannedDraftCard.locator('input')
+  const scannedAccountCard = page.locator('.account-card--editing').filter({ has: page.locator('.qr-panel') }).first()
+  const scannedInputs = scannedAccountCard.locator('input')
   await expect(scannedInputs.nth(0)).toHaveValue('123456', { timeout: 5000 })
   await expect(scannedInputs.nth(1)).toHaveValue('测试账号昵称')
-  const savedQRCodeAccountCard = page.locator('.account-card:not(.account-card--editing)').filter({ hasText: '账号 ID123456' }).first()
-  await expect(savedQRCodeAccountCard).toBeVisible()
-  await expect(savedQRCodeAccountCard).toContainText('CK 有效')
-  await scannedDraftCard.getByRole('button', { name: /取\s*消/ }).click()
+  const savedQRCodeAccountCards = page.locator('.account-card').filter({ hasText: '账号 ID123456' })
+  await expect(savedQRCodeAccountCards).toHaveCount(1)
+  await expect(scannedAccountCard).toContainText('CK 有效')
+  await scannedAccountCard.getByRole('button', { name: '保存' }).click()
+  await expect(savedQRCodeAccountCards).toHaveCount(1)
+  await expect(savedQRCodeAccountCards.first()).not.toHaveClass(/account-card--editing/)
 
   const additionalQRLogins = [
     {
@@ -1970,22 +1972,27 @@ test('third-party accounts show Bilibili CK cards and QR login updates account c
     },
   ]
   for (const item of additionalQRLogins) {
-    const editingCount = await page.locator('.account-card--editing').count()
-    await page.getByRole('button', { name: item.addLabel }).first().click()
-    const platformDraftCard = page.locator('.account-card--editing').nth(editingCount)
+    const addButton = page.getByRole('button', { name: item.addLabel }).first()
+    const platformSection = addButton.locator('xpath=ancestor::section[contains(@class,"platform-section")]')
+    const editingCount = await platformSection.locator('.account-card--editing').count()
+    await addButton.click()
+    const platformDraftCard = platformSection.locator('.account-card--editing').nth(editingCount)
     await expect(platformDraftCard).toContainText(item.draftTitle)
     await platformDraftCard.getByRole('button', { name: '扫码获取 CK' }).click()
     await expect(platformDraftCard.locator('.qr-panel')).toBeVisible()
-    const platformInputs = platformDraftCard.locator('input')
+    const scannedPlatformCard = platformSection.locator('.account-card--editing').filter({ has: page.locator('.qr-panel') }).first()
+    const platformInputs = scannedPlatformCard.locator('input')
     await expect(platformInputs.nth(0)).toHaveValue(item.savedAccountId, { timeout: 5000 })
     if (item.savedCardText) {
       await expect(platformInputs.nth(1)).toHaveValue(item.savedCardText)
     }
-    const savedAccountCard = page.locator('.account-card:not(.account-card--editing)').filter({ hasText: item.savedCardText ?? `账号 ID${item.savedAccountId}` }).first()
-    await expect(savedAccountCard).toBeVisible()
-    await expect(savedAccountCard).toContainText(`账号 ID${item.savedAccountId}`)
-    await expect(savedAccountCard).toContainText('已配置')
-    await platformDraftCard.getByRole('button', { name: /取\s*消/ }).click()
+    const savedAccountCards = platformSection.locator('.account-card').filter({ hasText: `账号 ID${item.savedAccountId}` })
+    await expect(savedAccountCards).toHaveCount(1)
+    await expect(scannedPlatformCard).toContainText(`账号 ID${item.savedAccountId}`)
+    await expect(scannedPlatformCard).toContainText('已配置')
+    await scannedPlatformCard.getByRole('button', { name: '保存' }).click()
+    await expect(savedAccountCards).toHaveCount(1)
+    await expect(savedAccountCards.first()).not.toHaveClass(/account-card--editing/)
   }
 })
 

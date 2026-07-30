@@ -272,10 +272,33 @@ function setQRLogin(key: string, response: ThirdPartyQRCodeLoginCreateResponse |
     accountAvatarUrl: account?.profile?.avatar_url || previous?.accountAvatarUrl || '',
   }
   if (response.state === 'succeeded' && account && drafts[key]) {
-    drafts[key].account_id = normalizeAccountId(account.account_id)
-    drafts[key].label = account.label || account.profile?.nickname || drafts[key].label
-    drafts[key].configured = true
+    reconcileQRCodeAccount(key, account)
   }
+}
+
+function reconcileQRCodeAccount(key: string, account: ThirdPartyAccountSummary) {
+  const draft = drafts[key]
+  const accountId = normalizeAccountId(account.account_id)
+  if (!draft || !accountId) {
+    return
+  }
+
+  const nextKey = operationKey(account.platform, accountId)
+  draft.platform = account.platform
+  draft.account_id = accountId
+  draft.label = account.label || account.profile?.nickname || draft.label
+  draft.enabled = account.enabled
+  draft.configured = account.configured
+  draft.cookie = ''
+  draft.isNew = false
+
+  if (nextKey !== key) {
+    drafts[nextKey] = draft
+    qrLogins[nextKey] = qrLogins[key]
+    delete drafts[key]
+    delete qrLogins[key]
+  }
+  editingAccountKey.value = nextKey
 }
 
 function scheduleQRPolling() {
