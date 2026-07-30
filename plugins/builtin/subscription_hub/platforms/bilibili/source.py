@@ -12,6 +12,10 @@ from .api import dynamic_updates, live_update, parse_json_response
 
 
 DYNAMIC_FEED_URL = "https://api.bilibili.com/x/polymer/web-dynamic/v1/feed/all"
+DYNAMIC_FEED_FEATURES = (
+    "itemOpusStyle,opusBigCover,onlyfansVote,decorationCard,"
+    "onlyfansAssetsV2,forwardListHidden,ugcDelete"
+)
 LIVE_STATUS_URL = "https://api.live.bilibili.com/room/v1/Room/get_status_info_by_uids"
 NAV_URL = "https://api.bilibili.com/x/web-interface/nav"
 RELATION_URL = "https://api.bilibili.com/x/relation"
@@ -97,6 +101,7 @@ def dynamic_feed_url():
         "timezone_offset": -480,
         "type": "all",
         "page": 1,
+        "features": DYNAMIC_FEED_FEATURES,
         "dm_img_list": "[]",
         "dm_img_str": DM_IMG_STR,
         "dm_cover_img_str": DM_COVER_IMG_STR,

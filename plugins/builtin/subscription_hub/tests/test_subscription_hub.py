@@ -673,6 +673,7 @@ class SubscriptionHubTests(unittest.TestCase):
 
         self.assertEqual(query["dm_img_str"], [DM_IMG_STR])
         self.assertEqual(query["dm_cover_img_str"], [DM_COVER_IMG_STR])
+        self.assertIn("itemOpusStyle", query["features"][0].split(","))
         self.assertTrue(DM_IMG_STR.startswith("V2ViR0wg"))
         self.assertFalse(DM_IMG_STR.startswith("VjJWaVIw"))
 
@@ -1452,6 +1453,50 @@ class SubscriptionHubTests(unittest.TestCase):
         self.assertIn("rich-text-topic", render_data["content_html"])
         self.assertIn("rich-text-emoji", render_data["content_html"])
         self.assertIn("rich-text-topic", render_data["original"]["summary_html"])
+
+    def test_image_text_update_fetches_detail_when_feed_omits_content(self):
+        subscription = self.subscription_settings()["subscriptions"][0]
+        plugin = SubscriptionHubPlugin()
+        ctx = FakeContext(http_responses=[self.opus_detail_response()])
+        update = self.dynamic_event_payload(
+            id="100000000000000002",
+            service="image_text",
+            title="测试 UP 发布图文动态",
+            summary="",
+            summary_html="",
+            url="https://t.bilibili.com/100000000000000002",
+            images=[{"url": "https://i0.hdslb.com/bfs/new_dyn/single.jpg"}],
+        )
+
+        prepared = plugin.prepare_push_update(ctx, subscription, update)
+
+        self.assertEqual(prepared["image_path"], "plugin-test.png")
+        self.assertEqual(ctx.http_requests[0]["url"], dynamic_detail_url("100000000000000002"))
+        render_data = ctx.render_calls[0]["data"]
+        self.assertIn("线下演唱会，测试内容更新。", render_data["content_text"])
+        self.assertIn("rich-text-topic", render_data["content_html"])
+        self.assertEqual(render_data["topic"]["name"], "测试活动 2026")
+
+    def test_image_text_detail_enrichment_is_reused_across_targets(self):
+        plugin = SubscriptionHubPlugin()
+        ctx = FakeContext(http_responses=[self.opus_detail_response()])
+        update = self.dynamic_event_payload(
+            id="100000000000000002",
+            service="image_text",
+            summary="",
+            summary_html="",
+            url="https://t.bilibili.com/100000000000000002",
+        )
+        cache = {}
+        first = self.subscription_settings()["subscriptions"][0]
+        second = {**first, "target_type": "private", "target_id": "20000"}
+
+        plugin.prepare_push_update(ctx, first, update, cache)
+        plugin.prepare_push_update(ctx, second, update, cache)
+
+        self.assertEqual(len(ctx.http_requests), 1)
+        self.assertEqual(len(ctx.render_calls), 2)
+        self.assertIn("线下演唱会，测试内容更新。", ctx.render_calls[1]["data"]["content_text"])
 
     def test_repost_update_still_pushes_when_original_lookup_fails(self):
         settings = merge_settings({}, self.subscription_settings(subscriptions=[{

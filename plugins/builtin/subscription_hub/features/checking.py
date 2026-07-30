@@ -64,6 +64,7 @@ class SubscriptionCheckFeature:
             "live_ok": source_result["live_ok"],
         }
         updates = source_result["updates"]
+        render_update_cache = {}
         for subscription in subscriptions:
             dynamic_initialized = self.dynamic_source_initialized(ctx, subscription)
             for update in updates:
@@ -74,7 +75,7 @@ class SubscriptionCheckFeature:
                     continue
                 if self.seen_update(ctx, subscription, update):
                     continue
-                prepared = self.prepare_push_update(ctx, subscription, update)
+                prepared = self.prepare_push_update(ctx, subscription, update, render_update_cache)
                 if prepared and self.send_prepared_update(ctx, subscription, update, prepared, result["errors"]):
                     result["sent"] += 1
             if source_result["dynamic_ok"] and self.subscription_uses_dynamic(subscription) and not dynamic_initialized:
@@ -146,8 +147,16 @@ class SubscriptionCheckFeature:
     def update_key(self, subscription, update):
         return f"seen:{subscription['id']}:{update.get('service')}:{update.get('id')}"
 
-    def prepare_push_update(self, ctx, subscription, update):
-        prepared_update = self.prepare_render_update(ctx, update)
+    def prepare_push_update(self, ctx, subscription, update, render_update_cache=None):
+        service = str(update.get("service") or "").strip()
+        update_id = str(update.get("id") or "").strip()
+        cache_key = f"{service}:{update_id}" if service and update_id else ""
+        if isinstance(render_update_cache, dict) and cache_key and cache_key in render_update_cache:
+            prepared_update = render_update_cache[cache_key]
+        else:
+            prepared_update = self.prepare_render_update(ctx, update)
+            if isinstance(render_update_cache, dict) and cache_key:
+                render_update_cache[cache_key] = prepared_update
         render_data = build_render_data(subscription, prepared_update)
         result = ctx.render_image(
             "bilibili-update",
@@ -168,9 +177,19 @@ class SubscriptionCheckFeature:
 
     def prepare_render_update(self, ctx, update):
         prepared = copy.deepcopy(update)
+        preview_ref = parse_preview_url(prepared.get("url"))
+        if (
+            prepared.get("service") == "image_text"
+            and not str(prepared.get("summary") or "").strip()
+            and not str(prepared.get("summary_html") or "").strip()
+            and preview_ref
+            and preview_ref.get("kind") in {"opus", "dynamic"}
+        ):
+            result = self.preview_update_from_link(ctx, preview_ref)
+            if result.get("ok") and isinstance(result.get("update"), dict):
+                self.merge_missing_image_text_detail(prepared, result["update"])
         if prepared.get("service") != "repost" or isinstance(prepared.get("original"), dict):
             return prepared
-        preview_ref = parse_preview_url(prepared.get("url"))
         if not preview_ref or preview_ref.get("kind") not in {"opus", "dynamic"}:
             return prepared
         result = self.preview_update_from_link(ctx, preview_ref)
@@ -183,6 +202,15 @@ class SubscriptionCheckFeature:
             if not str(prepared.get("summary") or "").strip() and str(detailed.get("summary") or "").strip():
                 prepared["summary"] = detailed["summary"]
         return prepared
+
+    def merge_missing_image_text_detail(self, prepared, detailed):
+        for key in ("summary", "summary_html"):
+            if not str(prepared.get(key) or "").strip() and str(detailed.get(key) or "").strip():
+                prepared[key] = detailed[key]
+        if not isinstance(prepared.get("topic"), dict) and isinstance(detailed.get("topic"), dict):
+            prepared["topic"] = detailed["topic"]
+        if not prepared.get("images") and detailed.get("images"):
+            prepared["images"] = detailed["images"]
 
     def send_prepared_update(self, ctx, subscription, update, prepared, errors):
         try:
