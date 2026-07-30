@@ -482,6 +482,8 @@ class BilibiliPayload:
 class EventPayload:
     command: str | None = None
     args: list[str] | None = None
+    action: str | None = None
+    payload: dict[str, Any] | None = None
     message_id: str | None = None
     sub_type: str | None = None
     operator_id: str | None = None
@@ -501,6 +503,8 @@ class EventPayload:
         return cls(
             command=d.get("command"),
             args=d.get("args"),
+            action=d.get("action"),
+            payload=d.get("payload"),
             message_id=d.get("message_id"),
             sub_type=d.get("sub_type"),
             operator_id=d.get("operator_id"),

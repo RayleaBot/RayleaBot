@@ -194,6 +194,8 @@ export interface BilibiliPayload {
 export interface EventPayload {
   command?: string | null;
   args?: string[];
+  action?: string;
+  payload?: Record<string, unknown>;
   message_id?: string;
   sub_type?: string;
   operator_id?: string;

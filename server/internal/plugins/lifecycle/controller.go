@@ -790,9 +790,7 @@ func SchedulerPluginDisplayName(snapshot plugins.Snapshot, pluginID string) stri
 }
 
 func schedulerPayloadFields(job scheduler.Job) map[string]any {
-	fields := map[string]any{
-		"job_id": job.JobID,
-	}
+	fields := make(map[string]any, 2)
 	if len(job.Payload) == 0 || string(job.Payload) == "null" {
 		return fields
 	}
@@ -800,8 +798,9 @@ func schedulerPayloadFields(job scheduler.Job) map[string]any {
 	if err := json.Unmarshal(job.Payload, &payload); err != nil {
 		return fields
 	}
-	for key, value := range payload {
-		fields[key] = value
+	fields["payload"] = payload
+	if action, ok := payload["action"].(string); ok && strings.TrimSpace(action) != "" {
+		fields["action"] = action
 	}
 	return fields
 }

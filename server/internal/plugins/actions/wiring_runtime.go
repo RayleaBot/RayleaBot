@@ -37,7 +37,11 @@ func ConfigChangedDispatcher(dispatcher *dispatch.Dispatcher) ConfigChangeDispat
 		if !dispatcher.HasDeliverablePlugin(pluginID) {
 			return ConfigChangeDispatchResult{Delivered: true}
 		}
-		result := dispatcher.DispatchToPlugin(ctx, pluginID, pluginruntime.Event{
+		// A config.write action runs inside the originating plugin event. The
+		// notification can remain queued until that event releases its plugin
+		// lane, so it must not inherit the parent event's cancellation.
+		deliveryCtx := context.WithoutCancel(ctx)
+		result := dispatcher.DispatchToPlugin(deliveryCtx, pluginID, pluginruntime.Event{
 			EventID:        fmt.Sprintf("config-changed-%s-%d", pluginID, time.Now().UnixNano()),
 			SourceProtocol: "platform",
 			SourceAdapter:  "config.internal",

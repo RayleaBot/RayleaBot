@@ -139,6 +139,14 @@ func buildEventPayload(event Event) (*ProtocolPayloadFrame, bool) {
 			payload.Args = v
 			hasPayload = true
 		}
+		if v, ok := payloadString(event.PayloadFields, "action"); ok {
+			payload.Action = v
+			hasPayload = true
+		}
+		if v, ok := payloadMap(event.PayloadFields, "payload"); ok {
+			payload.Payload = v
+			hasPayload = true
+		}
 		if onebot, ok := buildProtocolOneBotPayload(event.PayloadFields); ok {
 			payload.OneBot = onebot
 			hasPayload = true

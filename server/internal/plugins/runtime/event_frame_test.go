@@ -39,6 +39,34 @@ func TestBuildEventFrameProjectsOneBotPayload(t *testing.T) {
 	}
 }
 
+func TestBuildEventFrameProjectsSchedulerPayload(t *testing.T) {
+	t.Parallel()
+
+	frame := BuildEventFrame(Event{
+		EventID:        "scheduler-subscription-hub-check-1",
+		SourceProtocol: "scheduler",
+		SourceAdapter:  "scheduler.internal",
+		EventType:      "scheduler.trigger",
+		Timestamp:      1700000000,
+		PayloadFields: map[string]any{
+			"action": "check_subscriptions",
+			"payload": map[string]any{
+				"action": "check_subscriptions",
+			},
+		},
+	}, "raylea.subscription-hub", "req-scheduler-1", 1700000001)
+
+	if frame.Event.Payload == nil {
+		t.Fatal("scheduler event payload is missing")
+	}
+	if frame.Event.Payload.Action != "check_subscriptions" {
+		t.Fatalf("scheduler action = %q, want check_subscriptions", frame.Event.Payload.Action)
+	}
+	if got := frame.Event.Payload.Payload["action"]; got != "check_subscriptions" {
+		t.Fatalf("scheduler nested payload action = %#v, want check_subscriptions", got)
+	}
+}
+
 func TestBuildEventFrameProjectsWebhookMetadataAtEventRoot(t *testing.T) {
 	t.Parallel()
 

@@ -234,6 +234,8 @@ type ProtocolPayloadFrame struct {
 	MessageID  string                        `json:"message_id,omitempty"`
 	Command    string                        `json:"command,omitempty"`
 	Args       []string                      `json:"args,omitempty"`
+	Action     string                        `json:"action,omitempty"`
+	Payload    map[string]any                `json:"payload,omitempty"`
 	SubType    string                        `json:"sub_type,omitempty"`
 	OperatorID string                        `json:"operator_id,omitempty"`
 	OneBot     *ProtocolOneBotPayloadFrame   `json:"onebot,omitempty"`

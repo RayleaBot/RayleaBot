@@ -24,6 +24,19 @@ from rayleabot import (
 
 
 class ModelHelpersTests(unittest.TestCase):
+    def test_event_action_payload_roundtrip(self):
+        payload = EventPayload.from_dict({
+            "action": "check_subscriptions",
+            "payload": {"platform": "bilibili"},
+        })
+
+        self.assertEqual("check_subscriptions", payload.action)
+        self.assertEqual({"platform": "bilibili"}, payload.payload)
+        self.assertEqual({
+            "action": "check_subscriptions",
+            "payload": {"platform": "bilibili"},
+        }, payload.to_dict())
+
     def test_segment_from_dict_supports_flash_file(self):
         segment = segment_from_dict({
             "type": "flash_file",

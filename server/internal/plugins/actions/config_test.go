@@ -2,9 +2,12 @@ package actions_test
 
 import (
 	"context"
+	"log/slog"
 	"path/filepath"
 	"testing"
+	"time"
 
+	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/dispatch"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins/actions"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins/pluginstore"
 	pluginruntime "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime"
@@ -81,4 +84,44 @@ func TestExecuteConfigReadWriteRoundTrip(t *testing.T) {
 	if values["default_city"] != "上海" || values["unit"] != "fahrenheit" {
 		t.Fatalf("unexpected updated config values: %#v", values)
 	}
+}
+
+func TestConfigChangedDispatcherDetachesCallerCancellation(t *testing.T) {
+	t.Parallel()
+
+	dispatcher := dispatch.New(slog.Default(), nil, nil, 1)
+	defer dispatcher.Close()
+
+	runtime := &configChangeRuntime{contextErrors: make(chan error, 1)}
+	dispatcher.Register("weather", runtime, []string{"config.changed"}, nil, 1)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	result := actions.ConfigChangedDispatcher(dispatcher)(ctx, "weather")
+	if !result.Delivered {
+		t.Fatalf("config.changed delivery was not admitted: %#v", result)
+	}
+
+	select {
+	case err := <-runtime.contextErrors:
+		if err != nil {
+			t.Fatalf("config.changed inherited caller cancellation: %v", err)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("config.changed event was not delivered")
+	}
+}
+
+type configChangeRuntime struct {
+	contextErrors chan error
+}
+
+func (r *configChangeRuntime) DeliverEvent(ctx context.Context, event pluginruntime.Event) (pluginruntime.Delivery, error) {
+	r.contextErrors <- ctx.Err()
+	return pluginruntime.Delivery{Result: map[string]any{"handled": true}}, nil
+}
+
+func (r *configChangeRuntime) Snapshot() pluginruntime.Snapshot {
+	return pluginruntime.Snapshot{State: pluginruntime.StateRunning}
 }
