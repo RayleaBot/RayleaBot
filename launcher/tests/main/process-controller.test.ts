@@ -260,10 +260,20 @@ describe("ServerProcessController", () => {
     });
 
     await controller.start(createSettings(installRoot, runtimeRoot));
-    child.stdout.emit("data", "{\"level\":\"ERROR\",\"msg\":\"listen on 127.0.0.1:8080: bind: address already in use\"}\n");
+    child.stdout.emit("data", JSON.stringify({
+      level: "ERROR",
+      msg: "RayleaBot 服务运行异常退出",
+      err: "stop adapter shell: wait for reverse websocket session: context deadline exceeded",
+      error_code: "platform.internal_error",
+      component: "main",
+      request_id: "system",
+      ts: "2026-07-23T01:39:34.4092053+08:00",
+    }) + "\n");
     await flushLogWrites();
 
-    expect(controller.getRecentStderr().join("\n")).toContain("listen on 127.0.0.1:8080");
+    expect(controller.getRecentStderr()).toEqual([
+      "RayleaBot 服务运行异常退出：stop adapter shell: wait for reverse websocket session: context deadline exceeded（时间：2026-07-23T01:39:34.4092053+08:00；错误代码：platform.internal_error；组件：main；请求 ID：system）",
+    ]);
     expect(fileSystem.mkdir).toHaveBeenCalledWith(path.join(runtimeRoot, "logs", "server"), { recursive: true });
     expect(fileSystem.appendFile).toHaveBeenCalledWith(
       datedLogPath(runtimeRoot, "server"),
@@ -272,6 +282,14 @@ describe("ServerProcessController", () => {
     );
     expect(loggedPaths(fileSystem)).not.toContain(legacyLogPath(runtimeRoot, "server"));
     expect(loggedPaths(fileSystem)).not.toContain(legacyLogPath(runtimeRoot, "launcher"));
+
+    child.exitCode = 1;
+    child.emit("exit", 1, null);
+    await flushLogWrites();
+
+    expect(controller.getRecentStderr().at(-1)).toContain("服务进程异常退出（退出码 1）");
+    expect(controller.getRecentStderr().at(-1)).toContain("最近错误：RayleaBot 服务运行异常退出");
+    expect(controller.getRecentStderr().at(-1)).toContain("platform.internal_error");
   });
 
   test("parses structured runtime preparation source probe from child stdout", async () => {

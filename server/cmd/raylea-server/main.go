@@ -89,7 +89,12 @@ func main() {
 	}
 
 	if err := application.Run(runCtx); err != nil {
-		application.Logger().Error("RayleaBot 服务运行异常退出", "component", "main", "err", err.Error())
+		application.Logger().Error(
+			"RayleaBot 服务运行异常退出",
+			"component", "main",
+			"error_code", "platform.internal_error",
+			"err", err.Error(),
+		)
 		os.Exit(1)
 	}
 }

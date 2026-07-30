@@ -8,7 +8,6 @@ import (
 func (s *Shell) run(ctx context.Context) {
 	defer func() {
 		s.clearConn(nil)
-		s.clearReverseConn(nil)
 		s.markStopped()
 		s.logger.Info(
 			"OneBot 适配器已停止",

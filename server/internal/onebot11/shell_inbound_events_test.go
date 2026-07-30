@@ -344,7 +344,7 @@ func TestShellStopTransitionsToStopped(t *testing.T) {
 	}
 }
 
-func TestShellStopWaitsForReverseWebSocketAndStoppedLog(t *testing.T) {
+func TestShellStopClosesReverseWebSocketAfterSupervisorCancellation(t *testing.T) {
 
 	t.Parallel()
 
@@ -403,8 +403,10 @@ func TestShellStopWaitsForReverseWebSocketAndStoppedLog(t *testing.T) {
 		t.Fatalf("write reverse ready frame: %v", err)
 	}
 	waitForState(t, shell, StateConnected, 500*time.Millisecond)
+	cancel()
+	waitForState(t, shell, StateStopped, 500*time.Millisecond)
 
-	stopCtx, stopCancel := context.WithTimeout(context.Background(), 5*time.Second)
+	stopCtx, stopCancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
 	defer stopCancel()
 	if err := shell.Stop(stopCtx); err != nil {
 		t.Fatalf("Stop failed: %v", err)

@@ -26,13 +26,6 @@ func (s *Shell) clearConn(target *websocket.Conn) {
 		s.conn = nil
 	}
 }
-func (s *Shell) clearReverseConn(target *websocket.Conn) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	if target == nil || s.reverseConn == target {
-		s.reverseConn = nil
-	}
-}
 func (s *Shell) markConnecting() {
 	s.mu.Lock()
 	s.snapshot.ForwardWS.State = TransportStateConnecting

@@ -48,12 +48,57 @@ type RuntimePrepareLogLine = {
   ts?: unknown;
 };
 
+type StructuredServerErrorLine = {
+  level?: unknown;
+  msg?: unknown;
+  err?: unknown;
+  error_code?: unknown;
+  component?: unknown;
+  request_id?: unknown;
+  ts?: unknown;
+};
+
 function stringValue(value: unknown) {
   return typeof value === "string" ? value.trim() : "";
 }
 
 function numberValue(value: unknown) {
   return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
+function diagnosticValue(value: unknown) {
+  const normalized = stringValue(value).replace(/\s+/g, " ");
+  if (normalized.length <= 500) {
+    return normalized;
+  }
+  return `${normalized.slice(0, 497)}...`;
+}
+
+function parseStructuredServerErrorLine(line: string) {
+  let parsed: StructuredServerErrorLine;
+  try {
+    parsed = JSON.parse(line) as StructuredServerErrorLine;
+  } catch {
+    return null;
+  }
+
+  const level = stringValue(parsed.level).toUpperCase();
+  if (level !== "ERROR" && level !== "FATAL") {
+    return null;
+  }
+
+  const message = diagnosticValue(parsed.msg) || "服务进程报告错误";
+  const cause = diagnosticValue(parsed.err);
+  const metadata = [
+    ["时间", diagnosticValue(parsed.ts)],
+    ["错误代码", diagnosticValue(parsed.error_code)],
+    ["组件", diagnosticValue(parsed.component)],
+    ["请求 ID", diagnosticValue(parsed.request_id)],
+  ]
+    .filter((entry) => entry[1])
+    .map(([label, value]) => `${label}：${value}`);
+  const summary = cause && cause !== message ? `${message}：${cause}` : message;
+  return metadata.length > 0 ? `${summary}（${metadata.join("；")}）` : summary;
 }
 
 function normalizeProgress(value: unknown) {
@@ -138,6 +183,7 @@ export class ServerProcessController {
   private runtimePrepareSummary = "";
   private runtimePrepareActive = false;
   private stdoutLineBuffer = "";
+  private lastStructuredError = "";
   private logWriteQueue = Promise.resolve();
   logDirectory = path.resolve(process.cwd(), "logs");
 
@@ -193,6 +239,7 @@ export class ServerProcessController {
     this.stderrLines = [];
     this.clearRuntimePrepareSnapshot();
     this.stdoutLineBuffer = "";
+    this.lastStructuredError = "";
     await this.fileSystem.mkdir(settings.workdir, { recursive: true });
     this.logDirectory = path.join(settings.workdir, "logs");
     await this.fileSystem.mkdir(this.logDirectory, { recursive: true });
@@ -222,6 +269,9 @@ export class ServerProcessController {
     });
 
     child.on("exit", (code, signal) => {
+      if (this.stdoutLineBuffer.trim()) {
+        this.recordStdoutDiagnostics("\n");
+      }
       if (this.process === child) {
         this.process = null;
         this.credentials.clear();
@@ -231,10 +281,13 @@ export class ServerProcessController {
         return;
       }
 
-      const detail =
+      const exitReason =
         code !== null && code !== undefined
-          ? `服务进程已退出，退出码 ${code}。`
-          : `服务进程已退出，信号 ${signal ?? "unknown"}。`;
+          ? `服务进程异常退出（退出码 ${code}）。`
+          : `服务进程异常退出（信号 ${signal ?? "unknown"}）。`;
+      const detail = this.lastStructuredError
+        ? `${exitReason} 最近错误：${this.lastStructuredError}`
+        : `${exitReason} 未捕获到结构化错误，请打开完整日志查看退出前输出。`;
       this.recordLauncherDiagnostic(detail);
     });
 
@@ -353,6 +406,12 @@ export class ServerProcessController {
         continue;
       }
       this.recordRuntimePrepareProgress(line);
+      const structuredError = parseStructuredServerErrorLine(line);
+      if (structuredError) {
+        this.lastStructuredError = structuredError;
+        this.stderrLines.push(structuredError);
+        continue;
+      }
       if (!this.shouldCaptureStdoutDiagnostic(line)) {
         continue;
       }

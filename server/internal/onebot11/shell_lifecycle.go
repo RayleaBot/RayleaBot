@@ -3,6 +3,7 @@ package onebot11
 import (
 	"context"
 	"errors"
+	"fmt"
 	"math"
 	"math/rand"
 	"net/http"
@@ -56,7 +57,7 @@ func (s *Shell) Stop(ctx context.Context) error {
 		cancel()
 	}
 	if conn != nil {
-		_ = conn.Close(websocket.StatusNormalClosure, "")
+		_ = conn.CloseNow()
 	}
 	if reverseConn != nil {
 		_ = reverseConn.CloseNow()
@@ -64,7 +65,7 @@ func (s *Shell) Stop(ctx context.Context) error {
 
 	if !started {
 		if err := waitForClosed(ctx, reverseDone); err != nil {
-			return err
+			return fmt.Errorf("wait for reverse websocket session: %w", err)
 		}
 		s.markStopped()
 		return nil
@@ -77,9 +78,12 @@ func (s *Shell) Stop(ctx context.Context) error {
 	)
 
 	if err := waitForClosed(ctx, done); err != nil {
-		return err
+		return fmt.Errorf("wait for adapter supervisor: %w", err)
 	}
-	return waitForClosed(ctx, reverseDone)
+	if err := waitForClosed(ctx, reverseDone); err != nil {
+		return fmt.Errorf("wait for reverse websocket session: %w", err)
+	}
+	return nil
 }
 
 func (s *Shell) Reload(nextCfg config.OneBotConfig, nextAdapterCfg config.AdapterConfig) error {
@@ -179,7 +183,7 @@ func (s *Shell) AttachReverseWS(conn *websocket.Conn) {
 	s.mu.Lock()
 	if s.stopping || !s.started {
 		s.mu.Unlock()
-		_ = conn.Close(websocket.StatusNormalClosure, "")
+		_ = conn.CloseNow()
 		return
 	}
 	if s.reverseConn != nil {
@@ -190,7 +194,7 @@ func (s *Shell) AttachReverseWS(conn *websocket.Conn) {
 	s.mu.Unlock()
 
 	if previous != nil {
-		_ = previous.Close(websocket.StatusNormalClosure, "")
+		_ = previous.CloseNow()
 	}
 
 	go s.handleReverseSession(conn, done)
@@ -200,7 +204,7 @@ func (s *Shell) handleReverseSession(conn *websocket.Conn, done chan struct{}) {
 	ctx := context.Background()
 	defer func() {
 		defer close(done)
-		_ = conn.Close(websocket.StatusNormalClosure, "")
+		_ = conn.CloseNow()
 		s.mu.Lock()
 		current := s.reverseConn == conn
 		if current {
