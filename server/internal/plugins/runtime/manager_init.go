@@ -7,6 +7,8 @@ import (
 	"time"
 )
 
+const pluginExitedBeforeInitMessage = "插件进程在初始化完成前退出，请查看该插件的 stderr 日志"
+
 func (m *Manager) awaitInitAck(ctx context.Context, handle *Handle, requestID string) ([]string, *Error) {
 	silenceTimer := time.NewTimer(handle.Spec.InitTimeout)
 	defer silenceTimer.Stop()
@@ -50,13 +52,13 @@ func (m *Manager) awaitInitAck(ctx context.Context, handle *Handle, requestID st
 			)
 			resetTimer(silenceTimer, handle.Spec.InitTimeout)
 		case readErr := <-readErrCh:
-			return nil, classifyProtocolReadError(handle, readErr, "plugin exited before init_ack", "read plugin init response")
+			return nil, classifyProtocolReadError(handle, readErr, pluginExitedBeforeInitMessage, "read plugin init response")
 		case <-handle.Done():
 			waitErr, _ := handle.ExitResult()
 			if waitErr == nil {
-				return nil, errorf(codePluginInternalError, "plugin exited before init_ack", nil)
+				return nil, errorf(codePluginInternalError, pluginExitedBeforeInitMessage, nil)
 			}
-			return nil, errorf(codePluginInternalError, "plugin exited before init_ack", waitErr)
+			return nil, errorf(codePluginInternalError, pluginExitedBeforeInitMessage, waitErr)
 		case <-silenceTimer.C:
 			return nil, errorf(codePluginInitTimeout, "plugin init_ack timed out", nil)
 		case <-totalTimer.C:

@@ -1103,7 +1103,7 @@ func lifecycleActionLabel(message string) string {
 	case "stop plugin runtime":
 		return "停止运行时"
 	case "plugin runtime reconcile failed":
-		return "对齐运行时状态"
+		return "启动"
 	case "start plugin runtime after enable":
 		return "启用后启动运行时"
 	case "create plugin reload task":
