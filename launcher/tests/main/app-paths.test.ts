@@ -32,4 +32,17 @@ describe("launcher app paths", () => {
       }),
     ).toBe(path.win32.join("C:\\", "RayleaBot", "launcher"));
   });
+
+  test("uses the parent of the packaged Windows Electron runtime as the installation root", () => {
+    const installRoot = path.win32.join("C:\\", "RayleaBot");
+    const executablePath = path.win32.join(installRoot, "launcher", "RayleaLauncher.exe");
+
+    expect(
+      resolveLauncherBasePath({
+        appPath: path.win32.join(executablePath, "resources", "app.asar"),
+        executablePath,
+        isPackaged: true,
+      }),
+    ).toBe(installRoot);
+  });
 });

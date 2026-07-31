@@ -25,6 +25,8 @@ class SmokeReleaseTests(unittest.TestCase):
             entries = smoke_release.list_entries("windows-x64-full", archive_path)
 
             self.assertIn("RayleaLauncher.exe", entries)
+            self.assertIn("launcher/RayleaLauncher.exe", entries)
+            self.assertIn("launcher/resources/app.asar", entries)
             self.assertIn("raylea-updater.exe", entries)
             self.assertIn("LICENSE", entries)
             self.assertIn("THIRD_PARTY_NOTICES.md", entries)

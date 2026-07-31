@@ -4,9 +4,9 @@
 import os
 import sys
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "..", "sdk", "python"))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "..", "plugins", "runtime", "python"))
 
-from rayleabot import RayleaBotPlugin, command, event_handler
+from rayleabot_runtime import RayleaBotPlugin, command, event_handler
 
 
 class WebhookPlugin(RayleaBotPlugin):

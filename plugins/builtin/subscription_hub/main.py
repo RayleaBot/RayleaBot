@@ -8,9 +8,9 @@ import sys
 
 PLUGIN_DIR = os.path.dirname(__file__)
 sys.path.insert(0, PLUGIN_DIR)
-sys.path.insert(0, os.path.join(PLUGIN_DIR, "..", "..", "..", "sdk", "python"))
+sys.path.insert(0, os.path.join(PLUGIN_DIR, "..", "..", "runtime", "python"))
 
-from rayleabot import RayleaBotPlugin, command, event_handler
+from rayleabot_runtime import RayleaBotPlugin, command, event_handler
 
 from business.commands import (
     BILIBILI_SEARCH_UP_USAGE,

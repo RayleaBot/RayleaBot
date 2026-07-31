@@ -7,7 +7,7 @@ import unittest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
-from rayleabot import protocol as protocol_module
+from rayleabot_runtime import protocol as protocol_module
 
 
 class ProtocolConcurrencyTests(unittest.TestCase):

@@ -1,4 +1,4 @@
-from rayleabot.protocol import ActionError
+from rayleabot_runtime.protocol import ActionError
 
 from platforms.bilibili import (
     build_cookie_headers,

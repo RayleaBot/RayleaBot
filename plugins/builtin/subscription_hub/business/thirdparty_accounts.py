@@ -1,6 +1,6 @@
 """Third-party account helpers."""
 
-from rayleabot.protocol import ActionError
+from rayleabot_runtime.protocol import ActionError
 
 from .platforms import platform_name
 

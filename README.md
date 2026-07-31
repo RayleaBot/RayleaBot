@@ -92,7 +92,10 @@ cd launcher && pnpm install --frozen-lockfile && pnpm test
 # Node.js SDK
 cd sdk/nodejs && node --test tests/*.test.mjs
 
-# Python SDK
+# Python 插件运行时客户端
+cd plugins/runtime/python && python -m unittest discover -s tests
+
+# Python SDK 兼容入口
 cd sdk/python && python -m unittest discover -s tests
 ```
 

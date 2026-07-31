@@ -53,6 +53,7 @@
     "appId": "local.rayleabot.launcher",
     "productName": "RayleaLauncher",
     "asar": true,
+    "beforeBuild": "scripts/package-before-build.cjs",
     "directories": {
       "output": "dist/package"
     },
@@ -60,6 +61,13 @@
       "dist/main/**/*",
       "dist/preload/**/*",
       "dist/renderer/**/*",
+      {
+        "from": "node_modules/yaml",
+        "to": "node_modules/yaml",
+        "filter": [
+          "**/*"
+        ]
+      },
       "package.json"
     ],
     "extraMetadata": {

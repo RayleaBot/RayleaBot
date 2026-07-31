@@ -4,7 +4,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
-from rayleabot import (
+from rayleabot_runtime import (
     BilibiliAuthor,
     BilibiliImage,
     BilibiliPayload,

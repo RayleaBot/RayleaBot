@@ -250,6 +250,7 @@ jobs:
         run: |
           cmp LICENSE sdk/nodejs/LICENSE
           cmp LICENSE sdk/python/LICENSE
+          cmp LICENSE plugins/runtime/python/LICENSE
 
       - name: Install Node SDK dependencies
         working-directory: sdk/nodejs
@@ -277,18 +278,23 @@ jobs:
         working-directory: sdk/nodejs
         run: npm pack --dry-run --json | node -e "let input=''; process.stdin.on('data', chunk => input += chunk); process.stdin.on('end', () => { const files = JSON.parse(input)[0].files.map(file => file.path); if (!files.includes('LICENSE')) process.exit(1); });"
 
-      - name: Run Python SDK tests
+      - name: Run Python plugin runtime tests
+        working-directory: plugins/runtime/python
+        run: python -m unittest discover -s tests
+
+      - name: Run Python SDK compatibility tests
         working-directory: sdk/python
         run: python -m unittest discover -s tests
 
-      - name: Build and install Python SDK package
-        working-directory: sdk/python
+      - name: Build and install Python runtime and SDK packages
         run: |
-          python -m build --outdir "$RUNNER_TEMP/rayleabot-python-sdk"
+          python -m build --outdir "$RUNNER_TEMP/rayleabot-python-runtime" plugins/runtime/python
+          python -m build --outdir "$RUNNER_TEMP/rayleabot-python-sdk" sdk/python
           python -m venv "$RUNNER_TEMP/rayleabot-python-sdk-venv"
-          "$RUNNER_TEMP/rayleabot-python-sdk-venv/bin/python" -m pip install "$RUNNER_TEMP"/rayleabot-python-sdk/*.whl
-          "$RUNNER_TEMP/rayleabot-python-sdk-venv/bin/python" -c "import rayleabot"
-          python -c "import glob, zipfile; wheel=glob.glob('$RUNNER_TEMP/rayleabot-python-sdk/*.whl')[0]; names=zipfile.ZipFile(wheel).namelist(); assert any(name.endswith('/LICENSE') for name in names), names"
+          "$RUNNER_TEMP/rayleabot-python-sdk-venv/bin/python" -m pip install "$RUNNER_TEMP"/rayleabot-python-runtime/*.whl
+          "$RUNNER_TEMP/rayleabot-python-sdk-venv/bin/python" -m pip install --no-index --find-links "$RUNNER_TEMP/rayleabot-python-runtime" "$RUNNER_TEMP"/rayleabot-python-sdk/*.whl
+          "$RUNNER_TEMP/rayleabot-python-sdk-venv/bin/python" -c "import rayleabot, rayleabot_runtime; assert rayleabot.RayleaBotPlugin is rayleabot_runtime.RayleaBotPlugin"
+          python -c "import glob, zipfile; wheels=glob.glob('$RUNNER_TEMP/rayleabot-python-runtime/*.whl') + glob.glob('$RUNNER_TEMP/rayleabot-python-sdk/*.whl'); assert len(wheels) == 2, wheels; assert all(any(name.endswith('/LICENSE') for name in zipfile.ZipFile(wheel).namelist()) for wheel in wheels), wheels"
 
   release-helper:
     if: needs.changes.outputs.release == 'true'
@@ -304,10 +310,23 @@ jobs:
         with:
           python-version: "3.12"
 
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: server/go.mod
+          cache-dependency-path: server/go.sum
+
       - name: Check release scripts
         run: |
           python -m py_compile scripts/release/*.py
           python -m unittest discover -s scripts/release/tests
+
+      - name: Build Windows launcher entry
+        shell: bash
+        run: |
+          mkdir -p dist/launcher-entry
+          (cd server && GOOS=windows GOARCH=amd64 go build -trimpath -ldflags="-H=windowsgui -s -w" -o ../dist/launcher-entry/RayleaLauncher.exe ../launcher/native/windows-entry/main_windows.go)
+          test -s dist/launcher-entry/RayleaLauncher.exe
 
   third-party-notices:
     if: >-

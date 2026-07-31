@@ -3,7 +3,7 @@
 import copy
 from datetime import datetime, timezone
 
-from rayleabot import command, event_handler
+from rayleabot_runtime import command, event_handler
 
 from business.events import subscription_matches_event
 from features.rendering import build_fallback_text, build_render_data

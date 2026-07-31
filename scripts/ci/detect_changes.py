@@ -100,12 +100,21 @@ def classify(files: list[str]) -> dict[str, bool]:
             result["server"] = True
             result["release"] = True
             matched = True
+        if path.startswith("plugins/runtime/"):
+            result["sdk"] = True
         if path.startswith("web/"):
             result["web"] = True
             matched = True
         if path.startswith("launcher/"):
             result["launcher"] = True
             matched = True
+        if (
+            path.startswith("launcher/native/")
+            or path.startswith("launcher/scripts/build-package")
+            or path == "launcher/scripts/package-before-build.cjs"
+            or path == "launcher/package.json"
+        ):
+            result["release"] = True
         if path.startswith("sdk/"):
             result["sdk"] = True
             matched = True
@@ -207,6 +216,13 @@ def self_test() -> None:
         (["server/internal/app/app.go"], {"server": True, "docs_only": False}),
         (["contracts/web-api.openapi.yaml"], {"contracts": True}),
         (["scripts/release/release_tool.py"], {"release": True}),
+        (["sdk/python/rayleabot/plugin.py"], {"sdk": True, "release": False}),
+        (
+            ["plugins/runtime/python/rayleabot_runtime/plugin.py"],
+            {"server": True, "sdk": True, "release": True},
+        ),
+        (["launcher/native/windows-entry/main_windows.go"], {"launcher": True, "release": True}),
+        (["launcher/scripts/build-package.mjs"], {"launcher": True, "release": True}),
         ([".github/workflows/ci.yml"], {"ci": True, "docs_only": False}),
         (["AGENTS.md"], {"docs": True, "docs_only": True}),
         (["templates/help.menu/template.json"], {"server": True, "release": True}),

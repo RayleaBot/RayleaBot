@@ -237,6 +237,7 @@ RayleaBot is licensed under AGPL-3.0-only. The components below retain their own
 | npm:web | estree-walker | 2.0.2 | MIT |
 | npm:web | exsolve | 1.1.0 | MIT |
 | npm:web | fdir | 6.5.0 | MIT |
+| npm:web | framer-motion | 12.42.2 | MIT |
 | npm:web | fsevents | 2.3.3 | MIT |
 | npm:web | hookable | 5.5.3 | MIT |
 | npm:web | immutable | 5.1.5 | MIT |
@@ -265,6 +266,9 @@ RayleaBot is licensed under AGPL-3.0-only. The components below retain their own
 | npm:web | magic-string-ast | 1.0.3 | MIT |
 | npm:web | mitt | 3.0.1 | MIT |
 | npm:web | mlly | 1.8.2 | MIT |
+| npm:web | motion | 12.42.2 | MIT |
+| npm:web | motion-dom | 12.42.2 | MIT |
+| npm:web | motion-utils | 12.39.0 | MIT |
 | npm:web | muggle-string | 0.4.1 | MIT |
 | npm:web | nanoid | 3.3.12 | MIT |
 | npm:web | nanopop | 2.4.2 | MIT |
@@ -294,6 +298,7 @@ RayleaBot is licensed under AGPL-3.0-only. The components below retain their own
 | npm:web | superjson | 2.2.6 | MIT |
 | npm:web | throttle-debounce | 5.0.2 | MIT |
 | npm:web | tinyglobby | 0.2.17 | MIT |
+| npm:web | tslib | 2.8.1 | 0BSD |
 | npm:web | typescript | 5.9.2 | Apache-2.0 |
 | npm:web | ufo | 1.6.3 | MIT |
 | npm:web | undici-types | 7.18.2 | MIT |
@@ -312,7 +317,7 @@ RayleaBot is licensed under AGPL-3.0-only. The components below retain their own
 
 ### 0BSD (232780e1bf81)
 
-Applies to: tslib@2.8.1
+Applies to: tslib@2.8.1, tslib@2.8.1
 
     [CopyrightNotice.txt]
     /******************************************************************************
@@ -3790,6 +3795,33 @@ Applies to: @fluentui/react-tags@9.9.2
     THE SOFTWARE IS PROVIDED *AS IS*, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
     Note: Usage of the fonts and icons referenced in Fluent UI React is subject to the terms listed at https://aka.ms/fluentui-assets-license
+
+### MIT (3d900dd88f67)
+
+Applies to: framer-motion@12.42.2
+
+    [LICENSE.md]
+    The MIT License (MIT)
+
+    Copyright (c) 2018 Framer B.V.
+
+    Permission is hereby granted, free of charge, to any person obtaining a copy
+    of this software and associated documentation files (the "Software"), to deal
+    in the Software without restriction, including without limitation the rights
+    to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+    copies of the Software, and to permit persons to whom the Software is
+    furnished to do so, subject to the following conditions:
+
+    The above copyright notice and this permission notice shall be included in all
+    copies or substantial portions of the Software.
+
+    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+    OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+    SOFTWARE.
 
 ### MIT (3e47a39b3ece)
 
@@ -11015,6 +11047,33 @@ Applies to: github.com/go-chi/chi/v5@v5.3.1
     COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
     IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
     CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+### MIT (f17acea5f19c)
+
+Applies to: motion@12.42.2, motion-dom@12.42.2, motion-utils@12.39.0
+
+    [LICENSE.md]
+    The MIT License (MIT)
+
+    Copyright (c) 2024 [Motion](https://motion.dev) B.V.
+
+    Permission is hereby granted, free of charge, to any person obtaining a copy
+    of this software and associated documentation files (the "Software"), to deal
+    in the Software without restriction, including without limitation the rights
+    to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+    copies of the Software, and to permit persons to whom the Software is
+    furnished to do so, subject to the following conditions:
+
+    The above copyright notice and this permission notice shall be included in all
+    copies or substantial portions of the Software.
+
+    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+    OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+    SOFTWARE.
 
 ### MIT (f354c39fc872)
 

@@ -48,6 +48,8 @@ REQUIRED_PATHS = {
         "raylea-server.exe",
         "raylea-updater.exe",
         "RayleaLauncher.exe",
+        "launcher/RayleaLauncher.exe",
+        "launcher/resources/app.asar",
         "build_info.json",
         "LICENSE",
         "THIRD_PARTY_NOTICES.md",

@@ -22,6 +22,8 @@ class RecoveryDrillTests(unittest.TestCase):
         required = recovery_drill.REQUIRED_PATHS["windows-x64-full"]
 
         self.assertIn("RayleaLauncher.exe", required)
+        self.assertIn("launcher/RayleaLauncher.exe", required)
+        self.assertIn("launcher/resources/app.asar", required)
         self.assertIn("raylea-updater.exe", required)
         self.assertIn("LICENSE", required)
         self.assertIn("THIRD_PARTY_NOTICES.md", required)

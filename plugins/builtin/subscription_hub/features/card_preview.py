@@ -1,7 +1,7 @@
 """Bilibili subscription card preview feature."""
 
-from rayleabot import command
-from rayleabot.protocol import ActionError
+from rayleabot_runtime import command
+from rayleabot_runtime.protocol import ActionError
 
 from business.http_utils import is_http_capability_error, preview_response_document
 from business.preview import (

@@ -4,6 +4,12 @@
 
 正式协议与字段以 `contracts/plugin-protocol.schema.json` 为准。
 
+## Python 包边界
+
+- `rayleabot-plugin-runtime` 提供插件进程与服务端通信所需的最小运行时客户端，导入名为 `rayleabot_runtime`。内置插件和发布包使用该包。
+- `rayleabot-sdk` 面向插件开发，依赖同版本运行时客户端，并保留 `rayleabot` 导入名作为兼容入口。
+- 新编写的 Python 插件直接导入 `rayleabot_runtime`；已有 `rayleabot` 导入继续可用。
+
 ## 当前覆盖范围
 
 - 生命周期握手：`init`、`init_progress`、`init_ack`、`ping`、`pong`、`shutdown`
@@ -36,7 +42,7 @@
 Python：
 
 ```python
-from rayleabot import RayleaBotPlugin, command
+from rayleabot_runtime import RayleaBotPlugin, command
 
 
 class EchoPlugin(RayleaBotPlugin):
@@ -91,12 +97,12 @@ Python 使用 snake_case builder，例如 `flash_file_segment(data)`、`keyboard
 - 本地 action helper 会自动生成独立 `request_id`，并附带 `parent_request_id`
 - SDK 按 `request_id` 路由返回结果，不依赖帧到达顺序
 - Node.js SDK 的 `run()` 允许不同事件处理器并发执行
-- Python SDK 的 `run()` 使用线程并发处理事件
+- Python 运行时客户端的 `run()` 使用线程并发处理事件
 - 事件处理函数需要满足可重入要求
 
 ## 相关文档
 
-Python wheel、sdist 与 Node.js package 使用仓库统一的 `AGPL-3.0-only` 许可证，并携带根仓库 `LICENSE`。
+Python 运行时客户端、Python SDK wheel 与 Node.js package 使用仓库统一的 `AGPL-3.0-only` 许可证，并携带根仓库 `LICENSE`。
 
 - [Plugin Lifecycle](../lifecycle.md)
 - [Capabilities and Manifest](../capabilities-and-manifest.md)

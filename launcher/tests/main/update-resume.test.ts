@@ -4,6 +4,7 @@ import path from "node:path";
 import { afterEach, describe, expect, test, vi } from "vitest";
 import {
   completeUpdateHeartbeat,
+  consumeLauncherEntryProcessId,
   consumeUpdateHeartbeatEnvironment,
   launchInterruptedUpdateRecovery,
 } from "@main/services/update-resume";
@@ -22,6 +23,20 @@ afterEach(async () => {
 });
 
 describe("update resume", () => {
+  test("accepts and consumes the supervised launcher entry process id", () => {
+    const environment = { RAYLEA_LAUNCHER_ENTRY_PID: "314" };
+
+    expect(consumeLauncherEntryProcessId(environment, 271, 314)).toBe(314);
+    expect(environment).not.toHaveProperty("RAYLEA_LAUNCHER_ENTRY_PID");
+  });
+
+  test("ignores launcher entry process ids that do not match the parent process", () => {
+    const environment = { RAYLEA_LAUNCHER_ENTRY_PID: "999" };
+
+    expect(consumeLauncherEntryProcessId(environment, 271, 314)).toBe(271);
+    expect(environment).not.toHaveProperty("RAYLEA_LAUNCHER_ENTRY_PID");
+  });
+
   test("consumes heartbeat secrets from the process environment", () => {
     const environment = {
       RAYLEA_UPDATE_HEARTBEAT: "C:/update/heartbeat.json",

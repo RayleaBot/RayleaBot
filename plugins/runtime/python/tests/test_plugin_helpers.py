@@ -7,8 +7,8 @@ import unittest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
-import rayleabot.plugin as plugin_module
-import rayleabot.protocol as protocol_module
+import rayleabot_runtime.plugin as plugin_module
+import rayleabot_runtime.protocol as protocol_module
 
 
 class PluginHelperTests(unittest.TestCase):

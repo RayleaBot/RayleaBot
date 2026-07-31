@@ -4,9 +4,9 @@
 import sys
 import os
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "..", "sdk", "python"))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "..", "plugins", "runtime", "python"))
 
-from rayleabot import RayleaBotPlugin, command
+from rayleabot_runtime import RayleaBotPlugin, command
 
 
 class EchoPlugin(RayleaBotPlugin):

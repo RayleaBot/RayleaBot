@@ -1,11 +1,10 @@
 [project]
-name = "rayleabot-sdk"
+name = "rayleabot-plugin-runtime"
 version = "0.1.0"
-description = "RayleaBot Python plugin development SDK and compatibility facade"
+description = "RayleaBot Python plugin runtime client"
 requires-python = ">=3.12"
 license = "AGPL-3.0-only"
 license-files = ["LICENSE"]
-dependencies = ["rayleabot-plugin-runtime==0.1.0"]
 
 [build-system]
 requires = ["setuptools>=77"]
@@ -13,4 +12,4 @@ build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["rayleabot*"]
+include = ["rayleabot_runtime*"]

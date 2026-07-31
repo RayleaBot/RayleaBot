@@ -8,12 +8,44 @@ import tarfile
 import tempfile
 import unittest
 import zipfile
+import struct
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(ROOT / "scripts" / "release"))
 
 import release_tool
+
+
+def write_test_asar(path: Path, entries: list[str]) -> None:
+    root: dict[str, object] = {"files": {}}
+    for entry in entries:
+        node = root
+        for part in Path(entry).parts:
+            files = node.setdefault("files", {})
+            assert isinstance(files, dict)
+            child = files.setdefault(part, {"files": {}})
+            assert isinstance(child, dict)
+            node = child
+    raw_header = json.dumps(root, separators=(",", ":")).encode("utf-8")
+    padded_size = (len(raw_header) + 3) & ~3
+    padded_header = raw_header + (b"\0" * (padded_size - len(raw_header)))
+    prefix = struct.pack("<IIII", 4, padded_size + 8, padded_size + 4, padded_size)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(prefix + padded_header)
+
+
+def write_test_python_plugin_runtime(path: Path) -> None:
+    package = path / "rayleabot_runtime"
+    package.mkdir(parents=True, exist_ok=True)
+    (package / "__init__.py").write_text("RUNTIME_MARKER = True\n", encoding="utf-8")
+    (package / "plugin.py").write_text("class RayleaBotPlugin: pass\n", encoding="utf-8")
+    (path / "tests").mkdir(parents=True, exist_ok=True)
+    (path / "tests" / "test_runtime.py").write_text("def test_runtime(): pass\n", encoding="utf-8")
+    (path / "pyproject.toml").write_text(
+        "[project]\nname = \"rayleabot-plugin-runtime\"\n",
+        encoding="utf-8",
+    )
 
 
 class ReleaseToolTests(unittest.TestCase):
@@ -58,6 +90,7 @@ class ReleaseToolTests(unittest.TestCase):
             launcher_bundle = temp / "win-unpacked"
             web_dist = temp / "web-dist"
             builtin = temp / "builtin"
+            python_plugin_runtime = temp / "python-plugin-runtime"
             deps = temp / ".deps"
             templates = temp / "templates"
             default_config = temp / "config" / "default.yaml"
@@ -71,9 +104,16 @@ class ReleaseToolTests(unittest.TestCase):
             license_file.write_text("AGPL", encoding="utf-8")
             notices_file.write_text("notices", encoding="utf-8")
             (launcher_bundle / "RayleaLauncher.exe").parent.mkdir(parents=True, exist_ok=True)
-            (launcher_bundle / "RayleaLauncher.exe").write_text("launcher", encoding="utf-8")
-            (launcher_bundle / "resources" / "app.asar").parent.mkdir(parents=True, exist_ok=True)
-            (launcher_bundle / "resources" / "app.asar").write_text("asar", encoding="utf-8")
+            (launcher_bundle / "RayleaLauncher.exe").write_text("entry", encoding="utf-8")
+            (launcher_bundle / "launcher" / "RayleaLauncher.exe").parent.mkdir(parents=True, exist_ok=True)
+            (launcher_bundle / "launcher" / "RayleaLauncher.exe").write_text("electron", encoding="utf-8")
+            write_test_asar(
+                launcher_bundle / "launcher" / "resources" / "app.asar",
+                ["dist/main/main/index.js", "node_modules/yaml/package.json", "package.json"],
+            )
+            (launcher_bundle / "launcher" / "locales" / "zh-CN.pak").parent.mkdir(parents=True, exist_ok=True)
+            (launcher_bundle / "launcher" / "locales" / "zh-CN.pak").write_text("locale", encoding="utf-8")
+            (launcher_bundle / "launcher" / "libEGL.dll").write_text("dll", encoding="utf-8")
             (web_dist / "index.html").parent.mkdir(parents=True, exist_ok=True)
             (web_dist / "index.html").write_text("<html></html>", encoding="utf-8")
             (web_dist / "app.js.map").write_text("source map", encoding="utf-8")
@@ -98,6 +138,7 @@ class ReleaseToolTests(unittest.TestCase):
             (templates / "status.panel" / "template.json").write_text("{}", encoding="utf-8")
             default_config.parent.mkdir(parents=True, exist_ok=True)
             default_config.write_text("schema_version: \"2\"\n", encoding="utf-8")
+            write_test_python_plugin_runtime(python_plugin_runtime)
 
             archive_path, sidecar = release_tool.stage_release_root(
                 artifact_id="windows-x64-full",
@@ -108,6 +149,7 @@ class ReleaseToolTests(unittest.TestCase):
                 server_bin=server_bin,
                 web_dist=web_dist,
                 builtin_dir=builtin,
+                python_plugin_runtime_dir=python_plugin_runtime,
                 deps_dir=deps,
                 templates_dir=templates,
                 default_config=default_config,
@@ -130,7 +172,13 @@ class ReleaseToolTests(unittest.TestCase):
             self.assertIn("RayleaBot-v0.1.0-windows-x64-full/raylea-updater.exe", names)
             self.assertIn("RayleaBot-v0.1.0-windows-x64-full/LICENSE", names)
             self.assertIn("RayleaBot-v0.1.0-windows-x64-full/THIRD_PARTY_NOTICES.md", names)
-            self.assertIn("RayleaBot-v0.1.0-windows-x64-full/resources/app.asar", names)
+            self.assertIn("RayleaBot-v0.1.0-windows-x64-full/launcher/RayleaLauncher.exe", names)
+            self.assertIn("RayleaBot-v0.1.0-windows-x64-full/launcher/resources/app.asar", names)
+            self.assertIn("RayleaBot-v0.1.0-windows-x64-full/launcher/locales/zh-CN.pak", names)
+            self.assertIn("RayleaBot-v0.1.0-windows-x64-full/launcher/libEGL.dll", names)
+            self.assertNotIn("RayleaBot-v0.1.0-windows-x64-full/resources/app.asar", names)
+            self.assertNotIn("RayleaBot-v0.1.0-windows-x64-full/locales/zh-CN.pak", names)
+            self.assertNotIn("RayleaBot-v0.1.0-windows-x64-full/libEGL.dll", names)
             self.assertIn("RayleaBot-v0.1.0-windows-x64-full/config/default.yaml", names)
             self.assertNotIn("RayleaBot-v0.1.0-windows-x64-full/contracts/config.user.schema.json", names)
             self.assertNotIn("RayleaBot-v0.1.0-windows-x64-full/contracts/plugin-info.schema.json", names)
@@ -143,6 +191,26 @@ class ReleaseToolTests(unittest.TestCase):
             self.assertNotIn("RayleaBot-v0.1.0-windows-x64-full/templates/help.menu/template.test.mjs", names)
             self.assertIn("RayleaBot-v0.1.0-windows-x64-full/plugins/builtin/fortune/info.json", names)
             self.assertIn("RayleaBot-v0.1.0-windows-x64-full/plugins/builtin/fortune/main.py", names)
+            self.assertIn(
+                "RayleaBot-v0.1.0-windows-x64-full/plugins/runtime/python/rayleabot_runtime/__init__.py",
+                names,
+            )
+            self.assertIn(
+                "RayleaBot-v0.1.0-windows-x64-full/plugins/runtime/python/rayleabot_runtime/plugin.py",
+                names,
+            )
+            self.assertNotIn(
+                "RayleaBot-v0.1.0-windows-x64-full/plugins/runtime/python/tests/test_runtime.py",
+                names,
+            )
+            self.assertNotIn(
+                "RayleaBot-v0.1.0-windows-x64-full/plugins/runtime/python/pyproject.toml",
+                names,
+            )
+            self.assertNotIn(
+                "RayleaBot-v0.1.0-windows-x64-full/sdk/python/rayleabot/__init__.py",
+                names,
+            )
             self.assertIn("RayleaBot-v0.1.0-windows-x64-full/templates/help.menu/template.json", names)
             self.assertIn("RayleaBot-v0.1.0-windows-x64-full/templates/status.panel/template.json", names)
             self.assertIn("RayleaBot-v0.1.0-windows-x64-full/web/dist/index.html", names)
@@ -181,6 +249,19 @@ class ReleaseToolTests(unittest.TestCase):
 
             release_tool.verify_release_bundle(manifest_path, checksums_path, output)
 
+    def test_launcher_asar_rejects_unbundled_renderer_dependencies(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            asar_path = Path(tmp) / "resources" / "app.asar"
+            write_test_asar(
+                asar_path,
+                ["dist/main/main/index.js", "node_modules/react/index.js", "package.json"],
+            )
+
+            with self.assertRaises(ValueError) as ctx:
+                release_tool.assert_launcher_bundle_clean(Path(tmp))
+
+        self.assertIn("node_modules/react", str(ctx.exception))
+
     def test_package_linux_desktop_bundle_places_launcher_at_release_root(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             temp = Path(tmp)
@@ -188,6 +269,7 @@ class ReleaseToolTests(unittest.TestCase):
             launcher_bundle = temp / "linux-unpacked"
             web_dist = temp / "web-dist"
             builtin = temp / "builtin"
+            python_plugin_runtime = temp / "python-plugin-runtime"
             deps = temp / ".deps"
             templates = temp / "templates"
             default_config = temp / "config" / "default.yaml"
@@ -214,6 +296,7 @@ class ReleaseToolTests(unittest.TestCase):
             (templates / "status.panel" / "template.json").write_text("{}", encoding="utf-8")
             default_config.parent.mkdir(parents=True, exist_ok=True)
             default_config.write_text("schema_version: \"2\"\n", encoding="utf-8")
+            write_test_python_plugin_runtime(python_plugin_runtime)
 
             archive_path, _ = release_tool.stage_release_root(
                 artifact_id="linux-x64-full",
@@ -224,6 +307,7 @@ class ReleaseToolTests(unittest.TestCase):
                 server_bin=server_bin,
                 web_dist=web_dist,
                 builtin_dir=builtin,
+                python_plugin_runtime_dir=python_plugin_runtime,
                 deps_dir=deps,
                 templates_dir=templates,
                 default_config=default_config,
@@ -252,6 +336,7 @@ class ReleaseToolTests(unittest.TestCase):
             launcher_bundle = temp / "RayleaLauncher.app"
             web_dist = temp / "web-dist"
             builtin = temp / "builtin"
+            python_plugin_runtime = temp / "python-plugin-runtime"
             deps = temp / ".deps"
             templates = temp / "templates"
             default_config = temp / "config" / "default.yaml"
@@ -279,6 +364,7 @@ class ReleaseToolTests(unittest.TestCase):
             (templates / "status.panel" / "template.json").write_text("{}", encoding="utf-8")
             default_config.parent.mkdir(parents=True, exist_ok=True)
             default_config.write_text("schema_version: \"2\"\n", encoding="utf-8")
+            write_test_python_plugin_runtime(python_plugin_runtime)
 
             archive_path, _ = release_tool.stage_release_root(
                 artifact_id="macos-arm64-full",
@@ -289,6 +375,7 @@ class ReleaseToolTests(unittest.TestCase):
                 server_bin=server_bin,
                 web_dist=web_dist,
                 builtin_dir=builtin,
+                python_plugin_runtime_dir=python_plugin_runtime,
                 deps_dir=deps,
                 templates_dir=templates,
                 default_config=default_config,
@@ -316,6 +403,7 @@ class ReleaseToolTests(unittest.TestCase):
             server_bin = temp / "raylea-server"
             web_dist = temp / "web-dist"
             builtin = temp / "builtin"
+            python_plugin_runtime = temp / "python-plugin-runtime"
             deps = temp / ".deps"
             templates = temp / "templates"
             default_config = temp / "config" / "default.yaml"
@@ -339,6 +427,7 @@ class ReleaseToolTests(unittest.TestCase):
             (templates / "status.panel" / "template.json").write_text("{}", encoding="utf-8")
             default_config.parent.mkdir(parents=True, exist_ok=True)
             default_config.write_text("schema_version: \"2\"\n", encoding="utf-8")
+            write_test_python_plugin_runtime(python_plugin_runtime)
             systemd_file.write_text("[Service]\nExecStart=/opt/raylea/raylea-server\n", encoding="utf-8")
 
             archive_path, _ = release_tool.stage_release_root(
@@ -350,6 +439,7 @@ class ReleaseToolTests(unittest.TestCase):
                 server_bin=server_bin,
                 web_dist=web_dist,
                 builtin_dir=builtin,
+                python_plugin_runtime_dir=python_plugin_runtime,
                 deps_dir=deps,
                 templates_dir=templates,
                 default_config=default_config,

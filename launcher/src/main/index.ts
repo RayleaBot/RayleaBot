@@ -41,6 +41,7 @@ import {
 } from "./services/electron-security";
 import {
   completeUpdateHeartbeat,
+  consumeLauncherEntryProcessId,
   consumeUpdateHeartbeatEnvironment,
   launchInterruptedUpdateRecovery,
 } from "./services/update-resume";
@@ -79,6 +80,7 @@ const executableBasePath = resolveLauncherBasePath({
 const updateHeartbeatEnvironmentPresent = Boolean(
   process.env.RAYLEA_UPDATE_HEARTBEAT || process.env.RAYLEA_UPDATE_TOKEN,
 );
+const launcherEntryProcessId = consumeLauncherEntryProcessId();
 const updateHeartbeatRequest = consumeUpdateHeartbeatEnvironment();
 const settingsStore = new JsonLauncherSettingsStore(executableBasePath, process.platform);
 const serverCredentials = new LauncherServerCredentials();
@@ -335,7 +337,7 @@ function wireIpc() {
   secureIpc.noArgs(launcherInvokeChannels.checkForUpdates, () => coordinator.checkForUpdates());
   secureIpc.noArgs(launcherInvokeChannels.downloadUpdate, () => coordinator.downloadUpdate());
   secureIpc.noArgs(launcherInvokeChannels.installDownloadedUpdate, async () => {
-    await coordinator.prepareUpdateInstall(process.pid);
+    await coordinator.prepareUpdateInstall(launcherEntryProcessId);
     await appExitManager.requestExit();
   });
   secureIpc.oneArg(
@@ -388,7 +390,10 @@ function wireIpc() {
 
 async function bootstrap() {
   await app.whenReady();
-  if (!updateHeartbeatEnvironmentPresent && await launchInterruptedUpdateRecovery(executableBasePath, process.pid)) {
+  if (
+    !updateHeartbeatEnvironmentPresent
+    && await launchInterruptedUpdateRecovery(executableBasePath, launcherEntryProcessId)
+  ) {
     await appExitManager.requestExit();
     return;
   }
@@ -419,7 +424,7 @@ async function bootstrap() {
   await completeUpdateHeartbeat(executableBasePath, updateHeartbeatRequest, {
     startService: () => coordinator.start(),
     getSnapshot: () => coordinator.snapshot,
-    launcherPid: process.pid,
+    launcherPid: launcherEntryProcessId,
     servicePid: () => processController.processId,
   });
 }

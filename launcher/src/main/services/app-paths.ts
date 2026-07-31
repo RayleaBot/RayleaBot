@@ -1,5 +1,7 @@
 import path from "node:path";
 
+const WINDOWS_LAUNCHER_RUNTIME_DIRECTORY = "launcher";
+
 function isWindowsAbsolutePath(input: string) {
   return /^[a-zA-Z]:[\\/]/.test(input) || input.startsWith("\\\\");
 }
@@ -25,7 +27,15 @@ export function resolveLauncherBasePath(input: {
   }
 
   const executablePath = resolveAbsolutePath(input.executablePath);
-  return getPathFlavor(executablePath).dirname(executablePath);
+  const pathFlavor = getPathFlavor(executablePath);
+  const executableDirectory = pathFlavor.dirname(executablePath);
+  if (
+    pathFlavor === path.win32
+    && pathFlavor.basename(executableDirectory).toLowerCase() === WINDOWS_LAUNCHER_RUNTIME_DIRECTORY
+  ) {
+    return pathFlavor.dirname(executableDirectory);
+  }
+  return executableDirectory;
 }
 
 export function resolveLauncherAssetPaths(appPath: string) {

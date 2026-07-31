@@ -110,6 +110,7 @@ jobs:
           mkdir -p dist/server
           if [ "${{ matrix.artifact_id }}" = "windows-x64-full" ]; then
             (cd server && go build -o ../dist/server/raylea-server.exe ./cmd/raylea-server)
+            (cd server && go build -o ../dist/server/raylea-updater.exe ./cmd/raylea-updater)
           else
             (cd server && go build -o ../dist/server/raylea-server ./cmd/raylea-server)
           fi
@@ -169,6 +170,9 @@ jobs:
           )
           if [ "${{ matrix.launcher_required }}" = "true" ]; then
             PACKAGE_ARGS+=(--launcher-bundle "${{ matrix.launcher_bundle }}")
+          fi
+          if [ "${{ matrix.artifact_id }}" = "windows-x64-full" ]; then
+            PACKAGE_ARGS+=(--updater-bin dist/server/raylea-updater.exe)
           fi
           if [ -n "${{ matrix.systemd_file }}" ]; then
             PACKAGE_ARGS+=(--systemd-file "${{ matrix.systemd_file }}")

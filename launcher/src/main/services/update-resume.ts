@@ -43,6 +43,23 @@ function parseBoolean(value: string) {
   return value.trim().toLowerCase() === "true";
 }
 
+export function consumeLauncherEntryProcessId(
+  environment: NodeJS.ProcessEnv = process.env,
+  currentProcessId = process.pid,
+  parentProcessId = process.ppid,
+) {
+  const rawProcessId = stringValue(environment.RAYLEA_LAUNCHER_ENTRY_PID);
+  delete environment.RAYLEA_LAUNCHER_ENTRY_PID;
+  if (!/^[1-9]\d*$/.test(rawProcessId)) {
+    return currentProcessId;
+  }
+  const entryProcessId = Number(rawProcessId);
+  if (!Number.isSafeInteger(entryProcessId) || entryProcessId !== parentProcessId) {
+    return currentProcessId;
+  }
+  return entryProcessId;
+}
+
 function samePath(left: string, right: string) {
   return path.resolve(left).toLowerCase() === path.resolve(right).toLowerCase();
 }

@@ -5,7 +5,7 @@
 用途：
 
 - 展示最小 `info.json` 应如何声明
-- 展示 Python SDK 的 `RayleaBotPlugin` 子类入口
+- 展示 Python 运行时客户端的 `RayleaBotPlugin` 子类入口
 - 展示 `EventContext` 如何读取事件并返回 `result`
 
 常用 SDK helper 示例：
@@ -19,7 +19,7 @@ ctx.napcat_group_sign_set("123456")
 ```
 
 ```python
-from rayleabot import ActionError, flash_file_segment, markdown_segment
+from rayleabot_runtime import ActionError, flash_file_segment, markdown_segment
 
 segments = [
     markdown_segment("## 日报"),

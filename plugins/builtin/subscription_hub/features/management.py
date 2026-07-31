@@ -1,6 +1,6 @@
 """Plugin management page action handlers."""
 
-from rayleabot import event_handler
+from rayleabot_runtime import event_handler
 
 from business.commands import resolve_bilibili_user
 from business.subject_inputs import subject_id_from_input

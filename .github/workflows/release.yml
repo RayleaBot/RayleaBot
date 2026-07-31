@@ -114,7 +114,8 @@ jobs:
           $signTargets = @(
             'dist/server/raylea-server.exe',
             'dist/server/raylea-updater.exe',
-            'launcher/dist/package/win-unpacked/RayleaLauncher.exe'
+            'launcher/dist/package/win-unpacked/RayleaLauncher.exe',
+            'launcher/dist/package/win-unpacked/launcher/RayleaLauncher.exe'
           )
           if (-not [string]::IsNullOrWhiteSpace($env:RAYLEA_WINDOWS_CERT_SHA1)) {
             foreach ($target in $signTargets) {

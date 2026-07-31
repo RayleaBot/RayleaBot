@@ -6,9 +6,9 @@ import sys
 
 PLUGIN_DIR = os.path.dirname(__file__)
 sys.path.insert(0, PLUGIN_DIR)
-sys.path.insert(0, os.path.join(PLUGIN_DIR, "..", "..", "..", "sdk", "python"))
+sys.path.insert(0, os.path.join(PLUGIN_DIR, "..", "..", "runtime", "python"))
 
-from rayleabot import RayleaBotPlugin, event_handler
+from rayleabot_runtime import RayleaBotPlugin, event_handler
 
 from raylea_game_guide import GameGuideService
 

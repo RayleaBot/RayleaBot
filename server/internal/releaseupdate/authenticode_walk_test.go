@@ -12,7 +12,8 @@ func TestAuthenticodeWalkRequiresRootExecutablesAndChecksEveryPE(t *testing.T) {
 		"RayleaLauncher.exe",
 		"raylea-server.exe",
 		"raylea-updater.exe",
-		"resources/helper.dll",
+		"launcher/RayleaLauncher.exe",
+		"launcher/libEGL.dll",
 	} {
 		writeFile(t, filepath.Join(root, name), []byte("PE"))
 	}
@@ -27,7 +28,7 @@ func TestAuthenticodeWalkRequiresRootExecutablesAndChecksEveryPE(t *testing.T) {
 	}, new(int)); err != nil {
 		t.Fatal(err)
 	}
-	if verified != 4 || required != 3 {
+	if verified != 5 || required != 3 {
 		t.Fatalf("verified=%d required=%d", verified, required)
 	}
 }

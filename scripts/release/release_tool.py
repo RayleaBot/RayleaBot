@@ -8,6 +8,7 @@ import json
 import fnmatch
 import re
 import shutil
+import struct
 import subprocess
 import tarfile
 import tempfile
@@ -80,6 +81,23 @@ FORBIDDEN_FILE_PATTERNS = (
 )
 RELEASE_FILTERED_FILE_PATTERNS = FORBIDDEN_FILE_PATTERNS + ("*.md",)
 RELEASE_FILTERED_DIRECTORY_NAMES = FORBIDDEN_DIRECTORY_NAMES
+LAUNCHER_ASAR_ALLOWED_NODE_MODULES = {"yaml"}
+LAUNCHER_ASAR_ALLOWED_TOP_LEVEL_PATHS = {"dist", "node_modules", "package.json"}
+LAUNCHER_ASAR_FORBIDDEN_DIRECTORY_NAMES = (
+    FORBIDDEN_DIRECTORY_NAMES - {"node_modules"}
+) | {"example", "examples", "src"}
+LAUNCHER_ASAR_FORBIDDEN_FILE_PATTERNS = FORBIDDEN_FILE_PATTERNS + (
+    "*.d.cts",
+    "*.d.mts",
+    "*.d.ts",
+    "*.ts",
+    "*.tsx",
+    "CHANGELOG*",
+    "CONTRIBUTING*",
+    "README*",
+)
+MAX_LAUNCHER_ASAR_HEADER_BYTES = 64 * 1024 * 1024
+WINDOWS_LAUNCHER_RUNTIME_DIRECTORY = "launcher"
 
 
 @dataclass(frozen=True)
@@ -164,7 +182,106 @@ def copy_file(src: Path, dst: Path) -> None:
     shutil.copy2(src, dst)
 
 
+def read_asar_entries(path: Path) -> list[str]:
+    with path.open("rb") as handle:
+        prefix = handle.read(16)
+        if len(prefix) != 16:
+            raise ValueError(f"launcher app.asar header is truncated: {path}")
+        header_size = struct.unpack_from("<I", prefix, 12)[0]
+        if header_size == 0 or header_size > MAX_LAUNCHER_ASAR_HEADER_BYTES:
+            raise ValueError(f"launcher app.asar header size is invalid: {header_size}")
+        raw_header = handle.read(header_size).rstrip(b"\0")
+    try:
+        header = json.loads(raw_header.decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise ValueError(f"launcher app.asar header is invalid: {path}") from exc
+
+    entries: list[str] = []
+
+    def walk(node: object, prefix_parts: tuple[str, ...]) -> None:
+        if not isinstance(node, dict):
+            raise ValueError(f"launcher app.asar entry is invalid: {'/'.join(prefix_parts)}")
+        files = node.get("files")
+        if not isinstance(files, dict):
+            return
+        for name, child in files.items():
+            if not isinstance(name, str) or not name:
+                raise ValueError("launcher app.asar contains an invalid entry name")
+            parts = (*prefix_parts, name)
+            entries.append("/".join(parts))
+            walk(child, parts)
+
+    walk(header, ())
+    return entries
+
+
+def launcher_asar_node_module(entry: str) -> str | None:
+    parts = Path(entry).parts
+    if len(parts) < 2 or parts[0] != "node_modules":
+        return None
+    if parts[1].startswith("@"):
+        return "/".join(parts[1:3]) if len(parts) >= 3 else None
+    return parts[1]
+
+
+def find_forbidden_launcher_asar_entries(entries: list[str]) -> list[str]:
+    forbidden: list[str] = []
+    for entry in entries:
+        normalized = entry.replace("\\", "/").strip("/")
+        parts = tuple(part for part in normalized.split("/") if part)
+        if not parts:
+            continue
+        if parts[0] not in LAUNCHER_ASAR_ALLOWED_TOP_LEVEL_PATHS:
+            forbidden.append(normalized)
+            continue
+        module = launcher_asar_node_module(normalized)
+        if module is not None and module not in LAUNCHER_ASAR_ALLOWED_NODE_MODULES:
+            forbidden.append(normalized)
+            continue
+        if any(part in LAUNCHER_ASAR_FORBIDDEN_DIRECTORY_NAMES for part in parts):
+            forbidden.append(normalized)
+            continue
+        if any(fnmatch.fnmatchcase(parts[-1], pattern) for pattern in LAUNCHER_ASAR_FORBIDDEN_FILE_PATTERNS):
+            forbidden.append(normalized)
+    return forbidden
+
+
+def assert_launcher_bundle_clean(src: Path) -> None:
+    candidates = (
+        [src / "Contents" / "Resources" / "app.asar"]
+        if src.suffix == ".app"
+        else [
+            src / "resources" / "app.asar",
+            src / WINDOWS_LAUNCHER_RUNTIME_DIRECTORY / "resources" / "app.asar",
+        ]
+    )
+    for candidate in candidates:
+        if not candidate.is_file():
+            continue
+        forbidden = find_forbidden_launcher_asar_entries(read_asar_entries(candidate))
+        if forbidden:
+            preview = forbidden[:20]
+            suffix = f" (+{len(forbidden) - len(preview)} more)" if len(forbidden) > len(preview) else ""
+            raise ValueError(f"launcher app.asar contains development files: {preview}{suffix}")
+
+
+def assert_windows_launcher_bundle_layout(src: Path) -> None:
+    required = (
+        src / "RayleaLauncher.exe",
+        src / WINDOWS_LAUNCHER_RUNTIME_DIRECTORY / "RayleaLauncher.exe",
+        src / WINDOWS_LAUNCHER_RUNTIME_DIRECTORY / "resources" / "app.asar",
+    )
+    missing = [path.relative_to(src).as_posix() for path in required if not path.is_file()]
+    if missing:
+        raise ValueError(f"Windows launcher bundle is missing packaged entries: {missing}")
+    allowed_root_entries = {"RayleaLauncher.exe", WINDOWS_LAUNCHER_RUNTIME_DIRECTORY}
+    unexpected = sorted(item.name for item in src.iterdir() if item.name not in allowed_root_entries)
+    if unexpected:
+        raise ValueError(f"Windows launcher bundle has Electron resources at its root: {unexpected}")
+
+
 def copy_launcher_bundle(src: Path, dst_root: Path) -> None:
+    assert_launcher_bundle_clean(src)
     if src.is_dir():
         if src.suffix == ".app":
             copy_tree(src, dst_root / src.name)
@@ -217,6 +334,7 @@ def stage_release_root(
     server_bin: Path,
     web_dist: Path,
     builtin_dir: Path,
+    python_plugin_runtime_dir: Path,
     deps_dir: Path,
     templates_dir: Path,
     default_config: Path,
@@ -238,6 +356,13 @@ def stage_release_root(
         raise ValueError("linux-x64-server requires --systemd-file")
     if artifact_id == "windows-x64-full" and updater_bin is None:
         raise ValueError("windows-x64-full requires --updater-bin")
+    if artifact_id == "windows-x64-full" and launcher_bundle is not None:
+        assert_windows_launcher_bundle_layout(launcher_bundle)
+    python_plugin_runtime_package = python_plugin_runtime_dir / "rayleabot_runtime"
+    if not (python_plugin_runtime_package / "__init__.py").is_file():
+        raise ValueError(
+            f"release package requires Python plugin runtime package: {python_plugin_runtime_package}"
+        )
     for required_file, label in ((license_file, "LICENSE"), (third_party_notices, "THIRD_PARTY_NOTICES.md")):
         if not required_file.is_file() or required_file.stat().st_size == 0:
             raise ValueError(f"release package requires non-empty {label}")
@@ -261,6 +386,10 @@ def stage_release_root(
 
     copy_release_tree(web_dist, stage_root / "web" / "dist")
     copy_release_tree(builtin_dir, stage_root / "plugins" / "builtin")
+    copy_release_tree(
+        python_plugin_runtime_package,
+        stage_root / "plugins" / "runtime" / "python" / "rayleabot_runtime",
+    )
     copy_deps_manifest(deps_dir, stage_root / ".deps")
     copy_release_tree(templates_dir, stage_root / "templates")
     copy_file(default_config, stage_root / "config" / "default.yaml")
@@ -549,6 +678,7 @@ def cmd_package(args: argparse.Namespace) -> int:
         server_bin=Path(args.server_bin),
         web_dist=Path(args.web_dist),
         builtin_dir=Path(args.builtin_dir),
+        python_plugin_runtime_dir=Path(args.python_plugin_runtime_dir),
         deps_dir=Path(args.deps_dir),
         templates_dir=Path(args.templates_dir),
         default_config=Path(args.default_config),
@@ -616,6 +746,7 @@ def build_parser() -> argparse.ArgumentParser:
     package.add_argument("--server-bin", required=True)
     package.add_argument("--web-dist", required=True)
     package.add_argument("--builtin-dir", required=True)
+    package.add_argument("--python-plugin-runtime-dir", required=True)
     package.add_argument("--deps-dir", required=True)
     package.add_argument("--templates-dir", required=True)
     package.add_argument("--default-config", required=True)
