@@ -6,6 +6,7 @@ import type {
   EnvironmentCheckResult,
   EnvironmentInspection,
   ExternalOpener,
+  LauncherConfigInitializer,
   LauncherManagementClient,
   LauncherOperationContext,
   LauncherResetAdminRunner,
@@ -160,6 +161,18 @@ export class FakeResetAdminRunner implements LauncherResetAdminRunner {
 
   async run() {
     this.calls += 1;
+  }
+}
+
+export class FakeConfigInitializer implements LauncherConfigInitializer {
+  calls = 0;
+  error: Error | null = null;
+
+  async run() {
+    this.calls += 1;
+    if (this.error) {
+      throw this.error;
+    }
   }
 }
 

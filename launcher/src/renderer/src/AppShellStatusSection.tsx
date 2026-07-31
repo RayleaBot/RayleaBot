@@ -43,13 +43,16 @@ export function AppShellStatusSection({
   const recoverySummary = useMemo(() => resolveRecoverySummary(snapshot), [snapshot]);
   const runtimePrepare = snapshot.launcher.runtimePrepare ?? null;
   const readiness = snapshot.server.readiness ?? null;
+  const setupRequired = readiness?.status === "setup_required";
   const checks = useMemo(() => sortChecks(snapshot.launcher.preflightChecks || []), [snapshot.launcher.preflightChecks]);
   const nonOkChecks = useMemo(() => checks.filter((item) => item.severity !== "ok"), [checks]);
-  const readinessIssues = readiness?.issues ?? [];
-  const readinessReason = readiness?.reason?.trim() ?? "";
-  const readinessReasonCodes = readiness?.reason_codes ?? [];
-  const nonOkReadinessChecks = Object.entries(readiness?.checks ?? {}).filter(([, value]) => value && value !== "ok");
-  const primaryReadinessIssue = readinessIssues[0] ?? null;
+  const readinessIssues = setupRequired ? [] : readiness?.issues ?? [];
+  const readinessReason = setupRequired ? "" : readiness?.reason?.trim() ?? "";
+  const readinessReasonCodes = setupRequired ? [] : readiness?.reason_codes ?? [];
+  const nonOkReadinessChecks = setupRequired
+    ? []
+    : Object.entries(readiness?.checks ?? {}).filter(([, value]) => value && value !== "ok");
+  const primaryReadinessIssue = setupRequired ? null : readinessIssues[0] ?? null;
   const primaryEnvironmentIssue = nonOkChecks[0] ?? null;
   const recoveryStatusSummary = formatRecoverySummary(recoverySummary);
   const hasRecentStderr = snapshot.launcher.recentStderr.length > 0;
@@ -69,7 +72,7 @@ export function AppShellStatusSection({
       ? (runtimePrepare.summary || "正在准备运行环境。")
       : readinessReason
     || primaryReadinessIssue?.summary
-    || (presentation.state === "degraded" || presentation.state === "setup_required" || presentation.state === "failed"
+    || (presentation.state === "degraded" || presentation.state === "failed"
       ? presentation.detail
       : primaryEnvironmentIssue
         ? `${primaryEnvironmentIssue.title}：${primaryEnvironmentIssue.summary}`
@@ -81,9 +84,7 @@ export function AppShellStatusSection({
       ? "启动器检测到本地异常。"
       : presentation.state === "degraded"
         ? "服务可运行，部分能力受限。"
-        : presentation.state === "setup_required"
-          ? "服务可运行，需要完成初始化。"
-          : presentation.state === "failed"
+        : presentation.state === "failed"
             ? "服务未通过就绪检查。"
             : presentation.detail;
   const hasReadinessDiagnostics = !runtimePrepare?.active && Boolean(
@@ -124,9 +125,6 @@ export function AppShellStatusSection({
     }
     if (presentation.state === "degraded") {
       return { label: "当前限制", text: statusReasonText, tone: "warning" as const };
-    }
-    if (presentation.state === "setup_required") {
-      return { label: "需要处理", text: statusReasonText, tone: "attention" as const };
     }
     if (readinessReason || primaryReadinessIssue) {
       return {

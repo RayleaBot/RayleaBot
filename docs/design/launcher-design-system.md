@@ -41,7 +41,7 @@ Launcher 支持 `system`、`light` 和 `dark`，首次显示跟随系统。`Flue
 | `starting`、`stopping` | info | 启动器正在执行系统操作 |
 | `running` | success | 服务可用 |
 | `degraded` | warning | 服务可用但能力受限 |
-| `setup_required` | attention | 需要操作者完成初始化 |
+| `setup_required` | running | 按运行中展示；管理界面负责承接首次初始化流程 |
 | `failed` | danger | 服务启动或就绪失败 |
 
 ## 桌面壳结构

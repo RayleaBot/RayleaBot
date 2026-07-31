@@ -12,7 +12,6 @@ export type LauncherPresentationState =
   | "starting"
   | "running"
   | "degraded"
-  | "setup_required"
   | "stopping"
   | "failed";
 
@@ -34,7 +33,6 @@ const stateLabels: Record<LauncherPresentationState, string> = {
   starting: "启动中",
   running: "运行中",
   degraded: "运行条件受限",
-  setup_required: "需要设置",
   stopping: "停止中",
   failed: "启动失败",
 };
@@ -148,8 +146,10 @@ function derivePresentationState(snapshot: LauncherSnapshot): Pick<LauncherPrese
         return { state: "degraded", detail: degradedDetail(readiness, processOwnership) };
       case "setup_required":
         return {
-          state: "setup_required",
-          detail: detailFromReadiness(readiness, "服务正在运行，需要完成管理员初始化。"),
+          state: "running",
+          detail: processOwnership === "external"
+            ? "检测到现有服务。可以直接打开管理界面，或确认后停止它。"
+            : "服务正在运行。",
         };
       case "failed":
       default:
@@ -174,7 +174,7 @@ function derivePresentationState(snapshot: LauncherSnapshot): Pick<LauncherPrese
   if (bootstrapConfigAvailable) {
     return {
       state: "stopped",
-      detail: localHint || "服务尚未启动。启动服务后会基于 default.yaml 生成首份用户配置。",
+      detail: localHint || "服务尚未启动。Launcher 会在启动服务前基于 default.yaml 生成首份用户配置。",
     };
   }
 
@@ -197,9 +197,6 @@ function primaryActionLabel(state: LauncherPresentationState, ownership: Launche
   }
   if ((state === "running" || state === "degraded") && ownership === "launcher_managed") {
     return "重启服务";
-  }
-  if (state === "setup_required") {
-    return "打开初始化";
   }
   return "启动 RayleaBot";
 }
@@ -225,11 +222,12 @@ export function formatReadinessIssue(issue: LauncherDiagnosticIssue) {
 export function deriveLauncherPresentation(snapshot: LauncherSnapshot): LauncherPresentation {
   const { state, detail } = derivePresentationState(snapshot);
   const recoverySummary = resolveRecoverySummary(snapshot);
-  const canOpenWebUi = state === "running" || state === "degraded" || state === "setup_required";
+  const setupRequired = snapshot.server.readiness?.status === "setup_required";
+  const canOpenWebUi = state === "running" || state === "degraded";
   const canStopService =
-    (state === "running" || state === "degraded" || state === "failed" || state === "setup_required")
+    (state === "running" || state === "degraded" || state === "failed")
     && snapshot.launcher.processOwnership !== "none";
-  const canRunRecoveryActions = state === "running" || state === "degraded";
+  const canRunRecoveryActions = !setupRequired && (state === "running" || state === "degraded");
 
   return {
     state,

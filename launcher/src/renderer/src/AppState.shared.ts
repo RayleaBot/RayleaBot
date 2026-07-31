@@ -69,11 +69,12 @@ export const initialSnapshot: LauncherSnapshot = {
 export function buildDiagnosticsSummary(snapshot: LauncherSnapshot) {
   const presentation = deriveLauncherPresentation(snapshot);
   const readiness = snapshot.server.readiness;
-  const readinessChecks = Object.entries(readiness?.checks ?? {})
+  const setupRequired = readiness?.status === "setup_required";
+  const readinessChecks = Object.entries(setupRequired ? {} : readiness?.checks ?? {})
     .filter(([, value]) => value && value !== "ok")
     .map(([name, value]) => `- ${formatDiagnosticCheckName(name)}：${formatDiagnosticCheckValue(value)}`)
     .join("\n");
-  const readinessIssues = (readiness?.issues ?? [])
+  const readinessIssues = (setupRequired ? [] : readiness?.issues ?? [])
     .map((item) => `- ${formatReadinessIssue(item)}`)
     .join("\n");
   const checks = snapshot.launcher.environmentChecks
@@ -101,8 +102,8 @@ export function buildDiagnosticsSummary(snapshot: LauncherSnapshot) {
       `服务连接：${formatHealthStatus(snapshot.server.health?.status)}`,
       `就绪状态：${formatReadinessStatus(readiness?.status)}`,
       `系统状态：${formatSystemStatus(snapshot.server.systemStatus?.status)}`,
-      `原因：${readiness?.reason || "—"}`,
-      `原因代码：${readiness?.reason_codes?.length ? readiness.reason_codes.join(", ") : "—"}`,
+      `原因：${setupRequired ? "—" : readiness?.reason || "—"}`,
+      `原因代码：${!setupRequired && readiness?.reason_codes?.length ? readiness.reason_codes.join(", ") : "—"}`,
       "就绪问题：",
       readinessIssues || "- 未发现就绪问题。",
       "就绪检查：",

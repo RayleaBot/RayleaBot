@@ -1,6 +1,7 @@
 import { buildLocalDetail, startingDetail } from "../../shared/launcher-presentation";
 import type {
   EnvironmentInspection,
+  LauncherConfigInitializer,
   LauncherCoordinatorOptions,
   LauncherLifecycleService,
   LauncherManagementClient,
@@ -29,6 +30,7 @@ interface LauncherLifecycleServiceDependencies {
   tryStopEndpointProcess(endpoint: ServerEndpoint): Promise<boolean>;
   externalOpener: ExternalOpener;
   confirmExternalServiceStop?(): Promise<boolean>;
+  configInitializer?: LauncherConfigInitializer;
   resetAdminRunner?: LauncherResetAdminRunner;
   options: Required<LauncherCoordinatorOptions>;
 }
@@ -128,10 +130,40 @@ export function createLauncherLifecycleService(deps: LauncherLifecycleServiceDep
 
   return {
     async start() {
-      const context = await deps.runtimeContext.createOperationContext();
-      const inspection = await deps.inspectEnvironment(context.resolvedSettings);
+      let context = await deps.runtimeContext.createOperationContext();
+      let inspection = await deps.inspectEnvironment(context.resolvedSettings);
 
-      if (inspection.hasBlockingIssues && !inspection.canBootstrapUserConfig) {
+      if (inspection.canBootstrapUserConfig) {
+        try {
+          if (!deps.configInitializer) {
+            throw new Error("用户配置初始化功能不可用。");
+          }
+          await deps.configInitializer.run(context.resolvedSettings);
+          context = await deps.runtimeContext.createOperationContext();
+          inspection = await deps.inspectEnvironment(context.resolvedSettings);
+          if (inspection.canBootstrapUserConfig) {
+            throw new Error("配置初始化命令已完成，但 config/user.yaml 仍未生成。");
+          }
+        } catch (error) {
+          const detail = error instanceof Error ? error.message : "无法生成首份用户配置。";
+          await deps.snapshotStore.publish(
+            deps.snapshotStore.buildSnapshot(
+              context,
+              inspection,
+              {},
+              {
+                processLifecycle: "stopped",
+                processOwnership: "none",
+                statusHint: "无法生成首份用户配置。",
+                lastLocalError: detail,
+              },
+            ),
+          );
+          return;
+        }
+      }
+
+      if (inspection.hasBlockingIssues) {
         await deps.snapshotStore.publish(
           deps.snapshotStore.buildSnapshot(
             context,

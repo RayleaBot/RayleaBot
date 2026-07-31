@@ -11,6 +11,7 @@
 - `data/launcher.json` 保存 Launcher 的本机设置，例如安装根选择、关闭行为和本地覆盖项。
 - 服务运行时按内置 schema 默认值、`default.yaml`、`user.yaml` 生成有效配置。
 - 服务启动只读取配置文件，不创建或重写 `default.yaml`、`user.yaml`。
+- Launcher 检测到 `user.yaml` 缺失且 `default.yaml` 可用时，会执行配置初始化并重新检查环境，再启动服务。
 - 日志和诊断输出会过滤 `Authorization`、`access_token`、`token` 等敏感键。
 - 通过管理端保存 OneBot11 访问令牌时，明文值写入本地 secret store，`user.yaml` 只保存 `secret://onebot/<transport>/access_token` 引用。
 - OneBot11 访问令牌默认通过 `Authorization: Bearer` 传递。只有旧服务端或旧 webhook 客户端必须使用 URL query token 时，才将对应入口的 `access_token_query_compat` 显式设为 `true`。

@@ -903,9 +903,10 @@ describe("launcher coordinator", () => {
     await coordinator.start();
 
     expect(processController.startCalls).toBe(1);
-    expect(presentationState(coordinator.snapshot).state).toBe("setup_required");
+    expect(presentationState(coordinator.snapshot).state).toBe("running");
     expect(coordinator.snapshot.launcher.processOwnership).toBe("launcher_managed");
-    expect(presentationState(coordinator.snapshot).detail).toContain("管理员初始化");
+    expect(coordinator.snapshot.server.readiness?.reason).toContain("管理员初始化");
+    expect(presentationState(coordinator.snapshot).detail).toBe("服务正在运行。");
   });
 
   test("stop keeps an external service running when the confirmation is declined", async () => {
@@ -1202,8 +1203,9 @@ describe("launcher coordinator", () => {
 
     await coordinator.initialize();
 
-    expect(presentationState(coordinator.snapshot).state).toBe("setup_required");
-    expect(presentationState(coordinator.snapshot).detail).toContain("管理员初始化");
+    expect(presentationState(coordinator.snapshot).state).toBe("running");
+    expect(coordinator.snapshot.server.readiness?.reason).toContain("管理员初始化");
+    expect(presentationState(coordinator.snapshot).detail).toBe("服务正在运行。");
   });
 
   test("initialize auto-refreshes setup_required after administrator setup completes", async () => {
@@ -1233,15 +1235,17 @@ describe("launcher coordinator", () => {
     });
 
     await coordinator.initialize();
-    expect(presentationState(coordinator.snapshot).state).toBe("setup_required");
+    expect(presentationState(coordinator.snapshot).state).toBe("running");
 
     managementClient.readiness = {
       status: "ready",
       reason: "服务稳定。",
     };
 
-    const readyState = await waitForPresentationState(coordinator, "running");
-    expect(readyState.detail).toBe("服务稳定。");
+    await waitForCondition(() => {
+      expect(coordinator.snapshot.server.readiness?.status).toBe("ready");
+    });
+    expect(presentationState(coordinator.snapshot).detail).toBe("服务稳定。");
   });
 
   test("initialize does not block on slow release checks", async () => {
@@ -1637,7 +1641,7 @@ describe("launcher coordinator", () => {
     expect(resetAdminRunner.calls).toBe(1);
     expect(processController.startCalls).toBe(1);
     expect(managementClient.getReadiness).toHaveBeenCalled();
-    expect(presentationState(coordinator.snapshot).state).toBe("setup_required");
+    expect(presentationState(coordinator.snapshot).state).toBe("running");
     expect(externalOpener.openedUris.at(-1)).toBe("http://127.0.0.1:8080/setup");
   });
 

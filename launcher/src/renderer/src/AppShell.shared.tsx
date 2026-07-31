@@ -19,7 +19,6 @@ export const serviceStateConfig: Record<LauncherPresentationState, { label: stri
   starting: { label: getLauncherStateLabel("starting"), tone: "info" },
   running: { label: getLauncherStateLabel("running"), tone: "success" },
   degraded: { label: getLauncherStateLabel("degraded"), tone: "warning" },
-  setup_required: { label: getLauncherStateLabel("setup_required"), tone: "attention" },
   stopping: { label: getLauncherStateLabel("stopping"), tone: "info" },
   failed: { label: getLauncherStateLabel("failed"), tone: "danger" },
 };

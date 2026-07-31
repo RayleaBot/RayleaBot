@@ -21,6 +21,7 @@ import { LauncherServerCredentials } from "./services/server-credentials";
 import { isEndpointListening, tryStopEndpointProcess } from "./services/port-process";
 import { externalOpener } from "./services/external-opener";
 import { LauncherReleaseFeedClient } from "./services/release-feed";
+import { NodeConfigInitializer } from "./services/config-initializer";
 import { NodeResetAdminRunner } from "./services/reset-admin-runner";
 import { buildTrayMenuEntries } from "./services/tray-menu";
 import { createApplicationExitManager } from "./services/app-exit";
@@ -94,6 +95,7 @@ const coordinator = createLauncherCoordinator({
   tryStopEndpointProcess,
   externalOpener,
   releaseFeedClient: new LauncherReleaseFeedClient(executableBasePath),
+  configInitializer: new NodeConfigInitializer(),
   resetAdminRunner: new NodeResetAdminRunner(),
   recoverySummaryReader: new NodeRecoverySummaryReader(),
   confirmExternalServiceStop: async () => {

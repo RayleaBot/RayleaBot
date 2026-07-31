@@ -93,7 +93,7 @@ export function createLauncherStatusService(deps: LauncherStatusServiceDependenc
             processLifecycle: "stopped",
             processOwnership: "none",
             statusHint: inspection.canBootstrapUserConfig
-              ? "服务尚未启动。启动服务后会基于 default.yaml 生成首份用户配置。"
+              ? "服务尚未启动。Launcher 会在启动服务前基于 default.yaml 生成首份用户配置。"
               : buildLocalDetail("服务尚未启动。", inspection.preflightChecks),
             lastLocalError: "",
             localRecoverySummary: await tryReadLocalRecoverySummary(),

@@ -68,6 +68,10 @@ export interface LauncherResetAdminRunner {
   run(settings: LauncherResolvedSettings): Promise<void>;
 }
 
+export interface LauncherConfigInitializer {
+  run(settings: LauncherResolvedSettings): Promise<void>;
+}
+
 export interface LauncherCoordinatorOptions {
   startupTimeoutMs?: number;
   startupReadinessGraceMs?: number;
@@ -88,6 +92,7 @@ export interface LauncherCoordinatorDependencies {
   tryStopEndpointProcess(endpoint: ServerEndpoint): Promise<boolean>;
   externalOpener: ExternalOpener;
   releaseFeedClient?: ReleaseFeedClient;
+  configInitializer?: LauncherConfigInitializer;
   resetAdminRunner?: LauncherResetAdminRunner;
   recoverySummaryReader?: RecoverySummaryReader;
   confirmExternalServiceStop?(): Promise<boolean>;

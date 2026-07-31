@@ -31,7 +31,6 @@ const serviceStateHints: Partial<Record<LauncherPresentationState, string>> = {
   starting: "服务正在启动",
   running: "服务运行正常",
   degraded: "服务部分受限",
-  setup_required: "等待完成初始化",
   stopping: "服务正在停止",
   failed: "服务启动失败",
 };

@@ -190,7 +190,7 @@ export async function inspectLauncherEnvironment(probe: EnvironmentProbeInput): 
               severity: "warning",
               summary: "首次启动时会自动生成用户配置。",
               detail: "缺少用户配置文件。",
-              remediation: "启动服务后会基于 default.yaml 生成首份用户配置。",
+              remediation: "Launcher 会在启动服务前基于 default.yaml 生成首份用户配置。",
             }
           : {
               code: "config.missing",

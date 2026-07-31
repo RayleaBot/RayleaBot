@@ -15,6 +15,7 @@ export type {
   ExternalOpener,
   LauncherCoordinator,
   LauncherCoordinatorDependencies,
+  LauncherConfigInitializer,
   LauncherCoordinatorOptions,
   LauncherDesktopActions,
   LauncherLifecycleService,
@@ -70,6 +71,7 @@ export function createLauncherCoordinator(deps: LauncherCoordinatorDependencies)
     tryStopEndpointProcess: deps.tryStopEndpointProcess,
     externalOpener: deps.externalOpener,
     confirmExternalServiceStop: deps.confirmExternalServiceStop,
+    configInitializer: deps.configInitializer,
     resetAdminRunner: deps.resetAdminRunner,
     options,
   });

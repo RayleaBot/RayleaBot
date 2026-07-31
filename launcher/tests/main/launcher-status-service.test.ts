@@ -154,7 +154,9 @@ describe("launcher status service", () => {
 
     await setupHarness.statusService.refresh(false);
 
-    expect(deriveLauncherPresentation(setupHarness.snapshotStore.snapshot).state).toBe("setup_required");
+    expect(setupHarness.snapshotStore.snapshot.server.readiness?.status).toBe("setup_required");
+    expect(deriveLauncherPresentation(setupHarness.snapshotStore.snapshot).state).toBe("running");
+    expect(deriveLauncherPresentation(setupHarness.snapshotStore.snapshot).detail).toContain("检测到现有服务");
 
     const stoppingClient = new FakeManagementClient();
     stoppingClient.systemStatus = {

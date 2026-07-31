@@ -2,6 +2,7 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, test, vi } from "vitest";
 import { App } from "@renderer/App";
+import { buildDiagnosticsSummary } from "@renderer/AppState.shared";
 import { createLauncherSnapshot } from "../helpers/snapshot";
 import type { LauncherDesktopApi } from "@shared/desktop-api";
 import type { LauncherSnapshot } from "@shared/launcher-models";
@@ -52,7 +53,20 @@ const runningExternalSnapshot = createLauncherSnapshot({
 const setupRequiredSnapshot = createLauncherSnapshot({
   server: {
     health: { status: "ok" },
-    readiness: { status: "setup_required", reason: "管理员初始化尚未完成。" },
+    readiness: {
+      status: "setup_required",
+      reason: "管理员初始化尚未完成。",
+      reason_codes: ["setup.required"],
+      checks: { config: "setup_required" },
+      issues: [
+        {
+          code: "setup.required",
+          severity: "error",
+          summary: "Initial admin setup is required",
+          remediation: "请先完成管理员初始化，然后再使用管理入口。",
+        },
+      ],
+    },
   },
   launcher: {
     ...loadedSnapshot.launcher,
@@ -269,7 +283,7 @@ describe("App", () => {
     expect(screen.queryByRole("button", { name: "重启服务" })).not.toBeInTheDocument();
   });
 
-  test("omits unavailable recovery actions while setup is still required", async () => {
+  test("keeps first-run setup inside the normal running flow", async () => {
     let initialized = false;
     installDesktopApi({
       getPlatform: vi.fn(async () => "win32-x64"),
@@ -308,8 +322,21 @@ describe("App", () => {
     render(<App />);
 
     expect(await screen.findByRole("button", { name: "管理界面" })).not.toBeDisabled();
+    expect(screen.getAllByText("运行中").length).toBeGreaterThan(0);
+    expect(screen.queryByText("管理员初始化尚未完成。")).not.toBeInTheDocument();
+    expect(screen.queryByText("需要设置")).not.toBeInTheDocument();
+    expect(screen.queryByText("需要处理")).not.toBeInTheDocument();
+    expect(screen.queryByText("服务诊断")).not.toBeInTheDocument();
+    expect(screen.queryByText("setup.required")).not.toBeInTheDocument();
+    expect(screen.queryByText("请先完成管理员初始化，然后再使用管理入口。")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "打开初始化" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "执行恢复检查" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "准备运行环境" })).not.toBeInTheDocument();
+
+    const diagnosticsSummary = buildDiagnosticsSummary(setupRequiredSnapshot);
+    expect(diagnosticsSummary).not.toContain("管理员初始化");
+    expect(diagnosticsSummary).not.toContain("setup.required");
+    expect(diagnosticsSummary).not.toContain("setup_required");
   });
 
   test("previews derived settings while editing the installation root", async () => {

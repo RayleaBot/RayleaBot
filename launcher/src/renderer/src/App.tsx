@@ -177,9 +177,6 @@ export function App() {
         await window.rayleaLauncher.start();
       });
     }
-    if (presentation.state === "setup_required") {
-      return runAction("open-web", () => window.rayleaLauncher.openWebUi());
-    }
     return runAction("start", () => window.rayleaLauncher.start());
   }, [presentation.state, runAction, snapshot.launcher.processOwnership]);
 

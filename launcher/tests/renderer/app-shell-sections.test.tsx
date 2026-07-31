@@ -33,7 +33,6 @@ describe("Launcher workspace presentation", () => {
     expect(serviceStateConfig.starting.tone).toBe("info");
     expect(serviceStateConfig.running.tone).toBe("success");
     expect(serviceStateConfig.degraded.tone).toBe("warning");
-    expect(serviceStateConfig.setup_required.tone).toBe("attention");
     expect(serviceStateConfig.failed.tone).toBe("danger");
   });
 

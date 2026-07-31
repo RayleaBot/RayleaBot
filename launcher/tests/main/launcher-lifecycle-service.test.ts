@@ -5,6 +5,7 @@ import { createLauncherSnapshotStore } from "@main/services/launcher-snapshot-st
 import { createLauncherStatusService } from "@main/services/launcher-status-service";
 import { createLauncherLifecycleService } from "@main/services/launcher-lifecycle-service";
 import {
+  FakeConfigInitializer,
   FakeEndpointResolver,
   FakeExternalOpener,
   FakeManagementClient,
@@ -24,6 +25,7 @@ async function createLifecycleHarness(options: {
   tryStopEndpointProcess?: ReturnType<typeof vi.fn>;
   confirmExternalServiceStop?: ReturnType<typeof vi.fn>;
   resetAdminRunner?: FakeResetAdminRunner;
+  configInitializer?: FakeConfigInitializer;
 } = {}) {
   const settingsStore = new FakeSettingsStore();
   const managementClient = options.managementClient ?? new FakeManagementClient();
@@ -57,6 +59,7 @@ async function createLifecycleHarness(options: {
     tryStopEndpointProcess: options.tryStopEndpointProcess ?? vi.fn(async () => false),
     externalOpener,
     confirmExternalServiceStop: options.confirmExternalServiceStop,
+    configInitializer: options.configInitializer ?? new FakeConfigInitializer(),
     resetAdminRunner: options.resetAdminRunner,
     options: {
       pollIntervalMs: 1,
@@ -80,6 +83,47 @@ async function createLifecycleHarness(options: {
 }
 
 describe("launcher lifecycle service", () => {
+  test("initializes and rechecks the user config before starting the server", async () => {
+    const configInitializer = new FakeConfigInitializer();
+    const managementClient = new FakeManagementClient();
+    const processController = new FakeProcessController();
+    const inspectEnvironment = vi.fn()
+      .mockResolvedValueOnce(okInspection({ canBootstrapUserConfig: true }))
+      .mockResolvedValue(okInspection());
+    managementClient.isHealthy = vi.fn(async () => processController.startCalls > 0);
+
+    const { lifecycleService } = await createLifecycleHarness({
+      configInitializer,
+      inspectEnvironment,
+      managementClient,
+      processController,
+    });
+
+    await lifecycleService.start();
+
+    expect(configInitializer.calls).toBe(1);
+    expect(inspectEnvironment).toHaveBeenCalledTimes(2);
+    expect(processController.startCalls).toBe(1);
+  });
+
+  test("does not start the server when first user config initialization fails", async () => {
+    const configInitializer = new FakeConfigInitializer();
+    configInitializer.error = new Error("default.yaml 无法读取");
+    const processController = new FakeProcessController();
+    const { lifecycleService, snapshotStore } = await createLifecycleHarness({
+      configInitializer,
+      inspectEnvironment: vi.fn(async () => okInspection({ canBootstrapUserConfig: true })),
+      processController,
+    });
+
+    await lifecycleService.start();
+
+    expect(configInitializer.calls).toBe(1);
+    expect(processController.startCalls).toBe(0);
+    expect(deriveLauncherPresentation(snapshotStore.snapshot).state).toBe("failed");
+    expect(snapshotStore.snapshot.launcher.lastLocalError).toContain("default.yaml 无法读取");
+  });
+
   test("start does not launch another process when the endpoint is already healthy", async () => {
     const { lifecycleService, processController, snapshotStore } = await createLifecycleHarness();
 
@@ -268,7 +312,8 @@ describe("launcher lifecycle service", () => {
 
     expect(resetAdminRunner.calls).toBe(1);
     expect(processController.startCalls).toBe(1);
-    expect(deriveLauncherPresentation(snapshotStore.snapshot).state).toBe("setup_required");
+    expect(snapshotStore.snapshot.server.readiness?.status).toBe("setup_required");
+    expect(deriveLauncherPresentation(snapshotStore.snapshot).state).toBe("running");
     expect(externalOpener.openedUris.at(-1)).toBe("http://127.0.0.1:8080/setup#setup_token=setup-token");
   });
 
