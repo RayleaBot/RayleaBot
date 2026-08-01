@@ -20,7 +20,7 @@
 - strict contracts、valid/invalid fixtures、embedded schema 和 generated types drift；
 - server tests、目标包 `-race`、server build 与 binary-mode govulncheck；
 - Web 与 Launcher typecheck、test、build 和受影响的 E2E；
-- Node SDK dist drift 与 Python wheel/sdist fresh-venv import；
+- Node.js SDK dist drift、Python SDK 与运行时客户端 wheel fresh-venv import；
 - 四种归档的 `LICENSE`、`THIRD_PARTY_NOTICES.md`、metadata、artifact smoke 和 recovery drill；
 - doctor、agent docs、文档链接和 `git diff --check`。
 

@@ -216,7 +216,8 @@ def self_test() -> None:
         (["server/internal/app/app.go"], {"server": True, "docs_only": False}),
         (["contracts/web-api.openapi.yaml"], {"contracts": True}),
         (["scripts/release/release_tool.py"], {"release": True}),
-        (["sdk/python/rayleabot/plugin.py"], {"sdk": True, "release": False}),
+        (["sdk/python/pyproject.toml"], {"sdk": True, "release": False}),
+        (["sdk/nodejs/src/index.ts"], {"sdk": True, "release": False}),
         (
             ["plugins/runtime/python/rayleabot_runtime/plugin.py"],
             {"server": True, "sdk": True, "release": True},

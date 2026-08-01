@@ -243,10 +243,10 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Install Python SDK build tools
+      - name: Install Python package build tools
         run: python -m pip install --disable-pip-version-check build
 
-      - name: Check SDK license copies
+      - name: Check SDK and runtime license copies
         run: |
           cmp LICENSE sdk/nodejs/LICENSE
           cmp LICENSE sdk/python/LICENSE
@@ -282,7 +282,7 @@ jobs:
         working-directory: plugins/runtime/python
         run: python -m unittest discover -s tests
 
-      - name: Run Python SDK compatibility tests
+      - name: Run Python SDK package tests
         working-directory: sdk/python
         run: python -m unittest discover -s tests
 
@@ -291,9 +291,8 @@ jobs:
           python -m build --outdir "$RUNNER_TEMP/rayleabot-python-runtime" plugins/runtime/python
           python -m build --outdir "$RUNNER_TEMP/rayleabot-python-sdk" sdk/python
           python -m venv "$RUNNER_TEMP/rayleabot-python-sdk-venv"
-          "$RUNNER_TEMP/rayleabot-python-sdk-venv/bin/python" -m pip install "$RUNNER_TEMP"/rayleabot-python-runtime/*.whl
           "$RUNNER_TEMP/rayleabot-python-sdk-venv/bin/python" -m pip install --no-index --find-links "$RUNNER_TEMP/rayleabot-python-runtime" "$RUNNER_TEMP"/rayleabot-python-sdk/*.whl
-          "$RUNNER_TEMP/rayleabot-python-sdk-venv/bin/python" -c "import rayleabot, rayleabot_runtime; assert rayleabot.RayleaBotPlugin is rayleabot_runtime.RayleaBotPlugin"
+          "$RUNNER_TEMP/rayleabot-python-sdk-venv/bin/python" -c "import importlib.util, rayleabot_runtime; assert rayleabot_runtime.RayleaBotPlugin; assert importlib.util.find_spec('rayleabot') is None"
           python -c "import glob, zipfile; wheels=glob.glob('$RUNNER_TEMP/rayleabot-python-runtime/*.whl') + glob.glob('$RUNNER_TEMP/rayleabot-python-sdk/*.whl'); assert len(wheels) == 2, wheels; assert all(any(name.endswith('/LICENSE') for name in zipfile.ZipFile(wheel).namelist()) for wheel in wheels), wheels"
 
   release-helper:

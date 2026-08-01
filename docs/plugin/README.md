@@ -11,7 +11,7 @@
 | [lifecycle.md](./lifecycle.md) | 插件来源、运行时支持、安装、重载和卸载边界 |
 | [capabilities-and-manifest.md](./capabilities-and-manifest.md) | manifest 结构、能力声明和能力参数 |
 | [protocol.md](./protocol.md) | JSONL 协议、消息语义和 local action RPC |
-| [sdk/README.md](./sdk/README.md) | 官方 Python / Node.js SDK 使用边界 |
+| [sdk/README.md](./sdk/README.md) | 官方 Python SDK、Python 运行时客户端与 Node.js SDK 使用边界 |
 
 ## 当前边界
 

@@ -1,14 +1,14 @@
-# Plugin SDK Docs
+# Plugin Client and SDK Docs
 
-本目录说明 RayleaBot 官方 Python / Node.js SDK 的正式能力范围。
+本目录说明 RayleaBot 官方 Python SDK、Python 运行时客户端与 Node.js SDK 的正式能力范围。
 
 正式协议与字段以 `contracts/plugin-protocol.schema.json` 为准。
 
-## Python 包边界
+## 包边界
 
 - `rayleabot-plugin-runtime` 提供插件进程与服务端通信所需的最小运行时客户端，导入名为 `rayleabot_runtime`。内置插件和发布包使用该包。
-- `rayleabot-sdk` 面向插件开发，依赖同版本运行时客户端，并保留 `rayleabot` 导入名作为兼容入口。
-- 新编写的 Python 插件直接导入 `rayleabot_runtime`；已有 `rayleabot` 导入继续可用。
+- `rayleabot-sdk` 是 Python 插件的开发安装入口，固定依赖同版本 `rayleabot-plugin-runtime`。插件代码导入 `rayleabot_runtime`，SDK 分发不提供 `rayleabot` 导入包。
+- `@rayleabot/sdk` 是 Node.js 插件开发包，导入名保持不变。
 
 ## 当前覆盖范围
 
@@ -22,16 +22,16 @@
 - 启动上下文 helper：
   - Python：`bot_id`、`capabilities`、`super_admins`、`command_prefixes`、`primary_command_prefix`
   - Node.js：`botId`、`capabilities`、`superAdmins`、`commandPrefixes`、`primaryCommandPrefix`
-- `bot_id` / `botId` 在协议身份不可用时为空字符串；SDK 收到 `bot.identity.changed` 后更新为当前 bot 身份。当 `bot.identity.changed` 不携带可用身份时（`target` 与 `event.payload.onebot.self_id` 均为空），SDK 将 `bot_id` / `botId` 重置为空，下次 `bot.identity.changed` 再恢复。
+- `bot_id` / `botId` 在协议身份不可用时为空字符串；客户端收到 `bot.identity.changed` 后更新为当前 bot 身份。当 `bot.identity.changed` 不携带可用身份时（`target` 与 `event.payload.onebot.self_id` 均为空），客户端将 `bot_id` / `botId` 重置为空，下次 `bot.identity.changed` 再恢复。
 - 等待身份就绪 helper：
   - Python：`RayleaBotPlugin.await_bot_identity(timeout_seconds=30)`；身份已知时立即返回当前 `bot_id`，否则阻塞至身份就绪或超时，超时返回空字符串。线程安全，可在事件处理线程内调用。
   - Node.js：`plugin.awaitBotIdentity(timeoutMs=30000)` 与 `EventContext.awaitBotIdentity(timeoutMs)`；Promise 在身份就绪或超时时 resolve 当前 `botId`。
-  - 调用方在身份不可用期间不应忙等：handler 内 `await` SDK helper 或直接 `return` 让出线程，避免阻塞 dispatcher。
+  - 调用方在身份不可用期间不应忙等：handler 内等待对应客户端 helper 或直接 `return` 让出线程，避免阻塞 dispatcher。
 - 事件接收与结果回传
 - 通用 local action helper：`message.send`、`message.reply`、`logger.write`、`storage.kv`、`storage.file`、`http.request`、`config.read`、`config.write`、`governance.blacklist.read`、`governance.blacklist.write`、`governance.whitelist.read`、`governance.whitelist.write`、`governance.command_policy.read`、`scheduler.create`、`event.expose_webhook`、`render.image`、`plugin.list`、`thirdparty.account.read`
 - 定时任务 helper 支持中文日志说明：Python 使用 `scheduler_create(..., log_label="每日早报")`，Node.js 使用 `schedulerCreate(..., { logLabel: "每日早报" })`。
-- `secret.read` helper 当前只在 Python SDK 提供（`secret_read`）；Node.js SDK 可通过通用回退入口 `onebotAction("secret.read", { key })` 调用。
-- `thirdparty.account.read` helper 当前只在 Python SDK 提供（`thirdparty_account_read`）；Node.js SDK 可通过通用回退入口 `onebotAction("thirdparty.account.read", { platform })` 调用。
+- `secret.read` helper 当前只在 Python 运行时客户端提供（`secret_read`）；Node.js SDK 可通过通用回退入口 `onebotAction("secret.read", { key })` 调用。
+- `thirdparty.account.read` helper 当前只在 Python 运行时客户端提供（`thirdparty_account_read`）；Node.js SDK 可通过通用回退入口 `onebotAction("thirdparty.account.read", { platform })` 调用。
 - OneBot 单动作 helper：正式 capability 名称与 action kind 一一对应，helper 直接复用同一组动作名
 - provider helper：`provider.napcat.message_emoji.like.set`、`provider.napcat.group.sign.set`、`provider.luckylillia.friend_groups.get`
 - 通用回退入口：`onebot_action` / `onebotAction` 与 `provider_action` / `providerAction`
@@ -90,19 +90,19 @@ await new EchoPlugin().run()
 - 互动段：`poke`、`dice`、`rps`
 - provider 扩展段：`mface`、`keyboard`、`shake`
 
-Python 使用 snake_case builder，例如 `flash_file_segment(data)`、`keyboard_segment()`；Node.js 使用 camelCase builder，例如 `flashFileSegment(data)`、`keyboardSegment()`。两套 SDK 都保留 `passthrough_segment()` / `passthroughSegment()` 作为通用构造入口。媒体类型 `record`、`video`、`file`、`flash_file` 要求非空 `data`，其余 passthrough 类型允许省略 `data`。
+Python 使用 snake_case builder，例如 `flash_file_segment(data)`、`keyboard_segment()`；Node.js 使用 camelCase builder，例如 `flashFileSegment(data)`、`keyboardSegment()`。两套客户端都保留 `passthrough_segment()` / `passthroughSegment()` 作为通用构造入口。媒体类型 `record`、`video`、`file`、`flash_file` 要求非空 `data`，其余 passthrough 类型允许省略 `data`。
 
 ## 并发与请求归属
 
 - 本地 action helper 会自动生成独立 `request_id`，并附带 `parent_request_id`
-- SDK 按 `request_id` 路由返回结果，不依赖帧到达顺序
+- 客户端按 `request_id` 路由返回结果，不依赖帧到达顺序
 - Node.js SDK 的 `run()` 允许不同事件处理器并发执行
 - Python 运行时客户端的 `run()` 使用线程并发处理事件
 - 事件处理函数需要满足可重入要求
 
 ## 相关文档
 
-Python 运行时客户端、Python SDK wheel 与 Node.js package 使用仓库统一的 `AGPL-3.0-only` 许可证，并携带根仓库 `LICENSE`。
+Python SDK、Python 运行时客户端 wheel 与 Node.js SDK package 使用仓库统一的 `AGPL-3.0-only` 许可证，并携带根仓库 `LICENSE`。
 
 - [Plugin Lifecycle](../lifecycle.md)
 - [Capabilities and Manifest](../capabilities-and-manifest.md)

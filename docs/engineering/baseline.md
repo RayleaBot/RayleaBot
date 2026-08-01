@@ -113,7 +113,7 @@ Web 管理面采用 `Ant Design Vue + Vue Vben Admin` 对齐方案作为正式�
 | `docs/architecture/` | 架构、状态模型、事件模型、边界说明 |
 | `docs/dev/` | 开发、调试、诊断、贡献流程 |
 | `docs/plugin/` | 插件 manifest、Capabilities、协议、生命周期 |
-| `docs/plugin/sdk/` | Python / Node.js SDK 说明 |
+| `docs/plugin/sdk/` | Python SDK、Python 运行时客户端与 Node.js SDK 说明 |
 | `docs/user/` | 用户安装、初始化、配置、运行、恢复 |
 | `docs/release/` | 版本说明、迁移说明、已知问题 |
 | `fixtures/` | Golden fixtures 与可执行样例 |
@@ -122,7 +122,7 @@ Web 管理面采用 `Ant Design Vue + Vue Vben Admin` 对齐方案作为正式�
 | `web/` | Web UI 工程 |
 | `launcher/` | Electron 桌面启动器工程 |
 | `plugins/runtime/` | 内置插件与发布包使用的轻量运行时客户端；不承载开发工具 |
-| `sdk/` | 插件开发包、类型与兼容入口；不作为发布包的生产运行时来源 |
+| `sdk/` | Python / Node.js 插件开发分发与类型；不作为发布包的生产运行时来源 |
 | `.deps/` | 图片渲染 Chromium 与 Python / Node.js 运行环境资源清单，以及按需展开后的运行环境目录 |
 | `config/` | 默认配置模板与用户配置 |
 | `data/` | SQLite 状态库与运行数据 |

@@ -33,8 +33,8 @@
 
 ## 当前门禁层次
 
-- PR 默认门禁覆盖 strict contracts、Server 核心检查、Web 核心检查、Launcher 核心检查、Node / Python SDK 回归和必需结果汇总。
-- `contracts/**`、`fixtures/**`、`examples/**` 与 `sdk/**` 变更会触发 `ci.yml` 对应 job，同步执行 Web 与 Launcher 的 OpenAPI 生成类型漂移检查。
+- PR 默认门禁覆盖 strict contracts、Server 核心检查、Web 核心检查、Launcher 核心检查、Node.js SDK、Python SDK 分发、Python 运行时客户端回归和必需结果汇总。
+- `contracts/**`、`fixtures/**`、`examples/**`、`sdk/**` 与 `plugins/runtime/**` 变更会触发 `ci.yml` 对应 job，同步执行 Web 与 Launcher 的 OpenAPI 生成类型漂移检查。
 - Playwright E2E、Chromium 重渲染 golden、跨版本恢复和更长时长自托管巡检进入 release 或手动高成本回归层。
 - 发布门禁覆盖正式产物矩阵、release metadata、checksum、packaged `/api/protocols/onebot11`、`/api/protocols/onebot11/compatibility`、模板预览工作区闭环、packaged recovery drill 和长期自托管 smoke。
 - 高成本依赖审计和长时段巡检保留在 `nightly.yml` 或发布门禁，不挤占每个 PR 的默认门禁预算。
@@ -43,7 +43,7 @@
 
 | 工作流 | 平台 | PR 门禁 | 说明 |
 | --- | --- | --- | --- |
-| `ci.yml` | `ubuntu-x64` | 是 | 校验 strict contracts、Server、Web、Launcher、Node / Python SDK、OpenAPI 生成类型漂移和必需结果汇总 |
+| `ci.yml` | `ubuntu-x64` | 是 | 校验 strict contracts、Server、Web、Launcher、Node.js SDK、Python SDK 分发、Python 运行时客户端、OpenAPI 生成类型漂移和必需结果汇总 |
 | `nightly.yml` | `ubuntu-x64` | 否 | 负责夜间长时段回归、依赖巡检和环境巡检 |
 | `release.yml` | `windows-x64-full`、`linux-x64-full`、`macos-arm64-full`、`linux-x64-server` | Tag 门禁 | 负责正式打包、checksum、release metadata、协议读取面、兼容矩阵、模板预览工作区、recovery drill 与交付 smoke |
 | `self-host-smoke.yml` | `windows-x64-full`、`linux-x64-full`、`macos-arm64-full`、`linux-x64-server` | 否 | 负责长期自托管巡检，并复用协议读取面、兼容矩阵、模板预览工作区、诊断与恢复探针 |

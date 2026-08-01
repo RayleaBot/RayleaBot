@@ -95,7 +95,7 @@ cd sdk/nodejs && node --test tests/*.test.mjs
 # Python 插件运行时客户端
 cd plugins/runtime/python && python -m unittest discover -s tests
 
-# Python SDK 兼容入口
+# Python SDK 开发分发
 cd sdk/python && python -m unittest discover -s tests
 ```
 

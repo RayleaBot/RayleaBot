@@ -14,7 +14,7 @@ import (
 	pluginruntime "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime"
 )
 
-func TestOneBotActionRegistryMatchesContractsAndSDKHelpers(t *testing.T) {
+func TestOneBotActionRegistryMatchesContractsAndClientHelpers(t *testing.T) {
 	t.Parallel()
 
 	repoRoot := filepath.Join("..", "..", "..", "..")
@@ -29,11 +29,11 @@ func TestOneBotActionRegistryMatchesContractsAndSDKHelpers(t *testing.T) {
 	assertStringSetEqual(t, "plugin info onebot capabilities", infoActions, registryActions)
 	assertStringSetEqual(t, "plugin info provider capabilities", infoProviderActions, registryProviderActions)
 
-	pythonSDK := string(readRepoFile(t, filepath.Join(repoRoot, "sdk", "python", "rayleabot", "plugin.py")))
+	pythonRuntime := string(readRepoFile(t, filepath.Join(repoRoot, "plugins", "runtime", "python", "rayleabot_runtime", "plugin.py")))
 	nodeSDK := string(readRepoFile(t, filepath.Join(repoRoot, "sdk", "nodejs", "src", "index.ts")))
 	for _, kind := range append(append([]string{}, registryActions...), registryProviderActions...) {
-		if !pythonSDKExposesOneBotAction(pythonSDK, kind) {
-			t.Fatalf("python SDK helper does not expose OneBot action %q", kind)
+		if !pythonRuntimeExposesOneBotAction(pythonRuntime, kind) {
+			t.Fatalf("python runtime helper does not expose OneBot action %q", kind)
 		}
 		if !nodeSDKExposesOneBotAction(nodeSDK, kind) {
 			t.Fatalf("node SDK helper does not expose OneBot action %q", kind)
@@ -56,7 +56,7 @@ func nodeSDKExposesOneBotAction(content string, kind string) bool {
 	return strings.Contains(content, "'"+provider+"'") && strings.Contains(content, "'"+action+"'")
 }
 
-func pythonSDKExposesOneBotAction(content string, kind string) bool {
+func pythonRuntimeExposesOneBotAction(content string, kind string) bool {
 	if strings.Contains(content, `"`+kind+`"`) {
 		return true
 	}

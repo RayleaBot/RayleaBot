@@ -208,7 +208,11 @@ class ReleaseToolTests(unittest.TestCase):
                 names,
             )
             self.assertNotIn(
-                "RayleaBot-v0.1.0-windows-x64-full/sdk/python/rayleabot/__init__.py",
+                "RayleaBot-v0.1.0-windows-x64-full/sdk/python/pyproject.toml",
+                names,
+            )
+            self.assertNotIn(
+                "RayleaBot-v0.1.0-windows-x64-full/sdk/nodejs/src/index.ts",
                 names,
             )
             self.assertIn("RayleaBot-v0.1.0-windows-x64-full/templates/help.menu/template.json", names)
