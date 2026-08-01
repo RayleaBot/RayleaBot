@@ -499,7 +499,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Start an asynchronous runtime.bootstrap task to prepare managed runtime resources for the current platform. */
+        /** Start an asynchronous runtime.bootstrap task to prepare Chromium for the current platform. */
         post: operations["createRuntimeBootstrap"];
         delete?: never;
         options?: never;
@@ -810,12 +810,13 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Query plugin-owned secret values for a protected management page. */
+        /** Query whether plugin-owned secrets are configured without returning plaintext. */
         get: operations["getPluginSecrets"];
-        /** Save or delete plugin-owned secret values. */
-        put: operations["updatePluginSecrets"];
+        /** Overwrite selected plugin-owned secret values. */
+        put: operations["setPluginSecrets"];
         post?: never;
-        delete?: never;
+        /** Explicitly delete selected plugin-owned secret values. */
+        delete: operations["deletePluginSecrets"];
         options?: never;
         head?: never;
         patch?: never;
@@ -865,7 +866,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Inspect a plugin source and freeze its digest, metadata, capabilities and install scripts before trust confirmation. */
+        /** Inspect a prebuilt plugin artifact and freeze its digest, target platform, metadata and capabilities before trust confirmation. */
         post: operations["inspectPluginInstall"];
         delete?: never;
         options?: never;
@@ -1176,7 +1177,7 @@ export interface components {
         };
         SystemDiagnosticsDependency: {
             /** @enum {string} */
-            kind: "chromium" | "python-runtime" | "nodejs-runtime";
+            kind: "chromium";
             /** @enum {string} */
             status: "ready" | "cached" | "on_demand" | "metadata_incomplete" | "unavailable";
             metadata_complete: boolean;
@@ -1450,7 +1451,7 @@ export interface components {
             task_id: string;
         };
         /** @enum {string} */
-        RuntimeBootstrapResource: "chromium" | "python-runtime" | "nodejs-runtime";
+        RuntimeBootstrapResource: "chromium";
         RuntimeBootstrapRequest: {
             resources?: components["schemas"]["RuntimeBootstrapResource"][];
         };
@@ -1629,10 +1630,8 @@ export interface components {
         };
         /** @enum {string} */
         PluginRole: "builtin" | "user" | "example" | "dev";
-        /** @enum {string} */
-        PluginRuntimeFamily: "python" | "nodejs";
-        /** @enum {string} */
-        PluginPackageType: "managed_runtime" | "dev_source";
+        /** @constant */
+        PluginRuntimeFamily: "go";
         /** @enum {string} */
         PluginPlatform: "windows-x64" | "linux-x64" | "macos-arm64";
         PluginTrustSummary: {
@@ -1690,10 +1689,6 @@ export interface components {
         PluginListResponse: {
             items: components["schemas"]["PluginSummary"][];
         };
-        PluginDependencies: {
-            python?: string[];
-            nodejs?: string[];
-        };
         PluginWebhookScope: {
             route: string;
             /** @enum {string} */
@@ -1738,11 +1733,8 @@ export interface components {
             help: components["schemas"]["PluginHelp"];
             command_conflicts?: string[];
             runtime?: components["schemas"]["PluginRuntimeFamily"];
-            type?: components["schemas"]["PluginPackageType"];
             entry?: string;
             license?: string;
-            sdk_min_version?: string;
-            runtime_version?: string;
             min_core_version?: string;
             data_schema_version?: string;
             concurrency?: number;
@@ -1751,7 +1743,6 @@ export interface components {
                 [key: string]: unknown;
             };
             declared_capabilities?: string[];
-            dependencies?: components["schemas"]["PluginDependencies"];
             capability_parameters?: components["schemas"]["PluginCapabilityParameters"];
             icon?: string;
             /** Format: uri */
@@ -1762,7 +1753,6 @@ export interface components {
             screenshots?: components["schemas"]["PluginScreenshot"][];
             management_ui?: components["schemas"]["PluginManagementUISummary"];
             render_templates?: components["schemas"]["PluginRenderTemplateSummary"][];
-            system_dependencies?: string[];
         };
         PluginDetailResponse: {
             plugin: components["schemas"]["PluginDetail"];
@@ -1856,18 +1846,23 @@ export interface components {
         PluginSecretValues: {
             [key: string]: string;
         };
+        PluginSecretStatus: {
+            [key: string]: boolean;
+        };
         PluginSecretsResponse: {
             plugin_id: string;
-            values: components["schemas"]["PluginSecretValues"];
+            configured: components["schemas"]["PluginSecretStatus"];
         };
         PluginSecretsUpdateRequest: {
             values: components["schemas"]["PluginSecretValues"];
-            deleted_keys?: string[];
+        };
+        PluginSecretsDeleteRequest: {
+            keys: string[];
         };
         PluginSecretsUpdateResponse: {
             plugin_id: string;
             changed_keys: string[];
-            values: components["schemas"]["PluginSecretValues"];
+            configured: components["schemas"]["PluginSecretStatus"];
         };
         PluginInstallSource: {
             /** @enum {string} */
@@ -1891,7 +1886,29 @@ export interface components {
                 source_label: string;
             };
             capabilities: string[];
-            install_scripts: string[];
+            target_platform: components["schemas"]["PluginPlatform"];
+            backend: components["schemas"]["PluginInstallBackend"];
+            ui: components["schemas"]["PluginInstallUI"];
+            artifact: components["schemas"]["PluginArtifactValidation"];
+        };
+        PluginInstallBackend: {
+            entry: string;
+            path: string;
+            size: number;
+            sha256: string;
+        };
+        PluginInstallUI: {
+            enabled: boolean;
+            entry?: string;
+            file_count: number;
+        };
+        PluginArtifactValidation: {
+            /** @constant */
+            valid: true;
+            /** @constant */
+            artifact_version: "1";
+            manifest_sha256: string;
+            file_count: number;
         };
         PluginInstallRequest: {
             /** @enum {string} */
@@ -1900,12 +1917,10 @@ export interface components {
             inspection_id: string;
             package_sha256: string;
             /**
-             * @description Explicit acknowledgement that third-party plugins and approved install scripts run as fully trusted local code.
+             * @description Explicit acknowledgement that a third-party plugin backend runs as fully trusted local code.
              * @constant
              */
             trusted_code_confirmed: true;
-            /** @description Explicitly authorizes install-time scripts for plugins whose manifest declares require_install_scripts=true. When omitted or false, the install task keeps the default safety policy and may later fail with platform.install_script_blocked. */
-            allow_install_scripts?: boolean;
         };
         /** @enum {string} */
         UpdateState: "disabled" | "idle" | "checking" | "up_to_date" | "update_available" | "downloading" | "ready_to_install" | "installing" | "succeeded" | "failed" | "rolled_back" | "rollback_failed";
@@ -1981,7 +1996,7 @@ export interface components {
              * @description Configuration schema version for bootstrap and validation.
              * @constant
              */
-            schema_version: "2";
+            schema_version: "3";
             server: {
                 /**
                  * @description HTTP server bind address. Use 0.0.0.0 to listen on all interfaces; for production bind 127.0.0.1 behind a reverse proxy. Requires restart.
@@ -2156,21 +2171,6 @@ export interface components {
                  */
                 max_pending_control_events_per_plugin: number;
                 /**
-                 * @description Old-generation heap cap for Node.js plugin runtimes, passed to --max-old-space-size. Default: 256. Requires restart.
-                 * @default 256
-                 */
-                nodejs_max_old_space_size_mb: number;
-                /**
-                 * @description Maximum time allowed for installing plugin dependencies. Default: 900.
-                 * @default 900
-                 */
-                dependency_install_timeout_seconds: number;
-                /**
-                 * @description Maximum concurrent plugin dependency installation tasks. Default: 1.
-                 * @default 1
-                 */
-                max_concurrent_dependency_installs: number;
-                /**
                  * @description Maximum queued IPC actions per plugin; new actions are rejected when exceeded. Default: 256.
                  * @default 256
                  */
@@ -2339,6 +2339,11 @@ export interface components {
                  * @default []
                  */
                 trusted_proxy_cidrs: string[];
+                /**
+                 * @description Origin template for isolated plugin management pages. Non-empty values must contain {plugin_host}; localhost_only may derive http://p-<id-hash>.plugins.localhost:<port>, while LAN and reverse-proxy exposure require an explicit template.
+                 * @default
+                 */
+                plugin_ui_origin_template: string | "" | unknown;
             };
             backup: {
                 /**
@@ -3645,7 +3650,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Current plugin-owned secret values. */
+            /** @description Current plugin-owned secret configured-state map. */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -3660,7 +3665,7 @@ export interface operations {
             default: components["responses"]["Error"];
         };
     };
-    updatePluginSecrets: {
+    setPluginSecrets: {
         parameters: {
             query?: never;
             header?: never;
@@ -3675,7 +3680,38 @@ export interface operations {
             };
         };
         responses: {
-            /** @description Plugin-owned secrets saved and echoed back with changed keys. */
+            /** @description Plugin-owned secrets overwritten; plaintext values are never echoed. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PluginSecretsUpdateResponse"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    deletePluginSecrets: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                plugin_id: components["parameters"]["PluginId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PluginSecretsDeleteRequest"];
+            };
+        };
+        responses: {
+            /** @description Selected plugin-owned secrets deleted; plaintext values are never returned. */
             200: {
                 headers: {
                     [name: string]: unknown;

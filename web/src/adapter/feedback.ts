@@ -49,12 +49,12 @@ export function useToastFeedback(source: WatchSource<ToastFeedback | null | unde
     source,
     (feedback) => {
       const content = feedback?.message?.trim()
-      if (!content) {
+      if (!feedback || !content) {
         lastKey = null
         return
       }
 
-      const nextKey = feedback?.key ?? `${feedback.level}:${content}`
+      const nextKey = feedback.key ?? `${feedback.level}:${content}`
       if (nextKey === lastKey) {
         return
       }

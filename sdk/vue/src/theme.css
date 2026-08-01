@@ -1,0 +1,31 @@
+:root {
+  color-scheme: light;
+  --raylea-color-bg: #f6f7fb;
+  --raylea-color-surface: #ffffff;
+  --raylea-color-text: #1f2533;
+  --raylea-color-muted: #667085;
+  --raylea-color-primary: #536dfe;
+  --raylea-color-border: #e4e7ec;
+  --raylea-radius: 12px;
+  --raylea-shadow: 0 10px 28px rgb(16 24 40 / 8%);
+  font-family: Inter, "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --raylea-color-bg: #111318;
+  --raylea-color-surface: #1b1e25;
+  --raylea-color-text: #f2f4f7;
+  --raylea-color-muted: #98a2b3;
+  --raylea-color-border: #343944;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--raylea-color-bg);
+  color: var(--raylea-color-text);
+}

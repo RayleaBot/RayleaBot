@@ -5,15 +5,16 @@ import { getDisplayErrorMessage } from '@/lib/error-text'
 import { buildPluginDetailLocation } from '@/lib/management-links'
 import { t } from '@/i18n'
 import { useMotionNavigation } from '@/motion/useMotionNavigation'
+import type { RuntimeBootstrapResource } from '@/types/api'
 type DashboardActionState = {
   systemStore: {
     createBackup: () => Promise<{ task_id: string }>
     exportDiagnostics: () => Promise<void>
     recheckRecovery: () => Promise<{ task_id: string }>
     confirmRecovery: (payload: { review_ids: string[]; note?: string }) => Promise<{ task_id: string }>
-    bootstrapManagedRuntime: (resources: string[]) => Promise<{ task_id: string }>
+    bootstrapManagedRuntime: (resources: RuntimeBootstrapResource[]) => Promise<{ task_id: string }>
   }
-  recoveryBootstrapResources: ComputedRef<string[]>
+  recoveryBootstrapResources: ComputedRef<RuntimeBootstrapResource[]>
   recoveryConfirmNote: Ref<string>
   selectedRecoveryReviewIds: Ref<string[]>
 }

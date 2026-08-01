@@ -347,15 +347,15 @@ async function save() {
                       <RateLimitInput
                         v-if="field.type === 'rateLimit'"
                         :value="String(readField(field.path, field.type) ?? '')"
-                        :aria-label="field.label"
-                        @update:value="(value) => writeField(field.path, field.type, value)"
+                        :ariaLabel="field.label"
+                        @update:value="writeField(field.path, field.type, $event)"
                       />
 
                       <div v-else-if="field.type === 'boolean'" class="switch-wrap">
                         <a-switch
                           :checked="Boolean(readField(field.path, field.type))"
                           :aria-label="field.label"
-                          @update:checked="(value) => writeField(field.path, field.type, value)"
+                          @update:checked="writeField(field.path, field.type, $event)"
                         />
                       </div>
 

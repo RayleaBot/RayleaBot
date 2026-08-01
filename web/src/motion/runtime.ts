@@ -8,7 +8,7 @@ export const motionDuration = {
   overlay: 220,
 } as const
 
-export const motionEase = 'cubic-bezier(0.16, 1, 0.3, 1)'
+export const motionEase = [0.16, 1, 0.3, 1] as const
 
 export type PageMotionProfile = 'fade' | 'fade-slide' | 'none'
 type ViewTransitionKind = 'route' | 'theme'

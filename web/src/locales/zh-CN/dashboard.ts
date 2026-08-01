@@ -123,7 +123,6 @@ export const dashboard = {
   alertFailed: '系统异常',
   alertDegraded: '运行条件受限',
   alertProtocolWarning: '协议连接警告',
-  pythonRuntimeLimited: '管理面可用，但依赖 Python 运行环境的功能暂不可用。',
   recoveryRecheck: '重新检查恢复状态',
   recoveryConfirm: '确认已审阅项',
   recoveryConfirmSelection: '已选 {count} 项',

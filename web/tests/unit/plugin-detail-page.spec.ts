@@ -16,7 +16,7 @@ import type { ConfigDocument } from '@/types/api'
 
 function createFixtureConfig(prefixes: string[]): ConfigDocument {
   return {
-    schema_version: '2',
+    schema_version: '3',
     server: { host: '127.0.0.1', port: 8080 },
     onebot: {
       reverse_ws: { enabled: false, url: '', access_token: '' },
@@ -59,9 +59,6 @@ function createFixtureConfig(prefixes: string[]): ConfigDocument {
       plugin_event_timeout_seconds: 60,
       max_pending_events_per_plugin: 16,
       max_pending_control_events_per_plugin: 4,
-      nodejs_max_old_space_size_mb: 256,
-      dependency_install_timeout_seconds: 900,
-      max_concurrent_dependency_installs: 1,
       ipc_pending_actions_max: 256,
       ipc_action_burst_limit: '100/1s',
       stderr_rate_limit_bytes_per_second: 262144,
@@ -93,7 +90,11 @@ function createFixtureConfig(prefixes: string[]): ConfigDocument {
       reconnect_jitter_ratio: 0.2,
     },
     http: { timeout_seconds: 10, max_retries: 2, allow_private_hosts: [] },
-    web: { exposure_mode: 'localhost_only', setup_local_only: true },
+    web: {
+      exposure_mode: 'localhost_only',
+      setup_local_only: true,
+      plugin_ui_origin_template: 'http://{plugin_host}.plugins.localhost:8080',
+    },
     backup: { default_consistency: 'offline' },
   }
 }
@@ -176,14 +177,11 @@ describe('PluginDetailPage', () => {
       role: 'user',
         state: 'running',
       version: '1.4.2',
-      runtime: 'python',
-      type: 'managed_runtime',
-      entry: 'plugin.py',
+      runtime: 'go',
+      entry: 'bin/weather',
       description: '提供当前城市天气与未来天气查询。',
       author: 'raylea',
       license: 'MIT',
-      sdk_min_version: '1.2.0',
-      runtime_version: '>=3.12',
       min_core_version: '0.2.0',
       data_schema_version: 'weather-v2',
       concurrency: 3,
@@ -193,9 +191,6 @@ describe('PluginDetailPage', () => {
         forecast_days: 3,
       },
       declared_capabilities: ['http.request', 'logger.write', 'render.image'],
-      dependencies: {
-        python: ['httpx==0.28.1'],
-      },
       capability_parameters: {
         http_hosts: ['api.weather.example'],
         storage_roots: ['plugin_data'],
@@ -210,7 +205,6 @@ describe('PluginDetailPage', () => {
           alt: '天气总览卡片',
         },
       ],
-      system_dependencies: ['OneBot11 connection'],
       source: {
         root: 'plugins/installed',
         package_source_type: 'local_zip',
@@ -282,15 +276,14 @@ describe('PluginDetailPage', () => {
     await flushPromises()
 
     expect(wrapper.text()).toContain('1.4.2')
-    expect(wrapper.text()).toContain('managed_runtime')
-    expect(wrapper.text()).toContain('plugin.py')
+    expect(wrapper.text()).toContain('go')
+    expect(wrapper.text()).toContain('bin/weather')
     expect(wrapper.text()).toContain('raylea')
     expect(wrapper.text()).toContain('MIT')
     expect(wrapper.text()).toContain('assets/weather.svg')
     expect(wrapper.text()).toContain('https://github.com/RayleaBot/plugins-weather')
     expect(wrapper.text()).toContain('https://plugins.rayleabot.local/weather')
     expect(wrapper.text()).toContain('weather-v2')
-    expect(wrapper.text()).toContain('httpx==0.28.1')
     expect(wrapper.text()).toContain('api.weather.example')
     expect(wrapper.text()).toContain('forecast_days')
     expect(wrapper.text()).toContain('assets/overview.svg')
@@ -582,11 +575,10 @@ describe('PluginDetailPage', () => {
       name: 'Example Config Panel',
       role: 'example',
         state: 'disabled',
-      version: '0.1.0',
-      runtime: 'python',
-      type: 'managed_runtime',
-      entry: 'main.py',
-      description: 'Python example plugin demonstrating config.read and config.write.',
+      version: '0.2.0',
+      runtime: 'go',
+      entry: 'bin/example-config-panel',
+      description: 'Go example plugin demonstrating settings and secrets management.',
       source: {
         root: 'examples/plugins',
         package_source_type: 'local_directory',
@@ -606,12 +598,12 @@ describe('PluginDetailPage', () => {
           {
             id: 'config',
             label: '配置页面',
-            entry: 'web/index.html',
+            entry: 'ui/index.html',
           },
           {
             id: 'secrets',
             label: '密钥设置',
-            entry: 'web/secrets.html',
+            entry: 'ui/secrets.html',
           },
         ],
       },
@@ -644,13 +636,16 @@ describe('PluginDetailPage', () => {
 
     expect(wrapper.find('.plugin-detail-panel-switch').exists()).toBe(true)
     expect(wrapper.find('[data-testid="plugin-management-ui-host"]').exists()).toBe(true)
-    expect(wrapper.get('[data-testid="plugin-management-ui-frame"]').attributes('src')).toContain('/plugin-ui/example-config-panel/web/index.html')
+    await vi.waitFor(() => {
+      expect(wrapper.find('[data-testid="plugin-management-ui-frame"]').exists()).toBe(true)
+    })
+    expect(new URL(wrapper.get('[data-testid="plugin-management-ui-frame"]').attributes('src')).pathname).toBe('/index.html')
     expect(wrapper.find('.console-terminal').exists()).toBe(false)
 
     await router.push('/plugins/example-config-panel?panel=management-ui&management_page=secrets')
     await flushPromises()
 
-    expect(wrapper.get('[data-testid="plugin-management-ui-frame"]').attributes('src')).toContain('/plugin-ui/example-config-panel/web/secrets.html')
+    expect(new URL(wrapper.get('[data-testid="plugin-management-ui-frame"]').attributes('src')).pathname).toBe('/secrets.html')
 
     await router.push('/plugins/example-config-panel')
     await flushPromises()
@@ -673,10 +668,9 @@ describe('PluginDetailPage', () => {
       name: 'Example Config Panel',
       role: 'example',
         state: 'disabled',
-      version: '0.1.0',
-      runtime: 'python',
-      type: 'managed_runtime',
-      entry: 'main.py',
+      version: '0.2.0',
+      runtime: 'go',
+      entry: 'bin/example-config-panel',
       source: {
         root: 'examples/plugins',
         package_source_type: 'local_directory',
@@ -692,7 +686,7 @@ describe('PluginDetailPage', () => {
           {
             id: 'config',
             label: '配置页面',
-            entry: 'web/index.html',
+            entry: 'ui/index.html',
           },
         ],
       },
@@ -723,9 +717,12 @@ describe('PluginDetailPage', () => {
     expect(wrapper.getComponent(PluginManagementUIHost).props('page')).toEqual({
       id: 'config',
       label: '配置页面',
-      entry: 'web/index.html',
+      entry: 'ui/index.html',
     })
-    expect(wrapper.get('[data-testid="plugin-management-ui-frame"]').attributes('src')).toContain('/plugin-ui/example-config-panel/web/index.html')
+    await vi.waitFor(() => {
+      expect(wrapper.find('[data-testid="plugin-management-ui-frame"]').exists()).toBe(true)
+    })
+    expect(new URL(wrapper.get('[data-testid="plugin-management-ui-frame"]').attributes('src')).pathname).toBe('/index.html')
     expect(router.currentRoute.value.query).toEqual({ panel: 'management-ui', management_page: 'config' })
   })
 })

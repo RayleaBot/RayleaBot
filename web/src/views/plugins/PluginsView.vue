@@ -40,7 +40,6 @@ const navigate = useMotionNavigation()
 const pluginsStore = usePluginsStore()
 const { actionPending, error, inspectionPending, installPending, loading, sortedItems } = storeToRefs(pluginsStore)
 const {
-  allowInstallScripts,
   installDialogVisible,
   installForm,
   installInspection,
@@ -478,8 +477,7 @@ async function reloadPlugin(pluginId: string) {
       :cancel-text="t('dashboard.previewCancel')"
       :ok-button-props="{
         disabled: !installForm.source.trim()
-          || Boolean(installInspection && !trustedCodeConfirmed)
-          || Boolean(installInspection?.install_scripts.length && !allowInstallScripts),
+          || Boolean(installInspection && !trustedCodeConfirmed),
       }"
       @ok="submitInstall"
       @cancel="resetInstallDialog"
@@ -505,7 +503,7 @@ async function reloadPlugin(pluginId: string) {
             type="warning"
             show-icon
             message="第三方插件是完全可信的本地代码"
-            description="插件进程和获准的安装脚本使用当前用户权限运行。仅安装来源、摘要和能力均符合预期的代码。"
+            description="预编译 Go 插件进程使用当前用户权限运行。仅安装来源、平台、摘要和能力均符合预期的代码。"
           />
 
           <a-descriptions class="install-inspection" :column="1" bordered size="small">
@@ -515,6 +513,10 @@ async function reloadPlugin(pluginId: string) {
             <a-descriptions-item label="许可证">{{ installInspection.plugin.license }}</a-descriptions-item>
             <a-descriptions-item label="来源">{{ installInspection.plugin.source_label }}</a-descriptions-item>
             <a-descriptions-item label="包摘要"><code>{{ installInspection.package_sha256 }}</code></a-descriptions-item>
+            <a-descriptions-item label="目标平台">{{ installInspection.target_platform }}</a-descriptions-item>
+            <a-descriptions-item label="后端"><code>{{ installInspection.backend.path }}</code> · {{ installInspection.backend.size }} bytes</a-descriptions-item>
+            <a-descriptions-item label="管理页面">{{ installInspection.ui.enabled ? `${installInspection.ui.entry}（${installInspection.ui.file_count} 个文件）` : '无' }}</a-descriptions-item>
+            <a-descriptions-item label="Artifact 校验">{{ installInspection.artifact.valid ? `v${installInspection.artifact.artifact_version} · ${installInspection.artifact.file_count} 个文件` : '未通过' }}</a-descriptions-item>
             <a-descriptions-item label="有效期">{{ installInspection.expires_at }}</a-descriptions-item>
           </a-descriptions>
 
@@ -526,23 +528,9 @@ async function reloadPlugin(pluginId: string) {
             </div>
           </div>
 
-          <div class="install-inspection-list">
-            <strong>安装脚本</strong>
-            <div>
-              <a-tag v-for="script in installInspection.install_scripts" :key="script" color="warning">{{ script }}</a-tag>
-              <span v-if="installInspection.install_scripts.length === 0">无</span>
-            </div>
-          </div>
-
-          <a-form-item v-if="installInspection.install_scripts.length > 0">
-            <a-checkbox v-model:checked="allowInstallScripts">
-              {{ t('plugins.allowScripts') }}
-            </a-checkbox>
-          </a-form-item>
-
           <a-form-item>
             <a-checkbox v-model:checked="trustedCodeConfirmed">
-              我已核对来源、摘要、能力和安装脚本，并信任此代码使用本机当前用户权限运行。
+              我已核对来源、目标平台、artifact 摘要和能力，并信任此代码使用本机当前用户权限运行。
             </a-checkbox>
           </a-form-item>
         </template>

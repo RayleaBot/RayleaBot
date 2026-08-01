@@ -14,5 +14,5 @@ export const i18n = createI18n({
 })
 
 export function t(key: string, values?: Record<string, unknown>) {
-  return i18n.global.t(key, values) as string
+  return (values ? i18n.global.t(key, values) : i18n.global.t(key)) as string
 }

@@ -157,10 +157,8 @@ const heroFacts = computed(() => [
   { key: 'source', label: t('plugins.fields.sourceRoot'), value: getMetadataText(currentPlugin.value?.source?.root) },
 ])
 const packageInfoRows = computed(() => [
-  { key: 'type', label: t('plugins.fields.type'), value: getMetadataText(currentPlugin.value?.type) },
   { key: 'author', label: t('plugins.fields.author'), value: getMetadataText(currentPlugin.value?.author) },
   { key: 'license', label: t('plugins.fields.license'), value: getMetadataText(currentPlugin.value?.license) },
-  { key: 'sdk', label: t('plugins.fields.sdkMinVersion'), value: getMetadataText(currentPlugin.value?.sdk_min_version) },
   { key: 'core', label: t('plugins.fields.minCoreVersion'), value: getMetadataText(currentPlugin.value?.min_core_version) },
   { key: 'schema', label: t('plugins.fields.dataSchemaVersion'), value: getMetadataText(currentPlugin.value?.data_schema_version) },
 ])
@@ -171,7 +169,6 @@ const sourceInfoRows = computed(() => [
 ])
 const runtimeInfoRows = computed(() => [
   { key: 'concurrency', label: t('plugins.fields.concurrency'), value: currentPlugin.value?.concurrency ?? t('display.empty') },
-  { key: 'runtime-version', label: t('plugins.fields.runtimeVersion'), value: getMetadataText(currentPlugin.value?.runtime_version) },
 ])
 const detailErrorToast = computed(() => {
   if (operationError.value) {
@@ -451,7 +448,7 @@ onUnmounted(() => {
         type="warning"
         show-icon
         message="插件来源尚未验证"
-        description="执行启停、重载或管理操作前，请确认插件来源、能力声明和安装脚本符合预期。"
+        description="执行启停、重载或管理操作前，请确认插件来源、目标平台、artifact 摘要和能力声明符合预期。"
       />
 
       <div class="plugin-detail-workspace">
@@ -562,20 +559,6 @@ onUnmounted(() => {
                           <div v-if="hasItems(currentPlugin?.platforms)" class="tag-list">
                             <a-tag v-for="platform in currentPlugin?.platforms" :key="platform">{{ platform }}</a-tag>
                           </div>
-                          <p v-else class="empty-val">{{ t('display.empty') }}</p>
-                        </section>
-
-                        <section class="metadata-section">
-                          <strong>{{ t('plugins.fields.systemDependencies') }}</strong>
-                          <div v-if="hasItems(currentPlugin?.system_dependencies)" class="tag-list">
-                            <a-tag v-for="dependency in currentPlugin?.system_dependencies" :key="dependency">{{ dependency }}</a-tag>
-                          </div>
-                          <p v-else class="empty-val">{{ t('display.empty') }}</p>
-                        </section>
-
-                        <section class="metadata-section">
-                          <strong>{{ t('plugins.fields.dependencies') }}</strong>
-                          <pre v-if="hasObjectValue(currentPlugin?.dependencies)" class="metadata-json">{{ getJsonPreview(currentPlugin?.dependencies) }}</pre>
                           <p v-else class="empty-val">{{ t('display.empty') }}</p>
                         </section>
 

@@ -1,922 +1,300 @@
 import Antd from 'ant-design-vue'
 import { createPinia, setActivePinia } from 'pinia'
-import { reactive } from 'vue'
 import { flushPromises, mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import PluginManagementUIHost from '@/components/plugins/PluginManagementUIHost.vue'
-import { useGovernanceStore } from '@/stores/governance'
+import { useConfigStore } from '@/stores/config'
 import { usePluginsStore } from '@/stores/plugins'
+import type { PluginDetail } from '@/types/api'
 
-function buildManagementPage(overrides: Record<string, unknown> = {}) {
-  return {
-    id: 'config',
-    label: '配置页面',
-    entry: 'web/index.html',
-    ...overrides,
+class FakeMessagePort {
+  readonly sent: unknown[] = []
+  private readonly listeners = new Set<(event: MessageEvent) => void>()
+  closed = false
+
+  addEventListener(type: string, listener: EventListenerOrEventListenerObject) {
+    if (type !== 'message') return
+    const handler = typeof listener === 'function'
+      ? listener as (event: MessageEvent) => void
+      : (event: MessageEvent) => listener.handleEvent(event)
+    this.listeners.add(handler)
+  }
+
+  postMessage(message: unknown) {
+    this.sent.push(structuredClone(message))
+  }
+
+  start() {}
+
+  close() {
+    this.closed = true
+  }
+
+  emit(message: unknown) {
+    const event = new MessageEvent('message', { data: message })
+    for (const listener of this.listeners) listener(event)
   }
 }
 
-function buildPlugin(overrides: Record<string, unknown> = {}) {
+class FakeMessageChannel {
+  static latest: FakeMessageChannel | null = null
+  readonly port1 = new FakeMessagePort()
+  readonly port2 = new FakeMessagePort()
+
+  constructor() {
+    FakeMessageChannel.latest = this
+  }
+}
+
+function buildManagementPage() {
+  return { id: 'config', label: '配置页面', entry: 'ui/index.html' }
+}
+
+function buildPlugin(overrides: Record<string, unknown> = {}): PluginDetail {
   return {
     id: 'example-config-panel',
     name: 'Example Config Panel',
     role: 'example',
-        state: 'disabled',
-    version: '0.1.0',
-    description: 'Python example plugin demonstrating config.read and config.write.',
+    state: 'disabled',
+    version: '0.2.0',
+    description: 'Go example plugin with a Vue management page.',
     source: {
       root: 'examples/plugins',
       package_source_type: 'local_zip',
       package_source_ref: 'examples/plugins/example-config-panel.zip',
-      verified: false,
+      verified: true,
     },
-    trust: {
-      level: 'unverified',
-      label: '未验证来源',
-    },
-    default_config: {
-      default_city: '北京',
-      unit: 'celsius',
-    },
-    management_ui: {
-      pages: [
-        {
-          id: 'config',
-          label: '配置页面',
-          entry: 'web/index.html',
-        },
-      ],
-    },
+    trust: { level: 'third_party', label: '示例' },
+    default_config: { default_city: '北京', unit: 'celsius' },
+    management_ui: { pages: [buildManagementPage()] },
     commands: [],
     command_conflicts: [],
-    declared_capabilities: [],
+    declared_capabilities: ['config.read', 'config.write'],
     ...overrides,
-  }
+  } as unknown as PluginDetail
 }
 
-function assignIframeWindow(wrapper: ReturnType<typeof mount>) {
+function configureStores() {
+  const configStore = useConfigStore()
+  configStore.document = {
+    web: {
+      plugin_ui_origin_template: 'https://{plugin_host}.plugins.example.test',
+    },
+  } as never
+
+  const pluginsStore = usePluginsStore()
+  vi.spyOn(pluginsStore, 'fetchSettings').mockResolvedValue({
+    plugin_id: 'example-config-panel',
+    values: { default_city: '上海', unit: 'fahrenheit' },
+  })
+  return pluginsStore
+}
+
+function mountHost(plugin = buildPlugin()) {
+  return mount(PluginManagementUIHost, {
+    props: { plugin, title: '配置页面', page: buildManagementPage() },
+    global: { plugins: [Antd] },
+  })
+}
+
+function assignIframeWindow(wrapper: ReturnType<typeof mountHost>) {
   const iframe = wrapper.get('[data-testid="plugin-management-ui-frame"]').element as HTMLIFrameElement
-  const frameOrigin = new URL(iframe.getAttribute('src') ?? '', window.location.href).origin
-  const frameWindow = {
-    postMessage: vi.fn(),
-    __rayleaOrigin: frameOrigin,
-  } as unknown as Window
-
-  Object.defineProperty(iframe, 'contentWindow', {
-    configurable: true,
-    value: frameWindow,
-  })
-
-  return {
-    frameWindow,
-    iframe,
-  }
+  const origin = new URL(iframe.src).origin
+  const frameWindow = { postMessage: vi.fn() } as unknown as Window
+  Object.defineProperty(iframe, 'contentWindow', { configurable: true, value: frameWindow })
+  return { iframe, frameWindow, origin }
 }
 
-function dispatchBridgeMessage(source: MessageEventSource | null, data: unknown, origin = window.location.origin) {
-  const eventOrigin = source && typeof source === 'object' && '__rayleaOrigin' in source
-    ? String((source as Window & { __rayleaOrigin: string }).__rayleaOrigin)
-    : origin
-  const event = new MessageEvent('message', { data })
-  Object.defineProperty(event, 'source', {
-    configurable: true,
-    value: source,
-  })
-  Object.defineProperty(event, 'origin', {
-    configurable: true,
-    value: eventOrigin,
-  })
+function dispatchWindowMessage(source: Window, origin: string, data: unknown) {
+  const event = new MessageEvent('message', { data, origin })
+  Object.defineProperty(event, 'source', { configurable: true, value: source })
   window.dispatchEvent(event)
 }
 
-function parseFrameSrc(wrapper: ReturnType<typeof mount>) {
-  const src = wrapper.get('[data-testid="plugin-management-ui-frame"]').attributes('src') ?? ''
-  return new URL(src, 'https://rayleabot.local')
+function installWebPlatformMocks() {
+  const digest = Uint8Array.from({ length: 32 }, (_, index) => index + 1)
+  vi.stubGlobal('crypto', {
+    getRandomValues: (target: Uint8Array) => {
+      target.forEach((_, index) => { target[index] = (index + 17) % 256 })
+      return target
+    },
+    subtle: { digest: vi.fn(async () => digest.buffer) },
+  })
+  vi.stubGlobal('MessageChannel', FakeMessageChannel)
+  vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+    const path = String(input)
+    if (path === '/api/plugins/example-config-panel/secrets' && (!init?.method || init.method === 'GET')) {
+      return new Response(JSON.stringify({
+        plugin_id: 'example-config-panel',
+        configured: { api_token: true, optional_token: false },
+      }), { status: 200, headers: { 'content-type': 'application/json' } })
+    }
+    if (path === '/api/plugins/example-config-panel/secrets' && init?.method === 'PUT') {
+      return new Response(JSON.stringify({
+        plugin_id: 'example-config-panel',
+        configured: { api_token: true, optional_token: true },
+        changed_keys: ['optional_token'],
+      }), { status: 200, headers: { 'content-type': 'application/json' } })
+    }
+    if (path === '/api/plugins/example-config-panel/secrets' && init?.method === 'DELETE') {
+      return new Response(JSON.stringify({
+        plugin_id: 'example-config-panel',
+        configured: { api_token: false, optional_token: true },
+        changed_keys: ['api_token'],
+      }), { status: 200, headers: { 'content-type': 'application/json' } })
+    }
+    throw new Error(`unexpected fetch ${path}`)
+  }))
 }
 
-describe('PluginManagementUIHost', () => {
+async function connectBridge(wrapper: ReturnType<typeof mountHost>) {
+  const { iframe, frameWindow, origin } = assignIframeWindow(wrapper)
+  const src = new URL(iframe.src)
+  const nonce = src.searchParams.get('bridge_nonce')
+  expect(nonce).toMatch(/^nonce-[a-f0-9]{48}$/)
+
+  dispatchWindowMessage(frameWindow, origin, {
+    version: '2',
+    source: 'plugin_management_ui',
+    type: 'page.ready',
+    nonce,
+  })
+  await flushPromises()
+
+  const channel = FakeMessageChannel.latest
+  expect(channel).not.toBeNull()
+  expect(frameWindow.postMessage).toHaveBeenCalledWith({
+    version: '2',
+    source: 'management_host',
+    type: 'host.connect',
+    nonce,
+  }, origin, [channel?.port2])
+  return { iframe, frameWindow, origin, channel: channel! }
+}
+
+describe('PluginManagementUIHost bridge v2', () => {
   beforeEach(() => {
     window.localStorage.clear()
     setActivePinia(createPinia())
+    FakeMessageChannel.latest = null
     vi.unstubAllGlobals()
-    vi.useRealTimers()
+    installWebPlatformMocks()
+    configureStores()
   })
 
-  it('requires confirmation before loading an unverified plugin page', async () => {
+  it('requires an explicit confirmation before loading an unverified plugin page', async () => {
     const pluginsStore = usePluginsStore()
-    const governanceStore = useGovernanceStore()
-    const fetchSettingsSpy = vi.spyOn(pluginsStore, 'fetchSettings').mockResolvedValue({
-      plugin_id: 'example-config-panel',
-      values: {
-        default_city: '上海',
-        unit: 'fahrenheit',
+    const plugin = buildPlugin({
+      trust: { level: 'unverified', label: '未验证来源' },
+      source: {
+        root: 'examples/plugins',
+        package_source_type: 'local_zip',
+        package_source_ref: 'examples/plugins/example-config-panel.zip',
+        verified: false,
       },
     })
-    vi.spyOn(pluginsStore, 'fetchSecrets').mockResolvedValue({
-      plugin_id: 'example-config-panel',
-      values: {},
-    })
-
-    const wrapper = mount(PluginManagementUIHost, {
-      props: {
-        plugin: buildPlugin(),
-        title: '配置页面',
-        page: buildManagementPage(),
-      },
-      global: {
-        plugins: [Antd],
-      },
-    })
-
+    const wrapper = mountHost(plugin)
     await flushPromises()
 
     expect(wrapper.get('[data-testid="plugin-management-ui-confirm"]').text()).toContain('未验证来源需要手动确认')
     expect(wrapper.find('[data-testid="plugin-management-ui-frame"]').exists()).toBe(false)
-    expect(fetchSettingsSpy).not.toHaveBeenCalled()
+    expect(pluginsStore.fetchSettings).not.toHaveBeenCalled()
 
-    await wrapper.get('button').trigger('click')
+    await wrapper.get('[data-testid="plugin-management-ui-confirm"] button').trigger('click')
     await flushPromises()
 
-    expect(wrapper.find('[data-testid="plugin-management-ui-confirm"]').exists()).toBe(false)
-    expect(wrapper.find('[data-testid="plugin-management-ui-frame"]').exists()).toBe(true)
-    expect(wrapper.get('[data-testid="plugin-management-ui-frame"]').attributes('sandbox')).toBe('allow-forms allow-modals allow-same-origin allow-scripts')
+    const iframe = wrapper.get('[data-testid="plugin-management-ui-frame"]')
+    expect(iframe.attributes('sandbox')).toBe('allow-forms allow-same-origin allow-scripts')
     expect(window.localStorage.getItem(
-      'rayleabot.plugin-management-ui.confirmed:example-config-panel:0.1.0:local_zip:examples/plugins/example-config-panel.zip',
+      'rayleabot.plugin-management-ui.confirmed:example-config-panel:0.2.0:examples/plugins/example-config-panel.zip',
     )).toBe('1')
+    wrapper.unmount()
   })
 
-  it('adds cache-busting metadata to the iframe src and changes it when the frame reloads', async () => {
-    const pluginsStore = usePluginsStore()
-    vi.spyOn(pluginsStore, 'fetchSettings').mockResolvedValue({
-      plugin_id: 'example-config-panel',
-      values: {
-        default_city: '上海',
-        unit: 'fahrenheit',
-      },
-    })
-    vi.spyOn(pluginsStore, 'fetchSecrets').mockResolvedValue({
-      plugin_id: 'example-config-panel',
-      values: {},
-    })
-
-    const plugin = buildPlugin({
-      source: {
-        root: 'examples/plugins',
-        package_source_type: 'local_directory',
-        package_source_ref: 'examples/plugins/example-config-panel',
-        verified: true,
-      },
-      trust: {
-        level: 'third_party',
-        label: '示例',
-      },
-    })
-    const wrapper = mount(PluginManagementUIHost, {
-      props: {
-        plugin,
-        title: '配置页面',
-        page: buildManagementPage({
-          id: 'secrets',
-          label: '密钥设置',
-          entry: 'web/secrets.html',
-        }),
-      },
-      global: {
-        plugins: [Antd],
-      },
-    })
-
+  it('loads the Vue artifact from an independent plugin origin', async () => {
+    const wrapper = mountHost()
     await flushPromises()
 
-    const initialSrc = parseFrameSrc(wrapper)
-    expect(initialSrc.pathname).toBe('/plugin-ui/example-config-panel/web/secrets.html')
-    expect(initialSrc.searchParams.get('plugin_id')).toBe('example-config-panel')
-    expect(initialSrc.searchParams.get('version')).toBe('0.1.0')
-    expect(initialSrc.searchParams.get('entry')).toBe('web/secrets.html')
-    expect(initialSrc.searchParams.get('source_ref')).toBe('examples/plugins/example-config-panel')
-    const initialNonce = initialSrc.searchParams.get('nonce')
-    expect(initialNonce).toBeTruthy()
-    const initialSession = initialSrc.searchParams.get('session')
-    expect(initialSession).toBeTruthy()
-
-    await wrapper.setProps({
-      plugin: {
-        ...plugin,
-        version: '0.1.1',
-      },
-    })
-    await flushPromises()
-
-    const retrySrc = parseFrameSrc(wrapper)
-    expect(retrySrc.pathname).toBe('/plugin-ui/example-config-panel/web/secrets.html')
-    expect(retrySrc.searchParams.get('version')).toBe('0.1.1')
-    expect(retrySrc.searchParams.get('nonce')).not.toBe(initialNonce)
-    expect(retrySrc.searchParams.get('session')).toBe(initialSession)
+    const src = new URL(wrapper.get('[data-testid="plugin-management-ui-frame"]').attributes('src'))
+    expect(src.origin).toBe('https://p-0102030405060708.plugins.example.test')
+    expect(src.origin).not.toBe(window.location.origin)
+    expect(src.pathname).toBe('/index.html')
+    expect(src.searchParams.get('version')).toBe('0.2.0')
+    expect(src.searchParams.get('bridge_nonce')).toMatch(/^nonce-[a-f0-9]{48}$/)
+    wrapper.unmount()
   })
 
-  it('initializes, reloads, and saves settings through the bridge', async () => {
-    const pluginsStore = usePluginsStore()
-    const governanceStore = useGovernanceStore()
-    const plugin = buildPlugin({
-      source: {
-        root: 'examples/plugins',
-        package_source_type: 'local_directory',
-        package_source_ref: 'examples/plugins/example-config-panel',
-        verified: true,
-      },
-      trust: {
-        level: 'third_party',
-        label: '示例',
-      },
-    })
-
-    const fetchSettingsSpy = vi.spyOn(pluginsStore, 'fetchSettings')
-      .mockResolvedValueOnce({
-        plugin_id: 'example-config-panel',
-        values: {
-          default_city: '上海',
-          unit: 'fahrenheit',
-        },
-      })
-      .mockResolvedValueOnce({
-        plugin_id: 'example-config-panel',
-        values: {
-          default_city: '杭州',
-          unit: 'celsius',
-        },
-      })
-    const fetchSecretsSpy = vi.spyOn(pluginsStore, 'fetchSecrets')
-      .mockResolvedValueOnce({
-        plugin_id: 'example-config-panel',
-        values: {
-          api_token: 'secret-one',
-        },
-      })
-      .mockResolvedValueOnce({
-        plugin_id: 'example-config-panel',
-        values: {
-          api_token: 'secret-two',
-        },
-      })
-    const updateSettingsSpy = vi.spyOn(pluginsStore, 'updateSettings').mockResolvedValue({
-      plugin_id: 'example-config-panel',
-      changed_keys: ['default_city', 'unit'],
-      values: {
-        default_city: '深圳',
-        unit: 'fahrenheit',
-      },
-    })
-    const updateSecretsSpy = vi.spyOn(pluginsStore, 'updateSecrets').mockResolvedValue({
-      plugin_id: 'example-config-panel',
-      changed_keys: ['api_token'],
-      values: {
-        api_token: 'secret-three',
-      },
-    })
-    const fetchDetailSpy = vi.spyOn(pluginsStore, 'fetchDetail').mockResolvedValue(plugin as never)
-    const fetchCommandPolicySpy = vi.spyOn(governanceStore, 'fetchCommandPolicy').mockResolvedValue({
-      default_level: 'everyone',
-      cooldown: {
-        user_command_rate_limit: '10/60s',
-        group_command_rate_limit: '30/60s',
-        cooldown_reply: true,
-      },
-      commands: [],
-    })
-
-    const wrapper = mount(PluginManagementUIHost, {
-      props: {
-        plugin,
-        title: '配置页面',
-        page: buildManagementPage({
-          id: 'secrets',
-          label: '密钥设置',
-          entry: 'web/secrets.html',
-        }),
-      },
-      global: {
-        plugins: [Antd],
-      },
-    })
-
+  it('binds a one-time MessageChannel and never sends plaintext stored secrets', async () => {
+    const wrapper = mountHost()
     await flushPromises()
+    const { channel } = await connectBridge(wrapper)
 
-    const { frameWindow } = assignIframeWindow(wrapper)
-
-    dispatchBridgeMessage(frameWindow, {
-      version: '1',
-      source: 'plugin_management_ui',
-      type: 'page.ready',
-      request_id: 'req-ready',
-    })
-    await flushPromises()
-
-    expect(fetchSettingsSpy).toHaveBeenCalledTimes(1)
-    expect(fetchSecretsSpy).toHaveBeenCalledTimes(1)
-    expect((frameWindow.postMessage as ReturnType<typeof vi.fn>).mock.calls[0]?.[0]).toMatchObject({
-      version: '1',
+    const init = channel.port1.sent.at(-1) as Record<string, unknown>
+    expect(init).toMatchObject({
+      version: '2',
       source: 'management_host',
       type: 'host.init',
-      request_id: 'req-ready',
       payload: {
-        plugin_id: 'example-config-panel',
-        title: '配置页面',
-        page: {
-          id: 'secrets',
-          label: '密钥设置',
-          entry: 'web/secrets.html',
-        },
-        default_config: {
-          default_city: '北京',
-          unit: 'celsius',
-        },
-        settings: {
-          default_city: '上海',
-          unit: 'fahrenheit',
-        },
-        secrets: {
-          api_token: 'secret-one',
-        },
+        plugin: { id: 'example-config-panel', version: '0.2.0' },
+        page: { id: 'config', label: '配置页面' },
+        config: { default_city: '上海', unit: 'fahrenheit' },
+        secrets_configured: { api_token: true, optional_token: false },
+        allowed_capabilities: ['config.read', 'config.write'],
       },
     })
-    expect((frameWindow.postMessage as ReturnType<typeof vi.fn>).mock.calls[0]?.[1]).toBe(
-      String((frameWindow as Window & { __rayleaOrigin: string }).__rayleaOrigin),
-    )
+    expect(JSON.stringify(init)).not.toContain('secret-value')
+    expect((init.payload as Record<string, unknown>)).not.toHaveProperty('secrets')
 
-    dispatchBridgeMessage(frameWindow, {
-      version: '1',
-      source: 'plugin_management_ui',
-      type: 'page.ready',
-      request_id: 'req-ready-again',
+    channel.port1.emit({
+      version: '2', source: 'plugin_management_ui', type: 'secrets.set', request_id: 'set-1',
+      payload: { values: { optional_token: 'secret-value' } },
     })
     await flushPromises()
-
-    expect(fetchSettingsSpy).toHaveBeenCalledTimes(1)
-    expect(fetchSecretsSpy).toHaveBeenCalledTimes(1)
-    expect((frameWindow.postMessage as ReturnType<typeof vi.fn>).mock.calls[1]?.[0]).toMatchObject({
-      version: '1',
-      source: 'management_host',
-      type: 'host.init',
-      request_id: 'req-ready-again',
-      payload: {
-        plugin_id: 'example-config-panel',
-        settings: {
-          default_city: '上海',
-          unit: 'fahrenheit',
-        },
-        secrets: {
-          api_token: 'secret-one',
-        },
-      },
+    expect(fetch).toHaveBeenCalledWith('/api/plugins/example-config-panel/secrets', expect.objectContaining({
+      method: 'PUT',
+      body: JSON.stringify({ values: { optional_token: 'secret-value' } }),
+    }))
+    expect(channel.port1.sent.at(-1)).toMatchObject({
+      type: 'secrets.status.changed',
+      request_id: 'set-1',
+      payload: { configured: { api_token: true, optional_token: true } },
     })
+    expect(JSON.stringify(channel.port1.sent.at(-1))).not.toContain('secret-value')
 
-    dispatchBridgeMessage(frameWindow, {
-      version: '1',
-      source: 'plugin_management_ui',
-      type: 'settings.reload',
-      request_id: 'req-reload',
+    channel.port1.emit({
+      version: '2', source: 'plugin_management_ui', type: 'secrets.delete', request_id: 'delete-1',
+      payload: { keys: ['api_token'] },
     })
     await flushPromises()
-
-    expect(fetchSettingsSpy).toHaveBeenCalledTimes(2)
-    expect((frameWindow.postMessage as ReturnType<typeof vi.fn>).mock.calls[2]?.[0]).toMatchObject({
-      version: '1',
-      source: 'management_host',
-      type: 'settings.changed',
-      request_id: 'req-reload',
-      payload: {
-        changed_keys: [],
-        values: {
-          default_city: '杭州',
-          unit: 'celsius',
-        },
-      },
-    })
-
-    dispatchBridgeMessage(frameWindow, {
-      version: '1',
-      source: 'plugin_management_ui',
-      type: 'settings.save',
-      request_id: 'req-save',
-      payload: {
-        values: {
-          default_city: '深圳',
-          unit: 'fahrenheit',
-        },
-      },
-    })
-    await flushPromises()
-
-    expect(updateSettingsSpy).toHaveBeenCalledWith('example-config-panel', {
-      default_city: '深圳',
-      unit: 'fahrenheit',
-    })
-    expect(fetchDetailSpy).toHaveBeenCalledWith('example-config-panel')
-    expect(fetchCommandPolicySpy).toHaveBeenCalledTimes(1)
-    expect((frameWindow.postMessage as ReturnType<typeof vi.fn>).mock.calls[3]?.[0]).toMatchObject({
-      version: '1',
-      source: 'management_host',
-      type: 'settings.changed',
-      request_id: 'req-save',
-      payload: {
-        changed_keys: ['default_city', 'unit'],
-        values: {
-          default_city: '深圳',
-          unit: 'fahrenheit',
-        },
-      },
-    })
-
-    dispatchBridgeMessage(frameWindow, {
-      version: '1',
-      source: 'plugin_management_ui',
-      type: 'secrets.reload',
-      request_id: 'req-secrets-reload',
-    })
-    await flushPromises()
-
-    expect(fetchSecretsSpy).toHaveBeenCalledTimes(2)
-    expect((frameWindow.postMessage as ReturnType<typeof vi.fn>).mock.calls[4]?.[0]).toMatchObject({
-      version: '1',
-      source: 'management_host',
-      type: 'secrets.changed',
-      request_id: 'req-secrets-reload',
-      payload: {
-        changed_keys: [],
-        values: {
-          api_token: 'secret-two',
-        },
-      },
-    })
-
-    dispatchBridgeMessage(frameWindow, {
-      version: '1',
-      source: 'plugin_management_ui',
-      type: 'secrets.save',
-      request_id: 'req-secrets-save',
-      payload: {
-        values: {
-          api_token: 'secret-three',
-        },
-        deleted_keys: ['api_token_old'],
-      },
-    })
-    await flushPromises()
-
-    expect(updateSecretsSpy).toHaveBeenCalledWith('example-config-panel', {
-      api_token: 'secret-three',
-    }, ['api_token_old'])
-    expect((frameWindow.postMessage as ReturnType<typeof vi.fn>).mock.calls[5]?.[0]).toMatchObject({
-      version: '1',
-      source: 'management_host',
-      type: 'secrets.changed',
-      request_id: 'req-secrets-save',
-      payload: {
-        changed_keys: ['api_token'],
-        values: {
-          api_token: 'secret-three',
-        },
-      },
-    })
+    expect(fetch).toHaveBeenCalledWith('/api/plugins/example-config-panel/secrets', expect.objectContaining({
+      method: 'DELETE',
+      body: JSON.stringify({ keys: ['api_token'] }),
+    }))
+    wrapper.unmount()
   })
 
-  it('posts a plain page payload when the selected management page is reactive', async () => {
-    const pluginsStore = usePluginsStore()
-    const plugin = buildPlugin({
-      source: {
-        root: 'examples/plugins',
-        package_source_type: 'local_directory',
-        package_source_ref: 'examples/plugins/example-config-panel',
-        verified: true,
-      },
-      trust: {
-        level: 'third_party',
-        label: '示例',
-      },
-    })
-
-    vi.spyOn(pluginsStore, 'fetchSettings').mockResolvedValue({
-      plugin_id: 'example-config-panel',
-      values: {
-        default_city: '上海',
-      },
-    })
-    vi.spyOn(pluginsStore, 'fetchSecrets').mockResolvedValue({
-      plugin_id: 'example-config-panel',
-      values: {},
-    })
-
-    const wrapper = mount(PluginManagementUIHost, {
-      props: {
-        plugin,
-        title: '密钥设置',
-        page: reactive({
-          id: 'secrets',
-          label: '密钥设置',
-          entry: 'web/secrets.html',
-        }),
-      },
-      global: {
-        plugins: [Antd],
-      },
+  it('rejects bridge v1 and clamps height reports to the contracted range', async () => {
+    const first = mountHost()
+    await flushPromises()
+    const stale = assignIframeWindow(first)
+    dispatchWindowMessage(stale.frameWindow, stale.origin, {
+      version: '1', source: 'plugin_management_ui', type: 'page.ready', nonce: new URL(stale.iframe.src).searchParams.get('bridge_nonce'),
     })
     await flushPromises()
+    expect(FakeMessageChannel.latest).toBeNull()
+    expect(first.find('[data-testid="plugin-management-ui-frame"]').exists()).toBe(false)
+    first.unmount()
 
-    const { frameWindow } = assignIframeWindow(wrapper)
-    const deliveredMessages: unknown[] = []
-    ;(frameWindow.postMessage as ReturnType<typeof vi.fn>).mockImplementation((message) => {
-      deliveredMessages.push(structuredClone(message))
-    })
-
-    dispatchBridgeMessage(frameWindow, {
-      version: '1',
-      source: 'plugin_management_ui',
-      type: 'page.ready',
-      request_id: 'req-ready',
+    FakeMessageChannel.latest = null
+    const second = mountHost()
+    await flushPromises()
+    const { channel, iframe } = await connectBridge(second)
+    channel.port1.emit({
+      version: '2', source: 'plugin_management_ui', type: 'ui.resize', payload: { height: 5000 },
     })
     await flushPromises()
-
-    expect(deliveredMessages).toHaveLength(1)
-    expect(deliveredMessages[0]).toMatchObject({
-      version: '1',
-      source: 'management_host',
-      type: 'host.init',
-      request_id: 'req-ready',
-      payload: {
-        page: {
-          id: 'secrets',
-          label: '密钥设置',
-          entry: 'web/secrets.html',
-        },
-      },
-    })
-    expect(wrapper.text()).not.toContain('插件页面未打开')
-  })
-
-  it('does not restart the iframe when unrelated plugin detail fields change', async () => {
-    const pluginsStore = usePluginsStore()
-    const plugin = buildPlugin({
-      source: {
-        root: 'examples/plugins',
-        package_source_type: 'local_directory',
-        package_source_ref: 'examples/plugins/example-config-panel',
-        verified: true,
-      },
-      trust: {
-        level: 'third_party',
-        label: '示例',
-      },
-    })
-
-    const fetchSettingsSpy = vi.spyOn(pluginsStore, 'fetchSettings').mockResolvedValue({
-      plugin_id: 'example-config-panel',
-      values: {
-        default_city: '上海',
-        unit: 'fahrenheit',
-      },
-    })
-    vi.spyOn(pluginsStore, 'fetchSecrets').mockResolvedValue({
-      plugin_id: 'example-config-panel',
-      values: {},
-    })
-
-    const wrapper = mount(PluginManagementUIHost, {
-      props: {
-        plugin,
-        title: '配置页面',
-        page: buildManagementPage(),
-      },
-      global: {
-        plugins: [Antd],
-      },
-    })
-
-    await flushPromises()
-
-    const { frameWindow, iframe } = assignIframeWindow(wrapper)
-
-    dispatchBridgeMessage(frameWindow, {
-      version: '1',
-      source: 'plugin_management_ui',
-      type: 'page.ready',
-      request_id: 'req-ready',
-    })
-    await flushPromises()
-
-    expect(fetchSettingsSpy).toHaveBeenCalledTimes(1)
-
-    await wrapper.setProps({
-      plugin: {
-        ...plugin,
-        description: 'Updated description',
-      },
-    })
-    await flushPromises()
-
-    expect(fetchSettingsSpy).toHaveBeenCalledTimes(1)
-    expect(wrapper.get('[data-testid="plugin-management-ui-frame"]').element).toBe(iframe)
-  })
-
-  it('shows a retry surface when the iframe sends an invalid bridge message', async () => {
-    const pluginsStore = usePluginsStore()
-    vi.spyOn(pluginsStore, 'fetchSettings').mockResolvedValue({
-      plugin_id: 'example-config-panel',
-      values: {
-        default_city: '上海',
-        unit: 'fahrenheit',
-      },
-    })
-    vi.spyOn(pluginsStore, 'fetchSecrets').mockResolvedValue({
-      plugin_id: 'example-config-panel',
-      values: {},
-    })
-
-    const wrapper = mount(PluginManagementUIHost, {
-      props: {
-        plugin: buildPlugin({
-          source: {
-            root: 'examples/plugins',
-            package_source_type: 'local_directory',
-            package_source_ref: 'examples/plugins/example-config-panel',
-            verified: true,
-          },
-          trust: {
-            level: 'third_party',
-            label: '示例',
-          },
-        }),
-        title: '配置页面',
-        page: buildManagementPage(),
-      },
-      global: {
-        plugins: [Antd],
-      },
-    })
-
-    await flushPromises()
-
-    const { frameWindow } = assignIframeWindow(wrapper)
-
-    dispatchBridgeMessage(frameWindow, {
-      version: '1',
-      source: 'plugin_management_ui',
-      type: 'settings.delete',
-      payload: {
-        values: {},
-      },
-    })
-    await flushPromises()
-
-    expect(wrapper.text()).toContain('插件页面未打开')
-    expect(wrapper.text()).toContain('插件页面发送了无效消息，当前页面已停止交互。')
-    expect(wrapper.find('[data-testid="vben-fallback"]').exists()).toBe(false)
-    expect(wrapper.text()).not.toContain('返回首页')
-  })
-
-  it('proxies protocol targets and user bridge requests with declared capabilities', async () => {
-    const pluginsStore = usePluginsStore()
-    vi.spyOn(pluginsStore, 'fetchSettings').mockResolvedValue({
-      plugin_id: 'raylea.subscription-hub',
-      values: {},
-    })
-    vi.spyOn(pluginsStore, 'fetchSecrets').mockResolvedValue({
-      plugin_id: 'raylea.subscription-hub',
-      values: {},
-    })
-    const fetchSpy = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
-      const url = String(input)
-      if (url === '/api/protocols/onebot11/targets') {
-        return new Response(JSON.stringify({
-          protocol: 'onebot11',
-          available: true,
-          groups: [{ target_type: 'group', target_id: '5050', target_name: '测试群' }],
-          private_users: [{ target_type: 'private', target_id: '2626', nickname: '测试用户' }],
-          issues: [],
-        }), { status: 200, headers: { 'content-type': 'application/json' } })
-      }
-      if (url === '/api/protocols/onebot11/identities/resolve') {
-        expect(init?.method).toBe('POST')
-        expect(JSON.parse(String(init?.body))).toEqual({
-          items: [{ target_type: 'group', target_id: '5050', user_id: '10001' }],
-        })
-        return new Response(JSON.stringify({
-          items: [{
-            target_type: 'group',
-            target_id: '5050',
-            user_id: '10001',
-            nickname: '测试号',
-            group_nickname: '群名片',
-            avatar_url: 'https://q1.qlogo.cn/g?b=qq&nk=10001&s=640',
-          }],
-          issues: [],
-        }), { status: 200, headers: { 'content-type': 'application/json' } })
-      }
-      if (url === '/api/plugins/raylea.subscription-hub/management/actions') {
-        expect(init?.method).toBe('POST')
-        const body = JSON.parse(String(init?.body))
-        if (body.action === 'subscription.resolve_user' && body.payload?.platform === 'bilibili') {
-          return new Response(JSON.stringify({
-            plugin_id: 'raylea.subscription-hub',
-            action: 'subscription.resolve_user',
-            result: {
-              platform: 'bilibili',
-              query: '测试 UP',
-              exact: true,
-              user: { uid: '1000001', name: '测试 UP', avatar_url: '' },
-              candidates: [],
-            },
-          }), { status: 200, headers: { 'content-type': 'application/json' } })
-        }
-        if (body.action === 'subscription.resolve_user' && body.payload?.platform === 'weibo') {
-          return new Response(JSON.stringify({
-            plugin_id: 'raylea.subscription-hub',
-            action: 'subscription.resolve_user',
-            result: {
-              platform: 'weibo',
-              query: '洛天依',
-              exact: true,
-              user: { uid: '7556659984', name: '洛天依', avatar_url: 'https://tvax1.sinaimg.cn/avatar.jpg' },
-              candidates: [],
-            },
-          }), { status: 200, headers: { 'content-type': 'application/json' } })
-        }
-      }
-      throw new Error(`unexpected fetch ${url}`)
-    })
-    vi.stubGlobal('fetch', fetchSpy)
-
-    const plugin = buildPlugin({
-      id: 'raylea.subscription-hub',
-      role: 'builtin',
-      source: {
-        root: 'plugins/builtin/subscription_hub',
-        package_source_type: 'local_directory',
-        package_source_ref: 'plugins/builtin/subscription_hub',
-        verified: true,
-      },
-      trust: {
-        level: 'official',
-        label: '内置',
-      },
-      declared_capabilities: ['group.list', 'friend.list', 'group.member.get', 'user.info.get', 'http.request'],
-    })
-    const wrapper = mount(PluginManagementUIHost, {
-      props: {
-        plugin,
-        title: '订阅设置',
-        page: buildManagementPage(),
-      },
-      global: {
-        plugins: [Antd],
-      },
-    })
-
-    await flushPromises()
-
-    const { frameWindow } = assignIframeWindow(wrapper)
-
-    dispatchBridgeMessage(frameWindow, {
-      version: '1',
-      source: 'plugin_management_ui',
-      type: 'protocol.targets.reload',
-      request_id: 'req-targets',
-    })
-    await flushPromises()
-    expect((frameWindow.postMessage as ReturnType<typeof vi.fn>).mock.calls.at(-1)?.[0]).toMatchObject({
-      type: 'protocol.targets.changed',
-      request_id: 'req-targets',
-      payload: {
-        groups: [{ target_type: 'group', target_id: '5050', target_name: '测试群' }],
-      },
-    })
-
-    dispatchBridgeMessage(frameWindow, {
-      version: '1',
-      source: 'plugin_management_ui',
-      type: 'protocol.identities.resolve',
-      request_id: 'req-identities',
-      payload: {
-        items: [{ target_type: 'group', target_id: '5050', user_id: '10001' }],
-      },
-    })
-    await flushPromises()
-    expect((frameWindow.postMessage as ReturnType<typeof vi.fn>).mock.calls.at(-1)?.[0]).toMatchObject({
-      type: 'protocol.identities.resolved',
-      request_id: 'req-identities',
-      payload: {
-        items: [{ group_nickname: '群名片' }],
-      },
-    })
-
-    dispatchBridgeMessage(frameWindow, {
-      version: '1',
-      source: 'plugin_management_ui',
-      type: 'plugin.action.invoke',
-      request_id: 'req-bili',
-      payload: {
-        action: 'subscription.resolve_user',
-        payload: {
-          platform: 'bilibili',
-          query: '测试 UP',
-        },
-      },
-    })
-    await flushPromises()
-    expect((frameWindow.postMessage as ReturnType<typeof vi.fn>).mock.calls.at(-1)?.[0]).toMatchObject({
-      type: 'plugin.action.result',
-      request_id: 'req-bili',
-      payload: {
-        action: 'subscription.resolve_user',
-        result: {
-          exact: true,
-          user: { uid: '1000001', name: '测试 UP' },
-        },
-      },
-    })
-
-    dispatchBridgeMessage(frameWindow, {
-      version: '1',
-      source: 'plugin_management_ui',
-      type: 'plugin.action.invoke',
-      request_id: 'req-weibo',
-      payload: {
-        action: 'subscription.resolve_user',
-        payload: {
-          platform: 'weibo',
-          query: '洛天依',
-        },
-      },
-    })
-    await flushPromises()
-    expect((frameWindow.postMessage as ReturnType<typeof vi.fn>).mock.calls.at(-1)?.[0]).toMatchObject({
-      type: 'plugin.action.result',
-      request_id: 'req-weibo',
-      payload: {
-        action: 'subscription.resolve_user',
-        result: {
-          platform: 'weibo',
-          exact: true,
-          user: { uid: '7556659984', name: '洛天依' },
-        },
-      },
-    })
-  })
-
-  it('rejects protocol target bridge requests without declared capabilities', async () => {
-    const pluginsStore = usePluginsStore()
-    vi.spyOn(pluginsStore, 'fetchSettings').mockResolvedValue({
-      plugin_id: 'example-config-panel',
-      values: {},
-    })
-    vi.spyOn(pluginsStore, 'fetchSecrets').mockResolvedValue({
-      plugin_id: 'example-config-panel',
-      values: {},
-    })
-    const fetchSpy = vi.fn()
-    vi.stubGlobal('fetch', fetchSpy)
-
-    const wrapper = mount(PluginManagementUIHost, {
-      props: {
-        plugin: buildPlugin({
-          source: {
-            root: 'examples/plugins',
-            package_source_type: 'local_directory',
-            package_source_ref: 'examples/plugins/example-config-panel',
-            verified: true,
-          },
-          trust: {
-            level: 'third_party',
-            label: '示例',
-          },
-          declared_capabilities: [],
-        }),
-        title: '配置页面',
-        page: buildManagementPage(),
-      },
-      global: {
-        plugins: [Antd],
-      },
-    })
-
-    await flushPromises()
-
-    const { frameWindow } = assignIframeWindow(wrapper)
-    dispatchBridgeMessage(frameWindow, {
-      version: '1',
-      source: 'plugin_management_ui',
-      type: 'protocol.targets.reload',
-      request_id: 'req-denied',
-    })
-    await flushPromises()
-
-    expect(fetchSpy).not.toHaveBeenCalled()
-    expect((frameWindow.postMessage as ReturnType<typeof vi.fn>).mock.calls.at(-1)?.[0]).toMatchObject({
-      type: 'error',
-      request_id: 'req-denied',
-      payload: {
-        code: 'plugin.capability_violation',
-      },
-    })
+    expect(iframe.style.height).toBe('1600px')
+    second.unmount()
   })
 })

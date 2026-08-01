@@ -256,7 +256,7 @@ useToastFeedback(protocolIssueToast)
             >
               <a-timeline class="events-timeline">
                 <a-timeline-item
-                  v-for="(event, index) in recentEvents"
+                  v-for="event in recentEvents"
                   :key="`${event.timestamp}-${event.summary}`"
                   :color="getEventSeverityColor(getEventSeverity(event.payload))"
                 >
@@ -293,7 +293,7 @@ useToastFeedback(protocolIssueToast)
           <a-tab-pane key="readiness" :tab="t('dashboard.overviewReadiness')">
             <div v-if="checkItems.length" class="readiness-checks">
               <div
-                v-for="(item, index) in checkItems"
+                v-for="item in checkItems"
                 :key="item.key"
                 :class="['readiness-check', `readiness-check--${item.status}`]"
               >
@@ -347,7 +347,7 @@ useToastFeedback(protocolIssueToast)
           <a-tab-pane key="diagnostics" :tab="t('dashboard.overviewDiagnostics')">
             <div v-if="diagnosticsSubsystemItems.length" class="diagnostics-subsystem-grid">
               <div
-                v-for="(item, index) in diagnosticsSubsystemItems"
+                v-for="item in diagnosticsSubsystemItems"
                 :key="item.key"
                 :class="['diagnostics-subsystem', `diagnostics-subsystem--${item.status}`]"
               >

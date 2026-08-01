@@ -8,6 +8,7 @@ export type PluginInstallSourceType = components['schemas']['PluginInstallReques
 export type PluginSourceSummary = components['schemas']['PluginSourceSummary']
 export type PluginTrustSummary = components['schemas']['PluginTrustSummary']
 export type PluginCommandSummary = components['schemas']['PluginCommandSummary']
+export type PluginCommandSource = components['schemas']['PluginCommandSource']
 export type PluginHelp = components['schemas']['PluginHelp']
 export type PluginHelpGroup = components['schemas']['PluginHelpGroup']
 export type PluginHelpItem = components['schemas']['PluginHelpItem']

@@ -348,15 +348,15 @@ async function save() {
                     <RateLimitInput
                       v-else-if="field.type === 'rateLimit'"
                       :value="String(readField(field.path, field.type) ?? '')"
-                      :aria-label="field.label"
-                      @update:value="(value) => writeField(field.path, field.type, value)"
+                      :ariaLabel="field.label"
+                      @update:value="writeField(field.path, field.type, $event)"
                     />
 
                     <a-input
                       v-else-if="field.type === 'text'"
                       :value="String(readField(field.path, field.type) ?? '')"
                       :aria-label="field.label"
-                      @update:value="(value) => writeField(field.path, field.type, value)"
+                      @update:value="writeField(field.path, field.type, $event)"
                     />
 
                     <a-input-number
@@ -366,14 +366,14 @@ async function save() {
                       :min="0"
                       :step="1"
                       :aria-label="field.label"
-                      @update:value="(value) => writeField(field.path, field.type, value)"
+                      @update:value="writeField(field.path, field.type, $event)"
                     />
 
                     <div v-else-if="field.type === 'boolean'" class="switch-wrap">
                       <a-switch
                         :checked="Boolean(readField(field.path, field.type))"
                         :aria-label="field.label"
-                        @update:checked="(value) => writeField(field.path, field.type, value)"
+                        @update:checked="writeField(field.path, field.type, $event)"
                       />
                     </div>
 
@@ -382,7 +382,7 @@ async function save() {
                       :value="String(readField(field.path, field.type) ?? '')"
                       :options="field.options"
                       :aria-label="field.label"
-                      @update:value="(value) => writeField(field.path, field.type, value)"
+                      @update:value="writeField(field.path, field.type, $event)"
                     />
 
                     <a-textarea
@@ -390,7 +390,7 @@ async function save() {
                       :value="String(readField(field.path, field.type) ?? '')"
                       :auto-size="{ minRows: 3, maxRows: 7 }"
                       :aria-label="field.label"
-                      @update:value="(value) => writeField(field.path, field.type, value)"
+                      @update:value="writeField(field.path, field.type, $event)"
                     />
 
                     <a-textarea
@@ -398,7 +398,7 @@ async function save() {
                       :value="String(readField(field.path, field.type) ?? '')"
                       :auto-size="{ minRows: 3, maxRows: 7 }"
                       :aria-label="field.label"
-                      @update:value="(value) => writeField(field.path, field.type, value)"
+                      @update:value="writeField(field.path, field.type, $event)"
                     />
 
                     <div v-if="getRateLimitPreview(field)" class="plugin-settings-rate-preview">

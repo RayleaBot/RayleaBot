@@ -1,4 +1,5 @@
 import http from 'node:http'
+import { createHash } from 'node:crypto'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { readFile } from 'node:fs/promises'
@@ -9,7 +10,8 @@ import { WebSocketServer } from 'ws'
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 const repoRoot = path.resolve(__dirname, '..', '..', '..')
-const exampleConfigPanelRoot = path.join(repoRoot, 'examples', 'plugins', 'example-config-panel')
+const exampleConfigPanelRoot = path.join(repoRoot, 'examples', 'plugins', 'example-config-panel', 'ui', 'dist')
+const exampleConfigPanelHost = `p-${createHash('sha256').update('example-config-panel').digest('hex').slice(0, 16)}.plugins.localhost:4010`
 const configuredWebOrigin = String(process.env.RAYLEA_E2E_WEB_ORIGIN ?? 'http://127.0.0.1:4173').trim()
 if (!/^http:\/\/(?:127\.0\.0\.1|localhost):\d{1,5}$/.test(configuredWebOrigin)) {
   throw new Error('RAYLEA_E2E_WEB_ORIGIN must be a loopback HTTP origin')
@@ -73,7 +75,7 @@ const fixtures = {
   pluginDisable: await readFixture('fixtures/web-api/edge.plugins-disable-response.yaml'),
   pluginReload: await readFixture('fixtures/web-api/ok.plugins-reload-response.yaml'),
   pluginInstallAccepted: await readFixture('fixtures/web-api/ok.plugins-install-accepted.yaml'),
-  pluginInstallAcceptedWithScripts: await readFixture('fixtures/web-api/ok.plugins-install-accepted-with-scripts.yaml'),
+  pluginInstallLocalArtifact: await readFixture('fixtures/web-api/ok.plugins-install-local-artifact.yaml'),
   pluginInstallRemoteUrl: await readFixture('fixtures/web-api/ok.plugins-install-remote-url.yaml'),
   pluginList: await readFixture('fixtures/web-api/ok.plugins-list-response.yaml'),
   pluginDetail: await readFixture('fixtures/web-api/ok.plugin-detail-response.yaml'),
@@ -132,7 +134,7 @@ function baseState() {
       'example-config-panel': structuredClone(fixtures.pluginSettings.response.body.values),
     },
     pluginSecrets: {
-      'example-config-panel': { api_key: '' },
+      'example-config-panel': { api_key: 'stored-secret-must-not-leak' },
     },
     pluginInstallInspections: {},
     logs: initialLogs,
@@ -875,13 +877,12 @@ function getPluginManagementUIRoot(pluginId) {
 
 function resolvePluginManagementUIFile(pluginId, requestedPath) {
   const plugin = state.plugins[pluginId]
-  const entry = plugin?.management_ui?.pages?.[0]?.entry
   const pluginRoot = getPluginManagementUIRoot(pluginId)
-  if (!plugin || typeof entry !== 'string' || !entry.trim() || !pluginRoot) {
+  if (!plugin || !pluginRoot) {
     return null
   }
 
-  const normalizedRequestPath = requestedPath
+  const normalizedRequestPath = (requestedPath || 'index.html')
     .split('/')
     .map((segment) => segment.trim())
     .filter((segment) => segment.length > 0)
@@ -890,8 +891,8 @@ function resolvePluginManagementUIFile(pluginId, requestedPath) {
     return null
   }
 
-  const allowedDirectory = path.resolve(pluginRoot, path.dirname(entry))
-  const resolvedFilePath = path.resolve(pluginRoot, normalizedRequestPath)
+  const allowedDirectory = path.resolve(pluginRoot)
+  const resolvedFilePath = path.resolve(allowedDirectory, normalizedRequestPath)
   if (!isPathInside(allowedDirectory, resolvedFilePath)) {
     return null
   }
@@ -1159,6 +1160,40 @@ const server = http.createServer(async (request, response) => {
     return
   }
 
+  if (String(request.headers.host ?? '').toLowerCase() === exampleConfigPanelHost) {
+    if ((request.method !== 'GET' && request.method !== 'HEAD') || pathname.startsWith('/api/') || pathname.startsWith('/ws/')) {
+      json(response, 404, errorEnvelope('platform.not_found', 'plugin origin has no API routes', 'req_plugin_ui_isolated'))
+      return
+    }
+    let requestedPath = ''
+    try {
+      requestedPath = pathname.split('/').filter(Boolean).map((segment) => decodeURIComponent(segment)).join('/')
+    } catch {
+      json(response, 404, errorEnvelope('platform.not_found', 'plugin management page not found', 'req_plugin_ui_invalid_path'))
+      return
+    }
+    const filePath = resolvePluginManagementUIFile('example-config-panel', requestedPath)
+    if (!filePath) {
+      json(response, 404, errorEnvelope('platform.not_found', 'plugin management page not found', 'req_plugin_ui_not_found'))
+      return
+    }
+    try {
+      const file = await readFile(filePath)
+      response.writeHead(200, {
+        'Content-Type': getContentType(filePath),
+        'Cache-Control': 'no-store, max-age=0',
+        'Content-Security-Policy': `default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors ${configuredWebOrigin}`,
+        'X-Content-Type-Options': 'nosniff',
+        'Referrer-Policy': 'no-referrer',
+      })
+      response.end(request.method === 'HEAD' ? undefined : file)
+      return
+    } catch {
+      json(response, 404, errorEnvelope('platform.not_found', 'plugin management page not found', 'req_plugin_ui_missing'))
+      return
+    }
+  }
+
   if (pathname === '/__test/ping') {
     json(response, 200, { ok: true })
     return
@@ -1370,39 +1405,6 @@ const server = http.createServer(async (request, response) => {
     })
     json(response, 200, { ok: true, log_id: `log_${taskId}_${String(payload.status)}` })
     return
-  }
-
-  if (pathname.startsWith('/plugin-ui/') && (request.method === 'GET' || request.method === 'HEAD')) {
-    const pathSegments = pathname.split('/')
-    const pluginId = decodeURIComponent(pathSegments[2] ?? '')
-    const requestedPath = pathSegments
-      .slice(3)
-      .map((segment) => decodeURIComponent(segment))
-      .join('/')
-    const filePath = resolvePluginManagementUIFile(pluginId, requestedPath)
-
-    if (!filePath) {
-      json(response, 404, errorEnvelope('platform.not_found', 'plugin management page not found', 'req_plugin_ui_not_found'))
-      return
-    }
-
-    try {
-      const file = await readFile(filePath)
-      response.writeHead(200, {
-        'Content-Type': getContentType(filePath),
-        'Cache-Control': 'no-store',
-      })
-      if (request.method === 'HEAD') {
-        response.end()
-        return
-      }
-
-      response.end(file)
-      return
-    } catch {
-      json(response, 404, errorEnvelope('platform.not_found', 'plugin management page not found', 'req_plugin_ui_missing'))
-      return
-    }
   }
 
   if (pathname === '/__test/network-online' && request.method === 'POST') {
@@ -1921,7 +1923,6 @@ const server = http.createServer(async (request, response) => {
     }
     const inspectionId = 'inspection_mock_weather_package_0000001'
     const packageSha256 = 'a'.repeat(64)
-    const installScripts = payload.source.includes('script') ? ['preinstall', 'install'] : []
     state.pluginInstallInspections[inspectionId] = {
       source_type: payload.source_type,
       source: payload.source,
@@ -1944,7 +1945,24 @@ const server = http.createServer(async (request, response) => {
         source_label: payload.source_type === 'remote_url' ? 'example.com' : '本地插件包',
       },
       capabilities: ['event.subscribe', 'http.request'],
-      install_scripts: installScripts,
+      target_platform: 'windows-x64',
+      backend: {
+        entry: 'bin/weather',
+        path: 'bin/weather.exe',
+        size: 3145728,
+        sha256: 'b'.repeat(64),
+      },
+      ui: {
+        enabled: true,
+        entry: 'ui/index.html',
+        file_count: 4,
+      },
+      artifact: {
+        valid: true,
+        artifact_version: '1',
+        manifest_sha256: 'c'.repeat(64),
+        file_count: 8,
+      },
     })
     return
   }
@@ -1971,10 +1989,8 @@ const server = http.createServer(async (request, response) => {
 
     if (payload.source_type === 'remote_url') {
       taskId = fixtures.pluginInstallRemoteUrl.response.body.task_id
-    } else if (payload.source.includes('script-blocked') && payload.allow_install_scripts !== true) {
-      taskId = 'task_plugin_install_failed_script_blocked_0001'
-    } else if (payload.allow_install_scripts === true) {
-      taskId = fixtures.pluginInstallAcceptedWithScripts.response.body.task_id
+    } else if (payload.source.includes('local-artifact')) {
+      taskId = fixtures.pluginInstallLocalArtifact.response.body.task_id
     }
 
     appendTaskLog(taskId, 'plugin.install', 'pending', `install ${payload.source}`, {
@@ -2101,7 +2117,8 @@ const server = http.createServer(async (request, response) => {
       json(response, 404, errorEnvelope('platform.resource_missing', 'plugin secrets not found', 'req_plugin_secrets_not_found'))
       return
     }
-    json(response, 200, { plugin_id: pluginId, values: structuredClone(state.pluginSecrets[pluginId] ?? {}) })
+    const configured = Object.fromEntries(Object.entries(state.pluginSecrets[pluginId] ?? {}).map(([key, value]) => [key, Boolean(value)]))
+    json(response, 200, { plugin_id: pluginId, configured })
     return
   }
 
@@ -2117,12 +2134,32 @@ const server = http.createServer(async (request, response) => {
     }
     const previous = state.pluginSecrets[pluginId] ?? {}
     const next = { ...previous, ...payload.values }
-    for (const key of payload.deleted_keys ?? []) delete next[key]
     state.pluginSecrets[pluginId] = next
     json(response, 200, {
       plugin_id: pluginId,
-      changed_keys: [...new Set([...Object.keys(payload.values), ...(payload.deleted_keys ?? [])])].sort(),
-      values: structuredClone(next),
+      changed_keys: Object.keys(payload.values).sort(),
+      configured: Object.fromEntries(Object.entries(next).map(([key, value]) => [key, Boolean(value)])),
+    })
+    return
+  }
+
+  if (pathname.startsWith('/api/plugins/') && pathname.endsWith('/secrets') && request.method === 'DELETE') {
+    if (!requireAuth(request, response)) {
+      return
+    }
+    const pluginId = pathname.split('/')[3]
+    const payload = await parseBody(request)
+    if (!state.plugins[pluginId] || !Array.isArray(payload?.keys) || payload.keys.length === 0) {
+      json(response, 400, errorEnvelope('platform.invalid_request', 'plugin secret delete payload is invalid', 'req_plugin_secrets_delete_invalid'))
+      return
+    }
+    const next = { ...(state.pluginSecrets[pluginId] ?? {}) }
+    for (const key of payload.keys) delete next[key]
+    state.pluginSecrets[pluginId] = next
+    json(response, 200, {
+      plugin_id: pluginId,
+      changed_keys: [...new Set(payload.keys)].sort(),
+      configured: Object.fromEntries(Object.entries(next).map(([key, value]) => [key, Boolean(value)])),
     })
     return
   }

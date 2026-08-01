@@ -15,7 +15,6 @@ import type {
   SystemShutdownResponse,
   SystemStatusResponse,
 } from '@/types/api'
-import { t } from '@/i18n'
 
 export const useSystemStore = defineStore('system', () => {
   const health = ref<LivenessStatusResponse | null>(null)

@@ -15,14 +15,12 @@ export function usePluginInstallFlow(pluginsStore: ReturnType<typeof usePluginsS
   })
   const installInspection = ref<PluginInstallInspectionResponse | null>(null)
   const trustedCodeConfirmed = ref(false)
-  const allowInstallScripts = ref(false)
 
   watch(
     () => [installForm.source_type, installForm.source] as const,
     () => {
       installInspection.value = null
       trustedCodeConfirmed.value = false
-      allowInstallScripts.value = false
     },
   )
 
@@ -47,11 +45,7 @@ export function usePluginInstallFlow(pluginsStore: ReturnType<typeof usePluginsS
         return
       }
       if (!trustedCodeConfirmed.value) {
-        installError.value = '请确认该插件及获准的安装脚本将作为完全可信的本地代码运行。'
-        return
-      }
-      if (installInspection.value.install_scripts.length > 0 && !allowInstallScripts.value) {
-        installError.value = '该插件声明了安装脚本。请明确授权安装脚本后再继续。'
+        installError.value = '请确认该预编译插件将作为完全可信的本地代码运行。'
         return
       }
       await pluginsStore.installPlugin({
@@ -60,7 +54,6 @@ export function usePluginInstallFlow(pluginsStore: ReturnType<typeof usePluginsS
         inspection_id: installInspection.value.inspection_id,
         package_sha256: installInspection.value.package_sha256,
         trusted_code_confirmed: true,
-        allow_install_scripts: allowInstallScripts.value,
       })
       installDialogVisible.value = false
       resetInstallDialog()
@@ -75,11 +68,9 @@ export function usePluginInstallFlow(pluginsStore: ReturnType<typeof usePluginsS
     installForm.source = ''
     installInspection.value = null
     trustedCodeConfirmed.value = false
-    allowInstallScripts.value = false
   }
 
   return {
-    allowInstallScripts,
     installDialogVisible,
     installForm,
     installInspection,

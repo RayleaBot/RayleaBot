@@ -14,9 +14,6 @@ import type {
   PluginSettingsResponse,
   PluginSettingsUpdateRequest,
   PluginSettingsUpdateResponse,
-  PluginSecretsResponse,
-  PluginSecretsUpdateRequest,
-  PluginSecretsUpdateResponse,
   PluginSummary,
   TaskAcceptedResponse,
 } from '@/types/api'
@@ -29,15 +26,12 @@ export const usePluginsStore = defineStore('plugins', () => {
   const items = ref<PluginSummary[]>([])
   const current = ref<PluginDetail | null>(null)
   const settingsByPluginId = ref<Record<string, Record<string, unknown>>>({})
-  const secretsByPluginId = ref<Record<string, Record<string, string>>>({})
   const loading = ref(false)
   const detailLoading = ref(false)
   const error = ref<string | null>(null)
   const actionPending = ref<Record<string, string | null>>({})
   const settingsLoading = ref<Record<string, boolean>>({})
   const settingsSaving = ref<Record<string, boolean>>({})
-  const secretsLoading = ref<Record<string, boolean>>({})
-  const secretsSaving = ref<Record<string, boolean>>({})
   const installPending = ref(false)
   const inspectionPending = ref(false)
   let detailRequestVersion = 0
@@ -107,7 +101,7 @@ export const usePluginsStore = defineStore('plugins', () => {
       source: plugin.source ?? previous?.source,
       trust: plugin.trust ?? previous?.trust,
       commands: plugin.commands ?? previous?.commands ?? [],
-      help: plugin.help ?? previous?.help,
+      help: plugin.help ?? previous?.help ?? { groups: [] },
       command_conflicts: plugin.command_conflicts ?? previous?.command_conflicts ?? [],
     }
 
@@ -227,20 +221,6 @@ export const usePluginsStore = defineStore('plugins', () => {
     }
   }
 
-  function setSecretsLoading(pluginId: string, loadingValue: boolean) {
-    secretsLoading.value = {
-      ...secretsLoading.value,
-      [pluginId]: loadingValue,
-    }
-  }
-
-  function setSecretsSaving(pluginId: string, loadingValue: boolean) {
-    secretsSaving.value = {
-      ...secretsSaving.value,
-      [pluginId]: loadingValue,
-    }
-  }
-
   async function executeAction(pluginId: string, action: 'enable' | 'disable' | 'reload') {
     setPending(pluginId, action)
     try {
@@ -326,46 +306,8 @@ export const usePluginsStore = defineStore('plugins', () => {
     }
   }
 
-  async function fetchSecrets(pluginId: string) {
-    setSecretsLoading(pluginId, true)
-    try {
-      const response = await apiRequest<PluginSecretsResponse>(`/api/plugins/${pluginId}/secrets`)
-      secretsByPluginId.value = {
-        ...secretsByPluginId.value,
-        [pluginId]: response.values,
-      }
-      return response
-    } finally {
-      setSecretsLoading(pluginId, false)
-    }
-  }
-
-  async function updateSecrets(pluginId: string, values: PluginSecretsUpdateRequest['values'], deletedKeys: string[] = []) {
-    setSecretsSaving(pluginId, true)
-    try {
-      const response = await apiRequest<PluginSecretsUpdateResponse>(`/api/plugins/${pluginId}/secrets`, {
-        method: 'PUT',
-        body: {
-          values,
-          deleted_keys: deletedKeys,
-        } satisfies PluginSecretsUpdateRequest,
-      })
-      secretsByPluginId.value = {
-        ...secretsByPluginId.value,
-        [pluginId]: response.values,
-      }
-      return response
-    } finally {
-      setSecretsSaving(pluginId, false)
-    }
-  }
-
   function getSettings(pluginId: string) {
     return settingsByPluginId.value[pluginId] ?? {}
-  }
-
-  function getSecrets(pluginId: string) {
-    return secretsByPluginId.value[pluginId] ?? {}
   }
 
   return {
@@ -378,24 +320,18 @@ export const usePluginsStore = defineStore('plugins', () => {
     inspectionPending,
     loading,
     settingsByPluginId,
-    secretsByPluginId,
     settingsLoading,
     settingsSaving,
-    secretsLoading,
-    secretsSaving,
     sortedItems,
     executeAction,
     fetchDetail,
     fetchSettings,
-    fetchSecrets,
     fetchList,
     getSettings,
-    getSecrets,
     installPlugin,
     inspectPlugin,
     uninstallPlugin,
     updateSettings,
-    updateSecrets,
     upsert,
   }
 })

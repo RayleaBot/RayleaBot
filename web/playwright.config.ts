@@ -17,7 +17,7 @@ export default defineConfig({
   },
   webServer: [
     {
-      command: 'node tests/e2e/mock-backend.mjs',
+      command: 'corepack pnpm --dir ../examples/plugins/example-config-panel/ui install --frozen-lockfile && corepack pnpm --dir ../examples/plugins/example-config-panel/ui build && node tests/e2e/mock-backend.mjs',
       url: 'http://127.0.0.1:4010/__test/ping',
       reuseExistingServer: false,
       cwd: '.',

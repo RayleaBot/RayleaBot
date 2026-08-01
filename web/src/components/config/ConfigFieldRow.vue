@@ -123,7 +123,7 @@ function handleTextareaUpdate(value: unknown) {
       <RateLimitInput
         v-if="field.type === 'rateLimit'"
         :value="textValue"
-        :aria-label="field.label"
+        :ariaLabel="field.label"
         @update:value="emitRateLimit"
       />
       <a-input

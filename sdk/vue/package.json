@@ -1,0 +1,29 @@
+{
+  "name": "@rayleabot/plugin-ui",
+  "version": "0.2.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@11.11.0",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "import": "./src/index.ts"
+    },
+    "./theme.css": "./src/theme.css"
+  },
+  "scripts": {
+    "typecheck": "vue-tsc --noEmit",
+    "build": "tsc --emitDeclarationOnly",
+    "test": "vitest run"
+  },
+  "peerDependencies": {
+    "vue": "3.5.39"
+  },
+  "devDependencies": {
+    "typescript": "5.9.2",
+    "vite": "8.1.4",
+    "vitest": "4.1.10",
+    "vue": "3.5.39",
+    "vue-tsc": "3.3.7"
+  }
+}

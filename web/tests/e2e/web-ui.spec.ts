@@ -459,10 +459,10 @@ test('plugin management flow covers install, manifest detail and console recover
   ))
   await installDialog.getByRole('button', { name: '检查插件包' }).click()
   expect((await inspectionResponsePromise).status()).toBe(200)
-  await expect(installDialog.getByRole('checkbox', { name: /我已核对来源、摘要、能力和安装脚本/ })).toBeVisible()
+  await expect(installDialog.getByRole('checkbox', { name: /我已核对来源、目标平台、artifact 摘要和能力/ })).toBeVisible()
   await expect(installDialog.getByText('Weather Package（example.weather-package）')).toBeVisible()
   await expect(installDialog.getByText('a'.repeat(64))).toBeVisible()
-  await installDialog.getByRole('checkbox', { name: /我已核对来源、摘要、能力和安装脚本/ }).check()
+  await installDialog.getByRole('checkbox', { name: /我已核对来源、目标平台、artifact 摘要和能力/ }).check()
   await installDialog.getByRole('button', { name: '开始安装' }).click()
 
   await expect(page.locator('#app-main').getByRole('heading', { name: '插件列表', level: 1 })).toBeVisible()
@@ -655,7 +655,7 @@ test('permission policy page edits command policy config', async ({ page, reques
   await expect(page.getByTestId('permission-policy-save-status')).toHaveCount(0)
 })
 
-test('plugin management ui reads and saves plugin settings inside the detail page', async ({ page, request }) => {
+test('plugin management ui uses an isolated bridge for settings, secrets, theme, and height', async ({ page, request }) => {
   await resetBackend(request, true)
   await login(page)
 
@@ -667,38 +667,92 @@ test('plugin management ui reads and saves plugin settings inside the detail pag
   await page.locator('.plugin-detail-panel-switch').getByText('配置页面').click()
   await expect(page).toHaveURL(/panel=management-ui/)
   await expect(page.getByTestId('plugin-management-ui-confirm')).toBeVisible()
+  const secretStatusResponsePromise = page.waitForResponse((response) => (
+    response.request().method() === 'GET'
+    && response.url().includes('/api/plugins/example-config-panel/secrets')
+  ))
   await page.getByRole('button', { name: '确认并打开' }).click()
 
   const pluginFrame = page.frameLocator('[data-testid="plugin-management-ui-frame"]')
-  await expect(pluginFrame.locator('#page-title')).toHaveText('配置页面')
-  await expect(pluginFrame.locator('#plugin-id')).toHaveText('example-config-panel')
-  await expect(pluginFrame.locator('#status-text')).toHaveText('已载入设置')
-  await expect(pluginFrame.locator('#default-city-input')).toHaveValue('上海')
-  await expect(pluginFrame.locator('#unit-select')).toHaveValue('fahrenheit')
-  await expect(pluginFrame.locator('#settings-preview')).toContainText('"default_city": "上海"')
-  await expect(pluginFrame.locator('#settings-preview')).toContainText('"unit": "fahrenheit"')
+  await expect(pluginFrame.getByRole('heading', { name: '配置面板示例', level: 1 })).toBeVisible()
+  await expect(pluginFrame.getByTestId('settings-status')).toHaveText('配置已加载')
+  await expect(pluginFrame.getByTestId('default-city-input')).toHaveValue('上海')
+  await expect(pluginFrame.getByTestId('unit-select')).toContainText('华氏度')
+  await expect(pluginFrame.getByTestId('settings-preview')).toContainText('上海')
+  await expect(pluginFrame.getByTestId('settings-preview')).toContainText('fahrenheit')
+  await expect(pluginFrame.locator('html')).toHaveAttribute('data-theme', /^(light|dark)$/)
 
-  await pluginFrame.locator('#default-city-input').fill('广州')
-  await pluginFrame.locator('#unit-select').selectOption('celsius')
+  const initialPluginTheme = await pluginFrame.locator('html').getAttribute('data-theme')
+  const nextPluginTheme = initialPluginTheme === 'dark' ? 'light' : 'dark'
+  await page.getByTestId('theme-toggle').click()
+  await page.getByRole('menuitem').filter({ hasText: nextPluginTheme === 'dark' ? '暗色' : '亮色' }).click()
+  await expect(pluginFrame.locator('html')).toHaveAttribute('data-theme', nextPluginTheme)
+
+  const frameSource = new URL((await page.getByTestId('plugin-management-ui-frame').getAttribute('src'))!)
+  expect(frameSource.hostname).toMatch(/^p-[a-f0-9]{16}\.plugins\.localhost$/)
+  expect(frameSource.origin).not.toBe(new URL(page.url()).origin)
+  const isolatedAPIResponse = await request.get(`${frameSource.origin}/api/config`)
+  expect(isolatedAPIResponse.status()).toBe(404)
+  expect(isolatedAPIResponse.headers()['access-control-allow-origin']).toBeUndefined()
+  expect(isolatedAPIResponse.headers()['set-cookie']).toBeUndefined()
+
+  const initialSecretResponse = await secretStatusResponsePromise
+  const initialSecretBody = await initialSecretResponse.text()
+  expect(initialSecretBody).toContain('"configured"')
+  expect(initialSecretBody).not.toContain('stored-secret-must-not-leak')
+  await expect(pluginFrame.getByTestId('secret-status')).toHaveText('API 密钥已配置')
+
+  await pluginFrame.getByTestId('default-city-input').fill('广州')
+  const unitSelect = pluginFrame.getByTestId('unit-select').getByRole('combobox')
+  await pluginFrame.getByTestId('unit-select').click()
+  await unitSelect.press('ArrowUp')
+  await unitSelect.press('Enter')
   await Promise.all([
     page.waitForResponse((response) => (
       response.request().method() === 'PUT'
       && response.url().includes('/api/plugins/example-config-panel/settings')
       && response.status() === 200
     )),
-    pluginFrame.locator('#save-button').click(),
+    pluginFrame.getByTestId('save-settings').click(),
   ])
 
-  await expect(pluginFrame.locator('#status-text')).toHaveText('设置已更新')
-  await expect(pluginFrame.locator('#settings-preview')).toContainText('"default_city": "广州"')
-  await expect(pluginFrame.locator('#settings-preview')).toContainText('"unit": "celsius"')
+  await expect(pluginFrame.getByTestId('settings-status')).toHaveText('配置已保存')
+  await expect(pluginFrame.getByTestId('settings-preview')).toContainText('广州')
+  await expect(pluginFrame.getByTestId('settings-preview')).toContainText('celsius')
+
+  await pluginFrame.getByTestId('secret-input').fill('replacement-secret-for-e2e')
+  const setSecretResponsePromise = page.waitForResponse((response) => (
+    response.request().method() === 'PUT'
+    && response.url().includes('/api/plugins/example-config-panel/secrets')
+  ))
+  await pluginFrame.getByTestId('save-secret').click()
+  const setSecretBody = await (await setSecretResponsePromise).text()
+  expect(setSecretBody).toContain('"configured"')
+  expect(setSecretBody).not.toContain('replacement-secret-for-e2e')
+  expect(setSecretBody).not.toContain('stored-secret-must-not-leak')
+  await expect(pluginFrame.getByTestId('secret-input')).toHaveValue('')
+  await expect(pluginFrame.getByTestId('secret-status')).toHaveText('API 密钥已覆盖')
+
+  const deleteSecretResponsePromise = page.waitForResponse((response) => (
+    response.request().method() === 'DELETE'
+    && response.url().includes('/api/plugins/example-config-panel/secrets')
+  ))
+  await pluginFrame.getByTestId('delete-secret').click()
+  const deleteSecretBody = await (await deleteSecretResponsePromise).text()
+  expect(deleteSecretBody).not.toContain('replacement-secret-for-e2e')
+  await expect(pluginFrame.getByTestId('secret-status')).toHaveText('API 密钥已删除')
+
+  const frameHeight = await page.getByTestId('plugin-management-ui-frame').evaluate((frame) => Number.parseFloat((frame as HTMLIFrameElement).style.height))
+  expect(frameHeight).toBeGreaterThanOrEqual(320)
+  expect(frameHeight).toBeLessThanOrEqual(1600)
 
   await page.reload()
   await expect(page.getByRole('heading', { name: 'example-config-panel', level: 1 })).toBeVisible()
   await expect(page).toHaveURL(/panel=management-ui/)
-  await expect(pluginFrame.locator('#status-text')).toHaveText('已载入设置')
-  await expect(pluginFrame.locator('#default-city-input')).toHaveValue('广州')
-  await expect(pluginFrame.locator('#unit-select')).toHaveValue('celsius')
+  await expect(pluginFrame.getByTestId('settings-status')).toHaveText('配置已加载')
+  await expect(pluginFrame.getByTestId('default-city-input')).toHaveValue('广州')
+  await expect(pluginFrame.getByTestId('unit-select')).toContainText('摄氏度')
+  await expect(pluginFrame.getByTestId('secret-status')).toHaveText('API 密钥未配置')
 
   const tabLabels = await readTabLabels(page)
   expect(tabLabels.filter((label) => label === 'example-config-panel')).toHaveLength(1)

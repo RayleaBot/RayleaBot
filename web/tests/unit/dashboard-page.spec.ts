@@ -302,8 +302,8 @@ describe('DashboardPage', () => {
         {
           code: 'platform.resource_missing',
           severity: 'warning',
-          summary: 'Python 运行环境尚未准备完成。',
-          remediation: '请先准备 Python 运行环境。',
+          summary: '图片渲染 Chromium 尚未准备完成。',
+          remediation: '请先准备图片渲染 Chromium。',
         },
       ],
     }
@@ -324,12 +324,13 @@ describe('DashboardPage', () => {
     await flushPromises()
 
     expect(wrapper.text()).toContain('运行条件受限')
-    expect(wrapper.text()).not.toContain('管理面可用，但依赖 Python 运行环境的功能暂不可用。')
-    expect(toastMessages()).toContain('运行条件受限：管理面可用，但依赖 Python 运行环境的功能暂不可用。')
+    expect(wrapper.text()).toContain('图片渲染 Chromium 尚未准备完成。')
+    expect(toastMessages()).toContain('运行条件受限：图片渲染 Chromium 尚未准备完成。')
     expect(wrapper.text()).toContain('管理面可用')
     expect(wrapper.text()).not.toContain('degraded')
     expect(wrapper.text()).not.toContain('性能降级')
     expect(wrapper.text()).not.toContain('健康检查正常，说明管理面可用；就绪状态受限，说明仍有运行条件未满足。')
+    expect(wrapper.text()).not.toContain('Python / Node.js')
   })
 
   it('deduplicates readiness issue codes already represented by issue cards', async () => {
