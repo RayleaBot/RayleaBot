@@ -1,0 +1,32 @@
+{
+  "id": "hello-go",
+  "name": "Hello Go",
+  "version": "0.2.0",
+  "manifest_version": "2",
+  "plugin_protocol_version": "1",
+  "runtime": "go",
+  "entry": "bin/hello-go",
+  "platforms": ["windows-x64", "linux-x64", "macos-arm64"],
+  "license": "MIT",
+  "description": "Contract-aligned Go example plugin for the minimum init and event/result flow.",
+  "author": "raylea",
+  "role": "example",
+  "icon": "assets/icon.svg",
+  "repo": "https://github.com/RayleaBot/RayleaBot",
+  "homepage": "https://rayleabot.local/plugins/hello-go",
+  "keywords": [
+    "hello",
+    "example",
+    "go"
+  ],
+  "screenshots": [
+    {
+      "path": "assets/preview.svg",
+      "alt": "Hello Go preview"
+    }
+  ],
+  "capabilities": [
+    "event.subscribe",
+    "logger.write"
+  ]
+}

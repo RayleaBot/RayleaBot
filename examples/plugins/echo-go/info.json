@@ -1,14 +1,14 @@
 {
-  "id": "raylea.echo",
+  "id": "echo-go",
   "name": "Echo",
   "version": "0.2.0",
   "manifest_version": "2",
   "plugin_protocol_version": "1",
   "runtime": "go",
-  "entry": "bin/echo",
+  "entry": "bin/echo-go",
   "platforms": ["windows-x64", "linux-x64", "macos-arm64"],
   "license": "MIT",
-  "description": "Built-in test echo command",
+  "description": "Echo plugin demonstrating command parsing and message segments",
   "author": "raylea",
   "capabilities": [
     "event.subscribe",
@@ -17,7 +17,10 @@
   "commands": [
     {
       "name": "echo",
-      "description": "复读收到的内容",
+      "aliases": [
+        "repeat"
+      ],
+      "description": "回复收到的消息内容",
       "usage": "/echo <内容>",
       "permission": "everyone"
     }

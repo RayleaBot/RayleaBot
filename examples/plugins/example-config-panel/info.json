@@ -1,15 +1,14 @@
 {
   "id": "example-config-panel",
   "name": "Example Config Panel",
-  "version": "0.1.0",
-  "manifest_version": "1",
+  "version": "0.2.0",
+  "manifest_version": "2",
   "plugin_protocol_version": "1",
-  "type": "managed_runtime",
-  "runtime": "python",
-  "dependencies": { "python": ["rayleabot-plugin-runtime==0.1.0"] },
-  "entry": "main.py",
+  "runtime": "go",
+  "entry": "bin/example-config-panel",
+  "platforms": ["windows-x64", "linux-x64", "macos-arm64"],
   "license": "MIT",
-  "description": "Python example plugin demonstrating config.read and config.write.",
+  "description": "Go and Vue example plugin demonstrating config.read and config.write.",
   "author": "raylea",
   "role": "example",
   "management_ui": {
@@ -17,7 +16,7 @@
       {
         "id": "config",
         "label": "配置页面",
-        "entry": "web/index.html"
+        "entry": "ui/index.html"
       }
     ]
   },

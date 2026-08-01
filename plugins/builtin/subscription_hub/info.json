@@ -1,13 +1,12 @@
 {
   "id": "raylea.subscription-hub",
   "name": "订阅中心",
-  "version": "0.1.0",
-  "manifest_version": "1",
+  "version": "0.2.0",
+  "manifest_version": "2",
   "plugin_protocol_version": "1",
-  "type": "managed_runtime",
-  "runtime": "python",
-  "dependencies": { "python": ["rayleabot-plugin-runtime==0.1.0"] },
-  "entry": "main.py",
+  "runtime": "go",
+  "entry": "bin/subscription-hub",
+  "platforms": ["windows-x64", "linux-x64", "macos-arm64"],
   "license": "MIT",
   "description": "订阅平台内容并推送更新",
   "author": "raylea",
@@ -17,7 +16,7 @@
       {
         "id": "subscriptions",
         "label": "订阅设置",
-        "entry": "web/index.html"
+        "entry": "ui/index.html"
       }
     ]
   },

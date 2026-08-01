@@ -1,13 +1,12 @@
 {
   "id": "raylea.fortune",
   "name": "运势",
-  "version": "0.1.0",
-  "manifest_version": "1",
+  "version": "0.2.0",
+  "manifest_version": "2",
   "plugin_protocol_version": "1",
-  "type": "managed_runtime",
-  "runtime": "python",
-  "dependencies": { "python": ["rayleabot-plugin-runtime==0.1.0"] },
-  "entry": "main.py",
+  "runtime": "go",
+  "entry": "bin/fortune",
+  "platforms": ["windows-x64", "linux-x64", "macos-arm64"],
   "license": "MIT",
   "description": "每日运势抽取与统计",
   "author": "raylea",
@@ -17,7 +16,7 @@
       {
         "id": "settings",
         "label": "运势设置",
-        "entry": "web/index.html"
+        "entry": "ui/index.html"
       }
     ]
   },
