@@ -10,7 +10,7 @@
 4. 重新启动服务。
 5. 让平台完成迁移、兼容检查和恢复摘要生成。
 
-升级默认不覆盖 `config/`、`data/` 和 `plugins/installed/`。回退旧版本时，正式支持路径是使用升级前备份恢复，不直接让旧版本读取较新的状态库。
+同一插件 epoch 内升级默认不覆盖 `config/`、`data/` 和 `plugins/installed/`。备份清单必须记录 `plugin_manifest_version=2` 与 `plugin_ui_bridge_version=2`；旧 epoch 的恢复或原位升级返回 `plugin.reset_required`，不会转换旧插件数据。回退旧版本时使用升级前的仓库外备份，不直接让旧版本读取较新的状态库。
 
 ## 恢复摘要
 
@@ -41,7 +41,7 @@ Launcher 继续提供：
 
 ## 运行环境准备
 
-- 运行时资源问题通过 `runtime.bootstrap` 进入正式任务模型。
+- Chromium 资源问题通过 `runtime.bootstrap` 进入正式任务模型。
 - 任务结果会返回安装包下载位置和解压位置。
 - 安装包下载到 `cache/downloads/runtime/`，运行环境解压到 `.deps/store/<resource-id>/<version>/`。
 - 图片渲染 Chromium 可使用已准备的 `.deps` 浏览器、系统 Chrome / Chromium / Edge，或通过 `render.browser_path` 显式指定。
@@ -49,5 +49,5 @@ Launcher 继续提供：
 ## 当前边界
 
 - 当前恢复摘要保留现有人工确认历史窗口，不额外建立独立长历史资源。
-- 恢复后不兼容的插件会保留包和数据，但默认保持禁用，等待人工处理。
+- 同一 epoch 内暂时不兼容的插件可保持禁用并等待人工处理；旧插件 epoch 在恢复预检阶段整体拒绝，不能作为跳过插件带入新状态。
 - 当前正式模型不提供恢复确认撤销入口。

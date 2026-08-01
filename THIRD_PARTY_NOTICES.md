@@ -142,6 +142,112 @@ RayleaBot is licensed under AGPL-3.0-only. The components below retain their own
 | npm:launcher | tslib | 2.8.1 | 0BSD |
 | npm:launcher | use-sync-external-store | 1.6.0 | MIT |
 | npm:launcher | yaml | 2.9.0 | ISC |
+| npm:plugins/builtin/fortune/ui | @ant-design/colors | 6.0.0 | MIT |
+| npm:plugins/builtin/fortune/ui | @ant-design/icons-svg | 4.5.0 | MIT |
+| npm:plugins/builtin/fortune/ui | @ant-design/icons-vue | 7.0.1 | MIT |
+| npm:plugins/builtin/fortune/ui | @babel/helper-string-parser | 7.29.7 | MIT |
+| npm:plugins/builtin/fortune/ui | @babel/helper-validator-identifier | 7.29.7 | MIT |
+| npm:plugins/builtin/fortune/ui | @babel/parser | 7.29.8 | MIT |
+| npm:plugins/builtin/fortune/ui | @babel/runtime | 7.29.7 | MIT |
+| npm:plugins/builtin/fortune/ui | @babel/types | 7.29.8 | MIT |
+| npm:plugins/builtin/fortune/ui | @ctrl/tinycolor | 3.6.1 | MIT |
+| npm:plugins/builtin/fortune/ui | @emotion/hash | 0.9.2 | MIT |
+| npm:plugins/builtin/fortune/ui | @emotion/unitless | 0.8.1 | MIT |
+| npm:plugins/builtin/fortune/ui | @jridgewell/sourcemap-codec | 1.5.5 | MIT |
+| npm:plugins/builtin/fortune/ui | @simonwep/pickr | 1.8.2 | MIT |
+| npm:plugins/builtin/fortune/ui | @vue/compiler-core | 3.5.39 | MIT |
+| npm:plugins/builtin/fortune/ui | @vue/compiler-dom | 3.5.39 | MIT |
+| npm:plugins/builtin/fortune/ui | @vue/compiler-sfc | 3.5.39 | MIT |
+| npm:plugins/builtin/fortune/ui | @vue/compiler-ssr | 3.5.39 | MIT |
+| npm:plugins/builtin/fortune/ui | @vue/reactivity | 3.5.39 | MIT |
+| npm:plugins/builtin/fortune/ui | @vue/runtime-core | 3.5.39 | MIT |
+| npm:plugins/builtin/fortune/ui | @vue/runtime-dom | 3.5.39 | MIT |
+| npm:plugins/builtin/fortune/ui | @vue/server-renderer | 3.5.39 | MIT |
+| npm:plugins/builtin/fortune/ui | @vue/shared | 3.5.39 | MIT |
+| npm:plugins/builtin/fortune/ui | ant-design-vue | 4.2.6 | MIT |
+| npm:plugins/builtin/fortune/ui | array-tree-filter | 2.1.0 | MIT |
+| npm:plugins/builtin/fortune/ui | async-validator | 4.2.5 | MIT |
+| npm:plugins/builtin/fortune/ui | compute-scroll-into-view | 1.0.20 | MIT |
+| npm:plugins/builtin/fortune/ui | core-js | 3.49.0 | MIT |
+| npm:plugins/builtin/fortune/ui | csstype | 3.2.3 | MIT |
+| npm:plugins/builtin/fortune/ui | dayjs | 1.11.21 | MIT |
+| npm:plugins/builtin/fortune/ui | dom-align | 1.12.4 | MIT |
+| npm:plugins/builtin/fortune/ui | dom-scroll-into-view | 2.0.1 | MIT |
+| npm:plugins/builtin/fortune/ui | entities | 7.0.1 | BSD-2-Clause |
+| npm:plugins/builtin/fortune/ui | estree-walker | 2.0.2 | MIT |
+| npm:plugins/builtin/fortune/ui | is-plain-object | 3.0.1 | MIT |
+| npm:plugins/builtin/fortune/ui | js-tokens | 4.0.0 | MIT |
+| npm:plugins/builtin/fortune/ui | lodash | 4.18.1 | MIT |
+| npm:plugins/builtin/fortune/ui | lodash-es | 4.18.1 | MIT |
+| npm:plugins/builtin/fortune/ui | loose-envify | 1.4.0 | MIT |
+| npm:plugins/builtin/fortune/ui | magic-string | 0.30.21 | MIT |
+| npm:plugins/builtin/fortune/ui | nanoid | 3.3.16 | MIT |
+| npm:plugins/builtin/fortune/ui | nanopop | 2.4.2 | MIT |
+| npm:plugins/builtin/fortune/ui | picocolors | 1.1.1 | ISC |
+| npm:plugins/builtin/fortune/ui | postcss | 8.5.18 | MIT |
+| npm:plugins/builtin/fortune/ui | resize-observer-polyfill | 1.5.1 | MIT |
+| npm:plugins/builtin/fortune/ui | scroll-into-view-if-needed | 2.2.31 | MIT |
+| npm:plugins/builtin/fortune/ui | shallow-equal | 1.2.1 | MIT |
+| npm:plugins/builtin/fortune/ui | source-map-js | 1.2.1 | BSD-3-Clause |
+| npm:plugins/builtin/fortune/ui | stylis | 4.4.0 | MIT |
+| npm:plugins/builtin/fortune/ui | throttle-debounce | 5.0.2 | MIT |
+| npm:plugins/builtin/fortune/ui | typescript | 5.9.2 | Apache-2.0 |
+| npm:plugins/builtin/fortune/ui | vue | 3.5.39 | MIT |
+| npm:plugins/builtin/fortune/ui | vue-types | 3.0.2 | MIT |
+| npm:plugins/builtin/fortune/ui | warning | 4.0.3 | MIT |
+| npm:plugins/builtin/subscription_hub/ui | @ant-design/colors | 6.0.0 | MIT |
+| npm:plugins/builtin/subscription_hub/ui | @ant-design/icons-svg | 4.5.0 | MIT |
+| npm:plugins/builtin/subscription_hub/ui | @ant-design/icons-vue | 7.0.1 | MIT |
+| npm:plugins/builtin/subscription_hub/ui | @babel/helper-string-parser | 7.29.7 | MIT |
+| npm:plugins/builtin/subscription_hub/ui | @babel/helper-validator-identifier | 7.29.7 | MIT |
+| npm:plugins/builtin/subscription_hub/ui | @babel/parser | 7.29.8 | MIT |
+| npm:plugins/builtin/subscription_hub/ui | @babel/runtime | 7.29.7 | MIT |
+| npm:plugins/builtin/subscription_hub/ui | @babel/types | 7.29.8 | MIT |
+| npm:plugins/builtin/subscription_hub/ui | @ctrl/tinycolor | 3.6.1 | MIT |
+| npm:plugins/builtin/subscription_hub/ui | @emotion/hash | 0.9.2 | MIT |
+| npm:plugins/builtin/subscription_hub/ui | @emotion/unitless | 0.8.1 | MIT |
+| npm:plugins/builtin/subscription_hub/ui | @jridgewell/sourcemap-codec | 1.5.5 | MIT |
+| npm:plugins/builtin/subscription_hub/ui | @simonwep/pickr | 1.8.2 | MIT |
+| npm:plugins/builtin/subscription_hub/ui | @vue/compiler-core | 3.5.39 | MIT |
+| npm:plugins/builtin/subscription_hub/ui | @vue/compiler-dom | 3.5.39 | MIT |
+| npm:plugins/builtin/subscription_hub/ui | @vue/compiler-sfc | 3.5.39 | MIT |
+| npm:plugins/builtin/subscription_hub/ui | @vue/compiler-ssr | 3.5.39 | MIT |
+| npm:plugins/builtin/subscription_hub/ui | @vue/reactivity | 3.5.39 | MIT |
+| npm:plugins/builtin/subscription_hub/ui | @vue/runtime-core | 3.5.39 | MIT |
+| npm:plugins/builtin/subscription_hub/ui | @vue/runtime-dom | 3.5.39 | MIT |
+| npm:plugins/builtin/subscription_hub/ui | @vue/server-renderer | 3.5.39 | MIT |
+| npm:plugins/builtin/subscription_hub/ui | @vue/shared | 3.5.39 | MIT |
+| npm:plugins/builtin/subscription_hub/ui | ant-design-vue | 4.2.6 | MIT |
+| npm:plugins/builtin/subscription_hub/ui | array-tree-filter | 2.1.0 | MIT |
+| npm:plugins/builtin/subscription_hub/ui | async-validator | 4.2.5 | MIT |
+| npm:plugins/builtin/subscription_hub/ui | compute-scroll-into-view | 1.0.20 | MIT |
+| npm:plugins/builtin/subscription_hub/ui | core-js | 3.49.0 | MIT |
+| npm:plugins/builtin/subscription_hub/ui | csstype | 3.2.3 | MIT |
+| npm:plugins/builtin/subscription_hub/ui | dayjs | 1.11.21 | MIT |
+| npm:plugins/builtin/subscription_hub/ui | dom-align | 1.12.4 | MIT |
+| npm:plugins/builtin/subscription_hub/ui | dom-scroll-into-view | 2.0.1 | MIT |
+| npm:plugins/builtin/subscription_hub/ui | entities | 7.0.1 | BSD-2-Clause |
+| npm:plugins/builtin/subscription_hub/ui | estree-walker | 2.0.2 | MIT |
+| npm:plugins/builtin/subscription_hub/ui | is-plain-object | 3.0.1 | MIT |
+| npm:plugins/builtin/subscription_hub/ui | js-tokens | 4.0.0 | MIT |
+| npm:plugins/builtin/subscription_hub/ui | lodash | 4.18.1 | MIT |
+| npm:plugins/builtin/subscription_hub/ui | lodash-es | 4.18.1 | MIT |
+| npm:plugins/builtin/subscription_hub/ui | loose-envify | 1.4.0 | MIT |
+| npm:plugins/builtin/subscription_hub/ui | magic-string | 0.30.21 | MIT |
+| npm:plugins/builtin/subscription_hub/ui | nanoid | 3.3.16 | MIT |
+| npm:plugins/builtin/subscription_hub/ui | nanopop | 2.4.2 | MIT |
+| npm:plugins/builtin/subscription_hub/ui | picocolors | 1.1.1 | ISC |
+| npm:plugins/builtin/subscription_hub/ui | postcss | 8.5.18 | MIT |
+| npm:plugins/builtin/subscription_hub/ui | resize-observer-polyfill | 1.5.1 | MIT |
+| npm:plugins/builtin/subscription_hub/ui | scroll-into-view-if-needed | 2.2.31 | MIT |
+| npm:plugins/builtin/subscription_hub/ui | shallow-equal | 1.2.1 | MIT |
+| npm:plugins/builtin/subscription_hub/ui | source-map-js | 1.2.1 | BSD-3-Clause |
+| npm:plugins/builtin/subscription_hub/ui | stylis | 4.4.0 | MIT |
+| npm:plugins/builtin/subscription_hub/ui | throttle-debounce | 5.0.2 | MIT |
+| npm:plugins/builtin/subscription_hub/ui | typescript | 5.9.2 | Apache-2.0 |
+| npm:plugins/builtin/subscription_hub/ui | vue | 3.5.39 | MIT |
+| npm:plugins/builtin/subscription_hub/ui | vue-types | 3.0.2 | MIT |
+| npm:plugins/builtin/subscription_hub/ui | warning | 4.0.3 | MIT |
 | npm:web | @ant-design/colors | 6.0.0 | MIT |
 | npm:web | @ant-design/icons-svg | 4.4.2 | MIT |
 | npm:web | @ant-design/icons-vue | 7.0.1 | MIT |
@@ -1717,7 +1823,7 @@ Applies to: detect-libc@2.1.2
 
 ### Apache-2.0 (c2183d78d3bf)
 
-Applies to: typescript@5.9.2
+Applies to: typescript@5.9.2, typescript@5.9.2, typescript@5.9.2
 
     [LICENSE.txt]
     Apache License
@@ -2201,7 +2307,7 @@ Applies to: @swc/helpers@0.5.20
 
 ### BSD-2-Clause (036dc7e180f3)
 
-Applies to: entities@7.0.1
+Applies to: entities@7.0.1, entities@7.0.1, entities@7.0.1
 
     [LICENSE]
     Copyright (c) Felix Böhm
@@ -2305,7 +2411,7 @@ Applies to: modernc.org/sqlite@v1.53.0
 
 ### BSD-3-Clause (72c401e38a54)
 
-Applies to: source-map-js@1.2.1
+Applies to: source-map-js@1.2.1, source-map-js@1.2.1, source-map-js@1.2.1
 
     [LICENSE]
     Copyright (c) 2009-2011, Mozilla Foundation and contributors
@@ -2734,7 +2840,7 @@ Applies to: semver@7.8.5
 
 ### ISC (8aaaa162277f)
 
-Applies to: picocolors@1.1.1
+Applies to: picocolors@1.1.1, picocolors@1.1.1, picocolors@1.1.1
 
     [LICENSE]
     ISC License
@@ -2755,7 +2861,7 @@ Applies to: picocolors@1.1.1
 
 ### MIT (06715c0d025d)
 
-Applies to: vue-types@3.0.2
+Applies to: vue-types@3.0.2, vue-types@3.0.2, vue-types@3.0.2
 
     [LICENSE]
     The MIT License (MIT)
@@ -2948,7 +3054,7 @@ Applies to: @fluentui/react-spinner@9.8.4
 
 ### MIT (0f70b32c85e7)
 
-Applies to: lodash@4.18.1, lodash-es@4.18.1
+Applies to: lodash@4.18.1, lodash-es@4.18.1, lodash@4.18.1, lodash-es@4.18.1, lodash@4.18.1, lodash-es@4.18.1
 
     [LICENSE]
     Copyright OpenJS Foundation and other contributors <https://openjsf.org/>
@@ -3001,7 +3107,7 @@ Applies to: lodash@4.18.1, lodash-es@4.18.1
 
 ### MIT (0f979e026fdf)
 
-Applies to: ant-design-vue@4.2.6
+Applies to: ant-design-vue@4.2.6, ant-design-vue@4.2.6, ant-design-vue@4.2.6
 
     [LICENSE]
     MIT License
@@ -3101,7 +3207,7 @@ Applies to: @vue-macros/common@3.1.2
 
 ### MIT (126e383ed3af)
 
-Applies to: magic-string@0.30.21
+Applies to: magic-string@0.30.21, magic-string@0.30.21, magic-string@0.30.21
 
     [LICENSE]
     Copyright 2018 Rich Harris
@@ -3213,7 +3319,7 @@ Applies to: @fluentui/react-popover@9.14.4
 
 ### MIT (1693e80bffac)
 
-Applies to: dayjs@1.11.20
+Applies to: dayjs@1.11.21, dayjs@1.11.21, dayjs@1.11.20
 
     [LICENSE]
     MIT License
@@ -3761,7 +3867,7 @@ Applies to: @fluentui/react-tree@9.16.3
 
 ### MIT (391ae64d1863)
 
-Applies to: async-validator@4.2.5, dom-align@1.12.4
+Applies to: async-validator@4.2.5, dom-align@1.12.4, async-validator@4.2.5, dom-align@1.12.4, async-validator@4.2.5, dom-align@1.12.4
 
     [LICENSE.md]
     The MIT License (MIT)
@@ -3824,7 +3930,7 @@ Applies to: framer-motion@12.42.2
 
 ### MIT (3e47a39b3ece)
 
-Applies to: @simonwep/pickr@1.8.2
+Applies to: @simonwep/pickr@1.8.2, @simonwep/pickr@1.8.2, @simonwep/pickr@1.8.2
 
     [LICENSE]
     MIT License
@@ -4124,7 +4230,7 @@ Applies to: json5@2.2.3
 
 ### MIT (4cfa6f394d02)
 
-Applies to: @ctrl/tinycolor@3.6.1, @ctrl/tinycolor@3.6.1
+Applies to: @ctrl/tinycolor@3.6.1, @ctrl/tinycolor@3.6.1, @ctrl/tinycolor@3.6.1, @ctrl/tinycolor@3.6.1
 
     [LICENSE]
     Copyright (c) Scott Cooper <scttcper@gmail.com>
@@ -6073,7 +6179,7 @@ Applies to: @fluentui/react-search@9.4.4
 
 ### MIT (664589ccc690)
 
-Applies to: @jridgewell/gen-mapping@0.3.13, @jridgewell/remapping@2.3.5, @jridgewell/sourcemap-codec@1.5.5, @jridgewell/trace-mapping@0.3.31
+Applies to: @jridgewell/sourcemap-codec@1.5.5, @jridgewell/sourcemap-codec@1.5.5, @jridgewell/gen-mapping@0.3.13, @jridgewell/remapping@2.3.5, @jridgewell/sourcemap-codec@1.5.5, @jridgewell/trace-mapping@0.3.31
 
     [LICENSE]
     Copyright 2024 Justin Ridgewell <justin@ridgewell.name>
@@ -6221,7 +6327,7 @@ Applies to: @fluentui/react-switch@9.7.4
 
 ### MIT (6e3c21989eea)
 
-Applies to: warning@4.0.3
+Applies to: warning@4.0.3, warning@4.0.3, warning@4.0.3
 
     [LICENSE.md]
     MIT License
@@ -6317,7 +6423,7 @@ Applies to: @fluentui/react-utilities@9.26.3, @fluentui/react-utilities@9.26.5
 
 ### MIT (73bdbf9cf49a)
 
-Applies to: @vue/compiler-core@3.5.34, @vue/compiler-core@3.5.39, @vue/compiler-dom@3.5.34, @vue/compiler-dom@3.5.39, @vue/compiler-sfc@3.5.34, @vue/compiler-sfc@3.5.39, @vue/compiler-ssr@3.5.34, @vue/compiler-ssr@3.5.39, @vue/reactivity@3.5.39, @vue/runtime-core@3.5.39, @vue/runtime-dom@3.5.39, @vue/server-renderer@3.5.39, @vue/shared@3.5.34, @vue/shared@3.5.39, vue@3.5.39
+Applies to: @vue/compiler-core@3.5.39, @vue/compiler-dom@3.5.39, @vue/compiler-sfc@3.5.39, @vue/compiler-ssr@3.5.39, @vue/reactivity@3.5.39, @vue/runtime-core@3.5.39, @vue/runtime-dom@3.5.39, @vue/server-renderer@3.5.39, @vue/shared@3.5.39, vue@3.5.39, @vue/compiler-core@3.5.39, @vue/compiler-dom@3.5.39, @vue/compiler-sfc@3.5.39, @vue/compiler-ssr@3.5.39, @vue/reactivity@3.5.39, @vue/runtime-core@3.5.39, @vue/runtime-dom@3.5.39, @vue/server-renderer@3.5.39, @vue/shared@3.5.39, vue@3.5.39, @vue/compiler-core@3.5.34, @vue/compiler-core@3.5.39, @vue/compiler-dom@3.5.34, @vue/compiler-dom@3.5.39, @vue/compiler-sfc@3.5.34, @vue/compiler-sfc@3.5.39, @vue/compiler-ssr@3.5.34, @vue/compiler-ssr@3.5.39, @vue/reactivity@3.5.39, @vue/runtime-core@3.5.39, @vue/runtime-dom@3.5.39, @vue/server-renderer@3.5.39, @vue/shared@3.5.34, @vue/shared@3.5.39, vue@3.5.39
 
     [LICENSE]
     The MIT License (MIT)
@@ -6455,7 +6561,7 @@ Applies to: @fluentui/react-shared-contexts@9.26.2
 
 ### MIT (7d0a92383610)
 
-Applies to: nanopop@2.4.2
+Applies to: nanopop@2.4.2, nanopop@2.4.2, nanopop@2.4.2
 
     [LICENSE]
     MIT License
@@ -6482,7 +6588,7 @@ Applies to: nanopop@2.4.2
 
 ### MIT (7dc2315b15b3)
 
-Applies to: loose-envify@1.4.0, loose-envify@1.4.0
+Applies to: loose-envify@1.4.0, loose-envify@1.4.0, loose-envify@1.4.0, loose-envify@1.4.0
 
     [LICENSE]
     The MIT License (MIT)
@@ -6674,7 +6780,7 @@ Applies to: exsolve@1.1.0
 
 ### MIT (83fe91076e0b)
 
-Applies to: csstype@3.2.3, csstype@3.2.3
+Applies to: csstype@3.2.3, csstype@3.2.3, csstype@3.2.3, csstype@3.2.3
 
     [LICENSE]
     Copyright (c) 2017-2018 Fredrik Nicol
@@ -6795,7 +6901,7 @@ Applies to: superjson@2.2.6
 
 ### MIT (8bd8a121831b)
 
-Applies to: resize-observer-polyfill@1.5.1
+Applies to: resize-observer-polyfill@1.5.1, resize-observer-polyfill@1.5.1, resize-observer-polyfill@1.5.1
 
     [LICENSE]
     The MIT License (MIT)
@@ -7007,7 +7113,7 @@ Applies to: @fluentui/react-color-picker@9.2.18
 
 ### MIT (962400d670da)
 
-Applies to: compute-scroll-into-view@1.0.20, scroll-into-view-if-needed@2.2.31
+Applies to: compute-scroll-into-view@1.0.20, scroll-into-view-if-needed@2.2.31, compute-scroll-into-view@1.0.20, scroll-into-view-if-needed@2.2.31, compute-scroll-into-view@1.0.20, scroll-into-view-if-needed@2.2.31
 
     [LICENSE]
     MIT License
@@ -7374,7 +7480,7 @@ Applies to: modernc.org/libc@v1.73.4
 
 ### MIT (9be572bc4bb1)
 
-Applies to: @babel/runtime@7.29.2, @babel/generator@8.0.0-rc.5, @babel/helper-string-parser@7.29.7, @babel/helper-string-parser@8.0.0-rc.5, @babel/helper-validator-identifier@7.29.7, @babel/helper-validator-identifier@8.0.0-rc.5, @babel/runtime@7.29.2, @babel/types@7.29.0, @babel/types@7.29.7, @babel/types@8.0.0-rc.5
+Applies to: @babel/runtime@7.29.2, @babel/helper-string-parser@7.29.7, @babel/helper-validator-identifier@7.29.7, @babel/runtime@7.29.7, @babel/types@7.29.8, @babel/helper-string-parser@7.29.7, @babel/helper-validator-identifier@7.29.7, @babel/runtime@7.29.7, @babel/types@7.29.8, @babel/generator@8.0.0-rc.5, @babel/helper-string-parser@7.29.7, @babel/helper-string-parser@8.0.0-rc.5, @babel/helper-validator-identifier@7.29.7, @babel/helper-validator-identifier@8.0.0-rc.5, @babel/runtime@7.29.2, @babel/types@7.29.0, @babel/types@7.29.7, @babel/types@8.0.0-rc.5
 
     [LICENSE]
     MIT License
@@ -7430,7 +7536,7 @@ Applies to: fsevents@2.3.3
 
 ### MIT (9dd456aab661)
 
-Applies to: core-js@3.49.0
+Applies to: core-js@3.49.0, core-js@3.49.0, core-js@3.49.0
 
     [LICENSE]
     Copyright (c) 2013–2025 Denis Pushkarev (zloirock.ru)
@@ -9962,7 +10068,7 @@ Applies to: @fluentui/react-infobutton@9.0.0-beta.117
 
 ### MIT (ae1e45839a97)
 
-Applies to: shallow-equal@1.2.1
+Applies to: shallow-equal@1.2.1, shallow-equal@1.2.1, shallow-equal@1.2.1
 
     [LICENSE]
     The MIT License (MIT)
@@ -10073,7 +10179,7 @@ Applies to: @fluentui/react-checkbox@9.6.3
 
 ### MIT (ba1d171ac5ee)
 
-Applies to: js-tokens@4.0.0, js-tokens@4.0.0
+Applies to: js-tokens@4.0.0, js-tokens@4.0.0, js-tokens@4.0.0, js-tokens@4.0.0
 
     [LICENSE]
     The MIT License (MIT)
@@ -10100,7 +10206,7 @@ Applies to: js-tokens@4.0.0, js-tokens@4.0.0
 
 ### MIT (bbb13d648b75)
 
-Applies to: @ant-design/colors@6.0.0
+Applies to: @ant-design/colors@6.0.0, @ant-design/colors@6.0.0, @ant-design/colors@6.0.0
 
     [LICENSE]
     MIT LICENSE
@@ -10182,7 +10288,7 @@ Applies to: immutable@5.1.8
 
 ### MIT (c99bd3e14c7f)
 
-Applies to: @emotion/hash@0.9.2, @emotion/hash@0.9.2, @emotion/unitless@0.8.1
+Applies to: @emotion/hash@0.9.2, @emotion/hash@0.9.2, @emotion/unitless@0.8.1, @emotion/hash@0.9.2, @emotion/unitless@0.8.1, @emotion/hash@0.9.2, @emotion/unitless@0.8.1
 
     [LICENSE]
     MIT License
@@ -10572,7 +10678,7 @@ Applies to: @rolldown/pluginutils@1.0.1
 
 ### MIT (d4c764f33b70)
 
-Applies to: @babel/parser@7.29.3, @babel/parser@7.29.7, @babel/parser@8.0.0-rc.5
+Applies to: @babel/parser@7.29.8, @babel/parser@7.29.8, @babel/parser@7.29.3, @babel/parser@7.29.7, @babel/parser@8.0.0-rc.5
 
     [LICENSE]
     Copyright (C) 2012-2014 by various contributors (see AUTHORS)
@@ -10742,7 +10848,7 @@ Applies to: github.com/chromedp/sysutil@v1.1.0
 
 ### MIT (dd8399dbd6c0)
 
-Applies to: @fluentui/react-icons@2.0.316, embla-carousel@8.6.0, embla-carousel-autoplay@8.6.0, embla-carousel-fade@8.6.0, @ant-design/icons-svg@4.4.2, @ant-design/icons-vue@7.0.1, @rolldown/binding-darwin-arm64@1.1.5, @rolldown/binding-darwin-x64@1.1.5, @rolldown/binding-linux-arm64-gnu@1.1.5, @rolldown/binding-linux-arm64-musl@1.1.5, @rolldown/binding-linux-x64-gnu@1.1.5, @rolldown/binding-linux-x64-musl@1.1.5, @rolldown/binding-win32-arm64-msvc@1.1.5, @rolldown/binding-win32-x64-msvc@1.1.5, @vue/devtools-api@6.6.4, array-tree-filter@2.1.0, dom-scroll-into-view@2.0.1
+Applies to: @fluentui/react-icons@2.0.316, embla-carousel@8.6.0, embla-carousel-autoplay@8.6.0, embla-carousel-fade@8.6.0, @ant-design/icons-svg@4.5.0, @ant-design/icons-vue@7.0.1, array-tree-filter@2.1.0, dom-scroll-into-view@2.0.1, @ant-design/icons-svg@4.5.0, @ant-design/icons-vue@7.0.1, array-tree-filter@2.1.0, dom-scroll-into-view@2.0.1, @ant-design/icons-svg@4.4.2, @ant-design/icons-vue@7.0.1, @rolldown/binding-darwin-arm64@1.1.5, @rolldown/binding-darwin-x64@1.1.5, @rolldown/binding-linux-arm64-gnu@1.1.5, @rolldown/binding-linux-arm64-musl@1.1.5, @rolldown/binding-linux-x64-gnu@1.1.5, @rolldown/binding-linux-x64-musl@1.1.5, @rolldown/binding-win32-arm64-msvc@1.1.5, @rolldown/binding-win32-x64-msvc@1.1.5, @vue/devtools-api@6.6.4, array-tree-filter@2.1.0, dom-scroll-into-view@2.0.1
 
     [Declared license]
     MIT
@@ -10859,7 +10965,7 @@ Applies to: @floating-ui/core@1.7.5, @floating-ui/devtools@0.2.3, @floating-ui/d
 
 ### MIT (e3e7a8bea646)
 
-Applies to: nanoid@3.3.12
+Applies to: nanoid@3.3.16, nanoid@3.3.16, nanoid@3.3.12
 
     [LICENSE]
     The MIT License (MIT)
@@ -10934,7 +11040,7 @@ Applies to: @fluentui/keyboard-keys@9.0.8
 
 ### MIT (e72c7ab85e59)
 
-Applies to: postcss@8.5.18
+Applies to: postcss@8.5.18, postcss@8.5.18, postcss@8.5.18
 
     [LICENSE]
     The MIT License (MIT)
@@ -10960,7 +11066,7 @@ Applies to: postcss@8.5.18
 
 ### MIT (edfb7ea980c7)
 
-Applies to: estree-walker@2.0.2
+Applies to: estree-walker@2.0.2, estree-walker@2.0.2, estree-walker@2.0.2
 
     [LICENSE]
     Copyright (c) 2015-20 [these people](https://github.com/Rich-Harris/estree-walker/graphs/contributors)
@@ -10973,7 +11079,7 @@ Applies to: estree-walker@2.0.2
 
 ### MIT (ee32ec0dfcf0)
 
-Applies to: throttle-debounce@5.0.2
+Applies to: throttle-debounce@5.0.2, throttle-debounce@5.0.2, throttle-debounce@5.0.2
 
     [LICENSE.md]
     Copyright (c) Ivan Nikolić <http://ivannikolic.com>
@@ -11097,7 +11203,7 @@ Applies to: @fluentui/react-menu@9.25.1
 
 ### MIT (f51a8c22784d)
 
-Applies to: is-glob@4.0.3, is-plain-object@3.0.1
+Applies to: is-plain-object@3.0.1, is-plain-object@3.0.1, is-glob@4.0.3, is-plain-object@3.0.1
 
     [LICENSE]
     The MIT License (MIT)
@@ -11225,7 +11331,7 @@ Applies to: tinyglobby@0.2.17
 
 ### MIT (fc042fcda8fe)
 
-Applies to: stylis@4.4.0, stylis@4.3.6
+Applies to: stylis@4.4.0, stylis@4.4.0, stylis@4.4.0, stylis@4.3.6
 
     [LICENSE]
     MIT License

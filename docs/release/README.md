@@ -8,6 +8,7 @@
 | --- | --- |
 | [Delivery and Upgrade](./delivery-and-upgrade.md) | 产物矩阵、manifest v2、Ed25519、Authenticode、自动检查、事务安装与 guided update |
 | [Acceptance and Risks](./acceptance-and-risks.md) | 风险控制、发布门禁、故障注入和真实签名 Windows E2E |
+| [Plugin Go + Vue Reset](./plugin-go-vue-reset.md) | manifest v2 断代前备份、重置范围与旧 epoch 拒绝语义 |
 
 ## 正式来源
 

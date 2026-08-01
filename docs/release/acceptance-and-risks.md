@@ -10,8 +10,8 @@
 | Windows artifact 被替换或 signer 不符 | manifest 摘要与 Authenticode 双重校验，正式证书和 RFC3161 timestamp |
 | 安装中断、磁盘不足或新版不可用 | 外置 updater、磁盘预检、journal、同卷 staging、双 rename、postflight 与自动回滚 |
 | 回滚状态不可读 | offline backup、旧安装根保留、旧版 restore/doctor 和 `rollback_failed` 停机保护 |
-| 恶意插件包或能力扩大 | 安装检查、包摘要、能力和安装脚本展示、可信代码确认、归档资源上限 |
-| Chromium、SQLite、OneBot11 或插件运行时故障 | readiness、diagnostics、结构化错误、恢复摘要和受控重试 |
+| 恶意插件包或能力扩大 | manifest/artifact 校验、文件全集与摘要、平台/二进制格式检查、能力展示、可信代码确认和归档资源上限 |
+| Chromium、SQLite、OneBot11 或 Go 插件进程故障 | readiness、diagnostics、结构化错误、恢复摘要和受控重试 |
 
 ## 发布验收
 
@@ -20,15 +20,17 @@
 - strict contracts、valid/invalid fixtures、embedded schema 和 generated types drift；
 - server tests、目标包 `-race`、server build 与 binary-mode govulncheck；
 - Web 与 Launcher typecheck、test、build 和受影响的 E2E；
-- Node.js SDK dist drift、Python SDK 与运行时客户端 wheel fresh-venv import；
+- Go SDK 与全部插件 race 测试、Vue SDK/页面 typecheck/test/build、三平台 artifact 构建与校验；
 - 四种归档的 `LICENSE`、`THIRD_PARTY_NOTICES.md`、metadata、artifact smoke 和 recovery drill；
 - doctor、agent docs、文档链接和 `git diff --check`。
+
+插件负向验收必须拒绝 manifest v1、bridge v1、Python/Node runtime、错误平台、篡改摘要、错误二进制、缺失 UI 资源和非单根目录 ZIP。正式包检查必须确认不存在插件源码、源码 SDK、`node_modules` 与 Python/Node 插件运行时。
 
 ## 更新安全验收
 
 更新核心必须拒绝：错误 key、错误签名、过期或重放 manifest、降级、同版本不同摘要、artifact hash/size/platform/version/signer 不匹配、路径穿越、reparse point、大小写冲突、额外根目录、zip bomb、磁盘不足和超时。
 
-事务恢复测试必须覆盖每个 journal phase、helper 启动失败、停止服务失败、健康检查失败、回滚成功和回滚失败。升级前后的 `config/user.yaml`、`data/**` 和 `plugins/installed/**` 必须保持一致。
+事务恢复测试必须覆盖每个 journal phase、helper 启动失败、停止服务失败、健康检查失败、回滚成功和回滚失败。同一插件 epoch 内升级前后的 `config/user.yaml`、`data/**` 和 `plugins/installed/**` 必须保持一致；旧 epoch 必须以 `plugin.reset_required` 拒绝，不能静默恢复。
 
 Windows packaged E2E 必须使用正式签名证书覆盖：
 

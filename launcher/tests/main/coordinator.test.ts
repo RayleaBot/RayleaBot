@@ -408,10 +408,10 @@ describe("launcher coordinator", () => {
       },
       issues: [
         {
-          code: "deps.python_runtime_metadata_incomplete",
+          code: "platform.resource_missing",
           severity: "warning",
-          summary: "Python 运行环境元数据不完整。",
-          remediation: "请在 .deps/manifest.json 中补齐当前平台 Python 运行环境的 archive_format、entrypoints、来源列表与 sha256。",
+          summary: "图片渲染 Chromium 资源尚未准备完成。",
+          remediation: "请检查 .deps/manifest.json 并准备当前平台的 Chromium 资源。",
         },
       ],
     };
@@ -431,8 +431,8 @@ describe("launcher coordinator", () => {
     await coordinator.initialize();
 
     expect(presentationState(coordinator.snapshot).state).toBe("degraded");
-    expect(presentationState(coordinator.snapshot).detail).toBe("Python 运行环境元数据不完整。");
-    expect(coordinator.snapshot.server.readiness?.issues?.[0]?.code).toBe("deps.python_runtime_metadata_incomplete");
+    expect(presentationState(coordinator.snapshot).detail).toBe("图片渲染 Chromium 资源尚未准备完成。");
+    expect(coordinator.snapshot.server.readiness?.issues?.[0]?.code).toBe("platform.resource_missing");
   });
 
   test("initialize auto-refreshes degraded readiness after runtime recovery", async () => {

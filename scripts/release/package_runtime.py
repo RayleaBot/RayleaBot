@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import contextlib
+from collections import deque
 import fnmatch
 import hashlib
 import json
@@ -18,6 +19,7 @@ import time
 import urllib.request
 import zipfile
 from pathlib import Path
+from typing import TextIO
 
 
 SERVER_BINARIES = {
@@ -27,12 +29,8 @@ SERVER_BINARIES = {
     "linux-x64-server": "raylea-server",
 }
 
-RESOURCE_KINDS = ("chromium", "python-runtime", "nodejs-runtime")
-REQUIRED_ENTRYPOINTS = {
-    "chromium": ("browser",),
-    "python-runtime": ("python",),
-    "nodejs-runtime": ("node", "npm"),
-}
+RESOURCE_KINDS = ("chromium",)
+REQUIRED_ENTRYPOINTS = {"chromium": ("browser",)}
 SOURCE_KINDS = {"upstream", "mirror"}
 ARCHIVE_SUFFIXES = {
     "zip": ".zip",
@@ -101,6 +99,31 @@ REQUIRED_PATHS = {
     },
 }
 
+PLUGIN_BACKENDS = {
+    "raylea.echo": "echo",
+    "raylea.fortune": "fortune",
+    "raylea.game-guide": "game-guide",
+    "raylea.subscription-hub": "subscription-hub",
+}
+PACKAGE_PLUGIN_TARGETS = {
+    "windows-x64-full": ("windows-x64", ".exe"),
+    "linux-x64-full": ("linux-x64", ""),
+    "macos-arm64-full": ("macos-arm64", ""),
+    "linux-x64-server": ("linux-x64", ""),
+}
+for package_id, (_, executable_suffix) in PACKAGE_PLUGIN_TARGETS.items():
+    for plugin_id, executable in PLUGIN_BACKENDS.items():
+        REQUIRED_PATHS[package_id].update(
+            {
+                f"plugins/builtin/{plugin_id}/info.json",
+                f"plugins/builtin/{plugin_id}/artifact.json",
+                f"plugins/builtin/{plugin_id}/bin/{executable}{executable_suffix}",
+                f"plugins/builtin/{plugin_id}/LICENSE",
+                f"plugins/builtin/{plugin_id}/THIRD_PARTY_NOTICES.md",
+                f"plugins/builtin/{plugin_id}/sbom.spdx.json",
+            }
+        )
+
 FORBIDDEN_TOP_LEVEL_PATHS = {
     ".github",
     "contracts",
@@ -126,12 +149,22 @@ FORBIDDEN_DIRECTORY_NAMES = {
     "venv",
 }
 FORBIDDEN_FILE_PATTERNS = (
+    "*.go",
     "*.map",
+    "*.py",
     "*.pyc",
     "*.pyo",
     "*.spec.*",
     "*.test.*",
+    "*.ts",
+    "*.tsx",
+    "*.vue",
     "*_test.*",
+    "go.mod",
+    "go.sum",
+    "package.json",
+    "pnpm-lock.yaml",
+    "pnpm-workspace.yaml",
 )
 
 
@@ -151,7 +184,18 @@ def unpack_archive(artifact_id: str, archive_path: Path, destination: Path) -> P
     root = destination / root_name
     if not root.is_dir():
         raise RuntimeError(f"release root not found after extraction: {root}")
-    return root
+    return compact_release_root(root, destination)
+
+
+def compact_release_root(root: Path, destination: Path, platform_name: str | None = None) -> Path:
+    if (platform_name or os.name) != "nt":
+        return root
+    digest = hashlib.sha256(str(destination.resolve()).encode("utf-8")).hexdigest()[:8]
+    compact = destination.parent / f"r-{digest}"
+    if compact.exists():
+        shutil.rmtree(compact)
+    root.replace(compact)
+    return compact
 
 
 def ensure_required_paths(root: Path, artifact_id: str) -> None:
@@ -231,7 +275,7 @@ def artifact_platform(artifact_id: str) -> str:
 def load_deps_manifest(root: Path) -> dict[str, object]:
     manifest_path = root / ".deps" / "manifest.json"
     payload = json.loads(manifest_path.read_text(encoding="utf-8"))
-    if payload.get("manifest_version") != 3:
+    if payload.get("manifest_version") != 4:
         raise RuntimeError(f"unsupported deps manifest version: {payload.get('manifest_version')}")
     return payload
 
@@ -521,7 +565,19 @@ def extract_runtime_archive(root: Path, resource: dict[str, object], archive_pat
                 tf.extractall(temp_root)
         if target_root.exists():
             shutil.rmtree(target_root, ignore_errors=True)
-        temp_root.replace(target_root)
+        replace_directory_with_retry(temp_root, target_root)
+
+
+def replace_directory_with_retry(source: Path, target: Path, *, timeout_seconds: float = 5) -> None:
+    deadline = time.monotonic() + max(timeout_seconds, 0)
+    while True:
+        try:
+            source.replace(target)
+            return
+        except PermissionError:
+            if time.monotonic() >= deadline:
+                raise
+            time.sleep(0.2)
 
 
 def cleanup_stale_runtime_temp_roots(parent: Path, resource: dict[str, object]) -> None:
@@ -559,7 +615,68 @@ def stop_process(process: subprocess.Popen[str], *, timeout_seconds: int = 10) -
         process.wait(timeout=timeout_seconds)
 
 
+class _ProcessOutputCapture:
+    def __init__(self, stdout: TextIO, stderr: TextIO, *, limit: int = 2 * 1024 * 1024) -> None:
+        self._streams = {"stdout": stdout, "stderr": stderr}
+        self._chunks = {"stdout": deque[str](), "stderr": deque[str]()}
+        self._sizes = {"stdout": 0, "stderr": 0}
+        self._limit = limit
+        self._lock = threading.Lock()
+        self._threads = [
+            threading.Thread(target=self._drain, args=(name,), daemon=True)
+            for name in ("stdout", "stderr")
+        ]
+        for thread in self._threads:
+            thread.start()
+
+    def _drain(self, name: str) -> None:
+        stream = self._streams[name]
+        try:
+            for chunk in iter(stream.readline, ""):
+                with self._lock:
+                    chunks = self._chunks[name]
+                    chunks.append(chunk)
+                    self._sizes[name] += len(chunk)
+                    while self._sizes[name] > self._limit and len(chunks) > 1:
+                        self._sizes[name] -= len(chunks.popleft())
+        finally:
+            stream.close()
+
+    def collect(self) -> tuple[str, str]:
+        for thread in self._threads:
+            thread.join(timeout=5)
+        with self._lock:
+            return ("".join(self._chunks["stdout"]), "".join(self._chunks["stderr"]))
+
+
+def start_captured_process(
+    command: list[str],
+    *,
+    cwd: Path,
+    env: dict[str, str] | None = None,
+) -> subprocess.Popen[str]:
+    process = subprocess.Popen(
+        command,
+        cwd=cwd,
+        env=env,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+    )
+    if process.stdout is None or process.stderr is None:
+        process.kill()
+        raise RuntimeError("captured process did not expose stdout and stderr")
+    process._raylea_output_capture = _ProcessOutputCapture(process.stdout, process.stderr)  # type: ignore[attr-defined]
+    return process
+
+
 def read_process_output(process: subprocess.Popen[str]) -> str:
     stop_process(process)
-    stdout, stderr = process.communicate(timeout=5)
+    capture = getattr(process, "_raylea_output_capture", None)
+    if isinstance(capture, _ProcessOutputCapture):
+        stdout, stderr = capture.collect()
+    else:
+        stdout, stderr = process.communicate(timeout=5)
     return f"stdout:\n{stdout}\nstderr:\n{stderr}"

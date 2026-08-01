@@ -1,116 +1,94 @@
-# Plugin Client and SDK Docs
+# Plugin SDK
 
-本目录说明 RayleaBot 官方 Python、Node.js 运行时客户端与两种语言开发 SDK 的正式能力范围。
+RayleaBot 插件开发由 Go 后端 SDK、artifact 构建器和 Vue 管理页 SDK 组成。插件运行期只读取已编译产物，不使用源码 SDK、语言解释器或依赖安装器。
 
-正式协议与字段以 `contracts/plugin-protocol.schema.json` 为准。
+## Go SDK
 
-## 包边界
+`sdk/go` 是独立 Go module，公开入口为：
 
-- `rayleabot-plugin-runtime` 提供插件进程与服务端通信所需的最小运行时客户端，导入名为 `rayleabot_runtime`。内置插件和发布包使用该包。
-- `rayleabot-sdk` 是 Python 插件的开发安装入口，固定依赖同版本 `rayleabot-plugin-runtime`。插件代码导入 `rayleabot_runtime`，SDK 分发不提供 `rayleabot` 导入包。
-- `@rayleabot/plugin-runtime` 提供 Node.js 插件生产运行所需的客户端，插件代码直接导入该包。
-- `@rayleabot/sdk` 是 Node.js 插件的开发安装入口，固定依赖同版本 `@rayleabot/plugin-runtime`，不再承载生产运行时实现。
-
-运行时客户端发布到 PyPI 与 npm，不随 RayleaBot 发行包复制源码。Python 与 Node.js 插件必须在 `info.json` 的 `dependencies` 中声明精确版本；第三方插件安装时准备依赖，内置插件首次启动时准备依赖并记录指纹。SDK 包只用于开发环境的统一安装入口。
-
-## 发布
-
-`.github/workflows/publish-plugin-packages.yml` 按 [npm Trusted Publishing](https://docs.npmjs.com/trusted-publishers/) 与 [PyPI Trusted Publishing](https://docs.pypi.org/trusted-publishers/) 的 OIDC 流程发布四个包，不保存长期 npm 或 PyPI token。需要分别为 `@rayleabot/plugin-runtime`、`@rayleabot/sdk`、`rayleabot-plugin-runtime` 与 `rayleabot-sdk` 配置可信发布者，工作流文件名为 `publish-plugin-packages.yml`，环境名为 `package-registries`；npm 新包先由包所有者完成一次注册表引导发布，再启用可信发布。工作流只允许手动触发，并在发布前验证两种语言的 SDK 与运行时版本完全一致。
-
-## 当前覆盖范围
-
-- 生命周期握手：`init`、`init_progress`、`init_ack`、`ping`、`pong`、`shutdown`
-- 插件结构：
-  - Python：继承 `RayleaBotPlugin`，使用 `@command(...)` 与 `@event_handler(...)` 注册类方法
-  - Node.js：继承 `RayleaBotPlugin`，在构造函数中使用 `this.onCommand(...)` 与 `this.onEvent(...)` 注册实例方法
-- 事件上下文：
-  - Python：`EventContext` 提供 `event`、`request_id`、`target`、`actor`、`payload`、`webhook`、`args`、`plain_text`、`bot_id`、`super_admins` 和 request-bound helper
-  - Node.js：`PluginEventContext` 提供 `event`、`requestId`、`target`、`actor`、`payload`、`webhook`、`args`、`plainText`、`botId`、`superAdmins` 和 request-bound helper
-- 启动上下文 helper：
-  - Python：`bot_id`、`capabilities`、`super_admins`、`command_prefixes`、`primary_command_prefix`
-  - Node.js：`botId`、`capabilities`、`superAdmins`、`commandPrefixes`、`primaryCommandPrefix`
-- `bot_id` / `botId` 在协议身份不可用时为空字符串；客户端收到 `bot.identity.changed` 后更新为当前 bot 身份。当 `bot.identity.changed` 不携带可用身份时（`target` 与 `event.payload.onebot.self_id` 均为空），客户端将 `bot_id` / `botId` 重置为空，下次 `bot.identity.changed` 再恢复。
-- 等待身份就绪 helper：
-  - Python：`RayleaBotPlugin.await_bot_identity(timeout_seconds=30)`；身份已知时立即返回当前 `bot_id`，否则阻塞至身份就绪或超时，超时返回空字符串。线程安全，可在事件处理线程内调用。
-  - Node.js：`plugin.awaitBotIdentity(timeoutMs=30000)` 与 `EventContext.awaitBotIdentity(timeoutMs)`；Promise 在身份就绪或超时时 resolve 当前 `botId`。
-  - 调用方在身份不可用期间不应忙等：handler 内等待对应客户端 helper 或直接 `return` 让出线程，避免阻塞 dispatcher。
-- 事件接收与结果回传
-- 通用 local action helper：`message.send`、`message.reply`、`logger.write`、`storage.kv`、`storage.file`、`http.request`、`config.read`、`config.write`、`governance.blacklist.read`、`governance.blacklist.write`、`governance.whitelist.read`、`governance.whitelist.write`、`governance.command_policy.read`、`scheduler.create`、`event.expose_webhook`、`render.image`、`plugin.list`、`thirdparty.account.read`
-- 定时任务 helper 支持中文日志说明：Python 使用 `scheduler_create(..., log_label="每日早报")`，Node.js 使用 `schedulerCreate(..., { logLabel: "每日早报" })`。
-- `secret.read` helper 当前只在 Python 运行时客户端提供（`secret_read`）；Node.js 运行时客户端可通过通用回退入口 `onebotAction("secret.read", { key })` 调用。
-- `thirdparty.account.read` helper 当前只在 Python 运行时客户端提供（`thirdparty_account_read`）；Node.js 运行时客户端可通过通用回退入口 `onebotAction("thirdparty.account.read", { platform })` 调用。
-- OneBot 单动作 helper：正式 capability 名称与 action kind 一一对应，helper 直接复用同一组动作名
-- provider helper：`provider.napcat.message_emoji.like.set`、`provider.napcat.group.sign.set`、`provider.luckylillia.friend_groups.get`
-- 通用回退入口：`onebot_action` / `onebotAction` 与 `provider_action` / `providerAction`
-- 结构化错误：`ActionError.code`、`ActionError.message`、`ActionError.details`
-
-## 推荐入口
-
-Python：
-
-```python
-from rayleabot_runtime import RayleaBotPlugin, command
-
-
-class EchoPlugin(RayleaBotPlugin):
-    def __init__(self):
-        super().__init__()
-        self.subscribe("message.group", "message.private")
-
-    @command("echo", aliases=["repeat"])
-    def handle_echo(self, ctx):
-        ctx.send_text(" ".join(ctx.args) or ctx.plain_text or "(空消息)")
-
-
-if __name__ == "__main__":
-    EchoPlugin().run()
+```go
+err := rayleabot.Run(ctx, rayleabot.Options{
+    PluginID:              "example.plugin",
+    Subscriptions:         []string{"message.*"},
+    MaxConcurrentHandlers: 4,
+}, rayleabot.HandlerFunc(func(ctx context.Context, event *rayleabot.EventContext) error {
+    return event.SendText("ok")
+}))
 ```
 
-Node.js：
+`EventContext` 提供当前事件、request ID、插件 ID、bot 身份、允许能力、超级管理员与命令前缀。每个事件只能发送一次终态 `Result`、`Fail`、`Send`、`SendText` 或 `Reply`；重复终态调用会返回错误。
 
-```js
-import { RayleaBotPlugin } from '@rayleabot/plugin-runtime'
+`event.Actions()` 提供 request-bound typed helpers：
 
-class EchoPlugin extends RayleaBotPlugin {
-  constructor() {
-    super()
-    this.subscribe('message.group', 'message.private')
-    this.onCommand('echo', this.handleEcho, ['repeat'])
-  }
+- 非终态消息、日志、KV、文件、HTTP、配置、插件列表与 secret；
+- 治理黑白名单、命令策略、scheduler、webhook、渲染与三方账号；
+- 已冻结的 OneBot 单动作和 provider 扩展动作；
+- `Call` 作为正式 action 名称已经进入 contract 时的通用入口。
 
-  handleEcho(ctx) {
-    ctx.sendText(ctx.args.join(' ') || ctx.plainText || '(空消息)')
-  }
-}
+SDK 为每个 local action 分配独立 request ID，并通过父事件 request ID 关联并发响应。stdout 只写 JSONL，使用串行 writer；日志写 stderr。运行时处理 `init/init_ack`、`ping/pong`、shutdown、超时、并发上限和 panic 隔离，panic 只终止当前事件并返回受控错误。
 
-await new EchoPlugin().run()
+## Artifact 构建器
+
+每个插件拥有独立 `go.mod`、`info.json` 和薄 `tools/build` 入口：
+
+```go
+package main
+
+import "github.com/RayleaBot/RayleaBot/sdk/go/pluginbuild/buildcmd"
+
+func main() { buildcmd.Main("templates") }
 ```
 
-## 消息段 builder
+也可以直接调用 `pluginbuild.Build(ctx, Config)`。构建器执行：
 
-官方 builder 覆盖当前正式消息段集合：
+1. 校验 manifest v2 与目标平台；
+2. 使用 `CGO_ENABLED=0`、`-trimpath`、`-buildvcs=false` 和无 build ID 构建 Go 后端；
+3. 若存在 `ui/package.json`，执行插件自己的 `pnpm build`；
+4. 收集 UI、模板、数据、`LICENSE`、第三方 notices 与 SPDX SBOM；
+5. 生成 `artifact.json`，并输出确定性单根目录 ZIP 与可选展开目录。
 
-- 基础段：`text`、`image`、`at`、`at_all`、`face`、`reply`
-- 媒体与文件：`record`、`video`、`file`、`flash_file`
-- 富文本与卡片：`json`、`xml`、`markdown`、`music`、`contact`
-- 组合与转发：`forward`、`node`
-- 互动段：`poke`、`dice`、`rps`
-- provider 扩展段：`mface`、`keyboard`、`shake`
+```text
+example.plugin/
+  info.json
+  artifact.json
+  bin/example[.exe]
+  ui/index.html
+  ui/assets/...
+  templates/...
+  LICENSE
+  THIRD_PARTY_NOTICES.md
+  sbom.spdx.json
+```
 
-Python 使用 snake_case builder，例如 `flash_file_segment(data)`、`keyboard_segment()`；Node.js 使用 camelCase builder，例如 `flashFileSegment(data)`、`keyboardSegment()`。两套客户端都保留 `passthrough_segment()` / `passthroughSegment()` 作为通用构造入口。媒体类型 `record`、`video`、`file`、`flash_file` 要求非空 `data`，其余 passthrough 类型允许省略 `data`。
+正式目标为 `windows-x64`、`linux-x64` 和 `macos-arm64`。`artifact.json` 枚举除自身外的每个文件，记录角色、大小和 SHA-256。ZIP 中 Unix 后端固定为 `0755`。
 
-## 并发与请求归属
+## Vue UI SDK
 
-- 本地 action helper 会自动生成独立 `request_id`，并附带 `parent_request_id`
-- 客户端按 `request_id` 路由返回结果，不依赖帧到达顺序
-- Node.js SDK 的 `run()` 允许不同事件处理器并发执行
-- Python 运行时客户端的 `run()` 使用线程并发处理事件
-- 事件处理函数需要满足可重入要求
+`sdk/vue` 提供私有 workspace package `@rayleabot/plugin-ui`：
+
+- `PluginUIBridgeClient` 完成 nonce-bound bridge v2 与 `MessageChannel` 握手；
+- `usePluginHost` 暴露初始化状态、设置、secret configured-state 和 bridge 请求；
+- `applyTheme` 把宿主主题 token 投影为插件 CSS variables；
+- `contract.generated.ts` 提供 bridge v2 类型。
+
+插件 UI 固定使用 Vue 3、TypeScript、Vite 与 `base: "./"`。页面只能通过 SDK 绑定的端口请求宿主能力，不能请求插件域 `/api`，也不能读取管理 cookie 或已保存密钥明文。
+
+## 验证
+
+```bash
+cd sdk/go && go test ./...
+cd sdk/vue && pnpm run typecheck && pnpm test && pnpm build
+cd plugins/builtin/fortune && go run ./tools/build -target linux-x64 -out ../../../dist/plugin-artifacts
+```
+
+CI 在支持 CGO 的 runner 上对 Go SDK 和所有插件执行 `go test -race ./...`，并为三个正式平台构建和校验 artifact。Vue SDK 与管理页分别执行 typecheck、Vitest 和生产构建。
+
+## 许可证与发布边界
+
+SDK、内置插件和示例使用仓库 `AGPL-3.0-only` 许可证。正式应用包只包含平台 artifact，不包含 `.go`、`.ts`、`.vue`、测试、源码 SDK、`node_modules` 或插件语言运行时。
 
 ## 相关文档
 
-Python 与 Node.js 的 SDK、运行时客户端分发使用仓库统一的 `AGPL-3.0-only` 许可证，并携带根仓库 `LICENSE`。
-
-- [Plugin Lifecycle](../lifecycle.md)
 - [Capabilities and Manifest](../capabilities-and-manifest.md)
 - [Protocol](../protocol.md)
+- [Management UI](../management-ui.md)

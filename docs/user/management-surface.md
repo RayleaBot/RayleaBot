@@ -76,11 +76,12 @@
 ## 插件内置管理页
 
 - 插件在 manifest 中声明 `management_ui.pages` 后，插件详情页会显示对应内置页签。
-- 管理页静态资源通过公共只读 `/plugin-ui/{plugin_id}/...` 路由提供。
-- 管理页读取和保存插件设置使用正式受保护接口 `GET /api/plugins/{plugin_id}/settings` 与 `PUT /api/plugins/{plugin_id}/settings`。
+- 管理页静态资源通过插件专属 origin 公共只读提供；该 origin 不接收管理 cookie、没有 `/api`、没有管理端 CORS，并应用严格 CSP。
+- iframe 通过 bridge v2 的 nonce-bound `MessageChannel` 请求宿主读取或保存设置；插件页面不能直接调用受保护接口。
+- 密钥界面只显示是否已配置，允许覆盖写入与显式删除，从不读取或回显已有明文。
 - 未验证来源插件首次打开内置管理页时需要手动确认；插件版本或来源变化后会重新确认。
 - 插件管理页读取和保存插件设置；插件管理动作通过 `POST /api/plugins/{plugin_id}/management/actions` 转给插件 runtime 处理。
-- 插件安装前会展示来源、摘要、能力和安装脚本；操作者必须明确确认第三方插件会作为完全可信的本地代码运行。
+- 插件安装前会展示来源、目标平台、后端摘要、UI 状态、artifact 校验结果和能力；操作者必须明确确认第三方 Go 后端会作为完全可信的本地代码运行。
 
 ## 内置三方功能
 
@@ -130,7 +131,7 @@
 - full artifact 统一以 Launcher 作为桌面入口。
 - Launcher 负责启动、停止、重启服务、本地预检、打开管理面和版本提示。
 - Launcher 本地预检关注安装根、`raylea-server` 路径、`config/user.yaml`、工作目录和启动器设置。
-- Chromium、Python、Node.js、模板资源和运行态异常由服务端 readiness、恢复摘要与诊断结果统一裁决，Launcher 直接展示这些结果。
+- Chromium、模板资源和 Go 插件进程异常由服务端 readiness、恢复摘要与诊断结果统一裁决，Launcher 直接展示这些结果。
 - 启动时若本机已存在健康服务但不属于当前 Launcher 子进程，界面会标示“检测到现有服务”。
 - 启动失败摘要来自健康探测、stderr 和日志尾部。
 - 关闭窗口默认隐藏到托盘，不直接结束后台服务。

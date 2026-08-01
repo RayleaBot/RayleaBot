@@ -24,7 +24,7 @@ export interface EnvironmentProbeInput {
 
 type EnvironmentCheckDraft = Omit<EnvironmentCheckResult, "scope">;
 
-type RuntimeResourceKind = "chromium" | "python-runtime" | "nodejs-runtime";
+type RuntimeResourceKind = "chromium";
 
 type RuntimeResourceState = {
   archivePath: string;
@@ -77,30 +77,6 @@ const runtimeResourceDefinitions: RuntimeResourceDefinition[] = [
     notReadyCode: "chromium.not_ready",
     partialCode: "chromium.entrypoint_missing",
     tempCode: "chromium.extract_incomplete",
-  },
-  {
-    kind: "python-runtime",
-    title: "Python 依赖",
-    label: "Python 依赖",
-    requiredEntrypoints: ["python"],
-    readyCode: "python.ready",
-    missingCode: "python.resource_missing",
-    metadataCode: "python.metadata_incomplete",
-    notReadyCode: "python.not_ready",
-    partialCode: "python.entrypoint_missing",
-    tempCode: "python.extract_incomplete",
-  },
-  {
-    kind: "nodejs-runtime",
-    title: "Node.js / npm 依赖",
-    label: "Node.js / npm 依赖",
-    requiredEntrypoints: ["node", "npm"],
-    readyCode: "nodejs.ready",
-    missingCode: "nodejs.resource_missing",
-    metadataCode: "nodejs.metadata_incomplete",
-    notReadyCode: "nodejs.not_ready",
-    partialCode: "nodejs.entrypoint_missing",
-    tempCode: "nodejs.extract_incomplete",
   },
 ];
 
@@ -342,7 +318,7 @@ function inspectDepsChecks(probe: EnvironmentProbeInput): EnvironmentCheckResult
 function parseDepsManifest(payload: string): { ok: true; resources: DepsManifestResource[] } | { ok: false } {
   try {
     const parsed = JSON.parse(payload) as { manifest_version?: unknown; resources?: unknown };
-    if (parsed.manifest_version !== 3 || !Array.isArray(parsed.resources)) {
+    if (parsed.manifest_version !== 4 || !Array.isArray(parsed.resources)) {
       return { ok: false };
     }
     return { ok: true, resources: parsed.resources as DepsManifestResource[] };

@@ -17,7 +17,7 @@
 | `data/` | SQLite 状态库与插件业务数据 |
 | `cache/` | 渲染缓存、下载缓存与临时缓存 |
 | `logs/` | 结构化日志与诊断输出 |
-| `.deps/` | Chromium、Python、Node.js 与相关资源清单 |
+| `.deps/` | 图片渲染 Chromium 资源清单 |
 | `.github/workflows/` | CI、打包与发布门禁 |
 | `docs/` | 文档总纲与专题说明 |
 

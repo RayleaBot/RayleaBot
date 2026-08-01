@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import contextlib
+import hashlib
 import io
 import json
 import os
@@ -27,6 +28,7 @@ from package_runtime import (
     read_process_output,
     relative_executable,
     server_base_command,
+    start_captured_process,
     stop_process,
     unpack_archive,
     write_user_config,
@@ -36,43 +38,19 @@ SAMPLE_PLUGIN_ID = "recovery-sample"
 SAMPLE_PLUGIN_INFO = {
     "id": SAMPLE_PLUGIN_ID,
     "name": "Recovery Sample",
-    "version": "1.0.0",
-    "manifest_version": "1",
+    "version": "0.2.0",
+    "manifest_version": "2",
     "plugin_protocol_version": "1",
-    "type": "managed_runtime",
-    "runtime": "python",
-    "entry": "plugin.py",
+    "runtime": "go",
+    "entry": "bin/recovery-sample",
+    "platforms": ["windows-x64", "linux-x64", "macos-arm64"],
     "license": "MIT",
     "description": "Sample plugin manifest used by packaged recovery drill.",
     "author": "raylea",
     "role": "user",
     "capabilities": ["event.subscribe", "logger.write"],
-    "permissions": {
-        "required": [],
-        "optional": [],
-    },
 }
 INCOMPATIBLE_PLUGIN_ID = "recovery-incompatible"
-INCOMPATIBLE_PLUGIN_INFO = {
-    "id": INCOMPATIBLE_PLUGIN_ID,
-    "name": "Recovery Incompatible Sample",
-    "version": "1.0.0",
-    "manifest_version": "1",
-    "plugin_protocol_version": "1",
-    "type": "managed_runtime",
-    "runtime": "python",
-    "entry": "plugin.py",
-    "license": "MIT",
-    "description": "Sample incompatible plugin manifest used by packaged recovery drill.",
-    "author": "raylea",
-    "role": "user",
-    "capabilities": ["event.subscribe"],
-    "permissions": {
-        "required": [],
-        "optional": [],
-    },
-    "platforms": ["unsupported-platform"],
-}
 
 
 class DrillError(RuntimeError):
@@ -100,22 +78,55 @@ def seed_database(root: Path) -> Path:
     return database_path
 
 
-def seed_installed_plugins(root: Path, *, include_incompatible: bool = True) -> list[Path]:
-    manifests = []
-    inventory = [SAMPLE_PLUGIN_INFO]
+def seed_installed_plugins(root: Path, *, include_incompatible: bool = False) -> list[Path]:
+    source = root / "plugins" / "builtin" / "raylea.echo"
+    source_artifact = json.loads((source / "artifact.json").read_text(encoding="utf-8"))
+    target_platform = str(source_artifact["target_platform"])
+    source_binary = next(path for path in (source / "bin").iterdir() if path.is_file())
+    suffix = ".exe" if target_platform == "windows-x64" else ""
+    plugin_dir = root / "plugins" / "installed" / SAMPLE_PLUGIN_ID
+    (plugin_dir / "bin").mkdir(parents=True, exist_ok=True)
+    destination_binary = plugin_dir / "bin" / f"recovery-sample{suffix}"
+    shutil.copy2(source_binary, destination_binary)
+    for name in ("LICENSE", "THIRD_PARTY_NOTICES.md", "sbom.spdx.json"):
+        shutil.copy2(source / name, plugin_dir / name)
+
+    info_path = plugin_dir / "info.json"
+    info_path.write_text(json.dumps(SAMPLE_PLUGIN_INFO, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    roles = {
+        destination_binary.relative_to(plugin_dir).as_posix(): "backend",
+        "info.json": "manifest",
+        "LICENSE": "license",
+        "THIRD_PARTY_NOTICES.md": "notice",
+        "sbom.spdx.json": "sbom",
+    }
+    files = []
+    for relative, role in sorted(roles.items()):
+        path = plugin_dir / relative
+        payload = path.read_bytes()
+        files.append(
+            {
+                "path": relative,
+                "role": role,
+                "size": len(payload),
+                "sha256": hashlib.sha256(payload).hexdigest(),
+            }
+        )
+    artifact = {
+        "artifact_version": "1",
+        "plugin_id": SAMPLE_PLUGIN_ID,
+        "plugin_version": SAMPLE_PLUGIN_INFO["version"],
+        "target_platform": target_platform,
+        "manifest_sha256": hashlib.sha256(info_path.read_bytes()).hexdigest(),
+        "files": files,
+    }
+    (plugin_dir / "artifact.json").write_text(json.dumps(artifact, indent=2) + "\n", encoding="utf-8")
     if include_incompatible:
-        inventory.append(INCOMPATIBLE_PLUGIN_INFO)
-    for manifest in inventory:
-        plugin_dir = root / "plugins" / "installed" / str(manifest["id"])
-        plugin_dir.mkdir(parents=True, exist_ok=True)
-        info_path = plugin_dir / "info.json"
-        info_path.write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-        (plugin_dir / "plugin.py").write_text("print('recovery sample')\n", encoding="utf-8")
-        manifests.append(info_path)
-    return manifests
+        raise DrillError("legacy plugin fixtures must be exercised through the rejected backup epoch path")
+    return [info_path]
 
 
-def seed_runtime_workspace(root: Path, *, include_incompatible: bool = True) -> tuple[Path, Path, list[Path]]:
+def seed_runtime_workspace(root: Path, *, include_incompatible: bool = False) -> tuple[Path, Path, list[Path]]:
     port = choose_free_port()
     config_path = write_user_config(root, port)
     database_path = seed_database(root)
@@ -128,6 +139,8 @@ def run_command(root: Path, command: list[str], *, timeout: int = 120) -> subpro
         command,
         cwd=root,
         text=True,
+        encoding="utf-8",
+        errors="replace",
         capture_output=True,
         timeout=timeout,
         check=False,
@@ -144,6 +157,8 @@ def run_command_allow_failure(root: Path, command: list[str], *, timeout: int = 
         command,
         cwd=root,
         text=True,
+        encoding="utf-8",
+        errors="replace",
         capture_output=True,
         timeout=timeout,
         check=False,
@@ -179,6 +194,34 @@ def run_backup(root: Path, server_bin: Path) -> Path:
     return backup_path
 
 
+def write_legacy_plugin_epoch_backup(source: Path, destination: Path) -> Path:
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    with zipfile.ZipFile(source) as reader, zipfile.ZipFile(destination, "w", compression=zipfile.ZIP_DEFLATED) as writer:
+        for entry in reader.infolist():
+            payload = reader.read(entry.filename)
+            if entry.filename == "backup-manifest.json":
+                manifest = json.loads(payload.decode("utf-8"))
+                manifest["plugin_manifest_version"] = "1"
+                manifest["plugin_ui_bridge_version"] = "1"
+                for plugin in manifest.get("plugins", []):
+                    if isinstance(plugin, dict):
+                        plugin["manifest_version"] = "1"
+                        plugin["artifact_version"] = "0"
+                payload = (json.dumps(manifest, ensure_ascii=False, indent=2) + "\n").encode("utf-8")
+            writer.writestr(entry, payload)
+    return destination
+
+
+def assert_plugin_epoch_restore_rejected(root: Path, server_bin: Path, backup_path: Path) -> None:
+    result = run_restore_capture(root, server_bin, backup_path)
+    if result.returncode == 0:
+        raise DrillError("retired plugin epoch backup was unexpectedly restored")
+    summary = read_recovery_summary(root)
+    issues = summary.get("issues", [])
+    if not any(isinstance(issue, dict) and issue.get("code") == "plugin.reset_required" for issue in issues):
+        raise DrillError(f"retired plugin epoch rejection did not report plugin.reset_required: {summary}")
+
+
 def overwrite_runtime_state(config_path: Path, database_path: Path, plugin_info_paths: list[Path]) -> None:
     config_path.write_text("schema_version: \"2\"\nserver:\n  host: 127.0.0.1\n  port: 1\n", encoding="utf-8")
     database_path.write_bytes(b"corrupted")
@@ -212,9 +255,18 @@ def snapshot_runtime_state(root: Path) -> dict[str, object]:
     if plugins_root.exists():
         for info_path in sorted(plugins_root.glob("*/info.json")):
             plugin_snapshots[info_path.relative_to(root).as_posix()] = info_path.read_bytes()
+    database_path = root / "data" / "rayleabot.db"
+    connection = sqlite3.connect(f"file:{database_path.as_posix()}?mode=ro", uri=True)
+    try:
+        quick_check = connection.execute("PRAGMA quick_check").fetchone()
+        if quick_check is None or str(quick_check[0]).lower() != "ok":
+            raise DrillError(f"database quick_check failed while snapshotting runtime state: {quick_check}")
+        database_snapshot = tuple(connection.iterdump())
+    finally:
+        connection.close()
     return {
         "config/user.yaml": (root / "config" / "user.yaml").read_bytes(),
-        "data/rayleabot.db": (root / "data" / "rayleabot.db").read_bytes(),
+        "data/rayleabot.db": database_snapshot,
         "plugins": plugin_snapshots,
     }
 
@@ -246,13 +298,7 @@ def running_server(root: Path, server_bin: Path):
     command = [
         *server_base_command(server_bin),
     ]
-    process = subprocess.Popen(
-        command,
-        cwd=root,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        text=True,
-    )
+    process = start_captured_process(command, cwd=root)
     try:
         yield process
     finally:
@@ -592,13 +638,7 @@ def run_server_observation(
     require_guidance: bool | None,
     observation_window_seconds: int,
 ) -> None:
-    process = subprocess.Popen(
-        [*server_base_command(server_bin)],
-        cwd=root,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        text=True,
-    )
+    process = self_host_smoke.start_server(root, server_bin)
     try:
         observe_recovery_window(
             root,
@@ -615,13 +655,7 @@ def run_server_observation(
         if process.poll() is None:
             stop_process(process)
 
-    restarted = subprocess.Popen(
-        [*server_base_command(server_bin)],
-        cwd=root,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        text=True,
-    )
+    restarted = self_host_smoke.start_server(root, server_bin)
     try:
         observe_recovery_window(
             root,
@@ -647,13 +681,7 @@ def run_recovery_recheck_after_fix(
     expected_operation: str | set[str],
     observation_window_seconds: int,
 ) -> None:
-    process = subprocess.Popen(
-        [*server_base_command(server_bin)],
-        cwd=root,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        text=True,
-    )
+    process = self_host_smoke.start_server(root, server_bin)
     try:
         base_url = f"http://127.0.0.1:{port}/"
         self_host_smoke.wait_for_management_state(
@@ -709,63 +737,41 @@ def run_recovery_recheck_after_fix(
 def run_recovery_drill(artifact_id: str, archive_path: Path, *, observation_window_seconds: int) -> None:
     with tempfile.TemporaryDirectory(prefix="rayleabot-recovery-") as tmp:
         temp_root = Path(tmp)
-        for scenario_name, include_incompatible, expected_status, require_guidance in [
-            ("compatible", False, "compatible", False),
-            ("degraded", True, "degraded", True),
-        ]:
-            release_root = unpack_archive(artifact_id, archive_path, temp_root / scenario_name)
-            ensure_required_paths(release_root, artifact_id)
-            ensure_runtime_bootstrap(release_root, artifact_id)
-            config_path, database_path, plugin_info_paths = seed_runtime_workspace(
-                release_root,
-                include_incompatible=include_incompatible,
-            )
-            expected_snapshot = snapshot_runtime_state(release_root)
-            server_bin = relative_executable(release_root, artifact_id)
-            if not server_bin.exists():
-                raise DrillError(f"server executable missing: {server_bin}")
+        release_root = unpack_archive(artifact_id, archive_path, temp_root / "compatible")
+        ensure_required_paths(release_root, artifact_id)
+        ensure_runtime_bootstrap(release_root, artifact_id)
+        config_path, database_path, plugin_info_paths = seed_runtime_workspace(release_root)
+        expected_snapshot = snapshot_runtime_state(release_root)
+        server_bin = relative_executable(release_root, artifact_id)
+        if not server_bin.exists():
+            raise DrillError(f"server executable missing: {server_bin}")
 
-            run_doctor(release_root, server_bin)
-            backup_path = run_backup(release_root, server_bin)
-            overwrite_runtime_state(config_path, database_path, plugin_info_paths)
-            run_restore(release_root, server_bin, backup_path)
-            assert_restored(release_root, expected_snapshot)
-            assert_recovery_summary(
-                read_recovery_summary(release_root),
-                expected_operation="restore",
-                expected_phase="pre_restore",
-                expected_statuses={"pending"},
-                requires_post_start_checks=True,
-            )
-            run_server_observation(
-                release_root,
-                server_bin,
-                extract_configured_port(config_path),
-                expected_operation="restore",
-                expected_statuses={expected_status},
-                require_skipped_plugin=include_incompatible,
-                require_guidance=require_guidance,
-                observation_window_seconds=observation_window_seconds,
-            )
-            assert_recovery_summary(
-                read_recovery_summary(release_root),
-                expected_operation="restore",
-                expected_phase="post_startup",
-                expected_statuses={expected_status},
-                requires_post_start_checks=False,
-                require_skipped_plugin=include_incompatible,
-                require_guidance=require_guidance,
-            )
-            if include_incompatible:
-                remove_incompatible_plugin(release_root)
-                run_recovery_recheck_after_fix(
-                    release_root,
-                    server_bin,
-                    extract_configured_port(config_path),
-                    expected_operation="restore",
-                    observation_window_seconds=observation_window_seconds,
-                )
-            run_doctor(release_root, server_bin)
+        run_doctor(release_root, server_bin)
+        backup_path = run_backup(release_root, server_bin)
+        legacy_backup = write_legacy_plugin_epoch_backup(backup_path, temp_root / "legacy-plugin-epoch.zip")
+        assert_plugin_epoch_restore_rejected(release_root, server_bin, legacy_backup)
+
+        overwrite_runtime_state(config_path, database_path, plugin_info_paths)
+        run_restore(release_root, server_bin, backup_path)
+        assert_restored(release_root, expected_snapshot)
+        assert_recovery_summary(
+            read_recovery_summary(release_root),
+            expected_operation="restore",
+            expected_phase="pre_restore",
+            expected_statuses={"pending"},
+            requires_post_start_checks=True,
+        )
+        run_server_observation(
+            release_root,
+            server_bin,
+            extract_configured_port(config_path),
+            expected_operation="restore",
+            expected_statuses={"compatible"},
+            require_skipped_plugin=False,
+            require_guidance=False,
+            observation_window_seconds=observation_window_seconds,
+        )
+        run_doctor(release_root, server_bin)
 
 
 def run_cross_version_recovery_drill(
@@ -784,11 +790,27 @@ def run_cross_version_recovery_drill(
             f"previous archive must be older than current archive for cross-version drill: {previous_version} !< {current_version}"
         )
 
+    if str(previous_build.get("plugin_manifest_version", "")) != "2" or str(previous_build.get("plugin_ui_bridge_version", "")) != "2":
+        with tempfile.TemporaryDirectory(prefix="rayleabot-recovery-old-epoch-") as tmp:
+            temp_root = Path(tmp)
+            previous_root = unpack_archive(artifact_id, previous_archive, temp_root / "previous")
+            current_root = unpack_archive(artifact_id, current_archive, temp_root / "current")
+            write_user_config(previous_root, choose_free_port())
+            seed_database(previous_root)
+            previous_backup = run_backup(previous_root, relative_executable(previous_root, artifact_id))
+            ensure_required_paths(current_root, artifact_id)
+            write_user_config(current_root, choose_free_port())
+            assert_plugin_epoch_restore_rejected(
+                current_root,
+                relative_executable(current_root, artifact_id),
+                previous_backup,
+            )
+        return
+
     with tempfile.TemporaryDirectory(prefix="rayleabot-recovery-pair-") as tmp:
         temp_root = Path(tmp)
         for scenario_name, include_incompatible, expected_status, require_guidance in [
             ("compatible", False, "compatible", False),
-            ("degraded", True, "degraded", True),
         ]:
             previous_root = unpack_archive(artifact_id, previous_archive, temp_root / f"{scenario_name}-previous")
             current_root = unpack_archive(artifact_id, current_archive, temp_root / f"{scenario_name}-current")

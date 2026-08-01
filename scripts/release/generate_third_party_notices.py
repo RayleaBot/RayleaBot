@@ -173,6 +173,8 @@ def components_from_pnpm_payload(payload: dict[str, Any], project_dir: Path, eco
 def collect_node_components(project_name: str) -> list[Component]:
     project_dir = REPO_ROOT / project_name
     output = run_command([*pnpm_command(), "licenses", "list", "--prod", "--json"], project_dir)
+    if output.strip() == "No licenses in packages found":
+        return []
     try:
         payload = json.loads(output)
     except json.JSONDecodeError as exc:
@@ -219,22 +221,33 @@ def detect_go_license(text: str, component: str) -> str:
 
 
 def collect_go_components() -> list[Component]:
-    server_dir = REPO_ROOT / "server"
+    projects = [
+        (REPO_ROOT / "server", "./cmd/raylea-server"),
+        *((REPO_ROOT / path, ".") for path in (
+            "plugins/builtin/echo",
+            "plugins/builtin/fortune",
+            "plugins/builtin/game_guide",
+            "plugins/builtin/subscription_hub",
+        )),
+    ]
     modules_by_key: dict[tuple[str, str], dict[str, Any]] = {}
-    for goos, goarch in (("windows", "amd64"), ("linux", "amd64"), ("darwin", "arm64")):
-        target_env = dict(os.environ)
-        target_env.update({"GOOS": goos, "GOARCH": goarch, "CGO_ENABLED": "0"})
-        packages = decode_json_stream(
-            run_command(["go", "list", "-deps", "-json", "./cmd/raylea-server"], server_dir, target_env)
-        )
-        for package in packages:
-            module = package.get("Module")
-            if not isinstance(module, dict) or module.get("Main"):
-                continue
-            name = str(module.get("Path") or "").strip()
-            version = str(module.get("Version") or "").strip()
-            if name and version:
-                modules_by_key[(name, version)] = module
+    for project_dir, package_pattern in projects:
+        for goos, goarch in (("windows", "amd64"), ("linux", "amd64"), ("darwin", "arm64")):
+            target_env = dict(os.environ)
+            target_env.update({"GOOS": goos, "GOARCH": goarch, "CGO_ENABLED": "0", "GOWORK": "off"})
+            packages = decode_json_stream(
+                run_command(["go", "list", "-deps", "-json", package_pattern], project_dir, target_env)
+            )
+            for package in packages:
+                module = package.get("Module")
+                if not isinstance(module, dict) or module.get("Main"):
+                    continue
+                name = str(module.get("Path") or "").strip()
+                version = str(module.get("Version") or "").strip()
+                if name.startswith("github.com/RayleaBot/RayleaBot/"):
+                    continue
+                if name and version:
+                    modules_by_key[(name, version)] = module
 
     components: list[Component] = []
     for module in modules_by_key.values():
@@ -335,6 +348,9 @@ def generate() -> str:
             collect_go_components(),
             collect_node_components("web"),
             collect_node_components("launcher"),
+            collect_node_components("sdk/vue"),
+            collect_node_components("plugins/builtin/fortune/ui"),
+            collect_node_components("plugins/builtin/subscription_hub/ui"),
             [collect_electron_runtime_component()],
         ]
     )

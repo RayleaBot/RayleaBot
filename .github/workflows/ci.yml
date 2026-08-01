@@ -222,7 +222,7 @@ jobs:
         working-directory: launcher
         run: pnpm build
 
-  sdk:
+  plugins:
     if: needs.changes.outputs.sdk == 'true' || needs.changes.outputs.contracts == 'true'
     runs-on: ubuntu-latest
     needs: changes
@@ -231,75 +231,51 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: sdk/go/go.mod
+          cache-dependency-path: |
+            sdk/go/go.mod
+            plugins/builtin/*/go.mod
+            examples/plugins/*/go.mod
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.11.0
+
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: "24.18.0"
-          cache: npm
-          cache-dependency-path: plugins/runtime/nodejs/package-lock.json
 
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-
-      - name: Install Python package build tools
-        run: python -m pip install --disable-pip-version-check build
-
-      - name: Check SDK and runtime license copies
+      - name: Run Go SDK and plugin race tests
+        shell: bash
         run: |
-          cmp LICENSE sdk/nodejs/LICENSE
-          cmp LICENSE sdk/python/LICENSE
-          cmp LICENSE plugins/runtime/nodejs/LICENSE
-          cmp LICENSE plugins/runtime/python/LICENSE
+          set -euo pipefail
+          for module in sdk/go plugins/builtin/* examples/plugins/*; do
+            if [ -f "$module/go.mod" ]; then
+              (cd "$module" && GOWORK=off go test -race ./...)
+            fi
+          done
 
-      - name: Install Node runtime dependencies
-        working-directory: plugins/runtime/nodejs
-        run: npm ci
-
-      - name: Build Node runtime
-        working-directory: plugins/runtime/nodejs
-        run: npm run build
-
-      - name: Check Node runtime dist drift
-        working-directory: plugins/runtime/nodejs
+      - name: Install Vue SDK and plugin UI dependencies
+        shell: bash
         run: |
-          git diff --exit-code -- dist
-          test -z "$(git status --porcelain --untracked-files=all -- dist)"
+          set -euo pipefail
+          for project in sdk/vue plugins/builtin/fortune/ui plugins/builtin/subscription_hub/ui examples/plugins/example-config-panel/ui; do
+            pnpm --dir "$project" install --frozen-lockfile
+            pnpm --dir "$project" typecheck
+            pnpm --dir "$project" test
+            pnpm --dir "$project" build
+          done
 
-      - name: Run Node runtime typecheck
-        working-directory: plugins/runtime/nodejs
-        run: npm run typecheck
-
-      - name: Run Node runtime tests
-        working-directory: plugins/runtime/nodejs
-        run: node --test tests/*.test.mjs
-
-      - name: Check Node runtime package contents
-        working-directory: plugins/runtime/nodejs
-        run: npm pack --dry-run --json | node -e "let input=''; process.stdin.on('data', chunk => input += chunk); process.stdin.on('end', () => { const files = JSON.parse(input)[0].files.map(file => file.path); if (!files.includes('LICENSE')) process.exit(1); });"
-
-      - name: Check Node SDK package metadata
-        working-directory: sdk/nodejs
+      - name: Build and validate all platform artifacts
         run: |
-          npm pack --dry-run --json | node -e "let input=''; process.stdin.on('data', chunk => input += chunk); process.stdin.on('end', () => { const pack = JSON.parse(input)[0]; const files = pack.files.map(file => file.path); const pkg = require('./package.json'); if (!files.includes('LICENSE') || pkg.dependencies['@rayleabot/plugin-runtime'] !== pkg.version || pkg.main || pkg.types) process.exit(1); });"
-
-      - name: Run Python plugin runtime tests
-        working-directory: plugins/runtime/python
-        run: python -m unittest discover -s tests
-
-      - name: Run Python SDK package tests
-        working-directory: sdk/python
-        run: python -m unittest discover -s tests
-
-      - name: Build and install Python runtime and SDK packages
-        run: |
-          python -m build --outdir "$RUNNER_TEMP/rayleabot-python-runtime" plugins/runtime/python
-          python -m build --outdir "$RUNNER_TEMP/rayleabot-python-sdk" sdk/python
-          python -m venv "$RUNNER_TEMP/rayleabot-python-sdk-venv"
-          "$RUNNER_TEMP/rayleabot-python-sdk-venv/bin/python" -m pip install --no-index --find-links "$RUNNER_TEMP/rayleabot-python-runtime" "$RUNNER_TEMP"/rayleabot-python-sdk/*.whl
-          "$RUNNER_TEMP/rayleabot-python-sdk-venv/bin/python" -c "import importlib.util, rayleabot_runtime; assert rayleabot_runtime.RayleaBotPlugin; assert importlib.util.find_spec('rayleabot') is None"
-          python -c "import glob, zipfile; wheels=glob.glob('$RUNNER_TEMP/rayleabot-python-runtime/*.whl') + glob.glob('$RUNNER_TEMP/rayleabot-python-sdk/*.whl'); assert len(wheels) == 2, wheels; assert all(any(name.endswith('/LICENSE') for name in zipfile.ZipFile(wheel).namelist()) for wheel in wheels), wheels"
+          python scripts/release/build_plugin_artifacts.py --target windows-x64 --output dist/plugin-artifacts --include-examples
+          python scripts/release/build_plugin_artifacts.py --target linux-x64 --output dist/plugin-artifacts --include-examples
+          python scripts/release/build_plugin_artifacts.py --target macos-arm64 --output dist/plugin-artifacts --include-examples
 
   release-helper:
     if: needs.changes.outputs.release == 'true'
@@ -338,6 +314,7 @@ jobs:
       needs.changes.outputs.server == 'true' ||
       needs.changes.outputs.web == 'true' ||
       needs.changes.outputs.launcher == 'true' ||
+      needs.changes.outputs.sdk == 'true' ||
       needs.changes.outputs.release == 'true'
     runs-on: ubuntu-latest
     needs: changes
@@ -366,6 +343,9 @@ jobs:
         run: |
           pnpm --dir web install --frozen-lockfile
           pnpm --dir launcher install --frozen-lockfile
+          pnpm --dir sdk/vue install --frozen-lockfile
+          pnpm --dir plugins/builtin/fortune/ui install --frozen-lockfile
+          pnpm --dir plugins/builtin/subscription_hub/ui install --frozen-lockfile
           cd server && go mod download
 
       - name: Check third-party notice drift
@@ -429,7 +409,7 @@ jobs:
       - design-system
       - web
       - launcher
-      - sdk
+      - plugins
       - release-helper
       - third-party-notices
       - agent-docs

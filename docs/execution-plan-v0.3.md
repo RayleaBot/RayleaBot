@@ -9,8 +9,8 @@
 v0.3 聚焦四条主线：
 
 - 管理治理：权限策略、黑白名单、限流和命令治理共享正式状态与错误语义。
-- 插件信任：安装前检查来源、摘要、能力和安装脚本，并要求用户确认可信代码风险。
-- 自定义管理页：插件可提供包内 HTML、JavaScript 和 CSS；宿主以受限 iframe 加载页面，正式交互通过版本化 bridge 完成。
+- 插件信任：只安装平台预编译 Go artifact，安装前检查来源、manifest、文件全集、摘要、平台、二进制和能力，并要求用户确认可信代码风险。
+- 自定义管理页：插件提供 Vue 静态产物；宿主从独立插件域加载受限 iframe，正式交互只通过 bridge v2 的 nonce-bound `MessageChannel` 完成。
 - 发布信任与更新：Web、Launcher 和 CLI 共享签名发布元数据、更新状态、校验规则和恢复语义。
 
 以下能力不属于 v0.3：插件市场、插件间依赖解析、插件 OS 强沙盒、多实例高可用和非 OneBot 多协议。第三方插件按完全可信的本地代码管理。
@@ -21,6 +21,7 @@ v0.3 聚焦四条主线：
 | --- | --- | --- | --- |
 | Phase 1 | Governance / Commands | ☑️ | 权限、名单、限流和命令治理使用正式 contract 与服务端状态源 |
 | Phase 2 | Trusted Plugin Sources / Custom Management UI | ☑️ | 安装检查、可信代码确认、自定义页面静态路由、bridge 和内置页面验收全部通过 |
+| Phase 2.5 | Go Artifact Runtime / Vue Plugin UI | ☑️ | manifest v2、artifact v1、Go SDK/插件、Vue SDK/页面、三平台构建与断代重置全部通过 |
 | Phase 3 | Release Trust / Automatic Update | ❌ | 可信元数据、更新核心、Windows 事务安装和真实签名 packaged E2E 全部通过 |
 | Phase 4 | Companion Updates / Acceptance | 🟡 | contracts、fixtures、generated types、实现、SDK、发布物、测试和文档无漂移 |
 
@@ -39,11 +40,11 @@ v0.3 聚焦四条主线：
 
 ### 正式边界
 
-- 插件安装必须先调用检查入口，获得有时效的 inspection id、包摘要、来源、能力和安装脚本摘要。
+- 插件安装必须先调用检查入口，获得有时效的 inspection id、来源、目标平台、后端摘要、UI 状态和 artifact 校验结果。
 - 安装请求必须回传 inspection id、包摘要和可信代码确认。
 - `local_directory`、`local_zip` 和未验证的 `remote_url` 均属于人工信任来源。
-- `management_ui.pages[].entry` 指向插件包内的 HTML 入口，同一插件的管理页入口位于同一静态资源目录。
-- 管理页静态资源由 `/plugin-ui/{plugin_id}/...` 只读提供；宿主通过正式 bridge 提供设置、密钥、调度、渲染、协议目标与身份解析以及插件管理动作。
+- `management_ui.pages[].entry` 指向 artifact 中登记为 UI 文件的 HTML 入口。
+- 管理页静态资源由插件专属 origin 只读提供；宿主通过 bridge v2 提供设置、密钥 configured-state、调度、渲染、协议目标与身份解析以及插件管理动作。
 - 未验证来源的插件首次打开管理页必须人工确认；确认记录随插件版本或来源变化失效。
 
 ### 完成条件
@@ -54,6 +55,15 @@ v0.3 聚焦四条主线：
 | 自定义管理页 contract | ☑️ | manifest HTML 入口、静态路由和 bridge 消息已冻结 |
 | 内置插件页面 | ☑️ | Fortune 与 Subscription Hub 的自定义页面、资源和 bridge 交互通过 |
 | 插件页面交付边界 | ☑️ | 页面资源限制在声明目录内，管理能力通过受保护 API 与正式 bridge 提供 |
+
+## Phase 2.5 — Go Artifact Runtime / Vue Plugin UI
+
+- `info.json` 固定为 manifest v2、`runtime: "go"` 和协议 v1；`artifact.json` v1 固定目标平台和逐文件摘要。
+- Runtime Manager 只启动经校验的 Go 可执行文件，安装器只接受平台 artifact 目录或单根目录 ZIP。
+- `sdk/go` 提供并发安全 JSONL 客户端、typed local-action helpers 与统一构建器；每个插件保留独立 `go.mod` 和薄 `tools/build`。
+- Fortune、Subscription Hub 与示例配置页使用 Vue 3、TypeScript、Vite 和 `@rayleabot/plugin-ui`，资源与后端同包分离存放。
+- Python/Node 插件 runtime、SDK、依赖准备器、安装脚本和旧 bridge 已删除；`.deps` v4 只保留 Chromium。
+- 旧插件 epoch 不做数据转换，恢复与原位升级返回 `plugin.reset_required`；管理员、OneBot、治理和审计状态不参与插件重置。
 
 ## Phase 3 — Release Trust / Automatic Update
 
@@ -93,7 +103,7 @@ flowchart LR
     F -->|失败| H["恢复旧安装与旧状态"]
 ```
 
-事务保留 `config/user.yaml`、`data/**` 和 `plugins/installed/**`。任一 postflight 失败必须回滚并恢复旧服务；回滚失败进入 `rollback_failed`，禁止自动启动。旧版本和离线备份至少保留 7 天，并至少保留到下一次成功升级。
+同一插件 epoch 内，事务保留 `config/user.yaml`、`data/**` 和 `plugins/installed/**`。旧插件 epoch 在 preflight 以 `plugin.reset_required` 拒绝。任一 postflight 失败必须回滚并恢复旧服务；回滚失败进入 `rollback_failed`，禁止自动启动。旧版本和离线备份至少保留 7 天，并至少保留到下一次成功升级。
 
 ### 状态与入口
 
@@ -125,7 +135,7 @@ Phase 3 只有在正式 Authenticode 与真实签名 Windows packaged E2E 通过
 - generated types、embedded schemas 和 release metadata；
 - 风险对应的测试、发布 smoke、恢复 drill 与用户文档。
 
-最终门禁包括 strict contracts、generated drift、目标 Go `-race`、server build 与 binary govulncheck、Web/Launcher typecheck/test/build/E2E、SDK 包验证、四种发布归档检查、doctor、文档链接检查和 `git diff --check`。
+最终门禁包括 strict contracts、generated drift、Go SDK/插件 `-race`、三平台 plugin artifact、server build 与 binary govulncheck、Vue SDK/页面和 Web/Launcher typecheck/test/build/E2E、四种发布归档检查、doctor、文档链接检查和 `git diff --check`。
 
 ## 长期边界
 

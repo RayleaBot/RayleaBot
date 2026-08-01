@@ -99,9 +99,9 @@ class SelfHostSmokeTests(unittest.TestCase):
                     "details": {
                         "resources": [
                             {
-                                "kind": "python-runtime",
+                                "kind": "chromium",
                                 "used_cached_archive": True,
-                                "store_root": "/tmp/python",
+                                "store_root": "/tmp/chromium",
                             }
                         ]
                     },
@@ -111,13 +111,13 @@ class SelfHostSmokeTests(unittest.TestCase):
 
         resources = self_host_smoke.extract_runtime_bootstrap_results(task_body)
 
-        self.assertEqual("python-runtime", resources[0]["kind"])
+        self.assertEqual("chromium", resources[0]["kind"])
         self.assertTrue(resources[0]["used_cached_archive"])
 
     def test_runtime_bootstrap_result_mode_accepts_prepared_store(self) -> None:
         mode = self_host_smoke.runtime_bootstrap_result_mode(
             {
-                "kind": "python-runtime",
+                "kind": "chromium",
                 "used_prepared_store": True,
                 "used_cached_archive": False,
             }
@@ -128,12 +128,12 @@ class SelfHostSmokeTests(unittest.TestCase):
     def test_runtime_bootstrap_result_mode_accepts_downloaded_archive(self) -> None:
         mode = self_host_smoke.runtime_bootstrap_result_mode(
             {
-                "kind": "nodejs-runtime",
+                "kind": "chromium",
                 "used_prepared_store": False,
                 "used_cached_archive": False,
-                "selected_source": "https://nodejs.org/download/release/v24.14.0/node-v24.14.0-win-x64.zip",
+                "selected_source": "https://storage.googleapis.com/chrome-for-testing-public/chromium.zip",
                 "attempted_sources": [
-                    "https://nodejs.org/download/release/v24.14.0/node-v24.14.0-win-x64.zip",
+                    "https://storage.googleapis.com/chrome-for-testing-public/chromium.zip",
                 ],
             }
         )
@@ -143,7 +143,7 @@ class SelfHostSmokeTests(unittest.TestCase):
     def test_runtime_bootstrap_result_mode_rejects_missing_acquisition_path(self) -> None:
         mode = self_host_smoke.runtime_bootstrap_result_mode(
             {
-                "kind": "nodejs-runtime",
+                "kind": "chromium",
                 "used_prepared_store": False,
                 "used_cached_archive": False,
                 "selected_source": "",
@@ -191,6 +191,24 @@ class SelfHostSmokeTests(unittest.TestCase):
             )
 
         self.assertEqual("setup_required", body["status"])
+
+    def test_bootstrap_admin_supplies_origin_and_one_time_setup_token(self) -> None:
+        with mock.patch.object(
+            self_host_smoke,
+            "request_json",
+            return_value={"session_token": "session-token"},
+        ) as request:
+            token = self_host_smoke.bootstrap_admin("http://127.0.0.1:8080/")
+
+        self.assertEqual("session-token", token)
+        self.assertEqual("http://127.0.0.1:8080", request.call_args.kwargs["headers"]["Origin"])
+        self.assertEqual(self_host_smoke.SETUP_TOKEN, request.call_args.kwargs["headers"]["X-Raylea-Setup-Token"])
+
+    def test_start_server_injects_deterministic_setup_token(self) -> None:
+        with mock.patch.object(self_host_smoke, "start_captured_process") as start:
+            self_host_smoke.start_server(Path("root"), Path("raylea-server"))
+
+        self.assertEqual(self_host_smoke.SETUP_TOKEN, start.call_args.kwargs["env"]["RAYLEA_SETUP_TOKEN"])
 
     def test_validate_protocol_snapshot_requires_frozen_transport_matrix(self) -> None:
         payload = {

@@ -18,14 +18,16 @@
 发行包根目录按产物形态包含：
 
 - server 二进制与 Launcher 桌面入口；
-- `web/dist`、`plugins/builtin/` 与 `templates/`；
+- `web/dist`、目标平台的 `plugins/builtin/<plugin_id>/` artifact 树与 `templates/`；
 - `config/default.yaml` 与 `.deps/manifest.json`；
 - `build_info.json`；
 - 根仓库 `LICENSE` 与生成、审阅后的 `THIRD_PARTY_NOTICES.md`。
 
 Windows 完整包以根目录的 `RayleaLauncher.exe` 作为唯一桌面入口。Electron 主程序、DLL、PAK、语言包及 `resources/app.asar` 位于 `launcher/`；根入口与该目录必须作为同一安装单元保留。
 
-开发用 `sdk/` 与语言运行时客户端源码不进入发布包。发行包只携带 `.deps/manifest.json` 声明的 Python、Node.js 等受管解释器；内置插件首次启动时按照 `info.json` 中的精确版本声明从 PyPI 或 npm 安装运行时客户端，依赖声明未变化时不会重复安装。第三方插件的语言依赖仍在安装插件时准备。
+发布 workflow 先为目标平台构建全部内置插件，再把经校验的 `info.json`、`artifact.json`、Go 后端、Vue 静态资源、模板、许可证、notices 与 SPDX SBOM 放入应用包。发行包禁止包含插件 `.go`、`.py`、`.ts`、`.vue`、测试、源码 SDK、`node_modules` 或语言运行时；`.deps/manifest.json` v4 只携带 Chromium 资源声明。
+
+第三方插件也必须以已构建目录或单根目录 ZIP 安装。框架不会编译源码、安装语言依赖或执行安装脚本。
 
 依赖许可证未知或缺失时，发布必须失败。运行时配置和插件 schema 内置于 server；源码仓库中的 `contracts/` 仍是正式来源。
 
@@ -39,7 +41,7 @@ Windows 完整包以根目录的 `RayleaLauncher.exe` 作为唯一桌面入口�
 
 ### Manifest v2
 
-Manifest 固定包含版本、提交、构建时间、channel、发布时间、过期时间、更新协议版本、配置/数据库/插件协议版本和 artifact 列表。每个 artifact 至少声明：
+Manifest 固定包含版本、提交、构建时间、channel、发布时间、过期时间、更新协议版本、配置/数据库/插件协议版本、`plugin_manifest_version=2`、`plugin_ui_bridge_version=2` 和 artifact 列表。每个 artifact 至少声明：
 
 - 唯一 `artifact_id`、平台和 basename 文件名；
 - SHA-256、归档大小、展开大小和文件数；
@@ -108,6 +110,8 @@ raylea-server update verify --manifest <path> --signature <path> --artifact <pat
 - `config/user.yaml`；
 - `data/**`；
 - `plugins/installed/**`。
+
+只有备份清单中的插件 manifest/bridge epoch 与当前 `2/2` 完全一致时才允许恢复或原位升级。旧插件 epoch 明确返回 `plugin.reset_required`，不能把旧插件目录或旧插件数据带入新运行时。当前 Go+Vue 断代操作见 [Plugin Go + Vue Reset](./plugin-go-vue-reset.md)。
 
 `cache/` 和 `logs/` 不参与恢复，也不能阻止安装。回滚失败进入 `rollback_failed` 并禁止自动启动。旧版本与 offline backup 至少保留 7 天，并至少保留到下一次成功升级。
 

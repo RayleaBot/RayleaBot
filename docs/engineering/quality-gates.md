@@ -22,6 +22,12 @@
 - `pnpm test`
 - `pnpm build`
 
+### Plugins
+
+- `sdk/go`、全部内置插件和 Go 示例：`go test -race ./...`
+- `sdk/vue` 与三个 Vue 管理页：`pnpm run typecheck && pnpm test && pnpm build`
+- 三平台内置插件与示例 artifact：`python scripts/release/build_plugin_artifacts.py --target <platform> --output dist/plugin-artifacts --include-examples`
+
 ## CI 工作流
 
 | 工作流 | 主要职责 |
@@ -33,8 +39,8 @@
 
 ## 当前门禁层次
 
-- PR 默认门禁覆盖 strict contracts、Server 核心检查、Web 核心检查、Launcher 核心检查、Node.js SDK、Python SDK 分发、Python 运行时客户端回归和必需结果汇总。
-- `contracts/**`、`fixtures/**`、`examples/**`、`sdk/**` 与 `plugins/runtime/**` 变更会触发 `ci.yml` 对应 job，同步执行 Web 与 Launcher 的 OpenAPI 生成类型漂移检查。
+- PR 默认门禁覆盖 strict contracts、Server 核心检查、Web 核心检查、Launcher 核心检查、Go/Vue 插件 SDK、插件矩阵 artifact 和必需结果汇总。
+- `contracts/**`、`fixtures/**`、`examples/**`、`sdk/**` 与 `plugins/**` 变更会触发 `ci.yml` 对应 job，同步执行 Web 与 Launcher 的 OpenAPI 生成类型漂移检查。
 - Playwright E2E、Chromium 重渲染 golden、跨版本恢复和更长时长自托管巡检进入 release 或手动高成本回归层。
 - 发布门禁覆盖正式产物矩阵、release metadata、checksum、packaged `/api/protocols/onebot11`、`/api/protocols/onebot11/compatibility`、模板预览工作区闭环、packaged recovery drill 和长期自托管 smoke。
 - 高成本依赖审计和长时段巡检保留在 `nightly.yml` 或发布门禁，不挤占每个 PR 的默认门禁预算。
@@ -43,7 +49,7 @@
 
 | 工作流 | 平台 | PR 门禁 | 说明 |
 | --- | --- | --- | --- |
-| `ci.yml` | `ubuntu-x64` | 是 | 校验 strict contracts、Server、Web、Launcher、Node.js SDK、Python SDK 分发、Python 运行时客户端、OpenAPI 生成类型漂移和必需结果汇总 |
+| `ci.yml` | `ubuntu-x64` | 是 | 校验 strict contracts、Server、Web、Launcher、Go/Vue 插件 SDK、内置插件和示例、三平台 artifact、OpenAPI 生成类型漂移和必需结果汇总 |
 | `nightly.yml` | `ubuntu-x64` | 否 | 负责夜间长时段回归、依赖巡检和环境巡检 |
 | `release.yml` | `windows-x64-full`、`linux-x64-full`、`macos-arm64-full`、`linux-x64-server` | Tag 门禁 | 负责正式打包、checksum、release metadata、协议读取面、兼容矩阵、模板预览工作区、recovery drill 与交付 smoke |
 | `self-host-smoke.yml` | `windows-x64-full`、`linux-x64-full`、`macos-arm64-full`、`linux-x64-server` | 否 | 负责长期自托管巡检，并复用协议读取面、兼容矩阵、模板预览工作区、诊断与恢复探针 |

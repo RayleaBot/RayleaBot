@@ -35,6 +35,35 @@ def write_test_asar(path: Path, entries: list[str]) -> None:
     path.write_bytes(prefix + padded_header)
 
 
+def write_plugin_artifact_fixture(root: Path, *, target: str, plugin_id: str = "raylea.fortune", binary: str = "fortune") -> None:
+    plugin_root = root / plugin_id
+    plugin_root.mkdir(parents=True, exist_ok=True)
+    executable = binary + (".exe" if target == "windows-x64" else "")
+    (plugin_root / "bin").mkdir()
+    (plugin_root / "bin" / executable).write_bytes(b"MZfixture" if target == "windows-x64" else b"fixture")
+    (plugin_root / "info.json").write_text(
+        json.dumps(
+            {
+                "id": plugin_id,
+                "version": "0.2.0",
+                "manifest_version": "2",
+                "plugin_protocol_version": "1",
+                "runtime": "go",
+                "entry": f"bin/{binary}",
+                "platforms": [target],
+            }
+        ),
+        encoding="utf-8",
+    )
+    (plugin_root / "artifact.json").write_text(
+        json.dumps({"artifact_version": "1", "plugin_id": plugin_id, "target_platform": target}),
+        encoding="utf-8",
+    )
+    (plugin_root / "LICENSE").write_text("AGPL", encoding="utf-8")
+    (plugin_root / "THIRD_PARTY_NOTICES.md").write_text("notices", encoding="utf-8")
+    (plugin_root / "sbom.spdx.json").write_text("{}", encoding="utf-8")
+
+
 class ReleaseToolTests(unittest.TestCase):
     @unittest.skipUnless(shutil.which("openssl"), "OpenSSL is required")
     def test_sign_release_manifest_emits_exact_dual_signed_ed25519_envelope(self) -> None:
@@ -104,15 +133,9 @@ class ReleaseToolTests(unittest.TestCase):
             (web_dist / "index.html").write_text("<html></html>", encoding="utf-8")
             (web_dist / "app.js.map").write_text("source map", encoding="utf-8")
             (web_dist / "README.md").write_text("dev docs", encoding="utf-8")
-            (builtin / "fortune").mkdir(parents=True, exist_ok=True)
-            (builtin / "fortune" / "info.json").write_text("{}", encoding="utf-8")
-            (builtin / "fortune" / "main.py").write_text("print('fortune')\n", encoding="utf-8")
-            (builtin / "fortune" / "tests").mkdir(parents=True, exist_ok=True)
-            (builtin / "fortune" / "tests" / "test_fortune.py").write_text("def test_fortune(): pass\n", encoding="utf-8")
-            (builtin / "fortune" / "__pycache__").mkdir(parents=True, exist_ok=True)
-            (builtin / "fortune" / "__pycache__" / "main.pyc").write_bytes(b"cache")
+            write_plugin_artifact_fixture(builtin, target="windows-x64")
             (deps / "manifest.json").parent.mkdir(parents=True, exist_ok=True)
-            (deps / "manifest.json").write_text('{"manifest_version":1,"resources":[]}', encoding="utf-8")
+            (deps / "manifest.json").write_text('{"manifest_version":4,"resources":[]}', encoding="utf-8")
             (deps / "store" / "python" / "3.12").mkdir(parents=True, exist_ok=True)
             (deps / "store" / "python" / "3.12" / "python.exe").write_text("runtime", encoding="utf-8")
             (deps / "cache" / "downloads").mkdir(parents=True, exist_ok=True)
@@ -168,13 +191,14 @@ class ReleaseToolTests(unittest.TestCase):
             self.assertNotIn("RayleaBot-v0.1.0-windows-x64-full/contracts/plugin-info.schema.json", names)
             self.assertNotIn("RayleaBot-v0.1.0-windows-x64-full/web/dist/app.js.map", names)
             self.assertNotIn("RayleaBot-v0.1.0-windows-x64-full/web/dist/README.md", names)
-            self.assertNotIn("RayleaBot-v0.1.0-windows-x64-full/plugins/builtin/fortune/tests/test_fortune.py", names)
-            self.assertNotIn("RayleaBot-v0.1.0-windows-x64-full/plugins/builtin/fortune/__pycache__/main.pyc", names)
+            self.assertFalse(any(name.endswith((".go", ".py", ".ts", ".vue")) for name in names))
             self.assertNotIn("RayleaBot-v0.1.0-windows-x64-full/.deps/store/python/3.12/python.exe", names)
             self.assertNotIn("RayleaBot-v0.1.0-windows-x64-full/.deps/cache/downloads/python.zip", names)
             self.assertNotIn("RayleaBot-v0.1.0-windows-x64-full/templates/help.menu/template.test.mjs", names)
-            self.assertIn("RayleaBot-v0.1.0-windows-x64-full/plugins/builtin/fortune/info.json", names)
-            self.assertIn("RayleaBot-v0.1.0-windows-x64-full/plugins/builtin/fortune/main.py", names)
+            self.assertIn("RayleaBot-v0.1.0-windows-x64-full/plugins/builtin/raylea.fortune/info.json", names)
+            self.assertIn("RayleaBot-v0.1.0-windows-x64-full/plugins/builtin/raylea.fortune/artifact.json", names)
+            self.assertIn("RayleaBot-v0.1.0-windows-x64-full/plugins/builtin/raylea.fortune/bin/fortune.exe", names)
+            self.assertIn("RayleaBot-v0.1.0-windows-x64-full/plugins/builtin/raylea.fortune/THIRD_PARTY_NOTICES.md", names)
             self.assertFalse(any("/plugins/runtime/" in name for name in names))
             self.assertNotIn(
                 "RayleaBot-v0.1.0-windows-x64-full/sdk/python/pyproject.toml",
@@ -258,10 +282,9 @@ class ReleaseToolTests(unittest.TestCase):
             (launcher_bundle / "locales" / "en-US.pak").write_text("locale", encoding="utf-8")
             (web_dist / "index.html").parent.mkdir(parents=True, exist_ok=True)
             (web_dist / "index.html").write_text("<html></html>", encoding="utf-8")
-            (builtin / "help" / "info.json").parent.mkdir(parents=True, exist_ok=True)
-            (builtin / "help" / "info.json").write_text("{}", encoding="utf-8")
+            write_plugin_artifact_fixture(builtin, target="macos-arm64")
             (deps / "manifest.json").parent.mkdir(parents=True, exist_ok=True)
-            (deps / "manifest.json").write_text('{"manifest_version":1,"resources":[]}', encoding="utf-8")
+            (deps / "manifest.json").write_text('{"manifest_version":4,"resources":[]}', encoding="utf-8")
             (templates / "help.menu" / "template.json").parent.mkdir(parents=True, exist_ok=True)
             (templates / "help.menu" / "template.json").write_text("{}", encoding="utf-8")
             (templates / "status.panel" / "template.json").parent.mkdir(parents=True, exist_ok=True)
@@ -323,10 +346,9 @@ class ReleaseToolTests(unittest.TestCase):
             plist.write_text("<plist/>", encoding="utf-8")
             (web_dist / "index.html").parent.mkdir(parents=True, exist_ok=True)
             (web_dist / "index.html").write_text("<html></html>", encoding="utf-8")
-            (builtin / "help" / "info.json").parent.mkdir(parents=True, exist_ok=True)
-            (builtin / "help" / "info.json").write_text("{}", encoding="utf-8")
+            write_plugin_artifact_fixture(builtin, target="linux-x64")
             (deps / "manifest.json").parent.mkdir(parents=True, exist_ok=True)
-            (deps / "manifest.json").write_text('{"manifest_version":1,"resources":[]}', encoding="utf-8")
+            (deps / "manifest.json").write_text('{"manifest_version":4,"resources":[]}', encoding="utf-8")
             (templates / "help.menu" / "template.json").parent.mkdir(parents=True, exist_ok=True)
             (templates / "help.menu" / "template.json").write_text("{}", encoding="utf-8")
             (templates / "status.panel" / "template.json").parent.mkdir(parents=True, exist_ok=True)
@@ -383,10 +405,9 @@ class ReleaseToolTests(unittest.TestCase):
             notices_file.write_text("notices", encoding="utf-8")
             (web_dist / "index.html").parent.mkdir(parents=True, exist_ok=True)
             (web_dist / "index.html").write_text("<html></html>", encoding="utf-8")
-            (builtin / "help" / "info.json").parent.mkdir(parents=True, exist_ok=True)
-            (builtin / "help" / "info.json").write_text("{}", encoding="utf-8")
+            write_plugin_artifact_fixture(builtin, target="linux-x64")
             (deps / "manifest.json").parent.mkdir(parents=True, exist_ok=True)
-            (deps / "manifest.json").write_text('{"manifest_version":1,"resources":[]}', encoding="utf-8")
+            (deps / "manifest.json").write_text('{"manifest_version":4,"resources":[]}', encoding="utf-8")
             (templates / "help.menu" / "template.json").parent.mkdir(parents=True, exist_ok=True)
             (templates / "help.menu" / "template.json").write_text("{}", encoding="utf-8")
             (templates / "status.panel" / "template.json").parent.mkdir(parents=True, exist_ok=True)

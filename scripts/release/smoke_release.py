@@ -9,6 +9,7 @@ from pathlib import Path
 
 from package_runtime import (
     RESOURCE_KINDS,
+    REQUIRED_PATHS,
     artifact_platform,
     ensure_no_forbidden_paths,
     find_platform_resource,
@@ -87,6 +88,8 @@ EXPECTED = {
         },
     },
 }
+for artifact_id, definition in EXPECTED.items():
+    definition["entries"].update(REQUIRED_PATHS[artifact_id])
 
 
 def list_entries(artifact_id: str, archive_path: Path) -> set[str]:

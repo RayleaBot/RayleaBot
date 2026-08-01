@@ -14,7 +14,7 @@ ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(ROOT / "scripts" / "release"))
 
 import recovery_drill
-from package_runtime import FORBIDDEN_DIRECTORY_NAMES, FORBIDDEN_TOP_LEVEL_PATHS
+from package_runtime import FORBIDDEN_DIRECTORY_NAMES, FORBIDDEN_TOP_LEVEL_PATHS, read_process_output, start_captured_process
 
 
 class RecoveryDrillTests(unittest.TestCase):
@@ -60,6 +60,22 @@ class RecoveryDrillTests(unittest.TestCase):
         self.assertIsNotNone(process.poll())
         self.assertIn("ready", output)
         self.assertIn("still-running", output)
+
+    def test_captured_process_drains_output_while_process_is_running(self) -> None:
+        with TemporaryDirectory() as tmp:
+            process = start_captured_process(
+                [
+                    sys.executable,
+                    "-c",
+                    "import sys; sys.stdout.write('x' * 200000); sys.stderr.write('done\\n')",
+                ],
+                cwd=Path(tmp),
+            )
+            process.wait(timeout=10)
+            output = read_process_output(process)
+
+        self.assertIn("done", output)
+        self.assertGreater(len(output), 100000)
 
     def test_select_previous_release_requires_release_manifest_asset(self) -> None:
         releases = [
@@ -201,7 +217,7 @@ class RecoveryDrillTests(unittest.TestCase):
             process.poll.return_value = None
 
             with (
-                mock.patch("recovery_drill.subprocess.Popen", return_value=process),
+                mock.patch("recovery_drill.self_host_smoke.start_server", return_value=process),
                 mock.patch("recovery_drill.self_host_smoke.wait_for_management_state"),
                 mock.patch("recovery_drill.self_host_smoke.login", return_value="session-token"),
                 mock.patch("recovery_drill.self_host_smoke.create_recovery_recheck_task", return_value="task_recovery_recheck_0001"),

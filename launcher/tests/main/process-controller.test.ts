@@ -376,12 +376,12 @@ describe("ServerProcessController", () => {
     await controller.start(createSettings(installRoot, runtimeRoot));
     const line = JSON.stringify({
       msg: "runtime_prepare_progress",
-      resource_kind: "python-runtime",
-      label: "Python 运行环境",
+      resource_kind: "chromium",
+      label: "图片渲染 Chromium",
       stage: "extract",
       status: "running",
       progress: 51,
-      summary: "正在解压 Python 运行环境",
+      summary: "正在解压图片渲染 Chromium",
     });
     child.stdout.emit("data", line.slice(0, 40));
     expect(controller.getRuntimePrepareSnapshot()).toBeNull();
@@ -389,7 +389,7 @@ describe("ServerProcessController", () => {
     child.stdout.emit("data", `${line.slice(40)}\n`);
 
     const snapshot = controller.getRuntimePrepareSnapshot();
-    expect(snapshot?.summary).toBe("正在解压 Python 运行环境");
+    expect(snapshot?.summary).toBe("正在解压图片渲染 Chromium");
     expect(snapshot?.resources[0]?.progress).toBe(51);
   });
 

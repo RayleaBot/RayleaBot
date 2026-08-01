@@ -34,7 +34,7 @@ Windows 用户只需启动解压根目录的 `RayleaLauncher.exe`。请勿移动
 - `logs/`：运行日志和诊断输出；
 - `plugins/installed/`：已安装插件；
 - `templates/`：渲染模板；
-- `.deps/`：Chromium、Python、Node.js 等受控运行资源。
+- `.deps/`：图片渲染 Chromium 受控资源。
 
 图片渲染也可使用配置允许的系统 Chrome、Chromium 或 Edge。
 
@@ -67,8 +67,11 @@ Linux 和 macOS 使用 guided update：验证签名与 artifact，生成 offline
 - `web.exposure_mode: reverse_proxy`；
 - `web.public_origin` 为唯一公开 HTTPS origin；
 - `web.trusted_proxy_cidrs` 只包含实际代理地址段。
+- `web.plugin_ui_origin_template` 使用独立插件域模板并包含 `{plugin_host}`，例如 `https://{plugin_host}.plugins.example.com`；代理只向插件域提供只读静态文件，不能转发管理 API。
 
 危险的 host/exposure 组合会在启动时失败。不要直接把管理端口暴露到公网。
+
+本机模式会自动派生 `p-<id-hash>.plugins.localhost:<port>`，无需显式模板。LAN 与反向代理模式缺少独立插件域模板时配置校验失败。插件域不接收管理 cookie、不开放 CORS，也不提供 `/api`。
 
 ## Linux systemd / LXC
 

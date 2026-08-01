@@ -1,6 +1,12 @@
 # Plugin Runtime
 
-插件运行在独立子进程中，通过 JSONL runtime protocol 与服务端通信。插件不能直接访问服务端内部对象。
+插件后端是经过 artifact 校验的 Go 可执行文件，运行在独立子进程中，通过 JSONL runtime protocol v1 与服务端通信。插件不能直接访问服务端内部对象。
+
+## Artifact 边界
+
+安装器只接受平台预编译目录或单根目录 ZIP。`info.json` v2 描述语言无关能力，`artifact.json` v1 固定目标平台和文件摘要。完整性、平台、二进制格式、路径边界和 UI 入口全部通过后，安装器才原子发布目录。
+
+Runtime Manager 直接启动 `bin/<plugin>[.exe]`，参数为空。服务端不运行 `go build`、`pnpm`、安装脚本或语言包管理器；路径必须是 artifact 根内的普通文件，Unix 后端必须有 executable bit。
 
 ## 状态链路
 
@@ -32,6 +38,8 @@ flowchart TD
 ```
 
 本地 action 是插件访问平台能力的唯一入口。新增 action 应通过 `plugins/actions` 的模块注册接入，声明 capability、权限和参数校验，避免插件 runtime 直接 import 管理层或业务实现细节。
+
+插件 stdout 专用于 JSONL 协议，stderr 进入受控插件日志。Runtime Manager 保持请求关联、超时、并发、重启、ping/pong、一次终态响应和 shutdown grace 语义。
 
 ## 管理视图
 

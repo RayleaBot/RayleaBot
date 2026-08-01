@@ -67,8 +67,7 @@
   - `message.send`、`message.reply`、`message.delete`、`reaction.set` 及任何依赖 `self_id` 的 `onebot.*` action 会被平台拒绝；拒绝以正式协议 `error` 帧返回，`error.code=adapter.connection_lost` 或对应 adapter 错误码。
   - 不依赖身份的 local action（`config.*`、`storage.*`、`logger.write`、`http.request`、`render.image` 等）保持可用。
 - 插件代码应订阅 `bot.identity.changed` 并在身份重新可用时刷新本地缓存的会话上下文。
-- 客户端提供阻塞等待入口：Python 运行时客户端的 `RayleaBotPlugin.await_bot_identity(timeout_seconds)` 与 Node.js SDK 的 `plugin.awaitBotIdentity(timeoutMs)` / `EventContext.awaitBotIdentity(timeoutMs)`。两者在身份已可用时立即返回当前 `bot_id` / `botId`；否则阻塞直至身份可用或超时，超时返回空字符串。
-- 插件不得在身份不可用时长时间忙等：调用对应客户端 helper 或直接 `return` 让出 handler 线程，避免阻塞 dispatcher 派发其他事件。
+- Go 插件通过 `EventContext.Bot` 读取当前身份，并订阅 `bot.identity.changed` 更新自身状态。身份为空时应直接结束当前 handler，不能忙等或阻塞其他事件。
 - 平台不会自动回放身份不可用期间被拒绝的 action；插件需要在 `bot.identity.changed` 中决定是否重试。
 
 ## Local Action RPC
@@ -143,7 +142,7 @@
   - `provider.napcat.group.sign.set`
   - `provider.luckylillia.friend_groups.get`
 
-同一事件需要先发送进度提示、再继续查询或渲染时，使用非终态 `message.send` local action：Python 运行时客户端为 `ctx.message_send(...)`，Node.js SDK 为 `ctx.messageSend(...)`。它使用独立 `request_id` 和当前事件的 `parent_request_id`；`ctx.send_text(...)` / `ctx.sendMessage(...)` 仍用于结束当前事件的单次回复。
+同一事件需要先发送进度提示、再继续查询或渲染时，使用非终态 `message.send` local action：Go SDK 为 `event.Actions().MessageSend(ctx, request)`。它使用独立 `request_id` 和当前事件的 `parent_request_id`；`event.SendText(...)`、`event.Send(...)`、`event.Reply(...)`、`event.Result(...)` 与 `event.Fail(...)` 用于结束当前事件且只能成功调用一次。
 
 所有 action 都走正式 capability 校验、scope 校验和结构化错误返回。
 

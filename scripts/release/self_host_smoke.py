@@ -5,6 +5,7 @@ import argparse
 import contextlib
 import io
 import json
+import os
 import shutil
 import subprocess
 import tempfile
@@ -25,6 +26,7 @@ from package_runtime import (
     read_process_output,
     relative_executable,
     server_base_command,
+    start_captured_process,
     stop_process,
     store_root,
     unpack_archive,
@@ -34,6 +36,7 @@ from package_runtime import (
 
 SETUP_IDENTIFIER = "admin"
 SETUP_SECRET = "fixture-only-secret"
+SETUP_TOKEN = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
 DIAGNOSTICS_REQUIRED_ENTRIES = {"system-status.json", "readiness.json", "doctor.json"}
 STARTUP_READY_STATUSES = {"ready", "degraded", "setup_required"}
 MANAGED_READY_STATUSES = {"ready", "degraded"}
@@ -593,13 +596,9 @@ def bearer_headers(session_token: str) -> dict[str, str]:
 
 
 def start_server(root: Path, server_bin: Path) -> subprocess.Popen[str]:
-    return subprocess.Popen(
-        server_base_command(server_bin),
-        cwd=root,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        text=True,
-    )
+    environment = os.environ.copy()
+    environment["RAYLEA_SETUP_TOKEN"] = SETUP_TOKEN
+    return start_captured_process(server_base_command(server_bin), cwd=root, env=environment)
 
 
 def wait_for_management_state(
@@ -625,7 +624,9 @@ def wait_for_management_state(
         except Exception as exc:  # noqa: BLE001
             last_error = exc
         time.sleep(1)
-    raise SmokeError(f"timed out waiting for management state: {last_error}")
+    if process.poll() is None:
+        stop_process(process)
+    raise SmokeError(f"timed out waiting for management state: {last_error}\n{read_process_output(process)}")
 
 
 def bootstrap_admin(base_url: str) -> str:
@@ -633,6 +634,10 @@ def bootstrap_admin(base_url: str) -> str:
         f"{base_url}api/setup/admin",
         method="POST",
         body={"identifier": SETUP_IDENTIFIER, "secret": SETUP_SECRET},
+        headers={
+            "Origin": base_url.rstrip("/"),
+            "X-Raylea-Setup-Token": SETUP_TOKEN,
+        },
     )
     session_token = body.get("session_token")
     if not isinstance(session_token, str) or not session_token:
@@ -777,7 +782,7 @@ def remove_prepared_runtime_stores(root: Path, artifact_id: str, resources: list
 
 
 def run_runtime_bootstrap_cycle(root: Path, artifact_id: str, base_url: str, session_token: str) -> None:
-    resources = ["chromium", "python-runtime", "nodejs-runtime"]
+    resources = ["chromium"]
     remove_prepared_runtime_stores(root, artifact_id, resources)
     task_id = create_runtime_bootstrap_task(base_url, session_token, resources)
     task_detail = poll_task(

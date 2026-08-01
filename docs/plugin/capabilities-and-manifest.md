@@ -2,17 +2,17 @@
 
 本页说明 RayleaBot 插件 manifest 的正式结构、能力声明和能力参数边界。
 
-正式 schema 以 `contracts/plugin-info.schema.json` 为准。
+正式 schema 以 `contracts/plugin-info.schema.json` 和 `contracts/plugin-artifact.schema.json` 为准。
 
 ## Manifest 核心字段
 
 | 字段 | 含义 |
 | --- | --- |
 | `id` / `name` / `version` | 插件身份与版本 |
-| `manifest_version` / `plugin_protocol_version` | manifest 与协议版本 |
-| `type` | `managed_runtime` 或 `dev_source` |
-| `runtime` | `python` 或 `nodejs` |
-| `entry` | 插件入口 |
+| `manifest_version` / `plugin_protocol_version` | 固定为 `"2"` / `"1"` |
+| `runtime` | 固定为 `"go"` |
+| `entry` | `bin/` 下无扩展名的相对逻辑路径；Windows 安装时解析为 `.exe` |
+| `platforms` | 必填的 `windows-x64`、`linux-x64`、`macos-arm64` 子集 |
 | `concurrency` | 事件并发度声明；省略时按 `1` 处理 |
 | `role` | `builtin` / `user` / `example` / `dev` |
 | `default_config` | 插件默认配置 |
@@ -20,8 +20,7 @@
 | `capabilities` | 插件声明的平台能力集合 |
 | `capability_parameters` | HTTP 主机、文件存储根和 Webhook 路由边界 |
 | `commands` / `dynamic_commands` / `command_patterns` | 插件命令声明 |
-| `dependencies` | 语言级依赖说明 |
-| `icon` / `repo` / `homepage` / `keywords` / `screenshots` / `platforms` / `system_dependencies` | 展示、来源与平台约束元数据 |
+| `icon` / `repo` / `homepage` / `keywords` / `screenshots` | 展示与来源元数据 |
 
 ## 正式 capability 集合
 
@@ -49,7 +48,7 @@ local action 的请求结构和返回结构见 [Protocol](./protocol.md)，SDK h
 | 发起 HTTP 请求 | `http.request` | 需要 | `http_hosts` |
 | 读写插件文件 | `storage.file` | 需要 | `storage_roots` |
 | 暴露 Webhook 入口 | `event.expose_webhook` | 需要 | `webhooks` |
-| 只声明命令、帮助、依赖、截图、管理页等元数据 | 无 | 无 | 无 |
+| 只声明命令、帮助、截图、管理页等元数据 | 无 | 无 | 无 |
 
 示例：
 
@@ -137,23 +136,24 @@ local action 的请求结构和返回结构见 [Protocol](./protocol.md)，SDK h
 - 插件有效并发度取 `min(manifest.concurrency, runtime.max_concurrent_tasks_per_plugin)`，最小值为 `1`。
 - 同一插件内按 `event.target.type + ":" + event.target.id` 保持同会话顺序；不同会话可并发。
 - 没有稳定 `event.target` 的事件使用独立 fallback lane。
-- 插件详情页显示 `concurrency`、`default_config`、`declared_capabilities`、`dependencies` 和 `capability_parameters`。
+- 插件详情页显示 `concurrency`、`default_config`、`declared_capabilities` 和 `capability_parameters`。
 
-## 依赖与发布边界
+## Artifact 与发布边界
 
-- `dependencies` 只覆盖语言级依赖，不覆盖插件间依赖。
-- Python 插件通过 `dependencies.python` 声明 `rayleabot-plugin-runtime==<version>`；Node.js 插件通过 `dependencies.nodejs` 声明 `@rayleabot/plugin-runtime@<version>`。官方运行时客户端使用精确版本，避免注册表更新改变已安装插件的协议行为。
-- 第三方插件安装时准备语言依赖；内置插件首次启动或依赖指纹变化时准备依赖。运行时客户端源码与开发 SDK 不进入 RayleaBot 发行包。
-- manifest 字段和语义变化先进入 contract，再同步 SDK、fixtures、示例和管理面。
+- 每个平台包包含 manifest v2、artifact v1、一个 Go 后端、可选 UI/模板/数据、许可证、第三方 notices 和 SPDX SBOM。
+- `artifact.json` 固定插件 ID、版本、目标平台和 `info.json` SHA-256，并列出除自身外所有文件的路径、角色、大小和 SHA-256。
+- 包必须且只能有一个 `backend` 文件；`management_ui.pages[].entry` 必须属于 `ui` 文件集合。ZIP 只有一个插件根目录。
+- 服务端只安装编译产物，不读取源码依赖声明、不运行安装脚本、不准备语言运行时，也不解析插件间依赖。
+- manifest 或 artifact 字段变化先进入 contract，再同步 SDK、fixtures、示例、管理面与发布校验。
 
 ## 插件内置管理页
 
 - `management_ui.pages` 声明插件详情页内的管理页签，至少包含一个页面。
 - `pages[].id` 是稳定页签标识，`pages[].label` 是页签标题，`pages[].entry` 是插件包内的 HTML 文件路径。
-- 同一插件的所有 `pages[].entry` 必须位于同一目录。
 - 插件详情页在概览之外提供同一插件的内置管理页工作区。
-- 插件内置页面通过 `/plugin-ui/{plugin_id}/...` 读取自身静态资源。
-- 插件内置页面只通过正式桥接消息读取和保存插件自己的设置，不直接持有管理会话。
+- 插件内置页面从插件专属 origin 读取 `ui/` 静态资源，不共享管理 cookie，也没有 API 路由或管理端 CORS。
+- 插件内置页面只通过 bridge v2 的 nonce-bound `MessageChannel` 读取和保存插件自己的设置，不直接持有管理会话。
+- 密钥只暴露 configured-state；写入只支持覆盖和显式删除，宿主从不回显已有明文。
 - 当前设置由 `default_config` 叠加已保存配置得到；保存成功后宿主会同步刷新插件详情中的配置预览。
 - 未验证来源插件首次打开内置管理页需要人工确认；确认记录会随插件版本或来源变化失效。
 

@@ -6,6 +6,7 @@
 
 ## 配置文件模型
 
+- 当前用户配置固定为 `schema_version: "3"`，不兼容解析旧插件运行时键。
 - `config/default.yaml` 提供发行包默认基线。
 - `config/user.yaml` 保存用户自定义配置。
 - `data/launcher.json` 保存 Launcher 的本机设置，例如安装根选择、关闭行为和本地覆盖项。
@@ -40,6 +41,8 @@
 - 自定义浏览器场景可使用 `render.browser_path` 指向 Chrome、Chromium 或 Edge 可执行文件路径。
 - `render.default_output` 控制图片生成默认格式，支持 `png` 与 `jpeg`。
 - `render.device_scale_percent` 控制图片生成精度，`100` 为当前基础倍率，范围为 `50` 到 `500`。
+- `web.plugin_ui_origin_template` 必须包含 `{plugin_host}`。本机模式可省略并自动派生 `plugins.localhost` 子域；LAN 与反向代理模式必须显式配置不同于管理面的插件域模板。
+- 旧 Python/Node 插件运行时配置键必须直接删除；doctor 会报告退役键，不会迁移或忽略后继续运行。
 - 配置结构、默认值和字段约束以 `contracts/config.user.schema.json` 为准。
 
 ## 当前目录职责
@@ -51,7 +54,7 @@
 | `cache/` | 渲染缓存、下载缓存和临时缓存 |
 | `logs/` | 结构化日志与诊断输出 |
 | `plugins/installed/` | 用户安装插件 |
-| `.deps/` | 运行环境资源与展开目录 |
+| `.deps/` | 图片渲染 Chromium 资源与展开目录 |
 
 ## 日志目录
 

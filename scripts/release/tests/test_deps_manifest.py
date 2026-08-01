@@ -21,10 +21,12 @@ def has_source_url(urls: list[str], host: str, path_prefix: str) -> bool:
 class DepsManifestMetadataTests(unittest.TestCase):
     def test_manifest_shape_tracks_bootstrap_ready_contract(self) -> None:
         manifest = json.loads(MANIFEST_PATH.read_text(encoding="utf-8"))
-        self.assertEqual(3, manifest.get("manifest_version"))
+        self.assertEqual(4, manifest.get("manifest_version"))
         resources = manifest.get("resources", [])
-        self.assertEqual(9, len(resources))
+        self.assertEqual(3, len(resources))
+        self.assertEqual({"windows-x64", "linux-x64", "macos-arm64"}, {item.get("platform") for item in resources})
         for resource in resources:
+            self.assertEqual("chromium", resource.get("kind"), resource)
             self.assertIn(resource.get("archive_format"), {"zip", "tar.gz", "tar.xz"}, resource)
             sources = resource.get("sources")
             self.assertIsInstance(sources, list, resource)
@@ -50,18 +52,10 @@ class DepsManifestMetadataTests(unittest.TestCase):
                     self.assertTrue(candidate, resource)
                     self.assertFalse(candidate.startswith("/"), resource)
 
-    def test_runtime_resources_have_concrete_sources_and_sha256(self) -> None:
+    def test_chromium_resources_have_concrete_sources_and_sha256(self) -> None:
         manifest = json.loads(MANIFEST_PATH.read_text(encoding="utf-8"))
         resources = manifest.get("resources", [])
-
-        runtime_resources = [
-            item
-            for item in resources
-            if isinstance(item, dict) and item.get("kind") in {"python-runtime", "nodejs-runtime"}
-        ]
-
-        self.assertEqual(6, len(runtime_resources))
-        for resource in runtime_resources:
+        for resource in resources:
             sources = resource.get("sources")
             sha256 = resource.get("sha256")
             self.assertIsInstance(sources, list, resource)
@@ -74,27 +68,14 @@ class DepsManifestMetadataTests(unittest.TestCase):
             self.assertIsInstance(sha256, str, resource)
             self.assertRegex(sha256, SHA256_PATTERN, resource)
             self.assertIn(resource.get("archive_format"), {"zip", "tar.gz", "tar.xz"}, resource)
-            entrypoints = resource.get("entrypoints", {})
-            if resource.get("kind") == "python-runtime":
-                self.assertIn("python", entrypoints, resource)
-            if resource.get("kind") == "nodejs-runtime":
-                self.assertIn("node", entrypoints, resource)
-                self.assertIn("npm", entrypoints, resource)
+            self.assertEqual(["browser"], list(resource.get("entrypoints", {})), resource)
 
-    def test_runtime_resources_include_trusted_mirrors(self) -> None:
+    def test_chromium_resources_include_upstream_and_trusted_mirror(self) -> None:
         manifest = json.loads(MANIFEST_PATH.read_text(encoding="utf-8"))
         for resource in manifest.get("resources", []):
-            if not isinstance(resource, dict):
-                continue
             urls = [source.get("url", "") for source in resource.get("sources", []) if isinstance(source, dict)]
-            if resource.get("kind") == "nodejs-runtime":
-                self.assertTrue(has_source_url(urls, "nodejs.org", "/download/"), resource)
-                self.assertTrue(has_source_url(urls, "npmmirror.com", "/mirrors/node/"), resource)
-                self.assertTrue(has_source_url(urls, "mirrors.ustc.edu.cn", "/node/"), resource)
-                self.assertTrue(has_source_url(urls, "mirrors.nju.edu.cn", "/nodejs-release/"), resource)
-            if resource.get("kind") == "python-runtime":
-                self.assertTrue(has_source_url(urls, "github.com", "/astral-sh/python-build-standalone/"), resource)
-                self.assertTrue(has_source_url(urls, "mirrors.nju.edu.cn", "/github-release/astral-sh/python-build-standalone/"), resource)
+            self.assertTrue(has_source_url(urls, "storage.googleapis.com", "/chrome-for-testing-public/"), resource)
+            self.assertTrue(has_source_url(urls, "npmmirror.com", "/mirrors/chrome-for-testing/"), resource)
 
 
 if __name__ == "__main__":

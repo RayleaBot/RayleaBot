@@ -47,7 +47,7 @@
   - `config/user.yaml` 可定位
   - 工作目录可用
   - Launcher 设置可解析
-- Chromium、Python、Node.js、模板资源和运行态问题由服务端 readiness、恢复摘要与 diagnostics 统一裁决。
+- Chromium、模板资源和 Go 插件进程问题由服务端 readiness、恢复摘要与 diagnostics 统一裁决。
 - Launcher 可以展示这些问题，但不单独发明第二套运行态语义。
 
 ## 兼容与演进边界

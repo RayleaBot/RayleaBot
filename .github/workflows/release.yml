@@ -18,16 +18,19 @@ jobs:
         include:
           - runner: windows-latest
             artifact_id: windows-x64-full
+            plugin_target: windows-x64
             server_bin: dist/server/raylea-server.exe
             launcher_bundle: launcher/dist/package/win-unpacked
             archive_suffix: .zip
           - runner: ubuntu-latest
             artifact_id: linux-x64-full
+            plugin_target: linux-x64
             server_bin: dist/server/raylea-server
             launcher_bundle: launcher/dist/package/linux-unpacked
             archive_suffix: .tar.gz
           - runner: macos-14
             artifact_id: macos-arm64-full
+            plugin_target: macos-arm64
             server_bin: dist/server/raylea-server
             launcher_bundle: launcher/dist/package/mac-arm64/RayleaLauncher.app
             archive_suffix: .tar.gz
@@ -80,6 +83,12 @@ jobs:
       - name: Build web
         working-directory: web
         run: pnpm build
+
+      - name: Build production plugin artifacts
+        run: python scripts/release/build_plugin_artifacts.py --target "${{ matrix.plugin_target }}" --output dist/plugin-artifacts
+
+      - name: Install plugin UI SDK dependencies for notice audit
+        run: pnpm --dir sdk/vue install --frozen-lockfile
 
       - name: Install launcher dependencies
         working-directory: launcher
@@ -165,7 +174,7 @@ jobs:
             --server-bin "${{ matrix.server_bin }}" \
             --launcher-bundle "${{ matrix.launcher_bundle }}" \
             --web-dist web/dist \
-            --builtin-dir plugins/builtin \
+            --builtin-dir "dist/plugin-artifacts/${{ matrix.plugin_target }}" \
             --deps-dir .deps \
             --templates-dir templates \
             --default-config config/default.yaml \
@@ -235,6 +244,12 @@ jobs:
         working-directory: web
         run: pnpm build
 
+      - name: Build production plugin artifacts
+        run: python scripts/release/build_plugin_artifacts.py --target linux-x64 --output dist/plugin-artifacts
+
+      - name: Install plugin UI SDK dependencies for notice audit
+        run: pnpm --dir sdk/vue install --frozen-lockfile
+
       - name: Install launcher dependencies for notice audit
         working-directory: launcher
         run: pnpm install --frozen-lockfile
@@ -256,7 +271,7 @@ jobs:
             --release-notes-ref "$RELEASE_NOTES_REF" \
             --server-bin dist/server/raylea-server \
             --web-dist web/dist \
-            --builtin-dir plugins/builtin \
+            --builtin-dir dist/plugin-artifacts/linux-x64 \
             --deps-dir .deps \
             --templates-dir templates \
             --default-config config/default.yaml \

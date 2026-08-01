@@ -20,7 +20,7 @@
 - `server/` 是产品核心，承载配置、存储、鉴权、任务、插件发现、OneBot11 adapter、多插件 runtime、dispatcher、scheduler trigger、三方账号、管理面日志持久化与运行指标。
 - `web/` 承载管理控制台主链路。
 - `launcher/` 承载 Electron 桌面启动器，负责本地环境检查、服务进程编排、桌面交互与打开 Web 管理面。
-- `.deps/manifest.json` 固定图片渲染 Chromium 与 Python / Node.js 运行环境资源矩阵及其可信来源列表，并作为托管运行环境准备的唯一正式来源。
+- `.deps/manifest.json` v4 只固定图片渲染 Chromium 资源矩阵及其可信来源列表；插件运行不依赖托管语言运行时。
 - 运行环境有效根目录按 `config/user.yaml` 的上两级目录推导；Launcher `workdir` 只承担进程工作目录与日志目录职责，不覆盖 `.deps/` 与 `templates/` 的位置。
 - 恢复人工处理与运行环境准备继续复用共享任务模型；`recovery.recheck`、`recovery.confirm` 与 `runtime.bootstrap` 是当前正式操作入口。
 
@@ -29,11 +29,13 @@
 | 领域 | 固定基线 |
 | --- | --- |
 | Server | Go `1.25.12` |
-| Web / Node runtime | Node.js `24.18.0` |
+| Web / build runtime | Node.js `24.18.0` |
 | JS package manager | `pnpm 11.11.0` |
 | Web UI | Vue `3.5.39` + Vite `8.1.4` + Ant Design Vue `4.2.6` + Vue Vben Admin `5.7.0` 对齐方案 + Vue Router `5.1.0` + Pinia `3.0.4` + Motion Mini `12.42.2` |
 | Launcher runtime | Electron `41.10.1` + TypeScript `6.0.2` + React `18.3.1` + Fluent UI React v9 + Fluent Motion `9.16.1` + Vite `8.1.4` + `@vitejs/plugin-react 6.0.3` + `electron-builder 26.15.3` |
-| Python runtime | Python `3.12.13` |
+| Repository scripting | Python `3.12.13` |
+| Plugin backend | Go `1.25.12`，`CGO_ENABLED=0` 的平台预编译 artifact |
+| Plugin UI | Vue `3.5.39` + TypeScript `5.9.2` + Vite `8.1.4` + 按需 Ant Design Vue |
 | Database | SQLite via `modernc.org/sqlite v1.53.0` |
 | Render | `chromedp 0.14.2` + 图片渲染 Chromium |
 | Metrics | `github.com/prometheus/client_golang 1.23.2`（Prometheus 文本暴露格式） |
@@ -70,9 +72,9 @@ Web 管理面采用 `Ant Design Vue + Vue Vben Admin` 对齐方案作为正式�
 | Launcher 桌面桥接 | `preload` 暴露受限 IPC API |
 | Launcher 渲染层 | React 18 + Fluent UI React v9 + Fluent Motion + WAAPI + View Transition API + Vite 单页面桌面壳，支持亮/暗双色主题 |
 | 仓库级 JS 包管理器 | `pnpm` |
-| Node.js 插件依赖安装器 | `npm` |
-| Python 插件依赖安装链路 | Python 运行环境 + 每插件独立 `.venv/` |
-| Node.js 插件运行链路 | Runtime 注入 `--max-old-space-size=<limit_mb>`，默认 `256 MB` |
+| 插件后端 | 独立 Go module + `sdk/go`；运行期直接启动经 artifact 校验的二进制，不编译源码或安装依赖 |
+| 插件管理页 | 独立 Vue package + `sdk/vue`；Vite 固定 `base: "./"`，产物位于 artifact 的 `ui/` |
+| 插件构建 | 每插件 `tools/build` 调用 `pluginbuild.Build`，输出单根目录 ZIP 与展开 artifact |
 | 运行环境资源准备 | `.deps/manifest.json` 可信来源测速 + `cache/downloads/runtime/` + `.deps/store/<resource-id>/<version>/`；图片渲染 Chromium 可复用已安装的 Chrome、Chromium 或 Edge |
 
 ## 默认命令
@@ -104,6 +106,13 @@ Web 管理面采用 `Ant Design Vue + Vue Vben Admin` 对齐方案作为正式�
 - 测试：`pnpm test`
 - 构建：`pnpm build`
 
+### Plugin SDK and artifacts
+
+- Go SDK：`cd sdk/go && go test ./...`
+- Vue SDK：`cd sdk/vue && pnpm run typecheck && pnpm test && pnpm build`
+- 单插件构建：`go run ./tools/build -target <windows-x64|linux-x64|macos-arm64> -out <output>`
+- 内置插件矩阵：`python scripts/release/build_plugin_artifacts.py --target <platform> --output dist/plugin-artifacts`
+
 ## 目录职责
 
 | 路径 | 职责 |
@@ -113,7 +122,7 @@ Web 管理面采用 `Ant Design Vue + Vue Vben Admin` 对齐方案作为正式�
 | `docs/architecture/` | 架构、状态模型、事件模型、边界说明 |
 | `docs/dev/` | 开发、调试、诊断、贡献流程 |
 | `docs/plugin/` | 插件 manifest、Capabilities、协议、生命周期 |
-| `docs/plugin/sdk/` | Python SDK、Python 运行时客户端与 Node.js SDK 说明 |
+| `docs/plugin/sdk/` | Go 插件 SDK、构建器与 Vue 管理页 SDK 说明 |
 | `docs/user/` | 用户安装、初始化、配置、运行、恢复 |
 | `docs/release/` | 版本说明、迁移说明、已知问题 |
 | `fixtures/` | Golden fixtures 与可执行样例 |
@@ -121,9 +130,10 @@ Web 管理面采用 `Ant Design Vue + Vue Vben Admin` 对齐方案作为正式�
 | `server/` | Go 服务端工程 |
 | `web/` | Web UI 工程 |
 | `launcher/` | Electron 桌面启动器工程 |
-| `plugins/runtime/` | 内置插件与发布包使用的轻量运行时客户端；不承载开发工具 |
-| `sdk/` | Python / Node.js 插件开发分发与类型；不作为发布包的生产运行时来源 |
-| `.deps/` | 图片渲染 Chromium 与 Python / Node.js 运行环境资源清单，以及按需展开后的运行环境目录 |
+| `plugins/builtin/` | 内置 Go 插件源码、测试、薄构建入口和可选 Vue UI 源码；发布包只收录其编译产物 |
+| `sdk/go/` | Go 插件 JSONL 客户端、typed local-action helpers 与 artifact 构建器 |
+| `sdk/vue/` | `@rayleabot/plugin-ui` bridge v2 client、composables、主题和 contract 类型 |
+| `.deps/` | 图片渲染 Chromium 资源清单，以及按需展开后的资源目录 |
 | `config/` | 默认配置模板与用户配置 |
 | `data/` | SQLite 状态库与运行数据 |
 | `cache/` | 渲染缓存、下载缓存、插件临时缓存 |
@@ -139,6 +149,7 @@ Web 管理面采用 `Ant Design Vue + Vue Vben Admin` 对齐方案作为正式�
 | `web/pnpm-lock.yaml` | 作为 Web 工程唯一 JS 锁文件 |
 | `launcher/package.json` | 固定 `packageManager = pnpm@11.11.0`、`engines.node = 24.18.0`、Electron/Vite/React/`@vitejs/plugin-react`/build 脚本与打包配置 |
 | `launcher/pnpm-lock.yaml` | 作为 Launcher 工程唯一 JS 锁文件 |
+| `go.work` | 连接 server、Go SDK、内置插件和 Go 示例的本地工作区；各插件仍拥有独立 `go.mod` |
 | `.deps/manifest.json` | 固定资源名、版本线、可信来源列表、SHA256、archive_format、entrypoints 与平台矩阵 |
 | `contracts/*` | 对外接口与错误码唯一正式来源 |
 

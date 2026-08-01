@@ -75,7 +75,7 @@ flowchart LR
 | 浏览器管理 | 合法 Host/Origin、cookie 会话、unsafe method CSRF | query token、跨站请求、伪造 Host、错误 Origin |
 | 初始化 | loopback、一次性 setup token、JSON、Fetch Metadata | token 缺失/复用、跨站表单、非法 Host |
 | Launcher 控制 | loopback 直连与进程级 control token | 无凭据 shutdown、代理转发来源 |
-| 插件代码 | 用户检查来源、摘要、能力、脚本后确认 | 未确认安装、非法包路径、未声明能力 |
+| 插件代码 | 用户检查来源、目标平台、artifact 摘要和能力后确认 | 未确认安装、非法包路径、摘要不一致、未声明能力 |
 | 发布更新 | 编译内置仓库与公钥、Ed25519、摘要、重放防护 | 可修改 metadata 改信任根、过期、降级、同版换包 |
 | Windows 安装 | 发布信任校验与正式 Authenticode 均通过 | 自签名、signer 不符、任一 PE 验签失败 |
 
@@ -110,7 +110,7 @@ flowchart LR
 | `templates/` | Render Service | 模板版本与资源 |
 | `cache/` | 各 owner | 可重建缓存，不影响正确性 |
 | `logs/` | Logging | 结构化日志、spool 与诊断输出 |
-| `.deps/` | Deps service | Chromium、Python、Node.js 等受控资源 |
+| `.deps/` | Deps service | 图片渲染 Chromium 受控资源 |
 | updater transaction directory | External updater | journal、offline backup、旧版与 staging |
 
 ## 部署边界

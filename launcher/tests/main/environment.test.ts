@@ -66,14 +66,6 @@ describe("inspectLauncherEnvironment", () => {
     await fs.writeFile(path.join(installRoot, ".deps", "manifest.json"), manifest, "utf8");
     await fs.mkdir(path.join(installRoot, "cache", "downloads", "runtime"), { recursive: true });
     await fs.writeFile(path.join(installRoot, "cache", "downloads", "runtime", "chromium-test-147.0.7727.24.zip"), "", "utf8");
-    await fs.writeFile(
-      path.join(installRoot, "cache", "downloads", "runtime", "python-test-3.12.13.tar.gz"),
-      "",
-      "utf8",
-    );
-    await fs.mkdir(path.join(installRoot, ".deps", "store", "python-test", "3.12.13", "python"), { recursive: true });
-    await fs.writeFile(path.join(installRoot, ".deps", "store", "python-test", "3.12.13", "python", "python.exe"), "", "utf8");
-
     const settings: LauncherResolvedSettings = {
       installationRoot: installRoot,
       serverExecutablePath,
@@ -92,8 +84,8 @@ describe("inspectLauncherEnvironment", () => {
       expect(inspection.checks.some((item) => item.code === "workdir.ready")).toBe(true);
       expect(inspection.checks.some((item) => item.code === "deps.manifest")).toBe(true);
       expect(inspection.checks.some((item) => item.code === "chromium.not_ready")).toBe(true);
-      expect(inspection.checks.some((item) => item.code === "python.ready")).toBe(true);
-      expect(inspection.checks.some((item) => item.code === "nodejs.not_ready")).toBe(true);
+      expect(inspection.checks.some((item) => item.code.startsWith("python."))).toBe(false);
+      expect(inspection.checks.some((item) => item.code.startsWith("nodejs."))).toBe(false);
       expect(inspection.checks.find((item) => item.code === "chromium.not_ready")?.summary).toBe("已下载，未解压。");
       expect(inspection.checks.find((item) => item.code === "chromium.not_ready")?.detail).toContain("下载位置：");
       expect(inspection.checks.find((item) => item.code === "chromium.not_ready")?.detail).toContain("解压位置：");
@@ -219,7 +211,7 @@ describe("inspectLauncherEnvironment", () => {
     expect(inspection.checks.find((item) => item.code === "chromium.ready")?.title).toBe("图片渲染 Chromium");
   });
 
-  test("keeps runtime warning summaries separate from their titles", async () => {
+  test("keeps Chromium warning summaries separate from their titles", async () => {
     const inspection = await inspectLauncherEnvironment({
       serverExecutableExists: true,
       userConfigExists: true,
@@ -229,23 +221,23 @@ describe("inspectLauncherEnvironment", () => {
       depsManifestText: buildDepsManifest("windows-x64"),
       platform: "windows-x64",
       runtimeResourceStates: {
-        "python-runtime": {
-          archivePath: "C:\\RayleaBot\\cache\\downloads\\runtime\\python-test-3.12.13.tar.gz",
+        chromium: {
+          archivePath: "C:\\RayleaBot\\cache\\downloads\\runtime\\chromium-test-147.0.7727.24.zip",
           archiveExists: true,
-          storeRoot: "C:\\RayleaBot\\.deps\\store\\python-test\\3.12.13",
+          storeRoot: "C:\\RayleaBot\\.deps\\store\\chromium-test\\147.0.7727.24",
           storeRootExists: true,
           tempRootPaths: [],
           preparedStorePresent: false,
-          missingEntrypoints: ["python"],
+          missingEntrypoints: ["browser"],
           primaryEntrypoint: "",
         },
       },
     });
 
-    const pythonCheck = inspection.checks.find((item) => item.code === "python.entrypoint_missing");
-    expect(pythonCheck?.title).toBe("Python 依赖");
-    expect(pythonCheck?.summary).toBe("已解压，但入口文件缺失。");
-    expect(pythonCheck?.summary).not.toContain("Python 依赖");
+    const chromiumCheck = inspection.checks.find((item) => item.code === "chromium.entrypoint_missing");
+    expect(chromiumCheck?.title).toBe("图片渲染 Chromium");
+    expect(chromiumCheck?.summary).toBe("已解压，但入口文件缺失。");
+    expect(chromiumCheck?.summary).not.toContain("Chromium");
   });
 });
 
@@ -257,7 +249,7 @@ function currentManifestPlatform() {
 
 function buildDepsManifest(platform: string) {
   return `{
-  "manifest_version": 3,
+  "manifest_version": 4,
   "resources": [
     {
       "id": "chromium-test",
@@ -268,31 +260,6 @@ function buildDepsManifest(platform: string) {
       "sha256": "2bb9e071b229e9c0cb7d90297c51fa4cf3f5dbf4f88aded36d3f5892651baabf",
       "archive_format": "zip",
       "entrypoints": { "browser": ["chrome-win64/chrome.exe"] }
-    },
-    {
-      "id": "python-test",
-      "kind": "python-runtime",
-      "version": "3.12.13",
-      "platform": "${platform}",
-      "sources": [{ "url": "https://example.invalid/python.tar.gz", "kind": "upstream" }],
-      "sha256": "10b7a95b928e551fc78cac665999e1ae1f08fb738b255adb0a8d3b9c2824a9c0",
-      "archive_format": "tar.gz",
-      "entrypoints": {
-        "python": ["python/python.exe"]
-      }
-    },
-    {
-      "id": "node-test",
-      "kind": "nodejs-runtime",
-      "version": "24.14.0",
-      "platform": "${platform}",
-      "sources": [{ "url": "https://example.invalid/node.zip", "kind": "upstream" }],
-      "sha256": "313fa40c0d7b18575821de8cb17483031fe07d95de5994f6f435f3b345f85c66",
-      "archive_format": "zip",
-      "entrypoints": {
-        "node": ["node/node.exe"],
-        "npm": ["node/npm.cmd"]
-      }
     }
   ]
 }`;

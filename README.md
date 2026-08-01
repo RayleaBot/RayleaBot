@@ -4,7 +4,7 @@
 [![Release](https://img.shields.io/github/v/release/RayleaBot/RayleaBot)](https://github.com/RayleaBot/RayleaBot/releases)
 [![Go](https://img.shields.io/badge/Go-1.25+-00ADD8?logo=go)](https://go.dev)
 [![Node.js](https://img.shields.io/badge/Node.js-24+-339933?logo=nodedotjs)](https://nodejs.org)
-[![Python](https://img.shields.io/badge/Python-3.12+-3776AB?logo=python)](https://www.python.org)
+[![Vue](https://img.shields.io/badge/Vue-3.5-42b883?logo=vuedotjs)](https://vuejs.org)
 
 面向个人开发者和开源协作者的自托管聊天机器人框架。基于 OneBot11 协议接入 QQ，提供插件扩展、Web 管理控制台和桌面启动器，所有数据运行在本地。
 
@@ -12,7 +12,7 @@
 
 - **自托管**：服务端、插件、管理面板全部运行在本地，无需云端控制面板。
 - **多平台接入**：支持 OneBot11 的 `reverse_ws`、`forward_ws`、`http_api` 和 `webhook`。
-- **多语言插件**：同时支持 Python 3.12 和 Node.js 24 插件，子进程隔离，通过 JSONL 协议通信。
+- **Go 插件**：插件后端使用预编译 Go 可执行文件，通过语言无关的 JSONL v1 协议与服务端通信；插件管理页使用隔离域中的 Vue 静态产物。
 - **Bilibili 集成**：直播监控、动态监控、扫码登录、多账号轮转，内置反风控与验证码处理。
 - **Web 管理控制台**：仪表盘、插件管理、权限策略、任务调度、日志检索、模板预览等。
 - **桌面启动器**：基于 Electron，支持 Windows / macOS / Linux，提供一键启动、环境预检和进程编排。
@@ -62,7 +62,7 @@ node scripts/start-dev.mjs
 
 - 管理面板默认只在本机开放，远程访问需在配置中显式开启，并建议通过 HTTPS 反向代理。
 - 通过 OneBot11 协议适配器接入 QQ 后，即可在聊天窗口与机器人交互。
-- 插件安装在运行根目录的 `plugins/installed/`，支持从本地目录或压缩包安装。
+- 插件安装在运行根目录的 `plugins/installed/`，只接受与当前平台匹配、通过 `artifact.json` 完整性校验的目录或单根目录 ZIP。
 - 管理员可在管理面板中配置权限策略、黑白名单、命令前缀、任务调度等。
 
 ## 文档
@@ -89,14 +89,14 @@ cd web && pnpm install --frozen-lockfile && pnpm test
 # Launcher
 cd launcher && pnpm install --frozen-lockfile && pnpm test
 
-# Node.js 插件运行时客户端
-cd plugins/runtime/nodejs && npm ci && npm run build && node --test tests/*.test.mjs
+# Go 插件 SDK
+cd sdk/go && go test ./...
 
-# Python 插件运行时客户端
-cd plugins/runtime/python && python -m unittest discover -s tests
+# Vue 插件 UI SDK
+cd sdk/vue && pnpm install --frozen-lockfile && pnpm run typecheck && pnpm test
 
-# Python SDK 开发分发
-cd sdk/python && python -m unittest discover -s tests
+# 构建一个平台插件 artifact
+cd plugins/builtin/fortune && go run ./tools/build -target windows-x64 -out ../../../dist/plugin-artifacts
 ```
 
 项目采用契约优先（contract-first）模式。修改任何对外接口前，请先更新 `contracts/` 中的对应契约文件，再同步实现与测试。

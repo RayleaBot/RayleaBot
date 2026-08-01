@@ -3,6 +3,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(ROOT / "scripts" / "release"))
@@ -11,6 +12,12 @@ import generate_third_party_notices as notices
 
 
 class ThirdPartyNoticeTests(unittest.TestCase):
+
+    @mock.patch.object(notices, "run_command", return_value="No licenses in packages found")
+    def test_empty_pnpm_production_graph_is_accepted(self, run_command):
+        self.assertEqual(notices.collect_node_components("sdk/vue"), [])
+        run_command.assert_called_once()
+
     def test_pnpm_license_inputs_cover_supported_libc_variants(self) -> None:
         for project in ("web", "launcher"):
             contents = (ROOT / project / "pnpm-workspace.yaml").read_text(encoding="utf-8")
