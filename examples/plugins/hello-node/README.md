@@ -5,10 +5,10 @@
 用途：
 
 - 展示最小 `info.json` 应如何声明
-- 展示 Node.js SDK 的 `RayleaBotPlugin` 子类入口
+- 展示 Node.js 运行时客户端的 `RayleaBotPlugin` 子类入口
 - 展示 `PluginEventContext` 如何读取事件并返回 `result`
 
-常用 SDK helper 示例：
+常用运行时 helper 示例：
 
 ```js
 await ctx.messageHistoryGet('group', '123456', { limit: 20 })
@@ -19,7 +19,7 @@ await ctx.napcatGroupSignSet('123456')
 ```
 
 ```js
-import { ActionError, flashFileSegment, markdownSegment } from '@rayleabot/sdk'
+import { ActionError, flashFileSegment, markdownSegment } from '@rayleabot/plugin-runtime'
 
 const segments = [
   markdownSegment('## 日报'),

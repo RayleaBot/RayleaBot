@@ -18,14 +18,14 @@
 发行包根目录按产物形态包含：
 
 - server 二进制与 Launcher 桌面入口；
-- `web/dist`、`plugins/builtin/`、内置插件共用的 `plugins/runtime/python/rayleabot_runtime/`、`templates/`；
+- `web/dist`、`plugins/builtin/` 与 `templates/`；
 - `config/default.yaml` 与 `.deps/manifest.json`；
 - `build_info.json`；
 - 根仓库 `LICENSE` 与生成、审阅后的 `THIRD_PARTY_NOTICES.md`。
 
 Windows 完整包以根目录的 `RayleaLauncher.exe` 作为唯一桌面入口。Electron 主程序、DLL、PAK、语言包及 `resources/app.asar` 位于 `launcher/`；根入口与该目录必须作为同一安装单元保留。
 
-开发用 `sdk/` 不进入发布包。Python 内置插件只依赖随包交付的轻量运行时客户端。
+开发用 `sdk/` 与语言运行时客户端源码不进入发布包。发行包只携带 `.deps/manifest.json` 声明的 Python、Node.js 等受管解释器；内置插件首次启动时按照 `info.json` 中的精确版本声明从 PyPI 或 npm 安装运行时客户端，依赖声明未变化时不会重复安装。第三方插件的语言依赖仍在安装插件时准备。
 
 依赖许可证未知或缺失时，发布必须失败。运行时配置和插件 schema 内置于 server；源码仓库中的 `contracts/` 仍是正式来源。
 

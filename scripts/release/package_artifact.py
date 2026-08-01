@@ -34,7 +34,6 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     parser.add_argument("--server-bin", required=True)
     parser.add_argument("--web-dist", default="web/dist")
     parser.add_argument("--builtin-dir", default="plugins/builtin")
-    parser.add_argument("--python-plugin-runtime-dir", default="plugins/runtime/python")
     parser.add_argument("--deps-dir", default=".deps")
     parser.add_argument("--templates-dir", default="templates")
     parser.add_argument("--default-config", default="config/default.yaml")
@@ -78,8 +77,6 @@ def main(argv: list[str] | None = None) -> int:
         args.web_dist,
         "--builtin-dir",
         args.builtin_dir,
-        "--python-plugin-runtime-dir",
-        args.python_plugin_runtime_dir,
         "--deps-dir",
         args.deps_dir,
         "--templates-dir",

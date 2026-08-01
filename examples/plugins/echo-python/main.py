@@ -1,11 +1,6 @@
 #!/usr/bin/env python3
 """Echo plugin demonstrating command parsing and message segments."""
 
-import sys
-import os
-
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "..", "plugins", "runtime", "python"))
-
 from rayleabot_runtime import RayleaBotPlugin, command
 
 

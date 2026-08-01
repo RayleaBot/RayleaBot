@@ -2,9 +2,13 @@
 name = "rayleabot-plugin-runtime"
 version = "0.1.0"
 description = "RayleaBot Python plugin runtime client"
+readme = "README.md"
 requires-python = ">=3.12"
 license = "AGPL-3.0-only"
 license-files = ["LICENSE"]
+
+[project.urls]
+Repository = "https://github.com/RayleaBot/RayleaBot"
 
 [build-system]
 requires = ["setuptools>=77"]

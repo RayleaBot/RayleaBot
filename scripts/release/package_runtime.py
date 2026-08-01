@@ -108,7 +108,9 @@ FORBIDDEN_TOP_LEVEL_PATHS = {
     "examples",
     "fixtures",
     "launcher/src",
+    "plugins/runtime",
     "scripts",
+    "sdk",
     "server",
     "web/src",
 }

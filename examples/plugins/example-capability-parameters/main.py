@@ -1,11 +1,6 @@
 #!/usr/bin/env python3
 """Example plugin showing http.request and storage.file capability parameters."""
 
-import os
-import sys
-
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "..", "plugins", "runtime", "python"))
-
 from rayleabot_runtime import RayleaBotPlugin, command
 
 

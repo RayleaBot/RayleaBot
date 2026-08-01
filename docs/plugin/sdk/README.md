@@ -1,6 +1,6 @@
 # Plugin Client and SDK Docs
 
-本目录说明 RayleaBot 官方 Python SDK、Python 运行时客户端与 Node.js SDK 的正式能力范围。
+本目录说明 RayleaBot 官方 Python、Node.js 运行时客户端与两种语言开发 SDK 的正式能力范围。
 
 正式协议与字段以 `contracts/plugin-protocol.schema.json` 为准。
 
@@ -8,7 +8,14 @@
 
 - `rayleabot-plugin-runtime` 提供插件进程与服务端通信所需的最小运行时客户端，导入名为 `rayleabot_runtime`。内置插件和发布包使用该包。
 - `rayleabot-sdk` 是 Python 插件的开发安装入口，固定依赖同版本 `rayleabot-plugin-runtime`。插件代码导入 `rayleabot_runtime`，SDK 分发不提供 `rayleabot` 导入包。
-- `@rayleabot/sdk` 是 Node.js 插件开发包，导入名保持不变。
+- `@rayleabot/plugin-runtime` 提供 Node.js 插件生产运行所需的客户端，插件代码直接导入该包。
+- `@rayleabot/sdk` 是 Node.js 插件的开发安装入口，固定依赖同版本 `@rayleabot/plugin-runtime`，不再承载生产运行时实现。
+
+运行时客户端发布到 PyPI 与 npm，不随 RayleaBot 发行包复制源码。Python 与 Node.js 插件必须在 `info.json` 的 `dependencies` 中声明精确版本；第三方插件安装时准备依赖，内置插件首次启动时准备依赖并记录指纹。SDK 包只用于开发环境的统一安装入口。
+
+## 发布
+
+`.github/workflows/publish-plugin-packages.yml` 按 [npm Trusted Publishing](https://docs.npmjs.com/trusted-publishers/) 与 [PyPI Trusted Publishing](https://docs.pypi.org/trusted-publishers/) 的 OIDC 流程发布四个包，不保存长期 npm 或 PyPI token。需要分别为 `@rayleabot/plugin-runtime`、`@rayleabot/sdk`、`rayleabot-plugin-runtime` 与 `rayleabot-sdk` 配置可信发布者，工作流文件名为 `publish-plugin-packages.yml`，环境名为 `package-registries`；npm 新包先由包所有者完成一次注册表引导发布，再启用可信发布。工作流只允许手动触发，并在发布前验证两种语言的 SDK 与运行时版本完全一致。
 
 ## 当前覆盖范围
 
@@ -30,8 +37,8 @@
 - 事件接收与结果回传
 - 通用 local action helper：`message.send`、`message.reply`、`logger.write`、`storage.kv`、`storage.file`、`http.request`、`config.read`、`config.write`、`governance.blacklist.read`、`governance.blacklist.write`、`governance.whitelist.read`、`governance.whitelist.write`、`governance.command_policy.read`、`scheduler.create`、`event.expose_webhook`、`render.image`、`plugin.list`、`thirdparty.account.read`
 - 定时任务 helper 支持中文日志说明：Python 使用 `scheduler_create(..., log_label="每日早报")`，Node.js 使用 `schedulerCreate(..., { logLabel: "每日早报" })`。
-- `secret.read` helper 当前只在 Python 运行时客户端提供（`secret_read`）；Node.js SDK 可通过通用回退入口 `onebotAction("secret.read", { key })` 调用。
-- `thirdparty.account.read` helper 当前只在 Python 运行时客户端提供（`thirdparty_account_read`）；Node.js SDK 可通过通用回退入口 `onebotAction("thirdparty.account.read", { platform })` 调用。
+- `secret.read` helper 当前只在 Python 运行时客户端提供（`secret_read`）；Node.js 运行时客户端可通过通用回退入口 `onebotAction("secret.read", { key })` 调用。
+- `thirdparty.account.read` helper 当前只在 Python 运行时客户端提供（`thirdparty_account_read`）；Node.js 运行时客户端可通过通用回退入口 `onebotAction("thirdparty.account.read", { platform })` 调用。
 - OneBot 单动作 helper：正式 capability 名称与 action kind 一一对应，helper 直接复用同一组动作名
 - provider helper：`provider.napcat.message_emoji.like.set`、`provider.napcat.group.sign.set`、`provider.luckylillia.friend_groups.get`
 - 通用回退入口：`onebot_action` / `onebotAction` 与 `provider_action` / `providerAction`
@@ -62,7 +69,7 @@ if __name__ == "__main__":
 Node.js：
 
 ```js
-import { RayleaBotPlugin } from '@rayleabot/sdk'
+import { RayleaBotPlugin } from '@rayleabot/plugin-runtime'
 
 class EchoPlugin extends RayleaBotPlugin {
   constructor() {
@@ -102,7 +109,7 @@ Python 使用 snake_case builder，例如 `flash_file_segment(data)`、`keyboard
 
 ## 相关文档
 
-Python SDK、Python 运行时客户端 wheel 与 Node.js SDK package 使用仓库统一的 `AGPL-3.0-only` 许可证，并携带根仓库 `LICENSE`。
+Python 与 Node.js 的 SDK、运行时客户端分发使用仓库统一的 `AGPL-3.0-only` 许可证，并携带根仓库 `LICENSE`。
 
 - [Plugin Lifecycle](../lifecycle.md)
 - [Capabilities and Manifest](../capabilities-and-manifest.md)

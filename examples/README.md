@@ -28,4 +28,4 @@
 - 示例只能演示已被 `contracts/` 确认的结构。
 - 示例不是正式裁决来源。
 - 若示例需要新增字段或消息类型，必须先更新对应 contract。
-- `examples/plugins/` 下的示例插件服务于 manifest、plugin protocol、SDK 入口和常用 local action 理解。
+- `examples/plugins/` 下的示例插件服务于 manifest、plugin protocol、生产运行时客户端入口和常用 local action 理解。

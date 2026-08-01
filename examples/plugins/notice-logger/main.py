@@ -1,11 +1,6 @@
 #!/usr/bin/env python3
 """Notice logger plugin demonstrating notice event handling."""
 
-import os
-import sys
-
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "..", "plugins", "runtime", "python"))
-
 from rayleabot_runtime import RayleaBotPlugin, event_handler
 
 

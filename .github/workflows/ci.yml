@@ -236,7 +236,7 @@ jobs:
         with:
           node-version: "24.18.0"
           cache: npm
-          cache-dependency-path: sdk/nodejs/package-lock.json
+          cache-dependency-path: plugins/runtime/nodejs/package-lock.json
 
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -250,33 +250,39 @@ jobs:
         run: |
           cmp LICENSE sdk/nodejs/LICENSE
           cmp LICENSE sdk/python/LICENSE
+          cmp LICENSE plugins/runtime/nodejs/LICENSE
           cmp LICENSE plugins/runtime/python/LICENSE
 
-      - name: Install Node SDK dependencies
-        working-directory: sdk/nodejs
+      - name: Install Node runtime dependencies
+        working-directory: plugins/runtime/nodejs
         run: npm ci
 
-      - name: Build Node SDK
-        working-directory: sdk/nodejs
+      - name: Build Node runtime
+        working-directory: plugins/runtime/nodejs
         run: npm run build
 
-      - name: Check Node SDK dist drift
-        working-directory: sdk/nodejs
+      - name: Check Node runtime dist drift
+        working-directory: plugins/runtime/nodejs
         run: |
           git diff --exit-code -- dist
           test -z "$(git status --porcelain --untracked-files=all -- dist)"
 
-      - name: Run Node SDK typecheck
-        working-directory: sdk/nodejs
+      - name: Run Node runtime typecheck
+        working-directory: plugins/runtime/nodejs
         run: npm run typecheck
 
-      - name: Run Node SDK tests
-        working-directory: sdk/nodejs
+      - name: Run Node runtime tests
+        working-directory: plugins/runtime/nodejs
         run: node --test tests/*.test.mjs
 
-      - name: Check Node SDK package license
-        working-directory: sdk/nodejs
+      - name: Check Node runtime package contents
+        working-directory: plugins/runtime/nodejs
         run: npm pack --dry-run --json | node -e "let input=''; process.stdin.on('data', chunk => input += chunk); process.stdin.on('end', () => { const files = JSON.parse(input)[0].files.map(file => file.path); if (!files.includes('LICENSE')) process.exit(1); });"
+
+      - name: Check Node SDK package metadata
+        working-directory: sdk/nodejs
+        run: |
+          npm pack --dry-run --json | node -e "let input=''; process.stdin.on('data', chunk => input += chunk); process.stdin.on('end', () => { const pack = JSON.parse(input)[0]; const files = pack.files.map(file => file.path); const pkg = require('./package.json'); if (!files.includes('LICENSE') || pkg.dependencies['@rayleabot/plugin-runtime'] !== pkg.version || pkg.main || pkg.types) process.exit(1); });"
 
       - name: Run Python plugin runtime tests
         working-directory: plugins/runtime/python

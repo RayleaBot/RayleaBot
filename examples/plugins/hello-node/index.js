@@ -1,9 +1,5 @@
-const { pathToFileURL } = require("node:url");
-
-const sdkUrl = new URL("../../../sdk/nodejs/dist/index.js", pathToFileURL(__filename)).href;
-
 (async () => {
-  const { RayleaBotPlugin } = await import(sdkUrl);
+  const { RayleaBotPlugin } = await import("@rayleabot/plugin-runtime");
 
   class HelloNodePlugin extends RayleaBotPlugin {
     constructor() {

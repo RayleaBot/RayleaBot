@@ -56,7 +56,9 @@ FORBIDDEN_TOP_LEVEL_PATHS = {
     "examples",
     "fixtures",
     "launcher/src",
+    "plugins/runtime",
     "scripts",
+    "sdk",
     "server",
     "web/src",
 }
@@ -334,7 +336,6 @@ def stage_release_root(
     server_bin: Path,
     web_dist: Path,
     builtin_dir: Path,
-    python_plugin_runtime_dir: Path,
     deps_dir: Path,
     templates_dir: Path,
     default_config: Path,
@@ -358,11 +359,6 @@ def stage_release_root(
         raise ValueError("windows-x64-full requires --updater-bin")
     if artifact_id == "windows-x64-full" and launcher_bundle is not None:
         assert_windows_launcher_bundle_layout(launcher_bundle)
-    python_plugin_runtime_package = python_plugin_runtime_dir / "rayleabot_runtime"
-    if not (python_plugin_runtime_package / "__init__.py").is_file():
-        raise ValueError(
-            f"release package requires Python plugin runtime package: {python_plugin_runtime_package}"
-        )
     for required_file, label in ((license_file, "LICENSE"), (third_party_notices, "THIRD_PARTY_NOTICES.md")):
         if not required_file.is_file() or required_file.stat().st_size == 0:
             raise ValueError(f"release package requires non-empty {label}")
@@ -386,10 +382,6 @@ def stage_release_root(
 
     copy_release_tree(web_dist, stage_root / "web" / "dist")
     copy_release_tree(builtin_dir, stage_root / "plugins" / "builtin")
-    copy_release_tree(
-        python_plugin_runtime_package,
-        stage_root / "plugins" / "runtime" / "python" / "rayleabot_runtime",
-    )
     copy_deps_manifest(deps_dir, stage_root / ".deps")
     copy_release_tree(templates_dir, stage_root / "templates")
     copy_file(default_config, stage_root / "config" / "default.yaml")
@@ -678,7 +670,6 @@ def cmd_package(args: argparse.Namespace) -> int:
         server_bin=Path(args.server_bin),
         web_dist=Path(args.web_dist),
         builtin_dir=Path(args.builtin_dir),
-        python_plugin_runtime_dir=Path(args.python_plugin_runtime_dir),
         deps_dir=Path(args.deps_dir),
         templates_dir=Path(args.templates_dir),
         default_config=Path(args.default_config),
@@ -746,7 +737,6 @@ def build_parser() -> argparse.ArgumentParser:
     package.add_argument("--server-bin", required=True)
     package.add_argument("--web-dist", required=True)
     package.add_argument("--builtin-dir", required=True)
-    package.add_argument("--python-plugin-runtime-dir", required=True)
     package.add_argument("--deps-dir", required=True)
     package.add_argument("--templates-dir", required=True)
     package.add_argument("--default-config", required=True)

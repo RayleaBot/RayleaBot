@@ -6,6 +6,7 @@
   "plugin_protocol_version": "1",
   "type": "managed_runtime",
   "runtime": "python",
+  "dependencies": { "python": ["rayleabot-plugin-runtime==0.1.0"] },
   "entry": "main.py",
   "license": "MIT",
   "description": "Python example plugin demonstrating scheduler.create.",

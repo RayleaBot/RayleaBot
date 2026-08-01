@@ -96,12 +96,14 @@ def classify(files: list[str]) -> dict[str, bool]:
             result["server"] = True
             result["release"] = True
             matched = True
-        if path.startswith("plugins/"):
+        if path.startswith("plugins/") and not path.startswith("plugins/runtime/"):
             result["server"] = True
             result["release"] = True
             matched = True
         if path.startswith("plugins/runtime/"):
+            result["server"] = True
             result["sdk"] = True
+            matched = True
         if path.startswith("web/"):
             result["web"] = True
             matched = True
@@ -128,6 +130,9 @@ def classify(files: list[str]) -> dict[str, bool]:
             result["server"] = True
         if path in {".github/workflows/release.yml", ".github/workflows/self-host-smoke.yml"}:
             result["release"] = True
+            matched = True
+        if path == ".github/workflows/publish-plugin-packages.yml":
+            result["sdk"] = True
             matched = True
         if path.startswith(".github/workflows/") or path.startswith("scripts/ci/"):
             result["ci"] = True
@@ -217,14 +222,16 @@ def self_test() -> None:
         (["contracts/web-api.openapi.yaml"], {"contracts": True}),
         (["scripts/release/release_tool.py"], {"release": True}),
         (["sdk/python/pyproject.toml"], {"sdk": True, "release": False}),
-        (["sdk/nodejs/src/index.ts"], {"sdk": True, "release": False}),
+        (["sdk/nodejs/package.json"], {"sdk": True, "release": False}),
+        (["plugins/runtime/nodejs/src/index.ts"], {"server": True, "sdk": True, "release": False}),
         (
             ["plugins/runtime/python/rayleabot_runtime/plugin.py"],
-            {"server": True, "sdk": True, "release": True},
+            {"server": True, "sdk": True, "release": False},
         ),
         (["launcher/native/windows-entry/main_windows.go"], {"launcher": True, "release": True}),
         (["launcher/scripts/build-package.mjs"], {"launcher": True, "release": True}),
         ([".github/workflows/ci.yml"], {"ci": True, "docs_only": False}),
+        ([".github/workflows/publish-plugin-packages.yml"], {"sdk": True, "ci": True}),
         (["AGENTS.md"], {"docs": True, "docs_only": True}),
         (["templates/help.menu/template.json"], {"server": True, "release": True}),
         (["plugins/builtin/fortune/info.json"], {"server": True, "release": True}),

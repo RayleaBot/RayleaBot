@@ -142,6 +142,8 @@ local action 的请求结构和返回结构见 [Protocol](./protocol.md)，SDK h
 ## 依赖与发布边界
 
 - `dependencies` 只覆盖语言级依赖，不覆盖插件间依赖。
+- Python 插件通过 `dependencies.python` 声明 `rayleabot-plugin-runtime==<version>`；Node.js 插件通过 `dependencies.nodejs` 声明 `@rayleabot/plugin-runtime@<version>`。官方运行时客户端使用精确版本，避免注册表更新改变已安装插件的协议行为。
+- 第三方插件安装时准备语言依赖；内置插件首次启动或依赖指纹变化时准备依赖。运行时客户端源码与开发 SDK 不进入 RayleaBot 发行包。
 - manifest 字段和语义变化先进入 contract，再同步 SDK、fixtures、示例和管理面。
 
 ## 插件内置管理页

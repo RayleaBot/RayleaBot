@@ -8,7 +8,7 @@
 - 展示 Python 运行时客户端的 `RayleaBotPlugin` 子类入口
 - 展示 `EventContext` 如何读取事件并返回 `result`
 
-常用 SDK helper 示例：
+常用运行时 helper 示例：
 
 ```python
 ctx.message_history_get("group", "123456", limit=20)

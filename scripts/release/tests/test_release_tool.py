@@ -35,19 +35,6 @@ def write_test_asar(path: Path, entries: list[str]) -> None:
     path.write_bytes(prefix + padded_header)
 
 
-def write_test_python_plugin_runtime(path: Path) -> None:
-    package = path / "rayleabot_runtime"
-    package.mkdir(parents=True, exist_ok=True)
-    (package / "__init__.py").write_text("RUNTIME_MARKER = True\n", encoding="utf-8")
-    (package / "plugin.py").write_text("class RayleaBotPlugin: pass\n", encoding="utf-8")
-    (path / "tests").mkdir(parents=True, exist_ok=True)
-    (path / "tests" / "test_runtime.py").write_text("def test_runtime(): pass\n", encoding="utf-8")
-    (path / "pyproject.toml").write_text(
-        "[project]\nname = \"rayleabot-plugin-runtime\"\n",
-        encoding="utf-8",
-    )
-
-
 class ReleaseToolTests(unittest.TestCase):
     @unittest.skipUnless(shutil.which("openssl"), "OpenSSL is required")
     def test_sign_release_manifest_emits_exact_dual_signed_ed25519_envelope(self) -> None:
@@ -90,7 +77,6 @@ class ReleaseToolTests(unittest.TestCase):
             launcher_bundle = temp / "win-unpacked"
             web_dist = temp / "web-dist"
             builtin = temp / "builtin"
-            python_plugin_runtime = temp / "python-plugin-runtime"
             deps = temp / ".deps"
             templates = temp / "templates"
             default_config = temp / "config" / "default.yaml"
@@ -138,7 +124,6 @@ class ReleaseToolTests(unittest.TestCase):
             (templates / "status.panel" / "template.json").write_text("{}", encoding="utf-8")
             default_config.parent.mkdir(parents=True, exist_ok=True)
             default_config.write_text("schema_version: \"2\"\n", encoding="utf-8")
-            write_test_python_plugin_runtime(python_plugin_runtime)
 
             archive_path, sidecar = release_tool.stage_release_root(
                 artifact_id="windows-x64-full",
@@ -149,7 +134,6 @@ class ReleaseToolTests(unittest.TestCase):
                 server_bin=server_bin,
                 web_dist=web_dist,
                 builtin_dir=builtin,
-                python_plugin_runtime_dir=python_plugin_runtime,
                 deps_dir=deps,
                 templates_dir=templates,
                 default_config=default_config,
@@ -191,22 +175,7 @@ class ReleaseToolTests(unittest.TestCase):
             self.assertNotIn("RayleaBot-v0.1.0-windows-x64-full/templates/help.menu/template.test.mjs", names)
             self.assertIn("RayleaBot-v0.1.0-windows-x64-full/plugins/builtin/fortune/info.json", names)
             self.assertIn("RayleaBot-v0.1.0-windows-x64-full/plugins/builtin/fortune/main.py", names)
-            self.assertIn(
-                "RayleaBot-v0.1.0-windows-x64-full/plugins/runtime/python/rayleabot_runtime/__init__.py",
-                names,
-            )
-            self.assertIn(
-                "RayleaBot-v0.1.0-windows-x64-full/plugins/runtime/python/rayleabot_runtime/plugin.py",
-                names,
-            )
-            self.assertNotIn(
-                "RayleaBot-v0.1.0-windows-x64-full/plugins/runtime/python/tests/test_runtime.py",
-                names,
-            )
-            self.assertNotIn(
-                "RayleaBot-v0.1.0-windows-x64-full/plugins/runtime/python/pyproject.toml",
-                names,
-            )
+            self.assertFalse(any("/plugins/runtime/" in name for name in names))
             self.assertNotIn(
                 "RayleaBot-v0.1.0-windows-x64-full/sdk/python/pyproject.toml",
                 names,
@@ -273,7 +242,6 @@ class ReleaseToolTests(unittest.TestCase):
             launcher_bundle = temp / "linux-unpacked"
             web_dist = temp / "web-dist"
             builtin = temp / "builtin"
-            python_plugin_runtime = temp / "python-plugin-runtime"
             deps = temp / ".deps"
             templates = temp / "templates"
             default_config = temp / "config" / "default.yaml"
@@ -300,7 +268,6 @@ class ReleaseToolTests(unittest.TestCase):
             (templates / "status.panel" / "template.json").write_text("{}", encoding="utf-8")
             default_config.parent.mkdir(parents=True, exist_ok=True)
             default_config.write_text("schema_version: \"2\"\n", encoding="utf-8")
-            write_test_python_plugin_runtime(python_plugin_runtime)
 
             archive_path, _ = release_tool.stage_release_root(
                 artifact_id="linux-x64-full",
@@ -311,7 +278,6 @@ class ReleaseToolTests(unittest.TestCase):
                 server_bin=server_bin,
                 web_dist=web_dist,
                 builtin_dir=builtin,
-                python_plugin_runtime_dir=python_plugin_runtime,
                 deps_dir=deps,
                 templates_dir=templates,
                 default_config=default_config,
@@ -340,7 +306,6 @@ class ReleaseToolTests(unittest.TestCase):
             launcher_bundle = temp / "RayleaLauncher.app"
             web_dist = temp / "web-dist"
             builtin = temp / "builtin"
-            python_plugin_runtime = temp / "python-plugin-runtime"
             deps = temp / ".deps"
             templates = temp / "templates"
             default_config = temp / "config" / "default.yaml"
@@ -368,7 +333,6 @@ class ReleaseToolTests(unittest.TestCase):
             (templates / "status.panel" / "template.json").write_text("{}", encoding="utf-8")
             default_config.parent.mkdir(parents=True, exist_ok=True)
             default_config.write_text("schema_version: \"2\"\n", encoding="utf-8")
-            write_test_python_plugin_runtime(python_plugin_runtime)
 
             archive_path, _ = release_tool.stage_release_root(
                 artifact_id="macos-arm64-full",
@@ -379,7 +343,6 @@ class ReleaseToolTests(unittest.TestCase):
                 server_bin=server_bin,
                 web_dist=web_dist,
                 builtin_dir=builtin,
-                python_plugin_runtime_dir=python_plugin_runtime,
                 deps_dir=deps,
                 templates_dir=templates,
                 default_config=default_config,
@@ -407,7 +370,6 @@ class ReleaseToolTests(unittest.TestCase):
             server_bin = temp / "raylea-server"
             web_dist = temp / "web-dist"
             builtin = temp / "builtin"
-            python_plugin_runtime = temp / "python-plugin-runtime"
             deps = temp / ".deps"
             templates = temp / "templates"
             default_config = temp / "config" / "default.yaml"
@@ -431,7 +393,6 @@ class ReleaseToolTests(unittest.TestCase):
             (templates / "status.panel" / "template.json").write_text("{}", encoding="utf-8")
             default_config.parent.mkdir(parents=True, exist_ok=True)
             default_config.write_text("schema_version: \"2\"\n", encoding="utf-8")
-            write_test_python_plugin_runtime(python_plugin_runtime)
             systemd_file.write_text("[Service]\nExecStart=/opt/raylea/raylea-server\n", encoding="utf-8")
 
             archive_path, _ = release_tool.stage_release_root(
@@ -443,7 +404,6 @@ class ReleaseToolTests(unittest.TestCase):
                 server_bin=server_bin,
                 web_dist=web_dist,
                 builtin_dir=builtin,
-                python_plugin_runtime_dir=python_plugin_runtime,
                 deps_dir=deps,
                 templates_dir=templates,
                 default_config=default_config,

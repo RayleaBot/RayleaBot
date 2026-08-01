@@ -1,0 +1,75 @@
+name: Publish plugin packages
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: publish-plugin-packages
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    environment: package-registries
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24.18.0"
+          cache: npm
+          cache-dependency-path: plugins/runtime/nodejs/package-lock.json
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Verify package versions
+        shell: bash
+        run: |
+          node -e "const runtime=require('./plugins/runtime/nodejs/package.json'); const sdk=require('./sdk/nodejs/package.json'); if (runtime.version !== sdk.version || sdk.dependencies['@rayleabot/plugin-runtime'] !== runtime.version) process.exit(1)"
+          python - <<'PY'
+          import pathlib
+          import tomllib
+
+          runtime = tomllib.loads(pathlib.Path("plugins/runtime/python/pyproject.toml").read_text(encoding="utf-8"))["project"]
+          sdk = tomllib.loads(pathlib.Path("sdk/python/pyproject.toml").read_text(encoding="utf-8"))["project"]
+          expected = f"rayleabot-plugin-runtime=={runtime['version']}"
+          if runtime["version"] != sdk["version"] or expected not in sdk["dependencies"]:
+              raise SystemExit("Python SDK and runtime versions are not aligned")
+          PY
+
+      - name: Build and test Node.js runtime
+        working-directory: plugins/runtime/nodejs
+        run: |
+          npm ci
+          npm run build
+          npm run typecheck
+          node --test tests/*.test.mjs
+
+      - name: Build and test Python packages
+        run: |
+          python -m pip install --disable-pip-version-check build
+          python -m unittest discover -s plugins/runtime/python/tests
+          python -m unittest discover -s sdk/python/tests
+          python -m build --outdir dist/python plugins/runtime/python
+          python -m build --outdir dist/python sdk/python
+
+      - name: Publish Node.js runtime
+        run: npm publish ./plugins/runtime/nodejs --access public
+
+      - name: Publish Node.js SDK
+        run: npm publish ./sdk/nodejs --access public
+
+      - name: Publish Python runtime and SDK
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: dist/python
