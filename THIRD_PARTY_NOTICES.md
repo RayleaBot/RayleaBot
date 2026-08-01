@@ -240,7 +240,7 @@ RayleaBot is licensed under AGPL-3.0-only. The components below retain their own
 | npm:web | framer-motion | 12.42.2 | MIT |
 | npm:web | fsevents | 2.3.3 | MIT |
 | npm:web | hookable | 5.5.3 | MIT |
-| npm:web | immutable | 5.1.5 | MIT |
+| npm:web | immutable | 5.1.8 | MIT |
 | npm:web | is-extglob | 2.1.1 | MIT |
 | npm:web | is-glob | 4.0.3 | MIT |
 | npm:web | is-plain-object | 3.0.1 | MIT |
@@ -281,8 +281,7 @@ RayleaBot is licensed under AGPL-3.0-only. The components below retain their own
 | npm:web | pinia | 3.0.4 | MIT |
 | npm:web | pkg-types | 1.3.1 | MIT |
 | npm:web | pkg-types | 2.3.1 | MIT |
-| npm:web | postcss | 8.5.15 | MIT |
-| npm:web | postcss | 8.5.16 | MIT |
+| npm:web | postcss | 8.5.18 | MIT |
 | npm:web | quansync | 0.2.11 | MIT |
 | npm:web | readdirp | 5.0.0 | MIT |
 | npm:web | resize-observer-polyfill | 1.5.1 | MIT |
@@ -10156,7 +10155,7 @@ Applies to: ast-kit@2.2.0, magic-string-ast@1.0.3
 
 ### MIT (bed3c32964b7)
 
-Applies to: immutable@5.1.5
+Applies to: immutable@5.1.8
 
     [LICENSE]
     MIT License
@@ -10935,7 +10934,7 @@ Applies to: @fluentui/keyboard-keys@9.0.8
 
 ### MIT (e72c7ab85e59)
 
-Applies to: postcss@8.5.15, postcss@8.5.16
+Applies to: postcss@8.5.18
 
     [LICENSE]
     The MIT License (MIT)

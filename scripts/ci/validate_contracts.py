@@ -981,9 +981,11 @@ def validate_baseline() -> None:
             "overrides": {
                 "esbuild": "0.28.1",
                 "glob": "10.5.0",
+                "immutable": "5.1.8",
                 "js-cookie": "3.0.7",
                 "js-yaml": "4.2.0",
                 "picomatch": "4.0.4",
+                "postcss": "8.5.18",
             },
         },
         ROOT / "launcher" / "package.json": {
@@ -1027,7 +1029,7 @@ def validate_baseline() -> None:
         if workspace_config.get("supportedArchitectures") != {
             "os": ["win32", "linux", "darwin"],
             "cpu": ["x64", "arm64"],
-            "libc": ["glibc"],
+            "libc": ["glibc", "musl"],
         }:
             fail(f"{workspace_path.relative_to(ROOT)} supportedArchitectures drifted")
         if workspace_config.get("allowBuilds") != expected_workspace["allowBuilds"]:

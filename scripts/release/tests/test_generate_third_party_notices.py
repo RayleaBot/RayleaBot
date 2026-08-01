@@ -11,6 +11,15 @@ import generate_third_party_notices as notices
 
 
 class ThirdPartyNoticeTests(unittest.TestCase):
+    def test_pnpm_license_inputs_cover_supported_libc_variants(self) -> None:
+        for project in ("web", "launcher"):
+            contents = (ROOT / project / "pnpm-workspace.yaml").read_text(encoding="utf-8")
+            architecture_block = contents.split("supportedArchitectures:", 1)[1].split("\nallowBuilds:", 1)[0]
+
+            with self.subTest(project=project):
+                self.assertIn("    - glibc", architecture_block)
+                self.assertIn("    - musl", architecture_block)
+
     def test_node_package_uses_declared_license_when_file_is_absent(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             package_dir = Path(tmp) / "package"
