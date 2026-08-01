@@ -14,15 +14,15 @@ func TestExamplePluginManifestsMatchContract(t *testing.T) {
 
 	validator := compileSchema(t, filepath.Join("..", "contracts", "plugin-info.schema.json"))
 	manifestPaths := []string{
-		filepath.Join("..", "examples", "plugins", "echo-python", "info.json"),
+		filepath.Join("..", "examples", "plugins", "echo-go", "info.json"),
 		filepath.Join("..", "examples", "plugins", "example-config-panel", "info.json"),
 		filepath.Join("..", "examples", "plugins", "example-capability-parameters", "info.json"),
+		filepath.Join("..", "examples", "plugins", "example-governance-control", "info.json"),
 		filepath.Join("..", "examples", "plugins", "example-plugin-list", "info.json"),
 		filepath.Join("..", "examples", "plugins", "example-render-card", "info.json"),
 		filepath.Join("..", "examples", "plugins", "example-scheduler", "info.json"),
 		filepath.Join("..", "examples", "plugins", "example-webhook", "info.json"),
-		filepath.Join("..", "examples", "plugins", "hello-python", "info.json"),
-		filepath.Join("..", "examples", "plugins", "hello-node", "info.json"),
+		filepath.Join("..", "examples", "plugins", "hello-go", "info.json"),
 		filepath.Join("..", "examples", "plugins", "notice-logger", "info.json"),
 	}
 
@@ -49,8 +49,8 @@ func TestExamplePluginManifestsDeclareExpectedRuntimeCapabilities(t *testing.T) 
 		wantCapabilityParameters map[string][]string
 	}{
 		{
-			name:             "echo python",
-			manifestPath:     filepath.Join("..", "examples", "plugins", "echo-python", "info.json"),
+			name:             "echo go",
+			manifestPath:     filepath.Join("..", "examples", "plugins", "echo-go", "info.json"),
 			wantCapabilities: []string{"event.subscribe", "message.send"},
 		},
 		{

@@ -11,11 +11,10 @@ response:
       id: example-config-panel
       name: Example Config Panel
       role: example
-      version: 0.1.0
-      runtime: python
-      type: managed_runtime
-      entry: main.py
-      description: Python example plugin demonstrating config.read and config.write.
+      version: 0.2.0
+      runtime: go
+      entry: bin/example-config-panel
+      description: Go example plugin demonstrating config.read and config.write.
       author: raylea
       license: MIT
       default_config:
@@ -28,10 +27,10 @@ response:
         pages:
           - id: config
             label: 配置页面
-            entry: web/index.html
+            entry: ui/index.html
           - id: secrets
             label: 密钥设置
-            entry: web/secrets.html
+            entry: ui/index.html
       state: disabled
       source:
         root: examples/plugins

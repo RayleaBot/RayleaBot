@@ -3,11 +3,13 @@ package cli
 import (
 	"context"
 	"os"
+	"strings"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/deps"
 	"github.com/RayleaBot/RayleaBot/server/internal/recovery"
 	"github.com/RayleaBot/RayleaBot/server/internal/storage"
+	"gopkg.in/yaml.v3"
 )
 
 type DoctorIssue struct {
@@ -77,6 +79,7 @@ func BuildDoctorReport(cmd Command) DoctorReport {
 			Severity: "ok",
 			Summary:  "配置文件可访问：" + configPathDisplay,
 		})
+		issues = append(issues, retiredPluginRuntimeConfigIssues(cmd.ConfigPath)...)
 	}
 
 	if err := validateConfigSchema(cmd.SchemaPath); err != nil {
@@ -125,9 +128,7 @@ func BuildDoctorReport(cmd Command) DoctorReport {
 		issues = append(issues, depsManifestDoctorIssues(err)...)
 	} else {
 		issues = append(issues, depsManifestPlatformIssue(manifest, currentPlatform))
-		issues = append(issues, runtimeMetadataIssue(manifest, currentPlatform, "python-runtime", "Python 运行环境", "deps.python_runtime_metadata", "deps.python_runtime_metadata_incomplete"))
-		issues = append(issues, runtimeMetadataIssue(manifest, currentPlatform, "nodejs-runtime", "Node.js / npm 环境", "deps.nodejs_runtime_metadata", "deps.nodejs_runtime_metadata_incomplete"))
-		issues = append(issues, managedRuntimeDoctorIssues(repoRoot)...)
+		issues = append(issues, chromiumMetadataIssue(manifest, currentPlatform))
 	}
 
 	report := DoctorReport{Issues: issues}
@@ -136,6 +137,40 @@ func BuildDoctorReport(cmd Command) DoctorReport {
 		report.RecoverySummary = summary
 	}
 	return report
+}
+
+func retiredPluginRuntimeConfigIssues(configPath string) []DoctorIssue {
+	payload, err := os.ReadFile(configPath)
+	if err != nil {
+		return nil
+	}
+	var document map[string]any
+	if yaml.Unmarshal(payload, &document) != nil {
+		return nil
+	}
+	runtimeSection, ok := document["runtime"].(map[string]any)
+	if !ok {
+		return nil
+	}
+	retired := make([]string, 0, 3)
+	for _, key := range []string{
+		"nodejs_max_old_space_size_mb",
+		"dependency_install_timeout_seconds",
+		"max_concurrent_dependency_installs",
+	} {
+		if _, exists := runtimeSection[key]; exists {
+			retired = append(retired, "runtime."+key)
+		}
+	}
+	if len(retired) == 0 {
+		return nil
+	}
+	return []DoctorIssue{{
+		Code:        "config.retired_plugin_runtime_keys",
+		Severity:    "error",
+		Summary:     "配置仍包含已退役的 Python/Node.js 插件运行时键：" + strings.Join(retired, "、"),
+		Remediation: "删除这些键；Go 插件 artifact 不使用语言运行时或依赖安装配置。",
+	}}
 }
 
 func depsManifestDoctorIssues(err error) []DoctorIssue {

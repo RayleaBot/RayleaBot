@@ -3,7 +3,7 @@
   "case": "ok",
   "description": "The iframe may request an immediate scheduler job trigger.",
   "input": {
-    "version": "1",
+    "version": "2",
     "source": "plugin_management_ui",
     "type": "scheduler.trigger",
     "request_id": "req_scheduler_trigger_0001",

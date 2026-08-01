@@ -5,11 +5,10 @@
     "id": "game-guide",
     "name": "Game Guide",
     "version": "1.0.0",
-    "manifest_version": "1",
+    "manifest_version": "2",
     "plugin_protocol_version": "1",
-    "type": "managed_runtime",
-    "runtime": "python",
-    "entry": "main.py",
+    "runtime": "go",
+    "entry": "bin/game-guide",
     "license": "MIT",
     "description": "Game guide plugin with command pattern declarations",
     "author": "raylea",
@@ -26,6 +25,11 @@
         "usage": "*<角色名>攻略",
         "permission": "everyone"
       }
+    ],
+    "platforms": [
+      "windows-x64",
+      "linux-x64",
+      "macos-arm64"
     ]
   },
   "expect": {

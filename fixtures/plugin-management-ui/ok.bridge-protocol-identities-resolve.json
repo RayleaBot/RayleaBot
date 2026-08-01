@@ -3,7 +3,7 @@
   "case": "ok",
   "description": "The iframe may request subscriber identity resolution for selected targets.",
   "input": {
-    "version": "1",
+    "version": "2",
     "source": "plugin_management_ui",
     "type": "protocol.identities.resolve",
     "request_id": "req_protocol_identities_0001",

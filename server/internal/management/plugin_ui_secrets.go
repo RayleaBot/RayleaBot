@@ -24,17 +24,12 @@ func (h *PluginManagementUIHandlers) HandlePluginSecretsGet() http.HandlerFunc {
 			httpapi.WriteError(w, r, http.StatusInternalServerError, "platform.internal_error", "内部错误", "errors.platform.internal_error", nil)
 			return
 		}
-
-		values, err := h.readPluginSecrets(r.Context(), snapshot.PluginID)
+		configured, err := h.readPluginSecretStatus(r.Context(), snapshot.PluginID)
 		if err != nil {
 			httpapi.WriteError(w, r, http.StatusInternalServerError, "platform.internal_error", "内部错误", "errors.platform.internal_error", nil)
 			return
 		}
-
-		httpapi.WriteJSON(w, http.StatusOK, PluginSecretsResponse{
-			PluginID: snapshot.PluginID,
-			Values:   values,
-		})
+		httpapi.WriteJSON(w, http.StatusOK, PluginSecretsResponse{PluginID: snapshot.PluginID, Configured: configured})
 	}
 }
 
@@ -48,19 +43,17 @@ func (h *PluginManagementUIHandlers) HandlePluginSecretsPut() http.HandlerFunc {
 			httpapi.WriteError(w, r, http.StatusInternalServerError, "platform.internal_error", "内部错误", "errors.platform.internal_error", nil)
 			return
 		}
-
 		var req pluginSecretsRequest
 		decoder := json.NewDecoder(r.Body)
 		decoder.DisallowUnknownFields()
-		if err := decoder.Decode(&req); err != nil || req.Values == nil {
+		if err := decoder.Decode(&req); err != nil || len(req.Values) == 0 {
 			httpapi.WriteError(w, r, http.StatusBadRequest, "platform.invalid_request", "请求参数不合法", "errors.platform.invalid_request", nil)
 			return
 		}
-
-		changed := map[string]struct{}{}
-		for key, value := range req.Values {
-			key = strings.TrimSpace(key)
-			if !isPluginSecretKey(key) {
+		changed := make(map[string]struct{}, len(req.Values))
+		for rawKey, value := range req.Values {
+			key := strings.TrimSpace(rawKey)
+			if !isPluginSecretKey(key) || value == "" {
 				httpapi.WriteError(w, r, http.StatusBadRequest, "platform.invalid_request", "请求参数不合法", "errors.platform.invalid_request", nil)
 				return
 			}
@@ -75,12 +68,40 @@ func (h *PluginManagementUIHandlers) HandlePluginSecretsPut() http.HandlerFunc {
 			}
 			changed[key] = struct{}{}
 		}
-		for _, key := range req.DeletedKeys {
-			key = strings.TrimSpace(key)
-			if key == "" {
-				continue
-			}
+		configured, err := h.readPluginSecretStatus(r.Context(), snapshot.PluginID)
+		if err != nil {
+			httpapi.WriteError(w, r, http.StatusInternalServerError, "platform.internal_error", "内部错误", "errors.platform.internal_error", nil)
+			return
+		}
+		httpapi.WriteJSON(w, http.StatusOK, PluginSecretsUpdateResponse{PluginID: snapshot.PluginID, ChangedKeys: sortedStringSet(changed), Configured: configured})
+	}
+}
+
+func (h *PluginManagementUIHandlers) HandlePluginSecretsDelete() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		snapshot, ok := h.resolveSettingsSnapshot(w, r)
+		if !ok {
+			return
+		}
+		if h.secrets == nil {
+			httpapi.WriteError(w, r, http.StatusInternalServerError, "platform.internal_error", "内部错误", "errors.platform.internal_error", nil)
+			return
+		}
+		var req pluginSecretsDeleteRequest
+		decoder := json.NewDecoder(r.Body)
+		decoder.DisallowUnknownFields()
+		if err := decoder.Decode(&req); err != nil || len(req.Keys) == 0 {
+			httpapi.WriteError(w, r, http.StatusBadRequest, "platform.invalid_request", "请求参数不合法", "errors.platform.invalid_request", nil)
+			return
+		}
+		changed := make(map[string]struct{}, len(req.Keys))
+		for _, rawKey := range req.Keys {
+			key := strings.TrimSpace(rawKey)
 			if !isPluginSecretKey(key) {
+				httpapi.WriteError(w, r, http.StatusBadRequest, "platform.invalid_request", "请求参数不合法", "errors.platform.invalid_request", nil)
+				return
+			}
+			if _, duplicate := changed[key]; duplicate {
 				httpapi.WriteError(w, r, http.StatusBadRequest, "platform.invalid_request", "请求参数不合法", "errors.platform.invalid_request", nil)
 				return
 			}
@@ -90,46 +111,35 @@ func (h *PluginManagementUIHandlers) HandlePluginSecretsPut() http.HandlerFunc {
 			}
 			changed[key] = struct{}{}
 		}
-
-		values, err := h.readPluginSecrets(r.Context(), snapshot.PluginID)
+		configured, err := h.readPluginSecretStatus(r.Context(), snapshot.PluginID)
 		if err != nil {
 			httpapi.WriteError(w, r, http.StatusInternalServerError, "platform.internal_error", "内部错误", "errors.platform.internal_error", nil)
 			return
 		}
-
-		httpapi.WriteJSON(w, http.StatusOK, PluginSecretsUpdateResponse{
-			PluginID:    snapshot.PluginID,
-			ChangedKeys: sortedStringSet(changed),
-			Values:      values,
-		})
+		for key := range changed {
+			if _, exists := configured[key]; !exists {
+				configured[key] = false
+			}
+		}
+		httpapi.WriteJSON(w, http.StatusOK, PluginSecretsUpdateResponse{PluginID: snapshot.PluginID, ChangedKeys: sortedStringSet(changed), Configured: configured})
 	}
 }
 
-func (h *PluginManagementUIHandlers) readPluginSecrets(ctx context.Context, pluginID string) (map[string]string, error) {
+func (h *PluginManagementUIHandlers) readPluginSecretStatus(ctx context.Context, pluginID string) (map[string]bool, error) {
 	keys, err := h.secrets.List(ctx)
 	if err != nil {
 		return nil, err
 	}
-
 	prefix := pluginSecretStorageKey(pluginID, "")
-	values := make(map[string]string)
+	values := make(map[string]bool)
 	for _, storageKey := range keys {
 		if !strings.HasPrefix(storageKey, prefix) {
 			continue
 		}
 		key := strings.TrimPrefix(storageKey, prefix)
-		if strings.TrimSpace(key) == "" {
-			continue
+		if strings.TrimSpace(key) != "" {
+			values[key] = true
 		}
-		value, err := h.secrets.Get(ctx, storageKey)
-		if err != nil {
-			return nil, err
-		}
-		plaintext, err := secrets.OpenString(ctx, h.secrets, value)
-		if err != nil {
-			return nil, err
-		}
-		values[key] = plaintext
 	}
 	return values, nil
 }

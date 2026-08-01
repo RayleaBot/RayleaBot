@@ -31,6 +31,8 @@ const (
 	codePluginProtocolViolation = "plugin.protocol_violation"
 	codePluginShutdownTimeout   = "plugin.shutdown_timeout"
 	codePluginStopping          = "plugin.stopping"
+	codePluginArtifactInvalid   = "plugin.artifact_invalid"
+	codePluginPlatformMismatch  = "plugin.platform_mismatch"
 )
 
 type Error struct {

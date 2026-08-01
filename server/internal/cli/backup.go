@@ -82,7 +82,7 @@ func runBackup(cmd Command) int {
 		skippedDatabasePaths := []string{databasePath, databasePath + "-wal", databasePath + "-shm"}
 		count, addErr := addDirToZipFiltered(w, dataRoot, "data", func(path string, _ os.DirEntry) bool {
 			for _, skipped := range skippedDatabasePaths {
-				if skipped != "" && strings.EqualFold(filepath.Clean(path), filepath.Clean(skipped)) {
+				if skipped != "" && sameBackupPath(path, skipped) {
 					return true
 				}
 			}
@@ -128,6 +128,15 @@ func runBackup(cmd Command) int {
 
 	cmd.Logger.Info(fmt.Sprintf("备份完成：%s，目录 %d 个，插件 %d 个", backupPathDisplay, len(directories), len(manifest.Plugins)), "path", backupPathDisplay, "directories", len(directories), "plugins", len(manifest.Plugins))
 	return 0
+}
+
+func sameBackupPath(left, right string) bool {
+	leftAbsolute, leftErr := filepath.Abs(left)
+	rightAbsolute, rightErr := filepath.Abs(right)
+	if leftErr != nil || rightErr != nil {
+		return strings.EqualFold(filepath.Clean(left), filepath.Clean(right))
+	}
+	return strings.EqualFold(filepath.Clean(leftAbsolute), filepath.Clean(rightAbsolute))
 }
 
 func fileExists(path string) bool {

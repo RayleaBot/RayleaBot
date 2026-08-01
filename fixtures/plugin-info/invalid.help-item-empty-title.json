@@ -5,11 +5,10 @@
     "id": "bad-help",
     "name": "Bad Help",
     "version": "1.0.0",
-    "manifest_version": "1",
+    "manifest_version": "2",
     "plugin_protocol_version": "1",
-    "type": "managed_runtime",
-    "runtime": "python",
-    "entry": "main.py",
+    "runtime": "go",
+    "entry": "bin/bad-help",
     "license": "MIT",
     "capabilities": [
       "event.subscribe"
@@ -25,7 +24,12 @@
           ]
         }
       ]
-    }
+    },
+    "platforms": [
+      "windows-x64",
+      "linux-x64",
+      "macos-arm64"
+    ]
   },
   "expect": {
     "valid": false

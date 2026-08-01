@@ -6,7 +6,7 @@
 
 ### Fixture-ready 正式契约
 
-当前已有 12 份 fixture-ready formal contracts：
+当前已有 13 份 fixture-ready formal contracts：
 
 - `backup-manifest.schema.json`
 - `config.user.schema.json`
@@ -15,6 +15,7 @@
 - `web-api.openapi.yaml`
 - `websocket-events.yaml`
 - `plugin-info.schema.json`
+- `plugin-artifact.schema.json`
 - `plugin-management-ui.yaml`
 - `plugin-management-ui-bridge.schema.json`
 - `plugin-protocol.schema.json`
@@ -32,7 +33,7 @@
   - 恢复包版本、core / config / db schema 兼容性判断边界，以及插件库存摘要
 - `deps-manifest.schema.json`
   - `.deps/manifest.json` 的正式机器可校验结构
-  - 图片渲染 Chromium、Python / Node.js 运行环境资源的可信来源列表、SHA256、归档格式与相对入口
+  - 图片渲染 Chromium 的可信来源列表、SHA256、归档格式与相对入口
 - `error-codes.yaml`
   - 统一错误码命名、默认消息资源键、HTTP 语义和适用范围
 - `web-api.openapi.yaml`
@@ -45,17 +46,22 @@
   - `events.received` 的通用 `event_type + summary` 分支当前包含 `governance.changed`
 - `plugin-info.schema.json`
   - 插件 `info.json` 的安装前静态校验、兼容性门禁、能力声明、能力参数和迁移判断边界
-  - 当前已冻结 `default_config`、`default_config_file`、`role`、`icon`、`repo`、`homepage`、`keywords`、`screenshots`、`system_dependencies`、`platforms`、`management_ui`、`commands`、`dynamic_commands`、`command_patterns`、`render_templates`、`help` 与插件详情页投影所需 metadata
+  - 固定 `manifest_version: "2"`、`runtime: "go"`、`plugin_protocol_version: "1"`；`entry` 是 `bin/` 下无扩展名的逻辑路径，`platforms` 必填
+  - 当前已冻结 `default_config`、`default_config_file`、`role`、`icon`、`repo`、`homepage`、`keywords`、`screenshots`、`platforms`、`management_ui`、`commands`、`dynamic_commands`、`command_patterns`、`render_templates`、`help` 与插件详情页投影所需 metadata
   - `capabilities` 使用正式 capability 集合，覆盖基础 local action、治理 local action、冻结的 OneBot 单动作能力与 3 个正式 provider 扩展动作
   - `capability_parameters` 表达 `http.request`、`storage.file` 与 `event.expose_webhook` 的边界参数
   - `concurrency` 省略时按 `1` 处理，声明值用于插件事件并发 opt-in
   - command `permission` 省略时使用 `permission.default_level`
+- `plugin-artifact.schema.json`
+  - 平台插件包内 `artifact.json` 的正式文件清单、目标平台、manifest 摘要、文件角色、大小与 SHA-256 边界
+  - `artifact.json` 不枚举自身；安装器额外要求文件全集精确匹配、且只有一个后端文件，管理页入口必须属于 UI 文件集合
 - `plugin-management-ui.yaml`
-  - 插件内置管理页的公共静态资源路由前缀
-  - 当前固定为 `/plugin-ui/{plugin_id}/...`
+  - 插件内置管理页的独立来源、只读静态资源、CSP、cookie、CORS 和管理 API 隔离边界
+  - 本机模式默认派生 `p-<id-hash>.plugins.localhost`；LAN 与反向代理模式要求显式配置 `web.plugin_ui_origin_template`
 - `plugin-management-ui-bridge.schema.json`
-  - Web 宿主页与插件内置 iframe 的正式桥接消息结构
-  - 当前固定 `page.ready`、`host.init`、`settings.reload`、`settings.save`、`settings.changed`、`secrets.reload`、`secrets.save`、`secrets.changed`、`scheduler.trigger`、`scheduler.triggered`、`render_template.open`、`protocol.targets.reload`、`protocol.targets.changed`、`protocol.identities.resolve`、`protocol.identities.resolved`、`plugin.action.invoke`、`plugin.action.result` 与 `error`
+  - Web 宿主页与插件内置 iframe 的 bridge v2 消息结构
+  - `page.ready` / `host.connect` 只用于校验窗口、来源和一次性 nonce 并转交一个 `MessagePort`，后续消息仅允许通过绑定端口
+  - secret 只暴露是否已配置，写操作仅支持覆盖与显式删除；`ui.resize` 的宿主有效范围为 320–1600px
 - `plugin-protocol.schema.json`
   - 插件 Runtime JSONL 协议
   - 当前冻结 `init`、`init_progress`、`init_ack`、`event`、`result`、`error`、`ping`、`pong`、`shutdown`

@@ -11,9 +11,9 @@
     "version",
     "manifest_version",
     "plugin_protocol_version",
-    "type",
     "runtime",
     "entry",
+    "platforms",
     "license"
   ],
   "properties": {
@@ -33,34 +33,24 @@
     },
     "manifest_version": {
       "type": "string",
-      "const": "1",
-      "description": "Manifest structure version. v0.1 is fixed to 1."
+      "const": "2",
+      "description": "Manifest structure version for prebuilt Go plugin artifacts."
     },
     "plugin_protocol_version": {
       "type": "string",
       "const": "1",
       "description": "Plugin JSONL protocol version required by this package."
     },
-    "type": {
-      "type": "string",
-      "enum": [
-        "managed_runtime",
-        "dev_source"
-      ],
-      "description": "Plugin package form supported by v0.1."
-    },
     "runtime": {
       "type": "string",
-      "enum": [
-        "python",
-        "nodejs"
-      ],
-      "description": "Managed runtime family supported by v0.1."
+      "const": "go",
+      "description": "The only supported plugin backend runtime."
     },
     "entry": {
       "type": "string",
       "minLength": 1,
-      "description": "Relative plugin entry path inside the package root."
+      "pattern": "^bin/[A-Za-z0-9_-]+$",
+      "description": "Extensionless package-relative backend path. Windows resolves the executable by appending .exe."
     },
     "license": {
       "type": "string",
@@ -76,15 +66,6 @@
       "type": "string",
       "minLength": 1,
       "description": "Single author identifier."
-    },
-    "sdk_min_version": {
-      "$ref": "#/$defs/semver",
-      "description": "Minimum supported official SDK version, when the plugin depends on an official SDK helper layer."
-    },
-    "runtime_version": {
-      "type": "string",
-      "minLength": 1,
-      "description": "Runtime minimum-version expression. This contract keeps the field as a narrow string."
     },
     "min_core_version": {
       "$ref": "#/$defs/semver",
@@ -102,7 +83,8 @@
     },
     "platforms": {
       "type": "array",
-      "description": "Optional platform compatibility filter used during install-time gating.",
+      "description": "Required platform compatibility set. A platform-specific artifact must target one declared value.",
+      "minItems": 1,
       "items": {
         "type": "string",
         "enum": [
@@ -193,15 +175,6 @@
       "$ref": "#/$defs/plugin_help",
       "description": "Optional plugin-authored help menu metadata. The platform filters help items with the same caller permission rules used for commands."
     },
-    "system_dependencies": {
-      "type": "array",
-      "description": "Optional external system prerequisites declared for operator visibility only.",
-      "items": {
-        "type": "string",
-        "minLength": 1
-      },
-      "uniqueItems": true
-    },
     "capabilities": {
       "type": "array",
       "description": "Platform capabilities the plugin intends to use. Formal values cover event subscription and raw payload access, shared local actions, frozen OneBot single-action capabilities, and the current provider extension actions.",
@@ -274,31 +247,6 @@
         }
       ],
       "description": "Optional package-relative JSON object file used as initial non-sensitive plugin config on first enable."
-    },
-    "dependencies": {
-      "type": "object",
-      "description": "Language-level package dependencies only. Plugin-to-plugin dependencies are intentionally out of scope for v0.1.",
-      "additionalProperties": false,
-      "properties": {
-        "python": {
-          "type": "array",
-          "items": {
-            "type": "string",
-            "minLength": 1
-          }
-        },
-        "nodejs": {
-          "type": "array",
-          "items": {
-            "type": "string",
-            "minLength": 1
-          }
-        }
-      }
-    },
-    "require_install_scripts": {
-      "type": "boolean",
-      "description": "Explicit high-risk install-path declaration for packages that require npm lifecycle scripts or local build steps."
     },
     "commands": {
       "type": "array",
@@ -724,10 +672,10 @@
     }
   },
   "x-fixtures": [
-    "fixtures/plugin-info/ok.minimal-python.json",
+    "fixtures/plugin-info/ok.minimal-go.json",
     "fixtures/plugin-info/ok.wider-and-provider-capabilities.json",
     "fixtures/plugin-info/ok.governance-capabilities.json",
-    "fixtures/plugin-info/invalid.unsupported-binary-runtime.json",
+    "fixtures/plugin-info/invalid.legacy-runtime.json",
     "fixtures/plugin-info/edge.capability-parameters-and-migration.json",
     "fixtures/plugin-info/ok.plugin-with-commands.json",
     "fixtures/plugin-info/ok.plugin-with-command-patterns.json",
@@ -755,7 +703,7 @@
     "fixtures/plugin-info/invalid.render-template-parent-path.json",
     "fixtures/plugin-info/invalid.metadata-insecure-urls.json",
     "fixtures/plugin-info/invalid.screenshots-invalid-shape.json",
-    "fixtures/plugin-info/invalid.system-dependencies-duplicates.json"
+    "fixtures/plugin-info/invalid.legacy-system-dependencies.json"
   ],
-  "$comment": "The manifest stays focused on install-time validation, declared capabilities, capability parameters, management role labeling, source metadata, default plugin config seeding, plugin-local management page entries, command and command-pattern declarations, package-local render templates, migration boundaries, and opt-in event concurrency. The formal capability set covers event.subscribe and event.raw_payload, shared local actions including governance control, frozen OneBot single-action capabilities, and the current provider extension actions. Binary runtime support remains outside this frozen surface."
+  "$comment": "Manifest v2 describes one prebuilt Go plugin package. Source-language dependencies, install scripts, and managed language runtimes are intentionally outside the contract; artifact.json supplies the platform-specific file inventory and integrity boundary."
 }

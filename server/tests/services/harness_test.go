@@ -515,10 +515,6 @@ func newPluginManagementUIHTTPHandlers(deps pluginManagementUIHTTPDeps) *pluginM
 	})}
 }
 
-func (h *pluginManagementUIHTTPHandlers) handlePluginManagementUIStatic() http.HandlerFunc {
-	return h.PluginManagementUIHandlers.HandlePluginManagementUIStatic()
-}
-
 func (h *pluginManagementUIHTTPHandlers) handlePluginSettingsGet() http.HandlerFunc {
 	return h.PluginManagementUIHandlers.HandlePluginSettingsGet()
 }
@@ -533,4 +529,8 @@ func (h *pluginManagementUIHTTPHandlers) handlePluginSecretsGet() http.HandlerFu
 
 func (h *pluginManagementUIHTTPHandlers) handlePluginSecretsPut() http.HandlerFunc {
 	return h.PluginManagementUIHandlers.HandlePluginSecretsPut()
+}
+
+func (h *pluginManagementUIHTTPHandlers) handlePluginSecretsDelete() http.HandlerFunc {
+	return h.PluginManagementUIHandlers.HandlePluginSecretsDelete()
 }

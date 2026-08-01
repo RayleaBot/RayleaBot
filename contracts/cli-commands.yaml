@@ -173,12 +173,11 @@ commands:
       online: true
       offline: true
     description: >
-      检查运行时资源完整性、Python / Node.js / npm 可用性、
-      .deps/ 资源清单一致性、SQLite 数据库可打开性与基础
-      schema 完整性。存在恢复摘要时，doctor 复用同一份
-      recovery_summary 输出，帮助离线排查恢复后的资源、
-      插件与人工处理项。Windows 上额外检查 LongPathsEnabled
-      注册表项。
+      检查 Chromium 资源完整性、.deps/ v4 清单一致性、SQLite
+      数据库可打开性、基础 schema、已安装插件 artifact 与退役
+      插件运行时配置键。存在恢复摘要时，doctor 复用同一份
+      recovery_summary 输出，帮助离线排查恢复后的资源、插件与
+      人工处理项。Windows 上额外检查 LongPathsEnabled 注册表项。
     exit_codes:
       0: 所有检查通过
       1: 存在 WARN 或 ERROR 级别问题

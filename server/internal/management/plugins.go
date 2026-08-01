@@ -41,7 +41,6 @@ type pluginInstallRequest struct {
 	InspectionID         string `json:"inspection_id"`
 	PackageSHA256        string `json:"package_sha256"`
 	TrustedCodeConfirmed bool   `json:"trusted_code_confirmed"`
-	AllowInstallScripts  bool   `json:"allow_install_scripts,omitempty"`
 }
 
 type pluginInstallInspectionRequest struct {
@@ -70,7 +69,30 @@ type pluginInstallInspectionResponse struct {
 	Source         pluginInstallSourceResponse           `json:"source"`
 	Plugin         pluginInstallInspectionPluginResponse `json:"plugin"`
 	Capabilities   []string                              `json:"capabilities"`
-	InstallScripts []string                              `json:"install_scripts"`
+	TargetPlatform string                                `json:"target_platform"`
+	Backend        pluginInstallBackendResponse          `json:"backend"`
+	UI             pluginInstallUIResponse               `json:"ui"`
+	Artifact       pluginArtifactValidationResponse      `json:"artifact"`
+}
+
+type pluginInstallBackendResponse struct {
+	Entry  string `json:"entry"`
+	Path   string `json:"path"`
+	Size   int64  `json:"size"`
+	SHA256 string `json:"sha256"`
+}
+
+type pluginInstallUIResponse struct {
+	Enabled   bool   `json:"enabled"`
+	Entry     string `json:"entry,omitempty"`
+	FileCount int    `json:"file_count"`
+}
+
+type pluginArtifactValidationResponse struct {
+	Valid           bool   `json:"valid"`
+	ArtifactVersion string `json:"artifact_version"`
+	ManifestSHA256  string `json:"manifest_sha256"`
+	FileCount       int    `json:"file_count"`
 }
 
 type DesiredStateController interface {
@@ -200,7 +222,15 @@ func newInstallInspectHandler(catalog plugins.CatalogView, installer plugins.Ins
 				SourceLabel: inspection.SourceLabel,
 			},
 			Capabilities:   append([]string(nil), inspection.Capabilities...),
-			InstallScripts: append([]string(nil), inspection.InstallScripts...),
+			TargetPlatform: inspection.TargetPlatform,
+			Backend: pluginInstallBackendResponse{
+				Entry:  inspection.Backend.Entry,
+				Path:   inspection.Backend.Path,
+				Size:   inspection.Backend.Size,
+				SHA256: inspection.Backend.SHA256,
+			},
+			UI:       pluginInstallUIResponse{Enabled: inspection.UI.Enabled, Entry: inspection.UI.Entry, FileCount: inspection.UI.FileCount},
+			Artifact: pluginArtifactValidationResponse{Valid: inspection.Artifact.Valid, ArtifactVersion: inspection.Artifact.Version, ManifestSHA256: inspection.Artifact.ManifestSHA256, FileCount: inspection.Artifact.FileCount},
 		})
 	}
 }
@@ -233,7 +263,6 @@ func newInstallHandler(catalog plugins.CatalogView, _ *tasks.Registry, installer
 				InspectionID:         req.InspectionID,
 				PackageSHA256:        req.PackageSHA256,
 				TrustedCodeConfirmed: req.TrustedCodeConfirmed,
-				AllowInstallScripts:  req.AllowInstallScripts,
 			})
 			if err != nil {
 				writePluginInstallError(w, r, err)
@@ -283,6 +312,10 @@ func writePluginInstallError(w http.ResponseWriter, r *http.Request, err error) 
 		writeError(w, r, http.StatusRequestEntityTooLarge, "plugin.package_resource_limit_exceeded", "插件包超过资源限制", "errors.plugin.package_resource_limit_exceeded", nil)
 	case pluginservice.InstallErrorCode(err) == "plugin.package_unsafe_entry":
 		writeError(w, r, http.StatusBadRequest, "plugin.package_unsafe_entry", "插件包包含不安全条目", "errors.plugin.package_unsafe_entry", nil)
+	case pluginservice.InstallErrorCode(err) == "plugin.artifact_invalid":
+		writeError(w, r, http.StatusBadRequest, "plugin.artifact_invalid", "插件产物清单或文件完整性校验失败", "errors.plugin.artifact_invalid", nil)
+	case pluginservice.InstallErrorCode(err) == "plugin.platform_mismatch":
+		writeError(w, r, http.StatusConflict, "plugin.platform_mismatch", "插件产物与当前平台不匹配", "errors.plugin.platform_mismatch", nil)
 	case pluginservice.InstallErrorCode(err) == "platform.invalid_request" || pluginservice.InstallErrorCode(err) == "platform.resource_missing":
 		writeError(w, r, http.StatusBadRequest, pluginCodeInvalidRequest, "请求参数不合法", "errors.platform.invalid_request", nil)
 	default:

@@ -49,7 +49,6 @@ type Deps struct {
 	OnRecoveryChange    func(string)
 	RefreshManifest     func(context.Context, string) (plugins.Snapshot, error)
 	SyncRenderTemplates func(context.Context) error
-	PrepareRuntimeDeps  func(context.Context, plugins.Snapshot) error
 }
 
 type Controller struct {
@@ -68,8 +67,6 @@ type Controller struct {
 	onRecoveryChange    func(string)
 	refreshManifest     func(context.Context, string) (plugins.Snapshot, error)
 	syncRenderTemplates func(context.Context) error
-	prepareRuntimeDeps  func(context.Context, plugins.Snapshot) error
-	runtimeDepsMu       sync.Mutex
 
 	lifecycleCtxMu sync.RWMutex
 	lifecycleCtx   context.Context
@@ -79,12 +76,6 @@ type Controller struct {
 }
 
 func NewController(deps Deps) *Controller {
-	prepareRuntimeDeps := deps.PrepareRuntimeDeps
-	if prepareRuntimeDeps == nil {
-		prepareRuntimeDeps = func(ctx context.Context, snapshot plugins.Snapshot) error {
-			return prepareBuiltinDependencies(ctx, deps.RepoRoot, snapshot)
-		}
-	}
 	return &Controller{
 		currentConfig:       deps.CurrentConfig,
 		repoRoot:            deps.RepoRoot,
@@ -101,7 +92,6 @@ func NewController(deps Deps) *Controller {
 		onRecoveryChange:    deps.OnRecoveryChange,
 		refreshManifest:     deps.RefreshManifest,
 		syncRenderTemplates: deps.SyncRenderTemplates,
-		prepareRuntimeDeps:  prepareRuntimeDeps,
 	}
 }
 
@@ -453,15 +443,6 @@ func (c *Controller) startRuntime(ctx context.Context, pluginID, botID string, m
 	if snapshot.DesiredState != "enabled" {
 		_, _ = c.plugins.SetRuntimeState(pluginID, string(pluginruntime.StateStopped))
 		return nil
-	}
-
-	if c.prepareRuntimeDeps != nil {
-		c.runtimeDepsMu.Lock()
-		err := c.prepareRuntimeDeps(ctx, snapshot)
-		c.runtimeDepsMu.Unlock()
-		if err != nil {
-			return fmt.Errorf("prepare plugin runtime dependencies: %w", err)
-		}
 	}
 
 	if err := c.seedPluginDefaultConfig(ctx, snapshot); err != nil {

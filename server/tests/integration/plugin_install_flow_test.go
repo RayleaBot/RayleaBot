@@ -65,7 +65,7 @@ func TestPluginInstallRouteExecutesTaskAndRefreshesCatalog(t *testing.T) {
 	})
 
 	token := issueLoginToken(t, application)
-	sourceDir := writePluginInstallSource(t, filepath.Join(t.TempDir(), "weather-source"), "weather-install", "nodejs", "index.js")
+	sourceDir := writePluginInstallSource(t, filepath.Join(t.TempDir(), "weather-source"), "weather-install")
 
 	server := newManagementTestServer(t, application.Handler())
 	defer server.Close()
@@ -192,50 +192,14 @@ func TestPluginInstallRouteExecutesTaskAndRefreshesCatalog(t *testing.T) {
 	if sourceRef != sourceDir {
 		t.Fatalf("unexpected source_ref metadata: got %q want %q", sourceRef, sourceDir)
 	}
-	if version != "0.1.0" || manifestHash == "" || packageHash == "" {
+	if version != "0.2.0" || manifestHash == "" || packageHash == "" {
 		t.Fatalf("unexpected package metadata values: version=%q manifest_hash=%q package_hash=%q", version, manifestHash, packageHash)
 	}
 }
 
-func writePluginInstallSource(t *testing.T, root, pluginID, runtimeName, entry string) string {
+func writePluginInstallSource(t *testing.T, root, pluginID string) string {
 	t.Helper()
-
-	if err := os.MkdirAll(root, 0o755); err != nil {
-		t.Fatalf("create plugin root: %v", err)
-	}
-
-	manifest := map[string]any{
-		"id":                      pluginID,
-		"name":                    pluginID,
-		"version":                 "0.1.0",
-		"manifest_version":        "1",
-		"plugin_protocol_version": "1",
-		"type":                    "managed_runtime",
-		"runtime":                 runtimeName,
-		"entry":                   entry,
-		"license":                 "MIT",
-		"description":             "test plugin",
-		"author":                  "raylea",
-		"capabilities":            []string{"event.subscribe"},
-	}
-
-	manifestBytes, err := json.MarshalIndent(manifest, "", "  ")
-	if err != nil {
-		t.Fatalf("marshal manifest: %v", err)
-	}
-	if err := os.WriteFile(filepath.Join(root, "info.json"), manifestBytes, 0o644); err != nil {
-		t.Fatalf("write manifest: %v", err)
-	}
-
-	entryContent := "console.log('ok')\n"
-	if runtimeName == "python" {
-		entryContent = "print('ok')\n"
-	}
-	if err := os.WriteFile(filepath.Join(root, entry), []byte(entryContent), 0o644); err != nil {
-		t.Fatalf("write entry: %v", err)
-	}
-
-	return root
+	return testutil.WriteGoPluginArtifact(t, root, pluginID, "0.2.0")
 }
 
 func waitForTaskStatus(t *testing.T, registry *tasks.Registry, taskID string, want tasks.Status) tasks.Snapshot {

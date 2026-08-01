@@ -1,7 +1,10 @@
 package catalog_test
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
+	"io"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -11,6 +14,7 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/app"
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
+	"github.com/RayleaBot/RayleaBot/server/internal/plugins/artifact"
 	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
 	"github.com/RayleaBot/RayleaBot/server/tests/testutil"
 )
@@ -43,7 +47,7 @@ func TestPluginDiscoveryContextUsesPluginDirectoriesOnly(t *testing.T) {
 	configPath := writePersistentYAMLConfig(t, filepath.Join(t.TempDir(), "state.db"))
 	repoRoot := t.TempDir()
 	builtinRoot := filepath.Join(repoRoot, "plugins", "builtin")
-	exampleRoot := filepath.Join(repoRoot, "examples", "plugins", "hello-python")
+	exampleRoot := filepath.Join(repoRoot, "examples", "plugins", "hello-go")
 	for _, dir := range []string{
 		filepath.Join(builtinRoot, "fixture-builtin"),
 		exampleRoot,
@@ -93,7 +97,7 @@ func TestDefaultAppStartupDoesNotRequireContractsDirectory(t *testing.T) {
 	if err := os.MkdirAll(filepath.Dir(configPath), 0o755); err != nil {
 		t.Fatalf("create config dir: %v", err)
 	}
-	if err := os.WriteFile(configPath, []byte("schema_version: \"2\"\n"), 0o644); err != nil {
+	if err := os.WriteFile(configPath, []byte("schema_version: \"3\"\n"), 0o644); err != nil {
 		t.Fatalf("write config: %v", err)
 	}
 
@@ -124,7 +128,7 @@ func TestDiscoverInvalidManifestFromFixture(t *testing.T) {
 
 	rootDir := t.TempDir()
 	validator := compileSchema(t, testutil.RepoPath(t, "contracts", "plugin-info.schema.json"))
-	fixture := loadPluginInfoFixture(t, testutil.RepoPath(t, "fixtures", "plugin-info", "invalid.unsupported-binary-runtime.json"))
+	fixture := loadPluginInfoFixture(t, testutil.RepoPath(t, "fixtures", "plugin-info", "invalid.legacy-runtime.json"))
 	pluginDir := filepath.Join(rootDir, "plugins", "invalid-binary")
 	if err := os.MkdirAll(pluginDir, 0o755); err != nil {
 		t.Fatalf("mkdir %s: %v", pluginDir, err)
@@ -155,8 +159,8 @@ func TestDiscoverInvalidManifestFromFixture(t *testing.T) {
 	}
 
 	snapshot := snapshots[0]
-	if snapshot.PluginID != "unsupported-binary-tool" {
-		t.Fatalf("unexpected plugin_id: got %q want unsupported-binary-tool", snapshot.PluginID)
+	if snapshot.PluginID != "legacy-python-tool" {
+		t.Fatalf("unexpected plugin_id: got %q want legacy-python-tool", snapshot.PluginID)
 	}
 	if snapshot.Valid {
 		t.Fatal("expected invalid snapshot")
@@ -174,7 +178,7 @@ func TestDiscoverPluginIDConflict(t *testing.T) {
 
 	rootDir := t.TempDir()
 	validator := compileSchema(t, testutil.RepoPath(t, "contracts", "plugin-info.schema.json"))
-	fixture := loadPluginInfoFixture(t, testutil.RepoPath(t, "fixtures", "plugin-info", "ok.minimal-python.json"))
+	fixture := loadPluginInfoFixture(t, testutil.RepoPath(t, "fixtures", "plugin-info", "ok.minimal-go.json"))
 
 	firstDir := filepath.Join(rootDir, "plugins", "weather-a")
 	secondDir := filepath.Join(rootDir, "plugins", "weather-b")
@@ -245,7 +249,126 @@ func writePluginManifest(path string, document any) error {
 		return err
 	}
 
-	return os.WriteFile(path, bytes, 0o644)
+	bytes = append(bytes, '\n')
+	if err := os.WriteFile(path, bytes, 0o644); err != nil {
+		return err
+	}
+	manifest, ok := document.(map[string]any)
+	if !ok || manifest["manifest_version"] != "2" || manifest["runtime"] != "go" {
+		return nil
+	}
+	entry, _ := manifest["entry"].(string)
+	pluginID, _ := manifest["id"].(string)
+	pluginVersion, _ := manifest["version"].(string)
+	if entry == "" || pluginID == "" || pluginVersion == "" {
+		return nil
+	}
+	targetPlatform, err := artifact.CurrentPlatform()
+	if err != nil {
+		return err
+	}
+	root := filepath.Dir(path)
+	backendRelative := entry
+	if targetPlatform == "windows-x64" {
+		backendRelative += ".exe"
+	}
+	backendPath := filepath.Join(root, filepath.FromSlash(backendRelative))
+	if err := os.MkdirAll(filepath.Dir(backendPath), 0o755); err != nil {
+		return err
+	}
+	executable, err := os.Executable()
+	if err != nil {
+		return err
+	}
+	if err := copyCatalogTestFile(executable, backendPath); err != nil {
+		return err
+	}
+	if management, ok := manifest["management_ui"].(map[string]any); ok {
+		if pages, ok := management["pages"].([]any); ok {
+			for _, rawPage := range pages {
+				page, _ := rawPage.(map[string]any)
+				entry, _ := page["entry"].(string)
+				if entry == "" {
+					continue
+				}
+				uiPath := filepath.Join(root, filepath.FromSlash(entry))
+				if err := os.MkdirAll(filepath.Dir(uiPath), 0o755); err != nil {
+					return err
+				}
+				if _, err := os.Stat(uiPath); os.IsNotExist(err) {
+					if err := os.WriteFile(uiPath, []byte("<!doctype html>\n"), 0o644); err != nil {
+						return err
+					}
+				}
+			}
+		}
+	}
+	manifestDigest := sha256.Sum256(bytes)
+	files := make([]map[string]any, 0)
+	if err := filepath.WalkDir(root, func(filePath string, entry os.DirEntry, walkErr error) error {
+		if walkErr != nil || entry.IsDir() {
+			return walkErr
+		}
+		relative, err := filepath.Rel(root, filePath)
+		if err != nil {
+			return err
+		}
+		relative = filepath.ToSlash(relative)
+		if relative == "artifact.json" {
+			return nil
+		}
+		content, err := os.ReadFile(filePath)
+		if err != nil {
+			return err
+		}
+		info, err := entry.Info()
+		if err != nil {
+			return err
+		}
+		digest := sha256.Sum256(content)
+		role := "data"
+		switch {
+		case relative == "info.json":
+			role = "manifest"
+		case relative == filepath.ToSlash(backendRelative):
+			role = "backend"
+		case strings.HasPrefix(relative, "web/") || strings.HasPrefix(relative, "ui/"):
+			role = "ui"
+		case strings.HasPrefix(relative, "templates/"):
+			role = "render_template"
+		}
+		files = append(files, map[string]any{"path": relative, "role": role, "size": info.Size(), "sha256": hex.EncodeToString(digest[:])})
+		return nil
+	}); err != nil {
+		return err
+	}
+	artifactDocument := map[string]any{
+		"artifact_version": "1", "plugin_id": pluginID, "plugin_version": pluginVersion,
+		"target_platform": targetPlatform, "manifest_sha256": hex.EncodeToString(manifestDigest[:]), "files": files,
+	}
+	artifactBytes, err := json.MarshalIndent(artifactDocument, "", "  ")
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(filepath.Join(root, "artifact.json"), append(artifactBytes, '\n'), 0o644)
+}
+
+func copyCatalogTestFile(source, destination string) error {
+	input, err := os.Open(source)
+	if err != nil {
+		return err
+	}
+	defer input.Close()
+	output, err := os.OpenFile(destination, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0o755)
+	if err != nil {
+		return err
+	}
+	_, copyErr := io.Copy(output, input)
+	closeErr := output.Close()
+	if copyErr != nil {
+		return copyErr
+	}
+	return closeErr
 }
 
 func TestConflictPathsUseStableSourceOrdering(t *testing.T) {
@@ -253,7 +376,7 @@ func TestConflictPathsUseStableSourceOrdering(t *testing.T) {
 
 	rootDir := t.TempDir()
 	validator := compileSchema(t, testutil.RepoPath(t, "contracts", "plugin-info.schema.json"))
-	fixture := loadPluginInfoFixture(t, testutil.RepoPath(t, "fixtures", "plugin-info", "ok.minimal-python.json"))
+	fixture := loadPluginInfoFixture(t, testutil.RepoPath(t, "fixtures", "plugin-info", "ok.minimal-go.json"))
 
 	for _, dir := range []string{"b", "a"} {
 		pluginDir := filepath.Join(rootDir, "plugins", dir)
@@ -355,12 +478,12 @@ func pluginManifestWithCommand(pluginID string, commandName string) map[string]a
 	return map[string]any{
 		"id":                      pluginID,
 		"name":                    pluginID,
-		"version":                 "0.1.0",
-		"manifest_version":        "1",
+		"version":                 "0.2.0",
+		"manifest_version":        "2",
 		"plugin_protocol_version": "1",
-		"type":                    "managed_runtime",
-		"runtime":                 "python",
-		"entry":                   "main.py",
+		"runtime":                 "go",
+		"entry":                   "bin/" + pluginID,
+		"platforms":               []any{"windows-x64", "linux-x64", "macos-arm64"},
 		"license":                 "MIT",
 		"capabilities":            []any{"event.subscribe", "message.send"},
 		"commands": []any{
@@ -868,9 +991,6 @@ func TestDiscoverManifestRichMetadata(t *testing.T) {
 	if len(snapshot.Screenshots) != 1 || snapshot.Screenshots[0].Path != "assets/overview.svg" || snapshot.Screenshots[0].Alt != "天气总览卡片" {
 		t.Fatalf("unexpected screenshots: %#v", snapshot.Screenshots)
 	}
-	if !reflect.DeepEqual(snapshot.SystemDependencies, []string{"OneBot11 connection", "External weather API access"}) {
-		t.Fatalf("unexpected system dependencies: %#v", snapshot.SystemDependencies)
-	}
 	if snapshot.Concurrency != 3 {
 		t.Fatalf("unexpected concurrency: got %d want 3", snapshot.Concurrency)
 	}
@@ -884,7 +1004,7 @@ func TestDiscoverManifestWebhookScopes(t *testing.T) {
 
 	rootDir := t.TempDir()
 	validator := compileSchema(t, testutil.RepoPath(t, "contracts", "plugin-info.schema.json"))
-	fixture := loadPluginInfoFixture(t, testutil.RepoPath(t, "fixtures", "plugin-info", "ok.minimal-python.json"))
+	fixture := loadPluginInfoFixture(t, testutil.RepoPath(t, "fixtures", "plugin-info", "ok.minimal-go.json"))
 	input, ok := fixture.Input.(map[string]any)
 	if !ok {
 		t.Fatalf("fixture input should be an object, got %T", fixture.Input)

@@ -117,10 +117,6 @@ func RequiredEntrypoints(resource *Resource) []string {
 	switch resource.Kind {
 	case "chromium":
 		return []string{"browser"}
-	case "python-runtime":
-		return []string{"python"}
-	case "nodejs-runtime":
-		return []string{"node", "npm"}
 	default:
 		return nil
 	}

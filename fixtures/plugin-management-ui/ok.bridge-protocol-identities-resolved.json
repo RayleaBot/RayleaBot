@@ -3,7 +3,7 @@
   "case": "ok",
   "description": "The host returns refreshed subscriber display identities.",
   "input": {
-    "version": "1",
+    "version": "2",
     "source": "management_host",
     "type": "protocol.identities.resolved",
     "request_id": "req_protocol_identities_0001",

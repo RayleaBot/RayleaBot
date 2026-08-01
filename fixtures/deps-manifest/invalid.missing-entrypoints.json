@@ -1,9 +1,9 @@
 {
-  "manifest_version": 3,
+  "manifest_version": 4,
   "resources": [
     {
-      "id": "python-linux-x64",
-      "kind": "python-runtime",
+      "id": "chromium-linux-x64",
+      "kind": "chromium",
       "version": "3.12.13",
       "platform": "linux-x64",
       "sources": [

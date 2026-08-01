@@ -3,10 +3,11 @@
   "case": "ok",
   "description": "The iframe may request a OneBot11 target list reload.",
   "input": {
-    "version": "1",
+    "version": "2",
     "source": "plugin_management_ui",
     "type": "protocol.targets.reload",
-    "request_id": "req_protocol_targets_0001"
+    "request_id": "req_protocol_targets_0001",
+    "payload": {}
   },
   "expect": {
     "valid": true

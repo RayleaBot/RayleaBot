@@ -9,6 +9,7 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/logpath"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
+	"github.com/RayleaBot/RayleaBot/server/internal/plugins/artifact"
 )
 
 func LoadSnapshot(infoPath, sourceRoot, repoRoot string, validator *config.Validator, maxSummaryChars int, logger *slog.Logger) (plugins.Snapshot, bool, error) {
@@ -55,44 +56,39 @@ func LoadSnapshot(infoPath, sourceRoot, repoRoot string, validator *config.Valid
 	defaultConfig, defaultConfigErr := manifestDefaultConfig(manifest, filepath.Dir(infoPath))
 
 	snapshot := plugins.Snapshot{
-		PluginID:           pluginID,
-		Name:               stringField(manifest, "name"),
-		Role:               manifestRole(manifest, sourceRoot),
-		Version:            stringField(manifest, "version"),
-		Author:             stringField(manifest, "author"),
-		License:            stringField(manifest, "license"),
-		SDKMinVersion:      stringField(manifest, "sdk_min_version"),
-		RuntimeVersion:     stringField(manifest, "runtime_version"),
-		MinCoreVersion:     stringField(manifest, "min_core_version"),
-		DataSchemaVersion:  stringField(manifest, "data_schema_version"),
-		Concurrency:        manifestConcurrency(manifest),
-		Platforms:          stringListField(manifest, "platforms"),
-		Type:               stringField(manifest, "type"),
-		Runtime:            stringField(manifest, "runtime"),
-		Entry:              stringField(manifest, "entry"),
-		Description:        stringField(manifest, "description"),
-		Icon:               stringField(manifest, "icon"),
-		Repo:               stringField(manifest, "repo"),
-		Homepage:           stringField(manifest, "homepage"),
-		Keywords:           stringListField(manifest, "keywords"),
-		Screenshots:        manifestScreenshots(manifest),
-		ManagementUI:       manifestManagementUI(manifest),
-		RenderTemplates:    manifestRenderTemplates(manifest),
-		Help:               manifestHelp(manifest),
-		SystemDependencies: stringListField(manifest, "system_dependencies"),
-		DefaultConfig:      defaultConfig,
-		ManifestPath:       logpath.Display(repoRoot, infoPath),
-		PackageRootPath:    filepath.Dir(infoPath),
-		SourceRoot:         sourceRoot,
-		SourceRoots:        []string{sourceRoot},
-		RegistrationState:  plugins.RegistrationStateInstalled,
-		DesiredState:       defaultDesiredStateForSourceRoot(sourceRoot),
-		RuntimeState:       plugins.RuntimeStateStopped,
+		PluginID:              pluginID,
+		Name:                  stringField(manifest, "name"),
+		Role:                  manifestRole(manifest, sourceRoot),
+		Version:               stringField(manifest, "version"),
+		Author:                stringField(manifest, "author"),
+		License:               stringField(manifest, "license"),
+		ManifestVersion:       stringField(manifest, "manifest_version"),
+		PluginProtocolVersion: stringField(manifest, "plugin_protocol_version"),
+		MinCoreVersion:        stringField(manifest, "min_core_version"),
+		DataSchemaVersion:     stringField(manifest, "data_schema_version"),
+		Concurrency:           manifestConcurrency(manifest),
+		Platforms:             stringListField(manifest, "platforms"),
+		Runtime:               stringField(manifest, "runtime"),
+		Entry:                 stringField(manifest, "entry"),
+		Description:           stringField(manifest, "description"),
+		Icon:                  stringField(manifest, "icon"),
+		Repo:                  stringField(manifest, "repo"),
+		Homepage:              stringField(manifest, "homepage"),
+		Keywords:              stringListField(manifest, "keywords"),
+		Screenshots:           manifestScreenshots(manifest),
+		ManagementUI:          manifestManagementUI(manifest),
+		RenderTemplates:       manifestRenderTemplates(manifest),
+		Help:                  manifestHelp(manifest),
+		DefaultConfig:         defaultConfig,
+		ManifestPath:          logpath.Display(repoRoot, infoPath),
+		PackageRootPath:       filepath.Dir(infoPath),
+		SourceRoot:            sourceRoot,
+		SourceRoots:           []string{sourceRoot},
+		RegistrationState:     plugins.RegistrationStateInstalled,
+		DesiredState:          defaultDesiredStateForSourceRoot(sourceRoot),
+		RuntimeState:          plugins.RuntimeStateStopped,
 	}
 	snapshot.DeclaredCapabilities = stringListField(manifest, "capabilities")
-	snapshot.PythonDependencies = manifestDependencyList(manifest, "python")
-	snapshot.NodeDependencies = manifestDependencyList(manifest, "nodejs")
-	snapshot.RequireInstallScripts = manifestBoolField(manifest, "require_install_scripts")
 	snapshot.ScopeHTTPHosts = manifestCapabilityParameterList(manifest, "http_hosts")
 	snapshot.ScopeStorageRoots = manifestCapabilityParameterList(manifest, "storage_roots")
 	snapshot.ScopeThirdPartyAccounts = manifestCapabilityParameterList(manifest, "third_party_account_platforms")
@@ -128,6 +124,32 @@ func LoadSnapshot(infoPath, sourceRoot, repoRoot string, validator *config.Valid
 		snapshot.DisplayState = plugins.DisplayStateInvalidManifest
 		snapshot.ValidationSummary = trimSummary(err.Error(), maxSummaryChars)
 		return snapshot, true, nil
+	}
+
+	targetPlatform, err := artifact.CurrentPlatform()
+	if err != nil {
+		snapshot.Valid = false
+		snapshot.DisplayState = plugins.DisplayStateInvalidManifest
+		snapshot.ValidationSummary = trimSummary(err.Error(), maxSummaryChars)
+		return snapshot, true, nil
+	}
+	verifiedArtifact, err := artifact.Verify(snapshot.PackageRootPath, artifact.Options{ExpectedPlatform: targetPlatform})
+	if err != nil {
+		snapshot.Valid = false
+		snapshot.DisplayState = plugins.DisplayStateInvalidManifest
+		snapshot.ValidationSummary = trimSummary(err.Error(), maxSummaryChars)
+		return snapshot, true, nil
+	}
+	snapshot.ArtifactVersion = verifiedArtifact.Document.ArtifactVersion
+	snapshot.ArtifactTargetPlatform = verifiedArtifact.Document.TargetPlatform
+	snapshot.ArtifactManifestSHA256 = verifiedArtifact.Document.ManifestSHA256
+	snapshot.ArtifactFileCount = len(verifiedArtifact.Document.Files)
+	snapshot.ArtifactUIAvailable = verifiedArtifact.UIAvailable
+	for _, file := range verifiedArtifact.Document.Files {
+		if file.Role == "backend" {
+			snapshot.ArtifactBackendSHA256 = file.SHA256
+			break
+		}
 	}
 
 	snapshot.Valid = true

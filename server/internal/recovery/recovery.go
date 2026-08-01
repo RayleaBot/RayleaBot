@@ -16,7 +16,10 @@ import (
 )
 
 const (
-	BackupManifestVersion = "1"
+	BackupManifestVersion = "2"
+	PluginManifestVersion = "2"
+	PluginUIBridgeVersion = "2"
+	PluginArtifactVersion = "1"
 	RecoverySummaryPath   = "logs/recovery-summary.json"
 	defaultCoreVersion    = "0.0.0-dev"
 	reviewStatusPending   = "pending"
@@ -25,18 +28,22 @@ const (
 )
 
 type BackupManifest struct {
-	Version             string                    `json:"version"`
-	CreatedAt           string                    `json:"created_at"`
-	CoreVersion         string                    `json:"core_version"`
-	ConfigSchemaVersion string                    `json:"config_schema_version"`
-	DBSchemaVersion     string                    `json:"db_schema_version"`
-	Consistency         string                    `json:"consistency"`
-	Plugins             []BackupManifestPlugin    `json:"plugins,omitempty"`
-	Directories         []BackupManifestDirectory `json:"directories,omitempty"`
+	Version               string                    `json:"version"`
+	CreatedAt             string                    `json:"created_at"`
+	CoreVersion           string                    `json:"core_version"`
+	ConfigSchemaVersion   string                    `json:"config_schema_version"`
+	DBSchemaVersion       string                    `json:"db_schema_version"`
+	PluginManifestVersion string                    `json:"plugin_manifest_version"`
+	PluginUIBridgeVersion string                    `json:"plugin_ui_bridge_version"`
+	Consistency           string                    `json:"consistency"`
+	Plugins               []BackupManifestPlugin    `json:"plugins,omitempty"`
+	Directories           []BackupManifestDirectory `json:"directories,omitempty"`
 }
 
 type BackupManifestPlugin struct {
 	PluginID          string   `json:"plugin_id"`
+	ManifestVersion   string   `json:"manifest_version"`
+	ArtifactVersion   string   `json:"artifact_version"`
 	Version           string   `json:"version,omitempty"`
 	MinCoreVersion    string   `json:"min_core_version,omitempty"`
 	DataSchemaVersion string   `json:"data_schema_version,omitempty"`
@@ -143,6 +150,31 @@ func EvaluateRestore(manifest BackupManifest, repoRoot string) CompatibilitySumm
 			"重新启动服务以完成恢复后的兼容性检查。",
 			"检查 recovery_summary 中列出的资源与插件处理建议。",
 		},
+	}
+
+	if manifest.PluginManifestVersion != PluginManifestVersion || manifest.PluginUIBridgeVersion != PluginUIBridgeVersion {
+		summary.Status = "blocked"
+		summary.RequiresPostStartChecks = false
+		summary.Issues = append(summary.Issues, CompatibilityIssue{
+			Code:        "plugin.reset_required",
+			Severity:    "error",
+			Summary:     "备份属于已退役的插件 epoch，不能原地恢复。",
+			Remediation: "保留当前备份用于人工取证，并在新插件 epoch 中重新安装和配置插件。",
+		})
+	} else {
+		for _, plugin := range manifest.Plugins {
+			if plugin.ManifestVersion != PluginManifestVersion || plugin.ArtifactVersion != PluginArtifactVersion {
+				summary.Status = "blocked"
+				summary.RequiresPostStartChecks = false
+				summary.Issues = append(summary.Issues, CompatibilityIssue{
+					Code:        "plugin.reset_required",
+					Severity:    "error",
+					Summary:     fmt.Sprintf("插件 %s 属于已退役的插件 epoch。", plugin.PluginID),
+					Remediation: "不要恢复旧插件目录或数据；请安装当前平台的 Go artifact。",
+				})
+				break
+			}
+		}
 	}
 
 	if isSchemaNewer(manifest.ConfigSchemaVersion, config.CurrentSchemaVersion()) {

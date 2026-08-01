@@ -107,15 +107,14 @@ type Snapshot struct {
 	Version                 string
 	Author                  string
 	License                 string
-	SDKMinVersion           string
-	RuntimeVersion          string
+	ManifestVersion         string
+	PluginProtocolVersion   string
 	MinCoreVersion          string
 	DataSchemaVersion       string
 	Concurrency             int
 	Platforms               []string
 	Runtime                 string
 	Entry                   string
-	Type                    string
 	Description             string
 	Icon                    string
 	Repo                    string
@@ -125,7 +124,12 @@ type Snapshot struct {
 	ManagementUI            *ManagementUI
 	RenderTemplates         []RenderTemplate
 	Help                    *Help
-	SystemDependencies      []string
+	ArtifactVersion         string
+	ArtifactTargetPlatform  string
+	ArtifactManifestSHA256  string
+	ArtifactBackendSHA256   string
+	ArtifactFileCount       int
+	ArtifactUIAvailable     bool
 	DefaultConfig           map[string]any
 	ManifestPath            string
 	PackageRootPath         string
@@ -142,9 +146,6 @@ type Snapshot struct {
 	DeadLetter              *DeadLetterSnapshot
 	ConflictPaths           []string
 	DeclaredCapabilities    []string
-	PythonDependencies      []string
-	NodeDependencies        []string
-	RequireInstallScripts   bool
 	ScopeHTTPHosts          []string
 	ScopeStorageRoots       []string
 	ScopeThirdPartyAccounts []string
@@ -197,7 +198,26 @@ type InstallRequest struct {
 	InspectionID         string
 	PackageSHA256        string
 	TrustedCodeConfirmed bool
-	AllowInstallScripts  bool
+}
+
+type InstallBackendInspection struct {
+	Entry  string
+	Path   string
+	Size   int64
+	SHA256 string
+}
+
+type InstallUIInspection struct {
+	Enabled   bool
+	Entry     string
+	FileCount int
+}
+
+type ArtifactInspection struct {
+	Valid          bool
+	Version        string
+	ManifestSHA256 string
+	FileCount      int
 }
 
 type InstallInspection struct {
@@ -213,7 +233,10 @@ type InstallInspection struct {
 	License        string
 	SourceLabel    string
 	Capabilities   []string
-	InstallScripts []string
+	TargetPlatform string
+	Backend        InstallBackendInspection
+	UI             InstallUIInspection
+	Artifact       ArtifactInspection
 }
 
 type InstallInspector interface {
@@ -240,10 +263,7 @@ func cloneSnapshot(snapshot Snapshot) Snapshot {
 	cloned.ConflictPaths = append([]string(nil), snapshot.ConflictPaths...)
 	cloned.Platforms = append([]string(nil), snapshot.Platforms...)
 	cloned.Keywords = append([]string(nil), snapshot.Keywords...)
-	cloned.SystemDependencies = append([]string(nil), snapshot.SystemDependencies...)
 	cloned.DeclaredCapabilities = append([]string(nil), snapshot.DeclaredCapabilities...)
-	cloned.PythonDependencies = append([]string(nil), snapshot.PythonDependencies...)
-	cloned.NodeDependencies = append([]string(nil), snapshot.NodeDependencies...)
 	cloned.ScopeHTTPHosts = append([]string(nil), snapshot.ScopeHTTPHosts...)
 	cloned.ScopeStorageRoots = append([]string(nil), snapshot.ScopeStorageRoots...)
 	cloned.ScopeThirdPartyAccounts = append([]string(nil), snapshot.ScopeThirdPartyAccounts...)

@@ -17,10 +17,8 @@ func WritePlatformDepsManifest(t testing.TB, repoRoot string) {
 	t.Helper()
 	platform := deps.CurrentPlatform()
 	chromiumID := "chromium-" + platform
-	pythonID := "python-" + platform
-	nodeID := "nodejs-" + platform
 	manifest := `{
-  "manifest_version": 3,
+  "manifest_version": 4,
   "resources": [
     {
       "id": "` + chromiumID + `",
@@ -38,41 +36,6 @@ func WritePlatformDepsManifest(t testing.TB, repoRoot string) {
       "entrypoints": {
         "browser": ["chrome-win64/chrome.exe"]
       }
-    },
-    {
-      "id": "` + pythonID + `",
-      "kind": "python-runtime",
-      "version": "3.12.13",
-      "platform": "` + platform + `",
-      "sources": [
-        {
-          "url": "https://example.invalid/python.tar.gz",
-          "kind": "upstream"
-        }
-      ],
-      "sha256": "10b7a95b928e551fc78cac665999e1ae1f08fb738b255adb0a8d3b9c2824a9c0",
-      "archive_format": "tar.gz",
-      "entrypoints": {
-        "python": ["python/python.exe"]
-      }
-    },
-    {
-      "id": "` + nodeID + `",
-      "kind": "nodejs-runtime",
-      "version": "24.14.0",
-      "platform": "` + platform + `",
-      "sources": [
-        {
-          "url": "https://example.invalid/node.zip",
-          "kind": "upstream"
-        }
-      ],
-      "sha256": "2bb9e071b229e9c0cb7d90297c51fa4cf3f5dbf4f88aded36d3f5892651baabf",
-      "archive_format": "zip",
-      "entrypoints": {
-        "node": ["node-v24.14.0-win-x64/node.exe"],
-        "npm": ["node-v24.14.0-win-x64/npm.cmd"]
-      }
     }
   ]
 }`
@@ -87,8 +50,7 @@ func WritePlatformDepsManifest(t testing.TB, repoRoot string) {
 	WriteTestTemplate(t, repoRoot, "status.panel", 540)
 }
 
-// WritePreparedRuntime marks a managed runtime entrypoint as prepared in the
-// repo-local .deps store.
+// WritePreparedRuntime marks a Chromium entrypoint as prepared in the repo-local .deps store.
 func WritePreparedRuntime(t testing.TB, repoRoot, id, version string, segments ...string) {
 	t.Helper()
 	target := filepath.Join(append([]string{repoRoot, ".deps", "store", id, version}, segments...)...)

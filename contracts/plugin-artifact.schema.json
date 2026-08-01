@@ -1,0 +1,123 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://rayleabot.local/contracts/plugin-artifact.schema.json",
+  "title": "RayleaBot Plugin Artifact",
+  "description": "Formal inventory for one prebuilt, platform-specific Go plugin package. artifact.json itself is excluded from files so the inventory can be signed and hashed without a self-reference.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "artifact_version",
+    "plugin_id",
+    "plugin_version",
+    "target_platform",
+    "manifest_sha256",
+    "files"
+  ],
+  "properties": {
+    "artifact_version": {
+      "type": "string",
+      "const": "1"
+    },
+    "plugin_id": {
+      "type": "string",
+      "pattern": "^[a-z0-9](?:[a-z0-9._-]{0,62}[a-z0-9])?$"
+    },
+    "plugin_version": {
+      "$ref": "#/$defs/semver"
+    },
+    "target_platform": {
+      "$ref": "#/$defs/platform"
+    },
+    "manifest_sha256": {
+      "$ref": "#/$defs/sha256"
+    },
+    "files": {
+      "type": "array",
+      "minItems": 2,
+      "items": {
+        "$ref": "#/$defs/file"
+      }
+    }
+  },
+  "$defs": {
+    "semver": {
+      "type": "string",
+      "pattern": "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-[0-9A-Za-z.-]+)?(?:\\+[0-9A-Za-z.-]+)?$"
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "platform": {
+      "type": "string",
+      "enum": [
+        "windows-x64",
+        "linux-x64",
+        "macos-arm64"
+      ]
+    },
+    "path": {
+      "allOf": [
+        {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9._/-]+$"
+        },
+        {
+          "not": {
+            "pattern": "^/"
+          }
+        },
+        {
+          "not": {
+            "pattern": "(^|/)\\.\\.(/|$)"
+          }
+        },
+        {
+          "not": {
+            "pattern": "(^|/)artifact\\.json$"
+          }
+        }
+      ]
+    },
+    "file": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "role",
+        "size",
+        "sha256"
+      ],
+      "properties": {
+        "path": {
+          "$ref": "#/$defs/path"
+        },
+        "role": {
+          "type": "string",
+          "enum": [
+            "manifest",
+            "backend",
+            "ui",
+            "render_template",
+            "data",
+            "license",
+            "notice",
+            "sbom"
+          ]
+        },
+        "size": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "sha256": {
+          "$ref": "#/$defs/sha256"
+        }
+      }
+    }
+  },
+  "x-fixtures": [
+    "fixtures/plugin-artifact/ok.minimal.json",
+    "fixtures/plugin-artifact/invalid.artifact-self-entry.json",
+    "fixtures/plugin-artifact/edge.with-ui-and-templates.json"
+  ]
+}

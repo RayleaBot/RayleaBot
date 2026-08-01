@@ -3,20 +3,23 @@ package lifecycle
 import (
 	"archive/zip"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
-	"sync"
 	"testing"
 	"time"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
+	"github.com/RayleaBot/RayleaBot/server/internal/plugins/artifact"
 	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
 	"github.com/RayleaBot/RayleaBot/server/internal/tasks"
 	"github.com/RayleaBot/RayleaBot/server/internal/testenv"
@@ -28,7 +31,7 @@ func TestInstallServiceInstallsLocalDirectoryAndRefreshesCatalog(t *testing.T) {
 	registry := tasks.NewRegistry()
 	repoRoot := t.TempDir()
 	installedRoot := filepath.Join(repoRoot, "plugins", "installed")
-	sourceDir := writeInstallSourcePlugin(t, filepath.Join(t.TempDir(), "weather-src"), "weather", "nodejs", "index.js")
+	sourceDir := writeInstallSourcePlugin(t, filepath.Join(t.TempDir(), "weather-src"), "weather")
 	repository := &stubInstallRepository{}
 	service, catalog := newInstallTestService(t, repoRoot, registry, nil, repository, installerDeps{})
 	defer service.Close()
@@ -88,7 +91,7 @@ func TestInstallServiceInvokesAfterSuccessCallback(t *testing.T) {
 
 	registry := tasks.NewRegistry()
 	repoRoot := t.TempDir()
-	sourceDir := writeInstallSourcePlugin(t, filepath.Join(t.TempDir(), "callback-src"), "callback-weather", "nodejs", "index.js")
+	sourceDir := writeInstallSourcePlugin(t, filepath.Join(t.TempDir(), "callback-src"), "callback-weather")
 	service, _ := newInstallTestService(t, repoRoot, registry, nil, &stubInstallRepository{}, installerDeps{})
 	defer service.Close()
 
@@ -129,7 +132,7 @@ func TestInstallServiceFailsWhenAfterSuccessCallbackFails(t *testing.T) {
 
 	registry := tasks.NewRegistry()
 	repoRoot := t.TempDir()
-	sourceDir := writeInstallSourcePlugin(t, filepath.Join(t.TempDir(), "callback-fail-src"), "callback-fail-weather", "nodejs", "index.js")
+	sourceDir := writeInstallSourcePlugin(t, filepath.Join(t.TempDir(), "callback-fail-src"), "callback-fail-weather")
 	repository := &stubInstallRepository{}
 	service, catalog := newInstallTestService(t, repoRoot, registry, nil, repository, installerDeps{})
 	defer service.Close()
@@ -175,7 +178,7 @@ func TestInstallServiceInstallsLocalZip(t *testing.T) {
 
 	registry := tasks.NewRegistry()
 	repoRoot := t.TempDir()
-	sourceDir := writeInstallSourcePlugin(t, filepath.Join(t.TempDir(), "zip-src"), "zip-weather", "python", "main.py")
+	sourceDir := writeInstallSourcePlugin(t, filepath.Join(t.TempDir(), "zip-src"), "zip-weather")
 	archivePath := filepath.Join(t.TempDir(), "zip-weather.zip")
 	writePluginZip(t, archivePath, sourceDir)
 
@@ -227,7 +230,7 @@ func TestInstallServiceBindsAcceptanceToInspectionDigestAndTrust(t *testing.T) {
 	t.Parallel()
 
 	registry := tasks.NewRegistry()
-	sourceDir := writeInstallSourcePlugin(t, filepath.Join(t.TempDir(), "inspect-src"), "inspect-weather", "nodejs", "index.js")
+	sourceDir := writeInstallSourcePlugin(t, filepath.Join(t.TempDir(), "inspect-src"), "inspect-weather")
 	service, _ := newInstallTestService(t, t.TempDir(), registry, nil, &stubInstallRepository{}, installerDeps{})
 	defer service.Close()
 
@@ -260,7 +263,7 @@ func TestInstallServiceBindsAcceptanceToInspectionDigestAndTrust(t *testing.T) {
 func TestInstallServiceRejectsFullQueueBeforeTaskCreation(t *testing.T) {
 	registry := tasks.NewRegistry()
 	repoRoot := t.TempDir()
-	sourceDir := writeInstallSourcePlugin(t, filepath.Join(t.TempDir(), "queue-src"), "queue-weather", "nodejs", "index.js")
+	sourceDir := writeInstallSourcePlugin(t, filepath.Join(t.TempDir(), "queue-src"), "queue-weather")
 	started := make(chan struct{})
 	release := make(chan struct{})
 	service, _ := newInstallTestService(t, repoRoot, registry, nil, &stubInstallRepository{}, installerDeps{})
@@ -390,7 +393,7 @@ func TestInstallServiceRejectsInvalidRenderTemplatePackage(t *testing.T) {
 
 	registry := tasks.NewRegistry()
 	repoRoot := t.TempDir()
-	sourceDir := writeInstallSourcePlugin(t, filepath.Join(t.TempDir(), "template-src"), "template-weather", "python", "main.py")
+	sourceDir := writeInstallSourcePlugin(t, filepath.Join(t.TempDir(), "template-src"), "template-weather")
 	addRenderTemplateDeclarationToManifest(t, sourceDir, "templates/card")
 
 	service, _ := newInstallTestService(t, repoRoot, registry, nil, &stubInstallRepository{}, installerDeps{})
@@ -421,7 +424,7 @@ func TestInstallServiceInstallsRenderTemplatePackage(t *testing.T) {
 
 	registry := tasks.NewRegistry()
 	repoRoot := t.TempDir()
-	sourceDir := writeInstallSourcePlugin(t, filepath.Join(t.TempDir(), "template-ok-src"), "template-ok-weather", "python", "main.py")
+	sourceDir := writeInstallSourcePlugin(t, filepath.Join(t.TempDir(), "template-ok-src"), "template-ok-weather")
 	addRenderTemplateDeclarationToManifest(t, sourceDir, "templates/card")
 	writeInstallRenderTemplate(t, filepath.Join(sourceDir, "templates", "card"), "card")
 
@@ -455,7 +458,7 @@ func TestInstallServiceRejectsInvalidRenderTemplateManifest(t *testing.T) {
 
 	registry := tasks.NewRegistry()
 	repoRoot := t.TempDir()
-	sourceDir := writeInstallSourcePlugin(t, filepath.Join(t.TempDir(), "template-bad-src"), "template-bad-weather", "python", "main.py")
+	sourceDir := writeInstallSourcePlugin(t, filepath.Join(t.TempDir(), "template-bad-src"), "template-bad-weather")
 	addRenderTemplateDeclarationToManifest(t, sourceDir, "templates/card")
 	writeInstallRenderTemplate(t, filepath.Join(sourceDir, "templates", "card"), "card/escaped")
 
@@ -486,14 +489,14 @@ func TestInstallServiceFailsDuplicatePluginID(t *testing.T) {
 	registry := tasks.NewRegistry()
 	repoRoot := t.TempDir()
 	existing := []plugins.Snapshot{{
-		PluginID:          "hello-node",
+		PluginID:          "hello-go",
 		Valid:             true,
 		RegistrationState: "installed",
 		DesiredState:      "disabled",
 		RuntimeState:      "stopped",
 		DisplayState:      "discovered",
 	}}
-	sourceDir := writeInstallSourcePlugin(t, filepath.Join(t.TempDir(), "dup-src"), "hello-node", "nodejs", "index.js")
+	sourceDir := writeInstallSourcePlugin(t, filepath.Join(t.TempDir(), "dup-src"), "hello-go")
 	service, _ := newInstallTestService(t, repoRoot, registry, existing, &stubInstallRepository{}, installerDeps{})
 	defer service.Close()
 
@@ -519,7 +522,7 @@ func TestInstallServiceCancelsRunningTask(t *testing.T) {
 
 	registry := tasks.NewRegistry()
 	repoRoot := t.TempDir()
-	sourceDir := writeInstallSourcePlugin(t, filepath.Join(t.TempDir(), "cancel-src"), "cancel-weather", "nodejs", "index.js")
+	sourceDir := writeInstallSourcePlugin(t, filepath.Join(t.TempDir(), "cancel-src"), "cancel-weather")
 
 	installStarted := make(chan struct{}, 1)
 	service, _ := newInstallTestService(t, repoRoot, registry, nil, &stubInstallRepository{}, installerDeps{})
@@ -557,116 +560,34 @@ func TestInstallServiceCancelsRunningTask(t *testing.T) {
 	}
 }
 
-func TestInstallServiceBlocksInstallScriptsWithoutAuthorization(t *testing.T) {
+func TestInstallServiceRejectsLegacyRuntimeManifest(t *testing.T) {
 	t.Parallel()
 
 	registry := tasks.NewRegistry()
 	repoRoot := t.TempDir()
-	sourceDir := writeInstallSourcePlugin(t, filepath.Join(t.TempDir(), "script-src"), "scripted-node", "nodejs", "index.js", installSourceOptions{
-		RequireInstallScripts: true,
-		WritePackageJSON:      true,
-	})
+	sourceDir := writeInstallSourcePlugin(t, filepath.Join(t.TempDir(), "legacy-src"), "legacy-python")
+	infoPath := filepath.Join(sourceDir, "info.json")
+	content, err := os.ReadFile(infoPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var manifest map[string]any
+	if err := json.Unmarshal(content, &manifest); err != nil {
+		t.Fatal(err)
+	}
+	manifest["runtime"] = "python"
+	manifest["manifest_version"] = "1"
+	manifest["entry"] = "main.py"
+	encoded, _ := json.MarshalIndent(manifest, "", "  ")
+	if err := os.WriteFile(infoPath, append(encoded, '\n'), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
 	service, _ := newInstallTestService(t, repoRoot, registry, nil, &stubInstallRepository{}, installerDeps{})
 	defer service.Close()
-
-	taskID, err := acceptInspected(t, service, plugins.InstallRequest{
-		SourceType: "local_directory",
-		Source:     sourceDir,
-	})
-	if err != nil {
-		t.Fatalf("Accept failed: %v", err)
-	}
-
-	snapshot := waitForTaskCompletion(t, registry, taskID)
-	if snapshot.Status != tasks.StatusFailed {
-		t.Fatalf("unexpected task status: got %q want %q", snapshot.Status, tasks.StatusFailed)
-	}
-	if snapshot.Error == nil || snapshot.Error.Code != "platform.install_script_blocked" {
-		t.Fatalf("unexpected task error: %#v", snapshot.Error)
-	}
-}
-
-func TestInstallServicePreparesRuntimeDependencies(t *testing.T) {
-	t.Parallel()
-
-	registry := tasks.NewRegistry()
-	repoRoot := t.TempDir()
-	pythonSource := writeInstallSourcePlugin(t, filepath.Join(t.TempDir(), "python-src"), "weather-python", "python", "main.py", installSourceOptions{
-		PythonDependencies: []string{"httpx==0.27.0"},
-	})
-	nodeSource := writeInstallSourcePlugin(t, filepath.Join(t.TempDir(), "node-src"), "weather-node", "nodejs", "index.js", installSourceOptions{
-		NodeDependencies:      []string{"left-pad@1.3.0"},
-		RequireInstallScripts: true,
-		WritePackageJSON:      true,
-	})
-
-	var (
-		mu                sync.Mutex
-		pythonPreparedFor []string
-		nodePrepared      []struct {
-			pluginID            string
-			allowInstallScripts bool
-		}
-	)
-
-	repository := &stubInstallRepository{}
-	service, _ := newInstallTestService(t, repoRoot, registry, nil, repository, installerDeps{
-		preparePython: func(_ context.Context, pluginDir string, dependencies []string) error {
-			mu.Lock()
-			defer mu.Unlock()
-			pythonPreparedFor = append(pythonPreparedFor, filepath.Base(pluginDir)+":"+dependencies[0])
-			return nil
-		},
-		prepareNode: func(_ context.Context, pluginDir string, dependencies []string, allowInstallScripts bool) error {
-			mu.Lock()
-			defer mu.Unlock()
-			nodePrepared = append(nodePrepared, struct {
-				pluginID            string
-				allowInstallScripts bool
-			}{
-				pluginID:            filepath.Base(pluginDir),
-				allowInstallScripts: allowInstallScripts,
-			})
-			return nil
-		},
-	})
-	defer service.Close()
-
-	pythonTaskID, err := acceptInspected(t, service, plugins.InstallRequest{
-		SourceType: "local_directory",
-		Source:     pythonSource,
-	})
-	if err != nil {
-		t.Fatalf("python Accept failed: %v", err)
-	}
-	nodeTaskID, err := acceptInspected(t, service, plugins.InstallRequest{
-		SourceType:          "local_directory",
-		Source:              nodeSource,
-		AllowInstallScripts: true,
-	})
-	if err != nil {
-		t.Fatalf("node Accept failed: %v", err)
-	}
-
-	pythonSnapshot := waitForTaskCompletion(t, registry, pythonTaskID)
-	if pythonSnapshot.Status != tasks.StatusSucceeded {
-		t.Fatalf("unexpected python task status: got %q want %q", pythonSnapshot.Status, tasks.StatusSucceeded)
-	}
-	nodeSnapshot := waitForTaskCompletion(t, registry, nodeTaskID)
-	if nodeSnapshot.Status != tasks.StatusSucceeded {
-		t.Fatalf("unexpected node task status: got %q want %q", nodeSnapshot.Status, tasks.StatusSucceeded)
-	}
-
-	mu.Lock()
-	defer mu.Unlock()
-	if len(pythonPreparedFor) != 1 {
-		t.Fatalf("expected python dependency preparation once, got %#v", pythonPreparedFor)
-	}
-	if len(nodePrepared) != 1 {
-		t.Fatalf("expected node dependency preparation once, got %#v", nodePrepared)
-	}
-	if !nodePrepared[0].allowInstallScripts {
-		t.Fatalf("expected allow_install_scripts=true to reach node preparation, got %#v", nodePrepared)
+	_, err = service.Inspect(context.Background(), plugins.InstallRequest{SourceType: "local_directory", Source: sourceDir})
+	if InstallErrorCode(err) != codePluginArtifactInvalid {
+		t.Fatalf("Inspect() error = %v, want %s", err, codePluginArtifactInvalid)
 	}
 }
 
@@ -715,13 +636,6 @@ func installServiceTimeout() time.Duration {
 	return 15 * time.Second
 }
 
-type installSourceOptions struct {
-	PythonDependencies    []string
-	NodeDependencies      []string
-	RequireInstallScripts bool
-	WritePackageJSON      bool
-}
-
 type stubInstallRepository struct {
 	saved          map[string]string
 	lastPackage    plugins.PackageMetadata
@@ -730,6 +644,9 @@ type stubInstallRepository struct {
 
 func acceptInspected(t *testing.T, service *InstallService, request plugins.InstallRequest) (string, error) {
 	t.Helper()
+	if request.SourceType == "local_directory" {
+		refreshInstallArtifact(t, request.Source)
+	}
 	inspection, err := service.Inspect(context.Background(), request)
 	if err != nil {
 		return "", err
@@ -769,67 +686,147 @@ func (r *stubInstallRepository) DeletePackageMetadata(_ context.Context, pluginI
 	return nil
 }
 
-func writeInstallSourcePlugin(t *testing.T, root, pluginID, runtimeName, entry string, options ...installSourceOptions) string {
+func writeInstallSourcePlugin(t *testing.T, root, pluginID string) string {
 	t.Helper()
-
-	opts := installSourceOptions{}
-	if len(options) > 0 {
-		opts = options[0]
-	}
 
 	if err := os.MkdirAll(root, 0o755); err != nil {
 		t.Fatalf("create plugin root: %v", err)
 	}
 
+	targetPlatform, err := artifact.CurrentPlatform()
+	if err != nil {
+		t.Fatal(err)
+	}
+	entry := "bin/" + pluginID
 	manifest := map[string]any{
 		"id":                      pluginID,
 		"name":                    pluginID,
 		"version":                 "0.1.0",
-		"manifest_version":        "1",
+		"manifest_version":        "2",
 		"plugin_protocol_version": "1",
-		"type":                    "managed_runtime",
-		"runtime":                 runtimeName,
+		"runtime":                 "go",
 		"entry":                   entry,
+		"platforms":               []string{"windows-x64", "linux-x64", "macos-arm64"},
 		"license":                 "MIT",
 		"description":             "test plugin",
 		"author":                  "raylea",
 		"capabilities":            []string{"event.subscribe"},
-		"dependencies": map[string]any{
-			"python": append([]string{}, opts.PythonDependencies...),
-			"nodejs": append([]string{}, opts.NodeDependencies...),
-		},
-		"require_install_scripts": opts.RequireInstallScripts,
 	}
 
 	manifestBytes, err := json.MarshalIndent(manifest, "", "  ")
 	if err != nil {
 		t.Fatalf("marshal manifest: %v", err)
 	}
-	if err := os.WriteFile(filepath.Join(root, "info.json"), manifestBytes, 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(root, "info.json"), append(manifestBytes, '\n'), 0o644); err != nil {
 		t.Fatalf("write manifest: %v", err)
 	}
-	entryContent := "console.log('ok')\n"
-	if runtimeName == "python" {
-		entryContent = "print('ok')\n"
+	backendRelative := entry
+	if targetPlatform == "windows-x64" {
+		backendRelative += ".exe"
 	}
-	if err := os.WriteFile(filepath.Join(root, entry), []byte(entryContent), 0o644); err != nil {
-		t.Fatalf("write entry: %v", err)
+	backendPath := filepath.Join(root, filepath.FromSlash(backendRelative))
+	if err := os.MkdirAll(filepath.Dir(backendPath), 0o755); err != nil {
+		t.Fatal(err)
 	}
-	if opts.WritePackageJSON {
-		packageJSON := map[string]any{
-			"name":    pluginID,
-			"version": "0.1.0",
-		}
-		packageJSONBytes, err := json.MarshalIndent(packageJSON, "", "  ")
-		if err != nil {
-			t.Fatalf("marshal package.json: %v", err)
-		}
-		if err := os.WriteFile(filepath.Join(root, "package.json"), packageJSONBytes, 0o644); err != nil {
-			t.Fatalf("write package.json: %v", err)
-		}
+	executable, err := os.Executable()
+	if err != nil {
+		t.Fatal(err)
 	}
-
+	copyInstallTestFile(t, executable, backendPath)
+	refreshInstallArtifact(t, root)
 	return root
+}
+
+func refreshInstallArtifact(t *testing.T, root string) {
+	t.Helper()
+	manifestBytes, err := os.ReadFile(filepath.Join(root, "info.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var manifest map[string]any
+	if err := json.Unmarshal(manifestBytes, &manifest); err != nil {
+		t.Fatal(err)
+	}
+	pluginID, _ := manifest["id"].(string)
+	pluginVersion, _ := manifest["version"].(string)
+	logicalEntry, _ := manifest["entry"].(string)
+	targetPlatform, err := artifact.CurrentPlatform()
+	if err != nil {
+		t.Fatal(err)
+	}
+	backendRelative := logicalEntry
+	if targetPlatform == "windows-x64" {
+		backendRelative += ".exe"
+	}
+	files := make([]map[string]any, 0)
+	if err := filepath.WalkDir(root, func(path string, entry os.DirEntry, walkErr error) error {
+		if walkErr != nil || entry.IsDir() {
+			return walkErr
+		}
+		relative, err := filepath.Rel(root, path)
+		if err != nil {
+			return err
+		}
+		relative = filepath.ToSlash(relative)
+		if relative == "artifact.json" {
+			return nil
+		}
+		content, err := os.ReadFile(path)
+		if err != nil {
+			return err
+		}
+		info, err := entry.Info()
+		if err != nil {
+			return err
+		}
+		digest := sha256.Sum256(content)
+		role := "data"
+		switch {
+		case relative == "info.json":
+			role = "manifest"
+		case relative == filepath.ToSlash(backendRelative):
+			role = "backend"
+		case strings.HasPrefix(relative, "templates/"):
+			role = "render_template"
+		case strings.HasPrefix(relative, "ui/") || strings.HasPrefix(relative, "web/"):
+			role = "ui"
+		}
+		files = append(files, map[string]any{"path": relative, "role": role, "size": info.Size(), "sha256": hex.EncodeToString(digest[:])})
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	manifestDigest := sha256.Sum256(manifestBytes)
+	document := map[string]any{
+		"artifact_version": "1", "plugin_id": pluginID, "plugin_version": pluginVersion, "target_platform": targetPlatform,
+		"manifest_sha256": hex.EncodeToString(manifestDigest[:]), "files": files,
+	}
+	encoded, err := json.MarshalIndent(document, "", "  ")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "artifact.json"), append(encoded, '\n'), 0o644); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func copyInstallTestFile(t *testing.T, source, destination string) {
+	t.Helper()
+	input, err := os.Open(source)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer input.Close()
+	output, err := os.OpenFile(destination, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0o755)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := io.Copy(output, input); err != nil {
+		t.Fatal(err)
+	}
+	if err := output.Close(); err != nil {
+		t.Fatal(err)
+	}
 }
 
 func addRenderTemplateDeclarationToManifest(t *testing.T, pluginRoot, templatePath string) {

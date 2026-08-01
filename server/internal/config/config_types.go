@@ -38,13 +38,13 @@ type BuiltinMenuConfig struct {
 }
 
 type AdminConfig struct {
-	SuperAdmins           []string `json:"super_admins" yaml:"super_admins"`
-	SessionTTLDays        int      `json:"session_ttl_days" yaml:"session_ttl_days"`
+	SuperAdmins            []string `json:"super_admins" yaml:"super_admins"`
+	SessionTTLDays         int      `json:"session_ttl_days" yaml:"session_ttl_days"`
 	SessionAbsoluteTTLDays int      `json:"session_absolute_ttl_days" yaml:"session_absolute_ttl_days"`
-	SlidingRenewal        bool     `json:"sliding_renewal" yaml:"sliding_renewal"`
-	MaxSessions           int      `json:"max_sessions" yaml:"max_sessions"`
-	LoginFailLimit        int      `json:"login_fail_limit" yaml:"login_fail_limit"`
-	LoginFailWindowSecs   int      `json:"login_fail_window_seconds" yaml:"login_fail_window_seconds"`
+	SlidingRenewal         bool     `json:"sliding_renewal" yaml:"sliding_renewal"`
+	MaxSessions            int      `json:"max_sessions" yaml:"max_sessions"`
+	LoginFailLimit         int      `json:"login_fail_limit" yaml:"login_fail_limit"`
+	LoginFailWindowSecs    int      `json:"login_fail_window_seconds" yaml:"login_fail_window_seconds"`
 }
 
 type PermissionConfig struct {
@@ -129,22 +129,19 @@ type HTTPConfig struct {
 }
 
 type RuntimeConfig struct {
-	PluginInitTimeoutSeconds     int    `json:"plugin_init_timeout_seconds" yaml:"plugin_init_timeout_seconds"`
-	PluginInitMaxTotalSeconds    int    `json:"plugin_init_max_total_seconds" yaml:"plugin_init_max_total_seconds"`
-	PluginEventTimeoutSeconds    int    `json:"plugin_event_timeout_seconds" yaml:"plugin_event_timeout_seconds"`
-	MaxPendingEventsPerPlugin    int    `json:"max_pending_events_per_plugin" yaml:"max_pending_events_per_plugin"`
-	MaxPendingControlEvents      int    `json:"max_pending_control_events_per_plugin" yaml:"max_pending_control_events_per_plugin"`
-	NodeMaxOldSpaceSizeMB        int    `json:"nodejs_max_old_space_size_mb" yaml:"nodejs_max_old_space_size_mb"`
-	DependencyInstallTimeoutSecs int    `json:"dependency_install_timeout_seconds" yaml:"dependency_install_timeout_seconds"`
-	MaxConcurrentDependencyInst  int    `json:"max_concurrent_dependency_installs" yaml:"max_concurrent_dependency_installs"`
-	IPCPendingActionsMax         int    `json:"ipc_pending_actions_max" yaml:"ipc_pending_actions_max"`
-	IPCActionBurstLimit          string `json:"ipc_action_burst_limit" yaml:"ipc_action_burst_limit"`
-	StderrRateLimitBytesPerSec   int    `json:"stderr_rate_limit_bytes_per_second" yaml:"stderr_rate_limit_bytes_per_second"`
-	MaxConcurrentTasksPerPlugin  int    `json:"max_concurrent_tasks_per_plugin" yaml:"max_concurrent_tasks_per_plugin"`
-	CrashBackoffInitialSeconds   int    `json:"crash_backoff_initial_seconds" yaml:"crash_backoff_initial_seconds"`
-	CrashBackoffMaxSeconds       int    `json:"crash_backoff_max_seconds" yaml:"crash_backoff_max_seconds"`
-	ShutdownGraceSeconds         int    `json:"shutdown_grace_seconds" yaml:"shutdown_grace_seconds"`
-	IPCMessageMaxBytes           int    `json:"ipc_message_max_bytes" yaml:"ipc_message_max_bytes"`
+	PluginInitTimeoutSeconds    int    `json:"plugin_init_timeout_seconds" yaml:"plugin_init_timeout_seconds"`
+	PluginInitMaxTotalSeconds   int    `json:"plugin_init_max_total_seconds" yaml:"plugin_init_max_total_seconds"`
+	PluginEventTimeoutSeconds   int    `json:"plugin_event_timeout_seconds" yaml:"plugin_event_timeout_seconds"`
+	MaxPendingEventsPerPlugin   int    `json:"max_pending_events_per_plugin" yaml:"max_pending_events_per_plugin"`
+	MaxPendingControlEvents     int    `json:"max_pending_control_events_per_plugin" yaml:"max_pending_control_events_per_plugin"`
+	IPCPendingActionsMax        int    `json:"ipc_pending_actions_max" yaml:"ipc_pending_actions_max"`
+	IPCActionBurstLimit         string `json:"ipc_action_burst_limit" yaml:"ipc_action_burst_limit"`
+	StderrRateLimitBytesPerSec  int    `json:"stderr_rate_limit_bytes_per_second" yaml:"stderr_rate_limit_bytes_per_second"`
+	MaxConcurrentTasksPerPlugin int    `json:"max_concurrent_tasks_per_plugin" yaml:"max_concurrent_tasks_per_plugin"`
+	CrashBackoffInitialSeconds  int    `json:"crash_backoff_initial_seconds" yaml:"crash_backoff_initial_seconds"`
+	CrashBackoffMaxSeconds      int    `json:"crash_backoff_max_seconds" yaml:"crash_backoff_max_seconds"`
+	ShutdownGraceSeconds        int    `json:"shutdown_grace_seconds" yaml:"shutdown_grace_seconds"`
+	IPCMessageMaxBytes          int    `json:"ipc_message_max_bytes" yaml:"ipc_message_max_bytes"`
 }
 
 type RenderConfig struct {
@@ -160,10 +157,11 @@ type RenderConfig struct {
 }
 
 type WebConfig struct {
-	ExposureMode      string   `json:"exposure_mode" yaml:"exposure_mode"`
-	SetupLocalOnly    bool     `json:"setup_local_only" yaml:"setup_local_only"`
-	PublicOrigin      string   `json:"public_origin" yaml:"public_origin"`
-	TrustedProxyCIDRs []string `json:"trusted_proxy_cidrs" yaml:"trusted_proxy_cidrs"`
+	ExposureMode           string   `json:"exposure_mode" yaml:"exposure_mode"`
+	SetupLocalOnly         bool     `json:"setup_local_only" yaml:"setup_local_only"`
+	PublicOrigin           string   `json:"public_origin" yaml:"public_origin"`
+	TrustedProxyCIDRs      []string `json:"trusted_proxy_cidrs" yaml:"trusted_proxy_cidrs"`
+	PluginUIOriginTemplate string   `json:"plugin_ui_origin_template" yaml:"plugin_ui_origin_template"`
 }
 
 type BackupConfig struct {

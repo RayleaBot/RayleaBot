@@ -3,12 +3,15 @@ package services
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
 	"encoding/json"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -73,41 +76,51 @@ func TestHandlePluginManagementUIStaticServesScopedAssets(t *testing.T) {
 	t.Parallel()
 
 	pluginDir := filepath.Join(t.TempDir(), "example-config-panel")
-	webDir := filepath.Join(pluginDir, "web")
-	if err := os.MkdirAll(webDir, 0o755); err != nil {
+	uiDir := filepath.Join(pluginDir, "ui")
+	if err := os.MkdirAll(uiDir, 0o755); err != nil {
 		t.Fatalf("os.MkdirAll: %v", err)
 	}
-	if err := os.WriteFile(filepath.Join(webDir, "index.html"), []byte("<!doctype html><title>Config Panel</title>"), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(uiDir, "index.html"), []byte("<!doctype html><title>Config Panel</title>"), 0o644); err != nil {
 		t.Fatalf("os.WriteFile index.html: %v", err)
 	}
-	if err := os.WriteFile(filepath.Join(webDir, "app.js"), []byte("console.log('config panel')"), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(uiDir, "app.js"), []byte("console.log('config panel')"), 0o644); err != nil {
 		t.Fatalf("os.WriteFile app.js: %v", err)
 	}
-	if err := os.WriteFile(filepath.Join(pluginDir, "main.py"), []byte("print('plugin')"), 0o644); err != nil {
-		t.Fatalf("os.WriteFile main.py: %v", err)
+	binDir := filepath.Join(pluginDir, "bin")
+	if err := os.MkdirAll(binDir, 0o755); err != nil {
+		t.Fatalf("os.MkdirAll bin: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(binDir, "example-config-panel"), []byte("go plugin fixture"), 0o755); err != nil {
+		t.Fatalf("os.WriteFile backend: %v", err)
 	}
 
 	handlers := newPluginManagementUIHTTPHandlers(pluginManagementUIHTTPDeps{
 		plugins: plugincatalog.New([]plugins.Snapshot{{
-			PluginID:          "example-config-panel",
-			Valid:             true,
-			RegistrationState: "installed",
-			DesiredState:      "disabled",
-			RuntimeState:      "stopped",
-			PackageRootPath:   pluginDir,
+			PluginID:            "example-config-panel",
+			Valid:               true,
+			RegistrationState:   "installed",
+			DesiredState:        "disabled",
+			RuntimeState:        "stopped",
+			PackageRootPath:     pluginDir,
+			ArtifactVersion:     "1",
+			ArtifactUIAvailable: true,
 			ManagementUI: &plugins.ManagementUI{
 				Pages: []plugins.ManagementUIPage{
-					{ID: "config", Label: "配置页面", Entry: "web/index.html"},
+					{ID: "config", Label: "配置页面", Entry: "ui/index.html"},
 				},
 			},
 		}}),
 	})
-	router := chi.NewRouter()
-	router.Get("/plugin-ui/{plugin_id}/*", handlers.handlePluginManagementUIStatic())
+	options := managementapi.PluginUIOriginOptions{ServerPort: 8080, AdminOrigins: []string{"http://127.0.0.1:8080"}}
+	origin, err := managementapi.PluginUIOrigin("example-config-panel", options)
+	if err != nil {
+		t.Fatalf("PluginUIOrigin: %v", err)
+	}
+	handler := handlers.IsolatedOriginHandler(http.NotFoundHandler(), options)
 
-	entryRequest := httptest.NewRequest(http.MethodGet, "/plugin-ui/example-config-panel/web/index.html", nil)
+	entryRequest := httptest.NewRequest(http.MethodGet, origin+"/", nil)
 	entryRecorder := httptest.NewRecorder()
-	router.ServeHTTP(entryRecorder, entryRequest)
+	handler.ServeHTTP(entryRecorder, entryRequest)
 
 	if entryRecorder.Code != http.StatusOK {
 		t.Fatalf("entry status = %d, want 200; body=%s", entryRecorder.Code, entryRecorder.Body.String())
@@ -117,9 +130,9 @@ func TestHandlePluginManagementUIStaticServesScopedAssets(t *testing.T) {
 	}
 	assertPluginUIStaticNoStoreHeaders(t, entryRecorder.Header())
 
-	assetRequest := httptest.NewRequest(http.MethodGet, "/plugin-ui/example-config-panel/web/app.js", nil)
+	assetRequest := httptest.NewRequest(http.MethodGet, origin+"/app.js", nil)
 	assetRecorder := httptest.NewRecorder()
-	router.ServeHTTP(assetRecorder, assetRequest)
+	handler.ServeHTTP(assetRecorder, assetRequest)
 
 	if assetRecorder.Code != http.StatusOK {
 		t.Fatalf("asset status = %d, want 200; body=%s", assetRecorder.Code, assetRecorder.Body.String())
@@ -128,6 +141,35 @@ func TestHandlePluginManagementUIStaticServesScopedAssets(t *testing.T) {
 		t.Fatalf("unexpected asset body: %q", body)
 	}
 	assertPluginUIStaticNoStoreHeaders(t, assetRecorder.Header())
+
+	apiRequest := httptest.NewRequest(http.MethodGet, origin+"/api/config", nil)
+	apiRequest.Header.Set("Origin", "http://127.0.0.1:8080")
+	apiRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(apiRecorder, apiRequest)
+	if apiRecorder.Code != http.StatusNotFound {
+		t.Fatalf("plugin-origin API status = %d, want 404", apiRecorder.Code)
+	}
+	if got := apiRecorder.Header().Get("Access-Control-Allow-Origin"); got != "" {
+		t.Fatalf("plugin-origin API exposed CORS: %q", got)
+	}
+	if got := apiRecorder.Header().Values("Set-Cookie"); len(got) != 0 {
+		t.Fatalf("plugin-origin API set cookies: %#v", got)
+	}
+}
+
+func TestPluginUIOriginRejectsAdminOrigin(t *testing.T) {
+	t.Parallel()
+	pluginID := "example-config-panel"
+	digest := sha256.Sum256([]byte(pluginID))
+	pluginHost := fmt.Sprintf("p-%x", digest[:8])
+	template := "https://{plugin_host}.plugins.example.com"
+	adminOrigin := "https://" + pluginHost + ".plugins.example.com:443"
+	if _, err := managementapi.PluginUIOrigin(pluginID, managementapi.PluginUIOriginOptions{
+		OriginTemplate: template,
+		AdminOrigins:   []string{adminOrigin},
+	}); err == nil {
+		t.Fatal("PluginUIOrigin accepted the admin origin")
+	}
 }
 
 func assertPluginUIStaticNoStoreHeaders(t *testing.T, header http.Header) {
@@ -136,11 +178,11 @@ func assertPluginUIStaticNoStoreHeaders(t *testing.T, header http.Header) {
 	if got := header.Get("Cache-Control"); got != "no-store, max-age=0" {
 		t.Fatalf("Cache-Control = %q, want no-store, max-age=0", got)
 	}
-	if got := header.Get("Pragma"); got != "no-cache" {
-		t.Fatalf("Pragma = %q, want no-cache", got)
+	if got := header.Get("X-Content-Type-Options"); got != "nosniff" {
+		t.Fatalf("X-Content-Type-Options = %q, want nosniff", got)
 	}
-	if got := header.Get("Expires"); got != "0" {
-		t.Fatalf("Expires = %q, want 0", got)
+	if got := header.Get("Content-Security-Policy"); !strings.Contains(got, "connect-src 'none'") || !strings.Contains(got, "frame-ancestors http://127.0.0.1:8080") {
+		t.Fatalf("unexpected Content-Security-Policy: %q", got)
 	}
 }
 
@@ -148,35 +190,45 @@ func TestHandlePluginManagementUIStaticRejectsParentEscape(t *testing.T) {
 	t.Parallel()
 
 	pluginDir := filepath.Join(t.TempDir(), "example-config-panel")
-	webDir := filepath.Join(pluginDir, "web")
-	if err := os.MkdirAll(webDir, 0o755); err != nil {
+	uiDir := filepath.Join(pluginDir, "ui")
+	if err := os.MkdirAll(uiDir, 0o755); err != nil {
 		t.Fatalf("os.MkdirAll: %v", err)
 	}
-	if err := os.WriteFile(filepath.Join(pluginDir, "main.py"), []byte("print('plugin')"), 0o644); err != nil {
-		t.Fatalf("os.WriteFile main.py: %v", err)
+	binDir := filepath.Join(pluginDir, "bin")
+	if err := os.MkdirAll(binDir, 0o755); err != nil {
+		t.Fatalf("os.MkdirAll bin: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(binDir, "example-config-panel"), []byte("go plugin fixture"), 0o755); err != nil {
+		t.Fatalf("os.WriteFile backend: %v", err)
 	}
 
 	handlers := newPluginManagementUIHTTPHandlers(pluginManagementUIHTTPDeps{
 		plugins: plugincatalog.New([]plugins.Snapshot{{
-			PluginID:          "example-config-panel",
-			Valid:             true,
-			RegistrationState: "installed",
-			DesiredState:      "disabled",
-			RuntimeState:      "stopped",
-			PackageRootPath:   pluginDir,
+			PluginID:            "example-config-panel",
+			Valid:               true,
+			RegistrationState:   "installed",
+			DesiredState:        "disabled",
+			RuntimeState:        "stopped",
+			PackageRootPath:     pluginDir,
+			ArtifactVersion:     "1",
+			ArtifactUIAvailable: true,
 			ManagementUI: &plugins.ManagementUI{
 				Pages: []plugins.ManagementUIPage{
-					{ID: "config", Label: "配置页面", Entry: "web/index.html"},
+					{ID: "config", Label: "配置页面", Entry: "ui/index.html"},
 				},
 			},
 		}}),
 	})
-	router := chi.NewRouter()
-	router.Get("/plugin-ui/{plugin_id}/*", handlers.handlePluginManagementUIStatic())
+	options := managementapi.PluginUIOriginOptions{ServerPort: 8080}
+	origin, err := managementapi.PluginUIOrigin("example-config-panel", options)
+	if err != nil {
+		t.Fatalf("PluginUIOrigin: %v", err)
+	}
+	handler := handlers.IsolatedOriginHandler(http.NotFoundHandler(), options)
 
-	request := httptest.NewRequest(http.MethodGet, "/plugin-ui/example-config-panel/web/../main.py", nil)
+	request := httptest.NewRequest(http.MethodGet, origin+"/../bin/example-config-panel", nil)
 	recorder := httptest.NewRecorder()
-	router.ServeHTTP(recorder, request)
+	handler.ServeHTTP(recorder, request)
 
 	if recorder.Code != http.StatusNotFound {
 		t.Fatalf("status = %d, want 404", recorder.Code)
@@ -356,6 +408,7 @@ func TestHandlePluginSecretsGetAndPutAreScopedToPlugin(t *testing.T) {
 	router := chi.NewRouter()
 	router.Get("/api/plugins/{plugin_id}/secrets", handlers.handlePluginSecretsGet())
 	router.Put("/api/plugins/{plugin_id}/secrets", handlers.handlePluginSecretsPut())
+	router.Delete("/api/plugins/{plugin_id}/secrets", handlers.handlePluginSecretsDelete())
 
 	getRequest := httptest.NewRequest(http.MethodGet, "/api/plugins/example-config-panel/secrets", nil)
 	getRecorder := httptest.NewRecorder()
@@ -369,14 +422,14 @@ func TestHandlePluginSecretsGetAndPutAreScopedToPlugin(t *testing.T) {
 	if err := json.Unmarshal(getRecorder.Body.Bytes(), &getResponse); err != nil {
 		t.Fatalf("decode get response: %v", err)
 	}
-	if getResponse.Values["bili_token_primary"] != "SESSDATA=fixture" {
-		t.Fatalf("unexpected values: %#v", getResponse.Values)
+	if !getResponse.Configured["bili_token_primary"] {
+		t.Fatalf("unexpected configured status: %#v", getResponse.Configured)
 	}
-	if _, exists := getResponse.Values["other-plugin"]; exists {
-		t.Fatalf("unexpected cross-plugin secret: %#v", getResponse.Values)
+	if _, exists := getResponse.Configured["other-plugin"]; exists {
+		t.Fatalf("unexpected cross-plugin secret: %#v", getResponse.Configured)
 	}
 
-	body := bytes.NewReader([]byte(`{"values":{"bili_token_backup":"SESSDATA=backup"},"deleted_keys":["bili_token_primary"]}`))
+	body := bytes.NewReader([]byte(`{"values":{"bili_token_backup":"SESSDATA=backup"}}`))
 	putRequest := httptest.NewRequest(http.MethodPut, "/api/plugins/example-config-panel/secrets", body)
 	putRequest.Header.Set("Content-Type", "application/json")
 	putRecorder := httptest.NewRecorder()
@@ -390,14 +443,27 @@ func TestHandlePluginSecretsGetAndPutAreScopedToPlugin(t *testing.T) {
 	if err := json.Unmarshal(putRecorder.Body.Bytes(), &putResponse); err != nil {
 		t.Fatalf("decode put response: %v", err)
 	}
-	if len(putResponse.ChangedKeys) != 2 || putResponse.ChangedKeys[0] != "bili_token_backup" || putResponse.ChangedKeys[1] != "bili_token_primary" {
+	if len(putResponse.ChangedKeys) != 1 || putResponse.ChangedKeys[0] != "bili_token_backup" {
 		t.Fatalf("unexpected changed_keys: %#v", putResponse.ChangedKeys)
 	}
-	if putResponse.Values["bili_token_backup"] != "SESSDATA=backup" {
-		t.Fatalf("unexpected updated values: %#v", putResponse.Values)
+	if !putResponse.Configured["bili_token_backup"] {
+		t.Fatalf("unexpected updated status: %#v", putResponse.Configured)
 	}
-	if _, exists := putResponse.Values["bili_token_primary"]; exists {
-		t.Fatalf("deleted secret still returned: %#v", putResponse.Values)
+
+	deleteBody := bytes.NewReader([]byte(`{"keys":["bili_token_primary"]}`))
+	deleteRequest := httptest.NewRequest(http.MethodDelete, "/api/plugins/example-config-panel/secrets", deleteBody)
+	deleteRequest.Header.Set("Content-Type", "application/json")
+	deleteRecorder := httptest.NewRecorder()
+	router.ServeHTTP(deleteRecorder, deleteRequest)
+	if deleteRecorder.Code != http.StatusOK {
+		t.Fatalf("delete status = %d, want 200; body=%s", deleteRecorder.Code, deleteRecorder.Body.String())
+	}
+	var deleteResponse managementapi.PluginSecretsUpdateResponse
+	if err := json.Unmarshal(deleteRecorder.Body.Bytes(), &deleteResponse); err != nil {
+		t.Fatalf("decode delete response: %v", err)
+	}
+	if deleteResponse.Configured["bili_token_primary"] {
+		t.Fatalf("deleted secret still configured: %#v", deleteResponse.Configured)
 	}
 	storedBackup, err := secretStore.Get(context.Background(), "plugin:example-config-panel:secret:bili_token_backup")
 	if err != nil {

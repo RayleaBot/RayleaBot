@@ -54,7 +54,7 @@ x-fixtures:
   - fixtures/web-api/ok.logs-list-response.task.yaml
   - fixtures/web-api/ok.log-detail-response.yaml
   - fixtures/web-api/ok.plugins-install-accepted.yaml
-  - fixtures/web-api/ok.plugins-install-accepted-with-scripts.yaml
+  - fixtures/web-api/ok.plugins-install-local-artifact.yaml
   - fixtures/web-api/ok.plugins-install-remote-url.yaml
   - fixtures/web-api/ok.plugins-install-inspect.yaml
   - fixtures/web-api/invalid.plugins-install-missing-inspection.yaml
@@ -66,6 +66,7 @@ x-fixtures:
   - fixtures/web-api/ok.plugin-settings-update-response.yaml
   - fixtures/web-api/ok.plugin-secrets-response.yaml
   - fixtures/web-api/ok.plugin-secrets-update-response.yaml
+  - fixtures/web-api/ok.plugin-secrets-delete-response.yaml
   - fixtures/web-api/ok.plugins-enable-response.yaml
   - fixtures/web-api/ok.webhook-accepted.yaml
   - fixtures/web-api/edge.plugins-disable-response.yaml
@@ -782,7 +783,7 @@ paths:
 
   /api/system/runtime/bootstrap:
     post:
-      summary: Start an asynchronous runtime.bootstrap task to prepare managed runtime resources for the current platform.
+      summary: Start an asynchronous runtime.bootstrap task to prepare Chromium for the current platform.
       operationId: createRuntimeBootstrap
       security:
         - BearerAuth: []
@@ -1340,7 +1341,7 @@ paths:
 
   /api/plugins/{plugin_id}/secrets:
     get:
-      summary: Query plugin-owned secret values for a protected management page.
+      summary: Query whether plugin-owned secrets are configured without returning plaintext.
       operationId: getPluginSecrets
       security:
         - BearerAuth: []
@@ -1349,7 +1350,7 @@ paths:
         - $ref: '#/components/parameters/PluginId'
       responses:
         '200':
-          description: Current plugin-owned secret values.
+          description: Current plugin-owned secret configured-state map.
           content:
             application/json:
               schema:
@@ -1363,8 +1364,8 @@ paths:
         default:
           $ref: '#/components/responses/Error'
     put:
-      summary: Save or delete plugin-owned secret values.
-      operationId: updatePluginSecrets
+      summary: Overwrite selected plugin-owned secret values.
+      operationId: setPluginSecrets
       security:
         - BearerAuth: []
         - CookieAuth: []
@@ -1379,7 +1380,39 @@ paths:
               $ref: '#/components/schemas/PluginSecretsUpdateRequest'
       responses:
         '200':
-          description: Plugin-owned secrets saved and echoed back with changed keys.
+          description: Plugin-owned secrets overwritten; plaintext values are never echoed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PluginSecretsUpdateResponse'
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+        '409':
+          $ref: '#/components/responses/Error'
+        default:
+          $ref: '#/components/responses/Error'
+    delete:
+      summary: Explicitly delete selected plugin-owned secret values.
+      operationId: deletePluginSecrets
+      security:
+        - BearerAuth: []
+        - CookieAuth: []
+          CSRFAuth: []
+      parameters:
+        - $ref: '#/components/parameters/PluginId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PluginSecretsDeleteRequest'
+      responses:
+        '200':
+          description: Selected plugin-owned secrets deleted; plaintext values are never returned.
           content:
             application/json:
               schema:
@@ -1480,7 +1513,7 @@ paths:
 
   /api/plugins/install/inspect:
     post:
-      summary: Inspect a plugin source and freeze its digest, metadata, capabilities and install scripts before trust confirmation.
+      summary: Inspect a prebuilt plugin artifact and freeze its digest, target platform, metadata and capabilities before trust confirmation.
       operationId: inspectPluginInstall
       security:
         - BearerAuth: []
@@ -2272,7 +2305,7 @@ components:
       properties:
         kind:
           type: string
-          enum: [chromium, python-runtime, nodejs-runtime]
+          enum: [chromium]
         status:
           type: string
           enum: [ready, cached, on_demand, metadata_incomplete, unavailable]
@@ -2910,7 +2943,7 @@ components:
 
     RuntimeBootstrapResource:
       type: string
-      enum: [chromium, python-runtime, nodejs-runtime]
+      enum: [chromium]
 
     RuntimeBootstrapRequest:
       type: object
@@ -3367,11 +3400,7 @@ components:
 
     PluginRuntimeFamily:
       type: string
-      enum: [python, nodejs]
-
-    PluginPackageType:
-      type: string
-      enum: [managed_runtime, dev_source]
+      const: go
 
     PluginPlatform:
       type: string
@@ -3512,19 +3541,6 @@ components:
           items:
             $ref: '#/components/schemas/PluginSummary'
 
-    PluginDependencies:
-      type: object
-      additionalProperties: false
-      properties:
-        python:
-          type: array
-          items:
-            type: string
-        nodejs:
-          type: array
-          items:
-            type: string
-
     PluginWebhookScope:
       type: object
       additionalProperties: false
@@ -3645,15 +3661,9 @@ components:
             type: string
         runtime:
           $ref: '#/components/schemas/PluginRuntimeFamily'
-        type:
-          $ref: '#/components/schemas/PluginPackageType'
         entry:
           type: string
         license:
-          type: string
-        sdk_min_version:
-          type: string
-        runtime_version:
           type: string
         min_core_version:
           type: string
@@ -3674,8 +3684,6 @@ components:
           items:
             type: string
             pattern: '^[a-z]+\.[a-z_]+$'
-        dependencies:
-          $ref: '#/components/schemas/PluginDependencies'
         capability_parameters:
           $ref: '#/components/schemas/PluginCapabilityParameters'
         icon:
@@ -3702,11 +3710,6 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/PluginRenderTemplateSummary'
-        system_dependencies:
-          type: array
-          items:
-            type: string
-
     PluginDetailResponse:
       type: object
       additionalProperties: false
@@ -3911,21 +3914,31 @@ components:
 
     PluginSecretValues:
       type: object
+      minProperties: 1
       propertyNames:
         type: string
         pattern: '^[a-z0-9](?:[a-z0-9_.-]{0,126}[a-z0-9])?$'
       additionalProperties:
         type: string
+        minLength: 1
+
+    PluginSecretStatus:
+      type: object
+      propertyNames:
+        type: string
+        pattern: '^[a-z0-9](?:[a-z0-9_.-]{0,126}[a-z0-9])?$'
+      additionalProperties:
+        type: boolean
 
     PluginSecretsResponse:
       type: object
       additionalProperties: false
-      required: [plugin_id, values]
+      required: [plugin_id, configured]
       properties:
         plugin_id:
           type: string
-        values:
-          $ref: '#/components/schemas/PluginSecretValues'
+        configured:
+          $ref: '#/components/schemas/PluginSecretStatus'
 
     PluginSecretsUpdateRequest:
       type: object
@@ -3934,8 +3947,14 @@ components:
       properties:
         values:
           $ref: '#/components/schemas/PluginSecretValues'
-        deleted_keys:
+    PluginSecretsDeleteRequest:
+      type: object
+      additionalProperties: false
+      required: [keys]
+      properties:
+        keys:
           type: array
+          minItems: 1
           items:
             type: string
             pattern: '^[a-z0-9](?:[a-z0-9_.-]{0,126}[a-z0-9])?$'
@@ -3944,7 +3963,7 @@ components:
     PluginSecretsUpdateResponse:
       type: object
       additionalProperties: false
-      required: [plugin_id, changed_keys, values]
+      required: [plugin_id, changed_keys, configured]
       properties:
         plugin_id:
           type: string
@@ -3954,8 +3973,8 @@ components:
             type: string
             pattern: '^[a-z0-9](?:[a-z0-9_.-]{0,126}[a-z0-9])?$'
           uniqueItems: true
-        values:
-          $ref: '#/components/schemas/PluginSecretValues'
+        configured:
+          $ref: '#/components/schemas/PluginSecretStatus'
 
     PluginInstallSource:
       type: object
@@ -3978,7 +3997,7 @@ components:
     PluginInstallInspectionResponse:
       type: object
       additionalProperties: false
-      required: [inspection_id, expires_at, package_sha256, source, plugin, capabilities, install_scripts]
+      required: [inspection_id, expires_at, package_sha256, source, plugin, capabilities, target_platform, backend, ui, artifact]
       properties:
         inspection_id:
           type: string
@@ -4006,10 +4025,43 @@ components:
           type: array
           items: { type: string, minLength: 1 }
           uniqueItems: true
-        install_scripts:
-          type: array
-          items: { type: string, minLength: 1 }
-          uniqueItems: true
+        target_platform:
+          $ref: '#/components/schemas/PluginPlatform'
+        backend:
+          $ref: '#/components/schemas/PluginInstallBackend'
+        ui:
+          $ref: '#/components/schemas/PluginInstallUI'
+        artifact:
+          $ref: '#/components/schemas/PluginArtifactValidation'
+
+    PluginInstallBackend:
+      type: object
+      additionalProperties: false
+      required: [entry, path, size, sha256]
+      properties:
+        entry: { type: string, minLength: 1 }
+        path: { type: string, minLength: 1 }
+        size: { type: integer, minimum: 1 }
+        sha256: { type: string, pattern: '^[a-f0-9]{64}$' }
+
+    PluginInstallUI:
+      type: object
+      additionalProperties: false
+      required: [enabled, file_count]
+      properties:
+        enabled: { type: boolean }
+        entry: { type: string, minLength: 1 }
+        file_count: { type: integer, minimum: 0 }
+
+    PluginArtifactValidation:
+      type: object
+      additionalProperties: false
+      required: [valid, artifact_version, manifest_sha256, file_count]
+      properties:
+        valid: { type: boolean, const: true }
+        artifact_version: { type: string, const: '1' }
+        manifest_sha256: { type: string, pattern: '^[a-f0-9]{64}$' }
+        file_count: { type: integer, minimum: 2 }
 
     PluginInstallRequest:
       type: object
@@ -4031,14 +4083,7 @@ components:
         trusted_code_confirmed:
           type: boolean
           const: true
-          description: Explicit acknowledgement that third-party plugins and approved install scripts run as fully trusted local code.
-        allow_install_scripts:
-          type: boolean
-          description: >
-            Explicitly authorizes install-time scripts for plugins whose manifest
-            declares require_install_scripts=true. When omitted or false, the
-            install task keeps the default safety policy and may later fail with
-            platform.install_script_blocked.
+          description: Explicit acknowledgement that a third-party plugin backend runs as fully trusted local code.
 
     UpdateState:
       type: string

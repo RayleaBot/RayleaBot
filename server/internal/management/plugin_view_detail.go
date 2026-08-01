@@ -6,11 +6,6 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 )
 
-type DependenciesResponse struct {
-	Python []string `json:"python,omitempty"`
-	NodeJS []string `json:"nodejs,omitempty"`
-}
-
 type WebhookScopeResponse struct {
 	Route           string   `json:"route"`
 	AuthStrategy    string   `json:"auth_strategy"`
@@ -52,20 +47,16 @@ type DetailPluginResponse struct {
 	Role                 string                        `json:"role"`
 	Version              string                        `json:"version,omitempty"`
 	Runtime              string                        `json:"runtime,omitempty"`
-	Type                 string                        `json:"type,omitempty"`
 	Entry                string                        `json:"entry,omitempty"`
 	Description          string                        `json:"description,omitempty"`
 	Author               string                        `json:"author,omitempty"`
 	License              string                        `json:"license,omitempty"`
-	SDKMinVersion        string                        `json:"sdk_min_version,omitempty"`
-	RuntimeVersion       string                        `json:"runtime_version,omitempty"`
 	MinCoreVersion       string                        `json:"min_core_version,omitempty"`
 	DataSchemaVersion    string                        `json:"data_schema_version,omitempty"`
 	Concurrency          int                           `json:"concurrency,omitempty"`
 	Platforms            []string                      `json:"platforms,omitempty"`
 	DefaultConfig        map[string]any                `json:"default_config,omitempty"`
 	DeclaredCapabilities []string                      `json:"declared_capabilities,omitempty"`
-	Dependencies         *DependenciesResponse         `json:"dependencies,omitempty"`
 	CapabilityParameters *CapabilityParametersResponse `json:"capability_parameters,omitempty"`
 	Icon                 string                        `json:"icon,omitempty"`
 	Repo                 string                        `json:"repo,omitempty"`
@@ -74,7 +65,6 @@ type DetailPluginResponse struct {
 	Screenshots          []ScreenshotResponse          `json:"screenshots,omitempty"`
 	ManagementUI         *ManagementUIResponse         `json:"management_ui,omitempty"`
 	RenderTemplates      []RenderTemplateResponse      `json:"render_templates,omitempty"`
-	SystemDependencies   []string                      `json:"system_dependencies,omitempty"`
 	State                string                        `json:"state"`
 	StateDiagnosis       *plugins.StateDiagnosis       `json:"state_diagnosis,omitempty"`
 	Source               SourceResponse                `json:"source"`
@@ -86,17 +76,6 @@ type DetailPluginResponse struct {
 
 type DetailResponse struct {
 	Plugin DetailPluginResponse `json:"plugin"`
-}
-
-func buildPluginDependencies(snapshot plugins.Snapshot) *DependenciesResponse {
-	if len(snapshot.PythonDependencies) == 0 && len(snapshot.NodeDependencies) == 0 {
-		return nil
-	}
-
-	return &DependenciesResponse{
-		Python: NormalizeStringList(snapshot.PythonDependencies),
-		NodeJS: NormalizeStringList(snapshot.NodeDependencies),
-	}
 }
 
 func buildPluginCapabilityParameters(snapshot plugins.Snapshot) *CapabilityParametersResponse {
@@ -199,20 +178,16 @@ func BuildDetail(catalog plugins.CatalogView, snapshot plugins.Snapshot) DetailR
 			Role:                 summary.Role,
 			Version:              strings.TrimSpace(snapshot.Version),
 			Runtime:              strings.TrimSpace(snapshot.Runtime),
-			Type:                 strings.TrimSpace(snapshot.Type),
 			Entry:                strings.TrimSpace(snapshot.Entry),
 			Description:          strings.TrimSpace(snapshot.Description),
 			Author:               strings.TrimSpace(snapshot.Author),
 			License:              strings.TrimSpace(snapshot.License),
-			SDKMinVersion:        strings.TrimSpace(snapshot.SDKMinVersion),
-			RuntimeVersion:       strings.TrimSpace(snapshot.RuntimeVersion),
 			MinCoreVersion:       strings.TrimSpace(snapshot.MinCoreVersion),
 			DataSchemaVersion:    strings.TrimSpace(snapshot.DataSchemaVersion),
 			Concurrency:          snapshot.Concurrency,
 			Platforms:            NormalizeStringList(snapshot.Platforms),
 			DefaultConfig:        plugins.CloneMap(snapshot.DefaultConfig),
 			DeclaredCapabilities: NormalizeStringList(snapshot.DeclaredCapabilities),
-			Dependencies:         buildPluginDependencies(snapshot),
 			CapabilityParameters: buildPluginCapabilityParameters(snapshot),
 			Icon:                 strings.TrimSpace(snapshot.Icon),
 			Repo:                 strings.TrimSpace(snapshot.Repo),
@@ -221,7 +196,6 @@ func BuildDetail(catalog plugins.CatalogView, snapshot plugins.Snapshot) DetailR
 			Screenshots:          buildPluginScreenshots(snapshot),
 			ManagementUI:         buildPluginManagementUI(snapshot),
 			RenderTemplates:      buildPluginRenderTemplates(snapshot),
-			SystemDependencies:   NormalizeStringList(snapshot.SystemDependencies),
 			State:                summary.State,
 			StateDiagnosis:       summary.StateDiagnosis,
 			Source:               summary.Source,

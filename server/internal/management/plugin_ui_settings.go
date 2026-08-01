@@ -14,8 +14,11 @@ type pluginSettingsRequest struct {
 }
 
 type pluginSecretsRequest struct {
-	Values      map[string]string `json:"values"`
-	DeletedKeys []string          `json:"deleted_keys,omitempty"`
+	Values map[string]string `json:"values"`
+}
+
+type pluginSecretsDeleteRequest struct {
+	Keys []string `json:"keys"`
 }
 
 type PluginSettingsResponse struct {
@@ -30,14 +33,14 @@ type PluginSettingsUpdateResponse struct {
 }
 
 type PluginSecretsResponse struct {
-	PluginID string            `json:"plugin_id"`
-	Values   map[string]string `json:"values"`
+	PluginID   string          `json:"plugin_id"`
+	Configured map[string]bool `json:"configured"`
 }
 
 type PluginSecretsUpdateResponse struct {
-	PluginID    string            `json:"plugin_id"`
-	ChangedKeys []string          `json:"changed_keys"`
-	Values      map[string]string `json:"values"`
+	PluginID    string          `json:"plugin_id"`
+	ChangedKeys []string        `json:"changed_keys"`
+	Configured  map[string]bool `json:"configured"`
 }
 
 func (h *PluginManagementUIHandlers) HandlePluginSettingsGet() http.HandlerFunc {

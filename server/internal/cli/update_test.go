@@ -34,6 +34,8 @@ func TestVersionJSONReadsPackagedBuildInfo(t *testing.T) {
 		ArtifactID:            "windows-x64-full",
 		BuiltAt:               "2026-07-10T00:00:00Z",
 		UpdateProtocolVersion: releaseupdate.ProtocolVersion,
+		PluginManifestVersion: releaseupdate.PluginManifestVersion,
+		PluginUIBridgeVersion: releaseupdate.PluginUIBridgeVersion,
 	})
 	var stdout bytes.Buffer
 	code := Run(Command{
@@ -64,6 +66,8 @@ func TestUpdateCheckJSONUsesTrustedManifest(t *testing.T) {
 		ArtifactID:            "windows-x64-full",
 		BuiltAt:               now.Add(-24 * time.Hour).Format(time.RFC3339),
 		UpdateProtocolVersion: releaseupdate.ProtocolVersion,
+		PluginManifestVersion: releaseupdate.PluginManifestVersion,
+		PluginUIBridgeVersion: releaseupdate.PluginUIBridgeVersion,
 	})
 	manifestBytes, signatureBytes, verifier := signedCLIMetadata(t, now, "1.1.0", []byte("archive"))
 	client := &http.Client{Transport: cliRoundTripFunc(func(request *http.Request) (*http.Response, error) {
@@ -149,6 +153,8 @@ func signedCLIMetadata(t *testing.T, now time.Time, version string, archive []by
 		ConfigSchemaVersion:   "2",
 		DBSchemaVersion:       "2",
 		PluginProtocolVersion: "1",
+		PluginManifestVersion: releaseupdate.PluginManifestVersion,
+		PluginUIBridgeVersion: releaseupdate.PluginUIBridgeVersion,
 		ReleaseNotesRef:       "https://example.com/releases/v" + version,
 		Artifacts: []releaseupdate.Artifact{{
 			ArtifactID:                "windows-x64-full",

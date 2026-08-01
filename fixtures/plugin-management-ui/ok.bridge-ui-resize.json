@@ -1,0 +1,16 @@
+{
+  "contract": "contracts/plugin-management-ui-bridge.schema.json",
+  "case": "edge",
+  "description": "The plugin page may request a host-clamped height within 320 through 1600 pixels.",
+  "input": {
+    "version": "2",
+    "source": "plugin_management_ui",
+    "type": "ui.resize",
+    "payload": {
+      "height": 1600
+    }
+  },
+  "expect": {
+    "valid": true
+  }
+}

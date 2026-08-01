@@ -1,8 +1,8 @@
 {
-  "version": "1",
+  "version": "2",
   "created_at": "2026-04-02T08:00:00Z",
   "core_version": "0.2.0",
-  "config_schema_version": "2",
+  "config_schema_version": "3",
   "db_schema_version": "000004",
   "consistency": "online",
   "plugins": [
@@ -11,8 +11,12 @@
       "version": "1.4.0",
       "min_core_version": "0.3.0",
       "data_schema_version": "5",
-      "platforms": ["linux-x64"],
-      "source_root": "plugins/installed"
+      "platforms": [
+        "linux-x64"
+      ],
+      "source_root": "plugins/installed",
+      "manifest_version": "2",
+      "artifact_version": "1"
     }
   ],
   "directories": [
@@ -28,5 +32,7 @@
       "label": "plugins",
       "path": "plugins/installed"
     }
-  ]
+  ],
+  "plugin_manifest_version": "2",
+  "plugin_ui_bridge_version": "2"
 }

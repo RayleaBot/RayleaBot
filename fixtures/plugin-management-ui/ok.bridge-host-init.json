@@ -1,37 +1,41 @@
 {
   "contract": "contracts/plugin-management-ui-bridge.schema.json",
   "case": "ok",
-  "description": "The host initializes the iframe with plugin identity, trust, defaults, and current settings.",
+  "description": "After the MessageChannel handoff, the host initializes only the bounded plugin page context.",
   "input": {
-    "version": "1",
+    "version": "2",
     "source": "management_host",
     "type": "host.init",
     "payload": {
-      "plugin_id": "example-config-panel",
       "plugin": {
+        "id": "example-config-panel",
         "name": "Example Config Panel",
-        "version": "0.1.0",
-        "description": "Python example plugin demonstrating config.read and config.write.",
+        "version": "0.2.0",
         "state": "disabled"
       },
-      "trust": {
-        "level": "third_party",
-        "label": "示例"
+      "page": {
+        "id": "config",
+        "label": "配置页面"
       },
-      "default_config": {
-        "default_city": "北京",
-        "unit": "celsius"
-      },
-      "settings": {
+      "config": {
         "default_city": "上海",
         "unit": "fahrenheit"
       },
-      "title": "配置页面",
-      "page": {
-        "id": "config",
-        "label": "配置页面",
-        "entry": "web/index.html"
-      }
+      "secrets_configured": {
+        "weather_api_key": true
+      },
+      "theme": {
+        "mode": "dark",
+        "tokens": {
+          "colorPrimary": "#1677ff",
+          "colorText": "#f5f5f5"
+        }
+      },
+      "language": "zh-CN",
+      "allowed_capabilities": [
+        "config.read",
+        "config.write"
+      ]
     }
   },
   "expect": {

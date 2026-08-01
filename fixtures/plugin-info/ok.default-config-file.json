@@ -5,11 +5,10 @@
     "id": "weather-file-config",
     "name": "Weather File Config",
     "version": "1.0.0",
-    "manifest_version": "1",
+    "manifest_version": "2",
     "plugin_protocol_version": "1",
-    "type": "managed_runtime",
-    "runtime": "python",
-    "entry": "main.py",
+    "runtime": "go",
+    "entry": "bin/weather-file-config",
     "license": "MIT",
     "description": "Weather query plugin with package default settings.",
     "author": "raylea",
@@ -28,6 +27,11 @@
         "description": "查询天气",
         "permission": "everyone"
       }
+    ],
+    "platforms": [
+      "windows-x64",
+      "linux-x64",
+      "macos-arm64"
     ]
   },
   "expect": {

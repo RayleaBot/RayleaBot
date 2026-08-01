@@ -1,0 +1,14 @@
+{
+  "contract": "contracts/plugin-management-ui-bridge.schema.json",
+  "case": "ok",
+  "description": "The iframe proves possession of the URL nonce before channel transfer.",
+  "input": {
+    "version": "2",
+    "source": "plugin_management_ui",
+    "type": "page.ready",
+    "nonce": "fixture_nonce_0123456789abcdef0123456789abcdef"
+  },
+  "expect": {
+    "valid": true
+  }
+}

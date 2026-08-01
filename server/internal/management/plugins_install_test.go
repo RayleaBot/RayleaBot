@@ -55,7 +55,10 @@ func TestInstallInspectHandlerReturnsDigestBoundMetadata(t *testing.T) {
 		License:        "MIT",
 		SourceLabel:    "本地插件包",
 		Capabilities:   []string{"event.subscribe", "http.request"},
-		InstallScripts: []string{"install"},
+		TargetPlatform: "windows-x64",
+		Backend:        plugins.InstallBackendInspection{Entry: "bin/weather", Path: "bin/weather.exe", Size: 1024, SHA256: strings.Repeat("b", 64)},
+		UI:             plugins.InstallUIInspection{Enabled: true, Entry: "ui/index.html", FileCount: 3},
+		Artifact:       plugins.ArtifactInspection{Valid: true, Version: "1", ManifestSHA256: strings.Repeat("c", 64), FileCount: 8},
 	}}
 	handler := newInstallInspectHandler(newTestCatalog(nil), installer)
 	request := httptest.NewRequest(http.MethodPost, "/api/plugins/install/inspect", strings.NewReader(`{"source_type":"local_zip","source":"C:/plugins/weather.zip"}`))
@@ -240,11 +243,14 @@ func TestInstallHandler_ValidLocalZip(t *testing.T) {
 	}
 }
 
-func TestInstallHandler_AllowsExplicitInstallScriptAuthorization(t *testing.T) {
+func TestInstallHandlerRejectsLegacyInstallScriptField(t *testing.T) {
 	router, _, taskRegistry, _ := setupRouter(nil)
 
-	payload := trustedInstallRequest("local_directory", "C:/plugins/weather")
-	payload.AllowInstallScripts = true
+	payload := map[string]any{
+		"source_type": "local_directory", "source": "C:/plugins/weather",
+		"inspection_id": strings.Repeat("i", 64), "package_sha256": strings.Repeat("a", 64),
+		"trusted_code_confirmed": true, "allow_install_scripts": true,
+	}
 	body, _ := json.Marshal(payload)
 	req := httptest.NewRequest(http.MethodPost, "/api/plugins/install", bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
@@ -252,21 +258,11 @@ func TestInstallHandler_AllowsExplicitInstallScriptAuthorization(t *testing.T) {
 
 	router.ServeHTTP(rec, req)
 
-	if rec.Code != http.StatusAccepted {
-		t.Fatalf("status = %d, want 202; body = %s", rec.Code, rec.Body.String())
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want 400; body = %s", rec.Code, rec.Body.String())
 	}
-
-	var resp pluginTaskAcceptedResponse
-	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
-		t.Fatalf("decode: %v", err)
-	}
-
-	snap, ok := taskRegistry.Get(resp.TaskID)
-	if !ok {
-		t.Fatalf("task %q not in registry", resp.TaskID)
-	}
-	if snap.TaskType != "plugin.install" {
-		t.Fatalf("task_type = %q, want plugin.install", snap.TaskType)
+	if len(taskRegistry.List()) != 0 {
+		t.Fatal("legacy request unexpectedly created an install task")
 	}
 }
 func TestInstallHandler_EmptySource_400(t *testing.T) {

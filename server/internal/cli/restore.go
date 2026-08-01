@@ -55,11 +55,6 @@ func runRestore(cmd Command) int {
 		cmd.Logger.Error("备份压缩包缺少 backup-manifest.json："+backupPathDisplay, "path", backupPathDisplay)
 		return 1
 	}
-	if manifest.Version != recovery.BackupManifestVersion {
-		cmd.Logger.Error("备份版本不支持："+manifest.Version, "version", manifest.Version)
-		return 1
-	}
-
 	summary := recovery.EvaluateRestore(manifest, repoRoot)
 	summaryPath := recovery.SummaryPath(repoRoot)
 	summaryPathDisplay := displayLogPath(repoRoot, summaryPath)
@@ -69,6 +64,10 @@ func runRestore(cmd Command) int {
 	}
 	if summary.Status == "blocked" {
 		cmd.Logger.Error("恢复备份被兼容性检查阻止："+backupPathDisplay, "path", backupPathDisplay, "issues", len(summary.Issues))
+		return 1
+	}
+	if manifest.Version != recovery.BackupManifestVersion {
+		cmd.Logger.Error("备份版本不支持："+manifest.Version, "version", manifest.Version)
 		return 1
 	}
 

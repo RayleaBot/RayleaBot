@@ -1,0 +1,20 @@
+go 1.25.12
+
+use (
+	./server
+	./sdk/go
+	./plugins/builtin/echo
+	./plugins/builtin/fortune
+	./plugins/builtin/game_guide
+	./plugins/builtin/subscription_hub
+	./examples/plugins/echo-go
+	./examples/plugins/example-capability-parameters
+	./examples/plugins/example-config-panel
+	./examples/plugins/example-governance-control
+	./examples/plugins/example-plugin-list
+	./examples/plugins/example-render-card
+	./examples/plugins/example-scheduler
+	./examples/plugins/example-webhook
+	./examples/plugins/hello-go
+	./examples/plugins/notice-logger
+)

@@ -46,6 +46,8 @@ func newSignedReleaseFixture(t *testing.T, version string, now time.Time, artifa
 		ConfigSchemaVersion:   "2",
 		DBSchemaVersion:       "2",
 		PluginProtocolVersion: "1",
+		PluginManifestVersion: PluginManifestVersion,
+		PluginUIBridgeVersion: PluginUIBridgeVersion,
 		Artifacts:             []Artifact{artifact},
 		ReleaseNotesRef:       ReleaseRepositoryURL + "/releases/tag/v" + version,
 	}
@@ -108,6 +110,8 @@ func testBuildInfo(version, artifactID string) BuildInfo {
 		ArtifactID:            artifactID,
 		BuiltAt:               "2026-07-10T00:00:00Z",
 		UpdateProtocolVersion: ProtocolVersion,
+		PluginManifestVersion: PluginManifestVersion,
+		PluginUIBridgeVersion: PluginUIBridgeVersion,
 	}
 }
 

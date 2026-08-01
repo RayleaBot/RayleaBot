@@ -14,5 +14,7 @@
       }
     ]
   },
-  "expect": { "valid": true }
+  "expect": {
+    "valid": true
+  }
 }

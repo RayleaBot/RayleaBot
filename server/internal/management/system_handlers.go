@@ -274,13 +274,13 @@ func decodeRuntimeBootstrapRequest(r *http.Request) (runtimeBootstrapRequest, er
 
 func normalizeRuntimeBootstrapResources(requested []string) ([]string, bool) {
 	if len(requested) == 0 {
-		return []string{"chromium", "python-runtime", "nodejs-runtime"}, true
+		return []string{"chromium"}, true
 	}
 	seen := map[string]struct{}{}
 	resources := make([]string, 0, len(requested))
 	for _, item := range requested {
 		switch item {
-		case "chromium", "python-runtime", "nodejs-runtime":
+		case "chromium":
 		default:
 			return nil, false
 		}

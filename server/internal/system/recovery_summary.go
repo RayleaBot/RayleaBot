@@ -3,7 +3,6 @@ package system
 import (
 	"strings"
 
-	"github.com/RayleaBot/RayleaBot/server/internal/deps"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	"github.com/RayleaBot/RayleaBot/server/internal/recovery"
 )
@@ -32,7 +31,7 @@ func (s *Service) recoveryFinalizeInput() recovery.FinalizeInput {
 	if s != nil && s.plugins != nil {
 		pluginsList = s.plugins.List()
 	}
-	issues := s.platformDiagnostics(pluginsList)
+	issues := s.platformDiagnostics()
 	return recovery.FinalizeInput{
 		Plugins:          pluginsList,
 		DesiredStateRepo: s.pluginRepository,
@@ -106,62 +105,8 @@ func (s *Service) renderDiagnostics() []recovery.CompatibilityIssue {
 	return items
 }
 
-func (s *Service) managedRuntimeDiagnostics(pluginsList []plugins.Snapshot) []recovery.CompatibilityIssue {
-	if s.repoRootPath() == "" {
-		return nil
-	}
-	requiredKinds := managedDiagnosticKinds()
-	if len(requiredKinds) == 0 {
-		return nil
-	}
-	issues := []recovery.CompatibilityIssue{}
-	diagnostics := deps.NewDiagnostics(s.repoRootPath())
-	for _, kind := range requiredKinds {
-		inspection, err := diagnostics.InspectRuntime(kind)
-		if err != nil {
-			issues = append(issues, startupInspectionIssue(kind, err))
-			continue
-		}
-		if !inspection.MetadataComplete {
-			issues = append(issues, startupMetadataIssue(kind))
-			continue
-		}
-		if inspection.PreparedStorePresent {
-			continue
-		}
-		if state, ok := s.startupRuntimeState(kind); ok {
-			switch state.Phase {
-			case StartupRuntimePhasePending:
-				continue
-			case StartupRuntimePhaseFailed:
-				if state.Issue != nil {
-					issues = append(issues, *state.Issue)
-					continue
-				}
-			}
-		}
-		label := deps.ManagedResourceLabel(kind)
-		summary := label + "尚未准备完成。"
-		if inspection.CachedArchivePresent {
-			summary = label + "已下载，但未解压。"
-		}
-		issues = append(issues, recovery.CompatibilityIssue{
-			Code:        "platform.resource_missing",
-			Severity:    "warning",
-			Summary:     summary,
-			Remediation: deps.BootstrapRemediation(kind, inspection.ArchivePath, inspection.StoreRoot),
-		})
-	}
-	return issues
-}
-
-func (s *Service) ManagedRuntimeDiagnostics(pluginsList []plugins.Snapshot) []recovery.CompatibilityIssue {
-	return s.managedRuntimeDiagnostics(pluginsList)
-}
-
-func (s *Service) platformDiagnostics(pluginsList []plugins.Snapshot) []recovery.CompatibilityIssue {
+func (s *Service) platformDiagnostics() []recovery.CompatibilityIssue {
 	items := s.renderDiagnostics()
-	items = append(items, s.managedRuntimeDiagnostics(pluginsList)...)
 	if len(items) == 0 {
 		return nil
 	}

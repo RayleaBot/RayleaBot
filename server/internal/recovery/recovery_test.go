@@ -472,6 +472,38 @@ func TestSchemaVersionComparisonUsesComparableFamiliesOnly(t *testing.T) {
 	}
 }
 
+func TestEvaluateRestoreRejectsRetiredPluginEpoch(t *testing.T) {
+	t.Parallel()
+
+	cases := []BackupManifest{
+		{
+			Version:               BackupManifestVersion,
+			PluginManifestVersion: "1",
+			PluginUIBridgeVersion: "1",
+		},
+		{
+			Version:               BackupManifestVersion,
+			PluginManifestVersion: PluginManifestVersion,
+			PluginUIBridgeVersion: PluginUIBridgeVersion,
+			Plugins: []BackupManifestPlugin{{
+				PluginID:        "legacy-python",
+				ManifestVersion: "1",
+				ArtifactVersion: "0",
+			}},
+		},
+	}
+
+	for _, manifest := range cases {
+		summary := EvaluateRestore(manifest, t.TempDir())
+		if summary.Status != "blocked" || summary.RequiresPostStartChecks {
+			t.Fatalf("retired plugin epoch summary = %#v", summary)
+		}
+		if len(summary.Issues) == 0 || summary.Issues[0].Code != "plugin.reset_required" {
+			t.Fatalf("retired plugin epoch issues = %#v", summary.Issues)
+		}
+	}
+}
+
 func unknownErrIDs(err error, target **UnknownReviewIDsError) []string {
 	if err == nil {
 		return nil

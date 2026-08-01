@@ -1,16 +1,16 @@
 {
-  "manifest_version": 3,
+  "manifest_version": 4,
   "resources": [
     {
-      "id": "python-linux-x64",
-      "kind": "python-runtime",
+      "id": "chromium-linux-x64",
+      "kind": "chromium",
       "version": "3.12.13",
       "platform": "linux-x64",
       "sources": [],
       "sha256": "c71033dc2e0d1f73d3ee34d174090dbe6f96fbc6226ec636f7968b1d7419afbe",
       "archive_format": "tar.gz",
       "entrypoints": {
-        "python": [
+        "browser": [
           "python/install/bin/python3.12"
         ]
       }

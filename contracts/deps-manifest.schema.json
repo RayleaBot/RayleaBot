@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://rayleabot.local/contracts/deps-manifest.schema.json",
   "title": "RayleaBot Managed Dependencies Manifest",
-  "description": "Fixture-ready schema for .deps/manifest.json. This file is the formal source for managed runtime bootstrap resources and their relative entrypoints.",
+  "description": "Fixture-ready schema for .deps/manifest.json. Version 4 manages only the Chromium resource used by image rendering.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -12,7 +12,7 @@
   "properties": {
     "manifest_version": {
       "type": "integer",
-      "const": 3
+      "const": 4
     },
     "resources": {
       "type": "array",
@@ -101,18 +101,6 @@
       "properties": {
         "browser": {
           "$ref": "#/$defs/entrypointCandidates"
-        },
-        "python": {
-          "$ref": "#/$defs/entrypointCandidates"
-        },
-        "pip": {
-          "$ref": "#/$defs/entrypointCandidates"
-        },
-        "node": {
-          "$ref": "#/$defs/entrypointCandidates"
-        },
-        "npm": {
-          "$ref": "#/$defs/entrypointCandidates"
         }
       }
     },
@@ -137,9 +125,7 @@
         "kind": {
           "type": "string",
           "enum": [
-            "chromium",
-            "python-runtime",
-            "nodejs-runtime"
+            "chromium"
           ]
         },
         "version": {
@@ -196,65 +182,8 @@
         }
       ]
     },
-    "pythonResource": {
-      "allOf": [
-        {
-          "$ref": "#/$defs/resourceBase"
-        },
-        {
-          "properties": {
-            "kind": {
-              "const": "python-runtime"
-            }
-          }
-        },
-        {
-          "properties": {
-            "entrypoints": {
-              "required": [
-                "python"
-              ]
-            }
-          }
-        }
-      ]
-    },
-    "nodeResource": {
-      "allOf": [
-        {
-          "$ref": "#/$defs/resourceBase"
-        },
-        {
-          "properties": {
-            "kind": {
-              "const": "nodejs-runtime"
-            }
-          }
-        },
-        {
-          "properties": {
-            "entrypoints": {
-              "required": [
-                "node",
-                "npm"
-              ]
-            }
-          }
-        }
-      ]
-    },
     "resource": {
-      "oneOf": [
-        {
-          "$ref": "#/$defs/chromiumResource"
-        },
-        {
-          "$ref": "#/$defs/pythonResource"
-        },
-        {
-          "$ref": "#/$defs/nodeResource"
-        }
-      ]
+      "$ref": "#/$defs/chromiumResource"
     }
   },
   "x-fixtures": [
@@ -267,6 +196,6 @@
     "fixtures/deps-manifest/invalid.entrypoint-parent-path.json",
     "fixtures/deps-manifest/invalid.duplicate-source-url.json",
     "fixtures/deps-manifest/invalid.unknown-source-kind.json",
-    "fixtures/deps-manifest/edge.multi-runtime-matrix.json"
+    "fixtures/deps-manifest/edge.multi-platform-chromium.json"
   ]
 }

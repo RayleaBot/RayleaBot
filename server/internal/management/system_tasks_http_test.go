@@ -49,11 +49,6 @@ func TestSystemTaskQueueFullMapsToTooManyRequests(t *testing.T) {
 func TestHandleSystemRecoveryRecheckAcceptsTaskAndPersistsCompatibleSummary(t *testing.T) {
 	repoRoot := t.TempDir()
 	testutil.WritePlatformDepsManifest(t, repoRoot)
-	platform := deps.CurrentPlatform()
-	testutil.WritePreparedRuntime(t, repoRoot, "python-"+platform, "3.12.13", "python", "python.exe")
-	testutil.WritePreparedRuntime(t, repoRoot, "python-"+platform, "3.12.13", "python", "Scripts", "pip.exe")
-	testutil.WritePreparedRuntime(t, repoRoot, "nodejs-"+platform, "24.14.0", "node-v24.14.0-win-x64", "node.exe")
-	testutil.WritePreparedRuntime(t, repoRoot, "nodejs-"+platform, "24.14.0", "node-v24.14.0-win-x64", "npm.cmd")
 	if err := recovery.SaveSummary(repoRoot, recovery.CompatibilitySummary{
 		Status:            "degraded",
 		Phase:             "post_startup",
@@ -234,11 +229,9 @@ func TestHandleSystemRuntimeBootstrapAcceptsTaskAndReportsPreparedStoreHits(t *t
 	testutil.WritePlatformDepsManifest(t, repoRoot)
 	platform := deps.CurrentPlatform()
 	testutil.WritePreparedRuntime(t, repoRoot, "chromium-"+platform, "147.0.7727.24", "chrome-win64", "chrome.exe")
-	testutil.WritePreparedRuntime(t, repoRoot, "python-"+platform, "3.12.13", "python", "python.exe")
-	testutil.WritePreparedRuntime(t, repoRoot, "python-"+platform, "3.12.13", "python", "Scripts", "pip.exe")
 
 	handlers, registry := newTaskOnlyHandlers(t, repoRoot)
-	request := httptest.NewRequest(http.MethodPost, "/api/system/runtime/bootstrap", strings.NewReader(`{"resources":["chromium","python-runtime"]}`))
+	request := httptest.NewRequest(http.MethodPost, "/api/system/runtime/bootstrap", strings.NewReader(`{"resources":["chromium"]}`))
 	request.Header.Set("Content-Type", "application/json")
 	recorder := httptest.NewRecorder()
 
@@ -261,7 +254,7 @@ func TestHandleSystemRuntimeBootstrapAcceptsTaskAndReportsPreparedStoreHits(t *t
 		t.Fatalf("expected task result, got %#v", snapshot)
 	}
 	resources, ok := snapshot.Result.Details["resources"].([]any)
-	if !ok || len(resources) != 2 {
+	if !ok || len(resources) != 1 {
 		t.Fatalf("unexpected runtime bootstrap resources: %#v", snapshot.Result.Details)
 	}
 	first, ok := resources[0].(map[string]any)
@@ -273,5 +266,16 @@ func TestHandleSystemRuntimeBootstrapAcceptsTaskAndReportsPreparedStoreHits(t *t
 	}
 	if _, ok := first["selected_source"]; !ok {
 		t.Fatalf("runtime bootstrap result should expose selected_source: %#v", first)
+	}
+}
+
+func TestHandleSystemRuntimeBootstrapRejectsRetiredPluginRuntimes(t *testing.T) {
+	handlers, _ := newTaskOnlyHandlers(t, t.TempDir())
+	request := httptest.NewRequest(http.MethodPost, "/api/system/runtime/bootstrap", strings.NewReader(`{"resources":["python-runtime"]}`))
+	request.Header.Set("Content-Type", "application/json")
+	recorder := httptest.NewRecorder()
+	handlers.HandleSystemRuntimeBootstrap().ServeHTTP(recorder, request)
+	if recorder.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want 400", recorder.Code)
 	}
 }

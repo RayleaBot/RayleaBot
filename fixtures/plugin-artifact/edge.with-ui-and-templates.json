@@ -1,0 +1,55 @@
+{
+  "contract": "contracts/plugin-artifact.schema.json",
+  "case": "edge",
+  "input": {
+    "artifact_version": "1",
+    "plugin_id": "fortune",
+    "plugin_version": "0.2.0",
+    "target_platform": "macos-arm64",
+    "manifest_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+    "files": [
+      {
+        "path": "info.json",
+        "role": "manifest",
+        "size": 512,
+        "sha256": "2222222222222222222222222222222222222222222222222222222222222222"
+      },
+      {
+        "path": "bin/fortune",
+        "role": "backend",
+        "size": 4096,
+        "sha256": "3333333333333333333333333333333333333333333333333333333333333333"
+      },
+      {
+        "path": "ui/index.html",
+        "role": "ui",
+        "size": 256,
+        "sha256": "4444444444444444444444444444444444444444444444444444444444444444"
+      },
+      {
+        "path": "templates/fortune/template.html",
+        "role": "render_template",
+        "size": 128,
+        "sha256": "5555555555555555555555555555555555555555555555555555555555555555"
+      },
+      {
+        "path": "LICENSE",
+        "role": "license",
+        "size": 1024,
+        "sha256": "6666666666666666666666666666666666666666666666666666666666666666"
+      },
+      {
+        "path": "sbom.spdx.json",
+        "role": "sbom",
+        "size": 1024,
+        "sha256": "7777777777777777777777777777777777777777777777777777777777777777"
+      }
+    ]
+  },
+  "expect": {
+    "valid": true,
+    "notes": [
+      "The installer additionally checks exactly one backend and that management UI entries are inventoried with role ui."
+    ]
+  }
+}

@@ -43,7 +43,7 @@ func TestSQLiteRepository_SaveAndLoad(t *testing.T) {
 		Summary:    "安装完成",
 		StartedAt:  &startedAt,
 		FinishedAt: &finishedAt,
-		Result:     &ResultSummary{Summary: "installed hello-python"},
+		Result:     &ResultSummary{Summary: "installed hello-go"},
 	}
 
 	if err := repo.SaveTask(ctx, snapshot); err != nil {
@@ -71,8 +71,8 @@ func TestSQLiteRepository_SaveAndLoad(t *testing.T) {
 	if got.Progress != 100 {
 		t.Errorf("Progress = %d, want 100", got.Progress)
 	}
-	if got.Result == nil || got.Result.Summary != "installed hello-python" {
-		t.Errorf("Result = %+v, want summary 'installed hello-python'", got.Result)
+	if got.Result == nil || got.Result.Summary != "installed hello-go" {
+		t.Errorf("Result = %+v, want summary 'installed hello-go'", got.Result)
 	}
 	if got.StartedAt == nil || !got.StartedAt.Equal(startedAt) {
 		t.Errorf("StartedAt = %v, want %v", got.StartedAt, startedAt)

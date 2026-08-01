@@ -23,8 +23,8 @@ response:
         declared_permission: group_admin
         effective_permission: group_admin
         permission_source: declared
-      - plugin_id: hello-python
-        plugin_name: Hello Python
+      - plugin_id: hello-go
+        plugin_name: Hello Go
         command: hello
         aliases:
           - hi

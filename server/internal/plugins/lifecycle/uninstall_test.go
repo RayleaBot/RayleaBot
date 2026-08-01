@@ -23,7 +23,7 @@ func TestUninstallServiceRejectsFullQueueBeforeTaskCreation(t *testing.T) {
 	if err := os.MkdirAll(examplesRoot, 0o755); err != nil {
 		t.Fatalf("create examples root: %v", err)
 	}
-	writeInstallSourcePlugin(t, filepath.Join(installedRoot, "queued-plugin"), "queued-plugin", "nodejs", "index.js")
+	writeInstallSourcePlugin(t, filepath.Join(installedRoot, "queued-plugin"), "queued-plugin")
 	validator, err := config.Compile(filepath.Join("..", "..", "..", "..", "contracts", "plugin-info.schema.json"))
 	if err != nil {
 		t.Fatalf("compile plugin-info schema: %v", err)
@@ -76,7 +76,7 @@ func TestUninstallServiceInvokesAfterSuccessCallback(t *testing.T) {
 	if err := os.MkdirAll(examplesRoot, 0o755); err != nil {
 		t.Fatalf("create examples root: %v", err)
 	}
-	pluginDir := writeInstallSourcePlugin(t, filepath.Join(installedRoot, "weather-remove"), "weather-remove", "nodejs", "index.js")
+	pluginDir := writeInstallSourcePlugin(t, filepath.Join(installedRoot, "weather-remove"), "weather-remove")
 	if pluginDir == "" {
 		t.Fatal("expected plugin install source directory")
 	}

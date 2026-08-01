@@ -161,7 +161,7 @@ func TestFormalSchemaFixturesKeepRelativePathConstraints(t *testing.T) {
 				repoRoot,
 				"fixtures",
 				"plugin-info",
-				"ok.minimal-python.json",
+				"ok.minimal-go.json",
 			),
 			expectValid: true,
 		},

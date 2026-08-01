@@ -5,13 +5,17 @@
     "id": "weather-parallel",
     "name": "Weather Parallel",
     "version": "1.0.0",
-    "manifest_version": "1",
+    "manifest_version": "2",
     "plugin_protocol_version": "1",
-    "type": "managed_runtime",
-    "runtime": "python",
-    "entry": "plugin.py",
+    "runtime": "go",
+    "entry": "bin/weather-parallel",
     "license": "MIT",
-    "concurrency": 3
+    "concurrency": 3,
+    "platforms": [
+      "windows-x64",
+      "linux-x64",
+      "macos-arm64"
+    ]
   },
   "expect": {
     "valid": true

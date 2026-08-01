@@ -6,11 +6,10 @@
     "id": "example-config-panel",
     "name": "Example Config Panel",
     "version": "0.1.0",
-    "manifest_version": "1",
+    "manifest_version": "2",
     "plugin_protocol_version": "1",
-    "type": "managed_runtime",
-    "runtime": "python",
-    "entry": "main.py",
+    "runtime": "go",
+    "entry": "bin/example-config-panel",
     "license": "MIT",
     "description": "Python example plugin demonstrating config.read and config.write.",
     "author": "raylea",
@@ -32,7 +31,12 @@
     "default_config": {
       "default_city": "北京",
       "unit": "celsius"
-    }
+    },
+    "platforms": [
+      "windows-x64",
+      "linux-x64",
+      "macos-arm64"
+    ]
   },
   "expect": {
     "valid": true

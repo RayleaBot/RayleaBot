@@ -105,16 +105,6 @@ codes:
     retryable: true
     applies_to: [http, websocket, task]
 
-  platform.install_script_blocked:
-    code: platform.install_script_blocked
-    domain: platform
-    message_key: errors.platform.install_script_blocked
-    message: 插件安装脚本被默认安全策略阻止
-    description: The plugin requested an install-time script that is blocked by the current safety policy.
-    http_status: 403
-    retryable: false
-    applies_to: [http, websocket, task]
-
   platform.rate_limited:
     code: platform.rate_limited
     domain: platform
@@ -250,7 +240,7 @@ codes:
     domain: plugin
     message_key: errors.plugin.install_failed
     message: 插件安装失败
-    description: Plugin installation failed after preflight or environment preparation had already started.
+    description: Plugin installation failed after artifact preflight or atomic placement had already started.
     http_status: 409
     retryable: true
     applies_to: [http, websocket, task]
@@ -285,12 +275,42 @@ codes:
     retryable: false
     applies_to: [http, task]
 
+  plugin.artifact_invalid:
+    code: plugin.artifact_invalid
+    domain: plugin
+    message_key: errors.plugin.artifact_invalid
+    message: 插件产物清单或文件完整性校验失败
+    description: The artifact manifest, file inventory, digest, size, backend executable, or management UI entry did not satisfy the frozen plugin artifact contract.
+    http_status: 400
+    retryable: false
+    applies_to: [http, task, plugin_protocol]
+
+  plugin.platform_mismatch:
+    code: plugin.platform_mismatch
+    domain: plugin
+    message_key: errors.plugin.platform_mismatch
+    message: 插件产物与当前平台不匹配
+    description: The artifact target platform does not match the current operating system and architecture or is not declared by the plugin manifest.
+    http_status: 409
+    retryable: false
+    applies_to: [http, task, readiness]
+
+  plugin.reset_required:
+    code: plugin.reset_required
+    domain: plugin
+    message_key: errors.plugin.reset_required
+    message: 旧插件数据纪元不受支持，需要重置
+    description: An upgrade or restore contains a pre-manifest-v2 plugin epoch; no compatibility reader or in-place data conversion is available.
+    http_status: 409
+    retryable: false
+    applies_to: [http, task, cli, readiness]
+
   plugin.trusted_code_confirmation_required:
     code: plugin.trusted_code_confirmation_required
     domain: plugin
     message_key: errors.plugin.trusted_code_confirmation_required
     message: 必须确认该插件将作为完全可信的本地代码运行
-    description: Installation requires explicit confirmation that the third-party plugin and its install script execute with the user's local privileges.
+    description: Installation requires explicit confirmation that the third-party plugin backend executes as trusted local code with the user's local privileges.
     http_status: 403
     retryable: false
     applies_to: [http, task]

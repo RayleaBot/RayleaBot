@@ -243,14 +243,8 @@ func BootstrapSummary(kind string, inspection *BootstrapInspection) string {
 	case inspection.PreparedStorePresent:
 		return managedResourceText(kind, "已准备完成。")
 	case inspection.CachedArchivePresent:
-		if kind == "python-runtime" || kind == "nodejs-runtime" {
-			return managedResourceText(kind, "已下载，启动时会解压。")
-		}
 		return managedResourceText(kind, "已下载，未解压。")
 	default:
-		if kind == "python-runtime" || kind == "nodejs-runtime" {
-			return managedResourceText(kind, "已纳入启动流程。")
-		}
 		return managedResourceText(kind, "未准备。")
 	}
 }
@@ -286,10 +280,6 @@ func bootstrapRemediation(kind, archivePath, storeRoot string) string {
 	switch kind {
 	case "chromium":
 		return "启动运行环境任务准备图片渲染 Chromium，或在配置中设置 render.browser_path。" + locationText
-	case "python-runtime":
-		return "启动运行环境任务准备 Python 运行环境。" + locationText
-	case "nodejs-runtime":
-		return "启动运行环境任务准备 Node.js 和 npm 环境。" + locationText
 	default:
 		return "启动运行环境任务准备依赖。" + locationText
 	}
@@ -299,10 +289,6 @@ func managedResourceLabel(kind string) string {
 	switch kind {
 	case "chromium":
 		return "图片渲染 Chromium"
-	case "python-runtime":
-		return "Python 运行环境"
-	case "nodejs-runtime":
-		return "Node.js / npm 环境"
 	default:
 		return "运行环境"
 	}

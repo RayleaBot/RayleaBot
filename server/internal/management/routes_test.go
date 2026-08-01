@@ -78,7 +78,6 @@ func expectedRoutesFromContracts(t *testing.T) []string {
 	routes := map[string]struct{}{}
 	addOpenAPIRoutes(t, routes)
 	addWebSocketRoutes(t, routes)
-	addPluginUIRoutes(t, routes)
 
 	result := make([]string, 0, len(routes))
 	for route := range routes {
@@ -120,28 +119,6 @@ func addWebSocketRoutes(t *testing.T, routes map[string]struct{}) {
 			continue
 		}
 		routes["GET "+channel.Path] = struct{}{}
-	}
-}
-
-func addPluginUIRoutes(t *testing.T, routes map[string]struct{}) {
-	t.Helper()
-
-	var document struct {
-		StaticRoute struct {
-			PathTemplate string   `yaml:"path_template"`
-			Methods      []string `yaml:"methods"`
-		} `yaml:"static_route"`
-	}
-	readContractYAML(t, "plugin-management-ui.yaml", &document)
-
-	path := strings.TrimSpace(document.StaticRoute.PathTemplate)
-	path = strings.Replace(path, "{asset_path}", "*", 1)
-	for _, method := range document.StaticRoute.Methods {
-		method = strings.ToUpper(strings.TrimSpace(method))
-		if method == "" {
-			continue
-		}
-		routes[method+" "+path] = struct{}{}
 	}
 }
 

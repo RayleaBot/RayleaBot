@@ -261,17 +261,17 @@ func TestPluginRuntimeStartInputsIncludeSuperAdmins(t *testing.T) {
 	t.Parallel()
 
 	repoRoot := t.TempDir()
-	writeManagedRuntimeFixtures(t, repoRoot)
-	createPluginEntry(t, repoRoot, "plugins/weather-card", "main.py")
+	pluginRoot := writeInstallSourcePlugin(t, filepath.Join(repoRoot, "plugins", "weather-card"), "weather-card")
 	catalog := plugincatalog.New([]plugins.Snapshot{{
 		PluginID:          "weather-card",
 		Valid:             true,
 		RegistrationState: "installed",
 		DesiredState:      "enabled",
 		RuntimeState:      "running",
-		Runtime:           "python",
-		Entry:             "main.py",
+		Runtime:           "go",
+		Entry:             "bin/weather-card",
 		ManifestPath:      "plugins/weather-card/info.json",
+		PackageRootPath:   pluginRoot,
 	}})
 	app := newTestAppState(config.Config{
 		Admin: config.AdminConfig{
@@ -372,12 +372,12 @@ func writeLifecyclePluginManifest(t *testing.T, path, usage, host string) {
 	content := `{
   "id": "raylea.subscription-hub",
   "name": "Subscription Hub",
-  "version": "0.1.0",
-  "manifest_version": "1",
+  "version": "0.2.0",
+  "manifest_version": "2",
   "plugin_protocol_version": "1",
-  "type": "managed_runtime",
-  "runtime": "python",
-  "entry": "main.py",
+  "runtime": "go",
+  "entry": "bin/subscription-hub",
+  "platforms": ["windows-x64", "linux-x64", "macos-arm64"],
   "license": "MIT",
   "description": "Subscription hub",
   "author": "raylea",

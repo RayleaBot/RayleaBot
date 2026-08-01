@@ -13,8 +13,9 @@ import (
 )
 
 const (
-	ConfigUserSchemaID = "builtin://contracts/config.user.schema.json"
-	PluginInfoSchemaID = "builtin://contracts/plugin-info.schema.json"
+	ConfigUserSchemaID     = "builtin://contracts/config.user.schema.json"
+	PluginInfoSchemaID     = "builtin://contracts/plugin-info.schema.json"
+	PluginArtifactSchemaID = "builtin://contracts/plugin-artifact.schema.json"
 )
 
 // ConfigUserSchemaJSON mirrors contracts/config.user.schema.json; keep the
@@ -28,6 +29,12 @@ var ConfigUserSchemaJSON []byte
 //
 //go:embed contracts/plugin-info.schema.json
 var PluginInfoSchemaJSON []byte
+
+// PluginArtifactSchemaJSON mirrors contracts/plugin-artifact.schema.json; keep
+// the copy in sync via scripts/generate-runtime-schemas.mjs.
+//
+//go:embed contracts/plugin-artifact.schema.json
+var PluginArtifactSchemaJSON []byte
 
 func IsConfigUserSchemaID(name string) bool {
 	return name == "" || name == ConfigUserSchemaID

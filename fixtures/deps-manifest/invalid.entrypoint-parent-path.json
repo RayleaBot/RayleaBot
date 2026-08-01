@@ -2,7 +2,7 @@
   "contract": "contracts/deps-manifest.schema.json",
   "case": "invalid",
   "input": {
-    "manifest_version": 3,
+    "manifest_version": 4,
     "resources": [
       {
         "id": "chromium-linux-x64",

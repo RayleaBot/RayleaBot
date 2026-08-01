@@ -270,7 +270,7 @@ func TestConfigPutHotReloadsOneBotTransportStateWithoutRestart(t *testing.T) {
 	defer server.Close()
 
 	payload := map[string]any{
-		"schema_version": "2",
+		"schema_version": "3",
 		"server": map[string]any{
 			"host": "127.0.0.1",
 			"port": 8080,
@@ -342,9 +342,6 @@ func TestConfigPutHotReloadsOneBotTransportStateWithoutRestart(t *testing.T) {
 			"plugin_event_timeout_seconds":          60,
 			"max_pending_events_per_plugin":         16,
 			"max_pending_control_events_per_plugin": 4,
-			"nodejs_max_old_space_size_mb":          256,
-			"dependency_install_timeout_seconds":    900,
-			"max_concurrent_dependency_installs":    1,
 			"ipc_pending_actions_max":               256,
 			"ipc_action_burst_limit":                "100/1s",
 			"stderr_rate_limit_bytes_per_second":    262144,
@@ -396,10 +393,11 @@ func TestConfigPutHotReloadsOneBotTransportStateWithoutRestart(t *testing.T) {
 			"allow_private_hosts":     []any{},
 		},
 		"web": map[string]any{
-			"exposure_mode":       "localhost_only",
-			"setup_local_only":    true,
-			"public_origin":       "",
-			"trusted_proxy_cidrs": []any{},
+			"exposure_mode":             "localhost_only",
+			"setup_local_only":          true,
+			"public_origin":             "",
+			"trusted_proxy_cidrs":       []any{},
+			"plugin_ui_origin_template": "",
 		},
 		"backup": map[string]any{
 			"default_consistency": "offline",

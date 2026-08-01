@@ -215,6 +215,9 @@ func validateManifest(manifest Manifest) error {
 	if strings.TrimSpace(manifest.ConfigSchemaVersion) == "" || strings.TrimSpace(manifest.DBSchemaVersion) == "" || strings.TrimSpace(manifest.PluginProtocolVersion) == "" {
 		return fmt.Errorf("schema and protocol versions are required")
 	}
+	if manifest.PluginManifestVersion != PluginManifestVersion || manifest.PluginUIBridgeVersion != PluginUIBridgeVersion {
+		return fmt.Errorf("release belongs to an unsupported plugin epoch")
+	}
 	if err := validateHTTPSURL(manifest.ReleaseNotesRef); err != nil {
 		return fmt.Errorf("invalid release_notes_ref: %w", err)
 	}
@@ -318,7 +321,7 @@ func DecodeBuildInfo(data []byte) (BuildInfo, error) {
 	if err := decodeStrictJSON(data, &buildInfo); err != nil {
 		return BuildInfo{}, errorWithCode(CodeTrustRequired, "decode build_info.json", err)
 	}
-	if _, err := parseSemanticVersion(buildInfo.Version); err != nil || !gitCommitPattern.MatchString(buildInfo.GitCommit) || buildInfo.ArtifactID == "" || buildInfo.BuiltAt == "" || buildInfo.UpdateProtocolVersion != ProtocolVersion {
+	if _, err := parseSemanticVersion(buildInfo.Version); err != nil || !gitCommitPattern.MatchString(buildInfo.GitCommit) || buildInfo.ArtifactID == "" || buildInfo.BuiltAt == "" || buildInfo.UpdateProtocolVersion != ProtocolVersion || buildInfo.PluginManifestVersion != PluginManifestVersion || buildInfo.PluginUIBridgeVersion != PluginUIBridgeVersion {
 		return BuildInfo{}, errorWithCode(CodeTrustRequired, "validate build_info.json", errors.New("build does not contain the signed updater trust baseline"))
 	}
 	if _, supported := artifactMatrix[buildInfo.ArtifactID]; !supported {

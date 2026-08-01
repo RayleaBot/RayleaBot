@@ -78,15 +78,12 @@ render:
 runtime:
     crash_backoff_initial_seconds: 2
     crash_backoff_max_seconds: 60
-    dependency_install_timeout_seconds: 900
     ipc_action_burst_limit: 100/1s
     ipc_message_max_bytes: 8.388608e+06
     ipc_pending_actions_max: 256
-    max_concurrent_dependency_installs: 1
     max_concurrent_tasks_per_plugin: 4
     max_pending_control_events_per_plugin: 4
     max_pending_events_per_plugin: 16
-    nodejs_max_old_space_size_mb: 256
     plugin_event_timeout_seconds: 60
     plugin_init_max_total_seconds: 300
     plugin_init_timeout_seconds: 30
@@ -94,7 +91,7 @@ runtime:
     stderr_rate_limit_bytes_per_second: 262144
 scheduler:
     timezone: ""
-schema_version: "2"
+schema_version: "3"
 server:
     host: 127.0.0.1
     port: 8080
@@ -108,6 +105,7 @@ user:
     cooldown_reply: true
 web:
     exposure_mode: localhost_only
+    plugin_ui_origin_template: ""
     public_origin: ''
     setup_local_only: true
     trusted_proxy_cidrs: []

@@ -31,7 +31,7 @@
   "properties": {
     "schema_version": {
       "type": "string",
-      "const": "2",
+      "const": "3",
       "description": "Configuration schema version for bootstrap and validation.",
       "x-apply-policy": "read_only"
     },
@@ -364,9 +364,6 @@
         "plugin_event_timeout_seconds",
         "max_pending_events_per_plugin",
         "max_pending_control_events_per_plugin",
-        "nodejs_max_old_space_size_mb",
-        "dependency_install_timeout_seconds",
-        "max_concurrent_dependency_installs",
         "ipc_pending_actions_max",
         "ipc_action_burst_limit",
         "stderr_rate_limit_bytes_per_second",
@@ -410,27 +407,6 @@
           "minimum": 1,
           "default": 4,
           "description": "Maximum queued control events per plugin. Default: 4.",
-          "x-apply-policy": "restart_required"
-        },
-        "nodejs_max_old_space_size_mb": {
-          "type": "integer",
-          "minimum": 1,
-          "default": 256,
-          "description": "Old-generation heap cap for Node.js plugin runtimes, passed to --max-old-space-size. Default: 256. Requires restart.",
-          "x-apply-policy": "restart_required"
-        },
-        "dependency_install_timeout_seconds": {
-          "type": "integer",
-          "minimum": 1,
-          "default": 900,
-          "description": "Maximum time allowed for installing plugin dependencies. Default: 900.",
-          "x-apply-policy": "restart_required"
-        },
-        "max_concurrent_dependency_installs": {
-          "type": "integer",
-          "minimum": 1,
-          "default": 1,
-          "description": "Maximum concurrent plugin dependency installation tasks. Default: 1.",
           "x-apply-policy": "restart_required"
         },
         "ipc_pending_actions_max": {
@@ -748,7 +724,8 @@
         "exposure_mode",
         "setup_local_only",
         "public_origin",
-        "trusted_proxy_cidrs"
+        "trusted_proxy_cidrs",
+        "plugin_ui_origin_template"
       ],
       "properties": {
         "exposure_mode": {
@@ -792,6 +769,21 @@
           },
           "uniqueItems": true,
           "description": "Proxy source networks whose Forwarded and X-Forwarded-* headers may be trusted. Required and non-empty for public_via_reverse_proxy.",
+          "x-apply-policy": "restart_required"
+        },
+        "plugin_ui_origin_template": {
+          "type": "string",
+          "default": "",
+          "anyOf": [
+            {
+              "const": ""
+            },
+            {
+              "format": "uri",
+              "pattern": "^https?://[^/?#]*\\{plugin_host\\}[^/?#]*(:[0-9]{1,5})?$"
+            }
+          ],
+          "description": "Origin template for isolated plugin management pages. Non-empty values must contain {plugin_host}; localhost_only may derive http://p-<id-hash>.plugins.localhost:<port>, while LAN and reverse-proxy exposure require an explicit template.",
           "x-apply-policy": "restart_required"
         }
       }
@@ -961,7 +953,9 @@
     "admin.session_absolute_ttl_days must be greater than or equal to admin.session_ttl_days",
     "localhost_only requires a loopback server.host",
     "lan_enabled rejects public-wildcard binds unless explicitly allowed by a future contract",
-    "public_via_reverse_proxy requires a loopback server.host, an https web.public_origin, and at least one web.trusted_proxy_cidrs entry"
+    "public_via_reverse_proxy requires a loopback server.host, an https web.public_origin, and at least one web.trusted_proxy_cidrs entry",
+    "web.plugin_ui_origin_template must contain {plugin_host} when non-empty",
+    "lan_enabled and public_via_reverse_proxy require a non-empty web.plugin_ui_origin_template"
   ],
   "$comment": "The canonical config document follows the planning-aligned section names and current runtime configuration groups."
 }

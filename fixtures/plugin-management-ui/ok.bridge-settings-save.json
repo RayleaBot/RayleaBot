@@ -1,14 +1,14 @@
 {
   "contract": "contracts/plugin-management-ui-bridge.schema.json",
   "case": "ok",
-  "description": "The iframe may request a settings save with a values object.",
+  "description": "The plugin page may replace its non-sensitive configuration.",
   "input": {
-    "version": "1",
+    "version": "2",
     "source": "plugin_management_ui",
     "type": "settings.save",
     "request_id": "req_plugin_settings_save_0001",
     "payload": {
-      "values": {
+      "config": {
         "default_city": "上海",
         "unit": "fahrenheit"
       }

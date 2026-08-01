@@ -29,46 +29,16 @@ func TestOneBotActionRegistryMatchesContractsAndClientHelpers(t *testing.T) {
 	assertStringSetEqual(t, "plugin info onebot capabilities", infoActions, registryActions)
 	assertStringSetEqual(t, "plugin info provider capabilities", infoProviderActions, registryProviderActions)
 
-	pythonRuntime := string(readRepoFile(t, filepath.Join(repoRoot, "plugins", "runtime", "python", "rayleabot_runtime", "plugin.py")))
-	nodeSDK := string(readRepoFile(t, filepath.Join(repoRoot, "sdk", "nodejs", "src", "index.ts")))
+	goSDK := string(readRepoFile(t, filepath.Join(repoRoot, "sdk", "go", "actions.go")))
 	for _, kind := range append(append([]string{}, registryActions...), registryProviderActions...) {
-		if !pythonRuntimeExposesOneBotAction(pythonRuntime, kind) {
-			t.Fatalf("python runtime helper does not expose OneBot action %q", kind)
-		}
-		if !nodeSDKExposesOneBotAction(nodeSDK, kind) {
-			t.Fatalf("node SDK helper does not expose OneBot action %q", kind)
+		if !goSDKExposesOneBotAction(goSDK, kind) {
+			t.Fatalf("Go SDK helper does not expose OneBot action %q", kind)
 		}
 	}
 }
 
-func nodeSDKExposesOneBotAction(content string, kind string) bool {
-	if strings.Contains(content, "'"+kind+"'") {
-		return true
-	}
-	providerAction, ok := strings.CutPrefix(kind, "provider.")
-	if !ok {
-		return false
-	}
-	provider, action, ok := strings.Cut(providerAction, ".")
-	if !ok {
-		return false
-	}
-	return strings.Contains(content, "'"+provider+"'") && strings.Contains(content, "'"+action+"'")
-}
-
-func pythonRuntimeExposesOneBotAction(content string, kind string) bool {
-	if strings.Contains(content, `"`+kind+`"`) {
-		return true
-	}
-	providerAction, ok := strings.CutPrefix(kind, "provider.")
-	if !ok {
-		return false
-	}
-	provider, action, ok := strings.Cut(providerAction, ".")
-	if !ok {
-		return false
-	}
-	return strings.Contains(content, `"`+provider+`"`) && strings.Contains(content, `"`+action+`"`)
+func goSDKExposesOneBotAction(content string, kind string) bool {
+	return strings.Contains(content, `"`+kind+`"`)
 }
 
 func TestOneBotActionRegistrySpecsAreComplete(t *testing.T) {

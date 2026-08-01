@@ -52,6 +52,7 @@ REQUIRED_CONTRACT_FILES = {
     "web-api.openapi.yaml",
     "websocket-events.yaml",
     "plugin-info.schema.json",
+    "plugin-artifact.schema.json",
     "plugin-management-ui.yaml",
     "plugin-management-ui-bridge.schema.json",
     "plugin-protocol.schema.json",
@@ -67,6 +68,7 @@ STRICT_FIXTURE_DIRS = [
     FIXTURES / "websocket",
     FIXTURES / "errors",
     FIXTURES / "plugin-info",
+    FIXTURES / "plugin-artifact",
     FIXTURES / "plugin-protocol",
     FIXTURES / "release-manifest",
     FIXTURES / "cli",
@@ -77,6 +79,7 @@ JSON_SCHEMA_FIXTURE_AREAS = {
     "backup-manifest": "backup-manifest.schema.json",
     "deps-manifest": "deps-manifest.schema.json",
     "plugin-info": "plugin-info.schema.json",
+    "plugin-artifact": "plugin-artifact.schema.json",
     "release-manifest": "release-manifest.schema.json",
 }
 

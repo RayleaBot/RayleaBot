@@ -5,11 +5,10 @@
     "id": "weather",
     "name": "Weather",
     "version": "1.0.0",
-    "manifest_version": "1",
+    "manifest_version": "2",
     "plugin_protocol_version": "1",
-    "type": "managed_runtime",
-    "runtime": "python",
-    "entry": "main.py",
+    "runtime": "go",
+    "entry": "bin/weather",
     "license": "MIT",
     "description": "Weather query plugin with command declarations",
     "author": "raylea",
@@ -37,6 +36,11 @@
         "description": "管理天气数据源",
         "permission": "super_admin"
       }
+    ],
+    "platforms": [
+      "windows-x64",
+      "linux-x64",
+      "macos-arm64"
     ]
   },
   "expect": {

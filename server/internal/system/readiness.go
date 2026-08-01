@@ -4,7 +4,6 @@ import (
 	"strings"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/health"
-	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 )
 
 func (s *Service) CurrentReadiness() health.ReadinessReport {
@@ -70,28 +69,15 @@ func (s *Service) CurrentReadiness() health.ReadinessReport {
 		}
 		report.Issues = append(report.Issues, recoveryIssuesToHealth(report.RecoverySummary.Issues)...)
 	}
-	pluginsList := []plugins.Snapshot(nil)
-	if s.plugins != nil {
-		pluginsList = s.plugins.List()
-	}
-
 	renderIssues := recoveryIssuesToHealth(s.renderDiagnostics())
 	if len(renderIssues) > 0 {
 		report.Checks["render"] = "resource_missing"
 		report.Issues = append(report.Issues, renderIssues...)
 	}
 
-	runtimeIssues := recoveryIssuesToHealth(s.managedRuntimeDiagnostics(pluginsList))
-	if len(runtimeIssues) > 0 {
-		report.Checks["runtime"] = "resource_missing"
-		report.Issues = append(report.Issues, runtimeIssues...)
-	}
-
-	if report.Status == "ready" && (len(renderIssues) > 0 || len(runtimeIssues) > 0) {
+	if report.Status == "ready" && len(renderIssues) > 0 {
 		reason := "运行环境需要处理"
-		if len(runtimeIssues) > 0 {
-			reason = runtimeIssues[0].Summary
-		} else if len(renderIssues) > 0 {
+		if len(renderIssues) > 0 {
 			reason = renderIssues[0].Summary
 		}
 		report.Status = "degraded"

@@ -1,16 +1,15 @@
 contract: contracts/web-api.openapi.yaml
 case: ok
-description: Plugin install can explicitly authorize install-time scripts for manifests that declare require_install_scripts=true.
+description: A verified local artifact directory can be accepted without running any build or install script.
 request:
   method: POST
   path: /api/plugins/install
   body:
     source_type: local_directory
-    source: C:/plugins/weather
-    inspection_id: inspection_fixture_weather_scripts_0002
+    source: C:/plugins/weather-windows-x64
+    inspection_id: inspection_fixture_weather_local_0002
     package_sha256: bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
     trusted_code_confirmed: true
-    allow_install_scripts: true
 response:
   status: 202
   body:

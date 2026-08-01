@@ -5,16 +5,20 @@
     "id": "unknown-provider-capability",
     "name": "Unknown Provider Capability",
     "version": "1.0.0",
-    "manifest_version": "1",
+    "manifest_version": "2",
     "plugin_protocol_version": "1",
-    "type": "managed_runtime",
-    "runtime": "nodejs",
-    "entry": "index.js",
+    "runtime": "go",
+    "entry": "bin/unknown-provider-capability",
     "license": "MIT",
     "description": "Manifest using an unfrozen provider extension capability.",
     "author": "raylea",
     "capabilities": [
       "provider.napcat.group.member.kick"
+    ],
+    "platforms": [
+      "windows-x64",
+      "linux-x64",
+      "macos-arm64"
     ]
   },
   "expect": {

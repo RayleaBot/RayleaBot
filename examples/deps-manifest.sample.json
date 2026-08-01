@@ -1,34 +1,22 @@
 {
-  "manifest_version": 3,
+  "manifest_version": 4,
   "resources": [
     {
-      "id": "python-linux-x64",
-      "kind": "python-runtime",
-      "version": "3.12.13",
+      "id": "chromium-linux-x64",
+      "kind": "chromium",
+      "version": "147.0.7727.24",
       "platform": "linux-x64",
       "sources": [
         {
-          "url": "https://github.com/astral-sh/python-build-standalone/releases/download/20260303/cpython-3.12.13%2B20260303-x86_64-unknown-linux-gnu-install_only_stripped.tar.gz",
+          "url": "https://storage.googleapis.com/chrome-for-testing-public/147.0.7727.24/linux64/chrome-linux64.zip",
           "kind": "upstream",
-          "label": "python-build-standalone"
-        },
-        {
-          "url": "https://mirror.example.com/runtimes/python/cpython-3.12.13-linux-x64.tar.gz",
-          "kind": "mirror",
-          "label": "内网镜像"
+          "label": "Chrome for Testing"
         }
       ],
-      "sha256": "c71033dc2e0d1f73d3ee34d174090dbe6f96fbc6226ec636f7968b1d7419afbe",
-      "archive_format": "tar.gz",
+      "sha256": "2623af6b98ab1029e9e752450e905e30c4669774aee14acf2a203ef2ea797ee0",
+      "archive_format": "zip",
       "entrypoints": {
-        "python": [
-          "python/install/bin/python3.12",
-          "python/install/bin/python3"
-        ],
-        "pip": [
-          "python/install/bin/pip3.12",
-          "python/install/bin/pip3"
-        ]
+        "browser": ["chrome-linux64/chrome"]
       }
     }
   ]

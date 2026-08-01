@@ -1,0 +1,23 @@
+{
+  "contract": "contracts/plugin-info.schema.json",
+  "case": "invalid",
+  "input": {
+    "id": "legacy-python-tool",
+    "name": "Legacy Python Tool",
+    "version": "1.0.0",
+    "manifest_version": "2",
+    "plugin_protocol_version": "1",
+    "runtime": "python",
+    "entry": "bin/legacy-python-tool",
+    "license": "MIT",
+    "platforms": [
+      "windows-x64",
+      "linux-x64",
+      "macos-arm64"
+    ]
+  },
+  "expect": {
+    "valid": false,
+    "reason": "Manifest v2 supports only prebuilt Go backends."
+  }
+}

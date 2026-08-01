@@ -68,10 +68,6 @@ func NewPreparedTestRuntimeRoot(t testing.TB) string {
 	root := t.TempDir()
 	WriteTestDepsManifest(t, root)
 	WriteTestRuntimeEntry(t, root, "chromium-test", "147.0.7727.24", "chrome-win64", "chrome.exe")
-	WriteTestRuntimeEntry(t, root, "python-test", "3.12.13", "python", "python.exe")
-	WriteTestRuntimeEntry(t, root, "python-test", "3.12.13", "python", "Scripts", "pip.exe")
-	WriteTestRuntimeEntry(t, root, "node-test", "24.14.0", "node-v24.14.0-win-x64", "node.exe")
-	WriteTestRuntimeEntry(t, root, "node-test", "24.14.0", "node-v24.14.0-win-x64", "npm.cmd")
 	WriteTestTemplate(t, root, "help.menu", 640)
 	WriteTestTemplate(t, root, "status.panel", 540)
 	return root
@@ -86,7 +82,7 @@ func WriteTestDepsManifest(t testing.TB, root string) {
 	}
 	platform := deps.CurrentPlatform()
 	manifest := `{
-  "manifest_version": 3,
+  "manifest_version": 4,
   "resources": [
     {
       "id": "chromium-test",
@@ -97,32 +93,6 @@ func WriteTestDepsManifest(t testing.TB, root string) {
       "sha256": "22d9f6baf54f755ccf5843f8e6ad4ad6e0ba10d11092c574df9e8f97ce55369e",
       "archive_format": "zip",
       "entrypoints": {"browser": ["chrome-win64/chrome.exe"]}
-    },
-    {
-      "id": "python-test",
-      "kind": "python-runtime",
-      "version": "3.12.13",
-      "platform": "` + platform + `",
-      "sources": [{"url": "https://example.invalid/python.tar.gz", "kind": "upstream"}],
-      "sha256": "10b7a95b928e551fc78cac665999e1ae1f08fb738b255adb0a8d3b9c2824a9c0",
-      "archive_format": "tar.gz",
-      "entrypoints": {
-        "python": ["python/python.exe"],
-        "pip": ["python/Scripts/pip.exe"]
-      }
-    },
-    {
-      "id": "node-test",
-      "kind": "nodejs-runtime",
-      "version": "24.14.0",
-      "platform": "` + platform + `",
-      "sources": [{"url": "https://example.invalid/node.zip", "kind": "upstream"}],
-      "sha256": "313fa40c0d7b18575821de8cb17483031fe07d95de5994f6f435f3b345f85c66",
-      "archive_format": "zip",
-      "entrypoints": {
-        "node": ["node-v24.14.0-win-x64/node.exe"],
-        "npm": ["node-v24.14.0-win-x64/npm.cmd"]
-      }
     }
   ]
 }`

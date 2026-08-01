@@ -1,0 +1,14 @@
+{
+  "contract": "contracts/plugin-management-ui-bridge.schema.json",
+  "case": "ok",
+  "description": "The host acknowledges the same one-time nonce while transferring one MessagePort.",
+  "input": {
+    "version": "2",
+    "source": "management_host",
+    "type": "host.connect",
+    "nonce": "fixture_nonce_0123456789abcdef0123456789abcdef"
+  },
+  "expect": {
+    "valid": true
+  }
+}

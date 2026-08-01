@@ -7,7 +7,6 @@ import (
 	"crypto/sha256"
 	"crypto/tls"
 	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -15,7 +14,6 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -23,19 +21,21 @@ import (
 	"time"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
-	"github.com/RayleaBot/RayleaBot/server/internal/deps"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
+	"github.com/RayleaBot/RayleaBot/server/internal/plugins/artifact"
 	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
 	"github.com/RayleaBot/RayleaBot/server/internal/tasks"
 )
 
 const (
-	codeInvalidRequest       = "platform.invalid_request"
-	codePlatformTaskTimeout  = "platform.task_timeout"
-	codePluginInstallFailed  = "plugin.install_failed"
-	codePackageResourceLimit = "plugin.package_resource_limit_exceeded"
-	codePackageUnsafeEntry   = "plugin.package_unsafe_entry"
-	codeResourceMissing      = "platform.resource_missing"
+	codeInvalidRequest         = "platform.invalid_request"
+	codePlatformTaskTimeout    = "platform.task_timeout"
+	codePluginInstallFailed    = "plugin.install_failed"
+	codePackageResourceLimit   = "plugin.package_resource_limit_exceeded"
+	codePackageUnsafeEntry     = "plugin.package_unsafe_entry"
+	codeResourceMissing        = "platform.resource_missing"
+	codePluginArtifactInvalid  = "plugin.artifact_invalid"
+	codePluginPlatformMismatch = "plugin.platform_mismatch"
 
 	maxRemoteDownloadBytes      = 256 * 1024 * 1024
 	maxPluginArchiveEntries     = 10_000
@@ -49,19 +49,17 @@ const (
 var errPluginPackageResourceLimit = errors.New("plugin package resource limit exceeded")
 
 type installerDeps struct {
-	now           func() time.Time
-	copyDir       func(context.Context, string, string) error
-	extractZip    func(context.Context, string, string) (string, error)
-	mkdirTemp     func(string, string) (string, error)
-	removeAll     func(string) error
-	rename        func(string, string) error
-	stat          func(string) (os.FileInfo, error)
-	readDir       func(string) ([]os.DirEntry, error)
-	hashFile      func(string) (string, error)
-	hashDir       func(string) (string, error)
-	preparePython func(context.Context, string, []string) error
-	prepareNode   func(context.Context, string, []string, bool) error
-	downloadFile  func(context.Context, string, string) error
+	now          func() time.Time
+	copyDir      func(context.Context, string, string) error
+	extractZip   func(context.Context, string, string) (string, error)
+	mkdirTemp    func(string, string) (string, error)
+	removeAll    func(string) error
+	rename       func(string, string) error
+	stat         func(string) (os.FileInfo, error)
+	readDir      func(string) ([]os.DirEntry, error)
+	hashFile     func(string) (string, error)
+	hashDir      func(string) (string, error)
+	downloadFile func(context.Context, string, string) error
 }
 
 type InstallService struct {
@@ -107,27 +105,6 @@ type installInspectionEntry struct {
 	cleanup      func()
 	snapshot     plugins.Snapshot
 	metadata     plugins.PackageMetadata
-}
-
-func executeManagedCommand(ctx context.Context, dir string, env []string, command string, args ...string) error {
-	cmd := exec.CommandContext(ctx, command, args...)
-	cmd.Dir = dir
-	cmd.Env = append([]string(nil), os.Environ()...)
-	if len(env) > 0 {
-		cmd.Env = append(cmd.Env, env...)
-	}
-	output, err := cmd.CombinedOutput()
-	if err == nil {
-		return nil
-	}
-	if len(output) != 0 {
-		return fmt.Errorf("%w: %s", err, string(output))
-	}
-	var execErr *exec.Error
-	if errors.As(err, &execErr) {
-		return execErr.Err
-	}
-	return err
 }
 
 func NewInstallService(
@@ -326,6 +303,17 @@ func (s *InstallService) Inspect(ctx context.Context, request plugins.InstallReq
 		}
 	}()
 
+	targetPlatform, err := artifact.CurrentPlatform()
+	if err != nil {
+		return plugins.InstallInspection{}, installError(codePluginPlatformMismatch, err.Error(), "插件包与当前平台不匹配")
+	}
+	verified, err := artifact.Verify(candidateDir, artifact.Options{ExpectedPlatform: targetPlatform})
+	if err != nil {
+		if errors.Is(err, artifact.ErrPlatformMismatch) {
+			return plugins.InstallInspection{}, installError(codePluginPlatformMismatch, err.Error(), "插件包与当前平台不匹配")
+		}
+		return plugins.InstallInspection{}, installError(codePluginArtifactInvalid, err.Error(), "插件 artifact 校验失败")
+	}
 	snapshot, err := s.loadCandidateSnapshot(candidateDir)
 	if err != nil {
 		return plugins.InstallInspection{}, err
@@ -352,7 +340,25 @@ func (s *InstallService) Inspect(ctx context.Context, request plugins.InstallReq
 		License:        snapshot.License,
 		SourceLabel:    installSourceLabel(request),
 		Capabilities:   append([]string(nil), snapshot.DeclaredCapabilities...),
-		InstallScripts: inspectInstallScripts(candidateDir, snapshot.RequireInstallScripts),
+		TargetPlatform: verified.Document.TargetPlatform,
+		Artifact: plugins.ArtifactInspection{
+			Valid:          true,
+			Version:        verified.Document.ArtifactVersion,
+			ManifestSHA256: verified.Document.ManifestSHA256,
+			FileCount:      len(verified.Document.Files),
+		},
+	}
+	for _, file := range verified.Document.Files {
+		switch file.Role {
+		case "backend":
+			inspection.Backend = plugins.InstallBackendInspection{Entry: snapshot.Entry, Path: file.Path, Size: file.Size, SHA256: file.SHA256}
+		case "ui":
+			inspection.UI.FileCount++
+		}
+	}
+	inspection.UI.Enabled = verified.UIAvailable
+	if len(verified.UIEntries) > 0 {
+		inspection.UI.Entry = verified.UIEntries[0]
 	}
 	entry := &installInspectionEntry{
 		inspection:   inspection,
@@ -560,7 +566,7 @@ func installedDiscoveryRoot(discoveryRoots []plugincatalog.ScanRoot) (string, er
 	return "", errors.New("plugins/installed discovery root is required")
 }
 
-func withDefaultInstallerDeps(repoRoot string, deps installerDeps) installerDeps {
+func withDefaultInstallerDeps(_ string, deps installerDeps) installerDeps {
 	if deps.now == nil {
 		deps.now = time.Now
 	}
@@ -590,16 +596,6 @@ func withDefaultInstallerDeps(repoRoot string, deps installerDeps) installerDeps
 	}
 	if deps.hashDir == nil {
 		deps.hashDir = hashDirectorySHA256
-	}
-	if deps.preparePython == nil {
-		deps.preparePython = func(ctx context.Context, pluginDir string, dependencies []string) error {
-			return preparePythonEnvironment(ctx, repoRoot, pluginDir, dependencies)
-		}
-	}
-	if deps.prepareNode == nil {
-		deps.prepareNode = func(ctx context.Context, pluginDir string, dependencies []string, allowInstallScripts bool) error {
-			return prepareNodeEnvironment(ctx, repoRoot, pluginDir, dependencies, allowInstallScripts)
-		}
 	}
 	if deps.downloadFile == nil {
 		deps.downloadFile = downloadHTTPSFile
@@ -637,45 +633,6 @@ func (s *InstallService) refreshCatalog(ctx context.Context) error {
 	}
 
 	s.catalog.Replace(snapshots)
-	return nil
-}
-
-func (s *InstallService) prepareDependencies(ctx context.Context, candidateDir string, snapshot plugins.Snapshot, allowInstallScripts bool) error {
-	if snapshot.RequireInstallScripts && !allowInstallScripts {
-		return installError("platform.install_script_blocked", "插件安装脚本被默认安全策略阻止", "插件安装脚本被默认安全策略阻止")
-	}
-
-	switch snapshot.Runtime {
-	case "python":
-		if err := s.deps.preparePython(ctx, candidateDir, snapshot.PythonDependencies); err != nil {
-			if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
-				return err
-			}
-			return installError(codePluginInstallFailed, "准备 Python 插件依赖环境失败", "准备 Python 插件依赖环境失败")
-		}
-	case "nodejs":
-		needsNodeSetup := len(snapshot.NodeDependencies) > 0 || snapshot.RequireInstallScripts
-		if !needsNodeSetup {
-			return nil
-		}
-		if snapshot.RequireInstallScripts {
-			packageJSONPath := filepath.Join(candidateDir, "package.json")
-			if _, err := s.deps.stat(packageJSONPath); err != nil {
-				if errors.Is(err, os.ErrNotExist) {
-					return installError(codePluginInstallFailed, "插件声明需要安装脚本但 package.json 缺失", "插件声明需要安装脚本但 package.json 缺失")
-				}
-				return installError(codePluginInstallFailed, "检查 Node.js 插件 package.json 失败", "检查 Node.js 插件 package.json 失败")
-			}
-		}
-		allowNodeScripts := allowInstallScripts && snapshot.RequireInstallScripts
-		if err := s.deps.prepareNode(ctx, candidateDir, snapshot.NodeDependencies, allowNodeScripts); err != nil {
-			if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
-				return err
-			}
-			return installError(codePluginInstallFailed, "准备 Node.js 插件依赖环境失败", "准备 Node.js 插件依赖环境失败")
-		}
-	}
-
 	return nil
 }
 
@@ -771,11 +728,18 @@ func (s *InstallService) runInstall(job installJob) error {
 
 	s.registry.Update(job.taskID, tasks.Update{
 		Progress: intPtr(40),
-		Summary:  stringPtr("准备插件依赖环境"),
+		Summary:  stringPtr("复核插件 artifact"),
 	})
 
-	if err := s.prepareDependencies(job.ctx, candidateDir, candidateSnapshot, job.request.AllowInstallScripts); err != nil {
-		return err
+	targetPlatform, err := artifact.CurrentPlatform()
+	if err != nil {
+		return installError(codePluginPlatformMismatch, err.Error(), "插件包与当前平台不匹配")
+	}
+	if _, err := artifact.Verify(candidateDir, artifact.Options{ExpectedPlatform: targetPlatform}); err != nil {
+		if errors.Is(err, artifact.ErrPlatformMismatch) {
+			return installError(codePluginPlatformMismatch, err.Error(), "插件包与当前平台不匹配")
+		}
+		return installError(codePluginArtifactInvalid, err.Error(), "插件 artifact 校验失败")
 	}
 
 	s.registry.Update(job.taskID, tasks.Update{
@@ -897,30 +861,6 @@ func installSourceLabel(request plugins.InstallRequest) string {
 		return request.SourceType
 	}
 	return label
-}
-
-func inspectInstallScripts(candidateDir string, requiresInstallScripts bool) []string {
-	packageJSON, err := os.ReadFile(filepath.Join(candidateDir, "package.json"))
-	if err == nil {
-		var document struct {
-			Scripts map[string]string `json:"scripts"`
-		}
-		if json.Unmarshal(packageJSON, &document) == nil {
-			scripts := make([]string, 0, 3)
-			for _, name := range []string{"preinstall", "install", "postinstall"} {
-				if strings.TrimSpace(document.Scripts[name]) != "" {
-					scripts = append(scripts, "npm:"+name)
-				}
-			}
-			if len(scripts) > 0 {
-				return scripts
-			}
-		}
-	}
-	if requiresInstallScripts {
-		return []string{"manifest:require_install_scripts"}
-	}
-	return []string{}
 }
 
 func (s *InstallService) prepareSource(ctx context.Context, request plugins.InstallRequest) (string, string, func(), error) {
@@ -1306,102 +1246,4 @@ func exceedsCompressionRatio(uncompressed, compressed uint64, maxRatio uint64) b
 	}
 	quotient := uncompressed / compressed
 	return quotient > maxRatio || quotient == maxRatio && uncompressed%compressed != 0
-}
-
-type runtimeResolver interface {
-	ResolveEntrypoint(context.Context, string, string) (string, error)
-}
-
-var newRuntimeResolver = func(repoRoot string) runtimeResolver {
-	return deps.NewRuntime(repoRoot)
-}
-
-var runManagedCommand = executeManagedCommand
-
-func preparePythonEnvironment(ctx context.Context, repoRoot string, pluginDir string, dependencies []string) error {
-	if len(dependencies) == 0 {
-		return nil
-	}
-
-	resolver := newRuntimeResolver(repoRoot)
-	pythonExecutable, err := resolver.ResolveEntrypoint(ctx, "python-runtime", "python")
-	if err != nil {
-		return err
-	}
-
-	venvDir := filepath.Join(pluginDir, ".venv")
-	if err := runManagedCommand(ctx, pluginDir, nil, pythonExecutable, "-m", "venv", venvDir); err != nil {
-		return err
-	}
-
-	venvPython, err := virtualenvPythonExecutable(venvDir)
-	if err != nil {
-		return err
-	}
-	args := append([]string{"-m", "pip", "install"}, dependencies...)
-	return runManagedCommand(ctx, pluginDir, nil, venvPython, args...)
-}
-
-func prepareNodeEnvironment(ctx context.Context, repoRoot string, pluginDir string, dependencies []string, allowInstallScripts bool) error {
-	packageJSONPath := filepath.Join(pluginDir, "package.json")
-	_, err := os.Stat(packageJSONPath)
-	hasPackageJSON := err == nil
-
-	if len(dependencies) == 0 && !hasPackageJSON {
-		return nil
-	}
-
-	resolver := newRuntimeResolver(repoRoot)
-	npmExecutable, err := resolver.ResolveEntrypoint(ctx, "nodejs-runtime", "npm")
-	if err != nil {
-		return err
-	}
-
-	userConfigPath := filepath.Join(pluginDir, ".npmrc.managed")
-	if err := os.WriteFile(userConfigPath, nil, 0o644); err != nil {
-		return err
-	}
-
-	args := buildNodeInstallArgs(pluginDir, dependencies, allowInstallScripts, hasPackageJSON)
-	env := []string{"NPM_CONFIG_USERCONFIG=" + userConfigPath}
-	return runManagedCommand(ctx, pluginDir, env, npmExecutable, args...)
-}
-
-func buildNodeInstallArgs(pluginDir string, dependencies []string, allowInstallScripts bool, hasPackageJSON bool) []string {
-	args := []string{}
-	hasPackageLock := false
-	if hasPackageJSON {
-		for _, name := range []string{"package-lock.json", "npm-shrinkwrap.json"} {
-			if _, err := os.Stat(filepath.Join(pluginDir, name)); err == nil {
-				hasPackageLock = true
-				break
-			}
-		}
-	}
-	if hasPackageLock {
-		args = append(args, "ci")
-	} else {
-		args = append(args, "install")
-	}
-	if !allowInstallScripts {
-		args = append(args, "--ignore-scripts")
-	}
-	if !hasPackageJSON {
-		args = append(args, dependencies...)
-	}
-	return args
-}
-
-func virtualenvPythonExecutable(venvDir string) (string, error) {
-	candidates := []string{
-		filepath.Join(venvDir, "bin", "python"),
-		filepath.Join(venvDir, "bin", "python3"),
-		filepath.Join(venvDir, "Scripts", "python.exe"),
-	}
-	for _, candidate := range candidates {
-		if info, err := os.Stat(candidate); err == nil && !info.IsDir() {
-			return candidate, nil
-		}
-	}
-	return "", fmt.Errorf("virtualenv python executable is missing under %s", venvDir)
 }

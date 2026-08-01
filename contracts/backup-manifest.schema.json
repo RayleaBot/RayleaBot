@@ -11,13 +11,15 @@
     "core_version",
     "config_schema_version",
     "db_schema_version",
+    "plugin_manifest_version",
+    "plugin_ui_bridge_version",
     "consistency",
     "directories"
   ],
   "properties": {
     "version": {
       "type": "string",
-      "const": "1"
+      "const": "2"
     },
     "created_at": {
       "type": "string",
@@ -33,6 +35,14 @@
     "db_schema_version": {
       "type": "string",
       "minLength": 1
+    },
+    "plugin_manifest_version": {
+      "type": "string",
+      "const": "2"
+    },
+    "plugin_ui_bridge_version": {
+      "type": "string",
+      "const": "2"
     },
     "consistency": {
       "type": "string",
@@ -76,11 +86,19 @@
     "plugin": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["plugin_id"],
+      "required": ["plugin_id", "manifest_version", "artifact_version"],
       "properties": {
         "plugin_id": {
           "type": "string",
           "pattern": "^[a-z0-9](?:[a-z0-9._-]{0,62}[a-z0-9])?$"
+        },
+        "manifest_version": {
+          "type": "string",
+          "const": "2"
+        },
+        "artifact_version": {
+          "type": "string",
+          "const": "1"
         },
         "version": {
           "$ref": "#/$defs/semver"

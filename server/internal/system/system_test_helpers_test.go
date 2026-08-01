@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
-	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
 	"github.com/RayleaBot/RayleaBot/server/internal/recovery"
 	renderservice "github.com/RayleaBot/RayleaBot/server/internal/render/service"
@@ -89,8 +88,4 @@ func (a *App) startupRuntimeState(kind string) (StartupRuntimeState, bool) {
 
 func (a *App) setStartupRuntimeState(kind string, phase StartupRuntimePhase, issue *recovery.CompatibilityIssue) {
 	a.services.system.SetStartupRuntimeState(kind, phase, issue)
-}
-
-func (a *App) managedRuntimeDiagnostics(pluginsList []plugins.Snapshot) []recovery.CompatibilityIssue {
-	return a.services.system.ManagedRuntimeDiagnostics(pluginsList)
 }

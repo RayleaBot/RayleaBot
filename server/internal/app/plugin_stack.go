@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"log/slog"
 	"path/filepath"
-	"time"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
@@ -173,7 +172,7 @@ func buildPluginMutationServices(deps pluginStackDeps, pluginRepository *plugins
 		deps.Validator,
 		deps.Discovery.RepoRoot,
 		deps.Discovery.Roots,
-		time.Duration(deps.Config.Runtime.DependencyInstallTimeoutSecs)*time.Second,
+		0,
 	)
 	if err != nil {
 		return nil, nil, fmt.Errorf("create plugin install service: %w", err)

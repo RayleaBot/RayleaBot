@@ -44,7 +44,7 @@ func TestSQLiteRepository_SaveAndLoad(t *testing.T) {
 
 	job := Job{
 		JobID:     "sched_abc123",
-		PluginID:  "hello-python",
+		PluginID:  "hello-go",
 		LogLabel:  "示例任务",
 		CronExpr:  "*/30 * * * *",
 		Payload:   json.RawMessage(`{"key":"value"}`),

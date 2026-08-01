@@ -191,8 +191,8 @@ func TestGovernanceCommandPolicyHandler(t *testing.T) {
 			}},
 		},
 		{
-			PluginID:          "hello-python",
-			Name:              "Hello Python",
+			PluginID:          "hello-go",
+			Name:              "Hello Go",
 			Valid:             true,
 			RegistrationState: "installed",
 			DesiredState:      "enabled",
@@ -268,8 +268,8 @@ func TestGovernanceCommandPolicyHandler(t *testing.T) {
 		t.Fatalf("unexpected weather permission policy: %#v", weather)
 	}
 
-	hello := byPluginID["hello-python"]
-	if hello["plugin_name"] != "Hello Python" || hello["command"] != "hello" {
+	hello := byPluginID["hello-go"]
+	if hello["plugin_name"] != "Hello Go" || hello["command"] != "hello" {
 		t.Fatalf("unexpected hello command policy entry: %#v", hello)
 	}
 	if !reflect.DeepEqual(hello["aliases"], []any{"hi"}) {

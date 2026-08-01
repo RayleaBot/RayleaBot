@@ -12,14 +12,11 @@ response:
       name: Weather
       role: user
       version: 1.4.2
-      runtime: python
-      type: managed_runtime
-      entry: plugin.py
+      runtime: go
+      entry: bin/weather
       description: 提供当前城市天气与未来天气查询。
       author: raylea
       license: MIT
-      sdk_min_version: 1.2.0
-      runtime_version: '>=3.12'
       min_core_version: 0.2.0
       data_schema_version: weather-v2
       concurrency: 3
@@ -34,9 +31,6 @@ response:
         - http.request
         - logger.write
         - render.image
-      dependencies:
-        python:
-          - httpx==0.28.1
       capability_parameters:
         http_hosts:
           - api.weather.example
@@ -54,8 +48,6 @@ response:
           alt: 天气总览卡片
       render_templates:
         - path: templates/card
-      system_dependencies:
-        - OneBot11 connection
       state: running
       source:
         root: plugins/installed

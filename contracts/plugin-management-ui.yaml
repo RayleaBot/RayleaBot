@@ -1,29 +1,78 @@
-version: 1
+version: 2
 description: >
-  Plugin-local management page contract. The page is served as public readonly
-  static files under the declared plugin package path, while protected data and
-  writes stay inside the management API and the host bridge.
+  Plugin management pages are public readonly static artifact files served from
+  a plugin-specific origin. Protected management data and mutations remain on
+  the admin origin and are available only through the nonce-bound MessageChannel.
 
 x-fixtures:
   - fixtures/plugin-management-ui/ok.static-route.yaml
   - fixtures/plugin-management-ui/invalid.static-route-parent-escape.yaml
 
+origin:
+  template_config_key: web.plugin_ui_origin_template
+  placeholder: "{plugin_host}"
+  plugin_host_format: "p-<sha256(plugin_id)[0:16]>"
+  localhost_default: "http://{plugin_host}.plugins.localhost:{server_port}"
+  explicit_template_required_for:
+    - lan_enabled
+    - public_via_reverse_proxy
+  must_differ_from_admin_origin: true
+
 static_route:
-  path_template: /plugin-ui/{plugin_id}/{asset_path}
+  path_template: /{asset_path}
   methods:
     - GET
     - HEAD
   auth: public_readonly
+  cookies: none
+  cors: none
+  api_routes: none
   plugin_requirements:
     valid: true
     installed: true
+    artifact_verified: true
     management_ui_declared: true
   asset_scope:
-    root: dirname(management_ui.pages[0].entry)
+    root: ui
     allow_directory_listing: false
     allow_parent_escape: false
+  response_headers:
+    cache_control_html: no-store
+    cache_control_hashed_asset: public, max-age=31536000, immutable
+    content_security_policy:
+      default-src: "'none'"
+      script-src: "'self'"
+      style-src: "'self' 'unsafe-inline'"
+      img-src: "'self' data:"
+      font-src: "'self'"
+      connect-src: "'none'"
+      object-src: "'none'"
+      base-uri: "'none'"
+      form-action: "'none'"
+      frame-ancestors: "{admin_origin}"
+    x_content_type_options: nosniff
+    referrer_policy: no-referrer
   denied_behavior:
     missing_plugin: 404
     missing_management_ui: 404
     invalid_asset_path: 404
     method_not_allowed: 404
+
+bridge:
+  schema: contracts/plugin-management-ui-bridge.schema.json
+  window_messages:
+    - page.ready
+    - host.connect
+  channel_handoff:
+    validate_source_window: true
+    validate_source_origin: true
+    one_time_nonce: true
+    transfer_exactly_one_message_port: true
+  subsequent_transport: message_port_only
+  height_pixels:
+    minimum: 320
+    maximum: 1600
+
+admin_session:
+  cookie_scope: host_only_admin_origin
+  plugin_origin_receives_cookie: false

@@ -1,9 +1,10 @@
 contract: contracts/plugin-management-ui.yaml
 case: invalid
-description: Static route requests cannot escape the management UI entry directory.
+description: Static route requests cannot escape the artifact UI root.
 request:
   method: GET
-  path: /plugin-ui/example-config-panel/web/../main.py
+  host: p-0123456789abcdef.plugins.localhost:8080
+  path: /../bin/example-config-panel
 response:
   status: 404
 expect:

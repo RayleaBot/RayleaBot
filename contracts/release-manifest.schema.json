@@ -113,6 +113,8 @@
         "config_schema_version",
         "db_schema_version",
         "plugin_protocol_version",
+        "plugin_manifest_version",
+        "plugin_ui_bridge_version",
         "artifacts",
         "release_notes_ref"
       ],
@@ -128,6 +130,8 @@
         "config_schema_version": { "type": "string", "minLength": 1 },
         "db_schema_version": { "type": "string", "minLength": 1 },
         "plugin_protocol_version": { "type": "string", "minLength": 1 },
+        "plugin_manifest_version": { "const": "2" },
+        "plugin_ui_bridge_version": { "const": "2" },
         "onebot_matrix": {
           "type": "object",
           "additionalProperties": false,
@@ -187,13 +191,15 @@
     "buildInfo": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["version", "git_commit", "artifact_id", "built_at", "update_protocol_version"],
+      "required": ["version", "git_commit", "artifact_id", "built_at", "update_protocol_version", "plugin_manifest_version", "plugin_ui_bridge_version"],
       "properties": {
         "version": { "$ref": "#/$defs/semver" },
         "git_commit": { "$ref": "#/$defs/gitCommit" },
         "artifact_id": { "$ref": "#/$defs/artifactId" },
         "built_at": { "type": "string", "format": "date-time" },
         "update_protocol_version": { "type": "integer", "minimum": 2 },
+        "plugin_manifest_version": { "const": "2" },
+        "plugin_ui_bridge_version": { "const": "2" },
         "release_notes_ref": { "type": "string", "format": "uri", "pattern": "^https://" },
         "release_manifest_sha256": { "$ref": "#/$defs/sha256" },
         "onebot_matrix": {

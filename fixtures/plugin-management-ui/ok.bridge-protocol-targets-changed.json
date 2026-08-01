@@ -3,7 +3,7 @@
   "case": "ok",
   "description": "The host returns separated OneBot11 group and private targets.",
   "input": {
-    "version": "1",
+    "version": "2",
     "source": "management_host",
     "type": "protocol.targets.changed",
     "request_id": "req_protocol_targets_0001",

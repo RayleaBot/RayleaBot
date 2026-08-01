@@ -5,18 +5,22 @@
     "id": "weather-duplicate-system-deps",
     "name": "Weather Duplicate System Dependencies",
     "version": "1.0.0",
-    "manifest_version": "1",
+    "manifest_version": "2",
     "plugin_protocol_version": "1",
-    "type": "managed_runtime",
-    "runtime": "python",
-    "entry": "plugin.py",
+    "runtime": "go",
+    "entry": "bin/weather-duplicate-system-deps",
     "license": "MIT",
     "system_dependencies": [
-      "OneBot11 connection",
-      "OneBot11 connection"
+      "legacy-runtime"
+    ],
+    "platforms": [
+      "windows-x64",
+      "linux-x64",
+      "macos-arm64"
     ]
   },
   "expect": {
-    "valid": false
+    "valid": false,
+    "reason": "Manifest v2 rejects the removed system_dependencies field."
   }
 }

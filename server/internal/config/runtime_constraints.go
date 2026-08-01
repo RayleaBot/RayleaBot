@@ -32,6 +32,9 @@ func validateRuntimeConstraints(cfg Config) error {
 		if len(cfg.Web.TrustedProxyCIDRs) != 0 {
 			return fmt.Errorf("web.trusted_proxy_cidrs is only valid with public_via_reverse_proxy")
 		}
+		if strings.TrimSpace(cfg.Web.PluginUIOriginTemplate) == "" {
+			return fmt.Errorf("web.plugin_ui_origin_template is required for lan_enabled")
+		}
 	case "public_via_reverse_proxy":
 		if !loopback {
 			return fmt.Errorf("web.exposure_mode public_via_reverse_proxy requires a loopback server.host")
@@ -43,8 +46,22 @@ func validateRuntimeConstraints(cfg Config) error {
 		if len(cfg.Web.TrustedProxyCIDRs) == 0 {
 			return fmt.Errorf("web.trusted_proxy_cidrs must not be empty for public_via_reverse_proxy")
 		}
+		if strings.TrimSpace(cfg.Web.PluginUIOriginTemplate) == "" {
+			return fmt.Errorf("web.plugin_ui_origin_template is required for public_via_reverse_proxy")
+		}
 	default:
 		return fmt.Errorf("unsupported web.exposure_mode %q", cfg.Web.ExposureMode)
+	}
+
+	if template := strings.TrimSpace(cfg.Web.PluginUIOriginTemplate); template != "" {
+		if !strings.Contains(template, "{plugin_host}") {
+			return fmt.Errorf("web.plugin_ui_origin_template must contain {plugin_host}")
+		}
+		rendered := strings.ReplaceAll(template, "{plugin_host}", "p-0123456789abcdef")
+		origin, err := url.Parse(rendered)
+		if err != nil || (origin.Scheme != "http" && origin.Scheme != "https") || origin.Host == "" || origin.Path != "" || origin.RawQuery != "" || origin.Fragment != "" {
+			return fmt.Errorf("web.plugin_ui_origin_template must render to an HTTP(S) origin")
+		}
 	}
 
 	for _, rawCIDR := range cfg.Web.TrustedProxyCIDRs {

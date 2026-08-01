@@ -11,7 +11,7 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-const currentSchemaVersion = "2"
+const currentSchemaVersion = "3"
 const DefaultRenderFooterTemplate = "Created By RayleaBot {{rayleabot_version}} & Plugin {{plugin_name}} {{plugin_version}}"
 const DefaultRenderOutput = "png"
 const DefaultRenderDeviceScalePercent = 100

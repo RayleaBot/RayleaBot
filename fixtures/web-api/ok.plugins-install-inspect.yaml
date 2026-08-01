@@ -1,12 +1,12 @@
 contract: contracts/web-api.openapi.yaml
 case: ok
-description: Plugin installation begins with a time-limited, digest-bound trust inspection.
+description: Plugin installation begins with a platform- and digest-bound artifact inspection.
 request:
   method: POST
   path: /api/plugins/install/inspect
   body:
     source_type: remote_url
-    source: https://example.com/plugins/weather-1.0.0.zip
+    source: https://example.com/plugins/weather-1.0.0-windows-x64.zip
 response:
   status: 200
   body:
@@ -15,7 +15,7 @@ response:
     package_sha256: cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
     source:
       source_type: remote_url
-      source: https://example.com/plugins/weather-1.0.0.zip
+      source: https://example.com/plugins/weather-1.0.0-windows-x64.zip
     plugin:
       id: example.weather
       name: Weather
@@ -24,6 +24,20 @@ response:
       license: MIT
       source_label: example.com
     capabilities: [event.subscribe, http.request]
-    install_scripts: []
+    target_platform: windows-x64
+    backend:
+      entry: bin/example-weather
+      path: bin/example-weather.exe
+      size: 3145728
+      sha256: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+    ui:
+      enabled: true
+      entry: ui/index.html
+      file_count: 4
+    artifact:
+      valid: true
+      artifact_version: '1'
+      manifest_sha256: bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
+      file_count: 8
 expect:
   valid: true

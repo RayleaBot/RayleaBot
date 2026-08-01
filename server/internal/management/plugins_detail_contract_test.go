@@ -15,8 +15,8 @@ func TestGetPluginReturnsValidSnapshot(t *testing.T) {
 
 	router := pluginRouter(t, plugincatalog.New([]plugins.Snapshot{
 		{
-			PluginID:          "hello-python",
-			Name:              "Hello Python",
+			PluginID:          "hello-go",
+			Name:              "Hello Go",
 			Role:              "example",
 			Valid:             true,
 			RegistrationState: "installed",
@@ -36,7 +36,7 @@ func TestGetPluginReturnsValidSnapshot(t *testing.T) {
 		},
 	}))
 
-	request := httptest.NewRequest("GET", "/api/plugins/hello-python", nil)
+	request := httptest.NewRequest("GET", "/api/plugins/hello-go", nil)
 	recorder := httptest.NewRecorder()
 	router.ServeHTTP(recorder, request)
 
@@ -51,8 +51,8 @@ func TestGetPluginReturnsValidSnapshot(t *testing.T) {
 
 	want := map[string]any{
 		"plugin": map[string]any{
-			"id":    "hello-python",
-			"name":  "Hello Python",
+			"id":    "hello-go",
+			"name":  "Hello Go",
 			"role":  "example",
 			"state": "disabled",
 			"source": map[string]any{
@@ -93,21 +93,17 @@ func TestGetPluginReturnsRichMetadataDetail(t *testing.T) {
 			Name:                 "Weather",
 			Role:                 "user",
 			Version:              "1.4.2",
-			Runtime:              "python",
-			Type:                 "managed_runtime",
-			Entry:                "plugin.py",
+			Runtime:              "go",
+			Entry:                "bin/weather",
 			Description:          "提供当前城市天气与未来天气查询。",
 			Author:               "raylea",
 			License:              "MIT",
-			SDKMinVersion:        "1.2.0",
-			RuntimeVersion:       ">=3.12",
 			MinCoreVersion:       "0.2.0",
 			DataSchemaVersion:    "weather-v2",
 			Concurrency:          3,
 			Platforms:            []string{"windows-x64", "linux-x64"},
 			DefaultConfig:        map[string]any{"unit": "metric", "forecast_days": 3},
 			DeclaredCapabilities: []string{"http.request", "logger.write", "render.image"},
-			PythonDependencies:   []string{"httpx==0.28.1"},
 			ScopeHTTPHosts:       []string{"api.weather.example"},
 			ScopeStorageRoots:    []string{"plugin_data"},
 			Icon:                 "assets/weather.svg",
@@ -118,15 +114,14 @@ func TestGetPluginReturnsRichMetadataDetail(t *testing.T) {
 				Path: "assets/overview.svg",
 				Alt:  "天气总览卡片",
 			}},
-			SystemDependencies: []string{"OneBot11 connection"},
-			Valid:              true,
-			RegistrationState:  "installed",
-			DesiredState:       "enabled",
-			RuntimeState:       "running",
-			DisplayState:       "running",
-			SourceRoot:         "plugins/installed",
-			PackageSourceType:  "local_zip",
-			PackageSourceRef:   "C:/plugins/weather.zip",
+			Valid:             true,
+			RegistrationState: "installed",
+			DesiredState:      "enabled",
+			RuntimeState:      "running",
+			DisplayState:      "running",
+			SourceRoot:        "plugins/installed",
+			PackageSourceType: "local_zip",
+			PackageSourceRef:  "C:/plugins/weather.zip",
 			Commands: []plugins.Command{{
 				Name:        "weather",
 				Aliases:     []string{"tq", "天气"},
@@ -153,21 +148,11 @@ func TestGetPluginReturnsRichMetadataDetail(t *testing.T) {
 	if plugin["author"] != "raylea" || plugin["license"] != "MIT" {
 		t.Fatalf("unexpected author/license: %#v", plugin)
 	}
-	if plugin["sdk_min_version"] != "1.2.0" || plugin["runtime_version"] != ">=3.12" {
-		t.Fatalf("unexpected sdk/runtime version fields: %#v", plugin)
-	}
 	if plugin["concurrency"] != float64(3) {
 		t.Fatalf("unexpected concurrency: %#v", plugin["concurrency"])
 	}
 	if !reflect.DeepEqual(plugin["keywords"], []any{"weather", "forecast", "climate"}) {
 		t.Fatalf("unexpected keywords: %#v", plugin["keywords"])
-	}
-	if !reflect.DeepEqual(plugin["system_dependencies"], []any{"OneBot11 connection"}) {
-		t.Fatalf("unexpected system_dependencies: %#v", plugin["system_dependencies"])
-	}
-	dependencies := plugin["dependencies"].(map[string]any)
-	if !reflect.DeepEqual(dependencies["python"], []any{"httpx==0.28.1"}) {
-		t.Fatalf("unexpected dependencies: %#v", dependencies)
 	}
 	capabilityParameters := plugin["capability_parameters"].(map[string]any)
 	if !reflect.DeepEqual(capabilityParameters["http_hosts"], []any{"api.weather.example"}) {

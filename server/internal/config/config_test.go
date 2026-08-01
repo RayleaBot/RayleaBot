@@ -102,8 +102,8 @@ func TestNormalizeBootstrapsDefaultAndUserConfigWhenMissing(t *testing.T) {
 		t.Fatalf("LoadDocument() error = %v", err)
 	}
 
-	if got := nestedString(t, document, "schema_version"); got != "2" {
-		t.Fatalf("schema_version = %q, want 2", got)
+	if got := nestedString(t, document, "schema_version"); got != "3" {
+		t.Fatalf("schema_version = %q, want 3", got)
 	}
 	if _, ok := document["log"]; !ok {
 		t.Fatal("expected planning-aligned log section in persisted document")
@@ -164,7 +164,7 @@ func TestValidateDoesNotRewriteConfig(t *testing.T) {
 	configPath := filepath.Join(configDir, "user.yaml")
 	schemaPath := filepath.Join("..", "..", "..", "contracts", "config.user.schema.json")
 	writeYAMLDocument(t, configPath, map[string]any{
-		"schema_version": "2",
+		"schema_version": "3",
 		"server": map[string]any{
 			"port": 9090,
 		},
@@ -204,7 +204,7 @@ func TestLoadMergesDefaultAndUserOverrides(t *testing.T) {
 	writeYAMLDocument(t, filepath.Join(configDir, "default.yaml"), defaultDoc)
 
 	override := map[string]any{
-		"schema_version": "2",
+		"schema_version": "3",
 		"server": map[string]any{
 			"port": 9090,
 		},
@@ -284,8 +284,8 @@ func TestSaveDocumentPersistsPlanningAlignedShape(t *testing.T) {
 	if err := yaml.Unmarshal(bytes, &saved); err != nil {
 		t.Fatalf("parse saved yaml: %v", err)
 	}
-	if got := nestedString(t, saved, "schema_version"); got != "2" {
-		t.Fatalf("schema_version = %q, want 2", got)
+	if got := nestedString(t, saved, "schema_version"); got != "3" {
+		t.Fatalf("schema_version = %q, want 3", got)
 	}
 }
 
@@ -419,7 +419,7 @@ func TestLoadHealsNullPlanningAlignedValues(t *testing.T) {
 	defaultDoc["scheduler"].(map[string]any)["timezone"] = nil
 	writeYAMLDocument(t, filepath.Join(configDir, "default.yaml"), defaultDoc)
 	writeYAMLDocument(t, configPath, map[string]any{
-		"schema_version": "2",
+		"schema_version": "3",
 		"server": map[string]any{
 			"host": "127.0.0.1",
 			"port": 8080,
@@ -497,7 +497,7 @@ func writeYAMLDocument(t *testing.T, path string, document map[string]any) {
 
 func newPlanningConfigDocument() map[string]any {
 	return map[string]any{
-		"schema_version": "2",
+		"schema_version": "3",
 		"server": map[string]any{
 			"host": "127.0.0.1",
 			"port": 8080,
@@ -541,13 +541,13 @@ func newPlanningConfigDocument() map[string]any {
 			},
 		},
 		"admin": map[string]any{
-			"super_admins":               []string{},
-			"session_ttl_days":           7,
-			"session_absolute_ttl_days":  30,
-			"sliding_renewal":            true,
-			"max_sessions":               3,
-			"login_fail_limit":           5,
-			"login_fail_window_seconds":  300,
+			"super_admins":              []string{},
+			"session_ttl_days":          7,
+			"session_absolute_ttl_days": 30,
+			"sliding_renewal":           true,
+			"max_sessions":              3,
+			"login_fail_limit":          5,
+			"login_fail_window_seconds": 300,
 		},
 		"permission": map[string]any{
 			"default_level": "everyone",
@@ -572,9 +572,6 @@ func newPlanningConfigDocument() map[string]any {
 			"plugin_event_timeout_seconds":          60,
 			"max_pending_events_per_plugin":         16,
 			"max_pending_control_events_per_plugin": 4,
-			"nodejs_max_old_space_size_mb":          256,
-			"dependency_install_timeout_seconds":    900,
-			"max_concurrent_dependency_installs":    1,
 			"ipc_pending_actions_max":               256,
 			"ipc_action_burst_limit":                "100/1s",
 			"stderr_rate_limit_bytes_per_second":    262144,
@@ -626,10 +623,11 @@ func newPlanningConfigDocument() map[string]any {
 			"allow_private_hosts":     []string{},
 		},
 		"web": map[string]any{
-			"exposure_mode":       "localhost_only",
-			"setup_local_only":    true,
-			"public_origin":       "",
-			"trusted_proxy_cidrs": []string{},
+			"exposure_mode":             "localhost_only",
+			"setup_local_only":          true,
+			"public_origin":             "",
+			"plugin_ui_origin_template": "",
+			"trusted_proxy_cidrs":       []string{},
 		},
 		"backup": map[string]any{
 			"default_consistency": "offline",

@@ -91,7 +91,7 @@ func TestBackupCreatesValidArchive(t *testing.T) {
 	dir := t.TempDir()
 	configDir := filepath.Join(dir, "config")
 	dataDir := filepath.Join(dir, "data")
-	pluginsDir := filepath.Join(dir, "plugins", "installed", "hello-python")
+	pluginsDir := filepath.Join(dir, "plugins", "installed", "hello-go")
 	backupsDir := filepath.Join(dir, "backups")
 
 	for _, d := range []string{configDir, dataDir, pluginsDir} {
@@ -104,7 +104,7 @@ func TestBackupCreatesValidArchive(t *testing.T) {
 	createTestSQLiteDatabase(t, filepath.Join(dataDir, "rayleabot.db"))
 	writeFile(t, filepath.Join(dataDir, "plugin-state", "settings.json"), `{"enabled":true}`)
 	writeFile(t, filepath.Join(dataDir, ".state", "cursor"), "42")
-	writeFile(t, filepath.Join(pluginsDir, "info.json"), `{"id":"hello-python"}`)
+	writeFile(t, filepath.Join(pluginsDir, "info.json"), `{"id":"hello-go"}`)
 
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	code := runBackup(Command{
@@ -131,8 +131,10 @@ func TestBackupCreatesValidArchive(t *testing.T) {
 	defer reader.Close()
 
 	names := map[string]bool{}
+	nameCounts := map[string]int{}
 	for _, f := range reader.File {
 		names[f.Name] = true
+		nameCounts[f.Name]++
 	}
 
 	if !names["backup-manifest.json"] {
@@ -143,6 +145,9 @@ func TestBackupCreatesValidArchive(t *testing.T) {
 	}
 	if !names["data/rayleabot.db"] {
 		t.Error("missing data/rayleabot.db in archive")
+	}
+	if got := nameCounts["data/rayleabot.db"]; got != 1 {
+		t.Errorf("data/rayleabot.db archive entry count = %d, want 1", got)
 	}
 	if !names["data/plugin-state/settings.json"] {
 		t.Error("missing application data file in archive")
@@ -183,6 +188,23 @@ func TestBackupCreatesValidArchive(t *testing.T) {
 		if len(manifest.Directories) == 0 {
 			t.Error("manifest directories should not be empty")
 		}
+	}
+}
+
+func TestSameBackupPathResolvesRelativeAndAbsolutePaths(t *testing.T) {
+	t.Parallel()
+
+	absolute := filepath.Join(t.TempDir(), "data", "rayleabot.db")
+	workingDirectory, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("resolve working directory: %v", err)
+	}
+	relative, err := filepath.Rel(workingDirectory, absolute)
+	if err != nil {
+		t.Fatalf("resolve relative path: %v", err)
+	}
+	if !sameBackupPath(relative, absolute) {
+		t.Fatalf("expected relative and absolute spellings to match: %q and %q", relative, absolute)
 	}
 }
 
@@ -272,7 +294,12 @@ func TestRestoreRejectsInvalidManifestVersion(t *testing.T) {
 		t.Fatal(err)
 	}
 	w := zip.NewWriter(outFile)
-	manifest := recovery.BackupManifest{Version: "99", CreatedAt: "2025-01-01T00:00:00Z"}
+	manifest := recovery.BackupManifest{
+		Version:               "99",
+		CreatedAt:             "2025-01-01T00:00:00Z",
+		PluginManifestVersion: recovery.PluginManifestVersion,
+		PluginUIBridgeVersion: recovery.PluginUIBridgeVersion,
+	}
 	data, err := json.Marshal(manifest)
 	if err != nil {
 		t.Fatalf("marshal manifest: %v", err)
@@ -313,12 +340,14 @@ func TestRestoreBlocksNewerDatabaseSchemaBeforeExtraction(t *testing.T) {
 	}
 	w := zip.NewWriter(outFile)
 	manifest := recovery.BackupManifest{
-		Version:             recovery.BackupManifestVersion,
-		CreatedAt:           "2026-04-02T00:00:00Z",
-		CoreVersion:         "0.2.0",
-		ConfigSchemaVersion: "2",
-		DBSchemaVersion:     "000005",
-		Consistency:         "offline",
+		Version:               recovery.BackupManifestVersion,
+		CreatedAt:             "2026-04-02T00:00:00Z",
+		CoreVersion:           "0.2.0",
+		ConfigSchemaVersion:   "2",
+		DBSchemaVersion:       "000005",
+		PluginManifestVersion: recovery.PluginManifestVersion,
+		PluginUIBridgeVersion: recovery.PluginUIBridgeVersion,
+		Consistency:           "offline",
 		Directories: []recovery.BackupManifestDirectory{
 			{Label: "config", Path: "config/user.yaml"},
 		},
@@ -413,7 +442,11 @@ func TestRestoreRejectsPathTraversal(t *testing.T) {
 	}
 	w := zip.NewWriter(outFile)
 
-	manifest := recovery.BackupManifest{Version: recovery.BackupManifestVersion, CreatedAt: "2025-01-01T00:00:00Z"}
+	manifest := recovery.BackupManifest{
+		Version: recovery.BackupManifestVersion, CreatedAt: "2025-01-01T00:00:00Z",
+		PluginManifestVersion: recovery.PluginManifestVersion,
+		PluginUIBridgeVersion: recovery.PluginUIBridgeVersion,
+	}
 	data, err := json.Marshal(manifest)
 	if err != nil {
 		t.Fatalf("marshal manifest: %v", err)
@@ -477,7 +510,7 @@ func TestConfigInitNormalizeValidateCommands(t *testing.T) {
 		t.Fatalf("config init should create user.yaml: %v", err)
 	}
 
-	writeFile(t, configPath, "schema_version: \"2\"\nserver:\n  port: 9090\n")
+	writeFile(t, configPath, "schema_version: \"3\"\nserver:\n  port: 9090\n")
 	if code := Run(Command{Name: "config", ConfigPath: configPath, Logger: logger, Args: []string{"validate"}}); code != 0 {
 		t.Fatalf("config validate exit code = %d, want 0", code)
 	}
@@ -585,6 +618,23 @@ func TestDoctorReportChecksSQLiteIntegrity(t *testing.T) {
 	}
 }
 
+func TestDoctorReportRejectsRetiredPluginRuntimeKeys(t *testing.T) {
+	t.Parallel()
+
+	repoRoot := t.TempDir()
+	configPath := filepath.Join(repoRoot, "config", "user.yaml")
+	writeFile(t, configPath, "schema_version: \"3\"\nruntime:\n  nodejs_max_old_space_size_mb: 256\n  dependency_install_timeout_seconds: 900\n")
+
+	report := BuildDoctorReport(Command{
+		ConfigPath: configPath,
+		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
+	})
+	issue := findDoctorIssue(report.Issues, "config.retired_plugin_runtime_keys")
+	if issue == nil || !strings.Contains(issue.Summary, "runtime.nodejs_max_old_space_size_mb") || !strings.Contains(issue.Remediation, "删除") {
+		t.Fatalf("doctor should identify retired plugin runtime keys: %#v", report.Issues)
+	}
+}
+
 func TestDoctorReportIncludesRecoverySummaryWhenPresent(t *testing.T) {
 	t.Parallel()
 
@@ -616,165 +666,74 @@ func TestDoctorReportIncludesRecoverySummaryWhenPresent(t *testing.T) {
 	}
 }
 
-func TestDoctorReportFlagsIncompleteRuntimeMetadata(t *testing.T) {
-	t.Parallel()
-
-	repoRoot := t.TempDir()
-	configPath := filepath.Join(repoRoot, "config", "user.yaml")
-	manifestPath := filepath.Join(repoRoot, ".deps", "manifest.json")
-
-	writeFile(t, configPath, "schema_version: \"2\"\nserver:\n  host: 127.0.0.1\n  port: 8080\n")
-	if err := os.MkdirAll(filepath.Join(repoRoot, "data"), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	writeFile(t, manifestPath, `{
-  "manifest_version": 3,
-  "resources": [
-    {
-      "id": "chromium-windows-x64",
-      "kind": "chromium",
-      "version": "147.0.7727.24",
-      "platform": "windows-x64",
-      "sources": [
-        {
-          "url": "https://storage.googleapis.com/chrome-for-testing-public/147.0.7727.24/win64/chrome-win64.zip",
-          "kind": "upstream"
-        }
-      ],
-      "sha256": "22d9f6baf54f755ccf5843f8e6ad4ad6e0ba10d11092c574df9e8f97ce55369e",
-      "archive_format": "zip",
-      "entrypoints": {
-        "browser": ["chrome-win64/chrome.exe"]
-      }
-    },
-    {
-      "id": "python-windows-x64",
-      "kind": "python-runtime",
-      "version": "3.12.13",
-      "platform": "windows-x64",
-      "sources": [
-        {
-          "url": "TODO(v0.1-phase0)",
-          "kind": "upstream"
-        }
-      ],
-      "sha256": "TODO(v0.1-phase0)",
-      "archive_format": "tar.gz",
-      "entrypoints": {
-        "python": ["python/python.exe"]
-      }
-    },
-    {
-      "id": "nodejs-windows-x64",
-      "kind": "nodejs-runtime",
-      "version": "24.14.0",
-      "platform": "windows-x64",
-      "sources": [
-        {
-          "url": "https://nodejs.org/download/release/v24.14.0/node-v24.14.0-win-x64.zip",
-          "kind": "upstream"
-        }
-      ],
-      "sha256": "deadbeef",
-      "archive_format": "zip",
-      "entrypoints": {
-        "node": ["node-v24.14.0-win-x64/node.exe"],
-        "npm": ["node-v24.14.0-win-x64/npm.cmd"]
-      }
-    }
-  ]
-}
-`)
-
-	report := BuildDoctorReport(Command{
-		ConfigPath: configPath,
-		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
-	})
-
-	foundPython := false
-	foundNode := false
-	for _, issue := range report.Issues {
-		switch issue.Code {
-		case "deps.python_runtime_metadata_incomplete":
-			foundPython = true
-		case "deps.nodejs_runtime_metadata_incomplete":
-			foundNode = true
-		}
-	}
-
-	if !foundPython {
-		t.Fatalf("doctor report should flag incomplete Python runtime metadata, got %#v", report.Issues)
-	}
-	if !foundNode {
-		t.Fatalf("doctor report should flag incomplete Node.js runtime metadata, got %#v", report.Issues)
-	}
-}
-
-func TestDoctorReportSummarizesManagedRuntimeBootstrapStates(t *testing.T) {
+func TestDoctorReportFlagsIncompleteChromiumMetadata(t *testing.T) {
 	t.Parallel()
 
 	repoRoot := t.TempDir()
 	configPath := filepath.Join(repoRoot, "config", "user.yaml")
 	platform := deps.CurrentPlatform()
-	pythonID := "python-" + platform
-	nodeID := "nodejs-" + platform
-
-	writeFile(t, configPath, "schema_version: \"2\"\nserver:\n  host: 127.0.0.1\n  port: 8080\n")
+	writeFile(t, configPath, "schema_version: \"3\"\nserver:\n  host: 127.0.0.1\n  port: 8080\n")
 	if err := os.MkdirAll(filepath.Join(repoRoot, "data"), 0o755); err != nil {
 		t.Fatal(err)
 	}
 	writeFile(t, filepath.Join(repoRoot, ".deps", "manifest.json"), `{
-  "manifest_version": 3,
+  "manifest_version": 4,
   "resources": [
     {
-      "id": "`+pythonID+`",
-      "kind": "python-runtime",
-      "version": "3.12.13",
+      "id": "chromium-test",
+      "kind": "chromium",
+      "version": "147.0.0",
       "platform": "`+platform+`",
-      "sources": [
-        {
-          "url": "https://example.invalid/python.tar.gz",
-          "kind": "upstream"
-        }
-      ],
-      "sha256": "10b7a95b928e551fc78cac665999e1ae1f08fb738b255adb0a8d3b9c2824a9c0",
-      "archive_format": "tar.gz",
-      "entrypoints": {
-        "python": ["python/python.exe"]
-      }
-    },
-    {
-      "id": "`+nodeID+`",
-      "kind": "nodejs-runtime",
-      "version": "24.14.0",
-      "platform": "`+platform+`",
-      "sources": [
-        {
-          "url": "https://example.invalid/node.zip",
-          "kind": "upstream"
-        }
-      ],
-      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "sources": [],
+      "sha256": "",
       "archive_format": "zip",
-      "entrypoints": {
-        "node": ["node/node.exe"],
-        "npm": ["node/npm.cmd"]
-      }
+      "entrypoints": {"browser": ["chromium/chrome"]}
     }
   ]
 }
 `)
-	writeFile(t, filepath.Join(repoRoot, ".deps", "store", pythonID, "3.12.13", "python", "python.exe"), "")
-	writeFile(t, filepath.Join(repoRoot, "cache", "downloads", "runtime", nodeID+"-24.14.0.zip"), "")
 
 	report := BuildDoctorReport(Command{
 		ConfigPath: configPath,
 		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
 	})
 
-	assertDoctorSummary(t, report.Issues, "runtime.python_managed_ready", "Python 运行环境已准备完成。")
-	assertDoctorSummary(t, report.Issues, "runtime.node_managed_ready", "Node.js / npm 环境已下载，启动时会解压。")
-	assertDoctorSummary(t, report.Issues, "runtime.npm_managed_ready", "npm 已下载，启动时会解压。")
+	assertDoctorSummary(t, report.Issues, "deps.chromium_metadata_incomplete", "图片渲染 Chromium 元数据不完整。")
+}
+
+func TestDoctorReportAcceptsCompleteChromiumMetadata(t *testing.T) {
+	t.Parallel()
+
+	repoRoot := t.TempDir()
+	configPath := filepath.Join(repoRoot, "config", "user.yaml")
+	platform := deps.CurrentPlatform()
+	writeFile(t, configPath, "schema_version: \"3\"\nserver:\n  host: 127.0.0.1\n  port: 8080\n")
+	if err := os.MkdirAll(filepath.Join(repoRoot, "data"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	writeFile(t, filepath.Join(repoRoot, ".deps", "manifest.json"), `{
+  "manifest_version": 4,
+  "resources": [
+    {
+      "id": "chromium-`+platform+`",
+      "kind": "chromium",
+      "version": "147.0.0",
+      "platform": "`+platform+`",
+      "sources": [{"url": "https://example.invalid/chromium.zip", "kind": "upstream"}],
+      "sha256": "10b7a95b928e551fc78cac665999e1ae1f08fb738b255adb0a8d3b9c2824a9c0",
+      "archive_format": "zip",
+      "entrypoints": {"browser": ["chromium/chrome"]}
+    }
+  ]
+}
+`)
+
+	report := BuildDoctorReport(Command{
+		ConfigPath: configPath,
+		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
+	})
+
+	assertDoctorSummary(t, report.Issues, "deps.chromium_metadata", "图片渲染 Chromium 元数据完整。")
 }
 
 func assertDoctorSummary(t *testing.T, issues []DoctorIssue, code, summary string) {

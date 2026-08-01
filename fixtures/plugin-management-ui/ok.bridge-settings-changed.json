@@ -1,0 +1,20 @@
+{
+  "contract": "contracts/plugin-management-ui-bridge.schema.json",
+  "case": "ok",
+  "description": "The host returns the current non-sensitive plugin configuration.",
+  "input": {
+    "version": "2",
+    "source": "management_host",
+    "type": "settings.changed",
+    "request_id": "req_plugin_settings_changed_0001",
+    "payload": {
+      "config": {
+        "default_city": "广州",
+        "unit": "celsius"
+      }
+    }
+  },
+  "expect": {
+    "valid": true
+  }
+}

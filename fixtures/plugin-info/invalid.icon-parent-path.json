@@ -5,13 +5,17 @@
     "id": "weather-invalid-icon-parent",
     "name": "Weather Invalid Icon Parent",
     "version": "1.0.0",
-    "manifest_version": "1",
+    "manifest_version": "2",
     "plugin_protocol_version": "1",
-    "type": "managed_runtime",
-    "runtime": "python",
-    "entry": "plugin.py",
+    "runtime": "go",
+    "entry": "bin/weather-invalid-icon-parent",
     "license": "MIT",
-    "icon": "../assets/weather.svg"
+    "icon": "../assets/weather.svg",
+    "platforms": [
+      "windows-x64",
+      "linux-x64",
+      "macos-arm64"
+    ]
   },
   "expect": {
     "valid": false

@@ -11,7 +11,7 @@
     "published_at": "2026-03-17T10:00:00Z",
     "expires_at": "2026-03-24T10:00:00Z",
     "update_protocol_version": 2,
-    "config_schema_version": "2",
+    "config_schema_version": "3",
     "db_schema_version": "000004",
     "plugin_protocol_version": "1",
     "artifacts": [
@@ -30,7 +30,11 @@
         "smoke_profile": "windows_full_smoke"
       }
     ],
-    "release_notes_ref": "https://example.com/releases/v0.1.0"
+    "release_notes_ref": "https://example.com/releases/v0.1.0",
+    "plugin_manifest_version": "2",
+    "plugin_ui_bridge_version": "2"
   },
-  "expect": { "valid": false }
+  "expect": {
+    "valid": false
+  }
 }

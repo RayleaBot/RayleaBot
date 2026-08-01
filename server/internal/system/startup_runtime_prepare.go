@@ -42,21 +42,13 @@ type StartupRuntimeState struct {
 }
 
 func startupRuntimeKinds() []string {
-	return []string{"chromium", "python-runtime", "nodejs-runtime"}
-}
-
-func managedDiagnosticKinds() []string {
-	return []string{"python-runtime", "nodejs-runtime"}
+	return []string{"chromium"}
 }
 
 func managedRuntimeLabel(kind string) string {
 	switch kind {
 	case "chromium":
 		return "图片渲染 Chromium"
-	case "python-runtime":
-		return "Python 运行环境"
-	case "nodejs-runtime":
-		return "Node.js / npm 环境"
 	default:
 		return deps.ManagedResourceLabel(kind)
 	}
@@ -123,7 +115,6 @@ func (s *Service) startupRequiredRuntimeKinds() []string {
 	if strings.TrimSpace(s.config().Render.BrowserPath) == "" {
 		kinds = append(kinds, "chromium")
 	}
-	kinds = append(kinds, "python-runtime", "nodejs-runtime")
 	return kinds
 }
 
@@ -146,28 +137,11 @@ func startupInspectionIssue(_ string, err error) recovery.CompatibilityIssue {
 }
 
 func startupMetadataIssue(kind string) recovery.CompatibilityIssue {
-	switch kind {
-	case "python-runtime":
-		return recovery.CompatibilityIssue{
-			Code:        "deps.python_runtime_metadata_incomplete",
-			Severity:    "warning",
-			Summary:     "Python 运行环境元数据不完整。",
-			Remediation: "请在 .deps/manifest.json 中补齐当前平台 Python 运行环境的 archive_format、entrypoints、来源列表与 sha256。",
-		}
-	case "nodejs-runtime":
-		return recovery.CompatibilityIssue{
-			Code:        "deps.nodejs_runtime_metadata_incomplete",
-			Severity:    "warning",
-			Summary:     "Node.js / npm 环境元数据不完整。",
-			Remediation: "请在 .deps/manifest.json 中补齐当前平台 Node.js / npm 环境的 archive_format、entrypoints、来源列表与 sha256。",
-		}
-	default:
-		return recovery.CompatibilityIssue{
-			Code:        "platform.resource_missing",
-			Severity:    "warning",
-			Summary:     "运行环境元数据不完整。",
-			Remediation: "请补齐当前平台运行环境的 archive_format、entrypoints、来源列表与 sha256。",
-		}
+	return recovery.CompatibilityIssue{
+		Code:        "platform.resource_missing",
+		Severity:    "warning",
+		Summary:     managedRuntimeLabel(kind) + "元数据不完整。",
+		Remediation: "请补齐当前平台 Chromium 的 archive_format、entrypoints、来源列表与 sha256。",
 	}
 }
 
@@ -376,10 +350,6 @@ func runtimePrepareKindLabel(kind string) string {
 	switch strings.TrimSpace(kind) {
 	case "chromium":
 		return "图片渲染 Chromium"
-	case "python", "python-runtime":
-		return "Python 运行环境"
-	case "node", "nodejs-runtime":
-		return "Node.js / npm 环境"
 	default:
 		if kind = strings.TrimSpace(kind); kind != "" {
 			return kind

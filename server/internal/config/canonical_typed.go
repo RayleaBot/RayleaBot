@@ -209,10 +209,11 @@ func configHTTPDocument(cfg Config) map[string]any {
 
 func configWebDocument(cfg Config) map[string]any {
 	return map[string]any{
-		"exposure_mode":       cfg.Web.ExposureMode,
-		"setup_local_only":    cfg.Web.SetupLocalOnly,
-		"public_origin":       cfg.Web.PublicOrigin,
-		"trusted_proxy_cidrs": append([]string{}, cfg.Web.TrustedProxyCIDRs...),
+		"exposure_mode":             cfg.Web.ExposureMode,
+		"setup_local_only":          cfg.Web.SetupLocalOnly,
+		"public_origin":             cfg.Web.PublicOrigin,
+		"trusted_proxy_cidrs":       append([]string{}, cfg.Web.TrustedProxyCIDRs...),
+		"plugin_ui_origin_template": cfg.Web.PluginUIOriginTemplate,
 	}
 }
 
@@ -249,9 +250,6 @@ func configRuntimeDocument(cfg Config) map[string]any {
 		"plugin_event_timeout_seconds":          cfg.Runtime.PluginEventTimeoutSeconds,
 		"max_pending_events_per_plugin":         cfg.Runtime.MaxPendingEventsPerPlugin,
 		"max_pending_control_events_per_plugin": cfg.Runtime.MaxPendingControlEvents,
-		"nodejs_max_old_space_size_mb":          cfg.Runtime.NodeMaxOldSpaceSizeMB,
-		"dependency_install_timeout_seconds":    cfg.Runtime.DependencyInstallTimeoutSecs,
-		"max_concurrent_dependency_installs":    cfg.Runtime.MaxConcurrentDependencyInst,
 		"ipc_pending_actions_max":               cfg.Runtime.IPCPendingActionsMax,
 		"ipc_action_burst_limit":                cfg.Runtime.IPCActionBurstLimit,
 		"stderr_rate_limit_bytes_per_second":    cfg.Runtime.StderrRateLimitBytesPerSec,

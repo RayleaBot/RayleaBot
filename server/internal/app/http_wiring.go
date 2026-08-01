@@ -39,6 +39,7 @@ type serverDeps struct {
 	renderer *renderservice.Service
 	metrics  *MetricsRegistry
 	routes   managementRouteState
+	pluginUI *managementapi.PluginManagementUIHandlers
 }
 
 func buildHTTP(deps httpBuildDeps) appHTTPState {
@@ -80,6 +81,7 @@ func buildHTTP(deps httpBuildDeps) appHTTPState {
 		renderer: renderer,
 		metrics:  deps.Metrics,
 		routes:   managementRoutes,
+		pluginUI: pluginManagementUIHandler,
 	})
 	return appHTTPState{
 		Router:   router,
@@ -97,9 +99,18 @@ func buildAppHTTPServer(deps serverDeps) (http.Handler, *http.Server, httpHandle
 
 	cfg := deps.runtime.CurrentConfig()
 	listenAddr := net.JoinHostPort(cfg.Server.Host, strconv.Itoa(cfg.Server.Port))
+	handler := http.Handler(router)
+	if deps.pluginUI != nil {
+		_, adminOrigins, _ := managementBrowserOrigins(cfg, "")
+		handler = deps.pluginUI.IsolatedOriginHandler(handler, managementapi.PluginUIOriginOptions{
+			OriginTemplate: cfg.Web.PluginUIOriginTemplate,
+			ServerPort:     cfg.Server.Port,
+			AdminOrigins:   adminOrigins,
+		})
+	}
 	server := &http.Server{
 		Addr:              listenAddr,
-		Handler:           router,
+		Handler:           handler,
 		ReadTimeout:       30 * time.Second,
 		ReadHeaderTimeout: 10 * time.Second,
 		WriteTimeout:      60 * time.Second,
@@ -108,7 +119,7 @@ func buildAppHTTPServer(deps serverDeps) (http.Handler, *http.Server, httpHandle
 	}
 
 	logConfiguredServer(deps.runtime, deps.renderer, listenAddr)
-	return router, server, handlers
+	return handler, server, handlers
 }
 
 func logConfiguredServer(state configRuntimeState, renderer *renderservice.Service, listenAddr string) {

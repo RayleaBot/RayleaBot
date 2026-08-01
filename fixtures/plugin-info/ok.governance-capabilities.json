@@ -2,11 +2,10 @@
   "id": "governance-helper",
   "name": "Governance Helper",
   "version": "0.1.0",
-  "manifest_version": "1",
+  "manifest_version": "2",
   "plugin_protocol_version": "1",
-  "type": "managed_runtime",
-  "runtime": "python",
-  "entry": "main.py",
+  "runtime": "go",
+  "entry": "bin/governance-helper",
   "license": "MIT",
   "description": "Example manifest declaring governance read and write capabilities.",
   "author": "raylea",
@@ -26,5 +25,10 @@
       "description": "Read governance snapshots through local actions.",
       "usage": "/governance_demo"
     }
+  ],
+  "platforms": [
+    "windows-x64",
+    "linux-x64",
+    "macos-arm64"
   ]
 }

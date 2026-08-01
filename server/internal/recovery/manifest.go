@@ -14,13 +14,15 @@ import (
 
 func BuildBackupManifest(repoRoot string, consistency string) BackupManifest {
 	return BackupManifest{
-		Version:             BackupManifestVersion,
-		CreatedAt:           time.Now().UTC().Format(time.RFC3339),
-		CoreVersion:         DetectCoreVersion(repoRoot),
-		ConfigSchemaVersion: config.CurrentSchemaVersion(),
-		DBSchemaVersion:     storage.CurrentSchemaVersion(),
-		Consistency:         strings.TrimSpace(consistency),
-		Plugins:             loadManifestPlugins(filepath.Join(repoRoot, "plugins", "installed")),
+		Version:               BackupManifestVersion,
+		CreatedAt:             time.Now().UTC().Format(time.RFC3339),
+		CoreVersion:           DetectCoreVersion(repoRoot),
+		ConfigSchemaVersion:   config.CurrentSchemaVersion(),
+		DBSchemaVersion:       storage.CurrentSchemaVersion(),
+		PluginManifestVersion: PluginManifestVersion,
+		PluginUIBridgeVersion: PluginUIBridgeVersion,
+		Consistency:           strings.TrimSpace(consistency),
+		Plugins:               loadManifestPlugins(filepath.Join(repoRoot, "plugins", "installed")),
 	}
 }
 
@@ -67,11 +69,19 @@ func loadManifestPlugins(pluginsRoot string) []BackupManifestPlugin {
 		}
 		item := BackupManifestPlugin{
 			PluginID:          stringValue(raw["id"]),
+			ManifestVersion:   stringValue(raw["manifest_version"]),
 			Version:           stringValue(raw["version"]),
 			MinCoreVersion:    stringValue(raw["min_core_version"]),
 			DataSchemaVersion: stringValue(raw["data_schema_version"]),
 			Platforms:         stringSlice(raw["platforms"]),
 			SourceRoot:        "plugins/installed",
+		}
+		artifactPayload, artifactErr := os.ReadFile(filepath.Join(pluginsRoot, entry.Name(), "artifact.json"))
+		if artifactErr == nil {
+			var artifact map[string]any
+			if json.Unmarshal(artifactPayload, &artifact) == nil {
+				item.ArtifactVersion = stringValue(artifact["artifact_version"])
+			}
 		}
 		if item.PluginID == "" {
 			continue

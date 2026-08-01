@@ -1,73 +1,380 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://rayleabot.local/contracts/plugin-management-ui-bridge.schema.json",
-  "title": "RayleaBot Plugin Management UI Bridge",
-  "description": "Fixture-ready schema for postMessage traffic between the protected Web management host and a plugin-local management iframe.",
-  "oneOf": [
+  "title": "RayleaBot Plugin Management UI Bridge v2",
+  "description": "Bridge v2 uses page.ready and host.connect only for a nonce-bound MessageChannel handoff. Every later message travels over the transferred port; plugin secrets are represented only by configured-state booleans or write/delete commands.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "version",
+    "source",
+    "type"
+  ],
+  "properties": {
+    "version": {
+      "const": "2"
+    },
+    "source": {
+      "type": "string",
+      "enum": [
+        "management_host",
+        "plugin_management_ui"
+      ]
+    },
+    "type": {
+      "type": "string",
+      "enum": [
+        "page.ready",
+        "host.connect",
+        "host.init",
+        "settings.reload",
+        "settings.save",
+        "settings.changed",
+        "secrets.status.reload",
+        "secrets.status.changed",
+        "secrets.set",
+        "secrets.delete",
+        "ui.resize",
+        "scheduler.trigger",
+        "scheduler.triggered",
+        "render_template.open",
+        "protocol.targets.reload",
+        "protocol.targets.changed",
+        "protocol.identities.resolve",
+        "protocol.identities.resolved",
+        "plugin.action.invoke",
+        "plugin.action.result",
+        "error"
+      ]
+    },
+    "nonce": {
+      "type": "string",
+      "minLength": 32,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9_-]+$"
+    },
+    "request_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "payload": {}
+  },
+  "allOf": [
     {
-      "$ref": "#/$defs/page_ready"
+      "if": {
+        "properties": {
+          "type": {
+            "const": "page.ready"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "nonce"
+        ],
+        "properties": {
+          "source": {
+            "const": "plugin_management_ui"
+          },
+          "payload": false
+        }
+      }
     },
     {
-      "$ref": "#/$defs/host_init"
+      "if": {
+        "properties": {
+          "type": {
+            "const": "host.connect"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "nonce"
+        ],
+        "properties": {
+          "source": {
+            "const": "management_host"
+          },
+          "payload": false
+        }
+      }
     },
     {
-      "$ref": "#/$defs/settings_reload"
+      "if": {
+        "properties": {
+          "type": {
+            "not": {
+              "enum": [
+                "page.ready",
+                "host.connect"
+              ]
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "nonce": false
+        }
+      }
     },
     {
-      "$ref": "#/$defs/settings_save"
+      "if": {
+        "properties": {
+          "type": {
+            "const": "host.init"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "payload"
+        ],
+        "properties": {
+          "source": {
+            "const": "management_host"
+          },
+          "payload": {
+            "$ref": "#/$defs/host_init_payload"
+          }
+        }
+      }
     },
     {
-      "$ref": "#/$defs/settings_changed"
+      "if": {
+        "properties": {
+          "type": {
+            "const": "settings.reload"
+          }
+        }
+      },
+      "then": {
+        "$ref": "#/$defs/plugin_request_without_payload"
+      }
     },
     {
-      "$ref": "#/$defs/secrets_reload"
+      "if": {
+        "properties": {
+          "type": {
+            "const": "settings.save"
+          }
+        }
+      },
+      "then": {
+        "$ref": "#/$defs/plugin_config_request"
+      }
     },
     {
-      "$ref": "#/$defs/secrets_save"
+      "if": {
+        "properties": {
+          "type": {
+            "const": "settings.changed"
+          }
+        }
+      },
+      "then": {
+        "$ref": "#/$defs/host_config_message"
+      }
     },
     {
-      "$ref": "#/$defs/secrets_changed"
+      "if": {
+        "properties": {
+          "type": {
+            "const": "secrets.status.reload"
+          }
+        }
+      },
+      "then": {
+        "$ref": "#/$defs/plugin_request_without_payload"
+      }
     },
     {
-      "$ref": "#/$defs/scheduler_trigger"
+      "if": {
+        "properties": {
+          "type": {
+            "const": "secrets.status.changed"
+          }
+        }
+      },
+      "then": {
+        "$ref": "#/$defs/host_secret_status_message"
+      }
     },
     {
-      "$ref": "#/$defs/scheduler_triggered"
+      "if": {
+        "properties": {
+          "type": {
+            "const": "secrets.set"
+          }
+        }
+      },
+      "then": {
+        "$ref": "#/$defs/plugin_secret_set_request"
+      }
     },
     {
-      "$ref": "#/$defs/render_template_open"
+      "if": {
+        "properties": {
+          "type": {
+            "const": "secrets.delete"
+          }
+        }
+      },
+      "then": {
+        "$ref": "#/$defs/plugin_secret_delete_request"
+      }
     },
     {
-      "$ref": "#/$defs/protocol_targets_reload"
+      "if": {
+        "properties": {
+          "type": {
+            "const": "ui.resize"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "payload"
+        ],
+        "properties": {
+          "source": {
+            "const": "plugin_management_ui"
+          },
+          "payload": {
+            "$ref": "#/$defs/resize_payload"
+          }
+        }
+      }
     },
     {
-      "$ref": "#/$defs/protocol_targets_changed"
+      "if": {
+        "properties": {
+          "type": {
+            "const": "scheduler.trigger"
+          }
+        }
+      },
+      "then": {
+        "$ref": "#/$defs/plugin_scheduler_request"
+      }
     },
     {
-      "$ref": "#/$defs/protocol_identities_resolve"
+      "if": {
+        "properties": {
+          "type": {
+            "const": "scheduler.triggered"
+          }
+        }
+      },
+      "then": {
+        "$ref": "#/$defs/host_scheduler_result"
+      }
     },
     {
-      "$ref": "#/$defs/protocol_identities_resolved"
+      "if": {
+        "properties": {
+          "type": {
+            "const": "render_template.open"
+          }
+        }
+      },
+      "then": {
+        "$ref": "#/$defs/plugin_render_request"
+      }
     },
     {
-      "$ref": "#/$defs/plugin_action_invoke"
+      "if": {
+        "properties": {
+          "type": {
+            "enum": [
+              "protocol.targets.reload",
+              "protocol.identities.resolve",
+              "plugin.action.invoke"
+            ]
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "request_id",
+          "payload"
+        ],
+        "properties": {
+          "source": {
+            "const": "plugin_management_ui"
+          },
+          "payload": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        }
+      }
     },
     {
-      "$ref": "#/$defs/plugin_action_result"
+      "if": {
+        "properties": {
+          "type": {
+            "enum": [
+              "protocol.targets.changed",
+              "protocol.identities.resolved",
+              "plugin.action.result"
+            ]
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "request_id",
+          "payload"
+        ],
+        "properties": {
+          "source": {
+            "const": "management_host"
+          },
+          "payload": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        }
+      }
     },
     {
-      "$ref": "#/$defs/error_message"
+      "if": {
+        "properties": {
+          "type": {
+            "const": "error"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "payload"
+        ],
+        "properties": {
+          "payload": {
+            "$ref": "#/$defs/error_payload"
+          }
+        }
+      }
     }
   ],
   "$defs": {
-    "plugin_management_ui_summary": {
+    "plugin_summary": {
       "type": "object",
       "additionalProperties": false,
       "required": [
+        "id",
         "name",
+        "version",
         "state"
       ],
       "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
         "name": {
           "type": "string",
           "minLength": 1
@@ -76,210 +383,190 @@
           "type": "string",
           "minLength": 1
         },
-        "description": {
-          "type": "string",
-          "minLength": 1
-        },
         "state": {
           "type": "string",
-          "enum": [
-            "disabled",
-            "enabled",
-            "starting",
-            "running",
-            "stopping",
-            "failed",
-            "invalid"
-          ]
+          "minLength": 1
         }
       }
     },
-    "plugin_management_ui_page": {
+    "page_summary": {
       "type": "object",
       "additionalProperties": false,
       "required": [
         "id",
-        "label",
-        "entry"
+        "label"
       ],
       "properties": {
         "id": {
           "type": "string",
-          "pattern": "^[a-z0-9](?:[a-z0-9._-]{0,62}[a-z0-9])?$"
+          "minLength": 1
         },
         "label": {
           "type": "string",
           "minLength": 1
-        },
-        "entry": {
-          "type": "string",
-          "pattern": "^[A-Za-z0-9._/-]+\\.html$"
         }
       }
     },
-    "plugin_trust_summary": {
+    "theme": {
       "type": "object",
       "additionalProperties": false,
       "required": [
-        "level",
-        "label"
+        "mode",
+        "tokens"
       ],
       "properties": {
-        "level": {
+        "mode": {
           "type": "string",
           "enum": [
-            "official",
-            "third_party",
-            "unverified",
-            "development"
+            "light",
+            "dark"
           ]
         },
-        "label": {
-          "type": "string",
-          "minLength": 1
+        "tokens": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
         }
       }
     },
-    "page_ready": {
+    "secret_status": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "boolean"
+      }
+    },
+    "host_init_payload": {
       "type": "object",
       "additionalProperties": false,
       "required": [
-        "version",
-        "source",
-        "type"
+        "plugin",
+        "page",
+        "config",
+        "secrets_configured",
+        "theme",
+        "language",
+        "allowed_capabilities"
       ],
       "properties": {
-        "version": {
-          "const": "1"
+        "plugin": {
+          "$ref": "#/$defs/plugin_summary"
         },
+        "page": {
+          "$ref": "#/$defs/page_summary"
+        },
+        "config": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "secrets_configured": {
+          "$ref": "#/$defs/secret_status"
+        },
+        "theme": {
+          "$ref": "#/$defs/theme"
+        },
+        "language": {
+          "type": "string",
+          "minLength": 2
+        },
+        "allowed_capabilities": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        }
+      }
+    },
+    "plugin_request_without_payload": {
+      "required": [
+        "request_id"
+      ],
+      "properties": {
         "source": {
           "const": "plugin_management_ui"
         },
-        "type": {
-          "const": "page.ready"
-        },
-        "request_id": {
-          "type": "string",
-          "minLength": 1
-        }
+        "payload": false
       }
     },
-    "host_init": {
-      "type": "object",
-      "additionalProperties": false,
+    "plugin_config_request": {
       "required": [
-        "version",
-        "source",
-        "type",
+        "request_id",
         "payload"
       ],
       "properties": {
-        "version": {
-          "const": "1"
-        },
         "source": {
-          "const": "management_host"
-        },
-        "type": {
-          "const": "host.init"
-        },
-        "request_id": {
-          "type": "string",
-          "minLength": 1
+          "const": "plugin_management_ui"
         },
         "payload": {
           "type": "object",
           "additionalProperties": false,
           "required": [
-            "plugin_id",
-            "plugin",
-            "trust",
-            "default_config",
-            "settings",
-            "title"
+            "config"
           ],
           "properties": {
-            "plugin_id": {
-              "type": "string",
-              "minLength": 1
-            },
-            "plugin": {
-              "$ref": "#/$defs/plugin_management_ui_summary"
-            },
-            "trust": {
-              "$ref": "#/$defs/plugin_trust_summary"
-            },
-            "default_config": {
+            "config": {
               "type": "object",
               "additionalProperties": true
-            },
-            "settings": {
-              "type": "object",
-              "additionalProperties": true
-            },
-            "secrets": {
-              "type": "object",
-              "additionalProperties": {
-                "type": "string"
-              }
-            },
-            "title": {
-              "type": "string",
-              "minLength": 1
-            },
-            "page": {
-              "$ref": "#/$defs/plugin_management_ui_page"
             }
           }
         }
       }
     },
-    "settings_reload": {
-      "type": "object",
-      "additionalProperties": false,
+    "host_config_message": {
       "required": [
-        "version",
-        "source",
-        "type"
-      ],
-      "properties": {
-        "version": {
-          "const": "1"
-        },
-        "source": {
-          "const": "plugin_management_ui"
-        },
-        "type": {
-          "const": "settings.reload"
-        },
-        "request_id": {
-          "type": "string",
-          "minLength": 1
-        }
-      }
-    },
-    "settings_save": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": [
-        "version",
-        "source",
-        "type",
         "payload"
       ],
       "properties": {
-        "version": {
-          "const": "1"
+        "source": {
+          "const": "management_host"
         },
+        "payload": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "config"
+          ],
+          "properties": {
+            "config": {
+              "type": "object",
+              "additionalProperties": true
+            }
+          }
+        }
+      }
+    },
+    "host_secret_status_message": {
+      "required": [
+        "payload"
+      ],
+      "properties": {
+        "source": {
+          "const": "management_host"
+        },
+        "payload": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "configured"
+          ],
+          "properties": {
+            "configured": {
+              "$ref": "#/$defs/secret_status"
+            }
+          }
+        }
+      }
+    },
+    "plugin_secret_set_request": {
+      "required": [
+        "request_id",
+        "payload"
+      ],
+      "properties": {
         "source": {
           "const": "plugin_management_ui"
-        },
-        "type": {
-          "const": "settings.save"
-        },
-        "request_id": {
-          "type": "string",
-          "minLength": 1
         },
         "payload": {
           "type": "object",
@@ -290,49 +577,35 @@
           "properties": {
             "values": {
               "type": "object",
-              "additionalProperties": true
+              "minProperties": 1,
+              "additionalProperties": {
+                "type": "string",
+                "minLength": 1
+              }
             }
           }
         }
       }
     },
-    "settings_changed": {
-      "type": "object",
-      "additionalProperties": false,
+    "plugin_secret_delete_request": {
       "required": [
-        "version",
-        "source",
-        "type",
+        "request_id",
         "payload"
       ],
       "properties": {
-        "version": {
-          "const": "1"
-        },
         "source": {
-          "const": "management_host"
-        },
-        "type": {
-          "const": "settings.changed"
-        },
-        "request_id": {
-          "type": "string",
-          "minLength": 1
+          "const": "plugin_management_ui"
         },
         "payload": {
           "type": "object",
           "additionalProperties": false,
           "required": [
-            "values",
-            "changed_keys"
+            "keys"
           ],
           "properties": {
-            "values": {
-              "type": "object",
-              "additionalProperties": true
-            },
-            "changed_keys": {
+            "keys": {
               "type": "array",
+              "minItems": 1,
               "items": {
                 "type": "string",
                 "minLength": 1
@@ -343,157 +616,28 @@
         }
       }
     },
-    "secrets_reload": {
+    "resize_payload": {
       "type": "object",
       "additionalProperties": false,
       "required": [
-        "version",
-        "source",
-        "type"
+        "height"
       ],
       "properties": {
-        "version": {
-          "const": "1"
-        },
-        "source": {
-          "const": "plugin_management_ui"
-        },
-        "type": {
-          "const": "secrets.reload"
-        },
-        "request_id": {
-          "type": "string",
-          "minLength": 1
+        "height": {
+          "type": "integer",
+          "minimum": 320,
+          "maximum": 1600
         }
       }
     },
-    "secrets_save": {
-      "type": "object",
-      "additionalProperties": false,
+    "plugin_scheduler_request": {
       "required": [
-        "version",
-        "source",
-        "type",
+        "request_id",
         "payload"
       ],
       "properties": {
-        "version": {
-          "const": "1"
-        },
         "source": {
           "const": "plugin_management_ui"
-        },
-        "type": {
-          "const": "secrets.save"
-        },
-        "request_id": {
-          "type": "string",
-          "minLength": 1
-        },
-        "payload": {
-          "type": "object",
-          "additionalProperties": false,
-          "required": [
-            "values"
-          ],
-          "properties": {
-            "values": {
-              "type": "object",
-              "propertyNames": {
-                "type": "string",
-                "pattern": "^[a-z0-9](?:[a-z0-9_.-]{0,126}[a-z0-9])?$"
-              },
-              "additionalProperties": {
-                "type": "string"
-              }
-            },
-            "deleted_keys": {
-              "type": "array",
-              "items": {
-                "type": "string",
-                "pattern": "^[a-z0-9](?:[a-z0-9_.-]{0,126}[a-z0-9])?$"
-              },
-              "uniqueItems": true
-            }
-          }
-        }
-      }
-    },
-    "secrets_changed": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": [
-        "version",
-        "source",
-        "type",
-        "payload"
-      ],
-      "properties": {
-        "version": {
-          "const": "1"
-        },
-        "source": {
-          "const": "management_host"
-        },
-        "type": {
-          "const": "secrets.changed"
-        },
-        "request_id": {
-          "type": "string",
-          "minLength": 1
-        },
-        "payload": {
-          "type": "object",
-          "additionalProperties": false,
-          "required": [
-            "values",
-            "changed_keys"
-          ],
-          "properties": {
-            "values": {
-              "type": "object",
-              "propertyNames": {
-                "type": "string",
-                "pattern": "^[a-z0-9](?:[a-z0-9_.-]{0,126}[a-z0-9])?$"
-              },
-              "additionalProperties": {
-                "type": "string"
-              }
-            },
-            "changed_keys": {
-              "type": "array",
-              "items": {
-                "type": "string",
-                "pattern": "^[a-z0-9](?:[a-z0-9_.-]{0,126}[a-z0-9])?$"
-              },
-              "uniqueItems": true
-            }
-          }
-        }
-      }
-    },
-    "scheduler_trigger": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": [
-        "version",
-        "source",
-        "type",
-        "payload"
-      ],
-      "properties": {
-        "version": {
-          "const": "1"
-        },
-        "source": {
-          "const": "plugin_management_ui"
-        },
-        "type": {
-          "const": "scheduler.trigger"
-        },
-        "request_id": {
-          "type": "string",
-          "minLength": 1
         },
         "payload": {
           "type": "object",
@@ -510,75 +654,41 @@
         }
       }
     },
-    "scheduler_triggered": {
-      "type": "object",
-      "additionalProperties": false,
+    "host_scheduler_result": {
       "required": [
-        "version",
-        "source",
-        "type",
+        "request_id",
         "payload"
       ],
       "properties": {
-        "version": {
-          "const": "1"
-        },
         "source": {
           "const": "management_host"
-        },
-        "type": {
-          "const": "scheduler.triggered"
-        },
-        "request_id": {
-          "type": "string",
-          "minLength": 1
         },
         "payload": {
           "type": "object",
           "additionalProperties": false,
           "required": [
             "job_id",
-            "plugin_id",
-            "triggered"
+            "accepted"
           ],
           "properties": {
             "job_id": {
               "type": "string",
               "minLength": 1
             },
-            "plugin_id": {
-              "type": "string",
-              "minLength": 1
-            },
-            "triggered": {
+            "accepted": {
               "type": "boolean"
             }
           }
         }
       }
     },
-    "render_template_open": {
-      "type": "object",
-      "additionalProperties": false,
+    "plugin_render_request": {
       "required": [
-        "version",
-        "source",
-        "type",
         "payload"
       ],
       "properties": {
-        "version": {
-          "const": "1"
-        },
         "source": {
           "const": "plugin_management_ui"
-        },
-        "type": {
-          "const": "render_template.open"
-        },
-        "request_id": {
-          "type": "string",
-          "minLength": 1
         },
         "payload": {
           "type": "object",
@@ -595,466 +705,39 @@
         }
       }
     },
-    "protocol_target_issue": {
+    "error_payload": {
       "type": "object",
       "additionalProperties": false,
       "required": [
-        "scope",
+        "code",
         "message"
       ],
       "properties": {
-        "scope": {
+        "code": {
           "type": "string",
-          "enum": [
-            "protocol",
-            "groups",
-            "private_users",
-            "identity"
-          ]
+          "minLength": 1
         },
         "message": {
           "type": "string",
           "minLength": 1
-        }
-      }
-    },
-    "protocol_group_target": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": [
-        "target_type",
-        "target_id",
-        "target_name"
-      ],
-      "properties": {
-        "target_type": {
-          "const": "group"
         },
-        "target_id": {
-          "type": "string",
-          "pattern": "^[0-9]+$"
-        },
-        "target_name": {
-          "type": "string",
-          "minLength": 1
-        },
-        "avatar_url": {
-          "type": "string"
-        }
-      }
-    },
-    "protocol_private_target": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": [
-        "target_type",
-        "target_id",
-        "nickname"
-      ],
-      "properties": {
-        "target_type": {
-          "const": "private"
-        },
-        "target_id": {
-          "type": "string",
-          "pattern": "^[0-9]+$"
-        },
-        "nickname": {
-          "type": "string",
-          "minLength": 1
-        },
-        "avatar_url": {
-          "type": "string"
-        }
-      }
-    },
-    "protocol_targets_reload": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": [
-        "version",
-        "source",
-        "type"
-      ],
-      "properties": {
-        "version": {
-          "const": "1"
-        },
-        "source": {
-          "const": "plugin_management_ui"
-        },
-        "type": {
-          "const": "protocol.targets.reload"
-        },
-        "request_id": {
-          "type": "string",
-          "minLength": 1
-        }
-      }
-    },
-    "protocol_targets_changed": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": [
-        "version",
-        "source",
-        "type",
-        "payload"
-      ],
-      "properties": {
-        "version": {
-          "const": "1"
-        },
-        "source": {
-          "const": "management_host"
-        },
-        "type": {
-          "const": "protocol.targets.changed"
-        },
-        "request_id": {
-          "type": "string",
-          "minLength": 1
-        },
-        "payload": {
+        "details": {
           "type": "object",
-          "additionalProperties": false,
-          "required": [
-            "protocol",
-            "available",
-            "groups",
-            "private_users",
-            "issues"
-          ],
-          "properties": {
-            "protocol": {
-              "const": "onebot11"
-            },
-            "available": {
-              "type": "boolean"
-            },
-            "groups": {
-              "type": "array",
-              "items": {
-                "$ref": "#/$defs/protocol_group_target"
-              }
-            },
-            "private_users": {
-              "type": "array",
-              "items": {
-                "$ref": "#/$defs/protocol_private_target"
-              }
-            },
-            "issues": {
-              "type": "array",
-              "items": {
-                "$ref": "#/$defs/protocol_target_issue"
-              }
-            }
-          }
-        }
-      }
-    },
-    "protocol_identity_request_item": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": [
-        "target_type",
-        "target_id",
-        "user_id"
-      ],
-      "properties": {
-        "target_type": {
-          "type": "string",
-          "enum": [
-            "group",
-            "private"
-          ]
-        },
-        "target_id": {
-          "type": "string",
-          "pattern": "^[0-9]+$"
-        },
-        "user_id": {
-          "type": "string",
-          "pattern": "^[0-9]+$"
-        }
-      }
-    },
-    "protocol_identities_resolve": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": [
-        "version",
-        "source",
-        "type",
-        "payload"
-      ],
-      "properties": {
-        "version": {
-          "const": "1"
-        },
-        "source": {
-          "const": "plugin_management_ui"
-        },
-        "type": {
-          "const": "protocol.identities.resolve"
-        },
-        "request_id": {
-          "type": "string",
-          "minLength": 1
-        },
-        "payload": {
-          "type": "object",
-          "additionalProperties": false,
-          "required": [
-            "items"
-          ],
-          "properties": {
-            "items": {
-              "type": "array",
-              "minItems": 1,
-              "maxItems": 100,
-              "items": {
-                "$ref": "#/$defs/protocol_identity_request_item"
-              }
-            }
-          }
-        }
-      }
-    },
-    "protocol_identity": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": [
-        "target_type",
-        "target_id",
-        "user_id",
-        "nickname",
-        "avatar_url"
-      ],
-      "properties": {
-        "target_type": {
-          "type": "string",
-          "enum": [
-            "group",
-            "private"
-          ]
-        },
-        "target_id": {
-          "type": "string",
-          "pattern": "^[0-9]+$"
-        },
-        "user_id": {
-          "type": "string",
-          "pattern": "^[0-9]+$"
-        },
-        "nickname": {
-          "type": "string"
-        },
-        "group_nickname": {
-          "type": "string"
-        },
-        "title": {
-          "type": "string"
-        },
-        "role": {
-          "type": "string"
-        },
-        "role_label": {
-          "type": "string"
-        },
-        "avatar_url": {
-          "type": "string"
-        }
-      }
-    },
-    "protocol_identities_resolved": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": [
-        "version",
-        "source",
-        "type",
-        "payload"
-      ],
-      "properties": {
-        "version": {
-          "const": "1"
-        },
-        "source": {
-          "const": "management_host"
-        },
-        "type": {
-          "const": "protocol.identities.resolved"
-        },
-        "request_id": {
-          "type": "string",
-          "minLength": 1
-        },
-        "payload": {
-          "type": "object",
-          "additionalProperties": false,
-          "required": [
-            "items",
-            "issues"
-          ],
-          "properties": {
-            "items": {
-              "type": "array",
-              "items": {
-                "$ref": "#/$defs/protocol_identity"
-              }
-            },
-            "issues": {
-              "type": "array",
-              "items": {
-                "$ref": "#/$defs/protocol_target_issue"
-              }
-            }
-          }
-        }
-      }
-    },
-    "plugin_action_invoke": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": [
-        "version",
-        "source",
-        "type",
-        "request_id",
-        "payload"
-      ],
-      "properties": {
-        "version": {
-          "const": "1"
-        },
-        "source": {
-          "const": "plugin_management_ui"
-        },
-        "type": {
-          "const": "plugin.action.invoke"
-        },
-        "request_id": {
-          "type": "string",
-          "minLength": 1
-        },
-        "payload": {
-          "type": "object",
-          "additionalProperties": false,
-          "required": [
-            "action"
-          ],
-          "properties": {
-            "action": {
-              "type": "string",
-              "minLength": 1,
-              "pattern": "^[a-z][a-z0-9_.:-]*$"
-            },
-            "payload": {
-              "type": "object",
-              "additionalProperties": true
-            }
-          }
-        }
-      }
-    },
-    "plugin_action_result": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": [
-        "version",
-        "source",
-        "type",
-        "request_id",
-        "payload"
-      ],
-      "properties": {
-        "version": {
-          "const": "1"
-        },
-        "source": {
-          "const": "management_host"
-        },
-        "type": {
-          "const": "plugin.action.result"
-        },
-        "request_id": {
-          "type": "string",
-          "minLength": 1
-        },
-        "payload": {
-          "type": "object",
-          "additionalProperties": false,
-          "required": [
-            "action",
-            "result"
-          ],
-          "properties": {
-            "action": {
-              "type": "string",
-              "minLength": 1,
-              "pattern": "^[a-z][a-z0-9_.:-]*$"
-            },
-            "result": {
-              "type": "object",
-              "additionalProperties": true
-            }
-          }
-        }
-      }
-    },
-    "error_message": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": [
-        "version",
-        "source",
-        "type",
-        "payload"
-      ],
-      "properties": {
-        "version": {
-          "const": "1"
-        },
-        "source": {
-          "enum": [
-            "management_host",
-            "plugin_management_ui"
-          ]
-        },
-        "type": {
-          "const": "error"
-        },
-        "request_id": {
-          "type": "string",
-          "minLength": 1
-        },
-        "payload": {
-          "type": "object",
-          "additionalProperties": false,
-          "required": [
-            "message"
-          ],
-          "properties": {
-            "code": {
-              "type": "string",
-              "minLength": 1
-            },
-            "message": {
-              "type": "string",
-              "minLength": 1
-            }
-          }
+          "additionalProperties": true
         }
       }
     }
   },
   "x-fixtures": [
+    "fixtures/plugin-management-ui/ok.bridge-page-ready.json",
+    "fixtures/plugin-management-ui/ok.bridge-host-connect.json",
     "fixtures/plugin-management-ui/ok.bridge-host-init.json",
     "fixtures/plugin-management-ui/ok.bridge-settings-save.json",
-    "fixtures/plugin-management-ui/ok.bridge-secrets-save.json",
-    "fixtures/plugin-management-ui/ok.bridge-secrets-changed.json",
+    "fixtures/plugin-management-ui/ok.bridge-settings-changed.json",
+    "fixtures/plugin-management-ui/ok.bridge-secrets-set.json",
+    "fixtures/plugin-management-ui/ok.bridge-secrets-delete.json",
+    "fixtures/plugin-management-ui/ok.bridge-secrets-status-changed.json",
+    "fixtures/plugin-management-ui/ok.bridge-ui-resize.json",
     "fixtures/plugin-management-ui/ok.bridge-scheduler-trigger.json",
     "fixtures/plugin-management-ui/ok.bridge-scheduler-triggered.json",
     "fixtures/plugin-management-ui/ok.bridge-render-template-open.json",

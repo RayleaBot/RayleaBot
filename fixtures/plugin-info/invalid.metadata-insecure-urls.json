@@ -5,14 +5,18 @@
     "id": "weather-insecure-links",
     "name": "Weather Insecure Links",
     "version": "1.0.0",
-    "manifest_version": "1",
+    "manifest_version": "2",
     "plugin_protocol_version": "1",
-    "type": "managed_runtime",
-    "runtime": "python",
-    "entry": "plugin.py",
+    "runtime": "go",
+    "entry": "bin/weather-insecure-links",
     "license": "MIT",
     "repo": "http://github.com/RayleaBot/plugins-weather",
-    "homepage": "http://plugins.rayleabot.local/weather"
+    "homepage": "http://plugins.rayleabot.local/weather",
+    "platforms": [
+      "windows-x64",
+      "linux-x64",
+      "macos-arm64"
+    ]
   },
   "expect": {
     "valid": false

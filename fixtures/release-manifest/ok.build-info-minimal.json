@@ -8,7 +8,9 @@
     "artifact_id": "windows-x64-full",
     "built_at": "2026-03-17T10:00:00Z",
     "update_protocol_version": 2,
-    "release_manifest_sha256": "3333333333333333333333333333333333333333333333333333333333333333"
+    "release_manifest_sha256": "3333333333333333333333333333333333333333333333333333333333333333",
+    "plugin_manifest_version": "2",
+    "plugin_ui_bridge_version": "2"
   },
   "expect": {
     "valid": true

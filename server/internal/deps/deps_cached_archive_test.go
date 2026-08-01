@@ -13,7 +13,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strings"
 	"testing"
 	"time"
 )
@@ -22,32 +21,10 @@ func TestPrepareWithReportUsesCachedArchiveWithoutDownload(t *testing.T) {
 	t.Parallel()
 
 	repoRoot := t.TempDir()
-	manifest := `{
-  "manifest_version": 3,
-  "resources": [
-    {
-      "id": "node-test",
-      "kind": "nodejs-runtime",
-      "version": "24.14.0",
-      "platform": "` + CurrentPlatform() + `",
-      "sources": [
-        {
-          "url": "https://example.invalid/node.tar.xz",
-          "kind": "upstream"
-        }
-      ],
-      "sha256": "2bb9e071b229e9c0cb7d90297c51fa4cf3f5dbf4f88aded36d3f5892651baabf",
-      "archive_format": "tar.xz",
-      "entrypoints": {
-        "node": ["node/bin/node"],
-        "npm": ["node/bin/npm"]
-      }
-    }
-  ]
-}`
-	writeManifest(t, repoRoot, manifest)
+	resource := testChromiumResource(sha256Hex([]byte("fixture-archive")))
+	writeDepsManifest(t, repoRoot, ManifestVersion, resource)
 
-	archivePath := filepath.Join(CacheRoot(repoRoot), "node-test-24.14.0.tar.xz")
+	archivePath := filepath.Join(CacheRoot(repoRoot), resource.ID+"-"+resource.Version+".zip")
 	if err := os.MkdirAll(filepath.Dir(archivePath), 0o755); err != nil {
 		t.Fatalf("mkdir cache root: %v", err)
 	}
@@ -56,18 +33,18 @@ func TestPrepareWithReportUsesCachedArchiveWithoutDownload(t *testing.T) {
 	}
 
 	manager := NewManager(repoRoot)
+	manager.findSystemChromium = func(context.Context) (string, error) { return "", errors.New("not installed") }
 	downloaded := false
 	manager.downloadFile = func(context.Context, string, string) error {
 		downloaded = true
 		return nil
 	}
 	manager.extract = func(_ context.Context, _ string, _ string, destRoot string) error {
-		writePreparedFile(t, filepath.Join(destRoot, "node", "bin", "node"))
-		writePreparedFile(t, filepath.Join(destRoot, "node", "bin", "npm"))
+		writePreparedFile(t, filepath.Join(destRoot, "chromium", "chrome"))
 		return nil
 	}
 
-	report, err := manager.PrepareWithReport(context.Background(), "nodejs-runtime")
+	report, err := manager.PrepareWithReport(context.Background(), "chromium")
 	if err != nil {
 		t.Fatalf("PrepareWithReport failed: %v", err)
 	}
@@ -87,8 +64,8 @@ func TestExtractZipReportsEntryProgress(t *testing.T) {
 
 	archivePath := filepath.Join(t.TempDir(), "runtime.zip")
 	writeZipArchive(t, archivePath, map[string]string{
-		"node/bin/node": "node",
-		"node/bin/npm":  "npm",
+		"chromium/chrome":    "binary",
+		"chromium/README.txt": "readme",
 	})
 	var events []extractProgress
 
@@ -116,8 +93,8 @@ func TestExtractTarGzReportsEntryProgress(t *testing.T) {
 
 	archivePath := filepath.Join(t.TempDir(), "runtime.tar.gz")
 	writeTarGzArchive(t, archivePath, map[string]string{
-		"python/python.exe": "python",
-		"python/README.txt": "readme",
+		"chromium/chrome":     "binary",
+		"chromium/README.txt": "readme",
 	})
 	var events []extractProgress
 
@@ -146,21 +123,19 @@ func TestPrepareStoreCoalescesExtractProgressByPercentage(t *testing.T) {
 	repoRoot := t.TempDir()
 	archivePath := filepath.Join(t.TempDir(), "runtime.zip")
 	files := map[string]string{
-		"node/node.exe": "node",
-		"node/npm.cmd":  "npm",
+		"chromium/chrome": "binary",
 	}
 	for index := 0; index < 250; index++ {
-		files[fmt.Sprintf("node/lib/file-%03d.txt", index)] = "fixture"
+		files[fmt.Sprintf("chromium/lib/file-%03d.txt", index)] = "fixture"
 	}
 	writeZipArchive(t, archivePath, files)
 	resource := Resource{
-		ID:            "node-test",
-		Kind:          "nodejs-runtime",
-		Version:       "24.18.0",
+		ID:            "chromium-test",
+		Kind:          "chromium",
+		Version:       "147.0.0",
 		ArchiveFormat: "zip",
 		Entrypoints: map[string][]string{
-			"node": {"node/node.exe"},
-			"npm":  {"node/npm.cmd"},
+			"browser": {"chromium/chrome"},
 		},
 	}
 	var progresses []int
@@ -246,7 +221,7 @@ func TestPrepareWithReportCleansStaleTempRootBeforeExtractingCachedArchive(t *te
 
 	repoRoot := t.TempDir()
 	manifest := `{
-  "manifest_version": 3,
+  "manifest_version": 4,
   "resources": [
     {
       "id": "chromium-test",
@@ -319,7 +294,7 @@ func TestPrepareWithReportRemovesIncompleteStoreRootBeforeExtractingCachedArchiv
 
 	repoRoot := t.TempDir()
 	manifest := `{
-  "manifest_version": 3,
+  "manifest_version": 4,
   "resources": [
     {
       "id": "chromium-test",
@@ -383,12 +358,8 @@ func TestPrepareWithReportRemovesIncompleteStoreRootBeforeExtractingCachedArchiv
 	}
 }
 
-func TestRepoWindowsPythonManifestEntrypointsMatchPreparedLayout(t *testing.T) {
+func TestRepoManifestContainsOnlyChromiumWithResolvableBrowserEntrypoint(t *testing.T) {
 	t.Parallel()
-
-	if CurrentPlatform() != "windows-x64" {
-		t.Skip("windows python manifest layout is only checked on windows-x64")
-	}
 
 	workingDir, err := os.Getwd()
 	if err != nil {
@@ -400,40 +371,43 @@ func TestRepoWindowsPythonManifestEntrypointsMatchPreparedLayout(t *testing.T) {
 	if err != nil {
 		t.Fatalf("load repo manifest: %v", err)
 	}
-	resource := manifest.FindResource("windows-x64", "python-runtime")
+	for _, declared := range manifest.Resources {
+		if declared.Kind != "chromium" {
+			t.Fatalf("repo manifest contains retired resource kind %q", declared.Kind)
+		}
+	}
+	resource := manifest.FindResource(CurrentPlatform(), "chromium")
 	if resource == nil {
-		t.Fatal("repo manifest does not include windows python runtime resource")
+		t.Fatalf("repo manifest does not include Chromium for %s", CurrentPlatform())
 	}
 
 	storeRoot := StoreRoot(repoRoot, resource)
 	if _, err := os.Stat(storeRoot); err == nil {
 		entrypoints, err := resolvePreparedEntrypoints(storeRoot, resource)
 		if err != nil {
-			t.Fatalf("resolve repo python entrypoints from %s failed: %v", storeRoot, err)
+			t.Fatalf("resolve repo Chromium entrypoint from %s failed: %v", storeRoot, err)
 		}
-		if strings.TrimSpace(entrypoints["python"]) == "" {
-			t.Fatalf("resolved repo python entrypoints are incomplete: %#v", entrypoints)
+		if entrypoints["browser"] == "" {
+			t.Fatalf("resolved repo Chromium entrypoint is incomplete: %#v", entrypoints)
 		}
 		return
 	} else if !errors.Is(err, os.ErrNotExist) {
-		t.Fatalf("inspect repo python store root %s: %v", storeRoot, err)
+		t.Fatalf("inspect repo Chromium store root %s: %v", storeRoot, err)
 	}
 
 	syntheticStoreRoot := t.TempDir()
-	for _, key := range []string{"python"} {
-		candidates := resource.Entrypoints[key]
-		if len(candidates) == 0 {
-			t.Fatalf("repo manifest is missing %s entrypoints for windows python runtime", key)
-		}
-		writePreparedFile(t, filepath.Join(syntheticStoreRoot, filepath.FromSlash(candidates[0])))
+	candidates := resource.Entrypoints["browser"]
+	if len(candidates) == 0 {
+		t.Fatal("repo manifest is missing the Chromium browser entrypoint")
 	}
+	writePreparedFile(t, filepath.Join(syntheticStoreRoot, filepath.FromSlash(candidates[0])))
 
 	entrypoints, err := resolvePreparedEntrypoints(syntheticStoreRoot, resource)
 	if err != nil {
-		t.Fatalf("resolve repo python entrypoints from synthetic layout failed: %v", err)
+		t.Fatalf("resolve repo Chromium entrypoint from synthetic layout failed: %v", err)
 	}
-	if !strings.HasSuffix(filepath.ToSlash(entrypoints["python"]), "python/python.exe") {
-		t.Fatalf("unexpected python entrypoint: %q", entrypoints["python"])
+	if entrypoints["browser"] == "" {
+		t.Fatalf("unexpected Chromium entrypoint: %q", entrypoints["browser"])
 	}
 }
 

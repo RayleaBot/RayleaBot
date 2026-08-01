@@ -6,15 +6,17 @@ import (
 )
 
 const (
-	ProtocolVersion            = 2
-	ReleaseRepositoryURL       = "https://github.com/RayleaBot/RayleaBot"
-	ManifestAssetName          = "release_manifest.v2.json"
-	SignatureAssetName         = "release_manifest.v2.sig.json"
-	MaxManifestBytes     int64 = 4 << 20
-	MaxArchiveBytes      int64 = 2 << 30
-	MaxExpandedBytes     int64 = 8 << 30
-	MaxArtifactFiles           = 100_000
-	MaxCompressionRatio        = 100
+	ProtocolVersion             = 2
+	ReleaseRepositoryURL        = "https://github.com/RayleaBot/RayleaBot"
+	ManifestAssetName           = "release_manifest.v2.json"
+	SignatureAssetName          = "release_manifest.v2.sig.json"
+	MaxManifestBytes      int64 = 4 << 20
+	MaxArchiveBytes       int64 = 2 << 30
+	MaxExpandedBytes      int64 = 8 << 30
+	MaxArtifactFiles            = 100_000
+	MaxCompressionRatio         = 100
+	PluginManifestVersion       = "2"
+	PluginUIBridgeVersion       = "2"
 )
 
 const (
@@ -97,6 +99,8 @@ type Manifest struct {
 	ConfigSchemaVersion   string          `json:"config_schema_version"`
 	DBSchemaVersion       string          `json:"db_schema_version"`
 	PluginProtocolVersion string          `json:"plugin_protocol_version"`
+	PluginManifestVersion string          `json:"plugin_manifest_version"`
+	PluginUIBridgeVersion string          `json:"plugin_ui_bridge_version"`
 	OneBotMatrix          *MatrixVersions `json:"onebot_matrix,omitempty"`
 	Artifacts             []Artifact      `json:"artifacts"`
 	ReleaseNotesRef       string          `json:"release_notes_ref"`
@@ -121,6 +125,8 @@ type BuildInfo struct {
 	ArtifactID            string          `json:"artifact_id"`
 	BuiltAt               string          `json:"built_at"`
 	UpdateProtocolVersion int             `json:"update_protocol_version"`
+	PluginManifestVersion string          `json:"plugin_manifest_version"`
+	PluginUIBridgeVersion string          `json:"plugin_ui_bridge_version"`
 	ReleaseNotesRef       string          `json:"release_notes_ref,omitempty"`
 	ReleaseManifestSHA256 string          `json:"release_manifest_sha256,omitempty"`
 	OneBotMatrix          *MatrixVersions `json:"onebot_matrix,omitempty"`

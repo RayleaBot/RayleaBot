@@ -17,10 +17,10 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/tests/testutil"
 )
 
-func TestManagedRuntimeTaskProgressSummarizesSourceProbe(t *testing.T) {
+func TestChromiumTaskProgressSummarizesSourceProbe(t *testing.T) {
 	percent, summary := managedRuntimeTaskProgress(1, 0, deps.PrepareProgress{
-		Kind:     "nodejs-runtime",
-		Label:    deps.ManagedResourceLabel("nodejs-runtime"),
+		Kind:     "chromium",
+		Label:    deps.ManagedResourceLabel("chromium"),
 		Stage:    "probe",
 		Status:   "running",
 		Progress: 0,
@@ -29,7 +29,7 @@ func TestManagedRuntimeTaskProgressSummarizesSourceProbe(t *testing.T) {
 	if percent != 0 {
 		t.Fatalf("unexpected probe percent: got %d want 0", percent)
 	}
-	if summary != "正在测试 Node.js / npm 环境下载来源" {
+	if summary != "正在测试 图片渲染 Chromium 下载来源" {
 		t.Fatalf("unexpected probe summary: %q", summary)
 	}
 }
