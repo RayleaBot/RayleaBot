@@ -17,6 +17,24 @@ const VALID_SERVER_RELOAD_MODES = new Set(["", SERVER_RELOAD_WATCH, LEGACY_SERVE
 const WILDCARD_HOSTS = new Set(["", "*", "0.0.0.0", "::", "[::]"]);
 const INSTALL_MARKER_NAME = ".rayleabot-start-install.stamp";
 
+export function loadStartEnvironmentFile({
+  rootDir,
+  loadEnvFile = process.loadEnvFile,
+} = {}) {
+  if (!rootDir) {
+    throw new Error("rootDir is required");
+  }
+  const environmentPath = path.join(rootDir, ".env");
+  try {
+    loadEnvFile(environmentPath);
+  } catch (error) {
+    if (error?.code !== "ENOENT") {
+      throw error;
+    }
+  }
+  return environmentPath;
+}
+
 export function formatLocalLogDate(date = new Date()) {
   if (!(date instanceof Date) || Number.isNaN(date.getTime())) {
     throw new Error("date must be a valid Date");

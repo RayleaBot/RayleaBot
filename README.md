@@ -58,7 +58,9 @@ node scripts/start-dev.mjs
 
 开发模式下，服务端监听 `http://127.0.0.1:8080`，Web 开发服务器运行在 `http://127.0.0.1:4173`。
 
-主仓库没有内置插件。需要联调独立插件时，复制 `plugin-workspace.example.json` 为 `plugin-workspace.local.json`；启动脚本会在 Server 启动前构建当前平台 artifact，并通过统一安装器同步。持续联调可同时设置 `RAYLEA_PLUGIN_DEV=watch` 与 `RAYLEA_SERVER_RELOAD=watch`。
+主仓库没有内置插件。需要联调独立插件时，复制 `plugin-workspace.example.json` 为 `plugin-workspace.local.json`。本地启动参数可复制 `.env.example` 为 `.env`；其中同时设置 `RAYLEA_PLUGIN_DEV=watch` 与 `RAYLEA_SERVER_RELOAD=watch` 即可持续联调。存在插件工作区但未显式设置模式时，启动脚本默认在 Server 启动前构建并同步所有启用插件。
+
+`watch` 首次启动执行一次全量同步，之后按插件 ID 合并变更并只重新构建本批发生变化的插件；构建期间到达的后续变更保留到下一批。每个插件仍由自己的 `tools/build` 生成 Go + Vue 完整 artifact，再通过离线 `plugin dev-sync` 和正式安装事务进入 `plugins/installed/`。本地联调不请求 GitHub；插件仓库的 GitHub Actions 只负责 `v*` tag 的三平台正式 Release。完整流程见[插件商店与独立开发](./docs/plugin/store-and-development.md#本地同步开发)。
 
 ## 使用简介
 

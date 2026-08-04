@@ -21,8 +21,10 @@ import (
 )
 
 const (
-	ArtifactVersion = "1"
-	ManifestVersion = "2"
+	ArtifactVersion           = "1"
+	ManifestVersion           = "2"
+	pluginBuildNodeEnv        = "RAYLEA_PLUGIN_BUILD_NODE"
+	pluginBuildCorepackCLIEnv = "RAYLEA_PLUGIN_BUILD_COREPACK_CLI"
 )
 
 type Config struct {
@@ -268,23 +270,18 @@ func buildUI(ctx context.Context, config Config, pluginDir, artifactRoot string)
 		}
 		return fmt.Errorf("pluginbuild: inspect UI package: %w", err)
 	}
-	command := config.PNPMCommand
-	if command == "" {
-		command = "pnpm"
-		if runtime.GOOS == "windows" {
-			if _, err := exec.LookPath(command); err != nil {
-				command = "pnpm.cmd"
-			}
-		}
+	command, prefixArgs, err := resolvePNPMCommand(config)
+	if err != nil {
+		return err
 	}
 	if !config.SkipUIInstall {
 		if _, err := os.Stat(filepath.Join(uiDir, "node_modules")); os.IsNotExist(err) {
-			if err := runCommand(ctx, uiDir, command, "install", "--frozen-lockfile"); err != nil {
+			if err := runCommand(ctx, uiDir, command, prefixedArgs(prefixArgs, "install", "--frozen-lockfile")...); err != nil {
 				return fmt.Errorf("pluginbuild: install UI dependencies: %w", err)
 			}
 		}
 	}
-	if err := runCommand(ctx, uiDir, command, "build"); err != nil {
+	if err := runCommand(ctx, uiDir, command, prefixedArgs(prefixArgs, "build")...); err != nil {
 		return fmt.Errorf("pluginbuild: build UI: %w", err)
 	}
 	source := filepath.Join(uiDir, "dist")
@@ -294,14 +291,139 @@ func buildUI(ctx context.Context, config Config, pluginDir, artifactRoot string)
 	return copyTree(source, filepath.Join(artifactRoot, "ui"))
 }
 
+func resolvePNPMCommand(config Config) (string, []string, error) {
+	if config.PNPMCommand != "" {
+		return config.PNPMCommand, nil, nil
+	}
+	nodeCommand := strings.TrimSpace(os.Getenv(pluginBuildNodeEnv))
+	corepackCLI := strings.TrimSpace(os.Getenv(pluginBuildCorepackCLIEnv))
+	if nodeCommand != "" || corepackCLI != "" {
+		if nodeCommand == "" || corepackCLI == "" {
+			return "", nil, fmt.Errorf("pluginbuild: %s and %s must be set together", pluginBuildNodeEnv, pluginBuildCorepackCLIEnv)
+		}
+		if err := requireRegularFile(nodeCommand); err != nil {
+			return "", nil, fmt.Errorf("pluginbuild: inspect managed Node.js executable: %w", err)
+		}
+		if err := requireRegularFile(corepackCLI); err != nil {
+			return "", nil, fmt.Errorf("pluginbuild: inspect managed Corepack CLI: %w", err)
+		}
+		return nodeCommand, []string{corepackCLI, "pnpm"}, nil
+	}
+	if runtime.GOOS != "windows" {
+		return "pnpm", nil, nil
+	}
+	nodeCommand, err := findRegularFileOnPath("node.exe", os.Environ())
+	if err != nil {
+		return "", nil, fmt.Errorf("pluginbuild: locate Node.js for UI build: %w", err)
+	}
+	corepackCLI = filepath.Join(filepath.Dir(nodeCommand), "node_modules", "corepack", "dist", "corepack.js")
+	if err := requireRegularFile(corepackCLI); err != nil {
+		return "", nil, fmt.Errorf("pluginbuild: locate Corepack CLI next to Node.js: %w", err)
+	}
+	return nodeCommand, []string{corepackCLI, "pnpm"}, nil
+}
+
+func requireRegularFile(path string) error {
+	info, err := os.Stat(path)
+	if err != nil {
+		return err
+	}
+	if !info.Mode().IsRegular() {
+		return fmt.Errorf("%s is not a regular file", path)
+	}
+	return nil
+}
+
+func findRegularFileOnPath(name string, environment []string) (string, error) {
+	pathValue := ""
+	for _, entry := range environment {
+		key, value, found := strings.Cut(entry, "=")
+		if found && ((runtime.GOOS == "windows" && strings.EqualFold(key, "PATH")) || key == "PATH") {
+			pathValue = value
+			break
+		}
+	}
+	directories := filepath.SplitList(pathValue)
+	if runtime.GOOS == "windows" {
+		directories = strings.Split(pathValue, ";")
+	}
+	for _, directory := range directories {
+		directory = strings.Trim(directory, "\"")
+		if directory == "" {
+			continue
+		}
+		candidate := filepath.Join(directory, name)
+		if info, err := os.Stat(candidate); err == nil && info.Mode().IsRegular() {
+			absolute, err := filepath.Abs(candidate)
+			if err != nil {
+				return "", err
+			}
+			return absolute, nil
+		}
+	}
+	return "", fmt.Errorf("%s was not found on PATH", name)
+}
+
+func prefixedArgs(prefix []string, args ...string) []string {
+	result := make([]string, 0, len(prefix)+len(args))
+	result = append(result, prefix...)
+	return append(result, args...)
+}
+
 func runCommand(ctx context.Context, dir, command string, args ...string) error {
 	cmd := exec.CommandContext(ctx, command, args...)
 	cmd.Dir = dir
+	environment := environmentWithValue(os.Environ(), "CI", "true")
+	if filepath.IsAbs(command) {
+		environment = environmentWithPathPrefix(environment, filepath.Dir(command))
+	}
+	cmd.Env = environment
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("%s %s: %w: %s", command, strings.Join(args, " "), err, strings.TrimSpace(string(output)))
 	}
 	return nil
+}
+
+func environmentWithValue(environment []string, key, value string) []string {
+	result := make([]string, 0, len(environment)+1)
+	for _, entry := range environment {
+		entryKey, _, found := strings.Cut(entry, "=")
+		matches := entryKey == key
+		if runtime.GOOS == "windows" {
+			matches = strings.EqualFold(entryKey, key)
+		}
+		if found && !matches {
+			result = append(result, entry)
+		}
+	}
+	return append(result, key+"="+value)
+}
+
+func environmentWithPathPrefix(environment []string, directory string) []string {
+	result := make([]string, 0, len(environment)+1)
+	currentPath := ""
+	for _, entry := range environment {
+		key, value, found := strings.Cut(entry, "=")
+		isPath := key == "PATH"
+		if runtime.GOOS == "windows" {
+			isPath = strings.EqualFold(key, "PATH")
+		}
+		if isPath {
+			if currentPath == "" {
+				currentPath = value
+			}
+			continue
+		}
+		if found {
+			result = append(result, entry)
+		}
+	}
+	pathValue := directory
+	if currentPath != "" {
+		pathValue += string(os.PathListSeparator) + currentPath
+	}
+	return append(result, "PATH="+pathValue)
 }
 
 func copyAssets(pluginDir, artifactRoot string, assets []string) error {

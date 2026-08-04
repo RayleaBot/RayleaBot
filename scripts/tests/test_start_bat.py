@@ -15,6 +15,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 class StartBatTests(unittest.TestCase):
     def _prepare_workspace(self, workspace: Path) -> None:
         shutil.copy2(REPO_ROOT / "start.bat", workspace / "start.bat")
+        shutil.copy2(REPO_ROOT / ".tool-versions", workspace / ".tool-versions")
         scripts_dir = workspace / "scripts"
         scripts_dir.mkdir()
         (scripts_dir / "start-dev.mjs").write_text("", encoding="utf-8")
@@ -27,6 +28,10 @@ class StartBatTests(unittest.TestCase):
             f"""\
             @echo off
             setlocal
+            if "%~1"=="--version" (
+              echo v24.18.0
+              exit /b 0
+            )
             >> "{calls_path}" echo CWD=%CD%
             >> "{calls_path}" echo ARGS=%*
             >> "{calls_path}" echo PROFILE=%RAYLEA_START_PROFILE%
@@ -52,6 +57,8 @@ class StartBatTests(unittest.TestCase):
 
             env = os.environ.copy()
             env["PATH"] = str(bin_dir) + os.pathsep + env["PATH"]
+            env["RAYLEA_START_NODE"] = str(bin_dir / "node.cmd")
+            env["RAYLEA_START_NO_PAUSE"] = "1"
             env["RAYLEA_START_SKIP_LAUNCH"] = "1"
 
             result = subprocess.run(
@@ -78,6 +85,8 @@ class StartBatTests(unittest.TestCase):
 
             env = os.environ.copy()
             env["PATH"] = str(bin_dir) + os.pathsep + env["PATH"]
+            env["RAYLEA_START_NODE"] = str(bin_dir / "node.cmd")
+            env["RAYLEA_START_NO_PAUSE"] = "1"
             env["RAYLEA_START_PROFILE"] = "build"
 
             result = subprocess.run(

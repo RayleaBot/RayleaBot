@@ -20,7 +20,7 @@ async function createTempDir(label: string) {
   return tempRoot;
 }
 
-async function writeNodeStub(binDir: string, logPath: string) {
+async function writeNodeStub(binDir: string, logPath: string, exitCode = 0) {
   await fs.writeFile(
     path.join(binDir, "node.cmd"),
     [
@@ -32,7 +32,7 @@ async function writeNodeStub(binDir: string, logPath: string) {
       `>>"${logPath}" echo CWD=%CD%`,
       `>>"${logPath}" echo ARGS=%*`,
       `>>"${logPath}" echo PROFILE=%RAYLEA_START_PROFILE%`,
-      "exit /b 0",
+      `exit /b ${exitCode}`,
       "",
     ].join("\r\n"),
     "utf8",
@@ -110,5 +110,31 @@ describe("start.bat", () => {
       "ARGS=scripts\\start-dev.mjs",
       "PROFILE=build",
     ]);
+  }, 20000);
+
+  test.runIf(process.platform === "win32")("reports orchestrator failures from an ASCII-safe batch bootstrap", async () => {
+    const binDir = await createTempDir("bin");
+    const logPath = path.join(await createTempDir("logs"), "commands.log");
+    await writeNodeStub(binDir, logPath, 7);
+    expect((await fs.readFile(startScriptPath)).every((byte) => byte < 0x80)).toBe(true);
+
+    let failure: { code?: number; stdout?: string; stderr?: string } | undefined;
+    try {
+      await execFileAsync(commandShell, ["/d", "/c", startScriptPath], {
+        cwd: repositoryRoot,
+        env: startScriptTestEnv(binDir, {
+          RAYLEA_START_NODE: path.join(binDir, "node.cmd"),
+          RAYLEA_START_NO_PAUSE: "1",
+        }),
+        windowsHide: true,
+        timeout: 15000,
+      });
+    } catch (error) {
+      failure = error as typeof failure;
+    }
+
+    expect(failure?.code).toBe(7);
+    expect(failure?.stdout).toContain("[RayleaBot] Log directory: logs\\dev\\start\\");
+    expect(`${failure?.stdout ?? ""}${failure?.stderr ?? ""}`).not.toContain("is not recognized as an internal or external command");
   }, 20000);
 });

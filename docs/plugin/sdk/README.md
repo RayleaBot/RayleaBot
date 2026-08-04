@@ -73,6 +73,12 @@ example.plugin/
 
 插件 UI 固定使用 Vue 3、TypeScript、Vite 与 `base: "./"`。页面只能通过 SDK 绑定的端口请求宿主能力，不能请求插件域 `/api`，也不能读取管理 cookie 或已保存密钥明文。
 
+## 本地联调
+
+独立插件仓库不需要把开发版本推送到 GitHub。主仓库根目录的 `plugin-workspace.local.json` 连接参与联调的仓库；启动脚本用临时 `.tmp/plugin-dev/go.work` 把插件 module 指向当前 `sdk/go`，并在构建含 UI 的插件前把当前 `sdk/vue` 镜像到插件忽略目录 `.rayleabot/sdk/vue`。这些覆盖只存在于本机，不改写插件 `go.mod`、lockfile 或正式 SDK 版本声明。
+
+首次启动会构建并同步全部启用插件。`RAYLEA_PLUGIN_DEV=watch` 与 `RAYLEA_SERVER_RELOAD=watch` 同时启用后，后续变更只触发对应插件自己的 `tools/build`；同一批的多个插件各构建一次，构建期间到达的变更进入下一批。产物始终通过离线 `plugin dev-sync` 安装到 `plugins/installed/`，因此本地运行与商店安装使用相同的 artifact 校验和替换边界。GitHub Actions 仅用于正式 tag 的多平台发布。
+
 ## 验证
 
 ```bash

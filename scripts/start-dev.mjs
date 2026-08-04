@@ -16,6 +16,7 @@ import {
   createDependencyInstallEnvironment,
   markDependenciesInstalled,
   createTrustedChildEnvironment,
+  loadStartEnvironmentFile,
   resolveDatedLogPath,
   resolveBackendBaseUrl,
   resolveInstallMode,
@@ -25,6 +26,7 @@ import {
 } from "./start-dev-support.mjs";
 import {
   collectWorkspaceSDKVersions,
+  createDevelopmentReloadQueue,
   currentPluginPlatform,
   loadPluginWorkspace,
   mirrorVueSDK,
@@ -32,11 +34,13 @@ import {
   PLUGIN_DEV_WATCH,
   renderDevelopmentGoWork,
   resolvePluginDevMode,
+  selectWorkspacePlugins,
   watchPluginWorkspace,
 } from "./plugin-dev-workspace.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const rootDir = path.resolve(scriptDir, "..");
+loadStartEnvironmentFile({ rootDir });
 const corepackCliPath = path.join(path.dirname(process.execPath), "node_modules", "corepack", "dist", "corepack.js");
 const webDir = path.join(rootDir, "web");
 const serverDir = path.join(rootDir, "server");
@@ -189,7 +193,7 @@ async function buildServer() {
   );
 }
 
-async function syncDevelopmentPlugins(pluginDev, serverBinaryPath) {
+async function syncDevelopmentPlugins(pluginDev, serverBinaryPath, pluginIDs) {
   if (!pluginDev || pluginDev.mode === PLUGIN_DEV_OFF) {
     return { workspaceVersion: "1", plugins: [] };
   }
@@ -208,7 +212,8 @@ async function syncDevelopmentPlugins(pluginDev, serverBinaryPath) {
   }), "utf8");
   await fsp.mkdir(pluginDevArtifactRoot, { recursive: true });
 
-  for (const plugin of workspace.plugins) {
+  const pluginsToSync = selectWorkspacePlugins(workspace.plugins, pluginIDs);
+  for (const plugin of pluginsToSync) {
     const buildEntry = path.join(plugin.path, "tools", "build");
     if (!fs.existsSync(path.join(plugin.path, "info.json")) || !fs.existsSync(buildEntry)) {
       throw new Error(`开发插件 ${plugin.id} 缺少 info.json 或 tools/build：${plugin.path}`);
@@ -224,8 +229,11 @@ async function syncDevelopmentPlugins(pluginDev, serverBinaryPath) {
     ], {
       cwd: plugin.path,
       env: {
+        ...createDependencyInstallEnvironment(),
         GOWORK: pluginDevGoWorkPath,
         RAYLEA_PLUGIN_BUILD_USE_WORKSPACE: "1",
+        RAYLEA_PLUGIN_BUILD_NODE: process.execPath,
+        RAYLEA_PLUGIN_BUILD_COREPACK_CLI: corepackCliPath,
       },
     });
     const expandedArtifact = path.join(pluginDevArtifactRoot, platform, plugin.id);
@@ -264,38 +272,58 @@ async function startServerWatch(backendBaseUrl, pluginDev) {
 
   let timer;
   let rebuilding = false;
-  let pending = false;
+  const reloadQueue = createDevelopmentReloadQueue();
 
-  const scheduleReload = (sourcePath, kind = "server") => {
+  const scheduleReload = () => {
     if (shuttingDown) {
       return;
     }
     clearTimeout(timer);
     timer = setTimeout(() => {
-      void rebuildAndRestart(sourcePath, kind);
+      void rebuildAndRestart();
     }, serverReloadDebounceMs);
   };
 
-  const rebuildAndRestart = async (sourcePath, kind) => {
-    if (rebuilding) {
-      pending = true;
+  const queueServerReload = (sourcePath) => {
+    reloadQueue.addServer(sourcePath);
+    if (!rebuilding) {
+      scheduleReload();
+    }
+  };
+
+  const queuePluginReload = (plugin, sourcePath) => {
+    reloadQueue.addPlugin(plugin, sourcePath);
+    if (!rebuilding) {
+      scheduleReload();
+    }
+  };
+
+  const rebuildAndRestart = async () => {
+    if (rebuilding || !reloadQueue.hasChanges()) {
       return;
     }
+    const { serverSourcePath, pluginChanges } = reloadQueue.take();
     rebuilding = true;
     let serverStopped = false;
     try {
-      if (kind === "plugin") {
-        log(`检测到开发插件源码变更：${sourcePath}`);
-        await terminateChild(child);
-        await waitForChildExit(child);
-        serverStopped = true;
-        await syncDevelopmentPlugins(pluginDev, serverDevBinaryPath);
-      } else {
-        log(`检测到 Server 源码变更：${relativePath(sourcePath)}`);
+      if (serverSourcePath) {
+        log(`检测到 Server 源码变更：${relativePath(serverSourcePath)}`);
         await buildServerDevBinary();
+      }
+      for (const { plugin, sourcePath } of pluginChanges) {
+        log(`检测到开发插件源码变更：${plugin.id} (${sourcePath})`);
+      }
+      if (serverSourcePath || pluginChanges.length > 0) {
         await terminateChild(child);
         await waitForChildExit(child);
         serverStopped = true;
+      }
+      if (pluginChanges.length > 0) {
+        await syncDevelopmentPlugins(
+          pluginDev,
+          serverDevBinaryPath,
+          pluginChanges.map(({ plugin }) => plugin.id),
+        );
       }
       child = startServerDevProcess();
       await waitForServerProcess(child, backendBaseUrl, "Server 热重载已重启。");
@@ -315,16 +343,15 @@ async function startServerWatch(backendBaseUrl, pluginDev) {
       }
     } finally {
       rebuilding = false;
-      if (pending) {
-        pending = false;
-        scheduleReload(sourcePath, kind);
+      if (reloadQueue.hasChanges()) {
+        scheduleReload();
       }
     }
   };
 
-  const stopWatching = await watchServerSources(scheduleReload);
+  const stopWatching = await watchServerSources(queueServerReload);
   const stopPluginWatching = pluginDev.mode === PLUGIN_DEV_WATCH
-    ? await watchPluginWorkspace(pluginWorkspace.plugins, (_plugin, sourcePath) => scheduleReload(sourcePath, "plugin"))
+    ? await watchPluginWorkspace(pluginWorkspace.plugins, queuePluginReload)
     : async () => {};
   cleanupCallbacks.add(async () => {
     clearTimeout(timer);

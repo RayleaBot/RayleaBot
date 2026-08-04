@@ -151,7 +151,7 @@ Web 路由 `/plugins/store` 展示目录验证来源、搜索排序、仓库链�
 | --- | --- |
 | `off` | 不读取工作区，不构建或同步开发插件 |
 | `sync` | 启动 Server 前构建并同步一次；存在本地工作区且未显式设置时的默认值 |
-| `watch` | 首次同步后监听插件仓库；必须同时设置 `RAYLEA_SERVER_RELOAD=watch` |
+| `watch` | 首次全量同步后监听插件仓库，后续按变更插件增量同步；必须同时设置 `RAYLEA_SERVER_RELOAD=watch` |
 
 没有 `plugin-workspace.local.json` 且未设置环境变量时默认 `off`，所以普通主仓库开发不依赖任何相邻插件仓库。
 
@@ -172,7 +172,7 @@ $env:RAYLEA_PLUGIN_DEV = "sync"
 
 ### 同步算法
 
-启动脚本对每个启用的开发仓库执行：
+首次启动或 `sync` 模式下，启动脚本对每个启用的开发仓库执行：
 
 1. 在 `.tmp/plugin-dev/go.work` 临时连接主仓库 `sdk/go` 与所有插件 module，并按各插件 `go.mod` 声明的 SDK 版本写入临时、版本限定的 `replace`；不改写插件 `go.mod`。
 2. 若存在 Vue UI，将主仓库 `sdk/vue` 镜像到插件忽略目录 `.rayleabot/sdk/vue`，与插件的 `workspace:*` lockfile 对齐。
@@ -186,7 +186,9 @@ $env:RAYLEA_PLUGIN_DEV = "sync"
 5. CLI 打开同一状态库，执行 inspect/accept、原子替换和 package metadata 写入，将来源记录为 `development`，并把该开发插件设为启用。
 6. Server 启动后只从 `plugins/installed/` 发现和运行新产物。
 
-`watch` 模式忽略 `.git`、`.rayleabot`、`dist` 和 `node_modules`。插件源码变化后，启动器停止 Server、重新构建并同步，再启动 Server。构建、校验或同步失败时，候选产物不会替换现有包，启动器使用 `plugins/installed/` 中的上一个可用 artifact 恢复 Server。
+`watch` 模式忽略 `.git`、`.rayleabot`、`dist` 和 `node_modules`。首次启动仍同步全部启用插件；后续变更以插件 ID 为粒度去重并按 500ms 窗口合并，只构建和同步本批发生变化的插件。两个插件在同一窗口内变化时只处理这两个插件；构建期间到达的变更保留到下一批，不会被当前批次覆盖。Server 源码和插件源码同时变化时，启动器在同一批中完成 Server 构建，只停止并重启 Server 一次。
+
+构建、校验或同步失败时，候选产物不会替换现有包，启动器使用 `plugins/installed/` 中的上一个可用 artifact 恢复 Server。本地路径不会请求 GitHub、Actions 或 Release；GitHub Actions 只为插件 `v*` tag 构建正式三平台发布包。
 
 这种路径同时满足快速联调和生产一致性：开发者不必等待 GitHub Release，但每次运行的仍是经过正式 artifact 校验与安装事务的 Go + Vue 产物。
 

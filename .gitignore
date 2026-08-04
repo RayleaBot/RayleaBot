@@ -40,12 +40,12 @@ plugins/**/node_modules/
 /server/*.exe
 /server/*.exe~
 /server/dist/
+/server/tmp/
 /server/coverage.out
 /server/.coverprofile
 /server/.gocache
+/.tmp/
 /server/config/
-.tmp/gocache
-/.tmp/plugin-dev/
 plugins/**/.rayleabot/
 
 # Electron launcher outputs.
@@ -56,6 +56,7 @@ plugins/**/.rayleabot/
 # Environment files and local editor cruft.
 .env
 .env.*
+!.env.example
 .DS_Store
 Thumbs.db
 .idea/

@@ -1,11 +1,12 @@
 @echo off
+rem Keep this bootstrap ASCII-only; scripts\start-dev.mjs owns localized output.
 setlocal EnableExtensions
 
 chcp 65001 >nul 2>&1
 
 cd /d "%~dp0"
 if errorlevel 1 (
-  echo [RayleaBot] 启动失败：无法进入项目目录 "%~dp0"。
+  echo [RayleaBot] Startup failed: cannot enter project directory "%~dp0".
   goto :failure
 )
 
@@ -14,14 +15,14 @@ for /f "tokens=1,2" %%A in (.tool-versions) do (
   if /i "%%A"=="nodejs" set "NODE_VERSION=%%B"
 )
 if not defined NODE_VERSION (
-  echo [RayleaBot] 启动失败：.tool-versions 中缺少 Node.js 版本。
+  echo [RayleaBot] Startup failed: .tool-versions does not declare Node.js.
   goto :failure
 )
 
 set "NODE_BIN="
 if defined RAYLEA_START_NODE (
   if not exist "%RAYLEA_START_NODE%" (
-    echo [RayleaBot] 启动失败：RAYLEA_START_NODE 指向的文件不存在：
+    echo [RayleaBot] Startup failed: RAYLEA_START_NODE does not exist:
     echo   %RAYLEA_START_NODE%
     goto :failure
   )
@@ -41,8 +42,8 @@ if not defined NODE_BIN (
 )
 
 if not defined NODE_BIN (
-  echo [RayleaBot] 启动失败：未找到 Node.js %NODE_VERSION%。
-  echo [RayleaBot] 请运行 python scripts\check-toolchain.py 查看安装指引。
+  echo [RayleaBot] Startup failed: Node.js %NODE_VERSION% was not found.
+  echo [RayleaBot] Run python scripts\check-toolchain.py for installation guidance.
   goto :failure
 )
 
@@ -58,16 +59,16 @@ if defined NODE_IS_SCRIPT (
 )
 if exist "%NODE_VERSION_FILE%" set /p "NODE_ACTUAL="<"%NODE_VERSION_FILE%"
 del /q "%NODE_VERSION_FILE%" >nul 2>&1
-if not defined NODE_ACTUAL set "NODE_ACTUAL=无法读取"
+if not defined NODE_ACTUAL set "NODE_ACTUAL=unavailable"
 if /i not "%NODE_ACTUAL%"=="v%NODE_VERSION%" (
-  echo [RayleaBot] 启动失败：Node.js 版本不匹配。
-  echo [RayleaBot] 当前版本：%NODE_ACTUAL%
-  echo [RayleaBot] 需要版本：v%NODE_VERSION%
-  echo [RayleaBot] 可执行文件：%NODE_BIN%
+  echo [RayleaBot] Startup failed: Node.js version mismatch.
+  echo [RayleaBot] Current version: %NODE_ACTUAL%
+  echo [RayleaBot] Required version: v%NODE_VERSION%
+  echo [RayleaBot] Executable: %NODE_BIN%
   goto :failure
 )
 
-echo [RayleaBot] 使用 Node.js %NODE_ACTUAL%。
+echo [RayleaBot] Using Node.js %NODE_ACTUAL%.
 if defined NODE_IS_SCRIPT (
   call "%NODE_BIN%" scripts\start-dev.mjs %*
 ) else (
@@ -77,8 +78,8 @@ set "EXIT_CODE=%errorlevel%"
 if "%EXIT_CODE%"=="0" exit /b 0
 
 echo.
-echo [RayleaBot] 启动失败，退出码 %EXIT_CODE%。
-echo [RayleaBot] 请查看上方错误和 logs\dev\start\ 中的启动日志。
+echo [RayleaBot] Startup failed with exit code %EXIT_CODE%.
+echo [RayleaBot] Log directory: logs\dev\start\
 goto :pause_and_exit
 
 :failure
@@ -87,6 +88,6 @@ set "EXIT_CODE=1"
 :pause_and_exit
 if "%RAYLEA_START_NO_PAUSE%"=="1" exit /b %EXIT_CODE%
 echo.
-echo [RayleaBot] 按任意键关闭窗口...
+echo [RayleaBot] Press any key to close this window...
 pause >nul
 exit /b %EXIT_CODE%

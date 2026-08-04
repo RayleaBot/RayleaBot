@@ -15,6 +15,7 @@ import {
   createDevEnvironment,
   createTrustedChildEnvironment,
   formatLocalLogDate,
+  loadStartEnvironmentFile,
   parseBackendEndpointFromConfigText,
   resolveDatedLogPath,
   resolveBackendBaseUrl,
@@ -23,6 +24,32 @@ import {
   resolveStartProfile,
   shouldInstallDependencies,
 } from "../start-dev-support.mjs";
+
+test("loads the optional root environment file", () => {
+  const rootDir = path.join("C:", "RayleaBot");
+  const loadedPaths = [];
+  assert.equal(
+    loadStartEnvironmentFile({
+      rootDir,
+      loadEnvFile: (environmentPath) => loadedPaths.push(environmentPath),
+    }),
+    path.join(rootDir, ".env"),
+  );
+  assert.deepEqual(loadedPaths, [path.join(rootDir, ".env")]);
+
+  assert.doesNotThrow(() => loadStartEnvironmentFile({
+    rootDir,
+    loadEnvFile: () => {
+      throw Object.assign(new Error("missing"), { code: "ENOENT" });
+    },
+  }));
+  assert.throws(() => loadStartEnvironmentFile({
+    rootDir,
+    loadEnvFile: () => {
+      throw Object.assign(new Error("denied"), { code: "EACCES" });
+    },
+  }), /denied/);
+});
 
 test("formats local log dates", () => {
   assert.equal(formatLocalLogDate(new Date(2026, 5, 3, 12, 0, 0)), "2026-06-03");

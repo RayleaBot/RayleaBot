@@ -8,6 +8,8 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"slices"
+	"strings"
 	"testing"
 )
 
@@ -115,6 +117,101 @@ func TestBuildWorkspaceSBOMKeepsDeclaredSDKVersion(t *testing.T) {
 		}
 	}
 	t.Fatalf("workspace SDK version missing from SBOM: %#v", sbom.Packages)
+}
+
+func TestResolvePNPMCommandUsesManagedNodeAndCorepack(t *testing.T) {
+	root := t.TempDir()
+	nodeCommand := filepath.Join(root, "node.exe")
+	corepackCLI := filepath.Join(root, "node_modules", "corepack", "dist", "corepack.js")
+	writeTestFile(t, nodeCommand, "managed node")
+	writeTestFile(t, corepackCLI, "managed corepack")
+	t.Setenv(pluginBuildNodeEnv, nodeCommand)
+	t.Setenv(pluginBuildCorepackCLIEnv, corepackCLI)
+
+	command, prefixArgs, err := resolvePNPMCommand(Config{})
+	if err != nil {
+		t.Fatalf("resolvePNPMCommand() error = %v", err)
+	}
+	if command != nodeCommand {
+		t.Fatalf("command = %q, want %q", command, nodeCommand)
+	}
+	wantPrefix := []string{corepackCLI, "pnpm"}
+	if !slices.Equal(prefixArgs, wantPrefix) {
+		t.Fatalf("prefix args = %#v, want %#v", prefixArgs, wantPrefix)
+	}
+}
+
+func TestResolvePNPMCommandRejectsIncompleteManagedToolchain(t *testing.T) {
+	root := t.TempDir()
+	nodeCommand := filepath.Join(root, "node.exe")
+	writeTestFile(t, nodeCommand, "managed node")
+	t.Setenv(pluginBuildNodeEnv, nodeCommand)
+	t.Setenv(pluginBuildCorepackCLIEnv, "")
+
+	if _, _, err := resolvePNPMCommand(Config{}); err == nil {
+		t.Fatal("resolvePNPMCommand() error = nil, want incomplete managed toolchain error")
+	}
+}
+
+func TestFindRegularFileOnPathAcceptsWindowsPathCasing(t *testing.T) {
+	root := t.TempDir()
+	executable := filepath.Join(root, "node.exe")
+	writeTestFile(t, executable, "node")
+	pathKey := "PATH"
+	if runtime.GOOS == "windows" {
+		pathKey = "Path"
+	}
+
+	pathValue := root
+	if runtime.GOOS == "windows" {
+		pathValue = `C:\broken";` + root
+	}
+	resolved, err := findRegularFileOnPath("node.exe", []string{pathKey + "=" + pathValue})
+	if err != nil {
+		t.Fatalf("findRegularFileOnPath() error = %v", err)
+	}
+	if resolved != executable {
+		t.Fatalf("resolved path = %q, want %q", resolved, executable)
+	}
+}
+
+func TestEnvironmentWithPathPrefixNormalizesPathKey(t *testing.T) {
+	original := "C:" + string(os.PathSeparator) + "existing"
+	prefix := "C:" + string(os.PathSeparator) + "managed-node"
+	environment := []string{"TEMP=C:\\temp", "Path=" + original}
+	if runtime.GOOS != "windows" {
+		environment = []string{"TEMP=/tmp", "PATH=" + original}
+	}
+
+	resolved := environmentWithPathPrefix(environment, prefix)
+	wantPath := "PATH=" + prefix + string(os.PathListSeparator) + original
+	if !slices.Contains(resolved, wantPath) {
+		t.Fatalf("environment = %#v, want %q", resolved, wantPath)
+	}
+	pathEntries := 0
+	for _, entry := range resolved {
+		key, _, _ := strings.Cut(entry, "=")
+		if key == "PATH" || (runtime.GOOS == "windows" && strings.EqualFold(key, "PATH")) {
+			pathEntries++
+		}
+	}
+	if pathEntries != 1 {
+		t.Fatalf("PATH entry count = %d, want 1 in %#v", pathEntries, resolved)
+	}
+}
+
+func TestEnvironmentWithValueReplacesExistingCaseInsensitiveKey(t *testing.T) {
+	environment := []string{"TEMP=C:\\temp", "CI=false"}
+	if runtime.GOOS == "windows" {
+		environment[1] = "ci=false"
+	}
+	resolved := environmentWithValue(environment, "CI", "true")
+	if !slices.Contains(resolved, "CI=true") {
+		t.Fatalf("environment = %#v, want CI=true", resolved)
+	}
+	if slices.Contains(resolved, environment[1]) {
+		t.Fatalf("environment kept stale CI entry: %#v", resolved)
+	}
 }
 
 func testPlatform(t *testing.T) string {

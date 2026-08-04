@@ -84,6 +84,45 @@ export async function collectWorkspaceSDKVersions(plugins) {
   return [...versions].sort()
 }
 
+export function selectWorkspacePlugins(plugins, pluginIDs) {
+  if (pluginIDs === undefined || pluginIDs === null) {
+    return plugins
+  }
+  const selectedIDs = new Set(pluginIDs)
+  const selected = plugins.filter((plugin) => selectedIDs.has(plugin.id))
+  const selectedPluginIDs = new Set(selected.map((plugin) => plugin.id))
+  const missing = [...selectedIDs].filter((pluginID) => !selectedPluginIDs.has(pluginID))
+  if (missing.length > 0) {
+    throw new Error(`Unknown development plugin id(s): ${missing.join(', ')}`)
+  }
+  return selected
+}
+
+export function createDevelopmentReloadQueue() {
+  let serverSourcePath = ''
+  const pluginChanges = new Map()
+  return {
+    addServer(sourcePath) {
+      serverSourcePath = sourcePath
+    },
+    addPlugin(plugin, sourcePath) {
+      pluginChanges.set(plugin.id, { plugin, sourcePath })
+    },
+    hasChanges() {
+      return serverSourcePath !== '' || pluginChanges.size > 0
+    },
+    take() {
+      const batch = {
+        serverSourcePath,
+        pluginChanges: [...pluginChanges.values()],
+      }
+      serverSourcePath = ''
+      pluginChanges.clear()
+      return batch
+    },
+  }
+}
+
 export function renderDevelopmentGoWork({ sdkGoPath, sdkGoVersions = [], plugins, goVersion = '1.25.12' }) {
   const modulePaths = [sdkGoPath, ...plugins.map((plugin) => plugin.path)]
   const uniquePaths = [...new Set(modulePaths.map((modulePath) => path.resolve(modulePath)))]
@@ -100,58 +139,98 @@ export async function mirrorVueSDK({ sdkVuePath, pluginPath }) {
     return
   }
   const target = path.join(pluginPath, '.rayleabot', 'sdk', 'vue')
-  await fsp.rm(target, { recursive: true, force: true })
-  await fsp.mkdir(path.dirname(target), { recursive: true })
+  const targetNodeModules = path.join(target, 'node_modules')
+  const uiNodeModules = path.join(pluginPath, 'ui', 'node_modules')
+  const resetUIInstall = fs.existsSync(uiNodeModules) && !fs.existsSync(targetNodeModules)
+  await fsp.mkdir(target, { recursive: true })
+  const targetEntries = await fsp.readdir(target, { withFileTypes: true })
+  await Promise.all(targetEntries
+    .filter((entry) => entry.name !== 'node_modules')
+    .map((entry) => fsp.rm(path.join(target, entry.name), { recursive: true, force: true })))
   await fsp.cp(sdkVuePath, target, {
     recursive: true,
     filter: (source) => !['node_modules', 'dist'].includes(path.basename(source)),
   })
+  if (resetUIInstall) {
+    await fsp.rm(uiNodeModules, { recursive: true, force: true })
+  }
 }
 
 export async function watchPluginWorkspace(plugins, onChange) {
   const watchers = []
+  const watchedDirectories = new Set()
   for (const plugin of plugins) {
-    await watchDirectory(plugin.path, plugin, onChange, watchers)
+    await watchDirectory(plugin.path, plugin, onChange, watchers, watchedDirectories)
   }
   return async () => {
     for (const watcher of watchers) {
       watcher.close()
     }
+    watchedDirectories.clear()
   }
 }
 
-async function watchDirectory(directory, plugin, onChange, watchers) {
+async function watchDirectory(directory, plugin, onChange, watchers, watchedDirectories) {
+  const directoryKey = path.resolve(directory)
+  if (watchedDirectories.has(directoryKey)) return
+  watchedDirectories.add(directoryKey)
   let entries
   try {
     entries = await fsp.readdir(directory, { withFileTypes: true })
   } catch (error) {
+    watchedDirectories.delete(directoryKey)
     if (error?.code === 'ENOENT') return
     throw error
   }
   const watcher = fs.watch(directory, (eventType, filename) => {
     if (!filename) return
     const sourcePath = path.join(directory, filename.toString())
-    if (!isIgnoredPath(plugin.path, sourcePath)) {
-      onChange(plugin, sourcePath)
-    }
-    if (eventType === 'rename') {
-      void watchNewDirectory(sourcePath, plugin, onChange, watchers)
-    }
+    void handlePluginWatchEvent({
+      eventType,
+      sourcePath,
+      plugin,
+      onChange,
+      watchers,
+      watchedDirectories,
+    })
   })
   watchers.push(watcher)
   await Promise.all(entries
     .filter((entry) => entry.isDirectory() && !ignoredDirectoryNames.has(entry.name))
-    .map((entry) => watchDirectory(path.join(directory, entry.name), plugin, onChange, watchers)))
+    .map((entry) => watchDirectory(
+      path.join(directory, entry.name),
+      plugin,
+      onChange,
+      watchers,
+      watchedDirectories,
+    )))
 }
 
-async function watchNewDirectory(directory, plugin, onChange, watchers) {
+async function handlePluginWatchEvent({
+  eventType,
+  sourcePath,
+  plugin,
+  onChange,
+  watchers,
+  watchedDirectories,
+}) {
+  if (isIgnoredPath(plugin.path, sourcePath)) return
+  const sourceKey = path.resolve(sourcePath)
   try {
-    const stat = await fsp.stat(directory)
-    if (stat.isDirectory() && !ignoredDirectoryNames.has(path.basename(directory))) {
-      await watchDirectory(directory, plugin, onChange, watchers)
+    const stat = await fsp.stat(sourcePath)
+    if (!stat.isDirectory()) {
+      onChange(plugin, sourcePath)
+      return
+    }
+    const directoryAlreadyWatched = watchedDirectories.has(sourceKey)
+    if (eventType === 'rename' && !directoryAlreadyWatched) {
+      await watchDirectory(sourcePath, plugin, onChange, watchers, watchedDirectories)
+      onChange(plugin, sourcePath)
     }
   } catch (error) {
     if (error?.code !== 'ENOENT') throw error
+    watchedDirectories.delete(sourceKey)
+    onChange(plugin, sourcePath)
   }
 }
 
