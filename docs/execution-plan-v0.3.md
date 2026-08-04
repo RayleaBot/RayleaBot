@@ -23,7 +23,7 @@ v0.3 聚焦四条主线：
 | Phase 1 | Governance / Commands | ☑️ | 权限、名单、限流和命令治理使用正式 contract 与服务端状态源 |
 | Phase 2 | Trusted Plugin Sources / Custom Management UI | ☑️ | 安装检查、可信代码确认、自定义页面静态路由、bridge 和插件包内页面验收全部通过 |
 | Phase 2.5 | Go Artifact Runtime / Vue Plugin UI | ☑️ | manifest v2、artifact v1、Go SDK/插件、Vue SDK/页面、三平台构建与断代重置全部通过 |
-| Phase 2.6 | Independent Plugin Store / Development Workspace | 🟡 | 无内置插件、签名目录、统一安装、独立发布和本地同步开发全部通过 |
+| Phase 2.6 | Independent Plugin Store / Development Workspace | ☑️ | 无内置插件、签名目录、统一安装、独立发布和本地同步开发全部通过 |
 | Phase 3 | Release Trust / Automatic Update | ❌ | 可信元数据、更新核心、Windows 事务安装和真实签名 packaged E2E 全部通过 |
 | Phase 4 | Companion Updates / Acceptance | 🟡 | contracts、fixtures、generated types、实现、SDK、发布物、测试和文档无漂移 |
 
