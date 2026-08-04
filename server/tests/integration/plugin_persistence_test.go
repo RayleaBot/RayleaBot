@@ -1,10 +1,13 @@
 package integration
 
 import (
+	"context"
 	"net/http"
 	"path/filepath"
 	"testing"
 	"time"
+
+	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 )
 
 func TestPluginDesiredStatePersistsAcrossRestart(t *testing.T) {
@@ -14,27 +17,29 @@ func TestPluginDesiredStatePersistsAcrossRestart(t *testing.T) {
 	configPath := writePersistentYAMLConfig(t, filepath.Join(t.TempDir(), "state.db"))
 
 	appA := newPersistentTestApp(t, configPath, func() time.Time { return current }, "plugin-a")
-	token := issueLoginToken(t, appA)
-	serverA := newManagementTestServer(t, appA.Handler())
-
-	enableReq, err := http.NewRequest(http.MethodPost, serverA.URL+"/api/plugins/raylea.echo/disable", nil)
+	_ = issueLoginToken(t, appA)
+	repositoryA, err := plugins.NewSQLiteRepository(appA.Storage())
 	if err != nil {
-		t.Fatalf("create disable request: %v", err)
+		t.Fatalf("create plugin repository: %v", err)
 	}
-	enableReq.Header.Set("Authorization", "Bearer "+token)
-	enableResp, err := serverA.Client().Do(enableReq)
-	if err != nil {
-		t.Fatalf("perform disable request: %v", err)
+	if err := repositoryA.SaveDesiredState(context.Background(), "raylea.echo", plugins.DesiredStateDisabled, current); err != nil {
+		t.Fatalf("persist desired state: %v", err)
 	}
-	enableResp.Body.Close()
-	if enableResp.StatusCode != http.StatusOK {
-		t.Fatalf("unexpected disable status: got %d want 200", enableResp.StatusCode)
-	}
-	serverA.Close()
 	closePersistentTestApp(t, appA)
 
 	appB := newPersistentTestApp(t, configPath, func() time.Time { return current }, "plugin-b")
 	defer closePersistentTestApp(t, appB)
+	repositoryB, err := plugins.NewSQLiteRepository(appB.Storage())
+	if err != nil {
+		t.Fatalf("reopen plugin repository: %v", err)
+	}
+	desiredStates, err := repositoryB.LoadDesiredStates(context.Background())
+	if err != nil {
+		t.Fatalf("load desired states: %v", err)
+	}
+	if desiredStates["raylea.echo"] != plugins.DesiredStateDisabled {
+		t.Fatalf("persisted desired state = %q, want disabled", desiredStates["raylea.echo"])
+	}
 	serverB := newManagementTestServer(t, appB.Handler())
 	defer serverB.Close()
 
@@ -53,19 +58,19 @@ func TestPluginDesiredStatePersistsAcrossRestart(t *testing.T) {
 	listBody := decodeBody(t, readAll(t, listResp))
 	items := listBody["items"].([]any)
 
-	var builtinEcho map[string]any
+	var installedEcho map[string]any
 	for _, item := range items {
 		entry := item.(map[string]any)
 		if entry["id"] == "raylea.echo" {
-			builtinEcho = entry
+			installedEcho = entry
 			break
 		}
 	}
-	if builtinEcho == nil {
+	if installedEcho == nil {
 		t.Fatal("expected raylea.echo in plugin list")
 	}
-	if builtinEcho["state"] != "disabled" {
-		t.Fatalf("unexpected persisted state: got %#v want disabled", builtinEcho["state"])
+	if installedEcho["state"] != "disabled" {
+		t.Fatalf("unexpected persisted state: got %#v want disabled", installedEcho["state"])
 	}
 }
 

@@ -68,7 +68,7 @@ const pageErrorToast = computed(() => (
 useToastFeedback(pageErrorToast)
 
 function isOfficialPlugin(record: (typeof sortedItems.value)[number]) {
-  return record.trust?.level === 'official' || record.source?.root?.startsWith('plugins/builtin') === true
+  return record.trust?.level === 'official' || record.role === 'official'
 }
 
 function getTrustLabel(record: (typeof sortedItems.value)[number]) {
@@ -101,6 +101,8 @@ function getSourceTypeLabel(type?: string) {
   if (type === 'local_zip') return t('plugins.localZip')
   if (type === 'local_directory') return t('plugins.localDirectory')
   if (type === 'remote_url') return t('plugins.remoteUrl')
+  if (type === 'catalog') return t('plugins.catalogSource')
+  if (type === 'development') return t('plugins.developmentSource')
   return type || t('display.empty')
 }
 

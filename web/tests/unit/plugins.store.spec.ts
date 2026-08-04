@@ -34,7 +34,7 @@ describe('plugins store', () => {
       plugin: {
         id: 'weather',
         name: 'weather',
-        role: 'user',
+        role: 'community',
         state: 'running',
         commands: [
           { name: 'weather', command_source: 'manifest' },
@@ -61,7 +61,7 @@ describe('plugins store', () => {
         plugin: {
           id: 'weather',
           name: 'weather',
-          role: 'user',
+          role: 'community',
           state: 'stopping',
           commands: [],
         },
@@ -71,7 +71,7 @@ describe('plugins store', () => {
           {
             id: 'weather',
             name: 'weather',
-            role: 'user',
+            role: 'community',
             state: 'disabled',
             commands: [],
           },
@@ -98,7 +98,7 @@ describe('plugins store', () => {
     store.upsert({
       id: 'weather',
       name: 'Weather',
-      role: 'user',
+      role: 'community',
       state: 'running',
       commands: [{ name: 'weather', command_source: 'manifest' }],
       command_conflicts: [],
@@ -130,7 +130,7 @@ describe('plugins store', () => {
       plugin: {
         id: 'calendar',
         name: 'Calendar',
-        role: 'user',
+        role: 'community',
         state: 'running',
       },
     }))
@@ -140,7 +140,7 @@ describe('plugins store', () => {
       plugin: {
         id: 'weather',
         name: 'Weather',
-        role: 'user',
+        role: 'community',
         state: 'disabled',
       },
     }))

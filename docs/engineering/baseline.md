@@ -111,7 +111,8 @@ Web 管理面采用 `Ant Design Vue + Vue Vben Admin` 对齐方案作为正式�
 - Go SDK：`cd sdk/go && go test ./...`
 - Vue SDK：`cd sdk/vue && pnpm run typecheck && pnpm test && pnpm build`
 - 单插件构建：`go run ./tools/build -target <windows-x64|linux-x64|macos-arm64> -out <output>`
-- 内置插件矩阵：`python scripts/release/build_plugin_artifacts.py --target <platform> --output dist/plugin-artifacts`
+- 开发工作区验证：`node --test scripts/tests/plugin-dev-workspace.test.mjs`
+- 插件矩阵由各独立插件仓库的 GitHub Actions 构建；主仓库 release 不构建业务插件。
 
 ## 目录职责
 
@@ -130,7 +131,7 @@ Web 管理面采用 `Ant Design Vue + Vue Vben Admin` 对齐方案作为正式�
 | `server/` | Go 服务端工程 |
 | `web/` | Web UI 工程 |
 | `launcher/` | Electron 桌面启动器工程 |
-| `plugins/builtin/` | 内置 Go 插件源码、测试、薄构建入口和可选 Vue UI 源码；发布包只收录其编译产物 |
+| `plugins/installed/` | 运行期统一安装目录；只保存经 artifact 校验的商店、社区或开发插件产物，不进入版本控制 |
 | `sdk/go/` | Go 插件 JSONL 客户端、typed local-action helpers 与 artifact 构建器 |
 | `sdk/vue/` | `@rayleabot/plugin-ui` bridge v2 client、composables、主题和 contract 类型 |
 | `.deps/` | 图片渲染 Chromium 资源清单，以及按需展开后的资源目录 |
@@ -149,7 +150,7 @@ Web 管理面采用 `Ant Design Vue + Vue Vben Admin` 对齐方案作为正式�
 | `web/pnpm-lock.yaml` | 作为 Web 工程唯一 JS 锁文件 |
 | `launcher/package.json` | 固定 `packageManager = pnpm@11.11.0`、`engines.node = 24.18.0`、Electron/Vite/React/`@vitejs/plugin-react`/build 脚本与打包配置 |
 | `launcher/pnpm-lock.yaml` | 作为 Launcher 工程唯一 JS 锁文件 |
-| `go.work` | 连接 server、Go SDK、内置插件和 Go 示例的本地工作区；各插件仍拥有独立 `go.mod` |
+| `go.work` | 连接 server、Go SDK 和 Go 示例的主仓库工作区；独立插件只通过本地临时开发工作区连接 |
 | `.deps/manifest.json` | 固定资源名、版本线、可信来源列表、SHA256、archive_format、entrypoints 与平台矩阵 |
 | `contracts/*` | 对外接口与错误码唯一正式来源 |
 

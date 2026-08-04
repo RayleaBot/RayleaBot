@@ -58,11 +58,14 @@ node scripts/start-dev.mjs
 
 开发模式下，服务端监听 `http://127.0.0.1:8080`，Web 开发服务器运行在 `http://127.0.0.1:4173`。
 
+主仓库没有内置插件。需要联调独立插件时，复制 `plugin-workspace.example.json` 为 `plugin-workspace.local.json`；启动脚本会在 Server 启动前构建当前平台 artifact，并通过统一安装器同步。持续联调可同时设置 `RAYLEA_PLUGIN_DEV=watch` 与 `RAYLEA_SERVER_RELOAD=watch`。
+
 ## 使用简介
 
 - 管理面板默认只在本机开放，远程访问需在配置中显式开启，并建议通过 HTTPS 反向代理。
 - 通过 OneBot11 协议适配器接入 QQ 后，即可在聊天窗口与机器人交互。
-- 插件安装在运行根目录的 `plugins/installed/`，只接受与当前平台匹配、通过 `artifact.json` 完整性校验的目录或单根目录 ZIP。
+- 插件商店展示经过签名目录验证的官方和社区条目；安装仍要求管理员确认插件是本机原生代码。
+- 所有插件统一安装在运行根目录的 `plugins/installed/`，只接受与当前平台匹配、通过 `artifact.json` 完整性校验的目录或单根目录 ZIP。
 - 管理员可在管理面板中配置权限策略、黑白名单、命令前缀、任务调度等。
 
 ## 文档
@@ -73,6 +76,7 @@ node scripts/start-dev.mjs
 | [界面设计](./docs/design/README.md) | 项目级视觉规范、分面映射与采用矩阵 |
 | [架构总览](./docs/architecture/README.md) | 内部设计、事件模型、状态模型 |
 | [插件开发](./docs/plugin/README.md) | 生命周期、manifest、协议、SDK |
+| [插件商店与独立开发](./docs/plugin/store-and-development.md) | 商店信任、独立发布和本地同步联调 |
 | [用户指南](./docs/user/README.md) | 部署、配置、CLI、恢复 |
 | [工程基线](./docs/engineering/baseline.md) | 版本线、选型、目录职责 |
 | [CHANGELOGS](./docs/CHANGELOGS/) | 版本变更记录 |
@@ -95,8 +99,8 @@ cd sdk/go && go test ./...
 # Vue 插件 UI SDK
 cd sdk/vue && pnpm install --frozen-lockfile && pnpm run typecheck && pnpm test
 
-# 构建一个平台插件 artifact
-cd plugins/builtin/fortune && go run ./tools/build -target windows-x64 -out ../../../dist/plugin-artifacts
+# 在相邻的独立插件仓库构建当前平台 artifact
+cd ../RayleaBotPlugins/plugin-fortune && go run ./tools/build -target windows-x64 -out dist
 ```
 
 项目采用契约优先（contract-first）模式。修改任何对外接口前，请先更新 `contracts/` 中的对应契约文件，再同步实现与测试。

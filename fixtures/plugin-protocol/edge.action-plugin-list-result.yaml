@@ -19,7 +19,7 @@ frames:
         - id: raylea.echo
           name: Echo
           description: 内置测试复读命令
-          role: builtin
+          role: official
           state: running
           commands:
             - name: echo

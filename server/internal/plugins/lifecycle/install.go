@@ -86,6 +86,8 @@ type InstallService struct {
 	deps        installerDeps
 
 	afterSuccess            func(context.Context, string) error
+	afterRollback           func(context.Context, string)
+	beforeReplace           plugins.StopPluginFunc
 	validateRenderTemplates func(plugins.Snapshot) error
 	wg                      sync.WaitGroup
 }
@@ -314,6 +316,9 @@ func (s *InstallService) Inspect(ctx context.Context, request plugins.InstallReq
 		}
 		return plugins.InstallInspection{}, installError(codePluginArtifactInvalid, err.Error(), "插件 artifact 校验失败")
 	}
+	if request.ExpectedManifestSHA256 != "" && verified.Document.ManifestSHA256 != request.ExpectedManifestSHA256 {
+		return plugins.InstallInspection{}, installError("plugin.store_integrity_mismatch", "插件 manifest 摘要与商店目录不一致", "插件商店产物完整性校验失败")
+	}
 	snapshot, err := s.loadCandidateSnapshot(candidateDir)
 	if err != nil {
 		return plugins.InstallInspection{}, err
@@ -395,10 +400,25 @@ func (s *InstallService) consumeInspectionLocked(request plugins.InstallRequest)
 		entry.cleanup()
 		return nil, plugins.ErrInstallInspectionExpired
 	}
-	if request.PackageSHA256 != entry.inspection.PackageSHA256 || request.SourceType != entry.request.SourceType || request.Source != entry.request.Source {
+	if request.PackageSHA256 != entry.inspection.PackageSHA256 || !sameInstallRequestIdentity(request, entry.request) {
 		return nil, plugins.ErrInstallDigestMismatch
 	}
 	return entry, nil
+}
+
+func sameInstallRequestIdentity(left, right plugins.InstallRequest) bool {
+	return left.SourceType == right.SourceType &&
+		left.Source == right.Source &&
+		left.ResolvedSourceType == right.ResolvedSourceType &&
+		left.ResolvedSource == right.ResolvedSource &&
+		left.ExpectedArchiveSize == right.ExpectedArchiveSize &&
+		left.ExpectedArchiveSHA256 == right.ExpectedArchiveSHA256 &&
+		left.ExpectedManifestSHA256 == right.ExpectedManifestSHA256 &&
+		left.ReplaceExisting == right.ReplaceExisting &&
+		left.PublisherID == right.PublisherID &&
+		left.PublisherName == right.PublisherName &&
+		left.PublisherVerified == right.PublisherVerified &&
+		left.CatalogDigest == right.CatalogDigest
 }
 
 func (s *InstallService) cleanupExpiredInspectionsLocked(now time.Time) {
@@ -443,6 +463,14 @@ func (s *InstallService) Cancel(taskID string) bool {
 
 func (s *InstallService) SetAfterSuccess(fn func(context.Context, string) error) {
 	s.afterSuccess = fn
+}
+
+func (s *InstallService) SetBeforeReplace(fn plugins.StopPluginFunc) {
+	s.beforeReplace = fn
+}
+
+func (s *InstallService) SetAfterRollback(fn func(context.Context, string)) {
+	s.afterRollback = fn
 }
 
 func (s *InstallService) SetRenderTemplateValidator(fn func(plugins.Snapshot) error) {
@@ -713,8 +741,12 @@ func (s *InstallService) runInstall(job installJob) error {
 
 	candidateSnapshot := job.inspection.snapshot
 	metadata := job.inspection.metadata
-	if _, exists := s.catalog.Get(candidateSnapshot.PluginID); exists {
+	existingSnapshot, exists := s.catalog.Get(candidateSnapshot.PluginID)
+	if exists && !job.request.ReplaceExisting {
 		return installError(codePluginInstallFailed, "检测到同 ID 插件，安装被拒绝", "检测到同 ID 插件")
+	}
+	if exists && existingSnapshot.SourceRoot != "plugins/installed" {
+		return installError(codePluginInstallFailed, "同 ID 插件不属于统一安装目录", "同 ID 插件无法原子替换")
 	}
 	if s.validateRenderTemplates != nil {
 		if err := s.validateRenderTemplates(candidateSnapshot); err != nil {
@@ -752,14 +784,74 @@ func (s *InstallService) runInstall(job installJob) error {
 	}
 
 	finalTarget := filepath.Join(s.installedRoot, candidateSnapshot.PluginID)
-	if _, err := s.deps.stat(finalTarget); err == nil {
+	_, finalErr := s.deps.stat(finalTarget)
+	if finalErr == nil && !job.request.ReplaceExisting {
 		return installError(codePluginInstallFailed, "检测到同 ID 插件，安装被拒绝", "检测到同 ID 插件")
-	} else if !errors.Is(err, os.ErrNotExist) {
+	} else if finalErr != nil && !errors.Is(finalErr, os.ErrNotExist) {
 		return installError(codePluginInstallFailed, "检查插件安装目录失败", "检查插件安装目录失败")
 	}
 
+	previousTarget := filepath.Join(workingRoot, "previous")
+	replacing := finalErr == nil
+	var previousMetadata plugins.PackageMetadata
+	hadPreviousMetadata := false
+	if replacing && s.packageRepo != nil {
+		loader, ok := s.repository.(plugins.PackageMetadataLoader)
+		if !ok {
+			return installError(codePluginInstallFailed, "安装元数据仓库不支持更新回滚", "插件更新未写入")
+		}
+		all, loadErr := loader.LoadAllPackageMetadata(job.ctx)
+		if loadErr != nil {
+			return installError(codePluginInstallFailed, "读取当前插件安装元数据失败", "插件更新未写入")
+		}
+		previousMetadata, hadPreviousMetadata = all[candidateSnapshot.PluginID]
+	}
+	resumePrevious := func() {
+		if s.afterRollback != nil {
+			s.afterRollback(context.WithoutCancel(job.ctx), candidateSnapshot.PluginID)
+		}
+	}
+	if replacing {
+		if s.beforeReplace != nil {
+			s.beforeReplace(job.ctx, candidateSnapshot.PluginID)
+		}
+		if err := s.deps.rename(finalTarget, previousTarget); err != nil {
+			resumePrevious()
+			return installError(codePluginInstallFailed, "备份当前插件版本失败", "插件更新未写入")
+		}
+	}
+
 	if err := s.deps.rename(candidateDir, finalTarget); err != nil {
+		if replacing {
+			_ = s.deps.rename(previousTarget, finalTarget)
+			resumePrevious()
+		}
 		return installError(codePluginInstallFailed, "写入插件安装目录失败", "写入插件安装目录失败")
+	}
+
+	rollback := func() {
+		cleanupCtx := context.WithoutCancel(job.ctx)
+		_ = s.deps.removeAll(finalTarget)
+		if replacing {
+			_ = s.deps.rename(previousTarget, finalTarget)
+		}
+		if s.packageRepo != nil {
+			if hadPreviousMetadata {
+				_ = s.packageRepo.SavePackageMetadata(cleanupCtx, previousMetadata)
+			} else {
+				_ = s.packageRepo.DeletePackageMetadata(cleanupCtx, candidateSnapshot.PluginID)
+			}
+		}
+		_ = s.refreshCatalog(cleanupCtx)
+		resumePrevious()
+	}
+
+	if s.packageRepo != nil {
+		metadata.InstalledAt = s.deps.now().UTC()
+		if err := s.packageRepo.SavePackageMetadata(job.ctx, metadata); err != nil {
+			rollback()
+			return installError(codePluginInstallFailed, "写入插件安装元数据失败", "写入插件安装元数据失败")
+		}
 	}
 
 	s.registry.Update(job.taskID, tasks.Update{
@@ -768,7 +860,7 @@ func (s *InstallService) runInstall(job installJob) error {
 	})
 
 	if err := s.refreshCatalog(job.ctx); err != nil {
-		_ = s.deps.removeAll(finalTarget)
+		rollback()
 		return err
 	}
 
@@ -777,22 +869,9 @@ func (s *InstallService) runInstall(job installJob) error {
 		Summary:  stringPtr("写入安装元数据"),
 	})
 
-	if s.packageRepo != nil {
-		metadata.InstalledAt = s.deps.now().UTC()
-		if err := s.packageRepo.SavePackageMetadata(job.ctx, metadata); err != nil {
-			_ = s.deps.removeAll(finalTarget)
-			_ = s.refreshCatalog(job.ctx)
-			return installError(codePluginInstallFailed, "写入插件安装元数据失败", "写入插件安装元数据失败")
-		}
-	}
 	if s.afterSuccess != nil {
 		if err := s.afterSuccess(job.ctx, candidateSnapshot.PluginID); err != nil {
-			cleanupCtx := context.WithoutCancel(job.ctx)
-			if s.packageRepo != nil {
-				_ = s.packageRepo.DeletePackageMetadata(cleanupCtx, candidateSnapshot.PluginID)
-			}
-			_ = s.deps.removeAll(finalTarget)
-			_ = s.refreshCatalog(cleanupCtx)
+			rollback()
 			if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
 				return err
 			}
@@ -800,7 +879,6 @@ func (s *InstallService) runInstall(job installJob) error {
 		}
 	}
 
-	_ = workingRoot
 	return nil
 }
 
@@ -833,12 +911,17 @@ func (s *InstallService) buildPackageMetadata(request plugins.InstallRequest, sn
 	}
 
 	return plugins.PackageMetadata{
-		PluginID:     snapshot.PluginID,
-		SourceType:   request.SourceType,
-		SourceRef:    request.Source,
-		Version:      snapshot.Version,
-		ManifestHash: manifestHash,
-		PackageHash:  packageHash,
+		PluginID:          snapshot.PluginID,
+		SourceType:        request.SourceType,
+		SourceRef:         request.Source,
+		Version:           snapshot.Version,
+		ManifestHash:      manifestHash,
+		PackageHash:       packageHash,
+		ArchiveHash:       request.ExpectedArchiveSHA256,
+		PublisherID:       request.PublisherID,
+		PublisherName:     request.PublisherName,
+		PublisherVerified: request.PublisherVerified,
+		CatalogDigest:     request.CatalogDigest,
 	}, nil
 }
 
@@ -851,6 +934,12 @@ func newInspectionID() (string, error) {
 }
 
 func installSourceLabel(request plugins.InstallRequest) string {
+	if request.SourceType == "catalog" {
+		return request.PublisherName
+	}
+	if request.SourceType == "development" {
+		return "development workspace"
+	}
 	if request.SourceType == "remote_url" {
 		if parsed, err := url.Parse(request.Source); err == nil && parsed.Host != "" {
 			return parsed.Host
@@ -876,9 +965,15 @@ func (s *InstallService) prepareSource(ctx context.Context, request plugins.Inst
 		_ = s.deps.removeAll(tempRoot)
 	}
 
-	switch request.SourceType {
+	sourceType := request.SourceType
+	source := request.Source
+	if request.ResolvedSourceType != "" {
+		sourceType = request.ResolvedSourceType
+		source = request.ResolvedSource
+	}
+	switch sourceType {
 	case "local_directory":
-		info, err := s.deps.stat(request.Source)
+		info, err := s.deps.stat(source)
 		if err != nil {
 			if errors.Is(err, os.ErrNotExist) {
 				cleanup()
@@ -893,7 +988,7 @@ func (s *InstallService) prepareSource(ctx context.Context, request plugins.Inst
 		}
 
 		candidate := filepath.Join(tempRoot, "candidate")
-		if err := s.deps.copyDir(ctx, request.Source, candidate); err != nil {
+		if err := s.deps.copyDir(ctx, source, candidate); err != nil {
 			cleanup()
 			if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
 				return "", "", func() {}, err
@@ -902,7 +997,7 @@ func (s *InstallService) prepareSource(ctx context.Context, request plugins.Inst
 		}
 		return tempRoot, candidate, cleanup, nil
 	case "local_zip":
-		info, err := s.deps.stat(request.Source)
+		info, err := s.deps.stat(source)
 		if err != nil {
 			if errors.Is(err, os.ErrNotExist) {
 				cleanup()
@@ -915,8 +1010,19 @@ func (s *InstallService) prepareSource(ctx context.Context, request plugins.Inst
 			cleanup()
 			return "", "", func() {}, installError(codeInvalidRequest, "插件来源必须是压缩包文件", "插件来源必须是压缩包文件")
 		}
+		if request.ExpectedArchiveSize > 0 && info.Size() != request.ExpectedArchiveSize {
+			cleanup()
+			return "", "", func() {}, installError("plugin.store_integrity_mismatch", "插件压缩包大小与商店目录不一致", "插件商店产物完整性校验失败")
+		}
 
-		candidate, err := s.deps.extractZip(ctx, request.Source, tempRoot)
+		if request.ExpectedArchiveSHA256 != "" {
+			digest, hashErr := s.deps.hashFile(source)
+			if hashErr != nil || digest != request.ExpectedArchiveSHA256 {
+				cleanup()
+				return "", "", func() {}, installError("plugin.store_integrity_mismatch", "插件压缩包摘要与商店目录不一致", "插件商店产物完整性校验失败")
+			}
+		}
+		candidate, err := s.deps.extractZip(ctx, source, tempRoot)
 		if err != nil {
 			cleanup()
 			if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
@@ -926,14 +1032,14 @@ func (s *InstallService) prepareSource(ctx context.Context, request plugins.Inst
 		}
 		return tempRoot, candidate, cleanup, nil
 	case "remote_url":
-		parsed, err := url.Parse(request.Source)
+		parsed, err := url.Parse(source)
 		if err != nil || parsed.Scheme != "https" || parsed.Host == "" || parsed.User != nil {
 			cleanup()
 			return "", "", func() {}, installError(codeInvalidRequest, "远程来源必须是 HTTPS URL", "远程来源必须是 HTTPS URL")
 		}
 
 		downloadPath := filepath.Join(tempRoot, "download.zip")
-		if err := s.deps.downloadFile(ctx, request.Source, downloadPath); err != nil {
+		if err := s.deps.downloadFile(ctx, source, downloadPath); err != nil {
 			cleanup()
 			if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
 				return "", "", func() {}, err
@@ -943,7 +1049,21 @@ func (s *InstallService) prepareSource(ctx context.Context, request plugins.Inst
 			}
 			return "", "", func() {}, installError(codePluginInstallFailed, "下载远程插件压缩包失败", "下载远程插件压缩包失败")
 		}
+		if request.ExpectedArchiveSize > 0 {
+			info, statErr := s.deps.stat(downloadPath)
+			if statErr != nil || info.Size() != request.ExpectedArchiveSize {
+				cleanup()
+				return "", "", func() {}, installError("plugin.store_integrity_mismatch", "下载的插件大小与商店目录不一致", "插件商店产物完整性校验失败")
+			}
+		}
 
+		if request.ExpectedArchiveSHA256 != "" {
+			digest, hashErr := s.deps.hashFile(downloadPath)
+			if hashErr != nil || digest != request.ExpectedArchiveSHA256 {
+				cleanup()
+				return "", "", func() {}, installError("plugin.store_integrity_mismatch", "下载的插件摘要与商店目录不一致", "插件商店产物完整性校验失败")
+			}
+		}
 		candidate, err := s.deps.extractZip(ctx, downloadPath, tempRoot)
 		if err != nil {
 			cleanup()

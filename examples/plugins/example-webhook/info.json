@@ -10,7 +10,6 @@
   "license": "MIT",
   "description": "Go example plugin demonstrating event.expose_webhook and gated raw payload delivery.",
   "author": "raylea",
-  "role": "example",
   "capabilities": [
     "event.subscribe",
     "event.expose_webhook",

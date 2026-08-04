@@ -10,7 +10,6 @@
   "license": "MIT",
   "description": "Go example plugin demonstrating render.image.",
   "author": "raylea",
-  "role": "example",
   "capabilities": [
     "event.subscribe",
     "message.send",

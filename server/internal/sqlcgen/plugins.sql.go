@@ -28,7 +28,8 @@ func (q *Queries) DeletePackageMetadata(ctx context.Context, pluginID string) er
 }
 
 const loadAllPackageMetadata = `-- name: LoadAllPackageMetadata :many
-SELECT plugin_id, source_type, source_ref, version, manifest_hash, package_hash, installed_at
+SELECT plugin_id, source_type, source_ref, version, manifest_hash, package_hash,
+       archive_hash, publisher_id, publisher_name, publisher_verified, catalog_digest, installed_at
 FROM plugin_packages
 `
 
@@ -48,6 +49,11 @@ func (q *Queries) LoadAllPackageMetadata(ctx context.Context) ([]PluginPackage, 
 			&i.Version,
 			&i.ManifestHash,
 			&i.PackageHash,
+			&i.ArchiveHash,
+			&i.PublisherID,
+			&i.PublisherName,
+			&i.PublisherVerified,
+			&i.CatalogDigest,
 			&i.InstalledAt,
 		); err != nil {
 			return nil, err
@@ -115,25 +121,38 @@ func (q *Queries) SaveDesiredState(ctx context.Context, arg SaveDesiredStatePara
 }
 
 const savePackageMetadata = `-- name: SavePackageMetadata :exec
-INSERT INTO plugin_packages (plugin_id, source_type, source_ref, version, manifest_hash, package_hash, installed_at)
-VALUES (?, ?, ?, ?, ?, ?, ?)
+INSERT INTO plugin_packages (
+    plugin_id, source_type, source_ref, version, manifest_hash, package_hash,
+    archive_hash, publisher_id, publisher_name, publisher_verified, catalog_digest, installed_at
+)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT(plugin_id) DO UPDATE SET
     source_type = excluded.source_type,
     source_ref = excluded.source_ref,
     version = excluded.version,
     manifest_hash = excluded.manifest_hash,
     package_hash = excluded.package_hash,
+    archive_hash = excluded.archive_hash,
+    publisher_id = excluded.publisher_id,
+    publisher_name = excluded.publisher_name,
+    publisher_verified = excluded.publisher_verified,
+    catalog_digest = excluded.catalog_digest,
     installed_at = excluded.installed_at
 `
 
 type SavePackageMetadataParams struct {
-	PluginID     string
-	SourceType   string
-	SourceRef    string
-	Version      string
-	ManifestHash string
-	PackageHash  string
-	InstalledAt  string
+	PluginID          string
+	SourceType        string
+	SourceRef         string
+	Version           string
+	ManifestHash      string
+	PackageHash       string
+	ArchiveHash       string
+	PublisherID       string
+	PublisherName     string
+	PublisherVerified int64
+	CatalogDigest     string
+	InstalledAt       string
 }
 
 func (q *Queries) SavePackageMetadata(ctx context.Context, arg SavePackageMetadataParams) error {
@@ -144,6 +163,11 @@ func (q *Queries) SavePackageMetadata(ctx context.Context, arg SavePackageMetada
 		arg.Version,
 		arg.ManifestHash,
 		arg.PackageHash,
+		arg.ArchiveHash,
+		arg.PublisherID,
+		arg.PublisherName,
+		arg.PublisherVerified,
+		arg.CatalogDigest,
 		arg.InstalledAt,
 	)
 	return err

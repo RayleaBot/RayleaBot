@@ -66,7 +66,7 @@ func newTestAppWithOptions(
 	configPath := testutil.WriteYAMLConfig(t, updated)
 	schemaPath := testutil.RepoPath(t, "contracts", "config.user.schema.json")
 	repoRoot := testutil.NewPreparedTestRuntimeRoot(t)
-	builtinRoot := testutil.WriteEchoGoPluginArtifact(t, repoRoot)
+	installedRoot := testutil.WriteEchoGoPluginArtifact(t, repoRoot)
 
 	options := app.Options{
 		ConfigPath:           configPath,
@@ -76,7 +76,7 @@ func newTestAppWithOptions(
 		PluginRepoRoot:       repoRoot,
 		PluginSchemaPath:     testutil.RepoPath(t, "contracts", "plugin-info.schema.json"),
 		PluginRoots: []plugincatalog.ScanRoot{
-			{Label: "plugins/builtin", Path: builtinRoot},
+			{Label: "plugins/installed", Path: installedRoot},
 			{Label: "plugins/installed", Path: filepath.Join(filepath.Dir(configPath), "..", "plugins", "installed")},
 		},
 		AuthOptions: authOptions,
@@ -119,7 +119,7 @@ func newPersistentTestApp(t *testing.T, configPath string, now func() time.Time,
 
 	sessionCounter := 0
 	repoRoot := testutil.NewPreparedTestRuntimeRoot(t)
-	builtinRoot := testutil.WriteEchoGoPluginArtifact(t, repoRoot)
+	installedRoot := testutil.WriteEchoGoPluginArtifact(t, repoRoot)
 	application, err := app.New(app.Options{
 		ConfigPath:           configPath,
 		SchemaPath:           testutil.RepoPath(t, "contracts", "config.user.schema.json"),
@@ -128,7 +128,7 @@ func newPersistentTestApp(t *testing.T, configPath string, now func() time.Time,
 		PluginRepoRoot:       repoRoot,
 		PluginSchemaPath:     testutil.RepoPath(t, "contracts", "plugin-info.schema.json"),
 		PluginRoots: []plugincatalog.ScanRoot{
-			{Label: "plugins/builtin", Path: builtinRoot},
+			{Label: "plugins/installed", Path: installedRoot},
 			{Label: "plugins/installed", Path: filepath.Join(filepath.Dir(configPath), "..", "plugins", "installed")},
 		},
 		AuthOptions: []auth.Option{

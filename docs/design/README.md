@@ -26,16 +26,16 @@ HTTP、WebSocket、schema、错误码、插件协议和发布元数据继续由 
 | 设计上下文 | `documented` | `PRODUCT.md`、`DESIGN.md` 与 `.impeccable/design.json` 提供战略、视觉和扩展元数据 | loader 能同时读取产品与设计上下文，设计文件由 CI 识别为 docs |
 | Web 管理面 | `adopted` | 管理壳、认证入口和全部正式工作区已映射项目级语义；主题支持 `system`、`light`、`dark`，桌面多工作区显示页签，移动端使用抽屉导航与摘要行 | 后续变更保持语义 token、状态色调、异常优先披露、响应式结构和 Web 分面验收条件 |
 | Launcher | `adopted` | Fluent theme、CSS variables、原生窗口背景与五个工作区已采用项目级冷暖语义；`760×560` 最小窗口使用顶部紧凑导航 | 后续变更保持语义 token、主题同步、桌面壳职责与 Launcher 分面验收条件 |
-| 内置及官方插件 | `pending-runtime` | 页面各自维护本地 CSS，不共享运行时组件或全局样式 | 本地 token 映射符合项目规范，亮暗主题、焦点、状态和窄屏行为通过验收 |
+| 官方插件 | `adopted` | 独立插件仓库使用 Vue 3、TypeScript、Vite、按需 Ant Design Vue 与 `@rayleabot/plugin-ui`；产物自带运行时和样式 | 后续变更保持 bridge v2、主题 token、焦点、状态和窄屏行为 |
 | 第三方插件 | `compatible-envelope` | 宿主负责 iframe 边界、载入状态、安全确认和错误恢复；页面不获得宿主全局样式 | 页面支持系统主题媒体查询、键盘操作、对比度和 reduced-motion，不要求使用 RayleaBot 组件 |
-| 宿主手动主题同步 | `requires-contract-first` | `host.init` 没有主题字段，页面不得依赖未声明消息 | 新字段先进入 bridge contract，再同步 fixture、宿主、官方插件示例和文档 |
+| 宿主主题同步 | `adopted` | bridge v2 的 `host.init` 下发亮暗模式和允许的设计 token；SDK 将其映射到插件页面根节点 | 后续字段先进入 bridge contract，再同步 fixture、宿主、Vue SDK、官方插件和文档 |
 
-`documented` 表示正式文档与机器可读上下文完整，`adopted` 表示运行时已采用并由对应分面测试约束，`pending-runtime` 表示运行时仍需采用，`compatible-envelope` 表示当前边界允许独立实现，`requires-contract-first` 表示实现前必须冻结正式契约。
+`documented` 表示正式文档与机器可读上下文完整，`adopted` 表示运行时已采用并由对应分面测试约束，`compatible-envelope` 表示当前边界允许独立实现。
 
 ## 共同边界
 
 - Web 继续使用 Ant Design Vue 与 Vue Vben Admin 对齐方案。
 - Launcher 继续使用 Fluent UI React v9 与现有 Electron 分层。
-- 插件管理页继续使用包内 HTML、CSS 和 JavaScript，不获得宿主组件运行时。
+- 插件管理页继续使用包内静态 HTML、CSS 和 JavaScript 产物，不获得宿主组件运行时；官方插件的这些产物由 Vue 3、TypeScript 和 Vite 构建。
 - 三个分面共享颜色角色、字体层级、间距、圆角、状态语义和无障碍门槛，不共享框架组件。
 - 聊天图片模板属于渲染产物，不受本产品界面规范约束。

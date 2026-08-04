@@ -1,0 +1,15 @@
+contract: contracts/web-api.openapi.yaml
+case: ok
+description: Catalog installation resolves and verifies the target-platform asset on the server.
+request:
+  method: POST
+  path: /api/plugin-store/plugins/raylea.echo/install
+  body:
+    version: 0.2.0
+    trusted_code_confirmed: true
+response:
+  status: 202
+  body:
+    task_id: task_plugin_store_install_0001
+expect:
+  valid: true

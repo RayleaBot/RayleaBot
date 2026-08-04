@@ -56,7 +56,7 @@ FORBIDDEN_TOP_LEVEL_PATHS = {
     "examples",
     "fixtures",
     "launcher/src",
-    "plugins/runtime",
+    "plugins",
     "scripts",
     "sdk",
     "server",
@@ -186,22 +186,6 @@ def copy_release_tree(src: Path, dst: Path) -> None:
             target.mkdir(parents=True, exist_ok=True)
         else:
             copy_file(item, target)
-
-
-def copy_plugin_artifact_tree(src: Path, dst: Path) -> None:
-    if not src.is_dir():
-        raise ValueError(f"plugin artifact tree does not exist: {src}")
-    plugin_roots = sorted(path for path in src.iterdir() if path.is_dir())
-    if not plugin_roots:
-        raise ValueError("plugin artifact tree is empty")
-    unexpected_files = sorted(path.name for path in src.iterdir() if path.is_file())
-    if unexpected_files:
-        raise ValueError(f"plugin artifact tree contains files outside plugin roots: {unexpected_files}")
-    for plugin_root in plugin_roots:
-        for required in ("info.json", "artifact.json"):
-            if not (plugin_root / required).is_file():
-                raise ValueError(f"plugin artifact is missing {required}: {plugin_root}")
-    copy_tree(src, dst)
 
 
 def copy_deps_manifest(src: Path, dst: Path) -> None:
@@ -366,7 +350,6 @@ def stage_release_root(
     output_dir: Path,
     server_bin: Path,
     web_dist: Path,
-    builtin_dir: Path,
     deps_dir: Path,
     templates_dir: Path,
     default_config: Path,
@@ -412,7 +395,6 @@ def stage_release_root(
         copy_file(systemd_file, stage_root / "systemd" / "rayleabot.service")
 
     copy_release_tree(web_dist, stage_root / "web" / "dist")
-    copy_plugin_artifact_tree(builtin_dir, stage_root / "plugins" / "builtin")
     copy_deps_manifest(deps_dir, stage_root / ".deps")
     copy_release_tree(templates_dir, stage_root / "templates")
     copy_file(default_config, stage_root / "config" / "default.yaml")
@@ -704,7 +686,6 @@ def cmd_package(args: argparse.Namespace) -> int:
         output_dir=Path(args.output_dir),
         server_bin=Path(args.server_bin),
         web_dist=Path(args.web_dist),
-        builtin_dir=Path(args.builtin_dir),
         deps_dir=Path(args.deps_dir),
         templates_dir=Path(args.templates_dir),
         default_config=Path(args.default_config),
@@ -771,7 +752,6 @@ def build_parser() -> argparse.ArgumentParser:
     package.add_argument("--built-at")
     package.add_argument("--server-bin", required=True)
     package.add_argument("--web-dist", required=True)
-    package.add_argument("--builtin-dir", required=True)
     package.add_argument("--deps-dir", required=True)
     package.add_argument("--templates-dir", required=True)
     package.add_argument("--default-config", required=True)

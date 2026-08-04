@@ -59,13 +59,18 @@ func (r *SQLiteRepository) DeleteDesiredState(ctx context.Context, pluginID stri
 
 func (r *SQLiteRepository) SavePackageMetadata(ctx context.Context, pkg PackageMetadata) error {
 	if err := r.writeQ.SavePackageMetadata(ctx, sqlcgen.SavePackageMetadataParams{
-		PluginID:     pkg.PluginID,
-		SourceType:   pkg.SourceType,
-		SourceRef:    pkg.SourceRef,
-		Version:      pkg.Version,
-		ManifestHash: pkg.ManifestHash,
-		PackageHash:  pkg.PackageHash,
-		InstalledAt:  pkg.InstalledAt.UTC().Format(time.RFC3339Nano),
+		PluginID:          pkg.PluginID,
+		SourceType:        pkg.SourceType,
+		SourceRef:         pkg.SourceRef,
+		Version:           pkg.Version,
+		ManifestHash:      pkg.ManifestHash,
+		PackageHash:       pkg.PackageHash,
+		ArchiveHash:       pkg.ArchiveHash,
+		PublisherID:       pkg.PublisherID,
+		PublisherName:     pkg.PublisherName,
+		PublisherVerified: boolToInt64(pkg.PublisherVerified),
+		CatalogDigest:     pkg.CatalogDigest,
+		InstalledAt:       pkg.InstalledAt.UTC().Format(time.RFC3339Nano),
 	}); err != nil {
 		return fmt.Errorf("upsert plugin package metadata for %s: %w", pkg.PluginID, err)
 	}
@@ -89,14 +94,26 @@ func (r *SQLiteRepository) LoadAllPackageMetadata(ctx context.Context) (map[stri
 	for _, row := range rows {
 		installedAt, _ := time.Parse(time.RFC3339Nano, row.InstalledAt)
 		metadata[row.PluginID] = PackageMetadata{
-			PluginID:     row.PluginID,
-			SourceType:   row.SourceType,
-			SourceRef:    row.SourceRef,
-			Version:      row.Version,
-			ManifestHash: row.ManifestHash,
-			PackageHash:  row.PackageHash,
-			InstalledAt:  installedAt,
+			PluginID:          row.PluginID,
+			SourceType:        row.SourceType,
+			SourceRef:         row.SourceRef,
+			Version:           row.Version,
+			ManifestHash:      row.ManifestHash,
+			PackageHash:       row.PackageHash,
+			ArchiveHash:       row.ArchiveHash,
+			PublisherID:       row.PublisherID,
+			PublisherName:     row.PublisherName,
+			PublisherVerified: row.PublisherVerified == 1,
+			CatalogDigest:     row.CatalogDigest,
+			InstalledAt:       installedAt,
 		}
 	}
 	return metadata, nil
+}
+
+func boolToInt64(value bool) int64 {
+	if value {
+		return 1
+	}
+	return 0
 }

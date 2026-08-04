@@ -9,15 +9,15 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/runtimepaths"
 )
 
-func TestPluginDiscoveryContextIncludesBuiltinRoot(t *testing.T) {
+func TestPluginDiscoveryContextUsesOnlyInstalledRoot(t *testing.T) {
 	t.Parallel()
 
 	_, _, roots, err := runtimepaths.PluginDiscoveryContext(filepath.Join("..", "..", "..", "contracts", "config.user.schema.json"))
 	if err != nil {
 		t.Fatalf("runtimepaths.PluginDiscoveryContext failed: %v", err)
 	}
-	if len(roots) == 0 || roots[0].Label != "plugins/builtin" {
-		t.Fatalf("expected builtin root first, got %#v", roots)
+	if len(roots) != 1 || roots[0].Label != "plugins/installed" {
+		t.Fatalf("expected only installed root, got %#v", roots)
 	}
 }
 

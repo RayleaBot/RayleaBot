@@ -15,6 +15,7 @@ export const routes = {
   menuCenter: '菜单中心',
   thirdPartyAccounts: '三方账号',
   pluginCenter: '插件中心',
+  pluginStore: '插件商店',
   pluginList: '插件列表',
   pluginSettings: '插件设置',
   plugins: '插件列表',

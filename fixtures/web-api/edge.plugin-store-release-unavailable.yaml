@@ -1,0 +1,18 @@
+contract: contracts/web-api.openapi.yaml
+case: edge
+description: Store install fails when no verified artifact exists for the current platform.
+request:
+  method: POST
+  path: /api/plugin-store/plugins/raylea.fortune/install
+  body:
+    trusted_code_confirmed: true
+response:
+  status: 409
+  body:
+    error:
+      code: plugin.store_release_unavailable
+      message: 当前平台没有可安装的插件商店产物
+      message_key: errors.plugin.store_release_unavailable
+      request_id: req_fixture_store_release
+expect:
+  valid: true

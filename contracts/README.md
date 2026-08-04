@@ -6,7 +6,7 @@
 
 ### Fixture-ready 正式契约
 
-当前已有 13 份 fixture-ready formal contracts：
+当前已有 16 份 fixture-ready formal contracts：
 
 - `backup-manifest.schema.json`
 - `config.user.schema.json`
@@ -16,6 +16,9 @@
 - `websocket-events.yaml`
 - `plugin-info.schema.json`
 - `plugin-artifact.schema.json`
+- `plugin-store-catalog.schema.json`
+- `plugin-store-signature.schema.json`
+- `plugin-development-workspace.schema.json`
 - `plugin-management-ui.yaml`
 - `plugin-management-ui-bridge.schema.json`
 - `plugin-protocol.schema.json`
@@ -38,7 +41,7 @@
   - 统一错误码命名、默认消息资源键、HTTP 语义和适用范围
 - `web-api.openapi.yaml`
   - 当前已冻结的管理 HTTP 接口
-  - 当前包含 setup / cookie 与 Bearer session、launcher control、config snapshot/update、protocol snapshot / compatibility、OneBot target / identity resolution、plugin lifecycle、安装检查与可信代码确认、自定义插件管理页、plugin settings / secrets、third-party accounts、governance 管理面、logs / system / metrics、scheduler、recovery、runtime bootstrap、render templates 以及受信更新状态与检查入口
+  - 当前包含 setup / cookie 与 Bearer session、launcher control、config snapshot/update、protocol snapshot / compatibility、OneBot target / identity resolution、plugin lifecycle、插件商店、安装检查与可信代码确认、自定义插件管理页、plugin settings / secrets、third-party accounts、governance 管理面、logs / system / metrics、scheduler、recovery、runtime bootstrap、render templates 以及受信更新状态与检查入口
   - `PUT /api/config` response 固定返回 `apply_effects.applied_now`、`apply_effects.reloaded_now`、`apply_effects.restart_required_fields`
   - plugin lifecycle surface 统一使用正式 `state` 枚举与可选 `state_diagnosis`
 - `websocket-events.yaml`
@@ -47,7 +50,7 @@
 - `plugin-info.schema.json`
   - 插件 `info.json` 的安装前静态校验、兼容性门禁、能力声明、能力参数和迁移判断边界
   - 固定 `manifest_version: "2"`、`runtime: "go"`、`plugin_protocol_version: "1"`；`entry` 是 `bin/` 下无扩展名的逻辑路径，`platforms` 必填
-  - 当前已冻结 `default_config`、`default_config_file`、`role`、`icon`、`repo`、`homepage`、`keywords`、`screenshots`、`platforms`、`management_ui`、`commands`、`dynamic_commands`、`command_patterns`、`render_templates`、`help` 与插件详情页投影所需 metadata
+  - 当前已冻结 `default_config`、`default_config_file`、`icon`、`repo`、`homepage`、`keywords`、`screenshots`、`platforms`、`management_ui`、`commands`、`dynamic_commands`、`command_patterns`、`render_templates`、`help` 与插件详情页投影所需 metadata；官方、社区或开发身份不由 manifest 声明
   - `capabilities` 使用正式 capability 集合，覆盖基础 local action、治理 local action、冻结的 OneBot 单动作能力与 3 个正式 provider 扩展动作
   - `capability_parameters` 表达 `http.request`、`storage.file` 与 `event.expose_webhook` 的边界参数
   - `concurrency` 省略时按 `1` 处理，声明值用于插件事件并发 opt-in
@@ -55,6 +58,13 @@
 - `plugin-artifact.schema.json`
   - 平台插件包内 `artifact.json` 的正式文件清单、目标平台、manifest 摘要、文件角色、大小与 SHA-256 边界
   - `artifact.json` 不枚举自身；安装器额外要求文件全集精确匹配、且只有一个后端文件，管理页入口必须属于 UI 文件集合
+- `plugin-store-catalog.schema.json`
+  - 经过签名的静态商店目录结构，固定发布者身份、版本、最低核心版本、撤回状态和三平台资产 URL、大小及摘要
+  - 官方身份只能由已验证目录和安装元数据授予，不能由插件 manifest、目录名或仓库名推断
+- `plugin-store-signature.schema.json`
+  - `catalog.json` 原始字节的 SHA-256 与一至两个 Ed25519 签名 envelope，支持受控双签轮换
+- `plugin-development-workspace.schema.json`
+  - 被 Git 忽略的本地插件工作区配置，固定插件 ID、独立仓库路径和启用状态；只服务启动前构建与离线同步
 - `plugin-management-ui.yaml`
   - 插件内置管理页的独立来源、只读静态资源、CSP、cookie、CORS 和管理 API 隔离边界
   - 本机模式默认派生 `p-<id-hash>.plugins.localhost`；LAN 与反向代理模式要求显式配置 `web.plugin_ui_origin_template`
@@ -80,7 +90,7 @@
   - Ed25519 双签轮换、artifact 摘要与资源上限、更新协议、平台模式和 Windows signer 摘要
   - `SHA256SUMS.txt` 继续由 release tool 的生成与校验规则裁决，不作为独立 schema
 - `cli-commands.yaml`
-  - `reset-admin`、`backup`、`restore`、`doctor`、`cleanup`、`version --json`、`update check --json` 与 `update verify` 的正式命令模型
+  - `reset-admin`、`backup`、`restore`、`doctor`、`cleanup`、`plugin dev-sync`、`version --json`、`update check --json` 与 `update verify` 的正式命令模型
 
 ## 当前延后到后续版本的边界
 

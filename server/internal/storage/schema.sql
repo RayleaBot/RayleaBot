@@ -30,11 +30,16 @@ CREATE TABLE IF NOT EXISTS plugin_instances (
 
 CREATE TABLE IF NOT EXISTS plugin_packages (
     plugin_id TEXT PRIMARY KEY,
-    source_type TEXT NOT NULL CHECK (source_type IN ('local_directory', 'local_zip', 'remote_url')),
+    source_type TEXT NOT NULL CHECK (source_type IN ('local_directory', 'local_zip', 'remote_url', 'catalog', 'development')),
     source_ref TEXT NOT NULL,
     version TEXT NOT NULL,
     manifest_hash TEXT NOT NULL,
     package_hash TEXT NOT NULL,
+    archive_hash TEXT NOT NULL DEFAULT '',
+    publisher_id TEXT NOT NULL DEFAULT '',
+    publisher_name TEXT NOT NULL DEFAULT '',
+    publisher_verified INTEGER NOT NULL DEFAULT 0 CHECK (publisher_verified IN (0, 1)),
+    catalog_digest TEXT NOT NULL DEFAULT '',
     installed_at TEXT NOT NULL
 );
 

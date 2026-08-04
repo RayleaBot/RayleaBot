@@ -1,28 +1,28 @@
 # RayleaBot Plugin Management Surface
 
-本规范定义插件内置管理页与 Web 宿主工作区的视觉边界。项目级视觉语义以根目录 [`DESIGN.md`](../../DESIGN.md) 为准；插件页面能力、静态资源和 bridge 行为以 [`Plugin Management UI`](../plugin/management-ui.md) 与正式 contracts 为准。
+本规范定义插件包内管理页与 Web 宿主工作区的视觉边界。项目级视觉语义以根目录 [`DESIGN.md`](../../DESIGN.md) 为准；插件页面能力、静态资源和 bridge 行为以 [`Plugin Management UI`](../plugin/management-ui.md) 与正式 contracts 为准。
 
 ## 适用范围
 
-- 内置及官方插件页面完整遵循项目颜色、字体、密度、层次、状态和无障碍规范。
+- 官方插件页面完整遵循项目颜色、字体、密度、层次、状态和无障碍规范。
 - 第三方插件页面保持实现自治，只需满足宿主边界、主题兼容、键盘操作、对比度和 reduced-motion 包络。
 - 宿主负责页面标题、页签、可信代码确认、加载、错误、重试和退出工作区。
 - 插件页面负责自己的设置、敏感值、状态说明和业务操作，不复制宿主导航或全局页头。
 
 ## 技术边界
 
-- 页面继续使用插件包内 HTML、CSS 和 JavaScript，不加载宿主组件运行时或全局 store。
-- 官方页面通过本地 CSS variables 映射项目语义，不引入新的前端框架或共享运行时包。
+- 运行期页面只读取插件包内的 HTML、CSS 和 JavaScript 静态产物，不加载宿主组件运行时或全局 store。
+- 官方页面由独立插件仓库使用 Vue 3、TypeScript、Vite、按需 Ant Design Vue 和 `@rayleabot/plugin-ui` 构建；依赖随页面产物打包，不由宿主提供共享运行时。
 - 第三方页面不得假设宿主 CSS custom properties、字体资源或框架组件可用。
 - 页面业务交互继续只使用正式 bridge 和受保护管理接口，不增加视觉专用旁路。
 
 ## 主题兼容
 
-- 页面声明 `color-scheme: light dark`，并使用 `prefers-color-scheme` 提供完整亮暗主题。
+- 页面声明 `color-scheme: light dark`，并以 bridge v2 的 `host.init.theme` 为宿主主题来源；连接前可使用 `prefers-color-scheme` 提供无闪烁的初始主题。
 - 官方页面在两套主题中映射项目级画布、表面、文本、边界、冷色主操作、暖色人工关注和语义状态。
 - 第三方页面可以使用自己的品牌颜色，但文字、控件、焦点和状态必须满足 WCAG 2.2 AA，且颜色不得成为唯一信息。
-- 当前 `host.init` 不包含宿主主题字段，页面不得依赖未声明的主题消息或读取宿主内部状态。
-- 精确跟随宿主手动主题需要 contract-first 扩展 bridge，并同步 fixture、宿主、官方插件示例和文档。
+- 官方页面通过 Vue SDK 将 `host.init.theme.mode` 与允许的 token 映射到页面根节点，不读取宿主内部状态。
+- 主题字段或 token 集合发生变化时，先更新 bridge contract，再同步 fixture、宿主、Vue SDK、官方插件和文档。
 
 ## 宿主工作区
 

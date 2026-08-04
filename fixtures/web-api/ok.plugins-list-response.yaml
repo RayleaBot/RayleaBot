@@ -13,10 +13,10 @@ response:
         version: "1.2.3"
         description: 提供当前城市天气与未来天气查询。
         author: raylea
-        role: builtin
+        role: official
         state: running
         source:
-          root: plugins/builtin
+          root: plugins/installed/weather
           verified: true
         trust:
           level: official
@@ -47,7 +47,7 @@ response:
         version: "0.1.0"
         description: 查看今日运势。
         author: raylea
-        role: user
+        role: community
         state: running
         source:
           root: plugins/installed

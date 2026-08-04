@@ -10,7 +10,6 @@
   "license": "MIT",
   "description": "Go example plugin demonstrating scheduler.create.",
   "author": "raylea",
-  "role": "example",
   "capabilities": [
     "event.subscribe",
     "scheduler.create"

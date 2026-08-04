@@ -10,7 +10,7 @@ response:
     plugin:
       id: weather
       name: Weather
-      role: user
+      role: community
       state: stopping
       source:
         root: plugins/installed

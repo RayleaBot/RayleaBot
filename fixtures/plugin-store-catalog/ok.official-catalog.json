@@ -1,0 +1,37 @@
+{
+  "catalog_version": "1",
+  "generated_at": "2026-08-04T00:00:00Z",
+  "entries": [
+    {
+      "id": "raylea.echo",
+      "name": "Echo",
+      "summary": "回显收到的聊天消息。",
+      "publisher": {
+        "id": "rayleabot",
+        "name": "RayleaBot",
+        "verified": true
+      },
+      "repository_url": "https://github.com/RayleaBot/plugin-echo",
+      "license": "MIT",
+      "keywords": ["echo", "example"],
+      "recommended": true,
+      "releases": [
+        {
+          "version": "0.2.0",
+          "published_at": "2026-08-04T00:00:00Z",
+          "min_core_version": "0.1.0",
+          "yanked": false,
+          "assets": [
+            {
+              "platform": "windows-x64",
+              "url": "https://github.com/RayleaBot/plugin-echo/releases/download/v0.2.0/raylea.echo-0.2.0-windows-x64.zip",
+              "archive_size_bytes": 1048576,
+              "archive_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+              "manifest_sha256": "2222222222222222222222222222222222222222222222222222222222222222"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

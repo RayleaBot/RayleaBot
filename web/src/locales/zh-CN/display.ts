@@ -23,10 +23,9 @@ export const display = {
     invalid: '清单异常',
   },
   pluginRoles: {
-    builtin: '内置',
-    user: '用户',
-    example: '示例',
-    dev: '开发',
+    official: '官方',
+    community: '社区',
+    development: '开发',
   },
   logLevels: {
     debug: 'debug',

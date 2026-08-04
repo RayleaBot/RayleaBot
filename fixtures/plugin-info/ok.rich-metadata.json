@@ -12,7 +12,6 @@
     "license": "MIT",
     "description": "Weather plugin with full management metadata.",
     "author": "raylea",
-    "role": "user",
     "icon": "assets/weather.svg",
     "repo": "https://github.com/RayleaBot/plugins-weather",
     "homepage": "https://plugins.rayleabot.local/weather",

@@ -39,7 +39,11 @@ func buildConflictSnapshot(pluginID string, group []plugins.Snapshot) plugins.Sn
 }
 
 func shouldSkipPluginDiscoveryDir(name string) bool {
-	switch strings.TrimSpace(name) {
+	name = strings.TrimSpace(name)
+	if strings.HasPrefix(name, ".plugin-install-") {
+		return true
+	}
+	switch name {
 	case "__pycache__", ".pytest_cache", ".mypy_cache", ".ruff_cache":
 		return true
 	default:

@@ -10,7 +10,6 @@
   "license": "MIT",
   "description": "Go and Vue example plugin demonstrating config.read and config.write.",
   "author": "raylea",
-  "role": "example",
   "management_ui": {
     "pages": [
       {

@@ -12,13 +12,16 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/logging"
 )
 
-func TestDiscoverSkipsRuntimeCacheDirectoriesWithoutWarnings(t *testing.T) {
+func TestDiscoverSkipsInternalRuntimeDirectoriesWithoutWarnings(t *testing.T) {
 	t.Parallel()
 
 	repoRoot := t.TempDir()
-	builtinRoot := filepath.Join(repoRoot, "plugins", "builtin")
-	if err := os.MkdirAll(filepath.Join(builtinRoot, "__pycache__"), 0o755); err != nil {
+	installedRoot := filepath.Join(repoRoot, "plugins", "installed")
+	if err := os.MkdirAll(filepath.Join(installedRoot, "__pycache__"), 0o755); err != nil {
 		t.Fatalf("create pycache root: %v", err)
+	}
+	if err := os.MkdirAll(filepath.Join(installedRoot, ".plugin-install-fixture"), 0o755); err != nil {
+		t.Fatalf("create install staging root: %v", err)
 	}
 
 	validator := compilePluginInfoValidator(t)
@@ -27,7 +30,7 @@ func TestDiscoverSkipsRuntimeCacheDirectoriesWithoutWarnings(t *testing.T) {
 	snapshots, summary, err := Discover(DiscoverOptions{
 		Validator: validator,
 		Roots: []ScanRoot{
-			{Label: "plugins/builtin", Path: builtinRoot},
+			{Label: "plugins/installed", Path: installedRoot},
 		},
 		RepoRoot: repoRoot,
 		Logger:   logger,
@@ -42,8 +45,8 @@ func TestDiscoverSkipsRuntimeCacheDirectoriesWithoutWarnings(t *testing.T) {
 		t.Fatalf("unexpected skipped count: %#v", summary)
 	}
 	for _, item := range stream.Snapshot() {
-		if strings.Contains(item.Message, "info.json is missing") {
-			t.Fatalf("runtime cache directory should not warn about missing manifest: %#v", item)
+		if strings.Contains(item.Message, "缺少 info.json") {
+			t.Fatalf("internal runtime directory should not warn about missing manifest: %#v", item)
 		}
 	}
 }
@@ -52,8 +55,8 @@ func TestDiscoverWarnsForRealPluginDirectoryWithoutManifest(t *testing.T) {
 	t.Parallel()
 
 	repoRoot := t.TempDir()
-	builtinRoot := filepath.Join(repoRoot, "plugins", "builtin")
-	if err := os.MkdirAll(filepath.Join(builtinRoot, "sample"), 0o755); err != nil {
+	installedRoot := filepath.Join(repoRoot, "plugins", "installed")
+	if err := os.MkdirAll(filepath.Join(installedRoot, "sample"), 0o755); err != nil {
 		t.Fatalf("create plugin dir: %v", err)
 	}
 
@@ -63,7 +66,7 @@ func TestDiscoverWarnsForRealPluginDirectoryWithoutManifest(t *testing.T) {
 	snapshots, summary, err := Discover(DiscoverOptions{
 		Validator: validator,
 		Roots: []ScanRoot{
-			{Label: "plugins/builtin", Path: builtinRoot},
+			{Label: "plugins/installed", Path: installedRoot},
 		},
 		RepoRoot: repoRoot,
 		Logger:   logger,

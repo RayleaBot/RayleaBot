@@ -9,10 +9,10 @@ import (
 
 func TestDisplayUsesRelativePathWithinRepoRoot(t *testing.T) {
 	repoRoot := t.TempDir()
-	manifestPath := filepath.Join(repoRoot, "plugins", "builtin", "echo", "info.json")
+	manifestPath := filepath.Join(repoRoot, "plugins", "installed", "echo", "info.json")
 
 	got := Display(repoRoot, manifestPath)
-	if got != "plugins/builtin/echo/info.json" {
+	if got != "plugins/installed/echo/info.json" {
 		t.Fatalf("Display() = %q, want relative plugin path", got)
 	}
 }

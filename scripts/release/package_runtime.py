@@ -99,31 +99,6 @@ REQUIRED_PATHS = {
     },
 }
 
-PLUGIN_BACKENDS = {
-    "raylea.echo": "echo",
-    "raylea.fortune": "fortune",
-    "raylea.game-guide": "game-guide",
-    "raylea.subscription-hub": "subscription-hub",
-}
-PACKAGE_PLUGIN_TARGETS = {
-    "windows-x64-full": ("windows-x64", ".exe"),
-    "linux-x64-full": ("linux-x64", ""),
-    "macos-arm64-full": ("macos-arm64", ""),
-    "linux-x64-server": ("linux-x64", ""),
-}
-for package_id, (_, executable_suffix) in PACKAGE_PLUGIN_TARGETS.items():
-    for plugin_id, executable in PLUGIN_BACKENDS.items():
-        REQUIRED_PATHS[package_id].update(
-            {
-                f"plugins/builtin/{plugin_id}/info.json",
-                f"plugins/builtin/{plugin_id}/artifact.json",
-                f"plugins/builtin/{plugin_id}/bin/{executable}{executable_suffix}",
-                f"plugins/builtin/{plugin_id}/LICENSE",
-                f"plugins/builtin/{plugin_id}/THIRD_PARTY_NOTICES.md",
-                f"plugins/builtin/{plugin_id}/sbom.spdx.json",
-            }
-        )
-
 FORBIDDEN_TOP_LEVEL_PATHS = {
     ".github",
     "contracts",
@@ -131,7 +106,7 @@ FORBIDDEN_TOP_LEVEL_PATHS = {
     "examples",
     "fixtures",
     "launcher/src",
-    "plugins/runtime",
+    "plugins",
     "scripts",
     "sdk",
     "server",

@@ -8,12 +8,14 @@ import (
 	"path/filepath"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
+	"github.com/RayleaBot/RayleaBot/server/internal/pluginmarket"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	localaction "github.com/RayleaBot/RayleaBot/server/internal/plugins/actions"
 	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
 	pluginservice "github.com/RayleaBot/RayleaBot/server/internal/plugins/lifecycle"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins/pluginstore"
 	pluginwebhook "github.com/RayleaBot/RayleaBot/server/internal/plugins/webhook"
+	"github.com/RayleaBot/RayleaBot/server/internal/recovery"
 	"github.com/RayleaBot/RayleaBot/server/internal/runtimepaths"
 	"github.com/RayleaBot/RayleaBot/server/internal/tasks"
 )
@@ -32,6 +34,7 @@ type pluginStackDeps struct {
 type PluginStackState struct {
 	Plugins           *plugincatalog.Catalog
 	PluginInstaller   plugins.InstallCoordinator
+	PluginStore       pluginmarket.ServiceAPI
 	PluginUninstaller plugins.UninstallCoordinator
 	PluginRepository  plugins.DesiredStateRepository
 	PluginConfig      pluginstore.ConfigRepository
@@ -67,10 +70,23 @@ func buildPluginStack(deps pluginStackDeps) (PluginStackState, error) {
 	if err != nil {
 		return PluginStackState{}, err
 	}
+	marketInstaller, ok := pluginInstallService.(pluginmarket.Installer)
+	if !ok {
+		_ = pluginInstallService.Close()
+		return PluginStackState{}, errors.New("plugin installer does not expose inspection")
+	}
+	pluginStore, err := pluginmarket.New(deps.Catalog, marketInstaller, pluginmarket.Options{
+		CoreVersion: recovery.DetectCoreVersion(deps.Discovery.RepoRoot),
+	})
+	if err != nil {
+		_ = pluginInstallService.Close()
+		return PluginStackState{}, fmt.Errorf("create plugin store: %w", err)
+	}
 
 	return PluginStackState{
 		Plugins:           deps.Catalog,
 		PluginInstaller:   pluginInstallService,
+		PluginStore:       pluginStore,
 		PluginUninstaller: pluginUninstallService,
 		PluginRepository:  pluginRepository,
 		PluginConfig:      pluginConfigRepository,

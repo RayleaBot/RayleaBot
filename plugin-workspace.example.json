@@ -1,0 +1,21 @@
+{
+  "workspace_version": "1",
+  "plugins": [
+    {
+      "id": "raylea.echo",
+      "path": "../RayleaBotPlugins/plugin-echo"
+    },
+    {
+      "id": "raylea.fortune",
+      "path": "../RayleaBotPlugins/plugin-fortune"
+    },
+    {
+      "id": "raylea.game-guide",
+      "path": "../RayleaBotPlugins/plugin-game-guide"
+    },
+    {
+      "id": "raylea.subscription-hub",
+      "path": "../RayleaBotPlugins/plugin-subscription-hub"
+    }
+  ]
+}

@@ -95,7 +95,7 @@ export const usePluginsStore = defineStore('plugins', () => {
       version: plugin.version ?? previous?.version,
       description: plugin.description ?? previous?.description,
       author: plugin.author ?? previous?.author,
-      role: plugin.role ?? previous?.role ?? 'user',
+      role: plugin.role ?? previous?.role ?? 'community',
       state: plugin.state,
       state_diagnosis: plugin.state_diagnosis,
       source: plugin.source ?? previous?.source,

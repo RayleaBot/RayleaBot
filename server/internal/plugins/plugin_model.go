@@ -101,59 +101,63 @@ type HelpItem struct {
 }
 
 type Snapshot struct {
-	PluginID                string
-	Name                    string
-	Role                    string
-	Version                 string
-	Author                  string
-	License                 string
-	ManifestVersion         string
-	PluginProtocolVersion   string
-	MinCoreVersion          string
-	DataSchemaVersion       string
-	Concurrency             int
-	Platforms               []string
-	Runtime                 string
-	Entry                   string
-	Description             string
-	Icon                    string
-	Repo                    string
-	Homepage                string
-	Keywords                []string
-	Screenshots             []Screenshot
-	ManagementUI            *ManagementUI
-	RenderTemplates         []RenderTemplate
-	Help                    *Help
-	ArtifactVersion         string
-	ArtifactTargetPlatform  string
-	ArtifactManifestSHA256  string
-	ArtifactBackendSHA256   string
-	ArtifactFileCount       int
-	ArtifactUIAvailable     bool
-	DefaultConfig           map[string]any
-	ManifestPath            string
-	PackageRootPath         string
-	SourceRoot              string
-	SourceRoots             []string
-	PackageSourceType       string
-	PackageSourceRef        string
-	Valid                   bool
-	ValidationSummary       string
-	RegistrationState       string
-	DesiredState            string
-	RuntimeState            string
-	DisplayState            string
-	DeadLetter              *DeadLetterSnapshot
-	ConflictPaths           []string
-	DeclaredCapabilities    []string
-	ScopeHTTPHosts          []string
-	ScopeStorageRoots       []string
-	ScopeThirdPartyAccounts []string
-	ScopeWebhooks           []WebhookScope
-	Commands                []Command
-	ManifestCommands        []Command
-	CommandPatterns         []CommandPatternDecl
-	DynamicCommands         []DynamicCommandDecl
+	PluginID                 string
+	Name                     string
+	Role                     string
+	Version                  string
+	Author                   string
+	License                  string
+	ManifestVersion          string
+	PluginProtocolVersion    string
+	MinCoreVersion           string
+	DataSchemaVersion        string
+	Concurrency              int
+	Platforms                []string
+	Runtime                  string
+	Entry                    string
+	Description              string
+	Icon                     string
+	Repo                     string
+	Homepage                 string
+	Keywords                 []string
+	Screenshots              []Screenshot
+	ManagementUI             *ManagementUI
+	RenderTemplates          []RenderTemplate
+	Help                     *Help
+	ArtifactVersion          string
+	ArtifactTargetPlatform   string
+	ArtifactManifestSHA256   string
+	ArtifactBackendSHA256    string
+	ArtifactFileCount        int
+	ArtifactUIAvailable      bool
+	DefaultConfig            map[string]any
+	ManifestPath             string
+	PackageRootPath          string
+	SourceRoot               string
+	SourceRoots              []string
+	PackageSourceType        string
+	PackageSourceRef         string
+	PackagePublisherID       string
+	PackagePublisherName     string
+	PackagePublisherVerified bool
+	PackageCatalogDigest     string
+	Valid                    bool
+	ValidationSummary        string
+	RegistrationState        string
+	DesiredState             string
+	RuntimeState             string
+	DisplayState             string
+	DeadLetter               *DeadLetterSnapshot
+	ConflictPaths            []string
+	DeclaredCapabilities     []string
+	ScopeHTTPHosts           []string
+	ScopeStorageRoots        []string
+	ScopeThirdPartyAccounts  []string
+	ScopeWebhooks            []WebhookScope
+	Commands                 []Command
+	ManifestCommands         []Command
+	CommandPatterns          []CommandPatternDecl
+	DynamicCommands          []DynamicCommandDecl
 }
 
 // DeadLetterSnapshot captures the context recorded when a plugin runtime
@@ -174,13 +178,18 @@ type DesiredStateRepository interface {
 }
 
 type PackageMetadata struct {
-	PluginID     string
-	SourceType   string
-	SourceRef    string
-	Version      string
-	ManifestHash string
-	PackageHash  string
-	InstalledAt  time.Time
+	PluginID          string
+	SourceType        string
+	SourceRef         string
+	Version           string
+	ManifestHash      string
+	PackageHash       string
+	ArchiveHash       string
+	PublisherID       string
+	PublisherName     string
+	PublisherVerified bool
+	CatalogDigest     string
+	InstalledAt       time.Time
 }
 
 type PackageRepository interface {
@@ -193,11 +202,21 @@ type PackageMetadataLoader interface {
 }
 
 type InstallRequest struct {
-	SourceType           string
-	Source               string
-	InspectionID         string
-	PackageSHA256        string
-	TrustedCodeConfirmed bool
+	SourceType             string
+	Source                 string
+	ResolvedSourceType     string
+	ResolvedSource         string
+	ExpectedArchiveSize    int64
+	ExpectedArchiveSHA256  string
+	ExpectedManifestSHA256 string
+	ReplaceExisting        bool
+	PublisherID            string
+	PublisherName          string
+	PublisherVerified      bool
+	CatalogDigest          string
+	InspectionID           string
+	PackageSHA256          string
+	TrustedCodeConfirmed   bool
 }
 
 type InstallBackendInspection struct {
@@ -338,6 +357,10 @@ func ApplyPackageMetadata(entries []Snapshot, metadata map[string]PackageMetadat
 		if pkg, ok := metadata[cloned.PluginID]; ok {
 			cloned.PackageSourceType = pkg.SourceType
 			cloned.PackageSourceRef = pkg.SourceRef
+			cloned.PackagePublisherID = pkg.PublisherID
+			cloned.PackagePublisherName = pkg.PublisherName
+			cloned.PackagePublisherVerified = pkg.PublisherVerified
+			cloned.PackageCatalogDigest = pkg.CatalogDigest
 		}
 		enriched = append(enriched, cloned)
 	}

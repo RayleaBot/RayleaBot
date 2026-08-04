@@ -249,7 +249,10 @@ func runGoBuild(ctx context.Context, config Config, pluginDir string, target tar
 	}
 	cmd := exec.CommandContext(ctx, command, "build", "-trimpath", "-buildvcs=false", "-ldflags=-s -w -buildid=", "-o", output, ".")
 	cmd.Dir = pluginDir
-	cmd.Env = append(os.Environ(), "CGO_ENABLED=0", "GOWORK=off", "GOOS="+target.GOOS, "GOARCH="+target.GOARCH)
+	cmd.Env = append(os.Environ(), "CGO_ENABLED=0", "GOOS="+target.GOOS, "GOARCH="+target.GOARCH)
+	if os.Getenv("RAYLEA_PLUGIN_BUILD_USE_WORKSPACE") != "1" {
+		cmd.Env = append(cmd.Env, "GOWORK=off")
+	}
 	outputBytes, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("pluginbuild: go build failed: %w: %s", err, strings.TrimSpace(string(outputBytes)))

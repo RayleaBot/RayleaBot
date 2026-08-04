@@ -53,19 +53,18 @@ class SmokeReleaseTests(unittest.TestCase):
             self.assertNotIn("contracts/config.user.schema.json", entries)
             self.assertIn("web/dist/index.html", entries)
 
-    def test_forbidden_development_entries_are_rejected(self) -> None:
+    def test_packaged_plugin_entries_are_rejected(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            (root / "plugins" / "builtin" / "fortune" / "tests").mkdir(parents=True)
-            (root / "plugins" / "builtin" / "fortune" / "tests" / "test_fortune.py").write_text(
-                "def test_fortune(): pass\n",
-                encoding="utf-8",
+            (root / "plugins" / "installed" / "fortune" / "bin").mkdir(parents=True)
+            (root / "plugins" / "installed" / "fortune" / "bin" / "fortune").write_bytes(
+                b"compiled-plugin",
             )
 
             with self.assertRaises(RuntimeError) as ctx:
                 ensure_no_forbidden_paths(root)
 
-        self.assertIn("test_fortune.py", str(ctx.exception))
+        self.assertIn("plugins/installed/fortune", str(ctx.exception).replace("\\", "/"))
 
 
 if __name__ == "__main__":

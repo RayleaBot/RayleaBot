@@ -10,7 +10,6 @@
   "license": "MIT",
   "description": "Contract-aligned Go example plugin for the minimum init and event/result flow.",
   "author": "raylea",
-  "role": "example",
   "icon": "assets/icon.svg",
   "repo": "https://github.com/RayleaBot/RayleaBot",
   "homepage": "https://rayleabot.local/plugins/hello-go",

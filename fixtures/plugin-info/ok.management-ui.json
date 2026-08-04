@@ -13,7 +13,6 @@
     "license": "MIT",
     "description": "Python example plugin demonstrating config.read and config.write.",
     "author": "raylea",
-    "role": "example",
     "management_ui": {
       "pages": [
         {

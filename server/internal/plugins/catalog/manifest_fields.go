@@ -72,24 +72,6 @@ func manifestConcurrency(document map[string]any) int {
 	return 1
 }
 
-func manifestRole(document map[string]any, sourceRoot string) string {
-	role := stringField(document, "role")
-	if role != "" {
-		return role
-	}
-
-	switch sourceRoot {
-	case "plugins/builtin":
-		return "builtin"
-	case "examples/plugins":
-		return "example"
-	case "plugins/dev":
-		return "dev"
-	default:
-		return "user"
-	}
-}
-
 func manifestObjectField(document map[string]any, key string) map[string]any {
 	value, ok := document[key].(map[string]any)
 	if !ok {
@@ -99,9 +81,7 @@ func manifestObjectField(document map[string]any, key string) map[string]any {
 }
 
 func defaultDesiredStateForSourceRoot(sourceRoot string) string {
-	if sourceRoot == "plugins/builtin" {
-		return plugins.DesiredStateEnabled
-	}
+	_ = sourceRoot
 	return plugins.DesiredStateDisabled
 }
 

@@ -50,11 +50,11 @@ func newPreparedTestRuntimeRoot(t *testing.T) string {
 	t.Helper()
 
 	root := testutil.NewPreparedTestRuntimeRoot(t)
-	writeIntegrationBuiltinPluginFixtures(t, root)
+	writeIntegrationInstalledPluginFixtures(t, root)
 	return root
 }
 
-func writeIntegrationBuiltinPluginFixtures(t *testing.T, repoRoot string) {
+func writeIntegrationInstalledPluginFixtures(t *testing.T, repoRoot string) {
 	t.Helper()
 	testutil.WriteEchoGoPluginArtifact(t, repoRoot)
 }

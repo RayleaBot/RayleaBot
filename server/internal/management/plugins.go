@@ -316,6 +316,8 @@ func writePluginInstallError(w http.ResponseWriter, r *http.Request, err error) 
 		writeError(w, r, http.StatusBadRequest, "plugin.artifact_invalid", "插件产物清单或文件完整性校验失败", "errors.plugin.artifact_invalid", nil)
 	case pluginservice.InstallErrorCode(err) == "plugin.platform_mismatch":
 		writeError(w, r, http.StatusConflict, "plugin.platform_mismatch", "插件产物与当前平台不匹配", "errors.plugin.platform_mismatch", nil)
+	case pluginservice.InstallErrorCode(err) == "plugin.store_integrity_mismatch":
+		writeError(w, r, http.StatusConflict, "plugin.store_integrity_mismatch", "插件商店产物与签名目录不一致", "errors.plugin.store_integrity_mismatch", nil)
 	case pluginservice.InstallErrorCode(err) == "platform.invalid_request" || pluginservice.InstallErrorCode(err) == "platform.resource_missing":
 		writeError(w, r, http.StatusBadRequest, pluginCodeInvalidRequest, "请求参数不合法", "errors.platform.invalid_request", nil)
 	default:
@@ -409,13 +411,9 @@ func writePluginDetailResponse(w http.ResponseWriter, catalog plugins.CatalogVie
 func newUninstallHandler(catalog plugins.CatalogView, coordinator UninstallCoordinator) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		pluginID := chi.URLParam(r, "plugin_id")
-		snapshot, ok := catalog.Get(pluginID)
+		_, ok := catalog.Get(pluginID)
 		if !ok {
 			writeError(w, r, 404, pluginCodeResourceMissing, "缺少必要资源", "errors.platform.resource_missing", map[string]any{"resource_type": "plugin", "plugin_id": pluginID})
-			return
-		}
-		if snapshot.SourceRoot == "plugins/builtin" {
-			writeError(w, r, http.StatusConflict, pluginCodeInvalidRequest, "请求参数不合法", "errors.platform.invalid_request", map[string]any{"plugin_id": pluginID})
 			return
 		}
 		if coordinator == nil {

@@ -237,7 +237,6 @@ jobs:
           go-version-file: sdk/go/go.mod
           cache-dependency-path: |
             sdk/go/go.mod
-            plugins/builtin/*/go.mod
             examples/plugins/*/go.mod
 
       - name: Setup pnpm
@@ -250,32 +249,29 @@ jobs:
         with:
           node-version: "24.18.0"
 
-      - name: Run Go SDK and plugin race tests
+      - name: Run Go SDK and example race tests
         shell: bash
         run: |
           set -euo pipefail
-          for module in sdk/go plugins/builtin/* examples/plugins/*; do
+          for module in sdk/go examples/plugins/*; do
             if [ -f "$module/go.mod" ]; then
               (cd "$module" && GOWORK=off go test -race ./...)
             fi
           done
 
-      - name: Install Vue SDK and plugin UI dependencies
+      - name: Install Vue SDK and example UI dependencies
         shell: bash
         run: |
           set -euo pipefail
-          for project in sdk/vue plugins/builtin/fortune/ui plugins/builtin/subscription_hub/ui examples/plugins/example-config-panel/ui; do
+          for project in sdk/vue examples/plugins/example-config-panel/ui; do
             pnpm --dir "$project" install --frozen-lockfile
             pnpm --dir "$project" typecheck
             pnpm --dir "$project" test
             pnpm --dir "$project" build
           done
 
-      - name: Build and validate all platform artifacts
-        run: |
-          python scripts/release/build_plugin_artifacts.py --target windows-x64 --output dist/plugin-artifacts --include-examples
-          python scripts/release/build_plugin_artifacts.py --target linux-x64 --output dist/plugin-artifacts --include-examples
-          python scripts/release/build_plugin_artifacts.py --target macos-arm64 --output dist/plugin-artifacts --include-examples
+      - name: Test plugin development workspace
+        run: node --test scripts/tests/plugin-dev-workspace.test.mjs
 
   release-helper:
     if: needs.changes.outputs.release == 'true'
@@ -343,9 +339,6 @@ jobs:
         run: |
           pnpm --dir web install --frozen-lockfile
           pnpm --dir launcher install --frozen-lockfile
-          pnpm --dir sdk/vue install --frozen-lockfile
-          pnpm --dir plugins/builtin/fortune/ui install --frozen-lockfile
-          pnpm --dir plugins/builtin/subscription_hub/ui install --frozen-lockfile
           cd server && go mod download
 
       - name: Check third-party notice drift

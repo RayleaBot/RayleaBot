@@ -14,21 +14,24 @@ func TestListPluginsReturnsContractShape(t *testing.T) {
 
 	router := pluginRouter(t, plugincatalog.New([]plugins.Snapshot{
 		{
-			PluginID:          "raylea.echo",
-			Valid:             true,
-			RegistrationState: "installed",
-			DesiredState:      "enabled",
-			RuntimeState:      "running",
-			DisplayState:      "running",
-			Name:              "Echo",
-			Description:       "Built-in echo command",
-			SourceRoot:        "plugins/builtin",
+			PluginID:                 "raylea.echo",
+			Valid:                    true,
+			RegistrationState:        "installed",
+			DesiredState:             "enabled",
+			RuntimeState:             "running",
+			DisplayState:             "running",
+			Name:                     "Echo",
+			Description:              "Official echo command",
+			SourceRoot:               "plugins/installed",
+			PackageSourceType:        "catalog",
+			PackageSourceRef:         "official/raylea.echo@0.2.0/windows-x64",
+			PackagePublisherVerified: true,
 			Commands: []plugins.Command{
 				{Name: "echo"},
 			},
 			Help: &plugins.Help{
 				Title:   "Echo",
-				Summary: "Built-in echo command",
+				Summary: "Official echo command",
 				Groups: []plugins.HelpGroup{{
 					Title: "基础指令",
 					Items: []plugins.HelpItem{{
@@ -49,7 +52,6 @@ func TestListPluginsReturnsContractShape(t *testing.T) {
 			RuntimeState:      "running",
 			DisplayState:      "running",
 			Name:              "Weather",
-			Role:              "user",
 			SourceRoot:        "plugins/installed",
 			PackageSourceType: "local_zip",
 			PackageSourceRef:  "C:/plugins/weather.zip",
@@ -85,8 +87,9 @@ func TestListPluginsReturnsContractShape(t *testing.T) {
 			RuntimeState:      "running",
 			DisplayState:      "running",
 			Name:              "Weather Admin",
-			Role:              "dev",
-			SourceRoot:        "plugins/dev",
+			SourceRoot:        "plugins/installed",
+			PackageSourceType: "development",
+			PackageSourceRef:  "C:/workspace/weather-admin",
 			Commands: []plugins.Command{
 				{Name: "weather"},
 			},
@@ -143,30 +146,30 @@ func TestListPluginsReturnsContractShape(t *testing.T) {
 		byID[itemMap["id"].(string)] = itemMap
 	}
 
-	builtin := byID["raylea.echo"]
-	if builtin["state"] != "running" {
-		t.Fatalf("raylea.echo state = %v, want running", builtin["state"])
+	official := byID["raylea.echo"]
+	if official["state"] != "running" {
+		t.Fatalf("raylea.echo state = %v, want running", official["state"])
 	}
-	if builtin["role"] != "builtin" {
-		t.Fatalf("raylea.echo role = %v, want builtin", builtin["role"])
+	if official["role"] != "official" {
+		t.Fatalf("raylea.echo role = %v, want official", official["role"])
 	}
-	if conflicts := builtin["command_conflicts"].([]any); len(conflicts) != 0 {
+	if conflicts := official["command_conflicts"].([]any); len(conflicts) != 0 {
 		t.Fatalf("raylea.echo command_conflicts = %#v, want []", conflicts)
 	}
-	assertCommandList(t, builtin["commands"], []map[string]any{
+	assertCommandList(t, official["commands"], []map[string]any{
 		{
 			"name":           "echo",
 			"command_source": "manifest",
 		},
 	})
-	assertPluginHelp(t, builtin["help"], "Echo", "基础指令", "复读内容")
+	assertPluginHelp(t, official["help"], "Echo", "基础指令", "复读内容")
 
 	weather := byID["weather"]
 	if weather["name"] != "Weather" {
 		t.Fatalf("weather name = %v, want Weather", weather["name"])
 	}
-	if weather["role"] != "user" {
-		t.Fatalf("weather role = %v, want user", weather["role"])
+	if weather["role"] != "community" {
+		t.Fatalf("weather role = %v, want community", weather["role"])
 	}
 	source := weather["source"].(map[string]any)
 	if source["root"] != "plugins/installed" {
@@ -204,8 +207,8 @@ func TestListPluginsReturnsContractShape(t *testing.T) {
 	assertPluginHelp(t, weather["help"], "Weather", "查询", "城市天气")
 
 	devPlugin := byID["weather-admin"]
-	if devPlugin["role"] != "dev" {
-		t.Fatalf("weather-admin role = %v, want dev", devPlugin["role"])
+	if devPlugin["role"] != "development" {
+		t.Fatalf("weather-admin role = %v, want development", devPlugin["role"])
 	}
 	devTrust := devPlugin["trust"].(map[string]any)
 	if devTrust["level"] != "development" {

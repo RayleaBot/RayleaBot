@@ -120,7 +120,7 @@ func TestUninstallPluginRejectsNotFound(t *testing.T) {
 	}
 }
 
-func TestUninstallBuiltinPluginRejected(t *testing.T) {
+func TestUninstallInstalledPluginAcceptedRegardlessOfFormerDistribution(t *testing.T) {
 	t.Parallel()
 
 	catalog := plugincatalog.New([]plugins.Snapshot{
@@ -130,7 +130,7 @@ func TestUninstallBuiltinPluginRejected(t *testing.T) {
 			RegistrationState: "installed",
 			DesiredState:      "enabled",
 			RuntimeState:      "stopped",
-			SourceRoot:        "plugins/builtin",
+			SourceRoot:        "plugins/installed",
 		},
 	})
 	uninstaller := &stubUninstallCoordinator{taskID: "should-not-run"}
@@ -140,13 +140,10 @@ func TestUninstallBuiltinPluginRejected(t *testing.T) {
 	recorder := httptest.NewRecorder()
 	router.ServeHTTP(recorder, request)
 
-	if recorder.Code != 409 {
-		t.Fatalf("unexpected status: got %d want 409", recorder.Code)
+	if recorder.Code != 202 {
+		t.Fatalf("unexpected status: got %d want 202", recorder.Code)
 	}
-
-	body := decodeBody(t, recorder.Body.Bytes())
-	errorBody := body["error"].(map[string]any)
-	if errorBody["code"] != "platform.invalid_request" {
-		t.Fatalf("unexpected error code: %v", errorBody["code"])
+	if uninstaller.pluginID != "raylea.echo" {
+		t.Fatalf("uninstaller plugin id = %q", uninstaller.pluginID)
 	}
 }

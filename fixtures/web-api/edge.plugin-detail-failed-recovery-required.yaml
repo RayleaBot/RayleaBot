@@ -10,7 +10,7 @@ response:
     plugin:
       id: weather
       name: Weather
-      role: user
+      role: community
       state: failed
       state_diagnosis:
         kind: recovery_required

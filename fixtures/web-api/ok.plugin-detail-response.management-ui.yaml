@@ -10,7 +10,7 @@ response:
     plugin:
       id: example-config-panel
       name: Example Config Panel
-      role: example
+      role: community
       version: 0.2.0
       runtime: go
       entry: bin/example-config-panel

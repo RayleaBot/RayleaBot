@@ -10,18 +10,20 @@ v0.3 聚焦四条主线：
 
 - 管理治理：权限策略、黑白名单、限流和命令治理共享正式状态与错误语义。
 - 插件信任：只安装平台预编译 Go artifact，安装前检查来源、manifest、文件全集、摘要、平台、二进制和能力，并要求用户确认可信代码风险。
+- 插件分发：主仓库不携带业务插件；签名静态目录、独立插件 Release 和本地开发同步统一复用安装器。
 - 自定义管理页：插件提供 Vue 静态产物；宿主从独立插件域加载受限 iframe，正式交互只通过 bridge v2 的 nonce-bound `MessageChannel` 完成。
 - 发布信任与更新：Web、Launcher 和 CLI 共享签名发布元数据、更新状态、校验规则和恢复语义。
 
-以下能力不属于 v0.3：插件市场、插件间依赖解析、插件 OS 强沙盒、多实例高可用和非 OneBot 多协议。第三方插件按完全可信的本地代码管理。
+以下能力不属于 v0.3：发布者自助上架、评分评论、付费市场、插件间依赖解析、插件 OS 强沙盒、多实例高可用和非 OneBot 多协议。当前商店只消费受信签名静态目录；第三方插件按完全可信的本地代码管理。
 
 ## 阶段总览
 
 | 阶段 | 名称 | 状态 | 完成条件 |
 | --- | --- | --- | --- |
 | Phase 1 | Governance / Commands | ☑️ | 权限、名单、限流和命令治理使用正式 contract 与服务端状态源 |
-| Phase 2 | Trusted Plugin Sources / Custom Management UI | ☑️ | 安装检查、可信代码确认、自定义页面静态路由、bridge 和内置页面验收全部通过 |
+| Phase 2 | Trusted Plugin Sources / Custom Management UI | ☑️ | 安装检查、可信代码确认、自定义页面静态路由、bridge 和插件包内页面验收全部通过 |
 | Phase 2.5 | Go Artifact Runtime / Vue Plugin UI | ☑️ | manifest v2、artifact v1、Go SDK/插件、Vue SDK/页面、三平台构建与断代重置全部通过 |
+| Phase 2.6 | Independent Plugin Store / Development Workspace | 🟡 | 无内置插件、签名目录、统一安装、独立发布和本地同步开发全部通过 |
 | Phase 3 | Release Trust / Automatic Update | ❌ | 可信元数据、更新核心、Windows 事务安装和真实签名 packaged E2E 全部通过 |
 | Phase 4 | Companion Updates / Acceptance | 🟡 | contracts、fixtures、generated types、实现、SDK、发布物、测试和文档无漂移 |
 
@@ -53,7 +55,7 @@ v0.3 聚焦四条主线：
 | --- | --- | --- |
 | 安装检查与确认 contract | ☑️ | inspection、摘要、确认和错误语义已进入正式 contract |
 | 自定义管理页 contract | ☑️ | manifest HTML 入口、静态路由和 bridge 消息已冻结 |
-| 内置插件页面 | ☑️ | Fortune 与 Subscription Hub 的自定义页面、资源和 bridge 交互通过 |
+| 独立插件页面 | ☑️ | Fortune 与 Subscription Hub 的自定义页面、资源和 bridge 交互通过 |
 | 插件页面交付边界 | ☑️ | 页面资源限制在声明目录内，管理能力通过受保护 API 与正式 bridge 提供 |
 
 ## Phase 2.5 — Go Artifact Runtime / Vue Plugin UI
@@ -64,6 +66,15 @@ v0.3 聚焦四条主线：
 - Fortune、Subscription Hub 与示例配置页使用 Vue 3、TypeScript、Vite 和 `@rayleabot/plugin-ui`，资源与后端同包分离存放。
 - Python/Node 插件 runtime、SDK、依赖准备器、安装脚本和旧 bridge 已删除；`.deps` v4 只保留 Chromium。
 - 旧插件 epoch 不做数据转换，恢复与原位升级返回 `plugin.reset_required`；管理员、OneBot、治理和审计状态不参与插件重置。
+
+## Phase 2.6 — Independent Plugin Store / Development Workspace
+
+- 主仓库不包含业务插件源码或产物，运行时只发现 `plugins/installed/`。
+- 四个原业务插件分别由独立 Git 仓库构建三平台 GitHub Release；核心 release 不构建或打包业务插件。
+- Server 验证 Ed25519 签名静态目录并向 Web 提供 `/api/plugin-store/**`；Web 不直连目录、GitHub 资产或插件 API。
+- 商店安装、本地 artifact 安装和 `plugin dev-sync` 复用同一套 artifact 校验、来源元数据和原子替换/回滚。
+- `plugin-workspace.local.json`、临时 Go workspace 和 Vue SDK 镜像支持框架与插件同步开发，且不改写独立插件仓库的正式依赖。
+- 详细信任边界、发布顺序和本地命令以 [`plugin/store-and-development.md`](./plugin/store-and-development.md) 为准。
 
 ## Phase 3 — Release Trust / Automatic Update
 

@@ -174,7 +174,7 @@ describe('PluginDetailPage', () => {
     pluginsStore.current = {
       id: 'weather',
       name: 'Weather',
-      role: 'user',
+      role: 'community',
         state: 'running',
       version: '1.4.2',
       runtime: 'go',
@@ -331,7 +331,7 @@ describe('PluginDetailPage', () => {
     pluginsStore.current = {
       id: 'weather',
       name: 'Weather',
-      role: 'user',
+      role: 'community',
         state: 'running',
       source: {
         root: 'plugins/installed',
@@ -382,7 +382,7 @@ describe('PluginDetailPage', () => {
     pluginsStore.current = {
       id: 'weather',
       name: 'Weather',
-      role: 'user',
+      role: 'community',
         state: 'running',
       source: {
         root: 'plugins/installed',
@@ -460,7 +460,7 @@ describe('PluginDetailPage', () => {
     pluginsStore.current = {
       id: 'weather',
       name: 'Weather',
-      role: 'user',
+      role: 'community',
         state: 'running',
       source: {
         root: 'plugins/installed',
@@ -522,7 +522,7 @@ describe('PluginDetailPage', () => {
         resolveDetail = () => resolve({
           id: 'weather',
           name: 'Weather',
-          role: 'user',
+          role: 'community',
         state: 'running',
           source: {
             root: 'plugins/installed',
@@ -573,7 +573,7 @@ describe('PluginDetailPage', () => {
     const detail = {
       id: 'example-config-panel',
       name: 'Example Config Panel',
-      role: 'example',
+      role: 'community',
         state: 'disabled',
       version: '0.2.0',
       runtime: 'go',
@@ -666,7 +666,7 @@ describe('PluginDetailPage', () => {
     const detail = {
       id: 'example-config-panel',
       name: 'Example Config Panel',
-      role: 'example',
+      role: 'community',
         state: 'disabled',
       version: '0.2.0',
       runtime: 'go',

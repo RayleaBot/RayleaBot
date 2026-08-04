@@ -12,7 +12,6 @@
     "license": "MIT",
     "description": "Game guide plugin with command pattern declarations",
     "author": "raylea",
-    "role": "user",
     "capabilities": [
       "event.subscribe"
     ],

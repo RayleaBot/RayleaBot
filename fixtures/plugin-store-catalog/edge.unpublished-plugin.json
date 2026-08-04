@@ -1,0 +1,21 @@
+{
+  "catalog_version": "1",
+  "generated_at": "2026-08-04T00:00:00Z",
+  "entries": [
+    {
+      "id": "raylea.fortune",
+      "name": "Fortune",
+      "summary": "提供每日运势与管理页。",
+      "publisher": {
+        "id": "rayleabot",
+        "name": "RayleaBot",
+        "verified": true
+      },
+      "repository_url": "https://github.com/RayleaBot/plugin-fortune",
+      "license": "MIT",
+      "keywords": ["fortune"],
+      "recommended": true,
+      "releases": []
+    }
+  ]
+}

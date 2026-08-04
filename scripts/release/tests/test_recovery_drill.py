@@ -4,6 +4,7 @@ import tarfile
 import time
 import unittest
 import json
+import hashlib
 import urllib.error
 import zipfile
 from tempfile import TemporaryDirectory
@@ -18,6 +19,51 @@ from package_runtime import FORBIDDEN_DIRECTORY_NAMES, FORBIDDEN_TOP_LEVEL_PATHS
 
 
 class RecoveryDrillTests(unittest.TestCase):
+    def test_seed_installed_plugins_uses_external_verified_artifact(self) -> None:
+        with TemporaryDirectory() as tmp:
+            temp = Path(tmp)
+            source = temp / "source" / recovery_drill.SAMPLE_PLUGIN_ID
+            (source / "bin").mkdir(parents=True)
+            info = b'{"id":"raylea.echo","manifest_version":"2"}\n'
+            backend = b"fixture-backend"
+            (source / "info.json").write_bytes(info)
+            (source / "bin" / "echo").write_bytes(backend)
+            files = []
+            for relative, role in (("info.json", "manifest"), ("bin/echo", "backend")):
+                payload = (source / relative).read_bytes()
+                files.append(
+                    {
+                        "path": relative,
+                        "role": role,
+                        "size": len(payload),
+                        "sha256": hashlib.sha256(payload).hexdigest(),
+                    }
+                )
+            (source / "artifact.json").write_text(
+                json.dumps(
+                    {
+                        "artifact_version": "1",
+                        "plugin_id": recovery_drill.SAMPLE_PLUGIN_ID,
+                        "plugin_version": "0.2.0",
+                        "target_platform": "linux-x64",
+                        "manifest_sha256": hashlib.sha256(info).hexdigest(),
+                        "files": files,
+                    }
+                ),
+                encoding="utf-8",
+            )
+            fixture = temp / "fixture.zip"
+            with zipfile.ZipFile(fixture, "w") as archive:
+                for path in source.rglob("*"):
+                    if path.is_file():
+                        archive.write(path, path.relative_to(source.parent).as_posix())
+
+            root = temp / "runtime"
+            paths = recovery_drill.seed_installed_plugins(root, fixture)
+
+            self.assertEqual(root / "plugins" / "installed" / "raylea.echo" / "info.json", paths[0])
+            self.assertEqual(backend, (root / "plugins" / "installed" / "raylea.echo" / "bin" / "echo").read_bytes())
+
     def test_required_paths_exclude_contracts_and_include_runtime_files(self) -> None:
         required = recovery_drill.REQUIRED_PATHS["windows-x64-full"]
 
@@ -35,6 +81,7 @@ class RecoveryDrillTests(unittest.TestCase):
         self.assertIn("contracts", FORBIDDEN_TOP_LEVEL_PATHS)
         self.assertIn("docs", FORBIDDEN_TOP_LEVEL_PATHS)
         self.assertIn("fixtures", FORBIDDEN_TOP_LEVEL_PATHS)
+        self.assertIn("plugins", FORBIDDEN_TOP_LEVEL_PATHS)
         self.assertIn("tests", FORBIDDEN_DIRECTORY_NAMES)
         self.assertIn("node_modules", FORBIDDEN_DIRECTORY_NAMES)
 

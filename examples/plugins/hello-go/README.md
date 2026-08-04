@@ -12,7 +12,7 @@
 在仓库根目录构建 Windows x64 包：
 
 ```powershell
-go run ./examples/plugins/hello-go/tools/build --target windows-x64 --output dist/plugin-artifacts
+go run ./examples/plugins/hello-go/tools/build -target windows-x64 -out dist/plugin-artifacts
 ```
 
 服务端只安装构建后的 ZIP 或 artifact 目录，不读取本目录中的 Go 源码。

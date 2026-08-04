@@ -1,0 +1,12 @@
+{
+  "signature_version": 1,
+  "algorithm": "ed25519",
+  "catalog_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+  "key_id": "release-2026",
+  "signatures": [
+    {
+      "key_id": "release-2026",
+      "signature": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=="
+    }
+  ]
+}

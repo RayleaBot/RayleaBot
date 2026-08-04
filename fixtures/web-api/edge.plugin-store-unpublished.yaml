@@ -1,0 +1,30 @@
+contract: contracts/web-api.openapi.yaml
+case: edge
+description: An official catalog entry remains visible before its first release is published.
+request:
+  method: GET
+  path: /api/plugin-store/plugins/raylea.fortune
+response:
+  status: 200
+  body:
+    plugin:
+      id: raylea.fortune
+      name: Fortune
+      summary: 提供每日运势与管理页。
+      publisher:
+        id: rayleabot
+        name: RayleaBot
+        verified: true
+      repository_url: https://github.com/RayleaBot/plugin-fortune
+      license: MIT
+      keywords: [fortune]
+      recommended: true
+      install_state: unpublished
+    releases: []
+    catalog:
+      source: embedded
+      verified: true
+      generated_at: 2026-08-04T00:00:00Z
+      entry_count: 4
+expect:
+  valid: true

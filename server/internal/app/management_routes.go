@@ -80,6 +80,7 @@ func buildManagementRoutes(deps httpBuildDeps, configService managementapi.Confi
 		Uninstaller:  pluginState.PluginUninstaller,
 		Lifecycle:    services.PluginLifecycle,
 	}
+	pluginStoreRoutes := managementapi.PluginStoreRoutes{Service: pluginState.PluginStore}
 
 	handlers := httpHandlers{
 		Auth:       authHandler,
@@ -119,6 +120,7 @@ func buildManagementRoutes(deps httpBuildDeps, configService managementapi.Confi
 					r.Get("/ws/plugins/{id}/console", consoleWS.HandlePluginConsoleWebSocket())
 				}),
 				pluginRoutes,
+				pluginStoreRoutes,
 			},
 		},
 	}

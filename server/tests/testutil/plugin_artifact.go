@@ -42,7 +42,7 @@ type testArtifactDocument struct {
 func WriteEchoGoPluginArtifact(t testing.TB, repoRoot string) string {
 	t.Helper()
 	echoArtifactOnce.Do(func() {
-		sourceRoot := RepoPath(t, "plugins", "builtin", "echo")
+		sourceRoot := RepoPath(t, "server", "tests", "testutil", "testdata", "echo-plugin")
 		echoManifest, echoArtifactErr = os.ReadFile(filepath.Join(sourceRoot, "info.json"))
 		if echoArtifactErr != nil {
 			return
@@ -64,7 +64,7 @@ func WriteEchoGoPluginArtifact(t testing.TB, repoRoot string) string {
 		t.Fatalf("prepare Go plugin fixture: %v", echoArtifactErr)
 	}
 
-	pluginRoot := filepath.Join(repoRoot, "plugins", "builtin", "echo")
+	pluginRoot := filepath.Join(repoRoot, "plugins", "installed", "raylea.echo")
 	backendRelative := filepath.ToSlash(filepath.Join("bin", "echo"+executableSuffix()))
 	backendPath := filepath.Join(pluginRoot, filepath.FromSlash(backendRelative))
 	if err := os.MkdirAll(filepath.Dir(backendPath), 0o755); err != nil {
@@ -100,7 +100,7 @@ func WriteEchoGoPluginArtifact(t testing.TB, repoRoot string) string {
 	if err := os.WriteFile(filepath.Join(pluginRoot, "artifact.json"), append(payload, '\n'), 0o644); err != nil {
 		t.Fatalf("write Go plugin fixture artifact: %v", err)
 	}
-	return filepath.Join(repoRoot, "plugins", "builtin")
+	return filepath.Join(repoRoot, "plugins", "installed")
 }
 
 // WriteGoPluginArtifact writes a minimal installable artifact using the cached
@@ -158,7 +158,7 @@ func WriteGoPluginArtifact(t testing.TB, root, pluginID, version string) string 
 func ensureEchoFixture(t testing.TB) {
 	t.Helper()
 	echoArtifactOnce.Do(func() {
-		sourceRoot := RepoPath(t, "plugins", "builtin", "echo")
+		sourceRoot := RepoPath(t, "server", "tests", "testutil", "testdata", "echo-plugin")
 		echoManifest, echoArtifactErr = os.ReadFile(filepath.Join(sourceRoot, "info.json"))
 		if echoArtifactErr != nil {
 			return

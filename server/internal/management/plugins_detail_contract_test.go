@@ -17,13 +17,14 @@ func TestGetPluginReturnsValidSnapshot(t *testing.T) {
 		{
 			PluginID:          "hello-go",
 			Name:              "Hello Go",
-			Role:              "example",
 			Valid:             true,
 			RegistrationState: "installed",
 			DesiredState:      "disabled",
 			RuntimeState:      "stopped",
 			DisplayState:      "discovered",
-			SourceRoot:        "examples/plugins",
+			SourceRoot:        "plugins/installed",
+			PackageSourceType: "development",
+			PackageSourceRef:  "C:/workspace/hello-go",
 			Commands: []plugins.Command{
 				{
 					Name:        "hello",
@@ -53,15 +54,17 @@ func TestGetPluginReturnsValidSnapshot(t *testing.T) {
 		"plugin": map[string]any{
 			"id":    "hello-go",
 			"name":  "Hello Go",
-			"role":  "example",
+			"role":  "development",
 			"state": "disabled",
 			"source": map[string]any{
-				"root":     "examples/plugins",
-				"verified": true,
+				"root":                "plugins/installed",
+				"package_source_type": "development",
+				"package_source_ref":  "C:/workspace/hello-go",
+				"verified":            true,
 			},
 			"trust": map[string]any{
-				"level": "third_party",
-				"label": "示例",
+				"level": "development",
+				"label": "开发中",
 			},
 			"commands": []any{
 				map[string]any{

@@ -27,7 +27,7 @@ func TestReloadRefreshesManifestCommandsAndCapabilityParameters(t *testing.T) {
 		PluginID:             "raylea.subscription-hub",
 		Name:                 "Subscription Hub",
 		Valid:                true,
-		SourceRoot:           "plugins/builtin",
+		SourceRoot:           "plugins/installed",
 		RegistrationState:    "installed",
 		DesiredState:         "enabled",
 		RuntimeState:         "running",
@@ -65,7 +65,7 @@ func TestReloadRefreshesManifestCommandsAndCapabilityParameters(t *testing.T) {
 				PluginID:             "raylea.subscription-hub",
 				Name:                 "Subscription Hub",
 				Valid:                true,
-				SourceRoot:           "plugins/builtin",
+				SourceRoot:           "plugins/installed",
 				RegistrationState:    "installed",
 				DesiredState:         "enabled",
 				RuntimeState:         "stopped",
@@ -302,7 +302,7 @@ func TestRefreshPluginManifestReadsUpdatedManifestFile(t *testing.T) {
 	t.Parallel()
 
 	repoRoot := t.TempDir()
-	pluginDir := filepath.Join(repoRoot, "plugins", "builtin", "subscription_hub")
+	pluginDir := filepath.Join(repoRoot, "plugins", "installed", "subscription_hub")
 	if err := os.MkdirAll(pluginDir, 0o755); err != nil {
 		t.Fatalf("MkdirAll: %v", err)
 	}
@@ -313,8 +313,8 @@ func TestRefreshPluginManifestReadsUpdatedManifestFile(t *testing.T) {
 	snapshots, _, err := plugincatalog.Discover(plugincatalog.DiscoverOptions{
 		Validator: validator,
 		Roots: []plugincatalog.ScanRoot{{
-			Label: "plugins/builtin",
-			Path:  filepath.Join(repoRoot, "plugins", "builtin"),
+			Label: "plugins/installed",
+			Path:  filepath.Join(repoRoot, "plugins", "installed"),
 		}},
 		RepoRoot: repoRoot,
 	})
@@ -331,8 +331,8 @@ func TestRefreshPluginManifestReadsUpdatedManifestFile(t *testing.T) {
 		snapshots, _, err := plugincatalog.Discover(plugincatalog.DiscoverOptions{
 			Validator: validator,
 			Roots: []plugincatalog.ScanRoot{{
-				Label: "plugins/builtin",
-				Path:  filepath.Join(repoRoot, "plugins", "builtin"),
+				Label: "plugins/installed",
+				Path:  filepath.Join(repoRoot, "plugins", "installed"),
 			}},
 			RepoRoot: repoRoot,
 		})

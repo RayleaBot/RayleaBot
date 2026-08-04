@@ -218,7 +218,7 @@ func newPersistentTestApp(t *testing.T, configPath string, now func() time.Time,
 		PluginRepoRoot:       repoRoot,
 		PluginSchemaPath:     filepath.Join("..", "contracts", "plugin-info.schema.json"),
 		PluginRoots: []plugincatalog.ScanRoot{
-			{Label: "plugins/builtin", Path: filepath.Join(repoRoot, "plugins", "builtin")},
+			{Label: "plugins/installed", Path: filepath.Join(repoRoot, "plugins", "installed")},
 			{Label: "plugins/installed", Path: filepath.Join(filepath.Dir(configPath), "..", "plugins", "installed")},
 		},
 		AuthOptions: []auth.Option{

@@ -30,7 +30,7 @@ describe('PluginsPage', () => {
     store.items = [{
       id: 'weather',
       name: 'Weather',
-      role: 'user',
+      role: 'community',
         state: 'disabled',
       commands: [],
       command_conflicts: [],
@@ -62,7 +62,7 @@ describe('PluginsPage', () => {
     store.items = [{
       id: 'weather',
       name: 'Weather',
-      role: 'user',
+      role: 'community',
         state: 'running',
       commands: [],
       command_conflicts: [],
@@ -94,7 +94,7 @@ describe('PluginsPage', () => {
     store.items = [{
       id: 'weather',
       name: 'Weather',
-      role: 'user',
+      role: 'community',
       state: 'stopping',
       commands: [],
       command_conflicts: [],
@@ -132,7 +132,7 @@ describe('PluginsPage', () => {
     store.items = [{
       id: 'weather',
       name: 'Weather',
-      role: 'user',
+      role: 'community',
         state: 'running',
       commands: [],
       command_conflicts: [],
@@ -165,7 +165,7 @@ describe('PluginsPage', () => {
     store.items = [{
       id: 'weather',
       name: 'Weather',
-      role: 'user',
+      role: 'community',
         state: 'running',
       commands: [],
       command_conflicts: [],
@@ -202,7 +202,7 @@ describe('PluginsPage', () => {
         version: '1.2.3',
         author: 'raylea',
         description: '提供当前城市天气与未来天气查询。',
-        role: 'user',
+        role: 'community',
         state: 'running',
         source: {
           root: 'plugins/installed',
@@ -303,12 +303,12 @@ describe('PluginsPage', () => {
     const store = usePluginsStore()
     store.items = [
       {
-        id: 'builtin-help',
-        name: 'Builtin Help',
-        role: 'builtin',
+        id: 'official-help',
+        name: 'Official Help',
+        role: 'official',
         state: 'running',
         source: {
-          root: 'plugins/builtin/help',
+          root: 'plugins/installed/official-help',
           verified: true,
         },
         trust: {
@@ -321,7 +321,7 @@ describe('PluginsPage', () => {
       {
         id: 'verified-third-party',
         name: 'Verified Third Party',
-        role: 'user',
+        role: 'community',
         state: 'running',
         source: {
           root: 'plugins/installed/verified-third-party',
@@ -351,12 +351,12 @@ describe('PluginsPage', () => {
     await flushPromises()
 
     expect(wrapper.find('.plugins-grid').text()).toContain('Verified Third Party')
-    expect(wrapper.find('.plugins-grid').text()).not.toContain('Builtin Help')
+    expect(wrapper.find('.plugins-grid').text()).not.toContain('Official Help')
 
     sourceFilter.vm.$emit('update:value', 'official')
     await flushPromises()
 
-    expect(wrapper.find('.plugins-grid').text()).toContain('Builtin Help')
+    expect(wrapper.find('.plugins-grid').text()).toContain('Official Help')
     expect(wrapper.find('.plugins-grid').text()).not.toContain('Verified Third Party')
   })
 
@@ -370,7 +370,7 @@ describe('PluginsPage', () => {
       {
         id: 'subscription-hub',
         name: '订阅中心',
-        role: 'user',
+        role: 'community',
         state: 'running',
         commands: [
           { name: '订阅状态', command_source: 'manifest' },

@@ -240,8 +240,8 @@ func buildSourceView(snapshot Snapshot) SourceView {
 }
 
 func isVerifiedSourceView(snapshot Snapshot) bool {
-	switch snapshot.SourceRoot {
-	case "plugins/builtin", "examples/plugins", "plugins/dev":
+	switch snapshot.PackageSourceType {
+	case "catalog", "development":
 		return true
 	default:
 		return false
@@ -250,14 +250,12 @@ func isVerifiedSourceView(snapshot Snapshot) bool {
 
 func buildTrustView(role string, snapshot Snapshot) TrustView {
 	switch role {
-	case "builtin":
+	case "official":
 		return TrustView{Level: "official", Label: "官方"}
-	case "dev":
+	case "development":
 		return TrustView{Level: "development", Label: "开发中"}
-	case "example":
-		return TrustView{Level: "third_party", Label: "示例"}
 	default:
-		if snapshot.PackageSourceType == "local_zip" || snapshot.PackageSourceType == "remote_url" {
+		if snapshot.PackageSourceType == "local_zip" || snapshot.PackageSourceType == "local_directory" || snapshot.PackageSourceType == "remote_url" {
 			return TrustView{Level: "unverified", Label: "未验证来源"}
 		}
 		return TrustView{Level: "third_party", Label: "第三方"}
@@ -272,17 +270,11 @@ func summaryViewDisplayName(snapshot Snapshot) string {
 }
 
 func summaryViewRole(snapshot Snapshot) string {
-	if strings.TrimSpace(snapshot.Role) != "" {
-		return snapshot.Role
+	if snapshot.PackageSourceType == "catalog" && snapshot.PackagePublisherVerified {
+		return "official"
 	}
-	switch snapshot.SourceRoot {
-	case "plugins/builtin":
-		return "builtin"
-	case "examples/plugins":
-		return "example"
-	case "plugins/dev":
-		return "dev"
-	default:
-		return "user"
+	if snapshot.PackageSourceType == "development" {
+		return "development"
 	}
+	return "community"
 }

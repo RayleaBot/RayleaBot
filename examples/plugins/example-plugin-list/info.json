@@ -10,7 +10,6 @@
   "license": "MIT",
   "description": "Go example plugin demonstrating plugin.list.",
   "author": "raylea",
-  "role": "example",
   "capabilities": [
     "event.subscribe",
     "plugin.list",

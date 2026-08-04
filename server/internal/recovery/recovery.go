@@ -227,7 +227,7 @@ func Finalize(summary CompatibilitySummary, input FinalizeInput) CompatibilitySu
 
 	platformName := currentPlatform()
 	for _, plugin := range input.Plugins {
-		if plugin.SourceRoot == "plugins/builtin" || plugin.RegistrationState != "installed" {
+		if plugin.RegistrationState != "installed" {
 			continue
 		}
 		reasonCode, skipped := pluginCompatibilityIssue(plugin, summary.TargetCoreVersion, platformName)

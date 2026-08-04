@@ -1,0 +1,16 @@
+{
+  "signature_version": 1,
+  "algorithm": "ed25519",
+  "catalog_sha256": "2222222222222222222222222222222222222222222222222222222222222222",
+  "key_id": "release-2026-next",
+  "signatures": [
+    {
+      "key_id": "release-2026",
+      "signature": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=="
+    },
+    {
+      "key_id": "release-2026-next",
+      "signature": "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB=="
+    }
+  ]
+}

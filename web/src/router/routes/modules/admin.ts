@@ -84,13 +84,26 @@ export const adminRoutes: RouteRecordRaw[] = [
           },
         },
         {
+          path: '/plugins/store',
+          name: 'plugin-store',
+          component: () => import('@/views/plugins/PluginStoreView.vue'),
+          meta: {
+            icon: 'appstore',
+            keepAlive: true,
+            order: 2,
+            requiresAuth: true,
+            titleKey: 'routes.pluginStore',
+            viewKey: 'plugin-store',
+          },
+        },
+        {
           path: '/plugins',
           name: 'plugins',
           component: () => import('@/views/plugins/PluginsView.vue'),
           meta: {
             icon: 'appstore',
             keepAlive: true,
-            order: 2,
+            order: 3,
             requiresAuth: true,
             titleKey: 'routes.pluginList',
           },
@@ -102,7 +115,7 @@ export const adminRoutes: RouteRecordRaw[] = [
           meta: {
             icon: 'setting',
             keepAlive: true,
-            order: 3,
+            order: 4,
             requiresAuth: true,
             titleKey: 'routes.pluginSettings',
             viewKey: 'plugin-settings',
@@ -115,7 +128,7 @@ export const adminRoutes: RouteRecordRaw[] = [
           meta: {
             icon: 'commands',
             keepAlive: true,
-            order: 4,
+            order: 5,
             requiresAuth: true,
             titleKey: 'routes.commands',
             viewKey: 'commands',

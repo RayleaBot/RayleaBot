@@ -1,0 +1,37 @@
+{
+  "catalog_version": "1",
+  "generated_at": "2026-08-04T00:00:00Z",
+  "entries": [
+    {
+      "id": "unsafe.plugin",
+      "name": "Unsafe",
+      "summary": "Contains an insecure artifact URL.",
+      "publisher": {
+        "id": "publisher",
+        "name": "Publisher",
+        "verified": false
+      },
+      "repository_url": "https://example.com/unsafe",
+      "license": "MIT",
+      "keywords": [],
+      "recommended": false,
+      "releases": [
+        {
+          "version": "1.0.0",
+          "published_at": "2026-08-04T00:00:00Z",
+          "min_core_version": "0.1.0",
+          "yanked": false,
+          "assets": [
+            {
+              "platform": "linux-x64",
+              "url": "http://example.com/unsafe.zip",
+              "archive_size_bytes": 1,
+              "archive_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+              "manifest_sha256": "2222222222222222222222222222222222222222222222222222222222222222"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

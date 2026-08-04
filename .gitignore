@@ -8,6 +8,7 @@
 /logs/
 /backups/
 /config/user.yaml
+/plugin-workspace.local.json
 /plugins/installed/*
 !/plugins/installed/.gitkeep
 
@@ -44,6 +45,8 @@ plugins/**/node_modules/
 /server/.gocache
 /server/config/
 .tmp/gocache
+/.tmp/plugin-dev/
+plugins/**/.rayleabot/
 
 # Electron launcher outputs.
 /launcher/node_modules/

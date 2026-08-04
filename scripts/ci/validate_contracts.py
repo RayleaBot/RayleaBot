@@ -53,9 +53,12 @@ REQUIRED_CONTRACT_FILES = {
     "websocket-events.yaml",
     "plugin-info.schema.json",
     "plugin-artifact.schema.json",
+    "plugin-development-workspace.schema.json",
     "plugin-management-ui.yaml",
     "plugin-management-ui-bridge.schema.json",
     "plugin-protocol.schema.json",
+    "plugin-store-catalog.schema.json",
+    "plugin-store-signature.schema.json",
     "release-manifest.schema.json",
     "cli-commands.yaml",
 }
@@ -69,7 +72,10 @@ STRICT_FIXTURE_DIRS = [
     FIXTURES / "errors",
     FIXTURES / "plugin-info",
     FIXTURES / "plugin-artifact",
+    FIXTURES / "plugin-development-workspace",
     FIXTURES / "plugin-protocol",
+    FIXTURES / "plugin-store-catalog",
+    FIXTURES / "plugin-store-signature",
     FIXTURES / "release-manifest",
     FIXTURES / "cli",
 ]
@@ -80,7 +86,10 @@ JSON_SCHEMA_FIXTURE_AREAS = {
     "deps-manifest": "deps-manifest.schema.json",
     "plugin-info": "plugin-info.schema.json",
     "plugin-artifact": "plugin-artifact.schema.json",
+    "plugin-development-workspace": "plugin-development-workspace.schema.json",
     "release-manifest": "release-manifest.schema.json",
+    "plugin-store-catalog": "plugin-store-catalog.schema.json",
+    "plugin-store-signature": "plugin-store-signature.schema.json",
 }
 
 FIXTURE_SECRET_PATTERNS = [
@@ -145,6 +154,10 @@ STRICT_OPENAPI_PATHS = {
     "/api/plugins",
     "/api/plugins/install",
     "/api/plugins/install/inspect",
+    "/api/plugin-store/plugins",
+    "/api/plugin-store/plugins/{plugin_id}",
+    "/api/plugin-store/plugins/{plugin_id}/install",
+    "/api/plugin-store/refresh",
     "/api/plugins/{plugin_id}",
     "/api/plugins/{plugin_id}/enable",
     "/api/plugins/{plugin_id}/disable",
@@ -1084,7 +1097,7 @@ def validate_no_legacy_contract_content() -> None:
 
 def validate_strict_cli() -> None:
     cli_commands = require_object(load_yaml(CONTRACTS / "cli-commands.yaml"), "cli commands")
-    expected = {"version", "update", "reset-admin", "backup", "restore", "doctor", "cleanup"}
+    expected = {"version", "update", "reset-admin", "backup", "restore", "doctor", "cleanup", "plugin"}
     actual = set(cli_commands.get("commands", {}).keys())
     if actual != expected:
         fail(f"cli commands drift: expected={sorted(expected)} actual={sorted(actual)}")

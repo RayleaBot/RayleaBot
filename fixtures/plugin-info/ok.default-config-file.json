@@ -12,7 +12,6 @@
     "license": "MIT",
     "description": "Weather query plugin with package default settings.",
     "author": "raylea",
-    "role": "user",
     "capabilities": [
       "event.subscribe"
     ],

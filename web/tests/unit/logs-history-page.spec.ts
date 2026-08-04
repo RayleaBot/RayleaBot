@@ -120,14 +120,14 @@ describe('LogsHistoryPage', () => {
       {
         id: 'weather',
         name: 'Weather',
-        role: 'user',
+        role: 'community',
         state: 'running',
         commands: [],
       },
       {
         id: 'raylea.echo',
         name: 'Echo',
-        role: 'user',
+        role: 'community',
         state: 'running',
         commands: [],
       },

@@ -82,10 +82,6 @@ func PluginDiscoveryContext(configPath string) (string, string, []plugincatalog.
 
 	roots := []plugincatalog.ScanRoot{
 		{
-			Label: "plugins/builtin",
-			Path:  filepath.Join(repoRoot, "plugins", "builtin"),
-		},
-		{
 			Label: "plugins/installed",
 			Path:  filepath.Join(repoRoot, "plugins", "installed"),
 		},

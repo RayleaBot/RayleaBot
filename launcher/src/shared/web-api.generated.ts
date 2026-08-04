@@ -822,6 +822,74 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/plugin-store/plugins": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List plugins from the last verified static store catalog. */
+        get: operations["listPluginStoreEntries"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/plugin-store/plugins/{plugin_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get one plugin store entry and its published release history. */
+        get: operations["getPluginStoreEntry"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/plugin-store/plugins/{plugin_id}/install": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Install or update a plugin from a verified catalog release. */
+        post: operations["installPluginStoreEntry"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/plugin-store/refresh": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Fetch and verify the configured official static catalog immediately. */
+        post: operations["refreshPluginStoreCatalog"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/plugins/{plugin_id}/management/actions": {
         parameters: {
             query?: never;
@@ -1629,7 +1697,7 @@ export interface components {
             recoverable?: boolean;
         };
         /** @enum {string} */
-        PluginRole: "builtin" | "user" | "example" | "dev";
+        PluginRole: "official" | "community" | "development";
         /** @constant */
         PluginRuntimeFamily: "go";
         /** @enum {string} */
@@ -1642,7 +1710,7 @@ export interface components {
         PluginSourceSummary: {
             root: string;
             /** @enum {string} */
-            package_source_type?: "local_zip" | "local_directory" | "remote_url";
+            package_source_type?: "local_zip" | "local_directory" | "remote_url" | "catalog" | "development";
             package_source_ref?: string;
             verified: boolean;
         };
@@ -1688,6 +1756,67 @@ export interface components {
         };
         PluginListResponse: {
             items: components["schemas"]["PluginSummary"][];
+        };
+        PluginStoreCatalogStatus: {
+            /** @enum {string} */
+            source: "embedded" | "remote";
+            /** @constant */
+            verified: true;
+            /** Format: date-time */
+            generated_at: string;
+            entry_count: number;
+            trusted_key_ids?: string[];
+        };
+        PluginStorePublisher: {
+            id: string;
+            name: string;
+            verified: boolean;
+        };
+        PluginStoreReleaseSummary: {
+            version: string;
+            /** Format: date-time */
+            published_at: string;
+            min_core_version: string;
+            compatible: boolean;
+            asset_available: boolean;
+            yanked: boolean;
+        };
+        PluginStoreEntry: {
+            id: string;
+            name: string;
+            summary: string;
+            description?: string;
+            publisher: components["schemas"]["PluginStorePublisher"];
+            /** Format: uri */
+            repository_url: string;
+            /** Format: uri */
+            homepage?: string;
+            license: string;
+            keywords: string[];
+            recommended: boolean;
+            latest_release?: components["schemas"]["PluginStoreReleaseSummary"];
+            installed_version?: string;
+            /** @enum {string} */
+            install_state: "unpublished" | "available" | "installed" | "update_available" | "incompatible";
+        };
+        PluginStoreListResponse: {
+            items: components["schemas"]["PluginStoreEntry"][];
+            total: number;
+            next_cursor?: string;
+            catalog: components["schemas"]["PluginStoreCatalogStatus"];
+        };
+        PluginStoreDetailResponse: {
+            plugin: components["schemas"]["PluginStoreEntry"];
+            releases: components["schemas"]["PluginStoreReleaseSummary"][];
+            catalog: components["schemas"]["PluginStoreCatalogStatus"];
+        };
+        PluginStoreInstallRequest: {
+            version?: string;
+            /** @constant */
+            trusted_code_confirmed: true;
+        };
+        PluginStoreRefreshResponse: {
+            catalog: components["schemas"]["PluginStoreCatalogStatus"];
         };
         PluginWebhookScope: {
             route: string;
@@ -3724,6 +3853,115 @@ export interface operations {
             401: components["responses"]["Error"];
             404: components["responses"]["Error"];
             409: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    listPluginStoreEntries: {
+        parameters: {
+            query?: {
+                query?: string;
+                publisher?: string;
+                sort?: "recommended" | "name" | "updated";
+                cursor?: string;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Bounded store entries with catalog trust status. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PluginStoreListResponse"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    getPluginStoreEntry: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                plugin_id: components["parameters"]["PluginId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Plugin store detail. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PluginStoreDetailResponse"];
+                };
+            };
+            401: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    installPluginStoreEntry: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                plugin_id: components["parameters"]["PluginId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PluginStoreInstallRequest"];
+            };
+        };
+        responses: {
+            /** @description Catalog-backed install or update task accepted. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskAcceptedResponse"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            429: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    refreshPluginStoreCatalog: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Current catalog trust status after refresh. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PluginStoreRefreshResponse"];
+                };
+            };
+            401: components["responses"]["Error"];
+            503: components["responses"]["Error"];
             default: components["responses"]["Error"];
         };
     };

@@ -34,22 +34,7 @@ from package_runtime import (
     write_user_config,
 )
 
-SAMPLE_PLUGIN_ID = "recovery-sample"
-SAMPLE_PLUGIN_INFO = {
-    "id": SAMPLE_PLUGIN_ID,
-    "name": "Recovery Sample",
-    "version": "0.2.0",
-    "manifest_version": "2",
-    "plugin_protocol_version": "1",
-    "runtime": "go",
-    "entry": "bin/recovery-sample",
-    "platforms": ["windows-x64", "linux-x64", "macos-arm64"],
-    "license": "MIT",
-    "description": "Sample plugin manifest used by packaged recovery drill.",
-    "author": "raylea",
-    "role": "user",
-    "capabilities": ["event.subscribe", "logger.write"],
-}
+SAMPLE_PLUGIN_ID = "raylea.echo"
 INCOMPATIBLE_PLUGIN_ID = "recovery-incompatible"
 
 
@@ -78,59 +63,84 @@ def seed_database(root: Path) -> Path:
     return database_path
 
 
-def seed_installed_plugins(root: Path, *, include_incompatible: bool = False) -> list[Path]:
-    source = root / "plugins" / "builtin" / "raylea.echo"
-    source_artifact = json.loads((source / "artifact.json").read_text(encoding="utf-8"))
-    target_platform = str(source_artifact["target_platform"])
-    source_binary = next(path for path in (source / "bin").iterdir() if path.is_file())
-    suffix = ".exe" if target_platform == "windows-x64" else ""
-    plugin_dir = root / "plugins" / "installed" / SAMPLE_PLUGIN_ID
-    (plugin_dir / "bin").mkdir(parents=True, exist_ok=True)
-    destination_binary = plugin_dir / "bin" / f"recovery-sample{suffix}"
-    shutil.copy2(source_binary, destination_binary)
-    for name in ("LICENSE", "THIRD_PARTY_NOTICES.md", "sbom.spdx.json"):
-        shutil.copy2(source / name, plugin_dir / name)
-
-    info_path = plugin_dir / "info.json"
-    info_path.write_text(json.dumps(SAMPLE_PLUGIN_INFO, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-    roles = {
-        destination_binary.relative_to(plugin_dir).as_posix(): "backend",
-        "info.json": "manifest",
-        "LICENSE": "license",
-        "THIRD_PARTY_NOTICES.md": "notice",
-        "sbom.spdx.json": "sbom",
-    }
-    files = []
-    for relative, role in sorted(roles.items()):
-        path = plugin_dir / relative
-        payload = path.read_bytes()
-        files.append(
-            {
-                "path": relative,
-                "role": role,
-                "size": len(payload),
-                "sha256": hashlib.sha256(payload).hexdigest(),
-            }
-        )
-    artifact = {
-        "artifact_version": "1",
-        "plugin_id": SAMPLE_PLUGIN_ID,
-        "plugin_version": SAMPLE_PLUGIN_INFO["version"],
-        "target_platform": target_platform,
-        "manifest_sha256": hashlib.sha256(info_path.read_bytes()).hexdigest(),
-        "files": files,
-    }
-    (plugin_dir / "artifact.json").write_text(json.dumps(artifact, indent=2) + "\n", encoding="utf-8")
+def seed_installed_plugins(
+    root: Path,
+    plugin_fixture: Path,
+    *,
+    include_incompatible: bool = False,
+) -> list[Path]:
     if include_incompatible:
         raise DrillError("legacy plugin fixtures must be exercised through the rejected backup epoch path")
-    return [info_path]
+    fixture = plugin_fixture.resolve()
+    if not fixture.is_file():
+        raise DrillError(f"recovery plugin fixture is missing: {fixture}")
+
+    with tempfile.TemporaryDirectory(prefix="rayleabot-recovery-plugin-") as tmp:
+        extracted = Path(tmp)
+        with zipfile.ZipFile(fixture) as archive:
+            file_entries = [entry for entry in archive.infolist() if not entry.is_dir()]
+            roots: set[str] = set()
+            for entry in file_entries:
+                relative = Path(entry.filename.replace("\\", "/"))
+                if relative.is_absolute() or ".." in relative.parts or len(relative.parts) < 2:
+                    raise DrillError(f"recovery plugin fixture contains an unsafe path: {entry.filename}")
+                roots.add(relative.parts[0])
+            if len(roots) != 1:
+                raise DrillError("recovery plugin fixture must contain exactly one root directory")
+            archive.extractall(extracted)
+
+        source = extracted / next(iter(roots))
+        artifact_path = source / "artifact.json"
+        info_path = source / "info.json"
+        if not artifact_path.is_file() or not info_path.is_file():
+            raise DrillError("recovery plugin fixture is missing artifact.json or info.json")
+        artifact = json.loads(artifact_path.read_text(encoding="utf-8"))
+        manifest = json.loads(info_path.read_text(encoding="utf-8"))
+        if artifact.get("artifact_version") != "1" or artifact.get("plugin_id") != SAMPLE_PLUGIN_ID:
+            raise DrillError("recovery plugin fixture has an unexpected artifact identity")
+        if manifest.get("manifest_version") != "2" or manifest.get("id") != SAMPLE_PLUGIN_ID:
+            raise DrillError("recovery plugin fixture has an unexpected manifest identity")
+
+        expected_files = {"artifact.json"}
+        for item in artifact.get("files", []):
+            relative = str(item.get("path", ""))
+            candidate = source / Path(relative)
+            if not relative or not candidate.is_file():
+                raise DrillError(f"recovery plugin fixture inventory is missing {relative}")
+            payload = candidate.read_bytes()
+            if len(payload) != item.get("size") or hashlib.sha256(payload).hexdigest() != item.get("sha256"):
+                raise DrillError(f"recovery plugin fixture digest mismatch for {relative}")
+            expected_files.add(Path(relative).as_posix())
+        actual_files = {
+            candidate.relative_to(source).as_posix()
+            for candidate in source.rglob("*")
+            if candidate.is_file()
+        }
+        if actual_files != expected_files:
+            raise DrillError("recovery plugin fixture file inventory is incomplete")
+
+        plugin_dir = root / "plugins" / "installed" / SAMPLE_PLUGIN_ID
+        plugin_dir.parent.mkdir(parents=True, exist_ok=True)
+        if plugin_dir.exists():
+            raise DrillError(f"recovery plugin destination already exists: {plugin_dir}")
+        shutil.copytree(source, plugin_dir)
+    return [plugin_dir / "info.json"]
 
 
-def seed_runtime_workspace(root: Path, *, include_incompatible: bool = False) -> tuple[Path, Path, list[Path]]:
+def seed_runtime_workspace(
+    root: Path,
+    plugin_fixture: Path,
+    *,
+    include_incompatible: bool = False,
+) -> tuple[Path, Path, list[Path]]:
     port = choose_free_port()
     config_path = write_user_config(root, port)
     database_path = seed_database(root)
-    plugin_info_paths = seed_installed_plugins(root, include_incompatible=include_incompatible)
+    plugin_info_paths = seed_installed_plugins(
+        root,
+        plugin_fixture,
+        include_incompatible=include_incompatible,
+    )
     return config_path, database_path, plugin_info_paths
 
 
@@ -734,13 +744,19 @@ def run_recovery_recheck_after_fix(
             stop_process(process)
 
 
-def run_recovery_drill(artifact_id: str, archive_path: Path, *, observation_window_seconds: int) -> None:
+def run_recovery_drill(
+    artifact_id: str,
+    archive_path: Path,
+    plugin_fixture: Path,
+    *,
+    observation_window_seconds: int,
+) -> None:
     with tempfile.TemporaryDirectory(prefix="rayleabot-recovery-") as tmp:
         temp_root = Path(tmp)
         release_root = unpack_archive(artifact_id, archive_path, temp_root / "compatible")
         ensure_required_paths(release_root, artifact_id)
         ensure_runtime_bootstrap(release_root, artifact_id)
-        config_path, database_path, plugin_info_paths = seed_runtime_workspace(release_root)
+        config_path, database_path, plugin_info_paths = seed_runtime_workspace(release_root, plugin_fixture)
         expected_snapshot = snapshot_runtime_state(release_root)
         server_bin = relative_executable(release_root, artifact_id)
         if not server_bin.exists():
@@ -778,6 +794,7 @@ def run_cross_version_recovery_drill(
     artifact_id: str,
     previous_archive: Path,
     current_archive: Path,
+    plugin_fixture: Path,
     *,
     observation_window_seconds: int,
 ) -> None:
@@ -827,7 +844,11 @@ def run_cross_version_recovery_drill(
             rollback_server = relative_executable(rollback_root, artifact_id)
 
             # Upgrade flow: restore a previous backup into the current build.
-            _, _, _ = seed_runtime_workspace(previous_root, include_incompatible=include_incompatible)
+            _, _, _ = seed_runtime_workspace(
+                previous_root,
+                plugin_fixture,
+                include_incompatible=include_incompatible,
+            )
             previous_backup = run_backup(previous_root, previous_server)
             run_restore(current_root, current_server, previous_backup)
             assert_recovery_summary(
@@ -870,6 +891,7 @@ def run_cross_version_recovery_drill(
             # Rollback-style flow: restore the pre-upgrade backup with the older packaged build.
             rollback_config, rollback_db, rollback_plugin_paths = seed_runtime_workspace(
                 rollback_root,
+                plugin_fixture,
                 include_incompatible=include_incompatible,
             )
             expected_snapshot = snapshot_runtime_state(previous_root)
@@ -918,6 +940,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="RayleaBot packaged recovery drill")
     parser.add_argument("--artifact-id", required=True, choices=sorted(REQUIRED_PATHS.keys()))
     parser.add_argument("--archive", required=True)
+    parser.add_argument("--plugin-fixture", required=True)
     parser.add_argument("--previous-archive")
     parser.add_argument("--repository")
     parser.add_argument("--current-version")
@@ -934,6 +957,7 @@ def main() -> int:
                 args.artifact_id,
                 Path(args.previous_archive),
                 Path(args.archive),
+                Path(args.plugin_fixture),
                 observation_window_seconds=args.observation_window_seconds,
             )
             print("cross-version recovery drill passed")
@@ -949,6 +973,7 @@ def main() -> int:
                 args.artifact_id,
                 previous_archive,
                 Path(args.archive),
+                Path(args.plugin_fixture),
                 observation_window_seconds=args.observation_window_seconds,
             )
             print("cross-version recovery drill passed")
@@ -956,6 +981,7 @@ def main() -> int:
         run_recovery_drill(
             args.artifact_id,
             Path(args.archive),
+            Path(args.plugin_fixture),
             observation_window_seconds=args.observation_window_seconds,
         )
         print("recovery drill passed")

@@ -58,7 +58,6 @@ func LoadSnapshot(infoPath, sourceRoot, repoRoot string, validator *config.Valid
 	snapshot := plugins.Snapshot{
 		PluginID:              pluginID,
 		Name:                  stringField(manifest, "name"),
-		Role:                  manifestRole(manifest, sourceRoot),
 		Version:               stringField(manifest, "version"),
 		Author:                stringField(manifest, "author"),
 		License:               stringField(manifest, "license"),

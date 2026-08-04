@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://rayleabot.local/contracts/plugin-development-workspace.schema.json",
+  "title": "RayleaBot Plugin Development Workspace",
+  "description": "Local-only list of independent plugin repositories synchronized through the normal artifact installer before development startup.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["workspace_version", "plugins"],
+  "properties": {
+    "workspace_version": {
+      "type": "string",
+      "const": "1"
+    },
+    "plugins": {
+      "type": "array",
+      "maxItems": 64,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "path"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z0-9](?:[a-z0-9._-]{0,62}[a-z0-9])?$"
+          },
+          "path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "enabled": {
+            "type": "boolean",
+            "default": true
+          }
+        }
+      }
+    }
+  },
+  "x-fixtures": [
+    "fixtures/plugin-development-workspace/ok.sibling-repositories.json",
+    "fixtures/plugin-development-workspace/edge.empty.json",
+    "fixtures/plugin-development-workspace/invalid.unknown-field.json"
+  ]
+}

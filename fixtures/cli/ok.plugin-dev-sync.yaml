@@ -1,0 +1,10 @@
+contract: contracts/cli-commands.yaml
+case: ok
+command: raylea plugin dev-sync --artifact .tmp/plugin-dev/windows-x64/raylea.echo --source ../RayleaBotPlugins/plugin-echo --plugin-id raylea.echo
+mode: offline
+expect:
+  exit_code: 0
+  task_type: null
+  notes:
+    - The standard startup script builds the artifact before invoking this command.
+    - Existing development installations are atomically replaced through the same installer transaction.

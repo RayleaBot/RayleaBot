@@ -10,7 +10,7 @@ response:
     items:
       - id: weather
         name: Weather
-        role: user
+        role: community
         state: paused
         commands: []
 expect:

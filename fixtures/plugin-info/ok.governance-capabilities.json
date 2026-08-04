@@ -9,7 +9,6 @@
   "license": "MIT",
   "description": "Example manifest declaring governance read and write capabilities.",
   "author": "raylea",
-  "role": "example",
   "capabilities": [
     "event.subscribe",
     "message.send",

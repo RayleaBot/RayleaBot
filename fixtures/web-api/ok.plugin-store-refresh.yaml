@@ -1,0 +1,17 @@
+contract: contracts/web-api.openapi.yaml
+case: ok
+description: Refresh replaces the active catalog only after signature and schema verification.
+request:
+  method: POST
+  path: /api/plugin-store/refresh
+response:
+  status: 200
+  body:
+    catalog:
+      source: remote
+      verified: true
+      generated_at: 2026-08-04T00:00:00Z
+      entry_count: 4
+      trusted_key_ids: [release-2026]
+expect:
+  valid: true

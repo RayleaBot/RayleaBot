@@ -585,7 +585,7 @@ func newTestAppWithOptions(
 	configPath := writeYAMLConfig(t, updated)
 	schemaPath := filepath.Join("..", "contracts", "config.user.schema.json")
 	repoRoot := newPreparedTestRuntimeRoot(t)
-	builtinRoot := filepath.Join(repoRoot, "plugins", "builtin")
+	installedRoot := filepath.Join(repoRoot, "plugins", "installed")
 
 	options := internalapp.Options{
 		ConfigPath:           configPath,
@@ -595,7 +595,7 @@ func newTestAppWithOptions(
 		PluginRepoRoot:       repoRoot,
 		PluginSchemaPath:     filepath.Join("..", "contracts", "plugin-info.schema.json"),
 		PluginRoots: []plugincatalog.ScanRoot{
-			{Label: "plugins/builtin", Path: builtinRoot},
+			{Label: "plugins/installed", Path: installedRoot},
 			{Label: "plugins/installed", Path: filepath.Join(filepath.Dir(configPath), "..", "plugins", "installed")},
 		},
 		AuthOptions: authOptions,

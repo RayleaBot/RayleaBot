@@ -40,7 +40,7 @@ function createPlugin(overrides: Partial<PluginSummary>): PluginSummary {
   return {
     id: 'weather',
     name: 'Weather',
-    role: 'user',
+    role: 'community',
         state: 'running',
     source: {
       root: 'plugins/installed',

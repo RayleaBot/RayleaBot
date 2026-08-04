@@ -3,10 +3,6 @@ go 1.25.12
 use (
 	./server
 	./sdk/go
-	./plugins/builtin/echo
-	./plugins/builtin/fortune
-	./plugins/builtin/game_guide
-	./plugins/builtin/subscription_hub
 	./examples/plugins/echo-go
 	./examples/plugins/example-capability-parameters
 	./examples/plugins/example-config-panel

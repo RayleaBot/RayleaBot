@@ -1,6 +1,7 @@
 package management_test
 
 import (
+	"context"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -12,6 +13,7 @@ import (
 	"gopkg.in/yaml.v3"
 
 	managementapi "github.com/RayleaBot/RayleaBot/server/internal/management"
+	"github.com/RayleaBot/RayleaBot/server/internal/pluginmarket"
 	pluginwebhook "github.com/RayleaBot/RayleaBot/server/internal/plugins/webhook"
 )
 
@@ -45,6 +47,7 @@ func TestRegisterManagementRoutes(t *testing.T) {
 				r.Get("/ws/plugins/{id}/console", noopHandler)
 			}),
 			managementapi.PluginRouteDeps{},
+			managementapi.PluginStoreRoutes{Service: emptyPluginStoreService{}},
 		},
 	}, func(next http.Handler) http.Handler {
 		return next
@@ -70,6 +73,21 @@ func TestRegisterManagementRoutes(t *testing.T) {
 			t.Fatalf("route %d mismatch: got %q want %q\nroutes: %#v", i, got[i], want[i], got)
 		}
 	}
+}
+
+type emptyPluginStoreService struct{}
+
+func (emptyPluginStoreService) List(pluginmarket.Query) pluginmarket.ListResult {
+	return pluginmarket.ListResult{}
+}
+func (emptyPluginStoreService) Get(string) (pluginmarket.DetailResult, bool) {
+	return pluginmarket.DetailResult{}, false
+}
+func (emptyPluginStoreService) Refresh(context.Context) (pluginmarket.CatalogStatus, error) {
+	return pluginmarket.CatalogStatus{}, nil
+}
+func (emptyPluginStoreService) Install(context.Context, pluginmarket.InstallRequest) (string, error) {
+	return "", nil
 }
 
 func expectedRoutesFromContracts(t *testing.T) []string {

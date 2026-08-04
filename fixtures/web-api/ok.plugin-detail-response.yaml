@@ -10,7 +10,7 @@ response:
     plugin:
       id: weather
       name: Weather
-      role: user
+      role: community
       version: 1.4.2
       runtime: go
       entry: bin/weather

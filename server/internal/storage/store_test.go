@@ -94,7 +94,7 @@ func TestOpenBootstrapsSQLiteWithExpectedPragmas(t *testing.T) {
 	if len(tables) != 23 {
 		t.Fatalf("unexpected table set: %#v", tables)
 	}
-	assertMigrationsApplied(t, store.Read, []int{1, 2, 3, 4})
+	assertMigrationsApplied(t, store.Read, []int{1, 2, 3, 4, 5})
 }
 
 func TestOpenCanReopenCurrentSchemaDatabase(t *testing.T) {
@@ -158,7 +158,7 @@ func TestOpenMigratesLegacySchemaToCurrentVersion(t *testing.T) {
 	assertColumnExists(t, store.Read, "third_party_accounts", "proxy_url")
 	assertColumnExists(t, store.Read, "third_party_accounts", "proxy_enabled")
 	assertColumnExists(t, store.Read, "bilibili_source_rooms", "cover_url")
-	assertMigrationsApplied(t, store.Read, []int{1, 2, 3, 4})
+	assertMigrationsApplied(t, store.Read, []int{1, 2, 3, 4, 5})
 	assertTableMissing(t, store.Read, "third_party_accounts_legacy")
 }
 

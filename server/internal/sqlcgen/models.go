@@ -113,13 +113,18 @@ type PluginKv struct {
 }
 
 type PluginPackage struct {
-	PluginID     string
-	SourceType   string
-	SourceRef    string
-	Version      string
-	ManifestHash string
-	PackageHash  string
-	InstalledAt  string
+	PluginID          string
+	SourceType        string
+	SourceRef         string
+	Version           string
+	ManifestHash      string
+	PackageHash       string
+	ArchiveHash       string
+	PublisherID       string
+	PublisherName     string
+	PublisherVerified int64
+	CatalogDigest     string
+	InstalledAt       string
 }
 
 type RenderTemplateRevision struct {

@@ -1,0 +1,38 @@
+contract: contracts/web-api.openapi.yaml
+case: ok
+description: The plugin store lists entries from the last verified catalog and projects installed state.
+request:
+  method: GET
+  path: /api/plugin-store/plugins?sort=recommended&limit=24
+response:
+  status: 200
+  body:
+    items:
+      - id: raylea.echo
+        name: Echo
+        summary: 回显收到的聊天消息。
+        publisher:
+          id: rayleabot
+          name: RayleaBot
+          verified: true
+        repository_url: https://github.com/RayleaBot/plugin-echo
+        license: MIT
+        keywords: [echo]
+        recommended: true
+        latest_release:
+          version: 0.2.0
+          published_at: 2026-08-04T00:00:00Z
+          min_core_version: 0.1.0
+          compatible: true
+          asset_available: true
+          yanked: false
+        install_state: available
+    total: 1
+    catalog:
+      source: remote
+      verified: true
+      generated_at: 2026-08-04T00:00:00Z
+      entry_count: 1
+      trusted_key_ids: [release-2026]
+expect:
+  valid: true

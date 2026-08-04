@@ -47,11 +47,13 @@ func (s *stubReloadController) RecoverFromDeadLetter(_ context.Context, _ string
 }
 
 type stubUninstallCoordinator struct {
-	taskID string
-	err    error
+	taskID   string
+	err      error
+	pluginID string
 }
 
-func (s *stubUninstallCoordinator) Accept(_ context.Context, _ string) (string, error) {
+func (s *stubUninstallCoordinator) Accept(_ context.Context, pluginID string) (string, error) {
+	s.pluginID = pluginID
 	return s.taskID, s.err
 }
 

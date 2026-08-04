@@ -55,7 +55,7 @@ function buildPlugin(overrides: Record<string, unknown> = {}): PluginDetail {
   return {
     id: 'example-config-panel',
     name: 'Example Config Panel',
-    role: 'example',
+    role: 'community',
     state: 'disabled',
     version: '0.2.0',
     description: 'Go example plugin with a Vue management page.',

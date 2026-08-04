@@ -23,6 +23,17 @@ import {
   resolveStartProfile,
   shouldInstallDependencies,
 } from "./start-dev-support.mjs";
+import {
+  collectWorkspaceSDKVersions,
+  currentPluginPlatform,
+  loadPluginWorkspace,
+  mirrorVueSDK,
+  PLUGIN_DEV_OFF,
+  PLUGIN_DEV_WATCH,
+  renderDevelopmentGoWork,
+  resolvePluginDevMode,
+  watchPluginWorkspace,
+} from "./plugin-dev-workspace.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const rootDir = path.resolve(scriptDir, "..");
@@ -42,6 +53,10 @@ const serverWatchDirs = [path.join(serverDir, "cmd"), path.join(serverDir, "inte
 const serverWatchExcludedDirs = new Set([".cache", ".gocache", "dist", "logs", "tmp"]);
 const serverReloadDebounceMs = 500;
 const childGoCacheDir = path.join(rootDir, ".tmp", "gocache");
+const pluginWorkspacePath = path.resolve(rootDir, process.env.RAYLEA_PLUGIN_WORKSPACE || "plugin-workspace.local.json");
+const pluginDevRoot = path.join(rootDir, ".tmp", "plugin-dev");
+const pluginDevGoWorkPath = path.join(pluginDevRoot, "go.work");
+const pluginDevArtifactRoot = path.join(pluginDevRoot, "artifacts");
 const baseChildEnvironment = {
   ...createTrustedChildEnvironment({ nodeExecutablePath: process.execPath }),
   GOCACHE: childGoCacheDir,
@@ -84,11 +99,16 @@ async function main() {
   const profile = resolveStartProfile(process.env);
   const installMode = resolveInstallMode(process.env);
   const serverReloadMode = resolveServerReloadMode(process.env);
+  const pluginDevMode = resolvePluginDevMode(process.env, fs.existsSync(pluginWorkspacePath));
+  if (pluginDevMode === PLUGIN_DEV_WATCH && serverReloadMode !== SERVER_RELOAD_WATCH) {
+    throw new Error("RAYLEA_PLUGIN_DEV=watch requires RAYLEA_SERVER_RELOAD=watch.");
+  }
+  const pluginDev = { mode: pluginDevMode, workspacePath: pluginWorkspacePath };
 
-  log(`启动配置：profile=${profile} install=${installMode} server_reload=${serverReloadMode || "off"}`);
+  log(`启动配置：profile=${profile} install=${installMode} server_reload=${serverReloadMode || "off"} plugin_dev=${pluginDevMode}`);
 
   if (profile === BUILD_PROFILE) {
-    await runBuildProfile({ installMode });
+    await runBuildProfile({ installMode, pluginDev });
     return;
   }
 
@@ -97,21 +117,22 @@ async function main() {
   log(`后端地址：${backendBaseUrl}`);
 
   if (profile === WEB_DEV_PROFILE) {
-    await runWebDevProfile({ installMode, devEnvironment, serverReloadMode, backendBaseUrl });
+    await runWebDevProfile({ installMode, devEnvironment, serverReloadMode, backendBaseUrl, pluginDev });
     return;
   }
   if (profile === LAUNCHER_DEV_PROFILE) {
-    await runLauncherDevProfile({ installMode, devEnvironment, serverReloadMode, backendBaseUrl });
+    await runLauncherDevProfile({ installMode, devEnvironment, serverReloadMode, backendBaseUrl, pluginDev });
     return;
   }
 
   throw new Error(`Unsupported profile: ${profile}`);
 }
 
-async function runBuildProfile({ installMode }) {
+async function runBuildProfile({ installMode, pluginDev }) {
   await ensureDependencies("Web", webDir, installMode);
   await runCommand("构建 Web 静态资源", "pnpm", ["run", "build"], { cwd: webDir });
   await buildServer();
+  await syncDevelopmentPlugins(pluginDev, path.join(serverDistDir, serverBinaryName));
   await ensureDependencies("Launcher", launcherDir, installMode);
   await buildLauncherApp();
   if (shouldSkipLaunch()) {
@@ -125,9 +146,9 @@ async function runBuildProfile({ installMode }) {
   });
 }
 
-async function runWebDevProfile({ installMode, devEnvironment, serverReloadMode, backendBaseUrl }) {
+async function runWebDevProfile({ installMode, devEnvironment, serverReloadMode, backendBaseUrl, pluginDev }) {
   await ensureDependencies("Web", webDir, installMode);
-  await ensureServerRuntime({ serverReloadMode, backendBaseUrl });
+  await ensureServerRuntime({ serverReloadMode, backendBaseUrl, pluginDev });
   await ensureWebDevServer(devEnvironment);
   await ensureDependencies("Launcher", launcherDir, installMode);
   await buildLauncherApp();
@@ -142,9 +163,9 @@ async function runWebDevProfile({ installMode, devEnvironment, serverReloadMode,
   });
 }
 
-async function runLauncherDevProfile({ installMode, devEnvironment, serverReloadMode, backendBaseUrl }) {
+async function runLauncherDevProfile({ installMode, devEnvironment, serverReloadMode, backendBaseUrl, pluginDev }) {
   await ensureDependencies("Web", webDir, installMode);
-  await ensureServerRuntime({ serverReloadMode, backendBaseUrl });
+  await ensureServerRuntime({ serverReloadMode, backendBaseUrl, pluginDev });
   await ensureWebDevServer(devEnvironment);
   await ensureDependencies("Launcher", launcherDir, installMode);
   if (shouldSkipLaunch()) {
@@ -168,18 +189,76 @@ async function buildServer() {
   );
 }
 
-async function ensureServerRuntime({ serverReloadMode, backendBaseUrl }) {
+async function syncDevelopmentPlugins(pluginDev, serverBinaryPath) {
+  if (!pluginDev || pluginDev.mode === PLUGIN_DEV_OFF) {
+    return { workspaceVersion: "1", plugins: [] };
+  }
+  const workspace = await loadPluginWorkspace(pluginDev.workspacePath);
+  if (workspace.plugins.length === 0) {
+    log(`开发插件工作区为空：${relativePath(pluginDev.workspacePath)}`);
+    return workspace;
+  }
+  const platform = currentPluginPlatform();
+  const sdkGoVersions = await collectWorkspaceSDKVersions(workspace.plugins);
+  await fsp.mkdir(pluginDevRoot, { recursive: true });
+  await fsp.writeFile(pluginDevGoWorkPath, renderDevelopmentGoWork({
+    sdkGoPath: path.join(rootDir, "sdk", "go"),
+    sdkGoVersions,
+    plugins: workspace.plugins,
+  }), "utf8");
+  await fsp.mkdir(pluginDevArtifactRoot, { recursive: true });
+
+  for (const plugin of workspace.plugins) {
+    const buildEntry = path.join(plugin.path, "tools", "build");
+    if (!fs.existsSync(path.join(plugin.path, "info.json")) || !fs.existsSync(buildEntry)) {
+      throw new Error(`开发插件 ${plugin.id} 缺少 info.json 或 tools/build：${plugin.path}`);
+    }
+    await mirrorVueSDK({ sdkVuePath: path.join(rootDir, "sdk", "vue"), pluginPath: plugin.path });
+    await runCommand(`构建开发插件 ${plugin.id}`, "go", [
+      "run",
+      "./tools/build",
+      "-target",
+      platform,
+      "-out",
+      pluginDevArtifactRoot,
+    ], {
+      cwd: plugin.path,
+      env: {
+        GOWORK: pluginDevGoWorkPath,
+        RAYLEA_PLUGIN_BUILD_USE_WORKSPACE: "1",
+      },
+    });
+    const expandedArtifact = path.join(pluginDevArtifactRoot, platform, plugin.id);
+    await runCommand(`同步开发插件 ${plugin.id}`, serverBinaryPath, [
+      "-config",
+      path.join(rootDir, "config", "user.yaml"),
+      "plugin",
+      "dev-sync",
+      "--artifact",
+      expandedArtifact,
+      "--source",
+      plugin.path,
+      "--plugin-id",
+      plugin.id,
+    ], { cwd: rootDir });
+  }
+  return workspace;
+}
+
+async function ensureServerRuntime({ serverReloadMode, backendBaseUrl, pluginDev }) {
   if (serverReloadMode === SERVER_RELOAD_WATCH) {
-    await startServerWatch(backendBaseUrl);
+    await startServerWatch(backendBaseUrl, pluginDev);
     return;
   }
   await buildServer();
+  await syncDevelopmentPlugins(pluginDev, path.join(serverDistDir, serverBinaryName));
 }
 
-async function startServerWatch(backendBaseUrl) {
+async function startServerWatch(backendBaseUrl, pluginDev) {
   log("启动 Server 热重载：内置 watcher");
   await fsp.rm(serverDevBinaryPath, { force: true });
   await buildServerDevBinary();
+  const pluginWorkspace = await syncDevelopmentPlugins(pluginDev, serverDevBinaryPath);
   let child = startServerDevProcess();
   await waitForServerProcess(child, backendBaseUrl, "Server 热重载已启动。");
 
@@ -187,44 +266,71 @@ async function startServerWatch(backendBaseUrl) {
   let rebuilding = false;
   let pending = false;
 
-  const scheduleReload = (sourcePath) => {
+  const scheduleReload = (sourcePath, kind = "server") => {
     if (shuttingDown) {
       return;
     }
     clearTimeout(timer);
     timer = setTimeout(() => {
-      void rebuildAndRestart(sourcePath);
+      void rebuildAndRestart(sourcePath, kind);
     }, serverReloadDebounceMs);
   };
 
-  const rebuildAndRestart = async (sourcePath) => {
+  const rebuildAndRestart = async (sourcePath, kind) => {
     if (rebuilding) {
       pending = true;
       return;
     }
     rebuilding = true;
+    let serverStopped = false;
     try {
-      log(`检测到 Server 源码变更：${relativePath(sourcePath)}`);
-      await buildServerDevBinary();
-      await terminateChild(child);
+      if (kind === "plugin") {
+        log(`检测到开发插件源码变更：${sourcePath}`);
+        await terminateChild(child);
+        await waitForChildExit(child);
+        serverStopped = true;
+        await syncDevelopmentPlugins(pluginDev, serverDevBinaryPath);
+      } else {
+        log(`检测到 Server 源码变更：${relativePath(sourcePath)}`);
+        await buildServerDevBinary();
+        await terminateChild(child);
+        await waitForChildExit(child);
+        serverStopped = true;
+      }
       child = startServerDevProcess();
       await waitForServerProcess(child, backendBaseUrl, "Server 热重载已重启。");
+      serverStopped = false;
     } catch (error) {
       log(`Server 热重载失败：${error?.message ?? error}`, "error");
+      if (serverStopped && !shuttingDown) {
+        try {
+          log("开发插件更新未生效，正在使用已安装的上一个可用产物恢复 Server。");
+          await terminateChild(child);
+          await waitForChildExit(child);
+          child = startServerDevProcess();
+          await waitForServerProcess(child, backendBaseUrl, "Server 已使用上一个可用插件产物恢复。");
+        } catch (recoveryError) {
+          log(`Server 恢复失败：${recoveryError?.message ?? recoveryError}`, "error");
+        }
+      }
     } finally {
       rebuilding = false;
       if (pending) {
         pending = false;
-        scheduleReload(sourcePath);
+        scheduleReload(sourcePath, kind);
       }
     }
   };
 
   const stopWatching = await watchServerSources(scheduleReload);
+  const stopPluginWatching = pluginDev.mode === PLUGIN_DEV_WATCH
+    ? await watchPluginWorkspace(pluginWorkspace.plugins, (_plugin, sourcePath) => scheduleReload(sourcePath, "plugin"))
+    : async () => {};
   cleanupCallbacks.add(async () => {
     clearTimeout(timer);
     cleanupCallbacks.delete(stopWatching);
     await stopWatching();
+    await stopPluginWatching();
   });
 }
 
@@ -448,6 +554,9 @@ function createSpawnSpec(command, args) {
   if (command === "tmp/" + serverDevBinaryName) {
     return { command: path.join(".", "tmp", serverDevBinaryName), args };
   }
+  if (path.isAbsolute(command) && fs.existsSync(command)) {
+    return { command, args };
+  }
   throw new Error(`Unsupported child command: ${command}`);
 }
 
@@ -480,6 +589,16 @@ function waitForChild(child) {
       resolve({ code: normalizeExitCode(code, signal), signal });
     });
   });
+}
+
+async function waitForChildExit(child, timeoutMs = 5_000) {
+  const deadline = Date.now() + timeoutMs;
+  while (child.exitCode === null && Date.now() < deadline) {
+    await delay(50);
+  }
+  if (child.exitCode === null) {
+    throw new Error("Server process did not exit before the development sync timeout.");
+  }
 }
 
 function normalizeExitCode(code, signal) {

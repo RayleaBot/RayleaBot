@@ -56,7 +56,10 @@ class BreakingPluginEpochResetTests(unittest.TestCase):
             INSERT INTO admin_sessions (session_id, subject, issued_at, expires_at)
               VALUES ('hash', 'admin', 'now', 'later');
             INSERT INTO plugin_instances VALUES ('weather', 'enabled', 'now');
-            INSERT INTO plugin_packages VALUES ('weather', 'local_zip', 'weather.zip', '1.0.0', 'm', 'p', 'now');
+            INSERT INTO plugin_packages (
+              plugin_id, source_type, source_ref, version, manifest_hash, package_hash,
+              archive_hash, publisher_id, publisher_name, publisher_verified, catalog_digest, installed_at
+            ) VALUES ('weather', 'local_zip', 'weather.zip', '1.0.0', 'm', 'p', '', '', '', 0, '', 'now');
             INSERT INTO plugin_kv VALUES ('weather', 'state', '{}', 2, 'now');
             INSERT INTO scheduler_jobs (job_id, plugin_id, cron_expr, next_run, created_at, updated_at)
               VALUES ('job', 'weather', '* * * * *', 'now', 'now', 'now');

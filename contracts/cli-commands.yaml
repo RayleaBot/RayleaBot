@@ -23,10 +23,52 @@ x-fixtures:
   - fixtures/cli/ok.version-json.yaml
   - fixtures/cli/ok.update-check-json.yaml
   - fixtures/cli/ok.update-verify.yaml
+  - fixtures/cli/ok.plugin-dev-sync.yaml
+  - fixtures/cli/invalid.plugin-dev-sync-online.yaml
 
 x-design-source: docs/user/cli.md
 
 commands:
+  plugin:
+    name: plugin
+    summary: 执行插件开发工作区的离线同步操作。
+    availability:
+      online: false
+      offline: true
+    task_model: false
+    cancellable: false
+    implemented: true
+    subcommands:
+      dev-sync:
+        name: dev-sync
+        summary: 通过统一 artifact 安装事务同步一个已构建的开发插件。
+        availability:
+          online: false
+          offline: true
+        description: >
+          校验目标平台 artifact 后，以 development 来源执行安装或原子替换，
+          保留失败前最后一个可用版本，并把新开发插件的 desired_state 设为 enabled。
+          命令只接受标准构建器生成的展开目录，不执行 manifest 提供的命令。
+        options:
+          artifact:
+            flag: --artifact
+            type: path
+            required: true
+          source:
+            flag: --source
+            type: path
+            required: true
+          plugin-id:
+            flag: --plugin-id
+            type: string
+            required: true
+        exit_codes:
+          0: 开发插件已同步
+          1: 数据库锁、artifact 校验、插件 ID 或安装事务失败
+        x-fixtures:
+          - fixtures/cli/ok.plugin-dev-sync.yaml
+          - fixtures/cli/invalid.plugin-dev-sync-online.yaml
+
   version:
     name: version
     summary: 输出当前构建版本与更新协议版本。

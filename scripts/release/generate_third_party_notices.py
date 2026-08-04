@@ -221,15 +221,7 @@ def detect_go_license(text: str, component: str) -> str:
 
 
 def collect_go_components() -> list[Component]:
-    projects = [
-        (REPO_ROOT / "server", "./cmd/raylea-server"),
-        *((REPO_ROOT / path, ".") for path in (
-            "plugins/builtin/echo",
-            "plugins/builtin/fortune",
-            "plugins/builtin/game_guide",
-            "plugins/builtin/subscription_hub",
-        )),
-    ]
+    projects = [(REPO_ROOT / "server", "./cmd/raylea-server")]
     modules_by_key: dict[tuple[str, str], dict[str, Any]] = {}
     for project_dir, package_pattern in projects:
         for goos, goarch in (("windows", "amd64"), ("linux", "amd64"), ("darwin", "arm64")):
@@ -348,9 +340,6 @@ def generate() -> str:
             collect_go_components(),
             collect_node_components("web"),
             collect_node_components("launcher"),
-            collect_node_components("sdk/vue"),
-            collect_node_components("plugins/builtin/fortune/ui"),
-            collect_node_components("plugins/builtin/subscription_hub/ui"),
             [collect_electron_runtime_component()],
         ]
     )

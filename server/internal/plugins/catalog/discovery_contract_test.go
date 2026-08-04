@@ -46,18 +46,18 @@ func TestPluginDiscoveryContextUsesPluginDirectoriesOnly(t *testing.T) {
 
 	configPath := writePersistentYAMLConfig(t, filepath.Join(t.TempDir(), "state.db"))
 	repoRoot := t.TempDir()
-	builtinRoot := filepath.Join(repoRoot, "plugins", "builtin")
+	installedRoot := filepath.Join(repoRoot, "plugins", "installed")
 	exampleRoot := filepath.Join(repoRoot, "examples", "plugins", "hello-go")
 	for _, dir := range []string{
-		filepath.Join(builtinRoot, "fixture-builtin"),
+		filepath.Join(installedRoot, "fixture-installed"),
 		exampleRoot,
 	} {
 		if err := os.MkdirAll(dir, 0o755); err != nil {
 			t.Fatalf("mkdir %s: %v", dir, err)
 		}
 	}
-	if err := writePluginManifest(filepath.Join(builtinRoot, "fixture-builtin", "info.json"), pluginManifestWithCommand("fixture-builtin", "fixture")); err != nil {
-		t.Fatalf("write builtin manifest: %v", err)
+	if err := writePluginManifest(filepath.Join(installedRoot, "fixture-installed", "info.json"), pluginManifestWithCommand("fixture-installed", "fixture")); err != nil {
+		t.Fatalf("write installed manifest: %v", err)
 	}
 	if err := writePluginManifest(filepath.Join(exampleRoot, "info.json"), pluginManifestWithCommand("fixture-example", "example")); err != nil {
 		t.Fatalf("write example manifest: %v", err)
@@ -68,8 +68,7 @@ func TestPluginDiscoveryContextUsesPluginDirectoriesOnly(t *testing.T) {
 		PluginRepoRoot:   repoRoot,
 		PluginSchemaPath: testutil.RepoPath(t, "contracts", "plugin-info.schema.json"),
 		PluginRoots: []plugincatalog.ScanRoot{
-			{Label: "plugins/builtin", Path: builtinRoot},
-			{Label: "plugins/installed", Path: filepath.Join(filepath.Dir(configPath), "..", "plugins", "installed")},
+			{Label: "plugins/installed", Path: installedRoot},
 		},
 	})
 	if err != nil {
@@ -81,8 +80,8 @@ func TestPluginDiscoveryContextUsesPluginDirectoriesOnly(t *testing.T) {
 		}
 	})
 
-	if _, ok := application.Plugins().Get("fixture-builtin"); !ok {
-		t.Fatal("expected plugin from configured builtin root to be discovered")
+	if _, ok := application.Plugins().Get("fixture-installed"); !ok {
+		t.Fatal("expected plugin from the installed root to be discovered")
 	}
 	if _, ok := application.Plugins().Get("fixture-example"); ok {
 		t.Fatal("examples/plugins must not be discovered by the default application roots")
@@ -101,10 +100,7 @@ func TestDefaultAppStartupDoesNotRequireContractsDirectory(t *testing.T) {
 		t.Fatalf("write config: %v", err)
 	}
 
-	for _, dir := range []string{
-		filepath.Join(repoRoot, "plugins", "builtin"),
-		filepath.Join(repoRoot, "plugins", "installed"),
-	} {
+	for _, dir := range []string{filepath.Join(repoRoot, "plugins", "installed")} {
 		if err := os.MkdirAll(dir, 0o755); err != nil {
 			t.Fatalf("create plugin root %s: %v", dir, err)
 		}
@@ -410,17 +406,17 @@ func TestConflictPathsUseStableSourceOrdering(t *testing.T) {
 	}
 }
 
-func TestDiscoverBuiltinSourceDefaultsToEnabledAndPreservesCommands(t *testing.T) {
+func TestDiscoverInstalledSourceDefaultsToDisabledAndPreservesCommands(t *testing.T) {
 	t.Parallel()
 
 	repoRoot := t.TempDir()
-	builtinRoot := filepath.Join(repoRoot, "plugins", "builtin")
-	pluginDir := filepath.Join(builtinRoot, "fixture-builtin")
+	installedRoot := filepath.Join(repoRoot, "plugins", "installed")
+	pluginDir := filepath.Join(installedRoot, "fixture-installed")
 	if err := os.MkdirAll(pluginDir, 0o755); err != nil {
 		t.Fatalf("mkdir %s: %v", pluginDir, err)
 	}
-	if err := writePluginManifest(filepath.Join(pluginDir, "info.json"), pluginManifestWithCommand("fixture-builtin", "fixture")); err != nil {
-		t.Fatalf("write builtin manifest: %v", err)
+	if err := writePluginManifest(filepath.Join(pluginDir, "info.json"), pluginManifestWithCommand("fixture-installed", "fixture")); err != nil {
+		t.Fatalf("write installed manifest: %v", err)
 	}
 
 	validator := compileSchema(t, testutil.RepoPath(t, "contracts", "plugin-info.schema.json"))
@@ -428,14 +424,14 @@ func TestDiscoverBuiltinSourceDefaultsToEnabledAndPreservesCommands(t *testing.T
 		Validator: validator,
 		Roots: []plugincatalog.ScanRoot{
 			{
-				Label: "plugins/builtin",
-				Path:  builtinRoot,
+				Label: "plugins/installed",
+				Path:  installedRoot,
 			},
 		},
 		RepoRoot: repoRoot,
 	})
 	if err != nil {
-		t.Fatalf("Discover builtin source failed: %v", err)
+		t.Fatalf("Discover installed source failed: %v", err)
 	}
 
 	catalog := plugincatalog.New(snapshots)
@@ -446,30 +442,30 @@ func TestDiscoverBuiltinSourceDefaultsToEnabledAndPreservesCommands(t *testing.T
 		declarationID string
 		commandCount  int
 	}{
-		{pluginID: "fixture-builtin", commandName: "fixture", source: plugins.CommandSourceManifest, commandCount: 1},
+		{pluginID: "fixture-installed", commandName: "fixture", source: plugins.CommandSourceManifest, commandCount: 1},
 	} {
 		snapshot, ok := catalog.Get(tc.pluginID)
 		if !ok {
 			t.Fatalf("expected plugin %q to be discovered", tc.pluginID)
 		}
-		if snapshot.DesiredState != "enabled" {
-			t.Fatalf("unexpected desired_state for %s: got %q want enabled", tc.pluginID, snapshot.DesiredState)
+		if snapshot.DesiredState != "disabled" {
+			t.Fatalf("unexpected desired_state for %s: got %q want disabled", tc.pluginID, snapshot.DesiredState)
 		}
-		if snapshot.Role != "builtin" {
-			t.Fatalf("unexpected role for %s: got %q want builtin", tc.pluginID, snapshot.Role)
+		if snapshot.Role != "" {
+			t.Fatalf("manifest discovery assigned trusted role for %s: %q", tc.pluginID, snapshot.Role)
 		}
 		if len(snapshot.Commands) != tc.commandCount {
-			t.Fatalf("unexpected builtin command count for %s: got %d want %d", tc.pluginID, len(snapshot.Commands), tc.commandCount)
+			t.Fatalf("unexpected command count for %s: got %d want %d", tc.pluginID, len(snapshot.Commands), tc.commandCount)
 		}
 		command, ok := findPluginCommand(snapshot.Commands, tc.commandName)
 		if !ok {
-			t.Fatalf("expected builtin command %q for %s, got %#v", tc.commandName, tc.pluginID, snapshot.Commands)
+			t.Fatalf("expected command %q for %s, got %#v", tc.commandName, tc.pluginID, snapshot.Commands)
 		}
 		if command.CommandSource != tc.source {
-			t.Fatalf("unexpected builtin command source for %s: got %q want %q", tc.pluginID, command.CommandSource, tc.source)
+			t.Fatalf("unexpected command source for %s: got %q want %q", tc.pluginID, command.CommandSource, tc.source)
 		}
 		if command.DeclarationID != tc.declarationID {
-			t.Fatalf("unexpected builtin command declaration for %s: got %q want %q", tc.pluginID, command.DeclarationID, tc.declarationID)
+			t.Fatalf("unexpected command declaration for %s: got %q want %q", tc.pluginID, command.DeclarationID, tc.declarationID)
 		}
 	}
 }
@@ -725,8 +721,8 @@ func TestDiscoverManifestDefaultConfigAndRole(t *testing.T) {
 	}
 
 	snapshot := snapshots[0]
-	if snapshot.Role != "user" {
-		t.Fatalf("unexpected role: got %q want user", snapshot.Role)
+	if snapshot.Role != "" {
+		t.Fatalf("manifest discovery assigned trusted role: %q", snapshot.Role)
 	}
 	if got := snapshot.DefaultConfig["default_city"]; got != "北京" {
 		t.Fatalf("unexpected default_config.default_city: got %#v want 北京", got)

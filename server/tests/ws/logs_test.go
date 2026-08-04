@@ -16,6 +16,7 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/app"
 	"github.com/RayleaBot/RayleaBot/server/internal/auth"
 	"github.com/RayleaBot/RayleaBot/server/internal/logging"
+	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	"github.com/RayleaBot/RayleaBot/server/tests/testutil"
 )
 
@@ -140,6 +141,9 @@ func TestLogsWebSocketAppendsCommandPolicyRejectionSummary(t *testing.T) {
 	t.Parallel()
 
 	application := newTestApp(t, deterministicAuthOptions()...)
+	if _, err := application.Plugins().SetDesiredState("raylea.echo", plugins.DesiredStateEnabled); err != nil {
+		t.Fatalf("enable command-policy fixture in catalog: %v", err)
+	}
 	token := issueLoginToken(t, application)
 	server := newManagementTestServer(t, application.Handler())
 	defer server.Close()

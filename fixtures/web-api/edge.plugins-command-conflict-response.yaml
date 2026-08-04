@@ -11,7 +11,7 @@ response:
       - id: weather
         name: Weather
         version: "1.2.3"
-        role: user
+        role: community
         state: running
         source:
           root: plugins/installed
@@ -36,7 +36,7 @@ response:
       - id: weather-admin
         name: Weather Admin
         version: "0.2.0"
-        role: dev
+        role: development
         state: running
         source:
           root: plugins/dev

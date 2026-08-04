@@ -6,14 +6,11 @@
 
 ## 插件来源与目录
 
-| 目录 | 角色 |
-| --- | --- |
-| `plugins/builtin/` | 官方内置插件，跟随发行包交付 |
-| `plugins/installed/` | 用户安装插件 |
-
-- 默认 discovery 只扫描 `plugins/builtin/` 和 `plugins/installed/`。
-- `examples/plugins/` 只承担示例职责，不进入默认发现主链。
-- `plugins/dev/` 不属于默认正式 discovery root。
+- RayleaBot 没有内置插件；默认 discovery 只扫描 `plugins/installed/`。
+- 官方、社区和开发插件都通过统一安装事务进入 `plugins/installed/<plugin_id>/`，运行目录本身不表达信任等级。
+- `examples/plugins/` 只承担 SDK 示例职责，不进入发现、商店或发布主链。
+- 开发仓库位于主仓库之外，通过 `plugin-workspace.local.json` 构建并同步，不作为源码 discovery root。
+- 官方身份只来自已验证商店目录及持久化 package metadata，manifest 不能声明角色。
 
 ## 当前支持的运行时
 
@@ -36,8 +33,9 @@
 
 - 插件安装、卸载和重载统一走后台任务模型。
 - 安装只接受单根目录 ZIP 或已经构建好的 artifact 目录。安装器先校验 manifest v2、artifact v1、文件全集、大小、SHA-256、平台、后端二进制格式、Unix executable bit 和 UI 入口，再原子替换目标目录。
+- 商店安装额外冻结并校验已签名目录中的归档摘要、manifest 摘要、插件 ID、版本和发布者身份；Web 必须先取得用户对本机原生代码的显式确认。
 - manifest v1、Python/Node runtime、错误平台、篡改文件、错误二进制、缺失 UI 文件及包含额外文件的包都会被拒绝。
-- 升级重新执行完整 artifact 校验，并重新读取能力声明与能力参数。
+- 升级重新执行完整 artifact 校验，并重新读取能力声明与能力参数。替换失败时恢复旧包、旧 package metadata、旧模板和原 desired state。
 - 卸载移除插件包目录；插件业务数据按卸载接口的正式选项处理，不存在私有语言运行环境。
 
 ## 数据与目录边界
@@ -57,4 +55,5 @@
 
 - [Capabilities and Manifest](./capabilities-and-manifest.md)
 - [Protocol](./protocol.md)
+- [Plugin Store and Independent Development](./store-and-development.md)
 - [State Model](../architecture/state-model.md)

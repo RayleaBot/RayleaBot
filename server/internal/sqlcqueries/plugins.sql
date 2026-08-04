@@ -12,19 +12,28 @@ ON CONFLICT(plugin_id) DO UPDATE SET
 DELETE FROM plugin_instances WHERE plugin_id = ?;
 
 -- name: SavePackageMetadata :exec
-INSERT INTO plugin_packages (plugin_id, source_type, source_ref, version, manifest_hash, package_hash, installed_at)
-VALUES (?, ?, ?, ?, ?, ?, ?)
+INSERT INTO plugin_packages (
+    plugin_id, source_type, source_ref, version, manifest_hash, package_hash,
+    archive_hash, publisher_id, publisher_name, publisher_verified, catalog_digest, installed_at
+)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT(plugin_id) DO UPDATE SET
     source_type = excluded.source_type,
     source_ref = excluded.source_ref,
     version = excluded.version,
     manifest_hash = excluded.manifest_hash,
     package_hash = excluded.package_hash,
+    archive_hash = excluded.archive_hash,
+    publisher_id = excluded.publisher_id,
+    publisher_name = excluded.publisher_name,
+    publisher_verified = excluded.publisher_verified,
+    catalog_digest = excluded.catalog_digest,
     installed_at = excluded.installed_at;
 
 -- name: DeletePackageMetadata :exec
 DELETE FROM plugin_packages WHERE plugin_id = ?;
 
 -- name: LoadAllPackageMetadata :many
-SELECT plugin_id, source_type, source_ref, version, manifest_hash, package_hash, installed_at
+SELECT plugin_id, source_type, source_ref, version, manifest_hash, package_hash,
+       archive_hash, publisher_id, publisher_name, publisher_verified, catalog_digest, installed_at
 FROM plugin_packages;

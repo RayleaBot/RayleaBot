@@ -13,7 +13,6 @@
     "license": "MIT",
     "description": "Weather plugin with a local render card.",
     "author": "raylea",
-    "role": "user",
     "capabilities": [
       "event.subscribe",
       "render.image"

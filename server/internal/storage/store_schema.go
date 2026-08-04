@@ -49,6 +49,11 @@ var schemaMigrations = []schemaMigration{
 		file:    "migrations/000004_add_bilibili_source_room_cover_url.sql",
 		skip:    bilibiliSourceRoomCoverURLMigrated,
 	},
+	{
+		version: 5,
+		name:    "plugin_package_origins",
+		file:    "migrations/000005_plugin_package_origins.sql",
+	},
 }
 
 func initializeSchema(ctx context.Context, db *sql.DB) error {

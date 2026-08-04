@@ -38,28 +38,28 @@ jobs:
       matrix:
         include:
           - artifact_id: windows-x64-full
-            plugin_target: windows-x64
+            recovery_fixture_target: windows-x64
             runner: windows-latest
             server_bin: dist/server/raylea-server.exe
             launcher_required: true
             launcher_bundle: launcher/dist/package/win-unpacked
             systemd_file: ""
           - artifact_id: linux-x64-full
-            plugin_target: linux-x64
+            recovery_fixture_target: linux-x64
             runner: ubuntu-latest
             server_bin: dist/server/raylea-server
             launcher_required: true
             launcher_bundle: launcher/dist/package/linux-unpacked
             systemd_file: ""
           - artifact_id: linux-x64-server
-            plugin_target: linux-x64
+            recovery_fixture_target: linux-x64
             runner: ubuntu-latest
             server_bin: dist/server/raylea-server
             launcher_required: false
             launcher_bundle: ""
             systemd_file: packaging/systemd/rayleabot.service
           - artifact_id: macos-arm64-full
-            plugin_target: macos-arm64
+            recovery_fixture_target: macos-arm64
             runner: macos-14
             server_bin: dist/server/raylea-server
             launcher_required: true
@@ -119,6 +119,14 @@ jobs:
             (cd server && go build -o ../dist/server/raylea-server ./cmd/raylea-server)
           fi
 
+      - name: Build recovery test plugin fixture
+        if: steps.filter.outputs.selected == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p dist/recovery-plugin
+          (cd server/tests/testutil/testdata/echo-plugin && GOWORK=off go run ./tools/build -target "${{ matrix.recovery_fixture_target }}" -out "$GITHUB_WORKSPACE/dist/recovery-plugin")
+
       - name: Install web dependencies
         if: steps.filter.outputs.selected == 'true'
         working-directory: web
@@ -128,10 +136,6 @@ jobs:
         if: steps.filter.outputs.selected == 'true'
         working-directory: web
         run: pnpm build
-
-      - name: Build production plugin artifacts
-        if: steps.filter.outputs.selected == 'true'
-        run: python scripts/release/build_plugin_artifacts.py --target "${{ matrix.plugin_target }}" --output dist/plugin-artifacts
 
       - name: Install launcher dependencies
         if: steps.filter.outputs.selected == 'true' && matrix.launcher_required
@@ -165,13 +169,13 @@ jobs:
             --release-notes-ref "$RELEASE_NOTES_REF"
             --server-bin "${{ matrix.server_bin }}"
             --web-dist web/dist
-            --builtin-dir "dist/plugin-artifacts/${{ matrix.plugin_target }}"
             --deps-dir .deps
             --templates-dir templates
             --default-config config/default.yaml
             --output-dir dist/release
             --run-smoke
             --run-recovery-drill
+            --recovery-plugin-fixture "dist/recovery-plugin/raylea.echo-0.2.0-${{ matrix.recovery_fixture_target }}.zip"
             --run-self-host-smoke
             --window-seconds "${{ github.event.inputs.window_seconds }}"
             --probe-interval-seconds "${{ github.event.inputs.probe_interval_seconds }}"

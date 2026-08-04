@@ -12,7 +12,7 @@
 | `contracts/` | 正式接口、schema、错误码与 release metadata |
 | `fixtures/` | 契约样例与回归基线 |
 | `examples/` | 示例插件、示例配置和示例请求 |
-| `plugins/` | 插件根目录，默认发现 `builtin/` 与 `installed/` |
+| `plugins/installed/` | 统一插件安装与发现目录；商店、本地 artifact 和开发同步共用 |
 | `config/` | 默认配置与用户配置 |
 | `data/` | SQLite 状态库与插件业务数据 |
 | `cache/` | 渲染缓存、下载缓存与临时缓存 |

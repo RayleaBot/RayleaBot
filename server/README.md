@@ -8,7 +8,7 @@
 - `config/user.yaml` 读取与内置配置 schema 校验；`contracts/config.user.schema.json` 是源码中的正式来源
 - `GET /healthz`、`GET /readyz`
 - SQLite store、current schema bootstrap、auth persistence、task persistence、plugin enable intent persistence、secret store、third-party account persistence
-- plugin discovery：当前扫描 `plugins/builtin` 与 `plugins/installed`；`examples/plugins` 仅保留示例职责
+- plugin discovery：只扫描 `plugins/installed`；官方、社区和开发来源均通过统一安装事务进入该目录
 - management auth surface：
   - `POST /api/setup/admin`
   - `GET /api/setup/status`
@@ -59,6 +59,10 @@
 - `PUT /api/plugins/{plugin_id}/secrets`
 - `POST /api/plugins/{plugin_id}/management/actions`
 - `POST /api/plugins/{plugin_id}/recover`
+- `GET /api/plugin-store/plugins`
+- `GET /api/plugin-store/plugins/{plugin_id}`
+- `POST /api/plugin-store/plugins/{plugin_id}/install`
+- `POST /api/plugin-store/refresh`
 - `POST /api/webhooks/{plugin_id}/{route}`
 - `/ws/events`
 - `/ws/logs`
@@ -66,7 +70,8 @@
 - plugin lifecycle：
   - install / enable / disable / reload / uninstall
   - manifest capability declaration and capability parameter checks
-  - builtin plugin 默认发现、默认启用、拒绝卸载
+  - 签名商店目录、catalog/development 来源元数据、原子更新与失败回滚
+  - 离线 `plugin dev-sync` 复用完整 artifact 安装校验
 - OneBot11 adapter：
   - `reverse_ws`、`forward_ws`、`http_api`、`webhook`
   - ready / degraded / failed / setup_required 协议快照

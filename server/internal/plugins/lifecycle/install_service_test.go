@@ -173,6 +173,161 @@ func TestInstallServiceFailsWhenAfterSuccessCallbackFails(t *testing.T) {
 	}
 }
 
+func TestInstallServiceAtomicallyReplacesInstalledPlugin(t *testing.T) {
+	t.Parallel()
+
+	registry := tasks.NewRegistry()
+	repoRoot := t.TempDir()
+	repository := &stubInstallRepository{}
+	service, catalog := newInstallTestService(t, repoRoot, registry, nil, repository, installerDeps{})
+	defer service.Close()
+
+	initial := writeInstallSourcePlugin(t, filepath.Join(t.TempDir(), "replace-initial"), "replace-weather")
+	initialTask, err := acceptInspected(t, service, plugins.InstallRequest{SourceType: "local_directory", Source: initial})
+	if err != nil {
+		t.Fatalf("install initial plugin: %v", err)
+	}
+	if snapshot := waitForTaskCompletion(t, registry, initialTask); snapshot.Status != tasks.StatusSucceeded {
+		t.Fatalf("initial task status = %q", snapshot.Status)
+	}
+
+	replacement := writeInstallSourcePlugin(t, filepath.Join(t.TempDir(), "replace-next"), "replace-weather")
+	setInstallSourcePluginVersion(t, replacement, "0.2.0")
+	stopped := make(chan string, 1)
+	service.SetBeforeReplace(func(_ context.Context, pluginID string) { stopped <- pluginID })
+	replaceTask, err := acceptInspected(t, service, plugins.InstallRequest{
+		SourceType: "development", Source: replacement, ResolvedSourceType: "local_directory",
+		ResolvedSource: replacement, ReplaceExisting: true,
+	})
+	if err != nil {
+		t.Fatalf("replace plugin: %v", err)
+	}
+	if snapshot := waitForTaskCompletion(t, registry, replaceTask); snapshot.Status != tasks.StatusSucceeded {
+		t.Fatalf("replacement task = %#v", snapshot)
+	}
+	if pluginID := <-stopped; pluginID != "replace-weather" {
+		t.Fatalf("stopped plugin = %q", pluginID)
+	}
+
+	installed, ok := catalog.Get("replace-weather")
+	if !ok || installed.Version != "0.2.0" {
+		t.Fatalf("installed snapshot = %#v, want version 0.2.0", installed)
+	}
+	metadata := repository.packages["replace-weather"]
+	if metadata.Version != "0.2.0" || metadata.SourceType != "development" || metadata.SourceRef != replacement {
+		t.Fatalf("replacement metadata = %#v", metadata)
+	}
+}
+
+func TestInstallServiceRestoresLastGoodPluginAndMetadataWhenReplacementFinalizationFails(t *testing.T) {
+	t.Parallel()
+
+	registry := tasks.NewRegistry()
+	repoRoot := t.TempDir()
+	repository := &stubInstallRepository{}
+	service, catalog := newInstallTestService(t, repoRoot, registry, nil, repository, installerDeps{})
+	defer service.Close()
+
+	initial := writeInstallSourcePlugin(t, filepath.Join(t.TempDir(), "rollback-initial"), "rollback-weather")
+	initialTask, err := acceptInspected(t, service, plugins.InstallRequest{SourceType: "local_directory", Source: initial})
+	if err != nil {
+		t.Fatalf("install initial plugin: %v", err)
+	}
+	if snapshot := waitForTaskCompletion(t, registry, initialTask); snapshot.Status != tasks.StatusSucceeded {
+		t.Fatalf("initial task status = %q", snapshot.Status)
+	}
+	initialMetadata := repository.packages["rollback-weather"]
+
+	replacement := writeInstallSourcePlugin(t, filepath.Join(t.TempDir(), "rollback-next"), "rollback-weather")
+	setInstallSourcePluginVersion(t, replacement, "0.2.0")
+	rolledBack := make(chan string, 1)
+	service.SetAfterRollback(func(_ context.Context, pluginID string) { rolledBack <- pluginID })
+	service.SetAfterSuccess(func(context.Context, string) error { return errors.New("template finalization failed") })
+	replaceTask, err := acceptInspected(t, service, plugins.InstallRequest{
+		SourceType: "development", Source: replacement, ResolvedSourceType: "local_directory",
+		ResolvedSource: replacement, ReplaceExisting: true,
+	})
+	if err != nil {
+		t.Fatalf("replace plugin: %v", err)
+	}
+	if snapshot := waitForTaskCompletion(t, registry, replaceTask); snapshot.Status != tasks.StatusFailed {
+		t.Fatalf("replacement task = %#v, want failed", snapshot)
+	}
+	if pluginID := <-rolledBack; pluginID != "rollback-weather" {
+		t.Fatalf("rolled back plugin = %q", pluginID)
+	}
+
+	installed, ok := catalog.Get("rollback-weather")
+	if !ok || installed.Version != "0.1.0" {
+		t.Fatalf("rolled-back snapshot = %#v, want version 0.1.0", installed)
+	}
+	if metadata := repository.packages["rollback-weather"]; metadata != initialMetadata {
+		t.Fatalf("rolled-back metadata = %#v, want %#v", metadata, initialMetadata)
+	}
+	manifestPath := filepath.Join(repoRoot, "plugins", "installed", "rollback-weather", "info.json")
+	if version := readInstallManifestVersion(t, manifestPath); version != "0.1.0" {
+		t.Fatalf("rolled-back manifest version = %q", version)
+	}
+}
+
+func TestInstallServiceResumesLastGoodPluginWhenReplacementRenameFails(t *testing.T) {
+	t.Parallel()
+
+	registry := tasks.NewRegistry()
+	repoRoot := t.TempDir()
+	repository := &stubInstallRepository{}
+	service, catalog := newInstallTestService(t, repoRoot, registry, nil, repository, installerDeps{})
+	defer service.Close()
+
+	initial := writeInstallSourcePlugin(t, filepath.Join(t.TempDir(), "rename-rollback-initial"), "rename-rollback-weather")
+	initialTask, err := acceptInspected(t, service, plugins.InstallRequest{SourceType: "local_directory", Source: initial})
+	if err != nil {
+		t.Fatalf("install initial plugin: %v", err)
+	}
+	if snapshot := waitForTaskCompletion(t, registry, initialTask); snapshot.Status != tasks.StatusSucceeded {
+		t.Fatalf("initial task status = %q", snapshot.Status)
+	}
+
+	stopped := make(chan string, 1)
+	resumed := make(chan string, 1)
+	service.SetBeforeReplace(func(_ context.Context, pluginID string) { stopped <- pluginID })
+	service.SetAfterRollback(func(_ context.Context, pluginID string) { resumed <- pluginID })
+	service.deps.rename = func(source, target string) error {
+		if filepath.Base(source) == "candidate" && filepath.Base(target) == "rename-rollback-weather" {
+			return errors.New("injected candidate rename failure")
+		}
+		return os.Rename(source, target)
+	}
+
+	replacement := writeInstallSourcePlugin(t, filepath.Join(t.TempDir(), "rename-rollback-next"), "rename-rollback-weather")
+	setInstallSourcePluginVersion(t, replacement, "0.2.0")
+	replaceTask, err := acceptInspected(t, service, plugins.InstallRequest{
+		SourceType: "development", Source: replacement, ResolvedSourceType: "local_directory",
+		ResolvedSource: replacement, ReplaceExisting: true,
+	})
+	if err != nil {
+		t.Fatalf("replace plugin: %v", err)
+	}
+	if snapshot := waitForTaskCompletion(t, registry, replaceTask); snapshot.Status != tasks.StatusFailed {
+		t.Fatalf("replacement task = %#v, want failed", snapshot)
+	}
+	if pluginID := <-stopped; pluginID != "rename-rollback-weather" {
+		t.Fatalf("stopped plugin = %q", pluginID)
+	}
+	if pluginID := <-resumed; pluginID != "rename-rollback-weather" {
+		t.Fatalf("resumed plugin = %q", pluginID)
+	}
+
+	installed, ok := catalog.Get("rename-rollback-weather")
+	if !ok || installed.Version != "0.1.0" {
+		t.Fatalf("catalog snapshot = %#v, want version 0.1.0", installed)
+	}
+	manifestPath := filepath.Join(repoRoot, "plugins", "installed", "rename-rollback-weather", "info.json")
+	if version := readInstallManifestVersion(t, manifestPath); version != "0.1.0" {
+		t.Fatalf("restored manifest version = %q", version)
+	}
+}
+
 func TestInstallServiceInstallsLocalZip(t *testing.T) {
 	t.Parallel()
 
@@ -200,6 +355,52 @@ func TestInstallServiceInstallsLocalZip(t *testing.T) {
 
 	if _, ok := catalog.Get("zip-weather"); !ok {
 		t.Fatal("expected zip-installed plugin in refreshed catalog")
+	}
+}
+
+func TestInstallServiceRejectsCatalogArchiveAndManifestMismatch(t *testing.T) {
+	t.Parallel()
+
+	repoRoot := t.TempDir()
+	sourceDir := writeInstallSourcePlugin(t, filepath.Join(t.TempDir(), "catalog-integrity-src"), "catalog-integrity-weather")
+	archivePath := filepath.Join(t.TempDir(), "catalog-integrity-weather.zip")
+	writePluginZip(t, archivePath, sourceDir)
+	archiveInfo, err := os.Stat(archivePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	archiveDigest, err := hashFileSHA256(archivePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for _, testCase := range []struct {
+		name         string
+		expectedSize int64
+		expectedHash string
+		manifestHash string
+	}{
+		{name: "archive size", expectedSize: archiveInfo.Size() + 1, expectedHash: archiveDigest},
+		{name: "archive digest", expectedSize: archiveInfo.Size(), expectedHash: strings.Repeat("f", 64)},
+		{name: "manifest digest", expectedSize: archiveInfo.Size(), expectedHash: archiveDigest, manifestHash: strings.Repeat("e", 64)},
+	} {
+		t.Run(testCase.name, func(t *testing.T) {
+			registry := tasks.NewRegistry()
+			service, _ := newInstallTestService(t, repoRoot, registry, nil, &stubInstallRepository{}, installerDeps{})
+			defer service.Close()
+			_, err := service.Inspect(context.Background(), plugins.InstallRequest{
+				SourceType:             "catalog",
+				Source:                 "official/catalog-integrity-weather@0.1.0/windows-x64",
+				ResolvedSourceType:     "local_zip",
+				ResolvedSource:         archivePath,
+				ExpectedArchiveSize:    testCase.expectedSize,
+				ExpectedArchiveSHA256:  testCase.expectedHash,
+				ExpectedManifestSHA256: testCase.manifestHash,
+			})
+			if InstallErrorCode(err) != "plugin.store_integrity_mismatch" {
+				t.Fatalf("Inspect() error = %v, want plugin.store_integrity_mismatch", err)
+			}
+		})
 	}
 }
 
@@ -638,6 +839,7 @@ func installServiceTimeout() time.Duration {
 
 type stubInstallRepository struct {
 	saved          map[string]string
+	packages       map[string]plugins.PackageMetadata
 	lastPackage    plugins.PackageMetadata
 	deletedPackage string
 }
@@ -673,8 +875,20 @@ func (r *stubInstallRepository) SaveDesiredState(_ context.Context, pluginID str
 }
 
 func (r *stubInstallRepository) SavePackageMetadata(_ context.Context, pkg plugins.PackageMetadata) error {
+	if r.packages == nil {
+		r.packages = make(map[string]plugins.PackageMetadata)
+	}
+	r.packages[pkg.PluginID] = pkg
 	r.lastPackage = pkg
 	return nil
+}
+
+func (r *stubInstallRepository) LoadAllPackageMetadata(context.Context) (map[string]plugins.PackageMetadata, error) {
+	result := make(map[string]plugins.PackageMetadata, len(r.packages))
+	for pluginID, metadata := range r.packages {
+		result[pluginID] = metadata
+	}
+	return result, nil
 }
 
 func (r *stubInstallRepository) DeleteDesiredState(_ context.Context, _ string) error {
@@ -683,7 +897,45 @@ func (r *stubInstallRepository) DeleteDesiredState(_ context.Context, _ string) 
 
 func (r *stubInstallRepository) DeletePackageMetadata(_ context.Context, pluginID string) error {
 	r.deletedPackage = pluginID
+	delete(r.packages, pluginID)
 	return nil
+}
+
+func setInstallSourcePluginVersion(t *testing.T, root, version string) {
+	t.Helper()
+	manifestPath := filepath.Join(root, "info.json")
+	payload, err := os.ReadFile(manifestPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var manifest map[string]any
+	if err := json.Unmarshal(payload, &manifest); err != nil {
+		t.Fatal(err)
+	}
+	manifest["version"] = version
+	payload, err = json.MarshalIndent(manifest, "", "  ")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(manifestPath, append(payload, '\n'), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	refreshInstallArtifact(t, root)
+}
+
+func readInstallManifestVersion(t *testing.T, manifestPath string) string {
+	t.Helper()
+	payload, err := os.ReadFile(manifestPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var manifest struct {
+		Version string `json:"version"`
+	}
+	if err := json.Unmarshal(payload, &manifest); err != nil {
+		t.Fatal(err)
+	}
+	return manifest.Version
 }
 
 func writeInstallSourcePlugin(t *testing.T, root, pluginID string) string {

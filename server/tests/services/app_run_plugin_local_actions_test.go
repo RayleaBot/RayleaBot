@@ -53,7 +53,7 @@ func TestExecutePluginListUsesDeclaredCapability(t *testing.T) {
 		{
 			PluginID:             "raylea.echo",
 			Name:                 "Echo",
-			SourceRoot:           "plugins/builtin",
+			SourceRoot:           "plugins/installed",
 			Valid:                true,
 			RegistrationState:    "installed",
 			DesiredState:         "enabled",
@@ -269,7 +269,7 @@ func newPluginListVisibilityTestApp(cfg config.Config) *serviceHarness {
 		{
 			PluginID:             "raylea.echo",
 			Name:                 "Echo",
-			SourceRoot:           "plugins/builtin",
+			SourceRoot:           "plugins/installed",
 			Valid:                true,
 			RegistrationState:    "installed",
 			DesiredState:         "enabled",

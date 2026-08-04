@@ -123,7 +123,7 @@ describe('CommandsPage', () => {
       {
         id: 'raylea.fortune',
         name: '运势',
-        role: 'builtin',
+        role: 'official',
         state: 'running',
         commands: [
           {
@@ -140,7 +140,7 @@ describe('CommandsPage', () => {
       {
         id: 'raylea.echo',
         name: 'Echo',
-        role: 'builtin',
+        role: 'official',
         state: 'disabled',
         commands: [
           {

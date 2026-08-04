@@ -95,16 +95,6 @@
       },
       "uniqueItems": true
     },
-    "role": {
-      "type": "string",
-      "enum": [
-        "builtin",
-        "user",
-        "example",
-        "dev"
-      ],
-      "description": "Plugin semantic role used for management labeling and source-trust presentation."
-    },
     "icon": {
       "$ref": "#/$defs/package_relative_path",
       "description": "Optional relative asset path for the plugin icon inside the package root."

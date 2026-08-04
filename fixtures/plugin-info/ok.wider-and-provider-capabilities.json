@@ -12,7 +12,6 @@
     "license": "MIT",
     "description": "Manifest sample declaring frozen OneBot and provider capabilities.",
     "author": "raylea",
-    "role": "example",
     "capabilities": [
       "event.subscribe",
       "message.history.get",

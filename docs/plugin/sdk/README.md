@@ -76,19 +76,20 @@ example.plugin/
 ## 验证
 
 ```bash
-cd sdk/go && go test ./...
-cd sdk/vue && pnpm run typecheck && pnpm test && pnpm build
-cd plugins/builtin/fortune && go run ./tools/build -target linux-x64 -out ../../../dist/plugin-artifacts
+(cd sdk/go && go test ./...)
+(cd sdk/vue && pnpm run typecheck && pnpm test && pnpm build)
+(cd ../RayleaBotPlugins/plugin-fortune && go run ./tools/build -target linux-x64 -out dist)
 ```
 
-CI 在支持 CGO 的 runner 上对 Go SDK 和所有插件执行 `go test -race ./...`，并为三个正式平台构建和校验 artifact。Vue SDK 与管理页分别执行 typecheck、Vitest 和生产构建。
+主仓库 CI 验证 Go/Vue SDK、示例、安装器和测试 fixture。每个独立插件仓库自行执行 `go test -race ./...`、Vue typecheck/Vitest/build，并为三个正式平台构建和校验 artifact。
 
 ## 许可证与发布边界
 
-SDK、内置插件和示例使用仓库 `AGPL-3.0-only` 许可证。正式应用包只包含平台 artifact，不包含 `.go`、`.ts`、`.vue`、测试、源码 SDK、`node_modules` 或插件语言运行时。
+核心 SDK 和示例使用主仓库 `AGPL-3.0-only` 许可证；独立插件按各自仓库的 `LICENSE` 发布。RayleaBot 应用包不包含业务插件 artifact，也不包含插件 `.go`、`.ts`、`.vue`、测试、源码 SDK、`node_modules` 或语言运行时。
 
 ## 相关文档
 
 - [Capabilities and Manifest](../capabilities-and-manifest.md)
 - [Protocol](../protocol.md)
 - [Management UI](../management-ui.md)
+- [Plugin Store and Independent Development](../store-and-development.md)

@@ -41,6 +41,24 @@ class PackageArtifactTests(unittest.TestCase):
 
         self.assertEqual("dist/release/recovery-bootstrap", args.recovery_download_dir)
 
+    def test_recovery_drill_requires_external_plugin_fixture(self) -> None:
+        with self.assertRaises(SystemExit):
+            package_artifact.parse_args(
+                [
+                    "--artifact-id",
+                    "linux-x64-server",
+                    "--version",
+                    "0.1.0",
+                    "--git-commit",
+                    "abcdef1",
+                    "--release-notes-ref",
+                    "https://example.invalid/releases/v0.1.0",
+                    "--server-bin",
+                    "dist/server/raylea-server",
+                    "--run-recovery-drill",
+                ]
+            )
+
 
 if __name__ == "__main__":
     unittest.main()

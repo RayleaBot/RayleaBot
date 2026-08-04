@@ -12,6 +12,7 @@ import (
 	internalapp "github.com/RayleaBot/RayleaBot/server/internal/app"
 	"github.com/RayleaBot/RayleaBot/server/internal/logging"
 	"github.com/RayleaBot/RayleaBot/server/internal/onebot11"
+	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 )
 
 func TestLogDetailReturnsOutboundStructuredDetail(t *testing.T) {
@@ -80,6 +81,9 @@ func TestLogsIncludeCommandPolicyRejectionFromEventIngress(t *testing.T) {
 		input["log"].(map[string]any)["retention_days"] = 365
 	}
 	application, _, _ := newTestAppWithConfigMutation(t, configMutation, deterministicAuthOptions()...)
+	if _, err := application.Plugins().SetDesiredState("raylea.echo", plugins.DesiredStateEnabled); err != nil {
+		t.Fatalf("enable command-policy fixture in catalog: %v", err)
+	}
 	token := issueLoginToken(t, application)
 	server := newManagementTestServer(t, application.Handler())
 	defer server.Close()

@@ -18,16 +18,16 @@
 发行包根目录按产物形态包含：
 
 - server 二进制与 Launcher 桌面入口；
-- `web/dist`、目标平台的 `plugins/builtin/<plugin_id>/` artifact 树与 `templates/`；
+- `web/dist` 与核心 `templates/`；
 - `config/default.yaml` 与 `.deps/manifest.json`；
 - `build_info.json`；
 - 根仓库 `LICENSE` 与生成、审阅后的 `THIRD_PARTY_NOTICES.md`。
 
 Windows 完整包以根目录的 `RayleaLauncher.exe` 作为唯一桌面入口。Electron 主程序、DLL、PAK、语言包及 `resources/app.asar` 位于 `launcher/`；根入口与该目录必须作为同一安装单元保留。
 
-发布 workflow 先为目标平台构建全部内置插件，再把经校验的 `info.json`、`artifact.json`、Go 后端、Vue 静态资源、模板、许可证、notices 与 SPDX SBOM 放入应用包。发行包禁止包含插件 `.go`、`.py`、`.ts`、`.vue`、测试、源码 SDK、`node_modules` 或语言运行时；`.deps/manifest.json` v4 只携带 Chromium 资源声明。
+主程序 release workflow 不 checkout、不构建也不打包业务插件。正式归档中不得出现 `plugins/` 业务产物、插件 `.go`、`.py`、`.ts`、`.vue`、测试、源码 SDK、`node_modules` 或语言运行时；`.deps/manifest.json` v4 只携带 Chromium 资源声明。
 
-第三方插件也必须以已构建目录或单根目录 ZIP 安装。框架不会编译源码、安装语言依赖或执行安装脚本。
+官方和社区插件都由各自仓库构建三平台单根目录 ZIP，再通过签名插件目录或本地 artifact 走统一安装流程。框架不会编译源码、安装语言依赖或执行安装脚本。release recovery drill 使用外部预编译 Go 测试 fixture 验证插件备份与恢复，该 fixture 只参与测试，不进入应用归档。
 
 依赖许可证未知或缺失时，发布必须失败。运行时配置和插件 schema 内置于 server；源码仓库中的 `contracts/` 仍是正式来源。
 
@@ -130,5 +130,6 @@ GitHub 自动生成的源代码压缩包不是正式运行时产物。
 ## 相关文档
 
 - [Acceptance and Risks](./acceptance-and-risks.md)
+- [Plugin Store and Independent Development](../plugin/store-and-development.md)
 - [Deployment](../user/deployment.md)
 - [Recovery](../user/recovery.md)

@@ -117,6 +117,12 @@ def classify(files: list[str]) -> dict[str, bool]:
         if path.startswith("sdk/"):
             result["sdk"] = True
             matched = True
+        if path == "go.work":
+            result["server"] = True
+            result["sdk"] = True
+            result["release"] = True
+            result["ci"] = True
+            matched = True
         if path.startswith("contracts/") or path.startswith("fixtures/") or path.startswith("examples/"):
             result["contracts"] = True
             if path.startswith("examples/plugins/"):
@@ -156,10 +162,14 @@ def classify(files: list[str]) -> dict[str, bool]:
             "scripts/gbash.ps1",
             "scripts/start-dev.mjs",
             "scripts/start-dev-support.mjs",
+            "scripts/plugin-dev-workspace.mjs",
         } or path.startswith("scripts/tests/"):
             result["server"] = True
             result["web"] = True
             result["launcher"] = True
+        if path in {"plugin-workspace.example.json", "scripts/plugin-dev-workspace.mjs"} or path == "scripts/tests/plugin-dev-workspace.test.mjs":
+            result["sdk"] = True
+            matched = True
         if path == "scripts/check-server-structure.py":
             result["server"] = True
         if path.startswith(".devcontainer/") or path in TOOLCHAIN_ROOT_FILES:
@@ -219,13 +229,14 @@ def self_test() -> None:
         (["scripts/release/release_tool.py"], {"release": True}),
         (["sdk/go/run.go"], {"sdk": True, "release": False}),
         (["sdk/vue/src/index.ts"], {"sdk": True, "release": False}),
+        (["go.work"], {"server": True, "sdk": True, "release": True, "ci": True}),
+        (["plugin-workspace.example.json"], {"sdk": True, "docs_only": False}),
         (["examples/plugins/hello-go/main.go"], {"sdk": True, "contracts": True}),
         (["launcher/native/windows-entry/main_windows.go"], {"launcher": True, "release": True}),
         (["launcher/scripts/build-package.mjs"], {"launcher": True, "release": True}),
         ([".github/workflows/ci.yml"], {"ci": True, "docs_only": False}),
         (["AGENTS.md"], {"docs": True, "docs_only": True}),
         (["templates/help.menu/template.json"], {"server": True, "release": True}),
-        (["plugins/builtin/fortune/info.json"], {"server": True, "sdk": True, "release": True}),
         ([".deps/manifest.json"], {"server": True, "release": True}),
         (["scripts/check-toolchain.py"], {"server": True, "web": True, "launcher": True, "ci": True}),
         (["server/AGENTS.md", "server/internal/app/app.go"], {"server": True, "ci": True}),

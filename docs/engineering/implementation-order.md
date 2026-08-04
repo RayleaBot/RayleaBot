@@ -36,7 +36,8 @@
 | 配置 | Config service | default 与 user 配置的校验后快照 |
 | 持久业务状态 | Server domain service | SQLite 与正式 migration |
 | 共享运行状态 | 对应 Server service | 锁或原子快照保护的内存状态 |
-| 插件声明 | Plugin Catalog | 校验后的 manifest、管理页入口与安装来源 |
+| 插件声明 | Plugin Catalog | 校验后的 manifest、管理页入口、安装来源与 package metadata |
+| 插件商店 | Plugin Store Service | 已验证静态目录、目录摘要与发布者身份 |
 | 插件进程状态 | Runtime Manager | runtime snapshot |
 | 后台任务 | Task Registry | 有序持久化记录与终态 |
 | 更新事务 | Updater | 签名 metadata、最高版本记录与 journal |
@@ -60,6 +61,7 @@ Server 负责正式业务状态、并发控制、资源边界、错误映射和�
 - Event Ingress 负责命令解析和聊天治理；Bridge 负责统一事件结构校验。
 - Dispatcher 是插件事件排队和出站 action 的唯一执行出口。
 - Runtime Manager 只负责插件进程、JSONL 协议和生命周期。
+- Plugin Store Service 只消费签名目录并复用统一 Installer，不直接写运行目录或信任 manifest 自报身份。
 - Local Action Service 是插件访问配置、存储、调度、渲染、HTTP、治理和 OneBot 扩展的唯一入口。
 - Scheduler 只触发插件事件，不直接发送消息。
 - Render Service 是平台统一渲染入口，插件不维护独立浏览器链路。
@@ -115,7 +117,6 @@ Server 负责正式业务状态、并发控制、资源边界、错误映射和�
 以下方向需要新的 contract、状态一致性说明和验证矩阵，不能作为日常修补隐式进入主链：
 
 - 多实例与高可用；
-- 插件市场与远程索引；
 - 插件 OS 强沙盒；
 - 非 OneBot 多协议；
 - 新的官方插件运行时；

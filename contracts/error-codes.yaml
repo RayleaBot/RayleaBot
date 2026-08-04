@@ -310,8 +310,38 @@ codes:
     domain: plugin
     message_key: errors.plugin.trusted_code_confirmation_required
     message: 必须确认该插件将作为完全可信的本地代码运行
-    description: Installation requires explicit confirmation that the third-party plugin backend executes as trusted local code with the user's local privileges.
+    description: Installation requires explicit confirmation that the plugin backend executes as trusted local code with the user's local privileges, regardless of publisher verification.
     http_status: 403
+    retryable: false
+    applies_to: [http, task]
+
+  plugin.store_catalog_unavailable:
+    code: plugin.store_catalog_unavailable
+    domain: plugin
+    message_key: errors.plugin.store_catalog_unavailable
+    message: 插件商店目录暂不可用
+    description: The remote catalog could not be fetched, parsed, or verified; the last verified catalog remains active.
+    http_status: 503
+    retryable: true
+    applies_to: [http, task]
+
+  plugin.store_release_unavailable:
+    code: plugin.store_release_unavailable
+    domain: plugin
+    message_key: errors.plugin.store_release_unavailable
+    message: 当前平台没有可安装的插件商店产物
+    description: The selected plugin version is unpublished, yanked, incompatible, or lacks a verified artifact for the current platform.
+    http_status: 409
+    retryable: false
+    applies_to: [http, task]
+
+  plugin.store_integrity_mismatch:
+    code: plugin.store_integrity_mismatch
+    domain: plugin
+    message_key: errors.plugin.store_integrity_mismatch
+    message: 插件商店产物与签名目录不一致
+    description: The downloaded archive or embedded plugin manifest digest does not match the exact digest frozen in the verified catalog.
+    http_status: 409
     retryable: false
     applies_to: [http, task]
 

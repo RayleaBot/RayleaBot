@@ -22,6 +22,6 @@ RayleaBot 的插件平台从 manifest v1 断代到 manifest v2。新版本只运
 
 ## 新插件安装
 
-只安装目标平台的 manifest v2 / artifact v1 目录或单根目录 ZIP。内置插件在发行包中已经预编译；第三方插件必须由发布者自行完成 Go 与 Vue 构建。框架不执行数据转换、源码编译、依赖安装或安装脚本。
+只安装目标平台的 manifest v2 / artifact v1 目录或单根目录 ZIP。主程序发行包不含业务插件；官方和社区插件均由各自仓库完成 Go 与 Vue 构建，再通过签名商店目录或本地 artifact 进入统一安装流程。框架不执行数据转换、源码编译、依赖安装或安装脚本。
 
 旧 epoch 的备份恢复或原位升级返回 `plugin.reset_required`。出现该错误时应继续使用外部备份回退旧版本，或接受重置后重新安装 Go artifact，不能修改清单绕过门禁。

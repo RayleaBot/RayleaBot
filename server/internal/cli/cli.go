@@ -32,6 +32,8 @@ type Command struct {
 
 func Run(cmd Command) int {
 	switch cmd.Name {
+	case "plugin":
+		return runPlugin(cmd)
 	case "config":
 		return runConfig(cmd)
 	case "reset-admin":
@@ -50,7 +52,7 @@ func Run(cmd Command) int {
 		return runUpdate(cmd)
 	default:
 		fmt.Fprintf(os.Stderr, "未知子命令: %s\n", cmd.Name)
-		fmt.Fprintln(os.Stderr, "可用子命令: config, reset-admin, backup, restore, doctor, cleanup, version, update")
+		fmt.Fprintln(os.Stderr, "可用子命令: config, plugin, reset-admin, backup, restore, doctor, cleanup, version, update")
 		return 1
 	}
 }

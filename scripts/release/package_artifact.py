@@ -33,7 +33,6 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     parser.add_argument("--release-notes-ref", required=True)
     parser.add_argument("--server-bin", required=True)
     parser.add_argument("--web-dist", default="web/dist")
-    parser.add_argument("--builtin-dir", default="plugins/builtin")
     parser.add_argument("--deps-dir", default=".deps")
     parser.add_argument("--templates-dir", default="templates")
     parser.add_argument("--default-config", default="config/default.yaml")
@@ -47,12 +46,16 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     parser.add_argument("--repository", default="")
     parser.add_argument("--run-smoke", action="store_true")
     parser.add_argument("--run-recovery-drill", action="store_true")
+    parser.add_argument("--recovery-plugin-fixture", default="")
     parser.add_argument("--run-self-host-smoke", action="store_true")
     parser.add_argument("--recovery-download-dir", "--download-dir", dest="recovery_download_dir", default="")
     parser.add_argument("--observation-window-seconds", default="")
     parser.add_argument("--window-seconds", default="")
     parser.add_argument("--probe-interval-seconds", default="")
-    return parser.parse_args(argv)
+    args = parser.parse_args(argv)
+    if args.run_recovery_drill and not args.recovery_plugin_fixture:
+        parser.error("--recovery-plugin-fixture is required with --run-recovery-drill")
+    return args
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -75,8 +78,6 @@ def main(argv: list[str] | None = None) -> int:
         args.server_bin,
         "--web-dist",
         args.web_dist,
-        "--builtin-dir",
-        args.builtin_dir,
         "--deps-dir",
         args.deps_dir,
         "--templates-dir",
@@ -120,6 +121,8 @@ def main(argv: list[str] | None = None) -> int:
             args.artifact_id,
             "--archive",
             str(archive),
+            "--plugin-fixture",
+            args.recovery_plugin_fixture,
         ]
         if args.repository:
             recovery_args.extend(["--repository", args.repository])

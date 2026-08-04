@@ -276,16 +276,32 @@ func configureAppRuntimeCallbacks(application *App) {
 	systemService.BindShutdownFlag(&application.process.shuttingDown)
 	systemService.RefreshRecoverySummary()
 
+	reconcileInstalledPlugin := func(ctx context.Context, pluginID string) error {
+		if err := syncCatalogRenderTemplates(ctx, application.renderStack.Renderer, application.pluginStack.Plugins); err != nil {
+			return err
+		}
+		if snapshot, exists := application.pluginStack.Plugins.Get(pluginID); exists && snapshot.DesiredState == plugins.DesiredStateEnabled {
+			_, _ = lifecycle.Reload(ctx, pluginID)
+		}
+		systemService.ReconcileRecoverySummaryBestEffort("plugin.install")
+		return nil
+	}
 	if installer, ok := application.pluginStack.PluginInstaller.(interface {
 		SetAfterSuccess(func(context.Context, string) error)
 	}); ok {
-		installer.SetAfterSuccess(func(ctx context.Context, _ string) error {
-			if err := syncCatalogRenderTemplates(ctx, application.renderStack.Renderer, application.pluginStack.Plugins); err != nil {
-				return err
-			}
-			systemService.ReconcileRecoverySummaryBestEffort("plugin.install")
-			return nil
+		installer.SetAfterSuccess(reconcileInstalledPlugin)
+	}
+	if installer, ok := application.pluginStack.PluginInstaller.(interface {
+		SetAfterRollback(func(context.Context, string))
+	}); ok {
+		installer.SetAfterRollback(func(ctx context.Context, pluginID string) {
+			_ = reconcileInstalledPlugin(ctx, pluginID)
 		})
+	}
+	if installer, ok := application.pluginStack.PluginInstaller.(interface {
+		SetBeforeReplace(plugins.StopPluginFunc)
+	}); ok {
+		installer.SetBeforeReplace(lifecycle.StopAndResetPluginWithContext)
 	}
 	if installer, ok := application.pluginStack.PluginInstaller.(interface {
 		SetRenderTemplateValidator(func(plugins.Snapshot) error)

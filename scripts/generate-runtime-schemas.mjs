@@ -9,7 +9,13 @@ import { fileURLToPath } from 'node:url'
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const targetDir = 'server/internal/config/contracts'
 
-const schemas = ['config.user.schema.json', 'plugin-info.schema.json', 'plugin-artifact.schema.json']
+const schemas = [
+  'config.user.schema.json',
+  'plugin-info.schema.json',
+  'plugin-artifact.schema.json',
+  'plugin-store-catalog.schema.json',
+  'plugin-store-signature.schema.json',
+]
 const pluginUIBridgeSchema = 'plugin-management-ui-bridge.schema.json'
 const pluginUITypesTarget = 'sdk/vue/src/contract.generated.ts'
 

@@ -7,7 +7,7 @@ function createPlugin(overrides: Partial<PluginSummary> = {}): PluginSummary {
   return {
     id: 'raylea.fortune',
     name: '运势',
-    role: 'builtin',
+    role: 'official',
     state: 'running',
     commands: [],
     command_conflicts: [],
