@@ -11,6 +11,7 @@ import {
   SERVER_RELOAD_WATCH,
   WEB_DEV_PROFILE,
   classifyWebDevServer,
+  createDevelopmentControlEnvironment,
   createDependencyInstallEnvironment,
   createDevEnvironment,
   createTrustedChildEnvironment,
@@ -95,6 +96,17 @@ test("resolves server reload mode", () => {
   assert.equal(resolveServerReloadMode({ RAYLEA_SERVER_RELOAD: "air" }), SERVER_RELOAD_WATCH);
   assert.equal(resolveServerReloadMode({ RAYLEA_SERVER_RELOAD: " AIR " }), SERVER_RELOAD_WATCH);
   assert.throws(() => resolveServerReloadMode({ RAYLEA_SERVER_RELOAD: "plugin" }), /Unsupported/);
+});
+
+test("creates a shared launcher control environment for development processes", () => {
+  assert.deepEqual(
+    createDevelopmentControlEnvironment({ generateControlToken: () => "dev-control-token" }),
+    { RAYLEA_LAUNCHER_CONTROL_TOKEN: "dev-control-token" },
+  );
+  assert.throws(
+    () => createDevelopmentControlEnvironment({ generateControlToken: () => "  " }),
+    /control token is required/,
+  );
 });
 
 test("parses backend endpoint from user config", () => {

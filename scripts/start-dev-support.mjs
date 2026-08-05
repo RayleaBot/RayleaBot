@@ -1,3 +1,4 @@
+import { randomBytes } from "node:crypto";
 import fs from "node:fs/promises";
 import net from "node:net";
 import path from "node:path";
@@ -9,6 +10,7 @@ export const SERVER_RELOAD_WATCH = "watch";
 export const WEB_DEV_PORT = 4173;
 export const WEB_DEV_BASE_URL = `http://127.0.0.1:${WEB_DEV_PORT}/`;
 export const WEB_DEV_STATUS_PATH = "/__rayleabot-dev/status";
+export const LAUNCHER_CONTROL_TOKEN_ENV = "RAYLEA_LAUNCHER_CONTROL_TOKEN";
 
 const VALID_PROFILES = new Set([WEB_DEV_PROFILE, BUILD_PROFILE, LAUNCHER_DEV_PROFILE]);
 const VALID_INSTALL_MODES = new Set(["auto", "always", "skip"]);
@@ -170,6 +172,16 @@ export function createDevEnvironment({ env = process.env, backendBaseUrl, webBas
     VITE_WS_BASE_URL: env.VITE_WS_BASE_URL?.trim() || backendBaseUrl,
     RAYLEA_WEB_UI_BASE_URL: env.RAYLEA_WEB_UI_BASE_URL?.trim() || webBaseUrl,
   };
+}
+
+export function createDevelopmentControlEnvironment({
+  generateControlToken = () => randomBytes(32).toString("base64url"),
+} = {}) {
+  const controlToken = String(generateControlToken()).trim();
+  if (!controlToken) {
+    throw new Error("development launcher control token is required");
+  }
+  return { [LAUNCHER_CONTROL_TOKEN_ENV]: controlToken };
 }
 
 export function createDependencyInstallEnvironment() {

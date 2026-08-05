@@ -17,7 +17,10 @@ import { JsonLauncherSettingsStore, resolveLauncherSettings } from "./services/s
 import { resolveServerEndpoint } from "./services/endpoint-resolver";
 import { FetchLauncherManagementClient } from "./services/management-client";
 import { ServerProcessController } from "./services/process-controller";
-import { LauncherServerCredentials } from "./services/server-credentials";
+import {
+  LauncherServerCredentials,
+  consumeLauncherControlTokenEnvironment,
+} from "./services/server-credentials";
 import { isEndpointListening, tryStopEndpointProcess } from "./services/port-process";
 import { externalOpener } from "./services/external-opener";
 import { LauncherReleaseFeedClient } from "./services/release-feed";
@@ -83,7 +86,7 @@ const updateHeartbeatEnvironmentPresent = Boolean(
 const launcherEntryProcessId = consumeLauncherEntryProcessId();
 const updateHeartbeatRequest = consumeUpdateHeartbeatEnvironment();
 const settingsStore = new JsonLauncherSettingsStore(executableBasePath, process.platform);
-const serverCredentials = new LauncherServerCredentials();
+const serverCredentials = new LauncherServerCredentials(consumeLauncherControlTokenEnvironment());
 const processController = new ServerProcessController({ credentials: serverCredentials });
 const coordinator = createLauncherCoordinator({
   settingsStore,

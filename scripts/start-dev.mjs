@@ -12,6 +12,7 @@ import {
   WEB_DEV_PORT,
   WEB_DEV_PROFILE,
   classifyWebDevServer,
+  createDevelopmentControlEnvironment,
   createDevEnvironment,
   createDependencyInstallEnvironment,
   markDependenciesInstalled,
@@ -65,6 +66,7 @@ const baseChildEnvironment = {
   ...createTrustedChildEnvironment({ nodeExecutablePath: process.execPath }),
   GOCACHE: childGoCacheDir,
 };
+const developmentControlEnvironment = createDevelopmentControlEnvironment();
 const launcherDir = path.join(rootDir, "launcher");
 const logDate = new Date();
 const webDevLogPath = resolveDatedLogPath({ rootDir, scope: "dev", type: "web", date: logDate });
@@ -162,7 +164,7 @@ async function runWebDevProfile({ installMode, devEnvironment, serverReloadMode,
   }
   await runCommand("启动 Launcher", "pnpm", ["exec", "electron", "."], {
     cwd: launcherDir,
-    env: devEnvironment,
+    env: { ...devEnvironment, ...developmentControlEnvironment },
     logPath: launcherLogPath,
   });
 }
@@ -178,7 +180,7 @@ async function runLauncherDevProfile({ installMode, devEnvironment, serverReload
   }
   await runCommand("启动 Launcher 开发模式", "pnpm", ["run", "dev"], {
     cwd: launcherDir,
-    env: devEnvironment,
+    env: { ...devEnvironment, ...developmentControlEnvironment },
     logPath: launcherLogPath,
   });
 }
@@ -379,6 +381,7 @@ function startServerDevProcess() {
     "../contracts/config.user.schema.json",
   ], {
     cwd: serverDir,
+    env: developmentControlEnvironment,
     logPath: serverDevLogPath,
   });
 }
