@@ -6,6 +6,7 @@ import process from "node:process";
 import { fileURLToPath } from "node:url";
 import {
   BUILD_PROFILE,
+  LAUNCHER_CONTROL_TOKEN_ENV,
   LAUNCHER_DEV_PROFILE,
   SERVER_RELOAD_WATCH,
   WEB_DEV_BASE_URL,
@@ -13,9 +14,14 @@ import {
   WEB_DEV_PROFILE,
   classifyWebDevServer,
   createDevelopmentControlEnvironment,
+  createDevelopmentServerLease,
   createDevEnvironment,
   createDependencyInstallEnvironment,
+  createServerDevelopmentEnvironment,
+  isProcessRunning,
   markDependenciesInstalled,
+  parseDevelopmentServerLease,
+  requestDevelopmentServerShutdown,
   createTrustedChildEnvironment,
   loadStartEnvironmentFile,
   resolveDatedLogPath,
@@ -51,9 +57,11 @@ const serverBinaryName = process.platform === "win32"
   : "raylea-server";
 const serverTmpDir = path.join(serverDir, "tmp");
 const serverDevBinaryName = process.platform === "win32"
-  ? "raylea-server-dev.exe"
-  : "raylea-server-dev";
+  ? `raylea-server-dev-${process.pid}.exe`
+  : `raylea-server-dev-${process.pid}`;
 const serverDevBinaryPath = path.join(serverTmpDir, serverDevBinaryName);
+const serverDevLeasePath = path.join(rootDir, ".tmp", "server-dev-runtime.json");
+const serverDevTakeoverTimeoutMs = 30_000;
 const serverWatchDirs = [path.join(serverDir, "cmd"), path.join(serverDir, "internal")];
 const serverWatchExcludedDirs = new Set([".cache", ".gocache", "dist", "logs", "tmp"]);
 const serverReloadDebounceMs = 500;
@@ -67,6 +75,7 @@ const baseChildEnvironment = {
   GOCACHE: childGoCacheDir,
 };
 const developmentControlEnvironment = createDevelopmentControlEnvironment();
+const developmentControlToken = developmentControlEnvironment[LAUNCHER_CONTROL_TOKEN_ENV];
 const launcherDir = path.join(rootDir, "launcher");
 const logDate = new Date();
 const webDevLogPath = resolveDatedLogPath({ rootDir, scope: "dev", type: "web", date: logDate });
@@ -77,6 +86,7 @@ const longRunningChildren = new Set();
 const cleanupCallbacks = new Set();
 let startLog;
 let shuttingDown = false;
+let activeServerDevLeaseId = "";
 
 await prepareLogDirectories([webDevLogPath, launcherLogPath, serverDevLogPath, startLogPath]);
 await fsp.mkdir(childGoCacheDir, { recursive: true });
@@ -120,14 +130,18 @@ async function main() {
 
   const backendBaseUrl = await resolveBackendBaseUrl({ rootDir, env: process.env });
   const devEnvironment = createDevEnvironment({ env: process.env, backendBaseUrl });
+  const serverDevEnvironment = createServerDevelopmentEnvironment({
+    devEnvironment,
+    controlEnvironment: developmentControlEnvironment,
+  });
   log(`后端地址：${backendBaseUrl}`);
 
   if (profile === WEB_DEV_PROFILE) {
-    await runWebDevProfile({ installMode, devEnvironment, serverReloadMode, backendBaseUrl, pluginDev });
+    await runWebDevProfile({ installMode, devEnvironment, serverDevEnvironment, serverReloadMode, backendBaseUrl, pluginDev });
     return;
   }
   if (profile === LAUNCHER_DEV_PROFILE) {
-    await runLauncherDevProfile({ installMode, devEnvironment, serverReloadMode, backendBaseUrl, pluginDev });
+    await runLauncherDevProfile({ installMode, devEnvironment, serverDevEnvironment, serverReloadMode, backendBaseUrl, pluginDev });
     return;
   }
 
@@ -152,9 +166,9 @@ async function runBuildProfile({ installMode, pluginDev }) {
   });
 }
 
-async function runWebDevProfile({ installMode, devEnvironment, serverReloadMode, backendBaseUrl, pluginDev }) {
+async function runWebDevProfile({ installMode, devEnvironment, serverDevEnvironment, serverReloadMode, backendBaseUrl, pluginDev }) {
   await ensureDependencies("Web", webDir, installMode);
-  await ensureServerRuntime({ serverReloadMode, backendBaseUrl, pluginDev });
+  await ensureServerRuntime({ serverReloadMode, backendBaseUrl, pluginDev, serverDevEnvironment });
   await ensureWebDevServer(devEnvironment);
   await ensureDependencies("Launcher", launcherDir, installMode);
   await buildLauncherApp();
@@ -169,9 +183,9 @@ async function runWebDevProfile({ installMode, devEnvironment, serverReloadMode,
   });
 }
 
-async function runLauncherDevProfile({ installMode, devEnvironment, serverReloadMode, backendBaseUrl, pluginDev }) {
+async function runLauncherDevProfile({ installMode, devEnvironment, serverDevEnvironment, serverReloadMode, backendBaseUrl, pluginDev }) {
   await ensureDependencies("Web", webDir, installMode);
-  await ensureServerRuntime({ serverReloadMode, backendBaseUrl, pluginDev });
+  await ensureServerRuntime({ serverReloadMode, backendBaseUrl, pluginDev, serverDevEnvironment });
   await ensureWebDevServer(devEnvironment);
   await ensureDependencies("Launcher", launcherDir, installMode);
   if (shouldSkipLaunch()) {
@@ -255,26 +269,53 @@ async function syncDevelopmentPlugins(pluginDev, serverBinaryPath, pluginIDs) {
   return workspace;
 }
 
-async function ensureServerRuntime({ serverReloadMode, backendBaseUrl, pluginDev }) {
+async function ensureServerRuntime({ serverReloadMode, backendBaseUrl, pluginDev, serverDevEnvironment }) {
   if (serverReloadMode === SERVER_RELOAD_WATCH) {
-    await startServerWatch(backendBaseUrl, pluginDev);
+    await startServerWatch(backendBaseUrl, pluginDev, serverDevEnvironment);
     return;
   }
   await buildServer();
   await syncDevelopmentPlugins(pluginDev, path.join(serverDistDir, serverBinaryName));
 }
 
-async function startServerWatch(backendBaseUrl, pluginDev) {
+async function startServerWatch(backendBaseUrl, pluginDev, serverDevEnvironment) {
   log("启动 Server 热重载：内置 watcher");
+  const lease = await acquireDevelopmentServerLease(backendBaseUrl);
+  activeServerDevLeaseId = lease.lease_id;
   await fsp.rm(serverDevBinaryPath, { force: true });
   await buildServerDevBinary();
   const pluginWorkspace = await syncDevelopmentPlugins(pluginDev, serverDevBinaryPath);
-  let child = startServerDevProcess();
+  let child = startServerDevProcess(serverDevEnvironment);
   await waitForServerProcess(child, backendBaseUrl, "Server 热重载已启动。");
 
   let timer;
   let rebuilding = false;
   const reloadQueue = createDevelopmentReloadQueue();
+  const expectedServerExits = new Set();
+
+  const expectServerExit = (target) => {
+    if (target?.pid) {
+      expectedServerExits.add(target.pid);
+    }
+  };
+
+  const monitorServerExit = (target) => {
+    const pid = target.pid;
+    target.once("exit", (code, signal) => {
+      if (expectedServerExits.delete(pid) || shuttingDown) {
+        return;
+      }
+      const exitCode = normalizeExitCode(code, signal);
+      log(
+        exitCode === 0
+          ? "Server 已停止，正在结束当前开发启动流程。"
+          : `Server 进程意外退出，退出码 ${exitCode}。`,
+        exitCode === 0 ? "info" : "error",
+      );
+      void shutdown(exitCode);
+    });
+  };
+  monitorServerExit(child);
 
   const scheduleReload = () => {
     if (shuttingDown) {
@@ -310,15 +351,18 @@ async function startServerWatch(backendBaseUrl, pluginDev) {
     try {
       if (serverSourcePath) {
         log(`检测到 Server 源码变更：${relativePath(serverSourcePath)}`);
-        await buildServerDevBinary();
       }
       for (const { plugin, sourcePath } of pluginChanges) {
         log(`检测到开发插件源码变更：${plugin.id} (${sourcePath})`);
       }
       if (serverSourcePath || pluginChanges.length > 0) {
+        expectServerExit(child);
         await terminateChild(child);
         await waitForChildExit(child);
         serverStopped = true;
+      }
+      if (serverSourcePath) {
+        await buildServerDevBinary();
       }
       if (pluginChanges.length > 0) {
         await syncDevelopmentPlugins(
@@ -327,18 +371,18 @@ async function startServerWatch(backendBaseUrl, pluginDev) {
           pluginChanges.map(({ plugin }) => plugin.id),
         );
       }
-      child = startServerDevProcess();
+      child = startServerDevProcess(serverDevEnvironment);
       await waitForServerProcess(child, backendBaseUrl, "Server 热重载已重启。");
+      monitorServerExit(child);
       serverStopped = false;
     } catch (error) {
       log(`Server 热重载失败：${error?.message ?? error}`, "error");
       if (serverStopped && !shuttingDown) {
         try {
           log("开发插件更新未生效，正在使用已安装的上一个可用产物恢复 Server。");
-          await terminateChild(child);
-          await waitForChildExit(child);
-          child = startServerDevProcess();
+          child = startServerDevProcess(serverDevEnvironment);
           await waitForServerProcess(child, backendBaseUrl, "Server 已使用上一个可用插件产物恢复。");
+          monitorServerExit(child);
         } catch (recoveryError) {
           log(`Server 恢复失败：${recoveryError?.message ?? recoveryError}`, "error");
         }
@@ -357,10 +401,111 @@ async function startServerWatch(backendBaseUrl, pluginDev) {
     : async () => {};
   cleanupCallbacks.add(async () => {
     clearTimeout(timer);
+    expectServerExit(child);
     cleanupCallbacks.delete(stopWatching);
     await stopWatching();
     await stopPluginWatching();
   });
+}
+
+async function acquireDevelopmentServerLease(backendBaseUrl) {
+  await fsp.mkdir(path.dirname(serverDevLeasePath), { recursive: true });
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const existingLease = await readDevelopmentServerLease();
+    if (existingLease) {
+      await retireDevelopmentServerLease(existingLease);
+    } else if (await isServerHealthy(backendBaseUrl)) {
+      throw new Error(
+        "检测到未由当前开发 watcher 管理的 Server。请先通过 Launcher 停止现有服务，再重新启动。",
+      );
+    }
+
+    const lease = createDevelopmentServerLease({
+      ownerPid: process.pid,
+      rootDir,
+      backendBaseUrl,
+      binaryPath: serverDevBinaryPath,
+      controlToken: developmentControlToken,
+    });
+    try {
+      await fsp.writeFile(serverDevLeasePath, `${JSON.stringify(lease, null, 2)}\n`, {
+        encoding: "utf8",
+        flag: "wx",
+        mode: 0o600,
+      });
+      return lease;
+    } catch (error) {
+      if (error?.code !== "EEXIST") {
+        throw error;
+      }
+    }
+  }
+  throw new Error("另一个开发启动流程正在接管 Server，请稍后重试。");
+}
+
+async function retireDevelopmentServerLease(lease) {
+  const takeoverDeadline = Date.now() + serverDevTakeoverTimeoutMs;
+  let ownerRunning = isProcessRunning(lease.owner_pid);
+  let serverHealthy = await isServerHealthy(lease.backend_base_url);
+  if (ownerRunning && !serverHealthy) {
+    log("检测到另一个开发启动流程正在准备 Server，等待其进入可接管状态。");
+    while (ownerRunning && !serverHealthy && Date.now() < takeoverDeadline) {
+      await delay(250);
+      ownerRunning = isProcessRunning(lease.owner_pid);
+      serverHealthy = await isServerHealthy(lease.backend_base_url);
+    }
+  }
+
+  if (serverHealthy) {
+    log("检测到上一次开发启动流程，正在平滑停止旧 Server。");
+    try {
+      await requestDevelopmentServerShutdown({ lease });
+    } catch (error) {
+      if (await isServerHealthy(lease.backend_base_url)) {
+        throw new Error(`无法停止上一次开发 Server：${error?.message ?? error}`);
+      }
+    }
+  }
+
+  while (Date.now() < takeoverDeadline) {
+    ownerRunning = isProcessRunning(lease.owner_pid);
+    serverHealthy = await isServerHealthy(lease.backend_base_url);
+    if (!ownerRunning && !serverHealthy) {
+      await removeDevelopmentServerLeaseIfOwned(lease.lease_id);
+      await fsp.rm(lease.binary_path, { force: true });
+      return;
+    }
+    await delay(250);
+  }
+  throw new Error("上一次开发启动流程未在 30 秒内退出，请关闭旧启动窗口后重试。");
+}
+
+async function readDevelopmentServerLease() {
+  try {
+    const text = await fsp.readFile(serverDevLeasePath, "utf8");
+    return parseDevelopmentServerLease(text, { rootDir, serverTmpDir });
+  } catch (error) {
+    if (error?.code === "ENOENT") {
+      return null;
+    }
+    throw new Error(`读取开发 Server 租约失败：${error?.message ?? error}`);
+  }
+}
+
+async function removeDevelopmentServerLeaseIfOwned(leaseId) {
+  const currentLease = await readDevelopmentServerLease();
+  if (currentLease?.lease_id === leaseId) {
+    await fsp.rm(serverDevLeasePath, { force: true });
+  }
+}
+
+async function releaseActiveDevelopmentServerLease() {
+  const leaseId = activeServerDevLeaseId;
+  activeServerDevLeaseId = "";
+  if (!leaseId) {
+    return;
+  }
+  await removeDevelopmentServerLeaseIfOwned(leaseId);
 }
 
 async function buildServerDevBinary() {
@@ -373,15 +518,15 @@ async function buildServerDevBinary() {
   );
 }
 
-function startServerDevProcess() {
-  return spawnManaged("tmp/" + serverDevBinaryName, [
+function startServerDevProcess(serverDevEnvironment) {
+  return spawnManaged(serverDevBinaryPath, [
     "-config",
     "../config/user.yaml",
     "-config-schema",
     "../contracts/config.user.schema.json",
   ], {
     cwd: serverDir,
-    env: developmentControlEnvironment,
+    env: serverDevEnvironment,
     logPath: serverDevLogPath,
   });
 }
@@ -581,9 +726,6 @@ function createSpawnSpec(command, args) {
   if (command === "go") {
     return { command: resolveGoExecutablePath(), args };
   }
-  if (command === "tmp/" + serverDevBinaryName) {
-    return { command: path.join(".", "tmp", serverDevBinaryName), args };
-  }
   if (path.isAbsolute(command) && fs.existsSync(command)) {
     return { command, args };
   }
@@ -645,6 +787,16 @@ async function cleanup() {
   const children = [...longRunningChildren];
   longRunningChildren.clear();
   await Promise.all(children.map((child) => terminateChild(child)));
+  try {
+    await fsp.rm(serverDevBinaryPath, { force: true });
+  } catch (error) {
+    log(`清理开发 Server 二进制失败：${error?.message ?? error}`, "error");
+  }
+  try {
+    await releaseActiveDevelopmentServerLease();
+  } catch (error) {
+    log(`释放开发 Server 租约失败：${error?.message ?? error}`, "error");
+  }
 }
 
 async function shutdown(code) {

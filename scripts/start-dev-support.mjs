@@ -11,6 +11,8 @@ export const WEB_DEV_PORT = 4173;
 export const WEB_DEV_BASE_URL = `http://127.0.0.1:${WEB_DEV_PORT}/`;
 export const WEB_DEV_STATUS_PATH = "/__rayleabot-dev/status";
 export const LAUNCHER_CONTROL_TOKEN_ENV = "RAYLEA_LAUNCHER_CONTROL_TOKEN";
+export const LAUNCHER_CONTROL_TOKEN_HEADER = "X-Raylea-Launcher-Control";
+export const DEVELOPMENT_SERVER_LEASE_VERSION = 1;
 
 const VALID_PROFILES = new Set([WEB_DEV_PROFILE, BUILD_PROFILE, LAUNCHER_DEV_PROFILE]);
 const VALID_INSTALL_MODES = new Set(["auto", "always", "skip"]);
@@ -182,6 +184,145 @@ export function createDevelopmentControlEnvironment({
     throw new Error("development launcher control token is required");
   }
   return { [LAUNCHER_CONTROL_TOKEN_ENV]: controlToken };
+}
+
+export function createDevelopmentServerLease({
+  ownerPid,
+  rootDir,
+  backendBaseUrl,
+  binaryPath,
+  controlToken,
+  generateLeaseId = () => randomBytes(16).toString("base64url"),
+} = {}) {
+  const normalizedOwnerPid = Number(ownerPid);
+  const normalizedRootDir = String(rootDir ?? "").trim();
+  const normalizedBinaryPath = String(binaryPath ?? "").trim();
+  const normalizedControlToken = String(controlToken ?? "").trim();
+  const leaseId = String(generateLeaseId()).trim();
+  if (!Number.isSafeInteger(normalizedOwnerPid) || normalizedOwnerPid <= 0) {
+    throw new Error("development server lease owner PID is required");
+  }
+  if (!normalizedControlToken) {
+    throw new Error("development server lease control token is required");
+  }
+  if (!leaseId) {
+    throw new Error("development server lease ID is required");
+  }
+  if (!normalizedRootDir || !normalizedBinaryPath) {
+    throw new Error("development server lease paths are required");
+  }
+
+  return {
+    version: DEVELOPMENT_SERVER_LEASE_VERSION,
+    lease_id: leaseId,
+    owner_pid: normalizedOwnerPid,
+    root_dir: path.resolve(normalizedRootDir),
+    backend_base_url: normalizeLoopbackHTTPURL(backendBaseUrl),
+    binary_path: path.resolve(normalizedBinaryPath),
+    control_token: normalizedControlToken,
+  };
+}
+
+export function parseDevelopmentServerLease(text, {
+  rootDir,
+  serverTmpDir,
+  platform = process.platform,
+} = {}) {
+  if (!String(rootDir ?? "").trim() || !String(serverTmpDir ?? "").trim()) {
+    throw new Error("development server lease validation paths are required");
+  }
+  let value;
+  try {
+    value = JSON.parse(String(text ?? ""));
+  } catch {
+    throw new Error("development server lease is not valid JSON");
+  }
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new Error("development server lease must be an object");
+  }
+  if (value.version !== DEVELOPMENT_SERVER_LEASE_VERSION) {
+    throw new Error("development server lease version is unsupported");
+  }
+
+  const lease = createDevelopmentServerLease({
+    ownerPid: value.owner_pid,
+    rootDir: value.root_dir,
+    backendBaseUrl: value.backend_base_url,
+    binaryPath: value.binary_path,
+    controlToken: value.control_token,
+    generateLeaseId: () => value.lease_id,
+  });
+  if (normalizeComparablePath(lease.root_dir, platform) !== normalizeComparablePath(rootDir, platform)) {
+    throw new Error("development server lease belongs to another repository");
+  }
+
+  const normalizedTmpDir = normalizeComparablePath(serverTmpDir, platform);
+  const normalizedBinaryPath = normalizeComparablePath(lease.binary_path, platform);
+  const relativeBinaryPath = path.relative(normalizedTmpDir, normalizedBinaryPath);
+  if (
+    !relativeBinaryPath
+    || relativeBinaryPath.startsWith("..")
+    || path.isAbsolute(relativeBinaryPath)
+    || !path.basename(normalizedBinaryPath).startsWith("raylea-server-dev-")
+  ) {
+    throw new Error("development server lease binary path is outside server/tmp");
+  }
+  return lease;
+}
+
+export async function requestDevelopmentServerShutdown({
+  lease,
+  fetchImpl = globalThis.fetch,
+  timeoutMs = 2_000,
+} = {}) {
+  if (!lease?.control_token || !lease?.backend_base_url) {
+    throw new Error("development server lease is required for shutdown");
+  }
+  const response = await fetchWithTimeout(
+    fetchImpl,
+    new URL("api/launcher/shutdown", `${lease.backend_base_url}/`).toString(),
+    timeoutMs,
+    {
+      method: "POST",
+      headers: { [LAUNCHER_CONTROL_TOKEN_HEADER]: lease.control_token },
+    },
+  );
+  if (response.status !== 202) {
+    throw new Error(`development server shutdown was rejected with HTTP ${response.status}`);
+  }
+}
+
+export function isProcessRunning(pid, { kill = process.kill } = {}) {
+  const normalizedPID = Number(pid);
+  if (!Number.isSafeInteger(normalizedPID) || normalizedPID <= 0) {
+    return false;
+  }
+  try {
+    kill(normalizedPID, 0);
+    return true;
+  } catch (error) {
+    if (error?.code === "ESRCH") {
+      return false;
+    }
+    if (error?.code === "EPERM") {
+      return true;
+    }
+    throw error;
+  }
+}
+
+export function createServerDevelopmentEnvironment({
+  devEnvironment = {},
+  controlEnvironment = {},
+} = {}) {
+  const webUIBaseURL = devEnvironment.RAYLEA_WEB_UI_BASE_URL?.trim();
+  if (!webUIBaseURL) {
+    throw new Error("development Web UI base URL is required for the server");
+  }
+  return {
+    ...controlEnvironment,
+    RAYLEA_WEB_UI_BASE_URL: webUIBaseURL,
+  };
 }
 
 export function createDependencyInstallEnvironment() {
@@ -390,17 +531,46 @@ async function statOrNull(stat, targetPath) {
   }
 }
 
-async function fetchWithTimeout(fetchImpl, url, timeoutMs) {
+async function fetchWithTimeout(fetchImpl, url, timeoutMs, options = {}) {
   if (typeof fetchImpl !== "function") {
     throw new Error("fetch is unavailable");
   }
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
   try {
-    return await fetchImpl(url, { signal: controller.signal });
+    return await fetchImpl(url, { ...options, signal: controller.signal });
   } finally {
     clearTimeout(timeout);
   }
+}
+
+function normalizeComparablePath(value, platform) {
+  const normalized = path.resolve(String(value ?? ""));
+  return platform === "win32" ? normalized.toLowerCase() : normalized;
+}
+
+function normalizeLoopbackHTTPURL(value) {
+  let parsed;
+  try {
+    parsed = new URL(String(value ?? ""));
+  } catch {
+    throw new Error("development server lease backend URL is invalid");
+  }
+  if (
+    parsed.protocol !== "http:"
+    || parsed.username
+    || parsed.password
+    || parsed.pathname !== "/"
+    || parsed.search
+    || parsed.hash
+  ) {
+    throw new Error("development server lease backend URL must use loopback HTTP");
+  }
+  const hostname = parsed.hostname.toLowerCase();
+  if (!new Set(["127.0.0.1", "localhost", "[::1]"]).has(hostname)) {
+    throw new Error("development server lease backend URL must use a loopback host");
+  }
+  return trimTrailingSlash(parsed.toString());
 }
 
 function uniquePathEntries(entries, caseInsensitive) {

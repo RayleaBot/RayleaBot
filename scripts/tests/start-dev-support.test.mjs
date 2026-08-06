@@ -7,22 +7,28 @@ import path from "node:path";
 import test from "node:test";
 import {
   BUILD_PROFILE,
+  LAUNCHER_CONTROL_TOKEN_HEADER,
   LAUNCHER_DEV_PROFILE,
   SERVER_RELOAD_WATCH,
   WEB_DEV_PROFILE,
   classifyWebDevServer,
   createDevelopmentControlEnvironment,
+  createDevelopmentServerLease,
   createDependencyInstallEnvironment,
   createDevEnvironment,
+  createServerDevelopmentEnvironment,
   createTrustedChildEnvironment,
   formatLocalLogDate,
   loadStartEnvironmentFile,
+  isProcessRunning,
+  parseDevelopmentServerLease,
   parseBackendEndpointFromConfigText,
   resolveDatedLogPath,
   resolveBackendBaseUrl,
   resolveInstallMode,
   resolveServerReloadMode,
   resolveStartProfile,
+  requestDevelopmentServerShutdown,
   shouldInstallDependencies,
 } from "../start-dev-support.mjs";
 
@@ -106,6 +112,114 @@ test("creates a shared launcher control environment for development processes", 
   assert.throws(
     () => createDevelopmentControlEnvironment({ generateControlToken: () => "  " }),
     /control token is required/,
+  );
+});
+
+test("creates and validates a repository-scoped development server lease", async () => {
+  const rootDir = await fs.mkdtemp(path.join(os.tmpdir(), "raylea-server-lease-"));
+  const serverTmpDir = path.join(rootDir, "server", "tmp");
+  const binaryPath = path.join(serverTmpDir, process.platform === "win32"
+    ? "raylea-server-dev-123.exe"
+    : "raylea-server-dev-123");
+  const lease = createDevelopmentServerLease({
+    ownerPid: 123,
+    rootDir,
+    backendBaseUrl: "http://127.0.0.1:1234/",
+    binaryPath,
+    controlToken: "test-control-token",
+    generateLeaseId: () => "test-lease-id",
+  });
+
+  assert.deepEqual(
+    parseDevelopmentServerLease(JSON.stringify(lease), { rootDir, serverTmpDir }),
+    lease,
+  );
+  assert.throws(
+    () => parseDevelopmentServerLease(JSON.stringify(lease), {
+      rootDir: path.join(rootDir, "other"),
+      serverTmpDir,
+    }),
+    /another repository/,
+  );
+  assert.throws(
+    () => parseDevelopmentServerLease(JSON.stringify({
+      ...lease,
+      binary_path: path.join(rootDir, "raylea-server-dev-123"),
+    }), { rootDir, serverTmpDir }),
+    /outside server\/tmp/,
+  );
+  assert.throws(
+    () => createDevelopmentServerLease({
+      ...lease,
+      ownerPid: lease.owner_pid,
+      rootDir,
+      backendBaseUrl: "https://example.com/",
+      binaryPath,
+      controlToken: lease.control_token,
+    }),
+    /loopback HTTP/,
+  );
+});
+
+test("requests graceful shutdown with only the leased control token", async () => {
+  const calls = [];
+  await requestDevelopmentServerShutdown({
+    lease: {
+      backend_base_url: "http://127.0.0.1:1234",
+      control_token: "test-control-token",
+    },
+    fetchImpl: async (url, options) => {
+      calls.push({ url, options });
+      return { status: 202 };
+    },
+  });
+
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].url, "http://127.0.0.1:1234/api/launcher/shutdown");
+  assert.equal(calls[0].options.method, "POST");
+  assert.deepEqual(calls[0].options.headers, {
+    [LAUNCHER_CONTROL_TOKEN_HEADER]: "test-control-token",
+  });
+  await assert.rejects(
+    requestDevelopmentServerShutdown({
+      lease: {
+        backend_base_url: "http://127.0.0.1:1234",
+        control_token: "test-control-token",
+      },
+      fetchImpl: async () => ({ status: 403 }),
+    }),
+    /HTTP 403/,
+  );
+});
+
+test("classifies development lease owner process state", () => {
+  assert.equal(isProcessRunning(42, { kill: () => {} }), true);
+  assert.equal(isProcessRunning(42, {
+    kill: () => { throw Object.assign(new Error("missing"), { code: "ESRCH" }); },
+  }), false);
+  assert.equal(isProcessRunning(42, {
+    kill: () => { throw Object.assign(new Error("denied"), { code: "EPERM" }); },
+  }), true);
+});
+
+test("passes only the scoped development origins and control token to the server", () => {
+  assert.deepEqual(
+    createServerDevelopmentEnvironment({
+      devEnvironment: {
+        VITE_BACKEND_TARGET: "http://127.0.0.1:8080",
+        VITE_WS_BASE_URL: "http://127.0.0.1:8080",
+        RAYLEA_WEB_UI_BASE_URL: " http://127.0.0.1:4173/ ",
+      },
+      controlEnvironment: { RAYLEA_LAUNCHER_CONTROL_TOKEN: "dev-control-token" },
+    }),
+    {
+      RAYLEA_LAUNCHER_CONTROL_TOKEN: "dev-control-token",
+      RAYLEA_WEB_UI_BASE_URL: "http://127.0.0.1:4173/",
+    },
+  );
+  assert.throws(
+    () => createServerDevelopmentEnvironment(),
+    /Web UI base URL is required/,
   );
 });
 

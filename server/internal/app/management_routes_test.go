@@ -28,3 +28,16 @@ func TestManagementBrowserOriginsRequireExplicitLocalDevelopmentOrigin(t *testin
 		t.Fatal("non-local development origin was admitted")
 	}
 }
+
+func TestBuildPluginUIOriginOptionsIncludesLocalDevelopmentOrigin(t *testing.T) {
+	t.Setenv("RAYLEA_WEB_UI_BASE_URL", "http://127.0.0.1:4173/")
+	cfg := config.Config{
+		Server: config.ServerConfig{Host: "127.0.0.1", Port: 8080},
+		Web:    config.WebConfig{ExposureMode: "localhost_only"},
+	}
+
+	options := buildPluginUIOriginOptions(cfg)
+	if !slices.Contains(options.AdminOrigins, "http://127.0.0.1:4173") {
+		t.Fatalf("plugin UI admin origins do not include the development UI: %#v", options.AdminOrigins)
+	}
+}

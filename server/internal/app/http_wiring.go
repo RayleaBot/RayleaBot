@@ -4,9 +4,11 @@ import (
 	"context"
 	"net"
 	"net/http"
+	"os"
 	"strconv"
 	"time"
 
+	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/httpapi"
 	"github.com/RayleaBot/RayleaBot/server/internal/logpath"
 	managementapi "github.com/RayleaBot/RayleaBot/server/internal/management"
@@ -101,12 +103,7 @@ func buildAppHTTPServer(deps serverDeps) (http.Handler, *http.Server, httpHandle
 	listenAddr := net.JoinHostPort(cfg.Server.Host, strconv.Itoa(cfg.Server.Port))
 	handler := http.Handler(router)
 	if deps.pluginUI != nil {
-		_, adminOrigins, _ := managementBrowserOrigins(cfg, "")
-		handler = deps.pluginUI.IsolatedOriginHandler(handler, managementapi.PluginUIOriginOptions{
-			OriginTemplate: cfg.Web.PluginUIOriginTemplate,
-			ServerPort:     cfg.Server.Port,
-			AdminOrigins:   adminOrigins,
-		})
+		handler = deps.pluginUI.IsolatedOriginHandler(handler, buildPluginUIOriginOptions(cfg))
 	}
 	server := &http.Server{
 		Addr:              listenAddr,
@@ -120,6 +117,15 @@ func buildAppHTTPServer(deps serverDeps) (http.Handler, *http.Server, httpHandle
 
 	logConfiguredServer(deps.runtime, deps.renderer, listenAddr)
 	return handler, server, handlers
+}
+
+func buildPluginUIOriginOptions(cfg config.Config) managementapi.PluginUIOriginOptions {
+	_, adminOrigins, _ := managementBrowserOrigins(cfg, os.Getenv("RAYLEA_WEB_UI_BASE_URL"))
+	return managementapi.PluginUIOriginOptions{
+		OriginTemplate: cfg.Web.PluginUIOriginTemplate,
+		ServerPort:     cfg.Server.Port,
+		AdminOrigins:   adminOrigins,
+	}
 }
 
 func logConfiguredServer(state configRuntimeState, renderer *renderservice.Service, listenAddr string) {
