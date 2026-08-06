@@ -274,7 +274,7 @@ describe('PluginManagementUIHost bridge v2', () => {
     wrapper.unmount()
   })
 
-  it('rejects bridge v1 and clamps height reports to the contracted range', async () => {
+  it('rejects bridge v1 and keeps long plugin pages inside the visible viewport', async () => {
     const first = mountHost()
     await flushPromises()
     const stale = assignIframeWindow(first)
@@ -290,11 +290,18 @@ describe('PluginManagementUIHost bridge v2', () => {
     const second = mountHost()
     await flushPromises()
     const { channel, iframe } = await connectBridge(second)
+    vi.spyOn(window, 'innerHeight', 'get').mockReturnValue(900)
+    vi.spyOn(iframe, 'getBoundingClientRect').mockReturnValue({ top: 180 } as DOMRect)
     channel.port1.emit({
       version: '2', source: 'plugin_management_ui', type: 'ui.resize', payload: { height: 5000 },
     })
     await flushPromises()
-    expect(iframe.style.height).toBe('1600px')
+    expect(iframe.style.height).toBe('696px')
+    channel.port1.emit({
+      version: '2', source: 'plugin_management_ui', type: 'ui.resize', payload: { height: 100 },
+    })
+    await flushPromises()
+    expect(iframe.style.height).toBe('320px')
     second.unmount()
   })
 })

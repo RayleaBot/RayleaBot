@@ -746,6 +746,31 @@ test('plugin management ui uses an isolated bridge for settings, secrets, theme,
   expect(frameHeight).toBeGreaterThanOrEqual(320)
   expect(frameHeight).toBeLessThanOrEqual(1600)
 
+  await page.getByTestId('plugin-management-ui-frame').scrollIntoViewIfNeeded()
+  await pluginFrame.locator('body').evaluate((body) => {
+    const longContent = document.createElement('div')
+    longContent.dataset.testid = 'plugin-management-ui-long-content'
+    longContent.style.height = '2400px'
+    body.append(longContent)
+  })
+  await expect.poll(async () => page.getByTestId('plugin-management-ui-frame').evaluate((frame) => {
+    const bounds = frame.getBoundingClientRect()
+    return bounds.height < 1600 && bounds.bottom <= window.innerHeight
+  })).toBe(true)
+  const longFrameGeometry = await page.getByTestId('plugin-management-ui-frame').evaluate((frame) => {
+    const bounds = frame.getBoundingClientRect()
+    return { bottom: bounds.bottom, height: bounds.height, viewportHeight: window.innerHeight }
+  })
+  expect(longFrameGeometry.height).toBeLessThan(1600)
+  expect(longFrameGeometry.bottom).toBeLessThanOrEqual(longFrameGeometry.viewportHeight)
+  const reachedPluginPageBottom = await pluginFrame.locator('html').evaluate(() => {
+    const scrollingElement = document.scrollingElement
+    if (!scrollingElement) return false
+    scrollingElement.scrollTop = scrollingElement.scrollHeight
+    return scrollingElement.scrollTop + scrollingElement.clientHeight >= scrollingElement.scrollHeight - 1
+  })
+  expect(reachedPluginPageBottom).toBe(true)
+
   await page.reload()
   await expect(page.getByRole('heading', { name: 'example-config-panel', level: 1 })).toBeVisible()
   await expect(page).toHaveURL(/panel=management-ui/)

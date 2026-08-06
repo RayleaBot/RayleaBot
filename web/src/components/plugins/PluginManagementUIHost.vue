@@ -95,6 +95,7 @@ const navigate = useMotionNavigation()
 
 const iframeRef = ref<HTMLIFrameElement | null>(null)
 const iframeKey = ref(0)
+const reportedIframeHeight = ref(640)
 const iframeHeight = ref(640)
 const bridgeNonce = ref('')
 const pluginOrigin = ref('')
@@ -135,8 +136,13 @@ useToastFeedback(actionErrorToast)
 let bridgePort: MessagePort | null = null
 let bridgeSession = 0
 let readyTimer: ReturnType<typeof setTimeout> | null = null
+let frameMeasureAnimation: number | null = null
 let lastSettings: Record<string, unknown> = {}
 let lastSecretsConfigured: Record<string, boolean> = {}
+
+const minimumFrameHeight = 320
+const maximumFrameHeight = 1600
+const frameViewportBottomGap = 24
 
 function randomID(prefix: string) {
   const bytes = new Uint8Array(24)
@@ -200,6 +206,7 @@ async function restartFrame() {
   fatalError.value = null
   actionError.value = null
   waitingForReady.value = false
+  reportedIframeHeight.value = 640
   iframeHeight.value = 640
   if (!confirmed.value && requiresConfirmation.value) {
     pluginOrigin.value = ''
@@ -375,7 +382,31 @@ function toStringArray(value: unknown) {
 
 function resizeFrame(value: unknown) {
   if (typeof value !== 'number' || !Number.isFinite(value)) return
-  iframeHeight.value = Math.min(1600, Math.max(320, Math.ceil(value)))
+  reportedIframeHeight.value = Math.min(maximumFrameHeight, Math.max(minimumFrameHeight, Math.ceil(value)))
+  updateFrameHeight()
+}
+
+function updateFrameHeight() {
+  if (typeof window === 'undefined' || !iframeRef.value) {
+    iframeHeight.value = reportedIframeHeight.value
+    return
+  }
+  const visualViewportHeight = window.visualViewport?.height
+  const viewportHeight = typeof visualViewportHeight === 'number' && Number.isFinite(visualViewportHeight)
+    ? visualViewportHeight
+    : window.innerHeight
+  const measuredTop = iframeRef.value.getBoundingClientRect().top
+  const frameTop = Number.isFinite(measuredTop) ? Math.max(0, measuredTop) : 0
+  const availableHeight = Math.floor(viewportHeight - frameTop - frameViewportBottomGap)
+  iframeHeight.value = Math.min(reportedIframeHeight.value, Math.max(minimumFrameHeight, availableHeight))
+}
+
+function scheduleFrameHeightUpdate() {
+  if (typeof window === 'undefined' || frameMeasureAnimation !== null) return
+  frameMeasureAnimation = window.requestAnimationFrame(() => {
+    frameMeasureAnimation = null
+    updateFrameHeight()
+  })
 }
 
 async function reloadSettings(id?: string) {
@@ -471,6 +502,7 @@ async function invokePluginManagementAction(action: string, payload: Record<stri
 
 function handleFrameLoad() {
   // The iframe initiates the nonce-bound handshake. Loading alone never grants a channel.
+  updateFrameHeight()
 }
 
 watch([
@@ -489,11 +521,24 @@ watch(() => uiShellStore.resolvedThemeMode, () => {
   if (bridgePort) postHostInit()
 })
 
-if (typeof window !== 'undefined') window.addEventListener('message', handleWindowMessage)
+if (typeof window !== 'undefined') {
+  window.addEventListener('message', handleWindowMessage)
+  window.addEventListener('resize', scheduleFrameHeightUpdate)
+  document.addEventListener('scroll', scheduleFrameHeightUpdate, true)
+  window.visualViewport?.addEventListener('resize', scheduleFrameHeightUpdate)
+  window.visualViewport?.addEventListener('scroll', scheduleFrameHeightUpdate)
+}
 
 onBeforeUnmount(() => {
   closeBridge()
-  if (typeof window !== 'undefined') window.removeEventListener('message', handleWindowMessage)
+  if (typeof window !== 'undefined') {
+    window.removeEventListener('message', handleWindowMessage)
+    window.removeEventListener('resize', scheduleFrameHeightUpdate)
+    document.removeEventListener('scroll', scheduleFrameHeightUpdate, true)
+    window.visualViewport?.removeEventListener('resize', scheduleFrameHeightUpdate)
+    window.visualViewport?.removeEventListener('scroll', scheduleFrameHeightUpdate)
+    if (frameMeasureAnimation !== null) window.cancelAnimationFrame(frameMeasureAnimation)
+  }
 })
 </script>
 
