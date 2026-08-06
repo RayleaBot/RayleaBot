@@ -24,7 +24,7 @@ OUTPUT_KEYS = (
 
 DOC_ROOT_FILES = {"AGENTS.md", "CLAUDE.md", "README.md", "PRODUCT.md", "DESIGN.md", ".impeccable.md"}
 DOC_AUX_FILES = {".impeccable/design.json"}
-TOOLCHAIN_ROOT_FILES = {".gitignore", ".tool-versions", "Makefile", "start.bat", "start.sh"}
+TOOLCHAIN_ROOT_FILES = {".env.example", ".gitignore", ".tool-versions", "Makefile", "start.bat", "start.sh"}
 
 
 def normalize_path(path: str) -> str:
@@ -239,6 +239,7 @@ def self_test() -> None:
         (["templates/help.menu/template.json"], {"server": True, "release": True}),
         ([".deps/manifest.json"], {"server": True, "release": True}),
         (["scripts/check-toolchain.py"], {"server": True, "web": True, "launcher": True, "ci": True}),
+        ([".env.example"], {"server": True, "web": True, "launcher": True, "ci": True, "docs_only": False}),
         (["server/AGENTS.md", "server/internal/app/app.go"], {"server": True, "ci": True}),
     ]
     for files, expected in cases:
