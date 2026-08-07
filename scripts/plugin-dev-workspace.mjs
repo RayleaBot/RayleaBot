@@ -229,9 +229,16 @@ async function handlePluginWatchEvent({
     }
   } catch (error) {
     if (error?.code !== 'ENOENT') throw error
+    if (isDirectoryMetadataAlias(eventType, sourcePath, sourceKey, watchedDirectories)) return
     watchedDirectories.delete(sourceKey)
     onChange(plugin, sourcePath)
   }
+}
+
+function isDirectoryMetadataAlias(eventType, sourcePath, sourceKey, watchedDirectories) {
+  if (eventType !== 'change' || watchedDirectories.has(sourceKey)) return false
+  const parentKey = path.resolve(path.dirname(sourcePath))
+  return watchedDirectories.has(parentKey) && path.basename(sourcePath) === path.basename(parentKey)
 }
 
 function isIgnoredPath(root, sourcePath) {
