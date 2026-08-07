@@ -53,7 +53,7 @@ func WriteEchoGoPluginArtifact(t testing.TB, repoRoot string) string {
 			return
 		}
 		echoBinaryPath = filepath.Join(buildRoot, "echo"+executableSuffix())
-		command := exec.Command("go", "build", "-trimpath", "-o", echoBinaryPath, ".")
+		command := exec.Command("go", "build", "-trimpath", "-o", echoBinaryPath, "./cmd/echo")
 		command.Dir = sourceRoot
 		command.Env = append(os.Environ(), "CGO_ENABLED=0", "GOWORK=off")
 		if output, err := command.CombinedOutput(); err != nil {
@@ -169,7 +169,7 @@ func ensureEchoFixture(t testing.TB) {
 			return
 		}
 		echoBinaryPath = filepath.Join(buildRoot, "echo"+executableSuffix())
-		command := exec.Command("go", "build", "-trimpath", "-o", echoBinaryPath, ".")
+		command := exec.Command("go", "build", "-trimpath", "-o", echoBinaryPath, "./cmd/echo")
 		command.Dir = sourceRoot
 		command.Env = append(os.Environ(), "CGO_ENABLED=0", "GOWORK=off")
 		if output, err := command.CombinedOutput(); err != nil {

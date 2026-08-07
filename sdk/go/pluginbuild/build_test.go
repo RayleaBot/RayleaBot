@@ -67,6 +67,57 @@ func TestBuildProducesAPlatformArtifactWithExactInventory(t *testing.T) {
 	}
 }
 
+func TestBuildAcceptsCommandBelowCmd(t *testing.T) {
+	pluginDir := t.TempDir()
+	writeTestFile(t, filepath.Join(pluginDir, "go.mod"), "module example.test/plugin\n\ngo 1.25.12\n")
+	writeTestFile(t, filepath.Join(pluginDir, "cmd", "test-plugin", "main.go"), "package main\nfunc main() {}\n")
+	writeTestFile(t, filepath.Join(pluginDir, "LICENSE"), "test license\n")
+	platform := testPlatform(t)
+	manifest := map[string]any{
+		"id": "test-plugin", "name": "Test", "version": "0.2.0", "manifest_version": "2",
+		"plugin_protocol_version": "1", "runtime": "go", "entry": "bin/test-plugin",
+		"platforms": []string{platform}, "license": "MIT",
+	}
+	manifestBytes, _ := json.MarshalIndent(manifest, "", "  ")
+	writeTestFile(t, filepath.Join(pluginDir, "info.json"), string(manifestBytes)+"\n")
+
+	result, err := Build(context.Background(), Config{
+		PluginDir: pluginDir, OutputDir: filepath.Join(pluginDir, "out"), TargetPlatform: platform,
+		BackendPackage: "./cmd/test-plugin",
+	})
+	if err != nil {
+		t.Fatalf("Build() error = %v", err)
+	}
+	if _, err := os.Stat(result.ArchivePath); err != nil {
+		t.Fatalf("artifact archive: %v", err)
+	}
+}
+
+func TestResolveBackendPackageRejectsPathsOutsidePluginRoot(t *testing.T) {
+	pluginDir := t.TempDir()
+	for _, packagePath := range []string{"../outside", filepath.Join(pluginDir, "cmd", "plugin")} {
+		if _, err := resolveBackendPackage(pluginDir, packagePath); err == nil {
+			t.Fatalf("resolveBackendPackage(%q) error = nil", packagePath)
+		}
+	}
+}
+
+func TestCopyAssetsCanMapAnInternalSourceToAStableArtifactPath(t *testing.T) {
+	pluginDir := t.TempDir()
+	artifactRoot := t.TempDir()
+	writeTestFile(t, filepath.Join(pluginDir, "internal", "assets", "settings.json"), "{}\n")
+
+	err := copyAssets(pluginDir, artifactRoot, nil, []AssetMapping{{
+		Source: "internal/assets/settings.json", Destination: "settings.json",
+	}})
+	if err != nil {
+		t.Fatalf("copyAssets() error = %v", err)
+	}
+	if payload, err := os.ReadFile(filepath.Join(artifactRoot, "settings.json")); err != nil || string(payload) != "{}\n" {
+		t.Fatalf("mapped asset = %q, %v", payload, err)
+	}
+}
+
 func TestBuildWorkspaceSBOMKeepsDeclaredSDKVersion(t *testing.T) {
 	root := t.TempDir()
 	pluginDir := filepath.Join(root, "plugin")
@@ -74,7 +125,7 @@ func TestBuildWorkspaceSBOMKeepsDeclaredSDKVersion(t *testing.T) {
 	writeTestFile(t, filepath.Join(sdkDir, "go.mod"), "module example.test/sdk\n\ngo 1.25.12\n")
 	writeTestFile(t, filepath.Join(sdkDir, "sdk.go"), "package sdk\nfunc Run() {}\n")
 	writeTestFile(t, filepath.Join(pluginDir, "go.mod"), "module example.test/plugin\n\ngo 1.25.12\n\nrequire example.test/sdk v0.2.0\n")
-	writeTestFile(t, filepath.Join(pluginDir, "main.go"), "package main\nimport \"example.test/sdk\"\nfunc main() { sdk.Run() }\n")
+	writeTestFile(t, filepath.Join(pluginDir, "cmd", "plugin", "main.go"), "package main\nimport \"example.test/sdk\"\nfunc main() { sdk.Run() }\n")
 	writeTestFile(t, filepath.Join(pluginDir, "LICENSE"), "test license\n")
 	platform := testPlatform(t)
 	manifest := map[string]any{
@@ -94,6 +145,7 @@ func TestBuildWorkspaceSBOMKeepsDeclaredSDKVersion(t *testing.T) {
 
 	result, err := Build(context.Background(), Config{
 		PluginDir: pluginDir, OutputDir: filepath.Join(root, "out"), TargetPlatform: platform, KeepExpandedArtifact: true,
+		BackendPackage: "./cmd/plugin",
 	})
 	if err != nil {
 		t.Fatalf("Build() error = %v", err)

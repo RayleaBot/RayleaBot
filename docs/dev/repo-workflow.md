@@ -37,6 +37,8 @@ dist/
 
 主仓库启动器负责编排本机独立插件仓库，不依赖 GitHub 构建：
 
+独立插件后端采用 `cmd/<plugin>`、`internal/plugin` 与可选 `internal/assets` 目录；`tools/build` 显式指定唯一后端 package，并可把内部资源映射到稳定 artifact 路径。
+
 1. `plugin-workspace.local.json` 声明需要联调的仓库；该文件及 `.tmp/plugin-dev/` 均不进入版本控制。
 2. 首次启动为所有启用插件生成临时 `go.work`，镜像当前主仓库 Vue SDK，调用各插件自己的 `tools/build` 构建当前平台完整 artifact。
 3. 启动器在 Server 未运行时调用 `plugin dev-sync`，经正式校验与原子安装事务写入 `plugins/installed/`；运行期仍只发现已安装产物，不直接发现源码目录。

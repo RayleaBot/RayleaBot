@@ -29,20 +29,45 @@ SDK 为每个 local action 分配独立 request ID，并通过父事件 request 
 
 ## Artifact 构建器
 
-每个插件拥有独立 `go.mod`、`info.json` 和薄 `tools/build` 入口：
+每个插件拥有独立 `go.mod`、`info.json` 和薄 `tools/build` 入口。后端遵循 Go 应用工程的职责分层：可执行入口放在 `cmd/<plugin>/`，不可被仓库外导入的业务实现和嵌入资源放在 `internal/`，UI、模板与发布工具各自保持顶层目录：
+
+```text
+plugin-example/
+  cmd/example/main.go
+  internal/plugin/...
+  internal/assets/...
+  ui/...
+  templates/...
+  tools/build/main.go
+  go.mod
+  info.json
+```
+
+`cmd` 入口只创建进程并调用 `internal/plugin.Run`；协议处理、业务逻辑和测试不放在仓库根目录。构建入口显式选择唯一后端 package：
 
 ```go
 package main
 
-import "github.com/RayleaBot/RayleaBot/sdk/go/pluginbuild/buildcmd"
+import (
+    "github.com/RayleaBot/RayleaBot/sdk/go/pluginbuild"
+    "github.com/RayleaBot/RayleaBot/sdk/go/pluginbuild/buildcmd"
+)
 
-func main() { buildcmd.Main("templates") }
+func main() {
+    buildcmd.Main(buildcmd.Config{
+        BackendPackage: "./cmd/example",
+        Assets: []string{"templates"},
+        MappedAssets: []pluginbuild.AssetMapping{{
+            Source: "internal/assets/default.json", Destination: "default.json",
+        }},
+    })
+}
 ```
 
-也可以直接调用 `pluginbuild.Build(ctx, Config)`。构建器执行：
+同路径资源使用 `Assets` 直接复制；需要让嵌入资源留在 `internal/`、但保持 artifact 对外路径稳定时使用 `MappedAssets`。也可以直接调用 `pluginbuild.Build(ctx, Config)`。构建器执行：
 
 1. 校验 manifest v2 与目标平台；
-2. 使用 `CGO_ENABLED=0`、`-trimpath`、`-buildvcs=false` 和无 build ID 构建 Go 后端；
+2. 校验 `BackendPackage` 位于插件根目录内，并使用 `CGO_ENABLED=0`、`-trimpath`、`-buildvcs=false` 和无 build ID 构建唯一 Go 后端；
 3. 若存在 `ui/package.json`，执行插件自己的 `pnpm build`；
 4. 收集 UI、模板、数据、`LICENSE`、第三方 notices 与 SPDX SBOM；
 5. 生成 `artifact.json`，并输出确定性单根目录 ZIP 与可选展开目录。

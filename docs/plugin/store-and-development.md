@@ -96,7 +96,7 @@ Web 路由 `/plugins/store` 展示目录验证来源、搜索排序、仓库链�
 
 ## 独立插件发布
 
-每个插件仓库拥有独立 `go.mod`、`info.json`、`tools/build` 和 GitHub Actions。Go SDK 使用正式 tag，例如 `sdk/go/v0.2.0`；Vue 插件在 CI 中从相同核心 SDK 引用复制 `sdk/vue`，避免 Go 与 bridge contract 版本错配。
+每个插件仓库拥有独立 `go.mod`、`info.json`、`tools/build` 和 GitHub Actions。Go 后端入口位于 `cmd/<plugin>/`，插件实现与嵌入资源位于 `internal/`；UI、模板和构建工具保持独立顶层目录。Go SDK 使用正式 tag，例如 `sdk/go/v0.3.0`；Vue 插件在 CI 中从相同核心 SDK 引用复制 `sdk/vue`，避免 Go 与 bridge contract 版本错配。
 
 插件 PR 和主分支执行：
 

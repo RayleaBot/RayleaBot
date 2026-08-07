@@ -2,4 +2,6 @@ package main
 
 import "github.com/RayleaBot/RayleaBot/sdk/go/pluginbuild/buildcmd"
 
-func main() { buildcmd.Main() }
+func main() {
+	buildcmd.Main(buildcmd.Config{BackendPackage: "./cmd/example-capability-parameters"})
+}

@@ -231,7 +231,7 @@ def self_test() -> None:
         (["sdk/vue/src/index.ts"], {"sdk": True, "release": False}),
         (["go.work"], {"server": True, "sdk": True, "release": True, "ci": True}),
         (["plugin-workspace.example.json"], {"sdk": True, "docs_only": False}),
-        (["examples/plugins/hello-go/main.go"], {"sdk": True, "contracts": True}),
+        (["examples/plugins/hello-go/cmd/hello-go/main.go"], {"sdk": True, "contracts": True}),
         (["launcher/native/windows-entry/main_windows.go"], {"launcher": True, "release": True}),
         (["launcher/scripts/build-package.mjs"], {"launcher": True, "release": True}),
         ([".github/workflows/ci.yml"], {"ci": True, "docs_only": False}),

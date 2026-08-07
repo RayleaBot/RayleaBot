@@ -31,11 +31,18 @@ type Config struct {
 	PluginDir            string
 	OutputDir            string
 	TargetPlatform       string
+	BackendPackage       string
 	Assets               []string
+	MappedAssets         []AssetMapping
 	GoCommand            string
 	PNPMCommand          string
 	SkipUIInstall        bool
 	KeepExpandedArtifact bool
+}
+
+type AssetMapping struct {
+	Source      string
+	Destination string
 }
 
 type Result struct {
@@ -115,6 +122,11 @@ func Build(ctx context.Context, config Config) (Result, error) {
 	if err := validateManifest(manifest, config.TargetPlatform); err != nil {
 		return Result{}, err
 	}
+	backendPackage, err := resolveBackendPackage(pluginDir, config.BackendPackage)
+	if err != nil {
+		return Result{}, err
+	}
+	config.BackendPackage = backendPackage
 	target, err := resolveTarget(config.TargetPlatform)
 	if err != nil {
 		return Result{}, err
@@ -147,7 +159,7 @@ func Build(ctx context.Context, config Config) (Result, error) {
 	}
 
 	binaryPath := filepath.Join(root, filepath.FromSlash(manifest.Entry)+target.EXE)
-	if err := runGoBuild(ctx, config, pluginDir, target, binaryPath); err != nil {
+	if err := runGoBuild(ctx, config, pluginDir, backendPackage, target, binaryPath); err != nil {
 		return Result{}, err
 	}
 	if target.GOOS != "windows" {
@@ -158,7 +170,7 @@ func Build(ctx context.Context, config Config) (Result, error) {
 	if err := buildUI(ctx, config, pluginDir, root); err != nil {
 		return Result{}, err
 	}
-	if err := copyAssets(pluginDir, root, config.Assets); err != nil {
+	if err := copyAssets(pluginDir, root, config.Assets, config.MappedAssets); err != nil {
 		return Result{}, err
 	}
 	if err := copyLicense(pluginDir, root); err != nil {
@@ -244,12 +256,35 @@ func resolveTarget(platform string) (target, error) {
 	}
 }
 
-func runGoBuild(ctx context.Context, config Config, pluginDir string, target target, output string) error {
+func resolveBackendPackage(pluginDir, configured string) (string, error) {
+	configured = strings.TrimSpace(configured)
+	if configured == "" || configured == "." || configured == "./" {
+		return ".", nil
+	}
+	packagePath := filepath.Clean(filepath.FromSlash(configured))
+	if filepath.IsAbs(packagePath) || filepath.VolumeName(packagePath) != "" {
+		return "", errors.New("pluginbuild: backend package must be relative to the plugin root")
+	}
+	packageDir := filepath.Join(pluginDir, packagePath)
+	if !pathWithin(pluginDir, packageDir) {
+		return "", errors.New("pluginbuild: backend package must stay within the plugin root")
+	}
+	info, err := os.Stat(packageDir)
+	if err != nil {
+		return "", fmt.Errorf("pluginbuild: inspect backend package: %w", err)
+	}
+	if !info.IsDir() {
+		return "", errors.New("pluginbuild: backend package must reference a directory")
+	}
+	return "./" + filepath.ToSlash(packagePath), nil
+}
+
+func runGoBuild(ctx context.Context, config Config, pluginDir, backendPackage string, target target, output string) error {
 	command := config.GoCommand
 	if command == "" {
 		command = "go"
 	}
-	cmd := exec.CommandContext(ctx, command, "build", "-trimpath", "-buildvcs=false", "-ldflags=-s -w -buildid=", "-o", output, ".")
+	cmd := exec.CommandContext(ctx, command, "build", "-trimpath", "-buildvcs=false", "-ldflags=-s -w -buildid=", "-o", output, backendPackage)
 	cmd.Dir = pluginDir
 	cmd.Env = append(os.Environ(), "CGO_ENABLED=0", "GOOS="+target.GOOS, "GOARCH="+target.GOARCH)
 	if os.Getenv("RAYLEA_PLUGIN_BUILD_USE_WORKSPACE") != "1" {
@@ -426,30 +461,53 @@ func environmentWithPathPrefix(environment []string, directory string) []string 
 	return append(result, "PATH="+pathValue)
 }
 
-func copyAssets(pluginDir, artifactRoot string, assets []string) error {
+func copyAssets(pluginDir, artifactRoot string, assets []string, mappedAssets []AssetMapping) error {
 	for _, asset := range assets {
-		clean := filepath.Clean(filepath.FromSlash(asset))
-		if clean == "." || filepath.IsAbs(clean) || clean == ".." || strings.HasPrefix(clean, ".."+string(filepath.Separator)) {
-			return fmt.Errorf("pluginbuild: asset path %q escapes the plugin directory", asset)
+		if err := copyAsset(pluginDir, artifactRoot, asset, asset); err != nil {
+			return err
 		}
-		source := filepath.Join(pluginDir, clean)
-		if !pathWithin(pluginDir, source) {
-			return fmt.Errorf("pluginbuild: asset path %q escapes the plugin directory", asset)
-		}
-		info, err := os.Stat(source)
-		if err != nil {
-			return fmt.Errorf("pluginbuild: inspect asset %q: %w", asset, err)
-		}
-		destination := filepath.Join(artifactRoot, clean)
-		if info.IsDir() {
-			if err := copyTree(source, destination); err != nil {
-				return err
-			}
-		} else if err := copyFile(source, destination, 0o644); err != nil {
+	}
+	for _, asset := range mappedAssets {
+		if err := copyAsset(pluginDir, artifactRoot, asset.Source, asset.Destination); err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+func copyAsset(pluginDir, artifactRoot, sourcePath, destinationPath string) error {
+	sourceClean, err := cleanRelativePath(sourcePath)
+	if err != nil {
+		return fmt.Errorf("pluginbuild: asset source path %q: %w", sourcePath, err)
+	}
+	destinationClean, err := cleanRelativePath(destinationPath)
+	if err != nil {
+		return fmt.Errorf("pluginbuild: asset destination path %q: %w", destinationPath, err)
+	}
+	source := filepath.Join(pluginDir, sourceClean)
+	if !pathWithin(pluginDir, source) {
+		return fmt.Errorf("pluginbuild: asset source path %q escapes the plugin directory", sourcePath)
+	}
+	destination := filepath.Join(artifactRoot, destinationClean)
+	if !pathWithin(artifactRoot, destination) {
+		return fmt.Errorf("pluginbuild: asset destination path %q escapes the artifact root", destinationPath)
+	}
+	info, err := os.Stat(source)
+	if err != nil {
+		return fmt.Errorf("pluginbuild: inspect asset %q: %w", sourcePath, err)
+	}
+	if info.IsDir() {
+		return copyTree(source, destination)
+	}
+	return copyFile(source, destination, 0o644)
+}
+
+func cleanRelativePath(value string) (string, error) {
+	clean := filepath.Clean(filepath.FromSlash(strings.TrimSpace(value)))
+	if clean == "." || filepath.IsAbs(clean) || filepath.VolumeName(clean) != "" || clean == ".." || strings.HasPrefix(clean, ".."+string(filepath.Separator)) {
+		return "", errors.New("path must stay below its root")
+	}
+	return clean, nil
 }
 
 func copyLicense(pluginDir, artifactRoot string) error {

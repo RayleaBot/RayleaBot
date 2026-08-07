@@ -2,4 +2,9 @@ package main
 
 import "github.com/RayleaBot/RayleaBot/sdk/go/pluginbuild/buildcmd"
 
-func main() { buildcmd.Main("templates") }
+func main() {
+	buildcmd.Main(buildcmd.Config{
+		BackendPackage: "./cmd/example-render-card",
+		Assets:         []string{"templates"},
+	})
+}

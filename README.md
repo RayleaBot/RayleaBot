@@ -85,6 +85,8 @@ node scripts/start-dev.mjs
 
 ## 贡献与开发
 
+独立 Go 插件统一使用 `cmd/<plugin>` 进程入口、`internal/` 实现与嵌入资源、可选 `ui/`/`templates/` 资源以及 `tools/build` 构建入口；完整目录约定见[插件 SDK](./docs/plugin/sdk/README.md#artifact-构建器)。
+
 ```bash
 # Server
 cd server && go test ./...

@@ -31,7 +31,7 @@ func goModules(ctx context.Context, config Config, pluginDir string) ([]moduleIn
 		command = "go"
 	}
 	if os.Getenv("RAYLEA_PLUGIN_BUILD_USE_WORKSPACE") == "1" {
-		return workspaceGoModules(ctx, command, pluginDir)
+		return workspaceGoModules(ctx, command, pluginDir, config.BackendPackage)
 	}
 	cmd := exec.CommandContext(ctx, command, "list", "-m", "-json", "all")
 	cmd.Dir = pluginDir
@@ -43,7 +43,7 @@ func goModules(ctx context.Context, config Config, pluginDir string) ([]moduleIn
 	return decodeGoModules(output, "")
 }
 
-func workspaceGoModules(ctx context.Context, command, pluginDir string) ([]moduleInfo, error) {
+func workspaceGoModules(ctx context.Context, command, pluginDir, backendPackage string) ([]moduleInfo, error) {
 	modCommand := exec.CommandContext(ctx, command, "mod", "edit", "-json")
 	modCommand.Dir = pluginDir
 	modCommand.Env = append(os.Environ(), "GOWORK=off")
@@ -68,7 +68,7 @@ func workspaceGoModules(ctx context.Context, command, pluginDir string) ([]modul
 		requiredVersions[requirement.Path] = requirement.Version
 	}
 
-	listCommand := exec.CommandContext(ctx, command, "list", "-deps", "-json", ".")
+	listCommand := exec.CommandContext(ctx, command, "list", "-deps", "-json", backendPackage)
 	listCommand.Dir = pluginDir
 	output, err := listCommand.CombinedOutput()
 	if err != nil {

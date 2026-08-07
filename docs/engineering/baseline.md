@@ -72,9 +72,9 @@ Web 管理面采用 `Ant Design Vue + Vue Vben Admin` 对齐方案作为正式�
 | Launcher 桌面桥接 | `preload` 暴露受限 IPC API |
 | Launcher 渲染层 | React 18 + Fluent UI React v9 + Fluent Motion + WAAPI + View Transition API + Vite 单页面桌面壳，支持亮/暗双色主题 |
 | 仓库级 JS 包管理器 | `pnpm` |
-| 插件后端 | 独立 Go module + `sdk/go`；运行期直接启动经 artifact 校验的二进制，不编译源码或安装依赖 |
+| 插件后端 | 独立 Go module + `sdk/go`；`cmd/<plugin>` 为进程入口，`internal/` 保存业务实现与嵌入资源；运行期直接启动经 artifact 校验的二进制，不编译源码或安装依赖 |
 | 插件管理页 | 独立 Vue package + `sdk/vue`；Vite 固定 `base: "./"`，产物位于 artifact 的 `ui/` |
-| 插件构建 | 每插件 `tools/build` 调用 `pluginbuild.Build`，输出单根目录 ZIP 与展开 artifact |
+| 插件构建 | 每插件 `tools/build` 显式指定 `BackendPackage`，调用 `pluginbuild.Build` 输出单根目录 ZIP 与展开 artifact；`MappedAssets` 可将 `internal/` 资源映射到稳定 artifact 路径 |
 | 运行环境资源准备 | `.deps/manifest.json` 可信来源测速 + `cache/downloads/runtime/` + `.deps/store/<resource-id>/<version>/`；图片渲染 Chromium 可复用已安装的 Chrome、Chromium 或 Edge |
 
 ## 默认命令

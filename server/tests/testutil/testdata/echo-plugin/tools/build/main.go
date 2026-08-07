@@ -17,6 +17,7 @@ func main() {
 		PluginDir:      ".",
 		OutputDir:      *output,
 		TargetPlatform: *target,
+		BackendPackage: "./cmd/echo",
 	})
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)

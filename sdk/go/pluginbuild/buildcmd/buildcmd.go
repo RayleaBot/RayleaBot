@@ -9,13 +9,22 @@ import (
 	"github.com/RayleaBot/RayleaBot/sdk/go/pluginbuild"
 )
 
-func Main(assets ...string) {
+type Config struct {
+	BackendPackage string
+	Assets         []string
+	MappedAssets   []pluginbuild.AssetMapping
+}
+
+func Main(config Config) {
 	target := flag.String("target", pluginbuild.CurrentPlatform(), "target platform")
 	output := flag.String("out", "dist", "artifact output directory")
 	flag.Parse()
 	result, err := pluginbuild.Build(context.Background(), pluginbuild.Config{
 		PluginDir: ".", OutputDir: *output, TargetPlatform: *target,
-		Assets: assets, KeepExpandedArtifact: true,
+		BackendPackage:       config.BackendPackage,
+		Assets:               config.Assets,
+		MappedAssets:         config.MappedAssets,
+		KeepExpandedArtifact: true,
 	})
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
