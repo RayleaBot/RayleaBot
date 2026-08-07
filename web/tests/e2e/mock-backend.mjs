@@ -147,6 +147,7 @@ function baseState() {
     governanceCommandPolicy: structuredClone(fixtures.governanceCommandPolicy.response.body),
     thirdPartyAccounts,
     thirdPartyQRCodePolls: {},
+    thirdPartyQRCodeExpiresAt: {},
     renderTemplates: createRenderTemplateState(),
     schedulerJobs: structuredClone(fixtures.schedulerJobsList.response.body.items),
     systemStatus: structuredClone(fixtures.systemStatus.response.body),
@@ -156,6 +157,7 @@ function baseState() {
       failLogsOnce: false,
       failSystemStatusOnce: false,
       failUninstallOnce: false,
+      failThirdPartyQRCodePollOnce: false,
     },
     networkOffline: false,
   }
@@ -1804,7 +1806,11 @@ const server = http.createServer(async (request, response) => {
       return
     }
     const body = structuredClone(fixture.response.body)
-    state.thirdPartyQRCodePolls[thirdPartyQRCodePollKey(platform, body.login_id)] = 0
+    const pollKey = thirdPartyQRCodePollKey(platform, body.login_id)
+    const expiresAt = new Date(Date.now() + 3 * 60 * 1000).toISOString()
+    body.expires_at = expiresAt
+    state.thirdPartyQRCodePolls[pollKey] = 0
+    state.thirdPartyQRCodeExpiresAt[pollKey] = expiresAt
     json(response, fixture.response.status, body)
     return
   }
@@ -1823,11 +1829,16 @@ const server = http.createServer(async (request, response) => {
       json(response, 400, errorEnvelope('platform.invalid_request', 'qr login session not found', 'req_third_party_qr_missing'))
       return
     }
+    if (takeFailureFlag('failThirdPartyQRCodePollOnce')) {
+      json(response, 502, errorEnvelope('platform.upstream_request_failed', 'third-party qrcode poll failed', 'req_third_party_qr_upstream'))
+      return
+    }
     state.thirdPartyQRCodePolls[pollKey] += 1
     const fixture = state.thirdPartyQRCodePolls[pollKey] > 1
       ? fixturesForPlatform.succeeded
       : fixturesForPlatform.pending
     const body = structuredClone(fixture.response.body)
+    body.expires_at = state.thirdPartyQRCodeExpiresAt[pollKey] ?? body.expires_at
     if (platform === 'weibo' && body.account?.profile) {
       body.account.profile.avatar_url = weiboAvatarUrl
     }

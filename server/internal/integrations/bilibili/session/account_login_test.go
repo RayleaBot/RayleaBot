@@ -97,14 +97,16 @@ func TestQRLoginServiceCreatePollAndReturnCookie(t *testing.T) {
 			if pollCount == 2 {
 				return bilibiliJSONResponse(`{"code":0,"data":{"code":86090,"message":"waiting confirm"}}`), nil
 			}
-			return bilibiliJSONResponse(`{
+			response := bilibiliJSONResponse(`{
 				"code": 0,
 				"data": {
 					"code": 0,
-					"url": "https://passport.bilibili.com/login?SESSDATA=fixture&bili_jct=fixture&DedeUserID=123456",
+					"url": "https://passport.bilibili.com/login?SESSDATA=fixture&bili_jct=fixture&DedeUserID=123456&DedeUserID__ckMd5=fixture-md5&sid=fixture-sid",
 					"refresh_token": "fixture-refresh"
 				}
-			}`), nil
+			}`)
+			response.Header.Add("Set-Cookie", "buvid3=fixture-buvid3; Path=/; Domain=.bilibili.com")
+			return response, nil
 		case navURL:
 			return bilibiliJSONResponse(`{
 				"code": 0,
@@ -151,13 +153,68 @@ func TestQRLoginServiceCreatePollAndReturnCookie(t *testing.T) {
 	if succeeded.State != QRLoginSucceeded {
 		t.Fatalf("unexpected qr success state: %#v", succeeded)
 	}
-	for _, fragment := range []string{"SESSDATA=fixture", "bili_jct=fixture", "DedeUserID=123456", "ac_time_value=fixture-refresh"} {
+	for _, fragment := range []string{
+		"SESSDATA=fixture",
+		"bili_jct=fixture",
+		"DedeUserID=123456",
+		"DedeUserID__ckMd5=fixture-md5",
+		"sid=fixture-sid",
+		"buvid3=fixture-buvid3",
+		"ac_time_value=fixture-refresh",
+	} {
 		if !strings.Contains(succeeded.Cookie, fragment) {
 			t.Fatalf("success cookie missing %s: %s", fragment, succeeded.Cookie)
 		}
 	}
 	if succeeded.Account.UID != "123456" || succeeded.Account.Nickname != "测试账号昵称" || succeeded.Account.AvatarURL != "https://i0.hdslb.com/bfs/face/test-account.jpg" {
 		t.Fatalf("unexpected qr account: %#v", succeeded.Account)
+	}
+}
+
+func TestQRLoginServiceKeepsSuccessfulCookieWhenProfileLookupFails(t *testing.T) {
+	t.Parallel()
+
+	service := NewQRLoginService(bilibiliRoundTripFunc(func(request *http.Request) (*http.Response, error) {
+		switch request.URL.String() {
+		case qrCodeGenerateURL:
+			return bilibiliJSONResponse(`{
+				"code": 0,
+				"data": {
+					"url": "https://passport.bilibili.com/scan?qrcode_key=fixture-key",
+					"qrcode_key": "fixture-key"
+				}
+			}`), nil
+		case qrCodePollURL + "?qrcode_key=fixture-key&source=main-fe-header":
+			return bilibiliJSONResponse(`{
+				"code": 0,
+				"data": {
+					"code": 0,
+					"url": "https://passport.bilibili.com/login?SESSDATA=fixture&bili_jct=fixture&DedeUserID=123456",
+					"refresh_token": "fixture-refresh"
+				}
+			}`), nil
+		case navURL:
+			return bilibiliJSONResponse(`{"code":-352,"message":"risk control","data":null}`), nil
+		default:
+			return nil, fmt.Errorf("unexpected request url: %s", request.URL.String())
+		}
+	}), func() time.Time { return time.Date(2026, 6, 8, 8, 0, 0, 0, time.UTC) })
+
+	created, err := service.Create(context.Background())
+	if err != nil {
+		t.Fatalf("Create returned error: %v", err)
+	}
+	succeeded, err := service.Poll(context.Background(), created.LoginID)
+	if err != nil {
+		t.Fatalf("Poll returned error after successful login: %v", err)
+	}
+	if succeeded.State != QRLoginSucceeded || succeeded.Account.UID != "123456" {
+		t.Fatalf("unexpected successful login result: %#v", succeeded)
+	}
+	for _, fragment := range []string{"SESSDATA=fixture", "bili_jct=fixture", "DedeUserID=123456", "ac_time_value=fixture-refresh"} {
+		if !strings.Contains(succeeded.Cookie, fragment) {
+			t.Fatalf("success cookie missing %s: %s", fragment, succeeded.Cookie)
+		}
 	}
 }
 

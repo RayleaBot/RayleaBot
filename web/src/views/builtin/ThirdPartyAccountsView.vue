@@ -66,6 +66,7 @@ interface QRLoginState {
   accountNickname: string
   accountUid: string
   accountAvatarUrl: string
+  pollErrorNotified: boolean
 }
 
 const qrPollIntervalMs = 2000
@@ -270,6 +271,7 @@ function setQRLogin(key: string, response: ThirdPartyQRCodeLoginCreateResponse |
     accountNickname: account?.profile?.nickname || account?.label || previous?.accountNickname || '',
     accountUid: account?.profile?.uid || account?.account_id || previous?.accountUid || '',
     accountAvatarUrl: account?.profile?.avatar_url || previous?.accountAvatarUrl || '',
+    pollErrorNotified: false,
   }
   if (response.state === 'succeeded' && account && drafts[key]) {
     reconcileQRCodeAccount(key, account)
@@ -308,7 +310,6 @@ function scheduleQRPolling() {
   qrPollTimer = window.setInterval(() => {
     void pollActiveQRLogins()
   }, qrPollIntervalMs)
-  void pollActiveQRLogins()
 }
 
 function stopQRPolling() {
@@ -330,8 +331,15 @@ async function pollActiveQRLogins() {
       const response = await store.pollQRCodeLogin(qr.platform, qr.loginId)
       setQRLogin(key, response)
     } catch (err) {
-      notifyError(getDisplayErrorMessage(err))
-      delete qrLogins[key]
+      const expiresAt = Date.parse(qr.expiresAt)
+      if (Number.isFinite(expiresAt) && expiresAt <= Date.now()) {
+        qr.state = 'expired'
+        return
+      }
+      if (!qr.pollErrorNotified) {
+        qr.pollErrorNotified = true
+        notifyError(getDisplayErrorMessage(err))
+      }
     }
   }))
 }

@@ -2075,6 +2075,29 @@ test('third-party accounts show Bilibili CK cards and QR login updates account c
   }
 })
 
+test('third-party QR login survives a transient polling failure', async ({ page, request }) => {
+  await resetBackend(request, true, {
+    failThirdPartyQRCodePollOnce: true,
+  })
+  await login(page)
+
+  await page.goto('/third-party-accounts')
+  await page.getByRole('button', { name: '添加 Bilibili CK' }).first().click()
+  const draftCard = page.locator('.account-card--editing').filter({ hasText: 'Bilibili Cookie' }).first()
+  const failedPoll = page.waitForResponse((response) => (
+    response.url().includes('/api/third-party/accounts/bilibili/login/qrcode/')
+    && response.status() === 502
+  ))
+  await draftCard.getByRole('button', { name: '扫码获取 CK' }).click()
+
+  const scannedCard = page.locator('.account-card--editing').filter({ has: page.locator('.qr-panel') }).first()
+  const qrPanel = scannedCard.locator('.qr-panel')
+  await expect(qrPanel).toBeVisible()
+  await failedPoll
+  await expect(qrPanel).toBeVisible()
+  await expect(scannedCard.locator('input').nth(0)).toHaveValue('123456', { timeout: 7000 })
+})
+
 test('error recovery covers retry and uninstall failure', async ({ page, request }) => {
   await resetBackend(request, true, {
     failPluginsListOnce: true,

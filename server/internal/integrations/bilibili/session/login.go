@@ -32,6 +32,7 @@ const (
 type QRLoginService struct {
 	client        *http.Client
 	accountClient *AccountClient
+	identity      *IdentityProvider
 	now           func() time.Time
 	mu            sync.Mutex
 	sessions      map[string]qrLoginSession
@@ -70,9 +71,11 @@ func NewQRLoginService(transport http.RoundTripper, now func() time.Time) *QRLog
 	if now == nil {
 		now = func() time.Time { return time.Now().UTC() }
 	}
+	identity := NewIdentityProvider(now)
 	return &QRLoginService{
 		client:        &http.Client{Transport: transport, Timeout: DefaultRequestTimeout},
-		accountClient: NewAccountClient(transport, now, nil),
+		accountClient: NewAccountClient(transport, now, identity),
+		identity:      identity,
 		now:           now,
 		sessions:      make(map[string]qrLoginSession),
 	}
@@ -109,7 +112,7 @@ func (s *QRLoginService) createRemoteSession(ctx context.Context, now time.Time)
 	if err != nil {
 		return qrLoginSession{}, err
 	}
-	applyBilibiliWebHeaders(request, http.MethodGet)
+	s.identity.ApplyHeaders(request, http.MethodGet)
 	response, err := s.client.Do(request)
 	if err != nil {
 		return qrLoginSession{}, err
@@ -186,7 +189,7 @@ func (s *QRLoginService) pollRemote(ctx context.Context, session qrLoginSession)
 	if err != nil {
 		return session, err
 	}
-	applyBilibiliWebHeaders(request, http.MethodGet)
+	s.identity.ApplyHeaders(request, http.MethodGet)
 	response, err := s.client.Do(request)
 	if err != nil {
 		return session, err
@@ -223,13 +226,13 @@ func (s *QRLoginService) pollRemote(ctx context.Context, session qrLoginSession)
 	case 86038:
 		session.State = QRLoginExpired
 	case 0:
-		cookie, err := cookieFromLoginURL(document.Data.URL, document.Data.RefreshToken)
+		cookie, err := cookieFromLoginURL(document.Data.URL, document.Data.RefreshToken, response.Cookies())
 		if err != nil {
 			return session, err
 		}
-		account, _, err := s.accountClient.CheckCookie(ctx, cookie)
-		if err != nil {
-			return session, err
+		account := thirdparty.AccountProfile{UID: cookieValues(cookie)["DedeUserID"]}
+		if resolved, _, checkErr := s.accountClient.CheckCookie(ctx, cookie); checkErr == nil {
+			account = resolved
 		}
 		session.State = QRLoginSucceeded
 		session.Cookie = cookie
@@ -263,24 +266,38 @@ func (s *QRLoginService) pruneExpiredLocked() {
 	}
 }
 
-func cookieFromLoginURL(rawURL, refreshToken string) (string, error) {
+func cookieFromLoginURL(rawURL, refreshToken string, responseCookies []*http.Cookie) (string, error) {
 	parsed, err := url.Parse(strings.TrimSpace(rawURL))
 	if err != nil {
 		return "", err
 	}
 	query := parsed.Query()
-	parts := []string{}
-	for _, key := range []string{"SESSDATA", "bili_jct", "DedeUserID"} {
+	values := map[string]string{}
+	for _, key := range []string{"SESSDATA", "bili_jct", "DedeUserID", "DedeUserID__ckMd5", "sid"} {
 		value := strings.TrimSpace(query.Get(key))
-		if value == "" {
-			return "", fmt.Errorf("bilibili login missing %s", key)
+		if value != "" {
+			values[key] = value
 		}
-		parts = append(parts, key+"="+value)
+	}
+	for _, item := range responseCookies {
+		if item == nil || item.MaxAge < 0 {
+			continue
+		}
+		name := strings.TrimSpace(item.Name)
+		value := strings.TrimSpace(item.Value)
+		if name != "" && value != "" {
+			values[name] = value
+		}
 	}
 	if strings.TrimSpace(refreshToken) != "" {
-		parts = append(parts, "ac_time_value="+strings.TrimSpace(refreshToken))
+		values["ac_time_value"] = strings.TrimSpace(refreshToken)
 	}
-	return strings.Join(parts, "; ") + ";", nil
+	for _, key := range []string{"SESSDATA", "bili_jct", "DedeUserID"} {
+		if strings.TrimSpace(values[key]) == "" {
+			return "", fmt.Errorf("bilibili login missing %s", key)
+		}
+	}
+	return mergeCookieValues("", values), nil
 }
 
 func randomLoginID() (string, error) {

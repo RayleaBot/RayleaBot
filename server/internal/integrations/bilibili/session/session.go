@@ -195,8 +195,3 @@ func (c *SessionClient) rememberRefreshCheck(fingerprint string) {
 	c.refreshChecks[fingerprint] = c.now()
 	c.mu.Unlock()
 }
-
-func applyBilibiliWebHeaders(request *http.Request, method string) {
-	defaultIdentity := NewIdentityProvider(nil)
-	defaultIdentity.ApplyHeaders(request, method)
-}
