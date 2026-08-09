@@ -21,6 +21,10 @@ import {
   LauncherServerCredentials,
   consumeLauncherControlTokenEnvironment,
 } from "./services/server-credentials";
+import {
+  NodeDevelopmentServerWatcher,
+  consumeDevelopmentServerWatcherProcessId,
+} from "./services/development-server-watcher";
 import { isEndpointListening, tryStopEndpointProcess } from "./services/port-process";
 import { externalOpener } from "./services/external-opener";
 import { LauncherReleaseFeedClient } from "./services/release-feed";
@@ -88,6 +92,9 @@ const updateHeartbeatRequest = consumeUpdateHeartbeatEnvironment();
 const settingsStore = new JsonLauncherSettingsStore(executableBasePath, process.platform);
 const serverCredentials = new LauncherServerCredentials(consumeLauncherControlTokenEnvironment());
 const processController = new ServerProcessController({ credentials: serverCredentials });
+const developmentServerWatcher = new NodeDevelopmentServerWatcher(
+  consumeDevelopmentServerWatcherProcessId(),
+);
 const coordinator = createLauncherCoordinator({
   settingsStore,
   endpointResolver: { resolve: resolveServerEndpoint },
@@ -96,6 +103,7 @@ const coordinator = createLauncherCoordinator({
     getLauncherControlToken: () => serverCredentials.controlToken,
   }),
   processController,
+  developmentServerWatcher,
   isEndpointListening,
   tryStopEndpointProcess,
   externalOpener,

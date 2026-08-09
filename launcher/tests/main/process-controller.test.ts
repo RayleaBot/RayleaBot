@@ -86,6 +86,25 @@ afterEach(async () => {
 });
 
 describe("ServerProcessController", () => {
+  test("writes informational launcher diagnostics to the requested workdir", async () => {
+    const runtimeRoot = await createTempDir("controller-launcher-log");
+    const fileSystem = createFileSystemDouble();
+    const controller = new ServerProcessController({
+      fileSystem,
+      now: () => fixedLogDate,
+    });
+
+    controller.writeLauncherLog("开发 watcher 正在重启服务。", runtimeRoot);
+    await flushLogWrites();
+
+    expect(fileSystem.appendFile).toHaveBeenCalledWith(
+      datedLogPath(runtimeRoot, "launcher"),
+      `[${fixedLogDate.toISOString()}] launcher: 开发 watcher 正在重启服务。\n`,
+      "utf8",
+    );
+    expect(controller.getRecentStderr()).toEqual([]);
+  });
+
   test("spawns the server with the config path only", async () => {
     const installRoot = await createTempDir("controller-start");
     const runtimeRoot = await createTempDir("controller-runtime");

@@ -6,6 +6,7 @@ import {
   createLauncherCoordinator,
   type EnvironmentCheckResult,
   type EnvironmentInspection,
+  type DevelopmentServerWatcher,
   type ExternalOpener,
   type LauncherManagementClient,
   type RecoverySummaryReader,
@@ -92,6 +93,7 @@ class FakeProcessController implements ServerProcessController {
   recentStderr = ["stderr line"];
   runtimePrepare: RuntimePrepareSnapshot | null = null;
   logDirectory = "C:\\RayleaBot\\logs";
+  launcherLogs: string[] = [];
 
   async start() {
     this.startCalls += 1;
@@ -113,6 +115,19 @@ class FakeProcessController implements ServerProcessController {
 
   clearRuntimePrepareSnapshot() {
     this.runtimePrepare = null;
+  }
+
+  writeLauncherLog(message: string) {
+    this.launcherLogs.push(message);
+  }
+}
+
+class FakeDevelopmentServerWatcher implements DevelopmentServerWatcher {
+  processId: number | null = 12345;
+  active = true;
+
+  isActive() {
+    return this.active;
   }
 }
 
@@ -478,6 +493,83 @@ describe("launcher coordinator", () => {
 
     const readyState = await waitForPresentationState(coordinator, "running");
     expect(readyState.detail).toBe("服务稳定。");
+  });
+
+  test("auto-refreshes an external service after a watcher restart", async () => {
+    const managementClient = new FakeManagementClient();
+    const coordinator = createLauncherCoordinator({
+      settingsStore: new FakeSettingsStore(),
+      endpointResolver: new FakeEndpointResolver(),
+      inspectEnvironment: vi.fn(async () => okInspection()),
+      managementClient,
+      processController: new FakeProcessController(),
+      isEndpointListening: vi.fn(async () => false),
+      tryStopEndpointProcess: vi.fn(async () => false),
+      externalOpener: new FakeExternalOpener(),
+      releaseFeedClient: new FakeReleaseFeedClient(),
+      options: {
+        autoRefreshIntervalMs: 5,
+      },
+    });
+
+    await coordinator.initialize();
+    expect(presentationState(coordinator.snapshot).state).toBe("running");
+    expect(coordinator.snapshot.launcher.processOwnership).toBe("external");
+
+    managementClient.health = false;
+    await waitForCondition(() => {
+      expect(presentationState(coordinator.snapshot).state).toBe("stopped");
+    });
+    expect(coordinator.snapshot.launcher.processOwnership).toBe("none");
+
+    managementClient.health = true;
+    await waitForCondition(() => {
+      expect(presentationState(coordinator.snapshot).state).toBe("running");
+    });
+    expect(coordinator.snapshot.launcher.processOwnership).toBe("external");
+  });
+
+  test("keeps a development watcher restart owned and rejects a duplicate start", async () => {
+    const managementClient = new FakeManagementClient();
+    const processController = new FakeProcessController();
+    const developmentServerWatcher = new FakeDevelopmentServerWatcher();
+    const coordinator = createLauncherCoordinator({
+      settingsStore: new FakeSettingsStore(),
+      endpointResolver: new FakeEndpointResolver(),
+      inspectEnvironment: vi.fn(async () => okInspection()),
+      managementClient,
+      processController,
+      developmentServerWatcher,
+      isEndpointListening: vi.fn(async () => false),
+      tryStopEndpointProcess: vi.fn(async () => false),
+      externalOpener: new FakeExternalOpener(),
+      releaseFeedClient: new FakeReleaseFeedClient(),
+      options: {
+        autoRefreshIntervalMs: 5,
+      },
+    });
+
+    await coordinator.initialize();
+    expect(presentationState(coordinator.snapshot).state).toBe("running");
+
+    managementClient.health = false;
+    await waitForCondition(() => {
+      expect(presentationState(coordinator.snapshot).state).toBe("starting");
+    });
+    expect(coordinator.snapshot.launcher.processOwnership).toBe("external");
+    expect(presentationState(coordinator.snapshot).detail).toContain("开发 watcher 正在重启服务");
+
+    await coordinator.start();
+
+    expect(processController.startCalls).toBe(0);
+    expect(processController.launcherLogs.some((entry) => entry.includes("已忽略重复启动请求"))).toBe(true);
+
+    managementClient.health = true;
+    await waitForCondition(() => {
+      expect(presentationState(coordinator.snapshot).state).toBe("running");
+    });
+    expect(coordinator.snapshot.launcher.processOwnership).toBe("external");
+    expect(processController.launcherLogs.some((entry) => entry.includes("服务已恢复"))).toBe(true);
   });
 
   test("initialize reflects system/status shutting_down state", async () => {

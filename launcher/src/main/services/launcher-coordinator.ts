@@ -7,7 +7,7 @@ import type {
   LauncherCoordinatorDependencies,
 } from "./launcher-coordinator.types";
 import { createLauncherRuntimeContext } from "./launcher-runtime-context";
-import type { LauncherSnapshot, ReleaseCheckSnapshot } from "../../shared/launcher-models";
+import type { ReleaseCheckSnapshot } from "../../shared/launcher-models";
 
 export type {
   EnvironmentCheckResult,
@@ -18,6 +18,7 @@ export type {
   LauncherConfigInitializer,
   LauncherCoordinatorOptions,
   LauncherDesktopActions,
+  DevelopmentServerWatcher,
   LauncherLifecycleService,
   LauncherManagementClient,
   LauncherOperationContext,
@@ -58,6 +59,7 @@ export function createLauncherCoordinator(deps: LauncherCoordinatorDependencies)
     inspectEnvironment: deps.inspectEnvironment,
     managementClient: deps.managementClient,
     processController: deps.processController,
+    developmentServerWatcher: deps.developmentServerWatcher,
     recoverySummaryReader: deps.recoverySummaryReader,
   });
   const lifecycleService = createLauncherLifecycleService({
@@ -67,6 +69,7 @@ export function createLauncherCoordinator(deps: LauncherCoordinatorDependencies)
     inspectEnvironment: deps.inspectEnvironment,
     managementClient: deps.managementClient,
     processController: deps.processController,
+    developmentServerWatcher: deps.developmentServerWatcher,
     isEndpointListening: deps.isEndpointListening,
     tryStopEndpointProcess: deps.tryStopEndpointProcess,
     externalOpener: deps.externalOpener,
@@ -83,6 +86,7 @@ export function createLauncherCoordinator(deps: LauncherCoordinatorDependencies)
   });
   let autoRefreshTimer: ReturnType<typeof setTimeout> | null = null;
   let autoRefreshInFlight = false;
+  let statusMonitoringEnabled = false;
   let releaseCheckTimer: ReturnType<typeof setTimeout> | null = null;
   let releaseCheckInFlight: Promise<void> | null = null;
   let releaseDownloadInFlight = false;
@@ -104,15 +108,13 @@ export function createLauncherCoordinator(deps: LauncherCoordinatorDependencies)
     releaseCheckTimer = null;
   }
 
-  function shouldAutoRefresh(snapshot: LauncherSnapshot) {
-    return snapshot.launcher.processLifecycle === "running"
-      || snapshot.server.health?.status === "ok"
-      || snapshot.server.readiness !== null;
+  function shouldAutoRefresh() {
+    return statusMonitoringEnabled;
   }
 
   function scheduleAutoRefresh() {
     clearAutoRefreshTimer();
-    if (autoRefreshInFlight || options.autoRefreshIntervalMs <= 0 || !shouldAutoRefresh(snapshotStore.snapshot)) {
+    if (autoRefreshInFlight || options.autoRefreshIntervalMs <= 0 || !shouldAutoRefresh()) {
       return;
     }
     autoRefreshTimer = setTimeout(async () => {
@@ -265,7 +267,7 @@ export function createLauncherCoordinator(deps: LauncherCoordinatorDependencies)
   }
 
   async function runAutoRefresh() {
-    if (autoRefreshInFlight || !shouldAutoRefresh(snapshotStore.snapshot)) {
+    if (autoRefreshInFlight || !shouldAutoRefresh()) {
       return;
     }
     autoRefreshInFlight = true;
@@ -296,6 +298,8 @@ export function createLauncherCoordinator(deps: LauncherCoordinatorDependencies)
       const context = await runtimeContext.initialize();
       snapshotStore.reset(context);
       await statusService.refresh(false);
+      statusMonitoringEnabled = true;
+      scheduleAutoRefresh();
       void runReleaseCheck(false);
     },
     async refresh() {

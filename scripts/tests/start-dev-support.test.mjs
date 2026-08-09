@@ -7,12 +7,14 @@ import path from "node:path";
 import test from "node:test";
 import {
   BUILD_PROFILE,
+  DEVELOPMENT_SERVER_WATCHER_PID_ENV,
   LAUNCHER_CONTROL_TOKEN_HEADER,
   LAUNCHER_DEV_PROFILE,
   SERVER_RELOAD_WATCH,
   WEB_DEV_PROFILE,
   classifyWebDevServer,
   createDevelopmentControlEnvironment,
+  createDevelopmentServerWatcherEnvironment,
   createDevelopmentServerLease,
   createDependencyInstallEnvironment,
   createDevEnvironment,
@@ -30,6 +32,7 @@ import {
   resolveStartProfile,
   requestDevelopmentServerShutdown,
   shouldInstallDependencies,
+  waitForChildProcessExit,
 } from "../start-dev-support.mjs";
 
 test("loads the optional root environment file", () => {
@@ -112,6 +115,17 @@ test("creates a shared launcher control environment for development processes", 
   assert.throws(
     () => createDevelopmentControlEnvironment({ generateControlToken: () => "  " }),
     /control token is required/,
+  );
+});
+
+test("creates a scoped development watcher environment for the launcher", () => {
+  assert.deepEqual(
+    createDevelopmentServerWatcherEnvironment({ ownerPid: 12345 }),
+    { [DEVELOPMENT_SERVER_WATCHER_PID_ENV]: "12345" },
+  );
+  assert.throws(
+    () => createDevelopmentServerWatcherEnvironment({ ownerPid: 0 }),
+    /positive integer/,
   );
 });
 
@@ -275,6 +289,10 @@ test("creates dev server environment", () => {
 
 test("creates non-interactive dependency install environment", () => {
   assert.deepEqual(createDependencyInstallEnvironment(), { CI: "true" });
+  assert.deepEqual(
+    createDependencyInstallEnvironment({ VITE_BACKEND_TARGET: "http://127.0.0.1:1234", CI: "false" }),
+    { VITE_BACKEND_TARGET: "http://127.0.0.1:1234", CI: "true" },
+  );
 });
 
 test("creates a minimal child environment with the managed Node executable", () => {
@@ -303,7 +321,12 @@ test("creates a minimal child environment with the managed Node executable", () 
 
 test("detects install need from node_modules and lockfile marker", async () => {
   const projectDir = await fs.mkdtemp(path.join(os.tmpdir(), "raylea-start-install-"));
-  await fs.writeFile(path.join(projectDir, "pnpm-lock.yaml"), "lockfileVersion: '9.0'\n", "utf8");
+  const lockfilePath = path.join(projectDir, "pnpm-lock.yaml");
+  const packagePath = path.join(projectDir, "package.json");
+  const workspacePath = path.join(projectDir, "pnpm-workspace.yaml");
+  await fs.writeFile(lockfilePath, "lockfileVersion: '9.0'\n", "utf8");
+  await fs.writeFile(packagePath, "{}\n", "utf8");
+  await fs.writeFile(workspacePath, "packages:\n  - .\n", "utf8");
 
   assert.equal(await shouldInstallDependencies({ projectDir, mode: "auto" }), true);
 
@@ -312,17 +335,56 @@ test("detects install need from node_modules and lockfile marker", async () => {
   assert.equal(await shouldInstallDependencies({ projectDir, mode: "auto" }), true);
 
   const markerPath = path.join(nodeModulesDir, ".rayleabot-start-install.stamp");
+  const modulesManifestPath = path.join(nodeModulesDir, ".modules.yaml");
+  const workspaceStatePath = path.join(nodeModulesDir, ".pnpm-workspace-state-v1.json");
   await fs.writeFile(markerPath, "installed\n", "utf8");
+  assert.equal(await shouldInstallDependencies({ projectDir, mode: "auto" }), true);
+
+  await fs.writeFile(modulesManifestPath, "layoutVersion: 5\n", "utf8");
+  await fs.writeFile(workspaceStatePath, "{}\n", "utf8");
   const oldTime = new Date("2026-01-01T00:00:00.000Z");
   const newTime = new Date("2026-01-02T00:00:00.000Z");
   await fs.utimes(markerPath, newTime, newTime);
-  await fs.utimes(path.join(projectDir, "pnpm-lock.yaml"), oldTime, oldTime);
+  for (const targetPath of [lockfilePath, packagePath, workspacePath, modulesManifestPath, workspaceStatePath]) {
+    await fs.utimes(targetPath, oldTime, oldTime);
+  }
   assert.equal(await shouldInstallDependencies({ projectDir, mode: "auto" }), false);
 
-  await fs.utimes(path.join(projectDir, "pnpm-lock.yaml"), new Date("2026-01-03T00:00:00.000Z"), new Date("2026-01-03T00:00:00.000Z"));
+  const latestTime = new Date("2026-01-03T00:00:00.000Z");
+  await fs.utimes(lockfilePath, latestTime, latestTime);
+  assert.equal(await shouldInstallDependencies({ projectDir, mode: "auto" }), true);
+
+  await fs.utimes(lockfilePath, oldTime, oldTime);
+  await fs.utimes(workspaceStatePath, latestTime, latestTime);
+  assert.equal(await shouldInstallDependencies({ projectDir, mode: "auto" }), true);
+
+  await fs.utimes(workspaceStatePath, oldTime, oldTime);
+  await fs.utimes(packagePath, latestTime, latestTime);
   assert.equal(await shouldInstallDependencies({ projectDir, mode: "auto" }), true);
   assert.equal(await shouldInstallDependencies({ projectDir, mode: "skip" }), false);
   assert.equal(await shouldInstallDependencies({ projectDir, mode: "always" }), true);
+});
+
+test("waits for a child process to release its executable", async () => {
+  const child = { exitCode: null, signalCode: null };
+  let polls = 0;
+  await waitForChildProcessExit(child, {
+    timeoutMs: 100,
+    pollIntervalMs: 1,
+    sleep: async () => {
+      polls += 1;
+      child.signalCode = "SIGTERM";
+    },
+  });
+  assert.equal(polls, 1);
+
+  await assert.rejects(
+    waitForChildProcessExit(
+      { exitCode: null, signalCode: null },
+      { timeoutMs: 0, sleep: async () => undefined },
+    ),
+    /shutdown timeout/,
+  );
 });
 
 test("classifies web dev server port states", async () => {

@@ -7,6 +7,7 @@ import type {
   LauncherRuntimeContext,
   RecoverySummaryReader,
   ServerProcessController,
+  DevelopmentServerWatcher,
 } from "./launcher-coordinator.types";
 import type {
   EnvironmentInspection,
@@ -20,10 +21,22 @@ interface LauncherStatusServiceDependencies {
   inspectEnvironment(settings: LauncherOperationContext["resolvedSettings"]): Promise<EnvironmentInspection>;
   managementClient: LauncherManagementClient;
   processController: ServerProcessController;
+  developmentServerWatcher?: DevelopmentServerWatcher;
   recoverySummaryReader?: RecoverySummaryReader;
 }
 
 export function createLauncherStatusService(deps: LauncherStatusServiceDependencies): LauncherStatusService {
+  function watcherRestartHint() {
+    const processId = deps.developmentServerWatcher?.processId;
+    return processId
+      ? `开发 watcher 正在重启服务（PID ${processId}），Launcher 不会重复启动。`
+      : "开发 watcher 正在重启服务，Launcher 不会重复启动。";
+  }
+
+  function writeWatcherTransitionLog(message: string, context: LauncherOperationContext) {
+    deps.processController.writeLauncherLog?.(message, context.resolvedSettings.workdir);
+  }
+
   async function tryLoadSystemStatus(endpoint: LauncherOperationContext["endpoint"]) {
     try {
       return await deps.managementClient.getLauncherStatus(endpoint);
@@ -49,6 +62,7 @@ export function createLauncherStatusService(deps: LauncherStatusServiceDependenc
     readiness: LauncherReadinessSnapshot,
     _forceReauthentication: boolean,
   ): Promise<LauncherSnapshot> {
+    const previous = deps.snapshotStore.snapshot;
     const systemStatus =
       readiness.status === "ready" || readiness.status === "degraded"
         ? await tryLoadSystemStatus(context.endpoint)
@@ -58,6 +72,17 @@ export function createLauncherStatusService(deps: LauncherStatusServiceDependenc
       systemStatus?.recovery_summary
       ?? readiness.recovery_summary
       ?? await tryReadLocalRecoverySummary();
+
+    if (
+      previous.launcher.processLifecycle === "starting"
+      && previous.launcher.processOwnership === "external"
+      && deps.developmentServerWatcher?.isActive()
+    ) {
+      writeWatcherTransitionLog(
+        `开发 watcher 管理的服务已恢复（watcher PID ${deps.developmentServerWatcher.processId ?? "unknown"}，服务地址 ${context.endpoint.baseUrl}）。`,
+        context,
+      );
+    }
 
     return deps.snapshotStore.buildSnapshot(
       context,
@@ -105,6 +130,34 @@ export function createLauncherStatusService(deps: LauncherStatusServiceDependenc
 
     const healthy = await deps.managementClient.isHealthy(context.endpoint);
     if (!healthy) {
+      const watcherActive = deps.developmentServerWatcher?.isActive() ?? false;
+      if (watcherActive && !deps.processController.isRunning) {
+        const previous = deps.snapshotStore.snapshot;
+        if (
+          previous.launcher.processLifecycle !== "starting"
+          || previous.launcher.processOwnership !== "external"
+        ) {
+          writeWatcherTransitionLog(
+            `开发 watcher 管理的服务暂时不可用，正在等待自动重启（watcher PID ${deps.developmentServerWatcher?.processId ?? "unknown"}，服务地址 ${context.endpoint.baseUrl}）。`,
+            context,
+          );
+        }
+        await deps.snapshotStore.publish(
+          deps.snapshotStore.buildSnapshot(
+            context,
+            inspection,
+            {},
+            {
+              processLifecycle: "starting",
+              processOwnership: "external",
+              statusHint: watcherRestartHint(),
+              lastLocalError: "",
+              localRecoverySummary: await tryReadLocalRecoverySummary(),
+            },
+          ),
+        );
+        return;
+      }
       await deps.snapshotStore.publish(
         deps.snapshotStore.buildSnapshot(
           context,

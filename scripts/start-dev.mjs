@@ -4,6 +4,7 @@ import fsp from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
+import { createFileContentTracker } from "./file-content-tracker.mjs";
 import {
   BUILD_PROFILE,
   LAUNCHER_CONTROL_TOKEN_ENV,
@@ -14,6 +15,7 @@ import {
   WEB_DEV_PROFILE,
   classifyWebDevServer,
   createDevelopmentControlEnvironment,
+  createDevelopmentServerWatcherEnvironment,
   createDevelopmentServerLease,
   createDevEnvironment,
   createDependencyInstallEnvironment,
@@ -30,6 +32,7 @@ import {
   resolveServerReloadMode,
   resolveStartProfile,
   shouldInstallDependencies,
+  waitForChildProcessExit,
 } from "./start-dev-support.mjs";
 import {
   collectWorkspaceSDKVersions,
@@ -60,6 +63,11 @@ const serverDevBinaryName = process.platform === "win32"
   ? `raylea-server-dev-${process.pid}.exe`
   : `raylea-server-dev-${process.pid}`;
 const serverDevBinaryPath = path.join(serverTmpDir, serverDevBinaryName);
+const serverDevCandidateBinaryName = process.platform === "win32"
+  ? `raylea-server-dev-${process.pid}-next.exe`
+  : `raylea-server-dev-${process.pid}-next`;
+const serverDevCandidateBinaryPath = path.join(serverTmpDir, serverDevCandidateBinaryName);
+const serverDevPreviousBinaryPath = `${serverDevBinaryPath}.previous`;
 const serverDevLeasePath = path.join(rootDir, ".tmp", "server-dev-runtime.json");
 const serverDevTakeoverTimeoutMs = 30_000;
 const serverWatchDirs = [path.join(serverDir, "cmd"), path.join(serverDir, "internal")];
@@ -76,6 +84,9 @@ const baseChildEnvironment = {
 };
 const developmentControlEnvironment = createDevelopmentControlEnvironment();
 const developmentControlToken = developmentControlEnvironment[LAUNCHER_CONTROL_TOKEN_ENV];
+const developmentServerWatcherEnvironment = createDevelopmentServerWatcherEnvironment({
+  ownerPid: process.pid,
+});
 const launcherDir = path.join(rootDir, "launcher");
 const logDate = new Date();
 const webDevLogPath = resolveDatedLogPath({ rootDir, scope: "dev", type: "web", date: logDate });
@@ -178,7 +189,11 @@ async function runWebDevProfile({ installMode, devEnvironment, serverDevEnvironm
   }
   await runCommand("启动 Launcher", "pnpm", ["exec", "electron", "."], {
     cwd: launcherDir,
-    env: { ...devEnvironment, ...developmentControlEnvironment },
+    env: {
+      ...devEnvironment,
+      ...developmentControlEnvironment,
+      ...(serverReloadMode === SERVER_RELOAD_WATCH ? developmentServerWatcherEnvironment : {}),
+    },
     logPath: launcherLogPath,
   });
 }
@@ -194,7 +209,11 @@ async function runLauncherDevProfile({ installMode, devEnvironment, serverDevEnv
   }
   await runCommand("启动 Launcher 开发模式", "pnpm", ["run", "dev"], {
     cwd: launcherDir,
-    env: { ...devEnvironment, ...developmentControlEnvironment },
+    env: {
+      ...devEnvironment,
+      ...developmentControlEnvironment,
+      ...(serverReloadMode === SERVER_RELOAD_WATCH ? developmentServerWatcherEnvironment : {}),
+    },
     logPath: launcherLogPath,
   });
 }
@@ -209,14 +228,18 @@ async function buildServer() {
   );
 }
 
-async function syncDevelopmentPlugins(pluginDev, serverBinaryPath, pluginIDs) {
+async function buildDevelopmentPlugins(pluginDev, pluginIDs) {
   if (!pluginDev || pluginDev.mode === PLUGIN_DEV_OFF) {
-    return { workspaceVersion: "1", plugins: [] };
+    return {
+      workspace: { workspaceVersion: "1", plugins: [] },
+      platform: currentPluginPlatform(),
+      plugins: [],
+    };
   }
   const workspace = await loadPluginWorkspace(pluginDev.workspacePath);
   if (workspace.plugins.length === 0) {
     log(`开发插件工作区为空：${relativePath(pluginDev.workspacePath)}`);
-    return workspace;
+    return { workspace, platform: currentPluginPlatform(), plugins: [] };
   }
   const platform = currentPluginPlatform();
   const sdkGoVersions = await collectWorkspaceSDKVersions(workspace.plugins);
@@ -252,7 +275,13 @@ async function syncDevelopmentPlugins(pluginDev, serverBinaryPath, pluginIDs) {
         RAYLEA_PLUGIN_BUILD_COREPACK_CLI: corepackCliPath,
       },
     });
-    const expandedArtifact = path.join(pluginDevArtifactRoot, platform, plugin.id);
+  }
+  return { workspace, platform, plugins: pluginsToSync };
+}
+
+async function installDevelopmentPlugins(preparedPlugins, serverBinaryPath) {
+  for (const plugin of preparedPlugins.plugins) {
+    const expandedArtifact = path.join(pluginDevArtifactRoot, preparedPlugins.platform, plugin.id);
     await runCommand(`同步开发插件 ${plugin.id}`, serverBinaryPath, [
       "-config",
       path.join(rootDir, "config", "user.yaml"),
@@ -266,7 +295,12 @@ async function syncDevelopmentPlugins(pluginDev, serverBinaryPath, pluginIDs) {
       plugin.id,
     ], { cwd: rootDir });
   }
-  return workspace;
+}
+
+async function syncDevelopmentPlugins(pluginDev, serverBinaryPath, pluginIDs) {
+  const preparedPlugins = await buildDevelopmentPlugins(pluginDev, pluginIDs);
+  await installDevelopmentPlugins(preparedPlugins, serverBinaryPath);
+  return preparedPlugins.workspace;
 }
 
 async function ensureServerRuntime({ serverReloadMode, backendBaseUrl, pluginDev, serverDevEnvironment }) {
@@ -308,8 +342,8 @@ async function startServerWatch(backendBaseUrl, pluginDev, serverDevEnvironment)
       const exitCode = normalizeExitCode(code, signal);
       log(
         exitCode === 0
-          ? "Server 已停止，正在结束当前开发启动流程。"
-          : `Server 进程意外退出，退出码 ${exitCode}。`,
+          ? `Server 已在 watcher 之外停止（watcher PID ${process.pid}，Server PID ${pid ?? "unknown"}），正在结束当前开发启动流程。`
+          : `Server 进程意外退出（watcher PID ${process.pid}，Server PID ${pid ?? "unknown"}，退出码 ${exitCode}，信号 ${signal ?? "none"}）。`,
         exitCode === 0 ? "info" : "error",
       );
       void shutdown(exitCode);
@@ -348,6 +382,9 @@ async function startServerWatch(backendBaseUrl, pluginDev, serverDevEnvironment)
     const { serverSourcePath, pluginChanges } = reloadQueue.take();
     rebuilding = true;
     let serverStopped = false;
+    const reloadStartedAt = Date.now();
+    const previousServerPid = child.pid ?? null;
+    let downtimeStartedAt = null;
     try {
       if (serverSourcePath) {
         log(`检测到 Server 源码变更：${relativePath(serverSourcePath)}`);
@@ -355,28 +392,49 @@ async function startServerWatch(backendBaseUrl, pluginDev, serverDevEnvironment)
       for (const { plugin, sourcePath } of pluginChanges) {
         log(`检测到开发插件源码变更：${plugin.id} (${sourcePath})`);
       }
+      log(
+        `Server 热重载准备中：watcher PID ${process.pid}，当前 Server PID ${previousServerPid ?? "unknown"}，`
+        + `Server 源码=${serverSourcePath ? "是" : "否"}，开发插件=${pluginChanges.length}。`,
+      );
+      if (serverSourcePath) {
+        await fsp.rm(serverDevCandidateBinaryPath, { force: true });
+        await buildServerDevBinaryAt(serverDevCandidateBinaryPath);
+      }
+      const preparedPlugins = pluginChanges.length > 0
+        ? await buildDevelopmentPlugins(
+          pluginDev,
+          pluginChanges.map(({ plugin }) => plugin.id),
+        )
+        : null;
       if (serverSourcePath || pluginChanges.length > 0) {
+        downtimeStartedAt = Date.now();
         expectServerExit(child);
         await terminateChild(child);
-        await waitForChildExit(child);
         serverStopped = true;
-      }
-      if (serverSourcePath) {
-        await buildServerDevBinary();
-      }
-      if (pluginChanges.length > 0) {
-        await syncDevelopmentPlugins(
-          pluginDev,
-          serverDevBinaryPath,
-          pluginChanges.map(({ plugin }) => plugin.id),
+        log(
+          `旧 Server 已停止（PID ${previousServerPid ?? "unknown"}）；预构建产物已就绪，正在切换运行时。`,
         );
       }
+      if (serverSourcePath) {
+        await replaceServerDevBinary(serverDevCandidateBinaryPath);
+      }
+      if (preparedPlugins) {
+        await installDevelopmentPlugins(preparedPlugins, serverDevBinaryPath);
+      }
       child = startServerDevProcess(serverDevEnvironment);
-      await waitForServerProcess(child, backendBaseUrl, "Server 热重载已重启。");
+      await waitForServerProcess(child, backendBaseUrl, null);
       monitorServerExit(child);
       serverStopped = false;
+      log(
+        `Server 热重载完成：watcher PID ${process.pid}，Server PID ${previousServerPid ?? "unknown"} -> ${child.pid ?? "unknown"}，`
+        + `服务切换 ${downtimeStartedAt === null ? 0 : Date.now() - downtimeStartedAt} ms，总耗时 ${Date.now() - reloadStartedAt} ms。`,
+      );
     } catch (error) {
-      log(`Server 热重载失败：${error?.message ?? error}`, "error");
+      log(
+        `Server 热重载失败：watcher PID ${process.pid}，原 Server PID ${previousServerPid ?? "unknown"}，`
+        + `已耗时 ${Date.now() - reloadStartedAt} ms，错误：${error?.message ?? error}`,
+        "error",
+      );
       if (serverStopped && !shuttingDown) {
         try {
           log("开发插件更新未生效，正在使用已安装的上一个可用产物恢复 Server。");
@@ -509,13 +567,29 @@ async function releaseActiveDevelopmentServerLease() {
 }
 
 async function buildServerDevBinary() {
+  await buildServerDevBinaryAt(serverDevBinaryPath);
+}
+
+async function buildServerDevBinaryAt(outputPath) {
   await fsp.mkdir(serverTmpDir, { recursive: true });
   await runCommand(
     "构建 Server 热重载二进制",
     "go",
-    ["build", "-o", path.relative(serverDir, serverDevBinaryPath), "./cmd/raylea-server"],
+    ["build", "-o", path.relative(serverDir, outputPath), "./cmd/raylea-server"],
     { cwd: serverDir, logPath: serverDevLogPath },
   );
+}
+
+async function replaceServerDevBinary(candidatePath) {
+  await fsp.rm(serverDevPreviousBinaryPath, { force: true });
+  await fsp.rename(serverDevBinaryPath, serverDevPreviousBinaryPath);
+  try {
+    await fsp.rename(candidatePath, serverDevBinaryPath);
+  } catch (error) {
+    await fsp.rename(serverDevPreviousBinaryPath, serverDevBinaryPath).catch(() => undefined);
+    throw error;
+  }
+  await fsp.rm(serverDevPreviousBinaryPath, { force: true });
 }
 
 function startServerDevProcess(serverDevEnvironment) {
@@ -539,7 +613,9 @@ async function waitForServerProcess(child, backendBaseUrl, readyMessage) {
     }
     try {
       if (await isServerHealthy(backendBaseUrl)) {
-        log(readyMessage);
+        if (readyMessage) {
+          log(readyMessage);
+        }
         return;
       }
     } catch (error) {
@@ -554,8 +630,9 @@ async function waitForServerProcess(child, backendBaseUrl, readyMessage) {
 
 async function watchServerSources(onChange) {
   const watchers = [];
+  const contentTracker = createFileContentTracker();
   for (const watchRoot of serverWatchDirs) {
-    await watchServerDirectory(watchRoot, onChange, watchers);
+    await watchServerDirectory(watchRoot, onChange, watchers, contentTracker);
   }
   return async () => {
     for (const watcher of watchers) {
@@ -564,32 +641,50 @@ async function watchServerSources(onChange) {
   };
 }
 
-async function watchServerDirectory(directory, onChange, watchers) {
+async function watchServerDirectory(directory, onChange, watchers, contentTracker) {
   const entries = await fsp.readdir(directory, { withFileTypes: true });
+  await Promise.all(entries
+    .filter((entry) => !entry.isDirectory())
+    .map((entry) => path.join(directory, entry.name))
+    .filter(isWatchedGoSource)
+    .map((sourcePath) => contentTracker.prime(sourcePath)));
   const watcher = fs.watch(directory, (eventType, filename) => {
     if (!filename) {
       return;
     }
     const sourcePath = path.join(directory, filename.toString());
     if (isWatchedGoSource(sourcePath)) {
-      onChange(sourcePath);
+      void contentTracker.hasChanged(sourcePath)
+        .then((changed) => {
+          if (changed) {
+            onChange(sourcePath);
+          }
+        })
+        .catch((error) => {
+          log(`Server 热重载校验源码变更失败：${error?.message ?? error}`, "error");
+        });
     }
     if (eventType === "rename") {
-      void watchNewDirectory(sourcePath, onChange, watchers);
+      void watchNewDirectory(sourcePath, onChange, watchers, contentTracker);
     }
   });
   watchers.push(watcher);
 
   await Promise.all(entries
     .filter((entry) => entry.isDirectory() && !serverWatchExcludedDirs.has(entry.name))
-    .map((entry) => watchServerDirectory(path.join(directory, entry.name), onChange, watchers)));
+    .map((entry) => watchServerDirectory(
+      path.join(directory, entry.name),
+      onChange,
+      watchers,
+      contentTracker,
+    )));
 }
 
-async function watchNewDirectory(directory, onChange, watchers) {
+async function watchNewDirectory(directory, onChange, watchers, contentTracker) {
   try {
     const stat = await fsp.stat(directory);
     if (stat.isDirectory() && !serverWatchExcludedDirs.has(path.basename(directory))) {
-      await watchServerDirectory(directory, onChange, watchers);
+      await watchServerDirectory(directory, onChange, watchers, contentTracker);
     }
   } catch (error) {
     if (error?.code !== "ENOENT") {
@@ -692,9 +787,12 @@ function spawnManaged(command, args, { cwd, env = {}, logPath } = {}) {
   writeStartLog(`$ ${commandText}\n`);
   const childLog = logPath ? fs.createWriteStream(logPath, { flags: "a" }) : null;
   const spawnSpec = createSpawnSpec(command, args);
+  const childOverrides = command === "pnpm"
+    ? createDependencyInstallEnvironment(env)
+    : env;
   const child = spawn(spawnSpec.command, spawnSpec.args, {
     cwd,
-    env: createChildEnvironment(env),
+    env: createChildEnvironment(childOverrides),
     windowsHide: false,
     stdio: ["ignore", "pipe", "pipe"],
   });
@@ -764,13 +862,7 @@ function waitForChild(child) {
 }
 
 async function waitForChildExit(child, timeoutMs = 5_000) {
-  const deadline = Date.now() + timeoutMs;
-  while (child.exitCode === null && Date.now() < deadline) {
-    await delay(50);
-  }
-  if (child.exitCode === null) {
-    throw new Error("Server process did not exit before the development sync timeout.");
-  }
+  await waitForChildProcessExit(child, { timeoutMs });
 }
 
 function normalizeExitCode(code, signal) {
@@ -786,11 +878,18 @@ async function cleanup() {
   await Promise.all(callbacks.map((callback) => callback()));
   const children = [...longRunningChildren];
   longRunningChildren.clear();
-  await Promise.all(children.map((child) => terminateChild(child)));
-  try {
-    await fsp.rm(serverDevBinaryPath, { force: true });
-  } catch (error) {
-    log(`清理开发 Server 二进制失败：${error?.message ?? error}`, "error");
+  const terminationResults = await Promise.allSettled(children.map((child) => terminateChild(child)));
+  for (const result of terminationResults) {
+    if (result.status === "rejected") {
+      log(`停止开发子进程失败：${result.reason?.message ?? result.reason}`, "error");
+    }
+  }
+  for (const binaryPath of [serverDevBinaryPath, serverDevCandidateBinaryPath, serverDevPreviousBinaryPath]) {
+    try {
+      await removeFileWithRetry(binaryPath);
+    } catch (error) {
+      log(`清理开发 Server 二进制失败（${relativePath(binaryPath)}）：${error?.message ?? error}`, "error");
+    }
   }
   try {
     await releaseActiveDevelopmentServerLease();
@@ -811,7 +910,7 @@ async function shutdown(code) {
 }
 
 async function terminateChild(child) {
-  if (child.exitCode !== null || child.killed || !child.pid) {
+  if (child.exitCode !== null || child.signalCode !== null || !child.pid) {
     return;
   }
   if (process.platform === "win32") {
@@ -823,9 +922,26 @@ async function terminateChild(child) {
       killer.once("exit", resolve);
       killer.once("error", resolve);
     });
+    await waitForChildExit(child);
     return;
   }
   child.kill("SIGTERM");
+  await waitForChildExit(child);
+}
+
+async function removeFileWithRetry(targetPath, attempts = 10, retryDelayMs = 100) {
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    try {
+      await fsp.rm(targetPath, { force: true });
+      return;
+    } catch (error) {
+      const retryable = error?.code === "EPERM" || error?.code === "EBUSY";
+      if (!retryable || attempt === attempts) {
+        throw error;
+      }
+      await delay(retryDelayMs);
+    }
+  }
 }
 
 function writeChildOutput(chunk, output, childLog) {

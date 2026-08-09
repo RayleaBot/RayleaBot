@@ -12,6 +12,7 @@ export const WEB_DEV_BASE_URL = `http://127.0.0.1:${WEB_DEV_PORT}/`;
 export const WEB_DEV_STATUS_PATH = "/__rayleabot-dev/status";
 export const LAUNCHER_CONTROL_TOKEN_ENV = "RAYLEA_LAUNCHER_CONTROL_TOKEN";
 export const LAUNCHER_CONTROL_TOKEN_HEADER = "X-Raylea-Launcher-Control";
+export const DEVELOPMENT_SERVER_WATCHER_PID_ENV = "RAYLEA_DEV_SERVER_WATCHER_PID";
 export const DEVELOPMENT_SERVER_LEASE_VERSION = 1;
 
 const VALID_PROFILES = new Set([WEB_DEV_PROFILE, BUILD_PROFILE, LAUNCHER_DEV_PROFILE]);
@@ -86,6 +87,15 @@ export function resolveServerReloadMode(env = process.env) {
     throw new Error(`Unsupported RAYLEA_SERVER_RELOAD: ${env.RAYLEA_SERVER_RELOAD}`);
   }
   return mode === LEGACY_SERVER_RELOAD_AIR ? SERVER_RELOAD_WATCH : mode;
+}
+
+export function createDevelopmentServerWatcherEnvironment({
+  ownerPid = process.pid,
+} = {}) {
+  if (!Number.isSafeInteger(ownerPid) || ownerPid <= 0) {
+    throw new Error("development server watcher PID must be a positive integer");
+  }
+  return { [DEVELOPMENT_SERVER_WATCHER_PID_ENV]: String(ownerPid) };
 }
 
 export function normalizeBackendHost(host) {
@@ -325,8 +335,9 @@ export function createServerDevelopmentEnvironment({
   };
 }
 
-export function createDependencyInstallEnvironment() {
+export function createDependencyInstallEnvironment(environment = {}) {
   return {
+    ...environment,
     CI: "true",
   };
 }
@@ -391,6 +402,17 @@ export async function shouldInstallDependencies({
   const nodeModulesPath = path.join(projectDir, "node_modules");
   const lockfilePath = path.join(projectDir, lockfileName);
   const markerPath = path.join(nodeModulesPath, markerName);
+  const modulesManifestPath = path.join(nodeModulesPath, ".modules.yaml");
+  const dependencyInputPaths = [
+    lockfilePath,
+    path.join(projectDir, "package.json"),
+    path.join(projectDir, "pnpm-workspace.yaml"),
+    path.join(projectDir, ".npmrc"),
+  ];
+  const dependencyStatePaths = [
+    modulesManifestPath,
+    path.join(nodeModulesPath, ".pnpm-workspace-state-v1.json"),
+  ];
 
   const nodeModulesStat = await statOrNull(stat, nodeModulesPath);
   if (!nodeModulesStat?.isDirectory()) {
@@ -407,7 +429,36 @@ export async function shouldInstallDependencies({
     return true;
   }
 
-  return lockfileStat.mtimeMs > markerStat.mtimeMs;
+  const modulesManifestStat = await statOrNull(stat, modulesManifestPath);
+  if (!modulesManifestStat?.isFile()) {
+    return true;
+  }
+
+  for (const targetPath of [...dependencyInputPaths, ...dependencyStatePaths]) {
+    const targetStat = await statOrNull(stat, targetPath);
+    if (targetStat?.isFile() && targetStat.mtimeMs > markerStat.mtimeMs) {
+      return true;
+    }
+  }
+  return false;
+}
+
+export async function waitForChildProcessExit(child, {
+  timeoutMs = 5_000,
+  pollIntervalMs = 50,
+  sleep = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds)),
+} = {}) {
+  if (!child || typeof child !== "object") {
+    throw new Error("child process is required");
+  }
+  const hasExited = () => child.exitCode !== null || child.signalCode !== null;
+  const deadline = Date.now() + timeoutMs;
+  while (!hasExited() && Date.now() < deadline) {
+    await sleep(pollIntervalMs);
+  }
+  if (!hasExited()) {
+    throw new Error("Child process did not exit before the shutdown timeout.");
+  }
 }
 
 export async function markDependenciesInstalled({

@@ -145,6 +145,8 @@ test('plugin watcher ignores generated trees and existing directory metadata eve
   const outputDir = path.join(pluginPath, 'ui', 'dist')
   await fs.mkdir(sourceDir, { recursive: true })
   await fs.mkdir(outputDir, { recursive: true })
+  const sourcePath = path.join(sourceDir, 'App.vue')
+  await fs.writeFile(sourcePath, '<template />\n', 'utf8')
   const changes = []
   const stopWatching = await watchPluginWorkspace(
     [{ id: 'raylea.test', path: pluginPath }],
@@ -157,11 +159,12 @@ test('plugin watcher ignores generated trees and existing directory metadata eve
 
   const now = new Date()
   await fs.utimes(path.join(pluginPath, 'ui'), now, now)
+  await fs.readFile(sourcePath)
   await fs.writeFile(path.join(outputDir, 'index.js'), 'generated\n', 'utf8')
   await new Promise((resolve) => setTimeout(resolve, 200))
   assert.deepEqual(changes, [])
 
-  await fs.writeFile(path.join(sourceDir, 'App.vue'), '<template />\n', 'utf8')
+  await fs.writeFile(sourcePath, '<template><main /></template>\n', 'utf8')
   const deadline = Date.now() + 2_000
   while (!changes.includes(path.join('ui', 'src', 'App.vue')) && Date.now() < deadline) {
     await new Promise((resolve) => setTimeout(resolve, 20))

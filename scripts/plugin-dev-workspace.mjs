@@ -1,6 +1,7 @@
 import fs from 'node:fs'
 import fsp from 'node:fs/promises'
 import path from 'node:path'
+import { createFileContentTracker } from './file-content-tracker.mjs'
 
 export const PLUGIN_DEV_OFF = 'off'
 export const PLUGIN_DEV_SYNC = 'sync'
@@ -159,8 +160,9 @@ export async function mirrorVueSDK({ sdkVuePath, pluginPath }) {
 export async function watchPluginWorkspace(plugins, onChange) {
   const watchers = []
   const watchedDirectories = new Set()
+  const contentTracker = createFileContentTracker()
   for (const plugin of plugins) {
-    await watchDirectory(plugin.path, plugin, onChange, watchers, watchedDirectories)
+    await watchDirectory(plugin.path, plugin, onChange, watchers, watchedDirectories, contentTracker)
   }
   return async () => {
     for (const watcher of watchers) {
@@ -170,7 +172,7 @@ export async function watchPluginWorkspace(plugins, onChange) {
   }
 }
 
-async function watchDirectory(directory, plugin, onChange, watchers, watchedDirectories) {
+async function watchDirectory(directory, plugin, onChange, watchers, watchedDirectories, contentTracker) {
   const directoryKey = path.resolve(directory)
   if (watchedDirectories.has(directoryKey)) return
   watchedDirectories.add(directoryKey)
@@ -182,6 +184,9 @@ async function watchDirectory(directory, plugin, onChange, watchers, watchedDire
     if (error?.code === 'ENOENT') return
     throw error
   }
+  await Promise.all(entries
+    .filter((entry) => !entry.isDirectory())
+    .map((entry) => contentTracker.prime(path.join(directory, entry.name))))
   const watcher = fs.watch(directory, (eventType, filename) => {
     if (!filename) return
     const sourcePath = path.join(directory, filename.toString())
@@ -192,6 +197,7 @@ async function watchDirectory(directory, plugin, onChange, watchers, watchedDire
       onChange,
       watchers,
       watchedDirectories,
+      contentTracker,
     })
   })
   watchers.push(watcher)
@@ -203,6 +209,7 @@ async function watchDirectory(directory, plugin, onChange, watchers, watchedDire
       onChange,
       watchers,
       watchedDirectories,
+      contentTracker,
     )))
 }
 
@@ -213,25 +220,30 @@ async function handlePluginWatchEvent({
   onChange,
   watchers,
   watchedDirectories,
+  contentTracker,
 }) {
   if (isIgnoredPath(plugin.path, sourcePath)) return
   const sourceKey = path.resolve(sourcePath)
   try {
     const stat = await fsp.stat(sourcePath)
     if (!stat.isDirectory()) {
-      onChange(plugin, sourcePath)
+      if (await contentTracker.hasChanged(sourcePath)) {
+        onChange(plugin, sourcePath)
+      }
       return
     }
     const directoryAlreadyWatched = watchedDirectories.has(sourceKey)
     if (eventType === 'rename' && !directoryAlreadyWatched) {
-      await watchDirectory(sourcePath, plugin, onChange, watchers, watchedDirectories)
+      await watchDirectory(sourcePath, plugin, onChange, watchers, watchedDirectories, contentTracker)
       onChange(plugin, sourcePath)
     }
   } catch (error) {
     if (error?.code !== 'ENOENT') throw error
     if (isDirectoryMetadataAlias(sourcePath, sourceKey, watchedDirectories)) return
-    watchedDirectories.delete(sourceKey)
-    onChange(plugin, sourcePath)
+    const deletedDirectory = watchedDirectories.delete(sourceKey)
+    if (deletedDirectory || await contentTracker.hasChanged(sourcePath)) {
+      onChange(plugin, sourcePath)
+    }
   }
 }
 

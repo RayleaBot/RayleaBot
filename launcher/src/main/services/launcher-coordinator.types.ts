@@ -43,6 +43,12 @@ export interface ServerProcessController {
   getRecentStderr(): string[];
   getRuntimePrepareSnapshot(): RuntimePrepareSnapshot | null;
   clearRuntimePrepareSnapshot(): void;
+  writeLauncherLog?(message: string, workdir?: string): void;
+}
+
+export interface DevelopmentServerWatcher {
+  readonly processId: number | null;
+  isActive(): boolean;
 }
 
 export interface ExternalOpener {
@@ -88,6 +94,7 @@ export interface LauncherCoordinatorDependencies {
   inspectEnvironment(settings: LauncherResolvedSettings): Promise<EnvironmentInspection>;
   managementClient: LauncherManagementClient;
   processController: ServerProcessController;
+  developmentServerWatcher?: DevelopmentServerWatcher;
   isEndpointListening(endpoint: ServerEndpoint): Promise<boolean>;
   tryStopEndpointProcess(endpoint: ServerEndpoint): Promise<boolean>;
   externalOpener: ExternalOpener;

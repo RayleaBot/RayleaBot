@@ -231,6 +231,13 @@ export class ServerProcessController {
     this.runtimePrepareResources.clear();
   }
 
+  writeLauncherLog(message: string, workdir?: string) {
+    if (workdir?.trim()) {
+      this.logDirectory = path.join(workdir, "logs");
+    }
+    this.queueLogWrite("launcher", "launcher", `${message}\n`);
+  }
+
   async start(settings: LauncherResolvedSettings) {
     if (this.isRunning) {
       return;
@@ -442,7 +449,7 @@ export class ServerProcessController {
 
   private recordLauncherDiagnostic(text: string) {
     this.recordStderr(text);
-    this.queueLogWrite("launcher", "launcher", `${text}\n`);
+    this.writeLauncherLog(text);
   }
 
   private getLogPath(logType: "server" | "launcher", date: Date) {

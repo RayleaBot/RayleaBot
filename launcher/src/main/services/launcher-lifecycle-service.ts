@@ -10,6 +10,7 @@ import type {
   LauncherSnapshotStore,
   LauncherStatusService,
   ServerProcessController,
+  DevelopmentServerWatcher,
   ExternalOpener,
 } from "./launcher-coordinator.types";
 import type {
@@ -26,6 +27,7 @@ interface LauncherLifecycleServiceDependencies {
   inspectEnvironment(settings: LauncherResolvedSettings): Promise<EnvironmentInspection>;
   managementClient: LauncherManagementClient;
   processController: ServerProcessController;
+  developmentServerWatcher?: DevelopmentServerWatcher;
   isEndpointListening(endpoint: ServerEndpoint): Promise<boolean>;
   tryStopEndpointProcess(endpoint: ServerEndpoint): Promise<boolean>;
   externalOpener: ExternalOpener;
@@ -181,6 +183,15 @@ export function createLauncherLifecycleService(deps: LauncherLifecycleServiceDep
       }
 
       if (await deps.managementClient.isHealthy(context.endpoint)) {
+        await deps.statusService.refresh(true);
+        return;
+      }
+
+      if (deps.developmentServerWatcher?.isActive() && !deps.processController.isRunning) {
+        deps.processController.writeLauncherLog?.(
+          `已忽略重复启动请求：开发 watcher PID ${deps.developmentServerWatcher.processId ?? "unknown"} 正在管理 ${context.endpoint.baseUrl}。`,
+          context.resolvedSettings.workdir,
+        );
         await deps.statusService.refresh(true);
         return;
       }
