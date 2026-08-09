@@ -75,35 +75,49 @@ func TestHTTPClientRejectsPrivateHostWithoutAllowlist(t *testing.T) {
 	}
 }
 
-func TestAuthorizeResolvedAddrsAllowsCarrierNATFakeIP(t *testing.T) {
+func TestAuthorizeResolvedAddrsAllowsFakeIPDNSRanges(t *testing.T) {
 	t.Parallel()
 
-	if err := authorizeResolvedAddrs([]netip.Addr{netip.MustParseAddr("198.18.0.112")}, false, true); err != nil {
-		t.Fatalf("authorizeResolvedAddrs returned error for carrier-grade NAT fake-ip: %v", err)
+	addresses := []netip.Addr{
+		netip.MustParseAddr("198.18.0.112"),
+		netip.MustParseAddr("fdfe:dcba:9876::3d"),
+	}
+	if err := authorizeResolvedAddrs(addresses, false, true); err != nil {
+		t.Fatalf("authorizeResolvedAddrs returned error for fake-ip DNS ranges: %v", err)
 	}
 }
 
 func TestAuthorizeResolvedAddrsRejectsPrivateDNSResult(t *testing.T) {
 	t.Parallel()
 
-	if err := authorizeResolvedAddrs([]netip.Addr{netip.MustParseAddr("10.0.0.1")}, false, true); !errors.Is(err, errHTTPScopeViolation) {
-		t.Fatalf("authorizeResolvedAddrs private DNS result error = %v, want errHTTPScopeViolation", err)
+	for _, address := range []string{"10.0.0.1", "fd00::1"} {
+		if err := authorizeResolvedAddrs([]netip.Addr{netip.MustParseAddr(address)}, false, true); !errors.Is(err, errHTTPScopeViolation) {
+			t.Fatalf("authorizeResolvedAddrs private DNS result %s error = %v, want errHTTPScopeViolation", address, err)
+		}
 	}
 }
 
-func TestHTTPClientRejectsLiteralCarrierNATFakeIPWithoutAllowlist(t *testing.T) {
+func TestHTTPClientRejectsLiteralFakeIPWithoutAllowlist(t *testing.T) {
 	t.Parallel()
 
 	client := newHTTPClient(httpClientConfig{
 		Timeout: 5 * time.Second,
 	})
 
-	_, err := client.do(context.Background(), httpClientRequest{
-		Method: "GET",
-		URL:    "https://198.18.0.112/resource",
-	}, []string{"198.18.0.112"})
-	if !errors.Is(err, errHTTPScopeViolation) {
-		t.Fatalf("Do literal fake-ip request error = %v, want errHTTPScopeViolation", err)
+	for _, item := range []struct {
+		url  string
+		host string
+	}{
+		{url: "https://198.18.0.112/resource", host: "198.18.0.112"},
+		{url: "https://[fdfe:dcba:9876::3d]/resource", host: "fdfe:dcba:9876::3d"},
+	} {
+		_, err := client.do(context.Background(), httpClientRequest{
+			Method: "GET",
+			URL:    item.url,
+		}, []string{item.host})
+		if !errors.Is(err, errHTTPScopeViolation) {
+			t.Fatalf("Do literal fake-ip request %s error = %v, want errHTTPScopeViolation", item.url, err)
+		}
 	}
 }
 

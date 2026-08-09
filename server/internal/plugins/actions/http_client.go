@@ -376,6 +376,11 @@ var bogonCIDRs = mustParsePrefixes(
 	"ff00::/8",
 )
 
+var fakeIPDNSCIDRs = mustParsePrefixes(
+	"198.18.0.0/15",
+	"fdfe:dcba:9876::/64",
+)
+
 func mustParsePrefixes(raw ...string) []netip.Prefix {
 	prefixes, err := parsePrefixes(raw...)
 	if err != nil {
@@ -412,7 +417,12 @@ func isBogon(ip netip.Addr) bool {
 }
 
 func isFakeIPDNSAddr(ip netip.Addr) bool {
-	return netip.MustParsePrefix("198.18.0.0/15").Contains(ip)
+	for _, prefix := range fakeIPDNSCIDRs {
+		if prefix.Contains(ip) {
+			return true
+		}
+	}
+	return false
 }
 
 func flattenHeaders(header http.Header) map[string]string {
