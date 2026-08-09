@@ -103,6 +103,7 @@ const confirmed = ref(false)
 const waitingForReady = ref(false)
 const fatalError = ref<string | null>(null)
 const actionError = ref<string | null>(null)
+let restartFrameWhenRuntimeReady = props.plugin.state === 'starting'
 
 const managementEntry = computed(() => props.page.entry.trim())
 const requiresConfirmation = computed(() => props.plugin.trust?.level === 'unverified')
@@ -516,6 +517,16 @@ watch([
   readConfirmation()
   void restartFrame()
 }, { immediate: true })
+
+watch(() => props.plugin.state, (state) => {
+  if (state === 'starting') {
+    restartFrameWhenRuntimeReady = true
+    return
+  }
+  if (!restartFrameWhenRuntimeReady) return
+  restartFrameWhenRuntimeReady = false
+  if (state === 'running') void restartFrame()
+})
 
 watch(() => uiShellStore.resolvedThemeMode, () => {
   if (bridgePort) postHostInit()

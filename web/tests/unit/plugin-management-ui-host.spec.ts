@@ -225,6 +225,23 @@ describe('PluginManagementUIHost bridge v2', () => {
     wrapper.unmount()
   })
 
+  it('restarts the plugin page after a runtime reload reaches running', async () => {
+    const wrapper = mountHost(buildPlugin({ state: 'running' }))
+    await flushPromises()
+    const firstSrc = new URL(wrapper.get('[data-testid="plugin-management-ui-frame"]').attributes('src'))
+
+    await wrapper.setProps({ plugin: buildPlugin({ state: 'starting' }) })
+    await flushPromises()
+    const startingSrc = new URL(wrapper.get('[data-testid="plugin-management-ui-frame"]').attributes('src'))
+    expect(startingSrc.searchParams.get('frame')).toBe(firstSrc.searchParams.get('frame'))
+
+    await wrapper.setProps({ plugin: buildPlugin({ state: 'running' }) })
+    await flushPromises()
+    const reloadedSrc = new URL(wrapper.get('[data-testid="plugin-management-ui-frame"]').attributes('src'))
+    expect(reloadedSrc.searchParams.get('frame')).not.toBe(firstSrc.searchParams.get('frame'))
+    wrapper.unmount()
+  })
+
   it('binds a one-time MessageChannel and never sends plaintext stored secrets', async () => {
     const wrapper = mountHost()
     await flushPromises()
