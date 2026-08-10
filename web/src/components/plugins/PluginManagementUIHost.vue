@@ -554,11 +554,7 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <a-card :bordered="false" class="plugin-management-ui-card" data-testid="plugin-management-ui-host">
-    <template #title>
-      <div class="card-header"><span>{{ title }}</span><a-tag v-if="managementEntry">{{ managementEntry }}</a-tag></div>
-    </template>
-
+  <section class="plugin-management-ui-host" data-testid="plugin-management-ui-host" :aria-label="title">
     <section v-if="requiresConfirmation && !confirmed" class="plugin-management-ui-confirm" data-testid="plugin-management-ui-confirm">
       <div class="plugin-management-ui-confirm-note"><strong>{{ t('plugins.managementUi.confirmTitle') }}</strong><p>{{ t('plugins.managementUi.confirmBody') }}</p></div>
       <a-descriptions :column="1" bordered size="small">
@@ -587,12 +583,11 @@ onBeforeUnmount(() => {
         />
       </a-spin>
     </div>
-  </a-card>
+  </section>
 </template>
 
 <style scoped lang="scss">
-.plugin-management-ui-card,
-.plugin-management-ui-card :deep(.ant-card-body) { display: flex; flex: 1 1 auto; flex-direction: column; min-height: 0; }
+.plugin-management-ui-host { display: flex; flex: 0 0 auto; flex-direction: column; min-height: 0; }
 .plugin-management-ui-confirm { display: grid; gap: 16px; }
 .plugin-management-ui-confirm-note { display: grid; gap: 6px; padding: 12px 14px; border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--surface-soft); }
 .plugin-management-ui-confirm-note p { margin: 0; color: var(--muted); }
