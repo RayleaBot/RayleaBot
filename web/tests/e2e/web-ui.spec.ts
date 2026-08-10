@@ -96,6 +96,19 @@ function logScroller(page: import('@playwright/test').Page) {
   return page.locator('.logs-feed-card .data-viewport__scroller')
 }
 
+async function readLogViewportBottomState(page: import('@playwright/test').Page) {
+  return logScroller(page).evaluate((scroller) => {
+    const lastRow = scroller.querySelector<HTMLElement>('.data-viewport__row:last-child')
+    const scrollerRect = scroller.getBoundingClientRect()
+    const lastRowRect = lastRow?.getBoundingClientRect()
+
+    return {
+      scrollGap: scroller.scrollHeight - scroller.clientHeight - scroller.scrollTop,
+      visualGap: lastRowRect ? lastRowRect.bottom - scrollerRect.bottom : Number.POSITIVE_INFINITY,
+    }
+  })
+}
+
 function logDetailWindow(page: import('@playwright/test').Page) {
   return page.getByTestId('management-log-detail-window')
 }
@@ -796,18 +809,21 @@ test('plugin management ui uses an isolated bridge for settings, secrets, theme,
 
 test('history logs stay frozen until a new anchor is loaded', async ({ page, request }) => {
   await resetBackend(request, true)
+  await page.setViewportSize({ width: 2048, height: 1148 })
   await login(page)
 
   const baseTimestamp = Date.now() - 60 * 60 * 1000
 
-  await pushLogsInBatches(request, 51, (index) => ({
+  await pushLogsInBatches(request, 100, (index) => ({
     summary: {
       log_id: `log_history_e2e_${index}`,
       timestamp: new Date(baseTimestamp + index * 1000).toISOString(),
       level: 'info',
       source: 'runtime',
       request_id: 'req_logs_history_e2e',
-      message: `history row ${index}`,
+      message: index % 9 === 0
+        ? `history row ${index}\n${'variable-height detail '.repeat(32)}`
+        : `history row ${index}`,
     },
   }))
 
@@ -818,19 +834,24 @@ test('history logs stay frozen until a new anchor is loaded', async ({ page, req
   await page.getByPlaceholder('例如 req_*').fill('req_logs_history_e2e')
   await page.getByRole('button', { name: '应用筛选' }).click()
 
-  await expect(page.locator('.logs-row__message', { hasText: 'history row 50' })).toBeVisible()
-  await expect.poll(async () => (
-    logScroller(page).evaluate((node) => (
-      node.scrollHeight - node.clientHeight - node.scrollTop
-    ))
-  )).toBeLessThanOrEqual(4)
+  await expect(page.locator('.logs-row__message', { hasText: 'history row 99' })).toBeVisible()
+  await expect.poll(async () => (await readLogViewportBottomState(page)).scrollGap).toBeLessThanOrEqual(1)
+  await expect.poll(async () => (await readLogViewportBottomState(page)).visualGap).toBeLessThanOrEqual(1)
   const initialMetrics = await logScroller(page).evaluate((node) => ({
     clientHeight: node.clientHeight,
     scrollHeight: node.scrollHeight,
     scrollTop: node.scrollTop,
   }))
   expect(initialMetrics.scrollHeight).toBeGreaterThan(initialMetrics.clientHeight)
-  expect(initialMetrics.scrollHeight - initialMetrics.clientHeight - initialMetrics.scrollTop).toBeLessThanOrEqual(4)
+  expect(initialMetrics.scrollHeight - initialMetrics.clientHeight - initialMetrics.scrollTop).toBeLessThanOrEqual(1)
+
+  await logScroller(page).locator('.data-viewport__row').last().evaluate((row) => {
+    const element = row as HTMLElement
+    element.style.minHeight = `${element.offsetHeight + 96}px`
+  })
+  await expect.poll(async () => (await readLogViewportBottomState(page)).scrollGap).toBeLessThanOrEqual(1)
+  await expect.poll(async () => (await readLogViewportBottomState(page)).visualGap).toBeLessThanOrEqual(1)
+
   await expect(page.getByRole('button', { name: '更早记录' })).toHaveCount(0)
   await expect(page.getByRole('button', { name: '更新记录' })).toHaveCount(0)
 
@@ -844,7 +865,7 @@ test('history logs stay frozen until a new anchor is loaded', async ({ page, req
     data: {
       summary: {
         log_id: 'log_history_e2e_latest',
-        timestamp: new Date(baseTimestamp + 60_000).toISOString(),
+        timestamp: new Date(baseTimestamp + 120_000).toISOString(),
         level: 'info',
         source: 'runtime',
         request_id: 'req_logs_history_e2e',
@@ -1174,7 +1195,7 @@ test('history logs reveal older rows after scrolling to the top edge', async ({ 
     logScroller(page).evaluate((node) => (
       node.scrollHeight - node.clientHeight - node.scrollTop
     ))
-  )).toBeLessThanOrEqual(4)
+  )).toBeLessThanOrEqual(1)
 
   await Promise.all([
     page.waitForResponse((response) => (

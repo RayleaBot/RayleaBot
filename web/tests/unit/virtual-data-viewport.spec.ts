@@ -717,6 +717,66 @@ describe('VirtualDataViewport', () => {
     expect(viewport.getScrollMetrics().scrollTop).toBe(284)
   })
 
+  it('keeps the last row fully visible when its measured height changes during bottom follow', async () => {
+    heightByLabel = new Map(
+      Array.from({ length: 12 }, (_, index) => [`Row ${index}`, fallbackRowHeight]),
+    )
+
+    const wrapper = mount(VirtualDataViewport, {
+      props: {
+        items: Array.from({ length: 12 }, (_, index) => ({ id: `row-${index}`, label: `Row ${index}` })),
+        itemHeight: fallbackRowHeight,
+        viewportHeight,
+        dynamicItemHeight: true,
+        followBottom: false,
+        getItemKey: (item: { id: string }) => item.id,
+      },
+      slots: {
+        default: ({ item }: { item: { label: string } }) => item.label,
+      },
+    })
+
+    await flushPromises()
+    await wrapper.vm.$nextTick()
+
+    const scroller = wrapper.get('.data-viewport__scroller').element as HTMLElement
+    let internalScrollTop = 0
+    Object.defineProperty(scroller, 'clientHeight', {
+      configurable: true,
+      value: viewportHeight,
+    })
+    Object.defineProperty(scroller, 'scrollTop', {
+      configurable: true,
+      get: () => internalScrollTop,
+      set: (value: number) => {
+        internalScrollTop = Math.floor(value)
+      },
+    })
+    Object.defineProperty(scroller, 'scrollHeight', {
+      configurable: true,
+      get: () => {
+        const style = wrapper.get('.data-viewport__canvas').attributes('style')
+        const matched = /height:\s*(\d+)px/.exec(style)
+        return matched ? Number(matched[1]) : 0
+      },
+    })
+
+    await wrapper.setProps({ followBottom: true })
+    await flushPromises()
+    await wrapper.vm.$nextTick()
+
+    const lastRow = wrapper.findAll('.data-viewport__row').find((row) => row.text().trim() === 'Row 11')
+    expect(lastRow).toBeTruthy()
+    expect(scroller.scrollTop).toBe(scroller.scrollHeight - scroller.clientHeight)
+
+    heightByLabel.set('Row 11', 120)
+    ResizeObserverMock.trigger(lastRow!.element)
+    await flushPromises()
+    await wrapper.vm.$nextTick()
+
+    expect(scroller.scrollTop).toBe(scroller.scrollHeight - scroller.clientHeight)
+  })
+
   it('keeps follow mode active after an appended row when the browser reports a fractional bottom gap', async () => {
     const wrapper = mount(VirtualDataViewport, {
       props: {
