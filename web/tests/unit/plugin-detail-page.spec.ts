@@ -131,7 +131,7 @@ function getViewportMetrics(wrapper: ReturnType<typeof mount>) {
 }
 
 async function openConsoleTab(wrapper: ReturnType<typeof mount>) {
-  const consoleTab = wrapper.findAll('[role="tab"]').find((candidate) => candidate.text().includes('实时控制台'))
+  const consoleTab = wrapper.findAll('[role="tab"]').find((candidate) => candidate.text().includes('实时输出'))
   expect(consoleTab).toBeTruthy()
   await consoleTab!.trigger('click')
   await nextTick()

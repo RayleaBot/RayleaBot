@@ -471,6 +471,7 @@ test('plugin management flow covers install, manifest detail and console recover
   await expect(page.getByRole('heading', { name: '实时日志', level: 1 })).toBeVisible()
   await expect(page.getByText('task_plugin_install_0001').first()).toBeVisible()
 
+  await page.setViewportSize({ width: 1440, height: 900 })
   await page.goto('/plugins/weather')
   await expect(page.getByRole('heading', { name: 'weather' })).toBeVisible()
   await expect(page.getByText('未验证来源').first()).toBeVisible()
@@ -485,10 +486,20 @@ test('plugin management flow covers install, manifest detail and console recover
   await expect(page.getByText('assets/overview.svg')).toBeVisible()
   await expect(page.getByRole('tab', { name: '插件指令' })).toBeVisible()
 
-  await page.getByRole('tab', { name: '实时控制台' }).click()
+  await page.getByRole('tab', { name: '实时输出' }).click()
   await expect(page.locator('.console-terminal').first()).toBeVisible()
+  const outputPanelBounds = await page.locator('.plugin-console-panel').evaluate((element) => {
+    const bounds = element.getBoundingClientRect()
+    return {
+      bottom: bounds.bottom,
+      height: bounds.height,
+      viewportHeight: window.innerHeight,
+    }
+  })
+  expect(outputPanelBounds.height).toBeGreaterThan(200)
+  expect(outputPanelBounds.bottom).toBeLessThanOrEqual(outputPanelBounds.viewportHeight - 20)
   await page.getByRole('button', { name: '清空输出' }).click()
-  await expect(page.getByText('等待控制台输出')).toBeVisible()
+  await expect(page.getByText('等待插件输出')).toBeVisible()
   await closeSocket(request, 'plugin_console')
   await page.getByRole('button', { name: '重新连接' }).click()
   await expect(page.locator('.console-terminal').first()).toBeVisible()

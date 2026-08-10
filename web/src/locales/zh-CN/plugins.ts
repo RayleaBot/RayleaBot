@@ -162,14 +162,14 @@ export const plugins = {
     statusSummary: '状态摘要',
     details: '详细信息',
     commands: '插件指令',
-    console: '实时控制台',
+    console: '实时输出',
     managementUi: '插件管理页',
   },
   empty: {
     title: '暂无插件',
     description: '安装第一个插件来扩展 RayleaBot 的功能',
     commands: '当前没有插件指令',
-    console: '等待控制台输出',
+    console: '等待插件输出',
   },
   commandAliases: '别名',
   commandDescription: '说明',
@@ -194,9 +194,9 @@ export const plugins = {
     thirdParty: '第三方',
     unverified: '未验证',
   },
-  consoleUnavailable: '控制台连接暂不可用',
+  consoleUnavailable: '输出流连接暂不可用',
   console: {
-    ariaLabel: '插件实时控制台',
+    ariaLabel: '插件实时输出',
     outputCount: '{count} 条输出',
     streams: {
       stdout: '标准输出',

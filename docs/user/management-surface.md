@@ -21,7 +21,7 @@
 | 三方账号 | `/third-party-accounts` | 保存 Bilibili、微博、抖音、网易云音乐账号 CK，查看账号昵称、头像和凭据状态 |
 | 插件列表 | `/plugins` | 安装、卸载、启用、禁用、重载和查看插件列表 |
 | 插件设置 | `/plugins/settings` | 查看和保存命令前缀、插件日志和插件存储设置 |
-| 插件详情 | `/plugins/:id` | 查看 rich manifest metadata、声明能力、命令、实时控制台和插件内置管理页 |
+| 插件详情 | `/plugins/:id` | 查看 rich manifest metadata、声明能力、命令、实时输出和插件内置管理页 |
 | 权限策略 | `/permission-policy` | 查看和保存超级管理员和默认权限 |
 | 黑白名单 | `/access-lists` | 管理白名单、黑名单和白名单启用状态 |
 | 限流中心 | `/rate-limits` | 查看和保存用户命令、群命令、插件消息、目标消息限流和冷却提示 |

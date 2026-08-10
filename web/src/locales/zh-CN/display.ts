@@ -3,7 +3,7 @@ export const display = {
   connectionChannels: {
     events: '事件流',
     logs: '日志流',
-    pluginConsole: '控制台',
+    pluginConsole: '插件输出流',
   },
   connectionStatuses: {
     disconnected: '未连接',

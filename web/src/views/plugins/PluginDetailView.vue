@@ -45,7 +45,6 @@ import { usePluginConsolePanel, type PluginDetailInnerTab } from './usePluginCon
 
 type PluginPanelOption = { label: string; value: string }
 const CONSOLE_ROW_ESTIMATED_HEIGHT = 84
-const CONSOLE_VIEWPORT_HEIGHT = 'max(420px, calc(100vh - 430px))'
 
 const route = useRoute()
 const router = useRouter()
@@ -398,7 +397,11 @@ onUnmounted(() => {
     />
 
 
-    <template v-if="activePanel === 'overview'">
+    <div
+      v-if="activePanel === 'overview'"
+      class="plugin-detail-overview"
+      :class="{ 'is-output-active': activeDetailTab === 'console' }"
+    >
       <a-skeleton :loading="detailLoading && !currentPlugin" active>
         <section class="plugin-detail-hero">
           <div class="plugin-detail-hero__identity">
@@ -684,7 +687,6 @@ onUnmounted(() => {
                       :dynamic-item-height="true"
                       :overscan="6"
                       :follow-bottom="consoleFollowBottom"
-                      :viewport-height="CONSOLE_VIEWPORT_HEIGHT"
                       :empty-label="t('plugins.empty.console')"
                       :get-item-key="getConsoleFrameKey"
                       @at-bottom-change="onConsoleViewportBottomChange"
@@ -714,7 +716,7 @@ onUnmounted(() => {
           </a-card>
         </main>
       </div>
-    </template>
+    </div>
 
     <PluginManagementUIHost
       v-else-if="currentPlugin?.management_ui && activeManagementPage"
@@ -759,6 +761,32 @@ onUnmounted(() => {
 .plugin-detail-tab-card {
   :deep(.ant-card-body) {
     padding: 0;
+  }
+
+  &.is-console-tab-active {
+    display: flex;
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: hidden;
+
+    :deep(.ant-card-body),
+    :deep(.ant-tabs),
+    :deep(.ant-tabs-content-holder),
+    :deep(.ant-tabs-content),
+    :deep(.ant-tabs-tabpane-active) {
+      display: flex;
+      flex: 1 1 auto;
+      flex-direction: column;
+      min-height: 0;
+      width: 100%;
+    }
+
+    .tab-pane-content {
+      display: flex;
+      flex: 1 1 auto;
+      flex-direction: column;
+      min-height: 0;
+    }
   }
 }
 
@@ -833,7 +861,7 @@ onUnmounted(() => {
 
 .plugin-header-segmented {
   font-size: 0.82rem;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   background: var(--surface-soft);
   border: 1px solid var(--border);
   padding: 2px;
@@ -1082,6 +1110,36 @@ onUnmounted(() => {
 }
 
 /* Workspace Structure */
+.plugin-detail-overview {
+  display: grid;
+  gap: var(--app-page-toolbar-gap);
+  min-height: 0;
+
+  &.is-output-active {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    overflow: hidden;
+
+    .plugin-detail-hero,
+    .plugin-trust-attention {
+      flex: 0 0 auto;
+    }
+
+    .plugin-detail-workspace,
+    .plugin-detail-main-column {
+      display: flex;
+      flex: 1 1 auto;
+      flex-direction: column;
+      min-height: 0;
+    }
+
+    .plugin-detail-workspace {
+      align-items: stretch;
+    }
+  }
+}
+
 .plugin-detail-workspace {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
@@ -1315,7 +1373,10 @@ onUnmounted(() => {
 
 /* Console terminal surface */
 .plugin-console-panel {
-  min-height: max(420px, calc(100vh - 430px));
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
   overflow: hidden;
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
@@ -1357,7 +1418,8 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   gap: 12px;
-  min-height: max(420px, calc(100vh - 430px));
+  flex: 1 1 auto;
+  min-height: 0;
   padding: 32px 20px;
   color: var(--muted);
   font-size: 0.88rem;
@@ -1379,11 +1441,14 @@ onUnmounted(() => {
 }
 
 .console-terminal-skeleton {
-  min-height: max(420px, calc(100vh - 430px));
+  flex: 1 1 auto;
+  min-height: 0;
   padding: 16px;
 }
 
 .console-terminal {
+  flex: 1 1 auto;
+  min-height: 0;
   border: none;
   border-radius: 0;
   background: transparent;
@@ -1440,7 +1505,7 @@ onUnmounted(() => {
 .stream-badge, .level-badge {
   font-size: 12px;
   padding-inline: 4px;
-  border-radius: 3px;
+  border-radius: var(--radius-sm);
   margin-inline-end: 0 !important;
 }
 
