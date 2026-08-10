@@ -69,7 +69,7 @@ export const adminRoutes: RouteRecordRaw[] = [
           titleKey: 'routes.status',
         },
       },
-      groupRoute('routes.features', 'appstore', 2, 'menu-center', [
+      groupRoute('routes.features', 'features', 2, 'menu-center', [
         {
           path: '/menu-center',
           name: 'menu-center',
@@ -88,7 +88,7 @@ export const adminRoutes: RouteRecordRaw[] = [
           name: 'plugin-store',
           component: () => import('@/views/plugins/PluginStoreView.vue'),
           meta: {
-            icon: 'appstore',
+            icon: 'plugin-store',
             keepAlive: true,
             order: 2,
             requiresAuth: true,
@@ -101,7 +101,7 @@ export const adminRoutes: RouteRecordRaw[] = [
           name: 'plugins',
           component: () => import('@/views/plugins/PluginsView.vue'),
           meta: {
-            icon: 'appstore',
+            icon: 'plugins',
             keepAlive: true,
             order: 3,
             requiresAuth: true,
@@ -113,7 +113,7 @@ export const adminRoutes: RouteRecordRaw[] = [
           name: 'plugin-settings',
           component: () => import('@/views/plugins/PluginSettingsView.vue'),
           meta: {
-            icon: 'setting',
+            icon: 'plugin-settings',
             keepAlive: true,
             order: 4,
             requiresAuth: true,
@@ -146,7 +146,7 @@ export const adminRoutes: RouteRecordRaw[] = [
           },
         },
       ]),
-      groupRoute('routes.connections', 'protocols', 3, 'third-party-accounts', [
+      groupRoute('routes.connections', 'connections', 3, 'third-party-accounts', [
         {
           path: '/third-party-accounts',
           name: 'third-party-accounts',
@@ -177,7 +177,7 @@ export const adminRoutes: RouteRecordRaw[] = [
           name: 'protocols-compatibility',
           component: () => import('@/views/protocols/ProtocolCompatibilityView.vue'),
           meta: {
-            icon: 'protocols',
+            icon: 'protocol-compatibility',
             keepAlive: true,
             order: 3,
             requiresAuth: true,
@@ -226,7 +226,7 @@ export const adminRoutes: RouteRecordRaw[] = [
           },
         },
       ]),
-      groupRoute('routes.runtime', 'logs-center', 5, 'scheduler', [
+      groupRoute('routes.runtime', 'runtime', 5, 'scheduler', [
         {
           path: '/scheduler',
           name: 'scheduler',

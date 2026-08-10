@@ -272,14 +272,10 @@ function resolveResolvedRouteIconName(viewRoute: Pick<RouteLocationNormalizedLoa
 }
 
 function resolveTabItemIconName(item: ShellTabItem) {
-  if (item.icon) {
-    return item.icon
-  }
-
   try {
-    return resolveResolvedRouteIconName(router.resolve(item.path))
+    return resolveResolvedRouteIconName(router.resolve(item.path)) || item.icon
   } catch {
-    return undefined
+    return item.icon
   }
 }
 

@@ -29,7 +29,7 @@ describe('BasicLayout', () => {
               path: '',
               component: RouteView,
               redirect: { name: 'menu-center' },
-              meta: { hideInTab: true, icon: 'builtin-features', order: 2, title: '内置功能' },
+              meta: { hideInTab: true, icon: 'features', order: 2, title: '内置功能' },
               children: [
                 {
                   path: '/menu-center',
@@ -43,19 +43,19 @@ describe('BasicLayout', () => {
               path: '',
               component: RouteView,
               redirect: { name: 'plugins' },
-              meta: { hideInTab: true, icon: 'appstore', order: 3, title: '插件中心' },
+              meta: { hideInTab: true, icon: 'plugin-store', order: 3, title: '插件中心' },
               children: [
                 {
                   path: '/plugins',
                   name: 'plugins',
                   component: { template: '<div>插件列表页</div>' },
-                  meta: { icon: 'appstore', keepAlive: true, order: 1, title: '插件列表' },
+                  meta: { icon: 'plugins', keepAlive: true, order: 1, title: '插件列表' },
                 },
                 {
                   path: '/plugins/settings',
                   name: 'plugin-settings',
                   component: { template: '<div>插件设置页</div>' },
-                  meta: { icon: 'setting', keepAlive: true, order: 2, title: '插件设置', viewKey: 'plugin-settings' },
+                  meta: { icon: 'plugin-settings', keepAlive: true, order: 2, title: '插件设置', viewKey: 'plugin-settings' },
                 },
                 {
                   path: '/plugins/:id',
@@ -133,7 +133,7 @@ describe('BasicLayout', () => {
                   path: '/protocols/compatibility',
                   name: 'protocols-compatibility',
                   component: { template: '<div>兼容矩阵页</div>' },
-                  meta: { icon: 'protocols', keepAlive: true, title: '兼容矩阵' },
+                  meta: { icon: 'protocol-compatibility', keepAlive: true, title: '兼容矩阵' },
                 },
               ],
             },
@@ -420,8 +420,23 @@ describe('BasicLayout', () => {
     expect(parentLink.attributes('href')).toBe('/plugins')
     expect(breadcrumb.get('.admin-layout__breadcrumb-current').text()).toBe('插件设置')
     expect(getTabLabels()).toEqual(['系统状态', '插件设置'])
-    expect(getTabIconKeys()).toEqual(['dashboard', 'setting'])
+    expect(getTabIconKeys()).toEqual(['dashboard', 'plugin-settings'])
     expect(getActiveTabLabel()).toBe('插件设置')
+  })
+
+  it('uses current route metadata instead of a stale persisted tab icon', async () => {
+    const { uiShellStore } = await mountShell('/plugins/settings')
+    const settingsTab = uiShellStore.tabs.find((item) => item.path === '/plugins/settings')
+
+    expect(settingsTab).toBeDefined()
+    uiShellStore.upsertTab({
+      ...settingsTab!,
+      icon: 'setting',
+    })
+    await flushPromises()
+
+    expect(uiShellStore.tabs.find((item) => item.path === '/plugins/settings')?.icon).toBe('setting')
+    expect(getTabIconKeys()).toEqual(['dashboard', 'plugin-settings'])
   })
 
   it('renders menu center under the builtin features group', async () => {
@@ -565,13 +580,13 @@ describe('BasicLayout', () => {
     expect(uiShellStore.tabs).toEqual(expect.arrayContaining([
       expect.objectContaining({
         affix: false,
-        icon: 'appstore',
+        icon: 'plugins',
         path: '/plugins/weather',
         title: 'weather',
       }),
     ]))
     expect(getTabLabels()).toEqual(['系统状态', 'weather'])
-    expect(getTabIconKeys()).toEqual(['dashboard', 'appstore'])
+    expect(getTabIconKeys()).toEqual(['dashboard', 'plugins'])
     expect(getActiveTabLabel()).toBe('weather')
   })
 

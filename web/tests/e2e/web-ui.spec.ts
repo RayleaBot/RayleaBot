@@ -1892,7 +1892,7 @@ test('breadcrumb and tabbar track leaf pages instead of hidden route groups', as
   expect(tabLabels).toEqual(expect.arrayContaining(['系统状态', '权限策略', '指令中心']))
   expect(await readTabIconKeys(page)).toEqual(expect.arrayContaining(['dashboard', 'permission-policy', 'commands']))
   expect(await readActiveTabLabel(page)).toBe('指令中心')
-  await expect(page.locator('.admin-layout__sider .ant-menu-submenu-open').filter({ hasText: '功能与插件' }).locator('.ant-menu-item .admin-layout__menu-icon')).toHaveCount(4)
+  await expect(page.locator('.admin-layout__sider .ant-menu-submenu-open').filter({ hasText: '功能与插件' }).locator('.ant-menu-item .admin-layout__menu-icon')).toHaveCount(5)
 
   await page.goto('/logs')
   await expect(page.getByRole('heading', { name: '实时日志', level: 1 })).toBeVisible()
@@ -1905,12 +1905,14 @@ test('breadcrumb and tabbar track leaf pages instead of hidden route groups', as
   await expect(page.getByRole('heading', { name: '协议中心', level: 1 })).toBeVisible()
   expect(await readActiveTabLabel(page)).toBe('协议中心')
   expect(await readTabLabels(page)).toContain('协议中心')
+  expect(await readTabIconKeys(page)).toContain('protocols')
   await expect(page.locator('.admin-layout__sider .ant-menu-submenu-open').filter({ hasText: '账号与连接' }).locator('.ant-menu-item .admin-layout__menu-icon')).toHaveCount(3)
 
   await page.goto('/config')
   await expect(page.getByRole('heading', { name: '配置', level: 1 })).toBeVisible()
   expect(await readActiveTabLabel(page)).toBe('配置')
   expect(await readTabLabels(page)).toContain('配置')
+  expect(await readTabIconKeys(page)).toContain('config')
   await expect(page.locator('.admin-layout__sider .ant-menu-submenu-open').filter({ hasText: '系统' }).locator('.ant-menu-item .admin-layout__menu-icon')).toHaveCount(2)
   await expect(page.locator('.admin-layout__sider .ant-menu-item-selected .admin-layout__menu-icon')).toHaveCount(1)
 
@@ -1927,7 +1929,7 @@ test('breadcrumb and tabbar track leaf pages instead of hidden route groups', as
   await expect(page.getByRole('heading', { name: 'weather', level: 1 })).toBeVisible()
   expect(await readActiveTabLabel(page)).toBe('weather')
   expect(await readTabLabels(page)).toContain('weather')
-  expect(await readTabIconKeys(page)).toContain('appstore')
+  expect(await readTabIconKeys(page)).toContain('plugins')
 })
 
 test('tab context menu closes tabs relative to the clicked tab', async ({ page, request }) => {
