@@ -129,6 +129,7 @@ func TestServiceRenderHelpMenuUsesCompactPrefixesAndArgumentKinds(t *testing.T) 
 	for _, want := range []string{
 		`class="command-prefixes"`,
 		`class="command-prefixes__label">前缀</span>`,
+		`class="command-prefix-cue" aria-label="需添加上方任一前缀">前缀</span>`,
 		`class="command-argument command-argument--optional"`,
 		`class="command-argument command-argument--required"`,
 		">直播|视频|图文</span>",

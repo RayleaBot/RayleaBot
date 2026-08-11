@@ -162,7 +162,7 @@ func TestHandleAdapterEventRendersBuiltinMenuPluginPrefixesAsHeaderBadge(t *test
 		t.Fatalf("unexpected plugin menu reply: count=%d image=%q", sender.replyCount, sender.lastReplyImage)
 	}
 	html := runner.lastHTML()
-	for _, want := range []string{`class="command-prefixes"`, `class="command-prefixes__label">前缀</span>`, `<code>#</code>`, `<code>*</code>`} {
+	for _, want := range []string{`class="command-prefixes"`, `class="command-prefixes__label">前缀</span>`, `class="command-prefix-cue"`, `<code>#</code>`, `<code>*</code>`} {
 		if !strings.Contains(html, want) {
 			t.Fatalf("builtin plugin menu html missing %q:\n%s", want, html)
 		}

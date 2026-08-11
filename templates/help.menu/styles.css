@@ -368,6 +368,18 @@ h1::before {
   overflow: hidden;
 }
 
+.grid--commands {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0;
+  background: var(--color-cell);
+}
+
+.grid--commands .cell {
+  border-right: 1px solid var(--color-line);
+  border-bottom: 1px solid var(--color-line);
+}
+
 /* ===== Help Group ===== */
 .help-group {
   margin-top: var(--space-2xl);
@@ -487,77 +499,79 @@ h1::before {
 }
 
 .command-usage code {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 6px;
+  display: block;
   width: 100%;
   min-width: 0;
-  padding: 6px 8px;
-  font-size: 14px;
+  padding: 5px 6px;
+  font-size: 13px;
+  line-height: 1.8;
+}
+
+.command-prefix-cue {
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+  min-height: 22px;
+  padding: 0 4px;
+  border: 1px solid var(--color-frame);
+  border-radius: 4px;
+  background: var(--color-cell);
+  color: var(--color-muted);
+  font-family: var(--font-cjk);
+  font-size: 12px;
+  font-weight: var(--weight-extrabold);
+  letter-spacing: 0.04em;
+  line-height: 1.3;
+  margin-right: 5px;
+  vertical-align: middle;
+  white-space: nowrap;
 }
 
 .command-usage__name {
-  display: inline-flex;
-  align-items: center;
-  min-height: 26px;
+  display: inline;
   overflow-wrap: anywhere;
   color: var(--color-accent-strong);
   font-weight: var(--weight-bold);
 }
 
 .command-usage__args {
-  display: inline-flex;
-  align-items: center;
-  min-height: 26px;
+  display: inline;
+  margin-left: 5px;
   overflow-wrap: anywhere;
   color: var(--color-muted);
 }
 
 .command-argument {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  max-width: 100%;
-  min-height: 26px;
-  padding: 2px 7px 2px 5px;
-  border-radius: var(--radius-sm);
-  line-height: 1.35;
+  display: inline;
+  padding: 1px 3px;
+  border-radius: 4px;
+  font-size: 12px;
+  line-height: 1.65;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+}
+
+.command-usage__name + .command-argument,
+.command-argument + .command-argument {
+  margin-left: 5px;
 }
 
 .command-argument--required {
-  border: 1px solid var(--color-accent-line);
-  border-left: 3px solid var(--color-accent);
   background: var(--color-accent-soft);
   color: var(--color-accent-strong);
+  font-weight: var(--weight-bold);
 }
 
 .command-argument--optional {
-  border: 1px dashed var(--color-frame);
-  background: var(--color-cell);
   color: var(--color-secondary);
+  text-decoration-line: underline;
+  text-decoration-style: dashed;
+  text-decoration-color: var(--color-frame);
+  text-underline-offset: 3px;
 }
 
-.command-argument__label {
-  flex: 0 0 auto;
-  padding: 1px 4px;
-  border-radius: 3px;
-  font-family: var(--font-cjk);
-  font-size: 10px;
+.command-argument__delimiter {
   font-weight: var(--weight-extrabold);
-  letter-spacing: 0.04em;
-  line-height: 1.35;
-  white-space: nowrap;
-}
-
-.command-argument--required .command-argument__label {
-  background: var(--color-accent);
-  color: var(--color-cell);
-}
-
-.command-argument--optional .command-argument__label {
-  background: var(--color-token-bg);
-  color: var(--color-muted);
 }
 
 .command-argument__value {
@@ -609,6 +623,12 @@ code {
 }
 
 /* ===== Responsive ===== */
+@media (max-width: 880px) {
+  .grid--commands {
+    grid-template-columns: 1fr;
+  }
+}
+
 @media (max-width: 760px) {
   .surface {
     padding: var(--space-2xl) var(--space-xl) var(--space-xl);

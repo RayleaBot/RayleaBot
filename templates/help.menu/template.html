@@ -86,7 +86,7 @@
       {{ range .groups }}
       <section class="help-group">
         <h2><span class="help-group__marker" aria-hidden="true"></span><span class="help-group__title">{{ .title }}</span></h2>
-        <div class="grid">
+        <div class="grid grid--commands">
           {{ range .items }}
           <article class="cell">
             <div class="cell__header">
@@ -102,6 +102,7 @@
             {{ if and .command_source (eq .command_source "pattern") .usage .command_prefixes }}
             <div class="command-usage" aria-label="指令示意">
               <code>
+                <span class="command-prefix-cue" aria-label="需添加上方任一前缀">前缀</span>
                 {{ if .usage_parts }}
                 {{ template "usage-parts" .usage_parts }}
                 {{ else }}
@@ -112,6 +113,7 @@
             {{ else if and .command_prefixes $commandName }}
             <div class="command-usage" aria-label="指令示意">
               <code>
+                <span class="command-prefix-cue" aria-label="需添加上方任一前缀">前缀</span>
                 <span class="command-usage__name">{{ $commandName }}</span>
                 {{ if .usage_parts }}
                 {{ template "usage-parts" .usage_parts }}
@@ -150,13 +152,15 @@
   {{ range . }}
     {{ if eq .kind "optional" }}
     <span class="command-argument command-argument--optional" aria-label="可选参数 {{ .text }}">
-      <span class="command-argument__label">可选</span>
+      <span class="command-argument__delimiter" aria-hidden="true">[</span>
       <span class="command-argument__value">{{ .text }}</span>
+      <span class="command-argument__delimiter" aria-hidden="true">]</span>
     </span>
     {{ else if eq .kind "required" }}
     <span class="command-argument command-argument--required" aria-label="必填参数 {{ .text }}">
-      <span class="command-argument__label">必填</span>
+      <span class="command-argument__delimiter" aria-hidden="true">&lt;</span>
       <span class="command-argument__value">{{ .text }}</span>
+      <span class="command-argument__delimiter" aria-hidden="true">&gt;</span>
     </span>
     {{ else }}
     <span class="command-usage__name">{{ .text }}</span>

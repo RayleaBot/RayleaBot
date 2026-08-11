@@ -202,7 +202,7 @@ function renderCommandUsage(payload: PreviewRecord) {
         ? `<span class="command-usage__args">${escapeHtml(usageArgs)}</span>`
         : ''}`
   return `<div class="command-usage" aria-label="指令示意">
-        <code>${content}</code>
+        <code><span class="command-prefix-cue" aria-label="需添加上方任一前缀">前缀</span>${content}</code>
       </div>`
 }
 
@@ -228,13 +228,14 @@ function renderUsageParts(parts: PreviewUsagePart[]) {
       return `<span class="command-usage__name">${escapeHtml(part.text)}</span>`
     }
     const label = part.kind === 'optional' ? '可选' : '必填'
-    return `<span class="command-argument command-argument--${part.kind}" aria-label="${label}参数 ${escapeAttribute(part.text)}"><span class="command-argument__label">${label}</span><span class="command-argument__value">${escapeHtml(part.text)}</span></span>`
+    const delimiters = part.kind === 'optional' ? ['[', ']'] : ['&lt;', '&gt;']
+    return `<span class="command-argument command-argument--${part.kind}" aria-label="${label}参数 ${escapeAttribute(part.text)}"><span class="command-argument__delimiter" aria-hidden="true">${delimiters[0]}</span><span class="command-argument__value">${escapeHtml(part.text)}</span><span class="command-argument__delimiter" aria-hidden="true">${delimiters[1]}</span></span>`
   }).join('')
 }
 
-function renderItemGrid(items: unknown) {
+function renderItemGrid(items: unknown, className = 'grid') {
   const cells = Array.isArray(items) ? items.map(renderCell).join('') : ''
-  return `<div class="grid">${cells}</div>`
+  return `<div class="${className}">${cells}</div>`
 }
 
 function renderGroups(groups: unknown) {
@@ -247,7 +248,7 @@ function renderGroups(groups: unknown) {
       const payload = record(group)
       return `<section class="help-group">
         <h2><span class="help-group__marker" aria-hidden="true"></span><span class="help-group__title">${escapeHtml(value(payload.title))}</span></h2>
-        ${renderItemGrid(payload.items)}
+        ${renderItemGrid(payload.items, 'grid grid--commands')}
       </section>`
     })
     .join('')
