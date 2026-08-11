@@ -8,6 +8,7 @@ import (
 	"image/png"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"sync"
 	"testing"
@@ -143,6 +144,23 @@ func TestServiceRenderHelpMenuUsesCompactPrefixesAndArgumentKinds(t *testing.T) 
 		if strings.Contains(doc.HTML, unwanted) {
 			t.Fatalf("help menu html contains obsolete per-command prefix markup %q:\n%s", unwanted, doc.HTML)
 		}
+	}
+	usageStart := strings.Index(doc.HTML, `<div class="command-usage"`)
+	if usageStart < 0 {
+		t.Fatalf("help menu html missing command usage code:\n%s", doc.HTML)
+	}
+	codeOffset := strings.Index(doc.HTML[usageStart:], "<code>")
+	if codeOffset < 0 {
+		t.Fatalf("help menu html missing command usage code:\n%s", doc.HTML)
+	}
+	codeStart := usageStart + codeOffset + len("<code>")
+	codeEndOffset := strings.Index(doc.HTML[codeStart:], "</code>")
+	if codeEndOffset < 0 {
+		t.Fatalf("help menu html missing command usage code:\n%s", doc.HTML)
+	}
+	codeEnd := codeStart + codeEndOffset
+	if regexp.MustCompile(`>\s+<`).MatchString(doc.HTML[codeStart:codeEnd]) {
+		t.Fatalf("help menu command usage contains layout whitespace:\n%s", doc.HTML[codeStart:codeEnd])
 	}
 }
 
