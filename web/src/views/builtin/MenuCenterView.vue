@@ -11,7 +11,13 @@ import { getPrimaryCommandPrefix } from '@/lib/command-usage'
 import { t } from '@/i18n'
 import { useConfigStore } from '@/stores/config'
 import { usePluginsStore } from '@/stores/plugins'
-import type { ConfigDocument, PluginCommandSummary, PluginSummary } from '@/types/api'
+import type {
+  CommandPermissionLevel,
+  ConfigDocument,
+  PluginCommandSummary,
+  PluginHelpItem,
+  PluginSummary,
+} from '@/types/api'
 
 const defaultMenuCommands = ['help', '帮助']
 const defaultRenderFooterTemplate = 'Created By RayleaBot {{rayleabot_version}} & Plugin {{plugin_name}} {{plugin_version}}'
@@ -86,7 +92,7 @@ const selectedPluginPreviewGroups = computed(() => {
     name: command.name,
     ...commandPreviewFields(command),
     description: command.description || command.name,
-    permission: command.permission || 'everyone',
+    permission: effectiveCommandPermission(command),
   }))
   const groups: Array<{ title: string, items: Array<Record<string, unknown>> }> = commandItems.length > 0
     ? [{ title: '命令', items: commandItems }]
@@ -97,7 +103,7 @@ const selectedPluginPreviewGroups = computed(() => {
       name: item.command || item.title,
       ...helpCommandPreviewFields(selectedPlugin.value!, item.command, item.usage),
       description: item.description || item.title,
-      permission: item.permission || 'everyone',
+      permission: effectiveHelpItemPermission(selectedPlugin.value!, item),
     }))
     if (items.length > 0) {
       groups.push({ title: group.title, items })
@@ -295,6 +301,36 @@ function findPluginCommand(plugin: PluginSummary, value: string) {
     [command.name, command.declaration_id, ...(command.aliases ?? [])]
       .some((candidate) => normalizeMenuLookup(candidate) === target)
   )) ?? null
+}
+
+function effectiveCommandPermission(command: PluginCommandSummary): CommandPermissionLevel {
+  const declaredPermission = String(command.permission ?? '').trim()
+  if (declaredPermission) {
+    return normalizeCommandPermission(declaredPermission)
+  }
+  return normalizeCommandPermission(configDocument.value?.permission?.default_level)
+}
+
+function effectiveHelpItemPermission(plugin: PluginSummary, item: PluginHelpItem): CommandPermissionLevel {
+  const declaredPermission = String(item.permission ?? '').trim()
+  if (declaredPermission) {
+    return normalizeCommandPermission(declaredPermission)
+  }
+  const command = findPluginCommand(plugin, item.command ?? '')
+  return command ? effectiveCommandPermission(command) : 'everyone'
+}
+
+function normalizeCommandPermission(value: unknown): CommandPermissionLevel {
+  switch (String(value ?? '').trim()) {
+    case 'super_admin':
+      return 'super_admin'
+    case 'group_admin':
+      return 'group_admin'
+    case 'everyone':
+      return 'everyone'
+    default:
+      return 'everyone'
+  }
 }
 
 function normalizeMenuLookup(value?: string | null) {

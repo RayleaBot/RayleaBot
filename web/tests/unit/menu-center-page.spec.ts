@@ -298,6 +298,81 @@ describe('MenuCenterView', () => {
     }))
   })
 
+  it('matches runtime permission resolution in plugin menu previews', async () => {
+    const configStore = useConfigStore()
+    const pluginsStore = usePluginsStore()
+    configStore.document = {
+      ...createConfig(),
+      permission: {
+        default_level: 'group_admin',
+      },
+    } as ConfigDocument
+    pluginsStore.items = [
+      createPlugin({
+        id: 'subscription-hub',
+        name: '订阅中心',
+        commands: [
+          {
+            name: '订阅状态',
+            permission: 'everyone',
+            command_source: 'manifest',
+          },
+          {
+            name: '订阅推送',
+            aliases: ['添加订阅'],
+            permission: 'super_admin',
+            command_source: 'manifest',
+          },
+          {
+            name: '继承默认权限',
+            command_source: 'manifest',
+          },
+        ],
+        help: {
+          groups: [
+            {
+              title: '订阅操作',
+              items: [
+                { title: '订阅状态', command: '订阅状态' },
+                { title: '订阅推送', command: '添加订阅' },
+                { title: '配置说明' },
+              ],
+            },
+          ],
+        },
+      }),
+    ]
+    vi.spyOn(configStore, 'fetchConfig').mockResolvedValue(undefined)
+    vi.spyOn(pluginsStore, 'fetchList').mockResolvedValue(undefined)
+
+    const wrapper = mount(MenuCenterView, {
+      global: {
+        plugins: [Antd],
+      },
+    })
+    await flushPromises()
+
+    const groups = pluginPreviewPayload(wrapper).groups as Array<{
+      title: string
+      items: Array<{ name: string, permission: string }>
+    }>
+    const commandGroup = groups.find((group) => group.title === '命令')
+    const helpGroup = groups.find((group) => group.title === '订阅操作')
+
+    expect(commandGroup?.items).toEqual([
+      expect.objectContaining({ name: '继承默认权限', permission: 'group_admin' }),
+    ])
+    expect(helpGroup?.items).toEqual([
+      expect.objectContaining({ name: '订阅状态', permission: 'everyone' }),
+      expect.objectContaining({ name: '添加订阅', permission: 'super_admin' }),
+      expect.objectContaining({ name: '配置说明', permission: 'everyone' }),
+    ])
+
+    const previewDoc = new DOMParser().parseFromString(pluginPreviewFrame(wrapper).attributes('srcdoc') ?? '', 'text/html')
+    const permissionLabels = Array.from(previewDoc.querySelectorAll('.command-permission'), (element) => element.textContent)
+    expect(permissionLabels).toEqual(expect.arrayContaining(['所有人', '群管理员', '超级管理员']))
+  })
+
   it('renders pattern command bodies without repeating effective prefixes', async () => {
     const configStore = useConfigStore()
     const pluginsStore = usePluginsStore()
