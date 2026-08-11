@@ -265,6 +265,7 @@ describe('MenuCenterView', () => {
     expect(previewDoc.querySelector('.command-prefixes__values')?.textContent).toContain('#')
     expect(previewDoc.querySelector('.command-prefixes__values')?.textContent).toContain('*')
     expect(previewDoc.querySelector('.command-guide')).toBeNull()
+    expect(previewDoc.querySelector('.grid--commands')).toBeNull()
     const weatherUsages = Array.from(previewDoc.querySelectorAll('.command-usage'))
       .filter((usage) => usage.textContent?.includes('weather'))
     expect(weatherUsages.length).toBeGreaterThan(0)

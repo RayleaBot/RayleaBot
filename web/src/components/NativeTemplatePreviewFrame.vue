@@ -233,9 +233,9 @@ function renderUsageParts(parts: PreviewUsagePart[]) {
   }).join('')
 }
 
-function renderItemGrid(items: unknown, className = 'grid') {
+function renderItemGrid(items: unknown) {
   const cells = Array.isArray(items) ? items.map(renderCell).join('') : ''
-  return `<div class="${className}">${cells}</div>`
+  return `<div class="grid">${cells}</div>`
 }
 
 function renderGroups(groups: unknown) {
@@ -248,7 +248,7 @@ function renderGroups(groups: unknown) {
       const payload = record(group)
       return `<section class="help-group">
         <h2><span class="help-group__marker" aria-hidden="true"></span><span class="help-group__title">${escapeHtml(value(payload.title))}</span></h2>
-        ${renderItemGrid(payload.items, 'grid grid--commands')}
+        ${renderItemGrid(payload.items)}
       </section>`
     })
     .join('')
