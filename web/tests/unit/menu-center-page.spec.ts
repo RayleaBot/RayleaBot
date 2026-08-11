@@ -7,11 +7,13 @@ import { nextTick } from 'vue'
 import NativeTemplatePreviewFrame, {
   calculateNativePreviewLayout,
   nativePreviewTemplateWidth,
+  rewriteHelpMenuPreviewFontSources,
   stripHelpMenuPreviewFontImports,
 } from '@/components/NativeTemplatePreviewFrame.vue'
 import MenuCenterView from '@/views/builtin/MenuCenterView.vue'
 import { useConfigStore } from '@/stores/config'
 import { usePluginsStore } from '@/stores/plugins'
+import helpMenuFontFaces from '../../../templates/fortune.card/assets/fonts/lxgwwenkai-medium/result.css?raw'
 import helpMenuStyles from '../../../templates/help.menu/styles.css?raw'
 import helpMenuTemplate from '../../../templates/help.menu/template.html?raw'
 import type { ConfigDocument, ConfigUpdateResponse, PluginSummary } from '@/types/api'
@@ -174,6 +176,9 @@ describe('MenuCenterView', () => {
     expect(rootPreviewFrame(wrapper).attributes('srcdoc')).toContain('template-footer__text')
     expect(rootPreviewFrame(wrapper).attributes('srcdoc')).toContain('Created By RayleaBot 开发版本 &amp; Plugin RayleaBot 开发版本')
     expect(rootPreviewFrame(wrapper).attributes('srcdoc')).toContain('LXGW WenKai Medium')
+    expect(rootPreviewFrame(wrapper).attributes('srcdoc')).toContain('data-help-menu-fonts')
+    expect(rootPreviewFrame(wrapper).attributes('srcdoc')).toContain('@font-face')
+    expect(rootPreviewFrame(wrapper).attributes('srcdoc')).toMatch(/\/api\/system\/render\/templates\/help\.menu\/asset\?path=\.\.%2Ffortune\.card%2Fassets%2Ffonts%2Flxgwwenkai-medium%2F[0-9a-f]+\.woff2/)
     expect(rootPreviewFrame(wrapper).attributes('srcdoc')).not.toMatch(/\.ttf\b/i)
     expect(rootPreviewFrame(wrapper).attributes('srcdoc')).not.toContain('../fortune.card/assets/fonts')
     expect(rootPreviewFrame(wrapper).attributes('srcdoc')).not.toContain('<script')
@@ -584,13 +589,17 @@ describe('MenuCenterView', () => {
     expect(longContent.isScrollable).toBe(true)
   })
 
-  it('strips help menu font imports from the iframe preview styles', () => {
-    const preview = stripHelpMenuPreviewFontImports(helpMenuStyles)
+  it('loads help menu font faces from managed template assets', () => {
+    const previewStyles = stripHelpMenuPreviewFontImports(helpMenuStyles)
+    const previewFontFaces = rewriteHelpMenuPreviewFontSources(helpMenuFontFaces)
 
-    expect(preview).not.toContain('../fortune.card/assets/fonts/lxgwwenkai-medium/result.css')
-    expect(preview).not.toContain('../fortune.card/assets/fonts/lxgw-wenkai-medium/result.css')
-    expect(preview).toContain('LXGW WenKai Medium')
-    expect(preview).not.toMatch(/\.ttf\b/i)
+    expect(previewStyles).not.toContain('../fortune.card/assets/fonts/lxgwwenkai-medium/result.css')
+    expect(previewStyles).not.toContain('../fortune.card/assets/fonts/lxgw-wenkai-medium/result.css')
+    expect(previewStyles).toContain('LXGW WenKai Medium')
+    expect(previewFontFaces).toContain('@font-face')
+    expect(previewFontFaces).toMatch(/url\("\/api\/system\/render\/templates\/help\.menu\/asset\?path=\.\.%2Ffortune\.card%2Fassets%2Ffonts%2Flxgwwenkai-medium%2F[0-9a-f]+\.woff2"\)/)
+    expect(previewFontFaces).not.toMatch(/url\(\s*["']?\.\//)
+    expect(previewFontFaces).not.toMatch(/\.ttf\b/i)
   })
 
   it('keeps native preview classes aligned with the canonical help menu template and stylesheet', () => {

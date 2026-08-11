@@ -1519,6 +1519,28 @@ test('template preview auto-updates results without editor controls', async ({ p
   await expect(page.locator('.render-templates-float-panel')).toContainText('status.panel')
 })
 
+test('menu center preview loads the bundled chat menu font', async ({ page, request }) => {
+  await resetBackend(request, true)
+  await login(page)
+
+  await page.goto('/menu-center')
+  const previewFrame = page.getByTestId('native-template-preview-frame').first()
+  await expect(previewFrame).toBeVisible()
+  await expect(previewFrame).toHaveAttribute('srcdoc', /data-help-menu-fonts/)
+
+  await expect.poll(() => previewFrame.evaluate(async (frame) => {
+    const document = (frame as HTMLIFrameElement).contentDocument
+    if (!document) {
+      return 0
+    }
+    await document.fonts.ready
+    return Array.from(document.fonts).filter((font) => (
+      font.family.replace(/["']/g, '') === 'LXGW WenKai Medium'
+      && font.status === 'loaded'
+    )).length
+  })).toBeGreaterThan(0)
+})
+
 test('protocol center owns OneBot settings and logs center keeps protocol filtering', async ({ page, request }) => {
   await resetBackend(request, true)
   await login(page)

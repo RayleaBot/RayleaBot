@@ -12,12 +12,21 @@ export function stripHelpMenuPreviewFontImports(styles: string) {
     .replace(/@import\s+url\(["']\.\.\/fortune\.card\/assets\/fonts\/lxgwwenkai-medium\/result\.css["']\);?\s*/g, '')
     .replace(/@import\s+url\(["']\.\.\/fortune\.card\/assets\/fonts\/lxgw-wenkai-medium\/result\.css["']\);?\s*/g, '')
 }
+
+export function rewriteHelpMenuPreviewFontSources(styles: string) {
+  const fontDirectory = '../fortune.card/assets/fonts/lxgwwenkai-medium'
+  return styles.replace(/url\(\s*(["']?)\.\/([^"')]+)\1\s*\)/g, (_match, _quote: string, filename: string) => {
+    const path = encodeURIComponent(`${fontDirectory}/${filename}`)
+    return `url("/api/system/render/templates/help.menu/asset?path=${path}")`
+  })
+}
 </script>
 
 <script setup lang="ts">
 import { computed } from 'vue'
 
 import TemplatePreviewFrame from '@/components/TemplatePreviewFrame.vue'
+import helpMenuFontFaces from '../../../templates/fortune.card/assets/fonts/lxgwwenkai-medium/result.css?raw'
 import helpMenuStyles from '../../../templates/help.menu/styles.css?raw'
 
 type PreviewData = Record<string, unknown>
@@ -36,6 +45,7 @@ const props = defineProps<{
 
 const serializedData = computed(() => JSON.stringify(props.data))
 const srcdoc = computed(() => buildPreviewDocument(props.templateId, props.data))
+const helpMenuPreviewFontFaces = rewriteHelpMenuPreviewFontSources(helpMenuFontFaces)
 const helpMenuPreviewStyles = computed(() => stripHelpMenuPreviewFontImports(helpMenuStyles))
 
 function buildPreviewDocument(templateId: string, data: PreviewData) {
@@ -48,6 +58,7 @@ function buildPreviewDocument(templateId: string, data: PreviewData) {
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style data-help-menu-fonts>${helpMenuPreviewFontFaces}</style>
     <style>${helpMenuPreviewStyles.value}</style>
     <style>
       html, body {
