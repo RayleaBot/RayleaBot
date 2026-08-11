@@ -9,12 +9,13 @@ export {
 
 export function stripHelpMenuPreviewFontImports(styles: string) {
   return styles
+    .replace(/@import\s+url\(["']assets\/fonts\/noto-sans-sc\/result\.css["']\);?\s*/g, '')
     .replace(/@import\s+url\(["']\.\.\/fortune\.card\/assets\/fonts\/lxgwwenkai-medium\/result\.css["']\);?\s*/g, '')
     .replace(/@import\s+url\(["']\.\.\/fortune\.card\/assets\/fonts\/lxgw-wenkai-medium\/result\.css["']\);?\s*/g, '')
 }
 
 export function rewriteHelpMenuPreviewFontSources(styles: string) {
-  const fontDirectory = '../fortune.card/assets/fonts/lxgwwenkai-medium'
+  const fontDirectory = 'assets/fonts/noto-sans-sc'
   return styles.replace(/url\(\s*(["']?)\.\/([^"')]+)\1\s*\)/g, (_match, _quote: string, filename: string) => {
     const path = encodeURIComponent(`${fontDirectory}/${filename}`)
     return `url("/api/system/render/templates/help.menu/asset?path=${path}")`
@@ -26,7 +27,7 @@ export function rewriteHelpMenuPreviewFontSources(styles: string) {
 import { computed } from 'vue'
 
 import TemplatePreviewFrame from '@/components/TemplatePreviewFrame.vue'
-import helpMenuFontFaces from '../../../templates/fortune.card/assets/fonts/lxgwwenkai-medium/result.css?raw'
+import helpMenuFontFaces from '../../../templates/help.menu/assets/fonts/noto-sans-sc/result.css?raw'
 import helpMenuStyles from '../../../templates/help.menu/styles.css?raw'
 
 type PreviewData = Record<string, unknown>

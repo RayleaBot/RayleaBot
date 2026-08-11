@@ -13,7 +13,7 @@ import NativeTemplatePreviewFrame, {
 import MenuCenterView from '@/views/builtin/MenuCenterView.vue'
 import { useConfigStore } from '@/stores/config'
 import { usePluginsStore } from '@/stores/plugins'
-import helpMenuFontFaces from '../../../templates/fortune.card/assets/fonts/lxgwwenkai-medium/result.css?raw'
+import helpMenuFontFaces from '../../../templates/help.menu/assets/fonts/noto-sans-sc/result.css?raw'
 import helpMenuStyles from '../../../templates/help.menu/styles.css?raw'
 import helpMenuTemplate from '../../../templates/help.menu/template.html?raw'
 import type { ConfigDocument, ConfigUpdateResponse, PluginSummary } from '@/types/api'
@@ -175,12 +175,12 @@ describe('MenuCenterView', () => {
     expect(rootPreviewFrame(wrapper).attributes('srcdoc')).not.toContain('command-guide__block--prefixes')
     expect(rootPreviewFrame(wrapper).attributes('srcdoc')).toContain('template-footer__text')
     expect(rootPreviewFrame(wrapper).attributes('srcdoc')).toContain('Created By RayleaBot 开发版本 &amp; Plugin RayleaBot 开发版本')
-    expect(rootPreviewFrame(wrapper).attributes('srcdoc')).toContain('LXGW WenKai Medium')
+    expect(rootPreviewFrame(wrapper).attributes('srcdoc')).toContain('Noto Sans SC')
     expect(rootPreviewFrame(wrapper).attributes('srcdoc')).toContain('data-help-menu-fonts')
     expect(rootPreviewFrame(wrapper).attributes('srcdoc')).toContain('@font-face')
-    expect(rootPreviewFrame(wrapper).attributes('srcdoc')).toMatch(/\/api\/system\/render\/templates\/help\.menu\/asset\?path=\.\.%2Ffortune\.card%2Fassets%2Ffonts%2Flxgwwenkai-medium%2F[0-9a-f]+\.woff2/)
+    expect(rootPreviewFrame(wrapper).attributes('srcdoc')).toMatch(/\/api\/system\/render\/templates\/help\.menu\/asset\?path=assets%2Ffonts%2Fnoto-sans-sc%2F[A-Za-z0-9._-]+\.woff2/)
     expect(rootPreviewFrame(wrapper).attributes('srcdoc')).not.toMatch(/\.ttf\b/i)
-    expect(rootPreviewFrame(wrapper).attributes('srcdoc')).not.toContain('../fortune.card/assets/fonts')
+    expect(rootPreviewFrame(wrapper).attributes('srcdoc')).not.toContain('assets/fonts/noto-sans-sc/result.css')
     expect(rootPreviewFrame(wrapper).attributes('srcdoc')).not.toContain('<script')
     expect(rootPreviewFrame(wrapper).attributes('srcdoc')).not.toContain('<\\/script>')
     expect(rootPreviewFrame(wrapper).attributes('srcdoc')).not.toContain('</scr${')
@@ -593,11 +593,12 @@ describe('MenuCenterView', () => {
     const previewStyles = stripHelpMenuPreviewFontImports(helpMenuStyles)
     const previewFontFaces = rewriteHelpMenuPreviewFontSources(helpMenuFontFaces)
 
-    expect(previewStyles).not.toContain('../fortune.card/assets/fonts/lxgwwenkai-medium/result.css')
-    expect(previewStyles).not.toContain('../fortune.card/assets/fonts/lxgw-wenkai-medium/result.css')
-    expect(previewStyles).toContain('LXGW WenKai Medium')
+    expect(previewStyles).not.toContain('assets/fonts/noto-sans-sc/result.css')
+    expect(previewStyles).toContain('Noto Sans SC')
+    expect(previewStyles).toMatch(/\.command-usage__name\s*{[^}]*font-family:\s*var\(--font-cjk\)/s)
     expect(previewFontFaces).toContain('@font-face')
-    expect(previewFontFaces).toMatch(/url\("\/api\/system\/render\/templates\/help\.menu\/asset\?path=\.\.%2Ffortune\.card%2Fassets%2Ffonts%2Flxgwwenkai-medium%2F[0-9a-f]+\.woff2"\)/)
+    expect(previewFontFaces).toContain('font-weight: 400 800')
+    expect(previewFontFaces).toMatch(/url\("\/api\/system\/render\/templates\/help\.menu\/asset\?path=assets%2Ffonts%2Fnoto-sans-sc%2F[A-Za-z0-9._-]+\.woff2"\)/)
     expect(previewFontFaces).not.toMatch(/url\(\s*["']?\.\//)
     expect(previewFontFaces).not.toMatch(/\.ttf\b/i)
   })

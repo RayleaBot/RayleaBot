@@ -1524,21 +1524,57 @@ test('menu center preview loads the bundled chat menu font', async ({ page, requ
   await login(page)
 
   await page.goto('/menu-center')
-  const previewFrame = page.getByTestId('native-template-preview-frame').first()
-  await expect(previewFrame).toBeVisible()
-  await expect(previewFrame).toHaveAttribute('srcdoc', /data-help-menu-fonts/)
+  const rootPreviewFrame = page.getByTestId('menu-center-root-preview').getByTestId('native-template-preview-frame')
+  await expect(rootPreviewFrame).toBeVisible()
+  await expect(rootPreviewFrame).toHaveAttribute('srcdoc', /data-help-menu-fonts/)
 
-  await expect.poll(() => previewFrame.evaluate(async (frame) => {
+  await expect.poll(() => rootPreviewFrame.evaluate(async (frame) => {
     const document = (frame as HTMLIFrameElement).contentDocument
     if (!document) {
-      return 0
+      return false
     }
     await document.fonts.ready
-    return Array.from(document.fonts).filter((font) => (
-      font.family.replace(/["']/g, '') === 'LXGW WenKai Medium'
+    const loadedFontFaces = Array.from(document.fonts).filter((font) => (
+      font.family.replace(/["']/g, '') === 'Noto Sans SC'
       && font.status === 'loaded'
     )).length
-  })).toBeGreaterThan(0)
+    const view = document.defaultView
+    const targetSelectors = ['h1', '.description', '.meta']
+    const targetsUseNotoSans = targetSelectors.every((selector) => {
+      const element = document.querySelector(selector)
+      return element && view?.getComputedStyle(element).fontFamily.includes('Noto Sans SC')
+    })
+    return loadedFontFaces > 0 && targetsUseNotoSans
+  })).toBe(true)
+
+  await page.locator('.menu-center-tabs').getByRole('tab').nth(1).click()
+  const pluginPreviewFrame = page.getByTestId('menu-center-plugin-preview').getByTestId('native-template-preview-frame')
+  await expect(pluginPreviewFrame).toBeVisible()
+
+  await expect.poll(() => pluginPreviewFrame.evaluate(async (frame) => {
+    const document = (frame as HTMLIFrameElement).contentDocument
+    if (!document) {
+      return false
+    }
+    await document.fonts.ready
+    const loadedFontFaces = Array.from(document.fonts).filter((font) => (
+      font.family.replace(/["']/g, '') === 'Noto Sans SC'
+      && font.status === 'loaded'
+    )).length
+    const view = document.defaultView
+    const targetSelectors = ['h1', '.subtitle', '.help-group h2', '.meta', '.description', '.command-usage__name']
+    const targetsUseNotoSans = targetSelectors.every((selector) => {
+      const element = document.querySelector(selector)
+      return element && view?.getComputedStyle(element).fontFamily.includes('Noto Sans SC')
+    })
+    const permission = document.querySelector('.command-permission')
+    const command = document.querySelector('.command-usage code')
+    const permissionFamily = permission && view?.getComputedStyle(permission).fontFamily
+    const commandFamily = command && view?.getComputedStyle(command).fontFamily
+    const permissionKeepsSystemFont = permissionFamily && !/^["']?Noto Sans SC/.test(permissionFamily)
+    const commandKeepsMonoFont = commandFamily && /^["']?JetBrains Mono/.test(commandFamily)
+    return loadedFontFaces > 0 && targetsUseNotoSans && permissionKeepsSystemFont && commandKeepsMonoFont
+  })).toBe(true)
 })
 
 test('protocol center owns OneBot settings and logs center keeps protocol filtering', async ({ page, request }) => {

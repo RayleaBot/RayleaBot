@@ -27,7 +27,8 @@ const externalPreviewImageBytes = Buffer.from(
 const bilibiliAvatarUrl = 'http://127.0.0.1:4010/external-preview/avatar.png'
 const weiboAvatarUrl = 'https://tvax1.sinaimg.cn/crop.0.0.512.512.180/fixture.jpg'
 const redactedConfigValue = '********'
-const helpMenuFontAssetRoot = path.join(repoRoot, 'templates', 'fortune.card', 'assets', 'fonts', 'lxgwwenkai-medium')
+const lxgwFontAssetRoot = path.join(repoRoot, 'templates', 'fortune.card', 'assets', 'fonts', 'lxgwwenkai-medium')
+const helpMenuFontAssetRoot = path.join(repoRoot, 'templates', 'help.menu', 'assets', 'fonts', 'noto-sans-sc')
 const secretConfigPaths = [
   ['onebot', 'forward_ws', 'access_token'],
   ['onebot', 'http_api', 'access_token'],
@@ -35,7 +36,7 @@ const secretConfigPaths = [
   ['onebot', 'webhook', 'access_token'],
 ]
 const externalPreviewFontBytes = await readFile(
-  path.join(helpMenuFontAssetRoot, 'e8f52c41386b1b7731acfccb8c1a8c52.woff2'),
+  path.join(lxgwFontAssetRoot, 'e8f52c41386b1b7731acfccb8c1a8c52.woff2'),
 )
 
 async function readFixture(relativePath) {
@@ -1606,7 +1607,7 @@ const server = http.createServer(async (request, response) => {
     }
 
     const assetPath = searchParams.get('path') ?? ''
-    const fontAssetMatch = assetPath.match(/^\.\.\/fortune\.card\/assets\/fonts\/lxgwwenkai-medium\/([0-9a-f]{32}\.woff2)$/)
+    const fontAssetMatch = assetPath.match(/^assets\/fonts\/noto-sans-sc\/([A-Za-z0-9._-]+\.woff2)$/)
     if (fontAssetMatch) {
       response.writeHead(200, {
         'Content-Type': 'font/woff2',

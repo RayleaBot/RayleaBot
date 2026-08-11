@@ -128,6 +128,8 @@ func TestServiceRenderHelpMenuUsesCompactPrefixesAndArgumentKinds(t *testing.T) 
 		t.Fatal("expected render document")
 	}
 	for _, want := range []string{
+		`@import url("assets/fonts/noto-sans-sc/result.css");`,
+		`--font-cjk: "Noto Sans SC"`,
 		`class="command-prefixes"`,
 		`class="command-prefixes__label">前缀</span>`,
 		`class="command-prefix-cue" aria-label="需添加上方任一前缀">前缀</span>`,
