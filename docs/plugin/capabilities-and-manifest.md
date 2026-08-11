@@ -126,6 +126,7 @@ local action 的请求结构和返回结构见 [Protocol](./protocol.md)，SDK h
 - 插件可通过 `commands` 声明命令名、别名、说明、示例和权限级别；静态命令名和别名使用 UTF-8 非空文本，不能包含空白字符。
 - `dynamic_commands` 从插件设置字段投影命令名，适合由用户配置触发词的插件。
 - `command_patterns` 使用 Go regexp 匹配去掉全局前缀后的命令名，适合 `<角色名>攻略` 这类命令族；`name` 只作为展示名，不作为精确触发词。
+- 命令用法中的 `<参数>` 与命令名后的裸参数表示必填项，`[参数]` 表示可选项；`command_patterns` 中未加括号的文本表示固定指令文本。
 - 平台保留 `raylea.` ID 前缀给已验证目录中的官方插件；插件移出主仓库不改变该命名空间规则。
 - 同名命令默认保持 fan-out；管理面负责提示冲突。
 - 聊天命令权限治理使用 `command.permission`、`permission.default_level`、黑白名单、冷却和超级管理员配置。

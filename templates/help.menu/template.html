@@ -34,6 +34,14 @@
         <div class="page-header__title-area">
           <h1>{{ .title }}</h1>
           {{ if .subtitle }}<p class="subtitle">{{ .subtitle }}</p>{{ end }}
+          {{ if .command_prefixes }}
+          <div class="command-prefixes" aria-label="可用指令前缀">
+            <span class="command-prefixes__label">前缀</span>
+            <span class="command-prefixes__values">
+              {{ range .command_prefixes }}<code>{{ . }}</code>{{ end }}
+            </span>
+          </div>
+          {{ end }}
         </div>
         <div class="page-header__identity">
           <div class="identity-avatar-wrap">
@@ -63,24 +71,14 @@
         </div>
       </header>
 
-      {{ if or .command_prefixes .trigger_examples }}
+      {{ if .trigger_examples }}
       <section class="command-guide" aria-label="菜单触发方式">
-        {{ if .command_prefixes }}
-        <div class="command-guide__block">
-          <span class="command-guide__label">指令前缀</span>
-          <div class="command-guide__chips">
-            {{ range .command_prefixes }}<code>{{ . }}</code>{{ end }}
-          </div>
-        </div>
-        {{ end }}
-        {{ if .trigger_examples }}
-        <div class="command-guide__block">
+        <div class="command-guide__block command-guide__block--examples">
           <span class="command-guide__label">触发指令示例</span>
           <div class="command-guide__chips">
             {{ range .trigger_examples }}<code>{{ . }}</code>{{ end }}
           </div>
         </div>
-        {{ end }}
       </section>
       {{ end }}
 
@@ -90,8 +88,8 @@
         <h2><span class="help-group__marker" aria-hidden="true"></span><span class="help-group__title">{{ .title }}</span></h2>
         <div class="grid">
           {{ range .items }}
-          <article class="card">
-            <div class="card__header">
+          <article class="cell">
+            <div class="cell__header">
               <div class="meta">
                 {{ if .name }}{{ .name }}{{ else }}{{ .title }}{{ end }}
               </div>
@@ -104,21 +102,22 @@
             {{ if and .command_source (eq .command_source "pattern") .usage .command_prefixes }}
             <div class="command-usage" aria-label="指令示意">
               <code>
-                <span class="command-usage__prefix-group" aria-label="可用前缀">
-                  {{ range .command_prefixes }}<span class="command-usage__prefix">{{ . }}</span>{{ end }}
-                </span>
-                <span class="command-usage__text"><span class="command-usage__name">{{ .usage }}</span></span>
+                {{ if .usage_parts }}
+                {{ template "usage-parts" .usage_parts }}
+                {{ else }}
+                <span class="command-usage__name">{{ .usage }}</span>
+                {{ end }}
               </code>
             </div>
             {{ else if and .command_prefixes $commandName }}
             <div class="command-usage" aria-label="指令示意">
               <code>
-                <span class="command-usage__prefix-group" aria-label="可用前缀">
-                  {{ range .command_prefixes }}<span class="command-usage__prefix">{{ . }}</span>{{ end }}
-                </span>
-                <span class="command-usage__text">
-                  <span class="command-usage__name">{{ $commandName }}</span>{{ if .usage_args }} <span class="command-usage__args">{{ .usage_args }}</span>{{ end }}
-                </span>
+                <span class="command-usage__name">{{ $commandName }}</span>
+                {{ if .usage_parts }}
+                {{ template "usage-parts" .usage_parts }}
+                {{ else if .usage_args }}
+                <span class="command-usage__args">{{ .usage_args }}</span>
+                {{ end }}
               </code>
             </div>
             {{ end }}
@@ -130,8 +129,8 @@
       {{ else }}
       <section class="grid">
         {{ range .items }}
-        <article class="card">
-          <div class="card__header">
+        <article class="cell">
+          <div class="cell__header">
             <div class="meta">{{ .name }}</div>
             {{ if .permission_label }}
             <span class="command-permission command-permission--{{ .permission }}">{{ .permission_label }}</span>
@@ -146,3 +145,21 @@
     </main>
   </body>
 </html>
+
+{{ define "usage-parts" }}
+  {{ range . }}
+    {{ if eq .kind "optional" }}
+    <span class="command-argument command-argument--optional" aria-label="可选参数 {{ .text }}">
+      <span class="command-argument__label">可选</span>
+      <span class="command-argument__value">{{ .text }}</span>
+    </span>
+    {{ else if eq .kind "required" }}
+    <span class="command-argument command-argument--required" aria-label="必填参数 {{ .text }}">
+      <span class="command-argument__label">必填</span>
+      <span class="command-argument__value">{{ .text }}</span>
+    </span>
+    {{ else }}
+    <span class="command-usage__name">{{ .text }}</span>
+    {{ end }}
+  {{ end }}
+{{ end }}

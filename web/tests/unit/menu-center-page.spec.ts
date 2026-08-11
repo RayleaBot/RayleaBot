@@ -4,7 +4,7 @@ import { flushPromises, mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { nextTick } from 'vue'
 
-import {
+import NativeTemplatePreviewFrame, {
   calculateNativePreviewLayout,
   nativePreviewTemplateWidth,
   stripHelpMenuPreviewFontImports,
@@ -13,6 +13,7 @@ import MenuCenterView from '@/views/builtin/MenuCenterView.vue'
 import { useConfigStore } from '@/stores/config'
 import { usePluginsStore } from '@/stores/plugins'
 import helpMenuStyles from '../../../templates/help.menu/styles.css?raw'
+import helpMenuTemplate from '../../../templates/help.menu/template.html?raw'
 import type { ConfigDocument, ConfigUpdateResponse, PluginSummary } from '@/types/api'
 
 const nativeMenuPreviewFooter = 'Created By RayleaBot 开发版本 & Plugin RayleaBot 开发版本'
@@ -83,7 +84,7 @@ describe('MenuCenterView', () => {
             name: 'weather',
             aliases: ['天气'],
             description: '查询天气',
-            usage: 'weather 上海',
+            usage: '/weather [空气质量] 城市',
             permission: 'everyone',
             command_source: 'manifest',
           },
@@ -97,7 +98,7 @@ describe('MenuCenterView', () => {
                 {
                   title: '城市天气',
                   description: '查询城市天气',
-                  usage: '/weather 上海',
+                  usage: '/weather [空气质量] 城市',
                   command: 'weather',
                   permission: 'everyone',
                 },
@@ -168,6 +169,8 @@ describe('MenuCenterView', () => {
     expect(rootPreviewFrame(wrapper).attributes('srcdoc')).toContain('/help Echo')
     expect(rootPreviewFrame(wrapper).attributes('srcdoc')).toContain('/Echo帮助')
     expect(rootPreviewFrame(wrapper).attributes('srcdoc')).not.toContain('/help Weather')
+    expect(rootPreviewFrame(wrapper).attributes('srcdoc')).toContain('command-prefixes__label">前缀</span>')
+    expect(rootPreviewFrame(wrapper).attributes('srcdoc')).not.toContain('command-guide__block--prefixes')
     expect(rootPreviewFrame(wrapper).attributes('srcdoc')).toContain('template-footer__text')
     expect(rootPreviewFrame(wrapper).attributes('srcdoc')).toContain('Created By RayleaBot 开发版本 &amp; Plugin RayleaBot 开发版本')
     expect(rootPreviewFrame(wrapper).attributes('srcdoc')).toContain('LXGW WenKai Medium')
@@ -195,7 +198,11 @@ describe('MenuCenterView', () => {
             expect.objectContaining({
               name: 'weather',
               command_prefixes: ['/'],
-              usage_args: '上海',
+              usage_args: '[空气质量] 城市',
+              usage_parts: [
+                { kind: 'optional', text: '空气质量' },
+                { kind: 'required', text: '城市' },
+              ],
             }),
           ],
         }),
@@ -205,15 +212,16 @@ describe('MenuCenterView', () => {
     expect(pluginPreviewPayload(wrapper)).not.toHaveProperty('trigger_examples')
     expect(pluginPreviewPayload(wrapper).groups[0].items[0]).not.toHaveProperty('usage')
     expect(pluginPreviewFrame(wrapper).attributes('srcdoc')).toContain('command-usage')
-    expect(pluginPreviewFrame(wrapper).attributes('srcdoc')).toContain('command-usage__prefix">/</span>')
+    expect(pluginPreviewFrame(wrapper).attributes('srcdoc')).toContain('command-prefixes__label">前缀</span>')
+    expect(pluginPreviewFrame(wrapper).attributes('srcdoc')).not.toContain('command-usage__prefix')
     expect(pluginPreviewFrame(wrapper).attributes('srcdoc')).toContain('weather')
-    expect(pluginPreviewFrame(wrapper).attributes('srcdoc')).toContain('command-usage__text')
-    expect(pluginPreviewFrame(wrapper).attributes('srcdoc')).toContain('command-usage__args">上海</span>')
+    expect(pluginPreviewFrame(wrapper).attributes('srcdoc')).toContain('command-argument--optional')
+    expect(pluginPreviewFrame(wrapper).attributes('srcdoc')).toContain('command-argument--required')
     expect(pluginPreviewFrame(wrapper).attributes('srcdoc')).toContain('Plugin Weather 1.2.3')
     expect(pluginPreviewFrame(wrapper).attributes('srcdoc')).not.toContain('Plugin RayleaBot 开发版本')
-    expect(pluginPreviewFrame(wrapper).attributes('srcdoc')).toContain('card__header')
+    expect(pluginPreviewFrame(wrapper).attributes('srcdoc')).toContain('cell__header')
     expect(pluginPreviewFrame(wrapper).attributes('srcdoc')).toContain('command-permission')
-    expect(pluginPreviewFrame(wrapper).attributes('srcdoc')).not.toContain('card__footer')
+    expect(pluginPreviewFrame(wrapper).attributes('srcdoc')).not.toContain('cell__footer')
 
     const commandSelect = wrapper.getComponent('[data-testid="menu-center-commands"]')
     const prefixSelect = wrapper.getComponent('[data-testid="menu-center-prefixes"]')
@@ -241,28 +249,31 @@ describe('MenuCenterView', () => {
     expect(pluginPreviewPayload(wrapper).groups[0].items[0]).toMatchObject({
       command_prefixes: ['#', '*'],
       name: 'weather',
-      usage_args: '上海',
+      usage_args: '[空气质量] 城市',
+      usage_parts: [
+        { kind: 'optional', text: '空气质量' },
+        { kind: 'required', text: '城市' },
+      ],
     })
     expect(pluginPreviewPayload(wrapper).groups[0].title).toBe('查询')
     expect(pluginPreviewPayload(wrapper).groups.some((group: { title: string }) => group.title === '命令')).toBe(false)
     expect(pluginPreviewPayload(wrapper).groups[0].items[0]).not.toHaveProperty('usage')
     const pluginPreviewSrcdoc = pluginPreviewFrame(wrapper).attributes('srcdoc')
-    expect(pluginPreviewSrcdoc).toContain('command-usage__prefix-group')
-    expect(pluginPreviewSrcdoc).toContain('command-usage__prefix">#</span>')
-    expect(pluginPreviewSrcdoc).toContain('command-usage__prefix">*</span>')
+    expect(pluginPreviewSrcdoc).not.toContain('command-usage__prefix')
     const previewDoc = new DOMParser().parseFromString(pluginPreviewSrcdoc ?? '', 'text/html')
+    expect(previewDoc.querySelector('.command-prefixes__values')?.textContent).toContain('#')
+    expect(previewDoc.querySelector('.command-prefixes__values')?.textContent).toContain('*')
+    expect(previewDoc.querySelector('.command-guide')).toBeNull()
     const weatherUsages = Array.from(previewDoc.querySelectorAll('.command-usage'))
       .filter((usage) => usage.textContent?.includes('weather'))
     expect(weatherUsages.length).toBeGreaterThan(0)
     for (const usage of weatherUsages) {
       expect(usage.querySelectorAll('code')).toHaveLength(1)
-      expect(usage.querySelector('.command-usage__prefix-group')?.textContent).toContain('#')
-      expect(usage.querySelector('.command-usage__prefix-group')?.textContent).toContain('*')
+      expect(usage.querySelector('.command-usage__prefix-group')).toBeNull()
       expect(usage.querySelectorAll('.command-usage__name')).toHaveLength(1)
-      expect(usage.querySelector('.command-usage__args')?.textContent).toBe('上海')
-      expect(usage.querySelector('.command-usage__text')?.textContent).toBe('weather 上海')
+      expect(usage.querySelector('.command-argument--optional')?.textContent).toBe('可选空气质量')
+      expect(usage.querySelector('.command-argument--required')?.textContent).toBe('必填城市')
     }
-    expect(pluginPreviewSrcdoc).not.toContain('</span><span class="command-usage__name">weather</span></code><code>')
     expect(pluginPreviewSrcdoc).not.toContain('command-title__prefixes')
     expect(pluginPreviewSrcdoc).not.toContain('#/weather')
     expect(pluginPreviewSrcdoc).not.toContain('*weather')
@@ -284,7 +295,7 @@ describe('MenuCenterView', () => {
     }))
   })
 
-  it('renders pattern command bodies with every effective prefix instead of display names', async () => {
+  it('renders pattern command bodies without repeating effective prefixes', async () => {
     const configStore = useConfigStore()
     const pluginsStore = usePluginsStore()
     configStore.document = {
@@ -344,31 +355,41 @@ describe('MenuCenterView', () => {
       command_source: 'pattern',
       command_prefixes: ['/', '*'],
       usage: '角色列表',
+      usage_parts: [{ kind: 'literal', text: '角色列表' }],
     })
     expect(payload.groups[0].items[1]).toMatchObject({
       name: '角色攻略',
       command_source: 'pattern',
       command_prefixes: ['/', '*'],
       usage: '<角色名>攻略',
+      usage_parts: [
+        { kind: 'required', text: '角色名' },
+        { kind: 'literal', text: '攻略' },
+      ],
     })
     expect(payload.groups[0].items[2]).toMatchObject({
       name: '每日运势',
       command_source: 'dynamic',
       command_prefixes: ['/', '*'],
+      usage_args: '[日期]',
+      usage_parts: [{ kind: 'optional', text: '日期' }],
     })
     expect(payload.groups[0].items[2]).not.toHaveProperty('usage')
 
     const previewDoc = new DOMParser().parseFromString(pluginPreviewFrame(wrapper).attributes('srcdoc') ?? '', 'text/html')
-    const cards = Array.from(previewDoc.querySelectorAll('.card'))
-    const listCard = cards.find((card) => card.querySelector('.meta')?.textContent === '已适配角色列表')
-    const guideCard = cards.find((card) => card.querySelector('.meta')?.textContent === '角色攻略')
-    const dynamicCard = cards.find((card) => card.querySelector('.meta')?.textContent === '每日运势')
-    expect(listCard?.querySelector('.command-usage__prefix-group')?.textContent).toBe('/*')
-    expect(listCard?.querySelector('.command-usage__name')?.textContent).toBe('角色列表')
-    expect(guideCard?.querySelector('.command-usage__prefix-group')?.textContent).toBe('/*')
-    expect(guideCard?.querySelector('.command-usage__name')?.textContent).toBe('<角色名>攻略')
-    expect(dynamicCard?.querySelector('.command-usage__prefix-group')?.textContent).toBe('/*')
-    expect(dynamicCard?.querySelector('.command-usage__text')?.textContent).toBe('每日运势')
+    const cells = Array.from(previewDoc.querySelectorAll('.cell'))
+    const listCell = cells.find((cell) => cell.querySelector('.meta')?.textContent === '已适配角色列表')
+    const guideCell = cells.find((cell) => cell.querySelector('.meta')?.textContent === '角色攻略')
+    const dynamicCell = cells.find((cell) => cell.querySelector('.meta')?.textContent === '每日运势')
+    expect(previewDoc.querySelector('.command-prefixes__values')?.textContent?.trim()).toBe('/*')
+    expect(previewDoc.querySelector('.command-guide')).toBeNull()
+    expect(listCell?.querySelector('.command-usage__prefix-group')).toBeNull()
+    expect(listCell?.querySelector('.command-usage__name')?.textContent).toBe('角色列表')
+    expect(guideCell?.querySelector('.command-argument--required')?.textContent).toBe('必填角色名')
+    expect(guideCell?.querySelector('.command-usage__name')?.textContent).toBe('攻略')
+    expect(dynamicCell?.querySelector('.command-usage__prefix-group')).toBeNull()
+    expect(dynamicCell?.querySelector('.command-usage__name')?.textContent).toBe('每日运势')
+    expect(dynamicCell?.querySelector('.command-argument--optional')?.textContent).toBe('可选日期')
     expect(previewDoc.body.textContent).not.toContain('*已适配角色列表')
   })
 
@@ -420,21 +441,28 @@ describe('MenuCenterView', () => {
       name: '多字符前缀示例',
       command_prefixes: ['::', '/'],
       usage: '角色列表',
+      usage_parts: [{ kind: 'literal', text: '角色列表' }],
     })
     expect(items[1]).toMatchObject({
       name: '全角前缀示例',
       command_prefixes: ['::', '/'],
       usage: '<角色名>攻略',
+      usage_parts: [
+        { kind: 'required', text: '角色名' },
+        { kind: 'literal', text: '攻略' },
+      ],
     })
 
     const previewDoc = new DOMParser().parseFromString(pluginPreviewFrame(wrapper).attributes('srcdoc') ?? '', 'text/html')
     const usages = Array.from(previewDoc.querySelectorAll('.command-usage'))
     expect(usages).toHaveLength(2)
     for (const usage of usages) {
-      expect(usage.querySelector('.command-usage__prefix-group')?.textContent).toBe('::/')
+      expect(usage.querySelector('.command-usage__prefix-group')).toBeNull()
     }
+    expect(previewDoc.querySelector('.command-prefixes__values')?.textContent?.trim()).toBe('::/')
     expect(usages[0].querySelector('.command-usage__name')?.textContent).toBe('角色列表')
-    expect(usages[1].querySelector('.command-usage__name')?.textContent).toBe('<角色名>攻略')
+    expect(usages[1].querySelector('.command-argument--required')?.textContent).toBe('必填角色名')
+    expect(usages[1].querySelector('.command-usage__name')?.textContent).toBe('攻略')
     expect(previewDoc.body.textContent).not.toContain('多字符前缀示例::')
     expect(previewDoc.body.textContent).not.toContain('全角前缀示例::')
   })
@@ -483,7 +511,128 @@ describe('MenuCenterView', () => {
     expect(preview).toContain('LXGW WenKai Medium')
     expect(preview).not.toMatch(/\.ttf\b/i)
   })
+
+  it('keeps native preview classes aligned with the canonical help menu template and stylesheet', () => {
+    const wrapper = mount(NativeTemplatePreviewFrame, {
+      props: {
+        templateId: 'help.menu',
+        data: {
+          title: '插件菜单',
+          subtitle: '当前可用插件',
+          command_prefixes: ['/', '*'],
+          trigger_examples: ['/help 天气', '*天气帮助'],
+          user: {
+            id: '10001',
+            nickname: '星野',
+            title: '指令调度员',
+          },
+          group: {
+            name: '测试群组',
+          },
+          permission: {
+            level: 'admin',
+          },
+          groups: [
+            {
+              title: '命令',
+              items: [
+                {
+                  name: 'weather',
+                  description: '查询天气',
+                  command_prefixes: ['/', '*'],
+                  command_source: 'manifest',
+                  usage_args: '[空气质量] 城市',
+                  usage_parts: [
+                    { kind: 'optional', text: '空气质量' },
+                    { kind: 'required', text: '城市' },
+                  ],
+                  permission: 'everyone',
+                  permission_label: '所有人',
+                },
+                {
+                  name: 'legacy',
+                  description: '兼容旧输入',
+                  command_prefixes: ['/'],
+                  command_source: 'manifest',
+                  usage_args: '参数',
+                  permission: 'group_admin',
+                  permission_label: '群管理员',
+                },
+              ],
+            },
+          ],
+          render_footer: nativeMenuPreviewFooter,
+        },
+      },
+    })
+
+    const srcdoc = wrapper.get('[data-testid="native-template-preview-frame"]').attributes('srcdoc') ?? ''
+    const previewClasses = htmlClassNames(srcdoc)
+    const templateClasses = htmlClassNames(helpMenuTemplate.replace(/\{\{[\s\S]*?\}\}/g, ' '))
+    const stylesheetClasses = cssClassNames(helpMenuStyles)
+
+    for (const className of previewClasses) {
+      if (className.startsWith('theme-')) {
+        continue
+      }
+      const dynamicModifierPrefix = className.includes('--') ? `${className.slice(0, className.lastIndexOf('--') + 2)}{{` : ''
+      const declaredByTemplate = templateClasses.has(className)
+        || Boolean(dynamicModifierPrefix && helpMenuTemplate.includes(dynamicModifierPrefix))
+      const baseClassName = className.includes('--') ? className.slice(0, className.lastIndexOf('--')) : ''
+      const styledByStylesheet = stylesheetClasses.has(className)
+        || Boolean(baseClassName && stylesheetClasses.has(baseClassName))
+      expect(declaredByTemplate, `preview class .${className} is missing from templates/help.menu/template.html`).toBe(true)
+      expect(styledByStylesheet, `preview class .${className} is missing from templates/help.menu/styles.css`).toBe(true)
+    }
+
+    for (const className of templateClasses) {
+      if (
+        className.startsWith('theme-')
+        || className.startsWith('permission-badge--')
+        || className.startsWith('command-permission--')
+      ) {
+        continue
+      }
+      expect(previewClasses.has(className), `canonical class .${className} is missing from the native preview`).toBe(true)
+    }
+  })
+
+  it('keeps command usage visibility aligned with the canonical template', () => {
+    const wrapper = mount(NativeTemplatePreviewFrame, {
+      props: {
+        templateId: 'help.menu',
+        data: {
+          title: '插件菜单',
+          groups: [{
+            title: '命令',
+            items: [{
+              name: 'weather',
+              description: '查询天气',
+              command_source: 'manifest',
+              usage_parts: [{ kind: 'required', text: '城市' }],
+            }],
+          }],
+        },
+      },
+    })
+
+    expect(wrapper.get('[data-testid="native-template-preview-frame"]').attributes('srcdoc'))
+      .not.toContain('class="command-usage"')
+  })
 })
+
+function htmlClassNames(source: string) {
+  const document = new DOMParser().parseFromString(source, 'text/html')
+  return new Set(Array.from(document.querySelectorAll('[class]')).flatMap((element) => Array.from(element.classList)))
+}
+
+function cssClassNames(source: string) {
+  const selectors = source
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .replace(/url\([^)]*\)/gi, '')
+    .replace(/"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'/g, '')
+  return new Set(Array.from(selectors.matchAll(/\.([_a-zA-Z]+[\w-]*)/g), (match) => match[1]))
+}
 
 function rootPreviewPayload(wrapper: ReturnType<typeof mount>) {
   return previewPayload(wrapper, 'menu-center-root-preview')

@@ -314,7 +314,14 @@ func buildBuiltinCommands(commands []plugins.CommandView, cfg config.Config) []m
 			"permission":       builtinMenuEffectiveCommandPermission(command.Permission, cfg),
 		}
 		if commandSource == plugins.CommandSourcePattern {
-			item["usage"] = builtinPatternCommandUsage(command.Usage, prefixes)
+			usage := builtinPatternCommandUsage(command.Usage, prefixes)
+			item["usage"] = usage
+			if usageParts := builtinUsageParts(usage, "literal"); len(usageParts) > 0 {
+				item["usage_parts"] = usageParts
+			}
+		} else if usageArgs := builtinCommandUsageArgs(command.Name, command.Usage, prefixes); usageArgs != "" {
+			item["usage_args"] = usageArgs
+			item["usage_parts"] = builtinUsageParts(usageArgs, "required")
 		}
 		if len(command.Aliases) > 0 {
 			item["aliases"] = append([]string(nil), command.Aliases...)
@@ -337,6 +344,7 @@ func buildBuiltinHelp(help *plugins.HelpView, commands []plugins.CommandView, cf
 		result["summary"] = help.Summary
 	}
 	commandPermissions := builtinMenuCommandPermissionSet(commands, cfg)
+	prefixes := builtinMenuPrefixes(cfg)
 	groups := make([]map[string]any, 0, len(help.Groups))
 	for _, group := range help.Groups {
 		items := make([]map[string]any, 0, len(group.Items))
@@ -356,12 +364,18 @@ func buildBuiltinHelp(help *plugins.HelpView, commands []plugins.CommandView, cf
 					commandSource := normalizeBuiltinMenuCommandSource(command.CommandSource)
 					entry["command_source"] = commandSource
 					if commandSource == plugins.CommandSourcePattern {
-						entry["usage"] = builtinPatternCommandUsage(command.Usage, builtinMenuPrefixes(cfg))
-					} else if usageArgs := builtinCommandUsageArgs(commandName, item.Usage); usageArgs != "" {
+						usage := builtinPatternCommandUsage(command.Usage, prefixes)
+						entry["usage"] = usage
+						if usageParts := builtinUsageParts(usage, "literal"); len(usageParts) > 0 {
+							entry["usage_parts"] = usageParts
+						}
+					} else if usageArgs := builtinCommandUsageArgs(commandName, item.Usage, prefixes); usageArgs != "" {
 						entry["usage_args"] = usageArgs
+						entry["usage_parts"] = builtinUsageParts(usageArgs, "required")
 					}
-				} else if usageArgs := builtinCommandUsageArgs(commandName, item.Usage); usageArgs != "" {
+				} else if usageArgs := builtinCommandUsageArgs(commandName, item.Usage, prefixes); usageArgs != "" {
 					entry["usage_args"] = usageArgs
+					entry["usage_parts"] = builtinUsageParts(usageArgs, "required")
 				}
 			}
 			entry["permission_label"] = builtinMenuPermissionLabel(stringValueFromMap(entry, "permission"))
@@ -633,9 +647,12 @@ func builtinPatternCommandUsage(usage string, prefixes []string) string {
 	if usage == "" {
 		return ""
 	}
+	return stripBuiltinMenuExamplePrefix(usage, prefixes)
+}
 
+func stripBuiltinMenuExamplePrefix(usage string, prefixes []string) string {
 	matchedPrefix := ""
-	for _, prefix := range prefixes {
+	for _, prefix := range append(append([]string(nil), prefixes...), "/", "#", "*", "＊") {
 		prefix = strings.TrimSpace(prefix)
 		if prefix != "" && len(prefix) > len(matchedPrefix) && strings.HasPrefix(usage, prefix) {
 			matchedPrefix = prefix
@@ -644,12 +661,59 @@ func builtinPatternCommandUsage(usage string, prefixes []string) string {
 	if matchedPrefix != "" {
 		return strings.TrimSpace(strings.TrimPrefix(usage, matchedPrefix))
 	}
-	for _, prefix := range []string{"/", "#", "*", "＊"} {
-		if strings.HasPrefix(usage, prefix) {
-			return strings.TrimSpace(strings.TrimPrefix(usage, prefix))
-		}
-	}
 	return usage
+}
+
+func builtinUsageParts(usage string, plainKind string) []map[string]any {
+	usage = strings.TrimSpace(usage)
+	if usage == "" {
+		return nil
+	}
+
+	parts := []map[string]any{}
+	for cursor := 0; cursor < len(usage); {
+		openingIndex := -1
+		opening := byte(0)
+		for index := cursor; index < len(usage); index++ {
+			if usage[index] == '[' || usage[index] == '<' {
+				openingIndex = index
+				opening = usage[index]
+				break
+			}
+		}
+		if openingIndex < 0 {
+			parts = appendBuiltinUsagePart(parts, plainKind, usage[cursor:])
+			break
+		}
+
+		parts = appendBuiltinUsagePart(parts, plainKind, usage[cursor:openingIndex])
+		closing := byte(']')
+		kind := "optional"
+		if opening == '<' {
+			closing = '>'
+			kind = "required"
+		}
+		closingOffset := strings.IndexByte(usage[openingIndex+1:], closing)
+		if closingOffset < 0 {
+			parts = appendBuiltinUsagePart(parts, plainKind, usage[openingIndex:])
+			break
+		}
+		closingIndex := openingIndex + 1 + closingOffset
+		parts = appendBuiltinUsagePart(parts, kind, usage[openingIndex+1:closingIndex])
+		cursor = closingIndex + 1
+	}
+	return parts
+}
+
+func appendBuiltinUsagePart(parts []map[string]any, kind string, text string) []map[string]any {
+	text = strings.TrimSpace(text)
+	if text == "" {
+		return parts
+	}
+	return append(parts, map[string]any{
+		"kind": kind,
+		"text": text,
+	})
 }
 
 func builtinHelpCommandNames(help map[string]any) map[string]struct{} {
@@ -889,15 +953,13 @@ func setBuiltinMenuCommandPermission(permissions map[string]string, value string
 	permissions[value] = level
 }
 
-func builtinCommandUsageArgs(commandName string, usage string) string {
+func builtinCommandUsageArgs(commandName string, usage string, prefixes []string) string {
 	commandName = strings.TrimSpace(commandName)
 	usage = strings.TrimSpace(usage)
 	if commandName == "" || usage == "" {
 		return ""
 	}
-	if strings.HasPrefix(usage, "/") || strings.HasPrefix(usage, "#") || strings.HasPrefix(usage, "*") {
-		usage = strings.TrimSpace(usage[1:])
-	}
+	usage = stripBuiltinMenuExamplePrefix(usage, prefixes)
 	if usage == commandName {
 		return ""
 	}

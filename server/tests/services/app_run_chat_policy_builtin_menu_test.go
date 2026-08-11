@@ -107,7 +107,7 @@ func TestApplyChatPolicyDoesNotTreatPluginCommandAsBuiltinWhenMenuPrefixDiffers(
 	}
 }
 
-func TestHandleAdapterEventRendersBuiltinMenuPluginPrefixesAsSingleUsage(t *testing.T) {
+func TestHandleAdapterEventRendersBuiltinMenuPluginPrefixesAsHeaderBadge(t *testing.T) {
 	t.Parallel()
 
 	sender := &recordingOutboundSender{}
@@ -162,19 +162,18 @@ func TestHandleAdapterEventRendersBuiltinMenuPluginPrefixesAsSingleUsage(t *test
 		t.Fatalf("unexpected plugin menu reply: count=%d image=%q", sender.replyCount, sender.lastReplyImage)
 	}
 	html := runner.lastHTML()
-	for _, want := range []string{`command-usage__prefix-group`, `command-usage__prefix">#</span>`, `command-usage__prefix">*</span>`} {
+	for _, want := range []string{`class="command-prefixes"`, `class="command-prefixes__label">前缀</span>`, `<code>#</code>`, `<code>*</code>`} {
 		if !strings.Contains(html, want) {
 			t.Fatalf("builtin plugin menu html missing %q:\n%s", want, html)
 		}
 	}
-	if !strings.Contains(html, `command-usage__text`) {
-		t.Fatalf("builtin plugin menu html missing command usage text wrapper:\n%s", html)
+	for _, unwanted := range []string{"command-guide__block--prefixes", "command-usage__prefix", "command-usage__text"} {
+		if strings.Contains(html, unwanted) {
+			t.Fatalf("builtin plugin menu html contains obsolete prefix markup %q:\n%s", unwanted, html)
+		}
 	}
 	if got := strings.Count(html, `command-usage__name">订阅状态</span>`); got != 1 {
 		t.Fatalf("command name rendered %d times, want 1:\n%s", got, html)
-	}
-	if strings.Contains(html, `</span><span class="command-usage__name">订阅状态</span></code><code>`) {
-		t.Fatalf("command prefixes should share one usage code:\n%s", html)
 	}
 	if strings.Contains(html, `<span class="command-usage__args">`) {
 		t.Fatalf("command without usage args should not render args span:\n%s", html)

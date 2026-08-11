@@ -18,6 +18,13 @@ const defaultRenderFooterTemplate = 'Created By RayleaBot {{rayleabot_version}} 
 const previewDevelopmentVersion = '开发版本'
 const previewSystemMenuPluginName = 'RayleaBot'
 
+type CommandUsagePartKind = 'literal' | 'required' | 'optional'
+
+interface CommandUsagePart {
+  kind: CommandUsagePartKind
+  text: string
+}
+
 const configStore = useConfigStore()
 const pluginsStore = usePluginsStore()
 const { document: configDocument, error: configError, loading: configLoading, saving } = storeToRefs(configStore)
@@ -239,15 +246,24 @@ function isCommandCoveredByHelp(command: PluginCommandSummary, helpCommands: Set
 
 function commandPreviewFields(command: PluginCommandSummary) {
   if (command.command_source === 'pattern') {
+    const usage = patternCommandUsage(command.usage, effectiveMenuPrefixes.value)
     return {
       command_source: command.command_source,
       command_prefixes: effectiveMenuPrefixes.value,
-      usage: patternCommandUsage(command.usage, effectiveMenuPrefixes.value),
+      usage,
+      usage_parts: commandUsageParts(usage, 'literal'),
     }
   }
+  const usageArgs = commandUsageArgs(command.name, command.usage, effectiveMenuPrefixes.value)
   return {
     command_source: command.command_source,
     command_prefixes: effectiveMenuPrefixes.value,
+    ...(usageArgs
+      ? {
+          usage_args: usageArgs,
+          usage_parts: commandUsageParts(usageArgs, 'required'),
+        }
+      : {}),
   }
 }
 
@@ -260,10 +276,16 @@ function helpCommandPreviewFields(plugin: PluginSummary, commandName?: string | 
   if (command?.command_source === 'pattern') {
     return commandPreviewFields(command)
   }
+  const usageArgs = commandUsageArgs(name, usage, effectiveMenuPrefixes.value)
   return {
     ...(command ? { command_source: command.command_source } : {}),
     command_prefixes: effectiveMenuPrefixes.value,
-    usage_args: commandUsageArgs(name, usage),
+    ...(usageArgs
+      ? {
+          usage_args: usageArgs,
+          usage_parts: commandUsageParts(usageArgs, 'required'),
+        }
+      : {}),
   }
 }
 
@@ -284,6 +306,10 @@ function patternCommandUsage(usage: string | null | undefined, prefixes: string[
   if (!value) {
     return ''
   }
+  return stripCommandExamplePrefix(value, prefixes)
+}
+
+function stripCommandExamplePrefix(value: string, prefixes: string[]) {
   const examplePrefixes = [...new Set([...prefixes, '/', '#', '*', '＊'])]
     .map((prefix) => prefix.trim())
     .filter(Boolean)
@@ -292,15 +318,13 @@ function patternCommandUsage(usage: string | null | undefined, prefixes: string[
   return matchedPrefix ? value.slice(matchedPrefix.length).trimStart() : value
 }
 
-function commandUsageArgs(commandName?: string | null, usage?: string | null) {
+function commandUsageArgs(commandName?: string | null, usage?: string | null, prefixes: string[] = []) {
   const command = String(commandName ?? '').trim()
   let value = String(usage ?? '').trim()
   if (!command || !value) {
     return ''
   }
-  if (['/', '#', '*'].includes(value[0])) {
-    value = value.slice(1).trim()
-  }
+  value = stripCommandExamplePrefix(value, prefixes)
   if (value === command) {
     return ''
   }
@@ -308,6 +332,32 @@ function commandUsageArgs(commandName?: string | null, usage?: string | null) {
     return value.slice(command.length).trim()
   }
   return ''
+}
+
+function commandUsageParts(usage: string, plainKind: 'literal' | 'required'): CommandUsagePart[] {
+  const source = usage.trim()
+  if (!source) {
+    return []
+  }
+
+  const parts: CommandUsagePart[] = []
+  const pattern = /\[([^\]]+)\]|<([^>]+)>/g
+  let cursor = 0
+  for (const match of source.matchAll(pattern)) {
+    const index = match.index ?? cursor
+    appendCommandUsagePart(parts, plainKind, source.slice(cursor, index))
+    appendCommandUsagePart(parts, match[1] === undefined ? 'required' : 'optional', match[1] ?? match[2] ?? '')
+    cursor = index + match[0].length
+  }
+  appendCommandUsagePart(parts, plainKind, source.slice(cursor))
+  return parts
+}
+
+function appendCommandUsagePart(parts: CommandUsagePart[], kind: CommandUsagePartKind, text: string) {
+  const normalized = text.trim()
+  if (normalized) {
+    parts.push({ kind, text: normalized })
+  }
 }
 
 function patchBuiltinMenuConfig(source: ConfigDocument) {

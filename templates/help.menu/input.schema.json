@@ -1,5 +1,22 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$defs": {
+    "usage_part": {
+      "type": "object",
+      "required": ["kind", "text"],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": ["literal", "required", "optional"]
+        },
+        "text": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false
+    }
+  },
   "type": "object",
   "required": ["title"],
   "properties": {
@@ -86,6 +103,12 @@
           "usage_args": {
             "type": "string"
           },
+          "usage_parts": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/usage_part"
+            }
+          },
           "command_prefixes": {
             "type": "array",
             "items": {
@@ -140,6 +163,12 @@
                 },
                 "usage_args": {
                   "type": "string"
+                },
+                "usage_parts": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/$defs/usage_part"
+                  }
                 },
                 "command_prefixes": {
                   "type": "array",

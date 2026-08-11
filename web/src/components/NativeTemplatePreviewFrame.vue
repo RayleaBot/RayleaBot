@@ -22,6 +22,12 @@ import helpMenuStyles from '../../../templates/help.menu/styles.css?raw'
 
 type PreviewData = Record<string, unknown>
 type PreviewRecord = Record<string, unknown>
+type PreviewUsagePartKind = 'literal' | 'required' | 'optional'
+
+interface PreviewUsagePart {
+  kind: PreviewUsagePartKind
+  text: string
+}
 
 const props = defineProps<{
   templateId: 'help.menu'
@@ -48,49 +54,10 @@ function buildPreviewDocument(templateId: string, data: PreviewData) {
         min-height: 100%;
         width: 100%;
         max-width: 100%;
-        color-scheme: dark;
-        scrollbar-color: #39c5bb #07111f;
-        scrollbar-width: thin;
       }
       body {
         overflow-x: hidden;
         overflow-y: auto;
-      }
-      ::-webkit-scrollbar {
-        width: 12px;
-      }
-      html::-webkit-scrollbar,
-      body::-webkit-scrollbar {
-        width: 12px;
-      }
-      ::-webkit-scrollbar-track {
-        background: #07111f;
-        border-left: 1px solid var(--color-border-subtle);
-      }
-      html::-webkit-scrollbar-track,
-      body::-webkit-scrollbar-track {
-        background: #07111f;
-        border-left: 1px solid var(--color-border-subtle);
-      }
-      ::-webkit-scrollbar-thumb {
-        min-height: 48px;
-        border: 3px solid #07111f;
-        border-radius: var(--radius-full);
-        background: linear-gradient(180deg, #66ccff, #39c5bb);
-      }
-      html::-webkit-scrollbar-thumb,
-      body::-webkit-scrollbar-thumb {
-        min-height: 48px;
-        border: 3px solid #07111f;
-        border-radius: var(--radius-full);
-        background: linear-gradient(180deg, #66ccff, #39c5bb);
-      }
-      ::-webkit-scrollbar-thumb:hover {
-        background: linear-gradient(180deg, #8bddff, #54ded3);
-      }
-      html::-webkit-scrollbar-thumb:hover,
-      body::-webkit-scrollbar-thumb:hover {
-        background: linear-gradient(180deg, #8bddff, #54ded3);
       }
     </style>
   </head>
@@ -164,35 +131,39 @@ function renderTitleArea(data: PreviewRecord) {
   return `<div class="page-header__title-area">
         <h1>${escapeHtml(value(data.title))}</h1>
         ${optionalElement('p', 'subtitle', data.subtitle)}
+        ${renderCommandPrefixes(data.command_prefixes)}
+      </div>`
+}
+
+function renderCommandPrefixes(input: unknown) {
+  const prefixes = stringList(input)
+  if (prefixes.length === 0) {
+    return ''
+  }
+  return `<div class="command-prefixes" aria-label="可用指令前缀">
+        <span class="command-prefixes__label">前缀</span>
+        <span class="command-prefixes__values">
+          ${prefixes.map((prefix) => `<code>${escapeHtml(prefix)}</code>`).join('')}
+        </span>
       </div>`
 }
 
 function renderCommandGuide(data: PreviewRecord) {
-  const prefixes = stringList(data.command_prefixes)
   const examples = stringList(data.trigger_examples)
-  if (prefixes.length === 0 && examples.length === 0) {
+  if (examples.length === 0) {
     return ''
   }
-
   return `<section class="command-guide" aria-label="菜单触发方式">
-        ${renderCommandGuideBlock('指令前缀', prefixes)}
-        ${renderCommandGuideBlock('触发指令示例', examples)}
+        <div class="command-guide__block command-guide__block--examples">
+          <span class="command-guide__label">触发指令示例</span>
+          <div class="command-guide__chips">
+            ${examples.map((item) => `<code>${escapeHtml(item)}</code>`).join('')}
+          </div>
+        </div>
       </section>`
 }
 
-function renderCommandGuideBlock(label: string, items: string[]) {
-  if (items.length === 0) {
-    return ''
-  }
-  return `<div class="command-guide__block">
-        <span class="command-guide__label">${escapeHtml(label)}</span>
-        <div class="command-guide__chips">
-          ${items.map((item) => `<code>${escapeHtml(item)}</code>`).join('')}
-        </div>
-      </div>`
-}
-
-function renderCard(item: unknown) {
+function renderCell(item: unknown) {
   const payload = record(item)
   const level = value(payload.permission)
   const label = permissionLabel(level, payload.permission_label)
@@ -200,8 +171,8 @@ function renderCard(item: unknown) {
     ? `<span class="command-permission command-permission--${escapeAttribute(level)}">${escapeHtml(label)}</span>`
     : ''
 
-  return `<article class="card">
-        <div class="card__header">
+  return `<article class="cell">
+        <div class="cell__header">
           <div class="meta">${escapeHtml(value(payload.name, value(payload.title)))}</div>
           ${permission}
         </div>
@@ -220,14 +191,50 @@ function renderCommandUsage(payload: PreviewRecord) {
   if (!commandName || prefixes.length === 0) {
     return ''
   }
+  const parts = previewUsageParts(payload.usage_parts)
+  const content = commandSource === 'pattern'
+    ? parts.length > 0
+      ? renderUsageParts(parts)
+      : `<span class="command-usage__name">${escapeHtml(commandName)}</span>`
+    : `<span class="command-usage__name">${escapeHtml(commandName)}</span>${parts.length > 0
+      ? renderUsageParts(parts)
+      : usageArgs
+        ? `<span class="command-usage__args">${escapeHtml(usageArgs)}</span>`
+        : ''}`
   return `<div class="command-usage" aria-label="指令示意">
-        <code><span class="command-usage__prefix-group" aria-label="可用前缀">${prefixes.map((prefix) => `<span class="command-usage__prefix">${escapeHtml(prefix)}</span>`).join('')}</span><span class="command-usage__text"><span class="command-usage__name">${escapeHtml(commandName)}</span>${usageArgs ? ` <span class="command-usage__args">${escapeHtml(usageArgs)}</span>` : ''}</span></code>
+        <code>${content}</code>
       </div>`
 }
 
+function previewUsageParts(input: unknown): PreviewUsagePart[] {
+  if (!Array.isArray(input)) {
+    return []
+  }
+  const parts: PreviewUsagePart[] = []
+  for (const item of input) {
+    const payload = record(item)
+    const kind = value(payload.kind)
+    const text = value(payload.text)
+    if ((kind === 'literal' || kind === 'required' || kind === 'optional') && text) {
+      parts.push({ kind, text })
+    }
+  }
+  return parts
+}
+
+function renderUsageParts(parts: PreviewUsagePart[]) {
+  return parts.map((part) => {
+    if (part.kind === 'literal') {
+      return `<span class="command-usage__name">${escapeHtml(part.text)}</span>`
+    }
+    const label = part.kind === 'optional' ? '可选' : '必填'
+    return `<span class="command-argument command-argument--${part.kind}" aria-label="${label}参数 ${escapeAttribute(part.text)}"><span class="command-argument__label">${label}</span><span class="command-argument__value">${escapeHtml(part.text)}</span></span>`
+  }).join('')
+}
+
 function renderItemGrid(items: unknown) {
-  const cards = Array.isArray(items) ? items.map(renderCard).join('') : ''
-  return `<div class="grid">${cards}</div>`
+  const cells = Array.isArray(items) ? items.map(renderCell).join('') : ''
+  return `<div class="grid">${cells}</div>`
 }
 
 function renderGroups(groups: unknown) {

@@ -206,6 +206,18 @@ func TestBuildBuiltinCommandsUsesDeclaredUsageBodyAndConfiguredPrefixesForPatter
 			t.Fatalf("non-pattern item %d should not expose literal usage: %#v", index+2, item)
 		}
 	}
+	if got := items[2]["usage_args"]; got != "<角色名>" {
+		t.Fatalf("manifest usage_args = %#v, want <角色名>", got)
+	}
+	if got := items[2]["usage_parts"]; !reflect.DeepEqual(got, []map[string]any{{"kind": "required", "text": "角色名"}}) {
+		t.Fatalf("manifest usage_parts = %#v", got)
+	}
+	if got := items[3]["usage_args"]; got != "[日期]" {
+		t.Fatalf("dynamic usage_args = %#v, want [日期]", got)
+	}
+	if got := items[3]["usage_parts"]; !reflect.DeepEqual(got, []map[string]any{{"kind": "optional", "text": "日期"}}) {
+		t.Fatalf("dynamic usage_parts = %#v", got)
+	}
 }
 
 func TestBuiltinPatternCommandUsageStripsConfiguredAndCommonExamplePrefixes(t *testing.T) {
@@ -230,6 +242,53 @@ func TestBuiltinPatternCommandUsageStripsConfiguredAndCommonExamplePrefixes(t *t
 			t.Parallel()
 			if got := builtinPatternCommandUsage(testCase.usage, testCase.prefixes); got != testCase.want {
 				t.Fatalf("builtinPatternCommandUsage(%q, %#v) = %q, want %q", testCase.usage, testCase.prefixes, got, testCase.want)
+			}
+		})
+	}
+}
+
+func TestBuiltinUsagePartsDistinguishRequiredOptionalAndLiteralSegments(t *testing.T) {
+	t.Parallel()
+
+	testCases := []struct {
+		name      string
+		usage     string
+		plainKind string
+		want      []map[string]any
+	}{
+		{
+			name:      "manifest optional type before required target",
+			usage:     "[直播|视频|图文] UID或昵称",
+			plainKind: "required",
+			want: []map[string]any{
+				{"kind": "optional", "text": "直播|视频|图文"},
+				{"kind": "required", "text": "UID或昵称"},
+			},
+		},
+		{
+			name:      "pattern required placeholder and literal suffix",
+			usage:     "<角色名>攻略",
+			plainKind: "literal",
+			want: []map[string]any{
+				{"kind": "required", "text": "角色名"},
+				{"kind": "literal", "text": "攻略"},
+			},
+		},
+		{
+			name:      "bare manifest argument is required",
+			usage:     "UP昵称关键词",
+			plainKind: "required",
+			want: []map[string]any{
+				{"kind": "required", "text": "UP昵称关键词"},
+			},
+		},
+	}
+
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+			if got := builtinUsageParts(testCase.usage, testCase.plainKind); !reflect.DeepEqual(got, testCase.want) {
+				t.Fatalf("builtinUsageParts(%q, %q) = %#v, want %#v", testCase.usage, testCase.plainKind, got, testCase.want)
 			}
 		})
 	}
@@ -357,6 +416,9 @@ func TestBuiltinPluginMenuDataOmitsCommandsCoveredByHelp(t *testing.T) {
 	items, _ := groups[1]["items"].([]map[string]any)
 	if got := items[0]["usage_args"]; got != "[当前|全部]" {
 		t.Fatalf("usage_args = %#v, want [当前|全部]", got)
+	}
+	if got := items[0]["usage_parts"]; !reflect.DeepEqual(got, []map[string]any{{"kind": "optional", "text": "当前|全部"}}) {
+		t.Fatalf("usage_parts = %#v, want optional 当前|全部", got)
 	}
 }
 

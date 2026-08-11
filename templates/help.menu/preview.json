@@ -23,7 +23,11 @@
           "description": "查询天气",
           "command_source": "manifest",
           "command_prefixes": ["/", "*"],
-          "usage_args": "<城市>",
+          "usage_args": "<城市> [天数]",
+          "usage_parts": [
+            { "kind": "required", "text": "城市" },
+            { "kind": "optional", "text": "天数" }
+          ],
           "permission": "everyone",
           "permission_label": "所有人可用"
         }
@@ -38,6 +42,9 @@
           "command_source": "pattern",
           "command_prefixes": ["/", "*"],
           "usage": "角色列表",
+          "usage_parts": [
+            { "kind": "literal", "text": "角色列表" }
+          ],
           "permission": "everyone",
           "permission_label": "所有人可用"
         },
@@ -47,6 +54,10 @@
           "command_source": "pattern",
           "command_prefixes": ["/", "*"],
           "usage": "<角色名>攻略",
+          "usage_parts": [
+            { "kind": "required", "text": "角色名" },
+            { "kind": "literal", "text": "攻略" }
+          ],
           "permission": "everyone",
           "permission_label": "所有人可用"
         }

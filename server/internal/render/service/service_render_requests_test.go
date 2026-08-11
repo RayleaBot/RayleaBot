@@ -72,6 +72,79 @@ func TestServiceRenderRequestsAdaptiveDocumentHeight(t *testing.T) {
 	}
 }
 
+func TestServiceRenderHelpMenuUsesCompactPrefixesAndArgumentKinds(t *testing.T) {
+	t.Parallel()
+
+	repoRoot := filepath.Join("..", "..", "..", "..")
+	runner := &fakeRunner{}
+	service, err := NewService(Options{
+		RepoRoot:           repoRoot,
+		OutputRoot:         filepath.Join(t.TempDir(), "render-help-menu"),
+		Store:              openRenderTestStore(t),
+		Runner:             runner,
+		WorkerCount:        1,
+		QueueMaxLength:     2,
+		QueueWaitTimeout:   time.Second,
+		RenderTimeout:      time.Second,
+		MaxRenderDataBytes: 256 * 1024,
+	})
+	if err != nil {
+		t.Fatalf("NewService: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := service.Close(); err != nil {
+			t.Fatalf("Close: %v", err)
+		}
+	})
+
+	_, err = service.Render(context.Background(), Request{
+		Template: "help.menu",
+		Data: map[string]any{
+			"title":            "订阅中心",
+			"command_prefixes": []string{"/", "*", "~"},
+			"groups": []map[string]any{{
+				"title": "订阅操作",
+				"items": []map[string]any{{
+					"name":             "订阅b站推送",
+					"description":      "订阅指定 Bilibili 用户的更新",
+					"command_source":   "manifest",
+					"command_prefixes": []string{"/", "*", "~"},
+					"usage_args":       "[直播|视频|图文] UID或昵称",
+					"usage_parts": []map[string]any{
+						{"kind": "optional", "text": "直播|视频|图文"},
+						{"kind": "required", "text": "UID或昵称"},
+					},
+				}},
+			}},
+		},
+	})
+	if err != nil {
+		t.Fatalf("Render: %v", err)
+	}
+
+	doc, ok := runner.lastDocument()
+	if !ok {
+		t.Fatal("expected render document")
+	}
+	for _, want := range []string{
+		`class="command-prefixes"`,
+		`class="command-prefixes__label">前缀</span>`,
+		`class="command-argument command-argument--optional"`,
+		`class="command-argument command-argument--required"`,
+		">直播|视频|图文</span>",
+		">UID或昵称</span>",
+	} {
+		if !strings.Contains(doc.HTML, want) {
+			t.Fatalf("help menu html missing %q:\n%s", want, doc.HTML)
+		}
+	}
+	for _, unwanted := range []string{"command-guide__block--prefixes", "command-usage__prefix"} {
+		if strings.Contains(doc.HTML, unwanted) {
+			t.Fatalf("help menu html contains obsolete per-command prefix markup %q:\n%s", unwanted, doc.HTML)
+		}
+	}
+}
+
 func TestServiceRenderLeaderboardListTemplate(t *testing.T) {
 	t.Parallel()
 

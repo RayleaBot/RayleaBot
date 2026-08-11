@@ -19,6 +19,7 @@ import {
 import { t } from '@/i18n'
 import { useRenderTemplatesStore } from '@/stores/render-templates'
 import type { RenderTemplateSummary } from '@/types/api'
+import helpMenuPreviewData from '../../../../templates/help.menu/preview.json'
 import { useRenderPreviewResources } from './useRenderPreviewResources'
 
 const route = useRoute()
@@ -220,29 +221,7 @@ function buildDefaultPreviewData(templateId: string, schema: Record<string, unkn
   }
 
   if (templateId === 'help.menu') {
-    return JSON.stringify({
-      title: '帮助菜单',
-      subtitle: '常用命令入口',
-      user: {
-        avatar_url: 'https://q1.qlogo.cn/g?b=qq&nk=10001&s=100',
-        nickname: '星野',
-        title: '指令调度员',
-        id: '10001',
-      },
-      group: {
-        name: '测试群组',
-      },
-      permission: {
-        level: 'admin',
-      },
-      items: [
-        {
-          name: 'weather',
-          description: '查询天气',
-          usage: '/weather <城市>',
-        },
-      ],
-    }, null, 2)
+    return JSON.stringify(helpMenuPreviewData, null, 2)
   }
 
   if (templateId === 'status.panel') {

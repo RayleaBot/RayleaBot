@@ -270,7 +270,7 @@
           "usage": {
             "type": "string",
             "minLength": 1,
-            "description": "Usage pattern for help output (e.g., '/weather <city> [--days=N]')."
+            "description": "Usage pattern for help output. After the command name, angle brackets and unbracketed text mark required arguments, while square brackets mark optional arguments (e.g., '/weather <city> [--days=N]')."
           },
           "permission": {
             "type": "string",
@@ -312,7 +312,7 @@
           "usage": {
             "type": "string",
             "minLength": 1,
-            "description": "User-facing usage example for help output."
+            "description": "User-facing usage pattern for help output. Angle brackets mark required arguments, square brackets mark optional arguments, and unbracketed text is literal command text."
           },
           "permission": {
             "type": "string",
@@ -349,7 +349,7 @@
           },
           "usage_args": {
             "type": "string",
-            "description": "Optional argument pattern appended after the projected command name for help output."
+            "description": "Optional argument pattern appended after the projected command name for help output. Angle brackets and unbracketed text mark required arguments, while square brackets mark optional arguments."
           },
           "permission": {
             "type": "string",
@@ -427,7 +427,8 @@
         },
         "usage": {
           "type": "string",
-          "minLength": 1
+          "minLength": 1,
+          "description": "Usage pattern for help output. For command-linked items, angle brackets and unbracketed text after the command name mark required arguments, while square brackets mark optional arguments."
         },
         "command": {
           "type": "string",

@@ -7,6 +7,7 @@ import { createMemoryHistory, createRouter } from 'vue-router'
 import { useToastFeedback } from '@/adapter/feedback'
 import RenderTemplatesView from '@/views/system/RenderTemplatesView.vue'
 import { useRenderTemplatesStore } from '@/stores/render-templates'
+import helpMenuPreviewData from '../../../templates/help.menu/preview.json'
 import type {
   RenderTemplateDetail,
   RenderTemplatePreviewHTMLResponse,
@@ -17,29 +18,7 @@ vi.mock('@/adapter/feedback', () => ({
   useToastFeedback: vi.fn(),
 }))
 
-const HELP_MENU_DEFAULT_PREVIEW_DATA = JSON.stringify({
-  title: '帮助菜单',
-  subtitle: '常用命令入口',
-  user: {
-    avatar_url: 'https://q1.qlogo.cn/g?b=qq&nk=10001&s=100',
-    nickname: '星野',
-    title: '指令调度员',
-    id: '10001',
-  },
-  group: {
-    name: '测试群组',
-  },
-  permission: {
-    level: 'admin',
-  },
-  items: [
-    {
-      name: 'weather',
-      description: '查询天气',
-      usage: '/weather <城市>',
-    },
-  ],
-}, null, 2)
+const HELP_MENU_DEFAULT_PREVIEW_DATA = JSON.stringify(helpMenuPreviewData, null, 2)
 
 const HELP_MENU_ALTERNATE_PREVIEW_DATA = JSON.stringify({
   title: '帮助菜单（新）',
