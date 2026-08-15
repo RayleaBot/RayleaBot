@@ -72,6 +72,13 @@ func (r renderer) RenderImage(ctx context.Context, req RenderImageRequest) (Rend
 		},
 	})
 	if err != nil {
+		if renderErr, ok := renderservice.AsTemplateError(err); ok {
+			return RenderImageResult{}, &RenderTemplateError{
+				Code:    renderErr.Code,
+				Message: renderErr.Message,
+				Err:     err,
+			}
+		}
 		return RenderImageResult{}, err
 	}
 	return RenderImageResult{
