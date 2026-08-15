@@ -274,6 +274,9 @@ class SelfHostSmokeTests(unittest.TestCase):
 
         self_host_smoke.validate_protocol_snapshot(payload)
 
+        payload["provider"] = "unknown"
+        self_host_smoke.validate_protocol_snapshot(payload)
+
         payload["transport_status"] = payload["transport_status"][:-1]
         with self.assertRaises(self_host_smoke.SmokeError):
             self_host_smoke.validate_protocol_snapshot(payload)
@@ -354,8 +357,8 @@ class SelfHostSmokeTests(unittest.TestCase):
                     "width": 960,
                     "height": 640,
                     "has_input_schema": True,
-                    "current_revision_id": "rev_help_menu_0001",
                     "updated_at": "2026-04-18T10:30:00Z",
+                    "source": {"type": "system", "plugin_id": None, "local_id": None},
                 }
             ]
         }
@@ -366,37 +369,37 @@ class SelfHostSmokeTests(unittest.TestCase):
         with self.assertRaises(self_host_smoke.SmokeError):
             self_host_smoke.select_template_id(payload)
 
-    def test_validate_render_template_versions_checks_save_and_rollback_order(self) -> None:
-        payload = {
-            "items": [
-                {
-                    "revision_id": "rev_help_menu_0003",
-                    "template_version": "1",
-                    "saved_at": "2026-04-18T11:20:00Z",
-                    "kind": "rollback",
-                    "message": "rollback",
-                },
-                {
-                    "revision_id": "rev_help_menu_0002",
-                    "template_version": "1",
-                    "saved_at": "2026-04-18T11:05:00Z",
-                    "kind": "save",
-                    "message": "save",
-                },
-            ]
+    def test_validate_render_template_detail_and_preview_html_match_current_contract(self) -> None:
+        detail = {
+            "template": {
+                "id": "help.menu",
+                "version": "1",
+                "width": 960,
+                "height": 640,
+                "has_input_schema": True,
+                "updated_at": "2026-04-18T10:30:00Z",
+                "source": {"type": "system", "plugin_id": None, "local_id": None},
+                "input_schema_json": {"type": "object"},
+                "preview_data_json": {"title": "RayleaBot"},
+            }
+        }
+        preview = {
+            "template_id": "help.menu",
+            "revision_id": "rev_help_menu_0001",
+            "width": 960,
+            "height": 640,
+            "html": "<!doctype html><html></html>",
         }
 
-        revision_ids = self_host_smoke.validate_render_template_versions(
-            payload,
-            expected_top_revision_id="rev_help_menu_0003",
-            expected_top_kind="rollback",
-        )
+        preview_data = self_host_smoke.validate_render_template_detail(detail, "help.menu")
+        revision_id = self_host_smoke.validate_render_template_preview_html(preview, "help.menu")
 
-        self.assertEqual(["rev_help_menu_0003", "rev_help_menu_0002"], revision_ids)
+        self.assertEqual({"title": "RayleaBot"}, preview_data)
+        self.assertEqual("rev_help_menu_0001", revision_id)
 
-        payload["items"][0]["kind"] = "draft"
+        preview["html"] = ""
         with self.assertRaises(self_host_smoke.SmokeError):
-            self_host_smoke.validate_render_template_versions(payload)
+            self_host_smoke.validate_render_template_preview_html(preview, "help.menu")
 
 
 if __name__ == "__main__":

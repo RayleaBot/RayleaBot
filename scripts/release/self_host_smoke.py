@@ -42,7 +42,7 @@ STARTUP_READY_STATUSES = {"ready", "degraded", "setup_required"}
 MANAGED_READY_STATUSES = {"ready", "degraded"}
 NON_BLOCKING_RECOVERY_STATUSES = {"compatible", "degraded"}
 EXPECTED_PROTOCOL_TRANSPORTS = {"reverse_ws", "forward_ws", "http_api", "webhook"}
-EXPECTED_PROTOCOL_PROVIDERS = {"standard", "napcat", "luckylillia"}
+EXPECTED_PROTOCOL_PROVIDERS = {"unknown", "standard", "napcat", "luckylillia"}
 EXPECTED_PROTOCOL_READINESS_STATUSES = {"setup_required", "ready", "degraded", "failed"}
 EXPECTED_COMPATIBILITY_CATEGORIES = {"events", "message_segments", "read_capabilities", "provider_extensions"}
 EXPECTED_COMPATIBILITY_ITEMS = {
@@ -273,6 +273,34 @@ def validate_protocol_compatibility(payload: dict[str, object]) -> None:
         raise SmokeError(f"protocol compatibility missing representative items: {missing_items}")
 
 
+def validate_render_template_source_info(source: object, template_id: str) -> None:
+    if not isinstance(source, dict):
+        raise SmokeError(f"render template {template_id} source must be an object")
+    source_type = require_non_empty_string(source.get("type"), f"render template {template_id} source type")
+    if source_type == "system":
+        if source.get("plugin_id") is not None or source.get("local_id") is not None:
+            raise SmokeError(f"system render template {template_id} must not expose plugin identity: {source}")
+        return
+    if source_type != "plugin":
+        raise SmokeError(f"render template {template_id} source type is invalid: {source}")
+    require_non_empty_string(source.get("plugin_id"), f"render template {template_id} source plugin_id")
+    require_non_empty_string(source.get("local_id"), f"render template {template_id} source local_id")
+
+
+def validate_render_template_metadata(template: dict[str, object]) -> str:
+    template_id = require_non_empty_string(template.get("id"), "render template id")
+    require_non_empty_string(template.get("version"), f"render template {template_id} version")
+    require_non_empty_string(template.get("updated_at"), f"render template {template_id} updated_at")
+    width = template.get("width")
+    height = template.get("height")
+    if not isinstance(width, int) or width <= 0 or not isinstance(height, int) or height <= 0:
+        raise SmokeError(f"render template dimensions must be positive integers: {template}")
+    if not isinstance(template.get("has_input_schema"), bool):
+        raise SmokeError(f"render template has_input_schema must be boolean: {template}")
+    validate_render_template_source_info(template.get("source"), template_id)
+    return template_id
+
+
 def select_template_id(list_payload: dict[str, object]) -> str:
     items = list_payload.get("items")
     if not isinstance(items, list) or len(items) == 0:
@@ -283,17 +311,8 @@ def select_template_id(list_payload: dict[str, object]) -> str:
     for item in items:
         if not isinstance(item, dict):
             raise SmokeError(f"render template list item must be an object: {list_payload}")
-        template_id = require_non_empty_string(item.get("id"), "render template id")
+        template_id = validate_render_template_metadata(item)
         available.add(template_id)
-        require_non_empty_string(item.get("version"), f"render template {template_id} version")
-        require_non_empty_string(item.get("current_revision_id"), f"render template {template_id} current_revision_id")
-        updated_at = item.get("updated_at")
-        if updated_at is not None:
-            require_non_empty_string(updated_at, f"render template {template_id} updated_at")
-        if not isinstance(item.get("width"), int) or not isinstance(item.get("height"), int):
-            raise SmokeError(f"render template dimensions must be integers: {item}")
-        if not isinstance(item.get("has_input_schema"), bool):
-            raise SmokeError(f"render template has_input_schema must be boolean: {item}")
         if template_id == DEFAULT_TEMPLATE_ID:
             selected = template_id
 
@@ -302,86 +321,31 @@ def select_template_id(list_payload: dict[str, object]) -> str:
     return selected
 
 
-def validate_render_template_source(payload: dict[str, object], template_id: str) -> str:
-    if str(payload.get("template_id", "")) != template_id:
-        raise SmokeError(f"unexpected render template source payload: {payload}")
-    revision_id = require_non_empty_string(payload.get("revision_id"), f"{template_id} revision_id")
-    source = payload.get("source")
-    if not isinstance(source, dict):
-        raise SmokeError(f"render template source must be an object: {payload}")
-    manifest = source.get("manifest_json")
-    if not isinstance(manifest, dict):
-        raise SmokeError(f"render template manifest_json must be an object: {payload}")
-    if str(manifest.get("id", "")) != template_id:
-        raise SmokeError(f"render template manifest id must match path template_id: {payload}")
-    require_non_empty_string(source.get("html"), f"{template_id} html")
-    require_non_empty_string(source.get("stylesheet"), f"{template_id} stylesheet")
-    return revision_id
-
-
-def validate_render_template_validation(payload: dict[str, object], template_id: str) -> None:
-    if payload.get("valid") is not True:
-        raise SmokeError(f"render template validation must succeed in packaged smoke: {payload}")
-    issues = payload.get("issues")
-    if not isinstance(issues, list):
-        raise SmokeError(f"render template validation issues must be a list: {payload}")
-    normalized_manifest = payload.get("normalized_manifest")
-    if not isinstance(normalized_manifest, dict):
-        raise SmokeError(f"render template validation must return normalized_manifest: {payload}")
-    if str(normalized_manifest.get("id", "")) != template_id:
-        raise SmokeError(f"render template validation manifest id mismatch: {payload}")
-
-
-def validate_render_template_detail(payload: dict[str, object], template_id: str, *, expected_kind: str | None = None) -> str:
+def validate_render_template_detail(payload: dict[str, object], template_id: str) -> dict[str, object]:
     template = payload.get("template")
     if not isinstance(template, dict):
         raise SmokeError(f"render template detail must contain template object: {payload}")
-    if str(template.get("id", "")) != template_id:
+    if validate_render_template_metadata(template) != template_id:
         raise SmokeError(f"render template detail template_id mismatch: {payload}")
-    current_revision_id = require_non_empty_string(template.get("current_revision_id"), f"{template_id} current_revision_id")
-    current_revision = template.get("current_revision")
-    if not isinstance(current_revision, dict):
-        raise SmokeError(f"render template detail must contain current_revision: {payload}")
-    revision_id = require_non_empty_string(current_revision.get("revision_id"), f"{template_id} current_revision.revision_id")
-    if revision_id != current_revision_id:
-        raise SmokeError(f"render template detail current revision mismatch: {payload}")
-    revision_kind = require_non_empty_string(current_revision.get("kind"), f"{template_id} current_revision.kind")
-    if expected_kind is not None and revision_kind != expected_kind:
-        raise SmokeError(f"render template detail revision kind mismatch: expected {expected_kind} got {revision_kind}")
-    last_validation = template.get("last_validation")
-    if not isinstance(last_validation, dict):
-        raise SmokeError(f"render template detail must contain last_validation: {payload}")
-    if "valid" not in last_validation or "issue_count" not in last_validation:
-        raise SmokeError(f"render template detail last_validation missing required fields: {payload}")
-    return current_revision_id
+    input_schema = template.get("input_schema_json")
+    if input_schema is not None and not isinstance(input_schema, dict):
+        raise SmokeError(f"render template input_schema_json must be an object or null: {payload}")
+    preview_data = template.get("preview_data_json")
+    if preview_data is not None and not isinstance(preview_data, dict):
+        raise SmokeError(f"render template preview_data_json must be an object or null: {payload}")
+    return dict(preview_data) if isinstance(preview_data, dict) else {}
 
 
-def validate_render_template_versions(
-    payload: dict[str, object],
-    *,
-    expected_top_revision_id: str | None = None,
-    expected_top_kind: str | None = None,
-) -> list[str]:
-    items = payload.get("items")
-    if not isinstance(items, list) or len(items) == 0:
-        raise SmokeError(f"render template versions must contain items: {payload}")
-
-    revision_ids: list[str] = []
-    for item in items:
-        if not isinstance(item, dict):
-            raise SmokeError(f"render template version item must be an object: {payload}")
-        revision_id = require_non_empty_string(item.get("revision_id"), "render template version revision_id")
-        revision_ids.append(revision_id)
-        require_non_empty_string(item.get("template_version"), f"{revision_id} template_version")
-        require_non_empty_string(item.get("saved_at"), f"{revision_id} saved_at")
-        kind = require_non_empty_string(item.get("kind"), f"{revision_id} kind")
-        if kind not in {"save", "rollback"}:
-            raise SmokeError(f"render template version kind must stay within frozen values: {item}")
-    if expected_top_revision_id is not None and revision_ids[0] != expected_top_revision_id:
-        raise SmokeError(f"render template versions top revision mismatch: expected {expected_top_revision_id} got {revision_ids[0]}")
-    if expected_top_kind is not None and str(items[0].get("kind", "")) != expected_top_kind:
-        raise SmokeError(f"render template versions top kind mismatch: expected {expected_top_kind} got {items[0]}")
-    return revision_ids
+def validate_render_template_preview_html(payload: dict[str, object], template_id: str) -> str:
+    if str(payload.get("template_id", "")) != template_id:
+        raise SmokeError(f"unexpected render template preview payload: {payload}")
+    revision_id = require_non_empty_string(payload.get("revision_id"), f"{template_id} revision_id")
+    width = payload.get("width")
+    height = payload.get("height")
+    if not isinstance(width, int) or width <= 0 or not isinstance(height, int) or height <= 0:
+        raise SmokeError(f"render template preview dimensions must be positive integers: {payload}")
+    require_non_empty_string(payload.get("html"), f"{template_id} preview html")
+    return revision_id
 
 
 def exercise_packaged_protocol_and_template_workflows(base_url: str, session_token: str) -> tuple[str, str]:
@@ -397,81 +361,18 @@ def exercise_packaged_protocol_and_template_workflows(base_url: str, session_tok
     template_list = request_json(f"{base_url}api/system/render/templates", headers=bearer_headers(session_token))
     template_id = select_template_id(template_list)
 
-    source_body = request_json(
-        f"{base_url}api/system/render/templates/{template_id}/source",
+    detail_body = request_json(
+        f"{base_url}api/system/render/templates/{template_id}",
         headers=bearer_headers(session_token),
     )
-    base_revision_id = validate_render_template_source(source_body, template_id)
-    source_bundle = source_body["source"]
-    if not isinstance(source_bundle, dict):
-        raise SmokeError(f"render template source bundle must be an object: {source_body}")
-
-    validation_body = request_json(
-        f"{base_url}api/system/render/templates/{template_id}/validate",
+    preview_data = validate_render_template_detail(detail_body, template_id)
+    preview_body = request_json(
+        f"{base_url}api/system/render/templates/{template_id}/preview-html",
         method="POST",
-        body={"source": source_bundle},
+        body={"theme": "default", "data": preview_data},
         headers=bearer_headers(session_token),
     )
-    validate_render_template_validation(validation_body, template_id)
-
-    updated_source = json.loads(json.dumps(source_bundle))
-    if not isinstance(updated_source, dict):
-        raise SmokeError("render template source bundle clone failed")
-    html = require_non_empty_string(updated_source.get("html"), f"{template_id} html")
-    updated_source["html"] = f"{html}\n<!-- self-host smoke save -->"
-
-    save_body = request_json(
-        f"{base_url}api/system/render/templates/{template_id}/source",
-        method="PUT",
-        body={
-            "base_revision_id": base_revision_id,
-            "message": "Self-host smoke save",
-            "source": updated_source,
-        },
-        headers=bearer_headers(session_token),
-    )
-    save_revision_id = validate_render_template_detail(save_body, template_id, expected_kind="save")
-    if save_revision_id == base_revision_id:
-        raise SmokeError("render template save must create a new revision")
-
-    versions_after_save = request_json(
-        f"{base_url}api/system/render/templates/{template_id}/versions",
-        headers=bearer_headers(session_token),
-    )
-    revision_ids_after_save = validate_render_template_versions(
-        versions_after_save,
-        expected_top_revision_id=save_revision_id,
-        expected_top_kind="save",
-    )
-    if base_revision_id not in revision_ids_after_save:
-        raise SmokeError(f"render template versions must retain base revision after save: {versions_after_save}")
-
-    rollback_body = request_json(
-        f"{base_url}api/system/render/templates/{template_id}/rollback",
-        method="POST",
-        body={
-            "target_revision_id": base_revision_id,
-            "base_revision_id": save_revision_id,
-            "message": "Self-host smoke rollback",
-        },
-        headers=bearer_headers(session_token),
-    )
-    rollback_revision_id = validate_render_template_detail(rollback_body, template_id, expected_kind="rollback")
-    if rollback_revision_id in {base_revision_id, save_revision_id}:
-        raise SmokeError("render template rollback must create a distinct rollback revision")
-
-    versions_after_rollback = request_json(
-        f"{base_url}api/system/render/templates/{template_id}/versions",
-        headers=bearer_headers(session_token),
-    )
-    revision_ids_after_rollback = validate_render_template_versions(
-        versions_after_rollback,
-        expected_top_revision_id=rollback_revision_id,
-        expected_top_kind="rollback",
-    )
-    if save_revision_id not in revision_ids_after_rollback or base_revision_id not in revision_ids_after_rollback:
-        raise SmokeError(f"render template versions must retain save and target revisions after rollback: {versions_after_rollback}")
-    return template_id, rollback_revision_id
+    return template_id, validate_render_template_preview_html(preview_body, template_id)
 
 
 def verify_render_template_after_restart(base_url: str, session_token: str, template_id: str, expected_revision_id: str) -> None:
@@ -479,19 +380,17 @@ def verify_render_template_after_restart(base_url: str, session_token: str, temp
         f"{base_url}api/system/render/templates/{template_id}",
         headers=bearer_headers(session_token),
     )
-    current_revision_id = validate_render_template_detail(detail_body, template_id)
-    if current_revision_id != expected_revision_id:
-        raise SmokeError(
-            f"render template current revision changed after restart: expected {expected_revision_id} got {current_revision_id}"
-        )
-    source_body = request_json(
-        f"{base_url}api/system/render/templates/{template_id}/source",
+    preview_data = validate_render_template_detail(detail_body, template_id)
+    preview_body = request_json(
+        f"{base_url}api/system/render/templates/{template_id}/preview-html",
+        method="POST",
+        body={"theme": "default", "data": preview_data},
         headers=bearer_headers(session_token),
     )
-    source_revision_id = validate_render_template_source(source_body, template_id)
-    if source_revision_id != expected_revision_id:
+    current_revision_id = validate_render_template_preview_html(preview_body, template_id)
+    if current_revision_id != expected_revision_id:
         raise SmokeError(
-            f"render template source revision changed after restart: expected {expected_revision_id} got {source_revision_id}"
+            f"render template revision changed after restart: expected {expected_revision_id} got {current_revision_id}"
         )
 
 
