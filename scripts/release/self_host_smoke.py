@@ -173,6 +173,8 @@ def extract_runtime_bootstrap_results(task_body: dict[str, object]) -> list[dict
 
 
 def runtime_bootstrap_result_mode(result: dict[str, object]) -> str | None:
+    if result.get("used_system_browser") is True:
+        return "system_browser"
     if result.get("used_prepared_store") is True:
         return "prepared_store"
     if result.get("used_cached_archive") is True:
@@ -801,14 +803,18 @@ def run_runtime_bootstrap_cycle(root: Path, artifact_id: str, base_url: str, ses
         result = by_kind.get(kind)
         if result is None:
             raise SmokeError(f"runtime bootstrap task missing {kind} result: {task_detail}")
-        if runtime_bootstrap_result_mode(result) is None:
+        mode = runtime_bootstrap_result_mode(result)
+        if mode is None:
             raise SmokeError(f"runtime bootstrap task did not report a valid acquisition mode for {kind}: {task_detail}")
-        archive_path = result.get("archive_path")
+        if mode == "system_browser":
+            continue
         store_root_path = result.get("store_root")
-        if not isinstance(archive_path, str) or not Path(archive_path).exists():
-            raise SmokeError(f"runtime bootstrap task returned missing archive_path for {kind}: {task_detail}")
         if not isinstance(store_root_path, str) or not Path(store_root_path).exists():
             raise SmokeError(f"runtime bootstrap task returned missing store_root for {kind}: {task_detail}")
+        if mode != "prepared_store":
+            archive_path = result.get("archive_path")
+            if not isinstance(archive_path, str) or not Path(archive_path).exists():
+                raise SmokeError(f"runtime bootstrap task returned missing archive_path for {kind}: {task_detail}")
 
 
 def execute_self_host_smoke(artifact_id: str, archive_path: Path, *, window_seconds: int, probe_interval_seconds: int) -> None:

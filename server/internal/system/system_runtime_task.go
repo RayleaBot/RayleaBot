@@ -93,6 +93,7 @@ func (s *Service) SubmitRuntimeBootstrapTask(resources []string) (string, error)
 				"store_root":          report.StoreRoot,
 				"used_cached_archive": report.UsedCachedArchive,
 				"used_prepared_store": report.UsedPreparedStore,
+				"used_system_browser": report.UsedSystemBrowser,
 				"attempted_sources":   append([]string{}, report.AttemptedSources...),
 				"selected_source":     report.SelectedSource,
 			})

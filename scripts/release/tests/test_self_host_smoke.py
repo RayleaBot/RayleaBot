@@ -125,6 +125,51 @@ class SelfHostSmokeTests(unittest.TestCase):
 
         self.assertEqual("prepared_store", mode)
 
+    def test_runtime_bootstrap_result_mode_accepts_system_browser(self) -> None:
+        mode = self_host_smoke.runtime_bootstrap_result_mode(
+            {
+                "kind": "chromium",
+                "used_system_browser": True,
+                "used_prepared_store": False,
+                "used_cached_archive": False,
+            }
+        )
+
+        self.assertEqual("system_browser", mode)
+
+    def test_runtime_bootstrap_cycle_accepts_system_browser_without_managed_paths(self) -> None:
+        task_body = {
+            "task": {
+                "task_type": "runtime.bootstrap",
+                "status": "succeeded",
+                "result": {
+                    "details": {
+                        "resources": [
+                            {
+                                "kind": "chromium",
+                                "used_system_browser": True,
+                            }
+                        ]
+                    }
+                },
+            }
+        }
+        with (
+            mock.patch.object(self_host_smoke, "remove_prepared_runtime_stores"),
+            mock.patch.object(
+                self_host_smoke,
+                "create_runtime_bootstrap_task",
+                return_value="task_runtime_bootstrap_0001",
+            ),
+            mock.patch.object(self_host_smoke, "poll_task", return_value=task_body),
+        ):
+            self_host_smoke.run_runtime_bootstrap_cycle(
+                Path("unused"),
+                "linux-x64-server",
+                "http://127.0.0.1:8088",
+                "session-token",
+            )
+
     def test_runtime_bootstrap_result_mode_accepts_downloaded_archive(self) -> None:
         mode = self_host_smoke.runtime_bootstrap_result_mode(
             {

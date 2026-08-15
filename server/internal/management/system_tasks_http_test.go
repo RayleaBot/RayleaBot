@@ -267,6 +267,9 @@ func TestHandleSystemRuntimeBootstrapAcceptsTaskAndReportsPreparedStoreHits(t *t
 	if _, ok := first["selected_source"]; !ok {
 		t.Fatalf("runtime bootstrap result should expose selected_source: %#v", first)
 	}
+	if _, ok := first["used_system_browser"]; !ok {
+		t.Fatalf("runtime bootstrap result should expose used_system_browser: %#v", first)
+	}
 }
 
 func TestHandleSystemRuntimeBootstrapRejectsRetiredPluginRuntimes(t *testing.T) {
