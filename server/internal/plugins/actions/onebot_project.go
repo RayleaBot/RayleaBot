@@ -221,6 +221,21 @@ func projectMessageReadMark(raw map[string]any) (string, map[string]any, error) 
 	}
 }
 
+func projectGroupMemberGet(raw map[string]any) (string, map[string]any, error) {
+	if _, err := requiredString(raw, "group_id"); err != nil {
+		return "", nil, err
+	}
+	if _, err := requiredString(raw, "user_id"); err != nil {
+		return "", nil, err
+	}
+	params, err := normalizeParams(raw)
+	if err != nil {
+		return "", nil, err
+	}
+	params["no_cache"] = true
+	return "get_group_member_info", params, nil
+}
+
 func projectGroupBanSet(raw map[string]any) (string, map[string]any, error) {
 	params, err := normalizeParams(raw)
 	if err != nil {

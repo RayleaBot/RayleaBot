@@ -66,6 +66,32 @@ func TestOneBotActionRegistrySpecsAreComplete(t *testing.T) {
 	}
 }
 
+func TestGroupMemberGetBypassesAdapterCache(t *testing.T) {
+	t.Parallel()
+
+	spec, ok := actions.LookupOneBotAction("group.member.get")
+	if !ok {
+		t.Fatal("group.member.get is not registered")
+	}
+	apiName, params, err := spec.Project(map[string]any{
+		"group_id": "10001",
+		"user_id":  "20002",
+		"no_cache": false,
+	})
+	if err != nil {
+		t.Fatalf("project group.member.get: %v", err)
+	}
+	if apiName != "get_group_member_info" {
+		t.Fatalf("api name = %q, want get_group_member_info", apiName)
+	}
+	if params["group_id"] != "10001" || params["user_id"] != "20002" {
+		t.Fatalf("projected identifiers = %#v", params)
+	}
+	if noCache, ok := params["no_cache"].(bool); !ok || !noCache {
+		t.Fatalf("no_cache = %#v, want true", params["no_cache"])
+	}
+}
+
 func TestBaseActionHandlersMatchLocalActionCapabilities(t *testing.T) {
 	t.Parallel()
 

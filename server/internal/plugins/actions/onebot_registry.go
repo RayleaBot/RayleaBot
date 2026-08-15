@@ -87,6 +87,7 @@ var oneBotActionProjectors = map[string]func(map[string]any) (string, map[string
 	"message.forward.get":  projectMessageForwardGet,
 	"message.forward.send": projectMessageForwardSend,
 	"message.read.mark":    projectMessageReadMark,
+	"group.member.get":     projectGroupMemberGet,
 	"group.ban.set":        projectGroupBanSet,
 	"file.group.fs.list":   projectGroupFilesList,
 	"file.group.fs.delete": projectGroupFilesDelete,
