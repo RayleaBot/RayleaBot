@@ -5,6 +5,7 @@ import { afterEach, describe, expect, test, vi } from "vitest";
 import {
   LauncherReleaseFeedClient,
   type LauncherUpdaterRunner,
+  updaterCommandFailure,
 } from "@main/services/release-feed";
 
 const tempRoots: string[] = [];
@@ -68,7 +69,8 @@ describe("LauncherReleaseFeedClient", () => {
     const snapshot = await client.getSnapshot();
 
     expect(snapshot.status).toBe("disabled");
-    expect(snapshot.detail).toContain("手动安装");
+    expect(snapshot.errorCode).toBe("release.trust_required");
+    expect(snapshot.detail).toContain("build_info.json");
     expect(runner.run).not.toHaveBeenCalled();
   });
 
@@ -152,19 +154,84 @@ describe("LauncherReleaseFeedClient", () => {
     expect([externalHelper, ...args].join(" ").toLowerCase()).not.toContain("powershell");
   });
 
-  test("does not expose helper stderr paths to the renderer", async () => {
+  test("preserves the helper error code and reason without exposing install paths", async () => {
     const basePath = await createTempDir("failure");
     await writeBuildInfo(basePath);
     const updaterPath = path.join(basePath, "raylea-updater.exe");
     await fs.writeFile(updaterPath, "trusted helper");
     const runner = new FakeUpdaterRunner();
-    runner.run.mockRejectedValue(new Error("更新助手拒绝了操作（release.signature_invalid）。"));
+    runner.run.mockRejectedValue(updaterCommandFailure(
+      JSON.stringify({
+        code: "release.signature_invalid",
+        error: `verify Ed25519 signatures: no trusted key accepted ${path.join(basePath, "release_manifest.v2.json")}`,
+      }),
+      new Error("updater exited with code 1"),
+    ));
     const client = new LauncherReleaseFeedClient(basePath, { platform: "win32", runner, updaterPath });
 
     const snapshot = await client.getSnapshot({ force: true });
 
     expect(snapshot.status).toBe("failed");
-    expect(snapshot.detail).toContain("release.signature_invalid");
+    expect(snapshot.errorCode).toBe("release.signature_invalid");
+    expect(snapshot.summary).toBe("发布签名验证失败");
+    expect(snapshot.detail).toContain("no trusted key accepted");
+    expect(snapshot.detail).toContain("<安装目录>");
     expect(snapshot.detail).not.toContain(basePath);
+  });
+
+  test("reports an unstructured helper exit without exposing raw process output", async () => {
+    const basePath = await createTempDir("unstructured-failure");
+    await writeBuildInfo(basePath);
+    const updaterPath = path.join(basePath, "raylea-updater.exe");
+    await fs.writeFile(updaterPath, "trusted helper");
+    const runner = new FakeUpdaterRunner();
+    const processError = Object.assign(
+      new Error(`Command failed: ${updaterPath}\naccess_token=do-not-render`),
+      { code: 17 },
+    );
+    runner.run.mockRejectedValue(updaterCommandFailure("access_token=do-not-render", processError));
+    const client = new LauncherReleaseFeedClient(basePath, { platform: "win32", runner, updaterPath });
+
+    const snapshot = await client.getSnapshot({ force: true });
+
+    expect(snapshot.errorCode).toBe("exit.17");
+    expect(snapshot.summary).toBe("更新助手以退出代码 17 结束");
+    expect(snapshot.detail).toContain("没有返回可解析的结构化错误");
+    expect(snapshot.detail).not.toContain("access_token");
+    expect(snapshot.detail).not.toContain(basePath);
+  });
+
+  test("distinguishes a missing helper from an invalid helper response", async () => {
+    const missingBasePath = await createTempDir("missing-helper");
+    await writeBuildInfo(missingBasePath);
+    const missingClient = new LauncherReleaseFeedClient(missingBasePath, {
+      platform: "win32",
+      runner: new FakeUpdaterRunner(),
+    });
+
+    const missing = await missingClient.getSnapshot({ force: true });
+
+    expect(missing.errorCode).toBe("launcher.update_helper_missing");
+    expect(missing.summary).toBe("更新助手不存在");
+    expect(missing.detail).toBe("更新助手文件不存在。");
+
+    const invalidBasePath = await createTempDir("invalid-response");
+    await writeBuildInfo(invalidBasePath);
+    const updaterPath = path.join(invalidBasePath, "raylea-updater.exe");
+    await fs.writeFile(updaterPath, "trusted helper");
+    const runner = new FakeUpdaterRunner();
+    runner.run.mockResolvedValue({ stdout: "not-json", stderr: "" });
+    const invalidClient = new LauncherReleaseFeedClient(invalidBasePath, {
+      platform: "win32",
+      runner,
+      updaterPath,
+    });
+
+    const invalid = await invalidClient.getSnapshot({ force: true });
+
+    expect(invalid.errorCode).toBe("launcher.update_response_invalid");
+    expect(invalid.summary).toBe("更新助手返回的结果无法解析");
+    expect(invalid.detail).toContain("有效 JSON");
+    expect(invalid.summary).not.toBe(missing.summary);
   });
 });

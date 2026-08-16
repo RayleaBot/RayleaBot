@@ -166,4 +166,35 @@ describe("Launcher workspace presentation", () => {
     expect(screen.queryByRole("button", { name: "检查更新" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "GitHub" })).toBeEnabled();
   });
+
+  test("shows the specific update error code and complete reason", () => {
+    const snapshot = createLauncherSnapshot({
+      launcher: {
+        releaseCheck: {
+          status: "failed",
+          currentVersion: "0.3.0",
+          summary: "发布签名验证失败",
+          detail: "没有受信任的 Ed25519 公钥接受当前发布清单签名。",
+          errorCode: "release.signature_invalid",
+          canCheck: true,
+        },
+      },
+    });
+
+    render(
+      <AppShellAboutSection
+        snapshot={snapshot}
+        controlsDisabled={false}
+        onCheckForUpdates={noop}
+        onDownloadUpdate={noop}
+        onInstallDownloadedUpdate={noop}
+        onOpenRepositoryPage={noop}
+      />,
+    );
+
+    expect(screen.getAllByText("发布签名验证失败")).toHaveLength(2);
+    expect(screen.getByText("release.signature_invalid")).toBeInTheDocument();
+    expect(screen.getByText("没有受信任的 Ed25519 公钥接受当前发布清单签名。")).toBeInTheDocument();
+    expect(screen.queryByText("无法确认受信任的更新。")).not.toBeInTheDocument();
+  });
 });

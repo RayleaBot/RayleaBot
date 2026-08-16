@@ -84,6 +84,7 @@ export interface ReleaseCheckSnapshot {
   latestVersion: string;
   summary: string;
   detail: string;
+  errorCode: string;
   releasePageUrl: string;
   updateAvailable: boolean;
   downloadProgress: number | null;

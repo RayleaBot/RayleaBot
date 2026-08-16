@@ -1831,6 +1831,33 @@ code,
   color: var(--color-warning);
 }
 
+.update-error-message {
+  margin: 8px 24px 24px;
+}
+
+.update-error-code {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px;
+  margin-top: 6px;
+  color: var(--color-text-muted);
+  font-size: 12px;
+}
+
+.update-error-code code {
+  color: var(--color-danger);
+  overflow-wrap: anywhere;
+}
+
+.update-error-detail {
+  max-width: none;
+  margin-top: 6px;
+  color: var(--color-text);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
 .runtime-prepare-panel__header,
 .runtime-prepare-item__header,
 .runtime-prepare-progress-row {

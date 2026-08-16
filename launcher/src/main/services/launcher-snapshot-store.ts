@@ -66,6 +66,7 @@ function releaseChecksEqual(left: ReleaseCheckSnapshot, right: ReleaseCheckSnaps
     && left.latestVersion === right.latestVersion
     && left.summary === right.summary
     && left.detail === right.detail
+    && left.errorCode === right.errorCode
     && left.releasePageUrl === right.releasePageUrl
     && left.updateAvailable === right.updateAvailable
     && left.downloadProgress === right.downloadProgress

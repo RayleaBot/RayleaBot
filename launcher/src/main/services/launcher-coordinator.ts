@@ -2,6 +2,7 @@ import { createLauncherDesktopActions } from "./launcher-desktop-actions";
 import { createLauncherLifecycleService } from "./launcher-lifecycle-service";
 import { createLauncherSnapshotStore } from "./launcher-snapshot-store";
 import { createLauncherStatusService } from "./launcher-status-service";
+import { describeReleaseFailure } from "./release-feed";
 import type {
   LauncherCoordinator,
   LauncherCoordinatorDependencies,
@@ -167,6 +168,7 @@ export function createLauncherCoordinator(deps: LauncherCoordinatorDependencies)
       status: "checking",
       summary: "正在检查更新。",
       detail: "",
+      errorCode: "",
       downloadProgress: null,
       downloadedBytes: null,
       totalBytes: previous.totalBytes ?? null,
@@ -177,11 +179,15 @@ export function createLauncherCoordinator(deps: LauncherCoordinatorDependencies)
   }
 
   function releaseErrorSnapshot(previous: ReleaseCheckSnapshot, error: unknown): ReleaseCheckSnapshot {
+    const failure = describeReleaseFailure(error, {
+      installRoot: snapshotStore.snapshot.launcher.resolvedSettings.installationRoot,
+    });
     return {
       ...previous,
       status: "failed",
-      summary: "暂时无法连接版本源。",
-      detail: error instanceof Error ? error.message : "版本源不可用。",
+      summary: failure.summary,
+      detail: failure.detail,
+      errorCode: failure.errorCode,
       updateAvailable: false,
       canCheck: Boolean(previous.currentVersion),
       canDownload: false,

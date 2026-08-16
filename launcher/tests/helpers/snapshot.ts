@@ -21,12 +21,17 @@ export function createLauncherSnapshot(overrides: DeepPartial<LauncherSnapshot> 
       advisoryChecks: [],
       recentStderr: [],
       runtimePrepare: null,
+      lastLocalError: "",
+      statusHint: "",
+      localRecoverySummary: null,
+      ...overrides.launcher,
       releaseCheck: {
         status: "disabled",
         currentVersion: "",
         latestVersion: "",
         summary: "版本信息不可用",
         detail: "",
+        errorCode: "",
         releasePageUrl: "",
         updateAvailable: false,
         downloadProgress: null,
@@ -38,8 +43,6 @@ export function createLauncherSnapshot(overrides: DeepPartial<LauncherSnapshot> 
         canInstall: false,
         ...overrides.launcher?.releaseCheck,
       },
-      lastLocalError: "",
-      statusHint: "",
       settings: {
         installationRoot: "",
         closeBehavior: "ask_every_time",
@@ -58,8 +61,6 @@ export function createLauncherSnapshot(overrides: DeepPartial<LauncherSnapshot> 
         baseUrl: "http://127.0.0.1:8080/",
         ...overrides.launcher?.endpoint,
       },
-      localRecoverySummary: null,
-      ...overrides.launcher,
     },
   };
 }

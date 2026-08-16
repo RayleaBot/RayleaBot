@@ -174,6 +174,7 @@ function releaseSnapshot(overrides: Partial<ReleaseCheckSnapshot> = {}): Release
     latestVersion: "",
     summary: "版本信息不可用",
     detail: "",
+    errorCode: "",
     releasePageUrl: "",
     updateAvailable: false,
     downloadProgress: null,
@@ -1427,6 +1428,40 @@ describe("launcher coordinator", () => {
 
     expect(getSnapshot).toHaveBeenCalledTimes(2);
     expect(getSnapshot).toHaveBeenLastCalledWith({ force: true });
+  });
+
+  test("preserves the exact background release check failure", async () => {
+    const failure = Object.assign(
+      new Error("connect ETIMEDOUT while requesting release metadata"),
+      { code: "ETIMEDOUT" },
+    );
+    const releaseFeedClient: ReleaseFeedClient = {
+      getSnapshot: vi.fn(async () => Promise.reject(failure)),
+      downloadUpdate: vi.fn(async () => releaseSnapshot()),
+      installDownloadedUpdate: vi.fn(async () => releaseSnapshot()),
+    };
+
+    const coordinator = createLauncherCoordinator({
+      settingsStore: new FakeSettingsStore(),
+      endpointResolver: new FakeEndpointResolver(),
+      inspectEnvironment: vi.fn(async () => okInspection()),
+      managementClient: new FakeManagementClient(),
+      processController: new FakeProcessController(),
+      isEndpointListening: vi.fn(async () => false),
+      tryStopEndpointProcess: vi.fn(async () => false),
+      externalOpener: new FakeExternalOpener(),
+      releaseFeedClient,
+    });
+
+    await coordinator.initialize();
+    await waitForCondition(() => expect(coordinator.snapshot.launcher.releaseCheck.status).toBe("failed"));
+
+    expect(coordinator.snapshot.launcher.releaseCheck).toMatchObject({
+      errorCode: "ETIMEDOUT",
+      summary: "更新检查超时",
+      detail: "connect ETIMEDOUT while requesting release metadata",
+    });
+    expect(coordinator.snapshot.launcher.releaseCheck.detail).not.toBe("暂时无法连接版本源。");
   });
 
   test("schedules release checks at the configured interval", async () => {

@@ -35,6 +35,7 @@ export const initialSnapshot: LauncherSnapshot = {
       latestVersion: "",
       summary: "版本信息不可用",
       detail: "",
+      errorCode: "",
       releasePageUrl: "",
       updateAvailable: false,
       downloadProgress: null,

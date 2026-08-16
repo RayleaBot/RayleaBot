@@ -1,5 +1,6 @@
 import { Button } from "@fluentui/react-components";
 import { ArrowClockwise20Regular, Open20Regular } from "@fluentui/react-icons";
+import { MessageBar, MessageBarBody, MessageBarTitle } from "@fluentui/react-message-bar";
 import type { LauncherSnapshot } from "@shared/launcher-models";
 
 import { formatReleaseVersion } from "./AppShell.shared";
@@ -42,7 +43,7 @@ function buildVersionHint(releaseCheck: LauncherSnapshot["launcher"]["releaseChe
       return "正在安装更新";
     case "failed":
     case "rollback_failed":
-      return releaseCheck.summary || "更新检查失败";
+      return releaseCheck.summary || releaseCheck.errorCode || releaseCheck.detail || "更新检查没有返回错误信息";
     case "rolled_back":
       return "新版启动失败，已恢复上一版本";
     default:
@@ -90,6 +91,9 @@ export function AppShellAboutSection({
     || releaseCheck.canDownload
     || releaseCheck.canInstall
     || updateInProgress;
+  const showUpdateError = Boolean(releaseCheck.errorCode)
+    || releaseCheck.status === "failed"
+    || releaseCheck.status === "rollback_failed";
   const onUpdateAction =
     releaseCheck.canInstall
       ? onInstallDownloadedUpdate
@@ -144,6 +148,22 @@ export function AppShellAboutSection({
             <dd>AGPL-3.0</dd>
           </div>
         </dl>
+        {showUpdateError ? (
+          <MessageBar className="update-error-message" intent="error" layout="multiline">
+            <MessageBarBody>
+              <MessageBarTitle>{releaseCheck.summary || "更新检查没有返回错误摘要"}</MessageBarTitle>
+              {releaseCheck.errorCode ? (
+                <div className="update-error-code">
+                  <span>错误代码</span>
+                  <code>{releaseCheck.errorCode}</code>
+                </div>
+              ) : null}
+              <p className="update-error-detail">
+                {releaseCheck.detail || "更新检查没有返回错误原因。"}
+              </p>
+            </MessageBarBody>
+          </MessageBar>
+        ) : null}
       </section>
     </article>
   );
