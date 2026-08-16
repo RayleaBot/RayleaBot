@@ -139,12 +139,11 @@ function createPluginTemplateSummary(): RenderTemplateSummary {
 }
 
 function createPreviewHTML(templateId: string, title: string): RenderTemplatePreviewHTMLResponse {
-  const isWideTemplate = templateId === 'fortune.card' || templateId === 'fortune.stats'
   return {
     template_id: templateId,
     revision_id: `rev_${templateId.replaceAll('.', '_')}`,
-    width: isWideTemplate ? 1124 : 960,
-    height: isWideTemplate ? 1365 : 640,
+    width: 960,
+    height: 640,
     html: `<!doctype html><html><head><link rel="stylesheet" href="https://cdn.example.test/template-font.css"><style>@font-face{font-family:PreviewExternal;src:url("https://cdn.example.test/template-font.woff2")} .surface{min-height:320px;background-image:url("https://cdn.example.test/template-bg.png")}</style></head><body><main class="surface"><h1>${title}</h1><img src="https://cdn.example.test/avatar.png" alt=""></main></body></html>`,
   }
 }

@@ -3,7 +3,7 @@ case: ok
 description: Template live preview streams one controlled resource.
 request:
   method: GET
-  path: /api/system/render/templates/help.menu/asset?path=../fortune.card/assets/fonts/lxgw-wenkai-bold/lxgw-wenkai-bold.ttf
+  path: /api/system/render/templates/help.menu/asset?path=assets/fonts/noto-sans-sc/k3kXo84MPvpLmixcA63oeALRLoKI.woff2
 response:
   status: 200
   content_type: application/octet-stream

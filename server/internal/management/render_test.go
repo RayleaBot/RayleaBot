@@ -174,7 +174,7 @@ func TestRenderTemplateAssetHandlerStreamsAllowedResourceAndRejectsSources(t *te
 
 	fixture := newRenderHTTPFixture(t)
 
-	assetRecorder := fixture.request(http.MethodGet, "/api/system/render/templates/help.menu/asset?path=../fortune.card/assets/fortune-emblem.png", nil)
+	assetRecorder := fixture.request(http.MethodGet, "/api/system/render/templates/help.menu/asset?path=assets/fonts/noto-sans-sc/k3kXo84MPvpLmixcA63oeALRLoKI.woff2", nil)
 	if assetRecorder.Code != http.StatusOK {
 		t.Fatalf("asset status = %d, want 200 (%s)", assetRecorder.Code, assetRecorder.Body.String())
 	}

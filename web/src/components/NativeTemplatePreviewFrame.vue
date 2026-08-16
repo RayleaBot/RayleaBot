@@ -10,8 +10,6 @@ export {
 export function stripHelpMenuPreviewFontImports(styles: string) {
   return styles
     .replace(/@import\s+url\(["']assets\/fonts\/noto-sans-sc\/result\.css["']\);?\s*/g, '')
-    .replace(/@import\s+url\(["']\.\.\/fortune\.card\/assets\/fonts\/lxgwwenkai-medium\/result\.css["']\);?\s*/g, '')
-    .replace(/@import\s+url\(["']\.\.\/fortune\.card\/assets\/fonts\/lxgw-wenkai-medium\/result\.css["']\);?\s*/g, '')
 }
 
 export function rewriteHelpMenuPreviewFontSources(styles: string) {

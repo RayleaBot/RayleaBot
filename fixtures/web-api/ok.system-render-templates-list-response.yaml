@@ -8,26 +8,26 @@ response:
   status: 200
   body:
     items:
-      - id: fortune.card
+      - id: plugin.raylea.fortune.card
         version: '1'
-        width: 960
-        height: 560
+        width: 1124
+        height: 1365
         has_input_schema: true
         updated_at: '2026-05-04T10:30:00Z'
         source:
-          type: system
-          plugin_id: null
-          local_id: null
-      - id: fortune.stats
+          type: plugin
+          plugin_id: raylea.fortune
+          local_id: card
+      - id: plugin.raylea.fortune.stats
         version: '1'
         width: 1124
         height: 1200
         has_input_schema: true
         updated_at: '2026-05-08T10:30:00Z'
         source:
-          type: system
-          plugin_id: null
-          local_id: null
+          type: plugin
+          plugin_id: raylea.fortune
+          local_id: stats
       - id: help.menu
         version: '1'
         width: 960

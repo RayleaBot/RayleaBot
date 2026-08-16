@@ -27,7 +27,6 @@ const externalPreviewImageBytes = Buffer.from(
 const bilibiliAvatarUrl = 'http://127.0.0.1:4010/external-preview/avatar.png'
 const weiboAvatarUrl = 'https://tvax1.sinaimg.cn/crop.0.0.512.512.180/fixture.jpg'
 const redactedConfigValue = '********'
-const lxgwFontAssetRoot = path.join(repoRoot, 'templates', 'fortune.card', 'assets', 'fonts', 'lxgwwenkai-medium')
 const helpMenuFontAssetRoot = path.join(repoRoot, 'templates', 'help.menu', 'assets', 'fonts', 'noto-sans-sc')
 const secretConfigPaths = [
   ['onebot', 'forward_ws', 'access_token'],
@@ -36,7 +35,7 @@ const secretConfigPaths = [
   ['onebot', 'webhook', 'access_token'],
 ]
 const externalPreviewFontBytes = await readFile(
-  path.join(lxgwFontAssetRoot, 'e8f52c41386b1b7731acfccb8c1a8c52.woff2'),
+  path.join(helpMenuFontAssetRoot, 'k3kXo84MPvpLmixcA63oeALRLoKI.woff2'),
 )
 
 async function readFixture(relativePath) {
